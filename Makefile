@@ -3,12 +3,12 @@
 # Needs to have oneof support: Ubuntu vivid's is too old :(
 PROTOCC:=protoc-c
 
-PROGRAMS := openchannel
+PROGRAMS := open-channel
 
 HELPER_OBJS := base58.o lightning.pb-c.o shadouble.o pkt.o
 CCAN_OBJS := ccan-crypto-sha256.o ccan-crypto-shachain.o ccan-err.o ccan-tal.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-str-hex.o
 
-OPENCHANNEL_OBJS := openchannel.o $(HELPER_OBJS) $(CCAN_OBJS)
+OPEN_CHANNEL_OBJS := open-channel.o $(HELPER_OBJS) $(CCAN_OBJS)
 
 HEADERS := base58.h lightning.pb-c.h pd_channel.h pkt.h shadouble.h
 
@@ -16,19 +16,19 @@ CCANDIR := ../ccan/
 CFLAGS := -g -Wall -I $(CCANDIR) #-I $(PROTO_INCLUDE_DIR)
 LDLIBS := -lcrypto -lprotobuf-c
 
-default: openchannel
+default: open-channel
 
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	$(PROTOCC) lightning.proto --c_out=.
 
-openchannel: $(OPENCHANNEL_OBJS)
-$(OPENCHANNEL_OBJS): $(HEADERS)
+open-channel: $(OPEN_CHANNEL_OBJS)
+$(OPEN_CHANNEL_OBJS): $(HEADERS)
 
 distclean: clean
 	$(RM) lightning.pb-c.c lightning.pb-c.h
 
 clean:
-	$(RM) $(OPENCHANNEL_OBJS)
+	$(RM) $(OPEN_CHANNEL_OBJS)
 
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
 	$(CC) $(CFLAGS) -c -o $@ $<
