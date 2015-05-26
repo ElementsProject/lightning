@@ -1,0 +1,181 @@
+// The outer layer handles encryption, authentication and message
+// boundaries.
+
+//
+// Helper Types
+//
+
+// Protobufs don't have fixed-length fields, so this is a hack.
+message sha256_hash {
+  required fixed64 a = 1;
+  required fixed64 b = 2;
+  required fixed64 c = 3;
+  required fixed64 d = 4;
+}
+
+// Identifies a bitcoin output.
+message bitcoin_output_id {
+  // This is the transaction ID.
+  required sha256_hash txid = 1;
+  // This is the output number.
+  required uint32 output = 2;
+}
+
+// A bitcoin output
+message bitcoin_output {
+  required uint64 amount = 1;
+  required bytes script = 2;
+}
+
+// A signature to use for a transaction; DER encoded with sigtype at the end.
+message bitcoin_signature {
+  required bytes der_then_sigtype = 1;
+};
+
+// All about an anchor transaction.
+message anchor {
+  // 0 or more unspent inputs we want to use for anchor.
+  repeated bitcoin_output_id inputs = 1;
+  // Any change from anchor (in case we don't want to use them all)
+  optional bitcoin_output anchor_change = 2;
+  // How much transaction fee we'll pay in the anchor tx.
+  required uint64 fee = 8;
+  // How many confirmations on anchor before we'll use channel.
+  required uint32 min_confirms = 10;
+}
+
+//
+// Packet Types
+//
+
+// Set channel params.
+message open_channel {
+  // Seed which sets order we create outputs for all transactions.
+  required uint64 seed = 1;
+  // Relative locktime for outputs going to us.
+  oneof locktime {
+    uint32 locktime_seconds = 2;
+    uint32 locktime_blocks = 3;
+  }
+  // Hash seed for revoking commitment transactions.
+  required sha256_hash revocation_hash = 4;
+  // How to pay money to us.
+  required bytes script_to_me = 5;
+  // How much transaction fee we'll pay for commitment txs.
+  required uint64 commitment_fee = 6;
+  // The anchor transaction details.
+  required anchor anchor = 7;
+}
+
+// Supply signature for commitment tx
+message open_commit_sig {
+  required bitcoin_signature sig = 1;
+}
+
+// Supply signature for anchor tx
+message open_anchor_sig {
+  required bitcoin_signature sig = 1;
+}
+
+// Indicates we've seen transaction reach min-depth.
+message open_complete {
+  // Block it went into.
+  optional sha256_hash blockid = 1;
+  // FIXME: add a merkle proof plus block headers here?
+}
+
+// Let's spend some money in the channel!
+message update {
+  // Hash for which I will supply preimage to revoke this.
+  required sha256_hash revocation_hash = 1;
+  // Change in current payment to-me (implies reverse to-you).
+  required sint64 delta = 2;
+  // Signature for new commitment tx.
+  required bitcoin_signature sig = 3;
+  // Signature for old anchor (if any)
+  optional bitcoin_signature old_anchor_sig = 4;
+  // FIXME: optional HTLC ops.
+}
+
+// OK, I accept that update.
+message update_accept {
+  // Signature for new commitment tx.
+  required bitcoin_signature sig = 1;
+  // Signature for old anchor (if any)
+  optional bitcoin_signature old_anchor_sig = 2;
+  // Hash preimage which revokes old commitment tx.
+  required sha256_hash revocation_preimage = 3;
+}
+
+// Complete the update.
+message update_complete {
+  // Hash preimage which revokes old commitment tx.
+  required sha256_hash revocation_preimage = 1;
+}
+
+// Let's change the channel funding source.
+message new_anchor {
+  // The new anchor: previous anchor 2x2 input assumed.
+  required anchor anchor = 1;
+}
+
+// That seems OK to me!
+message new_anchor_ack {
+  required bitcoin_signature sig = 1;
+}
+
+// Here's my signature on the new anchor to complete it.
+message new_anchor_accept {
+  required bitcoin_signature sig = 1;
+}
+
+// Complete the transfer to new anchor (both ends need to send this,
+// once they're happy that it's reached their required depth).
+message new_anchor_complete {
+  required sha256_hash revocation_preimage = 1;
+}
+
+// Begin cooperative close of channel.
+message close_channel {
+  // This is our signature a new transaction which spends my current
+  // commitment tx output 0 (which is 2/2) to script_to_me.
+  required bitcoin_signature sig = 1;
+}
+
+// OK, here's my sig so you can broadcast it too.
+message close_channel_complete {
+  // This is our signature a new transaction which spends your current
+  // commitment tx output 0 (which is 2/2) to your script_to_me.
+  required bitcoin_signature sig = 1;
+}
+
+// This means we're going to hang up; it's to help diagnose only! 
+message error {
+  optional string problem = 1;
+}
+
+// This is the union which defines all of them
+message pkt {
+  oneof pkt {
+    // Opening
+    open_channel open = 201;
+    open_commit_sig open_commit_sig = 202;
+    open_anchor_sig open_anchor_sig = 203;
+    open_complete open_complete = 204;
+    // Updating (most common)
+    update update = 1;
+    update_accept update_accept = 2;
+    update_complete update_complete = 3;
+    // Topping up
+    new_anchor new_anchor = 301;
+    new_anchor_ack new_anchor_ack = 302;
+    new_anchor_accept new_anchor_accept = 303;
+    new_anchor_complete new_anchor_complete = 304;
+    // Closing
+    close_channel close = 401;
+    close_channel_complete close_complete = 402;
+
+    // Unexpected issue.
+    error error = 1000;
+  }
+}
