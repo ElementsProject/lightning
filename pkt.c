@@ -50,6 +50,7 @@ struct pkt *openchannel_pkt(const tal_t *ctx,
 	o.anchor = anchor;
 	o.locktime_case = OPEN_CHANNEL__LOCKTIME_LOCKTIME_SECONDS;
 	o.locktime_seconds = rel_locktime_seconds;
+	o.tx_version = 1;
 	
 	return to_pkt(ctx, PKT__PKT_OPEN, &o);
 }
