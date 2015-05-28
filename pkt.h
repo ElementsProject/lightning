@@ -16,10 +16,14 @@ struct pkt {
 	u8 data[];
 };
 
+/* Utility helper: dies if there's a problem. */
+Pkt *pkt_from_file(const char *filename, Pkt__PktCase expect);
+
 struct sha256;
+struct bitcoin_compressed_pubkey;
 
 /**
- * tal_openchannel - create an openchannel message
+ * openchannel_pkt - create an openchannel message
  * @ctx: tal context to allocate off.
  * @seed: psuedo-random seed to shuffle inputs.
  * @revocation_hash: first hash value generated from seed.
@@ -37,8 +41,18 @@ struct pkt *openchannel_pkt(const tal_t *ctx,
 			    u32 rel_locktime_seconds,
 			    Anchor *anchor);
 
+/**
+ * open_anchor_sig_pkt - create an open_anchor_sig message
+ * @ctx: tal context to allocate off.
+ * @sigs: the der-encoded signatures (tal_count() gives len).
+ * @num_sigs: the number of sigs.
+ */
+struct pkt *open_anchor_sig_pkt(const tal_t *ctx, u8 **sigs, size_t num_sigs);
 
 /* Useful helper for allocating & populating a protobuf Sha256Hash */
-Sha256Hash *proto_sha256_hash(const tal_t *ctx, const struct sha256 *hash);
+Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash);
+void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash);
 
+BitcoinPubkey *pubkey_to_proto(const tal_t *ctx,
+			       const struct bitcoin_compressed_pubkey *key);
 #endif /* LIGHTNING_PKT_H */

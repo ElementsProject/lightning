@@ -8,6 +8,7 @@
 #include <openssl/ripemd.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include "bitcoin_address.h"
 
 /* Encoding is version byte + ripemd160 + 4-byte checksum == 200 bits => 2^200.
  *
@@ -19,16 +20,6 @@
 /* For encoding private keys, it's 302 bits.
  * 58^51 < 2^302, but 58^52 > 2^302.  So 52 digits, plus one terminator. */
 #define BASE58_KEY_MAX_LEN 53
-
-/* An ECDSA compressed public key.  33 chars long, even on ARM. */
-struct bitcoin_compressed_pubkey {
-	u8 key[33];
-} __attribute__((aligned(1)));
-
-/* An address is the RIPEMD160 of the SHA of the public key. */
-struct bitcoin_address {
-	u8 addr[RIPEMD160_DIGEST_LENGTH]; /* 20 */
-};
 
 /* Bitcoin address encoded in base58, with version and checksum */
 char *bitcoin_to_base58(const tal_t *ctx, bool test_net,

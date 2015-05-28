@@ -13,12 +13,16 @@ message sha256_hash {
   required fixed64 d = 4;
 }
 
-// Identifies a bitcoin output.
-message bitcoin_output_id {
+// Identifies consumption of a bitcoin output.
+message bitcoin_input {
   // This is the transaction ID.
   required sha256_hash txid = 1;
   // This is the output number.
   required uint32 output = 2;
+  // And the subscript we're signing.
+  required bytes subscript = 3;
+  // The amount this input is worth.
+  required uint64 amount = 4;
 }
 
 // A bitcoin output
@@ -32,14 +36,24 @@ message bitcoin_signature {
   required bytes der_then_sigtype = 1;
 };
 
+// Pubkey for commitment transaction input.
+message bitcoin_pubkey {
+  // Either 65 or 33 bytes.
+  required bytes key = 1;
+};
+
 // All about an anchor transaction.
 message anchor {
   // 0 or more unspent inputs we want to use for anchor.
-  repeated bitcoin_output_id inputs = 1;
+  repeated bitcoin_input inputs = 1;
+  // Pubkey for anchor to pay to for commitment tx (p2sh)
+  required bitcoin_pubkey pubkey = 5;
   // Any change from anchor (in case we don't want to use them all)
-  optional bitcoin_output anchor_change = 2;
+  optional bitcoin_output change = 2;
   // How much transaction fee we'll pay in the anchor tx.
   required uint64 fee = 8;
+  // How much we'll be putting into channel (== sum(inputs) - change - fee)
+  required uint64 total = 4;
   // How many confirmations on anchor before we'll use channel.
   required uint32 min_confirms = 10;
 }
@@ -59,7 +73,7 @@ message open_channel {
   }
   // Hash seed for revoking commitment transactions.
   required sha256_hash revocation_hash = 4;
-  // How to pay money to us.
+  // How to pay money to us from commit_tx.
   required bytes script_to_me = 5;
   // How much transaction fee we'll pay for commitment txs.
   required uint64 commitment_fee = 6;
@@ -74,9 +88,21 @@ message open_commit_sig {
   required bitcoin_signature sig = 1;
 }
 
-// Supply signature for anchor tx
+// Supply ScriptSig for each anchor tx inputs.
 message open_anchor_sig {
-  required bitcoin_signature sig = 1;
+  repeated bytes script = 1;
+}
+
+// BROKEN AND INSECURE!!!
+//
+// This should not exist; it's completely insecure!  But we need to sign
+// the commitment transaction before we sign the anchor transaction, which
+// doesn't work at all with current bitcoin (as we don't know the anchor
+// txid until it's signed by both sides, and then we'd have to worry about
+// malleability anyway).  So for testing, we send the scriptsigs for the
+// anchor transaction's inputs immediately.
+message give_early_anchor_sig_and_pretend_we_didnt {
+  required open_anchor_sig anchor_scriptsigs = 1;
 }
 
 // Indicates we've seen transaction reach min-depth.
@@ -121,14 +147,19 @@ message new_anchor {
   required anchor anchor = 1;
 }
 
-// That seems OK to me!
+// That seems OK to me, let's add these too (if any).
 message new_anchor_ack {
+  required anchor anchor = 1;
+}
+
+// Now we both send signatures for new commit sig.
+message new_anchor_commit_sig {
   required bitcoin_signature sig = 1;
 }
 
-// Here's my signature on the new anchor to complete it.
+// Here are the script sigs for the new anchor's new inputs.
 message new_anchor_accept {
-  required bitcoin_signature sig = 1;
+  repeated bytes script = 1;
 }
 
 // Complete the transfer to new anchor (both ends need to send this,
@@ -161,6 +192,7 @@ message pkt {
   oneof pkt {
     // Opening
     open_channel open = 201;
+    give_early_anchor_sig_and_pretend_we_didnt omg_fail = 205;
     open_commit_sig open_commit_sig = 202;
     open_anchor_sig open_anchor_sig = 203;
     open_complete open_complete = 204;
