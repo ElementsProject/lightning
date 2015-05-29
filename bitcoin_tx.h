@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_BITCOIN_TX_H
 #define LIGHTNING_BITCOIN_TX_H
 #include <ccan/short_types/short_types.h>
+#include <ccan/tal/tal.h>
 #include "shadouble.h"
 
 #define BITCOIN_TX_VERSION 1
@@ -34,5 +35,10 @@ struct bitcoin_tx_input {
 /* Linearize the tx.  This is good for deriving the txid, as well as the
  * signature. */
 void sha256_tx(struct sha256_ctx *shactx, const struct bitcoin_tx *tx);
+
+/* Allocate a tx: you just need to fill in inputs and outputs (they're
+ * zeroed with inputs' sequence_number set to FFFFFFFF) */
+struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
+			      varint_t output_count);
 
 #endif /* LIGHTNING_BITCOIN_TX_H */

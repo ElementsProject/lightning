@@ -1,5 +1,6 @@
 #include "bitcoin_tx.h"
 #include <ccan/crypto/sha256/sha256.h>
+#include <assert.h>
 
 static void sha256_varint(struct sha256_ctx *ctx, varint_t v)
 {
@@ -61,4 +62,25 @@ void sha256_tx(struct sha256_ctx *ctx, const struct bitcoin_tx *tx)
 	for (i = 0; i < tx->output_count; i++)
 		sha256_tx_output(ctx, &tx->output[i]);
 	sha256_le32(ctx, tx->lock_time);
+}
+
+struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
+			      varint_t output_count)
+{
+	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
+	size_t i;
+
+	tx->version = BITCOIN_TX_VERSION;
+	tx->output_count = output_count;
+	tx->output = tal_arrz(tx, struct bitcoin_tx_output, output_count);
+	tx->input_count = input_count;
+	tx->input = tal_arrz(tx, struct bitcoin_tx_input, input_count);
+	for (i = 0; i < tx->input_count; i++) {
+		/* We assume NULL is a zero bitmap */
+		assert(tx->input[i].script == NULL);
+		tx->input[i].sequence_number = 0xFFFFFFFF;
+	}
+	tx->lock_time = 0xFFFFFFFF;
+
+	return tx;
 }
