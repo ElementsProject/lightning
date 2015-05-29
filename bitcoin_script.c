@@ -87,6 +87,7 @@ u8 *bitcoin_redeem_2of2(const tal_t *ctx,
 		add_push_bytes(&script, key2->key.data, key2->key.len);
 		add_push_bytes(&script, key1->key.data, key1->key.len);
 	}
+	add_op(&script, OP_LITERAL(2));
 	add_op(&script, OP_CHECKMULTISIG);
 	return script;
 }
