@@ -8,93 +8,14 @@
 #include "bitcoin_tx.h"
 #include "signature.h"
 #include "lightning.pb-c.h"
-#include "overflows.h"
 #include "pkt.h"
 #include "bitcoin_script.h"
-#include "perturb.h"
 #include "bitcoin_address.h"
 #include "base58.h"
+#include "anchor.h"
 
 #include <openssl/ec.h>
 #include <unistd.h>
-
-/* Produce an anchor transaction from what both sides want. */
-static struct bitcoin_tx *merge_transaction(const tal_t *ctx,
-					    const OpenChannel *o1,
-					    const OpenChannel *o2,
-					    size_t *inmap)
-{
-	uint64_t i;
-	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
-	u8 *redeemscript;
-
-	/* Use lesser of two versions. */
-	if (o1->tx_version < o2->tx_version)
-		tx->version = o1->tx_version;
-	else
-		tx->version = o2->tx_version;
-
-	if (add_overflows_size_t(o1->anchor->n_inputs, o2->anchor->n_inputs))
-		return tal_free(tx);
-	tx->input_count = o1->anchor->n_inputs + o2->anchor->n_inputs;
-
-	tx->input = tal_arr(tx, struct bitcoin_tx_input, tx->input_count);
-	/* Populate inputs. */
-	for (i = 0; i < o1->anchor->n_inputs; i++) {
-		BitcoinInput *pb = o1->anchor->inputs[i];
-		struct bitcoin_tx_input *in = &tx->input[i];
-		proto_to_sha256(pb->txid, &in->txid.sha);
-		in->index = pb->output;
-		in->sequence_number = 0xFFFFFFFF;
-		/* Leave inputs as stubs for now, for signing. */
-		in->script_length = 0;
-		in->script = NULL;
-	}
-	for (i = 0; i < o2->anchor->n_inputs; i++) {
-		BitcoinInput *pb = o2->anchor->inputs[i];
-		struct bitcoin_tx_input *in
-			= &tx->input[o1->anchor->n_inputs + i];
-		proto_to_sha256(pb->txid, &in->txid.sha);
-		in->index = pb->output;
-		in->sequence_number = 0xFFFFFFFF;
-		/* Leave inputs as stubs for now, for signing. */
-		in->script_length = 0;
-		in->script = NULL;
-	}
-
-	/* Populate outputs. */
-	tx->output_count = 1;
-	/* Allocate for worst case. */
-	tx->output = tal_arr(tx, struct bitcoin_tx_output, 3);
-
-	if (add_overflows_u64(o1->anchor->total, o2->anchor->total))
-		return tal_free(tx);
-
-	/* Make the 2 of 2 payment for the commitment txs. */
-	redeemscript = bitcoin_redeem_2of2(tx, o1->anchor->pubkey,
-					   o2->anchor->pubkey);
-	tx->output[0].amount = o1->anchor->total + o2->anchor->total;
-	tx->output[0].script = scriptpubkey_p2sh(tx, redeemscript);
-	tx->output[0].script_length = tal_count(tx->output[0].script);
-
-	/* Add change transactions (if any) */
-	if (o1->anchor->change) {
-		struct bitcoin_tx_output *out = &tx->output[tx->output_count++];
-		out->amount = o1->anchor->change->amount;
-		out->script_length = o1->anchor->change->script.len;
-		out->script = o1->anchor->change->script.data;
-	}
-	if (o2->anchor->change) {
-		struct bitcoin_tx_output *out = &tx->output[tx->output_count++];
-		out->amount = o2->anchor->change->amount;
-		out->script_length = o2->anchor->change->script.len;
-		out->script = o2->anchor->change->script.data;
-	}
-
-	perturb_inputs(o1->seed, o2->seed, 0, tx->input, tx->input_count, inmap);
-	perturb_outputs(o1->seed, o2->seed, 0, tx->output, tx->output_count, NULL);
-	return tx;
-}
 
 /* All the input scripts are already set to 0.  We just need to make this one. */
 static u8 *sign_tx_input(const tal_t *ctx,
@@ -157,10 +78,9 @@ int main(int argc, char *argv[])
 
 	o1 = pkt_from_file(argv[1], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
-	map = tal_arr(ctx, size_t, o1->anchor->n_inputs + o2->anchor->n_inputs);
 
 	/* Create merged transaction */
-	anchor = merge_transaction(ctx, o1, o2, map);
+	anchor = anchor_tx_create(ctx, o1, o2, &map, NULL);
 	if (!anchor)
 		errx(1, "Failed transaction merge");
 
