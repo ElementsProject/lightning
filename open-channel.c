@@ -117,6 +117,9 @@ int main(int argc, char *argv[])
 	opt_register_arg("--anchor-fee=<bits>",
 			 opt_set_bits, opt_show_bits, &anchor.fee,
 			 "100's of satoshi to pay for anchor");
+	opt_register_arg("--commitment-fee=<bits>",
+			 opt_set_bits, opt_show_bits, &commit_tx_fee,
+			 "100's of satoshi to pay for commitment");
 	opt_register_arg("--locktime=<seconds>",
 			 opt_set_uintval, opt_show_uintval, &locktime_seconds,
 			 "Seconds to lock out our transaction redemption");
