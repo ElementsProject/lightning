@@ -3,13 +3,14 @@
 # Needs to have oneof support: Ubuntu vivid's is too old :(
 PROTOCC:=protoc-c
 
-PROGRAMS := open-channel open-anchor-sig
+PROGRAMS := open-channel open-anchor-sig leak-anchor-sigs
 
 HELPER_OBJS := base58.o lightning.pb-c.o shadouble.o pkt.o bitcoin_script.o perturb.o signature.o bitcoin_tx.o bitcoin_address.o
 CCAN_OBJS := ccan-crypto-sha256.o ccan-crypto-shachain.o ccan-err.o ccan-tal.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-str-hex.o ccan-tal-grab_file.o ccan-noerr.o
 
 OPEN_CHANNEL_OBJS := open-channel.o
 OPEN_ANCHOR_SIG_OBJS := open-anchor-sig.o
+LEAK_ANCHOR_SIGS_OBJS := leak-anchor-sigs.o
 
 HEADERS := $(wildcard *.h)
 
@@ -28,12 +29,15 @@ $(OPEN_CHANNEL_OBJS): $(HEADERS)
 open-anchor-sig: $(OPEN_ANCHOR_SIG_OBJS) $(HELPER_OBJS) $(CCAN_OBJS)
 $(OPEN_ANCHOR_SIG_OBJS): $(HEADERS)
 
+leak-anchor-sigs: $(LEAK_ANCHOR_SIGS_OBJS) $(HELPER_OBJS) $(CCAN_OBJS)
+$(LEAK_ANCHOR_SIGS_OBJS): $(HEADERS)
+
 distclean: clean
 	$(RM) lightning.pb-c.c lightning.pb-c.h
 
 clean:
 	$(RM) $(PROGRAMS)
-	$(RM) $(OPEN_CHANNEL_OBJS) $(OPEN_ANCHOR_SIG_OBJS) $(HELPER_OBJS) $(CCAN_OBJS)
+	$(RM) $(OPEN_CHANNEL_OBJS) $(OPEN_ANCHOR_SIG_OBJS) $(LEAK_ANCHOR_SIGS_OBJS) $(HELPER_OBJS) $(CCAN_OBJS)
 
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
 	$(CC) $(CFLAGS) -c -o $@ $<

@@ -24,7 +24,7 @@ typedef struct _Anchor Anchor;
 typedef struct _OpenChannel OpenChannel;
 typedef struct _OpenCommitSig OpenCommitSig;
 typedef struct _OpenAnchorSig OpenAnchorSig;
-typedef struct _GiveEarlyAnchorSigAndPretendWeDidnt GiveEarlyAnchorSigAndPretendWeDidnt;
+typedef struct _LeakAnchorSigsAndPretendWeDidnt LeakAnchorSigsAndPretendWeDidnt;
 typedef struct _OpenComplete OpenComplete;
 typedef struct _Update Update;
 typedef struct _UpdateAccept UpdateAccept;
@@ -252,13 +252,13 @@ struct  _OpenAnchorSig
  * malleability anyway).  So for testing, we send the scriptsigs for the
  * anchor transaction's inputs immediately.
  */
-struct  _GiveEarlyAnchorSigAndPretendWeDidnt
+struct  _LeakAnchorSigsAndPretendWeDidnt
 {
   ProtobufCMessage base;
   OpenAnchorSig *anchor_scriptsigs;
 };
-#define GIVE_EARLY_ANCHOR_SIG_AND_PRETEND_WE_DIDNT__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&give_early_anchor_sig_and_pretend_we_didnt__descriptor) \
+#define LEAK_ANCHOR_SIGS_AND_PRETEND_WE_DIDNT__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&leak_anchor_sigs_and_pretend_we_didnt__descriptor) \
     , NULL }
 
 
@@ -500,7 +500,7 @@ struct  _Pkt
      * Opening
      */
     OpenChannel *open;
-    GiveEarlyAnchorSigAndPretendWeDidnt *omg_fail;
+    LeakAnchorSigsAndPretendWeDidnt *omg_fail;
     OpenCommitSig *open_commit_sig;
     OpenAnchorSig *open_anchor_sig;
     OpenComplete *open_complete;
@@ -704,24 +704,24 @@ OpenAnchorSig *
 void   open_anchor_sig__free_unpacked
                      (OpenAnchorSig *message,
                       ProtobufCAllocator *allocator);
-/* GiveEarlyAnchorSigAndPretendWeDidnt methods */
-void   give_early_anchor_sig_and_pretend_we_didnt__init
-                     (GiveEarlyAnchorSigAndPretendWeDidnt         *message);
-size_t give_early_anchor_sig_and_pretend_we_didnt__get_packed_size
-                     (const GiveEarlyAnchorSigAndPretendWeDidnt   *message);
-size_t give_early_anchor_sig_and_pretend_we_didnt__pack
-                     (const GiveEarlyAnchorSigAndPretendWeDidnt   *message,
+/* LeakAnchorSigsAndPretendWeDidnt methods */
+void   leak_anchor_sigs_and_pretend_we_didnt__init
+                     (LeakAnchorSigsAndPretendWeDidnt         *message);
+size_t leak_anchor_sigs_and_pretend_we_didnt__get_packed_size
+                     (const LeakAnchorSigsAndPretendWeDidnt   *message);
+size_t leak_anchor_sigs_and_pretend_we_didnt__pack
+                     (const LeakAnchorSigsAndPretendWeDidnt   *message,
                       uint8_t             *out);
-size_t give_early_anchor_sig_and_pretend_we_didnt__pack_to_buffer
-                     (const GiveEarlyAnchorSigAndPretendWeDidnt   *message,
+size_t leak_anchor_sigs_and_pretend_we_didnt__pack_to_buffer
+                     (const LeakAnchorSigsAndPretendWeDidnt   *message,
                       ProtobufCBuffer     *buffer);
-GiveEarlyAnchorSigAndPretendWeDidnt *
-       give_early_anchor_sig_and_pretend_we_didnt__unpack
+LeakAnchorSigsAndPretendWeDidnt *
+       leak_anchor_sigs_and_pretend_we_didnt__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   give_early_anchor_sig_and_pretend_we_didnt__free_unpacked
-                     (GiveEarlyAnchorSigAndPretendWeDidnt *message,
+void   leak_anchor_sigs_and_pretend_we_didnt__free_unpacked
+                     (LeakAnchorSigsAndPretendWeDidnt *message,
                       ProtobufCAllocator *allocator);
 /* OpenComplete methods */
 void   open_complete__init
@@ -999,8 +999,8 @@ typedef void (*OpenCommitSig_Closure)
 typedef void (*OpenAnchorSig_Closure)
                  (const OpenAnchorSig *message,
                   void *closure_data);
-typedef void (*GiveEarlyAnchorSigAndPretendWeDidnt_Closure)
-                 (const GiveEarlyAnchorSigAndPretendWeDidnt *message,
+typedef void (*LeakAnchorSigsAndPretendWeDidnt_Closure)
+                 (const LeakAnchorSigsAndPretendWeDidnt *message,
                   void *closure_data);
 typedef void (*OpenComplete_Closure)
                  (const OpenComplete *message,
@@ -1056,7 +1056,7 @@ extern const ProtobufCMessageDescriptor anchor__descriptor;
 extern const ProtobufCMessageDescriptor open_channel__descriptor;
 extern const ProtobufCMessageDescriptor open_commit_sig__descriptor;
 extern const ProtobufCMessageDescriptor open_anchor_sig__descriptor;
-extern const ProtobufCMessageDescriptor give_early_anchor_sig_and_pretend_we_didnt__descriptor;
+extern const ProtobufCMessageDescriptor leak_anchor_sigs_and_pretend_we_didnt__descriptor;
 extern const ProtobufCMessageDescriptor open_complete__descriptor;
 extern const ProtobufCMessageDescriptor update__descriptor;
 extern const ProtobufCMessageDescriptor update_accept__descriptor;

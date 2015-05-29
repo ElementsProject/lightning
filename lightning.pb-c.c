@@ -394,47 +394,47 @@ void   open_anchor_sig__free_unpacked
   assert(message->base.descriptor == &open_anchor_sig__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   give_early_anchor_sig_and_pretend_we_didnt__init
-                     (GiveEarlyAnchorSigAndPretendWeDidnt         *message)
+void   leak_anchor_sigs_and_pretend_we_didnt__init
+                     (LeakAnchorSigsAndPretendWeDidnt         *message)
 {
-  static GiveEarlyAnchorSigAndPretendWeDidnt init_value = GIVE_EARLY_ANCHOR_SIG_AND_PRETEND_WE_DIDNT__INIT;
+  static LeakAnchorSigsAndPretendWeDidnt init_value = LEAK_ANCHOR_SIGS_AND_PRETEND_WE_DIDNT__INIT;
   *message = init_value;
 }
-size_t give_early_anchor_sig_and_pretend_we_didnt__get_packed_size
-                     (const GiveEarlyAnchorSigAndPretendWeDidnt *message)
+size_t leak_anchor_sigs_and_pretend_we_didnt__get_packed_size
+                     (const LeakAnchorSigsAndPretendWeDidnt *message)
 {
-  assert(message->base.descriptor == &give_early_anchor_sig_and_pretend_we_didnt__descriptor);
+  assert(message->base.descriptor == &leak_anchor_sigs_and_pretend_we_didnt__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t give_early_anchor_sig_and_pretend_we_didnt__pack
-                     (const GiveEarlyAnchorSigAndPretendWeDidnt *message,
+size_t leak_anchor_sigs_and_pretend_we_didnt__pack
+                     (const LeakAnchorSigsAndPretendWeDidnt *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &give_early_anchor_sig_and_pretend_we_didnt__descriptor);
+  assert(message->base.descriptor == &leak_anchor_sigs_and_pretend_we_didnt__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t give_early_anchor_sig_and_pretend_we_didnt__pack_to_buffer
-                     (const GiveEarlyAnchorSigAndPretendWeDidnt *message,
+size_t leak_anchor_sigs_and_pretend_we_didnt__pack_to_buffer
+                     (const LeakAnchorSigsAndPretendWeDidnt *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &give_early_anchor_sig_and_pretend_we_didnt__descriptor);
+  assert(message->base.descriptor == &leak_anchor_sigs_and_pretend_we_didnt__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-GiveEarlyAnchorSigAndPretendWeDidnt *
-       give_early_anchor_sig_and_pretend_we_didnt__unpack
+LeakAnchorSigsAndPretendWeDidnt *
+       leak_anchor_sigs_and_pretend_we_didnt__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (GiveEarlyAnchorSigAndPretendWeDidnt *)
-     protobuf_c_message_unpack (&give_early_anchor_sig_and_pretend_we_didnt__descriptor,
+  return (LeakAnchorSigsAndPretendWeDidnt *)
+     protobuf_c_message_unpack (&leak_anchor_sigs_and_pretend_we_didnt__descriptor,
                                 allocator, len, data);
 }
-void   give_early_anchor_sig_and_pretend_we_didnt__free_unpacked
-                     (GiveEarlyAnchorSigAndPretendWeDidnt *message,
+void   leak_anchor_sigs_and_pretend_we_didnt__free_unpacked
+                     (LeakAnchorSigsAndPretendWeDidnt *message,
                       ProtobufCAllocator *allocator)
 {
-  assert(message->base.descriptor == &give_early_anchor_sig_and_pretend_we_didnt__descriptor);
+  assert(message->base.descriptor == &leak_anchor_sigs_and_pretend_we_didnt__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   open_complete__init
@@ -1588,7 +1588,7 @@ const ProtobufCMessageDescriptor open_anchor_sig__descriptor =
   (ProtobufCMessageInit) open_anchor_sig__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor give_early_anchor_sig_and_pretend_we_didnt__field_descriptors[1] =
+static const ProtobufCFieldDescriptor leak_anchor_sigs_and_pretend_we_didnt__field_descriptors[1] =
 {
   {
     "anchor_scriptsigs",
@@ -1596,34 +1596,34 @@ static const ProtobufCFieldDescriptor give_early_anchor_sig_and_pretend_we_didnt
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(GiveEarlyAnchorSigAndPretendWeDidnt, anchor_scriptsigs),
+    offsetof(LeakAnchorSigsAndPretendWeDidnt, anchor_scriptsigs),
     &open_anchor_sig__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned give_early_anchor_sig_and_pretend_we_didnt__field_indices_by_name[] = {
+static const unsigned leak_anchor_sigs_and_pretend_we_didnt__field_indices_by_name[] = {
   0,   /* field[0] = anchor_scriptsigs */
 };
-static const ProtobufCIntRange give_early_anchor_sig_and_pretend_we_didnt__number_ranges[1 + 1] =
+static const ProtobufCIntRange leak_anchor_sigs_and_pretend_we_didnt__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 1 }
 };
-const ProtobufCMessageDescriptor give_early_anchor_sig_and_pretend_we_didnt__descriptor =
+const ProtobufCMessageDescriptor leak_anchor_sigs_and_pretend_we_didnt__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "give_early_anchor_sig_and_pretend_we_didnt",
-  "GiveEarlyAnchorSigAndPretendWeDidnt",
-  "GiveEarlyAnchorSigAndPretendWeDidnt",
+  "leak_anchor_sigs_and_pretend_we_didnt",
+  "LeakAnchorSigsAndPretendWeDidnt",
+  "LeakAnchorSigsAndPretendWeDidnt",
   "",
-  sizeof(GiveEarlyAnchorSigAndPretendWeDidnt),
+  sizeof(LeakAnchorSigsAndPretendWeDidnt),
   1,
-  give_early_anchor_sig_and_pretend_we_didnt__field_descriptors,
-  give_early_anchor_sig_and_pretend_we_didnt__field_indices_by_name,
-  1,  give_early_anchor_sig_and_pretend_we_didnt__number_ranges,
-  (ProtobufCMessageInit) give_early_anchor_sig_and_pretend_we_didnt__init,
+  leak_anchor_sigs_and_pretend_we_didnt__field_descriptors,
+  leak_anchor_sigs_and_pretend_we_didnt__field_indices_by_name,
+  1,  leak_anchor_sigs_and_pretend_we_didnt__number_ranges,
+  (ProtobufCMessageInit) leak_anchor_sigs_and_pretend_we_didnt__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCFieldDescriptor open_complete__field_descriptors[1] =
@@ -2240,7 +2240,7 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[15] =
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
     offsetof(Pkt, omg_fail),
-    &give_early_anchor_sig_and_pretend_we_didnt__descriptor,
+    &leak_anchor_sigs_and_pretend_we_didnt__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */

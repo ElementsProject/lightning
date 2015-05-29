@@ -101,7 +101,7 @@ message open_anchor_sig {
 // txid until it's signed by both sides, and then we'd have to worry about
 // malleability anyway).  So for testing, we send the scriptsigs for the
 // anchor transaction's inputs immediately.
-message give_early_anchor_sig_and_pretend_we_didnt {
+message leak_anchor_sigs_and_pretend_we_didnt {
   required open_anchor_sig anchor_scriptsigs = 1;
 }
 
@@ -192,7 +192,7 @@ message pkt {
   oneof pkt {
     // Opening
     open_channel open = 201;
-    give_early_anchor_sig_and_pretend_we_didnt omg_fail = 205;
+    leak_anchor_sigs_and_pretend_we_didnt omg_fail = 205;
     open_commit_sig open_commit_sig = 202;
     open_anchor_sig open_anchor_sig = 203;
     open_complete open_complete = 204;

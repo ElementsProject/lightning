@@ -49,6 +49,15 @@ struct pkt *openchannel_pkt(const tal_t *ctx,
  */
 struct pkt *open_anchor_sig_pkt(const tal_t *ctx, u8 **sigs, size_t num_sigs);
 
+/**
+ * leak_anchor_sigs_and_pretend_we_didnt_pkt - leak anchor scriptsigs
+ * @ctx: tal context to allocate off.
+ * @s: OpenAnchorSig.
+ */
+struct pkt *leak_anchor_sigs_and_pretend_we_didnt_pkt(const tal_t *ctx,
+						      OpenAnchorSig *s);
+
+
 /* Useful helper for allocating & populating a protobuf Sha256Hash */
 Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash);
 void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash);

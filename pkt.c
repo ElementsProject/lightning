@@ -131,3 +131,13 @@ struct pkt *open_anchor_sig_pkt(const tal_t *ctx, u8 **sigs, size_t num_sigs)
 	
 	return to_pkt(ctx, PKT__PKT_OPEN_ANCHOR_SIG, &o);
 }
+
+struct pkt *leak_anchor_sigs_and_pretend_we_didnt_pkt(const tal_t *ctx,
+						      OpenAnchorSig *s)
+{
+	LeakAnchorSigsAndPretendWeDidnt omg_fail
+		= LEAK_ANCHOR_SIGS_AND_PRETEND_WE_DIDNT__INIT;
+
+	omg_fail.anchor_scriptsigs = s;
+	return to_pkt(ctx, PKT__PKT_OMG_FAIL, &omg_fail);
+}
