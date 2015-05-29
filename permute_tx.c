@@ -1,4 +1,4 @@
-#include "perturb.h"
+#include "permute_tx.h"
 #include <ccan/crypto/sha256/sha256.h>
 #include <stdbool.h>
 #include <string.h>
@@ -16,7 +16,7 @@ static u32 get_next_rand(struct sha256 *h, size_t *randidx)
 static void init_rand(struct sha256 *h, size_t *randidx,
 		      uint64_t seed1, uint64_t seed2,
 		      uint64_t transaction_num,
-		      enum perturb_style style)
+		      enum permute_style style)
 {
 	struct sha256_ctx shactx;
 
@@ -93,7 +93,7 @@ static void swap_inputs(struct bitcoin_tx_input *inputs, size_t *map,
 	}
 }
 
-void perturb_inputs(uint64_t seed1, uint64_t seed2, uint64_t tx_num,
+void permute_inputs(uint64_t seed1, uint64_t seed2, uint64_t tx_num,
 		    struct bitcoin_tx_input *inputs,
 		    size_t num_inputs,
 		    size_t *map)
@@ -110,7 +110,7 @@ void perturb_inputs(uint64_t seed1, uint64_t seed2, uint64_t tx_num,
 			    i, i + find_best_in(inputs + i, num_inputs - i));
 	}
 
-	init_rand(&h, &randidx, seed1, seed2, tx_num, PERTURB_INPUT_STYLE);
+	init_rand(&h, &randidx, seed1, seed2, tx_num, PERMUTE_INPUT_STYLE);
 		  
 	/* Now, Fisher-Yates shuffle, but using SHA256 as "random" source. */
 	for (i = 0; i + 1 < num_inputs; i++) {
@@ -159,7 +159,7 @@ static size_t find_best_out(struct bitcoin_tx_output *outputs, size_t num)
 	return best;
 }
 
-void perturb_outputs(uint64_t seed1, uint64_t seed2, size_t tx_num,
+void permute_outputs(uint64_t seed1, uint64_t seed2, size_t tx_num,
 		     struct bitcoin_tx_output *outputs,
 		     size_t num_outputs,
 		     size_t *map)
@@ -176,7 +176,7 @@ void perturb_outputs(uint64_t seed1, uint64_t seed2, size_t tx_num,
 			     i, i + find_best_out(outputs + i, num_outputs - i));
 	}
 
-	init_rand(&h, &randidx, seed1, seed2, tx_num, PERTURB_OUTPUT_STYLE);
+	init_rand(&h, &randidx, seed1, seed2, tx_num, PERMUTE_OUTPUT_STYLE);
 		  
 	/* Now, Fisher-Yates shuffle, but using SHA256 as "random" source. */
 	for (i = 0; i + 1 < num_outputs; i++) {

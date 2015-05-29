@@ -2,7 +2,7 @@
 #include "bitcoin_tx.h"
 #include "overflows.h"
 #include "pkt.h"
-#include "perturb.h"
+#include "permute_tx.h"
 #include "bitcoin_script.h"
 
 struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
@@ -81,9 +81,9 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 	else
 		outmap = NULL;
 		
-	perturb_inputs(o1->seed, o2->seed, 0, tx->input, tx->input_count,
+	permute_inputs(o1->seed, o2->seed, 0, tx->input, tx->input_count,
 		       inmap);
-	perturb_outputs(o1->seed, o2->seed, 0, tx->output, tx->output_count,
+	permute_outputs(o1->seed, o2->seed, 0, tx->output, tx->output_count,
 			outmap);
 	return tx;
 }
