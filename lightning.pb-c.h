@@ -169,12 +169,6 @@ struct  _Anchor
     , 0,NULL, NULL, NULL, 0, 0, 0 }
 
 
-typedef enum {
-  OPEN_CHANNEL__LOCKTIME__NOT_SET = 0,
-  OPEN_CHANNEL__LOCKTIME_LOCKTIME_SECONDS = 2,
-  OPEN_CHANNEL__LOCKTIME_LOCKTIME_BLOCKS = 3,
-} OpenChannel__LocktimeCase;
-
 /*
  * Set channel params.
  */
@@ -185,6 +179,10 @@ struct  _OpenChannel
    * Seed which sets order we create outputs for all transactions.
    */
   uint64_t seed;
+  /*
+   * Relative locktime for outputs going to us.
+   */
+  uint32_t locktime_seconds;
   /*
    * Hash seed for revoking commitment transactions.
    */
@@ -205,15 +203,10 @@ struct  _OpenChannel
    * Maximum transaction version we support.
    */
   uint32_t tx_version;
-  OpenChannel__LocktimeCase locktime_case;
-  union {
-    uint32_t locktime_seconds;
-    uint32_t locktime_blocks;
-  };
 };
 #define OPEN_CHANNEL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&open_channel__descriptor) \
-    , 0, NULL, {0,NULL}, 0, NULL, 0, OPEN_CHANNEL__LOCKTIME__NOT_SET, {} }
+    , 0, 0, NULL, {0,NULL}, 0, NULL, 0 }
 
 
 /*
