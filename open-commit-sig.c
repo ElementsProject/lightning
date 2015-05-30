@@ -16,6 +16,7 @@
 #include "bitcoin_script.h"
 #include "permute_tx.h"
 #include "signature.h"
+#include "commit_tx.h"
 #include <openssl/ec.h>
 #include <unistd.h>
 
@@ -26,7 +27,7 @@ int main(int argc, char *argv[])
 	struct bitcoin_tx *anchor, *commit;
 	struct sha256_double txid;
 	struct pkt *pkt;
-	u8 *redeemscript, *sig;
+	u8 *sig;
 	size_t *inmap, *outmap;
 	EC_KEY *privkey;
 	bool testnet;
@@ -61,38 +62,16 @@ int main(int argc, char *argv[])
 	/* Get the transaction ID of the anchor. */
 	anchor_txid(anchor, argv[4], argv[5], inmap, &txid);
 
-	/* Now create commitment tx: one input, two outputs. */
-	commit = bitcoin_tx(ctx, 1, 2);
+	/* Now create commitment tx to spend 2/2 output of anchor. */
+	commit = create_commit_tx(ctx, o1, o2, &txid, outmap[0]);
 
-	/* Our input spends the anchor tx output. */
-	commit->input[0].txid = txid;
-	commit->input[0].index = outmap[0];
-
-	/* First output is a P2SH to a complex redeem script */
-	redeemscript = bitcoin_redeem_revocable(ctx, o1->anchor->pubkey,
-						o1->locktime_seconds,
-						o2->anchor->pubkey,
-						o1->revocation_hash);
-	commit->output[0].script = scriptpubkey_p2sh(ctx, redeemscript);
-	commit->output[0].script_length = tal_count(commit->output[0].script);
-
-	if (o1->anchor->total < o1->commitment_fee)
-		errx(1, "Our contribution to channel %llu < fee %llu",
+	/* If contributions don't exceed fees, this fails. */
+	if (!commit)
+		errx(1, "Contributions %llu & %llu vs fees %llu & %llu",
 		     (long long)o1->anchor->total,
-		     (long long)o1->commitment_fee);
-	commit->output[0].amount = o1->anchor->total - o1->commitment_fee;
-
-	/* Second output is a simple payment to them. */
-	commit->output[1].script = o2->script_to_me.data;
-	commit->output[1].script_length = o2->script_to_me.len;
-	
-	if (o2->anchor->total < o2->commitment_fee)
-		errx(1, "Their contribution to channel %llu < fee %llu",
 		     (long long)o2->anchor->total,
+		     (long long)o1->commitment_fee,
 		     (long long)o2->commitment_fee);
-	commit->output[1].amount = o2->anchor->total - o2->commitment_fee;
-
-	permute_outputs(o1->seed, o2->seed, 1, commit->output, 2, NULL);
 
 	sig = sign_tx_input(ctx, commit, 0, anchor->output[outmap[0]].script,
 			    anchor->output[outmap[0]].script_length, privkey);
