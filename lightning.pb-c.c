@@ -1579,12 +1579,12 @@ const ProtobufCMessageDescriptor open_anchor_sig__descriptor =
 static const ProtobufCFieldDescriptor leak_anchor_sigs_and_pretend_we_didnt__field_descriptors[1] =
 {
   {
-    "anchor_scriptsigs",
+    "sigs",
     1,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(LeakAnchorSigsAndPretendWeDidnt, anchor_scriptsigs),
+    offsetof(LeakAnchorSigsAndPretendWeDidnt, sigs),
     &open_anchor_sig__descriptor,
     NULL,
     0,             /* flags */
@@ -1592,7 +1592,7 @@ static const ProtobufCFieldDescriptor leak_anchor_sigs_and_pretend_we_didnt__fie
   },
 };
 static const unsigned leak_anchor_sigs_and_pretend_we_didnt__field_indices_by_name[] = {
-  0,   /* field[0] = anchor_scriptsigs */
+  0,   /* field[0] = sigs */
 };
 static const ProtobufCIntRange leak_anchor_sigs_and_pretend_we_didnt__number_ranges[1 + 1] =
 {

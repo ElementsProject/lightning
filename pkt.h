@@ -58,6 +58,14 @@ struct pkt *leak_anchor_sigs_and_pretend_we_didnt_pkt(const tal_t *ctx,
 						      OpenAnchorSig *s);
 
 
+/**
+ * open_commit_sig_pkt - create an open_commit_sig message
+ * @ctx: tal context to allocate off.
+ * @sig: the der-encoded signature for the commit transaction input.
+ * @siglen: the length of @sig.
+ */
+struct pkt *open_commit_sig_pkt(const tal_t *ctx, const u8 *sig, size_t siglen);
+
 /* Useful helper for allocating & populating a protobuf Sha256Hash */
 Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash);
 void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash);

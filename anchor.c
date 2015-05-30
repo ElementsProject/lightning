@@ -4,6 +4,7 @@
 #include "pkt.h"
 #include "permute_tx.h"
 #include "bitcoin_script.h"
+#include <ccan/err/err.h>
 
 struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 				    const OpenChannel *o1,
@@ -16,7 +17,7 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 	size_t *inmap, *outmap;
 
 	if (add_overflows_size_t(o1->anchor->n_inputs, o2->anchor->n_inputs))
-		return tal_free(tx);
+		return NULL;
 
 	n_out = 1 + !!o1->anchor->change + !!o2->anchor->change;
 	tx = bitcoin_tx(ctx, o1->anchor->n_inputs+o2->anchor->n_inputs, n_out);
@@ -88,4 +89,42 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 	return tx;
 }
 
+void anchor_txid(struct bitcoin_tx *anchor,
+		 const char *leakfile1, const char *leakfile2,
+		 const size_t *inmap,
+		 struct sha256_double *txid)
+{
+	Pkt *p1, *p2;
+	LeakAnchorSigsAndPretendWeDidnt *leak1, *leak2;
+	size_t i;
+	struct sha256_ctx shactx;
 	
+	p1 = pkt_from_file(leakfile1, PKT__PKT_OMG_FAIL);
+	p2 = pkt_from_file(leakfile2, PKT__PKT_OMG_FAIL);
+	leak1 = p1->omg_fail;
+	leak2 = p2->omg_fail;
+
+	if (leak1->sigs->n_script + leak2->sigs->n_script != anchor->input_count)
+		errx(1, "Expected %llu total inputs, not %zu + %zu",
+		     (long long)anchor->input_count,
+		     leak1->sigs->n_script, leak2->sigs->n_script);
+
+	for (i = 0; i < leak1->sigs->n_script; i++) {
+		anchor->input[i].script = leak1->sigs->script[i].data;
+		anchor->input[i].script_length = leak1->sigs->script[i].len;
+	}
+
+	for (i = 0; i < leak2->sigs->n_script; i++) {
+		anchor->input[leak1->sigs->n_script + i].script
+			= leak2->sigs->script[i].data;
+		anchor->input[leak1->sigs->n_script + i].script_length
+			= leak2->sigs->script[i].len;
+	}
+
+	sha256_init(&shactx);
+	sha256_tx(&shactx, anchor);
+	sha256_double_done(&shactx, txid);
+
+	pkt__free_unpacked(p1, NULL);
+	pkt__free_unpacked(p2, NULL);
+}

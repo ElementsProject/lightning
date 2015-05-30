@@ -248,7 +248,7 @@ struct  _OpenAnchorSig
 struct  _LeakAnchorSigsAndPretendWeDidnt
 {
   ProtobufCMessage base;
-  OpenAnchorSig *anchor_scriptsigs;
+  OpenAnchorSig *sigs;
 };
 #define LEAK_ANCHOR_SIGS_AND_PRETEND_WE_DIDNT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&leak_anchor_sigs_and_pretend_we_didnt__descriptor) \

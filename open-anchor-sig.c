@@ -18,33 +18,19 @@
 #include <unistd.h>
 
 /* All the input scripts are already set to 0.  We just need to make this one. */
-static u8 *sign_tx_input(const tal_t *ctx,
-			 struct bitcoin_tx *tx,
-			 unsigned int i,
-			 const BitcoinInput *input,
-			 EC_KEY *privkey,
-			 const struct bitcoin_compressed_pubkey *pubkey)
+static u8 *tx_scriptsig(const tal_t *ctx,
+			struct bitcoin_tx *tx,
+			unsigned int i,
+			const BitcoinInput *input,
+			EC_KEY *privkey,
+			const struct bitcoin_compressed_pubkey *pubkey)
 {
-	struct sha256_double hash;
-	struct sha256_ctx shactx;
-	struct bitcoin_address addr;
 	u8 *sig;
+	struct bitcoin_address addr;
 
-	/* Transaction gets signed as if the output subscript is the
-	 * only input script. */
-	tx->input[i].script_length = input->subscript.len;
-	tx->input[i].script = input->subscript.data;
-
-	sha256_init(&shactx);
-	sha256_tx(&shactx, tx);
-	sha256_le32(&shactx, SIGHASH_ALL);
-	sha256_double_done(&shactx, &hash);
-
-	/* Reset it for next time. */
-	tx->input[i].script_length = 0;
-	tx->input[i].script = NULL;
-
-	sig = sign_hash(ctx, privkey, &hash);
+	sig = sign_tx_input(ctx, tx, i,
+			    input->subscript.data, input->subscript.len,
+			    privkey);
 	if (!sig)
 		return NULL;
 
@@ -102,9 +88,9 @@ int main(int argc, char *argv[])
 		if (!testnet)
 			errx(1, "Private key '%s' not on testnet!", argv[3+i]);
 		
-		sigs[i] = sign_tx_input(sigs, anchor, map[i],
-					o1->anchor->inputs[i],
-					privkey, &pubkey);
+		sigs[i] = tx_scriptsig(sigs, anchor, map[i],
+				       o1->anchor->inputs[i],
+				       privkey, &pubkey);
 	}
 
 	pkt = open_anchor_sig_pkt(ctx, sigs, o1->anchor->n_inputs);

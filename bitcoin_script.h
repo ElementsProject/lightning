@@ -15,6 +15,16 @@ u8 *bitcoin_redeem_2of2(const tal_t *ctx,
 /* tal_count() gives the length of the script. */
 u8 *bitcoin_redeem_single(const tal_t *ctx, const u8 *key, size_t keylen);
 
+/* One of:
+ * mysig and theirsig, OR
+ * mysig and relative locktime passed, OR
+ * theirsig and hash preimage. */
+u8 *bitcoin_redeem_revocable(const tal_t *ctx,
+			     const BitcoinPubkey *mykey,
+			     u32 locktime,
+			     const BitcoinPubkey *theirkey,
+			     const Sha256Hash *revocation_hash);
+
 /* Create an output script using p2sh for this redeem script. */
 u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript);
 

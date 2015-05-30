@@ -1,5 +1,6 @@
 #include "bitcoin_script.h"
 #include "bitcoin_address.h"
+#include "pkt.h"
 #include <openssl/ripemd.h>
 #include <ccan/endian/endian.h>
 #include <ccan/crypto/sha256/sha256.h>
@@ -11,12 +12,19 @@
 #define OP_PUSHDATA2	0x4D
 #define OP_PUSHDATA4	0x4E
 #define OP_NOP		0x61
+#define OP_IF		0x63
+#define OP_ELSE		0x67
+#define OP_ENDIF	0x68
+#define OP_DEPTH	0x74
 #define OP_DUP		0x76
 #define OP_EQUAL	0x87
 #define OP_EQUALVERIFY	0x88
+#define OP_SIZE		0x82
+#define OP_1SUB		0x8C
 #define OP_CHECKSIG	0xAC
 #define OP_CHECKMULTISIG	0xAE
 #define OP_HASH160	0xA9
+#define OP_CHECKSEQUENCEVERIFY	0xB2
 
 static void add(u8 **scriptp, const void *mem, size_t len)
 {
@@ -159,4 +167,67 @@ bool is_pay_to_pubkey_hash(const ProtobufCBinaryData *script)
 	if (script->data[24] != OP_CHECKSIG)
 		return false;
 	return true;
+}
+
+/* One of:
+ * mysig and theirsig, OR
+ * mysig and relative locktime passed, OR
+ * theirsig and hash preimage. */
+u8 *bitcoin_redeem_revocable(const tal_t *ctx,
+			     const BitcoinPubkey *mykey,
+			     u32 locktime,
+			     const BitcoinPubkey *theirkey,
+			     const Sha256Hash *revocation_hash)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+	struct sha256 rhash;
+	u8 rhash_ripemd[RIPEMD160_DIGEST_LENGTH];
+	le32 locktime_le = cpu_to_le32(locktime);
+
+	proto_to_sha256(revocation_hash, &rhash);
+
+	/* If there are two args: */
+	add_op(&script, OP_DEPTH);
+	add_op(&script, OP_1SUB);
+	add_op(&script, OP_IF);
+
+	/* If the top arg is a hashpreimage. */
+	add_op(&script, OP_SIZE);
+	add_op(&script, OP_LITERAL(32));
+	add_op(&script, OP_EQUAL);
+	add_op(&script, OP_IF);
+
+	/* Must hash to revocation_hash, and be signed by them. */
+	RIPEMD160(rhash.u.u8, sizeof(rhash.u), rhash_ripemd);
+	add_op(&script, OP_HASH160);
+	add_push_bytes(&script, rhash_ripemd, sizeof(rhash_ripemd));
+	add_op(&script, OP_EQUALVERIFY);
+	add_push_bytes(&script, theirkey->key.data, theirkey->key.len);
+	add_op(&script, OP_CHECKSIG);
+
+	/* Otherwise, it should be both our sigs. */
+	add_op(&script, OP_ELSE);
+
+	add_op(&script, OP_LITERAL(2));
+	/* This obscures whose key is whose.  Probably unnecessary? */
+	if (key_less(mykey, theirkey)) {
+		add_push_bytes(&script, mykey->key.data, mykey->key.len);
+		add_push_bytes(&script, theirkey->key.data, theirkey->key.len);
+	} else {
+		add_push_bytes(&script, theirkey->key.data, theirkey->key.len);
+		add_push_bytes(&script, mykey->key.data, mykey->key.len);
+	}	
+	add_op(&script, OP_LITERAL(2));
+	add_op(&script, OP_CHECKMULTISIG);
+	add_op(&script, OP_ENDIF);
+
+	/* Not two args?  Must be us using timeout. */
+	add_op(&script, OP_ELSE);
+	add_push_bytes(&script, &locktime_le, sizeof(locktime_le));
+	add_op(&script, OP_CHECKSEQUENCEVERIFY);
+	add_push_bytes(&script, mykey->key.data, mykey->key.len);
+	add_op(&script, OP_CHECKSIG);
+	add_op(&script, OP_ENDIF);
+
+	return script;
 }

@@ -1,6 +1,7 @@
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/err/err.h>
+#include <ccan/cast/cast.h>
 #include "pkt.h"
 #include "bitcoin_tx.h"
 #include "bitcoin_address.h"
@@ -137,6 +138,18 @@ struct pkt *leak_anchor_sigs_and_pretend_we_didnt_pkt(const tal_t *ctx,
 	LeakAnchorSigsAndPretendWeDidnt omg_fail
 		= LEAK_ANCHOR_SIGS_AND_PRETEND_WE_DIDNT__INIT;
 
-	omg_fail.anchor_scriptsigs = s;
+	omg_fail.sigs = s;
 	return to_pkt(ctx, PKT__PKT_OMG_FAIL, &omg_fail);
+}
+
+struct pkt *open_commit_sig_pkt(const tal_t *ctx, const u8 *sig, size_t siglen)
+{
+	OpenCommitSig o = OPEN_COMMIT_SIG__INIT;
+	BitcoinSignature s = BITCOIN_SIGNATURE__INIT;
+
+	o.sig = &s;
+	s.der_then_sigtype.len = siglen;
+	s.der_then_sigtype.data = cast_const(u8 *, sig);
+
+	return to_pkt(ctx, PKT__PKT_OPEN_COMMIT_SIG, &o);
 }

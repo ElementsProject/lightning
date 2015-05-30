@@ -3,6 +3,8 @@
 #include <ccan/tal/tal.h>
 #include "lightning.pb-c.h"
 
+struct sha256_double;
+
 /* Create an anchor transaction based on both sides' requests.
  * The scriptSigs are left empty.
  *
@@ -16,4 +18,10 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 				    const OpenChannel *o1,
 				    const OpenChannel *o2,
 				    size_t **inmap, size_t **outmap);
+
+/* We wouldn't need the leak files if we had normalized txids! */
+void anchor_txid(struct bitcoin_tx *anchor,
+		 const char *leakfile1, const char *leakfile2,
+		 const size_t *inmap,
+		 struct sha256_double *txid);
 #endif /* LIGHTNING_ANCHOR_H */
