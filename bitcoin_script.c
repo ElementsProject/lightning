@@ -206,6 +206,12 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 	add_op(&script, OP_CHECKSIG);
 
 	/* Otherwise, it should be both our sigs. */
+
+	/* FIXME: Perhaps this is a bad idea?  We don't need it to
+	 * close, and without this we force the blockchain to commit
+	 * to the timeout: that may make a flood of transactions due
+	 * to hub collapse less likely (as some optimists hope hub
+	 * will return). */
 	add_op(&script, OP_ELSE);
 
 	add_op(&script, OP_LITERAL(2));
