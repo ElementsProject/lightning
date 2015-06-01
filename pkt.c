@@ -1,10 +1,10 @@
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/err/err.h>
-#include <ccan/cast/cast.h>
 #include "pkt.h"
 #include "bitcoin_tx.h"
 #include "bitcoin_address.h"
+#include "signature.h"
 
 #include <stdio.h>
 static struct pkt *to_pkt(const tal_t *ctx, Pkt__PktCase type, void *msg)
@@ -45,6 +45,37 @@ void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash)
 	memcpy(hash->u.u8 + 8, &pb->b, 8);
 	memcpy(hash->u.u8 + 16, &pb->c, 8);
 	memcpy(hash->u.u8 + 24, &pb->d, 8);
+}
+
+Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
+{
+	Signature *pb = tal(ctx, Signature);
+	signature__init(pb);
+
+	/* Kill me now... */
+	memcpy(&pb->r1, sig->r, 8);
+	memcpy(&pb->r2, sig->r + 8, 8);
+	memcpy(&pb->r3, sig->r + 16, 8);
+	memcpy(&pb->r4, sig->r + 24, 8);
+	memcpy(&pb->s1, sig->s, 8);
+	memcpy(&pb->s2, sig->s + 8, 8);
+	memcpy(&pb->s3, sig->s + 16, 8);
+	memcpy(&pb->s4, sig->s + 24, 8);
+
+	return pb;
+}
+
+void proto_to_signature(const Signature *pb, struct signature *sig)
+{
+	/* Kill me again. */
+	memcpy(sig->r, &pb->r1, 8);
+	memcpy(sig->r + 8, &pb->r2, 8);
+	memcpy(sig->r + 16, &pb->r3, 8);
+	memcpy(sig->r + 24, &pb->r4, 8);
+	memcpy(sig->s, &pb->s1, 8);
+	memcpy(sig->s + 8, &pb->s2, 8);
+	memcpy(sig->s + 16, &pb->s3, 8);
+	memcpy(sig->s + 24, &pb->s4, 8);
 }
 
 BitcoinPubkey *pubkey_to_proto(const tal_t *ctx,
@@ -142,14 +173,10 @@ struct pkt *leak_anchor_sigs_and_pretend_we_didnt_pkt(const tal_t *ctx,
 	return to_pkt(ctx, PKT__PKT_OMG_FAIL, &omg_fail);
 }
 
-struct pkt *open_commit_sig_pkt(const tal_t *ctx, const u8 *sig, size_t siglen)
+struct pkt *open_commit_sig_pkt(const tal_t *ctx, const struct signature *sig)
 {
 	OpenCommitSig o = OPEN_COMMIT_SIG__INIT;
-	BitcoinSignature s = BITCOIN_SIGNATURE__INIT;
 
-	o.sig = &s;
-	s.der_then_sigtype.len = siglen;
-	s.der_then_sigtype.data = cast_const(u8 *, sig);
-
+	o.sig = signature_to_proto(ctx, sig);
 	return to_pkt(ctx, PKT__PKT_OPEN_COMMIT_SIG, &o);
 }

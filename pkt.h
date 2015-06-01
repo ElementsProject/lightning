@@ -21,6 +21,7 @@ Pkt *pkt_from_file(const char *filename, Pkt__PktCase expect);
 
 struct sha256;
 struct bitcoin_compressed_pubkey;
+struct signature;
 
 /**
  * openchannel_pkt - create an openchannel message
@@ -61,14 +62,16 @@ struct pkt *leak_anchor_sigs_and_pretend_we_didnt_pkt(const tal_t *ctx,
 /**
  * open_commit_sig_pkt - create an open_commit_sig message
  * @ctx: tal context to allocate off.
- * @sig: the der-encoded signature for the commit transaction input.
- * @siglen: the length of @sig.
+ * @sig: the signature for the commit transaction input.
  */
-struct pkt *open_commit_sig_pkt(const tal_t *ctx, const u8 *sig, size_t siglen);
+struct pkt *open_commit_sig_pkt(const tal_t *ctx, const struct signature *sig);
 
 /* Useful helper for allocating & populating a protobuf Sha256Hash */
 Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash);
 void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash);
+
+Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig);
+void proto_to_signature(const Signature *pb, struct signature *sig);
 
 BitcoinPubkey *pubkey_to_proto(const tal_t *ctx,
 			       const struct bitcoin_compressed_pubkey *key);

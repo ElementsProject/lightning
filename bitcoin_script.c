@@ -1,6 +1,7 @@
 #include "bitcoin_script.h"
 #include "bitcoin_address.h"
 #include "pkt.h"
+#include "signature.h"
 #include <openssl/ripemd.h>
 #include <ccan/endian/endian.h>
 #include <ccan/crypto/sha256/sha256.h>
@@ -57,6 +58,25 @@ static void add_push_bytes(u8 **scriptp, const void *mem, size_t len)
 	}
 
 	add(scriptp, mem, len);
+}
+
+/* Bitcoin wants DER encoding. */
+static void add_push_sig(u8 **scriptp, const struct signature *sig)
+{
+	u8 der[2 + 2 + sizeof(sig->r) + 2 + sizeof(sig->s)];
+
+	der[0] = 0x30; /* Type */
+	der[1] = sizeof(der) - 2; /* Total length */
+
+	der[2] = 0x2; /* r value type. */
+	der[3] = sizeof(sig->r); /* r length */
+	memcpy(der+4, sig->r, sizeof(sig->r));
+
+	der[4 + sizeof(sig->r)] = 0x2; /* s value type. */
+	der[4 + sizeof(sig->r) + 1] = sizeof(sig->s); /* s value length. */
+	memcpy(der+4+sizeof(sig->r)+2, sig->s, sizeof(sig->s));
+
+	add_push_bytes(scriptp, der, sizeof(der));
 }
 
 /* FIXME: permute? */
@@ -140,12 +160,11 @@ u8 *scriptpubkey_pay_to_pubkeyhash(const tal_t *ctx,
 
 u8 *scriptsig_pay_to_pubkeyhash(const tal_t *ctx,
 				const struct bitcoin_address *addr,
-				const u8 *signature,
-				size_t sig_len)
+				const struct signature *sig)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 
-	add_push_bytes(&script, signature, sig_len);
+	add_push_sig(&script, sig);
 	add_push_bytes(&script, addr, sizeof(*addr));
 
 	return script;

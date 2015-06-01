@@ -6,12 +6,12 @@
 #include <assert.h>
 #include <ccan/cast/cast.h>
 
-u8 *sign_hash(const tal_t *ctx, EC_KEY *private_key,
-	      const struct sha256_double *h)
+struct signature *sign_hash(const tal_t *ctx, EC_KEY *private_key,
+			    const struct sha256_double *h)
 {
 	ECDSA_SIG *sig;
 	int len;
-	unsigned char *der, *ret;
+	struct signature *s;
 	
 	sig = ECDSA_do_sign(h->sha.u.u8, sizeof(*h), private_key);
 	if (!sig)
@@ -33,21 +33,24 @@ u8 *sign_hash(const tal_t *ctx, EC_KEY *private_key,
 		assert(!BN_is_odd(sig->s));
         }
 
-	/* This tells it to allocate for us. */
-	der = NULL;
-	len = i2d_ECDSA_SIG(sig, &der);
+	s = talz(ctx, struct signature);
+
+	/* Pack r and s into signature, 32 bytes each. */
+	len = BN_num_bytes(sig->r);
+	assert(len <= sizeof(s->r));
+	BN_bn2bin(sig->r, s->r + sizeof(s->r) - len);
+	len = BN_num_bytes(sig->s);
+	assert(len <= sizeof(s->s));
+	BN_bn2bin(sig->s, s->s + sizeof(s->s) - len);
+
 	ECDSA_SIG_free(sig);
-
-	if (len <= 0)
-		return NULL;
-
-	ret = tal_dup_arr(ctx, u8, der, len, 0);
-	OPENSSL_free(der);
-	return ret;
+	return s;
 }
 
-u8 *sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx, unsigned int in,
-		  const u8 *subscript, size_t subscript_len, EC_KEY *privkey)
+struct signature *sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx,
+				unsigned int in,
+				const u8 *subscript, size_t subscript_len,
+				EC_KEY *privkey)
 {
 	struct sha256_double hash;
 	struct sha256_ctx shactx;

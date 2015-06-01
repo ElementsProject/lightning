@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
 	struct bitcoin_tx *anchor, *commit;
 	struct sha256_double txid;
 	struct pkt *pkt;
-	u8 *sig;
+	struct signature *sig;
 	size_t *inmap, *outmap;
 	EC_KEY *privkey;
 	bool testnet;
@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
 	sig = sign_tx_input(ctx, commit, 0, anchor->output[outmap[0]].script,
 			    anchor->output[outmap[0]].script_length, privkey);
 
-	pkt = open_commit_sig_pkt(ctx, sig, tal_count(sig));
+	pkt = open_commit_sig_pkt(ctx, sig);
 	if (!write_all(STDOUT_FILENO, pkt,
 		       sizeof(pkt->len) + le32_to_cpu(pkt->len)))
 		err(1, "Writing out packet");

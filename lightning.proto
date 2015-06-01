@@ -5,12 +5,23 @@
 // Helper Types
 //
 
-// Protobufs don't have fixed-length fields, so this is a hack.
+// Protobufs don't have fixed-length fields, so these are a hack.
 message sha256_hash {
   required fixed64 a = 1;
   required fixed64 b = 2;
   required fixed64 c = 3;
   required fixed64 d = 4;
+}
+
+message signature {
+  required fixed64 r1 = 1;
+  required fixed64 r2 = 2;
+  required fixed64 r3 = 3;
+  required fixed64 r4 = 4;
+  required fixed64 s1 = 5;
+  required fixed64 s2 = 6;
+  required fixed64 s3 = 7;
+  required fixed64 s4 = 8;
 }
 
 // Identifies consumption of a bitcoin output.
@@ -30,11 +41,6 @@ message bitcoin_output {
   required uint64 amount = 1;
   required bytes script = 2;
 }
-
-// A signature to use for a transaction; DER encoded with sigtype at the end.
-message bitcoin_signature {
-  required bytes der_then_sigtype = 1;
-};
 
 // Pubkey for commitment transaction input.
 message bitcoin_pubkey {
@@ -82,7 +88,7 @@ message open_channel {
 
 // Supply signature for commitment tx
 message open_commit_sig {
-  required bitcoin_signature sig = 1;
+  required signature sig = 1;
 }
 
 // Supply ScriptSig for each anchor tx inputs.
@@ -116,18 +122,18 @@ message update {
   // Change in current payment to-me (implies reverse to-you).
   required sint64 delta = 2;
   // Signature for new commitment tx.
-  required bitcoin_signature sig = 3;
+  required signature sig = 3;
   // Signature for old anchor (if any)
-  optional bitcoin_signature old_anchor_sig = 4;
+  optional signature old_anchor_sig = 4;
   // FIXME: optional HTLC ops.
 }
 
 // OK, I accept that update.
 message update_accept {
   // Signature for new commitment tx.
-  required bitcoin_signature sig = 1;
+  required signature sig = 1;
   // Signature for old anchor (if any)
-  optional bitcoin_signature old_anchor_sig = 2;
+  optional signature old_anchor_sig = 2;
   // Hash preimage which revokes old commitment tx.
   required sha256_hash revocation_preimage = 3;
 }
@@ -151,7 +157,7 @@ message new_anchor_ack {
 
 // Now we both send signatures for new commit sig.
 message new_anchor_commit_sig {
-  required bitcoin_signature sig = 1;
+  required signature sig = 1;
 }
 
 // Here are the script sigs for the new anchor's new inputs.
@@ -169,14 +175,14 @@ message new_anchor_complete {
 message close_channel {
   // This is our signature a new transaction which spends my current
   // commitment tx output 0 (which is 2/2) to script_to_me.
-  required bitcoin_signature sig = 1;
+  required signature sig = 1;
 }
 
 // OK, here's my sig so you can broadcast it too.
 message close_channel_complete {
   // This is our signature a new transaction which spends your current
   // commitment tx output 0 (which is 2/2) to your script_to_me.
-  required bitcoin_signature sig = 1;
+  required signature sig = 1;
 }
 
 // This means we're going to hang up; it's to help diagnose only! 

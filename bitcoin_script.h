@@ -6,6 +6,7 @@
 
 struct bitcoin_address;
 struct bitcoin_compressed_pubkey;
+struct signature;
 
 /* tal_count() gives the length of the script. */
 u8 *bitcoin_redeem_2of2(const tal_t *ctx,
@@ -35,8 +36,7 @@ u8 *scriptpubkey_pay_to_pubkeyhash(const tal_t *ctx,
 /* Create an input script to accept pay to pubkey */
 u8 *scriptsig_pay_to_pubkeyhash(const tal_t *ctx,
 				const struct bitcoin_address *addr,
-				const u8 *signature,
-				size_t sig_len);
+				const struct signature *sig);
 
 /* Is this a normal pay to pubkey hash? */
 bool is_pay_to_pubkey_hash(const ProtobufCBinaryData *script);
