@@ -3,6 +3,7 @@
 #include <ccan/short_types/short_types.h>
 #include <openssl/ecdsa.h>
 #include <ccan/tal/tal.h>
+#include "lightning.pb-c.h"
 
 enum sighash_type {
     SIGHASH_ALL = 1,
@@ -28,5 +29,9 @@ struct signature *sign_tx_input(const tal_t *ctx,
 				struct bitcoin_tx *tx, unsigned int in,
 				const u8 *subscript, size_t subscript_len,
 				EC_KEY *privkey);
+
+/* Convert to-from protobuf to internal representation. */
+Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig);
+bool proto_to_signature(const Signature *pb, struct signature *sig);
 
 #endif /* LIGHTNING_SIGNATURE_H */

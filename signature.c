@@ -71,3 +71,40 @@ struct signature *sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx,
 
 	return sign_hash(ctx, privkey, &hash);
 }
+
+Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
+{
+	Signature *pb = tal(ctx, Signature);
+	signature__init(pb);
+
+	assert((sig->s[31] & 1) == 0);
+
+	/* Kill me now... */
+	memcpy(&pb->r1, sig->r, 8);
+	memcpy(&pb->r2, sig->r + 8, 8);
+	memcpy(&pb->r3, sig->r + 16, 8);
+	memcpy(&pb->r4, sig->r + 24, 8);
+	memcpy(&pb->s1, sig->s, 8);
+	memcpy(&pb->s2, sig->s + 8, 8);
+	memcpy(&pb->s3, sig->s + 16, 8);
+	memcpy(&pb->s4, sig->s + 24, 8);
+
+	return pb;
+}
+
+bool proto_to_signature(const Signature *pb, struct signature *sig)
+{
+	/* Kill me again. */
+	memcpy(sig->r, &pb->r1, 8);
+	memcpy(sig->r + 8, &pb->r2, 8);
+	memcpy(sig->r + 16, &pb->r3, 8);
+	memcpy(sig->r + 24, &pb->r4, 8);
+	memcpy(sig->s, &pb->s1, 8);
+	memcpy(sig->s + 8, &pb->s2, 8);
+	memcpy(sig->s + 16, &pb->s3, 8);
+	memcpy(sig->s + 24, &pb->s4, 8);
+
+	/* S must be even */
+	return (sig->s[31] & 1) == 0;
+}
+

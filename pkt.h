@@ -70,9 +70,7 @@ struct pkt *open_commit_sig_pkt(const tal_t *ctx, const struct signature *sig);
 Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash);
 void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash);
 
-Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig);
-void proto_to_signature(const Signature *pb, struct signature *sig);
-
 BitcoinPubkey *pubkey_to_proto(const tal_t *ctx,
 			       const struct bitcoin_compressed_pubkey *key);
+
 #endif /* LIGHTNING_PKT_H */

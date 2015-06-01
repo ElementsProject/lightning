@@ -47,37 +47,6 @@ void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash)
 	memcpy(hash->u.u8 + 24, &pb->d, 8);
 }
 
-Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
-{
-	Signature *pb = tal(ctx, Signature);
-	signature__init(pb);
-
-	/* Kill me now... */
-	memcpy(&pb->r1, sig->r, 8);
-	memcpy(&pb->r2, sig->r + 8, 8);
-	memcpy(&pb->r3, sig->r + 16, 8);
-	memcpy(&pb->r4, sig->r + 24, 8);
-	memcpy(&pb->s1, sig->s, 8);
-	memcpy(&pb->s2, sig->s + 8, 8);
-	memcpy(&pb->s3, sig->s + 16, 8);
-	memcpy(&pb->s4, sig->s + 24, 8);
-
-	return pb;
-}
-
-void proto_to_signature(const Signature *pb, struct signature *sig)
-{
-	/* Kill me again. */
-	memcpy(sig->r, &pb->r1, 8);
-	memcpy(sig->r + 8, &pb->r2, 8);
-	memcpy(sig->r + 16, &pb->r3, 8);
-	memcpy(sig->r + 24, &pb->r4, 8);
-	memcpy(sig->s, &pb->s1, 8);
-	memcpy(sig->s + 8, &pb->s2, 8);
-	memcpy(sig->s + 16, &pb->s3, 8);
-	memcpy(sig->s + 24, &pb->s4, 8);
-}
-
 BitcoinPubkey *pubkey_to_proto(const tal_t *ctx,
 			       const struct bitcoin_compressed_pubkey *key)
 {
