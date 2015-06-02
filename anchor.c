@@ -115,15 +115,15 @@ void anchor_txid(struct bitcoin_tx *anchor,
 		     leak1->sigs->n_script, leak2->sigs->n_script);
 
 	for (i = 0; i < leak1->sigs->n_script; i++) {
-		anchor->input[i].script = leak1->sigs->script[i].data;
-		anchor->input[i].script_length = leak1->sigs->script[i].len;
+		size_t n = inmap[i];
+		anchor->input[n].script = leak1->sigs->script[i].data;
+		anchor->input[n].script_length = leak1->sigs->script[i].len;
 	}
 
 	for (i = 0; i < leak2->sigs->n_script; i++) {
-		anchor->input[leak1->sigs->n_script + i].script
-			= leak2->sigs->script[i].data;
-		anchor->input[leak1->sigs->n_script + i].script_length
-			= leak2->sigs->script[i].len;
+		size_t n = inmap[leak1->sigs->n_script + i];
+		anchor->input[n].script	= leak2->sigs->script[i].data;
+		anchor->input[n].script_length = leak2->sigs->script[i].len;
 	}
 
 	bitcoin_txid(anchor, txid);
