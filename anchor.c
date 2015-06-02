@@ -4,6 +4,7 @@
 #include "pkt.h"
 #include "permute_tx.h"
 #include "bitcoin_script.h"
+#include "pubkey.h"
 #include <ccan/err/err.h>
 
 struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
@@ -15,6 +16,7 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 	struct bitcoin_tx *tx;
 	u8 *redeemscript;
 	size_t *inmap, *outmap;
+	struct pubkey key1, key2;
 
 	if (add_overflows_size_t(o1->anchor->n_inputs, o2->anchor->n_inputs))
 		return NULL;
@@ -49,9 +51,13 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 	if (add_overflows_u64(o1->anchor->total, o2->anchor->total))
 		return tal_free(tx);
 
+	/* Pubkeys both valid, right? */
+	if (!proto_to_pubkey(o1->anchor->pubkey, &key1)
+	    || !proto_to_pubkey(o2->anchor->pubkey, &key2))
+		return tal_free(tx);
+
 	/* Make the 2 of 2 payment for the commitment txs. */
-	redeemscript = bitcoin_redeem_2of2(tx, o1->anchor->pubkey,
-					   o2->anchor->pubkey);
+	redeemscript = bitcoin_redeem_2of2(tx, &key1, &key2);
 	tx->output[0].amount = o1->anchor->total + o2->anchor->total;
 	tx->output[0].script = scriptpubkey_p2sh(tx, redeemscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);

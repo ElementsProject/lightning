@@ -5,25 +5,25 @@
 #include "lightning.pb-c.h"
 
 struct bitcoin_address;
-struct bitcoin_compressed_pubkey;
+struct pubkey;
 struct signature;
 
 /* tal_count() gives the length of the script. */
 u8 *bitcoin_redeem_2of2(const tal_t *ctx,
-			const BitcoinPubkey *key1,
-			const BitcoinPubkey *key2);
+			const struct pubkey *key1,
+			const struct pubkey *key2);
 
 /* tal_count() gives the length of the script. */
-u8 *bitcoin_redeem_single(const tal_t *ctx, const u8 *key, size_t keylen);
+u8 *bitcoin_redeem_single(const tal_t *ctx, const struct pubkey *key);
 
 /* One of:
  * mysig and theirsig, OR
  * mysig and relative locktime passed, OR
  * theirsig and hash preimage. */
 u8 *bitcoin_redeem_revocable(const tal_t *ctx,
-			     const BitcoinPubkey *mykey,
+			     const struct pubkey *mykey,
 			     u32 locktime,
-			     const BitcoinPubkey *theirkey,
+			     const struct pubkey *theirkey,
 			     const Sha256Hash *revocation_hash);
 
 /* Create an output script using p2sh for this redeem script. */

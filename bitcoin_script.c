@@ -2,6 +2,7 @@
 #include "bitcoin_address.h"
 #include "pkt.h"
 #include "signature.h"
+#include "pubkey.h"
 #include <openssl/ripemd.h>
 #include <ccan/endian/endian.h>
 #include <ccan/crypto/sha256/sha256.h>
@@ -60,6 +61,11 @@ static void add_push_bytes(u8 **scriptp, const void *mem, size_t len)
 	add(scriptp, mem, len);
 }
 
+static void add_push_key(u8 **scriptp, const struct pubkey *key)
+{
+	add_push_bytes(scriptp, key->key, pubkey_len(key));
+}
+
 /* Bitcoin wants DER encoding. */
 static void add_push_sig(u8 **scriptp, const struct signature *sig)
 {
@@ -81,39 +87,28 @@ static void add_push_sig(u8 **scriptp, const struct signature *sig)
 
 /* FIXME: permute? */
 /* Is a < b? (If equal we don't care) */
-static bool key_less(const BitcoinPubkey *a, const BitcoinPubkey *b)
+static bool key_less(const struct pubkey *a, const struct pubkey *b)
 {
-	size_t len;
-	int cmp;
+	/* Shorter one wins. */
+	if (pubkey_len(a) != pubkey_len(b))
+		return pubkey_len(a) < pubkey_len(b);
 
-	if (a->key.len < b->key.len)
-		len = a->key.len;
-	else
-		len = b->key.len;
-
-	cmp = memcmp(a->key.data, b->key.data, len);
-	if (cmp < 0)
-		return true;
-	else if (cmp > 0)
-		return false;
-
-	/* Corner case: if it's shorter, it's less. */
-	return a->key.len < b->key.len;
+	return memcmp(a->key, b->key, pubkey_len(a)) < 0;
 }
 	
 /* tal_count() gives the length of the script. */
 u8 *bitcoin_redeem_2of2(const tal_t *ctx,
-			const BitcoinPubkey *key1,
-			const BitcoinPubkey *key2)
+			const struct pubkey *key1,
+			const struct pubkey *key2)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 	add_op(&script, OP_LITERAL(2));
 	if (key_less(key1, key2)) {
-		add_push_bytes(&script, key1->key.data, key1->key.len);
-		add_push_bytes(&script, key2->key.data, key2->key.len);
+		add_push_key(&script, key1);
+		add_push_key(&script, key2);
 	} else {
-		add_push_bytes(&script, key2->key.data, key2->key.len);
-		add_push_bytes(&script, key1->key.data, key1->key.len);
+		add_push_key(&script, key2);
+		add_push_key(&script, key1);
 	}
 	add_op(&script, OP_LITERAL(2));
 	add_op(&script, OP_CHECKMULTISIG);
@@ -121,10 +116,10 @@ u8 *bitcoin_redeem_2of2(const tal_t *ctx,
 }
 
 /* tal_count() gives the length of the script. */
-u8 *bitcoin_redeem_single(const tal_t *ctx, const u8 *key, size_t keylen)
+u8 *bitcoin_redeem_single(const tal_t *ctx, const struct pubkey *key)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
-	add_push_bytes(&script, key, keylen);
+	add_push_key(&script, key);
 	add_op(&script, OP_CHECKSIG);
 	return script;
 }
@@ -193,9 +188,9 @@ bool is_pay_to_pubkey_hash(const ProtobufCBinaryData *script)
  * mysig and relative locktime passed, OR
  * theirsig and hash preimage. */
 u8 *bitcoin_redeem_revocable(const tal_t *ctx,
-			     const BitcoinPubkey *mykey,
+			     const struct pubkey *mykey,
 			     u32 locktime,
-			     const BitcoinPubkey *theirkey,
+			     const struct pubkey *theirkey,
 			     const Sha256Hash *revocation_hash)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
@@ -221,7 +216,7 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 	add_op(&script, OP_HASH160);
 	add_push_bytes(&script, rhash_ripemd, sizeof(rhash_ripemd));
 	add_op(&script, OP_EQUALVERIFY);
-	add_push_bytes(&script, theirkey->key.data, theirkey->key.len);
+	add_push_key(&script, theirkey);
 	add_op(&script, OP_CHECKSIG);
 
 	/* Otherwise, it should be both our sigs. */
@@ -236,11 +231,11 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 	add_op(&script, OP_LITERAL(2));
 	/* This obscures whose key is whose.  Probably unnecessary? */
 	if (key_less(mykey, theirkey)) {
-		add_push_bytes(&script, mykey->key.data, mykey->key.len);
-		add_push_bytes(&script, theirkey->key.data, theirkey->key.len);
+		add_push_key(&script, mykey);
+		add_push_key(&script, theirkey);
 	} else {
-		add_push_bytes(&script, theirkey->key.data, theirkey->key.len);
-		add_push_bytes(&script, mykey->key.data, mykey->key.len);
+		add_push_key(&script, theirkey);
+		add_push_key(&script, mykey);
 	}	
 	add_op(&script, OP_LITERAL(2));
 	add_op(&script, OP_CHECKMULTISIG);
@@ -250,7 +245,7 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 	add_op(&script, OP_ELSE);
 	add_push_bytes(&script, &locktime_le, sizeof(locktime_le));
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
-	add_push_bytes(&script, mykey->key.data, mykey->key.len);
+	add_push_key(&script, mykey);
 	add_op(&script, OP_CHECKSIG);
 	add_op(&script, OP_ENDIF);
 
