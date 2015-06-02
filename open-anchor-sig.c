@@ -35,7 +35,7 @@ static u8 *tx_scriptsig(const tal_t *ctx,
 	if (!sig)
 		return NULL;
 
-	if (!is_pay_to_pubkey_hash(&input->subscript))
+	if (!is_pay_to_pubkey_hash(input->subscript.data, input->subscript.len))
 		errx(1, "FIXME: Don't know how to handle input");
 	bitcoin_address(pubkey, &addr);
 	return scriptsig_pay_to_pubkeyhash(ctx, &addr, sig);

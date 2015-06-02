@@ -166,19 +166,19 @@ u8 *scriptsig_pay_to_pubkeyhash(const tal_t *ctx,
 }
 
 /* Is this a normal pay to pubkey hash? */
-bool is_pay_to_pubkey_hash(const ProtobufCBinaryData *script)
+bool is_pay_to_pubkey_hash(const u8 *script, size_t script_len)
 {
-	if (script->len != 25)
+	if (script_len != 25)
 		return false;
-	if (script->data[0] != OP_DUP)
+	if (script[0] != OP_DUP)
 		return false;
-	if (script->data[1] != OP_HASH160)
+	if (script[1] != OP_HASH160)
 		return false;
-	if (script->data[2] != OP_PUSHBYTES(20))
+	if (script[2] != OP_PUSHBYTES(20))
 		return false;
-	if (script->data[23] != OP_EQUALVERIFY)
+	if (script[23] != OP_EQUALVERIFY)
 		return false;
-	if (script->data[24] != OP_CHECKSIG)
+	if (script[24] != OP_CHECKSIG)
 		return false;
 	return true;
 }
@@ -191,14 +191,11 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 			     const struct pubkey *mykey,
 			     u32 locktime,
 			     const struct pubkey *theirkey,
-			     const Sha256Hash *revocation_hash)
+			     const struct sha256 *rhash)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
-	struct sha256 rhash;
 	u8 rhash_ripemd[RIPEMD160_DIGEST_LENGTH];
 	le32 locktime_le = cpu_to_le32(locktime);
-
-	proto_to_sha256(revocation_hash, &rhash);
 
 	/* If there are two args: */
 	add_op(&script, OP_DEPTH);
@@ -212,7 +209,7 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 	add_op(&script, OP_IF);
 
 	/* Must hash to revocation_hash, and be signed by them. */
-	RIPEMD160(rhash.u.u8, sizeof(rhash.u), rhash_ripemd);
+	RIPEMD160(rhash->u.u8, sizeof(rhash->u), rhash_ripemd);
 	add_op(&script, OP_HASH160);
 	add_push_bytes(&script, rhash_ripemd, sizeof(rhash_ripemd));
 	add_op(&script, OP_EQUALVERIFY);

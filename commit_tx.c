@@ -4,6 +4,7 @@
 #include "bitcoin_script.h"
 #include "permute_tx.h"
 #include "pubkey.h"
+#include "pkt.h"
 
 struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    OpenChannel *ours,
@@ -14,6 +15,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	struct bitcoin_tx *tx;
 	const u8 *redeemscript;
 	struct pubkey ourkey, theirkey;
+	struct sha256 redeem;
 
 	/* Now create commitment tx: one input, two outputs. */
 	tx = bitcoin_tx(ctx, 1, 2);
@@ -26,12 +28,13 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 		return tal_free(tx);
 	if (!proto_to_pubkey(theirs->anchor->pubkey, &theirkey))
 		return tal_free(tx);
+	proto_to_sha256(ours->revocation_hash, &redeem);
 	
 	/* First output is a P2SH to a complex redeem script (usu. for me) */
 	redeemscript = bitcoin_redeem_revocable(tx, &ourkey,
 						ours->locktime_seconds,
 						&theirkey,
-						ours->revocation_hash);
+						&redeem);
 	tx->output[0].script = scriptpubkey_p2sh(tx, redeemscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
