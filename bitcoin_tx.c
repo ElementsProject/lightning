@@ -64,6 +64,14 @@ void sha256_tx(struct sha256_ctx *ctx, const struct bitcoin_tx *tx)
 	sha256_le32(ctx, tx->lock_time);
 }
 
+void bitcoin_txid(const struct bitcoin_tx *tx, struct sha256_double *txid)
+{
+	struct sha256_ctx ctx = SHA256_INIT;
+
+	sha256_tx(&ctx, tx);
+	sha256_double_done(&ctx, txid);
+}
+
 struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 			      varint_t output_count)
 {

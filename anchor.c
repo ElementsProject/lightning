@@ -97,7 +97,6 @@ void anchor_txid(struct bitcoin_tx *anchor,
 	Pkt *p1, *p2;
 	LeakAnchorSigsAndPretendWeDidnt *leak1, *leak2;
 	size_t i;
-	struct sha256_ctx shactx;
 	
 	p1 = pkt_from_file(leakfile1, PKT__PKT_OMG_FAIL);
 	p2 = pkt_from_file(leakfile2, PKT__PKT_OMG_FAIL);
@@ -121,9 +120,7 @@ void anchor_txid(struct bitcoin_tx *anchor,
 			= leak2->sigs->script[i].len;
 	}
 
-	sha256_init(&shactx);
-	sha256_tx(&shactx, anchor);
-	sha256_double_done(&shactx, txid);
+	bitcoin_txid(anchor, txid);
 
 	pkt__free_unpacked(p1, NULL);
 	pkt__free_unpacked(p2, NULL);

@@ -32,9 +32,12 @@ struct bitcoin_tx_input {
 	u32 sequence_number;
 };
 
-/* Linearize the tx.  This is good for deriving the txid, as well as the
- * signature. */
-void sha256_tx(struct sha256_ctx *shactx, const struct bitcoin_tx *tx);
+
+/* SHA256^2 the tx: simpler than sha256_tx */
+void bitcoin_txid(const struct bitcoin_tx *tx, struct sha256_double *txid);
+
+/* Useful for signature code. */
+void sha256_tx(struct sha256_ctx *ctx, const struct bitcoin_tx *tx);
 
 /* Allocate a tx: you just need to fill in inputs and outputs (they're
  * zeroed with inputs' sequence_number set to FFFFFFFF) */
