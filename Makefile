@@ -3,7 +3,7 @@
 # Needs to have oneof support: Ubuntu vivid's is too old :(
 PROTOCC:=protoc-c
 
-PROGRAMS := open-channel open-anchor-sig leak-anchor-sigs open-commit-sig
+PROGRAMS := open-channel open-anchor-sig leak-anchor-sigs open-commit-sig check-commit-sig
 
 HELPER_OBJS := base58.o lightning.pb-c.o shadouble.o pkt.o bitcoin_script.o permute_tx.o signature.o bitcoin_tx.o bitcoin_address.o anchor.o commit_tx.o pubkey.o
 
@@ -37,12 +37,15 @@ $(LEAK_ANCHOR_SIGS_OBJS): $(HEADERS)
 open-commit-sig: $(OPEN_COMMIT_SIG_OBJS) $(HELPER_OBJS) $(CCAN_OBJS)
 $(OPEN_COMMIT_SIG_OBJS): $(HEADERS)
 
+check-commit-sig: $(CHECK_COMMIT_SIG_OBJS) $(HELPER_OBJS) $(CCAN_OBJS)
+$(CHECK_COMMIT_SIG_OBJS): $(HEADERS)
+
 distclean: clean
 	$(RM) lightning.pb-c.c lightning.pb-c.h
 
 clean:
 	$(RM) $(PROGRAMS)
-	$(RM) $(OPEN_CHANNEL_OBJS) $(OPEN_ANCHOR_SIG_OBJS) $(LEAK_ANCHOR_SIGS_OBJS) $(OPEN_COMMIT_SIG_OBJS) $(HELPER_OBJS) $(CCAN_OBJS)
+	$(RM) *.o $(CCAN_OBJS)
 
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
 	$(CC) $(CFLAGS) -c -o $@ $<

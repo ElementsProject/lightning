@@ -165,6 +165,23 @@ u8 *scriptsig_pay_to_pubkeyhash(const tal_t *ctx,
 	return script;
 }
 
+u8 *scriptsig_p2sh_2of2(const tal_t *ctx,
+			const struct signature *sig1,
+			const struct signature *sig2,
+			const struct pubkey *key1,
+			const struct pubkey *key2)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+	u8 *redeemscript;
+
+	add_push_sig(&script, sig1);
+	add_push_sig(&script, sig2);
+
+	redeemscript = bitcoin_redeem_2of2(script, key1, key2);
+	add_push_bytes(&script, redeemscript, tal_count(redeemscript));
+	return script;
+}
+
 /* Is this a normal pay to pubkey hash? */
 bool is_pay_to_pubkey_hash(const u8 *script, size_t script_len)
 {
@@ -183,6 +200,19 @@ bool is_pay_to_pubkey_hash(const u8 *script, size_t script_len)
 	return true;
 }
 
+bool is_p2sh(const u8 *script, size_t script_len)
+{
+	if (script_len != 23)
+		return false;
+	if (script[0] != OP_HASH160)
+		return false;
+	if (script[1] != OP_PUSHBYTES(20))
+		return false;
+	if (script[22] != OP_EQUAL)
+		return false;
+	return true;
+}
+		
 /* One of:
  * mysig and theirsig, OR
  * mysig and relative locktime passed, OR
