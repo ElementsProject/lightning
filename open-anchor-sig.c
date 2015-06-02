@@ -13,6 +13,7 @@
 #include "bitcoin_address.h"
 #include "base58.h"
 #include "anchor.h"
+#include "pubkey.h"
 
 #include <openssl/ec.h>
 #include <unistd.h>
@@ -23,7 +24,7 @@ static u8 *tx_scriptsig(const tal_t *ctx,
 			unsigned int i,
 			const BitcoinInput *input,
 			EC_KEY *privkey,
-			const struct bitcoin_compressed_pubkey *pubkey)
+			const struct pubkey *pubkey)
 {
 	struct signature *sig;
 	struct bitcoin_address addr;
@@ -76,8 +77,7 @@ int main(int argc, char *argv[])
 
 	sigs = tal_arr(ctx, u8 *, o1->anchor->n_inputs);
 	for (i = 0; i < o1->anchor->n_inputs; i++) {
-		/* FIXME: Support non-compressed keys? */
-		struct bitcoin_compressed_pubkey pubkey;
+		struct pubkey pubkey;
 		EC_KEY *privkey;
 		bool testnet;
 

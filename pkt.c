@@ -47,17 +47,6 @@ void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash)
 	memcpy(hash->u.u8 + 24, &pb->d, 8);
 }
 
-BitcoinPubkey *pubkey_to_proto(const tal_t *ctx,
-			       const struct bitcoin_compressed_pubkey *key)
-{
-	BitcoinPubkey *p = tal(ctx, BitcoinPubkey);
-
-	bitcoin_pubkey__init(p);
-	p->key.data = tal_dup_arr(ctx, u8, key->key, sizeof(key->key), 0);
-	p->key.len = sizeof(key->key);
-	return p;
-}
-
 struct pkt *openchannel_pkt(const tal_t *ctx,
 			    u64 seed,
 			    const struct sha256 *revocation_hash,

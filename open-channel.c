@@ -13,6 +13,8 @@
 #include "base58.h"
 #include "pkt.h"
 #include "bitcoin_script.h"
+#include "bitcoin_address.h"
+#include "pubkey.h"
 #include <openssl/ec.h>
 #include <unistd.h>
 
@@ -93,7 +95,7 @@ int main(int argc, char *argv[])
 	bool testnet;
 	u8 *script_to_me;
 	size_t i;
-	struct bitcoin_compressed_pubkey commitkey;
+	struct pubkey commitkey;
 	EC_KEY *commitprivkey;
 
 	err_set_progname(argv[0]);

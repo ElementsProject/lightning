@@ -17,6 +17,7 @@
 #include "permute_tx.h"
 #include "signature.h"
 #include "commit_tx.h"
+#include "pubkey.h"
 #include <openssl/ec.h>
 #include <unistd.h>
 
@@ -31,7 +32,7 @@ int main(int argc, char *argv[])
 	size_t *inmap, *outmap;
 	EC_KEY *privkey;
 	bool testnet;
-	struct bitcoin_compressed_pubkey pubkey;
+	struct pubkey pubkey;
 
 	err_set_progname(argv[0]);
 

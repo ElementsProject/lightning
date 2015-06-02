@@ -8,7 +8,9 @@
 #include <openssl/ripemd.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include "bitcoin_address.h"
+
+struct pubkey;
+struct bitcoin_address;
 
 /* Encoding is version byte + ripemd160 + 4-byte checksum == 200 bits => 2^200.
  *
@@ -36,7 +38,7 @@ char *base58_with_check(char dest[BASE58_ADDR_MAX_LEN],
 
 char *key_to_base58(const tal_t *ctx, bool test_net, EC_KEY *key);
 EC_KEY *key_from_base58(const char *base58, size_t base58_len,
-			bool *test_net, struct bitcoin_compressed_pubkey *key);
+			bool *test_net, struct pubkey *key);
 
 bool raw_decode_base_n(BIGNUM *bn, const char *src, size_t len, int base);
 bool raw_decode_base58(BIGNUM *bn, const char *src, size_t len);

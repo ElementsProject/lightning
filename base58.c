@@ -5,6 +5,8 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include "base58.h"
 #include "shadouble.h"
+#include "bitcoin_address.h"
+#include "pubkey.h"
 #include <assert.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/tal/str/str.h>
@@ -299,23 +301,25 @@ static bool EC_KEY_regenerate_key(EC_KEY *eckey, BIGNUM *priv_key)
 }
 
 EC_KEY *key_from_base58(const char *base58, size_t base58_len,
-			bool *test_net, struct bitcoin_compressed_pubkey *key)
+			bool *test_net, struct pubkey *key)
 {
 	size_t keylen;
-	u8 keybuf[1 + 32 + 1 + 4], *pubkey;
+	u8 keybuf[1 + 32 + 1 + 4], *kptr;
 	u8 csum[4];
 	EC_KEY *priv;
 	BIGNUM bn;
+	point_conversion_form_t cform;
 
 	BN_init(&bn);
 	if (!raw_decode_base58(&bn, base58, base58_len))
 		return NULL;
 
 	keylen = BN_num_bytes(&bn);
-	/* FIXME: Handle non-compressed keys! */
 	if (keylen == 1 + 32 + 4)
-		goto fail_free_bn;
-	if (keylen != 1 + 32 + 1 + 4)
+		cform = POINT_CONVERSION_UNCOMPRESSED;
+	else if (keylen == 1 + 32 + 1 + 4)
+		cform = POINT_CONVERSION_COMPRESSED;
+	else
 		goto fail_free_bn;
 	BN_bn2bin(&bn, keybuf);
 
@@ -324,7 +328,7 @@ EC_KEY *key_from_base58(const char *base58, size_t base58_len,
 		goto fail_free_bn;
 
 	/* Byte after key should be 1 to represent a compressed key. */
-	if (keybuf[1 + 32] != 1)
+	if (cform == POINT_CONVERSION_COMPRESSED && keybuf[1 + 32] != 1)
 		goto fail_free_bn;
 
 	if (keybuf[0] == 128)
@@ -335,8 +339,7 @@ EC_KEY *key_from_base58(const char *base58, size_t base58_len,
 		goto fail_free_bn;
 
 	priv = EC_KEY_new_by_curve_name(NID_secp256k1);
-	/* We *always* used compressed form keys. */
-	EC_KEY_set_conv_form(priv, POINT_CONVERSION_COMPRESSED);
+	EC_KEY_set_conv_form(priv, cform);
 
 	BN_free(&bn);
         BN_init(&bn);
@@ -346,9 +349,9 @@ EC_KEY *key_from_base58(const char *base58, size_t base58_len,
 		goto fail_free_priv;
 
 	/* Save public key */ 
-	pubkey = key->key;
-	keylen = i2o_ECPublicKey(priv, &pubkey);
-	assert(keylen == sizeof(key->key));
+	kptr = key->key;
+	keylen = i2o_ECPublicKey(priv, &kptr);
+	assert(keylen == pubkey_len(key));
 
 	BN_free(&bn);
 	return priv;
