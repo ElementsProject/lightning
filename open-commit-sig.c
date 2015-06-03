@@ -63,8 +63,8 @@ int main(int argc, char *argv[])
 	/* Get the transaction ID of the anchor. */
 	anchor_txid(anchor, argv[4], argv[5], inmap, &txid);
 
-	/* Now create commitment tx to spend 2/2 output of anchor. */
-	commit = create_commit_tx(ctx, o1, o2, &txid, outmap[0]);
+	/* Now create THEIR commitment tx to spend 2/2 output of anchor. */
+	commit = create_commit_tx(ctx, o2, o1, &txid, outmap[0]);
 
 	/* If contributions don't exceed fees, this fails. */
 	if (!commit)
@@ -74,6 +74,7 @@ int main(int argc, char *argv[])
 		     (long long)o1->commitment_fee,
 		     (long long)o2->commitment_fee);
 
+	/* Sign it for them. */
 	sig = sign_tx_input(ctx, commit, 0, anchor->output[outmap[0]].script,
 			    anchor->output[outmap[0]].script_length, privkey);
 
