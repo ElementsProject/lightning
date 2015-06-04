@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
 	if (argc != 7)
-		opt_usage_and_exit(NULL);
+		opt_usage_exit_fail("Expected 6 arguments");
 
 	o1 = pkt_from_file(argv[1], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;

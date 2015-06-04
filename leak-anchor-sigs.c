@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
 	if (argc != 2)
-		opt_usage_and_exit(NULL);
+		opt_usage_exit_fail("Expected 1 argument");
 
 	s = pkt_from_file(argv[1], PKT__PKT_OPEN_ANCHOR_SCRIPTSIGS)
 		->open_anchor_scriptsigs;

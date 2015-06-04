@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
 	if (argc < 7)
-		opt_usage_and_exit(NULL);
+		opt_usage_exit_fail("Expected 6 or more arguments");
 
 	if (!hex_decode(argv[1], strlen(argv[1]), &seed, sizeof(seed)))
 		errx(1, "Invalid seed '%s' - need 256 hex bits", argv[1]);
