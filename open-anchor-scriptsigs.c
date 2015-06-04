@@ -27,7 +27,6 @@ static u8 *tx_scriptsig(const tal_t *ctx,
 			const struct pubkey *pubkey)
 {
 	struct signature *sig;
-	struct bitcoin_address addr;
 
 	sig = sign_tx_input(ctx, tx, i,
 			    input->subscript.data, input->subscript.len,
@@ -37,8 +36,7 @@ static u8 *tx_scriptsig(const tal_t *ctx,
 
 	if (!is_pay_to_pubkey_hash(input->subscript.data, input->subscript.len))
 		errx(1, "FIXME: Don't know how to handle input");
-	bitcoin_address(pubkey, &addr);
-	return scriptsig_pay_to_pubkeyhash(ctx, &addr, sig);
+	return scriptsig_pay_to_pubkeyhash(ctx, pubkey, sig);
 }
 	
 int main(int argc, char *argv[])

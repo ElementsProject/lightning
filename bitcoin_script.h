@@ -35,7 +35,7 @@ u8 *scriptpubkey_pay_to_pubkeyhash(const tal_t *ctx,
 
 /* Create an input script to accept pay to pubkey */
 u8 *scriptsig_pay_to_pubkeyhash(const tal_t *ctx,
-				const struct bitcoin_address *addr,
+				const struct pubkey *key,
 				const struct signature *sig);
 
 /* Create an input script to accept pay to pubkey */

@@ -154,13 +154,13 @@ u8 *scriptpubkey_pay_to_pubkeyhash(const tal_t *ctx,
 }
 
 u8 *scriptsig_pay_to_pubkeyhash(const tal_t *ctx,
-				const struct bitcoin_address *addr,
+				const struct pubkey *key,
 				const struct signature *sig)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 
 	add_push_sig(&script, sig);
-	add_push_bytes(&script, addr, sizeof(*addr));
+	add_push_key(&script, key);
 
 	return script;
 }
