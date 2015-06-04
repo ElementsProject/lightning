@@ -47,4 +47,7 @@ u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx);
 struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 			      varint_t output_count);
 
+struct bitcoin_tx *bitcoin_tx_from_file(const tal_t *ctx,
+					const char *filename);
+
 #endif /* LIGHTNING_BITCOIN_TX_H */

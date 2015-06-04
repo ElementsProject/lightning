@@ -95,6 +95,33 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 	return tx;
 }
 
+/* This may create an invalid anchor.  That's actually OK, as the bitcoin
+ * network won't accept it and we'll ds our way out. */
+bool anchor_add_scriptsigs(struct bitcoin_tx *anchor,
+			   OpenAnchorScriptsigs *ssigs1,
+			   OpenAnchorScriptsigs *ssigs2,
+			   const size_t *inmap)
+{
+	size_t i;
+
+	if (ssigs1->n_script + ssigs2->n_script != anchor->input_count)
+		return NULL;
+
+	for (i = 0; i < ssigs1->n_script; i++) {
+		size_t n = inmap[i];
+		anchor->input[n].script = ssigs1->script[i].data;
+		anchor->input[n].script_length = ssigs1->script[i].len;
+	}
+
+	for (i = 0; i < ssigs2->n_script; i++) {
+		size_t n = inmap[ssigs1->n_script + i];
+		anchor->input[n].script	= ssigs2->script[i].data;
+		anchor->input[n].script_length = ssigs2->script[i].len;
+	}
+
+	return true;
+}
+	
 void anchor_txid(struct bitcoin_tx *anchor,
 		 const char *leakfile1, const char *leakfile2,
 		 const size_t *inmap,
@@ -102,29 +129,16 @@ void anchor_txid(struct bitcoin_tx *anchor,
 {
 	Pkt *p1, *p2;
 	LeakAnchorSigsAndPretendWeDidnt *leak1, *leak2;
-	size_t i;
 	
 	p1 = pkt_from_file(leakfile1, PKT__PKT_OMG_FAIL);
 	p2 = pkt_from_file(leakfile2, PKT__PKT_OMG_FAIL);
 	leak1 = p1->omg_fail;
 	leak2 = p2->omg_fail;
 
-	if (leak1->sigs->n_script + leak2->sigs->n_script != anchor->input_count)
+	if (!anchor_add_scriptsigs(anchor, leak1->sigs, leak2->sigs, inmap))
 		errx(1, "Expected %llu total inputs, not %zu + %zu",
 		     (long long)anchor->input_count,
 		     leak1->sigs->n_script, leak2->sigs->n_script);
-
-	for (i = 0; i < leak1->sigs->n_script; i++) {
-		size_t n = inmap[i];
-		anchor->input[n].script = leak1->sigs->script[i].data;
-		anchor->input[n].script_length = leak1->sigs->script[i].len;
-	}
-
-	for (i = 0; i < leak2->sigs->n_script; i++) {
-		size_t n = inmap[leak1->sigs->n_script + i];
-		anchor->input[n].script	= leak2->sigs->script[i].data;
-		anchor->input[n].script_length = leak2->sigs->script[i].len;
-	}
 
 	bitcoin_txid(anchor, txid);
 

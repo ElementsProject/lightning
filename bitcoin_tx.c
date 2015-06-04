@@ -1,5 +1,8 @@
 #include "bitcoin_tx.h"
 #include <ccan/crypto/sha256/sha256.h>
+#include <ccan/err/err.h>
+#include <ccan/tal/grab_file/grab_file.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/endian/endian.h>
 #include <assert.h>
 
@@ -133,6 +136,154 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 		tx->input[i].sequence_number = 0xFFFFFFFF;
 	}
 	tx->lock_time = 0xFFFFFFFF;
+
+	return tx;
+}
+
+/* Sets *cursor to NULL and returns NULL when a pull fails. */
+static const u8 *pull(const u8 **cursor, size_t *max, void *copy, size_t n)
+{
+	const u8 *p = *cursor;
+
+	if (*max < n) {
+		*cursor = NULL;
+		*max = 0;
+		/* Just make sure we don't leak uninitialized mem! */
+		if (copy)
+			memset(copy, 0, n);
+		return NULL;
+	}
+	*cursor += n;
+	*max -= n;
+	if (copy)
+		memcpy(copy, p, n);
+	return p;
+}
+
+static u64 pull_varint(const u8 **cursor, size_t *max)
+{
+	u64 ret;
+	const u8 *p;
+
+	p = pull(cursor, max, NULL, 1);
+	if (!p)
+		return 0;
+
+	if (*p < 0xfd) {
+		ret = *p;
+	} else if (*p == 0xfd) {
+		p = pull(cursor, max, NULL, 2);
+		if (!p)
+			return 0;
+		ret = ((u64)p[2] << 8) + p[1];
+	} else if (*p == 0xfe) {
+		p = pull(cursor, max, NULL, 4);
+		if (!p)
+			return 0;
+		ret = ((u64)p[4] << 24) + ((u64)p[3] << 16)
+			+ ((u64)p[2] << 8) + p[1];
+	} else {
+		p = pull(cursor, max, NULL, 8);
+		if (!p)
+			return 0;
+		ret = ((u64)p[8] << 56) + ((u64)p[7] << 48)
+			+ ((u64)p[6] << 40) + ((u64)p[5] << 32)
+			+ ((u64)p[4] << 24) + ((u64)p[3] << 16)
+			+ ((u64)p[2] << 8) + p[1];
+	}
+	return ret;
+}
+
+static u32 pull_le32(const u8 **cursor, size_t *max)
+{
+	le32 ret;
+
+	if (!pull(cursor, max, &ret, sizeof(ret)))
+		return 0;
+	return le32_to_cpu(ret);
+}
+
+static u64 pull_le64(const u8 **cursor, size_t *max)
+{
+	le64 ret;
+
+	if (!pull(cursor, max, &ret, sizeof(ret)))
+		return 0;
+	return le64_to_cpu(ret);
+}
+
+static bool pull_sha256_double(const u8 **cursor, size_t *max,
+			       struct sha256_double *h)
+{
+	return pull(cursor, max, h, sizeof(*h));
+}
+
+static void pull_input(const tal_t *ctx, const u8 **cursor, size_t *max,
+		       struct bitcoin_tx_input *input)
+{
+	pull_sha256_double(cursor, max, &input->txid);
+	input->index = pull_le32(cursor, max);
+	input->script_length = pull_varint(cursor, max);
+	input->script = tal_arr(ctx, u8, input->script_length);
+	pull(cursor, max, input->script, input->script_length);
+	input->sequence_number = pull_le32(cursor, max);
+}
+
+static void pull_output(const tal_t *ctx, const u8 **cursor, size_t *max,
+			struct bitcoin_tx_output *output)
+{
+	output->amount = pull_le64(cursor, max);
+	output->script_length = pull_varint(cursor, max);
+	output->script = tal_arr(ctx, u8, output->script_length);
+	pull(cursor, max, output->script, output->script_length);
+}
+
+static struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
+					  const u8 **cursor, size_t *max)
+{
+	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
+	size_t i;
+
+	tx->version = pull_le32(cursor, max);
+	tx->input_count = pull_varint(cursor, max);
+	tx->input = tal_arr(tx, struct bitcoin_tx_input, tx->input_count);
+	for (i = 0; i < tx->input_count; i++)
+		pull_input(tx, cursor, max, tx->input + i);
+	tx->output_count = pull_varint(cursor, max);
+	tx->output = tal_arr(ctx, struct bitcoin_tx_output, tx->output_count);
+	for (i = 0; i < tx->output_count; i++)
+		pull_output(tx, cursor, max, tx->output + i);
+	tx->lock_time = pull_le32(cursor, max);
+
+	/* If we ran short, or have bytes left over, fail. */
+	if (!*cursor || *max != 0)
+		tx = tal_free(tx);
+	return tx;
+}
+
+struct bitcoin_tx *bitcoin_tx_from_file(const tal_t *ctx,
+					const char *filename)
+{
+	char *hex;
+	u8 *linear_tx;
+	const u8 *p;
+	struct bitcoin_tx *tx;
+	size_t len;
+
+	/* Grabs file, add nul at end. */
+	hex = grab_file(ctx, filename);
+	if (!hex)
+		err(1, "Opening %s", filename);
+
+	len = hex_data_size(tal_count(hex)-1);
+	p = linear_tx = tal_arr(hex, u8, len);
+	if (!hex_decode(hex, tal_count(hex)-1, linear_tx, len))
+		errx(1, "Bad hex string in %s", filename);
+
+	tx = pull_bitcoin_tx(ctx, &p, &len);
+	if (!tx)
+		errx(1, "Bad transaction in %s", filename);
+	tal_free(hex);
 
 	return tx;
 }

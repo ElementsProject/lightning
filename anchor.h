@@ -19,6 +19,12 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 				    const OpenChannel *o2,
 				    size_t **inmap, size_t **outmap);
 
+/* Add these scriptsigs to the anchor transaction. */
+bool anchor_add_scriptsigs(struct bitcoin_tx *anchor,
+			   OpenAnchorScriptsigs *ssigs1,
+			   OpenAnchorScriptsigs *ssigs2,
+			   const size_t *inmap);
+
 /* We wouldn't need the leak files if we had normalized txids! */
 void anchor_txid(struct bitcoin_tx *anchor,
 		 const char *leakfile1, const char *leakfile2,
