@@ -146,7 +146,7 @@ u8 *scriptpubkey_pay_to_pubkeyhash(const tal_t *ctx,
 
 	add_op(&script, OP_DUP);
 	add_op(&script, OP_HASH160);
-	add_push_bytes(&script, addr, sizeof(addr));
+	add_push_bytes(&script, addr, sizeof(*addr));
 	add_op(&script, OP_EQUALVERIFY);
 	add_op(&script, OP_CHECKSIG);
 
