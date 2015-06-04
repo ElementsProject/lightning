@@ -23,7 +23,7 @@ typedef struct _BitcoinPubkey BitcoinPubkey;
 typedef struct _Anchor Anchor;
 typedef struct _OpenChannel OpenChannel;
 typedef struct _OpenCommitSig OpenCommitSig;
-typedef struct _OpenAnchorSig OpenAnchorSig;
+typedef struct _OpenAnchorScriptsigs OpenAnchorScriptsigs;
 typedef struct _LeakAnchorSigsAndPretendWeDidnt LeakAnchorSigsAndPretendWeDidnt;
 typedef struct _OpenComplete OpenComplete;
 typedef struct _Update Update;
@@ -229,14 +229,14 @@ struct  _OpenCommitSig
 /*
  * Supply ScriptSig for each anchor tx inputs.
  */
-struct  _OpenAnchorSig
+struct  _OpenAnchorScriptsigs
 {
   ProtobufCMessage base;
   size_t n_script;
   ProtobufCBinaryData *script;
 };
-#define OPEN_ANCHOR_SIG__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&open_anchor_sig__descriptor) \
+#define OPEN_ANCHOR_SCRIPTSIGS__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&open_anchor_scriptsigs__descriptor) \
     , 0,NULL }
 
 
@@ -252,7 +252,7 @@ struct  _OpenAnchorSig
 struct  _LeakAnchorSigsAndPretendWeDidnt
 {
   ProtobufCMessage base;
-  OpenAnchorSig *sigs;
+  OpenAnchorScriptsigs *sigs;
 };
 #define LEAK_ANCHOR_SIGS_AND_PRETEND_WE_DIDNT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&leak_anchor_sigs_and_pretend_we_didnt__descriptor) \
@@ -471,7 +471,7 @@ typedef enum {
   PKT__PKT_OPEN = 201,
   PKT__PKT_OMG_FAIL = 205,
   PKT__PKT_OPEN_COMMIT_SIG = 202,
-  PKT__PKT_OPEN_ANCHOR_SIG = 203,
+  PKT__PKT_OPEN_ANCHOR_SCRIPTSIGS = 203,
   PKT__PKT_OPEN_COMPLETE = 204,
   PKT__PKT_UPDATE = 1,
   PKT__PKT_UPDATE_ACCEPT = 2,
@@ -499,7 +499,7 @@ struct  _Pkt
     OpenChannel *open;
     LeakAnchorSigsAndPretendWeDidnt *omg_fail;
     OpenCommitSig *open_commit_sig;
-    OpenAnchorSig *open_anchor_sig;
+    OpenAnchorScriptsigs *open_anchor_scriptsigs;
     OpenComplete *open_complete;
     /*
      * Updating (most common)
@@ -682,24 +682,24 @@ OpenCommitSig *
 void   open_commit_sig__free_unpacked
                      (OpenCommitSig *message,
                       ProtobufCAllocator *allocator);
-/* OpenAnchorSig methods */
-void   open_anchor_sig__init
-                     (OpenAnchorSig         *message);
-size_t open_anchor_sig__get_packed_size
-                     (const OpenAnchorSig   *message);
-size_t open_anchor_sig__pack
-                     (const OpenAnchorSig   *message,
+/* OpenAnchorScriptsigs methods */
+void   open_anchor_scriptsigs__init
+                     (OpenAnchorScriptsigs         *message);
+size_t open_anchor_scriptsigs__get_packed_size
+                     (const OpenAnchorScriptsigs   *message);
+size_t open_anchor_scriptsigs__pack
+                     (const OpenAnchorScriptsigs   *message,
                       uint8_t             *out);
-size_t open_anchor_sig__pack_to_buffer
-                     (const OpenAnchorSig   *message,
+size_t open_anchor_scriptsigs__pack_to_buffer
+                     (const OpenAnchorScriptsigs   *message,
                       ProtobufCBuffer     *buffer);
-OpenAnchorSig *
-       open_anchor_sig__unpack
+OpenAnchorScriptsigs *
+       open_anchor_scriptsigs__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   open_anchor_sig__free_unpacked
-                     (OpenAnchorSig *message,
+void   open_anchor_scriptsigs__free_unpacked
+                     (OpenAnchorScriptsigs *message,
                       ProtobufCAllocator *allocator);
 /* LeakAnchorSigsAndPretendWeDidnt methods */
 void   leak_anchor_sigs_and_pretend_we_didnt__init
@@ -993,8 +993,8 @@ typedef void (*OpenChannel_Closure)
 typedef void (*OpenCommitSig_Closure)
                  (const OpenCommitSig *message,
                   void *closure_data);
-typedef void (*OpenAnchorSig_Closure)
-                 (const OpenAnchorSig *message,
+typedef void (*OpenAnchorScriptsigs_Closure)
+                 (const OpenAnchorScriptsigs *message,
                   void *closure_data);
 typedef void (*LeakAnchorSigsAndPretendWeDidnt_Closure)
                  (const LeakAnchorSigsAndPretendWeDidnt *message,
@@ -1052,7 +1052,7 @@ extern const ProtobufCMessageDescriptor bitcoin_pubkey__descriptor;
 extern const ProtobufCMessageDescriptor anchor__descriptor;
 extern const ProtobufCMessageDescriptor open_channel__descriptor;
 extern const ProtobufCMessageDescriptor open_commit_sig__descriptor;
-extern const ProtobufCMessageDescriptor open_anchor_sig__descriptor;
+extern const ProtobufCMessageDescriptor open_anchor_scriptsigs__descriptor;
 extern const ProtobufCMessageDescriptor leak_anchor_sigs_and_pretend_we_didnt__descriptor;
 extern const ProtobufCMessageDescriptor open_complete__descriptor;
 extern const ProtobufCMessageDescriptor update__descriptor;

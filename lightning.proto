@@ -92,7 +92,7 @@ message open_commit_sig {
 }
 
 // Supply ScriptSig for each anchor tx inputs.
-message open_anchor_sig {
+message open_anchor_scriptsigs {
   repeated bytes script = 1;
 }
 
@@ -105,7 +105,7 @@ message open_anchor_sig {
 // malleability anyway).  So for testing, we send the scriptsigs for the
 // anchor transaction's inputs immediately.
 message leak_anchor_sigs_and_pretend_we_didnt {
-  required open_anchor_sig sigs = 1;
+  required open_anchor_scriptsigs sigs = 1;
 }
 
 // Indicates we've seen transaction reach min-depth.
@@ -197,7 +197,7 @@ message pkt {
     open_channel open = 201;
     leak_anchor_sigs_and_pretend_we_didnt omg_fail = 205;
     open_commit_sig open_commit_sig = 202;
-    open_anchor_sig open_anchor_sig = 203;
+    open_anchor_scriptsigs open_anchor_scriptsigs = 203;
     open_complete open_complete = 204;
     // Updating (most common)
     update update = 1;

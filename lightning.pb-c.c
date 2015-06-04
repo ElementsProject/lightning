@@ -351,47 +351,47 @@ void   open_commit_sig__free_unpacked
   assert(message->base.descriptor == &open_commit_sig__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   open_anchor_sig__init
-                     (OpenAnchorSig         *message)
+void   open_anchor_scriptsigs__init
+                     (OpenAnchorScriptsigs         *message)
 {
-  static OpenAnchorSig init_value = OPEN_ANCHOR_SIG__INIT;
+  static OpenAnchorScriptsigs init_value = OPEN_ANCHOR_SCRIPTSIGS__INIT;
   *message = init_value;
 }
-size_t open_anchor_sig__get_packed_size
-                     (const OpenAnchorSig *message)
+size_t open_anchor_scriptsigs__get_packed_size
+                     (const OpenAnchorScriptsigs *message)
 {
-  assert(message->base.descriptor == &open_anchor_sig__descriptor);
+  assert(message->base.descriptor == &open_anchor_scriptsigs__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t open_anchor_sig__pack
-                     (const OpenAnchorSig *message,
+size_t open_anchor_scriptsigs__pack
+                     (const OpenAnchorScriptsigs *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &open_anchor_sig__descriptor);
+  assert(message->base.descriptor == &open_anchor_scriptsigs__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t open_anchor_sig__pack_to_buffer
-                     (const OpenAnchorSig *message,
+size_t open_anchor_scriptsigs__pack_to_buffer
+                     (const OpenAnchorScriptsigs *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &open_anchor_sig__descriptor);
+  assert(message->base.descriptor == &open_anchor_scriptsigs__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-OpenAnchorSig *
-       open_anchor_sig__unpack
+OpenAnchorScriptsigs *
+       open_anchor_scriptsigs__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (OpenAnchorSig *)
-     protobuf_c_message_unpack (&open_anchor_sig__descriptor,
+  return (OpenAnchorScriptsigs *)
+     protobuf_c_message_unpack (&open_anchor_scriptsigs__descriptor,
                                 allocator, len, data);
 }
-void   open_anchor_sig__free_unpacked
-                     (OpenAnchorSig *message,
+void   open_anchor_scriptsigs__free_unpacked
+                     (OpenAnchorScriptsigs *message,
                       ProtobufCAllocator *allocator)
 {
-  assert(message->base.descriptor == &open_anchor_sig__descriptor);
+  assert(message->base.descriptor == &open_anchor_scriptsigs__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   leak_anchor_sigs_and_pretend_we_didnt__init
@@ -1629,42 +1629,42 @@ const ProtobufCMessageDescriptor open_commit_sig__descriptor =
   (ProtobufCMessageInit) open_commit_sig__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor open_anchor_sig__field_descriptors[1] =
+static const ProtobufCFieldDescriptor open_anchor_scriptsigs__field_descriptors[1] =
 {
   {
     "script",
     1,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_BYTES,
-    offsetof(OpenAnchorSig, n_script),
-    offsetof(OpenAnchorSig, script),
+    offsetof(OpenAnchorScriptsigs, n_script),
+    offsetof(OpenAnchorScriptsigs, script),
     NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned open_anchor_sig__field_indices_by_name[] = {
+static const unsigned open_anchor_scriptsigs__field_indices_by_name[] = {
   0,   /* field[0] = script */
 };
-static const ProtobufCIntRange open_anchor_sig__number_ranges[1 + 1] =
+static const ProtobufCIntRange open_anchor_scriptsigs__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 1 }
 };
-const ProtobufCMessageDescriptor open_anchor_sig__descriptor =
+const ProtobufCMessageDescriptor open_anchor_scriptsigs__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "open_anchor_sig",
-  "OpenAnchorSig",
-  "OpenAnchorSig",
+  "open_anchor_scriptsigs",
+  "OpenAnchorScriptsigs",
+  "OpenAnchorScriptsigs",
   "",
-  sizeof(OpenAnchorSig),
+  sizeof(OpenAnchorScriptsigs),
   1,
-  open_anchor_sig__field_descriptors,
-  open_anchor_sig__field_indices_by_name,
-  1,  open_anchor_sig__number_ranges,
-  (ProtobufCMessageInit) open_anchor_sig__init,
+  open_anchor_scriptsigs__field_descriptors,
+  open_anchor_scriptsigs__field_indices_by_name,
+  1,  open_anchor_scriptsigs__number_ranges,
+  (ProtobufCMessageInit) open_anchor_scriptsigs__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCFieldDescriptor leak_anchor_sigs_and_pretend_we_didnt__field_descriptors[1] =
@@ -1676,7 +1676,7 @@ static const ProtobufCFieldDescriptor leak_anchor_sigs_and_pretend_we_didnt__fie
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
     offsetof(LeakAnchorSigsAndPretendWeDidnt, sigs),
-    &open_anchor_sig__descriptor,
+    &open_anchor_scriptsigs__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -2289,13 +2289,13 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[15] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "open_anchor_sig",
+    "open_anchor_scriptsigs",
     203,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
-    offsetof(Pkt, open_anchor_sig),
-    &open_anchor_sig__descriptor,
+    offsetof(Pkt, open_anchor_scriptsigs),
+    &open_anchor_scriptsigs__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -2419,7 +2419,7 @@ static const unsigned pkt__field_indices_by_name[] = {
   11,   /* field[11] = new_anchor_complete */
   7,   /* field[7] = omg_fail */
   3,   /* field[3] = open */
-  5,   /* field[5] = open_anchor_sig */
+  5,   /* field[5] = open_anchor_scriptsigs */
   4,   /* field[4] = open_commit_sig */
   6,   /* field[6] = open_complete */
   0,   /* field[0] = update */

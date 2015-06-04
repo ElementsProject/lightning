@@ -9,7 +9,7 @@
 int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal_arr(NULL, char, 0);
-	OpenAnchorSig *s;
+	OpenAnchorScriptsigs *s;
 	struct pkt *pkt;
 
 	err_set_progname(argv[0]);
@@ -24,7 +24,8 @@ int main(int argc, char *argv[])
 	if (argc != 2)
 		opt_usage_and_exit(NULL);
 
-	s = pkt_from_file(argv[1], PKT__PKT_OPEN_ANCHOR_SIG)->open_anchor_sig;
+	s = pkt_from_file(argv[1], PKT__PKT_OPEN_ANCHOR_SCRIPTSIGS)
+		->open_anchor_scriptsigs;
 
 	pkt = leak_anchor_sigs_and_pretend_we_didnt_pkt(ctx, s);
 	if (!write_all(STDOUT_FILENO, pkt,

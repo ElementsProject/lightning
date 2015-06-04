@@ -56,7 +56,7 @@ struct pkt *open_anchor_sig_pkt(const tal_t *ctx, u8 **sigs, size_t num_sigs);
  * @s: OpenAnchorSig.
  */
 struct pkt *leak_anchor_sigs_and_pretend_we_didnt_pkt(const tal_t *ctx,
-						      OpenAnchorSig *s);
+						      OpenAnchorScriptsigs *s);
 
 
 /**

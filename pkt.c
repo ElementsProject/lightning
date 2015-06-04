@@ -108,7 +108,7 @@ Pkt *pkt_from_file(const char *filename, Pkt__PktCase expect)
 
 struct pkt *open_anchor_sig_pkt(const tal_t *ctx, u8 **sigs, size_t num_sigs)
 {
-	OpenAnchorSig o = OPEN_ANCHOR_SIG__INIT;
+	OpenAnchorScriptsigs o = OPEN_ANCHOR_SCRIPTSIGS__INIT;
 	size_t i;
 
 	o.n_script = num_sigs;
@@ -118,11 +118,11 @@ struct pkt *open_anchor_sig_pkt(const tal_t *ctx, u8 **sigs, size_t num_sigs)
 		o.script[i].len = tal_count(sigs[i]);
 	}
 	
-	return to_pkt(ctx, PKT__PKT_OPEN_ANCHOR_SIG, &o);
+	return to_pkt(ctx, PKT__PKT_OPEN_ANCHOR_SCRIPTSIGS, &o);
 }
 
 struct pkt *leak_anchor_sigs_and_pretend_we_didnt_pkt(const tal_t *ctx,
-						      OpenAnchorSig *s)
+						      OpenAnchorScriptsigs *s)
 {
 	LeakAnchorSigsAndPretendWeDidnt omg_fail
 		= LEAK_ANCHOR_SIGS_AND_PRETEND_WE_DIDNT__INIT;
