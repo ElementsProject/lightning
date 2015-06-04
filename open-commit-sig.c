@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
 	struct bitcoin_tx *anchor, *commit;
 	struct sha256_double txid;
 	struct pkt *pkt;
-	struct signature *sig;
+	struct signature sig;
 	size_t *inmap, *outmap;
 	EC_KEY *privkey;
 	bool testnet;
@@ -75,10 +75,10 @@ int main(int argc, char *argv[])
 		     (long long)o2->commitment_fee);
 
 	/* Sign it for them. */
-	sig = sign_tx_input(ctx, commit, 0, anchor->output[outmap[0]].script,
-			    anchor->output[outmap[0]].script_length, privkey);
+	sign_tx_input(ctx, commit, 0, anchor->output[outmap[0]].script,
+		      anchor->output[outmap[0]].script_length, privkey, &sig);
 
-	pkt = open_commit_sig_pkt(ctx, sig);
+	pkt = open_commit_sig_pkt(ctx, &sig);
 	if (!write_all(STDOUT_FILENO, pkt,
 		       sizeof(pkt->len) + le32_to_cpu(pkt->len)))
 		err(1, "Writing out packet");

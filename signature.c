@@ -8,16 +8,16 @@
 #include <assert.h>
 #include <ccan/cast/cast.h>
 
-struct signature *sign_hash(const tal_t *ctx, EC_KEY *private_key,
-			    const struct sha256_double *h)
+bool sign_hash(const tal_t *ctx, EC_KEY *private_key,
+	       const struct sha256_double *h,
+	       struct signature *s)
 {
 	ECDSA_SIG *sig;
 	int len;
-	struct signature *s;
 	
 	sig = ECDSA_do_sign(h->sha.u.u8, sizeof(*h), private_key);
 	if (!sig)
-		return NULL;
+		return false;
 
 	/* See https://github.com/sipa/bitcoin/commit/a81cd9680.
 	 * There can only be one signature with an even S, so make sure we
@@ -35,7 +35,8 @@ struct signature *sign_hash(const tal_t *ctx, EC_KEY *private_key,
 		assert(!BN_is_odd(sig->s));
         }
 
-	s = talz(ctx, struct signature);
+	/* In case numbers are small. */
+	memset(s, 0, sizeof(*s));
 
 	/* Pack r and s into signature, 32 bytes each. */
 	len = BN_num_bytes(sig->r);
@@ -46,7 +47,7 @@ struct signature *sign_hash(const tal_t *ctx, EC_KEY *private_key,
 	BN_bn2bin(sig->s, s->s + sizeof(s->s) - len);
 
 	ECDSA_SIG_free(sig);
-	return s;
+	return true;
 }
 
 /* Only does SIGHASH_ALL */
@@ -76,16 +77,17 @@ static void sha256_tx_one_input(struct bitcoin_tx *tx,
 	tx->input[input_num].script_length = 0;
 	tx->input[input_num].script = NULL;
 }
-	
-struct signature *sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx,
-				unsigned int in,
-				const u8 *subscript, size_t subscript_len,
-				EC_KEY *privkey)
+
+/* Only does SIGHASH_ALL */
+bool sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx,
+		   unsigned int in,
+		   const u8 *subscript, size_t subscript_len,
+		   EC_KEY *privkey, struct signature *sig)
 {
 	struct sha256_double hash;
 
 	sha256_tx_one_input(tx, in, subscript, subscript_len, &hash);
-	return sign_hash(ctx, privkey, &hash);
+	return sign_hash(ctx, privkey, &hash, sig);
 }
 
 static bool check_signed_hash(const struct sha256_double *hash,
@@ -137,7 +139,8 @@ out:
 bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
 		    const struct bitcoin_tx_output *output,
 		    const struct pubkey *key1, const struct pubkey *key2,
-		    const struct signature *sig1, const struct signature *sig2)
+		    const struct bitcoin_signature *sig1,
+		    const struct bitcoin_signature *sig2)
 {
 	struct sha256_double hash;
 	assert(input_num < tx->input_count);
@@ -146,8 +149,12 @@ bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
 	sha256_tx_one_input(tx, input_num,
 			    output->script, output->script_length, &hash);
 
-	return check_signed_hash(&hash, sig1, key1)
-		&& check_signed_hash(&hash, sig2, key2);
+	/* We only use SIGHASH_ALL for the moment. */
+	if (sig1->stype != SIGHASH_ALL || sig2->stype != SIGHASH_ALL)
+		return false;
+	
+	return check_signed_hash(&hash, &sig1->sig, key1)
+		&& check_signed_hash(&hash, &sig2->sig, key2);
 }
 
 Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)

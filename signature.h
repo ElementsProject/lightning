@@ -22,20 +22,23 @@ struct sha256_double;
 struct bitcoin_tx;
 struct pubkey;
 struct bitcoin_tx_output;
+struct bitcoin_signature;
 
-struct signature *sign_hash(const tal_t *ctx, EC_KEY *private_key,
-			    const struct sha256_double *h);
+bool sign_hash(const tal_t *ctx, EC_KEY *private_key,
+	       const struct sha256_double *h,
+	       struct signature *s);
 
 /* All tx input scripts must be set to 0 len. */
-struct signature *sign_tx_input(const tal_t *ctx,
-				struct bitcoin_tx *tx, unsigned int in,
-				const u8 *subscript, size_t subscript_len,
-				EC_KEY *privkey);
+bool sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx,
+		   unsigned int in,
+		   const u8 *subscript, size_t subscript_len,
+		   EC_KEY *privkey, struct signature *sig);
 
 bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
 		    const struct bitcoin_tx_output *spending,
 		    const struct pubkey *key1, const struct pubkey *key2,
-		    const struct signature *sig1, const struct signature *sig2);
+		    const struct bitcoin_signature *sig1,
+		    const struct bitcoin_signature *sig2);
 
 /* Convert to-from protobuf to internal representation. */
 Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig);

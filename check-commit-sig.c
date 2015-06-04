@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 	u8 *tx_arr;
 	size_t *inmap, *outmap;
 	struct pubkey pubkey1, pubkey2;
-	struct signature *sig1, sig2;
+	struct bitcoin_signature sig1, sig2;
 	char *tx_hex;
 	EC_KEY *privkey;
 	bool testnet;
@@ -78,22 +78,25 @@ int main(int argc, char *argv[])
 	/* FIXME: Creating out signature just to check the script we create
 	 * is overkill: if their signature and pubkey signed the commit txin,
 	 * we're happy. */
-	sig1 = sign_tx_input(ctx, commit, 0, anchor->output[outmap[0]].script,
-			     anchor->output[outmap[0]].script_length, privkey);
+	sig1.stype = SIGHASH_ALL;
+	sign_tx_input(ctx, commit, 0, anchor->output[outmap[0]].script,
+		      anchor->output[outmap[0]].script_length, privkey,
+		      &sig1.sig);
 
 	/* Signatures and pubkeys well-formed? */
-	if (!proto_to_signature(cs2->sig, &sig2))
+	if (!proto_to_signature(cs2->sig, &sig2.sig))
 		errx(1, "Invalid commit-sig-2");
+	sig2.stype = SIGHASH_ALL;
 	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
 		errx(1, "Invalid anchor-2 key");
 
 	/* Combined signatures must validate correctly. */
 	if (!check_2of2_sig(commit, 0, &anchor->output[outmap[0]],
-			    &pubkey1, &pubkey2, sig1, &sig2))
+			    &pubkey1, &pubkey2, &sig1, &sig2))
 		errx(1, "Signature failed");
 
 	/* Create p2sh input for commit */
-	commit->input[0].script = scriptsig_p2sh_2of2(commit, sig1, &sig2,
+	commit->input[0].script = scriptsig_p2sh_2of2(commit, &sig1, &sig2,
 						      &pubkey1, &pubkey2);
 	commit->input[0].script_length = tal_count(commit->input[0].script);
 

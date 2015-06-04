@@ -26,17 +26,17 @@ static u8 *tx_scriptsig(const tal_t *ctx,
 			EC_KEY *privkey,
 			const struct pubkey *pubkey)
 {
-	struct signature *sig;
+	struct bitcoin_signature sig;
 
-	sig = sign_tx_input(ctx, tx, i,
-			    input->subscript.data, input->subscript.len,
-			    privkey);
-	if (!sig)
+	sig.stype = SIGHASH_ALL;
+	if (!sign_tx_input(ctx, tx, i,
+			   input->subscript.data, input->subscript.len,
+			   privkey, &sig.sig))
 		return NULL;
 
 	if (!is_pay_to_pubkey_hash(input->subscript.data, input->subscript.len))
 		errx(1, "FIXME: Don't know how to handle input");
-	return scriptsig_pay_to_pubkeyhash(ctx, pubkey, sig);
+	return scriptsig_pay_to_pubkeyhash(ctx, pubkey, &sig);
 }
 	
 int main(int argc, char *argv[])
