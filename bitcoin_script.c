@@ -279,6 +279,8 @@ u8 *scriptsig_p2sh_2of2(const tal_t *ctx,
 	u8 *script = tal_arr(ctx, u8, 0);
 	u8 *redeemscript;
 
+	/* OP_CHECKMULTISIG has an out-by-one bug, which MBZ */
+	add_number(&script, 0);
 	add_push_sig(&script, sig1);
 	add_push_sig(&script, sig2);
 
