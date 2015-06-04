@@ -137,7 +137,7 @@ out:
 }
 
 bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
-		    const struct bitcoin_tx_output *output,
+		    const u8 *redeemscript, size_t redeemscript_len,
 		    const struct pubkey *key1, const struct pubkey *key2,
 		    const struct bitcoin_signature *sig1,
 		    const struct bitcoin_signature *sig2)
@@ -145,9 +145,8 @@ bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
 	struct sha256_double hash;
 	assert(input_num < tx->input_count);
 
-	assert(is_p2sh(output->script, output->script_length));
-	sha256_tx_one_input(tx, input_num,
-			    output->script, output->script_length, &hash);
+	sha256_tx_one_input(tx, input_num, redeemscript, redeemscript_len,
+			    &hash);
 
 	/* We only use SIGHASH_ALL for the moment. */
 	if (sig1->stype != SIGHASH_ALL || sig2->stype != SIGHASH_ALL)

@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
 	OpenCommitSig *cs2;
 	struct bitcoin_tx *anchor, *commit;
 	struct sha256_double txid;
-	u8 *tx_arr;
+	u8 *tx_arr, *subscript;
 	size_t *inmap, *outmap;
 	struct pubkey pubkey1, pubkey2;
 	struct bitcoin_signature sig1, sig2;
@@ -58,6 +58,10 @@ int main(int argc, char *argv[])
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
 
+	/* Pubkey well-formed? */
+	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
+		errx(1, "Invalid anchor-2 key");
+
 	/* Get the transaction ID of the anchor. */
 	anchor = anchor_tx_create(ctx, o1, o2, &inmap, &outmap);
 	if (!anchor)
@@ -79,19 +83,17 @@ int main(int argc, char *argv[])
 	 * is overkill: if their signature and pubkey signed the commit txin,
 	 * we're happy. */
 	sig1.stype = SIGHASH_ALL;
-	sign_tx_input(ctx, commit, 0, anchor->output[outmap[0]].script,
-		      anchor->output[outmap[0]].script_length, privkey,
-		      &sig1.sig);
+	subscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
+	sign_tx_input(ctx, commit, 0, subscript, tal_count(subscript),
+		      privkey, &sig1.sig);
 
-	/* Signatures and pubkeys well-formed? */
+	/* Signatures well-formed? */
 	if (!proto_to_signature(cs2->sig, &sig2.sig))
 		errx(1, "Invalid commit-sig-2");
 	sig2.stype = SIGHASH_ALL;
-	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
-		errx(1, "Invalid anchor-2 key");
 
 	/* Combined signatures must validate correctly. */
-	if (!check_2of2_sig(commit, 0, &anchor->output[outmap[0]],
+	if (!check_2of2_sig(commit, 0, subscript, tal_count(subscript),
 			    &pubkey1, &pubkey2, &sig1, &sig2))
 		errx(1, "Signature failed");
 

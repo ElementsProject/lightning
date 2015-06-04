@@ -32,7 +32,8 @@ int main(int argc, char *argv[])
 	size_t *inmap, *outmap;
 	EC_KEY *privkey;
 	bool testnet;
-	struct pubkey pubkey;
+	struct pubkey pubkey1, pubkey2;
+	u8 *subscript;
 
 	err_set_progname(argv[0]);
 
@@ -49,7 +50,7 @@ int main(int argc, char *argv[])
 	o1 = pkt_from_file(argv[1], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
 
-	privkey = key_from_base58(argv[3], strlen(argv[3]), &testnet, &pubkey);
+	privkey = key_from_base58(argv[3], strlen(argv[3]), &testnet, &pubkey1);
 	if (!privkey)
 		errx(1, "Invalid private key '%s'", argv[3]);
 	if (!testnet)
@@ -74,9 +75,14 @@ int main(int argc, char *argv[])
 		     (long long)o1->commitment_fee,
 		     (long long)o2->commitment_fee);
 
+	/* Their pubkey must be valid */
+	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
+		errx(1, "Invalid public open-channel-file2");
+
 	/* Sign it for them. */
-	sign_tx_input(ctx, commit, 0, anchor->output[outmap[0]].script,
-		      anchor->output[outmap[0]].script_length, privkey, &sig);
+	subscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
+	sign_tx_input(ctx, commit, 0, subscript, tal_count(subscript),
+		      privkey, &sig);
 
 	pkt = open_commit_sig_pkt(ctx, &sig);
 	if (!write_all(STDOUT_FILENO, pkt,

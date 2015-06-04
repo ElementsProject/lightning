@@ -35,7 +35,7 @@ bool sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx,
 		   EC_KEY *privkey, struct signature *sig);
 
 bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
-		    const struct bitcoin_tx_output *spending,
+		    const u8 *redeemscript, size_t redeemscript_len,
 		    const struct pubkey *key1, const struct pubkey *key2,
 		    const struct bitcoin_signature *sig1,
 		    const struct bitcoin_signature *sig2);
