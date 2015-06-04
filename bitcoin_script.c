@@ -9,7 +9,6 @@
 
 /* Some standard ops */
 #define OP_PUSHBYTES(val) (val)
-#define OP_LITERAL(val) (0x51 + (val))
 #define OP_PUSHDATA1	0x4C
 #define OP_PUSHDATA2	0x4D
 #define OP_PUSHDATA4	0x4E
@@ -59,6 +58,20 @@ static void add_push_bytes(u8 **scriptp, const void *mem, size_t len)
 	}
 
 	add(scriptp, mem, len);
+}
+
+static void add_number(u8 **script, u32 num)
+{
+	if (num == 0)
+		add_op(script, 0);
+	else if (num <= 16)
+		add_op(script, 0x50 + num);
+	else {
+		u8 n = num;
+		/* We could handle others, but currently unnecessary. */
+		assert(num < 256);
+		add_push_bytes(script, &n, sizeof(n));
+	}
 }
 
 static void add_push_key(u8 **scriptp, const struct pubkey *key)
@@ -194,7 +207,7 @@ u8 *bitcoin_redeem_2of2(const tal_t *ctx,
 			const struct pubkey *key2)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
-	add_op(&script, OP_LITERAL(2));
+	add_number(&script, 2);
 	if (key_less(key1, key2)) {
 		add_push_key(&script, key1);
 		add_push_key(&script, key2);
@@ -202,7 +215,7 @@ u8 *bitcoin_redeem_2of2(const tal_t *ctx,
 		add_push_key(&script, key2);
 		add_push_key(&script, key1);
 	}
-	add_op(&script, OP_LITERAL(2));
+	add_number(&script, 2);
 	add_op(&script, OP_CHECKMULTISIG);
 	return script;
 }
@@ -326,7 +339,7 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 
 	/* If the top arg is a hashpreimage. */
 	add_op(&script, OP_SIZE);
-	add_op(&script, OP_LITERAL(32));
+	add_number(&script, 32);
 	add_op(&script, OP_EQUAL);
 	add_op(&script, OP_IF);
 
@@ -347,7 +360,7 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 	 * will return). */
 	add_op(&script, OP_ELSE);
 
-	add_op(&script, OP_LITERAL(2));
+	add_number(&script, 2);
 	/* This obscures whose key is whose.  Probably unnecessary? */
 	if (key_less(mykey, theirkey)) {
 		add_push_key(&script, mykey);
@@ -356,7 +369,7 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 		add_push_key(&script, theirkey);
 		add_push_key(&script, mykey);
 	}	
-	add_op(&script, OP_LITERAL(2));
+	add_number(&script, 2);
 	add_op(&script, OP_CHECKMULTISIG);
 	add_op(&script, OP_ENDIF);
 
