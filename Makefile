@@ -23,6 +23,10 @@ LDLIBS := -lcrypto -lprotobuf-c
 
 default: $(PROGRAMS)
 
+TAGS: FORCE
+	etags *.[ch] 
+FORCE::
+
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	$(PROTOCC) lightning.proto --c_out=.
 
