@@ -244,20 +244,6 @@ u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript)
 	return script;
 }
 
-u8 *scriptpubkey_pay_to_pubkeyhash(const tal_t *ctx,
-				   const struct bitcoin_address *addr)
-{
-	u8 *script = tal_arr(ctx, u8, 0);
-
-	add_op(&script, OP_DUP);
-	add_op(&script, OP_HASH160);
-	add_push_bytes(&script, addr, sizeof(*addr));
-	add_op(&script, OP_EQUALVERIFY);
-	add_op(&script, OP_CHECKSIG);
-
-	return script;
-}
-
 u8 *scriptsig_pay_to_pubkeyhash(const tal_t *ctx,
 				const struct pubkey *key,
 				const struct bitcoin_signature *sig)

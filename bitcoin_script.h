@@ -35,10 +35,6 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 /* Create an output script using p2sh for this redeem script. */
 u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript);
 
-/* Create an output script to pay to pubkey hash */
-u8 *scriptpubkey_pay_to_pubkeyhash(const tal_t *ctx,
-				   const struct bitcoin_address *addr);
-
 /* Create an input script to accept pay to pubkey */
 u8 *scriptsig_pay_to_pubkeyhash(const tal_t *ctx,
 				const struct pubkey *key,
