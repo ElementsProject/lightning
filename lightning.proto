@@ -134,8 +134,10 @@ message update_accept {
   required signature sig = 1;
   // Signature for old anchor (if any)
   optional signature old_anchor_sig = 2;
+  // Hash for which I will supply preimage to revoke this new commit tx.
+  required sha256_hash revocation_hash = 3;
   // Hash preimage which revokes old commitment tx.
-  required sha256_hash revocation_preimage = 3;
+  required sha256_hash revocation_preimage = 4;
 }
 
 // Complete the update.
@@ -173,15 +175,15 @@ message new_anchor_complete {
 
 // Begin cooperative close of channel.
 message close_channel {
-  // This is our signature a new transaction which spends my current
-  // commitment tx output 0 (which is 2/2) to script_to_me.
+  // This is our signature a new transaction which spends the anchor
+  // output to my open->script_to_me and your open->script_to_me,
+  // as per the last commit tx.
   required signature sig = 1;
 }
 
-// OK, here's my sig so you can broadcast it too.
+// OK, here's my sig so you can broadcast it too.  We're done.
 message close_channel_complete {
-  // This is our signature a new transaction which spends your current
-  // commitment tx output 0 (which is 2/2) to your script_to_me.
+  // This is my signature for that same tx.
   required signature sig = 1;
 }
 

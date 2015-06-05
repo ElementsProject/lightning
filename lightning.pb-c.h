@@ -324,13 +324,17 @@ struct  _UpdateAccept
    */
   Signature *old_anchor_sig;
   /*
+   * Hash for which I will supply preimage to revoke this new commit tx.
+   */
+  Sha256Hash *revocation_hash;
+  /*
    * Hash preimage which revokes old commitment tx.
    */
   Sha256Hash *revocation_preimage;
 };
 #define UPDATE_ACCEPT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&update_accept__descriptor) \
-    , NULL, NULL, NULL }
+    , NULL, NULL, NULL, NULL }
 
 
 /*
@@ -426,8 +430,9 @@ struct  _CloseChannel
 {
   ProtobufCMessage base;
   /*
-   * This is our signature a new transaction which spends my current
-   * commitment tx output 0 (which is 2/2) to script_to_me.
+   * This is our signature a new transaction which spends the anchor
+   * output to my open->script_to_me and your open->script_to_me,
+   * as per the last commit tx.
    */
   Signature *sig;
 };
@@ -437,14 +442,13 @@ struct  _CloseChannel
 
 
 /*
- * OK, here's my sig so you can broadcast it too.
+ * OK, here's my sig so you can broadcast it too.  We're done.
  */
 struct  _CloseChannelComplete
 {
   ProtobufCMessage base;
   /*
-   * This is our signature a new transaction which spends your current
-   * commitment tx output 0 (which is 2/2) to your script_to_me.
+   * This is my signature for that same tx.
    */
   Signature *sig;
 };

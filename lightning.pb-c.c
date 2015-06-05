@@ -1820,7 +1820,7 @@ const ProtobufCMessageDescriptor update__descriptor =
   (ProtobufCMessageInit) update__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor update_accept__field_descriptors[3] =
+static const ProtobufCFieldDescriptor update_accept__field_descriptors[4] =
 {
   {
     "sig",
@@ -1847,8 +1847,20 @@ static const ProtobufCFieldDescriptor update_accept__field_descriptors[3] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "revocation_preimage",
+    "revocation_hash",
     3,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(UpdateAccept, revocation_hash),
+    &sha256_hash__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "revocation_preimage",
+    4,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
@@ -1861,13 +1873,14 @@ static const ProtobufCFieldDescriptor update_accept__field_descriptors[3] =
 };
 static const unsigned update_accept__field_indices_by_name[] = {
   1,   /* field[1] = old_anchor_sig */
-  2,   /* field[2] = revocation_preimage */
+  2,   /* field[2] = revocation_hash */
+  3,   /* field[3] = revocation_preimage */
   0,   /* field[0] = sig */
 };
 static const ProtobufCIntRange update_accept__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 3 }
+  { 0, 4 }
 };
 const ProtobufCMessageDescriptor update_accept__descriptor =
 {
@@ -1877,7 +1890,7 @@ const ProtobufCMessageDescriptor update_accept__descriptor =
   "UpdateAccept",
   "",
   sizeof(UpdateAccept),
-  3,
+  4,
   update_accept__field_descriptors,
   update_accept__field_indices_by_name,
   1,  update_accept__number_ranges,
