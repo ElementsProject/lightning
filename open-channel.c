@@ -181,9 +181,11 @@ int main(int argc, char *argv[])
 							&changekey);
 		anchor.change->amount = total_in - (anchor.total + anchor.fee);
 	}
-	
+
 	/* Get first revocation hash. */
 	shachain_from_seed(&seed, 0, &revocation_hash);
+	sha256(&revocation_hash,
+	       revocation_hash.u.u8, sizeof(revocation_hash.u.u8));
 
 	pkt = openchannel_pkt(ctx, weak_random64(), &revocation_hash, &outkey,
 			      commit_tx_fee, locktime_seconds, &anchor);
