@@ -9,12 +9,6 @@ HELPER_OBJS := base58.o lightning.pb-c.o shadouble.o pkt.o bitcoin_script.o perm
 
 CCAN_OBJS := ccan-crypto-sha256.o ccan-crypto-shachain.o ccan-err.o ccan-tal.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-str-hex.o ccan-tal-grab_file.o ccan-noerr.o
 
-OPEN_CHANNEL_OBJS := open-channel.o
-OPEN_ANCHOR_SCRIPTSIGS_OBJS := open-anchor-scriptsigs.o
-LEAK_ANCHOR_SIGS_OBJS := leak-anchor-sigs.o
-OPEN_COMMIT_SIG_OBJS := open-commit-sig.o
-CHECK_ANCHOR_SCRIPTSIGS_OBJS := check-anchor-scriptsigs.o
-
 HEADERS := $(wildcard *.h)
 
 CCANDIR := ../ccan/
@@ -30,23 +24,8 @@ FORCE::
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	$(PROTOCC) lightning.proto --c_out=.
 
-open-channel: $(OPEN_CHANNEL_OBJS) $(HELPER_OBJS) $(CCAN_OBJS)
-$(OPEN_CHANNEL_OBJS): $(HEADERS)
-
-open-anchor-scriptsigs: $(OPEN_ANCHOR_SCRIPTSIGS_OBJS) $(HELPER_OBJS) $(CCAN_OBJS)
-$(OPEN_ANCHOR_SCRIPTSIGS_OBJS): $(HEADERS)
-
-leak-anchor-sigs: $(LEAK_ANCHOR_SIGS_OBJS) $(HELPER_OBJS) $(CCAN_OBJS)
-$(LEAK_ANCHOR_SIGS_OBJS): $(HEADERS)
-
-open-commit-sig: $(OPEN_COMMIT_SIG_OBJS) $(HELPER_OBJS) $(CCAN_OBJS)
-$(OPEN_COMMIT_SIG_OBJS): $(HEADERS)
-
-check-commit-sig: $(CHECK_COMMIT_SIG_OBJS) $(HELPER_OBJS) $(CCAN_OBJS)
-$(CHECK_COMMIT_SIG_OBJS): $(HEADERS)
-
-check-anchor-scriptsigs: $(CHECK_ANCHOR_SCRIPTSIGS_OBJS) $(HELPER_OBJS) $(CCAN_OBJS)
-$(CHECK_ANCHOR_SCRIPTSIGS_OBJS): $(HEADERS)
+$(PROGRAMS): % : %.o $(HELPER_OBJS) $(CCAN_OBJS)
+$(PROGRAMS:=.o) $(HELPER_OBJS): $(HEADERS)
 
 distclean: clean
 	$(RM) lightning.pb-c.c lightning.pb-c.h
