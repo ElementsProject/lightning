@@ -14,6 +14,7 @@
 #include "pkt.h"
 #include "bitcoin_script.h"
 #include "bitcoin_address.h"
+#include "bitcoin_tx.h"
 #include "pubkey.h"
 #include "shadouble.h"
 #include <openssl/ec.h>
@@ -40,20 +41,6 @@ static void opt_show_bits(char buf[OPT_SHOW_LEN], const u64 *bits)
 	opt_show_ulonglongval_si(buf, &ll);
 }
 
-/* <sigh>.  Bitcoind represents hashes as little-endian for RPC.  This didn't
- * stick for blockids (everyone else uses big-endian, eg. block explorers),
- * but it did stick for txids. */
-static void reverse_bytes(u8 *arr, size_t len)
-{
-	unsigned int i;
-
-	for (i = 0; i < len / 2; i++) {
-		unsigned char tmp = arr[i];
-		arr[i] = arr[len - 1 - i];
-		arr[len - 1 - i] = tmp;
-	}
-}
-
 static BitcoinInput *parse_anchor_input(const tal_t *ctx, const char *spec)
 {
 	BitcoinInput *in = tal(ctx, BitcoinInput);
@@ -68,9 +55,8 @@ static BitcoinInput *parse_anchor_input(const tal_t *ctx, const char *spec)
 	if (!slash)
 		errx(1, "Expected / in <txid>/<num>/<satoshis>/<hexscript>");
 
-	if (!hex_decode(spec, slash - spec, &txid, sizeof(txid)))
+	if (!bitcoin_txid_from_hex(spec, slash - spec, &txid))
 		errx(1, "Expected 256-bit hex txid before /");
-	reverse_bytes(txid.sha.u.u8, sizeof(txid.sha.u.u8));
 	in->txid = sha256_to_proto(in, &txid.sha);
 
 	in->output = l = strtol(slash + 1, &end, 10);
