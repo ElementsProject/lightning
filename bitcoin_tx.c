@@ -275,9 +275,11 @@ struct bitcoin_tx *bitcoin_tx_from_file(const tal_t *ctx,
 	if (!hex)
 		err(1, "Opening %s", filename);
 
-	len = hex_data_size(tal_count(hex)-1);
+	if (strends(hex, "\n"))
+		hex[strlen(hex)-1] = '\0';
+	len = hex_data_size(strlen(hex));
 	p = linear_tx = tal_arr(hex, u8, len);
-	if (!hex_decode(hex, tal_count(hex)-1, linear_tx, len))
+	if (!hex_decode(hex, strlen(hex), linear_tx, len))
 		errx(1, "Bad hex string in %s", filename);
 
 	tx = pull_bitcoin_tx(ctx, &p, &len);
