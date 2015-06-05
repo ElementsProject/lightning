@@ -371,3 +371,18 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 
 	return script;
 }
+
+u8 *scriptsig_p2sh_revoke(const tal_t *ctx,
+			  const struct sha256 *preimage,
+			  const struct bitcoin_signature *sig,
+			  const u8 *revocable_redeem,
+			  size_t redeem_len)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+
+	add_push_sig(&script, sig);
+	add_push_bytes(&script, preimage, sizeof(*preimage));
+	add_push_bytes(&script, revocable_redeem, redeem_len);
+
+	return script;
+}

@@ -47,6 +47,13 @@ u8 *scriptsig_p2sh_2of2(const tal_t *ctx,
 			const struct pubkey *key1,
 			const struct pubkey *key2);
 
+/* Create an input script to solve by revokehash */
+u8 *scriptsig_p2sh_revoke(const tal_t *ctx,
+			  const struct sha256 *preimage,
+			  const struct bitcoin_signature *sig,
+			  const u8 *revocable_redeem,
+			  size_t redeem_len);
+
 /* Is this a normal pay to pubkey hash? */
 bool is_pay_to_pubkey_hash(const u8 *script, size_t script_len);
 
