@@ -64,6 +64,9 @@ int main(int argc, char *argv[])
 	o1 = pkt_from_file(argv[1], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
 
+	/* FIXME: We should check that their locktime is sane here,
+	 * since we're bound to it.  Also min_confirms, etc. */
+
 	/* Create merged transaction */
 	anchor = anchor_tx_create(ctx, o1, o2, &map, NULL);
 	if (!anchor)
