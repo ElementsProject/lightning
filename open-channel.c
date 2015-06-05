@@ -1,6 +1,6 @@
 /* My example:
- * ./open-channel 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff 50000000000 mzqiPPbjTdcgM6NpNWJLHFt29tWD69bciE cUBCjrdJu8tfvM7FT8So6aqs6G6bZS1Cax6Rc9rFzYL6nYG4XNEC mi1BzT4tCB7K4kZH3yK1hM517bXH4pNmEH 08ffaf638849198f9c8f04aa75d225a5a104d5e7c540770ca55ad08b9a32d10c/1/100000000000/76a9148d2d939aa2aff2d341cde3e61a89bf9c2c21d12388ac > A-open.pb
- * ./open-channel 112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00 9795000 mpDyc5kPAJZB7Zz9iW9acq3Jk8yiTJ7HKj cQXhbUnNRsFcdzTQwjbCrud5yVskHTEas7tZPUWoJYNk5htGQrpi mrvw5JC5SKcEsRpSaRss6A3jLR6DMwpxep 8cb044605f33ca907b966701f49e0bd80b4294696b57f8cf45f22398a1e63a23/0/9800000/76a9143b2aab840afb327a12c8a90fb4ed45b6892eb80988ac > B-open.pb
+ * ./open-channel 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff 50000000000 mzqiPPbjTdcgM6NpNWJLHFt29tWD69bciE cUBCjrdJu8tfvM7FT8So6aqs6G6bZS1Cax6Rc9rFzYL6nYG4XNEC cTuY5gncxDymqe9dfF7R8QFdAsxMZxdViRMjs8Dj7xJJRsQcmPCt 08ffaf638849198f9c8f04aa75d225a5a104d5e7c540770ca55ad08b9a32d10c/1/100000000000/76a9148d2d939aa2aff2d341cde3e61a89bf9c2c21d12388ac > A-open.pb
+ * ./open-channel 112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00 9795000 mpDyc5kPAJZB7Zz9iW9acq3Jk8yiTJ7HKj cQXhbUnNRsFcdzTQwjbCrud5yVskHTEas7tZPUWoJYNk5htGQrpi cQXhbUnNRsFcdzTQwjbCrud5yVskHTEas7tZPUWoJYNk5htGQrpi 8cb044605f33ca907b966701f49e0bd80b4294696b57f8cf45f22398a1e63a23/0/9800000/76a9143b2aab840afb327a12c8a90fb4ed45b6892eb80988ac > B-open.pb
  */
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/short_types/short_types.h>
@@ -102,17 +102,16 @@ static u64 weak_random64(void)
 int main(int argc, char *argv[])
 {
 	struct sha256 seed, revocation_hash;
-	struct bitcoin_address changeaddr, returnaddr;
+	struct bitcoin_address changeaddr;
 	struct pkt *pkt;
 	const tal_t *ctx = tal_arr(NULL, char, 0);
 	Anchor anchor = ANCHOR__INIT;
 	u64 commit_tx_fee, total_in;
 	unsigned int locktime_seconds;
 	bool testnet;
-	u8 *script_to_me;
 	size_t i;
-	struct pubkey commitkey;
-	EC_KEY *commitprivkey;
+	struct pubkey commitkey, outkey;
+	EC_KEY *commitprivkey, *outprivkey;
 
 	err_set_progname(argv[0]);
 
@@ -126,7 +125,7 @@ int main(int argc, char *argv[])
 	locktime_seconds = LOCKTIME_MIN + 24 * 60 * 60;
 	
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<seed> <amount> <changeaddr> <commitprivkey> <returnaddr> <txid>/<outnum>/<satoshis>/<script-in-hex>...\n"
+			   "<seed> <amount> <changeaddr> <commitprivkey> <outpubkey> <txid>/<outnum>/<satoshis>/<script-in-hex>...\n"
 			   "A test program to output openchannel on stdout.",
 			   "Print this message.");
 	opt_register_arg("--min-anchor-confirms",
@@ -168,10 +167,12 @@ int main(int argc, char *argv[])
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
 
-	if (!bitcoin_from_base58(&testnet, &returnaddr, argv[5], strlen(argv[5])))
-		errx(1, "Invalid bitcoin address '%s'", argv[5]);
+	outprivkey = key_from_base58(argv[5], strlen(argv[5]), &testnet,
+				     &outkey);
+	if (!outprivkey)
+		errx(1, "Invalid private key '%s'", argv[5]);
 	if (!testnet)
-		errx(1, "Bitcoin address '%s' not on testnet!", argv[5]);
+		errx(1, "Private key '%s' not on testnet!", argv[5]);
 	
 	anchor.n_inputs = (argc - 6);
 	anchor.inputs = tal_arr(ctx, BitcoinInput *, anchor.n_inputs);
@@ -205,11 +206,7 @@ int main(int argc, char *argv[])
 	/* Get first revocation hash. */
 	shachain_from_seed(&seed, 0, &revocation_hash);
 
-	/* Make simple output script to pay to my pubkey. */
-	script_to_me = scriptpubkey_pay_to_pubkeyhash(ctx, &returnaddr);
-
-	pkt = openchannel_pkt(ctx, weak_random64(), &revocation_hash,
-			      tal_count(script_to_me), script_to_me,
+	pkt = openchannel_pkt(ctx, weak_random64(), &revocation_hash, &outkey,
 			      commit_tx_fee, locktime_seconds, &anchor);
 
 	if (!write_all(STDOUT_FILENO, pkt,

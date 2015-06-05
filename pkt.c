@@ -4,6 +4,7 @@
 #include "pkt.h"
 #include "bitcoin_tx.h"
 #include "bitcoin_address.h"
+#include "pubkey.h"
 #include "signature.h"
 
 #include <stdio.h>
@@ -50,8 +51,7 @@ void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash)
 struct pkt *openchannel_pkt(const tal_t *ctx,
 			    u64 seed,
 			    const struct sha256 *revocation_hash,
-			    size_t script_len,
-			    const void *script,
+			    const struct pubkey *to_me,
 			    u64 commitment_fee,
 			    u32 rel_locktime_seconds,
 			    Anchor *anchor)
@@ -64,8 +64,7 @@ struct pkt *openchannel_pkt(const tal_t *ctx,
 
 	o.seed = seed;
 	o.revocation_hash = sha256_to_proto(ctx, revocation_hash);
-	o.script_to_me.len = script_len;
-	o.script_to_me.data = (void *)script;
+	o.to_me = pubkey_to_proto(ctx, to_me);
 	o.commitment_fee = commitment_fee;
 	o.anchor = anchor;
 	o.locktime_seconds = rel_locktime_seconds;

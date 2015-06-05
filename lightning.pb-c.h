@@ -194,7 +194,7 @@ struct  _OpenChannel
   /*
    * How to pay money to us from commit_tx.
    */
-  ProtobufCBinaryData script_to_me;
+  BitcoinPubkey *to_me;
   /*
    * How much transaction fee we'll pay for commitment txs.
    */
@@ -210,7 +210,7 @@ struct  _OpenChannel
 };
 #define OPEN_CHANNEL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&open_channel__descriptor) \
-    , 0, 0, NULL, {0,NULL}, 0, NULL, 0 }
+    , 0, 0, NULL, NULL, 0, NULL, 0 }
 
 
 /*
