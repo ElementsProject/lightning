@@ -3,7 +3,7 @@
 # Needs to have oneof support: Ubuntu vivid's is too old :(
 PROTOCC:=protoc-c
 
-PROGRAMS := open-channel open-anchor-scriptsigs leak-anchor-sigs open-commit-sig check-commit-sig check-anchor-scriptsigs
+PROGRAMS := open-channel open-anchor-scriptsigs leak-anchor-sigs open-commit-sig check-commit-sig check-anchor-scriptsigs get-anchor-depth
 
 HELPER_OBJS := base58.o lightning.pb-c.o shadouble.o pkt.o bitcoin_script.o permute_tx.o signature.o bitcoin_tx.o bitcoin_address.o anchor.o commit_tx.o pubkey.o
 
