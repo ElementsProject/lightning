@@ -1,6 +1,6 @@
 /* My example:
- * ./open-channel 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff 50000000000 mzqiPPbjTdcgM6NpNWJLHFt29tWD69bciE cUBCjrdJu8tfvM7FT8So6aqs6G6bZS1Cax6Rc9rFzYL6nYG4XNEC cTuY5gncxDymqe9dfF7R8QFdAsxMZxdViRMjs8Dj7xJJRsQcmPCt 08ffaf638849198f9c8f04aa75d225a5a104d5e7c540770ca55ad08b9a32d10c/1/100000000000/76a9148d2d939aa2aff2d341cde3e61a89bf9c2c21d12388ac > A-open.pb
- * ./open-channel 112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00 9795000 mpDyc5kPAJZB7Zz9iW9acq3Jk8yiTJ7HKj cQXhbUnNRsFcdzTQwjbCrud5yVskHTEas7tZPUWoJYNk5htGQrpi cQXhbUnNRsFcdzTQwjbCrud5yVskHTEas7tZPUWoJYNk5htGQrpi 8cb044605f33ca907b966701f49e0bd80b4294696b57f8cf45f22398a1e63a23/0/9800000/76a9143b2aab840afb327a12c8a90fb4ed45b6892eb80988ac > B-open.pb
+ * ./open-channel 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff 50000000000 030da36b810c0930e5fe8b74014665873f6901d9f46018a5fda743a93dec7f0e4e cUBCjrdJu8tfvM7FT8So6aqs6G6bZS1Cax6Rc9rFzYL6nYG4XNEC cTuY5gncxDymqe9dfF7R8QFdAsxMZxdViRMjs8Dj7xJJRsQcmPCt 08ffaf638849198f9c8f04aa75d225a5a104d5e7c540770ca55ad08b9a32d10c/1/100000000000/76a9148d2d939aa2aff2d341cde3e61a89bf9c2c21d12388ac > A-open.pb
+ * ./open-channel 112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00 9795000 022e314a8f7a814e0900bf094f704b233dc693349cf55b888b43d902d7be251e95 cQXhbUnNRsFcdzTQwjbCrud5yVskHTEas7tZPUWoJYNk5htGQrpi cQXhbUnNRsFcdzTQwjbCrud5yVskHTEas7tZPUWoJYNk5htGQrpi 8cb044605f33ca907b966701f49e0bd80b4294696b57f8cf45f22398a1e63a23/0/9800000/76a9143b2aab840afb327a12c8a90fb4ed45b6892eb80988ac > B-open.pb
  */
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/short_types/short_types.h>
@@ -102,7 +102,6 @@ static u64 weak_random64(void)
 int main(int argc, char *argv[])
 {
 	struct sha256 seed, revocation_hash;
-	struct bitcoin_address changeaddr;
 	struct pkt *pkt;
 	const tal_t *ctx = tal_arr(NULL, char, 0);
 	Anchor anchor = ANCHOR__INIT;
@@ -110,7 +109,7 @@ int main(int argc, char *argv[])
 	unsigned int locktime_seconds;
 	bool testnet;
 	size_t i;
-	struct pubkey commitkey, outkey;
+	struct pubkey commitkey, outkey, changekey;
 	EC_KEY *commitprivkey, *outprivkey;
 
 	err_set_progname(argv[0]);
@@ -125,7 +124,7 @@ int main(int argc, char *argv[])
 	locktime_seconds = LOCKTIME_MIN + 24 * 60 * 60;
 	
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<seed> <amount> <changeaddr> <commitprivkey> <outpubkey> <txid>/<outnum>/<satoshis>/<script-in-hex>...\n"
+			   "<seed> <amount> <changepubkey> <commitprivkey> <outpubkey> <txid>/<outnum>/<satoshis>/<script-in-hex>...\n"
 			   "A test program to output openchannel on stdout.",
 			   "Print this message.");
 	opt_register_arg("--min-anchor-confirms",
@@ -153,10 +152,8 @@ int main(int argc, char *argv[])
 	if (!anchor.total)
 		errx(1, "Invalid total: must be > 0");
 
-	if (!bitcoin_from_base58(&testnet, &changeaddr, argv[3], strlen(argv[3])))
-		errx(1, "Invalid bitcoin address '%s'", argv[3]);
-	if (!testnet)
-		errx(1, "Bitcoin address '%s' not on testnet!", argv[3]);
+	if (!pubkey_from_hexstr(argv[3], &changekey))
+		errx(1, "Invalid bitcoin pubkey '%s'", argv[3]);
 
 	/* We don't really need the privkey here, but it's the most
 	 * convenient way to get the pubkey from bitcoind. */
@@ -192,15 +189,11 @@ int main(int argc, char *argv[])
 
 	/* If there's change, say where to send it. */
 	if (total_in != anchor.total + anchor.fee) {
-		anchor.change = tal(ctx, BitcoinOutput);
-		bitcoin_output__init(anchor.change);
+		anchor.change = tal(ctx, Change);
+		change__init(anchor.change);
+		anchor.change->pubkey = pubkey_to_proto(anchor.change,
+							&changekey);
 		anchor.change->amount = total_in - (anchor.total + anchor.fee);
-		/* FIXME: Use p2sh? */
-		anchor.change->script.data
-			= scriptpubkey_pay_to_pubkeyhash(anchor.change,
-							 &changeaddr);
-		anchor.change->script.len
-			= tal_count(anchor.change->script.data);
 	}
 	
 	/* Get first revocation hash. */

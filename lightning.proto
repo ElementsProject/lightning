@@ -36,17 +36,17 @@ message bitcoin_input {
   required uint64 amount = 4;
 }
 
-// A bitcoin output
-message bitcoin_output {
-  required uint64 amount = 1;
-  required bytes script = 2;
-}
-
 // Pubkey for commitment transaction input.
 message bitcoin_pubkey {
   // Either 65 or 33 bytes.
   required bytes key = 1;
 };
+
+// Change, if we want any.
+message change {
+  required uint64 amount = 1;
+  required bitcoin_pubkey pubkey = 2;
+}
 
 // All about an anchor transaction.
 message anchor {
@@ -55,7 +55,7 @@ message anchor {
   // Pubkey for anchor to pay to for commitment tx (p2sh)
   required bitcoin_pubkey pubkey = 5;
   // Any change from anchor (in case we don't want to use them all)
-  optional bitcoin_output change = 2;
+  optional change change = 2;
   // How much transaction fee we'll pay in the anchor tx.
   required uint64 fee = 8;
   // How much we'll be putting into channel (== sum(inputs) - change - fee)

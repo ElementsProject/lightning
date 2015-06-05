@@ -18,8 +18,8 @@ PROTOBUF_C__BEGIN_DECLS
 typedef struct _Sha256Hash Sha256Hash;
 typedef struct _Signature Signature;
 typedef struct _BitcoinInput BitcoinInput;
-typedef struct _BitcoinOutput BitcoinOutput;
 typedef struct _BitcoinPubkey BitcoinPubkey;
+typedef struct _Change Change;
 typedef struct _Anchor Anchor;
 typedef struct _OpenChannel OpenChannel;
 typedef struct _OpenCommitSig OpenCommitSig;
@@ -107,20 +107,6 @@ struct  _BitcoinInput
 
 
 /*
- * A bitcoin output
- */
-struct  _BitcoinOutput
-{
-  ProtobufCMessage base;
-  uint64_t amount;
-  ProtobufCBinaryData script;
-};
-#define BITCOIN_OUTPUT__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&bitcoin_output__descriptor) \
-    , 0, {0,NULL} }
-
-
-/*
  * Pubkey for commitment transaction input.
  */
 struct  _BitcoinPubkey
@@ -134,6 +120,20 @@ struct  _BitcoinPubkey
 #define BITCOIN_PUBKEY__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&bitcoin_pubkey__descriptor) \
     , {0,NULL} }
+
+
+/*
+ * Change, if we want any.
+ */
+struct  _Change
+{
+  ProtobufCMessage base;
+  uint64_t amount;
+  BitcoinPubkey *pubkey;
+};
+#define CHANGE__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&change__descriptor) \
+    , 0, NULL }
 
 
 /*
@@ -154,7 +154,7 @@ struct  _Anchor
   /*
    * Any change from anchor (in case we don't want to use them all)
    */
-  BitcoinOutput *change;
+  Change *change;
   /*
    * How much transaction fee we'll pay in the anchor tx.
    */
@@ -591,25 +591,6 @@ BitcoinInput *
 void   bitcoin_input__free_unpacked
                      (BitcoinInput *message,
                       ProtobufCAllocator *allocator);
-/* BitcoinOutput methods */
-void   bitcoin_output__init
-                     (BitcoinOutput         *message);
-size_t bitcoin_output__get_packed_size
-                     (const BitcoinOutput   *message);
-size_t bitcoin_output__pack
-                     (const BitcoinOutput   *message,
-                      uint8_t             *out);
-size_t bitcoin_output__pack_to_buffer
-                     (const BitcoinOutput   *message,
-                      ProtobufCBuffer     *buffer);
-BitcoinOutput *
-       bitcoin_output__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   bitcoin_output__free_unpacked
-                     (BitcoinOutput *message,
-                      ProtobufCAllocator *allocator);
 /* BitcoinPubkey methods */
 void   bitcoin_pubkey__init
                      (BitcoinPubkey         *message);
@@ -628,6 +609,25 @@ BitcoinPubkey *
                       const uint8_t       *data);
 void   bitcoin_pubkey__free_unpacked
                      (BitcoinPubkey *message,
+                      ProtobufCAllocator *allocator);
+/* Change methods */
+void   change__init
+                     (Change         *message);
+size_t change__get_packed_size
+                     (const Change   *message);
+size_t change__pack
+                     (const Change   *message,
+                      uint8_t             *out);
+size_t change__pack_to_buffer
+                     (const Change   *message,
+                      ProtobufCBuffer     *buffer);
+Change *
+       change__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   change__free_unpacked
+                     (Change *message,
                       ProtobufCAllocator *allocator);
 /* Anchor methods */
 void   anchor__init
@@ -982,11 +982,11 @@ typedef void (*Signature_Closure)
 typedef void (*BitcoinInput_Closure)
                  (const BitcoinInput *message,
                   void *closure_data);
-typedef void (*BitcoinOutput_Closure)
-                 (const BitcoinOutput *message,
-                  void *closure_data);
 typedef void (*BitcoinPubkey_Closure)
                  (const BitcoinPubkey *message,
+                  void *closure_data);
+typedef void (*Change_Closure)
+                 (const Change *message,
                   void *closure_data);
 typedef void (*Anchor_Closure)
                  (const Anchor *message,
@@ -1051,8 +1051,8 @@ typedef void (*Pkt_Closure)
 extern const ProtobufCMessageDescriptor sha256_hash__descriptor;
 extern const ProtobufCMessageDescriptor signature__descriptor;
 extern const ProtobufCMessageDescriptor bitcoin_input__descriptor;
-extern const ProtobufCMessageDescriptor bitcoin_output__descriptor;
 extern const ProtobufCMessageDescriptor bitcoin_pubkey__descriptor;
+extern const ProtobufCMessageDescriptor change__descriptor;
 extern const ProtobufCMessageDescriptor anchor__descriptor;
 extern const ProtobufCMessageDescriptor open_channel__descriptor;
 extern const ProtobufCMessageDescriptor open_commit_sig__descriptor;

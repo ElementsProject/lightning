@@ -136,49 +136,6 @@ void   bitcoin_input__free_unpacked
   assert(message->base.descriptor == &bitcoin_input__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   bitcoin_output__init
-                     (BitcoinOutput         *message)
-{
-  static BitcoinOutput init_value = BITCOIN_OUTPUT__INIT;
-  *message = init_value;
-}
-size_t bitcoin_output__get_packed_size
-                     (const BitcoinOutput *message)
-{
-  assert(message->base.descriptor == &bitcoin_output__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
-}
-size_t bitcoin_output__pack
-                     (const BitcoinOutput *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &bitcoin_output__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
-}
-size_t bitcoin_output__pack_to_buffer
-                     (const BitcoinOutput *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &bitcoin_output__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
-}
-BitcoinOutput *
-       bitcoin_output__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (BitcoinOutput *)
-     protobuf_c_message_unpack (&bitcoin_output__descriptor,
-                                allocator, len, data);
-}
-void   bitcoin_output__free_unpacked
-                     (BitcoinOutput *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &bitcoin_output__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
-}
 void   bitcoin_pubkey__init
                      (BitcoinPubkey         *message)
 {
@@ -220,6 +177,49 @@ void   bitcoin_pubkey__free_unpacked
                       ProtobufCAllocator *allocator)
 {
   assert(message->base.descriptor == &bitcoin_pubkey__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
+void   change__init
+                     (Change         *message)
+{
+  static Change init_value = CHANGE__INIT;
+  *message = init_value;
+}
+size_t change__get_packed_size
+                     (const Change *message)
+{
+  assert(message->base.descriptor == &change__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t change__pack
+                     (const Change *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &change__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t change__pack_to_buffer
+                     (const Change *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &change__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+Change *
+       change__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (Change *)
+     protobuf_c_message_unpack (&change__descriptor,
+                                allocator, len, data);
+}
+void   change__free_unpacked
+                     (Change *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &change__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   anchor__init
@@ -1279,57 +1279,6 @@ const ProtobufCMessageDescriptor bitcoin_input__descriptor =
   (ProtobufCMessageInit) bitcoin_input__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor bitcoin_output__field_descriptors[2] =
-{
-  {
-    "amount",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_UINT64,
-    0,   /* quantifier_offset */
-    offsetof(BitcoinOutput, amount),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "script",
-    2,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_BYTES,
-    0,   /* quantifier_offset */
-    offsetof(BitcoinOutput, script),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned bitcoin_output__field_indices_by_name[] = {
-  0,   /* field[0] = amount */
-  1,   /* field[1] = script */
-};
-static const ProtobufCIntRange bitcoin_output__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 2 }
-};
-const ProtobufCMessageDescriptor bitcoin_output__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "bitcoin_output",
-  "BitcoinOutput",
-  "BitcoinOutput",
-  "",
-  sizeof(BitcoinOutput),
-  2,
-  bitcoin_output__field_descriptors,
-  bitcoin_output__field_indices_by_name,
-  1,  bitcoin_output__number_ranges,
-  (ProtobufCMessageInit) bitcoin_output__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
 static const ProtobufCFieldDescriptor bitcoin_pubkey__field_descriptors[1] =
 {
   {
@@ -1368,6 +1317,57 @@ const ProtobufCMessageDescriptor bitcoin_pubkey__descriptor =
   (ProtobufCMessageInit) bitcoin_pubkey__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
+static const ProtobufCFieldDescriptor change__field_descriptors[2] =
+{
+  {
+    "amount",
+    1,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT64,
+    0,   /* quantifier_offset */
+    offsetof(Change, amount),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "pubkey",
+    2,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(Change, pubkey),
+    &bitcoin_pubkey__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned change__field_indices_by_name[] = {
+  0,   /* field[0] = amount */
+  1,   /* field[1] = pubkey */
+};
+static const ProtobufCIntRange change__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 2 }
+};
+const ProtobufCMessageDescriptor change__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "change",
+  "Change",
+  "Change",
+  "",
+  sizeof(Change),
+  2,
+  change__field_descriptors,
+  change__field_indices_by_name,
+  1,  change__number_ranges,
+  (ProtobufCMessageInit) change__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
 static const ProtobufCFieldDescriptor anchor__field_descriptors[6] =
 {
   {
@@ -1389,7 +1389,7 @@ static const ProtobufCFieldDescriptor anchor__field_descriptors[6] =
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
     offsetof(Anchor, change),
-    &bitcoin_output__descriptor,
+    &change__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */

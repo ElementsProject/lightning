@@ -1,5 +1,6 @@
 #include "pubkey.h"
 #include <openssl/ecdsa.h>
+#include <ccan/str/hex/hex.h>
 
 /* Must agree on key validity with bitcoin!  Stolen from bitcoin/src/pubkey.h's
  * GetLen:
@@ -51,4 +52,16 @@ bool proto_to_pubkey(const BitcoinPubkey *pb, struct pubkey *key)
 
 	memcpy(key->key, pb->key.data, pb->key.len);
 	return true;
+}
+
+bool pubkey_from_hexstr(const char *str, struct pubkey *key)
+{
+	size_t slen = strlen(str), dlen;
+	dlen = hex_data_size(slen);
+
+	if (dlen != 33 && dlen != 65)
+		return false;
+	if (!hex_decode(str, slen, key->key, dlen))
+		return false;
+	return GetLen(key->key[0]) == dlen;
 }

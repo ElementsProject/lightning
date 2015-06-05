@@ -66,15 +66,27 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 	n_out = 1;
 	if (o1->anchor->change) {
 		struct bitcoin_tx_output *out = &tx->output[n_out++];
+		struct pubkey key;
+
+		if (!proto_to_pubkey(o1->anchor->change->pubkey, &key))
+			return tal_free(tx);
+
 		out->amount = o1->anchor->change->amount;
-		out->script_length = o1->anchor->change->script.len;
-		out->script = o1->anchor->change->script.data;
+		out->script = scriptpubkey_p2sh(tx,
+						bitcoin_redeem_single(tx, &key));
+		out->script_length = tal_count(out->script);
 	}
 	if (o2->anchor->change) {
 		struct bitcoin_tx_output *out = &tx->output[n_out++];
+		struct pubkey key;
+
+		if (!proto_to_pubkey(o2->anchor->change->pubkey, &key))
+			return tal_free(tx);
+
 		out->amount = o2->anchor->change->amount;
-		out->script_length = o2->anchor->change->script.len;
-		out->script = o2->anchor->change->script.data;
+		out->script = scriptpubkey_p2sh(tx,
+						bitcoin_redeem_single(tx, &key));
+		out->script_length = tal_count(out->script);
 	}
 	assert(n_out == tx->output_count);
 	
