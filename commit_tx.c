@@ -24,12 +24,13 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx->input[0].txid = *anchor_txid;
 	tx->input[0].index = anchor_output;
 
-	if (!proto_to_pubkey(ours->anchor->pubkey, &ourkey))
+	/* Output goes to our final pubkeys */
+	if (!proto_to_pubkey(ours->final, &ourkey))
 		return tal_free(tx);
-	if (!proto_to_pubkey(theirs->anchor->pubkey, &theirkey))
+	if (!proto_to_pubkey(theirs->final, &theirkey))
 		return tal_free(tx);
 	proto_to_sha256(ours->revocation_hash, &redeem);
-	
+
 	/* First output is a P2SH to a complex redeem script (usu. for me) */
 	redeemscript = bitcoin_redeem_revocable(tx, &ourkey,
 						ours->locktime_seconds,
@@ -43,7 +44,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx->output[0].amount = ours->anchor->total - ours->commitment_fee;
 
 	/* Second output is a P2SH payment to them. */
-	if (!proto_to_pubkey(theirs->to_me, &to_me))
+	if (!proto_to_pubkey(theirs->final, &to_me))
 		return tal_free(tx);
 	tx->output[1].script = scriptpubkey_p2sh(ctx,
 						 bitcoin_redeem_single(ctx,

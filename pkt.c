@@ -64,7 +64,7 @@ struct pkt *openchannel_pkt(const tal_t *ctx,
 
 	o.seed = seed;
 	o.revocation_hash = sha256_to_proto(ctx, revocation_hash);
-	o.to_me = pubkey_to_proto(ctx, to_me);
+	o.final = pubkey_to_proto(ctx, to_me);
 	o.commitment_fee = commitment_fee;
 	o.anchor = anchor;
 	o.locktime_seconds = rel_locktime_seconds;

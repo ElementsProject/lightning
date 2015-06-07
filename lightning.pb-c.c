@@ -1513,12 +1513,12 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "to_me",
+    "final",
     5,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(OpenChannel, to_me),
+    offsetof(OpenChannel, final),
     &bitcoin_pubkey__descriptor,
     NULL,
     0,             /* flags */
@@ -1564,10 +1564,10 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
 static const unsigned open_channel__field_indices_by_name[] = {
   5,   /* field[5] = anchor */
   4,   /* field[4] = commitment_fee */
+  3,   /* field[3] = final */
   1,   /* field[1] = locktime_seconds */
   2,   /* field[2] = revocation_hash */
   0,   /* field[0] = seed */
-  3,   /* field[3] = to_me */
   6,   /* field[6] = tx_version */
 };
 static const ProtobufCIntRange open_channel__number_ranges[2 + 1] =

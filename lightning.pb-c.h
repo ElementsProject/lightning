@@ -194,7 +194,7 @@ struct  _OpenChannel
   /*
    * How to pay money to us from commit_tx.
    */
-  BitcoinPubkey *to_me;
+  BitcoinPubkey *final;
   /*
    * How much transaction fee we'll pay for commitment txs.
    */

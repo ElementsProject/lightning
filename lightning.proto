@@ -77,7 +77,7 @@ message open_channel {
   // Hash seed for revoking commitment transactions.
   required sha256_hash revocation_hash = 4;
   // How to pay money to us from commit_tx.
-  required bitcoin_pubkey to_me = 5;
+  required bitcoin_pubkey final = 5;
   // How much transaction fee we'll pay for commitment txs.
   required uint64 commitment_fee = 6;
   // The anchor transaction details.
