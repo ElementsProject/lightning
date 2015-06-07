@@ -25,8 +25,13 @@
 #define OP_CHECKSIG	0xAC
 #define OP_CHECKMULTISIG	0xAE
 #define OP_HASH160	0xA9
-#define OP_CHECKSEQUENCEVERIFY	0xB2
 
+#ifdef HAS_CSV
+#define OP_CHECKSEQUENCEVERIFY	0xB2
+#else
+/* OP_NOP, otherwise bitcoind complains */
+#define OP_CHECKSEQUENCEVERIFY	0x61
+#endif
 static void add(u8 **scriptp, const void *mem, size_t len)
 {
 	size_t oldlen = tal_count(*scriptp);
