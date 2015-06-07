@@ -19,27 +19,10 @@
 #include "shadouble.h"
 #include <openssl/ec.h>
 #include <unistd.h>
+#include "opt_bits.h"
 
 /* Bitcoin nodes are allowed to be 2 hours in the future. */ 
 #define LOCKTIME_MIN (2 * 60 * 60)
-
-static char *opt_set_bits(const char *arg, u64 *satoshi)
-{
-	unsigned long long ll;
-	char *ret = opt_set_ulonglongval_si(arg, &ll);
-	if (ret)
-		return ret;
-	*satoshi = ll * 100;
-	if (*satoshi / 100 != ll)
-		return "Invalid number of bits";
-	return NULL;
-}
-
-static void opt_show_bits(char buf[OPT_SHOW_LEN], const u64 *bits)
-{
-	unsigned long long ll = *bits / 100;
-	opt_show_ulonglongval_si(buf, &ll);
-}
 
 static BitcoinInput *parse_anchor_input(const tal_t *ctx, const char *spec)
 {
@@ -110,7 +93,7 @@ int main(int argc, char *argv[])
 	locktime_seconds = LOCKTIME_MIN + 24 * 60 * 60;
 	
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<seed> <amount> <changepubkey> <commitprivkey> <outpubkey> <txid>/<outnum>/<satoshis>/<script-in-hex>...\n"
+			   "<seed> <amount> <changepubkey> <commitprivkey> <outprivkey> <txid>/<outnum>/<satoshis>/<script-in-hex>...\n"
 			   "A test program to output openchannel on stdout.",
 			   "Print this message.");
 	opt_register_arg("--min-anchor-confirms",
