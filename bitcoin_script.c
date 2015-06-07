@@ -17,6 +17,7 @@
 #define OP_ELSE		0x67
 #define OP_ENDIF	0x68
 #define OP_DEPTH	0x74
+#define OP_DROP		0x75
 #define OP_DUP		0x76
 #define OP_EQUAL	0x87
 #define OP_EQUALVERIFY	0x88
@@ -377,6 +378,7 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 	add_op(&script, OP_ELSE);
 	add_push_bytes(&script, &locktime_le, sizeof(locktime_le));
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
+	add_op(&script, OP_DROP);
 	add_push_key(&script, mykey);
 	add_op(&script, OP_CHECKSIG);
 	add_op(&script, OP_ENDIF);
