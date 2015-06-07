@@ -1,0 +1,137 @@
+/* My example:
+ * ./create-commit-spend-tx A-commit.tx A-open.pb B-open.pb cTJtiQKZLTufMhhRhxUdbZ2oKJY2MU6sLDEk62mSGoe4NEubLN2e 039bda7e7063afd6aba752b33ca9ae455c4e8d7297b8db01bb06879e0036bde27f > A-spend.tx
+ */
+#include <ccan/crypto/shachain/shachain.h>
+#include <ccan/short_types/short_types.h>
+#include <ccan/tal/tal.h>
+#include <ccan/opt/opt.h>
+#include <ccan/str/hex/hex.h>
+#include <ccan/err/err.h>
+#include <ccan/read_write_all/read_write_all.h>
+#include <ccan/structeq/structeq.h>
+#include "lightning.pb-c.h"
+#include "anchor.h"
+#include "base58.h"
+#include "pkt.h"
+#include "bitcoin_script.h"
+#include "permute_tx.h"
+#include "signature.h"
+#include "commit_tx.h"
+#include "pubkey.h"
+#include "bitcoin_address.h"
+#include "opt_bits.h"
+#include <openssl/ec.h>
+#include <unistd.h>
+
+int main(int argc, char *argv[])
+{
+	const tal_t *ctx = tal_arr(NULL, char, 0);
+	OpenChannel *o1, *o2;
+	struct bitcoin_tx *commit, *tx;
+	struct bitcoin_signature sig;
+	EC_KEY *privkey;
+	bool testnet;
+	struct pubkey pubkey1, pubkey2, outpubkey;
+	u8 *redeemscript, *p2sh, *tx_arr;
+	char *tx_hex;
+	struct sha256 rhash;
+	size_t i;
+	u64 fee = 10000;
+
+	err_set_progname(argv[0]);
+
+	/* FIXME: If we've updated channel since, we need the final
+	 * revocation hash we sent (either update_accept or update_complete) */
+	opt_register_noarg("--help|-h", opt_usage_and_exit,
+			   "<commitment-tx> <open-channel-file1> <open-channel-file2> <my-privoutkey> <someaddress>\n"
+			   "Create the transaction to spend our commit transaction",
+			   "Print this message.");
+	opt_register_arg("--fee=<bits>",
+			 opt_set_bits, opt_show_bits, &fee,
+			 "100's of satoshi to pay in transaction fee");
+
+ 	opt_parse(&argc, argv, opt_log_stderr_exit);
+
+	if (argc != 6)
+		opt_usage_exit_fail("Expected 5 arguments");
+
+	commit = bitcoin_tx_from_file(ctx, argv[1]);
+
+	o1 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
+	o2 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
+
+ 	/* We need our private key to spend commit output. */
+	privkey = key_from_base58(argv[4], strlen(argv[4]), &testnet, &pubkey1);
+	if (!privkey)
+		errx(1, "Invalid private key '%s'", argv[4]);
+	if (!testnet)
+		errx(1, "Private key '%s' not on testnet!", argv[4]);
+
+	if (!pubkey_from_hexstr(argv[5], &outpubkey))
+		errx(1, "Invalid bitcoin pubkey '%s'", argv[5]);
+
+	/* Get pubkeys */
+	if (!proto_to_pubkey(o1->final, &pubkey2))
+		errx(1, "Invalid o1 final pubkey");
+	if (pubkey_len(&pubkey1) != pubkey_len(&pubkey2)
+	    || memcmp(pubkey1.key, pubkey2.key, pubkey_len(&pubkey2)) != 0)
+		errx(1, "o1 pubkey != this privkey");
+	if (!proto_to_pubkey(o2->final, &pubkey2))
+		errx(1, "Invalid o2 final pubkey");
+
+	/* o1 gives us the revocation hash */
+	proto_to_sha256(o1->revocation_hash, &rhash);
+	
+	/* Create redeem script */
+	redeemscript = bitcoin_redeem_revocable(ctx, &pubkey1,
+						o2->locktime_seconds,
+						&pubkey2, &rhash);
+
+	/* This is the scriptPubKey commit tx will have */
+	p2sh = scriptpubkey_p2sh(ctx, redeemscript);
+
+	/* Which output of commit tx are we spending? */
+	for (i = 0; i < commit->output_count; i++) {
+		if (commit->output[i].script_length != tal_count(p2sh))
+			continue;
+		if (memcmp(commit->output[i].script, p2sh, tal_count(p2sh)) == 0)
+			break;
+	}
+	if (i == commit->output_count)
+		errx(1, "No matching output in %s", argv[1]);
+
+	/* Now, create transaction to spend it. */
+	tx = bitcoin_tx(ctx, 1, 1);
+	bitcoin_txid(commit, &tx->input[0].txid);
+	tx->input[0].index = i;
+
+	if (commit->output[i].amount <= fee)
+		errx(1, "Amount of %llu won't exceed fee",
+		     (unsigned long long)commit->output[i].amount);
+
+	tx->output[0].amount = commit->output[i].amount - fee;
+	tx->output[0].script = scriptpubkey_p2sh(tx,
+						 bitcoin_redeem_single(tx, &outpubkey));
+	tx->output[0].script_length = cpu_to_le32(tal_count(tx->output[0].script));
+
+	/* Now get signature, to set up input script. */
+	if (!sign_tx_input(tx, tx, 0, redeemscript, tal_count(redeemscript),
+			   privkey, &sig.sig))
+		errx(1, "Could not sign tx");
+	sig.stype = SIGHASH_ALL;
+	tx->input[0].script = scriptsig_p2sh_single_sig(tx, redeemscript,
+							tal_count(redeemscript),
+							&sig);
+	tx->input[0].script_length = cpu_to_le32(tal_count(tx->input[0].script));
+
+	/* Print it out in hex. */
+	tx_arr = linearize_tx(ctx, tx);
+	tx_hex = tal_arr(tx_arr, char, hex_str_size(tal_count(tx_arr)));
+	hex_encode(tx_arr, tal_count(tx_arr), tx_hex, tal_count(tx_hex));
+
+	if (!write_all(STDOUT_FILENO, tx_hex, strlen(tx_hex)))
+		err(1, "Writing out transaction");
+
+	tal_free(ctx);
+	return 0;
+}

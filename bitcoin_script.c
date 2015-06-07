@@ -269,6 +269,19 @@ u8 *scriptsig_pay_to_pubkeyhash(const tal_t *ctx,
 	return script;
 }
 
+/* Assumes redeemscript contains CHECKSIG, not CHECKMULTISIG */
+u8 *scriptsig_p2sh_single_sig(const tal_t *ctx,
+			      const u8 *redeem_script,
+			      size_t redeem_len,
+			      const struct bitcoin_signature *sig)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+
+	add_push_sig(&script, sig);
+	add_push_bytes(&script, redeem_script, redeem_len);
+	return script;
+}
+	
 u8 *scriptsig_p2sh_2of2(const tal_t *ctx,
 			const struct bitcoin_signature *sig1,
 			const struct bitcoin_signature *sig2,
