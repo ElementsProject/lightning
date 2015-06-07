@@ -154,18 +154,25 @@ static bool IsValidSignatureEncoding(const unsigned char sig[], size_t len)
 /* DER encode a value, return length used. */
 static size_t der_encode_val(const u8 *val, u8 *der)
 {
-	size_t len = 0;
+	size_t len = 0, val_len = 32;
 
 	der[len++] = 0x2; /* value type. */
+
+	/* Strip leading zeroes. */
+	while (val_len && val[0] == 0) {
+		val++;
+		val_len--;
+	}
+
 	/* Add zero byte if it would otherwise be signed. */
 	if (val[0] & 0x80) {
-		der[len++] = 33; /* value length */
+		der[len++] = 1 + val_len; /* value length */
 		der[len++] = 0;
 	} else
-		der[len++] = 32; /* value length */
+		der[len++] = val_len; /* value length */
 
-	memcpy(der + len, val, 32);
-	return len + 32;
+	memcpy(der + len, val, val_len);
+	return len + val_len;
 }
 	
 /* Bitcoin wants DER encoding. */
