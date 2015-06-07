@@ -175,21 +175,21 @@ static u64 pull_varint(const u8 **cursor, size_t *max)
 		p = pull(cursor, max, NULL, 2);
 		if (!p)
 			return 0;
-		ret = ((u64)p[2] << 8) + p[1];
+		ret = ((u64)p[1] << 8) + p[0];
 	} else if (*p == 0xfe) {
 		p = pull(cursor, max, NULL, 4);
 		if (!p)
 			return 0;
-		ret = ((u64)p[4] << 24) + ((u64)p[3] << 16)
-			+ ((u64)p[2] << 8) + p[1];
+		ret = ((u64)p[3] << 24) + ((u64)p[2] << 16)
+			+ ((u64)p[1] << 8) + p[0];
 	} else {
 		p = pull(cursor, max, NULL, 8);
 		if (!p)
 			return 0;
-		ret = ((u64)p[8] << 56) + ((u64)p[7] << 48)
-			+ ((u64)p[6] << 40) + ((u64)p[5] << 32)
-			+ ((u64)p[4] << 24) + ((u64)p[3] << 16)
-			+ ((u64)p[2] << 8) + p[1];
+		ret = ((u64)p[7] << 56) + ((u64)p[6] << 48)
+			+ ((u64)p[5] << 40) + ((u64)p[4] << 32)
+			+ ((u64)p[3] << 24) + ((u64)p[2] << 16)
+			+ ((u64)p[1] << 8) + p[0];
 	}
 	return ret;
 }
