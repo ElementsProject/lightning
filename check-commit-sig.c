@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 	anchor_txid(anchor, argv[5], argv[6], inmap, &txid);
 
 	/* Now create our commitment tx. */
-	commit = create_commit_tx(ctx, o1, o2, &txid, outmap[0]);
+	commit = create_commit_tx(ctx, o1, o2, 0, &txid, outmap[0]);
 
 	/* If contributions don't exceed fees, this fails. */
 	if (!commit)

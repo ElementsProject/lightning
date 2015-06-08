@@ -81,6 +81,17 @@ struct pkt *close_channel_pkt(const tal_t *ctx, const struct signature *sig);
 struct pkt *close_channel_complete_pkt(const tal_t *ctx,
 				       const struct signature *sig);
 
+/**
+ * update_pkt - create an update message
+ * @ctx: tal context to allocate off.
+ * @revocation_hash: the revocation hash for the next tx.
+ * @delta: the change in satoshis (to me).
+ * @sig: the signature for the close transaction input.
+ */
+struct pkt *update_pkt(const tal_t *ctx,
+		       const struct sha256 *revocation_hash,
+		       s64 delta, struct signature *sig);
+
 /* Useful helper for allocating & populating a protobuf Sha256Hash */
 Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash);
 void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash);

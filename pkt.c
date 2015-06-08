@@ -152,3 +152,15 @@ struct pkt *close_channel_complete_pkt(const tal_t *ctx,
 	c.sig = signature_to_proto(ctx, sig);
 	return to_pkt(ctx, PKT__PKT_CLOSE_COMPLETE, &c);
 }
+
+struct pkt *update_pkt(const tal_t *ctx,
+		       const struct sha256 *revocation_hash,
+		       s64 delta, struct signature *sig)
+{
+	Update u = UPDATE__INIT;
+	u.revocation_hash = sha256_to_proto(ctx, revocation_hash);
+	u.delta = delta;
+	u.sig = signature_to_proto(ctx, sig);
+	return to_pkt(ctx, PKT__PKT_UPDATE, &u);
+}
+

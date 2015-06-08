@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 	anchor_txid(anchor, argv[4], argv[5], inmap, &txid);
 
 	/* Now create THEIR commitment tx to spend 2/2 output of anchor. */
-	commit = create_commit_tx(ctx, o2, o1, &txid, outmap[0]);
+	commit = create_commit_tx(ctx, o2, o1, 0, &txid, outmap[0]);
 
 	/* If contributions don't exceed fees, this fails. */
 	if (!commit)

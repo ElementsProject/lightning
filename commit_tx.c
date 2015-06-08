@@ -9,6 +9,7 @@
 struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    OpenChannel *ours,
 				    OpenChannel *theirs,
+				    int64_t delta,
 				    const struct sha256_double *anchor_txid,
 				    unsigned int anchor_output)
 {
@@ -42,7 +43,11 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	if (ours->anchor->total < ours->commitment_fee)
 		return tal_free(tx);
 	tx->output[0].amount = ours->anchor->total - ours->commitment_fee;
-
+	/* Asking for more than we have? */
+	if (delta < 0 && -delta > tx->output[0].amount)
+		return tal_free(tx);
+	tx->output[0].amount += delta;
+	
 	/* Second output is a P2SH payment to them. */
 	if (!proto_to_pubkey(theirs->final, &to_me))
 		return tal_free(tx);
@@ -54,6 +59,10 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	if (theirs->anchor->total < theirs->commitment_fee)
 		return tal_free(tx);
 	tx->output[1].amount = theirs->anchor->total - theirs->commitment_fee;
+	/* Asking for more than they have? */
+	if (delta > 0 && delta > tx->output[1].amount)
+		return tal_free(tx);
+	tx->output[0].amount -= delta;
 
 	permute_outputs(ours->seed, theirs->seed, 1, tx->output, 2, NULL);
 	return tx;
