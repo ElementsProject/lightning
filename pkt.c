@@ -164,3 +164,14 @@ struct pkt *update_pkt(const tal_t *ctx,
 	return to_pkt(ctx, PKT__PKT_UPDATE, &u);
 }
 
+struct pkt *update_accept_pkt(const tal_t *ctx,
+			      struct signature *sig,
+			      const struct sha256 *revocation_hash,
+			      const struct sha256 *revocation_preimage)
+{
+	UpdateAccept ua = UPDATE_ACCEPT__INIT;
+	ua.sig = signature_to_proto(ctx, sig);
+	ua.revocation_hash = sha256_to_proto(ctx, revocation_hash);
+	ua.revocation_preimage = sha256_to_proto(ctx, revocation_preimage);
+	return to_pkt(ctx, PKT__PKT_UPDATE_ACCEPT, &ua);
+}

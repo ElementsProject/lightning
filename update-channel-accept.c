@@ -1,5 +1,5 @@
 /* My example:
- * ./update-channel <A-SEED> <my-delta-in-satoshis> A-open.pb B-open.pb anchor.tx <A-TMPKEY> > A-update-1.pb
+ * ./update-channel-accept <B-SEED> B-open.pb A-open.pb anchor.tx <B-TMPKEY> A-update-1.pb > B-update-accept-1.pb
  */
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/short_types/short_types.h>
@@ -24,8 +24,9 @@
 int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal_arr(NULL, char, 0);
-	struct sha256 seed, revocation_hash;
+	struct sha256 seed, revocation_hash, revocation_preimage;
 	OpenChannel *o1, *o2;
+	Update *update;
 	struct bitcoin_tx *anchor, *commit;
 	struct sha256_double anchor_txid;
 	struct pkt *pkt;
@@ -34,37 +35,23 @@ int main(int argc, char *argv[])
 	bool testnet;
 	struct pubkey pubkey1, pubkey2;
 	u8 *redeemscript;
-	unsigned long long to_them = 0, from_them = 0;
-	int64_t delta, this_delta;
+	int64_t delta;
 	size_t i;
 
 	err_set_progname(argv[0]);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<seed> <anchor-tx> <open-channel-file1> <open-channel-file2> <commit-privkey> [previous-updates]\n"
-			   "Create a new update message",
+			   "<seed> <anchor-tx> <open-channel-file1> <open-channel-file2> <commit-privkey> <update-protobuf> [previous-updates]\n"
+			   "Accept a new update message",
 			   "Print this message.");
-	opt_register_arg("--to-them=<satoshi>",
-			 opt_set_ulonglongval_si, NULL, &to_them,
-			 "Amount to pay them (must use this or --from-them)");
-	opt_register_arg("--from-them=<satoshi>",
-			 opt_set_ulonglongval_si, NULL, &from_them,
-			 "Amount to pay us (must use this or --to-them)");
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
-	if (!from_them && !to_them)
-		opt_usage_exit_fail("Must use --to-them or --from-them");
-
-	if (argc < 5)
-		opt_usage_exit_fail("Expected 4+ arguments");
+	if (argc < 6)
+		opt_usage_exit_fail("Expected 5+ arguments");
 
 	if (!hex_decode(argv[1], strlen(argv[1]), &seed, sizeof(seed)))
 		errx(1, "Invalid seed '%s' - need 256 hex bits", argv[1]);
-
-	this_delta = from_them - to_them;
-	if (!this_delta)
-		errx(1, "Delta must not be zero");
 	
 	anchor = bitcoin_tx_from_file(ctx, argv[2]);
 	bitcoin_txid(anchor, &anchor_txid);
@@ -77,15 +64,17 @@ int main(int argc, char *argv[])
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[5]);
 
+	update = pkt_from_file(argv[6], PKT__PKT_UPDATE)->update;
+	
 	/* Figure out cumulative delta since anchor. */
-	delta = this_delta;
-	for (i = 6; i < argc; i++) {
+	delta = update->delta;
+	for (i = 7; i < argc; i++) {
 		Update *u = pkt_from_file(argv[i], PKT__PKT_UPDATE)->update;
 		delta += u->delta;
 	}
 
 	/* Get next revocation hash. */
-	shachain_from_seed(&seed, argc - 5, &revocation_hash);
+	shachain_from_seed(&seed, argc - 6, &revocation_hash);
 	sha256(&revocation_hash,
 	       revocation_hash.u.u8, sizeof(revocation_hash.u.u8));
 	
@@ -118,7 +107,10 @@ int main(int argc, char *argv[])
 	sign_tx_input(ctx, commit, 0, redeemscript, tal_count(redeemscript),
 		      privkey, &sig);
 
-	pkt = update_pkt(ctx, &revocation_hash, delta, &sig);
+	/* Give up revocation preimage for old tx. */
+	shachain_from_seed(&seed, argc - 6 - 1, &revocation_preimage);
+
+	pkt = update_accept_pkt(ctx, &sig, &revocation_hash, &revocation_preimage);
 	if (!write_all(STDOUT_FILENO, pkt,
 		       sizeof(pkt->len) + le32_to_cpu(pkt->len)))
 		err(1, "Writing out packet");

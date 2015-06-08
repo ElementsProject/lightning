@@ -92,6 +92,18 @@ struct pkt *update_pkt(const tal_t *ctx,
 		       const struct sha256 *revocation_hash,
 		       s64 delta, struct signature *sig);
 
+/**
+ * update_accept_pkt - create an update_accept message
+ * @ctx: tal context to allocate off.
+ * @sig: the signature for the close transaction input.
+ * @revocation_hash: hash to revoke the next tx.
+ * @revocation_preimage: preimage to revoke existing (now-obsolete) tx.
+ */
+struct pkt *update_accept_pkt(const tal_t *ctx,
+			      struct signature *sig,
+			      const struct sha256 *revocation_hash,
+			      const struct sha256 *revocation_preimage);
+
 /* Useful helper for allocating & populating a protobuf Sha256Hash */
 Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash);
 void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash);

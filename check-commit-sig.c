@@ -35,6 +35,7 @@ int main(int argc, char *argv[])
 	char *tx_hex;
 	EC_KEY *privkey;
 	bool testnet;
+	struct sha256 rhash;
 
 	err_set_progname(argv[0]);
 
@@ -69,7 +70,8 @@ int main(int argc, char *argv[])
 	anchor_txid(anchor, argv[5], argv[6], inmap, &txid);
 
 	/* Now create our commitment tx. */
-	commit = create_commit_tx(ctx, o1, o2, 0, &txid, outmap[0]);
+	proto_to_sha256(o2->revocation_hash, &rhash);
+	commit = create_commit_tx(ctx, o1, o2, &rhash, 0, &txid, outmap[0]);
 
 	/* If contributions don't exceed fees, this fails. */
 	if (!commit)
