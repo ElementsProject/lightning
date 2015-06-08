@@ -431,7 +431,7 @@ struct  _CloseChannel
   ProtobufCMessage base;
   /*
    * This is our signature a new transaction which spends the anchor
-   * output to my open->script_to_me and your open->script_to_me,
+   * output to my open->final and your open->final,
    * as per the last commit tx.
    */
   Signature *sig;

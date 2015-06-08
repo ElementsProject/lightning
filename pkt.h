@@ -66,6 +66,13 @@ struct pkt *leak_anchor_sigs_and_pretend_we_didnt_pkt(const tal_t *ctx,
  */
 struct pkt *open_commit_sig_pkt(const tal_t *ctx, const struct signature *sig);
 
+/**
+ * close_channel_pkt - create an close_channel message
+ * @ctx: tal context to allocate off.
+ * @sig: the signature for the close transaction input.
+ */
+struct pkt *close_channel_pkt(const tal_t *ctx, const struct signature *sig);
+
 /* Useful helper for allocating & populating a protobuf Sha256Hash */
 Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash);
 void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash);
