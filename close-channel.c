@@ -1,5 +1,6 @@
 /* My example:
  * ./close-channel A-anchor.tx A-open.pb B-open.pb cUBCjrdJu8tfvM7FT8So6aqs6G6bZS1Cax6Rc9rFzYL6nYG4XNEC > A-close.pb
+ * ./close-channel --complete A-anchor.tx B-open.pb A-open.pb cQXhbUnNRsFcdzTQwjbCrud5yVskHTEas7tZPUWoJYNk5htGQrpi > B-close-complete.pb
  */
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/short_types/short_types.h>
@@ -29,7 +30,7 @@ int main(int argc, char *argv[])
 	struct pkt *pkt;
 	struct signature sig;
 	EC_KEY *privkey;
-	bool testnet;
+	bool testnet, complete = false;
 	struct pubkey pubkey1, pubkey2;
 	u8 *redeemscript, *p2sh;
 	size_t i;
@@ -37,6 +38,8 @@ int main(int argc, char *argv[])
 	err_set_progname(argv[0]);
 
 	/* FIXME: Take update.pbs to adjust channel */
+	opt_register_noarg("--complete", opt_set_bool, &complete,
+			   "Create a close_transaction_complete msg instead");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "<anchor-tx> <open-channel-file1> <open-channel-file2> <commit-privkey>\n"
 			   "Create the signature needed for the close transaction",
@@ -90,7 +93,10 @@ int main(int argc, char *argv[])
 	sign_tx_input(ctx, close_tx, 0, redeemscript, tal_count(redeemscript),
 		      privkey, &sig);
 
-	pkt = close_channel_pkt(ctx, &sig);
+	if (complete)
+		pkt = close_channel_complete_pkt(ctx, &sig);
+	else
+		pkt = close_channel_pkt(ctx, &sig);
 	if (!write_all(STDOUT_FILENO, pkt,
 		       sizeof(pkt->len) + le32_to_cpu(pkt->len)))
 		err(1, "Writing out packet");

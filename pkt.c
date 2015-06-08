@@ -144,3 +144,11 @@ struct pkt *close_channel_pkt(const tal_t *ctx, const struct signature *sig)
 	c.sig = signature_to_proto(ctx, sig);
 	return to_pkt(ctx, PKT__PKT_CLOSE, &c);
 }
+
+struct pkt *close_channel_complete_pkt(const tal_t *ctx,
+				       const struct signature *sig)
+{
+	CloseChannelComplete c = CLOSE_CHANNEL_COMPLETE__INIT;
+	c.sig = signature_to_proto(ctx, sig);
+	return to_pkt(ctx, PKT__PKT_CLOSE_COMPLETE, &c);
+}
