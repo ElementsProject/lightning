@@ -17,6 +17,7 @@
 #include "signature.h"
 #include "pubkey.h"
 #include "close_tx.h"
+#include "find_p2sh_out.h"
 #include <openssl/ec.h>
 #include <unistd.h>
 
@@ -28,11 +29,10 @@ int main(int argc, char *argv[])
 	struct sha256_double anchor_txid;
 	struct bitcoin_signature sig1, sig2;
 	struct pubkey pubkey1, pubkey2;
-	u8 *redeemscript, *p2sh, *tx_arr;
+	u8 *redeemscript, *tx_arr;
 	char *tx_hex;
 	CloseChannel *close;
 	CloseChannelComplete *closecomplete;
-	size_t i;
 
 	err_set_progname(argv[0]);
 
@@ -64,20 +64,9 @@ int main(int argc, char *argv[])
 	/* This is what the anchor pays to; figure out which output. */
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
-	/* This is the scriptPubKey commit tx will have */
-	p2sh = scriptpubkey_p2sh(ctx, redeemscript);
-
-	for (i = 0; i < anchor->output_count; i++) {
-		if (anchor->output[i].script_length != tal_count(p2sh))
-			continue;
-		if (memcmp(anchor->output[i].script, p2sh, tal_count(p2sh)) == 0)
-			break;
-	}
-	if (i == anchor->output_count)
-		errx(1, "No matching output in %s", argv[1]);
-
 	/* Now create the close tx to spend 2/2 output of anchor. */
-	close_tx = create_close_tx(ctx, o1, o2, &anchor_txid, i);
+	close_tx = create_close_tx(ctx, o1, o2, &anchor_txid,
+				   find_p2sh_out(anchor, redeemscript));
 
 	/* Signatures well-formed? */
 	sig1.stype = sig2.stype = SIGHASH_ALL;

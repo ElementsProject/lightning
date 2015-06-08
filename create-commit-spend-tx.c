@@ -20,6 +20,7 @@
 #include "pubkey.h"
 #include "bitcoin_address.h"
 #include "opt_bits.h"
+#include "find_p2sh_out.h"
 #include <openssl/ec.h>
 #include <unistd.h>
 
@@ -32,10 +33,10 @@ int main(int argc, char *argv[])
 	EC_KEY *privkey;
 	bool testnet;
 	struct pubkey pubkey1, pubkey2, outpubkey;
-	u8 *redeemscript, *p2sh, *tx_arr;
+	u8 *redeemscript, *tx_arr;
 	char *tx_hex;
 	struct sha256 rhash;
-	size_t i;
+	size_t p2sh_out;
 	u64 fee = 10000;
 
 	err_set_progname(argv[0]);
@@ -87,29 +88,17 @@ int main(int argc, char *argv[])
 						o2->locktime_seconds,
 						&pubkey2, &rhash);
 
-	/* This is the scriptPubKey commit tx will have */
-	p2sh = scriptpubkey_p2sh(ctx, redeemscript);
-
-	/* Which output of commit tx are we spending? */
-	for (i = 0; i < commit->output_count; i++) {
-		if (commit->output[i].script_length != tal_count(p2sh))
-			continue;
-		if (memcmp(commit->output[i].script, p2sh, tal_count(p2sh)) == 0)
-			break;
-	}
-	if (i == commit->output_count)
-		errx(1, "No matching output in %s", argv[1]);
-
 	/* Now, create transaction to spend it. */
 	tx = bitcoin_tx(ctx, 1, 1);
 	bitcoin_txid(commit, &tx->input[0].txid);
-	tx->input[0].index = i;
+	p2sh_out = find_p2sh_out(commit, redeemscript);
+	tx->input[0].index = p2sh_out;
 
-	if (commit->output[i].amount <= fee)
+	if (commit->output[p2sh_out].amount <= fee)
 		errx(1, "Amount of %llu won't exceed fee",
-		     (unsigned long long)commit->output[i].amount);
+		     (unsigned long long)commit->output[p2sh_out].amount);
 
-	tx->output[0].amount = commit->output[i].amount - fee;
+	tx->output[0].amount = commit->output[p2sh_out].amount - fee;
 	tx->output[0].script = scriptpubkey_p2sh(tx,
 						 bitcoin_redeem_single(tx, &outpubkey));
 	tx->output[0].script_length = cpu_to_le32(tal_count(tx->output[0].script));
