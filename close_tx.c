@@ -9,6 +9,7 @@
 struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 				   OpenChannel *ours,
 				   OpenChannel *theirs,
+				   int64_t delta,
 				   const struct sha256_double *anchor_txid,
 				   unsigned int anchor_output)
 {
@@ -30,16 +31,22 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	if (!proto_to_pubkey(theirs->final, &theirkey))
 		return tal_free(tx);
 
+	/* delta must make sense. */
+	if (delta < 0 && ours->anchor->total - ours->commitment_fee < -delta)
+			return tal_free(tx);
+	if (delta > 0 && theirs->anchor->total - theirs->commitment_fee < delta)
+			return tal_free(tx);
+
 	proto_to_sha256(ours->revocation_hash, &redeem);
 
 	/* One output is to us. */
-	tx->output[0].amount = ours->anchor->total - ours->commitment_fee;
+	tx->output[0].amount = ours->anchor->total - ours->commitment_fee + delta;
 	redeemscript = bitcoin_redeem_single(tx, &ourkey);
 	tx->output[0].script = scriptpubkey_p2sh(tx, redeemscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
 	/* Other output is to them. */
-	tx->output[1].amount = theirs->anchor->total - theirs->commitment_fee;
+	tx->output[1].amount = theirs->anchor->total - theirs->commitment_fee - delta;
 	redeemscript = bitcoin_redeem_single(tx, &theirkey);
 	tx->output[1].script = scriptpubkey_p2sh(tx, redeemscript);
 	tx->output[1].script_length = tal_count(tx->output[1].script);

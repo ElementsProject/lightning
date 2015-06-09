@@ -33,19 +33,21 @@ int main(int argc, char *argv[])
 	char *tx_hex;
 	CloseChannel *close;
 	CloseChannelComplete *closecomplete;
+	size_t i;
+	int64_t delta;
 
 	err_set_progname(argv[0]);
 
 	/* FIXME: Take update.pbs to adjust channel */
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<anchor-tx> <open-channel-file1> <open-channel-file2> <close-protobuf> <close-complete-protobuf>\n"
+			   "<anchor-tx> <open-channel-file1> <open-channel-file2> <close-protobuf> <close-complete-protobuf> [update-protobuf]...\n"
 			   "Create the close transaction from the signatures",
 			   "Print this message.");
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
-	if (argc != 6)
-		opt_usage_exit_fail("Expected 5 arguments");
+	if (argc < 6)
+		opt_usage_exit_fail("Expected 5+ arguments");
 
 	anchor = bitcoin_tx_from_file(ctx, argv[1]);
 	o1 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
@@ -61,11 +63,18 @@ int main(int argc, char *argv[])
 	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
 		errx(1, "Invalid anchor-2 key");
 	
+	/* Get delta by accumulting all the updates. */
+	delta = 0;
+	for (i = 6; i < argc; i++) {
+		Update *u = pkt_from_file(argv[i], PKT__PKT_UPDATE)->update;
+		delta += u->delta;
+	}	
+
 	/* This is what the anchor pays to; figure out which output. */
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
 	/* Now create the close tx to spend 2/2 output of anchor. */
-	close_tx = create_close_tx(ctx, o1, o2, &anchor_txid,
+	close_tx = create_close_tx(ctx, o1, o2, delta, &anchor_txid,
 				   find_p2sh_out(anchor, redeemscript));
 
 	/* Signatures well-formed? */

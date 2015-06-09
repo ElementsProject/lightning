@@ -34,6 +34,8 @@ int main(int argc, char *argv[])
 	bool testnet, complete = false;
 	struct pubkey pubkey1, pubkey2;
 	u8 *redeemscript;
+	int64_t delta;
+	size_t i;
 
 	err_set_progname(argv[0]);
 
@@ -41,14 +43,14 @@ int main(int argc, char *argv[])
 	opt_register_noarg("--complete", opt_set_bool, &complete,
 			   "Create a close_transaction_complete msg instead");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<anchor-tx> <open-channel-file1> <open-channel-file2> <commit-privkey>\n"
+			   "<anchor-tx> <open-channel-file1> <open-channel-file2> <commit-privkey> [update-protobuf]...\n"
 			   "Create the signature needed for the close transaction",
 			   "Print this message.");
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
-	if (argc != 5)
-		opt_usage_exit_fail("Expected 4 arguments");
+	if (argc < 5)
+		opt_usage_exit_fail("Expected 4+ arguments");
 
 	anchor = bitcoin_tx_from_file(ctx, argv[1]);
 	o1 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
@@ -61,6 +63,13 @@ int main(int argc, char *argv[])
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
 
 	bitcoin_txid(anchor, &anchor_txid);
+
+	/* Get delta by accumulting all the updates. */
+	delta = 0;
+	for (i = 5; i < argc; i++) {
+		Update *u = pkt_from_file(argv[i], PKT__PKT_UPDATE)->update;
+		delta += u->delta;
+	}
 
 	/* Get pubkeys */
 	if (!proto_to_pubkey(o1->anchor->pubkey, &pubkey2))
@@ -75,7 +84,9 @@ int main(int argc, char *argv[])
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
 	/* Now create the close tx to spend 2/2 output of anchor. */
-	close_tx = create_close_tx(ctx, o1, o2, &anchor_txid,
+	/* Assumes that updates are all from closer -> closee */
+	close_tx = create_close_tx(ctx, o1, o2, complete ? -delta : delta,
+				   &anchor_txid,
 				   find_p2sh_out(anchor, redeemscript));
 
 	/* Sign it for them. */
