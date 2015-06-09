@@ -118,7 +118,7 @@ int main(int argc, char *argv[])
 	sign_tx_input(ctx, commit, 0, redeemscript, tal_count(redeemscript),
 		      privkey, &sig);
 
-	pkt = update_pkt(ctx, &revocation_hash, delta, &sig);
+	pkt = update_pkt(ctx, &revocation_hash, this_delta, &sig);
 	if (!write_all(STDOUT_FILENO, pkt,
 		       sizeof(pkt->len) + le32_to_cpu(pkt->len)))
 		err(1, "Writing out packet");
