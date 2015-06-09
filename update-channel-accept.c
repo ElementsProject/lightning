@@ -24,19 +24,19 @@
 int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal_arr(NULL, char, 0);
-	struct sha256 seed, revocation_hash, revocation_preimage;
+	struct sha256 seed, revocation_hash, revocation_preimage, their_rhash;
 	OpenChannel *o1, *o2;
 	Update *update;
 	struct bitcoin_tx *anchor, *commit;
 	struct sha256_double anchor_txid;
 	struct pkt *pkt;
-	struct signature sig;
+	struct bitcoin_signature sig;
 	EC_KEY *privkey;
 	bool testnet;
 	struct pubkey pubkey1, pubkey2;
 	u8 *redeemscript;
 	int64_t delta;
-	size_t i;
+	size_t i, p2sh_out;
 
 	err_set_progname(argv[0]);
 
@@ -66,6 +66,10 @@ int main(int argc, char *argv[])
 
 	update = pkt_from_file(argv[6], PKT__PKT_UPDATE)->update;
 	
+	sig.stype = SIGHASH_ALL;
+	if (!proto_to_signature(update->sig, &sig.sig))
+		errx(1, "Invalid update signature");
+
 	/* Figure out cumulative delta since anchor. */
 	delta = update->delta;
 	for (i = 7; i < argc; i++) {
@@ -89,28 +93,37 @@ int main(int argc, char *argv[])
 
 	/* This is what the anchor pays to; figure out whick output. */
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
+	p2sh_out = find_p2sh_out(anchor, redeemscript);
 
+	/* Check our new commit is signed correctly by them. */
+	proto_to_sha256(update->revocation_hash, &their_rhash);
+	commit = create_commit_tx(ctx, o1, o2, &their_rhash, delta,
+				  &anchor_txid, p2sh_out);
+	if (!commit)
+		errx(1, "Delta too large");
+
+	/* Check their signature signs this input correctly. */
+	if (!check_tx_sig(commit, 0, redeemscript, tal_count(redeemscript),
+			  &pubkey2, &sig))
+		errx(1, "Invalid signature.");
+	
 	/* Now create THEIR new commitment tx to spend 2/2 output of anchor. */
 	commit = create_commit_tx(ctx, o2, o1, &revocation_hash, delta,
-				  &anchor_txid,
-				  find_p2sh_out(anchor, redeemscript));
+				  &anchor_txid, p2sh_out);
 
 	/* If contributions don't exceed fees, this fails. */
 	if (!commit)
 		errx(1, "Delta too large");
 
-	/* Their pubkey must be valid */
-	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
-		errx(1, "Invalid public open-channel-file2");
-
 	/* Sign it for them. */
 	sign_tx_input(ctx, commit, 0, redeemscript, tal_count(redeemscript),
-		      privkey, &sig);
+		      privkey, &sig.sig);
 
 	/* Give up revocation preimage for old tx. */
 	shachain_from_seed(&seed, argc - 6 - 1, &revocation_preimage);
-
-	pkt = update_accept_pkt(ctx, &sig, &revocation_hash, &revocation_preimage);
+	
+	pkt = update_accept_pkt(ctx, &sig.sig,
+				&revocation_hash, &revocation_preimage);
 	if (!write_all(STDOUT_FILENO, pkt,
 		       sizeof(pkt->len) + le32_to_cpu(pkt->len)))
 		err(1, "Writing out packet");

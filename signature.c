@@ -136,6 +136,24 @@ out:
         return ok;
 }
 
+bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
+		  const u8 *redeemscript, size_t redeemscript_len,
+		  const struct pubkey *key,
+		  const struct bitcoin_signature *sig)
+{
+	struct sha256_double hash;
+	assert(input_num < tx->input_count);
+
+	sha256_tx_one_input(tx, input_num, redeemscript, redeemscript_len,
+			    &hash);
+
+	/* We only use SIGHASH_ALL for the moment. */
+	if (sig->stype != SIGHASH_ALL)
+		return false;
+	
+	return check_signed_hash(&hash, &sig->sig, key);
+}
+
 bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
 		    const u8 *redeemscript, size_t redeemscript_len,
 		    const struct pubkey *key1, const struct pubkey *key2,

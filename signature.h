@@ -34,6 +34,12 @@ bool sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx,
 		   const u8 *subscript, size_t subscript_len,
 		   EC_KEY *privkey, struct signature *sig);
 
+/* Does this sig sign the tx with this input for this pubkey. */
+bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
+		  const u8 *redeemscript, size_t redeemscript_len,
+		  const struct pubkey *key,
+		  const struct bitcoin_signature *sig);
+
 bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
 		    const u8 *redeemscript, size_t redeemscript_len,
 		    const struct pubkey *key1, const struct pubkey *key2,
