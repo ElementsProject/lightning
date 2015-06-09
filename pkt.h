@@ -18,6 +18,7 @@ struct pkt {
 
 /* Utility helper: dies if there's a problem. */
 Pkt *pkt_from_file(const char *filename, Pkt__PktCase expect);
+Pkt *any_pkt_from_file(const char *filename);
 
 struct sha256;
 struct bitcoin_compressed_pubkey;
@@ -103,6 +104,14 @@ struct pkt *update_accept_pkt(const tal_t *ctx,
 			      struct signature *sig,
 			      const struct sha256 *revocation_hash,
 			      const struct sha256 *revocation_preimage);
+
+/**
+ * update_complete_pkt - create an update_accept message
+ * @ctx: tal context to allocate off.
+ * @revocation_preimage: preimage to revoke existing (now-obsolete) tx.
+ */
+struct pkt *update_complete_pkt(const tal_t *ctx,
+				const struct sha256 *revocation_preimage);
 
 /* Useful helper for allocating & populating a protobuf Sha256Hash */
 Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash);

@@ -3,7 +3,7 @@
 # Needs to have oneof support: Ubuntu vivid's is too old :(
 PROTOCC:=protoc-c
 
-PROGRAMS := open-channel open-anchor-scriptsigs leak-anchor-sigs open-commit-sig check-commit-sig check-anchor-scriptsigs get-anchor-depth create-steal-tx create-commit-spend-tx close-channel create-close-tx update-channel update-channel-accept
+PROGRAMS := open-channel open-anchor-scriptsigs leak-anchor-sigs open-commit-sig check-commit-sig check-anchor-scriptsigs get-anchor-depth create-steal-tx create-commit-spend-tx close-channel create-close-tx update-channel update-channel-accept update-channel-complete
 
 HELPER_OBJS := base58.o lightning.pb-c.o shadouble.o pkt.o bitcoin_script.o permute_tx.o signature.o bitcoin_tx.o bitcoin_address.o anchor.o commit_tx.o pubkey.o opt_bits.o close_tx.o find_p2sh_out.o
 

@@ -80,7 +80,7 @@ struct pkt *openchannel_pkt(const tal_t *ctx,
 	return to_pkt(ctx, PKT__PKT_OPEN, &o);
 }
 
-Pkt *pkt_from_file(const char *filename, Pkt__PktCase expect)
+Pkt *any_pkt_from_file(const char *filename)
 {
 	struct pkt *pkt;
 	Pkt *ret;
@@ -99,6 +99,12 @@ Pkt *pkt_from_file(const char *filename, Pkt__PktCase expect)
 	ret = pkt__unpack(NULL, len, pkt->data);
 	if (!ret)
 		errx(1, "Unpack failed for %s", filename);
+	return ret;
+}
+	
+Pkt *pkt_from_file(const char *filename, Pkt__PktCase expect)
+{
+	Pkt *ret = any_pkt_from_file(filename);
 
 	if (ret->pkt_case != expect)
 		errx(1, "Unexpected type %i in %s", ret->pkt_case, filename);
@@ -174,4 +180,12 @@ struct pkt *update_accept_pkt(const tal_t *ctx,
 	ua.revocation_hash = sha256_to_proto(ctx, revocation_hash);
 	ua.revocation_preimage = sha256_to_proto(ctx, revocation_preimage);
 	return to_pkt(ctx, PKT__PKT_UPDATE_ACCEPT, &ua);
+}
+
+struct pkt *update_complete_pkt(const tal_t *ctx,
+				const struct sha256 *revocation_preimage)
+{
+	UpdateComplete uc = UPDATE_COMPLETE__INIT;
+	uc.revocation_preimage = sha256_to_proto(ctx, revocation_preimage);
+	return to_pkt(ctx, PKT__PKT_UPDATE_COMPLETE, &uc);
 }
