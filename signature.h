@@ -32,7 +32,8 @@ bool sign_hash(const tal_t *ctx, EC_KEY *private_key,
 bool sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx,
 		   unsigned int in,
 		   const u8 *subscript, size_t subscript_len,
-		   EC_KEY *privkey, struct signature *sig);
+		   EC_KEY *privkey, const struct pubkey *pubkey,
+		   struct signature *sig);
 
 /* Does this sig sign the tx with this input for this pubkey. */
 bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,

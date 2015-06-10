@@ -28,6 +28,7 @@ typedef struct _LeakAnchorSigsAndPretendWeDidnt LeakAnchorSigsAndPretendWeDidnt;
 typedef struct _OpenComplete OpenComplete;
 typedef struct _Update Update;
 typedef struct _UpdateAccept UpdateAccept;
+typedef struct _UpdateSignature UpdateSignature;
 typedef struct _UpdateComplete UpdateComplete;
 typedef struct _NewAnchor NewAnchor;
 typedef struct _NewAnchorAck NewAnchorAck;
@@ -291,32 +292,24 @@ struct  _Update
   /*
    * Change in current payment to-me (implies reverse to-you).
    */
-  int64_t delta;
-  /*
-   * Signature for new commitment tx.
-   */
-  Signature *sig;
-  /*
-   * Signature for old anchor (if any)
-   */
   /*
    * FIXME: optional HTLC ops.
    */
-  Signature *old_anchor_sig;
+  int64_t delta;
 };
 #define UPDATE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&update__descriptor) \
-    , NULL, 0, NULL, NULL }
+    , NULL, 0 }
 
 
 /*
- * OK, I accept that update.
+ * OK, I accept that update; here's your signature.
  */
 struct  _UpdateAccept
 {
   ProtobufCMessage base;
   /*
-   * Signature for new commitment tx.
+   * Signature for your new commitment tx.
    */
   Signature *sig;
   /*
@@ -327,14 +320,30 @@ struct  _UpdateAccept
    * Hash for which I will supply preimage to revoke this new commit tx.
    */
   Sha256Hash *revocation_hash;
+};
+#define UPDATE_ACCEPT__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&update_accept__descriptor) \
+    , NULL, NULL, NULL }
+
+
+/*
+ * Thanks for accepting, here's my last bit.
+ */
+struct  _UpdateSignature
+{
+  ProtobufCMessage base;
+  /*
+   * Signature for your new commitment tx.
+   */
+  Signature *sig;
   /*
    * Hash preimage which revokes old commitment tx.
    */
   Sha256Hash *revocation_preimage;
 };
-#define UPDATE_ACCEPT__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&update_accept__descriptor) \
-    , NULL, NULL, NULL, NULL }
+#define UPDATE_SIGNATURE__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&update_signature__descriptor) \
+    , NULL, NULL }
 
 
 /*
@@ -479,7 +488,8 @@ typedef enum {
   PKT__PKT_OPEN_COMPLETE = 204,
   PKT__PKT_UPDATE = 1,
   PKT__PKT_UPDATE_ACCEPT = 2,
-  PKT__PKT_UPDATE_COMPLETE = 3,
+  PKT__PKT_UPDATE_SIGNATURE = 3,
+  PKT__PKT_UPDATE_COMPLETE = 4,
   PKT__PKT_NEW_ANCHOR = 301,
   PKT__PKT_NEW_ANCHOR_ACK = 302,
   PKT__PKT_NEW_ANCHOR_ACCEPT = 303,
@@ -510,6 +520,7 @@ struct  _Pkt
      */
     Update *update;
     UpdateAccept *update_accept;
+    UpdateSignature *update_signature;
     UpdateComplete *update_complete;
     /*
      * Topping up
@@ -781,6 +792,25 @@ UpdateAccept *
 void   update_accept__free_unpacked
                      (UpdateAccept *message,
                       ProtobufCAllocator *allocator);
+/* UpdateSignature methods */
+void   update_signature__init
+                     (UpdateSignature         *message);
+size_t update_signature__get_packed_size
+                     (const UpdateSignature   *message);
+size_t update_signature__pack
+                     (const UpdateSignature   *message,
+                      uint8_t             *out);
+size_t update_signature__pack_to_buffer
+                     (const UpdateSignature   *message,
+                      ProtobufCBuffer     *buffer);
+UpdateSignature *
+       update_signature__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   update_signature__free_unpacked
+                     (UpdateSignature *message,
+                      ProtobufCAllocator *allocator);
 /* UpdateComplete methods */
 void   update_complete__init
                      (UpdateComplete         *message);
@@ -1012,6 +1042,9 @@ typedef void (*Update_Closure)
 typedef void (*UpdateAccept_Closure)
                  (const UpdateAccept *message,
                   void *closure_data);
+typedef void (*UpdateSignature_Closure)
+                 (const UpdateSignature *message,
+                  void *closure_data);
 typedef void (*UpdateComplete_Closure)
                  (const UpdateComplete *message,
                   void *closure_data);
@@ -1061,6 +1094,7 @@ extern const ProtobufCMessageDescriptor leak_anchor_sigs_and_pretend_we_didnt__d
 extern const ProtobufCMessageDescriptor open_complete__descriptor;
 extern const ProtobufCMessageDescriptor update__descriptor;
 extern const ProtobufCMessageDescriptor update_accept__descriptor;
+extern const ProtobufCMessageDescriptor update_signature__descriptor;
 extern const ProtobufCMessageDescriptor update_complete__descriptor;
 extern const ProtobufCMessageDescriptor new_anchor__descriptor;
 extern const ProtobufCMessageDescriptor new_anchor_ack__descriptor;

@@ -31,7 +31,7 @@ static u8 *tx_scriptsig(const tal_t *ctx,
 	sig.stype = SIGHASH_ALL;
 	if (!sign_tx_input(ctx, tx, i,
 			   input->subscript.data, input->subscript.len,
-			   privkey, &sig.sig))
+			   privkey, pubkey, &sig.sig))
 		return NULL;
 
 	if (!is_pay_to_pubkey_hash(input->subscript.data, input->subscript.len))

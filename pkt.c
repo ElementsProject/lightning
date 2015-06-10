@@ -161,25 +161,32 @@ struct pkt *close_channel_complete_pkt(const tal_t *ctx,
 
 struct pkt *update_pkt(const tal_t *ctx,
 		       const struct sha256 *revocation_hash,
-		       s64 delta, struct signature *sig)
+		       s64 delta)
 {
 	Update u = UPDATE__INIT;
 	u.revocation_hash = sha256_to_proto(ctx, revocation_hash);
 	u.delta = delta;
-	u.sig = signature_to_proto(ctx, sig);
 	return to_pkt(ctx, PKT__PKT_UPDATE, &u);
 }
 
 struct pkt *update_accept_pkt(const tal_t *ctx,
 			      struct signature *sig,
-			      const struct sha256 *revocation_hash,
-			      const struct sha256 *revocation_preimage)
+			      const struct sha256 *revocation_hash)
 {
 	UpdateAccept ua = UPDATE_ACCEPT__INIT;
 	ua.sig = signature_to_proto(ctx, sig);
 	ua.revocation_hash = sha256_to_proto(ctx, revocation_hash);
-	ua.revocation_preimage = sha256_to_proto(ctx, revocation_preimage);
 	return to_pkt(ctx, PKT__PKT_UPDATE_ACCEPT, &ua);
+}
+
+struct pkt *update_signature_pkt(const tal_t *ctx,
+				 const struct signature *sig,
+				 const struct sha256 *revocation_preimage)
+{
+	UpdateSignature us = UPDATE_SIGNATURE__INIT;
+	us.sig = signature_to_proto(ctx, sig);
+	us.revocation_preimage = sha256_to_proto(ctx, revocation_preimage);
+	return to_pkt(ctx, PKT__PKT_UPDATE_SIGNATURE, &us);
 }
 
 struct pkt *update_complete_pkt(const tal_t *ctx,

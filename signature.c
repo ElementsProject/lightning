@@ -8,6 +8,62 @@
 #include <assert.h>
 #include <ccan/cast/cast.h>
 
+#undef DEBUG
+#ifdef DEBUG
+#include <ccan/err/err.h>
+#define SHA_FMT					   \
+	"%02x%02x%02x%02x%02x%02x%02x%02x"	   \
+	"%02x%02x%02x%02x%02x%02x%02x%02x"	   \
+	"%02x%02x%02x%02x%02x%02x%02x%02x"	   \
+	"%02x%02x%02x%02x%02x%02x%02x%02x"
+
+#define SHA_VALS(e)							\
+	e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7],			\
+		e[8], e[9], e[10], e[11], e[12], e[13], e[14], e[15],	\
+		e[16], e[17], e[18], e[19], e[20], e[21], e[22], e[23], \
+		e[24], e[25], e[25], e[26], e[28], e[29], e[30], e[31]
+
+static void dump_tx(const char *msg,
+		    const struct bitcoin_tx *tx, size_t inputnum,
+		    const u8 *script, size_t script_len,
+		    const struct pubkey *key)
+{
+	size_t i, j;
+	warnx("%s tx version %u locktime %#x:",
+	      msg, tx->version, tx->lock_time);
+	for (i = 0; i < tx->input_count; i++) {
+		warnx("input[%zu].txid = "SHA_FMT, i,
+		      SHA_VALS(tx->input[i].txid.sha.u.u8));
+		warnx("input[%zu].index = %u", i, tx->input[i].index);
+	}
+	for (i = 0; i < tx->output_count; i++) {
+		warnx("output[%zu].amount = %llu",
+		      i, (long long)tx->output[i].amount);
+		warnx("output[%zu].script = %llu",
+		      i, (long long)tx->output[i].script_length);
+		for (j = 0; j < tx->output[i].script_length; j++)
+			fprintf(stderr, "%02x", tx->output[i].script[j]);
+		fprintf(stderr, "\n");
+	}
+	warnx("input[%zu].script = %zu", inputnum, script_len);
+	for (i = 0; i < script_len; i++)
+		fprintf(stderr, "%02x", script[i]);
+	if (key) {
+		fprintf(stderr, "\nPubkey: ");
+		for (i = 0; i < pubkey_len(key); i++)
+			fprintf(stderr, "%02x", key->key[i]);
+		fprintf(stderr, "\n");
+	}
+}
+#else
+static void dump_tx(const char *msg,
+		    const struct bitcoin_tx *tx, size_t inputnum,
+		    const u8 *script, size_t script_len,
+		    const struct pubkey *key)
+{
+}
+#endif
+	
 bool sign_hash(const tal_t *ctx, EC_KEY *private_key,
 	       const struct sha256_double *h,
 	       struct signature *s)
@@ -82,11 +138,13 @@ static void sha256_tx_one_input(struct bitcoin_tx *tx,
 bool sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx,
 		   unsigned int in,
 		   const u8 *subscript, size_t subscript_len,
-		   EC_KEY *privkey, struct signature *sig)
+		   EC_KEY *privkey, const struct pubkey *key,
+		   struct signature *sig)
 {
 	struct sha256_double hash;
 
 	sha256_tx_one_input(tx, in, subscript, subscript_len, &hash);
+	dump_tx("Signing", tx, in, subscript, subscript_len, key);
 	return sign_hash(ctx, privkey, &hash, sig);
 }
 
@@ -142,6 +200,8 @@ bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
 		  const struct bitcoin_signature *sig)
 {
 	struct sha256_double hash;
+	bool ret;
+
 	assert(input_num < tx->input_count);
 
 	sha256_tx_one_input(tx, input_num, redeemscript, redeemscript_len,
@@ -151,7 +211,11 @@ bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
 	if (sig->stype != SIGHASH_ALL)
 		return false;
 	
-	return check_signed_hash(&hash, &sig->sig, key);
+	ret = check_signed_hash(&hash, &sig->sig, key);
+	if (!ret)
+		dump_tx("Sig failed", tx, input_num,
+			redeemscript, redeemscript_len, key);
+	return ret;
 }
 
 bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,

@@ -566,6 +566,49 @@ void   update_accept__free_unpacked
   assert(message->base.descriptor == &update_accept__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   update_signature__init
+                     (UpdateSignature         *message)
+{
+  static UpdateSignature init_value = UPDATE_SIGNATURE__INIT;
+  *message = init_value;
+}
+size_t update_signature__get_packed_size
+                     (const UpdateSignature *message)
+{
+  assert(message->base.descriptor == &update_signature__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t update_signature__pack
+                     (const UpdateSignature *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &update_signature__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t update_signature__pack_to_buffer
+                     (const UpdateSignature *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &update_signature__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+UpdateSignature *
+       update_signature__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (UpdateSignature *)
+     protobuf_c_message_unpack (&update_signature__descriptor,
+                                allocator, len, data);
+}
+void   update_signature__free_unpacked
+                     (UpdateSignature *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &update_signature__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
 void   update_complete__init
                      (UpdateComplete         *message)
 {
@@ -1743,7 +1786,7 @@ const ProtobufCMessageDescriptor open_complete__descriptor =
   (ProtobufCMessageInit) open_complete__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor update__field_descriptors[4] =
+static const ProtobufCFieldDescriptor update__field_descriptors[2] =
 {
   {
     "revocation_hash",
@@ -1769,41 +1812,15 @@ static const ProtobufCFieldDescriptor update__field_descriptors[4] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
-  {
-    "sig",
-    3,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(Update, sig),
-    &signature__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "old_anchor_sig",
-    4,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(Update, old_anchor_sig),
-    &signature__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
 };
 static const unsigned update__field_indices_by_name[] = {
   1,   /* field[1] = delta */
-  3,   /* field[3] = old_anchor_sig */
   0,   /* field[0] = revocation_hash */
-  2,   /* field[2] = sig */
 };
 static const ProtobufCIntRange update__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 4 }
+  { 0, 2 }
 };
 const ProtobufCMessageDescriptor update__descriptor =
 {
@@ -1813,14 +1830,14 @@ const ProtobufCMessageDescriptor update__descriptor =
   "Update",
   "",
   sizeof(Update),
-  4,
+  2,
   update__field_descriptors,
   update__field_indices_by_name,
   1,  update__number_ranges,
   (ProtobufCMessageInit) update__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor update_accept__field_descriptors[4] =
+static const ProtobufCFieldDescriptor update_accept__field_descriptors[3] =
 {
   {
     "sig",
@@ -1858,29 +1875,16 @@ static const ProtobufCFieldDescriptor update_accept__field_descriptors[4] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
-  {
-    "revocation_preimage",
-    4,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(UpdateAccept, revocation_preimage),
-    &sha256_hash__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
 };
 static const unsigned update_accept__field_indices_by_name[] = {
   1,   /* field[1] = old_anchor_sig */
   2,   /* field[2] = revocation_hash */
-  3,   /* field[3] = revocation_preimage */
   0,   /* field[0] = sig */
 };
 static const ProtobufCIntRange update_accept__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 4 }
+  { 0, 3 }
 };
 const ProtobufCMessageDescriptor update_accept__descriptor =
 {
@@ -1890,11 +1894,62 @@ const ProtobufCMessageDescriptor update_accept__descriptor =
   "UpdateAccept",
   "",
   sizeof(UpdateAccept),
-  4,
+  3,
   update_accept__field_descriptors,
   update_accept__field_indices_by_name,
   1,  update_accept__number_ranges,
   (ProtobufCMessageInit) update_accept__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor update_signature__field_descriptors[2] =
+{
+  {
+    "sig",
+    1,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(UpdateSignature, sig),
+    &signature__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "revocation_preimage",
+    2,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(UpdateSignature, revocation_preimage),
+    &sha256_hash__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned update_signature__field_indices_by_name[] = {
+  1,   /* field[1] = revocation_preimage */
+  0,   /* field[0] = sig */
+};
+static const ProtobufCIntRange update_signature__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 2 }
+};
+const ProtobufCMessageDescriptor update_signature__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "update_signature",
+  "UpdateSignature",
+  "UpdateSignature",
+  "",
+  sizeof(UpdateSignature),
+  2,
+  update_signature__field_descriptors,
+  update_signature__field_indices_by_name,
+  1,  update_signature__number_ranges,
+  (ProtobufCMessageInit) update_signature__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCFieldDescriptor update_complete__field_descriptors[1] =
@@ -2239,7 +2294,7 @@ const ProtobufCMessageDescriptor error__descriptor =
   (ProtobufCMessageInit) error__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor pkt__field_descriptors[15] =
+static const ProtobufCFieldDescriptor pkt__field_descriptors[16] =
 {
   {
     "update",
@@ -2266,8 +2321,20 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[15] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "update_complete",
+    "update_signature",
     3,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Pkt, pkt_case),
+    offsetof(Pkt, update_signature),
+    &update_signature__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "update_complete",
+    4,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
@@ -2423,30 +2490,31 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[15] =
   },
 };
 static const unsigned pkt__field_indices_by_name[] = {
-  12,   /* field[12] = close */
-  13,   /* field[13] = close_complete */
-  14,   /* field[14] = error */
-  8,   /* field[8] = new_anchor */
-  10,   /* field[10] = new_anchor_accept */
-  9,   /* field[9] = new_anchor_ack */
-  11,   /* field[11] = new_anchor_complete */
-  7,   /* field[7] = omg_fail */
-  3,   /* field[3] = open */
-  5,   /* field[5] = open_anchor_scriptsigs */
-  4,   /* field[4] = open_commit_sig */
-  6,   /* field[6] = open_complete */
+  13,   /* field[13] = close */
+  14,   /* field[14] = close_complete */
+  15,   /* field[15] = error */
+  9,   /* field[9] = new_anchor */
+  11,   /* field[11] = new_anchor_accept */
+  10,   /* field[10] = new_anchor_ack */
+  12,   /* field[12] = new_anchor_complete */
+  8,   /* field[8] = omg_fail */
+  4,   /* field[4] = open */
+  6,   /* field[6] = open_anchor_scriptsigs */
+  5,   /* field[5] = open_commit_sig */
+  7,   /* field[7] = open_complete */
   0,   /* field[0] = update */
   1,   /* field[1] = update_accept */
-  2,   /* field[2] = update_complete */
+  3,   /* field[3] = update_complete */
+  2,   /* field[2] = update_signature */
 };
 static const ProtobufCIntRange pkt__number_ranges[5 + 1] =
 {
   { 1, 0 },
-  { 201, 3 },
-  { 301, 8 },
-  { 401, 12 },
-  { 1000, 14 },
-  { 0, 15 }
+  { 201, 4 },
+  { 301, 9 },
+  { 401, 13 },
+  { 1000, 15 },
+  { 0, 16 }
 };
 const ProtobufCMessageDescriptor pkt__descriptor =
 {
@@ -2456,7 +2524,7 @@ const ProtobufCMessageDescriptor pkt__descriptor =
   "Pkt",
   "",
   sizeof(Pkt),
-  15,
+  16,
   pkt__field_descriptors,
   pkt__field_indices_by_name,
   5,  pkt__number_ranges,

@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
 
 	/* Sign it for them. */
 	sign_tx_input(ctx, close_tx, 0, redeemscript, tal_count(redeemscript),
-		      privkey, &sig);
+		      privkey, &pubkey1, &sig);
 
 	if (complete)
 		pkt = close_channel_complete_pkt(ctx, &sig);

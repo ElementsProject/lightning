@@ -121,23 +121,25 @@ message update {
   required sha256_hash revocation_hash = 1;
   // Change in current payment to-me (implies reverse to-you).
   required sint64 delta = 2;
-  // Signature for new commitment tx.
-  required signature sig = 3;
-  // Signature for old anchor (if any)
-  optional signature old_anchor_sig = 4;
   // FIXME: optional HTLC ops.
 }
 
-// OK, I accept that update.
+// OK, I accept that update; here's your signature.
 message update_accept {
-  // Signature for new commitment tx.
+  // Signature for your new commitment tx.
   required signature sig = 1;
   // Signature for old anchor (if any)
   optional signature old_anchor_sig = 2;
   // Hash for which I will supply preimage to revoke this new commit tx.
   required sha256_hash revocation_hash = 3;
+}
+
+// Thanks for accepting, here's my last bit.
+message update_signature {
+  // Signature for your new commitment tx.
+  required signature sig = 1;
   // Hash preimage which revokes old commitment tx.
-  required sha256_hash revocation_preimage = 4;
+  required sha256_hash revocation_preimage = 2;
 }
 
 // Complete the update.
@@ -204,7 +206,8 @@ message pkt {
     // Updating (most common)
     update update = 1;
     update_accept update_accept = 2;
-    update_complete update_complete = 3;
+    update_signature update_signature = 3;
+    update_complete update_complete = 4;
     // Topping up
     new_anchor new_anchor = 301;
     new_anchor_ack new_anchor_ack = 302;

@@ -87,24 +87,30 @@ struct pkt *close_channel_complete_pkt(const tal_t *ctx,
  * @ctx: tal context to allocate off.
  * @revocation_hash: the revocation hash for the next tx.
  * @delta: the change in satoshis (to me).
- * @sig: the signature for the close transaction input.
  */
 struct pkt *update_pkt(const tal_t *ctx,
 		       const struct sha256 *revocation_hash,
-		       s64 delta, struct signature *sig);
+		       s64 delta);
 
 /**
  * update_accept_pkt - create an update_accept message
  * @ctx: tal context to allocate off.
  * @sig: the signature for the close transaction input.
  * @revocation_hash: hash to revoke the next tx.
- * @revocation_preimage: preimage to revoke existing (now-obsolete) tx.
  */
 struct pkt *update_accept_pkt(const tal_t *ctx,
 			      struct signature *sig,
-			      const struct sha256 *revocation_hash,
-			      const struct sha256 *revocation_preimage);
+			      const struct sha256 *revocation_hash);
 
+/**
+ * update_signature_pkt - create an update_signature message
+ * @ctx: tal context to allocate off.
+ * @sig: the signature for the close transaction input.
+ * @revocation_preimage: preimage to revoke existing (now-obsolete) tx.
+ */
+struct pkt *update_signature_pkt(const tal_t *ctx,
+				 const struct signature *sig,
+				 const struct sha256 *revocation_preimage);
 /**
  * update_complete_pkt - create an update_accept message
  * @ctx: tal context to allocate off.

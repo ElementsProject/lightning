@@ -25,9 +25,10 @@
 int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal_arr(NULL, char, 0);
-	struct sha256 seed, revocation_hash, their_rhash, preimage;
+	struct sha256 seed, revocation_hash, our_rhash, their_rhash, preimage;
 	OpenChannel *o1, *o2;
-	UpdateAccept *ua;
+	UpdateSignature *us;
+	Update *update;
 	struct pkt *pkt;
 	struct bitcoin_tx *anchor, *commit;
 	struct pubkey pubkey1, pubkey2;
@@ -40,14 +41,14 @@ int main(int argc, char *argv[])
 	err_set_progname(argv[0]);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<seed> <anchor-tx> <open-channel-file1> <open-channel-file2> <update-accept> [previous-updates]\n"
+			   "<seed> <anchor-tx> <open-channel-file1> <open-channel-file2> <update-protobuf> <update-signature-protobuf> [previous-updates]\n"
 			   "Create a new update-complete message",
 			   "Print this message.");
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
-	if (argc < 6)
-		opt_usage_exit_fail("Expected 5+ arguments");
+	if (argc < 7)
+		opt_usage_exit_fail("Expected 6+ arguments");
 
 	if (!hex_decode(argv[1], strlen(argv[1]), &seed, sizeof(seed)))
 		errx(1, "Invalid seed '%s' - need 256 hex bits", argv[1]);
@@ -56,15 +57,15 @@ int main(int argc, char *argv[])
 	bitcoin_txid(anchor, &anchor_txid);
 	o1 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[4], PKT__PKT_OPEN)->open;
-	ua = pkt_from_file(argv[5], PKT__PKT_UPDATE_ACCEPT)->update_accept;
-	proto_to_sha256(ua->revocation_preimage, &preimage);
+	update = pkt_from_file(argv[5], PKT__PKT_UPDATE)->update;
+	us = pkt_from_file(argv[6], PKT__PKT_UPDATE_SIGNATURE)->update_signature;
 	
 	/* We need last revocation hash (either in update or update-accept),
 	 * and the delta */
 	proto_to_sha256(o2->revocation_hash, &revocation_hash);
 	num_updates = 0;
-	delta = 0;
-	for (i = 6; i < argc; i++) {
+	delta = update->delta;
+	for (i = 7; i < argc; i++) {
 		Pkt *p = any_pkt_from_file(argv[i]);
 		switch (p->pkt_case) {
 		case PKT__PKT_UPDATE:
@@ -84,7 +85,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	/* They gave us right preimage? */
+	/* They gave us right preimage to match rhash of previous commit tx? */
+	proto_to_sha256(us->revocation_preimage, &preimage);
 	sha256(&their_rhash, preimage.u.u8, sizeof(preimage.u.u8));
 	if (!structeq(&their_rhash, &revocation_hash))
 		errx(1, "Their preimage was incorrect");
@@ -100,15 +102,16 @@ int main(int argc, char *argv[])
 	p2sh_out = find_p2sh_out(anchor, redeemscript);
 
 	/* Check their signature signs our new commit tx correctly. */
-	proto_to_sha256(ua->revocation_hash, &their_rhash);
-	commit = create_commit_tx(ctx, o1, o2, &their_rhash, delta,
-				  &anchor_txid, p2sh_out);
+	shachain_from_seed(&seed, num_updates + 1, &preimage);
+	sha256(&our_rhash, &preimage, sizeof(preimage));
+	commit = create_commit_tx(ctx, o1, o2, &our_rhash, delta,
+							  &anchor_txid, p2sh_out);
 	if (!commit)
 		errx(1, "Delta too large");
 
 	sig.stype = SIGHASH_ALL;
-	if (!proto_to_signature(ua->sig, &sig.sig))
-		errx(1, "Invalid update signature");
+	if (!proto_to_signature(us->sig, &sig.sig))
+		errx(1, "Invalid update-signature signature");
 
 	if (!check_tx_sig(commit, 0, redeemscript, tal_count(redeemscript),
 			  &pubkey2, &sig))

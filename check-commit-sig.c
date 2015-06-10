@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 	anchor_txid(anchor, argv[5], argv[6], inmap, &txid);
 
 	/* Now create our commitment tx. */
-	proto_to_sha256(o2->revocation_hash, &rhash);
+	proto_to_sha256(o1->revocation_hash, &rhash);
 	commit = create_commit_tx(ctx, o1, o2, &rhash, 0, &txid, outmap[0]);
 
 	/* If contributions don't exceed fees, this fails. */
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
 	sig1.stype = SIGHASH_ALL;
 	subscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 	sign_tx_input(ctx, commit, 0, subscript, tal_count(subscript),
-		      privkey, &sig1.sig);
+		      privkey, &pubkey1, &sig1.sig);
 
 	/* Signatures well-formed? */
 	if (!proto_to_signature(cs2->sig, &sig2.sig))

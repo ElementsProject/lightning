@@ -25,23 +25,14 @@ int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal_arr(NULL, char, 0);
 	struct sha256 seed, revocation_hash;
-	OpenChannel *o1, *o2;
-	struct bitcoin_tx *anchor, *commit;
-	struct sha256_double anchor_txid;
 	struct pkt *pkt;
-	struct signature sig;
-	EC_KEY *privkey;
-	bool testnet;
-	struct pubkey pubkey1, pubkey2;
-	u8 *redeemscript;
 	unsigned long long to_them = 0, from_them = 0;
-	int64_t delta, this_delta;
-	size_t i;
+	int64_t this_delta;
 
 	err_set_progname(argv[0]);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<seed> <anchor-tx> <open-channel-file1> <open-channel-file2> <commit-privkey> [previous-updates]\n"
+			   "<seed> [previous-updates]\n"
 			   "Create a new update message",
 			   "Print this message.");
 	opt_register_arg("--to-them=<satoshi>",
@@ -56,8 +47,8 @@ int main(int argc, char *argv[])
 	if (!from_them && !to_them)
 		opt_usage_exit_fail("Must use --to-them or --from-them");
 
-	if (argc < 5)
-		opt_usage_exit_fail("Expected 4+ arguments");
+	if (argc < 2)
+		opt_usage_exit_fail("Expected 1+ arguments");
 
 	if (!hex_decode(argv[1], strlen(argv[1]), &seed, sizeof(seed)))
 		errx(1, "Invalid seed '%s' - need 256 hex bits", argv[1]);
@@ -66,59 +57,12 @@ int main(int argc, char *argv[])
 	if (!this_delta)
 		errx(1, "Delta must not be zero");
 	
-	anchor = bitcoin_tx_from_file(ctx, argv[2]);
-	bitcoin_txid(anchor, &anchor_txid);
-	o1 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
-	o2 = pkt_from_file(argv[4], PKT__PKT_OPEN)->open;
-
-	privkey = key_from_base58(argv[5], strlen(argv[5]), &testnet, &pubkey1);
-	if (!privkey)
-		errx(1, "Invalid private key '%s'", argv[5]);
-	if (!testnet)
-		errx(1, "Private key '%s' not on testnet!", argv[5]);
-
-	/* Figure out cumulative delta since anchor. */
-	delta = this_delta;
-	for (i = 6; i < argc; i++) {
-		Update *u = pkt_from_file(argv[i], PKT__PKT_UPDATE)->update;
-		delta += u->delta;
-	}
-
 	/* Get next revocation hash. */
-	shachain_from_seed(&seed, argc - 5, &revocation_hash);
+	shachain_from_seed(&seed, argc - 2 + 1, &revocation_hash);
 	sha256(&revocation_hash,
 	       revocation_hash.u.u8, sizeof(revocation_hash.u.u8));
 	
-	/* Get pubkeys */
-	if (!proto_to_pubkey(o1->anchor->pubkey, &pubkey2))
-		errx(1, "Invalid o1 commit pubkey");
-	if (pubkey_len(&pubkey1) != pubkey_len(&pubkey2)
-	    || memcmp(pubkey1.key, pubkey2.key, pubkey_len(&pubkey2)) != 0)
-		errx(1, "o1 pubkey != this privkey");
-	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
-		errx(1, "Invalid o2 final pubkey");
-
-	/* This is what the anchor pays to; figure out whick output. */
-	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
-
-	/* Now create THEIR new commitment tx to spend 2/2 output of anchor. */
-	commit = create_commit_tx(ctx, o2, o1, &revocation_hash, delta,
-				  &anchor_txid,
-				  find_p2sh_out(anchor, redeemscript));
-
-	/* If contributions don't exceed fees, this fails. */
-	if (!commit)
-		errx(1, "Delta too large");
-
-	/* Their pubkey must be valid */
-	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
-		errx(1, "Invalid public open-channel-file2");
-
-	/* Sign it for them. */
-	sign_tx_input(ctx, commit, 0, redeemscript, tal_count(redeemscript),
-		      privkey, &sig);
-
-	pkt = update_pkt(ctx, &revocation_hash, this_delta, &sig);
+	pkt = update_pkt(ctx, &revocation_hash, this_delta);
 	if (!write_all(STDOUT_FILENO, pkt,
 		       sizeof(pkt->len) + le32_to_cpu(pkt->len)))
 		err(1, "Writing out packet");

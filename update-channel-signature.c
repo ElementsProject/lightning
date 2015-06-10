@@ -1,6 +1,3 @@
-/* My example:
- * ./update-channel-accept <B-SEED> B-open.pb A-open.pb anchor.tx <B-TMPKEY> A-update-1.pb > B-update-accept-1.pb
- */
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
@@ -24,8 +21,9 @@
 int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal_arr(NULL, char, 0);
-	struct sha256 seed, revocation_hash, their_rhash;
+	struct sha256 seed, revocation_hash, preimage;
 	OpenChannel *o1, *o2;
+	UpdateAccept *ua;
 	Update *update;
 	struct bitcoin_tx *anchor, *commit;
 	struct sha256_double anchor_txid;
@@ -41,18 +39,18 @@ int main(int argc, char *argv[])
 	err_set_progname(argv[0]);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<seed> <anchor-tx> <open-channel-file1> <open-channel-file2> <commit-privkey> <update-protobuf> [previous-updates]\n"
-			   "Accept a new update message",
+			   "<seed> <anchor-tx> <open-channel-file1> <open-channel-file2> <commit-privkey> <update-protobuf> <update-accept-protobuf> [previous-updates]...\n"
+			   "Create a new update-channel-signature message",
 			   "Print this message.");
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
-	if (argc < 6)
-		opt_usage_exit_fail("Expected 5+ arguments");
+	if (argc < 8)
+		opt_usage_exit_fail("Expected 7+ arguments");
 
 	if (!hex_decode(argv[1], strlen(argv[1]), &seed, sizeof(seed)))
 		errx(1, "Invalid seed '%s' - need 256 hex bits", argv[1]);
-	
+
 	anchor = bitcoin_tx_from_file(ctx, argv[2]);
 	bitcoin_txid(anchor, &anchor_txid);
 	o1 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
@@ -65,18 +63,21 @@ int main(int argc, char *argv[])
 		errx(1, "Private key '%s' not on testnet!", argv[5]);
 
 	update = pkt_from_file(argv[6], PKT__PKT_UPDATE)->update;
-	
+	ua = pkt_from_file(argv[7], PKT__PKT_UPDATE_ACCEPT)->update_accept;
+
+	sig.stype = SIGHASH_ALL;
+	if (!proto_to_signature(ua->sig, &sig.sig))
+		errx(1, "Invalid update signature");
+
 	/* Figure out cumulative delta since anchor. */
-	delta = update->delta;
-	for (i = 7; i < argc; i++) {
+	delta = 0;
+	for (i = 8; i < argc; i++) {
 		Update *u = pkt_from_file(argv[i], PKT__PKT_UPDATE)->update;
 		delta += u->delta;
 	}
 
-	/* Get next revocation hash. */
-	shachain_from_seed(&seed, argc - 6, &revocation_hash);
-	sha256(&revocation_hash,
-	       revocation_hash.u.u8, sizeof(revocation_hash.u.u8));
+	/* Give up revocation preimage for old tx. */
+	shachain_from_seed(&seed, argc - 7 - 1, &preimage);
 	
 	/* Get pubkeys */
 	if (!proto_to_pubkey(o1->anchor->pubkey, &pubkey2))
@@ -91,20 +92,37 @@ int main(int argc, char *argv[])
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 	p2sh_out = find_p2sh_out(anchor, redeemscript);
 
-	/* Now create THEIR new commitment tx to spend 2/2 output of anchor. */
-	proto_to_sha256(update->revocation_hash, &their_rhash);
-	commit = create_commit_tx(ctx, o2, o1, &their_rhash, delta,
+	/* Check our new commit is signed correctly by them. */
+	proto_to_sha256(update->revocation_hash, &revocation_hash);
+	commit = create_commit_tx(ctx, o1, o2, &revocation_hash, delta,
 				  &anchor_txid, p2sh_out);
+	if (!commit)
+		errx(1, "Delta too large");
+
+	/* Check their signature signs this input correctly. */
+	if (!check_tx_sig(commit, 0, redeemscript, tal_count(redeemscript),
+			  &pubkey2, &sig))
+		errx(1, "Invalid signature.");
+
+	/* Now create THEIR new commitment tx to spend 2/2 output of anchor. */
+	proto_to_sha256(ua->revocation_hash, &revocation_hash);
+	commit = create_commit_tx(ctx, o2, o1, &revocation_hash, -delta,
+				  &anchor_txid,
+				  find_p2sh_out(anchor, redeemscript));
 
 	/* If contributions don't exceed fees, this fails. */
 	if (!commit)
 		errx(1, "Delta too large");
 
+	/* Their pubkey must be valid */
+	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
+		errx(1, "Invalid public open-channel-file2");
+
 	/* Sign it for them. */
 	sign_tx_input(ctx, commit, 0, redeemscript, tal_count(redeemscript),
 		      privkey, &pubkey1, &sig.sig);
 
-	pkt = update_accept_pkt(ctx, &sig.sig, &revocation_hash);
+	pkt = update_signature_pkt(ctx, &sig.sig, &preimage);
 	if (!write_all(STDOUT_FILENO, pkt,
 		       sizeof(pkt->len) + le32_to_cpu(pkt->len)))
 		err(1, "Writing out packet");

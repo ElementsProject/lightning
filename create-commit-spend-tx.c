@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 
 	/* Now get signature, to set up input script. */
 	if (!sign_tx_input(tx, tx, 0, redeemscript, tal_count(redeemscript),
-			   privkey, &sig.sig))
+			   privkey, &pubkey1, &sig.sig))
 		errx(1, "Could not sign tx");
 	sig.stype = SIGHASH_ALL;
 	tx->input[0].script = scriptsig_p2sh_single_sig(tx, redeemscript,

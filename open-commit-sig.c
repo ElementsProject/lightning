@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 	anchor_txid(anchor, argv[4], argv[5], inmap, &txid);
 
 	/* Now create THEIR commitment tx to spend 2/2 output of anchor. */
-	proto_to_sha256(o1->revocation_hash, &rhash);
+	proto_to_sha256(o2->revocation_hash, &rhash);
 	commit = create_commit_tx(ctx, o2, o1, &rhash, 0, &txid, outmap[0]);
 
 	/* If contributions don't exceed fees, this fails. */
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 	/* Sign it for them. */
 	subscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 	sign_tx_input(ctx, commit, 0, subscript, tal_count(subscript),
-		      privkey, &sig);
+		      privkey, &pubkey1, &sig);
 
 	pkt = open_commit_sig_pkt(ctx, &sig);
 	if (!write_all(STDOUT_FILENO, pkt,
