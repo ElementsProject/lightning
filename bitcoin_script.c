@@ -293,9 +293,14 @@ u8 *scriptsig_p2sh_2of2(const tal_t *ctx,
 
 	/* OP_CHECKMULTISIG has an out-by-one bug, which MBZ */
 	add_number(&script, 0);
-	add_push_sig(&script, sig1);
-	add_push_sig(&script, sig2);
-
+	/* sig order should match key order. */
+	if (key_less(key1, key2)) {
+		add_push_sig(&script, sig1);
+		add_push_sig(&script, sig2);
+	} else {
+		add_push_sig(&script, sig2);
+		add_push_sig(&script, sig1);
+	}
 	redeemscript = bitcoin_redeem_2of2(script, key1, key2);
 	add_push_bytes(&script, redeemscript, tal_count(redeemscript));
 	return script;
