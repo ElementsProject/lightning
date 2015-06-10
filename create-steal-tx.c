@@ -24,8 +24,9 @@
 int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal_arr(NULL, char, 0);
-	struct sha256 revoke, revoke_hash;
-	OpenChannel *o2;
+	struct sha256 revoke_preimage, revoke_hash;
+	OpenChannel *o1, *o2;
+	Pkt *pkt;
 	struct bitcoin_tx *commit, *tx;
 	u8 *tx_arr, *redeemscript, *p2sh;
 	size_t i;
@@ -38,20 +39,30 @@ int main(int argc, char *argv[])
 	err_set_progname(argv[0]);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<commit-tx> <revocation-preimage> <privkey> <open-channel-file2> <outpubkey>\n"
+			   "<commit-tx> <revocation-preimage> <final-privkey> <open-channel-file1> <open-channel-file2> <outpubkey>\n"
 			   "Create a transaction which spends commit-tx's revocable output, and sends it P2SH to outpubkey",
 			   "Print this message.");
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
-	if (argc != 6)
-		opt_usage_exit_fail("Expected 5 arguments");
+	if (argc != 7)
+		opt_usage_exit_fail("Expected 6 arguments");
 
 	commit = bitcoin_tx_from_file(ctx, argv[1]);
 
-	if (!hex_decode(argv[2], strlen(argv[2]), &revoke, sizeof(revoke)))
-		errx(1, "Invalid revokation hash '%s' - need 256 hex bits",
-		     argv[2]);
+	pkt = any_pkt_from_file(argv[2]);
+	switch (pkt->pkt_case) {
+	case PKT__PKT_UPDATE_SIGNATURE:
+		proto_to_sha256(pkt->update_signature->revocation_preimage,
+				&revoke_preimage);
+		break;
+	case PKT__PKT_UPDATE_COMPLETE:
+		proto_to_sha256(pkt->update_complete->revocation_preimage,
+				&revoke_preimage);
+		break;
+	default:
+		errx(1, "Expected update or update-complete in %s", argv[2]);
+	}
 
 	privkey = key_from_base58(argv[3], strlen(argv[3]), &testnet, &pubkey1);
 	if (!privkey)
@@ -59,19 +70,20 @@ int main(int argc, char *argv[])
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[3]);
 
-	o2 = pkt_from_file(argv[4], PKT__PKT_OPEN)->open;
+	o1 = pkt_from_file(argv[4], PKT__PKT_OPEN)->open;
+	o2 = pkt_from_file(argv[5], PKT__PKT_OPEN)->open;
 
-	if (!pubkey_from_hexstr(argv[5], &outpubkey))
-		errx(1, "Invalid bitcoin pubkey '%s'", argv[5]);
+	if (!pubkey_from_hexstr(argv[6], &outpubkey))
+		errx(1, "Invalid bitcoin pubkey '%s'", argv[6]);
 
-	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
-		errx(1, "Invalid anchor1 pubkey");
+	if (!proto_to_pubkey(o2->final, &pubkey2))
+		errx(1, "Invalid o2 final pubkey");
 
 	/* Now, which commit output?  Match redeem script. */
-	sha256(&revoke_hash, &revoke, sizeof(revoke));
-	redeemscript = bitcoin_redeem_revocable(ctx, &pubkey1,
+	sha256(&revoke_hash, &revoke_preimage, sizeof(revoke_preimage));
+	redeemscript = bitcoin_redeem_revocable(ctx, &pubkey2,
 						o2->locktime_seconds,
-						&pubkey2, &revoke_hash);
+						&pubkey1, &revoke_hash);
 	p2sh = scriptpubkey_p2sh(ctx, redeemscript);
 
 	for (i = 0; i < commit->output_count; i++) {
@@ -97,7 +109,7 @@ int main(int argc, char *argv[])
 			   privkey, &pubkey1, &sig.sig))
 		errx(1, "Could not sign tx");
 	sig.stype = SIGHASH_ALL;
-	tx->input[0].script = scriptsig_p2sh_revoke(tx, &revoke, &sig,
+	tx->input[0].script = scriptsig_p2sh_revoke(tx, &revoke_preimage, &sig,
 						    redeemscript,
 						    tal_count(redeemscript));
 	tx->input[0].script_length = tal_count(tx->input[0].script);
