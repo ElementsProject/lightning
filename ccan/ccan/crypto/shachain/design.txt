@@ -1,0 +1,114 @@
+Efficient Chains Of Unpredictable Numbers
+=========================================
+
+The Problem
+-----------
+
+The Lightning Network wants a chain of (say 1 million) unguessable 256
+bit values; we generate them and send them one at a time to a remote
+node.  We don't want the remote node to have to store all the values,
+so it's better if they can derive them once they see them.
+
+A Simple Solution
+-----------------
+
+A simple system is a hash chain: we select a random seed value, the
+hash it 1,000,000 times.  This gives the first "random" number.
+Hashed 999,999 times gives the second number, etc. ie:
+
+	R(1,000,000) = seed
+	R(N-1) = SHA256(R(N))
+
+This way the remote node needs only to remember the last R(N) it was
+given, and it can calculate any R for N-1 or below.
+
+However, this means we need to generate 1 million hashes up front, and
+then do almost as many hashes to derive the next number.  That's slow.
+
+A More Complex Solution
+-----------------------
+
+Instead of a one-dimensional chain, we can use two dimensions: 1000
+chains of 1000 values each.  Indeed, we can set generate the "top" of
+each chain much like we generated a single chain:
+
+     Chain 1000      Chain 999        Chain 998 ...........Chain 1
+     seed            SHA256(C1000)    SHA256(C999) ....... SHA256(C2)
+
+Now, deriving chain 1000 from seed doesn't quite work, because it'll
+look like this chain, so we flip the lower bit to generate the chain:
+
+     Chain 1000      Chain 999        Chain 998 ...........Chain 1
+1000 seed^1          SHA256(C1000)^1  SHA256(C999)^1...... SHA256(C2)^1
+ 999 SHA256(above)   SHA256(above)    SHA256(above)  ..... SHA256(above)
+ 998 SHA256(above)   SHA256(above)    SHA256(above)  ..... SHA256(above)
+ ...
+
+Now, we can get the first value to give out (chain 1, position 1) with
+999 hashes to get to chain 1, and 999 hashes to get to the end of the
+chain.  2000 hashes is much better than the 999,999 hashes it would
+have taken previously.
+
+Why Stop at 2 Dimensions?
+-------------------------
+
+Indeed, the implementation uses 64 dimensions rather than 2, and a
+chain length of 2 rather than 1000, giving a worst-case of 63 hashes
+to derive any of 2^64 values.  Each dimension flips a different bit of
+the hash, to ensure the chains are distinct.
+
+For simplicity, I'll explain what this looks like using 8 dimensions,
+ie. 8 bits.  The seed value always sits the maximum possible index, in
+this case index 0xFF (b11111111).
+
+To generate the hash for 0xFE (b11111110), we need to move down
+dimension 0, so we flip bit 0 of the seed value, then hash it.  To
+generate the hash for 0xFD (b11111101) we need to move down dimension
+1, so we flip bit 1 of the seed value, then hash it.
+
+To reach 0xFC (b11111100) we need to move down dimension 1 then
+dimension 0, in that order.
+
+Spotting the pattern, it becomes easy to derive how to reach any value:
+
+	 hash = seed
+	 for bit in 7 6 5 4 3 2 1 0:
+	     if bit not set in index:
+		flip(bit) in hash
+		hash = SHA256(hash)
+
+Handling Partial Knowledge
+--------------------------
+
+How does the remote node, which doesn't know the seed value, derive
+subvalues?
+
+Once it knows the value for index 1, it can derive the value for index
+0 by flipping bit 0 of the value and hashing it.  In effect, it can
+always derive a value for any index where it only needs to clear bits.
+
+So, index 1 gives index 0, but index 2 doesn't yield index 1.  When
+index 3 comes along, it yields 2, 1, and 0.
+
+How many hash values will we have to remember at once?  The answer is
+equal to the number of dimensions.  It turns out that the worst case
+for 8 dimensions is 254 (0b11111110), for which we will have to
+remember the following indices:
+
+	127 0b01111111
+	191 0b10111111
+	223 0b11011111
+	239 0b11101111
+	247 0b11110111
+	251 0b11111011
+	253 0b11111101
+	254 0b11111110
+
+127 lets us derive any hash value for index <= 127.  Similarly, 191
+lets us derive anything > 127 but <= 191.  254 lets us derive only
+itself.
+
+When we get index 255 this collapses, and we only need to remember
+that one index to derive everything.
+
+Rusty Russell <rusty@rustcorp.com.au>

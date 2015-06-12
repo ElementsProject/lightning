@@ -1,0 +1,43 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * tal/talloc - an implementation of the tal interface in terms of talloc.
+ *
+ * Tal and talloc are both hierarchical allocators, but have different APIs.
+ * The tal API is mostly a subset of talloc, but if your project already
+ * uses talloc then having both tal and talloc pointers is confusing, and
+ * a waste of resources.
+ *
+ * The standard convention to tell ccan modules to use this instead of
+ * ccan/tal is to define TAL_USE_TALLOC, usually on the commandline.
+ *
+ * Bugs:
+ *	tal_first() and tal_next() can't be implemented.
+ *	tal_set_backend() can only change the error function.
+ *
+ * License: LGPL
+ */
+int main(int argc, char *argv[])
+{
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/take\n");
+		printf("ccan/typesafe_cb\n");
+		printf("ccan/compiler\n");
+		printf("ccan/likely\n");
+		printf("ccan/str\n");
+		printf("talloc\n");
+		return 0;
+	}
+
+	if (strcmp(argv[1], "libs") == 0) {
+		printf("talloc\n");
+		return 0;
+	}
+
+	return 1;
+}

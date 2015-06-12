@@ -1,0 +1,59 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * crypto/shachain - compactly-representable chain of 256-bit numbers.
+ *
+ * This code produces a practically infinite (2^64) chain of 256-bit numbers
+ * from a single number, such that you can't derive element N from any element
+ * less than N, but can efficiently derive element N from a limited number
+ * of elements >= N.
+ *
+ * License: BSD-MIT
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ *
+ * Example:
+ *
+ * #include <ccan/crypto/shachain/shachain.h>
+ * #include <ccan/err/err.h>
+ * #include <stdio.h>
+ * #include <stdlib.h>
+ * #include <string.h>
+ *
+ * int main(int argc, char *argv[])
+ * {
+ *	size_t i, j, limit = 10;
+ *	struct sha256 seed;
+ *
+ *	if (argc < 2)
+ *		errx(1, "Usage: %s <passphrase> [<num-to-generate>]", argv[0]);
+ *	sha256(&seed, argv[1], strlen(argv[1]));
+ *	if (argv[2])
+ *		limit = atol(argv[2]);
+ *
+ *	for (i = 0; i < limit; i++) {
+ *		struct sha256 v;
+ *		shachain_from_seed(&seed, i, &v);
+ *		printf("%zu: ", i);
+ *		for (j = 0; j < sizeof(v.u.u8); j++)
+ *			printf("%02x", v.u.u8[j]);
+ *		printf("\n");
+ *	}
+ *	return 0;
+ * }
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/ilog\n");
+		printf("ccan/crypto/sha256\n");
+		return 0;
+	}
+
+	return 1;
+}

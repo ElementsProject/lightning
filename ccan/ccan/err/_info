@@ -1,0 +1,41 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * err - err(), errx(), warn() and warnx(), as per BSD's err.h.
+ *
+ * A few platforms don't provide err.h; for those, this provides replacements.
+ * For most, it simple includes the system err.h.
+ *
+ * Unfortunately, you have to call err_set_progname() to tell the replacements
+ * your program name, otherwise it prints "unknown program".
+ *
+ * Example:
+ *	#include <ccan/err/err.h>
+ *
+ *	int main(int argc, char *argv[])
+ *	{
+ *		err_set_progname(argv[0]);
+ *		if (argc != 1)
+ *			errx(1, "Expect no arguments");
+ *		exit(0);
+ *	}
+ *
+ * License: CC0 (Public domain)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ */
+int main(int argc, char *argv[])
+{
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+#if !HAVE_ERR_H
+		printf("ccan/compiler\n");
+#endif
+		return 0;
+	}
+
+	return 1;
+}

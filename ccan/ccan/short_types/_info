@@ -1,0 +1,87 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * short_types - shorter names for standard integer types
+ *
+ * "C is a Spartan language, and so should your naming be."
+ *	-- Linus Torvalds
+ *
+ * The short_types header provides for convenient abbreviations for the
+ * posixly-damned uint32_t types.  If ccan/endian/endian.h is included,
+ * it also provides be32/le32 for explicitly annotating types of specific
+ * endian.
+ *
+ * Include this header, if only to stop people using these identifiers
+ * for other things!
+ *
+ * Example:
+ *	#include <stdint.h>
+ *	#include <string.h>
+ *	#include <stdio.h>
+ *	#include <ccan/short_types/short_types.h>
+ *	
+ *	// Print nonsensical numerical comparison of POSIX vs. short_types. 
+ *	#define stringify_1(x)	#x
+ *	#define stringify(x)	stringify_1(x)
+ *	
+ *	static void evaluate(size_t size, const char *posix, const char *sht,
+ *			     unsigned int *posix_total, unsigned int *sht_total,
+ *			     unsigned int *size_total)
+ *	{
+ *		printf("\t%ssigned %s: POSIX %zu%%, short %zu%%\n",
+ *		       sht[0] == 'u' ? "un" : "",
+ *		       sht+1,
+ *		       strlen(posix)*100 / size,
+ *		       strlen(sht)*100 / size);
+ *		*posix_total += strlen(posix);
+ *		*sht_total += strlen(sht);
+ *		*size_total += size;
+ *	}
+ *
+ *	#define EVALUATE(psx, short, pt, st, t)				\
+ *		evaluate(sizeof(psx), stringify(psx), stringify(sht), pt, st, t)
+ *
+ *	int main(void)
+ *	{
+ *		unsigned int posix_total = 0, sht_total = 0, size_total = 0;
+ *
+ *		printf("Comparing size of type vs size of name:\n");
+ *
+ *		EVALUATE(uint8_t, u8, &posix_total, &sht_total, &size_total);
+ *		EVALUATE(int8_t, s8, &posix_total, &sht_total, &size_total);
+ *		EVALUATE(uint16_t, u16, &posix_total, &sht_total, &size_total);
+ *		EVALUATE(int16_t, s16, &posix_total, &sht_total, &size_total);
+ *		EVALUATE(uint32_t, u32, &posix_total, &sht_total, &size_total);
+ *		EVALUATE(int32_t, s32, &posix_total, &sht_total, &size_total);
+ *		EVALUATE(uint64_t, u64, &posix_total, &sht_total, &size_total);
+ *		EVALUATE(int64_t, s64, &posix_total, &sht_total, &size_total);
+ *
+ *		printf("Conclusion:\n"
+ *		       "\tPOSIX is %u%% LESS efficient than binary.\n"
+ *		       "\tshort_types.h is %u%% MORE efficient than binary.\n",
+ *		       (posix_total - size_total) * 100 / size_total,
+ *		       (size_total - sht_total) * 100 / size_total);
+ *		return 0;
+ *	}
+ *
+ * License: CC0 (Public domain)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ */
+int main(int argc, char *argv[])
+{
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		return 0;
+	}
+
+	if (strcmp(argv[1], "testdepends") == 0) {
+		printf("ccan/endian\n");
+		return 0;
+	}
+
+	return 1;
+}

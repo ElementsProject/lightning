@@ -13,7 +13,7 @@ CCAN_OBJS := ccan-crypto-sha256.o ccan-crypto-shachain.o ccan-err.o ccan-tal.o c
 
 HEADERS := $(wildcard *.h)
 
-CCANDIR := ../ccan/
+CCANDIR := ccan/
 CFLAGS := -g -Wall -I $(CCANDIR)
 LDLIBS := -lcrypto -lprotobuf-c
 $(PROGRAMS): CFLAGS+=-I.
@@ -30,8 +30,13 @@ lightning.pb-c.c lightning.pb-c.h: lightning.proto
 $(PROGRAMS): % : %.o $(HELPER_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS)
 $(PROGRAMS:=.o) $(HELPER_OBJS): $(HEADERS)
 
+$(CCAN_OBJS) $(HELPER_OBJS) $(PROGRAM_OBJS) $(BITCOIN_OBJS): ccan/config.h
+
+ccan/config.h: ccan/tools/configurator/configurator
+	$< > $@
+
 distclean: clean
-	$(RM) lightning.pb-c.c lightning.pb-c.h
+	$(RM) lightning.pb-c.c lightning.pb-c.h ccan/config.h
 
 clean:
 	$(RM) $(PROGRAMS)

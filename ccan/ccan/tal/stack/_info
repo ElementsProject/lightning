@@ -1,0 +1,68 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * tal/stack - stack of tal contextes (inspired by talloc_stack)
+ *
+ * Implement a stack of tal contexts. A new (empty) context is pushed on top
+ * of the stack using tal_newframe and it is popped/freed using tal_free().
+ * tal_curframe() can be used to get the stack's top context.
+ *
+ * tal_stack can be used to implement per-function temporary allocation context
+ * to help mitigating memory leaks, but unlike the plain tal approach it does not
+ * require the caller to pass a destination context for returning allocated
+ * values. Instead, allocated values are moved to the parent context using
+ * tal_steal(tal_parent(tmp_ctx), ptr).
+ *
+ * Example:
+ *	#include <assert.h>
+ *	#include <ccan/tal/stack/stack.h>
+ *
+ *	static int *do_work(void)
+ *	{
+ *		int *retval = NULL;
+ *		tal_t *tmp_ctx = tal_newframe();
+ *
+ *		int *val = talz(tmp_ctx, int);
+ *		assert(val != NULL);
+ *
+ *		// ... do something with val ...
+ *
+ *		if (retval >= 0) {
+ *			// steal to parent cxt so it survives tal_free()
+ *			tal_steal(tal_parent(tmp_ctx), val);
+ *			retval = val;
+ *		}
+ *		tal_free(tmp_ctx);
+ *		return retval;
+ *	}
+ *
+ *	int main(int argc, char *argv[])
+ *	{
+ *		tal_t *tmp_ctx = tal_newframe();
+ *		int *val = do_work();
+ *		if (val) {
+ *			// ... do something with val ...
+ *		}
+ *		// val is eventually freed
+ *		tal_free(tmp_ctx);
+ *		return 0;
+ *	}
+ *
+ * License: BSD-MIT
+ * Author: Delio Brignoli <brignoli.delio@gmail.com>
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/tal\n");
+		return 0;
+	}
+
+	return 1;
+}
