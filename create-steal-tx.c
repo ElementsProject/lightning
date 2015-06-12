@@ -76,6 +76,12 @@ int main(int argc, char *argv[])
 	if (!pubkey_from_hexstr(argv[6], &outpubkey))
 		errx(1, "Invalid bitcoin pubkey '%s'", argv[6]);
 
+	/* Get pubkeys */
+	if (!proto_to_pubkey(o1->final, &pubkey2))
+		errx(1, "Invalid o1 final pubkey");
+	if (pubkey_len(&pubkey1) != pubkey_len(&pubkey2)
+	    || memcmp(pubkey1.key, pubkey2.key, pubkey_len(&pubkey2)) != 0)
+		errx(1, "o1 pubkey != this privkey");
 	if (!proto_to_pubkey(o2->final, &pubkey2))
 		errx(1, "Invalid o2 final pubkey");
 
