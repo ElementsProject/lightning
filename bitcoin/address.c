@@ -1,4 +1,4 @@
-#include "bitcoin_address.h"
+#include "address.h"
 #include "pubkey.h"
 #include <ccan/crypto/sha256/sha256.h>
 

@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_SHADOUBLE_H
-#define LIGHTNING_SHADOUBLE_H
+#ifndef LIGHTNING_BITCOIN_SHADOUBLE_H
+#define LIGHTNING_BITCOIN_SHADOUBLE_H
 #include "config.h"
 #include <ccan/crypto/sha256/sha256.h>
 
@@ -11,4 +11,4 @@ struct sha256_double {
 void sha256_double(struct sha256_double *shadouble, const void *p, size_t len);
 
 void sha256_double_done(struct sha256_ctx *sha256, struct sha256_double *res);
-#endif /* PETTYCOIN_SHADOUBLE_H */
+#endif /* LIGHTNING_BITCOIN_SHADOUBLE_H */

@@ -5,7 +5,9 @@ PROTOCC:=protoc-c
 
 PROGRAMS := open-channel open-anchor-scriptsigs leak-anchor-sigs open-commit-sig check-commit-sig check-anchor-scriptsigs get-anchor-depth create-steal-tx create-commit-spend-tx close-channel create-close-tx update-channel update-channel-accept update-channel-signature update-channel-complete create-commit-tx
 
-HELPER_OBJS := base58.o lightning.pb-c.o shadouble.o pkt.o bitcoin_script.o permute_tx.o signature.o bitcoin_tx.o bitcoin_address.o anchor.o commit_tx.o pubkey.o opt_bits.o close_tx.o find_p2sh_out.o
+BITCOIN_OBJS := bitcoin/address.o bitcoin/base58.o bitcoin/pubkey.o bitcoin/script.o bitcoin/shadouble.o bitcoin/signature.o bitcoin/tx.o
+
+HELPER_OBJS := lightning.pb-c.o pkt.o permute_tx.o anchor.o commit_tx.o opt_bits.o close_tx.o find_p2sh_out.o
 
 CCAN_OBJS := ccan-crypto-sha256.o ccan-crypto-shachain.o ccan-err.o ccan-tal.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-str-hex.o ccan-tal-grab_file.o ccan-noerr.o
 
@@ -24,7 +26,7 @@ FORCE::
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	$(PROTOCC) lightning.proto --c_out=.
 
-$(PROGRAMS): % : %.o $(HELPER_OBJS) $(CCAN_OBJS)
+$(PROGRAMS): % : %.o $(HELPER_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS)
 $(PROGRAMS:=.o) $(HELPER_OBJS): $(HEADERS)
 
 distclean: clean
@@ -32,7 +34,7 @@ distclean: clean
 
 clean:
 	$(RM) $(PROGRAMS)
-	$(RM) *.o $(CCAN_OBJS)
+	$(RM) bitcoin/*.o *.o $(CCAN_OBJS)
 
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
 	$(CC) $(CFLAGS) -c -o $@ $<

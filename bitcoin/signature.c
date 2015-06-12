@@ -1,8 +1,8 @@
 #include "signature.h"
 #include "shadouble.h"
-#include "bitcoin_tx.h"
+#include "tx.h"
 #include "pubkey.h"
-#include "bitcoin_script.h"
+#include "script.h"
 #include <openssl/bn.h>
 #include <openssl/obj_mac.h>
 #include <assert.h>

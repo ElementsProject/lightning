@@ -1,6 +1,6 @@
 #ifndef LIGHTNING_PERMUTE_TX_H
 #define LIGHTNING_PERMUTE_TX_H
-#include "bitcoin_tx.h"
+#include "bitcoin/tx.h"
 
 /* Given the two seeds, permute the transaction inputs.
  * map[0] is set to the new index of input 0, etc.

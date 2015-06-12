@@ -10,12 +10,12 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include "lightning.pb-c.h"
 #include "anchor.h"
-#include "base58.h"
+#include "bitcoin/base58.h"
 #include "pkt.h"
-#include "bitcoin_script.h"
+#include "bitcoin/script.h"
 #include "permute_tx.h"
-#include "signature.h"
-#include "pubkey.h"
+#include "bitcoin/signature.h"
+#include "bitcoin/pubkey.h"
 #include "close_tx.h"
 #include "find_p2sh_out.h"
 #include <openssl/ec.h>

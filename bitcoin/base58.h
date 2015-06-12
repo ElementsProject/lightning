@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_BASE58_H
-#define LIGHTNING_BASE58_H
+#ifndef LIGHTNING_BITCOIN_BASE58_H
+#define LIGHTNING_BITCOIN_BASE58_H
 /* FIXME: Use libsecpk1 */
 #include <ccan/tal/tal.h>
 #include <ccan/short_types/short_types.h>
@@ -44,4 +44,4 @@ bool raw_decode_base_n(BIGNUM *bn, const char *src, size_t len, int base);
 bool raw_decode_base58(BIGNUM *bn, const char *src, size_t len);
 void base58_get_checksum(u8 csum[4], const u8 buf[], size_t buflen);
 
-#endif /* PETTYCOIN_BASE58_H */
+#endif /* PETTYCOIN_BITCOIN_BASE58_H */

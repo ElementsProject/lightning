@@ -5,7 +5,7 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include "base58.h"
 #include "shadouble.h"
-#include "bitcoin_address.h"
+#include "address.h"
 #include "pubkey.h"
 #include <assert.h>
 #include <ccan/build_assert/build_assert.h>

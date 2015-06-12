@@ -1,9 +1,9 @@
 #include "commit_tx.h"
-#include "shadouble.h"
-#include "bitcoin_tx.h"
-#include "bitcoin_script.h"
+#include "bitcoin/shadouble.h"
+#include "bitcoin/tx.h"
+#include "bitcoin/script.h"
 #include "permute_tx.h"
-#include "pubkey.h"
+#include "bitcoin/pubkey.h"
 #include "pkt.h"
 
 struct bitcoin_tx *create_commit_tx(const tal_t *ctx,

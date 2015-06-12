@@ -5,15 +5,15 @@
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
-#include "bitcoin_tx.h"
-#include "signature.h"
+#include "bitcoin/tx.h"
+#include "bitcoin/signature.h"
 #include "lightning.pb-c.h"
 #include "pkt.h"
-#include "bitcoin_script.h"
-#include "bitcoin_address.h"
-#include "base58.h"
+#include "bitcoin/script.h"
+#include "bitcoin/address.h"
+#include "bitcoin/base58.h"
 #include "anchor.h"
-#include "pubkey.h"
+#include "bitcoin/pubkey.h"
 
 #include <openssl/ec.h>
 #include <unistd.h>

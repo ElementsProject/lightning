@@ -1,6 +1,5 @@
-#include "bitcoin_script.h"
-#include "bitcoin_address.h"
-#include "pkt.h"
+#include "script.h"
+#include "address.h"
 #include "signature.h"
 #include "pubkey.h"
 #include <openssl/ripemd.h>

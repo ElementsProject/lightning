@@ -1,4 +1,4 @@
-#include "bitcoin_tx.h"
+#include "tx.h"
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/err/err.h>
 #include <ccan/tal/grab_file/grab_file.h>

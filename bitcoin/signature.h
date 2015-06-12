@@ -1,9 +1,9 @@
-#ifndef LIGHTNING_SIGNATURE_H
-#define LIGHTNING_SIGNATURE_H
+#ifndef LIGHTNING_BITCOIN_SIGNATURE_H
+#define LIGHTNING_BITCOIN_SIGNATURE_H
 #include <ccan/short_types/short_types.h>
 #include <openssl/ecdsa.h>
 #include <ccan/tal/tal.h>
-#include "lightning.pb-c.h"
+#include "../lightning.pb-c.h"
 
 enum sighash_type {
     SIGHASH_ALL = 1,
@@ -51,4 +51,4 @@ bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
 Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig);
 bool proto_to_signature(const Signature *pb, struct signature *sig);
 
-#endif /* LIGHTNING_SIGNATURE_H */
+#endif /* LIGHTNING_BITCOIN_SIGNATURE_H */

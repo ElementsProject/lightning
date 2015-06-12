@@ -1,8 +1,8 @@
-#ifndef LIGHTNING_PUBKEY_H
-#define LIGHTNING_PUBKEY_H
+#ifndef LIGHTNING_BITCOIN_PUBKEY_H
+#define LIGHTNING_BITCOIN_PUBKEY_H
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include "lightning.pb-c.h"
+#include "../lightning.pb-c.h"
 
 struct pubkey {
 	u8 key[65];

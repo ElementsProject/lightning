@@ -1,6 +1,6 @@
 #include "find_p2sh_out.h"
-#include "bitcoin_tx.h"
-#include "bitcoin_script.h"
+#include "bitcoin/tx.h"
+#include "bitcoin/script.h"
 #include <string.h>
 #include <ccan/err/err.h>
 #include <ccan/tal/tal.h>

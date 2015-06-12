@@ -2,10 +2,10 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/err/err.h>
 #include "pkt.h"
-#include "bitcoin_tx.h"
-#include "bitcoin_address.h"
-#include "pubkey.h"
-#include "signature.h"
+#include "bitcoin/tx.h"
+#include "bitcoin/address.h"
+#include "bitcoin/pubkey.h"
+#include "bitcoin/signature.h"
 
 #include <stdio.h>
 static struct pkt *to_pkt(const tal_t *ctx, Pkt__PktCase type, void *msg)
