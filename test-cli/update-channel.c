@@ -1,6 +1,3 @@
-/* My example:
- * ./update-channel <A-SEED> <my-delta-in-satoshis> A-open.pb B-open.pb anchor.tx <A-TMPKEY> > A-update-1.pb
- */
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>

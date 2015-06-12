@@ -1,7 +1,3 @@
-/* My example:
- * ./open-anchor-scriptsigs A-open.pb B-open.pb cUjoranStkpgTRumAJZNiNEkknJv5UA7wzW1nZ7aPsm9ZWjkxypZ > A-anchor-scriptsigs.pb
- * ./open-anchor-scriptsigs B-open.pb A-open.pb cNggXygY8fPHWHEdoDqRa6xALau8gVMLq6q6vzMs2eNegLrJGNAW > B-anchor-scriptsigs.pb
- */
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>

@@ -1,6 +1,3 @@
-/* My example:
- * ./create-close-tx A-anchor.tx A-open.pb B-open.pb A-close.pb B-close-complete.pb > A-close.tx
- */
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>

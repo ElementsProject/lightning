@@ -1,7 +1,3 @@
-/* My example:
- * ./check-anchor-scriptsigs A-open.pb B-open.pb A-anchor-scriptsigs.pb B-anchor-scriptsigs.pb > A-anchor.tx
- * ./check-anchor-scriptsigs B-open.pb A-open.pb B-anchor-scriptsigs.pb A-anchor-scriptsigs.pb > B-anchor.tx
- */
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>

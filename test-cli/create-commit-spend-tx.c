@@ -1,6 +1,3 @@
-/* My example:
- * ./create-commit-spend-tx A-commit.tx A-open.pb B-open.pb cTJtiQKZLTufMhhRhxUdbZ2oKJY2MU6sLDEk62mSGoe4NEubLN2e 039bda7e7063afd6aba752b33ca9ae455c4e8d7297b8db01bb06879e0036bde27f > A-spend.tx
- */
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>

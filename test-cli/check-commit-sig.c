@@ -1,7 +1,3 @@
-/* My example:
- * ./check-commit-sig A-open.pb B-open.pb A-commit-sig.pb B-commit-sig.pb cUBCjrdJu8tfvM7FT8So6aqs6G6bZS1Cax6Rc9rFzYL6nYG4XNEC A-leak-anchor-sigs.pb B-leak-anchor-sigs.pb > A-commit.tx
- * ./check-commit-sig B-open.pb A-open.pb B-commit-sig.pb A-commit-sig.pb cUBCjrdJu8tfvM7FT8So6aqs6G6bZS1Cax6Rc9rFzYL6nYG4XNEC B-leak-anchor-sigs.pb A-leak-anchor-sigs.pb > B-commit.tx
- */
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>

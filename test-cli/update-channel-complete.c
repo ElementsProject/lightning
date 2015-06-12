@@ -1,6 +1,3 @@
-/* My example:
- * ./update-channel-complete <A-SEED> B-open.pb > A-update-complete-1.pb
- */
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>

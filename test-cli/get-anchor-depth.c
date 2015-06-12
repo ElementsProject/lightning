@@ -1,7 +1,3 @@
-/* My example:
- * while [ 0$(bitcoin-cli -testnet getrawtransaction $(cat anchor.txid) 1 | sed -n 's/.*"confirmations" : \([0-9]*\),/\1/p') -lt $(./get-anchor-depth A-open.pb) ]; do sleep 60; done
- * while [ 0$(bitcoin-cli -testnet getrawtransaction $(cat anchor.txid) 1 | sed -n 's/.*"confirmations" : \([0-9]*\),/\1/p') -lt $(./get-anchor-depth B-open.pb) ]; do sleep 60; done
- */
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
