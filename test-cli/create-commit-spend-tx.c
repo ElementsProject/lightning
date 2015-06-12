@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 	tx->output[0].amount = commit->output[p2sh_out].amount - fee;
 	tx->output[0].script = scriptpubkey_p2sh(tx,
 						 bitcoin_redeem_single(tx, &outpubkey));
-	tx->output[0].script_length = cpu_to_le32(tal_count(tx->output[0].script));
+	tx->output[0].script_length = tal_count(tx->output[0].script);
 
 	/* Now get signature, to set up input script. */
 	if (!sign_tx_input(tx, tx, 0, redeemscript, tal_count(redeemscript),
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 	tx->input[0].script = scriptsig_p2sh_single_sig(tx, redeemscript,
 							tal_count(redeemscript),
 							&sig);
-	tx->input[0].script_length = cpu_to_le32(tal_count(tx->input[0].script));
+	tx->input[0].script_length = tal_count(tx->input[0].script);
 
 	/* Print it out in hex. */
 	tx_arr = linearize_tx(ctx, tx);
