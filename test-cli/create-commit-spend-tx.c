@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 	u8 *redeemscript, *tx_arr;
 	char *tx_hex;
 	struct sha256 rhash;
-	size_t p2sh_out;
+	size_t i, p2sh_out;
 	u64 fee = 10000;
 	u32 locktime_seconds;
 
@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 	/* FIXME: If we've updated channel since, we need the final
 	 * revocation hash we sent (either update_accept or update_complete) */
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<commitment-tx> <open-channel-file1> <open-channel-file2> <my-privoutkey> <someaddress>\n"
+			   "<commitment-tx> <open-channel-file1> <open-channel-file2> <my-privoutkey> <someaddress> [previous-updates]\n"
 			   "Create the transaction to spend our commit transaction",
 			   "Print this message.");
 	opt_register_arg("--fee=<bits>",
@@ -55,15 +55,15 @@ int main(int argc, char *argv[])
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
-	if (argc != 6)
-		opt_usage_exit_fail("Expected 5 arguments");
+	if (argc < 6)
+		opt_usage_exit_fail("Expected 5+ arguments");
 
 	commit = bitcoin_tx_from_file(ctx, argv[1]);
 
 	o1 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
-	if (!proto_to_locktime(o2, &locktime_seconds))
-		errx(1, "Invalid locktime in o2");
+	if (!proto_to_locktime(o1, &locktime_seconds))
+		errx(1, "Invalid locktime in o1");
 
  	/* We need our private key to spend commit output. */
 	privkey = key_from_base58(argv[4], strlen(argv[4]), &testnet, &pubkey1);
@@ -86,7 +86,13 @@ int main(int argc, char *argv[])
 
 	/* o1 gives us the revocation hash */
 	proto_to_sha256(o1->revocation_hash, &rhash);
-	
+
+	/* Latest revocation hash comes from last update. */
+	for (i = 6; i < argc; i++) {
+		Update *u = pkt_from_file(argv[i], PKT__PKT_UPDATE)->update;
+		proto_to_sha256(u->revocation_hash, &rhash);
+	}
+
 	/* Create redeem script */
 	redeemscript = bitcoin_redeem_revocable(ctx, &pubkey1,
 						locktime_seconds,
