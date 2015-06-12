@@ -1,8 +1,8 @@
 #ifndef LIGHTNING_BITCOIN_BASE58_H
 #define LIGHTNING_BITCOIN_BASE58_H
 /* FIXME: Use libsecpk1 */
-#include <ccan/tal/tal.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/tal/tal.h>
 #include <openssl/bn.h>
 #include <openssl/ec.h>
 #include <openssl/ripemd.h>

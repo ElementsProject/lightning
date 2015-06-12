@@ -1,12 +1,12 @@
-#include "signature.h"
-#include "shadouble.h"
-#include "tx.h"
+#include <ccan/cast/cast.h>
 #include "pubkey.h"
 #include "script.h"
+#include "shadouble.h"
+#include "signature.h"
+#include "tx.h"
 #include <openssl/bn.h>
 #include <openssl/obj_mac.h>
 #include <assert.h>
-#include <ccan/cast/cast.h>
 
 #undef DEBUG
 #ifdef DEBUG

@@ -1,10 +1,10 @@
-#include "tx.h"
 #include <ccan/crypto/sha256/sha256.h>
-#include <ccan/err/err.h>
-#include <ccan/tal/grab_file/grab_file.h>
-#include <ccan/str/hex/hex.h>
 #include <ccan/endian/endian.h>
+#include <ccan/err/err.h>
+#include <ccan/str/hex/hex.h>
+#include <ccan/tal/grab_file/grab_file.h>
 #include <assert.h>
+#include "tx.h"
 
 static void add_varint(varint_t v,
 		       void (*add)(const void *, size_t, void *), void *addp)

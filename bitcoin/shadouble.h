@@ -1,6 +1,5 @@
 #ifndef LIGHTNING_BITCOIN_SHADOUBLE_H
 #define LIGHTNING_BITCOIN_SHADOUBLE_H
-#include "config.h"
 #include <ccan/crypto/sha256/sha256.h>
 
 /* To explicitly distinguish between single sha and bitcoin's standard double */

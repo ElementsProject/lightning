@@ -1,7 +1,7 @@
-#include "protobuf_convert.h"
-#include "bitcoin/signature.h"
-#include "bitcoin/pubkey.h"
 #include <ccan/crypto/sha256/sha256.h>
+#include "bitcoin/pubkey.h"
+#include "bitcoin/signature.h"
+#include "protobuf_convert.h"
 
 Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
 {

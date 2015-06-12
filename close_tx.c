@@ -1,9 +1,9 @@
-#include "close_tx.h"
+#include "bitcoin/pubkey.h"
+#include "bitcoin/script.h"
 #include "bitcoin/shadouble.h"
 #include "bitcoin/tx.h"
-#include "bitcoin/script.h"
+#include "close_tx.h"
 #include "permute_tx.h"
-#include "bitcoin/pubkey.h"
 #include "pkt.h"
 #include "protobuf_convert.h"
 

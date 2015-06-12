@@ -1,8 +1,8 @@
 #ifndef LIGHTNING_BITCOIN_SIGNATURE_H
 #define LIGHTNING_BITCOIN_SIGNATURE_H
 #include <ccan/short_types/short_types.h>
-#include <openssl/ecdsa.h>
 #include <ccan/tal/tal.h>
+#include <openssl/ecdsa.h>
 
 enum sighash_type {
     SIGHASH_ALL = 1,

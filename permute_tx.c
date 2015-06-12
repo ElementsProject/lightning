@@ -1,7 +1,7 @@
-#include "permute_tx.h"
 #include <ccan/crypto/sha256/sha256.h>
 #include <stdbool.h>
 #include <string.h>
+#include "permute_tx.h"
 
 static u32 get_next_rand(struct sha256 *h, size_t *randidx)
 {

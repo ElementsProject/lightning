@@ -1,7 +1,7 @@
-#include "pubkey.h"
-#include <openssl/ecdsa.h>
 #include <ccan/str/hex/hex.h>
+#include <openssl/ecdsa.h>
 #include <assert.h>
+#include "pubkey.h"
 
 /* Must agree on key validity with bitcoin!  Stolen from bitcoin/src/pubkey.h's
  * GetLen:

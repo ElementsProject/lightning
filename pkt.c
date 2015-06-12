@@ -1,11 +1,11 @@
 #include <ccan/crypto/sha256/sha256.h>
-#include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/err/err.h>
-#include "pkt.h"
-#include "bitcoin/tx.h"
+#include <ccan/tal/grab_file/grab_file.h>
 #include "bitcoin/address.h"
 #include "bitcoin/pubkey.h"
 #include "bitcoin/signature.h"
+#include "bitcoin/tx.h"
+#include "pkt.h"
 #include "protobuf_convert.h"
 
 static struct pkt *to_pkt(const tal_t *ctx, Pkt__PktCase type, void *msg)

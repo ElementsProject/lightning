@@ -1,11 +1,11 @@
+#include <ccan/err/err.h>
 #include "anchor.h"
+#include "bitcoin/pubkey.h"
+#include "bitcoin/script.h"
 #include "bitcoin/tx.h"
 #include "overflows.h"
-#include "pkt.h"
 #include "permute_tx.h"
-#include "bitcoin/script.h"
-#include "bitcoin/pubkey.h"
-#include <ccan/err/err.h>
+#include "pkt.h"
 #include "protobuf_convert.h"
 
 struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,

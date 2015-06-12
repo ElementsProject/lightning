@@ -1,11 +1,11 @@
-#include "script.h"
-#include "address.h"
-#include "signature.h"
-#include "pubkey.h"
-#include <openssl/ripemd.h>
-#include <ccan/endian/endian.h>
 #include <ccan/crypto/sha256/sha256.h>
+#include <ccan/endian/endian.h>
+#include <openssl/ripemd.h>
 #include <assert.h>
+#include "address.h"
+#include "pubkey.h"
+#include "script.h"
+#include "signature.h"
 
 /* Some standard ops */
 #define OP_PUSHBYTES(val) (val)
