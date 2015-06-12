@@ -21,7 +21,7 @@ $(PROGRAMS): CFLAGS+=-I.
 default: $(PROGRAMS)
 
 TAGS: FORCE
-	etags *.[ch] 
+	$(RM) TAGS; find . -name '*.[ch]' | xargs etags --append
 FORCE::
 
 lightning.pb-c.c lightning.pb-c.h: lightning.proto

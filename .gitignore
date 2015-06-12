@@ -1,5 +1,6 @@
 *~
 *.o
+TAGS
 open-channel
 open-anchor-scriptsigs
 leak-anchor-sigs
