@@ -88,8 +88,7 @@ int main(int argc, char *argv[])
 		      privkey, &pubkey1, &sig);
 
 	pkt = open_commit_sig_pkt(ctx, &sig);
-	if (!write_all(STDOUT_FILENO, pkt,
-		       sizeof(pkt->len) + le32_to_cpu(pkt->len)))
+	if (!write_all(STDOUT_FILENO, pkt, pkt_totlen(pkt)))
 		err(1, "Writing out packet");
 
 	tal_free(ctx);

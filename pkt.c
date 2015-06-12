@@ -8,6 +8,11 @@
 #include "pkt.h"
 #include "protobuf_convert.h"
 
+size_t pkt_totlen(const struct pkt *pkt)
+{
+	return sizeof(pkt->len) + le32_to_cpu(pkt->len);
+}
+
 static struct pkt *to_pkt(const tal_t *ctx, Pkt__PktCase type, void *msg)
 {
 	struct pkt *ret;

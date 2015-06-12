@@ -174,8 +174,7 @@ int main(int argc, char *argv[])
 	pkt = openchannel_pkt(ctx, weak_random64(), &revocation_hash, &outkey,
 			      commit_tx_fee, locktime_seconds, &anchor);
 
-	if (!write_all(STDOUT_FILENO, pkt,
-		       sizeof(pkt->len) + le32_to_cpu(pkt->len)))
+	if (!write_all(STDOUT_FILENO, pkt, pkt_totlen(pkt)))
 		err(1, "Writing out packet");
 
 	tal_free(ctx);

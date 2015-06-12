@@ -124,8 +124,7 @@ int main(int argc, char *argv[])
 		      privkey, &pubkey1, &sig.sig);
 
 	pkt = update_signature_pkt(ctx, &sig.sig, &preimage);
-	if (!write_all(STDOUT_FILENO, pkt,
-		       sizeof(pkt->len) + le32_to_cpu(pkt->len)))
+	if (!write_all(STDOUT_FILENO, pkt, pkt_totlen(pkt)))
 		err(1, "Writing out packet");
 
 	tal_free(ctx);

@@ -95,8 +95,7 @@ int main(int argc, char *argv[])
 	}
 
 	pkt = open_anchor_sig_pkt(ctx, sigs, o1->anchor->n_inputs);
-	if (!write_all(STDOUT_FILENO, pkt,
-		       sizeof(pkt->len) + le32_to_cpu(pkt->len)))
+	if (!write_all(STDOUT_FILENO, pkt, pkt_totlen(pkt)))
 		err(1, "Writing out packet");
 
 	tal_free(ctx);

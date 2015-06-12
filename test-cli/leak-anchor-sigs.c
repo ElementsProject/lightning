@@ -28,8 +28,7 @@ int main(int argc, char *argv[])
 		->open_anchor_scriptsigs;
 
 	pkt = leak_anchor_sigs_and_pretend_we_didnt_pkt(ctx, s);
-	if (!write_all(STDOUT_FILENO, pkt,
-		       sizeof(pkt->len) + le32_to_cpu(pkt->len)))
+	if (!write_all(STDOUT_FILENO, pkt, pkt_totlen(pkt)))
 		err(1, "Writing out packet");
 
 	tal_free(ctx);

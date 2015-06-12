@@ -20,6 +20,9 @@ struct pkt {
 Pkt *pkt_from_file(const char *filename, Pkt__PktCase expect);
 Pkt *any_pkt_from_file(const char *filename);
 
+/* Total length of packet, including header. */
+size_t pkt_totlen(const struct pkt *pkt);
+
 struct sha256;
 struct bitcoin_compressed_pubkey;
 struct signature;

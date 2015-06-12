@@ -63,8 +63,7 @@ int main(int argc, char *argv[])
 	       revocation_hash.u.u8, sizeof(revocation_hash.u.u8));
 	
 	pkt = update_pkt(ctx, &revocation_hash, this_delta);
-	if (!write_all(STDOUT_FILENO, pkt,
-		       sizeof(pkt->len) + le32_to_cpu(pkt->len)))
+	if (!write_all(STDOUT_FILENO, pkt, pkt_totlen(pkt)))
 		err(1, "Writing out packet");
 
 	tal_free(ctx);
