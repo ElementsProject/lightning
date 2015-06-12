@@ -338,7 +338,6 @@ bool is_p2sh(const u8 *script, size_t script_len)
 }
 		
 /* One of:
- * mysig and theirsig, OR
  * mysig and relative locktime passed, OR
  * theirsig and hash preimage. */
 u8 *bitcoin_redeem_revocable(const tal_t *ctx,
@@ -356,12 +355,6 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 	add_op(&script, OP_1SUB);
 	add_op(&script, OP_IF);
 
-	/* If the top arg is a hashpreimage. */
-	add_op(&script, OP_SIZE);
-	add_number(&script, 32);
-	add_op(&script, OP_EQUAL);
-	add_op(&script, OP_IF);
-
 	/* Must hash to revocation_hash, and be signed by them. */
 	RIPEMD160(rhash->u.u8, sizeof(rhash->u), rhash_ripemd);
 	add_op(&script, OP_HASH160);
@@ -370,30 +363,9 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 	add_push_key(&script, theirkey);
 	add_op(&script, OP_CHECKSIG);
 
-	/* Otherwise, it should be both our sigs. */
-
-	/* FIXME: Perhaps this is a bad idea?  We don't need it to
-	 * close, and without this we force the blockchain to commit
-	 * to the timeout: that may make a flood of transactions due
-	 * to hub collapse less likely (as some optimists hope hub
-	 * will return). */
-	add_op(&script, OP_ELSE);
-
-	add_number(&script, 2);
-	/* This obscures whose key is whose.  Probably unnecessary? */
-	if (key_less(mykey, theirkey)) {
-		add_push_key(&script, mykey);
-		add_push_key(&script, theirkey);
-	} else {
-		add_push_key(&script, theirkey);
-		add_push_key(&script, mykey);
-	}	
-	add_number(&script, 2);
-	add_op(&script, OP_CHECKMULTISIG);
-	add_op(&script, OP_ENDIF);
-
 	/* Not two args?  Must be us using timeout. */
 	add_op(&script, OP_ELSE);
+
 	add_push_bytes(&script, &locktime_le, sizeof(locktime_le));
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 	add_op(&script, OP_DROP);
