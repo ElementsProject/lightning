@@ -5,6 +5,7 @@
 #include "permute_tx.h"
 #include "bitcoin/pubkey.h"
 #include "pkt.h"
+#include "protobuf_convert.h"
 
 struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 				   OpenChannel *ours,

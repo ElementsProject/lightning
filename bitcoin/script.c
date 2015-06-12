@@ -5,6 +5,7 @@
 #include <openssl/ripemd.h>
 #include <ccan/endian/endian.h>
 #include <ccan/crypto/sha256/sha256.h>
+#include <assert.h>
 
 /* Some standard ops */
 #define OP_PUSHBYTES(val) (val)

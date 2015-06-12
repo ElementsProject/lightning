@@ -6,8 +6,8 @@
 #include "bitcoin/address.h"
 #include "bitcoin/pubkey.h"
 #include "bitcoin/signature.h"
+#include "protobuf_convert.h"
 
-#include <stdio.h>
 static struct pkt *to_pkt(const tal_t *ctx, Pkt__PktCase type, void *msg)
 {
 	struct pkt *ret;
@@ -24,28 +24,6 @@ static struct pkt *to_pkt(const tal_t *ctx, Pkt__PktCase type, void *msg)
 
 	pkt__pack(&p, ret->data);
 	return ret;
-}
-
-Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash)
-{
-	Sha256Hash *h = tal(ctx, Sha256Hash);
-	sha256_hash__init(h);
-
-	/* Kill me now... */
-	memcpy(&h->a, hash->u.u8, 8);
-	memcpy(&h->b, hash->u.u8 + 8, 8);
-	memcpy(&h->c, hash->u.u8 + 16, 8);
-	memcpy(&h->d, hash->u.u8 + 24, 8);
-	return h;
-}
-
-void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash)
-{
-	/* Kill me again. */
-	memcpy(hash->u.u8, &pb->a, 8);
-	memcpy(hash->u.u8 + 8, &pb->b, 8);
-	memcpy(hash->u.u8 + 16, &pb->c, 8);
-	memcpy(hash->u.u8 + 24, &pb->d, 8);
 }
 
 struct pkt *openchannel_pkt(const tal_t *ctx,

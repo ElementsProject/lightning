@@ -17,6 +17,7 @@
 #include "bitcoin/tx.h"
 #include "bitcoin/pubkey.h"
 #include "bitcoin/shadouble.h"
+#include "protobuf_convert.h"
 #include <openssl/ec.h>
 #include <unistd.h>
 #include "opt_bits.h"

@@ -6,6 +6,7 @@
 #include "bitcoin/script.h"
 #include "bitcoin/pubkey.h"
 #include <ccan/err/err.h>
+#include "protobuf_convert.h"
 
 struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 				    const OpenChannel *o1,

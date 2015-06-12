@@ -1,6 +1,7 @@
 #include "pubkey.h"
 #include <openssl/ecdsa.h>
 #include <ccan/str/hex/hex.h>
+#include <assert.h>
 
 /* Must agree on key validity with bitcoin!  Stolen from bitcoin/src/pubkey.h's
  * GetLen:
@@ -18,11 +19,11 @@ static unsigned int GetLen(unsigned char chHeader)
         return 0;
 }
 
-static bool valid_pubkey(const BitcoinPubkey *key)
+bool pubkey_valid(const u8 *first_char, size_t len)
 {
-	if (key->key.len < 1)
+	if (len < 1)
 		return false;
-	return (key->key.len == GetLen(key->key.data[0]));
+	return (len == GetLen(*first_char));
 }
 
 size_t pubkey_len(const struct pubkey *key)
@@ -31,27 +32,6 @@ size_t pubkey_len(const struct pubkey *key)
 
 	assert(len);
 	return len;
-}
-
-BitcoinPubkey *pubkey_to_proto(const tal_t *ctx, const struct pubkey *key)
-{
-	BitcoinPubkey *p = tal(ctx, BitcoinPubkey);
-
-	bitcoin_pubkey__init(p);
-	p->key.len = pubkey_len(key);
-	p->key.data = tal_dup_arr(p, u8, key->key, p->key.len, 0);
-
-	assert(valid_pubkey(p));
-	return p;
-}
-
-bool proto_to_pubkey(const BitcoinPubkey *pb, struct pubkey *key)
-{
-	if (!valid_pubkey(pb))
-		return false;
-
-	memcpy(key->key, pb->key.data, pb->key.len);
-	return true;
 }
 
 bool pubkey_from_hexstr(const char *str, struct pubkey *key)

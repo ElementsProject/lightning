@@ -21,6 +21,7 @@
 #include "bitcoin/address.h"
 #include "opt_bits.h"
 #include "find_p2sh_out.h"
+#include "protobuf_convert.h"
 #include <openssl/ec.h>
 #include <unistd.h>
 

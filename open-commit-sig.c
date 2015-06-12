@@ -18,6 +18,7 @@
 #include "bitcoin/signature.h"
 #include "commit_tx.h"
 #include "bitcoin/pubkey.h"
+#include "protobuf_convert.h"
 #include <openssl/ec.h>
 #include <unistd.h>
 
