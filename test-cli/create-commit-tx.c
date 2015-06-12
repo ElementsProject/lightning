@@ -23,12 +23,12 @@
 #include <openssl/ec.h>
 #include <unistd.h>
 
+/* FIXME: this code doesn't work if we're not the ones proposing the delta */
 int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal_arr(NULL, char, 0);
 	OpenChannel *o1, *o2;
-	Update *update;
-	UpdateAccept *update_acc;
+	Pkt *pkt;
 	struct bitcoin_tx *anchor, *commit;
 	struct sha256_double anchor_txid;
 	EC_KEY *privkey;
@@ -44,28 +44,25 @@ int main(int argc, char *argv[])
 	err_set_progname(argv[0]);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<anchor-tx> <open-channel-file1> <open-channel-file2> <final-update> <final-update-accept> <commit-privkey> [<previous-updates>]\n"
+			   "<anchor-tx> <open-channel-file1> <open-channel-file2> <commit-privkey> [final-update-accept|open-commit-sig] [<updates>]\n"
 			   "Create the signature needed for the commit transaction",
 			   "Print this message.");
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
-	if (argc < 7)
-		opt_usage_exit_fail("Expected 6+ arguments");
+	if (argc < 6)
+		opt_usage_exit_fail("Expected 5+ arguments");
 
 	anchor = bitcoin_tx_from_file(ctx, argv[1]);
 	bitcoin_txid(anchor, &anchor_txid);
 	o1 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
 
-	update = pkt_from_file(argv[4], PKT__PKT_UPDATE)->update;
-	update_acc = pkt_from_file(argv[5], PKT__PKT_UPDATE_ACCEPT)->update_accept;
-
-	privkey = key_from_base58(argv[6], strlen(argv[6]), &testnet, &pubkey1);
+	privkey = key_from_base58(argv[4], strlen(argv[4]), &testnet, &pubkey1);
 	if (!privkey)
-		errx(1, "Invalid private key '%s'", argv[6]);
+		errx(1, "Invalid private key '%s'", argv[4]);
 	if (!testnet)
-		errx(1, "Private key '%s' not on testnet!", argv[6]);
+		errx(1, "Private key '%s' not on testnet!", argv[4]);
 
 	/* Get pubkeys */
 	if (!proto_to_pubkey(o1->anchor->pubkey, &pubkey2))
@@ -76,17 +73,37 @@ int main(int argc, char *argv[])
 	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
 		errx(1, "Invalid o2 anchor pubkey");
 
-	/* Figure out cumulative delta since anchor. */
-	delta = update->delta;
-	for (i = 7; i < argc; i++) {
-		Update *u = pkt_from_file(argv[i], PKT__PKT_UPDATE)->update;
-		delta += u->delta;
+	/* Their signature comes from open-commit or from update-accept. */
+	sig2.stype = SIGHASH_ALL;
+	pkt = any_pkt_from_file(argv[5]);
+
+	switch (pkt->pkt_case) {
+	case PKT__PKT_UPDATE_ACCEPT:
+		if (!proto_to_signature(pkt->update_accept->sig, &sig2.sig))
+			errx(1, "Invalid update-accept sig");
+		break;
+	case PKT__PKT_OPEN_COMMIT_SIG:
+		if (!proto_to_signature(pkt->open_commit_sig->sig, &sig2.sig))
+			errx(1, "Invalid open-commit-sig sig");
+		break;
+	default:
+		errx(1, "Unexpected packet type %u in %s",
+		     pkt->pkt_case, argv[5]);
 	}
 
+	/* Initial revocation hash comes from open. */
+	proto_to_sha256(o1->revocation_hash, &rhash);
+	
+	delta = 0;
+	/* Figure out cumulative delta since anchor, update revocation hash */
+	for (i = 6; i < argc; i++) {
+		Update *u = pkt_from_file(argv[i], PKT__PKT_UPDATE)->update;
+		delta += u->delta;
+		proto_to_sha256(u->revocation_hash, &rhash);
+	}
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
 	/* Now create commitment tx to spend 2/2 output of anchor. */
-	proto_to_sha256(update->revocation_hash, &rhash);
 	commit = create_commit_tx(ctx, o1, o2, &rhash, delta, &anchor_txid,
 				  find_p2sh_out(anchor, redeemscript));
 
@@ -98,11 +115,6 @@ int main(int argc, char *argv[])
 	sig1.stype = SIGHASH_ALL;
 	sign_tx_input(ctx, commit, 0, redeemscript, tal_count(redeemscript),
 		      privkey, &pubkey1, &sig1.sig);
-
-	/* Their signatures comes from the update_accept packet. */
-	sig2.stype = SIGHASH_ALL;
-	if (!proto_to_signature(update_acc->sig, &sig2.sig))
-		errx(1, "Invalid update-accept sig");
 
 	if (!check_2of2_sig(commit, 0, redeemscript, tal_count(redeemscript),
 			    &pubkey1, &pubkey2, &sig1, &sig2))
