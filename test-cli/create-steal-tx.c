@@ -36,6 +36,7 @@ int main(int argc, char *argv[])
 	char *tx_hex;
 	EC_KEY *privkey;
 	bool testnet;
+	u32 locktime_seconds;
 
 	err_set_progname(argv[0]);
 
@@ -73,6 +74,8 @@ int main(int argc, char *argv[])
 
 	o1 = pkt_from_file(argv[4], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[5], PKT__PKT_OPEN)->open;
+	if (!proto_to_locktime(o2, &locktime_seconds))
+		errx(1, "Invalid locktime in o2");
 
 	if (!pubkey_from_hexstr(argv[6], &outpubkey))
 		errx(1, "Invalid bitcoin pubkey '%s'", argv[6]);
@@ -89,7 +92,7 @@ int main(int argc, char *argv[])
 	/* Now, which commit output?  Match redeem script. */
 	sha256(&revoke_hash, &revoke_preimage, sizeof(revoke_preimage));
 	redeemscript = bitcoin_redeem_revocable(ctx, &pubkey2,
-						o2->locktime_seconds,
+						locktime_seconds,
 						&pubkey1, &revoke_hash);
 	p2sh = scriptpubkey_p2sh(ctx, redeemscript);
 

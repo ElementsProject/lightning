@@ -18,6 +18,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	struct bitcoin_tx *tx;
 	const u8 *redeemscript;
 	struct pubkey ourkey, theirkey, to_me;
+	u32 locktime;
 
 	/* Now create commitment tx: one input, two outputs. */
 	tx = bitcoin_tx(ctx, 1, 2);
@@ -32,9 +33,12 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	if (!proto_to_pubkey(theirs->final, &theirkey))
 		return tal_free(tx);
 
+	if (!proto_to_locktime(ours, &locktime))
+		return tal_free(tx);
+
 	/* First output is a P2SH to a complex redeem script (usu. for me) */
 	redeemscript = bitcoin_redeem_revocable(tx, &ourkey,
-						ours->locktime_seconds,
+						locktime,
 						&theirkey,
 						rhash);
 	tx->output[0].script = scriptpubkey_p2sh(tx, redeemscript);

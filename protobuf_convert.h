@@ -18,4 +18,6 @@ bool proto_to_pubkey(const BitcoinPubkey *pb, struct pubkey *key);
 struct sha256;
 Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash);
 void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash);
+
+bool proto_to_locktime(const OpenChannel *o, uint32_t *locktime);
 #endif /* LIGHTNING_PROTOBUF_CONVERT_H */

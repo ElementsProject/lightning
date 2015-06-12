@@ -39,6 +39,7 @@ int main(int argc, char *argv[])
 	struct sha256 rhash;
 	size_t p2sh_out;
 	u64 fee = 10000;
+	u32 locktime_seconds;
 
 	err_set_progname(argv[0]);
 
@@ -61,6 +62,8 @@ int main(int argc, char *argv[])
 
 	o1 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
+	if (!proto_to_locktime(o2, &locktime_seconds))
+		errx(1, "Invalid locktime in o2");
 
  	/* We need our private key to spend commit output. */
 	privkey = key_from_base58(argv[4], strlen(argv[4]), &testnet, &pubkey1);
@@ -86,7 +89,7 @@ int main(int argc, char *argv[])
 	
 	/* Create redeem script */
 	redeemscript = bitcoin_redeem_revocable(ctx, &pubkey1,
-						o2->locktime_seconds,
+						locktime_seconds,
 						&pubkey2, &rhash);
 
 	/* Now, create transaction to spend it. */

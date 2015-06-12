@@ -73,7 +73,10 @@ message open_channel {
   // Seed which sets order we create outputs for all transactions.
   required uint64 seed = 1;
   // Relative locktime for outputs going to us.
-  required uint32 locktime_seconds = 2;
+  oneof locktime {
+    uint32 locktime_seconds = 2;
+    uint32 locktime_blocks = 3;
+  }
   // Hash seed for revoking commitment transactions.
   required sha256_hash revocation_hash = 4;
   // How to pay money to us from commit_tx.
