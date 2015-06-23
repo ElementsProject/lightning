@@ -4,6 +4,7 @@
 ###
 # Nobody should *EVER* write code like this.  EVER!!
 ###
+BITCOIN_CLI=bitcoin-cli
 
 set -e
 
@@ -23,13 +24,13 @@ if [ $# -gt 0 ]; then
 fi
 
 if [ -n "$KEY" ]; then
-    ADDR=`bitcoin-cli -regtest listunspent | sed -n 's/^        "address" : "\([0-9a-zA-Z]*\)",$/\1/p' | tail -n +$NUM | head -n1`
-    bitcoin-cli dumpprivkey $ADDR
+    ADDR=`$BITCOIN_CLI listunspent | sed -n 's/^ *"address" *: *"\([0-9a-zA-Z]*\)",$/\1/p' | tail -n +$NUM | head -n1`
+    $BITCOIN_CLI dumpprivkey $ADDR
 else
-    TXID=`bitcoin-cli -regtest listunspent | sed -n 's/^        "txid" : "\([0-9a-f]*\)",$/\1/p' | tail -n +$NUM | head -n1`
-    OUTNUM=`bitcoin-cli -regtest listunspent | sed -n 's/^        "vout" : \([0-9]*\),$/\1/p' | tail -n +$NUM | head -n1`
-    AMOUNT=`bitcoin-cli -regtest listunspent | sed -n 's/^        "amount" : \([0-9.]*\),$/\1/p' | tail -n +$NUM | head -n1 | tr -d . | sed 's/^0*//'`
-    SCRIPT=`bitcoin-cli -regtest listunspent | sed -n 's/^        "scriptPubKey" : "\([0-9a-f]*\)",$/\1/p' | tail -n +$NUM | head -n1`
+    TXID=`$BITCOIN_CLI listunspent | sed -n 's/^ *"txid" *: *"\([0-9a-f]*\)",$/\1/p' | tail -n +$NUM | head -n1`
+    OUTNUM=`$BITCOIN_CLI listunspent | sed -n 's/^ *"vout" *: *\([0-9]*\),$/\1/p' | tail -n +$NUM | head -n1`
+    AMOUNT=`$BITCOIN_CLI listunspent | sed -n 's/^ *"amount" *: *\([0-9.]*\),$/\1/p' | tail -n +$NUM | head -n1 | tr -d . | sed 's/^0*//'`
+    SCRIPT=`$BITCOIN_CLI listunspent | sed -n 's/^ *"scriptPubKey" *: *"\([0-9a-f]*\)",$/\1/p' | tail -n +$NUM | head -n1`
 
     echo $TXID/$OUTNUM/$AMOUNT/$SCRIPT
 fi
