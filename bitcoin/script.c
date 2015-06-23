@@ -361,7 +361,6 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 	add_push_bytes(&script, rhash_ripemd, sizeof(rhash_ripemd));
 	add_op(&script, OP_EQUALVERIFY);
 	add_push_key(&script, theirkey);
-	add_op(&script, OP_CHECKSIG);
 
 	/* Not two args?  Must be us using timeout. */
 	add_op(&script, OP_ELSE);
@@ -370,8 +369,10 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 	add_op(&script, OP_DROP);
 	add_push_key(&script, mykey);
-	add_op(&script, OP_CHECKSIG);
 	add_op(&script, OP_ENDIF);
+
+	/* And check it (ither path) */
+	add_op(&script, OP_CHECKSIG);
 
 	return script;
 }
