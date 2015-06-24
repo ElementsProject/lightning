@@ -5,6 +5,7 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <assert.h>
 #include "tx.h"
+#include "valgrind.h"
 
 static void add_varint(varint_t v,
 		       void (*add)(const void *, size_t, void *), void *addp)
@@ -87,7 +88,7 @@ static void add_tx(const struct bitcoin_tx *tx,
 static void add_sha(const void *data, size_t len, void *shactx_)
 {
 	struct sha256_ctx *ctx = shactx_;
-	sha256_update(ctx, data, len);
+	sha256_update(ctx, check_mem(data, len), len);
 }
 
 void sha256_tx(struct sha256_ctx *ctx, const struct bitcoin_tx *tx)
@@ -101,7 +102,7 @@ static void add_linearize(const void *data, size_t len, void *pptr_)
 	size_t oldsize = tal_count(*pptr);
 
 	tal_resize(pptr, oldsize + len);
-	memcpy(*pptr + oldsize, data, len);
+	memcpy(*pptr + oldsize, check_mem(data, len), len);
 }
 
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
@@ -157,7 +158,7 @@ static const u8 *pull(const u8 **cursor, size_t *max, void *copy, size_t n)
 	*max -= n;
 	if (copy)
 		memcpy(copy, p, n);
-	return p;
+	return check_mem(p, n);
 }
 
 static u64 pull_varint(const u8 **cursor, size_t *max)

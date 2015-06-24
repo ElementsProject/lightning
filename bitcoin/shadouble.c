@@ -1,8 +1,9 @@
 #include "shadouble.h"
+#include "valgrind.h"
 
 void sha256_double(struct sha256_double *shadouble, const void *p, size_t len)
 {
-	sha256(&shadouble->sha, p, len);
+	sha256(&shadouble->sha, check_mem(p, len), len);
 	sha256(&shadouble->sha, &shadouble->sha, sizeof(shadouble->sha));
 }
 

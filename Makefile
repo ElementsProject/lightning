@@ -14,7 +14,7 @@ CCAN_OBJS := ccan-crypto-sha256.o ccan-crypto-shachain.o ccan-err.o ccan-tal.o c
 HEADERS := $(wildcard *.h)
 
 CCANDIR := ccan/
-CFLAGS := -g -Wall -I $(CCANDIR)
+CFLAGS := -g -Wall -I $(CCANDIR) -DVALGRIND_HEADERS=1
 LDLIBS := -lcrypto -lprotobuf-c
 $(PROGRAMS): CFLAGS+=-I.
 
