@@ -3,6 +3,7 @@
 #include "bitcoin/shadouble.h"
 #include "bitcoin/tx.h"
 #include "commit_tx.h"
+#include "overflows.h"
 #include "permute_tx.h"
 #include "pkt.h"
 #include "protobuf_convert.h"
@@ -26,6 +27,9 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	/* Our input spends the anchor tx output. */
 	tx->input[0].txid = *anchor_txid;
 	tx->input[0].index = anchor_output;
+	if (add_overflows_u64(ours->anchor->total, theirs->anchor->total))
+		return tal_free(tx);
+	tx->input[0].input_amount = ours->anchor->total + theirs->anchor->total;
 
 	/* Output goes to our final pubkeys */
 	if (!proto_to_pubkey(ours->final, &ourkey))
@@ -68,6 +72,10 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 		return tal_free(tx);
 	tx->output[0].amount -= delta;
 
+	/* Calculate fee; difference of inputs and outputs. */
+	tx->fee = tx->input[0].input_amount
+		- (tx->output[0].amount + tx->output[1].amount);
+	
 	permute_outputs(ours->seed, theirs->seed, 1, tx->output, 2, NULL);
 	return tx;
 }

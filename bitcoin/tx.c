@@ -7,8 +7,50 @@
 #include "tx.h"
 #include "valgrind.h"
 
+enum styles {
+	/* Add the CT padding stuff to amount. */
+	TX_AMOUNT_CT_STYLE = 1,
+	/* Whether to process CT rangeproof and noncecommitment. */
+	TX_AMOUNT_INCLUDE_CT = 2,
+	/* Process the txfee field. */
+	TX_FEE = 4,
+	/* Process the input script sig. */
+	TX_INPUT_SCRIPTSIG = 8,
+	/* Process the amounts for each input. */
+	TX_INPUT_AMOUNT = 16,
+	/* Process hash of rangeproof and noncecommitment in *output* amount,
+	 * instead of rangeproof and noncecommitment themselves. */
+	TX_OUTPUT_AMOUNT_HASHPROOF = 32
+};
+
+#ifdef ALPHA_TXSTYLE
+/* Linearizing has everything, except input amount (which is implied) */
+#define LINEARIZE_STYLE (TX_AMOUNT_CT_STYLE | TX_AMOUNT_INCLUDE_CT | TX_FEE | TX_INPUT_SCRIPTSIG)
+
+/* Alpha txids don't include input scripts, or rangeproof/txcommit in output */
+#define TXID_STYLE (TX_AMOUNT_CT_STYLE | TX_FEE)
+
+/* Alpha signatures sign the input script (assuming others are set to
+ * 0-len), as well as the input fee.
+
+ * They sign a hash of the rangeproof and noncecommitment for inputs,
+ * rather than the non rangeproof and noncecommitment themselves.
+ *
+ * For some reason they skip the txfee. */
+#define SIG_STYLE (TX_AMOUNT_CT_STYLE | TX_AMOUNT_INCLUDE_CT | TX_INPUT_SCRIPTSIG | TX_INPUT_AMOUNT | TX_OUTPUT_AMOUNT_HASHPROOF)
+
+#else /* BITCOIN */
+
+/* Process all the bitcoin fields.  Works for txid, serialization and signing */
+#define LINEARIZE_STYLE (TX_INPUT_SCRIPTSIG)
+#define TXID_STYLE (TX_INPUT_SCRIPTSIG)
+#define SIG_STYLE (TX_INPUT_SCRIPTSIG)
+
+#endif
+
 static void add_varint(varint_t v,
-		       void (*add)(const void *, size_t, void *), void *addp)
+		       void (*add)(const void *, size_t, void *), void *addp,
+		       enum styles style)
 {
 	u8 buf[9], *p = buf;
 
@@ -39,50 +81,109 @@ static void add_varint(varint_t v,
 }
 
 static void add_le32(u32 v,
-		     void (*add)(const void *, size_t, void *), void *addp)
+		     void (*add)(const void *, size_t, void *), void *addp,
+		     enum styles style)
 {
 	le32 l = cpu_to_le32(v);
 	add(&l, sizeof(l), addp);
 }
 
 static void add_le64(u64 v,
-		     void (*add)(const void *, size_t, void *), void *addp)
+		     void (*add)(const void *, size_t, void *), void *addp,
+		     enum styles style)
 {
 	le64 l = cpu_to_le64(v);
 	add(&l, sizeof(l), addp);
 }
 
+static void add_value(u64 amount,
+		      void (*add)(const void *, size_t, void *),
+		      void *addp,
+		      bool output,
+		      enum styles style)
+{
+	if (style & TX_AMOUNT_CT_STYLE) {
+		/* The input is hashed as a 33 byte value (for CT); 25 0, then
+		 * the big-endian value. */
+		static u8 zeroes[25];
+		be64 b = cpu_to_be64(amount);
+		add(zeroes, sizeof(zeroes), addp);
+		add(&b, sizeof(b), addp);
+		if (style & TX_AMOUNT_INCLUDE_CT) {
+			/* Two more zeroes: Rangeproof and Noncecommitment */
+			if (output && (style & TX_OUTPUT_AMOUNT_HASHPROOF)) {
+				struct sha256_double h;
+				sha256_double(&h, zeroes, 2);
+				add(&h, sizeof(h), addp);
+			} else {
+				add_varint(0, add, addp, style);
+				add_varint(0, add, addp, style);
+			}
+		}
+	} else {
+		add_le64(amount, add, addp, style);
+	}
+}
+
+static void add_input_value(u64 amount,
+			    void (*add)(const void *, size_t, void *),
+			    void *addp,
+			    enum styles style)
+{
+	return add_value(amount, add, addp, false, style);
+}
+
+static void add_output_value(u64 amount,
+			     void (*add)(const void *, size_t, void *),
+			     void *addp,
+			     enum styles style)
+{
+	return add_value(amount, add, addp, true, style);
+}
+
 static void add_tx_input(const struct bitcoin_tx_input *input,
-			 void (*add)(const void *, size_t, void *), void *addp)
+			 void (*add)(const void *, size_t, void *), void *addp,
+			 enum styles style)
 {
 	add(&input->txid, sizeof(input->txid), addp);
-	add_le32(input->index, add, addp);
-	add_varint(input->script_length, add, addp);
-	add(input->script, input->script_length, addp);
-	add_le32(input->sequence_number, add, addp);
+	add_le32(input->index, add, addp, style);
+	if (style & TX_INPUT_AMOUNT) {
+		add_input_value(input->input_amount, add, addp, style);
+	}
+	if (style & TX_INPUT_SCRIPTSIG) {
+		add_varint(input->script_length, add, addp, style);
+		add(input->script, input->script_length, addp);
+	}
+	add_le32(input->sequence_number, add, addp, style);
 }
 
 static void add_tx_output(const struct bitcoin_tx_output *output,
-			  void (*add)(const void *, size_t, void *), void *addp)
+			  void (*add)(const void *, size_t, void *), void *addp,
+			  enum styles style)
 {
-	add_le64(output->amount, add, addp);
-	add_varint(output->script_length, add, addp);
+	add_output_value(output->amount, add, addp, style);
+	add_varint(output->script_length, add, addp, style);
 	add(output->script, output->script_length, addp);
 }
 
 static void add_tx(const struct bitcoin_tx *tx,
-		   void (*add)(const void *, size_t, void *), void *addp)
+		   void (*add)(const void *, size_t, void *), void *addp,
+		   enum styles style)
 {
 	varint_t i;
 
-	add_le32(tx->version, add, addp);
-	add_varint(tx->input_count, add, addp);
+	add_le32(tx->version, add, addp, style);
+	add_varint(tx->input_count, add, addp, style);
 	for (i = 0; i < tx->input_count; i++)
-		add_tx_input(&tx->input[i], add, addp);
-	add_varint(tx->output_count, add, addp);
+		add_tx_input(&tx->input[i], add, addp, style);
+
+	if (style & TX_FEE)
+		add_le64(tx->fee, add, addp, style);
+
+	add_varint(tx->output_count, add, addp, style);
 	for (i = 0; i < tx->output_count; i++)
-		add_tx_output(&tx->output[i], add, addp);
-	add_le32(tx->lock_time, add, addp);
+		add_tx_output(&tx->output[i], add, addp, style);
+	add_le32(tx->lock_time, add, addp, style);
 }
 
 static void add_sha(const void *data, size_t len, void *shactx_)
@@ -91,9 +192,9 @@ static void add_sha(const void *data, size_t len, void *shactx_)
 	sha256_update(ctx, check_mem(data, len), len);
 }
 
-void sha256_tx(struct sha256_ctx *ctx, const struct bitcoin_tx *tx)
+void sha256_tx_for_sig(struct sha256_ctx *ctx, const struct bitcoin_tx *tx)
 {
-	add_tx(tx, add_sha, ctx);
+	add_tx(tx, add_sha, ctx, SIG_STYLE);
 }
 
 static void add_linearize(const void *data, size_t len, void *pptr_)
@@ -108,7 +209,7 @@ static void add_linearize(const void *data, size_t len, void *pptr_)
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
 {
 	u8 *arr = tal_arr(ctx, u8, 0);
-	add_tx(tx, add_linearize, &arr);
+	add_tx(tx, add_linearize, &arr, LINEARIZE_STYLE);
 	return arr;
 }
 
@@ -116,7 +217,7 @@ void bitcoin_txid(const struct bitcoin_tx *tx, struct sha256_double *txid)
 {
 	struct sha256_ctx ctx = SHA256_INIT;
 
-	sha256_tx(&ctx, tx);
+	add_tx(tx, add_sha, &ctx, TXID_STYLE);
 	sha256_double_done(&ctx, txid);
 }
 
@@ -219,21 +320,67 @@ static bool pull_sha256_double(const u8 **cursor, size_t *max,
 	return pull(cursor, max, h, sizeof(*h));
 }
 
+static u64 pull_value(const u8 **cursor, size_t *max)
+{
+	u64 amount;
+
+	if (LINEARIZE_STYLE & TX_AMOUNT_CT_STYLE) {
+		/* The input is hashed as a 33 byte value (for CT); 25 0, then
+		 * the big-endian value. */
+		u8 zeroes[25];
+		be64 b;
+
+		if (!pull(cursor, max, zeroes, sizeof(zeroes)))
+			return 0;
+
+		/* We don't handle CT amounts. */
+		if (zeroes[0] != 0)
+			goto fail;
+
+		if (!pull(cursor, max, &b, sizeof(b)))
+			return 0;
+
+		amount = be64_to_cpu(b);
+		if (LINEARIZE_STYLE & TX_AMOUNT_INCLUDE_CT) {
+			varint_t rp, nc;
+
+			rp = pull_varint(cursor, max);
+			nc = pull_varint(cursor, max);
+			if (rp != 0 || nc != 0)
+				goto fail;
+		}
+	} else {
+		amount = pull_le64(cursor, max);
+	}
+	return amount;
+
+fail:
+	/* Simulate EOF */
+	*cursor = NULL;
+	*max = 0;
+	return 0;
+}
+
 static void pull_input(const tal_t *ctx, const u8 **cursor, size_t *max,
 		       struct bitcoin_tx_input *input)
 {
 	pull_sha256_double(cursor, max, &input->txid);
 	input->index = pull_le32(cursor, max);
-	input->script_length = pull_varint(cursor, max);
-	input->script = tal_arr(ctx, u8, input->script_length);
-	pull(cursor, max, input->script, input->script_length);
+	if (LINEARIZE_STYLE & TX_INPUT_AMOUNT) {
+		input->input_amount = pull_value(cursor, max);
+	}
+	if (LINEARIZE_STYLE & TX_INPUT_SCRIPTSIG) {
+		input->script_length = pull_varint(cursor, max);
+		input->script = tal_arr(ctx, u8, input->script_length);
+		pull(cursor, max, input->script, input->script_length);
+	}
 	input->sequence_number = pull_le32(cursor, max);
 }
 
 static void pull_output(const tal_t *ctx, const u8 **cursor, size_t *max,
 			struct bitcoin_tx_output *output)
 {
-	output->amount = pull_le64(cursor, max);
+	output->amount = pull_value(cursor, max);
 	output->script_length = pull_varint(cursor, max);
 	output->script = tal_arr(ctx, u8, output->script_length);
 	pull(cursor, max, output->script, output->script_length);
@@ -250,6 +397,10 @@ static struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 	tx->input = tal_arr(tx, struct bitcoin_tx_input, tx->input_count);
 	for (i = 0; i < tx->input_count; i++)
 		pull_input(tx, cursor, max, tx->input + i);
+
+	if (LINEARIZE_STYLE & TX_FEE)
+		tx->fee = pull_le64(cursor, max);
+
 	tx->output_count = pull_varint(cursor, max);
 	tx->output = tal_arr(ctx, struct bitcoin_tx_output, tx->output_count);
 	for (i = 0; i < tx->output_count; i++)

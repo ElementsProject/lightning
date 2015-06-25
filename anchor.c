@@ -18,6 +18,7 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 	u8 *redeemscript;
 	size_t *inmap, *outmap;
 	struct pubkey key1, key2;
+	uint64_t total_in = 0, total_change = 0;
 
 	if (add_overflows_size_t(o1->anchor->n_inputs, o2->anchor->n_inputs))
 		return NULL;
@@ -37,6 +38,10 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 		struct bitcoin_tx_input *in = &tx->input[i];
 		proto_to_sha256(pb->txid, &in->txid.sha);
 		in->index = pb->output;
+		in->input_amount = pb->amount;
+		if (add_overflows_u64(total_in, in->input_amount))
+			return tal_free(tx);
+		total_in += in->input_amount;
 		/* Leave inputs as stubs for now, for signing. */
 	}
 	for (i = 0; i < o2->anchor->n_inputs; i++) {
@@ -45,6 +50,10 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 			= &tx->input[o1->anchor->n_inputs + i];
 		proto_to_sha256(pb->txid, &in->txid.sha);
 		in->index = pb->output;
+		in->input_amount = pb->amount;
+		if (add_overflows_u64(total_in, in->input_amount))
+			return tal_free(tx);
+		total_in += in->input_amount;
 		/* Leave inputs as stubs for now, for signing. */
 	}
 
@@ -76,6 +85,7 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 		out->script = scriptpubkey_p2sh(tx,
 						bitcoin_redeem_single(tx, &key));
 		out->script_length = tal_count(out->script);
+		total_change += out->amount;
 	}
 	if (o2->anchor->change) {
 		struct bitcoin_tx_output *out = &tx->output[n_out++];
@@ -88,9 +98,25 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 		out->script = scriptpubkey_p2sh(tx,
 						bitcoin_redeem_single(tx, &key));
 		out->script_length = tal_count(out->script);
+		if (add_overflows_u64(total_change, out->amount))
+			return tal_free(tx);
+		total_change += out->amount;
 	}
 	assert(n_out == tx->output_count);
-	
+
+	/* Figure out fee we're paying; check for over and underflow */
+	if (add_overflows_u64(total_change, tx->output[0].amount))
+		return tal_free(tx);
+	if (total_in < total_change + tx->output[0].amount)
+		return tal_free(tx);
+	tx->fee = total_in - (total_change + tx->output[0].amount);
+
+	/* Check that the fees add up correctly. */
+	if (add_overflows_u64(o1->anchor->fee, o2->anchor->fee))
+		return tal_free(tx);
+	if (tx->fee != o1->anchor->fee + o2->anchor->fee)
+		return tal_free(tx);
+
 	if (inmapp)
 		inmap = *inmapp = tal_arr(ctx, size_t, tx->input_count);
 	else

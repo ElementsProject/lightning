@@ -3,6 +3,9 @@
 # Needs to have oneof support: Ubuntu vivid's is too old :(
 PROTOCC:=protoc-c
 
+# Alpha has segregated witness, checksequenceverify
+#FEATURES := -DHAS_CSV=1 -DALPHA_TXSTYLE=1
+
 PROGRAMS := test-cli/open-channel test-cli/open-anchor-scriptsigs test-cli/leak-anchor-sigs test-cli/open-commit-sig test-cli/check-commit-sig test-cli/check-anchor-scriptsigs test-cli/get-anchor-depth test-cli/create-steal-tx test-cli/create-commit-spend-tx test-cli/close-channel test-cli/create-close-tx test-cli/update-channel test-cli/update-channel-accept test-cli/update-channel-signature test-cli/update-channel-complete test-cli/create-commit-tx
 
 BITCOIN_OBJS := bitcoin/address.o bitcoin/base58.o bitcoin/pubkey.o bitcoin/script.o bitcoin/shadouble.o bitcoin/signature.o bitcoin/tx.o
@@ -14,7 +17,7 @@ CCAN_OBJS := ccan-crypto-sha256.o ccan-crypto-shachain.o ccan-err.o ccan-tal.o c
 HEADERS := $(wildcard *.h)
 
 CCANDIR := ccan/
-CFLAGS := -g -Wall -I $(CCANDIR) -DVALGRIND_HEADERS=1
+CFLAGS := -g -Wall -I $(CCANDIR) -DVALGRIND_HEADERS=1 $(FEATURES)
 LDLIBS := -lcrypto -lprotobuf-c
 $(PROGRAMS): CFLAGS+=-I.
 
