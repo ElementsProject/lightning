@@ -27,10 +27,16 @@ TAGS: FORCE
 	$(RM) TAGS; find . -name '*.[ch]' | xargs etags --append
 FORCE::
 
+# We build a static libsecpk1, since we need schnorr for alpha
+# (and it's not API stable yet!).
+libsecp256k1.a:
+	cd secp256k1 && ./autogen.sh && ./configure --enable-static=yes --enable-shared=no --enable-tests=no --libdir=`pwd`/..
+	$(MAKE) -C secp256k1 install-exec
+
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	$(PROTOCC) lightning.proto --c_out=.
 
-$(PROGRAMS): % : %.o $(HELPER_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS)
+$(PROGRAMS): % : %.o $(HELPER_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) libsecp256k1.a
 $(PROGRAMS:=.o) $(HELPER_OBJS): $(HEADERS)
 
 $(CCAN_OBJS) $(HELPER_OBJS) $(PROGRAM_OBJS) $(BITCOIN_OBJS): ccan/config.h
