@@ -1,11 +1,11 @@
 #include <ccan/cast/cast.h>
+#include "privkey.h"
 #include "pubkey.h"
 #include "script.h"
+#include "secp256k1.h"
 #include "shadouble.h"
 #include "signature.h"
 #include "tx.h"
-#include <openssl/bn.h>
-#include <openssl/obj_mac.h>
 #include <assert.h>
 
 #undef DEBUG
@@ -64,46 +64,23 @@ static void dump_tx(const char *msg,
 }
 #endif
 	
-bool sign_hash(const tal_t *ctx, EC_KEY *private_key,
+bool sign_hash(const tal_t *ctx, const struct privkey *privkey,
 	       const struct sha256_double *h,
 	       struct signature *s)
 {
-	ECDSA_SIG *sig;
-	int len;
+	secp256k1_context_t *secpctx;
+	bool ok;
 	
-	sig = ECDSA_do_sign(h->sha.u.u8, sizeof(*h), private_key);
-	if (!sig)
+	secpctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
+	if (!secpctx)
 		return false;
 
-	/* See https://github.com/sipa/bitcoin/commit/a81cd9680.
-	 * There can only be one signature with an even S, so make sure we
-	 * get that one. */
-	if (BN_is_odd(sig->s)) {
-		const EC_GROUP *group;
-		BIGNUM order;
+	ok = secp256k1_ecdsa_sign_compact(secpctx, h->sha.u.u8,
+					  (unsigned char *)s,
+					  privkey->secret, NULL, NULL, NULL);
 
-		BN_init(&order);
-		group = EC_KEY_get0_group(private_key);
-		EC_GROUP_get_order(group, &order, NULL);
-		BN_sub(sig->s, &order, sig->s);
-		BN_free(&order);
-
-		assert(!BN_is_odd(sig->s));
-        }
-
-	/* In case numbers are small. */
-	memset(s, 0, sizeof(*s));
-
-	/* Pack r and s into signature, 32 bytes each. */
-	len = BN_num_bytes(sig->r);
-	assert(len <= sizeof(s->r));
-	BN_bn2bin(sig->r, s->r + sizeof(s->r) - len);
-	len = BN_num_bytes(sig->s);
-	assert(len <= sizeof(s->s));
-	BN_bn2bin(sig->s, s->s + sizeof(s->s) - len);
-
-	ECDSA_SIG_free(sig);
-	return true;
+	secp256k1_context_destroy(secpctx);
+	return ok;
 }
 
 /* Only does SIGHASH_ALL */
@@ -139,7 +116,7 @@ static void sha256_tx_one_input(struct bitcoin_tx *tx,
 bool sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx,
 		   unsigned int in,
 		   const u8 *subscript, size_t subscript_len,
-		   EC_KEY *privkey, const struct pubkey *key,
+		   const struct privkey *privkey, const struct pubkey *key,
 		   struct signature *sig)
 {
 	struct sha256_double hash;
@@ -153,46 +130,23 @@ static bool check_signed_hash(const struct sha256_double *hash,
 			      const struct signature *signature,
 			      const struct pubkey *key)
 {
-	bool ok = false;	
-	BIGNUM r, s;
-	ECDSA_SIG sig = { &r, &s };
-	EC_KEY *eckey = EC_KEY_new_by_curve_name(NID_secp256k1);
-	const unsigned char *k = key->key;
+	int ret;
+	secp256k1_context_t *secpctx;
+	u8 der[72];
+	size_t der_len;
 
-	/* S must be even: https://github.com/sipa/bitcoin/commit/a81cd9680 */
-	assert((signature->s[31] & 1) == 0);
+	/* FIXME: secp256k1 missing secp256k1_ecdsa_verify_compact */
+	der_len = signature_to_der(der, signature);
 
-	/* Unpack public key. */
-	if (!o2i_ECPublicKey(&eckey, &k, pubkey_len(key)))
-		goto out;
+	secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+	if (!secpctx)
+		return false;
 
-	/* Unpack signature. */
-	BN_init(&r);
-	BN_init(&s);
-	if (!BN_bin2bn(signature->r, sizeof(signature->r), &r)
-	    || !BN_bin2bn(signature->s, sizeof(signature->s), &s))
-		goto free_bns;
+	ret = secp256k1_ecdsa_verify(secpctx, hash->sha.u.u8, der, der_len,
+				     key->key, pubkey_len(key));
 
-	/* Now verify hash with public key and signature. */
-	switch (ECDSA_do_verify(hash->sha.u.u8, sizeof(hash->sha.u), &sig,
-				eckey)) {
-	case 0:
-		/* Invalid signature */
-		goto free_bns;
-	case -1:
-		/* Malformed or other error. */
-		goto free_bns;
-	}
-
-	ok = true;
-
-free_bns:
-	BN_free(&r);
-	BN_free(&s);
-
-out:
-	EC_KEY_free(eckey);
-        return ok;
+	secp256k1_context_destroy(secpctx);
+	return ret == 1;
 }
 
 bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,

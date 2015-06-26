@@ -15,7 +15,6 @@
 #include "commit_tx.h"
 #include "bitcoin/pubkey.h"
 #include "find_p2sh_out.h"
-#include <openssl/ec.h>
 #include <unistd.h>
 
 int main(int argc, char *argv[])

@@ -15,11 +15,11 @@
 #include "bitcoin/signature.h"
 #include "commit_tx.h"
 #include "bitcoin/pubkey.h"
+#include "bitcoin/privkey.h"
 #include "bitcoin/address.h"
 #include "opt_bits.h"
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
-#include <openssl/ec.h>
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
 	OpenChannel *o1, *o2;
 	struct bitcoin_tx *commit, *tx;
 	struct bitcoin_signature sig;
-	EC_KEY *privkey;
+	struct privkey privkey;
 	bool testnet;
 	struct pubkey pubkey1, pubkey2, outpubkey;
 	u8 *redeemscript, *tx_arr;
@@ -63,8 +63,7 @@ int main(int argc, char *argv[])
 		errx(1, "Invalid locktime in o1");
 
  	/* We need our private key to spend commit output. */
-	privkey = key_from_base58(argv[4], strlen(argv[4]), &testnet, &pubkey1);
-	if (!privkey)
+	if (!key_from_base58(argv[4], strlen(argv[4]), &testnet, &privkey, &pubkey1))
 		errx(1, "Invalid private key '%s'", argv[4]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
@@ -112,7 +111,7 @@ int main(int argc, char *argv[])
 
 	/* Now get signature, to set up input script. */
 	if (!sign_tx_input(tx, tx, 0, redeemscript, tal_count(redeemscript),
-			   privkey, &pubkey1, &sig.sig))
+			   &privkey, &pubkey1, &sig.sig))
 		errx(1, "Could not sign tx");
 	sig.stype = SIGHASH_ALL;
 	tx->input[0].script = scriptsig_p2sh_single_sig(tx, redeemscript,

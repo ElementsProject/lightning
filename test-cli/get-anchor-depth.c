@@ -14,7 +14,6 @@
 #include "bitcoin/signature.h"
 #include "commit_tx.h"
 #include "bitcoin/pubkey.h"
-#include <openssl/ec.h>
 #include <unistd.h>
 
 int main(int argc, char *argv[])

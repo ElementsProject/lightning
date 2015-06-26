@@ -14,8 +14,8 @@
 #include "bitcoin/signature.h"
 #include "commit_tx.h"
 #include "bitcoin/pubkey.h"
+#include "bitcoin/privkey.h"
 #include "protobuf_convert.h"
-#include <openssl/ec.h>
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 	struct pubkey pubkey1, pubkey2, outpubkey;
 	struct bitcoin_signature sig;
 	char *tx_hex;
-	EC_KEY *privkey;
+	struct privkey privkey;
 	bool testnet;
 	u32 locktime_seconds;
 
@@ -62,8 +62,7 @@ int main(int argc, char *argv[])
 		errx(1, "Expected update or update-complete in %s", argv[2]);
 	}
 
-	privkey = key_from_base58(argv[3], strlen(argv[3]), &testnet, &pubkey1);
-	if (!privkey)
+	if (!key_from_base58(argv[3], strlen(argv[3]), &testnet, &privkey, &pubkey1))
 		errx(1, "Invalid private key '%s'", argv[3]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[3]);
@@ -112,7 +111,7 @@ int main(int argc, char *argv[])
 
 	/* Now get signature, to set up input script. */
 	if (!sign_tx_input(tx, tx, 0, redeemscript, tal_count(redeemscript),
-			   privkey, &pubkey1, &sig.sig))
+			   &privkey, &pubkey1, &sig.sig))
 		errx(1, "Could not sign tx");
 	sig.stype = SIGHASH_ALL;
 	tx->input[0].script = scriptsig_p2sh_revoke(tx, &revoke_preimage, &sig,

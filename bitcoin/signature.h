@@ -2,7 +2,6 @@
 #define LIGHTNING_BITCOIN_SIGNATURE_H
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <openssl/ecdsa.h>
 
 enum sighash_type {
     SIGHASH_ALL = 1,
@@ -20,10 +19,11 @@ struct signature {
 struct sha256_double;
 struct bitcoin_tx;
 struct pubkey;
+struct privkey;
 struct bitcoin_tx_output;
 struct bitcoin_signature;
 
-bool sign_hash(const tal_t *ctx, EC_KEY *private_key,
+bool sign_hash(const tal_t *ctx, const struct privkey *p,
 	       const struct sha256_double *h,
 	       struct signature *s);
 
@@ -31,7 +31,7 @@ bool sign_hash(const tal_t *ctx, EC_KEY *private_key,
 bool sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx,
 		   unsigned int in,
 		   const u8 *subscript, size_t subscript_len,
-		   EC_KEY *privkey, const struct pubkey *pubkey,
+		   const struct privkey *privkey, const struct pubkey *pubkey,
 		   struct signature *sig);
 
 /* Does this sig sign the tx with this input for this pubkey. */

@@ -13,10 +13,10 @@
 #include "permute_tx.h"
 #include "bitcoin/signature.h"
 #include "bitcoin/pubkey.h"
+#include "bitcoin/privkey.h"
 #include "close_tx.h"
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
-#include <openssl/ec.h>
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
 	struct sha256_double anchor_txid;
 	struct pkt *pkt;
 	struct signature sig;
-	EC_KEY *privkey;
+	struct privkey privkey;
 	bool testnet, complete = false;
 	struct pubkey pubkey1, pubkey2;
 	u8 *redeemscript;
@@ -53,8 +53,7 @@ int main(int argc, char *argv[])
 	o1 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
 
-	privkey = key_from_base58(argv[4], strlen(argv[4]), &testnet, &pubkey1);
-	if (!privkey)
+	if (!key_from_base58(argv[4], strlen(argv[4]), &testnet, &privkey, &pubkey1))
 		errx(1, "Invalid private key '%s'", argv[4]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
@@ -88,7 +87,7 @@ int main(int argc, char *argv[])
 
 	/* Sign it for them. */
 	sign_tx_input(ctx, close_tx, 0, redeemscript, tal_count(redeemscript),
-		      privkey, &pubkey1, &sig);
+		      &privkey, &pubkey1, &sig);
 
 	if (complete)
 		pkt = close_channel_complete_pkt(ctx, &sig);

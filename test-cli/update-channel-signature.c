@@ -14,9 +14,9 @@
 #include "bitcoin/signature.h"
 #include "commit_tx.h"
 #include "bitcoin/pubkey.h"
+#include "bitcoin/privkey.h"
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
-#include <openssl/ec.h>
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 	struct sha256_double anchor_txid;
 	struct pkt *pkt;
 	struct bitcoin_signature sig;
-	EC_KEY *privkey;
+	struct privkey privkey;
 	bool testnet;
 	struct pubkey pubkey1, pubkey2;
 	u8 *redeemscript;
@@ -57,8 +57,7 @@ int main(int argc, char *argv[])
 	o1 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[4], PKT__PKT_OPEN)->open;
 
-	privkey = key_from_base58(argv[5], strlen(argv[5]), &testnet, &pubkey1);
-	if (!privkey)
+	if (!key_from_base58(argv[5], strlen(argv[5]), &testnet, &privkey, &pubkey1))
 		errx(1, "Invalid private key '%s'", argv[5]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[5]);
@@ -121,7 +120,7 @@ int main(int argc, char *argv[])
 
 	/* Sign it for them. */
 	sign_tx_input(ctx, commit, 0, redeemscript, tal_count(redeemscript),
-		      privkey, &pubkey1, &sig.sig);
+		      &privkey, &pubkey1, &sig.sig);
 
 	pkt = update_signature_pkt(ctx, &sig.sig, &preimage);
 	if (!write_all(STDOUT_FILENO, pkt, pkt_totlen(pkt)))

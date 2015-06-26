@@ -12,10 +12,11 @@
 #include "bitcoin/address.h"
 #include "bitcoin/tx.h"
 #include "bitcoin/pubkey.h"
+#include "bitcoin/privkey.h"
 #include "bitcoin/shadouble.h"
 #include "protobuf_convert.h"
-#include <openssl/ec.h>
 #include <unistd.h>
+#include <time.h>
 #include "opt_bits.h"
 
 /* Bitcoin nodes are allowed to be 2 hours in the future. */ 
@@ -76,7 +77,7 @@ int main(int argc, char *argv[])
 	bool testnet;
 	size_t i;
 	struct pubkey commitkey, outkey, changekey;
-	EC_KEY *commitprivkey, *outprivkey;
+	struct privkey commitprivkey, outprivkey;
 
 	err_set_progname(argv[0]);
 
@@ -123,16 +124,14 @@ int main(int argc, char *argv[])
 
 	/* We don't really need the privkey here, but it's the most
 	 * convenient way to get the pubkey from bitcoind. */
-	commitprivkey = key_from_base58(argv[4], strlen(argv[4]), &testnet,
-					&commitkey);
-	if (!commitprivkey)
+	if (!key_from_base58(argv[4], strlen(argv[4]), &testnet,
+			     &commitprivkey, &commitkey))
 		errx(1, "Invalid private key '%s'", argv[4]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
 
-	outprivkey = key_from_base58(argv[5], strlen(argv[5]), &testnet,
-				     &outkey);
-	if (!outprivkey)
+	if (!key_from_base58(argv[5], strlen(argv[5]), &testnet,
+			     &outprivkey, &outkey))
 		errx(1, "Invalid private key '%s'", argv[5]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[5]);

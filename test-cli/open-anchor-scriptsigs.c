@@ -10,8 +10,8 @@
 #include "bitcoin/base58.h"
 #include "anchor.h"
 #include "bitcoin/pubkey.h"
+#include "bitcoin/privkey.h"
 
-#include <openssl/ec.h>
 #include <unistd.h>
 
 /* All the input scripts are already set to 0.  We just need to make this one. */
@@ -19,7 +19,7 @@ static u8 *tx_scriptsig(const tal_t *ctx,
 			struct bitcoin_tx *tx,
 			unsigned int i,
 			const BitcoinInput *input,
-			EC_KEY *privkey,
+			struct privkey *privkey,
 			const struct pubkey *pubkey)
 {
 	struct bitcoin_signature sig;
@@ -75,19 +75,18 @@ int main(int argc, char *argv[])
 	sigs = tal_arr(ctx, u8 *, o1->anchor->n_inputs);
 	for (i = 0; i < o1->anchor->n_inputs; i++) {
 		struct pubkey pubkey;
-		EC_KEY *privkey;
+		struct privkey privkey;
 		bool testnet;
 
-		privkey = key_from_base58(argv[3+i], strlen(argv[3+i]),
-					  &testnet, &pubkey);
-		if (!privkey)
+		if (!key_from_base58(argv[3+i], strlen(argv[3+i]),
+							 &testnet, &privkey, &pubkey))
 			errx(1, "Invalid private key '%s'", argv[3+i]);
 		if (!testnet)
 			errx(1, "Private key '%s' not on testnet!", argv[3+i]);
 		
 		sigs[i] = tx_scriptsig(sigs, anchor, map[i],
 				       o1->anchor->inputs[i],
-				       privkey, &pubkey);
+				       &privkey, &pubkey);
 	}
 
 	pkt = open_anchor_sig_pkt(ctx, sigs, o1->anchor->n_inputs);

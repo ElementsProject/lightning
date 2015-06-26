@@ -3,13 +3,13 @@
 /* FIXME: Use libsecpk1 */
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <openssl/bn.h>
-#include <openssl/ec.h>
 #include <openssl/ripemd.h>
+#include <openssl/bn.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
 struct pubkey;
+struct privkey;
 struct bitcoin_address;
 
 /* Encoding is version byte + ripemd160 + 4-byte checksum == 200 bits => 2^200.
@@ -36,9 +36,9 @@ bool ripemd_from_base58(u8 *version, u8 ripemd160[RIPEMD160_DIGEST_LENGTH],
 char *base58_with_check(char dest[BASE58_ADDR_MAX_LEN],
 			u8 buf[1 + RIPEMD160_DIGEST_LENGTH + 4]);
 
-char *key_to_base58(const tal_t *ctx, bool test_net, EC_KEY *key);
-EC_KEY *key_from_base58(const char *base58, size_t base58_len,
-			bool *test_net, struct pubkey *key);
+char *key_to_base58(const tal_t *ctx, bool test_net, const struct privkey *key);
+bool key_from_base58(const char *base58, size_t base58_len,
+		     bool *test_net, struct privkey *priv, struct pubkey *key);
 
 bool raw_decode_base_n(BIGNUM *bn, const char *src, size_t len, int base);
 bool raw_decode_base58(BIGNUM *bn, const char *src, size_t len);

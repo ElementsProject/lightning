@@ -14,9 +14,9 @@
 #include "bitcoin/signature.h"
 #include "commit_tx.h"
 #include "bitcoin/pubkey.h"
+#include "bitcoin/privkey.h"
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
-#include <openssl/ec.h>
 #include <unistd.h>
 
 /* FIXME: this code doesn't work if we're not the ones proposing the delta */
@@ -27,7 +27,7 @@ int main(int argc, char *argv[])
 	Pkt *pkt;
 	struct bitcoin_tx *anchor, *commit;
 	struct sha256_double anchor_txid;
-	EC_KEY *privkey;
+	struct privkey privkey;
 	bool testnet;
 	struct bitcoin_signature sig1, sig2;
 	size_t i;
@@ -54,8 +54,7 @@ int main(int argc, char *argv[])
 	o1 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
 
-	privkey = key_from_base58(argv[4], strlen(argv[4]), &testnet, &pubkey1);
-	if (!privkey)
+	if (!key_from_base58(argv[4], strlen(argv[4]), &testnet, &privkey, &pubkey1))
 		errx(1, "Invalid private key '%s'", argv[4]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
@@ -110,7 +109,7 @@ int main(int argc, char *argv[])
 	/* We generate our signature. */
 	sig1.stype = SIGHASH_ALL;
 	sign_tx_input(ctx, commit, 0, redeemscript, tal_count(redeemscript),
-		      privkey, &pubkey1, &sig1.sig);
+		      &privkey, &pubkey1, &sig1.sig);
 
 	if (!check_2of2_sig(commit, 0, redeemscript, tal_count(redeemscript),
 			    &pubkey1, &pubkey2, &sig1, &sig2))

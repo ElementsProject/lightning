@@ -5,12 +5,13 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/tal/str/str.h>
-#include <openssl/obj_mac.h>
-#include <openssl/sha.h>
+#include <openssl/bn.h>
 #include <assert.h>
+#include <secp256k1.h>
 #include <string.h>
 #include "address.h"
 #include "base58.h"
+#include "privkey.h"
 #include "pubkey.h"
 #include "shadouble.h"
 
@@ -247,20 +248,13 @@ bool ripemd_from_base58(u8 *version, u8 ripemd160[RIPEMD160_DIGEST_LENGTH],
 	return true;
 }
 
-char *key_to_base58(const tal_t *ctx, bool test_net, EC_KEY *key)
+char *key_to_base58(const tal_t *ctx, bool test_net, const struct privkey *key)
 {
 	u8 buf[1 + 32 + 1 + 4];
 	char out[BASE58_KEY_MAX_LEN + 2], *p;
-        const BIGNUM *bn = EC_KEY_get0_private_key(key);
-	int len;
 
 	buf[0] = test_net ? 239 : 128;
-
-	/* Make sure any zeroes are at the front of number (MSB) */
-	len = BN_num_bytes(bn);
-	assert(len <= 32);
-	memset(buf + 1, 0, 32 - len);
-	BN_bn2bin(bn, buf + 1 + 32 - len);
+	memcpy(buf + 1, key->secret, sizeof(key->secret));
 
 	/* Mark this as a compressed key. */
 	buf[1 + 32] = 1;
@@ -272,53 +266,25 @@ char *key_to_base58(const tal_t *ctx, bool test_net, EC_KEY *key)
 	return tal_strdup(ctx, p);
 }
 
-// Thus function based on bitcoin's key.cpp:
-// Copyright (c) 2009-2012 The Bitcoin developers
-// Distributed under the MIT/X11 software license, see the accompanying
-// file COPYING or http://www.opensource.org/licenses/mit-license.php.
-static bool EC_KEY_regenerate_key(EC_KEY *eckey, BIGNUM *priv_key)
+bool key_from_base58(const char *base58, size_t base58_len,
+		     bool *test_net, struct privkey *priv, struct pubkey *key)
 {
-	BN_CTX *ctx = NULL;
-	EC_POINT *pub_key = NULL;
-	const EC_GROUP *group = EC_KEY_get0_group(eckey);
-
-	if ((ctx = BN_CTX_new()) == NULL)
-		return false;
-
-	pub_key = EC_POINT_new(group);
-	if (pub_key == NULL)
-		return false;
-
-	if (!EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx))
-		return false;
-
-	EC_KEY_set_private_key(eckey, priv_key);
-	EC_KEY_set_public_key(eckey, pub_key);
-
-	BN_CTX_free(ctx);
-	EC_POINT_free(pub_key);
-	return true;
-}
-
-EC_KEY *key_from_base58(const char *base58, size_t base58_len,
-			bool *test_net, struct pubkey *key)
-{
-	size_t keylen;
-	u8 keybuf[1 + 32 + 1 + 4], *kptr;
+	u8 keybuf[1 + 32 + 1 + 4];
 	u8 csum[4];
-	EC_KEY *priv;
 	BIGNUM bn;
-	point_conversion_form_t cform;
-
+	bool compressed;
+	secp256k1_context_t *secpctx;
+	int keylen;
+	
 	BN_init(&bn);
 	if (!raw_decode_base58(&bn, base58, base58_len))
-		return NULL;
+		return false;
 
 	keylen = BN_num_bytes(&bn);
 	if (keylen == 1 + 32 + 4)
-		cform = POINT_CONVERSION_UNCOMPRESSED;
+		compressed = false;
 	else if (keylen == 1 + 32 + 1 + 4)
-		cform = POINT_CONVERSION_COMPRESSED;
+		compressed = true;
 	else
 		goto fail_free_bn;
 	BN_bn2bin(&bn, keybuf);
@@ -328,7 +294,7 @@ EC_KEY *key_from_base58(const char *base58, size_t base58_len,
 		goto fail_free_bn;
 
 	/* Byte after key should be 1 to represent a compressed key. */
-	if (cform == POINT_CONVERSION_COMPRESSED && keybuf[1 + 32] != 1)
+	if (compressed && keybuf[1 + 32] != 1)
 		goto fail_free_bn;
 
 	if (keybuf[0] == 128)
@@ -338,27 +304,26 @@ EC_KEY *key_from_base58(const char *base58, size_t base58_len,
 	else
 		goto fail_free_bn;
 
-	priv = EC_KEY_new_by_curve_name(NID_secp256k1);
-	EC_KEY_set_conv_form(priv, cform);
+	/* Copy out secret. */
+	memcpy(priv->secret, keybuf + 1, sizeof(priv->secret));
 
-	BN_free(&bn);
-        BN_init(&bn);
-        if (!BN_bin2bn(keybuf + 1, 32, &bn))
-		goto fail_free_priv;
-        if (!EC_KEY_regenerate_key(priv, &bn))
-		goto fail_free_priv;
+	secpctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
+	if (!secp256k1_ec_seckey_verify(secpctx, priv->secret))
+		goto fail_free_secpctx;
 
-	/* Save public key */ 
-	kptr = key->key;
-	keylen = i2o_ECPublicKey(priv, &kptr);
+	/* Get public key, too. */
+	if (!secp256k1_ec_pubkey_create(secpctx, key->key, &keylen,
+					priv->secret, compressed))
+		goto fail_free_secpctx;
 	assert(keylen == pubkey_len(key));
 
 	BN_free(&bn);
-	return priv;
+	secp256k1_context_destroy(secpctx);
+	return true;
 
-fail_free_priv:
-	EC_KEY_free(priv);
+fail_free_secpctx:
+	secp256k1_context_destroy(secpctx);
 fail_free_bn:
 	BN_free(&bn);
-	return NULL;
+	return false;
 }

@@ -1,5 +1,4 @@
 #include <ccan/str/hex/hex.h>
-#include <openssl/ecdsa.h>
 #include <assert.h>
 #include "pubkey.h"
 

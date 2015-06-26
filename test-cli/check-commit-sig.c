@@ -14,8 +14,8 @@
 #include "bitcoin/signature.h"
 #include "commit_tx.h"
 #include "bitcoin/pubkey.h"
+#include "bitcoin/privkey.h"
 #include "protobuf_convert.h"
-#include <openssl/ec.h>
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
 	struct pubkey pubkey1, pubkey2;
 	struct bitcoin_signature sig1, sig2;
 	char *tx_hex;
-	EC_KEY *privkey;
+	struct privkey privkey;
 	bool testnet;
 	struct sha256 rhash;
 
@@ -50,8 +50,7 @@ int main(int argc, char *argv[])
 	o2 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
 	cs2 = pkt_from_file(argv[3], PKT__PKT_OPEN_COMMIT_SIG)->open_commit_sig;
 
-	privkey = key_from_base58(argv[4], strlen(argv[4]), &testnet, &pubkey1);
-	if (!privkey)
+	if (!key_from_base58(argv[4], strlen(argv[4]), &testnet, &privkey, &pubkey1))
 		errx(1, "Invalid private key '%s'", argv[4]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
@@ -84,7 +83,7 @@ int main(int argc, char *argv[])
 	sig1.stype = SIGHASH_ALL;
 	subscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 	sign_tx_input(ctx, commit, 0, subscript, tal_count(subscript),
-		      privkey, &pubkey1, &sig1.sig);
+		      &privkey, &pubkey1, &sig1.sig);
 
 	/* Signatures well-formed? */
 	if (!proto_to_signature(cs2->sig, &sig2.sig))

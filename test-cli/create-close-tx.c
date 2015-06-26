@@ -16,7 +16,6 @@
 #include "close_tx.h"
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
-#include <openssl/ec.h>
 #include <unistd.h>
 
 int main(int argc, char *argv[])
