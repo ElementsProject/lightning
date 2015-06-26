@@ -14,12 +14,17 @@ getprivkey()
     $CLI dumpprivkey $1
 }
 
-A_INPUTNUM=1
-B_INPUTNUM=2
+if [ $# -ne 2 ]; then
+    echo Usage: "INPUT1" "INPUT2" >&2
+    exit 1
+fi
+		      
+A_INPUTNUM=$1
+B_INPUTNUM=$2
 #A_INPUTNUM=4
 #B_INPUTNUM=1
-A_AMOUNT=1000000
-B_AMOUNT=9795000
+A_AMOUNT=100000000
+B_AMOUNT=200000000
 
 A_CHANGEADDR=`scripts/get-new-address.sh`
 A_TMPADDR=`scripts/get-new-address.sh`
