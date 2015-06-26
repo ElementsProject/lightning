@@ -46,4 +46,7 @@ bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
 		    const struct bitcoin_signature *sig1,
 		    const struct bitcoin_signature *sig2);
 
+/* Give DER encoding of signature: returns length used (<= 72). */
+size_t signature_to_der(u8 der[72], const struct signature *s);
+
 #endif /* LIGHTNING_BITCOIN_SIGNATURE_H */
