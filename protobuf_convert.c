@@ -8,7 +8,7 @@ Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
 	Signature *pb = tal(ctx, Signature);
 	signature__init(pb);
 
-	assert((sig->s[31] & 1) == 0);
+	assert(sig_valid(sig));
 
 	/* Kill me now... */
 	memcpy(&pb->r1, sig->r, 8);
@@ -35,8 +35,7 @@ bool proto_to_signature(const Signature *pb, struct signature *sig)
 	memcpy(sig->s + 16, &pb->s3, 8);
 	memcpy(sig->s + 24, &pb->s4, 8);
 
-	/* S must be even */
-	return (sig->s[31] & 1) == 0;
+	return sig_valid(sig);
 }
 
 BitcoinPubkey *pubkey_to_proto(const tal_t *ctx, const struct pubkey *key)

@@ -306,3 +306,9 @@ size_t signature_to_der(u8 der[72], const struct signature *sig)
 	assert(IsValidSignatureEncoding(der, len + 1));
 	return len;
 }
+
+/* Signature must have low S value. */
+bool sig_valid(const struct signature *sig)
+{
+	return (sig->s[0] & 0x80) == 0;
+}

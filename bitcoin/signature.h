@@ -46,6 +46,9 @@ bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
 		    const struct bitcoin_signature *sig1,
 		    const struct bitcoin_signature *sig2);
 
+/* Signature must have low S value. */
+bool sig_valid(const struct signature *s);
+
 /* Give DER encoding of signature: returns length used (<= 72). */
 size_t signature_to_der(u8 der[72], const struct signature *s);
 
