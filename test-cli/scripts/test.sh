@@ -6,7 +6,7 @@ set -e
 
 getpubkey()
 {
-    $CLI validateaddress $1 | sed -n 's/.*"pubkey" : "\([0-9a-f]*\)".*/\1/p'
+    $CLI validateaddress $1 | sed -n 's/.*"pubkey" *: "\([0-9a-f]*\)".*/\1/p'
 }
 
 getprivkey()
