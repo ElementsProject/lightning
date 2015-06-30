@@ -75,9 +75,15 @@ bool sign_hash(const tal_t *ctx, const struct privkey *privkey,
 	if (!secpctx)
 		return false;
 
+#ifdef USE_SCHNORR
+	ok = secp256k1_schnorr_sign(secpctx, h->sha.u.u8,
+				    (unsigned char *)s,
+				    privkey->secret, NULL, NULL);
+#else
 	ok = secp256k1_ecdsa_sign_compact(secpctx, h->sha.u.u8,
 					  (unsigned char *)s,
 					  privkey->secret, NULL, NULL, NULL);
+#endif
 
 	secp256k1_context_destroy(secpctx);
 	return ok;
@@ -132,18 +138,28 @@ static bool check_signed_hash(const struct sha256_double *hash,
 {
 	int ret;
 	secp256k1_context_t *secpctx;
-	u8 der[72];
-	size_t der_len;
-
-	/* FIXME: secp256k1 missing secp256k1_ecdsa_verify_compact */
-	der_len = signature_to_der(der, signature);
 
 	secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
 	if (!secpctx)
 		return false;
 
-	ret = secp256k1_ecdsa_verify(secpctx, hash->sha.u.u8, der, der_len,
-				     key->key, pubkey_len(key));
+#ifdef USE_SCHNORR
+	ret = secp256k1_schnorr_verify(secpctx, hash->sha.u.u8,
+				       (unsigned char *)signature,
+				       key->key, pubkey_len(key));
+#else
+	{
+		u8 der[72];
+		size_t der_len;
+
+		/* FIXME: secp256k1 missing secp256k1_ecdsa_verify_compact */
+		der_len = signature_to_der(der, signature);
+
+		ret = secp256k1_ecdsa_verify(secpctx, hash->sha.u.u8,
+					     der, der_len,
+					     key->key, pubkey_len(key));
+	}
+#endif
 
 	secp256k1_context_destroy(secpctx);
 	return ret == 1;
@@ -310,5 +326,10 @@ size_t signature_to_der(u8 der[72], const struct signature *sig)
 /* Signature must have low S value. */
 bool sig_valid(const struct signature *sig)
 {
+#ifdef USE_SCHNORR
+	/* FIXME: Is there some sanity check we can do here? */
+	return true;
+#else
 	return (sig->s[0] & 0x80) == 0;
+#endif
 }
