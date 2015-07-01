@@ -57,6 +57,8 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 struct bitcoin_tx *bitcoin_tx_from_file(const tal_t *ctx,
 					const char *filename);
 
+bool bitcoin_tx_write(int fd, const struct bitcoin_tx *tx);
+
 /* Parse hex string to get txid (reversed, a-la bitcoind). */
 bool bitcoin_txid_from_hex(const char *hexstr, size_t hexstr_len,
 			   struct sha256_double *txid);

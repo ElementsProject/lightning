@@ -4,7 +4,6 @@
 #include <ccan/opt/opt.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/err/err.h>
-#include <ccan/read_write_all/read_write_all.h>
 #include "lightning.pb-c.h"
 #include "anchor.h"
 #include "bitcoin/base58.h"
@@ -25,11 +24,10 @@ int main(int argc, char *argv[])
 	OpenCommitSig *cs2;
 	struct bitcoin_tx *anchor, *commit;
 	struct sha256_double txid;
-	u8 *tx_arr, *subscript;
+	u8 *subscript;
 	size_t *inmap, *outmap;
 	struct pubkey pubkey1, pubkey2;
 	struct bitcoin_signature sig1, sig2;
-	char *tx_hex;
 	struct privkey privkey;
 	bool testnet;
 	struct sha256 rhash;
@@ -101,11 +99,7 @@ int main(int argc, char *argv[])
 	commit->input[0].script_length = tal_count(commit->input[0].script);
 
 	/* Print it out in hex. */
-	tx_arr = linearize_tx(ctx, commit);
-	tx_hex = tal_arr(tx_arr, char, hex_str_size(tal_count(tx_arr)));
-	hex_encode(tx_arr, tal_count(tx_arr), tx_hex, tal_count(tx_hex));
-
-	if (!write_all(STDOUT_FILENO, tx_hex, strlen(tx_hex)))
+	if (!bitcoin_tx_write(STDOUT_FILENO, commit))
 		err(1, "Writing out transaction");
 
 	tal_free(ctx);

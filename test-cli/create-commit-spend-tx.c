@@ -4,7 +4,6 @@
 #include <ccan/opt/opt.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/err/err.h>
-#include <ccan/read_write_all/read_write_all.h>
 #include <ccan/structeq/structeq.h>
 #include "lightning.pb-c.h"
 #include "anchor.h"
@@ -31,8 +30,7 @@ int main(int argc, char *argv[])
 	struct privkey privkey;
 	bool testnet;
 	struct pubkey pubkey1, pubkey2, outpubkey;
-	u8 *redeemscript, *tx_arr;
-	char *tx_hex;
+	u8 *redeemscript;
 	struct sha256 rhash;
 	size_t i, p2sh_out;
 	u64 fee = 10000;
@@ -120,11 +118,7 @@ int main(int argc, char *argv[])
 	tx->input[0].script_length = tal_count(tx->input[0].script);
 
 	/* Print it out in hex. */
-	tx_arr = linearize_tx(ctx, tx);
-	tx_hex = tal_arr(tx_arr, char, hex_str_size(tal_count(tx_arr)));
-	hex_encode(tx_arr, tal_count(tx_arr), tx_hex, tal_count(tx_hex));
-
-	if (!write_all(STDOUT_FILENO, tx_hex, strlen(tx_hex)))
+	if (!bitcoin_tx_write(STDOUT_FILENO, tx))
 		err(1, "Writing out transaction");
 
 	tal_free(ctx);

@@ -1,6 +1,7 @@
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/endian/endian.h>
 #include <ccan/err/err.h>
+#include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <assert.h>
@@ -416,7 +417,7 @@ static struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 struct bitcoin_tx *bitcoin_tx_from_file(const tal_t *ctx,
 					const char *filename)
 {
-	char *hex;
+	char *hex, *end;
 	u8 *linear_tx;
 	const u8 *p;
 	struct bitcoin_tx *tx;
@@ -429,14 +430,36 @@ struct bitcoin_tx *bitcoin_tx_from_file(const tal_t *ctx,
 
 	if (strends(hex, "\n"))
 		hex[strlen(hex)-1] = '\0';
-	len = hex_data_size(strlen(hex));
+
+	end = strchr(hex, ':');
+	if (!end)
+		end = hex + strlen(hex);
+		
+	len = hex_data_size(end - hex);
 	p = linear_tx = tal_arr(hex, u8, len);
-	if (!hex_decode(hex, strlen(hex), linear_tx, len))
+	if (!hex_decode(hex, end - hex, linear_tx, len))
 		errx(1, "Bad hex string in %s", filename);
 
 	tx = pull_bitcoin_tx(ctx, &p, &len);
 	if (!tx)
 		errx(1, "Bad transaction in %s", filename);
+
+	/* Optional appended [:input-amount]* */
+	for (len = 0; len < tx->input_count; len++) {
+		if (*end != ':')
+			break;
+		tx->input[len].input_amount = strtoull(end + 1, &end, 10);
+	}
+	if (len == tx->input_count) {
+		if (*end != '\0')
+			errx(1, "Additional input amounts appended to %s",
+			     filename);
+	} else {
+		/* Input amounts are compulsory for alpha, to generate sigs */
+#ifdef ALPHA_TXSTYLE
+		errx(1, "No input amount #%zu in %s", len, filename);
+#endif
+	}
 	tal_free(hex);
 
 	return tx;
@@ -464,4 +487,36 @@ bool bitcoin_txid_from_hex(const char *hexstr, size_t hexstr_len,
 	reverse_bytes(txid->sha.u.u8, sizeof(txid->sha.u.u8));
 	return true;
 }
-	
+
+static bool write_input_amounts(int fd, const struct bitcoin_tx *tx)
+{
+	/* Alpha required input amounts, so append them */
+#ifdef ALPHA_TXSTYLE
+	size_t i;
+
+	for (i = 0; i < tx->input_count; i++) {
+		char str[1 + STR_MAX_CHARS(tx->input[i].input_amount)];
+		sprintf(str, ":%llu",
+			(unsigned long long)tx->input[i].input_amount);
+		if (!write_all(fd, str, strlen(str)))
+			return false;
+	}
+#endif
+	return true;
+}
+
+bool bitcoin_tx_write(int fd, const struct bitcoin_tx *tx)
+{
+	u8 *tx_arr;
+	char *tx_hex;
+	bool ok;
+
+	tx_arr = linearize_tx(NULL, tx);
+	tx_hex = tal_arr(tx_arr, char, hex_str_size(tal_count(tx_arr)));
+	hex_encode(tx_arr, tal_count(tx_arr), tx_hex, tal_count(tx_hex));
+
+	ok = write_all(fd, tx_hex, strlen(tx_hex))
+		&& write_input_amounts(fd, tx);
+	tal_free(tx_arr);
+	return ok;
+}

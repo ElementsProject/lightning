@@ -4,7 +4,6 @@
 #include <ccan/opt/opt.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/err/err.h>
-#include <ccan/read_write_all/read_write_all.h>
 #include <ccan/structeq/structeq.h>
 #include "lightning.pb-c.h"
 #include "anchor.h"
@@ -24,9 +23,7 @@ int main(int argc, char *argv[])
 	OpenAnchorScriptsigs *ss1, *ss2;
 	struct bitcoin_tx *anchor;
 	struct sha256_double txid;
-	u8 *tx_arr;
 	size_t *inmap, *outmap;
-	char *tx_hex;
 
 	err_set_progname(argv[0]);
 
@@ -55,12 +52,7 @@ int main(int argc, char *argv[])
 
 	bitcoin_txid(anchor, &txid);
 
-	/* Print it out in hex. */
-	tx_arr = linearize_tx(ctx, anchor);
-	tx_hex = tal_arr(tx_arr, char, hex_str_size(tal_count(tx_arr)));
-	hex_encode(tx_arr, tal_count(tx_arr), tx_hex, tal_count(tx_hex));
-
-	if (!write_all(STDOUT_FILENO, tx_hex, strlen(tx_hex)))
+	if (!bitcoin_tx_write(STDOUT_FILENO, anchor))
 		err(1, "Writing out anchor transaction");
 
 	tal_free(ctx);
