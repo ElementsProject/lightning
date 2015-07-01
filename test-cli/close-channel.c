@@ -32,7 +32,7 @@ int main(int argc, char *argv[])
 	struct pubkey pubkey1, pubkey2;
 	u8 *redeemscript;
 	int64_t delta;
-	size_t i;
+	size_t i, anchor_out;
 
 	err_set_progname(argv[0]);
 
@@ -81,9 +81,11 @@ int main(int argc, char *argv[])
 
 	/* Now create the close tx to spend 2/2 output of anchor. */
 	/* Assumes that updates are all from closer -> closee */
+	anchor_out = find_p2sh_out(anchor, redeemscript);
 	close_tx = create_close_tx(ctx, o1, o2, complete ? -delta : delta,
-				   &anchor_txid,
-				   find_p2sh_out(anchor, redeemscript));
+				   &anchor_txid, 
+				   anchor->output[anchor_out].amount,
+				   anchor_out);
 
 	/* Sign it for them. */
 	sign_tx_input(ctx, close_tx, 0, redeemscript, tal_count(redeemscript),

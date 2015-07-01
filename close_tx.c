@@ -12,6 +12,7 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 				   OpenChannel *theirs,
 				   int64_t delta,
 				   const struct sha256_double *anchor_txid,
+				   uint64_t input_amount,
 				   unsigned int anchor_output)
 {
 	struct bitcoin_tx *tx;
@@ -25,6 +26,7 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	/* Our input spends the anchor tx output. */
 	tx->input[0].txid = *anchor_txid;
 	tx->input[0].index = anchor_output;
+	tx->input[0].input_amount = input_amount;
 
 	/* Outputs goes to final pubkey */
 	if (!proto_to_pubkey(ours->final, &ourkey))
@@ -52,6 +54,7 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	tx->output[1].script = scriptpubkey_p2sh(tx, redeemscript);
 	tx->output[1].script_length = tal_count(tx->output[1].script);
 
+	tx->fee = ours->commitment_fee + theirs->commitment_fee;
 	permute_outputs(ours->seed, theirs->seed, 1, tx->output, 2, NULL);
 	return tx;
 }

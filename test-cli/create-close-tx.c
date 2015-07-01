@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
 	u8 *redeemscript;
 	CloseChannel *close;
 	CloseChannelComplete *closecomplete;
-	size_t i;
+	size_t i, anchor_out;
 	int64_t delta;
 
 	err_set_progname(argv[0]);
@@ -69,8 +69,10 @@ int main(int argc, char *argv[])
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
 	/* Now create the close tx to spend 2/2 output of anchor. */
+	anchor_out = find_p2sh_out(anchor, redeemscript);
 	close_tx = create_close_tx(ctx, o1, o2, delta, &anchor_txid,
-				   find_p2sh_out(anchor, redeemscript));
+				   anchor->output[anchor_out].amount,
+				   anchor_out);
 
 	/* Signatures well-formed? */
 	sig1.stype = sig2.stype = SIGHASH_ALL;
