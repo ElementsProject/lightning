@@ -103,8 +103,11 @@ int main(int argc, char *argv[])
 	tx = bitcoin_tx(ctx, 1, 1);
 	bitcoin_txid(commit, &tx->input[0].txid);
 	tx->input[0].index = i;
+	tx->input[0].input_amount = commit->output[i].amount;
 
-	tx->output[0].amount = commit->output[i].amount;
+	/* Leave 10,000 satoshi as fee. */
+	tx->fee = 10000;
+	tx->output[0].amount = commit->output[i].amount - tx->fee;
 	tx->output[0].script = scriptpubkey_p2sh(tx,
 						 bitcoin_redeem_single(tx, &outpubkey));
 	tx->output[0].script_length = tal_count(tx->output[0].script);
@@ -120,7 +123,7 @@ int main(int argc, char *argv[])
 	tx->input[0].script_length = tal_count(tx->input[0].script);
 
 	/* Print it out in hex. */
-	tx_arr = linearize_tx(ctx, commit);
+	tx_arr = linearize_tx(ctx, tx);
 	tx_hex = tal_arr(tx_arr, char, hex_str_size(tal_count(tx_arr)));
 	hex_encode(tx_arr, tal_count(tx_arr), tx_hex, tal_count(tx_hex));
 
