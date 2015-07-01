@@ -37,7 +37,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	if (!proto_to_pubkey(theirs->final, &theirkey))
 		return tal_free(tx);
 
-	if (!proto_to_locktime(ours, &locktime))
+	if (!proto_to_locktime(theirs, &locktime))
 		return tal_free(tx);
 
 	/* First output is a P2SH to a complex redeem script (usu. for me) */

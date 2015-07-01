@@ -61,7 +61,8 @@ B_FINALKEY=`getprivkey $B_FINALADDR`
 
 # Both sides say what they want from channel
 $PREFIX ./open-channel $A_SEED $A_AMOUNT $A_CHANGEPUBKEY $A_TMPKEY $A_FINALKEY $A_TXIN > A-open.pb
-$PREFIX ./open-channel $B_SEED $B_AMOUNT $B_CHANGEPUBKEY $B_TMPKEY $B_FINALKEY $B_TXIN > B-open.pb
+# B asks for a (dangerously) short locktime, for testing unilateral close.
+$PREFIX ./open-channel --locktime=60 $B_SEED $B_AMOUNT $B_CHANGEPUBKEY $B_TMPKEY $B_FINALKEY $B_TXIN > B-open.pb
 
 # Now sign anchor.
 $PREFIX ./open-anchor-scriptsigs A-open.pb B-open.pb $A_TXINKEY > A-anchor-scriptsigs.pb

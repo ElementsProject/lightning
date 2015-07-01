@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
 
 	o1 = pkt_from_file(argv[4], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[5], PKT__PKT_OPEN)->open;
-	if (!proto_to_locktime(o2, &locktime_seconds))
+	if (!proto_to_locktime(o1, &locktime_seconds))
 		errx(1, "Invalid locktime in o2");
 
 	if (!pubkey_from_hexstr(argv[6], &outpubkey))
