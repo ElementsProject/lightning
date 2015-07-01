@@ -86,7 +86,7 @@ $PREFIX ./check-anchor-scriptsigs B-open.pb A-open.pb B-anchor-scriptsigs.pb A-a
 cmp A-anchor.tx B-anchor.tx
 
 # Broadcast
-$CLI sendrawtransaction `cat A-anchor.tx` > anchor.txid
+$CLI sendrawtransaction `cut -d: -f1 A-anchor.tx` > anchor.txid
 
 # # Wait for confirms
 # while [ 0$($CLI getrawtransaction $(cat anchor.txid) 1 | sed -n 's/.*"confirmations" : \([0-9]*\),/\1/p') -lt $($PREFIX ./get-anchor-depth A-open.pb) ]; do scripts/generate-block.sh; done
@@ -116,21 +116,21 @@ $PREFIX ./create-commit-tx A-anchor.tx A-open.pb B-open.pb $A_TMPKEY B-update-ac
 
 if [ x"$1" = x--steal ]; then
     # A stupidly broadcasts a revoked transaction.
-    $CLI sendrawtransaction `cat A-commit-1.tx` > A-commit-1.txid
+    $CLI sendrawtransaction `cut -d: -f1 A-commit-1.tx` > A-commit-1.txid
     
     # B uses the preimage from A-update-sig-2 to cash in.
     $PREFIX ./create-steal-tx A-commit-1.tx A-update-sig-2.pb $B_FINALKEY B-open.pb A-open.pb $B_CHANGEPUBKEY > B-commit-steal.tx
 
-    $CLI sendrawtransaction `cat B-commit-steal.tx` > B-commit-steal.txid
+    $CLI sendrawtransaction `cut -d: -f1 B-commit-steal.tx` > B-commit-steal.txid
     exit 0
 fi
 
 if [ x"$1" = x--unilateral ]; then
-    $CLI sendrawtransaction `cat A-commit-2.tx` > A-commit-2.txid
+    $CLI sendrawtransaction `cut -d: -f1 A-commit-2.tx` > A-commit-2.txid
     # Normally we'd have to wait before redeeming, but OP_CHECKSEQUENCEVERIFY
     # is a noop.
     $PREFIX ./create-commit-spend-tx A-commit-2.tx A-open.pb B-open.pb $A_FINALKEY $A_CHANGEPUBKEY A-update-1.pb A-update-2.pb > A-spend.tx
-    $CLI sendrawtransaction `cat A-spend.tx` > A-spend.txid
+    $CLI sendrawtransaction `cut -d: -f1 A-spend.tx` > A-spend.txid
     exit 0
 fi
 
@@ -139,4 +139,4 @@ $PREFIX ./close-channel A-anchor.tx A-open.pb B-open.pb $A_TMPKEY A-update-1.pb 
 $PREFIX ./close-channel --complete B-anchor.tx B-open.pb A-open.pb $B_TMPKEY A-update-1.pb A-update-2.pb > B-close-complete.pb
 $PREFIX ./create-close-tx A-anchor.tx A-open.pb B-open.pb A-close.pb B-close-complete.pb A-update-1.pb A-update-2.pb > A-close.tx
 
-$CLI sendrawtransaction `cat A-close.tx` > close.txid
+$CLI sendrawtransaction `cut -d: -f1 A-close.tx` > close.txid
