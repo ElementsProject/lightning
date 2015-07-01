@@ -14,13 +14,14 @@ getprivkey()
     $CLI dumpprivkey $1
 }
 
-if [ $# -ne 2 ]; then
-    echo Usage: "INPUT1" "INPUT2" >&2
+if [ $# -lt 2 ]; then
+    echo Usage: "INPUT1" "INPUT2" "[--steal|--unilateral]" >&2
     exit 1
 fi
 		      
 A_INPUTNUM=$1
 B_INPUTNUM=$2
+shift 2
 #A_INPUTNUM=4
 #B_INPUTNUM=1
 A_AMOUNT=100000000
