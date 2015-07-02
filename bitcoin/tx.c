@@ -238,7 +238,7 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 		assert(tx->input[i].script == NULL);
 		tx->input[i].sequence_number = 0xFFFFFFFF;
 	}
-	tx->lock_time = 0xFFFFFFFF;
+	tx->lock_time = 0;
 
 	return tx;
 }
