@@ -128,9 +128,24 @@ fi
 
 if [ x"$1" = x--unilateral ]; then
     $CLI sendrawtransaction `cut -d: -f1 A-commit-2.tx` > A-commit-2.txid
-    # Normally we'd have to wait before redeeming, but OP_CHECKSEQUENCEVERIFY
-    # is a noop.
     $PREFIX ./create-commit-spend-tx A-commit-2.tx A-open.pb B-open.pb $A_FINALKEY $A_CHANGEPUBKEY A-update-1.pb A-update-2.pb > A-spend.tx
+    # For bitcoin testing, OP_CHECKSEQUENCEVERIFY is a NOP.
+    if [ $STYLE = alpha ]; then
+	# Alpha has a median time bug (which can't be triggered in bitcoin),
+	# triggered if we have < 11 blocks.  Generate them now.
+	for i in `seq 11`; do scripts/generate-block.sh; done
+	# OP_CHECKSEQUENCEVERIFY will stop us spending for 60 seconds.
+	if $CLI sendrawtransaction `cut -d: -f1 A-spend.tx` 2>/dev/null; then
+	    echo OP_CHECKSEQUENCEVERIFY broken! >&2
+	    exit 1
+	fi
+	# Mine it.
+	scripts/generate-block.sh
+	echo Waiting for CSV timeout. >&2
+	sleep 61
+	# Move median time, for sure!
+	for i in `seq 11`; do scripts/generate-block.sh; done
+    fi
     $CLI sendrawtransaction `cut -d: -f1 A-spend.tx` > A-spend.txid
     exit 0
 fi
