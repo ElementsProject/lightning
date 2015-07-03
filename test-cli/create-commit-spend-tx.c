@@ -96,6 +96,11 @@ int main(int argc, char *argv[])
 	bitcoin_txid(commit, &tx->input[0].txid);
 	p2sh_out = find_p2sh_out(commit, redeemscript);
 	tx->input[0].index = p2sh_out;
+	tx->input[0].input_amount = commit->output[p2sh_out].amount;
+	tx->fee = fee;
+
+	/* Sequence number is inverted timeout. */
+	tx->input[0].sequence_number = ~locktime;
 
 	if (commit->output[p2sh_out].amount <= fee)
 		errx(1, "Amount of %llu won't exceed fee",
