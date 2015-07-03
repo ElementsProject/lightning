@@ -99,18 +99,6 @@ message open_anchor_scriptsigs {
   repeated bytes script = 1;
 }
 
-// BROKEN AND INSECURE!!!
-//
-// This should not exist; it's completely insecure!  But we need to sign
-// the commitment transaction before we sign the anchor transaction, which
-// doesn't work at all with current bitcoin (as we don't know the anchor
-// txid until it's signed by both sides, and then we'd have to worry about
-// malleability anyway).  So for testing, we send the scriptsigs for the
-// anchor transaction's inputs immediately.
-message leak_anchor_sigs_and_pretend_we_didnt {
-  required open_anchor_scriptsigs sigs = 1;
-}
-
 // Indicates we've seen transaction reach min-depth.
 message open_complete {
   // Block it went into.
@@ -202,7 +190,6 @@ message pkt {
   oneof pkt {
     // Opening
     open_channel open = 201;
-    leak_anchor_sigs_and_pretend_we_didnt omg_fail = 205;
     open_commit_sig open_commit_sig = 202;
     open_anchor_scriptsigs open_anchor_scriptsigs = 203;
     open_complete open_complete = 204;

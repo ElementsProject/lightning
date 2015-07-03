@@ -68,18 +68,14 @@ $PREFIX ./open-channel --locktime=60 $B_SEED $B_AMOUNT $B_CHANGEPUBKEY $B_TMPKEY
 $PREFIX ./open-anchor-scriptsigs A-open.pb B-open.pb $A_TXINKEY > A-anchor-scriptsigs.pb
 $PREFIX ./open-anchor-scriptsigs B-open.pb A-open.pb $B_TXINKEY > B-anchor-scriptsigs.pb
 
-# Now leak that signature.
-$PREFIX ./leak-anchor-sigs A-anchor-scriptsigs.pb > A-leak-anchor-sigs.pb
-$PREFIX ./leak-anchor-sigs B-anchor-scriptsigs.pb > B-leak-anchor-sigs.pb
-
 # Now create commit signature
-$PREFIX ./open-commit-sig A-open.pb B-open.pb $A_TMPKEY A-leak-anchor-sigs.pb B-leak-anchor-sigs.pb > A-commit-sig.pb
+$PREFIX ./open-commit-sig A-open.pb B-open.pb $A_TMPKEY > A-commit-sig.pb
 
-$PREFIX ./open-commit-sig B-open.pb A-open.pb $B_TMPKEY B-leak-anchor-sigs.pb A-leak-anchor-sigs.pb > B-commit-sig.pb
+$PREFIX ./open-commit-sig B-open.pb A-open.pb $B_TMPKEY > B-commit-sig.pb
 
 # Now check it.
-$PREFIX ./check-commit-sig A-open.pb B-open.pb B-commit-sig.pb $A_TMPKEY A-leak-anchor-sigs.pb B-leak-anchor-sigs.pb > A-commit.tx
-$PREFIX ./check-commit-sig B-open.pb A-open.pb A-commit-sig.pb $B_TMPKEY B-leak-anchor-sigs.pb A-leak-anchor-sigs.pb > B-commit.tx
+$PREFIX ./check-commit-sig A-open.pb B-open.pb B-commit-sig.pb $A_TMPKEY > A-commit.tx
+$PREFIX ./check-commit-sig B-open.pb A-open.pb A-commit-sig.pb $B_TMPKEY > B-commit.tx
 
 # Now check anchor sigs and make sure they're the same.
 $PREFIX ./check-anchor-scriptsigs A-open.pb B-open.pb A-anchor-scriptsigs.pb B-anchor-scriptsigs.pb > A-anchor.tx

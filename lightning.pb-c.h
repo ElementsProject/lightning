@@ -24,7 +24,6 @@ typedef struct _Anchor Anchor;
 typedef struct _OpenChannel OpenChannel;
 typedef struct _OpenCommitSig OpenCommitSig;
 typedef struct _OpenAnchorScriptsigs OpenAnchorScriptsigs;
-typedef struct _LeakAnchorSigsAndPretendWeDidnt LeakAnchorSigsAndPretendWeDidnt;
 typedef struct _OpenComplete OpenComplete;
 typedef struct _Update Update;
 typedef struct _UpdateAccept UpdateAccept;
@@ -249,25 +248,6 @@ struct  _OpenAnchorScriptsigs
 
 
 /*
- * BROKEN AND INSECURE!!!
- * This should not exist; it's completely insecure!  But we need to sign
- * the commitment transaction before we sign the anchor transaction, which
- * doesn't work at all with current bitcoin (as we don't know the anchor
- * txid until it's signed by both sides, and then we'd have to worry about
- * malleability anyway).  So for testing, we send the scriptsigs for the
- * anchor transaction's inputs immediately.
- */
-struct  _LeakAnchorSigsAndPretendWeDidnt
-{
-  ProtobufCMessage base;
-  OpenAnchorScriptsigs *sigs;
-};
-#define LEAK_ANCHOR_SIGS_AND_PRETEND_WE_DIDNT__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&leak_anchor_sigs_and_pretend_we_didnt__descriptor) \
-    , NULL }
-
-
-/*
  * Indicates we've seen transaction reach min-depth.
  */
 struct  _OpenComplete
@@ -489,7 +469,6 @@ struct  _Error
 typedef enum {
   PKT__PKT__NOT_SET = 0,
   PKT__PKT_OPEN = 201,
-  PKT__PKT_OMG_FAIL = 205,
   PKT__PKT_OPEN_COMMIT_SIG = 202,
   PKT__PKT_OPEN_ANCHOR_SCRIPTSIGS = 203,
   PKT__PKT_OPEN_COMPLETE = 204,
@@ -518,7 +497,6 @@ struct  _Pkt
      * Opening
      */
     OpenChannel *open;
-    LeakAnchorSigsAndPretendWeDidnt *omg_fail;
     OpenCommitSig *open_commit_sig;
     OpenAnchorScriptsigs *open_anchor_scriptsigs;
     OpenComplete *open_complete;
@@ -722,25 +700,6 @@ OpenAnchorScriptsigs *
                       const uint8_t       *data);
 void   open_anchor_scriptsigs__free_unpacked
                      (OpenAnchorScriptsigs *message,
-                      ProtobufCAllocator *allocator);
-/* LeakAnchorSigsAndPretendWeDidnt methods */
-void   leak_anchor_sigs_and_pretend_we_didnt__init
-                     (LeakAnchorSigsAndPretendWeDidnt         *message);
-size_t leak_anchor_sigs_and_pretend_we_didnt__get_packed_size
-                     (const LeakAnchorSigsAndPretendWeDidnt   *message);
-size_t leak_anchor_sigs_and_pretend_we_didnt__pack
-                     (const LeakAnchorSigsAndPretendWeDidnt   *message,
-                      uint8_t             *out);
-size_t leak_anchor_sigs_and_pretend_we_didnt__pack_to_buffer
-                     (const LeakAnchorSigsAndPretendWeDidnt   *message,
-                      ProtobufCBuffer     *buffer);
-LeakAnchorSigsAndPretendWeDidnt *
-       leak_anchor_sigs_and_pretend_we_didnt__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   leak_anchor_sigs_and_pretend_we_didnt__free_unpacked
-                     (LeakAnchorSigsAndPretendWeDidnt *message,
                       ProtobufCAllocator *allocator);
 /* OpenComplete methods */
 void   open_complete__init
@@ -1037,9 +996,6 @@ typedef void (*OpenCommitSig_Closure)
 typedef void (*OpenAnchorScriptsigs_Closure)
                  (const OpenAnchorScriptsigs *message,
                   void *closure_data);
-typedef void (*LeakAnchorSigsAndPretendWeDidnt_Closure)
-                 (const LeakAnchorSigsAndPretendWeDidnt *message,
-                  void *closure_data);
 typedef void (*OpenComplete_Closure)
                  (const OpenComplete *message,
                   void *closure_data);
@@ -1097,7 +1053,6 @@ extern const ProtobufCMessageDescriptor anchor__descriptor;
 extern const ProtobufCMessageDescriptor open_channel__descriptor;
 extern const ProtobufCMessageDescriptor open_commit_sig__descriptor;
 extern const ProtobufCMessageDescriptor open_anchor_scriptsigs__descriptor;
-extern const ProtobufCMessageDescriptor leak_anchor_sigs_and_pretend_we_didnt__descriptor;
 extern const ProtobufCMessageDescriptor open_complete__descriptor;
 extern const ProtobufCMessageDescriptor update__descriptor;
 extern const ProtobufCMessageDescriptor update_accept__descriptor;

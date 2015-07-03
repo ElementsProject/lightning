@@ -35,14 +35,14 @@ int main(int argc, char *argv[])
 	err_set_progname(argv[0]);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<open-channel-file1> <open-channel-file2> <commit-sig-2> <commit-key1> <leak-anchor-sigs1> <leak-anchor-sigs2>\n"
+			   "<open-channel-file1> <open-channel-file2> <commit-sig-2> <commit-key1>\n"
 			   "Output the commitment transaction if both signatures are valid",
 			   "Print this message.");
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
-	if (argc != 7)
-		opt_usage_exit_fail("Expected 6 arguments");
+	if (argc != 5)
+		opt_usage_exit_fail("Expected 4 arguments");
 
 	o1 = pkt_from_file(argv[1], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 	anchor = anchor_tx_create(ctx, o1, o2, &inmap, &outmap);
 	if (!anchor)
 		errx(1, "Failed transaction merge");
-	anchor_txid(anchor, argv[5], argv[6], inmap, &txid);
+	anchor_txid(anchor, &txid);
 
 	/* Now create our commitment tx. */
 	proto_to_sha256(o1->revocation_hash, &rhash);

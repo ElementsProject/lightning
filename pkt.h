@@ -55,15 +55,6 @@ struct pkt *openchannel_pkt(const tal_t *ctx,
 struct pkt *open_anchor_sig_pkt(const tal_t *ctx, u8 **sigs, size_t num_sigs);
 
 /**
- * leak_anchor_sigs_and_pretend_we_didnt_pkt - leak anchor scriptsigs
- * @ctx: tal context to allocate off.
- * @s: OpenAnchorSig.
- */
-struct pkt *leak_anchor_sigs_and_pretend_we_didnt_pkt(const tal_t *ctx,
-						      OpenAnchorScriptsigs *s);
-
-
-/**
  * open_commit_sig_pkt - create an open_commit_sig message
  * @ctx: tal context to allocate off.
  * @sig: the signature for the commit transaction input.

@@ -161,26 +161,7 @@ bool anchor_add_scriptsigs(struct bitcoin_tx *anchor,
 	return true;
 }
 	
-void anchor_txid(struct bitcoin_tx *anchor,
-		 const char *leakfile1, const char *leakfile2,
-		 const size_t *inmap,
-		 struct sha256_double *txid)
+void anchor_txid(struct bitcoin_tx *anchor, struct sha256_double *txid)
 {
-	Pkt *p1, *p2;
-	LeakAnchorSigsAndPretendWeDidnt *leak1, *leak2;
-	
-	p1 = pkt_from_file(leakfile1, PKT__PKT_OMG_FAIL);
-	p2 = pkt_from_file(leakfile2, PKT__PKT_OMG_FAIL);
-	leak1 = p1->omg_fail;
-	leak2 = p2->omg_fail;
-
-	if (!anchor_add_scriptsigs(anchor, leak1->sigs, leak2->sigs, inmap))
-		errx(1, "Expected %llu total inputs, not %zu + %zu",
-		     (long long)anchor->input_count,
-		     leak1->sigs->n_script, leak2->sigs->n_script);
-
 	bitcoin_txid(anchor, txid);
-
-	pkt__free_unpacked(p1, NULL);
-	pkt__free_unpacked(p2, NULL);
 }

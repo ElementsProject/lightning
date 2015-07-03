@@ -394,49 +394,6 @@ void   open_anchor_scriptsigs__free_unpacked
   assert(message->base.descriptor == &open_anchor_scriptsigs__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   leak_anchor_sigs_and_pretend_we_didnt__init
-                     (LeakAnchorSigsAndPretendWeDidnt         *message)
-{
-  static LeakAnchorSigsAndPretendWeDidnt init_value = LEAK_ANCHOR_SIGS_AND_PRETEND_WE_DIDNT__INIT;
-  *message = init_value;
-}
-size_t leak_anchor_sigs_and_pretend_we_didnt__get_packed_size
-                     (const LeakAnchorSigsAndPretendWeDidnt *message)
-{
-  assert(message->base.descriptor == &leak_anchor_sigs_and_pretend_we_didnt__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
-}
-size_t leak_anchor_sigs_and_pretend_we_didnt__pack
-                     (const LeakAnchorSigsAndPretendWeDidnt *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &leak_anchor_sigs_and_pretend_we_didnt__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
-}
-size_t leak_anchor_sigs_and_pretend_we_didnt__pack_to_buffer
-                     (const LeakAnchorSigsAndPretendWeDidnt *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &leak_anchor_sigs_and_pretend_we_didnt__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
-}
-LeakAnchorSigsAndPretendWeDidnt *
-       leak_anchor_sigs_and_pretend_we_didnt__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (LeakAnchorSigsAndPretendWeDidnt *)
-     protobuf_c_message_unpack (&leak_anchor_sigs_and_pretend_we_didnt__descriptor,
-                                allocator, len, data);
-}
-void   leak_anchor_sigs_and_pretend_we_didnt__free_unpacked
-                     (LeakAnchorSigsAndPretendWeDidnt *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &leak_anchor_sigs_and_pretend_we_didnt__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
-}
 void   open_complete__init
                      (OpenComplete         *message)
 {
@@ -1722,44 +1679,6 @@ const ProtobufCMessageDescriptor open_anchor_scriptsigs__descriptor =
   (ProtobufCMessageInit) open_anchor_scriptsigs__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor leak_anchor_sigs_and_pretend_we_didnt__field_descriptors[1] =
-{
-  {
-    "sigs",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(LeakAnchorSigsAndPretendWeDidnt, sigs),
-    &open_anchor_scriptsigs__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned leak_anchor_sigs_and_pretend_we_didnt__field_indices_by_name[] = {
-  0,   /* field[0] = sigs */
-};
-static const ProtobufCIntRange leak_anchor_sigs_and_pretend_we_didnt__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 1 }
-};
-const ProtobufCMessageDescriptor leak_anchor_sigs_and_pretend_we_didnt__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "leak_anchor_sigs_and_pretend_we_didnt",
-  "LeakAnchorSigsAndPretendWeDidnt",
-  "LeakAnchorSigsAndPretendWeDidnt",
-  "",
-  sizeof(LeakAnchorSigsAndPretendWeDidnt),
-  1,
-  leak_anchor_sigs_and_pretend_we_didnt__field_descriptors,
-  leak_anchor_sigs_and_pretend_we_didnt__field_indices_by_name,
-  1,  leak_anchor_sigs_and_pretend_we_didnt__number_ranges,
-  (ProtobufCMessageInit) leak_anchor_sigs_and_pretend_we_didnt__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
 static const ProtobufCFieldDescriptor open_complete__field_descriptors[1] =
 {
   {
@@ -2306,7 +2225,7 @@ const ProtobufCMessageDescriptor error__descriptor =
   (ProtobufCMessageInit) error__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor pkt__field_descriptors[16] =
+static const ProtobufCFieldDescriptor pkt__field_descriptors[15] =
 {
   {
     "update",
@@ -2405,18 +2324,6 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[16] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "omg_fail",
-    205,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Pkt, pkt_case),
-    offsetof(Pkt, omg_fail),
-    &leak_anchor_sigs_and_pretend_we_didnt__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
     "new_anchor",
     301,
     PROTOBUF_C_LABEL_OPTIONAL,
@@ -2502,14 +2409,13 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[16] =
   },
 };
 static const unsigned pkt__field_indices_by_name[] = {
-  13,   /* field[13] = close */
-  14,   /* field[14] = close_complete */
-  15,   /* field[15] = error */
-  9,   /* field[9] = new_anchor */
-  11,   /* field[11] = new_anchor_accept */
-  10,   /* field[10] = new_anchor_ack */
-  12,   /* field[12] = new_anchor_complete */
-  8,   /* field[8] = omg_fail */
+  12,   /* field[12] = close */
+  13,   /* field[13] = close_complete */
+  14,   /* field[14] = error */
+  8,   /* field[8] = new_anchor */
+  10,   /* field[10] = new_anchor_accept */
+  9,   /* field[9] = new_anchor_ack */
+  11,   /* field[11] = new_anchor_complete */
   4,   /* field[4] = open */
   6,   /* field[6] = open_anchor_scriptsigs */
   5,   /* field[5] = open_commit_sig */
@@ -2523,10 +2429,10 @@ static const ProtobufCIntRange pkt__number_ranges[5 + 1] =
 {
   { 1, 0 },
   { 201, 4 },
-  { 301, 9 },
-  { 401, 13 },
-  { 1000, 15 },
-  { 0, 16 }
+  { 301, 8 },
+  { 401, 12 },
+  { 1000, 14 },
+  { 0, 15 }
 };
 const ProtobufCMessageDescriptor pkt__descriptor =
 {
@@ -2536,7 +2442,7 @@ const ProtobufCMessageDescriptor pkt__descriptor =
   "Pkt",
   "",
   sizeof(Pkt),
-  16,
+  15,
   pkt__field_descriptors,
   pkt__field_indices_by_name,
   5,  pkt__number_ranges,

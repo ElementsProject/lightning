@@ -27,7 +27,5 @@ bool anchor_add_scriptsigs(struct bitcoin_tx *anchor,
 
 /* We wouldn't need the leak files if we had normalized txids! */
 void anchor_txid(struct bitcoin_tx *anchor,
-		 const char *leakfile1, const char *leakfile2,
-		 const size_t *inmap,
 		 struct sha256_double *txid);
 #endif /* LIGHTNING_ANCHOR_H */

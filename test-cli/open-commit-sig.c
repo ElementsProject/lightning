@@ -36,14 +36,14 @@ int main(int argc, char *argv[])
 	err_set_progname(argv[0]);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<open-channel-file1> <open-channel-file2> <commit-privkey> <leak-anchor-sigs1> <leak-anchor-sigs2>\n"
+			   "<open-channel-file1> <open-channel-file2> <commit-privkey>\n"
 			   "Create the signature needed for the commit transaction",
 			   "Print this message.");
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
-	if (argc != 6)
-		opt_usage_exit_fail("Expected 5 arguments");
+	if (argc != 4)
+		opt_usage_exit_fail("Expected 3 arguments");
 
 	o1 = pkt_from_file(argv[1], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 		errx(1, "Failed transaction merge");
 
 	/* Get the transaction ID of the anchor. */
-	anchor_txid(anchor, argv[4], argv[5], inmap, &txid);
+	anchor_txid(anchor, &txid);
 
 	/* Now create THEIR commitment tx to spend 2/2 output of anchor. */
 	proto_to_sha256(o2->revocation_hash, &rhash);

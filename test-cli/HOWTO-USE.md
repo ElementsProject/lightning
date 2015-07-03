@@ -76,44 +76,30 @@ B:
 
 	test-cli/open-anchor-scriptsigs B-open.pb A-open.pb <B-TXINKEY>... > B-anchor-scriptsigs.pb
 
-STEP 3 (The INSECURE hack!)
-------
-Because we don't have tx normalization or equivalent, we need to
-share the signed anchor inputs so the other side can create the
-first commitment transaction.
-
-A:
-
-	test-cli/leak-anchor-sigs A-anchor-scriptsigs.pb > A-leak-anchor-sigs.pb
-
-B:
-
-	test-cli/leak-anchor-sigs B-anchor-scriptsigs.pb > B-leak-anchor-sigs.pb
-
-STEP 4
+STEP 3
 ------
 Now both sides create the commitment transaction signatures which spend
 the transaction output:
 
 A:
 
-	test-cli/open-commit-sig A-open.pb B-open.pb <A-TMPKEY> A-leak-anchor-sigs.pb B-leak-anchor-sigs.pb > A-commit-sig.pb
+	test-cli/open-commit-sig A-open.pb B-open.pb <A-TMPKEY> > A-commit-sig.pb
 B:
 
-	test-cli/open-commit-sig B-open.pb A-open.ob <B-TMPKEY> B-leak-anchor-sigs.pb A-leak-anchor-sigs.pb > B-commit-sig.pb
+	test-cli/open-commit-sig B-open.pb A-open.ob <B-TMPKEY> > B-commit-sig.pb
 
-STEP 5
+STEP 4
 ------
 Check the commitment signatures from the other side, and produce commit txs.
 
 A:
 
-	test-cli/check-commit-sig A-open.pb B-open.pb B-commit-sig.pb <A-TMPKEY> A-leak-anchor-sigs.pb B-leak-anchor-sigs.pb > A-commit-0.tx
+	test-cli/check-commit-sig A-open.pb B-open.pb B-commit-sig.pb <A-TMPKEY> > A-commit-0.tx
 B:
 
-	test-cli/check-commit-sig B-open.pb A-open.pb A-commit-sig.pb <B-TMPKEY> B-leak-anchor-sigs.pb A-leak-anchor-sigs.pb > B-commit-0.tx
+	test-cli/check-commit-sig B-open.pb A-open.pb A-commit-sig.pb <B-TMPKEY> > B-commit-0.tx
 
-STEP 6
+STEP 5
 ------
 Check the anchor signatures from the other side, and use them to generate the
 anchor transaction (as a hex string, suitable for bitcoind).
@@ -129,7 +115,7 @@ They should be identical:
 
 	cmp A-anchor.tx B-anchor.tx || echo FAIL
 
-STEP 7
+STEP 6
 ------
 Broadcast the anchor transaction:
 
