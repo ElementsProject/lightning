@@ -1,47 +1,50 @@
 There are two sides, A and B.
 
-You can see my example test script in `test-cli/test.sh`.  As these
-utilities don't keep any state, and don't talk to bitcoind, the
-commandlines get ugly fast (and don't handle all cases).  They're only
-for testing.
+You can see my example test scripts `test-cli/scripts/setup.sh` and
+`test-cli/scripts/test.sh`.  As these utilities don't keep any state,
+and don't talk to bitcoind/alphad, the commandlines get ugly fast (and
+don't handle all cases).  They're only for testing.
 
 Opening a Generalized Channel
 =============================
 
-You will need a running bitcoin node, in regtest mode, and two or more
-pay-to-pubkey-hash outputs (ie. not the results of mining), which you
-can create like this:
+You will need a running alphad node in regtest mode (which will give
+you 10500000 coins once you generate a block):
 
-	$ bitcoin-cli -regtest generate 101
-	$ A1=`bitcoin-cli -regtest getnewaddress`
-	$ A2=`bitcoin-cli -regtest getnewaddress`
-	$ TX1=`bitcoin-cli -regtest sendtoaddress $A1 10`
-	$ TX2=`bitcoin-cli -regtest sendtoaddress $A2 10`
-	$ bitcoin-cli -regtest generate 1
+	$ alphad -regtest -testnet=0 &
+	$ alpha-cli -regtest -testnet=0 setgenerate true
+
+You will also need two (non-confidential) transaction outputs (mined)
+
+	$ A1=`scripts/get-new-address.sh`
+	$ A2=`scripts/get-new-address.sh`
+	$ TX=`alpha-cli -regtest -testnet=0 sendmany "" "{ \"$A1\":10, \"$A2\":10 }"`
+	$ alpha-cli -regtest -testnet=0 setgenerate true
+
 	# Find the inputs numbers corresponding to those 10 btc outs
-	for i in `seq 103`; do ./getinput.sh $i | grep -q "\($TX1\|$TX2\).*/1000000000/" && echo $i; done
+	for i in $(seq 1 $(alpha-cli -regtest -testnet=0 listunspent | grep -c txid) ); do scripts/getinput.sh $i | grep -q "$TX.*/1000000000/" && echo $i; done
 
 For each side A and B you need:
 
 1. SEED: A secret 256-bit seed, in hex.
 	Try 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
 2. CHANGEADDR: An anchor change address (unless amounts are exact).
-	eg. `bitcoin-cli -regtest getnewaddress`
+	eg. `scripts/get-new-address.sh`
 3. CHANGEPUBKEY: The public key for CHANGEADDR.
-	eg. `bitcoin-cli -regtest validateaddress <CHANGEADDR> | grep pubkey`
+	eg. `alpha-cli -regtest -testnet=0 validateaddress <CHANGEADDR> | grep pubkey`
 4. TMPADDR: An address for the anchor output to the commitment transaction.
-	eg. `bitcoin-cli -regtest getnewaddress`
+	eg. `scripts/get-new-address.sh`
 5. TMPKEY: The private key for TMPADDR
-	eg. `bitcoin-cli -regtest dumpprivkey <TMPADDR>`
+	eg. `alpha-cli -regtest -testnet=0 dumpprivkey <TMPADDR>`
 6. FINALADDR: An output address for when channel is closed.
-	eg. `bitcoin-cli -regtest getnewaddress`
+	eg. `scripts/get-new-address.sh`
 7. FINALKEY: The private key for FINALADDR
-   	eg. `bitcoin-cli -regtest dumpprivkey <FINALADDR>`
+   	eg. `alpha-cli -regtest -testnet=0 dumpprivkey <FINALADDR>`
 8. TXIN{1-n}: One or more unspent transaction outputs on testnet.
 	These are in form "<txid>/<outnum>/<amount>/<scriptsig>".
-	eg. ./getinput.sh (`./getinput.sh 2`, etc).
+	eg. scripts/getinput.sh (`scripts/getinput.sh 2`, etc).
 9. TXINKEY{1-n}: The private keys to spend the TXINs.
-	eg. `./getinput.sh --privkey` can get these.
+	eg. `scripts/getinput.sh --privkey` can get these.
 
 STEP 1
 ------
@@ -132,19 +135,18 @@ Broadcast the anchor transaction:
 
 Either one:
 
-	bitcoin-cli -regtest sendrawtransaction `cat A-anchor.tx` > anchor.txid
+	alpha-cli -regtest -testnet=0 sendrawtransaction `cat A-anchor.tx` > anchor.txid
 
 Generate blocks until we have enough confirms (I don't do this, so I
-can reset the entire state by restarting bitcoind with
-`-zapwallettxes=1`):
+can reset the entire state by restarting bitcoind with `-zapwallettxes=1`):
 
 A:
 
-	while [ 0$(bitcoin-cli -regtest getrawtransaction $(cat anchor.txid) 1 | sed -n 's/.*"confirmations" : \([0-9]*\),/\1/p') -lt $(test-cli/get-anchor-depth A-open.pb) ]; do bitcoin-cli -regtest generate 1; done
+	while [ 0$(alpha-cli -regtest -testnet=0 getrawtransaction $(cat anchor.txid) 1 | sed -n 's/.*"confirmations" : \([0-9]*\),/\1/p') -lt $(test-cli/get-anchor-depth A-open.pb) ]; do scripts/generate-block.sh; done
 
 B:
 
-	while [ 0$(bitcoin-cli -regtest getrawtransaction $(cat anchor.txid) 1 | sed -n 's/.*"confirmations" : \([0-9]*\),/\1/p') -lt $(test-cli/get-anchor-depth B-open.pb) ]; do bitcoin-cli -regtest generate 1; done
+	while [ 0$(alpha-cli -regtest -testnet=0 getrawtransaction $(cat anchor.txid) 1 | sed -n 's/.*"confirmations" : \([0-9]*\),/\1/p') -lt $(test-cli/get-anchor-depth B-open.pb) ]; do scripts/generate-block.sh; done
 
 Using a Generalized Channel
 ===========================
@@ -203,7 +205,7 @@ A:
 
 A:
 
-	bitcoin-cli -regtest sendrawtransaction `cat A-commit-0.tx`
+	alpha-cli -regtest -testnet=0 sendrawtransaction `cat A-commit-0.tx`
 
 B can steal the money, using the revocation hash from A-update-sig-1:
 
@@ -213,7 +215,7 @@ B:
 
 B:
 
-	bitcoin-cli -regtest sendrawtransaction `cat B-commit-steal.tx`
+	alpha-cli -regtest -testnet=0 sendrawtransaction `cat B-commit-steal.tx`
 
 Closing the Channel: Unilaterally
 =================================
@@ -222,7 +224,7 @@ To close unilaterally, one side broadcasts its latest commitment tx:
 
 A:
 
-	bitcoin-cli -regtest sendrawtransaction `cat A-commit-1.tx`
+	alpha-cli -regtest -testnet=0 sendrawtransaction `cat A-commit-1.tx`
 
 Now, we can create the transaction to spend the output:
 
@@ -236,7 +238,7 @@ immediately:
 
 A:
 
-	bitcoin-cli -regtest sendrawtransaction `cat spend.tx`
+	alpha-cli -regtest -testnet=0 sendrawtransaction `cat spend.tx`
 
 Closing the Channel By Mutual Consent
 =====================================
