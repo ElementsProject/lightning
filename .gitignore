@@ -1,5 +1,9 @@
 *~
 *.o
+*.orig
+*.tx
+*.txid
+*.pb
 TAGS
 open-channel
 open-anchor-scriptsigs
@@ -17,3 +21,6 @@ update-channel-accept
 update-channel-signature
 update-channel-complete
 create-commit-tx
+ccan/tools/configurator/configurator
+libsecp256k1.a
+libsecp256k1.la
