@@ -143,17 +143,17 @@ void base58_get_checksum(u8 csum[4], const u8 buf[], size_t buflen)
 char *bitcoin_to_base58(const tal_t *ctx, bool test_net,
 			const struct bitcoin_address *addr)
 {
-	u8 buf[1 + RIPEMD160_DIGEST_LENGTH + 4];
+	u8 buf[1 + sizeof(addr->addr) + 4];
 	char out[BASE58_ADDR_MAX_LEN + 2], *p;
 
 	buf[0] = test_net ? 111 : 0;
 
-	BUILD_ASSERT(sizeof(*addr) == RIPEMD160_DIGEST_LENGTH);
-	memcpy(buf+1, addr, RIPEMD160_DIGEST_LENGTH);
+	BUILD_ASSERT(sizeof(addr->addr) == sizeof(struct ripemd160));
+	memcpy(buf+1, addr, sizeof(addr->addr));
 
 	/* Append checksum */
-	base58_get_checksum(buf + 1 + RIPEMD160_DIGEST_LENGTH,
-			    buf, 1 + RIPEMD160_DIGEST_LENGTH);
+	base58_get_checksum(buf + 1 + sizeof(addr->addr),
+			    buf, 1 + sizeof(addr->addr));
 
 	p = encode_base58(out, BASE58_ADDR_MAX_LEN, buf, sizeof(buf));
 	return tal_strdup(ctx, p);
@@ -163,7 +163,7 @@ bool bitcoin_from_base58(bool *test_net,
 			 struct bitcoin_address *addr,
 			 const char *base58, size_t base58_len)
 {
-	u8 buf[1 + RIPEMD160_DIGEST_LENGTH + 4];
+	u8 buf[1 + sizeof(addr->addr) + 4];
 	BIGNUM bn;
 	size_t len;
 	u8 csum[4];
@@ -187,32 +187,32 @@ bool bitcoin_from_base58(bool *test_net,
 	else
 		return false;
 
-	base58_get_checksum(csum, buf, 1 + RIPEMD160_DIGEST_LENGTH);
-	if (memcmp(csum, buf + 1 + RIPEMD160_DIGEST_LENGTH, sizeof(csum)) != 0)
+	base58_get_checksum(csum, buf, 1 + sizeof(addr->addr));
+	if (memcmp(csum, buf + 1 + sizeof(addr->addr), sizeof(csum)) != 0)
 		return false;
 
-	BUILD_ASSERT(sizeof(*addr) == RIPEMD160_DIGEST_LENGTH);
-	memcpy(addr, buf+1, sizeof(*addr));
+	memcpy(&addr->addr, buf+1, sizeof(addr->addr));
 	return true;
 }
 
 /* buf already contains version and ripemd160.  Append checksum and encode */
 char *base58_with_check(char dest[BASE58_ADDR_MAX_LEN],
-			u8 buf[1 + RIPEMD160_DIGEST_LENGTH + 4])
+			u8 buf[1 + sizeof(struct ripemd160) + 4])
 {
 	/* Append checksum */
-	base58_get_checksum(buf + 1 + RIPEMD160_DIGEST_LENGTH,
-			    buf, 1 + RIPEMD160_DIGEST_LENGTH);
+	base58_get_checksum(buf + 1 + sizeof(struct ripemd160),
+			    buf, 1 + sizeof(struct ripemd160));
 
 	/* Now encode. */
 	return encode_base58(dest, BASE58_ADDR_MAX_LEN, buf,
-			     1 + RIPEMD160_DIGEST_LENGTH + 4);
+			     1 + sizeof(struct ripemd160) + 4);
 }
 
-bool ripemd_from_base58(u8 *version, u8 ripemd160[RIPEMD160_DIGEST_LENGTH],
+bool ripemd_from_base58(u8 *version,
+			struct ripemd160 *ripemd160,
 			const char *base58)
 {
-	u8 buf[1 + RIPEMD160_DIGEST_LENGTH + 4];
+	u8 buf[1 + sizeof(*ripemd160) + 4];
 	u8 csum[4];
 	BIGNUM bn;
 	size_t len;
@@ -240,11 +240,11 @@ bool ripemd_from_base58(u8 *version, u8 ripemd160[RIPEMD160_DIGEST_LENGTH],
 
 	/* Check checksum is correct. */
 	base58_get_checksum(csum, buf, sizeof(buf));
-	if (memcmp(csum, buf + 1 + RIPEMD160_DIGEST_LENGTH, 4) != 0)
+	if (memcmp(csum, buf + 1 + sizeof(*ripemd160), 4) != 0)
 		return false;
 
 	*version = buf[0];
-	memcpy(ripemd160, buf + 1, RIPEMD160_DIGEST_LENGTH);
+	memcpy(ripemd160, buf + 1, sizeof(*ripemd160));
 	return true;
 }
 

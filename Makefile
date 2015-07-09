@@ -14,7 +14,7 @@ BITCOIN_OBJS := bitcoin/address.o bitcoin/base58.o bitcoin/pubkey.o bitcoin/scri
 
 HELPER_OBJS := lightning.pb-c.o pkt.o permute_tx.o anchor.o commit_tx.o opt_bits.o close_tx.o find_p2sh_out.o protobuf_convert.o
 
-CCAN_OBJS := ccan-crypto-sha256.o ccan-crypto-shachain.o ccan-err.o ccan-tal.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-str-hex.o ccan-tal-grab_file.o ccan-noerr.o
+CCAN_OBJS := ccan-crypto-sha256.o ccan-crypto-shachain.o ccan-err.o ccan-tal.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-str-hex.o ccan-tal-grab_file.o ccan-noerr.o ccan-crypto-ripemd160.o
 
 HEADERS := $(wildcard *.h)
 
@@ -95,4 +95,7 @@ ccan-crypto-shachain.o: $(CCANDIR)/ccan/crypto/shachain/shachain.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-crypto-sha256.o: $(CCANDIR)/ccan/crypto/sha256/sha256.c
 	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-crypto-ripemd160.o: $(CCANDIR)/ccan/crypto/ripemd160/ripemd160.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 

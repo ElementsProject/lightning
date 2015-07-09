@@ -1,6 +1,6 @@
+#include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/endian/endian.h>
-#include <openssl/ripemd.h>
 #include <assert.h>
 #include "address.h"
 #include "pubkey.h"
@@ -146,13 +146,13 @@ u8 *bitcoin_redeem_single(const tal_t *ctx, const struct pubkey *key)
 u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript)
 {
 	struct sha256 h;
-	u8 redeemhash[RIPEMD160_DIGEST_LENGTH];
+	struct ripemd160 redeemhash;
 	u8 *script = tal_arr(ctx, u8, 0);
 
 	add_op(&script, OP_HASH160);
 	sha256(&h, redeemscript, tal_count(redeemscript));
-	RIPEMD160(h.u.u8, sizeof(h), redeemhash);
-	add_push_bytes(&script, redeemhash, sizeof(redeemhash));
+	ripemd160(&redeemhash, h.u.u8, sizeof(h));
+	add_push_bytes(&script, redeemhash.u.u8, sizeof(redeemhash.u.u8));
 	add_op(&script, OP_EQUAL);
 	return script;
 }
@@ -247,7 +247,7 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 			     const struct sha256 *rhash)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
-	u8 rhash_ripemd[RIPEMD160_DIGEST_LENGTH];
+	struct ripemd160 rhash_ripemd;
 	le32 locktime_le = cpu_to_le32(locktime);
 
 	/* If there are two args: */
@@ -256,9 +256,9 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 	add_op(&script, OP_IF);
 
 	/* Must hash to revocation_hash, and be signed by them. */
-	RIPEMD160(rhash->u.u8, sizeof(rhash->u), rhash_ripemd);
+	ripemd160(&rhash_ripemd, rhash->u.u8, sizeof(rhash->u));
 	add_op(&script, OP_HASH160);
-	add_push_bytes(&script, rhash_ripemd, sizeof(rhash_ripemd));
+	add_push_bytes(&script, rhash_ripemd.u.u8, sizeof(rhash_ripemd.u.u8));
 	add_op(&script, OP_EQUALVERIFY);
 	add_push_key(&script, theirkey);
 

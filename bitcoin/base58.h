@@ -1,9 +1,8 @@
 #ifndef LIGHTNING_BITCOIN_BASE58_H
 #define LIGHTNING_BITCOIN_BASE58_H
-/* FIXME: Use libsecpk1 */
+#include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <openssl/ripemd.h>
 #include <openssl/bn.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -30,11 +29,11 @@ bool bitcoin_from_base58(bool *test_net,
 			 struct bitcoin_address *addr,
 			 const char *base58, size_t len);
 
-bool ripemd_from_base58(u8 *version, u8 ripemd160[RIPEMD160_DIGEST_LENGTH],
+bool ripemd_from_base58(u8 *version, struct ripemd160 *ripemd160,
 			const char *base58);
 
 char *base58_with_check(char dest[BASE58_ADDR_MAX_LEN],
-			u8 buf[1 + RIPEMD160_DIGEST_LENGTH + 4]);
+			u8 buf[1 + sizeof(struct ripemd160) + 4]);
 
 char *key_to_base58(const tal_t *ctx, bool test_net, const struct privkey *key);
 bool key_from_base58(const char *base58, size_t base58_len,
