@@ -46,6 +46,16 @@ $(CCAN_OBJS) $(HELPER_OBJS) $(PROGRAM_OBJS) $(BITCOIN_OBJS): ccan/config.h
 ccan/config.h: ccan/tools/configurator/configurator
 	$< > $@
 
+update-ccan:
+	mv ccan ccan.old
+	DIR=$$(pwd)/ccan; cd ../ccan && ./tools/create-ccan-tree -a $$DIR `cd $$DIR.old/ccan && find * -name _info | sed s,/_info,, | sort` $(CCAN_NEW)
+	mkdir -p ccan/tools/configurator
+	cp ../ccan/tools/configurator/configurator.c ccan/tools/configurator/
+	$(MAKE) ccan/config.h
+	grep -v '^CCAN version:' ccan.old/README > ccan/README
+	echo CCAN version: `git -C ../ccan describe` >> ccan/README
+	$(RM) -r ccan.old
+
 distclean: clean
 	$(RM) lightning.pb-c.c lightning.pb-c.h ccan/config.h
 
