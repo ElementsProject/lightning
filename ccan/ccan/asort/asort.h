@@ -2,7 +2,7 @@
 #ifndef CCAN_ASORT_H
 #define CCAN_ASORT_H
 #include "config.h"
-#include <ccan/typesafe_cb/typesafe_cb.h>
+#include <ccan/order/order.h>
 #include <stdlib.h>
 
 /**
@@ -20,19 +20,13 @@
  */
 #define asort(base, num, cmp, ctx)					\
 _asort((base), (num), sizeof(*(base)),					\
-       typesafe_cb_cast(int (*)(const void *, const void *, void *),	\
-			int (*)(const __typeof__(*(base)) *,		\
-				const __typeof__(*(base)) *,		\
-				__typeof__(ctx)),			\
-			(cmp)),						\
-       (ctx))
+       total_order_cast((cmp), *(base), (ctx)), (ctx))
 
 #if HAVE_QSORT_R_PRIVATE_LAST
 #define _asort(b, n, s, cmp, ctx) qsort_r(b, n, s, cmp, ctx)
 #else
 void _asort(void *base, size_t nmemb, size_t size,
-	    int(*compar)(const void *, const void *, void *),
-	    void *ctx);
+	    _total_order_cb compar, void *ctx);
 #endif
 
 #endif /* CCAN_ASORT_H */

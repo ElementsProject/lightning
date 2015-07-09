@@ -36,7 +36,7 @@ void sha256_init(struct sha256_ctx *ctx)
 	SHA256_Init(&ctx->c);
 }
 
-void sha256_update_bytes(struct sha256_ctx *ctx, const void *p, size_t size)
+void sha256_update(struct sha256_ctx *ctx, const void *p, size_t size)
 {
 	check_sha256(ctx);
 	SHA256_Update(&ctx->c, p, size);
