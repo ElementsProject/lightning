@@ -46,6 +46,12 @@ $(CCAN_OBJS) $(HELPER_OBJS) $(PROGRAM_OBJS) $(BITCOIN_OBJS): ccan/config.h
 ccan/config.h: ccan/tools/configurator/configurator
 	$< > $@
 
+doc/deployable-lightning.pdf: doc/deployable-lightning.lyx doc/bitcoin.bib
+	lyx -E pdf $@ $<
+
+doc/deployable-lightning.tex: doc/deployable-lightning.lyx
+	lyx -E latex $@ $<
+
 update-ccan:
 	mv ccan ccan.old
 	DIR=$$(pwd)/ccan; cd ../ccan && ./tools/create-ccan-tree -a $$DIR `cd $$DIR.old/ccan && find * -name _info | sed s,/_info,, | sort` $(CCAN_NEW)
@@ -58,10 +64,12 @@ update-ccan:
 
 distclean: clean
 	$(RM) lightning.pb-c.c lightning.pb-c.h ccan/config.h
+	$(RM) doc/deployable-lightning.pdf
 
 clean:
 	$(RM) $(PROGRAMS) test-cli/leak-anchor-sigs
 	$(RM) bitcoin/*.o *.o $(CCAN_OBJS)
+	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
 	$(CC) $(CFLAGS) -c -o $@ $<

@@ -1,0 +1,1963 @@
+#LyX 2.1 created this file. For more info see http://www.lyx.org/
+\lyxformat 474
+\begin_document
+\begin_header
+\textclass article
+\begin_preamble
+% for subfigures/subtables
+\usepackage[caption=false,font=footnotesize]{subfig}
+\end_preamble
+\options journal
+\use_default_options false
+\maintain_unincluded_children false
+\language english
+\language_package none
+\inputencoding default
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_math auto
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command bibtex
+\index_command default
+\float_placement H
+\paperfontsize default
+\spacing single
+\use_hyperref true
+\pdf_title "Your Title"
+\pdf_author "Your Name"
+\pdf_bookmarks true
+\pdf_bookmarksnumbered true
+\pdf_bookmarksopen true
+\pdf_bookmarksopenlevel 1
+\pdf_breaklinks false
+\pdf_pdfborder true
+\pdf_colorlinks false
+\pdf_backref false
+\pdf_pdfusetitle false
+\pdf_quoted_options "pdfpagelayout=OneColumn, pdfnewwindow=true, pdfstartview=XYZ, plainpages=false"
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 0
+\use_package esint 0
+\use_package mathdots 1
+\use_package mathtools 0
+\use_package mhchem 1
+\use_package stackrel 0
+\use_package stmaryrd 0
+\use_package undertilde 0
+\cite_engine basic
+\cite_engine_type default
+\biblio_style ieeetr
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Reaching The Ground With Lightning (draft 0.1)
+\end_layout
+
+\begin_layout Author
+Rusty Russell <rusty@blockstream.com>
+\end_layout
+
+\begin_layout Abstract
+The Lightning Network (as proposed by Joseph Poon and Thaddeus Dryja
+\begin_inset CommandInset citation
+LatexCommand cite
+key "Poon2015Lightning"
+
+\end_inset
+
+) requires some new sighash modes in order to work with Bitcoin.
+ This paper proposes a simplified variant which requires only modifications
+ which are already proposed for bitcoin, and slightly simplifies the revocation
+ of existing contracts.
+\end_layout
+
+\begin_layout Abstract
+Keywords: bitcoin, lightning, revocation hash, HTLC
+\end_layout
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Standard
+The Bitcoin network
+\begin_inset CommandInset citation
+LatexCommand cite
+key "nakamoto2008bitcoin"
+
+\end_inset
+
+ allows the transfer of value between peers using 
+\emph on
+transactions.
+
+\emph default
+ Each bitcoin transaction consists of one or more 
+\emph on
+outputs
+\emph default
+ (typically specifying the hash of the recipient's key), and one or more
+ 
+\emph on
+inputs
+\emph default
+ (typically containing the recipient's key and a signature of the transaction).
+ Thus one transfers value to another peer by creating a transaction which
+ 
+\emph on
+spends
+\emph default
+ one or more outputs and creates an output which the recipient can spent
+ using their private key.
+\end_layout
+
+\begin_layout Standard
+While such cryptographic transfer of value is near-instantaneous, ensuring
+ that the transaction has been included in the consensus of the shared ledger
+ (aka.
+ 
+\emph on
+blockchain
+\emph default
+) creates delays ranging from a few minutes to hours, depending on the level
+ of reliability required.
+ Inclusion in the blockchain is performed by miners, who preferentially
+ include transactions paying greatest fee per byte.
+\end_layout
+
+\begin_layout Standard
+Thus using the blockchain directly is slow, and too expensive for genuinely
+ small transfers (typical fees are a few cents).
+\end_layout
+
+\begin_layout Section
+Previous Work
+\end_layout
+
+\begin_layout Standard
+To work around the bitcoin network's delays and fees, several forms of 
+\emph on
+off-chain
+\emph default
+ transaction patterns have been developed, where series of transactions
+ are sent directly between two parties, with only the initial opening transactio
+n and final redemption transaction being included in the bitcoin blockchain.
+\end_layout
+
+\begin_layout Standard
+The Lightning Network paper proposed a solution, but at the cost of introducing
+ new signature variants (sighash ops).
+ Adding a new signature opcode would allow many other improvements
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+Schnorr signatures offer faster batch validation, according to https://github.com
+/ElementsProject/elementsproject.github.io#schnorr-signature-validation
+\end_layout
+
+\end_inset
+
+
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+DER encoding adds unnecessary bytes and is a cause of malleability
+\end_layout
+
+\end_inset
+
+ but that is precisely why it's a matter for longer term research and unlikely
+ to be deployed in Bitcoin in the immediate future.
+\end_layout
+
+\begin_layout Subsection
+Payment Channels
+\end_layout
+
+\begin_layout Standard
+The concept of 
+\emph on
+payment channels
+\emph default
+ (sometimes called micropayment channels) has existed in various forms for
+ several years
+\begin_inset CommandInset citation
+LatexCommand cite
+key "BitcoinChannels"
+
+\end_inset
+
+.
+ The simplest form is as follows, and allows A to quickly and cheaply pay
+ B a stream of slightly increasing amounts:
+\end_layout
+
+\begin_layout Enumerate
+A creates an 
+\emph on
+anchor
+\emph default
+ transaction to 
+\emph on
+open the channel
+\emph default
+ which:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+Outputs $1,
+\end_layout
+
+\begin_layout Enumerate
+Requires the signatures of both A and B to redeem.
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+A sends the transaction ID of the anchor, which output to spend, and the
+ amount of that output to B.
+\end_layout
+
+\begin_layout Enumerate
+B signs a 
+\begin_inset Quotes eld
+\end_inset
+
+refund
+\begin_inset Quotes erd
+\end_inset
+
+ transaction which:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+spends that anchor output,
+\end_layout
+
+\begin_layout Enumerate
+outputs the $1 to an address controlled by A, and
+\end_layout
+
+\begin_layout Enumerate
+can only be spent in 24 hours (using the 
+\emph on
+locktime
+\emph default
+ field)
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+B sends A the refund transaction.
+\end_layout
+
+\begin_layout Enumerate
+A broadcasts the anchor transaction, knowing she can get the funds back
+ in 24 hours using the refund if B vanishes.
+\end_layout
+
+\begin_layout Standard
+A can now pay B 1 cent by signing a new 
+\emph on
+commitment 
+\emph default
+transaction to send to B, which spends the anchor output and has two outputs:
+ one pays A 99c, and the other pays B 1 cent.
+ A can later pay B another cent by signing another transaction (
+\begin_inset Quotes eld
+\end_inset
+
+updating the commitment
+\begin_inset Quotes erd
+\end_inset
+
+) for B which pays A 98c and B 2c, etc.
+\end_layout
+
+\begin_layout Standard
+At any point, B can 
+\begin_inset Quotes eld
+\end_inset
+
+close the channel
+\begin_inset Quotes erd
+\end_inset
+
+ by signing and broadcasting the latest commitment transaction to collect
+ the money.
+ B should do this before 24 hours pass, otherwise A can use the refund transacti
+on.
+\end_layout
+
+\begin_layout Subsubsection
+Limitations Of Simple Payment Channels
+\end_layout
+
+\begin_layout Standard
+Simple channels have several limitations:
+\end_layout
+
+\begin_layout Description
+Single
+\begin_inset space ~
+\end_inset
+
+recipient.
+ A new recipient requires a new channel, which must wait for consensus on
+ the anchor transaction.
+\end_layout
+
+\begin_layout Description
+One
+\begin_inset space ~
+\end_inset
+
+way.
+ They cannot be reversed: A can sign a transaction which pays B less money
+ than the last, but B could still broadcast the older transaction.
+\end_layout
+
+\begin_layout Description
+Vulnerable
+\begin_inset space ~
+\end_inset
+
+to
+\begin_inset space ~
+\end_inset
+
+malleability.
+ The anchor transaction could be altered in several ways (without invaliding
+ it completely) before inclusion in the blockchain: this alters its transaction
+ id and thus makes the refund transaction unusable.
+\end_layout
+
+\begin_layout Standard
+This last issue is a common one with complex bitcoin transactions, and BIP62
+\begin_inset CommandInset citation
+LatexCommand cite
+key "BIP62"
+
+\end_inset
+
+ is proposed to prevent non-signing parties from being able to malleate
+ transactions.
+ 
+\end_layout
+
+\begin_layout Subsection
+Generalized Payment Channels Using Revocable Transactions
+\end_layout
+
+\begin_layout Standard
+The Lightning network introduced generalized, bi-directional payment channels,
+ referred to here as 
+\emph on
+Poon-Dryja channels
+\emph default
+.
+ These use a mutual anchor, which both create to provide the channel funding,
+ and a symmetrical 
+\emph on
+pair
+\emph default
+ of updatable commitment
+\emph on
+ 
+\emph default
+transactions rather than the single transaction used in the one-way channel
+ case.
+\end_layout
+
+\begin_layout Standard
+[FIXME: Insert Figure 1 from LN draft 0.5]
+\end_layout
+
+\begin_layout Standard
+To update the commitment, A sends B a signature for B's new commitment transacti
+on, and B sends A a signature for A's new commitment transaction.
+\end_layout
+
+\begin_layout Standard
+As before, each commitment transaction contains two outputs, one for A and
+ one for B; but A's commitment transaction output to itself is encumbered
+ by an additional restriction (as is B's output to itself).
+ Instead of paying A directly, needs both A and B's signature.
+ B provides such a signature, but on a 
+\begin_inset Quotes eld
+\end_inset
+
+commitment refund
+\begin_inset Quotes erd
+\end_inset
+
+ transaction which can only be spent after a delay (40 days in the paper).
+ Thus if A closes the channel by signing and broadcasting its commitment
+ transaction, B can collect its output immediately, but A must wait 40 days.
+\end_layout
+
+\begin_layout Standard
+This delay encumbering the output is what makes the commitment transaction
+ 
+\emph on
+revocable;
+\emph default
+ once an updated commitment transaction is agreed upon, the previous commitment
+ transaction pair is revoked by sharing the private keys needed to redeem
+ those encumbered outputs.
+ Thus, A shares its (throwaway) private key, and B shares its throwaway
+ private key.
+ If A were to sign and broadcast a revoked commitment transaction, B could
+ not only immediately spend its own output, but it has both A's key and
+ its own to generate a transaction which can spend the output which would
+ normally go to A after a delay.
+\end_layout
+
+\begin_layout Subsection
+Hashed Timelock Contracts (HTLCs)
+\end_layout
+
+\begin_layout Standard
+The Lightning Network paper used a set of 4 transactions to implement a
+\emph on
+ hashed timelock contract, 
+\emph default
+which guarantees payment of a given amount on presentation of a secret value
+ 
+\emph on
+R
+\emph default
+ within a certain timespan.
+ Any number of these could be active within a generalized channel, and this
+ is what allows a network to form: Node A offers node B $1 for the secret
+ within 2 days, node B offers node C 99c for the secret within 1 day, etc.
+\end_layout
+
+\begin_layout Standard
+[ FIXME: Insert figure 2 from LN Draft 0.5 ]
+\end_layout
+
+\begin_layout Section
+Enhancements To Lightning
+\end_layout
+
+\begin_layout Standard
+This paper proposes various modifications.
+\end_layout
+
+\begin_layout Subsection
+Poon-Dryja Generalized Payment Channel Modifications
+\end_layout
+
+\begin_layout Standard
+This paper proposes three of these.
+\end_layout
+
+\begin_layout Subsubsection
+Placing Timeout in Output Script
+\end_layout
+
+\begin_layout Standard
+Rather than using a separate transaction to enforce the delay, BIP65
+\begin_inset CommandInset citation
+LatexCommand cite
+key "BIP65"
+
+\end_inset
+
+ proposes an OP_CHECKLOCKTIMEVERIFY which allows an output to specify the
+ minimum time at which it can be spent.
+ With this enhancement, we no longer need a separate 
+\begin_inset Quotes eld
+\end_inset
+
+commitment refund
+\begin_inset Quotes erd
+\end_inset
+
+ transaction.
+ The commitment transaction to-self output script would be a little more
+ complex:
+\end_layout
+
+\begin_layout Itemize
+A and B's signature, OR
+\end_layout
+
+\begin_layout Itemize
+A's signature and OP_CHECKLOCKTIMEVERIFY <40 days>
+\end_layout
+
+\begin_layout Subsubsection
+Using Relative Locktime
+\end_layout
+
+\begin_layout Standard
+The Poon-Dryja channel uses a 40 day locktime, because transaction locktime
+ is absolute.
+ Before 40 days the channel must be closed otherwise spending a revoked
+ transaction and immediately following it with the commit refund transaction
+ is possible.
+\end_layout
+
+\begin_layout Standard
+A proposal to extend output scripts to specify a minimum 
+\emph on
+relative
+\emph default
+ time before they can be spent
+\begin_inset CommandInset citation
+LatexCommand cite
+key "friedenbach_bitcoin-development_2015"
+
+\end_inset
+
+ can reduce this timeout (say, to 1 day) and avoid placing a lifetime limit
+ on the channel, like so:
+\end_layout
+
+\begin_layout Itemize
+A and B's signature, OR
+\end_layout
+
+\begin_layout Itemize
+A's signature and OP_CHECKSEQUENCEVERIFY <1 day>
+\end_layout
+
+\begin_layout Subsubsection
+Using Revocation Preimages Instead of Private Keys
+\end_layout
+
+\begin_layout Standard
+There's a slightly more intuitive and more efficient method than exchanging
+ private keys, which is to reuse a technique of hash preimages which is
+ already needed for HTLCs (as we see later).
+\end_layout
+
+\begin_layout Standard
+Instead of using a private keys, B uses knowledge of a hash preimage as
+ well as its signature to steal funds from a revoked commitment transaction.
+ Thus, to create a commitment transaction each side provides a hash value;
+ to revoke a commitment transaction it provides the prehash image.
+\end_layout
+
+\begin_layout Standard
+The resulting commitment transaction to-self output now looks like:
+\end_layout
+
+\begin_layout Itemize
+B's signature and a preimage which hashes to <revocation-hash>, OR
+\end_layout
+
+\begin_layout Itemize
+A's signature and OP_CHECKSEQUENCEVERIFY <1 day>
+\end_layout
+
+\begin_layout Standard
+This can be expressed fairly easily in bitcoin's script-based scripting
+ language, as annotated in 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sub:Commitment-Outputs-For"
+
+\end_inset
+
+.
+ The final pair of commitment transaction outputs is shown in Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Commitment-Transaction-Outputs"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename commit-tx.eps
+	scale 50
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Commitment Transaction Outputs
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Commitment-Transaction-Outputs"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Channel Opening Modifications
+\end_layout
+
+\begin_layout Standard
+The method of creating the first commitment transaction before signing the
+ anchor transaction (as proposed in the paper) presents two problems in
+ practice:
+\end_layout
+
+\begin_layout Enumerate
+The anchor transaction id required for the commitment input will only be
+ known one the anchor is signed, and
+\end_layout
+
+\begin_layout Enumerate
+The anchor transaction can be malleated by either party before entering
+ the blockchain, rendering the commitment input unusable.
+\end_layout
+
+\begin_layout Standard
+The last of these is particularly pernicious, as BIP62 doesn't solve it:
+ signatories can always re-sign a transaction, hence altering its transaction
+ ID.
+ The paper proposes new SIGHASH flags which mitigate this problem, but we
+ are attempting to avoid that.
+\end_layout
+
+\begin_layout Standard
+For ease of understanding, we develop the protocol in stages.
+ Please note that the intermediary proposals are insecure!
+\end_layout
+
+\begin_layout Subsubsection
+Separate Anchor Transactions
+\end_layout
+
+\begin_layout Standard
+To avoid the problem of needing all anchor signatures to derive the anchor
+ transaction ID to create the commitment transaction input, we split the
+ anchor into two transactions; thus A knows its anchor transaction ID, and
+ B knows its anchor transaction ID as shown in Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Simplistic-Dual-Anchor"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename dual-anchor-diag1.eps
+	scale 50
+
+\end_inset
+
+
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Simplistic Dual Anchor Design
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Simplistic-Dual-Anchor"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This form allows A and B to create commitment transactions which spends
+ the anchors outputs by exchanging anchor transaction IDs.
+ It has the problem that if the other party does not then broadcast its
+ anchor transaction, we cannot spend the commitment transaction, and our
+ own anchor funds are stuck.
+\end_layout
+
+\begin_layout Standard
+This we introduce an 
+\emph on
+escape
+\emph default
+ transaction, which lets us regain our anchor funds in that case, as shown
+ in Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Dual-Anchor2"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename dual-anchor-diag2.eps
+	scale 50
+
+\end_inset
+
+
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Dual Anchor With Simple Escape Transactions
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Dual-Anchor2"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+However, this escape transaction would let either side remove its funds
+ from the channel at any time, which would make the channel insecure.
+ Thus, after the commitment transactions have been established, we want
+ to revoke the escape transactions.
+ We can do the same way we did for the commitment transaction revocation;
+ by placing restrictions on the 
+\begin_inset Quotes eld
+\end_inset
+
+to-me
+\begin_inset Quotes erd
+\end_inset
+
+ output.
+ In particular, adding a delay if paying back to the anchor owner, and allowing
+ it to be spent by the other party immediately if they possess the revocation
+ preimage, as shown in Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Anchor-revoc-escape"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename dual-anchor-diag3.eps
+	scale 50
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Dual Anchors With Revocable Escape Transactions
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Anchor-revoc-escape"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Unfortunately, this revocation is not a complete solution; if B uses its
+ escape transaction, A can collect B's anchor funds, but it has no way of
+ collecting its own! The commitment transaction cannot be used, as one of
+ its inputs has been spent by B's escape transaction.
+ A's own escape transaction has been revoked, so B would simply steal the
+ funds.
+\end_layout
+
+\begin_layout Standard
+Thus we need an additional construction, such that using one escape transaction
+ immediately unlocks the other anchor funds for its owner.
+ To do this, we ensure that the escape transaction is forced to reveal a
+ secret, which is a fairly well-established technique
+\begin_inset CommandInset citation
+LatexCommand cite
+key "nolan_alt"
+
+\end_inset
+
+.
+ The anchor transaction is modified to either require both signatures (for
+ the commitment transaction), or both signatures and the secret (for the
+ escape transaction), as shown in Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Secret-Revelation-by"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename dual-anchor-diag4.eps
+	scale 50
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Secret Revelation by Escape Transactions
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Secret-Revelation-by"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+That revealed secret can be used with the other alternative: the 
+\emph on
+fast escape transaction.
+
+\emph default
+ This reveals the secret just like the escape transaction, but its output
+ is immediately usable if one knows the other side's secret.
+ This is shown in Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Final-Dual-Anchor"
+
+\end_inset
+
+.
+ Thus, if the B broadcasts its escape transaction after it has been revoked,
+ A can (after ensuring escape B is sufficiently deep in the block chain)
+ broadcast its fast escape transaction and use B's secret to immediately
+ spend the output.
+\end_layout
+
+\begin_layout Standard
+On the other hand, if B broadcasts its fast escape transaction without knowing
+ A's secret, A can simply wait for the timeout and spend the fast escape
+ output, then use its own fast escape transaction and B's secret to recover
+ its own anchor funds as well.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename dual-anchor-final.eps
+	scale 50
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Final Dual Anchor Design
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Final-Dual-Anchor"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The final scripts are shown in 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Appendix-A:-Scripts"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsubsection
+Disadvantages of The Dual Anchor Approach
+\end_layout
+
+\begin_layout Standard
+Unlike the mutual anchor approach, use of escape transactions is not outsourcabl
+e: you cannot have an untrusted third party which can monitor the network
+ for the other sides' revoked escape transaction and respond with your own
+ escape transaction.
+ If you were to provide a third party with your fast escape transaction,
+ you would necessarily provide it with the secret, which it could give to
+ B.
+\end_layout
+
+\begin_layout Subsection
+Hashed Timelock Contract (HTLC) Modification
+\end_layout
+
+\begin_layout Standard
+Using the same techniques used above, we can condense each HTLC into a single
+ output script on the commitment transaction.
+ This output is spendable under three conditions:
+\end_layout
+
+\begin_layout Enumerate
+Recipient knows the R value (funds go to recipient), or
+\end_layout
+
+\begin_layout Enumerate
+The HTLC has timed out (funds return to sender), or
+\end_layout
+
+\begin_layout Enumerate
+The Commit transaction has been revoked (funds to go other side).
+\end_layout
+
+\begin_layout Standard
+Unlike the original paper, we use revocation preimages instead of sharing
+ temporary private keys.
+ If we also use OP_CHECKLOCKTIMEVERIFY and OP_CHECKSEQUENCEVERIFY it is
+ fairly simple to express these conditions in a single output script.
+\end_layout
+
+\begin_layout Standard
+For each direction the HTLC could transfer funds, there are two scripts
+ required; one for A's commitment transaction and one for B's commitment
+ transaction.
+ It's also a requirement that the conditions which allow payment to oneself
+ be delayed, to give the other side an opportunity to take the funds in
+ case of revocation.
+ This is shown in figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:HTLC-Using-Revocation"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename htlc.eps
+	scale 50
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+HTLC Using Revocation Preimages, OP_CLV and OP_CSV
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:HTLC-Using-Revocation"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The scripts for this can be found in 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Appendix-A:-Scripts"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Section
+Conclusions
+\end_layout
+
+\begin_layout Standard
+Secret preimages can replace exposure of temporary private keys in the Lightning
+ Network constructs with no loss of generality, and a slight gain in simplicity.
+\end_layout
+
+\begin_layout Standard
+The use of script conditionals to enforce timeouts instead of using separate
+ pre-signed transactions reduces an HTLC from a set of four dual-signed
+ transactions to a single (more complex) output script, and additionally
+ avoids any requirement for new CHECKSIG flags for HTLCs.
+\end_layout
+
+\begin_layout Standard
+By using a dual anchor and escape transactions, channel establishment can
+ also avoid new CHECKSIG flags, though it loses the important ability to
+ outsource the enforcement of channel contract terms.
+\end_layout
+
+\begin_layout Section*
+Acknowlegments
+\end_layout
+
+\begin_layout Standard
+Thanks to Joseph Poon for designing the escape/fast-escape dual-anchor method,
+ as well as finding a flaw in my original formulation of the dual anchor
+ construct and reviewing an earlier draft of this paper.
+ Also thanks to him and Thaddeus Dryja for the initial eye-opening Lightning
+ Network paper.
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset bibtex
+LatexCommand bibtex
+bibfiles "bitcoin"
+options "plain"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+Appendix A: Transaction Scripts
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Appendix-A:-Scripts"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+All outputs are expressed as pay-to-scripthash outputs, where the redeeming
+ input provides the redeemscript.
+ Where a redeem-hash value is optional, it is generally supplied: for example,
+ if we want to pay to A if a preimage is supplied and B if no preimage is
+ supplied, we expect the input scriptsig to provide two arguments in both
+ cases (generally a zero in the second case).
+ This saves an extra test (of form 
+\begin_inset Quotes eld
+\end_inset
+
+OP_DEPTH <N> OP_EQUAL
+\begin_inset Quotes erd
+\end_inset
+
+), at cost of a single byte in the input script.
+\end_layout
+
+\begin_layout Subsection*
+Anchor Transaction
+\end_layout
+
+\begin_layout Standard
+The anchor inputs are whatever the node chooses.
+\end_layout
+
+\begin_layout Subsubsection*
+Anchor Output Redeemscript
+\end_layout
+
+\begin_layout Standard
+The anchor output is a pay to script hash, with a redeemscript as follows:
+\end_layout
+
+\begin_layout Description
+OP_IF They put a non-zero here if they're supplying the secret
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+OP_HASH
+\begin_inset space ~
+\end_inset
+
+<SECRET-A-HASH>
+\begin_inset space ~
+\end_inset
+
+OP_EQUALVERIFY Check secret is correct.
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ENDIF
+\end_layout
+
+\begin_layout Description
+2
+\begin_inset space ~
+\end_inset
+
+<KEY-A>
+\begin_inset space ~
+\end_inset
+
+<KEY-B>
+\begin_inset space ~
+\end_inset
+
+2
+\begin_inset space ~
+\end_inset
+
+OP_CHECKMULTISIG Make sure A and B have signed.
+\end_layout
+
+\begin_layout Subsection*
+Escape Transaction
+\end_layout
+
+\begin_layout Standard
+The escape transaction for A spends A's anchor output and reveals A's secret.
+ Similarly for B.
+\end_layout
+
+\begin_layout Subsubsection*
+Escape Input Script
+\end_layout
+
+\begin_layout Description
+<SIG-A>
+\begin_inset space ~
+\end_inset
+
+<SIG-B>
+\begin_inset space ~
+\end_inset
+
+SECRET
+\begin_inset space ~
+\end_inset
+
+1
+\begin_inset space ~
+\end_inset
+
+{<ANCHOR-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Subsubsection*
+Escape Output Redeemscript
+\end_layout
+
+\begin_layout Standard
+This allows two paths: one for the other side to use the revocation image,
+ and one for this side to get their funds back after a delay.
+ This show's A's script, but B's is the same with A and B exchanged.
+\end_layout
+
+\begin_layout Description
+OP_HASH160
+\begin_inset space ~
+\end_inset
+
+<RHASH-A>
+\begin_inset space ~
+\end_inset
+
+OP_EQUAL Check if the top of stack is the revocation image.
+\end_layout
+
+\begin_layout Description
+OP_IF
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+<KEY-B> Funds for B.
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ELSE It's A getting their funds back
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+<DELAYTIME>
+\begin_inset space ~
+\end_inset
+
+OP_CHECKSEQUENCEVERIFY
+\begin_inset space ~
+\end_inset
+
+OP_DROP Ensure delay.
+\end_layout
+
+\begin_layout Description
+<KEY-A> Needs to be signed by A.
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ENDIF
+\end_layout
+
+\begin_layout Description
+OP_CHECKSIG Make sure it's signed correctly.
+\end_layout
+
+\begin_layout Subsubsection*
+Spending The Escape Output
+\end_layout
+
+\begin_layout Standard
+Either B using a revocation preimage:
+\end_layout
+
+\begin_layout Description
+<SIG-B>
+\begin_inset space ~
+\end_inset
+
+<REVOCATION-IMAGE-A>
+\begin_inset space ~
+\end_inset
+
+{<ESCAPE-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Standard
+Or A using after a timeout:
+\end_layout
+
+\begin_layout Description
+<SIG-A>
+\begin_inset space ~
+\end_inset
+
+0
+\begin_inset space ~
+\end_inset
+
+{<ESCAPE-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Subsection*
+Fast-Escape Transaction
+\end_layout
+
+\begin_layout Subsubsection*
+Fast-Escape Input Script
+\end_layout
+
+\begin_layout Standard
+This is identical to the normal escape input script.
+\end_layout
+
+\begin_layout Description
+<SIG-A>
+\begin_inset space ~
+\end_inset
+
+<SIG-B>
+\begin_inset space ~
+\end_inset
+
+SECRET
+\begin_inset space ~
+\end_inset
+
+1
+\begin_inset space ~
+\end_inset
+
+{<ANCHOR-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Subsubsection*
+Fast-Escape Output Redeemscript
+\end_layout
+
+\begin_layout Standard
+This allows two paths: one for this side to use the other side's secret
+ (revealed by them using an escape transaction), and one for the other side
+ to claim this side's anchor funds after a delay.
+ This show's A's script, but B's is the same with A and B exchanged.
+\end_layout
+
+\begin_layout Description
+OP_HASH
+\begin_inset space ~
+\end_inset
+
+<SECRET-B>
+\begin_inset space ~
+\end_inset
+
+OP_EQUAL If top argument is B's secret
+\end_layout
+
+\begin_layout Description
+OP_IF
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+<KEY-A> For A
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ELSE B gets it if A doesn't know the secret.
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+<DELAYTIME>
+\begin_inset space ~
+\end_inset
+
+OP_CHECKSEQUENCEVERIFY
+\begin_inset space ~
+\end_inset
+
+OP_DROP Ensure delay.
+\end_layout
+
+\begin_layout Description
+<KEY-B> Needs to be signed by B.
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ENDIF
+\end_layout
+
+\begin_layout Description
+OP_CHECKSIG Make sure it's signed correctly.
+\end_layout
+
+\begin_layout Subsubsection*
+Spending The Fast-Escape Output
+\end_layout
+
+\begin_layout Standard
+Either A using a B's secret revealed by B using its own escape transaction:
+\end_layout
+
+\begin_layout Description
+<SIG-A>
+\begin_inset space ~
+\end_inset
+
+<SECRET-B>
+\begin_inset space ~
+\end_inset
+
+{<FAST-ESCAPE-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Standard
+Or B using after a timeout:
+\end_layout
+
+\begin_layout Description
+<SIG-B>
+\begin_inset space ~
+\end_inset
+
+0
+\begin_inset space ~
+\end_inset
+
+{<FAST-ESCAPE-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Subsection*
+Commitment Transactions For Generalized Channels
+\begin_inset CommandInset label
+LatexCommand label
+name "sub:Commitment-Outputs-For"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+These examples are for A's Commitment Transaction; switch A and B to get
+ B's commitment transaction.
+\end_layout
+
+\begin_layout Subsubsection*
+Commitment Input Script
+\end_layout
+
+\begin_layout Standard
+The commitment transaction has two inputs; one which spends each anchor
+ output.
+ The two zeroes indicate it is not revealing the secret:
+\end_layout
+
+\begin_layout Description
+<SIG-A>
+\begin_inset space ~
+\end_inset
+
+<SIG-B>
+\begin_inset space ~
+\end_inset
+
+0
+\begin_inset space ~
+\end_inset
+
+0
+\begin_inset space ~
+\end_inset
+
+{<ANCHOR-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Subsubsection*
+Commitment Transaction Output Redeemscripts
+\end_layout
+
+\begin_layout Standard
+One output pays B's funds to B as normal (eg.
+ pay to scripthash 
+\begin_inset Quotes eld
+\end_inset
+
+<KEY-B> OP_CHECKSIG
+\begin_inset Quotes erd
+\end_inset
+
+).
+ The other output pays A's funds: either to B if they supply the revocation
+ preimage, or to A after a delay.
+ This is the redeemscript:
+\end_layout
+
+\begin_layout Description
+OP_HASH160
+\begin_inset space ~
+\end_inset
+
+<COMMIT-REVOCATION-HASH>
+\begin_inset space ~
+\end_inset
+
+OP_EQUAL Did they supply revocation preimage?
+\end_layout
+
+\begin_layout Description
+OP_IF
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+<B-KEY> To B.
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ELSE
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+<LOCKTIME>
+\begin_inset space ~
+\end_inset
+
+OP_CHECKSEQUENCEVERIFY
+\begin_inset space ~
+\end_inset
+
+OP_DROP Spending transaction must be after timeout
+\end_layout
+
+\begin_layout Description
+<A-KEY> To A.
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ENDIF
+\end_layout
+
+\begin_layout Description
+OP_CHECKSIG Signature must be correct.
+\end_layout
+
+\begin_layout Subsubsection*
+Spending Commitment Output
+\end_layout
+
+\begin_layout Standard
+Either B using a revocation preimage:
+\end_layout
+
+\begin_layout Description
+<SIG-B>
+\begin_inset space ~
+\end_inset
+
+<COMMIT-REVOCATION-IMAGE-A>
+\begin_inset space ~
+\end_inset
+
+{<COMMITMENT-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Standard
+Or A using after a timeout:
+\end_layout
+
+\begin_layout Description
+<SIG-A>
+\begin_inset space ~
+\end_inset
+
+0
+\begin_inset space ~
+\end_inset
+
+{<COMMITMENT-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Subsection*
+Hash Locked Transaction Commitments
+\end_layout
+
+\begin_layout Standard
+There are two styles of commitment transaction outputs for HTLCs: a 
+\begin_inset Quotes eld
+\end_inset
+
+sender
+\begin_inset Quotes erd
+\end_inset
+
+ and 
+\begin_inset Quotes eld
+\end_inset
+
+receiver
+\begin_inset Quotes erd
+\end_inset
+
+ case.
+ The output is a pay-to-script-hash, so the redeemscripts are shown below.
+\end_layout
+
+\begin_layout Standard
+These scripts show A as the sender, and B as the receiver: exchange A and
+ B for the reverse.
+\end_layout
+
+\begin_layout Subsubsection*
+HTLC Sender Redeemscript
+\end_layout
+
+\begin_layout Description
+OP_HASH160
+\begin_inset space ~
+\end_inset
+
+OP_DUP Replace top element with two copies of its hash
+\end_layout
+
+\begin_layout Description
+<R-HASH>
+\begin_inset space ~
+\end_inset
+
+OP_EQUAL Test if they supplied the HTLC R value
+\end_layout
+
+\begin_layout Description
+OP_SWAP
+\begin_inset space ~
+\end_inset
+
+<COMMIT-REVOCATION-HASH>
+\begin_inset space ~
+\end_inset
+
+OP_EQUAL
+\begin_inset space ~
+\end_inset
+
+OP_ADD Or the commitment revocation hash
+\end_layout
+
+\begin_layout Description
+OP_IF If any hash matched.
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+<KEY-B> Pay to B.
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ELSE Must be A, after HTLC has timed out.
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+<HTLC-TIMEOUT>
+\begin_inset space ~
+\end_inset
+
+OP_CHECKLOCKTIMEVERIFY
+\begin_inset space ~
+\end_inset
+
+OP_DROP Ensure (absolute) time has passed.
+\end_layout
+
+\begin_layout Description
+<DELAY>
+\begin_inset space ~
+\end_inset
+
+OP_CHECKSEQUENCEVERIFY
+\begin_inset space ~
+\end_inset
+
+OP_DROP Delay gives B enough time to use revocation if it has it.
+\end_layout
+
+\begin_layout Description
+<KEY-A> Pay to A.
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ENDIF
+\end_layout
+
+\begin_layout Description
+OP_CHECKSIG Verify A or B's signature is correct.
+\end_layout
+
+\begin_layout Subsubsection*
+HTLC Receiver Redeemscript
+\end_layout
+
+\begin_layout Description
+OP_HASH160
+\begin_inset space ~
+\end_inset
+
+OP_DUP Replace top element with two copies of its hash
+\end_layout
+
+\begin_layout Description
+<R-HASH>
+\begin_inset space ~
+\end_inset
+
+OP_EQUAL B redeeming the contract, using R preimage?
+\end_layout
+
+\begin_layout Description
+OP_IF
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+OP_DROP Remove extra hash
+\end_layout
+
+\begin_layout Description
+<KEY-A> Pay to B
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ELSE
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+<COMMIT-REVOCATION-HASH>
+\begin_inset space ~
+\end_inset
+
+OP_EQUAL If the commit has been revoked.
+\end_layout
+
+\begin_layout Description
+OP_NOTIF If not, you need to wait for timeout.
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+<HTLC-TIMEOUT>
+\begin_inset space ~
+\end_inset
+
+OP_CHECKLOCKTIMEVERIFY
+\begin_inset space ~
+\end_inset
+
+OP_DROP Ensure (absolute) time has passed.
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ENDIF
+\end_layout
+
+\begin_layout Description
+<KEY-A> Pay to A
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ENDIF
+\end_layout
+
+\begin_layout Description
+OP_CHECKSIG Verify A or B's signature is correct.
+\end_layout
+
+\begin_layout Subsubsection*
+Redeeming A HTLC Output
+\end_layout
+
+\begin_layout Standard
+To redeem an HTLC, the recipient one provides the preimage R, and their
+ signature.
+ In our example above, B can redeem the HTLC:
+\end_layout
+
+\begin_layout Description
+<SIG-B>
+\begin_inset space ~
+\end_inset
+
+<HTLC-R-VALUE>
+\begin_inset space ~
+\end_inset
+
+{<HTLC-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Subsubsection*
+Claiming a Timed-out HTLC
+\end_layout
+
+\begin_layout Standard
+To claim a timed-out HTLC, the sender supplies a zero value (which is nice
+ and short, but fails to hash to any of the revocation hashes), and their
+ signature.
+ In our example above, A can claim the timed-out HTLC:
+\end_layout
+
+\begin_layout Description
+<SIG-A>
+\begin_inset space ~
+\end_inset
+
+0
+\begin_inset space ~
+\end_inset
+
+{<HTLC-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Subsubsection*
+Claiming A HTLC Output For A Revoked Commitment Transaction
+\end_layout
+
+\begin_layout Standard
+If either side publishes a commitment transaction which has been revoked,
+ we can use the revocation preimage they supplied to spend all the outputs.
+ This example shows A claiming the HTLC output if B broadcasts a revoked
+ commitment transaction:
+\end_layout
+
+\begin_layout Description
+<SIG-A>
+\begin_inset space ~
+\end_inset
+
+<COMMIT-REVOCATION>
+\begin_inset space ~
+\end_inset
+
+{<HTLC-REDEEMSCRIPT>}
+\end_layout
+
+\end_body
+\end_document
