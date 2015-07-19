@@ -342,7 +342,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="0.98994949"
-     inkscape:cx="290.40653"
+     inkscape:cx="298.45411"
      inkscape:cy="276.72757"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
@@ -370,7 +370,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title></dc:title>
+        <dc:title />
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -532,7 +532,7 @@
          x="241.40251"
          y="204.30637"
          style="font-weight:normal"
-         id="tspan6315">SIGA &amp; SIGB &amp; SECRET-A</tspan></text>
+         id="tspan6315">SIGA &amp; SIGB' &amp; SECRET-A</tspan></text>
     <g
        id="g10634-1"
        transform="translate(532.36737,-79.087764)">
@@ -735,7 +735,7 @@
          sodipodi:role="line"
          x="32.223354"
          y="246.30128"
-         id="tspan6319">SIGA &amp; SIGB &amp; SECRET-A</tspan></text>
+         id="tspan6319">SIGA &amp; SIGB' &amp; SECRET-A</tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-weight:normal;font-size:15px;line-height:125%;font-family:Sans;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
@@ -746,7 +746,7 @@
          sodipodi:role="line"
          id="tspan5084-7"
          x="520.70557"
-         y="244.78859">SIGA &amp; SIGB &amp; SECRET-B</tspan></text>
+         y="244.78859">SIGA' &amp; SIGB &amp; SECRET-B</tspan></text>
     <flowRoot
        xml:space="preserve"
        id="flowRoot3480"
@@ -777,7 +777,7 @@
          x="501.40759"
          y="203.09317"
          style="font-weight:normal"
-         id="tspan6317">SIGA &amp; SIGB &amp; SECRET-B</tspan><tspan
+         id="tspan6317">SIGA' &amp; SIGB &amp; SECRET-B</tspan><tspan
          sodipodi:role="line"
          x="501.40759"
          y="221.84317"

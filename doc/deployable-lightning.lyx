@@ -907,6 +907,9 @@ reference "fig:Secret-Revelation-by"
 \end_inset
 
 .
+ Note that this requires the other party to provide an alternate key (denoted
+ here using A' and B'), otherwise there is no way to force the escape transactio
+n to provide the secret.
 \end_layout
 
 \begin_layout Standard
@@ -1170,6 +1173,22 @@ Acknowlegments
 \end_layout
 
 \begin_layout Standard
+Thanks to mmeijeri on Reddit's r/Bitcoin for pointing out a flaw in escape
+ transactions reusing the same A and B keys as the commitment transaction
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+https://www.reddit.com/r/Bitcoin/comments/3dlxw4/reaching_the_ground_with_lightnin
+g_lightning/ct80xpp
+\end_layout
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
 Thanks to Joseph Poon for designing the escape/fast-escape dual-anchor method,
  as well as finding a flaw in my original formulation of the dual anchor
  construct and reviewing an earlier draft of this paper.
@@ -1234,11 +1253,6 @@ The anchor output is a pay to script hash, with a redeemscript as follows:
 \end_layout
 
 \begin_layout Description
-OP_IF They put a non-zero here if they're supplying the secret
-\end_layout
-
-\begin_deeper
-\begin_layout Description
 OP_HASH
 \begin_inset space ~
 \end_inset
@@ -1247,7 +1261,34 @@ OP_HASH
 \begin_inset space ~
 \end_inset
 
-OP_EQUALVERIFY Check secret is correct.
+OP_EQUAL If the secret is supplied,
+\end_layout
+
+\begin_layout Description
+OP_IF
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+2
+\begin_inset space ~
+\end_inset
+
+<KEY-B'> Should be signed by B's escape key.
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ELSE
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+2
+\begin_inset space ~
+\end_inset
+
+<KEY-B> Should be signed by B's commitment key.
 \end_layout
 
 \end_deeper
@@ -1256,15 +1297,7 @@ OP_ENDIF
 \end_layout
 
 \begin_layout Description
-2
-\begin_inset space ~
-\end_inset
-
 <KEY-A>
-\begin_inset space ~
-\end_inset
-
-<KEY-B>
 \begin_inset space ~
 \end_inset
 
@@ -1293,7 +1326,7 @@ Escape Input Script
 \begin_inset space ~
 \end_inset
 
-<SIG-B>
+<SIG-B'>
 \begin_inset space ~
 \end_inset
 
@@ -1423,7 +1456,7 @@ This is identical to the normal escape input script.
 \begin_inset space ~
 \end_inset
 
-<SIG-B>
+<SIG-B'>
 \begin_inset space ~
 \end_inset
 
