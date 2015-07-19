@@ -408,11 +408,55 @@ pair
  
 \emph default
 transactions rather than the single transaction used in the one-way channel
- case.
+ case, as shown in figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Figure-1-from"
+
+\end_inset
+
+.
 \end_layout
 
 \begin_layout Standard
-[FIXME: Insert Figure 1 from LN draft 0.5]
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename ln-draft-fig1.eps
+	scale 50
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Figure 1 from the Lightning Network Draft 0.5
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Figure-1-from"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
@@ -476,7 +520,55 @@ R
 \end_layout
 
 \begin_layout Standard
-[ FIXME: Insert figure 2 from LN Draft 0.5 ]
+This arrangement for one side of a single node is shown in figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Figure-2-from"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename ln-draft-fig2.eps
+	scale 50
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Figure 2 from the Lightning Network Draft 0.5
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Figure-2-from"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Section
@@ -599,7 +691,7 @@ A's signature and OP_CHECKSEQUENCEVERIFY <1 day>
 This can be expressed fairly easily in bitcoin's script-based scripting
  language, as annotated in 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sub:Commitment-Outputs-For"
 
 \end_inset
@@ -1026,7 +1118,7 @@ name "fig:Final-Dual-Anchor"
 \begin_layout Standard
 The final scripts are shown in 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Appendix-A:-Scripts"
 
 \end_inset
