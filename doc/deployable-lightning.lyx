@@ -1362,10 +1362,6 @@ OP_IF
 
 \begin_deeper
 \begin_layout Description
-2
-\begin_inset space ~
-\end_inset
-
 <KEY-B'> Should be signed by B's escape key.
 \end_layout
 
@@ -1376,16 +1372,20 @@ OP_ELSE
 
 \begin_deeper
 \begin_layout Description
-2
-\begin_inset space ~
-\end_inset
-
 <KEY-B> Should be signed by B's commitment key.
 \end_layout
 
 \end_deeper
 \begin_layout Description
 OP_ENDIF
+\end_layout
+
+\begin_layout Description
+2
+\begin_inset space ~
+\end_inset
+
+OP_SWAP Put 2 before B's key on the stack.
 \end_layout
 
 \begin_layout Description
@@ -1413,7 +1413,15 @@ The escape transaction for A spends A's anchor output and reveals A's secret.
 Escape Input Script
 \end_layout
 
+\begin_layout Standard
+The extra 0 at the start is due to the OP_CHECKMULTISIG out-by-one-bug.
+\end_layout
+
 \begin_layout Description
+0
+\begin_inset space ~
+\end_inset
+
 <SIG-A>
 \begin_inset space ~
 \end_inset
@@ -1422,11 +1430,7 @@ Escape Input Script
 \begin_inset space ~
 \end_inset
 
-SECRET
-\begin_inset space ~
-\end_inset
-
-1
+<SECRET-A>
 \begin_inset space ~
 \end_inset
 
@@ -1544,6 +1548,10 @@ This is identical to the normal escape input script.
 \end_layout
 
 \begin_layout Description
+0
+\begin_inset space ~
+\end_inset
+
 <SIG-A>
 \begin_inset space ~
 \end_inset
@@ -1552,11 +1560,7 @@ This is identical to the normal escape input script.
 \begin_inset space ~
 \end_inset
 
-SECRET
-\begin_inset space ~
-\end_inset
-
-1
+<SECRET-A>
 \begin_inset space ~
 \end_inset
 
@@ -1685,19 +1689,19 @@ Commitment Input Script
 \begin_layout Standard
 The commitment transaction has two inputs; one which spends each anchor
  output.
- The two zeroes indicate it is not revealing the secret:
+ The zero after the signature indicates it is not revealing the secret:
 \end_layout
 
 \begin_layout Description
+0
+\begin_inset space ~
+\end_inset
+
 <SIG-A>
 \begin_inset space ~
 \end_inset
 
 <SIG-B>
-\begin_inset space ~
-\end_inset
-
-0
 \begin_inset space ~
 \end_inset
 
