@@ -70,8 +70,6 @@ message anchor {
 
 // Set channel params.
 message open_channel {
-  // Seed which sets order we create outputs for all transactions.
-  required uint64 seed = 1;
   // Relative locktime for outputs going to us.
   oneof locktime {
     uint32 locktime_seconds = 2;

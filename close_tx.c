@@ -55,6 +55,6 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	tx->output[1].script_length = tal_count(tx->output[1].script);
 
 	tx->fee = ours->commitment_fee + theirs->commitment_fee;
-	permute_outputs(ours->seed, theirs->seed, 1, tx->output, 2, NULL);
+	permute_outputs(tx->output, 2, NULL);
 	return tx;
 }

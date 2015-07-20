@@ -186,10 +186,6 @@ struct  _OpenChannel
 {
   ProtobufCMessage base;
   /*
-   * Seed which sets order we create outputs for all transactions.
-   */
-  uint64_t seed;
-  /*
    * Hash seed for revoking commitment transactions.
    */
   Sha256Hash *revocation_hash;
@@ -217,7 +213,7 @@ struct  _OpenChannel
 };
 #define OPEN_CHANNEL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&open_channel__descriptor) \
-    , 0, NULL, NULL, 0, NULL, 0, OPEN_CHANNEL__LOCKTIME__NOT_SET, {} }
+    , NULL, NULL, 0, NULL, 0, OPEN_CHANNEL__LOCKTIME__NOT_SET, {} }
 
 
 /*

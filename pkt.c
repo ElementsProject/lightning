@@ -32,7 +32,6 @@ static struct pkt *to_pkt(const tal_t *ctx, Pkt__PktCase type, void *msg)
 }
 
 struct pkt *openchannel_pkt(const tal_t *ctx,
-			    u64 seed,
 			    const struct sha256 *revocation_hash,
 			    const struct pubkey *to_me,
 			    u64 commitment_fee,
@@ -45,7 +44,6 @@ struct pkt *openchannel_pkt(const tal_t *ctx,
 	assert(anchor->inputs);
 	assert(anchor->pubkey);
 
-	o.seed = seed;
 	o.revocation_hash = sha256_to_proto(ctx, revocation_hash);
 	o.final = pubkey_to_proto(ctx, to_me);
 	o.commitment_fee = commitment_fee;

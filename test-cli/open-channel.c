@@ -59,12 +59,6 @@ static BitcoinInput *parse_anchor_input(const tal_t *ctx, const char *spec)
 	return in;
 }
 
-/* FIXME: This is too weak, even for us! */
-static u64 weak_random64(void)
-{
-	return time(NULL);
-}
-
 /* Simple helper to open a channel. */
 int main(int argc, char *argv[])
 {
@@ -166,7 +160,7 @@ int main(int argc, char *argv[])
 	sha256(&revocation_hash,
 	       revocation_hash.u.u8, sizeof(revocation_hash.u.u8));
 
-	pkt = openchannel_pkt(ctx, weak_random64(), &revocation_hash, &outkey,
+	pkt = openchannel_pkt(ctx, &revocation_hash, &outkey,
 			      commit_tx_fee, locktime_seconds, &anchor);
 
 	if (!write_all(STDOUT_FILENO, pkt, pkt_totlen(pkt)))

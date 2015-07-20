@@ -127,10 +127,8 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 	else
 		outmap = NULL;
 		
-	permute_inputs(o1->seed, o2->seed, 0, tx->input, tx->input_count,
-		       inmap);
-	permute_outputs(o1->seed, o2->seed, 0, tx->output, tx->output_count,
-			outmap);
+	permute_inputs(tx->input, tx->input_count, inmap);
+	permute_outputs(tx->output, tx->output_count, outmap);
 	return tx;
 }
 

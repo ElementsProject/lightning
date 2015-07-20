@@ -76,6 +76,6 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx->fee = tx->input[0].input_amount
 		- (tx->output[0].amount + tx->output[1].amount);
 	
-	permute_outputs(ours->seed, theirs->seed, 1, tx->output, 2, NULL);
+	permute_outputs(tx->output, 2, NULL);
 	return tx;
 }
