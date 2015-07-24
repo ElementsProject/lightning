@@ -112,6 +112,26 @@ $PREFIX ./create-escape-tx --fast B-open.pb A-open.pb B-anchor-id.pb A-escape-si
 $CLI sendrawtransaction `cut -d: -f1 A-anchor.tx` > A-anchor.txid
 $CLI sendrawtransaction `cut -d: -f1 B-anchor.tx` > B-anchor.txid
 
+if [ x"$1" = x--escape ]; then
+    # A uses their escape transaction.
+    $CLI sendrawtransaction `cut -d: -f1 A-escape.tx` > A-escape.txid
+    # B can extract the secret
+    $PREFIX ./extract-escape-secret A-escape.tx > A-escape-secret
+
+    # Now B can send fast-escape.
+    $CLI sendrawtransaction `cut -d: -f1 B-fast-escape.tx` > B-fast-escape.txid
+
+    # And use the secret to spend it.
+    $PREFIX ./create-secret-spend-tx --secret B-fast-escape.tx $A_FINALPUBKEY 93600 $B_FINALKEY $B_CHANGEPUBKEY `cat A-escape-secret` > B-fast-escape-spend.tx
+
+    $CLI sendrawtransaction `cut -d: -f1 B-fast-escape-spend.tx` > B-fast-escape-spend.txid
+
+    # A can't spend escape until after delay
+    $PREFIX ./create-secret-spend-tx --hash-secret A-escape.tx $B_FINALPUBKEY 60 $A_FINALKEY $A_CHANGEPUBKEY `cat A-escape-secret` > A-escape-spend.tx
+    send_after_delay `cut -d: -f1 A-escape-spend.tx` > A-escape-spend.txid
+    exit 0
+fi
+
 # Now create commit signature
 $PREFIX ./open-commit-sig A-open.pb B-open.pb A-anchor-id.pb B-anchor-id.pb $A_TMPKEY > A-commit-sig.pb
 $PREFIX ./open-commit-sig B-open.pb A-open.pb B-anchor-id.pb A-anchor-id.pb $B_TMPKEY > B-commit-sig.pb
