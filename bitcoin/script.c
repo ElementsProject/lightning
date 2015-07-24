@@ -19,6 +19,7 @@
 #define OP_DEPTH	0x74
 #define OP_DROP		0x75
 #define OP_DUP		0x76
+#define OP_SWAP		0x7C
 #define OP_EQUAL	0x87
 #define OP_EQUALVERIFY	0x88
 #define OP_SIZE		0x82
@@ -274,6 +275,45 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 	return script;
 }
 
+/* One of:
+ * their_commit_keysig and keysig, OR
+ * their_escape_keysig and keysig and escape_secret. */
+u8 *bitcoin_redeem_anchor(const tal_t *ctx,
+			  const struct pubkey *key,
+			  const struct pubkey *their_commit_key,
+			  const struct pubkey *their_escape_key,
+			  const struct sha256 *escape_hash)
+{
+	struct ripemd160 ehash_ripemd;
+	u8 *script = tal_arr(ctx, u8, 0);
+
+	/* If the secret is supplied... */
+	ripemd160(&ehash_ripemd, escape_hash->u.u8, sizeof(escape_hash->u));
+	add_op(&script, OP_HASH160);
+	add_push_bytes(&script, ehash_ripemd.u.u8, sizeof(ehash_ripemd.u.u8));
+	add_op(&script, OP_EQUAL);
+	add_op(&script, OP_IF);
+
+	/* Should be signed by B's escape key. */
+	add_push_key(&script, their_escape_key);
+
+	/* Otherwise, should be signed by B's commitment key. */
+	add_op(&script, OP_ELSE);
+	add_push_key(&script, their_commit_key);
+	add_op(&script, OP_ENDIF);
+
+	/* Put "2" (2 signatures) underneath that signature on stack. */
+	add_number(&script, 2);
+	add_op(&script, OP_SWAP);
+
+	/* Must be signed by A's key too. */
+	add_push_key(&script, key);
+	add_number(&script, 2);
+	add_op(&script, OP_CHECKMULTISIG);
+
+	return script;
+}
+
 u8 *scriptsig_p2sh_secret(const tal_t *ctx,
 			  const void *secret, size_t secret_len,
 			  const struct bitcoin_signature *sig,
@@ -288,3 +328,48 @@ u8 *scriptsig_p2sh_secret(const tal_t *ctx,
 
 	return script;
 }
+
+/* Create an input script to spend anchor output (commit version). */
+u8 *scriptsig_p2sh_anchor_commit(const tal_t *ctx,
+				 const struct bitcoin_signature *their_sig,
+				 const struct bitcoin_signature *our_sig,
+				 const u8 *anchor_redeem,
+				 size_t redeem_len)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+
+	/* OP_CHECKMULTISIG has an out-by-one bug, which MBZ */
+	add_number(&script, 0);
+	/* Redeemscript wants their sig first. */
+	add_push_sig(&script, their_sig);
+	add_push_sig(&script, our_sig);
+	/* This is 0, as we don't have the secret. */
+	add_number(&script, 0);
+
+	add_push_bytes(&script, anchor_redeem, redeem_len);
+
+	return script;
+}
+
+/* Create an input script to spend anchor output (escape version) */
+u8 *scriptsig_p2sh_anchor_escape(const tal_t *ctx,
+				 const struct bitcoin_signature *their_sig,
+				 const struct bitcoin_signature *our_sig,
+				 const struct sha256 *escape_secret,
+				 const u8 *anchor_redeem,
+				 size_t redeem_len)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+
+	/* OP_CHECKMULTISIG has an out-by-one bug, which MBZ */
+	add_number(&script, 0);
+	/* Redeemscript wants their sig first. */
+	add_push_sig(&script, their_sig);
+	add_push_sig(&script, our_sig);
+	add_push_bytes(&script, escape_secret, sizeof(*escape_secret));
+
+	add_push_bytes(&script, anchor_redeem, redeem_len);
+
+	return script;
+}
+

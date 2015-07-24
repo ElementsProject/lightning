@@ -7,6 +7,7 @@
 struct bitcoin_address;
 struct pubkey;
 struct sha256;
+struct ripemd160;
 
 /* A bitcoin signature includes one byte for the type. */
 struct bitcoin_signature {
@@ -30,6 +31,15 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 				   const struct pubkey *key_if_secret_known,
 				   const struct sha256 *hash_of_secret);
 
+/* One of:
+ * keysig and their_commit_keysig, OR
+ * keysig and their_escape_keysig and escape_secret. */
+u8 *bitcoin_redeem_anchor(const tal_t *ctx,
+			  const struct pubkey *key,
+			  const struct pubkey *their_commit_key,
+			  const struct pubkey *their_escape_key,
+			  const struct sha256 *escape_hash);
+
 /* Create an output script using p2sh for this redeem script. */
 u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript);
 
@@ -44,6 +54,21 @@ u8 *scriptsig_p2sh_2of2(const tal_t *ctx,
 			const struct bitcoin_signature *sig2,
 			const struct pubkey *key1,
 			const struct pubkey *key2);
+
+/* Create an input script to spend anchor output (commit version). */
+u8 *scriptsig_p2sh_anchor_commit(const tal_t *ctx,
+				 const struct bitcoin_signature *their_sig,
+				 const struct bitcoin_signature *our_sig,
+				 const u8 *anchor_redeem,
+				 size_t redeem_len);
+
+/* Create an input script to spend anchor output (escape version) */
+u8 *scriptsig_p2sh_anchor_escape(const tal_t *ctx,
+				 const struct bitcoin_signature *their_sig,
+				 const struct bitcoin_signature *our_sig,
+				 const struct sha256 *escape_secret,
+				 const u8 *anchor_redeem,
+				 size_t redeem_len);
 
 /* Create an input script to solve by secret */
 u8 *scriptsig_p2sh_secret(const tal_t *ctx,
