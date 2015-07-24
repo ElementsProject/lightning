@@ -44,7 +44,8 @@ struct bitcoin_tx_input {
 void bitcoin_txid(const struct bitcoin_tx *tx, struct sha256_double *txid);
 
 /* Useful for signature code. */
-void sha256_tx_for_sig(struct sha256_ctx *ctx, const struct bitcoin_tx *tx);
+void sha256_tx_for_sig(struct sha256_ctx *ctx, const struct bitcoin_tx *tx,
+		       unsigned int input_num);
 
 /* Linear bytes of tx. */
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx);

@@ -117,7 +117,7 @@ static void sha256_tx_one_input(struct bitcoin_tx *tx,
 	tx->input[input_num].script = cast_const(u8 *, script);
 
 	sha256_init(&ctx);
-	sha256_tx_for_sig(&ctx, tx);
+	sha256_tx_for_sig(&ctx, tx, input_num);
 	sha256_le32(&ctx, SIGHASH_ALL);
 
 	sha256_double_done(&ctx, hash);
