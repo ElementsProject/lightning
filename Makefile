@@ -16,7 +16,7 @@ HELPER_OBJS := lightning.pb-c.o pkt.o permute_tx.o anchor.o commit_tx.o opt_bits
 
 CCAN_OBJS := ccan-crypto-sha256.o ccan-crypto-shachain.o ccan-err.o ccan-tal.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-str-hex.o ccan-tal-grab_file.o ccan-noerr.o ccan-crypto-ripemd160.o
 
-HEADERS := $(wildcard *.h)
+HEADERS := $(wildcard *.h) $(wildcard bitcoin/*.h)
 
 CCANDIR := ccan/
 CFLAGS := -g -Wall -I $(CCANDIR) -I secp256k1/include/ -DVALGRIND_HEADERS=1 $(FEATURES)
@@ -68,7 +68,7 @@ distclean: clean
 
 clean:
 	$(RM) $(PROGRAMS) test-cli/leak-anchor-sigs
-	$(RM) bitcoin/*.o *.o $(CCAN_OBJS)
+	$(RM) bitcoin/*.o *.o $(PROGRAMS:=.o) $(CCAN_OBJS)
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
