@@ -115,7 +115,10 @@ int main(int argc, char *argv[])
 			   &privkey, &pubkey1, &sig.sig))
 		errx(1, "Could not sign tx");
 	sig.stype = SIGHASH_ALL;
-	tx->input[0].script = scriptsig_p2sh_revoke(tx, &revoke_preimage, &sig,
+	tx->input[0].script = scriptsig_p2sh_secret(tx,
+						    &revoke_preimage,
+						    sizeof(revoke_preimage),
+						    &sig,
 						    redeemscript,
 						    tal_count(redeemscript));
 	tx->input[0].script_length = tal_count(tx->input[0].script);

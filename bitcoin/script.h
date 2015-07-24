@@ -32,6 +32,14 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 			     const struct pubkey *theirkey,
 			     const struct sha256 *revocation_hash);
 
+/* A common script pattern: A can have it with secret, or B can have
+ * it after delay. */
+u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
+				   const struct pubkey *delayed_key,
+				   u32 locktime,
+				   const struct pubkey *key_if_secret_known,
+				   const struct sha256 *hash_of_secret);
+
 /* Create an output script using p2sh for this redeem script. */
 u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript);
 
@@ -47,11 +55,11 @@ u8 *scriptsig_p2sh_2of2(const tal_t *ctx,
 			const struct pubkey *key1,
 			const struct pubkey *key2);
 
-/* Create an input script to solve by revokehash */
-u8 *scriptsig_p2sh_revoke(const tal_t *ctx,
-			  const struct sha256 *preimage,
+/* Create an input script to solve by secret */
+u8 *scriptsig_p2sh_secret(const tal_t *ctx,
+			  const void *secret, size_t secret_len,
 			  const struct bitcoin_signature *sig,
-			  const u8 *revocable_redeem,
+			  const u8 *redeemscript,
 			  size_t redeem_len);
 
 /* Create an input script which pushes sigs then redeem script. */

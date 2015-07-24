@@ -236,7 +236,44 @@ bool is_p2sh(const u8 *script, size_t script_len)
 		return false;
 	return true;
 }
-		
+
+/* A common script pattern: A can have it with secret, or B can have
+ * it after delay. */
+u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
+				   const struct pubkey *delayed_key,
+				   u32 locktime,
+				   const struct pubkey *key_if_secret_known,
+				   const struct sha256 *hash_of_secret)
+{
+	struct ripemd160 ripemd;
+	le32 locktime_le = cpu_to_le32(locktime);
+	u8 *script = tal_arr(ctx, u8, 0);
+
+	ripemd160(&ripemd, hash_of_secret->u.u8, sizeof(hash_of_secret->u));
+
+	/* If the secret is supplied.... */
+	add_op(&script, OP_HASH160);
+	add_push_bytes(&script, ripemd.u.u8, sizeof(ripemd.u.u8));
+	add_op(&script, OP_EQUAL);
+	add_op(&script, OP_IF);
+	
+	/* They can collect the funds. */
+	add_push_key(&script, key_if_secret_known);
+
+	add_op(&script, OP_ELSE);
+
+	/* Other can collect after a delay. */
+	add_push_bytes(&script, &locktime_le, sizeof(locktime_le));
+	add_op(&script, OP_CHECKSEQUENCEVERIFY);
+	add_op(&script, OP_DROP);
+	add_push_key(&script, delayed_key);
+
+	add_op(&script, OP_ENDIF);
+	add_op(&script, OP_CHECKSIG);
+
+	return script;
+}
+
 /* One of:
  * mysig and relative locktime passed, OR
  * theirsig and hash preimage. */
@@ -277,17 +314,17 @@ u8 *bitcoin_redeem_revocable(const tal_t *ctx,
 	return script;
 }
 
-u8 *scriptsig_p2sh_revoke(const tal_t *ctx,
-			  const struct sha256 *preimage,
+u8 *scriptsig_p2sh_secret(const tal_t *ctx,
+			  const void *secret, size_t secret_len,
 			  const struct bitcoin_signature *sig,
-			  const u8 *revocable_redeem,
+			  const u8 *redeemscript,
 			  size_t redeem_len)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 
 	add_push_sig(&script, sig);
-	add_push_bytes(&script, preimage, sizeof(*preimage));
-	add_push_bytes(&script, revocable_redeem, redeem_len);
+	add_push_bytes(&script, secret, secret_len);
+	add_push_bytes(&script, redeemscript, redeem_len);
 
 	return script;
 }
