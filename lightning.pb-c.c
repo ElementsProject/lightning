@@ -609,221 +609,6 @@ void   update_complete__free_unpacked
   assert(message->base.descriptor == &update_complete__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   new_anchor__init
-                     (NewAnchor         *message)
-{
-  static NewAnchor init_value = NEW_ANCHOR__INIT;
-  *message = init_value;
-}
-size_t new_anchor__get_packed_size
-                     (const NewAnchor *message)
-{
-  assert(message->base.descriptor == &new_anchor__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
-}
-size_t new_anchor__pack
-                     (const NewAnchor *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &new_anchor__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
-}
-size_t new_anchor__pack_to_buffer
-                     (const NewAnchor *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &new_anchor__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
-}
-NewAnchor *
-       new_anchor__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (NewAnchor *)
-     protobuf_c_message_unpack (&new_anchor__descriptor,
-                                allocator, len, data);
-}
-void   new_anchor__free_unpacked
-                     (NewAnchor *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &new_anchor__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
-}
-void   new_anchor_ack__init
-                     (NewAnchorAck         *message)
-{
-  static NewAnchorAck init_value = NEW_ANCHOR_ACK__INIT;
-  *message = init_value;
-}
-size_t new_anchor_ack__get_packed_size
-                     (const NewAnchorAck *message)
-{
-  assert(message->base.descriptor == &new_anchor_ack__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
-}
-size_t new_anchor_ack__pack
-                     (const NewAnchorAck *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &new_anchor_ack__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
-}
-size_t new_anchor_ack__pack_to_buffer
-                     (const NewAnchorAck *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &new_anchor_ack__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
-}
-NewAnchorAck *
-       new_anchor_ack__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (NewAnchorAck *)
-     protobuf_c_message_unpack (&new_anchor_ack__descriptor,
-                                allocator, len, data);
-}
-void   new_anchor_ack__free_unpacked
-                     (NewAnchorAck *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &new_anchor_ack__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
-}
-void   new_anchor_commit_sig__init
-                     (NewAnchorCommitSig         *message)
-{
-  static NewAnchorCommitSig init_value = NEW_ANCHOR_COMMIT_SIG__INIT;
-  *message = init_value;
-}
-size_t new_anchor_commit_sig__get_packed_size
-                     (const NewAnchorCommitSig *message)
-{
-  assert(message->base.descriptor == &new_anchor_commit_sig__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
-}
-size_t new_anchor_commit_sig__pack
-                     (const NewAnchorCommitSig *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &new_anchor_commit_sig__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
-}
-size_t new_anchor_commit_sig__pack_to_buffer
-                     (const NewAnchorCommitSig *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &new_anchor_commit_sig__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
-}
-NewAnchorCommitSig *
-       new_anchor_commit_sig__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (NewAnchorCommitSig *)
-     protobuf_c_message_unpack (&new_anchor_commit_sig__descriptor,
-                                allocator, len, data);
-}
-void   new_anchor_commit_sig__free_unpacked
-                     (NewAnchorCommitSig *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &new_anchor_commit_sig__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
-}
-void   new_anchor_accept__init
-                     (NewAnchorAccept         *message)
-{
-  static NewAnchorAccept init_value = NEW_ANCHOR_ACCEPT__INIT;
-  *message = init_value;
-}
-size_t new_anchor_accept__get_packed_size
-                     (const NewAnchorAccept *message)
-{
-  assert(message->base.descriptor == &new_anchor_accept__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
-}
-size_t new_anchor_accept__pack
-                     (const NewAnchorAccept *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &new_anchor_accept__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
-}
-size_t new_anchor_accept__pack_to_buffer
-                     (const NewAnchorAccept *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &new_anchor_accept__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
-}
-NewAnchorAccept *
-       new_anchor_accept__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (NewAnchorAccept *)
-     protobuf_c_message_unpack (&new_anchor_accept__descriptor,
-                                allocator, len, data);
-}
-void   new_anchor_accept__free_unpacked
-                     (NewAnchorAccept *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &new_anchor_accept__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
-}
-void   new_anchor_complete__init
-                     (NewAnchorComplete         *message)
-{
-  static NewAnchorComplete init_value = NEW_ANCHOR_COMPLETE__INIT;
-  *message = init_value;
-}
-size_t new_anchor_complete__get_packed_size
-                     (const NewAnchorComplete *message)
-{
-  assert(message->base.descriptor == &new_anchor_complete__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
-}
-size_t new_anchor_complete__pack
-                     (const NewAnchorComplete *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &new_anchor_complete__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
-}
-size_t new_anchor_complete__pack_to_buffer
-                     (const NewAnchorComplete *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &new_anchor_complete__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
-}
-NewAnchorComplete *
-       new_anchor_complete__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (NewAnchorComplete *)
-     protobuf_c_message_unpack (&new_anchor_complete__descriptor,
-                                allocator, len, data);
-}
-void   new_anchor_complete__free_unpacked
-                     (NewAnchorComplete *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &new_anchor_complete__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
-}
 void   close_channel__init
                      (CloseChannel         *message)
 {
@@ -1908,196 +1693,6 @@ const ProtobufCMessageDescriptor update_complete__descriptor =
   (ProtobufCMessageInit) update_complete__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor new_anchor__field_descriptors[1] =
-{
-  {
-    "anchor",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(NewAnchor, anchor),
-    &anchor__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned new_anchor__field_indices_by_name[] = {
-  0,   /* field[0] = anchor */
-};
-static const ProtobufCIntRange new_anchor__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 1 }
-};
-const ProtobufCMessageDescriptor new_anchor__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "new_anchor",
-  "NewAnchor",
-  "NewAnchor",
-  "",
-  sizeof(NewAnchor),
-  1,
-  new_anchor__field_descriptors,
-  new_anchor__field_indices_by_name,
-  1,  new_anchor__number_ranges,
-  (ProtobufCMessageInit) new_anchor__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
-static const ProtobufCFieldDescriptor new_anchor_ack__field_descriptors[1] =
-{
-  {
-    "anchor",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(NewAnchorAck, anchor),
-    &anchor__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned new_anchor_ack__field_indices_by_name[] = {
-  0,   /* field[0] = anchor */
-};
-static const ProtobufCIntRange new_anchor_ack__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 1 }
-};
-const ProtobufCMessageDescriptor new_anchor_ack__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "new_anchor_ack",
-  "NewAnchorAck",
-  "NewAnchorAck",
-  "",
-  sizeof(NewAnchorAck),
-  1,
-  new_anchor_ack__field_descriptors,
-  new_anchor_ack__field_indices_by_name,
-  1,  new_anchor_ack__number_ranges,
-  (ProtobufCMessageInit) new_anchor_ack__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
-static const ProtobufCFieldDescriptor new_anchor_commit_sig__field_descriptors[1] =
-{
-  {
-    "sig",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(NewAnchorCommitSig, sig),
-    &signature__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned new_anchor_commit_sig__field_indices_by_name[] = {
-  0,   /* field[0] = sig */
-};
-static const ProtobufCIntRange new_anchor_commit_sig__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 1 }
-};
-const ProtobufCMessageDescriptor new_anchor_commit_sig__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "new_anchor_commit_sig",
-  "NewAnchorCommitSig",
-  "NewAnchorCommitSig",
-  "",
-  sizeof(NewAnchorCommitSig),
-  1,
-  new_anchor_commit_sig__field_descriptors,
-  new_anchor_commit_sig__field_indices_by_name,
-  1,  new_anchor_commit_sig__number_ranges,
-  (ProtobufCMessageInit) new_anchor_commit_sig__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
-static const ProtobufCFieldDescriptor new_anchor_accept__field_descriptors[1] =
-{
-  {
-    "script",
-    1,
-    PROTOBUF_C_LABEL_REPEATED,
-    PROTOBUF_C_TYPE_BYTES,
-    offsetof(NewAnchorAccept, n_script),
-    offsetof(NewAnchorAccept, script),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned new_anchor_accept__field_indices_by_name[] = {
-  0,   /* field[0] = script */
-};
-static const ProtobufCIntRange new_anchor_accept__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 1 }
-};
-const ProtobufCMessageDescriptor new_anchor_accept__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "new_anchor_accept",
-  "NewAnchorAccept",
-  "NewAnchorAccept",
-  "",
-  sizeof(NewAnchorAccept),
-  1,
-  new_anchor_accept__field_descriptors,
-  new_anchor_accept__field_indices_by_name,
-  1,  new_anchor_accept__number_ranges,
-  (ProtobufCMessageInit) new_anchor_accept__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
-static const ProtobufCFieldDescriptor new_anchor_complete__field_descriptors[1] =
-{
-  {
-    "revocation_preimage",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(NewAnchorComplete, revocation_preimage),
-    &sha256_hash__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned new_anchor_complete__field_indices_by_name[] = {
-  0,   /* field[0] = revocation_preimage */
-};
-static const ProtobufCIntRange new_anchor_complete__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 1 }
-};
-const ProtobufCMessageDescriptor new_anchor_complete__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "new_anchor_complete",
-  "NewAnchorComplete",
-  "NewAnchorComplete",
-  "",
-  sizeof(NewAnchorComplete),
-  1,
-  new_anchor_complete__field_descriptors,
-  new_anchor_complete__field_indices_by_name,
-  1,  new_anchor_complete__number_ranges,
-  (ProtobufCMessageInit) new_anchor_complete__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
 static const ProtobufCFieldDescriptor close_channel__field_descriptors[1] =
 {
   {
@@ -2212,7 +1807,7 @@ const ProtobufCMessageDescriptor error__descriptor =
   (ProtobufCMessageInit) error__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor pkt__field_descriptors[15] =
+static const ProtobufCFieldDescriptor pkt__field_descriptors[11] =
 {
   {
     "update",
@@ -2311,54 +1906,6 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[15] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "new_anchor",
-    301,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Pkt, pkt_case),
-    offsetof(Pkt, new_anchor),
-    &new_anchor__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "new_anchor_ack",
-    302,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Pkt, pkt_case),
-    offsetof(Pkt, new_anchor_ack),
-    &new_anchor_ack__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "new_anchor_accept",
-    303,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Pkt, pkt_case),
-    offsetof(Pkt, new_anchor_accept),
-    &new_anchor_accept__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "new_anchor_complete",
-    304,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Pkt, pkt_case),
-    offsetof(Pkt, new_anchor_complete),
-    &new_anchor_complete__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
     "close",
     401,
     PROTOBUF_C_LABEL_OPTIONAL,
@@ -2396,13 +1943,9 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[15] =
   },
 };
 static const unsigned pkt__field_indices_by_name[] = {
-  12,   /* field[12] = close */
-  13,   /* field[13] = close_complete */
-  14,   /* field[14] = error */
-  8,   /* field[8] = new_anchor */
-  10,   /* field[10] = new_anchor_accept */
-  9,   /* field[9] = new_anchor_ack */
-  11,   /* field[11] = new_anchor_complete */
+  8,   /* field[8] = close */
+  9,   /* field[9] = close_complete */
+  10,   /* field[10] = error */
   4,   /* field[4] = open */
   6,   /* field[6] = open_anchor_scriptsigs */
   5,   /* field[5] = open_commit_sig */
@@ -2412,14 +1955,13 @@ static const unsigned pkt__field_indices_by_name[] = {
   3,   /* field[3] = update_complete */
   2,   /* field[2] = update_signature */
 };
-static const ProtobufCIntRange pkt__number_ranges[5 + 1] =
+static const ProtobufCIntRange pkt__number_ranges[4 + 1] =
 {
   { 1, 0 },
   { 201, 4 },
-  { 301, 8 },
-  { 401, 12 },
-  { 1000, 14 },
-  { 0, 15 }
+  { 401, 8 },
+  { 1000, 10 },
+  { 0, 11 }
 };
 const ProtobufCMessageDescriptor pkt__descriptor =
 {
@@ -2429,10 +1971,10 @@ const ProtobufCMessageDescriptor pkt__descriptor =
   "Pkt",
   "",
   sizeof(Pkt),
-  15,
+  11,
   pkt__field_descriptors,
   pkt__field_indices_by_name,
-  5,  pkt__number_ranges,
+  4,  pkt__number_ranges,
   (ProtobufCMessageInit) pkt__init,
   NULL,NULL,NULL    /* reserved[123] */
 };

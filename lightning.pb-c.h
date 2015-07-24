@@ -29,11 +29,6 @@ typedef struct _Update Update;
 typedef struct _UpdateAccept UpdateAccept;
 typedef struct _UpdateSignature UpdateSignature;
 typedef struct _UpdateComplete UpdateComplete;
-typedef struct _NewAnchor NewAnchor;
-typedef struct _NewAnchorAck NewAnchorAck;
-typedef struct _NewAnchorCommitSig NewAnchorCommitSig;
-typedef struct _NewAnchorAccept NewAnchorAccept;
-typedef struct _NewAnchorComplete NewAnchorComplete;
 typedef struct _CloseChannel CloseChannel;
 typedef struct _CloseChannelComplete CloseChannelComplete;
 typedef struct _Error Error;
@@ -346,76 +341,6 @@ struct  _UpdateComplete
 
 
 /*
- * Let's change the channel funding source.
- */
-struct  _NewAnchor
-{
-  ProtobufCMessage base;
-  /*
-   * The new anchor: previous anchor 2x2 input assumed.
-   */
-  Anchor *anchor;
-};
-#define NEW_ANCHOR__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&new_anchor__descriptor) \
-    , NULL }
-
-
-/*
- * That seems OK to me, let's add these too (if any).
- */
-struct  _NewAnchorAck
-{
-  ProtobufCMessage base;
-  Anchor *anchor;
-};
-#define NEW_ANCHOR_ACK__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&new_anchor_ack__descriptor) \
-    , NULL }
-
-
-/*
- * Now we both send signatures for new commit sig.
- */
-struct  _NewAnchorCommitSig
-{
-  ProtobufCMessage base;
-  Signature *sig;
-};
-#define NEW_ANCHOR_COMMIT_SIG__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&new_anchor_commit_sig__descriptor) \
-    , NULL }
-
-
-/*
- * Here are the script sigs for the new anchor's new inputs.
- */
-struct  _NewAnchorAccept
-{
-  ProtobufCMessage base;
-  size_t n_script;
-  ProtobufCBinaryData *script;
-};
-#define NEW_ANCHOR_ACCEPT__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&new_anchor_accept__descriptor) \
-    , 0,NULL }
-
-
-/*
- * Complete the transfer to new anchor (both ends need to send this,
- * once they're happy that it's reached their required depth).
- */
-struct  _NewAnchorComplete
-{
-  ProtobufCMessage base;
-  Sha256Hash *revocation_preimage;
-};
-#define NEW_ANCHOR_COMPLETE__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&new_anchor_complete__descriptor) \
-    , NULL }
-
-
-/*
  * Begin cooperative close of channel.
  */
 struct  _CloseChannel
@@ -472,10 +397,6 @@ typedef enum {
   PKT__PKT_UPDATE_ACCEPT = 2,
   PKT__PKT_UPDATE_SIGNATURE = 3,
   PKT__PKT_UPDATE_COMPLETE = 4,
-  PKT__PKT_NEW_ANCHOR = 301,
-  PKT__PKT_NEW_ANCHOR_ACK = 302,
-  PKT__PKT_NEW_ANCHOR_ACCEPT = 303,
-  PKT__PKT_NEW_ANCHOR_COMPLETE = 304,
   PKT__PKT_CLOSE = 401,
   PKT__PKT_CLOSE_COMPLETE = 402,
   PKT__PKT_ERROR = 1000,
@@ -503,13 +424,6 @@ struct  _Pkt
     UpdateAccept *update_accept;
     UpdateSignature *update_signature;
     UpdateComplete *update_complete;
-    /*
-     * Topping up
-     */
-    NewAnchor *new_anchor;
-    NewAnchorAck *new_anchor_ack;
-    NewAnchorAccept *new_anchor_accept;
-    NewAnchorComplete *new_anchor_complete;
     /*
      * Closing
      */
@@ -792,101 +706,6 @@ UpdateComplete *
 void   update_complete__free_unpacked
                      (UpdateComplete *message,
                       ProtobufCAllocator *allocator);
-/* NewAnchor methods */
-void   new_anchor__init
-                     (NewAnchor         *message);
-size_t new_anchor__get_packed_size
-                     (const NewAnchor   *message);
-size_t new_anchor__pack
-                     (const NewAnchor   *message,
-                      uint8_t             *out);
-size_t new_anchor__pack_to_buffer
-                     (const NewAnchor   *message,
-                      ProtobufCBuffer     *buffer);
-NewAnchor *
-       new_anchor__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   new_anchor__free_unpacked
-                     (NewAnchor *message,
-                      ProtobufCAllocator *allocator);
-/* NewAnchorAck methods */
-void   new_anchor_ack__init
-                     (NewAnchorAck         *message);
-size_t new_anchor_ack__get_packed_size
-                     (const NewAnchorAck   *message);
-size_t new_anchor_ack__pack
-                     (const NewAnchorAck   *message,
-                      uint8_t             *out);
-size_t new_anchor_ack__pack_to_buffer
-                     (const NewAnchorAck   *message,
-                      ProtobufCBuffer     *buffer);
-NewAnchorAck *
-       new_anchor_ack__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   new_anchor_ack__free_unpacked
-                     (NewAnchorAck *message,
-                      ProtobufCAllocator *allocator);
-/* NewAnchorCommitSig methods */
-void   new_anchor_commit_sig__init
-                     (NewAnchorCommitSig         *message);
-size_t new_anchor_commit_sig__get_packed_size
-                     (const NewAnchorCommitSig   *message);
-size_t new_anchor_commit_sig__pack
-                     (const NewAnchorCommitSig   *message,
-                      uint8_t             *out);
-size_t new_anchor_commit_sig__pack_to_buffer
-                     (const NewAnchorCommitSig   *message,
-                      ProtobufCBuffer     *buffer);
-NewAnchorCommitSig *
-       new_anchor_commit_sig__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   new_anchor_commit_sig__free_unpacked
-                     (NewAnchorCommitSig *message,
-                      ProtobufCAllocator *allocator);
-/* NewAnchorAccept methods */
-void   new_anchor_accept__init
-                     (NewAnchorAccept         *message);
-size_t new_anchor_accept__get_packed_size
-                     (const NewAnchorAccept   *message);
-size_t new_anchor_accept__pack
-                     (const NewAnchorAccept   *message,
-                      uint8_t             *out);
-size_t new_anchor_accept__pack_to_buffer
-                     (const NewAnchorAccept   *message,
-                      ProtobufCBuffer     *buffer);
-NewAnchorAccept *
-       new_anchor_accept__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   new_anchor_accept__free_unpacked
-                     (NewAnchorAccept *message,
-                      ProtobufCAllocator *allocator);
-/* NewAnchorComplete methods */
-void   new_anchor_complete__init
-                     (NewAnchorComplete         *message);
-size_t new_anchor_complete__get_packed_size
-                     (const NewAnchorComplete   *message);
-size_t new_anchor_complete__pack
-                     (const NewAnchorComplete   *message,
-                      uint8_t             *out);
-size_t new_anchor_complete__pack_to_buffer
-                     (const NewAnchorComplete   *message,
-                      ProtobufCBuffer     *buffer);
-NewAnchorComplete *
-       new_anchor_complete__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   new_anchor_complete__free_unpacked
-                     (NewAnchorComplete *message,
-                      ProtobufCAllocator *allocator);
 /* CloseChannel methods */
 void   close_channel__init
                      (CloseChannel         *message);
@@ -1007,21 +826,6 @@ typedef void (*UpdateSignature_Closure)
 typedef void (*UpdateComplete_Closure)
                  (const UpdateComplete *message,
                   void *closure_data);
-typedef void (*NewAnchor_Closure)
-                 (const NewAnchor *message,
-                  void *closure_data);
-typedef void (*NewAnchorAck_Closure)
-                 (const NewAnchorAck *message,
-                  void *closure_data);
-typedef void (*NewAnchorCommitSig_Closure)
-                 (const NewAnchorCommitSig *message,
-                  void *closure_data);
-typedef void (*NewAnchorAccept_Closure)
-                 (const NewAnchorAccept *message,
-                  void *closure_data);
-typedef void (*NewAnchorComplete_Closure)
-                 (const NewAnchorComplete *message,
-                  void *closure_data);
 typedef void (*CloseChannel_Closure)
                  (const CloseChannel *message,
                   void *closure_data);
@@ -1054,11 +858,6 @@ extern const ProtobufCMessageDescriptor update__descriptor;
 extern const ProtobufCMessageDescriptor update_accept__descriptor;
 extern const ProtobufCMessageDescriptor update_signature__descriptor;
 extern const ProtobufCMessageDescriptor update_complete__descriptor;
-extern const ProtobufCMessageDescriptor new_anchor__descriptor;
-extern const ProtobufCMessageDescriptor new_anchor_ack__descriptor;
-extern const ProtobufCMessageDescriptor new_anchor_commit_sig__descriptor;
-extern const ProtobufCMessageDescriptor new_anchor_accept__descriptor;
-extern const ProtobufCMessageDescriptor new_anchor_complete__descriptor;
 extern const ProtobufCMessageDescriptor close_channel__descriptor;
 extern const ProtobufCMessageDescriptor close_channel_complete__descriptor;
 extern const ProtobufCMessageDescriptor error__descriptor;

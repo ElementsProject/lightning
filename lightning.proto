@@ -117,8 +117,6 @@ message update {
 message update_accept {
   // Signature for your new commitment tx.
   required signature sig = 1;
-  // Signature for old anchor (if any)
-  optional signature old_anchor_sig = 2;
   // Hash for which I will supply preimage to revoke this new commit tx.
   required sha256_hash revocation_hash = 3;
 }
@@ -134,33 +132,6 @@ message update_signature {
 // Complete the update.
 message update_complete {
   // Hash preimage which revokes old commitment tx.
-  required sha256_hash revocation_preimage = 1;
-}
-
-// Let's change the channel funding source.
-message new_anchor {
-  // The new anchor: previous anchor 2x2 input assumed.
-  required anchor anchor = 1;
-}
-
-// That seems OK to me, let's add these too (if any).
-message new_anchor_ack {
-  required anchor anchor = 1;
-}
-
-// Now we both send signatures for new commit sig.
-message new_anchor_commit_sig {
-  required signature sig = 1;
-}
-
-// Here are the script sigs for the new anchor's new inputs.
-message new_anchor_accept {
-  repeated bytes script = 1;
-}
-
-// Complete the transfer to new anchor (both ends need to send this,
-// once they're happy that it's reached their required depth).
-message new_anchor_complete {
   required sha256_hash revocation_preimage = 1;
 }
 
@@ -196,11 +167,6 @@ message pkt {
     update_accept update_accept = 2;
     update_signature update_signature = 3;
     update_complete update_complete = 4;
-    // Topping up
-    new_anchor new_anchor = 301;
-    new_anchor_ack new_anchor_ack = 302;
-    new_anchor_accept new_anchor_accept = 303;
-    new_anchor_complete new_anchor_complete = 304;
     // Closing
     close_channel close = 401;
     close_channel_complete close_complete = 402;
