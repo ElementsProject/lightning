@@ -88,9 +88,8 @@ message open_commit_sig {
 
 // Indicates we've seen transaction reach min-depth.
 message open_complete {
-  // Block it went into.
-  optional sha256_hash blockid = 1;
-  // FIXME: add a merkle proof plus block headers here?
+  // This invalidates my escape transaction.
+  required sha256_hash escape_preimage = 1;
 }
 
 // Let's spend some money in the channel!

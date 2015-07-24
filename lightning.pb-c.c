@@ -1318,12 +1318,12 @@ const ProtobufCMessageDescriptor open_commit_sig__descriptor =
 static const ProtobufCFieldDescriptor open_complete__field_descriptors[1] =
 {
   {
-    "blockid",
+    "escape_preimage",
     1,
-    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(OpenComplete, blockid),
+    offsetof(OpenComplete, escape_preimage),
     &sha256_hash__descriptor,
     NULL,
     0,             /* flags */
@@ -1331,7 +1331,7 @@ static const ProtobufCFieldDescriptor open_complete__field_descriptors[1] =
   },
 };
 static const unsigned open_complete__field_indices_by_name[] = {
-  0,   /* field[0] = blockid */
+  0,   /* field[0] = escape_preimage */
 };
 static const ProtobufCIntRange open_complete__number_ranges[1 + 1] =
 {

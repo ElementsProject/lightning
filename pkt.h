@@ -70,6 +70,14 @@ struct pkt *open_commit_sig_pkt(const tal_t *ctx,
 				const struct signature *sigs);
 
 /**
+ * open_complete_pkt - create an open_complete message
+ * @ctx: tal context to allocate off.
+ * @escape_preimage: preimage to revoke escape transactions.
+ */
+struct pkt *open_complete_pkt(const tal_t *ctx,
+			      const struct sha256 *escape_preimage);
+
+/**
  * close_channel_pkt - create an close_channel message
  * @ctx: tal context to allocate off.
  * @sigs: two signatures for the close transaction inputs

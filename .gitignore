@@ -16,6 +16,8 @@ create-steal-tx
 create-commit-spend-tx
 close-channel
 create-close-tx
+open-complete
+check-open-complete
 update-channel
 update-channel-accept
 update-channel-signature

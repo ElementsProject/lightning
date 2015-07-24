@@ -114,6 +114,14 @@ struct pkt *open_commit_sig_pkt(const tal_t *ctx, const struct signature *sigs)
 	return to_pkt(ctx, PKT__PKT_OPEN_COMMIT_SIG, &o);
 }
 
+struct pkt *open_complete_pkt(const tal_t *ctx,
+			      const struct sha256 *escape_preimage)
+{
+	OpenComplete o = OPEN_COMPLETE__INIT;
+	o.escape_preimage = sha256_to_proto(ctx, escape_preimage);
+	return to_pkt(ctx, PKT__PKT_OPEN_COMPLETE, &o);
+}
+
 struct pkt *close_channel_pkt(const tal_t *ctx, const struct signature *sigs)
 {
 	CloseChannel c = CLOSE_CHANNEL__INIT;

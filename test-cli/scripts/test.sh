@@ -113,6 +113,14 @@ $CLI sendrawtransaction `cut -d: -f1 B-anchor.tx` > B-anchor.txid
 
 # while [ 0$($CLI getrawtransaction $(cat A-anchor.txid) 1 | sed -n 's/.*"confirmations" : \([0-9]*\),/\1/p') -lt $($PREFIX ./get-anchor-depth B-open.pb) ]; do scripts/generate-block.sh; done
 
+# Tell other side that channel is open.
+$PREFIX ./open-complete $A_ESCSECRET > A-open-complete.pb
+$PREFIX ./open-complete $B_ESCSECRET > B-open-complete.pb
+
+# Each side checks that escape preimage is correct.
+$PREFIX ./check-open-complete B-open.pb B-open-complete.pb
+$PREFIX ./check-open-complete A-open.pb A-open-complete.pb
+
 # Just for testing, generate the first transaction.
 $PREFIX ./create-commit-tx A-open.pb B-open.pb A-anchor-id.pb B-anchor-id.pb $A_TMPKEY B-commit-sig.pb > A-commit-0.tx
 

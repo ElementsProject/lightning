@@ -217,12 +217,9 @@ struct  _OpenComplete
 {
   ProtobufCMessage base;
   /*
-   * Block it went into.
+   * This invalidates my escape transaction.
    */
-  /*
-   * FIXME: add a merkle proof plus block headers here?
-   */
-  Sha256Hash *blockid;
+  Sha256Hash *escape_preimage;
 };
 #define OPEN_COMPLETE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&open_complete__descriptor) \
