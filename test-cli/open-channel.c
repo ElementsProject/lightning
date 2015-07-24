@@ -28,7 +28,7 @@ int main(int argc, char *argv[])
 	struct sha256 seed, revocation_hash, escape_secret, escape_hash;
 	struct pkt *pkt;
 	const tal_t *ctx = tal_arr(NULL, char, 0);
-	u64 commit_tx_fee, total_in;
+	u64 commit_tx_fee, escape_fee, total_in;
 	unsigned int locktime_seconds, min_confirms;
 	bool testnet;
 	struct pubkey commitkey, outkey;
@@ -40,6 +40,8 @@ int main(int argc, char *argv[])
 	min_confirms = 3;
 	/* We only need this for involuntary close, so make it larger. */
 	commit_tx_fee = 100000;
+	/* Don't let them waste too much of our money if they abort. */
+	escape_fee = 10000;
 	/* This means we have ~1 day before they can steal our money. */
 	locktime_seconds = LOCKTIME_MIN + 24 * 60 * 60;
 	
@@ -53,6 +55,9 @@ int main(int argc, char *argv[])
 	opt_register_arg("--commitment-fee=<bits>",
 			 opt_set_bits, opt_show_bits, &commit_tx_fee,
 			 "100's of satoshi to pay for commitment");
+	opt_register_arg("--escape-fee=<bits>",
+			 opt_set_bits, opt_show_bits, &escape_fee,
+			 "100's of satoshi to pay for escape transactions");
 	opt_register_arg("--locktime=<seconds>",
 			 opt_set_uintval, opt_show_uintval, &locktime_seconds,
 			 "Seconds to lock out our transaction redemption");
@@ -97,7 +102,7 @@ int main(int argc, char *argv[])
 
 	pkt = openchannel_pkt(ctx, &revocation_hash, &commitkey, &outkey,
 			      commit_tx_fee, locktime_seconds, total_in,
-			      &escape_hash, min_confirms);
+			      &escape_hash, escape_fee, min_confirms);
 
 	if (!write_all(STDOUT_FILENO, pkt, pkt_totlen(pkt)))
 		err(1, "Writing out packet");

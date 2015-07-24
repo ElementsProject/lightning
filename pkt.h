@@ -40,6 +40,7 @@ struct pubkey;
  * @anchor_txid: the anchor transaction ID.
  * @anchor_amount: the anchor amount.
  * @escape_hash: the hash whose preimage will revoke our escape txs.
+ * @escape_fee: the fee for escape txs.
  * @min_confirms: how many confirms we want on anchor.
  */
 struct pkt *openchannel_pkt(const tal_t *ctx,
@@ -50,6 +51,7 @@ struct pkt *openchannel_pkt(const tal_t *ctx,
 			    u32 rel_locktime_seconds,
 			    u64 anchor_amount,
 			    const struct sha256 *escape_hash,
+			    u64 escape_fee,
 			    u32 min_confirms);
 
 /**

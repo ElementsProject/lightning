@@ -62,8 +62,10 @@ message open_channel {
   required uint64 total_input = 8;
   // Secret hash for escape transactions.
   required sha256_hash escape_hash = 9;
+  // How much fee we will pay for escape txs.
+  required uint64 escape_fee = 10;
   // How many confirmations on anchor before we'll use channel.
-  required uint32 min_confirms = 10;
+  required uint32 min_confirms = 11;
 }
 
 // Give them the txid of our anchor transaction.

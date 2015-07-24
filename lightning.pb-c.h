@@ -146,6 +146,10 @@ struct  _OpenChannel
    */
   Sha256Hash *escape_hash;
   /*
+   * How much fee we will pay for escape txs.
+   */
+  uint64_t escape_fee;
+  /*
    * How many confirmations on anchor before we'll use channel.
    */
   uint32_t min_confirms;
@@ -157,7 +161,7 @@ struct  _OpenChannel
 };
 #define OPEN_CHANNEL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&open_channel__descriptor) \
-    , NULL, NULL, 0, NULL, 0, NULL, 0, OPEN_CHANNEL__LOCKTIME__NOT_SET, {} }
+    , NULL, NULL, 0, NULL, 0, NULL, 0, 0, OPEN_CHANNEL__LOCKTIME__NOT_SET, {} }
 
 
 /*

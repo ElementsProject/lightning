@@ -39,6 +39,7 @@ struct pkt *openchannel_pkt(const tal_t *ctx,
 			    u32 rel_locktime_seconds,
 			    u64 anchor_amount,
 			    const struct sha256 *escape_hash,
+			    u64 escape_fee,
 			    u32 min_confirms)
 {
 	OpenChannel o = OPEN_CHANNEL__INIT;
@@ -51,6 +52,7 @@ struct pkt *openchannel_pkt(const tal_t *ctx,
 	o.locktime_seconds = rel_locktime_seconds;
 	o.total_input = anchor_amount;
 	o.escape_hash = sha256_to_proto(ctx, escape_hash);
+	o.escape_fee = escape_fee;
 	o.min_confirms = min_confirms;
 
 	{

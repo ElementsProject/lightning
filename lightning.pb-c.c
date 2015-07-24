@@ -1033,7 +1033,7 @@ const ProtobufCMessageDescriptor bitcoin_pubkey__descriptor =
   (ProtobufCMessageInit) bitcoin_pubkey__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor open_channel__field_descriptors[9] =
+static const ProtobufCFieldDescriptor open_channel__field_descriptors[10] =
 {
   {
     "locktime_seconds",
@@ -1132,8 +1132,20 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[9] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "min_confirms",
+    "escape_fee",
     10,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT64,
+    0,   /* quantifier_offset */
+    offsetof(OpenChannel, escape_fee),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "min_confirms",
+    11,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
@@ -1147,18 +1159,19 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[9] =
 static const unsigned open_channel__field_indices_by_name[] = {
   5,   /* field[5] = commitkey */
   4,   /* field[4] = commitment_fee */
+  8,   /* field[8] = escape_fee */
   7,   /* field[7] = escape_hash */
   3,   /* field[3] = final */
   1,   /* field[1] = locktime_blocks */
   0,   /* field[0] = locktime_seconds */
-  8,   /* field[8] = min_confirms */
+  9,   /* field[9] = min_confirms */
   2,   /* field[2] = revocation_hash */
   6,   /* field[6] = total_input */
 };
 static const ProtobufCIntRange open_channel__number_ranges[1 + 1] =
 {
   { 2, 0 },
-  { 0, 9 }
+  { 0, 10 }
 };
 const ProtobufCMessageDescriptor open_channel__descriptor =
 {
@@ -1168,7 +1181,7 @@ const ProtobufCMessageDescriptor open_channel__descriptor =
   "OpenChannel",
   "",
   sizeof(OpenChannel),
-  9,
+  10,
   open_channel__field_descriptors,
   open_channel__field_indices_by_name,
   1,  open_channel__number_ranges,
