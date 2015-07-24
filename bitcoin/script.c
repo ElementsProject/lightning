@@ -104,36 +104,6 @@ static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
 #endif
 }
 
-/* FIXME: permute? */
-/* Is a < b? (If equal we don't care) */
-static bool key_less(const struct pubkey *a, const struct pubkey *b)
-{
-	/* Shorter one wins. */
-	if (pubkey_len(a) != pubkey_len(b))
-		return pubkey_len(a) < pubkey_len(b);
-
-	return memcmp(a->key, b->key, pubkey_len(a)) < 0;
-}
-	
-/* tal_count() gives the length of the script. */
-u8 *bitcoin_redeem_2of2(const tal_t *ctx,
-			const struct pubkey *key1,
-			const struct pubkey *key2)
-{
-	u8 *script = tal_arr(ctx, u8, 0);
-	add_number(&script, 2);
-	if (key_less(key1, key2)) {
-		add_push_key(&script, key1);
-		add_push_key(&script, key2);
-	} else {
-		add_push_key(&script, key2);
-		add_push_key(&script, key1);
-	}
-	add_number(&script, 2);
-	add_op(&script, OP_CHECKMULTISIG);
-	return script;
-}
-
 /* tal_count() gives the length of the script. */
 u8 *bitcoin_redeem_single(const tal_t *ctx, const struct pubkey *key)
 {
@@ -183,30 +153,6 @@ u8 *scriptsig_p2sh_single_sig(const tal_t *ctx,
 	return script;
 }
 	
-u8 *scriptsig_p2sh_2of2(const tal_t *ctx,
-			const struct bitcoin_signature *sig1,
-			const struct bitcoin_signature *sig2,
-			const struct pubkey *key1,
-			const struct pubkey *key2)
-{
-	u8 *script = tal_arr(ctx, u8, 0);
-	u8 *redeemscript;
-
-	/* OP_CHECKMULTISIG has an out-by-one bug, which MBZ */
-	add_number(&script, 0);
-	/* sig order should match key order. */
-	if (key_less(key1, key2)) {
-		add_push_sig(&script, sig1);
-		add_push_sig(&script, sig2);
-	} else {
-		add_push_sig(&script, sig2);
-		add_push_sig(&script, sig1);
-	}
-	redeemscript = bitcoin_redeem_2of2(script, key1, key2);
-	add_push_bytes(&script, redeemscript, tal_count(redeemscript));
-	return script;
-}
-
 /* Is this a normal pay to pubkey hash? */
 bool is_pay_to_pubkey_hash(const u8 *script, size_t script_len)
 {

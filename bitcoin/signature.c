@@ -198,26 +198,6 @@ bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
 	return ret;
 }
 
-bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
-		    const u8 *redeemscript, size_t redeemscript_len,
-		    const struct pubkey *key1, const struct pubkey *key2,
-		    const struct bitcoin_signature *sig1,
-		    const struct bitcoin_signature *sig2)
-{
-	struct sha256_double hash;
-	assert(input_num < tx->input_count);
-
-	sha256_tx_one_input(tx, input_num, redeemscript, redeemscript_len,
-			    &hash);
-
-	/* We only use SIGHASH_ALL for the moment. */
-	if (sig1->stype != SIGHASH_ALL || sig2->stype != SIGHASH_ALL)
-		return false;
-	
-	return check_signed_hash(&hash, &sig1->sig, key1)
-		&& check_signed_hash(&hash, &sig2->sig, key2);
-}
-
 /* Stolen direct from bitcoin/src/script/sign.cpp:
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers

@@ -16,11 +16,6 @@ struct bitcoin_signature {
 };
 
 /* tal_count() gives the length of the script. */
-u8 *bitcoin_redeem_2of2(const tal_t *ctx,
-			const struct pubkey *key1,
-			const struct pubkey *key2);
-
-/* tal_count() gives the length of the script. */
 u8 *bitcoin_redeem_single(const tal_t *ctx, const struct pubkey *key);
 
 /* A common script pattern: A can have it with secret, or B can have
@@ -47,13 +42,6 @@ u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript);
 u8 *scriptsig_pay_to_pubkeyhash(const tal_t *ctx,
 				const struct pubkey *key,
 				const struct bitcoin_signature *sig);
-
-/* Create an input script to accept pay to pubkey */
-u8 *scriptsig_p2sh_2of2(const tal_t *ctx,
-			const struct bitcoin_signature *sig1,
-			const struct bitcoin_signature *sig2,
-			const struct pubkey *key1,
-			const struct pubkey *key2);
 
 /* Create an input script to spend anchor output (commit version). */
 u8 *scriptsig_p2sh_anchor_commit(const tal_t *ctx,
