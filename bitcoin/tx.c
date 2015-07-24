@@ -503,6 +503,14 @@ bool bitcoin_txid_from_hex(const char *hexstr, size_t hexstr_len,
 	return true;
 }
 
+bool bitcoin_txid_to_hex(const struct sha256_double *txid,
+			 char *hexstr, size_t hexstr_len)
+{
+	struct sha256_double rev = *txid;
+	reverse_bytes(rev.sha.u.u8, sizeof(rev.sha.u.u8));
+	return hex_encode(&rev, sizeof(rev), hexstr, hexstr_len);
+}
+
 static bool write_input_amounts(int fd, const struct bitcoin_tx *tx)
 {
 	/* Alpha required input amounts, so append them */

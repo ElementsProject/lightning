@@ -64,4 +64,8 @@ bool bitcoin_tx_write(int fd, const struct bitcoin_tx *tx);
 bool bitcoin_txid_from_hex(const char *hexstr, size_t hexstr_len,
 			   struct sha256_double *txid);
 
+/* Get hex string of txid (reversed, a-la bitcoind). */
+bool bitcoin_txid_to_hex(const struct sha256_double *txid,
+			 char *hexstr, size_t hexstr_len);
+
 #endif /* LIGHTNING_BITCOIN_TX_H */

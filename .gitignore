@@ -21,6 +21,7 @@ update-channel-accept
 update-channel-signature
 update-channel-complete
 create-commit-tx
+txid-of
 ccan/tools/configurator/configurator
 libsecp256k1.a
 libsecp256k1.la
