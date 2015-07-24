@@ -24,6 +24,7 @@ Pkt *any_pkt_from_file(const char *filename);
 size_t pkt_totlen(const struct pkt *pkt);
 
 struct sha256;
+struct sha256_double;
 struct bitcoin_compressed_pubkey;
 struct signature;
 struct pubkey;
@@ -32,47 +33,58 @@ struct pubkey;
  * openchannel_pkt - create an openchannel message
  * @ctx: tal context to allocate off.
  * @revocation_hash: first hash value generated from seed.
- * @to_me: the pubkey for the commit transactions' P2SH output.
+ * @commit: the pubkey for commit transactions.
+ * @final: the pubkey for the commit transactions' output and escape input.
  * @commitment_fee: the fee to use for commitment tx.
  * @rel_locktime_seconds: relative seconds for commitment locktime.
- * @anchor: the anchor transaction details.
+ * @anchor_txid: the anchor transaction ID.
+ * @anchor_amount: the anchor amount.
+ * @escape_hash: the hash whose preimage will revoke our escape txs.
+ * @min_confirms: how many confirms we want on anchor.
  */
 struct pkt *openchannel_pkt(const tal_t *ctx,
 			    const struct sha256 *revocation_hash,
-			    const struct pubkey *to_me,
+			    const struct pubkey *commit,
+			    const struct pubkey *final,
 			    u64 commitment_fee,
 			    u32 rel_locktime_seconds,
-			    Anchor *anchor);
+			    u64 anchor_amount,
+			    const struct sha256 *escape_hash,
+			    u32 min_confirms);
 
 /**
- * open_anchor_sig_pkt - create an open_anchor_sig message
+ * open_anchor_pkt - create an open_anchor_sig message
  * @ctx: tal context to allocate off.
- * @sigs: the der-encoded signatures (tal_count() gives len).
- * @num_sigs: the number of sigs.
+ * @txid: the anchor's txid
+ * @index: the anchor's output to spend.
  */
-struct pkt *open_anchor_sig_pkt(const tal_t *ctx, u8 **sigs, size_t num_sigs);
+struct pkt *open_anchor_pkt(const tal_t *ctx,
+			    const struct sha256_double *txid, u32 index);
 
 /**
  * open_commit_sig_pkt - create an open_commit_sig message
  * @ctx: tal context to allocate off.
- * @sig: the signature for the commit transaction input.
+ * @sigs: two signatures for the commit transaction inputs
  */
-struct pkt *open_commit_sig_pkt(const tal_t *ctx, const struct signature *sig);
+struct pkt *open_commit_sig_pkt(const tal_t *ctx,
+				const struct signature *sigs);
 
 /**
  * close_channel_pkt - create an close_channel message
  * @ctx: tal context to allocate off.
- * @sig: the signature for the close transaction input.
+ * @sigs: two signatures for the close transaction inputs
  */
-struct pkt *close_channel_pkt(const tal_t *ctx, const struct signature *sig);
+struct pkt *close_channel_pkt(const tal_t *ctx,
+			      const struct signature *sigs);
 
 /**
  * close_channel_complete_pkt - create an close_channel_complete message
  * @ctx: tal context to allocate off.
- * @sig: the signature for the close transaction input.
+ * @sigs: two signatures for the close transaction inputs
  */
 struct pkt *close_channel_complete_pkt(const tal_t *ctx,
-				       const struct signature *sig);
+				       const struct signature *sigs);
+
 
 /**
  * update_pkt - create an update message
@@ -87,21 +99,21 @@ struct pkt *update_pkt(const tal_t *ctx,
 /**
  * update_accept_pkt - create an update_accept message
  * @ctx: tal context to allocate off.
- * @sig: the signature for the close transaction input.
+ * @sigs: two signatures for the commit transaction inputs
  * @revocation_hash: hash to revoke the next tx.
  */
 struct pkt *update_accept_pkt(const tal_t *ctx,
-			      struct signature *sig,
+			      const struct signature *sigs,
 			      const struct sha256 *revocation_hash);
 
 /**
  * update_signature_pkt - create an update_signature message
  * @ctx: tal context to allocate off.
- * @sig: the signature for the close transaction input.
+ * @sigs: two signatures for the commit transaction inputs
  * @revocation_preimage: preimage to revoke existing (now-obsolete) tx.
  */
 struct pkt *update_signature_pkt(const tal_t *ctx,
-				 const struct signature *sig,
+				 const struct signature *sigs,
 				 const struct sha256 *revocation_preimage);
 /**
  * update_complete_pkt - create an update_accept message

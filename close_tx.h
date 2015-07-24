@@ -11,7 +11,9 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 				   OpenChannel *ours,
 				   OpenChannel *theirs,
 				   int64_t delta,
-				   const struct sha256_double *anchor_txid,
-				   uint64_t input_amount,
-				   unsigned int anchor_output);
+				   const struct sha256_double *anchor_txid1,
+				   unsigned int index1, uint64_t input_amount1,
+				   const struct sha256_double *anchor_txid2,
+				   unsigned int index2, uint64_t input_amount2,
+				   size_t inmap[2]);
 #endif

@@ -33,24 +33,25 @@ static struct pkt *to_pkt(const tal_t *ctx, Pkt__PktCase type, void *msg)
 
 struct pkt *openchannel_pkt(const tal_t *ctx,
 			    const struct sha256 *revocation_hash,
-			    const struct pubkey *to_me,
+			    const struct pubkey *commit,
+			    const struct pubkey *final,
 			    u64 commitment_fee,
 			    u32 rel_locktime_seconds,
-			    Anchor *anchor)
+			    u64 anchor_amount,
+			    const struct sha256 *escape_hash,
+			    u32 min_confirms)
 {
 	OpenChannel o = OPEN_CHANNEL__INIT;
 
-	/* Required fields must be set: pack functions don't check! */
-	assert(anchor->inputs);
-	assert(anchor->pubkey);
-
 	o.revocation_hash = sha256_to_proto(ctx, revocation_hash);
-	o.final = pubkey_to_proto(ctx, to_me);
+	o.commitkey = pubkey_to_proto(ctx, commit);
+	o.final = pubkey_to_proto(ctx, final);
 	o.commitment_fee = commitment_fee;
-	o.anchor = anchor;
 	o.locktime_case = OPEN_CHANNEL__LOCKTIME_LOCKTIME_SECONDS;
 	o.locktime_seconds = rel_locktime_seconds;
-	o.tx_version = BITCOIN_TX_VERSION;
+	o.total_input = anchor_amount;
+	o.escape_hash = sha256_to_proto(ctx, escape_hash);
+	o.min_confirms = min_confirms;
 
 	{
 		size_t len = open_channel__get_packed_size(&o);
@@ -93,41 +94,44 @@ Pkt *pkt_from_file(const char *filename, Pkt__PktCase expect)
 	return ret;
 }
 
-struct pkt *open_anchor_sig_pkt(const tal_t *ctx, u8 **sigs, size_t num_sigs)
+struct pkt *open_anchor_pkt(const tal_t *ctx, const struct sha256_double *txid,
+			    u32 index)
 {
-	OpenAnchorScriptsigs o = OPEN_ANCHOR_SCRIPTSIGS__INIT;
-	size_t i;
+	OpenAnchor oa = OPEN_ANCHOR__INIT;
 
-	o.n_script = num_sigs;
-	o.script = tal_arr(ctx, ProtobufCBinaryData, num_sigs);
-	for (i = 0; i < num_sigs; i++) {
-		o.script[i].data = sigs[i];
-		o.script[i].len = tal_count(sigs[i]);
-	}
-	
-	return to_pkt(ctx, PKT__PKT_OPEN_ANCHOR_SCRIPTSIGS, &o);
+	oa.anchor_txid = sha256_to_proto(ctx, &txid->sha);
+	oa.index = index;
+	return to_pkt(ctx, PKT__PKT_OPEN_ANCHOR, &oa);
 }
 
-struct pkt *open_commit_sig_pkt(const tal_t *ctx, const struct signature *sig)
+struct pkt *open_commit_sig_pkt(const tal_t *ctx, const struct signature *sigs)
 {
 	OpenCommitSig o = OPEN_COMMIT_SIG__INIT;
-
-	o.sig = signature_to_proto(ctx, sig);
+	o.sigs = tal(ctx, AnchorSpend);
+	anchor_spend__init(o.sigs);
+	o.sigs->sig0 = signature_to_proto(ctx, &sigs[0]);
+	o.sigs->sig1 = signature_to_proto(ctx, &sigs[1]);
 	return to_pkt(ctx, PKT__PKT_OPEN_COMMIT_SIG, &o);
 }
 
-struct pkt *close_channel_pkt(const tal_t *ctx, const struct signature *sig)
+struct pkt *close_channel_pkt(const tal_t *ctx, const struct signature *sigs)
 {
 	CloseChannel c = CLOSE_CHANNEL__INIT;
-	c.sig = signature_to_proto(ctx, sig);
+	c.sigs = tal(ctx, AnchorSpend);
+	anchor_spend__init(c.sigs);
+	c.sigs->sig0 = signature_to_proto(ctx, &sigs[0]);
+	c.sigs->sig1 = signature_to_proto(ctx, &sigs[1]);
 	return to_pkt(ctx, PKT__PKT_CLOSE, &c);
 }
 
 struct pkt *close_channel_complete_pkt(const tal_t *ctx,
-				       const struct signature *sig)
+				       const struct signature *sigs)
 {
 	CloseChannelComplete c = CLOSE_CHANNEL_COMPLETE__INIT;
-	c.sig = signature_to_proto(ctx, sig);
+	c.sigs = tal(ctx, AnchorSpend);
+	anchor_spend__init(c.sigs);
+	c.sigs->sig0 = signature_to_proto(ctx, &sigs[0]);
+	c.sigs->sig1 = signature_to_proto(ctx, &sigs[1]);
 	return to_pkt(ctx, PKT__PKT_CLOSE_COMPLETE, &c);
 }
 
@@ -142,21 +146,27 @@ struct pkt *update_pkt(const tal_t *ctx,
 }
 
 struct pkt *update_accept_pkt(const tal_t *ctx,
-			      struct signature *sig,
+			      const struct signature *sigs,
 			      const struct sha256 *revocation_hash)
 {
 	UpdateAccept ua = UPDATE_ACCEPT__INIT;
-	ua.sig = signature_to_proto(ctx, sig);
+	ua.sigs = tal(ctx, AnchorSpend);
+	anchor_spend__init(ua.sigs);
+	ua.sigs->sig0 = signature_to_proto(ctx, &sigs[0]);
+	ua.sigs->sig1 = signature_to_proto(ctx, &sigs[1]);
 	ua.revocation_hash = sha256_to_proto(ctx, revocation_hash);
 	return to_pkt(ctx, PKT__PKT_UPDATE_ACCEPT, &ua);
 }
 
 struct pkt *update_signature_pkt(const tal_t *ctx,
-				 const struct signature *sig,
+				 const struct signature *sigs,
 				 const struct sha256 *revocation_preimage)
 {
 	UpdateSignature us = UPDATE_SIGNATURE__INIT;
-	us.sig = signature_to_proto(ctx, sig);
+	us.sigs = tal(ctx, AnchorSpend);
+	anchor_spend__init(us.sigs);
+	us.sigs->sig0 = signature_to_proto(ctx, &sigs[0]);
+	us.sigs->sig1 = signature_to_proto(ctx, &sigs[1]);
 	us.revocation_preimage = sha256_to_proto(ctx, revocation_preimage);
 	return to_pkt(ctx, PKT__PKT_UPDATE_SIGNATURE, &us);
 }

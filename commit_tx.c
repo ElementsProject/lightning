@@ -13,23 +13,31 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    OpenChannel *theirs,
 				    const struct sha256 *rhash,
 				    int64_t delta,
-				    const struct sha256_double *anchor_txid,
-				    unsigned int anchor_output)
+				    const struct sha256_double *anchor_txid1,
+				    unsigned int index1, uint64_t input_amount1,
+				    const struct sha256_double *anchor_txid2,
+				    unsigned int index2, uint64_t input_amount2,
+				    size_t inmap[2])
 {
 	struct bitcoin_tx *tx;
 	const u8 *redeemscript;
 	struct pubkey ourkey, theirkey, to_me;
 	u32 locktime;
 
-	/* Now create commitment tx: one input, two outputs. */
-	tx = bitcoin_tx(ctx, 1, 2);
+	/* Now create commitment tx: two inputs, two outputs. */
+	tx = bitcoin_tx(ctx, 2, 2);
 
-	/* Our input spends the anchor tx output. */
-	tx->input[0].txid = *anchor_txid;
-	tx->input[0].index = anchor_output;
-	if (add_overflows_u64(ours->anchor->total, theirs->anchor->total))
+	/* Our inputs spend the anchor txs outputs. */
+	tx->input[0].txid = *anchor_txid1;
+	tx->input[0].index = index1;
+	tx->input[0].input_amount = input_amount1;
+	tx->input[1].txid = *anchor_txid2;
+	tx->input[1].index = index2;
+	tx->input[1].input_amount = input_amount2;
+
+	if (add_overflows_u64(tx->input[0].input_amount,
+			      tx->input[1].input_amount))
 		return tal_free(tx);
-	tx->input[0].input_amount = ours->anchor->total + theirs->anchor->total;
 
 	/* Output goes to our final pubkeys */
 	if (!proto_to_pubkey(ours->final, &ourkey))
@@ -48,9 +56,9 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx->output[0].script = scriptpubkey_p2sh(tx, redeemscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
-	if (ours->anchor->total < ours->commitment_fee)
+	if (ours->total_input < ours->commitment_fee)
 		return tal_free(tx);
-	tx->output[0].amount = ours->anchor->total - ours->commitment_fee;
+	tx->output[0].amount = ours->total_input - ours->commitment_fee;
 	/* Asking for more than we have? */
 	if (delta < 0 && -delta > tx->output[0].amount)
 		return tal_free(tx);
@@ -64,18 +72,19 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 								       &to_me));
 	tx->output[1].script_length = tal_count(tx->output[1].script);
 
-	if (theirs->anchor->total < theirs->commitment_fee)
+	if (theirs->total_input < theirs->commitment_fee)
 		return tal_free(tx);
-	tx->output[1].amount = theirs->anchor->total - theirs->commitment_fee;
+	tx->output[1].amount = theirs->total_input - theirs->commitment_fee;
 	/* Asking for more than they have? */
 	if (delta > 0 && delta > tx->output[1].amount)
 		return tal_free(tx);
 	tx->output[0].amount -= delta;
 
 	/* Calculate fee; difference of inputs and outputs. */
-	tx->fee = tx->input[0].input_amount
+	tx->fee = tx->input[0].input_amount + tx->input[1].input_amount
 		- (tx->output[0].amount + tx->output[1].amount);
-	
+
+	permute_inputs(tx->input, 2, inmap);
 	permute_outputs(tx->output, 2, NULL);
 	return tx;
 }

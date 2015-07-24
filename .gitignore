@@ -25,3 +25,5 @@ txid-of
 ccan/tools/configurator/configurator
 libsecp256k1.a
 libsecp256k1.la
+create-anchor-tx
+open-anchor-id

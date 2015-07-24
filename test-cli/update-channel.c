@@ -6,7 +6,6 @@
 #include <ccan/err/err.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include "lightning.pb-c.h"
-#include "anchor.h"
 #include "bitcoin/base58.h"
 #include "pkt.h"
 #include "bitcoin/script.h"

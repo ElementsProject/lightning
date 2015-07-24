@@ -21,82 +21,90 @@ int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal_arr(NULL, char, 0);
 	OpenChannel *o1, *o2;
+	OpenAnchor *oa1, *oa2;
 	OpenCommitSig *cs2;
-	struct bitcoin_tx *anchor, *commit;
-	struct sha256_double txid;
-	u8 *subscript;
-	size_t *inmap, *outmap;
-	struct pubkey pubkey1, pubkey2;
-	struct bitcoin_signature sig1, sig2;
+	AnchorSpend mysigs = ANCHOR_SPEND__INIT;
+	struct bitcoin_tx *commit;
+	struct sha256_double anchor_txid1, anchor_txid2;
+	struct pubkey pubkey1, pubkey2, final1, final2;
+	struct signature sigs[2];
 	struct privkey privkey;
 	bool testnet;
-	struct sha256 rhash;
+	struct sha256 rhash, escape_hash1, escape_hash2;
+	size_t inmap[2];
 
 	err_set_progname(argv[0]);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<open-channel-file1> <open-channel-file2> <commit-sig-2> <commit-key1>\n"
+			   "<open-channel-file1> <open-channel-file2> <open-anchor-file1> <open-anchor-file2> <commit-sig-2> <commit-key1>\n"
 			   "Output the commitment transaction if both signatures are valid",
 			   "Print this message.");
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
-	if (argc != 5)
-		opt_usage_exit_fail("Expected 4 arguments");
+	if (argc != 7)
+		opt_usage_exit_fail("Expected 6 arguments");
 
 	o1 = pkt_from_file(argv[1], PKT__PKT_OPEN)->open;
+	proto_to_sha256(o1->escape_hash, &escape_hash1);
 	o2 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
-	cs2 = pkt_from_file(argv[3], PKT__PKT_OPEN_COMMIT_SIG)->open_commit_sig;
+	proto_to_sha256(o2->escape_hash, &escape_hash2);
+	oa1 = pkt_from_file(argv[3], PKT__PKT_OPEN_ANCHOR)->open_anchor;
+	oa2 = pkt_from_file(argv[4], PKT__PKT_OPEN_ANCHOR)->open_anchor;
+	proto_to_sha256(oa1->anchor_txid, &anchor_txid1.sha);
+	proto_to_sha256(oa2->anchor_txid, &anchor_txid2.sha);
+	cs2 = pkt_from_file(argv[5], PKT__PKT_OPEN_COMMIT_SIG)->open_commit_sig;
 
-	if (!key_from_base58(argv[4], strlen(argv[4]), &testnet, &privkey, &pubkey1))
-		errx(1, "Invalid private key '%s'", argv[4]);
+	if (!key_from_base58(argv[6], strlen(argv[6]), &testnet, &privkey, &pubkey1))
+		errx(1, "Invalid private key '%s'", argv[6]);
 	if (!testnet)
-		errx(1, "Private key '%s' not on testnet!", argv[4]);
+		errx(1, "Private key '%s' not on testnet!", argv[6]);
 
 	/* Pubkey well-formed? */
-	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
-		errx(1, "Invalid anchor-2 key");
-
-	/* Get the transaction ID of the anchor. */
-	anchor = anchor_tx_create(ctx, o1, o2, &inmap, &outmap);
-	if (!anchor)
-		errx(1, "Failed transaction merge");
-	anchor_txid(anchor, &txid);
+	if (!proto_to_pubkey(o2->commitkey, &pubkey2))
+		errx(1, "Invalid open-2 key");
+	if (!proto_to_pubkey(o2->final, &final2))
+ 		errx(1, "Invalid o2 final pubkey");
+	if (!proto_to_pubkey(o1->final, &final1))
+ 		errx(1, "Invalid o1 final pubkey");
 
 	/* Now create our commitment tx. */
 	proto_to_sha256(o1->revocation_hash, &rhash);
-	commit = create_commit_tx(ctx, o1, o2, &rhash, 0, &txid, outmap[0]);
+	commit = create_commit_tx(ctx, o1, o2, &rhash, 0,
+				  &anchor_txid1, oa1->index, o1->total_input,
+				  &anchor_txid2, oa2->index, o2->total_input,
+				  inmap);
 
 	/* If contributions don't exceed fees, this fails. */
 	if (!commit)
 		errx(1, "Contributions %llu & %llu vs fees %llu & %llu",
-		     (long long)o1->anchor->total,
-		     (long long)o2->anchor->total,
+		     (long long)o1->total_input,
+		     (long long)o2->total_input,
 		     (long long)o1->commitment_fee,
 		     (long long)o2->commitment_fee);
 
-	/* FIXME: Creating out signature just to check the script we create
-	 * is overkill: if their signature and pubkey signed the commit txin,
-	 * we're happy. */
-	sig1.stype = SIGHASH_ALL;
-	subscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
-	sign_tx_input(ctx, commit, 0, subscript, tal_count(subscript),
-		      &privkey, &pubkey1, &sig1.sig);
+	/* Check they signed out anchor inputs correctly. */
+	if (!check_anchor_spend(commit, inmap, &pubkey1, &final1, &escape_hash1,
+				&pubkey2, &final2, &escape_hash2,
+				&pubkey2, cs2->sigs))
+		errx(1, "Bad signature");
 
-	/* Signatures well-formed? */
-	if (!proto_to_signature(cs2->sig, &sig2.sig))
-		errx(1, "Invalid commit-sig-2");
-	sig2.stype = SIGHASH_ALL;
+	if (!sign_anchor_spend(commit, inmap, &pubkey1, &final1, &escape_hash1,
+			       &pubkey2, &final2, &escape_hash2,
+			       &pubkey1, &privkey, sigs))
+		errx(1, "Could not sign tx");
 
-	/* Combined signatures must validate correctly. */
-	if (!check_2of2_sig(commit, 0, subscript, tal_count(subscript),
-			    &pubkey1, &pubkey2, &sig1, &sig2))
-		errx(1, "Signature failed");
+	/* populate_anchor_inscripts wants args in protobuf */
+	mysigs.sig0 = signature_to_proto(ctx, &sigs[0]);
+	mysigs.sig1 = signature_to_proto(ctx, &sigs[1]);
 
-	/* Create p2sh input for commit */
-	commit->input[0].script = scriptsig_p2sh_2of2(commit, &sig1, &sig2,
-						      &pubkey1, &pubkey2);
-	commit->input[0].script_length = tal_count(commit->input[0].script);
+	/* Shouldn't fail, since we checked them in check_anchor_spend */
+	if (!populate_anchor_inscripts(commit, commit, inmap,
+				       &pubkey1, &final1, &escape_hash1,
+				       &pubkey2, &final2, &escape_hash2,
+				       &mysigs,
+				       cs2->sigs))
+		errx(1, "Malformed signatures");
 
 	/* Print it out in hex. */
 	if (!bitcoin_tx_write(STDOUT_FILENO, commit))

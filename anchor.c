@@ -1,165 +1,200 @@
-#include <ccan/err/err.h>
 #include "anchor.h"
-#include "bitcoin/pubkey.h"
 #include "bitcoin/script.h"
-#include "bitcoin/tx.h"
-#include "overflows.h"
-#include "permute_tx.h"
-#include "pkt.h"
 #include "protobuf_convert.h"
 
-struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
-				    const OpenChannel *o1,
-				    const OpenChannel *o2,
-				    size_t **inmapp, size_t **outmapp)
-{
-	uint64_t i, n_out;
-	struct bitcoin_tx *tx;
-	u8 *redeemscript;
-	size_t *inmap, *outmap;
-	struct pubkey key1, key2;
-	uint64_t total_in = 0, total_change = 0;
+#undef DEBUG
+#ifdef DEBUG
+#include <stdio.h>
+#include "bitcoin/pubkey.h"
 
-	if (add_overflows_size_t(o1->anchor->n_inputs, o2->anchor->n_inputs))
-		return NULL;
-
-	n_out = 1 + !!o1->anchor->change + !!o2->anchor->change;
-	tx = bitcoin_tx(ctx, o1->anchor->n_inputs+o2->anchor->n_inputs, n_out);
-
-	/* Override version to use lesser of two versions. */
-	if (o1->tx_version < o2->tx_version)
-		tx->version = o1->tx_version;
-	else
-		tx->version = o2->tx_version;
-	
-	/* Populate inputs. */
-	for (i = 0; i < o1->anchor->n_inputs; i++) {
-		BitcoinInput *pb = o1->anchor->inputs[i];
-		struct bitcoin_tx_input *in = &tx->input[i];
-		proto_to_sha256(pb->txid, &in->txid.sha);
-		in->index = pb->output;
-		in->input_amount = pb->amount;
-		if (add_overflows_u64(total_in, in->input_amount))
-			return tal_free(tx);
-		total_in += in->input_amount;
-		/* Leave inputs as stubs for now, for signing. */
-	}
-	for (i = 0; i < o2->anchor->n_inputs; i++) {
-		BitcoinInput *pb = o2->anchor->inputs[i];
-		struct bitcoin_tx_input *in
-			= &tx->input[o1->anchor->n_inputs + i];
-		proto_to_sha256(pb->txid, &in->txid.sha);
-		in->index = pb->output;
-		in->input_amount = pb->amount;
-		if (add_overflows_u64(total_in, in->input_amount))
-			return tal_free(tx);
-		total_in += in->input_amount;
-		/* Leave inputs as stubs for now, for signing. */
-	}
-
-	/* Populate outputs. */
-	if (add_overflows_u64(o1->anchor->total, o2->anchor->total))
-		return tal_free(tx);
-
-	/* Pubkeys both valid, right? */
-	if (!proto_to_pubkey(o1->anchor->pubkey, &key1)
-	    || !proto_to_pubkey(o2->anchor->pubkey, &key2))
-		return tal_free(tx);
-
-	/* Make the 2 of 2 payment for the commitment txs. */
-	redeemscript = bitcoin_redeem_2of2(tx, &key1, &key2);
-	tx->output[0].amount = o1->anchor->total + o2->anchor->total;
-	tx->output[0].script = scriptpubkey_p2sh(tx, redeemscript);
-	tx->output[0].script_length = tal_count(tx->output[0].script);
-
-	/* Add change transactions (if any) */
-	n_out = 1;
-	if (o1->anchor->change) {
-		struct bitcoin_tx_output *out = &tx->output[n_out++];
-		struct pubkey key;
-
-		if (!proto_to_pubkey(o1->anchor->change->pubkey, &key))
-			return tal_free(tx);
-
-		out->amount = o1->anchor->change->amount;
-		out->script = scriptpubkey_p2sh(tx,
-						bitcoin_redeem_single(tx, &key));
-		out->script_length = tal_count(out->script);
-		total_change += out->amount;
-	}
-	if (o2->anchor->change) {
-		struct bitcoin_tx_output *out = &tx->output[n_out++];
-		struct pubkey key;
-
-		if (!proto_to_pubkey(o2->anchor->change->pubkey, &key))
-			return tal_free(tx);
-
-		out->amount = o2->anchor->change->amount;
-		out->script = scriptpubkey_p2sh(tx,
-						bitcoin_redeem_single(tx, &key));
-		out->script_length = tal_count(out->script);
-		if (add_overflows_u64(total_change, out->amount))
-			return tal_free(tx);
-		total_change += out->amount;
-	}
-	assert(n_out == tx->output_count);
-
-	/* Figure out fee we're paying; check for over and underflow */
-	if (add_overflows_u64(total_change, tx->output[0].amount))
-		return tal_free(tx);
-	if (total_in < total_change + tx->output[0].amount)
-		return tal_free(tx);
-	tx->fee = total_in - (total_change + tx->output[0].amount);
-
-	/* Check that the fees add up correctly. */
-	if (add_overflows_u64(o1->anchor->fee, o2->anchor->fee))
-		return tal_free(tx);
-	if (tx->fee != o1->anchor->fee + o2->anchor->fee)
-		return tal_free(tx);
-
-	if (inmapp)
-		inmap = *inmapp = tal_arr(ctx, size_t, tx->input_count);
-	else
-		inmap = NULL;
-
-	if (outmapp)
-		outmap = *outmapp = tal_arr(ctx, size_t, tx->output_count);
-	else
-		outmap = NULL;
-		
-	permute_inputs(tx->input, tx->input_count, inmap);
-	permute_outputs(tx->output, tx->output_count, outmap);
-	return tx;
-}
-
-/* This may create an invalid anchor.  That's actually OK, as the bitcoin
- * network won't accept it and we'll ds our way out. */
-bool anchor_add_scriptsigs(struct bitcoin_tx *anchor,
-			   OpenAnchorScriptsigs *ssigs1,
-			   OpenAnchorScriptsigs *ssigs2,
-			   const size_t *inmap)
+static void dump_anchor_spend(const char *what,
+			      size_t input,
+			      const struct pubkey *commitkey1,
+			      const struct pubkey *commitkey2,
+			      const struct pubkey *finalkey,
+			      const struct sha256 *escapehash,
+			      const struct pubkey *signingkey,
+			      const struct signature *sig)
 {
 	size_t i;
+	fprintf(stderr, "%s input %zu:", what, input);
+	fprintf(stderr, " commitkey1=");
+	for (i = 0; i < pubkey_len(commitkey1); i++)
+		fprintf(stderr, "%02x", commitkey1->key[i]);
+	fprintf(stderr, " commitkey2=");
+	for (i = 0; i < pubkey_len(commitkey2); i++)
+		fprintf(stderr, "%02x", commitkey2->key[i]);
+	fprintf(stderr, " finalkey=");
+	for (i = 0; i < pubkey_len(finalkey); i++)
+		fprintf(stderr, "%02x", finalkey->key[i]);
+	fprintf(stderr, " escapehash=");
+	for (i = 0; i < sizeof(escapehash->u.u8); i++)
+		fprintf(stderr, "%02x", escapehash->u.u8[i]);
+	fprintf(stderr, " signingkey=");
+	for (i = 0; i < pubkey_len(signingkey); i++)
+		fprintf(stderr, "%02x", signingkey->key[i]);
+	fprintf(stderr, " -> sig {r=");
+	for (i = 0; i < sizeof(sig->r); i++)
+		fprintf(stderr, "%02x", sig->r[i]);
+	fprintf(stderr, ", s=");
+	for (i = 0; i < sizeof(sig->s); i++)
+		fprintf(stderr, "%02x", sig->s[i]);
+	fprintf(stderr, "}\n");
+}
+#else
+static void dump_anchor_spend(const char *what,
+			      size_t input,
+			      const struct pubkey *commitkey1,
+			      const struct pubkey *commitkey2,
+			      const struct pubkey *finalkey,
+			      const struct sha256 *escapehash,
+			      const struct pubkey *signingkey,
+			      const struct signature *sig)
+{
+}
+#endif
 
-	if (ssigs1->n_script + ssigs2->n_script != anchor->input_count)
-		return NULL;
+bool sign_anchor_spend(struct bitcoin_tx *tx,
+		       const size_t inmap[2],
+		       const struct pubkey *my_commitkey,
+		       const struct pubkey *my_finalkey,
+		       const struct sha256 *my_escapehash,
+		       const struct pubkey *their_commitkey,
+		       const struct pubkey *their_finalkey,
+		       const struct sha256 *their_escapehash,
+		       const struct pubkey *signing_pubkey,
+		       const struct privkey *signing_privkey,
+		       struct signature sig[2])
+{
+	const tal_t *ctx = tal(NULL, char);
+	u8 *redeemscript;
+	bool ret;
 
-	for (i = 0; i < ssigs1->n_script; i++) {
-		size_t n = inmap[i];
-		anchor->input[n].script = ssigs1->script[i].data;
-		anchor->input[n].script_length = ssigs1->script[i].len;
-	}
+	/* Sign input for our anchor. */
+	redeemscript = bitcoin_redeem_anchor(ctx, my_commitkey, their_commitkey,
+					     their_finalkey, my_escapehash);
+	ret = sign_tx_input(ctx, tx, inmap[0],
+			    redeemscript, tal_count(redeemscript),
+			    signing_privkey, signing_pubkey, &sig[inmap[0]]);
+	dump_anchor_spend("signed from_mine", inmap[0],
+			  my_commitkey, their_commitkey, their_finalkey,
+			  my_escapehash, signing_pubkey, &sig[inmap[0]]);
 
-	for (i = 0; i < ssigs2->n_script; i++) {
-		size_t n = inmap[ssigs1->n_script + i];
-		anchor->input[n].script	= ssigs2->script[i].data;
-		anchor->input[n].script_length = ssigs2->script[i].len;
-	}
+	/* Sign input for their anchor. */
+	redeemscript = bitcoin_redeem_anchor(ctx, their_commitkey, my_commitkey,
+					     my_finalkey, their_escapehash);
+	ret &= sign_tx_input(ctx, tx, inmap[1],
+			     redeemscript, tal_count(redeemscript),
+			     signing_privkey, signing_pubkey, &sig[inmap[1]]);
+
+	dump_anchor_spend("signed from_yours", inmap[1],
+			  their_commitkey, my_commitkey, my_finalkey,
+			  their_escapehash, signing_pubkey, &sig[inmap[1]]);
+	tal_free(ctx);
+	return ret;
+}
+
+/* Check that their sigs sign this tx as expected. */
+bool check_anchor_spend(struct bitcoin_tx *tx,
+			const size_t inmap[2],
+			const struct pubkey *my_commitkey,
+			const struct pubkey *my_finalkey,
+			const struct sha256 *my_escapehash,
+			const struct pubkey *their_commitkey,
+			const struct pubkey *their_finalkey,
+			const struct sha256 *their_escapehash,
+			const struct pubkey *signing_pubkey,
+			const AnchorSpend *their_sigs)
+{
+	const tal_t *ctx;
+	u8 *redeemscript;
+	bool ret;
+	struct bitcoin_signature sigs[2];
+
+	sigs[0].stype = sigs[1].stype = SIGHASH_ALL;
+
+	if (!proto_to_signature(their_sigs->sig0, &sigs[0].sig)
+	    || !proto_to_signature(their_sigs->sig1, &sigs[1].sig))
+		return false;
+
+	ctx = tal(NULL, char);
+
+	/* Input for our anchor. */
+	redeemscript = bitcoin_redeem_anchor(ctx, my_commitkey, their_commitkey,
+					     their_finalkey, my_escapehash);
+	ret = check_tx_sig(tx, inmap[0], redeemscript, tal_count(redeemscript),
+			   signing_pubkey, &sigs[inmap[0]]);
+
+	dump_anchor_spend("checking from_mine", inmap[0],
+			  my_commitkey, their_commitkey, their_finalkey,
+			  my_escapehash, signing_pubkey, &sigs[inmap[0]].sig);
+
+	/* Input for their anchor. */
+	redeemscript = bitcoin_redeem_anchor(ctx, their_commitkey, my_commitkey,
+					     my_finalkey, their_escapehash);
+	ret &= check_tx_sig(tx, inmap[1], redeemscript, tal_count(redeemscript),
+			    signing_pubkey, &sigs[inmap[1]]);
+
+	dump_anchor_spend("checking from_yours", inmap[1],
+			  their_commitkey, my_commitkey, my_finalkey,
+			  their_escapehash, signing_pubkey, &sigs[inmap[1]].sig);
+
+	tal_free(ctx);
+	return ret;
+}
+
+/* Set up input scriptsigs for this transaction. */
+bool populate_anchor_inscripts(const tal_t *ctx,
+			       struct bitcoin_tx *tx,
+			       const size_t inmap[2],
+			       const struct pubkey *my_commitkey,
+			       const struct pubkey *my_finalkey,
+			       const struct sha256 *my_escapehash,
+			       const struct pubkey *their_commitkey,
+			       const struct pubkey *their_finalkey,
+			       const struct sha256 *their_escapehash,
+			       const AnchorSpend *my_sigs,
+			       const AnchorSpend *their_sigs)
+{
+	u8 *redeemscript;
+	struct bitcoin_signature theirs[2], mine[2];
+
+	theirs[0].stype = theirs[1].stype = mine[0].stype = mine[1].stype
+		= SIGHASH_ALL;
+
+	if (!proto_to_signature(their_sigs->sig0, &theirs[0].sig)
+	    || !proto_to_signature(their_sigs->sig1, &theirs[1].sig)
+	    || !proto_to_signature(my_sigs->sig0, &mine[0].sig)
+	    || !proto_to_signature(my_sigs->sig1, &mine[1].sig))
+		return false;
+
+	/* Input for our anchor. */
+	redeemscript = bitcoin_redeem_anchor(ctx, my_commitkey, their_commitkey,
+					     their_finalkey, my_escapehash);
+
+	tx->input[inmap[0]].script
+		= scriptsig_p2sh_anchor_commit(ctx,
+					       &theirs[inmap[0]],
+					       &mine[inmap[0]],
+					       redeemscript,
+					       tal_count(redeemscript));
+	tal_free(redeemscript);
+
+	/* Input for their anchor. */
+	redeemscript = bitcoin_redeem_anchor(ctx, their_commitkey, my_commitkey,
+					     my_finalkey, their_escapehash);
+	/* They created their anchor to expect sigs in other order. */
+	tx->input[inmap[1]].script
+		= scriptsig_p2sh_anchor_commit(ctx,
+					       &mine[inmap[1]],
+					       &theirs[inmap[1]],
+					       redeemscript,
+					       tal_count(redeemscript));
+	tal_free(redeemscript);
+
+	/* Set up lengths. */
+	tx->input[0].script_length = tal_count(tx->input[0].script);
+	tx->input[1].script_length = tal_count(tx->input[1].script);
 
 	return true;
-}
-	
-void anchor_txid(struct bitcoin_tx *anchor, struct sha256_double *txid)
-{
-	bitcoin_txid(anchor, txid);
 }

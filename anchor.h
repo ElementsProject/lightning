@@ -1,31 +1,45 @@
 #ifndef LIGHTNING_ANCHOR_H
 #define LIGHTNING_ANCHOR_H
 #include <ccan/tal/tal.h>
+#include "bitcoin/signature.h"
+#include "bitcoin/tx.h"
 #include "lightning.pb-c.h"
 
-struct sha256_double;
+/* Sign this transaction which spends the anchors. */
+bool sign_anchor_spend(struct bitcoin_tx *tx,
+		       const size_t inmap[2],
+		       const struct pubkey *my_commitkey,
+		       const struct pubkey *my_finalkey,
+		       const struct sha256 *my_escapehash,
+		       const struct pubkey *their_commitkey,
+		       const struct pubkey *their_finalkey,
+		       const struct sha256 *their_escapehash,
+		       const struct pubkey *signing_pubkey,
+		       const struct privkey *signing_privkey,
+		       struct signature sig[2]);
 
-/* Create an anchor transaction based on both sides' requests.
- * The scriptSigs are left empty.
- *
- * Allocate an input and output map (if non-NULL); the first
- * o1->anchor->n_inputs of inmap are the location of o1's inputs, the
- * next o2->anchor->n_inputs are o2's.  outmap[0] is the location of
- * output for the commitment tx, then o1's change (if
- * o1->anchor->change), then o2's change if o2->anchor->change.
- */
-struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
-				    const OpenChannel *o1,
-				    const OpenChannel *o2,
-				    size_t **inmap, size_t **outmap);
+/* Check that their sigs sign this tx as expected. */
+bool check_anchor_spend(struct bitcoin_tx *tx,
+			const size_t inmap[2],
+			const struct pubkey *my_commitkey,
+			const struct pubkey *my_finalkey,
+			const struct sha256 *my_escapehash,
+			const struct pubkey *their_commitkey,
+			const struct pubkey *their_finalkey,
+			const struct sha256 *their_escapehash,
+			const struct pubkey *signing_pubkey,
+			const AnchorSpend *their_sigs);
 
-/* Add these scriptsigs to the anchor transaction. */
-bool anchor_add_scriptsigs(struct bitcoin_tx *anchor,
-			   OpenAnchorScriptsigs *ssigs1,
-			   OpenAnchorScriptsigs *ssigs2,
-			   const size_t *inmap);
-
-/* We wouldn't need the leak files if we had normalized txids! */
-void anchor_txid(struct bitcoin_tx *anchor,
-		 struct sha256_double *txid);
+/* Set up input scriptsigs for this transaction. */
+bool populate_anchor_inscripts(const tal_t *ctx,
+			       struct bitcoin_tx *tx,
+			       const size_t inmap[2],
+			       const struct pubkey *my_commitkey,
+			       const struct pubkey *my_finalkey,
+			       const struct sha256 *my_escapehash,
+			       const struct pubkey *their_commitkey,
+			       const struct pubkey *their_finalkey,
+			       const struct sha256 *their_escapehash,
+			       const AnchorSpend *my_sigs,
+			       const AnchorSpend *their_sigs);
 #endif /* LIGHTNING_ANCHOR_H */

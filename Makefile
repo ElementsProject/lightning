@@ -8,7 +8,7 @@ FEATURES := -DHAS_CSV=1 -DALPHA_TXSTYLE=1 -DUSE_SCHNORR=1
 # Bitcoin uses DER for signatures
 #FEATURES := -DSCRIPTS_USE_DER
 
-PROGRAMS := test-cli/open-channel test-cli/open-anchor-scriptsigs test-cli/open-commit-sig test-cli/check-commit-sig test-cli/check-anchor-scriptsigs test-cli/get-anchor-depth test-cli/create-steal-tx test-cli/create-commit-spend-tx test-cli/close-channel test-cli/create-close-tx test-cli/update-channel test-cli/update-channel-accept test-cli/update-channel-signature test-cli/update-channel-complete test-cli/create-commit-tx test-cli/txid-of
+PROGRAMS := test-cli/open-channel test-cli/open-commit-sig test-cli/check-commit-sig test-cli/get-anchor-depth test-cli/create-steal-tx test-cli/create-commit-spend-tx test-cli/close-channel test-cli/create-close-tx test-cli/update-channel test-cli/update-channel-accept test-cli/update-channel-signature test-cli/update-channel-complete test-cli/create-commit-tx test-cli/txid-of test-cli/create-anchor-tx test-cli/open-anchor-id
 
 BITCOIN_OBJS := bitcoin/address.o bitcoin/base58.o bitcoin/pubkey.o bitcoin/script.o bitcoin/shadouble.o bitcoin/signature.o bitcoin/tx.o
 

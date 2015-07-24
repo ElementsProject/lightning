@@ -41,98 +41,116 @@ For each side A and B you need:
 7. FINALKEY: The private key for FINALADDR
    	eg. `alpha-cli -regtest -testnet=0 dumpprivkey <FINALADDR>`
 8. TXIN{1-n}: One or more unspent transaction outputs on testnet.
-	These are in form "<txid>/<outnum>/<amount>/<scriptsig>".
+	These are in form "<txid>/<outnum>/<amount>/<scriptsig>/<privkey>".
 	eg. scripts/getinput.sh (`scripts/getinput.sh 2`, etc).
-9. TXINKEY{1-n}: The private keys to spend the TXINs.
-	eg. `scripts/getinput.sh --privkey` can get these.
+9. ESCAPE-SECRET: A secret 256-bit number, in hex.
+	Try 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
 
 STEP 1
 ------
 First each side needs to tell the other what it wants the channel
 to look like, including how many satoshis to put in the channel.
 
-Note that the default anchor fee is 5000 satoshi each, (use
-`--anchor-fee=` to override), so your amount must be less than or equal
-to the total inputs plus this fee.
-
 A: Create a channel open request packet:
 
-	test-cli/open-channel <A-SEED> <amount> <A-CHANGEPUBKEY> <A-TMPKEY> <A-FINALKEY> <txid>/<outnum>/<amount>/<scriptsig>... > A-open.pb
+	test-cli/open-channel <A-SEED> <amount> <A-TMPKEY> <A-FINALKEY> <A-ESCAPE-SECRET> > A-open.pb
 
 B: The same:
 
-	test-cli/open-channel <B-SEED> <amount> <B-CHANGEPUBKEY> <B-TMPKEY> <B-FINALKEY> <txid>/<outnum>/<amount>/<scriptsig>... > B-open.pb
+	test-cli/open-channel <B-SEED> <amount> <B-TMPKEY> <B-FINALKEY> <B-ESCAPE-SECRET> > B-open.pb
 
 STEP 2
 ------
-Create the signatures for the anchor transaction: we don't send them
-until we have completed the commitment transaction though, so we're sure
-we can get our funds back.  We need one TXINKEY for each TXIN:
+Each side creates their anchor transaction which pays to a 2 of 2
+(spendable with their own key and the other's TMPKEY or FINALKEY).  We
+don't send them until we have completed the escape transactions
+though, so we're sure we can get our funds back.
+
+The change-pubkey arg is only used if you supply inputs which are greater
+than the amount promised in the open packet.
 
 A:
+	test-cli/create-anchor-tx A-open.pb B-open.pb <A-CHANGEPUBKEY> <txid>/<outnum>/<amount>/<scriptsig>/<privkey>... > A-anchor.tx
 
-	test-cli/open-anchor-scriptsigs A-open.pb B-open.pb <A-TXINKEY>... > A-anchor-scriptsigs.pb
 B:
-
-	test-cli/open-anchor-scriptsigs B-open.pb A-open.pb <B-TXINKEY>... > B-anchor-scriptsigs.pb
+	test-cli/create-anchor-tx A-open.pb B-open.pb <B-CHANGEPUBKEY> <txid>/<outnum>/<amount>/<scriptsig>/<privkey>... > B-anchor.tx
 
 STEP 3
 ------
+Send transaction ID and output number of the anchor to the other side:
+
+A:
+	test-cli/open-anchor-id A-anchor.tx > A-anchor-id.pb
+
+B:
+	test-cli/open-anchor-id B-anchor.tx > B-anchor-id.pb
+
+STEP 4
+------
+Create signatures for the other side's escape transaction(s) which
+allow return of funds if something goes wrong:
+
+A:
+	test-cli/open-escape-sigs A-open.pb B-open.pb B-anchor-id.pb <A-TMPKEY> <A-FINALKEY> > A-escape-sigs.pb
+
+B:
+	test-cli/open-escape-sigs B-open.pb A-open.pb A-anchor-id.pb <B-TMPKEY> <B-FINALKEY> > B-escape-sigs.pb
+
+STEP 5
+------
+Check the escape signatures from the other side, and use them to create our
+escape txs.
+
+A:
+	test-cli/create-escape A-open.pb B-open.pb A-anchor-id.pb B-escape-sigs.pb <A-FINALKEY> > A-escape.tx
+	test-cli/create-escape --fast A-open.pb B-open.pb A-anchor-id.pb B-escape-sigs.pb <A-FINALKEY> > A-fast-escape.tx
+
+B:
+	test-cli/create-escape B-open.pb A-open.pb B-anchor-id.pb A-escape-sigs.pb <B-FINALKEY> > B-escape.tx
+	test-cli/create-escape --fast B-open.pb A-open.pb B-anchor-id.pb A-escape-sigs.pb <B-FINALKEY> > B-fast-escape.tx
+
+STEP 6
+------
 Now both sides create the commitment transaction signatures which spend
-the transaction output:
+the anchors outputs:
 
 A:
 
-	test-cli/open-commit-sig A-open.pb B-open.pb <A-TMPKEY> > A-commit-sig.pb
+	test-cli/open-commit-sig A-open.pb B-open.pb A-anchor-id.pb B-anchor-id.pb <A-TMPKEY> > A-commit-sig.pb
 B:
 
-	test-cli/open-commit-sig B-open.pb A-open.ob <B-TMPKEY> > B-commit-sig.pb
+	test-cli/open-commit-sig B-open.pb A-open.pb B-anchor-id.pb A-anchor-id.pb <B-TMPKEY> > B-commit-sig.pb
 
-STEP 4
+STEP 7
 ------
 Check the commitment signatures from the other side, and produce commit txs.
 
 A:
 
-	test-cli/check-commit-sig A-open.pb B-open.pb B-commit-sig.pb <A-TMPKEY> > A-commit-0.tx
+	test-cli/check-commit-sig A-open.pb B-open.pb A-anchor-id.pb B-anchor-id.pb B-commit-sig.pb <A-TMPKEY> > A-commit-0.tx
 B:
 
-	test-cli/check-commit-sig B-open.pb A-open.pb A-commit-sig.pb <B-TMPKEY> > B-commit-0.tx
+	test-cli/check-commit-sig B-open.pb A-open.pb B-anchor-id.pb A-anchor-id.pb A-commit-sig.pb <B-TMPKEY> > B-commit-0.tx
 
-STEP 5
+STEP 8
 ------
-Check the anchor signatures from the other side, and use them to generate the
-anchor transaction (as a hex string, suitable for bitcoind).
+Broadcast the anchor transactions (note they contain their inputs amounts
+separated by colons for internal use: the daemon only wants the raw transaction):
 
 A:
+	alpha-cli -regtest -testnet=0 sendrawtransaction `cut -d: -f1 A-anchor.tx` > A-anchor.txid
 
-	test-cli/check-anchor-scriptsigs A-open.pb B-open.pb A-anchor-scriptsigs.pb B-anchor-scriptsigs.pb > A-anchor.tx
 B:
-
-	test-cli/check-anchor-scriptsigs B-open.pb A-open.pb B-anchor-scriptsigs.pb A-anchor-scriptsigs.pb > B-anchor.tx
-
-They should be identical:
-
-	cmp A-anchor.tx B-anchor.tx || echo FAIL
-
-STEP 6
-------
-Broadcast the anchor transaction:
-
-Either one:
-
-	alpha-cli -regtest -testnet=0 sendrawtransaction `cat A-anchor.tx` > anchor.txid
+	alpha-cli -regtest -testnet=0 sendrawtransaction `cut -d: -f1 B-anchor.tx` > B-anchor.txid
 
 Generate blocks until we have enough confirms (I don't do this, so I
 can reset the entire state by restarting bitcoind with `-zapwallettxes=1`):
 
 A:
-
-	while [ 0$(alpha-cli -regtest -testnet=0 getrawtransaction $(cat anchor.txid) 1 | sed -n 's/.*"confirmations" : \([0-9]*\),/\1/p') -lt $(test-cli/get-anchor-depth A-open.pb) ]; do scripts/generate-block.sh; done
+	while [ 0$(alpha-cli -regtest -testnet=0 getrawtransaction $(cat B-anchor.txid) 1 | sed -n 's/.*"confirmations" : \([0-9]*\),/\1/p') -lt $(test-cli/get-anchor-depth A-open.pb) ]; do scripts/generate-block.sh; done
 
 B:
-
-	while [ 0$(alpha-cli -regtest -testnet=0 getrawtransaction $(cat anchor.txid) 1 | sed -n 's/.*"confirmations" : \([0-9]*\),/\1/p') -lt $(test-cli/get-anchor-depth B-open.pb) ]; do scripts/generate-block.sh; done
+	while [ 0$(alpha-cli -regtest -testnet=0 getrawtransaction $(cat A-anchor.txid) 1 | sed -n 's/.*"confirmations" : \([0-9]*\),/\1/p') -lt $(test-cli/get-anchor-depth B-open.pb) ]; do scripts/generate-block.sh; done
 
 Using a Generalized Channel
 ===========================
@@ -149,19 +167,19 @@ revocation hash for the new tx:
 
 B:
 
-	test-cli/update-channel-accept <B-SEED> B-anchor.tx B-open.pb A-open.pb <B-TMPKEY> A-update-1.pb > B-update-accept-1.pb
+	test-cli/update-channel-accept <B-SEED> B-open.pb A-open.pb B-anchor-id.pb A-anchor-id.pb <B-TMPKEY> A-update-1.pb > B-update-accept-1.pb
 
 A completes its side by signing the new tx, and revoking the old:
 
 A:
 
-	test-cli/update-channel-signature <A_SEED> A-anchor.tx A-open.pb B-open.pb <A-TMPKEY> A-update-1.pb B-update-accept-1.pb > A-update-sig-1.pb
+	test-cli/update-channel-signature <A_SEED> A-open.pb B-open.pb A-anchor-id.pb B-anchor-id.pb <A-TMPKEY> A-update-1.pb B-update-accept-1.pb > A-update-sig-1.pb
 
 B now revokes its old tx:
 
 B:
 
-	test-cli/update-channel-complete <B_SEED> B-anchor.tx B-open.pb A-open.pb A-update-1.pb A-update-sig-1.pb > B-update-complete-1.pb
+	test-cli/update-channel-complete <B_SEED> B-open.pb A-open.pb B-anchor-id.pb A-anchor-id.pb A-update-1.pb A-update-sig-1.pb > B-update-complete-1.pb
 
 B checks that the commit tx is indeed revoked.
 
@@ -178,7 +196,7 @@ since the initial tx (here we just have one, A-update-1.pb):
 
 A:
 
-	test-cli/create-commit-tx A-anchor.tx A-open.pb B-open.pb A-update-1.pb B-update-accept-1.pb <A-TMPKEY> > A-commit-1.tx
+	test-cli/create-commit-tx A-open.pb B-open.pb A-anchor-id.pb B-anchor-id.pb A-update-1.pb B-update-accept-1.pb <A-TMPKEY> > A-commit-1.tx
 
 Special Effects: Trying To Cheat
 ================================
@@ -187,7 +205,7 @@ A now tries to spend an old (revoked) commitment tx:
 
 A:
 
-	test-cli/create-commit-tx A-anchor.tx A-open.pb B-open.pb <A-TMPKEY> B-commit-sig.pb > commit-0.tx
+	test-cli/create-commit-tx A-open.pb B-open.pb A-anchor-id.pb B-anchor-id.pb <A-TMPKEY> B-commit-sig.pb > commit-0.tx
 
 A:
 
@@ -235,20 +253,20 @@ reflect the final commitment total:
 
 A:
 
-	./close-channel A-anchor.tx A-open.pb B-open.pb <A-TMPKEY> A-update-1.pb > A-close.pb
+	./close-channel A-open.pb B-open.pb A-anchor-id.pb B-anchor-id.pb <A-TMPKEY> A-update-1.pb > A-close.pb
 B:
 
-	./close-channel --complete A-anchor.tx B-open.pb A-open.pb <B-TMPKEY> A-update-1.pb > B-close-accept.pb
+	./close-channel --complete B-open.pb A-open.pb B-anchor-id.pb A-anchor-id.pb <B-TMPKEY> A-update-1.pb > B-close-accept.pb
 
 Both ends have both signatures now, so either can create the close tx:
 
 A:
 
-	./create-close-tx A-anchor.tx A-open.pb B-open.pb A-close.pb B-close-accept.pb > A-close.tx
+	./create-close-tx A-open.pb B-open.pb A-anchor-id.pb B-anchor-id.pb A-close.pb B-close-accept.pb > A-close.tx
 
 B:
 
-	./create-close-tx A-anchor.tx B-open.pb A-open.pb A-close.pb B-close-accept.pb > B-close.tx
+	./create-close-tx B-open.pb A-open.pb B-anchor-id.pb A-anchor-id.pb A-close.pb B-close-accept.pb > B-close.tx
 
 They should be identical:
 
