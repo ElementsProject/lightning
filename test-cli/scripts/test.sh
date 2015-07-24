@@ -96,6 +96,20 @@ $PREFIX ./create-anchor-tx B-open.pb A-open.pb $B_CHANGEPUBKEY $B_TXIN > B-ancho
 $PREFIX ./open-anchor-id A-anchor.tx $A_CHANGEPUBKEY > A-anchor-id.pb
 $PREFIX ./open-anchor-id B-anchor.tx $B_CHANGEPUBKEY > B-anchor-id.pb
 
+# Now sign escape transactions for the other side.
+$PREFIX ./open-escape-sigs A-open.pb B-open.pb B-anchor-id.pb $A_FINALKEY > A-escape-sigs.pb
+$PREFIX ./open-escape-sigs B-open.pb A-open.pb A-anchor-id.pb $B_FINALKEY > B-escape-sigs.pb
+
+# Use their signature to create our escape txs.
+$PREFIX ./create-escape-tx A-open.pb B-open.pb A-anchor-id.pb B-escape-sigs.pb $A_TMPKEY $A_ESCSECRET > A-escape.tx
+$PREFIX ./create-escape-tx --fast A-open.pb B-open.pb A-anchor-id.pb B-escape-sigs.pb $A_TMPKEY $A_ESCSECRET > A-fast-escape.tx
+$PREFIX ./create-escape-tx B-open.pb A-open.pb B-anchor-id.pb A-escape-sigs.pb $B_TMPKEY $B_ESCSECRET > B-escape.tx
+$PREFIX ./create-escape-tx --fast B-open.pb A-open.pb B-anchor-id.pb A-escape-sigs.pb $B_TMPKEY $B_ESCSECRET > B-fast-escape.tx
+
+# Broadcast anchors
+$CLI sendrawtransaction `cut -d: -f1 A-anchor.tx` > A-anchor.txid
+$CLI sendrawtransaction `cut -d: -f1 B-anchor.tx` > B-anchor.txid
+
 # Now create commit signature
 $PREFIX ./open-commit-sig A-open.pb B-open.pb A-anchor-id.pb B-anchor-id.pb $A_TMPKEY > A-commit-sig.pb
 $PREFIX ./open-commit-sig B-open.pb A-open.pb B-anchor-id.pb A-anchor-id.pb $B_TMPKEY > B-commit-sig.pb
@@ -103,10 +117,6 @@ $PREFIX ./open-commit-sig B-open.pb A-open.pb B-anchor-id.pb A-anchor-id.pb $B_T
 # Now check it.
 $PREFIX ./check-commit-sig A-open.pb B-open.pb A-anchor-id.pb B-anchor-id.pb B-commit-sig.pb $A_TMPKEY > A-commit.tx
 $PREFIX ./check-commit-sig B-open.pb A-open.pb B-anchor-id.pb A-anchor-id.pb A-commit-sig.pb $B_TMPKEY > B-commit.tx
-
-# Broadcast anchors
-$CLI sendrawtransaction `cut -d: -f1 A-anchor.tx` > A-anchor.txid
-$CLI sendrawtransaction `cut -d: -f1 B-anchor.tx` > B-anchor.txid
 
 # # Wait for confirms
 # while [ 0$($CLI getrawtransaction $(cat B-anchor.txid) 1 | sed -n 's/.*"confirmations" : \([0-9]*\),/\1/p') -lt $($PREFIX ./get-anchor-depth A-open.pb) ]; do scripts/generate-block.sh; done

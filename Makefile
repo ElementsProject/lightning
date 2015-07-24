@@ -8,11 +8,11 @@ FEATURES := -DHAS_CSV=1 -DALPHA_TXSTYLE=1 -DUSE_SCHNORR=1
 # Bitcoin uses DER for signatures
 #FEATURES := -DSCRIPTS_USE_DER
 
-PROGRAMS := test-cli/open-channel test-cli/open-commit-sig test-cli/check-commit-sig test-cli/get-anchor-depth test-cli/create-steal-tx test-cli/create-commit-spend-tx test-cli/close-channel test-cli/create-close-tx test-cli/update-channel test-cli/update-channel-accept test-cli/update-channel-signature test-cli/update-channel-complete test-cli/create-commit-tx test-cli/txid-of test-cli/create-anchor-tx test-cli/open-anchor-id test-cli/open-complete test-cli/check-open-complete
+PROGRAMS := test-cli/open-channel test-cli/open-commit-sig test-cli/check-commit-sig test-cli/get-anchor-depth test-cli/create-steal-tx test-cli/create-commit-spend-tx test-cli/close-channel test-cli/create-close-tx test-cli/update-channel test-cli/update-channel-accept test-cli/update-channel-signature test-cli/update-channel-complete test-cli/create-commit-tx test-cli/txid-of test-cli/create-anchor-tx test-cli/open-anchor-id test-cli/open-complete test-cli/check-open-complete test-cli/open-escape-sigs test-cli/create-escape-tx
 
 BITCOIN_OBJS := bitcoin/address.o bitcoin/base58.o bitcoin/pubkey.o bitcoin/script.o bitcoin/shadouble.o bitcoin/signature.o bitcoin/tx.o
 
-HELPER_OBJS := lightning.pb-c.o pkt.o permute_tx.o anchor.o commit_tx.o opt_bits.o close_tx.o find_p2sh_out.o protobuf_convert.o
+HELPER_OBJS := lightning.pb-c.o pkt.o permute_tx.o anchor.o commit_tx.o opt_bits.o close_tx.o find_p2sh_out.o protobuf_convert.o escape_tx.o
 
 CCAN_OBJS := ccan-crypto-sha256.o ccan-crypto-shachain.o ccan-err.o ccan-tal.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-str-hex.o ccan-tal-grab_file.o ccan-noerr.o ccan-crypto-ripemd160.o
 

@@ -106,6 +106,16 @@ struct pkt *open_anchor_pkt(const tal_t *ctx, const struct sha256_double *txid,
 	return to_pkt(ctx, PKT__PKT_OPEN_ANCHOR, &oa);
 }
 
+struct pkt *open_escape_sig_pkt(const tal_t *ctx,
+				const struct signature *escape_sig,
+				const struct signature *fast_escape_sig)
+{
+	OpenEscapeSigs oes = OPEN_ESCAPE_SIGS__INIT;
+	oes.escape = signature_to_proto(ctx, escape_sig);
+	oes.fast_escape = signature_to_proto(ctx, fast_escape_sig);
+	return to_pkt(ctx, PKT__PKT_OPEN_ESCAPE_SIGS, &oes);
+}
+
 struct pkt *open_commit_sig_pkt(const tal_t *ctx, const struct signature *sigs)
 {
 	OpenCommitSig o = OPEN_COMMIT_SIG__INIT;

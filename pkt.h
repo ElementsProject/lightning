@@ -64,6 +64,16 @@ struct pkt *open_anchor_pkt(const tal_t *ctx,
 			    const struct sha256_double *txid, u32 index);
 
 /**
+ * open_escape_sig_pkt - create an open_escape_sig message
+ * @ctx: tal context to allocate off.
+ * @escape_sig: the signature for their escape tx.
+ * @fast_escape_sig: the signature for their fast-escape tx.
+ */
+struct pkt *open_escape_sig_pkt(const tal_t *ctx,
+				const struct signature *escape_sig,
+				const struct signature *fast_escape_sig);
+
+/**
  * open_commit_sig_pkt - create an open_commit_sig message
  * @ctx: tal context to allocate off.
  * @sigs: two signatures for the commit transaction inputs
