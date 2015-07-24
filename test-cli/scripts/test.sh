@@ -77,10 +77,12 @@ B_ESCSECRET=112233445566778899aabbccddeeff00112233445566778899aabbccddeeff0f
 A_CHANGEPUBKEY=`getpubkey $A_CHANGEADDR`
 A_TMPKEY=`getprivkey $A_TMPADDR`
 A_FINALKEY=`getprivkey $A_FINALADDR`
+A_FINALPUBKEY=`getpubkey $A_FINALADDR`
 
 B_CHANGEPUBKEY=`getpubkey $B_CHANGEADDR`
 B_TMPKEY=`getprivkey $B_TMPADDR`
 B_FINALKEY=`getprivkey $B_FINALADDR`
+B_FINALPUBKEY=`getpubkey $B_FINALADDR`
 
 # Both sides say what they want from channel
 # FIXME: Use pubkeys for tmpkey and finalkey here! 
@@ -157,7 +159,8 @@ if [ x"$1" = x--steal ]; then
     $CLI sendrawtransaction `cut -d: -f1 A-commit-1.tx` > A-commit-1.txid
     
     # B uses the preimage from A-update-sig-2 to cash in.
-    $PREFIX ./create-steal-tx A-commit-1.tx A-update-sig-2.pb $B_FINALKEY B-open.pb A-open.pb $B_CHANGEPUBKEY > B-commit-steal.tx
+    $PREFIX ./extract-revocation-preimage A-update-sig-2.pb > A-revocation-1
+    $PREFIX ./create-secret-spend-tx --secret A-commit-1.tx $A_FINALPUBKEY 60 $B_FINALKEY $B_CHANGEPUBKEY `cat A-revocation-1` > B-commit-steal.tx
 
     $CLI sendrawtransaction `cut -d: -f1 B-commit-steal.tx` > B-commit-steal.txid
     exit 0
@@ -165,7 +168,8 @@ fi
 
 if [ x"$1" = x--unilateral ]; then
     $CLI sendrawtransaction `cut -d: -f1 A-commit-2.tx` > A-commit-2.txid
-    $PREFIX ./create-commit-spend-tx A-commit-2.tx A-open.pb B-open.pb $A_FINALKEY $A_CHANGEPUBKEY A-update-1.pb A-update-2.pb > A-spend.tx
+    $PREFIX ./get-revocation-secret --hash $A_SEED 2 > A-commit-2.rhash
+    $PREFIX ./create-secret-spend-tx --no-secret A-commit-2.tx $B_FINALPUBKEY 60 $A_FINALKEY $A_CHANGEPUBKEY `cat A-commit-2.rhash` > A-spend.tx
     send_after_delay `cut -d: -f1 A-spend.tx` > A-spend.txid
     exit 0
 fi
