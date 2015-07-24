@@ -88,8 +88,8 @@ int main(int argc, char *argv[])
 	}
 
 	/* Create redeem script */
-	redeemscript = bitcoin_redeem_revocable(ctx, &pubkey1,
-											locktime, &pubkey2, &rhash);
+	redeemscript = bitcoin_redeem_secret_or_delay(ctx, &pubkey1, locktime,
+						      &pubkey2, &rhash);
 
 	/* Now, create transaction to spend it. */
 	tx = bitcoin_tx(ctx, 1, 1);
@@ -116,9 +116,9 @@ int main(int argc, char *argv[])
 			   &privkey, &pubkey1, &sig.sig))
 		errx(1, "Could not sign tx");
 	sig.stype = SIGHASH_ALL;
-	tx->input[0].script = scriptsig_p2sh_single_sig(tx, redeemscript,
-							tal_count(redeemscript),
-							&sig);
+	tx->input[0].script = scriptsig_p2sh_secret(tx, NULL, 0, &sig,
+						    redeemscript,
+						    tal_count(redeemscript));
 	tx->input[0].script_length = tal_count(tx->input[0].script);
 
 	/* Print it out in hex. */

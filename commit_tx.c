@@ -41,10 +41,10 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 		return tal_free(tx);
 
 	/* First output is a P2SH to a complex redeem script (usu. for me) */
-	redeemscript = bitcoin_redeem_revocable(tx, &ourkey,
-						locktime,
-						&theirkey,
-						rhash);
+	redeemscript = bitcoin_redeem_secret_or_delay(tx, &ourkey,
+						      locktime,
+						      &theirkey,
+						      rhash);
 	tx->output[0].script = scriptpubkey_p2sh(tx, redeemscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 

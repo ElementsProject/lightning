@@ -84,9 +84,9 @@ int main(int argc, char *argv[])
 
 	/* Now, which commit output?  Match redeem script. */
 	sha256(&revoke_hash, &revoke_preimage, sizeof(revoke_preimage));
-	redeemscript = bitcoin_redeem_revocable(ctx, &pubkey2,
-						locktime_seconds,
-						&pubkey1, &revoke_hash);
+	redeemscript = bitcoin_redeem_secret_or_delay(ctx, &pubkey2,
+						      locktime_seconds,
+						      &pubkey1, &revoke_hash);
 	p2sh = scriptpubkey_p2sh(ctx, redeemscript);
 
 	for (i = 0; i < commit->output_count; i++) {

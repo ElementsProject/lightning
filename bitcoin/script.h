@@ -22,16 +22,6 @@ u8 *bitcoin_redeem_2of2(const tal_t *ctx,
 /* tal_count() gives the length of the script. */
 u8 *bitcoin_redeem_single(const tal_t *ctx, const struct pubkey *key);
 
-/* One of:
- * mysig and theirsig, OR
- * mysig and relative locktime passed, OR
- * theirsig and hash preimage. */
-u8 *bitcoin_redeem_revocable(const tal_t *ctx,
-			     const struct pubkey *mykey,
-			     u32 locktime,
-			     const struct pubkey *theirkey,
-			     const struct sha256 *revocation_hash);
-
 /* A common script pattern: A can have it with secret, or B can have
  * it after delay. */
 u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,

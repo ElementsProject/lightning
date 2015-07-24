@@ -274,46 +274,6 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 	return script;
 }
 
-/* One of:
- * mysig and relative locktime passed, OR
- * theirsig and hash preimage. */
-u8 *bitcoin_redeem_revocable(const tal_t *ctx,
-			     const struct pubkey *mykey,
-			     u32 locktime,
-			     const struct pubkey *theirkey,
-			     const struct sha256 *rhash)
-{
-	u8 *script = tal_arr(ctx, u8, 0);
-	struct ripemd160 rhash_ripemd;
-	le32 locktime_le = cpu_to_le32(locktime);
-
-	/* If there are two args: */
-	add_op(&script, OP_DEPTH);
-	add_op(&script, OP_1SUB);
-	add_op(&script, OP_IF);
-
-	/* Must hash to revocation_hash, and be signed by them. */
-	ripemd160(&rhash_ripemd, rhash->u.u8, sizeof(rhash->u));
-	add_op(&script, OP_HASH160);
-	add_push_bytes(&script, rhash_ripemd.u.u8, sizeof(rhash_ripemd.u.u8));
-	add_op(&script, OP_EQUALVERIFY);
-	add_push_key(&script, theirkey);
-
-	/* Not two args?  Must be us using timeout. */
-	add_op(&script, OP_ELSE);
-
-	add_push_bytes(&script, &locktime_le, sizeof(locktime_le));
-	add_op(&script, OP_CHECKSEQUENCEVERIFY);
-	add_op(&script, OP_DROP);
-	add_push_key(&script, mykey);
-	add_op(&script, OP_ENDIF);
-
-	/* And check it (ither path) */
-	add_op(&script, OP_CHECKSIG);
-
-	return script;
-}
-
 u8 *scriptsig_p2sh_secret(const tal_t *ctx,
 			  const void *secret, size_t secret_len,
 			  const struct bitcoin_signature *sig,
