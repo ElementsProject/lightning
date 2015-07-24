@@ -1422,11 +1422,11 @@ The extra 0 at the start is due to the OP_CHECKMULTISIG out-by-one-bug.
 \begin_inset space ~
 \end_inset
 
-<SIG-A>
+<SIG-B'>
 \begin_inset space ~
 \end_inset
 
-<SIG-B'>
+<SIG-A>
 \begin_inset space ~
 \end_inset
 
@@ -1552,11 +1552,11 @@ This is identical to the normal escape input script.
 \begin_inset space ~
 \end_inset
 
-<SIG-A>
+<SIG-B'>
 \begin_inset space ~
 \end_inset
 
-<SIG-B'>
+<SIG-A>
 \begin_inset space ~
 \end_inset
 
@@ -1697,11 +1697,11 @@ The commitment transaction has two inputs; one which spends each anchor
 \begin_inset space ~
 \end_inset
 
-<SIG-A>
+<SIG-B>
 \begin_inset space ~
 \end_inset
 
-<SIG-B>
+<SIG-A>
 \begin_inset space ~
 \end_inset
 
