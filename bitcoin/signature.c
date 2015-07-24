@@ -11,6 +11,7 @@
 #undef DEBUG
 #ifdef DEBUG
 #include <ccan/err/err.h>
+#include <stdio.h>
 #define SHA_FMT					   \
 	"%02x%02x%02x%02x%02x%02x%02x%02x"	   \
 	"%02x%02x%02x%02x%02x%02x%02x%02x"	   \
@@ -26,7 +27,8 @@
 static void dump_tx(const char *msg,
 		    const struct bitcoin_tx *tx, size_t inputnum,
 		    const u8 *script, size_t script_len,
-		    const struct pubkey *key)
+		    const struct pubkey *key,
+		    const struct sha256_double *h)
 {
 	size_t i, j;
 	warnx("%s tx version %u locktime %#x:",
@@ -54,12 +56,19 @@ static void dump_tx(const char *msg,
 			fprintf(stderr, "%02x", key->key[i]);
 		fprintf(stderr, "\n");
 	}
+	if (h) {
+		fprintf(stderr, "\nHash: ");
+		for (i = 0; i < sizeof(h->sha.u.u8); i++)
+			fprintf(stderr, "%02x", h->sha.u.u8[i]);
+		fprintf(stderr, "\n");
+	}
 }
 #else
 static void dump_tx(const char *msg,
 		    const struct bitcoin_tx *tx, size_t inputnum,
 		    const u8 *script, size_t script_len,
-		    const struct pubkey *key)
+		    const struct pubkey *key,
+		    const struct sha256_double *h)
 {
 }
 #endif
@@ -128,7 +137,7 @@ bool sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx,
 	struct sha256_double hash;
 
 	sha256_tx_one_input(tx, in, subscript, subscript_len, &hash);
-	dump_tx("Signing", tx, in, subscript, subscript_len, key);
+	dump_tx("Signing", tx, in, subscript, subscript_len, key, &hash);
 	return sign_hash(ctx, privkey, &hash, sig);
 }
 
@@ -185,7 +194,7 @@ bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
 	ret = check_signed_hash(&hash, &sig->sig, key);
 	if (!ret)
 		dump_tx("Sig failed", tx, input_num,
-			redeemscript, redeemscript_len, key);
+			redeemscript, redeemscript_len, key, &hash);
 	return ret;
 }
 
