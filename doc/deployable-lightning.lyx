@@ -1968,7 +1968,19 @@ OP_DROP Remove extra hash
 \end_layout
 
 \begin_layout Description
-<KEY-A> Pay to B
+<DELAY>
+\begin_inset space ~
+\end_inset
+
+OP_CHECKSEQUENCEVERIFY
+\begin_inset space ~
+\end_inset
+
+OP_DROP Delay gives A enough time to use revocation if it has it.
+\end_layout
+
+\begin_layout Description
+<KEY-B> Pay to B
 \end_layout
 
 \end_deeper
