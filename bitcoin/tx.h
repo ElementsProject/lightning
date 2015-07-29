@@ -4,8 +4,6 @@
 #include <ccan/tal/tal.h>
 #include "shadouble.h"
 
-#define BITCOIN_TX_VERSION 1
-
 /* We unpack varints for our in-memory representation */
 #define varint_t u64
 

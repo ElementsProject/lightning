@@ -196,10 +196,6 @@ struct  _OpenChannel
    * The anchor transaction details.
    */
   Anchor *anchor;
-  /*
-   * Maximum transaction version we support.
-   */
-  uint32_t tx_version;
   OpenChannel__LocktimeCase locktime_case;
   union {
     uint32_t locktime_seconds;
@@ -208,7 +204,7 @@ struct  _OpenChannel
 };
 #define OPEN_CHANNEL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&open_channel__descriptor) \
-    , NULL, NULL, 0, NULL, 0, OPEN_CHANNEL__LOCKTIME__NOT_SET, {} }
+    , NULL, NULL, 0, NULL, OPEN_CHANNEL__LOCKTIME__NOT_SET, {} }
 
 
 /*
@@ -291,17 +287,13 @@ struct  _UpdateAccept
    */
   Signature *sig;
   /*
-   * Signature for old anchor (if any)
-   */
-  Signature *old_anchor_sig;
-  /*
    * Hash for which I will supply preimage to revoke this new commit tx.
    */
   Sha256Hash *revocation_hash;
 };
 #define UPDATE_ACCEPT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&update_accept__descriptor) \
-    , NULL, NULL, NULL }
+    , NULL, NULL }
 
 
 /*

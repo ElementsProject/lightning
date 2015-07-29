@@ -243,7 +243,6 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 	size_t i;
 
-	tx->version = BITCOIN_TX_VERSION;
 	tx->output_count = output_count;
 	tx->output = tal_arrz(tx, struct bitcoin_tx_output, output_count);
 	tx->input_count = input_count;
@@ -254,6 +253,7 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 		tx->input[i].sequence_number = 0xFFFFFFFF;
 	}
 	tx->lock_time = 0;
+	tx->version = 1;
 
 	return tx;
 }

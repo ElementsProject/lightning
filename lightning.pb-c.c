@@ -1259,7 +1259,7 @@ const ProtobufCMessageDescriptor anchor__descriptor =
   (ProtobufCMessageInit) anchor__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
+static const ProtobufCFieldDescriptor open_channel__field_descriptors[6] =
 {
   {
     "locktime_seconds",
@@ -1333,18 +1333,6 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
-  {
-    "tx_version",
-    8,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_UINT32,
-    0,   /* quantifier_offset */
-    offsetof(OpenChannel, tx_version),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
 };
 static const unsigned open_channel__field_indices_by_name[] = {
   5,   /* field[5] = anchor */
@@ -1353,12 +1341,11 @@ static const unsigned open_channel__field_indices_by_name[] = {
   1,   /* field[1] = locktime_blocks */
   0,   /* field[0] = locktime_seconds */
   2,   /* field[2] = revocation_hash */
-  6,   /* field[6] = tx_version */
 };
 static const ProtobufCIntRange open_channel__number_ranges[1 + 1] =
 {
   { 2, 0 },
-  { 0, 7 }
+  { 0, 6 }
 };
 const ProtobufCMessageDescriptor open_channel__descriptor =
 {
@@ -1368,7 +1355,7 @@ const ProtobufCMessageDescriptor open_channel__descriptor =
   "OpenChannel",
   "",
   sizeof(OpenChannel),
-  7,
+  6,
   open_channel__field_descriptors,
   open_channel__field_indices_by_name,
   1,  open_channel__number_ranges,
@@ -1540,7 +1527,7 @@ const ProtobufCMessageDescriptor update__descriptor =
   (ProtobufCMessageInit) update__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor update_accept__field_descriptors[3] =
+static const ProtobufCFieldDescriptor update_accept__field_descriptors[2] =
 {
   {
     "sig",
@@ -1549,18 +1536,6 @@ static const ProtobufCFieldDescriptor update_accept__field_descriptors[3] =
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
     offsetof(UpdateAccept, sig),
-    &signature__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "old_anchor_sig",
-    2,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(UpdateAccept, old_anchor_sig),
     &signature__descriptor,
     NULL,
     0,             /* flags */
@@ -1580,14 +1555,14 @@ static const ProtobufCFieldDescriptor update_accept__field_descriptors[3] =
   },
 };
 static const unsigned update_accept__field_indices_by_name[] = {
-  1,   /* field[1] = old_anchor_sig */
-  2,   /* field[2] = revocation_hash */
+  1,   /* field[1] = revocation_hash */
   0,   /* field[0] = sig */
 };
-static const ProtobufCIntRange update_accept__number_ranges[1 + 1] =
+static const ProtobufCIntRange update_accept__number_ranges[2 + 1] =
 {
   { 1, 0 },
-  { 0, 3 }
+  { 3, 1 },
+  { 0, 2 }
 };
 const ProtobufCMessageDescriptor update_accept__descriptor =
 {
@@ -1597,10 +1572,10 @@ const ProtobufCMessageDescriptor update_accept__descriptor =
   "UpdateAccept",
   "",
   sizeof(UpdateAccept),
-  3,
+  2,
   update_accept__field_descriptors,
   update_accept__field_indices_by_name,
-  1,  update_accept__number_ranges,
+  2,  update_accept__number_ranges,
   (ProtobufCMessageInit) update_accept__init,
   NULL,NULL,NULL    /* reserved[123] */
 };

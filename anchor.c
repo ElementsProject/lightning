@@ -26,12 +26,6 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 	n_out = 1 + !!o1->anchor->change + !!o2->anchor->change;
 	tx = bitcoin_tx(ctx, o1->anchor->n_inputs+o2->anchor->n_inputs, n_out);
 
-	/* Override version to use lesser of two versions. */
-	if (o1->tx_version < o2->tx_version)
-		tx->version = o1->tx_version;
-	else
-		tx->version = o2->tx_version;
-	
 	/* Populate inputs. */
 	for (i = 0; i < o1->anchor->n_inputs; i++) {
 		BitcoinInput *pb = o1->anchor->inputs[i];

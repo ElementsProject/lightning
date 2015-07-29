@@ -83,8 +83,6 @@ message open_channel {
   required uint64 commitment_fee = 6;
   // The anchor transaction details.
   required anchor anchor = 7;
-  // Maximum transaction version we support.
-  required uint32 tx_version = 8;
 }
 
 // Supply signature for commitment tx
