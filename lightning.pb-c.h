@@ -293,10 +293,14 @@ struct  _CloseChannel
    * as per the last commit tx.
    */
   Signature *sig;
+  /*
+   * Fee to pay for close transaction.
+   */
+  uint64_t close_fee;
 };
 #define CLOSE_CHANNEL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&close_channel__descriptor) \
-    , NULL }
+    , NULL, 0 }
 
 
 /*

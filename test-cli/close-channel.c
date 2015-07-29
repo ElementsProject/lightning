@@ -18,6 +18,7 @@
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
 #include "gather_updates.h"
+#include "opt_bits.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -29,19 +30,25 @@ int main(int argc, char *argv[])
 	struct pkt *pkt;
 	struct signature sig;
 	struct privkey privkey;
-	bool testnet, complete = false;
+	bool testnet;
 	struct pubkey pubkey1, pubkey2;
 	u8 *redeemscript;
 	uint64_t our_amount, their_amount;
+	char *close_file = NULL;
+	u64 close_fee = 10000;
 
 	err_set_progname(argv[0]);
 
-	opt_register_noarg("--complete", opt_set_bool, &complete,
-			   "Create a close_transaction_complete msg instead");
+	opt_register_arg("--complete=<close-msg-file>",
+			 opt_set_charp, NULL, &close_file,
+			 "Create a close_transaction_complete msg instead");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "<open-channel-file1> <open-channel-file2> <anchor-file> <commit-privkey> [{+/-}update-protobuf]...\n"
 			   "Create the signature needed for the close transaction",
 			   "Print this message.");
+	opt_register_arg("--close-fee=<bits>",
+			 opt_set_bits, opt_show_bits, &close_fee,
+			 "100's of satoshi to pay for close tx");
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
@@ -57,7 +64,14 @@ int main(int argc, char *argv[])
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
 
-	gather_updates(o1, o2, a, 0, argv + 5, &our_amount, &their_amount,
+	if (close_file) {
+		CloseChannel *c;
+		c = pkt_from_file(close_file, PKT__PKT_CLOSE)->close;
+		close_fee = c->close_fee;
+	}
+	
+	gather_updates(o1, o2, a, close_fee, argv + 5,
+		       &our_amount, &their_amount,
 		       NULL, NULL, NULL);
 
 	/* Get pubkeys */
@@ -72,17 +86,16 @@ int main(int argc, char *argv[])
 	/* This is what the anchor pays to. */
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
-	/* FIXME: Add fee! */
 	close_tx = create_close_tx(ctx, o1, o2, a, our_amount, their_amount);
 
 	/* Sign it for them. */
 	sign_tx_input(ctx, close_tx, 0, redeemscript, tal_count(redeemscript),
 		      &privkey, &pubkey1, &sig);
 
-	if (complete)
+	if (close_file)
 		pkt = close_channel_complete_pkt(ctx, &sig);
 	else
-		pkt = close_channel_pkt(ctx, &sig);
+		pkt = close_channel_pkt(ctx, close_fee, &sig);
 	if (!write_all(STDOUT_FILENO, pkt, pkt_totlen(pkt)))
 		err(1, "Writing out packet");
 

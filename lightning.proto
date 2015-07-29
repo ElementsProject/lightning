@@ -125,6 +125,8 @@ message close_channel {
   // output to my open->final and your open->final,
   // as per the last commit tx.
   required signature sig = 1;
+  // Fee to pay for close transaction.
+  required uint64 close_fee = 2;
 }
 
 // OK, here's my sig so you can broadcast it too.  We're done.

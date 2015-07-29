@@ -56,7 +56,8 @@ int main(int argc, char *argv[])
 		errx(1, "Invalid o2 commit_key");
 	
 	/* Get delta by accumulting all the updates. */
-	gather_updates(o1, o2, a, 0, argv + 6, &our_amount, &their_amount,
+	gather_updates(o1, o2, a, close->close_fee, argv + 6,
+		       &our_amount, &their_amount,
 		       NULL, NULL, NULL);
 
 	/* This is what the anchor pays to; figure out which output. */

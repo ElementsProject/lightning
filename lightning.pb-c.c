@@ -1399,7 +1399,7 @@ const ProtobufCMessageDescriptor update_complete__descriptor =
   (ProtobufCMessageInit) update_complete__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor close_channel__field_descriptors[1] =
+static const ProtobufCFieldDescriptor close_channel__field_descriptors[2] =
 {
   {
     "sig",
@@ -1413,14 +1413,27 @@ static const ProtobufCFieldDescriptor close_channel__field_descriptors[1] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "close_fee",
+    2,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT64,
+    0,   /* quantifier_offset */
+    offsetof(CloseChannel, close_fee),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned close_channel__field_indices_by_name[] = {
+  1,   /* field[1] = close_fee */
   0,   /* field[0] = sig */
 };
 static const ProtobufCIntRange close_channel__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 1 }
+  { 0, 2 }
 };
 const ProtobufCMessageDescriptor close_channel__descriptor =
 {
@@ -1430,7 +1443,7 @@ const ProtobufCMessageDescriptor close_channel__descriptor =
   "CloseChannel",
   "",
   sizeof(CloseChannel),
-  1,
+  2,
   close_channel__field_descriptors,
   close_channel__field_indices_by_name,
   1,  close_channel__number_ranges,

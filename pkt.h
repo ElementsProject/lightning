@@ -65,9 +65,12 @@ struct pkt *open_commit_sig_pkt(const tal_t *ctx, const struct signature *sig);
 /**
  * close_channel_pkt - create an close_channel message
  * @ctx: tal context to allocate off.
+ * @fee: the fee for the transaction.
  * @sig: the signature for the close transaction input.
  */
-struct pkt *close_channel_pkt(const tal_t *ctx, const struct signature *sig);
+struct pkt *close_channel_pkt(const tal_t *ctx,
+			      uint64_t fee,
+			      const struct signature *sig);
 
 /**
  * close_channel_complete_pkt - create an close_channel_complete message

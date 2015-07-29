@@ -110,9 +110,12 @@ struct pkt *open_commit_sig_pkt(const tal_t *ctx, const struct signature *sig)
 	return to_pkt(ctx, PKT__PKT_OPEN_COMMIT_SIG, &o);
 }
 
-struct pkt *close_channel_pkt(const tal_t *ctx, const struct signature *sig)
+struct pkt *close_channel_pkt(const tal_t *ctx,
+			      uint64_t fee,
+			      const struct signature *sig)
 {
 	CloseChannel c = CLOSE_CHANNEL__INIT;
+	c.close_fee = fee;
 	c.sig = signature_to_proto(ctx, sig);
 	return to_pkt(ctx, PKT__PKT_CLOSE, &c);
 }

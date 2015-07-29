@@ -176,7 +176,7 @@ fi
 
 # Now close channel by mutual consent.
 $PREFIX ./close-channel A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-close.pb
-$PREFIX ./close-channel --complete B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-close-complete.pb
+$PREFIX ./close-channel --complete=A-close.pb B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-close-complete.pb
 $PREFIX ./create-close-tx A-open.pb B-open.pb A-anchor.pb A-close.pb B-close-complete.pb $A_UPDATE_PKTS > A-close.tx
 
 $CLI sendrawtransaction `cut -d: -f1 A-close.tx` > close.txid
