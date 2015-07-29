@@ -132,7 +132,6 @@ int main(int argc, char *argv[])
 	
 	anchor.n_inputs = (argc - 6);
 	anchor.inputs = tal_arr(ctx, BitcoinInput *, anchor.n_inputs);
-	anchor.pubkey = pubkey_to_proto(ctx, &commitkey);
 
 	total_in = 0;
 	for (i = 0; i < anchor.n_inputs; i++) {
@@ -160,7 +159,7 @@ int main(int argc, char *argv[])
 	sha256(&revocation_hash,
 	       revocation_hash.u.u8, sizeof(revocation_hash.u.u8));
 
-	pkt = openchannel_pkt(ctx, &revocation_hash, &outkey,
+	pkt = openchannel_pkt(ctx, &revocation_hash, &commitkey, &outkey,
 			      commit_tx_fee, locktime_seconds, &anchor);
 
 	if (!write_all(STDOUT_FILENO, pkt, pkt_totlen(pkt)))

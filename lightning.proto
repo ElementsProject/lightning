@@ -52,8 +52,6 @@ message change {
 message anchor {
   // 0 or more unspent inputs we want to use for anchor.
   repeated bitcoin_input inputs = 1;
-  // Pubkey for anchor to pay to for commitment tx (p2sh)
-  required bitcoin_pubkey pubkey = 5;
   // Any change from anchor (in case we don't want to use them all)
   optional change change = 2;
   // How much transaction fee we'll pay in the anchor tx.
@@ -77,8 +75,10 @@ message open_channel {
   }
   // Hash seed for revoking commitment transactions.
   required sha256_hash revocation_hash = 4;
+  // Pubkey for anchor to pay into commitment tx.
+  required bitcoin_pubkey commit_key = 5;
   // How to pay money to us from commit_tx.
-  required bitcoin_pubkey final = 5;
+  required bitcoin_pubkey final_key = 1;
   // How much transaction fee we'll pay for commitment txs.
   required uint64 commitment_fee = 6;
   // The anchor transaction details.

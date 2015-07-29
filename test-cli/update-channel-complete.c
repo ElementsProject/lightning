@@ -89,10 +89,10 @@ int main(int argc, char *argv[])
 		errx(1, "Their preimage was incorrect");
 
 	/* Get pubkeys */
-	if (!proto_to_pubkey(o1->anchor->pubkey, &pubkey1))
+	if (!proto_to_pubkey(o1->commit_key, &pubkey1))
 		errx(1, "Invalid o1 commit pubkey");
-	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
-		errx(1, "Invalid o2 final pubkey");
+	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
+		errx(1, "Invalid o2 commit pubkey");
 
 	/* This is what the anchor pays to; figure out whick output. */
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);

@@ -32,9 +32,9 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx->input[0].input_amount = ours->anchor->total + theirs->anchor->total;
 
 	/* Output goes to our final pubkeys */
-	if (!proto_to_pubkey(ours->final, &ourkey))
+	if (!proto_to_pubkey(ours->final_key, &ourkey))
 		return tal_free(tx);
-	if (!proto_to_pubkey(theirs->final, &theirkey))
+	if (!proto_to_pubkey(theirs->final_key, &theirkey))
 		return tal_free(tx);
 
 	if (!proto_to_locktime(theirs, &locktime))
@@ -57,7 +57,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx->output[0].amount += delta;
 	
 	/* Second output is a P2SH payment to them. */
-	if (!proto_to_pubkey(theirs->final, &to_me))
+	if (!proto_to_pubkey(theirs->final_key, &to_me))
 		return tal_free(tx);
 	tx->output[1].script = scriptpubkey_p2sh(ctx,
 						 bitcoin_redeem_single(ctx,

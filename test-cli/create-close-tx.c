@@ -53,10 +53,10 @@ int main(int argc, char *argv[])
 	bitcoin_txid(anchor, &anchor_txid);
 
 	/* Pubkeys well-formed? */
-	if (!proto_to_pubkey(o1->anchor->pubkey, &pubkey1))
-		errx(1, "Invalid anchor-1 key");
-	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
-		errx(1, "Invalid anchor-2 key");
+	if (!proto_to_pubkey(o1->commit_key, &pubkey1))
+		errx(1, "Invalid o1 commit_key");
+	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
+		errx(1, "Invalid o2 commit_key");
 	
 	/* Get delta by accumulting all the updates. */
 	delta = 0;

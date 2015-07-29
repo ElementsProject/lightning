@@ -33,7 +33,8 @@ static struct pkt *to_pkt(const tal_t *ctx, Pkt__PktCase type, void *msg)
 
 struct pkt *openchannel_pkt(const tal_t *ctx,
 			    const struct sha256 *revocation_hash,
-			    const struct pubkey *to_me,
+			    const struct pubkey *commit,
+			    const struct pubkey *final,
 			    u64 commitment_fee,
 			    u32 rel_locktime_seconds,
 			    Anchor *anchor)
@@ -42,10 +43,10 @@ struct pkt *openchannel_pkt(const tal_t *ctx,
 
 	/* Required fields must be set: pack functions don't check! */
 	assert(anchor->inputs);
-	assert(anchor->pubkey);
 
 	o.revocation_hash = sha256_to_proto(ctx, revocation_hash);
-	o.final = pubkey_to_proto(ctx, to_me);
+	o.commit_key = pubkey_to_proto(ctx, commit);
+	o.final_key = pubkey_to_proto(ctx, final);
 	o.commitment_fee = commitment_fee;
 	o.anchor = anchor;
 	o.locktime_case = OPEN_CHANNEL__LOCKTIME_LOCKTIME_SECONDS;

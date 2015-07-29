@@ -29,9 +29,9 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	tx->input[0].input_amount = input_amount;
 
 	/* Outputs goes to final pubkey */
-	if (!proto_to_pubkey(ours->final, &ourkey))
+	if (!proto_to_pubkey(ours->final_key, &ourkey))
 		return tal_free(tx);
-	if (!proto_to_pubkey(theirs->final, &theirkey))
+	if (!proto_to_pubkey(theirs->final_key, &theirkey))
 		return tal_free(tx);
 
 	/* delta must make sense. */

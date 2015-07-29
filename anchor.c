@@ -56,8 +56,8 @@ struct bitcoin_tx *anchor_tx_create(const tal_t *ctx,
 		return tal_free(tx);
 
 	/* Pubkeys both valid, right? */
-	if (!proto_to_pubkey(o1->anchor->pubkey, &key1)
-	    || !proto_to_pubkey(o2->anchor->pubkey, &key2))
+	if (!proto_to_pubkey(o1->commit_key, &key1)
+	    || !proto_to_pubkey(o2->commit_key, &key2))
 		return tal_free(tx);
 
 	/* Make the 2 of 2 payment for the commitment txs. */

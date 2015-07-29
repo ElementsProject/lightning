@@ -1153,7 +1153,7 @@ const ProtobufCMessageDescriptor change__descriptor =
   (ProtobufCMessageInit) change__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor anchor__field_descriptors[6] =
+static const ProtobufCFieldDescriptor anchor__field_descriptors[5] =
 {
   {
     "inputs",
@@ -1192,18 +1192,6 @@ static const ProtobufCFieldDescriptor anchor__field_descriptors[6] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "pubkey",
-    5,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(Anchor, pubkey),
-    &bitcoin_pubkey__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
     "fee",
     8,
     PROTOBUF_C_LABEL_REQUIRED,
@@ -1230,19 +1218,18 @@ static const ProtobufCFieldDescriptor anchor__field_descriptors[6] =
 };
 static const unsigned anchor__field_indices_by_name[] = {
   1,   /* field[1] = change */
-  4,   /* field[4] = fee */
+  3,   /* field[3] = fee */
   0,   /* field[0] = inputs */
-  5,   /* field[5] = min_confirms */
-  3,   /* field[3] = pubkey */
+  4,   /* field[4] = min_confirms */
   2,   /* field[2] = total */
 };
 static const ProtobufCIntRange anchor__number_ranges[4 + 1] =
 {
   { 1, 0 },
   { 4, 2 },
-  { 8, 4 },
-  { 10, 5 },
-  { 0, 6 }
+  { 8, 3 },
+  { 10, 4 },
+  { 0, 5 }
 };
 const ProtobufCMessageDescriptor anchor__descriptor =
 {
@@ -1252,15 +1239,27 @@ const ProtobufCMessageDescriptor anchor__descriptor =
   "Anchor",
   "",
   sizeof(Anchor),
-  6,
+  5,
   anchor__field_descriptors,
   anchor__field_indices_by_name,
   4,  anchor__number_ranges,
   (ProtobufCMessageInit) anchor__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor open_channel__field_descriptors[6] =
+static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
 {
+  {
+    "final_key",
+    1,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(OpenChannel, final_key),
+    &bitcoin_pubkey__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
   {
     "locktime_seconds",
     2,
@@ -1298,12 +1297,12 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[6] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "final",
+    "commit_key",
     5,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(OpenChannel, final),
+    offsetof(OpenChannel, commit_key),
     &bitcoin_pubkey__descriptor,
     NULL,
     0,             /* flags */
@@ -1335,17 +1334,18 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[6] =
   },
 };
 static const unsigned open_channel__field_indices_by_name[] = {
-  5,   /* field[5] = anchor */
-  4,   /* field[4] = commitment_fee */
-  3,   /* field[3] = final */
-  1,   /* field[1] = locktime_blocks */
-  0,   /* field[0] = locktime_seconds */
-  2,   /* field[2] = revocation_hash */
+  6,   /* field[6] = anchor */
+  4,   /* field[4] = commit_key */
+  5,   /* field[5] = commitment_fee */
+  0,   /* field[0] = final_key */
+  2,   /* field[2] = locktime_blocks */
+  1,   /* field[1] = locktime_seconds */
+  3,   /* field[3] = revocation_hash */
 };
 static const ProtobufCIntRange open_channel__number_ranges[1 + 1] =
 {
-  { 2, 0 },
-  { 0, 6 }
+  { 1, 0 },
+  { 0, 7 }
 };
 const ProtobufCMessageDescriptor open_channel__descriptor =
 {
@@ -1355,7 +1355,7 @@ const ProtobufCMessageDescriptor open_channel__descriptor =
   "OpenChannel",
   "",
   sizeof(OpenChannel),
-  6,
+  7,
   open_channel__field_descriptors,
   open_channel__field_indices_by_name,
   1,  open_channel__number_ranges,

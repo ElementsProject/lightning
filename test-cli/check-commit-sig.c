@@ -54,8 +54,8 @@ int main(int argc, char *argv[])
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
 
 	/* Pubkey well-formed? */
-	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
-		errx(1, "Invalid anchor-2 key");
+	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
+		errx(1, "Invalid o2 commit_key");
 
 	/* Get the transaction ID of the anchor. */
 	anchor = anchor_tx_create(ctx, o1, o2, &inmap, &outmap);

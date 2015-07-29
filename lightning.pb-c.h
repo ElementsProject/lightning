@@ -143,10 +143,6 @@ struct  _Anchor
   size_t n_inputs;
   BitcoinInput **inputs;
   /*
-   * Pubkey for anchor to pay to for commitment tx (p2sh)
-   */
-  BitcoinPubkey *pubkey;
-  /*
    * Any change from anchor (in case we don't want to use them all)
    */
   Change *change;
@@ -165,7 +161,7 @@ struct  _Anchor
 };
 #define ANCHOR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&anchor__descriptor) \
-    , 0,NULL, NULL, NULL, 0, 0, 0 }
+    , 0,NULL, NULL, 0, 0, 0 }
 
 
 typedef enum {
@@ -185,9 +181,13 @@ struct  _OpenChannel
    */
   Sha256Hash *revocation_hash;
   /*
+   * Pubkey for anchor to pay to for commitment tx (p2sh)
+   */
+  BitcoinPubkey *commit_key;
+  /*
    * How to pay money to us from commit_tx.
    */
-  BitcoinPubkey *final;
+  BitcoinPubkey *final_key;
   /*
    * How much transaction fee we'll pay for commitment txs.
    */
@@ -204,7 +204,7 @@ struct  _OpenChannel
 };
 #define OPEN_CHANNEL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&open_channel__descriptor) \
-    , NULL, NULL, 0, NULL, OPEN_CHANNEL__LOCKTIME__NOT_SET, {} }
+    , NULL, NULL, NULL, 0, NULL, OPEN_CHANNEL__LOCKTIME__NOT_SET, {} }
 
 
 /*

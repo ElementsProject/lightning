@@ -32,14 +32,16 @@ struct pubkey;
  * openchannel_pkt - create an openchannel message
  * @ctx: tal context to allocate off.
  * @revocation_hash: first hash value generated from seed.
- * @to_me: the pubkey for the commit transactions' P2SH output.
+ * @commit: the pubkey for the anchor transactions' P2SH output.
+ * @final: the pubkey for the commit transactions' P2SH output.
  * @commitment_fee: the fee to use for commitment tx.
  * @rel_locktime_seconds: relative seconds for commitment locktime.
  * @anchor: the anchor transaction details.
  */
 struct pkt *openchannel_pkt(const tal_t *ctx,
 			    const struct sha256 *revocation_hash,
-			    const struct pubkey *to_me,
+			    const struct pubkey *commit,
+			    const struct pubkey *final,
 			    u64 commitment_fee,
 			    u32 rel_locktime_seconds,
 			    Anchor *anchor);

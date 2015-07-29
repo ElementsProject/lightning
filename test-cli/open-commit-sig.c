@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 		     (long long)o2->commitment_fee);
 
 	/* Their pubkey must be valid */
-	if (!proto_to_pubkey(o2->anchor->pubkey, &pubkey2))
+	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
 		errx(1, "Invalid public open-channel-file2");
 
 	/* Sign it for them. */
