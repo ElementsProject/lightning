@@ -5,7 +5,6 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/err/err.h>
 #include "lightning.pb-c.h"
-#include "anchor.h"
 #include "bitcoin/base58.h"
 #include "pkt.h"
 #include "bitcoin/script.h"
@@ -33,7 +32,7 @@ int main(int argc, char *argv[])
 		opt_usage_exit_fail("Expected one argument");
 
 	o = pkt_from_file(argv[1], PKT__PKT_OPEN)->open;
-	printf("%u\n", o->anchor->min_confirms);
+	printf("%u\n", o->min_depth);
 
 	tal_free(ctx);
 	return 0;

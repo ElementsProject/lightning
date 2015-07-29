@@ -29,30 +29,29 @@ struct signature;
 struct pubkey;
 
 /**
- * openchannel_pkt - create an openchannel message
+ * open_channel_pkt - create an openchannel message
  * @ctx: tal context to allocate off.
  * @revocation_hash: first hash value generated from seed.
  * @commit: the pubkey for the anchor transactions' P2SH output.
  * @final: the pubkey for the commit transactions' P2SH output.
- * @commitment_fee: the fee to use for commitment tx.
  * @rel_locktime_seconds: relative seconds for commitment locktime.
- * @anchor: the anchor transaction details.
+ * @offer_anchor: whether we will offer anchor.
+ * @min_depth: minimum depth to insist on (if non-zero)
  */
-struct pkt *openchannel_pkt(const tal_t *ctx,
-			    const struct sha256 *revocation_hash,
-			    const struct pubkey *commit,
-			    const struct pubkey *final,
-			    u64 commitment_fee,
-			    u32 rel_locktime_seconds,
-			    Anchor *anchor);
+struct pkt *open_channel_pkt(const tal_t *ctx,
+			     const struct sha256 *revocation_hash,
+			     const struct pubkey *commit,
+			     const struct pubkey *final,
+			     u32 rel_locktime_seconds,
+			     bool offer_anchor,
+			     u32 min_depth);
 
 /**
- * open_anchor_sig_pkt - create an open_anchor_sig message
+ * open_anchor_pkt - create an open_anchor message packet
  * @ctx: tal context to allocate off.
- * @sigs: the der-encoded signatures (tal_count() gives len).
- * @num_sigs: the number of sigs.
+ * @oa_msg: the OpenAnchor message.
  */
-struct pkt *open_anchor_sig_pkt(const tal_t *ctx, u8 **sigs, size_t num_sigs);
+struct pkt *open_anchor_pkt(const tal_t *ctx, const OpenAnchor *oa_msg);
 
 /**
  * open_commit_sig_pkt - create an open_commit_sig message

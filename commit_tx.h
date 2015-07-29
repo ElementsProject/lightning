@@ -11,8 +11,7 @@ struct sha256;
 struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    OpenChannel *ours,
 				    OpenChannel *theirs,
-				    const struct sha256 *revocation_hash,
-				    int64_t delta,
-				    const struct sha256_double *anchor_txid,
-				    unsigned int anchor_output);
+				    OpenAnchor *anchor,
+				    const struct sha256 *rhash,
+				    uint64_t to_us, uint64_t to_them);
 #endif

@@ -13,7 +13,7 @@ size_t pkt_totlen(const struct pkt *pkt)
 	return sizeof(pkt->len) + le32_to_cpu(pkt->len);
 }
 
-static struct pkt *to_pkt(const tal_t *ctx, Pkt__PktCase type, void *msg)
+static struct pkt *to_pkt(const tal_t *ctx, Pkt__PktCase type, const void *msg)
 {
 	struct pkt *ret;
 	size_t len;
@@ -21,7 +21,7 @@ static struct pkt *to_pkt(const tal_t *ctx, Pkt__PktCase type, void *msg)
 	
 	p.pkt_case = type;
 	/* This is a union, so doesn't matter which we assign. */
-	p.error = msg;
+	p.error = (Error *)msg;
 
 	len = pkt__get_packed_size(&p);
 	ret = (struct pkt *)tal_arr(ctx, u8, sizeof(ret->len) + len);
@@ -31,35 +31,42 @@ static struct pkt *to_pkt(const tal_t *ctx, Pkt__PktCase type, void *msg)
 	return ret;
 }
 
-struct pkt *openchannel_pkt(const tal_t *ctx,
-			    const struct sha256 *revocation_hash,
-			    const struct pubkey *commit,
-			    const struct pubkey *final,
-			    u64 commitment_fee,
-			    u32 rel_locktime_seconds,
-			    Anchor *anchor)
+struct pkt *open_channel_pkt(const tal_t *ctx,
+			     const struct sha256 *revocation_hash,
+			     const struct pubkey *commit,
+			     const struct pubkey *final,
+			     u32 rel_locktime_seconds,
+			     bool offer_anchor,
+			     u32 min_depth)
 {
 	OpenChannel o = OPEN_CHANNEL__INIT;
-
-	/* Required fields must be set: pack functions don't check! */
-	assert(anchor->inputs);
 
 	o.revocation_hash = sha256_to_proto(ctx, revocation_hash);
 	o.commit_key = pubkey_to_proto(ctx, commit);
 	o.final_key = pubkey_to_proto(ctx, final);
-	o.commitment_fee = commitment_fee;
-	o.anchor = anchor;
 	o.locktime_case = OPEN_CHANNEL__LOCKTIME_LOCKTIME_SECONDS;
 	o.locktime_seconds = rel_locktime_seconds;
+	if (offer_anchor)
+		o.anch = OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR;
+	else
+		o.anch = OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR;
+
+	o.min_depth = min_depth;
 
 	{
 		size_t len = open_channel__get_packed_size(&o);
 		unsigned char *pb = malloc(len);
 		open_channel__pack(&o, pb);
 		assert(open_channel__unpack(NULL, len, pb));
+		free(pb);
 	}
 		
 	return to_pkt(ctx, PKT__PKT_OPEN, &o);
+}
+
+struct pkt *open_anchor_pkt(const tal_t *ctx, const OpenAnchor *oa_msg)
+{
+	return to_pkt(ctx, PKT__PKT_OPEN_ANCHOR, oa_msg);
 }
 
 Pkt *any_pkt_from_file(const char *filename)
@@ -91,21 +98,6 @@ Pkt *pkt_from_file(const char *filename, Pkt__PktCase expect)
 	if (ret->pkt_case != expect)
 		errx(1, "Unexpected type %i in %s", ret->pkt_case, filename);
 	return ret;
-}
-
-struct pkt *open_anchor_sig_pkt(const tal_t *ctx, u8 **sigs, size_t num_sigs)
-{
-	OpenAnchorScriptsigs o = OPEN_ANCHOR_SCRIPTSIGS__INIT;
-	size_t i;
-
-	o.n_script = num_sigs;
-	o.script = tal_arr(ctx, ProtobufCBinaryData, num_sigs);
-	for (i = 0; i < num_sigs; i++) {
-		o.script[i].data = sigs[i];
-		o.script[i].len = tal_count(sigs[i]);
-	}
-	
-	return to_pkt(ctx, PKT__PKT_OPEN_ANCHOR_SCRIPTSIGS, &o);
 }
 
 struct pkt *open_commit_sig_pkt(const tal_t *ctx, const struct signature *sig)

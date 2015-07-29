@@ -8,13 +8,13 @@
 #include "pkt.h"
 #include "protobuf_convert.h"
 
+#include <stdio.h>
 struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    OpenChannel *ours,
 				    OpenChannel *theirs,
+				    OpenAnchor *anchor,
 				    const struct sha256 *rhash,
-				    int64_t delta,
-				    const struct sha256_double *anchor_txid,
-				    unsigned int anchor_output)
+				    uint64_t to_us, uint64_t to_them)
 {
 	struct bitcoin_tx *tx;
 	const u8 *redeemscript;
@@ -25,11 +25,9 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx = bitcoin_tx(ctx, 1, 2);
 
 	/* Our input spends the anchor tx output. */
-	tx->input[0].txid = *anchor_txid;
-	tx->input[0].index = anchor_output;
-	if (add_overflows_u64(ours->anchor->total, theirs->anchor->total))
-		return tal_free(tx);
-	tx->input[0].input_amount = ours->anchor->total + theirs->anchor->total;
+	proto_to_sha256(anchor->txid, &tx->input[0].txid.sha);
+	tx->input[0].index = anchor->output_index;
+	tx->input[0].input_amount = anchor->amount;
 
 	/* Output goes to our final pubkeys */
 	if (!proto_to_pubkey(ours->final_key, &ourkey))
@@ -47,15 +45,8 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 						      rhash);
 	tx->output[0].script = scriptpubkey_p2sh(tx, redeemscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
+	tx->output[0].amount = to_us;
 
-	if (ours->anchor->total < ours->commitment_fee)
-		return tal_free(tx);
-	tx->output[0].amount = ours->anchor->total - ours->commitment_fee;
-	/* Asking for more than we have? */
-	if (delta < 0 && -delta > tx->output[0].amount)
-		return tal_free(tx);
-	tx->output[0].amount += delta;
-	
 	/* Second output is a P2SH payment to them. */
 	if (!proto_to_pubkey(theirs->final_key, &to_me))
 		return tal_free(tx);
@@ -63,19 +54,32 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 						 bitcoin_redeem_single(ctx,
 								       &to_me));
 	tx->output[1].script_length = tal_count(tx->output[1].script);
-
-	if (theirs->anchor->total < theirs->commitment_fee)
-		return tal_free(tx);
-	tx->output[1].amount = theirs->anchor->total - theirs->commitment_fee;
-	/* Asking for more than they have? */
-	if (delta > 0 && delta > tx->output[1].amount)
-		return tal_free(tx);
-	tx->output[0].amount -= delta;
+	tx->output[1].amount = to_them;
 
 	/* Calculate fee; difference of inputs and outputs. */
+	assert(tx->output[0].amount + tx->output[1].amount
+	       <= tx->input[0].input_amount);
 	tx->fee = tx->input[0].input_amount
 		- (tx->output[0].amount + tx->output[1].amount);
-	
+
+	fprintf(stderr, "Created commit tx: anchor=%02x%02x%02x%02x/%u/%llu,"
+		" out0=%02x%02x%02x%02x/%u/%02x%02x%02x%02x/%02x%02x%02x%02x/%llu, "
+		" out1=%02x%02x%02x%02x/%llu, fee=%llu\n",
+		tx->input[0].txid.sha.u.u8[0],
+		tx->input[0].txid.sha.u.u8[1],
+		tx->input[0].txid.sha.u.u8[2],
+		tx->input[0].txid.sha.u.u8[3],
+		tx->input[0].index,
+		(long long)tx->input[0].input_amount,
+		ourkey.key[0], ourkey.key[1], ourkey.key[2], ourkey.key[3],
+		locktime,
+		theirkey.key[0], theirkey.key[1], theirkey.key[2], theirkey.key[3],
+		rhash->u.u8[0], rhash->u.u8[1], rhash->u.u8[2], rhash->u.u8[3],
+		(long long)tx->output[0].amount,
+		to_me.key[0], to_me.key[1], to_me.key[2], to_me.key[3],
+		(long long)tx->output[1].amount,
+		(long long)tx->fee);
+		
 	permute_outputs(tx->output, 2, NULL);
 	return tx;
 }

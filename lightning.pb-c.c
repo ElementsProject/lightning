@@ -93,49 +93,6 @@ void   signature__free_unpacked
   assert(message->base.descriptor == &signature__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   bitcoin_input__init
-                     (BitcoinInput         *message)
-{
-  static BitcoinInput init_value = BITCOIN_INPUT__INIT;
-  *message = init_value;
-}
-size_t bitcoin_input__get_packed_size
-                     (const BitcoinInput *message)
-{
-  assert(message->base.descriptor == &bitcoin_input__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
-}
-size_t bitcoin_input__pack
-                     (const BitcoinInput *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &bitcoin_input__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
-}
-size_t bitcoin_input__pack_to_buffer
-                     (const BitcoinInput *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &bitcoin_input__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
-}
-BitcoinInput *
-       bitcoin_input__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (BitcoinInput *)
-     protobuf_c_message_unpack (&bitcoin_input__descriptor,
-                                allocator, len, data);
-}
-void   bitcoin_input__free_unpacked
-                     (BitcoinInput *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &bitcoin_input__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
-}
 void   bitcoin_pubkey__init
                      (BitcoinPubkey         *message)
 {
@@ -177,92 +134,6 @@ void   bitcoin_pubkey__free_unpacked
                       ProtobufCAllocator *allocator)
 {
   assert(message->base.descriptor == &bitcoin_pubkey__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
-}
-void   change__init
-                     (Change         *message)
-{
-  static Change init_value = CHANGE__INIT;
-  *message = init_value;
-}
-size_t change__get_packed_size
-                     (const Change *message)
-{
-  assert(message->base.descriptor == &change__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
-}
-size_t change__pack
-                     (const Change *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &change__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
-}
-size_t change__pack_to_buffer
-                     (const Change *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &change__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
-}
-Change *
-       change__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (Change *)
-     protobuf_c_message_unpack (&change__descriptor,
-                                allocator, len, data);
-}
-void   change__free_unpacked
-                     (Change *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &change__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
-}
-void   anchor__init
-                     (Anchor         *message)
-{
-  static Anchor init_value = ANCHOR__INIT;
-  *message = init_value;
-}
-size_t anchor__get_packed_size
-                     (const Anchor *message)
-{
-  assert(message->base.descriptor == &anchor__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
-}
-size_t anchor__pack
-                     (const Anchor *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &anchor__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
-}
-size_t anchor__pack_to_buffer
-                     (const Anchor *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &anchor__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
-}
-Anchor *
-       anchor__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (Anchor *)
-     protobuf_c_message_unpack (&anchor__descriptor,
-                                allocator, len, data);
-}
-void   anchor__free_unpacked
-                     (Anchor *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &anchor__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   open_channel__init
@@ -308,6 +179,49 @@ void   open_channel__free_unpacked
   assert(message->base.descriptor == &open_channel__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   open_anchor__init
+                     (OpenAnchor         *message)
+{
+  static OpenAnchor init_value = OPEN_ANCHOR__INIT;
+  *message = init_value;
+}
+size_t open_anchor__get_packed_size
+                     (const OpenAnchor *message)
+{
+  assert(message->base.descriptor == &open_anchor__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t open_anchor__pack
+                     (const OpenAnchor *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &open_anchor__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t open_anchor__pack_to_buffer
+                     (const OpenAnchor *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &open_anchor__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+OpenAnchor *
+       open_anchor__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (OpenAnchor *)
+     protobuf_c_message_unpack (&open_anchor__descriptor,
+                                allocator, len, data);
+}
+void   open_anchor__free_unpacked
+                     (OpenAnchor *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &open_anchor__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
 void   open_commit_sig__init
                      (OpenCommitSig         *message)
 {
@@ -349,49 +263,6 @@ void   open_commit_sig__free_unpacked
                       ProtobufCAllocator *allocator)
 {
   assert(message->base.descriptor == &open_commit_sig__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
-}
-void   open_anchor_scriptsigs__init
-                     (OpenAnchorScriptsigs         *message)
-{
-  static OpenAnchorScriptsigs init_value = OPEN_ANCHOR_SCRIPTSIGS__INIT;
-  *message = init_value;
-}
-size_t open_anchor_scriptsigs__get_packed_size
-                     (const OpenAnchorScriptsigs *message)
-{
-  assert(message->base.descriptor == &open_anchor_scriptsigs__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
-}
-size_t open_anchor_scriptsigs__pack
-                     (const OpenAnchorScriptsigs *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &open_anchor_scriptsigs__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
-}
-size_t open_anchor_scriptsigs__pack_to_buffer
-                     (const OpenAnchorScriptsigs *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &open_anchor_scriptsigs__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
-}
-OpenAnchorScriptsigs *
-       open_anchor_scriptsigs__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (OpenAnchorScriptsigs *)
-     protobuf_c_message_unpack (&open_anchor_scriptsigs__descriptor,
-                                allocator, len, data);
-}
-void   open_anchor_scriptsigs__free_unpacked
-                     (OpenAnchorScriptsigs *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &open_anchor_scriptsigs__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   open_complete__init
@@ -987,83 +858,6 @@ const ProtobufCMessageDescriptor signature__descriptor =
   (ProtobufCMessageInit) signature__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor bitcoin_input__field_descriptors[4] =
-{
-  {
-    "txid",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(BitcoinInput, txid),
-    &sha256_hash__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "output",
-    2,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_UINT32,
-    0,   /* quantifier_offset */
-    offsetof(BitcoinInput, output),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "subscript",
-    3,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_BYTES,
-    0,   /* quantifier_offset */
-    offsetof(BitcoinInput, subscript),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "amount",
-    4,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_UINT64,
-    0,   /* quantifier_offset */
-    offsetof(BitcoinInput, amount),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned bitcoin_input__field_indices_by_name[] = {
-  3,   /* field[3] = amount */
-  1,   /* field[1] = output */
-  2,   /* field[2] = subscript */
-  0,   /* field[0] = txid */
-};
-static const ProtobufCIntRange bitcoin_input__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 4 }
-};
-const ProtobufCMessageDescriptor bitcoin_input__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "bitcoin_input",
-  "BitcoinInput",
-  "BitcoinInput",
-  "",
-  sizeof(BitcoinInput),
-  4,
-  bitcoin_input__field_descriptors,
-  bitcoin_input__field_indices_by_name,
-  1,  bitcoin_input__number_ranges,
-  (ProtobufCMessageInit) bitcoin_input__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
 static const ProtobufCFieldDescriptor bitcoin_pubkey__field_descriptors[1] =
 {
   {
@@ -1102,150 +896,35 @@ const ProtobufCMessageDescriptor bitcoin_pubkey__descriptor =
   (ProtobufCMessageInit) bitcoin_pubkey__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor change__field_descriptors[2] =
+static const ProtobufCEnumValue open_channel__anchor_offer__enum_values_by_number[2] =
 {
-  {
-    "amount",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_UINT64,
-    0,   /* quantifier_offset */
-    offsetof(Change, amount),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "pubkey",
-    2,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(Change, pubkey),
-    &bitcoin_pubkey__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
+  { "WILL_CREATE_ANCHOR", "OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR", 1 },
+  { "WONT_CREATE_ANCHOR", "OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR", 2 },
 };
-static const unsigned change__field_indices_by_name[] = {
-  0,   /* field[0] = amount */
-  1,   /* field[1] = pubkey */
+static const ProtobufCIntRange open_channel__anchor_offer__value_ranges[] = {
+{1, 0},{0, 2}
 };
-static const ProtobufCIntRange change__number_ranges[1 + 1] =
+static const ProtobufCEnumValueIndex open_channel__anchor_offer__enum_values_by_name[2] =
 {
-  { 1, 0 },
-  { 0, 2 }
+  { "WILL_CREATE_ANCHOR", 0 },
+  { "WONT_CREATE_ANCHOR", 1 },
 };
-const ProtobufCMessageDescriptor change__descriptor =
+const ProtobufCEnumDescriptor open_channel__anchor_offer__descriptor =
 {
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "change",
-  "Change",
-  "Change",
+  PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC,
+  "open_channel.anchor_offer",
+  "anchor_offer",
+  "OpenChannel__AnchorOffer",
   "",
-  sizeof(Change),
   2,
-  change__field_descriptors,
-  change__field_indices_by_name,
-  1,  change__number_ranges,
-  (ProtobufCMessageInit) change__init,
-  NULL,NULL,NULL    /* reserved[123] */
+  open_channel__anchor_offer__enum_values_by_number,
+  2,
+  open_channel__anchor_offer__enum_values_by_name,
+  1,
+  open_channel__anchor_offer__value_ranges,
+  NULL,NULL,NULL,NULL   /* reserved[1234] */
 };
-static const ProtobufCFieldDescriptor anchor__field_descriptors[5] =
-{
-  {
-    "inputs",
-    1,
-    PROTOBUF_C_LABEL_REPEATED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Anchor, n_inputs),
-    offsetof(Anchor, inputs),
-    &bitcoin_input__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "change",
-    2,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(Anchor, change),
-    &change__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "total",
-    4,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_UINT64,
-    0,   /* quantifier_offset */
-    offsetof(Anchor, total),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "fee",
-    8,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_UINT64,
-    0,   /* quantifier_offset */
-    offsetof(Anchor, fee),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "min_confirms",
-    10,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_UINT32,
-    0,   /* quantifier_offset */
-    offsetof(Anchor, min_confirms),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned anchor__field_indices_by_name[] = {
-  1,   /* field[1] = change */
-  3,   /* field[3] = fee */
-  0,   /* field[0] = inputs */
-  4,   /* field[4] = min_confirms */
-  2,   /* field[2] = total */
-};
-static const ProtobufCIntRange anchor__number_ranges[4 + 1] =
-{
-  { 1, 0 },
-  { 4, 2 },
-  { 8, 3 },
-  { 10, 4 },
-  { 0, 5 }
-};
-const ProtobufCMessageDescriptor anchor__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "anchor",
-  "Anchor",
-  "Anchor",
-  "",
-  sizeof(Anchor),
-  5,
-  anchor__field_descriptors,
-  anchor__field_indices_by_name,
-  4,  anchor__number_ranges,
-  (ProtobufCMessageInit) anchor__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
+static const uint32_t open_channel__min_depth__default_value = 0u;
 static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
 {
   {
@@ -1309,37 +988,37 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "commitment_fee",
+    "anch",
     6,
     PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_UINT64,
+    PROTOBUF_C_TYPE_ENUM,
     0,   /* quantifier_offset */
-    offsetof(OpenChannel, commitment_fee),
-    NULL,
+    offsetof(OpenChannel, anch),
+    &open_channel__anchor_offer__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "anchor",
+    "min_depth",
     7,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(OpenChannel, anchor),
-    &anchor__descriptor,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_UINT32,
+    offsetof(OpenChannel, has_min_depth),
+    offsetof(OpenChannel, min_depth),
     NULL,
+    &open_channel__min_depth__default_value,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
 static const unsigned open_channel__field_indices_by_name[] = {
-  6,   /* field[6] = anchor */
+  5,   /* field[5] = anch */
   4,   /* field[4] = commit_key */
-  5,   /* field[5] = commitment_fee */
   0,   /* field[0] = final_key */
   2,   /* field[2] = locktime_blocks */
   1,   /* field[1] = locktime_seconds */
+  6,   /* field[6] = min_depth */
   3,   /* field[3] = revocation_hash */
 };
 static const ProtobufCIntRange open_channel__number_ranges[1 + 1] =
@@ -1360,6 +1039,83 @@ const ProtobufCMessageDescriptor open_channel__descriptor =
   open_channel__field_indices_by_name,
   1,  open_channel__number_ranges,
   (ProtobufCMessageInit) open_channel__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor open_anchor__field_descriptors[4] =
+{
+  {
+    "txid",
+    1,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(OpenAnchor, txid),
+    &sha256_hash__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "output_index",
+    2,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(OpenAnchor, output_index),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "amount",
+    3,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT64,
+    0,   /* quantifier_offset */
+    offsetof(OpenAnchor, amount),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "commit_sig",
+    4,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(OpenAnchor, commit_sig),
+    &signature__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned open_anchor__field_indices_by_name[] = {
+  2,   /* field[2] = amount */
+  3,   /* field[3] = commit_sig */
+  1,   /* field[1] = output_index */
+  0,   /* field[0] = txid */
+};
+static const ProtobufCIntRange open_anchor__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 4 }
+};
+const ProtobufCMessageDescriptor open_anchor__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "open_anchor",
+  "OpenAnchor",
+  "OpenAnchor",
+  "",
+  sizeof(OpenAnchor),
+  4,
+  open_anchor__field_descriptors,
+  open_anchor__field_indices_by_name,
+  1,  open_anchor__number_ranges,
+  (ProtobufCMessageInit) open_anchor__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCFieldDescriptor open_commit_sig__field_descriptors[1] =
@@ -1398,44 +1154,6 @@ const ProtobufCMessageDescriptor open_commit_sig__descriptor =
   open_commit_sig__field_indices_by_name,
   1,  open_commit_sig__number_ranges,
   (ProtobufCMessageInit) open_commit_sig__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
-static const ProtobufCFieldDescriptor open_anchor_scriptsigs__field_descriptors[1] =
-{
-  {
-    "script",
-    1,
-    PROTOBUF_C_LABEL_REPEATED,
-    PROTOBUF_C_TYPE_BYTES,
-    offsetof(OpenAnchorScriptsigs, n_script),
-    offsetof(OpenAnchorScriptsigs, script),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned open_anchor_scriptsigs__field_indices_by_name[] = {
-  0,   /* field[0] = script */
-};
-static const ProtobufCIntRange open_anchor_scriptsigs__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 1 }
-};
-const ProtobufCMessageDescriptor open_anchor_scriptsigs__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "open_anchor_scriptsigs",
-  "OpenAnchorScriptsigs",
-  "OpenAnchorScriptsigs",
-  "",
-  sizeof(OpenAnchorScriptsigs),
-  1,
-  open_anchor_scriptsigs__field_descriptors,
-  open_anchor_scriptsigs__field_indices_by_name,
-  1,  open_anchor_scriptsigs__number_ranges,
-  (ProtobufCMessageInit) open_anchor_scriptsigs__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCFieldDescriptor open_complete__field_descriptors[1] =
@@ -1845,25 +1563,25 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[11] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "open_commit_sig",
+    "open_anchor",
     202,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
-    offsetof(Pkt, open_commit_sig),
-    &open_commit_sig__descriptor,
+    offsetof(Pkt, open_anchor),
+    &open_anchor__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "open_anchor_scriptsigs",
+    "open_commit_sig",
     203,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
-    offsetof(Pkt, open_anchor_scriptsigs),
-    &open_anchor_scriptsigs__descriptor,
+    offsetof(Pkt, open_commit_sig),
+    &open_commit_sig__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -1922,8 +1640,8 @@ static const unsigned pkt__field_indices_by_name[] = {
   9,   /* field[9] = close_complete */
   10,   /* field[10] = error */
   4,   /* field[4] = open */
-  6,   /* field[6] = open_anchor_scriptsigs */
-  5,   /* field[5] = open_commit_sig */
+  5,   /* field[5] = open_anchor */
+  6,   /* field[6] = open_commit_sig */
   7,   /* field[7] = open_complete */
   0,   /* field[0] = update */
   1,   /* field[1] = update_accept */

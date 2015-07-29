@@ -6,7 +6,6 @@
 #include <ccan/err/err.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include "lightning.pb-c.h"
-#include "anchor.h"
 #include "bitcoin/base58.h"
 #include "pkt.h"
 #include "bitcoin/script.h"
@@ -24,11 +23,12 @@ int main(int argc, char *argv[])
 	struct pkt *pkt;
 	unsigned long long to_them = 0, from_them = 0;
 	int64_t this_delta;
+	unsigned update_num;
 
 	err_set_progname(argv[0]);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<seed> [previous-updates]\n"
+			   "<seed> <update-number>\n"
 			   "Create a new update message",
 			   "Print this message.");
 	opt_register_arg("--to-them=<satoshi>",
@@ -43,18 +43,21 @@ int main(int argc, char *argv[])
 	if (!from_them && !to_them)
 		opt_usage_exit_fail("Must use --to-them or --from-them");
 
-	if (argc < 2)
-		opt_usage_exit_fail("Expected 1+ arguments");
+	if (argc != 3)
+		opt_usage_exit_fail("Expected 2 arguments");
 
 	if (!hex_decode(argv[1], strlen(argv[1]), &seed, sizeof(seed)))
 		errx(1, "Invalid seed '%s' - need 256 hex bits", argv[1]);
-
+	update_num = atoi(argv[2]);
+	if (!update_num)
+		errx(1, "Update number %s invalid", argv[2]);
+	
 	this_delta = from_them - to_them;
 	if (!this_delta)
 		errx(1, "Delta must not be zero");
 	
 	/* Get next revocation hash. */
-	shachain_from_seed(&seed, argc - 2 + 1, &revocation_hash);
+	shachain_from_seed(&seed, update_num, &revocation_hash);
 	sha256(&revocation_hash,
 	       revocation_hash.u.u8, sizeof(revocation_hash.u.u8));
 	

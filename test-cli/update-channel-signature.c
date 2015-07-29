@@ -6,7 +6,6 @@
 #include <ccan/err/err.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include "lightning.pb-c.h"
-#include "anchor.h"
 #include "bitcoin/base58.h"
 #include "pkt.h"
 #include "bitcoin/script.h"
@@ -17,30 +16,29 @@
 #include "bitcoin/privkey.h"
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
+#include "gather_updates.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal_arr(NULL, char, 0);
-	struct sha256 seed, revocation_hash, preimage;
+	struct sha256 seed, preimage, our_rhash, their_rhash;
 	OpenChannel *o1, *o2;
-	UpdateAccept *ua;
-	Update *update;
-	struct bitcoin_tx *anchor, *commit;
-	struct sha256_double anchor_txid;
+	OpenAnchor *a;
+	struct bitcoin_tx *commit;
 	struct pkt *pkt;
 	struct bitcoin_signature sig;
 	struct privkey privkey;
 	bool testnet;
 	struct pubkey pubkey1, pubkey2;
 	u8 *redeemscript;
-	int64_t delta;
-	size_t i, p2sh_out;
+	uint64_t our_amount, their_amount;
+	uint64_t num_updates;
 
 	err_set_progname(argv[0]);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<seed> <anchor-tx> <open-channel-file1> <open-channel-file2> <commit-privkey> <update-protobuf> <update-accept-protobuf> [previous-updates]...\n"
+			   "<seed> <open-channel-file1> <open-channel-file2> <open-anchor-file> <commit-privkey> <all-previous-updates>...\n"
 			   "Create a new update-channel-signature message",
 			   "Print this message.");
 
@@ -52,32 +50,27 @@ int main(int argc, char *argv[])
 	if (!hex_decode(argv[1], strlen(argv[1]), &seed, sizeof(seed)))
 		errx(1, "Invalid seed '%s' - need 256 hex bits", argv[1]);
 
-	anchor = bitcoin_tx_from_file(ctx, argv[2]);
-	bitcoin_txid(anchor, &anchor_txid);
-	o1 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
-	o2 = pkt_from_file(argv[4], PKT__PKT_OPEN)->open;
+	o1 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
+	o2 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
+	a = pkt_from_file(argv[4], PKT__PKT_OPEN_ANCHOR)->open_anchor;
 
 	if (!key_from_base58(argv[5], strlen(argv[5]), &testnet, &privkey, &pubkey1))
 		errx(1, "Invalid private key '%s'", argv[5]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[5]);
 
-	update = pkt_from_file(argv[6], PKT__PKT_UPDATE)->update;
-	ua = pkt_from_file(argv[7], PKT__PKT_UPDATE_ACCEPT)->update_accept;
-
 	sig.stype = SIGHASH_ALL;
-	if (!proto_to_signature(ua->sig, &sig.sig))
-		errx(1, "Invalid update signature");
 
 	/* Figure out cumulative delta since anchor. */
-	delta = 0;
-	for (i = 8; i < argc; i++) {
-		Update *u = pkt_from_file(argv[i], PKT__PKT_UPDATE)->update;
-		delta += u->delta;
-	}
+	num_updates = gather_updates(o1, o2, a, argv + 6,
+				     &our_amount, &their_amount,
+				     &our_rhash, &their_rhash, &sig.sig);
+	if (num_updates < 1)
+		errx(1, "Expected at least one update!");
 
 	/* Give up revocation preimage for old tx. */
-	shachain_from_seed(&seed, argc - 7 - 1, &preimage);
+	fprintf(stderr, "Giving up preimage %u\n", (unsigned)num_updates - 1);
+	shachain_from_seed(&seed, num_updates - 1, &preimage);
 	
 	/* Get pubkeys */
 	if (!proto_to_pubkey(o1->commit_key, &pubkey2))
@@ -88,16 +81,14 @@ int main(int argc, char *argv[])
 	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
 		errx(1, "Invalid o2 commit pubkey");
 
-	/* This is what the anchor pays to; figure out whick output. */
+	/* This is what the anchor pays to. */
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
-	p2sh_out = find_p2sh_out(anchor, redeemscript);
 
 	/* Check our new commit is signed correctly by them. */
-	proto_to_sha256(update->revocation_hash, &revocation_hash);
-	commit = create_commit_tx(ctx, o1, o2, &revocation_hash, delta,
-				  &anchor_txid, p2sh_out);
+	commit = create_commit_tx(ctx, o1, o2, a, &our_rhash,
+				  our_amount, their_amount);
 	if (!commit)
-		errx(1, "Delta too large");
+		errx(1, "Invalid packets");
 
 	/* Check their signature signs this input correctly. */
 	if (!check_tx_sig(commit, 0, redeemscript, tal_count(redeemscript),
@@ -105,14 +96,10 @@ int main(int argc, char *argv[])
 		errx(1, "Invalid signature.");
 
 	/* Now create THEIR new commitment tx to spend 2/2 output of anchor. */
-	proto_to_sha256(ua->revocation_hash, &revocation_hash);
-	commit = create_commit_tx(ctx, o2, o1, &revocation_hash, -delta,
-				  &anchor_txid,
-				  find_p2sh_out(anchor, redeemscript));
-
-	/* If contributions don't exceed fees, this fails. */
+	commit = create_commit_tx(ctx, o2, o1, a, &their_rhash,
+				  their_amount, our_amount);
 	if (!commit)
-		errx(1, "Delta too large");
+		errx(1, "Invalid packets");
 
 	/* Their pubkey must be valid */
 	if (!proto_to_pubkey(o2->commit_key, &pubkey2))

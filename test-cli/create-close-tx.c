@@ -5,7 +5,6 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/err/err.h>
 #include "lightning.pb-c.h"
-#include "anchor.h"
 #include "bitcoin/base58.h"
 #include "pkt.h"
 #include "bitcoin/script.h"
@@ -15,27 +14,27 @@
 #include "close_tx.h"
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
+#include "gather_updates.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal_arr(NULL, char, 0);
 	OpenChannel *o1, *o2;
-	struct bitcoin_tx *anchor, *close_tx;
-	struct sha256_double anchor_txid;
+	OpenAnchor *a;
+	struct bitcoin_tx *close_tx;
 	struct bitcoin_signature sig1, sig2;
 	struct pubkey pubkey1, pubkey2;
 	u8 *redeemscript;
 	CloseChannel *close;
 	CloseChannelComplete *closecomplete;
-	size_t i, anchor_out;
-	int64_t delta;
+	uint64_t our_amount, their_amount;
 
 	err_set_progname(argv[0]);
 
 	/* FIXME: Take update.pbs to adjust channel */
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<anchor-tx> <open-channel-file1> <open-channel-file2> <close-protobuf> <close-complete-protobuf> [update-protobuf]...\n"
+			   "<open-channel-file1> <open-channel-file2> <open-anchor-file> <close-protobuf> <close-complete-protobuf> [update-protobuf]...\n"
 			   "Create the close transaction from the signatures",
 			   "Print this message.");
 
@@ -44,13 +43,11 @@ int main(int argc, char *argv[])
 	if (argc < 6)
 		opt_usage_exit_fail("Expected 5+ arguments");
 
-	anchor = bitcoin_tx_from_file(ctx, argv[1]);
-	o1 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
-	o2 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
+	o1 = pkt_from_file(argv[1], PKT__PKT_OPEN)->open;
+	o2 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
+	a = pkt_from_file(argv[3], PKT__PKT_OPEN_ANCHOR)->open_anchor;
 	close = pkt_from_file(argv[4], PKT__PKT_CLOSE)->close;
 	closecomplete = pkt_from_file(argv[5], PKT__PKT_CLOSE_COMPLETE)->close_complete;
-
-	bitcoin_txid(anchor, &anchor_txid);
 
 	/* Pubkeys well-formed? */
 	if (!proto_to_pubkey(o1->commit_key, &pubkey1))
@@ -59,20 +56,14 @@ int main(int argc, char *argv[])
 		errx(1, "Invalid o2 commit_key");
 	
 	/* Get delta by accumulting all the updates. */
-	delta = 0;
-	for (i = 6; i < argc; i++) {
-		Update *u = pkt_from_file(argv[i], PKT__PKT_UPDATE)->update;
-		delta += u->delta;
-	}	
+	gather_updates(o1, o2, a, argv + 6, &our_amount, &their_amount,
+		       NULL, NULL, NULL);
 
 	/* This is what the anchor pays to; figure out which output. */
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
 	/* Now create the close tx to spend 2/2 output of anchor. */
-	anchor_out = find_p2sh_out(anchor, redeemscript);
-	close_tx = create_close_tx(ctx, o1, o2, delta, &anchor_txid,
-				   anchor->output[anchor_out].amount,
-				   anchor_out);
+	close_tx = create_close_tx(ctx, o1, o2, a, our_amount, their_amount);
 
 	/* Signatures well-formed? */
 	sig1.stype = sig2.stype = SIGHASH_ALL;

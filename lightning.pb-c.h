@@ -17,13 +17,10 @@ PROTOBUF_C__BEGIN_DECLS
 
 typedef struct _Sha256Hash Sha256Hash;
 typedef struct _Signature Signature;
-typedef struct _BitcoinInput BitcoinInput;
 typedef struct _BitcoinPubkey BitcoinPubkey;
-typedef struct _Change Change;
-typedef struct _Anchor Anchor;
 typedef struct _OpenChannel OpenChannel;
+typedef struct _OpenAnchor OpenAnchor;
 typedef struct _OpenCommitSig OpenCommitSig;
-typedef struct _OpenAnchorScriptsigs OpenAnchorScriptsigs;
 typedef struct _OpenComplete OpenComplete;
 typedef struct _Update Update;
 typedef struct _UpdateAccept UpdateAccept;
@@ -37,6 +34,17 @@ typedef struct _Pkt Pkt;
 
 /* --- enums --- */
 
+typedef enum _OpenChannel__AnchorOffer {
+  /*
+   * I will create the anchor
+   */
+  OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR = 1,
+  /*
+   * I won't create the anchor
+   */
+  OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR = 2
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(OPEN_CHANNEL__ANCHOR_OFFER)
+} OpenChannel__AnchorOffer;
 
 /* --- messages --- */
 
@@ -74,34 +82,6 @@ struct  _Signature
 
 
 /*
- * Identifies consumption of a bitcoin output.
- */
-struct  _BitcoinInput
-{
-  ProtobufCMessage base;
-  /*
-   * This is the transaction ID.
-   */
-  Sha256Hash *txid;
-  /*
-   * This is the output number.
-   */
-  uint32_t output;
-  /*
-   * And the subscript we're signing.
-   */
-  ProtobufCBinaryData subscript;
-  /*
-   * The amount this input is worth.
-   */
-  uint64_t amount;
-};
-#define BITCOIN_INPUT__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&bitcoin_input__descriptor) \
-    , NULL, 0, {0,NULL}, 0 }
-
-
-/*
  * Pubkey for commitment transaction input.
  */
 struct  _BitcoinPubkey
@@ -117,53 +97,6 @@ struct  _BitcoinPubkey
     , {0,NULL} }
 
 
-/*
- * Change, if we want any.
- */
-struct  _Change
-{
-  ProtobufCMessage base;
-  uint64_t amount;
-  BitcoinPubkey *pubkey;
-};
-#define CHANGE__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&change__descriptor) \
-    , 0, NULL }
-
-
-/*
- * All about an anchor transaction.
- */
-struct  _Anchor
-{
-  ProtobufCMessage base;
-  /*
-   * 0 or more unspent inputs we want to use for anchor.
-   */
-  size_t n_inputs;
-  BitcoinInput **inputs;
-  /*
-   * Any change from anchor (in case we don't want to use them all)
-   */
-  Change *change;
-  /*
-   * How much transaction fee we'll pay in the anchor tx.
-   */
-  uint64_t fee;
-  /*
-   * How much we'll be putting into channel (== sum(inputs) - change - fee)
-   */
-  uint64_t total;
-  /*
-   * How many confirmations on anchor before we'll use channel.
-   */
-  uint32_t min_confirms;
-};
-#define ANCHOR__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&anchor__descriptor) \
-    , 0,NULL, NULL, 0, 0, 0 }
-
-
 typedef enum {
   OPEN_CHANNEL__LOCKTIME__NOT_SET = 0,
   OPEN_CHANNEL__LOCKTIME_LOCKTIME_SECONDS = 2,
@@ -177,25 +110,23 @@ struct  _OpenChannel
 {
   ProtobufCMessage base;
   /*
-   * Hash seed for revoking commitment transactions.
+   * Hash for revoking first commitment transaction.
    */
   Sha256Hash *revocation_hash;
   /*
-   * Pubkey for anchor to pay to for commitment tx (p2sh)
+   * Pubkey for anchor to pay into commitment tx.
    */
   BitcoinPubkey *commit_key;
   /*
    * How to pay money to us from commit_tx.
    */
   BitcoinPubkey *final_key;
+  OpenChannel__AnchorOffer anch;
   /*
-   * How much transaction fee we'll pay for commitment txs.
+   * How far must anchor be buried before we consider channel live?
    */
-  uint64_t commitment_fee;
-  /*
-   * The anchor transaction details.
-   */
-  Anchor *anchor;
+  protobuf_c_boolean has_min_depth;
+  uint32_t min_depth;
   OpenChannel__LocktimeCase locktime_case;
   union {
     uint32_t locktime_seconds;
@@ -204,11 +135,39 @@ struct  _OpenChannel
 };
 #define OPEN_CHANNEL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&open_channel__descriptor) \
-    , NULL, NULL, NULL, 0, NULL, OPEN_CHANNEL__LOCKTIME__NOT_SET, {} }
+    , NULL, NULL, NULL, 0, 0,0u, OPEN_CHANNEL__LOCKTIME__NOT_SET, {} }
 
 
 /*
- * Supply signature for commitment tx
+ * Whoever is supplying anchor sends this.
+ */
+struct  _OpenAnchor
+{
+  ProtobufCMessage base;
+  /*
+   * Transaction ID of anchor.
+   */
+  Sha256Hash *txid;
+  /*
+   * Which output is going to the 2 of 2.
+   */
+  uint32_t output_index;
+  /*
+   * Amount of anchor output.
+   */
+  uint64_t amount;
+  /*
+   * Signature for your initial commitment tx.
+   */
+  Signature *commit_sig;
+};
+#define OPEN_ANCHOR__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&open_anchor__descriptor) \
+    , NULL, 0, 0, NULL }
+
+
+/*
+ * Reply: signature for your initial commitment tx
  */
 struct  _OpenCommitSig
 {
@@ -221,21 +180,7 @@ struct  _OpenCommitSig
 
 
 /*
- * Supply ScriptSig for each anchor tx inputs.
- */
-struct  _OpenAnchorScriptsigs
-{
-  ProtobufCMessage base;
-  size_t n_script;
-  ProtobufCBinaryData *script;
-};
-#define OPEN_ANCHOR_SCRIPTSIGS__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&open_anchor_scriptsigs__descriptor) \
-    , 0,NULL }
-
-
-/*
- * Indicates we've seen transaction reach min-depth.
+ * Indicates we've seen anchor reach min-depth.
  */
 struct  _OpenComplete
 {
@@ -382,8 +327,8 @@ struct  _Error
 typedef enum {
   PKT__PKT__NOT_SET = 0,
   PKT__PKT_OPEN = 201,
-  PKT__PKT_OPEN_COMMIT_SIG = 202,
-  PKT__PKT_OPEN_ANCHOR_SCRIPTSIGS = 203,
+  PKT__PKT_OPEN_ANCHOR = 202,
+  PKT__PKT_OPEN_COMMIT_SIG = 203,
   PKT__PKT_OPEN_COMPLETE = 204,
   PKT__PKT_UPDATE = 1,
   PKT__PKT_UPDATE_ACCEPT = 2,
@@ -406,8 +351,8 @@ struct  _Pkt
      * Opening
      */
     OpenChannel *open;
+    OpenAnchor *open_anchor;
     OpenCommitSig *open_commit_sig;
-    OpenAnchorScriptsigs *open_anchor_scriptsigs;
     OpenComplete *open_complete;
     /*
      * Updating (most common)
@@ -470,25 +415,6 @@ Signature *
 void   signature__free_unpacked
                      (Signature *message,
                       ProtobufCAllocator *allocator);
-/* BitcoinInput methods */
-void   bitcoin_input__init
-                     (BitcoinInput         *message);
-size_t bitcoin_input__get_packed_size
-                     (const BitcoinInput   *message);
-size_t bitcoin_input__pack
-                     (const BitcoinInput   *message,
-                      uint8_t             *out);
-size_t bitcoin_input__pack_to_buffer
-                     (const BitcoinInput   *message,
-                      ProtobufCBuffer     *buffer);
-BitcoinInput *
-       bitcoin_input__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   bitcoin_input__free_unpacked
-                     (BitcoinInput *message,
-                      ProtobufCAllocator *allocator);
 /* BitcoinPubkey methods */
 void   bitcoin_pubkey__init
                      (BitcoinPubkey         *message);
@@ -507,44 +433,6 @@ BitcoinPubkey *
                       const uint8_t       *data);
 void   bitcoin_pubkey__free_unpacked
                      (BitcoinPubkey *message,
-                      ProtobufCAllocator *allocator);
-/* Change methods */
-void   change__init
-                     (Change         *message);
-size_t change__get_packed_size
-                     (const Change   *message);
-size_t change__pack
-                     (const Change   *message,
-                      uint8_t             *out);
-size_t change__pack_to_buffer
-                     (const Change   *message,
-                      ProtobufCBuffer     *buffer);
-Change *
-       change__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   change__free_unpacked
-                     (Change *message,
-                      ProtobufCAllocator *allocator);
-/* Anchor methods */
-void   anchor__init
-                     (Anchor         *message);
-size_t anchor__get_packed_size
-                     (const Anchor   *message);
-size_t anchor__pack
-                     (const Anchor   *message,
-                      uint8_t             *out);
-size_t anchor__pack_to_buffer
-                     (const Anchor   *message,
-                      ProtobufCBuffer     *buffer);
-Anchor *
-       anchor__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   anchor__free_unpacked
-                     (Anchor *message,
                       ProtobufCAllocator *allocator);
 /* OpenChannel methods */
 void   open_channel__init
@@ -565,6 +453,25 @@ OpenChannel *
 void   open_channel__free_unpacked
                      (OpenChannel *message,
                       ProtobufCAllocator *allocator);
+/* OpenAnchor methods */
+void   open_anchor__init
+                     (OpenAnchor         *message);
+size_t open_anchor__get_packed_size
+                     (const OpenAnchor   *message);
+size_t open_anchor__pack
+                     (const OpenAnchor   *message,
+                      uint8_t             *out);
+size_t open_anchor__pack_to_buffer
+                     (const OpenAnchor   *message,
+                      ProtobufCBuffer     *buffer);
+OpenAnchor *
+       open_anchor__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   open_anchor__free_unpacked
+                     (OpenAnchor *message,
+                      ProtobufCAllocator *allocator);
 /* OpenCommitSig methods */
 void   open_commit_sig__init
                      (OpenCommitSig         *message);
@@ -583,25 +490,6 @@ OpenCommitSig *
                       const uint8_t       *data);
 void   open_commit_sig__free_unpacked
                      (OpenCommitSig *message,
-                      ProtobufCAllocator *allocator);
-/* OpenAnchorScriptsigs methods */
-void   open_anchor_scriptsigs__init
-                     (OpenAnchorScriptsigs         *message);
-size_t open_anchor_scriptsigs__get_packed_size
-                     (const OpenAnchorScriptsigs   *message);
-size_t open_anchor_scriptsigs__pack
-                     (const OpenAnchorScriptsigs   *message,
-                      uint8_t             *out);
-size_t open_anchor_scriptsigs__pack_to_buffer
-                     (const OpenAnchorScriptsigs   *message,
-                      ProtobufCBuffer     *buffer);
-OpenAnchorScriptsigs *
-       open_anchor_scriptsigs__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   open_anchor_scriptsigs__free_unpacked
-                     (OpenAnchorScriptsigs *message,
                       ProtobufCAllocator *allocator);
 /* OpenComplete methods */
 void   open_complete__init
@@ -782,26 +670,17 @@ typedef void (*Sha256Hash_Closure)
 typedef void (*Signature_Closure)
                  (const Signature *message,
                   void *closure_data);
-typedef void (*BitcoinInput_Closure)
-                 (const BitcoinInput *message,
-                  void *closure_data);
 typedef void (*BitcoinPubkey_Closure)
                  (const BitcoinPubkey *message,
-                  void *closure_data);
-typedef void (*Change_Closure)
-                 (const Change *message,
-                  void *closure_data);
-typedef void (*Anchor_Closure)
-                 (const Anchor *message,
                   void *closure_data);
 typedef void (*OpenChannel_Closure)
                  (const OpenChannel *message,
                   void *closure_data);
+typedef void (*OpenAnchor_Closure)
+                 (const OpenAnchor *message,
+                  void *closure_data);
 typedef void (*OpenCommitSig_Closure)
                  (const OpenCommitSig *message,
-                  void *closure_data);
-typedef void (*OpenAnchorScriptsigs_Closure)
-                 (const OpenAnchorScriptsigs *message,
                   void *closure_data);
 typedef void (*OpenComplete_Closure)
                  (const OpenComplete *message,
@@ -838,13 +717,11 @@ typedef void (*Pkt_Closure)
 
 extern const ProtobufCMessageDescriptor sha256_hash__descriptor;
 extern const ProtobufCMessageDescriptor signature__descriptor;
-extern const ProtobufCMessageDescriptor bitcoin_input__descriptor;
 extern const ProtobufCMessageDescriptor bitcoin_pubkey__descriptor;
-extern const ProtobufCMessageDescriptor change__descriptor;
-extern const ProtobufCMessageDescriptor anchor__descriptor;
 extern const ProtobufCMessageDescriptor open_channel__descriptor;
+extern const ProtobufCEnumDescriptor    open_channel__anchor_offer__descriptor;
+extern const ProtobufCMessageDescriptor open_anchor__descriptor;
 extern const ProtobufCMessageDescriptor open_commit_sig__descriptor;
-extern const ProtobufCMessageDescriptor open_anchor_scriptsigs__descriptor;
 extern const ProtobufCMessageDescriptor open_complete__descriptor;
 extern const ProtobufCMessageDescriptor update__descriptor;
 extern const ProtobufCMessageDescriptor update_accept__descriptor;

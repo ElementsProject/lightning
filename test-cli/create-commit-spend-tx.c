@@ -6,7 +6,6 @@
 #include <ccan/err/err.h>
 #include <ccan/structeq/structeq.h>
 #include "lightning.pb-c.h"
-#include "anchor.h"
 #include "bitcoin/base58.h"
 #include "pkt.h"
 #include "bitcoin/script.h"
@@ -19,12 +18,14 @@
 #include "opt_bits.h"
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
+#include "test-cli/gather_updates.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal_arr(NULL, char, 0);
 	OpenChannel *o1, *o2;
+	OpenAnchor *a;
 	struct bitcoin_tx *commit, *tx;
 	struct bitcoin_signature sig;
 	struct privkey privkey;
@@ -32,8 +33,8 @@ int main(int argc, char *argv[])
 	struct pubkey pubkey1, pubkey2, outpubkey;
 	u8 *redeemscript;
 	struct sha256 rhash;
-	size_t i, p2sh_out;
-	u64 fee = 10000;
+	size_t p2sh_out;
+	u64 fee = 10000, our_amount, their_amount;
 	u32 locktime;
 
 	err_set_progname(argv[0]);
@@ -41,7 +42,7 @@ int main(int argc, char *argv[])
 	/* FIXME: If we've updated channel since, we need the final
 	 * revocation hash we sent (either update_accept or update_complete) */
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<commitment-tx> <open-channel-file1> <open-channel-file2> <my-privoutkey> <someaddress> [previous-updates]\n"
+			   "<commitment-tx> <open-channel-file1> <open-channel-file2> <open-anchor-file> <my-privoutkey> <someaddress> [previous-updates]\n"
 			   "Create the transaction to spend our commit transaction",
 			   "Print this message.");
 	opt_register_arg("--fee=<bits>",
@@ -57,17 +58,18 @@ int main(int argc, char *argv[])
 
 	o1 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
+	a = pkt_from_file(argv[4], PKT__PKT_OPEN_ANCHOR)->open_anchor;
 	if (!proto_to_locktime(o2, &locktime))
 		errx(1, "Invalid locktime in o2");
 
  	/* We need our private key to spend commit output. */
-	if (!key_from_base58(argv[4], strlen(argv[4]), &testnet, &privkey, &pubkey1))
-		errx(1, "Invalid private key '%s'", argv[4]);
+	if (!key_from_base58(argv[5], strlen(argv[5]), &testnet, &privkey, &pubkey1))
+		errx(1, "Invalid private key '%s'", argv[5]);
 	if (!testnet)
-		errx(1, "Private key '%s' not on testnet!", argv[4]);
+		errx(1, "Private key '%s' not on testnet!", argv[5]);
 
-	if (!pubkey_from_hexstr(argv[5], &outpubkey))
-		errx(1, "Invalid bitcoin pubkey '%s'", argv[5]);
+	if (!pubkey_from_hexstr(argv[6], &outpubkey))
+		errx(1, "Invalid bitcoin pubkey '%s'", argv[6]);
 
 	/* Get pubkeys */
 	if (!proto_to_pubkey(o1->final_key, &pubkey2))
@@ -78,14 +80,9 @@ int main(int argc, char *argv[])
 	if (!proto_to_pubkey(o2->final_key, &pubkey2))
 		errx(1, "Invalid o2 final pubkey");
 
-	/* o1 gives us the revocation hash */
-	proto_to_sha256(o1->revocation_hash, &rhash);
-
-	/* Latest revocation hash comes from last update. */
-	for (i = 6; i < argc; i++) {
-		Update *u = pkt_from_file(argv[i], PKT__PKT_UPDATE)->update;
-		proto_to_sha256(u->revocation_hash, &rhash);
-	}
+	/* We use this simply to get final revocation hash. */
+	gather_updates(o1, o2, a, argv + 7, &our_amount, &their_amount,
+		       &rhash, NULL, NULL);
 
 	/* Create redeem script */
 	redeemscript = bitcoin_redeem_secret_or_delay(ctx, &pubkey1, locktime,

@@ -5,7 +5,6 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/err/err.h>
 #include "lightning.pb-c.h"
-#include "anchor.h"
 #include "bitcoin/base58.h"
 #include "pkt.h"
 #include "bitcoin/script.h"
@@ -16,6 +15,7 @@
 #include "bitcoin/privkey.h"
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
+#include "gather_updates.h"
 #include <unistd.h>
 
 /* FIXME: this code doesn't work if we're not the ones proposing the delta */
@@ -23,34 +23,31 @@ int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal_arr(NULL, char, 0);
 	OpenChannel *o1, *o2;
-	Pkt *pkt;
-	struct bitcoin_tx *anchor, *commit;
-	struct sha256_double anchor_txid;
+	OpenAnchor *a;
+	struct bitcoin_tx *commit;
 	struct privkey privkey;
 	bool testnet;
 	struct bitcoin_signature sig1, sig2;
-	size_t i;
 	struct pubkey pubkey1, pubkey2;
 	u8 *redeemscript;
-	int64_t delta;
+	uint64_t our_amount, their_amount;
 	struct sha256 rhash;
 
 	err_set_progname(argv[0]);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "<anchor-tx> <open-channel-file1> <open-channel-file2> <commit-privkey> [final-update-accept|open-commit-sig] [<updates>]\n"
+			   "<open-channel-file1> <open-channel-file2> <open-anchor-file> <commit-privkey> [<updates>]\n"
 			   "Create the signature needed for the commit transaction",
 			   "Print this message.");
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
-	if (argc < 6)
-		opt_usage_exit_fail("Expected 5+ arguments");
+	if (argc < 5)
+		opt_usage_exit_fail("Expected 4+ arguments");
 
-	anchor = bitcoin_tx_from_file(ctx, argv[1]);
-	bitcoin_txid(anchor, &anchor_txid);
-	o1 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
-	o2 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
+	o1 = pkt_from_file(argv[1], PKT__PKT_OPEN)->open;
+	o2 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
+	a = pkt_from_file(argv[3], PKT__PKT_OPEN_ANCHOR)->open_anchor;
 
 	if (!key_from_base58(argv[4], strlen(argv[4]), &testnet, &privkey, &pubkey1))
 		errx(1, "Invalid private key '%s'", argv[4]);
@@ -66,49 +63,27 @@ int main(int argc, char *argv[])
 	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
 		errx(1, "Invalid o2 commit pubkey");
 
-	/* Their signature comes from open-commit or from update-accept. */
 	sig2.stype = SIGHASH_ALL;
-	pkt = any_pkt_from_file(argv[5]);
 
-	switch (pkt->pkt_case) {
-	case PKT__PKT_UPDATE_ACCEPT:
-		if (!proto_to_signature(pkt->update_accept->sig, &sig2.sig))
-			errx(1, "Invalid update-accept sig");
-		break;
-	case PKT__PKT_OPEN_COMMIT_SIG:
-		if (!proto_to_signature(pkt->open_commit_sig->sig, &sig2.sig))
-			errx(1, "Invalid open-commit-sig sig");
-		break;
-	default:
-		errx(1, "Unexpected packet type %u in %s",
-		     pkt->pkt_case, argv[5]);
-	}
+	gather_updates(o1, o2, a, argv + 5, &our_amount, &their_amount,
+		       &rhash, NULL, &sig2.sig);
 
-	/* Initial revocation hash comes from open. */
-	proto_to_sha256(o1->revocation_hash, &rhash);
-	
-	delta = 0;
-	/* Figure out cumulative delta since anchor, update revocation hash */
-	for (i = 6; i < argc; i++) {
-		Update *u = pkt_from_file(argv[i], PKT__PKT_UPDATE)->update;
-		delta += u->delta;
-		proto_to_sha256(u->revocation_hash, &rhash);
-	}
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
 	/* Now create commitment tx to spend 2/2 output of anchor. */
-	commit = create_commit_tx(ctx, o1, o2, &rhash, delta, &anchor_txid,
-				  find_p2sh_out(anchor, redeemscript));
+	commit = create_commit_tx(ctx, o1, o2, a, &rhash,
+				  our_amount, their_amount);
 
-	/* If contributions don't exceed fees, this fails. */
+	/* This only fails on malformed packets */
 	if (!commit)
-		errx(1, "Bad commit amounts");
+		errx(1, "Malformed packets");
 
 	/* We generate our signature. */
 	sig1.stype = SIGHASH_ALL;
 	sign_tx_input(ctx, commit, 0, redeemscript, tal_count(redeemscript),
 		      &privkey, &pubkey1, &sig1.sig);
 
+	/* Check it works with theirs... */
 	if (!check_2of2_sig(commit, 0, redeemscript, tal_count(redeemscript),
 			    &pubkey1, &pubkey2, &sig1, &sig2))
 		errx(1, "Signature failed");
