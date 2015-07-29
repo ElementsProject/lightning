@@ -17,6 +17,7 @@
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
 #include "gather_updates.h"
+#include "funding.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -60,7 +61,7 @@ int main(int argc, char *argv[])
 		errx(1, "Private key '%s' not on testnet!", argv[5]);
 
 	/* Figure out cumulative delta since anchor. */
-	num_updates = gather_updates(o1, o2, a, argv + 6,
+	num_updates = gather_updates(o1, o2, a, commit_fee(o1, o2), argv + 6,
 				     &our_amount, &their_amount,
 				     NULL, &their_rhash, NULL);
 

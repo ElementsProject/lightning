@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
 
 	/* Now create THEIR commitment tx to spend 2/2 output of anchor. */
-	if (!initial_funding(o1, o2, a, &to_us, &to_them))
+	if (!initial_funding(o1, o2, a, commit_fee(o1, o2), &to_us, &to_them))
 		errx(1, "Invalid open combination (need 1 anchor offer)");
 
 	proto_to_sha256(o2->revocation_hash, &rhash);

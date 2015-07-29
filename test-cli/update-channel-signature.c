@@ -17,6 +17,7 @@
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
 #include "gather_updates.h"
+#include "funding.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -62,7 +63,7 @@ int main(int argc, char *argv[])
 	sig.stype = SIGHASH_ALL;
 
 	/* Figure out cumulative delta since anchor. */
-	num_updates = gather_updates(o1, o2, a, argv + 6,
+	num_updates = gather_updates(o1, o2, a, commit_fee(o1, o2), argv + 6,
 				     &our_amount, &their_amount,
 				     &our_rhash, &their_rhash, &sig.sig);
 	if (num_updates < 1)

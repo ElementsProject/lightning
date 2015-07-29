@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
 
-	gather_updates(o1, o2, a, argv + 5, &our_amount, &their_amount,
+	gather_updates(o1, o2, a, 0, argv + 5, &our_amount, &their_amount,
 		       NULL, NULL, NULL);
 
 	/* Get pubkeys */

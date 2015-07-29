@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
 	sig.stype = SIGHASH_ALL;
 
 	/* This also checks that preimage is correct! */
-	num_updates = gather_updates(o1, o2, a, argv + 5,
+	num_updates = gather_updates(o1, o2, a, commit_fee(o1, o2), argv + 5,
 				     &our_amount, &their_amount,
 				     &our_rhash, &their_rhash, &sig.sig);
 	if (num_updates < 1)

@@ -114,8 +114,8 @@ B_UPDATE_PKTS="-- +B-commit-sig.pb"
 $PREFIX ./create-commit-tx A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-commit-0.tx
 $PREFIX ./create-commit-tx B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-commit-0.tx
 
-# Now, update the channel, so I pay you 500 satoshi.
-$PREFIX ./update-channel --to-them=500 $A_SEED 1 > A-update-1.pb
+# Now, update the channel, so I pay you 60000 satoshi (covers 50000 fee)
+$PREFIX ./update-channel --to-them=60000 $A_SEED 1 > A-update-1.pb
 A_UPDATE_PKTS="$A_UPDATE_PKTS +A-update-1.pb"
 B_UPDATE_PKTS="$B_UPDATE_PKTS -A-update-1.pb"
 

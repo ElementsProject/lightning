@@ -58,6 +58,9 @@ message open_channel {
 
   // How far must anchor be buried before we consider channel live?
   optional uint32 min_depth = 7 [ default = 0 ];
+
+  // How much fee would I like on commitment tx?
+  required uint64 commitment_fee = 8;
 }
 
 // Whoever is supplying anchor sends this.

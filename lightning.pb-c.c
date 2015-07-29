@@ -925,7 +925,7 @@ const ProtobufCEnumDescriptor open_channel__anchor_offer__descriptor =
   NULL,NULL,NULL,NULL   /* reserved[1234] */
 };
 static const uint32_t open_channel__min_depth__default_value = 0u;
-static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
+static const ProtobufCFieldDescriptor open_channel__field_descriptors[8] =
 {
   {
     "final_key",
@@ -1011,10 +1011,23 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "commitment_fee",
+    8,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT64,
+    0,   /* quantifier_offset */
+    offsetof(OpenChannel, commitment_fee),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned open_channel__field_indices_by_name[] = {
   5,   /* field[5] = anch */
   4,   /* field[4] = commit_key */
+  7,   /* field[7] = commitment_fee */
   0,   /* field[0] = final_key */
   2,   /* field[2] = locktime_blocks */
   1,   /* field[1] = locktime_seconds */
@@ -1024,7 +1037,7 @@ static const unsigned open_channel__field_indices_by_name[] = {
 static const ProtobufCIntRange open_channel__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 7 }
+  { 0, 8 }
 };
 const ProtobufCMessageDescriptor open_channel__descriptor =
 {
@@ -1034,7 +1047,7 @@ const ProtobufCMessageDescriptor open_channel__descriptor =
   "OpenChannel",
   "",
   sizeof(OpenChannel),
-  7,
+  8,
   open_channel__field_descriptors,
   open_channel__field_indices_by_name,
   1,  open_channel__number_ranges,

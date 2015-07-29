@@ -19,6 +19,7 @@
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
 #include "test-cli/gather_updates.h"
+#include "funding.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -81,7 +82,8 @@ int main(int argc, char *argv[])
 		errx(1, "Invalid o2 final pubkey");
 
 	/* We use this simply to get final revocation hash. */
-	gather_updates(o1, o2, a, argv + 7, &our_amount, &their_amount,
+	gather_updates(o1, o2, a, commit_fee(o1, o2), argv + 7,
+		       &our_amount, &their_amount,
 		       &rhash, NULL, NULL);
 
 	/* Create redeem script */

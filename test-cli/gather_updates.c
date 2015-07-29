@@ -33,7 +33,7 @@ static void get_rhash(const Sha256Hash *rhash, struct sha256 *old,
 
 /* Takes complete update history, gets summary of last state. */
 uint64_t gather_updates(const OpenChannel *o1, const OpenChannel *o2,
-			const OpenAnchor *oa,
+			const OpenAnchor *oa, uint64_t fee,
 			char **argv,
 			uint64_t *our_amount, uint64_t *their_amount,
 			struct sha256 *our_rhash,
@@ -46,7 +46,7 @@ uint64_t gather_updates(const OpenChannel *o1, const OpenChannel *o2,
 	struct sha256 old_our_rhash, old_their_rhash;
 	
 	/* Start sanity check. */
-	if (!initial_funding(o1, o2, oa, our_amount, their_amount))
+	if (!initial_funding(o1, o2, oa, fee, our_amount, their_amount))
 		errx(1, "Invalid open combination (need 1 anchor offer)");
 
 	if (our_rhash)
@@ -88,7 +88,7 @@ uint64_t gather_updates(const OpenChannel *o1, const OpenChannel *o2,
 				get_rhash(pkt->update->revocation_hash,
 					  &old_our_rhash, our_rhash);
 			}
-			if (!funding_delta(o1, o2, oa, &cdelta, delta,
+			if (!funding_delta(o1, o2, oa, fee, &cdelta, delta,
 					   our_amount, their_amount))
 				errx(1, "Impossible funding update %lli %s",
 				     (long long)delta, *argv);

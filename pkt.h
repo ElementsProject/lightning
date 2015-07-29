@@ -37,6 +37,7 @@ struct pubkey;
  * @rel_locktime_seconds: relative seconds for commitment locktime.
  * @offer_anchor: whether we will offer anchor.
  * @min_depth: minimum depth to insist on (if non-zero)
+ * @commitment_fee: fee we would like for commitment txs.
  */
 struct pkt *open_channel_pkt(const tal_t *ctx,
 			     const struct sha256 *revocation_hash,
@@ -44,7 +45,8 @@ struct pkt *open_channel_pkt(const tal_t *ctx,
 			     const struct pubkey *final,
 			     u32 rel_locktime_seconds,
 			     bool offer_anchor,
-			     u32 min_depth);
+			     u32 min_depth,
+			     u64 commitment_fee);
 
 /**
  * open_anchor_pkt - create an open_anchor message packet

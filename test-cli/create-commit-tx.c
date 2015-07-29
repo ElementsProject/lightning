@@ -16,6 +16,7 @@
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
 #include "gather_updates.h"
+#include "funding.h"
 #include <unistd.h>
 
 /* FIXME: this code doesn't work if we're not the ones proposing the delta */
@@ -65,7 +66,8 @@ int main(int argc, char *argv[])
 
 	sig2.stype = SIGHASH_ALL;
 
-	gather_updates(o1, o2, a, argv + 5, &our_amount, &their_amount,
+	gather_updates(o1, o2, a, commit_fee(o1, o2), argv + 5,
+		       &our_amount, &their_amount,
 		       &rhash, NULL, &sig2.sig);
 
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);

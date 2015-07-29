@@ -127,6 +127,10 @@ struct  _OpenChannel
    */
   protobuf_c_boolean has_min_depth;
   uint32_t min_depth;
+  /*
+   * How much fee would I like on commitment tx?
+   */
+  uint64_t commitment_fee;
   OpenChannel__LocktimeCase locktime_case;
   union {
     uint32_t locktime_seconds;
@@ -135,7 +139,7 @@ struct  _OpenChannel
 };
 #define OPEN_CHANNEL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&open_channel__descriptor) \
-    , NULL, NULL, NULL, 0, 0,0u, OPEN_CHANNEL__LOCKTIME__NOT_SET, {} }
+    , NULL, NULL, NULL, 0, 0,0u, 0, OPEN_CHANNEL__LOCKTIME__NOT_SET, {} }
 
 
 /*

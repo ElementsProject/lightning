@@ -68,7 +68,8 @@ int main(int argc, char *argv[])
 	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
 		errx(1, "Invalid o2 commit_key");
 
-	if (!initial_funding(o1, o2, a, &our_amount, &their_amount))
+	if (!initial_funding(o1, o2, a, commit_fee(o1, o2),
+			     &our_amount, &their_amount))
 		errx(1, "Invalid open combination (need 1 anchor offer)");
 	
 	/* Now create our commitment tx. */

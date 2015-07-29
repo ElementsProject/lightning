@@ -6,7 +6,7 @@ struct signature;
 struct sha256;
 
 uint64_t gather_updates(const OpenChannel *o1, const OpenChannel *o2,
-			const OpenAnchor *oa,
+			const OpenAnchor *oa, uint64_t fee,
 			char **argv,
 			uint64_t *our_amount, uint64_t *their_amount,
 			struct sha256 *our_rhash,
