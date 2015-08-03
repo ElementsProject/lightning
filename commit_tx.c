@@ -8,7 +8,6 @@
 #include "pkt.h"
 #include "protobuf_convert.h"
 
-#include <stdio.h>
 struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    OpenChannel *ours,
 				    OpenChannel *theirs,
@@ -62,24 +61,6 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx->fee = tx->input[0].input_amount
 		- (tx->output[0].amount + tx->output[1].amount);
 
-	fprintf(stderr, "Created commit tx: anchor=%02x%02x%02x%02x/%u/%llu,"
-		" out0=%02x%02x%02x%02x/%u/%02x%02x%02x%02x/%02x%02x%02x%02x/%llu, "
-		" out1=%02x%02x%02x%02x/%llu, fee=%llu\n",
-		tx->input[0].txid.sha.u.u8[0],
-		tx->input[0].txid.sha.u.u8[1],
-		tx->input[0].txid.sha.u.u8[2],
-		tx->input[0].txid.sha.u.u8[3],
-		tx->input[0].index,
-		(long long)tx->input[0].input_amount,
-		ourkey.key[0], ourkey.key[1], ourkey.key[2], ourkey.key[3],
-		locktime,
-		theirkey.key[0], theirkey.key[1], theirkey.key[2], theirkey.key[3],
-		rhash->u.u8[0], rhash->u.u8[1], rhash->u.u8[2], rhash->u.u8[3],
-		(long long)tx->output[0].amount,
-		to_me.key[0], to_me.key[1], to_me.key[2], to_me.key[3],
-		(long long)tx->output[1].amount,
-		(long long)tx->fee);
-		
 	permute_outputs(tx->output, 2, NULL);
 	return tx;
 }
