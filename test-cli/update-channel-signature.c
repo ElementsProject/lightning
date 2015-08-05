@@ -70,7 +70,6 @@ int main(int argc, char *argv[])
 		errx(1, "Expected at least one update!");
 
 	/* Give up revocation preimage for old tx. */
-	fprintf(stderr, "Giving up preimage %u\n", (unsigned)num_updates - 1);
 	shachain_from_seed(&seed, num_updates - 1, &preimage);
 	
 	/* Get pubkeys */
