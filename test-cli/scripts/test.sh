@@ -22,22 +22,26 @@ send_after_delay()
 	# triggered if we have < 11 blocks.  Generate them now.
 	for i in `seq 11`; do scripts/generate-block.sh; done
 	# OP_CHECKSEQUENCEVERIFY will stop us spending for 60 seconds.
-	if $CLI sendrawtransaction $1 2>/dev/null; then
-	    echo OP_CHECKSEQUENCEVERIFY broken! >&2
-	    exit 1
-	fi
-	# Mine it.
+	for tx; do
+	    if $CLI sendrawtransaction $tx 2>/dev/null; then
+		echo OP_CHECKSEQUENCEVERIFY broken! >&2
+		exit 1
+	    fi
+	done
+	# Confirm them.
 	scripts/generate-block.sh
 	echo Waiting for CSV timeout. >&2
 	sleep 61
 	# Move median time, for sure!
 	for i in `seq 11`; do scripts/generate-block.sh; done
     fi
-    $CLI sendrawtransaction $1
+    for tx; do
+	$CLI sendrawtransaction $tx
+    done
 }
 
 if [ $# = 0 ]; then
-    echo Usage: "INPUT" "[--steal|--unilateral]" >&2
+    echo Usage: "INPUT" "[--steal|--unilateral|--htlc-onchain]" >&2
     exit 1
 fi
 		      
@@ -116,8 +120,8 @@ B_UPDATE_PKTS="-- +B-commit-sig.pb"
 $PREFIX ./create-commit-tx A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-commit-0.tx
 $PREFIX ./create-commit-tx B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-commit-0.tx
 
-# Now, update the channel, so I pay you 60000 satoshi (covers 50000 fee)
-$PREFIX ./update-channel --to-them=60000 $A_SEED 1 > A-update-1.pb
+# Now, update the channel, so I pay you 80000 satoshi (covers 50000 fee)
+$PREFIX ./update-channel --to-them=80000 $A_SEED 1 > A-update-1.pb
 A_UPDATE_PKTS="$A_UPDATE_PKTS +A-update-1.pb"
 B_UPDATE_PKTS="$B_UPDATE_PKTS -A-update-1.pb"
 
@@ -137,8 +141,8 @@ B_UPDATE_PKTS="$B_UPDATE_PKTS +B-update-complete-1.pb"
 $PREFIX ./create-commit-tx A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-commit-1.tx
 $PREFIX ./create-commit-tx B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-commit-1.tx
 
-# Now you pay me 250.
-$PREFIX ./update-channel --to-them=250 $B_SEED 2 > B-update-2.pb
+# Now you pay me 5000.
+$PREFIX ./update-channel --to-them=5000 $B_SEED 2 > B-update-2.pb
 A_UPDATE_PKTS="$A_UPDATE_PKTS -B-update-2.pb"
 B_UPDATE_PKTS="$B_UPDATE_PKTS +B-update-2.pb"
 
@@ -158,8 +162,8 @@ B_UPDATE_PKTS="$B_UPDATE_PKTS -A-update-complete-2.pb"
 $PREFIX ./create-commit-tx A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-commit-2.tx
 $PREFIX ./create-commit-tx B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-commit-2.tx
 
-# Now, A offers an HTLC for 50 satoshi.
-$PREFIX ./update-channel-htlc $A_SEED 3 50 $A_HTLC1 $((`date +%s` + 60)) > A-update-htlc-3.pb
+# Now, A offers an HTLC for 10001 satoshi.
+$PREFIX ./update-channel-htlc $A_SEED 3 10001 $A_HTLC1 $((`date +%s` + 60)) > A-update-htlc-3.pb
 A_UPDATE_PKTS="$A_UPDATE_PKTS +A-update-htlc-3.pb"
 B_UPDATE_PKTS="$B_UPDATE_PKTS -A-update-htlc-3.pb"
 
@@ -179,8 +183,8 @@ B_UPDATE_PKTS="$B_UPDATE_PKTS +B-update-complete-3.pb"
 $PREFIX ./create-commit-tx A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-commit-3.tx
 $PREFIX ./create-commit-tx B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-commit-3.tx
 
-# Now, B offers an HTLC for 100 satoshi.
-$PREFIX ./update-channel-htlc $B_SEED 4 100 $B_HTLC1 $((`date +%s` + 60)) > B-update-htlc-4.pb
+# Now, B offers an HTLC for 10002 satoshi.
+$PREFIX ./update-channel-htlc $B_SEED 4 10002 $B_HTLC1 $((`date +%s` + 60)) > B-update-htlc-4.pb
 A_UPDATE_PKTS="$A_UPDATE_PKTS -B-update-htlc-4.pb"
 B_UPDATE_PKTS="$B_UPDATE_PKTS +B-update-htlc-4.pb"
 
@@ -199,6 +203,33 @@ B_UPDATE_PKTS="$B_UPDATE_PKTS -A-update-complete-4.pb"
 # Just for testing, generate that transaction
 $PREFIX ./create-commit-tx A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-commit-4.tx
 $PREFIX ./create-commit-tx B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-commit-4.tx
+
+# Solve the HTLCs with the R value on the chain.
+if [ x"$1" = x--htlc-onchain ]; then
+    $CLI sendrawtransaction `cut -d: -f1 A-commit-4.tx` > A-commit-4.txid
+
+    # Now, B can claim A's HTLC using R value.
+    # It's A's commit tx, so most of cmdline is written from A's POV.
+    $PREFIX ./create-htlc-spend-tx --rvalue=$A_HTLC1 -- A-open.pb B-open.pb A-commit-4.tx +A-update-htlc-3.pb A-update-accept-4.pb $B_FINALKEY $B_CHANGEPUBKEY > B-htlc-3-spend.tx
+    $CLI sendrawtransaction `cut -d: -f1 B-htlc-3-spend.tx` > B-htlc-3-spend.txid
+
+    # A can claim using B's HTLC using R value, after delay.
+    $PREFIX ./create-htlc-spend-tx --rvalue=$B_HTLC1 -- A-open.pb B-open.pb A-commit-4.tx -B-update-htlc-4.pb A-update-accept-4.pb $A_FINALKEY $A_CHANGEPUBKEY > A-htlc-4-spend.tx
+    send_after_delay `cut -d: -f1 A-htlc-4-spend.tx` > A-htlc-4-spend.txid
+    exit 0
+fi
+
+if [ x"$1" = x--unilateral ]; then
+    # Use commit-4, which has htlcs.
+    $CLI sendrawtransaction `cut -d: -f1 A-commit-4.tx` > A-commit-4.txid
+    $PREFIX ./create-commit-spend-tx A-commit-4.tx A-open.pb B-open.pb A-anchor.pb $A_FINALKEY $A_CHANGEPUBKEY $A_UPDATE_PKTS > A-spend.tx
+    $PREFIX ./create-htlc-spend-tx A-open.pb B-open.pb A-commit-4.tx +A-update-htlc-3.pb A-update-accept-4.pb $A_FINALKEY $A_CHANGEPUBKEY > A-htlc-3-spend.tx
+    $PREFIX ./create-htlc-spend-tx -- A-open.pb B-open.pb A-commit-4.tx -B-update-htlc-4.pb A-update-accept-4.pb $B_FINALKEY $B_CHANGEPUBKEY > B-htlc-4-spend.tx
+    # HTLCs conveniently set to 60 seconds, though absolute.  Script
+    # shouldn't be that slow, so they should be unspendable to start.
+    send_after_delay `cut -d: -f1 A-spend.tx` `cut -d: -f1 A-htlc-3-spend.tx` `cut -d: -f1 B-htlc-4-spend.tx` > A-spend.txids
+    exit 0
+fi
 
 # B completes A's HTLC using R value.
 $PREFIX ./update-channel-htlc-complete $B_SEED 5 $A_HTLC1 > B-update-htlc-complete-5.pb
@@ -244,19 +275,20 @@ $PREFIX ./create-commit-tx B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_P
 
 if [ x"$1" = x--steal ]; then
     # A stupidly broadcasts a revoked transaction.
-    $CLI sendrawtransaction `cut -d: -f1 A-commit-1.tx` > A-commit-1.txid
+    $CLI sendrawtransaction `cut -d: -f1 A-commit-4.tx` > A-commit-4.txid
     
-    # B uses the preimage from A-update-complete-2 to cash in.
-    $PREFIX ./create-steal-tx A-commit-1.tx A-update-complete-2.pb $B_FINALKEY B-open.pb A-open.pb $B_CHANGEPUBKEY > B-commit-steal.tx
+    # B uses the preimage from A-update-complete-5 to cash in.
+    $PREFIX ./create-steal-tx A-commit-4.tx A-update-complete-5.pb $B_FINALKEY B-open.pb A-open.pb $B_CHANGEPUBKEY > B-commit-steal.tx
 
     $CLI sendrawtransaction `cut -d: -f1 B-commit-steal.tx` > B-commit-steal.txid
-    exit 0
-fi
 
-if [ x"$1" = x--unilateral ]; then
-    $CLI sendrawtransaction `cut -d: -f1 A-commit-2.tx` > A-commit-2.txid
-    $PREFIX ./create-commit-spend-tx A-commit-2.tx A-open.pb B-open.pb A-anchor.pb $A_FINALKEY $A_CHANGEPUBKEY $A_UPDATE_PKTS > A-spend.tx
-    send_after_delay `cut -d: -f1 A-spend.tx` > A-spend.txid
+    # Now B uses the same preimage to get the HTLC amounts too.
+    # It's A's commit tx, so most of cmdline is written from A's POV.
+    $PREFIX ./create-htlc-spend-tx --commit-preimage=A-update-complete-5.pb -- A-open.pb B-open.pb A-commit-4.tx +A-update-htlc-3.pb A-update-accept-4.pb $B_FINALKEY $B_CHANGEPUBKEY > B-htlc-steal-1.tx
+    $CLI sendrawtransaction `cut -d: -f1 B-htlc-steal-1.tx` > B-htlc-steal-1.txid
+
+    $PREFIX ./create-htlc-spend-tx --commit-preimage=A-update-complete-5.pb -- A-open.pb B-open.pb A-commit-4.tx -B-update-htlc-4.pb A-update-accept-4.pb $B_FINALKEY $B_CHANGEPUBKEY > B-htlc-steal-2.tx
+    $CLI sendrawtransaction `cut -d: -f1 B-htlc-steal-2.tx` > B-htlc-steal-2.txid
     exit 0
 fi
 
