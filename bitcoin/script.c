@@ -103,6 +103,13 @@ static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
 #endif
 }
 
+static void add_push_le32(u8 **scriptp, u32 val)
+{
+	le32 val_le = cpu_to_le32(val);
+
+	add_push_bytes(scriptp, &val_le, sizeof(val_le));
+}
+
 /* FIXME: permute? */
 /* Is a < b? (If equal we don't care) */
 static bool key_less(const struct pubkey *a, const struct pubkey *b)
@@ -246,7 +253,6 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 				   const struct sha256 *hash_of_secret)
 {
 	struct ripemd160 ripemd;
-	le32 locktime_le = cpu_to_le32(locktime);
 	u8 *script = tal_arr(ctx, u8, 0);
 
 	ripemd160(&ripemd, hash_of_secret->u.u8, sizeof(hash_of_secret->u));
@@ -263,7 +269,7 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 	add_op(&script, OP_ELSE);
 
 	/* Other can collect after a delay. */
-	add_push_bytes(&script, &locktime_le, sizeof(locktime_le));
+	add_push_le32(&script, locktime);
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 	add_op(&script, OP_DROP);
 	add_push_key(&script, delayed_key);
