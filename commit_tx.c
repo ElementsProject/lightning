@@ -9,6 +9,40 @@
 #include "pkt.h"
 #include "protobuf_convert.h"
 
+static bool add_htlc(struct bitcoin_tx *tx, size_t n,
+		     const UpdateAddHtlc *h,
+		     const struct pubkey *ourkey,
+		     const struct pubkey *theirkey,
+		     const struct sha256 *rhash,
+		     u32 locktime,
+		     u8 *(*scriptpubkeyfn)(const tal_t *,
+					   const struct pubkey *,
+					   const struct pubkey *,
+					   uint64_t,
+					   uint32_t,
+					   uint32_t,
+					   const struct sha256 *,
+					   const struct sha256 *))
+{
+	uint32_t htlc_abstime;
+	struct sha256 htlc_rhash;
+
+	assert(!tx->output[n].script);
+
+	/* This shouldn't happen... */
+	if (!proto_to_abs_locktime(h->expiry, &htlc_abstime))
+		return false;
+
+	proto_to_sha256(h->r_hash, &htlc_rhash);
+	tx->output[n].script = scriptpubkey_p2sh(tx,
+				 scriptpubkeyfn(tx, ourkey, theirkey, h->amount,
+						htlc_abstime, locktime, rhash,
+						&htlc_rhash));
+	tx->output[n].script_length = tal_count(tx->output[n].script);
+	tx->output[n].amount = h->amount;
+	return true;
+}
+
 struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    OpenChannel *ours,
 				    OpenChannel *theirs,
@@ -20,9 +54,12 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	const u8 *redeemscript;
 	struct pubkey ourkey, theirkey;
 	u32 locktime;
+	size_t i, num;
+	uint64_t total;
 
-	/* Now create commitment tx: one input, two outputs. */
-	tx = bitcoin_tx(ctx, 1, 2);
+	/* Now create commitment tx: one input, two outputs (plus htlcs) */
+	tx = bitcoin_tx(ctx, 1, 2 + tal_count(cstate->a.htlcs)
+			+ tal_count(cstate->b.htlcs));
 
 	/* Our input spends the anchor tx output. */
 	proto_to_sha256(anchor->txid, &tx->input[0].txid.sha);
@@ -54,12 +91,30 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx->output[1].script_length = tal_count(tx->output[1].script);
 	tx->output[1].amount = cstate->b.pay;
 
-	/* Calculate fee; difference of inputs and outputs. */
-	assert(tx->output[0].amount + tx->output[1].amount
-	       <= tx->input[0].input_amount);
-	tx->fee = tx->input[0].input_amount
-		- (tx->output[0].amount + tx->output[1].amount);
+	/* First two outputs done, now for the HTLCs. */
+	total = tx->output[0].amount + tx->output[1].amount;
+	num = 2;
 
-	permute_outputs(tx->output, 2, NULL);
+	/* HTLCs we've sent. */
+	for (i = 0; i < tal_count(cstate->a.htlcs); i++) {
+		if (!add_htlc(tx, num, cstate->a.htlcs[i], &ourkey, &theirkey,
+			      rhash, locktime, scriptpubkey_htlc_send))
+			return tal_free(tx);
+		total += tx->output[num++].amount;
+	}
+	/* HTLCs we've received. */
+	for (i = 0; i < tal_count(cstate->b.htlcs); i++) {
+		if (!add_htlc(tx, num, cstate->b.htlcs[i], &ourkey, &theirkey,
+			      rhash, locktime, scriptpubkey_htlc_recv))
+			return tal_free(tx);
+		total += tx->output[num++].amount;
+	}
+	assert(num == tx->output_count);
+
+	/* Calculate fee; difference of inputs and outputs. */
+	assert(total <= tx->input[0].input_amount);
+	tx->fee = tx->input[0].input_amount - total;
+
+	permute_outputs(tx->output, tx->output_count, NULL);
 	return tx;
 }
