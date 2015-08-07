@@ -1206,12 +1206,12 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "locktime",
+    "delay",
     2,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(OpenChannel, locktime),
+    offsetof(OpenChannel, delay),
     &locktime__descriptor,
     NULL,
     0,             /* flags */
@@ -1282,8 +1282,8 @@ static const unsigned open_channel__field_indices_by_name[] = {
   4,   /* field[4] = anch */
   3,   /* field[3] = commit_key */
   6,   /* field[6] = commitment_fee */
+  1,   /* field[1] = delay */
   0,   /* field[0] = final_key */
-  1,   /* field[1] = locktime */
   5,   /* field[5] = min_depth */
   2,   /* field[2] = revocation_hash */
 };
@@ -1551,12 +1551,12 @@ static const ProtobufCFieldDescriptor update_add_htlc__field_descriptors[4] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "locktime",
+    "expiry",
     4,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(UpdateAddHtlc, locktime),
+    offsetof(UpdateAddHtlc, expiry),
     &locktime__descriptor,
     NULL,
     0,             /* flags */
@@ -1565,7 +1565,7 @@ static const ProtobufCFieldDescriptor update_add_htlc__field_descriptors[4] =
 };
 static const unsigned update_add_htlc__field_indices_by_name[] = {
   1,   /* field[1] = amount */
-  3,   /* field[3] = locktime */
+  3,   /* field[3] = expiry */
   2,   /* field[2] = r_hash */
   0,   /* field[0] = revocation_hash */
 };

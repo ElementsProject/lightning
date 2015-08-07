@@ -131,7 +131,7 @@ struct  _OpenChannel
   /*
    * Relative locktime for outputs going to us.
    */
-  Locktime *locktime;
+  Locktime *delay;
   /*
    * Hash for revoking first commitment transaction.
    */
@@ -264,7 +264,7 @@ struct  _UpdateAddHtlc
   /*
    * FIXME: Routing information.
    */
-  Locktime *locktime;
+  Locktime *expiry;
 };
 #define UPDATE_ADD_HTLC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&update_add_htlc__descriptor) \
