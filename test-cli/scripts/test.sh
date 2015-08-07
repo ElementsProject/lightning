@@ -68,12 +68,14 @@ A_TXIN=`scripts/getinput.sh $A_INPUTNUM`
 A_SEED=00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
 B_SEED=112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00
 
+A_HTLC1=deadbeefbadc0ffeedeadbeefbadc0ffeedeadbeefbadc0ffeedeadbeefbadc0
 A_CHANGEPUBKEY=`getpubkey $A_CHANGEADDR`
 A_TMPKEY=`getprivkey $A_TMPADDR`
 A_TMPPUBKEY=`getpubkey $A_TMPADDR`
 A_FINALKEY=`getprivkey $A_FINALADDR`
 A_FINALPUBKEY=`getpubkey $A_FINALADDR`
 
+B_HTLC1=badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5badc0de5
 B_CHANGEPUBKEY=`getpubkey $B_CHANGEADDR`
 B_TMPKEY=`getprivkey $B_TMPADDR`
 B_TMPPUBKEY=`getpubkey $B_TMPADDR`
@@ -155,6 +157,90 @@ B_UPDATE_PKTS="$B_UPDATE_PKTS -A-update-complete-2.pb"
 # Just for testing, generate third transaction
 $PREFIX ./create-commit-tx A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-commit-2.tx
 $PREFIX ./create-commit-tx B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-commit-2.tx
+
+# Now, A offers an HTLC for 50 satoshi.
+$PREFIX ./update-channel-htlc $A_SEED 3 50 $A_HTLC1 $((`date +%s` + 60)) > A-update-htlc-3.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS +A-update-htlc-3.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS -A-update-htlc-3.pb"
+
+$PREFIX ./update-channel-accept $B_SEED B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-update-accept-3.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS -B-update-accept-3.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS +B-update-accept-3.pb"
+
+$PREFIX ./update-channel-signature $A_SEED A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-update-sig-3.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS +A-update-sig-3.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS -A-update-sig-3.pb"
+
+$PREFIX ./update-channel-complete $B_SEED B-open.pb A-open.pb A-anchor.pb $B_UPDATE_PKTS > B-update-complete-3.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS -B-update-complete-3.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS +B-update-complete-3.pb"
+
+# Just for testing, generate that transaction
+$PREFIX ./create-commit-tx A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-commit-3.tx
+$PREFIX ./create-commit-tx B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-commit-3.tx
+
+# Now, B offers an HTLC for 100 satoshi.
+$PREFIX ./update-channel-htlc $B_SEED 4 100 $B_HTLC1 $((`date +%s` + 60)) > B-update-htlc-4.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS -B-update-htlc-4.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS +B-update-htlc-4.pb"
+
+$PREFIX ./update-channel-accept $A_SEED A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-update-accept-4.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS +A-update-accept-4.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS -A-update-accept-4.pb"
+
+$PREFIX ./update-channel-signature $B_SEED B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-update-sig-4.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS -B-update-sig-4.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS +B-update-sig-4.pb"
+
+$PREFIX ./update-channel-complete $A_SEED A-open.pb B-open.pb A-anchor.pb $A_UPDATE_PKTS > A-update-complete-4.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS +A-update-complete-4.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS -A-update-complete-4.pb"
+
+# Just for testing, generate that transaction
+$PREFIX ./create-commit-tx A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-commit-4.tx
+$PREFIX ./create-commit-tx B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-commit-4.tx
+
+# B completes A's HTLC using R value.
+$PREFIX ./update-channel-htlc-complete $B_SEED 5 $A_HTLC1 > B-update-htlc-complete-5.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS -B-update-htlc-complete-5.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS +B-update-htlc-complete-5.pb"
+
+$PREFIX ./update-channel-accept $A_SEED A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-update-accept-5.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS +A-update-accept-5.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS -A-update-accept-5.pb"
+
+$PREFIX ./update-channel-signature $B_SEED B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-update-sig-5.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS -B-update-sig-5.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS +B-update-sig-5.pb"
+
+$PREFIX ./update-channel-complete $A_SEED A-open.pb B-open.pb A-anchor.pb $A_UPDATE_PKTS > A-update-complete-5.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS +A-update-complete-5.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS -A-update-complete-5.pb"
+
+# Just for testing, generate that transaction
+$PREFIX ./create-commit-tx A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-commit-5.tx
+$PREFIX ./create-commit-tx B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-commit-5.tx
+
+# Now, B tries to remove its HTLC (A accepts)
+$PREFIX ./update-channel-htlc-remove $B_SEED 6 B-update-htlc-4.pb > B-update-htlc-remove-6.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS -B-update-htlc-remove-6.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS +B-update-htlc-remove-6.pb"
+
+$PREFIX ./update-channel-accept $A_SEED A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-update-accept-6.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS +A-update-accept-6.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS -A-update-accept-6.pb"
+
+$PREFIX ./update-channel-signature $B_SEED B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-update-sig-6.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS -B-update-sig-6.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS +B-update-sig-6.pb"
+
+$PREFIX ./update-channel-complete $A_SEED A-open.pb B-open.pb A-anchor.pb $A_UPDATE_PKTS > A-update-complete-6.pb
+A_UPDATE_PKTS="$A_UPDATE_PKTS +A-update-complete-6.pb"
+B_UPDATE_PKTS="$B_UPDATE_PKTS -A-update-complete-6.pb"
+
+# Just for testing, generate that transaction
+$PREFIX ./create-commit-tx A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_PKTS > A-commit-6.tx
+$PREFIX ./create-commit-tx B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-commit-6.tx
 
 if [ x"$1" = x--steal ]; then
     # A stupidly broadcasts a revoked transaction.
