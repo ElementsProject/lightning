@@ -17,6 +17,7 @@ PROTOBUF_C__BEGIN_DECLS
 
 typedef struct _Sha256Hash Sha256Hash;
 typedef struct _Signature Signature;
+typedef struct _Locktime Locktime;
 typedef struct _BitcoinPubkey BitcoinPubkey;
 typedef struct _OpenChannel OpenChannel;
 typedef struct _OpenAnchor OpenAnchor;
@@ -81,6 +82,26 @@ struct  _Signature
     , 0, 0, 0, 0, 0, 0, 0, 0 }
 
 
+typedef enum {
+  LOCKTIME__LOCKTIME__NOT_SET = 0,
+  LOCKTIME__LOCKTIME_SECONDS = 1,
+  LOCKTIME__LOCKTIME_BLOCKS = 2,
+} Locktime__LocktimeCase;
+
+struct  _Locktime
+{
+  ProtobufCMessage base;
+  Locktime__LocktimeCase locktime_case;
+  union {
+    uint32_t seconds;
+    uint32_t blocks;
+  };
+};
+#define LOCKTIME__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&locktime__descriptor) \
+    , LOCKTIME__LOCKTIME__NOT_SET, {} }
+
+
 /*
  * Pubkey for commitment transaction input.
  */
@@ -97,18 +118,16 @@ struct  _BitcoinPubkey
     , {0,NULL} }
 
 
-typedef enum {
-  OPEN_CHANNEL__LOCKTIME__NOT_SET = 0,
-  OPEN_CHANNEL__LOCKTIME_LOCKTIME_SECONDS = 2,
-  OPEN_CHANNEL__LOCKTIME_LOCKTIME_BLOCKS = 3,
-} OpenChannel__LocktimeCase;
-
 /*
  * Set channel params.
  */
 struct  _OpenChannel
 {
   ProtobufCMessage base;
+  /*
+   * Relative locktime for outputs going to us.
+   */
+  Locktime *locktime;
   /*
    * Hash for revoking first commitment transaction.
    */
@@ -131,15 +150,10 @@ struct  _OpenChannel
    * How much fee would I like on commitment tx?
    */
   uint64_t commitment_fee;
-  OpenChannel__LocktimeCase locktime_case;
-  union {
-    uint32_t locktime_seconds;
-    uint32_t locktime_blocks;
-  };
 };
 #define OPEN_CHANNEL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&open_channel__descriptor) \
-    , NULL, NULL, NULL, 0, 0,0u, 0, OPEN_CHANNEL__LOCKTIME__NOT_SET, {} }
+    , NULL, NULL, NULL, NULL, 0, 0,0u, 0 }
 
 
 /*
@@ -423,6 +437,25 @@ Signature *
 void   signature__free_unpacked
                      (Signature *message,
                       ProtobufCAllocator *allocator);
+/* Locktime methods */
+void   locktime__init
+                     (Locktime         *message);
+size_t locktime__get_packed_size
+                     (const Locktime   *message);
+size_t locktime__pack
+                     (const Locktime   *message,
+                      uint8_t             *out);
+size_t locktime__pack_to_buffer
+                     (const Locktime   *message,
+                      ProtobufCBuffer     *buffer);
+Locktime *
+       locktime__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   locktime__free_unpacked
+                     (Locktime *message,
+                      ProtobufCAllocator *allocator);
 /* BitcoinPubkey methods */
 void   bitcoin_pubkey__init
                      (BitcoinPubkey         *message);
@@ -678,6 +711,9 @@ typedef void (*Sha256Hash_Closure)
 typedef void (*Signature_Closure)
                  (const Signature *message,
                   void *closure_data);
+typedef void (*Locktime_Closure)
+                 (const Locktime *message,
+                  void *closure_data);
 typedef void (*BitcoinPubkey_Closure)
                  (const BitcoinPubkey *message,
                   void *closure_data);
@@ -725,6 +761,7 @@ typedef void (*Pkt_Closure)
 
 extern const ProtobufCMessageDescriptor sha256_hash__descriptor;
 extern const ProtobufCMessageDescriptor signature__descriptor;
+extern const ProtobufCMessageDescriptor locktime__descriptor;
 extern const ProtobufCMessageDescriptor bitcoin_pubkey__descriptor;
 extern const ProtobufCMessageDescriptor open_channel__descriptor;
 extern const ProtobufCEnumDescriptor    open_channel__anchor_offer__descriptor;

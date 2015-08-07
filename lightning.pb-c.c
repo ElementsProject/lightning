@@ -93,6 +93,49 @@ void   signature__free_unpacked
   assert(message->base.descriptor == &signature__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   locktime__init
+                     (Locktime         *message)
+{
+  static Locktime init_value = LOCKTIME__INIT;
+  *message = init_value;
+}
+size_t locktime__get_packed_size
+                     (const Locktime *message)
+{
+  assert(message->base.descriptor == &locktime__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t locktime__pack
+                     (const Locktime *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &locktime__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t locktime__pack_to_buffer
+                     (const Locktime *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &locktime__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+Locktime *
+       locktime__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (Locktime *)
+     protobuf_c_message_unpack (&locktime__descriptor,
+                                allocator, len, data);
+}
+void   locktime__free_unpacked
+                     (Locktime *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &locktime__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
 void   bitcoin_pubkey__init
                      (BitcoinPubkey         *message)
 {
@@ -858,6 +901,57 @@ const ProtobufCMessageDescriptor signature__descriptor =
   (ProtobufCMessageInit) signature__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
+static const ProtobufCFieldDescriptor locktime__field_descriptors[2] =
+{
+  {
+    "seconds",
+    1,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_UINT32,
+    offsetof(Locktime, locktime_case),
+    offsetof(Locktime, seconds),
+    NULL,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "blocks",
+    2,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_UINT32,
+    offsetof(Locktime, locktime_case),
+    offsetof(Locktime, blocks),
+    NULL,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned locktime__field_indices_by_name[] = {
+  1,   /* field[1] = blocks */
+  0,   /* field[0] = seconds */
+};
+static const ProtobufCIntRange locktime__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 2 }
+};
+const ProtobufCMessageDescriptor locktime__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "locktime",
+  "Locktime",
+  "Locktime",
+  "",
+  sizeof(Locktime),
+  2,
+  locktime__field_descriptors,
+  locktime__field_indices_by_name,
+  1,  locktime__number_ranges,
+  (ProtobufCMessageInit) locktime__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
 static const ProtobufCFieldDescriptor bitcoin_pubkey__field_descriptors[1] =
 {
   {
@@ -925,7 +1019,7 @@ const ProtobufCEnumDescriptor open_channel__anchor_offer__descriptor =
   NULL,NULL,NULL,NULL   /* reserved[1234] */
 };
 static const uint32_t open_channel__min_depth__default_value = 0u;
-static const ProtobufCFieldDescriptor open_channel__field_descriptors[8] =
+static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
 {
   {
     "final_key",
@@ -940,27 +1034,15 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[8] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "locktime_seconds",
+    "locktime",
     2,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_UINT32,
-    offsetof(OpenChannel, locktime_case),
-    offsetof(OpenChannel, locktime_seconds),
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(OpenChannel, locktime),
+    &locktime__descriptor,
     NULL,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "locktime_blocks",
-    3,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_UINT32,
-    offsetof(OpenChannel, locktime_case),
-    offsetof(OpenChannel, locktime_blocks),
-    NULL,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -1025,19 +1107,19 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[8] =
   },
 };
 static const unsigned open_channel__field_indices_by_name[] = {
-  5,   /* field[5] = anch */
-  4,   /* field[4] = commit_key */
-  7,   /* field[7] = commitment_fee */
+  4,   /* field[4] = anch */
+  3,   /* field[3] = commit_key */
+  6,   /* field[6] = commitment_fee */
   0,   /* field[0] = final_key */
-  2,   /* field[2] = locktime_blocks */
-  1,   /* field[1] = locktime_seconds */
-  6,   /* field[6] = min_depth */
-  3,   /* field[3] = revocation_hash */
+  1,   /* field[1] = locktime */
+  5,   /* field[5] = min_depth */
+  2,   /* field[2] = revocation_hash */
 };
-static const ProtobufCIntRange open_channel__number_ranges[1 + 1] =
+static const ProtobufCIntRange open_channel__number_ranges[2 + 1] =
 {
   { 1, 0 },
-  { 0, 8 }
+  { 4, 2 },
+  { 0, 7 }
 };
 const ProtobufCMessageDescriptor open_channel__descriptor =
 {
@@ -1047,10 +1129,10 @@ const ProtobufCMessageDescriptor open_channel__descriptor =
   "OpenChannel",
   "",
   sizeof(OpenChannel),
-  8,
+  7,
   open_channel__field_descriptors,
   open_channel__field_indices_by_name,
-  1,  open_channel__number_ranges,
+  2,  open_channel__number_ranges,
   (ProtobufCMessageInit) open_channel__init,
   NULL,NULL,NULL    /* reserved[123] */
 };

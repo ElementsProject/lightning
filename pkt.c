@@ -41,12 +41,14 @@ struct pkt *open_channel_pkt(const tal_t *ctx,
 			     u64 commitment_fee)
 {
 	OpenChannel o = OPEN_CHANNEL__INIT;
+	Locktime lt = LOCKTIME__INIT;
 
 	o.revocation_hash = sha256_to_proto(ctx, revocation_hash);
 	o.commit_key = pubkey_to_proto(ctx, commit);
 	o.final_key = pubkey_to_proto(ctx, final);
-	o.locktime_case = OPEN_CHANNEL__LOCKTIME_LOCKTIME_SECONDS;
-	o.locktime_seconds = rel_locktime_seconds;
+	lt.locktime_case = LOCKTIME__LOCKTIME_SECONDS;
+	lt.seconds = rel_locktime_seconds;
+	o.locktime = &lt;
 	o.commitment_fee = commitment_fee;
 	if (offer_anchor)
 		o.anch = OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR;

@@ -81,14 +81,14 @@ void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash)
 	memcpy(hash->u.u8 + 24, &pb->d, 8);
 }
 
-bool proto_to_locktime(const OpenChannel *o, uint32_t *locktime)
+bool proto_to_locktime(const Locktime *l, uint32_t *locktime)
 {
-	switch (o->locktime_case) {
-	case OPEN_CHANNEL__LOCKTIME_LOCKTIME_SECONDS:
-		*locktime = 500000000 + o->locktime_seconds;
+	switch (l->locktime_case) {
+	case LOCKTIME__LOCKTIME_SECONDS:
+		*locktime = 500000000 + l->seconds;
 		break;
-	case OPEN_CHANNEL__LOCKTIME_LOCKTIME_BLOCKS:
-		*locktime = o->locktime_blocks;
+	case LOCKTIME__LOCKTIME_BLOCKS:
+		*locktime = l->blocks;
 		break;
 	default:
 		return false;

@@ -24,6 +24,13 @@ message signature {
   required fixed64 s4 = 8;
 }
 
+message locktime {
+  oneof locktime {
+    uint32 seconds = 1;
+    uint32 blocks = 2;
+  }
+};
+
 // Pubkey for commitment transaction input.
 message bitcoin_pubkey {
   // Either 65 or 33 bytes.
@@ -37,10 +44,7 @@ message bitcoin_pubkey {
 // Set channel params.
 message open_channel {
   // Relative locktime for outputs going to us.
-  oneof locktime {
-    uint32 locktime_seconds = 2;
-    uint32 locktime_blocks = 3;
-  }
+  required locktime locktime = 2;
   // Hash for revoking first commitment transaction.
   required sha256_hash revocation_hash = 4;
   // Pubkey for anchor to pay into commitment tx.

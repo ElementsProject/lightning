@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 	o1 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
 	a = pkt_from_file(argv[4], PKT__PKT_OPEN_ANCHOR)->open_anchor;
-	if (!proto_to_locktime(o2, &locktime))
+	if (!proto_to_locktime(o2->locktime, &locktime))
 		errx(1, "Invalid locktime in o2");
 
  	/* We need our private key to spend commit output. */
