@@ -17,7 +17,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 {
 	struct bitcoin_tx *tx;
 	const u8 *redeemscript;
-	struct pubkey ourkey, theirkey, to_me;
+	struct pubkey ourkey, theirkey;
 	u32 locktime;
 
 	/* Now create commitment tx: one input, two outputs. */
@@ -47,11 +47,9 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx->output[0].amount = to_us;
 
 	/* Second output is a P2SH payment to them. */
-	if (!proto_to_pubkey(theirs->final_key, &to_me))
-		return tal_free(tx);
 	tx->output[1].script = scriptpubkey_p2sh(ctx,
 						 bitcoin_redeem_single(ctx,
-								       &to_me));
+							       &theirkey));
 	tx->output[1].script_length = tal_count(tx->output[1].script);
 	tx->output[1].amount = to_them;
 
