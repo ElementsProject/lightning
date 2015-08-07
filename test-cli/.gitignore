@@ -20,4 +20,5 @@ create-anchor-tx
 update-channel-htlc
 update-channel-htlc-complete
 update-channel-htlc-remove
+create-htlc-spend-tx
 
