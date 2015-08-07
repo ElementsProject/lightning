@@ -11,6 +11,7 @@
 #include "bitcoin/script.h"
 #include "permute_tx.h"
 #include "funding.h"
+#include "commit_tx.h"
 #include "bitcoin/signature.h"
 #include "bitcoin/pubkey.h"
 #include "bitcoin/privkey.h"
@@ -33,9 +34,9 @@ int main(int argc, char *argv[])
 	bool testnet;
 	struct pubkey pubkey1, pubkey2;
 	u8 *redeemscript;
-	uint64_t our_amount, their_amount;
 	char *close_file = NULL;
 	u64 close_fee = 10000;
+	struct channel_state *cstate;
 
 	err_set_progname(argv[0]);
 
@@ -70,8 +71,7 @@ int main(int argc, char *argv[])
 		close_fee = c->close_fee;
 	}
 	
-	gather_updates(o1, o2, a, close_fee, argv + 5,
-		       &our_amount, &their_amount,
+	cstate = gather_updates(ctx, o1, o2, a, close_fee, argv + 5, NULL,
 		       NULL, NULL, NULL);
 
 	/* Get pubkeys */
@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
 	/* This is what the anchor pays to. */
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
-	close_tx = create_close_tx(ctx, o1, o2, a, our_amount, their_amount);
+	close_tx = create_close_tx(ctx, o1, o2, a, cstate->a.pay, cstate->b.pay);
 
 	/* Sign it for them. */
 	sign_tx_input(ctx, close_tx, 0, redeemscript, tal_count(redeemscript),

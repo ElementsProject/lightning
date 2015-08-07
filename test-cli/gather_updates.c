@@ -2,6 +2,7 @@
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/structeq/structeq.h>
 #include "test-cli/gather_updates.h"
+#include "commit_tx.h"
 #include "funding.h"
 #include "pkt.h"
 #include "protobuf_convert.h"
@@ -32,21 +33,22 @@ static void get_rhash(const Sha256Hash *rhash, struct sha256 *old,
 }
 
 /* Takes complete update history, gets summary of last state. */
-uint64_t gather_updates(const OpenChannel *o1, const OpenChannel *o2,
+struct channel_state *gather_updates(const tal_t *ctx,
+			const OpenChannel *o1, const OpenChannel *o2,
 			const OpenAnchor *oa, uint64_t fee,
 			char **argv,
-			uint64_t *our_amount, uint64_t *their_amount,
+			size_t *num_updates,
 			struct sha256 *our_rhash,
 			struct sha256 *their_rhash,
 			struct signature *their_commit_sig)
 {
-	uint64_t cdelta = 0;
-	uint64_t num_updates = 0;
 	Signature *sig = NULL;
 	struct sha256 old_our_rhash, old_their_rhash;
+	struct channel_state *cstate;
 	
 	/* Start sanity check. */
-	if (!initial_funding(o1, o2, oa, fee, our_amount, their_amount))
+	cstate = initial_funding(NULL, o1, o2, oa, fee);
+	if (!cstate)
 		errx(1, "Invalid open combination (need 1 anchor offer)");
 
 	if (our_rhash)
@@ -59,6 +61,8 @@ uint64_t gather_updates(const OpenChannel *o1, const OpenChannel *o2,
 	if (o2->anch == OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR)
 		sig = oa->commit_sig;
 
+	if (num_updates)
+		*num_updates = 0;
 	while (*argv) {
 		int64_t delta;
 		bool received;
@@ -88,11 +92,12 @@ uint64_t gather_updates(const OpenChannel *o1, const OpenChannel *o2,
 				get_rhash(pkt->update->revocation_hash,
 					  &old_our_rhash, our_rhash);
 			}
-			if (!funding_delta(o1, o2, oa, fee, &cdelta, delta,
-					   our_amount, their_amount))
+			if (!funding_delta(o1, o2, oa, delta,
+					   &cstate->a, &cstate->b))
 				errx(1, "Impossible funding update %lli %s",
 				     (long long)delta, *argv);
-			num_updates++;
+			if (num_updates)
+				(*num_updates)++;
 			break;
 		}
 		case PKT__PKT_UPDATE_ACCEPT:
@@ -145,5 +150,5 @@ uint64_t gather_updates(const OpenChannel *o1, const OpenChannel *o2,
 			errx(1, "Invalid signature");
 	}
 
-	return num_updates;
+	return cstate;
 }

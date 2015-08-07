@@ -35,7 +35,7 @@ int main(int argc, char *argv[])
 	u8 *redeemscript;
 	struct sha256 rhash;
 	size_t p2sh_out;
-	u64 fee = 10000, our_amount, their_amount;
+	u64 fee = 10000;
 	u32 locktime;
 
 	err_set_progname(argv[0]);
@@ -82,9 +82,8 @@ int main(int argc, char *argv[])
 		errx(1, "Invalid o2 final pubkey");
 
 	/* We use this simply to get final revocation hash. */
-	gather_updates(o1, o2, a, commit_fee(o1, o2), argv + 7,
-		       &our_amount, &their_amount,
-		       &rhash, NULL, NULL);
+	gather_updates(ctx, o1, o2, a, commit_fee(o1, o2), argv + 7,
+		       NULL, &rhash, NULL, NULL);
 
 	/* Create redeem script */
 	redeemscript = bitcoin_redeem_secret_or_delay(ctx, &pubkey1, locktime,

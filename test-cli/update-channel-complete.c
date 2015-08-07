@@ -31,8 +31,8 @@ int main(int argc, char *argv[])
 	struct pubkey pubkey1, pubkey2;
 	size_t num_updates;
 	struct bitcoin_signature sig;
-	uint64_t our_amount, their_amount;
 	u8 *redeemscript;
+	struct channel_state *cstate;
 
 	err_set_progname(argv[0]);
 
@@ -56,9 +56,9 @@ int main(int argc, char *argv[])
 	sig.stype = SIGHASH_ALL;
 
 	/* This also checks that preimage is correct! */
-	num_updates = gather_updates(o1, o2, a, commit_fee(o1, o2), argv + 5,
-				     &our_amount, &their_amount,
-				     &our_rhash, &their_rhash, &sig.sig);
+	cstate = gather_updates(ctx, o1, o2, a, commit_fee(o1, o2), argv + 5,
+				&num_updates,
+				&our_rhash, &their_rhash, &sig.sig);
 	if (num_updates < 1)
 		errx(1, "Expected at least one update!");
 
@@ -72,8 +72,7 @@ int main(int argc, char *argv[])
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
 	/* Check their signature signs our new commit tx correctly. */
-	commit = create_commit_tx(ctx, o1, o2, a, &our_rhash,
-				  our_amount, their_amount);
+	commit = create_commit_tx(ctx, o1, o2, a, &our_rhash, cstate);
 	if (!commit)
 		errx(1, "Delta too large");
 

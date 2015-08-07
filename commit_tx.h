@@ -3,6 +3,7 @@
 #include <ccan/tal/tal.h>
 #include "lightning.pb-c.h"
 
+struct channel_state;
 struct sha256_double;
 struct sha256;
 
@@ -13,5 +14,5 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    OpenChannel *theirs,
 				    OpenAnchor *anchor,
 				    const struct sha256 *rhash,
-				    uint64_t to_us, uint64_t to_them);
+				    const struct channel_state *cstate);
 #endif

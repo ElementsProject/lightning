@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 	struct pubkey pubkey1, pubkey2;
 	u8 *subscript;
 	struct sha256 rhash;
-	uint64_t to_them, to_us;
+	struct channel_state *cstate;
 
 	err_set_progname(argv[0]);
 
@@ -55,11 +55,13 @@ int main(int argc, char *argv[])
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
 
 	/* Now create THEIR commitment tx to spend 2/2 output of anchor. */
-	if (!initial_funding(o1, o2, a, commit_fee(o1, o2), &to_us, &to_them))
+	cstate = initial_funding(ctx, o1, o2, a, commit_fee(o1, o2));
+	if (!cstate)
 		errx(1, "Invalid open combination (need 1 anchor offer)");
 
 	proto_to_sha256(o2->revocation_hash, &rhash);
-	commit = create_commit_tx(ctx, o2, o1, a, &rhash, to_them, to_us);
+	invert_cstate(cstate);
+	commit = create_commit_tx(ctx, o2, o1, a, &rhash, cstate);
 
 	/* If contributions don't exceed fees, this fails. */
 	if (!commit)

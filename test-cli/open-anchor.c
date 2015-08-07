@@ -31,12 +31,12 @@ int main(int argc, char *argv[])
 	struct sha256_double txid;
 	struct sha256 rhash;
 	struct pkt *pkt;
-	uint64_t to_them, to_us;
 	struct pubkey pubkey1, pubkey2;
 	struct privkey privkey;
 	struct signature sig;
 	bool testnet;
 	u8 *redeemscript;
+	struct channel_state *cstate;
 
 	err_set_progname(argv[0]);
 
@@ -70,12 +70,14 @@ int main(int argc, char *argv[])
 	oa.amount = anchor->output[oa.output_index].amount;
 
 	/* Figure out initial how much to us, how much to them. */
-	if (!initial_funding(o1, o2, &oa, commit_fee(o1, o2), &to_us, &to_them))
+	cstate = initial_funding(ctx, o1, o2, &oa, commit_fee(o1, o2));
+	if (!cstate)
 		errx(1, "Invalid open combination (need 1 anchor offer)");
 	
 	/* Now, create signature for their commitment tx. */
 	proto_to_sha256(o2->revocation_hash, &rhash);
- 	commit = create_commit_tx(ctx, o2, o1, &oa, &rhash, to_them, to_us);
+	invert_cstate(cstate);
+ 	commit = create_commit_tx(ctx, o2, o1, &oa, &rhash, cstate);
 
 	sign_tx_input(ctx, commit, 0, redeemscript, tal_count(redeemscript),
 		      &privkey, &pubkey1, &sig);

@@ -31,10 +31,10 @@ int main(int argc, char *argv[])
 	struct bitcoin_signature sig;
 	struct privkey privkey;
 	bool testnet;
-	uint64_t num_updates;
+	size_t num_updates;
 	struct pubkey pubkey1, pubkey2;
 	u8 *redeemscript;
-	uint64_t our_amount, their_amount;
+	struct channel_state *cstate;
 
 	err_set_progname(argv[0]);
 
@@ -61,9 +61,8 @@ int main(int argc, char *argv[])
 		errx(1, "Private key '%s' not on testnet!", argv[5]);
 
 	/* Figure out cumulative delta since anchor. */
-	num_updates = gather_updates(o1, o2, a, commit_fee(o1, o2), argv + 6,
-				     &our_amount, &their_amount,
-				     NULL, &their_rhash, NULL);
+	cstate = gather_updates(ctx, o1, o2, a, commit_fee(o1, o2), argv + 6,
+				&num_updates, NULL, &their_rhash, NULL);
 
 	/* Get next revocation hash. */
 	shachain_from_seed(&seed, num_updates, &revocation_hash);
@@ -83,8 +82,8 @@ int main(int argc, char *argv[])
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
 	/* Now create THEIR new commitment tx to spend 2/2 output of anchor. */
-	commit = create_commit_tx(ctx, o2, o1, a, &their_rhash,
-				  their_amount, our_amount);
+	invert_cstate(cstate);
+	commit = create_commit_tx(ctx, o2, o1, a, &their_rhash, cstate);
 
 	/* If contributions don't exceed fees, this fails. */
 	if (!commit)

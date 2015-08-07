@@ -3,6 +3,7 @@
 #include "bitcoin/shadouble.h"
 #include "bitcoin/tx.h"
 #include "commit_tx.h"
+#include "funding.h"
 #include "overflows.h"
 #include "permute_tx.h"
 #include "pkt.h"
@@ -13,7 +14,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    OpenChannel *theirs,
 				    OpenAnchor *anchor,
 				    const struct sha256 *rhash,
-				    uint64_t to_us, uint64_t to_them)
+				    const struct channel_state *cstate)
 {
 	struct bitcoin_tx *tx;
 	const u8 *redeemscript;
@@ -44,14 +45,14 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 						      rhash);
 	tx->output[0].script = scriptpubkey_p2sh(tx, redeemscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
-	tx->output[0].amount = to_us;
+	tx->output[0].amount = cstate->a.pay;
 
 	/* Second output is a P2SH payment to them. */
 	tx->output[1].script = scriptpubkey_p2sh(ctx,
 						 bitcoin_redeem_single(ctx,
 							       &theirkey));
 	tx->output[1].script_length = tal_count(tx->output[1].script);
-	tx->output[1].amount = to_them;
+	tx->output[1].amount = cstate->b.pay;
 
 	/* Calculate fee; difference of inputs and outputs. */
 	assert(tx->output[0].amount + tx->output[1].amount

@@ -31,8 +31,8 @@ int main(int argc, char *argv[])
 	struct bitcoin_signature sig1, sig2;
 	struct pubkey pubkey1, pubkey2;
 	u8 *redeemscript;
-	uint64_t our_amount, their_amount;
 	struct sha256 rhash;
+	struct channel_state *cstate;
 
 	err_set_progname(argv[0]);
 
@@ -66,15 +66,13 @@ int main(int argc, char *argv[])
 
 	sig2.stype = SIGHASH_ALL;
 
-	gather_updates(o1, o2, a, commit_fee(o1, o2), argv + 5,
-		       &our_amount, &their_amount,
-		       &rhash, NULL, &sig2.sig);
+	cstate = gather_updates(ctx, o1, o2, a, commit_fee(o1, o2), argv + 5,
+				NULL, &rhash, NULL, &sig2.sig);
 
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
 	/* Now create commitment tx to spend 2/2 output of anchor. */
-	commit = create_commit_tx(ctx, o1, o2, a, &rhash,
-				  our_amount, their_amount);
+	commit = create_commit_tx(ctx, o1, o2, a, &rhash, cstate);
 
 	/* This only fails on malformed packets */
 	if (!commit)

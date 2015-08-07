@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 	struct privkey privkey;
 	bool testnet;
 	struct sha256 rhash;
-	u64 our_amount, their_amount;
+	struct channel_state *cstate;
 
 	err_set_progname(argv[0]);
 
@@ -68,14 +68,13 @@ int main(int argc, char *argv[])
 	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
 		errx(1, "Invalid o2 commit_key");
 
-	if (!initial_funding(o1, o2, a, commit_fee(o1, o2),
-			     &our_amount, &their_amount))
+	cstate = initial_funding(ctx, o1, o2, a, commit_fee(o1, o2));
+	if (!cstate)
 		errx(1, "Invalid open combination (need 1 anchor offer)");
 	
 	/* Now create our commitment tx. */
 	proto_to_sha256(o1->revocation_hash, &rhash);
-	commit = create_commit_tx(ctx, o1, o2, a, &rhash,
-				  our_amount, their_amount);
+	commit = create_commit_tx(ctx, o1, o2, a, &rhash, cstate);
 
 	/* Check signature. */
 	subscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);

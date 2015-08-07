@@ -15,6 +15,7 @@
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
 #include "gather_updates.h"
+#include "funding.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -28,7 +29,7 @@ int main(int argc, char *argv[])
 	u8 *redeemscript;
 	CloseChannel *close;
 	CloseChannelComplete *closecomplete;
-	uint64_t our_amount, their_amount;
+	struct channel_state *cstate;
 
 	err_set_progname(argv[0]);
 
@@ -56,15 +57,14 @@ int main(int argc, char *argv[])
 		errx(1, "Invalid o2 commit_key");
 	
 	/* Get delta by accumulting all the updates. */
-	gather_updates(o1, o2, a, close->close_fee, argv + 6,
-		       &our_amount, &their_amount,
-		       NULL, NULL, NULL);
+	cstate = gather_updates(ctx, o1, o2, a, close->close_fee, argv + 6,
+				NULL, NULL, NULL, NULL);
 
 	/* This is what the anchor pays to; figure out which output. */
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
 	/* Now create the close tx to spend 2/2 output of anchor. */
-	close_tx = create_close_tx(ctx, o1, o2, a, our_amount, their_amount);
+	close_tx = create_close_tx(ctx, o1, o2, a, cstate->a.pay, cstate->b.pay);
 
 	/* Signatures well-formed? */
 	sig1.stype = sig2.stype = SIGHASH_ALL;
