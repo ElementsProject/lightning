@@ -7,6 +7,8 @@
 
 struct channel_oneside {
 	uint64_t pay, fee;
+	/* Use tal_count to get the number */
+	UpdateAddHtlc **htlcs;
 };
 
 struct channel_state {

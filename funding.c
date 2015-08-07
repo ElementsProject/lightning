@@ -36,7 +36,17 @@ static bool subtract_fees(uint64_t *funder, uint64_t *non_funder,
 	*funder -= *funder_fee;
 	return true;
 }
-	
+
+static uint64_t htlcs_total(UpdateAddHtlc *const *htlcs)
+{
+	size_t i, n = tal_count(htlcs);
+	uint64_t total = 0;
+
+	for (i = 0; i < n; i++)
+		total += htlcs[i]->amount;
+	return total;
+}
+
 bool funding_delta(const OpenChannel *oa,
 		   const OpenChannel *ob,
 		   const OpenAnchor *anchor,
@@ -53,7 +63,8 @@ bool funding_delta(const OpenChannel *oa,
 	a = a_side->pay + a_side->fee;
 	b = b_side->pay + b_side->fee;
 	fee = a_side->fee + b_side->fee;
-	assert(a + b == anchor->amount);
+	assert(a + b + htlcs_total(a_side->htlcs) + htlcs_total(b_side->htlcs)
+	       == anchor->amount);
 
 	/* Only one can be funder. */
 	if (is_funder(oa) == is_funder(ob))
@@ -101,6 +112,9 @@ struct channel_state *initial_funding(const tal_t *ctx,
 {
 	struct channel_state *state = talz(ctx, struct channel_state);
 
+	state->a.htlcs = tal_arr(state, UpdateAddHtlc *, 0);
+	state->b.htlcs = tal_arr(state, UpdateAddHtlc *, 0);
+	
 	if (fee > anchor->amount)
 		return tal_free(state);
 
