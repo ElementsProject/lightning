@@ -33,6 +33,14 @@
 /* OP_NOP, otherwise bitcoind complains */
 #define OP_CHECKSEQUENCEVERIFY	0x61
 #endif
+
+#ifdef HAS_CLTV
+#define OP_CHECKLOCKTIMEVERIFY	0xB1
+#else
+/* OP_NOP, otherwise bitcoind complains */
+#define OP_CHECKLOCKTIMEVERIFY	0x61
+#endif
+
 static void add(u8 **scriptp, const void *mem, size_t len)
 {
 	size_t oldlen = tal_count(*scriptp);

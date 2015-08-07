@@ -3,8 +3,8 @@
 # Needs to have oneof support: Ubuntu vivid's is too old :(
 PROTOCC:=protoc-c
 
-# Alpha has checksequenceverify, segregated witness+input-amount-in-sig+confidentual-transactions, schnorr
-FEATURES := -DHAS_CSV=1 -DALPHA_TXSTYLE=1 -DUSE_SCHNORR=1
+# Alpha has checksequenceverify, segregated witness+input-amount-in-sig+confidentual-transactions, schnorr, checklocktimeverify
+FEATURES := -DHAS_CSV=1 -DALPHA_TXSTYLE=1 -DUSE_SCHNORR=1 -DHAS_CLTV=1
 # Bitcoin uses DER for signatures
 #FEATURES := -DSCRIPTS_USE_DER
 
