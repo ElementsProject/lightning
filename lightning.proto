@@ -35,7 +35,7 @@ message locktime {
 message bitcoin_pubkey {
   // Either 65 or 33 bytes.
   required bytes key = 1;
-};
+}
 
 //
 // Packet Types
@@ -98,10 +98,45 @@ message update {
   required sha256_hash revocation_hash = 1;
   // Change in current payment to-me (implies reverse to-you).
   required sint64 delta = 2;
-  // FIXME: optional HTLC ops.
 }
 
-// OK, I accept that update; here's your signature.
+// Start a new commitment tx to add an HTLC me -> you.
+message update_add_htlc {
+  // Hash for which I will supply preimage to revoke this commitment tx.
+  required sha256_hash revocation_hash = 1;
+  // Amount for htlc
+  required uint64 amount = 2;
+  // Hash for HTLC R value.
+  required sha256_hash r_hash = 3;
+  // Time at which HTLC expires (absolute)
+  required locktime locktime = 4;
+  // FIXME: Routing information.
+}
+
+// Complete an HTLC
+message update_complete_htlc {
+  // Hash for which I will supply preimage to revoke this commitment tx.
+  required sha256_hash revocation_hash = 1;
+  // HTLC R value.
+  required sha256_hash r = 3;
+}
+
+// Remove an HTLC
+message update_remove_htlc {
+  // Hash for which I will supply preimage to revoke this commitment tx.
+  required sha256_hash revocation_hash = 1;
+  // Hash for HTLC R value.
+  required sha256_hash r_hash = 3;
+}
+
+// Respond to an HTLC remove request: not yet.
+// Expect a remove_htlc later.
+message update_remove_htlc_delay {
+  // Hash for HTLC R value.
+  required sha256_hash r_hash = 1;
+}
+
+  // OK, I accept that update; here's your signature.
 message update_accept {
   // Signature for your new commitment tx.
   required signature sig = 1;
@@ -154,9 +189,13 @@ message pkt {
     open_complete open_complete = 204;
     // Updating (most common)
     update update = 1;
-    update_accept update_accept = 2;
-    update_signature update_signature = 3;
-    update_complete update_complete = 4;
+    update_add_htlc update_add_htlc = 2;
+    update_accept update_accept = 3;
+    update_signature update_signature = 4;
+    update_complete update_complete = 5;
+    update_complete_htlc update_complete_htlc = 6;
+    update_remove_htlc update_remove_htlc = 7;
+    update_remove_htlc_delay update_remove_htlc_delay = 8;
     // Closing
     close_channel close = 401;
     close_channel_complete close_complete = 402;

@@ -24,6 +24,10 @@ typedef struct _OpenAnchor OpenAnchor;
 typedef struct _OpenCommitSig OpenCommitSig;
 typedef struct _OpenComplete OpenComplete;
 typedef struct _Update Update;
+typedef struct _UpdateAddHtlc UpdateAddHtlc;
+typedef struct _UpdateCompleteHtlc UpdateCompleteHtlc;
+typedef struct _UpdateRemoveHtlc UpdateRemoveHtlc;
+typedef struct _UpdateRemoveHtlcDelay UpdateRemoveHtlcDelay;
 typedef struct _UpdateAccept UpdateAccept;
 typedef struct _UpdateSignature UpdateSignature;
 typedef struct _UpdateComplete UpdateComplete;
@@ -229,14 +233,99 @@ struct  _Update
   /*
    * Change in current payment to-me (implies reverse to-you).
    */
-  /*
-   * FIXME: optional HTLC ops.
-   */
   int64_t delta;
 };
 #define UPDATE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&update__descriptor) \
     , NULL, 0 }
+
+
+/*
+ * Start a new commitment tx to add an HTLC me -> you.
+ */
+struct  _UpdateAddHtlc
+{
+  ProtobufCMessage base;
+  /*
+   * Hash for which I will supply preimage to revoke this commitment tx.
+   */
+  Sha256Hash *revocation_hash;
+  /*
+   * Amount for htlc
+   */
+  uint64_t amount;
+  /*
+   * Hash for HTLC R value.
+   */
+  Sha256Hash *r_hash;
+  /*
+   * Time at which HTLC expires (absolute)
+   */
+  /*
+   * FIXME: Routing information.
+   */
+  Locktime *locktime;
+};
+#define UPDATE_ADD_HTLC__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&update_add_htlc__descriptor) \
+    , NULL, 0, NULL, NULL }
+
+
+/*
+ * Complete an HTLC
+ */
+struct  _UpdateCompleteHtlc
+{
+  ProtobufCMessage base;
+  /*
+   * Hash for which I will supply preimage to revoke this commitment tx.
+   */
+  Sha256Hash *revocation_hash;
+  /*
+   * HTLC R value.
+   */
+  Sha256Hash *r;
+};
+#define UPDATE_COMPLETE_HTLC__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&update_complete_htlc__descriptor) \
+    , NULL, NULL }
+
+
+/*
+ * Remove an HTLC
+ */
+struct  _UpdateRemoveHtlc
+{
+  ProtobufCMessage base;
+  /*
+   * Hash for which I will supply preimage to revoke this commitment tx.
+   */
+  Sha256Hash *revocation_hash;
+  /*
+   * Hash for HTLC R value.
+   */
+  Sha256Hash *r_hash;
+};
+#define UPDATE_REMOVE_HTLC__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&update_remove_htlc__descriptor) \
+    , NULL, NULL }
+
+
+/*
+ * Respond to an HTLC remove request: not yet.
+ * Expect a remove_htlc later.
+ */
+struct  _UpdateRemoveHtlcDelay
+{
+  ProtobufCMessage base;
+  /*
+   * Hash for HTLC R value.
+   */
+  Sha256Hash *r_hash;
+};
+#define UPDATE_REMOVE_HTLC_DELAY__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&update_remove_htlc_delay__descriptor) \
+    , NULL }
 
 
 /*
@@ -353,9 +442,13 @@ typedef enum {
   PKT__PKT_OPEN_COMMIT_SIG = 203,
   PKT__PKT_OPEN_COMPLETE = 204,
   PKT__PKT_UPDATE = 1,
-  PKT__PKT_UPDATE_ACCEPT = 2,
-  PKT__PKT_UPDATE_SIGNATURE = 3,
-  PKT__PKT_UPDATE_COMPLETE = 4,
+  PKT__PKT_UPDATE_ADD_HTLC = 2,
+  PKT__PKT_UPDATE_ACCEPT = 3,
+  PKT__PKT_UPDATE_SIGNATURE = 4,
+  PKT__PKT_UPDATE_COMPLETE = 5,
+  PKT__PKT_UPDATE_COMPLETE_HTLC = 6,
+  PKT__PKT_UPDATE_REMOVE_HTLC = 7,
+  PKT__PKT_UPDATE_REMOVE_HTLC_DELAY = 8,
   PKT__PKT_CLOSE = 401,
   PKT__PKT_CLOSE_COMPLETE = 402,
   PKT__PKT_ERROR = 1000,
@@ -380,9 +473,13 @@ struct  _Pkt
      * Updating (most common)
      */
     Update *update;
+    UpdateAddHtlc *update_add_htlc;
     UpdateAccept *update_accept;
     UpdateSignature *update_signature;
     UpdateComplete *update_complete;
+    UpdateCompleteHtlc *update_complete_htlc;
+    UpdateRemoveHtlc *update_remove_htlc;
+    UpdateRemoveHtlcDelay *update_remove_htlc_delay;
     /*
      * Closing
      */
@@ -570,6 +667,82 @@ Update *
 void   update__free_unpacked
                      (Update *message,
                       ProtobufCAllocator *allocator);
+/* UpdateAddHtlc methods */
+void   update_add_htlc__init
+                     (UpdateAddHtlc         *message);
+size_t update_add_htlc__get_packed_size
+                     (const UpdateAddHtlc   *message);
+size_t update_add_htlc__pack
+                     (const UpdateAddHtlc   *message,
+                      uint8_t             *out);
+size_t update_add_htlc__pack_to_buffer
+                     (const UpdateAddHtlc   *message,
+                      ProtobufCBuffer     *buffer);
+UpdateAddHtlc *
+       update_add_htlc__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   update_add_htlc__free_unpacked
+                     (UpdateAddHtlc *message,
+                      ProtobufCAllocator *allocator);
+/* UpdateCompleteHtlc methods */
+void   update_complete_htlc__init
+                     (UpdateCompleteHtlc         *message);
+size_t update_complete_htlc__get_packed_size
+                     (const UpdateCompleteHtlc   *message);
+size_t update_complete_htlc__pack
+                     (const UpdateCompleteHtlc   *message,
+                      uint8_t             *out);
+size_t update_complete_htlc__pack_to_buffer
+                     (const UpdateCompleteHtlc   *message,
+                      ProtobufCBuffer     *buffer);
+UpdateCompleteHtlc *
+       update_complete_htlc__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   update_complete_htlc__free_unpacked
+                     (UpdateCompleteHtlc *message,
+                      ProtobufCAllocator *allocator);
+/* UpdateRemoveHtlc methods */
+void   update_remove_htlc__init
+                     (UpdateRemoveHtlc         *message);
+size_t update_remove_htlc__get_packed_size
+                     (const UpdateRemoveHtlc   *message);
+size_t update_remove_htlc__pack
+                     (const UpdateRemoveHtlc   *message,
+                      uint8_t             *out);
+size_t update_remove_htlc__pack_to_buffer
+                     (const UpdateRemoveHtlc   *message,
+                      ProtobufCBuffer     *buffer);
+UpdateRemoveHtlc *
+       update_remove_htlc__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   update_remove_htlc__free_unpacked
+                     (UpdateRemoveHtlc *message,
+                      ProtobufCAllocator *allocator);
+/* UpdateRemoveHtlcDelay methods */
+void   update_remove_htlc_delay__init
+                     (UpdateRemoveHtlcDelay         *message);
+size_t update_remove_htlc_delay__get_packed_size
+                     (const UpdateRemoveHtlcDelay   *message);
+size_t update_remove_htlc_delay__pack
+                     (const UpdateRemoveHtlcDelay   *message,
+                      uint8_t             *out);
+size_t update_remove_htlc_delay__pack_to_buffer
+                     (const UpdateRemoveHtlcDelay   *message,
+                      ProtobufCBuffer     *buffer);
+UpdateRemoveHtlcDelay *
+       update_remove_htlc_delay__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   update_remove_htlc_delay__free_unpacked
+                     (UpdateRemoveHtlcDelay *message,
+                      ProtobufCAllocator *allocator);
 /* UpdateAccept methods */
 void   update_accept__init
                      (UpdateAccept         *message);
@@ -732,6 +905,18 @@ typedef void (*OpenComplete_Closure)
 typedef void (*Update_Closure)
                  (const Update *message,
                   void *closure_data);
+typedef void (*UpdateAddHtlc_Closure)
+                 (const UpdateAddHtlc *message,
+                  void *closure_data);
+typedef void (*UpdateCompleteHtlc_Closure)
+                 (const UpdateCompleteHtlc *message,
+                  void *closure_data);
+typedef void (*UpdateRemoveHtlc_Closure)
+                 (const UpdateRemoveHtlc *message,
+                  void *closure_data);
+typedef void (*UpdateRemoveHtlcDelay_Closure)
+                 (const UpdateRemoveHtlcDelay *message,
+                  void *closure_data);
 typedef void (*UpdateAccept_Closure)
                  (const UpdateAccept *message,
                   void *closure_data);
@@ -769,6 +954,10 @@ extern const ProtobufCMessageDescriptor open_anchor__descriptor;
 extern const ProtobufCMessageDescriptor open_commit_sig__descriptor;
 extern const ProtobufCMessageDescriptor open_complete__descriptor;
 extern const ProtobufCMessageDescriptor update__descriptor;
+extern const ProtobufCMessageDescriptor update_add_htlc__descriptor;
+extern const ProtobufCMessageDescriptor update_complete_htlc__descriptor;
+extern const ProtobufCMessageDescriptor update_remove_htlc__descriptor;
+extern const ProtobufCMessageDescriptor update_remove_htlc_delay__descriptor;
 extern const ProtobufCMessageDescriptor update_accept__descriptor;
 extern const ProtobufCMessageDescriptor update_signature__descriptor;
 extern const ProtobufCMessageDescriptor update_complete__descriptor;
