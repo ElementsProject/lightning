@@ -92,7 +92,7 @@ struct channel_state *gather_updates(const tal_t *ctx,
 				get_rhash(pkt->update->revocation_hash,
 					  &old_our_rhash, our_rhash);
 			}
-			if (!funding_delta(o1, o2, oa, delta,
+			if (!funding_delta(o1, o2, oa, delta, 0,
 					   &cstate->a, &cstate->b))
 				errx(1, "Impossible funding update %lli %s",
 				     (long long)delta, *argv);

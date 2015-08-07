@@ -41,10 +41,12 @@ bool funding_delta(const OpenChannel *oa,
 		   const OpenChannel *ob,
 		   const OpenAnchor *anchor,
 		   int64_t delta_a,
+		   int64_t htlc,
 		   struct channel_oneside *a_side,
 		   struct channel_oneside *b_side)
 {
 	uint64_t a, b, a_fee, b_fee;
+	int64_t delta_b;
 	uint64_t fee;
 	bool got_fees;
 
@@ -57,20 +59,25 @@ bool funding_delta(const OpenChannel *oa,
 	if (is_funder(oa) == is_funder(ob))
 		return false;
 
+	/* B gets whatever A gives. */
+	delta_b = -delta_a;
+	/* A also pays for the htlc (if any). */
+	delta_a -= htlc;
+
 	/* Transferring more than we have? */
-	if (delta_a > 0 && delta_a > b)
+	if (delta_b < 0 && -delta_b > b)
 		return false;
 	if (delta_a < 0 && -delta_a > a)
 		return false;
 
 	/* Adjust amounts. */
 	a += delta_a;
-	b -= delta_a;
+	b += delta_b;
 
 	/* Take off fee from both parties if possible. */
 	if (is_funder(oa))
 		got_fees = subtract_fees(&a, &b, &a_fee, &b_fee,
-					 delta_a > 0, fee);
+					 delta_b < 0, fee);
 	else
 		got_fees = subtract_fees(&b, &a, &b_fee, &a_fee,
 					 delta_a < 0, fee);
@@ -106,7 +113,7 @@ struct channel_state *initial_funding(const tal_t *ctx,
 		invert_cstate(state);
 
 	/* This checks we only have 1 anchor, and is nice code reuse. */
-	if (!funding_delta(a, b, anchor, 0, &state->a, &state->b))
+	if (!funding_delta(a, b, anchor, 0, 0, &state->a, &state->b))
 		return tal_free(state);
 	return state;
 }

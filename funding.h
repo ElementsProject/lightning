@@ -35,6 +35,7 @@ struct channel_state *initial_funding(const tal_t *ctx,
  * @b: B's openchannel offer
  * @anchor: The anchor offer (A or B)
  * @delta_a: How much A changes (-ve => A pay B, +ve => B pays A)
+ * @htlc: How much A is putting into a HTLC (-ve if htlc is cancelled)
  * @a_side: channel a's state to update.
  * @b_side: channel b's state to update.
  */
@@ -42,6 +43,7 @@ bool funding_delta(const OpenChannel *a,
 		   const OpenChannel *b,
 		   const OpenAnchor *anchor,
 		   int64_t delta_a,
+		   int64_t htlc,
 		   struct channel_oneside *a_side,
 		   struct channel_oneside *b_side);
 
