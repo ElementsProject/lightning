@@ -91,6 +91,20 @@ struct pkt *update_pkt(const tal_t *ctx,
 		       s64 delta);
 
 /**
+ * update_htlc_add_pkt - create an update message adding a HTLC
+ * @ctx: tal context to allocate off.
+ * @revocation_hash: the revocation hash for the next commitment tx.
+ * @val: the change in satoshis (from me).
+ * @htlc_rhash: the hash of the htlc secret.
+ * @abs_locktime_seconds: the HTLC timeout.
+ */
+struct pkt *update_htlc_add_pkt(const tal_t *ctx,
+				const struct sha256 *revocation_hash,
+				u64 value,
+				const struct sha256 *htlc_rhash,
+				u32 abs_locktime_seconds);
+
+/**
  * update_accept_pkt - create an update_accept message
  * @ctx: tal context to allocate off.
  * @sig: the signature for the close transaction input.

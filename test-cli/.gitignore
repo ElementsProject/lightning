@@ -17,3 +17,4 @@ create-commit-tx
 open-anchor
 txid-of
 create-anchor-tx
+update-channel-htlc

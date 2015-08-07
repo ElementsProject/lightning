@@ -140,6 +140,25 @@ struct pkt *update_pkt(const tal_t *ctx,
 	return to_pkt(ctx, PKT__PKT_UPDATE, &u);
 }
 
+struct pkt *update_htlc_add_pkt(const tal_t *ctx,
+				const struct sha256 *revocation_hash,
+				u64 value,
+				const struct sha256 *htlc_rhash,
+				u32 abs_locktime_seconds)
+{
+	UpdateAddHtlc u = UPDATE_ADD_HTLC__INIT;
+	Locktime l = LOCKTIME__INIT;
+
+	u.revocation_hash = sha256_to_proto(ctx, revocation_hash);
+	u.amount = value;
+	u.r_hash = sha256_to_proto(ctx, htlc_rhash);
+	l.locktime_case = LOCKTIME__LOCKTIME_SECONDS;
+	l.seconds = abs_locktime_seconds;
+	u.expiry = &l;
+
+	return to_pkt(ctx, PKT__PKT_UPDATE_ADD_HTLC, &u);
+}
+
 struct pkt *update_accept_pkt(const tal_t *ctx,
 			      struct signature *sig,
 			      const struct sha256 *revocation_hash)
