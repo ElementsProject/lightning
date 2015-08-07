@@ -1906,11 +1906,7 @@ OP_ELSE Must be A, after HTLC has timed out.
 \begin_inset space ~
 \end_inset
 
-OP_CHECKLOCKTIMEVERIFY
-\begin_inset space ~
-\end_inset
-
-OP_DROP Ensure (absolute) time has passed.
+OP_CHECKLOCKTIMEVERIFY Ensure (absolute) time has passed.
 \end_layout
 
 \begin_layout Description
@@ -1918,11 +1914,12 @@ OP_DROP Ensure (absolute) time has passed.
 \begin_inset space ~
 \end_inset
 
-OP_CHECKSEQUENCEVERIFY
-\begin_inset space ~
-\end_inset
+OP_CHECKSEQUENCEVERIFY Delay gives B enough time to use revocation if it
+ has it.
+\end_layout
 
-OP_DROP Delay gives B enough time to use revocation if it has it.
+\begin_layout Description
+OP_2DROP Drop the delay and htlc-timeout from the stack.
 \end_layout
 
 \begin_layout Description
@@ -1964,19 +1961,16 @@ OP_IF
 
 \begin_deeper
 \begin_layout Description
-OP_DROP Remove extra hash
-\end_layout
-
-\begin_layout Description
 <DELAY>
 \begin_inset space ~
 \end_inset
 
-OP_CHECKSEQUENCEVERIFY
-\begin_inset space ~
-\end_inset
+OP_CHECKSEQUENCEVERIFY Delay gives A enough time to use revocation if it
+ has it.
+\end_layout
 
-OP_DROP Delay gives A enough time to use revocation if it has it.
+\begin_layout Description
+OP_2DROP Drop extra hash and delay from the stack
 \end_layout
 
 \begin_layout Description
