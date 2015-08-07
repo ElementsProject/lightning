@@ -23,6 +23,47 @@ static void check_preimage(const Sha256Hash *preimage,
 		errx(1, "Invalid preimage in %s!", file);
 }
 
+/* Returns tal_count(oneside->htlcs) if not found. */
+static size_t find_htlc(struct channel_oneside *oneside,
+			const Sha256Hash *rhash)
+{
+	size_t i, n;
+
+	n = tal_count(oneside->htlcs);
+	for (i = 0; i < n; i++) {
+		if (oneside->htlcs[i]->r_hash->a == rhash->a
+		    && oneside->htlcs[i]->r_hash->b == rhash->b
+		    && oneside->htlcs[i]->r_hash->c == rhash->c
+		    && oneside->htlcs[i]->r_hash->d == rhash->d)
+			break;
+	}
+	return i;
+}
+
+static void add_htlc(struct channel_oneside *oneside, UpdateAddHtlc *ah,
+		     const char *file)
+{
+	size_t num = tal_count(oneside->htlcs);
+
+	if (find_htlc(oneside, ah->r_hash) != num)
+		errx(1, "Duplicate R hash in %s", file);
+
+	tal_resize(&oneside->htlcs, num+1);
+	oneside->htlcs[num] = ah;
+}
+
+static void remove_htlc(struct channel_oneside *oneside, size_t n)
+{
+	size_t num = tal_count(oneside->htlcs);
+
+	assert(n < num);
+
+	/* Remove. */
+	if (num > 0)
+		oneside->htlcs[n] = oneside->htlcs[num-1];
+	tal_resize(&oneside->htlcs, num - 1);
+}
+
 static void update_rhash(const Sha256Hash *rhash,
 			 bool received,
 			 size_t *num_updates,
@@ -73,6 +114,9 @@ struct channel_state *gather_updates(const tal_t *ctx,
 	proto_to_sha256(o1->revocation_hash, our_rhash);
 	proto_to_sha256(o2->revocation_hash, their_rhash);
 
+	assert(tal_count(cstate->a.htlcs) == 0);
+	assert(tal_count(cstate->b.htlcs) == 0);
+	
 	/* If o2 sent anchor, it contains their commit sig. */
 	if (o2->anch == OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR)
 		sig = oa->commit_sig;
@@ -80,7 +124,8 @@ struct channel_state *gather_updates(const tal_t *ctx,
 	if (num_updates)
 		*num_updates = 0;
 	while (*argv) {
-		int64_t delta;
+		int64_t delta, amount;
+		size_t n;
 		bool received;
 		Pkt *pkt;
 
@@ -98,6 +143,99 @@ struct channel_state *gather_updates(const tal_t *ctx,
 			if (received)
 				sig = pkt->open_commit_sig->sig;
 			break;
+		case PKT__PKT_UPDATE_ADD_HTLC:
+			amount = pkt->update_add_htlc->amount;
+			if (received) {
+				if (!funding_delta(o2, o1, oa, 0, amount,
+						   &cstate->b, &cstate->a))
+					errx(1, "Impossible htlc %llu %s",
+					     (long long)amount, *argv);
+				add_htlc(&cstate->b, pkt->update_add_htlc,
+					 *argv);
+			} else {
+				if (!funding_delta(o1, o2, oa, 0, amount,
+						   &cstate->a, &cstate->b))
+					errx(1, "Impossible htlc %llu %s",
+					     (long long)amount, *argv);
+				add_htlc(&cstate->a, pkt->update_add_htlc,
+					 *argv);
+			}
+				
+			update_rhash(pkt->update_add_htlc->revocation_hash,
+				     received, num_updates,
+				     &old_our_rhash, &old_their_rhash,
+				     our_rhash, their_rhash);
+			break;
+
+		case PKT__PKT_UPDATE_REMOVE_HTLC:
+			if (received) {
+				n = find_htlc(&cstate->b,
+					      pkt->update_remove_htlc->r_hash);
+				if (n == tal_count(cstate->b.htlcs))
+					errx(1, "Unknown R hash in %s", *argv);
+				amount = cstate->b.htlcs[n]->amount;
+				if (!funding_delta(o2, o1, oa, 0, -amount,
+						   &cstate->b, &cstate->a))
+					errx(1, "Impossible htlc %llu %s",
+					     (long long)amount, *argv);
+				remove_htlc(&cstate->b, n);
+			} else {
+				n = find_htlc(&cstate->a,
+					      pkt->update_remove_htlc->r_hash);
+				if (n == tal_count(cstate->a.htlcs))
+					errx(1, "Unknown R hash in %s", *argv);
+				amount = cstate->a.htlcs[n]->amount;
+				if (!funding_delta(o1, o2, oa, 0, -amount,
+						   &cstate->a, &cstate->b))
+					errx(1, "Impossible htlc %llu %s",
+					     (long long)amount, *argv);
+				remove_htlc(&cstate->a, n);
+			}
+			update_rhash(pkt->update_remove_htlc->revocation_hash,
+				     received, num_updates,
+				     &old_our_rhash, &old_their_rhash,
+				     our_rhash, their_rhash);
+			break;
+
+		case PKT__PKT_UPDATE_COMPLETE_HTLC: {
+			struct sha256 r_hash, r_val;
+			Sha256Hash *rh;
+
+			/* Get hash, to find the HTLC. */
+			proto_to_sha256(pkt->update_complete_htlc->r, &r_val);
+			sha256(&r_hash, &r_val, sizeof(r_val));
+			rh = sha256_to_proto(ctx, &r_hash);
+
+			if (received) {
+				/* HTLC was us->them, funds go to them. */
+				n = find_htlc(&cstate->a, rh);
+				if (n == tal_count(cstate->a.htlcs))
+					errx(1, "Unknown R hash in %s", *argv);
+				amount = cstate->a.htlcs[n]->amount;
+				if (!funding_delta(o1, o2, oa, amount, -amount,
+						   &cstate->a, &cstate->b))
+					errx(1, "Impossible htlc %llu %s",
+					     (long long)amount, *argv);
+				remove_htlc(&cstate->a, n);
+			} else {
+				/* HTLC was them->us, funds go to us. */
+				n = find_htlc(&cstate->b, rh);
+				if (n == tal_count(cstate->b.htlcs))
+					errx(1, "Unknown R hash in %s", *argv);
+				amount = cstate->b.htlcs[n]->amount;
+				if (!funding_delta(o2, o1, oa, amount, -amount,
+						   &cstate->b, &cstate->a))
+					errx(1, "Impossible htlc %llu %s",
+					     (long long)amount, *argv);
+				remove_htlc(&cstate->b, n);
+			}
+			update_rhash(pkt->update_complete_htlc->revocation_hash,
+				     received, num_updates,
+				     &old_our_rhash, &old_their_rhash,
+				     our_rhash, their_rhash);
+			break;
+		}
+
 		case PKT__PKT_UPDATE:
 			if (received)
 				delta = -pkt->update->delta;
