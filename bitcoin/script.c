@@ -14,15 +14,19 @@
 #define OP_PUSHDATA4	0x4E
 #define OP_NOP		0x61
 #define OP_IF		0x63
+#define OP_NOTIF	0x64
 #define OP_ELSE		0x67
 #define OP_ENDIF	0x68
+#define OP_2DROP	0x6d
 #define OP_DEPTH	0x74
 #define OP_DROP		0x75
 #define OP_DUP		0x76
+#define OP_SWAP		0x7c
 #define OP_EQUAL	0x87
 #define OP_EQUALVERIFY	0x88
 #define OP_SIZE		0x82
 #define OP_1SUB		0x8C
+#define OP_ADD		0x93
 #define OP_CHECKSIG	0xAC
 #define OP_CHECKMULTISIG	0xAE
 #define OP_HASH160	0xA9
@@ -111,6 +115,7 @@ static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
 #endif
 }
 
+/* FIXME: Is this really required, not a simple add_number? */
 static void add_push_le32(u8 **scriptp, u32 val)
 {
 	le32 val_le = cpu_to_le32(val);
@@ -169,6 +174,110 @@ u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript)
 	ripemd160(&redeemhash, h.u.u8, sizeof(h));
 	add_push_bytes(&script, redeemhash.u.u8, sizeof(redeemhash.u.u8));
 	add_op(&script, OP_EQUAL);
+	return script;
+}
+
+/* Create a script for our HTLC output: sending. */
+u8 *scriptpubkey_htlc_send(const tal_t *ctx,
+			   const struct pubkey *ourkey,
+			   const struct pubkey *theirkey,
+			   uint64_t value,
+			   uint32_t htlc_abstimeout,
+			   uint32_t locktime,
+			   const struct sha256 *commit_revoke,
+			   const struct sha256 *rhash)
+{
+	/* R value presented: -> them.
+	 * Commit revocation value presented: -> them.
+	 * HTLC times out -> us. */
+	u8 *script = tal_arr(ctx, u8, 0);
+	struct ripemd160 ripemd;
+
+	add_op(&script, OP_HASH160);
+	add_op(&script, OP_DUP);
+	/* Did they supply HTLC R value? */
+	ripemd160(&ripemd, rhash->u.u8, sizeof(rhash->u));
+	add_push_bytes(&script, &ripemd, sizeof(ripemd));
+	add_op(&script, OP_EQUAL);
+	add_op(&script, OP_SWAP);
+	/* How about commit revocation value? */
+	ripemd160(&ripemd, commit_revoke->u.u8, sizeof(commit_revoke->u));
+	add_push_bytes(&script, &ripemd, sizeof(ripemd));
+	add_op(&script, OP_EQUAL);
+	add_op(&script, OP_ADD);
+
+	/* If either matched... */
+	add_op(&script, OP_IF);
+	add_push_key(&script, theirkey);
+
+	add_op(&script, OP_ELSE);
+
+	/* If HTLC times out, they can collect after a delay. */
+	add_push_le32(&script, htlc_abstimeout);
+	add_op(&script, OP_CHECKLOCKTIMEVERIFY);
+	add_push_le32(&script, locktime);
+	add_op(&script, OP_CHECKSEQUENCEVERIFY);
+	add_op(&script, OP_2DROP);
+	add_push_key(&script, ourkey);
+
+	add_op(&script, OP_ENDIF);
+	add_op(&script, OP_CHECKSIG);
+
+	return script;
+}
+
+/* Create a script for our HTLC output: receiving. */
+u8 *scriptpubkey_htlc_recv(const tal_t *ctx,
+			   const struct pubkey *ourkey,
+			   const struct pubkey *theirkey,
+			   uint64_t value,
+			   uint32_t htlc_abstimeout,
+			   uint32_t locktime,
+			   const struct sha256 *commit_revoke,
+			   const struct sha256 *rhash)
+{
+	/* R value presented: -> us.
+	 * Commit revocation value presented: -> them.
+	 * HTLC times out -> them. */
+	u8 *script = tal_arr(ctx, u8, 0);
+	struct ripemd160 ripemd;
+
+	add_op(&script, OP_HASH160);
+	add_op(&script, OP_DUP);
+
+	/* Did we supply HTLC R value? */
+	ripemd160(&ripemd, rhash->u.u8, sizeof(rhash->u));
+	add_push_bytes(&script, &ripemd, sizeof(ripemd));
+	add_op(&script, OP_EQUAL);
+	add_op(&script, OP_IF);
+
+	add_push_le32(&script, locktime);
+	add_op(&script, OP_CHECKSEQUENCEVERIFY);
+	/* Drop extra hash as well as locktime. */
+	add_op(&script, OP_2DROP);
+
+	add_push_key(&script, ourkey);
+
+	add_op(&script, OP_ELSE);
+
+	/* If they provided commit revocation, available immediately. */
+	ripemd160(&ripemd, commit_revoke->u.u8, sizeof(commit_revoke->u));
+	add_push_bytes(&script, &ripemd, sizeof(ripemd));
+	add_op(&script, OP_EQUAL);
+
+	add_op(&script, OP_NOTIF);
+
+	/* Otherwise, they must wait for HTLC timeout. */
+	add_push_le32(&script, htlc_abstimeout);
+	add_op(&script, OP_CHECKLOCKTIMEVERIFY);
+	add_op(&script, OP_DROP);
+	add_op(&script, OP_ENDIF);
+
+	add_push_key(&script, theirkey);
+	
+	add_op(&script, OP_ENDIF);
+	add_op(&script, OP_CHECKSIG);
+
 	return script;
 }
 

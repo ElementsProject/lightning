@@ -38,6 +38,25 @@ u8 *scriptsig_pay_to_pubkeyhash(const tal_t *ctx,
 				const struct pubkey *key,
 				const struct bitcoin_signature *sig);
 
+u8 *scriptpubkey_htlc_send(const tal_t *ctx,
+			   const struct pubkey *ourkey,
+			   const struct pubkey *theirkey,
+			   uint64_t value,
+			   uint32_t htlc_abstimeout,
+			   uint32_t locktime,
+			   const struct sha256 *commit_revoke,
+			   const struct sha256 *rhash);
+
+/* Create a script for our HTLC output: receiving. */
+u8 *scriptpubkey_htlc_recv(const tal_t *ctx,
+			   const struct pubkey *ourkey,
+			   const struct pubkey *theirkey,
+			   uint64_t value,
+			   uint32_t htlc_abstimeout,
+			   uint32_t locktime,
+			   const struct sha256 *commit_revoke,
+			   const struct sha256 *rhash);
+
 /* Create an input script to accept pay to pubkey */
 u8 *scriptsig_p2sh_2of2(const tal_t *ctx,
 			const struct bitcoin_signature *sig1,
