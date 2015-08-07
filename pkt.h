@@ -105,7 +105,7 @@ struct pkt *update_htlc_add_pkt(const tal_t *ctx,
 				u32 abs_locktime_seconds);
 
 /**
- * update_htlc_complete_pkt - create an update message completing a HTLC
+ * update_htlc_complete_pkt - create an update message removing a HTLC
  * @ctx: tal context to allocate off.
  * @revocation_hash: the revocation hash for the next commitment tx.
  * @rval: the r value for the HTLC
@@ -113,6 +113,16 @@ struct pkt *update_htlc_add_pkt(const tal_t *ctx,
 struct pkt *update_htlc_complete_pkt(const tal_t *ctx,
 				     const struct sha256 *revocation_hash,
 				     const struct sha256 *rval);
+
+/**
+ * update_htlc_remove_pkt - create an update message completing a HTLC
+ * @ctx: tal context to allocate off.
+ * @revocation_hash: the revocation hash for the next commitment tx.
+ * @htlc_rhash: the hash of the htlc secret.
+ */
+struct pkt *update_htlc_remove_pkt(const tal_t *ctx,
+				     const struct sha256 *revocation_hash,
+				     const struct sha256 *htlc_rhash);
 
 /**
  * update_accept_pkt - create an update_accept message

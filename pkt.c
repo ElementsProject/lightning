@@ -171,6 +171,18 @@ struct pkt *update_htlc_complete_pkt(const tal_t *ctx,
 	return to_pkt(ctx, PKT__PKT_UPDATE_COMPLETE_HTLC, &u);
 }
 	
+struct pkt *update_htlc_remove_pkt(const tal_t *ctx,
+				   const struct sha256 *revocation_hash,
+				   const struct sha256 *htlc_rhash)
+{
+	UpdateRemoveHtlc u = UPDATE_REMOVE_HTLC__INIT;
+
+	u.revocation_hash = sha256_to_proto(ctx, revocation_hash);
+	u.r_hash = sha256_to_proto(ctx, htlc_rhash);
+
+	return to_pkt(ctx, PKT__PKT_UPDATE_REMOVE_HTLC, &u);
+}
+
 struct pkt *update_accept_pkt(const tal_t *ctx,
 			      struct signature *sig,
 			      const struct sha256 *revocation_hash)
