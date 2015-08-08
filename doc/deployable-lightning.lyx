@@ -88,7 +88,7 @@
 \begin_body
 
 \begin_layout Title
-Reaching The Ground With Lightning (draft 0.1)
+Reaching The Ground With Lightning (draft 0.2)
 \end_layout
 
 \begin_layout Author
@@ -110,7 +110,7 @@ key "Poon2015Lightning"
 \end_layout
 
 \begin_layout Abstract
-Keywords: bitcoin, lightning, revocation hash, HTLC
+Keywords: bitcoin, lightning, revocation hash, HTLC, BIP62, BIP65, BIP68
 \end_layout
 
 \begin_layout Section
@@ -777,367 +777,20 @@ The last of these is particularly pernicious, as BIP62 doesn't solve it:
 \end_layout
 
 \begin_layout Standard
-For ease of understanding, we develop the protocol in stages.
- Please note that the intermediary proposals are insecure!
-\end_layout
-
-\begin_layout Subsubsection
-Separate Anchor Transactions
-\end_layout
-
-\begin_layout Standard
-To avoid the problem of needing all anchor signatures to derive the anchor
- transaction ID to create the commitment transaction input, we split the
- anchor into two transactions; thus A knows its anchor transaction ID, and
- B knows its anchor transaction ID as shown in Figure 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "fig:Simplistic-Dual-Anchor"
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-\align center
-\begin_inset Float figure
-wide false
-sideways false
-status open
-
-\begin_layout Plain Layout
-\align center
-\begin_inset Graphics
-	filename dual-anchor-diag1.eps
-	scale 50
-
-\end_inset
-
-
-\begin_inset Caption Standard
-
-\begin_layout Plain Layout
-Simplistic Dual Anchor Design
-\begin_inset CommandInset label
-LatexCommand label
-name "fig:Simplistic-Dual-Anchor"
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-This form allows A and B to create commitment transactions which spends
- the anchors outputs by exchanging anchor transaction IDs.
- It has the problem that if the other party does not then broadcast its
- anchor transaction, we cannot spend the commitment transaction, and our
- own anchor funds are stuck.
-\end_layout
-
-\begin_layout Standard
-Thus we introduce an 
-\emph on
-escape
-\emph default
- transaction, which lets us regain our anchor funds in that case, as shown
- in Figure 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "fig:Dual-Anchor2"
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Float figure
-wide false
-sideways false
-status open
-
-\begin_layout Plain Layout
-\align center
-\begin_inset Graphics
-	filename dual-anchor-diag2.eps
-	scale 50
-
-\end_inset
-
-
-\begin_inset Caption Standard
-
-\begin_layout Plain Layout
-Dual Anchor With Simple Escape Transactions
-\begin_inset CommandInset label
-LatexCommand label
-name "fig:Dual-Anchor2"
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-However, this escape transaction would let either side remove its funds
- from the channel at any time, which would make the channel insecure.
- Thus, after the commitment transactions have been established, we want
- to revoke the escape transactions.
- We can do the same way we did for the commitment transaction revocation;
- by placing restrictions on the 
-\begin_inset Quotes eld
-\end_inset
-
-to-me
-\begin_inset Quotes erd
-\end_inset
-
- output.
- In particular, adding a delay if paying back to the anchor owner, and allowing
- it to be spent by the other party immediately if they possess the revocation
- preimage, as shown in Figure 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "fig:Anchor-revoc-escape"
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Float figure
-wide false
-sideways false
-status open
-
-\begin_layout Plain Layout
-\align center
-\begin_inset Graphics
-	filename dual-anchor-diag3.eps
-	scale 50
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Plain Layout
-\begin_inset Caption Standard
-
-\begin_layout Plain Layout
-Dual Anchors With Revocable Escape Transactions
-\begin_inset CommandInset label
-LatexCommand label
-name "fig:Anchor-revoc-escape"
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-Unfortunately, this revocation is not a complete solution; if B uses its
- escape transaction, A can collect B's anchor funds, but it has no way of
- collecting its own! The commitment transaction cannot be used, as one of
- its inputs has been spent by B's escape transaction.
- A's own escape transaction has been revoked, so B would simply steal the
- funds.
-\end_layout
-
-\begin_layout Standard
-Thus we need an additional construction, such that using one escape transaction
- immediately unlocks the other anchor funds for its owner.
- To do this, we ensure that the escape transaction is forced to reveal a
- secret, which is a fairly well-established technique
+Our approach is to only have one-sided anchors.
+ These can be later balanced by the lightning network itself, or an atomic-swap
+ an on-chain bitcoin transaction
 \begin_inset CommandInset citation
 LatexCommand cite
-key "nolan_alt"
+key "go1111111_single_anchor"
 
 \end_inset
 
 .
- The anchor transaction is modified to either require both signatures (for
- the commitment transaction), or both signatures and the secret (for the
- escape transaction), as shown in Figure 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "fig:Secret-Revelation-by"
-
-\end_inset
-
-.
- Note that this requires the other party to provide an alternate key (denoted
- here using A' and B'), otherwise there is no way to force the escape transactio
-n to provide the secret.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Float figure
-wide false
-sideways false
-status open
-
-\begin_layout Plain Layout
-\align center
-\begin_inset Graphics
-	filename dual-anchor-diag4.eps
-	scale 50
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Plain Layout
-\begin_inset Caption Standard
-
-\begin_layout Plain Layout
-Secret Revelation by Escape Transactions
-\begin_inset CommandInset label
-LatexCommand label
-name "fig:Secret-Revelation-by"
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-That revealed secret can be used with the other alternative: the 
-\emph on
-fast escape transaction.
-
-\emph default
- This reveals the secret just like the escape transaction, but its output
- is immediately usable if one knows the other side's secret.
- This is shown in Figure 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "fig:Final-Dual-Anchor"
-
-\end_inset
-
-.
- Thus, if the B broadcasts its escape transaction after it has been revoked,
- A can (after ensuring escape B is sufficiently deep in the block chain)
- broadcast its fast escape transaction and use B's secret to immediately
- spend the output.
-\end_layout
-
-\begin_layout Standard
-On the other hand, if B broadcasts its fast escape transaction without knowing
- A's secret, A can simply wait for the timeout and spend the fast escape
- output, then use its own fast escape transaction and B's secret to recover
- its own anchor funds as well.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Float figure
-wide false
-sideways false
-status open
-
-\begin_layout Plain Layout
-\align center
-\begin_inset Graphics
-	filename dual-anchor-final.eps
-	scale 50
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Plain Layout
-\begin_inset Caption Standard
-
-\begin_layout Plain Layout
-Final Dual Anchor Design
-\begin_inset CommandInset label
-LatexCommand label
-name "fig:Final-Dual-Anchor"
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-The final scripts are shown in 
-\begin_inset CommandInset ref
-LatexCommand nameref
-reference "sec:Appendix-A:-Scripts"
-
-\end_inset
-
-.
-\end_layout
-
-\begin_layout Subsubsection
-Disadvantages of The Dual Anchor Approach
-\end_layout
-
-\begin_layout Standard
-Unlike the mutual anchor approach, use of escape transactions is not outsourcabl
-e: you cannot have an untrusted third party which can monitor the network
- for the other sides' revoked escape transaction and respond with your own
- escape transaction.
- If you were to provide a third party with your fast escape transaction,
- you would necessarily provide it with the secret, which it could give to
- B.
+ Any bitcoin transaction fees are initially funded by that anchor, but the
+ implementation splits fees where possible< and never allows either side
+ to spend funds in the channel if they would no longer be able to pay their
+ share.
 \end_layout
 
 \begin_layout Subsection
@@ -1267,6 +920,14 @@ Acknowlegments
 \begin_layout Standard
 Thanks to mmeijeri on Reddit's r/Bitcoin for pointing out a flaw in escape
  transactions reusing the same A and B keys as the commitment transaction
+ in 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "sec:Appendix-B:-Dual"
+
+\end_inset
+
+
 \begin_inset Foot
 status collapsed
 
@@ -2092,6 +1753,383 @@ If either side publishes a commitment transaction which has been revoked,
 \end_inset
 
 {<HTLC-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Section*
+Appendix B: Dual Anchors With Escape Transactions
+\begin_inset CommandInset label
+LatexCommand label
+name "sec:Appendix-B:-Dual"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This appendix presents a dual-input anchor solution which doesn't require
+ additional bitcoin signature flags.
+ It is not being proposed currently, as it seems that a single-sided anchor
+ is probably sufficient.
+\end_layout
+
+\begin_layout Subsection
+Separate Anchor Transactions
+\end_layout
+
+\begin_layout Standard
+To avoid the problem of needing all anchor signatures to derive the anchor
+ transaction ID to create the commitment transaction input, we split the
+ anchor into two transactions; thus A knows its anchor transaction ID, and
+ B knows its anchor transaction ID as shown in Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Simplistic-Dual-Anchor"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\align center
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename dual-anchor-diag1.eps
+	scale 50
+
+\end_inset
+
+
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Simplistic Dual Anchor Design
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Simplistic-Dual-Anchor"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This form allows A and B to create commitment transactions which spends
+ the anchors outputs by exchanging anchor transaction IDs.
+ It has the problem that if the other party does not then broadcast its
+ anchor transaction, we cannot spend the commitment transaction, and our
+ own anchor funds are stuck.
+\end_layout
+
+\begin_layout Standard
+Thus we introduce an 
+\emph on
+escape
+\emph default
+ transaction, which lets us regain our anchor funds in that case, as shown
+ in Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Dual-Anchor2"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename dual-anchor-diag2.eps
+	scale 50
+
+\end_inset
+
+
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Dual Anchor With Simple Escape Transactions
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Dual-Anchor2"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+However, this escape transaction would let either side remove its funds
+ from the channel at any time, which would make the channel insecure.
+ Thus, after the commitment transactions have been established, we want
+ to revoke the escape transactions.
+ We can do the same way we did for the commitment transaction revocation;
+ by placing restrictions on the 
+\begin_inset Quotes eld
+\end_inset
+
+to-me
+\begin_inset Quotes erd
+\end_inset
+
+ output.
+ In particular, adding a delay if paying back to the anchor owner, and allowing
+ it to be spent by the other party immediately if they possess the revocation
+ preimage, as shown in Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Anchor-revoc-escape"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename dual-anchor-diag3.eps
+	scale 50
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Dual Anchors With Revocable Escape Transactions
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Anchor-revoc-escape"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Unfortunately, this revocation is not a complete solution; if B uses its
+ escape transaction, A can collect B's anchor funds, but it has no way of
+ collecting its own! The commitment transaction cannot be used, as one of
+ its inputs has been spent by B's escape transaction.
+ A's own escape transaction has been revoked, so B would simply steal the
+ funds.
+\end_layout
+
+\begin_layout Standard
+Thus we need an additional construction, such that using one escape transaction
+ immediately unlocks the other anchor funds for its owner.
+ To do this, we ensure that the escape transaction is forced to reveal a
+ secret, which is a fairly well-established technique
+\begin_inset CommandInset citation
+LatexCommand cite
+key "nolan_alt"
+
+\end_inset
+
+.
+ The anchor transaction is modified to either require both signatures (for
+ the commitment transaction), or both signatures and the secret (for the
+ escape transaction), as shown in Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Secret-Revelation-by"
+
+\end_inset
+
+.
+ Note that this requires the other party to provide an alternate key (denoted
+ here using A' and B'), otherwise there is no way to force the escape transactio
+n to provide the secret.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename dual-anchor-diag4.eps
+	scale 50
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Secret Revelation by Escape Transactions
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Secret-Revelation-by"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+That revealed secret can be used with the other alternative: the 
+\emph on
+fast escape transaction.
+
+\emph default
+ This reveals the secret just like the escape transaction, but its output
+ is immediately usable if one knows the other side's secret.
+ This is shown in Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:Final-Dual-Anchor"
+
+\end_inset
+
+.
+ Thus, if the B broadcasts its escape transaction after it has been revoked,
+ A can (after ensuring escape B is sufficiently deep in the block chain)
+ broadcast its fast escape transaction and use B's secret to immediately
+ spend the output.
+\end_layout
+
+\begin_layout Standard
+On the other hand, if B broadcasts its fast escape transaction without knowing
+ A's secret, A can simply wait for the timeout and spend the fast escape
+ output, then use its own fast escape transaction and B's secret to recover
+ its own anchor funds as well.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename dual-anchor-final.eps
+	scale 50
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+Final Dual Anchor Design
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:Final-Dual-Anchor"
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The final scripts are shown in 
+\begin_inset CommandInset ref
+LatexCommand nameref
+reference "sec:Appendix-A:-Scripts"
+
+\end_inset
+
+.
+\end_layout
+
+\begin_layout Subsection
+Disadvantages of The Dual Anchor Approach
+\end_layout
+
+\begin_layout Standard
+Unlike the mutual anchor approach, use of escape transactions is not outsourcabl
+e: you cannot have an untrusted third party which can monitor the network
+ for the other sides' revoked escape transaction and respond with your own
+ escape transaction.
+ If you were to provide a third party with your fast escape transaction,
+ you would necessarily provide it with the secret, which it could give to
+ B.
 \end_layout
 
 \end_body
