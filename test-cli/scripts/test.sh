@@ -28,13 +28,17 @@ send_after_delay()
 		exit 1
 	    fi
 	done
-	# Confirm them.
-	scripts/generate-block.sh
-	echo Waiting for CSV timeout. >&2
-	sleep 61
-	# Move median time, for sure!
-	for i in `seq 11`; do scripts/generate-block.sh; done
     fi
+
+    # Bitcoin still respects lock_time, which is used for HTLCs.
+
+    # Confirm them.
+    scripts/generate-block.sh
+    echo Waiting for CSV timeout. >&2
+    sleep 61
+    # Move median time, for sure!
+    for i in `seq 11`; do scripts/generate-block.sh; done
+	
     for tx; do
 	$CLI sendrawtransaction $tx
     done
