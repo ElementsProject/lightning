@@ -18,6 +18,7 @@
 #include <unistd.h>
 #include <time.h>
 #include "opt_bits.h"
+#include "version.h"
 
 /* Bitcoin nodes are allowed to be 2 hours in the future. */ 
 #define LOCKTIME_MIN (2 * 60 * 60)
@@ -58,6 +59,7 @@ int main(int argc, char *argv[])
 	opt_register_arg("--commitment-fee=<bits>",
 			 opt_set_bits, opt_show_bits, &commit_tx_fee,
 			 "100's of satoshi to pay for commitment");
+	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 

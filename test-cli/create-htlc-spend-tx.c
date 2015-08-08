@@ -16,6 +16,7 @@
 #include "bitcoin/privkey.h"
 #include "protobuf_convert.h"
 #include "find_p2sh_out.h"
+#include "version.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -48,6 +49,7 @@ int main(int argc, char *argv[])
 			   "Create a transaction which spends commit-tx's htlc output, and sends it P2SH to outpubkey\n"
 			   "It relies on timeout, unless --rvalue or --commit-preimage is specified",
 			   "Print this message.");
+	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 

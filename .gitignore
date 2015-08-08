@@ -8,3 +8,4 @@ TAGS
 ccan/tools/configurator/configurator
 libsecp256k1.a
 libsecp256k1.la
+gen_*

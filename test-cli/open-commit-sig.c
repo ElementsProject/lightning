@@ -16,6 +16,7 @@
 #include "bitcoin/privkey.h"
 #include "protobuf_convert.h"
 #include "funding.h"
+#include "version.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -39,6 +40,7 @@ int main(int argc, char *argv[])
 			   "<open-channel-file1> <open-channel-file2> <open-anchor-file1> <commit-privkey>\n"
 			   "Create the signature needed for the commit transaction",
 			   "Print this message.");
+	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 

@@ -21,6 +21,7 @@
 #include <unistd.h>
 #include <time.h>
 #include "opt_bits.h"
+#include "version.h"
 
 int main(int argc, char *argv[])
 {
@@ -44,6 +45,7 @@ int main(int argc, char *argv[])
 			   "<open-channel-file1> <open-channel-file2> <anchor-tx-file> <commit-privkey1>\n"
 			   "A test program to output open_anchor message on stdout.",
 			   "Print this message.");
+	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 

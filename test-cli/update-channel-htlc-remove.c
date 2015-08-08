@@ -15,6 +15,7 @@
 #include "bitcoin/pubkey.h"
 #include "find_p2sh_out.h"
 #include "protobuf_convert.h"
+#include "version.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -31,6 +32,7 @@ int main(int argc, char *argv[])
 			   "<seed> <update-number> <update-pkt>\n"
 			   "Create a new HTLC remove message",
 			   "Print this message.");
+	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 

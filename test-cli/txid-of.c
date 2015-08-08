@@ -6,6 +6,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/err/err.h>
 #include "bitcoin/tx.h"
+#include "version.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -22,6 +23,7 @@ int main(int argc, char *argv[])
 			   "<tx>\n"
 			   "Print txid of the transaction in the file",
 			   "Print this message.");
+	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 

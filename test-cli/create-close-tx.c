@@ -16,6 +16,7 @@
 #include "protobuf_convert.h"
 #include "gather_updates.h"
 #include "funding.h"
+#include "version.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -38,6 +39,7 @@ int main(int argc, char *argv[])
 			   "<open-channel-file1> <open-channel-file2> <open-anchor-file> <close-protobuf> <close-complete-protobuf> [update-protobuf]...\n"
 			   "Create the close transaction from the signatures",
 			   "Print this message.");
+	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 

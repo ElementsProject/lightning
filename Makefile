@@ -1,4 +1,5 @@
 #! /usr/bin/make
+NAME=MtGox's Cold Wallet
 
 # Needs to have oneof support: Ubuntu vivid's is too old :(
 PROTOCC:=protoc-c
@@ -12,11 +13,11 @@ PROGRAMS := test-cli/open-channel test-cli/create-anchor-tx test-cli/open-commit
 
 BITCOIN_OBJS := bitcoin/address.o bitcoin/base58.o bitcoin/pubkey.o bitcoin/script.o bitcoin/shadouble.o bitcoin/signature.o bitcoin/tx.o
 
-HELPER_OBJS := lightning.pb-c.o pkt.o permute_tx.o commit_tx.o opt_bits.o close_tx.o find_p2sh_out.o protobuf_convert.o funding.o test-cli/gather_updates.o
+HELPER_OBJS := lightning.pb-c.o pkt.o permute_tx.o commit_tx.o opt_bits.o close_tx.o find_p2sh_out.o protobuf_convert.o funding.o test-cli/gather_updates.o version.o
 
 CCAN_OBJS := ccan-crypto-sha256.o ccan-crypto-shachain.o ccan-err.o ccan-tal.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-str-hex.o ccan-tal-grab_file.o ccan-noerr.o ccan-crypto-ripemd160.o
 
-HEADERS := $(wildcard *.h) $(wildcard bitcoin/*.h)
+HEADERS := $(filter-out gen_*, $(wildcard *.h)) $(wildcard bitcoin/*.h)
 
 CCANDIR := ccan/
 CFLAGS := -g -Wall -I $(CCANDIR) -I secp256k1/include/ -DVALGRIND_HEADERS=1 $(FEATURES)
@@ -52,6 +53,12 @@ doc/deployable-lightning.pdf: doc/deployable-lightning.lyx doc/bitcoin.bib
 doc/deployable-lightning.tex: doc/deployable-lightning.lyx
 	lyx -E latex $@ $<
 
+gen_version.h: FORCE
+	@(echo "#define VERSION \"`git describe --always --dirty`\"" && echo "#define VERSION_NAME \"$(NAME)\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
+	@if cmp $@.new $@ >/dev/null 2>&2; then rm -f $@.new; else mv $@.new $@; fi
+
+version.o: gen_version.h
+
 update-ccan:
 	mv ccan ccan.old
 	DIR=$$(pwd)/ccan; cd ../ccan && ./tools/create-ccan-tree -a $$DIR `cd $$DIR.old/ccan && find * -name _info | sed s,/_info,, | sort` $(CCAN_NEW)
@@ -63,7 +70,7 @@ update-ccan:
 	$(RM) -r ccan.old
 
 distclean: clean
-	$(RM) lightning.pb-c.c lightning.pb-c.h ccan/config.h
+	$(RM) lightning.pb-c.c lightning.pb-c.h ccan/config.h gen_version.h
 	$(RM) doc/deployable-lightning.pdf
 
 clean:

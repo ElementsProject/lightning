@@ -14,6 +14,7 @@
 #include "bitcoin/pubkey.h"
 #include "bitcoin/privkey.h"
 #include "protobuf_convert.h"
+#include "version.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -37,6 +38,7 @@ int main(int argc, char *argv[])
 			   "<commit-tx> <revocation-preimage> <final-privkey> <open-channel-file1> <open-channel-file2> <outpubkey>\n"
 			   "Create a transaction which spends commit-tx's revocable output, and sends it P2SH to outpubkey",
 			   "Print this message.");
+	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 

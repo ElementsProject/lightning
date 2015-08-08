@@ -18,6 +18,7 @@
 #include "protobuf_convert.h"
 #include "gather_updates.h"
 #include "funding.h"
+#include "version.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -42,6 +43,7 @@ int main(int argc, char *argv[])
 			   "<seed> <open-channel-file1> <open-channel-file2> <open-anchor-file> <commit-privkey> <all-previous-updates>...\n"
 			   "Create a new update-channel-signature message",
 			   "Print this message.");
+	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 

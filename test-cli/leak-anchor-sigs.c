@@ -18,6 +18,7 @@ int main(int argc, char *argv[])
 			   "<open-anchor-sig-file>\n"
 			   "Create LeakAnchorSigsAndPretendWeDidnt to stdout",
 			   "Print this message.");
+	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 

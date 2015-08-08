@@ -14,6 +14,7 @@
 #include "commit_tx.h"
 #include "bitcoin/pubkey.h"
 #include "find_p2sh_out.h"
+#include "version.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -37,6 +38,7 @@ int main(int argc, char *argv[])
 	opt_register_arg("--from-them=<satoshi>",
 			 opt_set_ulonglongval_si, NULL, &from_them,
 			 "Amount to pay us (must use this or --to-them)");
+	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 

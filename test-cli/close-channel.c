@@ -20,6 +20,7 @@
 #include "protobuf_convert.h"
 #include "gather_updates.h"
 #include "opt_bits.h"
+#include "version.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -50,6 +51,7 @@ int main(int argc, char *argv[])
 	opt_register_arg("--close-fee=<bits>",
 			 opt_set_bits, opt_show_bits, &close_fee,
 			 "100's of satoshi to pay for close tx");
+	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 

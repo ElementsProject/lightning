@@ -17,6 +17,7 @@
 #include "protobuf_convert.h"
 #include "gather_updates.h"
 #include "funding.h"
+#include "version.h"
 #include <unistd.h>
 
 /* FIXME: this code doesn't work if we're not the ones proposing the delta */
@@ -40,6 +41,7 @@ int main(int argc, char *argv[])
 			   "<open-channel-file1> <open-channel-file2> <open-anchor-file> <commit-privkey> [<updates>]\n"
 			   "Create the signature needed for the commit transaction",
 			   "Print this message.");
+	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 

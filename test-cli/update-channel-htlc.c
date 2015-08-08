@@ -14,6 +14,7 @@
 #include "commit_tx.h"
 #include "bitcoin/pubkey.h"
 #include "find_p2sh_out.h"
+#include "version.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -32,6 +33,7 @@ int main(int argc, char *argv[])
 			   "<seed> <update-number> <satoshi> <r-value> <abs-locktime-seconds>\n"
 			   "Create a new HTLC update message",
 			   "Print this message.");
+	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
 
