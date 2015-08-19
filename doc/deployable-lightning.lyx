@@ -669,7 +669,7 @@ There's a slightly more intuitive and more efficient method than exchanging
 \end_layout
 
 \begin_layout Standard
-Instead of using a private keys, B uses knowledge of a hash preimage as
+Instead of using a private key, B uses knowledge of a hash preimage as
  well as its signature to steal funds from a revoked commitment transaction.
  Thus, to create a commitment transaction each side provides a hash value;
  to revoke a commitment transaction it provides the prehash image.
@@ -760,7 +760,7 @@ The method of creating the first commitment transaction before signing the
 
 \begin_layout Enumerate
 The anchor transaction id required for the commitment input will only be
- known one the anchor is signed, and
+ known once the anchor is signed, and
 \end_layout
 
 \begin_layout Enumerate
@@ -788,7 +788,7 @@ key "go1111111_single_anchor"
 
 .
  Any bitcoin transaction fees are initially funded by that anchor, but the
- implementation splits fees where possible< and never allows either side
+ implementation splits fees where possible and never allows either side
  to spend funds in the channel if they would no longer be able to pay their
  share.
 \end_layout
