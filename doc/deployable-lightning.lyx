@@ -829,7 +829,8 @@ For each direction the HTLC could transfer funds, there are two scripts
  It's also a requirement that the conditions which allow payment to oneself
  be delayed, to give the other side an opportunity to take the funds in
  case of revocation.
- This is shown in figure 
+ This is shown (omitting the HTLC to-self delays, which depend on the orientatio
+n of payer/payee with respect to A and B) in figure 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "fig:HTLC-Using-Revocation"
@@ -860,7 +861,7 @@ status open
 \begin_inset Caption Standard
 
 \begin_layout Plain Layout
-HTLC Using Revocation Preimages, OP_CLV and OP_CSV
+HTLC Using Revocation Preimages, OP_CLV and OP_CSV (simplified)
 \begin_inset CommandInset label
 LatexCommand label
 name "fig:HTLC-Using-Revocation"
