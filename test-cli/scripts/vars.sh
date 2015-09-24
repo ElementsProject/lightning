@@ -1,6 +1,6 @@
 # Sourced by other scripts
 
-if grep ^FEATURES.*ALPHA ../Makefile; then
+if grep -q ^FEATURES.*ALPHA ../Makefile; then
     STYLE=alpha
     DATADIR=$HOME/.alpha
     REGTESTDIR=alpharegtest
