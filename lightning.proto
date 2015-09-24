@@ -31,12 +31,20 @@ message locktime {
     uint32 seconds = 1;
     uint32 blocks = 2;
   }
-};
+}
 
 // Pubkey for commitment transaction input.
 message bitcoin_pubkey {
   // Either 65 or 33 bytes.
   required bytes key = 1;
+}
+
+// How much a node charges (or pays!) for sending.
+message funding {
+  // Base amount (in satoshi).
+  optional int64 fixed = 1 [ default = 0 ];
+  // This is charge per millionth of a satoshi.
+  optional int32 per_micro_satoshi = 2 [ default = 0 ];
 }
 
 //
@@ -113,6 +121,14 @@ message update_add_htlc {
   // Time at which HTLC expires (absolute)
   required locktime expiry = 4;
   // FIXME: Routing information.
+}
+
+// We can't do this HTLC, sorry.
+message update_decline_htlc {
+  oneof reason {
+    funding insufficient_funds = 1;
+    bool cannot_route = 2;
+  };
 }
 
 // Complete an HTLC
@@ -198,6 +214,7 @@ message pkt {
     update_complete_htlc update_complete_htlc = 6;
     update_remove_htlc update_remove_htlc = 7;
     update_remove_htlc_delay update_remove_htlc_delay = 8;
+    update_decline_htlc update_decline_htlc = 9;
     // Closing
     close_channel close = 401;
     close_channel_complete close_complete = 402;

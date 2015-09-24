@@ -19,12 +19,14 @@ typedef struct _Sha256Hash Sha256Hash;
 typedef struct _Signature Signature;
 typedef struct _Locktime Locktime;
 typedef struct _BitcoinPubkey BitcoinPubkey;
+typedef struct _Funding Funding;
 typedef struct _OpenChannel OpenChannel;
 typedef struct _OpenAnchor OpenAnchor;
 typedef struct _OpenCommitSig OpenCommitSig;
 typedef struct _OpenComplete OpenComplete;
 typedef struct _Update Update;
 typedef struct _UpdateAddHtlc UpdateAddHtlc;
+typedef struct _UpdateDeclineHtlc UpdateDeclineHtlc;
 typedef struct _UpdateCompleteHtlc UpdateCompleteHtlc;
 typedef struct _UpdateRemoveHtlc UpdateRemoveHtlc;
 typedef struct _UpdateRemoveHtlcDelay UpdateRemoveHtlcDelay;
@@ -120,6 +122,28 @@ struct  _BitcoinPubkey
 #define BITCOIN_PUBKEY__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&bitcoin_pubkey__descriptor) \
     , {0,NULL} }
+
+
+/*
+ * How much a node charges (or pays!) for sending.
+ */
+struct  _Funding
+{
+  ProtobufCMessage base;
+  /*
+   * Base amount (in satoshi).
+   */
+  protobuf_c_boolean has_fixed;
+  int64_t fixed;
+  /*
+   * This is charge per millionth of a satoshi.
+   */
+  protobuf_c_boolean has_per_micro_satoshi;
+  int32_t per_micro_satoshi;
+};
+#define FUNDING__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&funding__descriptor) \
+    , 0,0ll, 0,0 }
 
 
 /*
@@ -269,6 +293,29 @@ struct  _UpdateAddHtlc
 #define UPDATE_ADD_HTLC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&update_add_htlc__descriptor) \
     , NULL, 0, NULL, NULL }
+
+
+typedef enum {
+  UPDATE_DECLINE_HTLC__REASON__NOT_SET = 0,
+  UPDATE_DECLINE_HTLC__REASON_INSUFFICIENT_FUNDS = 1,
+  UPDATE_DECLINE_HTLC__REASON_CANNOT_ROUTE = 2,
+} UpdateDeclineHtlc__ReasonCase;
+
+/*
+ * We can't do this HTLC, sorry.
+ */
+struct  _UpdateDeclineHtlc
+{
+  ProtobufCMessage base;
+  UpdateDeclineHtlc__ReasonCase reason_case;
+  union {
+    Funding *insufficient_funds;
+    protobuf_c_boolean cannot_route;
+  };
+};
+#define UPDATE_DECLINE_HTLC__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&update_decline_htlc__descriptor) \
+    , UPDATE_DECLINE_HTLC__REASON__NOT_SET, {} }
 
 
 /*
@@ -449,6 +496,7 @@ typedef enum {
   PKT__PKT_UPDATE_COMPLETE_HTLC = 6,
   PKT__PKT_UPDATE_REMOVE_HTLC = 7,
   PKT__PKT_UPDATE_REMOVE_HTLC_DELAY = 8,
+  PKT__PKT_UPDATE_DECLINE_HTLC = 9,
   PKT__PKT_CLOSE = 401,
   PKT__PKT_CLOSE_COMPLETE = 402,
   PKT__PKT_ERROR = 1000,
@@ -480,6 +528,7 @@ struct  _Pkt
     UpdateCompleteHtlc *update_complete_htlc;
     UpdateRemoveHtlc *update_remove_htlc;
     UpdateRemoveHtlcDelay *update_remove_htlc_delay;
+    UpdateDeclineHtlc *update_decline_htlc;
     /*
      * Closing
      */
@@ -571,6 +620,25 @@ BitcoinPubkey *
                       const uint8_t       *data);
 void   bitcoin_pubkey__free_unpacked
                      (BitcoinPubkey *message,
+                      ProtobufCAllocator *allocator);
+/* Funding methods */
+void   funding__init
+                     (Funding         *message);
+size_t funding__get_packed_size
+                     (const Funding   *message);
+size_t funding__pack
+                     (const Funding   *message,
+                      uint8_t             *out);
+size_t funding__pack_to_buffer
+                     (const Funding   *message,
+                      ProtobufCBuffer     *buffer);
+Funding *
+       funding__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   funding__free_unpacked
+                     (Funding *message,
                       ProtobufCAllocator *allocator);
 /* OpenChannel methods */
 void   open_channel__init
@@ -685,6 +753,25 @@ UpdateAddHtlc *
                       const uint8_t       *data);
 void   update_add_htlc__free_unpacked
                      (UpdateAddHtlc *message,
+                      ProtobufCAllocator *allocator);
+/* UpdateDeclineHtlc methods */
+void   update_decline_htlc__init
+                     (UpdateDeclineHtlc         *message);
+size_t update_decline_htlc__get_packed_size
+                     (const UpdateDeclineHtlc   *message);
+size_t update_decline_htlc__pack
+                     (const UpdateDeclineHtlc   *message,
+                      uint8_t             *out);
+size_t update_decline_htlc__pack_to_buffer
+                     (const UpdateDeclineHtlc   *message,
+                      ProtobufCBuffer     *buffer);
+UpdateDeclineHtlc *
+       update_decline_htlc__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   update_decline_htlc__free_unpacked
+                     (UpdateDeclineHtlc *message,
                       ProtobufCAllocator *allocator);
 /* UpdateCompleteHtlc methods */
 void   update_complete_htlc__init
@@ -890,6 +977,9 @@ typedef void (*Locktime_Closure)
 typedef void (*BitcoinPubkey_Closure)
                  (const BitcoinPubkey *message,
                   void *closure_data);
+typedef void (*Funding_Closure)
+                 (const Funding *message,
+                  void *closure_data);
 typedef void (*OpenChannel_Closure)
                  (const OpenChannel *message,
                   void *closure_data);
@@ -907,6 +997,9 @@ typedef void (*Update_Closure)
                   void *closure_data);
 typedef void (*UpdateAddHtlc_Closure)
                  (const UpdateAddHtlc *message,
+                  void *closure_data);
+typedef void (*UpdateDeclineHtlc_Closure)
+                 (const UpdateDeclineHtlc *message,
                   void *closure_data);
 typedef void (*UpdateCompleteHtlc_Closure)
                  (const UpdateCompleteHtlc *message,
@@ -948,6 +1041,7 @@ extern const ProtobufCMessageDescriptor sha256_hash__descriptor;
 extern const ProtobufCMessageDescriptor signature__descriptor;
 extern const ProtobufCMessageDescriptor locktime__descriptor;
 extern const ProtobufCMessageDescriptor bitcoin_pubkey__descriptor;
+extern const ProtobufCMessageDescriptor funding__descriptor;
 extern const ProtobufCMessageDescriptor open_channel__descriptor;
 extern const ProtobufCEnumDescriptor    open_channel__anchor_offer__descriptor;
 extern const ProtobufCMessageDescriptor open_anchor__descriptor;
@@ -955,6 +1049,7 @@ extern const ProtobufCMessageDescriptor open_commit_sig__descriptor;
 extern const ProtobufCMessageDescriptor open_complete__descriptor;
 extern const ProtobufCMessageDescriptor update__descriptor;
 extern const ProtobufCMessageDescriptor update_add_htlc__descriptor;
+extern const ProtobufCMessageDescriptor update_decline_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_complete_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_remove_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_remove_htlc_delay__descriptor;

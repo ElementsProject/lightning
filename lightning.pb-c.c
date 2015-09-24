@@ -179,6 +179,49 @@ void   bitcoin_pubkey__free_unpacked
   assert(message->base.descriptor == &bitcoin_pubkey__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   funding__init
+                     (Funding         *message)
+{
+  static Funding init_value = FUNDING__INIT;
+  *message = init_value;
+}
+size_t funding__get_packed_size
+                     (const Funding *message)
+{
+  assert(message->base.descriptor == &funding__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t funding__pack
+                     (const Funding *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &funding__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t funding__pack_to_buffer
+                     (const Funding *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &funding__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+Funding *
+       funding__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (Funding *)
+     protobuf_c_message_unpack (&funding__descriptor,
+                                allocator, len, data);
+}
+void   funding__free_unpacked
+                     (Funding *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &funding__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
 void   open_channel__init
                      (OpenChannel         *message)
 {
@@ -435,6 +478,49 @@ void   update_add_htlc__free_unpacked
                       ProtobufCAllocator *allocator)
 {
   assert(message->base.descriptor == &update_add_htlc__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
+void   update_decline_htlc__init
+                     (UpdateDeclineHtlc         *message)
+{
+  static UpdateDeclineHtlc init_value = UPDATE_DECLINE_HTLC__INIT;
+  *message = init_value;
+}
+size_t update_decline_htlc__get_packed_size
+                     (const UpdateDeclineHtlc *message)
+{
+  assert(message->base.descriptor == &update_decline_htlc__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t update_decline_htlc__pack
+                     (const UpdateDeclineHtlc *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &update_decline_htlc__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t update_decline_htlc__pack_to_buffer
+                     (const UpdateDeclineHtlc *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &update_decline_htlc__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+UpdateDeclineHtlc *
+       update_decline_htlc__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (UpdateDeclineHtlc *)
+     protobuf_c_message_unpack (&update_decline_htlc__descriptor,
+                                allocator, len, data);
+}
+void   update_decline_htlc__free_unpacked
+                     (UpdateDeclineHtlc *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &update_decline_htlc__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   update_complete_htlc__init
@@ -1162,6 +1248,59 @@ const ProtobufCMessageDescriptor bitcoin_pubkey__descriptor =
   (ProtobufCMessageInit) bitcoin_pubkey__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
+static const int64_t funding__fixed__default_value = 0ll;
+static const int32_t funding__per_micro_satoshi__default_value = 0;
+static const ProtobufCFieldDescriptor funding__field_descriptors[2] =
+{
+  {
+    "fixed",
+    1,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_INT64,
+    offsetof(Funding, has_fixed),
+    offsetof(Funding, fixed),
+    NULL,
+    &funding__fixed__default_value,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "per_micro_satoshi",
+    2,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_INT32,
+    offsetof(Funding, has_per_micro_satoshi),
+    offsetof(Funding, per_micro_satoshi),
+    NULL,
+    &funding__per_micro_satoshi__default_value,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned funding__field_indices_by_name[] = {
+  0,   /* field[0] = fixed */
+  1,   /* field[1] = per_micro_satoshi */
+};
+static const ProtobufCIntRange funding__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 2 }
+};
+const ProtobufCMessageDescriptor funding__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "funding",
+  "Funding",
+  "Funding",
+  "",
+  sizeof(Funding),
+  2,
+  funding__field_descriptors,
+  funding__field_indices_by_name,
+  1,  funding__number_ranges,
+  (ProtobufCMessageInit) funding__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
 static const ProtobufCEnumValue open_channel__anchor_offer__enum_values_by_number[2] =
 {
   { "WILL_CREATE_ANCHOR", "OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR", 1 },
@@ -1589,6 +1728,57 @@ const ProtobufCMessageDescriptor update_add_htlc__descriptor =
   (ProtobufCMessageInit) update_add_htlc__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
+static const ProtobufCFieldDescriptor update_decline_htlc__field_descriptors[2] =
+{
+  {
+    "insufficient_funds",
+    1,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(UpdateDeclineHtlc, reason_case),
+    offsetof(UpdateDeclineHtlc, insufficient_funds),
+    &funding__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "cannot_route",
+    2,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_BOOL,
+    offsetof(UpdateDeclineHtlc, reason_case),
+    offsetof(UpdateDeclineHtlc, cannot_route),
+    NULL,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned update_decline_htlc__field_indices_by_name[] = {
+  1,   /* field[1] = cannot_route */
+  0,   /* field[0] = insufficient_funds */
+};
+static const ProtobufCIntRange update_decline_htlc__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 2 }
+};
+const ProtobufCMessageDescriptor update_decline_htlc__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "update_decline_htlc",
+  "UpdateDeclineHtlc",
+  "UpdateDeclineHtlc",
+  "",
+  sizeof(UpdateDeclineHtlc),
+  2,
+  update_decline_htlc__field_descriptors,
+  update_decline_htlc__field_indices_by_name,
+  1,  update_decline_htlc__number_ranges,
+  (ProtobufCMessageInit) update_decline_htlc__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
 static const ProtobufCFieldDescriptor update_complete_htlc__field_descriptors[2] =
 {
   {
@@ -1999,7 +2189,7 @@ const ProtobufCMessageDescriptor error__descriptor =
   (ProtobufCMessageInit) error__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor pkt__field_descriptors[15] =
+static const ProtobufCFieldDescriptor pkt__field_descriptors[16] =
 {
   {
     "update",
@@ -2098,6 +2288,18 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[15] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
+    "update_decline_htlc",
+    9,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Pkt, pkt_case),
+    offsetof(Pkt, update_decline_htlc),
+    &update_decline_htlc__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
     "open",
     201,
     PROTOBUF_C_LABEL_OPTIONAL,
@@ -2183,18 +2385,19 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[15] =
   },
 };
 static const unsigned pkt__field_indices_by_name[] = {
-  12,   /* field[12] = close */
-  13,   /* field[13] = close_complete */
-  14,   /* field[14] = error */
-  8,   /* field[8] = open */
-  9,   /* field[9] = open_anchor */
-  10,   /* field[10] = open_commit_sig */
-  11,   /* field[11] = open_complete */
+  13,   /* field[13] = close */
+  14,   /* field[14] = close_complete */
+  15,   /* field[15] = error */
+  9,   /* field[9] = open */
+  10,   /* field[10] = open_anchor */
+  11,   /* field[11] = open_commit_sig */
+  12,   /* field[12] = open_complete */
   0,   /* field[0] = update */
   2,   /* field[2] = update_accept */
   1,   /* field[1] = update_add_htlc */
   4,   /* field[4] = update_complete */
   5,   /* field[5] = update_complete_htlc */
+  8,   /* field[8] = update_decline_htlc */
   6,   /* field[6] = update_remove_htlc */
   7,   /* field[7] = update_remove_htlc_delay */
   3,   /* field[3] = update_signature */
@@ -2202,10 +2405,10 @@ static const unsigned pkt__field_indices_by_name[] = {
 static const ProtobufCIntRange pkt__number_ranges[4 + 1] =
 {
   { 1, 0 },
-  { 201, 8 },
-  { 401, 12 },
-  { 1000, 14 },
-  { 0, 15 }
+  { 201, 9 },
+  { 401, 13 },
+  { 1000, 15 },
+  { 0, 16 }
 };
 const ProtobufCMessageDescriptor pkt__descriptor =
 {
@@ -2215,7 +2418,7 @@ const ProtobufCMessageDescriptor pkt__descriptor =
   "Pkt",
   "",
   sizeof(Pkt),
-  15,
+  16,
   pkt__field_descriptors,
   pkt__field_indices_by_name,
   4,  pkt__number_ranges,
