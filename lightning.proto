@@ -123,7 +123,7 @@ message update_add_htlc {
   // FIXME: Routing information.
 }
 
-// We can't do this HTLC, sorry.
+// We can't do this HTLC, sorry (instead of update_accept)
 message update_decline_htlc {
   oneof reason {
     funding insufficient_funds = 1;
@@ -131,7 +131,7 @@ message update_decline_htlc {
   };
 }
 
-// Complete an HTLC
+// Complete your HTLC: I have the R value, pay me!
 message update_complete_htlc {
   // Hash for which I will supply preimage to revoke this commitment tx.
   required sha256_hash revocation_hash = 1;
@@ -139,22 +139,23 @@ message update_complete_htlc {
   required sha256_hash r = 3;
 }
 
-// Remove an HTLC
-message update_remove_htlc {
+// Remove my HTLC: it has timed out, before you got the R value.
+message update_timedout_htlc {
   // Hash for which I will supply preimage to revoke this commitment tx.
   required sha256_hash revocation_hash = 1;
   // Hash for HTLC R value.
   required sha256_hash r_hash = 3;
 }
 
-// Respond to an HTLC remove request: not yet.
-// Expect a remove_htlc later.
-message update_remove_htlc_delay {
+// Remove your HTLC: routing has failed upstream
+message update_routefail_htlc {
+  // Hash for which I will supply preimage to revoke this commitment tx.
+  required sha256_hash revocation_hash = 1;
   // Hash for HTLC R value.
-  required sha256_hash r_hash = 1;
+  required sha256_hash r_hash = 3;
 }
 
-  // OK, I accept that update; here's your signature.
+// OK, I accept that update; here's your signature.
 message update_accept {
   // Signature for your new commitment tx.
   required signature sig = 1;
@@ -211,10 +212,10 @@ message pkt {
     update_accept update_accept = 3;
     update_signature update_signature = 4;
     update_complete update_complete = 5;
-    update_complete_htlc update_complete_htlc = 6;
-    update_remove_htlc update_remove_htlc = 7;
-    update_remove_htlc_delay update_remove_htlc_delay = 8;
-    update_decline_htlc update_decline_htlc = 9;
+    update_decline_htlc update_decline_htlc = 6;
+    update_complete_htlc update_complete_htlc = 7;
+    update_timedout_htlc update_timedout_htlc = 8;
+    update_routefail_htlc update_routefail_htlc = 9;
     // Closing
     close_channel close = 401;
     close_channel_complete close_complete = 402;

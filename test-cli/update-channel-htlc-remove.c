@@ -25,13 +25,16 @@ int main(int argc, char *argv[])
 	struct pkt *pkt;
 	unsigned update_num;
 	UpdateAddHtlc *u;
+	bool routefail = false;
 
 	err_set_progname(argv[0]);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "<seed> <update-number> <update-pkt>\n"
-			   "Create a new HTLC remove message",
+			   "Create a new HTLC (timedout) remove message",
 			   "Print this message.");
+	opt_register_noarg("--routefail", opt_set_bool, &routefail,
+			   "Generate a routefail instead of timedout");
 	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
@@ -53,7 +56,12 @@ int main(int argc, char *argv[])
 	sha256(&revocation_hash,
 	       revocation_hash.u.u8, sizeof(revocation_hash.u.u8));
 
-	pkt = update_htlc_remove_pkt(ctx, &revocation_hash, &htlc_rhash);
+	if (routefail)
+		pkt = update_htlc_routefail_pkt(ctx, &revocation_hash,
+						&htlc_rhash);
+	else
+		pkt = update_htlc_timedout_pkt(ctx, &revocation_hash,
+					       &htlc_rhash);
 	if (!write_all(STDOUT_FILENO, pkt, pkt_totlen(pkt)))
 		err(1, "Writing out packet");
 

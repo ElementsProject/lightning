@@ -167,10 +167,10 @@ struct channel_state *gather_updates(const tal_t *ctx,
 				     our_rhash, their_rhash);
 			break;
 
-		case PKT__PKT_UPDATE_REMOVE_HTLC:
+		case PKT__PKT_UPDATE_TIMEDOUT_HTLC:
 			if (received) {
 				n = find_htlc(&cstate->b,
-					      pkt->update_remove_htlc->r_hash);
+					      pkt->update_timedout_htlc->r_hash);
 				if (n == tal_count(cstate->b.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
 				amount = cstate->b.htlcs[n]->amount_msat;
@@ -181,7 +181,7 @@ struct channel_state *gather_updates(const tal_t *ctx,
 				remove_htlc(&cstate->b, n);
 			} else {
 				n = find_htlc(&cstate->a,
-					      pkt->update_remove_htlc->r_hash);
+					      pkt->update_timedout_htlc->r_hash);
 				if (n == tal_count(cstate->a.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
 				amount = cstate->a.htlcs[n]->amount_msat;
@@ -191,12 +191,43 @@ struct channel_state *gather_updates(const tal_t *ctx,
 					     (long long)amount, *argv);
 				remove_htlc(&cstate->a, n);
 			}
-			update_rhash(pkt->update_remove_htlc->revocation_hash,
+			update_rhash(pkt->update_timedout_htlc->revocation_hash,
 				     received, num_updates,
 				     &old_our_rhash, &old_their_rhash,
 				     our_rhash, their_rhash);
 			break;
 
+		/* HTLC acceptor sends this to initiator. */
+		case PKT__PKT_UPDATE_ROUTEFAIL_HTLC:
+			if (received) {
+				n = find_htlc(&cstate->a,
+					      pkt->update_routefail_htlc->r_hash);
+				if (n == tal_count(cstate->a.htlcs))
+					errx(1, "Unknown R hash in %s", *argv);
+				amount = cstate->a.htlcs[n]->amount;
+				if (!funding_delta(o1, o2, oa, 0, -amount,
+						   &cstate->a, &cstate->b))
+					errx(1, "Impossible htlc %llu %s",
+					     (long long)amount, *argv);
+				remove_htlc(&cstate->a, n);
+			} else {
+				n = find_htlc(&cstate->b,
+					      pkt->update_routefail_htlc->r_hash);
+				if (n == tal_count(cstate->b.htlcs))
+					errx(1, "Unknown R hash in %s", *argv);
+				amount = cstate->b.htlcs[n]->amount;
+				if (!funding_delta(o2, o1, oa, 0, -amount,
+						   &cstate->b, &cstate->a))
+					errx(1, "Impossible htlc %llu %s",
+					     (long long)amount, *argv);
+				remove_htlc(&cstate->b, n);
+			}
+			update_rhash(pkt->update_routefail_htlc->revocation_hash,
+				     received, num_updates,
+				     &old_our_rhash, &old_their_rhash,
+				     our_rhash, their_rhash);
+			break;
+			
 		case PKT__PKT_UPDATE_COMPLETE_HTLC: {
 			struct sha256 r_hash, r_val;
 			Sha256Hash *rh;

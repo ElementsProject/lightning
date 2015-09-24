@@ -28,8 +28,8 @@ typedef struct _Update Update;
 typedef struct _UpdateAddHtlc UpdateAddHtlc;
 typedef struct _UpdateDeclineHtlc UpdateDeclineHtlc;
 typedef struct _UpdateCompleteHtlc UpdateCompleteHtlc;
-typedef struct _UpdateRemoveHtlc UpdateRemoveHtlc;
-typedef struct _UpdateRemoveHtlcDelay UpdateRemoveHtlcDelay;
+typedef struct _UpdateTimedoutHtlc UpdateTimedoutHtlc;
+typedef struct _UpdateRoutefailHtlc UpdateRoutefailHtlc;
 typedef struct _UpdateAccept UpdateAccept;
 typedef struct _UpdateSignature UpdateSignature;
 typedef struct _UpdateComplete UpdateComplete;
@@ -302,7 +302,7 @@ typedef enum {
 } UpdateDeclineHtlc__ReasonCase;
 
 /*
- * We can't do this HTLC, sorry.
+ * We can't do this HTLC, sorry (instead of update_accept)
  */
 struct  _UpdateDeclineHtlc
 {
@@ -319,7 +319,7 @@ struct  _UpdateDeclineHtlc
 
 
 /*
- * Complete an HTLC
+ * Complete your HTLC: I have the R value, pay me!
  */
 struct  _UpdateCompleteHtlc
 {
@@ -339,9 +339,9 @@ struct  _UpdateCompleteHtlc
 
 
 /*
- * Remove an HTLC
+ * Remove my HTLC: it has timed out, before you got the R value.
  */
-struct  _UpdateRemoveHtlc
+struct  _UpdateTimedoutHtlc
 {
   ProtobufCMessage base;
   /*
@@ -353,26 +353,29 @@ struct  _UpdateRemoveHtlc
    */
   Sha256Hash *r_hash;
 };
-#define UPDATE_REMOVE_HTLC__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&update_remove_htlc__descriptor) \
+#define UPDATE_TIMEDOUT_HTLC__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&update_timedout_htlc__descriptor) \
     , NULL, NULL }
 
 
 /*
- * Respond to an HTLC remove request: not yet.
- * Expect a remove_htlc later.
+ * Remove your HTLC: routing has failed upstream
  */
-struct  _UpdateRemoveHtlcDelay
+struct  _UpdateRoutefailHtlc
 {
   ProtobufCMessage base;
+  /*
+   * Hash for which I will supply preimage to revoke this commitment tx.
+   */
+  Sha256Hash *revocation_hash;
   /*
    * Hash for HTLC R value.
    */
   Sha256Hash *r_hash;
 };
-#define UPDATE_REMOVE_HTLC_DELAY__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&update_remove_htlc_delay__descriptor) \
-    , NULL }
+#define UPDATE_ROUTEFAIL_HTLC__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&update_routefail_htlc__descriptor) \
+    , NULL, NULL }
 
 
 /*
@@ -493,10 +496,10 @@ typedef enum {
   PKT__PKT_UPDATE_ACCEPT = 3,
   PKT__PKT_UPDATE_SIGNATURE = 4,
   PKT__PKT_UPDATE_COMPLETE = 5,
-  PKT__PKT_UPDATE_COMPLETE_HTLC = 6,
-  PKT__PKT_UPDATE_REMOVE_HTLC = 7,
-  PKT__PKT_UPDATE_REMOVE_HTLC_DELAY = 8,
-  PKT__PKT_UPDATE_DECLINE_HTLC = 9,
+  PKT__PKT_UPDATE_DECLINE_HTLC = 6,
+  PKT__PKT_UPDATE_COMPLETE_HTLC = 7,
+  PKT__PKT_UPDATE_TIMEDOUT_HTLC = 8,
+  PKT__PKT_UPDATE_ROUTEFAIL_HTLC = 9,
   PKT__PKT_CLOSE = 401,
   PKT__PKT_CLOSE_COMPLETE = 402,
   PKT__PKT_ERROR = 1000,
@@ -525,10 +528,10 @@ struct  _Pkt
     UpdateAccept *update_accept;
     UpdateSignature *update_signature;
     UpdateComplete *update_complete;
-    UpdateCompleteHtlc *update_complete_htlc;
-    UpdateRemoveHtlc *update_remove_htlc;
-    UpdateRemoveHtlcDelay *update_remove_htlc_delay;
     UpdateDeclineHtlc *update_decline_htlc;
+    UpdateCompleteHtlc *update_complete_htlc;
+    UpdateTimedoutHtlc *update_timedout_htlc;
+    UpdateRoutefailHtlc *update_routefail_htlc;
     /*
      * Closing
      */
@@ -792,43 +795,43 @@ UpdateCompleteHtlc *
 void   update_complete_htlc__free_unpacked
                      (UpdateCompleteHtlc *message,
                       ProtobufCAllocator *allocator);
-/* UpdateRemoveHtlc methods */
-void   update_remove_htlc__init
-                     (UpdateRemoveHtlc         *message);
-size_t update_remove_htlc__get_packed_size
-                     (const UpdateRemoveHtlc   *message);
-size_t update_remove_htlc__pack
-                     (const UpdateRemoveHtlc   *message,
+/* UpdateTimedoutHtlc methods */
+void   update_timedout_htlc__init
+                     (UpdateTimedoutHtlc         *message);
+size_t update_timedout_htlc__get_packed_size
+                     (const UpdateTimedoutHtlc   *message);
+size_t update_timedout_htlc__pack
+                     (const UpdateTimedoutHtlc   *message,
                       uint8_t             *out);
-size_t update_remove_htlc__pack_to_buffer
-                     (const UpdateRemoveHtlc   *message,
+size_t update_timedout_htlc__pack_to_buffer
+                     (const UpdateTimedoutHtlc   *message,
                       ProtobufCBuffer     *buffer);
-UpdateRemoveHtlc *
-       update_remove_htlc__unpack
+UpdateTimedoutHtlc *
+       update_timedout_htlc__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   update_remove_htlc__free_unpacked
-                     (UpdateRemoveHtlc *message,
+void   update_timedout_htlc__free_unpacked
+                     (UpdateTimedoutHtlc *message,
                       ProtobufCAllocator *allocator);
-/* UpdateRemoveHtlcDelay methods */
-void   update_remove_htlc_delay__init
-                     (UpdateRemoveHtlcDelay         *message);
-size_t update_remove_htlc_delay__get_packed_size
-                     (const UpdateRemoveHtlcDelay   *message);
-size_t update_remove_htlc_delay__pack
-                     (const UpdateRemoveHtlcDelay   *message,
+/* UpdateRoutefailHtlc methods */
+void   update_routefail_htlc__init
+                     (UpdateRoutefailHtlc         *message);
+size_t update_routefail_htlc__get_packed_size
+                     (const UpdateRoutefailHtlc   *message);
+size_t update_routefail_htlc__pack
+                     (const UpdateRoutefailHtlc   *message,
                       uint8_t             *out);
-size_t update_remove_htlc_delay__pack_to_buffer
-                     (const UpdateRemoveHtlcDelay   *message,
+size_t update_routefail_htlc__pack_to_buffer
+                     (const UpdateRoutefailHtlc   *message,
                       ProtobufCBuffer     *buffer);
-UpdateRemoveHtlcDelay *
-       update_remove_htlc_delay__unpack
+UpdateRoutefailHtlc *
+       update_routefail_htlc__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   update_remove_htlc_delay__free_unpacked
-                     (UpdateRemoveHtlcDelay *message,
+void   update_routefail_htlc__free_unpacked
+                     (UpdateRoutefailHtlc *message,
                       ProtobufCAllocator *allocator);
 /* UpdateAccept methods */
 void   update_accept__init
@@ -1004,11 +1007,11 @@ typedef void (*UpdateDeclineHtlc_Closure)
 typedef void (*UpdateCompleteHtlc_Closure)
                  (const UpdateCompleteHtlc *message,
                   void *closure_data);
-typedef void (*UpdateRemoveHtlc_Closure)
-                 (const UpdateRemoveHtlc *message,
+typedef void (*UpdateTimedoutHtlc_Closure)
+                 (const UpdateTimedoutHtlc *message,
                   void *closure_data);
-typedef void (*UpdateRemoveHtlcDelay_Closure)
-                 (const UpdateRemoveHtlcDelay *message,
+typedef void (*UpdateRoutefailHtlc_Closure)
+                 (const UpdateRoutefailHtlc *message,
                   void *closure_data);
 typedef void (*UpdateAccept_Closure)
                  (const UpdateAccept *message,
@@ -1051,8 +1054,8 @@ extern const ProtobufCMessageDescriptor update__descriptor;
 extern const ProtobufCMessageDescriptor update_add_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_decline_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_complete_htlc__descriptor;
-extern const ProtobufCMessageDescriptor update_remove_htlc__descriptor;
-extern const ProtobufCMessageDescriptor update_remove_htlc_delay__descriptor;
+extern const ProtobufCMessageDescriptor update_timedout_htlc__descriptor;
+extern const ProtobufCMessageDescriptor update_routefail_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_accept__descriptor;
 extern const ProtobufCMessageDescriptor update_signature__descriptor;
 extern const ProtobufCMessageDescriptor update_complete__descriptor;

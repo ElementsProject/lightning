@@ -566,90 +566,90 @@ void   update_complete_htlc__free_unpacked
   assert(message->base.descriptor == &update_complete_htlc__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   update_remove_htlc__init
-                     (UpdateRemoveHtlc         *message)
+void   update_timedout_htlc__init
+                     (UpdateTimedoutHtlc         *message)
 {
-  static UpdateRemoveHtlc init_value = UPDATE_REMOVE_HTLC__INIT;
+  static UpdateTimedoutHtlc init_value = UPDATE_TIMEDOUT_HTLC__INIT;
   *message = init_value;
 }
-size_t update_remove_htlc__get_packed_size
-                     (const UpdateRemoveHtlc *message)
+size_t update_timedout_htlc__get_packed_size
+                     (const UpdateTimedoutHtlc *message)
 {
-  assert(message->base.descriptor == &update_remove_htlc__descriptor);
+  assert(message->base.descriptor == &update_timedout_htlc__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t update_remove_htlc__pack
-                     (const UpdateRemoveHtlc *message,
+size_t update_timedout_htlc__pack
+                     (const UpdateTimedoutHtlc *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &update_remove_htlc__descriptor);
+  assert(message->base.descriptor == &update_timedout_htlc__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t update_remove_htlc__pack_to_buffer
-                     (const UpdateRemoveHtlc *message,
+size_t update_timedout_htlc__pack_to_buffer
+                     (const UpdateTimedoutHtlc *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &update_remove_htlc__descriptor);
+  assert(message->base.descriptor == &update_timedout_htlc__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-UpdateRemoveHtlc *
-       update_remove_htlc__unpack
+UpdateTimedoutHtlc *
+       update_timedout_htlc__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (UpdateRemoveHtlc *)
-     protobuf_c_message_unpack (&update_remove_htlc__descriptor,
+  return (UpdateTimedoutHtlc *)
+     protobuf_c_message_unpack (&update_timedout_htlc__descriptor,
                                 allocator, len, data);
 }
-void   update_remove_htlc__free_unpacked
-                     (UpdateRemoveHtlc *message,
+void   update_timedout_htlc__free_unpacked
+                     (UpdateTimedoutHtlc *message,
                       ProtobufCAllocator *allocator)
 {
-  assert(message->base.descriptor == &update_remove_htlc__descriptor);
+  assert(message->base.descriptor == &update_timedout_htlc__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   update_remove_htlc_delay__init
-                     (UpdateRemoveHtlcDelay         *message)
+void   update_routefail_htlc__init
+                     (UpdateRoutefailHtlc         *message)
 {
-  static UpdateRemoveHtlcDelay init_value = UPDATE_REMOVE_HTLC_DELAY__INIT;
+  static UpdateRoutefailHtlc init_value = UPDATE_ROUTEFAIL_HTLC__INIT;
   *message = init_value;
 }
-size_t update_remove_htlc_delay__get_packed_size
-                     (const UpdateRemoveHtlcDelay *message)
+size_t update_routefail_htlc__get_packed_size
+                     (const UpdateRoutefailHtlc *message)
 {
-  assert(message->base.descriptor == &update_remove_htlc_delay__descriptor);
+  assert(message->base.descriptor == &update_routefail_htlc__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t update_remove_htlc_delay__pack
-                     (const UpdateRemoveHtlcDelay *message,
+size_t update_routefail_htlc__pack
+                     (const UpdateRoutefailHtlc *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &update_remove_htlc_delay__descriptor);
+  assert(message->base.descriptor == &update_routefail_htlc__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t update_remove_htlc_delay__pack_to_buffer
-                     (const UpdateRemoveHtlcDelay *message,
+size_t update_routefail_htlc__pack_to_buffer
+                     (const UpdateRoutefailHtlc *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &update_remove_htlc_delay__descriptor);
+  assert(message->base.descriptor == &update_routefail_htlc__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-UpdateRemoveHtlcDelay *
-       update_remove_htlc_delay__unpack
+UpdateRoutefailHtlc *
+       update_routefail_htlc__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (UpdateRemoveHtlcDelay *)
-     protobuf_c_message_unpack (&update_remove_htlc_delay__descriptor,
+  return (UpdateRoutefailHtlc *)
+     protobuf_c_message_unpack (&update_routefail_htlc__descriptor,
                                 allocator, len, data);
 }
-void   update_remove_htlc_delay__free_unpacked
-                     (UpdateRemoveHtlcDelay *message,
+void   update_routefail_htlc__free_unpacked
+                     (UpdateRoutefailHtlc *message,
                       ProtobufCAllocator *allocator)
 {
-  assert(message->base.descriptor == &update_remove_htlc_delay__descriptor);
+  assert(message->base.descriptor == &update_routefail_htlc__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   update_accept__init
@@ -1831,7 +1831,7 @@ const ProtobufCMessageDescriptor update_complete_htlc__descriptor =
   (ProtobufCMessageInit) update_complete_htlc__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor update_remove_htlc__field_descriptors[2] =
+static const ProtobufCFieldDescriptor update_timedout_htlc__field_descriptors[2] =
 {
   {
     "revocation_hash",
@@ -1839,7 +1839,7 @@ static const ProtobufCFieldDescriptor update_remove_htlc__field_descriptors[2] =
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(UpdateRemoveHtlc, revocation_hash),
+    offsetof(UpdateTimedoutHtlc, revocation_hash),
     &sha256_hash__descriptor,
     NULL,
     0,             /* flags */
@@ -1851,74 +1851,88 @@ static const ProtobufCFieldDescriptor update_remove_htlc__field_descriptors[2] =
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(UpdateRemoveHtlc, r_hash),
+    offsetof(UpdateTimedoutHtlc, r_hash),
     &sha256_hash__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned update_remove_htlc__field_indices_by_name[] = {
+static const unsigned update_timedout_htlc__field_indices_by_name[] = {
   1,   /* field[1] = r_hash */
   0,   /* field[0] = revocation_hash */
 };
-static const ProtobufCIntRange update_remove_htlc__number_ranges[2 + 1] =
+static const ProtobufCIntRange update_timedout_htlc__number_ranges[2 + 1] =
 {
   { 1, 0 },
   { 3, 1 },
   { 0, 2 }
 };
-const ProtobufCMessageDescriptor update_remove_htlc__descriptor =
+const ProtobufCMessageDescriptor update_timedout_htlc__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "update_remove_htlc",
-  "UpdateRemoveHtlc",
-  "UpdateRemoveHtlc",
+  "update_timedout_htlc",
+  "UpdateTimedoutHtlc",
+  "UpdateTimedoutHtlc",
   "",
-  sizeof(UpdateRemoveHtlc),
+  sizeof(UpdateTimedoutHtlc),
   2,
-  update_remove_htlc__field_descriptors,
-  update_remove_htlc__field_indices_by_name,
-  2,  update_remove_htlc__number_ranges,
-  (ProtobufCMessageInit) update_remove_htlc__init,
+  update_timedout_htlc__field_descriptors,
+  update_timedout_htlc__field_indices_by_name,
+  2,  update_timedout_htlc__number_ranges,
+  (ProtobufCMessageInit) update_timedout_htlc__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor update_remove_htlc_delay__field_descriptors[1] =
+static const ProtobufCFieldDescriptor update_routefail_htlc__field_descriptors[2] =
 {
   {
-    "r_hash",
+    "revocation_hash",
     1,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(UpdateRemoveHtlcDelay, r_hash),
+    offsetof(UpdateRoutefailHtlc, revocation_hash),
+    &sha256_hash__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "r_hash",
+    3,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(UpdateRoutefailHtlc, r_hash),
     &sha256_hash__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned update_remove_htlc_delay__field_indices_by_name[] = {
-  0,   /* field[0] = r_hash */
+static const unsigned update_routefail_htlc__field_indices_by_name[] = {
+  1,   /* field[1] = r_hash */
+  0,   /* field[0] = revocation_hash */
 };
-static const ProtobufCIntRange update_remove_htlc_delay__number_ranges[1 + 1] =
+static const ProtobufCIntRange update_routefail_htlc__number_ranges[2 + 1] =
 {
   { 1, 0 },
-  { 0, 1 }
+  { 3, 1 },
+  { 0, 2 }
 };
-const ProtobufCMessageDescriptor update_remove_htlc_delay__descriptor =
+const ProtobufCMessageDescriptor update_routefail_htlc__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "update_remove_htlc_delay",
-  "UpdateRemoveHtlcDelay",
-  "UpdateRemoveHtlcDelay",
+  "update_routefail_htlc",
+  "UpdateRoutefailHtlc",
+  "UpdateRoutefailHtlc",
   "",
-  sizeof(UpdateRemoveHtlcDelay),
-  1,
-  update_remove_htlc_delay__field_descriptors,
-  update_remove_htlc_delay__field_indices_by_name,
-  1,  update_remove_htlc_delay__number_ranges,
-  (ProtobufCMessageInit) update_remove_htlc_delay__init,
+  sizeof(UpdateRoutefailHtlc),
+  2,
+  update_routefail_htlc__field_descriptors,
+  update_routefail_htlc__field_indices_by_name,
+  2,  update_routefail_htlc__number_ranges,
+  (ProtobufCMessageInit) update_routefail_htlc__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCFieldDescriptor update_accept__field_descriptors[2] =
@@ -2252,8 +2266,20 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[16] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "update_complete_htlc",
+    "update_decline_htlc",
     6,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Pkt, pkt_case),
+    offsetof(Pkt, update_decline_htlc),
+    &update_decline_htlc__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "update_complete_htlc",
+    7,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
@@ -2264,37 +2290,25 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[16] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "update_remove_htlc",
-    7,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Pkt, pkt_case),
-    offsetof(Pkt, update_remove_htlc),
-    &update_remove_htlc__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "update_remove_htlc_delay",
+    "update_timedout_htlc",
     8,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
-    offsetof(Pkt, update_remove_htlc_delay),
-    &update_remove_htlc_delay__descriptor,
+    offsetof(Pkt, update_timedout_htlc),
+    &update_timedout_htlc__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "update_decline_htlc",
+    "update_routefail_htlc",
     9,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
-    offsetof(Pkt, update_decline_htlc),
-    &update_decline_htlc__descriptor,
+    offsetof(Pkt, update_routefail_htlc),
+    &update_routefail_htlc__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -2396,11 +2410,11 @@ static const unsigned pkt__field_indices_by_name[] = {
   2,   /* field[2] = update_accept */
   1,   /* field[1] = update_add_htlc */
   4,   /* field[4] = update_complete */
-  5,   /* field[5] = update_complete_htlc */
-  8,   /* field[8] = update_decline_htlc */
-  6,   /* field[6] = update_remove_htlc */
-  7,   /* field[7] = update_remove_htlc_delay */
+  6,   /* field[6] = update_complete_htlc */
+  5,   /* field[5] = update_decline_htlc */
+  8,   /* field[8] = update_routefail_htlc */
   3,   /* field[3] = update_signature */
+  7,   /* field[7] = update_timedout_htlc */
 };
 static const ProtobufCIntRange pkt__number_ranges[4 + 1] =
 {
