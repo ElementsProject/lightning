@@ -54,13 +54,13 @@ message funding {
 // Set channel params.
 message open_channel {
   // Relative locktime for outputs going to us.
-  required locktime delay = 2;
+  required locktime delay = 1;
   // Hash for revoking first commitment transaction.
-  required sha256_hash revocation_hash = 4;
+  required sha256_hash revocation_hash = 2;
   // Pubkey for anchor to pay into commitment tx.
-  required bitcoin_pubkey commit_key = 5;
+  required bitcoin_pubkey commit_key = 3;
   // How to pay money to us from commit_tx.
-  required bitcoin_pubkey final_key = 1;
+  required bitcoin_pubkey final_key = 4;
 
   enum anchor_offer {
     // I will create the anchor
@@ -68,13 +68,13 @@ message open_channel {
     // I won't create the anchor
     WONT_CREATE_ANCHOR = 2;
   }
-  required anchor_offer anch = 6;
+  required anchor_offer anch = 5;
 
   // How far must anchor be buried before we consider channel live?
-  optional uint32 min_depth = 7 [ default = 0 ];
+  optional uint32 min_depth = 6 [ default = 0 ];
 
   // How much fee would I like on commitment tx?
-  required uint64 commitment_fee = 8;
+  required uint64 commitment_fee = 7;
 }
 
 // Whoever is supplying anchor sends this.
@@ -136,7 +136,7 @@ message update_complete_htlc {
   // Hash for which I will supply preimage to revoke this commitment tx.
   required sha256_hash revocation_hash = 1;
   // HTLC R value.
-  required sha256_hash r = 3;
+  required sha256_hash r = 2;
 }
 
 // Remove my HTLC: it has timed out, before you got the R value.
@@ -144,7 +144,7 @@ message update_timedout_htlc {
   // Hash for which I will supply preimage to revoke this commitment tx.
   required sha256_hash revocation_hash = 1;
   // Hash for HTLC R value.
-  required sha256_hash r_hash = 3;
+  required sha256_hash r_hash = 2;
 }
 
 // Remove your HTLC: routing has failed upstream
@@ -152,7 +152,7 @@ message update_routefail_htlc {
   // Hash for which I will supply preimage to revoke this commitment tx.
   required sha256_hash revocation_hash = 1;
   // Hash for HTLC R value.
-  required sha256_hash r_hash = 3;
+  required sha256_hash r_hash = 2;
 }
 
 // OK, I accept that update; here's your signature.
@@ -160,7 +160,7 @@ message update_accept {
   // Signature for your new commitment tx.
   required signature sig = 1;
   // Hash for which I will supply preimage to revoke this new commit tx.
-  required sha256_hash revocation_hash = 3;
+  required sha256_hash revocation_hash = 2;
 }
 
 // Thanks for accepting, here's my last bit.
@@ -206,10 +206,10 @@ message error {
 message pkt {
   oneof pkt {
     // Opening
-    open_channel open = 201;
-    open_anchor open_anchor = 202;
-    open_commit_sig open_commit_sig = 203;
-    open_complete open_complete = 204;
+    open_channel open = 20;
+    open_anchor open_anchor = 21;
+    open_commit_sig open_commit_sig = 22;
+    open_complete open_complete = 23;
     // Updating (most common)
     update update = 1;
     update_add_htlc update_add_htlc = 2;
@@ -221,11 +221,11 @@ message pkt {
     update_timedout_htlc update_timedout_htlc = 8;
     update_routefail_htlc update_routefail_htlc = 9;
     // Closing
-    close_channel close = 401;
-    close_channel_complete close_complete = 402;
-    close_channel_ack close_ack = 403;
+    close_channel close = 30;
+    close_channel_complete close_complete = 31;
+    close_channel_ack close_ack = 32;
 
     // Unexpected issue.
-    error error = 1000;
+    error error = 40;
   }
 }

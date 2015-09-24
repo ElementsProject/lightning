@@ -1376,20 +1376,8 @@ static const uint32_t open_channel__min_depth__default_value = 0u;
 static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
 {
   {
-    "final_key",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(OpenChannel, final_key),
-    &bitcoin_pubkey__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
     "delay",
-    2,
+    1,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
@@ -1401,7 +1389,7 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
   },
   {
     "revocation_hash",
-    4,
+    2,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
@@ -1413,7 +1401,7 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
   },
   {
     "commit_key",
-    5,
+    3,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
@@ -1424,8 +1412,20 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
+    "final_key",
+    4,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(OpenChannel, final_key),
+    &bitcoin_pubkey__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
     "anch",
-    6,
+    5,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_ENUM,
     0,   /* quantifier_offset */
@@ -1437,7 +1437,7 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
   },
   {
     "min_depth",
-    7,
+    6,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_UINT32,
     offsetof(OpenChannel, has_min_depth),
@@ -1449,7 +1449,7 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
   },
   {
     "commitment_fee",
-    8,
+    7,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_UINT64,
     0,   /* quantifier_offset */
@@ -1462,17 +1462,16 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
 };
 static const unsigned open_channel__field_indices_by_name[] = {
   4,   /* field[4] = anch */
-  3,   /* field[3] = commit_key */
+  2,   /* field[2] = commit_key */
   6,   /* field[6] = commitment_fee */
-  1,   /* field[1] = delay */
-  0,   /* field[0] = final_key */
+  0,   /* field[0] = delay */
+  3,   /* field[3] = final_key */
   5,   /* field[5] = min_depth */
-  2,   /* field[2] = revocation_hash */
+  1,   /* field[1] = revocation_hash */
 };
-static const ProtobufCIntRange open_channel__number_ranges[2 + 1] =
+static const ProtobufCIntRange open_channel__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 4, 2 },
   { 0, 7 }
 };
 const ProtobufCMessageDescriptor open_channel__descriptor =
@@ -1486,7 +1485,7 @@ const ProtobufCMessageDescriptor open_channel__descriptor =
   7,
   open_channel__field_descriptors,
   open_channel__field_indices_by_name,
-  2,  open_channel__number_ranges,
+  1,  open_channel__number_ranges,
   (ProtobufCMessageInit) open_channel__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
@@ -1838,7 +1837,7 @@ static const ProtobufCFieldDescriptor update_complete_htlc__field_descriptors[2]
   },
   {
     "r",
-    3,
+    2,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
@@ -1853,10 +1852,9 @@ static const unsigned update_complete_htlc__field_indices_by_name[] = {
   1,   /* field[1] = r */
   0,   /* field[0] = revocation_hash */
 };
-static const ProtobufCIntRange update_complete_htlc__number_ranges[2 + 1] =
+static const ProtobufCIntRange update_complete_htlc__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 3, 1 },
   { 0, 2 }
 };
 const ProtobufCMessageDescriptor update_complete_htlc__descriptor =
@@ -1870,7 +1868,7 @@ const ProtobufCMessageDescriptor update_complete_htlc__descriptor =
   2,
   update_complete_htlc__field_descriptors,
   update_complete_htlc__field_indices_by_name,
-  2,  update_complete_htlc__number_ranges,
+  1,  update_complete_htlc__number_ranges,
   (ProtobufCMessageInit) update_complete_htlc__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
@@ -1890,7 +1888,7 @@ static const ProtobufCFieldDescriptor update_timedout_htlc__field_descriptors[2]
   },
   {
     "r_hash",
-    3,
+    2,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
@@ -1905,10 +1903,9 @@ static const unsigned update_timedout_htlc__field_indices_by_name[] = {
   1,   /* field[1] = r_hash */
   0,   /* field[0] = revocation_hash */
 };
-static const ProtobufCIntRange update_timedout_htlc__number_ranges[2 + 1] =
+static const ProtobufCIntRange update_timedout_htlc__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 3, 1 },
   { 0, 2 }
 };
 const ProtobufCMessageDescriptor update_timedout_htlc__descriptor =
@@ -1922,7 +1919,7 @@ const ProtobufCMessageDescriptor update_timedout_htlc__descriptor =
   2,
   update_timedout_htlc__field_descriptors,
   update_timedout_htlc__field_indices_by_name,
-  2,  update_timedout_htlc__number_ranges,
+  1,  update_timedout_htlc__number_ranges,
   (ProtobufCMessageInit) update_timedout_htlc__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
@@ -1942,7 +1939,7 @@ static const ProtobufCFieldDescriptor update_routefail_htlc__field_descriptors[2
   },
   {
     "r_hash",
-    3,
+    2,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
@@ -1957,10 +1954,9 @@ static const unsigned update_routefail_htlc__field_indices_by_name[] = {
   1,   /* field[1] = r_hash */
   0,   /* field[0] = revocation_hash */
 };
-static const ProtobufCIntRange update_routefail_htlc__number_ranges[2 + 1] =
+static const ProtobufCIntRange update_routefail_htlc__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 3, 1 },
   { 0, 2 }
 };
 const ProtobufCMessageDescriptor update_routefail_htlc__descriptor =
@@ -1974,7 +1970,7 @@ const ProtobufCMessageDescriptor update_routefail_htlc__descriptor =
   2,
   update_routefail_htlc__field_descriptors,
   update_routefail_htlc__field_indices_by_name,
-  2,  update_routefail_htlc__number_ranges,
+  1,  update_routefail_htlc__number_ranges,
   (ProtobufCMessageInit) update_routefail_htlc__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
@@ -1994,7 +1990,7 @@ static const ProtobufCFieldDescriptor update_accept__field_descriptors[2] =
   },
   {
     "revocation_hash",
-    3,
+    2,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
@@ -2009,10 +2005,9 @@ static const unsigned update_accept__field_indices_by_name[] = {
   1,   /* field[1] = revocation_hash */
   0,   /* field[0] = sig */
 };
-static const ProtobufCIntRange update_accept__number_ranges[2 + 1] =
+static const ProtobufCIntRange update_accept__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 3, 1 },
   { 0, 2 }
 };
 const ProtobufCMessageDescriptor update_accept__descriptor =
@@ -2026,7 +2021,7 @@ const ProtobufCMessageDescriptor update_accept__descriptor =
   2,
   update_accept__field_descriptors,
   update_accept__field_indices_by_name,
-  2,  update_accept__number_ranges,
+  1,  update_accept__number_ranges,
   (ProtobufCMessageInit) update_accept__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
@@ -2376,7 +2371,7 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[17] =
   },
   {
     "open",
-    201,
+    20,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
@@ -2388,7 +2383,7 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[17] =
   },
   {
     "open_anchor",
-    202,
+    21,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
@@ -2400,7 +2395,7 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[17] =
   },
   {
     "open_commit_sig",
-    203,
+    22,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
@@ -2412,7 +2407,7 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[17] =
   },
   {
     "open_complete",
-    204,
+    23,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
@@ -2424,7 +2419,7 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[17] =
   },
   {
     "close",
-    401,
+    30,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
@@ -2436,7 +2431,7 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[17] =
   },
   {
     "close_complete",
-    402,
+    31,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
@@ -2448,7 +2443,7 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[17] =
   },
   {
     "close_ack",
-    403,
+    32,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
@@ -2460,7 +2455,7 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[17] =
   },
   {
     "error",
-    1000,
+    40,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
@@ -2493,9 +2488,9 @@ static const unsigned pkt__field_indices_by_name[] = {
 static const ProtobufCIntRange pkt__number_ranges[4 + 1] =
 {
   { 1, 0 },
-  { 201, 9 },
-  { 401, 13 },
-  { 1000, 16 },
+  { 20, 9 },
+  { 30, 13 },
+  { 40, 16 },
   { 0, 17 }
 };
 const ProtobufCMessageDescriptor pkt__descriptor =
