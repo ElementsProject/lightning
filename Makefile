@@ -9,13 +9,70 @@ FEATURES := -DHAS_CSV=1 -DALPHA_TXSTYLE=1 -DUSE_SCHNORR=1 -DHAS_CLTV=1
 # Bitcoin uses DER for signatures
 #FEATURES := -DSCRIPTS_USE_DER
 
-PROGRAMS := test-cli/open-channel test-cli/create-anchor-tx test-cli/open-commit-sig test-cli/check-commit-sig test-cli/get-anchor-depth test-cli/create-steal-tx test-cli/create-commit-spend-tx test-cli/close-channel test-cli/create-close-tx test-cli/update-channel test-cli/update-channel-accept test-cli/update-channel-signature test-cli/update-channel-complete test-cli/create-commit-tx test-cli/txid-of test-cli/open-anchor test-cli/update-channel-htlc test-cli/update-channel-htlc-complete test-cli/update-channel-htlc-remove test-cli/create-htlc-spend-tx
+TEST_CLI_PROGRAMS :=				\
+	test-cli/check-commit-sig		\
+	test-cli/close-channel			\
+	test-cli/create-anchor-tx		\
+	test-cli/create-close-tx		\
+	test-cli/create-commit-spend-tx		\
+	test-cli/create-commit-tx		\
+	test-cli/create-htlc-spend-tx		\
+	test-cli/create-steal-tx		\
+	test-cli/get-anchor-depth		\
+	test-cli/open-anchor			\
+	test-cli/open-channel			\
+	test-cli/open-commit-sig		\
+	test-cli/txid-of			\
+	test-cli/update-channel			\
+	test-cli/update-channel-accept		\
+	test-cli/update-channel-complete	\
+	test-cli/update-channel-htlc		\
+	test-cli/update-channel-htlc-complete	\
+	test-cli/update-channel-htlc-remove	\
+	test-cli/update-channel-signature
 
-BITCOIN_OBJS := bitcoin/address.o bitcoin/base58.o bitcoin/pubkey.o bitcoin/script.o bitcoin/shadouble.o bitcoin/signature.o bitcoin/tx.o
+BITCOIN_OBJS :=					\
+	bitcoin/address.o			\
+	bitcoin/base58.o			\
+	bitcoin/pubkey.o			\
+	bitcoin/script.o			\
+	bitcoin/shadouble.o			\
+	bitcoin/signature.o			\
+	bitcoin/tx.o
 
-HELPER_OBJS := lightning.pb-c.o pkt.o permute_tx.o commit_tx.o opt_bits.o close_tx.o find_p2sh_out.o protobuf_convert.o funding.o test-cli/gather_updates.o version.o
+HELPER_OBJS :=					\
+	close_tx.o				\
+	commit_tx.o				\
+	find_p2sh_out.o				\
+	funding.o				\
+	lightning.pb-c.o			\
+	opt_bits.o				\
+	permute_tx.o				\
+	pkt.o					\
+	protobuf_convert.o			\
+	test-cli/gather_updates.o		\
+	version.o
 
-CCAN_OBJS := ccan-crypto-sha256.o ccan-crypto-shachain.o ccan-err.o ccan-tal.o ccan-tal-str.o ccan-take.o ccan-list.o ccan-str.o ccan-opt-helpers.o ccan-opt.o ccan-opt-parse.o ccan-opt-usage.o ccan-read_write_all.o ccan-str-hex.o ccan-tal-grab_file.o ccan-noerr.o ccan-crypto-ripemd160.o
+CCAN_OBJS :=					\
+	ccan-crypto-ripemd160.o			\
+	ccan-crypto-sha256.o			\
+	ccan-crypto-shachain.o			\
+	ccan-err.o				\
+	ccan-list.o				\
+	ccan-noerr.o				\
+	ccan-opt-helpers.o			\
+	ccan-opt-parse.o			\
+	ccan-opt-usage.o			\
+	ccan-opt.o				\
+	ccan-read_write_all.o			\
+	ccan-str-hex.o				\
+	ccan-str.o				\
+	ccan-take.o				\
+	ccan-tal-grab_file.o			\
+	ccan-tal-str.o				\
+	ccan-tal.o
+
+PROGRAMS := $(TEST_CLI_PROGRAMS)
 
 HEADERS := $(filter-out gen_*, $(wildcard *.h)) $(wildcard bitcoin/*.h)
 
@@ -39,7 +96,7 @@ libsecp256k1.a:
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	$(PROTOCC) lightning.proto --c_out=.
 
-$(PROGRAMS): % : %.o $(HELPER_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) libsecp256k1.a
+$(TEST_CLI_PROGRAMS): % : %.o $(HELPER_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) libsecp256k1.a
 $(PROGRAMS:=.o) $(HELPER_OBJS): $(HEADERS)
 
 $(CCAN_OBJS) $(HELPER_OBJS) $(PROGRAM_OBJS) $(BITCOIN_OBJS): ccan/config.h
