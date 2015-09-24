@@ -233,7 +233,7 @@ struct  _Update
   /*
    * Change in current payment to-me (implies reverse to-you).
    */
-  int64_t delta;
+  int64_t delta_msat;
 };
 #define UPDATE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&update__descriptor) \
@@ -251,9 +251,9 @@ struct  _UpdateAddHtlc
    */
   Sha256Hash *revocation_hash;
   /*
-   * Amount for htlc
+   * Amount for htlc (millisatoshi)
    */
-  uint64_t amount;
+  uint32_t amount_msat;
   /*
    * Hash for HTLC R value.
    */

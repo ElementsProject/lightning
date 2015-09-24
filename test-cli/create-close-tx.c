@@ -66,7 +66,9 @@ int main(int argc, char *argv[])
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
 	/* Now create the close tx to spend 2/2 output of anchor. */
-	close_tx = create_close_tx(ctx, o1, o2, a, cstate->a.pay, cstate->b.pay);
+	close_tx = create_close_tx(ctx, o1, o2, a,
+				   cstate->a.pay_msat / 1000,
+				   cstate->b.pay_msat / 1000);
 
 	/* Signatures well-formed? */
 	sig1.stype = sig2.stype = SIGHASH_ALL;

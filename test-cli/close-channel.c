@@ -88,7 +88,9 @@ int main(int argc, char *argv[])
 	/* This is what the anchor pays to. */
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
-	close_tx = create_close_tx(ctx, o1, o2, a, cstate->a.pay, cstate->b.pay);
+	close_tx = create_close_tx(ctx, o1, o2, a,
+				   cstate->a.pay_msat / 1000,
+				   cstate->b.pay_msat / 1000);
 
 	/* Sign it for them. */
 	sign_tx_input(ctx, close_tx, 0, redeemscript, tal_count(redeemscript),

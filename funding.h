@@ -6,7 +6,8 @@
 #include "lightning.pb-c.h"
 
 struct channel_oneside {
-	uint64_t pay, fee;
+	/* Payment and fee is in millisatoshi. */
+	uint32_t pay_msat, fee_msat;
 	/* Use tal_count to get the number */
 	UpdateAddHtlc **htlcs;
 };
@@ -21,7 +22,7 @@ struct channel_state {
  * @a: A's openchannel offer
  * @b: B's openchannel offer
  * @anchor: The anchor offer (A or B)
- * @fee: amount to pay in fees.
+ * @fee: amount to pay in fees (in satoshi).
  *
  * Returns state, or NULL if malformed.
  */
@@ -36,8 +37,8 @@ struct channel_state *initial_funding(const tal_t *ctx,
  * @a: A's openchannel offer
  * @b: B's openchannel offer
  * @anchor: The anchor offer (A or B)
- * @delta_a: How much A changes (-ve => A pay B, +ve => B pays A)
- * @htlc: How much A is putting into a HTLC (-ve if htlc is cancelled)
+ * @delta_a: How many millisatoshi A changes (-ve => A pay B, +ve => B pays A)
+ * @htlc: Millisatoshi A is putting into a HTLC (-ve if htlc is cancelled)
  * @a_side: channel a's state to update.
  * @b_side: channel b's state to update.
  */

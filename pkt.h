@@ -100,7 +100,7 @@ struct pkt *update_pkt(const tal_t *ctx,
  */
 struct pkt *update_htlc_add_pkt(const tal_t *ctx,
 				const struct sha256 *revocation_hash,
-				u64 value,
+				u32 value,
 				const struct sha256 *htlc_rhash,
 				u32 abs_locktime_seconds);
 

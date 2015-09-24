@@ -1476,12 +1476,12 @@ static const ProtobufCFieldDescriptor update__field_descriptors[2] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "delta",
+    "delta_msat",
     2,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_SINT64,
     0,   /* quantifier_offset */
-    offsetof(Update, delta),
+    offsetof(Update, delta_msat),
     NULL,
     NULL,
     0,             /* flags */
@@ -1489,7 +1489,7 @@ static const ProtobufCFieldDescriptor update__field_descriptors[2] =
   },
 };
 static const unsigned update__field_indices_by_name[] = {
-  1,   /* field[1] = delta */
+  1,   /* field[1] = delta_msat */
   0,   /* field[0] = revocation_hash */
 };
 static const ProtobufCIntRange update__number_ranges[1 + 1] =
@@ -1527,12 +1527,12 @@ static const ProtobufCFieldDescriptor update_add_htlc__field_descriptors[4] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "amount",
+    "amount_msat",
     2,
     PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_UINT64,
+    PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
-    offsetof(UpdateAddHtlc, amount),
+    offsetof(UpdateAddHtlc, amount_msat),
     NULL,
     NULL,
     0,             /* flags */
@@ -1564,7 +1564,7 @@ static const ProtobufCFieldDescriptor update_add_htlc__field_descriptors[4] =
   },
 };
 static const unsigned update_add_htlc__field_indices_by_name[] = {
-  1,   /* field[1] = amount */
+  1,   /* field[1] = amount_msat */
   3,   /* field[3] = expiry */
   2,   /* field[2] = r_hash */
   0,   /* field[0] = revocation_hash */

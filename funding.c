@@ -11,7 +11,7 @@ static bool subtract_fees(uint64_t *funder, uint64_t *non_funder,
 			  uint64_t *funder_fee, uint64_t *non_funder_fee,
 			  bool non_funder_paying, uint64_t fee)
 {
-	/* Funder gets 1 satsoshi rounding benefit! */
+	/* Funder gets 1 millisatsoshi rounding benefit! */
 	*non_funder_fee = fee - fee / 2;
 
 	if (*non_funder < *non_funder_fee) {
@@ -37,70 +37,71 @@ static bool subtract_fees(uint64_t *funder, uint64_t *non_funder,
 	return true;
 }
 
-static uint64_t htlcs_total(UpdateAddHtlc *const *htlcs)
+/* Total, in millisatoshi. */
+static uint32_t htlcs_total(UpdateAddHtlc *const *htlcs)
 {
 	size_t i, n = tal_count(htlcs);
-	uint64_t total = 0;
+	uint32_t total = 0;
 
 	for (i = 0; i < n; i++)
-		total += htlcs[i]->amount;
+		total += htlcs[i]->amount_msat;
 	return total;
 }
 
 bool funding_delta(const OpenChannel *oa,
 		   const OpenChannel *ob,
 		   const OpenAnchor *anchor,
-		   int64_t delta_a,
-		   int64_t htlc,
+		   int64_t delta_a_msat,
+		   int64_t htlc_msat,
 		   struct channel_oneside *a_side,
 		   struct channel_oneside *b_side)
 {
 	uint64_t a, b, a_fee, b_fee;
-	int64_t delta_b;
+	int64_t delta_b_msat;
 	uint64_t fee;
 	bool got_fees;
 
-	a = a_side->pay + a_side->fee;
-	b = b_side->pay + b_side->fee;
-	fee = a_side->fee + b_side->fee;
+	a = a_side->pay_msat + a_side->fee_msat;
+	b = b_side->pay_msat + b_side->fee_msat;
+	fee = a_side->fee_msat + b_side->fee_msat;
 	assert(a + b + htlcs_total(a_side->htlcs) + htlcs_total(b_side->htlcs)
-	       == anchor->amount);
+	       == anchor->amount * 1000);
 
 	/* Only one can be funder. */
 	if (is_funder(oa) == is_funder(ob))
 		return false;
 
 	/* B gets whatever A gives. */
-	delta_b = -delta_a;
+	delta_b_msat = -delta_a_msat;
 	/* A also pays for the htlc (if any). */
-	delta_a -= htlc;
+	delta_a_msat -= htlc_msat;
 
 	/* Transferring more than we have? */
-	if (delta_b < 0 && -delta_b > b)
+	if (delta_b_msat < 0 && -delta_b_msat > b)
 		return false;
-	if (delta_a < 0 && -delta_a > a)
+	if (delta_a_msat < 0 && -delta_a_msat > a)
 		return false;
 
 	/* Adjust amounts. */
-	a += delta_a;
-	b += delta_b;
+	a += delta_a_msat;
+	b += delta_b_msat;
 
 	/* Take off fee from both parties if possible. */
 	if (is_funder(oa))
 		got_fees = subtract_fees(&a, &b, &a_fee, &b_fee,
-					 delta_b < 0, fee);
+					 delta_b_msat < 0, fee);
 	else
 		got_fees = subtract_fees(&b, &a, &b_fee, &a_fee,
-					 delta_a < 0, fee);
+					 delta_a_msat < 0, fee);
 
 	if (!got_fees)
 		return false;
 
 	/* Now we know we're succeeding, update caller's state */
-	a_side->pay = a;
-	b_side->pay = b;
-	a_side->fee = a_fee;
-	b_side->fee = b_fee;
+	a_side->pay_msat = a;
+	b_side->pay_msat = b;
+	a_side->fee_msat = a_fee;
+	b_side->fee_msat = b_fee;
 	return true;
 }
 
@@ -118,9 +119,12 @@ struct channel_state *initial_funding(const tal_t *ctx,
 	if (fee > anchor->amount)
 		return tal_free(state);
 
+	if (anchor->amount > (1ULL << 32) / 1000)
+		return tal_free(state);
+	
 	/* Initially, all goes back to funder. */
-	state->a.pay = anchor->amount - fee;
-	state->a.fee = fee;
+	state->a.pay_msat = anchor->amount * 1000 - fee * 1000;
+	state->a.fee_msat = fee * 1000;
 
 	/* If B (not A) is funder, invert. */
 	if (is_funder(b))

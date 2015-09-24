@@ -53,7 +53,7 @@ A_INPUTNUM=$1
 shift
 #A_INPUTNUM=4
 #B_INPUTNUM=1
-A_AMOUNT=100000000
+A_AMOUNT=900000
 
 A_CHANGEADDR=`scripts/get-new-address.sh`
 A_TMPADDR=`scripts/get-new-address.sh`

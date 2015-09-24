@@ -144,7 +144,7 @@ struct channel_state *gather_updates(const tal_t *ctx,
 				sig = pkt->open_commit_sig->sig;
 			break;
 		case PKT__PKT_UPDATE_ADD_HTLC:
-			amount = pkt->update_add_htlc->amount;
+			amount = pkt->update_add_htlc->amount_msat;
 			if (received) {
 				if (!funding_delta(o2, o1, oa, 0, amount,
 						   &cstate->b, &cstate->a))
@@ -173,7 +173,7 @@ struct channel_state *gather_updates(const tal_t *ctx,
 					      pkt->update_remove_htlc->r_hash);
 				if (n == tal_count(cstate->b.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
-				amount = cstate->b.htlcs[n]->amount;
+				amount = cstate->b.htlcs[n]->amount_msat;
 				if (!funding_delta(o2, o1, oa, 0, -amount,
 						   &cstate->b, &cstate->a))
 					errx(1, "Impossible htlc %llu %s",
@@ -184,7 +184,7 @@ struct channel_state *gather_updates(const tal_t *ctx,
 					      pkt->update_remove_htlc->r_hash);
 				if (n == tal_count(cstate->a.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
-				amount = cstate->a.htlcs[n]->amount;
+				amount = cstate->a.htlcs[n]->amount_msat;
 				if (!funding_delta(o1, o2, oa, 0, -amount,
 						   &cstate->a, &cstate->b))
 					errx(1, "Impossible htlc %llu %s",
@@ -211,7 +211,7 @@ struct channel_state *gather_updates(const tal_t *ctx,
 				n = find_htlc(&cstate->a, rh);
 				if (n == tal_count(cstate->a.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
-				amount = cstate->a.htlcs[n]->amount;
+				amount = cstate->a.htlcs[n]->amount_msat;
 				if (!funding_delta(o1, o2, oa, amount, -amount,
 						   &cstate->a, &cstate->b))
 					errx(1, "Impossible htlc %llu %s",
@@ -222,7 +222,7 @@ struct channel_state *gather_updates(const tal_t *ctx,
 				n = find_htlc(&cstate->b, rh);
 				if (n == tal_count(cstate->b.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
-				amount = cstate->b.htlcs[n]->amount;
+				amount = cstate->b.htlcs[n]->amount_msat;
 				if (!funding_delta(o2, o1, oa, amount, -amount,
 						   &cstate->b, &cstate->a))
 					errx(1, "Impossible htlc %llu %s",
@@ -238,9 +238,9 @@ struct channel_state *gather_updates(const tal_t *ctx,
 
 		case PKT__PKT_UPDATE:
 			if (received)
-				delta = -pkt->update->delta;
+				delta = -pkt->update->delta_msat;
 			else
-				delta = pkt->update->delta;
+				delta = pkt->update->delta_msat;
 			if (!funding_delta(o1, o2, oa, delta, 0,
 					   &cstate->a, &cstate->b))
 				errx(1, "Impossible funding update %lli %s",

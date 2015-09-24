@@ -99,15 +99,15 @@ message update {
   // Hash for which I will supply preimage to revoke this.
   required sha256_hash revocation_hash = 1;
   // Change in current payment to-me (implies reverse to-you).
-  required sint64 delta = 2;
+  required sint64 delta_msat = 2;
 }
 
 // Start a new commitment tx to add an HTLC me -> you.
 message update_add_htlc {
   // Hash for which I will supply preimage to revoke this commitment tx.
   required sha256_hash revocation_hash = 1;
-  // Amount for htlc
-  required uint64 amount = 2;
+  // Amount for htlc (millisatoshi)
+  required uint32 amount_msat = 2;
   // Hash for HTLC R value.
   required sha256_hash r_hash = 3;
   // Time at which HTLC expires (absolute)

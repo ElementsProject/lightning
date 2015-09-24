@@ -38,7 +38,7 @@ static bool add_htlc(struct bitcoin_tx *tx, size_t n,
 						htlc_abstime, locktime, rhash,
 						&htlc_rhash));
 	tx->output[n].script_length = tal_count(tx->output[n].script);
-	tx->output[n].amount = h->amount;
+	tx->output[n].amount = h->amount_msat / 1000;
 	return true;
 }
 
@@ -81,14 +81,14 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 						      rhash);
 	tx->output[0].script = scriptpubkey_p2sh(tx, redeemscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
-	tx->output[0].amount = cstate->a.pay;
+	tx->output[0].amount = cstate->a.pay_msat / 1000;
 
 	/* Second output is a P2SH payment to them. */
 	tx->output[1].script = scriptpubkey_p2sh(ctx,
 						 bitcoin_redeem_single(ctx,
 							       &theirkey));
 	tx->output[1].script_length = tal_count(tx->output[1].script);
-	tx->output[1].amount = cstate->b.pay;
+	tx->output[1].amount = cstate->b.pay_msat / 1000;
 
 	/* First two outputs done, now for the HTLCs. */
 	total = tx->output[0].amount + tx->output[1].amount;

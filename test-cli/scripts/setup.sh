@@ -24,10 +24,10 @@ done
 scripts/generate-block.sh init
 
 A1=`scripts/get-new-address.sh`
-TX=`$CLI sendmany "" "{ \"$A1\":10 }"`
+TX=`$CLI sendmany "" "{ \"$A1\":0.01 }"`
 scripts/generate-block.sh
 
-# Find the inputs number corresponding to that 10 btc out
+# Find the inputs number corresponding to that 0.01 btc out
 echo "Argument to test.sh:"
-for i in $(seq 1 $($CLI listunspent | grep -c txid) ); do scripts/getinput.sh $i | grep -q "$TX.*/1000000000/" && echo -n "$i "; done
+for i in $(seq 1 $($CLI listunspent | grep -c txid) ); do scripts/getinput.sh $i | grep -q "$TX.*/1000000/" && echo -n "$i "; done
 echo
