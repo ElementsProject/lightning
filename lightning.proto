@@ -193,6 +193,10 @@ message close_channel_complete {
   required signature sig = 1;
 }
 
+// Received close_channel_complete, you can close now.
+message close_channel_ack {
+}
+
 // This means we're going to hang up; it's to help diagnose only! 
 message error {
   optional string problem = 1;
@@ -219,6 +223,7 @@ message pkt {
     // Closing
     close_channel close = 401;
     close_channel_complete close_complete = 402;
+    close_channel_ack close_ack = 403;
 
     // Unexpected issue.
     error error = 1000;

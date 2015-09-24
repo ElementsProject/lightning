@@ -867,6 +867,49 @@ void   close_channel_complete__free_unpacked
   assert(message->base.descriptor == &close_channel_complete__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   close_channel_ack__init
+                     (CloseChannelAck         *message)
+{
+  static CloseChannelAck init_value = CLOSE_CHANNEL_ACK__INIT;
+  *message = init_value;
+}
+size_t close_channel_ack__get_packed_size
+                     (const CloseChannelAck *message)
+{
+  assert(message->base.descriptor == &close_channel_ack__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t close_channel_ack__pack
+                     (const CloseChannelAck *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &close_channel_ack__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t close_channel_ack__pack_to_buffer
+                     (const CloseChannelAck *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &close_channel_ack__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+CloseChannelAck *
+       close_channel_ack__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (CloseChannelAck *)
+     protobuf_c_message_unpack (&close_channel_ack__descriptor,
+                                allocator, len, data);
+}
+void   close_channel_ack__free_unpacked
+                     (CloseChannelAck *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &close_channel_ack__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
 void   error__init
                      (Error         *message)
 {
@@ -2165,6 +2208,24 @@ const ProtobufCMessageDescriptor close_channel_complete__descriptor =
   (ProtobufCMessageInit) close_channel_complete__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
+#define close_channel_ack__field_descriptors NULL
+#define close_channel_ack__field_indices_by_name NULL
+#define close_channel_ack__number_ranges NULL
+const ProtobufCMessageDescriptor close_channel_ack__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "close_channel_ack",
+  "CloseChannelAck",
+  "CloseChannelAck",
+  "",
+  sizeof(CloseChannelAck),
+  0,
+  close_channel_ack__field_descriptors,
+  close_channel_ack__field_indices_by_name,
+  0,  close_channel_ack__number_ranges,
+  (ProtobufCMessageInit) close_channel_ack__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
 static const ProtobufCFieldDescriptor error__field_descriptors[1] =
 {
   {
@@ -2203,7 +2264,7 @@ const ProtobufCMessageDescriptor error__descriptor =
   (ProtobufCMessageInit) error__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor pkt__field_descriptors[16] =
+static const ProtobufCFieldDescriptor pkt__field_descriptors[17] =
 {
   {
     "update",
@@ -2386,6 +2447,18 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[16] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
+    "close_ack",
+    403,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Pkt, pkt_case),
+    offsetof(Pkt, close_ack),
+    &close_channel_ack__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
     "error",
     1000,
     PROTOBUF_C_LABEL_OPTIONAL,
@@ -2400,8 +2473,9 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[16] =
 };
 static const unsigned pkt__field_indices_by_name[] = {
   13,   /* field[13] = close */
+  15,   /* field[15] = close_ack */
   14,   /* field[14] = close_complete */
-  15,   /* field[15] = error */
+  16,   /* field[16] = error */
   9,   /* field[9] = open */
   10,   /* field[10] = open_anchor */
   11,   /* field[11] = open_commit_sig */
@@ -2421,8 +2495,8 @@ static const ProtobufCIntRange pkt__number_ranges[4 + 1] =
   { 1, 0 },
   { 201, 9 },
   { 401, 13 },
-  { 1000, 15 },
-  { 0, 16 }
+  { 1000, 16 },
+  { 0, 17 }
 };
 const ProtobufCMessageDescriptor pkt__descriptor =
 {
@@ -2432,7 +2506,7 @@ const ProtobufCMessageDescriptor pkt__descriptor =
   "Pkt",
   "",
   sizeof(Pkt),
-  16,
+  17,
   pkt__field_descriptors,
   pkt__field_indices_by_name,
   4,  pkt__number_ranges,

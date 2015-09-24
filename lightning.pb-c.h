@@ -35,6 +35,7 @@ typedef struct _UpdateSignature UpdateSignature;
 typedef struct _UpdateComplete UpdateComplete;
 typedef struct _CloseChannel CloseChannel;
 typedef struct _CloseChannelComplete CloseChannelComplete;
+typedef struct _CloseChannelAck CloseChannelAck;
 typedef struct _Error Error;
 typedef struct _Pkt Pkt;
 
@@ -473,6 +474,18 @@ struct  _CloseChannelComplete
 
 
 /*
+ * Received close_channel_complete, you can close now.
+ */
+struct  _CloseChannelAck
+{
+  ProtobufCMessage base;
+};
+#define CLOSE_CHANNEL_ACK__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&close_channel_ack__descriptor) \
+     }
+
+
+/*
  * This means we're going to hang up; it's to help diagnose only! 
  */
 struct  _Error
@@ -502,6 +515,7 @@ typedef enum {
   PKT__PKT_UPDATE_ROUTEFAIL_HTLC = 9,
   PKT__PKT_CLOSE = 401,
   PKT__PKT_CLOSE_COMPLETE = 402,
+  PKT__PKT_CLOSE_ACK = 403,
   PKT__PKT_ERROR = 1000,
 } Pkt__PktCase;
 
@@ -537,6 +551,7 @@ struct  _Pkt
      */
     CloseChannel *close;
     CloseChannelComplete *close_complete;
+    CloseChannelAck *close_ack;
     /*
      * Unexpected issue.
      */
@@ -928,6 +943,25 @@ CloseChannelComplete *
 void   close_channel_complete__free_unpacked
                      (CloseChannelComplete *message,
                       ProtobufCAllocator *allocator);
+/* CloseChannelAck methods */
+void   close_channel_ack__init
+                     (CloseChannelAck         *message);
+size_t close_channel_ack__get_packed_size
+                     (const CloseChannelAck   *message);
+size_t close_channel_ack__pack
+                     (const CloseChannelAck   *message,
+                      uint8_t             *out);
+size_t close_channel_ack__pack_to_buffer
+                     (const CloseChannelAck   *message,
+                      ProtobufCBuffer     *buffer);
+CloseChannelAck *
+       close_channel_ack__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   close_channel_ack__free_unpacked
+                     (CloseChannelAck *message,
+                      ProtobufCAllocator *allocator);
 /* Error methods */
 void   error__init
                      (Error         *message);
@@ -1028,6 +1062,9 @@ typedef void (*CloseChannel_Closure)
 typedef void (*CloseChannelComplete_Closure)
                  (const CloseChannelComplete *message,
                   void *closure_data);
+typedef void (*CloseChannelAck_Closure)
+                 (const CloseChannelAck *message,
+                  void *closure_data);
 typedef void (*Error_Closure)
                  (const Error *message,
                   void *closure_data);
@@ -1061,6 +1098,7 @@ extern const ProtobufCMessageDescriptor update_signature__descriptor;
 extern const ProtobufCMessageDescriptor update_complete__descriptor;
 extern const ProtobufCMessageDescriptor close_channel__descriptor;
 extern const ProtobufCMessageDescriptor close_channel_complete__descriptor;
+extern const ProtobufCMessageDescriptor close_channel_ack__descriptor;
 extern const ProtobufCMessageDescriptor error__descriptor;
 extern const ProtobufCMessageDescriptor pkt__descriptor;
 
