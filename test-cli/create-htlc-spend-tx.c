@@ -116,12 +116,12 @@ int main(int argc, char *argv[])
 
 	if (received) {
 		redeemscript = scriptpubkey_htlc_recv(ctx, &pubkey1, &pubkey2,
-						      u->amount, htlc_abstimeout,
+						      htlc_abstimeout,
 						      locktime, &revoke_hash,
 						      &htlc_rhash);
 	} else {
 		redeemscript = scriptpubkey_htlc_send(ctx, &pubkey1, &pubkey2,
-						      u->amount, htlc_abstimeout,
+						      htlc_abstimeout,
 						      locktime, &revoke_hash,
 						      &htlc_rhash);
 	}

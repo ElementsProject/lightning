@@ -18,7 +18,6 @@ static bool add_htlc(struct bitcoin_tx *tx, size_t n,
 		     u8 *(*scriptpubkeyfn)(const tal_t *,
 					   const struct pubkey *,
 					   const struct pubkey *,
-					   uint64_t,
 					   uint32_t,
 					   uint32_t,
 					   const struct sha256 *,
@@ -35,7 +34,7 @@ static bool add_htlc(struct bitcoin_tx *tx, size_t n,
 
 	proto_to_sha256(h->r_hash, &htlc_rhash);
 	tx->output[n].script = scriptpubkey_p2sh(tx,
-				 scriptpubkeyfn(tx, ourkey, theirkey, h->amount,
+				 scriptpubkeyfn(tx, ourkey, theirkey,
 						htlc_abstime, locktime, rhash,
 						&htlc_rhash));
 	tx->output[n].script_length = tal_count(tx->output[n].script);
