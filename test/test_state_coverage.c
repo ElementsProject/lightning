@@ -113,12 +113,12 @@ struct state_data {
 
 /* To recontruct errors. */
 struct trail {
-	struct trail *next;
-	const char *problem;
+	const struct trail *prev;
 	const char *name;
 	enum state_input input;
-	struct state_data before, after;
+	const struct state_data *before, *after;
 	int htlc_id;
+	unsigned int num_peer_outputs;
 	const char *pkt_sent;
 };
 
@@ -956,10 +956,11 @@ static void copy_peers(struct state_data *dst, struct state_data *peer,
 }
 
 /* Recursion! */
-static struct trail *run_peer(const struct state_data *sdata,
-			      bool normalpath, bool errorpath,
-			      size_t depth,
-			      struct hist *hist);
+static void run_peer(const struct state_data *sdata,
+		     bool normalpath, bool errorpath,
+		     size_t depth,
+		     const struct trail *prev_trail,
+		     struct hist *hist);
 
 static void update_core(struct core_state *core, const struct state_data *sdata)
 {
@@ -1011,21 +1012,20 @@ static bool sithash_update(struct sithash *sithash,
 	return true;
 }
 
-static struct trail *add_trail(enum state_input input,
-			       const union input *idata,
-			       const struct state_data *before,
-			       const struct state_data *after,
-			       const struct state_effect *effects,
-			       struct trail *next)
+static void init_trail(struct trail *t,
+		       enum state_input input,
+		       const union input *idata,
+		       const struct state_data *before,
+		       const struct state_data *after,
+		       const struct state_effect *effects,
+		       const struct trail *prev)
 {
-	struct trail *t = tal(NULL, struct trail);
-
 	t->name = before->name;
-	t->problem = next ? next->problem : NULL;
-	t->next = tal_steal(t, next);
+	t->prev = prev;
 	t->input = input;
-	t->before = *before;
-	t->after = *after;
+	t->before = before;
+	t->after = after;
+	t->num_peer_outputs = after->peer->core.num_outputs;
 	if (input == CMD_SEND_HTLC_FULFILL
 	    || input == INPUT_RVALUE
 	    || input == BITCOIN_HTLC_TOTHEM_TIMEOUT
@@ -1039,19 +1039,67 @@ static struct trail *add_trail(enum state_input input,
 	else
 		t->htlc_id = -1;
 	t->pkt_sent = (const char *)effects->send;
-	return t;
 }
 
-static struct trail *new_trail(enum state_input input,
-			       const union input *idata,
-			       const struct state_data *before,
-			       const struct state_data *after,
-			       const struct state_effect *effects,
-			       const char *problem)
+static void report_trail_rev(const struct trail *t)
 {
-	struct trail *t = add_trail(input, idata, before, after, effects, NULL);
-	t->problem = problem;
-	return t;
+	size_t i;
+
+	if (t->prev)
+		report_trail_rev(t->prev);
+
+	fprintf(stderr, "%s: %s(%i) %s -> %s (%u out %u in)\n",
+		t->name,
+		input_name(t->input), t->htlc_id,
+		state_name(t->before->core.state),
+		state_name(t->after->core.state),
+		t->after->core.num_outputs,
+		t->num_peer_outputs);
+	if (t->after->core.state >= STATE_CLOSED) {
+		if (t->after->num_live_htlcs_to_us
+		    || t->after->num_live_htlcs_to_them) {
+			fprintf(stderr, "  Live HTLCs:");
+			for (i = 0; i < t->after->num_live_htlcs_to_us; i++)
+				fprintf(stderr, " <%u",
+					t->after->live_htlcs_to_us[i].id);
+			for (i = 0; i < t->after->num_live_htlcs_to_them; i++)
+				fprintf(stderr, " >%u",
+					t->after->live_htlcs_to_them[i].id);
+			fprintf(stderr, "\n");
+		}
+		if (t->after->num_htlc_spends_to_us
+		    || t->after->num_htlc_spends_to_them) {
+			fprintf(stderr, "  HTLC spends:");
+			for (i = 0; i < t->after->num_htlc_spends_to_us; i++)
+				fprintf(stderr, " <%u",
+					t->after->htlc_spends_to_us[i].id);
+			for (i = 0; i < t->after->num_htlc_spends_to_them; i++)
+				fprintf(stderr, " <%u",
+					t->after->htlc_spends_to_them[i].id);
+			fprintf(stderr, "\n");
+		}
+	} else {
+		if (t->after->num_htlcs_to_us
+		    || t->after->num_htlcs_to_them) {
+			fprintf(stderr, "  HTLCs:");
+			for (i = 0; i < t->after->num_htlcs_to_us; i++)
+				fprintf(stderr, " <%u",
+					t->after->htlcs_to_us[i].id);
+			for (i = 0; i < t->after->num_htlcs_to_them; i++)
+				fprintf(stderr, " >%u",
+					t->after->htlcs_to_them[i].id);
+			fprintf(stderr, "\n");
+		}
+	}
+	if (t->pkt_sent)
+		fprintf(stderr, "  => %s\n", t->pkt_sent);
+}
+
+static void report_trail(const struct trail *t, const char *problem)
+{
+	fprintf(stderr, "Error: %s\n", problem);
+	report_trail_rev(t);
+	exit(1);
 }
 
 static bool is_current_command(const struct state_data *sdata,
@@ -1564,15 +1612,16 @@ static bool has_packets(const struct state_data *sdata)
 		|| sdata->core.num_outputs != 0;
 }
 
-static struct trail *try_input(const struct state_data *sdata,
-			       enum state_input i,
-			       const union input *idata,
-			       bool normalpath, bool errorpath,
-			       size_t depth,
-			       struct hist *hist)
+static void try_input(const struct state_data *sdata,
+		      enum state_input i,
+		      const union input *idata,
+		      bool normalpath, bool errorpath,
+		      size_t depth,
+		      const struct trail *prev_trail,
+		      struct hist *hist)
 {
 	struct state_data copy, peer;
-	struct trail *t;
+	struct trail t;
 	struct state_effect *effect = tal(NULL, struct state_effect);
 	enum state newstate;
 	const char *problem;
@@ -1581,7 +1630,7 @@ static struct trail *try_input(const struct state_data *sdata,
 
 	eliminate_input(&hist->inputs_per_state[sdata->core.state], i);
 	newstate = state(sdata->core.state, sdata, i, idata, effect);
-
+	
 	normalpath &= normal_path(i, sdata->core.state, newstate);
 	errorpath |= error_path(i, sdata->core.state, newstate);
 
@@ -1606,15 +1655,16 @@ static struct trail *try_input(const struct state_data *sdata,
 	copy_peers(&copy, &peer, sdata);
 	copy.core.state = newstate;
 
-	if (newstate == STATE_ERR_INTERNAL)
-		return new_trail(i, idata, sdata, &copy, effect,
-				 "Internal error");
-	if (strstarts(state_name(newstate), "STATE_UNUSED"))
-		return new_trail(i, idata, sdata, &copy, effect, "Unused state");
-
 	problem = apply_effects(&copy, effect);
+	init_trail(&t, i, idata, sdata, &copy, effect, prev_trail);
 	if (problem)
-		return new_trail(i, idata, sdata, &copy, effect, problem);
+		report_trail(&t, problem);
+
+	if (newstate == STATE_ERR_INTERNAL)
+		report_trail(&t, "Internal error");
+	if (strstarts(state_name(newstate), "STATE_UNUSED"))
+		report_trail(&t, "Unused state");
+
 
 	/* Record any output. */
 	if (effect->send) {
@@ -1644,16 +1694,16 @@ static struct trail *try_input(const struct state_data *sdata,
 		    || i == BITCOIN_ANCHOR_THEIRSPEND
 		    || quick) {
 			tal_free(effect);
-			return NULL;
+			return;
 		}
 		if (depth > STATE_MAX * 10)
-			return new_trail(i, idata, sdata, &copy, effect, "Loop");
+			report_trail(&t, "Loop");
 	}
 
 	/* Don't continue if we reached a different error state. */
 	if (state_is_error(newstate)) {
 		tal_free(effect);
-		return NULL;
+		return;
 	}
 
 	/*
@@ -1661,44 +1711,36 @@ static struct trail *try_input(const struct state_data *sdata,
 	 */
 	if (copy.core.pkt_inputs && !has_packets(&copy) && !has_packets(&peer)
 	    && !waiting_statepair(copy.core.state, peer.core.state)) {
-		return new_trail(i, idata, sdata, &copy, effect, "Deadlock");
+		report_trail(&t, "Deadlock");
 	}
 
 	/* Finished? */
 	if (newstate == STATE_CLOSED) {
 		if (copy.core.pkt_inputs)
-			return new_trail(i, idata, sdata, &copy, effect,
-					 "CLOSED but taking packets?");
+			report_trail(&t, "CLOSED but taking packets?");
 
 		if (copy.core.cmd_inputs)
-			return new_trail(i, idata, sdata, &copy, effect,
-					 "CLOSED but taking commands?");
+			report_trail(&t, "CLOSED but taking commands?");
 
 		if (copy.core.current_command != INPUT_NONE)
-			return new_trail(i, idata, sdata, &copy, effect,
-					 input_name(copy.core.current_command));
+			report_trail(&t, input_name(copy.core.current_command));
+
 		if (copy.current_htlc.htlc.id != -1)
-			return new_trail(i, idata, sdata, &copy, effect,
-					 "CLOSED with htlc in progress?");
+			report_trail(&t, "CLOSED with htlc in progress?");
 
 		if (outstanding_htlc_watches(&copy))
-			return new_trail(i, idata, sdata, &copy, effect,
-					 "CLOSED but watching HTLCs?");
+			report_trail(&t, "CLOSED but watching HTLCs?");
 		tal_free(effect);
-		return NULL;
+		return;
 	}
 
 	/* Try inputs from here down. */
-	t = run_peer(&copy, normalpath, errorpath, depth+1, hist);
+	run_peer(&copy, normalpath, errorpath, depth+1, &t, hist);
 
 	/* Don't bother running other peer we can't communicate. */
-	if (!t && (copy.core.pkt_inputs || peer.core.pkt_inputs))
-		t = run_peer(&peer, normalpath, errorpath, depth+1, hist);
-	if (!t) {
-		tal_free(effect);
-		return NULL;
-	}
-	return add_trail(i, idata, sdata, &copy, effect, t);
+	if (copy.core.pkt_inputs || peer.core.pkt_inputs)
+		run_peer(&peer, normalpath, errorpath, depth+1, &t, hist);
+	tal_free(effect);
 }
 
 static void sanity_check(const struct state_data *sdata)
@@ -1778,15 +1820,15 @@ static unsigned int next_htlc_id(void)
 	return ++num;
 }
 
-static struct trail *run_peer(const struct state_data *sdata,
-			      bool normalpath, bool errorpath,
-			      size_t depth,
-			      struct hist *hist)
+static void run_peer(const struct state_data *sdata,
+		     bool normalpath, bool errorpath,
+		     size_t depth,
+		     const struct trail *prev_trail,
+		     struct hist *hist)
 {
 	struct state_data copy, peer;
 	size_t i;
 	uint64_t old_notifies;
-	struct trail *t;
 	union input *idata = tal(NULL, union input);
 
 	sanity_check(sdata);
@@ -1804,9 +1846,8 @@ static struct trail *run_peer(const struct state_data *sdata,
 		if (!can_refire(i))
 			remove_event(&copy.core.event_notifies, i);
 		activate_event(&copy, i);
-		t = try_input(&copy, i, idata, normalpath, errorpath, depth, hist);
-		if (t)
-			return t;
+		try_input(&copy, i, idata, normalpath, errorpath, depth,
+			  prev_trail, hist);
 		copy.core.event_notifies = old_notifies;
 	}
 
@@ -1817,11 +1858,9 @@ static struct trail *run_peer(const struct state_data *sdata,
 	    && sdata->core.cmd_inputs
 	    && !sdata->core.closing_cmd) {
 		copy.core.closing_cmd = true;
-		t = try_input(&copy, CMD_CLOSE, idata,
-			      normalpath, errorpath, depth,
-			      hist);
-		if (t)
-			return t;
+		try_input(&copy, CMD_CLOSE, idata,
+			  normalpath, errorpath, depth,
+			  prev_trail, hist);
 		copy.core.closing_cmd = false;
 	}
 
@@ -1842,11 +1881,9 @@ static struct trail *run_peer(const struct state_data *sdata,
 			idata->htlc_prog->htlc.to_them = true;
 			idata->htlc_prog->htlc.id = next_htlc_id();
 				
-			t = try_input(&copy, copy.core.current_command, idata,
-				      normalpath, errorpath, depth,
-				      hist);
-			if (t)
-				return t;
+			try_input(&copy, copy.core.current_command, idata,
+				  normalpath, errorpath, depth,
+				  prev_trail, hist);
 			idata->htlc_prog = tal_free(idata->htlc_prog);
 		}
 
@@ -1860,18 +1897,14 @@ static struct trail *run_peer(const struct state_data *sdata,
 			if (!rval_known(sdata, idata->htlc_prog->htlc.id)) {
 				copy.core.current_command
 					= CMD_SEND_HTLC_FULFILL;
-				t = try_input(&copy, copy.core.current_command,
-					      idata, normalpath, errorpath,
-					      depth, hist);
-				if (t)
-					return t;
+				try_input(&copy, copy.core.current_command,
+					  idata, normalpath, errorpath,
+					  depth, prev_trail, hist);
 			}
 			copy.core.current_command = CMD_SEND_HTLC_ROUTEFAIL;
-			t = try_input(&copy, copy.core.current_command,
-				      idata, normalpath, errorpath,
-				      depth, hist);
-			if (t)
-				return t;
+			try_input(&copy, copy.core.current_command,
+				  idata, normalpath, errorpath,
+				  depth, prev_trail, hist);
 		}
 
 		/* We can timeout an HTLC we offered. */
@@ -1881,11 +1914,9 @@ static struct trail *run_peer(const struct state_data *sdata,
 			idata->htlc_prog->adding = false;
 
 			copy.core.current_command = CMD_SEND_HTLC_TIMEDOUT;
-			t = try_input(&copy, copy.core.current_command,
-				      idata, normalpath, errorpath,
-				      depth, hist);
-			if (t)
-				return t;
+			try_input(&copy, copy.core.current_command,
+				  idata, normalpath, errorpath,
+				  depth, prev_trail, hist);
 		}
 
 		/* Restore current_command */
@@ -1897,49 +1928,37 @@ static struct trail *run_peer(const struct state_data *sdata,
 		idata->htlc = (struct htlc *)&copy.live_htlcs_to_us[i];
 		/* Only send this once. */
 		if (!rval_known(sdata, idata->htlc->id)) {
-			t = try_input(&copy, INPUT_RVALUE,
-				      idata, normalpath, errorpath,
-				      depth, hist);
-			if (t)
-				return t;
+			try_input(&copy, INPUT_RVALUE,
+				  idata, normalpath, errorpath,
+				  depth, prev_trail, hist);
 		}
-		t = try_input(&copy, BITCOIN_HTLC_TOUS_TIMEOUT,
-			      idata, normalpath, errorpath,
-			      depth, hist);
-		if (t)
-			return t;
+		try_input(&copy, BITCOIN_HTLC_TOUS_TIMEOUT,
+			  idata, normalpath, errorpath,
+			  depth, prev_trail, hist);
 	}
 
 	for (i = 0; i < sdata->num_live_htlcs_to_them; i++) {
 		idata->htlc = (struct htlc *)&copy.live_htlcs_to_them[i];
-		t = try_input(&copy, BITCOIN_HTLC_TOTHEM_SPENT,
-			      idata, normalpath, errorpath,
-			      depth, hist);
-		if (t)
-			return t;
-		t = try_input(&copy, BITCOIN_HTLC_TOTHEM_TIMEOUT,
-			      idata, normalpath, errorpath,
-			      depth, hist);
-		if (t)
-			return t;
+		try_input(&copy, BITCOIN_HTLC_TOTHEM_SPENT,
+			  idata, normalpath, errorpath,
+			  depth, prev_trail, hist);
+		try_input(&copy, BITCOIN_HTLC_TOTHEM_TIMEOUT,
+			  idata, normalpath, errorpath,
+			  depth, prev_trail, hist);
 	}
 
 	/* If they're watching HTLC spends, we can send events. */
 	for (i = 0; i < sdata->num_htlc_spends_to_us; i++) {
 		idata->htlc = (struct htlc *)&copy.htlc_spends_to_us[i];
-		t = try_input(&copy, BITCOIN_HTLC_FULFILL_SPEND_DONE,
-			      idata, normalpath, errorpath,
-			      depth, hist);
-		if (t)
-			return t;
+		try_input(&copy, BITCOIN_HTLC_FULFILL_SPEND_DONE,
+			  idata, normalpath, errorpath,
+			  depth, prev_trail, hist);
 	}
 	for (i = 0; i < sdata->num_htlc_spends_to_them; i++) {
 		idata->htlc = (struct htlc *)&copy.htlc_spends_to_them[i];
-		t = try_input(&copy, BITCOIN_HTLC_RETURN_SPEND_DONE,
-			      idata, normalpath, errorpath,
-			      depth, hist);
-		if (t)
-			return t;
+		try_input(&copy, BITCOIN_HTLC_RETURN_SPEND_DONE,
+			  idata, normalpath, errorpath,
+			  depth, prev_trail, hist);
 	}
 
 	/* Allowed to send inputs? */
@@ -1951,12 +1970,12 @@ static struct trail *run_peer(const struct state_data *sdata,
 			if (copy.core.state != copy.core.deferred_state) {
 				i = copy.core.deferred_pkt;
 				copy.core.deferred_pkt = INPUT_NONE;
-				return try_input(&copy, i, idata,
-						 normalpath, errorpath, depth,
-						 hist);
+				try_input(&copy, i, idata,
+					  normalpath, errorpath, depth,
+					  prev_trail, hist);
 			}
 			/* Can't send anything until that's done. */
-			return NULL;
+			return;
 		}
 
 		if (peer.core.num_outputs) {
@@ -1976,12 +1995,11 @@ static struct trail *run_peer(const struct state_data *sdata,
 			peer.core.num_outputs--;
 			/* Reset so that hashing doesn't get confused. */
 			peer.core.outputs[peer.core.num_outputs] = 0;
-			return try_input(&copy, i, idata, normalpath, errorpath,
-					 depth, hist);
+			try_input(&copy, i, idata, normalpath, errorpath,
+				  depth, prev_trail, hist);
 		}
 	}
 	tal_free(idata);
-	return NULL;
 }
 
 static bool record_input_mapping(int b)
@@ -2041,58 +2059,6 @@ static bool visited_state(const struct sithash *sithash,
 	return false;
 }
 
-static void report_trail(const struct trail *t)
-{
-	fprintf(stderr, "Error: %s\n", t->problem);
-	while (t) {
-		size_t i;
-		fprintf(stderr, "%s: %s(%i) %s -> %s\n",
-			t->name,
-			input_name(t->input), t->htlc_id,
-			state_name(t->before.core.state),
-			state_name(t->after.core.state));
-		if (t->after.core.state >= STATE_CLOSED) {
-			if (t->after.num_live_htlcs_to_us
-			    || t->after.num_live_htlcs_to_them) {
-				fprintf(stderr, "  Live HTLCs:");
-				for (i = 0; i < t->after.num_live_htlcs_to_us; i++)
-					fprintf(stderr, " <%u",
-						t->after.live_htlcs_to_us[i].id);
-				for (i = 0; i < t->after.num_live_htlcs_to_them; i++)
-					fprintf(stderr, " >%u",
-						t->after.live_htlcs_to_them[i].id);
-				fprintf(stderr, "\n");
-			}
-			if (t->after.num_htlc_spends_to_us
-			    || t->after.num_htlc_spends_to_them) {
-				fprintf(stderr, "  HTLC spends:");
-				for (i = 0; i < t->after.num_htlc_spends_to_us; i++)
-					fprintf(stderr, " <%u",
-						t->after.htlc_spends_to_us[i].id);
-				for (i = 0; i < t->after.num_htlc_spends_to_them; i++)
-					fprintf(stderr, " <%u",
-						t->after.htlc_spends_to_them[i].id);
-				fprintf(stderr, "\n");
-			}
-		} else {
-			if (t->after.num_htlcs_to_us
-			    || t->after.num_htlcs_to_them) {
-				fprintf(stderr, "  HTLCs:");
-				for (i = 0; i < t->after.num_htlcs_to_us; i++)
-					fprintf(stderr, " <%u",
-						t->after.htlcs_to_us[i].id);
-				for (i = 0; i < t->after.num_htlcs_to_them; i++)
-					fprintf(stderr, " >%u",
-						t->after.htlcs_to_them[i].id);
-				fprintf(stderr, "\n");
-			}
-		}
-		if (t->pkt_sent)
-			fprintf(stderr, "  => %s\n", t->pkt_sent);
-		t = t->next;
-	}
-}
-
 static int state_dump_cmp(const struct state_dump *a,
 			  const struct state_dump *b,
 			  void *unused)
@@ -2109,7 +2075,6 @@ int main(int argc, char *argv[])
 	struct state_data a, b;
 	unsigned int i;
 	struct hist hist;
-	struct trail *t;
 	bool dump_states = false;
 
 	err_set_progname(argv[0]);
@@ -2174,11 +2139,7 @@ int main(int argc, char *argv[])
 		abort();
 
 	/* Now, try each input in each state. */
-	t = run_peer(&a, true, false, 0, &hist);
-	if (t) {
-		report_trail(t);
-		exit(1);
-	}
+	run_peer(&a, true, false, 0, NULL, &hist);
 
 #if 0 /* FIXME */
 	/* Now try with declining an HTLC. */
