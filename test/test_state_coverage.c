@@ -963,6 +963,11 @@ static struct trail *run_peer(const struct state_data *sdata,
 
 static void update_core(struct core_state *core, const struct state_data *sdata)
 {
+	size_t i;
+
+	for (i = core->num_outputs; i < ARRAY_SIZE(core->outputs); i++)
+		assert(core->outputs[i] == 0);
+		
 	core->has_current_htlc = sdata->current_htlc.htlc.id != -1;
 	core->capped_htlcs_to_us = cap(sdata->num_htlcs_to_us);
 	core->capped_htlcs_to_them = cap(sdata->num_htlcs_to_them);
@@ -1969,6 +1974,8 @@ static struct trail *run_peer(const struct state_data *sdata,
 			memmove(peer.pkt_data, peer.pkt_data + 1,
 				sizeof(peer.pkt_data)-sizeof(peer.pkt_data[0]));
 			peer.core.num_outputs--;
+			/* Reset so that hashing doesn't get confused. */
+			peer.core.outputs[peer.core.num_outputs] = 0;
 			return try_input(&copy, i, idata, normalpath, errorpath,
 					 depth, hist);
 		}
