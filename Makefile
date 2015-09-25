@@ -72,6 +72,11 @@ CCAN_OBJS :=					\
 	ccan-tal-str.o				\
 	ccan-tal.o
 
+# For tests
+CCAN_EXTRA_OBJS :=				\
+	ccan-hash.o				\
+	ccan-htable.o
+
 CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
 PROGRAMS := $(TEST_CLI_PROGRAMS)
@@ -139,7 +144,7 @@ distclean: clean
 
 clean:
 	$(RM) $(PROGRAMS) test-cli/leak-anchor-sigs
-	$(RM) bitcoin/*.o *.o $(PROGRAMS:=.o) $(CCAN_OBJS)
+	$(RM) bitcoin/*.o *.o $(PROGRAMS:=.o) $(CCAN_OBJS) $(CCAN_EXTRA_OBJS)
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
@@ -179,6 +184,10 @@ ccan-crypto-ripemd160.o: $(CCANDIR)/ccan/crypto/ripemd160/ripemd160.c
 ccan-cdump.o: $(CCANDIR)/ccan/cdump/cdump.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-strmap.o: $(CCANDIR)/ccan/strmap/strmap.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-hash.o: $(CCANDIR)/ccan/hash/hash.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-htable.o: $(CCANDIR)/ccan/htable/htable.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 
