@@ -389,15 +389,51 @@ struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx,
 	return bitcoin_tx("anchor");
 }
 
-static void add_event(uint64_t *events, enum state_input input)
+static bool have_event(uint64_t events, enum state_input input)
+{
+	return events & (1ULL << input);
+}
+
+static bool add_event_(uint64_t *events, enum state_input input)
 {
 	/* This is how they say "no event please" */
 	if (input == INPUT_NONE)
-		return;
+		return true;
 			
 	assert(input < 64);
-	assert(!(*events & (1ULL << input)));
+	if (have_event(*events, input))
+		return false;
 	*events |= (1ULL << input);
+	return true;
+}
+
+static bool remove_event_(uint64_t *events, enum state_input input)
+{
+	/* This is how they say "no event please" */
+	if (input == INPUT_NONE)
+		return true;
+			
+	assert(input < 64);
+	if (!have_event(*events, input))
+		return false;
+	*events &= ~(1ULL << input);
+	return true;
+}
+
+static void remove_event(uint64_t *events, enum state_input input)
+{
+#ifdef NDEBUG
+#error "Don't run tests with NDEBUG"
+#endif
+	assert(remove_event_(events, input));
+}
+
+static void add_event(uint64_t *events, enum state_input input)
+{
+#ifdef NDEBUG
+#error "Don't run tests with NDEBUG"
+#endif
+	assert(add_event_(events, input));
 }
 
 struct watch {
@@ -639,11 +675,12 @@ static const char *apply_effects(struct state_data *sdata,
 		   so make exceptions for BITCOIN_STEAL_DONE/BITCOIN_SPEND_THEIRS_DONE */
 		if (sdata->event_notifies & (1ULL << BITCOIN_STEAL_DONE)
 		    & effect->watch->events)
-			effect->watch->events &= ~(1ULL << BITCOIN_STEAL_DONE);
+			remove_event(&effect->watch->events, BITCOIN_STEAL_DONE);
 
 		if (sdata->event_notifies & (1ULL << BITCOIN_SPEND_THEIRS_DONE)
 		    & effect->watch->events)
-			effect->watch->events &= ~(1ULL << BITCOIN_SPEND_THEIRS_DONE);
+			remove_event(&effect->watch->events,
+				     BITCOIN_SPEND_THEIRS_DONE);
 
 		if (sdata->event_notifies & effect->watch->events)
 			return "event set twice";
@@ -682,7 +719,8 @@ static const char *apply_effects(struct state_data *sdata,
 		sdata->pkt_inputs = false;
 
 		/* Can no longer receive packet timeouts, either. */
-		sdata->event_notifies &= ~(1ULL<<INPUT_CLOSE_COMPLETE_TIMEOUT);
+		remove_event_(&sdata->event_notifies,
+			      INPUT_CLOSE_COMPLETE_TIMEOUT);
 	}
 	if (effect->stop_commands) {
 		if (!sdata->cmd_inputs)
@@ -1029,12 +1067,12 @@ static void activate_event(struct state_data *sdata, enum state_input i)
 	/* Events are not independent. */
 	switch (i) {
 	case BITCOIN_ANCHOR_DEPTHOK:
-		/* Can't sent TIMEOUT */
-		sdata->event_notifies &= ~(1ULL<<BITCOIN_ANCHOR_TIMEOUT);
+		/* Can't sent TIMEOUT (may not be set) */
+		remove_event_(&sdata->event_notifies, BITCOIN_ANCHOR_TIMEOUT);
 		break;
 	case BITCOIN_ANCHOR_TIMEOUT:
 		/* Can't sent DEPTHOK */
-		sdata->event_notifies &= ~(1ULL<<BITCOIN_ANCHOR_DEPTHOK);
+		remove_event(&sdata->event_notifies, BITCOIN_ANCHOR_DEPTHOK);
 		break;
 	default:
 		;
@@ -1059,13 +1097,13 @@ static struct trail *run_peer(const struct state_data *sdata,
 	/* Try the event notifiers */
 	old_notifies = copy.event_notifies;
 	for (i = 0; i < 64; i++) {
-		if (!(copy.event_notifies & (1ULL << i)))
+		if (!have_event(copy.event_notifies, i))
 			continue;
 
 		/* Don't re-fire (except OTHERSPEND/THEIRSPEND can reoccur) */
 		if (i != BITCOIN_ANCHOR_OTHERSPEND
 		    && i != BITCOIN_ANCHOR_THEIRSPEND)
-			copy.event_notifies &= ~(1ULL << i);
+			remove_event(&copy.event_notifies, i);
 		activate_event(&copy, i);
 		t = try_input(&copy, i, normalpath, errorpath, depth, hist);
 		if (t)
