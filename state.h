@@ -43,6 +43,31 @@ struct state_effect {
 	/* Error received from other side. */
 	Pkt *in_error;
 
+	/* HTLC we're working on. */
+	struct htlc_progress *htlc_in_progress;
+
+	/* Their signature for the new commit tx. */
+	struct signature *update_theirsig;
+	
+	/* Stop working on HTLC. */
+	bool htlc_abandon;
+
+	/* Finished working on HTLC. */
+	bool htlc_fulfill;
+
+	/* R value. */
+	const struct htlc_rval *r_value;
+
+	/* HTLC outputs to watch. */
+	const struct htlc_watch *watch_htlcs;
+
+	/* HTLC output to unwatch. */
+	const struct htlc_unwatch *unwatch_htlc;
+
+	/* HTLC spends to watch/unwatch. */
+	const struct htlc_spend_watch *watch_htlc_spend;
+	const struct htlc_spend_watch *unwatch_htlc_spend;
+
 	/* FIXME: More to come (for accept_*) */
 };
 
@@ -65,6 +90,8 @@ union input {
 	Pkt *pkt;
 	struct command *cmd;
 	struct bitcoin_event *btc;
+	struct htlc *htlc;
+	struct htlc_progress *htlc_prog;
 };
 
 enum state state(const enum state state, const struct state_data *sdata,
@@ -92,15 +119,21 @@ static inline bool input_is(enum state_input a, enum state_input b)
 	return a == b;
 }
 
+struct signature;
+
 /* Create various kinds of packets, allocated off @ctx */
 Pkt *pkt_open(const tal_t *ctx, const struct state_data *sdata);
 Pkt *pkt_anchor(const tal_t *ctx, const struct state_data *sdata);
 Pkt *pkt_open_commit_sig(const tal_t *ctx, const struct state_data *sdata);
 Pkt *pkt_open_complete(const tal_t *ctx, const struct state_data *sdata);
-Pkt *pkt_htlc_update(const tal_t *ctx, const struct state_data *sdata, void *data);
-Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct state_data *sdata, void *data);
-Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct state_data *sdata, void *data);
-Pkt *pkt_htlc_routefail(const tal_t *ctx, const struct state_data *sdata, void *data);
+Pkt *pkt_htlc_update(const tal_t *ctx, const struct state_data *sdata,
+		     const struct htlc_progress *htlc_prog);
+Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct state_data *sdata,
+		      const struct htlc_progress *htlc_prog);
+Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct state_data *sdata,
+		       const struct htlc_progress *htlc_prog);
+Pkt *pkt_htlc_routefail(const tal_t *ctx, const struct state_data *sdata,
+			const struct htlc_progress *htlc_prog);
 Pkt *pkt_update_accept(const tal_t *ctx, const struct state_data *sdata);
 Pkt *pkt_update_signature(const tal_t *ctx, const struct state_data *sdata);
 Pkt *pkt_update_complete(const tal_t *ctx, const struct state_data *sdata);
@@ -124,26 +157,32 @@ Pkt *accept_pkt_open_commit_sig(struct state_effect *effect,
 	
 Pkt *accept_pkt_htlc_update(struct state_effect *effect,
 			    const struct state_data *sdata, const Pkt *pkt,
-			    Pkt **decline);
+			    Pkt **decline,
+			    struct htlc_progress **htlcprog);
 
 Pkt *accept_pkt_htlc_routefail(struct state_effect *effect,
-			       const struct state_data *sdata, const Pkt *pkt);
+			       const struct state_data *sdata, const Pkt *pkt,
+			       struct htlc_progress **htlcprog);
 
 Pkt *accept_pkt_htlc_timedout(struct state_effect *effect,
-			      const struct state_data *sdata, const Pkt *pkt);
+			      const struct state_data *sdata, const Pkt *pkt,
+			      struct htlc_progress **htlcprog);
 
 Pkt *accept_pkt_htlc_fulfill(struct state_effect *effect,
-			      const struct state_data *sdata, const Pkt *pkt);
+			      const struct state_data *sdata, const Pkt *pkt,
+			      struct htlc_progress **htlcprog);
 
 Pkt *accept_pkt_update_accept(struct state_effect *effect,
-			      const struct state_data *sdata, const Pkt *pkt);
+			      const struct state_data *sdata, const Pkt *pkt,
+			      struct signature **sig);
 
 Pkt *accept_pkt_update_complete(struct state_effect *effect,
 				const struct state_data *sdata, const Pkt *pkt);
 
 Pkt *accept_pkt_update_signature(struct state_effect *effect,
 				 const struct state_data *sdata,
-				 const Pkt *pkt);
+				 const Pkt *pkt,
+				 struct signature **sig);
 
 Pkt *accept_pkt_close(struct state_effect *effect,
 		      const struct state_data *sdata, const Pkt *pkt);
@@ -157,6 +196,14 @@ Pkt *accept_pkt_simultaneous_close(struct state_effect *effect,
 
 Pkt *accept_pkt_close_ack(struct state_effect *effect,
 			  const struct state_data *sdata, const Pkt *pkt);
+
+/**
+ * committed_to_htlcs: do we have any locked-in HTLCs?
+ * @sdata: the state data for this peer.
+ *
+ * If we were to generate a commit tx now, would it have HTLCs in it?
+ */
+bool committed_to_htlcs(const struct state_data *sdata);
 
 /**
  * bitcoin_watch_anchor: create a watch for the anchor.
@@ -230,7 +277,77 @@ struct watch *bitcoin_watch_close(const tal_t *ctx,
 				  const struct state_data *sdata,
 				  enum state_input done);
 
+/**
+ * htlc_outputs_our_commit: HTLC outputs from our commit tx to watch.
+ * @ctx: context to tal the watch struct off.
+ * @sdata: the state data for this peer.
+ * @tx: the commitment tx
+ * @tous_timeout: input to give when a HTLC output to us times out.
+ * @tothem_spent: input to give when a HTLC output to them is spent.
+ * @tothem_timeout: input to give when a HTLC output to them times out.
+ */
+struct htlc_watch *htlc_outputs_our_commit(const tal_t *ctx,
+					   const struct state_data *sdata,
+					   const struct bitcoin_tx *tx,
+					   enum state_input tous_timeout,
+					   enum state_input tothem_spent,
+					   enum state_input tothem_timeout);
 
+/**
+ * htlc_outputs_their_commit: HTLC outputs from their commit tx to watch.
+ * @ctx: context to tal the watch struct off.
+ * @sdata: the state data for this peer.
+ * @tx: the commitment tx
+ * @tous_timeout: input to give when a HTLC output to us times out.
+ * @tothem_spent: input to give when a HTLC output to them is spent.
+ * @tothem_timeout: input to give when a HTLC output to them times out.
+ */
+struct htlc_watch *htlc_outputs_their_commit(const tal_t *ctx,
+					     const struct state_data *sdata,
+					     const struct bitcoin_event *tx,
+					     enum state_input tous_timeout,
+					     enum state_input tothem_spent,
+					     enum state_input tothem_timeout);
+
+/**
+ * htlc_unwatch: stop watching an HTLC
+ * @ctx: context to tal the watch struct off.
+ * @htlc: the htlc to stop watching
+ * @all_done: input to give if we're not watching any anymore.
+ */
+struct htlc_unwatch *htlc_unwatch(const tal_t *ctx,
+				  const struct htlc *htlc,
+				  enum state_input all_done);
+
+/**
+ * htlc_unwatch_all: stop watching all HTLCs
+ * @ctx: context to tal the watch struct off.
+ * @sdata: the state data for this peer.
+ */
+struct htlc_unwatch *htlc_unwatch_all(const tal_t *ctx,
+				      const struct state_data *sdata);
+
+/**
+ * htlc_spend_watch: watch our spend of an HTLC
+ * @ctx: context to tal the watch struct off.
+ * @tx: the commitment tx
+ * @cmd: the command data.
+ * @done: input to give when it's completely buried.
+ */
+struct htlc_spend_watch *htlc_spend_watch(const tal_t *ctx,
+					  const struct bitcoin_tx *tx,
+					  const struct command *cmd,
+					  enum state_input done);
+
+/**
+ * htlc_spend_unwatch: stop watching an HTLC spend
+ * @ctx: context to tal the watch struct off.
+ * @htlc: the htlc to stop watching
+ * @all_done: input to give if we're not watching anything anymore.
+ */
+struct htlc_spend_watch *htlc_spend_unwatch(const tal_t *ctx,
+					    const struct htlc *htlc,
+					    enum state_input all_done);
 /* Create a bitcoin anchor tx. */
 struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx,
 				  const struct state_data *sdata);
@@ -245,7 +362,8 @@ struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
 
 /* Create a bitcoin spend tx (to spend their commit's outputs) */
 struct bitcoin_tx *bitcoin_spend_theirs(const tal_t *ctx,
-					const struct state_data *sdata);
+					const struct state_data *sdata,
+					const struct bitcoin_event *btc);
 
 /* Create a bitcoin steal tx (to steal all their commit's outputs) */
 struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
@@ -255,5 +373,15 @@ struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
 /* Create our commit tx */
 struct bitcoin_tx *bitcoin_commit(const tal_t *ctx,
 				  const struct state_data *sdata);
+
+/* Create a HTLC refund collection */
+struct bitcoin_tx *bitcoin_htlc_timeout(const tal_t *ctx,
+					const struct state_data *sdata,
+					const struct htlc *htlc);
+
+/* Create a HTLC collection */
+struct bitcoin_tx *bitcoin_htlc_spend(const tal_t *ctx,
+				      const struct state_data *sdata,
+				      const struct htlc *htlc);
 
 #endif /* LIGHTNING_STATE_H */
