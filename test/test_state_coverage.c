@@ -441,11 +441,12 @@ struct watch *bitcoin_unwatch_anchor_depth(const tal_t *ctx,
 
 /* Wait for our commit to be spendable. */
 struct watch *bitcoin_watch_delayed(const struct state_effect *effect,
+				    const struct bitcoin_tx *tx,
 				    enum state_input canspend)
 {
 	struct watch *watch = talz(effect, struct watch);
 
-	assert(bitcoin_tx_is(effect->broadcast, "our commit"));
+	assert(bitcoin_tx_is(tx, "our commit"));
 	add_event(&watch->events, canspend);
 	return watch;
 }
@@ -453,16 +454,17 @@ struct watch *bitcoin_watch_delayed(const struct state_effect *effect,
 /* Wait for commit to be very deeply buried (so we no longer need to
  * even watch) */
 struct watch *bitcoin_watch(const struct state_effect *effect,
+			    const struct bitcoin_tx *tx,
 			    enum state_input done)
 {
 	struct watch *watch = talz(effect, struct watch);
 
 	if (done == BITCOIN_STEAL_DONE)
-		assert(bitcoin_tx_is(effect->broadcast, "steal"));
+		assert(bitcoin_tx_is(tx, "steal"));
 	else if (done == BITCOIN_SPEND_THEIRS_DONE)
-		assert(bitcoin_tx_is(effect->broadcast, "spend their commit"));
+		assert(bitcoin_tx_is(tx, "spend their commit"));
 	else if (done == BITCOIN_SPEND_OURS_DONE)
-		assert(bitcoin_tx_is(effect->broadcast, "spend our commit"));
+		assert(bitcoin_tx_is(tx, "spend our commit"));
 	else
 		errx(1, "Unknown watch effect %s", input_name(done));
 	add_event(&watch->events, done);

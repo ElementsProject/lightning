@@ -528,7 +528,8 @@ enum state state(const enum state state, const struct state_data *sdata,
 				   bitcoin_commit(effect, sdata));
 			set_effect(effect, watch,
 				   bitcoin_watch_delayed(effect,
-							 BITCOIN_ANCHOR_OURCOMMIT_DELAYPASSED));
+					 effect->broadcast,
+					 BITCOIN_ANCHOR_OURCOMMIT_DELAYPASSED));
 			/* They could still close. */
 			return STATE_CLOSE_WAIT_CLOSE_OURCOMMIT;
 		}
@@ -612,7 +613,7 @@ enum state state(const enum state state, const struct state_data *sdata,
 			set_effect(effect, broadcast,
 				   bitcoin_spend_ours(effect, sdata));
 			set_effect(effect, watch,
-				   bitcoin_watch(effect,
+				   bitcoin_watch(effect, effect->broadcast,
 						 BITCOIN_SPEND_OURS_DONE));
 			bits &= ~STATE_CLOSE_OURCOMMIT_BIT;
 			bits |= STATE_CLOSE_SPENDOURS_BIT;
@@ -631,7 +632,7 @@ enum state state(const enum state state, const struct state_data *sdata,
 			set_effect(effect, broadcast,
 				   bitcoin_spend_theirs(effect, sdata));
 			set_effect(effect, watch,
-				   bitcoin_watch(effect,
+				   bitcoin_watch(effect, effect->broadcast,
 						 BITCOIN_SPEND_THEIRS_DONE));
 			bits |= STATE_CLOSE_SPENDTHEM_BIT;
 			return base + bits;
@@ -643,7 +644,8 @@ enum state state(const enum state state, const struct state_data *sdata,
 				return STATE_ERR_INFORMATION_LEAK;
 			set_effect(effect, broadcast, steal);
 			set_effect(effect, watch,
-				   bitcoin_watch(effect, BITCOIN_STEAL_DONE));
+				   bitcoin_watch(effect, effect->broadcast,
+						 BITCOIN_STEAL_DONE));
 			bits |= STATE_CLOSE_STEAL_BIT;
 			return base + bits;
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT))
@@ -716,7 +718,7 @@ start_unilateral_close:
 	set_effect(effect, stop_commands, true);
 	set_effect(effect, broadcast, bitcoin_commit(effect, sdata));
 	set_effect(effect, watch,
-		   bitcoin_watch_delayed(effect,
+		   bitcoin_watch_delayed(effect, effect->broadcast,
 					 BITCOIN_ANCHOR_OURCOMMIT_DELAYPASSED));
 	return STATE_CLOSE_WAIT_OURCOMMIT;
 
@@ -731,7 +733,8 @@ them_unilateral:
 	set_effect(effect, stop_commands, true);
 	set_effect(effect, broadcast, bitcoin_spend_theirs(effect, sdata));
 	set_effect(effect, watch,
-		   bitcoin_watch(effect, BITCOIN_SPEND_THEIRS_DONE));
+		   bitcoin_watch(effect, effect->broadcast,
+				 BITCOIN_SPEND_THEIRS_DONE));
 	return STATE_CLOSE_WAIT_SPENDTHEM;
 
 accept_update:
@@ -825,7 +828,8 @@ fail_during_close:
 		set_effect(effect, broadcast,
 			   bitcoin_spend_theirs(effect, sdata));
 		set_effect(effect, watch,
-			   bitcoin_watch(effect, BITCOIN_SPEND_THEIRS_DONE));
+			   bitcoin_watch(effect, effect->broadcast,
+					 BITCOIN_SPEND_THEIRS_DONE));
 		/* Expect either close or spendthem to complete */
 		return STATE_CLOSE_WAIT_SPENDTHEM_CLOSE;
 	} else if (input_is(input, BITCOIN_ANCHOR_OTHERSPEND)) {
@@ -834,7 +838,8 @@ fail_during_close:
 			return STATE_ERR_INFORMATION_LEAK;
 		set_effect(effect, broadcast, steal);
 		set_effect(effect, watch,
-			   bitcoin_watch(effect, BITCOIN_STEAL_DONE));
+			   bitcoin_watch(effect, effect->broadcast,
+					 BITCOIN_STEAL_DONE));
 		/* Expect either close or steal to complete */
 		return STATE_CLOSE_WAIT_STEAL_CLOSE;
 	} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT)) {
@@ -857,6 +862,7 @@ old_commit_spotted:
 	if (!steal)
 		return STATE_ERR_INFORMATION_LEAK;
 	set_effect(effect, broadcast, steal);
-	set_effect(effect, watch, bitcoin_watch(effect, BITCOIN_STEAL_DONE));
+	set_effect(effect, watch,
+		   bitcoin_watch(effect, effect->broadcast, BITCOIN_STEAL_DONE));
 	return STATE_CLOSE_WAIT_STEAL;
 }

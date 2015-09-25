@@ -200,21 +200,27 @@ struct watch *bitcoin_unwatch_anchor_depth(const tal_t *ctx,
 
 /**
  * bitcoin_watch_delayed: watch this (commit) tx, tell me when I can spend it
- * @effect: both the context to tal the watch off, and tx we're watching.
+ * @effect: the context to tal the watch off
+ * @tx: the tx we're watching.
  * @canspend: the input to give when commit reaches spendable depth.
+ *
+ * Note that this tx may be malleated, as it's dual-signed.
  */
 struct watch *bitcoin_watch_delayed(const struct state_effect *effect,
+				    const struct bitcoin_tx *tx,
 				    enum state_input canspend);
 
 /**
  * bitcoin_watch: watch this tx until it's "irreversible"
- * @effect: both the context to tal the watch off, and tx we're watching.
+ * @effect: the context to tal the watch off
+ * @tx: the tx we're watching.
  * @done: the input to give when tx is completely buried.
  *
  * The tx should be immalleable by BIP62; once this fires we consider
  * the channel completely closed and stop watching (eg 100 txs down).
  */
 struct watch *bitcoin_watch(const struct state_effect *effect,
+			    const struct bitcoin_tx *tx,
 			    enum state_input done);
 
 /**
