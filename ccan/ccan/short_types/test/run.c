@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <err.h>
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	plan_tests(16);
 
