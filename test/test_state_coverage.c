@@ -110,6 +110,9 @@ struct hist {
 
 	/* The different inputs. */
 	enum state_input **inputs_per_state;
+
+	/* The different outputs. */
+	enum state_input *outputs;
 };
 	
 static const char *state_name(enum state s)
@@ -652,6 +655,29 @@ static void eliminate_input(enum state_input **inputs, enum state_input in)
 	}
 }
 
+static bool find_output(const enum state_input *outputs, enum state_input out)
+{
+	size_t n, i;
+
+	n = tal_count(outputs);
+	for (i = 0; i < n; i++)
+		if (outputs[i] == out)
+			return true;
+	return false;
+}
+
+static void record_output(enum state_input **outputs, enum state_input out)
+{
+	size_t n;
+
+	if (find_output(*outputs, out))
+		return;
+
+	n = tal_count(*outputs);
+	tal_resize(outputs, n+1);
+	(*outputs)[n] = out;
+}
+				
 static struct trail *try_input(const struct state_data *sdata,
 			       enum state_input i,
 			       struct hist *hist)
@@ -678,6 +704,12 @@ static struct trail *try_input(const struct state_data *sdata,
 	if (problem)
 		return new_trail(i, sdata, newstate, effect, problem);
 
+	/* Record any output. */
+	if (effect->send) {
+		record_output(&hist->outputs,
+			      input_by_name((const char *)effect->send));
+	}
+	
 	/* Have we been in this overall situation before? */
 	if (!sithash_update(&hist->sithash, &copy)) {
 		tal_free(effect);
@@ -893,6 +925,7 @@ int main(void)
 	/* Map the inputs tested in each state. */
 	hist.inputs_per_state = map_inputs();
 	sithash_init(&hist.sithash);
+	hist.outputs = tal_arr(NULL, enum state_input, 0);
 
 	/* Initialize universe. */
 	sdata_init(&a, &b, STATE_INIT_WITHANCHOR, "A");
@@ -947,5 +980,15 @@ int main(void)
 			      input_name(*hist.inputs_per_state[i]));
 	}
 
+	for (i = 0; i < INPUT_MAX; i++) {
+		/* Not all input values are valid. */
+		if (streq(input_name(i), "unknown"))
+			continue;
+		/* We only expect packets to be output. */
+		if (!input_is_pkt(i))
+			continue;
+		if (!find_output(hist.outputs, i))
+			warnx("Never sent output %s", input_name(i));
+	}
 	return 0;
 }	
