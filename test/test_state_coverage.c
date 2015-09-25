@@ -16,6 +16,7 @@ static bool record_input_mapping(int b);
 #include "gen_state_names.h"
 
 static enum state_input *mapping_inputs;
+static bool do_decline;
 
 /* To recontruct errors. */
 struct trail {
@@ -261,8 +262,10 @@ Pkt *accept_pkt_htlc_update(struct state_effect *effect,
 			    const struct state_data *sdata, const Pkt *pkt,
 			    Pkt **decline)
 {
-	/* FIXME: Test setting *decline. */
-	*decline = NULL;
+	if (do_decline)
+		*decline = new_pkt(effect, PKT_UPDATE_DECLINE_HTLC);
+	else
+		*decline = NULL;
 	return NULL;
 }
 
@@ -915,6 +918,20 @@ static bool visited_state(const struct sithash *sithash,
 	return false;
 }
 
+static void report_trail(const struct trail *t)
+{
+	fprintf(stderr, "Error: %s\n", t->problem);
+	while (t) {
+		fprintf(stderr, "%s: %s %s -> %s\n",
+			t->name,
+			input_name(t->input),
+			state_name(t->before), state_name(t->after));
+		if (t->pkt_sent)
+			fprintf(stderr, "  => %s\n", t->pkt_sent);
+		t = t->next;
+	}
+}
+
 int main(void)
 {
 	struct state_data a, b;
@@ -936,16 +953,17 @@ int main(void)
 	/* Now, try each input in each state. */
 	t = run_peer(&a, &hist);
 	if (t) {
-		fprintf(stderr, "Error: %s\n", t->problem);
-		while (t) {
-			fprintf(stderr, "%s: %s %s -> %s\n",
-				t->name,
-				input_name(t->input),
-				state_name(t->before), state_name(t->after));
-			if (t->pkt_sent)
-				fprintf(stderr, "  => %s\n", t->pkt_sent);
-			t = t->next;
-		}
+		report_trail(t);
+		exit(1);
+	}
+
+	/* Now try with declining an HTLC. */
+	do_decline = true;
+	sithash_init(&hist.sithash);
+	sithash_update(&hist.sithash, &a);
+	t = run_peer(&a, &hist);
+	if (t) {
+		report_trail(t);
 		exit(1);
 	}
 
