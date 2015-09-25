@@ -204,7 +204,7 @@ struct channel_state *gather_updates(const tal_t *ctx,
 					      pkt->update_routefail_htlc->r_hash);
 				if (n == tal_count(cstate->a.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
-				amount = cstate->a.htlcs[n]->amount;
+				amount = cstate->a.htlcs[n]->amount_msat;
 				if (!funding_delta(o1, o2, oa, 0, -amount,
 						   &cstate->a, &cstate->b))
 					errx(1, "Impossible htlc %llu %s",
@@ -215,7 +215,7 @@ struct channel_state *gather_updates(const tal_t *ctx,
 					      pkt->update_routefail_htlc->r_hash);
 				if (n == tal_count(cstate->b.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
-				amount = cstate->b.htlcs[n]->amount;
+				amount = cstate->b.htlcs[n]->amount_msat;
 				if (!funding_delta(o2, o1, oa, 0, -amount,
 						   &cstate->b, &cstate->a))
 					errx(1, "Impossible htlc %llu %s",
