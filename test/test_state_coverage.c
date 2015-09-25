@@ -7,6 +7,8 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/hash/hash.h>
+#include <ccan/opt/opt.h>
+#include "version.h"
 
 static bool record_input_mapping(int b);
 #define MAPPING_INPUTS(b) \
@@ -15,6 +17,11 @@ static bool record_input_mapping(int b);
 #include "state.h"
 #include "gen_state_names.h"
 
+static bool dot_simplify = false;
+static bool dot_enable = false;
+static bool dot_include_abnormal = false;
+static bool dot_include_errors = false;
+static bool dot_include_nops = false;
 static enum state_input *mapping_inputs;
 static bool do_decline;
 
@@ -101,6 +108,41 @@ static bool situation_eq(const struct situation *a, const struct situation *b)
 	return sdata_eq(&a->a, &b->a) && sdata_eq(&a->b, &b->b);
 }
 
+struct dot_edge {
+	const char *oldstate, *newstate;
+	enum state_input i;
+	const char *pkt;
+};
+
+static const struct dot_edge *dot_edge_keyof(const struct dot_edge *dot_edge)
+{
+	return dot_edge;
+}
+
+static size_t dot_edge_hash(const struct dot_edge *d)
+{
+	uint32_t pkthash;
+
+	if (d->pkt)
+		pkthash = hash(d->pkt, strlen(d->pkt), d->i);
+	else
+		pkthash = d->i;
+	return hash_pointer(d->oldstate, hash_pointer(d->newstate, pkthash));
+}
+
+static bool dot_edge_eq(const struct dot_edge *a, const struct dot_edge *b)
+{
+	return a->oldstate == b->oldstate
+		&& a->newstate == b->newstate
+		&& a->i == b->i
+		&& ((a->pkt == NULL && b->pkt == NULL)
+		    || streq(a->pkt, b->pkt));
+}
+
+HTABLE_DEFINE_TYPE(struct dot_edge,
+		   dot_edge_keyof, dot_edge_hash, dot_edge_eq,
+		   edge_hash);
+
 HTABLE_DEFINE_TYPE(struct situation,
 		   situation_keyof, situation_hash, situation_eq,
 		   sithash);
@@ -114,6 +156,9 @@ struct hist {
 
 	/* The different outputs. */
 	enum state_input *outputs;
+
+	/* Edges for the dot graph, if any. */
+	struct edge_hash edges;
 };
 	
 static const char *state_name(enum state s)
@@ -487,6 +532,7 @@ static void copy_peers(struct state_data *dst, struct state_data *peer,
 
 /* Recursion! */
 static struct trail *run_peer(const struct state_data *sdata,
+			      bool normalpath, bool errorpath,
 			      struct hist *hist);
 
 /* Returns false if we've been here before. */
@@ -681,8 +727,101 @@ static void record_output(enum state_input **outputs, enum state_input out)
 	(*outputs)[n] = out;
 }
 				
+static bool error_path(enum state_input i, enum state src, enum state dst)
+{
+	return state_is_error(dst) || i == PKT_ERROR;
+}
+
+static bool normal_path(enum state_input i, enum state src, enum state dst)
+{
+	if (error_path(i, src, dst))
+		return false;
+
+	/* Weird inputs. */
+	if (i == BITCOIN_ANCHOR_TIMEOUT
+	    || i == BITCOIN_ANCHOR_UNSPENT
+	    || i == BITCOIN_ANCHOR_THEIRSPEND
+	    || i == BITCOIN_ANCHOR_OTHERSPEND
+	    || i == BITCOIN_STEAL_DONE
+	    || i == PKT_UPDATE_DECLINE_HTLC
+	    || i == PKT_UPDATE_ROUTEFAIL_HTLC
+	    || i == PKT_UPDATE_TIMEDOUT_HTLC
+	    || i == INPUT_CLOSE_COMPLETE_TIMEOUT)
+		return false;
+
+	return true;
+}
+
+/* These clutter the graph, so only handle from normal state. */
+static bool too_cluttered(enum state_input i, enum state src)
+{
+	if (i == CMD_CLOSE || i == PKT_CLOSE || i == PKT_UPDATE || i == PKT_UPDATE_ADD_HTLC || i == PKT_UPDATE_COMPLETE_HTLC)
+		return src != STATE_NORMAL_LOWPRIO
+			&& src != STATE_NORMAL_HIGHPRIO;
+	return false;
+}
+
+static void add_dot(struct edge_hash *hash,
+		    const char *oldstate,
+		    const char *newstate,
+		    enum state_input i,
+		    const Pkt *pkt)
+{
+	struct dot_edge *d = tal(NULL, struct dot_edge);
+	d->oldstate = oldstate;
+	d->newstate = newstate;
+	d->i = i;
+	if (pkt)
+		d->pkt = tal_strdup(d, (const char *)pkt);
+	else
+		d->pkt = NULL;
+
+	if (edge_hash_get(hash, d))
+		tal_free(d);
+	else
+		edge_hash_add(hash, d);
+}
+
+static const char *simplify_state(enum state s)
+{
+	/* Turn all high prio into low prio, and merge some open states */
+	switch (s) {
+	case STATE_OPEN_WAITING_OURANCHOR:
+	case STATE_OPEN_WAITING_THEIRANCHOR:
+		return "STATE_OPEN_WAITING";
+
+	case STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR:
+	case STATE_OPEN_WAIT_FOR_COMPLETE_THEIRANCHOR:
+		return "STATE_OPEN_WAIT_FOR_COMPLETE";
+
+	case STATE_NORMAL_LOWPRIO:
+	case STATE_NORMAL_HIGHPRIO:
+		return "STATE_NORMAL";
+
+	case STATE_WAIT_FOR_HTLC_ACCEPT_LOWPRIO:
+	case STATE_WAIT_FOR_HTLC_ACCEPT_HIGHPRIO:
+		return "STATE_WAIT_FOR_HTLC_ACCEPT";
+
+	case STATE_WAIT_FOR_UPDATE_ACCEPT_LOWPRIO:
+	case STATE_WAIT_FOR_UPDATE_ACCEPT_HIGHPRIO:
+		return "STATE_WAIT_FOR_UPDATE_ACCEPT";
+
+	case STATE_WAIT_FOR_UPDATE_COMPLETE_LOWPRIO:
+	case STATE_WAIT_FOR_UPDATE_COMPLETE_HIGHPRIO:
+		return "STATE_WAIT_FOR_UPDATE_COMPLETE";
+
+	case STATE_WAIT_FOR_UPDATE_SIG_LOWPRIO:
+	case STATE_WAIT_FOR_UPDATE_SIG_HIGHPRIO:
+		return "STATE_WAIT_FOR_UPDATE_SIG";
+
+	default:
+		return state_name(s);
+	}
+}
+
 static struct trail *try_input(const struct state_data *sdata,
 			       enum state_input i,
+			       bool normalpath, bool errorpath,
 			       struct hist *hist)
 {
 	struct state_data copy, peer;
@@ -697,6 +836,27 @@ static struct trail *try_input(const struct state_data *sdata,
 	eliminate_input(&hist->inputs_per_state[sdata->state], i);
 	idata.pkt = (Pkt *)tal(effect, char);
 	newstate = state(sdata->state, sdata, i, &idata, effect);
+
+	normalpath &= normal_path(i, sdata->state, newstate);
+	errorpath |= error_path(i, sdata->state, newstate);
+
+	if (dot_enable
+	    && (dot_include_abnormal || normalpath)
+	    && (dot_include_errors || !errorpath)
+	    && (dot_include_abnormal || !too_cluttered(i, sdata->state))) {
+		const char *oldstr, *newstr;
+
+		/* Simplify folds high and low prio, skip "STATE_" */
+		if (dot_simplify) {
+			oldstr = simplify_state(sdata->state) + 6;
+			newstr = simplify_state(newstate) + 6;
+		} else {
+			oldstr = state_name(sdata->state) + 6;
+			newstr = state_name(newstate) + 6;
+		}
+		if (newstr != oldstr || dot_include_nops)
+			add_dot(&hist->edges, oldstr, newstr, i, effect->send);
+	}
 
 	if (newstate == STATE_ERR_INTERNAL)
 		return new_trail(i, sdata, newstate, effect, "Internal error");
@@ -743,9 +903,9 @@ static struct trail *try_input(const struct state_data *sdata,
 	}
 
 	/* Try inputs from here down. */
-	t = run_peer(&copy, hist);
+	t = run_peer(&copy, normalpath, errorpath, hist);
 	if (!t)
-		t = run_peer(&peer, hist);
+		t = run_peer(&peer, normalpath, errorpath, hist);
 	if (!t) {
 		tal_free(effect);
 		return NULL;
@@ -782,6 +942,7 @@ static void activate_event(struct state_data *sdata, enum state_input i)
 }
 
 static struct trail *run_peer(const struct state_data *sdata,
+			      bool normalpath, bool errorpath,
 			      struct hist *hist)
 {
 	struct state_data copy, peer;
@@ -804,7 +965,7 @@ static struct trail *run_peer(const struct state_data *sdata,
 		if (i != BITCOIN_ANCHOR_OTHERSPEND)
 			copy.event_notifies &= ~(1ULL << i);
 		activate_event(&copy, i);
-		t = try_input(&copy, i, hist);
+		t = try_input(&copy, i, normalpath, errorpath, hist);
 		if (t)
 			return t;
 		copy.event_notifies = old_notifies;
@@ -827,7 +988,8 @@ static struct trail *run_peer(const struct state_data *sdata,
 
 			for (i = 0; i < sizeof(cmds) / sizeof(cmds[i]); i++) {
 				copy.current_command = cmds[i];
-				t = try_input(&copy, cmds[i], hist);
+				t = try_input(&copy, cmds[i],
+					      normalpath, errorpath, hist);
 				if (t)
 					return t;
 			}
@@ -844,7 +1006,8 @@ static struct trail *run_peer(const struct state_data *sdata,
 			if (copy.state != copy.deferred_state) {
 				i = copy.deferred_pkt;
 				copy.deferred_pkt = INPUT_NONE;
-				return try_input(&copy, i, hist);
+				return try_input(&copy, i,
+						 normalpath, errorpath, hist);
 			}
 			/* Can't send anything until that's done. */
 			return NULL;
@@ -857,7 +1020,7 @@ static struct trail *run_peer(const struct state_data *sdata,
 			memmove(peer.outputs, peer.outputs + 1,
 				sizeof(peer.outputs) - sizeof(peer.outputs[0]));
 			peer.num_outputs--;
-			return try_input(&copy, i, hist);
+			return try_input(&copy, i, normalpath, errorpath, hist);
 		}
 	}
 	return NULL;
@@ -932,17 +1095,51 @@ static void report_trail(const struct trail *t)
 	}
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	struct state_data a, b;
 	unsigned int i;
 	struct hist hist;
 	struct trail *t;
 
+	err_set_progname(argv[0]);
+
+	opt_register_noarg("--help|-h", opt_usage_and_exit,
+			   ""
+			   "Test lightning state machine",
+			   "Print this message.");
+	opt_register_noarg("--dot",
+			   opt_set_bool, &dot_enable,
+			   "Output dot format for normal paths");
+	opt_register_noarg("--dot-all",
+			   opt_set_bool, &dot_include_abnormal,
+			   "Output dot format for all non-error paths");
+	opt_register_noarg("--dot-include-errors",
+			   opt_set_bool, &dot_include_errors,
+			   "Output dot format for error paths");
+	opt_register_noarg("--dot-include-nops",
+			   opt_set_bool, &dot_include_nops,
+			   "Output dot format even for inputs which don't change state");
+	opt_register_noarg("--dot-simplify",
+			   opt_set_bool, &dot_simplify,
+			   "Merge high and low priority states");
+	opt_register_version();
+
+ 	opt_parse(&argc, argv, opt_log_stderr_exit);
+	if (dot_include_abnormal)
+		dot_enable = true;
+	if (dot_simplify && !dot_enable)
+		opt_usage_exit_fail("--dot-simplify needs --dot/--dot-all");
+	if (dot_include_errors && !dot_enable)
+		opt_usage_exit_fail("--dot-include-errors needs --dot/--dot-all");
+	if (dot_include_nops && !dot_enable)
+		opt_usage_exit_fail("--dot-include-nops needs --dot/--dot-all");
+
 	/* Map the inputs tested in each state. */
 	hist.inputs_per_state = map_inputs();
 	sithash_init(&hist.sithash);
 	hist.outputs = tal_arr(NULL, enum state_input, 0);
+	edge_hash_init(&hist.edges);
 
 	/* Initialize universe. */
 	sdata_init(&a, &b, STATE_INIT_WITHANCHOR, "A");
@@ -951,7 +1148,7 @@ int main(void)
 		abort();
 
 	/* Now, try each input in each state. */
-	t = run_peer(&a, &hist);
+	t = run_peer(&a, true, false, &hist);
 	if (t) {
 		report_trail(t);
 		exit(1);
@@ -961,7 +1158,7 @@ int main(void)
 	do_decline = true;
 	sithash_init(&hist.sithash);
 	sithash_update(&hist.sithash, &a);
-	t = run_peer(&a, &hist);
+	t = run_peer(&a, true, false, &hist);
 	if (t) {
 		report_trail(t);
 		exit(1);
@@ -1007,6 +1204,25 @@ int main(void)
 			continue;
 		if (!find_output(hist.outputs, i))
 			warnx("Never sent output %s", input_name(i));
+	}
+
+	if (dot_enable) {
+		struct dot_edge *d;
+		struct edge_hash_iter i;
+
+		printf("digraph lightning {\n");
+		for (d = edge_hash_first(&hist.edges, &i);
+		     d;
+		     d = edge_hash_next(&hist.edges, &i)) {
+			printf("%s -> %s ", d->oldstate, d->newstate);
+			if (!d->pkt)
+				printf("[label=\"<%s\"];\n", input_name(d->i));
+			else {
+				printf("[label=\"<%s\\n>%s\"];\n",
+				       input_name(d->i), d->pkt);
+			}
+		}
+		printf("}\n");
 	}
 	return 0;
 }	

@@ -112,7 +112,7 @@ lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	$(PROTOCC) lightning.proto --c_out=.
 
 $(TEST_CLI_PROGRAMS): % : %.o $(HELPER_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) libsecp256k1.a
-$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(CCAN_OBJS) $(CCAN_EXTRA_OBJS) libsecp256k1.a
+$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(CCAN_OBJS) $(CCAN_EXTRA_OBJS) version.o libsecp256k1.a
 $(PROGRAMS:=.o) $(HELPER_OBJS): $(HEADERS)
 
 $(CCAN_OBJS) $(HELPER_OBJS) $(PROGRAM_OBJS) $(BITCOIN_OBJS) $(CDUMP_OBJS): ccan/config.h
@@ -125,6 +125,23 @@ doc/deployable-lightning.pdf: doc/deployable-lightning.lyx doc/bitcoin.bib
 
 doc/deployable-lightning.tex: doc/deployable-lightning.lyx
 	lyx -E latex $@ $<
+
+state-diagrams: doc/normal-states.svg doc/simplified-states.svg doc/error-states.svg doc/full-states.svg
+
+%.svg: %.dot
+	dot -Tsvg $< > $@ || (rm -f $@; false)
+
+doc/simplified-states.dot: test/test_state_coverage
+	test/test_state_coverage --dot --dot-simplify > $@
+
+doc/normal-states.dot: test/test_state_coverage
+	test/test_state_coverage --dot > $@
+
+doc/error-states.dot: test/test_state_coverage
+	test/test_state_coverage --dot-all --dot-include-errors > $@
+
+doc/full-states.dot: test/test_state_coverage
+	test/test_state_coverage --dot-all --dot-include-errors --dot-include-nops > $@
 
 gen_version.h: FORCE
 	@(echo "#define VERSION \"`git describe --always --dirty`\"" && echo "#define VERSION_NAME \"$(NAME)\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
