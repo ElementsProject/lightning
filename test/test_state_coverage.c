@@ -1978,10 +1978,47 @@ static void report_trail(const struct trail *t)
 {
 	fprintf(stderr, "Error: %s\n", t->problem);
 	while (t) {
-		fprintf(stderr, "%s: %s %s -> %s\n",
+		size_t i;
+		fprintf(stderr, "%s: %s(%i) %s -> %s\n",
 			t->name,
-			input_name(t->input),
+			input_name(t->input), t->htlc_id,
 			state_name(t->before.state), state_name(t->after.state));
+		if (t->after.state >= STATE_CLOSED) {
+			if (t->after.num_live_htlcs_to_us
+			    || t->after.num_live_htlcs_to_them) {
+				fprintf(stderr, "  Live HTLCs:");
+				for (i = 0; i < t->after.num_live_htlcs_to_us; i++)
+					fprintf(stderr, " <%u",
+						t->after.live_htlcs_to_us[i].id);
+				for (i = 0; i < t->after.num_live_htlcs_to_them; i++)
+					fprintf(stderr, " >%u",
+						t->after.live_htlcs_to_them[i].id);
+				fprintf(stderr, "\n");
+			}
+			if (t->after.num_htlc_spends_to_us
+			    || t->after.num_htlc_spends_to_them) {
+				fprintf(stderr, "  HTLC spends:");
+				for (i = 0; i < t->after.num_htlc_spends_to_us; i++)
+					fprintf(stderr, " <%u",
+						t->after.htlc_spends_to_us[i].id);
+				for (i = 0; i < t->after.num_htlc_spends_to_them; i++)
+					fprintf(stderr, " <%u",
+						t->after.htlc_spends_to_them[i].id);
+				fprintf(stderr, "\n");
+			}
+		} else {
+			if (t->after.num_htlcs_to_us
+			    || t->after.num_htlcs_to_them) {
+				fprintf(stderr, "  HTLCs:");
+				for (i = 0; i < t->after.num_htlcs_to_us; i++)
+					fprintf(stderr, " <%u",
+						t->after.htlcs_to_us[i].id);
+				for (i = 0; i < t->after.num_htlcs_to_them; i++)
+					fprintf(stderr, " >%u",
+						t->after.htlcs_to_them[i].id);
+				fprintf(stderr, "\n");
+			}
+		}
 		if (t->pkt_sent)
 			fprintf(stderr, "  => %s\n", t->pkt_sent);
 		t = t->next;
