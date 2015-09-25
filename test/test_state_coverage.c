@@ -119,6 +119,7 @@ struct trail {
 	const struct state_data *before, *after;
 	int htlc_id;
 	unsigned int num_peer_outputs;
+	unsigned int depth;
 	const char *pkt_sent;
 };
 
@@ -958,7 +959,6 @@ static void copy_peers(struct state_data *dst, struct state_data *peer,
 /* Recursion! */
 static void run_peer(const struct state_data *sdata,
 		     bool normalpath, bool errorpath,
-		     size_t depth,
 		     const struct trail *prev_trail,
 		     struct hist *hist);
 
@@ -1022,6 +1022,7 @@ static void init_trail(struct trail *t,
 {
 	t->name = before->name;
 	t->prev = prev;
+	t->depth = prev ? prev->depth + 1 : 0;
 	t->input = input;
 	t->before = before;
 	t->after = after;
@@ -1616,7 +1617,6 @@ static void try_input(const struct state_data *sdata,
 		      enum state_input i,
 		      const union input *idata,
 		      bool normalpath, bool errorpath,
-		      size_t depth,
 		      const struct trail *prev_trail,
 		      struct hist *hist)
 {
@@ -1696,7 +1696,7 @@ static void try_input(const struct state_data *sdata,
 			tal_free(effect);
 			return;
 		}
-		if (depth > STATE_MAX * 10)
+		if (t.depth > STATE_MAX * 10)
 			report_trail(&t, "Loop");
 	}
 
@@ -1735,11 +1735,11 @@ static void try_input(const struct state_data *sdata,
 	}
 
 	/* Try inputs from here down. */
-	run_peer(&copy, normalpath, errorpath, depth+1, &t, hist);
+	run_peer(&copy, normalpath, errorpath, &t, hist);
 
 	/* Don't bother running other peer we can't communicate. */
 	if (copy.core.pkt_inputs || peer.core.pkt_inputs)
-		run_peer(&peer, normalpath, errorpath, depth+1, &t, hist);
+		run_peer(&peer, normalpath, errorpath, &t, hist);
 	tal_free(effect);
 }
 
@@ -1822,7 +1822,6 @@ static unsigned int next_htlc_id(void)
 
 static void run_peer(const struct state_data *sdata,
 		     bool normalpath, bool errorpath,
-		     size_t depth,
 		     const struct trail *prev_trail,
 		     struct hist *hist)
 {
@@ -1846,7 +1845,7 @@ static void run_peer(const struct state_data *sdata,
 		if (!can_refire(i))
 			remove_event(&copy.core.event_notifies, i);
 		activate_event(&copy, i);
-		try_input(&copy, i, idata, normalpath, errorpath, depth,
+		try_input(&copy, i, idata, normalpath, errorpath,
 			  prev_trail, hist);
 		copy.core.event_notifies = old_notifies;
 	}
@@ -1859,8 +1858,7 @@ static void run_peer(const struct state_data *sdata,
 	    && !sdata->core.closing_cmd) {
 		copy.core.closing_cmd = true;
 		try_input(&copy, CMD_CLOSE, idata,
-			  normalpath, errorpath, depth,
-			  prev_trail, hist);
+			  normalpath, errorpath, prev_trail, hist);
 		copy.core.closing_cmd = false;
 	}
 
@@ -1882,7 +1880,7 @@ static void run_peer(const struct state_data *sdata,
 			idata->htlc_prog->htlc.id = next_htlc_id();
 				
 			try_input(&copy, copy.core.current_command, idata,
-				  normalpath, errorpath, depth,
+				  normalpath, errorpath,
 				  prev_trail, hist);
 			idata->htlc_prog = tal_free(idata->htlc_prog);
 		}
@@ -1899,12 +1897,12 @@ static void run_peer(const struct state_data *sdata,
 					= CMD_SEND_HTLC_FULFILL;
 				try_input(&copy, copy.core.current_command,
 					  idata, normalpath, errorpath,
-					  depth, prev_trail, hist);
+					  prev_trail, hist);
 			}
 			copy.core.current_command = CMD_SEND_HTLC_ROUTEFAIL;
 			try_input(&copy, copy.core.current_command,
 				  idata, normalpath, errorpath,
-				  depth, prev_trail, hist);
+				  prev_trail, hist);
 		}
 
 		/* We can timeout an HTLC we offered. */
@@ -1916,7 +1914,7 @@ static void run_peer(const struct state_data *sdata,
 			copy.core.current_command = CMD_SEND_HTLC_TIMEDOUT;
 			try_input(&copy, copy.core.current_command,
 				  idata, normalpath, errorpath,
-				  depth, prev_trail, hist);
+				  prev_trail, hist);
 		}
 
 		/* Restore current_command */
@@ -1930,21 +1928,21 @@ static void run_peer(const struct state_data *sdata,
 		if (!rval_known(sdata, idata->htlc->id)) {
 			try_input(&copy, INPUT_RVALUE,
 				  idata, normalpath, errorpath,
-				  depth, prev_trail, hist);
+				  prev_trail, hist);
 		}
 		try_input(&copy, BITCOIN_HTLC_TOUS_TIMEOUT,
 			  idata, normalpath, errorpath,
-			  depth, prev_trail, hist);
+			  prev_trail, hist);
 	}
 
 	for (i = 0; i < sdata->num_live_htlcs_to_them; i++) {
 		idata->htlc = (struct htlc *)&copy.live_htlcs_to_them[i];
 		try_input(&copy, BITCOIN_HTLC_TOTHEM_SPENT,
 			  idata, normalpath, errorpath,
-			  depth, prev_trail, hist);
+			  prev_trail, hist);
 		try_input(&copy, BITCOIN_HTLC_TOTHEM_TIMEOUT,
 			  idata, normalpath, errorpath,
-			  depth, prev_trail, hist);
+			  prev_trail, hist);
 	}
 
 	/* If they're watching HTLC spends, we can send events. */
@@ -1952,13 +1950,13 @@ static void run_peer(const struct state_data *sdata,
 		idata->htlc = (struct htlc *)&copy.htlc_spends_to_us[i];
 		try_input(&copy, BITCOIN_HTLC_FULFILL_SPEND_DONE,
 			  idata, normalpath, errorpath,
-			  depth, prev_trail, hist);
+			  prev_trail, hist);
 	}
 	for (i = 0; i < sdata->num_htlc_spends_to_them; i++) {
 		idata->htlc = (struct htlc *)&copy.htlc_spends_to_them[i];
 		try_input(&copy, BITCOIN_HTLC_RETURN_SPEND_DONE,
 			  idata, normalpath, errorpath,
-			  depth, prev_trail, hist);
+			  prev_trail, hist);
 	}
 
 	/* Allowed to send inputs? */
@@ -1971,7 +1969,7 @@ static void run_peer(const struct state_data *sdata,
 				i = copy.core.deferred_pkt;
 				copy.core.deferred_pkt = INPUT_NONE;
 				try_input(&copy, i, idata,
-					  normalpath, errorpath, depth,
+					  normalpath, errorpath,
 					  prev_trail, hist);
 			}
 			/* Can't send anything until that's done. */
@@ -1996,7 +1994,7 @@ static void run_peer(const struct state_data *sdata,
 			/* Reset so that hashing doesn't get confused. */
 			peer.core.outputs[peer.core.num_outputs] = 0;
 			try_input(&copy, i, idata, normalpath, errorpath,
-				  depth, prev_trail, hist);
+				  prev_trail, hist);
 		}
 	}
 	tal_free(idata);
@@ -2139,7 +2137,7 @@ int main(int argc, char *argv[])
 		abort();
 
 	/* Now, try each input in each state. */
-	run_peer(&a, true, false, 0, NULL, &hist);
+	run_peer(&a, true, false, NULL, &hist);
 
 #if 0 /* FIXME */
 	/* Now try with declining an HTLC. */
