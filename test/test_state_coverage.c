@@ -7,8 +7,15 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/hash/hash.h>
+
+static bool record_input_mapping(int b);
+#define MAPPING_INPUTS(b) \
+	do { if (record_input_mapping(b)) return false; } while(0)
+
 #include "state.h"
 #include "gen_state_names.h"
+
+static enum state_input *mapping_inputs;
 
 /* To recontruct errors. */
 struct trail {
@@ -40,13 +47,13 @@ struct state_data {
 	struct state_data *peer;
 };
 
-struct history {
+struct situation {
 	struct state_data a, b;
 };
 
-static const struct history *history_keyof(const struct history *history)
+static const struct situation *situation_keyof(const struct situation *situation)
 {
-	return history;
+	return situation;
 }
 
 static uint32_t hash_add(uint64_t val, uint32_t base)
@@ -83,18 +90,28 @@ static bool sdata_eq(const struct state_data *a, const struct state_data *b)
 		&& a->event_notifies == b->event_notifies;
 }
 
-static size_t history_hash(const struct history *history)
+static size_t situation_hash(const struct situation *situation)
 {
-	return hash_add(sdata_hash(&history->a), sdata_hash(&history->b));
+	return hash_add(sdata_hash(&situation->a), sdata_hash(&situation->b));
 }
 
-static bool history_eq(const struct history *a, const struct history *b)
+static bool situation_eq(const struct situation *a, const struct situation *b)
 {
 	return sdata_eq(&a->a, &b->a) && sdata_eq(&a->b, &b->b);
 }
 
-HTABLE_DEFINE_TYPE(struct history, history_keyof, history_hash, history_eq, hist);
+HTABLE_DEFINE_TYPE(struct situation,
+		   situation_keyof, situation_hash, situation_eq,
+		   sithash);
 
+struct hist {
+	/* All the different state combinations. */
+	struct sithash sithash;
+
+	/* The different inputs. */
+	enum state_input **inputs_per_state;
+};
+	
 static const char *state_name(enum state s)
 {
 	size_t i;
@@ -462,43 +479,28 @@ static void copy_peers(struct state_data *dst, struct state_data *peer,
 	peer->peer = dst;
 }
 
-static bool visited_state(const struct hist *hist, enum state state, bool b)
-{
-	struct history *h;
-	struct hist_iter i;
-
-	for (h = hist_first(hist, &i); h; h = hist_next(hist, &i)) {
-		if (b) {
-			if (h->b.state == state)
-				return true;
-		} else {
-			if (h->a.state == state)
-				return true;
-		}
-	}
-	return false;
-}
-
 /* Recursion! */
 static struct trail *run_peer(const struct state_data *sdata,
 			      struct hist *hist);
 
-static bool hist_update(struct hist *hist, const struct state_data *sdata)
+/* Returns false if we've been here before. */
+static bool sithash_update(struct sithash *sithash,
+			   const struct state_data *sdata)
 {
-	struct history v;
+	struct situation sit;
 
 	if (streq(sdata->name, "A")) {
-		v.a = *sdata;
-		v.b = *sdata->peer;
+		sit.a = *sdata;
+		sit.b = *sdata->peer;
 	} else {
-		v.b = *sdata;
-		v.a = *sdata->peer;
+		sit.b = *sdata;
+		sit.a = *sdata->peer;
 	}
 
-	if (hist_get(hist, &v))
+	if (sithash_get(sithash, &sit))
 		return false;
 
-	hist_add(hist, tal_dup(hist, struct history, &v));
+	sithash_add(sithash, tal_dup(NULL, struct situation, &sit));
 	return true;
 }
 
@@ -635,6 +637,21 @@ static const char *apply_effects(struct state_data *sdata,
 	return NULL;
 }
 	
+static void eliminate_input(enum state_input **inputs, enum state_input in)
+{
+	size_t i, n = tal_count(*inputs);
+
+	for (i = 0; i < n; i++) {
+		if ((*inputs)[i] != in)
+			continue;
+
+		if (i != n-1)
+			(*inputs)[i] = (*inputs)[n-1];
+		tal_resize(inputs, n - 1);
+		break;
+	}
+}
+
 static struct trail *try_input(const struct state_data *sdata,
 			       enum state_input i,
 			       struct hist *hist)
@@ -648,6 +665,7 @@ static struct trail *try_input(const struct state_data *sdata,
 
 	state_effect_init(effect);
 
+	eliminate_input(&hist->inputs_per_state[sdata->state], i);
 	idata.pkt = (Pkt *)tal(effect, char);
 	newstate = state(sdata->state, sdata, i, &idata, effect);
 
@@ -661,7 +679,7 @@ static struct trail *try_input(const struct state_data *sdata,
 		return new_trail(i, sdata, newstate, effect, problem);
 
 	/* Have we been in this overall situation before? */
-	if (!hist_update(hist, &copy)) {
+	if (!sithash_update(&hist->sithash, &copy)) {
 		tal_free(effect);
 		return NULL;
 	}
@@ -810,22 +828,80 @@ static struct trail *run_peer(const struct state_data *sdata,
 	return NULL;
 }
 
+static bool record_input_mapping(int b)
+{
+	size_t n;
+
+	if (!mapping_inputs)
+		return false;
+
+	/* Accumulating tested inputs? */
+	n = tal_count(mapping_inputs);
+	tal_resize(&mapping_inputs, n+1);
+	mapping_inputs[n] = b;
+	return true;
+}
+	
+static enum state_input **map_inputs(void)
+{
+	enum state_input **inps = tal_arr(NULL, enum state_input *, STATE_MAX);
+	unsigned int i;
+	struct state_effect *effect = tal(inps, struct state_effect);
+
+	for (i = 0; i < STATE_MAX; i++) {
+		/* This is a global */
+		mapping_inputs = tal_arr(inps, enum state_input, 0);
+
+		state_effect_init(effect);
+		/* This adds to mapping_inputs every input_is() call */
+		if (!state_is_error(i))
+			state(i, NULL, INPUT_NONE, NULL, effect);
+		inps[i] = mapping_inputs;
+	}
+
+	/* Reset global */
+	mapping_inputs = NULL;
+	tal_free(effect);
+	return inps;
+}
+
+static bool visited_state(const struct sithash *sithash,
+			  enum state state, bool b)
+{
+	struct situation *h;
+	struct sithash_iter i;
+
+	for (h = sithash_first(sithash, &i); h; h = sithash_next(sithash, &i)) {
+		if (b) {
+			if (h->b.state == state)
+				return true;
+		} else {
+			if (h->a.state == state)
+				return true;
+		}
+	}
+	return false;
+}
+
 int main(void)
 {
 	struct state_data a, b;
 	unsigned int i;
-	struct hist *hist = tal(NULL, struct hist);
+	struct hist hist;
 	struct trail *t;
+
+	/* Map the inputs tested in each state. */
+	hist.inputs_per_state = map_inputs();
+	sithash_init(&hist.sithash);
 
 	/* Initialize universe. */
 	sdata_init(&a, &b, STATE_INIT_WITHANCHOR, "A");
 	sdata_init(&b, &a, STATE_INIT_NOANCHOR, "B");
-	hist_init(hist);
-	if (!hist_update(hist, &a))
+	if (!sithash_update(&hist.sithash, &a))
 		abort();
 
 	/* Now, try each input in each state. */
-	t = run_peer(&a, hist);
+	t = run_peer(&a, &hist);
 	if (t) {
 		fprintf(stderr, "Error: %s\n", t->problem);
 		while (t) {
@@ -858,14 +934,17 @@ int main(void)
 			b_expect = false;
 		if (i == STATE_ERR_INTERNAL)
 			a_expect = b_expect = false;
-		if (visited_state(hist, i, 0) != a_expect)
+		if (visited_state(&hist.sithash, i, 0) != a_expect)
 			warnx("Peer A %s state %s",
 			      a_expect ? "didn't visit" : "visited",
 			      state_name(i));
-		if (visited_state(hist, i, 1) != b_expect)
+		if (visited_state(&hist.sithash, i, 1) != b_expect)
 			warnx("Peer B %s state %s",
 			     b_expect ? "didn't visit" : "visited",
 			      state_name(i));
+		if (!state_is_error(i) && tal_count(hist.inputs_per_state[i]))
+			warnx("Never sent %s input %s", state_name(i),
+			      input_name(*hist.inputs_per_state[i]));
 	}
 
 	return 0;
