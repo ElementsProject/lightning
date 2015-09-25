@@ -19,6 +19,7 @@ static inline bool high_priority(enum state state)
 #define INIT_EFFECT_defer INPUT_NONE
 #define INIT_EFFECT_complete INPUT_NONE
 #define INIT_EFFECT_status CMD_STATUS_ONGOING
+#define INIT_EFFECT_close_status CMD_STATUS_ONGOING
 #define INIT_EFFECT_faildata NULL
 #define INIT_EFFECT_stop_packets false
 #define INIT_EFFECT_stop_commands false
@@ -44,6 +45,7 @@ void state_effect_init(struct state_effect *effect)
 	effect->complete = INIT_EFFECT_complete;
 	effect->status = INIT_EFFECT_status;
 	effect->faildata = INIT_EFFECT_faildata;
+	effect->close_status = INIT_EFFECT_close_status;
 	effect->stop_packets = INIT_EFFECT_stop_packets;
 	effect->stop_commands = INIT_EFFECT_stop_commands;
 	effect->close_timeout = INIT_EFFECT_close_timeout;
@@ -468,6 +470,10 @@ enum state state(const enum state state, const struct state_data *sdata,
 			fail_cmd(effect, CMD_SEND_UPDATE_ANY, NULL);
 			set_effect(effect, htlc_abandon, true);
 			goto old_commit_spotted;
+		} else if (input_is(input, CMD_CLOSE)) {
+			fail_cmd(effect, CMD_SEND_UPDATE_ANY, NULL);
+			set_effect(effect, htlc_abandon, true);
+			goto start_closing;
 		} else if (input_is_pkt(input)) {
 			fail_cmd(effect, CMD_SEND_UPDATE_ANY, NULL);
 			set_effect(effect, htlc_abandon, true);
@@ -495,6 +501,9 @@ enum state state(const enum state state, const struct state_data *sdata,
 		} else if (input_is(input, PKT_CLOSE)) {
 			fail_cmd(effect, CMD_SEND_UPDATE_ANY, NULL);
 			goto accept_closing;
+		} else if (input_is(input, CMD_CLOSE)) {
+			fail_cmd(effect, CMD_SEND_UPDATE_ANY, NULL);
+			goto start_closing;
 		} else if (input_is_pkt(input)) {
 			fail_cmd(effect, CMD_SEND_UPDATE_ANY, NULL);
 			goto unexpected_pkt;
@@ -529,6 +538,9 @@ enum state state(const enum state state, const struct state_data *sdata,
 		} else if (input_is(input, CMD_CLOSE)) {
 			set_effect(effect, htlc_abandon, true);
 			goto start_closing;
+		} else if (input_is(input, PKT_CLOSE)) {
+			set_effect(effect, htlc_abandon, true);
+			goto accept_closing;
 		} else if (input_is_pkt(input)) {
 			set_effect(effect, htlc_abandon, true);
 			goto unexpected_pkt;
@@ -541,7 +553,7 @@ enum state state(const enum state state, const struct state_data *sdata,
 							idata->pkt);
 			if (err)
 				goto err_start_unilateral_close;
-			complete_cmd(effect, CMD_CLOSE);
+			set_effect(effect, close_status, CMD_STATUS_SUCCESS);
 			set_effect(effect, send, pkt_close_ack(effect, sdata));
 			set_effect(effect, broadcast,
 				   bitcoin_close(effect, sdata));
@@ -554,7 +566,7 @@ enum state state(const enum state state, const struct state_data *sdata,
 							    idata->pkt);
 			if (err)
 				goto err_start_unilateral_close;
-			complete_cmd(effect, CMD_CLOSE);
+			set_effect(effect, close_status, CMD_STATUS_SUCCESS);
 			set_effect(effect, send, pkt_close_ack(effect, sdata));
 			set_effect(effect, broadcast,
 				   bitcoin_close(effect, sdata));
@@ -568,7 +580,7 @@ enum state state(const enum state state, const struct state_data *sdata,
 			/* They didn't respond in time.  Unilateral close. */
 			set_effect(effect, send,
 				   pkt_err(effect, "Close timed out"));
-			fail_cmd(effect, CMD_CLOSE, effect->send);
+			set_effect(effect, close_status, CMD_STATUS_FAILED);
 			set_effect(effect, stop_commands, true);
 			set_effect(effect, stop_packets, true);
 			set_effect(effect, broadcast,
@@ -584,7 +596,7 @@ enum state state(const enum state state, const struct state_data *sdata,
 
 			return STATE_CLOSE_WAIT_CLOSE_OURCOMMIT;
 		}
-		fail_cmd(effect, CMD_CLOSE, NULL);
+		set_effect(effect, close_status, CMD_STATUS_FAILED);
 		set_effect(effect, stop_commands, true);
 		goto fail_during_close;
 
@@ -1005,7 +1017,7 @@ start_closing:
 	 */
 	/* Protocol doesn't (currently?) allow closing with HTLCs. */
 	if (committed_to_htlcs(sdata)) {
-		fail_cmd(effect, CMD_CLOSE, NULL);
+		set_effect(effect, close_status, CMD_STATUS_FAILED);
 		err = pkt_err(effect, "Close forced due to HTLCs");
 		goto err_start_unilateral_close;
 	}
@@ -1035,7 +1047,7 @@ instant_close:
 	 * Closing, but we haven't sent anything to the blockchain so
 	 * there's nothing to clean up.
 	 */
-	complete_cmd(effect, CMD_CLOSE);
+	set_effect(effect, close_status, CMD_STATUS_SUCCESS);
 	/* FIXME: Should we tell other side we're going? */
 	set_effect(effect, stop_packets, true);
 	set_effect(effect, stop_commands, true);

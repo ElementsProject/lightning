@@ -76,9 +76,10 @@ struct core_state {
 
 	uint8_t capped_live_htlcs_to_them;
 	uint8_t capped_live_htlcs_to_us;
-
+	bool closing_cmd;
 	bool valid;
-	uint8_t pad[5];
+
+	uint8_t pad[4];
 };
 
 struct state_data {
@@ -165,6 +166,7 @@ static bool situation_eq(const struct situation *a, const struct situation *b)
 			 + sizeof(a->a.s.capped_htlc_spends_to_them)
 			 + sizeof(a->a.s.capped_live_htlcs_to_us)
 			 + sizeof(a->a.s.capped_live_htlcs_to_them)
+			 + sizeof(a->a.s.closing_cmd)
 			 + sizeof(a->a.s.valid)
 			 + sizeof(a->a.s.pad)));
 	return structeq(&a->a.s, &b->a.s) && structeq(&a->b.s, &b->b.s);
@@ -939,6 +941,7 @@ static void sdata_init(struct state_data *sdata,
 	sdata->core.event_notifies = 0;
 	sdata->core.pkt_inputs = true;
 	sdata->core.cmd_inputs = true;
+	sdata->core.closing_cmd = false;
 	sdata->name = name;
 	sdata->peer = other;
 }
@@ -1180,11 +1183,19 @@ static const char *apply_effects(struct state_data *sdata,
 		}
 	}
 	if (effect->complete != INPUT_NONE) {
-		if (!is_current_command(sdata, effect->complete))
+		if (!is_current_command(sdata, effect->complete)) {
 			return tal_fmt(NULL, "Completed %s not %s",
 				       input_name(effect->complete),
 				       input_name(sdata->core.current_command));
+		}
 		sdata->core.current_command = INPUT_NONE;
+	}
+	if (effect->close_status != CMD_STATUS_ONGOING) {
+		if (!sdata->core.closing_cmd)
+			return tal_fmt(NULL, "%s but not closing",
+				       effect->close_status == CMD_STATUS_SUCCESS ? "Success"
+				       : "Failure");
+		sdata->core.closing_cmd = false;
 	}
 	if (effect->stop_packets) {
 		if (!sdata->core.pkt_inputs)
@@ -1201,6 +1212,8 @@ static const char *apply_effects(struct state_data *sdata,
 		if (sdata->core.current_command != INPUT_NONE)
 			return tal_fmt(NULL, "stop_commands with pending command %s",
 				       input_name(sdata->core.current_command));
+		if (sdata->core.closing_cmd)
+			return "stop_commands with pending CMD_CLOSE";
 		sdata->core.cmd_inputs = false;
 	}
 	if (effect->close_timeout != INPUT_NONE) {
@@ -1792,21 +1805,29 @@ static struct trail *run_peer(const struct state_data *sdata,
 		copy.core.event_notifies = old_notifies;
 	}
 
+	/* We can send a close command even if already sending a
+	 * (different) command. */
+	if (sdata->core.state != STATE_INIT_WITHANCHOR
+	    && sdata->core.state != STATE_INIT_NOANCHOR
+	    && sdata->core.cmd_inputs
+	    && !sdata->core.closing_cmd) {
+		copy.core.closing_cmd = true;
+		t = try_input(&copy, CMD_CLOSE, idata,
+			      normalpath, errorpath, depth,
+			      hist);
+		if (t)
+			return t;
+		copy.core.closing_cmd = false;
+	}
+
 	/* Try sending commands (unless in init state, closed or
 	 * already doing one). */
 	if (sdata->core.state != STATE_INIT_WITHANCHOR
 	    && sdata->core.state != STATE_INIT_NOANCHOR
 	    && sdata->core.cmd_inputs
-	    && sdata->core.current_command == INPUT_NONE) {
+	    && sdata->core.current_command == INPUT_NONE
+	    && !sdata->core.closing_cmd) {
 		unsigned int i;
-
-		/* We can always send a close. */
-		copy.core.current_command = CMD_CLOSE;
-		t = try_input(&copy, copy.core.current_command, idata,
-			      normalpath, errorpath, depth,
-			      hist);
-		if (t)
-			return t;
 
 		/* Add a new HTLC if not at max. */
 		if (copy.num_htlcs_to_them < MAX_HTLCS) {

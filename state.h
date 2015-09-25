@@ -38,6 +38,9 @@ struct state_effect {
 	enum cmd_complete_status status;
 	void *faildata;
 
+	/* Completing a CMD_CLOSE */
+	enum cmd_complete_status close_status;
+
 	/* Stop taking packets? commands? */
 	bool stop_packets, stop_commands;
 
