@@ -644,11 +644,6 @@ static const char *apply_effects(struct state_data *sdata,
 		if (sdata->event_notifies & effect->watch->events)
 			return "event set twice";
 		sdata->event_notifies |= effect->watch->events;
-		/* Events are not independent. */
-		if (effect->watch->events & BITCOIN_ANCHOR_DEPTHOK)
-			sdata->event_notifies &= ~(1ULL<<BITCOIN_ANCHOR_TIMEOUT);
-		if (effect->watch->events & BITCOIN_ANCHOR_TIMEOUT)
-			sdata->event_notifies &= ~(1ULL<<BITCOIN_ANCHOR_DEPTHOK);
 	}
 	if (effect->unwatch) {
 		if ((sdata->event_notifies & effect->unwatch->events)
