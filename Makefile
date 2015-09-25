@@ -72,9 +72,11 @@ CCAN_OBJS :=					\
 	ccan-tal-str.o				\
 	ccan-tal.o
 
+CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
+
 PROGRAMS := $(TEST_CLI_PROGRAMS)
 
-HEADERS := $(filter-out gen_*, $(wildcard *.h)) $(wildcard bitcoin/*.h)
+HEADERS := $(filter-out gen_*, $(wildcard *.h)) $(wildcard bitcoin/*.h) gen_state_names.h
 
 CCANDIR := ccan/
 CFLAGS := -g -Wall -I $(CCANDIR) -I secp256k1/include/ -DVALGRIND_HEADERS=1 $(FEATURES)
@@ -86,6 +88,11 @@ default: $(PROGRAMS)
 TAGS: FORCE
 	$(RM) TAGS; find . -name '*.[ch]' | xargs etags --append
 FORCE::
+
+ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDUMP_OBJS) $(CCAN_OBJS)
+
+gen_state_names.h: state_types.h ccan/ccan/cdump/tools/cdump-enumstr
+	ccan/ccan/cdump/tools/cdump-enumstr state_types.h > $@
 
 # We build a static libsecpk1, since we need schnorr for alpha
 # (and it's not API stable yet!).
@@ -99,7 +106,7 @@ lightning.pb-c.c lightning.pb-c.h: lightning.proto
 $(TEST_CLI_PROGRAMS): % : %.o $(HELPER_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) libsecp256k1.a
 $(PROGRAMS:=.o) $(HELPER_OBJS): $(HEADERS)
 
-$(CCAN_OBJS) $(HELPER_OBJS) $(PROGRAM_OBJS) $(BITCOIN_OBJS): ccan/config.h
+$(CCAN_OBJS) $(HELPER_OBJS) $(PROGRAM_OBJS) $(BITCOIN_OBJS) $(CDUMP_OBJS): ccan/config.h
 
 ccan/config.h: ccan/tools/configurator/configurator
 	$< > $@
@@ -168,6 +175,10 @@ ccan-crypto-shachain.o: $(CCANDIR)/ccan/crypto/shachain/shachain.c
 ccan-crypto-sha256.o: $(CCANDIR)/ccan/crypto/sha256/sha256.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-crypto-ripemd160.o: $(CCANDIR)/ccan/crypto/ripemd160/ripemd160.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-cdump.o: $(CCANDIR)/ccan/cdump/cdump.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-strmap.o: $(CCANDIR)/ccan/strmap/strmap.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 
