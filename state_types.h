@@ -257,7 +257,15 @@ enum state_input {
 	 * Timeouts.
 	 */
 	INPUT_CLOSE_COMPLETE_TIMEOUT,
-	
+
+	/*
+	 * Inject a known R value.
+	 *
+	 * In normal operation, use CMD_SEND_HTLC_FULFILL; this is for
+	 * after a unilateral close.
+	 */
+	INPUT_RVALUE,
+
 	/* Commands */
 	CMD_SEND_HTLC_UPDATE,
 	CMD_SEND_HTLC_FULFILL,

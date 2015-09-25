@@ -1019,6 +1019,7 @@ static struct trail *add_trail(enum state_input input,
 	t->before = *before;
 	t->after = *after;
 	if (input == CMD_SEND_HTLC_FULFILL
+	    || input == INPUT_RVALUE
 	    || input == BITCOIN_HTLC_TOTHEM_TIMEOUT
 	    || input == BITCOIN_HTLC_TOTHEM_SPENT
 	    || input == BITCOIN_HTLC_TOUS_TIMEOUT
@@ -1741,7 +1742,7 @@ static bool can_refire(enum state_input i)
 
 	/* They could have lots of htlcs. */
 	if (i == BITCOIN_HTLC_TOTHEM_SPENT || i == BITCOIN_HTLC_TOTHEM_TIMEOUT
-	    || i == BITCOIN_HTLC_TOUS_TIMEOUT || i == CMD_SEND_HTLC_FULFILL)
+	    || i == BITCOIN_HTLC_TOUS_TIMEOUT)
 		return true;
 
 	/* We manually remove these if they're not watching any more spends */
@@ -1870,7 +1871,7 @@ static struct trail *run_peer(const struct state_data *sdata,
 		idata->htlc = (struct htlc *)&copy.live_htlcs_to_us[i];
 		/* Only send this once. */
 		if (!rval_known(sdata, idata->htlc->id)) {
-			t = try_input(&copy, CMD_SEND_HTLC_FULFILL,
+			t = try_input(&copy, INPUT_RVALUE,
 				      idata, normalpath, errorpath,
 				      depth, hist);
 			if (t)

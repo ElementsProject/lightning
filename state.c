@@ -740,7 +740,7 @@ enum state state(const enum state state, const struct state_data *sdata,
 						 idata->cmd,
 						 BITCOIN_HTLC_RETURN_SPEND_DONE));
 				return state;
-			} else if (input_is(input, CMD_SEND_HTLC_FULFILL)) {
+			} else if (input_is(input, INPUT_RVALUE)) {
 				/* This gives us the r value. */
 				set_effect(effect, r_value,
 					   r_value_from_cmd(effect, sdata,
@@ -1060,8 +1060,8 @@ fail_during_close:
 						  BITCOIN_HTLC_TOTHEM_TIMEOUT);
 		/* Expect either close or spendthem to complete */
 		if (htlcs) {
-			/* FIXME: Make sure caller uses CMD_HTLC_FULFILL again
-			 * if they were in the middle of one! */
+			/* FIXME: Make sure caller uses INPUT_RVAL
+			 * if they were in the middle of FULFILL! */
 			set_effect(effect, watch_htlcs, htlcs);
 			return STATE_CLOSE_WAIT_SPENDTHEM_CLOSE_WITH_HTLCS;
 		}
