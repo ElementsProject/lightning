@@ -8,6 +8,7 @@
 #include <ccan/htable/htable_type.h>
 #include <ccan/hash/hash.h>
 #include <ccan/opt/opt.h>
+#include <ccan/asort/asort.h>
 #include "version.h"
 
 static bool record_input_mapping(int b);
@@ -17,11 +18,12 @@ static bool record_input_mapping(int b);
 #include "state.h"
 #include "gen_state_names.h"
 
+static bool quick = false;
 static bool dot_simplify = false;
 static bool dot_enable = false;
 static bool dot_include_abnormal = false;
 static bool dot_include_errors = false;
-static bool dot_include_nops = false;
+static bool include_nops = false;
 static enum state_input *mapping_inputs;
 static bool do_decline;
 
@@ -159,8 +161,15 @@ struct hist {
 
 	/* Edges for the dot graph, if any. */
 	struct edge_hash edges;
+
+	/* For dumping states. */
+	struct state_dump {
+		enum state_input input;
+		enum state next;
+		enum state_input pkt;
+	} **state_dump;
 };
-	
+
 static const char *state_name(enum state s)
 {
 	size_t i;
@@ -733,6 +742,35 @@ static void record_output(enum state_input **outputs, enum state_input out)
 	(*outputs)[n] = out;
 }
 				
+static void record_state(struct state_dump **sd,
+			 enum state_input input,
+			 enum state newstate,
+			 const char *pktstr)
+{
+	size_t i, n = tal_count(*sd);
+	enum state_input pkt;
+
+	if (!pktstr)
+		pkt = INPUT_NONE;
+	else
+		pkt = input_by_name(pktstr);
+
+	for (i = 0; i < n; i++) {
+		if ((*sd)[i].input != input)
+			continue;
+		if ((*sd)[i].next != newstate)
+			continue;
+		if ((*sd)[i].pkt != pkt)
+			continue;
+		/* Duplicate. */
+		return;
+	}
+	tal_resize(sd, n+1);
+	(*sd)[n].input = input;
+	(*sd)[n].next = newstate;
+	(*sd)[n].pkt = pkt;
+}
+				
 static bool error_path(enum state_input i, enum state src, enum state dst)
 {
 	return state_is_error(dst) || i == PKT_ERROR;
@@ -886,7 +924,7 @@ static struct trail *try_input(const struct state_data *sdata,
 			oldstr = state_name(sdata->state) + 6;
 			newstr = state_name(newstate) + 6;
 		}
-		if (newstr != oldstr || dot_include_nops)
+		if (newstr != oldstr || include_nops)
 			add_dot(&hist->edges, oldstr, newstr, i, effect->send);
 	}
 
@@ -904,6 +942,11 @@ static struct trail *try_input(const struct state_data *sdata,
 		record_output(&hist->outputs,
 			      input_by_name((const char *)effect->send));
 	}
+
+	if (hist->state_dump) {
+		record_state(&hist->state_dump[sdata->state], i, newstate,
+			     (const char *)effect->send);
+	}
 	
 	/* Have we been in this overall situation before? */
 	if (!sithash_update(&hist->sithash, &copy)) {
@@ -913,12 +956,12 @@ static struct trail *try_input(const struct state_data *sdata,
 		 * 2) We get repeated BITCOIN_ANCHOR_OTHERSPEND, OR
 		 * 3) We pass through NORMAL state.
 		 *
-		 * And if we're rendering the dot diagram, don't bother.
+		 * And if we're being quick, always stop.
 		 */
 		if (effect->defer != INPUT_NONE
 		    || newstate == STATE_NORMAL_LOWPRIO
 		    || i == BITCOIN_ANCHOR_OTHERSPEND
-		    || dot_enable) {
+		    || quick) {
 			tal_free(effect);
 			return NULL;
 		}
@@ -1154,12 +1197,24 @@ static void report_trail(const struct trail *t)
 	}
 }
 
+static int state_dump_cmp(const struct state_dump *a,
+			  const struct state_dump *b,
+			  void *unused)
+{
+	if (a->input != b->input)
+		return a->input - b->input;
+	if (a->next != b->next)
+		return a->next - b->next;
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct state_data a, b;
 	unsigned int i;
 	struct hist hist;
 	struct trail *t;
+	bool dump_states = false;
 
 	err_set_progname(argv[0]);
 
@@ -1176,12 +1231,15 @@ int main(int argc, char *argv[])
 	opt_register_noarg("--dot-include-errors",
 			   opt_set_bool, &dot_include_errors,
 			   "Output dot format for error paths");
-	opt_register_noarg("--dot-include-nops",
-			   opt_set_bool, &dot_include_nops,
-			   "Output dot format even for inputs which don't change state");
+	opt_register_noarg("--include-nops",
+			   opt_set_bool, &include_nops,
+			   "Output even for inputs which don't change state");
 	opt_register_noarg("--dot-simplify",
 			   opt_set_bool, &dot_simplify,
 			   "Merge high and low priority states");
+	opt_register_noarg("--dump-states",
+			   opt_set_bool, &dump_states,
+			   "Summarize all state transitions");
 	opt_register_version();
 
  	opt_parse(&argc, argv, opt_log_stderr_exit);
@@ -1191,15 +1249,24 @@ int main(int argc, char *argv[])
 		opt_usage_exit_fail("--dot-simplify needs --dot/--dot-all");
 	if (dot_include_errors && !dot_enable)
 		opt_usage_exit_fail("--dot-include-errors needs --dot/--dot-all");
-	if (dot_include_nops && !dot_enable)
-		opt_usage_exit_fail("--dot-include-nops needs --dot/--dot-all");
+	if (include_nops && !dot_enable && !dump_states)
+		opt_usage_exit_fail("--include-nops needs --dot/--dot-all/--dump-states");
 
 	/* Map the inputs tested in each state. */
 	hist.inputs_per_state = map_inputs();
 	sithash_init(&hist.sithash);
 	hist.outputs = tal_arr(NULL, enum state_input, 0);
 	edge_hash_init(&hist.edges);
+	if (dump_states) {
+		hist.state_dump = tal_arr(NULL, struct state_dump *, STATE_MAX);
+		for (i = 0; i < STATE_MAX; i++)
+			hist.state_dump[i] = tal_arr(hist.state_dump,
+						     struct state_dump, 0);
+	} else
+		hist.state_dump = NULL;
 
+	quick = dot_enable || dump_states;
+	
 	/* Initialize universe. */
 	sdata_init(&a, &b, STATE_INIT_WITHANCHOR, "A");
 	sdata_init(&b, &a, STATE_INIT_NOANCHOR, "B");
@@ -1283,5 +1350,29 @@ int main(int argc, char *argv[])
 		}
 		printf("}\n");
 	}
+
+	if (dump_states) {
+		for (i = 0; i < STATE_MAX; i++) {
+			size_t j;
+			size_t n = tal_count(hist.state_dump[i]);
+			if (!n)
+				continue;
+			printf("%s:\n", state_name(i) + 6);
+			asort(hist.state_dump[i], n, state_dump_cmp, NULL);
+			for (j = 0; j < n; j++) {
+				if (!include_nops
+				    && hist.state_dump[i][j].next == i)
+					continue;
+				printf("\t%s -> %s",
+				       input_name(hist.state_dump[i][j].input),
+				       state_name(hist.state_dump[i][j].next)+6);
+				if (hist.state_dump[i][j].pkt != INPUT_NONE)
+					printf(" (%s)",
+					       input_name(hist.state_dump[i][j].pkt));
+				printf("\n");
+			}
+		}
+	}
+					       
 	return 0;
 }	
