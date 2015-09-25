@@ -1,8 +1,6 @@
 #include <state.h>
 #include <ccan/build_assert/build_assert.h>
 
-char cmd_requeue;
-
 static inline bool high_priority(enum state state)
 {
 	return (state & 1) == (STATE_NORMAL_HIGHPRIO & 1);
@@ -20,7 +18,8 @@ static inline bool high_priority(enum state state)
 #define INIT_EFFECT_unwatch NULL
 #define INIT_EFFECT_defer INPUT_NONE
 #define INIT_EFFECT_complete INPUT_NONE
-#define INIT_EFFECT_complete_data NULL
+#define INIT_EFFECT_status CMD_STATUS_ONGOING
+#define INIT_EFFECT_faildata NULL
 #define INIT_EFFECT_stop_packets false
 #define INIT_EFFECT_stop_commands false
 #define INIT_EFFECT_close_timeout INPUT_NONE
@@ -43,7 +42,8 @@ void state_effect_init(struct state_effect *effect)
 	effect->unwatch = INIT_EFFECT_unwatch;
 	effect->defer = INIT_EFFECT_defer;
 	effect->complete = INIT_EFFECT_complete;
-	effect->complete_data = INIT_EFFECT_complete_data;
+	effect->status = INIT_EFFECT_status;
+	effect->faildata = INIT_EFFECT_faildata;
 	effect->stop_packets = INIT_EFFECT_stop_packets;
 	effect->stop_commands = INIT_EFFECT_stop_commands;
 	effect->close_timeout = INIT_EFFECT_close_timeout;
@@ -72,15 +72,23 @@ static void fail_cmd(struct state_effect *effect,
 		     void *faildata)
 {
 	set_effect(effect, complete, input);
-	/* Use dummy value if they don't want one. */
-	set_effect(effect, complete_data, faildata ? faildata : effect);
+	set_effect(effect, status, CMD_STATUS_FAILED);
+	if (faildata)
+		set_effect(effect, faildata, faildata);
 }
 
 static void requeue_cmd(struct state_effect *effect, 
 			const enum state_input input)
 {
 	set_effect(effect, complete, input);
-	set_effect(effect, complete_data, &cmd_requeue);
+	set_effect(effect, status, CMD_STATUS_REQUEUE);
+}
+
+static void complete_cmd(struct state_effect *effect, 
+			 const enum state_input input)
+{
+	set_effect(effect, complete, input);
+	set_effect(effect, status, CMD_STATUS_SUCCESS);
 }
 
 enum state state(const enum state state, const struct state_data *sdata,
@@ -473,7 +481,7 @@ enum state state(const enum state state, const struct state_data *sdata,
 							 idata->pkt);
 			if (err)
 				goto err_start_unilateral_close;
-			set_effect(effect, complete, CMD_SEND_UPDATE_ANY);
+			complete_cmd(effect, CMD_SEND_UPDATE_ANY);
 			return toggle_prio(state, STATE_NORMAL);
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT)) {
 			fail_cmd(effect, CMD_SEND_UPDATE_ANY, NULL);
@@ -533,7 +541,7 @@ enum state state(const enum state state, const struct state_data *sdata,
 							idata->pkt);
 			if (err)
 				goto err_start_unilateral_close;
-			set_effect(effect, complete, CMD_CLOSE);
+			complete_cmd(effect, CMD_CLOSE);
 			set_effect(effect, send, pkt_close_ack(effect, sdata));
 			set_effect(effect, broadcast,
 				   bitcoin_close(effect, sdata));
@@ -546,7 +554,7 @@ enum state state(const enum state state, const struct state_data *sdata,
 							    idata->pkt);
 			if (err)
 				goto err_start_unilateral_close;
-			set_effect(effect, complete, CMD_CLOSE);
+			complete_cmd(effect, CMD_CLOSE);
 			set_effect(effect, send, pkt_close_ack(effect, sdata));
 			set_effect(effect, broadcast,
 				   bitcoin_close(effect, sdata));
@@ -1027,7 +1035,7 @@ instant_close:
 	 * Closing, but we haven't sent anything to the blockchain so
 	 * there's nothing to clean up.
 	 */
-	set_effect(effect, complete, CMD_CLOSE);
+	complete_cmd(effect, CMD_CLOSE);
 	/* FIXME: Should we tell other side we're going? */
 	set_effect(effect, stop_packets, true);
 	set_effect(effect, stop_commands, true);

@@ -4,14 +4,19 @@
 #include <stdbool.h>
 #include <ccan/tal/tal.h>
 
+enum cmd_complete_status {
+	CMD_STATUS_ONGOING,
+	CMD_STATUS_FAILED,
+	CMD_STATUS_SUCCESS,
+	CMD_STATUS_REQUEUE
+};	
+
 /*
  * This is the core state machine.
  *
  * Calling the state machine with an input simply returns the new state,
  * and populates the "effect" struct with what it wants done.
  */
-extern char cmd_requeue;
-
 struct state_effect {
 	/* Transaction to broadcast. */
 	struct bitcoin_tx *broadcast;
@@ -30,9 +35,8 @@ struct state_effect {
 
 	/* Complete a command. */
 	enum state_input complete;
-	/* NULL on success, &cmd_requeue on requeue, otherwise
-	 * command-specific fail information. */
-	void *complete_data;
+	enum cmd_complete_status status;
+	void *faildata;
 
 	/* Stop taking packets? commands? */
 	bool stop_packets, stop_commands;
