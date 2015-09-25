@@ -354,6 +354,11 @@ Pkt *accept_pkt_close_complete(struct state_effect *effect, const struct state_d
 	return NULL;
 }
 
+Pkt *accept_pkt_simultaneous_close(struct state_effect *effect, const struct state_data *sdata, const Pkt *pkt)
+{
+	return NULL;
+}
+
 Pkt *accept_pkt_close_ack(struct state_effect *effect, const struct state_data *sdata, const Pkt *pkt)
 {
 	return NULL;
@@ -820,6 +825,31 @@ static const char *simplify_state(enum state s)
 	}
 }
 
+static bool waiting_statepair(enum state a, enum state b)
+{
+	if (a > b)
+		return waiting_statepair(b, a);
+
+	/* We don't need inputs if we're waiting for anchors. */
+	if (a == STATE_OPEN_WAITING_OURANCHOR)
+		return true;
+	if (b == STATE_OPEN_WAITING_THEIRANCHOR)
+		return true;
+
+	/* We don't need inputs at start of main loop. */
+	if (a == STATE_NORMAL_LOWPRIO
+	    && b == STATE_NORMAL_HIGHPRIO)
+		return true;
+
+	return false;
+}
+
+static bool has_packets(const struct state_data *sdata)
+{
+	return sdata->deferred_pkt != INPUT_NONE
+		|| sdata->num_outputs != 0;
+}
+
 static struct trail *try_input(const struct state_data *sdata,
 			       enum state_input i,
 			       bool normalpath, bool errorpath,
@@ -897,6 +927,14 @@ static struct trail *try_input(const struct state_data *sdata,
 	if (state_is_error(newstate)) {
 		tal_free(effect);
 		return NULL;
+	}
+
+	/*
+	 * If we're listening, someone should be talking (usually).
+	 */
+	if (copy.pkt_inputs && !has_packets(&copy) && !has_packets(&peer)
+	    && !waiting_statepair(copy.state, peer.state)) {
+		return new_trail(i, sdata, newstate, effect, "Deadlock");
 	}
 
 	/* Finished? */
