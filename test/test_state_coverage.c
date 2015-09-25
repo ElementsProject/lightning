@@ -77,7 +77,8 @@ struct core_state {
 	uint8_t capped_live_htlcs_to_them;
 	uint8_t capped_live_htlcs_to_us;
 
-	uint8_t pad[6];
+	bool valid;
+	uint8_t pad[5];
 };
 
 struct state_data {
@@ -164,6 +165,7 @@ static bool situation_eq(const struct situation *a, const struct situation *b)
 			 + sizeof(a->a.s.capped_htlc_spends_to_them)
 			 + sizeof(a->a.s.capped_live_htlcs_to_us)
 			 + sizeof(a->a.s.capped_live_htlcs_to_them)
+			 + sizeof(a->a.s.valid)
 			 + sizeof(a->a.s.pad)));
 	return structeq(&a->a.s, &b->a.s) && structeq(&a->b.s, &b->b.s);
 }
@@ -965,6 +967,7 @@ static void update_core(struct core_state *core, const struct state_data *sdata)
 	core->capped_live_htlcs_to_them = cap(sdata->num_live_htlcs_to_them);
 	core->capped_htlc_spends_to_us = cap(sdata->num_htlc_spends_to_us);
 	core->capped_htlc_spends_to_them = cap(sdata->num_htlc_spends_to_them);
+	core->valid = true;
 }
 	
 /* Returns false if we've been here before. */
@@ -975,14 +978,22 @@ static bool sithash_update(struct sithash *sithash,
 
 	if (streq(sdata->name, "A")) {
 		sit.a.s = sdata->core;
-		sit.b.s = sdata->peer->core;
 		update_core(&sit.a.s, sdata);
-		update_core(&sit.b.s, sdata->peer);
+		/* If we're still talking to peer, their state matters. */
+		if (sdata->core.pkt_inputs || sdata->peer->core.pkt_inputs) {
+			sit.b.s = sdata->peer->core;
+			update_core(&sit.b.s, sdata->peer);
+		} else
+			memset(&sit.b.s, 0, sizeof(sit.b.s));
 	} else {
 		sit.b.s = sdata->core;
-		sit.a.s = sdata->peer->core;
 		update_core(&sit.b.s, sdata);
-		update_core(&sit.a.s, sdata->peer);
+		/* If we're still talking to peer, their state matters. */
+		if (sdata->core.pkt_inputs || sdata->peer->core.pkt_inputs) {
+			sit.a.s = sdata->peer->core;
+			update_core(&sit.a.s, sdata->peer);
+		} else
+			memset(&sit.a.s, 0, sizeof(sit.a.s));
 	}
 
 	if (sithash_get(sithash, &sit))
@@ -1659,7 +1670,9 @@ static struct trail *try_input(const struct state_data *sdata,
 
 	/* Try inputs from here down. */
 	t = run_peer(&copy, normalpath, errorpath, depth+1, hist);
-	if (!t)
+
+	/* Don't bother running other peer we can't communicate. */
+	if (!t && (copy.core.pkt_inputs || peer.core.pkt_inputs))
 		t = run_peer(&peer, normalpath, errorpath, depth+1, hist);
 	if (!t) {
 		tal_free(effect);
@@ -1988,10 +2001,10 @@ static bool visited_state(const struct sithash *sithash,
 	for (h = sithash_first(sithash, &i); h; h = sithash_next(sithash, &i)) {
 		num++;
 		if (b) {
-			if (h->b.s.state == state)
+			if (h->a.s.valid && h->b.s.state == state)
 				return true;
 		} else {
-			if (h->a.s.state == state)
+			if (h->a.s.valid && h->a.s.state == state)
 				return true;
 		}
 	}
