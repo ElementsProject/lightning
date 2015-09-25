@@ -43,7 +43,11 @@ struct htlc_spend_watch {
 };
 
 /* Beyond this we consider cases equal for traverse loop detection. */
-#define MAX_HTLCS 1
+#define CAP_HTLCS 1
+
+/* How many HTLCs to negotiate. */
+#define MAX_HTLCS 2
+
 /* But we can have many different malleated commit txs. */
 #define HTLC_ARRSIZE 20
 
@@ -85,7 +89,7 @@ struct state_data {
 	struct htlc_progress current_htlc;
 	
 	unsigned int num_htlcs_to_them, num_htlcs_to_us;
-	struct htlc htlcs_to_them[HTLC_ARRSIZE], htlcs_to_us[HTLC_ARRSIZE];
+	struct htlc htlcs_to_them[MAX_HTLCS], htlcs_to_us[MAX_HTLCS];
 
 	unsigned int num_live_htlcs_to_them, num_live_htlcs_to_us;
 	struct htlc live_htlcs_to_them[HTLC_ARRSIZE], live_htlcs_to_us[HTLC_ARRSIZE];
@@ -131,7 +135,7 @@ static const struct situation *situation_keyof(const struct situation *situation
 /* After 2, we stop looping. */
 static unsigned int cap(unsigned int val)
 {
-	return val > MAX_HTLCS ? MAX_HTLCS : val;
+	return val > CAP_HTLCS ? CAP_HTLCS : val;
 }
 
 static size_t situation_hash(const struct situation *situation)
@@ -749,7 +753,7 @@ struct htlc_watch
 	enum state_input tothem_spent;
 	enum state_input tothem_timeout;
 	unsigned int num_htlcs_to_us, num_htlcs_to_them;
-	struct htlc htlcs_to_us[HTLC_ARRSIZE], htlcs_to_them[HTLC_ARRSIZE];
+	struct htlc htlcs_to_us[MAX_HTLCS], htlcs_to_them[MAX_HTLCS];
 };
 
 struct htlc_unwatch
@@ -1077,7 +1081,7 @@ static void remove_htlc(struct htlc *to_us, unsigned int *num_to_us,
 		arr = to_us;
 		n = num_to_us;
 	}
-	assert(*n < arrsize);
+	assert(*n <= arrsize);
 	assert(h >= arr && h < arr + *n);
 
 	off = h - arr;
@@ -1781,26 +1785,29 @@ static struct trail *run_peer(const struct state_data *sdata,
 	    && sdata->core.current_command == INPUT_NONE) {
 		unsigned int i;
 
-		/* We can always add a new HTLC, or close. */
-		copy.core.current_command = CMD_SEND_HTLC_UPDATE;
-		idata->htlc_prog = tal(idata, struct htlc_progress);
-		idata->htlc_prog->adding = true;
-		idata->htlc_prog->htlc.to_them = true;
-		idata->htlc_prog->htlc.id = next_htlc_id();
-				
-		t = try_input(&copy, copy.core.current_command, idata,
-			      normalpath, errorpath, depth,
-			      hist);
-		if (t)
-			return t;
-		idata->htlc = tal_free(idata->htlc);
-			
+		/* We can always send a close. */
 		copy.core.current_command = CMD_CLOSE;
 		t = try_input(&copy, copy.core.current_command, idata,
 			      normalpath, errorpath, depth,
 			      hist);
 		if (t)
 			return t;
+
+		/* Add a new HTLC if not at max. */
+		if (copy.num_htlcs_to_them < MAX_HTLCS) {
+			copy.core.current_command = CMD_SEND_HTLC_UPDATE;
+			idata->htlc_prog = tal(idata, struct htlc_progress);
+			idata->htlc_prog->adding = true;
+			idata->htlc_prog->htlc.to_them = true;
+			idata->htlc_prog->htlc.id = next_htlc_id();
+				
+			t = try_input(&copy, copy.core.current_command, idata,
+				      normalpath, errorpath, depth,
+				      hist);
+			if (t)
+				return t;
+			idata->htlc_prog = tal_free(idata->htlc_prog);
+		}
 
 		/* We can complete or routefail an HTLC they offered */
 		for (i = 0; i < sdata->num_htlcs_to_us; i++) {
