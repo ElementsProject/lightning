@@ -912,10 +912,13 @@ static struct trail *try_input(const struct state_data *sdata,
 		 * 1) We deferred, OR
 		 * 2) We get repeated BITCOIN_ANCHOR_OTHERSPEND, OR
 		 * 3) We pass through NORMAL state.
+		 *
+		 * And if we're rendering the dot diagram, don't bother.
 		 */
 		if (effect->defer != INPUT_NONE
 		    || newstate == STATE_NORMAL_LOWPRIO
-		    || i == BITCOIN_ANCHOR_OTHERSPEND) {
+		    || i == BITCOIN_ANCHOR_OTHERSPEND
+		    || dot_enable) {
 			tal_free(effect);
 			return NULL;
 		}
