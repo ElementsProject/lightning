@@ -501,8 +501,20 @@ enum state state(const enum state state, const struct state_data *sdata,
 			set_effect(effect, stop_commands, true);
 			set_effect(effect, stop_packets, true);
 			return STATE_CLOSE_WAIT_CLOSE;
+		} else if (input_is(input, PKT_CLOSE)) {
+			/* We can use the sig just like CLOSE_COMPLETE */
+			err = accept_pkt_simultaneous_close(effect, sdata,
+							    idata->pkt);
+			if (err)
+				goto err_start_unilateral_close;
+			set_effect(effect, complete, CMD_CLOSE);
+			set_effect(effect, send, pkt_close_ack(effect, sdata));
+			set_effect(effect, broadcast,
+				   bitcoin_close(effect, sdata));
+			set_effect(effect, stop_commands, true);
+			set_effect(effect, stop_packets, true);
+			return STATE_CLOSE_WAIT_CLOSE;
 		} else if (input_is_pkt(input)) {
-			/* FIXME: Mutual close if they send PKT_CLOSE? */
 			/* We ignore all other packets while closing. */
 			return STATE_WAIT_FOR_CLOSE_COMPLETE;
 		} else if (input_is(input, INPUT_CLOSE_COMPLETE_TIMEOUT)) {
