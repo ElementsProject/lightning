@@ -9,6 +9,7 @@
 #include <ccan/hash/hash.h>
 #include <ccan/opt/opt.h>
 #include <ccan/asort/asort.h>
+#include <ccan/list/list.h>
 #include "version.h"
 
 static bool record_input_mapping(int b);
@@ -25,7 +26,12 @@ static bool dot_include_abnormal = false;
 static bool dot_include_errors = false;
 static bool include_nops = false;
 static enum state_input *mapping_inputs;
-static bool do_decline;
+static uint64_t current_fail, could_fail;
+static LIST_HEAD(failpoints);
+
+enum failure {
+	FAIL_DECLINE_HTLC,
+};
 
 struct htlc {
 	bool to_them;
@@ -51,6 +57,16 @@ struct htlc_spend_watch {
 /* But we can have many different malleated commit txs. */
 #define HTLC_ARRSIZE 20
 
+/*
+ * Worst case:
+ * Low priority: PKT_UPDATE_ADD_HTLC
+ * Receive update, which we decline: PKT_UPDATE_DECLINE_HTLC
+ * Send new update: PKT_UPDATE_ADD_HTLC
+ * Start close: PKT_CLOSE
+ * Some error: PKT_ERROR
+ */
+#define MAX_OUTQ 5
+
 /* No padding, for fast compare and hashing. */
 struct core_state {
 	/* What bitcoin/timeout notifications are we subscribed to? */
@@ -61,7 +77,7 @@ struct core_state {
 	enum state_input current_command;
 	enum state_input deferred_pkt;
 
-	enum state_input outputs[4];
+	enum state_input outputs[MAX_OUTQ];
 
 	uint8_t num_outputs;
 	bool pkt_inputs;
@@ -78,14 +94,12 @@ struct core_state {
 	uint8_t capped_live_htlcs_to_us;
 	bool closing_cmd;
 	bool valid;
-
-	uint8_t pad[4];
 };
 
 struct state_data {
 	struct core_state core;
 	/* To store HTLC numbers. */
-	unsigned int pkt_data[4];
+	unsigned int pkt_data[MAX_OUTQ];
 
 	/* id == -1 if none currently. */
 	struct htlc_progress current_htlc;
@@ -168,8 +182,7 @@ static bool situation_eq(const struct situation *a, const struct situation *b)
 			 + sizeof(a->a.s.capped_live_htlcs_to_us)
 			 + sizeof(a->a.s.capped_live_htlcs_to_them)
 			 + sizeof(a->a.s.closing_cmd)
-			 + sizeof(a->a.s.valid)
-			 + sizeof(a->a.s.pad)));
+			 + sizeof(a->a.s.valid)));
 	return structeq(&a->a.s, &b->a.s) && structeq(&a->b.s, &b->b.s);
 }
 
@@ -232,6 +245,91 @@ struct hist {
 		enum state_input pkt;
 	} **state_dump;
 };
+
+struct failpoint {
+	struct list_node list;
+	/* The universe state at the time. */
+	struct state_data sdata, peer;
+	/* Previous history. */
+	const struct trail *prev_trail;
+	/* Input */
+	enum state_input input;
+	union input idata;
+	/* How many ways we can fail */
+	uint64_t could_fail;
+	/* Depth this failpoint occurred at */
+	unsigned int depth;
+};
+
+static void copy_peers(struct state_data *dst, struct state_data *peer,
+		       const struct state_data *src)
+{
+	*dst = *src;
+	*peer = *src->peer;
+	dst->peer = peer;
+	peer->peer = dst;
+}
+
+static const struct trail *clone_trail(const tal_t *ctx,
+				       const struct trail *trail)
+{
+	struct trail *t;
+
+	if (!trail)
+		return NULL;
+	
+	t = tal_dup(ctx, struct trail, trail);
+	t->before = tal_dup(t, struct state_data, trail->before);
+	t->after = tal_dup(t, struct state_data, trail->after);
+	t->pkt_sent = trail->pkt_sent ? tal_strdup(t, trail->pkt_sent) : NULL;
+	t->prev = clone_trail(ctx, trail->prev);
+	return t;
+}
+
+static const union input dup_idata(const tal_t *ctx,
+				    enum state_input input,
+				    const union input *idata)
+{
+	union input i;
+
+	if (input_is_pkt(input))
+		i.pkt = (Pkt *)tal_strdup(ctx, (const char *)idata->pkt);
+	else if (input == CMD_SEND_HTLC_UPDATE
+		 || input == CMD_SEND_HTLC_FULFILL
+		 || input == CMD_SEND_HTLC_ROUTEFAIL
+		 || input == CMD_SEND_HTLC_TIMEDOUT) {
+		i.htlc_prog = tal_dup(ctx, struct htlc_progress,
+				      idata->htlc_prog);
+	} else {
+		if (idata->htlc)
+			i.htlc = tal_dup(ctx, struct htlc, idata->htlc);
+		else
+			i.htlc = NULL;
+	}
+	return i;
+}
+
+static void add_failpoint(const struct state_data *sdata,
+			  enum state_input input, const union input *idata,
+			  uint64_t could_fail, unsigned int depth,
+			  const struct trail *prev_trail)
+{
+	struct failpoint *f = tal(NULL, struct failpoint);
+
+	copy_peers(&f->sdata, &f->peer, sdata);
+	f->could_fail = could_fail;
+	f->input = input;
+	f->idata = dup_idata(f, input, idata);
+	f->prev_trail = clone_trail(f, prev_trail);
+	f->depth = depth;
+	list_add_tail(&failpoints, &f->list);
+}
+
+static bool fail(enum failure f)
+{
+	could_fail |= (1ULL << f);
+	return (current_fail & (1ULL << f));
+}
 
 static const char *state_name(enum state s)
 {
@@ -454,7 +552,7 @@ Pkt *accept_pkt_htlc_update(struct state_effect *effect,
 			    Pkt **decline,
 			    struct htlc_progress **htlcprog)
 {
-	if (do_decline)
+	if (fail(FAIL_DECLINE_HTLC))
 		*decline = new_pkt(effect, PKT_UPDATE_DECLINE_HTLC);
 	else {
 		*decline = NULL;
@@ -931,7 +1029,6 @@ static void sdata_init(struct state_data *sdata,
 	sdata->num_htlc_spends_to_us = 0;
 	sdata->num_htlc_spends_to_them = 0;
 	sdata->num_rvals_known = 0;
-	memset(sdata->core.pad, 0, sizeof(sdata->core.pad));
 	sdata->error = NULL;
 	memset(sdata->core.outputs, 0, sizeof(sdata->core.outputs));
 	sdata->core.deferred_pkt = INPUT_NONE;
@@ -945,15 +1042,6 @@ static void sdata_init(struct state_data *sdata,
 	sdata->core.closing_cmd = false;
 	sdata->name = name;
 	sdata->peer = other;
-}
-
-static void copy_peers(struct state_data *dst, struct state_data *peer,
-		       const struct state_data *src)
-{
-	*dst = *src;
-	*peer = *src->peer;
-	dst->peer = peer;
-	peer->peer = dst;
 }
 
 /* Recursion! */
@@ -1049,12 +1137,14 @@ static void report_trail_rev(const struct trail *t)
 	if (t->prev)
 		report_trail_rev(t->prev);
 
-	fprintf(stderr, "%s: %s(%i) %s -> %s (%u out %u in)\n",
+	fprintf(stderr, "%s: %s(%i) %s -> %s",
 		t->name,
 		input_name(t->input), t->htlc_id,
 		state_name(t->before->core.state),
-		state_name(t->after->core.state),
-		t->after->core.num_outputs,
+		state_name(t->after->core.state));
+	for (i = 0; i < t->after->core.num_outputs; i++)
+		fprintf(stderr, " >%s", input_name(t->after->core.outputs[i]));
+	fprintf(stderr, " +%u in\n",
 		t->num_peer_outputs);
 	if (t->after->core.state >= STATE_CLOSED) {
 		if (t->after->num_live_htlcs_to_us
@@ -1193,7 +1283,8 @@ static const char *apply_effects(struct state_data *sdata,
 				return pkt;
 			}
 		}
-		assert(sdata->core.num_outputs <ARRAY_SIZE(sdata->core.outputs));
+		if (sdata->core.num_outputs >= ARRAY_SIZE(sdata->core.outputs))
+			return "Too many outputs";
 		sdata->core.outputs[sdata->core.num_outputs]
 			= input_by_name(pkt);
 		sdata->pkt_data[sdata->core.num_outputs++]
@@ -1629,8 +1720,12 @@ static void try_input(const struct state_data *sdata,
 	state_effect_init(effect);
 
 	eliminate_input(&hist->inputs_per_state[sdata->core.state], i);
+	could_fail = 0;
 	newstate = state(sdata->core.state, sdata, i, idata, effect);
-	
+	/* FIXME: We could open more failpoints from one failure! */
+	if (could_fail && !current_fail)
+		add_failpoint(sdata, i, idata, could_fail, depth, prev_trail);
+
 	normalpath &= normal_path(i, sdata->core.state, newstate);
 	errorpath |= error_path(i, sdata->core.state, newstate);
 
@@ -1828,7 +1923,7 @@ static void run_peer(const struct state_data *sdata,
 	struct state_data copy, peer;
 	size_t i;
 	uint64_t old_notifies;
-	union input *idata = tal(NULL, union input);
+	union input *idata = talz(NULL, union input);
 
 	sanity_check(sdata);
 
@@ -2068,12 +2163,29 @@ static int state_dump_cmp(const struct state_dump *a,
 	return 0;
 }
 
+/* Only use bits in 'mask' */
+static uint64_t stretch_mask(unsigned int val, uint64_t mask)
+{
+	uint64_t ret = 0;
+	unsigned int i, n = 0;
+
+	for (i = 0; i < 64; i++) {
+		if (mask & (1ULL << i)) {
+			/* Steal another bit from val. */
+			ret |= (val & (1ULL << n)) << (i - n);
+			n++;
+		}
+	}
+	return ret;
+}
+
 int main(int argc, char *argv[])
 {
 	struct state_data a, b;
 	unsigned int i;
 	struct hist hist;
 	bool dump_states = false;
+	struct failpoint *f;
 
 	err_set_progname(argv[0]);
 
@@ -2139,18 +2251,17 @@ int main(int argc, char *argv[])
 	/* Now, try each input in each state. */
 	run_peer(&a, true, false, NULL, &hist);
 
-#if 0 /* FIXME */
-	/* Now try with declining an HTLC. */
-	do_decline = true;
-	sithash_init(&hist.sithash);
-	sithash_update(&hist.sithash, &a);
-	t = run_peer(&a, true, false, 0, &hist);
-	if (t) {
-		report_trail(t);
-		exit(1);
+	/* Now probe all the failure points */
+	while ((f = list_pop(&failpoints, struct failpoint, list))) {
+		unsigned i, weight = ffsll(f->could_fail);
+		for (i = 1; i < (1 << weight); i++) {
+			current_fail = stretch_mask(i, f->could_fail);
+			try_input(&f->sdata, f->input, &f->idata, false, true,
+				  f->depth, f->prev_trail, &hist);
+		}
+		tal_free(f);
 	}
-#endif
-
+	
 	for (i = 0; i < STATE_MAX; i++) {
 		bool a_expect = true, b_expect = true;
 
