@@ -769,7 +769,7 @@ start_closing:
 	set_effect(effect, close_timeout, INPUT_CLOSE_COMPLETE_TIMEOUT);
 
 	set_effect(effect, watch,
-		   bitcoin_watch_close(effect, BITCOIN_CLOSE_DONE));
+		   bitcoin_watch_close(effect, sdata, BITCOIN_CLOSE_DONE));
 
 	/* As soon as we send packet, they could close. */
 	set_effect(effect, send, pkt_close(effect, sdata));

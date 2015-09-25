@@ -31,6 +31,9 @@ TEST_CLI_PROGRAMS :=				\
 	test-cli/update-channel-htlc-remove	\
 	test-cli/update-channel-signature
 
+TEST_PROGRAMS :=				\
+	test/test_state_coverage
+
 BITCOIN_OBJS :=					\
 	bitcoin/address.o			\
 	bitcoin/base58.o			\
@@ -79,7 +82,7 @@ CCAN_EXTRA_OBJS :=				\
 
 CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
-PROGRAMS := $(TEST_CLI_PROGRAMS)
+PROGRAMS := $(TEST_CLI_PROGRAMS) $(TEST_PROGRAMS)
 
 HEADERS := $(filter-out gen_*, $(wildcard *.h)) $(wildcard bitcoin/*.h) gen_state_names.h
 
@@ -109,6 +112,7 @@ lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	$(PROTOCC) lightning.proto --c_out=.
 
 $(TEST_CLI_PROGRAMS): % : %.o $(HELPER_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) libsecp256k1.a
+$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(CCAN_OBJS) $(CCAN_EXTRA_OBJS) libsecp256k1.a
 $(PROGRAMS:=.o) $(HELPER_OBJS): $(HEADERS)
 
 $(CCAN_OBJS) $(HELPER_OBJS) $(PROGRAM_OBJS) $(BITCOIN_OBJS) $(CDUMP_OBJS): ccan/config.h
