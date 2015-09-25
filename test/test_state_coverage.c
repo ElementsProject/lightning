@@ -635,11 +635,15 @@ static const char *apply_effects(struct state_data *sdata,
 		sdata->outputs[sdata->num_outputs++] = input_by_name(pkt);
 	}
 	if (effect->watch) {
-		/* We can have multiple steals in flight, so make an exception
-		 * for BITCOIN_STEAL_DONE */
+		/* We can have multiple steals or spendtheirs in flight,
+		   so make exceptions for BITCOIN_STEAL_DONE/BITCOIN_SPEND_THEIRS_DONE */
 		if (sdata->event_notifies & (1ULL << BITCOIN_STEAL_DONE)
 		    & effect->watch->events)
 			effect->watch->events &= ~(1ULL << BITCOIN_STEAL_DONE);
+
+		if (sdata->event_notifies & (1ULL << BITCOIN_SPEND_THEIRS_DONE)
+		    & effect->watch->events)
+			effect->watch->events &= ~(1ULL << BITCOIN_SPEND_THEIRS_DONE);
 
 		if (sdata->event_notifies & effect->watch->events)
 			return "event set twice";
@@ -950,7 +954,7 @@ static struct trail *try_input(const struct state_data *sdata,
 		/*
 		 * We expect to loop if:
 		 * 1) We deferred, OR
-		 * 2) We get repeated BITCOIN_ANCHOR_OTHERSPEND, OR
+		 * 2) We get repeated BITCOIN_ANCHOR_OTHERSPEND/THEIRSPEND, OR
 		 * 3) We pass through NORMAL state.
 		 *
 		 * And if we're being quick, always stop.
@@ -958,6 +962,7 @@ static struct trail *try_input(const struct state_data *sdata,
 		if (effect->defer != INPUT_NONE
 		    || newstate == STATE_NORMAL_LOWPRIO
 		    || i == BITCOIN_ANCHOR_OTHERSPEND
+		    || i == BITCOIN_ANCHOR_THEIRSPEND
 		    || quick) {
 			tal_free(effect);
 			return NULL;
@@ -1057,8 +1062,9 @@ static struct trail *run_peer(const struct state_data *sdata,
 		if (!(copy.event_notifies & (1ULL << i)))
 			continue;
 
-		/* Don't re-fire (except OTHERSPEND can reoccur) */
-		if (i != BITCOIN_ANCHOR_OTHERSPEND)
+		/* Don't re-fire (except OTHERSPEND/THEIRSPEND can reoccur) */
+		if (i != BITCOIN_ANCHOR_OTHERSPEND
+		    && i != BITCOIN_ANCHOR_THEIRSPEND)
 			copy.event_notifies &= ~(1ULL << i);
 		activate_event(&copy, i);
 		t = try_input(&copy, i, normalpath, errorpath, depth, hist);

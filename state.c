@@ -626,9 +626,8 @@ enum state state(const enum state state, const struct state_data *sdata,
 		}
 
 		/* Now, other side can always spring a commit transaction on us
-		 * (if they haven't already) */
-		if (!(bits & STATE_CLOSE_SPENDTHEM_BIT)
-		    && input_is(input, BITCOIN_ANCHOR_THEIRSPEND)) {
+		 * (even if they already have, due to tx malleability) */
+		if (input_is(input, BITCOIN_ANCHOR_THEIRSPEND)) {
 			set_effect(effect, broadcast,
 				   bitcoin_spend_theirs(effect, sdata));
 			set_effect(effect, watch,
