@@ -27,16 +27,6 @@ static bool include_nops = false;
 static enum state_input *mapping_inputs;
 static bool do_decline;
 
-/* To recontruct errors. */
-struct trail {
-	struct trail *next;
-	const char *problem;
-	const char *name;
-	enum state_input input;
-	enum state before, after;
-	const char *pkt_sent;
-};
-
 struct state_data {
 	enum state state;
 	size_t num_outputs;
@@ -55,6 +45,16 @@ struct state_data {
 	const char *name;
 	/* The other peer's sdata. */
 	struct state_data *peer;
+};
+
+/* To recontruct errors. */
+struct trail {
+	struct trail *next;
+	const char *problem;
+	const char *name;
+	enum state_input input;
+	struct state_data before, after;
+	const char *pkt_sent;
 };
 
 struct situation {
@@ -600,8 +600,9 @@ static bool sithash_update(struct sithash *sithash,
 }
 
 static struct trail *add_trail(enum state_input input,
+			       const union input *idata,
 			       const struct state_data *before,
-			       enum state after,
+			       const struct state_data *after,
 			       const struct state_effect *effects,
 			       struct trail *next)
 {
@@ -611,19 +612,20 @@ static struct trail *add_trail(enum state_input input,
 	t->problem = next ? next->problem : NULL;
 	t->next = tal_steal(t, next);
 	t->input = input;
-	t->before = before->state;
-	t->after = after;
+	t->before = *before;
+	t->after = *after;
 	t->pkt_sent = (const char *)effects->send;
 	return t;
 }
 
 static struct trail *new_trail(enum state_input input,
+			       const union input *idata,
 			       const struct state_data *before,
-			       enum state after,
+			       const struct state_data *after,
 			       const struct state_effect *effects,
 			       const char *problem)
 {
-	struct trail *t = add_trail(input, before, after, effects, NULL);
+	struct trail *t = add_trail(input, idata, before, after, effects, NULL);
 	t->problem = problem;
 	return t;
 }
@@ -919,7 +921,7 @@ static struct trail *try_input(const struct state_data *sdata,
 			       struct hist *hist)
 {
 	struct state_data copy, peer;
-	union input idata;
+	union input *idata;
 	struct trail *t;
 	struct state_effect *effect = tal(NULL, struct state_effect);
 	enum state newstate;
@@ -928,8 +930,9 @@ static struct trail *try_input(const struct state_data *sdata,
 	state_effect_init(effect);
 
 	eliminate_input(&hist->inputs_per_state[sdata->state], i);
-	idata.pkt = (Pkt *)tal(effect, char);
-	newstate = state(sdata->state, sdata, i, &idata, effect);
+	idata = tal(effect, union input);
+	idata->pkt = (Pkt *)tal(idata, char);
+	newstate = state(sdata->state, sdata, i, idata, effect);
 
 	normalpath &= normal_path(i, sdata->state, newstate);
 	errorpath |= error_path(i, sdata->state, newstate);
@@ -952,14 +955,15 @@ static struct trail *try_input(const struct state_data *sdata,
 			add_dot(&hist->edges, oldstr, newstr, i, effect->send);
 	}
 
-	if (newstate == STATE_ERR_INTERNAL)
-		return new_trail(i, sdata, newstate, effect, "Internal error");
-
 	copy_peers(&copy, &peer, sdata);
 	copy.state = newstate;
+
+	if (newstate == STATE_ERR_INTERNAL)
+		return new_trail(i, idata, sdata, &copy, effect,
+				 "Internal error");
 	problem = apply_effects(&copy, effect);
 	if (problem)
-		return new_trail(i, sdata, newstate, effect, problem);
+		return new_trail(i, idata, sdata, &copy, effect, problem);
 
 	/* Record any output. */
 	if (effect->send) {
@@ -991,7 +995,7 @@ static struct trail *try_input(const struct state_data *sdata,
 			return NULL;
 		}
 		if (depth > STATE_MAX * 10)
-			return new_trail(i, sdata, newstate, effect, "Loop");
+			return new_trail(i, idata, sdata, &copy, effect, "Loop");
 	}
 
 	/* Don't continue if we reached a different error state. */
@@ -1005,21 +1009,21 @@ static struct trail *try_input(const struct state_data *sdata,
 	 */
 	if (copy.pkt_inputs && !has_packets(&copy) && !has_packets(&peer)
 	    && !waiting_statepair(copy.state, peer.state)) {
-		return new_trail(i, sdata, newstate, effect, "Deadlock");
+		return new_trail(i, idata, sdata, &copy, effect, "Deadlock");
 	}
 
 	/* Finished? */
 	if (newstate == STATE_CLOSED) {
 		if (copy.pkt_inputs)
-			return new_trail(i, sdata, newstate, effect,
+			return new_trail(i, idata, sdata, &copy, effect,
 					 "CLOSED but taking packets?");
 
 		if (copy.cmd_inputs)
-			return new_trail(i, sdata, newstate, effect,
+			return new_trail(i, idata, sdata, &copy, effect,
 					 "CLOSED but taking commands?");
 
 		if (copy.current_command != INPUT_NONE)
-			return new_trail(i, sdata, newstate, effect,
+			return new_trail(i, idata, sdata, &copy, effect,
 					 input_name(copy.current_command));
 		tal_free(effect);
 		return NULL;
@@ -1033,7 +1037,7 @@ static struct trail *try_input(const struct state_data *sdata,
 		tal_free(effect);
 		return NULL;
 	}
-	return add_trail(i, sdata, newstate, effect, t);
+	return add_trail(i, idata, sdata, &copy, effect, t);
 }
 
 static void sanity_check(const struct state_data *sdata)
@@ -1215,7 +1219,7 @@ static void report_trail(const struct trail *t)
 		fprintf(stderr, "%s: %s %s -> %s\n",
 			t->name,
 			input_name(t->input),
-			state_name(t->before), state_name(t->after));
+			state_name(t->before.state), state_name(t->after.state));
 		if (t->pkt_sent)
 			fprintf(stderr, "  => %s\n", t->pkt_sent);
 		t = t->next;
