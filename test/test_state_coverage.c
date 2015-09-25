@@ -533,6 +533,7 @@ static void copy_peers(struct state_data *dst, struct state_data *peer,
 /* Recursion! */
 static struct trail *run_peer(const struct state_data *sdata,
 			      bool normalpath, bool errorpath,
+			      size_t depth,
 			      struct hist *hist);
 
 /* Returns false if we've been here before. */
@@ -822,6 +823,7 @@ static const char *simplify_state(enum state s)
 static struct trail *try_input(const struct state_data *sdata,
 			       enum state_input i,
 			       bool normalpath, bool errorpath,
+			       size_t depth,
 			       struct hist *hist)
 {
 	struct state_data copy, peer;
@@ -875,8 +877,20 @@ static struct trail *try_input(const struct state_data *sdata,
 	
 	/* Have we been in this overall situation before? */
 	if (!sithash_update(&hist->sithash, &copy)) {
-		tal_free(effect);
-		return NULL;
+		/*
+		 * We expect to loop if:
+		 * 1) We deferred, OR
+		 * 2) We get repeated BITCOIN_ANCHOR_OTHERSPEND, OR
+		 * 3) We pass through NORMAL state.
+		 */
+		if (effect->defer != INPUT_NONE
+		    || newstate == STATE_NORMAL_LOWPRIO
+		    || i == BITCOIN_ANCHOR_OTHERSPEND) {
+			tal_free(effect);
+			return NULL;
+		}
+		if (depth > STATE_MAX * 10)
+			return new_trail(i, sdata, newstate, effect, "Loop");
 	}
 
 	/* Don't continue if we reached a different error state. */
@@ -903,9 +917,9 @@ static struct trail *try_input(const struct state_data *sdata,
 	}
 
 	/* Try inputs from here down. */
-	t = run_peer(&copy, normalpath, errorpath, hist);
+	t = run_peer(&copy, normalpath, errorpath, depth+1, hist);
 	if (!t)
-		t = run_peer(&peer, normalpath, errorpath, hist);
+		t = run_peer(&peer, normalpath, errorpath, depth+1, hist);
 	if (!t) {
 		tal_free(effect);
 		return NULL;
@@ -943,6 +957,7 @@ static void activate_event(struct state_data *sdata, enum state_input i)
 
 static struct trail *run_peer(const struct state_data *sdata,
 			      bool normalpath, bool errorpath,
+			      size_t depth,
 			      struct hist *hist)
 {
 	struct state_data copy, peer;
@@ -965,7 +980,7 @@ static struct trail *run_peer(const struct state_data *sdata,
 		if (i != BITCOIN_ANCHOR_OTHERSPEND)
 			copy.event_notifies &= ~(1ULL << i);
 		activate_event(&copy, i);
-		t = try_input(&copy, i, normalpath, errorpath, hist);
+		t = try_input(&copy, i, normalpath, errorpath, depth, hist);
 		if (t)
 			return t;
 		copy.event_notifies = old_notifies;
@@ -989,7 +1004,8 @@ static struct trail *run_peer(const struct state_data *sdata,
 			for (i = 0; i < sizeof(cmds) / sizeof(cmds[i]); i++) {
 				copy.current_command = cmds[i];
 				t = try_input(&copy, cmds[i],
-					      normalpath, errorpath, hist);
+					      normalpath, errorpath, depth,
+					      hist);
 				if (t)
 					return t;
 			}
@@ -1007,7 +1023,8 @@ static struct trail *run_peer(const struct state_data *sdata,
 				i = copy.deferred_pkt;
 				copy.deferred_pkt = INPUT_NONE;
 				return try_input(&copy, i,
-						 normalpath, errorpath, hist);
+						 normalpath, errorpath, depth,
+						 hist);
 			}
 			/* Can't send anything until that's done. */
 			return NULL;
@@ -1020,7 +1037,8 @@ static struct trail *run_peer(const struct state_data *sdata,
 			memmove(peer.outputs, peer.outputs + 1,
 				sizeof(peer.outputs) - sizeof(peer.outputs[0]));
 			peer.num_outputs--;
-			return try_input(&copy, i, normalpath, errorpath, hist);
+			return try_input(&copy, i, normalpath, errorpath, depth,
+					 hist);
 		}
 	}
 	return NULL;
@@ -1148,7 +1166,7 @@ int main(int argc, char *argv[])
 		abort();
 
 	/* Now, try each input in each state. */
-	t = run_peer(&a, true, false, &hist);
+	t = run_peer(&a, true, false, 0, &hist);
 	if (t) {
 		report_trail(t);
 		exit(1);
@@ -1158,7 +1176,7 @@ int main(int argc, char *argv[])
 	do_decline = true;
 	sithash_init(&hist.sithash);
 	sithash_update(&hist.sithash, &a);
-	t = run_peer(&a, true, false, &hist);
+	t = run_peer(&a, true, false, 0, &hist);
 	if (t) {
 		report_trail(t);
 		exit(1);
