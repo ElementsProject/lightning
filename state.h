@@ -71,7 +71,7 @@ enum state state(const enum state state, const struct state_data *sdata,
 		 const enum state_input input, const union input *idata,
 		 struct state_effect *effect);
 
-/* Either CMD_SEND_UPDATE or CMD_SEND_HTLC_UPDATE */
+/* Any CMD_SEND_HTLC_* */
 #define CMD_SEND_UPDATE_ANY INPUT_MAX
 
 /* a == b?  (or one of several for CMD_SEND_UPDATE_ANY) */
@@ -79,8 +79,7 @@ static inline bool input_is(enum state_input a, enum state_input b)
 {
 	if (b == CMD_SEND_UPDATE_ANY) {
 		/* Single | here, we want to record all. */
-		return input_is(a, CMD_SEND_UPDATE)
-			| input_is(a, CMD_SEND_HTLC_UPDATE)
+		return input_is(a, CMD_SEND_HTLC_UPDATE)
 			| input_is(a, CMD_SEND_HTLC_COMPLETE)
 			| input_is(a, CMD_SEND_HTLC_TIMEDOUT)
 			| input_is(a, CMD_SEND_HTLC_ROUTEFAIL);
@@ -98,7 +97,6 @@ Pkt *pkt_open(const tal_t *ctx, const struct state_data *sdata);
 Pkt *pkt_anchor(const tal_t *ctx, const struct state_data *sdata);
 Pkt *pkt_open_commit_sig(const tal_t *ctx, const struct state_data *sdata);
 Pkt *pkt_open_complete(const tal_t *ctx, const struct state_data *sdata);
-Pkt *pkt_update(const tal_t *ctx, const struct state_data *sdata, void *data);
 Pkt *pkt_htlc_update(const tal_t *ctx, const struct state_data *sdata, void *data);
 Pkt *pkt_htlc_complete(const tal_t *ctx, const struct state_data *sdata, void *data);
 Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct state_data *sdata, void *data);
@@ -124,9 +122,6 @@ Pkt *accept_pkt_anchor(struct state_effect *effect,
 Pkt *accept_pkt_open_commit_sig(struct state_effect *effect,
 				const struct state_data *sdata, const Pkt *pkt);
 	
-Pkt *accept_pkt_update(struct state_effect *effect,
-		       const struct state_data *sdata, const Pkt *pkt);
-
 Pkt *accept_pkt_htlc_update(struct state_effect *effect,
 			    const struct state_data *sdata, const Pkt *pkt,
 			    Pkt **decline);

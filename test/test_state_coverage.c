@@ -227,11 +227,6 @@ Pkt *pkt_open_complete(const tal_t *ctx, const struct state_data *sdata)
 	return new_pkt(ctx, PKT_OPEN_COMPLETE);
 }
 
-Pkt *pkt_update(const tal_t *ctx, const struct state_data *sdata, void *data)
-{
-	return new_pkt(ctx, PKT_UPDATE);
-}
-		
 Pkt *pkt_htlc_update(const tal_t *ctx, const struct state_data *sdata, void *data)
 {
 	return new_pkt(ctx, PKT_UPDATE_ADD_HTLC);
@@ -307,11 +302,6 @@ Pkt *accept_pkt_open_commit_sig(struct state_effect *effect, const struct state_
 	return NULL;
 }
 	
-Pkt *accept_pkt_update(struct state_effect *effect, const struct state_data *sdata, const Pkt *pkt)
-{
-	return NULL;
-}
-
 Pkt *accept_pkt_htlc_update(struct state_effect *effect,
 			    const struct state_data *sdata, const Pkt *pkt,
 			    Pkt **decline)
@@ -642,8 +632,7 @@ static bool is_current_command(const struct state_data *sdata,
 			       enum state_input cmd)
 {
 	if (cmd == CMD_SEND_UPDATE_ANY) {
-		return is_current_command(sdata, CMD_SEND_UPDATE)
-			|| is_current_command(sdata, CMD_SEND_HTLC_UPDATE)
+		return is_current_command(sdata, CMD_SEND_HTLC_UPDATE)
 			|| is_current_command(sdata, CMD_SEND_HTLC_COMPLETE)
 			|| is_current_command(sdata, CMD_SEND_HTLC_TIMEDOUT)
 			|| is_current_command(sdata, CMD_SEND_HTLC_ROUTEFAIL);
@@ -838,7 +827,7 @@ static bool normal_path(enum state_input i, enum state src, enum state dst)
 /* These clutter the graph, so only handle from normal state. */
 static bool too_cluttered(enum state_input i, enum state src)
 {
-	if (i == CMD_CLOSE || i == PKT_CLOSE || i == PKT_UPDATE || i == PKT_UPDATE_ADD_HTLC || i == PKT_UPDATE_COMPLETE_HTLC)
+	if (i == CMD_CLOSE || i == PKT_CLOSE || i == PKT_UPDATE_ADD_HTLC || i == PKT_UPDATE_COMPLETE_HTLC)
 		return src != STATE_NORMAL_LOWPRIO
 			&& src != STATE_NORMAL_HIGHPRIO;
 	return false;
@@ -884,10 +873,6 @@ static const char *simplify_state(enum state s)
 	case STATE_WAIT_FOR_HTLC_ACCEPT_LOWPRIO:
 	case STATE_WAIT_FOR_HTLC_ACCEPT_HIGHPRIO:
 		return "STATE_WAIT_FOR_HTLC_ACCEPT";
-
-	case STATE_WAIT_FOR_UPDATE_ACCEPT_LOWPRIO:
-	case STATE_WAIT_FOR_UPDATE_ACCEPT_HIGHPRIO:
-		return "STATE_WAIT_FOR_UPDATE_ACCEPT";
 
 	case STATE_WAIT_FOR_UPDATE_COMPLETE_LOWPRIO:
 	case STATE_WAIT_FOR_UPDATE_COMPLETE_HIGHPRIO:
@@ -1119,8 +1104,7 @@ static struct trail *run_peer(const struct state_data *sdata,
 		if (sdata->current_command == INPUT_NONE) {
 			size_t i;
 			static const enum state_input cmds[]
-				= { CMD_SEND_UPDATE,
-				    CMD_SEND_HTLC_UPDATE,
+				= { CMD_SEND_HTLC_UPDATE,
 				    CMD_SEND_HTLC_COMPLETE,
 				    CMD_SEND_HTLC_TIMEDOUT,
 				    CMD_SEND_HTLC_ROUTEFAIL,

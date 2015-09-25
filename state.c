@@ -307,12 +307,7 @@ enum state state(const enum state state, const struct state_data *sdata,
 	 */
 	case STATE_NORMAL_LOWPRIO:
 	case STATE_NORMAL_HIGHPRIO:
-		if (input_is(input, CMD_SEND_UPDATE)) {
-			/* We are to send an update. */
-			set_effect(effect, send,
-				   pkt_update(effect, sdata, idata->cmd));
-			return prio(state, STATE_WAIT_FOR_UPDATE_ACCEPT);
-		} else if (input_is(input, CMD_SEND_HTLC_UPDATE)) {
+		if (input_is(input, CMD_SEND_HTLC_UPDATE)) {
 			/* We are to send an HTLC update. */
 			set_effect(effect, send,
 				   pkt_htlc_update(effect, sdata, idata->cmd));
@@ -335,8 +330,6 @@ enum state state(const enum state state, const struct state_data *sdata,
 			return prio(state, STATE_WAIT_FOR_HTLC_ACCEPT);
 		} else if (input_is(input, CMD_CLOSE)) {
 			goto start_closing;
-		} else if (input_is(input, PKT_UPDATE)) {
-			goto accept_update;
 		} else if (input_is(input, PKT_UPDATE_ADD_HTLC)) {
 			goto accept_htlc_update;
 		} else if (input_is(input, PKT_UPDATE_COMPLETE_HTLC)) {
@@ -364,18 +357,6 @@ enum state state(const enum state state, const struct state_data *sdata,
 			fail_cmd(effect, CMD_SEND_HTLC_UPDATE, idata->pkt);
 			/* Toggle between high and low priority states. */
 			return toggle_prio(state, STATE_NORMAL);
-		}
-		/* Fall thru... */			
-	case STATE_WAIT_FOR_UPDATE_ACCEPT_LOWPRIO:
-	case STATE_WAIT_FOR_UPDATE_ACCEPT_HIGHPRIO:
-		if (input_is(input, PKT_UPDATE)) {
-			/* If we're high priority, ignore their packet */
-			if (high_priority(state))
-				return state;
-
-			/* Otherwise, process their request first: defer ours */
-			requeue_cmd(effect, CMD_SEND_UPDATE_ANY);
-			goto accept_update;
 		} else if (input_is(input, PKT_UPDATE_ADD_HTLC)) {
 			/* If we're high priority, ignore their packet */
 			if (high_priority(state))
@@ -735,13 +716,6 @@ them_unilateral:
 		   bitcoin_watch(effect, effect->broadcast,
 				 BITCOIN_SPEND_THEIRS_DONE));
 	return STATE_CLOSE_WAIT_SPENDTHEM;
-
-accept_update:
-	err = accept_pkt_update(effect, sdata, idata->pkt);
-	if (err)
-		goto err_start_unilateral_close;
-	set_effect(effect, send, pkt_update_accept(effect, sdata));
-	return prio(state, STATE_WAIT_FOR_UPDATE_SIG);
 
 accept_htlc_update:
 	err = accept_pkt_htlc_update(effect, sdata, idata->pkt, &decline);
