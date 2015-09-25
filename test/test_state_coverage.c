@@ -1620,6 +1620,7 @@ static struct trail *try_input(const struct state_data *sdata,
 		 */
 		if (effect->defer != INPUT_NONE
 		    || newstate == STATE_NORMAL_LOWPRIO
+		    || newstate == STATE_NORMAL_HIGHPRIO
 		    || i == BITCOIN_ANCHOR_OTHERSPEND
 		    || i == BITCOIN_ANCHOR_THEIRSPEND
 		    || quick) {
