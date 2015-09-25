@@ -397,8 +397,8 @@ enum state state(const enum state state, const struct state_data *sdata,
 		if (input_is(input, PKT_UPDATE_DECLINE_HTLC)) {
 			fail_cmd(effect, CMD_SEND_HTLC_UPDATE, idata->pkt);
 			set_effect(effect, htlc_abandon, true);
-			/* Toggle between high and low priority states. */
-			return toggle_prio(state, STATE_NORMAL);
+			/* No update means no priority change. */
+			return prio(state, STATE_NORMAL);
 		/* They can't close with an HTLC, so only possible here */	
 		} else if (input_is(input, PKT_CLOSE)) {
 			fail_cmd(effect, CMD_SEND_UPDATE_ANY, NULL);
@@ -979,8 +979,8 @@ accept_htlc_update:
 		goto err_start_unilateral_close;
 	if (decline) {
 		set_effect(effect, send, decline);
-		/* Toggle between high/low priority states. */
-		return toggle_prio(state, STATE_NORMAL);
+		/* No update means no priority change. */
+		return prio(state, STATE_NORMAL);
 	}
 	set_effect(effect, htlc_in_progress, htlcprog);
 	set_effect(effect, send, pkt_update_accept(effect, sdata));
