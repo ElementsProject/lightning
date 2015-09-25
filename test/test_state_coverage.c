@@ -232,9 +232,9 @@ Pkt *pkt_htlc_update(const tal_t *ctx, const struct state_data *sdata, void *dat
 	return new_pkt(ctx, PKT_UPDATE_ADD_HTLC);
 }
 
-Pkt *pkt_htlc_complete(const tal_t *ctx, const struct state_data *sdata, void *data)
+Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct state_data *sdata, void *data)
 {
-	return new_pkt(ctx, PKT_UPDATE_COMPLETE_HTLC);
+	return new_pkt(ctx, PKT_UPDATE_FULFILL_HTLC);
 }
 
 Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct state_data *sdata, void *data)
@@ -323,7 +323,7 @@ Pkt *accept_pkt_htlc_timedout(struct state_effect *effect, const struct state_da
 	return NULL;
 }
 
-Pkt *accept_pkt_htlc_complete(struct state_effect *effect, const struct state_data *sdata, const Pkt *pkt)
+Pkt *accept_pkt_htlc_fulfill(struct state_effect *effect, const struct state_data *sdata, const Pkt *pkt)
 {
 	return NULL;
 }
@@ -633,7 +633,7 @@ static bool is_current_command(const struct state_data *sdata,
 {
 	if (cmd == CMD_SEND_UPDATE_ANY) {
 		return is_current_command(sdata, CMD_SEND_HTLC_UPDATE)
-			|| is_current_command(sdata, CMD_SEND_HTLC_COMPLETE)
+			|| is_current_command(sdata, CMD_SEND_HTLC_FULFILL)
 			|| is_current_command(sdata, CMD_SEND_HTLC_TIMEDOUT)
 			|| is_current_command(sdata, CMD_SEND_HTLC_ROUTEFAIL);
 	}
@@ -827,7 +827,7 @@ static bool normal_path(enum state_input i, enum state src, enum state dst)
 /* These clutter the graph, so only handle from normal state. */
 static bool too_cluttered(enum state_input i, enum state src)
 {
-	if (i == CMD_CLOSE || i == PKT_CLOSE || i == PKT_UPDATE_ADD_HTLC || i == PKT_UPDATE_COMPLETE_HTLC)
+	if (i == CMD_CLOSE || i == PKT_CLOSE || i == PKT_UPDATE_ADD_HTLC || i == PKT_UPDATE_FULFILL_HTLC)
 		return src != STATE_NORMAL_LOWPRIO
 			&& src != STATE_NORMAL_HIGHPRIO;
 	return false;
@@ -1105,7 +1105,7 @@ static struct trail *run_peer(const struct state_data *sdata,
 			size_t i;
 			static const enum state_input cmds[]
 				= { CMD_SEND_HTLC_UPDATE,
-				    CMD_SEND_HTLC_COMPLETE,
+				    CMD_SEND_HTLC_FULFILL,
 				    CMD_SEND_HTLC_TIMEDOUT,
 				    CMD_SEND_HTLC_ROUTEFAIL,
 				    CMD_CLOSE };

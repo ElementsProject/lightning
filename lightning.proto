@@ -132,7 +132,7 @@ message update_decline_htlc {
 }
 
 // Complete your HTLC: I have the R value, pay me!
-message update_complete_htlc {
+message update_fulfill_htlc {
   // Hash for which I will supply preimage to revoke this commitment tx.
   required sha256_hash revocation_hash = 1;
   // HTLC R value.
@@ -217,7 +217,7 @@ message pkt {
     update_signature update_signature = 4;
     update_complete update_complete = 5;
     update_decline_htlc update_decline_htlc = 6;
-    update_complete_htlc update_complete_htlc = 7;
+    update_fulfill_htlc update_fulfill_htlc = 7;
     update_timedout_htlc update_timedout_htlc = 8;
     update_routefail_htlc update_routefail_htlc = 9;
     // Closing

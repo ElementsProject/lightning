@@ -167,12 +167,12 @@ struct pkt *update_htlc_complete_pkt(const tal_t *ctx,
 				     const struct sha256 *revocation_hash,
 				     const struct sha256 *rval)
 {
-	UpdateCompleteHtlc u = UPDATE_COMPLETE_HTLC__INIT;
+	UpdateFulfillHtlc u = UPDATE_FULFILL_HTLC__INIT;
 
 	u.revocation_hash = sha256_to_proto(ctx, revocation_hash);
 	u.r = sha256_to_proto(ctx, rval);
 
-	return to_pkt(ctx, PKT__PKT_UPDATE_COMPLETE_HTLC, &u);
+	return to_pkt(ctx, PKT__PKT_UPDATE_FULFILL_HTLC, &u);
 }
 
 struct pkt *update_htlc_timedout_pkt(const tal_t *ctx,

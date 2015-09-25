@@ -27,7 +27,7 @@ typedef struct _OpenComplete OpenComplete;
 typedef struct _Update Update;
 typedef struct _UpdateAddHtlc UpdateAddHtlc;
 typedef struct _UpdateDeclineHtlc UpdateDeclineHtlc;
-typedef struct _UpdateCompleteHtlc UpdateCompleteHtlc;
+typedef struct _UpdateFulfillHtlc UpdateFulfillHtlc;
 typedef struct _UpdateTimedoutHtlc UpdateTimedoutHtlc;
 typedef struct _UpdateRoutefailHtlc UpdateRoutefailHtlc;
 typedef struct _UpdateAccept UpdateAccept;
@@ -322,7 +322,7 @@ struct  _UpdateDeclineHtlc
 /*
  * Complete your HTLC: I have the R value, pay me!
  */
-struct  _UpdateCompleteHtlc
+struct  _UpdateFulfillHtlc
 {
   ProtobufCMessage base;
   /*
@@ -334,8 +334,8 @@ struct  _UpdateCompleteHtlc
    */
   Sha256Hash *r;
 };
-#define UPDATE_COMPLETE_HTLC__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&update_complete_htlc__descriptor) \
+#define UPDATE_FULFILL_HTLC__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&update_fulfill_htlc__descriptor) \
     , NULL, NULL }
 
 
@@ -510,7 +510,7 @@ typedef enum {
   PKT__PKT_UPDATE_SIGNATURE = 4,
   PKT__PKT_UPDATE_COMPLETE = 5,
   PKT__PKT_UPDATE_DECLINE_HTLC = 6,
-  PKT__PKT_UPDATE_COMPLETE_HTLC = 7,
+  PKT__PKT_UPDATE_FULFILL_HTLC = 7,
   PKT__PKT_UPDATE_TIMEDOUT_HTLC = 8,
   PKT__PKT_UPDATE_ROUTEFAIL_HTLC = 9,
   PKT__PKT_CLOSE = 30,
@@ -543,7 +543,7 @@ struct  _Pkt
     UpdateSignature *update_signature;
     UpdateComplete *update_complete;
     UpdateDeclineHtlc *update_decline_htlc;
-    UpdateCompleteHtlc *update_complete_htlc;
+    UpdateFulfillHtlc *update_fulfill_htlc;
     UpdateTimedoutHtlc *update_timedout_htlc;
     UpdateRoutefailHtlc *update_routefail_htlc;
     /*
@@ -791,24 +791,24 @@ UpdateDeclineHtlc *
 void   update_decline_htlc__free_unpacked
                      (UpdateDeclineHtlc *message,
                       ProtobufCAllocator *allocator);
-/* UpdateCompleteHtlc methods */
-void   update_complete_htlc__init
-                     (UpdateCompleteHtlc         *message);
-size_t update_complete_htlc__get_packed_size
-                     (const UpdateCompleteHtlc   *message);
-size_t update_complete_htlc__pack
-                     (const UpdateCompleteHtlc   *message,
+/* UpdateFulfillHtlc methods */
+void   update_fulfill_htlc__init
+                     (UpdateFulfillHtlc         *message);
+size_t update_fulfill_htlc__get_packed_size
+                     (const UpdateFulfillHtlc   *message);
+size_t update_fulfill_htlc__pack
+                     (const UpdateFulfillHtlc   *message,
                       uint8_t             *out);
-size_t update_complete_htlc__pack_to_buffer
-                     (const UpdateCompleteHtlc   *message,
+size_t update_fulfill_htlc__pack_to_buffer
+                     (const UpdateFulfillHtlc   *message,
                       ProtobufCBuffer     *buffer);
-UpdateCompleteHtlc *
-       update_complete_htlc__unpack
+UpdateFulfillHtlc *
+       update_fulfill_htlc__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   update_complete_htlc__free_unpacked
-                     (UpdateCompleteHtlc *message,
+void   update_fulfill_htlc__free_unpacked
+                     (UpdateFulfillHtlc *message,
                       ProtobufCAllocator *allocator);
 /* UpdateTimedoutHtlc methods */
 void   update_timedout_htlc__init
@@ -1038,8 +1038,8 @@ typedef void (*UpdateAddHtlc_Closure)
 typedef void (*UpdateDeclineHtlc_Closure)
                  (const UpdateDeclineHtlc *message,
                   void *closure_data);
-typedef void (*UpdateCompleteHtlc_Closure)
-                 (const UpdateCompleteHtlc *message,
+typedef void (*UpdateFulfillHtlc_Closure)
+                 (const UpdateFulfillHtlc *message,
                   void *closure_data);
 typedef void (*UpdateTimedoutHtlc_Closure)
                  (const UpdateTimedoutHtlc *message,
@@ -1090,7 +1090,7 @@ extern const ProtobufCMessageDescriptor open_complete__descriptor;
 extern const ProtobufCMessageDescriptor update__descriptor;
 extern const ProtobufCMessageDescriptor update_add_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_decline_htlc__descriptor;
-extern const ProtobufCMessageDescriptor update_complete_htlc__descriptor;
+extern const ProtobufCMessageDescriptor update_fulfill_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_timedout_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_routefail_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_accept__descriptor;

@@ -134,25 +134,44 @@ enum state {
 };
 
 enum state_input {
-	/* Packet inputs. */
+	/*
+	 * Packet inputs.
+	 */
 	PKT_OPEN = PKT__PKT_OPEN,
 	PKT_OPEN_ANCHOR = PKT__PKT_OPEN_ANCHOR,
 	PKT_OPEN_COMMIT_SIG = PKT__PKT_OPEN_COMMIT_SIG,
 	PKT_OPEN_COMPLETE = PKT__PKT_OPEN_COMPLETE,
+
+	/* Updating the commit transaction: new HTLC */
 	PKT_UPDATE_ADD_HTLC = PKT__PKT_UPDATE_ADD_HTLC,
-	PKT_UPDATE_ACCEPT = PKT__PKT_UPDATE_ACCEPT,
-	PKT_UPDATE_SIGNATURE = PKT__PKT_UPDATE_SIGNATURE,
-	PKT_UPDATE_COMPLETE = PKT__PKT_UPDATE_COMPLETE,
-	PKT_UPDATE_COMPLETE_HTLC = PKT__PKT_UPDATE_COMPLETE_HTLC,
+	/* Updating the commit transaction: I have your R value! */
+	PKT_UPDATE_FULFILL_HTLC = PKT__PKT_UPDATE_FULFILL_HTLC,
+	/* Updating the commit transaction: my HTLC timed out! */
 	PKT_UPDATE_TIMEDOUT_HTLC = PKT__PKT_UPDATE_TIMEDOUT_HTLC,
+	/* Updating the commit transaction: your HTLC failed upstream */
 	PKT_UPDATE_ROUTEFAIL_HTLC = PKT__PKT_UPDATE_ROUTEFAIL_HTLC,
+
+	/* Update replies: */
+	PKT_UPDATE_ACCEPT = PKT__PKT_UPDATE_ACCEPT,
+	/* Only for PKT_UPDATE_ADD_HTLC. */
 	PKT_UPDATE_DECLINE_HTLC = PKT__PKT_UPDATE_DECLINE_HTLC,
+
+	/* Reply to PKT_UPDATE_ACCEPT */
+	PKT_UPDATE_SIGNATURE = PKT__PKT_UPDATE_SIGNATURE,
+	/* Reply to PKT_UPDATE_SIGNATURE */
+	PKT_UPDATE_COMPLETE = PKT__PKT_UPDATE_COMPLETE,
+
+	/* Mutual close sequence. */
 	PKT_CLOSE = PKT__PKT_CLOSE,
 	PKT_CLOSE_COMPLETE = PKT__PKT_CLOSE_COMPLETE,
 	PKT_CLOSE_ACK = PKT__PKT_CLOSE_ACK,
+
+	/* Something unexpected went wrong. */
 	PKT_ERROR = PKT__PKT_ERROR,
 
-	/* Non-packet inputs. */	
+	/*
+	 * Non-packet inputs.
+	 */
 	INPUT_NONE,
 
 	/*
@@ -187,7 +206,7 @@ enum state_input {
 	
 	/* Commands */
 	CMD_SEND_HTLC_UPDATE,
-	CMD_SEND_HTLC_COMPLETE,
+	CMD_SEND_HTLC_FULFILL,
 	CMD_SEND_HTLC_TIMEDOUT,
 	CMD_SEND_HTLC_ROUTEFAIL,
 	CMD_CLOSE,

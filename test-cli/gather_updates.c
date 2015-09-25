@@ -228,12 +228,12 @@ struct channel_state *gather_updates(const tal_t *ctx,
 				     our_rhash, their_rhash);
 			break;
 			
-		case PKT__PKT_UPDATE_COMPLETE_HTLC: {
+		case PKT__PKT_UPDATE_FULFILL_HTLC: {
 			struct sha256 r_hash, r_val;
 			Sha256Hash *rh;
 
 			/* Get hash, to find the HTLC. */
-			proto_to_sha256(pkt->update_complete_htlc->r, &r_val);
+			proto_to_sha256(pkt->update_fulfill_htlc->r, &r_val);
 			sha256(&r_hash, &r_val, sizeof(r_val));
 			rh = sha256_to_proto(ctx, &r_hash);
 
@@ -260,7 +260,7 @@ struct channel_state *gather_updates(const tal_t *ctx,
 					     (long long)amount, *argv);
 				remove_htlc(&cstate->b, n);
 			}
-			update_rhash(pkt->update_complete_htlc->revocation_hash,
+			update_rhash(pkt->update_fulfill_htlc->revocation_hash,
 				     received, num_updates,
 				     &old_our_rhash, &old_their_rhash,
 				     our_rhash, their_rhash);

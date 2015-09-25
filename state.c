@@ -312,10 +312,10 @@ enum state state(const enum state state, const struct state_data *sdata,
 			set_effect(effect, send,
 				   pkt_htlc_update(effect, sdata, idata->cmd));
 			return prio(state, STATE_WAIT_FOR_HTLC_ACCEPT);
-		} else if (input_is(input, CMD_SEND_HTLC_COMPLETE)) {
-			/* We are to send an HTLC complete. */
+		} else if (input_is(input, CMD_SEND_HTLC_FULFILL)) {
+			/* We are to send an HTLC fulfill. */
 			set_effect(effect, send,
-				   pkt_htlc_complete(effect, sdata, idata->cmd));
+				   pkt_htlc_fulfill(effect, sdata, idata->cmd));
 			return prio(state, STATE_WAIT_FOR_HTLC_ACCEPT);
 		} else if (input_is(input, CMD_SEND_HTLC_TIMEDOUT)) {
 			/* We are to send an HTLC timedout. */
@@ -332,8 +332,8 @@ enum state state(const enum state state, const struct state_data *sdata,
 			goto start_closing;
 		} else if (input_is(input, PKT_UPDATE_ADD_HTLC)) {
 			goto accept_htlc_update;
-		} else if (input_is(input, PKT_UPDATE_COMPLETE_HTLC)) {
-			goto accept_htlc_complete;
+		} else if (input_is(input, PKT_UPDATE_FULFILL_HTLC)) {
+			goto accept_htlc_fulfill;
 		} else if (input_is(input, PKT_UPDATE_TIMEDOUT_HTLC)) {
 			goto accept_htlc_timedout;
 		} else if (input_is(input, PKT_UPDATE_ROUTEFAIL_HTLC)) {
@@ -365,14 +365,14 @@ enum state state(const enum state state, const struct state_data *sdata,
 			/* Otherwise, process their request first: defer ours */
 			requeue_cmd(effect, CMD_SEND_UPDATE_ANY);
 			goto accept_htlc_update;
-		} else if (input_is(input, PKT_UPDATE_COMPLETE_HTLC)) {
+		} else if (input_is(input, PKT_UPDATE_FULFILL_HTLC)) {
 			/* If we're high priority, ignore their packet */
 			if (high_priority(state))
 				return state;
 
 			/* Otherwise, process their request first: defer ours */
 			requeue_cmd(effect, CMD_SEND_UPDATE_ANY);
-			goto accept_htlc_complete;
+			goto accept_htlc_fulfill;
 		} else if (input_is(input, PKT_UPDATE_TIMEDOUT_HTLC)) {
 			/* If we're high priority, ignore their packet */
 			if (high_priority(state))
@@ -743,8 +743,8 @@ accept_htlc_timedout:
 	set_effect(effect, send, pkt_update_accept(effect, sdata));
 	return prio(state, STATE_WAIT_FOR_UPDATE_SIG);
 
-accept_htlc_complete:
-	err = accept_pkt_htlc_complete(effect, sdata, idata->pkt);
+accept_htlc_fulfill:
+	err = accept_pkt_htlc_fulfill(effect, sdata, idata->pkt);
 	if (err)
 		goto err_start_unilateral_close;
 	set_effect(effect, send, pkt_update_accept(effect, sdata));

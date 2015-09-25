@@ -80,7 +80,7 @@ static inline bool input_is(enum state_input a, enum state_input b)
 	if (b == CMD_SEND_UPDATE_ANY) {
 		/* Single | here, we want to record all. */
 		return input_is(a, CMD_SEND_HTLC_UPDATE)
-			| input_is(a, CMD_SEND_HTLC_COMPLETE)
+			| input_is(a, CMD_SEND_HTLC_FULFILL)
 			| input_is(a, CMD_SEND_HTLC_TIMEDOUT)
 			| input_is(a, CMD_SEND_HTLC_ROUTEFAIL);
 	}
@@ -98,7 +98,7 @@ Pkt *pkt_anchor(const tal_t *ctx, const struct state_data *sdata);
 Pkt *pkt_open_commit_sig(const tal_t *ctx, const struct state_data *sdata);
 Pkt *pkt_open_complete(const tal_t *ctx, const struct state_data *sdata);
 Pkt *pkt_htlc_update(const tal_t *ctx, const struct state_data *sdata, void *data);
-Pkt *pkt_htlc_complete(const tal_t *ctx, const struct state_data *sdata, void *data);
+Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct state_data *sdata, void *data);
 Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct state_data *sdata, void *data);
 Pkt *pkt_htlc_routefail(const tal_t *ctx, const struct state_data *sdata, void *data);
 Pkt *pkt_update_accept(const tal_t *ctx, const struct state_data *sdata);
@@ -132,7 +132,7 @@ Pkt *accept_pkt_htlc_routefail(struct state_effect *effect,
 Pkt *accept_pkt_htlc_timedout(struct state_effect *effect,
 			      const struct state_data *sdata, const Pkt *pkt);
 
-Pkt *accept_pkt_htlc_complete(struct state_effect *effect,
+Pkt *accept_pkt_htlc_fulfill(struct state_effect *effect,
 			      const struct state_data *sdata, const Pkt *pkt);
 
 Pkt *accept_pkt_update_accept(struct state_effect *effect,

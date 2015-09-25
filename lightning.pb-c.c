@@ -523,47 +523,47 @@ void   update_decline_htlc__free_unpacked
   assert(message->base.descriptor == &update_decline_htlc__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   update_complete_htlc__init
-                     (UpdateCompleteHtlc         *message)
+void   update_fulfill_htlc__init
+                     (UpdateFulfillHtlc         *message)
 {
-  static UpdateCompleteHtlc init_value = UPDATE_COMPLETE_HTLC__INIT;
+  static UpdateFulfillHtlc init_value = UPDATE_FULFILL_HTLC__INIT;
   *message = init_value;
 }
-size_t update_complete_htlc__get_packed_size
-                     (const UpdateCompleteHtlc *message)
+size_t update_fulfill_htlc__get_packed_size
+                     (const UpdateFulfillHtlc *message)
 {
-  assert(message->base.descriptor == &update_complete_htlc__descriptor);
+  assert(message->base.descriptor == &update_fulfill_htlc__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t update_complete_htlc__pack
-                     (const UpdateCompleteHtlc *message,
+size_t update_fulfill_htlc__pack
+                     (const UpdateFulfillHtlc *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &update_complete_htlc__descriptor);
+  assert(message->base.descriptor == &update_fulfill_htlc__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t update_complete_htlc__pack_to_buffer
-                     (const UpdateCompleteHtlc *message,
+size_t update_fulfill_htlc__pack_to_buffer
+                     (const UpdateFulfillHtlc *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &update_complete_htlc__descriptor);
+  assert(message->base.descriptor == &update_fulfill_htlc__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-UpdateCompleteHtlc *
-       update_complete_htlc__unpack
+UpdateFulfillHtlc *
+       update_fulfill_htlc__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (UpdateCompleteHtlc *)
-     protobuf_c_message_unpack (&update_complete_htlc__descriptor,
+  return (UpdateFulfillHtlc *)
+     protobuf_c_message_unpack (&update_fulfill_htlc__descriptor,
                                 allocator, len, data);
 }
-void   update_complete_htlc__free_unpacked
-                     (UpdateCompleteHtlc *message,
+void   update_fulfill_htlc__free_unpacked
+                     (UpdateFulfillHtlc *message,
                       ProtobufCAllocator *allocator)
 {
-  assert(message->base.descriptor == &update_complete_htlc__descriptor);
+  assert(message->base.descriptor == &update_fulfill_htlc__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   update_timedout_htlc__init
@@ -1821,7 +1821,7 @@ const ProtobufCMessageDescriptor update_decline_htlc__descriptor =
   (ProtobufCMessageInit) update_decline_htlc__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor update_complete_htlc__field_descriptors[2] =
+static const ProtobufCFieldDescriptor update_fulfill_htlc__field_descriptors[2] =
 {
   {
     "revocation_hash",
@@ -1829,7 +1829,7 @@ static const ProtobufCFieldDescriptor update_complete_htlc__field_descriptors[2]
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(UpdateCompleteHtlc, revocation_hash),
+    offsetof(UpdateFulfillHtlc, revocation_hash),
     &sha256_hash__descriptor,
     NULL,
     0,             /* flags */
@@ -1841,35 +1841,35 @@ static const ProtobufCFieldDescriptor update_complete_htlc__field_descriptors[2]
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(UpdateCompleteHtlc, r),
+    offsetof(UpdateFulfillHtlc, r),
     &sha256_hash__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned update_complete_htlc__field_indices_by_name[] = {
+static const unsigned update_fulfill_htlc__field_indices_by_name[] = {
   1,   /* field[1] = r */
   0,   /* field[0] = revocation_hash */
 };
-static const ProtobufCIntRange update_complete_htlc__number_ranges[1 + 1] =
+static const ProtobufCIntRange update_fulfill_htlc__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 2 }
 };
-const ProtobufCMessageDescriptor update_complete_htlc__descriptor =
+const ProtobufCMessageDescriptor update_fulfill_htlc__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "update_complete_htlc",
-  "UpdateCompleteHtlc",
-  "UpdateCompleteHtlc",
+  "update_fulfill_htlc",
+  "UpdateFulfillHtlc",
+  "UpdateFulfillHtlc",
   "",
-  sizeof(UpdateCompleteHtlc),
+  sizeof(UpdateFulfillHtlc),
   2,
-  update_complete_htlc__field_descriptors,
-  update_complete_htlc__field_indices_by_name,
-  1,  update_complete_htlc__number_ranges,
-  (ProtobufCMessageInit) update_complete_htlc__init,
+  update_fulfill_htlc__field_descriptors,
+  update_fulfill_htlc__field_indices_by_name,
+  1,  update_fulfill_htlc__number_ranges,
+  (ProtobufCMessageInit) update_fulfill_htlc__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCFieldDescriptor update_timedout_htlc__field_descriptors[2] =
@@ -2334,13 +2334,13 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[17] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "update_complete_htlc",
+    "update_fulfill_htlc",
     7,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
-    offsetof(Pkt, update_complete_htlc),
-    &update_complete_htlc__descriptor,
+    offsetof(Pkt, update_fulfill_htlc),
+    &update_fulfill_htlc__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -2479,8 +2479,8 @@ static const unsigned pkt__field_indices_by_name[] = {
   2,   /* field[2] = update_accept */
   1,   /* field[1] = update_add_htlc */
   4,   /* field[4] = update_complete */
-  6,   /* field[6] = update_complete_htlc */
   5,   /* field[5] = update_decline_htlc */
+  6,   /* field[6] = update_fulfill_htlc */
   8,   /* field[8] = update_routefail_htlc */
   3,   /* field[3] = update_signature */
   7,   /* field[7] = update_timedout_htlc */
