@@ -252,19 +252,23 @@ struct hist {
 	} **state_dump;
 };
 
-struct failpoint {
-	/* Hash key (with which_fail) */
-	struct situation sit;
+struct fail_details {
 	/* The universe state at the time. */
 	struct state_data sdata, peer;
 	enum state_input input;
 	union input idata;
 	/* Previous history. */
 	const struct trail *prev_trail;
+};
+
+struct failpoint {
+	/* Hash key (with which_fail) */
+	struct situation sit;
 	/* Which failure */
 	enum failure which_fail;
-	/* Have we tried failing yet? */
-	bool failed;
+
+	/* If we haven't tried failing yet, this is set */
+	struct fail_details *details;
 };
 
 static const struct failpoint *
@@ -370,7 +374,7 @@ static const struct trail *clone_trail(const tal_t *ctx,
 	t->after = trail->after ? tal_dup(t, struct state_data, trail->after)
 		: NULL;
 	t->pkt_sent = trail->pkt_sent ? tal_strdup(t, trail->pkt_sent) : NULL;
-	t->prev = clone_trail(ctx, trail->prev);
+	t->prev = clone_trail(t, trail->prev);
 	return t;
 }
 
@@ -401,27 +405,29 @@ static bool fail(const struct state_data *sdata, enum failure which_fail)
 {
 	struct failpoint *f = tal(NULL, struct failpoint), *old;
 
-	copy_peers(&f->sdata, &f->peer, sdata);
-	situation_init(&f->sit, &f->sdata);
-	f->sdata.trail = clone_trail(f, sdata->trail);
+	situation_init(&f->sit, sdata);
 	f->which_fail = which_fail;
-	f->input = sdata->current_input;
-	f->idata = dup_idata(f, f->input, sdata->current_idata);
-	f->failed = false;
 
 	/* If we've been here before... */
 	old = failhash_get(&failhash, f);
 	if (old) {
 		tal_free(f);
 		/* If we haven't tried failing, try that now. */
-		if (!old->failed) {
-			old->failed = true;
+		if (old->details) {
+			old->details = tal_free(old->details);
 			return true;
 		}
 		return false;
 	}
 
-	/* First time here, don't fail. */
+	/* First time here, save details, don't fail yet. */
+	f->details = tal(f, struct fail_details);
+	copy_peers(&f->details->sdata, &f->details->peer, sdata);
+	f->details->sdata.trail = clone_trail(f->details, sdata->trail);
+	f->details->input = sdata->current_input;
+	f->details->idata = dup_idata(f->details,
+				      f->details->input, sdata->current_idata);
+
 	failhash_add(&failhash, f);
 	return false;
 }
@@ -2306,11 +2312,22 @@ int main(int argc, char *argv[])
 		for (f = failhash_first(&failhash, &i);
 		     f;
 		     f = failhash_next(&failhash, &i)) {
-			if (!f->failed) {
-				try_input(&f->sdata, f->input, &f->idata,
+			if (f->details) {
+				const struct trail *t;
+
+				/* Trail will vanish when f->details freed */
+				t = tal_steal(f, f->details->sdata.trail);
+				try_input(&f->details->sdata,
+					  f->details->input,
+					  &f->details->idata,
 					  false, true,
-					  f->sdata.trail,
+					  t,
 					  &hist);
+				/* Note: it can go down an earlier path and
+				 * fail differently, so f->details may
+				 * still be set. */
+				if (!f->details)
+					tal_free(t);
 				more_failpoints = true;
 			}
 		}
