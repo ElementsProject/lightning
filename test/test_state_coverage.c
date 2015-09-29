@@ -30,6 +30,21 @@ static enum state_input *mapping_inputs;
 enum failure {
 	FAIL_NONE,
 	FAIL_DECLINE_HTLC,
+	FAIL_STEAL,
+	FAIL_ACCEPT_OPEN,
+	FAIL_ACCEPT_ANCHOR,
+	FAIL_ACCEPT_OPEN_COMMIT_SIG,
+	FAIL_ACCEPT_HTLC_UPDATE,
+	FAIL_ACCEPT_HTLC_ROUTEFAIL,
+	FAIL_ACCEPT_HTLC_TIMEDOUT,
+	FAIL_ACCEPT_HTLC_FULFILL,
+	FAIL_ACCEPT_UPDATE_ACCEPT,
+	FAIL_ACCEPT_UPDATE_COMPLETE,
+	FAIL_ACCEPT_UPDATE_SIGNATURE,
+	FAIL_ACCEPT_CLOSE,
+	FAIL_ACCEPT_CLOSE_COMPLETE,
+	FAIL_ACCEPT_CLOSE_ACK,
+	FAIL_ACCEPT_SIMULTANEOUS_CLOSE
 };
 
 struct htlc {
@@ -635,16 +650,22 @@ Pkt *unexpected_pkt(const tal_t *ctx, enum state_input input)
 
 Pkt *accept_pkt_open(struct state_effect *effect, const struct state_data *sdata, const Pkt *pkt)
 {
+	if (fail(sdata, FAIL_ACCEPT_OPEN))
+		return pkt_err(effect, "Error inject");
 	return NULL;
 }
 
 Pkt *accept_pkt_anchor(struct state_effect *effect, const struct state_data *sdata, const Pkt *pkt)
 {
+	if (fail(sdata, FAIL_ACCEPT_ANCHOR))
+		return pkt_err(effect, "Error inject");
 	return NULL;
 }
 
 Pkt *accept_pkt_open_commit_sig(struct state_effect *effect, const struct state_data *sdata, const Pkt *pkt)
 {
+	if (fail(sdata, FAIL_ACCEPT_OPEN_COMMIT_SIG))
+		return pkt_err(effect, "Error inject");
 	return NULL;
 }
 	
@@ -653,6 +674,9 @@ Pkt *accept_pkt_htlc_update(struct state_effect *effect,
 			    Pkt **decline,
 			    struct htlc_progress **htlcprog)
 {
+	if (fail(sdata, FAIL_ACCEPT_HTLC_UPDATE))
+		return pkt_err(effect, "Error inject");
+
 	if (fail(sdata, FAIL_DECLINE_HTLC))
 		*decline = new_pkt(effect, PKT_UPDATE_DECLINE_HTLC);
 	else {
@@ -673,6 +697,9 @@ Pkt *accept_pkt_htlc_routefail(struct state_effect *effect,
 	unsigned int id = htlc_id_from_pkt(pkt);
 	const struct htlc *h = find_htlc(sdata, id);
 
+	if (fail(sdata, FAIL_ACCEPT_HTLC_ROUTEFAIL))
+		return pkt_err(effect, "Error inject");
+
 	/* The shouldn't fail unless it's to them */
 	assert(h->to_them);
 	
@@ -688,6 +715,9 @@ Pkt *accept_pkt_htlc_timedout(struct state_effect *effect,
 {
 	unsigned int id = htlc_id_from_pkt(pkt);
 	const struct htlc *h = find_htlc(sdata, id);
+
+	if (fail(sdata, FAIL_ACCEPT_HTLC_TIMEDOUT))
+		return pkt_err(effect, "Error inject");
 
 	/* The shouldn't timeout unless it's to us */
 	assert(!h->to_them);
@@ -705,6 +735,9 @@ Pkt *accept_pkt_htlc_fulfill(struct state_effect *effect,
 	unsigned int id = htlc_id_from_pkt(pkt);
 	const struct htlc *h = find_htlc(sdata, id);
 
+	if (fail(sdata, FAIL_ACCEPT_HTLC_FULFILL))
+		return pkt_err(effect, "Error inject");
+
 	/* The shouldn't complete unless it's to them */
 	assert(h->to_them);
 
@@ -716,12 +749,17 @@ Pkt *accept_pkt_htlc_fulfill(struct state_effect *effect,
 
 Pkt *accept_pkt_update_accept(struct state_effect *effect, const struct state_data *sdata, const Pkt *pkt, struct signature **sig)
 {
+	if (fail(sdata, FAIL_ACCEPT_UPDATE_ACCEPT))
+		return pkt_err(effect, "Error inject");
+
 	*sig = (struct signature *)tal_strdup(effect, "from PKT_UPDATE_ACCEPT");
 	return NULL;
 }
 
 Pkt *accept_pkt_update_complete(struct state_effect *effect, const struct state_data *sdata, const Pkt *pkt)
 {
+	if (fail(sdata, FAIL_ACCEPT_UPDATE_COMPLETE))
+		return pkt_err(effect, "Error inject");
 	return NULL;
 }
 
@@ -729,27 +767,37 @@ Pkt *accept_pkt_update_signature(struct state_effect *effect,
 				 const struct state_data *sdata, const Pkt *pkt,
 				 struct signature **sig)
 {
+	if (fail(sdata, FAIL_ACCEPT_UPDATE_SIGNATURE))
+		return pkt_err(effect, "Error inject");
 	*sig = (struct signature *)tal_strdup(effect, "from PKT_UPDATE_SIGNATURE");
 	return NULL;
 }
 
 Pkt *accept_pkt_close(struct state_effect *effect, const struct state_data *sdata, const Pkt *pkt)
 {
+	if (fail(sdata, FAIL_ACCEPT_CLOSE))
+		return pkt_err(effect, "Error inject");
 	return NULL;
 }
 
 Pkt *accept_pkt_close_complete(struct state_effect *effect, const struct state_data *sdata, const Pkt *pkt)
 {
+	if (fail(sdata, FAIL_ACCEPT_CLOSE_COMPLETE))
+		return pkt_err(effect, "Error inject");
 	return NULL;
 }
 
 Pkt *accept_pkt_simultaneous_close(struct state_effect *effect, const struct state_data *sdata, const Pkt *pkt)
 {
+	if (fail(sdata, FAIL_ACCEPT_SIMULTANEOUS_CLOSE))
+		return pkt_err(effect, "Error inject");
 	return NULL;
 }
 
 Pkt *accept_pkt_close_ack(struct state_effect *effect, const struct state_data *sdata, const Pkt *pkt)
 {
+	if (fail(sdata, FAIL_ACCEPT_CLOSE_ACK))
+		return pkt_err(effect, "Error inject");
 	return NULL;
 }
 
@@ -920,7 +968,8 @@ struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
 				 const struct state_data *sdata,
 					struct bitcoin_event *btc)
 {
-	/* FIXME: Test this failing! */
+	if (fail(sdata, FAIL_STEAL))
+		return NULL;
 	return bitcoin_tx("steal");
 }
 

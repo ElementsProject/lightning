@@ -450,6 +450,7 @@ enum state state(const enum state state, const struct state_data *sdata,
 						       idata->pkt, &sig);
 			if (err) {
 				fail_cmd(effect, CMD_SEND_UPDATE_ANY, NULL);
+				set_effect(effect, htlc_abandon, true);
 				goto err_start_unilateral_close;
 			}
 			set_effect(effect, update_theirsig, sig);
@@ -485,8 +486,10 @@ enum state state(const enum state state, const struct state_data *sdata,
 		if (input_is(input, PKT_UPDATE_COMPLETE)) {
 			err = accept_pkt_update_complete(effect, sdata,
 							 idata->pkt);
-			if (err)
+			if (err) {
+				fail_cmd(effect, CMD_SEND_UPDATE_ANY, NULL);
 				goto err_start_unilateral_close;
+			}
 			complete_cmd(effect, CMD_SEND_UPDATE_ANY);
 			return toggle_prio(state, STATE_NORMAL);
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT)) {
@@ -515,8 +518,10 @@ enum state state(const enum state state, const struct state_data *sdata,
 			struct signature *sig;
 			err = accept_pkt_update_signature(effect, sdata,
 							  idata->pkt, &sig);
-			if (err)
+			if (err) {
+				set_effect(effect, htlc_abandon, true);
 				goto err_start_unilateral_close;
+			}
 			set_effect(effect, update_theirsig, sig);
 			set_effect(effect, send,
 				   pkt_update_complete(effect, sdata));
@@ -552,7 +557,7 @@ enum state state(const enum state state, const struct state_data *sdata,
 			err = accept_pkt_close_complete(effect, sdata,
 							idata->pkt);
 			if (err)
-				goto err_start_unilateral_close;
+				goto err_start_unilateral_close_already_closing;
 			set_effect(effect, close_status, CMD_STATUS_SUCCESS);
 			set_effect(effect, send, pkt_close_ack(effect, sdata));
 			set_effect(effect, broadcast,
@@ -565,7 +570,7 @@ enum state state(const enum state state, const struct state_data *sdata,
 			err = accept_pkt_simultaneous_close(effect, sdata,
 							    idata->pkt);
 			if (err)
-				goto err_start_unilateral_close;
+				goto err_start_unilateral_close_already_closing;
 			set_effect(effect, close_status, CMD_STATUS_SUCCESS);
 			set_effect(effect, send, pkt_close_ack(effect, sdata));
 			set_effect(effect, broadcast,
@@ -573,28 +578,17 @@ enum state state(const enum state state, const struct state_data *sdata,
 			set_effect(effect, stop_commands, true);
 			set_effect(effect, stop_packets, true);
 			return STATE_CLOSE_WAIT_CLOSE;
+		} else if (input_is(input, PKT_ERROR)) {
+			set_effect(effect, in_error,
+				   set_errpkt(effect, idata->pkt));
+			goto start_unilateral_close_already_closing;
 		} else if (input_is_pkt(input)) {
 			/* We ignore all other packets while closing. */
 			return STATE_WAIT_FOR_CLOSE_COMPLETE;
 		} else if (input_is(input, INPUT_CLOSE_COMPLETE_TIMEOUT)) {
 			/* They didn't respond in time.  Unilateral close. */
-			set_effect(effect, send,
-				   pkt_err(effect, "Close timed out"));
-			set_effect(effect, close_status, CMD_STATUS_FAILED);
-			set_effect(effect, stop_commands, true);
-			set_effect(effect, stop_packets, true);
-			set_effect(effect, broadcast,
-				   bitcoin_commit(effect, sdata));
-			set_effect(effect, watch,
-				   bitcoin_watch_delayed(effect,
-					 effect->broadcast,
-					 BITCOIN_ANCHOR_OURCOMMIT_DELAYPASSED));
-
-			/* We agreed to close: shouldn't have any HTLCs */
-			if (committed_to_htlcs(sdata))
-				return STATE_ERR_INTERNAL;
-
-			return STATE_CLOSE_WAIT_CLOSE_OURCOMMIT;
+			err = pkt_err(effect, "Close timed out");
+			goto err_start_unilateral_close_already_closing;
 		}
 		set_effect(effect, close_status, CMD_STATUS_FAILED);
 		set_effect(effect, stop_commands, true);
@@ -943,6 +937,32 @@ start_unilateral_close:
 	}
 	return STATE_CLOSE_WAIT_OURCOMMIT;
 
+err_start_unilateral_close_already_closing:
+	/*
+	 * They timed out, or were broken; we are going to close unilaterally.
+	 */
+	set_effect(effect, send, err);
+
+start_unilateral_close_already_closing:
+	set_effect(effect, close_status, CMD_STATUS_FAILED);
+
+	/*
+	 * Close unilaterally.
+	 */
+	/* No more inputs, no more commands. */
+	set_effect(effect, stop_packets, true);
+	set_effect(effect, stop_commands, true);
+	set_effect(effect, broadcast, bitcoin_commit(effect, sdata));
+	set_effect(effect, watch,
+		   bitcoin_watch_delayed(effect, effect->broadcast,
+					 BITCOIN_ANCHOR_OURCOMMIT_DELAYPASSED));
+
+	/* We agreed to close: shouldn't have any HTLCs */
+	if (committed_to_htlcs(sdata))
+		return STATE_ERR_INTERNAL;
+
+	return STATE_CLOSE_WAIT_CLOSE_OURCOMMIT;
+	
 them_unilateral:
 	assert(input == BITCOIN_ANCHOR_THEIRSPEND);
 
