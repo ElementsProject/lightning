@@ -44,15 +44,23 @@ send_after_delay()
     done
 }
 
-if [ $# = 0 ]; then
-    echo Usage: "INPUT" "[--steal|--unilateral|--htlc-onchain]" >&2
+if [ x$1 != x ] && [ x$1 != x--steal ] && [ x$1 != x--unilateral ] && [ x$1 != x--htlc-onchain ]; then
+    echo Usage: "[--steal|--unilateral|--htlc-onchain]" >&2
     exit 1
 fi
-		      
-A_INPUTNUM=$1
-shift
-#A_INPUTNUM=4
-#B_INPUTNUM=1
+
+# Find the inputs number corresponding to that 0.01 btc out
+for i in $(seq 1 $($CLI listunspent | grep -c txid) ); do
+    if scripts/getinput.sh $i | grep -q "$TX.*/1000000/"; then
+       A_INPUTNUM=$i;
+    fi
+done
+
+if [ -z "$A_INPUTNUM" ]; then
+    echo "Can't find 1000000 satoshi input" >&2
+    exit 1
+fi
+
 A_AMOUNT=900000
 
 A_CHANGEADDR=`scripts/get-new-address.sh`

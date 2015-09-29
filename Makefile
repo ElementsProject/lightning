@@ -93,6 +93,16 @@ $(PROGRAMS): CFLAGS+=-I.
 
 default: $(PROGRAMS)
 
+# These don't work in parallel, so we open-code them
+test-cli-tests: $(TEST_CLI_PROGRAMS)
+	cd test-cli; scripts/shutdown.sh 2>/dev/null || true
+	set -e; cd test-cli; for args in "" --steal --unilateral --htlc-onchain; do scripts/setup.sh && scripts/test.sh $$args && scripts/shutdown.sh; done
+
+check: test-cli-tests
+
+full-check: check $(TEST_PROGRAMS)
+	test/test_state_coverage
+
 TAGS: FORCE
 	$(RM) TAGS; find . -name '*.[ch]' | xargs etags --append
 FORCE::
