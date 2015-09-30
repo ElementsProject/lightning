@@ -40,9 +40,9 @@
  *	printf("\n");
  * 	return 0;
  * }
- * // Given 'foo' outputs 'foo at 1. '
- * // Given 'foo bar' outputs 'bar at 2. foo at 1. '
- * // Given 'foo foo bar zebra' outputs 'bar at 3. foo at 1. zebra at 4. '
+ * // Given "foo" outputs "foo at 1. \n"
+ * // Given "foo bar" outputs "bar at 2. foo at 1. \n"
+ * // Given "foo foo bar zebra" outputs "bar at 3. foo at 1. zebra at 4. \n"
  */
 int main(int argc, char *argv[])
 {

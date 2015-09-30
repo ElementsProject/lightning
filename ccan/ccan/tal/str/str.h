@@ -164,9 +164,9 @@ char *tal_strjoin(const void *ctx, char *strings[], const char *delim,
  *	regcomp(3), regex(3).
  *
  * Example:
- *	// Given 'My name is Rusty' outputs 'Hello Rusty!'
- *	// Given 'my first name is Rusty Russell' outputs 'Hello Rusty Russell!'
- *	// Given 'My name isnt Rusty Russell' outputs 'Hello there!'
+ *	// Given "My name is Rusty" outputs "Hello Rusty!\n"
+ *	// Given "my first name is Rusty Russell" outputs "Hello Rusty Russell!\n"
+ *	// Given "My name isnt Rusty Russell" outputs "Hello there!\n"
  *	int main(int argc, char *argv[])
  *	{
  *		char *person, *input;

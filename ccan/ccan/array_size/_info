@@ -12,7 +12,7 @@
  * macro or constant.
  *
  * Example:
- *	// Outputs "Initialized 32 values"
+ *	// Outputs "Initialized 32 values\n"
  *	#include <ccan/array_size/array_size.h>
  *	#include <stdlib.h>
  *	#include <stdio.h>

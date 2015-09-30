@@ -20,7 +20,7 @@
  * License: LGPL (v2.1 or any later version)
  *
  * Example:
- *	// Given "test" contains "3 t's in 'test string'
+ *	// Given "test" output contains "3 t's in 'test string'"
  *	#include <ccan/cast/cast.h>
  *	#include <stdint.h>
  *	#include <stdio.h>

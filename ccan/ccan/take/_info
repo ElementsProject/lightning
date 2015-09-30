@@ -13,7 +13,7 @@
  * License: CC0 (Public domain)
  *
  * Example:
- *	// Given foo/bar.c outputs basename is bar.c
+ *	// Given "foo/bar.c" outputs basename is bar.c
  *	#include <ccan/take/take.h>
  *	#include <string.h>
  *

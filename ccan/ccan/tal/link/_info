@@ -14,8 +14,8 @@
  *	// Silly program which keeps a cache of uppercased strings.
  *	// The cache wants to keep strings around even after they may have
  *	// been "freed" by the caller.
- *	// Given 'hello' outputs '1 cache hits HELLO '
- *	// Given 'hello hello there' outputs '4 cache hits HELLO HELLO THERE '
+ *	// Given "hello" outputs "1 cache hits HELLO \n"
+ *	// Given "hello hello there" outputs "4 cache hits HELLO HELLO THERE \n"
  *	#include <stdio.h>
  *	#include <err.h>
  *	#include <string.h>

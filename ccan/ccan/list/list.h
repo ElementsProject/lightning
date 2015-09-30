@@ -95,8 +95,8 @@ struct list_node *list_check_node(const struct list_node *n,
 #define list_debug(h, loc) list_check((h), loc)
 #define list_debug_node(n, loc) list_check_node((n), loc)
 #else
-#define list_debug(h, loc) (h)
-#define list_debug_node(n, loc) (n)
+#define list_debug(h, loc) ((void)loc, h)
+#define list_debug_node(n, loc) ((void)loc, n)
 #endif
 
 /**
