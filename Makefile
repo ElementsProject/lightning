@@ -32,7 +32,8 @@ TEST_CLI_PROGRAMS :=				\
 	test-cli/update-channel-signature
 
 TEST_PROGRAMS :=				\
-	test/test_state_coverage
+	test/test_state_coverage		\
+	test/test_onion
 
 BITCOIN_OBJS :=					\
 	bitcoin/address.o			\
@@ -98,7 +99,10 @@ test-cli-tests: $(TEST_CLI_PROGRAMS)
 	cd test-cli; scripts/shutdown.sh 2>/dev/null || true
 	set -e; cd test-cli; for args in "" --steal --unilateral --htlc-onchain; do scripts/setup.sh && scripts/test.sh $$args && scripts/shutdown.sh; done
 
-check: test-cli-tests
+test-onion: test/test_onion
+	set -e; for i in `seq 20`; do ./test/test_onion $$i; done
+
+check: test-cli-tests test-onion
 
 full-check: check $(TEST_PROGRAMS)
 	test/test_state_coverage
@@ -117,7 +121,7 @@ gen_state_names.h: state_types.h ccan/ccan/cdump/tools/cdump-enumstr
 libsecp256k1.a: secp256k1/libsecp256k1.la
 
 secp256k1/libsecp256k1.la:
-	cd secp256k1 && ./autogen.sh && ./configure --enable-static=yes --enable-shared=no --enable-tests=no --enable-module-schnorr=yes --libdir=`pwd`/..
+	cd secp256k1 && ./autogen.sh && ./configure --enable-static=yes --enable-shared=no --enable-tests=no --enable-module-schnorr=yes --enable-module-ecdh=yes --libdir=`pwd`/..
 	$(MAKE) -C secp256k1 install-exec
 
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
