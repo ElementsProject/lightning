@@ -1,0 +1,30 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * mem - Provide mem*() functions if missing from C library
+ *
+ * This code implements some string.h mem*() functions if they're not
+ * already available in the C library.  Functions included are:
+ *	memmem()
+ *
+ * License: CC0
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/compiler");
+		return 0;
+	}
+
+	if (strcmp(argv[1], "testdepends") == 0) {
+		return 0;
+	}
+
+	return 1;
+}
