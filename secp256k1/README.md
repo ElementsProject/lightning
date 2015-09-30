@@ -1,5 +1,3 @@
-Imported from: git@github.com:sipa/secp256k1.git schnorr3 (0ab0b47)
-
 libsecp256k1
 ============
 

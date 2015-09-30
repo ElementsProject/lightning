@@ -7,6 +7,9 @@
 #include "signature.h"
 #include "tx.h"
 #include <assert.h>
+#ifdef USE_SCHNORR
+#include "secp256k1_schnorr.h"
+#endif
 
 #undef DEBUG
 #ifdef DEBUG
@@ -77,7 +80,7 @@ bool sign_hash(const tal_t *ctx, const struct privkey *privkey,
 	       const struct sha256_double *h,
 	       struct signature *s)
 {
-	secp256k1_context_t *secpctx;
+	secp256k1_context *secpctx;
 	bool ok;
 	
 	secpctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
@@ -85,13 +88,15 @@ bool sign_hash(const tal_t *ctx, const struct privkey *privkey,
 		return false;
 
 #ifdef USE_SCHNORR
-	ok = secp256k1_schnorr_sign(secpctx, h->sha.u.u8,
+	ok = secp256k1_schnorr_sign(secpctx,
 				    (unsigned char *)s,
+				    h->sha.u.u8,
 				    privkey->secret, NULL, NULL);
 #else
-	ok = secp256k1_ecdsa_sign_compact(secpctx, h->sha.u.u8,
-					  (unsigned char *)s,
-					  privkey->secret, NULL, NULL, NULL);
+	ok = secp256k1_ecdsa_sign(secpctx,
+				  (secp256k1_ecdsa_signature *)s,
+				  h->sha.u.u8,
+				  privkey->secret, NULL, NULL);
 #endif
 
 	secp256k1_context_destroy(secpctx);
@@ -146,28 +151,27 @@ static bool check_signed_hash(const struct sha256_double *hash,
 			      const struct pubkey *key)
 {
 	int ret;
-	secp256k1_context_t *secpctx;
+	secp256k1_context *secpctx;
+	/* FIXME: Don't convert here! */
+	secp256k1_pubkey pubkey;
 
 	secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
 	if (!secpctx)
 		return false;
 
-#ifdef USE_SCHNORR
-	ret = secp256k1_schnorr_verify(secpctx, hash->sha.u.u8,
-				       (unsigned char *)signature,
-				       key->key, pubkey_len(key));
-#else
-	{
-		u8 der[72];
-		size_t der_len;
-
-		/* FIXME: secp256k1 missing secp256k1_ecdsa_verify_compact */
-		der_len = signature_to_der(der, signature);
-
-		ret = secp256k1_ecdsa_verify(secpctx, hash->sha.u.u8,
-					     der, der_len,
-					     key->key, pubkey_len(key));
+	if (!secp256k1_ec_pubkey_parse(secpctx, &pubkey, key->key,
+				       pubkey_len(key))) {
+		secp256k1_context_destroy(secpctx);
+		return false;
 	}
+
+#ifdef USE_SCHNORR
+	ret = secp256k1_schnorr_verify(secpctx, (unsigned char *)signature,
+				       hash->sha.u.u8, &pubkey);
+#else
+	ret = secp256k1_ecdsa_verify(secpctx,
+				     (secp256k1_ecdsa_signature *)signature,
+				     hash->sha.u.u8, &pubkey);
 #endif
 
 	secp256k1_context_destroy(secpctx);

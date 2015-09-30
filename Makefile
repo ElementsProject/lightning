@@ -117,7 +117,7 @@ gen_state_names.h: state_types.h ccan/ccan/cdump/tools/cdump-enumstr
 libsecp256k1.a: secp256k1/libsecp256k1.la
 
 secp256k1/libsecp256k1.la:
-	cd secp256k1 && ./autogen.sh && ./configure --enable-static=yes --enable-shared=no --enable-tests=no --libdir=`pwd`/..
+	cd secp256k1 && ./autogen.sh && ./configure --enable-static=yes --enable-shared=no --enable-tests=no --enable-module-schnorr=yes --libdir=`pwd`/..
 	$(MAKE) -C secp256k1 install-exec
 
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
