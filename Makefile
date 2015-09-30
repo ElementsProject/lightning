@@ -114,7 +114,9 @@ gen_state_names.h: state_types.h ccan/ccan/cdump/tools/cdump-enumstr
 
 # We build a static libsecpk1, since we need schnorr for alpha
 # (and it's not API stable yet!).
-libsecp256k1.a:
+libsecp256k1.a: secp256k1/libsecp256k1.la
+
+secp256k1/libsecp256k1.la:
 	cd secp256k1 && ./autogen.sh && ./configure --enable-static=yes --enable-shared=no --enable-tests=no --libdir=`pwd`/..
 	$(MAKE) -C secp256k1 install-exec
 
@@ -170,10 +172,14 @@ update-ccan:
 	$(RM) -r ccan.old
 
 distclean: clean
+	$(MAKE) -C secp256k1/ distclean || true
+	$(RM) libsecp256k1.a
 	$(RM) lightning.pb-c.c lightning.pb-c.h ccan/config.h gen_version.h
 	$(RM) doc/deployable-lightning.pdf
 
 clean:
+	$(MAKE) -C secp256k1/ clean || true
+	$(RM) libsecp256k1.{a,la}
 	$(RM) $(PROGRAMS) test-cli/leak-anchor-sigs
 	$(RM) bitcoin/*.o *.o $(PROGRAMS:=.o) $(CCAN_OBJS) $(CCAN_EXTRA_OBJS)
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
