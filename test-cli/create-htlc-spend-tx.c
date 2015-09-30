@@ -171,10 +171,8 @@ int main(int argc, char *argv[])
 	}
 
 	/* If it's our own commit tx, we also need delay. */
-	if (own_commit_tx) {
-		/* Sequence number is inverted timeout. */
-		tx->input[0].sequence_number = ~locktime;
-	}
+	if (own_commit_tx)
+		tx->input[0].sequence_number = bitcoin_nsequence(locktime);
 
 	/* Leave 10,000 satoshi as fee (if we can!). */
 	tx->fee = 10000;

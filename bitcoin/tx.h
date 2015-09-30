@@ -66,4 +66,6 @@ bool bitcoin_txid_from_hex(const char *hexstr, size_t hexstr_len,
 bool bitcoin_txid_to_hex(const struct sha256_double *txid,
 			 char *hexstr, size_t hexstr_len);
 
+/* Get sequence number for a given locktime. */
+u32 bitcoin_nsequence(u32 locktime);
 #endif /* LIGHTNING_BITCOIN_TX_H */

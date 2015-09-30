@@ -99,8 +99,7 @@ int main(int argc, char *argv[])
 	tx->input[0].input_amount = commit->output[p2sh_out].amount;
 	tx->fee = fee;
 
-	/* Sequence number is inverted timeout. */
-	tx->input[0].sequence_number = ~locktime;
+	tx->input[0].sequence_number = bitcoin_nsequence(locktime);
 
 	if (commit->output[p2sh_out].amount <= fee)
 		errx(1, "Amount of %llu won't exceed fee",

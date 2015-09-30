@@ -253,8 +253,11 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 		tx->input[i].sequence_number = 0xFFFFFFFF;
 	}
 	tx->lock_time = 0;
+#ifdef HAS_BIP68
+	tx->version = 2;
+#else
 	tx->version = 1;
-
+#endif
 	return tx;
 }
 
@@ -543,3 +546,20 @@ bool bitcoin_tx_write(int fd, const struct bitcoin_tx *tx)
 	tal_free(tx_arr);
 	return ok;
 }
+
+u32 bitcoin_nsequence(u32 locktime)
+{
+#ifdef HAS_BIP68
+	/* BIP66 style sequence numbers */
+	if (locktime >= 500000000)
+		/* A relative time.  Set bit 30, shift by 5. */
+		return 0x40000000 | ((locktime - 500000000) << 5);
+	else
+		/* A block height.  Shift by 14. */
+		return locktime << 14;
+#else
+	/* Alpha uses the original proposal: simply invert the bits. */
+	return ~locktime;
+#endif
+}
+		

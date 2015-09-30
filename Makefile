@@ -6,8 +6,8 @@ PROTOCC:=protoc-c
 
 # Alpha has checksequenceverify, segregated witness+input-amount-in-sig+confidentual-transactions, schnorr, checklocktimeverify
 FEATURES := -DHAS_CSV=1 -DALPHA_TXSTYLE=1 -DUSE_SCHNORR=1 -DHAS_CLTV=1
-# Bitcoin uses DER for signatures
-#FEATURES := -DSCRIPTS_USE_DER
+# Bitcoin uses DER for signatures (Add BIP68 if it's supported)
+#FEATURES := -DSCRIPTS_USE_DER #-DHAS_BIP68
 
 TEST_CLI_PROGRAMS :=				\
 	test-cli/check-commit-sig		\

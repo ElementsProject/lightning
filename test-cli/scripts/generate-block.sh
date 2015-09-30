@@ -1,5 +1,5 @@
 #! /bin/sh
-# Query bitcoind to get (first) unspent output to spend.
+# Generate a block.
 
 set -e
 
@@ -10,6 +10,10 @@ case $STYLE in
     alpha)
 	# This is a one-shot in alpha, it seems.
 	$CLI setgenerate true
+	# Avoid median time bug by generating 11 blocks
+	if [ -n "$INIT" ]; then
+	    for i in `seq 10`; do $CLI setgenerate true; done
+	fi
 	;;
     bitcoin)
 	# Initially we need 100 blocks so coinbase matures, giving us funds.

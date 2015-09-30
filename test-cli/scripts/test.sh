@@ -4,6 +4,9 @@ set -e
 # Expect to be run from test-cli dir.
 . scripts/vars.sh
 
+# How long to lock transactions (unrealistically short, for testing)
+TEST_LOCKTIME=30
+
 getpubkey()
 {
     $CLI validateaddress $1 | sed -n 's/.*"pubkey" *: "\([0-9a-f]*\)".*/\1/p'
@@ -17,11 +20,9 @@ getprivkey()
 send_after_delay()
 {
     # For bitcoin testing, OP_CHECKSEQUENCEVERIFY is a NOP.
-    if [ $STYLE = alpha ]; then
-	# Alpha has a median time bug (which can't be triggered in bitcoin),
-	# triggered if we have < 11 blocks.  Generate them now.
-	for i in `seq 11`; do scripts/generate-block.sh; done
-	# OP_CHECKSEQUENCEVERIFY will stop us spending for 60 seconds.
+    # But nSequence enforcement is enough to stop it.
+    if [ $SEQ_ENFORCEMENT = true ]; then
+	# OP_CHECKSEQUENCEVERIFY will stop us spending for $TEST_LOCKTIME seconds.
 	for tx; do
 	    if $CLI sendrawtransaction $tx 2>/dev/null; then
 		echo OP_CHECKSEQUENCEVERIFY broken! >&2
@@ -34,11 +35,15 @@ send_after_delay()
 
     # Confirm them.
     scripts/generate-block.sh
-    echo Waiting for CSV timeout. >&2
-    sleep 61
+
+    # Bitcoin bumps block times so that blocks are valid.
+    TIME=$($CLI getblockheader $($CLI getbestblockhash) | sed -n 's/.*"time": \([0-9]*\),/\1/p')
+    echo Waiting for CSV timeout $(( $TIME + $TEST_LOCKTIME - $(date -u +%s) )) seconds. >&2
+
     # Move median time, for sure!
-    for i in `seq 11`; do scripts/generate-block.sh; done
-	
+    while [ `date -u +%s` -lt $(($TIME + $TEST_LOCKTIME)) ]; do sleep 1; done
+    for i in `seq 6`; do scripts/generate-block.sh; done
+
     for tx; do
 	$CLI sendrawtransaction $tx
     done
@@ -101,7 +106,7 @@ B_FINALPUBKEY=`getpubkey $B_FINALADDR`
 # Both sides say what they want from channel (A offers anchor)
 $PREFIX ./open-channel --offer-anchor $A_SEED $A_TMPPUBKEY $A_FINALPUBKEY > A-open.pb
 # B asks for a (dangerously) short locktime, for testing unilateral close.
-$PREFIX ./open-channel --locktime=60 $B_SEED $B_TMPPUBKEY $B_FINALPUBKEY > B-open.pb
+$PREFIX ./open-channel --locktime=$TEST_LOCKTIME $B_SEED $B_TMPPUBKEY $B_FINALPUBKEY > B-open.pb
 
 # Now A creates anchor (does not broadcast!)
 $PREFIX ./create-anchor-tx A-open.pb B-open.pb $A_AMOUNT $A_CHANGEPUBKEY $A_TXIN > A-anchor.tx
@@ -175,7 +180,7 @@ $PREFIX ./create-commit-tx A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_P
 $PREFIX ./create-commit-tx B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-commit-2.tx
 
 # Now, A offers an HTLC for 10001 satoshi.
-$PREFIX ./update-channel-htlc $A_SEED 3 10001 $A_HTLC1 $((`date +%s` + 60)) > A-update-htlc-3.pb
+$PREFIX ./update-channel-htlc $A_SEED 3 10001 $A_HTLC1 $((`date +%s` + $TEST_LOCKTIME)) > A-update-htlc-3.pb
 A_UPDATE_PKTS="$A_UPDATE_PKTS +A-update-htlc-3.pb"
 B_UPDATE_PKTS="$B_UPDATE_PKTS -A-update-htlc-3.pb"
 
@@ -196,7 +201,7 @@ $PREFIX ./create-commit-tx A-open.pb B-open.pb A-anchor.pb $A_TMPKEY $A_UPDATE_P
 $PREFIX ./create-commit-tx B-open.pb A-open.pb A-anchor.pb $B_TMPKEY $B_UPDATE_PKTS > B-commit-3.tx
 
 # Now, B offers an HTLC for 10002 satoshi.
-$PREFIX ./update-channel-htlc $B_SEED 4 10002 $B_HTLC1 $((`date +%s` + 60)) > B-update-htlc-4.pb
+$PREFIX ./update-channel-htlc $B_SEED 4 10002 $B_HTLC1 $((`date +%s` + $TEST_LOCKTIME)) > B-update-htlc-4.pb
 A_UPDATE_PKTS="$A_UPDATE_PKTS -B-update-htlc-4.pb"
 B_UPDATE_PKTS="$B_UPDATE_PKTS +B-update-htlc-4.pb"
 
@@ -237,7 +242,7 @@ if [ x"$1" = x--unilateral ]; then
     $PREFIX ./create-commit-spend-tx A-commit-4.tx A-open.pb B-open.pb A-anchor.pb $A_FINALKEY $A_CHANGEPUBKEY $A_UPDATE_PKTS > A-spend.tx
     $PREFIX ./create-htlc-spend-tx A-open.pb B-open.pb A-commit-4.tx +A-update-htlc-3.pb A-update-accept-4.pb $A_FINALKEY $A_CHANGEPUBKEY > A-htlc-3-spend.tx
     $PREFIX ./create-htlc-spend-tx -- A-open.pb B-open.pb A-commit-4.tx -B-update-htlc-4.pb A-update-accept-4.pb $B_FINALKEY $B_CHANGEPUBKEY > B-htlc-4-spend.tx
-    # HTLCs conveniently set to 60 seconds, though absolute.  Script
+    # HTLCs conveniently set to $TEST_LOCKTIME seconds, though absolute.  Script
     # shouldn't be that slow, so they should be unspendable to start.
     send_after_delay `cut -d: -f1 A-spend.tx` `cut -d: -f1 A-htlc-3-spend.tx` `cut -d: -f1 B-htlc-4-spend.tx` > A-spend.txids
     exit 0
