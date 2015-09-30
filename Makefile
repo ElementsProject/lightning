@@ -178,6 +178,10 @@ update-ccan:
 distclean: clean
 	$(MAKE) -C secp256k1/ distclean || true
 	$(RM) libsecp256k1.a
+
+maintainter-clean: distclean
+	@echo 'This command is intended for maintainers to use; it'
+	@echo 'deletes files that may need special tools to rebuild.'
 	$(RM) lightning.pb-c.c lightning.pb-c.h ccan/config.h gen_version.h
 	$(RM) doc/deployable-lightning.pdf
 
