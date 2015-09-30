@@ -275,7 +275,6 @@ bool key_from_base58(const char *base58, size_t base58_len,
 	bool compressed;
 	secp256k1_context *secpctx;
 	size_t keylen;
-	secp256k1_pubkey pubkey;
 	
 	BN_init(&bn);
 	if (!raw_decode_base58(&bn, base58, base58_len))
@@ -312,18 +311,10 @@ bool key_from_base58(const char *base58, size_t base58_len,
 	if (!secp256k1_ec_seckey_verify(secpctx, priv->secret))
 		goto fail_free_secpctx;
 
-	/* Get public key, too. */
-	/* FIXME: Don't convert. */
-	if (!secp256k1_ec_pubkey_create(secpctx, &pubkey, priv->secret))
+	/* Get public key, too, since we know if it's compressed. */
+	if (!pubkey_from_privkey(priv, key,
+				 compressed ? SECP256K1_EC_COMPRESSED : 0))
 		goto fail_free_secpctx;
-
-	memset(key, 0, sizeof(*key));
-	if (!secp256k1_ec_pubkey_serialize(secpctx, key->key, &keylen,
-					   &pubkey,
-					   compressed
-					   ? SECP256K1_EC_COMPRESSED : 0))
-		goto fail_free_secpctx;
-	assert(keylen == pubkey_len(key));
 
 	BN_free(&bn);
 	secp256k1_context_destroy(secpctx);

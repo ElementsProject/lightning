@@ -41,22 +41,20 @@ bool proto_to_signature(const Signature *pb, struct signature *sig)
 BitcoinPubkey *pubkey_to_proto(const tal_t *ctx, const struct pubkey *key)
 {
 	BitcoinPubkey *p = tal(ctx, BitcoinPubkey);
+	struct pubkey check;
 
 	bitcoin_pubkey__init(p);
-	p->key.len = pubkey_len(key);
-	p->key.data = tal_dup_arr(p, u8, key->key, p->key.len, 0);
+	p->key.len = pubkey_derlen(key);
+	p->key.data = tal_dup_arr(p, u8, key->der, p->key.len, 0);
 
-	assert(pubkey_valid(p->key.data, p->key.len));
+	assert(pubkey_from_der(p->key.data, p->key.len, &check));
+	assert(pubkey_eq(&check, key));
 	return p;
 }
 
 bool proto_to_pubkey(const BitcoinPubkey *pb, struct pubkey *key)
 {
-	if (!pubkey_valid(pb->key.data, pb->key.len))
-		return false;
-
-	memcpy(key->key, pb->key.data, pb->key.len);
-	return true;
+	return pubkey_from_der(pb->key.data, pb->key.len, key);
 }
 
 Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash)

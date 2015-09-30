@@ -94,7 +94,7 @@ static void add_number(u8 **script, u32 num)
 
 static void add_push_key(u8 **scriptp, const struct pubkey *key)
 {
-	add_push_bytes(scriptp, key->key, pubkey_len(key));
+	add_push_bytes(scriptp, key->der, pubkey_derlen(key));
 }
 
 static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
@@ -128,10 +128,10 @@ static void add_push_le32(u8 **scriptp, u32 val)
 static bool key_less(const struct pubkey *a, const struct pubkey *b)
 {
 	/* Shorter one wins. */
-	if (pubkey_len(a) != pubkey_len(b))
-		return pubkey_len(a) < pubkey_len(b);
+	if (pubkey_derlen(a) != pubkey_derlen(b))
+		return pubkey_derlen(a) < pubkey_derlen(b);
 
-	return memcmp(a->key, b->key, pubkey_len(a)) < 0;
+	return memcmp(a->der, b->der, pubkey_derlen(a)) < 0;
 }
 	
 /* tal_count() gives the length of the script. */

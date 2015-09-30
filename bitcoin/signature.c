@@ -152,26 +152,18 @@ static bool check_signed_hash(const struct sha256_double *hash,
 {
 	int ret;
 	secp256k1_context *secpctx;
-	/* FIXME: Don't convert here! */
-	secp256k1_pubkey pubkey;
 
 	secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
 	if (!secpctx)
 		return false;
 
-	if (!secp256k1_ec_pubkey_parse(secpctx, &pubkey, key->key,
-				       pubkey_len(key))) {
-		secp256k1_context_destroy(secpctx);
-		return false;
-	}
-
 #ifdef USE_SCHNORR
 	ret = secp256k1_schnorr_verify(secpctx, (unsigned char *)signature,
-				       hash->sha.u.u8, &pubkey);
+				       hash->sha.u.u8, &key->pubkey);
 #else
 	ret = secp256k1_ecdsa_verify(secpctx,
 				     (secp256k1_ecdsa_signature *)signature,
-				     hash->sha.u.u8, &pubkey);
+				     hash->sha.u.u8, &key->pubkey);
 #endif
 
 	secp256k1_context_destroy(secpctx);

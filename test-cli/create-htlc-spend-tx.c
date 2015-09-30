@@ -99,11 +99,9 @@ int main(int argc, char *argv[])
 	if (!proto_to_pubkey(o2->final_key, &pubkey2))
 		errx(1, "Invalid o2 final pubkey");
 
-	if (pubkey_len(&key) == pubkey_len(&pubkey1)
-	    && memcmp(key.key, pubkey1.key, pubkey_len(&pubkey1)) == 0) {
+	if (pubkey_eq(&key, &pubkey1)) {
 		own_commit_tx = true;
-	} else if (pubkey_len(&key) == pubkey_len(&pubkey2)
-		   && memcmp(key.key, pubkey2.key, pubkey_len(&pubkey2)) == 0) {
+	} else if (pubkey_eq(&key, &pubkey2)) {
 		own_commit_tx = false;
 	} else
 		errx(1, "Privkey doesn't match either key");

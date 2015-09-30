@@ -6,6 +6,6 @@ void bitcoin_address(const struct pubkey *key, struct bitcoin_address *addr)
 {
 	struct sha256 h;
 
-	sha256(&h, key->key, pubkey_len(key));
+	sha256(&h, key->der, pubkey_derlen(key));
 	ripemd160(&addr->addr, h.u.u8, sizeof(h));
 }

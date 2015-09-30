@@ -1,6 +1,7 @@
 #include <ccan/str/hex/hex.h>
 #include <assert.h>
 #include "pubkey.h"
+#include "privkey.h"
 
 /* Must agree on key validity with bitcoin!  Stolen from bitcoin/src/pubkey.h's
  * GetLen:
@@ -18,29 +19,76 @@ static unsigned int GetLen(unsigned char chHeader)
         return 0;
 }
 
-bool pubkey_valid(const u8 *first_char, size_t len)
+size_t pubkey_derlen(const struct pubkey *key)
 {
-	if (len < 1)
-		return false;
-	return (len == GetLen(*first_char));
-}
-
-size_t pubkey_len(const struct pubkey *key)
-{
-	size_t len = GetLen(key->key[0]);
+	size_t len = GetLen(key->der[0]);
 
 	assert(len);
 	return len;
 }
 
-bool pubkey_from_hexstr(const char *str, struct pubkey *key)
+bool pubkey_from_der(const u8 *der, size_t len, struct pubkey *key)
 {
-	size_t slen = strlen(str), dlen;
-	dlen = hex_data_size(slen);
+	secp256k1_context *secpctx = secp256k1_context_create(0);
 
-	if (dlen != 33 && dlen != 65)
+	if (len > sizeof(key->der))
+		goto fail_free_secpctx;
+
+	memcpy(key->der, der, len);
+	if (!secp256k1_ec_pubkey_parse(secpctx, &key->pubkey, key->der, len))
+		goto fail_free_secpctx;
+
+	secp256k1_context_destroy(secpctx);
+	return true;
+	
+fail_free_secpctx:
+	secp256k1_context_destroy(secpctx);
+	return false;
+}
+
+/* Pubkey from privkey */
+bool pubkey_from_privkey(const struct privkey *privkey,
+			 struct pubkey *key,
+			 unsigned int compressed_flags)
+{
+	secp256k1_context *secpctx;
+	size_t outlen;
+	
+	secpctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
+
+	if (!secp256k1_ec_pubkey_create(secpctx, &key->pubkey, privkey->secret))
+		goto fail_free_secpctx;
+
+	if (!secp256k1_ec_pubkey_serialize(secpctx, key->der, &outlen,
+					   &key->pubkey, compressed_flags))
+		goto fail_free_secpctx;
+	assert(outlen == pubkey_derlen(key));
+	
+	secp256k1_context_destroy(secpctx);
+	return true;
+
+fail_free_secpctx:
+	secp256k1_context_destroy(secpctx);
+	return false;
+}
+	
+bool pubkey_from_hexstr(const char *derstr, struct pubkey *key)
+{
+	size_t slen = strlen(derstr), dlen;
+	unsigned char der[65];
+
+	dlen = hex_data_size(slen);
+	if (dlen > sizeof(der))
 		return false;
-	if (!hex_decode(str, slen, key->key, dlen))
+
+	if (!hex_decode(derstr, slen, der, dlen))
 		return false;
-	return GetLen(key->key[0]) == dlen;
+
+	return pubkey_from_der(der, dlen, key);
+}
+
+bool pubkey_eq(const struct pubkey *a, const struct pubkey *b)
+{
+	return pubkey_derlen(a) == pubkey_derlen(b)
+		&& memcmp(a->der, b->der, pubkey_derlen(a)) == 0;
 }
