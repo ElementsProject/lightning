@@ -13,6 +13,7 @@
 #include <ccan/tal/tal.h>
 #include <ccan/mem/mem.h>
 #include <ccan/crypto/sha256/sha256.h>
+#include <ccan/endian/endian.h>
 
 /* 
  * The client knows the server's public key S (which has corresponding
@@ -31,7 +32,15 @@
 //#define NO_HMAC 1 /* No real hmac */
 
 struct seckey {
-	struct sha256 k;
+	union {
+		unsigned char u8[32];
+		beint64_t be64[4];
+	} u;
+};
+
+/* Prepend 0x02 to get pubkey for libsecp256k1 */
+struct pubkey {
+	unsigned char u8[32];
 };
 
 struct enckey {
@@ -108,12 +117,97 @@ static void random_bytes(void *dst, size_t n)
 		d[i] = random() % 256;
 }
 
-static void gen_keys(secp256k1_context *ctx,
-		     struct seckey *seckey, secp256k1_pubkey *pubkey)
+/* Compressed key would start with 0x3?  Subtract from group.  Thanks
+ * Greg Maxwell. */
+static void flip_key(struct seckey *seckey)
+{
+	int i;
+	bool carry = 0;
+
+	const int64_t group[] = {
+		0xFFFFFFFFFFFFFFFFULL,
+		0xFFFFFFFFFFFFFFFEULL,
+		0xBAAEDCE6AF48A03BULL,
+		0xBFD25E8CD0364141ULL
+	};
+
+	for (i = 3; i >= 0; i--) {
+		uint64_t v = be64_to_cpu(seckey->u.be64[i]);
+		if (carry) {
+			/* Beware wrap if v == 0xFFFF.... */
+			carry = (group[i] <= v);
+			v++;
+		} else
+			carry = (group[i] < v);
+
+		v = group[i] - v;
+		seckey->u.be64[i] = cpu_to_be64(v);
+	}
+}
+
+#if 0
+int main(int argc, char *argv[])
+{
+	struct seckey k;
+
+	k.u.be64[0] = cpu_to_be64(0xFFFFFFFFFFFFFFFFULL);
+	k.u.be64[1] = cpu_to_be64(0xFFFFFFFFFFFFFFFEULL);
+	k.u.be64[2] = cpu_to_be64(0xBAAEDCE6AF48A03BULL);
+	k.u.be64[3] = cpu_to_be64(0xBFD25E8CD0364141ULL);
+	flip_key(&k);
+	assert(k.u.be64[0] == 0);
+	assert(k.u.be64[1] == 0);
+	assert(k.u.be64[2] == 0);
+	assert(k.u.be64[3] == 0);
+	flip_key(&k);
+	assert(k.u.be64[0] == cpu_to_be64(0xFFFFFFFFFFFFFFFFULL));
+	assert(k.u.be64[1] == cpu_to_be64(0xFFFFFFFFFFFFFFFEULL));
+	assert(k.u.be64[2] == cpu_to_be64(0xBAAEDCE6AF48A03BULL));
+	assert(k.u.be64[3] == cpu_to_be64(0xBFD25E8CD0364141ULL));
+
+	k.u.be64[0] = cpu_to_be64(0xFFFFFFFFFFFFFFFFULL);
+	k.u.be64[1] = cpu_to_be64(0xFFFFFFFFFFFFFFFEULL);
+	k.u.be64[2] = cpu_to_be64(0xBAAEDCE6AF48A03BULL);
+	k.u.be64[3] = cpu_to_be64(0xBFD25E8CD0364142ULL);
+	flip_key(&k);
+	assert(k.u.be64[0] == 0xFFFFFFFFFFFFFFFFULL);
+	assert(k.u.be64[1] == 0xFFFFFFFFFFFFFFFFULL);
+	assert(k.u.be64[2] == 0xFFFFFFFFFFFFFFFFULL);
+	assert(k.u.be64[3] == 0xFFFFFFFFFFFFFFFFULL);
+	flip_key(&k);
+	assert(k.u.be64[0] == cpu_to_be64(0xFFFFFFFFFFFFFFFFULL));
+	assert(k.u.be64[1] == cpu_to_be64(0xFFFFFFFFFFFFFFFEULL));
+	assert(k.u.be64[2] == cpu_to_be64(0xBAAEDCE6AF48A03BULL));
+	assert(k.u.be64[3] == cpu_to_be64(0xBFD25E8CD0364142ULL));
+
+	return 0;
+}
+#endif
+
+static void random_key(secp256k1_context *ctx,
+		       struct seckey *seckey, secp256k1_pubkey *pkey)
 {
 	do {
-		random_bytes(seckey->k.u.u8, sizeof(seckey->k));
-	} while (!secp256k1_ec_pubkey_create(ctx, pubkey, seckey->k.u.u8));
+		random_bytes(seckey->u.u8, sizeof(seckey->u));
+	} while (!secp256k1_ec_pubkey_create(ctx, pkey, seckey->u.u8));
+}
+
+/* We don't want to spend a byte encoding sign, so make sure it's 0x2 */
+static void gen_keys(secp256k1_context *ctx,
+		     struct seckey *seckey, struct pubkey *pubkey)
+{
+	unsigned char tmp[33];
+	secp256k1_pubkey pkey;
+	size_t len;
+
+	random_key(ctx, seckey, &pkey);
+
+	secp256k1_ec_pubkey_serialize(ctx, tmp, &len, &pkey,
+				      SECP256K1_EC_COMPRESSED);
+	assert(len == sizeof(tmp));
+	if (tmp[0] == 0x3)
+		flip_key(seckey);
+	memcpy(pubkey, tmp+1, sizeof(*pubkey));
 }
 
 /*
@@ -146,8 +240,7 @@ static void gen_keys(secp256k1_context *ctx,
 
 struct hop {
 	unsigned char msg[MESSAGE_SIZE];
-	/* FIXME: Must use parse/serialize functions. */
-	secp256k1_pubkey pubkey;
+	struct pubkey pubkey;
 	struct sha256 hmac;
 };
 
@@ -323,7 +416,7 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 {
 	int i;
 	struct seckey *seckeys = tal_arr(NULL, struct seckey, num);
-	secp256k1_pubkey *pubkeys = tal_arr(seckeys, secp256k1_pubkey, num);
+	struct pubkey *pubkeys = tal_arr(seckeys, struct pubkey, num);
 	struct enckey *enckeys = tal_arr(seckeys, struct enckey, num);
 	struct hmackey *hmackeys = tal_arr(seckeys, struct hmackey, num);
 	struct iv *ivs = tal_arr(seckeys, struct iv, num);
@@ -346,7 +439,7 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 		gen_keys(ctx, &seckeys[i], &pubkeys[i]);
 
 		/* Make shared secret. */
-		if (!secp256k1_ecdh(ctx, secret, &pubkey[i], seckeys[i].k.u.u8))
+		if (!secp256k1_ecdh(ctx, secret, &pubkey[i], seckeys[i].u.u8))
 			goto fail;
 
 		hmackeys[i] = hmackey_from_secret(memcheck(secret, 32));
@@ -430,6 +523,17 @@ fail:
 	return ok;
 }
 
+static bool pubkey_parse(const secp256k1_context *ctx,
+			 secp256k1_pubkey* pubkey,
+			 struct pubkey *pkey)
+{
+	unsigned char tmp[33];
+
+	tmp[0] = 0x2;
+	memcpy(tmp+1, pkey, sizeof(*pkey));
+	return secp256k1_ec_pubkey_parse(ctx, pubkey, tmp, sizeof(tmp));
+}
+
 /*
  * Decrypt onion, return true if onion->hop[0] is valid.
  *
@@ -442,11 +546,15 @@ bool decrypt_onion(const struct seckey *myseckey, struct onion *onion,
 	unsigned char secret[32];
 	struct hmackey hmackey;
 	struct iv iv;
+	secp256k1_pubkey pubkey;
 
 	ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
 
+	if (!pubkey_parse(ctx, &pubkey, &myhop(onion)->pubkey))
+		goto fail;
+	
 	/* Extract shared secret. */
-	if (!secp256k1_ecdh(ctx, secret, &myhop(onion)->pubkey,myseckey->k.u.u8))
+	if (!secp256k1_ecdh(ctx, secret, &pubkey, myseckey->u.u8))
 		goto fail;
 
 	hmackey = hmackey_from_secret(secret);
@@ -530,7 +638,7 @@ int main(int argc, char *argv[])
 	ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
 	for (i = 0; i < hops; i++) {
 		asprintf(&msgs[i], "Message to %zu", i);
-		gen_keys(ctx, &seckeys[i], &pubkeys[i]);
+		random_key(ctx, &seckeys[i], &pubkeys[i]);
 	}
 
 	if (!create_onion(pubkeys, msgs, hops, &onion))
