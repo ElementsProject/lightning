@@ -145,15 +145,21 @@ static void gen_keys(secp256k1_context *ctx,
 #define MAX_HOPS 20
 
 struct hop {
-	struct sha256 hmac;
+	unsigned char msg[MESSAGE_SIZE];
 	/* FIXME: Must use parse/serialize functions. */
 	secp256k1_pubkey pubkey;
-	unsigned char msg[MESSAGE_SIZE];
+	struct sha256 hmac;
 };
 
 struct onion {
 	struct hop hop[MAX_HOPS];
 };
+
+/* We peel from the back. */
+static struct hop *myhop(const struct onion *onion)
+{
+	return (struct hop *)&onion->hop[MAX_HOPS-1];
+}
 
 static bool aes_encrypt(void *dst, const void *src, size_t len,
 			const struct enckey *enckey, const struct iv *iv)
@@ -237,28 +243,26 @@ void dump_contents(const void *data, size_t n)
 	}
 }
 
-static bool decrypt_padding(struct hop *padding, size_t nhops,
-			    const struct enckey *enckey,
-			    const struct iv *iv)
+static bool aes_encrypt_offset(size_t offset,
+			       void *dst, const void *src, size_t len,
+			       const struct enckey *enckey,
+			       const struct iv *iv)
 {
 	/*
 	 * FIXME: This would be easier if we could set the counter; instead
-	 * we simulate it by decrypting junk before the actual padding.
+	 * we simulate it by encrypting junk before the actual data.
 	 */
-	struct hop tmp[MAX_HOPS];
-
+	char tmp[offset + len];
+	
 	/* Keep valgrind happy. */
-	memset(tmp, 0, (MAX_HOPS - nhops) * sizeof(struct hop));
+	memset(tmp, 0, offset);
+	memcpy(tmp + offset, src, len);
 
-	memcpy(tmp + MAX_HOPS - nhops, padding, nhops * sizeof(struct hop));
-
-	/* FIXME: Assumes we are allowed to decrypt in place! */
-	if (!aes_decrypt((char *)tmp + offsetof(struct hop, msg),
-			 (char *)tmp + offsetof(struct hop, msg),
-			 sizeof(tmp) - offsetof(struct hop, msg), enckey, iv))
+	/* FIXME: Assumes we are allowed to encrypt in place! */
+	if (!aes_encrypt(tmp, tmp, offset+len, enckey, iv))
 		return false;
 
-	memcpy(padding, tmp + MAX_HOPS - nhops, nhops * sizeof(struct hop));
+	memcpy(dst, tmp + offset, len);
 	return true;
 }
 
@@ -292,15 +296,14 @@ static void make_hmac(const struct hop *hops, size_t num_hops,
 	HMAC_CTX ctx;
 	size_t len, padlen;
 
-	/* Calculate HMAC of pubkey onwards, plus padding. */
+	/* Calculate HMAC of padding then onion up to and including pubkey. */
 	HMAC_CTX_init(&ctx);
 	HMAC_Init_ex(&ctx, memcheck(hmackey->k.u.u8, sizeof(hmackey->k)),
 		     sizeof(hmackey->k), EVP_sha256(), NULL);
-	len = num_hops*sizeof(struct hop) - offsetof(struct hop, pubkey);
-	HMAC_Update(&ctx, memcheck((unsigned char *)hops + offsetof(struct hop, pubkey),
-				   len), len);
 	padlen = (MAX_HOPS - num_hops) * sizeof(struct hop);
 	HMAC_Update(&ctx, memcheck((unsigned char *)padding, padlen), padlen);
+	len = num_hops*sizeof(struct hop) - sizeof(hops->hmac);
+	HMAC_Update(&ctx, memcheck((unsigned char *)hops, len), len);
 	HMAC_Final(&ctx, hmac->u.u8, NULL);
 #endif
 }
@@ -310,7 +313,7 @@ static bool check_hmac(struct onion *onion, const struct hmackey *hmackey)
 	struct sha256 hmac;
 
 	make_hmac(onion->hop, MAX_HOPS, NULL, hmackey, &hmac);
-	return CRYPTO_memcmp(&hmac, &onion->hop[0].hmac, sizeof(hmac)) == 0;
+	return CRYPTO_memcmp(&hmac, &myhop(onion)->hmac, sizeof(hmac)) == 0;
 }
 
 bool create_onion(const secp256k1_pubkey pubkey[],
@@ -364,13 +367,13 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 		padding[i] = tal_arr(padding, struct hop, i);
 
 		/* Copy padding from previous node. */
-		memcpy(padding[i], padding[i-1], sizeof(struct hop)*(i-1));
 		/* Previous node "decrypts" it before handing to us */
-		if (!decrypt_padding(padding[i], i-1,
-				     &enckeys[i-1], &ivs[i-1]))
+		if (!aes_decrypt(padding[i]+1, padding[i-1],
+				 sizeof(struct hop)*(i-1),
+				 &enckeys[i-1], &ivs[i-1]))
 			goto fail;
 		/* And generates another lot of padding. */
-		add_padding(padding[i]+i-1, &enckeys[i-1], &pad_ivs[i-1]);
+		add_padding(padding[i], &enckeys[i-1], &pad_ivs[i-1]);
 	}
 
 	/*
@@ -383,37 +386,42 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 
 	for (i = num - 1; i >= 0; i--) {
 		size_t other_hops;
-		struct hop *myonion;
+		struct hop *myhop;
 
 		other_hops = num - i - 1 + junk_hops;
-		myonion = hops[i] = tal_arr(hops, struct hop, 1 + other_hops);
+		hops[i] = tal_arr(hops, struct hop, other_hops + 1);
+
+		/* Our entry is at tail of onion. */
+		myhop = hops[i] + other_hops;
 		if (i == num - 1) {
 			/* Fill with junk. */
-			random_bytes(myonion + 1,
+			random_bytes(hops[i],
 				     other_hops * sizeof(struct hop));
 		} else {
 			/* Copy from next hop. */
-			memcpy(myonion + 1, hops[i+1],
+			memcpy(hops[i], hops[i+1],
 			       other_hops * sizeof(struct hop));
 		}
 
 		/* Now populate our hop. */
-		myonion->pubkey = pubkeys[i];
+		myhop->pubkey = pubkeys[i];
 		/* Set message. */
 		assert(strlen(msg[i]) < MESSAGE_SIZE);
-		memset(myonion->msg, 0, MESSAGE_SIZE);
-		strcpy((char *)myonion->msg, msg[i]);
+		memset(myhop->msg, 0, MESSAGE_SIZE);
+		strcpy((char *)myhop->msg, msg[i]);
 
-		/* Encrypt whole thing from message onwards. */
-		if (!aes_encrypt(&myonion->msg, &myonion->msg,
-				 (1 + other_hops) * sizeof(struct hop)
-				 - offsetof(struct hop, msg),
-				 &enckeys[i], &ivs[i]))
+		/* Encrypt whole thing, including our message, but we
+		 * aware it will be offset by the prepended padding. */
+		if (!aes_encrypt_offset(i * sizeof(struct hop),
+					hops[i], hops[i],
+					other_hops * sizeof(struct hop)
+					+ sizeof(myhop->msg),
+					&enckeys[i], &ivs[i]))
 			goto fail;
 
 		/* HMAC covers entire thing except hmac itself. */
-		make_hmac(myonion, 1 + other_hops, padding[i],
-			  &hmackeys[i], &myonion->hmac);
+		make_hmac(hops[i], other_hops + 1, padding[i],
+			  &hmackeys[i], &myhop->hmac);
 	}
 
 	/* Transfer results to onion, for first node. */
@@ -443,8 +451,7 @@ bool decrypt_onion(const struct seckey *myseckey, struct onion *onion,
 	ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
 
 	/* Extract shared secret. */
-	if (!secp256k1_ecdh(ctx, secret, &onion->hop[0].pubkey,
-			    myseckey->k.u.u8))
+	if (!secp256k1_ecdh(ctx, secret, &myhop(onion)->pubkey,myseckey->k.u.u8))
 		goto fail;
 
 	hmackey = hmackey_from_secret(secret);
@@ -478,9 +485,11 @@ bool decrypt_onion(const struct seckey *myseckey, struct onion *onion,
 	if (!check_hmac(onion, &hmackey))
 		goto fail;
 
-	/* Decrypt everything after pubkey. */
-	if (!aes_decrypt(onion->hop[0].msg, onion->hop[0].msg,
-			 sizeof(*onion) - offsetof(struct hop, msg),
+	/* Decrypt everything up to pubkey. */
+	/* FIXME: Assumes we can decrypt in place! */
+	if (!aes_decrypt(onion, onion,
+			 sizeof(struct hop) * (MAX_HOPS-1)
+			 + sizeof(myhop(onion)->msg),
 			 enckey, &iv))
 		goto fail;
 	
@@ -496,14 +505,14 @@ fail:
 bool peel_onion(struct onion *onion,
 		const struct enckey *enckey, const struct iv *pad_iv)
 {
-	/* Move next one to front. */
-	memmove(&onion->hop[0], &onion->hop[1],
+	/* Move next one to back. */
+	memmove(&onion->hop[1], &onion->hop[0],
 		sizeof(*onion) - sizeof(onion->hop[0]));
 
 	/* Add random-looking (but predictable) padding. */
-	memset(&onion->hop[MAX_HOPS-1], 0, sizeof(onion->hop[MAX_HOPS-1]));
-	return aes_encrypt(&onion->hop[MAX_HOPS-1], &onion->hop[MAX_HOPS-1],
-			   sizeof(onion->hop[MAX_HOPS-1]), enckey, pad_iv);
+	memset(&onion->hop[0], 0, sizeof(onion->hop[0]));
+	return aes_encrypt(&onion->hop[0], &onion->hop[0],
+			   sizeof(onion->hop[0]), enckey, pad_iv);
 }
 
 int main(int argc, char *argv[])
@@ -540,7 +549,7 @@ int main(int argc, char *argv[])
 		printf("Decrypting with key %zi\n", i);
 		if (!decrypt_onion(&seckeys[i], &onion, &enckey, &pad_iv, i))
 			errx(1, "Decrypting onion for hop %zi", i);
-		if (strcmp((char *)onion.hop[0].msg, msgs[i]) != 0)
+		if (strcmp((char *)myhop(&onion)->msg, msgs[i]) != 0)
 			errx(1, "Bad message for hop %zi", i);
 		if (!peel_onion(&onion, &enckey, &pad_iv))
 			errx(1, "Peeling onion for hop %zi", i);
