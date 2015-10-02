@@ -12,7 +12,7 @@ case $STYLE in
 	$CLI setgenerate true
 	# Avoid median time bug by generating 11 blocks
 	if [ -n "$INIT" ]; then
-	    for i in `seq 10`; do $CLI setgenerate true; done
+	    for i in `seq 11`; do $CLI setgenerate true; done
 	fi
 	;;
     bitcoin)

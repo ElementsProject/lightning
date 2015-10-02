@@ -19,13 +19,16 @@ getprivkey()
 
 send_after_delay()
 {
+    # Confirm them.
+    scripts/generate-block.sh
+
     # For bitcoin testing, OP_CHECKSEQUENCEVERIFY is a NOP.
     # But nSequence enforcement is enough to stop it.
     if [ $SEQ_ENFORCEMENT = true ]; then
 	# OP_CHECKSEQUENCEVERIFY will stop us spending for $TEST_LOCKTIME seconds.
 	for tx; do
-	    if $CLI sendrawtransaction $tx 2>/dev/null; then
-		echo OP_CHECKSEQUENCEVERIFY broken! >&2
+	    if $CLI sendrawtransaction $tx 2> /dev/null; then
+		echo OP_CHECKSEQUENCEVERIFY broken for $tx! >&2
 		exit 1
 	    fi
 	done
@@ -33,11 +36,8 @@ send_after_delay()
 
     # Bitcoin still respects lock_time, which is used for HTLCs.
 
-    # Confirm them.
-    scripts/generate-block.sh
-
     # Bitcoin bumps block times so that blocks are valid.
-    TIME=$($CLI getblockheader $($CLI getbestblockhash) | sed -n 's/.*"time": \([0-9]*\),/\1/p')
+    TIME=$($CLI getblock $($CLI getbestblockhash) | sed -n 's/.*"time" *: *\([0-9]*\),/\1/p')
     echo Waiting for CSV timeout $(( $TIME + $TEST_LOCKTIME - $(date -u +%s) )) seconds. >&2
 
     # Move median time, for sure!
