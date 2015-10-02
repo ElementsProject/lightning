@@ -270,7 +270,7 @@ static bool aes_encrypt(void *dst, const void *src, size_t len,
 	int outlen;
 
 	/* Counter mode allows parallelism in future. */
-	if (EVP_EncryptInit(&evpctx, EVP_aes_256_ctr(),
+	if (EVP_EncryptInit(&evpctx, EVP_aes_128_ctr(),
 			    memcheck(enckey->k.u.u8, sizeof(enckey->k)),
 			    memcheck(iv->iv, sizeof(iv->iv))) != 1)
 		return false;
@@ -305,7 +305,7 @@ static bool aes_decrypt(void *dst, const void *src, size_t len,
 	int outlen;
 
 	/* Counter mode allows parallelism in future. */
-	if (EVP_DecryptInit(&evpctx, EVP_aes_256_ctr(),
+	if (EVP_DecryptInit(&evpctx, EVP_aes_128_ctr(),
 			    memcheck(enckey->k.u.u8, sizeof(enckey->k)),
 			    memcheck(iv->iv, sizeof(iv->iv))) != 1)
 		return false;
@@ -627,7 +627,7 @@ int main(int argc, char *argv[])
 	char *msgs[MAX_HOPS];
 	struct onion onion;
 
-	assert(EVP_CIPHER_iv_length(EVP_aes_256_ctr()) == sizeof(struct iv));
+	assert(EVP_CIPHER_iv_length(EVP_aes_128_ctr()) == sizeof(struct iv));
 	
 	if (argc != 2)
 		errx(1, "Usage: %s <num hops>", argv[0]);
