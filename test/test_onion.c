@@ -328,7 +328,8 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 	struct hmackey *hmackeys = tal_arr(seckeys, struct hmackey, num);
 	struct iv *ivs = tal_arr(seckeys, struct iv, num);
 	struct iv *pad_ivs = tal_arr(seckeys, struct iv, num);
-	struct hop **padding = tal_arr(seckeys, struct hop *, num);
+	HMAC_CTX *padding_hmac = tal_arr(seckeys, HMAC_CTX, num);
+	struct hop *padding = tal_arr(seckeys, struct hop, num);
 	struct hop **hops = tal_arr(seckeys, struct hop *, num);
 	size_t junk_hops;
 	secp256k1_context *ctx;
@@ -362,18 +363,24 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 	 * and "decrypted" by the others.  So we have to generate that
 	 * forwards.
 	 */
-	for (i = 1; i < num; i++) {
-		/* Each one has 1 padding from previous. */
-		padding[i] = tal_arr(padding, struct hop, i);
-
-		/* Copy padding from previous node. */
-		/* Previous node "decrypts" it before handing to us */
-		if (!aes_decrypt(padding[i]+1, padding[i-1],
-				 sizeof(struct hop)*(i-1),
-				 &enckeys[i-1], &ivs[i-1]))
-			goto fail;
-		/* And generates another lot of padding. */
-		add_padding(padding[i], &enckeys[i-1], &pad_ivs[i-1]);
+	for (i = 0; i < num; i++) {
+		if (i > 0) {
+			/* Previous node decrypts padding before passing on. */
+			aes_decrypt(padding, padding, sizeof(struct hop)*(i-1),
+				    &enckeys[i-1], &ivs[i-1]);
+			memmove(padding + 1, padding,
+				sizeof(struct hop)*(i-1));
+		}
+		/* And generates more padding for next node. */
+		add_padding(&padding[0], &enckeys[i-1], &pad_ivs[i-1]);
+		HMAC_CTX_init(&padding_hmac[i]);
+		HMAC_Init_ex(&padding_hmac[i],
+			     hmackeys[i].k.u.u8, sizeof(hmackeys[i].k),
+			     EVP_sha256(), NULL);
+		HMAC_Update(&padding_hmac[i],
+			    memcheck((unsigned char *)padding,
+				     i * sizeof(struct hop)),
+			    i * sizeof(struct hop));
 	}
 
 	/*
@@ -385,7 +392,7 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 	junk_hops = MAX_HOPS - num;
 
 	for (i = num - 1; i >= 0; i--) {
-		size_t other_hops;
+		size_t other_hops, len;
 		struct hop *myhop;
 
 		other_hops = num - i - 1 + junk_hops;
@@ -420,8 +427,10 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 			goto fail;
 
 		/* HMAC covers entire thing except hmac itself. */
-		make_hmac(hops[i], other_hops + 1, padding[i],
-			  &hmackeys[i], &myhop->hmac);
+		len = (other_hops + 1)*sizeof(struct hop) - sizeof(myhop->hmac);
+		HMAC_Update(&padding_hmac[i],
+			    memcheck((unsigned char *)hops[i], len), len);
+		HMAC_Final(&padding_hmac[i], myhop->hmac.u.u8, NULL);
 	}
 
 	/* Transfer results to onion, for first node. */
