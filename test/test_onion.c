@@ -330,7 +330,6 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 	struct iv *pad_ivs = tal_arr(seckeys, struct iv, num);
 	HMAC_CTX *padding_hmac = tal_arr(seckeys, HMAC_CTX, num);
 	struct hop *padding = tal_arr(seckeys, struct hop, num);
-	struct hop **hops = tal_arr(seckeys, struct hop *, num);
 	size_t junk_hops;
 	secp256k1_context *ctx;
 	bool ok = false;
@@ -390,25 +389,16 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 	/* Unused hops filled with random, so even recipient can't tell
 	 * how many were used. */
 	junk_hops = MAX_HOPS - num;
+	random_bytes(onion->hop + num, junk_hops * sizeof(struct hop));
 
 	for (i = num - 1; i >= 0; i--) {
 		size_t other_hops, len;
 		struct hop *myhop;
 
 		other_hops = num - i - 1 + junk_hops;
-		hops[i] = tal_arr(hops, struct hop, other_hops + 1);
 
 		/* Our entry is at tail of onion. */
-		myhop = hops[i] + other_hops;
-		if (i == num - 1) {
-			/* Fill with junk. */
-			random_bytes(hops[i],
-				     other_hops * sizeof(struct hop));
-		} else {
-			/* Copy from next hop. */
-			memcpy(hops[i], hops[i+1],
-			       other_hops * sizeof(struct hop));
-		}
+		myhop = onion->hop + other_hops;
 
 		/* Now populate our hop. */
 		myhop->pubkey = pubkeys[i];
@@ -420,7 +410,7 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 		/* Encrypt whole thing, including our message, but we
 		 * aware it will be offset by the prepended padding. */
 		if (!aes_encrypt_offset(i * sizeof(struct hop),
-					hops[i], hops[i],
+					onion, onion,
 					other_hops * sizeof(struct hop)
 					+ sizeof(myhop->msg),
 					&enckeys[i], &ivs[i]))
@@ -429,15 +419,11 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 		/* HMAC covers entire thing except hmac itself. */
 		len = (other_hops + 1)*sizeof(struct hop) - sizeof(myhop->hmac);
 		HMAC_Update(&padding_hmac[i],
-			    memcheck((unsigned char *)hops[i], len), len);
+			    memcheck((unsigned char *)onion, len), len);
 		HMAC_Final(&padding_hmac[i], myhop->hmac.u.u8, NULL);
 	}
 
-	/* Transfer results to onion, for first node. */
-	assert(tal_count(hops[0]) == MAX_HOPS);
-	memcpy(onion->hop, hops[0], sizeof(onion->hop));
 	ok = true;
-
 fail:
 	tal_free(seckeys);
 	secp256k1_context_destroy(ctx);
