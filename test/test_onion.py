@@ -76,15 +76,12 @@ class Onion(object):
 
         self.get_secrets()
 
-    def padding(self):
-        ctx = Cipher(self.enckey, self.pad_iv, 1, ciphername='aes-128-ctr')
-        self.pad = ctx.ciphering(self.ZEROES)
-
     def decrypt(self):
-        self.padding()
+        ctx = Cipher(self.enckey, self.pad_iv, 1, ciphername='aes-128-ctr')
+        pad = ctx.ciphering(self.ZEROES)
 
         ctx = Cipher(self.enckey, self.iv, 0, ciphername='aes-128-ctr')
-        self.fwd = self.pad + ctx.ciphering(self.onion[:self.fwd_end])
+        self.fwd = pad + ctx.ciphering(self.onion[:self.fwd_end])
         self.msg = ctx.ciphering(self.onion[self.fwd_end:self.msg_end])
 
     def tweak_sha(self, sha, d):
