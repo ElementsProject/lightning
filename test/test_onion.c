@@ -401,6 +401,21 @@ static void make_hmac(const struct hop *hops, size_t num_hops,
 #endif
 }
 
+void _dump_hex(unsigned char *x, size_t s) {
+	printf(" ");
+	while (s > 0) {
+		printf("%02x", *x);
+		x++; s--;
+	}
+}
+#define dump_hex(x) _dump_hex((void*)&x, sizeof(x))
+void dump_pkey(secp256k1_context *ctx, secp256k1_pubkey pkey) {
+	unsigned char tmp[65];
+	size_t len;
+	secp256k1_ec_pubkey_serialize(ctx, tmp, &len, &pkey, 0);
+	dump_hex(tmp);
+}
+
 static bool check_hmac(struct onion *onion, const struct hmackey *hmackey)
 {
 	struct sha256 hmac;
@@ -437,6 +452,7 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 		unsigned char secret[32];
 
 		gen_keys(ctx, &seckeys[i], &pubkeys[i]);
+
 
 		/* Make shared secret. */
 		if (!secp256k1_ecdh(ctx, secret, &pubkey[i], seckeys[i].u.u8))
@@ -639,10 +655,15 @@ int main(int argc, char *argv[])
 	for (i = 0; i < hops; i++) {
 		asprintf(&msgs[i], "Message to %zu", i);
 		random_key(ctx, &seckeys[i], &pubkeys[i]);
+		printf(" * Keypair %zu:", i); 
+		dump_hex(seckeys[i]);
+		dump_pkey(ctx, pubkeys[i]);
+		printf("\n");
 	}
 
 	if (!create_onion(pubkeys, msgs, hops, &onion))
 		errx(1, "Creating onion packet failed");
+	printf(" * Message:"); dump_hex(onion); printf("\n");
 
 	/* Now parse and peel. */
 	for (i = 0; i < hops; i++) {
@@ -650,6 +671,7 @@ int main(int argc, char *argv[])
 		struct iv pad_iv;
 
 		printf("Decrypting with key %zi\n", i);
+
 		if (!decrypt_onion(&seckeys[i], &onion, &enckey, &pad_iv, i))
 			errx(1, "Decrypting onion for hop %zi", i);
 		if (strcmp((char *)myhop(&onion)->msg, msgs[i]) != 0)
