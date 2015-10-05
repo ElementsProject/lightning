@@ -106,9 +106,9 @@ class Onion(object):
         if sec is None:
             raise Exception("HMAC did not verify")
 
-        self.enckey = self.tweak_sha(sec, b'\x00')
-        self.iv     = self.tweak_sha(sec, b'\x02')
-        self.pad_iv = self.tweak_sha(sec, b'\x03')
+        self.enckey = self.tweak_sha(sec, b'\x00')[:16]
+        self.iv     = self.tweak_sha(sec, b'\x02')[:16]
+        self.pad_iv = self.tweak_sha(sec, b'\x03')[:16]
 
     def check_hmac(self, hmac_key):
         calc = hmac_sha256(hmac_key, self.onion[:-self.HMAC_LEN])
