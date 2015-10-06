@@ -498,7 +498,7 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 	/* Unused hops filled with random, so even recipient can't tell
 	 * how many were used. */
 	junk_hops = MAX_HOPS - num;
-	random_bytes(onion->hop + num, junk_hops * sizeof(struct hop));
+	random_bytes(onion->hop, junk_hops * sizeof(struct hop));
 
 	for (i = num - 1; i >= 0; i--) {
 		size_t other_hops, len;
