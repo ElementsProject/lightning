@@ -113,7 +113,7 @@ static void gen_keys(secp256k1_context *ctx,
 	memcpy(pubkey, tmp+1, sizeof(*pubkey));
 }
 
-int main(int argc, char *argv[])
+void print_keypair(int pub, int priv)
 {
 	secp256k1_context *ctx;
 	struct seckey seckey;
@@ -121,16 +121,45 @@ int main(int argc, char *argv[])
 	char sechex[hex_str_size(sizeof(seckey))];
 	char pubhex[hex_str_size(sizeof(pubkey))];
 
-	if (argv[1])
-		srandom(atoi(argv[1]));
-	else
-		srandom(time(NULL) + getpid());
+	assert(pub || priv);
 
 	ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
 	gen_keys(ctx, &seckey, &pubkey);
 
 	hex_encode(&seckey, sizeof(seckey), sechex, sizeof(sechex));
 	hex_encode(&pubkey, sizeof(pubkey), pubhex, sizeof(pubhex));
-	printf("%s:%s\n", sechex, pubhex);
+
+	if (pub && priv) {
+		printf("%s:%s\n", sechex, pubhex);
+	} else {
+		printf("%s\n", (priv ? sechex : pubhex));
+	}
+}
+
+int main(int argc, char *argv[])
+{
+	int pub = 1, priv = 1;
+
+	if (argc >= 1) {
+		if (strcmp(argv[1], "--pub") == 0) {
+			pub = 1; priv = 0;
+			argc--; argv++;
+		} else if (strcmp(argv[1], "--priv") == 0) {
+			pub = 0; priv = 1;
+			argc--; argv++;
+		}
+	}
+
+	if (argc <= 1) {
+		srandom(time(NULL) + getpid());
+		print_keypair(pub, priv);
+	} else {
+		int i;
+		for (i = 1; i < argc; i++) {
+			srandom(atoi(argv[i]));
+			print_keypair(pub, priv);
+		}
+	}
+
 	return 0;
 }

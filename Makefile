@@ -101,7 +101,7 @@ test-cli-tests: $(TEST_CLI_PROGRAMS)
 	set -e; cd test-cli; for args in "" --steal --unilateral --htlc-onchain; do scripts/setup.sh && scripts/test.sh $$args && scripts/shutdown.sh; done
 
 test-onion: test/test_onion test/onion_key
-	set -e; TMPF=/tmp/onion.$$$$; test/test_onion --generate $$(for k in `seq 20`; do test/onion_key $$k; done | cut -d: -f2) > $$TMPF; for k in `seq 20`; do test/test_onion --decode $$(test/onion_key $$k | cut -d: -f1) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
+	set -e; TMPF=/tmp/onion.$$$$; test/test_onion --generate $$(test/onion_key --pub `seq 20`) > $$TMPF; for k in `seq 20`; do test/test_onion --decode $$(test/onion_key --priv $$k) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
 
 check: test-cli-tests test-onion
 
