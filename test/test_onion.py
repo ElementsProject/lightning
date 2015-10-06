@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 
+import argparse
 import sys
+import time
 
 from hashlib import sha256
 from binascii import hexlify, unhexlify
@@ -138,6 +140,16 @@ def get_pos_y_for_x(pubkey_x, yneg=0):
         if pub_key is not None: OpenSSL.EC_POINT_free(pub_key)
         if pub_key_x is not None: OpenSSL.BN_free(pub_key_x)
         if pub_key_y is not None: OpenSSL.BN_free(pub_key_y)
+
+def ec_decompress(pubkey, curve='secp256k1'):
+    if pubkey[0] == '\x02' or pubkey[0] == '\x03':
+        yneg = ord(pubkey[0]) & 1
+        pubkey = "\x04" + pubkey[1:] + get_pos_y_for_x(pubkey[1:], yneg=yneg)
+    elif pubkey[0] == '\x04':
+        pass
+    else:
+        raise Exception("Unrecognised pubkey format: %s" % (pubkey,))
+    return pubkey
 
 class Onion(object):
     HMAC_LEN = 32
@@ -282,48 +294,52 @@ class OnionEncrypt(Onion):
             msgenc += hmac_sha256(hmacs[i], msgenc)
         self.onion = msgenc
 
-def decode_from_file(f):
-    keys = []
-    msg = ""
-    for ln in f.readlines():
-        if ln.startswith(" * Keypair "):
-            w = ln.strip().split()
-            idx = int(w[2].strip(":"))
-            priv = unhexlify(w[3])
-            pub = unhexlify(w[4])
-            assert idx == len(keys)
-            keys.append(ecc.ECC(privkey=priv, pubkey=pub, curve='secp256k1'))
-        elif ln.startswith(" * Message:"):
-            msg = unhexlify(ln[11:].strip())
-        elif ln.startswith("Decrypting"):
-            pass
-        else:
-            print ln
-            assert ln.strip() == ""
+def generate(args):
+    server_keys = []
+    msgs = []
+    for k in args.pubkeys:
+        k = unhexlify(k)
+        msgs.append("Message for %s..." % (hexlify(k[1:21]),))
+        k = ec_decompress(k)
+        server_keys.append(k)
+    o = OnionEncrypt(msgs, server_keys)
+    sys.stdout.write(o.onion)
+    return
 
-    assert msg != ""
-    for k in keys:
-        o = OnionDecrypt(msg, k)
-        o.decrypt()
-        print o.msg
-        msg = o.fwd
-    print "done"
+def decode(args):
+    msg = sys.stdin.read()
+    key = ecc.ECC(privkey=unhexlify(args.seckey),
+                  pubkey=ec_decompress(unhexlify(args.pubkey)),
+                  curve='secp256k1')
+    o = OnionDecrypt(msg, key)
+    o.decrypt()
+    #sys.stderr.write("Message: \"%s\"\n" % (o.msg,))
+    want_msg = "Message for %s..." % (args.pubkey[2:42])
+    if o.msg != want_msg + "\0"*(Onion.MSG_LEN - len(want_msg)):
+        raise Exception("Unexpected message: \"%s\" (wanted: %s)" % (o.msg, want_msg))
+
+    sys.stdout.write(o.fwd)
+
+def main(argv):
+    parser = argparse.ArgumentParser(description="Process some integers.")
+    sp = parser.add_subparsers()
+    p = sp.add_parser("generate")
+    p.add_argument("pubkeys", nargs='+', help="public keys of recipients")
+    p.set_defaults(func=generate)
+
+    p = sp.add_parser("decode")
+    p.add_argument("seckey", help="secret key for router")
+    p.add_argument("pubkey", help="public key for router")
+    p.set_defaults(func=decode)
+
+    args = parser.parse_args(argv)
+
+    return args.func(args)
+
+
+
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "generate":
-        if len(sys.argv) == 3:
-            n = int(sys.argv[2])
-        else:
-            n = 20
-        servers = [ecc.ECC(curve='secp256k1') for _ in range(n)]
-        server_pubs = [s.get_pubkey() for s in servers]
-        msgs = ["Howzit %d..." % (i,) for i in range(n)]
+    main(sys.argv[1:])
+    sys.exit(0)
 
-        o = OnionEncrypt(msgs, server_pubs)
-
-        for i, s in enumerate(servers):
-            print " * Keypair %d: %s %s" % (
-                    i, hexlify(s.privkey), hexlify(s.get_pubkey()))
-        print " * Message: %s" % (hexlify(o.onion))
-    else:
-        decode_from_file(sys.stdin)
