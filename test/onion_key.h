@@ -11,6 +11,11 @@ struct seckey {
 	} u;
 };
 
+/* First byte is 0x02 or 0x03 indicating even or odd y */
+struct compressed_pubkey {
+	unsigned char u8[33];
+};
+
 /* Prepend 0x02 to get pubkey for libsecp256k1 */
 struct onion_pubkey {
 	unsigned char u8[32];

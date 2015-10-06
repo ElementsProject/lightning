@@ -588,9 +588,9 @@ bool peel_onion(struct onion *onion,
 static bool parse_onion_pubkey(secp256k1_context *ctx,
 			       const char *arg, secp256k1_pubkey *pubkey)
 {
-	unsigned char tmp[33] = { 0x2 };
+	unsigned char tmp[33] = { };
 
-	if (!hex_decode(arg, strlen(arg), tmp + 1, sizeof(tmp) - 1))
+	if (!hex_decode(arg, strlen(arg), tmp, sizeof(tmp)))
 		return false;
 
 	return secp256k1_ec_pubkey_parse(ctx, pubkey, tmp, sizeof(tmp));

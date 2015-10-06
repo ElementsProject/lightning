@@ -20,6 +20,7 @@ static void random_bytes(void *dst, size_t n)
 		d[i] = random() % 256;
 }
 
+#if 0
 /* Compressed key would start with 0x3?  Subtract from group.  Thanks
  * Greg Maxwell. */
 static void flip_key(struct seckey *seckey)
@@ -47,6 +48,7 @@ static void flip_key(struct seckey *seckey)
 		seckey->u.be64[i] = cpu_to_be64(v);
 	}
 }
+#endif
 
 #if 0
 int main(int argc, char *argv[])
@@ -97,7 +99,7 @@ static void random_key(secp256k1_context *ctx,
 
 /* We don't want to spend a byte encoding sign, so make sure it's 0x2 */
 static void gen_keys(secp256k1_context *ctx,
-		     struct seckey *seckey, struct onion_pubkey *pubkey)
+		     struct seckey *seckey, struct compressed_pubkey *pubkey)
 {
 	unsigned char tmp[33];
 	secp256k1_pubkey pkey;
@@ -108,16 +110,18 @@ static void gen_keys(secp256k1_context *ctx,
 	secp256k1_ec_pubkey_serialize(ctx, tmp, &len, &pkey,
 				      SECP256K1_EC_COMPRESSED);
 	assert(len == sizeof(tmp));
+#if 0
 	if (tmp[0] == 0x3)
 		flip_key(seckey);
-	memcpy(pubkey, tmp+1, sizeof(*pubkey));
+#endif
+	memcpy(pubkey, tmp, sizeof(*pubkey));
 }
 
 void print_keypair(int pub, int priv)
 {
 	secp256k1_context *ctx;
 	struct seckey seckey;
-	struct onion_pubkey pubkey;
+	struct compressed_pubkey pubkey;
 	char sechex[hex_str_size(sizeof(seckey))];
 	char pubhex[hex_str_size(sizeof(pubkey))];
 
