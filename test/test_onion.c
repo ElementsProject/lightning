@@ -596,12 +596,17 @@ static bool parse_onion_pubkey(secp256k1_context *ctx,
 	return secp256k1_ec_pubkey_parse(ctx, pubkey, tmp, sizeof(tmp));
 }
 
-static char *make_message(const secp256k1_pubkey *pubkey)
+static char *make_message(secp256k1_context *ctx,
+		const secp256k1_pubkey *pubkey)
 {
 	char *m;
+	unsigned char tmp[33];
+	size_t len;
 	char hexstr[hex_str_size(20)];
 
-	hex_encode(pubkey, 20, hexstr, sizeof(hexstr));
+	secp256k1_ec_pubkey_serialize(ctx, tmp, &len, pubkey,
+				      SECP256K1_EC_COMPRESSED);
+	hex_encode(tmp+1, 20, hexstr, sizeof(hexstr));
 	asprintf(&m, "Message for %s...", hexstr);
 	return m;
 }
@@ -643,7 +648,7 @@ int main(int argc, char *argv[])
 		for (i = 1; i < argc; i++) {
 			if (!parse_onion_pubkey(ctx, argv[i], &pubkeys[i-1]))
 				errx(1, "Bad pubkey '%s'", argv[i]);
-			msgs[i-1] = make_message(&pubkeys[i-1]);
+			msgs[i-1] = make_message(ctx, &pubkeys[i-1]);
 		}
 
 		if (!create_onion(pubkeys, msgs, argc - 1, &onion))
@@ -670,7 +675,7 @@ int main(int argc, char *argv[])
 
 		if (!decrypt_onion(&seckey, &onion, &enckey, &pad_iv))
 			errx(1, "Failed decrypting onion for '%s'", argv[1]);
-		if (strncmp((char *)myhop(&onion)->msg, make_message(&pubkey),
+		if (strncmp((char *)myhop(&onion)->msg, make_message(ctx, &pubkey),
 			    sizeof(myhop(&onion)->msg)))
 			errx(1, "Bad message '%s'", (char *)myhop(&onion)->msg);
 		if (!peel_onion(&onion, &enckey, &pad_iv))
