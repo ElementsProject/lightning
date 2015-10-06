@@ -29,9 +29,6 @@
  of m, for each message.
 */
 
-//#define EXPORT_FRIENDLY 1 /* No crypto! */
-//#define NO_HMAC 1 /* No real hmac */
-
 struct enckey {
 	struct sha256 k;
 };
@@ -72,27 +69,21 @@ static struct hmackey hmackey_from_secret(const unsigned char secret[32])
 }
 
 
-static struct iv iv_from_secret(const unsigned char secret[32], size_t i)
+static struct iv iv_from_secret(const unsigned char secret[32])
 {
 	struct iv iv;
 	struct sha256 sha;
 	sha_with_seed(secret, 2, &sha);
 	memcpy(iv.iv, sha.u.u8, sizeof(iv.iv));
-#ifdef EXPORT_FRIENDLY
-	iv.iv[0] = i*2;
-#endif
 	return iv;
 }
 
-static struct iv pad_iv_from_secret(const unsigned char secret[32], size_t i)
+static struct iv pad_iv_from_secret(const unsigned char secret[32])
 {
 	struct iv iv;
 	struct sha256 sha;
 	sha_with_seed(secret, 3, &sha);
 	memcpy(iv.iv, sha.u.u8, sizeof(iv.iv));
-#ifdef EXPORT_FRIENDLY
-	iv.iv[0] = i*2 + 1;
-#endif
 	return iv;
 }
 
@@ -246,15 +237,6 @@ static struct hop *myhop(const struct onion *onion)
 static bool aes_encrypt(void *dst, const void *src, size_t len,
 			const struct enckey *enckey, const struct iv *iv)
 {
-#ifdef EXPORT_FRIENDLY
-	unsigned char *dptr = dst;
-	const unsigned char *sptr = memcheck(src, len);
-	size_t i;
-
-	for (i = 0; i < len; i++)
-		dptr[i] = sptr[i] + iv->iv[0] + i / sizeof(struct hop);
-	return true;
-#else
 	EVP_CIPHER_CTX evpctx;
 	int outlen;
 
@@ -275,21 +257,11 @@ static bool aes_encrypt(void *dst, const void *src, size_t len,
 		return false;
 	assert(outlen == 0);
 	return true;
-#endif
 }
 
 static bool aes_decrypt(void *dst, const void *src, size_t len,
 			const struct enckey *enckey, const struct iv *iv)
 {
-#ifdef EXPORT_FRIENDLY
-	unsigned char *dptr = dst;
-	const unsigned char *sptr = memcheck(src, len);
-	size_t i;
-
-	for (i = 0; i < len; i++)
-		dptr[i] = sptr[i] - iv->iv[0] - i / sizeof(struct hop);
-	return true;
-#else
 	EVP_CIPHER_CTX evpctx;
 	int outlen;
 
@@ -310,7 +282,6 @@ static bool aes_decrypt(void *dst, const void *src, size_t len,
 		return false;
 	assert(outlen == 0);
 	return true;
-#endif
 }
 
 void dump_contents(const void *data, size_t n)
@@ -363,18 +334,6 @@ static void make_hmac(const struct hop *hops, size_t num_hops,
 		      const struct hmackey *hmackey,
 		      struct sha256 *hmac)
 {
-#ifdef NO_HMAC
-	/* Copy first byte of message on each hop. */
-	size_t i;
-
-	memset(hmac, 0, sizeof(*hmac));
-	for (i = 0; i < MAX_HOPS; i++) {
-		if (i < num_hops)
-			hmac->u.u8[i] = hops[i].msg[0];
-		else
-			hmac->u.u8[i] = padding[i - num_hops].msg[0];
-	}
-#else
 	HMAC_CTX ctx;
 	size_t len, padlen;
 
@@ -387,7 +346,6 @@ static void make_hmac(const struct hop *hops, size_t num_hops,
 	len = num_hops*sizeof(struct hop) - sizeof(hops->hmac);
 	HMAC_Update(&ctx, memcheck((unsigned char *)hops, len), len);
 	HMAC_Final(&ctx, hmac->u.u8, NULL);
-#endif
 }
 
 void _dump_hex(unsigned char *x, size_t s) {
@@ -449,8 +407,8 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 
 		hmackeys[i] = hmackey_from_secret(memcheck(secret, 32));
 		enckeys[i] = enckey_from_secret(secret);
-		ivs[i] = iv_from_secret(secret, i);
-		pad_ivs[i] = pad_iv_from_secret(secret, i);
+		ivs[i] = iv_from_secret(secret);
+		pad_ivs[i] = pad_iv_from_secret(secret);
 	}
 
 	/*
@@ -545,7 +503,7 @@ static bool pubkey_parse(const secp256k1_context *ctx,
  * Returns enckey and pad_iv for use in unwrap.
  */
 bool decrypt_onion(const struct seckey *myseckey, struct onion *onion,
-		   struct enckey *enckey, struct iv *pad_iv, size_t i)
+		   struct enckey *enckey, struct iv *pad_iv)
 {
 	secp256k1_context *ctx;
 	unsigned char secret[32];
@@ -564,8 +522,8 @@ bool decrypt_onion(const struct seckey *myseckey, struct onion *onion,
 
 	hmackey = hmackey_from_secret(secret);
 	*enckey = enckey_from_secret(secret);
-	iv = iv_from_secret(secret, i);
-	*pad_iv = pad_iv_from_secret(secret, i);
+	iv = iv_from_secret(secret);
+	*pad_iv = pad_iv_from_secret(secret);
 
 	/* Check HMAC. */
 #if 0
@@ -661,7 +619,7 @@ int main(int argc, char *argv[])
 
 		printf("Decrypting with key %zi\n", i);
 
-		if (!decrypt_onion(&seckeys[i], &onion, &enckey, &pad_iv, i))
+		if (!decrypt_onion(&seckeys[i], &onion, &enckey, &pad_iv))
 			errx(1, "Decrypting onion for hop %zi", i);
 		if (strcmp((char *)myhop(&onion)->msg, msgs[i]) != 0)
 			errx(1, "Bad message for hop %zi", i);
