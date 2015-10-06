@@ -33,6 +33,7 @@ TEST_CLI_PROGRAMS :=				\
 
 TEST_PROGRAMS :=				\
 	test/test_state_coverage		\
+	test/onion_key				\
 	test/test_onion
 
 BITCOIN_OBJS :=					\
