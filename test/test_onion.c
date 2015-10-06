@@ -1,4 +1,5 @@
 #define _GNU_SOURCE 1
+#include "onion_key.h"
 #include "secp256k1.h"
 #include "secp256k1_ecdh.h"
 #include <openssl/hmac.h>
@@ -30,18 +31,6 @@
 
 //#define EXPORT_FRIENDLY 1 /* No crypto! */
 //#define NO_HMAC 1 /* No real hmac */
-
-struct seckey {
-	union {
-		unsigned char u8[32];
-		beint64_t be64[4];
-	} u;
-};
-
-/* Prepend 0x02 to get pubkey for libsecp256k1 */
-struct pubkey {
-	unsigned char u8[32];
-};
 
 struct enckey {
 	struct sha256 k;
@@ -194,7 +183,7 @@ static void random_key(secp256k1_context *ctx,
 
 /* We don't want to spend a byte encoding sign, so make sure it's 0x2 */
 static void gen_keys(secp256k1_context *ctx,
-		     struct seckey *seckey, struct pubkey *pubkey)
+		     struct seckey *seckey, struct onion_pubkey *pubkey)
 {
 	unsigned char tmp[33];
 	secp256k1_pubkey pkey;
@@ -240,7 +229,7 @@ static void gen_keys(secp256k1_context *ctx,
 
 struct hop {
 	unsigned char msg[MESSAGE_SIZE];
-	struct pubkey pubkey;
+	struct onion_pubkey pubkey;
 	struct sha256 hmac;
 };
 
@@ -431,7 +420,7 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 {
 	int i;
 	struct seckey *seckeys = tal_arr(NULL, struct seckey, num);
-	struct pubkey *pubkeys = tal_arr(seckeys, struct pubkey, num);
+	struct onion_pubkey *pubkeys = tal_arr(seckeys, struct onion_pubkey, num);
 	struct enckey *enckeys = tal_arr(seckeys, struct enckey, num);
 	struct hmackey *hmackeys = tal_arr(seckeys, struct hmackey, num);
 	struct iv *ivs = tal_arr(seckeys, struct iv, num);
@@ -541,7 +530,7 @@ fail:
 
 static bool pubkey_parse(const secp256k1_context *ctx,
 			 secp256k1_pubkey* pubkey,
-			 struct pubkey *pkey)
+			 struct onion_pubkey *pkey)
 {
 	unsigned char tmp[33];
 
