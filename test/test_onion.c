@@ -2,6 +2,7 @@
 #include "onion_key.h"
 #include "secp256k1.h"
 #include "secp256k1_ecdh.h"
+#include "version.h"
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <openssl/aes.h>
@@ -15,6 +16,9 @@
 #include <ccan/mem/mem.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/endian/endian.h>
+#include <ccan/read_write_all/read_write_all.h>
+#include <ccan/opt/opt.h>
+#include <ccan/str/hex/hex.h>
 
 /* 
  * The client knows the server's public key S (which has corresponding
@@ -581,51 +585,102 @@ bool peel_onion(struct onion *onion,
 			   sizeof(onion->hop[0]), enckey, pad_iv);
 }
 
+static bool parse_onion_pubkey(secp256k1_context *ctx,
+			       const char *arg, secp256k1_pubkey *pubkey)
+{
+	unsigned char tmp[33] = { 0x2 };
+
+	if (!hex_decode(arg, strlen(arg), tmp + 1, sizeof(tmp) - 1))
+		return false;
+
+	return secp256k1_ec_pubkey_parse(ctx, pubkey, tmp, sizeof(tmp));
+}
+
+static char *make_message(const secp256k1_pubkey *pubkey)
+{
+	char *m;
+	char hexstr[hex_str_size(20)];
+
+	hex_encode(pubkey, 20, hexstr, sizeof(hexstr));
+	asprintf(&m, "Message for %s...", hexstr);
+	return m;
+}
+
 int main(int argc, char *argv[])
 {
 	secp256k1_context *ctx;
-	size_t i, hops;
-	struct seckey seckeys[MAX_HOPS];
-	secp256k1_pubkey pubkeys[MAX_HOPS];
-	char *msgs[MAX_HOPS];
 	struct onion onion;
+	bool generate = false, decode = false;
 
 	assert(EVP_CIPHER_iv_length(EVP_aes_128_ctr()) == sizeof(struct iv));
 	
-	if (argc != 2)
-		errx(1, "Usage: %s <num hops>", argv[0]);
-	hops = atoi(argv[1]);
-	if (hops == 0 || hops > MAX_HOPS)
-		errx(1, "%s is invalid number of hops", argv[1]);
-	
+	opt_register_noarg("--help|-h", opt_usage_and_exit,
+			   "--generate <pubkey>... OR\n"
+			   "--decode <privkey>\n"
+			   "Either create an onion message, or decode one step",
+			   "Print this message.");
+	opt_register_noarg("--generate",
+			   opt_set_bool, &generate,
+			   "Generate onion through the given hex pubkeys");
+	opt_register_noarg("--decode",
+			   opt_set_bool, &decode,
+			   "Decode onion given the private key");
+	opt_register_version();
+
+ 	opt_parse(&argc, argv, opt_log_stderr_exit);
+
 	ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
-	for (i = 0; i < hops; i++) {
-		asprintf(&msgs[i], "Message to %zu", i);
-		random_key(ctx, &seckeys[i], &pubkeys[i]);
-		printf(" * Keypair %zu:", i); 
-		dump_hex(seckeys[i]);
-		dump_pkey(ctx, pubkeys[i]);
-		printf("\n");
-	}
+	if (generate) {
+		secp256k1_pubkey pubkeys[MAX_HOPS];
+		char *msgs[MAX_HOPS];
+		size_t i;
 
-	if (!create_onion(pubkeys, msgs, hops, &onion))
-		errx(1, "Creating onion packet failed");
-	printf(" * Message:"); dump_hex(onion); printf("\n");
+		if (argc == 1)
+			opt_usage_exit_fail("Expected at least one pubkey");
+		if (argc-1 > MAX_HOPS)
+			opt_usage_exit_fail("Expected at most %u pubkeys",
+					    MAX_HOPS);
+		for (i = 1; i < argc; i++) {
+			if (!parse_onion_pubkey(ctx, argv[i], &pubkeys[i-1]))
+				errx(1, "Bad pubkey '%s'", argv[i]);
+			msgs[i-1] = make_message(&pubkeys[i-1]);
+		}
 
-	/* Now parse and peel. */
-	for (i = 0; i < hops; i++) {
+		if (!create_onion(pubkeys, msgs, argc - 1, &onion))
+			errx(1, "Creating onion packet failed");
+		if (!write_all(STDOUT_FILENO, &onion, sizeof(onion)))
+			err(1, "Writing onion packet");
+		return 0;
+	} else if (decode) {
+		struct seckey seckey;
+		secp256k1_pubkey pubkey;
 		struct enckey enckey;
 		struct iv pad_iv;
 
-		printf("Decrypting with key %zi\n", i);
+		if (argc != 2)
+			opt_usage_exit_fail("Expect a privkey with --decode");
 
-		if (!decrypt_onion(&seckeys[i], &onion, &enckey, &pad_iv))
-			errx(1, "Decrypting onion for hop %zi", i);
-		if (strcmp((char *)myhop(&onion)->msg, msgs[i]) != 0)
-			errx(1, "Bad message for hop %zi", i);
+		if (!hex_decode(argv[1], strlen(argv[1]), &seckey, sizeof(seckey)))
+			errx(1, "Invalid private key hex '%s'", argv[1]);
+		if (!secp256k1_ec_pubkey_create(ctx, &pubkey, seckey.u.u8))
+			errx(1, "Invalid private key '%s'", argv[1]);
+
+		if (!read_all(STDIN_FILENO, &onion, sizeof(onion)))
+			errx(1, "Reading in onion");
+
+		if (!decrypt_onion(&seckey, &onion, &enckey, &pad_iv))
+			errx(1, "Failed decrypting onion for '%s'", argv[1]);
+		if (strncmp((char *)myhop(&onion)->msg, make_message(&pubkey),
+			    sizeof(myhop(&onion)->msg)))
+			errx(1, "Bad message '%s'", (char *)myhop(&onion)->msg);
 		if (!peel_onion(&onion, &enckey, &pad_iv))
-			errx(1, "Peeling onion for hop %zi", i);
-	}
+			errx(1, "Peeling onion for '%s'", argv[1]);
+		if (!write_all(STDOUT_FILENO, &onion, sizeof(onion)))
+			err(1, "Writing onion packet");
+		return 0;
+	} else
+		opt_usage_exit_fail("Need --decode or --generate");
+		
 	secp256k1_context_destroy(ctx);
 	return 0;
 }
