@@ -2,8 +2,10 @@
 #include "secp256k1.h"
 #include "secp256k1_ecdh.h"
 #include "onion_key.h"
+#include "version.h"
 #include <time.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/opt/opt.h>
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
@@ -20,75 +22,6 @@ static void random_bytes(void *dst, size_t n)
 		d[i] = random() % 256;
 }
 
-#if 0
-/* Compressed key would start with 0x3?  Subtract from group.  Thanks
- * Greg Maxwell. */
-static void flip_key(struct seckey *seckey)
-{
-	int i;
-	bool carry = 0;
-
-	const int64_t group[] = {
-		0xFFFFFFFFFFFFFFFFULL,
-		0xFFFFFFFFFFFFFFFEULL,
-		0xBAAEDCE6AF48A03BULL,
-		0xBFD25E8CD0364141ULL
-	};
-
-	for (i = 3; i >= 0; i--) {
-		uint64_t v = be64_to_cpu(seckey->u.be64[i]);
-		if (carry) {
-			/* Beware wrap if v == 0xFFFF.... */
-			carry = (group[i] <= v);
-			v++;
-		} else
-			carry = (group[i] < v);
-
-		v = group[i] - v;
-		seckey->u.be64[i] = cpu_to_be64(v);
-	}
-}
-#endif
-
-#if 0
-int main(int argc, char *argv[])
-{
-	struct seckey k;
-
-	k.u.be64[0] = cpu_to_be64(0xFFFFFFFFFFFFFFFFULL);
-	k.u.be64[1] = cpu_to_be64(0xFFFFFFFFFFFFFFFEULL);
-	k.u.be64[2] = cpu_to_be64(0xBAAEDCE6AF48A03BULL);
-	k.u.be64[3] = cpu_to_be64(0xBFD25E8CD0364141ULL);
-	flip_key(&k);
-	assert(k.u.be64[0] == 0);
-	assert(k.u.be64[1] == 0);
-	assert(k.u.be64[2] == 0);
-	assert(k.u.be64[3] == 0);
-	flip_key(&k);
-	assert(k.u.be64[0] == cpu_to_be64(0xFFFFFFFFFFFFFFFFULL));
-	assert(k.u.be64[1] == cpu_to_be64(0xFFFFFFFFFFFFFFFEULL));
-	assert(k.u.be64[2] == cpu_to_be64(0xBAAEDCE6AF48A03BULL));
-	assert(k.u.be64[3] == cpu_to_be64(0xBFD25E8CD0364141ULL));
-
-	k.u.be64[0] = cpu_to_be64(0xFFFFFFFFFFFFFFFFULL);
-	k.u.be64[1] = cpu_to_be64(0xFFFFFFFFFFFFFFFEULL);
-	k.u.be64[2] = cpu_to_be64(0xBAAEDCE6AF48A03BULL);
-	k.u.be64[3] = cpu_to_be64(0xBFD25E8CD0364142ULL);
-	flip_key(&k);
-	assert(k.u.be64[0] == 0xFFFFFFFFFFFFFFFFULL);
-	assert(k.u.be64[1] == 0xFFFFFFFFFFFFFFFFULL);
-	assert(k.u.be64[2] == 0xFFFFFFFFFFFFFFFFULL);
-	assert(k.u.be64[3] == 0xFFFFFFFFFFFFFFFFULL);
-	flip_key(&k);
-	assert(k.u.be64[0] == cpu_to_be64(0xFFFFFFFFFFFFFFFFULL));
-	assert(k.u.be64[1] == cpu_to_be64(0xFFFFFFFFFFFFFFFEULL));
-	assert(k.u.be64[2] == cpu_to_be64(0xBAAEDCE6AF48A03BULL));
-	assert(k.u.be64[3] == cpu_to_be64(0xBFD25E8CD0364142ULL));
-
-	return 0;
-}
-#endif
-
 static void random_key(secp256k1_context *ctx,
 		       struct seckey *seckey, secp256k1_pubkey *pkey)
 {
@@ -101,23 +34,17 @@ static void random_key(secp256k1_context *ctx,
 static void gen_keys(secp256k1_context *ctx,
 		     struct seckey *seckey, struct compressed_pubkey *pubkey)
 {
-	unsigned char tmp[33];
 	secp256k1_pubkey pkey;
 	size_t len;
 
 	random_key(ctx, seckey, &pkey);
 
-	secp256k1_ec_pubkey_serialize(ctx, tmp, &len, &pkey,
+	secp256k1_ec_pubkey_serialize(ctx, pubkey->u8, &len, &pkey,
 				      SECP256K1_EC_COMPRESSED);
-	assert(len == sizeof(tmp));
-#if 0
-	if (tmp[0] == 0x3)
-		flip_key(seckey);
-#endif
-	memcpy(pubkey, tmp, sizeof(*pubkey));
+	assert(len == sizeof(pubkey->u8));
 }
 
-void print_keypair(int pub, int priv)
+void print_keypair(bool pub, bool priv)
 {
 	secp256k1_context *ctx;
 	struct seckey seckey;
@@ -142,19 +69,25 @@ void print_keypair(int pub, int priv)
 
 int main(int argc, char *argv[])
 {
-	int pub = 1, priv = 1;
+	bool pub = true, priv = true;
 
-	if (argc >= 1) {
-		if (strcmp(argv[1], "--pub") == 0) {
-			pub = 1; priv = 0;
-			argc--; argv++;
-		} else if (strcmp(argv[1], "--priv") == 0) {
-			pub = 0; priv = 1;
-			argc--; argv++;
-		}
-	}
+	opt_register_noarg("--help|-h", opt_usage_and_exit,
+			   "[<seeds>...]\n"
+			   "Generate (deterministic if seed) secp256k1 keys",
+			   "Print this message.");
+	opt_register_noarg("--pub",
+			   opt_set_invbool, &priv,
+			   "Generate only the public key");
+	opt_register_noarg("--priv",
+			   opt_set_invbool, &pub,
+			   "Generate only the private key");
+	opt_register_version();
 
-	if (argc <= 1) {
+ 	opt_parse(&argc, argv, opt_log_stderr_exit);
+	if (!priv && !pub)
+		opt_usage_exit_fail("Can't use --pub and --priv");
+	
+	if (argc == 1) {
 		srandom(time(NULL) + getpid());
 		print_keypair(pub, priv);
 	} else {
