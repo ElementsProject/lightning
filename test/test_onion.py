@@ -175,7 +175,7 @@ class Onion(object):
         enckey = cls.tweak_sha(sec, b'\x00')[:16]
         hmac   = cls.tweak_sha(sec, b'\x01')
         iv     = cls.tweak_sha(sec, b'\x02')[:16]
-        pad_iv = cls.tweak_sha(sec, b'\x03')[:16]
+        pad_iv = cls.tweak_sha(sec, b'\x02')[16:]
 
         return enckey, hmac, iv, pad_iv
 

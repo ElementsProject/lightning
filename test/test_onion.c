@@ -12,6 +12,7 @@
 #include <err.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <ccan/build_assert/build_assert.h>
 #include <ccan/tal/tal.h>
 #include <ccan/mem/mem.h>
 #include <ccan/crypto/sha256/sha256.h>
@@ -73,22 +74,14 @@ static struct hmackey hmackey_from_secret(const unsigned char secret[32])
 }
 
 
-static struct iv iv_from_secret(const unsigned char secret[32])
+static void ivs_from_secret(const unsigned char secret[32],
+			    struct iv *iv, struct iv *pad_iv)
 {
-	struct iv iv;
 	struct sha256 sha;
 	sha_with_seed(secret, 2, &sha);
-	memcpy(iv.iv, sha.u.u8, sizeof(iv.iv));
-	return iv;
-}
-
-static struct iv pad_iv_from_secret(const unsigned char secret[32])
-{
-	struct iv iv;
-	struct sha256 sha;
-	sha_with_seed(secret, 3, &sha);
-	memcpy(iv.iv, sha.u.u8, sizeof(iv.iv));
-	return iv;
+	BUILD_ASSERT(sizeof(*iv) + sizeof(*pad_iv) == sizeof(sha));
+	memcpy(iv->iv, sha.u.u8, sizeof(iv->iv));
+	memcpy(pad_iv->iv, sha.u.u8 + sizeof(iv->iv), sizeof(pad_iv->iv));
 }
 
 /* Not really! */
@@ -411,8 +404,7 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 
 		hmackeys[i] = hmackey_from_secret(memcheck(secret, 32));
 		enckeys[i] = enckey_from_secret(secret);
-		ivs[i] = iv_from_secret(secret);
-		pad_ivs[i] = pad_iv_from_secret(secret);
+		ivs_from_secret(secret, &ivs[i], &pad_ivs[i]);
 	}
 
 	/*
@@ -525,8 +517,7 @@ bool decrypt_onion(const struct seckey *myseckey, struct onion *onion,
 
 	hmackey = hmackey_from_secret(secret);
 	*enckey = enckey_from_secret(secret);
-	iv = iv_from_secret(secret);
-	*pad_iv = pad_iv_from_secret(secret);
+	ivs_from_secret(secret, &iv, pad_iv);
 
 	/* Check HMAC. */
 #if 0
