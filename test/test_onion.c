@@ -381,23 +381,23 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 		  struct onion *onion)
 {
 	int i;
-	struct seckey *seckeys = tal_arr(NULL, struct seckey, num);
-	struct onion_pubkey *pubkeys = tal_arr(seckeys, struct onion_pubkey, num);
-	struct enckey *enckeys = tal_arr(seckeys, struct enckey, num);
-	struct hmackey *hmackeys = tal_arr(seckeys, struct hmackey, num);
-	struct iv *ivs = tal_arr(seckeys, struct iv, num);
-	struct iv *pad_ivs = tal_arr(seckeys, struct iv, num);
-	HMAC_CTX *padding_hmac = tal_arr(seckeys, HMAC_CTX, num);
-	struct hop *padding = tal_arr(seckeys, struct hop, num);
+	struct seckey seckeys[MAX_HOPS];
+	struct onion_pubkey pubkeys[MAX_HOPS];
+	struct enckey enckeys[MAX_HOPS];
+	struct hmackey hmackeys[MAX_HOPS];
+	struct iv ivs[MAX_HOPS];
+	struct iv pad_ivs[MAX_HOPS];
+	HMAC_CTX padding_hmac[MAX_HOPS];
+	struct hop padding[MAX_HOPS];
 	size_t junk_hops;
-	secp256k1_context *ctx;
+	secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
 	bool ok = false;
 
 	if (num > MAX_HOPS)
 		goto fail;
 
-	ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
-
+	/* FIXME: I think it would be safe to reuse a single disposable key
+	 * here? */
 	/* First generate all the keys. */
 	for (i = 0; i < num; i++) {
 		unsigned char secret[32];
@@ -485,7 +485,6 @@ bool create_onion(const secp256k1_pubkey pubkey[],
 
 	ok = true;
 fail:
-	tal_free(seckeys);
 	secp256k1_context_destroy(ctx);
 	return ok;
 }
