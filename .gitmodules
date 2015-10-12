@@ -1,0 +1,3 @@
+[submodule "daemon/jsmn"]
+	path = daemon/jsmn
+	url = https://github.com/zserge/jsmn
