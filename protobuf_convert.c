@@ -10,30 +10,56 @@ Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
 
 	assert(sig_valid(sig));
 
+#ifdef USE_SCHNORR
+	memcpy(&pb->r1, sig->schnorr, 8);
+	memcpy(&pb->r2, sig->schnorr + 8, 8);
+	memcpy(&pb->r3, sig->schnorr + 16, 8);
+	memcpy(&pb->r4, sig->schnorr + 24, 8);
+	memcpy(&pb->s1, sig->schnorr + 32, 8);
+	memcpy(&pb->s2, sig->schnorr + 40, 8);
+	memcpy(&pb->s3, sig->schnorr + 48, 8);
+	memcpy(&pb->s4, sig->schnorr + 56, 8);
+#else
+	/* FIXME: Need a portable way to encode signatures in libsecp! */
+	
 	/* Kill me now... */
-	memcpy(&pb->r1, sig->r, 8);
-	memcpy(&pb->r2, sig->r + 8, 8);
-	memcpy(&pb->r3, sig->r + 16, 8);
-	memcpy(&pb->r4, sig->r + 24, 8);
-	memcpy(&pb->s1, sig->s, 8);
-	memcpy(&pb->s2, sig->s + 8, 8);
-	memcpy(&pb->s3, sig->s + 16, 8);
-	memcpy(&pb->s4, sig->s + 24, 8);
-
+	memcpy(&pb->r1, sig->sig.data, 8);
+	memcpy(&pb->r2, sig->sig.data + 8, 8);
+	memcpy(&pb->r3, sig->sig.data + 16, 8);
+	memcpy(&pb->r4, sig->sig.data + 24, 8);
+	memcpy(&pb->s1, sig->sig.data + 32, 8);
+	memcpy(&pb->s2, sig->sig.data + 40, 8);
+	memcpy(&pb->s3, sig->sig.data + 48, 8);
+	memcpy(&pb->s4, sig->sig.data + 56, 8);
+#endif
+	
 	return pb;
 }
 
 bool proto_to_signature(const Signature *pb, struct signature *sig)
 {
 	/* Kill me again. */
-	memcpy(sig->r, &pb->r1, 8);
-	memcpy(sig->r + 8, &pb->r2, 8);
-	memcpy(sig->r + 16, &pb->r3, 8);
-	memcpy(sig->r + 24, &pb->r4, 8);
-	memcpy(sig->s, &pb->s1, 8);
-	memcpy(sig->s + 8, &pb->s2, 8);
-	memcpy(sig->s + 16, &pb->s3, 8);
-	memcpy(sig->s + 24, &pb->s4, 8);
+#ifdef USE_SCHNORR
+	memcpy(sig->schnorr, &pb->r1, 8);
+	memcpy(sig->schnorr + 8, &pb->r2, 8);
+	memcpy(sig->schnorr + 16, &pb->r3, 8);
+	memcpy(sig->schnorr + 24, &pb->r4, 8);
+	memcpy(sig->schnorr + 32, &pb->s1, 8);
+	memcpy(sig->schnorr + 40, &pb->s2, 8);
+	memcpy(sig->schnorr + 48, &pb->s3, 8);
+	memcpy(sig->schnorr + 56, &pb->s4, 8);
+#else
+	/* FIXME: Need a portable way to encode signatures in libsecp! */
+	
+	memcpy(sig->sig.data, &pb->r1, 8);
+	memcpy(sig->sig.data + 8, &pb->r2, 8);
+	memcpy(sig->sig.data + 16, &pb->r3, 8);
+	memcpy(sig->sig.data + 24, &pb->r4, 8);
+	memcpy(sig->sig.data + 32, &pb->s1, 8);
+	memcpy(sig->sig.data + 40, &pb->s2, 8);
+	memcpy(sig->sig.data + 48, &pb->s3, 8);
+	memcpy(sig->sig.data + 56, &pb->s4, 8);
+#endif
 
 	return sig_valid(sig);
 }

@@ -89,12 +89,12 @@ bool sign_hash(const tal_t *ctx, const struct privkey *privkey,
 
 #ifdef USE_SCHNORR
 	ok = secp256k1_schnorr_sign(secpctx,
-				    (unsigned char *)s,
+				    s->schnorr,
 				    h->sha.u.u8,
 				    privkey->secret, NULL, NULL);
 #else
 	ok = secp256k1_ecdsa_sign(secpctx,
-				  (secp256k1_ecdsa_signature *)s,
+				  &s->sig,
 				  h->sha.u.u8,
 				  privkey->secret, NULL, NULL);
 #endif
@@ -158,11 +158,11 @@ static bool check_signed_hash(const struct sha256_double *hash,
 		return false;
 
 #ifdef USE_SCHNORR
-	ret = secp256k1_schnorr_verify(secpctx, (unsigned char *)signature,
+	ret = secp256k1_schnorr_verify(secpctx, signature->schnorr,
 				       hash->sha.u.u8, &key->pubkey);
 #else
 	ret = secp256k1_ecdsa_verify(secpctx,
-				     (secp256k1_ecdsa_signature *)signature,
+				     &signature->sig,
 				     hash->sha.u.u8, &key->pubkey);
 #endif
 
@@ -214,6 +214,7 @@ bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
 		&& check_signed_hash(&hash, &sig2->sig, key2);
 }
 
+#ifndef USE_SCHNORR
 /* Stolen direct from bitcoin/src/script/sign.cpp:
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
@@ -286,55 +287,26 @@ static bool IsValidSignatureEncoding(const unsigned char sig[], size_t len)
     return true;
 }
 
-/* DER encode a value, return length used. */
-static size_t der_encode_val(const u8 *val, u8 *der)
-{
-	size_t len = 0, val_len = 32;
-
-	der[len++] = 0x2; /* value type. */
-
-	/* Strip leading zeroes. */
-	while (val_len && val[0] == 0) {
-		val++;
-		val_len--;
-	}
-
-	/* Add zero byte if it would otherwise be signed. */
-	if (val[0] & 0x80) {
-		der[len++] = 1 + val_len; /* value length */
-		der[len++] = 0;
-	} else
-		der[len++] = val_len; /* value length */
-
-	memcpy(der + len, val, val_len);
-	return len + val_len;
-}
-	
 size_t signature_to_der(u8 der[72], const struct signature *sig)
 {
-	size_t len = 0;
+	size_t len = 72;
+	secp256k1_context *ctx = secp256k1_context_create(0);
 
-	der[len++] = 0x30; /* Type */
-	der[len++] = 0; /* Total length after this: fill it at end. */
-
-	len += der_encode_val(sig->r, der + len);
-	len += der_encode_val(sig->s, der + len);
-
-	/* Fix up total length */
-	der[1] = len - 2;
+	secp256k1_ecdsa_signature_serialize_der(ctx, der, &len, &sig->sig);
 
 	/* IsValidSignatureEncoding() expect extra byte for sighash */
 	assert(IsValidSignatureEncoding(der, len + 1));
 	return len;
 }
+#endif /* USE_SCHNORR */
 
 /* Signature must have low S value. */
 bool sig_valid(const struct signature *sig)
 {
 #ifdef USE_SCHNORR
-	/* FIXME: Is there some sanity check we can do here? */
 	return true;
 #else
-	return (sig->s[0] & 0x80) == 0;
+	/* FIXME!  Need libsecp support. */
+	return true;
 #endif
 }

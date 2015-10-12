@@ -2,6 +2,7 @@
 #define LIGHTNING_BITCOIN_SIGNATURE_H
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include "secp256k1.h"
 
 enum sighash_type {
     SIGHASH_ALL = 1,
@@ -12,8 +13,11 @@ enum sighash_type {
 
 /* ECDSA of double SHA256. */
 struct signature {
-	u8 r[32];
-	u8 s[32];
+#ifdef USE_SCHNORR
+	u8 schnorr[64];
+#else
+	secp256k1_ecdsa_signature sig;
+#endif
 };
 
 struct sha256_double;
@@ -49,7 +53,9 @@ bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
 /* Signature must have low S value. */
 bool sig_valid(const struct signature *s);
 
+#ifndef USE_SCHNORR
 /* Give DER encoding of signature: returns length used (<= 72). */
 size_t signature_to_der(u8 der[72], const struct signature *s);
+#endif
 
 #endif /* LIGHTNING_BITCOIN_SIGNATURE_H */
