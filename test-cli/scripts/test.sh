@@ -38,10 +38,9 @@ send_after_delay()
 
     # Bitcoin bumps block times so that blocks are valid.
     TIME=$($CLI getblock $($CLI getbestblockhash) | sed -n 's/.*"time" *: *\([0-9]*\),/\1/p')
-    echo Waiting for CSV timeout $(( $TIME + $TEST_LOCKTIME - $(date -u +%s) )) seconds. >&2
+    $CLI setmocktime $(($TIME + $TEST_LOCKTIME))
 
     # Move median time, for sure!
-    while [ `date -u +%s` -lt $(($TIME + $TEST_LOCKTIME)) ]; do sleep 1; done
     for i in `seq 6`; do scripts/generate-block.sh; done
 
     for tx; do
