@@ -778,8 +778,8 @@ The last of these is particularly pernicious, as BIP62 doesn't solve it:
 
 \begin_layout Standard
 Our approach is to only have one-sided anchors.
- These can be later balanced by the lightning network itself, or an atomic-swap
- an on-chain bitcoin transaction
+ These can be later balanced by the lightning network itself, or an on-chain
+ atomic-swap transaction
 \begin_inset CommandInset citation
 LatexCommand cite
 key "go1111111_single_anchor"
@@ -909,9 +909,9 @@ The use of script conditionals to enforce timeouts instead of using separate
 \end_layout
 
 \begin_layout Standard
-By using a dual anchor and escape transactions, channel establishment can
- also avoid new CHECKSIG flags, though it loses the important ability to
- outsource the enforcement of channel contract terms.
+By using a rebalanced single anchor, channel establishment can also avoid
+ new CHECKSIG flags, while retaining the important ability to outsource the
+ enforcement of channel contract terms.
 \end_layout
 
 \begin_layout Section*
