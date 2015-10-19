@@ -415,6 +415,17 @@ reference "fig:Figure-1-from"
 
 \end_inset
 
+
+\begin_inset Foot
+status collapsed
+
+\begin_layout Plain Layout
+Note: this diagram has been corrected since: Commitment Close Tx 1A (CC1b)
+ -- should be CC1a, and vice-versa
+\end_layout
+
+\end_inset
+
 .
 \end_layout
 
@@ -669,8 +680,8 @@ There's a slightly more intuitive and more efficient method than exchanging
 \end_layout
 
 \begin_layout Standard
-Instead of using a private key, B uses knowledge of a hash preimage as
- well as its signature to steal funds from a revoked commitment transaction.
+Instead of using a private key, B uses knowledge of a hash preimage as well
+ as its signature to steal funds from a revoked commitment transaction.
  Thus, to create a commitment transaction each side provides a hash value;
  to revoke a commitment transaction it provides the prehash image.
 \end_layout
@@ -779,7 +790,7 @@ The last of these is particularly pernicious, as BIP62 doesn't solve it:
 \begin_layout Standard
 Our approach is to only have one-sided anchors.
  These can be later balanced by the lightning network itself, or an atomic-swap
- an on-chain bitcoin transaction
+ to an on-chain bitcoin transaction
 \begin_inset CommandInset citation
 LatexCommand cite
 key "go1111111_single_anchor"
@@ -884,7 +895,7 @@ name "fig:HTLC-Using-Revocation"
 \begin_layout Standard
 The scripts for this can be found in 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Appendix-A:-Scripts"
 
 \end_inset
@@ -909,9 +920,9 @@ The use of script conditionals to enforce timeouts instead of using separate
 \end_layout
 
 \begin_layout Standard
-By using a dual anchor and escape transactions, channel establishment can
- also avoid new CHECKSIG flags, though it loses the important ability to
- outsource the enforcement of channel contract terms.
+By using a rebalanced single anchor, channel establishment can also avoid
+ new CHECKSIG flags, though it loses the important ability to outsource
+ the enforcement of channel contract terms.
 \end_layout
 
 \begin_layout Section*
@@ -923,14 +934,14 @@ Thanks to mmeijeri on Reddit's r/Bitcoin for pointing out a flaw in escape
  transactions reusing the same A and B keys as the commitment transaction
  in 
 \begin_inset CommandInset ref
-LatexCommand ref
+LatexCommand nameref
 reference "sec:Appendix-B:-Dual"
 
 \end_inset
 
 
 \begin_inset Foot
-status collapsed
+status open
 
 \begin_layout Plain Layout
 https://www.reddit.com/r/Bitcoin/comments/3dlxw4/reaching_the_ground_with_lightnin
@@ -940,6 +951,7 @@ g_lightning/ct80xpp
 \end_inset
 
 .
+ Thanks to John Newbery for multiple formatting and typing corrections.
 \end_layout
 
 \begin_layout Standard
@@ -954,7 +966,7 @@ Thanks to Joseph Poon for designing the escape/fast-escape dual-anchor method,
 \begin_inset CommandInset bibtex
 LatexCommand bibtex
 bibfiles "bitcoin"
-options "plain"
+options "bibtotoc,plain"
 
 \end_inset
 
@@ -1060,272 +1072,6 @@ OP_SWAP Put 2 before B's key on the stack.
 \end_inset
 
 OP_CHECKMULTISIG Make sure A and B have signed.
-\end_layout
-
-\begin_layout Subsection*
-Escape Transaction
-\end_layout
-
-\begin_layout Standard
-The escape transaction for A spends A's anchor output and reveals A's secret.
- Similarly for B.
-\end_layout
-
-\begin_layout Subsubsection*
-Escape Input Script
-\end_layout
-
-\begin_layout Standard
-The extra 0 at the start is due to the OP_CHECKMULTISIG out-by-one-bug.
-\end_layout
-
-\begin_layout Description
-0
-\begin_inset space ~
-\end_inset
-
-<SIG-B'>
-\begin_inset space ~
-\end_inset
-
-<SIG-A>
-\begin_inset space ~
-\end_inset
-
-<SECRET-A>
-\begin_inset space ~
-\end_inset
-
-{<ANCHOR-REDEEMSCRIPT>}
-\end_layout
-
-\begin_layout Subsubsection*
-Escape Output Redeemscript
-\end_layout
-
-\begin_layout Standard
-This allows two paths: one for the other side to use the revocation image,
- and one for this side to get their funds back after a delay.
- This show's A's script, but B's is the same with A and B exchanged.
-\end_layout
-
-\begin_layout Description
-OP_HASH160
-\begin_inset space ~
-\end_inset
-
-<RHASH-A>
-\begin_inset space ~
-\end_inset
-
-OP_EQUAL Check if the top of stack is the revocation image.
-\end_layout
-
-\begin_layout Description
-OP_IF
-\end_layout
-
-\begin_deeper
-\begin_layout Description
-<KEY-B> Funds for B.
-\end_layout
-
-\end_deeper
-\begin_layout Description
-OP_ELSE It's A getting their funds back
-\end_layout
-
-\begin_deeper
-\begin_layout Description
-<DELAYTIME>
-\begin_inset space ~
-\end_inset
-
-OP_CHECKSEQUENCEVERIFY
-\begin_inset space ~
-\end_inset
-
-OP_DROP Ensure delay.
-\end_layout
-
-\begin_layout Description
-<KEY-A> Needs to be signed by A.
-\end_layout
-
-\end_deeper
-\begin_layout Description
-OP_ENDIF
-\end_layout
-
-\begin_layout Description
-OP_CHECKSIG Make sure it's signed correctly.
-\end_layout
-
-\begin_layout Subsubsection*
-Spending The Escape Output
-\end_layout
-
-\begin_layout Standard
-Either B using a revocation preimage:
-\end_layout
-
-\begin_layout Description
-<SIG-B>
-\begin_inset space ~
-\end_inset
-
-<REVOCATION-IMAGE-A>
-\begin_inset space ~
-\end_inset
-
-{<ESCAPE-REDEEMSCRIPT>}
-\end_layout
-
-\begin_layout Standard
-Or A using after a timeout:
-\end_layout
-
-\begin_layout Description
-<SIG-A>
-\begin_inset space ~
-\end_inset
-
-0
-\begin_inset space ~
-\end_inset
-
-{<ESCAPE-REDEEMSCRIPT>}
-\end_layout
-
-\begin_layout Subsection*
-Fast-Escape Transaction
-\end_layout
-
-\begin_layout Subsubsection*
-Fast-Escape Input Script
-\end_layout
-
-\begin_layout Standard
-This is identical to the normal escape input script.
-\end_layout
-
-\begin_layout Description
-0
-\begin_inset space ~
-\end_inset
-
-<SIG-B'>
-\begin_inset space ~
-\end_inset
-
-<SIG-A>
-\begin_inset space ~
-\end_inset
-
-<SECRET-A>
-\begin_inset space ~
-\end_inset
-
-{<ANCHOR-REDEEMSCRIPT>}
-\end_layout
-
-\begin_layout Subsubsection*
-Fast-Escape Output Redeemscript
-\end_layout
-
-\begin_layout Standard
-This allows two paths: one for this side to use the other side's secret
- (revealed by them using an escape transaction), and one for the other side
- to claim this side's anchor funds after a delay.
- This show's A's script, but B's is the same with A and B exchanged.
-\end_layout
-
-\begin_layout Description
-OP_HASH
-\begin_inset space ~
-\end_inset
-
-<SECRET-B-HASH>
-\begin_inset space ~
-\end_inset
-
-OP_EQUAL If top argument is B's secret
-\end_layout
-
-\begin_layout Description
-OP_IF
-\end_layout
-
-\begin_deeper
-\begin_layout Description
-<KEY-A> For A
-\end_layout
-
-\end_deeper
-\begin_layout Description
-OP_ELSE B gets it if A doesn't know the secret.
-\end_layout
-
-\begin_deeper
-\begin_layout Description
-<DELAYTIME>
-\begin_inset space ~
-\end_inset
-
-OP_CHECKSEQUENCEVERIFY
-\begin_inset space ~
-\end_inset
-
-OP_DROP Ensure delay.
-\end_layout
-
-\begin_layout Description
-<KEY-B> Needs to be signed by B.
-\end_layout
-
-\end_deeper
-\begin_layout Description
-OP_ENDIF
-\end_layout
-
-\begin_layout Description
-OP_CHECKSIG Make sure it's signed correctly.
-\end_layout
-
-\begin_layout Subsubsection*
-Spending The Fast-Escape Output
-\end_layout
-
-\begin_layout Standard
-Either A using a B's secret revealed by B using its own escape transaction:
-\end_layout
-
-\begin_layout Description
-<SIG-A>
-\begin_inset space ~
-\end_inset
-
-<SECRET-B>
-\begin_inset space ~
-\end_inset
-
-{<FAST-ESCAPE-REDEEMSCRIPT>}
-\end_layout
-
-\begin_layout Standard
-Or B using after a timeout:
-\end_layout
-
-\begin_layout Description
-<SIG-B>
-\begin_inset space ~
-\end_inset
-
-0
-\begin_inset space ~
-\end_inset
-
-{<FAST-ESCAPE-REDEEMSCRIPT>}
 \end_layout
 
 \begin_layout Subsection*
@@ -2131,6 +1877,276 @@ e: you cannot have an untrusted third party which can monitor the network
  If you were to provide a third party with your fast escape transaction,
  you would necessarily provide it with the secret, which it could give to
  B.
+\end_layout
+
+\begin_layout Subsection
+Script Definitions for Escape Transactions
+\end_layout
+
+\begin_layout Subsection*
+Escape Transaction
+\end_layout
+
+\begin_layout Standard
+The escape transaction for A spends A's anchor output and reveals A's secret.
+ Similarly for B.
+\end_layout
+
+\begin_layout Subsubsection*
+Escape Input Script
+\end_layout
+
+\begin_layout Standard
+The extra 0 at the start is due to the OP_CHECKMULTISIG out-by-one-bug.
+\end_layout
+
+\begin_layout Description
+0
+\begin_inset space ~
+\end_inset
+
+<SIG-B'>
+\begin_inset space ~
+\end_inset
+
+<SIG-A>
+\begin_inset space ~
+\end_inset
+
+<SECRET-A>
+\begin_inset space ~
+\end_inset
+
+{<ANCHOR-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Subsubsection*
+Escape Output Redeemscript
+\end_layout
+
+\begin_layout Standard
+This allows two paths: one for the other side to use the revocation image,
+ and one for this side to get their funds back after a delay.
+ This show's A's script, but B's is the same with A and B exchanged.
+\end_layout
+
+\begin_layout Description
+OP_HASH160
+\begin_inset space ~
+\end_inset
+
+<RHASH-A>
+\begin_inset space ~
+\end_inset
+
+OP_EQUAL Check if the top of stack is the revocation image.
+\end_layout
+
+\begin_layout Description
+OP_IF
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+<KEY-B> Funds for B.
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ELSE It's A getting their funds back
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+<DELAYTIME>
+\begin_inset space ~
+\end_inset
+
+OP_CHECKSEQUENCEVERIFY
+\begin_inset space ~
+\end_inset
+
+OP_DROP Ensure delay.
+\end_layout
+
+\begin_layout Description
+<KEY-A> Needs to be signed by A.
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ENDIF
+\end_layout
+
+\begin_layout Description
+OP_CHECKSIG Make sure it's signed correctly.
+\end_layout
+
+\begin_layout Subsubsection*
+Spending The Escape Output
+\end_layout
+
+\begin_layout Standard
+Either B using a revocation preimage:
+\end_layout
+
+\begin_layout Description
+<SIG-B>
+\begin_inset space ~
+\end_inset
+
+<REVOCATION-IMAGE-A>
+\begin_inset space ~
+\end_inset
+
+{<ESCAPE-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Standard
+Or A using after a timeout:
+\end_layout
+
+\begin_layout Description
+<SIG-A>
+\begin_inset space ~
+\end_inset
+
+0
+\begin_inset space ~
+\end_inset
+
+{<ESCAPE-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Subsection*
+Fast-Escape Transaction
+\end_layout
+
+\begin_layout Subsubsection*
+Fast-Escape Input Script
+\end_layout
+
+\begin_layout Standard
+This is identical to the normal escape input script.
+\end_layout
+
+\begin_layout Description
+0
+\begin_inset space ~
+\end_inset
+
+<SIG-B'>
+\begin_inset space ~
+\end_inset
+
+<SIG-A>
+\begin_inset space ~
+\end_inset
+
+<SECRET-A>
+\begin_inset space ~
+\end_inset
+
+{<ANCHOR-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Subsubsection*
+Fast-Escape Output Redeemscript
+\end_layout
+
+\begin_layout Standard
+This allows two paths: one for this side to use the other side's secret
+ (revealed by them using an escape transaction), and one for the other side
+ to claim this side's anchor funds after a delay.
+ This show's A's script, but B's is the same with A and B exchanged.
+\end_layout
+
+\begin_layout Description
+OP_HASH
+\begin_inset space ~
+\end_inset
+
+<SECRET-B-HASH>
+\begin_inset space ~
+\end_inset
+
+OP_EQUAL If top argument is B's secret
+\end_layout
+
+\begin_layout Description
+OP_IF
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+<KEY-A> For A
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ELSE B gets it if A doesn't know the secret.
+\end_layout
+
+\begin_deeper
+\begin_layout Description
+<DELAYTIME>
+\begin_inset space ~
+\end_inset
+
+OP_CHECKSEQUENCEVERIFY
+\begin_inset space ~
+\end_inset
+
+OP_DROP Ensure delay.
+\end_layout
+
+\begin_layout Description
+<KEY-B> Needs to be signed by B.
+\end_layout
+
+\end_deeper
+\begin_layout Description
+OP_ENDIF
+\end_layout
+
+\begin_layout Description
+OP_CHECKSIG Make sure it's signed correctly.
+\end_layout
+
+\begin_layout Subsubsection*
+Spending The Fast-Escape Output
+\end_layout
+
+\begin_layout Standard
+Either A using a B's secret revealed by B using its own escape transaction:
+\end_layout
+
+\begin_layout Description
+<SIG-A>
+\begin_inset space ~
+\end_inset
+
+<SECRET-B>
+\begin_inset space ~
+\end_inset
+
+{<FAST-ESCAPE-REDEEMSCRIPT>}
+\end_layout
+
+\begin_layout Standard
+Or B using after a timeout:
+\end_layout
+
+\begin_layout Description
+<SIG-B>
+\begin_inset space ~
+\end_inset
+
+0
+\begin_inset space ~
+\end_inset
+
+{<FAST-ESCAPE-REDEEMSCRIPT>}
 \end_layout
 
 \end_body
