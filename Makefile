@@ -88,7 +88,7 @@ PROGRAMS := $(TEST_CLI_PROGRAMS) $(TEST_PROGRAMS)
 HEADERS := $(filter-out gen_*, $(wildcard *.h)) $(wildcard bitcoin/*.h) gen_state_names.h
 
 CCANDIR := ccan/
-CFLAGS := -g -Wall -I $(CCANDIR) -I secp256k1/include/ -DVALGRIND_HEADERS=1 $(FEATURES)
+CFLAGS := -g -Wall -I $(CCANDIR) -I secp256k1/include/ $(FEATURES)
 LDLIBS := -lcrypto -lprotobuf-c
 $(PROGRAMS): CFLAGS+=-I.
 

@@ -1,12 +1,12 @@
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/endian/endian.h>
 #include <ccan/err/err.h>
+#include <ccan/mem/mem.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <assert.h>
 #include "tx.h"
-#include "valgrind.h"
 
 enum styles {
 	/* Add the CT padding stuff to amount. */
@@ -197,7 +197,7 @@ static void add_tx(const struct bitcoin_tx *tx,
 static void add_sha(const void *data, size_t len, void *shactx_)
 {
 	struct sha256_ctx *ctx = shactx_;
-	sha256_update(ctx, check_mem(data, len), len);
+	sha256_update(ctx, memcheck(data, len), len);
 }
 
 void sha256_tx_for_sig(struct sha256_ctx *ctx, const struct bitcoin_tx *tx,
@@ -219,7 +219,7 @@ static void add_linearize(const void *data, size_t len, void *pptr_)
 	size_t oldsize = tal_count(*pptr);
 
 	tal_resize(pptr, oldsize + len);
-	memcpy(*pptr + oldsize, check_mem(data, len), len);
+	memcpy(*pptr + oldsize, memcheck(data, len), len);
 }
 
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
@@ -278,7 +278,7 @@ static const u8 *pull(const u8 **cursor, size_t *max, void *copy, size_t n)
 	*max -= n;
 	if (copy)
 		memcpy(copy, p, n);
-	return check_mem(p, n);
+	return memcheck(p, n);
 }
 
 static u64 pull_varint(const u8 **cursor, size_t *max)
