@@ -479,7 +479,7 @@ on, and B sends A a signature for A's new commitment transaction.
 As before, each commitment transaction contains two outputs, one for A and
  one for B; but A's commitment transaction output to itself is encumbered
  by an additional restriction (as is B's output to itself).
- Instead of paying A directly, needs both A and B's signature.
+ Instead of paying A directly, A's output needs both A and B's signature.
  B provides such a signature, but on a 
 \begin_inset Quotes eld
 \end_inset
@@ -633,6 +633,11 @@ A and B's signature, OR
 A's signature and OP_CHECKLOCKTIMEVERIFY <40 days>
 \end_layout
 
+\begin_layout Standard
+As of Nov.
+ 13, 2015, BIP65 has been deployed and is in the process of being activated.
+\end_layout
+
 \begin_layout Subsubsection
 Using Relative Locktime
 \end_layout
@@ -640,20 +645,21 @@ Using Relative Locktime
 \begin_layout Standard
 The Poon-Dryja channel uses a 40 day locktime, because transaction locktime
  is absolute.
- Before 40 days the channel must be closed otherwise spending a revoked
+ Before 40 days the channel must be closed, otherwise spending a revoked
  transaction and immediately following it with the commit refund transaction
  is possible.
 \end_layout
 
 \begin_layout Standard
-A proposal to extend output scripts to specify a minimum 
+BIP112[#BIP112] proposes OP_CHECKSEQUENCEVERIFY, an opcode which allows
+ an output to specify a minimum 
 \emph on
 relative
 \emph default
- time before they can be spent
+ time before the output can be spent
 \begin_inset CommandInset citation
 LatexCommand cite
-key "friedenbach_bitcoin-development_2015"
+key "friedenbach_bitcoin-development_2015,BIP112"
 
 \end_inset
 
@@ -667,6 +673,11 @@ A and B's signature, OR
 
 \begin_layout Itemize
 A's signature and OP_CHECKSEQUENCEVERIFY <1 day>
+\end_layout
+
+\begin_layout Standard
+As of Nov.
+ 13, 2015, BIP112 has not been deployed.
 \end_layout
 
 \begin_layout Subsubsection
@@ -872,7 +883,7 @@ status open
 \begin_inset Caption Standard
 
 \begin_layout Plain Layout
-HTLC Using Revocation Preimages, OP_CLV and OP_CSV (simplified)
+HTLC Using Revocation Preimages, OP_CLTV and OP_CSV (simplified)
 \begin_inset CommandInset label
 LatexCommand label
 name "fig:HTLC-Using-Revocation"
@@ -1800,7 +1811,7 @@ reference "fig:Final-Dual-Anchor"
 \end_inset
 
 .
- Thus, if the B broadcasts its escape transaction after it has been revoked,
+ Thus, if B broadcasts its escape transaction after it has been revoked,
  A can (after ensuring escape B is sufficiently deep in the block chain)
  broadcast its fast escape transaction and use B's secret to immediately
  spend the output.
@@ -1939,7 +1950,7 @@ OP_HASH160
 \begin_inset space ~
 \end_inset
 
-OP_EQUAL Check if the top of stack is the revocation image.
+OP_EQUAL Check if the top of the stack contains the revocation image.
 \end_layout
 
 \begin_layout Description
@@ -2058,7 +2069,7 @@ Fast-Escape Output Redeemscript
 This allows two paths: one for this side to use the other side's secret
  (revealed by them using an escape transaction), and one for the other side
  to claim this side's anchor funds after a delay.
- This show's A's script, but B's is the same with A and B exchanged.
+ This shows A's script, but B's is the same with A and B exchanged.
 \end_layout
 
 \begin_layout Description
@@ -2118,7 +2129,7 @@ Spending The Fast-Escape Output
 \end_layout
 
 \begin_layout Standard
-Either A using a B's secret revealed by B using its own escape transaction:
+Either A using B's secret revealed by B using its own escape transaction:
 \end_layout
 
 \begin_layout Description
