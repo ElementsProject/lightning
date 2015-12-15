@@ -145,7 +145,7 @@ inputs
 \emph on
 spends
 \emph default
- one or more outputs and creates an output which the recipient can spent
+ one or more outputs and creates an output which the recipient can spend
  using their private key.
 \end_layout
 
@@ -834,7 +834,7 @@ The HTLC has timed out (funds return to sender), or
 \end_layout
 
 \begin_layout Enumerate
-The Commit transaction has been revoked (funds to go other side).
+The Commit transaction has been revoked (funds go to other side).
 \end_layout
 
 \begin_layout Standard
