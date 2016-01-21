@@ -1167,11 +1167,10 @@ struct htlc_rval *r_value_from_pkt(const tal_t *ctx, const Pkt *pkt)
 
 static void peer_init(struct peer *peer,
 		      struct peer *other,
-		      enum state_input initstate,
 		      const char *name)
 {
-	peer->core.state = initstate;
-	peer->core.num_outputs = 1;
+	peer->core.state = STATE_INIT;
+	peer->core.num_outputs = 0;
 	peer->current_htlc.htlc.id = -1;
 	peer->num_htlcs_to_us = 0;
 	peer->num_htlcs_to_them = 0;
@@ -1184,7 +1183,6 @@ static void peer_init(struct peer *peer,
 	memset(peer->core.outputs, 0, sizeof(peer->core.outputs));
 	peer->core.deferred_pkt = INPUT_NONE;
 	peer->core.deferred_state = STATE_MAX;
-	peer->core.outputs[0] = INPUT_NONE;
 	peer->pkt_data[0] = -1;
 	peer->core.current_command = INPUT_NONE;
 	peer->core.event_notifies = 0;
@@ -2141,6 +2139,18 @@ static void run_peer(const struct peer *peer,
 	/* We want to frob some things... */
 	copy_peers(&copy, &other, peer);
 	
+	/* If in init state, we can only send start command. */
+	if (peer->core.state == STATE_INIT) {
+		if (streq(peer->name, "A"))
+			copy.core.current_command = CMD_OPEN_WITH_ANCHOR;
+		else
+			copy.core.current_command = CMD_OPEN_WITHOUT_ANCHOR;
+		try_input(&copy, copy.core.current_command, idata,
+			  normalpath, errorpath,
+			  prev_trail, hist);
+		return;
+	}
+	
 	/* Try the event notifiers */
 	old_notifies = copy.core.event_notifies;
 	for (i = 0; i < 64; i++) {
@@ -2158,8 +2168,7 @@ static void run_peer(const struct peer *peer,
 
 	/* We can send a close command even if already sending a
 	 * (different) command. */
-	if (peer->core.state != STATE_INIT_WITHANCHOR
-	    && peer->core.state != STATE_INIT_NOANCHOR
+	if (peer->core.state != STATE_INIT
 	    && peer->core.cmd_inputs
 	    && !peer->core.closing_cmd) {
 		copy.core.closing_cmd = true;
@@ -2168,11 +2177,8 @@ static void run_peer(const struct peer *peer,
 		copy.core.closing_cmd = false;
 	}
 
-	/* Try sending commands (unless in init state, closed or
-	 * already doing one). */
-	if (peer->core.state != STATE_INIT_WITHANCHOR
-	    && peer->core.state != STATE_INIT_NOANCHOR
-	    && peer->core.cmd_inputs
+	/* Try sending commands (unless closed or already doing one). */
+	if (peer->core.cmd_inputs
 	    && peer->core.current_command == INPUT_NONE
 	    && !peer->core.closing_cmd) {
 		unsigned int i;
@@ -2435,10 +2441,10 @@ int main(int argc, char *argv[])
 #else
 	quick = true;
 #endif
-	
+
 	/* Initialize universe. */
-	peer_init(&a, &b, STATE_INIT_WITHANCHOR, "A");
-	peer_init(&b, &a, STATE_INIT_NOANCHOR, "B");
+	peer_init(&a, &b, "A");
+	peer_init(&b, &a, "B");
 	if (!sithash_update(&hist.sithash, &a))
 		abort();
 	failhash_init(&failhash);
@@ -2484,15 +2490,13 @@ int main(int argc, char *argv[])
 			continue;
 
 		/* A supplied anchor, so doesn't enter NOANCHOR states. */
-		if (i == STATE_INIT_NOANCHOR
-		    || i == STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR
+		if (i == STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR
 		    || i == STATE_OPEN_WAIT_FOR_ANCHOR
 		    || i == STATE_OPEN_WAITING_THEIRANCHOR
 		    || i == STATE_OPEN_WAIT_FOR_COMPLETE_THEIRANCHOR
 		    || i == STATE_ERR_ANCHOR_TIMEOUT)
 			a_expect = false;
-		if (i == STATE_INIT_WITHANCHOR
-		    || i == STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR
+		if (i == STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR
 		    || i == STATE_OPEN_WAIT_FOR_COMMIT_SIG
 		    || i == STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR
 		    || i == STATE_OPEN_WAITING_OURANCHOR)

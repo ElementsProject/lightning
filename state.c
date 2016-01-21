@@ -50,24 +50,28 @@ struct state_effect *state(const tal_t *ctx,
 	/*
 	 * Initial channel opening states.
 	 */
-	case STATE_INIT_NOANCHOR:
-		assert(input == INPUT_NONE);
-		add_effect(&effect, send_pkt,
-			   pkt_open(ctx, peer,
-				OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR));
-		return next_state(ctx, effect,
-				  STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR);
-	case STATE_INIT_WITHANCHOR:
-		assert(input == INPUT_NONE);
-		add_effect(&effect, send_pkt,
-			   pkt_open(ctx, peer,
-				OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR));
-		return next_state(ctx, effect, STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR);
+	case STATE_INIT:
+		if (input_is(input, CMD_OPEN_WITH_ANCHOR)) {
+			add_effect(&effect, send_pkt,
+				   pkt_open(ctx, peer,
+					    OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR));
+			return next_state(ctx, effect,
+					  STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR);
+		} else if (input_is(input, CMD_OPEN_WITHOUT_ANCHOR)) {
+			add_effect(&effect, send_pkt,
+				   pkt_open(ctx, peer,
+					    OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR));
+			return next_state(ctx, effect,
+					  STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR);
+		}
+		break;
 	case STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR:
 		if (input_is(input, PKT_OPEN)) {
 			err = accept_pkt_open(ctx, peer, idata->pkt, &effect);
-			if (err)
+			if (err) {
+				add_effect(&effect, cmd_fail, NULL);
 				goto err_close_nocleanup;
+			}
 			return next_state(ctx, effect, STATE_OPEN_WAIT_FOR_ANCHOR);
 		} else if (input_is(input, CMD_SEND_HTLC_UPDATE)) {
 			/* Can't do this until we're open. */
@@ -75,16 +79,20 @@ struct state_effect *state(const tal_t *ctx,
 			/* No state change. */
 			return effect;
 		} else if (input_is(input, CMD_CLOSE)) {
+			add_effect(&effect, cmd_fail, NULL);
 			goto instant_close;
 		} else if (input_is_pkt(input)) {
+			add_effect(&effect, cmd_fail, NULL);
 			goto unexpected_pkt_nocleanup;
 		}
 		break;
 	case STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR:
 		if (input_is(input, PKT_OPEN)) {
 			err = accept_pkt_open(ctx, peer, idata->pkt, &effect);
-			if (err)
+			if (err) {
+				add_effect(&effect, cmd_fail, NULL);
 				goto err_close_nocleanup;
+			}
 			add_effect(&effect, send_pkt, pkt_anchor(ctx, peer));
 			return next_state(ctx, effect,
 					  STATE_OPEN_WAIT_FOR_COMMIT_SIG);
@@ -94,16 +102,20 @@ struct state_effect *state(const tal_t *ctx,
 			/* No state change. */
 			return effect;
 		} else if (input_is(input, CMD_CLOSE)) {
+			add_effect(&effect, cmd_fail, NULL);
 			goto instant_close;
 		} else if (input_is_pkt(input)) {
+			add_effect(&effect, cmd_fail, NULL);
 			goto unexpected_pkt_nocleanup;
 		}
 		break;
 	case STATE_OPEN_WAIT_FOR_ANCHOR:
 		if (input_is(input, PKT_OPEN_ANCHOR)) {
 			err = accept_pkt_anchor(ctx, peer, idata->pkt, &effect);
-			if (err)
+			if (err) {
+				add_effect(&effect, cmd_fail, NULL);
 				goto err_close_nocleanup;
+			}
 			add_effect(&effect, send_pkt,
 				   pkt_open_commit_sig(ctx, peer));
 			add_effect(&effect, watch,
@@ -122,8 +134,10 @@ struct state_effect *state(const tal_t *ctx,
 			/* No state change. */
 			return effect;
 		} else if (input_is(input, CMD_CLOSE)) {
+			add_effect(&effect, cmd_fail, NULL);
 			goto instant_close;
 		} else if (input_is_pkt(input)) {
+			add_effect(&effect, cmd_fail, NULL);
 			goto unexpected_pkt_nocleanup;
 		}
 		break;
@@ -131,8 +145,10 @@ struct state_effect *state(const tal_t *ctx,
 		if (input_is(input, PKT_OPEN_COMMIT_SIG)) {
 			err = accept_pkt_open_commit_sig(ctx, peer, idata->pkt,
 							 &effect);
-			if (err)
+			if (err) {
+				add_effect(&effect, cmd_fail, NULL);
 				goto err_start_unilateral_close;
+			}
 			add_effect(&effect, broadcast_tx,
 				   bitcoin_anchor(ctx, peer));
 			add_effect(&effect, watch,
@@ -149,8 +165,10 @@ struct state_effect *state(const tal_t *ctx,
 			/* No state change. */
 			return effect;
 		} else if (input_is(input, CMD_CLOSE)) {
+			add_effect(&effect, cmd_fail, NULL);
 			goto instant_close;
 		} else if (input_is_pkt(input)) {
+			add_effect(&effect, cmd_fail, NULL);
 			goto unexpected_pkt_nocleanup;
 		}
 		break;
@@ -161,6 +179,7 @@ struct state_effect *state(const tal_t *ctx,
 			return next_state(ctx, effect,
 					  STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR);
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT)) {
+			add_effect(&effect, cmd_fail, NULL);
 			goto anchor_unspent;
 		} else if (input_is(input, PKT_OPEN_COMPLETE)) {
 			/* Ignore until we've hit depth ourselves. */
@@ -178,6 +197,7 @@ struct state_effect *state(const tal_t *ctx,
 				   bitcoin_unwatch_anchor_depth(ctx, peer,
 							BITCOIN_ANCHOR_DEPTHOK,
 							INPUT_NONE));
+			add_effect(&effect, cmd_fail, NULL);
 			goto them_unilateral;
 		} else if (input_is(input, BITCOIN_ANCHOR_OTHERSPEND)) {
 			/* This should be impossible. */
@@ -188,6 +208,7 @@ struct state_effect *state(const tal_t *ctx,
 				   bitcoin_unwatch_anchor_depth(ctx, peer,
 							BITCOIN_ANCHOR_DEPTHOK,
 							INPUT_NONE));
+			add_effect(&effect, cmd_fail, NULL);
 			goto start_closing;
 		} else if (input_is(input, PKT_CLOSE)) {
 			/* We no longer care about anchor depth. */
@@ -195,6 +216,7 @@ struct state_effect *state(const tal_t *ctx,
 				   bitcoin_unwatch_anchor_depth(ctx, peer,
 							BITCOIN_ANCHOR_DEPTHOK,
 							INPUT_NONE));
+			add_effect(&effect, cmd_fail, NULL);
 			goto accept_closing;
 		} else if (input_is_pkt(input)) {
 			/* We no longer care about anchor depth. */
@@ -202,7 +224,8 @@ struct state_effect *state(const tal_t *ctx,
 				   bitcoin_unwatch_anchor_depth(ctx, peer,
 							BITCOIN_ANCHOR_DEPTHOK,
 							INPUT_NONE));
-			goto unexpected_pkt;
+			add_effect(&effect, cmd_fail, NULL);
+			goto unexpected_pkt_nocleanup;
 		}
 		break;
 	case STATE_OPEN_WAITING_THEIRANCHOR:
@@ -216,6 +239,7 @@ struct state_effect *state(const tal_t *ctx,
 				   pkt_open_complete(ctx, peer));
 			return next_state(ctx, effect, STATE_OPEN_WAIT_FOR_COMPLETE_THEIRANCHOR);
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT)) {
+			add_effect(&effect, cmd_fail, NULL);
 			goto anchor_unspent;
 		} else if (input_is(input, BITCOIN_ANCHOR_OTHERSPEND)) {
 			/* This should be impossible. */
@@ -226,6 +250,7 @@ struct state_effect *state(const tal_t *ctx,
 				   bitcoin_unwatch_anchor_depth(ctx, peer,
 						     BITCOIN_ANCHOR_DEPTHOK,
 						     BITCOIN_ANCHOR_TIMEOUT));
+			add_effect(&effect, cmd_fail, NULL);
 			goto them_unilateral;
 		} else if (input_is(input, PKT_OPEN_COMPLETE)) {
 			/* Ignore until we've hit depth ourselves. */
@@ -243,6 +268,7 @@ struct state_effect *state(const tal_t *ctx,
 				   bitcoin_unwatch_anchor_depth(ctx, peer,
 						     BITCOIN_ANCHOR_DEPTHOK,
 						     BITCOIN_ANCHOR_TIMEOUT));
+			add_effect(&effect, cmd_fail, NULL);
 			goto start_closing;
 		} else if (input_is(input, PKT_CLOSE)) {
 			/* We no longer care about anchor depth. */
@@ -250,6 +276,7 @@ struct state_effect *state(const tal_t *ctx,
 				   bitcoin_unwatch_anchor_depth(ctx, peer,
 						     BITCOIN_ANCHOR_DEPTHOK,
 						     BITCOIN_ANCHOR_TIMEOUT));
+			add_effect(&effect, cmd_fail, NULL);
 			goto accept_closing;
 		} else if (input_is_pkt(input)) {
 			/* We no longer care about anchor depth. */
@@ -257,6 +284,7 @@ struct state_effect *state(const tal_t *ctx,
 				   bitcoin_unwatch_anchor_depth(ctx, peer,
 						     BITCOIN_ANCHOR_DEPTHOK,
 						     BITCOIN_ANCHOR_TIMEOUT));
+			add_effect(&effect, cmd_fail, NULL);
 			goto unexpected_pkt;
 		}
 		break;
@@ -264,31 +292,36 @@ struct state_effect *state(const tal_t *ctx,
 	case STATE_OPEN_WAIT_FOR_COMPLETE_THEIRANCHOR:
 		if (input_is(input, PKT_OPEN_COMPLETE)) {
 			/* Ready for business!  Anchorer goes first. */
-			if (state == STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR)
+			if (state == STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR) {
+				add_effect(&effect, cmd_success, CMD_OPEN_WITH_ANCHOR);
 				return next_state(ctx, effect, STATE_NORMAL_HIGHPRIO);
-			else
+			} else {
+				add_effect(&effect, cmd_success, CMD_OPEN_WITHOUT_ANCHOR);
 				return next_state(ctx, effect, STATE_NORMAL_LOWPRIO);
+			}
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT)) {
+			add_effect(&effect, cmd_fail, NULL);
 			goto anchor_unspent;
 		/* Nobody should be able to spend anchor, except via the
 		 * commit txs. */
 		} else if (input_is(input, BITCOIN_ANCHOR_OTHERSPEND)) {
 			return next_state(ctx, effect, STATE_ERR_INFORMATION_LEAK);
 		} else if (input_is(input, BITCOIN_ANCHOR_THEIRSPEND)) {
+			add_effect(&effect, cmd_fail, NULL);
 			goto them_unilateral;
-		} else if (input_is(input, PKT_OPEN_COMPLETE)) {
-			/* Ready for business! */
-			return next_state(ctx, effect, STATE_NORMAL_HIGHPRIO);
 		} else if (input_is(input, CMD_SEND_HTLC_UPDATE)) {
 			/* Can't do this until we're open. */
 			add_effect(&effect, cmd_defer, input);
 			/* No state change. */
 			return effect;
 		} else if (input_is(input, CMD_CLOSE)) {
+			add_effect(&effect, cmd_fail, NULL);
 			goto start_closing;
 		} else if (input_is(input, PKT_CLOSE)) {
+			add_effect(&effect, cmd_fail, NULL);
 			goto accept_closing;
 		} else if (input_is_pkt(input)) {
+			add_effect(&effect, cmd_fail, NULL);
 			goto unexpected_pkt;
 		}
 		break;
