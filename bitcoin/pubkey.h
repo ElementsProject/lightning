@@ -15,15 +15,18 @@ struct pubkey {
 };
 
 /* Convert from hex string of DER (scriptPubKey from validateaddress) */
-bool pubkey_from_hexstr(const char *derstr, size_t derlen, struct pubkey *key);
+bool pubkey_from_hexstr(secp256k1_context *secpctx,
+			const char *derstr, size_t derlen, struct pubkey *key);
 
 /* Pubkey from privkey */
-bool pubkey_from_privkey(const struct privkey *privkey,
+bool pubkey_from_privkey(secp256k1_context *secpctx,
+			 const struct privkey *privkey,
 			 struct pubkey *key,
 			 unsigned int compressed_flags);
 
 /* Pubkey from DER encoding. */
-bool pubkey_from_der(const u8 *der, size_t len, struct pubkey *key);
+bool pubkey_from_der(secp256k1_context *secpctx,
+		     const u8 *der, size_t len, struct pubkey *key);
 
 /* How many bytes of key->der are valid. */
 size_t pubkey_derlen(const struct pubkey *key);

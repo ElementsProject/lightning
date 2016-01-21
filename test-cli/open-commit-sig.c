@@ -52,7 +52,9 @@ int main(int argc, char *argv[])
 	o2 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
 	a = pkt_from_file(argv[3], PKT__PKT_OPEN_ANCHOR)->open_anchor;
 	
-	if (!key_from_base58(argv[4], strlen(argv[4]), &testnet, &privkey, &pubkey1))
+	if (!key_from_base58(secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+						      | SECP256K1_CONTEXT_SIGN),
+			     argv[4], strlen(argv[4]), &testnet, &privkey, &pubkey1))
 		errx(1, "Invalid private key '%s'", argv[4]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
@@ -75,12 +77,14 @@ int main(int argc, char *argv[])
 		errx(1, "Invalid packets?");
 
 	/* Their pubkey must be valid */
-	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o2->commit_key, &pubkey2))
 		errx(1, "Invalid public open-channel-file2");
 
 	/* Sign it for them. */
 	subscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
-	sign_tx_input(commit, 0, subscript, tal_count(subscript),
+	sign_tx_input(secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
+		      commit, 0, subscript, tal_count(subscript),
 		      &privkey, &pubkey1, &sig);
 
 	pkt = open_commit_sig_pkt(ctx, &sig);

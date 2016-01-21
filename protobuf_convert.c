@@ -74,14 +74,19 @@ BitcoinPubkey *pubkey_to_proto(const tal_t *ctx, const struct pubkey *key)
 	p->key.len = pubkey_derlen(key);
 	p->key.data = tal_dup_arr(p, u8, key->der, p->key.len, 0);
 
-	assert(pubkey_from_der(p->key.data, p->key.len, &check));
-	assert(pubkey_eq(&check, key));
+	{
+		secp256k1_context *secpctx = secp256k1_context_create(0);
+		assert(pubkey_from_der(secpctx, p->key.data, p->key.len, &check));
+		assert(pubkey_eq(&check, key));
+		secp256k1_context_destroy(secpctx);
+	}
 	return p;
 }
 
-bool proto_to_pubkey(const BitcoinPubkey *pb, struct pubkey *key)
+bool proto_to_pubkey(secp256k1_context *secpctx,
+		     const BitcoinPubkey *pb, struct pubkey *key)
 {
-	return pubkey_from_der(pb->key.data, pb->key.len, key);
+	return pubkey_from_der(secpctx, pb->key.data, pb->key.len, key);
 }
 
 Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash)

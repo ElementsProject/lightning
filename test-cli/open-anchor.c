@@ -56,13 +56,16 @@ int main(int argc, char *argv[])
 
 	o1 = pkt_from_file(argv[1], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
-	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o2->commit_key, &pubkey2))
 		errx(1, "Invalid o2 commit_key");
 
 	anchor = bitcoin_tx_from_file(ctx, argv[3]);
 	bitcoin_txid(anchor, &txid);
 
-	if (!key_from_base58(argv[4], strlen(argv[4]), &testnet, &privkey, &pubkey1))
+	if (!key_from_base58(secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+						      | SECP256K1_CONTEXT_SIGN),
+			     argv[4], strlen(argv[4]), &testnet, &privkey, &pubkey1))
 		errx(1, "Invalid private key '%s'", argv[4]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
@@ -88,7 +91,8 @@ int main(int argc, char *argv[])
 	invert_cstate(cstate);
 	commit = commit_tx_from_pkts(ctx, o2, o1, &oa, &rhash, cstate);
 
-	sign_tx_input(commit, 0, redeemscript, tal_count(redeemscript),
+	sign_tx_input(secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
+		      commit, 0, redeemscript, tal_count(redeemscript),
 		      &privkey, &pubkey1, &sig);
 
 	oa.commit_sig = signature_to_proto(ctx, &sig);

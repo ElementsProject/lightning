@@ -88,18 +88,23 @@ int main(int argc, char *argv[])
 		errx(1, "Expected update or update-add-htlc for %s", argv[5]);
 	}
 
-	if (!key_from_base58(argv[6], strlen(argv[6]), &testnet, &privkey, &key))
+	if (!key_from_base58(secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+						      | SECP256K1_CONTEXT_SIGN),
+			     argv[6], strlen(argv[6]), &testnet, &privkey, &key))
 		errx(1, "Invalid private key '%s'", argv[6]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[6]);
 
-	if (!pubkey_from_hexstr(argv[7], strlen(argv[7]), &outpubkey))
+	if (!pubkey_from_hexstr(secp256k1_context_create(0),
+				argv[7], strlen(argv[7]), &outpubkey))
 		errx(1, "Invalid commit key '%s'", argv[7]);
 
 	/* Get pubkeys */
-	if (!proto_to_pubkey(o1->final_key, &pubkey1))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o1->final_key, &pubkey1))
 		errx(1, "Invalid o1 final pubkey");
-	if (!proto_to_pubkey(o2->final_key, &pubkey2))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o2->final_key, &pubkey2))
 		errx(1, "Invalid o2 final pubkey");
 
 	if (pubkey_eq(&key, &pubkey1)) {
@@ -186,9 +191,9 @@ int main(int argc, char *argv[])
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
 	/* Now get signature, to set up input script. */
-	if (!sign_tx_input(tx, 0, redeemscript, tal_count(redeemscript),
-			   &privkey, &key, &sig.sig))
-		errx(1, "Could not sign tx");
+	sign_tx_input(secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
+		      tx, 0, redeemscript, tal_count(redeemscript),
+		      &privkey, &key, &sig.sig);
 
 	sig.stype = SIGHASH_ALL;
 	tx->input[0].script = scriptsig_p2sh_secret(tx, secret, secret_len,

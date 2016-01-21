@@ -57,7 +57,9 @@ int main(int argc, char *argv[])
 	o2 = pkt_from_file(argv[3], PKT__PKT_OPEN)->open;
 	a = pkt_from_file(argv[4], PKT__PKT_OPEN_ANCHOR)->open_anchor;
 
-	if (!key_from_base58(argv[5], strlen(argv[5]), &testnet, &privkey, &pubkey1))
+	if (!key_from_base58(secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+						      | SECP256K1_CONTEXT_SIGN),
+			     argv[5], strlen(argv[5]), &testnet, &privkey, &pubkey1))
 		errx(1, "Invalid private key '%s'", argv[5]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[5]);
@@ -75,11 +77,13 @@ int main(int argc, char *argv[])
 	       revocation_hash.u.u8, sizeof(revocation_hash.u.u8));
 	
 	/* Get pubkeys */
-	if (!proto_to_pubkey(o1->commit_key, &pubkey2))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o1->commit_key, &pubkey2))
 		errx(1, "Invalid o1 commit pubkey");
 	if (!pubkey_eq(&pubkey1, &pubkey2))
 		errx(1, "o1 pubkey != this privkey");
-	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o2->commit_key, &pubkey2))
 		errx(1, "Invalid o2 commit pubkey");
 
 	/* This is what the anchor pays to; figure out whick output. */
@@ -94,7 +98,8 @@ int main(int argc, char *argv[])
 		errx(1, "Delta too large");
 
 	/* Sign it for them. */
-	sign_tx_input(commit, 0, redeemscript, tal_count(redeemscript),
+	sign_tx_input(secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
+		      commit, 0, redeemscript, tal_count(redeemscript),
 		      &privkey, &pubkey1, &sig.sig);
 
 	pkt = update_accept_pkt(ctx, &sig.sig, &revocation_hash);

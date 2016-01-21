@@ -63,7 +63,9 @@ int main(int argc, char *argv[])
 		errx(1, "Expected update or update-complete in %s", argv[2]);
 	}
 
-	if (!key_from_base58(argv[3], strlen(argv[3]), &testnet, &privkey, &pubkey1))
+	if (!key_from_base58(secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+						      | SECP256K1_CONTEXT_SIGN),
+			     argv[3], strlen(argv[3]), &testnet, &privkey, &pubkey1))
 		errx(1, "Invalid private key '%s'", argv[3]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[3]);
@@ -73,15 +75,18 @@ int main(int argc, char *argv[])
 	if (!proto_to_rel_locktime(o1->delay, &locktime))
 		errx(1, "Invalid locktime in o2");
 
-	if (!pubkey_from_hexstr(argv[6], strlen(argv[6]), &outpubkey))
+	if (!pubkey_from_hexstr(secp256k1_context_create(0),
+				argv[6], strlen(argv[6]), &outpubkey))
 		errx(1, "Invalid bitcoin pubkey '%s'", argv[6]);
 
 	/* Get pubkeys */
-	if (!proto_to_pubkey(o1->final_key, &pubkey2))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o1->final_key, &pubkey2))
 		errx(1, "Invalid o1 final pubkey");
 	if (!pubkey_eq(&pubkey1, &pubkey2))
 		errx(1, "o1 pubkey != this privkey");
-	if (!proto_to_pubkey(o2->final_key, &pubkey2))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o2->final_key, &pubkey2))
 		errx(1, "Invalid o2 final pubkey");
 
 	/* Now, which commit output?  Match redeem script. */
@@ -113,9 +118,9 @@ int main(int argc, char *argv[])
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
 	/* Now get signature, to set up input script. */
-	if (!sign_tx_input(tx, 0, redeemscript, tal_count(redeemscript),
-			   &privkey, &pubkey1, &sig.sig))
-		errx(1, "Could not sign tx");
+	sign_tx_input(secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
+		      tx, 0, redeemscript, tal_count(redeemscript),
+		      &privkey, &pubkey1, &sig.sig);
 	sig.stype = SIGHASH_ALL;
 	tx->input[0].script = scriptsig_p2sh_secret(tx,
 						    &revoke_preimage,

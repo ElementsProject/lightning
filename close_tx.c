@@ -6,7 +6,8 @@
 #include "permute_tx.h"
 #include "protobuf_convert.h"
 
-struct bitcoin_tx *create_close_tx(const tal_t *ctx,
+struct bitcoin_tx *create_close_tx(secp256k1_context *secpctx,
+				   const tal_t *ctx,
 				   OpenChannel *ours,
 				   OpenChannel *theirs,
 				   OpenAnchor *anchor,
@@ -26,9 +27,9 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	tx->input[0].input_amount = anchor->amount;
 
 	/* Outputs goes to final pubkey */
-	if (!proto_to_pubkey(ours->final_key, &ourkey))
+	if (!proto_to_pubkey(secpctx, ours->final_key, &ourkey))
 		return tal_free(tx);
-	if (!proto_to_pubkey(theirs->final_key, &theirkey))
+	if (!proto_to_pubkey(secpctx, theirs->final_key, &theirkey))
 		return tal_free(tx);
 
 

@@ -69,10 +69,12 @@ int main(int argc, char *argv[])
 	if (!hex_decode(argv[1], strlen(argv[1]), &seed, sizeof(seed)))
 		errx(1, "Invalid seed '%s' - need 256 hex bits", argv[1]);
 
-	if (!pubkey_from_hexstr(argv[2], strlen(argv[2]), &commitkey))
+	if (!pubkey_from_hexstr(secp256k1_context_create(0),
+				argv[2], strlen(argv[2]), &commitkey))
 		errx(1, "Invalid commit key '%s'", argv[2]);
 
-	if (!pubkey_from_hexstr(argv[3], strlen(argv[3]), &finalkey))
+	if (!pubkey_from_hexstr(secp256k1_context_create(0),
+				argv[3], strlen(argv[3]), &finalkey))
 		errx(1, "Invalid final key '%s'", argv[3]);
 
 	if (offer_anchor && min_confirms == 0)

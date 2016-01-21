@@ -64,7 +64,9 @@ static void parse_anchor_input(const char *spec, struct input *in)
 	if (*end != '/')
 		errx(1, "Expected / after hexscript");
 
-	if (!key_from_base58(end+1, strlen(end + 1), &testnet,
+	if (!key_from_base58(secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+						      | SECP256K1_CONTEXT_SIGN),
+			     end+1, strlen(end + 1), &testnet,
 			     &in->privkey, &in->pubkey))
 		errx(1, "Invalid private key '%s'", end+1);
 	if (!testnet)
@@ -102,9 +104,11 @@ int main(int argc, char *argv[])
 
 	o1 = pkt_from_file(argv[1], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
-	if (!proto_to_pubkey(o1->commit_key, &pubkey1))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o1->commit_key, &pubkey1))
 		errx(1, "Invalid o1 commit_key");
-	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o2->commit_key, &pubkey2))
 		errx(1, "Invalid o2 commit_key");
 
 	amount = atol(argv[3]);
@@ -142,7 +146,8 @@ int main(int argc, char *argv[])
 	if (change) {
 		struct pubkey change_key;
 
-		if (!pubkey_from_hexstr(argv[4], strlen(argv[4]), &change_key))
+		if (!pubkey_from_hexstr(secp256k1_context_create(0),
+					argv[4], strlen(argv[4]), &change_key))
 			errx(1, "Invalid change key %s", argv[3]);
 
 		redeemscript = bitcoin_redeem_single(anchor, &change_key);
@@ -163,11 +168,11 @@ int main(int argc, char *argv[])
 	/* Now, sign each input. */
 	for (i = 0; i < tal_count(in); i++) {
 		in[i].sig.stype = SIGHASH_ALL;
-		if (!sign_tx_input(anchor, i, in[i].in.script,
-				   in[i].in.script_length,
-				   &in[i].privkey, &in[i].pubkey,
-				   &in[i].sig.sig))
-			errx(1, "Error signing input %zi", i);
+		sign_tx_input(secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
+			      anchor, i, in[i].in.script,
+			      in[i].in.script_length,
+			      &in[i].privkey, &in[i].pubkey,
+			      &in[i].sig.sig);
 	}
 
 	/* Finally, complete inputs using signatures. */

@@ -68,9 +68,11 @@ int main(int argc, char *argv[])
 		errx(1, "Expected at least one update!");
 
 	/* Get pubkeys */
-	if (!proto_to_pubkey(o1->commit_key, &pubkey1))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o1->commit_key, &pubkey1))
 		errx(1, "Invalid o1 commit pubkey");
-	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o2->commit_key, &pubkey2))
 		errx(1, "Invalid o2 commit pubkey");
 
 	/* This is what the anchor pays to. */
@@ -81,7 +83,8 @@ int main(int argc, char *argv[])
 	if (!commit)
 		errx(1, "Delta too large");
 
-	if (!check_tx_sig(commit, 0, redeemscript, tal_count(redeemscript),
+	if (!check_tx_sig(secp256k1_context_create(SECP256K1_CONTEXT_VERIFY),
+			  commit, 0, redeemscript, tal_count(redeemscript),
 			  &pubkey2, &sig))
 		errx(1, "Invalid signature.");
 	

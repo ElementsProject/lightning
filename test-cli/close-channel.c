@@ -62,7 +62,9 @@ int main(int argc, char *argv[])
 	o2 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
 	a = pkt_from_file(argv[3], PKT__PKT_OPEN_ANCHOR)->open_anchor;
 
-	if (!key_from_base58(argv[4], strlen(argv[4]), &testnet, &privkey, &pubkey1))
+	if (!key_from_base58(secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+						      | SECP256K1_CONTEXT_SIGN),
+			     argv[4], strlen(argv[4]), &testnet, &privkey, &pubkey1))
 		errx(1, "Invalid private key '%s'", argv[4]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
@@ -77,22 +79,26 @@ int main(int argc, char *argv[])
 		       NULL, NULL, NULL);
 
 	/* Get pubkeys */
-	if (!proto_to_pubkey(o1->commit_key, &pubkey2))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o1->commit_key, &pubkey2))
 		errx(1, "Invalid o1 commit pubkey");
 	if (!pubkey_eq(&pubkey1, &pubkey2))
 		errx(1, "o1 pubkey != this privkey");
-	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o2->commit_key, &pubkey2))
 		errx(1, "Invalid o2 commit pubkey");
 
 	/* This is what the anchor pays to. */
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
-	close_tx = create_close_tx(ctx, o1, o2, a,
+	close_tx = create_close_tx(secp256k1_context_create(0),
+				   ctx, o1, o2, a,
 				   cstate->a.pay_msat / 1000,
 				   cstate->b.pay_msat / 1000);
 
 	/* Sign it for them. */
-	sign_tx_input(close_tx, 0, redeemscript, tal_count(redeemscript),
+	sign_tx_input(secp256k1_context_create(SECP256K1_CONTEXT_SIGN),
+		      close_tx, 0, redeemscript, tal_count(redeemscript),
 		      &privkey, &pubkey1, &sig);
 
 	if (close_file)

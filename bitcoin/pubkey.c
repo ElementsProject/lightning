@@ -27,52 +27,40 @@ size_t pubkey_derlen(const struct pubkey *key)
 	return len;
 }
 
-bool pubkey_from_der(const u8 *der, size_t len, struct pubkey *key)
+bool pubkey_from_der(secp256k1_context *secpctx,
+		     const u8 *der, size_t len,
+		     struct pubkey *key)
 {
-	secp256k1_context *secpctx = secp256k1_context_create(0);
-
 	if (len > sizeof(key->der))
-		goto fail_free_secpctx;
+		return false;
 
 	memcpy(key->der, der, len);
 	if (!secp256k1_ec_pubkey_parse(secpctx, &key->pubkey, key->der, len))
-		goto fail_free_secpctx;
+		return false;
 
-	secp256k1_context_destroy(secpctx);
 	return true;
-	
-fail_free_secpctx:
-	secp256k1_context_destroy(secpctx);
-	return false;
 }
 
 /* Pubkey from privkey */
-bool pubkey_from_privkey(const struct privkey *privkey,
+bool pubkey_from_privkey(secp256k1_context *secpctx,
+			 const struct privkey *privkey,
 			 struct pubkey *key,
 			 unsigned int compressed_flags)
 {
-	secp256k1_context *secpctx;
 	size_t outlen;
 	
-	secpctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
-
 	if (!secp256k1_ec_pubkey_create(secpctx, &key->pubkey, privkey->secret))
-		goto fail_free_secpctx;
+		return false;
 
 	if (!secp256k1_ec_pubkey_serialize(secpctx, key->der, &outlen,
 					   &key->pubkey, compressed_flags))
-		goto fail_free_secpctx;
+		return false;
 	assert(outlen == pubkey_derlen(key));
-	
-	secp256k1_context_destroy(secpctx);
 	return true;
-
-fail_free_secpctx:
-	secp256k1_context_destroy(secpctx);
-	return false;
 }
 	
-bool pubkey_from_hexstr(const char *derstr, size_t slen, struct pubkey *key)
+bool pubkey_from_hexstr(secp256k1_context *secpctx,
+			const char *derstr, size_t slen, struct pubkey *key)
 {
 	size_t dlen;
 	unsigned char der[65];
@@ -84,7 +72,7 @@ bool pubkey_from_hexstr(const char *derstr, size_t slen, struct pubkey *key)
 	if (!hex_decode(derstr, slen, der, dlen))
 		return false;
 
-	return pubkey_from_der(der, dlen, key);
+	return pubkey_from_der(secpctx, der, dlen, key);
 }
 
 bool pubkey_eq(const struct pubkey *a, const struct pubkey *b)

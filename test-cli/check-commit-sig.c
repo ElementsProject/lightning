@@ -50,7 +50,9 @@ int main(int argc, char *argv[])
 	o2 = pkt_from_file(argv[2], PKT__PKT_OPEN)->open;
 	a = pkt_from_file(argv[3], PKT__PKT_OPEN_ANCHOR)->open_anchor;
 
-	if (!key_from_base58(argv[4], strlen(argv[4]), &testnet, &privkey, &pubkey1))
+	if (!key_from_base58(secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+						      | SECP256K1_CONTEXT_SIGN),
+			     argv[4], strlen(argv[4]), &testnet, &privkey, &pubkey1))
 		errx(1, "Invalid private key '%s'", argv[4]);
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
@@ -68,7 +70,8 @@ int main(int argc, char *argv[])
 	}
 
 	/* Pubkey well-formed? */
-	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o2->commit_key, &pubkey2))
 		errx(1, "Invalid o2 commit_key");
 
 	if (is_funder(o1) == is_funder(o2))
@@ -86,7 +89,8 @@ int main(int argc, char *argv[])
 
 	/* Check signature. */
 	subscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
-	if (!check_tx_sig(commit, 0, subscript, tal_count(subscript),
+	if (!check_tx_sig(secp256k1_context_create(SECP256K1_CONTEXT_VERIFY),
+			  commit, 0, subscript, tal_count(subscript),
 			  &pubkey2, &sig))
 		errx(1, "Their signature invalid");
 

@@ -53,9 +53,11 @@ int main(int argc, char *argv[])
 	closecomplete = pkt_from_file(argv[5], PKT__PKT_CLOSE_COMPLETE)->close_complete;
 
 	/* Pubkeys well-formed? */
-	if (!proto_to_pubkey(o1->commit_key, &pubkey1))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o1->commit_key, &pubkey1))
 		errx(1, "Invalid o1 commit_key");
-	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o2->commit_key, &pubkey2))
 		errx(1, "Invalid o2 commit_key");
 	
 	/* Get delta by accumulting all the updates. */
@@ -66,7 +68,8 @@ int main(int argc, char *argv[])
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
 	/* Now create the close tx to spend 2/2 output of anchor. */
-	close_tx = create_close_tx(ctx, o1, o2, a,
+	close_tx = create_close_tx(secp256k1_context_create(0),
+				   ctx, o1, o2, a,
 				   cstate->a.pay_msat / 1000,
 				   cstate->b.pay_msat / 1000);
 
@@ -78,7 +81,8 @@ int main(int argc, char *argv[])
 		errx(1, "Invalid closecomplete-packet");
 
 	/* Combined signatures must validate correctly. */
-	if (!check_2of2_sig(close_tx, 0, redeemscript, tal_count(redeemscript),
+	if (!check_2of2_sig(secp256k1_context_create(SECP256K1_CONTEXT_VERIFY),
+			    close_tx, 0, redeemscript, tal_count(redeemscript),
 			    &pubkey1, &pubkey2, &sig1, &sig2))
 		errx(1, "Signature failed");
 

@@ -109,11 +109,13 @@ static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
 /* Bitcoin wants DER encoding. */
 #ifdef SCRIPTS_USE_DER
 	u8 der[73];
-	size_t len = signature_to_der(der, &sig->sig);
+	secp256k1_context *secpctx = secp256k1_context_create(0);
+	size_t len = signature_to_der(secpctx, der, &sig->sig);
 
 	/* Append sighash type */
 	der[len++] = sig->stype;
 	add_push_bytes(scriptp, der, len);
+	secp256k1_context_destroy(secpctx);
 #else /* Alpha uses raw encoding */
 	u8 with_sighash[sizeof(sig->sig) + 1];
 	memcpy(with_sighash, &sig->sig, sizeof(sig->sig));

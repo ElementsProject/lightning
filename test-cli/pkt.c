@@ -240,9 +240,11 @@ struct bitcoin_tx *commit_tx_from_pkts(const tal_t *ctx,
 
 	proto_to_sha256(anchor->txid, &txid.sha);
 	/* Output goes to our final pubkeys */
-	if (!proto_to_pubkey(ours->final_key, &ourkey))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     ours->final_key, &ourkey))
 		return NULL;
-	if (!proto_to_pubkey(theirs->final_key, &theirkey))
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     theirs->final_key, &theirkey))
 		return NULL;
 	if (!proto_to_rel_locktime(theirs->delay, &locktime))
 		return NULL;

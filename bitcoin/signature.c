@@ -76,16 +76,12 @@ static void dump_tx(const char *msg,
 }
 #endif
 	
-bool sign_hash(const struct privkey *privkey,
+void sign_hash(secp256k1_context *secpctx,
+	       const struct privkey *privkey,
 	       const struct sha256_double *h,
 	       struct signature *s)
 {
-	secp256k1_context *secpctx;
 	bool ok;
-	
-	secpctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
-	if (!secpctx)
-		return false;
 
 #ifdef USE_SCHNORR
 	ok = secp256k1_schnorr_sign(secpctx,
@@ -98,9 +94,7 @@ bool sign_hash(const struct privkey *privkey,
 				  h->sha.u.u8,
 				  privkey->secret, NULL, NULL);
 #endif
-
-	secp256k1_context_destroy(secpctx);
-	return ok;
+	assert(ok);
 }
 
 /* Only does SIGHASH_ALL */
@@ -133,7 +127,8 @@ static void sha256_tx_one_input(struct bitcoin_tx *tx,
 }
 
 /* Only does SIGHASH_ALL */
-bool sign_tx_input(struct bitcoin_tx *tx,
+void sign_tx_input(secp256k1_context *secpctx,
+		   struct bitcoin_tx *tx,
 		   unsigned int in,
 		   const u8 *subscript, size_t subscript_len,
 		   const struct privkey *privkey, const struct pubkey *key,
@@ -143,19 +138,15 @@ bool sign_tx_input(struct bitcoin_tx *tx,
 
 	sha256_tx_one_input(tx, in, subscript, subscript_len, &hash);
 	dump_tx("Signing", tx, in, subscript, subscript_len, key, &hash);
-	return sign_hash(privkey, &hash, sig);
+	sign_hash(secpctx, privkey, &hash, sig);
 }
 
-bool check_signed_hash(const struct sha256_double *hash,
+bool check_signed_hash(secp256k1_context *secpctx,
+		       const struct sha256_double *hash,
 		       const struct signature *signature,
 		       const struct pubkey *key)
 {
 	int ret;
-	secp256k1_context *secpctx;
-
-	secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
-	if (!secpctx)
-		return false;
 
 #ifdef USE_SCHNORR
 	ret = secp256k1_schnorr_verify(secpctx, signature->schnorr,
@@ -165,12 +156,11 @@ bool check_signed_hash(const struct sha256_double *hash,
 				     &signature->sig,
 				     hash->sha.u.u8, &key->pubkey);
 #endif
-
-	secp256k1_context_destroy(secpctx);
 	return ret == 1;
 }
 
-bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
+bool check_tx_sig(secp256k1_context *secpctx,
+		  struct bitcoin_tx *tx, size_t input_num,
 		  const u8 *redeemscript, size_t redeemscript_len,
 		  const struct pubkey *key,
 		  const struct bitcoin_signature *sig)
@@ -187,14 +177,15 @@ bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
 	if (sig->stype != SIGHASH_ALL)
 		return false;
 	
-	ret = check_signed_hash(&hash, &sig->sig, key);
+	ret = check_signed_hash(secpctx, &hash, &sig->sig, key);
 	if (!ret)
 		dump_tx("Sig failed", tx, input_num,
 			redeemscript, redeemscript_len, key, &hash);
 	return ret;
 }
 
-bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
+bool check_2of2_sig(secp256k1_context *secpctx,
+		    struct bitcoin_tx *tx, size_t input_num,
 		    const u8 *redeemscript, size_t redeemscript_len,
 		    const struct pubkey *key1, const struct pubkey *key2,
 		    const struct bitcoin_signature *sig1,
@@ -210,8 +201,8 @@ bool check_2of2_sig(struct bitcoin_tx *tx, size_t input_num,
 	if (sig1->stype != SIGHASH_ALL || sig2->stype != SIGHASH_ALL)
 		return false;
 	
-	return check_signed_hash(&hash, &sig1->sig, key1)
-		&& check_signed_hash(&hash, &sig2->sig, key2);
+	return check_signed_hash(secpctx, &hash, &sig1->sig, key1)
+		&& check_signed_hash(secpctx, &hash, &sig2->sig, key2);
 }
 
 #ifndef USE_SCHNORR
@@ -287,12 +278,12 @@ static bool IsValidSignatureEncoding(const unsigned char sig[], size_t len)
     return true;
 }
 
-size_t signature_to_der(u8 der[72], const struct signature *sig)
+size_t signature_to_der(secp256k1_context *secpctx,
+			u8 der[72], const struct signature *sig)
 {
 	size_t len = 72;
-	secp256k1_context *ctx = secp256k1_context_create(0);
 
-	secp256k1_ecdsa_signature_serialize_der(ctx, der, &len, &sig->sig);
+	secp256k1_ecdsa_signature_serialize_der(secpctx, der, &len, &sig->sig);
 
 	/* IsValidSignatureEncoding() expect extra byte for sighash */
 	assert(IsValidSignatureEncoding(der, len + 1));

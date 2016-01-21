@@ -306,14 +306,14 @@ char *key_to_base58(const tal_t *ctx, bool test_net, const struct privkey *key)
 	return tal_strdup(ctx, p);
 }
 
-bool key_from_base58(const char *base58, size_t base58_len,
+bool key_from_base58(secp256k1_context *secpctx,
+		     const char *base58, size_t base58_len,
 		     bool *test_net, struct privkey *priv, struct pubkey *key)
 {
 	u8 keybuf[1 + 32 + 1 + 4];
 	u8 csum[4];
 	BIGNUM bn;
 	bool compressed;
-	secp256k1_context *secpctx;
 	size_t keylen;
 	
 	BN_init(&bn);
@@ -347,21 +347,17 @@ bool key_from_base58(const char *base58, size_t base58_len,
 	/* Copy out secret. */
 	memcpy(priv->secret, keybuf + 1, sizeof(priv->secret));
 
-	secpctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
 	if (!secp256k1_ec_seckey_verify(secpctx, priv->secret))
-		goto fail_free_secpctx;
+		goto fail_free_bn;
 
 	/* Get public key, too, since we know if it's compressed. */
-	if (!pubkey_from_privkey(priv, key,
+	if (!pubkey_from_privkey(secpctx, priv, key,
 				 compressed ? SECP256K1_EC_COMPRESSED : 0))
-		goto fail_free_secpctx;
+		goto fail_free_bn;
 
 	BN_free(&bn);
-	secp256k1_context_destroy(secpctx);
 	return true;
 
-fail_free_secpctx:
-	secp256k1_context_destroy(secpctx);
 fail_free_bn:
 	BN_free(&bn);
 	return false;
