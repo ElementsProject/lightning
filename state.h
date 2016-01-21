@@ -117,7 +117,7 @@ static inline bool state_is_error(enum state s)
 
 struct peer;
 
-static bool input_is_pkt(enum state_input input)
+static inline bool input_is_pkt(enum state_input input)
 {
 	return input <= PKT_ERROR;
 }
