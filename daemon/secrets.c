@@ -41,6 +41,18 @@ struct peer_secrets {
 	struct sha256 revocation_seed;
 };
 
+void peer_sign_theircommit(const struct peer *peer, struct signature *sig)
+{
+	/* Commit tx only has one input: that of the anchor. */
+	sign_tx_input(peer->dstate->secpctx,
+		      peer->them.commit, 0,
+		      peer->anchor.redeemscript,
+		      tal_count(peer->anchor.redeemscript),
+		      &peer->secrets->commit,
+		      &peer->us.commitkey,
+		      sig);
+}
+
 static void new_keypair(struct lightningd_state *dstate,
 			struct privkey *privkey, struct pubkey *pubkey)
 {
