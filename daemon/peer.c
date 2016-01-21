@@ -558,6 +558,7 @@ struct anchor_watch {
 };
 
 static void anchor_depthchange(struct peer *peer, int depth,
+			       const struct sha256_double *blkhash,
 			       struct anchor_watch *w)
 {
 	/* Still waiting for it to reach depth? */

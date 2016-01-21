@@ -172,7 +172,8 @@ static void process_transactions(struct bitcoin_cli *bcli)
 	bool valid;
 	void (*cb)(struct lightningd_state *dstate,
 		   const struct sha256_double *txid,
-		   int confirmations, bool is_coinbase) = bcli->cb;
+		   int confirmations, bool is_coinbase,
+		   const struct sha256_double *blkhash) = bcli->cb;
 
 	if (!bcli->output)
 		fatal("bitcoind: '%s' '%s' failed",
@@ -191,8 +192,8 @@ static void process_transactions(struct bitcoin_cli *bcli)
 
 	end = json_next(tokens);
 	for (t = tokens + 1; t < end; t = json_next(t)) {
-		struct sha256_double txid;
-		const jsmntok_t *txidtok, *conftok, *blkindxtok;
+		struct sha256_double txid, blkhash = { 0 };
+		const jsmntok_t *txidtok, *conftok, *blkindxtok, *blktok;
 		unsigned int conf;
 		bool is_coinbase;
 
@@ -225,15 +226,27 @@ static void process_transactions(struct bitcoin_cli *bcli)
 				      (int)(blkindxtok->end - blkindxtok->start),
 				      bcli->output + blkindxtok->start);
 			is_coinbase = (blkidx == 0);
+
+			blktok = json_get_member(bcli->output, t, "blockhash");
+			if (!blktok)
+				fatal("listtransactions: no blockhash field!");
+
+			if (!hex_decode(bcli->output + blktok->start,
+					blktok->end - blktok->start,
+					&blkhash, sizeof(blkhash))) {
+				fatal("listtransactions: bad blockhash '%.*s'",
+				      (int)(blktok->end - blktok->start),
+				      bcli->output + blktok->start);
+			}
 		}
-		/* FIXME: log txid */
+		/* FIXME: log txid, blkid */
 		log_debug(bcli->dstate->base_log,
 			  "txid %02x%02x%02x%02x..., conf %u, coinbase %u",
 			  txid.sha.u.u8[0], txid.sha.u.u8[1],
 			  txid.sha.u.u8[2], txid.sha.u.u8[3],
 			  conf, is_coinbase);
 
-		cb(bcli->dstate, &txid, conf, is_coinbase);
+		cb(bcli->dstate, &txid, conf, is_coinbase, &blkhash);
 	}
 }
 
@@ -241,7 +254,8 @@ void bitcoind_poll_transactions(struct lightningd_state *dstate,
 				void (*cb)(struct lightningd_state *dstate,
 					   const struct sha256_double *txid,
 					   int confirmations,
-					   bool is_coinbase))
+					   bool is_coinbase,
+					   const struct sha256_double *blkhash))
 {
 	/* FIXME: Iterate and detect duplicates. */
 	start_bitcoin_cli(dstate, process_transactions, cb, NULL,

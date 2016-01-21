@@ -18,7 +18,8 @@ void bitcoind_poll_transactions(struct lightningd_state *dstate,
 				void (*cb)(struct lightningd_state *dstate,
 					   const struct sha256_double *txid,
 					   int confirmations,
-					   bool is_coinbase));
+					   bool is_coinbase,
+					   const struct sha256_double *blkhash));
 
 void bitcoind_txid_lookup_(struct lightningd_state *dstate,
 			  const struct sha256_double *txid,

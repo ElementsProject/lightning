@@ -49,8 +49,10 @@ struct txwatch {
 	struct sha256_double txid;
 	int depth;
 
-	/* A new depth (-1 if conflicted) */
-	void (*cb)(struct peer *peer, int depth, void *cbdata);
+	/* A new depth (-1 if conflicted), blkhash valid if > 0 */
+	void (*cb)(struct peer *peer, int depth,
+		   const struct sha256_double *blkhash,
+		   void *cbdata);
 	void *cbdata;
 };
 
@@ -65,7 +67,9 @@ void add_anchor_watch_(const tal_t *ctx,
 		       struct peer *peer,
 		       const struct sha256_double *txid,
 		       unsigned int out,
-		       void (*anchor_cb)(struct peer *peer, int depth, void *),
+		       void (*anchor_cb)(struct peer *peer, int depth,
+					 const struct sha256_double *blkhash,
+					 void *),
 		       void (*spend_cb)(struct peer *peer,
 					const struct bitcoin_tx *, void *),
 		       void *cbdata);
@@ -75,7 +79,8 @@ void add_anchor_watch_(const tal_t *ctx,
 			  typesafe_cb_preargs(void, void *,		\
 					      (anchor_cb), (cbdata),	\
 					      struct peer *,		\
-					      int depth),		\
+					      int depth,		\
+					      const struct sha256_double *), \
 			  typesafe_cb_preargs(void, void *,		\
 					      (spend_cb), (cbdata),	\
 					      struct peer *,		\
@@ -85,7 +90,9 @@ void add_anchor_watch_(const tal_t *ctx,
 void add_commit_tx_watch_(const tal_t *ctx,
 			  struct peer *peer,
 			  const struct sha256_double *txid,
-			  void (*cb)(struct peer *peer, int depth, void *),
+			  void (*cb)(struct peer *peer, int depth,
+				     const struct sha256_double *blkhash,
+				     void *),
 			  void *cbdata);
 
 #define add_commit_tx_watch(ctx, peer, txid, cb, cbdata)		  \
@@ -93,7 +100,8 @@ void add_commit_tx_watch_(const tal_t *ctx,
 			     typesafe_cb_preargs(void, void *,		\
 						 (cb), (cbdata),	\
 						 struct peer *,		\
-						 int depth),		\
+						 int,			\
+						 const struct sha256_double *),	\
 			     (cbdata))
 
 void add_close_tx_watch(const tal_t *ctx,

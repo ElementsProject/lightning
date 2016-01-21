@@ -103,7 +103,9 @@ static void destroy_txwatch(struct txwatch *w)
 static struct txwatch *insert_txwatch(const tal_t *ctx,
 				      struct peer *peer,
 				      const struct sha256_double *txid,
-				      void (*cb)(struct peer *, int, void *),
+				      void (*cb)(struct peer *, int,
+						 const struct sha256_double *,
+						 void *),
 				      void *cbdata)
 {
 	struct txwatch *w;
@@ -150,7 +152,9 @@ void add_anchor_watch_(const tal_t *ctx,
 		       struct peer *peer,
 		       const struct sha256_double *txid,
 		       unsigned int out,
-		       void (*anchor_cb)(struct peer *peer, int depth, void *),
+		       void (*anchor_cb)(struct peer *peer, int depth,
+					 const struct sha256_double *blkhash,
+					 void *),
 		       void (*spend_cb)(struct peer *peer,
 					const struct bitcoin_tx *, void *),
 		       void *cbdata)
@@ -177,7 +181,9 @@ void add_anchor_watch_(const tal_t *ctx,
 void add_commit_tx_watch_(const tal_t *ctx,
 			  struct peer *peer,
 			  const struct sha256_double *txid,
-			  void (*cb)(struct peer *peer, int depth, void *),
+			  void (*cb)(struct peer *peer, int depth,
+				     const struct sha256_double *blkhash,
+				     void *),
 			  void *cbdata)
 {
 	insert_txwatch(ctx, peer, txid, cb, cbdata);
@@ -186,7 +192,8 @@ void add_commit_tx_watch_(const tal_t *ctx,
 	 * watch anything else. */
 }
 
-static void cb_no_arg(struct peer *peer, int depth, void *vcb)
+static void cb_no_arg(struct peer *peer, int depth,
+		      const struct sha256_double *blkhash, void *vcb)
 {
 	void (*cb)(struct peer *peer, int depth) = vcb;
 	cb(peer, depth);
@@ -226,7 +233,8 @@ static void tx_watched_inputs(struct lightningd_state *dstate,
 static void watched_transaction(struct lightningd_state *dstate,
 				const struct sha256_double *txid,
 				int confirmations,
-				bool is_coinbase)
+				bool is_coinbase,
+				const struct sha256_double *blkhash)
 
 {
 	struct txwatch *txw;
@@ -237,7 +245,8 @@ static void watched_transaction(struct lightningd_state *dstate,
 		if (confirmations != txw->depth) {
 			txw->depth = confirmations;
 			if (txw->cb)
-				txw->cb(txw->peer, txw->depth, txw->cbdata);
+				txw->cb(txw->peer, txw->depth, blkhash,
+					txw->cbdata);
 		}
 		return;
 	}
