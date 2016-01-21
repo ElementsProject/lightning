@@ -33,6 +33,7 @@ TEST_CLI_PROGRAMS :=				\
 
 TEST_PROGRAMS :=				\
 	test/test_state_coverage		\
+	test/onion_key				\
 	test/test_onion
 
 BITCOIN_OBJS :=					\
@@ -99,8 +100,17 @@ test-cli-tests: $(TEST_CLI_PROGRAMS)
 	cd test-cli; scripts/shutdown.sh 2>/dev/null || true
 	set -e; cd test-cli; for args in "" --steal --unilateral --htlc-onchain; do scripts/setup.sh && scripts/test.sh $$args && scripts/shutdown.sh; done
 
-test-onion: test/test_onion
-	set -e; for i in `seq 20`; do ./test/test_onion $$i; done
+test-onion: test/test_onion test/onion_key
+	set -e; TMPF=/tmp/onion.$$$$; test/test_onion --generate $$(test/onion_key --pub `seq 20`) > $$TMPF; for k in `seq 20`; do test/test_onion --decode $$(test/onion_key --priv $$k) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
+
+test-onion2: test/test_onion test/onion_key
+	set -e; TMPF=/tmp/onion.$$$$; python test/test_onion.py generate $$(test/onion_key --pub `seq 20`) > $$TMPF; for k in `seq 20`; do test/test_onion --decode $$(test/onion_key --priv $$k) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
+
+test-onion3: test/test_onion test/onion_key
+	set -e; TMPF=/tmp/onion.$$$$; test/test_onion --generate $$(test/onion_key --pub `seq 20`) > $$TMPF; for k in `seq 20`; do python test/test_onion.py decode $$(test/onion_key --priv $$k) $$(test/onion_key --pub $$k) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
+
+test-onion4: test/test_onion test/onion_key
+	set -e; TMPF=/tmp/onion.$$$$; python test/test_onion.py generate $$(test/onion_key --pub `seq 20`) > $$TMPF; for k in `seq 20`; do python test/test_onion.py decode $$(test/onion_key --priv $$k) $$(test/onion_key --pub $$k) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
 
 check: test-cli-tests test-onion
 
