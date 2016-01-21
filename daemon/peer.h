@@ -25,11 +25,6 @@ struct peer {
 	struct log *log;
 };
 
-struct io_conn;
-struct io_plan *peer_connected_out(struct io_conn *conn,
-				   struct lightningd_state *state,
-				   const char *name, const char *port);
-
 void setup_listeners(struct lightningd_state *state, unsigned int portnum);
 
 #endif /* LIGHTNING_DAEMON_PEER_H */

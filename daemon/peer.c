@@ -80,18 +80,17 @@ static struct peer *new_peer(struct lightningd_state *state,
 	return peer;
 }
 
-struct io_plan *peer_connected_out(struct io_conn *conn,
-				   struct lightningd_state *state,
-				   const char *name, const char *port)
+static struct io_plan *peer_connected_out(struct io_conn *conn,
+					  struct lightningd_state *state,
+					  char *dest)
 {
 	struct peer *peer = new_peer(state, conn, SOCK_STREAM, IPPROTO_TCP,
 				     "out");
 	if (!peer) {
-		log_unusual(peer->log, "Failed to make peer for %s:%s",
-			    name, port);
+		log_unusual(peer->log, "Failed to make peer for %s", dest);
 		return io_close(conn);
 	}
-	log_info(peer->log, "Connected out to %s:%s", name, port);
+	log_info(peer->log, "Connected out to %s", dest);
 	return peer_crypto_setup(conn, peer, peer_test);
 }
 
@@ -191,12 +190,19 @@ void setup_listeners(struct lightningd_state *state, unsigned int portnum)
 		fatal("Could not bind to a network address");
 }
 
+static void peer_failed(struct lightningd_state *state, char *dest)
+{
+	/* FIXME: Better diagnostics! */
+	log_unusual(state->base_log, "Connect to %s failed", dest);
+}
+
 static void json_connect(struct command *cmd,
 			const char *buffer, const jsmntok_t *params)
 {
 	struct json_result *response;
 	jsmntok_t *host, *port;
 	const char *hoststr, *portstr;
+	char *dest;
 
 	json_get_params(buffer, params, "host", &host, "port", &port, NULL);
 
@@ -205,12 +211,13 @@ static void json_connect(struct command *cmd,
 		return;
 	}
 
-	hoststr = tal_strndup(cmd, buffer + host->start,
+	hoststr = tal_strndup(cmd->state, buffer + host->start,
 			      host->end - host->start);
-	portstr = tal_strndup(cmd, buffer + port->start,
+	portstr = tal_strndup(cmd->state, buffer + port->start,
 			      port->end - port->start);
+	dest = tal_fmt(cmd->state, "%s:%s", hoststr, portstr);
 	if (!dns_resolve_and_connect(cmd->state, hoststr, portstr,
-				     peer_connected_out)) {
+				     peer_connected_out, peer_failed, dest)) {
 		command_fail(cmd, "DNS failed");
 		return;
 	}

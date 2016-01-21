@@ -3,14 +3,28 @@
 #include "config.h"
 #include <ccan/io/io.h>
 #include <ccan/tal/tal.h>
+#include <ccan/typesafe_cb/typesafe_cb.h>
 #include <stdbool.h>
 
 struct lightningd_state;
 struct netaddr;
-struct dns_async *dns_resolve_and_connect(struct lightningd_state *state,
+
+#define dns_resolve_and_connect(state, name, port, initfn, failfn, arg) \
+	dns_resolve_and_connect_((state), (name), (port),		\
+			typesafe_cb_preargs(struct io_plan *, void *, \
+					    (initfn), (arg),		\
+					    struct io_conn *,		\
+					    struct lightningd_state *), \
+			typesafe_cb_preargs(void, void *, (failfn), (arg), \
+					    struct lightningd_state *), \
+				 (arg))
+
+struct dns_async *dns_resolve_and_connect_(struct lightningd_state *state,
 		  const char *name, const char *port,
 		  struct io_plan *(*init)(struct io_conn *,
 					  struct lightningd_state *,
-					  const char *name, const char *port));
+					  void *arg),
+		  void (*fail)(struct lightningd_state *, void *arg),
+		  void *arg);
 
 #endif /* PETTYCOIN_DNS_H */
