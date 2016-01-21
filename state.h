@@ -6,12 +6,34 @@
 #include <state_types.h>
 #include <stdbool.h>
 
-enum cmd_complete_status {
-	CMD_STATUS_ONGOING,
-	CMD_STATUS_FAILED,
-	CMD_STATUS_SUCCESS,
-	CMD_STATUS_REQUEUE
-};	
+enum state_effect_type {
+	STATE_EFFECT_new_state,
+	STATE_EFFECT_in_error,
+	STATE_EFFECT_broadcast_tx,
+	STATE_EFFECT_send_pkt,
+	STATE_EFFECT_watch,
+	STATE_EFFECT_unwatch,
+	STATE_EFFECT_cmd_defer,
+	STATE_EFFECT_cmd_requeue,
+	STATE_EFFECT_cmd_success,
+	/* (never applies to CMD_CLOSE) */
+	STATE_EFFECT_cmd_fail,
+	STATE_EFFECT_cmd_close_done,
+	STATE_EFFECT_stop_packets,
+	STATE_EFFECT_stop_commands,
+	/* FIXME: Use a watch for this?. */
+	STATE_EFFECT_close_timeout,
+	STATE_EFFECT_htlc_in_progress,
+	STATE_EFFECT_update_theirsig,
+	STATE_EFFECT_htlc_abandon,
+	STATE_EFFECT_htlc_fulfill,
+	STATE_EFFECT_r_value,
+	/* FIXME: Combine into watches? */
+	STATE_EFFECT_watch_htlcs,
+	STATE_EFFECT_unwatch_htlc,
+	STATE_EFFECT_watch_htlc_spend,
+	STATE_EFFECT_unwatch_htlc_spend
+};
 
 /*
  * This is the core state machine.
@@ -20,68 +42,73 @@ enum cmd_complete_status {
  * and populates the "effect" struct with what it wants done.
  */
 struct state_effect {
-	/* Transaction to broadcast. */
-	struct bitcoin_tx *broadcast;
+	struct state_effect *next;
 
-	/* Packet to send. */
-	Pkt *send;
+	enum state_effect_type etype;
+	union {
+		/* New state to enter. */
+		enum state new_state;
 
-	/* Event to watch for. */
-	struct watch *watch;
+		/* Transaction to broadcast. */
+		struct bitcoin_tx *broadcast_tx;
 
-	/* Events to no longer watch for. */
-	struct watch *unwatch;
+		/* Packet to send. */
+		Pkt *send_pkt;
 
-	/* Defer an input. */
-	enum state_input defer;
+		/* Event to watch for. */
+		struct watch *watch;
 
-	/* Complete a command. */
-	enum state_input complete;
-	enum cmd_complete_status status;
-	void *faildata;
+		/* Events to no longer watch for. */
+		struct watch *unwatch;
 
-	/* Completing a CMD_CLOSE */
-	enum cmd_complete_status close_status;
+		/* Defer an input. */
+		enum state_input cmd_defer;
 
-	/* Stop taking packets? commands? */
-	bool stop_packets, stop_commands;
+		/* Requeue/succeed/fail command. */
+		enum state_input cmd_requeue;
+		enum state_input cmd_success;
+		void *cmd_fail;
 
-	/* Set a timeout for close tx. */
-	enum state_input close_timeout;
+		/* CMD_CLOSE is complete (true if successful mutual close). */
+		bool cmd_close_done;
 
-	/* Error received from other side. */
-	Pkt *in_error;
+		/* Stop taking packets? commands? */
+		bool stop_packets, stop_commands;
 
-	/* HTLC we're working on. */
-	struct htlc_progress *htlc_in_progress;
+		/* Set a timeout for close tx. */
+		enum state_input close_timeout;
 
-	/* Their signature for the new commit tx. */
-	struct signature *update_theirsig;
+		/* Error received from other side. */
+		Pkt *in_error;
+
+		/* HTLC we're working on. */
+		struct htlc_progress *htlc_in_progress;
+
+		/* Their signature for the new commit tx. */
+		struct signature *update_theirsig;
 	
-	/* Stop working on HTLC. */
-	bool htlc_abandon;
+		/* Stop working on HTLC. */
+		bool htlc_abandon;
 
-	/* Finished working on HTLC. */
-	bool htlc_fulfill;
+		/* Finished working on HTLC. */
+		bool htlc_fulfill;
 
-	/* R value. */
-	const struct htlc_rval *r_value;
+		/* R value. */
+		const struct htlc_rval *r_value;
 
-	/* HTLC outputs to watch. */
-	const struct htlc_watch *watch_htlcs;
+		/* HTLC outputs to watch. */
+		const struct htlc_watch *watch_htlcs;
 
-	/* HTLC output to unwatch. */
-	const struct htlc_unwatch *unwatch_htlc;
+		/* HTLC output to unwatch. */
+		const struct htlc_unwatch *unwatch_htlc;
 
-	/* HTLC spends to watch/unwatch. */
-	const struct htlc_spend_watch *watch_htlc_spend;
-	const struct htlc_spend_watch *unwatch_htlc_spend;
+		/* HTLC spends to watch/unwatch. */
+		const struct htlc_spend_watch *watch_htlc_spend;
+		const struct htlc_spend_watch *unwatch_htlc_spend;
 
-	/* FIXME: More to come (for accept_*) */
+		/* FIXME: More to come (for accept_*) */
+	} u;
 };
-
-/* Initialize the above struct. */
-void state_effect_init(struct state_effect *effect);
 
 static inline bool state_is_error(enum state s)
 {
@@ -103,9 +130,11 @@ union input {
 	struct htlc_progress *htlc_prog;
 };
 
-enum state state(const enum state state, const struct state_data *sdata,
-		 const enum state_input input, const union input *idata,
-		 struct state_effect *effect);
+struct state_effect *state(const tal_t *ctx,
+			   const enum state state,
+			   const struct state_data *sdata,
+			   const enum state_input input,
+			   const union input *idata);
 
 /* Any CMD_SEND_HTLC_* */
 #define CMD_SEND_UPDATE_ANY INPUT_MAX
@@ -154,58 +183,72 @@ Pkt *pkt_close_ack(const tal_t *ctx, const struct state_data *sdata);
 Pkt *unexpected_pkt(const tal_t *ctx, enum state_input input);
 
 /* Process various packets: return an error packet on failure. */
-Pkt *accept_pkt_open(struct state_effect *effect,
+Pkt *accept_pkt_open(const tal_t *ctx,
 		     const struct state_data *sdata,
-		     const Pkt *pkt);
+		     const Pkt *pkt,
+		     struct state_effect **effect);
 
-Pkt *accept_pkt_anchor(struct state_effect *effect,
+Pkt *accept_pkt_anchor(const tal_t *ctx,
 		       const struct state_data *sdata,
-		       const Pkt *pkt);
+		       const Pkt *pkt,
+		       struct state_effect **effect);
 
-Pkt *accept_pkt_open_commit_sig(struct state_effect *effect,
-				const struct state_data *sdata, const Pkt *pkt);
+Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
+				const struct state_data *sdata, const Pkt *pkt,
+				struct state_effect **effect);
 	
-Pkt *accept_pkt_htlc_update(struct state_effect *effect,
+Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 			    const struct state_data *sdata, const Pkt *pkt,
 			    Pkt **decline,
-			    struct htlc_progress **htlcprog);
+			    struct htlc_progress **htlcprog,
+			    struct state_effect **effect);
 
-Pkt *accept_pkt_htlc_routefail(struct state_effect *effect,
+Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
 			       const struct state_data *sdata, const Pkt *pkt,
-			       struct htlc_progress **htlcprog);
+			       struct htlc_progress **htlcprog,
+			       struct state_effect **effect);
 
-Pkt *accept_pkt_htlc_timedout(struct state_effect *effect,
+Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
 			      const struct state_data *sdata, const Pkt *pkt,
-			      struct htlc_progress **htlcprog);
+			      struct htlc_progress **htlcprog,
+			      struct state_effect **effect);
 
-Pkt *accept_pkt_htlc_fulfill(struct state_effect *effect,
+Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
+			     const struct state_data *sdata, const Pkt *pkt,
+			     struct htlc_progress **htlcprog,
+			     struct state_effect **effect);
+
+Pkt *accept_pkt_update_accept(const tal_t *ctx,
 			      const struct state_data *sdata, const Pkt *pkt,
-			      struct htlc_progress **htlcprog);
+			      struct signature **sig,
+			      struct state_effect **effect);
 
-Pkt *accept_pkt_update_accept(struct state_effect *effect,
-			      const struct state_data *sdata, const Pkt *pkt,
-			      struct signature **sig);
+Pkt *accept_pkt_update_complete(const tal_t *ctx,
+				const struct state_data *sdata, const Pkt *pkt,
+				struct state_effect **effect);
 
-Pkt *accept_pkt_update_complete(struct state_effect *effect,
-				const struct state_data *sdata, const Pkt *pkt);
-
-Pkt *accept_pkt_update_signature(struct state_effect *effect,
+Pkt *accept_pkt_update_signature(const tal_t *ctx,
 				 const struct state_data *sdata,
 				 const Pkt *pkt,
-				 struct signature **sig);
+				 struct signature **sig,
+				 struct state_effect **effect);
 
-Pkt *accept_pkt_close(struct state_effect *effect,
-		      const struct state_data *sdata, const Pkt *pkt);
+Pkt *accept_pkt_close(const tal_t *ctx,
+		      const struct state_data *sdata, const Pkt *pkt,
+		      struct state_effect **effect);
 
-Pkt *accept_pkt_close_complete(struct state_effect *effect,
-			       const struct state_data *sdata, const Pkt *pkt);
+Pkt *accept_pkt_close_complete(const tal_t *ctx,
+			       const struct state_data *sdata, const Pkt *pkt,
+			       struct state_effect **effect);
 
-Pkt *accept_pkt_simultaneous_close(struct state_effect *effect,
+Pkt *accept_pkt_simultaneous_close(const tal_t *ctx,
 				   const struct state_data *sdata,
-				   const Pkt *pkt);
+				   const Pkt *pkt,
+				   struct state_effect **effect);
 
-Pkt *accept_pkt_close_ack(struct state_effect *effect,
-			  const struct state_data *sdata, const Pkt *pkt);
+Pkt *accept_pkt_close_ack(const tal_t *ctx,
+			  const struct state_data *sdata, const Pkt *pkt,
+			  struct state_effect **effect);
 
 /**
  * committed_to_htlcs: do we have any locked-in HTLCs?
@@ -252,26 +295,26 @@ struct watch *bitcoin_unwatch_anchor_depth(const tal_t *ctx,
 
 /**
  * bitcoin_watch_delayed: watch this (commit) tx, tell me when I can spend it
- * @effect: the context to tal the watch off
+ * @ctx: the context to tal the watch off
  * @tx: the tx we're watching.
  * @canspend: the input to give when commit reaches spendable depth.
  *
  * Note that this tx may be malleated, as it's dual-signed.
  */
-struct watch *bitcoin_watch_delayed(const struct state_effect *effect,
+struct watch *bitcoin_watch_delayed(const tal_t *ctx,
 				    const struct bitcoin_tx *tx,
 				    enum state_input canspend);
 
 /**
  * bitcoin_watch: watch this tx until it's "irreversible"
- * @effect: the context to tal the watch off
+ * @ctx: the context to tal the watch off
  * @tx: the tx we're watching.
  * @done: the input to give when tx is completely buried.
  *
  * The tx should be immalleable by BIP62; once this fires we consider
  * the channel completely closed and stop watching (eg 100 txs down).
  */
-struct watch *bitcoin_watch(const struct state_effect *effect,
+struct watch *bitcoin_watch(const tal_t *ctx,
 			    const struct bitcoin_tx *tx,
 			    enum state_input done);
 
