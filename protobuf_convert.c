@@ -128,7 +128,28 @@ static bool proto_to_locktime(const Locktime *l, uint32_t off,
 
 bool proto_to_rel_locktime(const Locktime *l, uint32_t *locktime)
 {
+	/* Original proposal from Elements Alpha was simply locktime. */
+#ifdef HAS_BIP68
+	switch (l->locktime_case) {
+	case LOCKTIME__LOCKTIME_SECONDS:
+		*locktime = (1 << 22) | (l->seconds / 512);
+		if (l->seconds / 512 > 0xFFFF)
+			return false;
+		break;
+	case LOCKTIME__LOCKTIME_BLOCKS:
+		*locktime = l->blocks;
+		if (l->blocks > 0xFFFF)
+			return false;
+		break;
+	default:
+		return false;
+	}
+	/* No other bits should be set. */
+	assert((*locktime & ~((1 << 22) | 0xFFFF)) == 0);
+	return true;
+#else
 	return proto_to_locktime(l, 500000000, locktime);
+#endif
 }
 
 bool proto_to_abs_locktime(const Locktime *l, uint32_t *locktime)

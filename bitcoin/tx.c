@@ -550,13 +550,10 @@ bool bitcoin_tx_write(int fd, const struct bitcoin_tx *tx)
 u32 bitcoin_nsequence(u32 locktime)
 {
 #ifdef HAS_BIP68
-	/* BIP66 style sequence numbers */
-	if (locktime >= 500000000)
-		/* A relative time.  Set bit 30, shift by 5. */
-		return 0x40000000 | ((locktime - 500000000) << 5);
-	else
-		/* A block height.  Shift by 14. */
-		return locktime << 14;
+	/* FIXME: return fail to caller. */
+	/* Can't set disable bit, or other bits except low 16 and bit 22 */
+	assert(!(locktime & ~((1 << 22) | 0xFFFF)));
+	return locktime;
 #else
 	/* Alpha uses the original proposal: simply invert the bits. */
 	return ~locktime;
