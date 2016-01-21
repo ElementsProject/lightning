@@ -71,6 +71,7 @@ static struct peer *new_peer(struct lightningd_state *state,
 	peer->addr.protocol = addr_protocol;
 	peer->io_data = NULL;
 	peer->secrets = NULL;
+	list_head_init(&peer->watches);
 
 	/* FIXME: Attach IO logging for this peer. */
 	tal_add_destructor(peer, destroy_peer);

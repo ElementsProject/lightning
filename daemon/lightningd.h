@@ -2,6 +2,7 @@
 #define LIGHTNING_DAEMON_LIGHTNING_H
 #include "config.h"
 #include "bitcoin/pubkey.h"
+#include "watch.h"
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/timer/timer.h>
@@ -63,5 +64,9 @@ struct lightningd_state {
 
 	/* Number of bitcoind commands outstanding. */
 	unsigned int bitcoind_in_progress;
+
+	/* Transactions/txos we are watching. */
+	struct txwatch_hash txwatches;
+	struct txowatch_hash txowatches;
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */

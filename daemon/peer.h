@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_DAEMON_PEER_H
 #define LIGHTNING_DAEMON_PEER_H
 #include "config.h"
+#include "bitcoin/pubkey.h"
 #include "lightning.pb-c.h"
 #include "netaddr.h"
 #include <ccan/list/list.h>
@@ -26,6 +27,9 @@ struct peer {
 	
 	/* What happened. */
 	struct log *log;
+
+	/* Things we're watching for (see watches.c) */
+	struct list_head watches;
 	
 	/* Keys for transactions with this peer. */
 	struct pubkey their_commitkey, their_finalkey;

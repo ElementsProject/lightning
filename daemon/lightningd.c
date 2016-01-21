@@ -121,6 +121,8 @@ static struct lightningd_state *lightningd_state(void)
 
 	list_head_init(&state->peers);
 	timers_init(&state->timers, time_now());
+	txwatch_hash_init(&state->txwatches);
+	txowatch_hash_init(&state->txowatches);
 	state->secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						  | SECP256K1_CONTEXT_SIGN);
 	default_config(&state->config);
@@ -202,6 +204,9 @@ int main(int argc, char *argv[])
 
 	/* Set up node ID and private key. */
 	secrets_init(state);
+
+	/* Create timer to do watches. */
+	setup_watch_timer(state);
 
 	log_info(state->base_log, "Hello world!");
 
