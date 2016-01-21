@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/list/list.h>
 #include <ccan/timer/timer.h>
+#include <secp256k1.h>
 #include <stdio.h>
 
 /* Here's where the global variables hide! */
@@ -21,5 +22,8 @@ struct lightningd_state {
 
 	/* Our peers. */
 	struct list_head peers;
+
+	/* Crypto tables for global use. */
+	secp256k1_context *secpctx;
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */

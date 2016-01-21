@@ -29,6 +29,8 @@ static struct lightningd_state *lightningd_state(void)
 
 	list_head_init(&state->peers);
 	timers_init(&state->timers, time_now());
+	state->secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+						  | SECP256K1_CONTEXT_SIGN);
 	return state;
 }
 
