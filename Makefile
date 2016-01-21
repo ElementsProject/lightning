@@ -4,6 +4,9 @@ NAME=MtGox's Cold Wallet
 # Needs to have oneof support: Ubuntu vivid's is too old :(
 PROTOCC:=protoc-c
 
+# We use our own internal ccan copy.
+CCANDIR := ccan
+
 # Alpha has checksequenceverify, segregated witness+input-amount-in-sig+confidentual-transactions, schnorr, checklocktimeverify
 #FEATURES := -DHAS_CSV=1 -DALPHA_TXSTYLE=1 -DUSE_SCHNORR=1 -DHAS_CLTV=1
 # Bitcoin uses DER for signatures (Add BIP68 & HAS_CSV if it's supported)
@@ -36,28 +39,32 @@ TEST_PROGRAMS :=				\
 	test/onion_key				\
 	test/test_onion
 
-BITCOIN_OBJS :=					\
-	bitcoin/address.o			\
-	bitcoin/base58.o			\
-	bitcoin/locktime.o			\
-	bitcoin/pubkey.o			\
-	bitcoin/script.o			\
-	bitcoin/shadouble.o			\
-	bitcoin/signature.o			\
-	bitcoin/tx.o
+BITCOIN_SRC :=					\
+	bitcoin/address.c			\
+	bitcoin/base58.c			\
+	bitcoin/locktime.c			\
+	bitcoin/pubkey.c			\
+	bitcoin/script.c			\
+	bitcoin/shadouble.c			\
+	bitcoin/signature.c			\
+	bitcoin/tx.c
+BITCOIN_OBJS := $(BITCOIN_SRC:.c=.o)
 
-HELPER_OBJS :=					\
-	close_tx.o				\
-	commit_tx.o				\
-	find_p2sh_out.o				\
-	funding.o				\
-	lightning.pb-c.o			\
-	opt_bits.o				\
-	permute_tx.o				\
-	pkt.o					\
-	protobuf_convert.o			\
-	test-cli/gather_updates.o		\
-	version.o
+CORE_SRC :=					\
+	close_tx.c				\
+	commit_tx.c				\
+	find_p2sh_out.c				\
+	funding.c				\
+	lightning.pb-c.c			\
+	opt_bits.c				\
+	permute_tx.c				\
+	pkt.c					\
+	protobuf_convert.c			\
+	version.c
+CORE_OBJS := $(CORE_SRC:.c=.o)
+
+TEST_CLI_SRC := test-cli/gather_updates.c
+TEST_CLI_OBJS := $(TEST_CLI_SRC:.c=.o)
 
 CCAN_OBJS :=					\
 	ccan-crypto-ripemd160.o			\
@@ -83,18 +90,99 @@ CCAN_EXTRA_OBJS :=				\
 	ccan-hash.o				\
 	ccan-htable.o
 
+CCAN_HEADERS :=						\
+	$(CCANDIR)/config.h				\
+	$(CCANDIR)/ccan/alignof/alignof.h		\
+	$(CCANDIR)/ccan/array_size/array_size.h		\
+	$(CCANDIR)/ccan/asort/asort.h			\
+	$(CCANDIR)/ccan/build_assert/build_assert.h	\
+	$(CCANDIR)/ccan/cast/cast.h			\
+	$(CCANDIR)/ccan/cdump/cdump.h			\
+	$(CCANDIR)/ccan/check_type/check_type.h		\
+	$(CCANDIR)/ccan/compiler/compiler.h		\
+	$(CCANDIR)/ccan/container_of/container_of.h	\
+	$(CCANDIR)/ccan/crypto/ripemd160/ripemd160.h	\
+	$(CCANDIR)/ccan/crypto/sha256/sha256.h		\
+	$(CCANDIR)/ccan/crypto/shachain/shachain.h	\
+	$(CCANDIR)/ccan/endian/endian.h			\
+	$(CCANDIR)/ccan/err/err.h			\
+	$(CCANDIR)/ccan/hash/hash.h			\
+	$(CCANDIR)/ccan/htable/htable.h			\
+	$(CCANDIR)/ccan/htable/htable_type.h		\
+	$(CCANDIR)/ccan/ilog/ilog.h			\
+	$(CCANDIR)/ccan/likely/likely.h			\
+	$(CCANDIR)/ccan/list/list.h			\
+	$(CCANDIR)/ccan/mem/mem.h			\
+	$(CCANDIR)/ccan/noerr/noerr.h			\
+	$(CCANDIR)/ccan/opt/opt.h			\
+	$(CCANDIR)/ccan/opt/private.h			\
+	$(CCANDIR)/ccan/order/order.h			\
+	$(CCANDIR)/ccan/ptrint/ptrint.h			\
+	$(CCANDIR)/ccan/read_write_all/read_write_all.h	\
+	$(CCANDIR)/ccan/short_types/short_types.h	\
+	$(CCANDIR)/ccan/str/hex/hex.h			\
+	$(CCANDIR)/ccan/str/str.h			\
+	$(CCANDIR)/ccan/str/str_debug.h			\
+	$(CCANDIR)/ccan/strmap/strmap.h			\
+	$(CCANDIR)/ccan/structeq/structeq.h		\
+	$(CCANDIR)/ccan/take/take.h			\
+	$(CCANDIR)/ccan/tal/grab_file/grab_file.h	\
+	$(CCANDIR)/ccan/tal/link/link.h			\
+	$(CCANDIR)/ccan/tal/path/path.h			\
+	$(CCANDIR)/ccan/tal/stack/stack.h		\
+	$(CCANDIR)/ccan/tal/str/str.h			\
+	$(CCANDIR)/ccan/tal/tal.h			\
+	$(CCANDIR)/ccan/tal/talloc/talloc.h		\
+	$(CCANDIR)/ccan/tcon/tcon.h			\
+	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h
+
+TEST_CLI_HEADERS := test-cli/gather_updates.h
+
+BITCOIN_HEADERS := bitcoin/address.h		\
+	bitcoin/base58.h			\
+	bitcoin/locktime.h			\
+	bitcoin/privkey.h			\
+	bitcoin/pubkey.h			\
+	bitcoin/script.h			\
+	bitcoin/shadouble.h			\
+	bitcoin/signature.h			\
+	bitcoin/tx.h
+
+CORE_HEADERS := close_tx.h			\
+	commit_tx.h				\
+	find_p2sh_out.h				\
+	funding.h				\
+	opt_bits.h				\
+	overflows.h				\
+	permute_tx.h				\
+	pkt.h					\
+	protobuf_convert.h			\
+	state.h					\
+	state_types.h				\
+	version.h
+
+GEN_HEADERS := 	gen_state_names.h		\
+	gen_version.h				\
+	lightning.pb-c.h
+
 CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
 PROGRAMS := $(TEST_CLI_PROGRAMS) $(TEST_PROGRAMS)
 
-HEADERS := $(filter-out gen_*, $(wildcard *.h)) $(wildcard bitcoin/*.h) gen_state_names.h
-
-CCANDIR := ccan/
 CFLAGS := -g -Wall -I $(CCANDIR) -I secp256k1/include/ $(FEATURES)
 LDLIBS := -lcrypto -lprotobuf-c
 $(PROGRAMS): CFLAGS+=-I.
 
 default: $(PROGRAMS)
+
+# Everything depends on the CCAN headers.
+$(CCAN_OBJS) $(CCAN_EXTRA_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_CLI_PROGRAMS:=.o) $(TEST_PROGRAMS:=.o): $(CCAN_HEADERS)
+
+# Except for CCAN, everything depends on bitcoin/ and core headers.
+$(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_CLI_PROGRAMS:=.o) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS)
+
+# Test-cli utils depends on CLI headers too.
+$(TEST_CLI_PROGRAMS:=.o): $(TEST_CLI_HEADERS)
 
 # These don't work in parallel, so we open-code them
 test-cli-tests: $(TEST_CLI_PROGRAMS)
@@ -138,11 +226,8 @@ secp256k1/libsecp256k1.la:
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	$(PROTOCC) lightning.proto --c_out=.
 
-$(TEST_CLI_PROGRAMS): % : %.o $(HELPER_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) libsecp256k1.a
+$(TEST_CLI_PROGRAMS): % : %.o $(CORE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(TEST_CLI_OBJS) libsecp256k1.a
 $(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(CCAN_OBJS) $(CCAN_EXTRA_OBJS) version.o libsecp256k1.a
-$(PROGRAMS:=.o) $(HELPER_OBJS): $(HEADERS)
-
-$(CCAN_OBJS) $(HELPER_OBJS) $(PROGRAM_OBJS) $(BITCOIN_OBJS) $(CDUMP_OBJS): ccan/config.h
 
 ccan/config.h: ccan/tools/configurator/configurator
 	$< > $@
