@@ -6,6 +6,7 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -357,6 +358,13 @@ void json_add_num(struct json_result *result, const char *fieldname, unsigned in
 	result_append_fmt(result, "%u", value);
 }
 
+void json_add_u64(struct json_result *result, const char *fieldname,
+		  uint64_t value)
+{
+	json_start_member(result, fieldname);
+	result_append_fmt(result, "%"PRIu64, value);
+}
+	
 void json_add_literal(struct json_result *result, const char *fieldname,
 		      const char *literal, int len)
 {
