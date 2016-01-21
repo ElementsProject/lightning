@@ -2,6 +2,7 @@
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
+#include "peer.h"
 #include "timeout.h"
 #include <ccan/container_of/container_of.h>
 #include <ccan/err/err.h>
@@ -12,6 +13,7 @@
 #include <ccan/timer/timer.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -25,6 +27,7 @@ static struct lightningd_state *lightningd_state(void)
 	state->base_log = new_log(state, state->log_record,
 				  "lightningd(%u):", (int)getpid());
 
+	list_head_init(&state->peers);
 	timers_init(&state->timers, time_now());
 	return state;
 }
@@ -52,6 +55,7 @@ int main(int argc, char *argv[])
 {
 	struct lightningd_state *state = lightningd_state();
 	struct timer *expired;
+	unsigned int portnum = 0;
 
 	err_set_progname(argv[0]);
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
@@ -60,6 +64,8 @@ int main(int argc, char *argv[])
 			   "\n"
 			   "A bitcoin lightning daemon.",
 			   "Print this message.");
+	opt_register_arg("--port", opt_set_uintval, NULL, &portnum,
+			 "Port to bind to (otherwise, dynamic port is used)");
 	opt_register_logging(state->base_log);
 	opt_register_version();
 
@@ -94,6 +100,9 @@ int main(int argc, char *argv[])
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(state, state->rpc_filename);
 
+	/* Set up connections from peers. */
+	setup_listeners(state, portnum);
+	
 	log_info(state->base_log, "Hello world!");
 
 	/* If io_loop returns NULL, either a timer expired, or all fds closed */

@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_DAEMON_LIGHTNING_H
 #define LIGHTNING_DAEMON_LIGHTNING_H
 #include "config.h"
+#include <ccan/list/list.h>
 #include <ccan/timer/timer.h>
 #include <stdio.h>
 
@@ -16,6 +17,9 @@ struct lightningd_state {
 	char *rpc_filename;
 
 	/* Any pending timers. */
-	struct timers timers;	
+	struct timers timers;
+
+	/* Our peers. */
+	struct list_head peers;
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */
