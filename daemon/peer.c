@@ -17,10 +17,12 @@
 #include <ccan/io/io.h>
 #include <ccan/list/list.h>
 #include <ccan/noerr/noerr.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <netinet/in.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -34,6 +36,17 @@ struct json_connecting {
 	const char *name, *port;
 	u64 satoshis;
 };
+
+static struct peer *find_peer(struct lightningd_state *dstate,
+			      const struct pubkey *id)
+{
+	struct peer *peer;
+	list_for_each(&dstate->peers, peer, list) {
+		if (peer->state != STATE_INIT && pubkey_eq(&peer->id, id))
+			return peer;
+	}
+	return NULL;
+}
 
 static void queue_output_pkt(struct peer *peer, Pkt *pkt)
 {
@@ -236,6 +249,8 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	list_head_init(&peer->watches);
 	peer->num_outpkt = 0;
 	peer->cmd = INPUT_NONE;
+	peer->current_htlc = NULL;
+	peer->num_htlcs = 0;
 
 	/* If we free peer, conn should be closed, but can't be freed
 	 * immediately so don't make peer a parent. */
@@ -622,7 +637,7 @@ void peer_htlc_ours_deferred(struct peer *peer)
 /* Successfully added/fulfilled/timedout/routefail an HTLC. */
 void peer_htlc_done(struct peer *peer)
 {
-	FIXME_STUB(peer);
+	peer->current_htlc = tal_free(peer->current_htlc);
 }
 
 /* Someone aborted an existing HTLC. */
@@ -897,4 +912,99 @@ const struct json_command getpeers_command = {
 	json_getpeers,
 	"List the current peers",
 	"Returns a 'peers' array"
+};
+
+static void json_newhtlc(struct command *cmd,
+			 const char *buffer, const jsmntok_t *params)
+{
+	struct peer *peer;
+	jsmntok_t *idtok, *msatoshistok, *expirytok, *rhashtok;
+	struct pubkey id;
+	unsigned int expiry;
+	struct htlc_progress *cur;
+
+	json_get_params(buffer, params,
+			"id", &idtok,
+			"msatoshis", &msatoshistok,
+			"expiry", &expirytok,
+			"rhash", &rhashtok,
+			NULL);
+
+	if (!idtok || !msatoshistok || !expirytok || !rhashtok) {
+		command_fail(cmd, "Need id, msatoshis, expiry and rhash");
+		return;
+	}
+
+	if (!pubkey_from_hexstr(cmd->dstate->secpctx,
+				buffer + idtok->start,
+				idtok->end - idtok->start, &id)) {
+		command_fail(cmd, "Not a valid id");
+		return;
+	}
+	peer = find_peer(cmd->dstate, &id);
+	if (!peer) {
+		command_fail(cmd, "Could not find peer with that id");
+		return;
+	}
+
+	/* Attach to cmd until it's complete. */
+	cur = tal(cmd, struct htlc_progress);
+	if (!json_tok_u64(buffer, msatoshistok, &cur->msatoshis)) {
+		command_fail(cmd, "'%.*s' is not a valid number",
+			     (int)(msatoshistok->end - msatoshistok->start),
+			     buffer + msatoshistok->start);
+		return;
+	}
+	if (!json_tok_number(buffer, expirytok, &expiry)) {
+		command_fail(cmd, "'%.*s' is not a valid number",
+			     (int)(expirytok->end - expirytok->start),
+			     buffer + expirytok->start);
+		return;
+	}
+
+	if (!seconds_to_abs_locktime(expiry, &cur->expiry)) {
+		command_fail(cmd, "'%.*s' is not a valid number",
+			     (int)(expirytok->end - expirytok->start),
+			     buffer + expirytok->start);
+		return;
+	}
+	if (!hex_decode(buffer + rhashtok->start,
+			rhashtok->end - rhashtok->start,
+			&cur->rhash, sizeof(cur->rhash))) {
+		command_fail(cmd, "'%.*s' is not a valid sha256 hash",
+			     (int)(rhashtok->end - rhashtok->start),
+			     buffer + rhashtok->start);
+		return;
+	}
+	peer_get_revocation_hash(peer, peer->num_htlcs+1,
+				 &cur->our_revocation_hash);
+
+	/* Can we even offer this much? */
+	cur->cstate = copy_funding(cur, peer->cstate);
+	if (!funding_delta(peer->us.offer_anchor == CMD_OPEN_WITH_ANCHOR,
+			   peer->anchor.satoshis,
+			   0, cur->msatoshis,
+			   &cur->cstate->a, &cur->cstate->b)) {
+		command_fail(cmd, "Cannot afford %"PRIu64" milli-satoshis",
+			     cur->msatoshis);
+		return;
+	}
+	/* Add the htlc to our side of channel. */
+	funding_add_htlc(&cur->cstate->a, cur->msatoshis,
+			 &cur->expiry, &cur->rhash);
+
+	peer->current_htlc = tal_steal(peer, cur);
+	peer->jsoncmd = cmd;
+
+	/* FIXME: do we need this? */
+	peer->cmddata.htlc_prog = peer->current_htlc;
+	peer->cmd = CMD_SEND_HTLC_UPDATE;
+	try_command(peer);
+}
+
+const struct json_command newhtlc_command = {
+	"newhtlc",
+	json_newhtlc,
+	"Offer {id} an HTLC worth {msatoshis} in {expiry} (in seconds since Jan 1 1970) with {rhash}",
+	"Returns an empty result on success"
 };

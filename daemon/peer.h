@@ -29,6 +29,17 @@ struct peer_visible_state {
 	struct bitcoin_tx *commit;
 };
 
+struct htlc_progress {
+	/* Channel funding state, after we've completed htlc. */
+	struct channel_state *cstate;
+	struct abs_locktime expiry;
+	u64 msatoshis;
+	struct sha256 rhash;
+	struct sha256 our_revocation_hash, their_revocation_hash;
+	struct bitcoin_tx *our_commit, *their_commit;
+	struct bitcoin_signature their_sig;
+};
+
 struct peer {
 	/* dstate->peers list */
 	struct list_node list;
@@ -79,6 +90,11 @@ struct peer {
 	/* Their signature for our current commit sig. */
 	struct bitcoin_signature cur_commit_theirsig;
 
+	/* Current HTLC, if any. */
+	struct htlc_progress *current_htlc;
+	/* Number of HTLC updates (== number of previous commit txs) */
+	u64 num_htlcs;
+	
 	/* Current ongoing packetflow */
 	struct io_data *io_data;
 	

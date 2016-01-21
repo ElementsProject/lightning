@@ -41,11 +41,13 @@ struct peer_secrets {
 	struct sha256 revocation_seed;
 };
 
-void peer_sign_theircommit(const struct peer *peer, struct signature *sig)
+void peer_sign_theircommit(const struct peer *peer,
+			   struct bitcoin_tx *commit,
+			   struct signature *sig)
 {
 	/* Commit tx only has one input: that of the anchor. */
 	sign_tx_input(peer->dstate->secpctx,
-		      peer->them.commit, 0,
+		      commit, 0,
 		      peer->anchor.redeemscript,
 		      tal_count(peer->anchor.redeemscript),
 		      &peer->secrets->commit,

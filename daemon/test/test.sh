@@ -53,6 +53,9 @@ while ! $LCLI2 getlog | grep 'listener on port'; do
     fi
 done
 
+ID1=`$LCLI1 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'`
+ID2=`$LCLI2 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'`
+
 PORT2=`$LCLI2 getlog | sed -n 's/.*on port \([0-9]*\).*/\1/p'`
 
 $LCLI1 connect localhost $PORT2 999999
@@ -70,6 +73,11 @@ sleep 2
 
 $LCLI1 getpeers | grep STATE_NORMAL_HIGHPRIO
 $LCLI2 getpeers | grep STATE_NORMAL_LOWPRIO
+
+EXPIRY=$(( $(date +%s) + 1000))
+SECRET=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd
+RHASH=`$LCLI1 dev-rhash $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
+$LCLI1 newhtlc $ID2 1000000 $EXPIRY $RHASH
 
 $LCLI1 stop
 $LCLI2 stop
