@@ -303,6 +303,8 @@ void check_bitcoind_config(struct lightningd_state *dstate)
 	void *ctx = tal(dstate, char);
 	char *path, *config, **lines;
 	size_t i;
+	bool nowalletbroadcast = false;
+	int testnet = -1, regtest = -1;
 
 	path = path_simplify(ctx, path_join(ctx, path_cwd(ctx),
 					    "../.bitcoin/bitcoin.conf"));
@@ -315,14 +317,32 @@ void check_bitcoind_config(struct lightningd_state *dstate)
 
 	lines = tal_strsplit(ctx, config, "\n", STR_NO_EMPTY);
 	for (i = 0; lines[i]; i++) {
+		char *str;
 		if (tal_strreg(ctx, lines[i],
 			       "^[ \t]*walletbroadcast[ \t]*=[ \t]*0"))
-			goto out;
+			nowalletbroadcast = true;
+		else if (tal_strreg(ctx, lines[i],
+				    "^[ \t]*testnet[ \t]*=[ \t]*([01])", &str))
+			testnet = atoi(str);
+		else if (tal_strreg(ctx, lines[i],
+				    "^[ \t]*regtest[ \t]*=[ \t]*([01])", &str))
+			regtest = atoi(str);
 	}
-	
-			
-	log_unusual(dstate->base_log, "%s does not contain walletbroadcast=0",
-		    path);
+
+	if (!nowalletbroadcast)
+		log_unusual(dstate->base_log,
+			    "%s does not contain walletbroadcast=0",
+			    path);
+	if (dstate->config.testnet) {
+		if (testnet != 1 && regtest != 1)
+			log_unusual(dstate->base_log,
+				    "%s does not set testnet/regtest,"
+				    " but we are on testnet.",
+				    path);
+	} else if (testnet == 1 || regtest == 1)
+		log_unusual(dstate->base_log,
+			    "%s sets %s, but we are not on testnet",
+			    path, testnet == 1 ? "testnet" : "regtest");
 out:
 	tal_free(ctx);
 }
