@@ -7,6 +7,7 @@
 #include <ccan/err/err.h>
 #include "bitcoin/tx.h"
 #include "version.h"
+#include "tx_from_file.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])

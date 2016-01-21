@@ -62,7 +62,7 @@ CORE_SRC :=					\
 	version.c
 CORE_OBJS := $(CORE_SRC:.c=.o)
 
-TEST_CLI_SRC := test-cli/gather_updates.c test-cli/pkt.c
+TEST_CLI_SRC := test-cli/gather_updates.c test-cli/pkt.c test-cli/tx_from_file.c
 TEST_CLI_OBJS := $(TEST_CLI_SRC:.c=.o)
 
 CCAN_OBJS :=					\
@@ -152,7 +152,8 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h
 
 TEST_CLI_HEADERS := test-cli/gather_updates.h \
-	test-cli/pkt.h
+	test-cli/pkt.h \
+	test-cli/tx_from_file.h
 
 BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/base58.h			\

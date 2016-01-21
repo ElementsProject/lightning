@@ -1,12 +1,12 @@
 #include "tx.h"
 #include <assert.h>
+#include <ccan/cast/cast.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/endian/endian.h>
-#include <ccan/err/err.h>
 #include <ccan/mem/mem.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
-#include <ccan/tal/grab_file/grab_file.h>
+#include <stdio.h>
 
 enum styles {
 	/* Add the CT padding stuff to amount. */
@@ -432,35 +432,29 @@ static struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 	return tx;
 }
 
-struct bitcoin_tx *bitcoin_tx_from_file(const tal_t *ctx,
-					const char *filename)
+struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex)
 {
-	char *hex, *end;
+	char *end;
 	u8 *linear_tx;
 	const u8 *p;
 	struct bitcoin_tx *tx;
 	size_t len;
 
-	/* Grabs file, add nul at end. */
-	hex = grab_file(ctx, filename);
-	if (!hex)
-		err(1, "Opening %s", filename);
-
-	if (strends(hex, "\n"))
-		hex[strlen(hex)-1] = '\0';
-
 	end = strchr(hex, ':');
-	if (!end)
-		end = hex + strlen(hex);
-		
+	if (!end) {
+		end = cast_const(char *, hex) + strlen(hex);
+		if (strends(hex, "\n"))
+			end--;
+	}
+
 	len = hex_data_size(end - hex);
-	p = linear_tx = tal_arr(hex, u8, len);
+	p = linear_tx = tal_arr(ctx, u8, len);
 	if (!hex_decode(hex, end - hex, linear_tx, len))
-		errx(1, "Bad hex string in %s", filename);
+		goto fail;
 
 	tx = pull_bitcoin_tx(ctx, &p, &len);
 	if (!tx)
-		errx(1, "Bad transaction in %s", filename);
+		goto fail;
 
 	/* Optional appended [:input-amount]* */
 	for (len = 0; len < tx->input_count; len++) {
@@ -469,18 +463,22 @@ struct bitcoin_tx *bitcoin_tx_from_file(const tal_t *ctx,
 		tx->input[len].input_amount = strtoull(end + 1, &end, 10);
 	}
 	if (len == tx->input_count) {
-		if (*end != '\0')
-			errx(1, "Additional input amounts appended to %s",
-			     filename);
+		if (*end != '\0' && *end != '\n')
+			goto fail_free_tx;
 	} else {
 		/* Input amounts are compulsory for alpha, to generate sigs */
 #ifdef ALPHA_TXSTYLE
-		errx(1, "No input amount #%zu in %s", len, filename);
+		goto fail_free_tx;
 #endif
 	}
-	tal_free(hex);
-
+	tal_free(linear_tx);
 	return tx;
+
+fail_free_tx:
+	tal_free(tx);
+fail:
+	tal_free(linear_tx);
+	return NULL;
 }
 
 /* <sigh>.  Bitcoind represents hashes as little-endian for RPC.  This didn't

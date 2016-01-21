@@ -16,6 +16,7 @@
 #include "protobuf_convert.h"
 #include "version.h"
 #include "bitcoin/locktime.h"
+#include "tx_from_file.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])

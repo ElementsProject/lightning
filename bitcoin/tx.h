@@ -54,8 +54,9 @@ u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx);
 struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 			      varint_t output_count);
 
-struct bitcoin_tx *bitcoin_tx_from_file(const tal_t *ctx,
-					const char *filename);
+/* This takes a raw bitcoin tx in hex, with [:<64-bit-satoshi>] appended
+ * for each input (required for -DALPHA). */
+struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex);
 
 bool bitcoin_tx_write(int fd, const struct bitcoin_tx *tx);
 

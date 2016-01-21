@@ -18,6 +18,7 @@
 #include "find_p2sh_out.h"
 #include "bitcoin/locktime.h"
 #include "version.h"
+#include "tx_from_file.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])

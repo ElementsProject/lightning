@@ -22,6 +22,7 @@
 #include <time.h>
 #include "opt_bits.h"
 #include "version.h"
+#include "tx_from_file.h"
 
 int main(int argc, char *argv[])
 {
