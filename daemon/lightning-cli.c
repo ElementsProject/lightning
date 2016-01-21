@@ -140,6 +140,10 @@ int main(int argc, char *argv[])
 		errx(ERROR_TALKING_TO_LIGHTNINGD,
 		     "Malformed response '%s'", resp);
 
+	if (toks->type != JSMN_OBJECT)
+		errx(ERROR_TALKING_TO_LIGHTNINGD,
+		     "Non-object response '%s'", resp);
+
 	result = json_get_member(resp, toks, "result");
 	if (!result)
 		errx(ERROR_TALKING_TO_LIGHTNINGD,
