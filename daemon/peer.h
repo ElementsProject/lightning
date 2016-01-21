@@ -132,4 +132,7 @@ void make_commit_txs(const tal_t *ctx,
 		     const struct channel_state *cstate,
 		     struct bitcoin_tx **ours, struct bitcoin_tx **theirs);
 
+void peer_add_htlc_expiry(struct peer *peer,
+			  const struct abs_locktime *expiry);
+
 #endif /* LIGHTNING_DAEMON_PEER_H */

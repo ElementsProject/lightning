@@ -122,6 +122,22 @@ $LCLI2 failhtlc $ID1 $RHASH
 # Back to how we were before.
 check_status 949999000 49000000 "" 0 1000000 ""
 
+# Same again, but this time it expires.
+$LCLI1 newhtlc $ID2 10000000 $EXPIRY $RHASH
+
+# Check channel status
+check_status 939999000 49000000 '{ "msatoshis" : 10000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' 0 1000000 ""
+
+# Make sure node1 accepts the expiry packet.
+$LCLI1 dev-mocktime $(($EXPIRY))
+
+# This should make node2 send it.
+$LCLI2 dev-mocktime $(($EXPIRY + 31))
+sleep 1
+
+# Back to how we were before.
+check_status 949999000 49000000 "" 0 1000000 ""
+
 sleep 1
 
 $LCLI1 stop

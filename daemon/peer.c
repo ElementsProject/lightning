@@ -1070,6 +1070,64 @@ static void set_htlc_command(struct peer *peer,
 	set_current_command(peer, cmd, peer->current_htlc, jsoncmd);
 }
 		
+/* FIXME: Keep a timeout for each peer, in case they're unresponsive. */
+	
+static void check_htlc_expiry(struct peer *peer, void *unused)
+{
+	size_t i;
+
+	/* Check their htlcs for expiry. */
+	for (i = 0; i < tal_count(peer->cstate->b.htlcs); i++) {
+		struct channel_htlc *htlc = &peer->cstate->b.htlcs[i];
+		struct channel_state *cstate;
+
+		/* Not a seconds-based expiry? */
+		if (!abs_locktime_is_seconds(&htlc->expiry))
+			continue;
+
+		/* Not well-expired? */
+		if (controlled_time().ts.tv_sec - 30
+		    < abs_locktime_to_seconds(&htlc->expiry))
+			continue;
+
+		cstate = copy_funding(peer, peer->cstate);
+
+		/* This should never fail! */
+		if (!funding_delta(peer->them.offer_anchor
+				   == CMD_OPEN_WITH_ANCHOR,
+				   peer->anchor.satoshis,
+				   0,
+				   -htlc->msatoshis,
+				   &cstate->b, &cstate->a)) {
+			fatal("Unexpected failure expirint HTLC of %"PRIu64
+			      " milli-satoshis", htlc->msatoshis);
+		}
+		funding_remove_htlc(&cstate->b, i);
+
+		set_htlc_command(peer, cstate, NULL, htlc,
+				 CMD_SEND_HTLC_TIMEDOUT, NULL);
+		return;
+	}
+}
+
+static void htlc_expiry_timeout(struct peer *peer)
+{
+	log_debug(peer->log, "Expiry timedout!");
+	queue_cmd(peer, check_htlc_expiry, NULL);
+}
+
+void peer_add_htlc_expiry(struct peer *peer,
+			  const struct abs_locktime *expiry)
+{
+	time_t when;
+
+	/* Add 30 seconds to be sure peers agree on timeout. */
+	when = abs_locktime_to_seconds(expiry) - controlled_time().ts.tv_sec;
+	when += 30;
+
+	oneshot_timeout(peer->dstate, peer, when, htlc_expiry_timeout, peer);
+}
+
 struct newhtlc {
 	struct channel_htlc *htlc;
 	struct command *jsoncmd;
@@ -1097,6 +1155,7 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 	/* Add the htlc to our side of channel. */
 	funding_add_htlc(&cstate->a, newhtlc->htlc->msatoshis,
 			 &newhtlc->htlc->expiry, &newhtlc->htlc->rhash);
+	peer_add_htlc_expiry(peer, &newhtlc->htlc->expiry);
 
 	set_htlc_command(peer, cstate, newhtlc->jsoncmd,
 			 &cstate->a.htlcs[tal_count(cstate->a.htlcs)-1],

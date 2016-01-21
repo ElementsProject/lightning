@@ -163,7 +163,14 @@ Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct peer *peer,
 Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct peer *peer,
 		       const struct htlc_progress *htlc_prog)
 {
-	FIXME_STUB(peer);
+	UpdateTimedoutHtlc *t = tal(ctx, UpdateTimedoutHtlc);
+
+	update_timedout_htlc__init(t);
+
+	t->revocation_hash = sha256_to_proto(t, &htlc_prog->our_revocation_hash);
+	t->r_hash = sha256_to_proto(t, &htlc_prog->htlc->rhash);
+
+	return make_pkt(ctx, PKT__PKT_UPDATE_TIMEDOUT_HTLC, t);
 }
 
 Pkt *pkt_htlc_routefail(const tal_t *ctx, const struct peer *peer,
@@ -448,6 +455,7 @@ Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 	/* Add the htlc to their side of channel. */
 	funding_add_htlc(&cur->cstate->b, cur->htlc->msatoshis,
 			 &cur->htlc->expiry, &cur->htlc->rhash);
+	peer_add_htlc_expiry(peer, &cur->htlc->expiry);
 	
 	peer_get_revocation_hash(peer, peer->num_htlcs+1,
 				 &cur->our_revocation_hash);
@@ -504,6 +512,7 @@ Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
 		      " milli-satoshis", cur->htlc->msatoshis);
 	}
 	funding_remove_htlc(&cur->cstate->a, i);
+	/* FIXME: Remove timer. */
 	
 	peer_get_revocation_hash(peer, peer->num_htlcs+1,
 				 &cur->our_revocation_hash);
@@ -526,7 +535,57 @@ fail:
 Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
 			      struct peer *peer, const Pkt *pkt)
 {
-	FIXME_STUB(peer);
+	const UpdateTimedoutHtlc *t = pkt->update_timedout_htlc;
+	struct htlc_progress *cur = tal(peer, struct htlc_progress);
+	Pkt *err;
+	size_t i;
+	struct sha256 rhash;
+
+	proto_to_sha256(t->revocation_hash, &cur->their_revocation_hash);
+	proto_to_sha256(t->r_hash, &rhash);
+
+	i = funding_find_htlc(&peer->cstate->a, &rhash);
+	if (i == tal_count(peer->cstate->a.htlcs)) {
+		err = pkt_err(ctx, "Unknown HTLC");
+		goto fail;
+	}
+
+	cur->htlc = &peer->cstate->a.htlcs[i];
+
+	/* Do we agree it has timed out? */
+	if (controlled_time().ts.tv_sec < abs_locktime_to_seconds(&cur->htlc->expiry)) {
+		err = pkt_err(ctx, "HTLC has not yet expired!");
+		goto fail;
+	}
+
+	/* Removing it should not fail: we regain HTLC amount */
+	cur->cstate = copy_funding(cur, peer->cstate);
+	if (!funding_delta(peer->us.offer_anchor == CMD_OPEN_WITH_ANCHOR,
+			   peer->anchor.satoshis,
+			   0, -cur->htlc->msatoshis,
+			   &cur->cstate->a, &cur->cstate->b)) {
+		fatal("Unexpected failure fulfilling HTLC of %"PRIu64
+		      " milli-satoshis", cur->htlc->msatoshis);
+	}
+	funding_remove_htlc(&cur->cstate->a, i);
+	/* FIXME: Remove timer. */
+
+	peer_get_revocation_hash(peer, peer->num_htlcs+1,
+				 &cur->our_revocation_hash);
+
+	/* Now we create the commit tx pair. */
+	make_commit_txs(cur, peer, &cur->our_revocation_hash,
+			&cur->their_revocation_hash,
+			cur->cstate,
+			&cur->our_commit, &cur->their_commit);
+
+	assert(!peer->current_htlc);
+	peer->current_htlc = cur;
+	return NULL;
+
+fail:
+	tal_free(cur);
+	return err;
 }
 
 Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
