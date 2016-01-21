@@ -594,7 +594,7 @@ void peer_watch_htlc_spend(struct peer *peer,
 			   const struct htlc *htlc,
 			   enum state_input done)
 {
-	FIXME_STUB(peer);
+	/* FIXME! */
 }
 void peer_unwatch_htlc_spend(struct peer *peer,
 			     const struct htlc *htlc,

@@ -203,8 +203,9 @@ $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_CLI_PROGRAMS:=.o) $(TEST_PROGRAMS:=.o): $(
 $(TEST_CLI_PROGRAMS:=.o): $(TEST_CLI_HEADERS)
 
 # These don't work in parallel, so we open-code them
-test-cli-tests: $(TEST_CLI_PROGRAMS)
+test-cli-tests: $(TEST_CLI_PROGRAMS) daemon-all
 	cd test-cli; scripts/shutdown.sh 2>/dev/null || true
+	set -e; for args in ""; do daemon/test/test.sh; done
 	set -e; cd test-cli; for args in "" --steal --unilateral --htlc-onchain; do scripts/setup.sh && scripts/test.sh $$args && scripts/shutdown.sh; done
 
 test-onion: test/test_onion test/onion_key
