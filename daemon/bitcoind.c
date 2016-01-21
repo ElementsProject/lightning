@@ -36,6 +36,7 @@ static char **gather_args(const tal_t *ctx, const char *cmd, va_list ap)
 }
 
 struct bitcoin_cli {
+	struct list_node list;
 	struct lightningd_state *dstate;
 	int fd;
 	pid_t pid;
@@ -65,9 +66,12 @@ static struct io_plan *output_init(struct io_conn *conn, struct bitcoin_cli *bcl
 	return read_more(conn, bcli);
 }
 
+static void next_bcli(struct lightningd_state *dstate);
+
 static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 {
 	int ret, status;
+	struct lightningd_state *dstate = bcli->dstate;
 
 	/* FIXME: If we waited for SIGCHILD, this could never hang! */
 	ret = waitpid(bcli->pid, &status, 0);
@@ -86,9 +90,35 @@ static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 		      bcli->args[0], bcli->args[1], WEXITSTATUS(status),
 		      (int)bcli->output_bytes, bcli->output);
 
-	assert(bcli->dstate->bitcoind_in_progress);
-	bcli->dstate->bitcoind_in_progress--;
+	log_debug(dstate->base_log, "reaped %u: %s", ret, bcli->args[1]);
+	dstate->bitcoin_req_running = false;
 	bcli->process(bcli);
+
+	next_bcli(dstate);
+}
+
+static void next_bcli(struct lightningd_state *dstate)
+{
+	struct bitcoin_cli *bcli;
+	struct io_conn *conn;
+
+	if (dstate->bitcoin_req_running)
+		return;
+
+	bcli = list_pop(&dstate->bitcoin_req, struct bitcoin_cli, list);
+	if (!bcli)
+		return;
+
+	log_debug(bcli->dstate->base_log, "starting: %s", bcli->args[1]);
+
+	bcli->pid = pipecmdarr(&bcli->fd, NULL, &bcli->fd, bcli->args);
+	if (bcli->pid < 0)
+		fatal("%s exec failed: %s", bcli->args[0], strerror(errno));
+
+	dstate->bitcoin_req_running = true;
+	conn = io_new_conn(dstate, bcli->fd, output_init, bcli);
+	tal_steal(conn, bcli);
+	io_set_finish(conn, bcli_finished, bcli);
 }
 
 static void
@@ -99,7 +129,6 @@ start_bitcoin_cli(struct lightningd_state *dstate,
 {
 	va_list ap;
 	struct bitcoin_cli *bcli = tal(dstate, struct bitcoin_cli);
-	struct io_conn *conn;
 
 	bcli->dstate = dstate;
 	bcli->process = process;
@@ -109,14 +138,8 @@ start_bitcoin_cli(struct lightningd_state *dstate,
 	bcli->args = gather_args(bcli, cmd, ap);
 	va_end(ap);
 
-	bcli->pid = pipecmdarr(&bcli->fd, NULL, &bcli->fd, bcli->args);
-	if (bcli->pid < 0)
-		fatal("%s exec failed: %s", bcli->args[0], strerror(errno));
-
-	conn = io_new_conn(dstate, bcli->fd, output_init, bcli);
-	tal_steal(conn, bcli);
-	dstate->bitcoind_in_progress++;
-	io_set_finish(conn, bcli_finished, bcli);
+	list_add_tail(&dstate->bitcoin_req, &bcli->list);
+	next_bcli(dstate);
 }
 
 static void process_importaddress(struct bitcoin_cli *bcli)

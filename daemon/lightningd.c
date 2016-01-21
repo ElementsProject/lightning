@@ -127,7 +127,8 @@ static struct lightningd_state *lightningd_state(void)
 	dstate->secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						   | SECP256K1_CONTEXT_SIGN);
 	default_config(&dstate->config);
-	dstate->bitcoind_in_progress = 0;
+	list_head_init(&dstate->bitcoin_req);
+	dstate->bitcoin_req_running = false;
 	return dstate;
 }
 

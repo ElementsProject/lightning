@@ -62,11 +62,12 @@ struct lightningd_state {
 	/* This is us. */
 	struct pubkey id;
 
-	/* Number of bitcoind commands outstanding. */
-	unsigned int bitcoind_in_progress;
-
 	/* Transactions/txos we are watching. */
 	struct txwatch_hash txwatches;
 	struct txowatch_hash txowatches;
+
+	/* Outstanding bitcoind requests. */
+	struct list_head bitcoin_req;
+	bool bitcoin_req_running;
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */

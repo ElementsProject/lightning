@@ -213,10 +213,9 @@ static struct timeout watch_timeout;
 
 static void start_poll_transactions(struct lightningd_state *dstate)
 {
-	if (dstate->bitcoind_in_progress != 0) {
+	if (!list_empty(&dstate->bitcoin_req)) {
 		log_unusual(dstate->base_log,
-			    "Delaying start poll: %u commands in progress",
-			    dstate->bitcoind_in_progress);
+			    "Delaying start poll: commands in progress");
 	} else
 		bitcoind_poll_transactions(dstate, watched_transaction);
 	refresh_timeout(dstate, &watch_timeout);
