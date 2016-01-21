@@ -230,7 +230,7 @@ check-hdr-include-order/%: %
 	@if [ "$$(grep '^#include' < $< | tail -n +2)" != "$$(grep '^#include' < $< | tail -n +2 | LC_ALL=C sort)" ]; then echo "$<:1: includes out of order"; exit 1; fi
 
 # Make sure Makefile includes all headers.
-check-makefile:
+check-makefile: check-daemon-makefile
 	@if [ "`echo bitcoin/*.h`" != "$(BITCOIN_HEADERS)" ]; then echo BITCOIN_HEADERS incorrect; exit 1; fi
 	@if [ "`echo test-cli/*.h`" != "$(TEST_CLI_HEADERS)" ]; then echo TEST_CLI_HEADERS incorrect; exit 1; fi
 	@if [ x"`ls *.h | grep -v ^gen_ | fgrep -v lightning.pb-c.h | tr '\n' ' '`" != x"$(CORE_HEADERS) " ]; then echo CORE_HEADERS incorrect; exit 1; fi

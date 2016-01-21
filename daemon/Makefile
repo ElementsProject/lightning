@@ -21,5 +21,7 @@ $(DAEMON_OBJS): $(DAEMON_HEADERS) $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADE
 
 check-source: $(DAEMON_SRC:%=check-src-include-order/%)
 check-source: $(DAEMON_HEADERS:%=check-hdr-include-order/%)
+check-daemon-makefile:
+	@if [ "`echo daemon/*.h`" != "$(DAEMON_HEADERS)" ]; then echo DAEMON_HEADERS incorrect; exit 1; fi
 
 daemon/lightningd: $(DAEMON_OBJS) $(CCAN_OBJS)
