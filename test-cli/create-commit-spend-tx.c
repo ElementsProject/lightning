@@ -85,7 +85,9 @@ int main(int argc, char *argv[])
 		errx(1, "Invalid o2 final pubkey");
 
 	/* We use this simply to get final revocation hash. */
-	gather_updates(ctx, o1, o2, a, commit_fee(o1, o2), argv + 7,
+	gather_updates(ctx, o1, o2, a,
+		       commit_fee(o1->commitment_fee, o2->commitment_fee),
+		       argv + 7,
 		       NULL, &rhash, NULL, NULL);
 
 	/* Create redeem script */

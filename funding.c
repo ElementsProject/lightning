@@ -2,11 +2,6 @@
 #include <assert.h>
 #include <string.h>
 
-static bool is_funder(const OpenChannel *o)
-{
-	return o->anch == OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR;
-}
-
 static bool subtract_fees(uint64_t *funder, uint64_t *non_funder,
 			  uint64_t *funder_fee, uint64_t *non_funder_fee,
 			  bool non_funder_paying, uint64_t fee)
@@ -38,19 +33,18 @@ static bool subtract_fees(uint64_t *funder, uint64_t *non_funder,
 }
 
 /* Total, in millisatoshi. */
-static uint32_t htlcs_total(UpdateAddHtlc *const *htlcs)
+static uint64_t htlcs_total(const struct channel_htlc *htlcs)
 {
 	size_t i, n = tal_count(htlcs);
-	uint32_t total = 0;
+	uint64_t total = 0;
 
 	for (i = 0; i < n; i++)
-		total += htlcs[i]->amount_msat;
+		total += htlcs[i].msatoshis;
 	return total;
 }
 
-bool funding_delta(const OpenChannel *oa,
-		   const OpenChannel *ob,
-		   const OpenAnchor *anchor,
+bool funding_delta(bool a_is_funder,
+		   uint64_t anchor_satoshis,
 		   int64_t delta_a_msat,
 		   int64_t htlc_msat,
 		   struct channel_oneside *a_side,
@@ -65,11 +59,7 @@ bool funding_delta(const OpenChannel *oa,
 	b = b_side->pay_msat + b_side->fee_msat;
 	fee = a_side->fee_msat + b_side->fee_msat;
 	assert(a + b + htlcs_total(a_side->htlcs) + htlcs_total(b_side->htlcs)
-	       == anchor->amount * 1000);
-
-	/* Only one can be funder. */
-	if (is_funder(oa) == is_funder(ob))
-		return false;
+	       == anchor_satoshis * 1000);
 
 	/* B gets whatever A gives. */
 	delta_b_msat = -delta_a_msat;
@@ -87,7 +77,7 @@ bool funding_delta(const OpenChannel *oa,
 	b += delta_b_msat;
 
 	/* Take off fee from both parties if possible. */
-	if (is_funder(oa))
+	if (a_is_funder)
 		got_fees = subtract_fees(&a, &b, &a_fee, &b_fee,
 					 delta_b_msat < 0, fee);
 	else
@@ -106,42 +96,41 @@ bool funding_delta(const OpenChannel *oa,
 }
 
 struct channel_state *initial_funding(const tal_t *ctx,
-				      const OpenChannel *a,
-				      const OpenChannel *b,
-				      const OpenAnchor *anchor,
+				      bool am_funder,
+				      uint64_t anchor_satoshis,
 				      uint64_t fee)
 {
 	struct channel_state *state = talz(ctx, struct channel_state);
 
-	state->a.htlcs = tal_arr(state, UpdateAddHtlc *, 0);
-	state->b.htlcs = tal_arr(state, UpdateAddHtlc *, 0);
+	state->a.htlcs = tal_arr(state, struct channel_htlc, 0);
+	state->b.htlcs = tal_arr(state, struct channel_htlc, 0);
 	
-	if (fee > anchor->amount)
+	if (fee > anchor_satoshis)
 		return tal_free(state);
 
-	if (anchor->amount > (1ULL << 32) / 1000)
+	if (anchor_satoshis > (1ULL << 32) / 1000)
 		return tal_free(state);
 	
 	/* Initially, all goes back to funder. */
-	state->a.pay_msat = anchor->amount * 1000 - fee * 1000;
+	state->a.pay_msat = anchor_satoshis * 1000 - fee * 1000;
 	state->a.fee_msat = fee * 1000;
 
 	/* If B (not A) is funder, invert. */
-	if (is_funder(b))
+	if (!am_funder)
 		invert_cstate(state);
 
-	/* This checks we only have 1 anchor, and is nice code reuse. */
-	if (!funding_delta(a, b, anchor, 0, 0, &state->a, &state->b))
-		return tal_free(state);
+	/* Make sure it checks out. */
+	assert(funding_delta(am_funder, anchor_satoshis, 0, 0,
+			     &state->a, &state->b));
 	return state;
 }
 
 /* We take the minimum.  If one side offers too little, it should be rejected */
-uint64_t commit_fee(const OpenChannel *a, const OpenChannel *b)
+uint64_t commit_fee(uint64_t a_satoshis, uint64_t b_satoshis)
 {
-	if (a->commitment_fee < b->commitment_fee)
-		return a->commitment_fee;
-	return b->commitment_fee;
+	if (a_satoshis < b_satoshis)
+		return a_satoshis;
+	return b_satoshis;
 }
 
 void invert_cstate(struct channel_state *cstate)
@@ -151,4 +140,28 @@ void invert_cstate(struct channel_state *cstate)
 	tmp = cstate->a;
 	cstate->a = cstate->b;
 	cstate->b = tmp;
+}
+
+void funding_add_htlc(struct channel_oneside *creator,
+		      u32 msatoshis, const struct abs_locktime *expiry,
+		      const struct sha256 *rhash)
+{
+	size_t n = tal_count(creator->htlcs);
+	tal_resize(&creator->htlcs, n+1);
+
+	creator->htlcs[n].msatoshis = msatoshis;
+	creator->htlcs[n].expiry = *expiry;
+	creator->htlcs[n].rhash = *rhash;
+}
+
+struct channel_state *copy_funding(const tal_t *ctx,
+				   const struct channel_state *cstate)
+{
+	struct channel_state *cs = tal_dup(ctx, struct channel_state, cstate);
+
+	cs->a.htlcs = tal_dup_arr(cs, struct channel_htlc, cs->a.htlcs,
+				  tal_count(cs->a.htlcs), 0);
+	cs->b.htlcs = tal_dup_arr(cs, struct channel_htlc, cs->b.htlcs,
+				  tal_count(cs->b.htlcs), 0);
+	return cs;
 }

@@ -15,6 +15,7 @@
 #include "bitcoin/privkey.h"
 #include "protobuf_convert.h"
 #include "funding.h"
+#include "gather_updates.h"
 #include "version.h"
 #include <unistd.h>
 
@@ -70,9 +71,14 @@ int main(int argc, char *argv[])
 	if (!proto_to_pubkey(o2->commit_key, &pubkey2))
 		errx(1, "Invalid o2 commit_key");
 
-	cstate = initial_funding(ctx, o1, o2, a, commit_fee(o1, o2));
+	if (is_funder(o1) == is_funder(o2))
+		errx(1, "Must be exactly one funder");
+
+	cstate = initial_funding(ctx, is_funder(o1), a->amount,
+				 commit_fee(o1->commitment_fee,
+					    o2->commitment_fee));
 	if (!cstate)
-		errx(1, "Invalid open combination (need 1 anchor offer)");
+		errx(1, "Invalid open combination (need to cover fees)");
 	
 	/* Now create our commitment tx. */
 	proto_to_sha256(o1->revocation_hash, &rhash);

@@ -28,28 +28,32 @@ static size_t find_htlc(struct channel_oneside *oneside,
 			const Sha256Hash *rhash)
 {
 	size_t i, n;
+	struct sha256 h;
 
+	proto_to_sha256(rhash, &h);
+	
 	n = tal_count(oneside->htlcs);
 	for (i = 0; i < n; i++) {
-		if (oneside->htlcs[i]->r_hash->a == rhash->a
-		    && oneside->htlcs[i]->r_hash->b == rhash->b
-		    && oneside->htlcs[i]->r_hash->c == rhash->c
-		    && oneside->htlcs[i]->r_hash->d == rhash->d)
+		if (structeq(&oneside->htlcs[i].rhash, &h))
 			break;
 	}
 	return i;
 }
 
-static void add_htlc(struct channel_oneside *oneside, UpdateAddHtlc *ah,
+static void add_htlc(struct channel_oneside *oneside,
+		     const UpdateAddHtlc *ah,
 		     const char *file)
 {
 	size_t num = tal_count(oneside->htlcs);
-
+	struct sha256 rhash;
+	struct abs_locktime expiry;
+	
 	if (find_htlc(oneside, ah->r_hash) != num)
 		errx(1, "Duplicate R hash in %s", file);
 
-	tal_resize(&oneside->htlcs, num+1);
-	oneside->htlcs[num] = ah;
+	proto_to_sha256(ah->r_hash, &rhash);
+	proto_to_abs_locktime(ah->expiry, &expiry);
+	funding_add_htlc(oneside, ah->amount_msat, &expiry, &rhash);
 }
 
 static void remove_htlc(struct channel_oneside *oneside, size_t n)
@@ -85,13 +89,13 @@ static void update_rhash(const Sha256Hash *rhash,
 		(*num_updates)++;
 }
 
-static uint32_t htlcs_total(UpdateAddHtlc *const *htlcs)
+static uint32_t htlcs_total(const struct channel_htlc *htlcs)
 {
 	size_t i, n = tal_count(htlcs);
 	uint32_t total = 0;
 
 	for (i = 0; i < n; i++)
-		total += htlcs[i]->amount_msat;
+		total += htlcs[i].msatoshis;
 	return total;
 }
 
@@ -110,9 +114,12 @@ struct channel_state *gather_updates(const tal_t *ctx,
 	struct channel_state *cstate;
 	
 	/* Start sanity check. */
-	cstate = initial_funding(NULL, o1, o2, oa, fee);
+	if (is_funder(o1) == is_funder(o2))
+		errx(1, "Must be exactly one funder");
+
+	cstate = initial_funding(NULL, is_funder(o1), oa->amount, fee);
 	if (!cstate)
-		errx(1, "Invalid open combination (need 1 anchor offer)");
+		errx(1, "Invalid open combination (need to cover fees)");
 
 	/* If they don't want these, use dummy ones. */
 	if (!our_rhash)
@@ -156,14 +163,16 @@ struct channel_state *gather_updates(const tal_t *ctx,
 		case PKT__PKT_UPDATE_ADD_HTLC:
 			amount = pkt->update_add_htlc->amount_msat;
 			if (received) {
-				if (!funding_delta(o2, o1, oa, 0, amount,
+				if (!funding_delta(is_funder(o2), oa->amount,
+						   0, amount,
 						   &cstate->b, &cstate->a))
 					errx(1, "Impossible htlc %llu %s",
 					     (long long)amount, *argv);
 				add_htlc(&cstate->b, pkt->update_add_htlc,
 					 *argv);
 			} else {
-				if (!funding_delta(o1, o2, oa, 0, amount,
+				if (!funding_delta(is_funder(o1), oa->amount,
+						   0, amount,
 						   &cstate->a, &cstate->b))
 					errx(1, "Impossible htlc %llu %s",
 					     (long long)amount, *argv);
@@ -183,8 +192,9 @@ struct channel_state *gather_updates(const tal_t *ctx,
 					      pkt->update_timedout_htlc->r_hash);
 				if (n == tal_count(cstate->b.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
-				amount = cstate->b.htlcs[n]->amount_msat;
-				if (!funding_delta(o2, o1, oa, 0, -amount,
+				amount = cstate->b.htlcs[n].msatoshis;
+				if (!funding_delta(is_funder(o2), oa->amount,
+						   0, -amount,
 						   &cstate->b, &cstate->a))
 					errx(1, "Impossible htlc %llu %s",
 					     (long long)amount, *argv);
@@ -194,8 +204,9 @@ struct channel_state *gather_updates(const tal_t *ctx,
 					      pkt->update_timedout_htlc->r_hash);
 				if (n == tal_count(cstate->a.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
-				amount = cstate->a.htlcs[n]->amount_msat;
-				if (!funding_delta(o1, o2, oa, 0, -amount,
+				amount = cstate->a.htlcs[n].msatoshis;
+				if (!funding_delta(is_funder(o1), oa->amount,
+						   0, -amount,
 						   &cstate->a, &cstate->b))
 					errx(1, "Impossible htlc %llu %s",
 					     (long long)amount, *argv);
@@ -214,8 +225,9 @@ struct channel_state *gather_updates(const tal_t *ctx,
 					      pkt->update_routefail_htlc->r_hash);
 				if (n == tal_count(cstate->a.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
-				amount = cstate->a.htlcs[n]->amount_msat;
-				if (!funding_delta(o1, o2, oa, 0, -amount,
+				amount = cstate->a.htlcs[n].msatoshis;
+				if (!funding_delta(is_funder(o1), oa->amount,
+						   0, -amount,
 						   &cstate->a, &cstate->b))
 					errx(1, "Impossible htlc %llu %s",
 					     (long long)amount, *argv);
@@ -225,8 +237,9 @@ struct channel_state *gather_updates(const tal_t *ctx,
 					      pkt->update_routefail_htlc->r_hash);
 				if (n == tal_count(cstate->b.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
-				amount = cstate->b.htlcs[n]->amount_msat;
-				if (!funding_delta(o2, o1, oa, 0, -amount,
+				amount = cstate->b.htlcs[n].msatoshis;
+				if (!funding_delta(is_funder(o2), oa->amount,
+						   0, -amount,
 						   &cstate->b, &cstate->a))
 					errx(1, "Impossible htlc %llu %s",
 					     (long long)amount, *argv);
@@ -253,8 +266,9 @@ struct channel_state *gather_updates(const tal_t *ctx,
 				n = find_htlc(&cstate->a, rh);
 				if (n == tal_count(cstate->a.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
-				amount = cstate->a.htlcs[n]->amount_msat;
-				if (!funding_delta(o1, o2, oa, -amount, -amount,
+				amount = cstate->a.htlcs[n].msatoshis;
+				if (!funding_delta(is_funder(o1), oa->amount,
+						   -amount, -amount,
 						   &cstate->a, &cstate->b))
 					errx(1, "Impossible htlc %llu %s",
 					     (long long)amount, *argv);
@@ -266,8 +280,9 @@ struct channel_state *gather_updates(const tal_t *ctx,
 				n = find_htlc(&cstate->b, rh);
 				if (n == tal_count(cstate->b.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
-				amount = cstate->b.htlcs[n]->amount_msat;
-				if (!funding_delta(o2, o1, oa, -amount, -amount,
+				amount = cstate->b.htlcs[n].msatoshis;
+				if (!funding_delta(is_funder(o2), oa->amount,
+						   -amount, -amount,
 						   &cstate->b, &cstate->a))
 					errx(1, "Impossible htlc %llu %s",
 					     (long long)amount, *argv);
@@ -285,7 +300,7 @@ struct channel_state *gather_updates(const tal_t *ctx,
 				delta = -pkt->update->delta_msat;
 			else
 				delta = pkt->update->delta_msat;
-			if (!funding_delta(o1, o2, oa, delta, 0,
+			if (!funding_delta(is_funder(o1), oa->amount, delta, 0,
 					   &cstate->a, &cstate->b))
 				errx(1, "Impossible funding update %lli %s",
 				     (long long)delta, *argv);

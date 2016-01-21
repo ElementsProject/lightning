@@ -65,7 +65,10 @@ int main(int argc, char *argv[])
 	sig.stype = SIGHASH_ALL;
 
 	/* Figure out cumulative delta since anchor. */
-	cstate = gather_updates(ctx, o1, o2, a, commit_fee(o1, o2), argv + 6,
+	cstate = gather_updates(ctx, o1, o2, a,
+				commit_fee(o1->commitment_fee,
+					   o2->commitment_fee),
+				argv + 6,
 				&num_updates,
 				&our_rhash, &their_rhash, &sig.sig);
 	if (num_updates < 1)

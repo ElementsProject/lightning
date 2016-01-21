@@ -67,7 +67,10 @@ int main(int argc, char *argv[])
 
 	sig2.stype = SIGHASH_ALL;
 
-	cstate = gather_updates(ctx, o1, o2, a, commit_fee(o1, o2), argv + 5,
+	cstate = gather_updates(ctx, o1, o2, a,
+				commit_fee(o1->commitment_fee,
+					   o2->commitment_fee),
+				argv + 5,
 				NULL, &rhash, NULL, &sig2.sig);
 
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);

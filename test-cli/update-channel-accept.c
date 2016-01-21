@@ -63,7 +63,10 @@ int main(int argc, char *argv[])
 		errx(1, "Private key '%s' not on testnet!", argv[5]);
 
 	/* Figure out cumulative delta since anchor. */
-	cstate = gather_updates(ctx, o1, o2, a, commit_fee(o1, o2), argv + 6,
+	cstate = gather_updates(ctx, o1, o2, a,
+				commit_fee(o1->commitment_fee,
+					   o2->commitment_fee),
+				argv + 6,
 				&num_updates, NULL, &their_rhash, NULL);
 
 	/* Get next revocation hash. */

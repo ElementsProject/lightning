@@ -9,6 +9,7 @@
 #include "bitcoin/base58.h"
 #include "pkt.h"
 #include "funding.h"
+#include "gather_updates.h"
 #include "bitcoin/script.h"
 #include "bitcoin/address.h"
 #include "bitcoin/tx.h"
@@ -73,9 +74,14 @@ int main(int argc, char *argv[])
 	oa.amount = anchor->output[oa.output_index].amount;
 
 	/* Figure out initial how much to us, how much to them. */
-	cstate = initial_funding(ctx, o1, o2, &oa, commit_fee(o1, o2));
+	if (is_funder(o1) == is_funder(o2))
+		errx(1, "Must be exactly one funder");
+
+	cstate = initial_funding(ctx, is_funder(o1), oa.amount,
+				 commit_fee(o1->commitment_fee,
+					    o2->commitment_fee));
 	if (!cstate)
-		errx(1, "Invalid open combination (need 1 anchor offer)");
+		errx(1, "Invalid open combination (need to cover fees)");
 	
 	/* Now, create signature for their commitment tx. */
 	proto_to_sha256(o2->revocation_hash, &rhash);

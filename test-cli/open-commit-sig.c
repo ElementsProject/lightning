@@ -16,6 +16,7 @@
 #include "bitcoin/privkey.h"
 #include "protobuf_convert.h"
 #include "funding.h"
+#include "gather_updates.h"
 #include "version.h"
 #include <unistd.h>
 
@@ -56,13 +57,17 @@ int main(int argc, char *argv[])
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[4]);
 
+	if (is_funder(o1) == is_funder(o2))
+		errx(1, "Must be exactly one funder");
+	
 	/* Now create THEIR commitment tx to spend 2/2 output of anchor. */
-	cstate = initial_funding(ctx, o1, o2, a, commit_fee(o1, o2));
+	cstate = initial_funding(ctx, is_funder(o2), a->amount,
+				 commit_fee(o2->commitment_fee,
+					    o1->commitment_fee));
 	if (!cstate)
-		errx(1, "Invalid open combination (need 1 anchor offer)");
+		errx(1, "Invalid open combination (too low for fees)");
 
 	proto_to_sha256(o2->revocation_hash, &rhash);
-	invert_cstate(cstate);
 	commit = commit_tx_from_pkts(ctx, o2, o1, a, &rhash, cstate);
 
 	/* If contributions don't exceed fees, this fails. */

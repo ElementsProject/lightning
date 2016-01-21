@@ -7,10 +7,10 @@
 #include "funding.h"
 #include "overflows.h"
 #include "permute_tx.h"
-#include "protobuf_convert.h"
+#include <assert.h>
 
 static bool add_htlc(struct bitcoin_tx *tx, size_t n,
-		     const UpdateAddHtlc *h,
+		     const struct channel_htlc *h,
 		     const struct pubkey *ourkey,
 		     const struct pubkey *theirkey,
 		     const struct sha256 *rhash,
@@ -23,22 +23,14 @@ static bool add_htlc(struct bitcoin_tx *tx, size_t n,
 					   const struct sha256 *,
 					   const struct sha256 *))
 {
-	struct abs_locktime htlc_abstime;
-	struct sha256 htlc_rhash;
-
 	assert(!tx->output[n].script);
 
-	/* This shouldn't happen... */
-	if (!proto_to_abs_locktime(h->expiry, &htlc_abstime))
-		return false;
-
-	proto_to_sha256(h->r_hash, &htlc_rhash);
 	tx->output[n].script = scriptpubkey_p2sh(tx,
 				 scriptpubkeyfn(tx, ourkey, theirkey,
-						&htlc_abstime, locktime, rhash,
-						&htlc_rhash));
+						&h->expiry, locktime, rhash,
+						&h->rhash));
 	tx->output[n].script_length = tal_count(tx->output[n].script);
-	tx->output[n].amount = h->amount_msat / 1000;
+	tx->output[n].amount = h->msatoshis / 1000;
 	return true;
 }
 
@@ -88,7 +80,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 
 	/* HTLCs we've sent. */
 	for (i = 0; i < tal_count(cstate->a.htlcs); i++) {
-		if (!add_htlc(tx, num, cstate->a.htlcs[i],
+		if (!add_htlc(tx, num, &cstate->a.htlcs[i],
 			      our_final, their_final,
 			      rhash, their_locktime, scriptpubkey_htlc_send))
 			return tal_free(tx);
@@ -96,7 +88,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	}
 	/* HTLCs we've received. */
 	for (i = 0; i < tal_count(cstate->b.htlcs); i++) {
-		if (!add_htlc(tx, num, cstate->b.htlcs[i],
+		if (!add_htlc(tx, num, &cstate->b.htlcs[i],
 			      our_final, their_final,
 			      rhash, their_locktime, scriptpubkey_htlc_recv))
 			return tal_free(tx);
