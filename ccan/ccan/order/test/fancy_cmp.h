@@ -8,7 +8,7 @@ struct cmp_info {
 
 struct item {
 	unsigned value;
-	char *str;
+	const char *str;
 };
 
 static inline int fancy_cmp(const struct item *a, const struct item *b,

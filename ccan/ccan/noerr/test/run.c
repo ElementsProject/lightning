@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
 	int fd;
 	FILE *fp;
 
-	plan_tests(15);
+	plan_tests(16);
 	/* Should fail to unlink. */
 	ok1(unlink(name) != 0);
 	ok1(errno == ENOENT);
@@ -58,6 +58,10 @@ int main(int argc, char *argv[])
 	ok1(fclose_noerr(fp) == 0);
 	ok1(errno == 100);
 	unlink(name);
+
+	errno = 101;
+	free_noerr(malloc(7));
+	ok1(errno == 101);
 
 	return exit_status();
 }

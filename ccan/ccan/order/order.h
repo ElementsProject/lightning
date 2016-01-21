@@ -31,6 +31,9 @@ struct _total_order {
 		_ctx ctx;				\
 	} _name
 
+#define total_order_cmp(_order, _a, _b)					\
+	((_order).cb((_a), (_b), (_order).ctx))
+
 #define _DECL_ONAME(_oname, _itype)					\
 	extern int _order_##_oname(const void *, const void *, void *);	\
 	extern int order_##_oname(const _itype *, const _itype *, void *); \

@@ -48,6 +48,7 @@ int main(int argc, char *argv[])
 
 	if (strcmp(argv[1], "depends") == 0) {
 		printf("ccan/build_assert\n");
+		printf("ccan/compiler\n");
 		return 0;
 	}
 	if (strcmp(argv[1], "testdepends") == 0) {

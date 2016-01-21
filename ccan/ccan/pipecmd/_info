@@ -1,0 +1,58 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * pipecmd - code to fork and run a command in a pipe.
+ *
+ * This code is a classic example of how to run a command in a child, while
+ * handling the case where the exec fails.
+ *
+ * License: CC0 (Public domain)
+ * Author: Rusty Russell <rusty@rustcorp.com.au>
+ *
+ * Example:
+ * // Outputs HELLO WORLD
+ * #include <ccan/pipecmd/pipecmd.h>
+ * #include <ccan/err/err.h>
+ * #include <sys/types.h>
+ * #include <sys/wait.h>
+ * #include <unistd.h>
+ * #include <ctype.h>
+ *
+ * // Runs ourselves with an argument, upcases output.
+ * int main(int argc, char **argv)
+ * {
+ *	pid_t child;
+ *	int outputfd, i, status;
+ *	char input[12];
+ *
+ *	if (argc == 2) {
+ *		write(STDOUT_FILENO, "hello world\n", 12);
+ *		exit(0);
+ *	}
+ *	child = pipecmd(&outputfd, NULL, NULL, argv[0], "ignoredarg", NULL);
+ *	if (child < 0)
+ *		err(1, "Creating child");
+ *	if (read(outputfd, input, sizeof(input)) != sizeof(input))
+ *		err(1, "Reading input");
+ *	if (waitpid(child, &status, 0) != child)
+ *		err(1, "Waiting for child");
+ *	for (i = 0; i < sizeof(input); i++)
+ *		printf("%c", toupper(input[i]));
+ *	exit(0);
+ * }
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/noerr\n");
+		return 0;
+	}
+
+	return 1;
+}

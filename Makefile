@@ -71,6 +71,8 @@ CCAN_OBJS :=					\
 	ccan-crypto-shachain.o			\
 	ccan-err.o				\
 	ccan-ilog.o				\
+	ccan-io-io.o				\
+	ccan-io-poll.o				\
 	ccan-isaac.o				\
 	ccan-isaac64.o				\
 	ccan-list.o				\
@@ -79,6 +81,7 @@ CCAN_OBJS :=					\
 	ccan-opt-parse.o			\
 	ccan-opt-usage.o			\
 	ccan-opt.o				\
+	ccan-pipecmd.o				\
 	ccan-read_write_all.o			\
 	ccan-str-hex.o				\
 	ccan-str.o				\
@@ -86,7 +89,8 @@ CCAN_OBJS :=					\
 	ccan-tal-grab_file.o			\
 	ccan-tal-str.o				\
 	ccan-tal.o				\
-	ccan-time.o
+	ccan-time.o				\
+	ccan-timer.o
 
 # For tests
 CCAN_EXTRA_OBJS :=				\
@@ -113,6 +117,9 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/htable/htable.h			\
 	$(CCANDIR)/ccan/htable/htable_type.h		\
 	$(CCANDIR)/ccan/ilog/ilog.h			\
+	$(CCANDIR)/ccan/io/backend.h			\
+	$(CCANDIR)/ccan/io/io.h				\
+	$(CCANDIR)/ccan/io/io_plan.h			\
 	$(CCANDIR)/ccan/isaac/isaac.h			\
 	$(CCANDIR)/ccan/isaac/isaac64.h			\
 	$(CCANDIR)/ccan/likely/likely.h			\
@@ -122,6 +129,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/opt/opt.h			\
 	$(CCANDIR)/ccan/opt/private.h			\
 	$(CCANDIR)/ccan/order/order.h			\
+	$(CCANDIR)/ccan/pipecmd/pipecmd.h		\
 	$(CCANDIR)/ccan/ptrint/ptrint.h			\
 	$(CCANDIR)/ccan/read_write_all/read_write_all.h	\
 	$(CCANDIR)/ccan/short_types/short_types.h	\
@@ -140,6 +148,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/tal/talloc/talloc.h		\
 	$(CCANDIR)/ccan/tcon/tcon.h			\
 	$(CCANDIR)/ccan/time/time.h			\
+	$(CCANDIR)/ccan/timer/timer.h			\
 	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h
 
 TEST_CLI_HEADERS := test-cli/gather_updates.h \
@@ -368,4 +377,12 @@ ccan-isaac.o: $(CCANDIR)/ccan/isaac/isaac.c
 ccan-isaac64.o: $(CCANDIR)/ccan/isaac/isaac64.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-time.o: $(CCANDIR)/ccan/time/time.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-timer.o: $(CCANDIR)/ccan/timer/timer.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-io-io.o: $(CCANDIR)/ccan/io/io.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-io-poll.o: $(CCANDIR)/ccan/io/poll.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-pipecmd.o: $(CCANDIR)/ccan/pipecmd/pipecmd.c
 	$(CC) $(CFLAGS) -c -o $@ $<

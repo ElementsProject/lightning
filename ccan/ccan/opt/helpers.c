@@ -14,10 +14,9 @@
 /* Upper bound to sprintf this simple type?  Each 3 bits < 1 digit. */
 #define CHAR_SIZE(type) (((sizeof(type)*CHAR_BIT + 2) / 3) + 1)
 
-/* FIXME: asprintf module? */
 static char *arg_bad(const char *fmt, const char *arg)
 {
-	char *str = malloc(strlen(fmt) + strlen(arg));
+	char *str = opt_alloc.alloc(strlen(fmt) + strlen(arg));
 	sprintf(str, fmt, arg);
 	return str;
 }

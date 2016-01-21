@@ -150,6 +150,19 @@ static inline bool memeqstr(const void *data, size_t length, const char *string)
 }
 
 /**
+ * memeqzero - Is a byte array all zeroes?
+ * @data: byte array
+ * @length: length of @data in bytes
+ *
+ * Example:
+ *	if (memeqzero(somebytes, bytes_len)) {
+ *		printf("somebytes == 0!\n");
+ *	}
+ */
+PURE_FUNCTION
+bool memeqzero(const void *data, size_t length);
+
+/**
  * memstarts_str - Does this byte array start with a string prefix?
  * @a: byte array
  * @al: length in bytes

@@ -7,6 +7,7 @@
 #include <stddef.h>
 
 #include <ccan/build_assert/build_assert.h>
+#include <ccan/compiler/compiler.h>
 
 /*
  * This is a deliberately incomplete type, because it should never be
@@ -15,7 +16,7 @@
  */
 typedef struct ptrint ptrint_t;
 
-static inline ptrdiff_t ptr2int(const ptrint_t *p)
+CONST_FUNCTION static inline ptrdiff_t ptr2int(const ptrint_t *p)
 {
 	/*
 	 * ptrdiff_t is the right size by definition, but to avoid
@@ -26,7 +27,7 @@ static inline ptrdiff_t ptr2int(const ptrint_t *p)
 	return (const char *)p - (const char *)NULL;
 }
 
-static inline ptrint_t *int2ptr(ptrdiff_t i)
+CONST_FUNCTION static inline ptrint_t *int2ptr(ptrdiff_t i)
 {
 	return (ptrint_t *)((char *)NULL + i);
 }

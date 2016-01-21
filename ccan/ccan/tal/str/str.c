@@ -26,11 +26,9 @@ char *tal_strndup(const tal_t *ctx, const char *p, size_t n)
 	char *ret;
 
 	/* We have to let through NULL for take(). */
-	if (likely(p)) {
-		len = strlen(p);
-		if (len > n)
-			len = n;
-	} else
+	if (likely(p))
+		len = strnlen(p, n);
+	else
 		len = n;
 
 	ret = tal_dup_(ctx, p, 1, len, 1, false, TAL_LABEL(char, "[]"));
@@ -54,7 +52,7 @@ char *tal_fmt(const tal_t *ctx, const char *fmt, ...)
 static bool do_vfmt(char **buf, size_t off, const char *fmt, va_list ap)
 {
 	/* A decent guess to start. */
-	size_t max = strlen(fmt) * 2;
+	size_t max = strlen(fmt) * 2 + 1;
 	bool ok;
 
 	for (;;) {
