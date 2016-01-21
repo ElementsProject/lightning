@@ -4,8 +4,9 @@ set -e
 # Expect to be run from test-cli dir.
 . scripts/vars.sh
 
-# How long to lock transactions (unrealistically short, for testing)
-TEST_LOCKTIME=30
+# How long to lock transactions
+# CSV only supports 512-second granularity, so that's the minimum.
+TEST_LOCKTIME=512
 
 getpubkey()
 {
