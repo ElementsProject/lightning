@@ -111,7 +111,7 @@ struct core_state {
 	bool valid;
 };
 
-struct state_data {
+struct peer {
 	struct core_state core;
 	/* To store HTLC numbers. */
 	unsigned int pkt_data[MAX_OUTQ];
@@ -143,8 +143,8 @@ struct state_data {
 	
 	/* ID. */
 	const char *name;
-	/* The other peer's sdata. */
-	struct state_data *peer;
+	/* The other peer's data. */
+	struct peer *other;
 };
 
 /* To recontruct errors. */
@@ -152,7 +152,7 @@ struct trail {
 	const struct trail *prev;
 	const char *name;
 	enum state_input input;
-	const struct state_data *before, *after;
+	const struct peer *before, *after;
 	int htlc_id;
 	unsigned int num_peer_outputs;
 	unsigned int depth;
@@ -270,7 +270,7 @@ struct hist {
 
 struct fail_details {
 	/* The universe state at the time. */
-	struct state_data sdata, peer;
+	struct peer us, other;
 	enum state_input input;
 	union input idata;
 	/* Previous history. */
@@ -311,42 +311,42 @@ HTABLE_DEFINE_TYPE(struct failpoint,
 
 static struct failhash failhash;
 
-static void update_core(struct core_state *core, const struct state_data *sdata)
+static void update_core(struct core_state *core, const struct peer *peer)
 {
 	size_t i;
 
 	for (i = core->num_outputs; i < ARRAY_SIZE(core->outputs); i++)
 		assert(core->outputs[i] == 0);
 		
-	core->has_current_htlc = sdata->current_htlc.htlc.id != -1;
-	core->capped_htlcs_to_us = cap(sdata->num_htlcs_to_us);
-	core->capped_htlcs_to_them = cap(sdata->num_htlcs_to_them);
-	core->capped_live_htlcs_to_us = cap(sdata->num_live_htlcs_to_us);
-	core->capped_live_htlcs_to_them = cap(sdata->num_live_htlcs_to_them);
-	core->capped_htlc_spends_to_us = cap(sdata->num_htlc_spends_to_us);
-	core->capped_htlc_spends_to_them = cap(sdata->num_htlc_spends_to_them);
+	core->has_current_htlc = peer->current_htlc.htlc.id != -1;
+	core->capped_htlcs_to_us = cap(peer->num_htlcs_to_us);
+	core->capped_htlcs_to_them = cap(peer->num_htlcs_to_them);
+	core->capped_live_htlcs_to_us = cap(peer->num_live_htlcs_to_us);
+	core->capped_live_htlcs_to_them = cap(peer->num_live_htlcs_to_them);
+	core->capped_htlc_spends_to_us = cap(peer->num_htlc_spends_to_us);
+	core->capped_htlc_spends_to_them = cap(peer->num_htlc_spends_to_them);
 	core->valid = true;
 }
 
 static void situation_init(struct situation *sit,
-			   const struct state_data *sdata)
+			   const struct peer *peer)
 {
-	if (streq(sdata->name, "A")) {
-		sit->a.s = sdata->core;
-		update_core(&sit->a.s, sdata);
+	if (streq(peer->name, "A")) {
+		sit->a.s = peer->core;
+		update_core(&sit->a.s, peer);
 		/* If we're still talking to peer, their state matters. */
-		if (sdata->core.pkt_inputs || sdata->peer->core.pkt_inputs) {
-			sit->b.s = sdata->peer->core;
-			update_core(&sit->b.s, sdata->peer);
+		if (peer->core.pkt_inputs || peer->other->core.pkt_inputs) {
+			sit->b.s = peer->other->core;
+			update_core(&sit->b.s, peer->other);
 		} else
 			memset(&sit->b.s, 0, sizeof(sit->b.s));
 	} else {
-		sit->b.s = sdata->core;
-		update_core(&sit->b.s, sdata);
+		sit->b.s = peer->core;
+		update_core(&sit->b.s, peer);
 		/* If we're still talking to peer, their state matters. */
-		if (sdata->core.pkt_inputs || sdata->peer->core.pkt_inputs) {
-			sit->a.s = sdata->peer->core;
-			update_core(&sit->a.s, sdata->peer);
+		if (peer->core.pkt_inputs || peer->other->core.pkt_inputs) {
+			sit->a.s = peer->other->core;
+			update_core(&sit->a.s, peer->other);
 		} else
 			memset(&sit->a.s, 0, sizeof(sit->a.s));
 	}
@@ -355,11 +355,11 @@ static void situation_init(struct situation *sit,
 
 /* Returns false if we've been here before. */
 static bool sithash_update(struct sithash *sithash,
-			   const struct state_data *sdata)
+			   const struct peer *peer)
 {
 	struct situation sit;
 
-	situation_init(&sit, sdata);
+	situation_init(&sit, peer);
 
 	if (sithash_get(sithash, &sit))
 		return false;
@@ -368,13 +368,13 @@ static bool sithash_update(struct sithash *sithash,
 	return true;
 }
 
-static void copy_peers(struct state_data *dst, struct state_data *peer,
-		       const struct state_data *src)
+static void copy_peers(struct peer *dst, struct peer *other,
+		       const struct peer *src)
 {
 	*dst = *src;
-	*peer = *src->peer;
-	dst->peer = peer;
-	peer->peer = dst;
+	*other = *src->other;
+	dst->other = other;
+	other->other = dst;
 }
 
 static const struct trail *clone_trail(const tal_t *ctx,
@@ -386,8 +386,8 @@ static const struct trail *clone_trail(const tal_t *ctx,
 		return NULL;
 	
 	t = tal_dup(ctx, struct trail, trail);
-	t->before = tal_dup(t, struct state_data, trail->before);
-	t->after = trail->after ? tal_dup(t, struct state_data, trail->after)
+	t->before = tal_dup(t, struct peer, trail->before);
+	t->after = trail->after ? tal_dup(t, struct peer, trail->after)
 		: NULL;
 	t->pkt_sent = trail->pkt_sent ? tal_strdup(t, trail->pkt_sent) : NULL;
 	t->prev = clone_trail(t, trail->prev);
@@ -417,11 +417,11 @@ static const union input dup_idata(const tal_t *ctx,
 	return i;
 }
 
-static bool fail(const struct state_data *sdata, enum failure which_fail)
+static bool fail(const struct peer *peer, enum failure which_fail)
 {
 	struct failpoint *f = tal(NULL, struct failpoint), *old;
 
-	situation_init(&f->sit, sdata);
+	situation_init(&f->sit, peer);
 	f->which_fail = which_fail;
 
 	/* If we've been here before... */
@@ -438,11 +438,11 @@ static bool fail(const struct state_data *sdata, enum failure which_fail)
 
 	/* First time here, save details, don't fail yet. */
 	f->details = tal(f, struct fail_details);
-	copy_peers(&f->details->sdata, &f->details->peer, sdata);
-	f->details->sdata.trail = clone_trail(f->details, sdata->trail);
-	f->details->input = sdata->current_input;
+	copy_peers(&f->details->us, &f->details->other, peer);
+	f->details->us.trail = clone_trail(f->details, peer->trail);
+	f->details->input = peer->current_input;
 	f->details->idata = dup_idata(f->details,
-				      f->details->input, sdata->current_idata);
+				      f->details->input, peer->current_idata);
 
 	failhash_add(&failhash, f);
 	return false;
@@ -521,100 +521,100 @@ static struct htlc *find_any_htlc(const struct htlc *htlcs, size_t num,
 	return NULL;
 }
 
-static struct htlc *find_htlc(const struct state_data *sdata, unsigned id)
+static struct htlc *find_htlc(const struct peer *peer, unsigned id)
 {
 	const struct htlc *h;
 
-	h = find_any_htlc(sdata->htlcs_to_us, sdata->num_htlcs_to_us, id);
+	h = find_any_htlc(peer->htlcs_to_us, peer->num_htlcs_to_us, id);
 	if (!h)
-		h = find_any_htlc(sdata->htlcs_to_them,
-				  sdata->num_htlcs_to_them, id);
+		h = find_any_htlc(peer->htlcs_to_them,
+				  peer->num_htlcs_to_them, id);
 	return (struct htlc *)h;
 }
 
-static struct htlc *find_live_htlc(const struct state_data *sdata,
+static struct htlc *find_live_htlc(const struct peer *peer,
 				   unsigned id)
 {
 	const struct htlc *h;
 
-	h = find_any_htlc(sdata->live_htlcs_to_us, sdata->num_live_htlcs_to_us,
+	h = find_any_htlc(peer->live_htlcs_to_us, peer->num_live_htlcs_to_us,
 			  id);
 	if (!h)
-		h = find_any_htlc(sdata->live_htlcs_to_them,
-				  sdata->num_live_htlcs_to_them, id);
+		h = find_any_htlc(peer->live_htlcs_to_them,
+				  peer->num_live_htlcs_to_them, id);
 	return (struct htlc *)h;
 }
 
-static struct htlc *find_htlc_spend(const struct state_data *sdata,
+static struct htlc *find_htlc_spend(const struct peer *peer,
 					  unsigned id)
 {
 	const struct htlc *h;
 
-	h = find_any_htlc(sdata->htlc_spends_to_us,
-			  sdata->num_htlc_spends_to_us,
+	h = find_any_htlc(peer->htlc_spends_to_us,
+			  peer->num_htlc_spends_to_us,
 			  id);
 	if (!h)
-		h = find_any_htlc(sdata->htlc_spends_to_them,
-				  sdata->num_htlc_spends_to_them, id);
+		h = find_any_htlc(peer->htlc_spends_to_them,
+				  peer->num_htlc_spends_to_them, id);
 	return (struct htlc *)h;
 }
 
-Pkt *pkt_open(const tal_t *ctx, const struct state_data *sdata,
+Pkt *pkt_open(const tal_t *ctx, const struct peer *peer,
 	      OpenChannel__AnchorOffer anchor)
 {
 	return new_pkt(ctx, PKT_OPEN);
 }
 
-Pkt *pkt_anchor(const tal_t *ctx, const struct state_data *sdata)
+Pkt *pkt_anchor(const tal_t *ctx, const struct peer *peer)
 {
 	return new_pkt(ctx, PKT_OPEN_ANCHOR);
 }
 
-Pkt *pkt_open_commit_sig(const tal_t *ctx, const struct state_data *sdata)
+Pkt *pkt_open_commit_sig(const tal_t *ctx, const struct peer *peer)
 {
 	return new_pkt(ctx, PKT_OPEN_COMMIT_SIG);
 }
 
-Pkt *pkt_open_complete(const tal_t *ctx, const struct state_data *sdata)
+Pkt *pkt_open_complete(const tal_t *ctx, const struct peer *peer)
 {
 	return new_pkt(ctx, PKT_OPEN_COMPLETE);
 }
 
-Pkt *pkt_htlc_update(const tal_t *ctx, const struct state_data *sdata,
+Pkt *pkt_htlc_update(const tal_t *ctx, const struct peer *peer,
 		     const struct htlc_progress *htlc_prog)
 {
 	return htlc_pkt(ctx, "PKT_UPDATE_ADD_HTLC", htlc_prog->htlc.id);
 }
 
-Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct state_data *sdata,
+Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct peer *peer,
 		      const struct htlc_progress *htlc_prog)
 {
 	return htlc_pkt(ctx, "PKT_UPDATE_FULFILL_HTLC", htlc_prog->htlc.id);
 }
 
-Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct state_data *sdata,
+Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct peer *peer,
 		       const struct htlc_progress *htlc_prog)
 {
 	return htlc_pkt(ctx, "PKT_UPDATE_TIMEDOUT_HTLC", htlc_prog->htlc.id);
 }
 
-Pkt *pkt_htlc_routefail(const tal_t *ctx, const struct state_data *sdata,
+Pkt *pkt_htlc_routefail(const tal_t *ctx, const struct peer *peer,
 			const struct htlc_progress *htlc_prog)
 {
 	return htlc_pkt(ctx, "PKT_UPDATE_ROUTEFAIL_HTLC", htlc_prog->htlc.id);
 }
 
-Pkt *pkt_update_accept(const tal_t *ctx, const struct state_data *sdata)
+Pkt *pkt_update_accept(const tal_t *ctx, const struct peer *peer)
 {
 	return new_pkt(ctx, PKT_UPDATE_ACCEPT);
 }
 
-Pkt *pkt_update_signature(const tal_t *ctx, const struct state_data *sdata)
+Pkt *pkt_update_signature(const tal_t *ctx, const struct peer *peer)
 {
 	return new_pkt(ctx, PKT_UPDATE_SIGNATURE);
 }
 
-Pkt *pkt_update_complete(const tal_t *ctx, const struct state_data *sdata)
+Pkt *pkt_update_complete(const tal_t *ctx, const struct peer *peer)
 {
 	return new_pkt(ctx, PKT_UPDATE_COMPLETE);
 }
@@ -624,17 +624,17 @@ Pkt *pkt_err(const tal_t *ctx, const char *msg)
 	return (Pkt *)tal_fmt(ctx, "PKT_ERROR: %s", msg);
 }
 
-Pkt *pkt_close(const tal_t *ctx, const struct state_data *sdata)
+Pkt *pkt_close(const tal_t *ctx, const struct peer *peer)
 {
 	return new_pkt(ctx, PKT_CLOSE);
 }
 
-Pkt *pkt_close_complete(const tal_t *ctx, const struct state_data *sdata)
+Pkt *pkt_close_complete(const tal_t *ctx, const struct peer *peer)
 {
 	return new_pkt(ctx, PKT_CLOSE_COMPLETE);
 }
 
-Pkt *pkt_close_ack(const tal_t *ctx, const struct state_data *sdata)
+Pkt *pkt_close_ack(const tal_t *ctx, const struct peer *peer)
 {
 	return new_pkt(ctx, PKT_CLOSE_ACK);
 }
@@ -645,42 +645,42 @@ Pkt *unexpected_pkt(const tal_t *ctx, enum state_input input)
 }
 
 Pkt *accept_pkt_open(const tal_t *ctx,
-		     const struct state_data *sdata,
+		     const struct peer *peer,
 		     const Pkt *pkt, struct state_effect **effect)
 {
-	if (fail(sdata, FAIL_ACCEPT_OPEN))
+	if (fail(peer, FAIL_ACCEPT_OPEN))
 		return pkt_err(ctx, "Error inject");
 	return NULL;
 }
 
 Pkt *accept_pkt_anchor(const tal_t *ctx,
-		       const struct state_data *sdata,
+		       const struct peer *peer,
 		       const Pkt *pkt, struct state_effect **effect)
 {
-	if (fail(sdata, FAIL_ACCEPT_ANCHOR))
+	if (fail(peer, FAIL_ACCEPT_ANCHOR))
 		return pkt_err(ctx, "Error inject");
 	return NULL;
 }
 
 Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
-				const struct state_data *sdata,
+				const struct peer *peer,
 				const Pkt *pkt, struct state_effect **effect)
 {
-	if (fail(sdata, FAIL_ACCEPT_OPEN_COMMIT_SIG))
+	if (fail(peer, FAIL_ACCEPT_OPEN_COMMIT_SIG))
 		return pkt_err(ctx, "Error inject");
 	return NULL;
 }
 	
 Pkt *accept_pkt_htlc_update(const tal_t *ctx,
-			    const struct state_data *sdata, const Pkt *pkt,
+			    const struct peer *peer, const Pkt *pkt,
 			    Pkt **decline,
 			    struct htlc_progress **htlcprog,
 			    struct state_effect **effect)
 {
-	if (fail(sdata, FAIL_ACCEPT_HTLC_UPDATE))
+	if (fail(peer, FAIL_ACCEPT_HTLC_UPDATE))
 		return pkt_err(ctx, "Error inject");
 
-	if (fail(sdata, FAIL_DECLINE_HTLC))
+	if (fail(peer, FAIL_DECLINE_HTLC))
 		*decline = new_pkt(ctx, PKT_UPDATE_DECLINE_HTLC);
 	else {
 		*decline = NULL;
@@ -694,14 +694,14 @@ Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 }
 
 Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
-			       const struct state_data *sdata, const Pkt *pkt,
+			       const struct peer *peer, const Pkt *pkt,
 			       struct htlc_progress **htlcprog,
 			       struct state_effect **effect)
 {
 	unsigned int id = htlc_id_from_pkt(pkt);
-	const struct htlc *h = find_htlc(sdata, id);
+	const struct htlc *h = find_htlc(peer, id);
 
-	if (fail(sdata, FAIL_ACCEPT_HTLC_ROUTEFAIL))
+	if (fail(peer, FAIL_ACCEPT_HTLC_ROUTEFAIL))
 		return pkt_err(ctx, "Error inject");
 
 	/* The shouldn't fail unless it's to them */
@@ -714,14 +714,14 @@ Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
 }
 
 Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
-			      const struct state_data *sdata, const Pkt *pkt,
+			      const struct peer *peer, const Pkt *pkt,
 			      struct htlc_progress **htlcprog,
 			      struct state_effect **effect)
 {
 	unsigned int id = htlc_id_from_pkt(pkt);
-	const struct htlc *h = find_htlc(sdata, id);
+	const struct htlc *h = find_htlc(peer, id);
 
-	if (fail(sdata, FAIL_ACCEPT_HTLC_TIMEDOUT))
+	if (fail(peer, FAIL_ACCEPT_HTLC_TIMEDOUT))
 		return pkt_err(ctx, "Error inject");
 
 	/* The shouldn't timeout unless it's to us */
@@ -734,14 +734,14 @@ Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
 }
 
 Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
-			     const struct state_data *sdata, const Pkt *pkt,
+			     const struct peer *peer, const Pkt *pkt,
 			     struct htlc_progress **htlcprog,
 			     struct state_effect **effect)
 {
 	unsigned int id = htlc_id_from_pkt(pkt);
-	const struct htlc *h = find_htlc(sdata, id);
+	const struct htlc *h = find_htlc(peer, id);
 
-	if (fail(sdata, FAIL_ACCEPT_HTLC_FULFILL))
+	if (fail(peer, FAIL_ACCEPT_HTLC_FULFILL))
 		return pkt_err(ctx, "Error inject");
 
 	/* The shouldn't complete unless it's to them */
@@ -754,11 +754,11 @@ Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
 }
 
 Pkt *accept_pkt_update_accept(const tal_t *ctx,
-			      const struct state_data *sdata, const Pkt *pkt,
+			      const struct peer *peer, const Pkt *pkt,
 			      struct signature **sig,
 			      struct state_effect **effect)
 {
-	if (fail(sdata, FAIL_ACCEPT_UPDATE_ACCEPT))
+	if (fail(peer, FAIL_ACCEPT_UPDATE_ACCEPT))
 		return pkt_err(ctx, "Error inject");
 
 	*sig = (struct signature *)tal_strdup(ctx, "from PKT_UPDATE_ACCEPT");
@@ -766,58 +766,58 @@ Pkt *accept_pkt_update_accept(const tal_t *ctx,
 }
 
 Pkt *accept_pkt_update_complete(const tal_t *ctx,
-				const struct state_data *sdata, const Pkt *pkt,
+				const struct peer *peer, const Pkt *pkt,
 				struct state_effect **effect)
 {
-	if (fail(sdata, FAIL_ACCEPT_UPDATE_COMPLETE))
+	if (fail(peer, FAIL_ACCEPT_UPDATE_COMPLETE))
 		return pkt_err(ctx, "Error inject");
 	return NULL;
 }
 
 Pkt *accept_pkt_update_signature(const tal_t *ctx,
-				 const struct state_data *sdata, const Pkt *pkt,
+				 const struct peer *peer, const Pkt *pkt,
 				 struct signature **sig,
 				 struct state_effect **effect)
 {
-	if (fail(sdata, FAIL_ACCEPT_UPDATE_SIGNATURE))
+	if (fail(peer, FAIL_ACCEPT_UPDATE_SIGNATURE))
 		return pkt_err(ctx, "Error inject");
 	*sig = (struct signature *)tal_strdup(ctx, "from PKT_UPDATE_SIGNATURE");
 	return NULL;
 }
 
 Pkt *accept_pkt_close(const tal_t *ctx,
-		      const struct state_data *sdata, const Pkt *pkt,
+		      const struct peer *peer, const Pkt *pkt,
 		      struct state_effect **effect)
 {
-	if (fail(sdata, FAIL_ACCEPT_CLOSE))
+	if (fail(peer, FAIL_ACCEPT_CLOSE))
 		return pkt_err(ctx, "Error inject");
 	return NULL;
 }
 
 Pkt *accept_pkt_close_complete(const tal_t *ctx,
-			       const struct state_data *sdata, const Pkt *pkt,
+			       const struct peer *peer, const Pkt *pkt,
 			       struct state_effect **effect)
 {
-	if (fail(sdata, FAIL_ACCEPT_CLOSE_COMPLETE))
+	if (fail(peer, FAIL_ACCEPT_CLOSE_COMPLETE))
 		return pkt_err(ctx, "Error inject");
 	return NULL;
 }
 
 Pkt *accept_pkt_simultaneous_close(const tal_t *ctx,
-				   const struct state_data *sdata,
+				   const struct peer *peer,
 				   const Pkt *pkt,
 				   struct state_effect **effect)
 {
-	if (fail(sdata, FAIL_ACCEPT_SIMULTANEOUS_CLOSE))
+	if (fail(peer, FAIL_ACCEPT_SIMULTANEOUS_CLOSE))
 		return pkt_err(ctx, "Error inject");
 	return NULL;
 }
 
 Pkt *accept_pkt_close_ack(const tal_t *ctx,
-			  const struct state_data *sdata, const Pkt *pkt,
+			  const struct peer *peer, const Pkt *pkt,
 			  struct state_effect **effect)
 {
-	if (fail(sdata, FAIL_ACCEPT_CLOSE_ACK))
+	if (fail(peer, FAIL_ACCEPT_CLOSE_ACK))
 		return pkt_err(ctx, "Error inject");
 	return NULL;
 }
@@ -833,7 +833,7 @@ static bool bitcoin_tx_is(const struct bitcoin_tx *btx, const char *str)
 }
 
 struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx,
-				  const struct state_data *sdata)
+				  const struct peer *peer)
 {
 	return bitcoin_tx("anchor");
 }
@@ -890,7 +890,7 @@ struct watch {
 };
 
 struct watch *bitcoin_watch_anchor(const tal_t *ctx,
-				   const struct state_data *sdata,
+				   const struct peer *peer,
 				   enum state_input depthok,
 				   enum state_input timeout,
 				   enum state_input unspent,
@@ -913,7 +913,7 @@ struct watch *bitcoin_watch_anchor(const tal_t *ctx,
 }
 
 struct watch *bitcoin_unwatch_anchor_depth(const tal_t *ctx,
-					   const struct state_data *sdata,
+					   const struct peer *peer,
 					   enum state_input depthok,
 					   enum state_input timeout)
 {
@@ -958,7 +958,7 @@ struct watch *bitcoin_watch(const tal_t *ctx,
 
 /* Other side should drop close tx; watch for it. */
 struct watch *bitcoin_watch_close(const tal_t *ctx,
-				  const struct state_data *sdata,
+				  const struct peer *peer,
 				  enum state_input done)
 {
 	struct watch *watch = talz(ctx, struct watch);
@@ -967,42 +967,42 @@ struct watch *bitcoin_watch_close(const tal_t *ctx,
 }
 	
 struct bitcoin_tx *bitcoin_close(const tal_t *ctx,
-				 const struct state_data *sdata)
+				 const struct peer *peer)
 {
 	return bitcoin_tx("close");
 }
 
 struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
-				      const struct state_data *sdata)
+				      const struct peer *peer)
 {
 	return bitcoin_tx("spend our commit");
 }
 
 struct bitcoin_tx *bitcoin_spend_theirs(const tal_t *ctx,
-					const struct state_data *sdata,
+					const struct peer *peer,
 					const struct bitcoin_event *btc)
 {
 	return bitcoin_tx("spend their commit");
 }
 
 struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
-				 const struct state_data *sdata,
+				 const struct peer *peer,
 					struct bitcoin_event *btc)
 {
-	if (fail(sdata, FAIL_STEAL))
+	if (fail(peer, FAIL_STEAL))
 		return NULL;
 	return bitcoin_tx("steal");
 }
 
 struct bitcoin_tx *bitcoin_commit(const tal_t *ctx,
-				  const struct state_data *sdata)
+				  const struct peer *peer)
 {
 	return bitcoin_tx("our commit");
 }
 
 /* Create a HTLC refund collection */
 struct bitcoin_tx *bitcoin_htlc_timeout(const tal_t *ctx,
-					const struct state_data *sdata,
+					const struct peer *peer,
 					const struct htlc *htlc)
 {
 	return htlc_tx(ctx, "htlc timeout", htlc->id);
@@ -1010,15 +1010,15 @@ struct bitcoin_tx *bitcoin_htlc_timeout(const tal_t *ctx,
 
 /* Create a HTLC collection */
 struct bitcoin_tx *bitcoin_htlc_spend(const tal_t *ctx,
-				      const struct state_data *sdata,
+				      const struct peer *peer,
 				      const struct htlc *htlc)
 {
 	return htlc_tx(ctx, "htlc fulfill", htlc->id);
 }
 
-bool committed_to_htlcs(const struct state_data *sdata)
+bool committed_to_htlcs(const struct peer *peer)
 {
-	return sdata->num_htlcs_to_them != 0 || sdata->num_htlcs_to_us != 0;
+	return peer->num_htlcs_to_them != 0 || peer->num_htlcs_to_us != 0;
 }
 
 struct htlc_watch
@@ -1037,7 +1037,7 @@ struct htlc_unwatch
 };
 
 struct htlc_watch *htlc_outputs_our_commit(const tal_t *ctx,
-					   const struct state_data *sdata,
+					   const struct peer *peer,
 					   const struct bitcoin_tx *tx,
 					   enum state_input tous_timeout,
 					   enum state_input tothem_spent,
@@ -1054,13 +1054,13 @@ struct htlc_watch *htlc_outputs_our_commit(const tal_t *ctx,
 	w->tothem_spent = tothem_spent;
 	w->tothem_timeout = tothem_timeout;
 
-	w->num_htlcs_to_us = sdata->num_htlcs_to_us;
-	w->num_htlcs_to_them = sdata->num_htlcs_to_them;
-	BUILD_ASSERT(sizeof(sdata->htlcs_to_us) == sizeof(w->htlcs_to_us));
-	BUILD_ASSERT(sizeof(sdata->htlcs_to_them) == sizeof(w->htlcs_to_them));
-	memcpy(w->htlcs_to_us, sdata->htlcs_to_us, sizeof(sdata->htlcs_to_us));
-	memcpy(w->htlcs_to_them, sdata->htlcs_to_them,
-	       sizeof(sdata->htlcs_to_them));
+	w->num_htlcs_to_us = peer->num_htlcs_to_us;
+	w->num_htlcs_to_them = peer->num_htlcs_to_them;
+	BUILD_ASSERT(sizeof(peer->htlcs_to_us) == sizeof(w->htlcs_to_us));
+	BUILD_ASSERT(sizeof(peer->htlcs_to_them) == sizeof(w->htlcs_to_them));
+	memcpy(w->htlcs_to_us, peer->htlcs_to_us, sizeof(peer->htlcs_to_us));
+	memcpy(w->htlcs_to_them, peer->htlcs_to_them,
+	       sizeof(peer->htlcs_to_them));
 
 	if (!w->num_htlcs_to_us && !w->num_htlcs_to_them)
 		return tal_free(w);
@@ -1069,7 +1069,7 @@ struct htlc_watch *htlc_outputs_our_commit(const tal_t *ctx,
 }
 
 struct htlc_watch *htlc_outputs_their_commit(const tal_t *ctx,
-					     const struct state_data *sdata,
+					     const struct peer *peer,
 					     const struct bitcoin_event *tx,
 					     enum state_input tous_timeout,
 					     enum state_input tothem_spent,
@@ -1088,12 +1088,12 @@ struct htlc_watch *htlc_outputs_their_commit(const tal_t *ctx,
 	w->tothem_timeout = tothem_timeout;
 
 	/* It's what our peer thinks is current... */
-	w->num_htlcs_to_us = sdata->peer->num_htlcs_to_them;
-	w->num_htlcs_to_them = sdata->peer->num_htlcs_to_us;
-	BUILD_ASSERT(sizeof(sdata->peer->htlcs_to_them) == sizeof(w->htlcs_to_us));
-	BUILD_ASSERT(sizeof(sdata->peer->htlcs_to_us) == sizeof(w->htlcs_to_them));
-	memcpy(w->htlcs_to_us, sdata->peer->htlcs_to_them, sizeof(w->htlcs_to_us));
-	memcpy(w->htlcs_to_them, sdata->peer->htlcs_to_us,
+	w->num_htlcs_to_us = peer->other->num_htlcs_to_them;
+	w->num_htlcs_to_them = peer->other->num_htlcs_to_us;
+	BUILD_ASSERT(sizeof(peer->other->htlcs_to_them) == sizeof(w->htlcs_to_us));
+	BUILD_ASSERT(sizeof(peer->other->htlcs_to_us) == sizeof(w->htlcs_to_them));
+	memcpy(w->htlcs_to_us, peer->other->htlcs_to_them, sizeof(w->htlcs_to_us));
+	memcpy(w->htlcs_to_them, peer->other->htlcs_to_us,
 	       sizeof(w->htlcs_to_them));
 
 	if (!w->num_htlcs_to_us && !w->num_htlcs_to_them)
@@ -1124,7 +1124,7 @@ struct htlc_unwatch *htlc_unwatch(const tal_t *ctx,
 }
 
 struct htlc_unwatch *htlc_unwatch_all(const tal_t *ctx,
-				      const struct state_data *sdata)
+				      const struct peer *peer)
 {
 	struct htlc_unwatch *w = tal(ctx, struct htlc_unwatch);
 
@@ -1159,7 +1159,7 @@ struct htlc_rval {
 };
 	
 struct htlc_rval *r_value_from_cmd(const tal_t *ctx,
-				   const struct state_data *sdata,
+				   const struct peer *peer,
 				   const struct htlc *htlc)
 {
 	struct htlc_rval *r = tal(ctx, struct htlc_rval);
@@ -1185,39 +1185,39 @@ struct htlc_rval *r_value_from_pkt(const tal_t *ctx, const Pkt *pkt)
 #include <ccan/tal/tal.h>
 #include <stdio.h>
 
-static void sdata_init(struct state_data *sdata,
-		       struct state_data *other,
-		       enum state_input initstate,
-		       const char *name)
+static void peer_init(struct peer *peer,
+		      struct peer *other,
+		      enum state_input initstate,
+		      const char *name)
 {
-	sdata->core.state = initstate;
-	sdata->core.num_outputs = 1;
-	sdata->current_htlc.htlc.id = -1;
-	sdata->num_htlcs_to_us = 0;
-	sdata->num_htlcs_to_them = 0;
-	sdata->num_live_htlcs_to_us = 0;
-	sdata->num_live_htlcs_to_them = 0;
-	sdata->num_htlc_spends_to_us = 0;
-	sdata->num_htlc_spends_to_them = 0;
-	sdata->num_rvals_known = 0;
-	sdata->error = NULL;
-	memset(sdata->core.outputs, 0, sizeof(sdata->core.outputs));
-	sdata->core.deferred_pkt = INPUT_NONE;
-	sdata->core.deferred_state = STATE_MAX;
-	sdata->core.outputs[0] = INPUT_NONE;
-	sdata->pkt_data[0] = -1;
-	sdata->core.current_command = INPUT_NONE;
-	sdata->core.event_notifies = 0;
-	sdata->core.pkt_inputs = true;
-	sdata->core.cmd_inputs = true;
-	sdata->core.closing_cmd = false;
-	sdata->name = name;
-	sdata->peer = other;
-	sdata->trail = NULL;
+	peer->core.state = initstate;
+	peer->core.num_outputs = 1;
+	peer->current_htlc.htlc.id = -1;
+	peer->num_htlcs_to_us = 0;
+	peer->num_htlcs_to_them = 0;
+	peer->num_live_htlcs_to_us = 0;
+	peer->num_live_htlcs_to_them = 0;
+	peer->num_htlc_spends_to_us = 0;
+	peer->num_htlc_spends_to_them = 0;
+	peer->num_rvals_known = 0;
+	peer->error = NULL;
+	memset(peer->core.outputs, 0, sizeof(peer->core.outputs));
+	peer->core.deferred_pkt = INPUT_NONE;
+	peer->core.deferred_state = STATE_MAX;
+	peer->core.outputs[0] = INPUT_NONE;
+	peer->pkt_data[0] = -1;
+	peer->core.current_command = INPUT_NONE;
+	peer->core.event_notifies = 0;
+	peer->core.pkt_inputs = true;
+	peer->core.cmd_inputs = true;
+	peer->core.closing_cmd = false;
+	peer->name = name;
+	peer->other = other;
+	peer->trail = NULL;
 }
 
 /* Recursion! */
-static void run_peer(const struct state_data *sdata,
+static void run_peer(const struct peer *peer,
 		     bool normalpath, bool errorpath,
 		     const struct trail *prev_trail,
 		     struct hist *hist);
@@ -1225,7 +1225,7 @@ static void run_peer(const struct state_data *sdata,
 static void init_trail(struct trail *t,
 		       enum state_input input,
 		       const union input *idata,
-		       const struct state_data *before,
+		       const struct peer *before,
 		       const struct trail *prev)
 {
 	t->name = before->name;
@@ -1251,11 +1251,11 @@ static void init_trail(struct trail *t,
 }
 
 static void update_trail(struct trail *t,
-			 const struct state_data *after,
+			 const struct peer *after,
 			 const Pkt *output)
 {
 	t->after = after;
-	t->num_peer_outputs = after->peer->core.num_outputs;
+	t->num_peer_outputs = after->other->core.num_outputs;
 	t->pkt_sent = (const char *)output;
 }
 
@@ -1329,16 +1329,16 @@ static void report_trail(const struct trail *t, const char *problem)
 	exit(1);
 }
 
-static bool is_current_command(const struct state_data *sdata,
+static bool is_current_command(const struct peer *peer,
 			       enum state_input cmd)
 {
 	if (cmd == CMD_SEND_UPDATE_ANY) {
-		return is_current_command(sdata, CMD_SEND_HTLC_UPDATE)
-			|| is_current_command(sdata, CMD_SEND_HTLC_FULFILL)
-			|| is_current_command(sdata, CMD_SEND_HTLC_TIMEDOUT)
-			|| is_current_command(sdata, CMD_SEND_HTLC_ROUTEFAIL);
+		return is_current_command(peer, CMD_SEND_HTLC_UPDATE)
+			|| is_current_command(peer, CMD_SEND_HTLC_FULFILL)
+			|| is_current_command(peer, CMD_SEND_HTLC_TIMEDOUT)
+			|| is_current_command(peer, CMD_SEND_HTLC_ROUTEFAIL);
 	}
-	return sdata->core.current_command == cmd;
+	return peer->core.current_command == cmd;
 }
 
 static void add_htlc(struct htlc *to_us, unsigned int *num_to_us,
@@ -1384,39 +1384,39 @@ static void remove_htlc(struct htlc *to_us, unsigned int *num_to_us,
 	(*n)--;
 }
 
-static bool outstanding_htlc_watches(const struct state_data *sdata)
+static bool outstanding_htlc_watches(const struct peer *peer)
 {
-	return sdata->num_live_htlcs_to_us
-		|| sdata->num_live_htlcs_to_them
-		|| sdata->num_htlc_spends_to_us
-		|| sdata->num_htlc_spends_to_them;
+	return peer->num_live_htlcs_to_us
+		|| peer->num_live_htlcs_to_them
+		|| peer->num_htlc_spends_to_us
+		|| peer->num_htlc_spends_to_them;
 }
 
-static bool rval_known(const struct state_data *sdata, unsigned int id)
+static bool rval_known(const struct peer *peer, unsigned int id)
 {
 	unsigned int i;
 
-	for (i = 0; i < sdata->num_rvals_known; i++)
-		if (sdata->rvals_known[i] == id)
+	for (i = 0; i < peer->num_rvals_known; i++)
+		if (peer->rvals_known[i] == id)
 			return true;
 	return false;
 }		
 
 /* Some assertions once they've already been applied. */
-static char *check_effects(struct state_data *sdata,
+static char *check_effects(struct peer *peer,
 			   const struct state_effect *effect)
 {
 	while (effect) {
 		if (effect->etype == STATE_EFFECT_in_error) {
 			/* We should stop talking to them after error recvd. */
-			if (sdata->core.pkt_inputs)
+			if (peer->core.pkt_inputs)
 				return "packets still open after error pkt";
 		} else if (effect->etype == STATE_EFFECT_stop_commands) {
-			if (sdata->core.current_command != INPUT_NONE)
+			if (peer->core.current_command != INPUT_NONE)
 				return tal_fmt(NULL,
 					       "stop_commands with pending command %s",
-					       input_name(sdata->core.current_command));
-			if (sdata->core.closing_cmd)
+					       input_name(peer->core.current_command));
+			if (peer->core.closing_cmd)
 				return "stop_commands with pending CMD_CLOSE";
 		}
 		effect = effect->next;
@@ -1426,7 +1426,7 @@ static char *check_effects(struct state_data *sdata,
 	
 /* We apply them backwards, which helps our assertions.  It's not actually
  * required. */
-static const char *apply_effects(struct state_data *sdata,
+static const char *apply_effects(struct peer *peer,
 				 const struct state_effect *effect,
 				 uint64_t *effects,
 				 Pkt **output)
@@ -1437,7 +1437,7 @@ static const char *apply_effects(struct state_data *sdata,
 		return NULL;
 
 	if (effect->next) {
-		const char *problem = apply_effects(sdata, effect->next,
+		const char *problem = apply_effects(peer, effect->next,
 						    effects, output);
 		if (problem)
 			return problem;
@@ -1449,7 +1449,7 @@ static const char *apply_effects(struct state_data *sdata,
 
 	switch (effect->etype) {
 	case STATE_EFFECT_new_state:
-		sdata->core.state = effect->u.new_state;
+		peer->core.state = effect->u.new_state;
 		break;
 	case STATE_EFFECT_in_error:
 		break;
@@ -1470,11 +1470,11 @@ static const char *apply_effects(struct state_data *sdata,
 				return pkt;
 			}
 		}
-		if (sdata->core.num_outputs >= ARRAY_SIZE(sdata->core.outputs))
+		if (peer->core.num_outputs >= ARRAY_SIZE(peer->core.outputs))
 			return "Too many outputs";
-		sdata->core.outputs[sdata->core.num_outputs]
+		peer->core.outputs[peer->core.num_outputs]
 			= input_by_name(pkt);
-		sdata->pkt_data[sdata->core.num_outputs++]
+		peer->pkt_data[peer->core.num_outputs++]
 			= htlc_id_from_pkt(effect->u.send_pkt);
 		break;
 	}
@@ -1482,202 +1482,202 @@ static const char *apply_effects(struct state_data *sdata,
 		/* We can have multiple steals or spendtheirs
 		   in flight, so make exceptions for
 		   BITCOIN_STEAL_DONE/BITCOIN_SPEND_THEIRS_DONE */
-		if (sdata->core.event_notifies & (1ULL << BITCOIN_STEAL_DONE)
+		if (peer->core.event_notifies & (1ULL << BITCOIN_STEAL_DONE)
 		    & effect->u.watch->events)
 			remove_event(&effect->u.watch->events, BITCOIN_STEAL_DONE);
 
-		if (sdata->core.event_notifies
+		if (peer->core.event_notifies
 		    & (1ULL << BITCOIN_SPEND_THEIRS_DONE)
 		    & effect->u.watch->events)
 			remove_event(&effect->u.watch->events,
 				     BITCOIN_SPEND_THEIRS_DONE);
 
-		if (sdata->core.event_notifies & effect->u.watch->events)
+		if (peer->core.event_notifies & effect->u.watch->events)
 			return "event set twice";
-		sdata->core.event_notifies |= effect->u.watch->events;
+		peer->core.event_notifies |= effect->u.watch->events;
 		break;
 	case STATE_EFFECT_unwatch:
-		if ((sdata->core.event_notifies & effect->u.unwatch->events)
+		if ((peer->core.event_notifies & effect->u.unwatch->events)
 		    != effect->u.unwatch->events)
 			return "unset event unwatched";
-		sdata->core.event_notifies &= ~effect->u.unwatch->events;
+		peer->core.event_notifies &= ~effect->u.unwatch->events;
 		break;
 	case STATE_EFFECT_cmd_defer:
 		/* If it was current command, it is no longer. */
-		if (is_current_command(sdata, effect->u.cmd_defer))
-			sdata->core.current_command = INPUT_NONE;
+		if (is_current_command(peer, effect->u.cmd_defer))
+			peer->core.current_command = INPUT_NONE;
 		else if (input_is_pkt(effect->u.cmd_defer)) {
 			/* Unlike commands, which we always resubmit,
 			 * we have to remember deferred packets. */
 			/* We assume only one deferrment! */
-			assert(sdata->core.deferred_pkt == INPUT_NONE
-			       || sdata->core.deferred_pkt == effect->u.cmd_defer);
-			sdata->core.deferred_pkt = effect->u.cmd_defer;
-			sdata->core.deferred_state = sdata->core.state;
+			assert(peer->core.deferred_pkt == INPUT_NONE
+			       || peer->core.deferred_pkt == effect->u.cmd_defer);
+			peer->core.deferred_pkt = effect->u.cmd_defer;
+			peer->core.deferred_state = peer->core.state;
 		}
 		break;
 	case STATE_EFFECT_cmd_requeue:
-		assert(is_current_command(sdata, effect->u.cmd_requeue));
-		sdata->core.current_command = INPUT_NONE;
+		assert(is_current_command(peer, effect->u.cmd_requeue));
+		peer->core.current_command = INPUT_NONE;
 		break;
 	case STATE_EFFECT_cmd_success:
-		assert(is_current_command(sdata, effect->u.cmd_success));
-		sdata->core.current_command = INPUT_NONE;
+		assert(is_current_command(peer, effect->u.cmd_success));
+		peer->core.current_command = INPUT_NONE;
 		break;
 	case STATE_EFFECT_cmd_fail:
-		if (sdata->core.current_command == INPUT_NONE)
+		if (peer->core.current_command == INPUT_NONE)
 			return "Failed command with none current";
-		sdata->core.current_command = INPUT_NONE;
+		peer->core.current_command = INPUT_NONE;
 		break;
 	case STATE_EFFECT_cmd_close_done:
-		if (!sdata->core.closing_cmd)
+		if (!peer->core.closing_cmd)
 			return tal_fmt(NULL, "%s but not closing",
 				       effect->u.cmd_close_done
 				       ? "Success" : "Failure");
-		sdata->core.closing_cmd = false;
+		peer->core.closing_cmd = false;
 		break;
 	case STATE_EFFECT_stop_packets:
-		if (!sdata->core.pkt_inputs)
+		if (!peer->core.pkt_inputs)
 			return "stop_packets twice";
-		sdata->core.pkt_inputs = false;
+		peer->core.pkt_inputs = false;
 
 		/* Can no longer receive packet timeouts, either. */
-		remove_event_(&sdata->core.event_notifies,
+		remove_event_(&peer->core.event_notifies,
 			      INPUT_CLOSE_COMPLETE_TIMEOUT);
 		break;
 	case STATE_EFFECT_stop_commands:
-		if (!sdata->core.cmd_inputs)
+		if (!peer->core.cmd_inputs)
 			return "stop_commands twice";
-		sdata->core.cmd_inputs = false;
+		peer->core.cmd_inputs = false;
 		break;
 	case STATE_EFFECT_close_timeout:
-		add_event(&sdata->core.event_notifies,
+		add_event(&peer->core.event_notifies,
 			  effect->u.close_timeout);
 		/* We assume this. */
 		assert(effect->u.close_timeout
 		       == INPUT_CLOSE_COMPLETE_TIMEOUT);
 		break;
 	case STATE_EFFECT_htlc_in_progress:
-		if (sdata->current_htlc.htlc.id != -1)
+		if (peer->current_htlc.htlc.id != -1)
 			return "HTLC already in progress";
-		sdata->current_htlc = *effect->u.htlc_in_progress;
+		peer->current_htlc = *effect->u.htlc_in_progress;
 		break;
 	case STATE_EFFECT_update_theirsig:
 		break;
 	case STATE_EFFECT_htlc_abandon:
-		if (sdata->current_htlc.htlc.id == -1)
+		if (peer->current_htlc.htlc.id == -1)
 			return "HTLC not in progress, can't abandon";
-		sdata->current_htlc.htlc.id = -1;
+		peer->current_htlc.htlc.id = -1;
 		break;
 	case STATE_EFFECT_htlc_fulfill:
-		if (sdata->current_htlc.htlc.id == -1)
+		if (peer->current_htlc.htlc.id == -1)
 			return "HTLC not in progress, can't complete";
 
-		if (sdata->current_htlc.adding) {
-			add_htlc(sdata->htlcs_to_us,
-				 &sdata->num_htlcs_to_us,
-				 sdata->htlcs_to_them,
-				 &sdata->num_htlcs_to_them,
-				 ARRAY_SIZE(sdata->htlcs_to_us),
-				 &sdata->current_htlc.htlc);
+		if (peer->current_htlc.adding) {
+			add_htlc(peer->htlcs_to_us,
+				 &peer->num_htlcs_to_us,
+				 peer->htlcs_to_them,
+				 &peer->num_htlcs_to_them,
+				 ARRAY_SIZE(peer->htlcs_to_us),
+				 &peer->current_htlc.htlc);
 		} else {
 			const struct htlc *h;
-			h = find_htlc(sdata,
-				      sdata->current_htlc.htlc.id);
+			h = find_htlc(peer,
+				      peer->current_htlc.htlc.id);
 			if (!h)
 				return "Removing nonexistent HTLC?";
 			if (h->to_them !=
-			    sdata->current_htlc.htlc.to_them)
+			    peer->current_htlc.htlc.to_them)
 				return "Removing disagreed about to_them";
-			remove_htlc(sdata->htlcs_to_us, &sdata->num_htlcs_to_us,
-				    sdata->htlcs_to_them,
-				    &sdata->num_htlcs_to_them,
-				    ARRAY_SIZE(sdata->htlcs_to_us),
+			remove_htlc(peer->htlcs_to_us, &peer->num_htlcs_to_us,
+				    peer->htlcs_to_them,
+				    &peer->num_htlcs_to_them,
+				    ARRAY_SIZE(peer->htlcs_to_us),
 				    h);
 		}
-		sdata->current_htlc.htlc.id = -1;
+		peer->current_htlc.htlc.id = -1;
 		break;
 	case STATE_EFFECT_r_value:
 		/* We set r_value when they spend an HTLC, so
 		 * we can set this multiple times (multiple commit
 		 * txs) */
-		if (!rval_known(sdata, effect->u.r_value->id)) {
-			if (sdata->num_rvals_known
-			    == ARRAY_SIZE(sdata->rvals_known))
+		if (!rval_known(peer, effect->u.r_value->id)) {
+			if (peer->num_rvals_known
+			    == ARRAY_SIZE(peer->rvals_known))
 				return "Too many rvals";
 
-			sdata->rvals_known[sdata->num_rvals_known++]
+			peer->rvals_known[peer->num_rvals_known++]
 				= effect->u.r_value->id;
 		}
 		break;
 			
 	case STATE_EFFECT_watch_htlcs:
-		assert(sdata->num_live_htlcs_to_us
+		assert(peer->num_live_htlcs_to_us
 		       + effect->u.watch_htlcs->num_htlcs_to_us
-		       <= ARRAY_SIZE(sdata->live_htlcs_to_us));
-		assert(sdata->num_live_htlcs_to_them
+		       <= ARRAY_SIZE(peer->live_htlcs_to_us));
+		assert(peer->num_live_htlcs_to_them
 		       + effect->u.watch_htlcs->num_htlcs_to_them
-		       <= ARRAY_SIZE(sdata->live_htlcs_to_them));
-		memcpy(sdata->live_htlcs_to_us + sdata->num_live_htlcs_to_us,
+		       <= ARRAY_SIZE(peer->live_htlcs_to_them));
+		memcpy(peer->live_htlcs_to_us + peer->num_live_htlcs_to_us,
 		       effect->u.watch_htlcs->htlcs_to_us,
 		       effect->u.watch_htlcs->num_htlcs_to_us
 		       * sizeof(effect->u.watch_htlcs->htlcs_to_us[0]));
-		memcpy(sdata->live_htlcs_to_them + sdata->num_live_htlcs_to_them,
+		memcpy(peer->live_htlcs_to_them + peer->num_live_htlcs_to_them,
 		       effect->u.watch_htlcs->htlcs_to_them,
 		       effect->u.watch_htlcs->num_htlcs_to_them
 		       * sizeof(effect->u.watch_htlcs->htlcs_to_them[0]));
-		sdata->num_live_htlcs_to_us
+		peer->num_live_htlcs_to_us
 			+= effect->u.watch_htlcs->num_htlcs_to_us;
-		sdata->num_live_htlcs_to_them
+		peer->num_live_htlcs_to_them
 			+= effect->u.watch_htlcs->num_htlcs_to_them;
 		/* Can happen if we were finished, then new commit tx */
-		remove_event_(&sdata->core.event_notifies, INPUT_NO_MORE_HTLCS);
+		remove_event_(&peer->core.event_notifies, INPUT_NO_MORE_HTLCS);
 		break;
 	case STATE_EFFECT_unwatch_htlc:
 		/* Unwatch all? */
 		if (effect->u.unwatch_htlc->id == -1) {
 			/* This can happen if we get in front of
 			 * INPUT_NO_MORE_HTLCS */
-			if (!outstanding_htlc_watches(sdata)
-			    && !have_event(sdata->core.event_notifies,
+			if (!outstanding_htlc_watches(peer)
+			    && !have_event(peer->core.event_notifies,
 					   INPUT_NO_MORE_HTLCS))
 				return "unwatching all with no htlcs?";
-			sdata->num_htlc_spends_to_us = 0;
-			sdata->num_htlc_spends_to_them = 0;
-			sdata->num_live_htlcs_to_us = 0;
-			sdata->num_live_htlcs_to_them = 0;
+			peer->num_htlc_spends_to_us = 0;
+			peer->num_htlc_spends_to_them = 0;
+			peer->num_live_htlcs_to_us = 0;
+			peer->num_live_htlcs_to_them = 0;
 		} else {
 			const struct htlc *h;
 
-			h = find_live_htlc(sdata, effect->u.unwatch_htlc->id);
+			h = find_live_htlc(peer, effect->u.unwatch_htlc->id);
 
 			/* That can fail, when we see them spend (and
 			 * thus stop watching) after we've timed out,
 			 * then our return tx wins and gets buried. */
 			if (h) {
-				remove_htlc(sdata->live_htlcs_to_us,
-					    &sdata->num_live_htlcs_to_us,
-					    sdata->live_htlcs_to_them,
-					    &sdata->num_live_htlcs_to_them,
-					    ARRAY_SIZE(sdata->live_htlcs_to_us),
+				remove_htlc(peer->live_htlcs_to_us,
+					    &peer->num_live_htlcs_to_us,
+					    peer->live_htlcs_to_them,
+					    &peer->num_live_htlcs_to_them,
+					    ARRAY_SIZE(peer->live_htlcs_to_us),
 					    h);
 
 				/* If that was last, fire INPUT_NO_MORE_HTLCS */
-				if (!outstanding_htlc_watches(sdata)) {
+				if (!outstanding_htlc_watches(peer)) {
 					assert(effect->u.unwatch_htlc->all_done
 					       == INPUT_NO_MORE_HTLCS);
-					add_event(&sdata->core.event_notifies,
+					add_event(&peer->core.event_notifies,
 						  effect->u.unwatch_htlc->all_done);
 				}
 			}
 		}
 		break;
 	case STATE_EFFECT_watch_htlc_spend:
-		h = find_live_htlc(sdata, effect->u.watch_htlc_spend->id);
-		add_htlc(sdata->htlc_spends_to_us, &sdata->num_htlc_spends_to_us,
-			 sdata->htlc_spends_to_them,
-			 &sdata->num_htlc_spends_to_them,
-			 ARRAY_SIZE(sdata->htlc_spends_to_us),
+		h = find_live_htlc(peer, effect->u.watch_htlc_spend->id);
+		add_htlc(peer->htlc_spends_to_us, &peer->num_htlc_spends_to_us,
+			 peer->htlc_spends_to_them,
+			 &peer->num_htlc_spends_to_them,
+			 ARRAY_SIZE(peer->htlc_spends_to_us),
 			 h);
 
 		/* We assume this */
@@ -1689,17 +1689,17 @@ static const char *apply_effects(struct state_data *sdata,
 			       == BITCOIN_HTLC_FULFILL_SPEND_DONE);
 		break;
 	case STATE_EFFECT_unwatch_htlc_spend:
-		h = find_htlc_spend(sdata, effect->u.unwatch_htlc_spend->id);
-		remove_htlc(sdata->htlc_spends_to_us,
-			    &sdata->num_htlc_spends_to_us,
-			    sdata->htlc_spends_to_them,
-			    &sdata->num_htlc_spends_to_them,
-			    ARRAY_SIZE(sdata->htlc_spends_to_us),
+		h = find_htlc_spend(peer, effect->u.unwatch_htlc_spend->id);
+		remove_htlc(peer->htlc_spends_to_us,
+			    &peer->num_htlc_spends_to_us,
+			    peer->htlc_spends_to_them,
+			    &peer->num_htlc_spends_to_them,
+			    ARRAY_SIZE(peer->htlc_spends_to_us),
 			    h);
-		if (!outstanding_htlc_watches(sdata)) {
+		if (!outstanding_htlc_watches(peer)) {
 			assert(effect->u.unwatch_htlc_spend->done
 			       == INPUT_NO_MORE_HTLCS);
-			add_event(&sdata->core.event_notifies,
+			add_event(&peer->core.event_notifies,
 				  effect->u.unwatch_htlc_spend->done);
 		}
 		break;
@@ -1710,16 +1710,16 @@ static const char *apply_effects(struct state_data *sdata,
 	return NULL;
 }
 	
-static const char *apply_all_effects(struct state_data *sdata,
+static const char *apply_all_effects(struct peer *peer,
 				     const struct state_effect *effect,
 				     Pkt **output)
 {
 	const char *problem;
 	uint64_t effects = 0;
 	*output = NULL;
-	problem = apply_effects(sdata, effect, &effects, output);
+	problem = apply_effects(peer, effect, &effects, output);
 	if (!problem)
-		problem = check_effects(sdata, effect);
+		problem = check_effects(peer, effect);
 	return problem;
 }
 	      
@@ -1897,10 +1897,10 @@ static bool waiting_statepair(enum state a, enum state b)
 	return false;
 }
 
-static bool has_packets(const struct state_data *sdata)
+static bool has_packets(const struct peer *peer)
 {
-	return sdata->core.deferred_pkt != INPUT_NONE
-		|| sdata->core.num_outputs != 0;
+	return peer->core.deferred_pkt != INPUT_NONE
+		|| peer->core.num_outputs != 0;
 }
 
 static struct state_effect *get_effect(const struct state_effect *effect,
@@ -1931,14 +1931,14 @@ static Pkt *get_send_pkt(const struct state_effect *effect)
 	return NULL;
 }			
 
-static void try_input(const struct state_data *sdata,
+static void try_input(const struct peer *peer,
 		      enum state_input i,
 		      const union input *idata,
 		      bool normalpath, bool errorpath,
 		      const struct trail *prev_trail,
 		      struct hist *hist)
 {
-	struct state_data copy, peer;
+	struct peer copy, other;
 	struct trail t;
 	enum state newstate;
 	struct state_effect *effect;
@@ -1946,33 +1946,33 @@ static void try_input(const struct state_data *sdata,
 	Pkt *output;
 	const tal_t *ctx = tal(NULL, char);
 
-	copy_peers(&copy, &peer, sdata);
+	copy_peers(&copy, &other, peer);
 
 	copy.current_input = i;
 	copy.current_idata = idata;
-	init_trail(&t, i, idata, sdata, prev_trail);
+	init_trail(&t, i, idata, peer, prev_trail);
 	copy.trail = &t;
 
 	eliminate_input(&hist->inputs_per_state[copy.core.state], i);
 	effect = state(ctx, copy.core.state, &copy, i, idata);
 
-	newstate = get_state_effect(effect, sdata->core.state);
+	newstate = get_state_effect(effect, peer->core.state);
 
-	normalpath &= normal_path(i, sdata->core.state, newstate);
-	errorpath |= error_path(i, sdata->core.state, newstate);
+	normalpath &= normal_path(i, peer->core.state, newstate);
+	errorpath |= error_path(i, peer->core.state, newstate);
 
 	if (dot_enable
 	    && (dot_include_abnormal || normalpath)
 	    && (dot_include_errors || !errorpath)
-	    && (dot_include_abnormal || !too_cluttered(i, sdata->core.state))) {
+	    && (dot_include_abnormal || !too_cluttered(i, peer->core.state))) {
 		const char *oldstr, *newstr;
 
 		/* Simplify folds high and low prio, skip "STATE_" */
 		if (dot_simplify) {
-			oldstr = simplify_state(sdata->core.state) + 6;
+			oldstr = simplify_state(peer->core.state) + 6;
 			newstr = simplify_state(newstate) + 6;
 		} else {
-			oldstr = state_name(sdata->core.state) + 6;
+			oldstr = state_name(peer->core.state) + 6;
 			newstr = state_name(newstate) + 6;
 		}
 		if (newstr != oldstr || include_nops)
@@ -1998,7 +1998,7 @@ static void try_input(const struct state_data *sdata,
 	}
 
 	if (hist->state_dump) {
-		record_state(&hist->state_dump[sdata->core.state], i, newstate,
+		record_state(&hist->state_dump[peer->core.state], i, newstate,
 			     (const char *)output);
 	}
 	
@@ -2035,8 +2035,8 @@ static void try_input(const struct state_data *sdata,
 	/*
 	 * If we're listening, someone should be talking (usually).
 	 */
-	if (copy.core.pkt_inputs && !has_packets(&copy) && !has_packets(&peer)
-	    && !waiting_statepair(copy.core.state, peer.core.state)) {
+	if (copy.core.pkt_inputs && !has_packets(&copy) && !has_packets(&other)
+	    && !waiting_statepair(copy.core.state, other.core.state)) {
 		report_trail(&t, "Deadlock");
 	}
 
@@ -2064,52 +2064,52 @@ static void try_input(const struct state_data *sdata,
 	run_peer(&copy, normalpath, errorpath, &t, hist);
 
 	/* Don't bother running other peer we can't communicate. */
-	if (copy.core.pkt_inputs || peer.core.pkt_inputs)
-		run_peer(&peer, normalpath, errorpath, &t, hist);
+	if (copy.core.pkt_inputs || other.core.pkt_inputs)
+		run_peer(&other, normalpath, errorpath, &t, hist);
 	tal_free(ctx);
 }
 
-static void sanity_check(const struct state_data *sdata)
+static void sanity_check(const struct peer *peer)
 {
-	if (sdata->core.state == STATE_NORMAL_LOWPRIO
-	    || sdata->core.state == STATE_NORMAL_HIGHPRIO) {
+	if (peer->core.state == STATE_NORMAL_LOWPRIO
+	    || peer->core.state == STATE_NORMAL_HIGHPRIO) {
 		/* Home state: expect commands to be finished. */
-		if (sdata->core.current_command != INPUT_NONE)
+		if (peer->core.current_command != INPUT_NONE)
 			errx(1, "Unexpected command %u in state %u",
-			     sdata->core.current_command, sdata->core.state);
+			     peer->core.current_command, peer->core.state);
 	}
 }
 
-static void activate_event(struct state_data *sdata, enum state_input i)
+static void activate_event(struct peer *peer, enum state_input i)
 {
 	/* Events are not independent. */
 	switch (i) {
 	case BITCOIN_ANCHOR_DEPTHOK:
 		/* Can't sent TIMEOUT (may not be set) */
-		remove_event_(&sdata->core.event_notifies, BITCOIN_ANCHOR_TIMEOUT);
+		remove_event_(&peer->core.event_notifies, BITCOIN_ANCHOR_TIMEOUT);
 		break;
 	case BITCOIN_ANCHOR_TIMEOUT:
 		/* Can't sent DEPTHOK */
-		remove_event(&sdata->core.event_notifies, BITCOIN_ANCHOR_DEPTHOK);
+		remove_event(&peer->core.event_notifies, BITCOIN_ANCHOR_DEPTHOK);
 		break;
 	/* And of the "done" cases means we won't give the others. */
 	case BITCOIN_SPEND_THEIRS_DONE:
 	case BITCOIN_SPEND_OURS_DONE:
 	case BITCOIN_STEAL_DONE:
 	case BITCOIN_CLOSE_DONE:
-		remove_event_(&sdata->core.event_notifies,
+		remove_event_(&peer->core.event_notifies,
 			      BITCOIN_SPEND_OURS_DONE);
-		remove_event_(&sdata->core.event_notifies,
+		remove_event_(&peer->core.event_notifies,
 			      BITCOIN_SPEND_THEIRS_DONE);
-		remove_event_(&sdata->core.event_notifies, BITCOIN_STEAL_DONE);
-		remove_event_(&sdata->core.event_notifies, BITCOIN_CLOSE_DONE);
-		remove_event_(&sdata->core.event_notifies,
+		remove_event_(&peer->core.event_notifies, BITCOIN_STEAL_DONE);
+		remove_event_(&peer->core.event_notifies, BITCOIN_CLOSE_DONE);
+		remove_event_(&peer->core.event_notifies,
 			      BITCOIN_ANCHOR_OURCOMMIT_DELAYPASSED);
-		remove_event_(&sdata->core.event_notifies,
+		remove_event_(&peer->core.event_notifies,
 			      BITCOIN_ANCHOR_THEIRSPEND);
-		remove_event_(&sdata->core.event_notifies,
+		remove_event_(&peer->core.event_notifies,
 			      BITCOIN_ANCHOR_OTHERSPEND);
-		remove_event_(&sdata->core.event_notifies,
+		remove_event_(&peer->core.event_notifies,
 			      BITCOIN_ANCHOR_UNSPENT);
 		break;
 	default:
@@ -2146,20 +2146,20 @@ static unsigned int next_htlc_id(void)
 	return ++num;
 }
 
-static void run_peer(const struct state_data *sdata,
+static void run_peer(const struct peer *peer,
 		     bool normalpath, bool errorpath,
 		     const struct trail *prev_trail,
 		     struct hist *hist)
 {
-	struct state_data copy, peer;
+	struct peer copy, other;
 	size_t i;
 	uint64_t old_notifies;
 	union input *idata = talz(NULL, union input);
 
-	sanity_check(sdata);
+	sanity_check(peer);
 
 	/* We want to frob some things... */
-	copy_peers(&copy, &peer, sdata);
+	copy_peers(&copy, &other, peer);
 	
 	/* Try the event notifiers */
 	old_notifies = copy.core.event_notifies;
@@ -2178,10 +2178,10 @@ static void run_peer(const struct state_data *sdata,
 
 	/* We can send a close command even if already sending a
 	 * (different) command. */
-	if (sdata->core.state != STATE_INIT_WITHANCHOR
-	    && sdata->core.state != STATE_INIT_NOANCHOR
-	    && sdata->core.cmd_inputs
-	    && !sdata->core.closing_cmd) {
+	if (peer->core.state != STATE_INIT_WITHANCHOR
+	    && peer->core.state != STATE_INIT_NOANCHOR
+	    && peer->core.cmd_inputs
+	    && !peer->core.closing_cmd) {
 		copy.core.closing_cmd = true;
 		try_input(&copy, CMD_CLOSE, idata,
 			  normalpath, errorpath, prev_trail, hist);
@@ -2190,11 +2190,11 @@ static void run_peer(const struct state_data *sdata,
 
 	/* Try sending commands (unless in init state, closed or
 	 * already doing one). */
-	if (sdata->core.state != STATE_INIT_WITHANCHOR
-	    && sdata->core.state != STATE_INIT_NOANCHOR
-	    && sdata->core.cmd_inputs
-	    && sdata->core.current_command == INPUT_NONE
-	    && !sdata->core.closing_cmd) {
+	if (peer->core.state != STATE_INIT_WITHANCHOR
+	    && peer->core.state != STATE_INIT_NOANCHOR
+	    && peer->core.cmd_inputs
+	    && peer->core.current_command == INPUT_NONE
+	    && !peer->core.closing_cmd) {
 		unsigned int i;
 
 		/* Add a new HTLC if not at max. */
@@ -2212,13 +2212,13 @@ static void run_peer(const struct state_data *sdata,
 		}
 
 		/* We can complete or routefail an HTLC they offered */
-		for (i = 0; i < sdata->num_htlcs_to_us; i++) {
+		for (i = 0; i < peer->num_htlcs_to_us; i++) {
 			idata->htlc_prog = tal(idata, struct htlc_progress);
-			idata->htlc_prog->htlc = sdata->htlcs_to_us[i];
+			idata->htlc_prog->htlc = peer->htlcs_to_us[i];
 			idata->htlc_prog->adding = false;
 
 			/* Only send this once. */
-			if (!rval_known(sdata, idata->htlc_prog->htlc.id)) {
+			if (!rval_known(peer, idata->htlc_prog->htlc.id)) {
 				copy.core.current_command
 					= CMD_SEND_HTLC_FULFILL;
 				try_input(&copy, copy.core.current_command,
@@ -2232,9 +2232,9 @@ static void run_peer(const struct state_data *sdata,
 		}
 
 		/* We can timeout an HTLC we offered. */
-		for (i = 0; i < sdata->num_htlcs_to_them; i++) {
+		for (i = 0; i < peer->num_htlcs_to_them; i++) {
 			idata->htlc_prog = tal(idata, struct htlc_progress);
-			idata->htlc_prog->htlc = sdata->htlcs_to_them[i];
+			idata->htlc_prog->htlc = peer->htlcs_to_them[i];
 			idata->htlc_prog->adding = false;
 
 			copy.core.current_command = CMD_SEND_HTLC_TIMEDOUT;
@@ -2248,10 +2248,10 @@ static void run_peer(const struct state_data *sdata,
 	}
 
 	/* If they're watching HTLCs, we can send events. */
-	for (i = 0; i < sdata->num_live_htlcs_to_us; i++) {
+	for (i = 0; i < peer->num_live_htlcs_to_us; i++) {
 		idata->htlc = (struct htlc *)&copy.live_htlcs_to_us[i];
 		/* Only send this once. */
-		if (!rval_known(sdata, idata->htlc->id)) {
+		if (!rval_known(peer, idata->htlc->id)) {
 			try_input(&copy, INPUT_RVALUE,
 				  idata, normalpath, errorpath,
 				  prev_trail, hist);
@@ -2261,7 +2261,7 @@ static void run_peer(const struct state_data *sdata,
 			  prev_trail, hist);
 	}
 
-	for (i = 0; i < sdata->num_live_htlcs_to_them; i++) {
+	for (i = 0; i < peer->num_live_htlcs_to_them; i++) {
 		idata->htlc = (struct htlc *)&copy.live_htlcs_to_them[i];
 		try_input(&copy, BITCOIN_HTLC_TOTHEM_SPENT,
 			  idata, normalpath, errorpath,
@@ -2272,13 +2272,13 @@ static void run_peer(const struct state_data *sdata,
 	}
 
 	/* If they're watching HTLC spends, we can send events. */
-	for (i = 0; i < sdata->num_htlc_spends_to_us; i++) {
+	for (i = 0; i < peer->num_htlc_spends_to_us; i++) {
 		idata->htlc = (struct htlc *)&copy.htlc_spends_to_us[i];
 		try_input(&copy, BITCOIN_HTLC_FULFILL_SPEND_DONE,
 			  idata, normalpath, errorpath,
 			  prev_trail, hist);
 	}
-	for (i = 0; i < sdata->num_htlc_spends_to_them; i++) {
+	for (i = 0; i < peer->num_htlc_spends_to_them; i++) {
 		idata->htlc = (struct htlc *)&copy.htlc_spends_to_them[i];
 		try_input(&copy, BITCOIN_HTLC_RETURN_SPEND_DONE,
 			  idata, normalpath, errorpath,
@@ -2302,23 +2302,23 @@ static void run_peer(const struct state_data *sdata,
 			return;
 		}
 
-		if (peer.core.num_outputs) {
-			i = peer.core.outputs[0];
-			if (peer.pkt_data[0] == -1U)
+		if (other.core.num_outputs) {
+			i = other.core.outputs[0];
+			if (other.pkt_data[0] == -1U)
 				idata->pkt = (Pkt *)talz(idata, char);
 			else
 				idata->pkt = htlc_pkt(idata, input_name(i),
-						      peer.pkt_data[0]);
+						      other.pkt_data[0]);
 
 			/* Do the first, recursion does the rest. */
-			memmove(peer.core.outputs, peer.core.outputs + 1,
-				sizeof(peer.core.outputs)
-				- sizeof(peer.core.outputs[0]));
-			memmove(peer.pkt_data, peer.pkt_data + 1,
-				sizeof(peer.pkt_data)-sizeof(peer.pkt_data[0]));
-			peer.core.num_outputs--;
+			memmove(other.core.outputs, other.core.outputs + 1,
+				sizeof(other.core.outputs)
+				- sizeof(other.core.outputs[0]));
+			memmove(other.pkt_data, other.pkt_data + 1,
+				sizeof(other.pkt_data)-sizeof(other.pkt_data[0]));
+			other.core.num_outputs--;
 			/* Reset so that hashing doesn't get confused. */
-			peer.core.outputs[peer.core.num_outputs] = 0;
+			other.core.outputs[other.core.num_outputs] = 0;
 			try_input(&copy, i, idata, normalpath, errorpath,
 				  prev_trail, hist);
 		}
@@ -2395,7 +2395,7 @@ static int state_dump_cmp(const struct state_dump *a,
 
 int main(int argc, char *argv[])
 {
-	struct state_data a, b;
+	struct peer a, b;
 	unsigned int i;
 	struct hist hist;
 	bool dump_states = false;
@@ -2457,8 +2457,8 @@ int main(int argc, char *argv[])
 #endif
 	
 	/* Initialize universe. */
-	sdata_init(&a, &b, STATE_INIT_WITHANCHOR, "A");
-	sdata_init(&b, &a, STATE_INIT_NOANCHOR, "B");
+	peer_init(&a, &b, STATE_INIT_WITHANCHOR, "A");
+	peer_init(&b, &a, STATE_INIT_NOANCHOR, "B");
 	if (!sithash_update(&hist.sithash, &a))
 		abort();
 	failhash_init(&failhash);
@@ -2479,8 +2479,8 @@ int main(int argc, char *argv[])
 				const struct trail *t;
 
 				/* Trail will vanish when f->details freed */
-				t = tal_steal(f, f->details->sdata.trail);
-				try_input(&f->details->sdata,
+				t = tal_steal(f, f->details->us.trail);
+				try_input(&f->details->us,
 					  f->details->input,
 					  &f->details->idata,
 					  false, true,
