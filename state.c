@@ -547,7 +547,7 @@ struct state_effect *state(const tal_t *ctx,
 			return next_state(ctx, effect, STATE_CLOSE_WAIT_CLOSE);
 		} else if (input_is(input, PKT_ERROR)) {
 			add_effect(&effect, in_error,
-				   set_errpkt(ctx, idata->pkt));
+				   tal_steal(ctx, idata->pkt));
 			goto start_unilateral_close_already_closing;
 		} else if (input_is_pkt(input)) {
 			/* We ignore all other packets while closing. */
@@ -845,7 +845,7 @@ unexpected_pkt:
 	 */
 	/* Don't reply to an error with an error. */
 	if (input_is(input, PKT_ERROR)) {
-		add_effect(&effect, in_error, set_errpkt(ctx, idata->pkt));
+		add_effect(&effect, in_error, tal_steal(ctx, idata->pkt));
 		goto start_unilateral_close;
 	}
 	err = unexpected_pkt(ctx, input);

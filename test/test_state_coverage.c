@@ -482,12 +482,6 @@ static enum state_input input_by_name(const char *name)
 	abort();
 }
 
-/* We don't bother with lifetime issues */
-static Pkt *set_errpkt(const tal_t *ctx, const Pkt *pkt)
-{
-	return (Pkt *)pkt;
-}
-
 static Pkt *new_pkt(const tal_t *ctx, enum state_input i)
 {
 	return (Pkt *)input_name(i);
