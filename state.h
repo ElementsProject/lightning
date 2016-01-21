@@ -318,9 +318,15 @@ void peer_unwatch_htlc_spend(struct peer *peer,
 			     const struct htlc *htlc,
 			     enum state_input all_done);
 
-/* Create a bitcoin anchor tx. */
-struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx,
-				  const struct peer *peer);
+/* Start creation of the bitcoin anchor tx. */
+void bitcoin_create_anchor(struct peer *peer, enum state_input done);
+
+/* We didn't end up broadcasting the anchor: release the utxos.
+ * If done != INPUT_NONE, remove existing create_anchor too. */
+void bitcoin_release_anchor(struct peer *peer, enum state_input done);
+
+/* Get the bitcoin anchor tx. */
+struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer);
 
 /* Create a bitcoin close tx. */
 struct bitcoin_tx *bitcoin_close(const tal_t *ctx,

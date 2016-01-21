@@ -122,7 +122,10 @@ struct peer {
 
 	/* Transitory: True if we just declined an HTLC. */
 	bool htlc_declined;
-	
+
+	/* Have we created an anchor tx? */
+	bool anchor;
+
 	unsigned int num_htlcs_to_them, num_htlcs_to_us;
 	struct htlc htlcs_to_them[MAX_HTLCS], htlcs_to_us[MAX_HTLCS];
 
@@ -855,9 +858,11 @@ static bool bitcoin_tx_is(const struct bitcoin_tx *btx, const char *str)
 	return streq((const char *)btx, str);
 }
 
-struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx,
-				  const struct peer *peer)
+struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer)
 {
+	if (!peer->anchor)
+		report_trail(peer->trail, "Can't create anchor tx: no anchor!");
+	peer->anchor = false;
 	return bitcoin_tx("anchor");
 }
 
@@ -937,6 +942,7 @@ static void peer_init(struct peer *peer,
 	peer->num_rvals_known = 0;
 	peer->error = NULL;
 	peer->htlc_declined = false;
+	peer->anchor = false;
 	memset(peer->core.outputs, 0, sizeof(peer->core.outputs));
 	peer->pkt_data[0] = -1;
 	peer->core.current_command = INPUT_NONE;
@@ -1186,6 +1192,26 @@ void peer_watch_anchor(struct peer *peer,
 	add_event(peer, unspent);
 	add_event(peer, theyspent);
 	add_event(peer, otherspent);
+}
+
+void bitcoin_create_anchor(struct peer *peer, enum state_input done)
+{
+	/* We assume this below */
+	assert(done == BITCOIN_ANCHOR_CREATED);
+	if (peer->anchor)
+		report_trail(peer->trail, "Anchor already created?");
+		
+	peer->anchor = true;
+	add_event(peer, done);
+}
+
+void bitcoin_release_anchor(struct peer *peer, enum state_input done)
+{
+	if (!peer->anchor)
+		report_trail(peer->trail, "Anchor not created?");
+
+	peer->anchor = false;
+	remove_event(peer, done);
 }
 
 void peer_unwatch_anchor_depth(struct peer *peer,
@@ -1492,6 +1518,9 @@ static const char *check_changes(const struct peer *old, struct peer *new,
 		if (new->current_htlc.htlc.id != -1)
 			return tal_fmt(NULL,
 				       "cond CLOSE with pending htlc");
+		if (new->anchor)
+			return tal_fmt(NULL,
+				       "cond CLOSE with anchor");
 	}
 	if (new->cond == PEER_CLOSED) {
 		/* FIXME: Move to state core */
@@ -1736,13 +1765,15 @@ static bool waiting_statepair(enum state a, enum state b)
 	if (a == STATE_OPEN_WAITING_OURANCHOR
 	    || a == STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED
 	    || a == STATE_OPEN_WAITING_THEIRANCHOR
-	    || a == STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED)
+	    || a == STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED
+	    || a == STATE_OPEN_WAIT_FOR_ANCHOR_CREATE)
 		return true;
 
 	if (b == STATE_OPEN_WAITING_OURANCHOR
 	    || b == STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED
 	    || b == STATE_OPEN_WAITING_THEIRANCHOR
-	    || b == STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED)
+	    || b == STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED
+	    || b == STATE_OPEN_WAIT_FOR_ANCHOR_CREATE)
 		return true;
 
 	/* We don't need inputs at start of main loop. */
@@ -2364,6 +2395,7 @@ int main(int argc, char *argv[])
 		    || i == STATE_ERR_ANCHOR_TIMEOUT)
 			a_expect = false;
 		if (i == STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR
+		    || i == STATE_OPEN_WAIT_FOR_ANCHOR_CREATE
 		    || i == STATE_OPEN_WAIT_FOR_COMMIT_SIG
 		    || i == STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR
 		    || i == STATE_OPEN_WAITING_OURANCHOR

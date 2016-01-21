@@ -149,13 +149,28 @@ enum command_status state(const tal_t *ctx,
 				complete_cmd(peer, &cstatus, CMD_FAIL);
 				goto err_close_nocleanup;
 			}
-			queue_pkt(out, pkt_anchor(ctx, peer));
+			bitcoin_create_anchor(peer, BITCOIN_ANCHOR_CREATED);
 			return next_state(peer, cstatus,
-					  STATE_OPEN_WAIT_FOR_COMMIT_SIG);
+					  STATE_OPEN_WAIT_FOR_ANCHOR_CREATE);
 		} else if (input_is(input, CMD_CLOSE)) {
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto instant_close;
 		} else if (input_is_pkt(input)) {
+			complete_cmd(peer, &cstatus, CMD_FAIL);
+			goto unexpected_pkt_nocleanup;
+		}
+		break;
+	case STATE_OPEN_WAIT_FOR_ANCHOR_CREATE:
+		if (input_is(input, BITCOIN_ANCHOR_CREATED)) {
+			queue_pkt(out, pkt_anchor(ctx, peer));
+			return next_state(peer, cstatus,
+					  STATE_OPEN_WAIT_FOR_COMMIT_SIG);
+		} else if (input_is(input, CMD_CLOSE)) {
+			bitcoin_release_anchor(peer, BITCOIN_ANCHOR_CREATED);
+			complete_cmd(peer, &cstatus, CMD_FAIL);
+			goto instant_close;
+		} else if (input_is_pkt(input)) {
+			bitcoin_release_anchor(peer, BITCOIN_ANCHOR_CREATED);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto unexpected_pkt_nocleanup;
 		}
@@ -190,6 +205,7 @@ enum command_status state(const tal_t *ctx,
 		if (input_is(input, PKT_OPEN_COMMIT_SIG)) {
 			err = accept_pkt_open_commit_sig(ctx, peer, idata->pkt);
 			if (err) {
+				bitcoin_release_anchor(peer, INPUT_NONE);
 				complete_cmd(peer, &cstatus, CMD_FAIL);
 				goto err_start_unilateral_close;
 			}
@@ -203,9 +219,11 @@ enum command_status state(const tal_t *ctx,
 			return next_state(peer, cstatus,
 					  STATE_OPEN_WAITING_OURANCHOR);
 		} else if (input_is(input, CMD_CLOSE)) {
+			bitcoin_release_anchor(peer, INPUT_NONE);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto instant_close;
 		} else if (input_is_pkt(input)) {
+			bitcoin_release_anchor(peer, INPUT_NONE);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto unexpected_pkt_nocleanup;
 		}
