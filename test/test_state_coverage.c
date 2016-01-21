@@ -1418,13 +1418,14 @@ static const char *apply_effects(struct peer *peer,
 		*output = effect->u.send_pkt;
 
 		/* Check for errors. */
-		if (strstarts(pkt, "ERROR_PKT:")) {
+		if (strstarts(pkt, "PKT_ERROR: ")) {
 			/* Some are expected. */
-			if (!streq(pkt, "ERROR_PKT:Commit tx noticed")
-			    && !streq(pkt, "ERROR_PKT:Otherspend noticed")
-			    && !streq(pkt, "ERROR_PKT:Anchor timed out")
-			    && !streq(pkt, "ERROR_PKT:Close timed out")
-			    && !streq(pkt, "ERROR_PKT:Close forced due to HTLCs")) {
+			if (!streq(pkt, "PKT_ERROR: Commit tx noticed")
+			    && !streq(pkt, "PKT_ERROR: Otherspend noticed")
+			    && !streq(pkt, "PKT_ERROR: Error inject")
+			    && !streq(pkt, "PKT_ERROR: Anchor timed out")
+			    && !streq(pkt, "PKT_ERROR: Close timed out")
+			    && !streq(pkt, "PKT_ERROR: Close forced due to HTLCs")) {
 				return pkt;
 			}
 		}

@@ -938,6 +938,10 @@ unexpected_pkt_nocleanup:
 	/*
 	 * Unexpected packet, but nothing sent to chain yet, so no cleanup.
 	 */
+	/* Don't reply to an error with an error. */
+	if (input_is(input, PKT_ERROR)) {
+		goto close_nocleanup;
+	}
 	err = unexpected_pkt(ctx, input);
 	goto err_close_nocleanup;
 
@@ -955,6 +959,8 @@ err_close_nocleanup:
 	 * so there's nothing to clean up.
 	 */
 	add_effect(effect, send_pkt, err);
+
+close_nocleanup:
 	change_peer_cond(peer, PEER_CMD_OK, PEER_CLOSED);
 	return next_state(peer, cstatus, STATE_CLOSED);
 
