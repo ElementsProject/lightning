@@ -1,5 +1,5 @@
-#include <state.h>
 #include <ccan/build_assert/build_assert.h>
+#include <state.h>
 
 static inline bool high_priority(enum state state)
 {
