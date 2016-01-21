@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[6]);
 
-	if (!pubkey_from_hexstr(argv[7], &outpubkey))
+	if (!pubkey_from_hexstr(argv[7], strlen(argv[7]), &outpubkey))
 		errx(1, "Invalid commit key '%s'", argv[7]);
 
 	/* Get pubkeys */

@@ -15,7 +15,7 @@ struct pubkey {
 };
 
 /* Convert from hex string of DER (scriptPubKey from validateaddress) */
-bool pubkey_from_hexstr(const char *derstr, struct pubkey *key);
+bool pubkey_from_hexstr(const char *derstr, size_t derlen, struct pubkey *key);
 
 /* Pubkey from privkey */
 bool pubkey_from_privkey(const struct privkey *privkey,

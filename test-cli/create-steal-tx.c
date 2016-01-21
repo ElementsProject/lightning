@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 	if (!proto_to_rel_locktime(o1->delay, &locktime))
 		errx(1, "Invalid locktime in o2");
 
-	if (!pubkey_from_hexstr(argv[6], &outpubkey))
+	if (!pubkey_from_hexstr(argv[6], strlen(argv[6]), &outpubkey))
 		errx(1, "Invalid bitcoin pubkey '%s'", argv[6]);
 
 	/* Get pubkeys */

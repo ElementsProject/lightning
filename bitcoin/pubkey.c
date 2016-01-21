@@ -72,9 +72,9 @@ fail_free_secpctx:
 	return false;
 }
 	
-bool pubkey_from_hexstr(const char *derstr, struct pubkey *key)
+bool pubkey_from_hexstr(const char *derstr, size_t slen, struct pubkey *key)
 {
-	size_t slen = strlen(derstr), dlen;
+	size_t dlen;
 	unsigned char der[65];
 
 	dlen = hex_data_size(slen);

@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 	if (!testnet)
 		errx(1, "Private key '%s' not on testnet!", argv[5]);
 
-	if (!pubkey_from_hexstr(argv[6], &outpubkey))
+	if (!pubkey_from_hexstr(argv[6], strlen(argv[6]), &outpubkey))
 		errx(1, "Invalid bitcoin pubkey '%s'", argv[6]);
 
 	/* Get pubkeys */

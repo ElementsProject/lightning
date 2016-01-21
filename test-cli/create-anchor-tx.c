@@ -142,7 +142,7 @@ int main(int argc, char *argv[])
 	if (change) {
 		struct pubkey change_key;
 
-		if (!pubkey_from_hexstr(argv[4], &change_key))
+		if (!pubkey_from_hexstr(argv[4], strlen(argv[4]), &change_key))
 			errx(1, "Invalid change key %s", argv[3]);
 
 		redeemscript = bitcoin_redeem_single(anchor, &change_key);
