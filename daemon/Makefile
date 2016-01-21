@@ -14,6 +14,7 @@ DAEMON_LIB_SRC :=				\
 DAEMON_LIB_OBJS := $(DAEMON_LIB_SRC:.c=.o)
 
 DAEMON_SRC :=					\
+	daemon/dns.c				\
 	daemon/jsonrpc.c			\
 	daemon/lightningd.c			\
 	daemon/netaddr.c			\
@@ -29,6 +30,7 @@ DAEMON_JSMN_HEADERS := daemon/jsmn/jsmn.h
 
 DAEMON_HEADERS :=				\
 	daemon/configdir.h			\
+	daemon/dns.h				\
 	daemon/json.h				\
 	daemon/jsonrpc.h			\
 	daemon/lightningd.h			\
