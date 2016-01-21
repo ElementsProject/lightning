@@ -34,8 +34,13 @@ static void lookup_and_write(int fd, const char *name, const char *port)
 	struct addrinfo *addr, *i;
 	struct netaddr *addresses;
 	size_t num;
+	struct addrinfo hints;
 
-	if (getaddrinfo(name, port, NULL, &addr) != 0)
+	/* We don't want UDP sockets (yet?) */
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	if (getaddrinfo(name, port, &hints, &addr) != 0)
 		return;
 
 	num = 0;
@@ -87,6 +92,11 @@ static struct io_plan *init_conn(struct io_conn *conn, struct dns_async *d)
 	struct addrinfo a;
 
 	netaddr_to_addrinfo(&a, &d->addresses[0]);
+
+	/* Consume that address. */
+	d->addresses++;
+	d->num_addresses--;
+
 	io_set_finish(conn, connect_failed, d);
 
 	/* That new connection owns d */
@@ -100,10 +110,6 @@ static void try_connect_one(struct dns_async *d)
 
 	while (d->num_addresses) {
 		const struct netaddr *a = &d->addresses[0];
-
-		/* Consume that address. */
-		d->addresses++;
-		d->num_addresses--;
 
 		/* Now we can warn if it's overlength */
 		if (a->addrlen > sizeof(a->saddr)) {
@@ -119,6 +125,10 @@ static void try_connect_one(struct dns_async *d)
 				return;
 			}
 		}
+
+		/* Consume that address. */
+		d->addresses++;
+		d->num_addresses--;
 	}
 
 	/* We're out of things to try.  Fail. */
