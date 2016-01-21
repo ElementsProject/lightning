@@ -633,8 +633,7 @@ enum command_status state(const tal_t *ctx,
 			set_peer_cond(peer, PEER_CLOSED);
 			return next_state(peer, cstatus, STATE_CLOSE_WAIT_CLOSE);
 		} else if (input_is(input, PKT_ERROR)) {
-			add_effect(effect, in_error,
-				   tal_steal(ctx, idata->pkt));
+			peer_unexpected_pkt(peer, idata->pkt);
 			goto start_unilateral_close_already_closing;
 		} else if (input_is_pkt(input)) {
 			/* We ignore all other packets while closing. */
@@ -656,12 +655,11 @@ enum command_status state(const tal_t *ctx,
 			/* Just wait for close to happen now. */
 			return next_state(peer, cstatus, STATE_CLOSE_WAIT_CLOSE);
 		} else if (input_is_pkt(input)) {
-			if (input_is(input, PKT_ERROR)) {
-				add_effect(effect, in_error,
-					   tal_steal(ctx, idata->pkt));
-			} else {
+			peer_unexpected_pkt(peer, idata->pkt);
+			/* Don't reply to an error with an error. */
+			if (!input_is(input, PKT_ERROR)) {
 				add_effect(effect, send_pkt,
-					   unexpected_pkt(ctx, input));
+					   pkt_err_unexpected(ctx, idata->pkt));
 			}
 			set_peer_cond(peer, PEER_CLOSED);
 			/* Just wait for close to happen now. */
@@ -926,12 +924,13 @@ unexpected_pkt:
 	/*
 	 * We got a weird packet, so we need to close unilaterally.
 	 */
+	peer_unexpected_pkt(peer, idata->pkt);
+
 	/* Don't reply to an error with an error. */
 	if (input_is(input, PKT_ERROR)) {
-		add_effect(effect, in_error, tal_steal(ctx, idata->pkt));
 		goto start_unilateral_close;
 	}
-	err = unexpected_pkt(ctx, input);
+	err = pkt_err_unexpected(ctx, idata->pkt);
 	goto err_start_unilateral_close;
 
 unexpected_pkt_nocleanup:
@@ -942,7 +941,7 @@ unexpected_pkt_nocleanup:
 	if (input_is(input, PKT_ERROR)) {
 		goto close_nocleanup;
 	}
-	err = unexpected_pkt(ctx, input);
+	err = pkt_err_unexpected(ctx, idata->pkt);
 	goto err_close_nocleanup;
 
 anchor_unspent:

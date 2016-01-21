@@ -18,7 +18,6 @@ enum state_peercond {
 };
 
 enum state_effect_type {
-	STATE_EFFECT_in_error,
 	STATE_EFFECT_broadcast_tx,
 	STATE_EFFECT_send_pkt,
 	STATE_EFFECT_watch,
@@ -62,9 +61,6 @@ struct state_effect {
 
 		/* Set a timeout for close tx. */
 		enum state_input close_timeout;
-
-		/* Error received from other side. */
-		Pkt *in_error;
 
 		/* HTLC we're working on. */
 		struct htlc_progress *htlc_in_progress;
@@ -155,6 +151,9 @@ static inline bool input_is(enum state_input a, enum state_input b)
 
 struct signature;
 
+/* Inform peer have an unexpected packet. */
+void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt);
+
 /* Create various kinds of packets, allocated off @ctx */
 Pkt *pkt_open(const tal_t *ctx, const struct peer *peer,
 	      OpenChannel__AnchorOffer anchor);
@@ -176,7 +175,7 @@ Pkt *pkt_err(const tal_t *ctx, const char *msg);
 Pkt *pkt_close(const tal_t *ctx, const struct peer *peer);
 Pkt *pkt_close_complete(const tal_t *ctx, const struct peer *peer);
 Pkt *pkt_close_ack(const tal_t *ctx, const struct peer *peer);
-Pkt *unexpected_pkt(const tal_t *ctx, enum state_input input);
+Pkt *pkt_err_unexpected(const tal_t *ctx, const Pkt *pkt);
 
 /* Process various packets: return an error packet on failure. */
 Pkt *accept_pkt_open(const tal_t *ctx,

@@ -623,9 +623,10 @@ Pkt *pkt_close_ack(const tal_t *ctx, const struct peer *peer)
 	return new_pkt(ctx, PKT_CLOSE_ACK);
 }
 
-Pkt *unexpected_pkt(const tal_t *ctx, enum state_input input)
+Pkt *pkt_err_unexpected(const tal_t *ctx, const Pkt *pkt)
 {
-	return pkt_err(ctx, "Unexpected pkt");
+	return (Pkt *)tal_fmt(ctx, "PKT_ERROR: Unexpected pkt %s",
+			      (const char *)pkt);
 }
 
 Pkt *accept_pkt_open(const tal_t *ctx,
@@ -1367,24 +1368,20 @@ static bool rval_known(const struct peer *peer, unsigned int id)
 		if (peer->rvals_known[i] == id)
 			return true;
 	return false;
-}		
-
-/* Some assertions once they've already been applied. */
-static char *check_effects(struct peer *peer,
-			   const struct state_effect *effect)
-{
-	while (effect) {
-		if (effect->etype == STATE_EFFECT_in_error) {
-			/* We should stop talking to them after error recvd. */
-			if (peer->cond != PEER_CLOSING
-			    && peer->cond != PEER_CLOSED)
-				return "packets still open after error pkt";
-		}
-		effect = effect->next;
-	}
-	return NULL;
 }
-	
+
+void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt)
+{
+	const char *str = (const char *)pkt;
+
+	/* We can get errors. */
+	if (strstarts(str, "PKT_ERROR:"))
+		return;
+
+	/* Shouldn't get any other unexpected packets. */
+	report_trail(peer->trail, "Unexpected packet");
+}
+
 /* We apply them backwards, which helps our assertions.  It's not actually
  * required. */
 static const char *apply_effects(struct peer *peer,
@@ -1409,8 +1406,6 @@ static const char *apply_effects(struct peer *peer,
 	*effects |= (1ULL << effect->etype);
 
 	switch (effect->etype) {
-	case STATE_EFFECT_in_error:
-		break;
 	case STATE_EFFECT_broadcast_tx:
 		break;
 	case STATE_EFFECT_send_pkt: {
@@ -1621,7 +1616,8 @@ static const char *apply_effects(struct peer *peer,
 	return NULL;
 }
 	
-static const char *check_changes(const struct peer *old, struct peer *new)
+static const char *check_changes(const struct peer *old, struct peer *new,
+				 enum state_input input)
 {
 	if (new->cond != old->cond) {
 		/* Only BUSY -> CMD_OK can go backwards. */
@@ -1643,12 +1639,19 @@ static const char *check_changes(const struct peer *old, struct peer *new)
 		remove_event_(&new->core.event_notifies,
 			      INPUT_CLOSE_COMPLETE_TIMEOUT);
 	}
-	
+
+	if (input == PKT_ERROR) {
+		/* We should stop talking to them after error recvd. */
+		if (new->cond != PEER_CLOSING
+		    && new->cond != PEER_CLOSED)
+			return "packets still open after error pkt";
+	}
 	return NULL;
 }
 
 static const char *apply_all_effects(const struct peer *old,
 				     enum command_status cstatus,
+				     enum state_input input,
 				     struct peer *peer,
 				     const struct state_effect *effect,
 				     Pkt **output)
@@ -1669,9 +1672,7 @@ static const char *apply_all_effects(const struct peer *old,
 
 	problem = apply_effects(peer, effect, &effects, output);
 	if (!problem)
-		problem = check_effects(peer, effect);
-	if (!problem)
-		problem = check_changes(old, peer);
+		problem = check_changes(old, peer, input);
 	return problem;
 }
 
@@ -1928,7 +1929,7 @@ static void try_input(const struct peer *peer,
 				get_send_pkt(effect));
 	}
 
-	problem = apply_all_effects(peer, cstatus, &copy, effect, &output);
+	problem = apply_all_effects(peer, cstatus, i, &copy, effect, &output);
 	update_trail(&t, &copy, output);
 	if (problem)
 		report_trail(&t, problem);
@@ -2242,7 +2243,9 @@ static void run_peer(const struct peer *peer,
 		
 		if (other.core.num_outputs) {
 			i = other.core.outputs[0];
-			if (other.pkt_data[0] == -1U)
+			if (i == PKT_ERROR)
+				idata->pkt = pkt_err(idata, "");
+			else if (other.pkt_data[0] == -1U)
 				idata->pkt = (Pkt *)talz(idata, char);
 			else
 				idata->pkt = htlc_pkt(idata, input_name(i),
