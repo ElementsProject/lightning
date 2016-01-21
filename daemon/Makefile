@@ -16,6 +16,7 @@ DAEMON_LIB_OBJS := $(DAEMON_LIB_SRC:.c=.o)
 DAEMON_SRC :=					\
 	daemon/jsonrpc.c			\
 	daemon/lightningd.c			\
+	daemon/netaddr.c			\
 	daemon/peer.c				\
 	daemon/timeout.c
 DAEMON_OBJS := $(DAEMON_SRC:.c=.o)
@@ -32,6 +33,7 @@ DAEMON_HEADERS :=				\
 	daemon/jsonrpc.h			\
 	daemon/lightningd.h			\
 	daemon/log.h				\
+	daemon/netaddr.h			\
 	daemon/peer.h				\
 	daemon/pseudorand.h			\
 	daemon/timeout.h

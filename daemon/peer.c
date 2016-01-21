@@ -1,7 +1,6 @@
 #include "lightningd.h"
 #include "log.h"
 #include "peer.h"
-#include <arpa/inet.h>
 #include <ccan/io/io.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/short_types/short_types.h>
@@ -12,18 +11,6 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-
-static u16 get_port(const struct netaddr *addr)
-{
-	switch (addr->saddr.s.sa_family) {
-	case AF_INET:
-		return ntohs(addr->saddr.ipv4.sin_port);
-	case AF_INET6:
-		return ntohs(addr->saddr.ipv6.sin6_port);
-	default:
-		abort();
-	}
-}
 
 static void destroy_peer(struct peer *peer)
 {
@@ -36,7 +23,6 @@ static struct peer *new_peer(struct lightningd_state *state,
 			     const char *in_or_out)
 {
 	struct peer *peer = tal(state, struct peer);
-	char name[INET6_ADDRSTRLEN];
 
 	/* FIXME: Stop listening if too many peers? */
 	list_add(&state->peers, &peer->list);
@@ -57,13 +43,9 @@ static struct peer *new_peer(struct lightningd_state *state,
 		return tal_free(peer);
 	}
 
-	if (!inet_ntop(peer->addr.saddr.s.sa_family, &peer->addr.saddr,
-		       name, sizeof(name)))
-		strcpy(name, "UNCONVERTABLE-ADDR");
-
-	peer->log = new_log(peer, state->log_record, "%s-%s:%s:%u",
+	peer->log = new_log(peer, state->log_record, "%s%s:%s:",
 			    log_prefix(state->base_log), in_or_out,
-			    name, get_port(&peer->addr));
+			    netaddr_name(peer, &peer->addr));
 	return peer;
 }
 

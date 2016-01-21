@@ -1,23 +1,8 @@
 #ifndef LIGHTNING_DAEMON_PEER_H
 #define LIGHTNING_DAEMON_PEER_H
 #include "config.h"
+#include "netaddr.h"
 #include <ccan/list/list.h>
-#include <netinet/in.h>
-#include <netinet/ip.h>
-#include <sys/socket.h>
-#include <sys/socket.h>
-
-/* This can be extended to support other protocols in future. */
-struct netaddr {
-	int type; /* See socket(2): SOCK_STREAM currently */
-	int protocol; /* See socket(2): 0 currently */
-	socklen_t addrlen;
-	union {
-		struct sockaddr s;
-		struct sockaddr_in ipv4;
-		struct sockaddr_in6 ipv6;
-	} saddr;
-};
 
 struct peer {
 	/* state->peers list */
