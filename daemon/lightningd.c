@@ -1,3 +1,4 @@
+#include "bitcoind.h"
 #include "configdir.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
@@ -195,6 +196,8 @@ int main(int argc, char *argv[])
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc != 1)
 		errx(1, "no arguments accepted");
+
+	check_bitcoind_config(dstate);
 
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(dstate, dstate->rpc_filename);

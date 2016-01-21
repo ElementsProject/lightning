@@ -10,6 +10,8 @@
 #include <ccan/io/io.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/tal/grab_file/grab_file.h>
+#include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <errno.h>
@@ -292,4 +294,35 @@ void bitcoind_create_payment(struct lightningd_state *dstate,
 	
 	start_bitcoin_cli(dstate, process_sendtoaddress, cb, peer,
 			  "sendtoaddress", addr, amtstr, NULL);
+}
+
+/* We make sure they have walletbroadcast=0, so we don't broadcast
+ * the anchor. */
+void check_bitcoind_config(struct lightningd_state *dstate)
+{
+	void *ctx = tal(dstate, char);
+	char *path, *config, **lines;
+	size_t i;
+
+	path = path_simplify(ctx, path_join(ctx, path_cwd(ctx),
+					    "../.bitcoin/bitcoin.conf"));
+	config = grab_file(ctx, path);
+	if (!config) {
+		log_unusual(dstate->base_log, "Could not open %s to check it",
+			    path);
+		goto out;
+	}
+
+	lines = tal_strsplit(ctx, config, "\n", STR_NO_EMPTY);
+	for (i = 0; lines[i]; i++) {
+		if (tal_strreg(ctx, lines[i],
+			       "^[ \t]*walletbroadcast[ \t]*=[ \t]*0"))
+			goto out;
+	}
+	
+			
+	log_unusual(dstate->base_log, "%s does not contain walletbroadcast=0",
+		    path);
+out:
+	tal_free(ctx);
 }
