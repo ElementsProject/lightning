@@ -4,6 +4,17 @@
 #include "json.h"
 #include <ccan/list/list.h>
 
+/* Context for a command (from JSON, but might outlive the connection!)
+ * You can allocate off this for temporary objects. */
+struct command {
+	/* The global state */
+	struct lightningd_state *state;
+	/* The 'id' which we need to include in the response. */
+	const char *id;
+	/* The connection, or NULL if it closed. */
+	struct json_connection *jcon;
+};
+
 struct json_connection {
 	/* The global state */
 	struct lightningd_state *state;
@@ -23,21 +34,23 @@ struct json_connection {
 	/* We've been told to stop. */
 	bool stop;
 
+	/* Current command. */
+	struct command *current;
+
 	struct list_head output;
 	const char *outbuf;
 };
 
 struct json_command {
 	const char *name;
-	char *(*dispatch)(struct json_connection *jcon,
-			  const jsmntok_t *params,
-			  struct json_result *result);
+	void (*dispatch)(struct command *,
+			 const char *buffer, const jsmntok_t *params);
 	const char *description;
 	const char *help;
 };
 
-/* Add notification about something. */
-void json_notify(struct json_connection *jcon, const char *result);
+void command_success(struct command *cmd, struct json_result *response);
+void PRINTF_FMT(2, 3) command_fail(struct command *cmd, const char *fmt, ...);
 
 /* For initialization */
 void setup_jsonrpc(struct lightningd_state *state, const char *rpc_filename);

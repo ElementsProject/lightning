@@ -23,12 +23,15 @@ struct json_output {
 
 static void finish_jcon(struct io_conn *conn, struct json_connection *jcon)
 {
-	log_info(jcon->log, "Closing (%s)", strerror(errno));
+	log_debug(jcon->log, "Closing (%s)", strerror(errno));
+	if (jcon->current) {
+		log_unusual(jcon->log, "Abandoning current command");
+		jcon->current->jcon = NULL;
+	}
 }
 
-static char *json_help(struct json_connection *jcon,
-		       const jsmntok_t *params,
-		       struct json_result *response);
+static void json_help(struct command *cmd,
+		      const char *buffer, const jsmntok_t *params);
 
 static const struct json_command help_command = {
 	"help",
@@ -37,17 +40,18 @@ static const struct json_command help_command = {
 	"[<command>] if specified gives details about a single command."
 };
 
-static char *json_echo(struct json_connection *jcon,
-		       const jsmntok_t *params,
-		       struct json_result *response)
+static void json_echo(struct command *cmd,
+		      const char *buffer, const jsmntok_t *params)
 {
+	struct json_result *response = new_json_result(cmd);
+
 	json_object_start(response, NULL);
 	json_add_num(response, "num", params->size);
 	json_add_literal(response, "echo",
-			 json_tok_contents(jcon->buffer, params),
+			 json_tok_contents(buffer, params),
 			 json_tok_len(params));
 	json_object_end(response);
-	return NULL;
+	command_success(cmd, response);
 }
 
 static const struct json_command echo_command = {
@@ -57,13 +61,15 @@ static const struct json_command echo_command = {
 	"Simple echo test for developers"
 };
 
-static char *json_stop(struct json_connection *jcon,
-		       const jsmntok_t *params,
-		       struct json_result *response)
+static void json_stop(struct command *cmd,
+		      const char *buffer, const jsmntok_t *params)
 {
-	jcon->stop = true;
+	struct json_result *response = new_json_result(cmd);
+
+	/* This can't have closed yet! */
+	cmd->jcon->stop = true;
 	json_add_string(response, NULL, "Shutting down");
-	return NULL;
+	command_success(cmd, response);
 }
 
 static const struct json_command stop_command = {
@@ -140,41 +146,42 @@ static void log_to_json(unsigned int skipped,
 	json_array_end(info->response);
 }
 
-static char *json_getlog(struct json_connection *jcon,
-			 const jsmntok_t *params,
-			 struct json_result *response)
+static void json_getlog(struct command *cmd,
+			const char *buffer, const jsmntok_t *params)
 {
 	struct log_info info;
-	struct log_record *lr = jcon->state->log_record;
+	struct log_record *lr = cmd->state->log_record;
 	jsmntok_t *level;
 
-	json_get_params(jcon->buffer, params, "level", &level, NULL);
+	json_get_params(buffer, params, "level", &level, NULL);
 
-	info.response = response;
 	info.num_skipped = 0;
 
 	if (!level)
 		info.level = LOG_INFORM;
-	else if (json_tok_streq(jcon->buffer, level, "io"))
+	else if (json_tok_streq(buffer, level, "io"))
 		info.level = LOG_IO;
-	else if (json_tok_streq(jcon->buffer, level, "debug"))
+	else if (json_tok_streq(buffer, level, "debug"))
 		info.level = LOG_DBG;
-	else if (json_tok_streq(jcon->buffer, level, "info"))
+	else if (json_tok_streq(buffer, level, "info"))
 		info.level = LOG_INFORM;
-	else if (json_tok_streq(jcon->buffer, level, "unusual"))
+	else if (json_tok_streq(buffer, level, "unusual"))
 		info.level = LOG_UNUSUAL;
-	else
-		return "Invalid level param";
+	else {
+		command_fail(cmd, "Invalid level param");
+		return;
+	}
 
-	json_object_start(response, NULL);
-	json_add_time(response, "creation_time", log_init_time(lr)->ts);
-	json_add_num(response, "bytes_used", (unsigned int)log_used(lr));
-	json_add_num(response, "bytes_max", (unsigned int)log_max_mem(lr));
-	json_object_start(response, "log");
+	info.response = new_json_result(cmd);
+	json_object_start(info.response, NULL);
+	json_add_time(info.response, "creation_time", log_init_time(lr)->ts);
+	json_add_num(info.response, "bytes_used", (unsigned int)log_used(lr));
+	json_add_num(info.response, "bytes_max", (unsigned int)log_max_mem(lr));
+	json_object_start(info.response, "log");
 	log_each_line(lr, log_to_json, &info);
-	json_object_end(response);
-	json_object_end(response);
-	return NULL;
+	json_object_end(info.response);
+	json_object_end(info.response);
+	command_success(cmd, info.response);
 }
 
 static const struct json_command getlog_command = {
@@ -193,11 +200,11 @@ static const struct json_command *cmdlist[] = {
 	&echo_command,
 };
 
-static char *json_help(struct json_connection *jcon,
-		       const jsmntok_t *params,
-		       struct json_result *response)
+static void json_help(struct command *cmd,
+		      const char *buffer, const jsmntok_t *params)
 {
 	unsigned int i;
+	struct json_result *response = new_json_result(cmd);
 
 	json_array_start(response, NULL);
 	for (i = 0; i < ARRAY_SIZE(cmdlist); i++) {
@@ -209,7 +216,7 @@ static char *json_help(struct json_connection *jcon,
 				NULL);
 	}
 	json_array_end(response);
-	return NULL;
+	command_success(cmd, response);
 }
 
 static const struct json_command *find_cmd(const char *buffer,
@@ -225,80 +232,134 @@ static const struct json_command *find_cmd(const char *buffer,
 	return NULL;
 }
 
-/* Returns NULL if it's a fatal error. */
-static char *parse_request(struct json_connection *jcon, const jsmntok_t tok[])
+static void json_result(struct json_connection *jcon,
+			const char *id, const char *res, const char *err)
+{
+	struct json_output *out = tal(jcon, struct json_output);
+
+	out->json = tal_fmt(out,
+			    "{ \"result\" : %s,"
+			    " \"error\" : %s,"
+			    " \"id\" : %s }\n",
+			    res, err, id);
+
+	/* Queue for writing, and wake writer (and maybe reader). */
+	list_add_tail(&jcon->output, &out->list);
+	io_wake(jcon);
+}
+
+void command_success(struct command *cmd, struct json_result *result)
+{
+	struct json_connection *jcon = cmd->jcon;
+
+	if (!jcon) {
+		log_unusual(cmd->state->base_log,
+			    "Command returned result after jcon close");
+		tal_free(cmd);
+		return;
+	}
+	assert(jcon->current == cmd);
+	json_result(jcon, cmd->id, json_result_string(result), "null");
+	jcon->current = tal_free(cmd);
+}
+
+void command_fail(struct command *cmd, const char *fmt, ...)
+{
+	char *quote, *error;
+	struct json_connection *jcon = cmd->jcon;
+	va_list ap;
+
+	if (!jcon) {
+		log_unusual(cmd->state->base_log,
+			    "Command failed after jcon close");
+		tal_free(cmd);
+		return;
+	}
+
+	va_start(ap, fmt);
+	error = tal_vfmt(cmd, fmt, ap);
+	va_end(ap);
+
+	/* Remove " */
+	while ((quote = strchr(error, '"')) != NULL)
+		*quote = '\'';
+
+	/* Now surround in quotes. */
+	quote = tal_fmt(cmd, "\"%s\"", error);
+
+	assert(jcon->current == cmd);
+	json_result(jcon, cmd->id, "null", quote);
+	jcon->current = tal_free(cmd);
+}
+
+static void json_command_malformed(struct json_connection *jcon,
+				   const char *id,
+				   const char *error)
+{
+	return json_result(jcon, id, "null", error);
+}
+
+static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 {
 	const jsmntok_t *method, *id, *params;
 	const struct json_command *cmd;
-	char *error;
-	struct json_result *result;
 
+	assert(!jcon->current);
 	if (tok[0].type != JSMN_OBJECT) {
-		log_unusual(jcon->log, "Expected {} for json command");
-		return NULL;
+		json_command_malformed(jcon, "null",
+				       "Expected {} for json command");
+		return;
 	}
 
 	method = json_get_member(jcon->buffer, tok, "method");
 	params = json_get_member(jcon->buffer, tok, "params");
 	id = json_get_member(jcon->buffer, tok, "id");
 
-	if (!id || !method || !params) {
-		log_unusual(jcon->log, "json: No %s",
-			    !id ? "id" : (!method ? "method" : "params"));
-		return NULL;
+	if (!id) {
+		json_command_malformed(jcon, "null", "No id");
+		return;
+	}
+	if (id->type != JSMN_STRING && id->type != JSMN_PRIMITIVE) {
+		json_command_malformed(jcon, "null",
+				       "Expected string/primitive for id");
+		return;
 	}
 
-	if (id->type != JSMN_STRING && id->type != JSMN_PRIMITIVE) {
-		log_unusual(jcon->log, "Expected string/primitive for id");
-		return NULL;
+	/* This is a convenient tal parent for durarion of command
+	 * (which may outlive the conn!). */
+	jcon->current = tal(jcon->state, struct command);
+	jcon->current->jcon = jcon;
+	jcon->current->state = jcon->state;
+	jcon->current->id = tal_strndup(jcon->current,
+					json_tok_contents(jcon->buffer, id),
+					json_tok_len(id));
+
+	if (!method || !params) {
+		command_fail(jcon->current, method ? "No params" : "No method");
+		return;
 	}
 
 	if (method->type != JSMN_STRING) {
-		log_unusual(jcon->log, "Expected string for method");
-		return NULL;
+		command_fail(jcon->current, "Expected string for method");
+		return;
 	}
 
 	cmd = find_cmd(jcon->buffer, method);
 	if (!cmd) {
-		return tal_fmt(jcon,
-			      "{ \"result\" : null,"
-			      " \"error\" : \"Unknown command '%.*s'\","
-			      " \"id\" : %.*s }\n",
-			      (int)(method->end - method->start),
-			      jcon->buffer + method->start,
-			      json_tok_len(id),
-			      json_tok_contents(jcon->buffer, id));
+		command_fail(jcon->current,
+			     "Unknown command '%.*s'",
+			     (int)(method->end - method->start),
+			     jcon->buffer + method->start);
+		return;
 	}
 
 	if (params->type != JSMN_ARRAY && params->type != JSMN_OBJECT) {
-		log_unusual(jcon->log, "Expected array or object for params");
-		return NULL;
+		command_fail(jcon->current,
+			     "Expected array or object for params");
+		return;
 	}
 
-	result = new_json_result(jcon);
-	error = cmd->dispatch(jcon, params, result);
-	if (error) {
-		char *quote;
-
-		/* Remove " */
-		while ((quote = strchr(error, '"')) != NULL)
-			*quote = '\'';
-
-		return tal_fmt(jcon,
-			      "{ \"result\" : null,"
-			      " \"error\" : \"%s\","
-			      " \"id\" : %.*s }\n",
-			      error,
-			      json_tok_len(id),
-			      json_tok_contents(jcon->buffer, id));
-	}
-	return tal_fmt(jcon,
-		       "{ \"result\" : %s,"
-		       " \"error\" : null,"
-		       " \"id\" : %.*s }\n",
-		       json_result_string(result),
-		       json_tok_len(id),
-		       json_tok_contents(jcon->buffer, id));
+	cmd->dispatch(jcon->current, jcon->buffer, params);
 }
 
 static struct io_plan *write_json(struct io_conn *conn,
@@ -333,7 +394,6 @@ static struct io_plan *read_json(struct io_conn *conn,
 {
 	jsmntok_t *toks;
 	bool valid;
-	struct json_output *out;
 
 	log_io(jcon->log, true, jcon->buffer + jcon->used, jcon->len_read);
 
@@ -361,10 +421,7 @@ again:
 		goto read_more;
 	}
 
-	out = tal(jcon, struct json_output);
-	out->json = parse_request(jcon, toks);
-	if (!out->json)
-		return io_close(conn);
+	parse_request(jcon, toks);
 
 	/* Remove first {}. */
 	memmove(jcon->buffer, jcon->buffer + toks[0].end,
@@ -372,9 +429,11 @@ again:
 	jcon->used -= toks[0].end;
 	tal_free(toks);
 
-	/* Queue for writing, and wake writer. */
-	list_add_tail(&jcon->output, &out->list);
-	io_wake(jcon);
+	/* Need to wait for command to finish? */
+	if (jcon->current) {
+		jcon->len_read = 0;
+		return io_wait(conn, jcon, read_json, jcon);
+	}
 
 	/* See if we can parse the rest. */
 	goto again;
@@ -394,9 +453,9 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	jcon = tal(state, struct json_connection);
 	jcon->state = state;
 	jcon->used = 0;
-	jcon->len_read = 64;
-	jcon->buffer = tal_arr(jcon, char, jcon->len_read);
+	jcon->buffer = tal_arr(jcon, char, 64);
 	jcon->stop = false;
+	jcon->current = NULL;
 	jcon->log = new_log(jcon, state->log_record, "%sjcon fd %i:",
 			    log_prefix(state->base_log), io_conn_fd(conn));
 	list_head_init(&jcon->output);

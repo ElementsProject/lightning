@@ -191,30 +191,34 @@ void setup_listeners(struct lightningd_state *state, unsigned int portnum)
 		fatal("Could not bind to a network address");
 }
 
-static char *json_connect(struct json_connection *jcon,
-			  const jsmntok_t *params,
-			  struct json_result *response)
+static void json_connect(struct command *cmd,
+			const char *buffer, const jsmntok_t *params)
 {
+	struct json_result *response;
 	jsmntok_t *host, *port;
 	const char *hoststr, *portstr;
 
-	json_get_params(jcon->buffer, params, "host", &host, "port", &port,
-			NULL);
+	json_get_params(buffer, params, "host", &host, "port", &port, NULL);
 
-	if (!host || !port)
-		return "Need host and port";
+	if (!host || !port) {
+		command_fail(cmd, "Need host and port");
+		return;
+	}
 
-	hoststr = tal_strndup(response, jcon->buffer + host->start,
+	hoststr = tal_strndup(cmd, buffer + host->start,
 			      host->end - host->start);
-	portstr = tal_strndup(response, jcon->buffer + port->start,
+	portstr = tal_strndup(cmd, buffer + port->start,
 			      port->end - port->start);
-	if (!dns_resolve_and_connect(jcon->state, hoststr, portstr,
-				     peer_connected_out))
-		return "DNS failed";
+	if (!dns_resolve_and_connect(cmd->state, hoststr, portstr,
+				     peer_connected_out)) {
+		command_fail(cmd, "DNS failed");
+		return;
+	}
 
+	response = new_json_result(cmd);
 	json_object_start(response, NULL);
 	json_object_end(response);
-	return NULL;
+	command_success(cmd, response);
 }
 
 const struct json_command connect_command = {
