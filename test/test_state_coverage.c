@@ -780,8 +780,7 @@ Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
 }
 
 Pkt *accept_pkt_update_accept(const tal_t *ctx,
-			      struct peer *peer, const Pkt *pkt,
-			      struct signature **sig)
+			      struct peer *peer, const Pkt *pkt)
 {
 	unsigned int id = htlc_id_from_pkt(pkt);
 
@@ -790,7 +789,6 @@ Pkt *accept_pkt_update_accept(const tal_t *ctx,
 	if (fail(peer, FAIL_ACCEPT_UPDATE_ACCEPT))
 		return pkt_err(ctx, "Error inject");
 
-	*sig = (struct signature *)tal_strdup(ctx, "from PKT_UPDATE_ACCEPT");
 	return NULL;
 }
 
@@ -808,8 +806,7 @@ Pkt *accept_pkt_update_complete(const tal_t *ctx,
 }
 
 Pkt *accept_pkt_update_signature(const tal_t *ctx,
- 				 struct peer *peer, const Pkt *pkt,
-				 struct signature **sig)
+ 				 struct peer *peer, const Pkt *pkt)
 {
 	unsigned int id = htlc_id_from_pkt(pkt);
 
@@ -817,7 +814,6 @@ Pkt *accept_pkt_update_signature(const tal_t *ctx,
 
 	if (fail(peer, FAIL_ACCEPT_UPDATE_SIGNATURE))
 		return pkt_err(ctx, "Error inject");
-	*sig = (struct signature *)tal_strdup(ctx, "from PKT_UPDATE_SIGNATURE");
 
 	return NULL;
 }
@@ -1555,8 +1551,6 @@ static const char *apply_effects(struct peer *peer,
 		/* We assume this. */
 		assert(effect->u.close_timeout
 		       == INPUT_CLOSE_COMPLETE_TIMEOUT);
-		break;
-	case STATE_EFFECT_update_theirsig:
 		break;
 	case STATE_EFFECT_watch_htlcs:
 		assert(peer->num_live_htlcs_to_us

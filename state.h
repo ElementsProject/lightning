@@ -13,7 +13,6 @@ enum state_effect_type {
 	STATE_EFFECT_unwatch,
 	/* FIXME: Use a watch for this?. */
 	STATE_EFFECT_close_timeout,
-	STATE_EFFECT_update_theirsig,
 	/* FIXME: Combine into watches? */
 	STATE_EFFECT_watch_htlcs,
 	STATE_EFFECT_unwatch_htlc,
@@ -47,9 +46,6 @@ struct state_effect {
 		/* Set a timeout for close tx. */
 		enum state_input close_timeout;
 
-		/* Their signature for the new commit tx. */
-		struct signature *update_theirsig;
-	
 		/* HTLC outputs to watch. */
 		const struct htlc_watch *watch_htlcs;
 
@@ -200,16 +196,14 @@ Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
 			     struct peer *peer, const Pkt *pkt);
 
 Pkt *accept_pkt_update_accept(const tal_t *ctx,
-			      struct peer *peer, const Pkt *pkt,
-			      struct signature **sig);
+			      struct peer *peer, const Pkt *pkt);
 
 Pkt *accept_pkt_update_complete(const tal_t *ctx,
 				struct peer *peer, const Pkt *pkt);
 
 Pkt *accept_pkt_update_signature(const tal_t *ctx,
 				 struct peer *peer,
-				 const Pkt *pkt,
-				 struct signature **sig);
+				 const Pkt *pkt);
 
 Pkt *accept_pkt_close(const tal_t *ctx,
 		      const struct peer *peer, const Pkt *pkt,

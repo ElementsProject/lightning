@@ -486,15 +486,12 @@ enum command_status state(const tal_t *ctx,
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			goto accept_htlc_routefail;
 		} else if (input_is(input, PKT_UPDATE_ACCEPT)) {
-			struct signature *sig;
-			err = accept_pkt_update_accept(ctx, peer, idata->pkt,
-						       &sig);
+			err = accept_pkt_update_accept(ctx, peer, idata->pkt);
 			if (err) {
 				peer_htlc_aborted(peer);
 				complete_cmd(peer, &cstatus, CMD_FAIL);
 				goto err_start_unilateral_close;
 			}
-			add_effect(effect, update_theirsig, sig);
 			add_effect(effect, send_pkt,
 				   pkt_update_signature(ctx, peer));
 			/* HTLC is signed (though old tx not revoked yet!) */
@@ -568,14 +565,11 @@ enum command_status state(const tal_t *ctx,
 	case STATE_WAIT_FOR_UPDATE_SIG_LOWPRIO:
 	case STATE_WAIT_FOR_UPDATE_SIG_HIGHPRIO:
 		if (input_is(input, PKT_UPDATE_SIGNATURE)) {
-			struct signature *sig;
-			err = accept_pkt_update_signature(ctx, peer, idata->pkt,
-							  &sig);
+			err = accept_pkt_update_signature(ctx, peer, idata->pkt);
 			if (err) {
 				peer_htlc_aborted(peer);
 				goto err_start_unilateral_close;
 			}
-			add_effect(effect, update_theirsig, sig);
 			add_effect(effect, send_pkt,
 				   pkt_update_complete(ctx, peer));
 			
