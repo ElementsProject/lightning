@@ -84,8 +84,11 @@ int main(int argc, char *argv[])
 	       revocation_hash.u.u8, sizeof(revocation_hash.u.u8));
 
 	pkt = open_channel_pkt(ctx, &revocation_hash, &commitkey, &finalkey,
-			       locktime_seconds, offer_anchor, min_confirms,
-			       commit_tx_fee);
+			       locktime_seconds,
+			       offer_anchor
+			       ? OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR
+			       : OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR,
+			       min_confirms, commit_tx_fee);
 
 	if (!write_all(STDOUT_FILENO, pkt, pkt_totlen(pkt)))
 		err(1, "Writing out packet");

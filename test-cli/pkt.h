@@ -45,7 +45,7 @@ struct pkt *open_channel_pkt(const tal_t *ctx,
 			     const struct pubkey *commit,
 			     const struct pubkey *final,
 			     u32 rel_locktime_seconds,
-			     bool offer_anchor,
+			     OpenChannel__AnchorOffer offer_anchor,
 			     u32 min_depth,
 			     u64 commitment_fee);
 

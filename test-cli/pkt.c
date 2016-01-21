@@ -36,7 +36,7 @@ struct pkt *open_channel_pkt(const tal_t *ctx,
 			     const struct pubkey *commit,
 			     const struct pubkey *final,
 			     u32 rel_locktime_seconds,
-			     bool offer_anchor,
+			     OpenChannel__AnchorOffer offer_anchor,
 			     u32 min_depth,
 			     u64 commitment_fee)
 {
@@ -50,10 +50,9 @@ struct pkt *open_channel_pkt(const tal_t *ctx,
 	lt.seconds = rel_locktime_seconds;
 	o.delay = &lt;
 	o.commitment_fee = commitment_fee;
-	if (offer_anchor)
-		o.anch = OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR;
-	else
-		o.anch = OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR;
+	o.anch = offer_anchor;
+	assert(o.anch == OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR
+	       || o.anch == OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR);
 
 	o.min_depth = min_depth;
 
