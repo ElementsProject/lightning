@@ -167,6 +167,24 @@ void add_commit_tx_watch_(struct peer *peer,
 	 * watch anything else. */
 }
 
+static void cb_no_arg(struct peer *peer, int depth, void *vcb)
+{
+	void (*cb)(struct peer *peer, int depth) = vcb;
+	cb(peer, depth);
+}
+
+void add_close_tx_watch(struct peer *peer,
+			const struct bitcoin_tx *tx,
+			void (*cb)(struct peer *peer, int depth))
+{
+	struct sha256_double txid;
+	bitcoin_txid(tx, &txid);
+	insert_txwatch(peer, peer->dstate, peer, &txid, cb_no_arg, cb);
+
+	/* We are already watching the anchor txo, so we don't need to
+	 * watch anything else. */
+}
+
 static void tx_watched_inputs(struct lightningd_state *dstate,
 			      const struct bitcoin_tx *tx, void *unused)
 {

@@ -1,5 +1,6 @@
 #include "bitcoin/script.h"
 #include "bitcoin/tx.h"
+#include "close_tx.h"
 #include "controlled_time.h"
 #include "find_p2sh_out.h"
 #include "lightningd.h"
@@ -242,32 +243,32 @@ Pkt *pkt_err(const tal_t *ctx, const char *msg, ...)
 Pkt *pkt_close(const tal_t *ctx, const struct peer *peer)
 {
 	CloseChannel *c = tal(ctx, CloseChannel);
-	struct signature sig;
 
 	close_channel__init(c);
 
-	/* FIXME:  If we're not connected, we don't create close tx. */
-	if (!peer->close_tx) {
-		c->close_fee = 0;
-		memset(&sig, 0, sizeof(sig));
-		c->sig = signature_to_proto(c, &sig);
-	} else {
-		c->close_fee = peer->close_tx->fee;
-		peer_sign_mutual_close(peer, peer->close_tx, &sig);
-		c->sig = signature_to_proto(c, &sig);
-	}
+	c->close_fee = peer->close_tx->fee;
+	c->sig = signature_to_proto(c, &peer->our_close_sig.sig);
 
 	return make_pkt(ctx, PKT__PKT_CLOSE, c);
 }
 
 Pkt *pkt_close_complete(const tal_t *ctx, const struct peer *peer)
 {
-	FIXME_STUB(peer);
+	CloseChannelComplete *c = tal(ctx, CloseChannelComplete);
+
+	close_channel_complete__init(c);
+	assert(peer->close_tx);
+	c->sig = signature_to_proto(c, &peer->our_close_sig.sig);
+
+	return make_pkt(ctx, PKT__PKT_CLOSE_COMPLETE, c);
 }
 
 Pkt *pkt_close_ack(const tal_t *ctx, const struct peer *peer)
 {
-	FIXME_STUB(peer);
+	CloseChannelAck *a = tal(ctx, CloseChannelAck);
+
+	close_channel_ack__init(a);
+	return make_pkt(ctx, PKT__PKT_CLOSE_ACK, a);
 }
 
 Pkt *pkt_err_unexpected(const tal_t *ctx, const Pkt *pkt)
@@ -758,15 +759,57 @@ Pkt *accept_pkt_update_signature(const tal_t *ctx,
 	return NULL;
 }
 
+static bool peer_sign_close_tx(struct peer *peer, const Signature *theirs)
+{
+	struct bitcoin_signature theirsig;
+
+	/* We never sign twice! */
+	assert(peer->close_tx->input[0].script_length == 0);
+
+	theirsig.stype = SIGHASH_ALL;
+	if (!proto_to_signature(theirs, &theirsig.sig))
+		return false;
+
+	/* Their sig + ours should sign the close tx. */
+	if (!check_2of2_sig(peer->dstate->secpctx,
+			    peer->close_tx, 0,
+			    peer->anchor.redeemscript,
+			    tal_count(peer->anchor.redeemscript),
+			    &peer->them.commitkey, &peer->us.commitkey,
+			    &theirsig, &peer->our_close_sig))
+		return false;
+
+	/* Complete the close_tx, using signatures. */
+	peer->close_tx->input[0].script
+		= scriptsig_p2sh_2of2(peer->close_tx,
+				      &theirsig, &peer->our_close_sig,
+				      &peer->them.commitkey,
+				      &peer->us.commitkey);
+	peer->close_tx->input[0].script_length
+		= tal_count(peer->close_tx->input[0].script);
+	return true;
+}
+
 Pkt *accept_pkt_close(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
 {
-	FIXME_STUB(peer);
+	const CloseChannel *c = pkt->close;
+
+	/* FIXME: Don't accept tiny close fee! */
+	if (!peer_create_close_tx(peer, c->close_fee))
+		return pkt_err(ctx, "Invalid close fee");
+
+	if (!peer_sign_close_tx(peer, c->sig))
+		return pkt_err(ctx, "Invalid signature");
+	return NULL;
 }
 
 Pkt *accept_pkt_close_complete(const tal_t *ctx,
 			       struct peer *peer, const Pkt *pkt)
 {
-	FIXME_STUB(peer);
+	const CloseChannelComplete *c = pkt->close_complete;
+	if (!peer_sign_close_tx(peer, c->sig))
+		return pkt_err(ctx, "Invalid signature");
+	return NULL;
 }
 
 Pkt *accept_pkt_simultaneous_close(const tal_t *ctx,
@@ -776,7 +819,8 @@ Pkt *accept_pkt_simultaneous_close(const tal_t *ctx,
 	FIXME_STUB(peer);
 }
 
+/* FIXME: Since this packet is empty, is it worth having? */
 Pkt *accept_pkt_close_ack(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
 {
-	FIXME_STUB(peer);
+	return NULL;
 }

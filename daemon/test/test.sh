@@ -1,4 +1,4 @@
-#! /bin/sh -e
+#! /bin/sh -ex
 
 # We steal the test-cli scripts.
 cd test-cli
@@ -138,7 +138,32 @@ sleep 1
 # Back to how we were before.
 check_status 949999000 49000000 "" 0 1000000 ""
 
+$LCLI1 close $ID2
+
 sleep 1
+
+# They should be waiting for close.
+$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep '"STATE_CLOSE_WAIT_CLOSE"'
+$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep '"STATE_CLOSE_WAIT_CLOSE"'
+
+# Give it 99 blocks.
+$CLI generate 99
+
+# Make sure they saw it!
+$LCLI1 dev-mocktime $(($EXPIRY + 32))
+$LCLI2 dev-mocktime $(($EXPIRY + 32))
+sleep 1
+$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep '"STATE_CLOSE_WAIT_CLOSE"'
+$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep '"STATE_CLOSE_WAIT_CLOSE"'
+
+# Now the final one.
+$CLI generate 1
+$LCLI1 dev-mocktime $(($EXPIRY + 33))
+$LCLI2 dev-mocktime $(($EXPIRY + 33))
+sleep 1
+
+$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep '"peers" : [ ]'
+$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep '"peers" : [ ]'
 
 $LCLI1 stop
 $LCLI2 stop

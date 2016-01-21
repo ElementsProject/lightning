@@ -293,6 +293,9 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 	}
 
 	/* FIXME: Try to reconnect. */
+	if (peer->cond == PEER_CLOSING
+	    || peer->cond == PEER_CLOSED)
+		return;
 
 	state(peer, peer, CMD_CLOSE, NULL, &outpkt, &broadcast);
 	/* Can't send packet, so ignore it. */
@@ -339,6 +342,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->num_htlcs = 0;
 	peer->close_tx = NULL;
 	peer->cstate = NULL;
+	peer->close_watch_timeout = NULL;
 
 	/* If we free peer, conn should be closed, but can't be freed
 	 * immediately so don't make peer a parent. */
@@ -597,6 +601,38 @@ static bool txmatch(const struct bitcoin_tx *txa, const struct bitcoin_tx *txb)
 	return true;
 }
 
+static bool is_mutual_close(const struct bitcoin_tx *tx,
+			    const struct bitcoin_tx *close_tx)
+{
+	varint_t i;
+
+	/* Haven't created mutual close yet?  This isn't one then. */
+	if (!close_tx)
+		return false;
+
+	/* We know it spends anchor, but do txouts match? */
+	if (tx->output_count != close_tx->output_count)
+		return false;
+	for (i = 0; i < tx->output_count; i++) {
+		if (tx->output[i].amount != close_tx->output[i].amount)
+			return false;
+		if (tx->output[i].script_length
+		    != close_tx->output[i].script_length)
+			return false;
+		if (memcmp(tx->output[i].script, close_tx->output[i].script,
+			   tx->output[i].script_length) != 0)
+			return false;
+	}
+	return true;
+}
+
+static void close_depth_cb(struct peer *peer, int depth)
+{
+	if (depth >= peer->dstate->config.forever_confirms) {
+		state_event(peer, BITCOIN_CLOSE_DONE, NULL);
+	}
+}
+
 /* We assume the tx is valid!  Don't do a blockchain.info and feed this
  * invalid transactions! */
 static void anchor_spent(struct peer *peer,
@@ -609,6 +645,8 @@ static void anchor_spent(struct peer *peer,
 	idata.btc = (struct bitcoin_event *)tx;
 	if (txmatch(tx, peer->them.commit))
 		state_event(peer, w->theyspent, &idata);
+	else if (is_mutual_close(tx, peer->close_tx))
+		add_close_tx_watch(peer, tx, close_depth_cb);
 	else
 		state_event(peer, w->otherspent, &idata);
 }
@@ -656,29 +694,82 @@ void peer_watch_tx(struct peer *peer,
 	FIXME_STUB(peer);
 }
 
+bool peer_create_close_tx(struct peer *peer, u64 fee_satoshis)
+{
+	struct channel_state cstate;
+
+	assert(!peer->close_tx);
+	
+	/* We don't need a deep copy here, just fee levels. */
+	cstate = *peer->cstate;
+	if (!adjust_fee(peer->us.offer_anchor == CMD_OPEN_WITH_ANCHOR,
+			peer->anchor.satoshis,
+			fee_satoshis,
+			&cstate.a, &cstate.b))
+		return false;
+
+	log_debug(peer->log,
+		  "creating close-tx: to %02x%02x%02x%02x/%02x%02x%02x%02x, amounts %u/%u",
+		  peer->us.finalkey.der[0], peer->us.finalkey.der[1],
+		  peer->us.finalkey.der[2], peer->us.finalkey.der[3],
+		  peer->them.finalkey.der[0], peer->them.finalkey.der[1],
+		  peer->them.finalkey.der[2], peer->them.finalkey.der[3],
+		  cstate.a.pay_msat / 1000,
+		  cstate.b.pay_msat / 1000);
+
+ 	peer->close_tx = create_close_tx(peer->dstate->secpctx, peer,
+ 					 &peer->us.finalkey,
+ 					 &peer->them.finalkey,
+					 &peer->anchor.txid,
+					 peer->anchor.index,
+ 					 peer->anchor.satoshis,
+ 					 cstate.a.pay_msat / 1000,
+ 					 cstate.b.pay_msat / 1000);
+
+	peer->our_close_sig.stype = SIGHASH_ALL;
+	peer_sign_mutual_close(peer, peer->close_tx, &peer->our_close_sig.sig);
+	return true;
+}
+
 static void send_close_timeout(struct peer *peer)
 {
+	/* FIXME: Remove any close_tx watches! */
 	state_event(peer, INPUT_CLOSE_COMPLETE_TIMEOUT, NULL);
 }
 
 void peer_watch_close(struct peer *peer,
 		      enum state_input done, enum state_input timedout)
 {
-	/* We save some work by assuming this. */
-	assert(timedout == INPUT_CLOSE_COMPLETE_TIMEOUT);
+	/* We save some work by assuming these. */
+	assert(done == BITCOIN_CLOSE_DONE);
 
-	/* FIXME: We didn't send CLOSE, so timeout immediately */
+	/* FIXME: Dynamic closing fee! */
+	if (!peer->close_tx)
+		peer_create_close_tx(peer, peer->dstate->config.closing_fee);
+
+	/* FIXME: We can't send CLOSE, so timeout immediately */
 	if (!peer->conn) {
-		(void)send_close_timeout;
-		/* FIXME: oneshot_timeout(peer->dstate, peer, 0, send_close_timeout, peer); */
+		assert(timedout == INPUT_CLOSE_COMPLETE_TIMEOUT);
+		oneshot_timeout(peer->dstate, peer, 0,
+				send_close_timeout, peer);
 		return;
 	}
 
-	FIXME_STUB(peer);
+	/* Give them a reasonable time to respond. */
+	/* FIXME: config? */
+	if (timedout != INPUT_NONE) {
+		assert(timedout == INPUT_CLOSE_COMPLETE_TIMEOUT);
+		peer->close_watch_timeout
+			= oneshot_timeout(peer->dstate, peer, 120,
+					  send_close_timeout, peer);
+	}
+
+	/* anchor_spent will get called, we match against close_tx there. */
 }
 void peer_unwatch_close_timeout(struct peer *peer, enum state_input timedout)
 {
-	FIXME_STUB(peer);
+	assert(peer->close_watch_timeout);
+	peer->close_watch_timeout = tal_free(peer->close_watch_timeout);
 }
 bool peer_watch_our_htlc_outputs(struct peer *peer,
 				 const struct bitcoin_tx *tx,
@@ -767,36 +858,9 @@ bool committed_to_htlcs(const struct peer *peer)
 const struct bitcoin_tx *bitcoin_close(const tal_t *ctx,
 				       const struct peer *peer)
 {
-#if 0
-	struct bitcoin_tx *close_tx;
-	u8 *redeemscript;
-
-	close_tx = create_close_tx(ctx, peer->us.openpkt, peer->them.openpkt,
-				   peer->anchorpkt, 
-				   peer->cstate.a.pay_msat / 1000,
-				   peer->cstate.b.pay_msat / 1000);
-
-	/* This is what the anchor pays to. */
-	redeemscript = bitcoin_redeem_2of2(close_tx, &peer->us.commitkey,
-					   &peer->them.commitkey);
-	
-	/* Combined signatures must validate correctly. */
-	if (!check_2of2_sig(close_tx, 0, redeemscript, tal_count(redeemscript),
-			    &peer->us.finalkey, &peer->them.finalkey,
-			    &peer->us.closesig, &peer->them.closesig))
-		fatal("bitcoin_close signature failed");
-
-	/* Create p2sh input for close_tx */
-	close_tx->input[0].script = scriptsig_p2sh_2of2(close_tx,
-							&peer->us.closesig,
-							&peer->them.closesig,
-							&peer->us.finalkey,
-							&peer->them.finalkey);
-	close_tx->input[0].script_length = tal_count(close_tx->input[0].script);
-
-	return close_tx;
-#endif
-	FIXME_STUB(peer);
+	/* Must be signed! */
+	assert(peer->close_tx->input[0].script_length != 0);
+	return peer->close_tx;
 }
 
 /* Create a bitcoin spend tx (to spend our commit's outputs) */
@@ -1446,5 +1510,50 @@ const struct json_command failhtlc_command = {
 	"failhtlc",
 	json_failhtlc,
 	"Fail htlc proposed by {id} which has redeem hash {rhash}",
+	"Returns an empty result on success"
+};
+
+static void json_close(struct command *cmd,
+		       const char *buffer, const jsmntok_t *params)
+{
+	struct peer *peer;
+	jsmntok_t *idtok;
+	struct pubkey id;
+
+	json_get_params(buffer, params,
+			"id", &idtok,
+			NULL);
+
+	if (!idtok) {
+		command_fail(cmd, "Need id");
+		return;
+	}
+
+	if (!pubkey_from_hexstr(cmd->dstate->secpctx,
+				buffer + idtok->start,
+				idtok->end - idtok->start, &id)) {
+		command_fail(cmd, "Not a valid id");
+		return;
+	}
+	peer = find_peer(cmd->dstate, &id);
+	if (!peer) {
+		command_fail(cmd, "Could not find peer with that id");
+		return;
+	}
+	if (peer->cond == PEER_CLOSING) {
+		command_fail(cmd, "Peer is already closing");
+		return;
+	}
+
+	/* Unlike other things, CMD_CLOSE is always valid. */
+	log_debug(peer->log, "Sending CMD_CLOSE");
+	state_event(peer, CMD_CLOSE, NULL);
+	command_success(cmd, null_response(cmd));
+}
+	
+const struct json_command close_command = {
+	"close",
+	json_close,
+	"Close the channel with peer {id}",
 	"Returns an empty result on success"
 };

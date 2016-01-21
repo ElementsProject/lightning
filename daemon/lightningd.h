@@ -26,6 +26,9 @@ struct config {
 	/* How long will we accept them waiting? */
 	u32 anchor_confirms_max;
 
+	/* How many blocks until we stop watching a close commit? */
+	u32 forever_confirms;
+
 	/* What are we prepared to pay in commitment fee (satoshis). */
 	u64 commitment_fee;
 

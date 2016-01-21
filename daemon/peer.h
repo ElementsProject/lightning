@@ -104,8 +104,9 @@ struct peer {
 	/* Number of HTLC updates (== number of previous commit txs) */
 	u64 num_htlcs;
 
-	/* Closing tx, once we've generated it */
+	/* Closing tx and signature once we've generated it */
 	struct bitcoin_tx *close_tx;
+	struct bitcoin_signature our_close_sig;
 	
 	/* Current ongoing packetflow */
 	struct io_data *io_data;
@@ -116,6 +117,9 @@ struct peer {
 	/* Things we're watching for (see watches.c) */
 	struct list_head watches;
 
+	/* Timeout for close_watch. */
+	struct oneshot *close_watch_timeout;
+	
 	/* Private keys for dealing with this peer. */
 	struct peer_secrets *secrets;
 
@@ -134,5 +138,7 @@ void make_commit_txs(const tal_t *ctx,
 
 void peer_add_htlc_expiry(struct peer *peer,
 			  const struct abs_locktime *expiry);
+
+bool peer_create_close_tx(struct peer *peer, u64 fee_satoshis);
 
 #endif /* LIGHTNING_DAEMON_PEER_H */

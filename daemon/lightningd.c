@@ -79,6 +79,9 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--max-anchor-confirms", opt_set_u32, opt_show_u32,
 			 &dstate->config.anchor_confirms_max,
 			 "Maximum confirmations other side can wait for anchor transaction");
+	opt_register_arg("--forever-confirms", opt_set_u32, opt_show_u32,
+			 &dstate->config.forever_confirms,
+			 "Confirmations after which we consider a reorg impossible");
 	opt_register_arg("--commit-fee", opt_set_u64, opt_show_u64,
 			 &dstate->config.commitment_fee,
 			 "Satoshis to offer for commitment transaction fee");
@@ -120,6 +123,9 @@ static void default_config(struct config *config)
 	/* More than 10 confirms seems overkill. */
 	config->anchor_confirms_max = 10;
 
+	/* At some point, you've got to let it go... */
+	config->forever_confirms = 100;
+	
 	/* FIXME: These should float with bitcoind's recommendations! */
 
 	/* Pay hefty fee (10x current suggested minimum). */

@@ -94,5 +94,9 @@ void add_commit_tx_watch_(struct peer *peer,
 						 int depth),		\
 			     (cbdata))
 
+void add_close_tx_watch(struct peer *peer,
+			const struct bitcoin_tx *tx,
+			void (*cb)(struct peer *peer, int depth));
+
 void setup_watch_timer(struct lightningd_state *dstate);
 #endif /* LIGHTNING_DAEMON_WATCH_H */
