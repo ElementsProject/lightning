@@ -1676,14 +1676,16 @@ static const char *check_changes(const struct peer *old, struct peer *new)
 			return tal_fmt(NULL,
 				       "cond CLOSE with pending command %s",
 				       input_name(new->core.current_command));
+	}
+	if (new->cond == PEER_CLOSED) {
 		if (new->core.closing_cmd)
-			return "cond CLOSE with pending CMD_CLOSE";
+			return "cond CLOSED with pending CMD_CLOSE";
 		/* FIXME: Move to state core */
 		/* Can no longer receive packet timeouts, either. */
 		remove_event_(&new->core.event_notifies,
 			      INPUT_CLOSE_COMPLETE_TIMEOUT);
 	}
-
+	
 	return NULL;
 }
 
@@ -2178,18 +2180,15 @@ static void run_peer(const struct peer *peer,
 	 * (different) command. */
 	if (peer->core.state != STATE_INIT
 	    && (peer->cond == PEER_CMD_OK
-		|| peer->cond == PEER_BUSY)
-	    && !peer->core.closing_cmd) {
+		|| peer->cond == PEER_BUSY)) {
 		copy.core.closing_cmd = true;
 		try_input(&copy, CMD_CLOSE, idata,
 			  normalpath, errorpath, prev_trail, hist);
 		copy.core.closing_cmd = false;
 	}
 
-	/* Try sending commands (unless closed or already doing one). */
-	if (peer->cond == PEER_CMD_OK
-	    && peer->core.current_command == INPUT_NONE
-	    && !peer->core.closing_cmd) {
+	/* Try sending commands if allowed. */
+	if (peer->cond == PEER_CMD_OK) {
 		unsigned int i;
 
 		/* Add a new HTLC if not at max. */
@@ -2280,7 +2279,7 @@ static void run_peer(const struct peer *peer,
 			  prev_trail, hist);
 	}
 
-	/* Allowed to send inputs? */
+	/* Allowed to send packets? */
 	if (copy.cond != PEER_CLOSED) {
 		enum state_input i;
 		

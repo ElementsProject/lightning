@@ -81,9 +81,6 @@ struct state_effect {
 		/* CMD_CLOSE is complete (true if successful mutual close). */
 		bool cmd_close_done;
 
-		/* Stop taking packets? commands? */
-		bool stop_packets, stop_commands;
-
 		/* Set a timeout for close tx. */
 		enum state_input close_timeout;
 

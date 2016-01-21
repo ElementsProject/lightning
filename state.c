@@ -39,6 +39,14 @@ static void set_peer_cond(struct peer *peer, enum state_peercond cond)
 	peer->cond = cond;
 }
 
+static void change_peer_cond(struct peer *peer,
+			      enum state_peercond old,
+			      enum state_peercond new)
+{
+	assert(peer->cond == old);
+	peer->cond = new;
+}
+
 struct state_effect *state(const tal_t *ctx,
 			   const enum state state,
 			   struct peer *peer,
@@ -61,9 +69,11 @@ struct state_effect *state(const tal_t *ctx,
 			add_effect(&effect, send_pkt,
 				   pkt_open(ctx, peer,
 					    OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR));
+			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			return next_state(ctx, effect,
 					  STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR);
 		} else if (input_is(input, CMD_OPEN_WITHOUT_ANCHOR)) {
+			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			add_effect(&effect, send_pkt,
 				   pkt_open(ctx, peer,
 					    OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR));
@@ -169,6 +179,7 @@ struct state_effect *state(const tal_t *ctx,
 			add_effect(&effect, send_pkt,
 				   pkt_open_complete(ctx, peer));
 			if (state == STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED) {
+				change_peer_cond(peer, PEER_BUSY, PEER_CMD_OK);
 				add_effect(&effect, cmd_success, CMD_OPEN_WITH_ANCHOR);
 				return next_state(ctx, effect, STATE_NORMAL_HIGHPRIO);
 			}
@@ -232,6 +243,8 @@ struct state_effect *state(const tal_t *ctx,
 			if (state == STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED) {
 				add_effect(&effect, cmd_success,
 					   CMD_OPEN_WITHOUT_ANCHOR);
+				change_peer_cond(peer, PEER_BUSY,
+						  PEER_CMD_OK);
 				return next_state(ctx, effect,
 						  STATE_NORMAL_LOWPRIO);
 			}
@@ -280,6 +293,7 @@ struct state_effect *state(const tal_t *ctx,
 	case STATE_OPEN_WAIT_FOR_COMPLETE_THEIRANCHOR:
 		if (input_is(input, PKT_OPEN_COMPLETE)) {
 			/* Ready for business!  Anchorer goes first. */
+			change_peer_cond(peer, PEER_BUSY, PEER_CMD_OK);
 			if (state == STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR) {
 				add_effect(&effect, cmd_success, CMD_OPEN_WITH_ANCHOR);
 				return next_state(ctx, effect, STATE_NORMAL_HIGHPRIO);
@@ -314,12 +328,14 @@ struct state_effect *state(const tal_t *ctx,
 	 */
 	case STATE_NORMAL_LOWPRIO:
 	case STATE_NORMAL_HIGHPRIO:
+		assert(peer->cond == PEER_CMD_OK);
 		if (input_is(input, CMD_SEND_HTLC_UPDATE)) {
 			/* We are to send an HTLC update. */
 			add_effect(&effect, send_pkt,
 				   pkt_htlc_update(ctx, peer,
 						   idata->htlc_prog));
 			add_effect(&effect, htlc_in_progress, idata->htlc_prog);
+			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			return next_state(ctx, effect,
 					  prio(state, STATE_WAIT_FOR_HTLC_ACCEPT));
 		} else if (input_is(input, CMD_SEND_HTLC_FULFILL)) {
@@ -331,6 +347,7 @@ struct state_effect *state(const tal_t *ctx,
 				   pkt_htlc_fulfill(ctx, peer,
 						    idata->htlc_prog));
 			add_effect(&effect, htlc_in_progress, idata->htlc_prog);
+			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			return next_state(ctx, effect,
 					  prio(state, STATE_WAIT_FOR_UPDATE_ACCEPT));
 		} else if (input_is(input, CMD_SEND_HTLC_TIMEDOUT)) {
@@ -339,6 +356,7 @@ struct state_effect *state(const tal_t *ctx,
 				   pkt_htlc_timedout(ctx, peer,
 						     idata->htlc_prog));
 			add_effect(&effect, htlc_in_progress, idata->htlc_prog);
+			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			return next_state(ctx, effect,
 					  prio(state, STATE_WAIT_FOR_UPDATE_ACCEPT));
 		} else if (input_is(input, CMD_SEND_HTLC_ROUTEFAIL)) {
@@ -347,17 +365,22 @@ struct state_effect *state(const tal_t *ctx,
 				   pkt_htlc_routefail(ctx, peer,
 						      idata->htlc_prog));
 			add_effect(&effect, htlc_in_progress, idata->htlc_prog);
+			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			return next_state(ctx, effect,
 					  prio(state, STATE_WAIT_FOR_UPDATE_ACCEPT));
 		} else if (input_is(input, CMD_CLOSE)) {
 			goto start_closing;
 		} else if (input_is(input, PKT_UPDATE_ADD_HTLC)) {
+			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			goto accept_htlc_update;
 		} else if (input_is(input, PKT_UPDATE_FULFILL_HTLC)) {
+			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			goto accept_htlc_fulfill;
 		} else if (input_is(input, PKT_UPDATE_TIMEDOUT_HTLC)) {
+			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			goto accept_htlc_timedout;
 		} else if (input_is(input, PKT_UPDATE_ROUTEFAIL_HTLC)) {
+			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			goto accept_htlc_routefail;
 		} else if (input_is(input, BITCOIN_ANCHOR_THEIRSPEND)) {
 			goto them_unilateral;
@@ -377,6 +400,7 @@ struct state_effect *state(const tal_t *ctx,
 		if (input_is(input, PKT_UPDATE_DECLINE_HTLC)) {
 			add_effect(&effect, cmd_fail, idata->pkt);
 			add_effect(&effect, htlc_abandon, true);
+			change_peer_cond(peer, PEER_BUSY, PEER_CMD_OK);
 			/* No update means no priority change. */
 			return next_state(ctx, effect,
 					  prio(state, STATE_NORMAL));
@@ -397,6 +421,8 @@ struct state_effect *state(const tal_t *ctx,
 			/* Otherwise, process their request first: defer ours */
 			add_effect(&effect, cmd_requeue, CMD_SEND_UPDATE_ANY);
 			add_effect(&effect, htlc_abandon, true);
+			/* Stay busy, since we're processing theirs. */
+			assert(peer->cond == PEER_BUSY);
 			goto accept_htlc_update;
 		} else if (input_is(input, PKT_UPDATE_FULFILL_HTLC)) {
 			/* If we're high priority, ignore their packet */
@@ -406,6 +432,8 @@ struct state_effect *state(const tal_t *ctx,
 			/* Otherwise, process their request first: defer ours */
 			add_effect(&effect, cmd_requeue, CMD_SEND_UPDATE_ANY);
 			add_effect(&effect, htlc_abandon, true);
+			/* Stay busy, since we're processing theirs. */
+			assert(peer->cond == PEER_BUSY);
 			goto accept_htlc_fulfill;
 		} else if (input_is(input, PKT_UPDATE_TIMEDOUT_HTLC)) {
 			/* If we're high priority, ignore their packet */
@@ -415,6 +443,8 @@ struct state_effect *state(const tal_t *ctx,
 			/* Otherwise, process their request first: defer ours */
 			add_effect(&effect, cmd_requeue, CMD_SEND_UPDATE_ANY);
 			add_effect(&effect, htlc_abandon, true);
+			/* Stay busy, since we're processing theirs. */
+			assert(peer->cond == PEER_BUSY);
 			goto accept_htlc_timedout;
 		} else if (input_is(input, PKT_UPDATE_ROUTEFAIL_HTLC)) {
 			/* If we're high priority, ignore their packet */
@@ -424,6 +454,8 @@ struct state_effect *state(const tal_t *ctx,
 			/* Otherwise, process their request first: defer ours */
 			add_effect(&effect, cmd_requeue, CMD_SEND_UPDATE_ANY);
 			add_effect(&effect, htlc_abandon, true);
+			/* Stay busy, since we're processing theirs. */
+			assert(peer->cond == PEER_BUSY);
 			goto accept_htlc_routefail;
 		} else if (input_is(input, PKT_UPDATE_ACCEPT)) {
 			struct signature *sig;
@@ -473,6 +505,7 @@ struct state_effect *state(const tal_t *ctx,
 				goto err_start_unilateral_close;
 			}
 			add_effect(&effect, cmd_success, CMD_SEND_UPDATE_ANY);
+			change_peer_cond(peer, PEER_BUSY, PEER_CMD_OK);
 			return next_state(ctx, effect,
 					  toggle_prio(state, STATE_NORMAL));
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT)) {
@@ -509,12 +542,10 @@ struct state_effect *state(const tal_t *ctx,
 			add_effect(&effect, send_pkt,
 				   pkt_update_complete(ctx, peer));
 			add_effect(&effect, htlc_fulfill, true);
+			change_peer_cond(peer, PEER_BUSY, PEER_CMD_OK);
 			/* Toggle between high and low priority states. */
 			return next_state(ctx, effect,
 					  toggle_prio(state, STATE_NORMAL));
-		} else if (input_is(input, CMD_SEND_UPDATE_ANY)) {
-			add_effect(&effect, cmd_defer, input);
-			return effect;
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT)) {
 			add_effect(&effect, htlc_abandon, true);
 			goto anchor_unspent;
@@ -547,7 +578,7 @@ struct state_effect *state(const tal_t *ctx,
 				   pkt_close_ack(ctx, peer));
 			add_effect(&effect, broadcast_tx,
 				   bitcoin_close(ctx, peer));
-			set_peer_cond(peer, PEER_CLOSED);
+			change_peer_cond(peer, PEER_CLOSING, PEER_CLOSED);
 			return next_state(ctx, effect, STATE_CLOSE_WAIT_CLOSE);
 		} else if (input_is(input, PKT_CLOSE)) {
 			/* We can use the sig just like CLOSE_COMPLETE */
@@ -576,7 +607,6 @@ struct state_effect *state(const tal_t *ctx,
 			goto err_start_unilateral_close_already_closing;
 		}
 		add_effect(&effect, cmd_close_done, false);
-		set_peer_cond(peer, PEER_CLOSING);
 		goto fail_during_close;
 
 	case STATE_WAIT_FOR_CLOSE_ACK:
@@ -982,6 +1012,7 @@ accept_htlc_update:
 	if (decline) {
 		add_effect(&effect, send_pkt, decline);
 		/* No update means no priority change. */
+		change_peer_cond(peer, PEER_BUSY, PEER_CMD_OK);
 		return next_state(ctx, effect, prio(state, STATE_NORMAL));
 	}
 	add_effect(&effect, htlc_in_progress, htlcprog);
@@ -1030,6 +1061,9 @@ start_closing:
 
 	add_effect(&effect, watch,
 		   bitcoin_watch_close(ctx, peer, BITCOIN_CLOSE_DONE));
+
+	/* No more commands, we're already closing. */
+	set_peer_cond(peer, PEER_CLOSING);
 
 	/* As soon as we send packet, they could close. */
 	add_effect(&effect, send_pkt, pkt_close(ctx, peer));
