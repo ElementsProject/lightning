@@ -88,9 +88,7 @@ struct core_state {
 	uint64_t event_notifies;
 
 	enum state state;
-	enum state deferred_state;
 	enum state_input current_command;
-	enum state_input deferred_pkt;
 
 	enum state_input outputs[MAX_OUTQ];
 
@@ -109,6 +107,7 @@ struct core_state {
 	uint8_t capped_live_htlcs_to_us;
 	bool closing_cmd;
 	bool valid;
+	bool pad[0];
 };
 
 struct peer {
@@ -189,9 +188,7 @@ static bool situation_eq(const struct situation *a, const struct situation *b)
 	BUILD_ASSERT(sizeof(a->a.s)
 		     == (sizeof(a->a.s.event_notifies)
 			 + sizeof(a->a.s.state)
-			 + sizeof(a->a.s.deferred_state)
 			 + sizeof(a->a.s.current_command)
-			 + sizeof(a->a.s.deferred_pkt)
 			 + sizeof(a->a.s.outputs)
 			 + sizeof(a->a.s.num_outputs)
 			 + sizeof(a->a.s.pkt_inputs)
@@ -204,7 +201,8 @@ static bool situation_eq(const struct situation *a, const struct situation *b)
 			 + sizeof(a->a.s.capped_live_htlcs_to_us)
 			 + sizeof(a->a.s.capped_live_htlcs_to_them)
 			 + sizeof(a->a.s.closing_cmd)
-			 + sizeof(a->a.s.valid)));
+			 + sizeof(a->a.s.valid)
+			 + sizeof(a->a.s.pad)));
 	return structeq(&a->a.s, &b->a.s) && structeq(&a->b.s, &b->b.s);
 }
 
@@ -1181,8 +1179,6 @@ static void peer_init(struct peer *peer,
 	peer->num_rvals_known = 0;
 	peer->error = NULL;
 	memset(peer->core.outputs, 0, sizeof(peer->core.outputs));
-	peer->core.deferred_pkt = INPUT_NONE;
-	peer->core.deferred_state = STATE_MAX;
 	peer->pkt_data[0] = -1;
 	peer->core.current_command = INPUT_NONE;
 	peer->core.event_notifies = 0;
@@ -1192,6 +1188,7 @@ static void peer_init(struct peer *peer,
 	peer->name = name;
 	peer->other = other;
 	peer->trail = NULL;
+	memset(peer->core.pad, 0, sizeof(peer->core.pad));
 }
 
 /* Recursion! */
@@ -1482,17 +1479,9 @@ static const char *apply_effects(struct peer *peer,
 		break;
 	case STATE_EFFECT_cmd_defer:
 		/* If it was current command, it is no longer. */
-		if (is_current_command(peer, effect->u.cmd_defer))
-			peer->core.current_command = INPUT_NONE;
-		else if (input_is_pkt(effect->u.cmd_defer)) {
-			/* Unlike commands, which we always resubmit,
-			 * we have to remember deferred packets. */
-			/* We assume only one deferrment! */
-			assert(peer->core.deferred_pkt == INPUT_NONE
-			       || peer->core.deferred_pkt == effect->u.cmd_defer);
-			peer->core.deferred_pkt = effect->u.cmd_defer;
-			peer->core.deferred_state = peer->core.state;
-		}
+		assert(is_current_command(peer, effect->u.cmd_defer));
+		/* We will resubmit this later anyway. */
+		peer->core.current_command = INPUT_NONE;
 		break;
 	case STATE_EFFECT_cmd_requeue:
 		assert(is_current_command(peer, effect->u.cmd_requeue));
@@ -1885,8 +1874,7 @@ static bool waiting_statepair(enum state a, enum state b)
 
 static bool has_packets(const struct peer *peer)
 {
-	return peer->core.deferred_pkt != INPUT_NONE
-		|| peer->core.num_outputs != 0;
+	return peer->core.num_outputs != 0;
 }
 
 static struct state_effect *get_effect(const struct state_effect *effect,
@@ -2283,19 +2271,6 @@ static void run_peer(const struct peer *peer,
 	if (copy.core.pkt_inputs) {
 		enum state_input i;
 		
-		if (copy.core.deferred_pkt != INPUT_NONE) {
-			/* Can only resubmit once state changed. */
-			if (copy.core.state != copy.core.deferred_state) {
-				i = copy.core.deferred_pkt;
-				copy.core.deferred_pkt = INPUT_NONE;
-				try_input(&copy, i, idata,
-					  normalpath, errorpath,
-					  prev_trail, hist);
-			}
-			/* Can't send anything until that's done. */
-			return;
-		}
-
 		if (other.core.num_outputs) {
 			i = other.core.outputs[0];
 			if (other.pkt_data[0] == -1U)
