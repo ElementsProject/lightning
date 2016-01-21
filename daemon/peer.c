@@ -4,6 +4,7 @@
 #include "lightningd.h"
 #include "log.h"
 #include "peer.h"
+#include "state.h"
 #include <ccan/io/io.h>
 #include <ccan/list/list.h>
 #include <ccan/noerr/noerr.h>
@@ -14,6 +15,8 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+
+#define FIXME_STUB(peer) do { log_broken((peer)->dstate->base_log, "%s:%u: Implement %s!", __FILE__, __LINE__, __func__); abort(); } while(0)
 
 struct json_connecting {
 	/* This owns us, so we're freed after command_fail or command_success */
@@ -69,6 +72,8 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	/* FIXME: Stop listening if too many peers? */
 	list_add(&dstate->peers, &peer->list);
 
+	peer->state = STATE_INIT;
+	peer->cond = PEER_CMD_OK;
 	peer->dstate = dstate;
 	peer->addr.type = addr_type;
 	peer->addr.protocol = addr_protocol;
@@ -77,7 +82,10 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	list_head_init(&peer->watches);
 
 	peer->us.offer_anchor = offer_anchor;
-	peer->us.locktime = dstate->config.rel_locktime;
+	if (!seconds_to_rel_locktime(dstate->config.rel_locktime,
+				     &peer->us.locktime))
+		fatal("Invalid locktime configuration %u",
+		      dstate->config.rel_locktime);
 	peer->us.mindepth = dstate->config.anchor_confirms;
 	/* FIXME: Make this dynamic. */
 	peer->us.commit_fee = dstate->config.commitment_fee;
@@ -260,6 +268,271 @@ const struct json_command connect_command = {
 	"Connect to a {host} at {port}",
 	"Returns an empty result on success"
 };
+
+struct anchor_watch {
+	struct peer *peer;
+	enum state_input depthok;
+	enum state_input timeout;
+	enum state_input unspent;
+	enum state_input theyspent;
+	enum state_input otherspent;
+};
+
+void peer_watch_anchor(struct peer *peer,
+		       enum state_input depthok,
+		       enum state_input timeout,
+		       enum state_input unspent,
+		       enum state_input theyspent,
+		       enum state_input otherspent)
+{
+	FIXME_STUB(peer);
+}
+
+void peer_unwatch_anchor_depth(struct peer *peer,
+			       enum state_input depthok,
+			       enum state_input timeout)
+{
+	FIXME_STUB(peer);
+}
+
+void peer_watch_delayed(struct peer *peer,
+			const struct bitcoin_tx *tx,
+			enum state_input canspend)
+{
+	FIXME_STUB(peer);
+}
+void peer_watch_tx(struct peer *peer,
+		   const struct bitcoin_tx *tx,
+		   enum state_input done)
+{
+	FIXME_STUB(peer);
+}
+void peer_watch_close(struct peer *peer,
+		      enum state_input done, enum state_input timedout)
+{
+	FIXME_STUB(peer);
+}
+void peer_unwatch_close_timeout(struct peer *peer, enum state_input timedout)
+{
+	FIXME_STUB(peer);
+}
+bool peer_watch_our_htlc_outputs(struct peer *peer,
+				 const struct bitcoin_tx *tx,
+				 enum state_input tous_timeout,
+				 enum state_input tothem_spent,
+				 enum state_input tothem_timeout)
+{
+	FIXME_STUB(peer);
+}
+bool peer_watch_their_htlc_outputs(struct peer *peer,
+				   const struct bitcoin_event *tx,
+				   enum state_input tous_timeout,
+				   enum state_input tothem_spent,
+				   enum state_input tothem_timeout)
+{
+	FIXME_STUB(peer);
+}
+void peer_unwatch_htlc_output(struct peer *peer,
+			      const struct htlc *htlc,
+			      enum state_input all_done)
+{
+	FIXME_STUB(peer);
+}
+void peer_unwatch_all_htlc_outputs(struct peer *peer)
+{
+	FIXME_STUB(peer);
+}
+void peer_watch_htlc_spend(struct peer *peer,
+			   const struct bitcoin_tx *tx,
+			   const struct htlc *htlc,
+			   enum state_input done)
+{
+	FIXME_STUB(peer);
+}
+void peer_unwatch_htlc_spend(struct peer *peer,
+			     const struct htlc *htlc,
+			     enum state_input all_done)
+{
+	FIXME_STUB(peer);
+}
+void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt)
+{
+	FIXME_STUB(peer);
+}
+
+/* Someone declined our HTLC: details in pkt (we will also get CMD_FAIL) */
+void peer_htlc_declined(struct peer *peer, const Pkt *pkt)
+{
+	FIXME_STUB(peer);
+}
+
+/* Called when their update overrides our update cmd. */
+void peer_htlc_ours_deferred(struct peer *peer)
+{
+	FIXME_STUB(peer);
+}
+
+/* Successfully added/fulfilled/timedout/routefail an HTLC. */
+void peer_htlc_done(struct peer *peer)
+{
+	FIXME_STUB(peer);
+}
+
+/* Someone aborted an existing HTLC. */
+void peer_htlc_aborted(struct peer *peer)
+{
+	FIXME_STUB(peer);
+}
+
+/* An on-chain transaction revealed an R value. */
+const struct htlc *peer_tx_revealed_r_value(struct peer *peer,
+					    const struct bitcoin_event *btc)
+{
+	FIXME_STUB(peer);
+}
+
+bool committed_to_htlcs(const struct peer *peer)
+{
+	FIXME_STUB(peer);
+}
+
+/* Create a bitcoin close tx. */
+const struct bitcoin_tx *bitcoin_close(const tal_t *ctx,
+				       const struct peer *peer)
+{
+#if 0
+	struct bitcoin_tx *close_tx;
+	u8 *redeemscript;
+
+	close_tx = create_close_tx(ctx, peer->us.openpkt, peer->them.openpkt,
+				   peer->anchorpkt, 
+				   peer->cstate.a.pay_msat / 1000,
+				   peer->cstate.b.pay_msat / 1000);
+
+	/* This is what the anchor pays to. */
+	redeemscript = bitcoin_redeem_2of2(close_tx, &peer->us.commitkey,
+					   &peer->them.commitkey);
+	
+	/* Combined signatures must validate correctly. */
+	if (!check_2of2_sig(close_tx, 0, redeemscript, tal_count(redeemscript),
+			    &peer->us.finalkey, &peer->them.finalkey,
+			    &peer->us.closesig, &peer->them.closesig))
+		fatal("bitcoin_close signature failed");
+
+	/* Create p2sh input for close_tx */
+	close_tx->input[0].script = scriptsig_p2sh_2of2(close_tx,
+							&peer->us.closesig,
+							&peer->them.closesig,
+							&peer->us.finalkey,
+							&peer->them.finalkey);
+	close_tx->input[0].script_length = tal_count(close_tx->input[0].script);
+
+	return close_tx;
+#endif
+	FIXME_STUB(peer);
+}
+
+/* Create a bitcoin spend tx (to spend our commit's outputs) */
+const struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
+					    const struct peer *peer)
+{
+#if 0
+	u8 *redeemscript;
+
+	redeemscript = bitcoin_redeem_secret_or_delay(ctx,
+						      &peer->us.commitkey,
+						      &peer->them.locktime,
+						      &peer->them.commitkey,
+						      &peer->revocation_hash);
+
+	/* Now, create transaction to spend it. */
+	tx = bitcoin_tx(ctx, 1, 1);
+	bitcoin_txid(commit, &tx->input[0].txid);
+	p2sh_out = find_p2sh_out(commit, redeemscript);
+	tx->input[0].index = p2sh_out;
+	tx->input[0].input_amount = commit->output[p2sh_out].amount;
+	tx->fee = fee;
+
+	tx->input[0].sequence_number = bitcoin_nsequence(locktime);
+
+	if (commit->output[p2sh_out].amount <= fee)
+		errx(1, "Amount of %llu won't exceed fee",
+		     (unsigned long long)commit->output[p2sh_out].amount);
+
+	tx->output[0].amount = commit->output[p2sh_out].amount - fee;
+	tx->output[0].script = scriptpubkey_p2sh(tx,
+						 bitcoin_redeem_single(tx, &outpubkey));
+	tx->output[0].script_length = tal_count(tx->output[0].script);
+
+	/* Now get signature, to set up input script. */
+	if (!sign_tx_input(tx, 0, redeemscript, tal_count(redeemscript),
+			   &privkey, &pubkey1, &sig.sig))
+		errx(1, "Could not sign tx");
+	sig.stype = SIGHASH_ALL;
+	tx->input[0].script = scriptsig_p2sh_secret(tx, NULL, 0, &sig,
+						    redeemscript,
+						    tal_count(redeemscript));
+	tx->input[0].script_length = tal_count(tx->input[0].script);
+#endif
+	FIXME_STUB(peer);
+}
+
+/* Create a bitcoin spend tx (to spend their commit's outputs) */
+const struct bitcoin_tx *bitcoin_spend_theirs(const tal_t *ctx,
+					      const struct peer *peer,
+					      const struct bitcoin_event *btc)
+{
+	FIXME_STUB(peer);
+}
+
+/* Create a bitcoin steal tx (to steal all their commit's outputs) */
+const struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
+				       const struct peer *peer,
+				       struct bitcoin_event *btc)
+{
+	FIXME_STUB(peer);
+}
+
+/* Create our commit tx */
+const struct bitcoin_tx *bitcoin_commit(const tal_t *ctx, struct peer *peer)
+{
+	FIXME_STUB(peer);
+}
+
+/* Create a HTLC refund collection */
+const struct bitcoin_tx *bitcoin_htlc_timeout(const tal_t *ctx,
+					      const struct peer *peer,
+					      const struct htlc *htlc)
+{
+	FIXME_STUB(peer);
+}
+
+/* Create a HTLC collection */
+const struct bitcoin_tx *bitcoin_htlc_spend(const tal_t *ctx,
+					    const struct peer *peer,
+					    const struct htlc *htlc)
+{
+	FIXME_STUB(peer);
+}
+
+/* Start creation of the bitcoin anchor tx. */
+void bitcoin_create_anchor(struct peer *peer, enum state_input done)
+{
+	FIXME_STUB(peer);
+}
+
+/* We didn't end up broadcasting the anchor: release the utxos.
+ * If done != INPUT_NONE, remove existing create_anchor too. */
+void bitcoin_release_anchor(struct peer *peer, enum state_input done)
+{
+	FIXME_STUB(peer);
+}
+
+/* Get the bitcoin anchor tx. */
+const struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer)
+{
+	FIXME_STUB(peer);
+}
 
 /* FIXME: Somehow we should show running DNS lookups! */
 /* FIXME: Show status of peers! */

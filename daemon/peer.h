@@ -1,10 +1,12 @@
 #ifndef LIGHTNING_DAEMON_PEER_H
 #define LIGHTNING_DAEMON_PEER_H
 #include "config.h"
+#include "bitcoin/locktime.h"
 #include "bitcoin/pubkey.h"
 #include "lightning.pb-c.h"
 #include "netaddr.h"
 #include "state_types.h"
+#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/list/list.h>
 
 struct peer_visible_state {
@@ -13,7 +15,7 @@ struct peer_visible_state {
 	/* Key for commitment tx inputs, then key for commitment tx outputs */
 	struct pubkey commitkey, finalkey;
 	/* How long to they want the other's outputs locked (seconds) */
-	unsigned int locktime;
+	struct rel_locktime locktime;
 	/* Minimum depth of anchor before channel usable. */
 	unsigned int mindepth;
 	/* Commitment fee they're offering (satoshi). */
@@ -24,6 +26,12 @@ struct peer {
 	/* dstate->peers list */
 	struct list_node list;
 
+	/* State in state machine. */
+	enum state state;
+
+	/* Condition of communications */
+	enum state_peercond cond;
+	
 	/* Global state. */
 	struct lightningd_state *dstate;
 
@@ -50,6 +58,9 @@ struct peer {
 
 	/* Stuff we have in common. */
 	struct peer_visible_state us, them;
+
+	/* Their last revocation hash. */
+	struct sha256 their_rhash;
 };
 
 void setup_listeners(struct lightningd_state *dstate, unsigned int portnum);

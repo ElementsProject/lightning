@@ -21,9 +21,13 @@ DAEMON_SRC :=					\
 	daemon/lightningd.c			\
 	daemon/netaddr.c			\
 	daemon/peer.c				\
+	daemon/packets.c			\
 	daemon/secrets.c			\
 	daemon/timeout.c			\
-	daemon/watch.c
+	daemon/watch.c				\
+	names.c					\
+	state.c
+
 DAEMON_OBJS := $(DAEMON_SRC:.c=.o)
 
 DAEMON_CLI_SRC := daemon/lightning-cli.c
