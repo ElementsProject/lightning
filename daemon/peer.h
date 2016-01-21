@@ -97,6 +97,11 @@ struct peer {
 
 void setup_listeners(struct lightningd_state *dstate, unsigned int portnum);
 
-void peer_make_commit_txs(struct peer *peer);
+void make_commit_txs(const tal_t *ctx,
+		     const struct peer *peer,
+		     const struct sha256 *our_revocation_hash,
+		     const struct sha256 *their_revocation_hash,
+		     const struct channel_state *cstate,
+		     struct bitcoin_tx **ours, struct bitcoin_tx **theirs);
 
 #endif /* LIGHTNING_DAEMON_PEER_H */

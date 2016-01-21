@@ -266,7 +266,12 @@ Pkt *accept_pkt_anchor(const tal_t *ctx,
 	invert_cstate(peer->cstate);
 
 	/* Now we can make initial (unsigned!) commit txs. */
-	peer_make_commit_txs(peer);
+	make_commit_txs(peer, peer,
+			&peer->us.revocation_hash,
+			&peer->them.revocation_hash,
+			peer->cstate,
+			&peer->us.commit,
+			&peer->them.commit);
 
 	peer->cur_commit_theirsig.stype = SIGHASH_ALL;
 	if (!proto_to_signature(a->commit_sig, &peer->cur_commit_theirsig.sig))

@@ -784,7 +784,12 @@ static void created_anchor(struct lightningd_state *dstate,
 		fatal("Insufficient anchor funds for commitfee");
 
 	/* Now we can make initial (unsigned!) commit txs. */
-	peer_make_commit_txs(peer);
+	make_commit_txs(peer, peer,
+			&peer->us.revocation_hash,
+			&peer->them.revocation_hash,
+			peer->cstate,
+			&peer->us.commit,
+			&peer->them.commit);
 
 	update_state(peer, BITCOIN_ANCHOR_CREATED, NULL);
 }
@@ -827,35 +832,36 @@ const struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer)
 	return peer->anchor.tx;
 }
 
-void peer_make_commit_txs(struct peer *peer)
+void make_commit_txs(const tal_t *ctx,
+		     const struct peer *peer,
+		     const struct sha256 *our_revocation_hash,
+		     const struct sha256 *their_revocation_hash,
+		     const struct channel_state *cstate,
+		     struct bitcoin_tx **ours, struct bitcoin_tx **theirs)
 {
 	struct channel_state their_cstate;
 
-	tal_free(peer->us.commit);
-	tal_free(peer->them.commit);
+	*ours = create_commit_tx(ctx,
+				 &peer->us.finalkey,
+				 &peer->them.finalkey,
+				 &peer->them.locktime,
+				 &peer->anchor.txid,
+				 peer->anchor.index,
+				 peer->anchor.satoshis,
+				 our_revocation_hash,
+				 cstate);
 
-	/* FIXME: Where do we update revocation_hash fields? */
-	peer->us.commit = create_commit_tx(peer,
-					   &peer->us.finalkey,
-					   &peer->them.finalkey,
-					   &peer->them.locktime,
-					   &peer->anchor.txid,
-					   peer->anchor.index,
-					   peer->anchor.satoshis,
-					   &peer->us.revocation_hash,
-					   peer->cstate);
-
-	their_cstate = *peer->cstate;
+	their_cstate = *cstate;
 	invert_cstate(&their_cstate);
-	peer->them.commit = create_commit_tx(peer,
-					     &peer->them.finalkey,
-					     &peer->us.finalkey,
-					     &peer->us.locktime,
-					     &peer->anchor.txid,
-					     peer->anchor.index,
-					     peer->anchor.satoshis,
-					     &peer->them.revocation_hash,
-					     &their_cstate);
+	*theirs = create_commit_tx(ctx,
+				   &peer->them.finalkey,
+				   &peer->us.finalkey,
+				   &peer->us.locktime,
+				   &peer->anchor.txid,
+				   peer->anchor.index,
+				   peer->anchor.satoshis,
+				   their_revocation_hash,
+				   &their_cstate);
 }
 	
 /* FIXME: Somehow we should show running DNS lookups! */
