@@ -8,13 +8,12 @@
  * insisted on "prettifing" the names they generate into CamelCase.
  */
 #include "lightning.pb-c.h"
-#include <ccan/endian/endian.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
 /* A packet, ready to be de-protobuf'ed. */
 struct pkt {
-	le32 len;
+	u32 len;
 	u8 data[];
 };
 

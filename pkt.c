@@ -10,7 +10,7 @@
 
 size_t pkt_totlen(const struct pkt *pkt)
 {
-	return sizeof(pkt->len) + le32_to_cpu(pkt->len);
+	return sizeof(pkt->len) + pkt->len;
 }
 
 static struct pkt *to_pkt(const tal_t *ctx, Pkt__PktCase type, const void *msg)
@@ -25,7 +25,7 @@ static struct pkt *to_pkt(const tal_t *ctx, Pkt__PktCase type, const void *msg)
 
 	len = pkt__get_packed_size(&p);
 	ret = (struct pkt *)tal_arr(ctx, u8, sizeof(ret->len) + len);
-	ret->len = cpu_to_le32(len);
+	ret->len = len;
 
 	pkt__pack(&p, ret->data);
 	return ret;
@@ -84,8 +84,7 @@ Pkt *any_pkt_from_file(const char *filename)
 		err(1, "Opening %s", filename);
 
 	len = tal_count(pkt) - 1;
-	if (len < sizeof(pkt->len)
-	    || len != sizeof(pkt->len) + le32_to_cpu(pkt->len))
+	if (len < sizeof(pkt->len) || len != sizeof(pkt->len) + pkt->len)
 		errx(1, "%s length is wrong", filename);
 	len -= sizeof(pkt->len);
 
