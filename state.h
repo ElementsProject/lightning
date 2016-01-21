@@ -94,8 +94,8 @@ void peer_htlc_done(struct peer *peer);
 void peer_htlc_aborted(struct peer *peer);
 
 /* An on-chain transaction revealed an R value. */
-void peer_tx_revealed_r_value(struct peer *peer,
-			      const struct bitcoin_event *btc);
+const struct htlc *peer_tx_revealed_r_value(struct peer *peer,
+					    const struct bitcoin_event *btc);
 
 /* Create various kinds of packets, allocated off @ctx */
 Pkt *pkt_open(const tal_t *ctx, const struct peer *peer,

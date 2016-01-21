@@ -1465,11 +1465,12 @@ void peer_htlc_declined(struct peer *peer, const Pkt *pkt)
 	peer->htlc_declined = true;
 }
 	       
-void peer_tx_revealed_r_value(struct peer *peer,
-			      const struct bitcoin_event *btc)
+const struct htlc *peer_tx_revealed_r_value(struct peer *peer,
+					    const struct bitcoin_event *btc)
 {
 	const struct htlc *htlc = (struct htlc *)btc;
 	add_rval(peer, htlc->id);
+	return htlc;
 }	
 
 static const char *check_changes(const struct peer *old, struct peer *new,

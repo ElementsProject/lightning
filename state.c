@@ -757,10 +757,11 @@ enum command_status state(const tal_t *ctx,
 				return next_state(peer, cstatus,
 						  BITS_TO_STATE(bits));
 			} else if (input_is(input, BITCOIN_HTLC_TOTHEM_SPENT)) {
+				const struct htlc *htlc;
 				/* They revealed R value. */
-				peer_tx_revealed_r_value(peer, idata->btc);
+				htlc = peer_tx_revealed_r_value(peer, idata->btc);
 				/* We don't care any more. */
-				peer_unwatch_htlc_output(peer, idata->htlc,
+				peer_unwatch_htlc_output(peer, htlc,
 							 INPUT_NO_MORE_HTLCS);
 				return unchanged_state(cstatus);
 			} else if (input_is(input, BITCOIN_HTLC_TOTHEM_TIMEOUT)){
