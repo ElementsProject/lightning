@@ -18,7 +18,7 @@ static bool record_input_mapping(int b);
 	do { if (record_input_mapping(b)) return false; } while(0)
 
 #include "state.h"
-#include "gen_state_names.h"
+#include "names.c"
 
 static bool quick = false;
 static bool dot_simplify = false;
@@ -446,26 +446,6 @@ static bool fail(const struct peer *peer, enum failure which_fail)
 
 	failhash_add(&failhash, f);
 	return false;
-}
-
-static const char *state_name(enum state s)
-{
-	size_t i;
-
-	for (i = 0; enum_state_names[i].name; i++)
-		if (enum_state_names[i].v == s)
-			return enum_state_names[i].name;
-	return "unknown";
-}
-
-static const char *input_name(enum state_input in)
-{
-	size_t i;
-
-	for (i = 0; enum_state_input_names[i].name; i++)
-		if (enum_state_input_names[i].v == in)
-			return enum_state_input_names[i].name;
-	return "unknown";
 }
 
 static enum state_input input_by_name(const char *name)

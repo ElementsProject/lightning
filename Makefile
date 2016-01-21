@@ -166,6 +166,7 @@ CORE_HEADERS := close_tx.h			\
 	commit_tx.h				\
 	find_p2sh_out.h				\
 	funding.h				\
+	names.h					\
 	opt_bits.h				\
 	overflows.h				\
 	permute_tx.h				\

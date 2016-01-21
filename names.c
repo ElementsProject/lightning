@@ -1,0 +1,23 @@
+#include "names.h"
+/* Indented for 'check-source' because it has to be included after names.h */
+  #include "gen_state_names.h"
+
+const char *state_name(enum state s)
+{
+	size_t i;
+
+	for (i = 0; enum_state_names[i].name; i++)
+		if (enum_state_names[i].v == s)
+			return enum_state_names[i].name;
+	return "unknown";
+}
+
+const char *input_name(enum state_input in)
+{
+	size_t i;
+
+	for (i = 0; enum_state_input_names[i].name; i++)
+		if (enum_state_input_names[i].v == in)
+			return enum_state_input_names[i].name;
+	return "unknown";
+}
