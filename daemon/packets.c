@@ -168,7 +168,14 @@ Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct peer *peer,
 Pkt *pkt_htlc_routefail(const tal_t *ctx, const struct peer *peer,
 			const struct htlc_progress *htlc_prog)
 {
-	FIXME_STUB(peer);
+	UpdateRoutefailHtlc *f = tal(ctx, UpdateRoutefailHtlc);
+
+	update_routefail_htlc__init(f);
+
+	f->revocation_hash = sha256_to_proto(f, &htlc_prog->our_revocation_hash);
+	f->r_hash = sha256_to_proto(f, &htlc_prog->htlc->rhash);
+
+	return make_pkt(ctx, PKT__PKT_UPDATE_ROUTEFAIL_HTLC, f);
 }
 
 Pkt *pkt_update_accept(const tal_t *ctx, const struct peer *peer)
@@ -432,7 +439,50 @@ fail:
 Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
 			       struct peer *peer, const Pkt *pkt)
 {
-	FIXME_STUB(peer);
+	const UpdateRoutefailHtlc *f = pkt->update_routefail_htlc;
+	struct htlc_progress *cur = tal(peer, struct htlc_progress);
+	Pkt *err;
+	size_t i;
+	struct sha256 rhash;
+
+	proto_to_sha256(f->revocation_hash, &cur->their_revocation_hash);
+	proto_to_sha256(f->r_hash, &rhash);
+
+	i = funding_find_htlc(&peer->cstate->a, &rhash);
+	if (i == tal_count(peer->cstate->a.htlcs)) {
+		err = pkt_err(ctx, "Unknown HTLC");
+		goto fail;
+	}
+
+	cur->htlc = &peer->cstate->a.htlcs[i];
+
+	/* Removing it should not fail: we regain HTLC amount */
+	cur->cstate = copy_funding(cur, peer->cstate);
+	if (!funding_delta(peer->us.offer_anchor == CMD_OPEN_WITH_ANCHOR,
+			   peer->anchor.satoshis,
+			   0, -cur->htlc->msatoshis,
+			   &cur->cstate->a, &cur->cstate->b)) {
+		fatal("Unexpected failure fulfilling HTLC of %"PRIu64
+		      " milli-satoshis", cur->htlc->msatoshis);
+	}
+	funding_remove_htlc(&cur->cstate->a, i);
+	
+	peer_get_revocation_hash(peer, peer->num_htlcs+1,
+				 &cur->our_revocation_hash);
+
+	/* Now we create the commit tx pair. */
+	make_commit_txs(cur, peer, &cur->our_revocation_hash,
+			&cur->their_revocation_hash,
+			cur->cstate,
+			&cur->our_commit, &cur->their_commit);
+
+	assert(!peer->current_htlc);
+	peer->current_htlc = cur;
+	return NULL;
+
+fail:
+	tal_free(cur);
+	return err;
 }
 
 Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,

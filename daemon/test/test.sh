@@ -111,6 +111,17 @@ $LCLI2 fulfillhtlc $ID1 $SECRET
 # We've transferred the HTLC amount to 2, who now has to pay fees.
 check_status 949999000 49000000 "" 0 1000000 ""
 
+# A new one, at 10x the amount.
+$LCLI1 newhtlc $ID2 10000000 $EXPIRY $RHASH
+
+# Check channel status
+check_status 939999000 49000000 '{ "msatoshis" : 10000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' 0 1000000 ""
+
+$LCLI2 failhtlc $ID1 $RHASH
+
+# Back to how we were before.
+check_status 949999000 49000000 "" 0 1000000 ""
+
 sleep 1
 
 $LCLI1 stop

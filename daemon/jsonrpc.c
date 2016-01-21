@@ -240,6 +240,7 @@ static const struct json_command *cmdlist[] = {
 	&getpeers_command,
 	&newhtlc_command,
 	&fulfillhtlc_command,
+	&failhtlc_command,
 	/* Developer/debugging options. */
 	&echo_command,
 	&rhash_command,
