@@ -17,6 +17,7 @@
 #include <ccan/io/io.h>
 #include <ccan/list/list.h>
 #include <ccan/noerr/noerr.h>
+#include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <errno.h>
@@ -439,13 +440,77 @@ const struct json_command connect_command = {
 };
 
 struct anchor_watch {
-	struct peer *peer;
 	enum state_input depthok;
 	enum state_input timeout;
 	enum state_input unspent;
 	enum state_input theyspent;
 	enum state_input otherspent;
 };
+
+static void anchor_depthchange(struct peer *peer, int depth,
+			       struct anchor_watch *w)
+{
+	/* Still waiting for it to reach depth? */
+	if (w->depthok != INPUT_NONE) {
+		/* Beware sign! */
+		if (depth >= (int)peer->us.mindepth) {
+			enum state_input in = w->depthok;
+			w->depthok = INPUT_NONE;
+			update_state(peer, in, NULL);
+		}
+	} else {
+		if (depth < 0 && w->unspent != INPUT_NONE) {
+			enum state_input in = w->unspent;
+			w->unspent = INPUT_NONE;
+			update_state(peer, in, NULL);
+		}
+	}
+}
+
+/* We don't compare scriptSigs: we don't know them anyway! */
+static bool txmatch(const struct bitcoin_tx *txa, const struct bitcoin_tx *txb)
+{
+	size_t i;
+
+	if (txa->version != txb->version
+	    || txa->input_count != txb->input_count
+	    || txa->output_count != txb->output_count
+	    || txa->lock_time != txb->lock_time)
+		return false;
+
+	for (i = 0; i < txa->input_count; i++) {
+		if (!structeq(&txa->input[i].txid, &txb->input[i].txid)
+		    || txa->input[i].index != txb->input[i].index
+		    || txa->input[i].sequence_number != txb->input[i].sequence_number)
+			return false;
+	}
+
+	for (i = 0; i < txa->output_count; i++) {
+		if (txa->output[i].amount != txb->output[i].amount
+		    || txa->output[i].script_length != txb->output[i].script_length
+		    || memcmp(txa->output[i].script, txb->output[i].script,
+			      txa->output[i].script_length != 0))
+			return false;
+	}
+
+	return true;
+}
+
+/* We assume the tx is valid!  Don't do a blockchain.info and feed this
+ * invalid transactions! */
+static void anchor_spent(struct peer *peer,
+			 const struct bitcoin_tx *tx,
+			 struct anchor_watch *w)
+{
+	union input idata;
+
+	/* FIXME: change type in idata? */
+	idata.btc = (struct bitcoin_event *)tx;
+	if (txmatch(tx, peer->them.commit))
+		update_state(peer, w->theyspent, &idata);
+	else
+		update_state(peer, w->otherspent, &idata);
+}
 
 void peer_watch_anchor(struct peer *peer,
 		       enum state_input depthok,
@@ -454,7 +519,20 @@ void peer_watch_anchor(struct peer *peer,
 		       enum state_input theyspent,
 		       enum state_input otherspent)
 {
-	FIXME_STUB(peer);
+	struct anchor_watch *w = tal(peer, struct anchor_watch);
+
+	w->depthok = depthok;
+	w->timeout = timeout;
+	w->unspent = unspent;
+	w->theyspent = theyspent;
+	w->otherspent = otherspent;
+
+	add_anchor_watch(peer, &peer->anchor.txid, peer->anchor.index,
+			 anchor_depthchange,
+			 anchor_spent,
+			 w);
+
+	/* FIXME: add timeout */
 }
 
 void peer_unwatch_anchor_depth(struct peer *peer,

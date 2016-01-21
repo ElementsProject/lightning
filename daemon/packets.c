@@ -1,4 +1,5 @@
 #include "bitcoin/script.h"
+#include "bitcoin/tx.h"
 #include "find_p2sh_out.h"
 #include "lightningd.h"
 #include "log.h"
@@ -9,8 +10,28 @@
 #include "state.h"
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/mem/mem.h>
+#include <ccan/str/hex/hex.h>
 
 #define FIXME_STUB(peer) do { log_broken((peer)->dstate->base_log, "%s:%u: Implement %s!", __FILE__, __LINE__, __func__); abort(); } while(0)
+
+static char *hex_of(const tal_t *ctx, const void *p, size_t n)
+{
+	char *hex = tal_arr(ctx, char, hex_str_size(n));
+	hex_encode(p, n, hex, hex_str_size(n));
+	return hex;
+}
+
+static void dump_tx(const char *str, const struct bitcoin_tx *tx)
+{
+	u8 *linear = linearize_tx(NULL, tx);
+	printf("%s:%s\n", str, hex_of(linear, linear, tal_count(linear)));
+	tal_free(linear);
+}
+
+static void dump_key(const char *str, const struct pubkey *key)
+{
+	printf("%s:%s\n", str, hex_of(NULL, key->der, pubkey_derlen(key)));
+}
 
 /* Wrap (and own!) member inside Pkt */
 static Pkt *make_pkt(const tal_t *ctx, Pkt__PktCase type, const void *msg)
@@ -86,12 +107,26 @@ Pkt *pkt_anchor(const tal_t *ctx, const struct peer *peer)
 
 Pkt *pkt_open_commit_sig(const tal_t *ctx, const struct peer *peer)
 {
-	FIXME_STUB(peer);
+	struct signature sig;
+	OpenCommitSig *s = tal(ctx, OpenCommitSig);
+
+	open_commit_sig__init(s);
+
+	dump_tx("Creating sig for:", peer->them.commit);
+	dump_key("Using key:", &peer->us.commitkey);
+
+	peer_sign_theircommit(peer, &sig);
+	s->sig = signature_to_proto(s, &sig);
+
+	return make_pkt(ctx, PKT__PKT_OPEN_COMMIT_SIG, s);
 }
 
 Pkt *pkt_open_complete(const tal_t *ctx, const struct peer *peer)
 {
-	FIXME_STUB(peer);
+	OpenComplete *o = tal(ctx, OpenComplete);
+
+	open_complete__init(o);
+	return make_pkt(ctx, PKT__PKT_OPEN_COMPLETE, o);
 }
 
 Pkt *pkt_htlc_update(const tal_t *ctx, const struct peer *peer,
@@ -252,7 +287,25 @@ Pkt *accept_pkt_anchor(const tal_t *ctx,
 Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
 				struct peer *peer, const Pkt *pkt)
 {
-	FIXME_STUB(peer);
+	const OpenCommitSig *s = pkt->open_commit_sig;
+
+	peer->cur_commit_theirsig.stype = SIGHASH_ALL;
+	if (!proto_to_signature(s->sig, &peer->cur_commit_theirsig.sig))
+		return pkt_err(ctx, "Malformed signature");
+
+	dump_tx("Checking sig for:", peer->us.commit);
+	dump_key("Using key:", &peer->them.commitkey);
+
+	/* Their sig should sign our commit tx. */
+	if (!check_tx_sig(peer->dstate->secpctx,
+			  peer->us.commit, 0,
+			  peer->anchor.redeemscript,
+			  tal_count(peer->anchor.redeemscript),
+			  &peer->them.commitkey,
+			  &peer->cur_commit_theirsig))
+		return pkt_err(ctx, "Bad signature");
+
+	return NULL;
 }
 	
 Pkt *accept_pkt_htlc_update(const tal_t *ctx,
