@@ -56,7 +56,8 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 
 /* This takes a raw bitcoin tx in hex, with [:<64-bit-satoshi>] appended
  * for each input (required for -DALPHA). */
-struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex);
+struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,
+				       size_t hexlen);
 
 bool bitcoin_tx_write(int fd, const struct bitcoin_tx *tx);
 

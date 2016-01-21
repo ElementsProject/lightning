@@ -13,7 +13,7 @@ struct bitcoin_tx *bitcoin_tx_from_file(const tal_t *ctx, const char *filename)
 	if (!hex)
 		err(1, "Opening %s", filename);
 
-	tx = bitcoin_tx_from_hex(ctx, hex);
+	tx = bitcoin_tx_from_hex(ctx, hex, strlen(hex));
 	if (!tx)
 		err(1, "Failed to decode tx '%s'", hex);
 	tal_free(hex);

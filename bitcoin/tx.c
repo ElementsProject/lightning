@@ -432,7 +432,8 @@ static struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 	return tx;
 }
 
-struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex)
+struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,
+				       size_t hexlen)
 {
 	char *end;
 	u8 *linear_tx;
@@ -440,10 +441,10 @@ struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex)
 	struct bitcoin_tx *tx;
 	size_t len;
 
-	end = strchr(hex, ':');
+	end = memchr(hex, ':', hexlen);
 	if (!end) {
-		end = cast_const(char *, hex) + strlen(hex);
-		if (strends(hex, "\n"))
+		end = cast_const(char *, hex) + hexlen;
+		if (hexlen > 0 && hex[hexlen-1] == '\n')
 			end--;
 	}
 
@@ -460,10 +461,17 @@ struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex)
 	for (len = 0; len < tx->input_count; len++) {
 		if (*end != ':')
 			break;
-		tx->input[len].input_amount = strtoull(end + 1, &end, 10);
+
+		tx->input[len].input_amount = 0;
+		end++;
+		while (end < hex + hexlen && cisdigit(*end)) {
+			tx->input[len].input_amount *= 10;
+			tx->input[len].input_amount += *end - '0';
+			end++;
+		}
 	}
 	if (len == tx->input_count) {
-		if (*end != '\0' && *end != '\n')
+		if (end != hex + hexlen && *end != '\n')
 			goto fail_free_tx;
 	} else {
 		/* Input amounts are compulsory for alpha, to generate sigs */
