@@ -7,6 +7,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -191,6 +192,46 @@ static const struct json_command getlog_command = {
 	"Returns log array"
 };
 
+static void json_rhash(struct command *cmd,
+		       const char *buffer, const jsmntok_t *params)
+{
+	struct json_result *response = new_json_result(cmd);
+	jsmntok_t *secrettok;
+	struct sha256 secret;
+
+	json_get_params(buffer, params,
+			"secret", &secrettok,
+			NULL);
+
+	if (!secrettok) {
+		command_fail(cmd, "Need secret");
+		return;
+	}
+
+	if (!hex_decode(buffer + secrettok->start,
+			secrettok->end - secrettok->start,
+			&secret, sizeof(secret))) {
+		command_fail(cmd, "'%.*s' is not a valid 32-byte hex value",
+			     (int)(secrettok->end - secrettok->start),
+			     buffer + secrettok->start);
+		return;
+	}
+
+	/* Hash in place. */
+	sha256(&secret, &secret, sizeof(secret));
+	json_object_start(response, NULL);
+	json_add_hex(response, "rhash", &secret, sizeof(secret));
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+static const struct json_command rhash_command = {
+	"dev-rhash",
+	json_rhash,
+	"SHA256 of {secret}",
+	"Returns a hash value"
+};
+
 static const struct json_command *cmdlist[] = {
 	&help_command,
 	&stop_command,
@@ -199,6 +240,7 @@ static const struct json_command *cmdlist[] = {
 	&getpeers_command,
 	/* Developer/debugging options. */
 	&echo_command,
+	&rhash_command,
 };
 
 static void json_help(struct command *cmd,
