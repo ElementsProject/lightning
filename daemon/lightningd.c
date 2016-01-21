@@ -1,10 +1,15 @@
 #include "configdir.h"
+#include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
+#include "timeout.h"
+#include <ccan/container_of/container_of.h>
 #include <ccan/err/err.h>
+#include <ccan/io/io.h>
 #include <ccan/opt/opt.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <ccan/timer/timer.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -46,6 +51,7 @@ static void tal_freefn(void *ptr)
 int main(int argc, char *argv[])
 {
 	struct lightningd_state *state = lightningd_state();
+	struct timer *expired;
 
 	err_set_progname(argv[0]);
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
@@ -85,7 +91,19 @@ int main(int argc, char *argv[])
 	if (argc != 1)
 		errx(1, "no arguments accepted");
 
+	/* Create RPC socket (if any) */
+	setup_jsonrpc(state, state->rpc_filename);
+
 	log_info(state->base_log, "Hello world!");
+
+	/* If io_loop returns NULL, either a timer expired, or all fds closed */
+	while (!io_loop(&state->timers, &expired) && expired) {
+		struct timeout *to;
+
+		to = container_of(expired, struct timeout, timer);
+		to->cb(to->arg);
+	}
+
 	tal_free(state);
 	opt_free_table();
 	return 0;
