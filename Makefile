@@ -1,5 +1,5 @@
 #! /usr/bin/make
-NAME=MtGox's Cold Wallet
+NAME=Butterfly Labs' Timely Delivery
 
 # Needs to have oneof support: Ubuntu vivid's is too old :(
 PROTOCC:=protoc-c
