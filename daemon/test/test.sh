@@ -29,6 +29,28 @@ fi
 LCLI1="../daemon/lightning-cli --lightning-dir=$DIR1"
 LCLI2="../daemon/lightning-cli --lightning-dir=$DIR2"
 
+check_status()
+{
+    us_pay=$1
+    us_fee=$2
+    us_htlcs="$3"
+    them_pay=$4
+    them_fee=$5
+    them_htlcs="$6"
+
+    if $LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"channel" : { "us" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] }, "them" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] } }'; then :; else
+	echo Cannot find peer1: '"channel" : { "us" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] }, "them" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] } }' >&2
+	$LCLI1 getpeers | tr -s '\012\011 ' ' ' >&2
+	return 1
+    fi
+
+    if $LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"channel" : { "us" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] }, "them" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] } }'; then :; else
+	echo Cannot find peer2: '"channel" : { "us" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] }, "them" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] } }' >&2
+	$LCLI2 getpeers | tr -s '\012\011 ' ' ' >&2
+	return 1
+    fi
+}
+   
 trap "echo Results in $DIR1 and $DIR2" EXIT
 mkdir $DIR1 $DIR2
 $PREFIX1 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --lightning-dir=$DIR1 > $REDIR1 &
@@ -74,12 +96,7 @@ sleep 2
 $LCLI1 getpeers | grep STATE_NORMAL_HIGHPRIO
 $LCLI2 getpeers | grep STATE_NORMAL_LOWPRIO
 
-# Check channel status
-$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"us" : { "pay" : 949999000, "fee" : 50000000, "htlcs" : [ ]'
-$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"them" : { "pay" : 0, "fee" : 0, "htlcs" : [ ]'
-
-$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"them" : { "pay" : 949999000, "fee" : 50000000, "htlcs" : [ ]'
-$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"us" : { "pay" : 0, "fee" : 0, "htlcs" : [ ]'
+check_status 949999000 50000000 "" 0 0 ""
 
 EXPIRY=$(( $(date +%s) + 1000))
 SECRET=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd
@@ -87,21 +104,12 @@ RHASH=`$LCLI1 dev-rhash $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 $LCLI1 newhtlc $ID2 1000000 $EXPIRY $RHASH
 
 # Check channel status
-$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"us" : { "pay" : 948999000, "fee" : 50000000, "htlcs" : [ { "msatoshis" : 1000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ]'
-$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"them" : { "pay" : 0, "fee" : 0, "htlcs" : [ ]'
-
-$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"them" : { "pay" : 948999000, "fee" : 50000000, "htlcs" : [ { "msatoshis" : 1000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ]'
-$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"us" : { "pay" : 0, "fee" : 0, "htlcs" : [ ]'
+check_status 948999000 50000000 '{ "msatoshis" : 1000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' 0 0 ""
 
 $LCLI2 fulfillhtlc $ID1 $SECRET
 
-$LCLI1 getpeers
 # We've transferred the HTLC amount to 2, who now has to pay fees.
-$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"us" : { "pay" : 949999000, "fee" : 49000000, "htlcs" : [ ]'
-$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"them" : { "pay" : 0, "fee" : 1000000, "htlcs" : [ ]'
-
-$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"them" : { "pay" : 949999000, "fee" : 49000000, "htlcs" : [ ]'
-$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"us" : { "pay" : 0, "fee" : 1000000, "htlcs" : [ ]'
+check_status 949999000 49000000 "" 0 1000000 ""
 
 sleep 1
 
