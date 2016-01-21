@@ -4,6 +4,7 @@
 #include "bitcoin/pubkey.h"
 #include "lightning.pb-c.h"
 #include "netaddr.h"
+#include "state_types.h"
 #include <ccan/list/list.h>
 
 struct peer {
@@ -30,7 +31,10 @@ struct peer {
 
 	/* Things we're watching for (see watches.c) */
 	struct list_head watches;
-	
+
+	/* Did we offer an anchor? */
+	enum state_input offer_anchor;
+
 	/* Keys for transactions with this peer. */
 	struct pubkey their_commitkey, their_finalkey;
 	struct pubkey our_commitkey, our_finalkey;

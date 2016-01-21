@@ -59,6 +59,7 @@ static void destroy_peer(struct peer *peer)
 static struct peer *new_peer(struct lightningd_state *state,
 			     struct io_conn *conn,
 			     int addr_type, int addr_protocol,
+			     enum state_input offer_anchor,
 			     const char *in_or_out)
 {
 	struct peer *peer = tal(state, struct peer);
@@ -71,6 +72,9 @@ static struct peer *new_peer(struct lightningd_state *state,
 	peer->addr.protocol = addr_protocol;
 	peer->io_data = NULL;
 	peer->secrets = NULL;
+	peer->offer_anchor = offer_anchor;
+	assert(offer_anchor == CMD_OPEN_WITH_ANCHOR
+	       || offer_anchor == CMD_OPEN_WITHOUT_ANCHOR);
 	list_head_init(&peer->watches);
 
 	/* FIXME: Attach IO logging for this peer. */
@@ -97,7 +101,7 @@ static struct io_plan *peer_connected_out(struct io_conn *conn,
 {
 	struct json_result *response;
 	struct peer *peer = new_peer(state, conn, SOCK_STREAM, IPPROTO_TCP,
-				     "out");
+				     CMD_OPEN_WITH_ANCHOR, "out");
 	if (!peer) {
 		command_fail(connect->cmd, "Failed to make peer for %s:%s",
 			     connect->name, connect->port);
@@ -118,7 +122,7 @@ static struct io_plan *peer_connected_in(struct io_conn *conn,
 					 struct lightningd_state *state)
 {
 	struct peer *peer = new_peer(state, conn, SOCK_STREAM, IPPROTO_TCP,
-				     "in");
+				     CMD_OPEN_WITHOUT_ANCHOR, "in");
 	if (!peer)
 		return io_close(conn);
 
