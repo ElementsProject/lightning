@@ -57,11 +57,16 @@ struct peer {
 	/* Network connection. */
 	struct io_conn *conn;
 
-	/* Current command (if any) */
-	enum state_input cmd;
-	union input cmddata;
-	struct command *jsoncmd;
+	/* Current command (or INPUT_NONE) */
+	struct {
+		enum state_input cmd;
+		union input cmddata;
+		struct command *jsoncmd;
+	} curr_cmd;
 
+	/* Pending commands. */
+	struct list_head pending_cmd;
+	
 	/* Global state. */
 	struct lightningd_state *dstate;
 
