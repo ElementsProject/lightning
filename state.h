@@ -369,8 +369,7 @@ const struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
 				       struct bitcoin_event *btc);
 
 /* Create our commit tx */
-const struct bitcoin_tx *bitcoin_commit(const tal_t *ctx,
-					const struct peer *peer);
+const struct bitcoin_tx *bitcoin_commit(const tal_t *ctx, struct peer *peer);
 
 /* Create a HTLC refund collection */
 const struct bitcoin_tx *bitcoin_htlc_timeout(const tal_t *ctx,

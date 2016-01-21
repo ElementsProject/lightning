@@ -894,8 +894,7 @@ const struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
 	return bitcoin_tx("steal");
 }
 
-const struct bitcoin_tx *bitcoin_commit(const tal_t *ctx,
-					const struct peer *peer)
+const struct bitcoin_tx *bitcoin_commit(const tal_t *ctx, struct peer *peer)
 {
 	return bitcoin_tx("our commit");
 }
