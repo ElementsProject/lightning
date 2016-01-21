@@ -244,6 +244,7 @@ static const struct json_command *cmdlist[] = {
 	/* Developer/debugging options. */
 	&echo_command,
 	&rhash_command,
+	&mocktime_command
 };
 
 static void json_help(struct command *cmd,

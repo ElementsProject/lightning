@@ -1,3 +1,4 @@
+#include "controlled_time.h"
 #include "lightningd.h"
 #include "timeout.h"
 
@@ -14,7 +15,7 @@ void refresh_timeout(struct lightningd_state *dstate, struct timeout *t)
 {
 	timer_del(&dstate->timers, &t->timer);
 	timer_add(&dstate->timers, &t->timer,
-		  timeabs_add(time_now(), t->interval));
+		  timeabs_add(controlled_time(), t->interval));
 }
 
 /* FIXME: Make all timers one-shot! */

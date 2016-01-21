@@ -1,5 +1,6 @@
 #include "bitcoind.h"
 #include "configdir.h"
+#include "controlled_time.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
@@ -147,7 +148,7 @@ static struct lightningd_state *lightningd_state(void)
 				   "lightningd(%u):", (int)getpid());
 
 	list_head_init(&dstate->peers);
-	timers_init(&dstate->timers, time_now());
+	timers_init(&dstate->timers, controlled_time());
 	txwatch_hash_init(&dstate->txwatches);
 	txowatch_hash_init(&dstate->txowatches);
 	dstate->secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
@@ -240,6 +241,9 @@ int main(int argc, char *argv[])
 	/* Create timer to do watches. */
 	setup_watch_timer(dstate);
 
+	/* Make sure we use the artificially-controlled time for timers */
+	io_time_override(controlled_time);
+	
 	log_info(dstate->base_log, "Hello world!");
 
 	/* If io_loop returns NULL, either a timer expired, or all fds closed */
