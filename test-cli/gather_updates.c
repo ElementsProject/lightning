@@ -85,6 +85,16 @@ static void update_rhash(const Sha256Hash *rhash,
 		(*num_updates)++;
 }
 
+static uint32_t htlcs_total(UpdateAddHtlc *const *htlcs)
+{
+	size_t i, n = tal_count(htlcs);
+	uint32_t total = 0;
+
+	for (i = 0; i < n; i++)
+		total += htlcs[i]->amount_msat;
+	return total;
+}
+
 /* Takes complete update history, gets summary of last state. */
 struct channel_state *gather_updates(const tal_t *ctx,
 			const OpenChannel *o1, const OpenChannel *o2,
@@ -238,23 +248,26 @@ struct channel_state *gather_updates(const tal_t *ctx,
 			rh = sha256_to_proto(ctx, &r_hash);
 
 			if (received) {
+				u64 b_before = cstate->b.pay_msat + cstate->b.fee_msat;
 				/* HTLC was us->them, funds go to them. */
 				n = find_htlc(&cstate->a, rh);
 				if (n == tal_count(cstate->a.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
 				amount = cstate->a.htlcs[n]->amount_msat;
-				if (!funding_delta(o1, o2, oa, amount, -amount,
+				if (!funding_delta(o1, o2, oa, -amount, -amount,
 						   &cstate->a, &cstate->b))
 					errx(1, "Impossible htlc %llu %s",
 					     (long long)amount, *argv);
 				remove_htlc(&cstate->a, n);
+				assert(cstate->b.pay_msat + cstate->b.fee_msat
+				       == b_before + amount);
 			} else {
 				/* HTLC was them->us, funds go to us. */
 				n = find_htlc(&cstate->b, rh);
 				if (n == tal_count(cstate->b.htlcs))
 					errx(1, "Unknown R hash in %s", *argv);
 				amount = cstate->b.htlcs[n]->amount_msat;
-				if (!funding_delta(o2, o1, oa, amount, -amount,
+				if (!funding_delta(o2, o1, oa, -amount, -amount,
 						   &cstate->b, &cstate->a))
 					errx(1, "Impossible htlc %llu %s",
 					     (long long)amount, *argv);
@@ -331,6 +344,12 @@ struct channel_state *gather_updates(const tal_t *ctx,
 		if (!proto_to_signature(sig, their_commit_sig))
 			errx(1, "Invalid signature");
 	}
+
+	assert(htlcs_total(cstate->a.htlcs)
+	       + cstate->a.pay_msat + cstate->a.fee_msat
+	       + htlcs_total(cstate->b.htlcs)
+	       + cstate->b.pay_msat + cstate->b.fee_msat
+	       == oa->amount * 1000);
 
 	return cstate;
 }
