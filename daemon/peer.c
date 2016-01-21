@@ -1,6 +1,7 @@
 #include "bitcoind.h"
 #include "close_tx.h"
 #include "commit_tx.h"
+#include "controlled_time.h"
 #include "cryptopkt.h"
 #include "dns.h"
 #include "find_p2sh_out.h"
@@ -715,7 +716,9 @@ void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt)
 /* Someone declined our HTLC: details in pkt (we will also get CMD_FAIL) */
 void peer_htlc_declined(struct peer *peer, const Pkt *pkt)
 {
-	FIXME_STUB(peer);
+	log_unusual(peer->log, "Peer declined htlc, reason %i",
+		    pkt->update_decline_htlc->reason_case);
+	peer->current_htlc = tal_free(peer->current_htlc);
 }
 
 /* Called when their update overrides our update cmd. */
@@ -1157,6 +1160,19 @@ static void json_newhtlc(struct command *cmd,
 			     buffer + expirytok->start);
 		return;
 	}
+
+	if (abs_locktime_to_seconds(&newhtlc->htlc->expiry) <
+	    controlled_time().ts.tv_sec + peer->dstate->config.min_expiry) {
+		command_fail(cmd, "HTLC expiry too soon!");
+		return;
+	}
+
+	if (abs_locktime_to_seconds(&newhtlc->htlc->expiry) >
+	    controlled_time().ts.tv_sec + peer->dstate->config.max_expiry) {
+		command_fail(cmd, "HTLC expiry too far!");
+		return;
+	}
+
 	if (!hex_decode(buffer + rhashtok->start,
 			rhashtok->end - rhashtok->start,
 			&newhtlc->htlc->rhash,

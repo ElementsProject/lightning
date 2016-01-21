@@ -35,6 +35,9 @@ struct config {
 	/* What fee we use for the closing transaction (satoshis) */
 	u64 closing_fee;
 
+	/* Minimum/maximum time for an expiring HTLC (seconds). */
+	u32 min_expiry, max_expiry;
+	
 	/* How long (seconds) between polling bitcoind. */
 	u32 poll_seconds;
 };

@@ -1,5 +1,6 @@
 #include "bitcoin/script.h"
 #include "bitcoin/tx.h"
+#include "controlled_time.h"
 #include "find_p2sh_out.h"
 #include "lightningd.h"
 #include "log.h"
@@ -386,7 +387,19 @@ Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
 
 	return NULL;
 }
-	
+
+static Pkt *decline_htlc(const tal_t *ctx, const char *why)
+{
+	UpdateDeclineHtlc *d = tal(ctx, UpdateDeclineHtlc);
+
+	update_decline_htlc__init(d);
+	/* FIXME: Define why in protocol! */
+	d->reason_case = UPDATE_DECLINE_HTLC__REASON_CANNOT_ROUTE;
+	d->cannot_route = true;
+
+	return make_pkt(ctx, PKT__PKT_UPDATE_DECLINE_HTLC, d);
+}
+
 Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 			    struct peer *peer, const Pkt *pkt,
 			    Pkt **decline)
@@ -403,6 +416,26 @@ Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 		err = pkt_err(ctx, "Invalid HTLC expiry");
 		goto fail;
 	}
+
+	/* FIXME: Handle block-based expiry! */
+	if (!abs_locktime_is_seconds(&cur->htlc->expiry)) {
+		*decline = decline_htlc(ctx, 
+					"HTLC expiry in blocks not supported!");
+		goto decline;
+	}
+
+	if (abs_locktime_to_seconds(&cur->htlc->expiry) <
+	    controlled_time().ts.tv_sec + peer->dstate->config.min_expiry) {
+		*decline = decline_htlc(ctx, "HTLC expiry too soon!");
+		goto decline;
+	}
+
+	if (abs_locktime_to_seconds(&cur->htlc->expiry) >
+	    controlled_time().ts.tv_sec + peer->dstate->config.max_expiry) {
+		*decline = decline_htlc(ctx, "HTLC expiry too far!");
+		goto decline;
+	}
+
 	cur->cstate = copy_funding(cur, peer->cstate);
 	if (!funding_delta(peer->them.offer_anchor == CMD_OPEN_WITH_ANCHOR,
 			   peer->anchor.satoshis,
@@ -434,6 +467,11 @@ Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 fail:
 	tal_free(cur);
 	return err;
+
+decline:
+	assert(*decline);
+	tal_free(cur);
+	return NULL;
 };
 
 Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,

@@ -88,10 +88,20 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--closing-fee", opt_set_u64, opt_show_u64,
 			 &dstate->config.closing_fee,
 			 "Satoshis to use for mutual close transaction fee");
+	opt_register_arg("--min-expiry", opt_set_u32, opt_show_u32,
+			 &dstate->config.min_expiry,
+			 "Minimum number of seconds to accept an HTLC before expiry");
+	opt_register_arg("--max-expiry", opt_set_u32, opt_show_u32,
+			 &dstate->config.max_expiry,
+			 "Maximum number of seconds to accept an HTLC before expiry");
 	opt_register_arg("--bitcoind-poll", opt_set_u32, opt_show_u32,
 			 &dstate->config.poll_seconds,
 			 "Seconds between polling for new transactions");
 }
+
+#define MINUTES 60
+#define HOURS (60 * MINUTES)
+#define DAYS (24 * HOURS)
 
 static void default_config(struct config *config)
 {
@@ -99,10 +109,10 @@ static void default_config(struct config *config)
 	config->testnet = true;
 
 	/* One day to catch cheating attempts. */
-	config->rel_locktime = 60 * 60 * 24;
+	config->rel_locktime = 1 * DAYS;
 
 	/* They can have up to 3 days. */
-	config->rel_locktime_max = 60 * 60 * 24 * 3;
+	config->rel_locktime_max = 2 * DAYS;
 
 	/* We're fairly trusting, under normal circumstances. */
 	config->anchor_confirms = 3;
@@ -120,7 +130,12 @@ static void default_config(struct config *config)
 
 	/* Use this for mutual close. */
 	config->closing_fee = 10000;
-	
+
+	/* Don't bother me unless I have 6 hours to collect. */
+	config->min_expiry = 6 * HOURS;
+	/* Don't lock up channel for more than 5 days. */
+	config->max_expiry = 5 * DAYS;
+
 	config->poll_seconds = 30;
 }
 

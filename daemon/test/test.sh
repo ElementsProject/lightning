@@ -53,8 +53,8 @@ check_status()
    
 trap "echo Results in $DIR1 and $DIR2" EXIT
 mkdir $DIR1 $DIR2
-$PREFIX1 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --lightning-dir=$DIR1 > $REDIR1 &
-$PREFIX2 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --lightning-dir=$DIR2 > $REDIR2 &
+$PREFIX1 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR1 > $REDIR1 &
+$PREFIX2 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR2 > $REDIR2 &
 
 i=0
 while ! $LCLI1 getlog | grep Hello; do
