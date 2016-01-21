@@ -39,6 +39,7 @@ void log_io(struct log *log, bool in, const void *data, size_t len);
 void log_(struct log *log, enum log_level level, const char *fmt, ...)
 	PRINTF_FMT(3,4);
 void log_add(struct log *log, const char *fmt, ...) PRINTF_FMT(2,3);
+void log_add_hex(struct log *log, const void *data, size_t len);
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap);
 
 #define log_add_struct(log, structtype, ptr)				\

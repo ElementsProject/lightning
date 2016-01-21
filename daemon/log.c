@@ -262,6 +262,13 @@ void log_add(struct log *log, const char *fmt, ...)
 	va_end(ap);
 }
 
+void log_add_hex(struct log *log, const void *data, size_t len)
+{
+	char hex[hex_str_size(len)];
+	hex_encode(data, len, hex, hex_str_size(len));
+	log_add(log, "%s", hex);
+}
+
 void log_each_line_(const struct log_record *lr,
 		    void (*func)(unsigned int skipped,
 				 struct timerel time,
