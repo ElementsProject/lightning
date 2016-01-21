@@ -33,7 +33,8 @@ int main(int argc, char *argv[])
 	struct signature sig;
 	struct privkey privkey;
 	bool testnet;
-	struct pubkey pubkey1, pubkey2;
+	struct pubkey pubkey1, pubkey2, final1, final2;
+	struct sha256_double anchor_txid;
 	u8 *redeemscript;
 	char *close_file = NULL;
 	u64 close_fee = 10000;
@@ -87,12 +88,20 @@ int main(int argc, char *argv[])
 	if (!proto_to_pubkey(secp256k1_context_create(0),
 			     o2->commit_key, &pubkey2))
 		errx(1, "Invalid o2 commit pubkey");
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o1->final_key, &final1))
+		errx(1, "Invalid o1 final pubkey");
+	if (!proto_to_pubkey(secp256k1_context_create(0),
+			     o2->final_key, &final2))
+		errx(1, "Invalid o2 final pubkey");
 
 	/* This is what the anchor pays to. */
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
+	proto_to_sha256(a->txid, &anchor_txid.sha);
 	close_tx = create_close_tx(secp256k1_context_create(0),
-				   ctx, o1, o2, a,
+				   ctx, &final1, &final2,
+				   &anchor_txid, a->output_index, a->amount,
 				   cstate->a.pay_msat / 1000,
 				   cstate->b.pay_msat / 1000);
 
