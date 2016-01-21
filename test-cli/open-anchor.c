@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 	invert_cstate(cstate);
  	commit = create_commit_tx(ctx, o2, o1, &oa, &rhash, cstate);
 
-	sign_tx_input(ctx, commit, 0, redeemscript, tal_count(redeemscript),
+	sign_tx_input(commit, 0, redeemscript, tal_count(redeemscript),
 		      &privkey, &pubkey1, &sig);
 
 	oa.commit_sig = signature_to_proto(ctx, &sig);

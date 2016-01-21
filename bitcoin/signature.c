@@ -76,7 +76,7 @@ static void dump_tx(const char *msg,
 }
 #endif
 	
-bool sign_hash(const tal_t *ctx, const struct privkey *privkey,
+bool sign_hash(const struct privkey *privkey,
 	       const struct sha256_double *h,
 	       struct signature *s)
 {
@@ -133,7 +133,7 @@ static void sha256_tx_one_input(struct bitcoin_tx *tx,
 }
 
 /* Only does SIGHASH_ALL */
-bool sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx,
+bool sign_tx_input(struct bitcoin_tx *tx,
 		   unsigned int in,
 		   const u8 *subscript, size_t subscript_len,
 		   const struct privkey *privkey, const struct pubkey *key,
@@ -143,12 +143,12 @@ bool sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx,
 
 	sha256_tx_one_input(tx, in, subscript, subscript_len, &hash);
 	dump_tx("Signing", tx, in, subscript, subscript_len, key, &hash);
-	return sign_hash(ctx, privkey, &hash, sig);
+	return sign_hash(privkey, &hash, sig);
 }
 
-static bool check_signed_hash(const struct sha256_double *hash,
-			      const struct signature *signature,
-			      const struct pubkey *key)
+bool check_signed_hash(const struct sha256_double *hash,
+		       const struct signature *signature,
+		       const struct pubkey *key)
 {
 	int ret;
 	secp256k1_context *secpctx;

@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
 		errx(1, "Delta too large");
 
 	/* Sign it for them. */
-	sign_tx_input(ctx, commit, 0, redeemscript, tal_count(redeemscript),
+	sign_tx_input(commit, 0, redeemscript, tal_count(redeemscript),
 		      &privkey, &pubkey1, &sig.sig);
 
 	pkt = update_accept_pkt(ctx, &sig.sig, &revocation_hash);

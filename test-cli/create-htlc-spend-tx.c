@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
 	/* Now get signature, to set up input script. */
-	if (!sign_tx_input(tx, tx, 0, redeemscript, tal_count(redeemscript),
+	if (!sign_tx_input(tx, 0, redeemscript, tal_count(redeemscript),
 			   &privkey, &key, &sig.sig))
 		errx(1, "Could not sign tx");
 

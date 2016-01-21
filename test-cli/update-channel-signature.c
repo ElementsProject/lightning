@@ -106,7 +106,7 @@ int main(int argc, char *argv[])
 		errx(1, "Invalid public open-channel-file2");
 
 	/* Sign it for them. */
-	sign_tx_input(ctx, commit, 0, redeemscript, tal_count(redeemscript),
+	sign_tx_input(commit, 0, redeemscript, tal_count(redeemscript),
 		      &privkey, &pubkey1, &sig.sig);
 
 	pkt = update_signature_pkt(ctx, &sig.sig, &preimage);

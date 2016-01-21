@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 
 	/* Sign it for them. */
 	subscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
-	sign_tx_input(ctx, commit, 0, subscript, tal_count(subscript),
+	sign_tx_input(commit, 0, subscript, tal_count(subscript),
 		      &privkey, &pubkey1, &sig);
 
 	pkt = open_commit_sig_pkt(ctx, &sig);

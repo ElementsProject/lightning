@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 				   cstate->b.pay_msat / 1000);
 
 	/* Sign it for them. */
-	sign_tx_input(ctx, close_tx, 0, redeemscript, tal_count(redeemscript),
+	sign_tx_input(close_tx, 0, redeemscript, tal_count(redeemscript),
 		      &privkey, &pubkey1, &sig);
 
 	if (close_file)

@@ -3,7 +3,7 @@
 #include "config.h"
 #include "secp256k1.h"
 #include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
+#include <stdbool.h>
 
 enum sighash_type {
     SIGHASH_ALL = 1,
@@ -28,12 +28,16 @@ struct privkey;
 struct bitcoin_tx_output;
 struct bitcoin_signature;
 
-bool sign_hash(const tal_t *ctx, const struct privkey *p,
+bool sign_hash(const struct privkey *p,
 	       const struct sha256_double *h,
 	       struct signature *s);
 
+bool check_signed_hash(const struct sha256_double *hash,
+		       const struct signature *signature,
+		       const struct pubkey *key);
+
 /* All tx input scripts must be set to 0 len. */
-bool sign_tx_input(const tal_t *ctx, struct bitcoin_tx *tx,
+bool sign_tx_input(struct bitcoin_tx *tx,
 		   unsigned int in,
 		   const u8 *subscript, size_t subscript_len,
 		   const struct privkey *privkey, const struct pubkey *pubkey,

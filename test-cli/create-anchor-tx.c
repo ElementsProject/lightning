@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
 	/* Now, sign each input. */
 	for (i = 0; i < tal_count(in); i++) {
 		in[i].sig.stype = SIGHASH_ALL;
-		if (!sign_tx_input(ctx, anchor, i, in[i].in.script,
+		if (!sign_tx_input(anchor, i, in[i].in.script,
 				   in[i].in.script_length,
 				   &in[i].privkey, &in[i].pubkey,
 				   &in[i].sig.sig))

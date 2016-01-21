@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 
 	/* We generate our signature. */
 	sig1.stype = SIGHASH_ALL;
-	sign_tx_input(ctx, commit, 0, redeemscript, tal_count(redeemscript),
+	sign_tx_input(commit, 0, redeemscript, tal_count(redeemscript),
 		      &privkey, &pubkey1, &sig1.sig);
 
 	/* Check it works with theirs... */
