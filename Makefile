@@ -203,7 +203,29 @@ test-onion4: test/test_onion test/onion_key
 
 check: test-cli-tests test-onion
 
-full-check: check $(TEST_PROGRAMS)
+# Keep includes in alpha order.
+check-src-include-order/%: %
+	@if [ "$$(grep '^#include' < $<)" != "$$(grep '^#include' < $< | LC_ALL=C sort)" ]; then echo "$<:1: includes out of order"; grep '^#include' < $<; echo VERSUS; grep '^#include' < $< | LC_ALL=C sort; exit 1; fi
+
+# Keep includes in alpha order, after including "config.h"
+check-hdr-include-order/%: %
+	@if [ "$$(grep '^#include' < $< | head -n1)" != '#include "config.h"' ]; then echo "$<:1: doesn't include config.h first"; exit 1; fi
+	@if [ "$$(grep '^#include' < $< | tail -n +2)" != "$$(grep '^#include' < $< | tail -n +2 | LC_ALL=C sort)" ]; then echo "$<:1: includes out of order"; exit 1; fi
+
+# Make sure Makefile includes all headers.
+check-makefile:
+	@if [ "`echo bitcoin/*.h`" != "$(BITCOIN_HEADERS)" ]; then echo BITCOIN_HEADERS incorrect; exit 1; fi
+	@if [ "`echo test-cli/*.h`" != "$(TEST_CLI_HEADERS)" ]; then echo TEST_CLI_HEADERS incorrect; exit 1; fi
+	@if [ x"`ls *.h | grep -v ^gen_ | fgrep -v lightning.pb-c.h | tr '\n' ' '`" != x"$(CORE_HEADERS) " ]; then echo CORE_HEADERS incorrect; exit 1; fi
+	@if [ x"$(CCANDIR)/config.h `find $(CCANDIR)/ccan -name '*.h' | grep -v /test/ | LC_ALL=C sort | tr '\n' ' '`" != x"$(CCAN_HEADERS) " ]; then echo CCAN_HEADERS incorrect; exit 1; fi
+
+check-source: check-makefile				\
+	$(CORE_SRC:%=check-src-include-order/%)		\
+	$(BITCOIN_SRC:%=check-src-include-order/%)	\
+	$(CORE_HEADERS:%=check-hdr-include-order/%)	\
+	$(BITCOIN_HEADERS:%=check-hdr-include-order/%)
+
+full-check: check $(TEST_PROGRAMS) check-source
 	test/test_state_coverage
 
 TAGS: FORCE
