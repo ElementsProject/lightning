@@ -1,4 +1,7 @@
 #include <ccan/build_assert/build_assert.h>
+#ifndef TEST_STATE_COVERAGE
+#include <daemon/peer.h>
+#endif
 #include <state.h>
 
 static inline bool high_priority(enum state state)

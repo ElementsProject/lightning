@@ -927,6 +927,7 @@ bool committed_to_htlcs(const struct peer *peer)
 	return peer->num_htlcs_to_them != 0 || peer->num_htlcs_to_us != 0;
 }
 
+#define TEST_STATE_COVERAGE 1
 #include "state.c"
 #include <ccan/tal/tal.h>
 #include <stdio.h>
