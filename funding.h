@@ -85,4 +85,22 @@ void funding_add_htlc(struct channel_oneside *creator,
 		      u32 msatoshis, const struct abs_locktime *expiry,
 		      const struct sha256 *rhash);
 
+/**
+ * funding_find_htlc: find an HTLC on this side of the channel.
+ * @creator: channel_state->a or channel_state->b, whichever originated htlc
+ * @rhash: hash of redeem secret
+ *
+ * Returns a number < tal_count(creator->htlcs), or == tal_count(creator->htlcs)
+ * on fail.
+ */
+size_t funding_find_htlc(struct channel_oneside *creator,
+			 const struct sha256 *rhash);
+
+/**
+ * funding_remove_htlc: remove an HTLC from this side of the channel.
+ * @creator: channel_state->a or channel_state->b, whichever originated htlc
+ * @i: index returned from funding_find_htlc.
+ */
+void funding_remove_htlc(struct channel_oneside *creator, size_t i);
+
 #endif /* LIGHTNING_FUNDING_H */

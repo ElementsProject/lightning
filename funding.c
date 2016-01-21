@@ -1,5 +1,6 @@
 #include "funding.h"
 #include <assert.h>
+#include <ccan/structeq/structeq.h>
 #include <string.h>
 
 static bool subtract_fees(uint64_t *funder, uint64_t *non_funder,
@@ -152,6 +153,27 @@ void funding_add_htlc(struct channel_oneside *creator,
 	creator->htlcs[n].msatoshis = msatoshis;
 	creator->htlcs[n].expiry = *expiry;
 	creator->htlcs[n].rhash = *rhash;
+}
+
+size_t funding_find_htlc(struct channel_oneside *creator,
+			 const struct sha256 *rhash)
+{
+	size_t i;
+
+	for (i = 0; i < tal_count(creator->htlcs); i++) {
+		if (structeq(&creator->htlcs[i].rhash, rhash))
+			break;
+	}
+	return i;
+}
+
+void funding_remove_htlc(struct channel_oneside *creator, size_t i)
+{
+	size_t n = tal_count(creator->htlcs);
+	assert(i < n);
+	memmove(creator->htlcs + i, creator->htlcs + i + 1,
+		(n - i - 1) * sizeof(*creator->htlcs));
+	tal_resize(&creator->htlcs, n-1);
 }
 
 struct channel_state *copy_funding(const tal_t *ctx,
