@@ -232,6 +232,19 @@ static const struct json_command rhash_command = {
 	"Returns a hash value"
 };
 
+static void json_crash(struct command *cmd,
+		       const char *buffer, const jsmntok_t *params)
+{
+	fatal("Crash at user request");
+}
+
+static const struct json_command crash_command = {
+	"dev-crash",
+	json_crash,
+	"Call fatal().",
+	"Simple crash test for developers"
+};
+
 static const struct json_command *cmdlist[] = {
 	&help_command,
 	&stop_command,
@@ -244,7 +257,8 @@ static const struct json_command *cmdlist[] = {
 	/* Developer/debugging options. */
 	&echo_command,
 	&rhash_command,
-	&mocktime_command
+	&mocktime_command,
+	&crash_command
 };
 
 static void json_help(struct command *cmd,
