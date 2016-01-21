@@ -93,6 +93,18 @@ $LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"them" : { "pay" : 0, "fee" 
 $LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"them" : { "pay" : 948999000, "fee" : 50000000, "htlcs" : [ { "msatoshis" : 1000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ]'
 $LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"us" : { "pay" : 0, "fee" : 0, "htlcs" : [ ]'
 
+$LCLI2 fulfillhtlc $ID1 $SECRET
+
+$LCLI1 getpeers
+# We've transferred the HTLC amount to 2, who now has to pay fees.
+$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"us" : { "pay" : 949999000, "fee" : 49000000, "htlcs" : [ ]'
+$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"them" : { "pay" : 0, "fee" : 1000000, "htlcs" : [ ]'
+
+$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"them" : { "pay" : 949999000, "fee" : 49000000, "htlcs" : [ ]'
+$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"us" : { "pay" : 0, "fee" : 1000000, "htlcs" : [ ]'
+
+sleep 1
+
 $LCLI1 stop
 $LCLI2 stop
 scripts/shutdown.sh

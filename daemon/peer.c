@@ -1070,3 +1070,90 @@ const struct json_command newhtlc_command = {
 	"Offer {id} an HTLC worth {msatoshis} in {expiry} (in seconds since Jan 1 1970) with {rhash}",
 	"Returns an empty result on success"
 };
+
+static void json_fulfillhtlc(struct command *cmd,
+			     const char *buffer, const jsmntok_t *params)
+{
+	struct peer *peer;
+	jsmntok_t *idtok, *rtok;
+	struct pubkey id;
+	struct sha256 rhash;
+	struct htlc_progress *cur;
+	size_t i;
+
+	json_get_params(buffer, params,
+			"id", &idtok,
+			"r", &rtok,
+			NULL);
+
+	if (!idtok || !rtok) {
+		command_fail(cmd, "Need id and r");
+		return;
+	}
+
+	if (!pubkey_from_hexstr(cmd->dstate->secpctx,
+				buffer + idtok->start,
+				idtok->end - idtok->start, &id)) {
+		command_fail(cmd, "Not a valid id");
+		return;
+	}
+	peer = find_peer(cmd->dstate, &id);
+	if (!peer) {
+		command_fail(cmd, "Could not find peer with that id");
+		return;
+	}
+
+	/* Attach to cmd until it's complete. */
+	cur = tal(cmd, struct htlc_progress);
+
+	if (!hex_decode(buffer + rtok->start,
+			rtok->end - rtok->start,
+			&cur->r, sizeof(cur->r))) {
+		command_fail(cmd, "'%.*s' is not a valid sha256 preimage",
+			     (int)(rtok->end - rtok->start),
+			     buffer + rtok->start);
+		return;
+	}
+
+	sha256(&rhash, &cur->r, sizeof(cur->r));
+
+	i = funding_find_htlc(&peer->cstate->b, &rhash);
+	if (i == tal_count(peer->cstate->b.htlcs)) {
+		command_fail(cmd, "'%.*s' preimage htlc not found",
+			     (int)(rtok->end - rtok->start),
+			     buffer + rtok->start);
+		return;
+	}
+	cur->htlc = &peer->cstate->b.htlcs[i];
+
+	/* Removing it should not fail: we gain HTLC amount */
+	cur->cstate = copy_funding(cur, peer->cstate);
+	if (!funding_delta(peer->them.offer_anchor == CMD_OPEN_WITH_ANCHOR,
+			   peer->anchor.satoshis,
+			   -cur->htlc->msatoshis,
+			   -cur->htlc->msatoshis,
+			   &cur->cstate->b, &cur->cstate->a)) {
+		fatal("Unexpected failure fulfilling HTLC of %"PRIu64
+		      " milli-satoshis", cur->htlc->msatoshis);
+		return;
+	}
+	funding_remove_htlc(&cur->cstate->b, i);
+
+	peer_get_revocation_hash(peer, peer->num_htlcs+1,
+				 &cur->our_revocation_hash);
+
+	peer->current_htlc = tal_steal(peer, cur);
+	peer->jsoncmd = cmd;
+
+	/* FIXME: do we need this? */
+	peer->cmddata.htlc_prog = peer->current_htlc;
+	peer->cmd = CMD_SEND_HTLC_FULFILL;
+	try_command(peer);
+}
+	
+const struct json_command fulfillhtlc_command = {
+	"fulfillhtlc",
+	json_fulfillhtlc,
+	"Redeem htlc proposed by {id} using {r}",
+	"Returns an empty result on success"
+};

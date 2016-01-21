@@ -30,9 +30,15 @@ struct peer_visible_state {
 };
 
 struct htlc_progress {
+	/* The HTLC we're working on. */
+	struct channel_htlc *htlc;
+
+	/* Set if we're fulfilling. */
+	struct sha256 r;
+	
+	/* Our next state. */
 	/* Channel funding state, after we've completed htlc. */
 	struct channel_state *cstate;
-	struct channel_htlc *htlc;
 	struct sha256 our_revocation_hash, their_revocation_hash;
 	struct bitcoin_tx *our_commit, *their_commit;
 	struct bitcoin_signature their_sig;

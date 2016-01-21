@@ -149,7 +149,14 @@ Pkt *pkt_htlc_update(const tal_t *ctx, const struct peer *peer,
 Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct peer *peer,
 		      const struct htlc_progress *htlc_prog)
 {
-	FIXME_STUB(peer);
+	UpdateFulfillHtlc *f = tal(ctx, UpdateFulfillHtlc);
+
+	update_fulfill_htlc__init(f);
+
+	f->revocation_hash = sha256_to_proto(f, &htlc_prog->our_revocation_hash);
+	f->r = sha256_to_proto(f, &htlc_prog->r);
+
+	return make_pkt(ctx, PKT__PKT_UPDATE_FULFILL_HTLC, f);
 }
 
 Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct peer *peer,
@@ -437,7 +444,51 @@ Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
 Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
 			     struct peer *peer, const Pkt *pkt)
 {
-	FIXME_STUB(peer);
+	const UpdateFulfillHtlc *f = pkt->update_fulfill_htlc;
+	struct htlc_progress *cur = tal(peer, struct htlc_progress);
+	Pkt *err;
+	size_t i;
+	struct sha256 rhash, r;
+
+	proto_to_sha256(f->r, &r);
+	proto_to_sha256(f->revocation_hash, &cur->their_revocation_hash);
+	sha256(&rhash, &r, sizeof(r));
+	i = funding_find_htlc(&peer->cstate->a, &rhash);
+	if (i == tal_count(peer->cstate->a.htlcs)) {
+		err = pkt_err(ctx, "Unknown HTLC");
+		goto fail;
+	}
+
+	cur->htlc = &peer->cstate->a.htlcs[i];
+
+	/* Removing it should not fail: they gain HTLC amount */
+	cur->cstate = copy_funding(cur, peer->cstate);
+	if (!funding_delta(peer->us.offer_anchor == CMD_OPEN_WITH_ANCHOR,
+			   peer->anchor.satoshis,
+			   -cur->htlc->msatoshis,
+			   -cur->htlc->msatoshis,
+			   &cur->cstate->a, &cur->cstate->b)) {
+		fatal("Unexpected failure fulfilling HTLC of %"PRIu64
+		      " milli-satoshis", cur->htlc->msatoshis);
+	}
+	funding_remove_htlc(&cur->cstate->a, i);
+	
+	peer_get_revocation_hash(peer, peer->num_htlcs+1,
+				 &cur->our_revocation_hash);
+
+	/* Now we create the commit tx pair. */
+	make_commit_txs(cur, peer, &cur->our_revocation_hash,
+			&cur->their_revocation_hash,
+			cur->cstate,
+			&cur->our_commit, &cur->their_commit);
+
+	assert(!peer->current_htlc);
+	peer->current_htlc = cur;
+	return NULL;
+
+fail:
+	tal_free(cur);
+	return err;
 }
 
 static u64 total_funds(const struct channel_oneside *c)
