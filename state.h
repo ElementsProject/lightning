@@ -8,7 +8,6 @@
 
 enum state_effect_type {
 	STATE_EFFECT_broadcast_tx,
-	STATE_EFFECT_send_pkt,
 	STATE_EFFECT_watch,
 	STATE_EFFECT_unwatch,
 	/* FIXME: Use a watch for this?. */
@@ -33,9 +32,6 @@ struct state_effect {
 	union {
 		/* Transaction to broadcast. */
 		struct bitcoin_tx *broadcast_tx;
-
-		/* Packet to send. */
-		Pkt *send_pkt;
 
 		/* Event to watch for. */
 		struct watch *watch;
@@ -84,6 +80,7 @@ enum command_status state(const tal_t *ctx,
 			  struct peer *peer,
 			  const enum state_input input,
 			  const union input *idata,
+			  Pkt **out,
 			  struct state_effect **effect);
 
 /* Any CMD_SEND_HTLC_* */

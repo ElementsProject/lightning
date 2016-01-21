@@ -84,10 +84,18 @@ static void complete_cmd(struct peer *peer, enum command_status *statusp,
 	*statusp = status;
 }
 
+static void queue_pkt(Pkt **out, Pkt *pkt)
+{
+	assert(!*out);
+	assert(pkt);
+	*out = pkt;
+}
+
 enum command_status state(const tal_t *ctx,
 			  struct peer *peer,
 			  const enum state_input input,
 			  const union input *idata,
+			  Pkt **out,
 			  struct state_effect **effect)
 {
 	Pkt *decline;
@@ -95,6 +103,8 @@ enum command_status state(const tal_t *ctx,
 	Pkt *err;
 	struct htlc_watch *htlcs;
 	enum command_status cstatus = CMD_NONE;
+
+	*out = NULL;
 
 	/* NULL-terminated linked list. */
 	*effect = NULL;
@@ -105,7 +115,7 @@ enum command_status state(const tal_t *ctx,
 	 */
 	case STATE_INIT:
 		if (input_is(input, CMD_OPEN_WITH_ANCHOR)) {
-			add_effect(effect, send_pkt,
+			queue_pkt(out,
 				   pkt_open(ctx, peer,
 					    OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR));
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
@@ -113,7 +123,7 @@ enum command_status state(const tal_t *ctx,
 					  STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR);
 		} else if (input_is(input, CMD_OPEN_WITHOUT_ANCHOR)) {
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
-			add_effect(effect, send_pkt,
+			queue_pkt(out,
 				   pkt_open(ctx, peer,
 					    OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR));
 			return next_state(peer, cstatus,
@@ -143,7 +153,7 @@ enum command_status state(const tal_t *ctx,
 				complete_cmd(peer, &cstatus, CMD_FAIL);
 				goto err_close_nocleanup;
 			}
-			add_effect(effect, send_pkt, pkt_anchor(ctx, peer));
+			queue_pkt(out, pkt_anchor(ctx, peer));
 			return next_state(peer, cstatus,
 					  STATE_OPEN_WAIT_FOR_COMMIT_SIG);
 		} else if (input_is(input, CMD_CLOSE)) {
@@ -161,7 +171,7 @@ enum command_status state(const tal_t *ctx,
 				complete_cmd(peer, &cstatus, CMD_FAIL);
 				goto err_close_nocleanup;
 			}
-			add_effect(effect, send_pkt,
+			queue_pkt(out,
 				   pkt_open_commit_sig(ctx, peer));
 			add_effect(effect, watch,
 				   bitcoin_watch_anchor(ctx, peer,
@@ -216,7 +226,7 @@ enum command_status state(const tal_t *ctx,
 	/* Fall thru */
 	case STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED:
 		if (input_is(input, BITCOIN_ANCHOR_DEPTHOK)) {
-			add_effect(effect, send_pkt,
+			queue_pkt(out,
 				   pkt_open_complete(ctx, peer));
 			if (peer->state == STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED) {
 				complete_cmd(peer, &cstatus, CMD_SUCCESS);
@@ -274,11 +284,11 @@ enum command_status state(const tal_t *ctx,
 	case STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED:
 		if (input_is(input, BITCOIN_ANCHOR_TIMEOUT)) {
 			/* Anchor didn't reach blockchain in reasonable time. */
-			add_effect(effect, send_pkt,
+			queue_pkt(out,
 				   pkt_err(ctx, "Anchor timed out"));
 			return next_state(peer, cstatus, STATE_ERR_ANCHOR_TIMEOUT);
 		} else if (input_is(input, BITCOIN_ANCHOR_DEPTHOK)) {
-			add_effect(effect, send_pkt,
+			queue_pkt(out,
 				   pkt_open_complete(ctx, peer));
 			if (peer->state == STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED) {
 				complete_cmd(peer, &cstatus, CMD_SUCCESS);
@@ -372,7 +382,7 @@ enum command_status state(const tal_t *ctx,
 		assert(peer->cond == PEER_CMD_OK);
 		if (input_is(input, CMD_SEND_HTLC_UPDATE)) {
 			/* We are to send an HTLC update. */
-			add_effect(effect, send_pkt,
+			queue_pkt(out,
 				   pkt_htlc_update(ctx, peer,
 						   idata->htlc_prog));
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
@@ -380,7 +390,7 @@ enum command_status state(const tal_t *ctx,
 					  prio(peer->state, STATE_WAIT_FOR_HTLC_ACCEPT));
 		} else if (input_is(input, CMD_SEND_HTLC_FULFILL)) {
 			/* We are to send an HTLC fulfill. */
-			add_effect(effect, send_pkt,
+			queue_pkt(out,
 				   pkt_htlc_fulfill(ctx, peer,
 						    idata->htlc_prog));
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
@@ -388,7 +398,7 @@ enum command_status state(const tal_t *ctx,
 					  prio(peer->state, STATE_WAIT_FOR_UPDATE_ACCEPT));
 		} else if (input_is(input, CMD_SEND_HTLC_TIMEDOUT)) {
 			/* We are to send an HTLC timedout. */
-			add_effect(effect, send_pkt,
+			queue_pkt(out,
 				   pkt_htlc_timedout(ctx, peer,
 						     idata->htlc_prog));
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
@@ -396,7 +406,7 @@ enum command_status state(const tal_t *ctx,
 					  prio(peer->state, STATE_WAIT_FOR_UPDATE_ACCEPT));
 		} else if (input_is(input, CMD_SEND_HTLC_ROUTEFAIL)) {
 			/* We are to send an HTLC routefail. */
-			add_effect(effect, send_pkt,
+			queue_pkt(out,
 				   pkt_htlc_routefail(ctx, peer,
 						      idata->htlc_prog));
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
@@ -492,7 +502,7 @@ enum command_status state(const tal_t *ctx,
 				complete_cmd(peer, &cstatus, CMD_FAIL);
 				goto err_start_unilateral_close;
 			}
-			add_effect(effect, send_pkt,
+			queue_pkt(out,
 				   pkt_update_signature(ctx, peer));
 			/* HTLC is signed (though old tx not revoked yet!) */
 			return next_state(peer, cstatus,
@@ -570,7 +580,7 @@ enum command_status state(const tal_t *ctx,
 				peer_htlc_aborted(peer);
 				goto err_start_unilateral_close;
 			}
-			add_effect(effect, send_pkt,
+			queue_pkt(out,
 				   pkt_update_complete(ctx, peer));
 			
 			peer_htlc_done(peer);
@@ -605,7 +615,7 @@ enum command_status state(const tal_t *ctx,
 							effect);
 			if (err)
 				goto err_start_unilateral_close_already_closing;
-			add_effect(effect, send_pkt,
+			queue_pkt(out,
 				   pkt_close_ack(ctx, peer));
 			add_effect(effect, broadcast_tx,
 				   bitcoin_close(ctx, peer));
@@ -618,7 +628,7 @@ enum command_status state(const tal_t *ctx,
 							    effect);
 			if (err)
 				goto err_start_unilateral_close_already_closing;
-			add_effect(effect, send_pkt,
+			queue_pkt(out,
 				   pkt_close_ack(ctx, peer));
 			add_effect(effect, broadcast_tx,
 				   bitcoin_close(ctx, peer));
@@ -642,7 +652,7 @@ enum command_status state(const tal_t *ctx,
 			err = accept_pkt_close_ack(ctx, peer, idata->pkt,
 						   effect);
 			if (err)
-				add_effect(effect, send_pkt, err);
+				queue_pkt(out, err);
 			set_peer_cond(peer, PEER_CLOSED);
 			/* Just wait for close to happen now. */
 			return next_state(peer, cstatus, STATE_CLOSE_WAIT_CLOSE);
@@ -650,7 +660,7 @@ enum command_status state(const tal_t *ctx,
 			peer_unexpected_pkt(peer, idata->pkt);
 			/* Don't reply to an error with an error. */
 			if (!input_is(input, PKT_ERROR)) {
-				add_effect(effect, send_pkt,
+				queue_pkt(out,
 					   pkt_err_unexpected(ctx, idata->pkt));
 			}
 			set_peer_cond(peer, PEER_CLOSED);
@@ -944,7 +954,7 @@ err_close_nocleanup:
 	 * Something went wrong, but we haven't sent anything to the blockchain
 	 * so there's nothing to clean up.
 	 */
-	add_effect(effect, send_pkt, err);
+	queue_pkt(out, err);
 
 close_nocleanup:
 	change_peer_cond(peer, PEER_CMD_OK, PEER_CLOSED);
@@ -954,7 +964,7 @@ err_start_unilateral_close:
 	/*
 	 * They timed out, or were broken; we are going to close unilaterally.
 	 */
-	add_effect(effect, send_pkt, err);
+	queue_pkt(out, err);
 
 start_unilateral_close:
 	/*
@@ -984,7 +994,7 @@ err_start_unilateral_close_already_closing:
 	/*
 	 * They timed out, or were broken; we are going to close unilaterally.
 	 */
-	add_effect(effect, send_pkt, err);
+	queue_pkt(out, err);
 
 start_unilateral_close_already_closing:
 	/*
@@ -1010,7 +1020,7 @@ them_unilateral:
 	/*
 	 * Bitcoind tells us they did unilateral close.
 	 */
-	add_effect(effect, send_pkt, pkt_err(ctx, "Commit tx noticed"));
+	queue_pkt(out, pkt_err(ctx, "Commit tx noticed"));
 
 	/* No more inputs, no more commands. */
 	set_peer_cond(peer, PEER_CLOSED);
@@ -1038,7 +1048,7 @@ accept_htlc_update:
 	if (err)
 		goto err_start_unilateral_close;
 	if (decline) {
-		add_effect(effect, send_pkt, decline);
+		queue_pkt(out, decline);
 		peer_htlc_declined(peer, decline);
 		/* No update means no priority change. */
 		change_peer_cond(peer, PEER_BUSY, PEER_CMD_OK);
@@ -1046,7 +1056,7 @@ accept_htlc_update:
 		return next_state_nocheck(peer, cstatus,
 					  prio(peer->state, STATE_NORMAL));
 	}
-	add_effect(effect, send_pkt, pkt_update_accept(ctx, peer));
+	queue_pkt(out, pkt_update_accept(ctx, peer));
 	return next_state(peer, cstatus,
 			  prio(peer->state, STATE_WAIT_FOR_UPDATE_SIG));
 
@@ -1054,7 +1064,7 @@ accept_htlc_routefail:
 	err = accept_pkt_htlc_routefail(ctx, peer, idata->pkt, effect);
 	if (err)
 		goto err_start_unilateral_close;
-	add_effect(effect, send_pkt, pkt_update_accept(ctx, peer));
+	queue_pkt(out, pkt_update_accept(ctx, peer));
 	return next_state(peer, cstatus,
 			  prio(peer->state, STATE_WAIT_FOR_UPDATE_SIG));
 
@@ -1062,7 +1072,7 @@ accept_htlc_timedout:
 	err = accept_pkt_htlc_timedout(ctx, peer, idata->pkt, effect);
 	if (err)
 		goto err_start_unilateral_close;
-	add_effect(effect, send_pkt, pkt_update_accept(ctx, peer));
+	queue_pkt(out, pkt_update_accept(ctx, peer));
 	return next_state(peer, cstatus,
 			  prio(peer->state, STATE_WAIT_FOR_UPDATE_SIG));
 
@@ -1070,7 +1080,7 @@ accept_htlc_fulfill:
 	err = accept_pkt_htlc_fulfill(ctx, peer, idata->pkt);
 	if (err)
 		goto err_start_unilateral_close;
-	add_effect(effect, send_pkt, pkt_update_accept(ctx, peer));
+	queue_pkt(out, pkt_update_accept(ctx, peer));
 	return next_state(peer, cstatus,
 			  prio(peer->state, STATE_WAIT_FOR_UPDATE_SIG));
 
@@ -1092,7 +1102,7 @@ start_closing:
 	set_peer_cond(peer, PEER_CLOSING);
 
 	/* As soon as we send packet, they could close. */
-	add_effect(effect, send_pkt, pkt_close(ctx, peer));
+	queue_pkt(out, pkt_close(ctx, peer));
 	return next_state(peer, cstatus, STATE_WAIT_FOR_CLOSE_COMPLETE);
 
 accept_closing:
@@ -1102,7 +1112,7 @@ accept_closing:
 	/* As soon as we send packet, they could close. */
 	add_effect(effect, watch,
 		   bitcoin_watch_close(ctx, peer, BITCOIN_CLOSE_DONE));
-	add_effect(effect, send_pkt, pkt_close_complete(ctx, peer));
+	queue_pkt(out, pkt_close_complete(ctx, peer));
 	/* No more commands, we're already closing. */
 	set_peer_cond(peer, PEER_CLOSING);
 	return next_state(peer, cstatus, STATE_WAIT_FOR_CLOSE_ACK);
@@ -1171,7 +1181,7 @@ old_commit_spotted:
 	/*
 	 * bitcoind reported a broadcast of the not-latest commit tx.
 	 */
-	add_effect(effect, send_pkt, pkt_err(ctx, "Otherspend noticed"));
+	queue_pkt(out, pkt_err(ctx, "Otherspend noticed"));
 
 	/* No more packets, no more commands. */
 	set_peer_cond(peer, PEER_CLOSED);

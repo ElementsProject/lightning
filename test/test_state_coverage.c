@@ -1475,8 +1475,7 @@ void peer_tx_revealed_r_value(struct peer *peer,
  * required. */
 static const char *apply_effects(struct peer *peer,
 				 const struct state_effect *effect,
-				 uint64_t *effects,
-				 Pkt **output)
+				 uint64_t *effects)
 {
 	const struct htlc *h;
 
@@ -1485,7 +1484,7 @@ static const char *apply_effects(struct peer *peer,
 
 	if (effect->next) {
 		const char *problem = apply_effects(peer, effect->next,
-						    effects, output);
+						    effects);
 		if (problem)
 			return problem;
 	}
@@ -1497,30 +1496,6 @@ static const char *apply_effects(struct peer *peer,
 	switch (effect->etype) {
 	case STATE_EFFECT_broadcast_tx:
 		break;
-	case STATE_EFFECT_send_pkt: {
-		const char *pkt = (const char *)effect->u.send_pkt;
-		*output = effect->u.send_pkt;
-
-		/* Check for errors. */
-		if (strstarts(pkt, "PKT_ERROR: ")) {
-			/* Some are expected. */
-			if (!streq(pkt, "PKT_ERROR: Commit tx noticed")
-			    && !streq(pkt, "PKT_ERROR: Otherspend noticed")
-			    && !streq(pkt, "PKT_ERROR: Error inject")
-			    && !streq(pkt, "PKT_ERROR: Anchor timed out")
-			    && !streq(pkt, "PKT_ERROR: Close timed out")
-			    && !streq(pkt, "PKT_ERROR: Close forced due to HTLCs")) {
-				return pkt;
-			}
-		}
-		if (peer->core.num_outputs >= ARRAY_SIZE(peer->core.outputs))
-			return "Too many outputs";
-		peer->core.outputs[peer->core.num_outputs]
-			= input_by_name(pkt);
-		peer->pkt_data[peer->core.num_outputs++]
-			= htlc_id_from_pkt(effect->u.send_pkt);
-		break;
-	}
 	case STATE_EFFECT_watch:
 		/* We can have multiple steals or spendtheirs
 		   in flight, so make exceptions for
@@ -1693,11 +1668,10 @@ static const char *apply_all_effects(const struct peer *old,
 				     enum state_input input,
 				     struct peer *peer,
 				     const struct state_effect *effect,
-				     Pkt **output)
+				     Pkt *output)
 {
 	const char *problem;
 	uint64_t effects = 0;
-	*output = NULL;
 
 	if (cstatus != CMD_NONE) {
 		assert(peer->core.current_command != INPUT_NONE);
@@ -1724,7 +1698,29 @@ static const char *apply_all_effects(const struct peer *old,
 		peer->core.current_command = INPUT_NONE;
 	}
 
-	problem = apply_effects(peer, effect, &effects, output);
+	if (output) {
+		const char *pkt = (const char *)output;
+		/* Check for errors. */
+		if (strstarts(pkt, "PKT_ERROR: ")) {
+			/* Some are expected. */
+			if (!streq(pkt, "PKT_ERROR: Commit tx noticed")
+			    && !streq(pkt, "PKT_ERROR: Otherspend noticed")
+			    && !streq(pkt, "PKT_ERROR: Error inject")
+			    && !streq(pkt, "PKT_ERROR: Anchor timed out")
+			    && !streq(pkt, "PKT_ERROR: Close timed out")
+			    && !streq(pkt, "PKT_ERROR: Close forced due to HTLCs")) {
+				return pkt;
+			}
+		}
+		if (peer->core.num_outputs >= ARRAY_SIZE(peer->core.outputs))
+			return "Too many outputs";
+		peer->core.outputs[peer->core.num_outputs]
+			= input_by_name(pkt);
+		peer->pkt_data[peer->core.num_outputs++]
+			= htlc_id_from_pkt(output);
+	}
+	
+	problem = apply_effects(peer, effect, &effects);
 	if (!problem)
 		problem = check_changes(old, peer, input);
 	return problem;
@@ -1917,25 +1913,6 @@ static bool has_packets(const struct peer *peer)
 	return peer->core.num_outputs != 0;
 }
 
-static struct state_effect *get_effect(const struct state_effect *effect,
-				       enum state_effect_type type)
-{
-	while (effect) {
-		if (effect->etype == type)
-			break;
-		effect = effect->next;
-	}
-	return cast_const(struct state_effect *, effect);
-}
-
-static Pkt *get_send_pkt(const struct state_effect *effect)
-{
-	effect = get_effect(effect, STATE_EFFECT_send_pkt);
-	if (effect)
-		return effect->u.send_pkt;
-	return NULL;
-}			
-
 static void try_input(const struct peer *peer,
 		      enum state_input i,
 		      const union input *idata,
@@ -1959,7 +1936,7 @@ static void try_input(const struct peer *peer,
 	copy.trail = &t;
 
 	eliminate_input(&hist->inputs_per_state[copy.state], i);
-	cstatus = state(ctx, &copy, i, idata, &effect);
+	cstatus = state(ctx, &copy, i, idata, &output, &effect);
 
 	normalpath &= normal_path(i, peer->state, copy.state);
 	errorpath |= error_path(i, peer->state, copy.state);
@@ -1979,11 +1956,10 @@ static void try_input(const struct peer *peer,
 			newstr = state_name(copy.state) + 6;
 		}
 		if (newstr != oldstr || include_nops)
-			add_dot(&hist->edges, oldstr, newstr, i,
-				get_send_pkt(effect));
+			add_dot(&hist->edges, oldstr, newstr, i, output);
 	}
 
-	problem = apply_all_effects(peer, cstatus, i, &copy, effect, &output);
+	problem = apply_all_effects(peer, cstatus, i, &copy, effect, output);
 	update_trail(&t, &copy, output);
 	if (problem)
 		report_trail(&t, problem);
@@ -2374,9 +2350,11 @@ static enum state_input **map_inputs(void)
 		if (!state_is_error(i)) {
 			struct peer dummy;
 			struct state_effect *effect;
+			Pkt *dummy_pkt;
 			memset(&dummy, 0, sizeof(dummy));
 			dummy.state = i;
-			state(ctx, &dummy, INPUT_NONE, NULL, &effect);
+			state(ctx, &dummy, INPUT_NONE, NULL, &dummy_pkt,
+			      &effect);
 		}
 		inps[i] = mapping_inputs;
 	}
