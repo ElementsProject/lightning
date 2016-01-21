@@ -1,20 +1,20 @@
-#include <ccan/cast/cast.h>
 #include "privkey.h"
 #include "pubkey.h"
 #include "script.h"
 #include "secp256k1.h"
+#ifdef USE_SCHNORR
+#include "secp256k1_schnorr.h"
+#endif
 #include "shadouble.h"
 #include "signature.h"
 #include "tx.h"
 #include <assert.h>
-#ifdef USE_SCHNORR
-#include "secp256k1_schnorr.h"
-#endif
+#include <ccan/cast/cast.h>
 
 #undef DEBUG
 #ifdef DEBUG
-#include <ccan/err/err.h>
-#include <stdio.h>
+# include <ccan/err/err.h>
+# include <stdio.h>
 #define SHA_FMT					   \
 	"%02x%02x%02x%02x%02x%02x%02x%02x"	   \
 	"%02x%02x%02x%02x%02x%02x%02x%02x"	   \

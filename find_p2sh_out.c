@@ -1,9 +1,9 @@
-#include <ccan/err/err.h>
-#include <ccan/tal/tal.h>
-#include <string.h>
 #include "bitcoin/script.h"
 #include "bitcoin/tx.h"
 #include "find_p2sh_out.h"
+#include <ccan/err/err.h>
+#include <ccan/tal/tal.h>
+#include <string.h>
 
 u32 find_p2sh_out(const struct bitcoin_tx *tx, u8 *redeemscript)
 {

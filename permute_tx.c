@@ -1,6 +1,6 @@
+#include "permute_tx.h"
 #include <stdbool.h>
 #include <string.h>
-#include "permute_tx.h"
 
 static void init_map(size_t *map, size_t len)
 {

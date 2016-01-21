@@ -1,7 +1,7 @@
-#include <ccan/str/hex/hex.h>
-#include <assert.h>
-#include "pubkey.h"
 #include "privkey.h"
+#include "pubkey.h"
+#include <assert.h>
+#include <ccan/str/hex/hex.h>
 
 /* Must agree on key validity with bitcoin!  Stolen from bitcoin/src/pubkey.h's
  * GetLen:

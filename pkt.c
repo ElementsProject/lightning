@@ -1,12 +1,12 @@
-#include <ccan/crypto/sha256/sha256.h>
-#include <ccan/err/err.h>
-#include <ccan/tal/grab_file/grab_file.h>
 #include "bitcoin/address.h"
 #include "bitcoin/pubkey.h"
 #include "bitcoin/signature.h"
 #include "bitcoin/tx.h"
 #include "pkt.h"
 #include "protobuf_convert.h"
+#include <ccan/crypto/sha256/sha256.h>
+#include <ccan/err/err.h>
+#include <ccan/tal/grab_file/grab_file.h>
 
 size_t pkt_totlen(const struct pkt *pkt)
 {

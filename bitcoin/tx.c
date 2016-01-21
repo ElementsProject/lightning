@@ -1,3 +1,5 @@
+#include "tx.h"
+#include <assert.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/endian/endian.h>
 #include <ccan/err/err.h>
@@ -5,8 +7,6 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/grab_file/grab_file.h>
-#include <assert.h>
-#include "tx.h"
 
 enum styles {
 	/* Add the CT padding stuff to amount. */

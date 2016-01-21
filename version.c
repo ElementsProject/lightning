@@ -1,5 +1,5 @@
-#include "version.h"
 #include "gen_version.h"
+#include "version.h"
 #include <stdio.h>
 
 char *version_and_exit(const void *unused)
