@@ -15,6 +15,9 @@ struct peer {
 	/* The other end's address. */
 	struct netaddr addr;
 
+	/* Their ID. */
+	struct pubkey id;
+
 	/* Current received packet. */
 	Pkt *inpkt;
 	

@@ -5,6 +5,7 @@
 #include "log.h"
 #include "peer.h"
 #include <ccan/io/io.h>
+#include <ccan/list/list.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/str/str.h>
@@ -30,7 +31,9 @@ static struct io_plan *peer_test_check(struct io_conn *conn, struct peer *peer)
 	    || strcmp(peer->inpkt->error->problem, "hello") != 0)
 		fatal("Bad packet '%.6s'", peer->inpkt->error->problem);
 	log_info(peer->log, "Successful hello!");
-	return io_close(conn);
+
+	/* Sleep forever... */
+	return io_wait(conn, peer, io_close_cb, NULL);
 }
 
 static struct io_plan *peer_test_read(struct io_conn *conn, struct peer *peer)
@@ -244,4 +247,32 @@ const struct json_command connect_command = {
 	json_connect,
 	"Connect to a {host} at {port}",
 	"Returns an empty result on success"
+};
+
+/* FIXME: Somehow we should show running DNS lookups! */
+/* FIXME: Show status of peers! */
+static void json_getpeers(struct command *cmd,
+			  const char *buffer, const jsmntok_t *params)
+{
+	struct peer *p;
+	struct json_result *response = new_json_result(cmd);	
+
+	json_object_start(response, NULL);
+	json_array_start(response, "peers");
+	list_for_each(&cmd->state->peers, p, list) {
+		json_object_start(response, NULL);
+		json_add_string(response, "name", log_prefix(p->log));
+		json_add_hex(response, "id", p->id.der, pubkey_derlen(&p->id));
+		json_object_end(response);
+	}
+	json_array_end(response);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+const struct json_command getpeers_command = {
+	"getpeers",
+	json_getpeers,
+	"List the current peers",
+	"Returns a 'peers' array"
 };

@@ -361,7 +361,6 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 	struct sha256_double sha;
 	struct signature sig;
 	struct io_plan *(*cb)(struct io_conn *, struct peer *);
-	struct pubkey id;
 	Authenticate *auth;
 
 	auth = pkt_unwrap(peer, PKT__PKT_AUTH);
@@ -373,7 +372,7 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 		return io_close(conn);
 	}
 
-	if (!proto_to_pubkey(peer->state->secpctx, auth->node_id, &id)) {
+	if (!proto_to_pubkey(peer->state->secpctx, auth->node_id, &peer->id)) {
 		log_unusual(peer->log, "Invalid auth id");
 		return io_close(conn);
 	}
@@ -382,7 +381,7 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 	sha256_double(&sha,
 		      neg->our_sessionpubkey, sizeof(neg->our_sessionpubkey));
 
-	if (!check_signed_hash(peer->state->secpctx, &sha, &sig, &id)) {
+	if (!check_signed_hash(peer->state->secpctx, &sha, &sig, &peer->id)) {
 		log_unusual(peer->log, "Bad auth signature");
 		return io_close(conn);
 	}
