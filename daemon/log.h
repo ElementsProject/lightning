@@ -95,4 +95,7 @@ void log_each_line_(const struct log_record *lr,
 void log_dump_to_file(int fd, const struct log_record *lr);
 void opt_register_logging(struct log *log);
 void crashlog_activate(struct log *log);
+
+/* Before the crashlog is activated, just prints to stderr. */
+void NORETURN PRINTF_FMT(1,2) fatal(const char *fmt, ...);
 #endif /* LIGHTNING_DAEMON_LOG_H */

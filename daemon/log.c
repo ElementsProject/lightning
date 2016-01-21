@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 struct log_entry {
 	struct list_node list;
@@ -395,12 +396,15 @@ static struct log *crashlog;
 
 static void log_crash(int sig)
 {
-	log_broken(crashlog, "FATAL SIGNAL %i RECEIVED", sig);
-	/* FIXME: Backtrace! */
+	const char *logfile = NULL;
+
+	if (sig) {
+		/* FIXME: Backtrace! */
+		log_broken(crashlog, "FATAL SIGNAL %i RECEIVED", sig);
+	}
 
 	if (crashlog->lr->print == log_default_print) {
 		int fd;
-		const char *logfile;
 
 		/* We expect to be in config dir. */
 		logfile = "crash.log";
@@ -408,27 +412,37 @@ static void log_crash(int sig)
 		if (fd < 0) {
 			logfile = "/tmp/lighning-crash.log";
 			fd = open(logfile, O_WRONLY|O_CREAT, 0600);
-			if (fd < 0)
-				return;
 		}
 
 		/* Dump entire log. */
-		log_dump_to_file(fd, crashlog->lr);
-		fprintf(stderr, "Fatal signal %u (see log in %s)\n",
-			sig, logfile);
-	} else
-		/* Log is in default place. */
-		fprintf(stderr, "Fatal signal %u\n", sig);
+		if (fd >= 0) {
+			log_dump_to_file(fd, crashlog->lr);
+			close(fd);
+		} else
+			logfile = NULL;
+	}
+
+	if (sig)
+		fprintf(stderr, "Fatal signal %u. ", sig);
+	if (logfile)
+		fprintf(stderr, "Log dumped in %s", logfile);
+	fprintf(stderr, "\n");
 }
 
 void crashlog_activate(struct log *log)
 {
+	struct sigaction sa;
 	crashlog = log;
-	signal(SIGILL, log_crash);
-	signal(SIGABRT, log_crash);
-	signal(SIGFPE, log_crash);
-	signal(SIGSEGV, log_crash);
-	signal(SIGBUS, log_crash);
+
+	sa.sa_handler = log_crash;
+	sigemptyset(&sa.sa_mask);
+	/* We want to fall through to default handler */
+	sa.sa_flags = SA_RESETHAND;
+	sigaction(SIGILL, &sa, NULL);
+	sigaction(SIGABRT, &sa, NULL);
+	sigaction(SIGFPE, &sa, NULL);
+	sigaction(SIGSEGV, &sa, NULL);
+	sigaction(SIGBUS, &sa, NULL);
 }
 
 void log_dump_to_file(int fd, const struct log_record *lr)
@@ -453,4 +467,23 @@ void log_dump_to_file(int fd, const struct log_record *lr)
 	data.fd = fd;
 	log_each_line(lr, log_one_line, &data);
 	write_all(fd, "\n\n", strlen("\n\n"));
+}
+
+void fatal(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "\n");
+	va_end(ap);
+
+	/* Early on, we just dump errors to stderr. */
+	if (crashlog) {
+		va_start(ap, fmt);
+		logv(crashlog, LOG_BROKEN, fmt, ap);
+		va_end(ap);
+		log_crash(0);
+	}
+	exit(1);
 }
