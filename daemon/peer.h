@@ -26,6 +26,10 @@ struct peer {
 	
 	/* What happened. */
 	struct log *log;
+	
+	/* Keys for transactions with this peer. */
+	struct pubkey commitkey, finalkey;
+	struct peer_secrets *secrets;
 };
 
 void setup_listeners(struct lightningd_state *state, unsigned int portnum);

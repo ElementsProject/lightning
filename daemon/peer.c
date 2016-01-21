@@ -70,6 +70,7 @@ static struct peer *new_peer(struct lightningd_state *state,
 	peer->addr.type = addr_type;
 	peer->addr.protocol = addr_protocol;
 	peer->io_data = NULL;
+	peer->secrets = NULL;
 
 	/* FIXME: Attach IO logging for this peer. */
 	tal_add_destructor(peer, destroy_peer);

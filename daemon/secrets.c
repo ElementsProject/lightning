@@ -6,6 +6,7 @@
 #include "peer.h"
 #include "secrets.h"
 #include <ccan/crypto/sha256/sha256.h>
+#include <ccan/crypto/shachain/shachain.h>
 #include <ccan/mem/mem.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -33,6 +34,49 @@ void privkey_sign(struct peer *peer, const void *src, size_t len,
 		  &peer->state->secret->privkey, &h, sig);
 }
 
+struct peer_secrets {
+	/* Two private keys, one for commit txs, one for final output. */
+	struct privkey commit, final;
+	/* Seed from which we generate revocation hashes. */
+	struct sha256 revocation_seed;
+};
+
+static void new_keypair(struct lightningd_state *state,
+			struct privkey *privkey, struct pubkey *pubkey)
+{
+	do {
+		if (RAND_bytes(privkey->secret, sizeof(privkey->secret)) != 1)
+			fatal("Could not get random bytes for privkey");
+	} while (!pubkey_from_privkey(state->secpctx,
+				      privkey, pubkey, SECP256K1_EC_COMPRESSED));
+}
+
+void peer_secrets_init(struct peer *peer)
+{
+	peer->secrets = tal(peer, struct peer_secrets);
+
+	new_keypair(peer->state, &peer->secrets->commit, &peer->commitkey);
+	new_keypair(peer->state, &peer->secrets->final, &peer->finalkey);
+	if (RAND_bytes(peer->secrets->revocation_seed.u.u8,
+		       sizeof(peer->secrets->revocation_seed.u.u8)) != 1)
+		fatal("Could not get random bytes for revocation seed");
+}
+
+void peer_get_revocation_preimage(const struct peer *peer, u64 index,
+				  struct sha256 *preimage)
+{
+	shachain_from_seed(&peer->secrets->revocation_seed, index, preimage);
+}
+	
+void peer_get_revocation_hash(const struct peer *peer, u64 index,
+			      struct sha256 *rhash)
+{
+	struct sha256 preimage;
+
+	peer_get_revocation_preimage(peer, index, &preimage);
+	sha256(rhash, preimage.u.u8, sizeof(preimage.u.u8));
+}
+
 void secrets_init(struct lightningd_state *state)
 {
 	int fd;
@@ -45,15 +89,7 @@ void secrets_init(struct lightningd_state *state)
 			fatal("Failed to open privkey: %s", strerror(errno));
 
 		log_unusual(state->base_log, "Creating privkey file");
-		do {
-			if (RAND_bytes(state->secret->privkey.secret,
-				       sizeof(state->secret->privkey.secret))
-			    != 1)
-				fatal("Could not get random bytes for privkey");
-		} while (!pubkey_from_privkey(state->secpctx,
-					      &state->secret->privkey,
-					      &state->id,
-					      SECP256K1_EC_COMPRESSED));
+		new_keypair(state, &state->secret->privkey, &state->id);
 
 		fd = open("privkey", O_CREAT|O_EXCL|O_WRONLY, 0400);
 		if (fd < 0)
