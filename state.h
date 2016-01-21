@@ -13,11 +13,7 @@ enum state_effect_type {
 	STATE_EFFECT_unwatch,
 	/* FIXME: Use a watch for this?. */
 	STATE_EFFECT_close_timeout,
-	STATE_EFFECT_htlc_in_progress,
 	STATE_EFFECT_update_theirsig,
-	STATE_EFFECT_htlc_abandon,
-	STATE_EFFECT_htlc_fulfill,
-	STATE_EFFECT_r_value,
 	/* FIXME: Combine into watches? */
 	STATE_EFFECT_watch_htlcs,
 	STATE_EFFECT_unwatch_htlc,
@@ -51,21 +47,9 @@ struct state_effect {
 		/* Set a timeout for close tx. */
 		enum state_input close_timeout;
 
-		/* HTLC we're working on. */
-		struct htlc_progress *htlc_in_progress;
-
 		/* Their signature for the new commit tx. */
 		struct signature *update_theirsig;
 	
-		/* Stop working on HTLC. */
-		bool htlc_abandon;
-
-		/* Finished working on HTLC. */
-		bool htlc_fulfill;
-
-		/* R value. */
-		const struct htlc_rval *r_value;
-
 		/* HTLC outputs to watch. */
 		const struct htlc_watch *watch_htlcs;
 
@@ -132,6 +116,35 @@ struct signature;
 /* Inform peer have an unexpected packet. */
 void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt);
 
+/* Current HTLC management.
+ * The "current" htlc is set before sending CMD_SEND_HTLC_*, or by
+ * accept_pkt_htlc_*.
+ *
+ * After that the state machine manages the current htlc, eventually giving one
+ * of the following calls (which should reset the current HTLC):
+ *
+ * - peer_htlc_declined: sent PKT_UPDATE_DECLINE_HTLC.
+ * - peer_htlc_ours_deferred: their update was higher priority, retry later.
+ * - peer_htlc_added: a new HTLC was added successfully.
+ * - peer_htlc_fulfilled: an existing HTLC was fulfilled successfully.
+ * - peer_htlc_timedout: an existing HTLC was timed out successfully.
+ * - peer_htlc_routefail: an existing HTLC failed to route.
+ * - peer_htlc_aborted: eg. comms error
+ */
+
+/* Someone declined our HTLC: details in pkt (we will also get CMD_FAIL) */
+void peer_htlc_declined(struct peer *peer, const Pkt *pkt);
+/* Called when their update overrides our update cmd. */
+void peer_htlc_ours_deferred(struct peer *peer);
+/* Successfully added/fulfilled/timedout/routefail an HTLC. */
+void peer_htlc_done(struct peer *peer);
+/* Someone aborted an existing HTLC. */
+void peer_htlc_aborted(struct peer *peer);
+
+/* An on-chain transaction revealed an R value. */
+void peer_tx_revealed_r_value(struct peer *peer,
+			      const struct bitcoin_event *btc);
+
 /* Create various kinds of packets, allocated off @ctx */
 Pkt *pkt_open(const tal_t *ctx, const struct peer *peer,
 	      OpenChannel__AnchorOffer anchor);
@@ -171,40 +184,32 @@ Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
 				struct state_effect **effect);
 	
 Pkt *accept_pkt_htlc_update(const tal_t *ctx,
-			    const struct peer *peer, const Pkt *pkt,
+			    struct peer *peer, const Pkt *pkt,
 			    Pkt **decline,
-			    struct htlc_progress **htlcprog,
 			    struct state_effect **effect);
 
 Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
-			       const struct peer *peer, const Pkt *pkt,
-			       struct htlc_progress **htlcprog,
+			       struct peer *peer, const Pkt *pkt,
 			       struct state_effect **effect);
 
 Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
-			      const struct peer *peer, const Pkt *pkt,
-			      struct htlc_progress **htlcprog,
+			      struct peer *peer, const Pkt *pkt,
 			      struct state_effect **effect);
 
 Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
-			     const struct peer *peer, const Pkt *pkt,
-			     struct htlc_progress **htlcprog,
-			     struct state_effect **effect);
+			     struct peer *peer, const Pkt *pkt);
 
 Pkt *accept_pkt_update_accept(const tal_t *ctx,
-			      const struct peer *peer, const Pkt *pkt,
-			      struct signature **sig,
-			      struct state_effect **effect);
+			      struct peer *peer, const Pkt *pkt,
+			      struct signature **sig);
 
 Pkt *accept_pkt_update_complete(const tal_t *ctx,
-				const struct peer *peer, const Pkt *pkt,
-				struct state_effect **effect);
+				struct peer *peer, const Pkt *pkt);
 
 Pkt *accept_pkt_update_signature(const tal_t *ctx,
-				 const struct peer *peer,
+				 struct peer *peer,
 				 const Pkt *pkt,
-				 struct signature **sig,
-				 struct state_effect **effect);
+				 struct signature **sig);
 
 Pkt *accept_pkt_close(const tal_t *ctx,
 		      const struct peer *peer, const Pkt *pkt,
@@ -409,11 +414,5 @@ struct bitcoin_tx *bitcoin_htlc_timeout(const tal_t *ctx,
 struct bitcoin_tx *bitcoin_htlc_spend(const tal_t *ctx,
 				      const struct peer *peer,
 				      const struct htlc *htlc);
-
-struct htlc_rval *r_value_from_cmd(const tal_t *ctx,
-				   const struct peer *peer,
-				   const struct htlc *htlc);
-struct htlc_rval *bitcoin_r_value(const tal_t *ctx, const struct htlc *htlc);
-struct htlc_rval *r_value_from_pkt(const tal_t *ctx, const Pkt *pkt);
 
 #endif /* LIGHTNING_STATE_H */

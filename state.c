@@ -94,7 +94,6 @@ enum command_status state(const tal_t *ctx,
 	struct bitcoin_tx *tx;
 	Pkt *err;
 	struct htlc_watch *htlcs;
-	struct htlc_progress *htlcprog;
 	enum command_status cstatus = CMD_NONE;
 
 	/* NULL-terminated linked list. */
@@ -376,19 +375,14 @@ enum command_status state(const tal_t *ctx,
 			add_effect(effect, send_pkt,
 				   pkt_htlc_update(ctx, peer,
 						   idata->htlc_prog));
-			add_effect(effect, htlc_in_progress, idata->htlc_prog);
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			return next_state(peer, cstatus,
 					  prio(peer->state, STATE_WAIT_FOR_HTLC_ACCEPT));
 		} else if (input_is(input, CMD_SEND_HTLC_FULFILL)) {
 			/* We are to send an HTLC fulfill. */
-			/* This gives us the r value (FIXME: type!) */
-			add_effect(effect, r_value,
-				   r_value_from_cmd(ctx, peer, idata->htlc));
 			add_effect(effect, send_pkt,
 				   pkt_htlc_fulfill(ctx, peer,
 						    idata->htlc_prog));
-			add_effect(effect, htlc_in_progress, idata->htlc_prog);
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			return next_state(peer, cstatus,
 					  prio(peer->state, STATE_WAIT_FOR_UPDATE_ACCEPT));
@@ -397,7 +391,6 @@ enum command_status state(const tal_t *ctx,
 			add_effect(effect, send_pkt,
 				   pkt_htlc_timedout(ctx, peer,
 						     idata->htlc_prog));
-			add_effect(effect, htlc_in_progress, idata->htlc_prog);
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			return next_state(peer, cstatus,
 					  prio(peer->state, STATE_WAIT_FOR_UPDATE_ACCEPT));
@@ -406,7 +399,6 @@ enum command_status state(const tal_t *ctx,
 			add_effect(effect, send_pkt,
 				   pkt_htlc_routefail(ctx, peer,
 						      idata->htlc_prog));
-			add_effect(effect, htlc_in_progress, idata->htlc_prog);
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			return next_state(peer, cstatus,
 					  prio(peer->state, STATE_WAIT_FOR_UPDATE_ACCEPT));
@@ -440,16 +432,11 @@ enum command_status state(const tal_t *ctx,
 	case STATE_WAIT_FOR_HTLC_ACCEPT_HIGHPRIO:
 		/* HTLCs can also evoke a refusal. */
 		if (input_is(input, PKT_UPDATE_DECLINE_HTLC)) {
-			add_effect(effect, htlc_abandon, true);
+			peer_htlc_declined(peer, idata->pkt);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			/* No update means no priority change. */
 			return next_state(peer, cstatus,
 					  prio(peer->state, STATE_NORMAL));
-		/* They can't close with an HTLC, so only possible here */	
-		} else if (input_is(input, PKT_CLOSE)) {
-			complete_cmd(peer, &cstatus, CMD_FAIL);
-			add_effect(effect, htlc_abandon, true);
-			goto accept_closing;
 		}
 		/* Fall thru */
 	case STATE_WAIT_FOR_UPDATE_ACCEPT_LOWPRIO:
@@ -460,8 +447,8 @@ enum command_status state(const tal_t *ctx,
 				return cstatus;
 
 			/* Otherwise, process their request first: defer ours */
+			peer_htlc_ours_deferred(peer);
 			complete_cmd(peer, &cstatus, CMD_REQUEUE);
-			add_effect(effect, htlc_abandon, true);
 			/* Stay busy, since we're processing theirs. */
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			goto accept_htlc_update;
@@ -471,8 +458,8 @@ enum command_status state(const tal_t *ctx,
 				return cstatus;
 
 			/* Otherwise, process their request first: defer ours */
+			peer_htlc_ours_deferred(peer);
 			complete_cmd(peer, &cstatus, CMD_REQUEUE);
-			add_effect(effect, htlc_abandon, true);
 			/* Stay busy, since we're processing theirs. */
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			goto accept_htlc_fulfill;
@@ -482,8 +469,8 @@ enum command_status state(const tal_t *ctx,
 				return cstatus;
 
 			/* Otherwise, process their request first: defer ours */
+			peer_htlc_ours_deferred(peer);
 			complete_cmd(peer, &cstatus, CMD_REQUEUE);
-			add_effect(effect, htlc_abandon, true);
 			/* Stay busy, since we're processing theirs. */
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			goto accept_htlc_timedout;
@@ -493,77 +480,87 @@ enum command_status state(const tal_t *ctx,
 				return cstatus;
 
 			/* Otherwise, process their request first: defer ours */
+			peer_htlc_ours_deferred(peer);
 			complete_cmd(peer, &cstatus, CMD_REQUEUE);
-			add_effect(effect, htlc_abandon, true);
 			/* Stay busy, since we're processing theirs. */
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			goto accept_htlc_routefail;
 		} else if (input_is(input, PKT_UPDATE_ACCEPT)) {
 			struct signature *sig;
 			err = accept_pkt_update_accept(ctx, peer, idata->pkt,
-						       &sig, effect);
+						       &sig);
 			if (err) {
+				peer_htlc_aborted(peer);
 				complete_cmd(peer, &cstatus, CMD_FAIL);
-				add_effect(effect, htlc_abandon, true);
 				goto err_start_unilateral_close;
 			}
 			add_effect(effect, update_theirsig, sig);
 			add_effect(effect, send_pkt,
 				   pkt_update_signature(ctx, peer));
 			/* HTLC is signed (though old tx not revoked yet!) */
-			add_effect(effect, htlc_fulfill, true);
 			return next_state(peer, cstatus,
 					  prio(peer->state, STATE_WAIT_FOR_UPDATE_COMPLETE));
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT)) {
+			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			add_effect(effect, htlc_abandon, true);
 			goto anchor_unspent;
 		} else if (input_is(input, BITCOIN_ANCHOR_THEIRSPEND)) {
+			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			add_effect(effect, htlc_abandon, true);
 			goto them_unilateral;
 		} else if (input_is(input, BITCOIN_ANCHOR_OTHERSPEND)) {
+			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			add_effect(effect, htlc_abandon, true);
 			goto old_commit_spotted;
 		} else if (input_is(input, CMD_CLOSE)) {
+			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			add_effect(effect, htlc_abandon, true);
 			goto start_closing;
-		} else if (input_is_pkt(input)) {
+		} else if (input_is(input, PKT_CLOSE)) {
+			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			add_effect(effect, htlc_abandon, true);
+			goto accept_closing;
+		} else if (input_is_pkt(input)) {
+			peer_htlc_aborted(peer);
+			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto unexpected_pkt;
 		}
 		break;
 	case STATE_WAIT_FOR_UPDATE_COMPLETE_LOWPRIO:
 	case STATE_WAIT_FOR_UPDATE_COMPLETE_HIGHPRIO:
 		if (input_is(input, PKT_UPDATE_COMPLETE)) {
-			err = accept_pkt_update_complete(ctx, peer, idata->pkt,
-							 effect);
+			err = accept_pkt_update_complete(ctx, peer, idata->pkt);
 			if (err) {
+				peer_htlc_aborted(peer);
 				complete_cmd(peer, &cstatus, CMD_FAIL);
 				goto err_start_unilateral_close;
 			}
+			peer_htlc_done(peer);
 			complete_cmd(peer, &cstatus, CMD_SUCCESS);
 			return next_state(peer, cstatus,
 					  toggle_prio(peer->state, STATE_NORMAL));
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT)) {
+			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto anchor_unspent;
 		} else if (input_is(input, BITCOIN_ANCHOR_THEIRSPEND)) {
+			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto them_unilateral;
 		} else if (input_is(input, BITCOIN_ANCHOR_OTHERSPEND)) {
+			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto old_commit_spotted;
 		} else if (input_is(input, PKT_CLOSE)) {
+			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto accept_closing;
 		} else if (input_is(input, CMD_CLOSE)) {
+			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto start_closing;
 		} else if (input_is_pkt(input)) {
+			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto unexpected_pkt;
 		}
@@ -573,36 +570,37 @@ enum command_status state(const tal_t *ctx,
 		if (input_is(input, PKT_UPDATE_SIGNATURE)) {
 			struct signature *sig;
 			err = accept_pkt_update_signature(ctx, peer, idata->pkt,
-							  &sig, effect);
+							  &sig);
 			if (err) {
-				add_effect(effect, htlc_abandon, true);
+				peer_htlc_aborted(peer);
 				goto err_start_unilateral_close;
 			}
 			add_effect(effect, update_theirsig, sig);
 			add_effect(effect, send_pkt,
 				   pkt_update_complete(ctx, peer));
-			add_effect(effect, htlc_fulfill, true);
+			
+			peer_htlc_done(peer);
 			change_peer_cond(peer, PEER_BUSY, PEER_CMD_OK);
 			/* Toggle between high and low priority states. */
 			return next_state(peer, cstatus,
 					  toggle_prio(peer->state, STATE_NORMAL));
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT)) {
-			add_effect(effect, htlc_abandon, true);
+			peer_htlc_aborted(peer);
 			goto anchor_unspent;
 		} else if (input_is(input, BITCOIN_ANCHOR_THEIRSPEND)) {
-			add_effect(effect, htlc_abandon, true);
+			peer_htlc_aborted(peer);
 			goto them_unilateral;
 		} else if (input_is(input, BITCOIN_ANCHOR_OTHERSPEND)) {
-			add_effect(effect, htlc_abandon, true);
+			peer_htlc_aborted(peer);
 			goto old_commit_spotted;
 		} else if (input_is(input, CMD_CLOSE)) {
-			add_effect(effect, htlc_abandon, true);
+			peer_htlc_aborted(peer);
 			goto start_closing;
 		} else if (input_is(input, PKT_CLOSE)) {
-			add_effect(effect, htlc_abandon, true);
+			peer_htlc_aborted(peer);
 			goto accept_closing;
 		} else if (input_is_pkt(input)) {
-			add_effect(effect, htlc_abandon, true);
+			peer_htlc_aborted(peer);
 			goto unexpected_pkt;
 		}
 		break;
@@ -780,8 +778,7 @@ enum command_status state(const tal_t *ctx,
 						  BITS_TO_STATE(bits));
 			} else if (input_is(input, BITCOIN_HTLC_TOTHEM_SPENT)) {
 				/* They revealed R value. */
-				add_effect(effect, r_value,
-					   bitcoin_r_value(ctx, idata->htlc));
+				peer_tx_revealed_r_value(peer, idata->btc);
 				/* We don't care any more. */
 				add_effect(effect, unwatch_htlc,
 					   htlc_unwatch(ctx, idata->htlc,
@@ -807,10 +804,6 @@ enum command_status state(const tal_t *ctx,
 				tx = bitcoin_htlc_spend(ctx, peer,
 							idata->htlc);
 
-				/* This gives us the r value. */
-				add_effect(effect, r_value,
-					   r_value_from_cmd(ctx, peer,
-							    idata->htlc));
 				/* Spend it... */
 				add_effect(effect, broadcast_tx, tx);
 				/* We're done when it gets buried. */
@@ -1047,51 +1040,43 @@ them_unilateral:
 	return next_state(peer, cstatus, STATE_CLOSE_WAIT_SPENDTHEM);
 
 accept_htlc_update:
-	err = accept_pkt_htlc_update(ctx, peer, idata->pkt, &decline, &htlcprog,
-				     effect);
+	err = accept_pkt_htlc_update(ctx, peer, idata->pkt, &decline, effect);
 	if (err)
 		goto err_start_unilateral_close;
 	if (decline) {
 		add_effect(effect, send_pkt, decline);
+		peer_htlc_declined(peer, decline);
 		/* No update means no priority change. */
 		change_peer_cond(peer, PEER_BUSY, PEER_CMD_OK);
 		/* We may already be in STATE_NORMAL */
 		return next_state_nocheck(peer, cstatus,
 					  prio(peer->state, STATE_NORMAL));
 	}
-	add_effect(effect, htlc_in_progress, htlcprog);
 	add_effect(effect, send_pkt, pkt_update_accept(ctx, peer));
 	return next_state(peer, cstatus,
 			  prio(peer->state, STATE_WAIT_FOR_UPDATE_SIG));
 
 accept_htlc_routefail:
-	err = accept_pkt_htlc_routefail(ctx, peer, idata->pkt, &htlcprog,
-					effect);
+	err = accept_pkt_htlc_routefail(ctx, peer, idata->pkt, effect);
 	if (err)
 		goto err_start_unilateral_close;
-	add_effect(effect, htlc_in_progress, htlcprog);
 	add_effect(effect, send_pkt, pkt_update_accept(ctx, peer));
 	return next_state(peer, cstatus,
 			  prio(peer->state, STATE_WAIT_FOR_UPDATE_SIG));
 
 accept_htlc_timedout:
-	err = accept_pkt_htlc_timedout(ctx, peer, idata->pkt, &htlcprog,
-				       effect);
+	err = accept_pkt_htlc_timedout(ctx, peer, idata->pkt, effect);
 	if (err)
 		goto err_start_unilateral_close;
-	add_effect(effect, htlc_in_progress, htlcprog);
 	add_effect(effect, send_pkt, pkt_update_accept(ctx, peer));
 	return next_state(peer, cstatus,
 			  prio(peer->state, STATE_WAIT_FOR_UPDATE_SIG));
 
 accept_htlc_fulfill:
-	err = accept_pkt_htlc_fulfill(ctx, peer, idata->pkt, &htlcprog,
-				      effect);
+	err = accept_pkt_htlc_fulfill(ctx, peer, idata->pkt);
 	if (err)
 		goto err_start_unilateral_close;
-	add_effect(effect, htlc_in_progress, htlcprog);
 	add_effect(effect, send_pkt, pkt_update_accept(ctx, peer));
-	add_effect(effect, r_value, r_value_from_pkt(ctx, idata->pkt));
 	return next_state(peer, cstatus,
 			  prio(peer->state, STATE_WAIT_FOR_UPDATE_SIG));
 

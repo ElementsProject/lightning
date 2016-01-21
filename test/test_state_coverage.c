@@ -119,6 +119,9 @@ struct peer {
 
 	/* id == -1 if none currently. */
 	struct htlc_progress current_htlc;
+
+	/* Transitory: True if we just declined an HTLC. */
+	bool htlc_declined;
 	
 	unsigned int num_htlcs_to_them, num_htlcs_to_us;
 	struct htlc htlcs_to_them[MAX_HTLCS], htlcs_to_us[MAX_HTLCS];
@@ -479,6 +482,7 @@ static unsigned int htlc_id_from_pkt(const Pkt *pkt)
 
 static Pkt *htlc_pkt(const tal_t *ctx, const char *prefix, unsigned int id)
 {
+	assert(id != -1);
 	return (Pkt *)tal_fmt(ctx, "%s: HTLC #%u", prefix, id);
 }
 
@@ -543,6 +547,48 @@ static struct htlc *find_htlc_spend(const struct peer *peer,
 	return (struct htlc *)h;
 }
 
+/* FIXME: order functions correctly. */
+static void report_trail(const struct trail *t, const char *problem);
+
+static void set_current_htlc(struct peer *peer,
+			     unsigned int id,
+			     bool to_them, bool adding)
+{
+	if (peer->current_htlc.htlc.id != -1)
+		report_trail(peer->trail, "Already have current htlc");
+
+	assert(id != -1);
+	peer->current_htlc.htlc.id = id;
+	peer->current_htlc.htlc.to_them = to_them;
+	peer->current_htlc.adding = adding;
+}
+
+static void clear_current_htlc(struct peer *peer)
+{
+	if (peer->current_htlc.htlc.id == -1)
+		report_trail(peer->trail, "No current htlc");
+
+	peer->current_htlc.htlc.id = -1;
+}
+
+static bool rval_known(const struct peer *peer, unsigned int id)
+{
+	unsigned int i;
+
+	for (i = 0; i < peer->num_rvals_known; i++)
+		if (peer->rvals_known[i] == id)
+			return true;
+	return false;
+}
+
+static void add_rval(struct peer *peer, unsigned int id)
+{
+	if (!rval_known(peer, id)) {
+		assert(peer->num_rvals_known < ARRAY_SIZE(peer->rvals_known));
+		peer->rvals_known[peer->num_rvals_known++] = id;
+	}
+}
+
 Pkt *pkt_open(const tal_t *ctx, const struct peer *peer,
 	      OpenChannel__AnchorOffer anchor)
 {
@@ -590,17 +636,19 @@ Pkt *pkt_htlc_routefail(const tal_t *ctx, const struct peer *peer,
 
 Pkt *pkt_update_accept(const tal_t *ctx, const struct peer *peer)
 {
-	return new_pkt(ctx, PKT_UPDATE_ACCEPT);
+	return htlc_pkt(ctx, "PKT_UPDATE_ACCEPT", peer->current_htlc.htlc.id);
 }
 
 Pkt *pkt_update_signature(const tal_t *ctx, const struct peer *peer)
 {
-	return new_pkt(ctx, PKT_UPDATE_SIGNATURE);
+	return htlc_pkt(ctx, "PKT_UPDATE_SIGNATURE",
+			peer->current_htlc.htlc.id);
 }
 
 Pkt *pkt_update_complete(const tal_t *ctx, const struct peer *peer)
 {
-	return new_pkt(ctx, PKT_UPDATE_COMPLETE);
+	return htlc_pkt(ctx, "PKT_UPDATE_COMPLETE",
+			peer->current_htlc.htlc.id);
 }
 
 Pkt *pkt_err(const tal_t *ctx, const char *msg)
@@ -657,30 +705,26 @@ Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
 }
 	
 Pkt *accept_pkt_htlc_update(const tal_t *ctx,
-			    const struct peer *peer, const Pkt *pkt,
+			    struct peer *peer, const Pkt *pkt,
 			    Pkt **decline,
-			    struct htlc_progress **htlcprog,
 			    struct state_effect **effect)
 {
 	if (fail(peer, FAIL_ACCEPT_HTLC_UPDATE))
 		return pkt_err(ctx, "Error inject");
 
+	/* This is the current htlc: If they propose it, it's to us. */
+	set_current_htlc(peer, htlc_id_from_pkt(pkt), false, true);
+
 	if (fail(peer, FAIL_DECLINE_HTLC))
 		*decline = new_pkt(ctx, PKT_UPDATE_DECLINE_HTLC);
-	else {
+	else
 		*decline = NULL;
-		*htlcprog = tal(ctx, struct htlc_progress);
-		/* If they propose it, it's to us. */
-		(*htlcprog)->htlc.to_them = false;
-		(*htlcprog)->htlc.id = htlc_id_from_pkt(pkt);
-		(*htlcprog)->adding = true;
-	}
+
 	return NULL;
 }
 
 Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
-			       const struct peer *peer, const Pkt *pkt,
-			       struct htlc_progress **htlcprog,
+			       struct peer *peer, const Pkt *pkt,
 			       struct state_effect **effect)
 {
 	unsigned int id = htlc_id_from_pkt(pkt);
@@ -692,15 +736,13 @@ Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
 	/* The shouldn't fail unless it's to them */
 	assert(h->to_them);
 	
-	*htlcprog = tal(ctx, struct htlc_progress);
-	(*htlcprog)->htlc = *h;
-	(*htlcprog)->adding = false;
+	/* This is the current htlc */
+	set_current_htlc(peer, h->id, h->to_them, false);
 	return NULL;
 }
 
 Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
-			      const struct peer *peer, const Pkt *pkt,
-			      struct htlc_progress **htlcprog,
+			      struct peer *peer, const Pkt *pkt,
 			      struct state_effect **effect)
 {
 	unsigned int id = htlc_id_from_pkt(pkt);
@@ -711,17 +753,14 @@ Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
 
 	/* The shouldn't timeout unless it's to us */
 	assert(!h->to_them);
-	
-	*htlcprog = tal(ctx, struct htlc_progress);
-	(*htlcprog)->htlc = *h;
-	(*htlcprog)->adding = false;
+
+	/* This is the current htlc */
+	set_current_htlc(peer, h->id, h->to_them, false);
 	return NULL;
 }
 
 Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
-			     const struct peer *peer, const Pkt *pkt,
-			     struct htlc_progress **htlcprog,
-			     struct state_effect **effect)
+			     struct peer *peer, const Pkt *pkt)
 {
 	unsigned int id = htlc_id_from_pkt(pkt);
 	const struct htlc *h = find_htlc(peer, id);
@@ -732,17 +771,22 @@ Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
 	/* The shouldn't complete unless it's to them */
 	assert(h->to_them);
 
-	*htlcprog = tal(ctx, struct htlc_progress);
-	(*htlcprog)->htlc = *h;
-	(*htlcprog)->adding = false;
+	/* This gives us the r value. */
+	add_rval(peer, htlc_id_from_pkt(pkt));
+
+	/* This is the current htlc */
+	set_current_htlc(peer, h->id, h->to_them, false);
 	return NULL;
 }
 
 Pkt *accept_pkt_update_accept(const tal_t *ctx,
-			      const struct peer *peer, const Pkt *pkt,
-			      struct signature **sig,
-			      struct state_effect **effect)
+			      struct peer *peer, const Pkt *pkt,
+			      struct signature **sig)
 {
+	unsigned int id = htlc_id_from_pkt(pkt);
+
+	assert(id == peer->current_htlc.htlc.id);
+
 	if (fail(peer, FAIL_ACCEPT_UPDATE_ACCEPT))
 		return pkt_err(ctx, "Error inject");
 
@@ -751,22 +795,30 @@ Pkt *accept_pkt_update_accept(const tal_t *ctx,
 }
 
 Pkt *accept_pkt_update_complete(const tal_t *ctx,
-				const struct peer *peer, const Pkt *pkt,
-				struct state_effect **effect)
+				struct peer *peer, const Pkt *pkt)
 {
+	unsigned int id = htlc_id_from_pkt(pkt);
+
+	assert(id == peer->current_htlc.htlc.id);
+
 	if (fail(peer, FAIL_ACCEPT_UPDATE_COMPLETE))
 		return pkt_err(ctx, "Error inject");
+
 	return NULL;
 }
 
 Pkt *accept_pkt_update_signature(const tal_t *ctx,
-				 const struct peer *peer, const Pkt *pkt,
-				 struct signature **sig,
-				 struct state_effect **effect)
+ 				 struct peer *peer, const Pkt *pkt,
+				 struct signature **sig)
 {
+	unsigned int id = htlc_id_from_pkt(pkt);
+
+	assert(id == peer->current_htlc.htlc.id);
+
 	if (fail(peer, FAIL_ACCEPT_UPDATE_SIGNATURE))
 		return pkt_err(ctx, "Error inject");
 	*sig = (struct signature *)tal_strdup(ctx, "from PKT_UPDATE_SIGNATURE");
+
 	return NULL;
 }
 
@@ -1143,29 +1195,6 @@ struct htlc_rval {
 	unsigned int id;
 };
 	
-struct htlc_rval *r_value_from_cmd(const tal_t *ctx,
-				   const struct peer *peer,
-				   const struct htlc *htlc)
-{
-	struct htlc_rval *r = tal(ctx, struct htlc_rval);
-	r->id = htlc->id;
-	return r;
-}
-
-struct htlc_rval *bitcoin_r_value(const tal_t *ctx, const struct htlc *htlc)
-{
-	struct htlc_rval *r = tal(ctx, struct htlc_rval);
-	r->id = htlc->id;
-	return r;
-}
-
-struct htlc_rval *r_value_from_pkt(const tal_t *ctx, const Pkt *pkt)
-{
-	struct htlc_rval *r = tal(ctx, struct htlc_rval);
-	r->id = htlc_id_from_pkt(pkt);
-	return r;
-}
-
 #include "state.c"
 #include <ccan/tal/tal.h>
 #include <stdio.h>
@@ -1186,6 +1215,7 @@ static void peer_init(struct peer *peer,
 	peer->num_htlc_spends_to_them = 0;
 	peer->num_rvals_known = 0;
 	peer->error = NULL;
+	peer->htlc_declined = false;
 	memset(peer->core.outputs, 0, sizeof(peer->core.outputs));
 	peer->pkt_data[0] = -1;
 	peer->core.current_command = INPUT_NONE;
@@ -1352,22 +1382,27 @@ static void remove_htlc(struct htlc *to_us, unsigned int *num_to_us,
 	(*n)--;
 }
 
+static void remove_htlc_id(struct peer *peer, unsigned int id)
+{
+	const struct htlc *h = find_htlc(peer, id);
+
+	if (!h)
+		report_trail(peer->trail, "Removing nonexistent HTLC?");
+	if (h->to_them != peer->current_htlc.htlc.to_them)
+		report_trail(peer->trail,
+			     "Removing disagreed about to_them");
+	remove_htlc(peer->htlcs_to_us, &peer->num_htlcs_to_us,
+		    peer->htlcs_to_them, &peer->num_htlcs_to_them,
+		    ARRAY_SIZE(peer->htlcs_to_us), h);
+}
+	
+
 static bool outstanding_htlc_watches(const struct peer *peer)
 {
 	return peer->num_live_htlcs_to_us
 		|| peer->num_live_htlcs_to_them
 		|| peer->num_htlc_spends_to_us
 		|| peer->num_htlc_spends_to_them;
-}
-
-static bool rval_known(const struct peer *peer, unsigned int id)
-{
-	unsigned int i;
-
-	for (i = 0; i < peer->num_rvals_known; i++)
-		if (peer->rvals_known[i] == id)
-			return true;
-	return false;
 }
 
 void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt)
@@ -1381,6 +1416,64 @@ void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt)
 	/* Shouldn't get any other unexpected packets. */
 	report_trail(peer->trail, "Unexpected packet");
 }
+
+/* Called when their update overrides our update cmd. */
+void peer_htlc_ours_deferred(struct peer *peer)
+{
+	/* Only happens for HTLC commands of low priority. */
+	if (high_priority(peer->state))
+		report_trail(peer->trail, "Defer while high priority");
+
+	if (peer->current_htlc.htlc.id == -1)
+		report_trail(peer->trail, "Deferred with no current HTLC");
+	if (!input_is(peer->core.current_command, CMD_SEND_UPDATE_ANY))
+		report_trail(peer->trail, "Deferred their HTLC?");
+
+	/* FIXME: Expect CMD_REQUEUE */
+	clear_current_htlc(peer);
+}
+
+/* Successfully added/fulfilled/timedout/routefail an HTLC. */
+void peer_htlc_done(struct peer *peer)
+{
+	if (peer->current_htlc.htlc.id == -1)
+		report_trail(peer->trail, "Adding with no current HTLC");
+
+	if (peer->current_htlc.adding) {
+		add_htlc(peer->htlcs_to_us, &peer->num_htlcs_to_us,
+			 peer->htlcs_to_them, &peer->num_htlcs_to_them,
+			 ARRAY_SIZE(peer->htlcs_to_us),
+			 &peer->current_htlc.htlc);
+	} else {
+		remove_htlc_id(peer, peer->current_htlc.htlc.id);
+	}
+	clear_current_htlc(peer);
+}
+
+/* Someone aborted an existing HTLC update. */
+void peer_htlc_aborted(struct peer *peer)
+{
+	if (peer->current_htlc.htlc.id == -1)
+		report_trail(peer->trail, "Abort with no current HTLC");
+	clear_current_htlc(peer);
+}
+
+void peer_htlc_declined(struct peer *peer, const Pkt *pkt)
+{
+	if (peer->current_htlc.htlc.id == -1)
+		report_trail(peer->trail, "Decline with no current HTLC");
+	if (!peer->current_htlc.adding)
+		report_trail(peer->trail, "Decline but HTLC not marked for add");
+	clear_current_htlc(peer);
+	peer->htlc_declined = true;
+}
+	       
+void peer_tx_revealed_r_value(struct peer *peer,
+			      const struct bitcoin_event *btc)
+{
+	const struct htlc *htlc = (struct htlc *)btc;
+	add_rval(peer, htlc->id);
+}	
 
 /* We apply them backwards, which helps our assertions.  It's not actually
  * required. */
@@ -1463,60 +1556,8 @@ static const char *apply_effects(struct peer *peer,
 		assert(effect->u.close_timeout
 		       == INPUT_CLOSE_COMPLETE_TIMEOUT);
 		break;
-	case STATE_EFFECT_htlc_in_progress:
-		if (peer->current_htlc.htlc.id != -1)
-			return "HTLC already in progress";
-		peer->current_htlc = *effect->u.htlc_in_progress;
-		break;
 	case STATE_EFFECT_update_theirsig:
 		break;
-	case STATE_EFFECT_htlc_abandon:
-		if (peer->current_htlc.htlc.id == -1)
-			return "HTLC not in progress, can't abandon";
-		peer->current_htlc.htlc.id = -1;
-		break;
-	case STATE_EFFECT_htlc_fulfill:
-		if (peer->current_htlc.htlc.id == -1)
-			return "HTLC not in progress, can't complete";
-
-		if (peer->current_htlc.adding) {
-			add_htlc(peer->htlcs_to_us,
-				 &peer->num_htlcs_to_us,
-				 peer->htlcs_to_them,
-				 &peer->num_htlcs_to_them,
-				 ARRAY_SIZE(peer->htlcs_to_us),
-				 &peer->current_htlc.htlc);
-		} else {
-			const struct htlc *h;
-			h = find_htlc(peer,
-				      peer->current_htlc.htlc.id);
-			if (!h)
-				return "Removing nonexistent HTLC?";
-			if (h->to_them !=
-			    peer->current_htlc.htlc.to_them)
-				return "Removing disagreed about to_them";
-			remove_htlc(peer->htlcs_to_us, &peer->num_htlcs_to_us,
-				    peer->htlcs_to_them,
-				    &peer->num_htlcs_to_them,
-				    ARRAY_SIZE(peer->htlcs_to_us),
-				    h);
-		}
-		peer->current_htlc.htlc.id = -1;
-		break;
-	case STATE_EFFECT_r_value:
-		/* We set r_value when they spend an HTLC, so
-		 * we can set this multiple times (multiple commit
-		 * txs) */
-		if (!rval_known(peer, effect->u.r_value->id)) {
-			if (peer->num_rvals_known
-			    == ARRAY_SIZE(peer->rvals_known))
-				return "Too many rvals";
-
-			peer->rvals_known[peer->num_rvals_known++]
-				= effect->u.r_value->id;
-		}
-		break;
-			
 	case STATE_EFFECT_watch_htlcs:
 		assert(peer->num_live_htlcs_to_us
 		       + effect->u.watch_htlcs->num_htlcs_to_us
@@ -1632,6 +1673,9 @@ static const char *check_changes(const struct peer *old, struct peer *new,
 			return tal_fmt(NULL,
 				       "cond CLOSE with pending command %s",
 				       input_name(new->core.current_command));
+		if (new->current_htlc.htlc.id != -1)
+			return tal_fmt(NULL,
+				       "cond CLOSE with pending htlc");
 	}
 	if (new->cond == PEER_CLOSED) {
 		/* FIXME: Move to state core */
@@ -1646,6 +1690,7 @@ static const char *check_changes(const struct peer *old, struct peer *new,
 		    && new->cond != PEER_CLOSED)
 			return "packets still open after error pkt";
 	}
+
 	return NULL;
 }
 
@@ -1663,10 +1708,25 @@ static const char *apply_all_effects(const struct peer *old,
 	if (cstatus != CMD_NONE) {
 		assert(peer->core.current_command != INPUT_NONE);
 		/* We should only requeue HTLCs if we're lowprio */
-		if (cstatus == CMD_REQUEUE)
-			assert(!high_priority(old->state)
-			       && input_is(peer->core.current_command,
-					   CMD_SEND_UPDATE_ANY));
+		if (cstatus == CMD_REQUEUE) {
+			if (high_priority(old->state))
+				return "CMD_REQUEUE despite high prio state";
+			else if (!input_is(peer->core.current_command,
+					   CMD_SEND_UPDATE_ANY))
+				return tal_fmt(NULL, "CMD_REQUEUE on cmd %s",
+					       input_name(peer->core.current_command));
+			/* We expect to be replaced by their HTLC
+			 * (unless we inject an error!). */
+			if (peer->current_htlc.htlc.id == -1
+			    && peer->cond != PEER_CLOSED
+			    && !peer->htlc_declined)
+				return tal_fmt(NULL, "CMD_REQUEUE but no new htlc?");
+		} else {
+			/* Expect no HTLCs in other cases. */
+			if (peer->current_htlc.htlc.id != -1)
+				return tal_fmt(NULL, "%s but still have htlc?",
+					       cstatus_name(cstatus));
+		}
 		peer->core.current_command = INPUT_NONE;
 	}
 
@@ -1939,6 +1999,8 @@ static void try_input(const struct peer *peer,
 	if (strstarts(state_name(copy.state), "STATE_UNUSED"))
 		report_trail(&t, "Unused state");
 
+	/* Re-set htlc_declined */
+	copy.htlc_declined = false;
 
 	/* Record any output. */
 	if (output) {
@@ -2149,6 +2211,9 @@ static void run_peer(const struct peer *peer,
 	if (peer->cond == PEER_CMD_OK) {
 		unsigned int i;
 
+		/* Shouldn't be currently doing an HTLC. */
+		assert(copy.current_htlc.htlc.id == -1);
+
 		/* Add a new HTLC if not at max. */
 		if (copy.num_htlcs_to_them < MAX_HTLCS) {
 			copy.core.current_command = CMD_SEND_HTLC_UPDATE;
@@ -2156,11 +2221,17 @@ static void run_peer(const struct peer *peer,
 			idata->htlc_prog->adding = true;
 			idata->htlc_prog->htlc.to_them = true;
 			idata->htlc_prog->htlc.id = next_htlc_id();
-				
+
+			set_current_htlc(&copy,
+					 idata->htlc_prog->htlc.id,
+					 idata->htlc_prog->htlc.to_them,
+					 idata->htlc_prog->adding);
 			try_input(&copy, copy.core.current_command, idata,
 				  normalpath, errorpath,
 				  prev_trail, hist);
 			idata->htlc_prog = tal_free(idata->htlc_prog);
+			/* If it was requeued, may already be reset. */
+			copy.current_htlc.htlc.id = -1;
 		}
 
 		/* We can complete or routefail an HTLC they offered */
@@ -2168,6 +2239,11 @@ static void run_peer(const struct peer *peer,
 			idata->htlc_prog = tal(idata, struct htlc_progress);
 			idata->htlc_prog->htlc = peer->htlcs_to_us[i];
 			idata->htlc_prog->adding = false;
+
+			set_current_htlc(&copy,
+					 idata->htlc_prog->htlc.id,
+					 idata->htlc_prog->htlc.to_them,
+					 idata->htlc_prog->adding);
 
 			/* Only send this once. */
 			if (!rval_known(peer, idata->htlc_prog->htlc.id)) {
@@ -2181,6 +2257,8 @@ static void run_peer(const struct peer *peer,
 			try_input(&copy, copy.core.current_command,
 				  idata, normalpath, errorpath,
 				  prev_trail, hist);
+			/* If it was requeued, may already be reset. */
+			copy.current_htlc.htlc.id = -1;
 		}
 
 		/* We can timeout an HTLC we offered. */
@@ -2189,10 +2267,16 @@ static void run_peer(const struct peer *peer,
 			idata->htlc_prog->htlc = peer->htlcs_to_them[i];
 			idata->htlc_prog->adding = false;
 
+			set_current_htlc(&copy,
+					 idata->htlc_prog->htlc.id,
+					 idata->htlc_prog->htlc.to_them,
+					 idata->htlc_prog->adding);
 			copy.core.current_command = CMD_SEND_HTLC_TIMEDOUT;
 			try_input(&copy, copy.core.current_command,
 				  idata, normalpath, errorpath,
 				  prev_trail, hist);
+			/* If it was requeued, may already be reset. */
+			copy.current_htlc.htlc.id = -1;
 		}
 
 		/* Restore current_command */
@@ -2214,10 +2298,11 @@ static void run_peer(const struct peer *peer,
 	}
 
 	for (i = 0; i < peer->num_live_htlcs_to_them; i++) {
-		idata->htlc = (struct htlc *)&copy.live_htlcs_to_them[i];
+		idata->btc = (struct bitcoin_event *)&copy.live_htlcs_to_them[i];
 		try_input(&copy, BITCOIN_HTLC_TOTHEM_SPENT,
 			  idata, normalpath, errorpath,
 			  prev_trail, hist);
+		idata->htlc = (struct htlc *)&copy.live_htlcs_to_them[i];
 		try_input(&copy, BITCOIN_HTLC_TOTHEM_TIMEOUT,
 			  idata, normalpath, errorpath,
 			  prev_trail, hist);
