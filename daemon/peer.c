@@ -1,6 +1,8 @@
 #include "bitcoind.h"
+#include "commit_tx.h"
 #include "cryptopkt.h"
 #include "dns.h"
+#include "find_p2sh_out.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
@@ -8,6 +10,8 @@
 #include "peer.h"
 #include "secrets.h"
 #include "state.h"
+#include <bitcoin/base58.h>
+#include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
@@ -246,6 +250,8 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	/* FIXME: Make this dynamic. */
 	peer->us.commit_fee = dstate->config.commitment_fee;
 
+	peer->us.commit = peer->them.commit = NULL;
+	
 	/* FIXME: Attach IO logging for this peer. */
 	tal_add_destructor(peer, destroy_peer);
 
@@ -278,6 +284,7 @@ static struct io_plan *peer_connected_out(struct io_conn *conn,
 	}
 	log_info(peer->log, "Connected out to %s:%s",
 		 connect->name, connect->port);
+	peer->anchor.satoshis = connect->satoshis;
 
 	peer->jsoncmd = NULL;
 	command_success(connect->cmd, null_response(connect));
@@ -678,25 +685,101 @@ const struct bitcoin_tx *bitcoin_htlc_spend(const tal_t *ctx,
 	FIXME_STUB(peer);
 }
 
+static void created_anchor(struct lightningd_state *dstate,
+			   const struct bitcoin_tx *tx,
+			   struct peer *peer)
+{
+	size_t commitfee;
+
+	bitcoin_txid(tx, &peer->anchor.txid);
+	peer->anchor.index = find_p2sh_out(tx, peer->anchor.redeemscript);
+	assert(peer->anchor.satoshis == tx->output[peer->anchor.index].amount);
+	/* We'll need this later, when we're told to broadcast it. */
+	peer->anchor.tx = tal_steal(peer, tx);
+
+	commitfee = commit_fee(peer->them.commit_fee, peer->us.commit_fee);
+	peer->cstate = initial_funding(peer,
+				       peer->us.offer_anchor,
+				       peer->anchor.satoshis,
+				       commitfee);
+	if (!peer->cstate)
+		fatal("Insufficient anchor funds for commitfee");
+
+	/* Now we can make initial (unsigned!) commit txs. */
+	peer_make_commit_txs(peer);
+
+	update_state(peer, BITCOIN_ANCHOR_CREATED, NULL);
+}
+
 /* Start creation of the bitcoin anchor tx. */
 void bitcoin_create_anchor(struct peer *peer, enum state_input done)
 {
-	/* FIXME */
+	struct sha256 h;
+	struct ripemd160 redeemhash;
+	char *p2shaddr;
+
+	/* We must be offering anchor for us to try creating it */
+	assert(peer->us.offer_anchor);
+
+	sha256(&h, peer->anchor.redeemscript,
+	       tal_count(peer->anchor.redeemscript));
+	ripemd160(&redeemhash, h.u.u8, sizeof(h));
+
+	p2shaddr = p2sh_to_base58(peer, peer->dstate->config.testnet,
+				  &redeemhash);
+
+	assert(done == BITCOIN_ANCHOR_CREATED);
+
+	bitcoind_create_payment(peer->dstate, p2shaddr, peer->anchor.satoshis,
+				created_anchor, peer);
 }
 
 /* We didn't end up broadcasting the anchor: release the utxos.
  * If done != INPUT_NONE, remove existing create_anchor too. */
 void bitcoin_release_anchor(struct peer *peer, enum state_input done)
 {
-	FIXME_STUB(peer);
+	
+	/* FIXME: stop bitcoind command  */
+	log_unusual(peer->log, "Anchor not spent, please -zapwallettxs");
 }
 
 /* Get the bitcoin anchor tx. */
 const struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer)
 {
-	FIXME_STUB(peer);
+	return peer->anchor.tx;
 }
 
+void peer_make_commit_txs(struct peer *peer)
+{
+	struct channel_state their_cstate;
+
+	tal_free(peer->us.commit);
+	tal_free(peer->them.commit);
+
+	/* FIXME: Where do we update revocation_hash fields? */
+	peer->us.commit = create_commit_tx(peer,
+					   &peer->us.finalkey,
+					   &peer->them.finalkey,
+					   &peer->them.locktime,
+					   &peer->anchor.txid,
+					   peer->anchor.index,
+					   peer->anchor.satoshis,
+					   &peer->us.revocation_hash,
+					   peer->cstate);
+
+	their_cstate = *peer->cstate;
+	invert_cstate(&their_cstate);
+	peer->them.commit = create_commit_tx(peer,
+					     &peer->them.finalkey,
+					     &peer->us.finalkey,
+					     &peer->us.locktime,
+					     &peer->anchor.txid,
+					     peer->anchor.index,
+					     peer->anchor.satoshis,
+					     &peer->them.revocation_hash,
+					     &their_cstate);
+}
+	
 /* FIXME: Somehow we should show running DNS lookups! */
 /* FIXME: Show status of peers! */
 static void json_getpeers(struct command *cmd,

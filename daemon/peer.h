@@ -3,6 +3,9 @@
 #include "config.h"
 #include "bitcoin/locktime.h"
 #include "bitcoin/pubkey.h"
+#include "bitcoin/script.h"
+#include "bitcoin/shadouble.h"
+#include "funding.h"
 #include "lightning.pb-c.h"
 #include "netaddr.h"
 #include "state.h"
@@ -22,6 +25,8 @@ struct peer_visible_state {
 	u64 commit_fee;
 	/* Revocation hash for latest commit tx. */
 	struct sha256 revocation_hash;
+	/* Current commit tx. */
+	struct bitcoin_tx *commit;
 };
 
 struct peer {
@@ -45,6 +50,9 @@ struct peer {
 	/* Global state. */
 	struct lightningd_state *dstate;
 
+	/* Funding status for current commit tx (from our PoV). */
+	struct channel_state *cstate;
+
 	/* The other end's address. */
 	struct netaddr addr;
 
@@ -57,7 +65,20 @@ struct peer {
 	/* Queue of output packets. */
 	Pkt *outpkt[5];
 	size_t num_outpkt;
-	
+
+	/* Anchor tx output */
+	struct {
+		struct sha256_double txid;
+		unsigned int index;
+		u64 satoshis;
+		u8 *redeemscript;
+		/* If we created it, we keep entire tx. */
+		const struct bitcoin_tx *tx;
+	} anchor;
+
+	/* Their signature for our current commit sig. */
+	struct bitcoin_signature cur_commit_theirsig;
+
 	/* Current ongoing packetflow */
 	struct io_data *io_data;
 	
@@ -75,5 +96,7 @@ struct peer {
 };
 
 void setup_listeners(struct lightningd_state *dstate, unsigned int portnum);
+
+void peer_make_commit_txs(struct peer *peer);
 
 #endif /* LIGHTNING_DAEMON_PEER_H */

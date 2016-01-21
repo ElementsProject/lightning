@@ -6,6 +6,7 @@
 
 struct channel_state;
 struct sha256_double;
+struct sha256;
 struct pubkey;
 struct rel_locktime;
 

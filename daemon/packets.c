@@ -1,3 +1,5 @@
+#include "bitcoin/script.h"
+#include "find_p2sh_out.h"
 #include "lightningd.h"
 #include "log.h"
 #include "names.h"
@@ -67,7 +69,19 @@ Pkt *pkt_open(const tal_t *ctx, const struct peer *peer,
 	
 Pkt *pkt_anchor(const tal_t *ctx, const struct peer *peer)
 {
-	FIXME_STUB(peer);
+	struct signature sig;
+	OpenAnchor *a = tal(ctx, OpenAnchor);
+
+	open_anchor__init(a);
+	a->txid = sha256_to_proto(a, &peer->anchor.txid.sha);
+	a->output_index = peer->anchor.index;
+	a->amount = peer->anchor.satoshis;
+
+	/* Sign their commit sig */
+	peer_sign_theircommit(peer, &sig);
+	a->commit_sig = signature_to_proto(a, &sig);
+
+	return make_pkt(ctx, PKT__PKT_OPEN_ANCHOR, a);
 }
 
 Pkt *pkt_open_commit_sig(const tal_t *ctx, const struct peer *peer)
@@ -149,7 +163,7 @@ Pkt *accept_pkt_open(const tal_t *ctx,
 		     struct peer *peer, const Pkt *pkt)
 {
 	struct rel_locktime locktime;
-	OpenChannel *o = pkt->open;
+	const OpenChannel *o = pkt->open;
 
 	if (!proto_to_rel_locktime(o->delay, &locktime))
 		return pkt_err(ctx, "Invalid delay");
@@ -184,6 +198,10 @@ Pkt *accept_pkt_open(const tal_t *ctx,
 		return pkt_err(ctx, "Bad finalkey");
 	proto_to_sha256(o->revocation_hash, &peer->them.revocation_hash);
 
+	/* Redeemscript for anchor. */
+	peer->anchor.redeemscript
+		= bitcoin_redeem_2of2(peer, &peer->us.commitkey,
+				      &peer->them.commitkey);
 	return NULL;
 }
 
@@ -191,7 +209,44 @@ Pkt *accept_pkt_anchor(const tal_t *ctx,
 		       struct peer *peer,
 		       const Pkt *pkt)
 {
-	FIXME_STUB(peer);
+	const OpenAnchor *a = pkt->open_anchor;
+	u64 commitfee;
+
+	/* They must be offering anchor for us to try accepting */
+	assert(peer->us.offer_anchor == CMD_OPEN_WITHOUT_ANCHOR);
+	assert(peer->them.offer_anchor == CMD_OPEN_WITH_ANCHOR);
+
+	proto_to_sha256(a->txid, &peer->anchor.txid.sha);
+	peer->anchor.index = a->output_index;
+	peer->anchor.satoshis = a->amount;
+
+	/* Create funder's cstate, invert to get ours. */
+	commitfee = commit_fee(peer->them.commit_fee, peer->us.commit_fee);
+	peer->cstate = initial_funding(peer,
+				       peer->us.offer_anchor,
+				       peer->anchor.satoshis,
+				       commitfee);
+	if (!peer->cstate)
+		return pkt_err(ctx, "Insufficient funds for fee");
+	invert_cstate(peer->cstate);
+
+	/* Now we can make initial (unsigned!) commit txs. */
+	peer_make_commit_txs(peer);
+
+	peer->cur_commit_theirsig.stype = SIGHASH_ALL;
+	if (!proto_to_signature(a->commit_sig, &peer->cur_commit_theirsig.sig))
+		return pkt_err(ctx, "Malformed signature");
+
+	/* Their sig should sign our commit tx. */
+	if (!check_tx_sig(peer->dstate->secpctx,
+			  peer->us.commit, 0,
+			  peer->anchor.redeemscript,
+			  tal_count(peer->anchor.redeemscript),
+			  &peer->them.commitkey,
+			  &peer->cur_commit_theirsig))
+		return pkt_err(ctx, "Bad signature");
+
+	return NULL;
 }
 
 Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
