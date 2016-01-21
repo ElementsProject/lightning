@@ -1858,18 +1858,26 @@ static const char *simplify_state(enum state s)
 
 static bool waiting_statepair(enum state a, enum state b)
 {
-	if (a > b)
-		return waiting_statepair(b, a);
-
 	/* We don't need inputs if we're waiting for anchors. */
-	if (a == STATE_OPEN_WAITING_OURANCHOR)
+	if (a == STATE_OPEN_WAITING_OURANCHOR
+	    || a == STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED
+	    || a == STATE_OPEN_WAITING_THEIRANCHOR
+	    || a == STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED)
 		return true;
-	if (b == STATE_OPEN_WAITING_THEIRANCHOR)
+
+	if (b == STATE_OPEN_WAITING_OURANCHOR
+	    || b == STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED
+	    || b == STATE_OPEN_WAITING_THEIRANCHOR
+	    || b == STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED)
 		return true;
 
 	/* We don't need inputs at start of main loop. */
 	if (a == STATE_NORMAL_LOWPRIO
 	    && b == STATE_NORMAL_HIGHPRIO)
+		return true;
+
+	if (a == STATE_NORMAL_HIGHPRIO
+	    && b == STATE_NORMAL_LOWPRIO)
 		return true;
 
 	return false;
@@ -2493,13 +2501,15 @@ int main(int argc, char *argv[])
 		if (i == STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR
 		    || i == STATE_OPEN_WAIT_FOR_ANCHOR
 		    || i == STATE_OPEN_WAITING_THEIRANCHOR
+		    || i == STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED
 		    || i == STATE_OPEN_WAIT_FOR_COMPLETE_THEIRANCHOR
 		    || i == STATE_ERR_ANCHOR_TIMEOUT)
 			a_expect = false;
 		if (i == STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR
 		    || i == STATE_OPEN_WAIT_FOR_COMMIT_SIG
 		    || i == STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR
-		    || i == STATE_OPEN_WAITING_OURANCHOR)
+		    || i == STATE_OPEN_WAITING_OURANCHOR
+		    || i == STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED)
 			b_expect = false;
 		if (i == STATE_ERR_INTERNAL)
 			a_expect = b_expect = false;

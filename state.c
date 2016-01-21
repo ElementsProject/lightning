@@ -153,19 +153,24 @@ struct state_effect *state(const tal_t *ctx,
 		}
 		break;
 	case STATE_OPEN_WAITING_OURANCHOR:
+		if (input_is(input, PKT_OPEN_COMPLETE)) {
+			return next_state(ctx, effect,
+					  STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED);
+		}
+	/* Fall thru */
+	case STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED:
 		if (input_is(input, BITCOIN_ANCHOR_DEPTHOK)) {
 			add_effect(&effect, send_pkt,
 				   pkt_open_complete(ctx, peer));
+			if (state == STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED) {
+				add_effect(&effect, cmd_success, CMD_OPEN_WITH_ANCHOR);
+				return next_state(ctx, effect, STATE_NORMAL_HIGHPRIO);
+			}
 			return next_state(ctx, effect,
 					  STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR);
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT)) {
 			add_effect(&effect, cmd_fail, NULL);
 			goto anchor_unspent;
-		} else if (input_is(input, PKT_OPEN_COMPLETE)) {
-			/* Ignore until we've hit depth ourselves. */
-			add_effect(&effect, cmd_defer, input);
-			/* No state change. */
-			return effect;
 		} else if (input_is(input, BITCOIN_ANCHOR_THEIRSPEND)) {
 			/* We no longer care about anchor depth. */
 			add_effect(&effect, unwatch,
@@ -204,6 +209,12 @@ struct state_effect *state(const tal_t *ctx,
 		}
 		break;
 	case STATE_OPEN_WAITING_THEIRANCHOR:
+		if (input_is(input, PKT_OPEN_COMPLETE)) {
+			return next_state(ctx, effect,
+					  STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED);
+		}
+	/* Fall thru */
+	case STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED:
 		if (input_is(input, BITCOIN_ANCHOR_TIMEOUT)) {
 			/* Anchor didn't reach blockchain in reasonable time. */
 			add_effect(&effect, send_pkt,
@@ -212,6 +223,12 @@ struct state_effect *state(const tal_t *ctx,
 		} else if (input_is(input, BITCOIN_ANCHOR_DEPTHOK)) {
 			add_effect(&effect, send_pkt,
 				   pkt_open_complete(ctx, peer));
+			if (state == STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED) {
+				add_effect(&effect, cmd_success,
+					   CMD_OPEN_WITHOUT_ANCHOR);
+				return next_state(ctx, effect,
+						  STATE_NORMAL_LOWPRIO);
+			}
 			return next_state(ctx, effect, STATE_OPEN_WAIT_FOR_COMPLETE_THEIRANCHOR);
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT)) {
 			add_effect(&effect, cmd_fail, NULL);
@@ -227,11 +244,6 @@ struct state_effect *state(const tal_t *ctx,
 						     BITCOIN_ANCHOR_TIMEOUT));
 			add_effect(&effect, cmd_fail, NULL);
 			goto them_unilateral;
-		} else if (input_is(input, PKT_OPEN_COMPLETE)) {
-			/* Ignore until we've hit depth ourselves. */
-			add_effect(&effect, cmd_defer, input);
-			/* No state change. */
-			return effect;
 		} else if (input_is(input, CMD_CLOSE)) {
 			/* We no longer care about anchor depth. */
 			add_effect(&effect, unwatch,
