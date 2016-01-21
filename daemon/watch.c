@@ -187,7 +187,9 @@ static void tx_watched_inputs(struct lightningd_state *dstate,
 
 static void watched_transaction(struct lightningd_state *dstate,
 				const struct sha256_double *txid,
-				int confirmations)
+				int confirmations,
+				bool is_coinbase)
+
 {
 	struct txwatch *txw;
 
@@ -206,7 +208,8 @@ static void watched_transaction(struct lightningd_state *dstate,
 	insert_txwatch(dstate, dstate, NULL, txid, NULL, NULL);
 
 	/* Maybe it spent an output we're watching? */
-	bitcoind_txid_lookup(dstate, txid, tx_watched_inputs, NULL);
+	if (!is_coinbase)
+		bitcoind_txid_lookup(dstate, txid, tx_watched_inputs, NULL);
 }
 
 static struct timeout watch_timeout;

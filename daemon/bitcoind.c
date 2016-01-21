@@ -167,7 +167,7 @@ static void process_transactions(struct bitcoin_cli *bcli)
 	bool valid;
 	void (*cb)(struct lightningd_state *dstate,
 		   const struct sha256_double *txid,
-		   int confirmations) = bcli->cb;
+		   int confirmations, bool is_coinbase) = bcli->cb;
 
 	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
 	if (!tokens)
@@ -183,12 +183,13 @@ static void process_transactions(struct bitcoin_cli *bcli)
 	end = json_next(tokens);
 	for (t = tokens + 1; t < end; t = json_next(t)) {
 		struct sha256_double txid;
-		const jsmntok_t *txidtok, *conftok;
-		long int conf;
-		char *end;
+		const jsmntok_t *txidtok, *conftok, *blkindxtok;
+		unsigned int conf;
+		bool is_coinbase;
 
 		txidtok = json_get_member(bcli->output, t, "txid");
 		conftok = json_get_member(bcli->output, t, "confirmations");
+		blkindxtok = json_get_member(bcli->output, t, "blockindex");
 		if (!txidtok || !conftok)
 			fatal("listtransactions: no %s field!",
 			      txidtok ? "confirmations" : "txid");
@@ -199,27 +200,39 @@ static void process_transactions(struct bitcoin_cli *bcli)
 			      (int)(txidtok->end - txidtok->start),
 			      bcli->output + txidtok->start);
 		}
-		conf = strtol(bcli->output + conftok->start, &end, 10);
-		if (end != bcli->output + conftok->end)
+		if (!json_tok_number(bcli->output, conftok, &conf))
 			fatal("listtransactions: bad confirmations '%.*s'",
 			      (int)(conftok->end - conftok->start),
 			      bcli->output + conftok->start);
 
+		/* This can happen with zero conf. */
+		blkindxtok = json_get_member(bcli->output, t, "blockindex");
+		if (!blkindxtok)
+			is_coinbase = false;
+		else {
+			unsigned int blkidx;
+			if (!json_tok_number(bcli->output, blkindxtok, &blkidx))
+				fatal("listtransactions: bad blockindex '%.*s'",
+				      (int)(blkindxtok->end - blkindxtok->start),
+				      bcli->output + blkindxtok->start);
+			is_coinbase = (blkidx == 0);
+		}
 		/* FIXME: log txid */
 		log_debug(bcli->dstate->base_log,
-			  "txid %02x%02x%02x%02x..., conf %li",
+			  "txid %02x%02x%02x%02x..., conf %u, coinbase %u",
 			  txid.sha.u.u8[0], txid.sha.u.u8[1],
 			  txid.sha.u.u8[2], txid.sha.u.u8[3],
-			  conf);
+			  conf, is_coinbase);
 
-		cb(bcli->dstate, &txid, conf);
+		cb(bcli->dstate, &txid, conf, is_coinbase);
 	}
 }
 
 void bitcoind_poll_transactions(struct lightningd_state *dstate,
 				void (*cb)(struct lightningd_state *dstate,
 					   const struct sha256_double *txid,
-					   int confirmations))
+					   int confirmations,
+					   bool is_coinbase))
 {
 	/* FIXME: Iterate and detect duplicates. */
 	start_bitcoin_cli(dstate, process_transactions, cb, NULL,
