@@ -160,6 +160,10 @@ static void state_single(struct peer *peer,
 			   state_name(peer->state));
 		fatal("Peer entered error state");
 	}
+
+	/* Break out and free this peer if it's completely done. */
+	if (peer->state == STATE_CLOSED)
+		io_break(peer);
 }
 
 static void try_command(struct peer *peer)

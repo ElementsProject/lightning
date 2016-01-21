@@ -196,7 +196,6 @@ static void tal_freefn(void *ptr)
 int main(int argc, char *argv[])
 {
 	struct lightningd_state *dstate = lightningd_state();
-	struct timer *expired;
 	unsigned int portnum = 0;
 
 	err_set_progname(argv[0]);
@@ -261,12 +260,23 @@ int main(int argc, char *argv[])
 	
 	log_info(dstate->base_log, "Hello world!");
 
-	/* If io_loop returns NULL, either a timer expired, or all fds closed */
-	while (!io_loop(&dstate->timers, &expired) && expired) {
-		struct timeout *to;
+	for (;;) {
+		struct timer *expired;
+		void *v = io_loop(&dstate->timers, &expired);
 
-		to = container_of(expired, struct timeout, timer);
-		to->cb(to->arg);
+		/* We use io_break(dstate) to shut down. */
+		if (v == dstate)
+			break;
+
+		/* We use it on a peer when it needs freeing (may be
+		 * NULL if we only broke out due to timer). */
+		tal_free(v);
+
+		if (expired) {
+			struct timeout *to;
+			to = container_of(expired, struct timeout, timer);
+			to->cb(to->arg);
+		}
 	}
 
 	tal_free(dstate);
