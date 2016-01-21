@@ -94,6 +94,7 @@ struct peer {
 		u8 *redeemscript;
 		/* If we created it, we keep entire tx. */
 		const struct bitcoin_tx *tx;
+		struct anchor_watch *watches;
 	} anchor;
 
 	/* Their signature for our current commit sig. */
@@ -104,6 +105,7 @@ struct peer {
 	/* Number of HTLC updates (== number of previous commit txs) */
 	u64 num_htlcs;
 
+	/* FIXME: Group closing fields together in anon struct. */
 	/* Closing tx and signature once we've generated it */
 	struct bitcoin_tx *close_tx;
 	struct bitcoin_signature our_close_sig;

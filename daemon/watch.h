@@ -61,7 +61,8 @@ HTABLE_DEFINE_TYPE(struct txwatch, txwatch_keyof, txid_hash, txwatch_eq,
 		   txwatch_hash);
 
 
-void add_anchor_watch_(struct peer *peer,
+void add_anchor_watch_(const tal_t *ctx,
+		       struct peer *peer,
 		       const struct sha256_double *txid,
 		       unsigned int out,
 		       void (*anchor_cb)(struct peer *peer, int depth, void *),
@@ -69,8 +70,8 @@ void add_anchor_watch_(struct peer *peer,
 					const struct bitcoin_tx *, void *),
 		       void *cbdata);
 
-#define add_anchor_watch(peer, txid, out, anchor_cb, spend_cb, cbdata)	\
-	add_anchor_watch_((peer), (txid), (out),			\
+#define add_anchor_watch(ctx, peer, txid, out, anchor_cb, spend_cb, cbdata) \
+	add_anchor_watch_((ctx), (peer), (txid), (out),			\
 			  typesafe_cb_preargs(void, void *,		\
 					      (anchor_cb), (cbdata),	\
 					      struct peer *,		\
@@ -81,20 +82,22 @@ void add_anchor_watch_(struct peer *peer,
 					      const struct bitcoin_tx *), \
 			  (cbdata))
 
-void add_commit_tx_watch_(struct peer *peer,
+void add_commit_tx_watch_(const tal_t *ctx,
+			  struct peer *peer,
 			  const struct sha256_double *txid,
 			  void (*cb)(struct peer *peer, int depth, void *),
 			  void *cbdata);
 
-#define add_commit_tx_watch(peer, txid, cb, cbdata) \
-	add_commit_tx_watch_((peer), (txid),			  \
+#define add_commit_tx_watch(ctx, peer, txid, cb, cbdata)		  \
+	add_commit_tx_watch_((ctx), (peer), (txid),			\
 			     typesafe_cb_preargs(void, void *,		\
 						 (cb), (cbdata),	\
 						 struct peer *,		\
 						 int depth),		\
 			     (cbdata))
 
-void add_close_tx_watch(struct peer *peer,
+void add_close_tx_watch(const tal_t *ctx,
+			struct peer *peer,
 			const struct bitcoin_tx *tx,
 			void (*cb)(struct peer *peer, int depth));
 

@@ -343,6 +343,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->close_tx = NULL;
 	peer->cstate = NULL;
 	peer->close_watch_timeout = NULL;
+	peer->anchor.watches = NULL;
 
 	/* If we free peer, conn should be closed, but can't be freed
 	 * immediately so don't make peer a parent. */
@@ -545,11 +546,15 @@ const struct json_command connect_command = {
 };
 
 struct anchor_watch {
+	struct peer *peer;
 	enum state_input depthok;
 	enum state_input timeout;
 	enum state_input unspent;
 	enum state_input theyspent;
 	enum state_input otherspent;
+
+	/* If timeout != INPUT_NONE, this is the timer. */
+	struct oneshot *timer;
 };
 
 static void anchor_depthchange(struct peer *peer, int depth,
@@ -561,6 +566,8 @@ static void anchor_depthchange(struct peer *peer, int depth,
 		if (depth >= (int)peer->us.mindepth) {
 			enum state_input in = w->depthok;
 			w->depthok = INPUT_NONE;
+			/* We don't need the timeout timer any more. */
+			w->timer = tal_free(w->timer);
 			state_event(peer, in, NULL);
 		}
 	} else {
@@ -646,9 +653,18 @@ static void anchor_spent(struct peer *peer,
 	if (txmatch(tx, peer->them.commit))
 		state_event(peer, w->theyspent, &idata);
 	else if (is_mutual_close(tx, peer->close_tx))
-		add_close_tx_watch(peer, tx, close_depth_cb);
+		add_close_tx_watch(peer, peer, tx, close_depth_cb);
 	else
 		state_event(peer, w->otherspent, &idata);
+}
+
+static void anchor_timeout(struct anchor_watch *w)
+{
+	assert(w == w->peer->anchor.watches);
+	state_event(w->peer, w->timeout, NULL);
+
+	/* Freeing this gets rid of the other watches, and timer, too. */
+	w->peer->anchor.watches = tal_free(w);
 }
 
 void peer_watch_anchor(struct peer *peer,
@@ -658,27 +674,57 @@ void peer_watch_anchor(struct peer *peer,
 		       enum state_input theyspent,
 		       enum state_input otherspent)
 {
-	struct anchor_watch *w = tal(peer, struct anchor_watch);
+	struct anchor_watch *w;
 
+	w = peer->anchor.watches = tal(peer, struct anchor_watch);
+
+	w->peer = peer;
 	w->depthok = depthok;
 	w->timeout = timeout;
 	w->unspent = unspent;
 	w->theyspent = theyspent;
 	w->otherspent = otherspent;
 
-	add_anchor_watch(peer, &peer->anchor.txid, peer->anchor.index,
+	add_anchor_watch(w, peer, &peer->anchor.txid, peer->anchor.index,
 			 anchor_depthchange,
 			 anchor_spent,
 			 w);
 
-	/* FIXME: add timeout */
+	/* For anchor timeout, expect 20 minutes per block, +2 hours.
+	 *
+	 * Probability(no block in time N) = e^(-N/600).
+	 * Thus for 1 block, P = e^(-(7200+1*1200)/600) = 0.83 in a million.
+	 *
+	 * Glenn Willen says, if we want to know how many 10-minute intervals for
+	 * a 1 in a million chance of spurious failure for N blocks, put
+	 * this into http://www.wolframalpha.com:
+	 *
+	 *   e^(-x) * sum x^i / fact(i), i=0 to N < 1/1000000
+	 * 
+	 * N=20: 51
+	 * N=10: 35
+	 * N=8:  31
+	 * N=6:  28
+	 * N=4:  24
+	 * N=3:  22
+	 * N=2:  20
+	 *
+	 * So, our formula of 12 + N*2 holds for N <= 20 at least.
+	 */
+	if (w->timeout != INPUT_NONE) {
+		w->timer = oneshot_timeout(peer->dstate, w,
+					   7200 + 20*peer->us.mindepth,
+					   anchor_timeout, w);
+	} else
+		w->timer = NULL;
 }
 
 void peer_unwatch_anchor_depth(struct peer *peer,
 			       enum state_input depthok,
 			       enum state_input timeout)
 {
-	FIXME_STUB(peer);
+	assert(peer->anchor.watches);
+	peer->anchor.watches = tal_free(peer->anchor.watches);
 }
 
 void peer_watch_delayed(struct peer *peer,

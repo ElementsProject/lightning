@@ -18,12 +18,15 @@ if [ x"$1" = x"--valgrind" ]; then
     PREFIX2="valgrind --vgdb-error=1"
     REDIR1="/dev/tty"
     REDIR2="/dev/tty"
+    shift
 elif [ x"$1" = x"--gdb1" ]; then
     PREFIX1="gdb --args -ex run"
     REDIR1="/dev/tty"
+    shift
 elif [ x"$1" = x"--gdb2" ]; then
     PREFIX2="gdb --args -ex run"
     REDIR2="/dev/tty"
+    shift
 fi
 
 LCLI1="../daemon/lightning-cli --lightning-dir=$DIR1"
@@ -50,7 +53,15 @@ check_status()
 	return 1
     fi
 }
-   
+
+all_ok()
+{
+    scripts/shutdown.sh
+
+    trap "rm -rf $DIR1 $DIR2" EXIT
+    exit 0
+}
+    
 trap "echo Results in $DIR1 and $DIR2" EXIT
 mkdir $DIR1 $DIR2
 $PREFIX1 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR1 > $REDIR1 &
@@ -86,6 +97,36 @@ sleep 2
 # Expect them to be waiting for anchor.
 $LCLI1 getpeers | grep STATE_OPEN_WAITING_OURANCHOR
 $LCLI2 getpeers | grep STATE_OPEN_WAITING_THEIRANCHOR
+
+if [ "x$1" = x"--timeout-anchor" ]; then
+    # Timeout before anchor committed.
+    TIME=$((`date +%s` + 7200 + 3 * 1200 + 1))
+
+    # This will crash in a moment.
+    $LCLI1 dev-mocktime $TIME
+
+    # This will crash immediately
+    if $LCLI2 dev-mocktime $TIME >&2; then
+	echo Node2 did not crash >&2
+	exit 1
+    fi
+
+    sleep 1
+
+    # Check crash logs
+    if [ ! -f $DIR1/crash.log ]; then
+	echo Node1 did not crash >&2
+	exit 1
+    fi
+    if [ ! -f $DIR2/crash.log ]; then
+	echo Node2 did not crash >&2
+	exit 1
+    fi
+
+    fgrep 'Entered error state STATE_ERR_ANCHOR_TIMEOUT' $DIR2/crash.log
+    all_ok
+fi
+    
 
 # Now make it pass anchor.
 $CLI generate 3
@@ -158,8 +199,9 @@ $LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep '"STATE_CLOSE_WAIT_CLOSE"'
 
 # Now the final one.
 $CLI generate 1
-$LCLI1 dev-mocktime $(($EXPIRY + 33))
-$LCLI2 dev-mocktime $(($EXPIRY + 33))
+TIME=$(($EXPIRY + 33))
+$LCLI1 dev-mocktime $TIME
+$LCLI2 dev-mocktime $TIME
 sleep 1
 
 $LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep '"peers" : [ ]'
@@ -167,7 +209,5 @@ $LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep '"peers" : [ ]'
 
 $LCLI1 stop
 $LCLI2 stop
-scripts/shutdown.sh
 
-trap "rm -rf $DIR1 $DIR2" EXIT
-
+all_ok
