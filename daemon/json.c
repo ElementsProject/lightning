@@ -78,6 +78,34 @@ bool json_tok_number(const char *buffer, const jsmntok_t *tok,
 	return true;
 }
 
+bool json_tok_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
+			     uint64_t *satoshi)
+{
+	char *end;
+	unsigned long btc, sat;
+
+	btc = strtoul(buffer + tok->start, &end, 0);
+	if (btc == ULONG_MAX && errno == ERANGE)
+		return false;
+	if (end != buffer + tok->end) {
+		/* Expect always 8 decimal places. */
+		if (*end != '.' || buffer + tok->start - end != 9)
+			return false;
+		sat = strtoul(end+1, &end, 0);
+		if (sat == ULONG_MAX && errno == ERANGE)
+			return false;
+		if (end != buffer + tok->end)
+			return false;
+	} else
+		sat = 0;
+
+	*satoshi = btc * (uint64_t)100000000 + sat;
+	if (*satoshi != btc * (uint64_t)100000000 + sat)
+		return false;
+
+	return true;
+}
+
 bool json_tok_is_null(const char *buffer, const jsmntok_t *tok)
 {
 	if (tok->type != JSMN_PRIMITIVE)
