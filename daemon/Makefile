@@ -8,6 +8,7 @@ daemon-all: daemon/lightningd
 
 DAEMON_SRC :=					\
 	daemon/configdir.c			\
+	daemon/json.c				\
 	daemon/lightningd.c			\
 	daemon/log.c				\
 	daemon/pseudorand.c
@@ -18,6 +19,7 @@ DAEMON_JSMN_HEADERS := daemon/jsmn/jsmn.h
 
 DAEMON_HEADERS :=				\
 	daemon/configdir.h			\
+	daemon/json.h				\
 	daemon/lightningd.h			\
 	daemon/log.h				\
 	daemon/pseudorand.h
