@@ -31,8 +31,8 @@ LCLI2="../daemon/lightning-cli --lightning-dir=$DIR2"
 
 trap "echo Results in $DIR1 and $DIR2" EXIT
 mkdir $DIR1 $DIR2
-$PREFIX1 ../daemon/lightningd --log-level=debug --lightning-dir=$DIR1 > $REDIR1 &
-$PREFIX2 ../daemon/lightningd --log-level=debug --lightning-dir=$DIR2 > $REDIR2 &
+$PREFIX1 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --lightning-dir=$DIR1 > $REDIR1 &
+$PREFIX2 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --lightning-dir=$DIR2 > $REDIR2 &
 
 i=0
 while ! $LCLI1 getlog | grep Hello; do
@@ -65,8 +65,8 @@ $LCLI2 getpeers | grep STATE_OPEN_WAITING_THEIRANCHOR
 # Now make it pass anchor.
 $CLI generate 3
 
-# FIXME: Speed this up!
-sleep 30
+# They poll every second, so give them time to process.
+sleep 2
 
 $LCLI1 getpeers | grep STATE_NORMAL_HIGHPRIO
 $LCLI2 getpeers | grep STATE_NORMAL_LOWPRIO

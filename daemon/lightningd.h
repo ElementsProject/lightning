@@ -31,6 +31,9 @@ struct config {
 
 	/* How little are we prepared to have them pay? */
 	u64 commitment_fee_min;
+
+	/* How long (seconds) between polling bitcoind. */
+	u32 poll_seconds;
 };
 
 /* Here's where the global variables hide! */

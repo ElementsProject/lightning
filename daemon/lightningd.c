@@ -84,6 +84,9 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--min-commit-fee", opt_set_u64, opt_show_u64,
 			 &dstate->config.commitment_fee_min,
 			 "Minimum satoshis to accept for commitment transaction fee");
+	opt_register_arg("--bitcoind-poll", opt_set_u32, opt_show_u32,
+			 &dstate->config.poll_seconds,
+			 "Seconds between polling for new transactions");
 }
 
 static void default_config(struct config *config)
@@ -110,6 +113,8 @@ static void default_config(struct config *config)
 
 	/* Don't accept less than double the current standard fee. */
 	config->commitment_fee_min = 10000;
+
+	config->poll_seconds = 30;
 }
 
 static struct lightningd_state *lightningd_state(void)

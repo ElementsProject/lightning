@@ -226,7 +226,8 @@ static void start_poll_transactions(struct lightningd_state *dstate)
 
 void setup_watch_timer(struct lightningd_state *dstate)
 {
-	init_timeout(&watch_timeout, 30, start_poll_transactions, dstate);
+	init_timeout(&watch_timeout, dstate->config.poll_seconds,
+		     start_poll_transactions, dstate);
 	/* Run once immediately, in case there are issues. */
 	start_poll_transactions(dstate);
 }
