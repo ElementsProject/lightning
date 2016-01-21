@@ -1,5 +1,6 @@
 #ifndef LIGHTNING_BITCOIN_LOCKTIME_H
 #define LIGHTNING_BITCOIN_LOCKTIME_H
+#include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <stdbool.h>
 

@@ -1,14 +1,16 @@
 #ifndef LIGHTNING_PKT_H
 #define LIGHTNING_PKT_H
+#include "config.h"
+
 /* Simple (non-threadsafe!) wrapper for protobufs.
  *
  * This could be a simple set of macros, if the protobuf-c people hadn't
  * insisted on "prettifing" the names they generate into CamelCase.
  */
+#include "lightning.pb-c.h"
 #include <ccan/endian/endian.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include "lightning.pb-c.h"
 
 /* A packet, ready to be de-protobuf'ed. */
 struct pkt {

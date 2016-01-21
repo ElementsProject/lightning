@@ -1,7 +1,8 @@
 #ifndef LIGHTNING_COMMIT_TX_H
 #define LIGHTNING_COMMIT_TX_H
-#include <ccan/tal/tal.h>
+#include "config.h"
 #include "lightning.pb-c.h"
+#include <ccan/tal/tal.h>
 
 struct channel_state;
 struct sha256_double;

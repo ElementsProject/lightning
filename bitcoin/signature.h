@@ -1,8 +1,9 @@
 #ifndef LIGHTNING_BITCOIN_SIGNATURE_H
 #define LIGHTNING_BITCOIN_SIGNATURE_H
+#include "config.h"
+#include "secp256k1.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include "secp256k1.h"
 
 enum sighash_type {
     SIGHASH_ALL = 1,

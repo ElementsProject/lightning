@@ -1,8 +1,9 @@
 #ifndef LIGHTNING_BITCOIN_SCRIPT_H
 #define LIGHTNING_BITCOIN_SCRIPT_H
+#include "config.h"
+#include "signature.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include "signature.h"
 
 struct bitcoin_address;
 struct pubkey;

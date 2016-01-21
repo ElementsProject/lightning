@@ -1,8 +1,9 @@
 #ifndef LIGHTNING_BITCOIN_TX_H
 #define LIGHTNING_BITCOIN_TX_H
+#include "config.h"
+#include "shadouble.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include "shadouble.h"
 
 /* We unpack varints for our in-memory representation */
 #define varint_t u64

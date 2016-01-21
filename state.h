@@ -1,8 +1,10 @@
 #ifndef LIGHTNING_STATE_H
 #define LIGHTNING_STATE_H
+#include "config.h"
+
+#include <ccan/tal/tal.h>
 #include <state_types.h>
 #include <stdbool.h>
-#include <ccan/tal/tal.h>
 
 enum cmd_complete_status {
 	CMD_STATUS_ONGOING,

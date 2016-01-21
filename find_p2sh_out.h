@@ -1,5 +1,6 @@
 #ifndef LIGHTNING_FIND_P2SH_OUT_H
 #define LIGHTNING_FIND_P2SH_OUT_H
+#include "config.h"
 #include <ccan/short_types/short_types.h>
 
 struct bitcoin_tx;

@@ -1,5 +1,6 @@
 #ifndef LIGHTNING_OVERFLOWS_H
 #define LIGHTNING_OVERFLOWS_H
+#include "config.h"
 
 static inline bool add_overflows_size_t(uint64_t a, uint64_t b)
 {

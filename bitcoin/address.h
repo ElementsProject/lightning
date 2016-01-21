@@ -1,7 +1,8 @@
 #ifndef LIGHTNING_BITCOIN_ADDRESS_H
 #define LIGHTNING_BITCOIN_ADDRESS_H
-#include <ccan/short_types/short_types.h>
+#include "config.h"
 #include <ccan/crypto/ripemd160/ripemd160.h>
+#include <ccan/short_types/short_types.h>
 
 struct pubkey;
 

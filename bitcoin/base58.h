@@ -1,5 +1,7 @@
 #ifndef LIGHTNING_BITCOIN_BASE58_H
 #define LIGHTNING_BITCOIN_BASE58_H
+#include "config.h"
+
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>

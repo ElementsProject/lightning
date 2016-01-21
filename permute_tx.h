@@ -1,5 +1,6 @@
 #ifndef LIGHTNING_PERMUTE_TX_H
 #define LIGHTNING_PERMUTE_TX_H
+#include "config.h"
 #include "bitcoin/tx.h"
 
 /* Permute the transaction into BIP69 order.

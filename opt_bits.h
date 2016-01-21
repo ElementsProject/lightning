@@ -1,5 +1,6 @@
 #ifndef LIGHTNING_OPT_BITS_H
 #define LIGHTNING_OPT_BITS_H
+#include "config.h"
 #include <ccan/opt/opt.h>
 #include <ccan/short_types/short_types.h>
 

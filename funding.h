@@ -1,9 +1,9 @@
 #ifndef LIGHTNING_FUNDING_H
 #define LIGHTNING_FUNDING_H
+#include "config.h"
+#include "lightning.pb-c.h"
 #include <ccan/tal/tal.h>
 #include <stdbool.h>
-
-#include "lightning.pb-c.h"
 
 struct channel_oneside {
 	/* Payment and fee is in millisatoshi. */

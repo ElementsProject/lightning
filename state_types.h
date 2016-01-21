@@ -1,5 +1,6 @@
 #ifndef LIGHTNING_STATE_TYPES_H
 #define LIGHTNING_STATE_TYPES_H
+#include "config.h"
 /* FIXME: cdump is really dumb, so we put these in their own header. */
 #include "lightning.pb-c.h"
 

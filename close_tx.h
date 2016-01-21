@@ -1,7 +1,8 @@
 #ifndef LIGHTNING_CLOSE_TX_H
 #define LIGHTNING_CLOSE_TX_H
-#include <ccan/tal/tal.h>
+#include "config.h"
 #include "lightning.pb-c.h"
+#include <ccan/tal/tal.h>
 
 struct sha256_double;
 
