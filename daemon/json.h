@@ -1,9 +1,10 @@
 #ifndef LIGHTNING_DAEMON_JSON_H
 #define LIGHTNING_DAEMON_JSON_H
 #include "config.h"
-#include "stdbool.h"
-#include "stdlib.h"
 #include <ccan/tal/tal.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 #define JSMN_STRICT 1
 # include "jsmn/jsmn.h"
@@ -22,6 +23,10 @@ bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str);
 /* Extract number from this (may be a string, or a number literal) */
 bool json_tok_number(const char *buffer, const jsmntok_t *tok,
 		     unsigned int *num);
+
+/* Extract number from this (may be a string, or a number literal) */
+bool json_tok_u64(const char *buffer, const jsmntok_t *tok,
+		  uint64_t *num);
 
 /* Is this the null primitive? */
 bool json_tok_is_null(const char *buffer, const jsmntok_t *tok);

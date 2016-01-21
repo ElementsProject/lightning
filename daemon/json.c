@@ -1,6 +1,7 @@
 /* JSON core and helpers */
 #include "json.h"
 #include <assert.h>
+#include <ccan/build_assert/build_assert.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
@@ -39,8 +40,8 @@ bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str)
 	return strncmp(buffer + tok->start, str, tok->end - tok->start) == 0;
 }
 
-bool json_tok_number(const char *buffer, const jsmntok_t *tok,
-		     unsigned int *num)
+bool json_tok_u64(const char *buffer, const jsmntok_t *tok,
+		  uint64_t *num)
 {
 	char *end;
 	unsigned long l;
@@ -49,6 +50,7 @@ bool json_tok_number(const char *buffer, const jsmntok_t *tok,
 	if (end != buffer + tok->end)
 		return false;
 
+	BUILD_ASSERT(sizeof(l) >= sizeof(*num));
 	*num = l;
 
 	/* Check for overflow */
@@ -59,7 +61,22 @@ bool json_tok_number(const char *buffer, const jsmntok_t *tok,
 		return false;
 
 	return true;
-}	
+}
+
+bool json_tok_number(const char *buffer, const jsmntok_t *tok,
+		     unsigned int *num)
+{
+	uint64_t u64;
+
+	if (!json_tok_u64(buffer, tok, &u64))
+		return false;
+	*num = u64;
+
+	/* Just in case it doesn't fit. */
+	if (*num != u64)
+		return false;
+	return true;
+}
 
 bool json_tok_is_null(const char *buffer, const jsmntok_t *tok)
 {
