@@ -11,7 +11,8 @@ DAEMON_SRC :=					\
 	daemon/json.c				\
 	daemon/lightningd.c			\
 	daemon/log.c				\
-	daemon/pseudorand.c
+	daemon/pseudorand.c			\
+	daemon/timeout.c
 DAEMON_OBJS := $(DAEMON_SRC:.c=.o)
 
 DAEMON_JSMN_OBJS := daemon/jsmn.o
@@ -22,7 +23,8 @@ DAEMON_HEADERS :=				\
 	daemon/json.h				\
 	daemon/lightningd.h			\
 	daemon/log.h				\
-	daemon/pseudorand.h
+	daemon/pseudorand.h			\
+	daemon/timeout.h
 
 $(DAEMON_OBJS): $(DAEMON_HEADERS) $(DAEMON_JSMN_HEADERS) $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS) $(CCAN_HEADERS)
 $(DAEMON_JSMN_OBJS): $(DAEMON_JSMN_HEADERS)

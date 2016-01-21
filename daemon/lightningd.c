@@ -20,6 +20,7 @@ static struct lightningd_state *lightningd_state(void)
 	state->base_log = new_log(state, state->log_record,
 				  "lightningd(%u):", (int)getpid());
 
+	timers_init(&state->timers, time_now());
 	return state;
 }
 

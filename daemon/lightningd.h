@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_DAEMON_LIGHTNING_H
 #define LIGHTNING_DAEMON_LIGHTNING_H
 #include "config.h"
+#include <ccan/timer/timer.h>
 #include <stdio.h>
 
 /* Here's where the global variables hide! */
@@ -13,5 +14,8 @@ struct lightningd_state {
 	/* Our config dir, and rpc file */
 	char *config_dir;
 	char *rpc_filename;
+
+	/* Any pending timers. */
+	struct timers timers;	
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */
