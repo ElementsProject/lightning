@@ -24,12 +24,6 @@ enum state_effect_type {
 	STATE_EFFECT_send_pkt,
 	STATE_EFFECT_watch,
 	STATE_EFFECT_unwatch,
-	STATE_EFFECT_cmd_defer,
-	STATE_EFFECT_cmd_requeue,
-	STATE_EFFECT_cmd_success,
-	/* (never applies to CMD_CLOSE) */
-	STATE_EFFECT_cmd_fail,
-	STATE_EFFECT_cmd_close_done,
 	/* FIXME: Use a watch for this?. */
 	STATE_EFFECT_close_timeout,
 	STATE_EFFECT_htlc_in_progress,
@@ -69,17 +63,6 @@ struct state_effect {
 
 		/* Events to no longer watch for. */
 		struct watch *unwatch;
-
-		/* Defer an input. */
-		enum state_input cmd_defer;
-
-		/* Requeue/succeed/fail command. */
-		enum state_input cmd_requeue;
-		enum state_input cmd_success;
-		void *cmd_fail;
-
-		/* CMD_CLOSE is complete (true if successful mutual close). */
-		bool cmd_close_done;
 
 		/* Set a timeout for close tx. */
 		enum state_input close_timeout;
@@ -136,11 +119,23 @@ union input {
 	struct htlc_progress *htlc_prog;
 };
 
-struct state_effect *state(const tal_t *ctx,
-			   const enum state state,
-			   struct peer *peer,
-			   const enum state_input input,
-			   const union input *idata);
+enum command_status {
+	/* Nothing changed. */
+	CMD_NONE,
+	/* Command succeeded. */
+	CMD_SUCCESS,
+	/* HTLC-command needs re-issuing (theirs takes preference) */
+	CMD_REQUEUE,
+	/* Failed. */
+	CMD_FAIL
+};
+	
+enum command_status state(const tal_t *ctx,
+			  const enum state state,
+			  struct peer *peer,
+			  const enum state_input input,
+			  const union input *idata,
+			  struct state_effect **effect);
 
 /* Any CMD_SEND_HTLC_* */
 #define CMD_SEND_UPDATE_ANY INPUT_MAX

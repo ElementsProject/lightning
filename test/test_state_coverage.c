@@ -104,9 +104,8 @@ struct core_state {
 
 	uint8_t capped_live_htlcs_to_them;
 	uint8_t capped_live_htlcs_to_us;
-	bool closing_cmd;
 	bool valid;
-	bool pad[1];
+	bool pad[2];
 };
 
 struct peer {
@@ -201,7 +200,6 @@ static bool situation_eq(const struct situation *a, const struct situation *b)
 			 + sizeof(a->a.s.capped_htlc_spends_to_them)
 			 + sizeof(a->a.s.capped_live_htlcs_to_us)
 			 + sizeof(a->a.s.capped_live_htlcs_to_them)
-			 + sizeof(a->a.s.closing_cmd)
 			 + sizeof(a->a.s.valid)
 			 + sizeof(a->a.s.pad)));
 	return structeq(&a->a.s, &b->a.s) && structeq(&a->b.s, &b->b.s);
@@ -1188,7 +1186,6 @@ static void peer_init(struct peer *peer,
 	peer->pkt_data[0] = -1;
 	peer->core.current_command = INPUT_NONE;
 	peer->core.event_notifies = 0;
-	peer->core.closing_cmd = false;
 	peer->name = name;
 	peer->other = other;
 	peer->trail = NULL;
@@ -1306,18 +1303,6 @@ static void report_trail(const struct trail *t, const char *problem)
 	fprintf(stderr, "Error: %s\n", problem);
 	report_trail_rev(t);
 	exit(1);
-}
-
-static bool is_current_command(const struct peer *peer,
-			       enum state_input cmd)
-{
-	if (cmd == CMD_SEND_UPDATE_ANY) {
-		return is_current_command(peer, CMD_SEND_HTLC_UPDATE)
-			|| is_current_command(peer, CMD_SEND_HTLC_FULFILL)
-			|| is_current_command(peer, CMD_SEND_HTLC_TIMEDOUT)
-			|| is_current_command(peer, CMD_SEND_HTLC_ROUTEFAIL);
-	}
-	return peer->core.current_command == cmd;
 }
 
 static void add_htlc(struct htlc *to_us, unsigned int *num_to_us,
@@ -1474,32 +1459,6 @@ static const char *apply_effects(struct peer *peer,
 		    != effect->u.unwatch->events)
 			return "unset event unwatched";
 		peer->core.event_notifies &= ~effect->u.unwatch->events;
-		break;
-	case STATE_EFFECT_cmd_defer:
-		/* If it was current command, it is no longer. */
-		assert(is_current_command(peer, effect->u.cmd_defer));
-		/* We will resubmit this later anyway. */
-		peer->core.current_command = INPUT_NONE;
-		break;
-	case STATE_EFFECT_cmd_requeue:
-		assert(is_current_command(peer, effect->u.cmd_requeue));
-		peer->core.current_command = INPUT_NONE;
-		break;
-	case STATE_EFFECT_cmd_success:
-		assert(is_current_command(peer, effect->u.cmd_success));
-		peer->core.current_command = INPUT_NONE;
-		break;
-	case STATE_EFFECT_cmd_fail:
-		if (peer->core.current_command == INPUT_NONE)
-			return "Failed command with none current";
-		peer->core.current_command = INPUT_NONE;
-		break;
-	case STATE_EFFECT_cmd_close_done:
-		if (!peer->core.closing_cmd)
-			return tal_fmt(NULL, "%s but not closing",
-				       effect->u.cmd_close_done
-				       ? "Success" : "Failure");
-		peer->core.closing_cmd = false;
 		break;
 	case STATE_EFFECT_close_timeout:
 		add_event(&peer->core.event_notifies,
@@ -1678,8 +1637,6 @@ static const char *check_changes(const struct peer *old, struct peer *new)
 				       input_name(new->core.current_command));
 	}
 	if (new->cond == PEER_CLOSED) {
-		if (new->core.closing_cmd)
-			return "cond CLOSED with pending CMD_CLOSE";
 		/* FIXME: Move to state core */
 		/* Can no longer receive packet timeouts, either. */
 		remove_event_(&new->core.event_notifies,
@@ -1690,6 +1647,7 @@ static const char *check_changes(const struct peer *old, struct peer *new)
 }
 
 static const char *apply_all_effects(const struct peer *old,
+				     enum command_status cstatus,
 				     struct peer *peer,
 				     const struct state_effect *effect,
 				     Pkt **output)
@@ -1697,6 +1655,17 @@ static const char *apply_all_effects(const struct peer *old,
 	const char *problem;
 	uint64_t effects = 0;
 	*output = NULL;
+
+	if (cstatus != CMD_NONE) {
+		assert(peer->core.current_command != INPUT_NONE);
+		/* We should only requeue HTLCs if we're lowprio */
+		if (cstatus == CMD_REQUEUE)
+			assert(!high_priority(old->core.state)
+			       && input_is(peer->core.current_command,
+					   CMD_SEND_UPDATE_ANY));
+		peer->core.current_command = INPUT_NONE;
+	}
+
 	problem = apply_effects(peer, effect, &effects, output);
 	if (!problem)
 		problem = check_effects(peer, effect);
@@ -1934,6 +1903,7 @@ static void try_input(const struct peer *peer,
 	const char *problem;
 	Pkt *output;
 	const tal_t *ctx = tal(NULL, char);
+	enum command_status cstatus;
 
 	copy_peers(&copy, &other, peer);
 
@@ -1943,7 +1913,7 @@ static void try_input(const struct peer *peer,
 	copy.trail = &t;
 
 	eliminate_input(&hist->inputs_per_state[copy.core.state], i);
-	effect = state(ctx, copy.core.state, &copy, i, idata);
+	cstatus = state(ctx, copy.core.state, &copy, i, idata, &effect);
 
 	newstate = get_state_effect(effect, peer->core.state);
 
@@ -1969,7 +1939,7 @@ static void try_input(const struct peer *peer,
 				get_send_pkt(effect));
 	}
 
-	problem = apply_all_effects(peer, &copy, effect, &output);
+	problem = apply_all_effects(peer, cstatus, &copy, effect, &output);
 	update_trail(&t, &copy, output);
 	if (problem)
 		report_trail(&t, problem);
@@ -2002,7 +1972,7 @@ static void try_input(const struct peer *peer,
 		 * And if we're being quick, always stop.
 		 */
 		if (quick
-		    || get_effect(effect, STATE_EFFECT_cmd_defer)
+		    || cstatus == CMD_REQUEUE
 		    || newstate == STATE_NORMAL_LOWPRIO
 		    || newstate == STATE_NORMAL_HIGHPRIO
 		    || i == BITCOIN_ANCHOR_OTHERSPEND
@@ -2181,10 +2151,8 @@ static void run_peer(const struct peer *peer,
 	if (peer->core.state != STATE_INIT
 	    && (peer->cond == PEER_CMD_OK
 		|| peer->cond == PEER_BUSY)) {
-		copy.core.closing_cmd = true;
 		try_input(&copy, CMD_CLOSE, idata,
 			  normalpath, errorpath, prev_trail, hist);
-		copy.core.closing_cmd = false;
 	}
 
 	/* Try sending commands if allowed. */
@@ -2334,8 +2302,9 @@ static enum state_input **map_inputs(void)
 		/* This adds to mapping_inputs every input_is() call */
 		if (!state_is_error(i)) {
 			struct peer dummy;
+			struct state_effect *effect;
 			memset(&dummy, 0, sizeof(dummy));
-			state(ctx, i, &dummy, INPUT_NONE, NULL);
+			state(ctx, i, &dummy, INPUT_NONE, NULL, &effect);
 		}
 		inps[i] = mapping_inputs;
 	}
