@@ -546,17 +546,3 @@ bool bitcoin_tx_write(int fd, const struct bitcoin_tx *tx)
 	tal_free(tx_arr);
 	return ok;
 }
-
-u32 bitcoin_nsequence(u32 locktime)
-{
-#ifdef HAS_BIP68
-	/* FIXME: return fail to caller. */
-	/* Can't set disable bit, or other bits except low 16 and bit 22 */
-	assert(!(locktime & ~((1 << 22) | 0xFFFF)));
-	return locktime;
-#else
-	/* Alpha uses the original proposal: simply invert the bits. */
-	return ~locktime;
-#endif
-}
-		

@@ -21,6 +21,7 @@
 #include "test-cli/gather_updates.h"
 #include "funding.h"
 #include "version.h"
+#include "bitcoin/locktime.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -37,7 +38,7 @@ int main(int argc, char *argv[])
 	struct sha256 rhash;
 	size_t p2sh_out;
 	u64 fee = 10000;
-	u32 locktime;
+	struct rel_locktime locktime;
 
 	err_set_progname(argv[0]);
 
@@ -87,7 +88,7 @@ int main(int argc, char *argv[])
 		       NULL, &rhash, NULL, NULL);
 
 	/* Create redeem script */
-	redeemscript = bitcoin_redeem_secret_or_delay(ctx, &pubkey1, locktime,
+	redeemscript = bitcoin_redeem_secret_or_delay(ctx, &pubkey1, &locktime,
 						      &pubkey2, &rhash);
 
 	/* Now, create transaction to spend it. */
@@ -98,7 +99,7 @@ int main(int argc, char *argv[])
 	tx->input[0].input_amount = commit->output[p2sh_out].amount;
 	tx->fee = fee;
 
-	tx->input[0].sequence_number = bitcoin_nsequence(locktime);
+	tx->input[0].sequence_number = bitcoin_nsequence(&locktime);
 
 	if (commit->output[p2sh_out].amount <= fee)
 		errx(1, "Amount of %llu won't exceed fee",

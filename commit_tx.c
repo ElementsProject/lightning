@@ -1,3 +1,4 @@
+#include "bitcoin/locktime.h"
 #include "bitcoin/pubkey.h"
 #include "bitcoin/script.h"
 #include "bitcoin/shadouble.h"
@@ -14,16 +15,16 @@ static bool add_htlc(struct bitcoin_tx *tx, size_t n,
 		     const struct pubkey *ourkey,
 		     const struct pubkey *theirkey,
 		     const struct sha256 *rhash,
-		     u32 locktime,
+		     const struct rel_locktime *locktime,
 		     u8 *(*scriptpubkeyfn)(const tal_t *,
 					   const struct pubkey *,
 					   const struct pubkey *,
-					   uint32_t,
-					   uint32_t,
+					   const struct abs_locktime *,
+					   const struct rel_locktime *,
 					   const struct sha256 *,
 					   const struct sha256 *))
 {
-	uint32_t htlc_abstime;
+	struct abs_locktime htlc_abstime;
 	struct sha256 htlc_rhash;
 
 	assert(!tx->output[n].script);
@@ -35,7 +36,7 @@ static bool add_htlc(struct bitcoin_tx *tx, size_t n,
 	proto_to_sha256(h->r_hash, &htlc_rhash);
 	tx->output[n].script = scriptpubkey_p2sh(tx,
 				 scriptpubkeyfn(tx, ourkey, theirkey,
-						htlc_abstime, locktime, rhash,
+						&htlc_abstime, locktime, rhash,
 						&htlc_rhash));
 	tx->output[n].script_length = tal_count(tx->output[n].script);
 	tx->output[n].amount = h->amount_msat / 1000;
@@ -52,7 +53,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	struct bitcoin_tx *tx;
 	const u8 *redeemscript;
 	struct pubkey ourkey, theirkey;
-	u32 locktime;
+	struct rel_locktime locktime;
 	size_t i, num;
 	uint64_t total;
 
@@ -76,7 +77,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 
 	/* First output is a P2SH to a complex redeem script (usu. for me) */
 	redeemscript = bitcoin_redeem_secret_or_delay(tx, &ourkey,
-						      locktime,
+						      &locktime,
 						      &theirkey,
 						      rhash);
 	tx->output[0].script = scriptpubkey_p2sh(tx, redeemscript);
@@ -97,14 +98,14 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	/* HTLCs we've sent. */
 	for (i = 0; i < tal_count(cstate->a.htlcs); i++) {
 		if (!add_htlc(tx, num, cstate->a.htlcs[i], &ourkey, &theirkey,
-			      rhash, locktime, scriptpubkey_htlc_send))
+			      rhash, &locktime, scriptpubkey_htlc_send))
 			return tal_free(tx);
 		total += tx->output[num++].amount;
 	}
 	/* HTLCs we've received. */
 	for (i = 0; i < tal_count(cstate->b.htlcs); i++) {
 		if (!add_htlc(tx, num, cstate->b.htlcs[i], &ourkey, &theirkey,
-			      rhash, locktime, scriptpubkey_htlc_recv))
+			      rhash, &locktime, scriptpubkey_htlc_recv))
 			return tal_free(tx);
 		total += tx->output[num++].amount;
 	}

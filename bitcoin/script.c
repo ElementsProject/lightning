@@ -3,6 +3,7 @@
 #include <ccan/endian/endian.h>
 #include <assert.h>
 #include "address.h"
+#include "locktime.h"
 #include "pubkey.h"
 #include "script.h"
 #include "signature.h"
@@ -179,8 +180,8 @@ u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript)
 u8 *scriptpubkey_htlc_send(const tal_t *ctx,
 			   const struct pubkey *ourkey,
 			   const struct pubkey *theirkey,
-			   uint32_t htlc_abstimeout,
-			   uint32_t locktime,
+			   const struct abs_locktime *htlc_abstimeout,
+			   const struct rel_locktime *locktime,
 			   const struct sha256 *commit_revoke,
 			   const struct sha256 *rhash)
 {
@@ -210,9 +211,9 @@ u8 *scriptpubkey_htlc_send(const tal_t *ctx,
 	add_op(&script, OP_ELSE);
 
 	/* If HTLC times out, they can collect after a delay. */
-	add_number(&script, htlc_abstimeout);
+	add_number(&script, htlc_abstimeout->locktime);
 	add_op(&script, OP_CHECKLOCKTIMEVERIFY);
-	add_number(&script, locktime);
+	add_number(&script, locktime->locktime);
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 	add_op(&script, OP_2DROP);
 	add_push_key(&script, ourkey);
@@ -227,8 +228,8 @@ u8 *scriptpubkey_htlc_send(const tal_t *ctx,
 u8 *scriptpubkey_htlc_recv(const tal_t *ctx,
 			   const struct pubkey *ourkey,
 			   const struct pubkey *theirkey,
-			   uint32_t htlc_abstimeout,
-			   uint32_t locktime,
+			   const struct abs_locktime *htlc_abstimeout,
+			   const struct rel_locktime *locktime,
 			   const struct sha256 *commit_revoke,
 			   const struct sha256 *rhash)
 {
@@ -247,7 +248,7 @@ u8 *scriptpubkey_htlc_recv(const tal_t *ctx,
 	add_op(&script, OP_EQUAL);
 	add_op(&script, OP_IF);
 
-	add_number(&script, locktime);
+	add_number(&script, locktime->locktime);
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 	/* Drop extra hash as well as locktime. */
 	add_op(&script, OP_2DROP);
@@ -264,7 +265,7 @@ u8 *scriptpubkey_htlc_recv(const tal_t *ctx,
 	add_op(&script, OP_NOTIF);
 
 	/* Otherwise, they must wait for HTLC timeout. */
-	add_number(&script, htlc_abstimeout);
+	add_number(&script, htlc_abstimeout->locktime);
 	add_op(&script, OP_CHECKLOCKTIMEVERIFY);
 	add_op(&script, OP_DROP);
 	add_op(&script, OP_ENDIF);
@@ -361,7 +362,7 @@ bool is_p2sh(const u8 *script, size_t script_len)
  * it after delay. */
 u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 				   const struct pubkey *delayed_key,
-				   u32 locktime,
+				   const struct rel_locktime *locktime,
 				   const struct pubkey *key_if_secret_known,
 				   const struct sha256 *hash_of_secret)
 {
@@ -382,7 +383,7 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 	add_op(&script, OP_ELSE);
 
 	/* Other can collect after a delay. */
-	add_number(&script, locktime);
+	add_number(&script, locktime->locktime);
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 	add_op(&script, OP_DROP);
 	add_push_key(&script, delayed_key);

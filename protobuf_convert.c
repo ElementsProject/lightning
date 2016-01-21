@@ -1,4 +1,5 @@
 #include <ccan/crypto/sha256/sha256.h>
+#include "bitcoin/locktime.h"
 #include "bitcoin/pubkey.h"
 #include "bitcoin/signature.h"
 #include "protobuf_convert.h"
@@ -105,54 +106,26 @@ void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash)
 	memcpy(hash->u.u8 + 24, &pb->d, 8);
 }
 
-static bool proto_to_locktime(const Locktime *l, uint32_t off,
-			      uint32_t *locktime)
+bool proto_to_rel_locktime(const Locktime *l, struct rel_locktime *locktime)
 {
 	switch (l->locktime_case) {
 	case LOCKTIME__LOCKTIME_SECONDS:
-		*locktime = off + l->seconds;
-		/* Check for wrap, or too low value */
-		if (*locktime < 500000000)
-			return false;
-		break;
+		return seconds_to_rel_locktime(l->seconds, locktime);
 	case LOCKTIME__LOCKTIME_BLOCKS:
-		if (l->blocks >= 500000000)
-			return false;
-		*locktime = l->blocks;
-		break;
+		return blocks_to_rel_locktime(l->blocks, locktime);
 	default:
 		return false;
 	}
-	return true;
 }
 
-bool proto_to_rel_locktime(const Locktime *l, uint32_t *locktime)
+bool proto_to_abs_locktime(const Locktime *l, struct abs_locktime *locktime)
 {
-	/* Original proposal from Elements Alpha was simply locktime. */
-#ifdef HAS_BIP68
 	switch (l->locktime_case) {
 	case LOCKTIME__LOCKTIME_SECONDS:
-		*locktime = (1 << 22) | (l->seconds / 512);
-		if (l->seconds / 512 > 0xFFFF)
-			return false;
-		break;
+		return seconds_to_abs_locktime(l->seconds, locktime);
 	case LOCKTIME__LOCKTIME_BLOCKS:
-		*locktime = l->blocks;
-		if (l->blocks > 0xFFFF)
-			return false;
-		break;
+		return blocks_to_abs_locktime(l->blocks, locktime);
 	default:
 		return false;
 	}
-	/* No other bits should be set. */
-	assert((*locktime & ~((1 << 22) | 0xFFFF)) == 0);
-	return true;
-#else
-	return proto_to_locktime(l, 500000000, locktime);
-#endif
-}
-
-bool proto_to_abs_locktime(const Locktime *l, uint32_t *locktime)
-{
-	return proto_to_locktime(l, 0, locktime);
 }

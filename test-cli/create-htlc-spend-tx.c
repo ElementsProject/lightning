@@ -16,6 +16,7 @@
 #include "bitcoin/privkey.h"
 #include "protobuf_convert.h"
 #include "find_p2sh_out.h"
+#include "bitcoin/locktime.h"
 #include "version.h"
 #include <unistd.h>
 
@@ -31,7 +32,8 @@ int main(int argc, char *argv[])
 	struct bitcoin_signature sig;
 	struct privkey privkey;
 	bool testnet;
-	u32 locktime, htlc_abstimeout;
+	struct rel_locktime locktime;
+	struct abs_locktime htlc_abstimeout;
 	char *rvalue = NULL, *preimage = NULL;
 	bool received, own_commit_tx;
 	Pkt *pkt;
@@ -114,13 +116,13 @@ int main(int argc, char *argv[])
 
 	if (received) {
 		redeemscript = scriptpubkey_htlc_recv(ctx, &pubkey1, &pubkey2,
-						      htlc_abstimeout,
-						      locktime, &revoke_hash,
+						      &htlc_abstimeout,
+						      &locktime, &revoke_hash,
 						      &htlc_rhash);
 	} else {
 		redeemscript = scriptpubkey_htlc_send(ctx, &pubkey1, &pubkey2,
-						      htlc_abstimeout,
-						      locktime, &revoke_hash,
+						      &htlc_abstimeout,
+						      &locktime, &revoke_hash,
 						      &htlc_rhash);
 	}
 
@@ -163,14 +165,14 @@ int main(int argc, char *argv[])
 
 	if (!secret_len) {
 		/* We must be relying on HTLC timeout. */
-		tx->lock_time = htlc_abstimeout;
+		tx->lock_time = htlc_abstimeout.locktime;
 		/* Locktime only applies if an input has seq != ffffffff... */
 		tx->input[0].sequence_number = 0;
 	}
 
 	/* If it's our own commit tx, we also need delay. */
 	if (own_commit_tx)
-		tx->input[0].sequence_number = bitcoin_nsequence(locktime);
+		tx->input[0].sequence_number = bitcoin_nsequence(&locktime);
 
 	/* Leave 10,000 satoshi as fee (if we can!). */
 	tx->fee = 10000;

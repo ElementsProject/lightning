@@ -15,6 +15,7 @@
 #include "bitcoin/privkey.h"
 #include "protobuf_convert.h"
 #include "version.h"
+#include "bitcoin/locktime.h"
 #include <unistd.h>
 
 int main(int argc, char *argv[])
@@ -30,7 +31,7 @@ int main(int argc, char *argv[])
 	struct bitcoin_signature sig;
 	struct privkey privkey;
 	bool testnet;
-	u32 locktime_seconds;
+	struct rel_locktime locktime;
 
 	err_set_progname(argv[0]);
 
@@ -68,7 +69,7 @@ int main(int argc, char *argv[])
 
 	o1 = pkt_from_file(argv[4], PKT__PKT_OPEN)->open;
 	o2 = pkt_from_file(argv[5], PKT__PKT_OPEN)->open;
-	if (!proto_to_rel_locktime(o1->delay, &locktime_seconds))
+	if (!proto_to_rel_locktime(o1->delay, &locktime))
 		errx(1, "Invalid locktime in o2");
 
 	if (!pubkey_from_hexstr(argv[6], &outpubkey))
@@ -85,7 +86,7 @@ int main(int argc, char *argv[])
 	/* Now, which commit output?  Match redeem script. */
 	sha256(&revoke_hash, &revoke_preimage, sizeof(revoke_preimage));
 	redeemscript = bitcoin_redeem_secret_or_delay(ctx, &pubkey2,
-						      locktime_seconds,
+						      &locktime,
 						      &pubkey1, &revoke_hash);
 	p2sh = scriptpubkey_p2sh(ctx, redeemscript);
 

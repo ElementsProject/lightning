@@ -19,6 +19,8 @@ struct sha256;
 Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash);
 void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash);
 
-bool proto_to_rel_locktime(const Locktime *l, uint32_t *locktime);
-bool proto_to_abs_locktime(const Locktime *l, uint32_t *locktime);
+struct rel_locktime;
+struct abs_locktime;
+bool proto_to_rel_locktime(const Locktime *l, struct rel_locktime *locktime);
+bool proto_to_abs_locktime(const Locktime *l, struct abs_locktime *locktime);
 #endif /* LIGHTNING_PROTOBUF_CONVERT_H */

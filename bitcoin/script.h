@@ -7,6 +7,8 @@
 struct bitcoin_address;
 struct pubkey;
 struct sha256;
+struct rel_locktime;
+struct abs_locktime;
 
 /* A bitcoin signature includes one byte for the type. */
 struct bitcoin_signature {
@@ -26,7 +28,7 @@ u8 *bitcoin_redeem_single(const tal_t *ctx, const struct pubkey *key);
  * it after delay. */
 u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 				   const struct pubkey *delayed_key,
-				   u32 locktime,
+				   const struct rel_locktime *locktime,
 				   const struct pubkey *key_if_secret_known,
 				   const struct sha256 *hash_of_secret);
 
@@ -41,8 +43,8 @@ u8 *scriptsig_pay_to_pubkeyhash(const tal_t *ctx,
 u8 *scriptpubkey_htlc_send(const tal_t *ctx,
 			   const struct pubkey *ourkey,
 			   const struct pubkey *theirkey,
-			   uint32_t htlc_abstimeout,
-			   uint32_t locktime,
+			   const struct abs_locktime *htlc_abstimeout,
+			   const struct rel_locktime *locktime,
 			   const struct sha256 *commit_revoke,
 			   const struct sha256 *rhash);
 
@@ -50,8 +52,8 @@ u8 *scriptpubkey_htlc_send(const tal_t *ctx,
 u8 *scriptpubkey_htlc_recv(const tal_t *ctx,
 			   const struct pubkey *ourkey,
 			   const struct pubkey *theirkey,
-			   uint32_t htlc_abstimeout,
-			   uint32_t locktime,
+			   const struct abs_locktime *htlc_abstimeout,
+			   const struct rel_locktime *locktime,
 			   const struct sha256 *commit_revoke,
 			   const struct sha256 *rhash);
 

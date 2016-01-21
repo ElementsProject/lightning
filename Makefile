@@ -39,6 +39,7 @@ TEST_PROGRAMS :=				\
 BITCOIN_OBJS :=					\
 	bitcoin/address.o			\
 	bitcoin/base58.o			\
+	bitcoin/locktime.o			\
 	bitcoin/pubkey.o			\
 	bitcoin/script.o			\
 	bitcoin/shadouble.o			\
