@@ -114,7 +114,7 @@ Pkt *pkt_htlc_routefail(const tal_t *ctx, const struct peer *peer,
 Pkt *pkt_update_accept(const tal_t *ctx, const struct peer *peer);
 Pkt *pkt_update_signature(const tal_t *ctx, const struct peer *peer);
 Pkt *pkt_update_complete(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_err(const tal_t *ctx, const char *msg);
+Pkt *pkt_err(const tal_t *ctx, const char *fmt, ...);
 Pkt *pkt_close(const tal_t *ctx, const struct peer *peer);
 Pkt *pkt_close_complete(const tal_t *ctx, const struct peer *peer);
 Pkt *pkt_close_ack(const tal_t *ctx, const struct peer *peer);

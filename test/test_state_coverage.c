@@ -654,9 +654,17 @@ Pkt *pkt_update_complete(const tal_t *ctx, const struct peer *peer)
 			peer->current_htlc.htlc.id);
 }
 
-Pkt *pkt_err(const tal_t *ctx, const char *msg)
+Pkt *pkt_err(const tal_t *ctx, const char *fmt, ...)
 {
-	return (Pkt *)tal_fmt(ctx, "PKT_ERROR: %s", msg);
+	char *str;
+	va_list ap;
+
+	str = tal_strdup(ctx, "PKT_ERROR: ");
+	va_start(ap, fmt);
+	tal_append_vfmt(&str, fmt, ap);
+	va_end(ap);
+
+	return (Pkt *)str;
 }
 
 Pkt *pkt_close(const tal_t *ctx, const struct peer *peer)
@@ -676,8 +684,7 @@ Pkt *pkt_close_ack(const tal_t *ctx, const struct peer *peer)
 
 Pkt *pkt_err_unexpected(const tal_t *ctx, const Pkt *pkt)
 {
-	return (Pkt *)tal_fmt(ctx, "PKT_ERROR: Unexpected pkt %s",
-			      (const char *)pkt);
+	return pkt_err("Unexpected pkt %s", (const char *)pkt);
 }
 
 Pkt *accept_pkt_open(const tal_t *ctx,
