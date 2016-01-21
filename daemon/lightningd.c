@@ -3,6 +3,7 @@
 #include "lightningd.h"
 #include "log.h"
 #include "peer.h"
+#include "secrets.h"
 #include "timeout.h"
 #include <ccan/container_of/container_of.h>
 #include <ccan/err/err.h>
@@ -104,7 +105,10 @@ int main(int argc, char *argv[])
 
 	/* Set up connections from peers. */
 	setup_listeners(state, portnum);
-	
+
+	/* Set up node ID and private key. */
+	secrets_init(state);
+
 	log_info(state->base_log, "Hello world!");
 
 	/* If io_loop returns NULL, either a timer expired, or all fds closed */

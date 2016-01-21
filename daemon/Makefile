@@ -19,6 +19,7 @@ DAEMON_SRC :=					\
 	daemon/lightningd.c			\
 	daemon/netaddr.c			\
 	daemon/peer.c				\
+	daemon/secrets.c			\
 	daemon/timeout.c
 DAEMON_OBJS := $(DAEMON_SRC:.c=.o)
 
@@ -38,6 +39,7 @@ DAEMON_HEADERS :=				\
 	daemon/netaddr.h			\
 	daemon/peer.h				\
 	daemon/pseudorand.h			\
+	daemon/secrets.h			\
 	daemon/timeout.h
 
 $(DAEMON_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_CLI_OBJS): $(DAEMON_HEADERS) $(DAEMON_JSMN_HEADERS) $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS) $(CCAN_HEADERS)

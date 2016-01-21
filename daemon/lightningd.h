@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_DAEMON_LIGHTNING_H
 #define LIGHTNING_DAEMON_LIGHTNING_H
 #include "config.h"
+#include "bitcoin/pubkey.h"
 #include <ccan/list/list.h>
 #include <ccan/timer/timer.h>
 #include <secp256k1.h>
@@ -25,5 +26,11 @@ struct lightningd_state {
 
 	/* Crypto tables for global use. */
 	secp256k1_context *secpctx;
+
+	/* Our private key */
+	struct secret *secret;
+
+	/* This is us. */
+	struct pubkey id;
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */
