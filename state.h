@@ -6,17 +6,6 @@
 #include <state_types.h>
 #include <stdbool.h>
 
-enum state_peercond {
-	/* Ready to accept a new command. */
-	PEER_CMD_OK,
-	/* Don't send me commands, I'm busy. */
-	PEER_BUSY,
-	/* No more commands, I'm closing. */
-	PEER_CLOSING,
-	/* No more packets, I'm closed. */
-	PEER_CLOSED
-};
-
 enum state_effect_type {
 	STATE_EFFECT_broadcast_tx,
 	STATE_EFFECT_send_pkt,
@@ -111,17 +100,6 @@ union input {
 	struct htlc_progress *htlc_prog;
 };
 
-enum command_status {
-	/* Nothing changed. */
-	CMD_NONE,
-	/* Command succeeded. */
-	CMD_SUCCESS,
-	/* HTLC-command needs re-issuing (theirs takes preference) */
-	CMD_REQUEUE,
-	/* Failed. */
-	CMD_FAIL
-};
-	
 enum command_status state(const tal_t *ctx,
 			  struct peer *peer,
 			  const enum state_input input,
