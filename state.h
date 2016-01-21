@@ -131,7 +131,8 @@ static inline bool input_is(enum state_input a, enum state_input b)
 struct signature;
 
 /* Create various kinds of packets, allocated off @ctx */
-Pkt *pkt_open(const tal_t *ctx, const struct state_data *sdata);
+Pkt *pkt_open(const tal_t *ctx, const struct state_data *sdata,
+	      OpenChannel__AnchorOffer anchor);
 Pkt *pkt_anchor(const tal_t *ctx, const struct state_data *sdata);
 Pkt *pkt_open_commit_sig(const tal_t *ctx, const struct state_data *sdata);
 Pkt *pkt_open_complete(const tal_t *ctx, const struct state_data *sdata);

@@ -564,7 +564,8 @@ static struct htlc *find_htlc_spend(const struct state_data *sdata,
 	return (struct htlc *)h;
 }
 
-Pkt *pkt_open(const tal_t *ctx, const struct state_data *sdata)
+Pkt *pkt_open(const tal_t *ctx, const struct state_data *sdata,
+	      OpenChannel__AnchorOffer anchor)
 {
 	return new_pkt(ctx, PKT_OPEN);
 }

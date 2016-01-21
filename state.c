@@ -109,11 +109,15 @@ enum state state(const enum state state, const struct state_data *sdata,
 	 */
 	case STATE_INIT_NOANCHOR:
 		assert(input == INPUT_NONE);
-		set_effect(effect, send, pkt_open(effect, sdata));
+		set_effect(effect, send,
+			   pkt_open(effect, sdata,
+				OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR));
 		return STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR;
 	case STATE_INIT_WITHANCHOR:
 		assert(input == INPUT_NONE);
-		set_effect(effect, send, pkt_open(effect, sdata));
+		set_effect(effect, send,
+			   pkt_open(effect, sdata, 
+				OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR));
 		return STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR;
 	case STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR:
 		if (input_is(input, PKT_OPEN)) {
