@@ -140,30 +140,39 @@ void base58_get_checksum(u8 csum[4], const u8 buf[], size_t buflen)
 	memcpy(csum, sha_result.sha.u.u8, 4);
 }
 
-char *bitcoin_to_base58(const tal_t *ctx, bool test_net,
-			const struct bitcoin_address *addr)
+static char *to_base58(const tal_t *ctx, u8 version,
+		       const struct ripemd160 *rmd)
 {
-	u8 buf[1 + sizeof(addr->addr) + 4];
+	u8 buf[1 + sizeof(*rmd) + 4];
 	char out[BASE58_ADDR_MAX_LEN + 2], *p;
 
-	buf[0] = test_net ? 111 : 0;
-
-	BUILD_ASSERT(sizeof(addr->addr) == sizeof(struct ripemd160));
-	memcpy(buf+1, addr, sizeof(addr->addr));
+	buf[0] = version;
+	memcpy(buf+1, rmd, sizeof(*rmd));
 
 	/* Append checksum */
-	base58_get_checksum(buf + 1 + sizeof(addr->addr),
-			    buf, 1 + sizeof(addr->addr));
+	base58_get_checksum(buf + 1 + sizeof(*rmd), buf, 1 + sizeof(*rmd));
 
 	p = encode_base58(out, BASE58_ADDR_MAX_LEN, buf, sizeof(buf));
 	return tal_strdup(ctx, p);
 }
 
-bool bitcoin_from_base58(bool *test_net,
-			 struct bitcoin_address *addr,
-			 const char *base58, size_t base58_len)
+char *bitcoin_to_base58(const tal_t *ctx, bool test_net,
+			const struct bitcoin_address *addr)
 {
-	u8 buf[1 + sizeof(addr->addr) + 4];
+	return to_base58(ctx, test_net ? 111 : 0, &addr->addr);
+}
+
+char *p2sh_to_base58(const tal_t *ctx, bool test_net,
+		     const struct ripemd160 *p2sh)
+{
+	return to_base58(ctx, test_net ? 196 : 5, p2sh);
+}
+
+static bool from_base58(u8 *version,
+			struct ripemd160 *rmd,
+			const char *base58, size_t base58_len)
+{
+	u8 buf[1 + sizeof(*rmd) + 4];
 	BIGNUM bn;
 	size_t len;
 	u8 csum[4];
@@ -180,18 +189,49 @@ bool bitcoin_from_base58(bool *test_net,
 	BN_bn2bin(&bn, buf + sizeof(buf) - len);
 	BN_free(&bn);
 
-	if (buf[0] == 111)
+	*version = buf[0];
+
+	base58_get_checksum(csum, buf, 1 + sizeof(*rmd));
+	if (memcmp(csum, buf + 1 + sizeof(*rmd), sizeof(csum)) != 0)
+		return false;
+
+	memcpy(rmd, buf+1, sizeof(*rmd));
+	return true;
+}
+
+bool bitcoin_from_base58(bool *test_net,
+			 struct bitcoin_address *addr,
+			 const char *base58, size_t len)
+{
+	u8 version;
+
+	if (!from_base58(&version, &addr->addr, base58, len))
+		return false;
+
+	if (version == 111)
 		*test_net = true;
-	else if (buf[0] == 0)
+	else if (version == 0)
 		*test_net = false;
 	else
 		return false;
+	return true;
+}
 
-	base58_get_checksum(csum, buf, 1 + sizeof(addr->addr));
-	if (memcmp(csum, buf + 1 + sizeof(addr->addr), sizeof(csum)) != 0)
+bool p2sh_from_base58(bool *test_net,
+		      struct ripemd160 *p2sh,
+		      const char *base58, size_t len)
+{
+	u8 version;
+
+	if (!from_base58(&version, p2sh, base58, len))
 		return false;
 
-	memcpy(&addr->addr, buf+1, sizeof(addr->addr));
+	if (version == 196)
+		*test_net = true;
+	else if (version == 5)
+		*test_net = false;
+	else
+		return false;
 	return true;
 }
 
