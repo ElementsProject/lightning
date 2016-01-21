@@ -14,6 +14,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
+#include <ccan/tal/str/str.h>
 #include <inttypes.h>
 
 #define FIXME_STUB(peer) do { log_broken((peer)->dstate->base_log, "%s:%u: Implement %s!", __FILE__, __LINE__, __func__); abort(); } while(0)
@@ -237,7 +238,15 @@ Pkt *pkt_update_complete(const tal_t *ctx, const struct peer *peer)
 
 Pkt *pkt_err(const tal_t *ctx, const char *msg, ...)
 {
-	abort();
+	Error *e = tal(ctx, Error);
+	va_list ap;
+
+	error__init(e);
+	va_start(ap, msg);
+	e->problem = tal_vfmt(ctx, msg, ap);
+	va_end(ap);
+
+	return make_pkt(ctx, PKT__PKT_ERROR, e);
 }
 
 Pkt *pkt_close(const tal_t *ctx, const struct peer *peer)
