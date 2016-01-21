@@ -237,16 +237,38 @@ void peer_watch_tx(struct peer *peer,
  * peer_watch_close: watch for close tx until it's "irreversible" (or timedout)
  * @peer: the state data for this peer.
  * @done: the input to give when tx is completely buried.
- * @timedout: the input to give if we time out.
+ * @timedout: the input to give if we time out (they don't provide sig).
  *
  * Once this fires we consider the channel completely closed and stop
  * watching (eg 100 txs down).
  *
- * This is used for watching a mutual close, or for a transaction we sent
- * (such as a steal, or spend of their close, etc).
+ * This is used for watching a mutual close.
  */
 void peer_watch_close(struct peer *peer,
 		      enum state_input done, enum state_input timedout);
+
+/**
+ * peer_unwatch_close_timeout: remove timeout for the close transaction
+ * @peer: the state data for this peer.
+ * @timeout: the input to give if anchor doesn't reach depth in time.
+ *
+ * This is called once we have successfully received their signature.
+ */
+void peer_unwatch_close_timeout(struct peer *peer, enum state_input timedout);
+
+/**
+ * peer_watch_anchor: create a watch for the anchor transaction.
+ * @peer: the state data for this peer.
+ * @depthok: the input to give when anchor reaches expected depth.
+ * @timeout: the input to give if anchor doesn't reach depth in time.
+ * @unspent: the input to give if anchor is unspent after @depthok.
+ * @theyspent: the input to give if they spend anchor with their commit tx.
+ * @otherspent: the input to give if they spend anchor otherwise.
+ *
+ * @depthok can be INPUT_NONE if it's our anchor (we don't time
+ * ourselves out).
+ */
+void peer_unwatch_close_timeout(struct peer *peer, enum state_input timedout);
 
 /**
  * peer_watch_our_htlc_outputs: HTLC outputs from our commit tx to watch.

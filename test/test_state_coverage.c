@@ -1268,6 +1268,13 @@ void peer_watch_close(struct peer *peer,
 	add_event(peer, timedout);
 }
 
+void peer_unwatch_close_timeout(struct peer *peer, enum state_input timedout)
+{
+	assert(timedout == INPUT_CLOSE_COMPLETE_TIMEOUT);
+	if (!mapping_inputs)
+		remove_event(peer, timedout);
+}
+
 bool peer_watch_our_htlc_outputs(struct peer *peer,
 				 const struct bitcoin_tx *tx,
 				 enum state_input tous_timeout,
@@ -1523,10 +1530,10 @@ static const char *check_changes(const struct peer *old, struct peer *new,
 				       "cond CLOSE with anchor");
 	}
 	if (new->cond == PEER_CLOSED) {
-		/* FIXME: Move to state core */
-		/* Can no longer receive packet timeouts, either. */
-		remove_event_(&new->core.event_notifies,
-			      INPUT_CLOSE_COMPLETE_TIMEOUT);
+		/* Should not have pending close timeout. */
+		if (have_event(new->core.event_notifies,
+			       INPUT_CLOSE_COMPLETE_TIMEOUT))
+			return tal_fmt(NULL, "CLOSED with pending close timeout");
 	}
 
 	if (input == PKT_ERROR) {

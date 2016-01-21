@@ -613,6 +613,8 @@ enum command_status state(const tal_t *ctx,
 
 	case STATE_WAIT_FOR_CLOSE_COMPLETE:
 		if (input_is(input, PKT_CLOSE_COMPLETE)) {
+			peer_unwatch_close_timeout(peer,
+						   INPUT_CLOSE_COMPLETE_TIMEOUT);
 			err = accept_pkt_close_complete(ctx, peer, idata->pkt);
 			if (err)
 				goto err_start_unilateral_close_already_closing;
@@ -622,6 +624,8 @@ enum command_status state(const tal_t *ctx,
 			change_peer_cond(peer, PEER_CLOSING, PEER_CLOSED);
 			return next_state(peer, cstatus, STATE_CLOSE_WAIT_CLOSE);
 		} else if (input_is(input, PKT_CLOSE)) {
+			peer_unwatch_close_timeout(peer,
+						   INPUT_CLOSE_COMPLETE_TIMEOUT);
 			/* We can use the sig just like CLOSE_COMPLETE */
 			err = accept_pkt_simultaneous_close(ctx, peer,
 							    idata->pkt);
@@ -633,6 +637,8 @@ enum command_status state(const tal_t *ctx,
 			set_peer_cond(peer, PEER_CLOSED);
 			return next_state(peer, cstatus, STATE_CLOSE_WAIT_CLOSE);
 		} else if (input_is(input, PKT_ERROR)) {
+			peer_unwatch_close_timeout(peer,
+						   INPUT_CLOSE_COMPLETE_TIMEOUT);
 			peer_unexpected_pkt(peer, idata->pkt);
 			goto start_unilateral_close_already_closing;
 		} else if (input_is_pkt(input)) {
@@ -643,6 +649,7 @@ enum command_status state(const tal_t *ctx,
 			err = pkt_err(ctx, "Close timed out");
 			goto err_start_unilateral_close_already_closing;
 		}
+		peer_unwatch_close_timeout(peer, INPUT_CLOSE_COMPLETE_TIMEOUT);
 		goto fail_during_close;
 
 	case STATE_WAIT_FOR_CLOSE_ACK:
