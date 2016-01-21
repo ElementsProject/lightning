@@ -20,6 +20,8 @@ struct peer_visible_state {
 	unsigned int mindepth;
 	/* Commitment fee they're offering (satoshi). */
 	u64 commit_fee;
+	/* Revocation hash for latest commit tx. */
+	struct sha256 revocation_hash;
 };
 
 struct peer {
@@ -58,9 +60,6 @@ struct peer {
 
 	/* Stuff we have in common. */
 	struct peer_visible_state us, them;
-
-	/* Their last revocation hash. */
-	struct sha256 their_rhash;
 };
 
 void setup_listeners(struct lightningd_state *dstate, unsigned int portnum);
