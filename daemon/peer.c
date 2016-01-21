@@ -1,3 +1,5 @@
+#include "dns.h"
+#include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
 #include "peer.h"
@@ -158,3 +160,36 @@ void setup_listeners(struct lightningd_state *state, unsigned int portnum)
 	if (fd1 < 0 && fd2 < 0)
 		fatal("Could not bind to a network address");
 }
+
+static char *json_connect(struct json_connection *jcon,
+			  const jsmntok_t *params,
+			  struct json_result *response)
+{
+	jsmntok_t *host, *port;
+	const char *hoststr, *portstr;
+
+	json_get_params(jcon->buffer, params, "host", &host, "port", &port,
+			NULL);
+
+	if (!host || !port)
+		return "Need host and port";
+
+	hoststr = tal_strndup(response, jcon->buffer + host->start,
+			      host->end - host->start);
+	portstr = tal_strndup(response, jcon->buffer + port->start,
+			      port->end - port->start);
+	if (!dns_resolve_and_connect(jcon->state, hoststr, portstr,
+				     peer_connected_out))
+		return "DNS failed";
+
+	json_object_start(response, NULL);
+	json_object_end(response);
+	return NULL;
+}
+
+const struct json_command connect_command = {
+	"connect",
+	json_connect,
+	"Connect to a {host} at {port}",
+	"Returns an empty result (meaning connection in progress)"
+};

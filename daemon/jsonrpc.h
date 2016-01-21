@@ -43,5 +43,6 @@ void json_notify(struct json_connection *jcon, const char *result);
 void setup_jsonrpc(struct lightningd_state *state, const char *rpc_filename);
 
 /* Commands (from other files) */
+extern const struct json_command connect_command;
 
 #endif /* LIGHTNING_DAEMON_JSONRPC_H */

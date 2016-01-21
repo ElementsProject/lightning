@@ -188,6 +188,7 @@ static const struct json_command *cmdlist[] = {
 	&help_command,
 	&stop_command,
 	&getlog_command,
+	&connect_command,
 	/* Developer/debugging options. */
 	&echo_command,
 };
