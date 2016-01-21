@@ -5,7 +5,7 @@
 #include "bitcoin/pubkey.h"
 #include "lightning.pb-c.h"
 #include "netaddr.h"
-#include "state_types.h"
+#include "state.h"
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/list/list.h>
 
@@ -33,7 +33,15 @@ struct peer {
 
 	/* Condition of communications */
 	enum state_peercond cond;
-	
+
+	/* Network connection. */
+	struct io_conn *conn;
+
+	/* Current command (if any) */
+	enum state_input cmd;
+	union input cmddata;
+	struct command *jsoncmd;
+
 	/* Global state. */
 	struct lightningd_state *dstate;
 
@@ -45,6 +53,10 @@ struct peer {
 
 	/* Current received packet. */
 	Pkt *inpkt;
+
+	/* Queue of output packets. */
+	Pkt *outpkt[5];
+	size_t num_outpkt;
 	
 	/* Current ongoing packetflow */
 	struct io_data *io_data;

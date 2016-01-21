@@ -1,10 +1,15 @@
+#include "bitcoind.h"
 #include "cryptopkt.h"
 #include "dns.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
+#include "names.h"
 #include "peer.h"
+#include "secrets.h"
 #include "state.h"
+#include <bitcoin/tx.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/io/io.h>
 #include <ccan/list/list.h>
 #include <ccan/noerr/noerr.h>
@@ -22,40 +27,184 @@ struct json_connecting {
 	/* This owns us, so we're freed after command_fail or command_success */
 	struct command *cmd;
 	const char *name, *port;
+	u64 satoshis;
 };
 
-/* Send and receive (encrypted) hello message. */
-static struct io_plan *peer_test_check(struct io_conn *conn, struct peer *peer)
+static void queue_output_pkt(struct peer *peer, Pkt *pkt)
 {
-	if (peer->inpkt->pkt_case != PKT__PKT_ERROR)
-		fatal("Bad packet type %u", peer->inpkt->pkt_case);
-	if (!peer->inpkt->error->problem
-	    || strcmp(peer->inpkt->error->problem, "hello") != 0)
-		fatal("Bad packet '%.6s'", peer->inpkt->error->problem);
-	log_info(peer->log, "Successful hello!");
+	peer->outpkt[peer->num_outpkt++] = pkt;
+	assert(peer->num_outpkt < ARRAY_SIZE(peer->outpkt));
 
-	/* Sleep forever... */
-	return io_wait(conn, peer, io_close_cb, NULL);
+	/* In case it was waiting for output. */
+	io_wake(peer);
 }
 
-static struct io_plan *peer_test_read(struct io_conn *conn, struct peer *peer)
+static struct json_result *null_response(const tal_t *ctx)
 {
-	return peer_read_packet(conn, peer, peer_test_check);
+	struct json_result *response;
+		
+	response = new_json_result(ctx);
+	json_object_start(response, NULL);
+	json_object_end(response);
+	return response;
+}
+	
+static void peer_cmd_complete(struct peer *peer, enum command_status status)
+{
+	assert(peer->cmd != INPUT_NONE);
+
+	if (peer->jsoncmd) {
+		if (status == CMD_FAIL)
+			/* FIXME: y'know, details. */
+			command_fail(peer->jsoncmd, "Failed");
+		else {
+			assert(status == CMD_SUCCESS);
+			command_success(peer->jsoncmd,
+					null_response(peer->jsoncmd));
+		}
+		peer->jsoncmd = NULL;
+	}
+	peer->cmd = INPUT_NONE;
 }
 
-static struct io_plan *peer_test(struct io_conn *conn, struct peer *peer)
+static void update_state(struct peer *peer,
+			 const enum state_input input,
+			 const union input *idata)
 {
-	Error err = ERROR__INIT;
-	Pkt pkt = PKT__INIT;
-	pkt.pkt_case = PKT__PKT_ERROR;
-	pkt.error = &err;
-	err.problem = "hello";
-	return peer_write_packet(conn, peer, &pkt, peer_test_read);
+	enum command_status status;
+	Pkt *outpkt;
+	const struct bitcoin_tx *broadcast;
+
+	status = state(peer, peer, input, idata, &outpkt, &broadcast);
+	log_debug(peer->log, "%s => %s",
+		  input_name(input), state_name(peer->state));
+	switch (status) {
+	case CMD_NONE:
+		break;
+	case CMD_SUCCESS:
+		log_add(peer->log, " (command success)");
+		peer_cmd_complete(peer, CMD_SUCCESS);
+		break;
+	case CMD_FAIL:
+		log_add(peer->log, " (command FAIL)");
+		peer_cmd_complete(peer, CMD_FAIL);
+		break;
+	case CMD_REQUEUE:
+		log_add(peer->log, " (Command requeue)");
+		break;
+	}
+
+	if (outpkt) {
+		log_add(peer->log, " (out %s)", input_name(outpkt->pkt_case));
+		queue_output_pkt(peer, outpkt);
+	}
+	if (broadcast) {
+		struct sha256_double txid;
+
+		bitcoin_txid(broadcast, &txid);
+		/* FIXME: log_struct */
+		log_add(peer->log, " (tx %02x%02x%02x%02x...)",
+			txid.sha.u.u8[0], txid.sha.u.u8[1],
+			txid.sha.u.u8[2], txid.sha.u.u8[3]);
+		bitcoind_send_tx(peer->dstate, broadcast);
+	}
+}
+
+static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
+{
+	Pkt *out;
+
+	if (peer->num_outpkt == 0)
+		return io_out_wait(conn, peer, pkt_out, peer);
+
+	out = peer->outpkt[--peer->num_outpkt];
+	return peer_write_packet(conn, peer, out, pkt_out);
+}
+
+static void try_command(struct peer *peer)
+{
+	while (peer->cond == PEER_CMD_OK && peer->cmd != INPUT_NONE)
+		update_state(peer, peer->cmd, &peer->cmddata);
+
+	if (peer->cond == PEER_CLOSED)
+		io_close(peer->conn);
+}
+	
+static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
+{
+	union input idata;
+	const tal_t *ctx = tal(peer, char);
+
+	idata.pkt = tal_steal(ctx, peer->inpkt);
+	update_state(peer, peer->inpkt->pkt_case, &idata);
+
+	/* Free peer->inpkt unless stolen above. */
+	tal_free(ctx);
+
+	if (peer->cond == PEER_CLOSED)
+		return io_close(conn);
+
+	/* Ready for command? */
+	if (peer->cond == PEER_CMD_OK)
+		try_command(peer);
+
+	return peer_read_packet(conn, peer, pkt_in);
+}
+
+/* Crypto is on, we are live. */
+static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
+{
+	peer_secrets_init(peer);
+	peer_get_revocation_hash(peer, 0, &peer->us.revocation_hash);
+
+	assert(peer->state == STATE_INIT);
+	peer->cmd = peer->us.offer_anchor;
+	try_command(peer);
+
+	return io_duplex(conn,
+			 peer_read_packet(conn, peer, pkt_in),
+			 pkt_out(conn, peer));
 }
 
 static void destroy_peer(struct peer *peer)
 {
+	if (peer->conn)
+		io_close(peer->conn);
 	list_del_from(&peer->dstate->peers, &peer->list);
+}
+
+static void peer_disconnect(struct io_conn *conn, struct peer *peer)
+{
+	Pkt *outpkt;
+	const struct bitcoin_tx *broadcast;
+
+	log_info(peer->log, "Disconnected");
+
+	/* No longer connected. */
+	peer->conn = NULL;
+
+	/* Not even set up yet?  Simply free.*/
+	if (peer->state == STATE_INIT) {
+		tal_free(peer);
+		return;
+	}
+
+	/* FIXME: Try to reconnect. */
+
+	state(peer, peer, CMD_CLOSE, NULL, &outpkt, &broadcast);
+	/* Can't send packet, so ignore it. */
+	tal_free(outpkt);
+
+	if (broadcast) {
+		struct sha256_double txid;
+
+		bitcoin_txid(broadcast, &txid);
+		/* FIXME: log_struct */
+		log_debug(peer->log, "CMD_CLOSE: tx %02x%02x%02x%02x...",
+			  txid.sha.u.u8[0], txid.sha.u.u8[1],
+			  txid.sha.u.u8[2], txid.sha.u.u8[3]);
+		bitcoind_send_tx(peer->dstate, broadcast);
+	}
 }
 
 static struct peer *new_peer(struct lightningd_state *dstate,
@@ -80,7 +229,14 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->io_data = NULL;
 	peer->secrets = NULL;
 	list_head_init(&peer->watches);
+	peer->num_outpkt = 0;
+	peer->cmd = INPUT_NONE;
 
+	/* If we free peer, conn should be closed, but can't be freed
+	 * immediately so don't make peer a parent. */
+	peer->conn = conn;
+	io_set_finish(conn, peer_disconnect, peer);
+	
 	peer->us.offer_anchor = offer_anchor;
 	if (!seconds_to_rel_locktime(dstate->config.rel_locktime,
 				     &peer->us.locktime))
@@ -112,7 +268,7 @@ static struct io_plan *peer_connected_out(struct io_conn *conn,
 					  struct lightningd_state *dstate,
 					  struct json_connecting *connect)
 {
-	struct json_result *response;
+	/* Initiator currently funds channel */
 	struct peer *peer = new_peer(dstate, conn, SOCK_STREAM, IPPROTO_TCP,
 				     CMD_OPEN_WITH_ANCHOR, "out");
 	if (!peer) {
@@ -123,12 +279,9 @@ static struct io_plan *peer_connected_out(struct io_conn *conn,
 	log_info(peer->log, "Connected out to %s:%s",
 		 connect->name, connect->port);
 
-	response = new_json_result(connect);	
-	json_object_start(response, NULL);
-	json_object_end(response);
-	command_success(connect->cmd, response);
-
-	return peer_crypto_setup(conn, peer, peer_test);
+	peer->jsoncmd = NULL;
+	command_success(connect->cmd, null_response(connect));
+	return peer_crypto_setup(conn, peer, peer_crypto_on);
 }
 
 static struct io_plan *peer_connected_in(struct io_conn *conn,
@@ -140,7 +293,8 @@ static struct io_plan *peer_connected_in(struct io_conn *conn,
 		return io_close(conn);
 
 	log_info(peer->log, "Peer connected in");
-	return peer_crypto_setup(conn, peer, peer_test);
+	peer->jsoncmd = NULL;
+	return peer_crypto_setup(conn, peer, peer_crypto_on);
 }
 
 static int make_listen_fd(struct lightningd_state *dstate,
@@ -240,12 +394,16 @@ static void json_connect(struct command *cmd,
 			const char *buffer, const jsmntok_t *params)
 {
 	struct json_connecting *connect;
-	jsmntok_t *host, *port;
+	jsmntok_t *host, *port, *satoshis;
 
-	json_get_params(buffer, params, "host", &host, "port", &port, NULL);
+	json_get_params(buffer, params,
+			"host", &host,
+			"port", &port,
+			"satoshis", &satoshis,
+			NULL);
 
-	if (!host || !port) {
-		command_fail(cmd, "Need host and port");
+	if (!host || !port || !satoshis) {
+		command_fail(cmd, "Need host, port and satoshis");
 		return;
 	}
 
@@ -255,6 +413,10 @@ static void json_connect(struct command *cmd,
 				    host->end - host->start);
 	connect->port = tal_strndup(connect, buffer + port->start,
 				    port->end - port->start);
+	if (!json_tok_u64(buffer, satoshis, &connect->satoshis))
+		command_fail(cmd, "'%.*s' is not a valid number",
+			     (int)(satoshis->end - satoshis->start),
+			     buffer + satoshis->start);
 	if (!dns_resolve_and_connect(cmd->dstate, connect->name, connect->port,
 				     peer_connected_out, peer_failed, connect)) {
 		command_fail(cmd, "DNS failed");
@@ -265,7 +427,7 @@ static void json_connect(struct command *cmd,
 const struct json_command connect_command = {
 	"connect",
 	json_connect,
-	"Connect to a {host} at {port}",
+	"Connect to a {host} at {port} offering anchor of {satoshis}",
 	"Returns an empty result on success"
 };
 
@@ -393,7 +555,8 @@ const struct htlc *peer_tx_revealed_r_value(struct peer *peer,
 
 bool committed_to_htlcs(const struct peer *peer)
 {
-	FIXME_STUB(peer);
+	/* FIXME */
+	return false;
 }
 
 /* Create a bitcoin close tx. */
@@ -518,7 +681,7 @@ const struct bitcoin_tx *bitcoin_htlc_spend(const tal_t *ctx,
 /* Start creation of the bitcoin anchor tx. */
 void bitcoin_create_anchor(struct peer *peer, enum state_input done)
 {
-	FIXME_STUB(peer);
+	/* FIXME */
 }
 
 /* We didn't end up broadcasting the anchor: release the utxos.
@@ -547,7 +710,14 @@ static void json_getpeers(struct command *cmd,
 	list_for_each(&cmd->dstate->peers, p, list) {
 		json_object_start(response, NULL);
 		json_add_string(response, "name", log_prefix(p->log));
-		json_add_hex(response, "id", p->id.der, pubkey_derlen(&p->id));
+		json_add_string(response, "state", state_name(p->state));
+		json_add_string(response, "cmd", input_name(p->cmd));
+
+		/* This is only valid after crypto setup. */
+		if (p->state != STATE_INIT)
+			json_add_hex(response, "id",
+				     p->id.der, pubkey_derlen(&p->id));
+		
 		json_object_end(response);
 	}
 	json_array_end(response);
