@@ -281,7 +281,8 @@ static bool aes_decrypt(void *dst, const void *src, size_t len,
 	return true;
 }
 
-void dump_contents(const void *data, size_t n)
+#if 0
+static void dump_contents(const void *data, size_t n)
 {
 	size_t i;
 	const unsigned char *p = memcheck(data, n);
@@ -292,6 +293,7 @@ void dump_contents(const void *data, size_t n)
 			printf("\n");
 	}
 }
+#endif
 
 static bool aes_encrypt_offset(size_t offset,
 			       void *dst, const void *src, size_t len,
@@ -345,7 +347,8 @@ static void make_hmac(const struct hop *hops, size_t num_hops,
 	HMAC_Final(&ctx, hmac->u.u8, NULL);
 }
 
-void _dump_hex(unsigned char *x, size_t s) {
+#if 0
+static void _dump_hex(unsigned char *x, size_t s) {
 	printf(" ");
 	while (s > 0) {
 		printf("%02x", *x);
@@ -353,12 +356,14 @@ void _dump_hex(unsigned char *x, size_t s) {
 	}
 }
 #define dump_hex(x) _dump_hex((void*)&x, sizeof(x))
-void dump_pkey(secp256k1_context *ctx, secp256k1_pubkey pkey) {
+
+static void dump_pkey(secp256k1_context *ctx, secp256k1_pubkey pkey) {
 	unsigned char tmp[65];
 	size_t len;
 	secp256k1_ec_pubkey_serialize(ctx, tmp, &len, &pkey, 0);
 	dump_hex(tmp);
 }
+#endif
 
 static bool check_hmac(struct onion *onion, const struct hmackey *hmackey)
 {
@@ -368,10 +373,10 @@ static bool check_hmac(struct onion *onion, const struct hmackey *hmackey)
 	return CRYPTO_memcmp(&hmac, &myhop(onion)->hmac, sizeof(hmac)) == 0;
 }
 
-bool create_onion(const secp256k1_pubkey pubkey[],
-		  char *const msg[],
-		  size_t num,
-		  struct onion *onion)
+static bool create_onion(const secp256k1_pubkey pubkey[],
+			 char *const msg[],
+			 size_t num,
+			 struct onion *onion)
 {
 	int i;
 	struct seckey seckeys[MAX_HOPS];
@@ -497,8 +502,8 @@ static bool pubkey_parse(const secp256k1_context *ctx,
  *
  * Returns enckey and pad_iv for use in unwrap.
  */
-bool decrypt_onion(const struct seckey *myseckey, struct onion *onion,
-		   struct enckey *enckey, struct iv *pad_iv)
+static bool decrypt_onion(const struct seckey *myseckey, struct onion *onion,
+			  struct enckey *enckey, struct iv *pad_iv)
 {
 	secp256k1_context *ctx;
 	unsigned char secret[32];
@@ -562,8 +567,8 @@ fail:
 }
 
 /* Get next layer of onion, for forwarding. */
-bool peel_onion(struct onion *onion,
-		const struct enckey *enckey, const struct iv *pad_iv)
+static bool peel_onion(struct onion *onion,
+		       const struct enckey *enckey, const struct iv *pad_iv)
 {
 	/* Move next one to back. */
 	memmove(&onion->hop[1], &onion->hop[0],

@@ -44,7 +44,7 @@ static void gen_keys(secp256k1_context *ctx,
 	assert(len == sizeof(pubkey->u8));
 }
 
-void print_keypair(bool pub, bool priv)
+static void print_keypair(bool pub, bool priv)
 {
 	secp256k1_context *ctx;
 	struct seckey seckey;

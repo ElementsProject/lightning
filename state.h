@@ -393,4 +393,10 @@ struct bitcoin_tx *bitcoin_htlc_spend(const tal_t *ctx,
 				      const struct state_data *sdata,
 				      const struct htlc *htlc);
 
+struct htlc_rval *r_value_from_cmd(const tal_t *ctx,
+				   const struct state_data *sdata,
+				   const struct htlc *htlc);
+struct htlc_rval *bitcoin_r_value(const tal_t *ctx, const struct htlc *htlc);
+struct htlc_rval *r_value_from_pkt(const tal_t *ctx, const Pkt *pkt);
+
 #endif /* LIGHTNING_STATE_H */
