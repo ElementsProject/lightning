@@ -74,10 +74,24 @@ sleep 2
 $LCLI1 getpeers | grep STATE_NORMAL_HIGHPRIO
 $LCLI2 getpeers | grep STATE_NORMAL_LOWPRIO
 
+# Check channel status
+$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"us" : { "pay" : 949999000, "fee" : 50000000, "htlcs" : [ ]'
+$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"them" : { "pay" : 0, "fee" : 0, "htlcs" : [ ]'
+
+$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"them" : { "pay" : 949999000, "fee" : 50000000, "htlcs" : [ ]'
+$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"us" : { "pay" : 0, "fee" : 0, "htlcs" : [ ]'
+
 EXPIRY=$(( $(date +%s) + 1000))
 SECRET=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd
 RHASH=`$LCLI1 dev-rhash $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 $LCLI1 newhtlc $ID2 1000000 $EXPIRY $RHASH
+
+# Check channel status
+$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"us" : { "pay" : 948999000, "fee" : 50000000, "htlcs" : [ { "msatoshis" : 1000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ]'
+$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"them" : { "pay" : 0, "fee" : 0, "htlcs" : [ ]'
+
+$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"them" : { "pay" : 948999000, "fee" : 50000000, "htlcs" : [ { "msatoshis" : 1000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ]'
+$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"us" : { "pay" : 0, "fee" : 0, "htlcs" : [ ]'
 
 $LCLI1 stop
 $LCLI2 stop

@@ -254,6 +254,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->current_htlc = NULL;
 	peer->num_htlcs = 0;
 	peer->close_tx = NULL;
+	peer->cstate = NULL;
 
 	/* If we free peer, conn should be closed, but can't be freed
 	 * immediately so don't make peer a parent. */
@@ -897,7 +898,42 @@ void make_commit_txs(const tal_t *ctx,
 				   their_revocation_hash,
 				   &their_cstate);
 }
-	
+
+static void json_add_abstime(struct json_result *response,
+			     const char *id,
+			     const struct abs_locktime *t)
+{
+	json_object_start(response, id);
+	if (abs_locktime_is_seconds(t))
+		json_add_num(response, "second", abs_locktime_to_seconds(t));
+	else
+		json_add_num(response, "block", abs_locktime_to_blocks(t));
+	json_object_end(response);
+}
+
+static void json_add_cstate(struct json_result *response,
+			    const char *id,
+			    const struct channel_oneside *side)
+{
+	size_t i;
+
+	json_object_start(response, id);
+	json_add_num(response, "pay", side->pay_msat);
+	json_add_num(response, "fee", side->fee_msat);
+	json_array_start(response, "htlcs");
+	for (i = 0; i < tal_count(side->htlcs); i++) {
+		json_object_start(response, NULL);
+		json_add_u64(response, "msatoshis", side->htlcs[i].msatoshis);
+		json_add_abstime(response, "expiry", &side->htlcs[i].expiry);
+		json_add_hex(response, "rhash",
+			     &side->htlcs[i].rhash,
+			     sizeof(side->htlcs[i].rhash));
+		json_object_end(response);
+	}
+	json_array_end(response);
+	json_object_end(response);
+}
+
 /* FIXME: Somehow we should show running DNS lookups! */
 /* FIXME: Show status of peers! */
 static void json_getpeers(struct command *cmd,
@@ -918,7 +954,13 @@ static void json_getpeers(struct command *cmd,
 		if (p->state != STATE_INIT)
 			json_add_hex(response, "id",
 				     p->id.der, pubkey_derlen(&p->id));
-		
+
+		if (p->cstate) {
+			json_object_start(response, "channel");
+			json_add_cstate(response, "us", &p->cstate->a);
+			json_add_cstate(response, "them", &p->cstate->b);
+			json_object_end(response);
+		}
 		json_object_end(response);
 	}
 	json_array_end(response);
