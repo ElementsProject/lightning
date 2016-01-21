@@ -82,8 +82,8 @@ static void queue_pkt(Pkt **out, Pkt *pkt)
 	*out = pkt;
 }
 
-static void queue_tx_broadcast(struct bitcoin_tx **broadcast,
-			       struct bitcoin_tx *tx)
+static void queue_tx_broadcast(const struct bitcoin_tx **broadcast,
+			       const struct bitcoin_tx *tx)
 {
 	assert(!*broadcast);
 	assert(tx);
@@ -95,10 +95,10 @@ enum command_status state(const tal_t *ctx,
 			  const enum state_input input,
 			  const union input *idata,
 			  Pkt **out,
-			  struct bitcoin_tx **broadcast)
+			  const struct bitcoin_tx **broadcast)
 {
 	Pkt *decline;
-	struct bitcoin_tx *tx;
+	const struct bitcoin_tx *tx;
 	Pkt *err;
 	enum command_status cstatus = CMD_NONE;
 

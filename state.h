@@ -40,7 +40,7 @@ enum command_status state(const tal_t *ctx,
 			  const enum state_input input,
 			  const union input *idata,
 			  Pkt **out,
-			  struct bitcoin_tx **broadcast);
+			  const struct bitcoin_tx **broadcast);
 
 /* Any CMD_SEND_HTLC_* */
 #define CMD_SEND_UPDATE_ANY INPUT_MAX
@@ -326,38 +326,38 @@ void bitcoin_create_anchor(struct peer *peer, enum state_input done);
 void bitcoin_release_anchor(struct peer *peer, enum state_input done);
 
 /* Get the bitcoin anchor tx. */
-struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer);
+const struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer);
 
 /* Create a bitcoin close tx. */
-struct bitcoin_tx *bitcoin_close(const tal_t *ctx,
-				 const struct peer *peer);
+const struct bitcoin_tx *bitcoin_close(const tal_t *ctx,
+				       const struct peer *peer);
 
 /* Create a bitcoin spend tx (to spend our commit's outputs) */
-struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
-				      const struct peer *peer);
+const struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
+					    const struct peer *peer);
 
 /* Create a bitcoin spend tx (to spend their commit's outputs) */
-struct bitcoin_tx *bitcoin_spend_theirs(const tal_t *ctx,
-					const struct peer *peer,
-					const struct bitcoin_event *btc);
+const struct bitcoin_tx *bitcoin_spend_theirs(const tal_t *ctx,
+					      const struct peer *peer,
+					      const struct bitcoin_event *btc);
 
 /* Create a bitcoin steal tx (to steal all their commit's outputs) */
-struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
-				 const struct peer *peer,
-				 struct bitcoin_event *btc);
+const struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
+				       const struct peer *peer,
+				       struct bitcoin_event *btc);
 
 /* Create our commit tx */
-struct bitcoin_tx *bitcoin_commit(const tal_t *ctx,
-				  const struct peer *peer);
+const struct bitcoin_tx *bitcoin_commit(const tal_t *ctx,
+					const struct peer *peer);
 
 /* Create a HTLC refund collection */
-struct bitcoin_tx *bitcoin_htlc_timeout(const tal_t *ctx,
-					const struct peer *peer,
-					const struct htlc *htlc);
+const struct bitcoin_tx *bitcoin_htlc_timeout(const tal_t *ctx,
+					      const struct peer *peer,
+					      const struct htlc *htlc);
 
 /* Create a HTLC collection */
-struct bitcoin_tx *bitcoin_htlc_spend(const tal_t *ctx,
-				      const struct peer *peer,
-				      const struct htlc *htlc);
+const struct bitcoin_tx *bitcoin_htlc_spend(const tal_t *ctx,
+					    const struct peer *peer,
+					    const struct htlc *htlc);
 
 #endif /* LIGHTNING_STATE_H */

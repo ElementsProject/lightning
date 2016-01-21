@@ -858,7 +858,7 @@ static bool bitcoin_tx_is(const struct bitcoin_tx *btx, const char *str)
 	return streq((const char *)btx, str);
 }
 
-struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer)
+const struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer)
 {
 	if (!peer->anchor)
 		report_trail(peer->trail, "Can't create anchor tx: no anchor!");
@@ -866,52 +866,52 @@ struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer)
 	return bitcoin_tx("anchor");
 }
 
-struct bitcoin_tx *bitcoin_close(const tal_t *ctx,
-				 const struct peer *peer)
+const struct bitcoin_tx *bitcoin_close(const tal_t *ctx,
+				       const struct peer *peer)
 {
 	return bitcoin_tx("close");
 }
 
-struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
-				      const struct peer *peer)
+const struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
+					    const struct peer *peer)
 {
 	return bitcoin_tx("spend our commit");
 }
 
-struct bitcoin_tx *bitcoin_spend_theirs(const tal_t *ctx,
-					const struct peer *peer,
-					const struct bitcoin_event *btc)
+const struct bitcoin_tx *bitcoin_spend_theirs(const tal_t *ctx,
+					      const struct peer *peer,
+					      const struct bitcoin_event *btc)
 {
 	return bitcoin_tx("spend their commit");
 }
 
-struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
-				 const struct peer *peer,
-					struct bitcoin_event *btc)
+const struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
+				       const struct peer *peer,
+				       struct bitcoin_event *btc)
 {
 	if (fail(peer, FAIL_STEAL))
 		return NULL;
 	return bitcoin_tx("steal");
 }
 
-struct bitcoin_tx *bitcoin_commit(const tal_t *ctx,
-				  const struct peer *peer)
+const struct bitcoin_tx *bitcoin_commit(const tal_t *ctx,
+					const struct peer *peer)
 {
 	return bitcoin_tx("our commit");
 }
 
 /* Create a HTLC refund collection */
-struct bitcoin_tx *bitcoin_htlc_timeout(const tal_t *ctx,
-					const struct peer *peer,
-					const struct htlc *htlc)
+const struct bitcoin_tx *bitcoin_htlc_timeout(const tal_t *ctx,
+					      const struct peer *peer,
+					      const struct htlc *htlc)
 {
 	return htlc_tx(ctx, "htlc timeout", htlc->id);
 }
 
 /* Create a HTLC collection */
-struct bitcoin_tx *bitcoin_htlc_spend(const tal_t *ctx,
-				      const struct peer *peer,
-				      const struct htlc *htlc)
+const struct bitcoin_tx *bitcoin_htlc_spend(const tal_t *ctx,
+					    const struct peer *peer,
+					    const struct htlc *htlc)
 {
 	return htlc_tx(ctx, "htlc fulfill", htlc->id);
 }
@@ -1804,7 +1804,7 @@ static void try_input(const struct peer *peer,
 	struct trail t;
 	const char *problem;
 	Pkt *output;
-	struct bitcoin_tx *broadcast;
+	const struct bitcoin_tx *broadcast;
 	const tal_t *ctx = tal(NULL, char);
 	enum command_status cstatus;
 
@@ -2229,7 +2229,7 @@ static enum state_input **map_inputs(void)
 		/* This adds to mapping_inputs every input_is() call */
 		if (!state_is_error(i)) {
 			struct peer dummy;
-			struct bitcoin_tx *dummy_tx;
+			const struct bitcoin_tx *dummy_tx;
 			Pkt *dummy_pkt;
 			memset(&dummy, 0, sizeof(dummy));
 			dummy.state = i;
