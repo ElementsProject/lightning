@@ -52,6 +52,14 @@ message funding {
 //
 
 // Set channel params.
+message authenticate {
+  // Which node this is.
+  required bitcoin_pubkey node_id = 1;
+  // Signature of your session key. */
+  required signature session_sig = 2;
+};
+
+// Set channel params.
 message open_channel {
   // Relative locktime for outputs going to us.
   required locktime delay = 1;
@@ -205,6 +213,8 @@ message error {
 // This is the union which defines all of them
 message pkt {
   oneof pkt {
+    // Start of connection
+    authenticate auth = 50;
     // Opening
     open_channel open = 20;
     open_anchor open_anchor = 21;

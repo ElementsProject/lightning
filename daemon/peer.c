@@ -1,3 +1,4 @@
+#include "cryptopkt.h"
 #include "dns.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
@@ -13,6 +14,33 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+
+/* Send and receive (encrypted) hello message. */
+static struct io_plan *peer_test_check(struct io_conn *conn, struct peer *peer)
+{
+	if (peer->inpkt->pkt_case != PKT__PKT_ERROR)
+		fatal("Bad packet type %u", peer->inpkt->pkt_case);
+	if (!peer->inpkt->error->problem
+	    || strcmp(peer->inpkt->error->problem, "hello") != 0)
+		fatal("Bad packet '%.6s'", peer->inpkt->error->problem);
+	log_info(peer->log, "Successful hello!");
+	return io_close(conn);
+}
+
+static struct io_plan *peer_test_read(struct io_conn *conn, struct peer *peer)
+{
+	return peer_read_packet(conn, peer, peer_test_check);
+}
+
+static struct io_plan *peer_test(struct io_conn *conn, struct peer *peer)
+{
+	Error err = ERROR__INIT;
+	Pkt pkt = PKT__INIT;
+	pkt.pkt_case = PKT__PKT_ERROR;
+	pkt.error = &err;
+	err.problem = "hello";
+	return peer_write_packet(conn, peer, &pkt, peer_test_read);
+}
 
 static void destroy_peer(struct peer *peer)
 {
@@ -32,6 +60,7 @@ static struct peer *new_peer(struct lightningd_state *state,
 	peer->state = state;
 	peer->addr.type = addr_type;
 	peer->addr.protocol = addr_protocol;
+	peer->io_data = NULL;
 
 	/* FIXME: Attach IO logging for this peer. */
 	tal_add_destructor(peer, destroy_peer);
@@ -63,7 +92,7 @@ struct io_plan *peer_connected_out(struct io_conn *conn,
 		return io_close(conn);
 	}
 	log_info(peer->log, "Connected out to %s:%s", name, port);
-	return io_write(conn, "Hello!", 6, io_close_cb, NULL);
+	return peer_crypto_setup(conn, peer, peer_test);
 }
 
 static struct io_plan *peer_connected_in(struct io_conn *conn,
@@ -73,8 +102,9 @@ static struct io_plan *peer_connected_in(struct io_conn *conn,
 				     "in");
 	if (!peer)
 		return io_close(conn);
-	
-	return io_write(conn, "Hello!", 6, io_close_cb, NULL);
+
+	log_info(peer->log, "Peer connected in");
+	return peer_crypto_setup(conn, peer, peer_test);
 }
 
 static int make_listen_fd(struct lightningd_state *state,

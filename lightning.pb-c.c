@@ -222,6 +222,49 @@ void   funding__free_unpacked
   assert(message->base.descriptor == &funding__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   authenticate__init
+                     (Authenticate         *message)
+{
+  static Authenticate init_value = AUTHENTICATE__INIT;
+  *message = init_value;
+}
+size_t authenticate__get_packed_size
+                     (const Authenticate *message)
+{
+  assert(message->base.descriptor == &authenticate__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t authenticate__pack
+                     (const Authenticate *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &authenticate__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t authenticate__pack_to_buffer
+                     (const Authenticate *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &authenticate__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+Authenticate *
+       authenticate__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (Authenticate *)
+     protobuf_c_message_unpack (&authenticate__descriptor,
+                                allocator, len, data);
+}
+void   authenticate__free_unpacked
+                     (Authenticate *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &authenticate__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
 void   open_channel__init
                      (OpenChannel         *message)
 {
@@ -1344,6 +1387,57 @@ const ProtobufCMessageDescriptor funding__descriptor =
   (ProtobufCMessageInit) funding__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
+static const ProtobufCFieldDescriptor authenticate__field_descriptors[2] =
+{
+  {
+    "node_id",
+    1,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(Authenticate, node_id),
+    &bitcoin_pubkey__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "session_sig",
+    2,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(Authenticate, session_sig),
+    &signature__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned authenticate__field_indices_by_name[] = {
+  0,   /* field[0] = node_id */
+  1,   /* field[1] = session_sig */
+};
+static const ProtobufCIntRange authenticate__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 2 }
+};
+const ProtobufCMessageDescriptor authenticate__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "authenticate",
+  "Authenticate",
+  "Authenticate",
+  "",
+  sizeof(Authenticate),
+  2,
+  authenticate__field_descriptors,
+  authenticate__field_indices_by_name,
+  1,  authenticate__number_ranges,
+  (ProtobufCMessageInit) authenticate__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
 static const ProtobufCEnumValue open_channel__anchor_offer__enum_values_by_number[2] =
 {
   { "WILL_CREATE_ANCHOR", "OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR", 1 },
@@ -2259,7 +2353,7 @@ const ProtobufCMessageDescriptor error__descriptor =
   (ProtobufCMessageInit) error__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor pkt__field_descriptors[17] =
+static const ProtobufCFieldDescriptor pkt__field_descriptors[18] =
 {
   {
     "update",
@@ -2465,8 +2559,21 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[17] =
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "auth",
+    50,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Pkt, pkt_case),
+    offsetof(Pkt, auth),
+    &authenticate__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned pkt__field_indices_by_name[] = {
+  17,   /* field[17] = auth */
   13,   /* field[13] = close */
   15,   /* field[15] = close_ack */
   14,   /* field[14] = close_complete */
@@ -2485,13 +2592,14 @@ static const unsigned pkt__field_indices_by_name[] = {
   3,   /* field[3] = update_signature */
   7,   /* field[7] = update_timedout_htlc */
 };
-static const ProtobufCIntRange pkt__number_ranges[4 + 1] =
+static const ProtobufCIntRange pkt__number_ranges[5 + 1] =
 {
   { 1, 0 },
   { 20, 9 },
   { 30, 13 },
   { 40, 16 },
-  { 0, 17 }
+  { 50, 17 },
+  { 0, 18 }
 };
 const ProtobufCMessageDescriptor pkt__descriptor =
 {
@@ -2501,10 +2609,10 @@ const ProtobufCMessageDescriptor pkt__descriptor =
   "Pkt",
   "",
   sizeof(Pkt),
-  17,
+  18,
   pkt__field_descriptors,
   pkt__field_indices_by_name,
-  4,  pkt__number_ranges,
+  5,  pkt__number_ranges,
   (ProtobufCMessageInit) pkt__init,
   NULL,NULL,NULL    /* reserved[123] */
 };

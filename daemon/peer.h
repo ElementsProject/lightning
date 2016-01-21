@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_DAEMON_PEER_H
 #define LIGHTNING_DAEMON_PEER_H
 #include "config.h"
+#include "lightning.pb-c.h"
 #include "netaddr.h"
 #include <ccan/list/list.h>
 
@@ -14,6 +15,12 @@ struct peer {
 	/* The other end's address. */
 	struct netaddr addr;
 
+	/* Current received packet. */
+	Pkt *inpkt;
+	
+	/* Current ongoing packetflow */
+	struct io_data *io_data;
+	
 	/* What happened. */
 	struct log *log;
 };

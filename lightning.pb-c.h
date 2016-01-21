@@ -20,6 +20,7 @@ typedef struct _Signature Signature;
 typedef struct _Locktime Locktime;
 typedef struct _BitcoinPubkey BitcoinPubkey;
 typedef struct _Funding Funding;
+typedef struct _Authenticate Authenticate;
 typedef struct _OpenChannel OpenChannel;
 typedef struct _OpenAnchor OpenAnchor;
 typedef struct _OpenCommitSig OpenCommitSig;
@@ -145,6 +146,26 @@ struct  _Funding
 #define FUNDING__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&funding__descriptor) \
     , 0,0ll, 0,0 }
+
+
+/*
+ * Set channel params.
+ */
+struct  _Authenticate
+{
+  ProtobufCMessage base;
+  /*
+   * Which node this is.
+   */
+  BitcoinPubkey *node_id;
+  /*
+   * Signature of your session key. * 
+   */
+  Signature *session_sig;
+};
+#define AUTHENTICATE__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&authenticate__descriptor) \
+    , NULL, NULL }
 
 
 /*
@@ -500,6 +521,7 @@ struct  _Error
 
 typedef enum {
   PKT__PKT__NOT_SET = 0,
+  PKT__PKT_AUTH = 50,
   PKT__PKT_OPEN = 20,
   PKT__PKT_OPEN_ANCHOR = 21,
   PKT__PKT_OPEN_COMMIT_SIG = 22,
@@ -527,6 +549,10 @@ struct  _Pkt
   ProtobufCMessage base;
   Pkt__PktCase pkt_case;
   union {
+    /*
+     * Start of connection
+     */
+    Authenticate *auth;
     /*
      * Opening
      */
@@ -657,6 +683,25 @@ Funding *
                       const uint8_t       *data);
 void   funding__free_unpacked
                      (Funding *message,
+                      ProtobufCAllocator *allocator);
+/* Authenticate methods */
+void   authenticate__init
+                     (Authenticate         *message);
+size_t authenticate__get_packed_size
+                     (const Authenticate   *message);
+size_t authenticate__pack
+                     (const Authenticate   *message,
+                      uint8_t             *out);
+size_t authenticate__pack_to_buffer
+                     (const Authenticate   *message,
+                      ProtobufCBuffer     *buffer);
+Authenticate *
+       authenticate__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   authenticate__free_unpacked
+                     (Authenticate *message,
                       ProtobufCAllocator *allocator);
 /* OpenChannel methods */
 void   open_channel__init
@@ -1017,6 +1062,9 @@ typedef void (*BitcoinPubkey_Closure)
 typedef void (*Funding_Closure)
                  (const Funding *message,
                   void *closure_data);
+typedef void (*Authenticate_Closure)
+                 (const Authenticate *message,
+                  void *closure_data);
 typedef void (*OpenChannel_Closure)
                  (const OpenChannel *message,
                   void *closure_data);
@@ -1082,6 +1130,7 @@ extern const ProtobufCMessageDescriptor signature__descriptor;
 extern const ProtobufCMessageDescriptor locktime__descriptor;
 extern const ProtobufCMessageDescriptor bitcoin_pubkey__descriptor;
 extern const ProtobufCMessageDescriptor funding__descriptor;
+extern const ProtobufCMessageDescriptor authenticate__descriptor;
 extern const ProtobufCMessageDescriptor open_channel__descriptor;
 extern const ProtobufCEnumDescriptor    open_channel__anchor_offer__descriptor;
 extern const ProtobufCMessageDescriptor open_anchor__descriptor;
