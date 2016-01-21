@@ -73,11 +73,6 @@ struct state_effect *state(const tal_t *ctx,
 				goto err_close_nocleanup;
 			}
 			return next_state(ctx, effect, STATE_OPEN_WAIT_FOR_ANCHOR);
-		} else if (input_is(input, CMD_SEND_HTLC_UPDATE)) {
-			/* Can't do this until we're open. */
-			add_effect(&effect, cmd_defer, input);
-			/* No state change. */
-			return effect;
 		} else if (input_is(input, CMD_CLOSE)) {
 			add_effect(&effect, cmd_fail, NULL);
 			goto instant_close;
@@ -96,11 +91,6 @@ struct state_effect *state(const tal_t *ctx,
 			add_effect(&effect, send_pkt, pkt_anchor(ctx, peer));
 			return next_state(ctx, effect,
 					  STATE_OPEN_WAIT_FOR_COMMIT_SIG);
-		} else if (input_is(input, CMD_SEND_HTLC_UPDATE)) {
-			/* Can't do this until we're open. */
-			add_effect(&effect, cmd_defer, input);
-			/* No state change. */
-			return effect;
 		} else if (input_is(input, CMD_CLOSE)) {
 			add_effect(&effect, cmd_fail, NULL);
 			goto instant_close;
@@ -128,11 +118,6 @@ struct state_effect *state(const tal_t *ctx,
 
 			return next_state(ctx, effect,
 					  STATE_OPEN_WAITING_THEIRANCHOR);
-		} else if (input_is(input, CMD_SEND_HTLC_UPDATE)) {
-			/* Can't do this until we're open. */
-			add_effect(&effect, cmd_defer, input);
-			/* No state change. */
-			return effect;
 		} else if (input_is(input, CMD_CLOSE)) {
 			add_effect(&effect, cmd_fail, NULL);
 			goto instant_close;
@@ -159,11 +144,6 @@ struct state_effect *state(const tal_t *ctx,
 							BITCOIN_ANCHOR_THEIRSPEND,
 							BITCOIN_ANCHOR_OTHERSPEND));
 			return next_state(ctx, effect, STATE_OPEN_WAITING_OURANCHOR);
-		} else if (input_is(input, CMD_SEND_HTLC_UPDATE)) {
-			/* Can't do this until we're open. */
-			add_effect(&effect, cmd_defer, input);
-			/* No state change. */
-			return effect;
 		} else if (input_is(input, CMD_CLOSE)) {
 			add_effect(&effect, cmd_fail, NULL);
 			goto instant_close;
@@ -183,11 +163,6 @@ struct state_effect *state(const tal_t *ctx,
 			goto anchor_unspent;
 		} else if (input_is(input, PKT_OPEN_COMPLETE)) {
 			/* Ignore until we've hit depth ourselves. */
-			add_effect(&effect, cmd_defer, input);
-			/* No state change. */
-			return effect;
-		} else if (input_is(input, CMD_SEND_HTLC_UPDATE)) {
-			/* Can't do this until we're open. */
 			add_effect(&effect, cmd_defer, input);
 			/* No state change. */
 			return effect;
@@ -257,11 +232,6 @@ struct state_effect *state(const tal_t *ctx,
 			add_effect(&effect, cmd_defer, input);
 			/* No state change. */
 			return effect;
-		} else if (input_is(input, CMD_SEND_HTLC_UPDATE)) {
-			/* Can't do this until we're open. */
-			add_effect(&effect, cmd_defer, input);
-			/* No state change. */
-			return effect;
 		} else if (input_is(input, CMD_CLOSE)) {
 			/* We no longer care about anchor depth. */
 			add_effect(&effect, unwatch,
@@ -309,11 +279,6 @@ struct state_effect *state(const tal_t *ctx,
 		} else if (input_is(input, BITCOIN_ANCHOR_THEIRSPEND)) {
 			add_effect(&effect, cmd_fail, NULL);
 			goto them_unilateral;
-		} else if (input_is(input, CMD_SEND_HTLC_UPDATE)) {
-			/* Can't do this until we're open. */
-			add_effect(&effect, cmd_defer, input);
-			/* No state change. */
-			return effect;
 		} else if (input_is(input, CMD_CLOSE)) {
 			add_effect(&effect, cmd_fail, NULL);
 			goto start_closing;
