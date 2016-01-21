@@ -89,6 +89,7 @@ CCAN_OBJS :=					\
 	ccan-str.o				\
 	ccan-take.o				\
 	ccan-tal-grab_file.o			\
+	ccan-tal-path.o				\
 	ccan-tal-str.o				\
 	ccan-tal.o				\
 	ccan-time.o				\
@@ -332,6 +333,8 @@ include daemon/Makefile
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-tal-str.o: $(CCANDIR)/ccan/tal/str/str.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-tal-path.o: $(CCANDIR)/ccan/tal/path/path.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-tal-grab_file.o: $(CCANDIR)/ccan/tal/grab_file/grab_file.c
 	$(CC) $(CFLAGS) -c -o $@ $<

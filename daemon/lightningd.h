@@ -9,5 +9,9 @@ struct lightningd_state {
 	struct log_record *log_record;
 	struct log *base_log;
 	FILE *logf;
+
+	/* Our config dir, and rpc file */
+	char *config_dir;
+	char *rpc_filename;
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */

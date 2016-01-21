@@ -7,12 +7,14 @@ daemon-wrongdir:
 daemon-all: daemon/lightningd
 
 DAEMON_SRC :=					\
+	daemon/configdir.c			\
 	daemon/lightningd.c			\
 	daemon/log.c				\
 	daemon/pseudorand.c
 DAEMON_OBJS := $(DAEMON_SRC:.c=.o)
 
 DAEMON_HEADERS :=				\
+	daemon/configdir.h			\
 	daemon/lightningd.h			\
 	daemon/log.h				\
 	daemon/pseudorand.h

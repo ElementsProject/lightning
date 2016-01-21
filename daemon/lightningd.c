@@ -1,3 +1,4 @@
+#include "configdir.h"
 #include "lightningd.h"
 #include "log.h"
 #include <ccan/err/err.h>
@@ -6,6 +7,7 @@
 #include <ccan/tal/tal.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <version.h>
@@ -54,11 +56,34 @@ int main(int argc, char *argv[])
 	opt_register_logging(state->base_log);
 	opt_register_version();
 
+	configdir_register_opts(state,
+				&state->config_dir, &state->rpc_filename);
+
+	/* Get any configdir options first. */
+	opt_early_parse(argc, argv, opt_log_stderr_exit);
+
+	/* Move to config dir, to save ourselves the hassle of path manip. */
+	if (chdir(state->config_dir) != 0) {
+		log_unusual(state->base_log, "Creating lightningd dir %s"
+			    " (because chdir gave %s)",
+			    state->config_dir, strerror(errno));
+		if (mkdir(state->config_dir, 0700) != 0)
+			fatal("Could not make directory %s: %s",
+			      state->config_dir, strerror(errno));
+		if (chdir(state->config_dir) != 0)
+			fatal("Could not change directory %s: %s",
+			      state->config_dir, strerror(errno));
+	}
+	/* Activate crash log now we're in the right place. */
+	crashlog_activate(state->base_log);
+
+	/* Now look for config file */
+	opt_parse_from_config(state);
+
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc != 1)
 		errx(1, "no arguments accepted");
 
-	crashlog_activate(state->base_log);
 	log_info(state->base_log, "Hello world!");
 	tal_free(state);
 	opt_free_table();
