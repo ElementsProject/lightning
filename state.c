@@ -21,6 +21,10 @@ static inline bool high_priority(enum state state)
 		(*e) = _e;					\
 	} while(0)
 
+/* STATE_CLOSE* can be treated as a bitset offset from STATE_CLOSED */
+#define BITS_TO_STATE(bits) (STATE_CLOSED + (bits))
+#define STATE_TO_BITS(state) ((state) - STATE_CLOSED)
+
 static struct state_effect *next_state(const tal_t *ctx,
 				       struct state_effect *effect,
 				       const enum state state)
@@ -629,11 +633,10 @@ struct state_effect *state(const tal_t *ctx,
 	case STATE_CLOSE_WAIT_OURCOMMIT_WITH_HTLCS:
 	case STATE_CLOSE_WAIT_SPENDOURS:
 	case STATE_CLOSE_WAIT_SPENDOURS_WITH_HTLCS: {
-		unsigned int bits, base;
+		unsigned int bits;
 		enum state_input closed;
 
-		base = (unsigned)STATE_CLOSED;
-		bits = (unsigned)state - base;
+		bits = STATE_TO_BITS(state);
 
 		/* Once we see a steal or spend completely buried, we
 		 * close unless we're still waiting for htlcs*/
@@ -654,21 +657,21 @@ struct state_effect *state(const tal_t *ctx,
 
 		if ((bits & STATE_CLOSE_SPENDTHEM_BIT)
 		    && input_is(input, BITCOIN_SPEND_THEIRS_DONE)) {
-			BUILD_ASSERT(!((STATE_CLOSE_WAIT_HTLCS - base)
+			BUILD_ASSERT(!(STATE_TO_BITS(STATE_CLOSE_WAIT_HTLCS)
 				       & STATE_CLOSE_SPENDTHEM_BIT));
 			return next_state(ctx, effect, closed);
 		}
 
 		if ((bits & STATE_CLOSE_CLOSE_BIT)
 		    && input_is(input, BITCOIN_CLOSE_DONE)) {
-			BUILD_ASSERT(!((STATE_CLOSE_WAIT_HTLCS - base)
+			BUILD_ASSERT(!(STATE_TO_BITS(STATE_CLOSE_WAIT_HTLCS)
 				       & STATE_CLOSE_CLOSE_BIT));
 			return next_state(ctx, effect, closed);
 		}
 
 		if ((bits & STATE_CLOSE_OURCOMMIT_BIT)
 		    && input_is(input, BITCOIN_ANCHOR_OURCOMMIT_DELAYPASSED)) {
-			BUILD_ASSERT(!((STATE_CLOSE_WAIT_HTLCS - base)
+			BUILD_ASSERT(!(STATE_TO_BITS(STATE_CLOSE_WAIT_HTLCS)
 				       & STATE_CLOSE_OURCOMMIT_BIT));
 			tx = bitcoin_spend_ours(ctx, peer);
 			/* Now we need to wait for our commit to be done. */
@@ -678,12 +681,12 @@ struct state_effect *state(const tal_t *ctx,
 						 BITCOIN_SPEND_OURS_DONE));
 			bits &= ~STATE_CLOSE_OURCOMMIT_BIT;
 			bits |= STATE_CLOSE_SPENDOURS_BIT;
-			return next_state(ctx, effect, base + bits);
+			return next_state(ctx, effect, BITS_TO_STATE(bits));
 		}
 
 		if ((bits & STATE_CLOSE_SPENDOURS_BIT)
 		    && input_is(input, BITCOIN_SPEND_OURS_DONE)) {
-			BUILD_ASSERT(!((STATE_CLOSE_WAIT_HTLCS - base)
+			BUILD_ASSERT(!(STATE_TO_BITS(STATE_CLOSE_WAIT_HTLCS)
 				       & STATE_CLOSE_SPENDOURS_BIT));
 			return next_state(ctx, effect, closed);
 		}
@@ -692,11 +695,9 @@ struct state_effect *state(const tal_t *ctx,
 		if (bits & STATE_CLOSE_HTLCS_BIT) {
 			if (input_is(input, INPUT_NO_MORE_HTLCS)) {
 				/* Clear bit, might lead to STATE_CLOSED. */
-				BUILD_ASSERT(((STATE_CLOSE_WAIT_HTLCS - base)
-					      & ~STATE_CLOSE_HTLCS_BIT)
-					     == STATE_CLOSED);
+				BUILD_ASSERT((BITS_TO_STATE(STATE_TO_BITS(STATE_CLOSE_WAIT_HTLCS) & ~STATE_CLOSE_HTLCS_BIT)) == STATE_CLOSED);
 				bits &= ~STATE_CLOSE_HTLCS_BIT;
-				return next_state(ctx, effect, base + bits);
+				return next_state(ctx, effect, BITS_TO_STATE(bits));
 			} else if (input_is(input, BITCOIN_HTLC_TOTHEM_SPENT)) {
 				/* They revealed R value. */
 				add_effect(&effect, r_value,
@@ -800,7 +801,7 @@ struct state_effect *state(const tal_t *ctx,
 				bits |= STATE_CLOSE_HTLCS_BIT;
 			}
 			bits |= STATE_CLOSE_SPENDTHEM_BIT;
-			return next_state(ctx, effect, base + bits);
+			return next_state(ctx, effect, BITS_TO_STATE(bits));
 			/* This can happen multiple times: need to steal ALL */
 		} else if (input_is(input, BITCOIN_ANCHOR_OTHERSPEND)) {
 			tx = bitcoin_steal(ctx, peer, idata->btc);
@@ -812,7 +813,7 @@ struct state_effect *state(const tal_t *ctx,
 				   bitcoin_watch(ctx, tx,
 						 BITCOIN_STEAL_DONE));
 			bits |= STATE_CLOSE_STEAL_BIT;
-			return next_state(ctx, effect, base + bits);
+			return next_state(ctx, effect, BITS_TO_STATE(bits));
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT))
 			goto anchor_unspent;
 
