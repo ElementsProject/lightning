@@ -87,6 +87,9 @@ static void config_register_opts(struct lightningd_state *state)
 
 static void default_config(struct config *config)
 {
+	/* aka. "Dude, where's my coins?" */
+	config->testnet = true;
+
 	/* One day to catch cheating attempts. */
 	config->rel_locktime = 60 * 60 * 24;
 

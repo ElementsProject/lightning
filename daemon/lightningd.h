@@ -10,6 +10,9 @@
 
 /* Various adjustable things. */
 struct config {
+	/* Are we on testnet? */
+	bool testnet;
+
 	/* How long do we want them to lock up their funds? (seconds) */
 	u32 rel_locktime;
 
