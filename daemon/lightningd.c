@@ -84,6 +84,9 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--min-commit-fee", opt_set_u64, opt_show_u64,
 			 &dstate->config.commitment_fee_min,
 			 "Minimum satoshis to accept for commitment transaction fee");
+	opt_register_arg("--closing-fee", opt_set_u64, opt_show_u64,
+			 &dstate->config.closing_fee,
+			 "Satoshis to use for mutual close transaction fee");
 	opt_register_arg("--bitcoind-poll", opt_set_u32, opt_show_u32,
 			 &dstate->config.poll_seconds,
 			 "Seconds between polling for new transactions");
@@ -114,7 +117,25 @@ static void default_config(struct config *config)
 	/* Don't accept less than double the current standard fee. */
 	config->commitment_fee_min = 10000;
 
+	/* Use this for mutual close. */
+	config->closing_fee = 10000;
+	
 	config->poll_seconds = 30;
+}
+
+static void check_config(struct lightningd_state *dstate)
+{
+	if (dstate->config.closing_fee > dstate->config.commitment_fee)
+		fatal("Closing fee %"PRIu64
+		      " can't exceed commitment fee %"PRIu64,
+		      dstate->config.closing_fee,
+		      dstate->config.commitment_fee);
+
+	if (dstate->config.commitment_fee_min > dstate->config.commitment_fee)
+		fatal("Minumum fee %"PRIu64
+		      " can't exceed commitment fee %"PRIu64,
+		      dstate->config.commitment_fee_min,
+		      dstate->config.commitment_fee);
 }
 
 static struct lightningd_state *lightningd_state(void)
@@ -203,6 +224,8 @@ int main(int argc, char *argv[])
 	if (argc != 1)
 		errx(1, "no arguments accepted");
 
+	check_config(dstate);
+	
 	check_bitcoind_config(dstate);
 
 	/* Create RPC socket (if any) */

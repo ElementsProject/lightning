@@ -32,6 +32,9 @@ struct config {
 	/* How little are we prepared to have them pay? */
 	u64 commitment_fee_min;
 
+	/* What fee we use for the closing transaction (satoshis) */
+	u64 closing_fee;
+
 	/* How long (seconds) between polling bitcoind. */
 	u32 poll_seconds;
 };
