@@ -149,8 +149,9 @@ static void state_single(struct peer *peer,
 		bitcoind_send_tx(peer->dstate, broadcast);
 	}
 
+	/* Start output if not running already; it will close conn. */
 	if (peer->cond == PEER_CLOSED)
-		io_close(peer->conn);
+		io_wake(peer);
 }
 
 static void try_command(struct peer *peer)
@@ -170,9 +171,6 @@ static void try_command(struct peer *peer)
 		if (peer->curr_cmd.cmd != INPUT_NONE) {
 			state_single(peer, peer->curr_cmd.cmd,
 				     &peer->curr_cmd.cmddata);
-
-			if (peer->cond == PEER_CLOSED)
-				io_close(peer->conn);
 		}
 	}
 }
@@ -209,8 +207,12 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 {
 	Pkt *out;
 
-	if (peer->num_outpkt == 0)
+	if (peer->num_outpkt == 0) {
+		/* We close the connection once we've sent everything. */
+		if (peer->cond == PEER_CLOSED)
+			return io_close(conn);
 		return io_out_wait(conn, peer, pkt_out, peer);
+	}
 
 	out = peer->outpkt[--peer->num_outpkt];
 	return peer_write_packet(conn, peer, out, pkt_out);
@@ -222,15 +224,13 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 	const tal_t *ctx = tal(peer, char);
 
 	idata.pkt = tal_steal(ctx, peer->inpkt);
-	state_event(peer, peer->inpkt->pkt_case, &idata);
+
+	/* We ignore packets if they tell us to. */
+	if (peer->cond != PEER_CLOSED)
+		state_event(peer, peer->inpkt->pkt_case, &idata);
 
 	/* Free peer->inpkt unless stolen above. */
 	tal_free(ctx);
-
-	/* If we've closed (above), don't try to read (we can call
-	 * io_close multiple times with no harm). */
-	if (peer->cond == PEER_CLOSED)
-		return io_close(conn);
 
 	return peer_read_packet(conn, peer, pkt_in);
 }
@@ -251,11 +251,6 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 	/* Using queue_cmd is overkill here, but it works. */
 	queue_cmd(peer, do_anchor_offer, NULL);
 	try_command(peer);
-
-	/* If we've closed (above), don't continue (we can call
-	 * io_close multiple times with no harm). */
-	if (peer->cond == PEER_CLOSED)
-		return io_close(conn);
 
 	return io_duplex(conn,
 			 peer_read_packet(conn, peer, pkt_in),
