@@ -58,12 +58,11 @@ CORE_SRC :=					\
 	lightning.pb-c.c			\
 	opt_bits.c				\
 	permute_tx.c				\
-	pkt.c					\
 	protobuf_convert.c			\
 	version.c
 CORE_OBJS := $(CORE_SRC:.c=.o)
 
-TEST_CLI_SRC := test-cli/gather_updates.c
+TEST_CLI_SRC := test-cli/gather_updates.c test-cli/pkt.c
 TEST_CLI_OBJS := $(TEST_CLI_SRC:.c=.o)
 
 CCAN_OBJS :=					\
@@ -143,7 +142,8 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/time/time.h			\
 	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h
 
-TEST_CLI_HEADERS := test-cli/gather_updates.h
+TEST_CLI_HEADERS := test-cli/gather_updates.h \
+	test-cli/pkt.h
 
 BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/base58.h			\
@@ -162,7 +162,6 @@ CORE_HEADERS := close_tx.h			\
 	opt_bits.h				\
 	overflows.h				\
 	permute_tx.h				\
-	pkt.h					\
 	protobuf_convert.h			\
 	state.h					\
 	state_types.h				\

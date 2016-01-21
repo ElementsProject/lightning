@@ -4,7 +4,6 @@
 #include "bitcoin/tx.h"
 #include "close_tx.h"
 #include "permute_tx.h"
-#include "pkt.h"
 #include "protobuf_convert.h"
 
 struct bitcoin_tx *create_close_tx(const tal_t *ctx,

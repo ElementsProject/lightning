@@ -7,7 +7,6 @@
 #include "funding.h"
 #include "overflows.h"
 #include "permute_tx.h"
-#include "pkt.h"
 #include "protobuf_convert.h"
 
 static bool add_htlc(struct bitcoin_tx *tx, size_t n,
