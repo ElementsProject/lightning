@@ -421,7 +421,7 @@ static struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 		tx->fee = pull_le64(cursor, max);
 
 	tx->output_count = pull_varint(cursor, max);
-	tx->output = tal_arr(ctx, struct bitcoin_tx_output, tx->output_count);
+	tx->output = tal_arr(tx, struct bitcoin_tx_output, tx->output_count);
 	for (i = 0; i < tx->output_count; i++)
 		pull_output(tx, cursor, max, tx->output + i);
 	tx->lock_time = pull_le32(cursor, max);
