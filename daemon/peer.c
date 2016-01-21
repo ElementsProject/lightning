@@ -64,6 +64,9 @@ static struct peer *new_peer(struct lightningd_state *state,
 {
 	struct peer *peer = tal(state, struct peer);
 
+	assert(offer_anchor == CMD_OPEN_WITH_ANCHOR
+	       || offer_anchor == CMD_OPEN_WITHOUT_ANCHOR);
+
 	/* FIXME: Stop listening if too many peers? */
 	list_add(&state->peers, &peer->list);
 
@@ -72,10 +75,13 @@ static struct peer *new_peer(struct lightningd_state *state,
 	peer->addr.protocol = addr_protocol;
 	peer->io_data = NULL;
 	peer->secrets = NULL;
-	peer->offer_anchor = offer_anchor;
-	assert(offer_anchor == CMD_OPEN_WITH_ANCHOR
-	       || offer_anchor == CMD_OPEN_WITHOUT_ANCHOR);
 	list_head_init(&peer->watches);
+
+	peer->us.offer_anchor = offer_anchor;
+	peer->us.locktime = state->config.rel_locktime;
+	peer->us.mindepth = state->config.anchor_confirms;
+	/* FIXME: Make this dynamic. */
+	peer->us.commit_fee = state->config.commitment_fee;
 
 	/* FIXME: Attach IO logging for this peer. */
 	tal_add_destructor(peer, destroy_peer);

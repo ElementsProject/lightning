@@ -144,8 +144,8 @@ void add_anchor_watch_(struct peer *peer,
 	insert_txwatch(peer, peer->state, peer, txid, anchor_cb, cbdata);
 	insert_txo_watch(peer, txid, out, spend_cb, cbdata);
 
-	redeemscript = bitcoin_redeem_2of2(peer, &peer->their_commitkey,
-					   &peer->our_commitkey);
+	redeemscript = bitcoin_redeem_2of2(peer, &peer->them.commitkey,
+					   &peer->us.commitkey);
 	sha256(&h, redeemscript, tal_count(redeemscript));
 	ripemd160(&redeemhash, h.u.u8, sizeof(h));
 	tal_free(redeemscript);

@@ -7,6 +7,19 @@
 #include "state_types.h"
 #include <ccan/list/list.h>
 
+struct peer_visible_state {
+	/* CMD_OPEN_WITH_ANCHOR or CMD_OPEN_WITHOUT_ANCHOR */
+	enum state_input offer_anchor;
+	/* Key for commitment tx inputs, then key for commitment tx outputs */
+	struct pubkey commitkey, finalkey;
+	/* How long to they want the other's outputs locked (seconds) */
+	unsigned int locktime;
+	/* Minimum depth of anchor before channel usable. */
+	unsigned int mindepth;
+	/* Commitment fee they're offering (satoshi). */
+	u64 commit_fee;
+};
+
 struct peer {
 	/* state->peers list */
 	struct list_node list;
@@ -32,13 +45,11 @@ struct peer {
 	/* Things we're watching for (see watches.c) */
 	struct list_head watches;
 
-	/* Did we offer an anchor? */
-	enum state_input offer_anchor;
-
-	/* Keys for transactions with this peer. */
-	struct pubkey their_commitkey, their_finalkey;
-	struct pubkey our_commitkey, our_finalkey;
+	/* Private keys for dealing with this peer. */
 	struct peer_secrets *secrets;
+
+	/* Stuff we have in common. */
+	struct peer_visible_state us, them;
 };
 
 void setup_listeners(struct lightningd_state *state, unsigned int portnum);
