@@ -18,7 +18,6 @@ enum state_peercond {
 };
 
 enum state_effect_type {
-	STATE_EFFECT_new_state,
 	STATE_EFFECT_in_error,
 	STATE_EFFECT_broadcast_tx,
 	STATE_EFFECT_send_pkt,
@@ -49,9 +48,6 @@ struct state_effect {
 
 	enum state_effect_type etype;
 	union {
-		/* New state to enter. */
-		enum state new_state;
-
 		/* Transaction to broadcast. */
 		struct bitcoin_tx *broadcast_tx;
 
@@ -131,7 +127,6 @@ enum command_status {
 };
 	
 enum command_status state(const tal_t *ctx,
-			  const enum state state,
 			  struct peer *peer,
 			  const enum state_input input,
 			  const union input *idata,

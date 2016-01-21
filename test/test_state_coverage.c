@@ -87,13 +87,13 @@ struct core_state {
 	/* What bitcoin/timeout notifications are we subscribed to? */
 	uint64_t event_notifies;
 
-	enum state state;
 	enum state_input current_command;
 
 	enum state_input outputs[MAX_OUTQ];
 
 	uint8_t num_outputs;
 	/* Here down need to be generated from other fields */
+	uint8_t state;
 	uint8_t peercond;
 	bool has_current_htlc;
 
@@ -105,12 +105,13 @@ struct core_state {
 	uint8_t capped_live_htlcs_to_them;
 	uint8_t capped_live_htlcs_to_us;
 	bool valid;
-	bool pad[2];
+	bool pad[5];
 };
 
 struct peer {
 	struct core_state core;
 
+	enum state state;
 	enum state_peercond cond;
 
 	/* To store HTLC numbers. */
@@ -316,6 +317,8 @@ static void update_core(struct core_state *core, const struct peer *peer)
 		assert(core->outputs[i] == 0);
 		
 	core->has_current_htlc = peer->current_htlc.htlc.id != -1;
+	core->state = peer->state;
+	BUILD_ASSERT(STATE_MAX < 256);
 	core->peercond = peer->cond;
 	core->capped_htlcs_to_us = cap(peer->num_htlcs_to_us);
 	core->capped_htlcs_to_them = cap(peer->num_htlcs_to_them);
@@ -1171,7 +1174,7 @@ static void peer_init(struct peer *peer,
 		      const char *name)
 {
 	peer->cond = PEER_CMD_OK;
-	peer->core.state = STATE_INIT;
+	peer->state = STATE_INIT;
 	peer->core.num_outputs = 0;
 	peer->current_htlc.htlc.id = -1;
 	peer->num_htlcs_to_us = 0;
@@ -1245,8 +1248,8 @@ static void report_trail_rev(const struct trail *t)
 	fprintf(stderr, "%s: %s(%i) %s -> %s",
 		t->name,
 		input_name(t->input), t->htlc_id,
-		state_name(t->before->core.state),
-		t->after ? state_name(t->after->core.state) : "<unknown>");
+		state_name(t->before->state),
+		t->after ? state_name(t->after->state) : "<unknown>");
 	if (t->after) {
 		for (i = 0; i < t->after->core.num_outputs; i++)
 			fprintf(stderr, " >%s",
@@ -1257,7 +1260,7 @@ static void report_trail_rev(const struct trail *t)
 	if (!t->after)
 		goto pkt_sent;
 
-	if (t->after->core.state >= STATE_CLOSED) {
+	if (t->after->state >= STATE_CLOSED) {
 		if (t->after->num_live_htlcs_to_us
 		    || t->after->num_live_htlcs_to_them) {
 			fprintf(stderr, "  Live HTLCs:");
@@ -1406,9 +1409,6 @@ static const char *apply_effects(struct peer *peer,
 	*effects |= (1ULL << effect->etype);
 
 	switch (effect->etype) {
-	case STATE_EFFECT_new_state:
-		peer->core.state = effect->u.new_state;
-		break;
 	case STATE_EFFECT_in_error:
 		break;
 	case STATE_EFFECT_broadcast_tx:
@@ -1660,7 +1660,7 @@ static const char *apply_all_effects(const struct peer *old,
 		assert(peer->core.current_command != INPUT_NONE);
 		/* We should only requeue HTLCs if we're lowprio */
 		if (cstatus == CMD_REQUEUE)
-			assert(!high_priority(old->core.state)
+			assert(!high_priority(old->state)
 			       && input_is(peer->core.current_command,
 					   CMD_SEND_UPDATE_ANY));
 		peer->core.current_command = INPUT_NONE;
@@ -1872,15 +1872,6 @@ static struct state_effect *get_effect(const struct state_effect *effect,
 	return cast_const(struct state_effect *, effect);
 }
 
-static enum state get_state_effect(const struct state_effect *effect,
-				   enum state current)
-{
-	effect = get_effect(effect, STATE_EFFECT_new_state);
-	if (effect)
-		return effect->u.new_state;
-	return current;
-}
-
 static Pkt *get_send_pkt(const struct state_effect *effect)
 {
 	effect = get_effect(effect, STATE_EFFECT_send_pkt);
@@ -1898,7 +1889,6 @@ static void try_input(const struct peer *peer,
 {
 	struct peer copy, other;
 	struct trail t;
-	enum state newstate;
 	struct state_effect *effect;
 	const char *problem;
 	Pkt *output;
@@ -1912,27 +1902,25 @@ static void try_input(const struct peer *peer,
 	init_trail(&t, i, idata, peer, prev_trail);
 	copy.trail = &t;
 
-	eliminate_input(&hist->inputs_per_state[copy.core.state], i);
-	cstatus = state(ctx, copy.core.state, &copy, i, idata, &effect);
+	eliminate_input(&hist->inputs_per_state[copy.state], i);
+	cstatus = state(ctx, &copy, i, idata, &effect);
 
-	newstate = get_state_effect(effect, peer->core.state);
-
-	normalpath &= normal_path(i, peer->core.state, newstate);
-	errorpath |= error_path(i, peer->core.state, newstate);
+	normalpath &= normal_path(i, peer->state, copy.state);
+	errorpath |= error_path(i, peer->state, copy.state);
 
 	if (dot_enable
 	    && (dot_include_abnormal || normalpath)
 	    && (dot_include_errors || !errorpath)
-	    && (dot_include_abnormal || !too_cluttered(i, peer->core.state))) {
+	    && (dot_include_abnormal || !too_cluttered(i, peer->state))) {
 		const char *oldstr, *newstr;
 
 		/* Simplify folds high and low prio, skip "STATE_" */
 		if (dot_simplify) {
-			oldstr = simplify_state(peer->core.state) + 6;
-			newstr = simplify_state(newstate) + 6;
+			oldstr = simplify_state(peer->state) + 6;
+			newstr = simplify_state(copy.state) + 6;
 		} else {
-			oldstr = state_name(peer->core.state) + 6;
-			newstr = state_name(newstate) + 6;
+			oldstr = state_name(peer->state) + 6;
+			newstr = state_name(copy.state) + 6;
 		}
 		if (newstr != oldstr || include_nops)
 			add_dot(&hist->edges, oldstr, newstr, i,
@@ -1944,9 +1932,9 @@ static void try_input(const struct peer *peer,
 	if (problem)
 		report_trail(&t, problem);
 
-	if (newstate == STATE_ERR_INTERNAL)
+	if (copy.state == STATE_ERR_INTERNAL)
 		report_trail(&t, "Internal error");
-	if (strstarts(state_name(newstate), "STATE_UNUSED"))
+	if (strstarts(state_name(copy.state), "STATE_UNUSED"))
 		report_trail(&t, "Unused state");
 
 
@@ -1957,7 +1945,7 @@ static void try_input(const struct peer *peer,
 	}
 
 	if (hist->state_dump) {
-		record_state(&hist->state_dump[peer->core.state], i, newstate,
+		record_state(&hist->state_dump[peer->state], i, copy.state,
 			     (const char *)output);
 	}
 	
@@ -1973,8 +1961,8 @@ static void try_input(const struct peer *peer,
 		 */
 		if (quick
 		    || cstatus == CMD_REQUEUE
-		    || newstate == STATE_NORMAL_LOWPRIO
-		    || newstate == STATE_NORMAL_HIGHPRIO
+		    || copy.state == STATE_NORMAL_LOWPRIO
+		    || copy.state == STATE_NORMAL_HIGHPRIO
 		    || i == BITCOIN_ANCHOR_OTHERSPEND
 		    || i == BITCOIN_ANCHOR_THEIRSPEND
 		    || quick) {
@@ -1986,7 +1974,7 @@ static void try_input(const struct peer *peer,
 	}
 
 	/* Don't continue if we reached a different error state. */
-	if (state_is_error(newstate)) {
+	if (state_is_error(copy.state)) {
 		tal_free(ctx);
 		return;
 	}
@@ -1996,12 +1984,12 @@ static void try_input(const struct peer *peer,
 	 */
 	if (copy.cond != PEER_CLOSED
 	    && !has_packets(&copy) && !has_packets(&other)
-	    && !waiting_statepair(copy.core.state, other.core.state)) {
+	    && !waiting_statepair(copy.state, other.state)) {
 		report_trail(&t, "Deadlock");
 	}
 
 	/* Finished? */
-	if (newstate == STATE_CLOSED) {
+	if (copy.state == STATE_CLOSED) {
 		if (copy.cond != PEER_CLOSED)
 			report_trail(&t, "CLOSED but cond not CLOSED");
 
@@ -2029,12 +2017,12 @@ static void try_input(const struct peer *peer,
 
 static void sanity_check(const struct peer *peer)
 {
-	if (peer->core.state == STATE_NORMAL_LOWPRIO
-	    || peer->core.state == STATE_NORMAL_HIGHPRIO) {
+	if (peer->state == STATE_NORMAL_LOWPRIO
+	    || peer->state == STATE_NORMAL_HIGHPRIO) {
 		/* Home state: expect commands to be finished. */
 		if (peer->core.current_command != INPUT_NONE)
 			errx(1, "Unexpected command %u in state %u",
-			     peer->core.current_command, peer->core.state);
+			     peer->core.current_command, peer->state);
 	}
 }
 
@@ -2120,7 +2108,7 @@ static void run_peer(const struct peer *peer,
 	copy_peers(&copy, &other, peer);
 	
 	/* If in init state, we can only send start command. */
-	if (peer->core.state == STATE_INIT) {
+	if (peer->state == STATE_INIT) {
 		if (streq(peer->name, "A"))
 			copy.core.current_command = CMD_OPEN_WITH_ANCHOR;
 		else
@@ -2148,7 +2136,7 @@ static void run_peer(const struct peer *peer,
 
 	/* We can send a close command even if already sending a
 	 * (different) command. */
-	if (peer->core.state != STATE_INIT
+	if (peer->state != STATE_INIT
 	    && (peer->cond == PEER_CMD_OK
 		|| peer->cond == PEER_BUSY)) {
 		try_input(&copy, CMD_CLOSE, idata,
@@ -2304,7 +2292,8 @@ static enum state_input **map_inputs(void)
 			struct peer dummy;
 			struct state_effect *effect;
 			memset(&dummy, 0, sizeof(dummy));
-			state(ctx, i, &dummy, INPUT_NONE, NULL, &effect);
+			dummy.state = i;
+			state(ctx, &dummy, INPUT_NONE, NULL, &effect);
 		}
 		inps[i] = mapping_inputs;
 	}
