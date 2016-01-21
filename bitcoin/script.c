@@ -85,10 +85,16 @@ static void add_number(u8 **script, u32 num)
 	else if (num <= 16)
 		add_op(script, 0x50 + num);
 	else {
-		u8 n = num;
-		/* We could handle others, but currently unnecessary. */
-		assert(num < 256);
-		add_push_bytes(script, &n, sizeof(n));
+		le32 n = cpu_to_le32(num);
+
+		if (num <= 0x000000FF)
+			add_push_bytes(script, &n, 1);
+		else if (num <= 0x0000FFFF)
+			add_push_bytes(script, &n, 2);
+		else if (num <= 0x00FFFFFF)
+			add_push_bytes(script, &n, 3);
+		else
+			add_push_bytes(script, &n, 4);
 	}
 }
 
@@ -113,14 +119,6 @@ static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
 	with_sighash[sizeof(sig->sig)] = sig->stype;
 	add_push_bytes(scriptp, with_sighash, sizeof(with_sighash));
 #endif
-}
-
-/* FIXME: Is this really required, not a simple add_number? */
-static void add_push_le32(u8 **scriptp, u32 val)
-{
-	le32 val_le = cpu_to_le32(val);
-
-	add_push_bytes(scriptp, &val_le, sizeof(val_le));
 }
 
 /* FIXME: permute? */
@@ -212,9 +210,9 @@ u8 *scriptpubkey_htlc_send(const tal_t *ctx,
 	add_op(&script, OP_ELSE);
 
 	/* If HTLC times out, they can collect after a delay. */
-	add_push_le32(&script, htlc_abstimeout);
+	add_number(&script, htlc_abstimeout);
 	add_op(&script, OP_CHECKLOCKTIMEVERIFY);
-	add_push_le32(&script, locktime);
+	add_number(&script, locktime);
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 	add_op(&script, OP_2DROP);
 	add_push_key(&script, ourkey);
@@ -249,7 +247,7 @@ u8 *scriptpubkey_htlc_recv(const tal_t *ctx,
 	add_op(&script, OP_EQUAL);
 	add_op(&script, OP_IF);
 
-	add_push_le32(&script, locktime);
+	add_number(&script, locktime);
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 	/* Drop extra hash as well as locktime. */
 	add_op(&script, OP_2DROP);
@@ -266,7 +264,7 @@ u8 *scriptpubkey_htlc_recv(const tal_t *ctx,
 	add_op(&script, OP_NOTIF);
 
 	/* Otherwise, they must wait for HTLC timeout. */
-	add_push_le32(&script, htlc_abstimeout);
+	add_number(&script, htlc_abstimeout);
 	add_op(&script, OP_CHECKLOCKTIMEVERIFY);
 	add_op(&script, OP_DROP);
 	add_op(&script, OP_ENDIF);
@@ -384,7 +382,7 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 	add_op(&script, OP_ELSE);
 
 	/* Other can collect after a delay. */
-	add_push_le32(&script, locktime);
+	add_number(&script, locktime);
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 	add_op(&script, OP_DROP);
 	add_push_key(&script, delayed_key);
