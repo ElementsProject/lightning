@@ -71,6 +71,9 @@ CCAN_OBJS :=					\
 	ccan-crypto-sha256.o			\
 	ccan-crypto-shachain.o			\
 	ccan-err.o				\
+	ccan-ilog.o				\
+	ccan-isaac.o				\
+	ccan-isaac64.o				\
 	ccan-list.o				\
 	ccan-noerr.o				\
 	ccan-opt-helpers.o			\
@@ -110,6 +113,8 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/htable/htable.h			\
 	$(CCANDIR)/ccan/htable/htable_type.h		\
 	$(CCANDIR)/ccan/ilog/ilog.h			\
+	$(CCANDIR)/ccan/isaac/isaac.h			\
+	$(CCANDIR)/ccan/isaac/isaac64.h			\
 	$(CCANDIR)/ccan/likely/likely.h			\
 	$(CCANDIR)/ccan/list/list.h			\
 	$(CCANDIR)/ccan/mem/mem.h			\
@@ -352,5 +357,9 @@ ccan-hash.o: $(CCANDIR)/ccan/hash/hash.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-htable.o: $(CCANDIR)/ccan/htable/htable.c
 	$(CC) $(CFLAGS) -c -o $@ $<
-
-
+ccan-ilog.o: $(CCANDIR)/ccan/ilog/ilog.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-isaac.o: $(CCANDIR)/ccan/isaac/isaac.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-isaac64.o: $(CCANDIR)/ccan/isaac/isaac64.c
+	$(CC) $(CFLAGS) -c -o $@ $<
