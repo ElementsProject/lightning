@@ -129,3 +129,35 @@ bool proto_to_abs_locktime(const Locktime *l, struct abs_locktime *locktime)
 		return false;
 	}
 }
+
+Locktime *rel_locktime_to_proto(const tal_t *ctx,
+				const struct rel_locktime *locktime)
+{
+	Locktime *l = tal(ctx, Locktime);
+	locktime__init(l);
+	
+	if (rel_locktime_is_seconds(locktime)) {
+		l->locktime_case = LOCKTIME__LOCKTIME_SECONDS;
+		l->seconds = rel_locktime_to_seconds(locktime);
+	} else {
+		l->locktime_case = LOCKTIME__LOCKTIME_BLOCKS;
+		l->blocks = rel_locktime_to_blocks(locktime);
+	}
+	return l;
+}
+
+Locktime *abs_locktime_to_proto(const tal_t *ctx,
+				const struct abs_locktime *locktime)
+{
+	Locktime *l = tal(ctx, Locktime);
+	locktime__init(l);
+
+	if (abs_locktime_is_seconds(locktime)) {
+		l->locktime_case = LOCKTIME__LOCKTIME_SECONDS;
+		l->seconds = abs_locktime_to_seconds(locktime);
+	} else {
+		l->locktime_case = LOCKTIME__LOCKTIME_BLOCKS;
+		l->blocks = abs_locktime_to_blocks(locktime);
+	}
+	return l;
+}

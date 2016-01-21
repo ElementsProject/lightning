@@ -12,6 +12,7 @@ bool seconds_to_rel_locktime(u32 seconds, struct rel_locktime *rel);
 bool blocks_to_rel_locktime(u32 blocks, struct rel_locktime *rel);
 bool rel_locktime_is_seconds(const struct rel_locktime *rel);
 u32 rel_locktime_to_seconds(const struct rel_locktime *rel);
+u32 rel_locktime_to_blocks(const struct rel_locktime *rel);
 
 u32 bitcoin_nsequence(const struct rel_locktime *rel);
 
@@ -23,5 +24,7 @@ struct abs_locktime {
 bool seconds_to_abs_locktime(u32 seconds, struct abs_locktime *abs);
 bool blocks_to_abs_locktime(u32 blocks, struct abs_locktime *abs);
 bool abs_locktime_is_seconds(const struct abs_locktime *abs);
+u32 abs_locktime_to_seconds(const struct abs_locktime *abs);
+u32 abs_locktime_to_blocks(const struct abs_locktime *abs);
 
 #endif /* LIGHTNING_BITCOIN_LOCKTIME_H */

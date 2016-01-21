@@ -23,4 +23,8 @@ struct rel_locktime;
 struct abs_locktime;
 bool proto_to_rel_locktime(const Locktime *l, struct rel_locktime *locktime);
 bool proto_to_abs_locktime(const Locktime *l, struct abs_locktime *locktime);
+Locktime *rel_locktime_to_proto(const tal_t *ctx,
+				const struct rel_locktime *locktime);
+Locktime *abs_locktime_to_proto(const tal_t *ctx,
+				const struct abs_locktime *locktime);
 #endif /* LIGHTNING_PROTOBUF_CONVERT_H */

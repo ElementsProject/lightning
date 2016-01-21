@@ -72,6 +72,16 @@ u32 rel_locktime_to_seconds(const struct rel_locktime *rel)
 #endif
 }
 
+u32 rel_locktime_to_blocks(const struct rel_locktime *rel)
+{
+	assert(!rel_locktime_is_seconds(rel));
+#ifdef HAS_BIP68
+	return rel->locktime & BIP68_LOCKTIME_MASK;
+#else
+	return rel->locktime;
+#endif
+}
+
 u32 bitcoin_nsequence(const struct rel_locktime *rel)
 {
 #ifdef HAS_BIP68
@@ -99,3 +109,14 @@ bool abs_locktime_is_seconds(const struct abs_locktime *abs)
 	return abs_is_seconds(abs->locktime);
 }
 
+u32 abs_locktime_to_seconds(const struct abs_locktime *abs)
+{
+	assert(abs_locktime_is_seconds(abs));
+	return abs->locktime;
+}
+
+u32 abs_locktime_to_blocks(const struct abs_locktime *abs)
+{
+	assert(!abs_locktime_is_seconds(abs));
+	return abs->locktime;
+}
