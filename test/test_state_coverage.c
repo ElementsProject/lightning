@@ -93,9 +93,8 @@ struct core_state {
 	enum state_input outputs[MAX_OUTQ];
 
 	uint8_t num_outputs;
-	bool pkt_inputs;
-	bool cmd_inputs;
 	/* Here down need to be generated from other fields */
+	uint8_t peercond;
 	bool has_current_htlc;
 
 	uint8_t capped_htlcs_to_them;
@@ -107,11 +106,14 @@ struct core_state {
 	uint8_t capped_live_htlcs_to_us;
 	bool closing_cmd;
 	bool valid;
-	bool pad[0];
+	bool pad[1];
 };
 
 struct peer {
 	struct core_state core;
+
+	enum state_peercond cond;
+
 	/* To store HTLC numbers. */
 	unsigned int pkt_data[MAX_OUTQ];
 
@@ -191,8 +193,7 @@ static bool situation_eq(const struct situation *a, const struct situation *b)
 			 + sizeof(a->a.s.current_command)
 			 + sizeof(a->a.s.outputs)
 			 + sizeof(a->a.s.num_outputs)
-			 + sizeof(a->a.s.pkt_inputs)
-			 + sizeof(a->a.s.cmd_inputs)
+			 + sizeof(a->a.s.peercond)
 			 + sizeof(a->a.s.has_current_htlc)
 			 + sizeof(a->a.s.capped_htlcs_to_us)
 			 + sizeof(a->a.s.capped_htlcs_to_them)
@@ -317,6 +318,7 @@ static void update_core(struct core_state *core, const struct peer *peer)
 		assert(core->outputs[i] == 0);
 		
 	core->has_current_htlc = peer->current_htlc.htlc.id != -1;
+	core->peercond = peer->cond;
 	core->capped_htlcs_to_us = cap(peer->num_htlcs_to_us);
 	core->capped_htlcs_to_them = cap(peer->num_htlcs_to_them);
 	core->capped_live_htlcs_to_us = cap(peer->num_live_htlcs_to_us);
@@ -333,7 +335,8 @@ static void situation_init(struct situation *sit,
 		sit->a.s = peer->core;
 		update_core(&sit->a.s, peer);
 		/* If we're still talking to peer, their state matters. */
-		if (peer->core.pkt_inputs || peer->other->core.pkt_inputs) {
+		if (peer->cond != PEER_CLOSED
+		    || peer->other->cond != PEER_CLOSED) {
 			sit->b.s = peer->other->core;
 			update_core(&sit->b.s, peer->other);
 		} else
@@ -342,7 +345,8 @@ static void situation_init(struct situation *sit,
 		sit->b.s = peer->core;
 		update_core(&sit->b.s, peer);
 		/* If we're still talking to peer, their state matters. */
-		if (peer->core.pkt_inputs || peer->other->core.pkt_inputs) {
+		if (peer->cond != PEER_CLOSED
+		    || peer->other->cond != PEER_CLOSED) {
 			sit->a.s = peer->other->core;
 			update_core(&sit->a.s, peer->other);
 		} else
@@ -436,7 +440,8 @@ static bool fail(const struct peer *peer, enum failure which_fail)
 
 	/* First time here, save details, don't fail yet. */
 	f->details = tal(f, struct fail_details);
-	copy_peers(&f->details->us, &f->details->other, peer);
+	/* Copy old peer, in case it has been changed since. */
+	copy_peers(&f->details->us, &f->details->other, peer->trail->before);
 	f->details->us.trail = clone_trail(f->details, peer->trail);
 	f->details->input = peer->current_input;
 	f->details->idata = dup_idata(f->details,
@@ -1167,6 +1172,7 @@ static void peer_init(struct peer *peer,
 		      struct peer *other,
 		      const char *name)
 {
+	peer->cond = PEER_CMD_OK;
 	peer->core.state = STATE_INIT;
 	peer->core.num_outputs = 0;
 	peer->current_htlc.htlc.id = -1;
@@ -1182,8 +1188,6 @@ static void peer_init(struct peer *peer,
 	peer->pkt_data[0] = -1;
 	peer->core.current_command = INPUT_NONE;
 	peer->core.event_notifies = 0;
-	peer->core.pkt_inputs = true;
-	peer->core.cmd_inputs = true;
 	peer->core.closing_cmd = false;
 	peer->name = name;
 	peer->other = other;
@@ -1384,15 +1388,9 @@ static char *check_effects(struct peer *peer,
 	while (effect) {
 		if (effect->etype == STATE_EFFECT_in_error) {
 			/* We should stop talking to them after error recvd. */
-			if (peer->core.pkt_inputs)
+			if (peer->cond != PEER_CLOSING
+			    && peer->cond != PEER_CLOSED)
 				return "packets still open after error pkt";
-		} else if (effect->etype == STATE_EFFECT_stop_commands) {
-			if (peer->core.current_command != INPUT_NONE)
-				return tal_fmt(NULL,
-					       "stop_commands with pending command %s",
-					       input_name(peer->core.current_command));
-			if (peer->core.closing_cmd)
-				return "stop_commands with pending CMD_CLOSE";
 		}
 		effect = effect->next;
 	}
@@ -1502,20 +1500,6 @@ static const char *apply_effects(struct peer *peer,
 				       effect->u.cmd_close_done
 				       ? "Success" : "Failure");
 		peer->core.closing_cmd = false;
-		break;
-	case STATE_EFFECT_stop_packets:
-		if (!peer->core.pkt_inputs)
-			return "stop_packets twice";
-		peer->core.pkt_inputs = false;
-
-		/* Can no longer receive packet timeouts, either. */
-		remove_event_(&peer->core.event_notifies,
-			      INPUT_CLOSE_COMPLETE_TIMEOUT);
-		break;
-	case STATE_EFFECT_stop_commands:
-		if (!peer->core.cmd_inputs)
-			return "stop_commands twice";
-		peer->core.cmd_inputs = false;
 		break;
 	case STATE_EFFECT_close_timeout:
 		add_event(&peer->core.event_notifies,
@@ -1677,7 +1661,34 @@ static const char *apply_effects(struct peer *peer,
 	return NULL;
 }
 	
-static const char *apply_all_effects(struct peer *peer,
+static const char *check_changes(const struct peer *old, struct peer *new)
+{
+	if (new->cond != old->cond) {
+		/* Only BUSY -> CMD_OK can go backwards. */
+		if (!(old->cond == PEER_BUSY && new->cond == PEER_CMD_OK))
+			if (new->cond < old->cond)
+				return tal_fmt(NULL, "cond from %u to %u",
+					       old->cond, new->cond);
+	}
+	if (new->cond == PEER_CLOSING
+	    || new->cond == PEER_CLOSED) {
+		if (new->core.current_command != INPUT_NONE)
+			return tal_fmt(NULL,
+				       "cond CLOSE with pending command %s",
+				       input_name(new->core.current_command));
+		if (new->core.closing_cmd)
+			return "cond CLOSE with pending CMD_CLOSE";
+		/* FIXME: Move to state core */
+		/* Can no longer receive packet timeouts, either. */
+		remove_event_(&new->core.event_notifies,
+			      INPUT_CLOSE_COMPLETE_TIMEOUT);
+	}
+
+	return NULL;
+}
+
+static const char *apply_all_effects(const struct peer *old,
+				     struct peer *peer,
 				     const struct state_effect *effect,
 				     Pkt **output)
 {
@@ -1687,9 +1698,11 @@ static const char *apply_all_effects(struct peer *peer,
 	problem = apply_effects(peer, effect, &effects, output);
 	if (!problem)
 		problem = check_effects(peer, effect);
+	if (!problem)
+		problem = check_changes(old, peer);
 	return problem;
 }
-	      
+
 static void eliminate_input(enum state_input **inputs, enum state_input in)
 {
 	size_t i, n = tal_count(*inputs);
@@ -1954,7 +1967,7 @@ static void try_input(const struct peer *peer,
 				get_send_pkt(effect));
 	}
 
-	problem = apply_all_effects(&copy, effect, &output);
+	problem = apply_all_effects(peer, &copy, effect, &output);
 	update_trail(&t, &copy, output);
 	if (problem)
 		report_trail(&t, problem);
@@ -2009,18 +2022,16 @@ static void try_input(const struct peer *peer,
 	/*
 	 * If we're listening, someone should be talking (usually).
 	 */
-	if (copy.core.pkt_inputs && !has_packets(&copy) && !has_packets(&other)
+	if (copy.cond != PEER_CLOSED
+	    && !has_packets(&copy) && !has_packets(&other)
 	    && !waiting_statepair(copy.core.state, other.core.state)) {
 		report_trail(&t, "Deadlock");
 	}
 
 	/* Finished? */
 	if (newstate == STATE_CLOSED) {
-		if (copy.core.pkt_inputs)
-			report_trail(&t, "CLOSED but taking packets?");
-
-		if (copy.core.cmd_inputs)
-			report_trail(&t, "CLOSED but taking commands?");
+		if (copy.cond != PEER_CLOSED)
+			report_trail(&t, "CLOSED but cond not CLOSED");
 
 		if (copy.core.current_command != INPUT_NONE)
 			report_trail(&t, input_name(copy.core.current_command));
@@ -2038,7 +2049,8 @@ static void try_input(const struct peer *peer,
 	run_peer(&copy, normalpath, errorpath, &t, hist);
 
 	/* Don't bother running other peer we can't communicate. */
-	if (copy.core.pkt_inputs || other.core.pkt_inputs)
+	if (copy.cond != PEER_CLOSED
+	    || other.cond != PEER_CLOSED)
 		run_peer(&other, normalpath, errorpath, &t, hist);
 	tal_free(ctx);
 }
@@ -2165,7 +2177,8 @@ static void run_peer(const struct peer *peer,
 	/* We can send a close command even if already sending a
 	 * (different) command. */
 	if (peer->core.state != STATE_INIT
-	    && peer->core.cmd_inputs
+	    && (peer->cond == PEER_CMD_OK
+		|| peer->cond == PEER_BUSY)
 	    && !peer->core.closing_cmd) {
 		copy.core.closing_cmd = true;
 		try_input(&copy, CMD_CLOSE, idata,
@@ -2174,7 +2187,7 @@ static void run_peer(const struct peer *peer,
 	}
 
 	/* Try sending commands (unless closed or already doing one). */
-	if (peer->core.cmd_inputs
+	if (peer->cond == PEER_CMD_OK
 	    && peer->core.current_command == INPUT_NONE
 	    && !peer->core.closing_cmd) {
 		unsigned int i;
@@ -2268,7 +2281,7 @@ static void run_peer(const struct peer *peer,
 	}
 
 	/* Allowed to send inputs? */
-	if (copy.core.pkt_inputs) {
+	if (copy.cond != PEER_CLOSED) {
 		enum state_input i;
 		
 		if (other.core.num_outputs) {
@@ -2320,8 +2333,11 @@ static enum state_input **map_inputs(void)
 		mapping_inputs = tal_arr(inps, enum state_input, 0);
 
 		/* This adds to mapping_inputs every input_is() call */
-		if (!state_is_error(i))
-			state(ctx, i, NULL, INPUT_NONE, NULL);
+		if (!state_is_error(i)) {
+			struct peer dummy;
+			memset(&dummy, 0, sizeof(dummy));
+			state(ctx, i, &dummy, INPUT_NONE, NULL);
+		}
 		inps[i] = mapping_inputs;
 	}
 

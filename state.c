@@ -33,9 +33,15 @@ static struct state_effect *next_state(const tal_t *ctx,
 	return effect;
 }
 
+static void set_peer_cond(struct peer *peer, enum state_peercond cond)
+{
+	assert(peer->cond != cond);
+	peer->cond = cond;
+}
+
 struct state_effect *state(const tal_t *ctx,
 			   const enum state state,
-			   const struct peer *peer,
+			   struct peer *peer,
 			   const enum state_input input,
 			   const union input *idata)
 {
@@ -541,8 +547,7 @@ struct state_effect *state(const tal_t *ctx,
 				   pkt_close_ack(ctx, peer));
 			add_effect(&effect, broadcast_tx,
 				   bitcoin_close(ctx, peer));
-			add_effect(&effect, stop_commands, true);
-			add_effect(&effect, stop_packets, true);
+			set_peer_cond(peer, PEER_CLOSED);
 			return next_state(ctx, effect, STATE_CLOSE_WAIT_CLOSE);
 		} else if (input_is(input, PKT_CLOSE)) {
 			/* We can use the sig just like CLOSE_COMPLETE */
@@ -556,8 +561,7 @@ struct state_effect *state(const tal_t *ctx,
 				   pkt_close_ack(ctx, peer));
 			add_effect(&effect, broadcast_tx,
 				   bitcoin_close(ctx, peer));
-			add_effect(&effect, stop_commands, true);
-			add_effect(&effect, stop_packets, true);
+			set_peer_cond(peer, PEER_CLOSED);
 			return next_state(ctx, effect, STATE_CLOSE_WAIT_CLOSE);
 		} else if (input_is(input, PKT_ERROR)) {
 			add_effect(&effect, in_error,
@@ -572,7 +576,7 @@ struct state_effect *state(const tal_t *ctx,
 			goto err_start_unilateral_close_already_closing;
 		}
 		add_effect(&effect, cmd_close_done, false);
-		add_effect(&effect, stop_commands, true);
+		set_peer_cond(peer, PEER_CLOSING);
 		goto fail_during_close;
 
 	case STATE_WAIT_FOR_CLOSE_ACK:
@@ -581,7 +585,7 @@ struct state_effect *state(const tal_t *ctx,
 						   &effect);
 			if (err)
 				add_effect(&effect, send_pkt, err);
-			add_effect(&effect, stop_packets, true);
+			set_peer_cond(peer, PEER_CLOSED);
 			/* Just wait for close to happen now. */
 			return next_state(ctx, effect, STATE_CLOSE_WAIT_CLOSE);
 		} else if (input_is_pkt(input)) {
@@ -592,12 +596,12 @@ struct state_effect *state(const tal_t *ctx,
 				add_effect(&effect, send_pkt,
 					   unexpected_pkt(ctx, input));
 			}
-			add_effect(&effect, stop_packets, true);
+			set_peer_cond(peer, PEER_CLOSED);
 			/* Just wait for close to happen now. */
 			return next_state(ctx, effect, STATE_CLOSE_WAIT_CLOSE);
 		} else if (input_is(input, BITCOIN_CLOSE_DONE)) {
 			/* They didn't ack, but we're closed, so stop. */
-			add_effect(&effect, stop_packets, true);
+			set_peer_cond(peer, PEER_CLOSED);
 			return next_state(ctx, effect, STATE_CLOSED);
 		}
 		goto fail_during_close;
@@ -883,8 +887,7 @@ err_close_nocleanup:
 	 * so there's nothing to clean up.
 	 */
 	add_effect(&effect, send_pkt, err);
-	add_effect(&effect, stop_packets, true);
-	add_effect(&effect, stop_commands, true);
+	set_peer_cond(peer, PEER_CLOSED);
 	return next_state(ctx, effect, STATE_CLOSED);
 
 err_start_unilateral_close:
@@ -898,8 +901,7 @@ start_unilateral_close:
 	 * Close unilaterally.
 	 */
 	/* No more inputs, no more commands. */
-	add_effect(&effect, stop_packets, true);
-	add_effect(&effect, stop_commands, true);
+	set_peer_cond(peer, PEER_CLOSED);
 	tx = bitcoin_commit(ctx, peer);
 	add_effect(&effect, broadcast_tx, tx);
 	add_effect(&effect, watch,
@@ -931,8 +933,7 @@ start_unilateral_close_already_closing:
 	 * Close unilaterally.
 	 */
 	/* No more inputs, no more commands. */
-	add_effect(&effect, stop_packets, true);
-	add_effect(&effect, stop_commands, true);
+	set_peer_cond(peer, PEER_CLOSED);
 	tx = bitcoin_commit(ctx, peer);
 	add_effect(&effect, broadcast_tx, tx);
 	add_effect(&effect, watch,
@@ -954,8 +955,7 @@ them_unilateral:
 	add_effect(&effect, send_pkt, pkt_err(ctx, "Commit tx noticed"));
 
 	/* No more inputs, no more commands. */
-	add_effect(&effect, stop_packets, true);
-	add_effect(&effect, stop_commands, true);
+	set_peer_cond(peer, PEER_CLOSED);
 	tx = bitcoin_spend_theirs(ctx, peer, idata->btc);
 	add_effect(&effect, broadcast_tx, tx);
 	add_effect(&effect, watch,
@@ -1044,7 +1044,7 @@ accept_closing:
 		   bitcoin_watch_close(ctx, peer, BITCOIN_CLOSE_DONE));
 	add_effect(&effect, send_pkt, pkt_close_complete(ctx, peer));
 	/* No more commands, we're already closing. */
-	add_effect(&effect, stop_commands, true);
+	set_peer_cond(peer, PEER_CLOSING);
 	return next_state(ctx, effect, STATE_WAIT_FOR_CLOSE_ACK);
 	
 instant_close:
@@ -1054,8 +1054,7 @@ instant_close:
 	 */
 	add_effect(&effect, cmd_close_done, true);
 	/* FIXME: Should we tell other side we're going? */
-	add_effect(&effect, stop_packets, true);
-	add_effect(&effect, stop_commands, true);
+	set_peer_cond(peer, PEER_CLOSED);
 
 	/* We can't have any HTLCs, since we haven't started. */
 	if (committed_to_htlcs(peer))
@@ -1067,7 +1066,7 @@ fail_during_close:
 	 * We've broadcast close tx; if anything goes wrong, we just close
 	 * connection and wait.
 	 */
-	add_effect(&effect, stop_packets, true);
+	set_peer_cond(peer, PEER_CLOSED);
 
 	/* Once close tx is deep enough, we consider it done. */
 	if (input_is(input, BITCOIN_CLOSE_DONE)) {
@@ -1113,8 +1112,7 @@ old_commit_spotted:
 	add_effect(&effect, send_pkt, pkt_err(ctx, "Otherspend noticed"));
 
 	/* No more packets, no more commands. */
-	add_effect(&effect, stop_packets, true);
-	add_effect(&effect, stop_commands, true);
+	set_peer_cond(peer, PEER_CLOSED);
 
 	/* If we can't find it, we're lost. */
 	tx = bitcoin_steal(ctx, peer, idata->btc);

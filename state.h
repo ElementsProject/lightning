@@ -6,6 +6,17 @@
 #include <state_types.h>
 #include <stdbool.h>
 
+enum state_peercond {
+	/* Ready to accept a new command. */
+	PEER_CMD_OK,
+	/* Don't send me commands, I'm busy. */
+	PEER_BUSY,
+	/* No more commands, I'm closing. */
+	PEER_CLOSING,
+	/* No more packets, I'm closed. */
+	PEER_CLOSED
+};
+
 enum state_effect_type {
 	STATE_EFFECT_new_state,
 	STATE_EFFECT_in_error,
@@ -19,8 +30,6 @@ enum state_effect_type {
 	/* (never applies to CMD_CLOSE) */
 	STATE_EFFECT_cmd_fail,
 	STATE_EFFECT_cmd_close_done,
-	STATE_EFFECT_stop_packets,
-	STATE_EFFECT_stop_commands,
 	/* FIXME: Use a watch for this?. */
 	STATE_EFFECT_close_timeout,
 	STATE_EFFECT_htlc_in_progress,
@@ -132,7 +141,7 @@ union input {
 
 struct state_effect *state(const tal_t *ctx,
 			   const enum state state,
-			   const struct peer *peer,
+			   struct peer *peer,
 			   const enum state_input input,
 			   const union input *idata);
 
