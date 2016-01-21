@@ -55,8 +55,8 @@ void peer_secrets_init(struct peer *peer)
 {
 	peer->secrets = tal(peer, struct peer_secrets);
 
-	new_keypair(peer->state, &peer->secrets->commit, &peer->commitkey);
-	new_keypair(peer->state, &peer->secrets->final, &peer->finalkey);
+	new_keypair(peer->state, &peer->secrets->commit, &peer->our_commitkey);
+	new_keypair(peer->state, &peer->secrets->final, &peer->our_finalkey);
 	if (RAND_bytes(peer->secrets->revocation_seed.u.u8,
 		       sizeof(peer->secrets->revocation_seed.u.u8)) != 1)
 		fatal("Could not get random bytes for revocation seed");

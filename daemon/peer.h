@@ -28,7 +28,8 @@ struct peer {
 	struct log *log;
 	
 	/* Keys for transactions with this peer. */
-	struct pubkey commitkey, finalkey;
+	struct pubkey their_commitkey, their_finalkey;
+	struct pubkey our_commitkey, our_finalkey;
 	struct peer_secrets *secrets;
 };
 
