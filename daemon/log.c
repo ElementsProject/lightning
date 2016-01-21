@@ -1,12 +1,18 @@
 #include "log.h"
 #include "pseudorand.h"
+#include <ccan/array_size/array_size.h>
 #include <ccan/list/list.h>
+#include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <signal.h>
 #include <stdio.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 struct log_entry {
 	struct list_node list;
@@ -321,6 +327,108 @@ static void log_one_line(unsigned int skipped,
 	}
 
 	data->prefix = "\n";
+}
+
+static struct {
+	const char *name;
+	enum log_level level;
+} log_levels[] = {
+	{ "IO", LOG_IO },
+	{ "DEBUG", LOG_DBG },
+	{ "INFO", LOG_INFORM },
+	{ "UNUSUAL", LOG_UNUSUAL },
+	{ "BROKEN", LOG_BROKEN }
+};
+
+static char *arg_log_level(const char *arg, struct log *log)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(log_levels); i++) {
+		if (strcasecmp(arg, log_levels[i].name) == 0) {
+			set_log_level(log->lr, log_levels[i].level);
+			return NULL;
+		}
+	}
+	return tal_fmt(NULL, "unknown log level");
+}
+
+static char *arg_log_prefix(const char *arg, struct log *log)
+{
+	set_log_prefix(log, arg);
+	return NULL;
+}
+
+static void log_to_file(const char *prefix,
+			enum log_level level,
+			bool continued,
+			const char *str,
+			FILE *logf)
+{
+	if (!continued) {
+		fprintf(logf, "%s %s\n", prefix, str);
+	} else {
+		fprintf(logf, "%s \t%s\n", prefix, str);
+	}
+}
+
+static char *arg_log_to_file(const char *arg, struct log *log)
+{
+	FILE *logf = fopen(arg, "a");
+	if (!logf)
+		return tal_fmt(NULL, "Failed to open: %s", strerror(errno));
+	set_log_outfn(log->lr, log_to_file, logf);
+	return NULL;
+}
+
+void opt_register_logging(struct log *log)
+{
+	opt_register_arg("--log-level", arg_log_level, NULL, log,
+			 "log level (debug, info, unusual, broken)");
+	opt_register_arg("--log-prefix", arg_log_prefix, NULL, log,
+			 "log prefix");
+	opt_register_arg("--log-file=<file>", arg_log_to_file, NULL, log,
+			 "log to file instead of stdout");
+}
+
+static struct log *crashlog;
+
+static void log_crash(int sig)
+{
+	log_broken(crashlog, "FATAL SIGNAL %i RECEIVED", sig);
+	/* FIXME: Backtrace! */
+
+	if (crashlog->lr->print == log_default_print) {
+		int fd;
+		const char *logfile;
+
+		/* We expect to be in config dir. */
+		logfile = "crash.log";
+		fd = open(logfile, O_WRONLY|O_CREAT, 0600);
+		if (fd < 0) {
+			logfile = "/tmp/lighning-crash.log";
+			fd = open(logfile, O_WRONLY|O_CREAT, 0600);
+			if (fd < 0)
+				return;
+		}
+
+		/* Dump entire log. */
+		log_dump_to_file(fd, crashlog->lr);
+		fprintf(stderr, "Fatal signal %u (see log in %s)\n",
+			sig, logfile);
+	} else
+		/* Log is in default place. */
+		fprintf(stderr, "Fatal signal %u\n", sig);
+}
+
+void crashlog_activate(struct log *log)
+{
+	crashlog = log;
+	signal(SIGILL, log_crash);
+	signal(SIGABRT, log_crash);
+	signal(SIGFPE, log_crash);
+	signal(SIGSEGV, log_crash);
+	signal(SIGBUS, log_crash);
 }
 
 void log_dump_to_file(int fd, const struct log_record *lr)

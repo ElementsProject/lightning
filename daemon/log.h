@@ -93,4 +93,6 @@ void log_each_line_(const struct log_record *lr,
 
 
 void log_dump_to_file(int fd, const struct log_record *lr);
+void opt_register_logging(struct log *log);
+void crashlog_activate(struct log *log);
 #endif /* LIGHTNING_DAEMON_LOG_H */
