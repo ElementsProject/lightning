@@ -85,12 +85,14 @@ static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 		      bcli->args[0], bcli->args[1],
 		      WTERMSIG(status));
 
-	if (WEXITSTATUS(status) != 0)
-		fatal("bitcoind: '%s' '%s' failed (%i '%.*s')",
-		      bcli->args[0], bcli->args[1], WEXITSTATUS(status),
-		      (int)bcli->output_bytes, bcli->output);
+	if (WEXITSTATUS(status) != 0) {
+		log_unusual(dstate->base_log,
+			    "%s exited %u", bcli->args[1], WEXITSTATUS(status));
+		bcli->output = tal_free(bcli->output);
+		bcli->output_bytes = 0;
+	} else 
+		log_debug(dstate->base_log, "reaped %u: %s", ret, bcli->args[1]);
 
-	log_debug(dstate->base_log, "reaped %u: %s", ret, bcli->args[1]);
 	dstate->bitcoin_req_running = false;
 	bcli->process(bcli);
 
@@ -144,8 +146,11 @@ start_bitcoin_cli(struct lightningd_state *dstate,
 
 static void process_importaddress(struct bitcoin_cli *bcli)
 {
+	if (!bcli->output)
+		fatal("bitcoind: '%s' '%s' failed",
+		      bcli->args[0], bcli->args[1]);
 	if (bcli->output_bytes != 0)
-		fatal("bitcoind: '%s' '%s' unexpeced output '%.*s'",
+		fatal("bitcoind: '%s' '%s' unexpected output '%.*s'",
 		      bcli->args[0], bcli->args[1],
 		      (int)bcli->output_bytes, bcli->output);
 }
@@ -168,6 +173,10 @@ static void process_transactions(struct bitcoin_cli *bcli)
 	void (*cb)(struct lightningd_state *dstate,
 		   const struct sha256_double *txid,
 		   int confirmations, bool is_coinbase) = bcli->cb;
+
+	if (!bcli->output)
+		fatal("bitcoind: '%s' '%s' failed",
+		      bcli->args[0], bcli->args[1]);
 
 	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
 	if (!tokens)
@@ -240,17 +249,71 @@ void bitcoind_poll_transactions(struct lightningd_state *dstate,
 			  NULL);
 }
 
+struct txid_lookup {
+	char txidhex[sizeof(struct sha256_double) * 2 + 1];
+	void *cb_arg;
+};
+
 static void process_rawtx(struct bitcoin_cli *bcli)
 {
 	struct bitcoin_tx *tx;
+	struct txid_lookup *lookup = bcli->cb_arg;
 	void (*cb)(struct lightningd_state *dstate,
 		   const struct bitcoin_tx *tx, void *arg) = bcli->cb;
 
+	if (!bcli->output)
+		fatal("%s getrawtransaction %s unknown txid?",
+		      bcli->args[0], lookup->txidhex);
+
 	tx = bitcoin_tx_from_hex(bcli, bcli->output, bcli->output_bytes);
-	if (!tx)
-		fatal("Unknown txid (output %.*s)",
+ 	if (!tx)
+		fatal("%s getrawtransaction %s bad txid: %.*s?",
+		      bcli->args[0], lookup->txidhex,
 		      (int)bcli->output_bytes, (char *)bcli->output);
-	cb(bcli->dstate, tx, bcli->cb_arg);
+	cb(bcli->dstate, tx, lookup->cb_arg);
+	tal_free(lookup);
+}
+
+static void process_tx(struct bitcoin_cli *bcli)
+{
+	const jsmntok_t *tokens, *hex;
+	bool valid;
+	struct bitcoin_tx *tx;
+	void (*cb)(struct lightningd_state *dstate,
+		   const struct bitcoin_tx *tx, void *arg) = bcli->cb;
+	struct txid_lookup *lookup = bcli->cb_arg;
+
+	/* Failed?  Try getrawtransaction instead */
+	if (!bcli->output) {
+		start_bitcoin_cli(bcli->dstate, process_rawtx, cb, lookup,
+				  "getrawtransaction", lookup->txidhex, NULL);
+		return;
+	}
+
+	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
+	if (!tokens)
+		fatal("%s gettransaction %s: %s response (%.*s)?",
+		      bcli->args[0], lookup->txidhex,
+		      valid ? "partial" : "invalid",
+		      (int)bcli->output_bytes, bcli->output);
+	if (tokens[0].type != JSMN_OBJECT)
+		fatal("%s gettransaction %s: gave non-object (%.*s)?",
+		      bcli->args[0], lookup->txidhex,
+		      (int)bcli->output_bytes, bcli->output);
+	hex = json_get_member(bcli->output, tokens, "hex");
+	if (!hex)
+		fatal("%s gettransaction: %s had no hex member (%.*s)?",
+		      bcli->args[0], lookup->txidhex,
+		      (int)bcli->output_bytes, bcli->output);
+
+	tx = bitcoin_tx_from_hex(bcli, bcli->output + hex->start,
+				 hex->end - hex->start);
+	if (!tx)
+		fatal("gettransaction: %s had bad hex member (%.*s)?",
+		      lookup->txidhex,
+		      hex->end - hex->start, bcli->output + hex->start);
+	cb(bcli->dstate, tx, lookup->cb_arg);
+	tal_free(lookup);
 }
 
 /* FIXME: Cache! */
@@ -261,12 +324,14 @@ void bitcoind_txid_lookup_(struct lightningd_state *dstate,
 				      void *arg),
 			   void *arg)
 {
-	char txidhex[hex_str_size(sizeof(*txid))];
+	struct txid_lookup *lookup = tal(dstate, struct txid_lookup);
 
-	if (!bitcoin_txid_to_hex(txid, txidhex, sizeof(txidhex)))
+	/* We stash this here, and place lookup into cb_arg */
+	lookup->cb_arg = arg;
+	if (!bitcoin_txid_to_hex(txid, lookup->txidhex, sizeof(lookup->txidhex)))
 		fatal("Incorrect txid size");
-	start_bitcoin_cli(dstate, process_rawtx, cb, arg,
-			  "getrawtransaction", txidhex, NULL);
+	start_bitcoin_cli(dstate, process_tx, cb, lookup,
+			  "gettransaction", lookup->txidhex, NULL);
 }
 
 static void process_sendrawrx(struct bitcoin_cli *bcli)
@@ -301,19 +366,22 @@ void bitcoind_send_tx(struct lightningd_state *dstate,
 static void process_sendtoaddress(struct bitcoin_cli *bcli)
 {
 	const char *out = (char *)bcli->output;
-	char *txidstr;
+	struct txid_lookup *lookup = tal(bcli->dstate, struct txid_lookup);
 
-	/* We expect a txid (followed by \n, vs hex_str_size including \0) */
-	if (bcli->output_bytes != hex_str_size(sizeof(struct sha256_double)))
+	/* We expect a txid (followed by \n, vs buffer including \0) */
+	if (bcli->output_bytes != sizeof(lookup->txidhex))
 		fatal("sendtoaddress failed: %.*s",
 		      (int)bcli->output_bytes, out);
 
-	txidstr = tal_strndup(bcli, out, bcli->output_bytes-1);
-	log_debug(bcli->dstate->base_log, "sendtoaddress gave %s", txidstr);
+	memcpy(lookup->txidhex, bcli->output, sizeof(lookup->txidhex)-1);
+	lookup->txidhex[sizeof(lookup->txidhex)-1] = '\0';
+	log_debug(bcli->dstate->base_log, "sendtoaddress gave %s",
+		  lookup->txidhex);
+	lookup->cb_arg = bcli->cb_arg;
 
-	/* Now we need the raw transaction. */
-	start_bitcoin_cli(bcli->dstate, process_rawtx, bcli->cb, bcli->cb_arg,
-			  "getrawtransaction", txidstr, NULL);
+	/* Now we need the actual transaction. */
+	start_bitcoin_cli(bcli->dstate, process_tx, bcli->cb, lookup,
+			  "gettransaction", lookup->txidhex, NULL);
 }
 
 void bitcoind_create_payment(struct lightningd_state *dstate,
