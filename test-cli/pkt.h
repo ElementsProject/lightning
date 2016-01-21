@@ -162,4 +162,13 @@ struct pkt *update_signature_pkt(const tal_t *ctx,
 struct pkt *update_complete_pkt(const tal_t *ctx,
 				const struct sha256 *revocation_preimage);
 
+struct channel_state;
+
+struct bitcoin_tx *commit_tx_from_pkts(const tal_t *ctx,
+				       OpenChannel *ours,
+				       OpenChannel *theirs,
+				       OpenAnchor *anchor,
+				       const struct sha256 *rhash,
+				       const struct channel_state *cstate);
+
 #endif /* LIGHTNING_PKT_H */

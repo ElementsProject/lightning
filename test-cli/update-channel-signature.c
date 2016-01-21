@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
 	/* Check our new commit is signed correctly by them. */
-	commit = create_commit_tx(ctx, o1, o2, a, &our_rhash, cstate);
+	commit = commit_tx_from_pkts(ctx, o1, o2, a, &our_rhash, cstate);
 	if (!commit)
 		errx(1, "Invalid packets");
 
@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
 
 	/* Now create THEIR new commitment tx to spend 2/2 output of anchor. */
 	invert_cstate(cstate);
-	commit = create_commit_tx(ctx, o2, o1, a, &their_rhash, cstate);
+	commit = commit_tx_from_pkts(ctx, o2, o1, a, &their_rhash, cstate);
 	if (!commit)
 		errx(1, "Invalid packets");
 

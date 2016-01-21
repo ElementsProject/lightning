@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 
 	proto_to_sha256(o2->revocation_hash, &rhash);
 	invert_cstate(cstate);
-	commit = create_commit_tx(ctx, o2, o1, a, &rhash, cstate);
+	commit = commit_tx_from_pkts(ctx, o2, o1, a, &rhash, cstate);
 
 	/* If contributions don't exceed fees, this fails. */
 	if (!commit)

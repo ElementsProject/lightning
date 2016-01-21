@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
 	/* Now create commitment tx to spend 2/2 output of anchor. */
-	commit = create_commit_tx(ctx, o1, o2, a, &rhash, cstate);
+	commit = commit_tx_from_pkts(ctx, o1, o2, a, &rhash, cstate);
 
 	/* This only fails on malformed packets */
 	if (!commit)

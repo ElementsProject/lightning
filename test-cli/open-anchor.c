@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 	/* Now, create signature for their commitment tx. */
 	proto_to_sha256(o2->revocation_hash, &rhash);
 	invert_cstate(cstate);
- 	commit = create_commit_tx(ctx, o2, o1, &oa, &rhash, cstate);
+	commit = commit_tx_from_pkts(ctx, o2, o1, &oa, &rhash, cstate);
 
 	sign_tx_input(commit, 0, redeemscript, tal_count(redeemscript),
 		      &privkey, &pubkey1, &sig);

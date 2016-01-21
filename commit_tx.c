@@ -43,16 +43,17 @@ static bool add_htlc(struct bitcoin_tx *tx, size_t n,
 }
 
 struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
-				    OpenChannel *ours,
-				    OpenChannel *theirs,
-				    OpenAnchor *anchor,
+				    const struct pubkey *our_final,
+				    const struct pubkey *their_final,
+				    const struct rel_locktime *their_locktime,
+				    const struct sha256_double *anchor_txid,
+				    unsigned int anchor_index,
+				    u64 anchor_satoshis,
 				    const struct sha256 *rhash,
 				    const struct channel_state *cstate)
 {
 	struct bitcoin_tx *tx;
 	const u8 *redeemscript;
-	struct pubkey ourkey, theirkey;
-	struct rel_locktime locktime;
 	size_t i, num;
 	uint64_t total;
 
@@ -61,32 +62,23 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 			+ tal_count(cstate->b.htlcs));
 
 	/* Our input spends the anchor tx output. */
-	proto_to_sha256(anchor->txid, &tx->input[0].txid.sha);
-	tx->input[0].index = anchor->output_index;
-	tx->input[0].input_amount = anchor->amount;
-
-	/* Output goes to our final pubkeys */
-	if (!proto_to_pubkey(ours->final_key, &ourkey))
-		return tal_free(tx);
-	if (!proto_to_pubkey(theirs->final_key, &theirkey))
-		return tal_free(tx);
-
-	if (!proto_to_rel_locktime(theirs->delay, &locktime))
-		return tal_free(tx);
+	tx->input[0].txid = *anchor_txid;
+	tx->input[0].index = anchor_index;
+	tx->input[0].input_amount = anchor_satoshis;
 
 	/* First output is a P2SH to a complex redeem script (usu. for me) */
-	redeemscript = bitcoin_redeem_secret_or_delay(tx, &ourkey,
-						      &locktime,
-						      &theirkey,
+	redeemscript = bitcoin_redeem_secret_or_delay(tx, our_final,
+						      their_locktime,
+						      their_final,
 						      rhash);
 	tx->output[0].script = scriptpubkey_p2sh(tx, redeemscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 	tx->output[0].amount = cstate->a.pay_msat / 1000;
 
 	/* Second output is a P2SH payment to them. */
-	tx->output[1].script = scriptpubkey_p2sh(ctx,
-						 bitcoin_redeem_single(ctx,
-							       &theirkey));
+	tx->output[1].script = scriptpubkey_p2sh(tx,
+					 bitcoin_redeem_single(tx,
+							       their_final));
 	tx->output[1].script_length = tal_count(tx->output[1].script);
 	tx->output[1].amount = cstate->b.pay_msat / 1000;
 
@@ -96,15 +88,17 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 
 	/* HTLCs we've sent. */
 	for (i = 0; i < tal_count(cstate->a.htlcs); i++) {
-		if (!add_htlc(tx, num, cstate->a.htlcs[i], &ourkey, &theirkey,
-			      rhash, &locktime, scriptpubkey_htlc_send))
+		if (!add_htlc(tx, num, cstate->a.htlcs[i],
+			      our_final, their_final,
+			      rhash, their_locktime, scriptpubkey_htlc_send))
 			return tal_free(tx);
 		total += tx->output[num++].amount;
 	}
 	/* HTLCs we've received. */
 	for (i = 0; i < tal_count(cstate->b.htlcs); i++) {
-		if (!add_htlc(tx, num, cstate->b.htlcs[i], &ourkey, &theirkey,
-			      rhash, &locktime, scriptpubkey_htlc_recv))
+		if (!add_htlc(tx, num, cstate->b.htlcs[i],
+			      our_final, their_final,
+			      rhash, their_locktime, scriptpubkey_htlc_recv))
 			return tal_free(tx);
 		total += tx->output[num++].amount;
 	}

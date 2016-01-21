@@ -1,7 +1,9 @@
 #include "bitcoin/address.h"
+#include "bitcoin/locktime.h"
 #include "bitcoin/pubkey.h"
 #include "bitcoin/signature.h"
 #include "bitcoin/tx.h"
+#include "commit_tx.h"
 #include "pkt.h"
 #include "protobuf_convert.h"
 #include <ccan/crypto/sha256/sha256.h>
@@ -223,4 +225,29 @@ struct pkt *update_complete_pkt(const tal_t *ctx,
 	UpdateComplete uc = UPDATE_COMPLETE__INIT;
 	uc.revocation_preimage = sha256_to_proto(ctx, revocation_preimage);
 	return to_pkt(ctx, PKT__PKT_UPDATE_COMPLETE, &uc);
+}
+
+struct bitcoin_tx *commit_tx_from_pkts(const tal_t *ctx,
+				       OpenChannel *ours,
+				       OpenChannel *theirs,
+				       OpenAnchor *anchor,
+				       const struct sha256 *rhash,
+				       const struct channel_state *cstate)
+{
+	struct pubkey ourkey, theirkey;
+	struct sha256_double txid;
+	struct rel_locktime locktime;
+
+	proto_to_sha256(anchor->txid, &txid.sha);
+	/* Output goes to our final pubkeys */
+	if (!proto_to_pubkey(ours->final_key, &ourkey))
+		return NULL;
+	if (!proto_to_pubkey(theirs->final_key, &theirkey))
+		return NULL;
+	if (!proto_to_rel_locktime(theirs->delay, &locktime))
+		return NULL;
+	
+	return create_commit_tx(ctx, &ourkey, &theirkey, &locktime,
+				&txid, anchor->output_index, anchor->amount,
+				rhash, cstate);
 }

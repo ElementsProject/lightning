@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 	redeemscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);
 
 	/* Check their signature signs our new commit tx correctly. */
-	commit = create_commit_tx(ctx, o1, o2, a, &our_rhash, cstate);
+	commit = commit_tx_from_pkts(ctx, o1, o2, a, &our_rhash, cstate);
 	if (!commit)
 		errx(1, "Delta too large");
 

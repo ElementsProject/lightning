@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
 	
 	/* Now create our commitment tx. */
 	proto_to_sha256(o1->revocation_hash, &rhash);
-	commit = create_commit_tx(ctx, o1, o2, a, &rhash, cstate);
+	commit = commit_tx_from_pkts(ctx, o1, o2, a, &rhash, cstate);
 
 	/* Check signature. */
 	subscript = bitcoin_redeem_2of2(ctx, &pubkey1, &pubkey2);

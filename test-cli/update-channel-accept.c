@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 
 	/* Now create THEIR new commitment tx to spend 2/2 output of anchor. */
 	invert_cstate(cstate);
-	commit = create_commit_tx(ctx, o2, o1, a, &their_rhash, cstate);
+	commit = commit_tx_from_pkts(ctx, o2, o1, a, &their_rhash, cstate);
 
 	/* If contributions don't exceed fees, this fails. */
 	if (!commit)
