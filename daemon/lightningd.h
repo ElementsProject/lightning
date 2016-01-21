@@ -60,5 +60,8 @@ struct lightningd_state {
 
 	/* This is us. */
 	struct pubkey id;
+
+	/* Number of bitcoind commands outstanding. */
+	unsigned int bitcoind_in_progress;
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */
