@@ -55,6 +55,19 @@ void peer_sign_theircommit(const struct peer *peer,
 		      sig);
 }
 
+void peer_sign_mutual_close(const struct peer *peer,
+			    struct bitcoin_tx *close,
+			    struct signature *sig)
+{
+	sign_tx_input(peer->dstate->secpctx,
+		      close, 0,
+		      peer->anchor.redeemscript,
+		      tal_count(peer->anchor.redeemscript),
+		      &peer->secrets->commit,
+		      &peer->us.commitkey,
+		      sig);
+}
+
 static void new_keypair(struct lightningd_state *dstate,
 			struct privkey *privkey, struct pubkey *pubkey)
 {

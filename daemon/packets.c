@@ -219,7 +219,23 @@ Pkt *pkt_err(const tal_t *ctx, const char *msg, ...)
 
 Pkt *pkt_close(const tal_t *ctx, const struct peer *peer)
 {
-	FIXME_STUB(peer);
+	CloseChannel *c = tal(ctx, CloseChannel);
+	struct signature sig;
+
+	close_channel__init(c);
+
+	/* FIXME:  If we're not connected, we don't create close tx. */
+	if (!peer->close_tx) {
+		c->close_fee = 0;
+		memset(&sig, 0, sizeof(sig));
+		c->sig = signature_to_proto(c, &sig);
+	} else {
+		c->close_fee = peer->close_tx->fee;
+		peer_sign_mutual_close(peer, peer->close_tx, &sig);
+		c->sig = signature_to_proto(c, &sig);
+	}
+
+	return make_pkt(ctx, PKT__PKT_CLOSE, c);
 }
 
 Pkt *pkt_close_complete(const tal_t *ctx, const struct peer *peer)

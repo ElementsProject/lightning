@@ -94,6 +94,9 @@ struct peer {
 	struct htlc_progress *current_htlc;
 	/* Number of HTLC updates (== number of previous commit txs) */
 	u64 num_htlcs;
+
+	/* Closing tx, once we've generated it */
+	struct bitcoin_tx *close_tx;
 	
 	/* Current ongoing packetflow */
 	struct io_data *io_data;

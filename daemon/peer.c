@@ -1,4 +1,5 @@
 #include "bitcoind.h"
+#include "close_tx.h"
 #include "commit_tx.h"
 #include "cryptopkt.h"
 #include "dns.h"
@@ -10,6 +11,7 @@
 #include "peer.h"
 #include "secrets.h"
 #include "state.h"
+#include "timeout.h"
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
@@ -251,6 +253,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->cmd = INPUT_NONE;
 	peer->current_htlc = NULL;
 	peer->num_htlcs = 0;
+	peer->close_tx = NULL;
 
 	/* If we free peer, conn should be closed, but can't be freed
 	 * immediately so don't make peer a parent. */
@@ -569,9 +572,25 @@ void peer_watch_tx(struct peer *peer,
 {
 	FIXME_STUB(peer);
 }
+
+static void send_close_timeout(struct peer *peer)
+{
+	update_state(peer, INPUT_CLOSE_COMPLETE_TIMEOUT, NULL);
+}
+
 void peer_watch_close(struct peer *peer,
 		      enum state_input done, enum state_input timedout)
 {
+	/* We save some work by assuming this. */
+	assert(timedout == INPUT_CLOSE_COMPLETE_TIMEOUT);
+
+	/* FIXME: We didn't send CLOSE, so timeout immediately */
+	if (!peer->conn) {
+		(void)send_close_timeout;
+		/* FIXME: oneshot_timeout(peer->dstate, peer, 0, send_close_timeout, peer); */
+		return;
+	}
+
 	FIXME_STUB(peer);
 }
 void peer_unwatch_close_timeout(struct peer *peer, enum state_input timedout)

@@ -16,6 +16,10 @@ void peer_sign_theircommit(const struct peer *peer,
 			   struct bitcoin_tx *commit,
 			   struct signature *sig);
 
+void peer_sign_mutual_close(const struct peer *peer,
+			    struct bitcoin_tx *close,
+			    struct signature *sig);
+
 void peer_secrets_init(struct peer *peer);
 
 void peer_get_revocation_hash(const struct peer *peer, u64 index,

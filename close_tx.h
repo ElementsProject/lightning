@@ -6,6 +6,7 @@
 #include <ccan/tal/tal.h>
 
 struct sha256_double;
+struct pubkey;
 
 /* Create close tx to spend the anchor tx output; doesn't fill in
  * input scriptsig. */
