@@ -7,7 +7,6 @@
 #include <ccan/io/io.h>
 #include <ccan/list/list.h>
 #include <ccan/noerr/noerr.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <errno.h>

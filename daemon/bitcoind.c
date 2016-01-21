@@ -13,6 +13,7 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <errno.h>
+#include <inttypes.h>
 
 #define BITCOIN_CLI "bitcoin-cli"
 
@@ -257,4 +258,38 @@ void bitcoind_send_tx(struct lightningd_state *dstate,
 	start_bitcoin_cli(dstate, process_sendrawrx, NULL, NULL,
 			  "sendrawtransaction", hex, NULL);
 	tal_free(raw);
+}
+
+static void process_sendtoaddress(struct bitcoin_cli *bcli)
+{
+	const char *out = (char *)bcli->output;
+	char *txidstr;
+
+	/* We expect a txid (followed by \n, vs hex_str_size including \0) */
+	if (bcli->output_bytes != hex_str_size(sizeof(struct sha256_double)))
+		fatal("sendtoaddress failed: %.*s",
+		      (int)bcli->output_bytes, out);
+
+	txidstr = tal_strndup(bcli, out, bcli->output_bytes-1);
+	log_debug(bcli->dstate->base_log, "sendtoaddress gave %s", txidstr);
+
+	/* Now we need the raw transaction. */
+	start_bitcoin_cli(bcli->dstate, process_rawtx, bcli->cb, bcli->cb_arg,
+			  "getrawtransaction", txidstr, NULL);
+}
+
+void bitcoind_create_payment(struct lightningd_state *dstate,
+			     const char *addr,
+			     u64 satoshis,
+			     void (*cb)(struct lightningd_state *dstate,
+					const struct bitcoin_tx *tx,
+					struct peer *peer),
+			     struct peer *peer)
+{
+	char amtstr[STR_MAX_CHARS(satoshis) * 2 + 1];
+	sprintf(amtstr, "%"PRIu64 "." "%08"PRIu64,
+		satoshis / 100000000, satoshis % 100000000);
+	
+	start_bitcoin_cli(dstate, process_sendtoaddress, cb, peer,
+			  "sendtoaddress", addr, amtstr, NULL);
 }
