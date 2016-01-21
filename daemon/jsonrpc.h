@@ -8,7 +8,7 @@
  * You can allocate off this for temporary objects. */
 struct command {
 	/* The global state */
-	struct lightningd_state *state;
+	struct lightningd_state *dstate;
 	/* The 'id' which we need to include in the response. */
 	const char *id;
 	/* The connection, or NULL if it closed. */
@@ -17,7 +17,7 @@ struct command {
 
 struct json_connection {
 	/* The global state */
-	struct lightningd_state *state;
+	struct lightningd_state *dstate;
 
 	/* Logging for this json connection. */
 	struct log *log;
@@ -53,7 +53,7 @@ void command_success(struct command *cmd, struct json_result *response);
 void PRINTF_FMT(2, 3) command_fail(struct command *cmd, const char *fmt, ...);
 
 /* For initialization */
-void setup_jsonrpc(struct lightningd_state *state, const char *rpc_filename);
+void setup_jsonrpc(struct lightningd_state *dstate, const char *rpc_filename);
 
 /* Commands (from other files) */
 extern const struct json_command connect_command;

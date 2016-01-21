@@ -18,7 +18,7 @@ struct lightningd_state;
 void init_timeout_(struct timeout *t, unsigned int interval,
 		   void (*cb)(void *), void *arg);
  
-void refresh_timeout(struct lightningd_state *state, struct timeout *t);
+void refresh_timeout(struct lightningd_state *dstate, struct timeout *t);
 
 #define init_timeout(t, interval, func, arg)				\
 	init_timeout_((t), (interval),					\

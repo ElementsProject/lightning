@@ -40,7 +40,7 @@ HTABLE_DEFINE_TYPE(struct txowatch, txowatch_keyof, txo_hash, txowatch_eq,
 		   txowatch_hash);
 
 struct txwatch {
-	struct lightningd_state *state;
+	struct lightningd_state *dstate;
 
 	/* Peer who owns us. */
 	struct peer *peer;
@@ -94,5 +94,5 @@ void add_commit_tx_watch_(struct peer *peer,
 						 int depth),		\
 			     (cbdata))
 
-void setup_watch_timer(struct lightningd_state *state);
+void setup_watch_timer(struct lightningd_state *dstate);
 #endif /* LIGHTNING_DAEMON_WATCH_H */

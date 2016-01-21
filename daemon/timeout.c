@@ -10,9 +10,9 @@ void init_timeout_(struct timeout *t, unsigned int interval,
 	t->arg = arg;
 }
  
-void refresh_timeout(struct lightningd_state *state, struct timeout *t)
+void refresh_timeout(struct lightningd_state *dstate, struct timeout *t)
 {
-	timer_del(&state->timers, &t->timer);
-	timer_add(&state->timers, &t->timer,
+	timer_del(&dstate->timers, &t->timer);
+	timer_add(&dstate->timers, &t->timer,
 		  timeabs_add(time_now(), t->interval));
 }

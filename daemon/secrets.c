@@ -20,7 +20,7 @@
 #include <unistd.h>
 
 struct secret {
-	/* Secret ID of our node; public is state->id. */
+	/* Secret ID of our node; public is dstate->id. */
 	struct privkey privkey;
 };
 
@@ -30,8 +30,8 @@ void privkey_sign(struct peer *peer, const void *src, size_t len,
 	struct sha256_double h;
 
 	sha256_double(&h, memcheck(src, len), len);
-	sign_hash(peer->state->secpctx,
-		  &peer->state->secret->privkey, &h, sig);
+	sign_hash(peer->dstate->secpctx,
+		  &peer->dstate->secret->privkey, &h, sig);
 }
 
 struct peer_secrets {
@@ -41,13 +41,13 @@ struct peer_secrets {
 	struct sha256 revocation_seed;
 };
 
-static void new_keypair(struct lightningd_state *state,
+static void new_keypair(struct lightningd_state *dstate,
 			struct privkey *privkey, struct pubkey *pubkey)
 {
 	do {
 		if (RAND_bytes(privkey->secret, sizeof(privkey->secret)) != 1)
 			fatal("Could not get random bytes for privkey");
-	} while (!pubkey_from_privkey(state->secpctx,
+	} while (!pubkey_from_privkey(dstate->secpctx,
 				      privkey, pubkey, SECP256K1_EC_COMPRESSED));
 }
 
@@ -55,8 +55,8 @@ void peer_secrets_init(struct peer *peer)
 {
 	peer->secrets = tal(peer, struct peer_secrets);
 
-	new_keypair(peer->state, &peer->secrets->commit, &peer->us.commitkey);
-	new_keypair(peer->state, &peer->secrets->final, &peer->us.finalkey);
+	new_keypair(peer->dstate, &peer->secrets->commit, &peer->us.commitkey);
+	new_keypair(peer->dstate, &peer->secrets->final, &peer->us.finalkey);
 	if (RAND_bytes(peer->secrets->revocation_seed.u.u8,
 		       sizeof(peer->secrets->revocation_seed.u.u8)) != 1)
 		fatal("Could not get random bytes for revocation seed");
@@ -77,26 +77,26 @@ void peer_get_revocation_hash(const struct peer *peer, u64 index,
 	sha256(rhash, preimage.u.u8, sizeof(preimage.u.u8));
 }
 
-void secrets_init(struct lightningd_state *state)
+void secrets_init(struct lightningd_state *dstate)
 {
 	int fd;
 
-	state->secret = tal(state, struct secret);
+	dstate->secret = tal(dstate, struct secret);
 
 	fd = open("privkey", O_RDONLY);
 	if (fd < 0) {
 		if (errno != ENOENT)
 			fatal("Failed to open privkey: %s", strerror(errno));
 
-		log_unusual(state->base_log, "Creating privkey file");
-		new_keypair(state, &state->secret->privkey, &state->id);
+		log_unusual(dstate->base_log, "Creating privkey file");
+		new_keypair(dstate, &dstate->secret->privkey, &dstate->id);
 
 		fd = open("privkey", O_CREAT|O_EXCL|O_WRONLY, 0400);
 		if (fd < 0)
 		 	fatal("Failed to create privkey file: %s",
 			      strerror(errno));
-		if (!write_all(fd, state->secret->privkey.secret,
-			       sizeof(state->secret->privkey.secret))) {
+		if (!write_all(fd, dstate->secret->privkey.secret,
+			       sizeof(dstate->secret->privkey.secret))) {
 			unlink_noerr("privkey");
 		 	fatal("Failed to write to privkey file: %s",
 			      strerror(errno));
@@ -110,15 +110,15 @@ void secrets_init(struct lightningd_state *state)
 		if (fd < 0)
 			fatal("Failed to reopen privkey: %s", strerror(errno));
 	}
-	if (!read_all(fd, state->secret->privkey.secret,
-		      sizeof(state->secret->privkey.secret)))
+	if (!read_all(fd, dstate->secret->privkey.secret,
+		      sizeof(dstate->secret->privkey.secret)))
 		fatal("Failed to read privkey: %s", strerror(errno));
 	close(fd);
-	if (!pubkey_from_privkey(state->secpctx,
-				 &state->secret->privkey, &state->id,
+	if (!pubkey_from_privkey(dstate->secpctx,
+				 &dstate->secret->privkey, &dstate->id,
 				 SECP256K1_EC_COMPRESSED))
 		fatal("Invalid privkey");
 
-	log_info(state->base_log, "ID: ");
-	log_add_hex(state->base_log, state->id.der, pubkey_derlen(&state->id));
+	log_info(dstate->base_log, "ID: ");
+	log_add_hex(dstate->base_log, dstate->id.der, pubkey_derlen(&dstate->id));
 }

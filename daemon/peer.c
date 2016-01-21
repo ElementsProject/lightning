@@ -53,24 +53,24 @@ static struct io_plan *peer_test(struct io_conn *conn, struct peer *peer)
 
 static void destroy_peer(struct peer *peer)
 {
-	list_del_from(&peer->state->peers, &peer->list);
+	list_del_from(&peer->dstate->peers, &peer->list);
 }
 
-static struct peer *new_peer(struct lightningd_state *state,
+static struct peer *new_peer(struct lightningd_state *dstate,
 			     struct io_conn *conn,
 			     int addr_type, int addr_protocol,
 			     enum state_input offer_anchor,
 			     const char *in_or_out)
 {
-	struct peer *peer = tal(state, struct peer);
+	struct peer *peer = tal(dstate, struct peer);
 
 	assert(offer_anchor == CMD_OPEN_WITH_ANCHOR
 	       || offer_anchor == CMD_OPEN_WITHOUT_ANCHOR);
 
 	/* FIXME: Stop listening if too many peers? */
-	list_add(&state->peers, &peer->list);
+	list_add(&dstate->peers, &peer->list);
 
-	peer->state = state;
+	peer->dstate = dstate;
 	peer->addr.type = addr_type;
 	peer->addr.protocol = addr_protocol;
 	peer->io_data = NULL;
@@ -78,10 +78,10 @@ static struct peer *new_peer(struct lightningd_state *state,
 	list_head_init(&peer->watches);
 
 	peer->us.offer_anchor = offer_anchor;
-	peer->us.locktime = state->config.rel_locktime;
-	peer->us.mindepth = state->config.anchor_confirms;
+	peer->us.locktime = dstate->config.rel_locktime;
+	peer->us.mindepth = dstate->config.anchor_confirms;
 	/* FIXME: Make this dynamic. */
-	peer->us.commit_fee = state->config.commitment_fee;
+	peer->us.commit_fee = dstate->config.commitment_fee;
 
 	/* FIXME: Attach IO logging for this peer. */
 	tal_add_destructor(peer, destroy_peer);
@@ -89,24 +89,24 @@ static struct peer *new_peer(struct lightningd_state *state,
 	peer->addr.addrlen = sizeof(peer->addr.saddr);
 	if (getpeername(io_conn_fd(conn), &peer->addr.saddr.s,
 			&peer->addr.addrlen) != 0) {
-		log_unusual(state->base_log,
+		log_unusual(dstate->base_log,
 			    "Could not get address for peer: %s",
 			    strerror(errno));
 		return tal_free(peer);
 	}
 
-	peer->log = new_log(peer, state->log_record, "%s%s:%s:",
-			    log_prefix(state->base_log), in_or_out,
+	peer->log = new_log(peer, dstate->log_record, "%s%s:%s:",
+			    log_prefix(dstate->base_log), in_or_out,
 			    netaddr_name(peer, &peer->addr));
 	return peer;
 }
 
 static struct io_plan *peer_connected_out(struct io_conn *conn,
-					  struct lightningd_state *state,
+					  struct lightningd_state *dstate,
 					  struct json_connecting *connect)
 {
 	struct json_result *response;
-	struct peer *peer = new_peer(state, conn, SOCK_STREAM, IPPROTO_TCP,
+	struct peer *peer = new_peer(dstate, conn, SOCK_STREAM, IPPROTO_TCP,
 				     CMD_OPEN_WITH_ANCHOR, "out");
 	if (!peer) {
 		command_fail(connect->cmd, "Failed to make peer for %s:%s",
@@ -125,9 +125,9 @@ static struct io_plan *peer_connected_out(struct io_conn *conn,
 }
 
 static struct io_plan *peer_connected_in(struct io_conn *conn,
-					 struct lightningd_state *state)
+					 struct lightningd_state *dstate)
 {
-	struct peer *peer = new_peer(state, conn, SOCK_STREAM, IPPROTO_TCP,
+	struct peer *peer = new_peer(dstate, conn, SOCK_STREAM, IPPROTO_TCP,
 				     CMD_OPEN_WITHOUT_ANCHOR, "in");
 	if (!peer)
 		return io_close(conn);
@@ -136,12 +136,12 @@ static struct io_plan *peer_connected_in(struct io_conn *conn,
 	return peer_crypto_setup(conn, peer, peer_test);
 }
 
-static int make_listen_fd(struct lightningd_state *state,
+static int make_listen_fd(struct lightningd_state *dstate,
 			  int domain, void *addr, socklen_t len)
 {
 	int fd = socket(domain, SOCK_STREAM, 0);
 	if (fd < 0) {
-		log_debug(state->base_log, "Failed to create %u socket: %s",
+		log_debug(dstate->base_log, "Failed to create %u socket: %s",
 			  domain, strerror(errno));
 		return -1;
 	}
@@ -149,17 +149,18 @@ static int make_listen_fd(struct lightningd_state *state,
 	if (!addr || bind(fd, addr, len) == 0) {
 		if (listen(fd, 5) == 0)
 			return fd;
-		log_unusual(state->base_log, "Failed to listen on %u socket: %s",
+		log_unusual(dstate->base_log,
+			    "Failed to listen on %u socket: %s",
 			    domain, strerror(errno));
 	} else
-		log_debug(state->base_log, "Failed to bind on %u socket: %s",
+		log_debug(dstate->base_log, "Failed to bind on %u socket: %s",
 			  domain, strerror(errno));
 
 	close_noerr(fd);
 	return -1;
 }
 
-void setup_listeners(struct lightningd_state *state, unsigned int portnum)
+void setup_listeners(struct lightningd_state *dstate, unsigned int portnum)
 {
 	struct sockaddr_in addr;
 	struct sockaddr_in6 addr6;
@@ -176,43 +177,43 @@ void setup_listeners(struct lightningd_state *state, unsigned int portnum)
 	addr6.sin6_port = htons(portnum);
 
 	/* IPv6, since on Linux that (usually) binds to IPv4 too. */
-	fd1 = make_listen_fd(state, AF_INET6, portnum ? &addr6 : NULL,
+	fd1 = make_listen_fd(dstate, AF_INET6, portnum ? &addr6 : NULL,
 			     sizeof(addr6));
 	if (fd1 >= 0) {
 		struct sockaddr_in6 in6;
 
 		len = sizeof(in6);
 		if (getsockname(fd1, (void *)&in6, &len) != 0) {
-			log_unusual(state->base_log,
+			log_unusual(dstate->base_log,
 				    "Failed get IPv6 sockname: %s",
 				    strerror(errno));
 			close_noerr(fd1);
 		} else {
 			addr.sin_port = in6.sin6_port;
 			listen_port = ntohs(addr.sin_port);
-			log_info(state->base_log,
+			log_info(dstate->base_log,
 				 "Creating IPv6 listener on port %u",
 				 listen_port);
-			io_new_listener(state, fd1, peer_connected_in, state);
+			io_new_listener(dstate, fd1, peer_connected_in, dstate);
 		}
 	}
 
 	/* Just in case, aim for the same port... */
-	fd2 = make_listen_fd(state, AF_INET,
+	fd2 = make_listen_fd(dstate, AF_INET,
 			     addr.sin_port ? &addr : NULL, sizeof(addr));
 	if (fd2 >= 0) {
 		len = sizeof(addr);
 		if (getsockname(fd2, (void *)&addr, &len) != 0) {
-			log_unusual(state->base_log,
+			log_unusual(dstate->base_log,
 				    "Failed get IPv4 sockname: %s",
 				    strerror(errno));
 			close_noerr(fd2);
 		} else {
 			listen_port = ntohs(addr.sin_port);
-			log_info(state->base_log,
+			log_info(dstate->base_log,
 				 "Creating IPv4 listener on port %u",
 				 listen_port);
-			io_new_listener(state, fd2, peer_connected_in, state);
+			io_new_listener(dstate, fd2, peer_connected_in, dstate);
 		}
 	}
 
@@ -220,7 +221,7 @@ void setup_listeners(struct lightningd_state *state, unsigned int portnum)
 		fatal("Could not bind to a network address");
 }
 
-static void peer_failed(struct lightningd_state *state,
+static void peer_failed(struct lightningd_state *dstate,
 			struct json_connecting *connect)
 {
 	/* FIXME: Better diagnostics! */
@@ -247,7 +248,7 @@ static void json_connect(struct command *cmd,
 				    host->end - host->start);
 	connect->port = tal_strndup(connect, buffer + port->start,
 				    port->end - port->start);
-	if (!dns_resolve_and_connect(cmd->state, connect->name, connect->port,
+	if (!dns_resolve_and_connect(cmd->dstate, connect->name, connect->port,
 				     peer_connected_out, peer_failed, connect)) {
 		command_fail(cmd, "DNS failed");
 		return;
@@ -271,7 +272,7 @@ static void json_getpeers(struct command *cmd,
 
 	json_object_start(response, NULL);
 	json_array_start(response, "peers");
-	list_for_each(&cmd->state->peers, p, list) {
+	list_for_each(&cmd->dstate->peers, p, list) {
 		json_object_start(response, NULL);
 		json_add_string(response, "name", log_prefix(p->log));
 		json_add_hex(response, "id", p->id.der, pubkey_derlen(&p->id));

@@ -19,6 +19,6 @@ void peer_get_revocation_hash(const struct peer *peer, u64 index,
 void peer_get_revocation_preimage(const struct peer *peer, u64 index,
 				  struct sha256 *preimage);
 
-void secrets_init(struct lightningd_state *state);
+void secrets_init(struct lightningd_state *dstate);
 
 #endif /* LIGHTNING_DAEMON_SECRETS_H */

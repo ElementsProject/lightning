@@ -63,25 +63,25 @@ static void opt_show_u32(char buf[OPT_SHOW_LEN], const u32 *u)
 	snprintf(buf, OPT_SHOW_LEN, "%"PRIu32, *u);
 }
 
-static void config_register_opts(struct lightningd_state *state)
+static void config_register_opts(struct lightningd_state *dstate)
 {
 	opt_register_arg("--locktime", opt_set_u32, opt_show_u32,
-			 &state->config.rel_locktime,
+			 &dstate->config.rel_locktime,
 			 "Seconds before peer can unilaterally spend funds");
 	opt_register_arg("--max-locktime", opt_set_u32, opt_show_u32,
-			 &state->config.rel_locktime_max,
+			 &dstate->config.rel_locktime_max,
 			 "Maximum seconds peer can lock up our funds");
 	opt_register_arg("--anchor-confirms", opt_set_u32, opt_show_u32,
-			 &state->config.anchor_confirms,
+			 &dstate->config.anchor_confirms,
 			 "Confirmations required for anchor transaction");
 	opt_register_arg("--max-anchor-confirms", opt_set_u32, opt_show_u32,
-			 &state->config.anchor_confirms_max,
+			 &dstate->config.anchor_confirms_max,
 			 "Maximum confirmations other side can wait for anchor transaction");
 	opt_register_arg("--commit-fee", opt_set_u64, opt_show_u64,
-			 &state->config.commitment_fee,
+			 &dstate->config.commitment_fee,
 			 "Satoshis to offer for commitment transaction fee");
 	opt_register_arg("--min-commit-fee", opt_set_u64, opt_show_u64,
-			 &state->config.commitment_fee_min,
+			 &dstate->config.commitment_fee_min,
 			 "Minimum satoshis to accept for commitment transaction fee");
 }
 
@@ -113,21 +113,21 @@ static void default_config(struct config *config)
 
 static struct lightningd_state *lightningd_state(void)
 {
-	struct lightningd_state *state = tal(NULL, struct lightningd_state);
+	struct lightningd_state *dstate = tal(NULL, struct lightningd_state);
 
-	state->log_record = new_log_record(state, 20 * 1024 * 1024, LOG_INFORM);
-	state->base_log = new_log(state, state->log_record,
-				  "lightningd(%u):", (int)getpid());
+	dstate->log_record = new_log_record(dstate, 20*1024*1024, LOG_INFORM);
+	dstate->base_log = new_log(dstate, dstate->log_record,
+				   "lightningd(%u):", (int)getpid());
 
-	list_head_init(&state->peers);
-	timers_init(&state->timers, time_now());
-	txwatch_hash_init(&state->txwatches);
-	txowatch_hash_init(&state->txowatches);
-	state->secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						  | SECP256K1_CONTEXT_SIGN);
-	default_config(&state->config);
-	state->bitcoind_in_progress = 0;
-	return state;
+	list_head_init(&dstate->peers);
+	timers_init(&dstate->timers, time_now());
+	txwatch_hash_init(&dstate->txwatches);
+	txowatch_hash_init(&dstate->txowatches);
+	dstate->secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+						   | SECP256K1_CONTEXT_SIGN);
+	default_config(&dstate->config);
+	dstate->bitcoind_in_progress = 0;
+	return dstate;
 }
 
 /* Tal wrappers for opt. */
@@ -151,7 +151,7 @@ static void tal_freefn(void *ptr)
 
 int main(int argc, char *argv[])
 {
-	struct lightningd_state *state = lightningd_state();
+	struct lightningd_state *dstate = lightningd_state();
 	struct timer *expired;
 	unsigned int portnum = 0;
 
@@ -164,61 +164,61 @@ int main(int argc, char *argv[])
 			   "Print this message.");
 	opt_register_arg("--port", opt_set_uintval, NULL, &portnum,
 			 "Port to bind to (otherwise, dynamic port is used)");
-	opt_register_logging(state->base_log);
+	opt_register_logging(dstate->base_log);
 	opt_register_version();
 
-	configdir_register_opts(state,
-				&state->config_dir, &state->rpc_filename);
-	config_register_opts(state);
+	configdir_register_opts(dstate,
+				&dstate->config_dir, &dstate->rpc_filename);
+	config_register_opts(dstate);
 
 	/* Get any configdir options first. */
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
 
 	/* Move to config dir, to save ourselves the hassle of path manip. */
-	if (chdir(state->config_dir) != 0) {
-		log_unusual(state->base_log, "Creating lightningd dir %s"
+	if (chdir(dstate->config_dir) != 0) {
+		log_unusual(dstate->base_log, "Creating lightningd dir %s"
 			    " (because chdir gave %s)",
-			    state->config_dir, strerror(errno));
-		if (mkdir(state->config_dir, 0700) != 0)
+			    dstate->config_dir, strerror(errno));
+		if (mkdir(dstate->config_dir, 0700) != 0)
 			fatal("Could not make directory %s: %s",
-			      state->config_dir, strerror(errno));
-		if (chdir(state->config_dir) != 0)
+			      dstate->config_dir, strerror(errno));
+		if (chdir(dstate->config_dir) != 0)
 			fatal("Could not change directory %s: %s",
-			      state->config_dir, strerror(errno));
+			      dstate->config_dir, strerror(errno));
 	}
 	/* Activate crash log now we're in the right place. */
-	crashlog_activate(state->base_log);
+	crashlog_activate(dstate->base_log);
 
 	/* Now look for config file */
-	opt_parse_from_config(state);
+	opt_parse_from_config(dstate);
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc != 1)
 		errx(1, "no arguments accepted");
 
 	/* Create RPC socket (if any) */
-	setup_jsonrpc(state, state->rpc_filename);
+	setup_jsonrpc(dstate, dstate->rpc_filename);
 
 	/* Set up connections from peers. */
-	setup_listeners(state, portnum);
+	setup_listeners(dstate, portnum);
 
 	/* Set up node ID and private key. */
-	secrets_init(state);
+	secrets_init(dstate);
 
 	/* Create timer to do watches. */
-	setup_watch_timer(state);
+	setup_watch_timer(dstate);
 
-	log_info(state->base_log, "Hello world!");
+	log_info(dstate->base_log, "Hello world!");
 
 	/* If io_loop returns NULL, either a timer expired, or all fds closed */
-	while (!io_loop(&state->timers, &expired) && expired) {
+	while (!io_loop(&dstate->timers, &expired) && expired) {
 		struct timeout *to;
 
 		to = container_of(expired, struct timeout, timer);
 		to->cb(to->arg);
 	}
 
-	tal_free(state);
+	tal_free(dstate);
 	opt_free_table();
 	return 0;
 }

@@ -33,7 +33,7 @@ static char **gather_args(const tal_t *ctx, const char *cmd, va_list ap)
 }
 
 struct bitcoin_cli {
-	struct lightningd_state *state;
+	struct lightningd_state *dstate;
 	int fd;
 	pid_t pid;
 	char **args;
@@ -83,22 +83,22 @@ static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 		      bcli->args[0], bcli->args[1], WEXITSTATUS(status),
 		      (int)bcli->output_bytes, bcli->output);
 
-	assert(bcli->state->bitcoind_in_progress);
-	bcli->state->bitcoind_in_progress--;
+	assert(bcli->dstate->bitcoind_in_progress);
+	bcli->dstate->bitcoind_in_progress--;
 	bcli->process(bcli);
 }
 
 static void
-start_bitcoin_cli(struct lightningd_state *state,
+start_bitcoin_cli(struct lightningd_state *dstate,
 		  void (*process)(struct bitcoin_cli *),
 		  void *cb, void *cb_arg,
 		  char *cmd, ...)
 {
 	va_list ap;
-	struct bitcoin_cli *bcli = tal(state, struct bitcoin_cli);
+	struct bitcoin_cli *bcli = tal(dstate, struct bitcoin_cli);
 	struct io_conn *conn;
 
-	bcli->state = state;
+	bcli->dstate = dstate;
 	bcli->process = process;
 	bcli->cb = cb;
 	bcli->cb_arg = cb_arg;
@@ -110,9 +110,9 @@ start_bitcoin_cli(struct lightningd_state *state,
 	if (bcli->pid < 0)
 		fatal("%s exec failed: %s", bcli->args[0], strerror(errno));
 
-	conn = io_new_conn(state, bcli->fd, output_init, bcli);
+	conn = io_new_conn(dstate, bcli->fd, output_init, bcli);
 	tal_steal(conn, bcli);
-	state->bitcoind_in_progress++;
+	dstate->bitcoind_in_progress++;
 	io_set_finish(conn, bcli_finished, bcli);
 }
 
@@ -124,13 +124,13 @@ static void process_importaddress(struct bitcoin_cli *bcli)
 		      (int)bcli->output_bytes, bcli->output);
 }
 
-void bitcoind_watch_addr(struct lightningd_state *state,
+void bitcoind_watch_addr(struct lightningd_state *dstate,
 			 const struct ripemd160 *redeemhash)
 {
-	char *p2shaddr = p2sh_to_base58(state, state->config.testnet,
+	char *p2shaddr = p2sh_to_base58(dstate, dstate->config.testnet,
 					redeemhash);
 
-	start_bitcoin_cli(state, process_importaddress, NULL, NULL,
+	start_bitcoin_cli(dstate, process_importaddress, NULL, NULL,
 			  "importaddress", p2shaddr, "", "false", NULL);
 	tal_free(p2shaddr);
 }
@@ -139,7 +139,7 @@ static void process_transactions(struct bitcoin_cli *bcli)
 {
 	const jsmntok_t *tokens, *t, *end;
 	bool valid;
-	void (*cb)(struct lightningd_state *state,
+	void (*cb)(struct lightningd_state *dstate,
 		   const struct sha256_double *txid,
 		   int confirmations) = bcli->cb;
 
@@ -180,23 +180,23 @@ static void process_transactions(struct bitcoin_cli *bcli)
 			      bcli->output + conftok->start);
 
 		/* FIXME: log txid */
-		log_debug(bcli->state->base_log,
+		log_debug(bcli->dstate->base_log,
 			  "txid %02x%02x%02x%02x..., conf %li",
 			  txid.sha.u.u8[0], txid.sha.u.u8[1],
 			  txid.sha.u.u8[2], txid.sha.u.u8[3],
 			  conf);
 
-		cb(bcli->state, &txid, conf);
+		cb(bcli->dstate, &txid, conf);
 	}
 }
 
-void bitcoind_poll_transactions(struct lightningd_state *state,
-				void (*cb)(struct lightningd_state *state,
+void bitcoind_poll_transactions(struct lightningd_state *dstate,
+				void (*cb)(struct lightningd_state *dstate,
 					   const struct sha256_double *txid,
 					   int confirmations))
 {
 	/* FIXME: Iterate and detect duplicates. */
-	start_bitcoin_cli(state, process_transactions, cb, NULL,
+	start_bitcoin_cli(dstate, process_transactions, cb, NULL,
 			  "listtransactions", "*", "100000", "0", "true",
 			  NULL);
 }
@@ -204,20 +204,20 @@ void bitcoind_poll_transactions(struct lightningd_state *state,
 static void process_rawtx(struct bitcoin_cli *bcli)
 {
 	struct bitcoin_tx *tx;
-	void (*cb)(struct lightningd_state *state,
+	void (*cb)(struct lightningd_state *dstate,
 		   const struct bitcoin_tx *tx, void *arg) = bcli->cb;
 
 	tx = bitcoin_tx_from_hex(bcli, bcli->output, bcli->output_bytes);
 	if (!tx)
 		fatal("Unknown txid (output %.*s)",
 		      (int)bcli->output_bytes, (char *)bcli->output);
-	cb(bcli->state, tx, bcli->cb_arg);
+	cb(bcli->dstate, tx, bcli->cb_arg);
 }
 
 /* FIXME: Cache! */
-void bitcoind_txid_lookup_(struct lightningd_state *state,
+void bitcoind_txid_lookup_(struct lightningd_state *dstate,
 			   const struct sha256_double *txid,
-			   void (*cb)(struct lightningd_state *state,
+			   void (*cb)(struct lightningd_state *dstate,
 				      const struct bitcoin_tx *tx,
 				      void *arg),
 			   void *arg)
@@ -226,6 +226,6 @@ void bitcoind_txid_lookup_(struct lightningd_state *state,
 
 	if (!bitcoin_txid_to_hex(txid, txidhex, sizeof(txidhex)))
 		fatal("Incorrect txid size");
-	start_bitcoin_cli(state, process_rawtx, cb, arg,
+	start_bitcoin_cli(dstate, process_rawtx, cb, arg,
 			  "getrawtransaction", txidhex, NULL);
 }

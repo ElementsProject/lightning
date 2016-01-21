@@ -21,11 +21,11 @@ struct peer_visible_state {
 };
 
 struct peer {
-	/* state->peers list */
+	/* dstate->peers list */
 	struct list_node list;
 
 	/* Global state. */
-	struct lightningd_state *state;
+	struct lightningd_state *dstate;
 
 	/* The other end's address. */
 	struct netaddr addr;
@@ -52,6 +52,6 @@ struct peer {
 	struct peer_visible_state us, them;
 };
 
-void setup_listeners(struct lightningd_state *state, unsigned int portnum);
+void setup_listeners(struct lightningd_state *dstate, unsigned int portnum);
 
 #endif /* LIGHTNING_DAEMON_PEER_H */

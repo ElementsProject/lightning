@@ -372,7 +372,7 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 		return io_close(conn);
 	}
 
-	if (!proto_to_pubkey(peer->state->secpctx, auth->node_id, &peer->id)) {
+	if (!proto_to_pubkey(peer->dstate->secpctx, auth->node_id, &peer->id)) {
 		log_unusual(peer->log, "Invalid auth id");
 		return io_close(conn);
 	}
@@ -381,7 +381,7 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 	sha256_double(&sha,
 		      neg->our_sessionpubkey, sizeof(neg->our_sessionpubkey));
 
-	if (!check_signed_hash(peer->state->secpctx, &sha, &sig, &peer->id)) {
+	if (!check_signed_hash(peer->dstate->secpctx, &sha, &sig, &peer->id)) {
 		log_unusual(peer->log, "Bad auth signature");
 		return io_close(conn);
 	}
@@ -429,7 +429,7 @@ static struct io_plan *keys_exchanged(struct io_conn *conn, struct peer *peer)
 	struct key_negotiate *neg = peer->io_data->neg;
 	Pkt *auth;
 
-	if (!pubkey_from_der(peer->state->secpctx,
+	if (!pubkey_from_der(peer->dstate->secpctx,
 			     neg->their_sessionpubkey,
 			     sizeof(neg->their_sessionpubkey),
 			     &sessionkey)) {
@@ -439,7 +439,7 @@ static struct io_plan *keys_exchanged(struct io_conn *conn, struct peer *peer)
 	}
 
 	/* Derive shared secret. */
-	if (!secp256k1_ecdh(peer->state->secpctx, shared_secret,
+	if (!secp256k1_ecdh(peer->dstate->secpctx, shared_secret,
 			    &sessionkey.pubkey, neg->seckey)) {
 		log_unusual(peer->log, "Bad ECDH");
 		return io_close(conn);
@@ -459,7 +459,7 @@ static struct io_plan *keys_exchanged(struct io_conn *conn, struct peer *peer)
 		     sizeof(neg->their_sessionpubkey), &sig);
 
 	/* FIXME: Free auth afterwards. */
-	auth = authenticate_pkt(peer, &peer->state->id, &sig);
+	auth = authenticate_pkt(peer, &peer->dstate->id, &sig);
 	return peer_write_packet(conn, peer, auth, receive_proof);
 }
 
@@ -496,9 +496,9 @@ struct io_plan *peer_crypto_setup(struct io_conn *conn, struct peer *peer,
 	neg = peer->io_data->neg = tal(peer->io_data, struct key_negotiate);
 	neg->cb = cb;
 
-	gen_sessionkey(peer->state->secpctx, neg->seckey, &sessionkey);
+	gen_sessionkey(peer->dstate->secpctx, neg->seckey, &sessionkey);
 
-	secp256k1_ec_pubkey_serialize(peer->state->secpctx,
+	secp256k1_ec_pubkey_serialize(peer->dstate->secpctx,
 				      neg->our_sessionpubkey, &outputlen,
 				      &sessionkey,
 				      SECP256K1_EC_COMPRESSED);

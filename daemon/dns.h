@@ -9,8 +9,8 @@
 struct lightningd_state;
 struct netaddr;
 
-#define dns_resolve_and_connect(state, name, port, initfn, failfn, arg) \
-	dns_resolve_and_connect_((state), (name), (port),		\
+#define dns_resolve_and_connect(dstate, name, port, initfn, failfn, arg) \
+	dns_resolve_and_connect_((dstate), (name), (port),		\
 			typesafe_cb_preargs(struct io_plan *, void *, \
 					    (initfn), (arg),		\
 					    struct io_conn *,		\
@@ -19,7 +19,7 @@ struct netaddr;
 					    struct lightningd_state *), \
 				 (arg))
 
-struct dns_async *dns_resolve_and_connect_(struct lightningd_state *state,
+struct dns_async *dns_resolve_and_connect_(struct lightningd_state *dstate,
 		  const char *name, const char *port,
 		  struct io_plan *(*init)(struct io_conn *,
 					  struct lightningd_state *,
