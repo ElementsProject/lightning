@@ -87,13 +87,13 @@ void add_anchor_watch_(const tal_t *ctx,
 					      const struct bitcoin_tx *), \
 			  (cbdata))
 
-void add_commit_tx_watch_(const tal_t *ctx,
-			  struct peer *peer,
-			  const struct sha256_double *txid,
-			  void (*cb)(struct peer *peer, int depth,
-				     const struct sha256_double *blkhash,
-				     void *),
-			  void *cbdata);
+struct txwatch *add_commit_tx_watch_(const tal_t *ctx,
+				     struct peer *peer,
+				     const struct sha256_double *txid,
+				     void (*cb)(struct peer *peer, int depth,
+						const struct sha256_double *blkhash,
+						void *),
+				     void *cbdata);
 
 #define add_commit_tx_watch(ctx, peer, txid, cb, cbdata)		  \
 	add_commit_tx_watch_((ctx), (peer), (txid),			\

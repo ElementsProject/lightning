@@ -55,6 +55,35 @@ void peer_sign_theircommit(const struct peer *peer,
 		      sig);
 }
 
+void peer_sign_ourcommit(const struct peer *peer,
+			 struct bitcoin_tx *commit,
+			 struct signature *sig)
+{
+	/* Commit tx only has one input: that of the anchor. */
+	sign_tx_input(peer->dstate->secpctx,
+		      commit, 0,
+		      peer->anchor.redeemscript,
+		      tal_count(peer->anchor.redeemscript),
+		      &peer->secrets->commit,
+		      &peer->us.commitkey,
+		      sig);
+}
+
+void peer_sign_spend(const struct peer *peer,
+		     struct bitcoin_tx *spend,
+		     const u8 *commit_redeemscript,
+		     struct signature *sig)
+{
+	/* Spend tx only has one input: that of the commit tx. */
+	sign_tx_input(peer->dstate->secpctx,
+		      spend, 0,
+		      commit_redeemscript,
+		      tal_count(commit_redeemscript),
+		      &peer->secrets->final,
+		      &peer->us.finalkey,
+		      sig);
+}
+
 void peer_sign_mutual_close(const struct peer *peer,
 			    struct bitcoin_tx *close,
 			    struct signature *sig)

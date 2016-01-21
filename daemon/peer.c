@@ -20,6 +20,7 @@
 #include <ccan/io/io.h>
 #include <ccan/list/list.h>
 #include <ccan/noerr/noerr.h>
+#include <ccan/ptrint/ptrint.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
@@ -344,6 +345,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->cstate = NULL;
 	peer->close_watch_timeout = NULL;
 	peer->anchor.watches = NULL;
+	peer->cur_commit.watch = NULL;
 
 	/* If we free peer, conn should be closed, but can't be freed
 	 * immediately so don't make peer a parent. */
@@ -728,17 +730,100 @@ void peer_unwatch_anchor_depth(struct peer *peer,
 	peer->anchor.watches = tal_free(peer->anchor.watches);
 }
 
+static void commit_tx_depth(struct peer *peer, int depth,
+			    const struct sha256_double *blkhash,
+			    ptrint_t *canspend)
+{
+	log_debug(peer->log, "Commit tx reached depth %i", depth);
+	/* FIXME: Handle locktime in blocks, as well as seconds! */
+
+	/* Fell out of a block? */
+	if (depth < 0) {
+		/* Forget any old block. */
+		peer->cur_commit.start_time = 0;
+		memset(&peer->cur_commit.blockid, 0xFF,
+		       sizeof(peer->cur_commit.blockid));
+		return;
+	}
+
+	/* In a new block? */
+	if (!structeq(blkhash, &peer->cur_commit.blockid)) {
+		peer->cur_commit.start_time = 0;
+		peer->cur_commit.blockid = *blkhash;
+		bitcoind_get_mediantime(peer->dstate, blkhash,
+					&peer->cur_commit.start_time);
+		return;
+	}
+
+	/* Don't yet know the median start time? */
+	if (!peer->cur_commit.start_time)
+		return;
+
+	/* FIXME: We should really use bitcoin time here. */
+	if (controlled_time().ts.tv_sec > peer->cur_commit.start_time
+	    + rel_locktime_to_seconds(&peer->them.locktime)) {
+		/* Free this watch; we're done */
+		peer->cur_commit.watch = tal_free(peer->cur_commit.watch);
+		state_event(peer, ptr2int(canspend), NULL);
+	}
+}
+
+/* FIXME: We tell bitcoind to watch all the outputs, which is overkill */
+static void watch_tx_outputs(struct peer *peer, const struct bitcoin_tx *tx)
+{
+	varint_t i;
+
+	for (i = 0; i < tx->output_count; i++) {
+		struct ripemd160 redeemhash;
+		if (!is_p2sh(tx->output[i].script, tx->output[i].script_length))
+			fatal("Unexpected non-p2sh output");
+		memcpy(&redeemhash, tx->output[i].script+2, sizeof(redeemhash));
+		bitcoind_watch_addr(peer->dstate, &redeemhash);
+	}
+}
+
+/* Watch the commit tx until our side is spendable. */
 void peer_watch_delayed(struct peer *peer,
 			const struct bitcoin_tx *tx,
 			enum state_input canspend)
 {
-	FIXME_STUB(peer);
+	struct sha256_double txid;
+
+	assert(tx == peer->us.commit);
+	bitcoin_txid(tx, &txid);
+	memset(&peer->cur_commit.blockid, 0xFF,
+	       sizeof(peer->cur_commit.blockid));
+	peer->cur_commit.watch
+		= add_commit_tx_watch(tx, peer, &txid, commit_tx_depth,
+				      int2ptr(canspend));
+
+	watch_tx_outputs(peer, tx);
 }
+
+static void spend_tx_done(struct peer *peer, int depth,
+			  const struct sha256_double *blkhash,
+			  ptrint_t *done)
+{
+	log_debug(peer->log, "tx reached depth %i", depth);
+	if (depth >= (int)peer->dstate->config.forever_confirms)
+		state_event(peer, ptr2int(done), NULL);
+}
+
+/* Watch this tx until it's buried enough to be forgotten. */
 void peer_watch_tx(struct peer *peer,
 		   const struct bitcoin_tx *tx,
 		   enum state_input done)
 {
-	FIXME_STUB(peer);
+	struct sha256_double txid;
+
+	bitcoin_txid(tx, &txid);
+	log_debug(peer->log, "Watching tx %02x%02x%02x%02x...",
+		  txid.sha.u.u8[0],
+		  txid.sha.u.u8[1],
+		  txid.sha.u.u8[2],
+		  txid.sha.u.u8[3]);
+
+	add_commit_tx_watch(tx, peer, &txid, spend_tx_done, int2ptr(done));
 }
 
 bool peer_create_close_tx(struct peer *peer, u64 fee_satoshis)
@@ -914,14 +999,18 @@ const struct bitcoin_tx *bitcoin_close(const tal_t *ctx,
 const struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
 					    const struct peer *peer)
 {
-#if 0
 	u8 *redeemscript;
+	const struct bitcoin_tx *commit = peer->us.commit;
+	struct bitcoin_signature sig;
+	struct bitcoin_tx *tx;
+	unsigned int p2sh_out;
 
+	/* The redeemscript for a commit tx is fairly complex. */
 	redeemscript = bitcoin_redeem_secret_or_delay(ctx,
-						      &peer->us.commitkey,
+						      &peer->us.finalkey,
 						      &peer->them.locktime,
-						      &peer->them.commitkey,
-						      &peer->revocation_hash);
+						      &peer->them.finalkey,
+						      &peer->us.revocation_hash);
 
 	/* Now, create transaction to spend it. */
 	tx = bitcoin_tx(ctx, 1, 1);
@@ -929,30 +1018,31 @@ const struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
 	p2sh_out = find_p2sh_out(commit, redeemscript);
 	tx->input[0].index = p2sh_out;
 	tx->input[0].input_amount = commit->output[p2sh_out].amount;
-	tx->fee = fee;
+	/* FIXME: Dynamic fee! */
+	tx->fee = peer->dstate->config.closing_fee;
 
-	tx->input[0].sequence_number = bitcoin_nsequence(locktime);
+	tx->input[0].sequence_number = bitcoin_nsequence(&peer->them.locktime);
 
-	if (commit->output[p2sh_out].amount <= fee)
-		errx(1, "Amount of %llu won't exceed fee",
-		     (unsigned long long)commit->output[p2sh_out].amount);
+	/* FIXME: In this case, we shouldn't do anything (not worth
+	 * collecting) */
+	if (commit->output[p2sh_out].amount <= tx->fee)
+		fatal("Amount of %"PRIu64" won't cover fee",
+		      commit->output[p2sh_out].amount);
 
-	tx->output[0].amount = commit->output[p2sh_out].amount - fee;
+	tx->output[0].amount = commit->output[p2sh_out].amount - tx->fee;
 	tx->output[0].script = scriptpubkey_p2sh(tx,
-						 bitcoin_redeem_single(tx, &outpubkey));
+				 bitcoin_redeem_single(tx, &peer->us.finalkey));
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
 	/* Now get signature, to set up input script. */
-	if (!sign_tx_input(tx, 0, redeemscript, tal_count(redeemscript),
-			   &privkey, &pubkey1, &sig.sig))
-		errx(1, "Could not sign tx");
 	sig.stype = SIGHASH_ALL;
+	peer_sign_spend(peer, tx, redeemscript, &sig.sig);
 	tx->input[0].script = scriptsig_p2sh_secret(tx, NULL, 0, &sig,
 						    redeemscript,
 						    tal_count(redeemscript));
 	tx->input[0].script_length = tal_count(tx->input[0].script);
-#endif
-	FIXME_STUB(peer);
+
+	return tx;
 }
 
 /* Create a bitcoin spend tx (to spend their commit's outputs) */
@@ -971,10 +1061,27 @@ const struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
 	FIXME_STUB(peer);
 }
 
-/* Create our commit tx */
+/* Sign and return our commit tx */
 const struct bitcoin_tx *bitcoin_commit(const tal_t *ctx, struct peer *peer)
 {
-	FIXME_STUB(peer);
+	struct bitcoin_signature sig;
+
+	/* Can't be signed already! */
+	assert(peer->us.commit->input[0].script_length == 0);
+
+	sig.stype = SIGHASH_ALL;
+	peer_sign_ourcommit(peer, peer->us.commit, &sig.sig);
+
+	peer->us.commit->input[0].script
+		= scriptsig_p2sh_2of2(peer->us.commit,
+				      &peer->cur_commit.theirsig,
+				      &sig,
+				      &peer->them.commitkey,
+				      &peer->us.commitkey);
+	peer->us.commit->input[0].script_length
+		= tal_count(peer->us.commit->input[0].script);
+
+	return peer->us.commit;
 }
 
 /* Create a HTLC refund collection */

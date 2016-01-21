@@ -16,6 +16,15 @@ void peer_sign_theircommit(const struct peer *peer,
 			   struct bitcoin_tx *commit,
 			   struct signature *sig);
 
+void peer_sign_ourcommit(const struct peer *peer,
+			 struct bitcoin_tx *commit,
+			 struct signature *sig);
+
+void peer_sign_spend(const struct peer *peer,
+		     struct bitcoin_tx *spend,
+		     const u8 *commit_redeemscript,
+		     struct signature *sig);
+
 void peer_sign_mutual_close(const struct peer *peer,
 			    struct bitcoin_tx *close,
 			    struct signature *sig);

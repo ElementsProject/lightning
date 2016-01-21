@@ -11,6 +11,7 @@
 #include "state.h"
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/list/list.h>
+#include <ccan/time/time.h>
 
 struct peer_visible_state {
 	/* CMD_OPEN_WITH_ANCHOR or CMD_OPEN_WITHOUT_ANCHOR */
@@ -97,8 +98,16 @@ struct peer {
 		struct anchor_watch *watches;
 	} anchor;
 
-	/* Their signature for our current commit sig. */
-	struct bitcoin_signature cur_commit_theirsig;
+	struct {
+		/* Their signature for our current commit sig. */
+		struct bitcoin_signature theirsig;
+		/* When it entered a block (mediantime). */
+		u32 start_time;
+		/* Which block it entered. */
+		struct sha256_double blockid;
+		/* The watch we have on a live commit tx. */
+		struct txwatch *watch;
+	} cur_commit;
 
 	/* Current HTLC, if any. */
 	struct htlc_progress *current_htlc;

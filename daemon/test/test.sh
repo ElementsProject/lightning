@@ -54,6 +54,18 @@ check_status()
     fi
 }
 
+check_tx_spend()
+{
+    $CLI generate 1
+    if [ $($CLI getblock $($CLI getbestblockhash) | grep -c '^    "') = 2 ]; then
+	:
+    else
+	echo "Block didn't include tx:" >&2
+	$($CLI getblock $($CLI getbestblockhash) ) >&2
+	exit 1
+    fi
+}
+
 all_ok()
 {
     scripts/shutdown.sh
@@ -99,10 +111,12 @@ $LCLI1 getpeers | grep STATE_OPEN_WAITING_OURANCHOR
 $LCLI2 getpeers | grep STATE_OPEN_WAITING_THEIRANCHOR
 
 if [ "x$1" = x"--timeout-anchor" ]; then
-    # Timeout before anchor committed.
+    # Anchor gets 1 commit.
+    check_tx_spend
+
+    # Timeout before anchor committed deep enough.
     TIME=$((`date +%s` + 7200 + 3 * 1200 + 1))
 
-    # This will crash in a moment.
     $LCLI1 dev-mocktime $TIME
 
     # This will crash immediately
@@ -110,26 +124,52 @@ if [ "x$1" = x"--timeout-anchor" ]; then
 	echo Node2 did not crash >&2
 	exit 1
     fi
+    fgrep 'Entered error state STATE_ERR_ANCHOR_TIMEOUT' $DIR2/crash.log
 
     sleep 1
 
-    # Check crash logs
-    if [ ! -f $DIR1/crash.log ]; then
-	echo Node1 did not crash >&2
-	exit 1
-    fi
-    if [ ! -f $DIR2/crash.log ]; then
-	echo Node2 did not crash >&2
-	exit 1
-    fi
+    # It should send out commit tx.
+    $LCLI1 getpeers | fgrep -w STATE_CLOSE_WAIT_CLOSE_OURCOMMIT
 
-    fgrep 'Entered error state STATE_ERR_ANCHOR_TIMEOUT' $DIR2/crash.log
+    # Generate a block (should include commit tx)
+    check_tx_spend
+   
+    # Now "wait" for 1 day, which is what node2 asked for on commit.
+    TIME=$(($TIME + 24 * 60 * 60))
+    $LCLI1 dev-mocktime $TIME
+
+    # Due to laziness, we trigger by block generation.
+    $CLI generate 1
+    TIME=$(($TIME + 1))
+    $LCLI1 dev-mocktime $TIME
+    sleep 1
+
+    # Sometimes it skips poll because it's busy.  Do it again.
+    TIME=$(($TIME + 1))
+    $LCLI1 dev-mocktime $TIME
+    sleep 1
+    
+    $LCLI1 getpeers | fgrep -w STATE_CLOSE_WAIT_CLOSE_SPENDOURS
+    
+    # Now it should have spent the commit tx.
+    check_tx_spend
+
+    # 99 more blocks pass...
+    $CLI generate 99
+    TIME=$(($TIME + 1))
+    $LCLI1 dev-mocktime $TIME
+    sleep 1
+
+    # Considers it all done now.
+    $LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep '"peers" : [ ]'
+
+    $LCLI1 stop
     all_ok
 fi
     
-
-# Now make it pass anchor.
-$CLI generate 3
+# Now make it pass anchor (should be in first block, then two more to bury it)
+check_tx_spend
+$CLI generate 2
 
 # They poll every second, so give them time to process.
 sleep 2

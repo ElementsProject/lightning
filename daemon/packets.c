@@ -365,8 +365,8 @@ Pkt *accept_pkt_anchor(const tal_t *ctx,
 			&peer->us.commit,
 			&peer->them.commit);
 
-	peer->cur_commit_theirsig.stype = SIGHASH_ALL;
-	if (!proto_to_signature(a->commit_sig, &peer->cur_commit_theirsig.sig))
+	peer->cur_commit.theirsig.stype = SIGHASH_ALL;
+	if (!proto_to_signature(a->commit_sig, &peer->cur_commit.theirsig.sig))
 		return pkt_err(ctx, "Malformed signature");
 
 	/* Their sig should sign our commit tx. */
@@ -375,7 +375,7 @@ Pkt *accept_pkt_anchor(const tal_t *ctx,
 			  peer->anchor.redeemscript,
 			  tal_count(peer->anchor.redeemscript),
 			  &peer->them.commitkey,
-			  &peer->cur_commit_theirsig))
+			  &peer->cur_commit.theirsig))
 		return pkt_err(ctx, "Bad signature");
 
 	return NULL;
@@ -386,8 +386,8 @@ Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
 {
 	const OpenCommitSig *s = pkt->open_commit_sig;
 
-	peer->cur_commit_theirsig.stype = SIGHASH_ALL;
-	if (!proto_to_signature(s->sig, &peer->cur_commit_theirsig.sig))
+	peer->cur_commit.theirsig.stype = SIGHASH_ALL;
+	if (!proto_to_signature(s->sig, &peer->cur_commit.theirsig.sig))
 		return pkt_err(ctx, "Malformed signature");
 
 	dump_tx("Checking sig for:", peer->us.commit);
@@ -399,7 +399,7 @@ Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
 			  peer->anchor.redeemscript,
 			  tal_count(peer->anchor.redeemscript),
 			  &peer->them.commitkey,
-			  &peer->cur_commit_theirsig))
+			  &peer->cur_commit.theirsig))
 		return pkt_err(ctx, "Bad signature");
 
 	return NULL;

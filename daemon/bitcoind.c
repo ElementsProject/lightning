@@ -419,6 +419,7 @@ static void process_getblock(struct bitcoin_cli *bcli)
 	const jsmntok_t *tokens, *mediantime;
 	bool valid;
 
+	log_debug(bcli->dstate->base_log, "Got getblock result");
 	if (!bcli->output)
 		fatal("bitcoind: '%s' '%s' failed",
 		      bcli->args[0], bcli->args[1]);
@@ -445,6 +446,8 @@ static void process_getblock(struct bitcoin_cli *bcli)
 		      bcli->args[2],
 		      mediantime->end - mediantime->start,
 		      bcli->output + mediantime->start);
+
+	log_debug(bcli->dstate->base_log, "mediantime = %u", *(u32 *)bcli->cb_arg);
 }
 	
 void bitcoind_get_mediantime(struct lightningd_state *dstate,

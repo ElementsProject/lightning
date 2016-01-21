@@ -17,6 +17,7 @@ u32 find_p2sh_out(const struct bitcoin_tx *tx, u8 *redeemscript)
 		if (memcmp(tx->output[i].script, p2sh, tal_count(p2sh)) == 0)
 			break;
 	}
+	/* FIXME: Return failure! */
 	if (i == tx->output_count)
 		errx(1, "No matching output in tx");
 	tal_free(p2sh);

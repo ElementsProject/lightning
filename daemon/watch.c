@@ -178,15 +178,15 @@ void add_anchor_watch_(const tal_t *ctx,
 	bitcoind_watch_addr(peer->dstate, &redeemhash);
 }
 
-void add_commit_tx_watch_(const tal_t *ctx,
-			  struct peer *peer,
-			  const struct sha256_double *txid,
-			  void (*cb)(struct peer *peer, int depth,
-				     const struct sha256_double *blkhash,
-				     void *),
-			  void *cbdata)
+struct txwatch *add_commit_tx_watch_(const tal_t *ctx,
+				     struct peer *peer,
+				     const struct sha256_double *txid,
+				     void (*cb)(struct peer *peer, int depth,
+						const struct sha256_double *blkhash,
+						void *),
+				     void *cbdata)
 {
-	insert_txwatch(ctx, peer, txid, cb, cbdata);
+	return insert_txwatch(ctx, peer, txid, cb, cbdata);
 
 	/* We are already watching the anchor txo, so we don't need to
 	 * watch anything else. */
