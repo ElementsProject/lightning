@@ -139,9 +139,9 @@ Pkt *pkt_htlc_update(const tal_t *ctx, const struct peer *peer,
 	update_add_htlc__init(u);
 
 	u->revocation_hash = sha256_to_proto(u, &htlc_prog->our_revocation_hash);
-	u->amount_msat = htlc_prog->msatoshis;
-	u->r_hash = sha256_to_proto(u, &htlc_prog->rhash);
-	u->expiry = abs_locktime_to_proto(u, &htlc_prog->expiry);
+	u->amount_msat = htlc_prog->htlc->msatoshis;
+	u->r_hash = sha256_to_proto(u, &htlc_prog->htlc->rhash);
+	u->expiry = abs_locktime_to_proto(u, &htlc_prog->htlc->expiry);
 
 	return make_pkt(ctx, PKT__PKT_UPDATE_ADD_HTLC, u);
 }
@@ -381,25 +381,26 @@ Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 	struct htlc_progress *cur = tal(peer, struct htlc_progress);
 	Pkt *err;
 
-	cur->msatoshis = u->amount_msat;
-	proto_to_sha256(u->r_hash, &cur->rhash);
+	cur->htlc = tal(cur, struct channel_htlc);
+	cur->htlc->msatoshis = u->amount_msat;
+	proto_to_sha256(u->r_hash, &cur->htlc->rhash);
 	proto_to_sha256(u->revocation_hash, &cur->their_revocation_hash);
-	if (!proto_to_abs_locktime(u->expiry, &cur->expiry)) {
+	if (!proto_to_abs_locktime(u->expiry, &cur->htlc->expiry)) {
 		err = pkt_err(ctx, "Invalid HTLC expiry");
 		goto fail;
 	}
 	cur->cstate = copy_funding(cur, peer->cstate);
 	if (!funding_delta(peer->them.offer_anchor == CMD_OPEN_WITH_ANCHOR,
 			   peer->anchor.satoshis,
-			   0, cur->msatoshis,
+			   0, cur->htlc->msatoshis,
 			   &cur->cstate->b, &cur->cstate->a)) {
 		err = pkt_err(ctx, "Cannot afford %"PRIu64" milli-satoshis",
-			      cur->msatoshis);
+			      cur->htlc->msatoshis);
 		goto fail;
 	}
 	/* Add the htlc to their side of channel. */
-	funding_add_htlc(&cur->cstate->b, cur->msatoshis,
-			 &cur->expiry, &cur->rhash);
+	funding_add_htlc(&cur->cstate->b, cur->htlc->msatoshis,
+			 &cur->htlc->expiry, &cur->htlc->rhash);
 	
 	peer_get_revocation_hash(peer, peer->num_htlcs+1,
 				 &cur->our_revocation_hash);

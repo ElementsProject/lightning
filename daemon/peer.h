@@ -32,9 +32,7 @@ struct peer_visible_state {
 struct htlc_progress {
 	/* Channel funding state, after we've completed htlc. */
 	struct channel_state *cstate;
-	struct abs_locktime expiry;
-	u64 msatoshis;
-	struct sha256 rhash;
+	struct channel_htlc *htlc;
 	struct sha256 our_revocation_hash, their_revocation_hash;
 	struct bitcoin_tx *our_commit, *their_commit;
 	struct bitcoin_signature their_sig;

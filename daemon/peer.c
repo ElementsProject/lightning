@@ -968,7 +968,8 @@ static void json_newhtlc(struct command *cmd,
 
 	/* Attach to cmd until it's complete. */
 	cur = tal(cmd, struct htlc_progress);
-	if (!json_tok_u64(buffer, msatoshistok, &cur->msatoshis)) {
+	cur->htlc = tal(cur, struct channel_htlc);
+	if (!json_tok_u64(buffer, msatoshistok, &cur->htlc->msatoshis)) {
 		command_fail(cmd, "'%.*s' is not a valid number",
 			     (int)(msatoshistok->end - msatoshistok->start),
 			     buffer + msatoshistok->start);
@@ -981,7 +982,7 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
-	if (!seconds_to_abs_locktime(expiry, &cur->expiry)) {
+	if (!seconds_to_abs_locktime(expiry, &cur->htlc->expiry)) {
 		command_fail(cmd, "'%.*s' is not a valid number",
 			     (int)(expirytok->end - expirytok->start),
 			     buffer + expirytok->start);
@@ -989,7 +990,7 @@ static void json_newhtlc(struct command *cmd,
 	}
 	if (!hex_decode(buffer + rhashtok->start,
 			rhashtok->end - rhashtok->start,
-			&cur->rhash, sizeof(cur->rhash))) {
+			&cur->htlc->rhash, sizeof(cur->htlc->rhash))) {
 		command_fail(cmd, "'%.*s' is not a valid sha256 hash",
 			     (int)(rhashtok->end - rhashtok->start),
 			     buffer + rhashtok->start);
@@ -1002,15 +1003,15 @@ static void json_newhtlc(struct command *cmd,
 	cur->cstate = copy_funding(cur, peer->cstate);
 	if (!funding_delta(peer->us.offer_anchor == CMD_OPEN_WITH_ANCHOR,
 			   peer->anchor.satoshis,
-			   0, cur->msatoshis,
+			   0, cur->htlc->msatoshis,
 			   &cur->cstate->a, &cur->cstate->b)) {
 		command_fail(cmd, "Cannot afford %"PRIu64" milli-satoshis",
-			     cur->msatoshis);
+			     cur->htlc->msatoshis);
 		return;
 	}
 	/* Add the htlc to our side of channel. */
-	funding_add_htlc(&cur->cstate->a, cur->msatoshis,
-			 &cur->expiry, &cur->rhash);
+	funding_add_htlc(&cur->cstate->a, cur->htlc->msatoshis,
+			 &cur->htlc->expiry, &cur->htlc->rhash);
 
 	peer->current_htlc = tal_steal(peer, cur);
 	peer->jsoncmd = cmd;
