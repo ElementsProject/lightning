@@ -70,6 +70,8 @@ CCAN_OBJS :=					\
 	ccan-crypto-sha256.o			\
 	ccan-crypto-shachain.o			\
 	ccan-err.o				\
+	ccan-hash.o				\
+	ccan-htable.o				\
 	ccan-ilog.o				\
 	ccan-io-io.o				\
 	ccan-io-poll.o				\
@@ -91,11 +93,6 @@ CCAN_OBJS :=					\
 	ccan-tal.o				\
 	ccan-time.o				\
 	ccan-timer.o
-
-# For tests
-CCAN_EXTRA_OBJS :=				\
-	ccan-hash.o				\
-	ccan-htable.o
 
 CCAN_HEADERS :=						\
 	$(CCANDIR)/config.h				\
@@ -195,7 +192,7 @@ $(PROGRAMS): CFLAGS+=-I.
 default: $(PROGRAMS)
 
 # Everything depends on the CCAN headers.
-$(CCAN_OBJS) $(CCAN_EXTRA_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_CLI_PROGRAMS:=.o) $(TEST_PROGRAMS:=.o): $(CCAN_HEADERS)
+$(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_CLI_PROGRAMS:=.o) $(TEST_PROGRAMS:=.o): $(CCAN_HEADERS)
 
 # Except for CCAN, everything depends on bitcoin/ and core headers.
 $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_CLI_PROGRAMS:=.o) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS)
@@ -268,7 +265,7 @@ lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	$(PROTOCC) lightning.proto --c_out=.
 
 $(TEST_CLI_PROGRAMS): % : %.o $(CORE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(TEST_CLI_OBJS) libsecp256k1.a
-$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(CCAN_OBJS) $(CCAN_EXTRA_OBJS) version.o libsecp256k1.a
+$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(CCAN_OBJS) version.o libsecp256k1.a
 
 ccan/config.h: ccan/tools/configurator/configurator
 	$< > $@
@@ -326,7 +323,7 @@ clean:
 	$(MAKE) -C secp256k1/ clean || true
 	$(RM) libsecp256k1.{a,la}
 	$(RM) $(PROGRAMS) test-cli/leak-anchor-sigs
-	$(RM) bitcoin/*.o *.o $(PROGRAMS:=.o) $(CCAN_OBJS) $(CCAN_EXTRA_OBJS)
+	$(RM) bitcoin/*.o *.o $(PROGRAMS:=.o) $(CCAN_OBJS)
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
