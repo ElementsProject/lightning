@@ -54,6 +54,20 @@ void log_add_enum_(struct log *log, const char *enumname, unsigned int val);
 void set_log_level(struct log_record *lr, enum log_level level);
 void set_log_prefix(struct log *log, const char *prefix);
 const char *log_prefix(const struct log *log);
+#define set_log_outfn(lr, print, arg)					\
+	set_log_outfn_((lr),						\
+		       typesafe_cb_preargs(void, void *, (print), (arg),\
+					   const char *,		\
+					   enum log_level,		\
+					   bool,			\
+					   const char *), (arg))
+
+void set_log_outfn_(struct log_record *lr,
+		    void (*print)(const char *prefix,
+				  enum log_level level,
+				  bool continued,
+				  const char *str, void *arg),
+		    void *arg);
 
 size_t log_max_mem(const struct log_record *lr);
 size_t log_used(const struct log_record *lr);

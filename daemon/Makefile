@@ -24,4 +24,4 @@ check-source: $(DAEMON_HEADERS:%=check-hdr-include-order/%)
 check-daemon-makefile:
 	@if [ "`echo daemon/*.h`" != "$(DAEMON_HEADERS)" ]; then echo DAEMON_HEADERS incorrect; exit 1; fi
 
-daemon/lightningd: $(DAEMON_OBJS) $(CCAN_OBJS)
+daemon/lightningd: $(DAEMON_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) libsecp256k1.a

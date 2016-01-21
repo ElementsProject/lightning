@@ -20,7 +20,12 @@ struct log_entry {
 struct log_record {
 	size_t mem_used;
 	size_t max_mem;
-	enum log_level print;
+	void (*print)(const char *prefix,
+		      enum log_level level,
+		      bool continued,
+		      const char *str, void *arg);
+	void *print_arg;
+	enum log_level print_level;
 	struct timeabs init_time;
 
 	struct list_head log;
@@ -30,6 +35,18 @@ struct log {
 	struct log_record *lr;
 	const char *prefix;
 };
+
+static void log_default_print(const char *prefix,
+			      enum log_level level,
+			      bool continued,
+			      const char *str, void *arg)
+{
+	if (!continued) {
+		printf("%s %s\n", prefix, str);
+	} else {
+		printf("%s \t%s\n", prefix, str);
+	}
+}
 
 static size_t log_bufsize(const struct log_entry *e)
 {
@@ -76,7 +93,8 @@ struct log_record *new_log_record(const tal_t *ctx,
 	assert(max_mem > sizeof(struct log) * 2);
 	lr->mem_used = 0;
 	lr->max_mem = max_mem;
-	lr->print = printlevel;
+	lr->print = log_default_print;
+	lr->print_level = printlevel;
 	lr->init_time = time_now();
 	list_head_init(&lr->log);
 
@@ -101,13 +119,24 @@ new_log(const tal_t *ctx, struct log_record *record, const char *fmt, ...)
 
 void set_log_level(struct log_record *lr, enum log_level level)
 {
-	lr->print = level;
+	lr->print_level = level;
 }
 
 void set_log_prefix(struct log *log, const char *prefix)
 {
 	/* log->lr owns this, since it keeps a pointer to it. */
 	log->prefix = tal_strdup(log->lr, prefix);
+}
+
+void set_log_outfn_(struct log_record *lr,
+		    void (*print)(const char *prefix,
+				  enum log_level level,
+				  bool continued,
+				  const char *str, void *arg),
+		    void *arg)
+{
+	lr->print = print;
+	lr->print_arg = arg;
 }
 
 const char *log_prefix(const struct log *log)
@@ -161,8 +190,9 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap)
 
 	l->log = tal_vfmt(l, fmt, ap);
 
-	if (level >= log->lr->print)
-		printf("%s %s\n", log->prefix, l->log);
+	if (level >= log->lr->print_level)
+		log->lr->print(log->prefix, level, false, l->log,
+			       log->lr->print_arg);
 
 	add_entry(log, l);
 }
@@ -176,12 +206,16 @@ void log_io(struct log *log, bool in, const void *data, size_t len)
 	l->log[0] = in;
 	memcpy(l->log + 1, data, len);
 
-	if (LOG_IO >= log->lr->print) {
-		char *hex = tal_arr(l, char, hex_str_size(len));
-		hex_encode(data, len, hex, hex_str_size(len));
-		printf("%s[%s] %s\n", log->prefix, in ? "IN" : "OUT", hex);
+	if (LOG_IO >= log->lr->print_level) {
+		const char *dir = in ? "[IN]" : "[OUT]";
+		char *hex = tal_arr(l, char, strlen(dir) + hex_str_size(len));
+		strcpy(hex, dir);
+		hex_encode(data, len, hex + strlen(dir), hex_str_size(len));
+		log->lr->print(log->prefix, LOG_IO, false, l->log,
+			       log->lr->print_arg);
 		tal_free(hex);
 	}
+
 	add_entry(log, l);
 	errno = save_errno;
 }
@@ -198,8 +232,9 @@ static void do_log_add(struct log *log, const char *fmt, va_list ap)
 	tal_append_vfmt(&l->log, fmt, ap);
 	add_entry(log, l);
 
-	if (l->level >= log->lr->print)
-		printf("%s \t%s\n", log->prefix, l->log + oldlen);
+	if (l->level >= log->lr->print_level)
+		log->lr->print(log->prefix, l->level, true, l->log + oldlen,
+			       log->lr->print_arg);
 }
 
 void log_(struct log *log, enum log_level level, const char *fmt, ...)
