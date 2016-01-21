@@ -153,6 +153,13 @@ static void state_single(struct peer *peer,
 	/* Start output if not running already; it will close conn. */
 	if (peer->cond == PEER_CLOSED)
 		io_wake(peer);
+
+	/* FIXME: Some of these should just result in this peer being killed? */
+	if (state_is_error(peer->state)) {
+		log_broken(peer->log, "Entered error state %s",
+			   state_name(peer->state));
+		fatal("Peer entered error state");
+	}
 }
 
 static void try_command(struct peer *peer)
