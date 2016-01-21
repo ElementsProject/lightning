@@ -95,8 +95,7 @@ enum command_status state(const tal_t *ctx,
 			  const enum state_input input,
 			  const union input *idata,
 			  Pkt **out,
-			  struct bitcoin_tx **broadcast,
-			  struct state_effect **effect)
+			  struct bitcoin_tx **broadcast)
 {
 	Pkt *decline;
 	struct bitcoin_tx *tx;
@@ -105,9 +104,6 @@ enum command_status state(const tal_t *ctx,
 
 	*out = NULL;
 	*broadcast = NULL;
-
-	/* NULL-terminated linked list. */
-	*effect = NULL;
 
 	switch (peer->state) {
 	/*
@@ -132,7 +128,7 @@ enum command_status state(const tal_t *ctx,
 		break;
 	case STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR:
 		if (input_is(input, PKT_OPEN)) {
-			err = accept_pkt_open(ctx, peer, idata->pkt, effect);
+			err = accept_pkt_open(ctx, peer, idata->pkt);
 			if (err) {
 				complete_cmd(peer, &cstatus, CMD_FAIL);
 				goto err_close_nocleanup;
@@ -148,7 +144,7 @@ enum command_status state(const tal_t *ctx,
 		break;
 	case STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR:
 		if (input_is(input, PKT_OPEN)) {
-			err = accept_pkt_open(ctx, peer, idata->pkt, effect);
+			err = accept_pkt_open(ctx, peer, idata->pkt);
 			if (err) {
 				complete_cmd(peer, &cstatus, CMD_FAIL);
 				goto err_close_nocleanup;
@@ -166,7 +162,7 @@ enum command_status state(const tal_t *ctx,
 		break;
 	case STATE_OPEN_WAIT_FOR_ANCHOR:
 		if (input_is(input, PKT_OPEN_ANCHOR)) {
-			err = accept_pkt_anchor(ctx, peer, idata->pkt, effect);
+			err = accept_pkt_anchor(ctx, peer, idata->pkt);
 			if (err) {
 				complete_cmd(peer, &cstatus, CMD_FAIL);
 				goto err_close_nocleanup;
@@ -192,8 +188,7 @@ enum command_status state(const tal_t *ctx,
 		break;
 	case STATE_OPEN_WAIT_FOR_COMMIT_SIG:
 		if (input_is(input, PKT_OPEN_COMMIT_SIG)) {
-			err = accept_pkt_open_commit_sig(ctx, peer, idata->pkt,
-							 effect);
+			err = accept_pkt_open_commit_sig(ctx, peer, idata->pkt);
 			if (err) {
 				complete_cmd(peer, &cstatus, CMD_FAIL);
 				goto err_start_unilateral_close;
@@ -600,8 +595,7 @@ enum command_status state(const tal_t *ctx,
 
 	case STATE_WAIT_FOR_CLOSE_COMPLETE:
 		if (input_is(input, PKT_CLOSE_COMPLETE)) {
-			err = accept_pkt_close_complete(ctx, peer, idata->pkt,
-							effect);
+			err = accept_pkt_close_complete(ctx, peer, idata->pkt);
 			if (err)
 				goto err_start_unilateral_close_already_closing;
 			queue_pkt(out,
@@ -612,8 +606,7 @@ enum command_status state(const tal_t *ctx,
 		} else if (input_is(input, PKT_CLOSE)) {
 			/* We can use the sig just like CLOSE_COMPLETE */
 			err = accept_pkt_simultaneous_close(ctx, peer,
-							    idata->pkt,
-							    effect);
+							    idata->pkt);
 			if (err)
 				goto err_start_unilateral_close_already_closing;
 			queue_pkt(out,
@@ -636,8 +629,7 @@ enum command_status state(const tal_t *ctx,
 
 	case STATE_WAIT_FOR_CLOSE_ACK:
 		if (input_is(input, PKT_CLOSE_ACK)) {
-			err = accept_pkt_close_ack(ctx, peer, idata->pkt,
-						   effect);
+			err = accept_pkt_close_ack(ctx, peer, idata->pkt);
 			if (err)
 				queue_pkt(out, err);
 			set_peer_cond(peer, PEER_CLOSED);
@@ -997,7 +989,7 @@ them_unilateral:
 	return next_state(peer, cstatus, STATE_CLOSE_WAIT_SPENDTHEM);
 
 accept_htlc_update:
-	err = accept_pkt_htlc_update(ctx, peer, idata->pkt, &decline, effect);
+	err = accept_pkt_htlc_update(ctx, peer, idata->pkt, &decline);
 	if (err)
 		goto err_start_unilateral_close;
 	if (decline) {
@@ -1014,7 +1006,7 @@ accept_htlc_update:
 			  prio(peer->state, STATE_WAIT_FOR_UPDATE_SIG));
 
 accept_htlc_routefail:
-	err = accept_pkt_htlc_routefail(ctx, peer, idata->pkt, effect);
+	err = accept_pkt_htlc_routefail(ctx, peer, idata->pkt);
 	if (err)
 		goto err_start_unilateral_close;
 	queue_pkt(out, pkt_update_accept(ctx, peer));
@@ -1022,7 +1014,7 @@ accept_htlc_routefail:
 			  prio(peer->state, STATE_WAIT_FOR_UPDATE_SIG));
 
 accept_htlc_timedout:
-	err = accept_pkt_htlc_timedout(ctx, peer, idata->pkt, effect);
+	err = accept_pkt_htlc_timedout(ctx, peer, idata->pkt);
 	if (err)
 		goto err_start_unilateral_close;
 	queue_pkt(out, pkt_update_accept(ctx, peer));
@@ -1056,7 +1048,7 @@ start_closing:
 	return next_state(peer, cstatus, STATE_WAIT_FOR_CLOSE_COMPLETE);
 
 accept_closing:
-	err = accept_pkt_close(ctx, peer, idata->pkt, effect);
+	err = accept_pkt_close(ctx, peer, idata->pkt);
 	if (err)
 		goto err_start_unilateral_close;
 	peer_watch_close(peer, BITCOIN_CLOSE_DONE, INPUT_NONE);

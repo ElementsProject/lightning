@@ -21,7 +21,6 @@ static inline bool state_is_error(enum state s)
 
 struct peer;
 struct bitcoin_tx;
-struct state_effect;
 
 static inline bool input_is_pkt(enum state_input input)
 {
@@ -41,8 +40,7 @@ enum command_status state(const tal_t *ctx,
 			  const enum state_input input,
 			  const union input *idata,
 			  Pkt **out,
-			  struct bitcoin_tx **broadcast,
-			  struct state_effect **effect);
+			  struct bitcoin_tx **broadcast);
 
 /* Any CMD_SEND_HTLC_* */
 #define CMD_SEND_UPDATE_ANY INPUT_MAX
@@ -124,31 +122,25 @@ Pkt *pkt_err_unexpected(const tal_t *ctx, const Pkt *pkt);
 
 /* Process various packets: return an error packet on failure. */
 Pkt *accept_pkt_open(const tal_t *ctx,
-		     const struct peer *peer,
-		     const Pkt *pkt,
-		     struct state_effect **effect);
+		     struct peer *peer,
+		     const Pkt *pkt);
 
 Pkt *accept_pkt_anchor(const tal_t *ctx,
-		       const struct peer *peer,
-		       const Pkt *pkt,
-		       struct state_effect **effect);
+		       struct peer *peer,
+		       const Pkt *pkt);
 
 Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
-				const struct peer *peer, const Pkt *pkt,
-				struct state_effect **effect);
+				struct peer *peer, const Pkt *pkt);
 	
 Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 			    struct peer *peer, const Pkt *pkt,
-			    Pkt **decline,
-			    struct state_effect **effect);
+			    Pkt **decline);
 
 Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
-			       struct peer *peer, const Pkt *pkt,
-			       struct state_effect **effect);
+			       struct peer *peer, const Pkt *pkt);
 
 Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
-			      struct peer *peer, const Pkt *pkt,
-			      struct state_effect **effect);
+			      struct peer *peer, const Pkt *pkt);
 
 Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
 			     struct peer *peer, const Pkt *pkt);
@@ -163,22 +155,16 @@ Pkt *accept_pkt_update_signature(const tal_t *ctx,
 				 struct peer *peer,
 				 const Pkt *pkt);
 
-Pkt *accept_pkt_close(const tal_t *ctx,
-		      const struct peer *peer, const Pkt *pkt,
-		      struct state_effect **effect);
+Pkt *accept_pkt_close(const tal_t *ctx, struct peer *peer, const Pkt *pkt);
 
 Pkt *accept_pkt_close_complete(const tal_t *ctx,
-			       const struct peer *peer, const Pkt *pkt,
-			       struct state_effect **effect);
+			       struct peer *peer, const Pkt *pkt);
 
 Pkt *accept_pkt_simultaneous_close(const tal_t *ctx,
-				   const struct peer *peer,
-				   const Pkt *pkt,
-				   struct state_effect **effect);
+				   struct peer *peer,
+				   const Pkt *pkt);
 
-Pkt *accept_pkt_close_ack(const tal_t *ctx,
-			  const struct peer *peer, const Pkt *pkt,
-			  struct state_effect **effect);
+Pkt *accept_pkt_close_ack(const tal_t *ctx, struct peer *peer, const Pkt *pkt);
 
 /**
  * committed_to_htlcs: do we have any locked-in HTLCs?

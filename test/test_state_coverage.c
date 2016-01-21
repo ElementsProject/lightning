@@ -678,17 +678,15 @@ Pkt *pkt_err_unexpected(const tal_t *ctx, const Pkt *pkt)
 }
 
 Pkt *accept_pkt_open(const tal_t *ctx,
-		     const struct peer *peer,
-		     const Pkt *pkt, struct state_effect **effect)
+		     struct peer *peer,
+		     const Pkt *pkt)
 {
 	if (fail(peer, FAIL_ACCEPT_OPEN))
 		return pkt_err(ctx, "Error inject");
 	return NULL;
 }
 
-Pkt *accept_pkt_anchor(const tal_t *ctx,
-		       const struct peer *peer,
-		       const Pkt *pkt, struct state_effect **effect)
+Pkt *accept_pkt_anchor(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
 {
 	if (fail(peer, FAIL_ACCEPT_ANCHOR))
 		return pkt_err(ctx, "Error inject");
@@ -696,8 +694,8 @@ Pkt *accept_pkt_anchor(const tal_t *ctx,
 }
 
 Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
-				const struct peer *peer,
-				const Pkt *pkt, struct state_effect **effect)
+				struct peer *peer,
+				const Pkt *pkt)
 {
 	if (fail(peer, FAIL_ACCEPT_OPEN_COMMIT_SIG))
 		return pkt_err(ctx, "Error inject");
@@ -706,8 +704,7 @@ Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
 	
 Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 			    struct peer *peer, const Pkt *pkt,
-			    Pkt **decline,
-			    struct state_effect **effect)
+			    Pkt **decline)
 {
 	if (fail(peer, FAIL_ACCEPT_HTLC_UPDATE))
 		return pkt_err(ctx, "Error inject");
@@ -724,8 +721,7 @@ Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 }
 
 Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
-			       struct peer *peer, const Pkt *pkt,
-			       struct state_effect **effect)
+			       struct peer *peer, const Pkt *pkt)
 {
 	unsigned int id = htlc_id_from_pkt(pkt);
 	const struct htlc *h = find_htlc(peer, id);
@@ -742,8 +738,7 @@ Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
 }
 
 Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
-			      struct peer *peer, const Pkt *pkt,
-			      struct state_effect **effect)
+			      struct peer *peer, const Pkt *pkt)
 {
 	unsigned int id = htlc_id_from_pkt(pkt);
 	const struct htlc *h = find_htlc(peer, id);
@@ -818,9 +813,7 @@ Pkt *accept_pkt_update_signature(const tal_t *ctx,
 	return NULL;
 }
 
-Pkt *accept_pkt_close(const tal_t *ctx,
-		      const struct peer *peer, const Pkt *pkt,
-		      struct state_effect **effect)
+Pkt *accept_pkt_close(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
 {
 	if (fail(peer, FAIL_ACCEPT_CLOSE))
 		return pkt_err(ctx, "Error inject");
@@ -828,8 +821,7 @@ Pkt *accept_pkt_close(const tal_t *ctx,
 }
 
 Pkt *accept_pkt_close_complete(const tal_t *ctx,
-			       const struct peer *peer, const Pkt *pkt,
-			       struct state_effect **effect)
+			       struct peer *peer, const Pkt *pkt)
 {
 	if (fail(peer, FAIL_ACCEPT_CLOSE_COMPLETE))
 		return pkt_err(ctx, "Error inject");
@@ -837,9 +829,8 @@ Pkt *accept_pkt_close_complete(const tal_t *ctx,
 }
 
 Pkt *accept_pkt_simultaneous_close(const tal_t *ctx,
-				   const struct peer *peer,
-				   const Pkt *pkt,
-				   struct state_effect **effect)
+				   struct peer *peer,
+				   const Pkt *pkt)
 {
 	if (fail(peer, FAIL_ACCEPT_SIMULTANEOUS_CLOSE))
 		return pkt_err(ctx, "Error inject");
@@ -847,8 +838,7 @@ Pkt *accept_pkt_simultaneous_close(const tal_t *ctx,
 }
 
 Pkt *accept_pkt_close_ack(const tal_t *ctx,
-			  const struct peer *peer, const Pkt *pkt,
-			  struct state_effect **effect)
+			  struct peer *peer, const Pkt *pkt)
 {
 	if (fail(peer, FAIL_ACCEPT_CLOSE_ACK))
 		return pkt_err(ctx, "Error inject");
@@ -1780,7 +1770,6 @@ static void try_input(const struct peer *peer,
 {
 	struct peer copy, other;
 	struct trail t;
-	struct state_effect *effect;
 	const char *problem;
 	Pkt *output;
 	struct bitcoin_tx *broadcast;
@@ -1795,7 +1784,7 @@ static void try_input(const struct peer *peer,
 	copy.trail = &t;
 
 	eliminate_input(&hist->inputs_per_state[copy.state], i);
-	cstatus = state(ctx, &copy, i, idata, &output, &broadcast, &effect);
+	cstatus = state(ctx, &copy, i, idata, &output, &broadcast);
 
 	normalpath &= normal_path(i, peer->state, copy.state);
 	errorpath |= error_path(i, peer->state, copy.state);
@@ -2208,13 +2197,12 @@ static enum state_input **map_inputs(void)
 		/* This adds to mapping_inputs every input_is() call */
 		if (!state_is_error(i)) {
 			struct peer dummy;
-			struct state_effect *effect;
 			struct bitcoin_tx *dummy_tx;
 			Pkt *dummy_pkt;
 			memset(&dummy, 0, sizeof(dummy));
 			dummy.state = i;
 			state(ctx, &dummy, INPUT_NONE, NULL, &dummy_pkt,
-			      &dummy_tx, &effect);
+			      &dummy_tx);
 		}
 		inps[i] = mapping_inputs;
 	}
