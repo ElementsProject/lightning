@@ -1494,8 +1494,6 @@ static const char *apply_effects(struct peer *peer,
 	*effects |= (1ULL << effect->etype);
 
 	switch (effect->etype) {
-	case STATE_EFFECT_broadcast_tx:
-		break;
 	case STATE_EFFECT_watch:
 		/* We can have multiple steals or spendtheirs
 		   in flight, so make exceptions for
@@ -1925,6 +1923,7 @@ static void try_input(const struct peer *peer,
 	struct state_effect *effect;
 	const char *problem;
 	Pkt *output;
+	struct bitcoin_tx *broadcast;
 	const tal_t *ctx = tal(NULL, char);
 	enum command_status cstatus;
 
@@ -1936,7 +1935,7 @@ static void try_input(const struct peer *peer,
 	copy.trail = &t;
 
 	eliminate_input(&hist->inputs_per_state[copy.state], i);
-	cstatus = state(ctx, &copy, i, idata, &output, &effect);
+	cstatus = state(ctx, &copy, i, idata, &output, &broadcast, &effect);
 
 	normalpath &= normal_path(i, peer->state, copy.state);
 	errorpath |= error_path(i, peer->state, copy.state);
@@ -2350,11 +2349,12 @@ static enum state_input **map_inputs(void)
 		if (!state_is_error(i)) {
 			struct peer dummy;
 			struct state_effect *effect;
+			struct bitcoin_tx *dummy_tx;
 			Pkt *dummy_pkt;
 			memset(&dummy, 0, sizeof(dummy));
 			dummy.state = i;
 			state(ctx, &dummy, INPUT_NONE, NULL, &dummy_pkt,
-			      &effect);
+			      &dummy_tx, &effect);
 		}
 		inps[i] = mapping_inputs;
 	}

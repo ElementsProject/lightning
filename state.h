@@ -7,7 +7,6 @@
 #include <stdbool.h>
 
 enum state_effect_type {
-	STATE_EFFECT_broadcast_tx,
 	STATE_EFFECT_watch,
 	STATE_EFFECT_unwatch,
 	/* FIXME: Use a watch for this?. */
@@ -30,9 +29,6 @@ struct state_effect {
 
 	enum state_effect_type etype;
 	union {
-		/* Transaction to broadcast. */
-		struct bitcoin_tx *broadcast_tx;
-
 		/* Event to watch for. */
 		struct watch *watch;
 
@@ -62,6 +58,7 @@ static inline bool state_is_error(enum state s)
 }
 
 struct peer;
+struct bitcoin_tx;
 
 static inline bool input_is_pkt(enum state_input input)
 {
@@ -81,6 +78,7 @@ enum command_status state(const tal_t *ctx,
 			  const enum state_input input,
 			  const union input *idata,
 			  Pkt **out,
+			  struct bitcoin_tx **broadcast,
 			  struct state_effect **effect);
 
 /* Any CMD_SEND_HTLC_* */
