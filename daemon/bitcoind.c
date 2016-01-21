@@ -414,6 +414,50 @@ void bitcoind_create_payment(struct lightningd_state *dstate,
 			  "sendtoaddress", addr, amtstr, NULL);
 }
 
+static void process_getblock(struct bitcoin_cli *bcli)
+{
+	const jsmntok_t *tokens, *mediantime;
+	bool valid;
+
+	if (!bcli->output)
+		fatal("bitcoind: '%s' '%s' failed",
+		      bcli->args[0], bcli->args[1]);
+
+	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
+	if (!tokens)
+		fatal("bitcoind: '%s' '%s' %s response",
+		      bcli->args[0], bcli->args[1],
+		      valid ? "partial" : "invalid");
+
+	if (tokens[0].type != JSMN_OBJECT)
+		fatal("getblock: '%s' gave non-object (%.*s)?",
+		      bcli->args[2],
+		      (int)bcli->output_bytes, bcli->output);
+
+	mediantime = json_get_member(bcli->output, tokens, "mediantime");
+	if (!mediantime)
+		fatal("getblock: '%s' gave no mediantime field (%.*s)?",
+		      bcli->args[2],
+		      (int)bcli->output_bytes, bcli->output);
+
+	if (!json_tok_number(bcli->output, mediantime, bcli->cb_arg))
+		fatal("getblock: '%s' gave invalud mediantime (%.*s)?",
+		      bcli->args[2],
+		      mediantime->end - mediantime->start,
+		      bcli->output + mediantime->start);
+}
+	
+void bitcoind_get_mediantime(struct lightningd_state *dstate,
+			     const struct sha256_double *blockid,
+			     u32 *mediantime)
+{
+	char hex[hex_str_size(sizeof(*blockid))];
+
+	hex_encode(blockid, sizeof(*blockid), hex, sizeof(hex));
+	start_bitcoin_cli(dstate, process_getblock, NULL, mediantime,
+			  "getblock", hex, NULL);
+}
+
 /* We make sure they have walletbroadcast=0, so we don't broadcast
  * the anchor. */
 void check_bitcoind_config(struct lightningd_state *dstate)

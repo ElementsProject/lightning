@@ -46,5 +46,9 @@ void bitcoind_create_payment(struct lightningd_state *dstate,
 					struct peer *peer),
 			     struct peer *peer);
 
+void bitcoind_get_mediantime(struct lightningd_state *dstate,
+			     const struct sha256_double *blockid,
+			     u32 *mediantime);
+
 void check_bitcoind_config(struct lightningd_state *dstate);
 #endif /* LIGHTNING_DAEMON_BITCOIND_H */
