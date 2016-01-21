@@ -62,6 +62,20 @@ bool funding_delta(bool a_is_funder,
 		   struct channel_oneside *b_side);
 
 /**
+ * adjust_fee: Change fee.
+ * @a_is_funder: is A paying for the anchor?
+ * @anchor_satoshis: The anchor amount.
+ * @fee_satoshis: The new fee amount.
+ * @a_side: channel a's state to update.
+ * @b_side: channel b's state to update.
+ */
+bool adjust_fee(bool a_is_funder,
+		uint64_t anchor_satoshis,
+		uint64_t fee_satoshis,
+		struct channel_oneside *a_side,
+		struct channel_oneside *b_side);
+
+/**
  * commit_fee: Fee amount for commit tx.
  * @a_satoshis: A's openchannel->commitment_fee offer
  * @b_satoshis: B's openchannel->commitment_fee offer

@@ -44,21 +44,18 @@ static uint64_t htlcs_total(const struct channel_htlc *htlcs)
 	return total;
 }
 
-bool funding_delta(bool a_is_funder,
-		   uint64_t anchor_satoshis,
-		   int64_t delta_a_msat,
-		   int64_t htlc_msat,
-		   struct channel_oneside *a_side,
-		   struct channel_oneside *b_side)
+static bool change_funding(bool a_is_funder,
+			   uint64_t anchor_satoshis,
+			   int64_t delta_a_msat,
+			   int64_t htlc_msat,
+			   uint64_t a, uint64_t b, uint64_t fee,
+			   struct channel_oneside *a_side,
+			   struct channel_oneside *b_side)
 {
-	uint64_t a, b, a_fee, b_fee;
+	uint64_t a_fee, b_fee;
 	int64_t delta_b_msat;
-	uint64_t fee;
 	bool got_fees;
 
-	a = a_side->pay_msat + a_side->fee_msat;
-	b = b_side->pay_msat + b_side->fee_msat;
-	fee = a_side->fee_msat + b_side->fee_msat;
 	assert(a + b + htlcs_total(a_side->htlcs) + htlcs_total(b_side->htlcs)
 	       == anchor_satoshis * 1000);
 
@@ -96,6 +93,27 @@ bool funding_delta(bool a_is_funder,
 	return true;
 }
 
+bool funding_delta(bool a_is_funder,
+		   uint64_t anchor_satoshis,
+		   int64_t delta_a_msat,
+		   int64_t htlc_msat,
+		   struct channel_oneside *a_side,
+		   struct channel_oneside *b_side)
+{
+	uint64_t a, b;
+	uint64_t fee;
+
+	/* Start with A and B's current contributions, and maintain fee. */
+	a = a_side->pay_msat + a_side->fee_msat;
+	b = b_side->pay_msat + b_side->fee_msat;
+	fee = a_side->fee_msat + b_side->fee_msat;
+
+	return change_funding(a_is_funder, anchor_satoshis,
+			      delta_a_msat, htlc_msat,
+			      a, b, fee,
+			      a_side, b_side);
+}
+
 struct channel_state *initial_funding(const tal_t *ctx,
 				      bool am_funder,
 				      uint64_t anchor_satoshis,
@@ -126,6 +144,23 @@ struct channel_state *initial_funding(const tal_t *ctx,
 	return state;
 }
 
+bool adjust_fee(bool a_is_funder,
+		uint64_t anchor_satoshis,
+		uint64_t fee_satoshis,
+		struct channel_oneside *a_side,
+		struct channel_oneside *b_side)
+{
+	uint64_t a, b;
+
+	a = a_side->pay_msat + a_side->fee_msat;
+	b = b_side->pay_msat + b_side->fee_msat;
+
+	/* No HTLC or delta, just fee recalculate. */
+	return change_funding(a_is_funder, anchor_satoshis,
+			      0, 0, a, b, fee_satoshis * 1000,
+			      a_side, b_side);
+}
+	
 /* We take the minimum.  If one side offers too little, it should be rejected */
 uint64_t commit_fee(uint64_t a_satoshis, uint64_t b_satoshis)
 {
