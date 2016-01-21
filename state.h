@@ -6,51 +6,13 @@
 #include <state_types.h>
 #include <stdbool.h>
 
-enum state_effect_type {
-	STATE_EFFECT_watch,
-	STATE_EFFECT_unwatch,
-	/* FIXME: Use a watch for this?. */
-	STATE_EFFECT_close_timeout,
-	/* FIXME: Combine into watches? */
-	STATE_EFFECT_watch_htlcs,
-	STATE_EFFECT_unwatch_htlc,
-	STATE_EFFECT_watch_htlc_spend,
-	STATE_EFFECT_unwatch_htlc_spend
-};
-
 /*
  * This is the core state machine.
  *
- * Calling the state machine with an input simply returns the new state,
- * and populates the "effect" struct with what it wants done.
+ * Calling the state machine updates updates peer->state, and may call
+ * various peer_ callbacks.  It also returns the status of the current
+ * command.
  */
-struct state_effect {
-	struct state_effect *next;
-
-	enum state_effect_type etype;
-	union {
-		/* Event to watch for. */
-		struct watch *watch;
-
-		/* Events to no longer watch for. */
-		struct watch *unwatch;
-
-		/* Set a timeout for close tx. */
-		enum state_input close_timeout;
-
-		/* HTLC outputs to watch. */
-		const struct htlc_watch *watch_htlcs;
-
-		/* HTLC output to unwatch. */
-		const struct htlc_unwatch *unwatch_htlc;
-
-		/* HTLC spends to watch/unwatch. */
-		const struct htlc_spend_watch *watch_htlc_spend;
-		const struct htlc_spend_watch *unwatch_htlc_spend;
-
-		/* FIXME: More to come (for accept_*) */
-	} u;
-};
 
 static inline bool state_is_error(enum state s)
 {
@@ -59,6 +21,7 @@ static inline bool state_is_error(enum state s)
 
 struct peer;
 struct bitcoin_tx;
+struct state_effect;
 
 static inline bool input_is_pkt(enum state_input input)
 {
@@ -226,8 +189,7 @@ Pkt *accept_pkt_close_ack(const tal_t *ctx,
 bool committed_to_htlcs(const struct peer *peer);
 
 /**
- * bitcoin_watch_anchor: create a watch for the anchor.
- * @ctx: context to tal the watch struct off.
+ * peer_watch_anchor: create a watch for the anchor transaction.
  * @peer: the state data for this peer.
  * @depthok: the input to give when anchor reaches expected depth.
  * @timeout: the input to give if anchor doesn't reach depth in time.
@@ -238,136 +200,138 @@ bool committed_to_htlcs(const struct peer *peer);
  * @depthok can be INPUT_NONE if it's our anchor (we don't time
  * ourselves out).
  */
-struct watch *bitcoin_watch_anchor(const tal_t *ctx,
-				   const struct peer *peer,
-				   enum state_input depthok,
-				   enum state_input timeout,
-				   enum state_input unspent,
-				   enum state_input theyspent,
-				   enum state_input otherspent);
+void peer_watch_anchor(struct peer *peer,
+		       enum state_input depthok,
+		       enum state_input timeout,
+		       enum state_input unspent,
+		       enum state_input theyspent,
+		       enum state_input otherspent);
 
 /**
- * bitcoin_unwatch_anchor_depth: remove depth watch for the anchor.
- * @ctx: context to tal the watch struct off.
+ * peer_unwatch_anchor_depth: remove depth watch for the anchor.
  * @peer: the state data for this peer.
  * @depthok: the input to give when anchor reaches expected depth.
  * @timeout: the input to give if anchor doesn't reach depth in time.
  *
  * @depthok and @timeout must match bitcoin_watch_anchor() call.
  */
-struct watch *bitcoin_unwatch_anchor_depth(const tal_t *ctx,
-					   const struct peer *peer,
-					   enum state_input depthok,
-					   enum state_input timeout);
+void peer_unwatch_anchor_depth(struct peer *peer,
+			       enum state_input depthok,
+			       enum state_input timeout);
 
 /**
- * bitcoin_watch_delayed: watch this (commit) tx, tell me when I can spend it
- * @ctx: the context to tal the watch off
+ * peer_watch_delayed: watch this (commit) tx, tell me when I can spend it
+ * @peer: the state data for this peer.
  * @tx: the tx we're watching.
  * @canspend: the input to give when commit reaches spendable depth.
  *
  * Note that this tx may be malleated, as it's dual-signed.
  */
-struct watch *bitcoin_watch_delayed(const tal_t *ctx,
-				    const struct bitcoin_tx *tx,
-				    enum state_input canspend);
+void peer_watch_delayed(struct peer *peer,
+			const struct bitcoin_tx *tx,
+			enum state_input canspend);
 
 /**
- * bitcoin_watch: watch this tx until it's "irreversible"
- * @ctx: the context to tal the watch off
+ * peer_watch_tx: watch this tx until it's "irreversible"
+ * @peer: the state data for this peer.
  * @tx: the tx we're watching.
  * @done: the input to give when tx is completely buried.
  *
- * The tx should be immalleable by BIP62; once this fires we consider
- * the channel completely closed and stop watching (eg 100 txs down).
+ * Once this fires we consider the channel completely closed and stop
+ * watching (eg 100 txs down).
+ *
+ * This is used for watching a transaction we sent (such as a steal,
+ * or spend of their close, etc).
  */
-struct watch *bitcoin_watch(const tal_t *ctx,
-			    const struct bitcoin_tx *tx,
-			    enum state_input done);
+void peer_watch_tx(struct peer *peer,
+		   const struct bitcoin_tx *tx,
+		   enum state_input done);
 
 /**
- * bitcoin_watch_close: watch close tx until it's "irreversible"
- * @ctx: context to tal the watch struct off.
+ * peer_watch_close: watch for close tx until it's "irreversible" (or timedout)
  * @peer: the state data for this peer.
  * @done: the input to give when tx is completely buried.
+ * @timedout: the input to give if we time out.
  *
- * This tx *is* malleable, since the other side can transmit theirs.
+ * Once this fires we consider the channel completely closed and stop
+ * watching (eg 100 txs down).
+ *
+ * This is used for watching a mutual close, or for a transaction we sent
+ * (such as a steal, or spend of their close, etc).
  */
-struct watch *bitcoin_watch_close(const tal_t *ctx,
-				  const struct peer *peer,
-				  enum state_input done);
+void peer_watch_close(struct peer *peer,
+		      enum state_input done, enum state_input timedout);
 
 /**
- * htlc_outputs_our_commit: HTLC outputs from our commit tx to watch.
- * @ctx: context to tal the watch struct off.
+ * peer_watch_our_htlc_outputs: HTLC outputs from our commit tx to watch.
  * @peer: the state data for this peer.
  * @tx: the commitment tx
  * @tous_timeout: input to give when a HTLC output to us times out.
  * @tothem_spent: input to give when a HTLC output to them is spent.
  * @tothem_timeout: input to give when a HTLC output to them times out.
+ *
+ * Returns true if there were any htlc outputs to watch.
  */
-struct htlc_watch *htlc_outputs_our_commit(const tal_t *ctx,
-					   const struct peer *peer,
-					   const struct bitcoin_tx *tx,
-					   enum state_input tous_timeout,
-					   enum state_input tothem_spent,
-					   enum state_input tothem_timeout);
+bool peer_watch_our_htlc_outputs(struct peer *peer,
+				 const struct bitcoin_tx *tx,
+				 enum state_input tous_timeout,
+				 enum state_input tothem_spent,
+				 enum state_input tothem_timeout);
 
 /**
- * htlc_outputs_their_commit: HTLC outputs from their commit tx to watch.
- * @ctx: context to tal the watch struct off.
+ * peer_watch_their_htlc_outputs: HTLC outputs from their commit tx to watch.
  * @peer: the state data for this peer.
  * @tx: the commitment tx
  * @tous_timeout: input to give when a HTLC output to us times out.
  * @tothem_spent: input to give when a HTLC output to them is spent.
  * @tothem_timeout: input to give when a HTLC output to them times out.
+ *
+ * Returns true if there were any htlc outputs to watch.
  */
-struct htlc_watch *htlc_outputs_their_commit(const tal_t *ctx,
-					     const struct peer *peer,
-					     const struct bitcoin_event *tx,
-					     enum state_input tous_timeout,
-					     enum state_input tothem_spent,
-					     enum state_input tothem_timeout);
+bool peer_watch_their_htlc_outputs(struct peer *peer,
+				   const struct bitcoin_event *tx,
+				   enum state_input tous_timeout,
+				   enum state_input tothem_spent,
+				   enum state_input tothem_timeout);
 
 /**
- * htlc_unwatch: stop watching an HTLC
- * @ctx: context to tal the watch struct off.
+ * peer_unwatch_htlc_output: stop watching an HTLC
+ * @peer: the state data for this peer.
  * @htlc: the htlc to stop watching
- * @all_done: input to give if we're not watching any anymore.
+ * @all_done: input to give if we're not watching any outputs anymore.
  */
-struct htlc_unwatch *htlc_unwatch(const tal_t *ctx,
-				  const struct htlc *htlc,
-				  enum state_input all_done);
+void peer_unwatch_htlc_output(struct peer *peer,
+			      const struct htlc *htlc,
+			      enum state_input all_done);
 
 /**
- * htlc_unwatch_all: stop watching all HTLCs
- * @ctx: context to tal the watch struct off.
+ * peer_unwatch_all_htlc_outputs: stop watching all HTLCs
  * @peer: the state data for this peer.
  */
-struct htlc_unwatch *htlc_unwatch_all(const tal_t *ctx,
-				      const struct peer *peer);
+void peer_unwatch_all_htlc_outputs(struct peer *peer);
 
 /**
- * htlc_spend_watch: watch our spend of an HTLC
- * @ctx: context to tal the watch struct off.
+ * peer_watch_htlc_spend: watch our spend of an HTLC output
+ * @peer: the state data for this peer.
  * @tx: the commitment tx
- * @cmd: the command data.
+ * @htlc: the htlc the tx is spending an output of
  * @done: input to give when it's completely buried.
  */
-struct htlc_spend_watch *htlc_spend_watch(const tal_t *ctx,
-					  const struct bitcoin_tx *tx,
-					  const struct command *cmd,
-					  enum state_input done);
+void peer_watch_htlc_spend(struct peer *peer,
+			   const struct bitcoin_tx *tx,
+			   const struct htlc *htlc,
+			   enum state_input done);
 
 /**
- * htlc_spend_unwatch: stop watching an HTLC spend
- * @ctx: context to tal the watch struct off.
- * @htlc: the htlc to stop watching
+ * peer_unwatch_htlc_spend: stop watching our HTLC spend
+ * @peer: the state data for this peer.
+ * @htlc: the htlc to stop watching the spend for.
  * @all_done: input to give if we're not watching anything anymore.
  */
-struct htlc_spend_watch *htlc_spend_unwatch(const tal_t *ctx,
-					    const struct htlc *htlc,
-					    enum state_input all_done);
+void peer_unwatch_htlc_spend(struct peer *peer,
+			     const struct htlc *htlc,
+			     enum state_input all_done);
+
 /* Create a bitcoin anchor tx. */
 struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx,
 				  const struct peer *peer);

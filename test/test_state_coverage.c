@@ -871,134 +871,6 @@ struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx,
 	return bitcoin_tx("anchor");
 }
 
-static bool have_event(uint64_t events, enum state_input input)
-{
-	return events & (1ULL << input);
-}
-
-static bool add_event_(uint64_t *events, enum state_input input)
-{
-	/* This is how they say "no event please" */
-	if (input == INPUT_NONE)
-		return true;
-			
-	assert(input < 64);
-	if (have_event(*events, input))
-		return false;
-	*events |= (1ULL << input);
-	return true;
-}
-
-static bool remove_event_(uint64_t *events, enum state_input input)
-{
-	/* This is how they say "no event please" */
-	if (input == INPUT_NONE)
-		return true;
-			
-	assert(input < 64);
-	if (!have_event(*events, input))
-		return false;
-	*events &= ~(1ULL << input);
-	return true;
-}
-
-static void remove_event(uint64_t *events, enum state_input input)
-{
-#ifdef NDEBUG
-#error "Don't run tests with NDEBUG"
-#endif
-	assert(remove_event_(events, input));
-}
-
-static void add_event(uint64_t *events, enum state_input input)
-{
-#ifdef NDEBUG
-#error "Don't run tests with NDEBUG"
-#endif
-	assert(add_event_(events, input));
-}
-
-struct watch {
-	uint64_t events;
-};
-
-struct watch *bitcoin_watch_anchor(const tal_t *ctx,
-				   const struct peer *peer,
-				   enum state_input depthok,
-				   enum state_input timeout,
-				   enum state_input unspent,
-				   enum state_input theyspent,
-				   enum state_input otherspent)
-{
-	struct watch *watch = talz(ctx, struct watch);
-
-	add_event(&watch->events, depthok);
-	add_event(&watch->events, timeout);
-	add_event(&watch->events, unspent);
-	add_event(&watch->events, theyspent);
-	add_event(&watch->events, otherspent);
-
-	/* We assume these values in activate_event. */
-	assert(timeout == BITCOIN_ANCHOR_TIMEOUT
-	       || timeout == INPUT_NONE);
-	assert(depthok == BITCOIN_ANCHOR_DEPTHOK);
-	return watch;
-}
-
-struct watch *bitcoin_unwatch_anchor_depth(const tal_t *ctx,
-					   const struct peer *peer,
-					   enum state_input depthok,
-					   enum state_input timeout)
-{
-	struct watch *watch = talz(ctx, struct watch);
-
-	add_event(&watch->events, depthok);
-	add_event(&watch->events, timeout);
-	return watch;
-}
-
-/* Wait for our commit to be spendable. */
-struct watch *bitcoin_watch_delayed(const tal_t *ctx,
-				    const struct bitcoin_tx *tx,
-				    enum state_input canspend)
-{
-	struct watch *watch = talz(ctx, struct watch);
-
-	assert(bitcoin_tx_is(tx, "our commit"));
-	add_event(&watch->events, canspend);
-	return watch;
-}
-
-/* Wait for commit to be very deeply buried (so we no longer need to
- * even watch) */
-struct watch *bitcoin_watch(const tal_t *ctx,
-			    const struct bitcoin_tx *tx,
-			    enum state_input done)
-{
-	struct watch *watch = talz(ctx, struct watch);
-
-	if (done == BITCOIN_STEAL_DONE)
-		assert(bitcoin_tx_is(tx, "steal"));
-	else if (done == BITCOIN_SPEND_THEIRS_DONE)
-		assert(bitcoin_tx_is(tx, "spend their commit"));
-	else if (done == BITCOIN_SPEND_OURS_DONE)
-		assert(bitcoin_tx_is(tx, "spend our commit"));
-	else
-		errx(1, "Unknown watch effect %s", input_name(done));
-	add_event(&watch->events, done);
-	return watch;
-}
-
-/* Other side should drop close tx; watch for it. */
-struct watch *bitcoin_watch_close(const tal_t *ctx,
-				  const struct peer *peer,
-				  enum state_input done)
-{
-	struct watch *watch = talz(ctx, struct watch);
-	add_event(&watch->events, done);
-	return watch;
-}
-	
 struct bitcoin_tx *bitcoin_close(const tal_t *ctx,
 				 const struct peer *peer)
 {
@@ -1054,143 +926,6 @@ bool committed_to_htlcs(const struct peer *peer)
 	return peer->num_htlcs_to_them != 0 || peer->num_htlcs_to_us != 0;
 }
 
-struct htlc_watch
-{
-	enum state_input tous_timeout;
-	enum state_input tothem_spent;
-	enum state_input tothem_timeout;
-	unsigned int num_htlcs_to_us, num_htlcs_to_them;
-	struct htlc htlcs_to_us[MAX_HTLCS], htlcs_to_them[MAX_HTLCS];
-};
-
-struct htlc_unwatch
-{
-	unsigned int id;
-	enum state_input all_done;
-};
-
-struct htlc_watch *htlc_outputs_our_commit(const tal_t *ctx,
-					   const struct peer *peer,
-					   const struct bitcoin_tx *tx,
-					   enum state_input tous_timeout,
-					   enum state_input tothem_spent,
-					   enum state_input tothem_timeout)
-{
-	struct htlc_watch *w = tal(ctx, struct htlc_watch);
-
-	/* We assume these. */
-	assert(tous_timeout == BITCOIN_HTLC_TOUS_TIMEOUT);
-	assert(tothem_spent == BITCOIN_HTLC_TOTHEM_SPENT);
-	assert(tothem_timeout == BITCOIN_HTLC_TOTHEM_TIMEOUT);
-
-	w->tous_timeout = tous_timeout;
-	w->tothem_spent = tothem_spent;
-	w->tothem_timeout = tothem_timeout;
-
-	w->num_htlcs_to_us = peer->num_htlcs_to_us;
-	w->num_htlcs_to_them = peer->num_htlcs_to_them;
-	BUILD_ASSERT(sizeof(peer->htlcs_to_us) == sizeof(w->htlcs_to_us));
-	BUILD_ASSERT(sizeof(peer->htlcs_to_them) == sizeof(w->htlcs_to_them));
-	memcpy(w->htlcs_to_us, peer->htlcs_to_us, sizeof(peer->htlcs_to_us));
-	memcpy(w->htlcs_to_them, peer->htlcs_to_them,
-	       sizeof(peer->htlcs_to_them));
-
-	if (!w->num_htlcs_to_us && !w->num_htlcs_to_them)
-		return tal_free(w);
-
-	return w;
-}
-
-struct htlc_watch *htlc_outputs_their_commit(const tal_t *ctx,
-					     const struct peer *peer,
-					     const struct bitcoin_event *tx,
-					     enum state_input tous_timeout,
-					     enum state_input tothem_spent,
-					     enum state_input tothem_timeout)
-{
-	struct htlc_watch *w = tal(ctx, struct htlc_watch);
-	unsigned int i;
-
-	/* We assume these. */
-	assert(tous_timeout == BITCOIN_HTLC_TOUS_TIMEOUT);
-	assert(tothem_spent == BITCOIN_HTLC_TOTHEM_SPENT);
-	assert(tothem_timeout == BITCOIN_HTLC_TOTHEM_TIMEOUT);
-
-	w->tous_timeout = tous_timeout;
-	w->tothem_spent = tothem_spent;
-	w->tothem_timeout = tothem_timeout;
-
-	/* It's what our peer thinks is current... */
-	w->num_htlcs_to_us = peer->other->num_htlcs_to_them;
-	w->num_htlcs_to_them = peer->other->num_htlcs_to_us;
-	BUILD_ASSERT(sizeof(peer->other->htlcs_to_them) == sizeof(w->htlcs_to_us));
-	BUILD_ASSERT(sizeof(peer->other->htlcs_to_us) == sizeof(w->htlcs_to_them));
-	memcpy(w->htlcs_to_us, peer->other->htlcs_to_them, sizeof(w->htlcs_to_us));
-	memcpy(w->htlcs_to_them, peer->other->htlcs_to_us,
-	       sizeof(w->htlcs_to_them));
-
-	if (!w->num_htlcs_to_us && !w->num_htlcs_to_them)
-		return tal_free(w);
-
-	/* Reverse perspective, mark rvalue unknown */
-	for (i = 0; i < w->num_htlcs_to_us; i++) {
-		assert(w->htlcs_to_us[i].to_them);
-		w->htlcs_to_us[i].to_them = false;
-	}
-	for (i = 0; i < w->num_htlcs_to_them; i++) {
-		assert(!w->htlcs_to_them[i].to_them);
-		w->htlcs_to_them[i].to_them = true;
-	}
-	return w;
-}
-
-struct htlc_unwatch *htlc_unwatch(const tal_t *ctx,
-				  const struct htlc *htlc,
-				  enum state_input all_done)
-{
-	struct htlc_unwatch *w = tal(ctx, struct htlc_unwatch);
-
-	w->id = htlc->id;
-	assert(w->id != -1U);
-	w->all_done = all_done;
-	return w;
-}
-
-struct htlc_unwatch *htlc_unwatch_all(const tal_t *ctx,
-				      const struct peer *peer)
-{
-	struct htlc_unwatch *w = tal(ctx, struct htlc_unwatch);
-
-	w->id = -1U;
-	return w;
-}
-
-struct htlc_spend_watch *htlc_spend_watch(const tal_t *ctx,
-					  const struct bitcoin_tx *tx,
-					  const struct command *cmd,
-					  enum state_input done)
-{
-	struct htlc_spend_watch *w = tal(ctx, struct htlc_spend_watch);
-	w->id = htlc_id_from_tx(tx);
-	w->done = done;
-	return w;
-}
-
-struct htlc_spend_watch *htlc_spend_unwatch(const tal_t *ctx,
-					    const struct htlc *htlc,
-					    enum state_input all_done)
-{
-	struct htlc_spend_watch *w = tal(ctx, struct htlc_spend_watch);
-
-	w->id = htlc->id;
-	w->done = all_done;
-	return w;
-}
-
-struct htlc_rval {
-	unsigned int id;
-};
-	
 #include "state.c"
 #include <ccan/tal/tal.h>
 #include <stdio.h>
@@ -1401,6 +1136,282 @@ static bool outstanding_htlc_watches(const struct peer *peer)
 		|| peer->num_htlc_spends_to_them;
 }
 
+static bool have_event(uint64_t events, enum state_input input)
+{
+	return events & (1ULL << input);
+}
+
+static bool add_event_(struct peer *peer, enum state_input input)
+{
+	/* This is how they say "no event please" */
+	if (input == INPUT_NONE)
+		return true;
+			
+	assert(input < 64);
+	if (have_event(peer->core.event_notifies, input))
+		return false;
+	peer->core.event_notifies |= (1ULL << input);
+	return true;
+}
+
+static bool remove_event_(uint64_t *events, enum state_input input)
+{
+	/* This is how they say "no event please" */
+	if (input == INPUT_NONE)
+		return true;
+			
+	assert(input < 64);
+	if (!have_event(*events, input))
+		return false;
+	*events &= ~(1ULL << input);
+	return true;
+}
+
+static void remove_event(struct peer *peer, enum state_input input)
+{
+	if (!remove_event_(&peer->core.event_notifies, input))
+		report_trail(peer->trail, "Removing event we don't have?");
+}
+
+static void add_event(struct peer *peer, enum state_input input)
+{
+	if (!add_event_(peer, input))
+		report_trail(peer->trail, "Adding event we already have?");
+}
+
+void peer_watch_anchor(struct peer *peer,
+		       enum state_input depthok,
+		       enum state_input timeout,
+		       enum state_input unspent,
+		       enum state_input theyspent,
+		       enum state_input otherspent)
+{
+	/* We assume these values in activate_event. */
+	assert(timeout == BITCOIN_ANCHOR_TIMEOUT
+	       || timeout == INPUT_NONE);
+	assert(depthok == BITCOIN_ANCHOR_DEPTHOK);
+
+	add_event(peer, depthok);
+	add_event(peer, timeout);
+	add_event(peer, unspent);
+	add_event(peer, theyspent);
+	add_event(peer, otherspent);
+}
+
+void peer_unwatch_anchor_depth(struct peer *peer,
+			       enum state_input depthok,
+			       enum state_input timeout)
+{
+	/* We assume these values in activate_event. */
+	assert(timeout == BITCOIN_ANCHOR_TIMEOUT
+	       || timeout == INPUT_NONE);
+	assert(depthok == BITCOIN_ANCHOR_DEPTHOK);
+
+	remove_event(peer, depthok);
+	remove_event(peer, timeout);
+}
+
+/* Wait for our commit to be spendable. */
+void peer_watch_delayed(struct peer *peer,
+			const struct bitcoin_tx *tx, enum state_input canspend)
+{
+	assert(bitcoin_tx_is(tx, "our commit"));
+	add_event(peer, canspend);
+}
+
+/* Wait for commit to be very deeply buried (so we no longer need to
+ * even watch) */
+void peer_watch_tx(struct peer *peer,
+		   const struct bitcoin_tx *tx,
+		   enum state_input done)
+{
+	/* We can have multiple steals or spendtheirs in flight, so
+	 * allow repeats for
+	 * BITCOIN_STEAL_DONE/BITCOIN_SPEND_THEIRS_DONE */
+	if (done == BITCOIN_STEAL_DONE) {
+		assert(bitcoin_tx_is(tx, "steal"));
+		add_event_(peer, done);
+	} else if (done == BITCOIN_SPEND_THEIRS_DONE) {
+		assert(bitcoin_tx_is(tx, "spend their commit"));
+		add_event_(peer, done);
+	} else if (done == BITCOIN_SPEND_OURS_DONE) {
+		assert(bitcoin_tx_is(tx, "spend our commit"));
+		add_event(peer, done);
+	} else
+		report_trail(peer->trail, "Unknown watch effect");
+}
+
+/* Other side should drop close tx; watch for it. */
+void peer_watch_close(struct peer *peer,
+		      enum state_input done, enum state_input timedout)
+{
+	add_event(peer, done);
+	
+	/* We assume this. */
+	assert(timedout == INPUT_CLOSE_COMPLETE_TIMEOUT || timedout == INPUT_NONE);
+	add_event(peer, timedout);
+}
+
+bool peer_watch_our_htlc_outputs(struct peer *peer,
+				 const struct bitcoin_tx *tx,
+				 enum state_input tous_timeout,
+				 enum state_input tothem_spent,
+				 enum state_input tothem_timeout)
+{
+	/* FIXME: We assume these. */
+	assert(tous_timeout == BITCOIN_HTLC_TOUS_TIMEOUT);
+	assert(tothem_spent == BITCOIN_HTLC_TOTHEM_SPENT);
+	assert(tothem_timeout == BITCOIN_HTLC_TOTHEM_TIMEOUT);
+
+	if (!peer->num_htlcs_to_us && !peer->num_htlcs_to_them)
+		return false;
+
+	assert(peer->num_live_htlcs_to_us + peer->num_htlcs_to_us
+	       <= ARRAY_SIZE(peer->live_htlcs_to_us));
+	assert(peer->num_live_htlcs_to_them + peer->num_htlcs_to_them
+	       <= ARRAY_SIZE(peer->live_htlcs_to_them));
+	memcpy(peer->live_htlcs_to_us + peer->num_live_htlcs_to_us,
+	       peer->htlcs_to_us,
+	       peer->num_htlcs_to_us * sizeof(peer->htlcs_to_us[0]));
+	memcpy(peer->live_htlcs_to_them + peer->num_live_htlcs_to_them,
+	       peer->htlcs_to_them,
+	       peer->num_htlcs_to_them * sizeof(peer->htlcs_to_them[0]));
+	peer->num_live_htlcs_to_us += peer->num_htlcs_to_us;
+	peer->num_live_htlcs_to_them += peer->num_htlcs_to_them;
+	/* Can happen if we were finished, then new commit tx */
+	remove_event_(&peer->core.event_notifies, INPUT_NO_MORE_HTLCS);
+
+	return true;
+}
+
+bool peer_watch_their_htlc_outputs(struct peer *peer,
+				   const struct bitcoin_event *tx,
+				   enum state_input tous_timeout,
+				   enum state_input tothem_spent,
+				   enum state_input tothem_timeout)
+{
+	size_t i;
+	struct htlc *htlcs;
+
+	/* We assume these. */
+	assert(tous_timeout == BITCOIN_HTLC_TOUS_TIMEOUT);
+	assert(tothem_spent == BITCOIN_HTLC_TOTHEM_SPENT);
+	assert(tothem_timeout == BITCOIN_HTLC_TOTHEM_TIMEOUT);
+
+	/* It's what our peer thinks is current... */
+	if (!peer->other->num_htlcs_to_them && !peer->other->num_htlcs_to_us)
+		return false;
+
+	assert(peer->num_live_htlcs_to_us + peer->other->num_htlcs_to_them
+	       <= ARRAY_SIZE(peer->live_htlcs_to_us));
+	assert(peer->num_live_htlcs_to_them + peer->other->num_htlcs_to_us
+	       <= ARRAY_SIZE(peer->live_htlcs_to_them));
+
+	/* Copy from other peer, but reverse perspective */
+	htlcs = peer->live_htlcs_to_us + peer->num_live_htlcs_to_us;
+	memcpy(htlcs, peer->other->htlcs_to_them,
+	       peer->other->num_htlcs_to_them * sizeof(peer->htlcs_to_us[0]));
+	for (i = 0; i < peer->other->num_htlcs_to_them; i++) {
+		assert(htlcs[i].to_them);
+		htlcs[i].to_them = false;
+	}
+
+	htlcs = peer->live_htlcs_to_them + peer->num_live_htlcs_to_them;
+	memcpy(htlcs,
+	       peer->other->htlcs_to_us,
+	       peer->other->num_htlcs_to_us * sizeof(peer->htlcs_to_them[0]));
+	for (i = 0; i < peer->other->num_htlcs_to_us; i++) {
+		assert(!htlcs[i].to_them);
+		htlcs[i].to_them = true;
+	}
+
+	peer->num_live_htlcs_to_us += peer->other->num_htlcs_to_them;
+	peer->num_live_htlcs_to_them += peer->other->num_htlcs_to_us;
+	/* Can happen if we were finished, then new commit tx */
+	remove_event_(&peer->core.event_notifies, INPUT_NO_MORE_HTLCS);
+
+	return true;
+}
+
+void peer_unwatch_htlc_output(struct peer *peer,
+			      const struct htlc *htlc,
+			      enum state_input all_done)
+{
+	const struct htlc *h;
+
+	/* We assume this. */
+	assert(all_done == INPUT_NO_MORE_HTLCS);
+
+	h = find_live_htlc(peer, htlc->id);
+
+	/* That can fail, when we see them spend (and thus stop
+	 * watching) after we've timed out, then our return tx wins
+	 * and gets buried. */
+	if (h) {
+		remove_htlc(peer->live_htlcs_to_us,
+			    &peer->num_live_htlcs_to_us,
+			    peer->live_htlcs_to_them,
+			    &peer->num_live_htlcs_to_them,
+			    ARRAY_SIZE(peer->live_htlcs_to_us),
+			    h);
+
+		/* If that was last, fire INPUT_NO_MORE_HTLCS */
+		if (!outstanding_htlc_watches(peer))
+			add_event(peer, all_done);
+	}
+}	
+
+void peer_unwatch_all_htlc_outputs(struct peer *peer)
+{
+	/* This can happen if we get in front of INPUT_NO_MORE_HTLCS */
+	if (!outstanding_htlc_watches(peer)
+	    && !have_event(peer->core.event_notifies, INPUT_NO_MORE_HTLCS))
+		report_trail(peer->trail, "unwatching all with no htlcs?");
+
+	peer->num_htlc_spends_to_us = 0;
+	peer->num_htlc_spends_to_them = 0;
+	peer->num_live_htlcs_to_us = 0;
+	peer->num_live_htlcs_to_them = 0;
+}
+
+void peer_watch_htlc_spend(struct peer *peer,
+			   const struct bitcoin_tx *tx,
+			   const struct htlc *htlc,
+			   enum state_input done)
+{
+	struct htlc *h = find_live_htlc(peer, htlc_id_from_tx(tx));
+
+	add_htlc(peer->htlc_spends_to_us, &peer->num_htlc_spends_to_us,
+		 peer->htlc_spends_to_them,
+		 &peer->num_htlc_spends_to_them,
+		 ARRAY_SIZE(peer->htlc_spends_to_us),
+		 h);
+
+	/* We assume this */
+	if (h->to_them)
+		assert(done == BITCOIN_HTLC_RETURN_SPEND_DONE);
+	else
+		assert(done == BITCOIN_HTLC_FULFILL_SPEND_DONE);
+}
+
+void peer_unwatch_htlc_spend(struct peer *peer,
+			     const struct htlc *htlc,
+			     enum state_input all_done)
+{
+	struct htlc *h = find_htlc_spend(peer, htlc->id);
+
+	assert(all_done == INPUT_NO_MORE_HTLCS);
+	remove_htlc(peer->htlc_spends_to_us,
+		    &peer->num_htlc_spends_to_us,
+		    peer->htlc_spends_to_them,
+		    &peer->num_htlc_spends_to_them,
+		    ARRAY_SIZE(peer->htlc_spends_to_us),
+		    h);
+
+	if (!outstanding_htlc_watches(peer))
+		add_event(peer, all_done);
+}
+
 void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt)
 {
 	const char *str = (const char *)pkt;
@@ -1471,159 +1482,6 @@ void peer_tx_revealed_r_value(struct peer *peer,
 	add_rval(peer, htlc->id);
 }	
 
-/* We apply them backwards, which helps our assertions.  It's not actually
- * required. */
-static const char *apply_effects(struct peer *peer,
-				 const struct state_effect *effect,
-				 uint64_t *effects)
-{
-	const struct htlc *h;
-
-	if (!effect)
-		return NULL;
-
-	if (effect->next) {
-		const char *problem = apply_effects(peer, effect->next,
-						    effects);
-		if (problem)
-			return problem;
-	}
-
-	if (*effects & (1ULL << effect->etype))
-		return tal_fmt(NULL, "Effect %u twice", effect->etype);
-	*effects |= (1ULL << effect->etype);
-
-	switch (effect->etype) {
-	case STATE_EFFECT_watch:
-		/* We can have multiple steals or spendtheirs
-		   in flight, so make exceptions for
-		   BITCOIN_STEAL_DONE/BITCOIN_SPEND_THEIRS_DONE */
-		if (peer->core.event_notifies & (1ULL << BITCOIN_STEAL_DONE)
-		    & effect->u.watch->events)
-			remove_event(&effect->u.watch->events, BITCOIN_STEAL_DONE);
-
-		if (peer->core.event_notifies
-		    & (1ULL << BITCOIN_SPEND_THEIRS_DONE)
-		    & effect->u.watch->events)
-			remove_event(&effect->u.watch->events,
-				     BITCOIN_SPEND_THEIRS_DONE);
-
-		if (peer->core.event_notifies & effect->u.watch->events)
-			return "event set twice";
-		peer->core.event_notifies |= effect->u.watch->events;
-		break;
-	case STATE_EFFECT_unwatch:
-		if ((peer->core.event_notifies & effect->u.unwatch->events)
-		    != effect->u.unwatch->events)
-			return "unset event unwatched";
-		peer->core.event_notifies &= ~effect->u.unwatch->events;
-		break;
-	case STATE_EFFECT_close_timeout:
-		add_event(&peer->core.event_notifies,
-			  effect->u.close_timeout);
-		/* We assume this. */
-		assert(effect->u.close_timeout
-		       == INPUT_CLOSE_COMPLETE_TIMEOUT);
-		break;
-	case STATE_EFFECT_watch_htlcs:
-		assert(peer->num_live_htlcs_to_us
-		       + effect->u.watch_htlcs->num_htlcs_to_us
-		       <= ARRAY_SIZE(peer->live_htlcs_to_us));
-		assert(peer->num_live_htlcs_to_them
-		       + effect->u.watch_htlcs->num_htlcs_to_them
-		       <= ARRAY_SIZE(peer->live_htlcs_to_them));
-		memcpy(peer->live_htlcs_to_us + peer->num_live_htlcs_to_us,
-		       effect->u.watch_htlcs->htlcs_to_us,
-		       effect->u.watch_htlcs->num_htlcs_to_us
-		       * sizeof(effect->u.watch_htlcs->htlcs_to_us[0]));
-		memcpy(peer->live_htlcs_to_them + peer->num_live_htlcs_to_them,
-		       effect->u.watch_htlcs->htlcs_to_them,
-		       effect->u.watch_htlcs->num_htlcs_to_them
-		       * sizeof(effect->u.watch_htlcs->htlcs_to_them[0]));
-		peer->num_live_htlcs_to_us
-			+= effect->u.watch_htlcs->num_htlcs_to_us;
-		peer->num_live_htlcs_to_them
-			+= effect->u.watch_htlcs->num_htlcs_to_them;
-		/* Can happen if we were finished, then new commit tx */
-		remove_event_(&peer->core.event_notifies, INPUT_NO_MORE_HTLCS);
-		break;
-	case STATE_EFFECT_unwatch_htlc:
-		/* Unwatch all? */
-		if (effect->u.unwatch_htlc->id == -1) {
-			/* This can happen if we get in front of
-			 * INPUT_NO_MORE_HTLCS */
-			if (!outstanding_htlc_watches(peer)
-			    && !have_event(peer->core.event_notifies,
-					   INPUT_NO_MORE_HTLCS))
-				return "unwatching all with no htlcs?";
-			peer->num_htlc_spends_to_us = 0;
-			peer->num_htlc_spends_to_them = 0;
-			peer->num_live_htlcs_to_us = 0;
-			peer->num_live_htlcs_to_them = 0;
-		} else {
-			const struct htlc *h;
-
-			h = find_live_htlc(peer, effect->u.unwatch_htlc->id);
-
-			/* That can fail, when we see them spend (and
-			 * thus stop watching) after we've timed out,
-			 * then our return tx wins and gets buried. */
-			if (h) {
-				remove_htlc(peer->live_htlcs_to_us,
-					    &peer->num_live_htlcs_to_us,
-					    peer->live_htlcs_to_them,
-					    &peer->num_live_htlcs_to_them,
-					    ARRAY_SIZE(peer->live_htlcs_to_us),
-					    h);
-
-				/* If that was last, fire INPUT_NO_MORE_HTLCS */
-				if (!outstanding_htlc_watches(peer)) {
-					assert(effect->u.unwatch_htlc->all_done
-					       == INPUT_NO_MORE_HTLCS);
-					add_event(&peer->core.event_notifies,
-						  effect->u.unwatch_htlc->all_done);
-				}
-			}
-		}
-		break;
-	case STATE_EFFECT_watch_htlc_spend:
-		h = find_live_htlc(peer, effect->u.watch_htlc_spend->id);
-		add_htlc(peer->htlc_spends_to_us, &peer->num_htlc_spends_to_us,
-			 peer->htlc_spends_to_them,
-			 &peer->num_htlc_spends_to_them,
-			 ARRAY_SIZE(peer->htlc_spends_to_us),
-			 h);
-
-		/* We assume this */
-		if (h->to_them)
-			assert(effect->u.watch_htlc_spend->done
-			       == BITCOIN_HTLC_RETURN_SPEND_DONE);
-		else
-			assert(effect->u.watch_htlc_spend->done
-			       == BITCOIN_HTLC_FULFILL_SPEND_DONE);
-		break;
-	case STATE_EFFECT_unwatch_htlc_spend:
-		h = find_htlc_spend(peer, effect->u.unwatch_htlc_spend->id);
-		remove_htlc(peer->htlc_spends_to_us,
-			    &peer->num_htlc_spends_to_us,
-			    peer->htlc_spends_to_them,
-			    &peer->num_htlc_spends_to_them,
-			    ARRAY_SIZE(peer->htlc_spends_to_us),
-			    h);
-		if (!outstanding_htlc_watches(peer)) {
-			assert(effect->u.unwatch_htlc_spend->done
-			       == INPUT_NO_MORE_HTLCS);
-			add_event(&peer->core.event_notifies,
-				  effect->u.unwatch_htlc_spend->done);
-		}
-		break;
-	default:
-		return tal_fmt(NULL, "Unknown effect %u", effect->etype);
-	}
-
-	return NULL;
-}
-	
 static const char *check_changes(const struct peer *old, struct peer *new,
 				 enum state_input input)
 {
@@ -1661,16 +1519,12 @@ static const char *check_changes(const struct peer *old, struct peer *new,
 	return NULL;
 }
 
-static const char *apply_all_effects(const struct peer *old,
+static const char *check_all_effects(const struct peer *old,
 				     enum command_status cstatus,
 				     enum state_input input,
 				     struct peer *peer,
-				     const struct state_effect *effect,
 				     Pkt *output)
 {
-	const char *problem;
-	uint64_t effects = 0;
-
 	if (cstatus != CMD_NONE) {
 		assert(peer->core.current_command != INPUT_NONE);
 		/* We should only requeue HTLCs if we're lowprio */
@@ -1717,11 +1571,17 @@ static const char *apply_all_effects(const struct peer *old,
 		peer->pkt_data[peer->core.num_outputs++]
 			= htlc_id_from_pkt(output);
 	}
-	
-	problem = apply_effects(peer, effect, &effects);
-	if (!problem)
-		problem = check_changes(old, peer, input);
-	return problem;
+
+	if (peer->state >= STATE_CLOSE_WAIT_STEAL
+	    && peer->state <= STATE_CLOSE_WAIT_STEAL_SPENDTHEM_CLOSE_SPENDOURS_WITH_HTLCS) {
+		if (STATE_TO_BITS(peer->state) & STATE_CLOSE_HTLCS_BIT) {
+			if (!outstanding_htlc_watches(peer)
+			    && !have_event(peer->core.event_notifies, INPUT_NO_MORE_HTLCS))
+				return "CLOSE_HTLCS with no outstanding watches?";
+		}
+	}
+
+	return check_changes(old, peer, input);
 }
 
 static void eliminate_input(enum state_input **inputs, enum state_input in)
@@ -1958,7 +1818,7 @@ static void try_input(const struct peer *peer,
 			add_dot(&hist->edges, oldstr, newstr, i, output);
 	}
 
-	problem = apply_all_effects(peer, cstatus, i, &copy, effect, output);
+	problem = check_all_effects(peer, cstatus, i, &copy, output);
 	update_trail(&t, &copy, output);
 	if (problem)
 		report_trail(&t, problem);
@@ -2069,7 +1929,7 @@ static void activate_event(struct peer *peer, enum state_input i)
 		break;
 	case BITCOIN_ANCHOR_TIMEOUT:
 		/* Can't sent DEPTHOK */
-		remove_event(&peer->core.event_notifies, BITCOIN_ANCHOR_DEPTHOK);
+		remove_event(peer, BITCOIN_ANCHOR_DEPTHOK);
 		break;
 	/* And of the "done" cases means we won't give the others. */
 	case BITCOIN_SPEND_THEIRS_DONE:
@@ -2160,7 +2020,7 @@ static void run_peer(const struct peer *peer,
 
 		/* Don't re-fire most events */
 		if (!can_refire(i))
-			remove_event(&copy.core.event_notifies, i);
+			remove_event(&copy, i);
 		activate_event(&copy, i);
 		try_input(&copy, i, idata, normalpath, errorpath,
 			  prev_trail, hist);

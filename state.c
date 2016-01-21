@@ -12,15 +12,6 @@ static inline bool high_priority(enum state state)
 #define toggle_prio(state, name) \
 	(!high_priority(state) ? name##_HIGHPRIO : name##_LOWPRIO)
 
-#define add_effect(e, field, val)				\
-	do {							\
-		struct state_effect *_e = tal(ctx, struct state_effect); \
-		_e->etype = STATE_EFFECT_##field;		\
-		_e->u.field = (val);				\
-		_e->next = (*e);				\
-		(*e) = _e;					\
-	} while(0)
-
 /* STATE_CLOSE* can be treated as a bitset offset from STATE_CLOSED */
 #define BITS_TO_STATE(bits) (STATE_CLOSED + (bits))
 #define STATE_TO_BITS(state) ((state) - STATE_CLOSED)
@@ -110,7 +101,6 @@ enum command_status state(const tal_t *ctx,
 	Pkt *decline;
 	struct bitcoin_tx *tx;
 	Pkt *err;
-	struct htlc_watch *htlcs;
 	enum command_status cstatus = CMD_NONE;
 
 	*out = NULL;
@@ -183,13 +173,12 @@ enum command_status state(const tal_t *ctx,
 			}
 			queue_pkt(out,
 				   pkt_open_commit_sig(ctx, peer));
-			add_effect(effect, watch,
-				   bitcoin_watch_anchor(ctx, peer,
-							BITCOIN_ANCHOR_DEPTHOK,
-							BITCOIN_ANCHOR_TIMEOUT,
-							BITCOIN_ANCHOR_UNSPENT,
-							BITCOIN_ANCHOR_THEIRSPEND,
-							BITCOIN_ANCHOR_OTHERSPEND));
+			peer_watch_anchor(peer, 
+					  BITCOIN_ANCHOR_DEPTHOK,
+					  BITCOIN_ANCHOR_TIMEOUT,
+					  BITCOIN_ANCHOR_UNSPENT,
+					  BITCOIN_ANCHOR_THEIRSPEND,
+					  BITCOIN_ANCHOR_OTHERSPEND);
 
 			return next_state(peer, cstatus,
 					  STATE_OPEN_WAITING_THEIRANCHOR);
@@ -210,13 +199,12 @@ enum command_status state(const tal_t *ctx,
 				goto err_start_unilateral_close;
 			}
 			queue_tx_broadcast(broadcast, bitcoin_anchor(ctx, peer));
-			add_effect(effect, watch,
-				   bitcoin_watch_anchor(ctx, peer,
-							BITCOIN_ANCHOR_DEPTHOK,
-							INPUT_NONE,
-							BITCOIN_ANCHOR_UNSPENT,
-							BITCOIN_ANCHOR_THEIRSPEND,
-							BITCOIN_ANCHOR_OTHERSPEND));
+			peer_watch_anchor(peer,
+					  BITCOIN_ANCHOR_DEPTHOK,
+					  INPUT_NONE,
+					  BITCOIN_ANCHOR_UNSPENT,
+					  BITCOIN_ANCHOR_THEIRSPEND,
+					  BITCOIN_ANCHOR_OTHERSPEND);
 			return next_state(peer, cstatus,
 					  STATE_OPEN_WAITING_OURANCHOR);
 		} else if (input_is(input, CMD_CLOSE)) {
@@ -249,10 +237,9 @@ enum command_status state(const tal_t *ctx,
 			goto anchor_unspent;
 		} else if (input_is(input, BITCOIN_ANCHOR_THEIRSPEND)) {
 			/* We no longer care about anchor depth. */
-			add_effect(effect, unwatch,
-				   bitcoin_unwatch_anchor_depth(ctx, peer,
-							BITCOIN_ANCHOR_DEPTHOK,
-							INPUT_NONE));
+			peer_unwatch_anchor_depth(peer, 
+						  BITCOIN_ANCHOR_DEPTHOK,
+						  INPUT_NONE);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto them_unilateral;
 		} else if (input_is(input, BITCOIN_ANCHOR_OTHERSPEND)) {
@@ -260,26 +247,23 @@ enum command_status state(const tal_t *ctx,
 			return next_state(peer, cstatus, STATE_ERR_INFORMATION_LEAK);
 		} else if (input_is(input, CMD_CLOSE)) {
 			/* We no longer care about anchor depth. */
-			add_effect(effect, unwatch,
-				   bitcoin_unwatch_anchor_depth(ctx, peer,
-							BITCOIN_ANCHOR_DEPTHOK,
-							INPUT_NONE));
+			peer_unwatch_anchor_depth(peer,
+						  BITCOIN_ANCHOR_DEPTHOK,
+						  INPUT_NONE);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto start_closing;
 		} else if (input_is(input, PKT_CLOSE)) {
 			/* We no longer care about anchor depth. */
-			add_effect(effect, unwatch,
-				   bitcoin_unwatch_anchor_depth(ctx, peer,
-							BITCOIN_ANCHOR_DEPTHOK,
-							INPUT_NONE));
+			peer_unwatch_anchor_depth(peer,
+						  BITCOIN_ANCHOR_DEPTHOK,
+						  INPUT_NONE);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto accept_closing;
 		} else if (input_is_pkt(input)) {
 			/* We no longer care about anchor depth. */
-			add_effect(effect, unwatch,
-				   bitcoin_unwatch_anchor_depth(ctx, peer,
-							BITCOIN_ANCHOR_DEPTHOK,
-							INPUT_NONE));
+			peer_unwatch_anchor_depth(peer,
+						  BITCOIN_ANCHOR_DEPTHOK,
+						  INPUT_NONE);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto unexpected_pkt_nocleanup;
 		}
@@ -315,34 +299,30 @@ enum command_status state(const tal_t *ctx,
 					  STATE_ERR_INFORMATION_LEAK);
 		} else if (input_is(input, BITCOIN_ANCHOR_THEIRSPEND)) {
 			/* We no longer care about anchor depth. */
-			add_effect(effect, unwatch,
-				   bitcoin_unwatch_anchor_depth(ctx, peer,
-						     BITCOIN_ANCHOR_DEPTHOK,
-						     BITCOIN_ANCHOR_TIMEOUT));
+			peer_unwatch_anchor_depth(peer,
+						  BITCOIN_ANCHOR_DEPTHOK,
+						  BITCOIN_ANCHOR_TIMEOUT);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto them_unilateral;
 		} else if (input_is(input, CMD_CLOSE)) {
 			/* We no longer care about anchor depth. */
-			add_effect(effect, unwatch,
-				   bitcoin_unwatch_anchor_depth(ctx, peer,
-						     BITCOIN_ANCHOR_DEPTHOK,
-						     BITCOIN_ANCHOR_TIMEOUT));
+			peer_unwatch_anchor_depth(peer,
+						  BITCOIN_ANCHOR_DEPTHOK,
+						  BITCOIN_ANCHOR_TIMEOUT);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto start_closing;
 		} else if (input_is(input, PKT_CLOSE)) {
 			/* We no longer care about anchor depth. */
-			add_effect(effect, unwatch,
-				   bitcoin_unwatch_anchor_depth(ctx, peer,
-						     BITCOIN_ANCHOR_DEPTHOK,
-						     BITCOIN_ANCHOR_TIMEOUT));
+			peer_unwatch_anchor_depth(peer,
+						  BITCOIN_ANCHOR_DEPTHOK,
+						  BITCOIN_ANCHOR_TIMEOUT);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto accept_closing;
 		} else if (input_is_pkt(input)) {
 			/* We no longer care about anchor depth. */
-			add_effect(effect, unwatch,
-				   bitcoin_unwatch_anchor_depth(ctx, peer,
-						     BITCOIN_ANCHOR_DEPTHOK,
-						     BITCOIN_ANCHOR_TIMEOUT));
+			peer_unwatch_anchor_depth(peer,
+						  BITCOIN_ANCHOR_DEPTHOK,
+						  BITCOIN_ANCHOR_TIMEOUT);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto unexpected_pkt;
 		}
@@ -738,8 +718,7 @@ enum command_status state(const tal_t *ctx,
 			/* One a steal is complete, we don't care about htlcs
 			 * (we stole them all) */
 			if (bits & STATE_CLOSE_HTLCS_BIT)
-				add_effect(effect, unwatch_htlc,
-					   htlc_unwatch_all(ctx, peer));
+				peer_unwatch_all_htlc_outputs(peer);
 			return next_state(peer, cstatus, STATE_CLOSED);
 		}
 
@@ -764,9 +743,7 @@ enum command_status state(const tal_t *ctx,
 			tx = bitcoin_spend_ours(ctx, peer);
 			/* Now we need to wait for our commit to be done. */
 			queue_tx_broadcast(broadcast, tx);
-			add_effect(effect, watch,
-				   bitcoin_watch(ctx, tx,
-						 BITCOIN_SPEND_OURS_DONE));
+			peer_watch_tx(peer, tx, BITCOIN_SPEND_OURS_DONE);
 			bits &= ~STATE_CLOSE_OURCOMMIT_BIT;
 			bits |= STATE_CLOSE_SPENDOURS_BIT;
 			return next_state(peer, cstatus, BITS_TO_STATE(bits));
@@ -791,9 +768,8 @@ enum command_status state(const tal_t *ctx,
 				/* They revealed R value. */
 				peer_tx_revealed_r_value(peer, idata->btc);
 				/* We don't care any more. */
-				add_effect(effect, unwatch_htlc,
-					   htlc_unwatch(ctx, idata->htlc,
-							INPUT_NO_MORE_HTLCS));
+				peer_unwatch_htlc_output(peer, idata->htlc,
+							 INPUT_NO_MORE_HTLCS);
 				return unchanged_state(cstatus);
 			} else if (input_is(input, BITCOIN_HTLC_TOTHEM_TIMEOUT)){
 				tx = bitcoin_htlc_timeout(ctx,
@@ -805,11 +781,8 @@ enum command_status state(const tal_t *ctx,
 				 * try to spend, revealing rvalue. */
 
 				/* We're done when that gets buried. */
-				add_effect(effect, watch_htlc_spend,
-					   htlc_spend_watch(ctx,
-						 tx,
-						 idata->cmd,
-						 BITCOIN_HTLC_RETURN_SPEND_DONE));
+				peer_watch_htlc_spend(peer, tx, idata->htlc,
+						      BITCOIN_HTLC_RETURN_SPEND_DONE);
 				return unchanged_state(cstatus);
 			} else if (input_is(input, INPUT_RVALUE)) {
 				tx = bitcoin_htlc_spend(ctx, peer,
@@ -818,44 +791,34 @@ enum command_status state(const tal_t *ctx,
 				/* Spend it... */
 				queue_tx_broadcast(broadcast, tx);
 				/* We're done when it gets buried. */
-				add_effect(effect, watch_htlc_spend,
-					   htlc_spend_watch(ctx,
-						 tx,
-						 idata->cmd,
-						 BITCOIN_HTLC_FULFILL_SPEND_DONE));
+				peer_watch_htlc_spend(peer, tx, idata->htlc,
+						 BITCOIN_HTLC_FULFILL_SPEND_DONE);
 				/* Don't care about this one any more. */
-				add_effect(effect, unwatch_htlc,
-					   htlc_unwatch(ctx, idata->htlc,
-							INPUT_NO_MORE_HTLCS));
+				peer_unwatch_htlc_output(peer, idata->htlc,
+							 INPUT_NO_MORE_HTLCS);
 				return unchanged_state(cstatus);
 			} else if (input_is(input, BITCOIN_HTLC_FULFILL_SPEND_DONE)) {
 				/* Stop watching spend, send
 				 * INPUT_NO_MORE_HTLCS when done. */
-				add_effect(effect, unwatch_htlc_spend,
-					   htlc_spend_unwatch(ctx,
-							      idata->htlc,
-							      INPUT_NO_MORE_HTLCS));
+				peer_unwatch_htlc_spend(peer, idata->htlc,
+							INPUT_NO_MORE_HTLCS);
 				return unchanged_state(cstatus);
 			} else if (input_is(input, BITCOIN_HTLC_RETURN_SPEND_DONE)) {
 				/* Stop watching spend, send
 				 * INPUT_NO_MORE_HTLCS when done. */
-				add_effect(effect, unwatch_htlc_spend,
-					   htlc_spend_unwatch(ctx,
-							      idata->htlc,
-							      INPUT_NO_MORE_HTLCS));
+				peer_unwatch_htlc_spend(peer, idata->htlc,
+							INPUT_NO_MORE_HTLCS);
 
 				/* Don't need to watch the HTLC output any more,
 				 * either. */
-				add_effect(effect, unwatch_htlc,
-					   htlc_unwatch(ctx, idata->htlc,
-							INPUT_NO_MORE_HTLCS));
+				peer_unwatch_htlc_output(peer, idata->htlc,
+							 INPUT_NO_MORE_HTLCS);
 				return unchanged_state(cstatus);
 			} else if (input_is(input, BITCOIN_HTLC_TOUS_TIMEOUT)) {
 				/* They can spend, we no longer care
 				 * about this HTLC. */
-				add_effect(effect, unwatch_htlc,
-					   htlc_unwatch(ctx, idata->htlc,
-							INPUT_NO_MORE_HTLCS));
+				peer_unwatch_htlc_output(peer, idata->htlc,
+							 INPUT_NO_MORE_HTLCS);
 				return unchanged_state(cstatus);
 			}
 		}
@@ -871,19 +834,14 @@ enum command_status state(const tal_t *ctx,
 		if (input_is(input, BITCOIN_ANCHOR_THEIRSPEND)) {
 			tx = bitcoin_spend_theirs(ctx, peer, idata->btc);
 			queue_tx_broadcast(broadcast, tx);
-			add_effect(effect, watch,
-				   bitcoin_watch(ctx, tx,
-						 BITCOIN_SPEND_THEIRS_DONE));
-			/* HTLC watches. */
-			htlcs = htlc_outputs_their_commit(ctx, peer,
-						idata->btc,
+			peer_watch_tx(peer, tx, BITCOIN_SPEND_THEIRS_DONE);
+			/* HTLC watches: if any, set HTLCs bit. */
+			if (peer_watch_their_htlc_outputs(peer, idata->btc,
 						BITCOIN_HTLC_TOUS_TIMEOUT,
 						BITCOIN_HTLC_TOTHEM_SPENT,
-						BITCOIN_HTLC_TOTHEM_TIMEOUT);
-			if (htlcs) {
-				add_effect(effect, watch_htlcs, htlcs);
+						BITCOIN_HTLC_TOTHEM_TIMEOUT))
 				bits |= STATE_CLOSE_HTLCS_BIT;
-			}
+
 			bits |= STATE_CLOSE_SPENDTHEM_BIT;
 			return next_state_bits(peer, cstatus, bits);
 			/* This can happen multiple times: need to steal ALL */
@@ -893,9 +851,7 @@ enum command_status state(const tal_t *ctx,
 				return next_state(peer, cstatus,
 						  STATE_ERR_INFORMATION_LEAK);
 			queue_tx_broadcast(broadcast, tx);
-			add_effect(effect, watch,
-				   bitcoin_watch(ctx, tx,
-						 BITCOIN_STEAL_DONE));
+			peer_watch_tx(peer, tx, BITCOIN_STEAL_DONE);
 			bits |= STATE_CLOSE_STEAL_BIT;
 			return next_state_bits(peer, cstatus, bits);
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT))
@@ -981,20 +937,16 @@ start_unilateral_close:
 	set_peer_cond(peer, PEER_CLOSED);
 	tx = bitcoin_commit(ctx, peer);
 	queue_tx_broadcast(broadcast, tx);
-	add_effect(effect, watch,
-		   bitcoin_watch_delayed(ctx, tx,
-					 BITCOIN_ANCHOR_OURCOMMIT_DELAYPASSED));
+	peer_watch_delayed(peer, tx, BITCOIN_ANCHOR_OURCOMMIT_DELAYPASSED);
 
 	/* HTLC watches. */
-	htlcs = htlc_outputs_our_commit(ctx, peer, tx,
+	if (peer_watch_our_htlc_outputs(peer, tx,
 					BITCOIN_HTLC_TOUS_TIMEOUT,
 					BITCOIN_HTLC_TOTHEM_SPENT,
-					BITCOIN_HTLC_TOTHEM_TIMEOUT);
-	if (htlcs) {
-		add_effect(effect, watch_htlcs, htlcs);
+					BITCOIN_HTLC_TOTHEM_TIMEOUT))
 		return next_state(peer, cstatus,
 				  STATE_CLOSE_WAIT_OURCOMMIT_WITH_HTLCS);
-	}
+
 	return next_state(peer, cstatus, STATE_CLOSE_WAIT_OURCOMMIT);
 
 err_start_unilateral_close_already_closing:
@@ -1011,9 +963,7 @@ start_unilateral_close_already_closing:
 	set_peer_cond(peer, PEER_CLOSED);
 	tx = bitcoin_commit(ctx, peer);
 	queue_tx_broadcast(broadcast, tx);
-	add_effect(effect, watch,
-		   bitcoin_watch_delayed(ctx, tx,
-					 BITCOIN_ANCHOR_OURCOMMIT_DELAYPASSED));
+	peer_watch_delayed(peer, tx, BITCOIN_ANCHOR_OURCOMMIT_DELAYPASSED);
 
 	/* We agreed to close: shouldn't have any HTLCs */
 	if (committed_to_htlcs(peer))
@@ -1033,21 +983,17 @@ them_unilateral:
 	set_peer_cond(peer, PEER_CLOSED);
 	tx = bitcoin_spend_theirs(ctx, peer, idata->btc);
 	queue_tx_broadcast(broadcast, tx);
-	add_effect(effect, watch,
-		   bitcoin_watch(ctx, tx,
-				 BITCOIN_SPEND_THEIRS_DONE));
+	peer_watch_tx(peer, tx, BITCOIN_SPEND_THEIRS_DONE);
 
 	/* HTLC watches (based on what they broadcast, which *may* be out
 	 * of step with our current state by +/- 1 htlc. */
-	htlcs = htlc_outputs_their_commit(ctx, peer, idata->btc,
+	if (peer_watch_their_htlc_outputs(peer, idata->btc,
 					  BITCOIN_HTLC_TOUS_TIMEOUT,
 					  BITCOIN_HTLC_TOTHEM_SPENT,
-					  BITCOIN_HTLC_TOTHEM_TIMEOUT);
-	if (htlcs) {
-		add_effect(effect, watch_htlcs, htlcs);
+					  BITCOIN_HTLC_TOTHEM_TIMEOUT))
 		return next_state(peer, cstatus,
 				  STATE_CLOSE_WAIT_SPENDTHEM_WITH_HTLCS);
-	}
+
 	return next_state(peer, cstatus, STATE_CLOSE_WAIT_SPENDTHEM);
 
 accept_htlc_update:
@@ -1100,10 +1046,7 @@ start_closing:
 		err = pkt_err(ctx, "Close forced due to HTLCs");
 		goto err_start_unilateral_close;
 	}
-	add_effect(effect, close_timeout, INPUT_CLOSE_COMPLETE_TIMEOUT);
-
-	add_effect(effect, watch,
-		   bitcoin_watch_close(ctx, peer, BITCOIN_CLOSE_DONE));
+	peer_watch_close(peer, BITCOIN_CLOSE_DONE, INPUT_CLOSE_COMPLETE_TIMEOUT);
 
 	/* No more commands, we're already closing. */
 	set_peer_cond(peer, PEER_CLOSING);
@@ -1116,9 +1059,9 @@ accept_closing:
 	err = accept_pkt_close(ctx, peer, idata->pkt, effect);
 	if (err)
 		goto err_start_unilateral_close;
-	/* As soon as we send packet, they could close. */
-	add_effect(effect, watch,
-		   bitcoin_watch_close(ctx, peer, BITCOIN_CLOSE_DONE));
+	peer_watch_close(peer, BITCOIN_CLOSE_DONE, INPUT_NONE);
+	/* Send close TX. */
+	queue_tx_broadcast(broadcast, bitcoin_close(ctx, peer));
 	queue_pkt(out, pkt_close_complete(ctx, peer));
 	/* No more commands, we're already closing. */
 	set_peer_cond(peer, PEER_CLOSING);
@@ -1151,18 +1094,14 @@ fail_during_close:
 		/* A reorganization could make this happen. */
 		tx = bitcoin_spend_theirs(ctx, peer, idata->btc);
 		queue_tx_broadcast(broadcast, tx);
-		add_effect(effect, watch,
-			   bitcoin_watch(ctx, tx,
-					 BITCOIN_SPEND_THEIRS_DONE));
-		htlcs = htlc_outputs_their_commit(ctx, peer, idata->btc,
+		peer_watch_tx(peer, tx, BITCOIN_SPEND_THEIRS_DONE);
+		if (peer_watch_their_htlc_outputs(peer, idata->btc,
 						  BITCOIN_HTLC_TOUS_TIMEOUT,
 						  BITCOIN_HTLC_TOTHEM_SPENT,
-						  BITCOIN_HTLC_TOTHEM_TIMEOUT);
-		/* Expect either close or spendthem to complete */
-		if (htlcs) {
+						  BITCOIN_HTLC_TOTHEM_TIMEOUT)) {
+			/* Expect either close or spendthem to complete */
 			/* FIXME: Make sure caller uses INPUT_RVAL
 			 * if they were in the middle of FULFILL! */
-			add_effect(effect, watch_htlcs, htlcs);
 			return next_state(peer, cstatus,
 					  STATE_CLOSE_WAIT_SPENDTHEM_CLOSE_WITH_HTLCS);
 		}
@@ -1174,8 +1113,7 @@ fail_during_close:
 			return next_state(peer, cstatus,
 					  STATE_ERR_INFORMATION_LEAK);
 		queue_tx_broadcast(broadcast, tx);
-		add_effect(effect, watch,
-			   bitcoin_watch(ctx, tx, BITCOIN_STEAL_DONE));
+		peer_watch_tx(peer, tx, BITCOIN_STEAL_DONE);
 		/* Expect either close or steal to complete */
 		return next_state(peer, cstatus,
 				  STATE_CLOSE_WAIT_STEAL_CLOSE);
@@ -1199,7 +1137,6 @@ old_commit_spotted:
 		return next_state(peer, cstatus,
 				  STATE_ERR_INFORMATION_LEAK);
 	queue_tx_broadcast(broadcast, tx);
-	add_effect(effect, watch,
-		   bitcoin_watch(ctx, tx, BITCOIN_STEAL_DONE));
+	peer_watch_tx(peer, tx, BITCOIN_STEAL_DONE);
 	return next_state(peer, cstatus, STATE_CLOSE_WAIT_STEAL);
 }
