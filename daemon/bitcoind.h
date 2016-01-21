@@ -30,4 +30,7 @@ void bitcoind_txid_lookup_(struct lightningd_state *dstate,
 						  const struct bitcoin_tx *), \
 			      (arg))
 
+void bitcoind_send_tx(struct lightningd_state *dstate,
+		      const struct bitcoin_tx *tx);
+
 #endif /* LIGHTNING_DAEMON_BITCOIND_H */

@@ -229,3 +229,32 @@ void bitcoind_txid_lookup_(struct lightningd_state *dstate,
 	start_bitcoin_cli(dstate, process_rawtx, cb, arg,
 			  "getrawtransaction", txidhex, NULL);
 }
+
+static void process_sendrawrx(struct bitcoin_cli *bcli)
+{
+	struct sha256_double txid;
+	const char *out = (char *)bcli->output;
+
+	/* We expect a txid, plus \n */
+	if (bcli->output_bytes == 0
+	    || !bitcoin_txid_from_hex(out, bcli->output_bytes-1, &txid))
+		fatal("sendrawtransaction failed: %.*s",
+		     (int)bcli->output_bytes, out);
+
+	log_debug(bcli->dstate->base_log, "sendrawtx gave %.*s",
+		  (int)bcli->output_bytes, out);
+
+	/* FIXME: Compare against expected txid? */
+}
+
+void bitcoind_send_tx(struct lightningd_state *dstate,
+		      const struct bitcoin_tx *tx)
+{
+	u8 *raw = linearize_tx(dstate, tx);
+	char *hex = tal_arr(raw, char, hex_str_size(tal_count(raw)));
+
+	hex_encode(raw, tal_count(raw), hex, tal_count(hex));
+	start_bitcoin_cli(dstate, process_sendrawrx, NULL, NULL,
+			  "sendrawtransaction", hex, NULL);
+	tal_free(raw);
+}
