@@ -8,9 +8,25 @@ PROTOCC:=protoc-c
 CCANDIR := ccan
 
 # Alpha has checksequenceverify, segregated witness+input-amount-in-sig+confidentual-transactions, schnorr, checklocktimeverify
-#FEATURES := -DHAS_CSV=1 -DALPHA_TXSTYLE=1 -DUSE_SCHNORR=1 -DHAS_CLTV=1
+ALPHA_FEATURES :=				\
+	-DALPHA_TXSTYLE=1			\
+	-DHAS_BIP68=0				\
+	-DHAS_CLTV=1				\
+	-DHAS_CSV=1				\
+	-DSCRIPTS_USE_DER=0			\
+	-DUSE_SCHNORR=1
+
 # Bitcoin uses DER for signatures (Add BIP68 & HAS_CSV if it's supported)
-FEATURES := -DSCRIPTS_USE_DER=1 -DHAS_CLTV=1 #-DHAS_CSV=1 -DHAS_BIP68=1
+BITCOIN_FEATURES :=				\
+	-DALPHA_TXSTYLE=0			\
+	-DHAS_BIP68=0				\
+	-DHAS_CLTV=1				\
+	-DHAS_CSV=0				\
+	-DSCRIPTS_USE_DER=1			\
+	-DUSE_SCHNORR=0
+
+#FEATURES := $(ALPHA_FEATURES)
+FEATURES := $(BITCOIN_FEATURES)
 
 TEST_CLI_PROGRAMS :=				\
 	test-cli/check-commit-sig		\

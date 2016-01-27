@@ -32,14 +32,14 @@
 #define OP_CHECKMULTISIG	0xAE
 #define OP_HASH160	0xA9
 
-#ifdef HAS_CSV
+#if HAS_CSV
 #define OP_CHECKSEQUENCEVERIFY	0xB2
 #else
 /* OP_NOP, otherwise bitcoind complains */
 #define OP_CHECKSEQUENCEVERIFY	0x61
 #endif
 
-#ifdef HAS_CLTV
+#if HAS_CLTV
 #define OP_CHECKLOCKTIMEVERIFY	0xB1
 #else
 /* OP_NOP, otherwise bitcoind complains */
@@ -107,7 +107,7 @@ static void add_push_key(u8 **scriptp, const struct pubkey *key)
 static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
 {
 /* Bitcoin wants DER encoding. */
-#ifdef SCRIPTS_USE_DER
+#if SCRIPTS_USE_DER
 	u8 der[73];
 	secp256k1_context *secpctx = secp256k1_context_create(0);
 	size_t len = signature_to_der(secpctx, der, &sig->sig);

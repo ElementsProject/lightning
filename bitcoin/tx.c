@@ -26,7 +26,7 @@ enum styles {
 	TX_OUTPUT_AMOUNT_HASHPROOF = 64
 };
 
-#ifdef ALPHA_TXSTYLE
+#if ALPHA_TXSTYLE
 /* Linearizing has everything, except input amount (which is implied) */
 #define LINEARIZE_STYLE (TX_AMOUNT_CT_STYLE | TX_AMOUNT_INCLUDE_CT | TX_FEE | TX_INPUT_SCRIPTSIG)
 
@@ -253,7 +253,7 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 		tx->input[i].sequence_number = 0xFFFFFFFF;
 	}
 	tx->lock_time = 0;
-#ifdef HAS_BIP68
+#if HAS_BIP68
 	tx->version = 2;
 #else
 	tx->version = 1;
@@ -475,7 +475,7 @@ struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,
 			goto fail_free_tx;
 	} else {
 		/* Input amounts are compulsory for alpha, to generate sigs */
-#ifdef ALPHA_TXSTYLE
+#if ALPHA_TXSTYLE
 		goto fail_free_tx;
 #endif
 	}
@@ -523,7 +523,7 @@ bool bitcoin_txid_to_hex(const struct sha256_double *txid,
 static bool write_input_amounts(int fd, const struct bitcoin_tx *tx)
 {
 	/* Alpha required input amounts, so append them */
-#ifdef ALPHA_TXSTYLE
+#if ALPHA_TXSTYLE
 	size_t i;
 
 	for (i = 0; i < tx->input_count; i++) {

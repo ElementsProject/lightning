@@ -11,7 +11,7 @@ Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
 
 	assert(sig_valid(sig));
 
-#ifdef USE_SCHNORR
+#if USE_SCHNORR
 	memcpy(&pb->r1, sig->schnorr, 8);
 	memcpy(&pb->r2, sig->schnorr + 8, 8);
 	memcpy(&pb->r3, sig->schnorr + 16, 8);
@@ -40,7 +40,7 @@ Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
 bool proto_to_signature(const Signature *pb, struct signature *sig)
 {
 	/* Kill me again. */
-#ifdef USE_SCHNORR
+#if USE_SCHNORR
 	memcpy(sig->schnorr, &pb->r1, 8);
 	memcpy(sig->schnorr + 8, &pb->r2, 8);
 	memcpy(sig->schnorr + 16, &pb->r3, 8);

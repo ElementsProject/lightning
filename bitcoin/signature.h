@@ -14,7 +14,7 @@ enum sighash_type {
 
 /* ECDSA of double SHA256. */
 struct signature {
-#ifdef USE_SCHNORR
+#if USE_SCHNORR
 	u8 schnorr[64];
 #else
 	secp256k1_ecdsa_signature sig;
@@ -63,7 +63,7 @@ bool check_2of2_sig(secp256k1_context *secpctx,
 /* Signature must have low S value. */
 bool sig_valid(const struct signature *s);
 
-#ifndef USE_SCHNORR
+#if USE_SCHNORR == 0
 /* Give DER encoding of signature: returns length used (<= 72). */
 size_t signature_to_der(secp256k1_context *secpctx,
 			u8 der[72], const struct signature *s);

@@ -32,7 +32,7 @@ static bool abs_is_seconds(u32 locktime)
 
 bool seconds_to_rel_locktime(u32 seconds, struct rel_locktime *rel)
 {
-#ifdef HAS_BIP68
+#if HAS_BIP68
 	if ((seconds >> BIP68_SECONDS_SHIFT) > BIP68_LOCKTIME_MASK)
 		return false;
 	rel->locktime = BIP68_SECONDS_FLAG | (seconds >> BIP68_SECONDS_SHIFT);
@@ -45,7 +45,7 @@ bool seconds_to_rel_locktime(u32 seconds, struct rel_locktime *rel)
 
 bool blocks_to_rel_locktime(u32 blocks, struct rel_locktime *rel)
 {
-#ifdef HAS_BIP68
+#if HAS_BIP68
 	if (blocks > BIP68_LOCKTIME_MASK)
 		return false;
 #endif
@@ -55,7 +55,7 @@ bool blocks_to_rel_locktime(u32 blocks, struct rel_locktime *rel)
 
 bool rel_locktime_is_seconds(const struct rel_locktime *rel)
 {
-#ifdef HAS_BIP68
+#if HAS_BIP68
 	return rel->locktime & BIP68_SECONDS_FLAG;
 #else
 	return abs_is_seconds(rel->locktime);
@@ -65,7 +65,7 @@ bool rel_locktime_is_seconds(const struct rel_locktime *rel)
 u32 rel_locktime_to_seconds(const struct rel_locktime *rel)
 {
 	assert(rel_locktime_is_seconds(rel));
-#ifdef HAS_BIP68
+#if HAS_BIP68
 	return rel->locktime & BIP68_LOCKTIME_MASK;
 #else
 	return rel->locktime - SECONDS_POINT;
@@ -75,7 +75,7 @@ u32 rel_locktime_to_seconds(const struct rel_locktime *rel)
 u32 rel_locktime_to_blocks(const struct rel_locktime *rel)
 {
 	assert(!rel_locktime_is_seconds(rel));
-#ifdef HAS_BIP68
+#if HAS_BIP68
 	return rel->locktime & BIP68_LOCKTIME_MASK;
 #else
 	return rel->locktime;
@@ -84,7 +84,7 @@ u32 rel_locktime_to_blocks(const struct rel_locktime *rel)
 
 u32 bitcoin_nsequence(const struct rel_locktime *rel)
 {
-#ifdef HAS_BIP68
+#if HAS_BIP68
 	/* Can't set disable bit, or other bits except low 16 and bit 22 */
 	assert(!(rel->locktime & ~(BIP68_SECONDS_FLAG|BIP68_LOCKTIME_MASK)));
 	return rel->locktime;

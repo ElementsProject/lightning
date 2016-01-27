@@ -2,7 +2,7 @@
 #include "pubkey.h"
 #include "script.h"
 #include "secp256k1.h"
-#ifdef USE_SCHNORR
+#if USE_SCHNORR
 #include "secp256k1_schnorr.h"
 #endif
 #include "shadouble.h"
@@ -83,7 +83,7 @@ void sign_hash(secp256k1_context *secpctx,
 {
 	bool ok;
 
-#ifdef USE_SCHNORR
+#if USE_SCHNORR
 	ok = secp256k1_schnorr_sign(secpctx,
 				    s->schnorr,
 				    h->sha.u.u8,
@@ -148,7 +148,7 @@ bool check_signed_hash(secp256k1_context *secpctx,
 {
 	int ret;
 
-#ifdef USE_SCHNORR
+#if USE_SCHNORR
 	ret = secp256k1_schnorr_verify(secpctx, signature->schnorr,
 				       hash->sha.u.u8, &key->pubkey);
 #else
@@ -205,7 +205,7 @@ bool check_2of2_sig(secp256k1_context *secpctx,
 		&& check_signed_hash(secpctx, &hash, &sig2->sig, key2);
 }
 
-#ifndef USE_SCHNORR
+#if USE_SCHNORR == 0
 /* Stolen direct from bitcoin/src/script/sign.cpp:
 // Copyright (c) 2009-2010 Satoshi Nakamoto
 // Copyright (c) 2009-2014 The Bitcoin Core developers
@@ -294,7 +294,7 @@ size_t signature_to_der(secp256k1_context *secpctx,
 /* Signature must have low S value. */
 bool sig_valid(const struct signature *sig)
 {
-#ifdef USE_SCHNORR
+#if USE_SCHNORR
 	return true;
 #else
 	/* FIXME!  Need libsecp support. */
