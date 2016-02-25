@@ -204,7 +204,7 @@ CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations 
 CDEBUGFLAGS := -g -fstack-protector
 CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) -I secp256k1/include/ -I . $(FEATURES)
 
-LDLIBS := -lcrypto -lprotobuf-c
+LDLIBS := -lcrypto -lprotobuf-c -lgmp
 $(PROGRAMS): CFLAGS+=-I.
 
 default: $(PROGRAMS) daemon-all
