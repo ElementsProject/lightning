@@ -1,4 +1,4 @@
-#! /bin/sh -ex
+#! /bin/sh -e
 
 # We steal the test-cli scripts.
 cd test-cli
@@ -12,6 +12,16 @@ DIR2=/tmp/lightning.$$.2
 
 REDIR1="$DIR1/output"
 REDIR2="$DIR2/output"
+FGREP="fgrep -q"
+
+if [ x"$1" = x"--verbose" ]; then
+    shift
+    set -x
+    FGREP="fgrep"
+else
+    # Suppress command output.
+    exec >/dev/null
+fi
 
 if [ x"$1" = x"--valgrind" ]; then
     PREFIX1="valgrind --vgdb-error=1"
@@ -41,13 +51,13 @@ check_status()
     them_fee=$5
     them_htlcs="$6"
 
-    if $LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"channel" : { "us" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] }, "them" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] } }'; then :; else
+    if $LCLI1 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"channel" : { "us" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] }, "them" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] } }'; then :; else
 	echo Cannot find peer1: '"channel" : { "us" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] }, "them" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] } }' >&2
 	$LCLI1 getpeers | tr -s '\012\011 ' ' ' >&2
 	return 1
     fi
 
-    if $LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep -q '"channel" : { "us" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] }, "them" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] } }'; then :; else
+    if $LCLI2 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"channel" : { "us" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] }, "them" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] } }'; then :; else
 	echo Cannot find peer2: '"channel" : { "us" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] }, "them" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] } }' >&2
 	$LCLI2 getpeers | tr -s '\012\011 ' ' ' >&2
 	return 1
@@ -80,7 +90,7 @@ $PREFIX1 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=9
 $PREFIX2 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR2 > $REDIR2 &
 
 i=0
-while ! $LCLI1 getlog | grep Hello; do
+while ! $LCLI1 getlog 2>/dev/null | $FGREP Hello; do
     sleep 1
     i=$(($i + 1))
     if [ $i -gt 10 ]; then
@@ -89,7 +99,7 @@ while ! $LCLI1 getlog | grep Hello; do
     fi
 done
 
-while ! $LCLI2 getlog | grep 'listener on port'; do
+while ! $LCLI2 getlog 2>/dev/null | $FGREP 'listener on port'; do
     sleep 1
     i=$(($i + 1))
     if [ $i -gt 10 ]; then
@@ -107,8 +117,8 @@ $LCLI1 connect localhost $PORT2 999999
 sleep 2
 
 # Expect them to be waiting for anchor.
-$LCLI1 getpeers | grep STATE_OPEN_WAITING_OURANCHOR
-$LCLI2 getpeers | grep STATE_OPEN_WAITING_THEIRANCHOR
+$LCLI1 getpeers | $FGREP STATE_OPEN_WAITING_OURANCHOR
+$LCLI2 getpeers | $FGREP STATE_OPEN_WAITING_THEIRANCHOR
 
 if [ "x$1" = x"--timeout-anchor" ]; then
     # Anchor gets 1 commit.
@@ -120,16 +130,16 @@ if [ "x$1" = x"--timeout-anchor" ]; then
     $LCLI1 dev-mocktime $TIME
 
     # This will crash immediately
-    if $LCLI2 dev-mocktime $TIME >&2; then
+    if $LCLI2 dev-mocktime $TIME 2> /dev/null; then
 	echo Node2 did not crash >&2
 	exit 1
     fi
-    fgrep 'Entered error state STATE_ERR_ANCHOR_TIMEOUT' $DIR2/crash.log
+    $FGREP 'Entered error state STATE_ERR_ANCHOR_TIMEOUT' $DIR2/crash.log
 
     sleep 1
 
     # It should send out commit tx.
-    $LCLI1 getpeers | fgrep -w STATE_CLOSE_WAIT_CLOSE_OURCOMMIT
+    $LCLI1 getpeers | $FGREP -w STATE_CLOSE_WAIT_CLOSE_OURCOMMIT
 
     # Generate a block (should include commit tx)
     check_tx_spend
@@ -149,7 +159,7 @@ if [ "x$1" = x"--timeout-anchor" ]; then
     $LCLI1 dev-mocktime $TIME
     sleep 1
     
-    $LCLI1 getpeers | fgrep -w STATE_CLOSE_WAIT_CLOSE_SPENDOURS
+    $LCLI1 getpeers | $FGREP -w STATE_CLOSE_WAIT_CLOSE_SPENDOURS
     
     # Now it should have spent the commit tx.
     check_tx_spend
@@ -161,7 +171,7 @@ if [ "x$1" = x"--timeout-anchor" ]; then
     sleep 1
 
     # Considers it all done now.
-    $LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep '"peers" : [ ]'
+    $LCLI1 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"peers" : [ ]'
 
     $LCLI1 stop
     all_ok
@@ -174,8 +184,8 @@ $CLI generate 2
 # They poll every second, so give them time to process.
 sleep 2
 
-$LCLI1 getpeers | grep STATE_NORMAL_HIGHPRIO
-$LCLI2 getpeers | grep STATE_NORMAL_LOWPRIO
+$LCLI1 getpeers | $FGREP STATE_NORMAL_HIGHPRIO
+$LCLI2 getpeers | $FGREP STATE_NORMAL_LOWPRIO
 
 check_status 949999000 50000000 "" 0 0 ""
 
@@ -224,8 +234,8 @@ $LCLI1 close $ID2
 sleep 1
 
 # They should be waiting for close.
-$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep '"STATE_CLOSE_WAIT_CLOSE"'
-$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep '"STATE_CLOSE_WAIT_CLOSE"'
+$LCLI1 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"STATE_CLOSE_WAIT_CLOSE"'
+$LCLI2 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"STATE_CLOSE_WAIT_CLOSE"'
 
 # Give it 99 blocks.
 $CLI generate 99
@@ -234,8 +244,8 @@ $CLI generate 99
 $LCLI1 dev-mocktime $(($EXPIRY + 32))
 $LCLI2 dev-mocktime $(($EXPIRY + 32))
 sleep 1
-$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep '"STATE_CLOSE_WAIT_CLOSE"'
-$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep '"STATE_CLOSE_WAIT_CLOSE"'
+$LCLI1 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"STATE_CLOSE_WAIT_CLOSE"'
+$LCLI2 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"STATE_CLOSE_WAIT_CLOSE"'
 
 # Now the final one.
 $CLI generate 1
@@ -244,8 +254,8 @@ $LCLI1 dev-mocktime $TIME
 $LCLI2 dev-mocktime $TIME
 sleep 1
 
-$LCLI1 getpeers | tr -s '\012\011 ' ' ' | fgrep '"peers" : [ ]'
-$LCLI2 getpeers | tr -s '\012\011 ' ' ' | fgrep '"peers" : [ ]'
+$LCLI1 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"peers" : [ ]'
+$LCLI2 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"peers" : [ ]'
 
 $LCLI1 stop
 $LCLI2 stop
