@@ -193,7 +193,7 @@ enum state_input {
 	/* Updating the commit transaction: my HTLC timed out! */
 	PKT_UPDATE_TIMEDOUT_HTLC = PKT__PKT_UPDATE_TIMEDOUT_HTLC,
 	/* Updating the commit transaction: your HTLC failed upstream */
-	PKT_UPDATE_ROUTEFAIL_HTLC = PKT__PKT_UPDATE_ROUTEFAIL_HTLC,
+	PKT_UPDATE_FAIL_HTLC = PKT__PKT_UPDATE_FAIL_HTLC,
 
 	/* Update replies: */
 	PKT_UPDATE_ACCEPT = PKT__PKT_UPDATE_ACCEPT,
@@ -277,7 +277,7 @@ enum state_input {
 	CMD_SEND_HTLC_UPDATE,
 	CMD_SEND_HTLC_FULFILL,
 	CMD_SEND_HTLC_TIMEDOUT,
-	CMD_SEND_HTLC_ROUTEFAIL,
+	CMD_SEND_HTLC_FAIL,
 	CMD_CLOSE,
 
 	INPUT_MAX

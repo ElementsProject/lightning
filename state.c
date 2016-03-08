@@ -427,10 +427,10 @@ enum command_status state(const tal_t *ctx,
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			return next_state(peer, cstatus,
 					  prio(peer->state, STATE_WAIT_FOR_UPDATE_ACCEPT));
-		} else if (input_is(input, CMD_SEND_HTLC_ROUTEFAIL)) {
-			/* We are to send an HTLC routefail. */
+		} else if (input_is(input, CMD_SEND_HTLC_FAIL)) {
+			/* We are to send an HTLC fail. */
 			queue_pkt(out,
-				   pkt_htlc_routefail(ctx, peer,
+				   pkt_htlc_fail(ctx, peer,
 						      idata->htlc_prog));
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			return next_state(peer, cstatus,
@@ -446,9 +446,9 @@ enum command_status state(const tal_t *ctx,
 		} else if (input_is(input, PKT_UPDATE_TIMEDOUT_HTLC)) {
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			goto accept_htlc_timedout;
-		} else if (input_is(input, PKT_UPDATE_ROUTEFAIL_HTLC)) {
+		} else if (input_is(input, PKT_UPDATE_FAIL_HTLC)) {
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
-			goto accept_htlc_routefail;
+			goto accept_htlc_fail;
 		} else if (input_is(input, BITCOIN_ANCHOR_THEIRSPEND)) {
 			goto them_unilateral;
 		} else if (input_is(input, BITCOIN_ANCHOR_OTHERSPEND)) {
@@ -507,7 +507,7 @@ enum command_status state(const tal_t *ctx,
 			/* Stay busy, since we're processing theirs. */
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			goto accept_htlc_timedout;
-		} else if (input_is(input, PKT_UPDATE_ROUTEFAIL_HTLC)) {
+		} else if (input_is(input, PKT_UPDATE_FAIL_HTLC)) {
 			/* If we're high priority, ignore their packet */
 			if (high_priority(peer->state))
 				return cstatus;
@@ -517,7 +517,7 @@ enum command_status state(const tal_t *ctx,
 			complete_cmd(peer, &cstatus, CMD_REQUEUE);
 			/* Stay busy, since we're processing theirs. */
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
-			goto accept_htlc_routefail;
+			goto accept_htlc_fail;
 		} else if (input_is(input, PKT_UPDATE_ACCEPT)) {
 			err = accept_pkt_update_accept(ctx, peer, idata->pkt);
 			if (err) {
@@ -1052,8 +1052,8 @@ accept_htlc_update:
 	return next_state(peer, cstatus,
 			  prio(peer->state, STATE_WAIT_FOR_UPDATE_SIG));
 
-accept_htlc_routefail:
-	err = accept_pkt_htlc_routefail(ctx, peer, idata->pkt);
+accept_htlc_fail:
+	err = accept_pkt_htlc_fail(ctx, peer, idata->pkt);
 	if (err)
 		goto err_start_unilateral_close;
 	queue_pkt(out, pkt_update_accept(ctx, peer));

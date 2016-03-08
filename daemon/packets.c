@@ -175,17 +175,17 @@ Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct peer *peer,
 	return make_pkt(ctx, PKT__PKT_UPDATE_TIMEDOUT_HTLC, t);
 }
 
-Pkt *pkt_htlc_routefail(const tal_t *ctx, const struct peer *peer,
-			const struct htlc_progress *htlc_prog)
+Pkt *pkt_htlc_fail(const tal_t *ctx, const struct peer *peer,
+		   const struct htlc_progress *htlc_prog)
 {
-	UpdateRoutefailHtlc *f = tal(ctx, UpdateRoutefailHtlc);
+	UpdateFailHtlc *f = tal(ctx, UpdateFailHtlc);
 
-	update_routefail_htlc__init(f);
+	update_fail_htlc__init(f);
 
 	f->revocation_hash = sha256_to_proto(f, &htlc_prog->our_revocation_hash);
 	f->r_hash = sha256_to_proto(f, &htlc_prog->htlc->rhash);
 
-	return make_pkt(ctx, PKT__PKT_UPDATE_ROUTEFAIL_HTLC, f);
+	return make_pkt(ctx, PKT__PKT_UPDATE_FAIL_HTLC, f);
 }
 
 Pkt *pkt_update_accept(const tal_t *ctx, const struct peer *peer)
@@ -501,10 +501,9 @@ decline:
 	return NULL;
 };
 
-Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
-			       struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_htlc_fail(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
 {
-	const UpdateRoutefailHtlc *f = pkt->update_routefail_htlc;
+	const UpdateFailHtlc *f = pkt->update_fail_htlc;
 	struct htlc_progress *cur = tal(peer, struct htlc_progress);
 	Pkt *err;
 	size_t i;

@@ -37,7 +37,7 @@ enum failure {
 	FAIL_ACCEPT_OPEN_COMMIT_SIG,
 	FAIL_ACCEPT_OPEN_COMPLETE,
 	FAIL_ACCEPT_HTLC_UPDATE,
-	FAIL_ACCEPT_HTLC_ROUTEFAIL,
+	FAIL_ACCEPT_HTLC_FAIL,
 	FAIL_ACCEPT_HTLC_TIMEDOUT,
 	FAIL_ACCEPT_HTLC_FULFILL,
 	FAIL_ACCEPT_UPDATE_ACCEPT,
@@ -418,7 +418,7 @@ static const union input dup_idata(const tal_t *ctx,
 		i.pkt = (Pkt *)tal_strdup(ctx, (const char *)idata->pkt);
 	else if (input == CMD_SEND_HTLC_UPDATE
 		 || input == CMD_SEND_HTLC_FULFILL
-		 || input == CMD_SEND_HTLC_ROUTEFAIL
+		 || input == CMD_SEND_HTLC_FAIL
 		 || input == CMD_SEND_HTLC_TIMEDOUT) {
 		i.htlc_prog = tal_dup(ctx, struct htlc_progress,
 				      idata->htlc_prog);
@@ -636,10 +636,10 @@ Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct peer *peer,
 	return htlc_pkt(ctx, "PKT_UPDATE_TIMEDOUT_HTLC", htlc_prog->htlc.id);
 }
 
-Pkt *pkt_htlc_routefail(const tal_t *ctx, const struct peer *peer,
+Pkt *pkt_htlc_fail(const tal_t *ctx, const struct peer *peer,
 			const struct htlc_progress *htlc_prog)
 {
-	return htlc_pkt(ctx, "PKT_UPDATE_ROUTEFAIL_HTLC", htlc_prog->htlc.id);
+	return htlc_pkt(ctx, "PKT_UPDATE_FAIL_HTLC", htlc_prog->htlc.id);
 }
 
 Pkt *pkt_update_accept(const tal_t *ctx, const struct peer *peer)
@@ -744,13 +744,13 @@ Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 	return NULL;
 }
 
-Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
+Pkt *accept_pkt_htlc_fail(const tal_t *ctx,
 			       struct peer *peer, const Pkt *pkt)
 {
 	unsigned int id = htlc_id_from_pkt(pkt);
 	const struct htlc *h = find_htlc(peer, id);
 
-	if (fail(peer, FAIL_ACCEPT_HTLC_ROUTEFAIL))
+	if (fail(peer, FAIL_ACCEPT_HTLC_FAIL))
 		return pkt_err(ctx, "Error inject");
 
 	/* The shouldn't fail unless it's to them */
@@ -1489,7 +1489,7 @@ void peer_htlc_ours_deferred(struct peer *peer)
 	clear_current_htlc(peer);
 }
 
-/* Successfully added/fulfilled/timedout/routefail an HTLC. */
+/* Successfully added/fulfilled/timedout/fail an HTLC. */
 void peer_htlc_done(struct peer *peer)
 {
 	if (peer->current_htlc.htlc.id == -1)
@@ -1724,7 +1724,7 @@ static bool normal_path(enum state_input i, enum state src, enum state dst)
 	    || i == BITCOIN_ANCHOR_OTHERSPEND
 	    || i == BITCOIN_STEAL_DONE
 	    || i == PKT_UPDATE_DECLINE_HTLC
-	    || i == PKT_UPDATE_ROUTEFAIL_HTLC
+	    || i == PKT_UPDATE_FAIL_HTLC
 	    || i == PKT_UPDATE_TIMEDOUT_HTLC
 	    || i == INPUT_CLOSE_COMPLETE_TIMEOUT)
 		return false;
@@ -2128,7 +2128,7 @@ static void run_peer(const struct peer *peer,
 			copy.current_htlc.htlc.id = -1;
 		}
 
-		/* We can complete or routefail an HTLC they offered */
+		/* We can complete or fail an HTLC they offered */
 		for (i = 0; i < peer->num_htlcs_to_us; i++) {
 			idata->htlc_prog = tal(idata, struct htlc_progress);
 			idata->htlc_prog->htlc = peer->htlcs_to_us[i];
@@ -2147,7 +2147,7 @@ static void run_peer(const struct peer *peer,
 					  idata, normalpath, errorpath,
 					  prev_trail, hist);
 			}
-			copy.core.current_command = CMD_SEND_HTLC_ROUTEFAIL;
+			copy.core.current_command = CMD_SEND_HTLC_FAIL;
 			try_input(&copy, copy.core.current_command,
 				  idata, normalpath, errorpath,
 				  prev_trail, hist);

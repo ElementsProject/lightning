@@ -53,7 +53,7 @@ static inline bool input_is(enum state_input a, enum state_input b)
 		return input_is(a, CMD_SEND_HTLC_UPDATE)
 			| input_is(a, CMD_SEND_HTLC_FULFILL)
 			| input_is(a, CMD_SEND_HTLC_TIMEDOUT)
-			| input_is(a, CMD_SEND_HTLC_ROUTEFAIL);
+			| input_is(a, CMD_SEND_HTLC_FAIL);
 	}
 
 /* For test_state_coverate to make the states. */
@@ -80,7 +80,7 @@ void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt);
  * - peer_htlc_added: a new HTLC was added successfully.
  * - peer_htlc_fulfilled: an existing HTLC was fulfilled successfully.
  * - peer_htlc_timedout: an existing HTLC was timed out successfully.
- * - peer_htlc_routefail: an existing HTLC failed to route.
+ * - peer_htlc_fail: an existing HTLC failed to route.
  * - peer_htlc_aborted: eg. comms error
  */
 
@@ -88,7 +88,7 @@ void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt);
 void peer_htlc_declined(struct peer *peer, const Pkt *pkt);
 /* Called when their update overrides our update cmd. */
 void peer_htlc_ours_deferred(struct peer *peer);
-/* Successfully added/fulfilled/timedout/routefail an HTLC. */
+/* Successfully added/fulfilled/timedout/fail an HTLC. */
 void peer_htlc_done(struct peer *peer);
 /* Someone aborted an existing HTLC. */
 void peer_htlc_aborted(struct peer *peer);
@@ -109,7 +109,7 @@ Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct peer *peer,
 		      const struct htlc_progress *htlc_prog);
 Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct peer *peer,
 		       const struct htlc_progress *htlc_prog);
-Pkt *pkt_htlc_routefail(const tal_t *ctx, const struct peer *peer,
+Pkt *pkt_htlc_fail(const tal_t *ctx, const struct peer *peer,
 			const struct htlc_progress *htlc_prog);
 Pkt *pkt_update_accept(const tal_t *ctx, const struct peer *peer);
 Pkt *pkt_update_signature(const tal_t *ctx, const struct peer *peer);
@@ -139,8 +139,8 @@ Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 			    struct peer *peer, const Pkt *pkt,
 			    Pkt **decline);
 
-Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
-			       struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_htlc_fail(const tal_t *ctx,
+			  struct peer *peer, const Pkt *pkt);
 
 Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
 			      struct peer *peer, const Pkt *pkt);

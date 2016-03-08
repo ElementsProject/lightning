@@ -1611,7 +1611,7 @@ static void do_failhtlc(struct peer *peer,
 	funding_remove_htlc(&cstate->b, i);
 
 	set_htlc_command(peer, cstate, failhtlc->jsoncmd, htlc,
-			 CMD_SEND_HTLC_ROUTEFAIL, NULL);
+			 CMD_SEND_HTLC_FAIL, NULL);
 }
 
 static void json_failhtlc(struct command *cmd,
