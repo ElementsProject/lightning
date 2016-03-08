@@ -7,6 +7,7 @@
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/endian/endian.h>
+#include <ccan/mem/mem.h>
 
 /* Some standard ops */
 #define OP_PUSHBYTES(val) (val)
@@ -76,7 +77,7 @@ static void add_push_bytes(u8 **scriptp, const void *mem, size_t len)
 		add(scriptp, &v, 4);
 	}
 
-	add(scriptp, mem, len);
+	add(scriptp, memcheck(mem, len), len);
 }
 
 static void add_number(u8 **script, u32 num)

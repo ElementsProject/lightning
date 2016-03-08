@@ -1,5 +1,6 @@
 #include "funding.h"
 #include <assert.h>
+#include <ccan/mem/mem.h>
 #include <ccan/structeq/structeq.h>
 #include <string.h>
 
@@ -188,6 +189,9 @@ void funding_add_htlc(struct channel_oneside *creator,
 	creator->htlcs[n].msatoshis = msatoshis;
 	creator->htlcs[n].expiry = *expiry;
 	creator->htlcs[n].rhash = *rhash;
+	memcheck(&creator->htlcs[n].msatoshis,
+		 sizeof(creator->htlcs[n].msatoshis));
+	memcheck(&creator->htlcs[n].rhash, sizeof(creator->htlcs[n].rhash));
 }
 
 size_t funding_find_htlc(struct channel_oneside *creator,

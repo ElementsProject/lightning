@@ -469,9 +469,12 @@ Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 	
 	peer_get_revocation_hash(peer, peer->num_htlcs+1,
 				 &cur->our_revocation_hash);
+	memcheck(&cur->their_revocation_hash, sizeof(cur->their_revocation_hash));
 
 	/* Now we create the commit tx pair. */
-	make_commit_txs(cur, peer, &cur->our_revocation_hash,
+	make_commit_txs(cur, peer,
+			memcheck(&cur->our_revocation_hash,
+				 sizeof(cur->our_revocation_hash)),
 			&cur->their_revocation_hash,
 			cur->cstate,
 			&cur->our_commit, &cur->their_commit);
