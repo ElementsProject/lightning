@@ -132,6 +132,9 @@ Pkt *accept_pkt_anchor(const tal_t *ctx,
 Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
 				struct peer *peer, const Pkt *pkt);
 	
+Pkt *accept_pkt_open_complete(const tal_t *ctx,
+			      struct peer *peer, const Pkt *pkt);
+	
 Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 			    struct peer *peer, const Pkt *pkt,
 			    Pkt **decline);

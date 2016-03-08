@@ -233,6 +233,15 @@ enum command_status state(const tal_t *ctx,
 		break;
 	case STATE_OPEN_WAITING_OURANCHOR:
 		if (input_is(input, PKT_OPEN_COMPLETE)) {
+			err = accept_pkt_open_complete(ctx, peer, idata->pkt);
+			if (err) {
+				complete_cmd(peer, &cstatus, CMD_FAIL);
+				/* We no longer care about anchor depth. */
+				peer_unwatch_anchor_depth(peer, 
+							  BITCOIN_ANCHOR_DEPTHOK,
+							  INPUT_NONE);
+				goto err_start_unilateral_close;
+			}
 			return next_state(peer, cstatus,
 					  STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED);
 		}
@@ -286,6 +295,15 @@ enum command_status state(const tal_t *ctx,
 		break;
 	case STATE_OPEN_WAITING_THEIRANCHOR:
 		if (input_is(input, PKT_OPEN_COMPLETE)) {
+			err = accept_pkt_open_complete(ctx, peer, idata->pkt);
+			if (err) {
+				complete_cmd(peer, &cstatus, CMD_FAIL);
+				/* We no longer care about anchor depth. */
+				peer_unwatch_anchor_depth(peer, 
+							  BITCOIN_ANCHOR_DEPTHOK,
+							  BITCOIN_ANCHOR_TIMEOUT);
+				goto err_start_unilateral_close;
+			}
 			return next_state(peer, cstatus,
 					  STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED);
 		}

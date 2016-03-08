@@ -35,6 +35,7 @@ enum failure {
 	FAIL_ACCEPT_OPEN,
 	FAIL_ACCEPT_ANCHOR,
 	FAIL_ACCEPT_OPEN_COMMIT_SIG,
+	FAIL_ACCEPT_OPEN_COMPLETE,
 	FAIL_ACCEPT_HTLC_UPDATE,
 	FAIL_ACCEPT_HTLC_ROUTEFAIL,
 	FAIL_ACCEPT_HTLC_TIMEDOUT,
@@ -716,6 +717,15 @@ Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
 	return NULL;
 }
 	
+Pkt *accept_pkt_open_complete(const tal_t *ctx,
+			      struct peer *peer,
+			      const Pkt *pkt)
+{
+	if (fail(peer, FAIL_ACCEPT_OPEN_COMPLETE))
+		return pkt_err(ctx, "Error inject");
+	return NULL;
+}
+
 Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 			    struct peer *peer, const Pkt *pkt,
 			    Pkt **decline)

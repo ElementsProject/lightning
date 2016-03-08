@@ -405,6 +405,12 @@ Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
 	return NULL;
 }
 
+Pkt *accept_pkt_open_complete(const tal_t *ctx,
+			      struct peer *peer, const Pkt *pkt)
+{
+	return NULL;
+}
+
 static Pkt *decline_htlc(const tal_t *ctx, const char *why)
 {
 	UpdateDeclineHtlc *d = tal(ctx, UpdateDeclineHtlc);
