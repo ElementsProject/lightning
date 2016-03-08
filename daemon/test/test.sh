@@ -26,33 +26,52 @@ else
 fi
 
 # Always use valgrind.
-PREFIX1="valgrind -q --error-exitcode=7"
-PREFIX2="valgrind -q --error-exitcode=7"
+PREFIX="valgrind -q --error-exitcode=7"
 
-if [ x"$1" = x"--valgrind-vgdb" ]; then
-    PREFIX1="valgrind --vgdb-error=1"
-    PREFIX2="valgrind --vgdb-error=1"
-    REDIR1="/dev/tty"
-    REDIR2="/dev/tty"
-    REDIRERR1="/dev/tty"
-    REDIRERR2="/dev/tty"
+while [ $# != 0 ]; do
+    case x"$1" in
+	x"--valgrind-vgdb")
+	    PREFIX="valgrind --vgdb-error=1"
+	    REDIR1="/dev/tty"
+	    REDIRERR1="/dev/tty"
+	    REDIR2="/dev/tty"
+	    REDIRERR2="/dev/tty"
+	    ;;
+	x"--gdb1")
+	    GDB1=1
+	    ;;
+	x"--gdb2")
+	    GDB2=1
+	    ;;
+	x"--timeout-anchor")
+	    TIMEOUT_ANCHOR=1
+	    ;;
+	*)
+	    echo Unknown arg "$1" >&2
+	    exit 1
+    esac
     shift
-elif [ x"$1" = x"--gdb1" ]; then
-    PREFIX1="gdb --args -ex run"
-    REDIR1="/dev/tty"
-    REDIRERR1="/dev/tty"
-    REDIRERR2="/dev/tty"
-    shift
-elif [ x"$1" = x"--gdb2" ]; then
-    PREFIX2="gdb --args -ex run"
-    REDIR2="/dev/tty"
-    REDIRERR1="/dev/tty"
-    REDIRERR2="/dev/tty"
-    shift
-fi
+done
 
 LCLI1="../daemon/lightning-cli --lightning-dir=$DIR1"
 LCLI2="../daemon/lightning-cli --lightning-dir=$DIR2"
+
+check_status_single()
+{
+    lcli_cmd="$1"
+    us_pay=$2
+    us_fee=$3
+    us_htlcs="$4"
+    them_pay=$5
+    them_fee=$6
+    them_htlcs="$7"
+
+    if $lcli_cmd getpeers | tr -s '\012\011 ' ' ' | $FGREP '"channel" : { "us" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] }, "them" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] } }'; then :; else
+	echo Cannot find $lcli_cmd output: '"channel" : { "us" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] }, "them" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] } }' >&2
+	$lcli_cmd getpeers | tr -s '\012\011 ' ' ' >&2
+	return 1
+    fi
+}
 
 check_status()
 {
@@ -63,17 +82,8 @@ check_status()
     them_fee=$5
     them_htlcs="$6"
 
-    if $LCLI1 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"channel" : { "us" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] }, "them" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] } }'; then :; else
-	echo Cannot find peer1: '"channel" : { "us" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] }, "them" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] } }' >&2
-	$LCLI1 getpeers | tr -s '\012\011 ' ' ' >&2
-	return 1
-    fi
-
-    if $LCLI2 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"channel" : { "us" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] }, "them" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] } }'; then :; else
-	echo Cannot find peer2: '"channel" : { "us" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] }, "them" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] } }' >&2
-	$LCLI2 getpeers | tr -s '\012\011 ' ' ' >&2
-	return 1
-    fi
+    check_status_single "$LCLI1" "$us_pay" "$us_fee" "$us_htlcs" "$them_pay" "$them_fee" "$them_htlcs" 
+    check_status_single "$LCLI2" "$them_pay" "$them_fee" "$them_htlcs" "$us_pay" "$us_fee" "$us_htlcs"
 }
 
 check_tx_spend()
@@ -101,8 +111,19 @@ all_ok()
 
 trap "echo Results in $DIR1 and $DIR2 >&2; cat $DIR1/errors $DIR2/errors >&2" EXIT
 mkdir $DIR1 $DIR2
-$PREFIX1 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR1 > $REDIR1 2> $REDIRERR1 &
-$PREFIX2 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR2 > $REDIR2 2> $REDIRERR2 &
+if [ -n "$GDB1" ]; then
+    echo Press return once you run: gdb --args daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR1
+    read REPLY
+else
+    $PREFIX ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR1 > $REDIR1 2> $REDIRERR1 &
+fi
+
+if [ -n "$GDB2" ]; then
+    echo Press return once you run: gdb --args daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR2
+    read REPLY
+else
+    $PREFIX ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR2 > $REDIR2 2> $REDIRERR2 &
+fi
 
 i=0
 while ! $LCLI1 getlog 2>/dev/null | $FGREP Hello; do
@@ -135,7 +156,7 @@ sleep 2
 $LCLI1 getpeers | $FGREP STATE_OPEN_WAITING_OURANCHOR
 $LCLI2 getpeers | $FGREP STATE_OPEN_WAITING_THEIRANCHOR
 
-if [ "x$1" = x"--timeout-anchor" ]; then
+if [ -n "$TIMEOUT_ANCHOR" ]; then
     # Anchor gets 1 commit.
     check_tx_spend
 
