@@ -75,3 +75,6 @@ daemon/jsmn.o: daemon/jsmn/jsmn.c
 daemon/lightningd: $(DAEMON_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_JSMN_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) libsecp256k1.a
 
 daemon/lightning-cli: $(DAEMON_CLI_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_JSMN_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) libsecp256k1.a
+
+daemon-clean:
+	$(RM) $(DAEMON_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_CLI_OBJS) $(DAEMON_JSMN_OBJS)

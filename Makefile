@@ -338,7 +338,7 @@ maintainter-clean: distclean
 	$(RM) lightning.pb-c.c lightning.pb-c.h ccan/config.h gen_version.h
 	$(RM) doc/deployable-lightning.pdf
 
-clean:
+clean: daemon-clean
 	$(MAKE) -C secp256k1/ clean || true
 	$(RM) libsecp256k1.{a,la}
 	$(RM) $(PROGRAMS) test-cli/leak-anchor-sigs
