@@ -12,6 +12,8 @@ DIR2=/tmp/lightning.$$.2
 
 REDIR1="$DIR1/output"
 REDIR2="$DIR2/output"
+REDIRERR1="$DIR1/errors"
+REDIRERR2="$DIR2/errors"
 FGREP="fgrep -q"
 
 if [ x"$1" = x"--verbose" ]; then
@@ -23,19 +25,29 @@ else
     exec >/dev/null
 fi
 
-if [ x"$1" = x"--valgrind" ]; then
+# Always use valgrind.
+PREFIX1="valgrind -q --error-exitcode=7"
+PREFIX2="valgrind -q --error-exitcode=7"
+
+if [ x"$1" = x"--valgrind-vgdb" ]; then
     PREFIX1="valgrind --vgdb-error=1"
     PREFIX2="valgrind --vgdb-error=1"
     REDIR1="/dev/tty"
     REDIR2="/dev/tty"
+    REDIRERR1="/dev/tty"
+    REDIRERR2="/dev/tty"
     shift
 elif [ x"$1" = x"--gdb1" ]; then
     PREFIX1="gdb --args -ex run"
     REDIR1="/dev/tty"
+    REDIRERR1="/dev/tty"
+    REDIRERR2="/dev/tty"
     shift
 elif [ x"$1" = x"--gdb2" ]; then
     PREFIX2="gdb --args -ex run"
     REDIR2="/dev/tty"
+    REDIRERR1="/dev/tty"
+    REDIRERR2="/dev/tty"
     shift
 fi
 
@@ -78,16 +90,19 @@ check_tx_spend()
 
 all_ok()
 {
+    # Look for valgrind errors.
+    if grep ^== $DIR1/errors; then exit 1; fi
+    if grep ^== $DIR2/errors; then exit 1; fi
     scripts/shutdown.sh
 
     trap "rm -rf $DIR1 $DIR2" EXIT
     exit 0
 }
-    
-trap "echo Results in $DIR1 and $DIR2" EXIT
+
+trap "echo Results in $DIR1 and $DIR2 >&2; cat $DIR1/errors $DIR2/errors >&2" EXIT
 mkdir $DIR1 $DIR2
-$PREFIX1 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR1 > $REDIR1 &
-$PREFIX2 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR2 > $REDIR2 &
+$PREFIX1 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR1 > $REDIR1 2> $REDIRERR1 &
+$PREFIX2 ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR2 > $REDIR2 2> $REDIRERR2 &
 
 i=0
 while ! $LCLI1 getlog 2>/dev/null | $FGREP Hello; do
@@ -136,7 +151,7 @@ if [ "x$1" = x"--timeout-anchor" ]; then
     fi
     $FGREP 'Entered error state STATE_ERR_ANCHOR_TIMEOUT' $DIR2/crash.log
 
-    sleep 1
+    sleep 2
 
     # It should send out commit tx.
     $LCLI1 getpeers | $FGREP -w STATE_CLOSE_WAIT_CLOSE_OURCOMMIT
@@ -152,12 +167,12 @@ if [ "x$1" = x"--timeout-anchor" ]; then
     $CLI generate 1
     TIME=$(($TIME + 1))
     $LCLI1 dev-mocktime $TIME
-    sleep 1
+    sleep 2
 
     # Sometimes it skips poll because it's busy.  Do it again.
     TIME=$(($TIME + 1))
     $LCLI1 dev-mocktime $TIME
-    sleep 1
+    sleep 2
     
     $LCLI1 getpeers | $FGREP -w STATE_CLOSE_WAIT_CLOSE_SPENDOURS
     
@@ -168,7 +183,7 @@ if [ "x$1" = x"--timeout-anchor" ]; then
     $CLI generate 99
     TIME=$(($TIME + 1))
     $LCLI1 dev-mocktime $TIME
-    sleep 1
+    sleep 2
 
     # Considers it all done now.
     $LCLI1 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"peers" : [ ]'
