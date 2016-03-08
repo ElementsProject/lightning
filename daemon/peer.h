@@ -112,7 +112,7 @@ struct peer {
 	/* Current HTLC, if any. */
 	struct htlc_progress *current_htlc;
 	/* Number of HTLC updates (== number of previous commit txs) */
-	u64 num_htlcs;
+	u64 commit_tx_counter;
 
 	/* FIXME: Group closing fields together in anon struct. */
 	/* Closing tx and signature once we've generated it */

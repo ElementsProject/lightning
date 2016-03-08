@@ -340,7 +340,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->curr_cmd.cmd = INPUT_NONE;
 	list_head_init(&peer->pending_cmd);
 	peer->current_htlc = NULL;
-	peer->num_htlcs = 0;
+	peer->commit_tx_counter = 0;
 	peer->close_tx = NULL;
 	peer->cstate = NULL;
 	peer->close_watch_timeout = NULL;
@@ -1292,7 +1292,7 @@ static void set_htlc_command(struct peer *peer,
 	if (r_fulfill)
 		peer->current_htlc->r = *r_fulfill;
 
-	peer_get_revocation_hash(peer, peer->num_htlcs+1,
+	peer_get_revocation_hash(peer, peer->commit_tx_counter+1,
 				 &peer->current_htlc->our_revocation_hash);
 
 	/* FIXME: Do we need current_htlc as idata arg? */

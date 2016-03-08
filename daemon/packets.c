@@ -216,8 +216,8 @@ Pkt *pkt_update_signature(const tal_t *ctx, const struct peer *peer)
 
 	peer_sign_theircommit(peer, cur->their_commit, &sig);
 	u->sig = signature_to_proto(u, &sig);
-	assert(peer->num_htlcs > 0);
-	peer_get_revocation_preimage(peer, peer->num_htlcs-1, &preimage);
+	assert(peer->commit_tx_counter > 0);
+	peer_get_revocation_preimage(peer, peer->commit_tx_counter-1, &preimage);
 	u->revocation_preimage = sha256_to_proto(u, &preimage);
 
 	return make_pkt(ctx, PKT__PKT_UPDATE_SIGNATURE, u);
@@ -230,7 +230,8 @@ Pkt *pkt_update_complete(const tal_t *ctx, const struct peer *peer)
 
 	update_complete__init(u);
 
-	peer_get_revocation_preimage(peer, peer->num_htlcs-1, &preimage);
+	assert(peer->commit_tx_counter > 0);
+	peer_get_revocation_preimage(peer, peer->commit_tx_counter-1, &preimage);
 	u->revocation_preimage = sha256_to_proto(u, &preimage);
 
 	return make_pkt(ctx, PKT__PKT_UPDATE_COMPLETE, u);
@@ -473,7 +474,7 @@ Pkt *accept_pkt_htlc_add(const tal_t *ctx,
 			 &cur->htlc->expiry, &cur->htlc->rhash);
 	peer_add_htlc_expiry(peer, &cur->htlc->expiry);
 	
-	peer_get_revocation_hash(peer, peer->num_htlcs+1,
+	peer_get_revocation_hash(peer, peer->commit_tx_counter+1,
 				 &cur->our_revocation_hash);
 	memcheck(&cur->their_revocation_hash, sizeof(cur->their_revocation_hash));
 
@@ -532,7 +533,7 @@ Pkt *accept_pkt_htlc_fail(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
 	funding_remove_htlc(&cur->cstate->a, i);
 	/* FIXME: Remove timer. */
 	
-	peer_get_revocation_hash(peer, peer->num_htlcs+1,
+	peer_get_revocation_hash(peer, peer->commit_tx_counter+1,
 				 &cur->our_revocation_hash);
 
 	/* Now we create the commit tx pair. */
@@ -588,7 +589,7 @@ Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
 	funding_remove_htlc(&cur->cstate->a, i);
 	/* FIXME: Remove timer. */
 
-	peer_get_revocation_hash(peer, peer->num_htlcs+1,
+	peer_get_revocation_hash(peer, peer->commit_tx_counter+1,
 				 &cur->our_revocation_hash);
 
 	/* Now we create the commit tx pair. */
@@ -638,7 +639,7 @@ Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
 	}
 	funding_remove_htlc(&cur->cstate->a, i);
 	
-	peer_get_revocation_hash(peer, peer->num_htlcs+1,
+	peer_get_revocation_hash(peer, peer->commit_tx_counter+1,
 				 &cur->our_revocation_hash);
 
 	/* Now we create the commit tx pair. */
@@ -694,7 +695,7 @@ static void update_to_new_htlcs(struct peer *peer)
 	peer->us.revocation_hash = cur->our_revocation_hash;
 	peer->them.revocation_hash = cur->their_revocation_hash;
 
-	peer->num_htlcs++;
+	peer->commit_tx_counter++;
 }
 
 Pkt *accept_pkt_update_accept(const tal_t *ctx,
