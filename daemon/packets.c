@@ -513,7 +513,7 @@ Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
 		goto fail;
 	}
 
-	cur->htlc = &peer->cstate->a.htlcs[i];
+	cur->htlc = tal_dup(cur, struct channel_htlc, &peer->cstate->a.htlcs[i]);
 
 	/* Removing it should not fail: we regain HTLC amount */
 	cur->cstate = copy_funding(cur, peer->cstate);
@@ -563,7 +563,7 @@ Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
 		goto fail;
 	}
 
-	cur->htlc = &peer->cstate->a.htlcs[i];
+	cur->htlc = tal_dup(cur, struct channel_htlc, &peer->cstate->a.htlcs[i]);
 
 	/* Do we agree it has timed out? */
 	if (controlled_time().ts.tv_sec < abs_locktime_to_seconds(&cur->htlc->expiry)) {
@@ -619,7 +619,7 @@ Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
 		goto fail;
 	}
 
-	cur->htlc = &peer->cstate->a.htlcs[i];
+	cur->htlc = tal_dup(cur, struct channel_htlc, &peer->cstate->a.htlcs[i]);
 
 	/* Removing it should not fail: they gain HTLC amount */
 	cur->cstate = copy_funding(cur, peer->cstate);

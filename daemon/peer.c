@@ -1288,7 +1288,8 @@ static void set_htlc_command(struct peer *peer,
 
 	peer->current_htlc = tal(peer, struct htlc_progress);
 	peer->current_htlc->cstate = tal_steal(peer->current_htlc, cstate);
-	peer->current_htlc->htlc = htlc;
+	peer->current_htlc->htlc = tal_dup(peer->current_htlc,
+					   struct channel_htlc, htlc);
 	if (r_fulfill)
 		peer->current_htlc->r = *r_fulfill;
 
