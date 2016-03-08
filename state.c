@@ -403,11 +403,10 @@ enum command_status state(const tal_t *ctx,
 	case STATE_NORMAL_LOWPRIO:
 	case STATE_NORMAL_HIGHPRIO:
 		assert(peer->cond == PEER_CMD_OK);
-		if (input_is(input, CMD_SEND_HTLC_UPDATE)) {
+		if (input_is(input, CMD_SEND_HTLC_ADD)) {
 			/* We are to send an HTLC update. */
 			queue_pkt(out,
-				   pkt_htlc_update(ctx, peer,
-						   idata->htlc_prog));
+				  pkt_htlc_add(ctx, peer, idata->htlc_prog));
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			return next_state(peer, cstatus,
 					  prio(peer->state, STATE_WAIT_FOR_HTLC_ACCEPT));
@@ -439,7 +438,7 @@ enum command_status state(const tal_t *ctx,
 			goto start_closing;
 		} else if (input_is(input, PKT_UPDATE_ADD_HTLC)) {
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
-			goto accept_htlc_update;
+			goto accept_htlc_add;
 		} else if (input_is(input, PKT_UPDATE_FULFILL_HTLC)) {
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			goto accept_htlc_fulfill;
@@ -484,7 +483,7 @@ enum command_status state(const tal_t *ctx,
 			complete_cmd(peer, &cstatus, CMD_REQUEUE);
 			/* Stay busy, since we're processing theirs. */
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
-			goto accept_htlc_update;
+			goto accept_htlc_add;
 		} else if (input_is(input, PKT_UPDATE_FULFILL_HTLC)) {
 			/* If we're high priority, ignore their packet */
 			if (high_priority(peer->state))
@@ -1035,8 +1034,8 @@ them_unilateral:
 
 	return next_state(peer, cstatus, STATE_CLOSE_WAIT_SPENDTHEM);
 
-accept_htlc_update:
-	err = accept_pkt_htlc_update(ctx, peer, idata->pkt, &decline);
+accept_htlc_add:
+	err = accept_pkt_htlc_add(ctx, peer, idata->pkt, &decline);
 	if (err)
 		goto err_start_unilateral_close;
 	if (decline) {

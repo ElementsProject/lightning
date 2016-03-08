@@ -134,8 +134,8 @@ Pkt *pkt_open_complete(const tal_t *ctx, const struct peer *peer)
 	return make_pkt(ctx, PKT__PKT_OPEN_COMPLETE, o);
 }
 
-Pkt *pkt_htlc_update(const tal_t *ctx, const struct peer *peer,
-		     const struct htlc_progress *htlc_prog)
+Pkt *pkt_htlc_add(const tal_t *ctx, const struct peer *peer,
+		  const struct htlc_progress *htlc_prog)
 {
 	UpdateAddHtlc *u = tal(ctx, UpdateAddHtlc);
 
@@ -423,9 +423,9 @@ static Pkt *decline_htlc(const tal_t *ctx, const char *why)
 	return make_pkt(ctx, PKT__PKT_UPDATE_DECLINE_HTLC, d);
 }
 
-Pkt *accept_pkt_htlc_update(const tal_t *ctx,
-			    struct peer *peer, const Pkt *pkt,
-			    Pkt **decline)
+Pkt *accept_pkt_htlc_add(const tal_t *ctx,
+			 struct peer *peer, const Pkt *pkt,
+			 Pkt **decline)
 {
 	const UpdateAddHtlc *u = pkt->update_add_htlc;
 	struct htlc_progress *cur = tal(peer, struct htlc_progress);

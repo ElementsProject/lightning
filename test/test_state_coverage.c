@@ -36,7 +36,7 @@ enum failure {
 	FAIL_ACCEPT_ANCHOR,
 	FAIL_ACCEPT_OPEN_COMMIT_SIG,
 	FAIL_ACCEPT_OPEN_COMPLETE,
-	FAIL_ACCEPT_HTLC_UPDATE,
+	FAIL_ACCEPT_HTLC_ADD,
 	FAIL_ACCEPT_HTLC_FAIL,
 	FAIL_ACCEPT_HTLC_TIMEDOUT,
 	FAIL_ACCEPT_HTLC_FULFILL,
@@ -416,7 +416,7 @@ static const union input dup_idata(const tal_t *ctx,
 
 	if (input_is_pkt(input))
 		i.pkt = (Pkt *)tal_strdup(ctx, (const char *)idata->pkt);
-	else if (input == CMD_SEND_HTLC_UPDATE
+	else if (input == CMD_SEND_HTLC_ADD
 		 || input == CMD_SEND_HTLC_FULFILL
 		 || input == CMD_SEND_HTLC_FAIL
 		 || input == CMD_SEND_HTLC_TIMEDOUT) {
@@ -618,7 +618,7 @@ Pkt *pkt_open_complete(const tal_t *ctx, const struct peer *peer)
 	return new_pkt(ctx, PKT_OPEN_COMPLETE);
 }
 
-Pkt *pkt_htlc_update(const tal_t *ctx, const struct peer *peer,
+Pkt *pkt_htlc_add(const tal_t *ctx, const struct peer *peer,
 		     const struct htlc_progress *htlc_prog)
 {
 	return htlc_pkt(ctx, "PKT_UPDATE_ADD_HTLC", htlc_prog->htlc.id);
@@ -726,11 +726,11 @@ Pkt *accept_pkt_open_complete(const tal_t *ctx,
 	return NULL;
 }
 
-Pkt *accept_pkt_htlc_update(const tal_t *ctx,
+Pkt *accept_pkt_htlc_add(const tal_t *ctx,
 			    struct peer *peer, const Pkt *pkt,
 			    Pkt **decline)
 {
-	if (fail(peer, FAIL_ACCEPT_HTLC_UPDATE))
+	if (fail(peer, FAIL_ACCEPT_HTLC_ADD))
 		return pkt_err(ctx, "Error inject");
 
 	/* This is the current htlc: If they propose it, it's to us. */
@@ -2110,7 +2110,7 @@ static void run_peer(const struct peer *peer,
 
 		/* Add a new HTLC if not at max. */
 		if (copy.num_htlcs_to_them < MAX_HTLCS) {
-			copy.core.current_command = CMD_SEND_HTLC_UPDATE;
+			copy.core.current_command = CMD_SEND_HTLC_ADD;
 			idata->htlc_prog = tal(idata, struct htlc_progress);
 			idata->htlc_prog->adding = true;
 			idata->htlc_prog->htlc.to_them = true;

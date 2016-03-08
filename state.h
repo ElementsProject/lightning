@@ -50,7 +50,7 @@ static inline bool input_is(enum state_input a, enum state_input b)
 {
 	if (b == CMD_SEND_UPDATE_ANY) {
 		/* Single | here, we want to record all. */
-		return input_is(a, CMD_SEND_HTLC_UPDATE)
+		return input_is(a, CMD_SEND_HTLC_ADD)
 			| input_is(a, CMD_SEND_HTLC_FULFILL)
 			| input_is(a, CMD_SEND_HTLC_TIMEDOUT)
 			| input_is(a, CMD_SEND_HTLC_FAIL);
@@ -103,8 +103,8 @@ Pkt *pkt_open(const tal_t *ctx, const struct peer *peer,
 Pkt *pkt_anchor(const tal_t *ctx, const struct peer *peer);
 Pkt *pkt_open_commit_sig(const tal_t *ctx, const struct peer *peer);
 Pkt *pkt_open_complete(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_htlc_update(const tal_t *ctx, const struct peer *peer,
-		     const struct htlc_progress *htlc_prog);
+Pkt *pkt_htlc_add(const tal_t *ctx, const struct peer *peer,
+		  const struct htlc_progress *htlc_prog);
 Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct peer *peer,
 		      const struct htlc_progress *htlc_prog);
 Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct peer *peer,
@@ -135,9 +135,9 @@ Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
 Pkt *accept_pkt_open_complete(const tal_t *ctx,
 			      struct peer *peer, const Pkt *pkt);
 	
-Pkt *accept_pkt_htlc_update(const tal_t *ctx,
-			    struct peer *peer, const Pkt *pkt,
-			    Pkt **decline);
+Pkt *accept_pkt_htlc_add(const tal_t *ctx,
+			 struct peer *peer, const Pkt *pkt,
+			 Pkt **decline);
 
 Pkt *accept_pkt_htlc_fail(const tal_t *ctx,
 			  struct peer *peer, const Pkt *pkt);

@@ -1388,7 +1388,7 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 
 	set_htlc_command(peer, cstate, newhtlc->jsoncmd,
 			 &cstate->a.htlcs[tal_count(cstate->a.htlcs)-1],
-			 CMD_SEND_HTLC_UPDATE, NULL);
+			 CMD_SEND_HTLC_ADD, NULL);
 }
 
 static void json_newhtlc(struct command *cmd,
