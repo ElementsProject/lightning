@@ -28,28 +28,6 @@ BITCOIN_FEATURES :=				\
 #FEATURES := $(ALPHA_FEATURES)
 FEATURES := $(BITCOIN_FEATURES)
 
-TEST_CLI_PROGRAMS :=				\
-	test-cli/check-commit-sig		\
-	test-cli/close-channel			\
-	test-cli/create-anchor-tx		\
-	test-cli/create-close-tx		\
-	test-cli/create-commit-spend-tx		\
-	test-cli/create-commit-tx		\
-	test-cli/create-htlc-spend-tx		\
-	test-cli/create-steal-tx		\
-	test-cli/get-anchor-depth		\
-	test-cli/open-anchor			\
-	test-cli/open-channel			\
-	test-cli/open-commit-sig		\
-	test-cli/txid-of			\
-	test-cli/update-channel			\
-	test-cli/update-channel-accept		\
-	test-cli/update-channel-complete	\
-	test-cli/update-channel-htlc		\
-	test-cli/update-channel-htlc-complete	\
-	test-cli/update-channel-htlc-remove	\
-	test-cli/update-channel-signature
-
 TEST_PROGRAMS :=				\
 	test/test_state_coverage		\
 	test/onion_key				\
@@ -77,9 +55,6 @@ CORE_SRC :=					\
 	protobuf_convert.c			\
 	version.c
 CORE_OBJS := $(CORE_SRC:.c=.o)
-
-TEST_CLI_SRC := test-cli/gather_updates.c test-cli/pkt.c test-cli/tx_from_file.c
-TEST_CLI_OBJS := $(TEST_CLI_SRC:.c=.o)
 
 CCAN_OBJS :=					\
 	ccan-crypto-ripemd160.o			\
@@ -165,10 +140,6 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/timer/timer.h			\
 	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h
 
-TEST_CLI_HEADERS := test-cli/gather_updates.h \
-	test-cli/pkt.h \
-	test-cli/tx_from_file.h
-
 BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/base58.h			\
 	bitcoin/locktime.h			\
@@ -198,7 +169,7 @@ GEN_HEADERS := 	gen_state_names.h		\
 
 CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
-PROGRAMS := $(TEST_CLI_PROGRAMS) $(TEST_PROGRAMS)
+PROGRAMS := $(TEST_PROGRAMS)
 
 CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition
 CDEBUGFLAGS := -g -fstack-protector
@@ -210,19 +181,15 @@ $(PROGRAMS): CFLAGS+=-I.
 default: $(PROGRAMS) daemon-all
 
 # Everything depends on the CCAN headers.
-$(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_CLI_PROGRAMS:=.o) $(TEST_PROGRAMS:=.o): $(CCAN_HEADERS)
+$(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): $(CCAN_HEADERS)
 
 # Except for CCAN, everything depends on bitcoin/ and core headers.
-$(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_CLI_PROGRAMS:=.o) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS)
-
-# Test-cli utils depends on CLI headers too.
-$(TEST_CLI_PROGRAMS:=.o): $(TEST_CLI_HEADERS)
+$(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS)
 
 # These don't work in parallel, so we open-code them
-test-cli-tests: $(TEST_CLI_PROGRAMS) daemon-all
+daemon-tests: daemon-all
 	cd test-cli; scripts/shutdown.sh 2>/dev/null || true
 	set -e; for arg in "" "--timeout-anchor"; do daemon/test/test.sh $$arg; done
-	set -e; cd test-cli; for args in "" --steal --unilateral --htlc-onchain; do scripts/setup.sh && scripts/test.sh $$args && scripts/shutdown.sh; done
 
 test-onion: test/test_onion test/onion_key
 	set -e; TMPF=/tmp/onion.$$$$; test/test_onion --generate $$(test/onion_key --pub `seq 20`) > $$TMPF; for k in `seq 20`; do test/test_onion --decode $$(test/onion_key --priv $$k) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
@@ -236,7 +203,7 @@ test-onion3: test/test_onion test/onion_key
 test-onion4: test/test_onion test/onion_key
 	set -e; TMPF=/tmp/onion.$$$$; python test/test_onion.py generate $$(test/onion_key --pub `seq 20`) > $$TMPF; for k in `seq 20`; do python test/test_onion.py decode $$(test/onion_key --priv $$k) $$(test/onion_key --pub $$k) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
 
-check: test-cli-tests test-onion
+check: daemon-tests test-onion
 
 # Keep includes in alpha order.
 check-src-include-order/%: %
@@ -250,7 +217,6 @@ check-hdr-include-order/%: %
 # Make sure Makefile includes all headers.
 check-makefile: check-daemon-makefile
 	@if [ "`echo bitcoin/*.h`" != "$(BITCOIN_HEADERS)" ]; then echo BITCOIN_HEADERS incorrect; exit 1; fi
-	@if [ "`echo test-cli/*.h`" != "$(TEST_CLI_HEADERS)" ]; then echo TEST_CLI_HEADERS incorrect; exit 1; fi
 	@if [ x"`ls *.h | grep -v ^gen_ | fgrep -v lightning.pb-c.h | tr '\n' ' '`" != x"$(CORE_HEADERS) " ]; then echo CORE_HEADERS incorrect; exit 1; fi
 	@if [ x"$(CCANDIR)/config.h `find $(CCANDIR)/ccan -name '*.h' | grep -v /test/ | LC_ALL=C sort | tr '\n' ' '`" != x"$(CCAN_HEADERS) " ]; then echo CCAN_HEADERS incorrect; exit 1; fi
 
@@ -283,7 +249,6 @@ secp256k1/libsecp256k1.la:
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	$(PROTOCC) lightning.proto --c_out=.
 
-$(TEST_CLI_PROGRAMS): % : %.o $(CORE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(TEST_CLI_OBJS) libsecp256k1.a
 $(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(CCAN_OBJS) version.o libsecp256k1.a
 
 ccan/config.h: ccan/tools/configurator/configurator
@@ -341,7 +306,7 @@ maintainter-clean: distclean
 clean: daemon-clean
 	$(MAKE) -C secp256k1/ clean || true
 	$(RM) libsecp256k1.{a,la}
-	$(RM) $(PROGRAMS) test-cli/leak-anchor-sigs
+	$(RM) $(PROGRAMS)
 	$(RM) bitcoin/*.o *.o $(PROGRAMS:=.o) $(CCAN_OBJS)
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 
