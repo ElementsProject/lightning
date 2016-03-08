@@ -351,8 +351,7 @@ void bitcoin_release_anchor(struct peer *peer, enum state_input done);
 const struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer);
 
 /* Create a bitcoin close tx. */
-const struct bitcoin_tx *bitcoin_close(const tal_t *ctx,
-				       const struct peer *peer);
+const struct bitcoin_tx *bitcoin_close(const tal_t *ctx, struct peer *peer);
 
 /* Create a bitcoin spend tx (to spend our commit's outputs) */
 const struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,

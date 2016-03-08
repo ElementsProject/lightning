@@ -987,8 +987,7 @@ bool committed_to_htlcs(const struct peer *peer)
 }
 
 /* Create a bitcoin close tx. */
-const struct bitcoin_tx *bitcoin_close(const tal_t *ctx,
-				       const struct peer *peer)
+const struct bitcoin_tx *bitcoin_close(const tal_t *ctx, struct peer *peer)
 {
 	/* Must be signed! */
 	assert(peer->close_tx->input[0].script_length != 0);

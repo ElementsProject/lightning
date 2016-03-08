@@ -125,6 +125,10 @@ struct peer {
 
 	/* Have we created an anchor tx? */
 	bool anchor;
+	/* Have we broadcast anchor? */
+	bool anchor_broadcast;
+	/* Have we spent anchor (or seen them do it?) */
+	bool anchor_spent;
 
 	unsigned int num_htlcs_to_them, num_htlcs_to_us;
 	struct htlc htlcs_to_them[MAX_HTLCS], htlcs_to_us[MAX_HTLCS];
@@ -870,12 +874,14 @@ const struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer)
 	if (!peer->anchor)
 		report_trail(peer->trail, "Can't create anchor tx: no anchor!");
 	peer->anchor = false;
+	peer->anchor_broadcast = true;
 	return bitcoin_tx("anchor");
 }
 
 const struct bitcoin_tx *bitcoin_close(const tal_t *ctx,
-				       const struct peer *peer)
+				       struct peer *peer)
 {
+	peer->anchor_spent = true;
 	return bitcoin_tx("close");
 }
 
@@ -903,6 +909,7 @@ const struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
 
 const struct bitcoin_tx *bitcoin_commit(const tal_t *ctx, struct peer *peer)
 {
+	peer->anchor_spent = true;
 	return bitcoin_tx("our commit");
 }
 
@@ -950,6 +957,8 @@ static void peer_init(struct peer *peer,
 	peer->error = NULL;
 	peer->htlc_declined = false;
 	peer->anchor = false;
+	peer->anchor_broadcast = false;
+	peer->anchor_spent = false;
 	memset(peer->core.outputs, 0, sizeof(peer->core.outputs));
 	peer->pkt_data[0] = -1;
 	peer->core.current_command = INPUT_NONE;
@@ -1541,6 +1550,9 @@ static const char *check_changes(const struct peer *old, struct peer *new,
 		if (have_event(new->core.event_notifies,
 			       INPUT_CLOSE_COMPLETE_TIMEOUT))
 			return tal_fmt(NULL, "CLOSED with pending close timeout");
+		/* We must not leave anchor dangling, if we broadcast it. */
+		if (new->anchor_broadcast && !new->anchor_spent)
+			return tal_fmt(NULL, "CLOSED with unspent anchor?");
 	}
 
 	if (input == PKT_ERROR) {
@@ -1829,6 +1841,14 @@ static void try_input(const struct peer *peer,
 	init_trail(&t, i, idata, peer, prev_trail);
 	copy.trail = &t;
 
+	/* The anchor is resolved in some way by these. */
+	if (i == BITCOIN_ANCHOR_UNSPENT
+	    || i == BITCOIN_ANCHOR_TIMEOUT
+	    || i == BITCOIN_ANCHOR_THEIRSPEND
+	    || i == BITCOIN_ANCHOR_OTHERSPEND
+	    || i == BITCOIN_CLOSE_DONE)
+		copy.anchor_spent = true;
+	
 	eliminate_input(&hist->inputs_per_state[copy.state], i);
 	cstatus = state(ctx, &copy, i, idata, &output, &broadcast);
 

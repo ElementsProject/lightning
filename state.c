@@ -281,7 +281,7 @@ enum command_status state(const tal_t *ctx,
 						  BITCOIN_ANCHOR_DEPTHOK,
 						  INPUT_NONE);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto unexpected_pkt_nocleanup;
+			goto unexpected_pkt;
 		}
 		break;
 	case STATE_OPEN_WAITING_THEIRANCHOR:
