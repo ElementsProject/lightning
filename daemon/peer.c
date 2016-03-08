@@ -1254,7 +1254,7 @@ static void json_getpeers(struct command *cmd,
 
 		/* This is only valid after crypto setup. */
 		if (p->state != STATE_INIT)
-			json_add_hex(response, "id",
+			json_add_hex(response, "peerid",
 				     p->id.der, pubkey_derlen(&p->id));
 
 		if (p->cstate) {
@@ -1395,32 +1395,32 @@ static void json_newhtlc(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	struct peer *peer;
-	jsmntok_t *idtok, *msatoshistok, *expirytok, *rhashtok;
-	struct pubkey id;
+	jsmntok_t *peeridtok, *msatoshistok, *expirytok, *rhashtok;
+	struct pubkey peerid;
 	unsigned int expiry;
 	struct newhtlc *newhtlc;
 
 	json_get_params(buffer, params,
-			"id", &idtok,
+			"peerid", &peeridtok,
 			"msatoshis", &msatoshistok,
 			"expiry", &expirytok,
 			"rhash", &rhashtok,
 			NULL);
 
-	if (!idtok || !msatoshistok || !expirytok || !rhashtok) {
-		command_fail(cmd, "Need id, msatoshis, expiry and rhash");
+	if (!peeridtok || !msatoshistok || !expirytok || !rhashtok) {
+		command_fail(cmd, "Need peerid, msatoshis, expiry and rhash");
 		return;
 	}
 
 	if (!pubkey_from_hexstr(cmd->dstate->secpctx,
-				buffer + idtok->start,
-				idtok->end - idtok->start, &id)) {
-		command_fail(cmd, "Not a valid id");
+				buffer + peeridtok->start,
+				peeridtok->end - peeridtok->start, &peerid)) {
+		command_fail(cmd, "Not a valid peerid");
 		return;
 	}
-	peer = find_peer(cmd->dstate, &id);
+	peer = find_peer(cmd->dstate, &peerid);
 	if (!peer) {
-		command_fail(cmd, "Could not find peer with that id");
+		command_fail(cmd, "Could not find peer with that peerid");
 		return;
 	}
 
@@ -1478,7 +1478,7 @@ static void json_newhtlc(struct command *cmd,
 const struct json_command newhtlc_command = {
 	"newhtlc",
 	json_newhtlc,
-	"Offer {id} an HTLC worth {msatoshis} in {expiry} (in seconds since Jan 1 1970) with {rhash}",
+	"Offer {peerid} an HTLC worth {msatoshis} in {expiry} (in seconds since Jan 1 1970) with {rhash}",
 	"Returns an empty result on success"
 };
 
@@ -1527,29 +1527,29 @@ static void json_fulfillhtlc(struct command *cmd,
 			     const char *buffer, const jsmntok_t *params)
 {
 	struct peer *peer;
-	jsmntok_t *idtok, *rtok;
-	struct pubkey id;
+	jsmntok_t *peeridtok, *rtok;
+	struct pubkey peerid;
 	struct fulfillhtlc *fulfillhtlc;
 
 	json_get_params(buffer, params,
-			"id", &idtok,
+			"peerid", &peeridtok,
 			"r", &rtok,
 			NULL);
 
-	if (!idtok || !rtok) {
-		command_fail(cmd, "Need id and r");
+	if (!peeridtok || !rtok) {
+		command_fail(cmd, "Need peerid and r");
 		return;
 	}
 
 	if (!pubkey_from_hexstr(cmd->dstate->secpctx,
-				buffer + idtok->start,
-				idtok->end - idtok->start, &id)) {
-		command_fail(cmd, "Not a valid id");
+				buffer + peeridtok->start,
+				peeridtok->end - peeridtok->start, &peerid)) {
+		command_fail(cmd, "Not a valid peerid");
 		return;
 	}
-	peer = find_peer(cmd->dstate, &id);
+	peer = find_peer(cmd->dstate, &peerid);
 	if (!peer) {
-		command_fail(cmd, "Could not find peer with that id");
+		command_fail(cmd, "Could not find peer with that peerid");
 		return;
 	}
 
@@ -1572,7 +1572,7 @@ static void json_fulfillhtlc(struct command *cmd,
 const struct json_command fulfillhtlc_command = {
 	"fulfillhtlc",
 	json_fulfillhtlc,
-	"Redeem htlc proposed by {id} using {r}",
+	"Redeem htlc proposed by {peerid} using {r}",
 	"Returns an empty result on success"
 };
 
@@ -1618,29 +1618,29 @@ static void json_failhtlc(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
 	struct peer *peer;
-	jsmntok_t *idtok, *rhashtok;
-	struct pubkey id;
+	jsmntok_t *peeridtok, *rhashtok;
+	struct pubkey peerid;
 	struct failhtlc *failhtlc;
 
 	json_get_params(buffer, params,
-			"id", &idtok,
+			"peerid", &peeridtok,
 			"rhash", &rhashtok,
 			NULL);
 
-	if (!idtok || !rhashtok) {
-		command_fail(cmd, "Need id and rhash");
+	if (!peeridtok || !rhashtok) {
+		command_fail(cmd, "Need peerid and rhash");
 		return;
 	}
 
 	if (!pubkey_from_hexstr(cmd->dstate->secpctx,
-				buffer + idtok->start,
-				idtok->end - idtok->start, &id)) {
-		command_fail(cmd, "Not a valid id");
+				buffer + peeridtok->start,
+				peeridtok->end - peeridtok->start, &peerid)) {
+		command_fail(cmd, "Not a valid peerid");
 		return;
 	}
-	peer = find_peer(cmd->dstate, &id);
+	peer = find_peer(cmd->dstate, &peerid);
 	if (!peer) {
-		command_fail(cmd, "Could not find peer with that id");
+		command_fail(cmd, "Could not find peer with that peerid");
 		return;
 	}
 
@@ -1663,7 +1663,7 @@ static void json_failhtlc(struct command *cmd,
 const struct json_command failhtlc_command = {
 	"failhtlc",
 	json_failhtlc,
-	"Fail htlc proposed by {id} which has redeem hash {rhash}",
+	"Fail htlc proposed by {peerid} which has redeem hash {rhash}",
 	"Returns an empty result on success"
 };
 
@@ -1671,27 +1671,27 @@ static void json_close(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
 {
 	struct peer *peer;
-	jsmntok_t *idtok;
-	struct pubkey id;
+	jsmntok_t *peeridtok;
+	struct pubkey peerid;
 
 	json_get_params(buffer, params,
-			"id", &idtok,
+			"peerid", &peeridtok,
 			NULL);
 
-	if (!idtok) {
-		command_fail(cmd, "Need id");
+	if (!peeridtok) {
+		command_fail(cmd, "Need peerid");
 		return;
 	}
 
 	if (!pubkey_from_hexstr(cmd->dstate->secpctx,
-				buffer + idtok->start,
-				idtok->end - idtok->start, &id)) {
-		command_fail(cmd, "Not a valid id");
+				buffer + peeridtok->start,
+				peeridtok->end - peeridtok->start, &peerid)) {
+		command_fail(cmd, "Not a valid peerid");
 		return;
 	}
-	peer = find_peer(cmd->dstate, &id);
+	peer = find_peer(cmd->dstate, &peerid);
 	if (!peer) {
-		command_fail(cmd, "Could not find peer with that id");
+		command_fail(cmd, "Could not find peer with that peerid");
 		return;
 	}
 	if (peer->cond == PEER_CLOSING) {
@@ -1708,6 +1708,6 @@ static void json_close(struct command *cmd,
 const struct json_command close_command = {
 	"close",
 	json_close,
-	"Close the channel with peer {id}",
+	"Close the channel with peer {peerid}",
 	"Returns an empty result on success"
 };
