@@ -25,7 +25,6 @@ typedef struct _OpenChannel OpenChannel;
 typedef struct _OpenAnchor OpenAnchor;
 typedef struct _OpenCommitSig OpenCommitSig;
 typedef struct _OpenComplete OpenComplete;
-typedef struct _Update Update;
 typedef struct _UpdateAddHtlc UpdateAddHtlc;
 typedef struct _UpdateDeclineHtlc UpdateDeclineHtlc;
 typedef struct _UpdateFulfillHtlc UpdateFulfillHtlc;
@@ -264,26 +263,6 @@ struct  _OpenComplete
 #define OPEN_COMPLETE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&open_complete__descriptor) \
     , NULL }
-
-
-/*
- * Let's spend some money in the channel!
- */
-struct  _Update
-{
-  ProtobufCMessage base;
-  /*
-   * Hash for which I will supply preimage to revoke this.
-   */
-  Sha256Hash *revocation_hash;
-  /*
-   * Change in current payment to-me (implies reverse to-you).
-   */
-  int64_t delta_msat;
-};
-#define UPDATE__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&update__descriptor) \
-    , NULL, 0 }
 
 
 /*
@@ -526,7 +505,6 @@ typedef enum {
   PKT__PKT_OPEN_ANCHOR = 21,
   PKT__PKT_OPEN_COMMIT_SIG = 22,
   PKT__PKT_OPEN_COMPLETE = 23,
-  PKT__PKT_UPDATE = 1,
   PKT__PKT_UPDATE_ADD_HTLC = 2,
   PKT__PKT_UPDATE_ACCEPT = 3,
   PKT__PKT_UPDATE_SIGNATURE = 4,
@@ -563,7 +541,6 @@ struct  _Pkt
     /*
      * Updating (most common)
      */
-    Update *update;
     UpdateAddHtlc *update_add_htlc;
     UpdateAccept *update_accept;
     UpdateSignature *update_signature;
@@ -778,25 +755,6 @@ OpenComplete *
                       const uint8_t       *data);
 void   open_complete__free_unpacked
                      (OpenComplete *message,
-                      ProtobufCAllocator *allocator);
-/* Update methods */
-void   update__init
-                     (Update         *message);
-size_t update__get_packed_size
-                     (const Update   *message);
-size_t update__pack
-                     (const Update   *message,
-                      uint8_t             *out);
-size_t update__pack_to_buffer
-                     (const Update   *message,
-                      ProtobufCBuffer     *buffer);
-Update *
-       update__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   update__free_unpacked
-                     (Update *message,
                       ProtobufCAllocator *allocator);
 /* UpdateAddHtlc methods */
 void   update_add_htlc__init
@@ -1077,9 +1035,6 @@ typedef void (*OpenCommitSig_Closure)
 typedef void (*OpenComplete_Closure)
                  (const OpenComplete *message,
                   void *closure_data);
-typedef void (*Update_Closure)
-                 (const Update *message,
-                  void *closure_data);
 typedef void (*UpdateAddHtlc_Closure)
                  (const UpdateAddHtlc *message,
                   void *closure_data);
@@ -1136,7 +1091,6 @@ extern const ProtobufCEnumDescriptor    open_channel__anchor_offer__descriptor;
 extern const ProtobufCMessageDescriptor open_anchor__descriptor;
 extern const ProtobufCMessageDescriptor open_commit_sig__descriptor;
 extern const ProtobufCMessageDescriptor open_complete__descriptor;
-extern const ProtobufCMessageDescriptor update__descriptor;
 extern const ProtobufCMessageDescriptor update_add_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_decline_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_fulfill_htlc__descriptor;

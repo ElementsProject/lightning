@@ -437,49 +437,6 @@ void   open_complete__free_unpacked
   assert(message->base.descriptor == &open_complete__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   update__init
-                     (Update         *message)
-{
-  static Update init_value = UPDATE__INIT;
-  *message = init_value;
-}
-size_t update__get_packed_size
-                     (const Update *message)
-{
-  assert(message->base.descriptor == &update__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
-}
-size_t update__pack
-                     (const Update *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &update__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
-}
-size_t update__pack_to_buffer
-                     (const Update *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &update__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
-}
-Update *
-       update__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (Update *)
-     protobuf_c_message_unpack (&update__descriptor,
-                                allocator, len, data);
-}
-void   update__free_unpacked
-                     (Update *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &update__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
-}
 void   update_add_htlc__init
                      (UpdateAddHtlc         *message)
 {
@@ -1736,57 +1693,6 @@ const ProtobufCMessageDescriptor open_complete__descriptor =
   (ProtobufCMessageInit) open_complete__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor update__field_descriptors[2] =
-{
-  {
-    "revocation_hash",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(Update, revocation_hash),
-    &sha256_hash__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "delta_msat",
-    2,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_SINT64,
-    0,   /* quantifier_offset */
-    offsetof(Update, delta_msat),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned update__field_indices_by_name[] = {
-  1,   /* field[1] = delta_msat */
-  0,   /* field[0] = revocation_hash */
-};
-static const ProtobufCIntRange update__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 2 }
-};
-const ProtobufCMessageDescriptor update__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "update",
-  "Update",
-  "Update",
-  "",
-  sizeof(Update),
-  2,
-  update__field_descriptors,
-  update__field_indices_by_name,
-  1,  update__number_ranges,
-  (ProtobufCMessageInit) update__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
 static const ProtobufCFieldDescriptor update_add_htlc__field_descriptors[4] =
 {
   {
@@ -2353,20 +2259,8 @@ const ProtobufCMessageDescriptor error__descriptor =
   (ProtobufCMessageInit) error__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor pkt__field_descriptors[18] =
+static const ProtobufCFieldDescriptor pkt__field_descriptors[17] =
 {
-  {
-    "update",
-    1,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Pkt, pkt_case),
-    offsetof(Pkt, update),
-    &update__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
   {
     "update_add_htlc",
     2,
@@ -2573,33 +2467,32 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[18] =
   },
 };
 static const unsigned pkt__field_indices_by_name[] = {
-  17,   /* field[17] = auth */
-  13,   /* field[13] = close */
-  15,   /* field[15] = close_ack */
-  14,   /* field[14] = close_complete */
-  16,   /* field[16] = error */
-  9,   /* field[9] = open */
-  10,   /* field[10] = open_anchor */
-  11,   /* field[11] = open_commit_sig */
-  12,   /* field[12] = open_complete */
-  0,   /* field[0] = update */
-  2,   /* field[2] = update_accept */
-  1,   /* field[1] = update_add_htlc */
-  4,   /* field[4] = update_complete */
-  5,   /* field[5] = update_decline_htlc */
-  6,   /* field[6] = update_fulfill_htlc */
-  8,   /* field[8] = update_routefail_htlc */
-  3,   /* field[3] = update_signature */
-  7,   /* field[7] = update_timedout_htlc */
+  16,   /* field[16] = auth */
+  12,   /* field[12] = close */
+  14,   /* field[14] = close_ack */
+  13,   /* field[13] = close_complete */
+  15,   /* field[15] = error */
+  8,   /* field[8] = open */
+  9,   /* field[9] = open_anchor */
+  10,   /* field[10] = open_commit_sig */
+  11,   /* field[11] = open_complete */
+  1,   /* field[1] = update_accept */
+  0,   /* field[0] = update_add_htlc */
+  3,   /* field[3] = update_complete */
+  4,   /* field[4] = update_decline_htlc */
+  5,   /* field[5] = update_fulfill_htlc */
+  7,   /* field[7] = update_routefail_htlc */
+  2,   /* field[2] = update_signature */
+  6,   /* field[6] = update_timedout_htlc */
 };
 static const ProtobufCIntRange pkt__number_ranges[5 + 1] =
 {
-  { 1, 0 },
-  { 20, 9 },
-  { 30, 13 },
-  { 40, 16 },
-  { 50, 17 },
-  { 0, 18 }
+  { 2, 0 },
+  { 20, 8 },
+  { 30, 12 },
+  { 40, 15 },
+  { 50, 16 },
+  { 0, 17 }
 };
 const ProtobufCMessageDescriptor pkt__descriptor =
 {
@@ -2609,7 +2502,7 @@ const ProtobufCMessageDescriptor pkt__descriptor =
   "Pkt",
   "",
   sizeof(Pkt),
-  18,
+  17,
   pkt__field_descriptors,
   pkt__field_indices_by_name,
   5,  pkt__number_ranges,
