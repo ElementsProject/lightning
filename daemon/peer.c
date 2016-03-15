@@ -276,7 +276,6 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 
 	/* Using queue_cmd is overkill here, but it works. */
 	queue_cmd(peer, do_anchor_offer, NULL);
-	try_command(peer);
 
 	return io_duplex(conn,
 			 peer_read_packet(conn, peer, pkt_in),
@@ -1472,7 +1471,6 @@ static void json_newhtlc(struct command *cmd,
 	}
 
 	queue_cmd(peer, do_newhtlc, newhtlc);
-	try_command(peer);
 }
 
 const struct json_command newhtlc_command = {
@@ -1561,7 +1559,6 @@ static void json_fulfillhtlc(struct command *cmd,
 	}
 
 	queue_cmd(peer, do_fullfill, fulfillhtlc);
-	try_command(peer);
 }
 	
 const struct json_command fulfillhtlc_command = {
@@ -1646,7 +1643,6 @@ static void json_failhtlc(struct command *cmd,
 	}
 
 	queue_cmd(peer, do_failhtlc, failhtlc);
-	try_command(peer);
 }
 	
 const struct json_command failhtlc_command = {
