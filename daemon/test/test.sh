@@ -129,17 +129,17 @@ all_ok()
 trap "echo Results in $DIR1 and $DIR2 >&2; cat $DIR1/errors $DIR2/errors >&2" EXIT
 mkdir $DIR1 $DIR2
 if [ -n "$GDB1" ]; then
-    echo Press return once you run: gdb --args daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR1
+    echo Press return once you run: gdb --args daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR1 --bitcoin-datadir=$DATADIR
     read REPLY
 else
-    $PREFIX ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR1 > $REDIR1 2> $REDIRERR1 &
+    $PREFIX ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR1 --bitcoin-datadir=$DATADIR > $REDIR1 2> $REDIRERR1 &
 fi
 
 if [ -n "$GDB2" ]; then
-    echo Press return once you run: gdb --args daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR2
+    echo Press return once you run: gdb --args daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR2 --bitcoin-datadir=$DATADIR
     read REPLY
 else
-    $PREFIX ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR2 > $REDIR2 2> $REDIRERR2 &
+    $PREFIX ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR2 --bitcoin-datadir=$DATADIR > $REDIR2 2> $REDIRERR2 &
 fi
 
 i=0

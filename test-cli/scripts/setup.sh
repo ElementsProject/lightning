@@ -8,7 +8,15 @@ if $CLI getinfo 2>/dev/null; then
 fi
 
 # Start clean
-rm -rf $DATADIR/$REGTESTDIR
+rm -rf $DATADIR
+mkdir $DATADIR
+
+# Create appropriate config file so cmdline matches.
+cat > $DATADIR/bitcoin.conf <<EOF
+regtest=1
+testnet=0
+walletbroadcast=0
+EOF
 
 $DAEMON &
 i=0
