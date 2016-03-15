@@ -28,7 +28,6 @@ typedef struct _OpenComplete OpenComplete;
 typedef struct _UpdateAddHtlc UpdateAddHtlc;
 typedef struct _UpdateDeclineHtlc UpdateDeclineHtlc;
 typedef struct _UpdateFulfillHtlc UpdateFulfillHtlc;
-typedef struct _UpdateTimedoutHtlc UpdateTimedoutHtlc;
 typedef struct _UpdateFailHtlc UpdateFailHtlc;
 typedef struct _UpdateAccept UpdateAccept;
 typedef struct _UpdateSignature UpdateSignature;
@@ -340,27 +339,7 @@ struct  _UpdateFulfillHtlc
 
 
 /*
- * Remove my HTLC: it has timed out, before you got the R value.
- */
-struct  _UpdateTimedoutHtlc
-{
-  ProtobufCMessage base;
-  /*
-   * Hash for which I will supply preimage to revoke this commitment tx.
-   */
-  Sha256Hash *revocation_hash;
-  /*
-   * Hash for HTLC R value.
-   */
-  Sha256Hash *r_hash;
-};
-#define UPDATE_TIMEDOUT_HTLC__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&update_timedout_htlc__descriptor) \
-    , NULL, NULL }
-
-
-/*
- * Remove your HTLC: routing has failed upstream or we didn't like it.
+ * Remove your HTLC: routing has failed upstream, we didn't like it, or timeout.
  */
 struct  _UpdateFailHtlc
 {
@@ -511,7 +490,6 @@ typedef enum {
   PKT__PKT_UPDATE_COMPLETE = 5,
   PKT__PKT_UPDATE_DECLINE_HTLC = 6,
   PKT__PKT_UPDATE_FULFILL_HTLC = 7,
-  PKT__PKT_UPDATE_TIMEDOUT_HTLC = 8,
   PKT__PKT_UPDATE_FAIL_HTLC = 9,
   PKT__PKT_CLOSE = 30,
   PKT__PKT_CLOSE_COMPLETE = 31,
@@ -547,7 +525,6 @@ struct  _Pkt
     UpdateComplete *update_complete;
     UpdateDeclineHtlc *update_decline_htlc;
     UpdateFulfillHtlc *update_fulfill_htlc;
-    UpdateTimedoutHtlc *update_timedout_htlc;
     UpdateFailHtlc *update_fail_htlc;
     /*
      * Closing
@@ -813,25 +790,6 @@ UpdateFulfillHtlc *
 void   update_fulfill_htlc__free_unpacked
                      (UpdateFulfillHtlc *message,
                       ProtobufCAllocator *allocator);
-/* UpdateTimedoutHtlc methods */
-void   update_timedout_htlc__init
-                     (UpdateTimedoutHtlc         *message);
-size_t update_timedout_htlc__get_packed_size
-                     (const UpdateTimedoutHtlc   *message);
-size_t update_timedout_htlc__pack
-                     (const UpdateTimedoutHtlc   *message,
-                      uint8_t             *out);
-size_t update_timedout_htlc__pack_to_buffer
-                     (const UpdateTimedoutHtlc   *message,
-                      ProtobufCBuffer     *buffer);
-UpdateTimedoutHtlc *
-       update_timedout_htlc__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   update_timedout_htlc__free_unpacked
-                     (UpdateTimedoutHtlc *message,
-                      ProtobufCAllocator *allocator);
 /* UpdateFailHtlc methods */
 void   update_fail_htlc__init
                      (UpdateFailHtlc         *message);
@@ -1044,9 +1002,6 @@ typedef void (*UpdateDeclineHtlc_Closure)
 typedef void (*UpdateFulfillHtlc_Closure)
                  (const UpdateFulfillHtlc *message,
                   void *closure_data);
-typedef void (*UpdateTimedoutHtlc_Closure)
-                 (const UpdateTimedoutHtlc *message,
-                  void *closure_data);
 typedef void (*UpdateFailHtlc_Closure)
                  (const UpdateFailHtlc *message,
                   void *closure_data);
@@ -1094,7 +1049,6 @@ extern const ProtobufCMessageDescriptor open_complete__descriptor;
 extern const ProtobufCMessageDescriptor update_add_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_decline_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_fulfill_htlc__descriptor;
-extern const ProtobufCMessageDescriptor update_timedout_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_fail_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_accept__descriptor;
 extern const ProtobufCMessageDescriptor update_signature__descriptor;

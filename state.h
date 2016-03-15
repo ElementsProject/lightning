@@ -52,7 +52,6 @@ static inline bool input_is(enum state_input a, enum state_input b)
 		/* Single | here, we want to record all. */
 		return input_is(a, CMD_SEND_HTLC_ADD)
 			| input_is(a, CMD_SEND_HTLC_FULFILL)
-			| input_is(a, CMD_SEND_HTLC_TIMEDOUT)
 			| input_is(a, CMD_SEND_HTLC_FAIL);
 	}
 
@@ -79,8 +78,7 @@ void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt);
  * - peer_htlc_ours_deferred: their update was higher priority, retry later.
  * - peer_htlc_added: a new HTLC was added successfully.
  * - peer_htlc_fulfilled: an existing HTLC was fulfilled successfully.
- * - peer_htlc_timedout: an existing HTLC was timed out successfully.
- * - peer_htlc_fail: an existing HTLC failed to route.
+ * - peer_htlc_fail: an existing HTLC failed to route/timedout/etc.
  * - peer_htlc_aborted: eg. comms error
  */
 
@@ -107,8 +105,6 @@ Pkt *pkt_htlc_add(const tal_t *ctx, const struct peer *peer,
 		  const struct htlc_progress *htlc_prog);
 Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct peer *peer,
 		      const struct htlc_progress *htlc_prog);
-Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct peer *peer,
-		       const struct htlc_progress *htlc_prog);
 Pkt *pkt_htlc_fail(const tal_t *ctx, const struct peer *peer,
 			const struct htlc_progress *htlc_prog);
 Pkt *pkt_update_accept(const tal_t *ctx, const struct peer *peer);
@@ -141,9 +137,6 @@ Pkt *accept_pkt_htlc_add(const tal_t *ctx,
 
 Pkt *accept_pkt_htlc_fail(const tal_t *ctx,
 			  struct peer *peer, const Pkt *pkt);
-
-Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
-			      struct peer *peer, const Pkt *pkt);
 
 Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
 			     struct peer *peer, const Pkt *pkt);

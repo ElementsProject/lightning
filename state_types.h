@@ -190,8 +190,6 @@ enum state_input {
 	PKT_UPDATE_ADD_HTLC = PKT__PKT_UPDATE_ADD_HTLC,
 	/* Updating the commit transaction: I have your R value! */
 	PKT_UPDATE_FULFILL_HTLC = PKT__PKT_UPDATE_FULFILL_HTLC,
-	/* Updating the commit transaction: my HTLC timed out! */
-	PKT_UPDATE_TIMEDOUT_HTLC = PKT__PKT_UPDATE_TIMEDOUT_HTLC,
 	/* Updating the commit transaction: your HTLC failed upstream */
 	PKT_UPDATE_FAIL_HTLC = PKT__PKT_UPDATE_FAIL_HTLC,
 
@@ -276,7 +274,6 @@ enum state_input {
 	CMD_OPEN_WITHOUT_ANCHOR,
 	CMD_SEND_HTLC_ADD,
 	CMD_SEND_HTLC_FULFILL,
-	CMD_SEND_HTLC_TIMEDOUT,
 	CMD_SEND_HTLC_FAIL,
 	CMD_CLOSE,
 

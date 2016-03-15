@@ -1334,7 +1334,7 @@ static void check_htlc_expiry(struct peer *peer, void *unused)
 		funding_remove_htlc(&cstate->b, i);
 
 		set_htlc_command(peer, cstate, NULL, htlc,
-				 CMD_SEND_HTLC_TIMEDOUT, NULL);
+				 CMD_SEND_HTLC_FAIL, NULL);
 		return;
 	}
 }
