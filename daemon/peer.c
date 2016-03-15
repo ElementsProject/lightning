@@ -68,8 +68,9 @@ static struct peer *find_peer(struct lightningd_state *dstate,
 
 static void queue_output_pkt(struct peer *peer, Pkt *pkt)
 {
-	peer->outpkt[peer->num_outpkt++] = pkt;
-	assert(peer->num_outpkt < ARRAY_SIZE(peer->outpkt));
+	size_t n = tal_count(peer->outpkt);
+	tal_resize(&peer->outpkt, n+1);
+	peer->outpkt[n] = pkt;
 
 	/* In case it was waiting for output. */
 	io_wake(peer);
@@ -227,15 +228,18 @@ static void state_event(struct peer *peer,
 static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 {
 	Pkt *out;
+	size_t n = tal_count(peer->outpkt);
 
-	if (peer->num_outpkt == 0) {
+	if (n == 0) {
 		/* We close the connection once we've sent everything. */
 		if (peer->cond == PEER_CLOSED)
 			return io_close(conn);
 		return io_out_wait(conn, peer, pkt_out, peer);
 	}
 
-	out = peer->outpkt[--peer->num_outpkt];
+	out = peer->outpkt[0];
+	memmove(peer->outpkt, peer->outpkt + 1, (sizeof(*peer->outpkt)*(n-1)));
+	tal_resize(&peer->outpkt, n-1);
 	return peer_write_packet(conn, peer, out, pkt_out);
 }
 
@@ -344,7 +348,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->io_data = NULL;
 	peer->secrets = NULL;
 	list_head_init(&peer->watches);
-	peer->num_outpkt = 0;
+	peer->outpkt = tal_arr(peer, Pkt *, 0);
 	peer->curr_cmd.cmd = INPUT_NONE;
 	list_head_init(&peer->pending_cmd);
 	peer->current_htlc = NULL;

@@ -110,8 +110,7 @@ struct peer {
 	Pkt *inpkt;
 
 	/* Queue of output packets. */
-	Pkt *outpkt[5];
-	size_t num_outpkt;
+	Pkt **outpkt;
 
 	/* Anchor tx output */
 	struct {
