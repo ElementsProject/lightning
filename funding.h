@@ -15,6 +15,8 @@ struct channel_htlc {
 struct channel_oneside {
 	/* Payment and fee is in millisatoshi. */
 	uint32_t pay_msat, fee_msat;
+	/* Did we offer the anchor? */
+	bool offered_anchor;
 	/* Use tal_count to get the number */
 	struct channel_htlc *htlcs;
 };
@@ -47,15 +49,13 @@ struct channel_state *copy_funding(const tal_t *ctx,
 
 /**
  * funding_delta: With this change, what's the new state?
- * @a_is_funder: is A paying for the anchor?
  * @anchor_satoshis: The anchor amount.
  * @delta_a: How many millisatoshi A changes (-ve => A pay B, +ve => B pays A)
  * @htlc: Millisatoshi A is putting into a HTLC (-ve if htlc is cancelled)
  * @a_side: channel a's state to update.
  * @b_side: channel b's state to update.
  */
-bool funding_delta(bool a_is_funder,
-		   uint64_t anchor_satoshis,
+bool funding_delta(uint64_t anchor_satoshis,
 		   int64_t delta_a_msat,
 		   int64_t htlc_msat,
 		   struct channel_oneside *a_side,
@@ -63,14 +63,12 @@ bool funding_delta(bool a_is_funder,
 
 /**
  * adjust_fee: Change fee.
- * @a_is_funder: is A paying for the anchor?
  * @anchor_satoshis: The anchor amount.
  * @fee_satoshis: The new fee amount.
  * @a_side: channel a's state to update.
  * @b_side: channel b's state to update.
  */
-bool adjust_fee(bool a_is_funder,
-		uint64_t anchor_satoshis,
+bool adjust_fee(uint64_t anchor_satoshis,
 		uint64_t fee_satoshis,
 		struct channel_oneside *a_side,
 		struct channel_oneside *b_side);

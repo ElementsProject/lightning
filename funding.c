@@ -45,8 +45,7 @@ static uint64_t htlcs_total(const struct channel_htlc *htlcs)
 	return total;
 }
 
-static bool change_funding(bool a_is_funder,
-			   uint64_t anchor_satoshis,
+static bool change_funding(uint64_t anchor_satoshis,
 			   int64_t delta_a_msat,
 			   int64_t htlc_msat,
 			   uint64_t a, uint64_t b, uint64_t fee,
@@ -59,6 +58,7 @@ static bool change_funding(bool a_is_funder,
 
 	assert(a + b + htlcs_total(a_side->htlcs) + htlcs_total(b_side->htlcs)
 	       == anchor_satoshis * 1000);
+	assert(a_side->offered_anchor != b_side->offered_anchor);
 
 	/* B gets whatever A gives. */
 	delta_b_msat = -delta_a_msat;
@@ -76,7 +76,7 @@ static bool change_funding(bool a_is_funder,
 	b += delta_b_msat;
 
 	/* Take off fee from both parties if possible. */
-	if (a_is_funder)
+	if (a_side->offered_anchor)
 		got_fees = subtract_fees(&a, &b, &a_fee, &b_fee,
 					 delta_b_msat < 0, fee);
 	else
@@ -94,8 +94,7 @@ static bool change_funding(bool a_is_funder,
 	return true;
 }
 
-bool funding_delta(bool a_is_funder,
-		   uint64_t anchor_satoshis,
+bool funding_delta(uint64_t anchor_satoshis,
 		   int64_t delta_a_msat,
 		   int64_t htlc_msat,
 		   struct channel_oneside *a_side,
@@ -109,7 +108,7 @@ bool funding_delta(bool a_is_funder,
 	b = b_side->pay_msat + b_side->fee_msat;
 	fee = a_side->fee_msat + b_side->fee_msat;
 
-	return change_funding(a_is_funder, anchor_satoshis,
+	return change_funding(anchor_satoshis,
 			      delta_a_msat, htlc_msat,
 			      a, b, fee,
 			      a_side, b_side);
@@ -134,19 +133,19 @@ struct channel_state *initial_funding(const tal_t *ctx,
 	/* Initially, all goes back to funder. */
 	state->a.pay_msat = anchor_satoshis * 1000 - fee * 1000;
 	state->a.fee_msat = fee * 1000;
+	state->a.offered_anchor = true;
+	state->b.offered_anchor = false;
 
 	/* If B (not A) is funder, invert. */
 	if (!am_funder)
 		invert_cstate(state);
 
 	/* Make sure it checks out. */
-	assert(funding_delta(am_funder, anchor_satoshis, 0, 0,
-			     &state->a, &state->b));
+	assert(funding_delta(anchor_satoshis, 0, 0, &state->a, &state->b));
 	return state;
 }
 
-bool adjust_fee(bool a_is_funder,
-		uint64_t anchor_satoshis,
+bool adjust_fee(uint64_t anchor_satoshis,
 		uint64_t fee_satoshis,
 		struct channel_oneside *a_side,
 		struct channel_oneside *b_side)
@@ -157,7 +156,7 @@ bool adjust_fee(bool a_is_funder,
 	b = b_side->pay_msat + b_side->fee_msat;
 
 	/* No HTLC or delta, just fee recalculate. */
-	return change_funding(a_is_funder, anchor_satoshis,
+	return change_funding(anchor_satoshis,
 			      0, 0, a, b, fee_satoshis * 1000,
 			      a_side, b_side);
 }

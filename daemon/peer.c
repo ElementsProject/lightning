@@ -834,9 +834,7 @@ bool peer_create_close_tx(struct peer *peer, u64 fee_satoshis)
 	
 	/* We don't need a deep copy here, just fee levels. */
 	cstate = *peer->cstate;
-	if (!adjust_fee(peer->us.offer_anchor == CMD_OPEN_WITH_ANCHOR,
-			peer->anchor.satoshis,
-			fee_satoshis,
+	if (!adjust_fee(peer->anchor.satoshis, fee_satoshis,
 			&cstate.a, &cstate.b))
 		return false;
 
@@ -1322,9 +1320,7 @@ static void check_htlc_expiry(struct peer *peer, void *unused)
 		cstate = copy_funding(peer, peer->cstate);
 
 		/* This should never fail! */
-		if (!funding_delta(peer->them.offer_anchor
-				   == CMD_OPEN_WITH_ANCHOR,
-				   peer->anchor.satoshis,
+		if (!funding_delta(peer->anchor.satoshis,
 				   0,
 				   -htlc->msatoshis,
 				   &cstate->b, &cstate->a)) {
@@ -1371,8 +1367,7 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 	/* Can we even offer this much?  We check now, just before we
 	 * execute. */
 	cstate = copy_funding(newhtlc, peer->cstate);
-	if (!funding_delta(peer->us.offer_anchor == CMD_OPEN_WITH_ANCHOR,
-			   peer->anchor.satoshis,
+	if (!funding_delta(peer->anchor.satoshis,
 			   0, newhtlc->htlc->msatoshis,
 			   &cstate->a, &cstate->b)) {
 		command_fail(newhtlc->jsoncmd,
@@ -1508,8 +1503,7 @@ static void do_fullfill(struct peer *peer,
 
 	cstate = copy_funding(fulfillhtlc, peer->cstate);
 	/* This should never fail! */
-	if (!funding_delta(peer->them.offer_anchor == CMD_OPEN_WITH_ANCHOR,
-			   peer->anchor.satoshis,
+	if (!funding_delta(peer->anchor.satoshis,
 			   -htlc->msatoshis,
 			   -htlc->msatoshis,
 			   &cstate->b, &cstate->a)) {
@@ -1599,8 +1593,7 @@ static void do_failhtlc(struct peer *peer,
 	cstate = copy_funding(failhtlc, peer->cstate);
 
 	/* This should never fail! */
-	if (!funding_delta(peer->them.offer_anchor == CMD_OPEN_WITH_ANCHOR,
-			   peer->anchor.satoshis,
+	if (!funding_delta(peer->anchor.satoshis,
 			   0,
 			   -htlc->msatoshis,
 			   &cstate->b, &cstate->a)) {

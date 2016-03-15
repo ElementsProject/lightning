@@ -448,8 +448,7 @@ Pkt *accept_pkt_htlc_add(const tal_t *ctx,
 	}
 
 	cur->cstate = copy_funding(cur, peer->cstate);
-	if (!funding_delta(peer->them.offer_anchor == CMD_OPEN_WITH_ANCHOR,
-			   peer->anchor.satoshis,
+	if (!funding_delta(peer->anchor.satoshis,
 			   0, cur->htlc->msatoshis,
 			   &cur->cstate->b, &cur->cstate->a)) {
 		err = pkt_err(ctx, "Cannot afford %"PRIu64" milli-satoshis",
@@ -510,8 +509,7 @@ Pkt *accept_pkt_htlc_fail(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
 
 	/* Removing it should not fail: we regain HTLC amount */
 	cur->cstate = copy_funding(cur, peer->cstate);
-	if (!funding_delta(peer->us.offer_anchor == CMD_OPEN_WITH_ANCHOR,
-			   peer->anchor.satoshis,
+	if (!funding_delta(peer->anchor.satoshis,
 			   0, -cur->htlc->msatoshis,
 			   &cur->cstate->a, &cur->cstate->b)) {
 		fatal("Unexpected failure fulfilling HTLC of %"PRIu64
@@ -560,8 +558,7 @@ Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
 
 	/* Removing it should not fail: they gain HTLC amount */
 	cur->cstate = copy_funding(cur, peer->cstate);
-	if (!funding_delta(peer->us.offer_anchor == CMD_OPEN_WITH_ANCHOR,
-			   peer->anchor.satoshis,
+	if (!funding_delta(peer->anchor.satoshis,
 			   -cur->htlc->msatoshis,
 			   -cur->htlc->msatoshis,
 			   &cur->cstate->a, &cur->cstate->b)) {
