@@ -181,6 +181,10 @@ struct  _OpenChannel
    */
   Sha256Hash *revocation_hash;
   /*
+   * Hash for revoking second commitment transaction.
+   */
+  Sha256Hash *next_revocation_hash;
+  /*
    * Pubkey for anchor to pay into commitment tx.
    */
   BitcoinPubkey *commit_key;
@@ -201,7 +205,7 @@ struct  _OpenChannel
 };
 #define OPEN_CHANNEL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&open_channel__descriptor) \
-    , NULL, NULL, NULL, NULL, 0, 0,0u, 0 }
+    , NULL, NULL, NULL, NULL, NULL, 0, 0,0u, 0 }
 
 
 /*

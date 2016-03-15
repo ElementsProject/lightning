@@ -74,6 +74,7 @@ Pkt *pkt_open(const tal_t *ctx, const struct peer *peer,
 
 	open_channel__init(o);
 	o->revocation_hash = sha256_to_proto(ctx, &peer->us.revocation_hash);
+	o->next_revocation_hash = sha256_to_proto(ctx, &peer->us.next_revocation_hash);
 	o->commit_key = pubkey_to_proto(o, &peer->us.commitkey);
 	o->final_key = pubkey_to_proto(o, &peer->us.finalkey);
 	o->delay = tal(o, Locktime);
@@ -317,6 +318,7 @@ Pkt *accept_pkt_open(const tal_t *ctx,
 			     o->final_key, &peer->them.finalkey))
 		return pkt_err(ctx, "Bad finalkey");
 	proto_to_sha256(o->revocation_hash, &peer->them.revocation_hash);
+	proto_to_sha256(o->next_revocation_hash, &peer->them.next_revocation_hash);
 
 	/* Redeemscript for anchor. */
 	peer->anchor.redeemscript

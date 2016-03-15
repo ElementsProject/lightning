@@ -270,6 +270,7 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 {
 	peer_secrets_init(peer);
 	peer_get_revocation_hash(peer, 0, &peer->us.revocation_hash);
+	peer_get_revocation_hash(peer, 1, &peer->us.next_revocation_hash);
 
 	assert(peer->state == STATE_INIT);
 

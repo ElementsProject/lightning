@@ -1381,7 +1381,7 @@ const ProtobufCEnumDescriptor open_channel__anchor_offer__descriptor =
   NULL,NULL,NULL,NULL   /* reserved[1234] */
 };
 static const uint32_t open_channel__min_depth__default_value = 0u;
-static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
+static const ProtobufCFieldDescriptor open_channel__field_descriptors[8] =
 {
   {
     "delay",
@@ -1467,6 +1467,18 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "next_revocation_hash",
+    8,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(OpenChannel, next_revocation_hash),
+    &sha256_hash__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned open_channel__field_indices_by_name[] = {
   4,   /* field[4] = anch */
@@ -1475,12 +1487,13 @@ static const unsigned open_channel__field_indices_by_name[] = {
   0,   /* field[0] = delay */
   3,   /* field[3] = final_key */
   5,   /* field[5] = min_depth */
+  7,   /* field[7] = next_revocation_hash */
   1,   /* field[1] = revocation_hash */
 };
 static const ProtobufCIntRange open_channel__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 7 }
+  { 0, 8 }
 };
 const ProtobufCMessageDescriptor open_channel__descriptor =
 {
@@ -1490,7 +1503,7 @@ const ProtobufCMessageDescriptor open_channel__descriptor =
   "OpenChannel",
   "",
   sizeof(OpenChannel),
-  7,
+  8,
   open_channel__field_descriptors,
   open_channel__field_indices_by_name,
   1,  open_channel__number_ranges,

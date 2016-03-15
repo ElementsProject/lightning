@@ -55,6 +55,8 @@ struct peer_visible_state {
 	u64 commit_fee;
 	/* Revocation hash for latest commit tx. */
 	struct sha256 revocation_hash;
+	/* Revocation hash for next commit tx. */
+	struct sha256 next_revocation_hash;
 	/* Current commit tx. */
 	struct bitcoin_tx *commit;
 };
