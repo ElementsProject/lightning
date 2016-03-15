@@ -40,6 +40,7 @@ struct key_negotiate {
 	u8 seckey[32];
 
 	/* Our pubkey, their pubkey. */
+	le32 keylen;
 	u8 our_sessionpubkey[33], their_sessionpubkey[33];
 
 	/* Callback once it's all done. */
@@ -464,13 +465,60 @@ static struct io_plan *keys_exchanged(struct io_conn *conn, struct peer *peer)
 	return peer_write_packet(conn, peer, auth, receive_proof);
 }
 
+/* Read and ignore any extra bytes... */
+static struct io_plan *discard_extra(struct io_conn *conn, struct peer *peer)
+{
+	struct key_negotiate *neg = peer->io_data->neg;
+	size_t len = le32_to_cpu(neg->keylen);
+
+	/* BOLT#1: Additional fields MAY be added, and MUST be
+	 * included in the `length` field.  These MUST be ignored by
+	 * implementations which do not understand them. */
+	if (len > sizeof(neg->their_sessionpubkey)) {
+		char *discard;
+
+		len -= sizeof(neg->their_sessionpubkey);
+		discard = tal_arr(neg, char, len);
+		return io_read(conn, discard, len, keys_exchanged, peer);
+	}
+
+	return keys_exchanged(conn, peer);
+}
+
 static struct io_plan *session_key_receive(struct io_conn *conn,
 					   struct peer *peer)
 {
 	struct key_negotiate *neg = peer->io_data->neg;
+
+	/* BOLT#1: The `length` field is the length after the field
+	   itself, and MUST be 33 or greater. */
+	if (le32_to_cpu(neg->keylen) < sizeof(neg->their_sessionpubkey)) {
+		log_unusual(peer->log, "short session key length %u",
+			    le32_to_cpu(neg->keylen));
+		return io_close(conn);
+	}
+
+	/* BOLT#1: `length` MUST NOT exceed 1MB (1048576 bytes). */
+	if (le32_to_cpu(neg->keylen) > 1048576) {
+		log_unusual(peer->log, "Oversize session key length %u",
+			    le32_to_cpu(neg->keylen));
+		return io_close(conn);
+	}
+
+	log_debug(peer->log, "Session key length %u", le32_to_cpu(neg->keylen));
+
 	/* Now read their key. */
 	return io_read(conn, neg->their_sessionpubkey,
-		       sizeof(neg->their_sessionpubkey), keys_exchanged, peer);
+		       sizeof(neg->their_sessionpubkey), discard_extra, peer);
+}
+
+static struct io_plan *session_key_len_receive(struct io_conn *conn,
+					       struct peer *peer)
+{
+	struct key_negotiate *neg = peer->io_data->neg;
+	/* Read the amount of data they will send.. */
+	return io_read(conn, &neg->keylen, sizeof(neg->keylen),
+		       session_key_receive, peer);
 }
 
 static void gen_sessionkey(secp256k1_context *ctx,
@@ -481,6 +529,15 @@ static void gen_sessionkey(secp256k1_context *ctx,
 		if (RAND_bytes(seckey, 32) != 1)
 			fatal("Could not get random bytes for sessionkey");
 	} while (!secp256k1_ec_pubkey_create(ctx, pubkey, seckey));
+}
+
+static struct io_plan *write_sessionkey(struct io_conn *conn, struct peer *peer)
+{
+	struct key_negotiate *neg = peer->io_data->neg;
+
+	return io_write(conn, neg->our_sessionpubkey,
+			sizeof(neg->our_sessionpubkey),
+			session_key_len_receive, peer);
 }
 
 struct io_plan *peer_crypto_setup(struct io_conn *conn, struct peer *peer,
@@ -504,6 +561,7 @@ struct io_plan *peer_crypto_setup(struct io_conn *conn, struct peer *peer,
 				      &sessionkey,
 				      SECP256K1_EC_COMPRESSED);
 	assert(outputlen == sizeof(neg->our_sessionpubkey));
-	return io_write(conn, neg->our_sessionpubkey, outputlen,
-			session_key_receive, peer);
+	neg->keylen = cpu_to_le32(sizeof(neg->our_sessionpubkey));
+	return io_write(conn, &neg->keylen, sizeof(neg->keylen),
+			write_sessionkey, peer);
 }
