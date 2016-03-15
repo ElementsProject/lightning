@@ -140,11 +140,12 @@ Pkt *pkt_htlc_add(const tal_t *ctx, const struct peer *peer,
 	UpdateAddHtlc *u = tal(ctx, UpdateAddHtlc);
 
 	update_add_htlc__init(u);
+	assert(htlc_prog->stage.type == HTLC_ADD);
 
 	u->revocation_hash = sha256_to_proto(u, &htlc_prog->our_revocation_hash);
-	u->amount_msat = htlc_prog->htlc->msatoshis;
-	u->r_hash = sha256_to_proto(u, &htlc_prog->htlc->rhash);
-	u->expiry = abs_locktime_to_proto(u, &htlc_prog->htlc->expiry);
+	u->amount_msat = htlc_prog->stage.add.htlc.msatoshis;
+	u->r_hash = sha256_to_proto(u, &htlc_prog->stage.add.htlc.rhash);
+	u->expiry = abs_locktime_to_proto(u, &htlc_prog->stage.add.htlc.expiry);
 
 	return make_pkt(ctx, PKT__PKT_UPDATE_ADD_HTLC, u);
 }
@@ -155,9 +156,10 @@ Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct peer *peer,
 	UpdateFulfillHtlc *f = tal(ctx, UpdateFulfillHtlc);
 
 	update_fulfill_htlc__init(f);
+	assert(htlc_prog->stage.type == HTLC_FULFILL);
 
 	f->revocation_hash = sha256_to_proto(f, &htlc_prog->our_revocation_hash);
-	f->r = sha256_to_proto(f, &htlc_prog->r);
+	f->r = sha256_to_proto(f, &htlc_prog->stage.fulfill.r);
 
 	return make_pkt(ctx, PKT__PKT_UPDATE_FULFILL_HTLC, f);
 }
@@ -166,11 +168,14 @@ Pkt *pkt_htlc_fail(const tal_t *ctx, const struct peer *peer,
 		   const struct htlc_progress *htlc_prog)
 {
 	UpdateFailHtlc *f = tal(ctx, UpdateFailHtlc);
+	const struct channel_htlc *htlc;
 
 	update_fail_htlc__init(f);
+	assert(htlc_prog->stage.type == HTLC_FAIL);
 
+	htlc = &peer->cstate->b.htlcs[htlc_prog->stage.fail.index];
 	f->revocation_hash = sha256_to_proto(f, &htlc_prog->our_revocation_hash);
-	f->r_hash = sha256_to_proto(f, &htlc_prog->htlc->rhash);
+	f->r_hash = sha256_to_proto(f, &htlc->rhash);
 
 	return make_pkt(ctx, PKT__PKT_UPDATE_FAIL_HTLC, f);
 }
@@ -419,29 +424,29 @@ Pkt *accept_pkt_htlc_add(const tal_t *ctx,
 	struct htlc_progress *cur = tal(peer, struct htlc_progress);
 	Pkt *err;
 
-	cur->htlc = tal(cur, struct channel_htlc);
-	cur->htlc->msatoshis = u->amount_msat;
-	proto_to_sha256(u->r_hash, &cur->htlc->rhash);
+	cur->stage.add.add = HTLC_ADD;
+	cur->stage.add.htlc.msatoshis = u->amount_msat;
+	proto_to_sha256(u->r_hash, &cur->stage.add.htlc.rhash);
 	proto_to_sha256(u->revocation_hash, &cur->their_revocation_hash);
-	if (!proto_to_abs_locktime(u->expiry, &cur->htlc->expiry)) {
+	if (!proto_to_abs_locktime(u->expiry, &cur->stage.add.htlc.expiry)) {
 		err = pkt_err(ctx, "Invalid HTLC expiry");
 		goto fail;
 	}
 
 	/* FIXME: Handle block-based expiry! */
-	if (!abs_locktime_is_seconds(&cur->htlc->expiry)) {
+	if (!abs_locktime_is_seconds(&cur->stage.add.htlc.expiry)) {
 		*decline = decline_htlc(ctx, 
 					"HTLC expiry in blocks not supported!");
 		goto decline;
 	}
 
-	if (abs_locktime_to_seconds(&cur->htlc->expiry) <
+	if (abs_locktime_to_seconds(&cur->stage.add.htlc.expiry) <
 	    controlled_time().ts.tv_sec + peer->dstate->config.min_expiry) {
 		*decline = decline_htlc(ctx, "HTLC expiry too soon!");
 		goto decline;
 	}
 
-	if (abs_locktime_to_seconds(&cur->htlc->expiry) >
+	if (abs_locktime_to_seconds(&cur->stage.add.htlc.expiry) >
 	    controlled_time().ts.tv_sec + peer->dstate->config.max_expiry) {
 		*decline = decline_htlc(ctx, "HTLC expiry too far!");
 		goto decline;
@@ -449,16 +454,18 @@ Pkt *accept_pkt_htlc_add(const tal_t *ctx,
 
 	cur->cstate = copy_funding(cur, peer->cstate);
 	if (!funding_delta(peer->anchor.satoshis,
-			   0, cur->htlc->msatoshis,
+			   0, cur->stage.add.htlc.msatoshis,
 			   &cur->cstate->b, &cur->cstate->a)) {
 		err = pkt_err(ctx, "Cannot afford %"PRIu64" milli-satoshis",
-			      cur->htlc->msatoshis);
+			      cur->stage.add.htlc.msatoshis);
 		goto fail;
 	}
 	/* Add the htlc to their side of channel. */
-	funding_add_htlc(&cur->cstate->b, cur->htlc->msatoshis,
-			 &cur->htlc->expiry, &cur->htlc->rhash);
-	peer_add_htlc_expiry(peer, &cur->htlc->expiry);
+	funding_add_htlc(&cur->cstate->b,
+			 cur->stage.add.htlc.msatoshis,
+			 &cur->stage.add.htlc.expiry,
+			 &cur->stage.add.htlc.rhash);
+	peer_add_htlc_expiry(peer, &cur->stage.add.htlc.expiry);
 	
 	peer_get_revocation_hash(peer, peer->commit_tx_counter+1,
 				 &cur->our_revocation_hash);
@@ -495,6 +502,7 @@ Pkt *accept_pkt_htlc_fail(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
 	Pkt *err;
 	size_t i;
 	struct sha256 rhash;
+	struct channel_htlc *htlc;
 
 	proto_to_sha256(f->revocation_hash, &cur->their_revocation_hash);
 	proto_to_sha256(f->r_hash, &rhash);
@@ -505,15 +513,17 @@ Pkt *accept_pkt_htlc_fail(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
 		goto fail;
 	}
 
-	cur->htlc = tal_dup(cur, struct channel_htlc, &peer->cstate->a.htlcs[i]);
+	cur->stage.fail.fail = HTLC_FAIL;
+	cur->stage.fail.index = i;
+	htlc = &peer->cstate->a.htlcs[i];
 
 	/* Removing it should not fail: we regain HTLC amount */
 	cur->cstate = copy_funding(cur, peer->cstate);
 	if (!funding_delta(peer->anchor.satoshis,
-			   0, -cur->htlc->msatoshis,
+			   0, -htlc->msatoshis,
 			   &cur->cstate->a, &cur->cstate->b)) {
 		fatal("Unexpected failure fulfilling HTLC of %"PRIu64
-		      " milli-satoshis", cur->htlc->msatoshis);
+		      " milli-satoshis", htlc->msatoshis);
 	}
 	funding_remove_htlc(&cur->cstate->a, i);
 	/* FIXME: Remove timer. */
@@ -543,27 +553,31 @@ Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
 	struct htlc_progress *cur = tal(peer, struct htlc_progress);
 	Pkt *err;
 	size_t i;
-	struct sha256 rhash, r;
+	struct sha256 rhash;
+	struct channel_htlc *htlc;
 
-	proto_to_sha256(f->r, &r);
+	cur->stage.fulfill.fulfill = HTLC_FULFILL;
+	proto_to_sha256(f->r, &cur->stage.fulfill.r);
+
 	proto_to_sha256(f->revocation_hash, &cur->their_revocation_hash);
-	sha256(&rhash, &r, sizeof(r));
+	sha256(&rhash, &cur->stage.fulfill.r, sizeof(cur->stage.fulfill.r));
 	i = funding_find_htlc(&peer->cstate->a, &rhash);
 	if (i == tal_count(peer->cstate->a.htlcs)) {
 		err = pkt_err(ctx, "Unknown HTLC");
 		goto fail;
 	}
+	cur->stage.fulfill.index = i;
 
-	cur->htlc = tal_dup(cur, struct channel_htlc, &peer->cstate->a.htlcs[i]);
+	htlc = &peer->cstate->a.htlcs[i];
 
 	/* Removing it should not fail: they gain HTLC amount */
 	cur->cstate = copy_funding(cur, peer->cstate);
 	if (!funding_delta(peer->anchor.satoshis,
-			   -cur->htlc->msatoshis,
-			   -cur->htlc->msatoshis,
+			   -htlc->msatoshis,
+			   -htlc->msatoshis,
 			   &cur->cstate->a, &cur->cstate->b)) {
 		fatal("Unexpected failure fulfilling HTLC of %"PRIu64
-		      " milli-satoshis", cur->htlc->msatoshis);
+		      " milli-satoshis", htlc->msatoshis);
 	}
 	funding_remove_htlc(&cur->cstate->a, i);
 	

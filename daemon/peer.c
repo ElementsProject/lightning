@@ -1283,18 +1283,14 @@ const struct json_command getpeers_command = {
 static void set_htlc_command(struct peer *peer,
 			     struct channel_state *cstate,
 			     struct command *jsoncmd,
-			     struct channel_htlc *htlc,
 			     enum state_input cmd,
-			     const struct sha256 *r_fulfill)
+			     const union htlc_staging *stage)
 {
 	assert(!peer->current_htlc);
 
 	peer->current_htlc = tal(peer, struct htlc_progress);
 	peer->current_htlc->cstate = tal_steal(peer->current_htlc, cstate);
-	peer->current_htlc->htlc = tal_dup(peer->current_htlc,
-					   struct channel_htlc, htlc);
-	if (r_fulfill)
-		peer->current_htlc->r = *r_fulfill;
+	peer->current_htlc->stage = *stage;
 
 	peer_get_revocation_hash(peer, peer->commit_tx_counter+1,
 				 &peer->current_htlc->our_revocation_hash);
@@ -1308,6 +1304,9 @@ static void set_htlc_command(struct peer *peer,
 static void check_htlc_expiry(struct peer *peer, void *unused)
 {
 	size_t i;
+	union htlc_staging stage;
+
+	stage.fail.fail = HTLC_FAIL;
 
 	/* Check their htlcs for expiry. */
 	for (i = 0; i < tal_count(peer->cstate->b.htlcs); i++) {
@@ -1334,9 +1333,9 @@ static void check_htlc_expiry(struct peer *peer, void *unused)
 			      " milli-satoshis", htlc->msatoshis);
 		}
 		funding_remove_htlc(&cstate->b, i);
-
-		set_htlc_command(peer, cstate, NULL, htlc,
-				 CMD_SEND_HTLC_FAIL, NULL);
+		stage.fail.index = i;
+		set_htlc_command(peer, cstate, NULL, CMD_SEND_HTLC_FAIL,
+				 &stage);
 		return;
 	}
 }
@@ -1369,6 +1368,10 @@ struct newhtlc {
 static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 {
 	struct channel_state *cstate;
+	union htlc_staging stage;
+
+	stage.add.add = HTLC_ADD;
+	stage.add.htlc = newhtlc->htlc;
 
 	/* Can we even offer this much?  We check now, just before we
 	 * execute. */
@@ -1390,8 +1393,7 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 	peer_add_htlc_expiry(peer, &newhtlc->htlc.expiry);
 
 	set_htlc_command(peer, cstate, newhtlc->jsoncmd,
-			 &cstate->a.htlcs[tal_count(cstate->a.htlcs)-1],
-			 CMD_SEND_HTLC_ADD, NULL);
+			 CMD_SEND_HTLC_ADD, &stage);
 }
 
 static void json_newhtlc(struct command *cmd,
@@ -1487,6 +1489,10 @@ static void do_fullfill(struct peer *peer,
 	struct sha256 rhash;
 	size_t i;
 	struct channel_htlc *htlc;
+	union htlc_staging stage;
+
+	stage.fulfill.fulfill = HTLC_FULFILL;
+	stage.fulfill.r = fulfillhtlc->r;
 
 	sha256(&rhash, &fulfillhtlc->r, sizeof(fulfillhtlc->r));
 
@@ -1496,6 +1502,7 @@ static void do_fullfill(struct peer *peer,
 			     "preimage htlc not found");
 		return;
 	}
+	stage.fulfill.index = i;
 	/* Point at current one, since we remove from new cstate. */
 	htlc = &peer->cstate->b.htlcs[i];
 
@@ -1511,8 +1518,8 @@ static void do_fullfill(struct peer *peer,
 	}
 	funding_remove_htlc(&cstate->b, i);
 
-	set_htlc_command(peer, cstate, fulfillhtlc->jsoncmd, htlc,
-			 CMD_SEND_HTLC_FULFILL, &fulfillhtlc->r);
+	set_htlc_command(peer, cstate, fulfillhtlc->jsoncmd,
+			 CMD_SEND_HTLC_FULFILL, &stage);
 }
 
 static void json_fulfillhtlc(struct command *cmd,
@@ -1570,12 +1577,16 @@ static void do_failhtlc(struct peer *peer,
 	struct channel_state *cstate;
 	size_t i;
 	struct channel_htlc *htlc;
+	union htlc_staging stage;
+
+	stage.fail.fail = HTLC_FAIL;
 
 	i = funding_find_htlc(&peer->cstate->b, &failhtlc->rhash);
 	if (i == tal_count(peer->cstate->b.htlcs)) {
 		command_fail(failhtlc->jsoncmd, "htlc not found");
 		return;
 	}
+	stage.fail.index = i;
 	/* Point to current one, since we remove from new cstate. */
 	htlc = &peer->cstate->b.htlcs[i];
 
@@ -1592,8 +1603,8 @@ static void do_failhtlc(struct peer *peer,
 	}
 	funding_remove_htlc(&cstate->b, i);
 
-	set_htlc_command(peer, cstate, failhtlc->jsoncmd, htlc,
-			 CMD_SEND_HTLC_FAIL, NULL);
+	set_htlc_command(peer, cstate, failhtlc->jsoncmd,
+			 CMD_SEND_HTLC_FAIL, &stage);
 }
 
 static void json_failhtlc(struct command *cmd,
