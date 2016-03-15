@@ -195,7 +195,8 @@ const jsmntok_t *json_delve(const char *buffer,
 	return tok;
 }
 
-void json_get_params(const char *buffer, const jsmntok_t param[], ...)
+/* FIXME: Return false if unknown params specified, too! */
+bool json_get_params(const char *buffer, const jsmntok_t param[], ...)
 {
 	va_list ap;
 	const char *name;
@@ -213,6 +214,11 @@ void json_get_params(const char *buffer, const jsmntok_t param[], ...)
 	va_start(ap, param);
 	while ((name = va_arg(ap, const char *)) != NULL) {
 		tokptr = va_arg(ap, const jsmntok_t **);
+		bool compulsory = true;
+		if (name[0] == '?') {
+			name++;
+			compulsory = false;
+		}
 		if (param->type == JSMN_ARRAY) {
 			*tokptr = p;
 			if (p) {
@@ -229,9 +235,12 @@ void json_get_params(const char *buffer, const jsmntok_t param[], ...)
 		    && buffer[(*tokptr)->start] == 'n') {
 			*tokptr = NULL;
 		}
+		if (compulsory && !*tokptr)
+			return false;
 	}
 
 	va_end(ap);
+	return true;
 }
 
 jsmntok_t *json_parse_input(const char *input, int len, bool *valid)

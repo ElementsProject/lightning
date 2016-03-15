@@ -512,13 +512,11 @@ static void json_connect(struct command *cmd,
 	struct json_connecting *connect;
 	jsmntok_t *host, *port, *satoshis;
 
-	json_get_params(buffer, params,
-			"host", &host,
-			"port", &port,
-			"satoshis", &satoshis,
-			NULL);
-
-	if (!host || !port || !satoshis) {
+	if (!json_get_params(buffer, params,
+			     "host", &host,
+			     "port", &port,
+			     "satoshis", &satoshis,
+			     NULL)) {
 		command_fail(cmd, "Need host, port and satoshis");
 		return;
 	}
@@ -1395,14 +1393,12 @@ static void json_newhtlc(struct command *cmd,
 	unsigned int expiry;
 	struct newhtlc *newhtlc;
 
-	json_get_params(buffer, params,
-			"peerid", &peeridtok,
-			"msatoshis", &msatoshistok,
-			"expiry", &expirytok,
-			"rhash", &rhashtok,
-			NULL);
-
-	if (!peeridtok || !msatoshistok || !expirytok || !rhashtok) {
+	if (!json_get_params(buffer, params,
+			     "peerid", &peeridtok,
+			     "msatoshis", &msatoshistok,
+			     "expiry", &expirytok,
+			     "rhash", &rhashtok,
+			     NULL)) {
 		command_fail(cmd, "Need peerid, msatoshis, expiry and rhash");
 		return;
 	}
@@ -1525,12 +1521,10 @@ static void json_fulfillhtlc(struct command *cmd,
 	struct pubkey peerid;
 	struct fulfillhtlc *fulfillhtlc;
 
-	json_get_params(buffer, params,
-			"peerid", &peeridtok,
-			"r", &rtok,
-			NULL);
-
-	if (!peeridtok || !rtok) {
+	if (!json_get_params(buffer, params,
+			     "peerid", &peeridtok,
+			     "r", &rtok,
+			     NULL)) {
 		command_fail(cmd, "Need peerid and r");
 		return;
 	}
@@ -1615,12 +1609,10 @@ static void json_failhtlc(struct command *cmd,
 	struct pubkey peerid;
 	struct failhtlc *failhtlc;
 
-	json_get_params(buffer, params,
-			"peerid", &peeridtok,
-			"rhash", &rhashtok,
-			NULL);
-
-	if (!peeridtok || !rhashtok) {
+	if (!json_get_params(buffer, params,
+			     "peerid", &peeridtok,
+			     "rhash", &rhashtok,
+			     NULL)) {
 		command_fail(cmd, "Need peerid and rhash");
 		return;
 	}
@@ -1667,11 +1659,9 @@ static void json_close(struct command *cmd,
 	jsmntok_t *peeridtok;
 	struct pubkey peerid;
 
-	json_get_params(buffer, params,
-			"peerid", &peeridtok,
-			NULL);
-
-	if (!peeridtok) {
+	if (!json_get_params(buffer, params,
+			     "peerid", &peeridtok,
+			     NULL)) {
 		command_fail(cmd, "Need peerid");
 		return;
 	}

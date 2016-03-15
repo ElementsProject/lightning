@@ -154,7 +154,7 @@ static void json_getlog(struct command *cmd,
 	struct log_record *lr = cmd->dstate->log_record;
 	jsmntok_t *level;
 
-	json_get_params(buffer, params, "level", &level, NULL);
+	json_get_params(buffer, params, "?level", &level, NULL);
 
 	info.num_skipped = 0;
 
@@ -199,11 +199,9 @@ static void json_rhash(struct command *cmd,
 	jsmntok_t *secrettok;
 	struct sha256 secret;
 
-	json_get_params(buffer, params,
-			"secret", &secrettok,
-			NULL);
-
-	if (!secrettok) {
+	if (!json_get_params(buffer, params,
+			     "secret", &secrettok,
+			     NULL)) {
 		command_fail(cmd, "Need secret");
 		return;
 	}
