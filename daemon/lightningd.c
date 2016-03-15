@@ -213,6 +213,9 @@ int main(int argc, char *argv[])
 			   "Print this message.");
 	opt_register_arg("--port", opt_set_uintval, NULL, &portnum,
 			 "Port to bind to (otherwise, dynamic port is used)");
+	opt_register_arg("--bitcoin-datadir", opt_set_charp, NULL,
+			 &bitcoin_datadir,
+			 "-datadir arg for bitcoin-cli");
 	opt_register_logging(dstate->base_log);
 	opt_register_version();
 

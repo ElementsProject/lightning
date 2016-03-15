@@ -19,13 +19,21 @@
 
 #define BITCOIN_CLI "bitcoin-cli"
 
+char *bitcoin_datadir;
+
 static char **gather_args(const tal_t *ctx, const char *cmd, va_list ap)
 {
-	size_t n = 2;
-	char **args = tal_arr(ctx, char *, n+1);
+	size_t n = 0;
+	char **args = tal_arr(ctx, char *, 1);
 
-	args[0] = BITCOIN_CLI;
-	args[1] = cast_const(char *, cmd);
+	args[n++] = BITCOIN_CLI;
+	tal_resize(&args, n + 1);
+	if (bitcoin_datadir) {
+		args[n++] = tal_fmt(args, "-datadir=%s", bitcoin_datadir);
+		tal_resize(&args, n + 1);
+	}
+	args[n++] = cast_const(char *, cmd);
+	tal_resize(&args, n + 1);
 
 	while ((args[n] = va_arg(ap, char *)) != NULL) {
 		args[n] = tal_strdup(args, args[n]);
