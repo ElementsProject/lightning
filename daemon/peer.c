@@ -1360,7 +1360,7 @@ void peer_add_htlc_expiry(struct peer *peer,
 }
 
 struct newhtlc {
-	struct channel_htlc *htlc;
+	struct channel_htlc htlc;
 	struct command *jsoncmd;
 };
 
@@ -1374,18 +1374,20 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 	 * execute. */
 	cstate = copy_funding(newhtlc, peer->cstate);
 	if (!funding_delta(peer->anchor.satoshis,
-			   0, newhtlc->htlc->msatoshis,
+			   0, newhtlc->htlc.msatoshis,
 			   &cstate->a, &cstate->b)) {
 		command_fail(newhtlc->jsoncmd,
 			     "Cannot afford %"PRIu64" milli-satoshis",
-			     newhtlc->htlc->msatoshis);
+			     newhtlc->htlc.msatoshis);
 		return;
 	}
 
+	/* FIXME: Never propose duplicate rvalues? */
+
 	/* Add the htlc to our side of channel. */
-	funding_add_htlc(&cstate->a, newhtlc->htlc->msatoshis,
-			 &newhtlc->htlc->expiry, &newhtlc->htlc->rhash);
-	peer_add_htlc_expiry(peer, &newhtlc->htlc->expiry);
+	funding_add_htlc(&cstate->a, newhtlc->htlc.msatoshis,
+			 &newhtlc->htlc.expiry, &newhtlc->htlc.rhash);
+	peer_add_htlc_expiry(peer, &newhtlc->htlc.expiry);
 
 	set_htlc_command(peer, cstate, newhtlc->jsoncmd,
 			 &cstate->a.htlcs[tal_count(cstate->a.htlcs)-1],
@@ -1418,10 +1420,9 @@ static void json_newhtlc(struct command *cmd,
 
 	/* Attach to cmd until it's complete. */
 	newhtlc = tal(cmd, struct newhtlc);
-	newhtlc->htlc = tal(newhtlc, struct channel_htlc);
 	newhtlc->jsoncmd = cmd;
 
-	if (!json_tok_u64(buffer, msatoshistok, &newhtlc->htlc->msatoshis)) {
+	if (!json_tok_u64(buffer, msatoshistok, &newhtlc->htlc.msatoshis)) {
 		command_fail(cmd, "'%.*s' is not a valid number",
 			     (int)(msatoshistok->end - msatoshistok->start),
 			     buffer + msatoshistok->start);
@@ -1434,20 +1435,20 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
-	if (!seconds_to_abs_locktime(expiry, &newhtlc->htlc->expiry)) {
+	if (!seconds_to_abs_locktime(expiry, &newhtlc->htlc.expiry)) {
 		command_fail(cmd, "'%.*s' is not a valid number",
 			     (int)(expirytok->end - expirytok->start),
 			     buffer + expirytok->start);
 		return;
 	}
 
-	if (abs_locktime_to_seconds(&newhtlc->htlc->expiry) <
+	if (abs_locktime_to_seconds(&newhtlc->htlc.expiry) <
 	    controlled_time().ts.tv_sec + peer->dstate->config.min_expiry) {
 		command_fail(cmd, "HTLC expiry too soon!");
 		return;
 	}
 
-	if (abs_locktime_to_seconds(&newhtlc->htlc->expiry) >
+	if (abs_locktime_to_seconds(&newhtlc->htlc.expiry) >
 	    controlled_time().ts.tv_sec + peer->dstate->config.max_expiry) {
 		command_fail(cmd, "HTLC expiry too far!");
 		return;
@@ -1455,8 +1456,8 @@ static void json_newhtlc(struct command *cmd,
 
 	if (!hex_decode(buffer + rhashtok->start,
 			rhashtok->end - rhashtok->start,
-			&newhtlc->htlc->rhash,
-			sizeof(newhtlc->htlc->rhash))) {
+			&newhtlc->htlc.rhash,
+			sizeof(newhtlc->htlc.rhash))) {
 		command_fail(cmd, "'%.*s' is not a valid sha256 hash",
 			     (int)(rhashtok->end - rhashtok->start),
 			     buffer + rhashtok->start);
