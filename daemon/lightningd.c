@@ -207,6 +207,10 @@ int main(int argc, char *argv[])
 	err_set_progname(argv[0]);
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 
+	if (!streq(protobuf_c_version(), PROTOBUF_C_VERSION))
+		errx(1, "Compiled against protobuf %s, but have %s",
+		     PROTOBUF_C_VERSION, protobuf_c_version());
+	
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "\n"
 			   "A bitcoin lightning daemon.",

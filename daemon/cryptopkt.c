@@ -184,9 +184,10 @@ static Pkt *decrypt_pkt(struct peer *peer, struct crypto_pkt *cpkt,
 	prototal.allocator_data = tal(iod, char);
 
 	ret = pkt__unpack(&prototal, data_len, cpkt->data);
-	if (!ret)
+	if (!ret) {
+		log_unusual(peer->log, "Packet failed to unpack!");
 		tal_free(prototal.allocator_data);
-	else
+	} else
 		/* Make sure packet owns contents */
 		tal_steal(ret, prototal.allocator_data);
 	return ret;
