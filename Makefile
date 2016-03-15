@@ -29,7 +29,6 @@ BITCOIN_FEATURES :=				\
 FEATURES := $(BITCOIN_FEATURES)
 
 TEST_PROGRAMS :=				\
-	test/test_state_coverage		\
 	test/onion_key				\
 	test/test_onion
 
@@ -227,7 +226,6 @@ check-source: check-makefile				\
 	$(BITCOIN_HEADERS:%=check-hdr-include-order/%)
 
 full-check: check $(TEST_PROGRAMS) check-source
-	test/test_state_coverage
 
 TAGS: FORCE
 	$(RM) TAGS; find . -name '*.[ch]' | xargs etags --append
