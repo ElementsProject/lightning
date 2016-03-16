@@ -1,6 +1,14 @@
-Build on Ubuntu 15.10
----------------------
+Library Requirements
+--------------------
 
+You will need several development libraries:
+* libprotoc: the Google protocol buffer v2 library, 2.6.0 or above.
+* protobuf-c: version 1.1.0 or above.
+* libsodium: for crypto.
+* libcrypto: (OpenSSL) library for bignum implementation
+
+To Build on Ubuntu 15.10
+------------------------
 Build protobuf-c dependency (>= 1.1.0):
 ```
 sudo apt-get install libprotoc-dev

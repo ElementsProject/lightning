@@ -4,6 +4,7 @@
 #include "lightning.pb-c.h"
 #include "lightningd.h"
 #include "log.h"
+#include "names.h"
 #include "peer.h"
 #include "protobuf_convert.h"
 #include "secrets.h"
@@ -14,25 +15,33 @@
 #include <ccan/mem/mem.h>
 #include <ccan/short_types/short_types.h>
 #include <inttypes.h>
-#include <openssl/aes.h>
-#include <openssl/evp.h>
-#include <openssl/hmac.h>
-#include <openssl/rand.h>
+#include <sodium/crypto_aead_chacha20poly1305.h>
+#include <sodium/randombytes.h>
 #include <secp256k1.h>
 #include <secp256k1_ecdh.h>
 
 #define MAX_PKT_LEN (1024 * 1024)
 
-#define ROUNDUP(x,a) (((x) + ((a)-1)) & ~((a)-1))
+/* BOLT#1:
+   The header consists of the following fields in order:
 
+   * `acknowledge`: an 8-byte little-endian field indicating the number of non-`authenticate` messages received and processed so far.
+   * `length`: a 4-byte little-endian field indicating the size of the unencrypted body.
+ */
+
+/* Do NOT take sizeof() this, since there's extra padding at the end! */
 struct crypto_pkt {
-	/* HMAC */
-	struct sha256 hmac;
-	/* Total length transmitted. */
-	le64 totlen;
+	le64 acknowledge;
+	le32 length;
+	u8 auth_tag[crypto_aead_chacha20poly1305_ABYTES];
+
 	/* ... contents... */
 	u8 data[];
 };
+
+/* Use this instead of sizeof(struct crypto_pkt) */
+#define CRYPTO_HDR_LEN_NOTAG (8 + 4)
+#define CRYPTO_HDR_LEN (CRYPTO_HDR_LEN_NOTAG + crypto_aead_chacha20poly1305_ABYTES)
 
 /* Temporary structure for negotiation (peer->io_data->neg) */
 struct key_negotiate {
@@ -47,88 +56,51 @@ struct key_negotiate {
 	struct io_plan *(*cb)(struct io_conn *, struct peer *);
 };
 
-#define ENCKEY_SEED 0
-#define HMACKEY_SEED 1
-#define IV_SEED 2
-
 struct enckey {
 	struct sha256 k;
 };
 
-struct hmackey {
-	struct sha256 k;
-};
 
-struct iv {
-	unsigned char iv[AES_BLOCK_SIZE];
-};
-
-static void sha_with_seed(const unsigned char secret[32],
-			  const unsigned char serial_pubkey[33],
-			  unsigned char seed,
-			  struct sha256 *res)
+/* BOLT #1:
+ * sending-key: SHA256(shared-secret || sending-node-id)
+ * receiving-key: SHA256(shared-secret || receiving-node-id)
+ */
+static struct enckey enckey_from_secret(const unsigned char secret[32],
+					const unsigned char serial_pubkey[33])
 {
 	struct sha256_ctx ctx;
+	struct enckey enckey;
 
 	sha256_init(&ctx);
 	sha256_update(&ctx, memcheck(secret, 32), 32);
 	sha256_update(&ctx, memcheck(serial_pubkey, 33), 33);
-	sha256_u8(&ctx, seed);
-	sha256_done(&ctx, res);
-}
+	sha256_done(&ctx, &enckey.k);
 
-static struct enckey enckey_from_secret(const unsigned char secret[32],
-					const unsigned char serial_pubkey[33])
-{
-	struct enckey enckey;
-	sha_with_seed(secret, serial_pubkey, ENCKEY_SEED, &enckey.k);
 	return enckey;
 }
 
-static struct hmackey hmackey_from_secret(const unsigned char secret[32],
-					  const unsigned char serial_pubkey[33])
-{
-	struct hmackey hmackey;
-	sha_with_seed(secret, serial_pubkey, HMACKEY_SEED, &hmackey.k);
-	return hmackey;
-}
-
-static struct iv iv_from_secret(const unsigned char secret[32],
-				const unsigned char serial_pubkey[33])
-{
-	struct sha256 sha;
-	struct iv iv;
-
-	sha_with_seed(secret, serial_pubkey, IV_SEED, &sha);
-	memcpy(iv.iv, sha.u.u8, sizeof(iv.iv));
-	return iv;
-}
-
 struct dir_state {
-	u64 totlen;
-	struct hmackey hmackey;
-	EVP_CIPHER_CTX evpctx;
-
-	/* Current packet. */
-	struct crypto_pkt *cpkt;
-};
-
-static bool setup_crypto(struct dir_state *dir,
-			 u8 shared_secret[32], u8 serial_pubkey[33])
-{
-	struct iv iv;
+	u64 nonce;
 	struct enckey enckey;
 
-	dir->totlen = 0;	
-	dir->hmackey = hmackey_from_secret(shared_secret, serial_pubkey);
-	dir->cpkt = NULL;
+	/* Non-`authenticate` packets sent/seen */
+	u64 count;
 	
-	iv = iv_from_secret(shared_secret, serial_pubkey);
-	enckey = enckey_from_secret(shared_secret, serial_pubkey);
+	/* Current packet (encrypted). */
+	struct crypto_pkt *cpkt;
+	size_t pkt_len;
+};
 
-	return EVP_EncryptInit(&dir->evpctx, EVP_aes_128_ctr(),
-			       memcheck(enckey.k.u.u8, sizeof(enckey.k)),
-			       memcheck(iv.iv, sizeof(iv.iv))) == 1;
+static void setup_crypto(struct dir_state *dir,
+			 u8 shared_secret[32], u8 serial_pubkey[33])
+{
+	/* BOLT #1: Nonces...MUST begin at 0 */
+	dir->nonce = 0;
+
+	dir->enckey = enckey_from_secret(shared_secret, serial_pubkey);
+
+	dir->count = 0;
+	dir->cpkt = NULL;
 }
 
 struct io_data {
@@ -153,31 +125,75 @@ static void proto_tal_free(void *allocator_data, void *pointer)
 	tal_free(pointer);
 }
 
-static Pkt *decrypt_pkt(struct peer *peer, struct crypto_pkt *cpkt,
-			size_t data_len)
+static void le64_nonce(unsigned char *npub, u64 nonce)
 {
-	size_t full_len;
-	struct sha256 hmac;
-	int outlen;
+	/* BOLT #1: Nonces are 64-bit little-endian numbers */
+	le64 le_nonce = cpu_to_le64(nonce);
+	memcpy(npub, &le_nonce, sizeof(le_nonce));
+	BUILD_ASSERT(crypto_aead_chacha20poly1305_NPUBBYTES == sizeof(le_nonce));
+}
+	
+/* Encrypts data..data + len - 1 inclusive into data..data + len - 1 and
+ * then writes the authentication tag at data+len.
+ *
+ * This increments nonce every time.
+ */
+static void encrypt_in_place(void *data, size_t len,
+			     u64 *nonce, const struct enckey *enckey)
+{
+	int ret;
+	unsigned long long clen;
+	unsigned char npub[crypto_aead_chacha20poly1305_NPUBBYTES];
+
+	le64_nonce(npub, *nonce);
+	ret = crypto_aead_chacha20poly1305_encrypt(data, &clen,
+						   memcheck(data, len), len,
+						   NULL, 0, NULL,
+						   npub, enckey->k.u.u8);
+	assert(ret == 0);
+	assert(clen == len + crypto_aead_chacha20poly1305_ABYTES);
+	(*nonce)++;
+}
+
+/* Checks authentication tag at data+len, then
+ * decrypts data..data + len - 1 inclusive into data..data + len - 1.
+ *
+ * This increments nonce every time.
+ */
+static bool decrypt_in_place(void *data, size_t len,
+			     u64 *nonce, const struct enckey *enckey)
+{
+	int ret;
+	unsigned long long mlen;
+	unsigned char npub[crypto_aead_chacha20poly1305_NPUBBYTES];
+
+	le64_nonce(npub, *nonce);
+	mlen = len + crypto_aead_chacha20poly1305_ABYTES;
+	
+	ret = crypto_aead_chacha20poly1305_decrypt(data, &mlen, NULL,
+						   memcheck(data, mlen), mlen,
+						   NULL, 0,
+						   npub, enckey->k.u.u8);
+	if (ret == 0) {
+		assert(mlen == len);
+		(*nonce)++;
+		return true;
+	}
+	return false;
+}
+
+static Pkt *decrypt_body(struct peer *peer, struct crypto_pkt *cpkt,
+			 size_t data_len)
+{
 	struct io_data *iod = peer->io_data;
 	struct ProtobufCAllocator prototal;
 	Pkt *ret;
 
-	full_len = ROUNDUP(data_len, AES_BLOCK_SIZE);
-
-	HMAC(EVP_sha256(), iod->in.hmackey.k.u.u8, sizeof(iod->in.hmackey),
-	     (unsigned char *)&cpkt->totlen, sizeof(cpkt->totlen) + full_len,
-	     hmac.u.u8, NULL);
-
-	if (CRYPTO_memcmp(&hmac, &cpkt->hmac, sizeof(hmac)) != 0) {
-		log_unusual(peer->log, "Packet has bad HMAC");
+	if (!decrypt_in_place(cpkt->data, data_len,
+			      &iod->in.nonce, &iod->in.enckey)) {
+		log_unusual(peer->log, "Body decryption failed");
 		return NULL;
 	}
-
-	/* FIXME: Assumes we can decrypt in place! */
-	EVP_DecryptUpdate(&iod->in.evpctx, cpkt->data, &outlen,
-			  memcheck(cpkt->data, full_len), full_len);
-	assert(outlen == full_len);
 
 	/* De-protobuf it. */
 	prototal.alloc = proto_tal_alloc;
@@ -194,40 +210,27 @@ static Pkt *decrypt_pkt(struct peer *peer, struct crypto_pkt *cpkt,
 	return ret;
 }
 
-static struct crypto_pkt *encrypt_pkt(struct peer *peer,
-				      const Pkt *pkt,
-				      size_t *total_len)
+static struct crypto_pkt *encrypt_pkt(struct peer *peer, const Pkt *pkt, u64 ack,
+				      size_t *totlen)
 {
-	static unsigned char zeroes[AES_BLOCK_SIZE-1];
 	struct crypto_pkt *cpkt;
-	unsigned char *dout;
-	size_t len, full_len;
-	int outlen;
+	size_t len;
 	struct io_data *iod = peer->io_data;
 
 	len = pkt__get_packed_size(pkt);
-	full_len = ROUNDUP(len, AES_BLOCK_SIZE);
-	*total_len = sizeof(*cpkt) + full_len;
+	*totlen = CRYPTO_HDR_LEN + len + crypto_aead_chacha20poly1305_ABYTES;
 
-	cpkt = (struct crypto_pkt *)tal_arr(peer, char, *total_len);
-	iod->out.totlen += len;
-	cpkt->totlen = cpu_to_le64(iod->out.totlen);
-	
-	dout = cpkt->data;
-	/* FIXME: Assumes we can encrypt in place! */
-	pkt__pack(pkt, dout);
-	EVP_EncryptUpdate(&iod->out.evpctx, dout, &outlen,
-			  memcheck(dout, len), len);
-	dout += outlen;
+	cpkt = (struct crypto_pkt *)tal_arr(peer, char, *totlen);
+	cpkt->acknowledge = cpu_to_le64(ack);
+	cpkt->length = cpu_to_le32(len);
 
-	/* Now encrypt tail, padding with zeroes if necessary. */
-	EVP_EncryptUpdate(&iod->out.evpctx, dout, &outlen, zeroes,
-			  full_len - len);
-	assert(dout + outlen == cpkt->data + full_len);
+	/* Encrypt header. */
+	encrypt_in_place(cpkt, CRYPTO_HDR_LEN_NOTAG,
+			 &iod->out.nonce, &iod->out.enckey);
 
-	HMAC(EVP_sha256(), iod->out.hmackey.k.u.u8, sizeof(iod->out.hmackey),
-	     (unsigned char *)&cpkt->totlen, sizeof(cpkt->totlen) + full_len,
-	     cpkt->hmac.u.u8, NULL);
+	/* Encrypt body. */
+	pkt__pack(pkt, cpkt->data);
+	encrypt_in_place(cpkt->data, len, &iod->out.nonce, &iod->out.enckey);
 
 	return cpkt;
 }
@@ -237,48 +240,51 @@ static int do_read_packet(int fd, struct io_plan_arg *arg)
 	struct peer *peer = arg->u1.vp;
 	struct io_data *iod = peer->io_data;
 	u64 max;
-	size_t data_off, data_len;
+	size_t data_off;
 	int ret;
 
 	/* Still reading header? */
-	if (iod->len_in < sizeof(iod->hdr_in)) {
+	if (iod->len_in < CRYPTO_HDR_LEN) {
 		ret = read(fd, (char *)&iod->hdr_in + iod->len_in,
-			   sizeof(iod->hdr_in) - iod->len_in);
+			   CRYPTO_HDR_LEN - iod->len_in);
 		if (ret <= 0)
 			return -1;
 		iod->len_in += ret;
-		/* We don't ever send empty packets, so don't check for
-		 * that here. */
+
+		/* More to go? */
+		if (iod->len_in != CRYPTO_HDR_LEN)
+			return 0;
+
+		/* We have header: Check it. */
+		if (!decrypt_in_place(&iod->hdr_in, CRYPTO_HDR_LEN_NOTAG,
+				      &iod->in.nonce, &iod->in.enckey)) {
+			log_unusual(peer->log, "Header decryption failed");
+			return -1;
+		}
+
+		/* BOLT #1: `length` MUST NOT exceed 1MB (1048576 bytes). */
+		if (le32_to_cpu(iod->hdr_in.length) > MAX_PKT_LEN) {
+			log_unusual(peer->log,
+				    "Packet overlength: %"PRIu64,
+				    le64_to_cpu(iod->hdr_in.length));
+			return -1;
+		}
+
+		/* Allocate room for body, copy header. */
+		max = CRYPTO_HDR_LEN
+			+ le32_to_cpu(iod->hdr_in.length)
+			+ crypto_aead_chacha20poly1305_ABYTES;
+
+		iod->in.cpkt = (struct crypto_pkt *)tal_arr(peer, char, max);
+		memcpy(iod->in.cpkt, &iod->hdr_in, CRYPTO_HDR_LEN);
+
 		return 0;
 	}
 
-	max = ROUNDUP(le64_to_cpu(iod->hdr_in.totlen) - iod->in.totlen,
-		      AES_BLOCK_SIZE);
-
-	if (iod->len_in == sizeof(iod->hdr_in)) {
-		/* FIXME: Handle re-xmit. */
-		if (le64_to_cpu(iod->hdr_in.totlen) < iod->in.totlen) {
-			log_unusual(peer->log,
-				    "Packet went backwards: %"PRIu64
-				    " -> %"PRIu64,
-				    iod->in.totlen,
-				    le64_to_cpu(iod->hdr_in.totlen));
-			return -1;
-		}
-		if (le64_to_cpu(iod->hdr_in.totlen)
-		    > iod->in.totlen + MAX_PKT_LEN) {
-			log_unusual(peer->log,
-				    "Packet overlength: %"PRIu64" -> %"PRIu64,
-				    iod->in.totlen,
-				    le64_to_cpu(iod->hdr_in.totlen));
-			return -1;
-		}
-		iod->in.cpkt = (struct crypto_pkt *)
-			tal_arr(iod, u8, sizeof(struct crypto_pkt) + max);
-		memcpy(iod->in.cpkt, &iod->hdr_in, sizeof(iod->hdr_in));
-	}
-
-	data_off = iod->len_in - sizeof(struct crypto_pkt);
+	/* Reading body. */
+	data_off = iod->len_in - CRYPTO_HDR_LEN;
+	max = le32_to_cpu(iod->hdr_in.length)
+		+ crypto_aead_chacha20poly1305_ABYTES;
 	ret = read(fd, iod->in.cpkt->data + data_off, max - data_off);
 	if (ret <= 0)
 		return -1;
@@ -287,14 +293,22 @@ static int do_read_packet(int fd, struct io_plan_arg *arg)
 	if (iod->len_in <= max)
 		return 0;
 
-	/* Can't overflow len arg: packet can't be more than MAX_PKT_LEN */
-	data_len = le64_to_cpu(iod->hdr_in.totlen) - iod->in.totlen;
-	peer->inpkt = decrypt_pkt(peer, iod->in.cpkt, data_len);
-	iod->in.cpkt = tal_free(iod->in.cpkt);
-
+	/* We have full packet. */
+	peer->inpkt = decrypt_body(peer, iod->in.cpkt,
+				   le32_to_cpu(iod->hdr_in.length));
 	if (!peer->inpkt)
 		return -1;
-	iod->in.totlen += data_len;
+
+	/* Increment count if it wasn't an authenticate packet */
+	if (peer->inpkt->pkt_case != PKT__PKT_AUTH)
+		iod->in.count++;
+
+	log_debug(peer->log, "Received packet ACK=%"PRIu64" LEN=%u, type=%s",
+		  le64_to_cpu(iod->hdr_in.acknowledge),
+		  le32_to_cpu(iod->hdr_in.length),
+		  peer->inpkt->pkt_case == PKT__PKT_AUTH ? "PKT_AUTH"
+		  : input_name(peer->inpkt->pkt_case));
+	
 	return 1;
 }
 
@@ -325,7 +339,13 @@ struct io_plan *peer_write_packet(struct io_conn *conn,
 	/* We free previous packet here, rather than doing indirection
 	 * via io_write */
 	tal_free(iod->out.cpkt);
-	iod->out.cpkt = encrypt_pkt(peer, pkt, &totlen);
+
+	iod->out.cpkt = encrypt_pkt(peer, pkt, peer->io_data->in.count, &totlen);
+
+	/* We don't add to count for authenticate case. */
+	if (pkt->pkt_case != PKT__PKT_AUTH)
+		peer->io_data->out.count++;
+
 	return io_write(conn, iod->out.cpkt, totlen, next, peer);
 }
 
@@ -390,6 +410,22 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 
 	tal_free(auth);
 
+	/* Auth messages don't add to count. */
+	assert(peer->io_data->in.count == 0);
+
+	/* BOLT #1:
+	 * The receiver MUST NOT examine the `acknowledge` value until
+	 * after the authentication fields have been successfully
+	 * validated.  The `acknowledge` field MUST BE set to the
+	 * number of non-authenticate messages received and processed.
+	 */
+	/* FIXME: Handle reconnects. */
+	if (le64_to_cpu(peer->io_data->hdr_in.acknowledge) != 0) {
+		log_unusual(peer->log, "FIXME: non-zero acknowledge %"PRIu64,
+			    le64_to_cpu(peer->io_data->hdr_in.acknowledge));
+		return io_close(conn);
+	}
+
 	/* All complete, return to caller. */
 	cb = neg->cb;
 	peer->io_data->neg = tal_free(neg);
@@ -398,6 +434,9 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 
 static struct io_plan *receive_proof(struct io_conn *conn, struct peer *peer)
 {
+	/* The sent auth message doesn't add to count. */
+	assert(peer->io_data->out.count == 0);
+
 	return peer_read_packet(conn, peer, check_proof);
 }
 
@@ -448,13 +487,10 @@ static struct io_plan *keys_exchanged(struct io_conn *conn, struct peer *peer)
 	}
 
 	/* Each side combines with their OWN session key to SENDING crypto. */
-	if (!setup_crypto(&peer->io_data->in, shared_secret,
-			  neg->their_sessionpubkey)
-	    || !setup_crypto(&peer->io_data->out, shared_secret,
-			     neg->our_sessionpubkey)) {
-		log_unusual(peer->log, "Failed setup_crypto()");
-		return io_close(conn);
-	}
+	setup_crypto(&peer->io_data->in, shared_secret,
+		     neg->their_sessionpubkey);
+	setup_crypto(&peer->io_data->out, shared_secret,
+		     neg->our_sessionpubkey);
 
 	/* Now sign their session key to prove who we are. */
 	privkey_sign(peer, neg->their_sessionpubkey,
@@ -526,8 +562,7 @@ static void gen_sessionkey(secp256k1_context *ctx,
 			   secp256k1_pubkey *pubkey)
 {
 	do {
-		if (RAND_bytes(seckey, 32) != 1)
-			fatal("Could not get random bytes for sessionkey");
+		randombytes_buf(seckey, 32);
 	} while (!secp256k1_ec_pubkey_create(ctx, pubkey, seckey));
 }
 
@@ -547,6 +582,8 @@ struct io_plan *peer_crypto_setup(struct io_conn *conn, struct peer *peer,
 	size_t outputlen;
 	secp256k1_pubkey sessionkey;
 	struct key_negotiate *neg;
+
+	BUILD_ASSERT(CRYPTO_HDR_LEN == offsetof(struct crypto_pkt, data));
 
 	peer->io_data = tal(peer, struct io_data);
 
