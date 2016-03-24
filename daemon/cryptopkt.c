@@ -11,7 +11,6 @@
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/endian/endian.h>
-#include <ccan/io/io_plan.h>
 #include <ccan/mem/mem.h>
 #include <ccan/short_types/short_types.h>
 #include <inttypes.h>
@@ -108,9 +107,11 @@ struct io_data {
 	struct dir_state in, out;
 
 	/* Header we're currently reading. */
-	size_t len_in;
 	struct crypto_pkt hdr_in;
 
+	/* Callback once packet decrypted. */
+	struct io_plan *(*cb)(struct io_conn *, struct peer *);
+	
 	/* For negotiation phase. */
 	struct key_negotiate *neg;
 };
@@ -182,8 +183,8 @@ static bool decrypt_in_place(void *data, size_t len,
 	return false;
 }
 
-static Pkt *decrypt_body(struct peer *peer, struct crypto_pkt *cpkt,
-			 size_t data_len)
+static Pkt *decrypt_pkt(struct peer *peer, struct crypto_pkt *cpkt,
+			size_t data_len)
 {
 	struct io_data *iod = peer->io_data;
 	struct ProtobufCAllocator prototal;
@@ -235,69 +236,15 @@ static struct crypto_pkt *encrypt_pkt(struct peer *peer, const Pkt *pkt, u64 ack
 	return cpkt;
 }
 
-static int do_read_packet(int fd, struct io_plan_arg *arg)
+static struct io_plan *decrypt_body(struct io_conn *conn, struct peer *peer)
 {
-	struct peer *peer = arg->u1.vp;
 	struct io_data *iod = peer->io_data;
-	u64 max;
-	size_t data_off;
-	int ret;
-
-	/* Still reading header? */
-	if (iod->len_in < CRYPTO_HDR_LEN) {
-		ret = read(fd, (char *)&iod->hdr_in + iod->len_in,
-			   CRYPTO_HDR_LEN - iod->len_in);
-		if (ret <= 0)
-			return -1;
-		iod->len_in += ret;
-
-		/* More to go? */
-		if (iod->len_in != CRYPTO_HDR_LEN)
-			return 0;
-
-		/* We have header: Check it. */
-		if (!decrypt_in_place(&iod->hdr_in, CRYPTO_HDR_LEN_NOTAG,
-				      &iod->in.nonce, &iod->in.enckey)) {
-			log_unusual(peer->log, "Header decryption failed");
-			return -1;
-		}
-
-		/* BOLT #1: `length` MUST NOT exceed 1MB (1048576 bytes). */
-		if (le32_to_cpu(iod->hdr_in.length) > MAX_PKT_LEN) {
-			log_unusual(peer->log,
-				    "Packet overlength: %"PRIu64,
-				    le64_to_cpu(iod->hdr_in.length));
-			return -1;
-		}
-
-		/* Allocate room for body, copy header. */
-		max = CRYPTO_HDR_LEN
-			+ le32_to_cpu(iod->hdr_in.length)
-			+ crypto_aead_chacha20poly1305_ABYTES;
-
-		iod->in.cpkt = (struct crypto_pkt *)tal_arr(peer, char, max);
-		memcpy(iod->in.cpkt, &iod->hdr_in, CRYPTO_HDR_LEN);
-
-		return 0;
-	}
-
-	/* Reading body. */
-	data_off = iod->len_in - CRYPTO_HDR_LEN;
-	max = le32_to_cpu(iod->hdr_in.length)
-		+ crypto_aead_chacha20poly1305_ABYTES;
-	ret = read(fd, iod->in.cpkt->data + data_off, max - data_off);
-	if (ret <= 0)
-		return -1;
-
-	iod->len_in += ret;
-	if (iod->len_in <= max)
-		return 0;
 
 	/* We have full packet. */
-	peer->inpkt = decrypt_body(peer, iod->in.cpkt,
-				   le32_to_cpu(iod->hdr_in.length));
+	peer->inpkt = decrypt_pkt(peer, iod->in.cpkt,
+				  le32_to_cpu(iod->hdr_in.length));
 	if (!peer->inpkt)
-		return -1;
+		return io_close(conn);
 
 	/* Increment count if it wasn't an authenticate packet */
 	if (peer->inpkt->pkt_case != PKT__PKT_AUTH)
@@ -308,8 +255,41 @@ static int do_read_packet(int fd, struct io_plan_arg *arg)
 		  le32_to_cpu(iod->hdr_in.length),
 		  peer->inpkt->pkt_case == PKT__PKT_AUTH ? "PKT_AUTH"
 		  : input_name(peer->inpkt->pkt_case));
-	
-	return 1;
+
+	return iod->cb(conn, peer);
+}
+
+static struct io_plan *decrypt_header(struct io_conn *conn, struct peer *peer)
+{
+	struct io_data *iod = peer->io_data;
+	size_t body_len;
+
+	/* We have header: Check it. */
+	if (!decrypt_in_place(&iod->hdr_in, CRYPTO_HDR_LEN_NOTAG,
+			      &iod->in.nonce, &iod->in.enckey)) {
+		log_unusual(peer->log, "Header decryption failed");
+		return io_close(conn);
+	}
+	log_debug(peer->log, "Decrypted header len %u",
+		  le32_to_cpu(iod->hdr_in.length));
+
+	/* BOLT #1: `length` MUST NOT exceed 1MB (1048576 bytes). */
+	if (le32_to_cpu(iod->hdr_in.length) > MAX_PKT_LEN) {
+		log_unusual(peer->log,
+			    "Packet overlength: %"PRIu64,
+			    le64_to_cpu(iod->hdr_in.length));
+		return io_close(conn);
+	}
+
+	/* Allocate room for body, copy header. */
+	body_len = le32_to_cpu(iod->hdr_in.length)
+		+ crypto_aead_chacha20poly1305_ABYTES;
+
+	iod->in.cpkt = (struct crypto_pkt *)tal_arr(peer, char,
+						    CRYPTO_HDR_LEN + body_len);
+	memcpy(iod->in.cpkt, &iod->hdr_in, CRYPTO_HDR_LEN);
+
+	return io_read(conn, iod->in.cpkt->data, body_len, decrypt_body, peer);
 }
 
 struct io_plan *peer_read_packet(struct io_conn *conn,
@@ -317,13 +297,11 @@ struct io_plan *peer_read_packet(struct io_conn *conn,
 				 struct io_plan *(*cb)(struct io_conn *,
 						       struct peer *))
 {
-	struct io_plan_arg *arg = io_plan_arg(conn, IO_IN);
+	struct io_data *iod = peer->io_data;
 
-	peer->io_data->len_in = 0;
-	arg->u1.vp = peer;
-	return io_set_plan(conn, IO_IN, do_read_packet,
-			   (struct io_plan *(*)(struct io_conn *, void *))cb,
-			   peer);
+	iod->cb = cb;
+	return io_read(conn, &iod->hdr_in, CRYPTO_HDR_LEN,
+		       decrypt_header, peer);
 }
 
 /* Caller must free data! */
