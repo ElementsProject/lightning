@@ -52,7 +52,7 @@ struct peer_visible_state {
 	/* Minimum depth of anchor before channel usable. */
 	unsigned int mindepth;
 	/* Commitment fee they're offering (satoshi). */
-	u64 commit_fee;
+	u64 commit_fee_rate;
 	/* Revocation hash for latest commit tx. */
 	struct sha256 revocation_hash;
 	/* Revocation hash for next commit tx. */
@@ -187,4 +187,6 @@ void peer_add_htlc_expiry(struct peer *peer,
 struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
 					const struct peer *peer, u64 fee);
 
+uint64_t commit_tx_fee(const struct bitcoin_tx *commit,
+		       uint64_t anchor_satoshis);
 #endif /* LIGHTNING_DAEMON_PEER_H */

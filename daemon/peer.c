@@ -376,8 +376,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 		fatal("Invalid locktime configuration %u",
 		      dstate->config.rel_locktime);
 	peer->us.mindepth = dstate->config.anchor_confirms;
-	/* FIXME: Make this dynamic. */
-	peer->us.commit_fee = dstate->config.commitment_fee;
+	peer->us.commit_fee_rate = dstate->config.commitment_fee_rate;
 
 	peer->us.commit = peer->them.commit = NULL;
 	
@@ -831,6 +830,17 @@ static void spend_tx_done(struct peer *peer, int depth,
 		state_event(peer, ptr2int(done), NULL);
 }
 
+uint64_t commit_tx_fee(const struct bitcoin_tx *commit, uint64_t anchor_satoshis)
+{
+	uint64_t i, total = 0;
+
+	for (i = 0; i < commit->output_count; i++)
+		total += commit->output[i].amount;
+
+	assert(anchor_satoshis >= total);
+	return anchor_satoshis - total;
+}
+
 /* Watch this tx until it's buried enough to be forgotten. */
 void peer_watch_tx(struct peer *peer,
 		   const struct bitcoin_tx *tx,
@@ -855,9 +865,12 @@ struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
 
 	/* We don't need a deep copy here, just fee levels. */
 	cstate = *peer->cstate;
-	if (!adjust_fee(peer->anchor.satoshis, fee,
-			&cstate.a, &cstate.b))
+	if (!force_fee(&cstate, fee)) {
+		log_unusual(peer->log,
+			    "peer_create_close_tx: can't afford fee %"PRIu64,
+			    fee);
 		return NULL;
+	}
 
 	log_debug(peer->log,
 		  "creating close-tx with fee %"PRIu64": to %02x%02x%02x%02x/%02x%02x%02x%02x, amounts %u/%u",
@@ -881,14 +894,36 @@ struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
 
 void peer_calculate_close_fee(struct peer *peer)
 {
+	/* Use actual worst-case length of close tx: based on BOLT#02's
+	 * commitment tx numbers, but only 1 byte for output count */
+	const uint64_t txsize = 41 + 221 + 10 + 32 + 32;
+	uint64_t maxfee;
+
+	/* FIXME: Dynamic fee */
+	peer->closing.our_fee
+		= fee_by_feerate(txsize, peer->dstate->config.closing_fee_rate);
+
 	/* BOLT #2:
 	 * The sender MUST set `close_fee` lower than or equal to the
-	 * fee of the final commitment transaction, and MUST set
+	 * fee of the final commitment transaction and MUST set
 	 * `close_fee` to an even number of satoshis.
 	 */
+	maxfee = commit_tx_fee(peer->us.commit, peer->anchor.satoshis);
+	if (peer->closing.our_fee > maxfee) {
+		/* This shouldn't happen: we never accept a commit fee
+		 * less than the min_rate, which is greater than the
+		 * closing_fee_rate.  Also, our txsize estimate for
+		 * the closing tx is 2 bytes smaller than the commitment tx. */
+		log_unusual(peer->log,
+			    "Closing fee %"PRIu64" exceeded commit fee %"PRIu64", reducing.",
+			    peer->closing.our_fee, maxfee);
+		peer->closing.our_fee = maxfee;
 
-	/* FIXME: Dynamic fee! */
-	peer->closing.our_fee = peer->dstate->config.closing_fee;
+		/* This can happen if actual commit txfee is odd. */
+		if (peer->closing.our_fee & 1)
+			peer->closing.our_fee--;
+	}
+	assert(!(peer->closing.our_fee & 1));
 }
 
 bool peer_has_close_sig(const struct peer *peer)
@@ -1056,7 +1091,7 @@ const struct bitcoin_tx *bitcoin_close(const tal_t *ctx, struct peer *peer)
 const struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
 					    const struct peer *peer)
 {
-	u8 *redeemscript;
+	u8 *redeemscript, *linear;
 	const struct bitcoin_tx *commit = peer->us.commit;
 	struct bitcoin_signature sig;
 	struct bitcoin_tx *tx;
@@ -1075,30 +1110,46 @@ const struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
 	p2sh_out = find_p2sh_out(commit, redeemscript);
 	tx->input[0].index = p2sh_out;
 	tx->input[0].input_amount = commit->output[p2sh_out].amount;
-	/* FIXME: Dynamic fee! */
-	tx->fee = peer->dstate->config.closing_fee;
-
 	tx->input[0].sequence_number = bitcoin_nsequence(&peer->them.locktime);
 
-	/* FIXME: In this case, we shouldn't do anything (not worth
-	 * collecting) */
-	if (commit->output[p2sh_out].amount <= tx->fee)
-		fatal("Amount of %"PRIu64" won't cover fee",
-		      commit->output[p2sh_out].amount);
-
-	tx->output[0].amount = commit->output[p2sh_out].amount - tx->fee;
+	tx->output[0].amount = commit->output[p2sh_out].amount;
 	tx->output[0].script = scriptpubkey_p2sh(tx,
 				 bitcoin_redeem_single(tx, &peer->us.finalkey));
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
-	/* Now get signature, to set up input script. */
+	/* Use signature, until we have fee. */
 	sig.stype = SIGHASH_ALL;
 	peer_sign_spend(peer, tx, redeemscript, &sig.sig);
+
 	tx->input[0].script = scriptsig_p2sh_secret(tx, NULL, 0, &sig,
 						    redeemscript,
 						    tal_count(redeemscript));
 	tx->input[0].script_length = tal_count(tx->input[0].script);
 
+	/* FIXME: Figure out length first, then calc fee! */
+
+	/* Now, calculate the fee, given length. */
+	/* FIXME: Dynamic fees! */
+	linear = linearize_tx(ctx, tx);
+	tx->fee = fee_by_feerate(tal_count(linear),
+				 peer->dstate->config.closing_fee_rate);
+
+	/* FIXME: Fail gracefully in these cases (not worth collecting) */
+	if (tx->fee > tx->output[0].amount
+	    || is_dust_amount(tx->output[0].amount - tx->fee))
+		fatal("Amount of %"PRIu64" won't cover fee %"PRIu64,
+		      tx->output[0].amount, tx->fee);
+
+	/* Re-sign with the real values. */
+	tx->input[0].script_length = 0;
+	tx->output[0].amount -= tx->fee;
+	peer_sign_spend(peer, tx, redeemscript, &sig.sig);
+
+	tx->input[0].script = scriptsig_p2sh_secret(tx, NULL, 0, &sig,
+						    redeemscript,
+						    tal_count(redeemscript));
+	tx->input[0].script_length = tal_count(tx->input[0].script);
+	
 	return tx;
 }
 
@@ -1161,19 +1212,17 @@ static void created_anchor(struct lightningd_state *dstate,
 			   const struct bitcoin_tx *tx,
 			   struct peer *peer)
 {
-	size_t commitfee;
-
 	bitcoin_txid(tx, &peer->anchor.txid);
 	peer->anchor.index = find_p2sh_out(tx, peer->anchor.redeemscript);
 	assert(peer->anchor.satoshis == tx->output[peer->anchor.index].amount);
 	/* We'll need this later, when we're told to broadcast it. */
 	peer->anchor.tx = tal_steal(peer, tx);
 
-	commitfee = commit_fee(peer->them.commit_fee, peer->us.commit_fee);
+	/* FIXME: Check their cstate too (different fee rate!) */
 	peer->cstate = initial_funding(peer,
-				       peer->us.offer_anchor,
+				       peer->us.offer_anchor == CMD_OPEN_WITH_ANCHOR,
 				       peer->anchor.satoshis,
-				       commitfee);
+				       peer->us.commit_fee_rate);
 	if (!peer->cstate)
 		fatal("Insufficient anchor funds for commitfee");
 
@@ -1245,8 +1294,10 @@ void make_commit_txs(const tal_t *ctx,
 				 our_revocation_hash,
 				 cstate);
 
+	/* Shallow copy: we don't touch HTLCs, just amounts and fees. */
 	their_cstate = *cstate;
 	invert_cstate(&their_cstate);
+	adjust_fee(&their_cstate, peer->them.commit_fee_rate);
 	*theirs = create_commit_tx(ctx,
 				   &peer->them.finalkey,
 				   &peer->us.finalkey,
@@ -1377,16 +1428,7 @@ static void check_htlc_expiry(struct peer *peer, void *unused)
 			continue;
 
 		cstate = copy_funding(peer, peer->cstate);
-
-		/* This should never fail! */
-		if (!funding_delta(peer->anchor.satoshis,
-				   0,
-				   -htlc->msatoshis,
-				   &cstate->b, &cstate->a)) {
-			fatal("Unexpected failure expirint HTLC of %"PRIu64
-			      " milli-satoshis", htlc->msatoshis);
-		}
-		funding_remove_htlc(&cstate->b, i);
+		funding_b_fail_htlc(cstate, i);
 		stage.fail.index = i;
 		set_htlc_command(peer, cstate, NULL, CMD_SEND_HTLC_FAIL,
 				 &stage);
@@ -1430,9 +1472,8 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 	/* Can we even offer this much?  We check now, just before we
 	 * execute. */
 	cstate = copy_funding(newhtlc, peer->cstate);
-	if (!funding_delta(peer->anchor.satoshis,
-			   0, newhtlc->htlc.msatoshis,
-			   &cstate->a, &cstate->b)) {
+	if (!funding_a_add_htlc(cstate, newhtlc->htlc.msatoshis,
+				&newhtlc->htlc.expiry, &newhtlc->htlc.rhash)) {
 		command_fail(newhtlc->jsoncmd,
 			     "Cannot afford %"PRIu64" milli-satoshis",
 			     newhtlc->htlc.msatoshis);
@@ -1440,10 +1481,6 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 	}
 
 	/* FIXME: Never propose duplicate rvalues? */
-
-	/* Add the htlc to our side of channel. */
-	funding_add_htlc(&cstate->a, newhtlc->htlc.msatoshis,
-			 &newhtlc->htlc.expiry, &newhtlc->htlc.rhash);
 	peer_add_htlc_expiry(peer, &newhtlc->htlc.expiry);
 
 	set_htlc_command(peer, cstate, newhtlc->jsoncmd,
@@ -1541,7 +1578,6 @@ static void do_fullfill(struct peer *peer,
 	struct channel_state *cstate;
 	struct sha256 rhash;
 	size_t i;
-	struct channel_htlc *htlc;
 	union htlc_staging stage;
 
 	stage.fulfill.fulfill = HTLC_FULFILL;
@@ -1556,20 +1592,8 @@ static void do_fullfill(struct peer *peer,
 		return;
 	}
 	stage.fulfill.index = i;
-	/* Point at current one, since we remove from new cstate. */
-	htlc = &peer->cstate->b.htlcs[i];
-
 	cstate = copy_funding(fulfillhtlc, peer->cstate);
-	/* This should never fail! */
-	if (!funding_delta(peer->anchor.satoshis,
-			   -htlc->msatoshis,
-			   -htlc->msatoshis,
-			   &cstate->b, &cstate->a)) {
-		fatal("Unexpected failure fulfilling HTLC of %"PRIu64
-		      " milli-satoshis", htlc->msatoshis);
-		return;
-	}
-	funding_remove_htlc(&cstate->b, i);
+	funding_b_fulfill_htlc(cstate, i);
 
 	set_htlc_command(peer, cstate, fulfillhtlc->jsoncmd,
 			 CMD_SEND_HTLC_FULFILL, &stage);
@@ -1628,7 +1652,6 @@ static void do_failhtlc(struct peer *peer,
 {
 	struct channel_state *cstate;
 	size_t i;
-	struct channel_htlc *htlc;
 	union htlc_staging stage;
 
 	stage.fail.fail = HTLC_FAIL;
@@ -1639,21 +1662,9 @@ static void do_failhtlc(struct peer *peer,
 		return;
 	}
 	stage.fail.index = i;
-	/* Point to current one, since we remove from new cstate. */
-	htlc = &peer->cstate->b.htlcs[i];
 
 	cstate = copy_funding(failhtlc, peer->cstate);
-
-	/* This should never fail! */
-	if (!funding_delta(peer->anchor.satoshis,
-			   0,
-			   -htlc->msatoshis,
-			   &cstate->b, &cstate->a)) {
-		fatal("Unexpected failure routefailing HTLC of %"PRIu64
-		      " milli-satoshis", htlc->msatoshis);
-		return;
-	}
-	funding_remove_htlc(&cstate->b, i);
+	funding_b_fail_htlc(cstate, i);
 
 	set_htlc_command(peer, cstate, failhtlc->jsoncmd,
 			 CMD_SEND_HTLC_FAIL, &stage);

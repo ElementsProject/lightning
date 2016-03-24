@@ -1413,12 +1413,12 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[8] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "commitment_fee",
+    "initial_fee_rate",
     7,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_UINT64,
     0,   /* quantifier_offset */
-    offsetof(OpenChannel, commitment_fee),
+    offsetof(OpenChannel, initial_fee_rate),
     NULL,
     NULL,
     0,             /* flags */
@@ -1440,9 +1440,9 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[8] =
 static const unsigned open_channel__field_indices_by_name[] = {
   4,   /* field[4] = anch */
   2,   /* field[2] = commit_key */
-  6,   /* field[6] = commitment_fee */
   0,   /* field[0] = delay */
   3,   /* field[3] = final_key */
+  6,   /* field[6] = initial_fee_rate */
   5,   /* field[5] = min_depth */
   7,   /* field[7] = next_revocation_hash */
   1,   /* field[1] = revocation_hash */

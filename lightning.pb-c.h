@@ -200,7 +200,7 @@ struct  _OpenChannel
   /*
    * How much fee would I like on commitment tx?
    */
-  uint64_t commitment_fee;
+  uint64_t initial_fee_rate;
 };
 #define OPEN_CHANNEL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&open_channel__descriptor) \

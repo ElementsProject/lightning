@@ -16,6 +16,17 @@ REDIRERR1="$DIR1/errors"
 REDIRERR2="$DIR2/errors"
 FGREP="fgrep -q"
 
+# setup.sh gives us 0.00999999 bitcoin, = 999999 satoshi = 999999000 millisatoshi
+AMOUNT=999999000
+
+# Default fee rate per kb.
+FEE_RATE=200000
+
+# Fee in millisatoshi if we have no htlcs (note rounding to make it even)
+NO_HTLCS_FEE=$((338 * $FEE_RATE / 2000 * 2000))
+ONE_HTLCS_FEE=$(( (338 + 32) * $FEE_RATE / 2000 * 2000))
+EXTRA_FEE=$(($ONE_HTLCS_FEE - $NO_HTLCS_FEE))
+
 # Always use valgrind.
 PREFIX="valgrind -q --error-exitcode=7"
 
@@ -240,7 +251,11 @@ sleep 2
 lcli1 getpeers | $FGREP STATE_NORMAL_HIGHPRIO
 lcli2 getpeers | $FGREP STATE_NORMAL_LOWPRIO
 
-check_status 949999000 50000000 "" 0 0 ""
+A_AMOUNT=$(($AMOUNT - $NO_HTLCS_FEE))
+A_FEE=$NO_HTLCS_FEE
+B_AMOUNT=0
+B_FEE=0
+check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 EXPIRY=$(( $(date +%s) + 1000))
 SECRET=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd
@@ -248,29 +263,43 @@ RHASH=`lcli1 dev-rhash $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 lcli1 newhtlc $ID2 1000000 $EXPIRY $RHASH
 
 # Check channel status
-check_status 948999000 50000000 '{ "msatoshis" : 1000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' 0 0 ""
+A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - 1000000))
+A_FEE=$(($A_FEE + $EXTRA_FEE))
+check_status $A_AMOUNT $A_FEE '{ "msatoshis" : 1000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
 
 lcli2 fulfillhtlc $ID1 $SECRET
 
-# We've transferred the HTLC amount to 2, who now has to pay fees.
-check_status 949999000 49000000 "" 0 1000000 ""
+# We've transferred the HTLC amount to 2, who now has to pay fees,
+# so no net change for A who saves on fees.
+B_FEE=1000000
+# With no HTLCs, extra fee no longer required.
+A_FEE=$(($A_FEE - $EXTRA_FEE - $B_FEE))
+A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + 1000000))
+
+check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 # A new one, at 10x the amount.
 lcli1 newhtlc $ID2 10000000 $EXPIRY $RHASH
 
 # Check channel status
-check_status 939999000 49000000 '{ "msatoshis" : 10000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' 0 1000000 ""
+A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - 10000000))
+A_FEE=$(($A_FEE + $EXTRA_FEE))
+check_status $A_AMOUNT $A_FEE '{ "msatoshis" : 10000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
 
 lcli2 failhtlc $ID1 $RHASH
 
 # Back to how we were before.
-check_status 949999000 49000000 "" 0 1000000 ""
+A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + 10000000))
+A_FEE=$(($A_FEE - $EXTRA_FEE))
+check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 # Same again, but this time it expires.
 lcli1 newhtlc $ID2 10000000 $EXPIRY $RHASH
 
 # Check channel status
-check_status 939999000 49000000 '{ "msatoshis" : 10000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' 0 1000000 ""
+A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - 10000000))
+A_FEE=$(($A_FEE + $EXTRA_FEE))
+check_status $A_AMOUNT $A_FEE '{ "msatoshis" : 10000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
 
 # Make sure node1 accepts the expiry packet.
 lcli1 dev-mocktime $(($EXPIRY))
@@ -280,7 +309,9 @@ lcli2 dev-mocktime $(($EXPIRY + 31))
 sleep 1
 
 # Back to how we were before.
-check_status 949999000 49000000 "" 0 1000000 ""
+A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + 10000000))
+A_FEE=$(($A_FEE - $EXTRA_FEE))
+check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 lcli1 close $ID2
 

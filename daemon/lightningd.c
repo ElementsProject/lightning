@@ -82,15 +82,15 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--forever-confirms", opt_set_u32, opt_show_u32,
 			 &dstate->config.forever_confirms,
 			 "Confirmations after which we consider a reorg impossible");
-	opt_register_arg("--commit-fee", opt_set_u64, opt_show_u64,
-			 &dstate->config.commitment_fee,
-			 "Satoshis to offer for commitment transaction fee");
-	opt_register_arg("--min-commit-fee", opt_set_u64, opt_show_u64,
-			 &dstate->config.commitment_fee_min,
-			 "Minimum satoshis to accept for commitment transaction fee");
-	opt_register_arg("--closing-fee", opt_set_u64, opt_show_u64,
-			 &dstate->config.closing_fee,
-			 "Satoshis to use for mutual close transaction fee");
+	opt_register_arg("--commit-fee-rate", opt_set_u64, opt_show_u64,
+			 &dstate->config.commitment_fee_rate,
+			 "Satoshis to offer for commitment transaction fee (per kb)");
+	opt_register_arg("--min-commit-fee-rate", opt_set_u64, opt_show_u64,
+			 &dstate->config.commitment_fee_rate_min,
+			 "Minimum satoshis to accept for commitment transaction fee (per kb)");
+	opt_register_arg("--closing-fee-rate", opt_set_u64, opt_show_u64,
+			 &dstate->config.closing_fee_rate,
+			 "Satoshis to use for mutual close transaction fee (per kb)");
 	opt_register_arg("--min-expiry", opt_set_u32, opt_show_u32,
 			 &dstate->config.min_expiry,
 			 "Minimum number of seconds to accept an HTLC before expiry");
@@ -128,14 +128,14 @@ static void default_config(struct config *config)
 	
 	/* FIXME: These should float with bitcoind's recommendations! */
 
-	/* Pay hefty fee (10x current suggested minimum). */
-	config->commitment_fee = 50000;
+	/* Pay hefty fee (double historic high of ~100k). */
+	config->commitment_fee_rate = 200000;
 
-	/* Don't accept less than double the current standard fee. */
-	config->commitment_fee_min = 10000;
+	/* Don't accept less than double the average 2-block fee. */
+	config->commitment_fee_rate_min = 50000;
 
 	/* Use this for mutual close. */
-	config->closing_fee = 10000;
+	config->closing_fee_rate = 20000;
 
 	/* Don't bother me unless I have 6 hours to collect. */
 	config->min_expiry = 6 * HOURS;
@@ -149,24 +149,22 @@ static void check_config(struct lightningd_state *dstate)
 {
 	/* BOLT #2:
 	 * The sender MUST set `close_fee` lower than or equal to the
-	 * fee of the final commitment transaction, and MUST set
-	 * `close_fee` to an even number of satoshis.
+	 * fee of the final commitment transaction.
 	 */
-	if (dstate->config.closing_fee > dstate->config.commitment_fee)
-		fatal("Closing fee %"PRIu64
-		      " can't exceed commitment fee %"PRIu64,
-		      dstate->config.closing_fee,
-		      dstate->config.commitment_fee);
 
-	if (dstate->config.closing_fee & 1)
-		fatal("Closing fee %"PRIu64 "must be even.",
-		      dstate->config.closing_fee);
+	/* We do this by ensuring it's less than the minimum we would accept. */
+	if (dstate->config.closing_fee_rate > dstate->config.commitment_fee_rate_min)
+		fatal("Closing fee rate %"PRIu64
+		      " can't exceed minimum commitment fee rate %"PRIu64,
+		      dstate->config.closing_fee_rate,
+		      dstate->config.commitment_fee_rate_min);
 
-	if (dstate->config.commitment_fee_min > dstate->config.commitment_fee)
-		fatal("Minumum fee %"PRIu64
-		      " can't exceed commitment fee %"PRIu64,
-		      dstate->config.commitment_fee_min,
-		      dstate->config.commitment_fee);
+	if (dstate->config.commitment_fee_rate_min
+	    > dstate->config.commitment_fee_rate)
+		fatal("Minumum fee rate %"PRIu64
+		      " can't exceed commitment fee rate %"PRIu64,
+		      dstate->config.commitment_fee_rate_min,
+		      dstate->config.commitment_fee_rate);
 }
 
 static struct lightningd_state *lightningd_state(void)

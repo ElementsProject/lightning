@@ -84,7 +84,7 @@ message open_channel {
   optional uint32 min_depth = 6 [ default = 0 ];
 
   // How much fee would I like on commitment tx?
-  required uint64 commitment_fee = 7;
+  required uint64 initial_fee_rate = 7;
 }
 
 // Whoever is supplying anchor sends this.

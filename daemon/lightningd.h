@@ -29,14 +29,14 @@ struct config {
 	/* How many blocks until we stop watching a close commit? */
 	u32 forever_confirms;
 
-	/* What are we prepared to pay in commitment fee (satoshis). */
-	u64 commitment_fee;
+	/* What are we prepared to pay in commitment fee (satoshis/kb). */
+	u64 commitment_fee_rate;
 
 	/* How little are we prepared to have them pay? */
-	u64 commitment_fee_min;
+	u64 commitment_fee_rate_min;
 
-	/* What fee we use for the closing transaction (satoshis) */
-	u64 closing_fee;
+	/* What fee we use for the closing transaction (satoshis/kb) */
+	u64 closing_fee_rate;
 
 	/* Minimum/maximum time for an expiring HTLC (seconds). */
 	u32 min_expiry, max_expiry;

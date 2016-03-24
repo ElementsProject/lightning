@@ -81,7 +81,7 @@ Pkt *pkt_open(const tal_t *ctx, const struct peer *peer,
 	locktime__init(o->delay);
 	o->delay->locktime_case = LOCKTIME__LOCKTIME_SECONDS;
 	o->delay->seconds = rel_locktime_to_seconds(&peer->us.locktime);
-	o->commitment_fee = peer->us.commit_fee;
+	o->initial_fee_rate = peer->us.commit_fee_rate;
 	if (anchor == OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR)
 		assert(peer->us.offer_anchor == CMD_OPEN_WITH_ANCHOR);
 	else {
@@ -289,8 +289,8 @@ Pkt *accept_pkt_open(const tal_t *ctx,
 		return pkt_err(ctx, "Delay too great");
 	if (o->min_depth > peer->dstate->config.anchor_confirms_max)
 		return pkt_err(ctx, "min_depth too great");
-	if (o->commitment_fee < peer->dstate->config.commitment_fee_min)
-		return pkt_err(ctx, "Commitment fee too low");
+	if (o->initial_fee_rate < peer->dstate->config.commitment_fee_rate_min)
+		return pkt_err(ctx, "Commitment fee rate too low");
 	if (o->anch == OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR)
 		peer->them.offer_anchor = CMD_OPEN_WITH_ANCHOR;
 	else if (o->anch == OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR)
@@ -304,7 +304,7 @@ Pkt *accept_pkt_open(const tal_t *ctx,
 	if (!proto_to_rel_locktime(o->delay, &peer->them.locktime))
 		return pkt_err(ctx, "Malformed locktime");
 	peer->them.mindepth = o->min_depth;
-	peer->them.commit_fee = o->commitment_fee;
+	peer->them.commit_fee_rate = o->initial_fee_rate;
 	if (!proto_to_pubkey(peer->dstate->secpctx,
 			     o->commit_key, &peer->them.commitkey))
 		return pkt_err(ctx, "Bad commitkey");
@@ -326,7 +326,6 @@ Pkt *accept_pkt_anchor(const tal_t *ctx,
 		       const Pkt *pkt)
 {
 	const OpenAnchor *a = pkt->open_anchor;
-	u64 commitfee;
 
 	/* They must be offering anchor for us to try accepting */
 	assert(peer->us.offer_anchor == CMD_OPEN_WITHOUT_ANCHOR);
@@ -336,15 +335,13 @@ Pkt *accept_pkt_anchor(const tal_t *ctx,
 	peer->anchor.index = a->output_index;
 	peer->anchor.satoshis = a->amount;
 
-	/* Create funder's cstate, invert to get ours. */
-	commitfee = commit_fee(peer->them.commit_fee, peer->us.commit_fee);
+	/* Create our cstate. */
 	peer->cstate = initial_funding(peer,
-				       peer->us.offer_anchor,
+				       peer->us.offer_anchor == CMD_OPEN_WITH_ANCHOR,
 				       peer->anchor.satoshis,
-				       commitfee);
+				       peer->us.commit_fee_rate);
 	if (!peer->cstate)
 		return pkt_err(ctx, "Insufficient funds for fee");
-	invert_cstate(peer->cstate);
 
 	/* Now we can make initial (unsigned!) commit txs. */
 	make_commit_txs(peer, peer,
@@ -449,18 +446,14 @@ Pkt *accept_pkt_htlc_add(const tal_t *ctx,
 	}
 
 	cur->cstate = copy_funding(cur, peer->cstate);
-	if (!funding_delta(peer->anchor.satoshis,
-			   0, cur->stage.add.htlc.msatoshis,
-			   &cur->cstate->b, &cur->cstate->a)) {
+	if (!funding_b_add_htlc(cur->cstate,
+				cur->stage.add.htlc.msatoshis,
+				&cur->stage.add.htlc.expiry,
+				&cur->stage.add.htlc.rhash)) {
 		err = pkt_err(ctx, "Cannot afford %"PRIu64" milli-satoshis",
 			      cur->stage.add.htlc.msatoshis);
 		goto fail;
 	}
-	/* Add the htlc to their side of channel. */
-	funding_add_htlc(&cur->cstate->b,
-			 cur->stage.add.htlc.msatoshis,
-			 &cur->stage.add.htlc.expiry,
-			 &cur->stage.add.htlc.rhash);
 	peer_add_htlc_expiry(peer, &cur->stage.add.htlc.expiry);
 	
 	peer_get_revocation_hash(peer, peer->commit_tx_counter+1,
@@ -498,7 +491,6 @@ Pkt *accept_pkt_htlc_fail(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
 	Pkt *err;
 	size_t i;
 	struct sha256 rhash;
-	struct channel_htlc *htlc;
 
 	proto_to_sha256(f->revocation_hash, &cur->their_revocation_hash);
 	proto_to_sha256(f->r_hash, &rhash);
@@ -511,17 +503,10 @@ Pkt *accept_pkt_htlc_fail(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
 
 	cur->stage.fail.fail = HTLC_FAIL;
 	cur->stage.fail.index = i;
-	htlc = &peer->cstate->a.htlcs[i];
 
-	/* Removing it should not fail: we regain HTLC amount */
+	/* We regain HTLC amount */
 	cur->cstate = copy_funding(cur, peer->cstate);
-	if (!funding_delta(peer->anchor.satoshis,
-			   0, -htlc->msatoshis,
-			   &cur->cstate->a, &cur->cstate->b)) {
-		fatal("Unexpected failure fulfilling HTLC of %"PRIu64
-		      " milli-satoshis", htlc->msatoshis);
-	}
-	funding_remove_htlc(&cur->cstate->a, i);
+	funding_a_fail_htlc(cur->cstate, i);
 	/* FIXME: Remove timer. */
 	
 	peer_get_revocation_hash(peer, peer->commit_tx_counter+1,
@@ -550,7 +535,6 @@ Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
 	Pkt *err;
 	size_t i;
 	struct sha256 rhash;
-	struct channel_htlc *htlc;
 
 	cur->stage.fulfill.fulfill = HTLC_FULFILL;
 	proto_to_sha256(f->r, &cur->stage.fulfill.r);
@@ -564,19 +548,10 @@ Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
 	}
 	cur->stage.fulfill.index = i;
 
-	htlc = &peer->cstate->a.htlcs[i];
-
-	/* Removing it should not fail: they gain HTLC amount */
+	/* Removing it: they gain HTLC amount */
 	cur->cstate = copy_funding(cur, peer->cstate);
-	if (!funding_delta(peer->anchor.satoshis,
-			   -htlc->msatoshis,
-			   -htlc->msatoshis,
-			   &cur->cstate->a, &cur->cstate->b)) {
-		fatal("Unexpected failure fulfilling HTLC of %"PRIu64
-		      " milli-satoshis", htlc->msatoshis);
-	}
-	funding_remove_htlc(&cur->cstate->a, i);
-	
+	funding_a_fulfill_htlc(cur->cstate, i);
+
 	peer_get_revocation_hash(peer, peer->commit_tx_counter+1,
 				 &cur->our_revocation_hash);
 
@@ -729,13 +704,16 @@ Pkt *accept_pkt_close_sig(const tal_t *ctx, struct peer *peer, const Pkt *pkt,
 	struct bitcoin_signature theirsig;
 
 	/* BOLT #2:
-
+	 *
 	 * The sender MUST set `close_fee` lower than or equal to the fee of the
 	 * final commitment transaction, and MUST set `close_fee` to an even
 	 * number of satoshis.
 	 */
-	if (c->close_fee & 1 || c->close_fee > peer->them.commit_fee)
+	if ((c->close_fee & 1)
+	    || c->close_fee > commit_tx_fee(peer->them.commit,
+					    peer->anchor.satoshis)) {
 		return pkt_err(ctx, "Invalid close fee");
+	}
 
 	/* FIXME: Don't accept tiny fee at all? */
 
