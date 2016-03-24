@@ -281,6 +281,9 @@ enum state_input {
 	CMD_SEND_HTLC_FAIL,
 	CMD_CLOSE,
 
+	/* Connection lost/timedout with other node. */
+	INPUT_CONNECTION_LOST,
+
 	INPUT_MAX
 };
 

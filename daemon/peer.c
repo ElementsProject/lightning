@@ -313,20 +313,18 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 	}
 
 	/* FIXME: Try to reconnect. */
-	if (peer->cond == PEER_CLOSING
-	    || peer->cond == PEER_CLOSED)
+	if (peer->cond == PEER_CLOSED)
 		return;
 
-	state(peer, peer, CMD_CLOSE, NULL, &outpkt, &broadcast);
-	/* Can't send packet, so ignore it. */
-	tal_free(outpkt);
+	state(peer, peer, INPUT_CONNECTION_LOST, NULL, &outpkt, &broadcast);
+	assert(!outpkt);
 
 	if (broadcast) {
 		struct sha256_double txid;
 
 		bitcoin_txid(broadcast, &txid);
 		/* FIXME: log_struct */
-		log_debug(peer->log, "CMD_CLOSE: tx %02x%02x%02x%02x...",
+		log_debug(peer->log, "INPUT_CONN_LOST: tx %02x%02x%02x%02x...",
 			  txid.sha.u.u8[0], txid.sha.u.u8[1],
 			  txid.sha.u.u8[2], txid.sha.u.u8[3]);
 		bitcoind_send_tx(peer->dstate, broadcast);
@@ -940,7 +938,9 @@ bool peer_watch_our_htlc_outputs(struct peer *peer,
 				 enum state_input tothem_spent,
 				 enum state_input tothem_timeout)
 {
-	FIXME_STUB(peer);
+	if (committed_to_htlcs(peer))
+		FIXME_STUB(peer);
+	return false;
 }
 bool peer_watch_their_htlc_outputs(struct peer *peer,
 				   const struct bitcoin_event *tx,

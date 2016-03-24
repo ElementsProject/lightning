@@ -137,7 +137,8 @@ enum command_status state(const tal_t *ctx,
 				goto err_close_nocleanup;
 			}
 			return next_state(peer, cstatus, STATE_OPEN_WAIT_FOR_ANCHOR);
-		} else if (input_is(input, CMD_CLOSE)) {
+		} else if (input_is(input, CMD_CLOSE)
+			   || input_is(input, INPUT_CONNECTION_LOST)) {
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto instant_close;
 		} else if (input_is_pkt(input)) {
@@ -155,7 +156,8 @@ enum command_status state(const tal_t *ctx,
 			bitcoin_create_anchor(peer, BITCOIN_ANCHOR_CREATED);
 			return next_state(peer, cstatus,
 					  STATE_OPEN_WAIT_FOR_ANCHOR_CREATE);
-		} else if (input_is(input, CMD_CLOSE)) {
+		} else if (input_is(input, CMD_CLOSE)
+			   || input_is(input, INPUT_CONNECTION_LOST)) {
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto instant_close;
 		} else if (input_is_pkt(input)) {
@@ -168,7 +170,8 @@ enum command_status state(const tal_t *ctx,
 			queue_pkt(out, pkt_anchor(ctx, peer));
 			return next_state(peer, cstatus,
 					  STATE_OPEN_WAIT_FOR_COMMIT_SIG);
-		} else if (input_is(input, CMD_CLOSE)) {
+		} else if (input_is(input, CMD_CLOSE)
+			   || input_is(input, INPUT_CONNECTION_LOST)) {
 			bitcoin_release_anchor(peer, BITCOIN_ANCHOR_CREATED);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto instant_close;
@@ -196,7 +199,8 @@ enum command_status state(const tal_t *ctx,
 
 			return next_state(peer, cstatus,
 					  STATE_OPEN_WAITING_THEIRANCHOR);
-		} else if (input_is(input, CMD_CLOSE)) {
+		} else if (input_is(input, CMD_CLOSE)
+			   || input_is(input, INPUT_CONNECTION_LOST)) {
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto instant_close;
 		} else if (input_is_pkt(input)) {
@@ -221,7 +225,8 @@ enum command_status state(const tal_t *ctx,
 					  BITCOIN_ANCHOR_OTHERSPEND);
 			return next_state(peer, cstatus,
 					  STATE_OPEN_WAITING_OURANCHOR);
-		} else if (input_is(input, CMD_CLOSE)) {
+		} else if (input_is(input, CMD_CLOSE)
+			   || input_is(input, INPUT_CONNECTION_LOST)) {
 			bitcoin_release_anchor(peer, INPUT_NONE);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto instant_close;
@@ -277,6 +282,13 @@ enum command_status state(const tal_t *ctx,
 						  INPUT_NONE);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto start_clearing;
+		} else if (input_is(input, INPUT_CONNECTION_LOST)) {
+			/* We no longer care about anchor depth. */
+			peer_unwatch_anchor_depth(peer,
+						  BITCOIN_ANCHOR_DEPTHOK,
+						  INPUT_NONE);
+			complete_cmd(peer, &cstatus, CMD_FAIL);
+			goto start_unilateral_close;
 		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
 			/* We no longer care about anchor depth. */
 			peer_unwatch_anchor_depth(peer,
@@ -345,6 +357,13 @@ enum command_status state(const tal_t *ctx,
 						  BITCOIN_ANCHOR_TIMEOUT);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto start_clearing;
+		} else if (input_is(input, INPUT_CONNECTION_LOST)) {
+			/* We no longer care about anchor depth. */
+			peer_unwatch_anchor_depth(peer,
+						  BITCOIN_ANCHOR_DEPTHOK,
+						  BITCOIN_ANCHOR_TIMEOUT);
+			complete_cmd(peer, &cstatus, CMD_FAIL);
+			goto start_unilateral_close;
 		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
 			/* We no longer care about anchor depth. */
 			peer_unwatch_anchor_depth(peer,
@@ -388,6 +407,9 @@ enum command_status state(const tal_t *ctx,
 		} else if (input_is(input, CMD_CLOSE)) {
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto start_clearing;
+		} else if (input_is(input, INPUT_CONNECTION_LOST)) {
+			complete_cmd(peer, &cstatus, CMD_FAIL);
+			goto start_unilateral_close;
 		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto accept_clearing;
@@ -428,6 +450,8 @@ enum command_status state(const tal_t *ctx,
 					  prio(peer->state, STATE_WAIT_FOR_UPDATE_ACCEPT));
 		} else if (input_is(input, CMD_CLOSE)) {
 			goto start_clearing;
+		} else if (input_is(input, INPUT_CONNECTION_LOST)) {
+			goto start_unilateral_close;
 		} else if (input_is(input, PKT_UPDATE_ADD_HTLC)) {
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			goto accept_htlc_add;
@@ -523,6 +547,10 @@ enum command_status state(const tal_t *ctx,
 			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto start_clearing;
+		} else if (input_is(input, INPUT_CONNECTION_LOST)) {
+			peer_htlc_aborted(peer);
+			complete_cmd(peer, &cstatus, CMD_FAIL);
+			goto start_unilateral_close;
 		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
 			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
@@ -566,6 +594,10 @@ enum command_status state(const tal_t *ctx,
 			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto start_clearing;
+		} else if (input_is(input, INPUT_CONNECTION_LOST)) {
+			peer_htlc_aborted(peer);
+			complete_cmd(peer, &cstatus, CMD_FAIL);
+			goto start_unilateral_close;
 		} else if (input_is_pkt(input)) {
 			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
@@ -600,6 +632,9 @@ enum command_status state(const tal_t *ctx,
 		} else if (input_is(input, CMD_CLOSE)) {
 			peer_htlc_aborted(peer);
 			goto start_clearing;
+		} else if (input_is(input, INPUT_CONNECTION_LOST)) {
+			peer_htlc_aborted(peer);
+			goto start_unilateral_close;
 		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
 			peer_htlc_aborted(peer);
 			goto accept_clearing;
@@ -625,6 +660,8 @@ enum command_status state(const tal_t *ctx,
 			   || input_is(input, CMD_SEND_HTLC_FULFILL)) {
 			err = pkt_err(ctx, "FIXME: cmd during clearing.");
 			goto err_start_unilateral_close;
+		} else if (input_is(input, INPUT_CONNECTION_LOST)) {
+			goto start_unilateral_close;
 		} else if (input_is_pkt(input)) {
 			/* FIXME: We must continue to allow add, fulfill & fail packets */
 			goto unexpected_pkt;
@@ -637,6 +674,8 @@ enum command_status state(const tal_t *ctx,
 			   || input_is(input, CMD_SEND_HTLC_FULFILL)) {
 			err = pkt_err(ctx, "FIXME: cmd during clearing.");
 			goto err_start_unilateral_close;
+		} else if (input_is(input, INPUT_CONNECTION_LOST)) {
+			goto start_unilateral_close;
 		} else if (input_is_pkt(input)) {
 			/* FIXME: We must continue to allow fulfill & fail packets */
 			goto unexpected_pkt;
@@ -667,6 +706,8 @@ enum command_status state(const tal_t *ctx,
 			/* Offer the new fee. */
 			queue_pkt(out, pkt_close_signature(ctx, peer));
 			return unchanged_state(cstatus);
+		} else if (input_is(input, INPUT_CONNECTION_LOST)) {
+			goto start_unilateral_close;
 		} else if (input_is(input, INPUT_CLOSE_COMPLETE_TIMEOUT)) {
 			err = pkt_err(ctx, "Close timed out");
 			goto err_start_unilateral_close;

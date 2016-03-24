@@ -192,7 +192,7 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     sleep 2
 
     # It should send out commit tx.
-    lcli1 getpeers | $FGREP -w STATE_CLOSE_WAIT_CLOSE_OURCOMMIT
+    lcli1 getpeers | $FGREP -w STATE_CLOSE_WAIT_OURCOMMIT
 
     # Generate a block (should include commit tx)
     check_tx_spend
@@ -212,7 +212,7 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     lcli1 dev-mocktime $TIME
     sleep 2
     
-    lcli1 getpeers | $FGREP -w STATE_CLOSE_WAIT_CLOSE_SPENDOURS
+    lcli1 getpeers | $FGREP -w STATE_CLOSE_WAIT_SPENDOURS
     
     # Now it should have spent the commit tx.
     check_tx_spend
