@@ -32,9 +32,8 @@ typedef struct _UpdateFailHtlc UpdateFailHtlc;
 typedef struct _UpdateAccept UpdateAccept;
 typedef struct _UpdateSignature UpdateSignature;
 typedef struct _UpdateComplete UpdateComplete;
-typedef struct _CloseChannel CloseChannel;
-typedef struct _CloseChannelComplete CloseChannelComplete;
-typedef struct _CloseChannelAck CloseChannelAck;
+typedef struct _CloseClearing CloseClearing;
+typedef struct _CloseSignature CloseSignature;
 typedef struct _Error Error;
 typedef struct _Pkt Pkt;
 
@@ -419,53 +418,32 @@ struct  _UpdateComplete
 
 
 /*
- * Begin cooperative close of channel.
+ * Start clearing out the channel HTLCs so we can close it
  */
-struct  _CloseChannel
+struct  _CloseClearing
+{
+  ProtobufCMessage base;
+};
+#define CLOSE_CLEARING__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&close_clearing__descriptor) \
+     }
+
+
+struct  _CloseSignature
 {
   ProtobufCMessage base;
   /*
-   * This is our signature a new transaction which spends the anchor
-   * output to my open->final and your open->final,
-   * as per the last commit tx.
-   */
-  Signature *sig;
-  /*
-   * Fee to pay for close transaction.
+   * Fee in satoshis.
    */
   uint64_t close_fee;
-};
-#define CLOSE_CHANNEL__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&close_channel__descriptor) \
-    , NULL, 0 }
-
-
-/*
- * OK, here's my sig so you can broadcast it too.  We're done.
- */
-struct  _CloseChannelComplete
-{
-  ProtobufCMessage base;
   /*
-   * This is my signature for that same tx.
+   * Signature on the close transaction.
    */
   Signature *sig;
 };
-#define CLOSE_CHANNEL_COMPLETE__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&close_channel_complete__descriptor) \
-    , NULL }
-
-
-/*
- * Received close_channel_complete, you can close now.
- */
-struct  _CloseChannelAck
-{
-  ProtobufCMessage base;
-};
-#define CLOSE_CHANNEL_ACK__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&close_channel_ack__descriptor) \
-     }
+#define CLOSE_SIGNATURE__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&close_signature__descriptor) \
+    , 0, NULL }
 
 
 /*
@@ -495,9 +473,8 @@ typedef enum {
   PKT__PKT_UPDATE_DECLINE_HTLC = 6,
   PKT__PKT_UPDATE_FULFILL_HTLC = 7,
   PKT__PKT_UPDATE_FAIL_HTLC = 9,
-  PKT__PKT_CLOSE = 30,
-  PKT__PKT_CLOSE_COMPLETE = 31,
-  PKT__PKT_CLOSE_ACK = 32,
+  PKT__PKT_CLOSE_CLEARING = 30,
+  PKT__PKT_CLOSE_SIGNATURE = 31,
   PKT__PKT_ERROR = 40,
 } Pkt__PktCase;
 
@@ -533,9 +510,8 @@ struct  _Pkt
     /*
      * Closing
      */
-    CloseChannel *close;
-    CloseChannelComplete *close_complete;
-    CloseChannelAck *close_ack;
+    CloseClearing *close_clearing;
+    CloseSignature *close_signature;
     /*
      * Unexpected issue.
      */
@@ -870,62 +846,43 @@ UpdateComplete *
 void   update_complete__free_unpacked
                      (UpdateComplete *message,
                       ProtobufCAllocator *allocator);
-/* CloseChannel methods */
-void   close_channel__init
-                     (CloseChannel         *message);
-size_t close_channel__get_packed_size
-                     (const CloseChannel   *message);
-size_t close_channel__pack
-                     (const CloseChannel   *message,
+/* CloseClearing methods */
+void   close_clearing__init
+                     (CloseClearing         *message);
+size_t close_clearing__get_packed_size
+                     (const CloseClearing   *message);
+size_t close_clearing__pack
+                     (const CloseClearing   *message,
                       uint8_t             *out);
-size_t close_channel__pack_to_buffer
-                     (const CloseChannel   *message,
+size_t close_clearing__pack_to_buffer
+                     (const CloseClearing   *message,
                       ProtobufCBuffer     *buffer);
-CloseChannel *
-       close_channel__unpack
+CloseClearing *
+       close_clearing__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   close_channel__free_unpacked
-                     (CloseChannel *message,
+void   close_clearing__free_unpacked
+                     (CloseClearing *message,
                       ProtobufCAllocator *allocator);
-/* CloseChannelComplete methods */
-void   close_channel_complete__init
-                     (CloseChannelComplete         *message);
-size_t close_channel_complete__get_packed_size
-                     (const CloseChannelComplete   *message);
-size_t close_channel_complete__pack
-                     (const CloseChannelComplete   *message,
+/* CloseSignature methods */
+void   close_signature__init
+                     (CloseSignature         *message);
+size_t close_signature__get_packed_size
+                     (const CloseSignature   *message);
+size_t close_signature__pack
+                     (const CloseSignature   *message,
                       uint8_t             *out);
-size_t close_channel_complete__pack_to_buffer
-                     (const CloseChannelComplete   *message,
+size_t close_signature__pack_to_buffer
+                     (const CloseSignature   *message,
                       ProtobufCBuffer     *buffer);
-CloseChannelComplete *
-       close_channel_complete__unpack
+CloseSignature *
+       close_signature__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   close_channel_complete__free_unpacked
-                     (CloseChannelComplete *message,
-                      ProtobufCAllocator *allocator);
-/* CloseChannelAck methods */
-void   close_channel_ack__init
-                     (CloseChannelAck         *message);
-size_t close_channel_ack__get_packed_size
-                     (const CloseChannelAck   *message);
-size_t close_channel_ack__pack
-                     (const CloseChannelAck   *message,
-                      uint8_t             *out);
-size_t close_channel_ack__pack_to_buffer
-                     (const CloseChannelAck   *message,
-                      ProtobufCBuffer     *buffer);
-CloseChannelAck *
-       close_channel_ack__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   close_channel_ack__free_unpacked
-                     (CloseChannelAck *message,
+void   close_signature__free_unpacked
+                     (CloseSignature *message,
                       ProtobufCAllocator *allocator);
 /* Error methods */
 void   error__init
@@ -1018,14 +975,11 @@ typedef void (*UpdateSignature_Closure)
 typedef void (*UpdateComplete_Closure)
                  (const UpdateComplete *message,
                   void *closure_data);
-typedef void (*CloseChannel_Closure)
-                 (const CloseChannel *message,
+typedef void (*CloseClearing_Closure)
+                 (const CloseClearing *message,
                   void *closure_data);
-typedef void (*CloseChannelComplete_Closure)
-                 (const CloseChannelComplete *message,
-                  void *closure_data);
-typedef void (*CloseChannelAck_Closure)
-                 (const CloseChannelAck *message,
+typedef void (*CloseSignature_Closure)
+                 (const CloseSignature *message,
                   void *closure_data);
 typedef void (*Error_Closure)
                  (const Error *message,
@@ -1057,9 +1011,8 @@ extern const ProtobufCMessageDescriptor update_fail_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_accept__descriptor;
 extern const ProtobufCMessageDescriptor update_signature__descriptor;
 extern const ProtobufCMessageDescriptor update_complete__descriptor;
-extern const ProtobufCMessageDescriptor close_channel__descriptor;
-extern const ProtobufCMessageDescriptor close_channel_complete__descriptor;
-extern const ProtobufCMessageDescriptor close_channel_ack__descriptor;
+extern const ProtobufCMessageDescriptor close_clearing__descriptor;
+extern const ProtobufCMessageDescriptor close_signature__descriptor;
 extern const ProtobufCMessageDescriptor error__descriptor;
 extern const ProtobufCMessageDescriptor pkt__descriptor;
 

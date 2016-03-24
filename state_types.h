@@ -52,10 +52,12 @@ enum state {
 	/*
 	 * Closing.
 	 */
-	/* We told them to close, waiting for complete msg. */
-	STATE_WAIT_FOR_CLOSE_COMPLETE,
-	/* They told us to close, waiting for ack msg. */
-	STATE_WAIT_FOR_CLOSE_ACK,	
+	/* We told them to clear. */
+	STATE_US_CLEARING,
+	/* They told us to clear, or acked our CLEARING. */
+	STATE_BOTH_CLEARING,
+	/* We're cleared, waiting for close signature / negotiation */
+	STATE_WAIT_FOR_CLOSE_SIG,
 
 	/* All closed. */
 	STATE_CLOSED,
@@ -204,9 +206,8 @@ enum state_input {
 	PKT_UPDATE_COMPLETE = PKT__PKT_UPDATE_COMPLETE,
 
 	/* Mutual close sequence. */
-	PKT_CLOSE = PKT__PKT_CLOSE,
-	PKT_CLOSE_COMPLETE = PKT__PKT_CLOSE_COMPLETE,
-	PKT_CLOSE_ACK = PKT__PKT_CLOSE_ACK,
+	PKT_CLOSE_CLEARING = PKT__PKT_CLOSE_CLEARING,
+	PKT_CLOSE_SIGNATURE = PKT__PKT_CLOSE_SIGNATURE,
 
 	/* Something unexpected went wrong. */
 	PKT_ERROR = PKT__PKT_ERROR,
@@ -256,6 +257,9 @@ enum state_input {
 	/* We are not watching any HTLCs any more. */
 	INPUT_NO_MORE_HTLCS,
 
+	/* No more HTLCs in either commitment tx. */
+	INPUT_HTLCS_CLEARED,
+	
 	/*
 	 * Timeouts.
 	 */

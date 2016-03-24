@@ -141,11 +141,18 @@ struct peer {
 	/* Number of HTLC updates (== number of previous commit txs) */
 	u64 commit_tx_counter;
 
-	/* FIXME: Group closing fields together in anon struct. */
-	/* Closing tx and signature once we've generated it */
-	struct bitcoin_tx *close_tx;
-	struct bitcoin_signature our_close_sig;
-	
+	struct {
+		/* Our last suggested closing fee. */
+		u64 our_fee;
+		/* If they've offered a signature, these are set: */
+		struct bitcoin_signature *their_sig;
+		/* If their_sig is non-NULL, this is the fee. */
+		u64 their_fee;
+	} closing;
+
+	/* If not INPUT_NONE, send this when we have no more HTLCs. */
+	enum state_input cleared;
+
 	/* Current ongoing packetflow */
 	struct io_data *io_data;
 	
@@ -177,6 +184,7 @@ void make_commit_txs(const tal_t *ctx,
 void peer_add_htlc_expiry(struct peer *peer,
 			  const struct abs_locktime *expiry);
 
-bool peer_create_close_tx(struct peer *peer, u64 fee_satoshis);
+struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
+					const struct peer *peer, u64 fee);
 
 #endif /* LIGHTNING_DAEMON_PEER_H */

@@ -111,9 +111,8 @@ Pkt *pkt_update_accept(const tal_t *ctx, const struct peer *peer);
 Pkt *pkt_update_signature(const tal_t *ctx, const struct peer *peer);
 Pkt *pkt_update_complete(const tal_t *ctx, const struct peer *peer);
 Pkt *pkt_err(const tal_t *ctx, const char *fmt, ...);
-Pkt *pkt_close(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_close_complete(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_close_ack(const tal_t *ctx, const struct peer *peer);
+Pkt *pkt_close_clearing(const tal_t *ctx, const struct peer *peer);
+Pkt *pkt_close_signature(const tal_t *ctx, const struct peer *peer);
 Pkt *pkt_err_unexpected(const tal_t *ctx, const Pkt *pkt);
 
 /* Process various packets: return an error packet on failure. */
@@ -151,16 +150,9 @@ Pkt *accept_pkt_update_signature(const tal_t *ctx,
 				 struct peer *peer,
 				 const Pkt *pkt);
 
-Pkt *accept_pkt_close(const tal_t *ctx, struct peer *peer, const Pkt *pkt);
-
-Pkt *accept_pkt_close_complete(const tal_t *ctx,
-			       struct peer *peer, const Pkt *pkt);
-
-Pkt *accept_pkt_simultaneous_close(const tal_t *ctx,
-				   struct peer *peer,
-				   const Pkt *pkt);
-
-Pkt *accept_pkt_close_ack(const tal_t *ctx, struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_close_clearing(const tal_t *ctx, struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_close_sig(const tal_t *ctx, struct peer *peer, const Pkt *pkt,
+			  bool *matches);
 
 /**
  * committed_to_htlcs: do we have any locked-in HTLCs?
@@ -169,6 +161,14 @@ Pkt *accept_pkt_close_ack(const tal_t *ctx, struct peer *peer, const Pkt *pkt);
  * If we were to generate a commit tx now, would it have HTLCs in it?
  */
 bool committed_to_htlcs(const struct peer *peer);
+
+/**
+ * peer_has_close_sig: do we have a valid close_sig from them?
+ * @peer: the state data for this peer.
+ *
+ * We use any acceptable close tx, if we have one, in preference to a commit tx.
+ */
+bool peer_has_close_sig(const struct peer *peer);
 
 /**
  * peer_watch_anchor: create a watch for the anchor transaction.
@@ -335,6 +335,20 @@ void peer_watch_htlc_spend(struct peer *peer,
 void peer_unwatch_htlc_spend(struct peer *peer,
 			     const struct htlc *htlc,
 			     enum state_input all_done);
+
+/**
+ * peer_watch_htlcs_cleared: tell us when no HTLCs are in commit txs.
+ * @peer: the state data for this peer.
+ * @all_done: input to give when all HTLCs are done.
+ */
+void peer_watch_htlcs_cleared(struct peer *peer,
+			      enum state_input all_done);
+
+/**
+ * peer_calculate_close_fee: figure out what the fee for closing is.
+ * @peer: the state data for this peer.
+ */
+void peer_calculate_close_fee(struct peer *peer);
 
 /* Start creation of the bitcoin anchor tx. */
 void bitcoin_create_anchor(struct peer *peer, enum state_input done);

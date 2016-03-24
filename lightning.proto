@@ -171,24 +171,15 @@ message update_complete {
   required sha256_hash revocation_preimage = 1;
 }
 
-// Begin cooperative close of channel.
-message close_channel {
-  // This is our signature a new transaction which spends the anchor
-  // output to my open->final and your open->final,
-  // as per the last commit tx.
-  required signature sig = 1;
-  // Fee to pay for close transaction.
-  required uint64 close_fee = 2;
+// Start clearing out the channel HTLCs so we can close it
+message close_clearing {
 }
 
-// OK, here's my sig so you can broadcast it too.  We're done.
-message close_channel_complete {
-  // This is my signature for that same tx.
-  required signature sig = 1;
-}
-
-// Received close_channel_complete, you can close now.
-message close_channel_ack {
+message close_signature {
+  // Fee in satoshis.
+  required uint64 close_fee = 1;
+  // Signature on the close transaction.
+  required signature sig = 2;
 }
 
 // This means we're going to hang up; it's to help diagnose only! 
@@ -215,9 +206,8 @@ message pkt {
     update_fulfill_htlc update_fulfill_htlc = 7;
     update_fail_htlc update_fail_htlc = 9;
     // Closing
-    close_channel close = 30;
-    close_channel_complete close_complete = 31;
-    close_channel_ack close_ack = 32;
+    close_clearing close_clearing = 30;
+    close_signature close_signature = 31;
 
     // Unexpected issue.
     error error = 40;

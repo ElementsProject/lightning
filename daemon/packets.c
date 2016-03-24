@@ -243,35 +243,29 @@ Pkt *pkt_err(const tal_t *ctx, const char *msg, ...)
 	return make_pkt(ctx, PKT__PKT_ERROR, e);
 }
 
-Pkt *pkt_close(const tal_t *ctx, const struct peer *peer)
+Pkt *pkt_close_clearing(const tal_t *ctx, const struct peer *peer)
 {
-	CloseChannel *c = tal(ctx, CloseChannel);
+	CloseClearing *c = tal(ctx, CloseClearing);
 
-	close_channel__init(c);
+	close_clearing__init(c);
 
-	c->close_fee = peer->close_tx->fee;
-	c->sig = signature_to_proto(c, &peer->our_close_sig.sig);
-
-	return make_pkt(ctx, PKT__PKT_CLOSE, c);
+	return make_pkt(ctx, PKT__PKT_CLOSE_CLEARING, c);
 }
 
-Pkt *pkt_close_complete(const tal_t *ctx, const struct peer *peer)
+Pkt *pkt_close_signature(const tal_t *ctx, const struct peer *peer)
 {
-	CloseChannelComplete *c = tal(ctx, CloseChannelComplete);
+	CloseSignature *c = tal(ctx, CloseSignature);
+	struct bitcoin_tx *close_tx;
+	struct signature our_close_sig;
 
-	close_channel_complete__init(c);
-	assert(peer->close_tx);
-	c->sig = signature_to_proto(c, &peer->our_close_sig.sig);
+	close_signature__init(c);
+	close_tx = peer_create_close_tx(ctx, peer, peer->closing.our_fee);
 
-	return make_pkt(ctx, PKT__PKT_CLOSE_COMPLETE, c);
-}
+	peer_sign_mutual_close(peer, close_tx, &our_close_sig);
+	c->sig = signature_to_proto(c, &our_close_sig);
+	c->close_fee = peer->closing.our_fee;
 
-Pkt *pkt_close_ack(const tal_t *ctx, const struct peer *peer)
-{
-	CloseChannelAck *a = tal(ctx, CloseChannelAck);
-
-	close_channel_ack__init(a);
-	return make_pkt(ctx, PKT__PKT_CLOSE_ACK, a);
+	return make_pkt(ctx, PKT__PKT_CLOSE_SIGNATURE, c);
 }
 
 Pkt *pkt_err_unexpected(const tal_t *ctx, const Pkt *pkt)
@@ -721,68 +715,84 @@ Pkt *accept_pkt_update_signature(const tal_t *ctx,
 	return NULL;
 }
 
-static bool peer_sign_close_tx(struct peer *peer, const Signature *theirs)
+Pkt *accept_pkt_close_clearing(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
 {
+	/* FIXME: Reject unknown odd fields? */
+	return NULL;
+}
+
+Pkt *accept_pkt_close_sig(const tal_t *ctx, struct peer *peer, const Pkt *pkt,
+			  bool *matches)
+{
+	const CloseSignature *c = pkt->close_signature;
+	struct bitcoin_tx *close_tx;
 	struct bitcoin_signature theirsig;
 
-	/* We never sign twice! */
-	assert(peer->close_tx->input[0].script_length == 0);
+	/* BOLT #2:
 
-	theirsig.stype = SIGHASH_ALL;
-	if (!proto_to_signature(theirs, &theirsig.sig))
-		return false;
-
-	/* Their sig + ours should sign the close tx. */
-	if (!check_2of2_sig(peer->dstate->secpctx,
-			    peer->close_tx, 0,
-			    peer->anchor.redeemscript,
-			    tal_count(peer->anchor.redeemscript),
-			    &peer->them.commitkey, &peer->us.commitkey,
-			    &theirsig, &peer->our_close_sig))
-		return false;
-
-	/* Complete the close_tx, using signatures. */
-	peer->close_tx->input[0].script
-		= scriptsig_p2sh_2of2(peer->close_tx,
-				      &theirsig, &peer->our_close_sig,
-				      &peer->them.commitkey,
-				      &peer->us.commitkey);
-	peer->close_tx->input[0].script_length
-		= tal_count(peer->close_tx->input[0].script);
-	return true;
-}
-
-Pkt *accept_pkt_close(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
-{
-	const CloseChannel *c = pkt->close;
-
-	/* FIXME: Don't accept tiny close fee! */
-	if (!peer_create_close_tx(peer, c->close_fee))
+	 * The sender MUST set `close_fee` lower than or equal to the fee of the
+	 * final commitment transaction, and MUST set `close_fee` to an even
+	 * number of satoshis.
+	 */
+	if (c->close_fee & 1 || c->close_fee > peer->them.commit_fee)
 		return pkt_err(ctx, "Invalid close fee");
 
-	if (!peer_sign_close_tx(peer, c->sig))
+	/* FIXME: Don't accept tiny fee at all? */
+
+	/* BOLT #2:
+	   ... otherwise it SHOULD propose a
+	   value strictly between the received `close_fee` and its
+	   previously-sent `close_fee`.
+	*/
+	if (peer->closing.their_sig) {
+		/* We want more, they should give more. */
+		if (peer->closing.our_fee > peer->closing.their_fee) {
+			if (c->close_fee <= peer->closing.their_fee)
+				return pkt_err(ctx, "Didn't increase close fee");
+		} else {
+			if (c->close_fee >= peer->closing.their_fee)
+				return pkt_err(ctx, "Didn't decrease close fee");
+		}
+	}
+
+	/* BOLT #2:
+	 *
+	 * The receiver MUST check `sig` is valid for the close
+	 * transaction, and MUST fail the connection if it is not. */
+	theirsig.stype = SIGHASH_ALL;
+	if (!proto_to_signature(c->sig, &theirsig.sig))
+		return pkt_err(ctx, "Invalid signature format");
+
+	close_tx = peer_create_close_tx(ctx, peer, c->close_fee);
+	if (!check_tx_sig(peer->dstate->secpctx, close_tx, 0,
+			  peer->anchor.redeemscript,
+			  tal_count(peer->anchor.redeemscript),
+			  &peer->them.commitkey, &theirsig))
 		return pkt_err(ctx, "Invalid signature");
-	return NULL;
-}
 
-Pkt *accept_pkt_close_complete(const tal_t *ctx,
-			       struct peer *peer, const Pkt *pkt)
-{
-	const CloseChannelComplete *c = pkt->close_complete;
-	if (!peer_sign_close_tx(peer, c->sig))
-		return pkt_err(ctx, "Invalid signature");
-	return NULL;
-}
+	tal_free(peer->closing.their_sig);
+	peer->closing.their_sig = tal_dup(peer,
+					  struct bitcoin_signature, &theirsig);
+	peer->closing.their_fee = c->close_fee;
 
-Pkt *accept_pkt_simultaneous_close(const tal_t *ctx,
-				   struct peer *peer,
-				   const Pkt *pkt)
-{
-	FIXME_STUB(peer);
-}
+	if (peer->closing.our_fee == peer->closing.their_fee) {
+		*matches = true;
+	} else {
+		/* Adjust our fee to close on their fee. */
+		u64 sum;
 
-/* FIXME: Since this packet is empty, is it worth having? */
-Pkt *accept_pkt_close_ack(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
-{
+		/* Beware overflow! */
+		sum = (u64)peer->closing.our_fee + peer->closing.their_fee;
+
+		peer->closing.our_fee = sum / 2;
+		if (peer->closing.our_fee & 1)
+			peer->closing.our_fee++;
+
+		/* FIXME: Fees may *now* be equal, and they'll
+		 * consider this an ACK! */
+	}
+	*matches = false;
+
+	/* FIXME: Dynamic fee! */
 	return NULL;
 }

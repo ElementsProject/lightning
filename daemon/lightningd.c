@@ -147,11 +147,20 @@ static void default_config(struct config *config)
 
 static void check_config(struct lightningd_state *dstate)
 {
+	/* BOLT #2:
+	 * The sender MUST set `close_fee` lower than or equal to the
+	 * fee of the final commitment transaction, and MUST set
+	 * `close_fee` to an even number of satoshis.
+	 */
 	if (dstate->config.closing_fee > dstate->config.commitment_fee)
 		fatal("Closing fee %"PRIu64
 		      " can't exceed commitment fee %"PRIu64,
 		      dstate->config.closing_fee,
 		      dstate->config.commitment_fee);
+
+	if (dstate->config.closing_fee & 1)
+		fatal("Closing fee %"PRIu64 "must be even.",
+		      dstate->config.closing_fee);
 
 	if (dstate->config.commitment_fee_min > dstate->config.commitment_fee)
 		fatal("Minumum fee %"PRIu64

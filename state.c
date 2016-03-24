@@ -276,14 +276,14 @@ enum command_status state(const tal_t *ctx,
 						  BITCOIN_ANCHOR_DEPTHOK,
 						  INPUT_NONE);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto start_closing;
-		} else if (input_is(input, PKT_CLOSE)) {
+			goto start_clearing;
+		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
 			/* We no longer care about anchor depth. */
 			peer_unwatch_anchor_depth(peer,
 						  BITCOIN_ANCHOR_DEPTHOK,
 						  INPUT_NONE);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto accept_closing;
+			goto accept_clearing;
 		} else if (input_is_pkt(input)) {
 			/* We no longer care about anchor depth. */
 			peer_unwatch_anchor_depth(peer,
@@ -344,14 +344,14 @@ enum command_status state(const tal_t *ctx,
 						  BITCOIN_ANCHOR_DEPTHOK,
 						  BITCOIN_ANCHOR_TIMEOUT);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto start_closing;
-		} else if (input_is(input, PKT_CLOSE)) {
+			goto start_clearing;
+		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
 			/* We no longer care about anchor depth. */
 			peer_unwatch_anchor_depth(peer,
 						  BITCOIN_ANCHOR_DEPTHOK,
 						  BITCOIN_ANCHOR_TIMEOUT);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto accept_closing;
+			goto accept_clearing;
 		} else if (input_is_pkt(input)) {
 			/* We no longer care about anchor depth. */
 			peer_unwatch_anchor_depth(peer,
@@ -387,10 +387,10 @@ enum command_status state(const tal_t *ctx,
 			goto them_unilateral;
 		} else if (input_is(input, CMD_CLOSE)) {
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto start_closing;
-		} else if (input_is(input, PKT_CLOSE)) {
+			goto start_clearing;
+		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto accept_closing;
+			goto accept_clearing;
 		} else if (input_is_pkt(input)) {
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto unexpected_pkt;
@@ -427,7 +427,7 @@ enum command_status state(const tal_t *ctx,
 			return next_state(peer, cstatus,
 					  prio(peer->state, STATE_WAIT_FOR_UPDATE_ACCEPT));
 		} else if (input_is(input, CMD_CLOSE)) {
-			goto start_closing;
+			goto start_clearing;
 		} else if (input_is(input, PKT_UPDATE_ADD_HTLC)) {
 			change_peer_cond(peer, PEER_CMD_OK, PEER_BUSY);
 			goto accept_htlc_add;
@@ -443,8 +443,8 @@ enum command_status state(const tal_t *ctx,
 			goto old_commit_spotted;
 		} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT)) {
 			goto anchor_unspent;
-		} else if (input_is(input, PKT_CLOSE)) {
-			goto accept_closing;
+		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
+			goto accept_clearing;
 		} else if (input_is_pkt(input)) {
 			goto unexpected_pkt;
 		}
@@ -522,11 +522,11 @@ enum command_status state(const tal_t *ctx,
 		} else if (input_is(input, CMD_CLOSE)) {
 			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto start_closing;
-		} else if (input_is(input, PKT_CLOSE)) {
+			goto start_clearing;
+		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
 			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto accept_closing;
+			goto accept_clearing;
 		} else if (input_is_pkt(input)) {
 			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
@@ -558,14 +558,14 @@ enum command_status state(const tal_t *ctx,
 			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto old_commit_spotted;
-		} else if (input_is(input, PKT_CLOSE)) {
+		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
 			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto accept_closing;
+			goto accept_clearing;
 		} else if (input_is(input, CMD_CLOSE)) {
 			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto start_closing;
+			goto start_clearing;
 		} else if (input_is_pkt(input)) {
 			peer_htlc_aborted(peer);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
@@ -599,81 +599,81 @@ enum command_status state(const tal_t *ctx,
 			goto old_commit_spotted;
 		} else if (input_is(input, CMD_CLOSE)) {
 			peer_htlc_aborted(peer);
-			goto start_closing;
-		} else if (input_is(input, PKT_CLOSE)) {
+			goto start_clearing;
+		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
 			peer_htlc_aborted(peer);
-			goto accept_closing;
+			goto accept_clearing;
 		} else if (input_is_pkt(input)) {
 			peer_htlc_aborted(peer);
 			goto unexpected_pkt;
 		}
 		break;
+	case STATE_US_CLEARING:
+		/* This is their reply once they're clearing too. */
+		if (input_is(input, PKT_CLOSE_CLEARING)) {
+			err = accept_pkt_close_clearing(ctx, peer, idata->pkt);
+			if (err)
+				goto err_start_unilateral_close;
 
-	case STATE_WAIT_FOR_CLOSE_COMPLETE:
-		if (input_is(input, PKT_CLOSE_COMPLETE)) {
-			peer_unwatch_close_timeout(peer,
-						   INPUT_CLOSE_COMPLETE_TIMEOUT);
-			err = accept_pkt_close_complete(ctx, peer, idata->pkt);
-			if (err)
-				goto err_start_unilateral_close_already_closing;
-			queue_pkt(out,
-				   pkt_close_ack(ctx, peer));
-			queue_tx_broadcast(broadcast, bitcoin_close(ctx, peer));
-			change_peer_cond(peer, PEER_CLOSING, PEER_CLOSED);
-			return next_state(peer, cstatus, STATE_CLOSE_WAIT_CLOSE);
-		} else if (input_is(input, PKT_CLOSE)) {
-			peer_unwatch_close_timeout(peer,
-						   INPUT_CLOSE_COMPLETE_TIMEOUT);
-			/* We can use the sig just like CLOSE_COMPLETE */
-			err = accept_pkt_simultaneous_close(ctx, peer,
-							    idata->pkt);
-			if (err)
-				goto err_start_unilateral_close_already_closing;
-			queue_pkt(out,
-				   pkt_close_ack(ctx, peer));
-			queue_tx_broadcast(broadcast, bitcoin_close(ctx, peer));
-			set_peer_cond(peer, PEER_CLOSED);
-			return next_state(peer, cstatus, STATE_CLOSE_WAIT_CLOSE);
-		} else if (input_is(input, PKT_ERROR)) {
-			peer_unwatch_close_timeout(peer,
-						   INPUT_CLOSE_COMPLETE_TIMEOUT);
-			peer_unexpected_pkt(peer, idata->pkt);
-			goto start_unilateral_close_already_closing;
+			/* Notify us when there are no more htlcs in
+			 * either commit tx */
+			peer_watch_htlcs_cleared(peer, INPUT_HTLCS_CLEARED);
+
+			return next_state(peer, cstatus, STATE_BOTH_CLEARING);
+		/* FIXME: We must continue to allow fulfill & fail! */
+		} else if (input_is(input, CMD_SEND_HTLC_FAIL)
+			   || input_is(input, CMD_SEND_HTLC_FULFILL)) {
+			err = pkt_err(ctx, "FIXME: cmd during clearing.");
+			goto err_start_unilateral_close;
 		} else if (input_is_pkt(input)) {
-			/* We ignore all other packets while closing. */
+			/* FIXME: We must continue to allow add, fulfill & fail packets */
+			goto unexpected_pkt;
+		}
+		break;
+	case STATE_BOTH_CLEARING:
+		if (input_is(input, INPUT_HTLCS_CLEARED)) {
+			goto start_closing_cleared;
+		} else if (input_is(input, CMD_SEND_HTLC_FAIL)
+			   || input_is(input, CMD_SEND_HTLC_FULFILL)) {
+			err = pkt_err(ctx, "FIXME: cmd during clearing.");
+			goto err_start_unilateral_close;
+		} else if (input_is_pkt(input)) {
+			/* FIXME: We must continue to allow fulfill & fail packets */
+			goto unexpected_pkt;
+		}
+		break;
+	case STATE_WAIT_FOR_CLOSE_SIG:
+		if (input_is(input, PKT_CLOSE_SIGNATURE)) {
+			bool matches;
+			err = accept_pkt_close_sig(ctx, peer, idata->pkt,
+						   &matches);
+			if (err)
+				goto err_start_unilateral_close;
+
+			/* Did they offer the same fee we did? */
+			if (matches) {
+				peer_unwatch_close_timeout(peer,
+						   INPUT_CLOSE_COMPLETE_TIMEOUT);
+
+				/* Send close TX. */
+				queue_tx_broadcast(broadcast,
+						   bitcoin_close(ctx, peer));
+				change_peer_cond(peer,
+						 PEER_CLOSING, PEER_CLOSED);
+				return next_state(peer, cstatus,
+						  STATE_CLOSE_WAIT_CLOSE);
+			}
+
+			/* Offer the new fee. */
+			queue_pkt(out, pkt_close_signature(ctx, peer));
 			return unchanged_state(cstatus);
 		} else if (input_is(input, INPUT_CLOSE_COMPLETE_TIMEOUT)) {
-			/* They didn't respond in time.  Unilateral close. */
 			err = pkt_err(ctx, "Close timed out");
-			goto err_start_unilateral_close_already_closing;
-		}
-		peer_unwatch_close_timeout(peer, INPUT_CLOSE_COMPLETE_TIMEOUT);
-		goto fail_during_close;
-
-	case STATE_WAIT_FOR_CLOSE_ACK:
-		if (input_is(input, PKT_CLOSE_ACK)) {
-			err = accept_pkt_close_ack(ctx, peer, idata->pkt);
-			if (err)
-				queue_pkt(out, err);
-			set_peer_cond(peer, PEER_CLOSED);
-			/* Just wait for close to happen now. */
-			return next_state(peer, cstatus, STATE_CLOSE_WAIT_CLOSE);
+			goto err_start_unilateral_close;
 		} else if (input_is_pkt(input)) {
-			peer_unexpected_pkt(peer, idata->pkt);
-			/* Don't reply to an error with an error. */
-			if (!input_is(input, PKT_ERROR)) {
-				queue_pkt(out,
-					   pkt_err_unexpected(ctx, idata->pkt));
-			}
-			set_peer_cond(peer, PEER_CLOSED);
-			/* Just wait for close to happen now. */
-			return next_state(peer, cstatus, STATE_CLOSE_WAIT_CLOSE);
-		} else if (input_is(input, BITCOIN_CLOSE_DONE)) {
-			/* They didn't ack, but we're closed, so stop. */
-			set_peer_cond(peer, PEER_CLOSED);
-			return next_state(peer, cstatus, STATE_CLOSED);
+			goto unexpected_pkt;
 		}
-		goto fail_during_close;
+		break;
 
 	/* Close states are regular: handle as a group. */
 	case STATE_CLOSE_WAIT_HTLCS:
@@ -949,8 +949,20 @@ start_unilateral_close:
 	/*
 	 * Close unilaterally.
 	 */
+
 	/* No more inputs, no more commands. */
 	set_peer_cond(peer, PEER_CLOSED);
+
+	/*
+	 * If they sent us a close tx, that's always cheaper than
+	 * broadcasting our last commit tx, and our funds are not
+	 * timelocked.
+	 */
+	if (peer_has_close_sig(peer)) {
+		queue_tx_broadcast(broadcast, bitcoin_close(ctx, peer));
+		return next_state(peer, cstatus, STATE_CLOSE_WAIT_CLOSE);
+	}
+
 	tx = bitcoin_commit(ctx, peer);
 	queue_tx_broadcast(broadcast, tx);
 	peer_watch_delayed(peer, tx, BITCOIN_ANCHOR_OURCOMMIT_DELAYPASSED);
@@ -965,28 +977,6 @@ start_unilateral_close:
 
 	return next_state(peer, cstatus, STATE_CLOSE_WAIT_OURCOMMIT);
 
-err_start_unilateral_close_already_closing:
-	/*
-	 * They timed out, or were broken; we are going to close unilaterally.
-	 */
-	queue_pkt(out, err);
-
-start_unilateral_close_already_closing:
-	/*
-	 * Close unilaterally.
-	 */
-	/* No more inputs, no more commands. */
-	set_peer_cond(peer, PEER_CLOSED);
-	tx = bitcoin_commit(ctx, peer);
-	queue_tx_broadcast(broadcast, tx);
-	peer_watch_delayed(peer, tx, BITCOIN_ANCHOR_OURCOMMIT_DELAYPASSED);
-
-	/* We agreed to close: shouldn't have any HTLCs */
-	if (committed_to_htlcs(peer))
-		return next_state(peer, cstatus, STATE_ERR_INTERNAL);
-
-	return next_state(peer, cstatus, STATE_CLOSE_WAIT_CLOSE_OURCOMMIT);
-	
 them_unilateral:
 	assert(input == BITCOIN_ANCHOR_THEIRSPEND);
 
@@ -1045,36 +1035,40 @@ accept_htlc_fulfill:
 	return next_state(peer, cstatus,
 			  prio(peer->state, STATE_WAIT_FOR_UPDATE_SIG));
 
-start_closing:
+start_clearing:
 	/*
-	 * Start a mutual close.
+	 * Start a mutual close: tell them we want to clear.
 	 */
-	/* Protocol doesn't (currently?) allow closing with HTLCs. */
-	if (committed_to_htlcs(peer)) {
-		err = pkt_err(ctx, "Close forced due to HTLCs");
-		goto err_start_unilateral_close;
-	}
-	peer_watch_close(peer, BITCOIN_CLOSE_DONE, INPUT_CLOSE_COMPLETE_TIMEOUT);
+	queue_pkt(out, pkt_close_clearing(ctx, peer));
 
 	/* No more commands, we're already closing. */
 	set_peer_cond(peer, PEER_CLOSING);
 
-	/* As soon as we send packet, they could close. */
-	queue_pkt(out, pkt_close(ctx, peer));
-	return next_state(peer, cstatus, STATE_WAIT_FOR_CLOSE_COMPLETE);
+	return next_state(peer, cstatus, STATE_US_CLEARING);
 
-accept_closing:
-	err = accept_pkt_close(ctx, peer, idata->pkt);
+start_closing_cleared:
+	/* As soon as we send packet, they could close. */
+	peer_calculate_close_fee(peer);
+	peer_watch_close(peer, BITCOIN_CLOSE_DONE, INPUT_CLOSE_COMPLETE_TIMEOUT);
+	queue_pkt(out, pkt_close_signature(ctx, peer));
+	return next_state(peer, cstatus, STATE_WAIT_FOR_CLOSE_SIG);
+
+accept_clearing:
+	err = accept_pkt_close_clearing(ctx, peer, idata->pkt);
 	if (err)
 		goto err_start_unilateral_close;
-	peer_watch_close(peer, BITCOIN_CLOSE_DONE, INPUT_NONE);
-	/* Send close TX. */
-	queue_tx_broadcast(broadcast, bitcoin_close(ctx, peer));
-	queue_pkt(out, pkt_close_complete(ctx, peer));
+
+	/* Notify us when there are no more htlcs in either commit tx */
+	peer_watch_htlcs_cleared(peer, INPUT_HTLCS_CLEARED);
+
 	/* No more commands, we're already closing. */
 	set_peer_cond(peer, PEER_CLOSING);
-	return next_state(peer, cstatus, STATE_WAIT_FOR_CLOSE_ACK);
-	
+
+	/* Tell them we're clearing too. */
+	queue_pkt(out, pkt_close_clearing(ctx, peer));
+
+	return next_state(peer, cstatus, STATE_BOTH_CLEARING);
+
 instant_close:
 	/*
 	 * Closing, but we haven't sent anything to the blockchain so
@@ -1088,48 +1082,6 @@ instant_close:
 		return next_state(peer, cstatus, STATE_ERR_INTERNAL);
 	return next_state(peer, cstatus, STATE_CLOSED);
 
-fail_during_close:
-	/*
-	 * We've broadcast close tx; if anything goes wrong, we just close
-	 * connection and wait.
-	 */
-	set_peer_cond(peer, PEER_CLOSED);
-
-	/* Once close tx is deep enough, we consider it done. */
-	if (input_is(input, BITCOIN_CLOSE_DONE)) {
-		return next_state(peer, cstatus, STATE_CLOSED);
-	} else if (input_is(input, BITCOIN_ANCHOR_THEIRSPEND)) {
-		/* A reorganization could make this happen. */
-		tx = bitcoin_spend_theirs(ctx, peer, idata->btc);
-		queue_tx_broadcast(broadcast, tx);
-		peer_watch_tx(peer, tx, BITCOIN_SPEND_THEIRS_DONE);
-		if (peer_watch_their_htlc_outputs(peer, idata->btc,
-						  BITCOIN_HTLC_TOUS_TIMEOUT,
-						  BITCOIN_HTLC_TOTHEM_SPENT,
-						  BITCOIN_HTLC_TOTHEM_TIMEOUT)) {
-			/* Expect either close or spendthem to complete */
-			/* FIXME: Make sure caller uses INPUT_RVAL
-			 * if they were in the middle of FULFILL! */
-			return next_state(peer, cstatus,
-					  STATE_CLOSE_WAIT_SPENDTHEM_CLOSE_WITH_HTLCS);
-		}
-		return next_state(peer, cstatus,
-				  STATE_CLOSE_WAIT_SPENDTHEM_CLOSE);
-	} else if (input_is(input, BITCOIN_ANCHOR_OTHERSPEND)) {
-		tx = bitcoin_steal(ctx, peer, idata->btc);
-		if (!tx)
-			return next_state(peer, cstatus,
-					  STATE_ERR_INFORMATION_LEAK);
-		queue_tx_broadcast(broadcast, tx);
-		peer_watch_tx(peer, tx, BITCOIN_STEAL_DONE);
-		/* Expect either close or steal to complete */
-		return next_state(peer, cstatus,
-				  STATE_CLOSE_WAIT_STEAL_CLOSE);
-	} else if (input_is(input, BITCOIN_ANCHOR_UNSPENT)) {
-		return next_state(peer, cstatus, STATE_ERR_ANCHOR_LOST);
-	}
-	return next_state(peer, cstatus, STATE_ERR_INTERNAL);
-	
 old_commit_spotted:
 	/*
 	 * bitcoind reported a broadcast of the not-latest commit tx.

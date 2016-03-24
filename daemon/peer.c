@@ -222,6 +222,13 @@ static void state_event(struct peer *peer,
 			const union input *idata)
 {
 	state_single(peer, input, idata);
+
+	if (peer->cleared != INPUT_NONE && !committed_to_htlcs(peer)) {
+		enum state_input all_done = peer->cleared;
+		peer->cleared = INPUT_NONE;
+		state_single(peer, all_done, NULL);
+	}
+
 	try_command(peer);
 }
 
@@ -353,11 +360,12 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	list_head_init(&peer->pending_cmd);
 	peer->current_htlc = NULL;
 	peer->commit_tx_counter = 0;
-	peer->close_tx = NULL;
 	peer->cstate = NULL;
 	peer->close_watch_timeout = NULL;
 	peer->anchor.watches = NULL;
 	peer->cur_commit.watch = NULL;
+	peer->closing.their_sig = NULL;
+	peer->cleared = INPUT_NONE;
 
 	/* If we free peer, conn should be closed, but can't be freed
 	 * immediately so don't make peer a parent. */
@@ -621,29 +629,35 @@ static bool txmatch(const struct bitcoin_tx *txa, const struct bitcoin_tx *txb)
 	return true;
 }
 
-static bool is_mutual_close(const struct bitcoin_tx *tx,
-			    const struct bitcoin_tx *close_tx)
+/* A mutual close is a simple 2 output p2sh to the final addresses, but
+ * without knowing fee we can't determine order, so examine each output. */
+static bool is_mutual_close(const struct peer *peer,
+			    const struct bitcoin_tx *tx)
 {
-	varint_t i;
+	const u8 *ctx, *our_p2sh, *their_p2sh;
+	bool matches;
 
-	/* Haven't created mutual close yet?  This isn't one then. */
-	if (!close_tx)
+	if (tx->output_count != 2)
 		return false;
 
-	/* We know it spends anchor, but do txouts match? */
-	if (tx->output_count != close_tx->output_count)
+	if (!is_p2sh(tx->output[0].script, tx->output[0].script_length)
+	    || !is_p2sh(tx->output[1].script, tx->output[1].script_length))
 		return false;
-	for (i = 0; i < tx->output_count; i++) {
-		if (tx->output[i].amount != close_tx->output[i].amount)
-			return false;
-		if (tx->output[i].script_length
-		    != close_tx->output[i].script_length)
-			return false;
-		if (memcmp(tx->output[i].script, close_tx->output[i].script,
-			   tx->output[i].script_length) != 0)
-			return false;
-	}
-	return true;
+
+	/* FIXME: Cache these! */
+	ctx = tal(NULL, u8);	
+	our_p2sh = scriptpubkey_p2sh(ctx,
+			bitcoin_redeem_single(tx, &peer->us.finalkey));
+	their_p2sh = scriptpubkey_p2sh(ctx,
+			bitcoin_redeem_single(tx, &peer->them.finalkey));
+
+	matches =
+		(memcmp(tx->output[0].script, our_p2sh, tal_count(our_p2sh)) == 0
+		 && memcmp(tx->output[1].script, their_p2sh, tal_count(their_p2sh)) == 0)
+		|| (memcmp(tx->output[0].script, their_p2sh, tal_count(their_p2sh)) == 0
+		    && memcmp(tx->output[1].script, our_p2sh, tal_count(our_p2sh)) == 0);
+	tal_free(ctx);
+	return matches;
 }
 
 static void close_depth_cb(struct peer *peer, int depth)
@@ -665,7 +679,7 @@ static void anchor_spent(struct peer *peer,
 	idata.btc = (struct bitcoin_event *)tx;
 	if (txmatch(tx, peer->them.commit))
 		state_event(peer, w->theyspent, &idata);
-	else if (is_mutual_close(tx, peer->close_tx))
+	else if (is_mutual_close(peer, tx))
 		add_close_tx_watch(peer, peer, tx, close_depth_cb);
 	else
 		state_event(peer, w->otherspent, &idata);
@@ -836,20 +850,20 @@ void peer_watch_tx(struct peer *peer,
 	add_commit_tx_watch(tx, peer, &txid, spend_tx_done, int2ptr(done));
 }
 
-bool peer_create_close_tx(struct peer *peer, u64 fee_satoshis)
+struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
+					const struct peer *peer, u64 fee)
 {
 	struct channel_state cstate;
 
-	assert(!peer->close_tx);
-	
 	/* We don't need a deep copy here, just fee levels. */
 	cstate = *peer->cstate;
-	if (!adjust_fee(peer->anchor.satoshis, fee_satoshis,
+	if (!adjust_fee(peer->anchor.satoshis, fee,
 			&cstate.a, &cstate.b))
-		return false;
+		return NULL;
 
 	log_debug(peer->log,
-		  "creating close-tx: to %02x%02x%02x%02x/%02x%02x%02x%02x, amounts %u/%u",
+		  "creating close-tx with fee %"PRIu64": to %02x%02x%02x%02x/%02x%02x%02x%02x, amounts %u/%u",
+		  fee,
 		  peer->us.finalkey.der[0], peer->us.finalkey.der[1],
 		  peer->us.finalkey.der[2], peer->us.finalkey.der[3],
 		  peer->them.finalkey.der[0], peer->them.finalkey.der[1],
@@ -857,18 +871,31 @@ bool peer_create_close_tx(struct peer *peer, u64 fee_satoshis)
 		  cstate.a.pay_msat / 1000,
 		  cstate.b.pay_msat / 1000);
 
- 	peer->close_tx = create_close_tx(peer->dstate->secpctx, peer,
- 					 &peer->us.finalkey,
- 					 &peer->them.finalkey,
-					 &peer->anchor.txid,
-					 peer->anchor.index,
- 					 peer->anchor.satoshis,
- 					 cstate.a.pay_msat / 1000,
- 					 cstate.b.pay_msat / 1000);
+ 	return create_close_tx(peer->dstate->secpctx, ctx,
+			       &peer->us.finalkey,
+			       &peer->them.finalkey,
+			       &peer->anchor.txid,
+			       peer->anchor.index,
+			       peer->anchor.satoshis,
+			       cstate.a.pay_msat / 1000,
+			       cstate.b.pay_msat / 1000);
+}
 
-	peer->our_close_sig.stype = SIGHASH_ALL;
-	peer_sign_mutual_close(peer, peer->close_tx, &peer->our_close_sig.sig);
-	return true;
+void peer_calculate_close_fee(struct peer *peer)
+{
+	/* BOLT #2:
+	 * The sender MUST set `close_fee` lower than or equal to the
+	 * fee of the final commitment transaction, and MUST set
+	 * `close_fee` to an even number of satoshis.
+	 */
+
+	/* FIXME: Dynamic fee! */
+	peer->closing.our_fee = peer->dstate->config.closing_fee;
+}
+
+bool peer_has_close_sig(const struct peer *peer)
+{
+	return peer->closing.their_sig;
 }
 
 static void send_close_timeout(struct peer *peer)
@@ -882,10 +909,6 @@ void peer_watch_close(struct peer *peer,
 {
 	/* We save some work by assuming these. */
 	assert(done == BITCOIN_CLOSE_DONE);
-
-	/* FIXME: Dynamic closing fee! */
-	if (!peer->close_tx)
-		peer_create_close_tx(peer, peer->dstate->config.closing_fee);
 
 	/* FIXME: We can't send CLOSE, so timeout immediately */
 	if (!peer->conn) {
@@ -994,12 +1017,36 @@ bool committed_to_htlcs(const struct peer *peer)
 		|| tal_count(peer->cstate->b.htlcs) != 0;
 }
 
-/* Create a bitcoin close tx. */
+void peer_watch_htlcs_cleared(struct peer *peer,
+			      enum state_input all_done)
+{
+	assert(peer->cleared == INPUT_NONE);
+	assert(all_done != INPUT_NONE);
+	peer->cleared = all_done;
+}
+
+/* Create a bitcoin close tx, using last signature they sent. */
 const struct bitcoin_tx *bitcoin_close(const tal_t *ctx, struct peer *peer)
 {
-	/* Must be signed! */
-	assert(peer->close_tx->input[0].script_length != 0);
-	return peer->close_tx;
+	struct bitcoin_tx *close_tx;
+	struct bitcoin_signature our_close_sig;
+
+	close_tx = peer_create_close_tx(ctx, peer, peer->closing.their_fee);
+
+	our_close_sig.stype = SIGHASH_ALL;
+	peer_sign_mutual_close(peer, close_tx, &our_close_sig.sig);
+
+	/* Complete the close_tx, using signatures. */
+	close_tx->input[0].script
+		= scriptsig_p2sh_2of2(close_tx,
+				      peer->closing.their_sig,
+				      &our_close_sig,
+				      &peer->them.commitkey,
+				      &peer->us.commitkey);
+	close_tx->input[0].script_length
+		= tal_count(close_tx->input[0].script);
+
+	return close_tx;
 }
 
 /* Create a bitcoin spend tx (to spend our commit's outputs) */
