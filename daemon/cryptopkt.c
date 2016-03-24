@@ -102,6 +102,13 @@ static void setup_crypto(struct dir_state *dir,
 	dir->cpkt = NULL;
 }
 
+struct ack {
+	struct list_node list;
+	u64 pktnum;
+	void (*ack_cb)(struct peer *peer, void *);
+	void *ack_arg;
+};
+
 struct io_data {
 	/* Stuff we need to keep around to talk to peer. */
 	struct dir_state in, out;
@@ -114,6 +121,9 @@ struct io_data {
 	
 	/* For negotiation phase. */
 	struct key_negotiate *neg;
+
+	/* Tracking what needs acks. */
+	struct list_head acks;
 };
 
 static void *proto_tal_alloc(void *allocator_data, size_t size)
@@ -239,6 +249,7 @@ static struct crypto_pkt *encrypt_pkt(struct peer *peer, const Pkt *pkt, u64 ack
 static struct io_plan *decrypt_body(struct io_conn *conn, struct peer *peer)
 {
 	struct io_data *iod = peer->io_data;
+	struct ack *ack;
 
 	/* We have full packet. */
 	peer->inpkt = decrypt_pkt(peer, iod->in.cpkt,
@@ -255,6 +266,15 @@ static struct io_plan *decrypt_body(struct io_conn *conn, struct peer *peer)
 		  le32_to_cpu(iod->hdr_in.length),
 		  peer->inpkt->pkt_case == PKT__PKT_AUTH ? "PKT_AUTH"
 		  : input_name(peer->inpkt->pkt_case));
+
+	/* Do callbacks for any packets it acknowledged receiving. */
+	while ((ack = list_top(&iod->acks, struct ack, list)) != NULL) {
+		if (le64_to_cpu(iod->hdr_in.acknowledge) < ack->pktnum)
+			break;
+		ack->ack_cb(peer, ack->ack_arg);
+		list_del_from(&iod->acks, &ack->list);
+		tal_free(ack);
+	}
 
 	return iod->cb(conn, peer);
 }
@@ -305,11 +325,13 @@ struct io_plan *peer_read_packet(struct io_conn *conn,
 }
 
 /* Caller must free data! */
-struct io_plan *peer_write_packet(struct io_conn *conn,
-				  struct peer *peer,
-				  const Pkt *pkt,
-				  struct io_plan *(*next)(struct io_conn *,
-							  struct peer *))
+struct io_plan *peer_write_packet_(struct io_conn *conn,
+				   struct peer *peer,
+				   const Pkt *pkt,
+				   void (*ack_cb)(struct peer *peer, void *),
+				   void *ack_arg,
+				   struct io_plan *(*next)(struct io_conn *,
+							   struct peer *))
 {
 	struct io_data *iod = peer->io_data;
 	size_t totlen;
@@ -319,6 +341,15 @@ struct io_plan *peer_write_packet(struct io_conn *conn,
 	tal_free(iod->out.cpkt);
 
 	iod->out.cpkt = encrypt_pkt(peer, pkt, peer->io_data->in.count, &totlen);
+
+	/* Set up ack callback if any. */
+	if (ack_cb) {
+		struct ack *ack = tal(peer, struct ack);
+		ack->pktnum = peer->io_data->out.count;
+		ack->ack_cb = ack_cb;
+		ack->ack_arg = ack_arg;
+		list_add_tail(&iod->acks, &ack->list);
+	}
 
 	/* We don't add to count for authenticate case. */
 	if (pkt->pkt_case != PKT__PKT_AUTH)
@@ -476,7 +507,7 @@ static struct io_plan *keys_exchanged(struct io_conn *conn, struct peer *peer)
 
 	/* FIXME: Free auth afterwards. */
 	auth = authenticate_pkt(peer, &peer->dstate->id, &sig);
-	return peer_write_packet(conn, peer, auth, receive_proof);
+	return peer_write_packet(conn, peer, auth, NULL, NULL, receive_proof);
 }
 
 /* Read and ignore any extra bytes... */
@@ -564,6 +595,7 @@ struct io_plan *peer_crypto_setup(struct io_conn *conn, struct peer *peer,
 	BUILD_ASSERT(CRYPTO_HDR_LEN == offsetof(struct crypto_pkt, data));
 
 	peer->io_data = tal(peer, struct io_data);
+	list_head_init(&peer->io_data->acks);
 
 	/* We store negotiation state here. */
 	neg = peer->io_data->neg = tal(peer->io_data, struct key_negotiate);

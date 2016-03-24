@@ -240,7 +240,7 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 	out = peer->outpkt[0];
 	memmove(peer->outpkt, peer->outpkt + 1, (sizeof(*peer->outpkt)*(n-1)));
 	tal_resize(&peer->outpkt, n-1);
-	return peer_write_packet(conn, peer, out, pkt_out);
+	return peer_write_packet(conn, peer, out, NULL, NULL, pkt_out);
 }
 
 static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
