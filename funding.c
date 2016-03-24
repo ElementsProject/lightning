@@ -119,30 +119,30 @@ struct channel_state *initial_funding(const tal_t *ctx,
 				      uint64_t anchor_satoshis,
 				      uint64_t fee)
 {
-	struct channel_state *state = talz(ctx, struct channel_state);
+	struct channel_state *cstate = talz(ctx, struct channel_state);
 
-	state->a.htlcs = tal_arr(state, struct channel_htlc, 0);
-	state->b.htlcs = tal_arr(state, struct channel_htlc, 0);
+	cstate->a.htlcs = tal_arr(cstate, struct channel_htlc, 0);
+	cstate->b.htlcs = tal_arr(cstate, struct channel_htlc, 0);
 	
 	if (fee > anchor_satoshis)
-		return tal_free(state);
+		return tal_free(cstate);
 
 	if (anchor_satoshis > (1ULL << 32) / 1000)
-		return tal_free(state);
+		return tal_free(cstate);
 	
 	/* Initially, all goes back to funder. */
-	state->a.pay_msat = anchor_satoshis * 1000 - fee * 1000;
-	state->a.fee_msat = fee * 1000;
-	state->a.offered_anchor = true;
-	state->b.offered_anchor = false;
+	cstate->a.pay_msat = anchor_satoshis * 1000 - fee * 1000;
+	cstate->a.fee_msat = fee * 1000;
+	cstate->a.offered_anchor = true;
+	cstate->b.offered_anchor = false;
 
 	/* If B (not A) is funder, invert. */
 	if (!am_funder)
-		invert_cstate(state);
+		invert_cstate(cstate);
 
 	/* Make sure it checks out. */
-	assert(funding_delta(anchor_satoshis, 0, 0, &state->a, &state->b));
-	return state;
+	assert(funding_delta(anchor_satoshis, 0, 0, &cstate->a, &cstate->b));
+	return cstate;
 }
 
 bool adjust_fee(uint64_t anchor_satoshis,
