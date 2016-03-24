@@ -110,7 +110,7 @@ check_tx_spend()
 	:
     else
 	echo "Block didn't include tx:" >&2
-	$($CLI getblock $($CLI getbestblockhash) ) >&2
+	$CLI getblock $($CLI getbestblockhash) >&2
 	exit 1
     fi
 }
