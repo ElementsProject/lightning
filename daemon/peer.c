@@ -1013,6 +1013,9 @@ const struct htlc *peer_tx_revealed_r_value(struct peer *peer,
 
 bool committed_to_htlcs(const struct peer *peer)
 {
+	/* This is only set after anchor established. */
+	if (!peer->cstate)
+		return false;
 	return tal_count(peer->cstate->a.htlcs) != 0
 		|| tal_count(peer->cstate->b.htlcs) != 0;
 }
