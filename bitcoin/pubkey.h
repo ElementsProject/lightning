@@ -9,7 +9,7 @@ struct privkey;
 
 struct pubkey {
 	/* DER-encoded key (as hashed by bitcoin, for addresses) */
-	u8 der[65];
+	u8 der[33];
 	/* Unpacked pubkey (as used by libsecp256k1 internally) */
 	secp256k1_pubkey pubkey;
 };
@@ -27,9 +27,6 @@ bool pubkey_from_privkey(secp256k1_context *secpctx,
 /* Pubkey from DER encoding. */
 bool pubkey_from_der(secp256k1_context *secpctx,
 		     const u8 *der, size_t len, struct pubkey *key);
-
-/* How many bytes of key->der are valid. */
-size_t pubkey_derlen(const struct pubkey *key);
 
 /* Are these keys equal? */
 bool pubkey_eq(const struct pubkey *a, const struct pubkey *b);

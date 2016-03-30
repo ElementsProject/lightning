@@ -1363,7 +1363,7 @@ static void json_getpeers(struct command *cmd,
 		/* This is only valid after crypto setup. */
 		if (p->state != STATE_INIT)
 			json_add_hex(response, "peerid",
-				     p->id.der, pubkey_derlen(&p->id));
+				     p->id.der, sizeof(p->id.der));
 
 		if (p->cstate) {
 			json_object_start(response, "channel");

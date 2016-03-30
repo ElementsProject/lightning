@@ -114,7 +114,7 @@ struct  _BitcoinPubkey
 {
   ProtobufCMessage base;
   /*
-   * Either 65 or 33 bytes.
+   * Must be 33 bytes.
    */
   ProtobufCBinaryData key;
 };

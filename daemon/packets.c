@@ -35,7 +35,7 @@ static void dump_tx(const char *str, const struct bitcoin_tx *tx)
 
 static void dump_key(const char *str, const struct pubkey *key)
 {
-	printf("%s:%s\n", str, hex_of(NULL, key->der, pubkey_derlen(key)));
+	printf("%s:%s\n", str, hex_of(NULL, key->der, sizeof(key->der)));
 }
 
 /* Wrap (and own!) member inside Pkt */

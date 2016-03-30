@@ -35,7 +35,7 @@ message locktime {
 
 // Pubkey for commitment transaction input.
 message bitcoin_pubkey {
-  // Either 65 or 33 bytes.
+  // Must be 33 bytes.
   required bytes key = 1;
 }
 

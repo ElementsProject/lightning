@@ -71,7 +71,7 @@ BitcoinPubkey *pubkey_to_proto(const tal_t *ctx, const struct pubkey *key)
 	struct pubkey check;
 
 	bitcoin_pubkey__init(p);
-	p->key.len = pubkey_derlen(key);
+	p->key.len = sizeof(key->der);
 	p->key.data = tal_dup_arr(p, u8, key->der, p->key.len, 0);
 
 	{
