@@ -224,7 +224,7 @@ static bool add_htlc(const struct channel_state *cstate,
 		     struct channel_oneside *creator,
 		     struct channel_oneside *recipient,
 		     u32 msatoshis, const struct abs_locktime *expiry,
-		     const struct sha256 *rhash)
+		     const struct sha256 *rhash, uint64_t id)
 {
 	size_t n, nondust;
 
@@ -246,6 +246,7 @@ static bool add_htlc(const struct channel_state *cstate,
 	creator->htlcs[n].msatoshis = msatoshis;
 	creator->htlcs[n].expiry = *expiry;
 	creator->htlcs[n].rhash = *rhash;
+	creator->htlcs[n].id = id;
 	memcheck(&creator->htlcs[n].msatoshis,
 		 sizeof(creator->htlcs[n].msatoshis));
 	memcheck(&creator->htlcs[n].rhash, sizeof(creator->htlcs[n].rhash));
@@ -288,18 +289,18 @@ static void remove_htlc(const struct channel_state *cstate,
 
 bool funding_a_add_htlc(struct channel_state *cstate,
 			u32 msatoshis, const struct abs_locktime *expiry,
-			const struct sha256 *rhash)
+			const struct sha256 *rhash, uint64_t id)
 {
 	return add_htlc(cstate, &cstate->a, &cstate->b,
-			msatoshis, expiry, rhash);
+			msatoshis, expiry, rhash, id);
 }
 
 bool funding_b_add_htlc(struct channel_state *cstate,
 			u32 msatoshis, const struct abs_locktime *expiry,
-			const struct sha256 *rhash)
+			const struct sha256 *rhash, uint64_t id)
 {
 	return add_htlc(cstate, &cstate->b, &cstate->a,
-			msatoshis, expiry, rhash);
+			msatoshis, expiry, rhash, id);
 }
 
 void funding_a_fail_htlc(struct channel_state *cstate, size_t index)
@@ -329,6 +330,17 @@ size_t funding_find_htlc(struct channel_oneside *creator,
 
 	for (i = 0; i < tal_count(creator->htlcs); i++) {
 		if (structeq(&creator->htlcs[i].rhash, rhash))
+			break;
+	}
+	return i;
+}
+
+size_t funding_htlc_by_id(struct channel_oneside *creator, uint64_t id)
+{
+	size_t i;
+
+	for (i = 0; i < tal_count(creator->htlcs); i++) {
+		if (creator->htlcs[i].id == id)
 			break;
 	}
 	return i;

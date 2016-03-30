@@ -449,7 +449,7 @@ Pkt *accept_pkt_htlc_add(const tal_t *ctx,
 	if (!funding_b_add_htlc(cur->cstate,
 				cur->stage.add.htlc.msatoshis,
 				&cur->stage.add.htlc.expiry,
-				&cur->stage.add.htlc.rhash)) {
+				&cur->stage.add.htlc.rhash, 0)) {
 		err = pkt_err(ctx, "Cannot afford %"PRIu64" milli-satoshis",
 			      cur->stage.add.htlc.msatoshis);
 		goto fail;

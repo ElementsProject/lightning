@@ -1473,7 +1473,7 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 	 * execute. */
 	cstate = copy_funding(newhtlc, peer->cstate);
 	if (!funding_a_add_htlc(cstate, newhtlc->htlc.msatoshis,
-				&newhtlc->htlc.expiry, &newhtlc->htlc.rhash)) {
+				&newhtlc->htlc.expiry, &newhtlc->htlc.rhash, 0)) {
 		command_fail(newhtlc->jsoncmd,
 			     "Cannot afford %"PRIu64" milli-satoshis",
 			     newhtlc->htlc.msatoshis);

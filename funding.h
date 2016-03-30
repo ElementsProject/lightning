@@ -7,6 +7,7 @@
 #include <stdbool.h>
 
 struct channel_htlc {
+	u64 id;
 	u64 msatoshis;
 	struct abs_locktime expiry;
 	struct sha256 rhash;
@@ -55,6 +56,7 @@ struct channel_state *copy_funding(const tal_t *ctx,
  * @msatoshis: Millisatoshi A is putting into a HTLC
  * @expiry: time it expires
  * @rhash: hash of redeem secret
+ * @id: 64-bit ID for htlc
  *
  * If A can't afford the HTLC (or still owes its half of the fees),
  * this will return false and leave @cstate unchanged.  Otherwise
@@ -63,11 +65,11 @@ struct channel_state *copy_funding(const tal_t *ctx,
  */
 bool funding_a_add_htlc(struct channel_state *cstate,
 			u32 msatoshis, const struct abs_locktime *expiry,
-			const struct sha256 *rhash);
+			const struct sha256 *rhash, uint64_t id);
 
 bool funding_b_add_htlc(struct channel_state *cstate,
 			u32 msatoshis, const struct abs_locktime *expiry,
-			const struct sha256 *rhash);
+			const struct sha256 *rhash, uint64_t id);
 
 /**
  * funding_a_fail_htlc: remove an HTLC from A's side of cstate, funds to A
@@ -125,6 +127,16 @@ void invert_cstate(struct channel_state *cstate);
  */
 size_t funding_find_htlc(struct channel_oneside *creator,
 			 const struct sha256 *rhash);
+
+/**
+ * funding_htlc_by_id: find an HTLC on this side of the channel by ID.
+ * @creator: channel_state->a or channel_state->b, whichever originated htlc
+ * @id: id for HTLC.
+ *
+ * Returns a number < tal_count(creator->htlcs), or == tal_count(creator->htlcs)
+ * on fail.
+ */
+size_t funding_htlc_by_id(struct channel_oneside *creator, uint64_t id);
 
 /**
  * fee_for_feerate: calculate the fee (in satoshi) for a given fee_rate.
