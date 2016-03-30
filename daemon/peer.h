@@ -184,8 +184,7 @@ void make_commit_txs(const tal_t *ctx,
 void peer_add_htlc_expiry(struct peer *peer,
 			  const struct abs_locktime *expiry);
 
-struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
-					const struct peer *peer, u64 fee);
+struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee);
 
 uint64_t commit_tx_fee(const struct bitcoin_tx *commit,
 		       uint64_t anchor_satoshis);

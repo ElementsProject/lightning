@@ -66,16 +66,6 @@ static struct peer *find_peer(struct lightningd_state *dstate,
 	return NULL;
 }
 
-static void queue_output_pkt(struct peer *peer, Pkt *pkt)
-{
-	size_t n = tal_count(peer->outpkt);
-	tal_resize(&peer->outpkt, n+1);
-	peer->outpkt[n] = pkt;
-
-	/* In case it was waiting for output. */
-	io_wake(peer);
-}
-
 static struct json_result *null_response(const tal_t *ctx)
 {
 	struct json_result *response;
@@ -123,10 +113,10 @@ static void state_single(struct peer *peer,
 			 const union input *idata)
 {
 	enum command_status status;
-	Pkt *outpkt;
 	const struct bitcoin_tx *broadcast;
-
-	status = state(peer, peer, input, idata, &outpkt, &broadcast);
+	size_t old_outpkts = tal_count(peer->outpkt);
+	
+	status = state(peer, input, idata, &broadcast);
 	log_debug(peer->log, "%s => %s",
 		  input_name(input), state_name(peer->state));
 	switch (status) {
@@ -145,9 +135,9 @@ static void state_single(struct peer *peer,
 		break;
 	}
 
-	if (outpkt) {
+	if (tal_count(peer->outpkt) > old_outpkts) {
+		Pkt *outpkt = peer->outpkt[old_outpkts];
 		log_add(peer->log, " (out %s)", input_name(outpkt->pkt_case));
-		queue_output_pkt(peer, outpkt);
 	}
 	if (broadcast) {
 		struct sha256_double txid;
@@ -298,7 +288,6 @@ static void destroy_peer(struct peer *peer)
 
 static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 {
-	Pkt *outpkt;
 	const struct bitcoin_tx *broadcast;
 
 	log_info(peer->log, "Disconnected");
@@ -316,8 +305,7 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 	if (peer->cond == PEER_CLOSED)
 		return;
 
-	state(peer, peer, INPUT_CONNECTION_LOST, NULL, &outpkt, &broadcast);
-	assert(!outpkt);
+	state(peer, INPUT_CONNECTION_LOST, NULL, &broadcast);
 
 	if (broadcast) {
 		struct sha256_double txid;
@@ -858,8 +846,7 @@ void peer_watch_tx(struct peer *peer,
 	add_commit_tx_watch(tx, peer, &txid, spend_tx_done, int2ptr(done));
 }
 
-struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
-					const struct peer *peer, u64 fee)
+struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee)
 {
 	struct channel_state cstate;
 
@@ -882,7 +869,7 @@ struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
 		  cstate.a.pay_msat / 1000,
 		  cstate.b.pay_msat / 1000);
 
- 	return create_close_tx(peer->dstate->secpctx, ctx,
+ 	return create_close_tx(peer->dstate->secpctx, peer,
 			       &peer->us.finalkey,
 			       &peer->them.finalkey,
 			       &peer->anchor.txid,
@@ -1064,12 +1051,12 @@ void peer_watch_htlcs_cleared(struct peer *peer,
 }
 
 /* Create a bitcoin close tx, using last signature they sent. */
-const struct bitcoin_tx *bitcoin_close(const tal_t *ctx, struct peer *peer)
+const struct bitcoin_tx *bitcoin_close(struct peer *peer)
 {
 	struct bitcoin_tx *close_tx;
 	struct bitcoin_signature our_close_sig;
 
-	close_tx = peer_create_close_tx(ctx, peer, peer->closing.their_fee);
+	close_tx = peer_create_close_tx(peer, peer->closing.their_fee);
 
 	our_close_sig.stype = SIGHASH_ALL;
 	peer_sign_mutual_close(peer, close_tx, &our_close_sig.sig);
@@ -1088,8 +1075,7 @@ const struct bitcoin_tx *bitcoin_close(const tal_t *ctx, struct peer *peer)
 }
 
 /* Create a bitcoin spend tx (to spend our commit's outputs) */
-const struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
-					    const struct peer *peer)
+const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 {
 	u8 *redeemscript, *linear;
 	const struct bitcoin_tx *commit = peer->us.commit;
@@ -1098,14 +1084,14 @@ const struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
 	unsigned int p2sh_out;
 
 	/* The redeemscript for a commit tx is fairly complex. */
-	redeemscript = bitcoin_redeem_secret_or_delay(ctx,
+	redeemscript = bitcoin_redeem_secret_or_delay(peer,
 						      &peer->us.finalkey,
 						      &peer->them.locktime,
 						      &peer->them.finalkey,
 						      &peer->us.revocation_hash);
 
 	/* Now, create transaction to spend it. */
-	tx = bitcoin_tx(ctx, 1, 1);
+	tx = bitcoin_tx(peer, 1, 1);
 	bitcoin_txid(commit, &tx->input[0].txid);
 	p2sh_out = find_p2sh_out(commit, redeemscript);
 	tx->input[0].index = p2sh_out;
@@ -1130,9 +1116,10 @@ const struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
 
 	/* Now, calculate the fee, given length. */
 	/* FIXME: Dynamic fees! */
-	linear = linearize_tx(ctx, tx);
+	linear = linearize_tx(peer, tx);
 	tx->fee = fee_by_feerate(tal_count(linear),
 				 peer->dstate->config.closing_fee_rate);
+	tal_free(linear);
 
 	/* FIXME: Fail gracefully in these cases (not worth collecting) */
 	if (tx->fee > tx->output[0].amount
@@ -1154,23 +1141,21 @@ const struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
 }
 
 /* Create a bitcoin spend tx (to spend their commit's outputs) */
-const struct bitcoin_tx *bitcoin_spend_theirs(const tal_t *ctx,
-					      const struct peer *peer,
+const struct bitcoin_tx *bitcoin_spend_theirs(const struct peer *peer,
 					      const struct bitcoin_event *btc)
 {
 	FIXME_STUB(peer);
 }
 
 /* Create a bitcoin steal tx (to steal all their commit's outputs) */
-const struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
-				       const struct peer *peer,
+const struct bitcoin_tx *bitcoin_steal(const struct peer *peer,
 				       struct bitcoin_event *btc)
 {
 	FIXME_STUB(peer);
 }
 
 /* Sign and return our commit tx */
-const struct bitcoin_tx *bitcoin_commit(const tal_t *ctx, struct peer *peer)
+const struct bitcoin_tx *bitcoin_commit(struct peer *peer)
 {
 	struct bitcoin_signature sig;
 
@@ -1193,16 +1178,14 @@ const struct bitcoin_tx *bitcoin_commit(const tal_t *ctx, struct peer *peer)
 }
 
 /* Create a HTLC refund collection */
-const struct bitcoin_tx *bitcoin_htlc_timeout(const tal_t *ctx,
-					      const struct peer *peer,
+const struct bitcoin_tx *bitcoin_htlc_timeout(const struct peer *peer,
 					      const struct htlc *htlc)
 {
 	FIXME_STUB(peer);
 }
 
 /* Create a HTLC collection */
-const struct bitcoin_tx *bitcoin_htlc_spend(const tal_t *ctx,
-					    const struct peer *peer,
+const struct bitcoin_tx *bitcoin_htlc_spend(const struct peer *peer,
 					    const struct htlc *htlc)
 {
 	FIXME_STUB(peer);
@@ -1270,7 +1253,7 @@ void bitcoin_release_anchor(struct peer *peer, enum state_input done)
 }
 
 /* Get the bitcoin anchor tx. */
-const struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer)
+const struct bitcoin_tx *bitcoin_anchor(struct peer *peer)
 {
 	return peer->anchor.tx;
 }

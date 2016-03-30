@@ -35,11 +35,9 @@ union input {
 	struct htlc_progress *htlc_prog;
 };
 
-enum command_status state(const tal_t *ctx,
-			  struct peer *peer,
+enum command_status state(struct peer *peer,
 			  const enum state_input input,
 			  const union input *idata,
-			  Pkt **out,
 			  const struct bitcoin_tx **broadcast);
 
 /* Any CMD_SEND_HTLC_* */
@@ -95,64 +93,51 @@ void peer_htlc_aborted(struct peer *peer);
 const struct htlc *peer_tx_revealed_r_value(struct peer *peer,
 					    const struct bitcoin_event *btc);
 
-/* Create various kinds of packets, allocated off @ctx */
-Pkt *pkt_open(const tal_t *ctx, const struct peer *peer,
-	      OpenChannel__AnchorOffer anchor);
-Pkt *pkt_anchor(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_open_commit_sig(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_open_complete(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_htlc_add(const tal_t *ctx, const struct peer *peer,
-		  const struct htlc_progress *htlc_prog);
-Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct peer *peer,
-		      const struct htlc_progress *htlc_prog);
-Pkt *pkt_htlc_fail(const tal_t *ctx, const struct peer *peer,
+/* Send various kinds of packets */
+void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor);
+void queue_pkt_anchor(struct peer *peer);
+void queue_pkt_open_commit_sig(struct peer *peer);
+void queue_pkt_open_complete(struct peer *peer);
+void queue_pkt_htlc_add(struct peer *peer,
 			const struct htlc_progress *htlc_prog);
-Pkt *pkt_update_accept(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_update_signature(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_update_complete(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_err(const tal_t *ctx, const char *fmt, ...);
-Pkt *pkt_close_clearing(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_close_signature(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_err_unexpected(const tal_t *ctx, const Pkt *pkt);
+void queue_pkt_htlc_fulfill(struct peer *peer,
+			    const struct htlc_progress *htlc_prog);
+void queue_pkt_htlc_fail(struct peer *peer,
+			 const struct htlc_progress *htlc_prog);
+void queue_pkt_update_accept(struct peer *peer);
+void queue_pkt_update_signature(struct peer *peer);
+void queue_pkt_update_complete(struct peer *peer);
+void queue_pkt_close_clearing(struct peer *peer);
+void queue_pkt_close_signature(struct peer *peer);
+
+Pkt *pkt_err(struct peer *peer, const char *msg, ...);
+void queue_pkt_err(struct peer *peer, Pkt *err);
+Pkt *pkt_err_unexpected(struct peer *peer, const Pkt *pkt);
 
 /* Process various packets: return an error packet on failure. */
-Pkt *accept_pkt_open(const tal_t *ctx,
-		     struct peer *peer,
-		     const Pkt *pkt);
+Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_anchor(const tal_t *ctx,
-		       struct peer *peer,
-		       const Pkt *pkt);
+Pkt *accept_pkt_anchor(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
-				struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_open_commit_sig(struct peer *peer, const Pkt *pkt);
 	
-Pkt *accept_pkt_open_complete(const tal_t *ctx,
-			      struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_open_complete(struct peer *peer, const Pkt *pkt);
 	
-Pkt *accept_pkt_htlc_add(const tal_t *ctx,
-			 struct peer *peer, const Pkt *pkt,
+Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt,
 			 Pkt **decline);
 
-Pkt *accept_pkt_htlc_fail(const tal_t *ctx,
-			  struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
-			     struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_update_accept(const tal_t *ctx,
-			      struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_update_accept(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_update_complete(const tal_t *ctx,
-				struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_update_complete(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_update_signature(const tal_t *ctx,
-				 struct peer *peer,
-				 const Pkt *pkt);
+Pkt *accept_pkt_update_signature(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_close_clearing(const tal_t *ctx, struct peer *peer, const Pkt *pkt);
-Pkt *accept_pkt_close_sig(const tal_t *ctx, struct peer *peer, const Pkt *pkt,
-			  bool *matches);
+Pkt *accept_pkt_close_clearing(struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt, bool *matches);
 
 /**
  * committed_to_htlcs: do we have any locked-in HTLCs?
@@ -358,36 +343,31 @@ void bitcoin_create_anchor(struct peer *peer, enum state_input done);
 void bitcoin_release_anchor(struct peer *peer, enum state_input done);
 
 /* Get the bitcoin anchor tx. */
-const struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer);
+const struct bitcoin_tx *bitcoin_anchor(struct peer *peer);
 
 /* Create a bitcoin close tx. */
-const struct bitcoin_tx *bitcoin_close(const tal_t *ctx, struct peer *peer);
+const struct bitcoin_tx *bitcoin_close(struct peer *peer);
 
 /* Create a bitcoin spend tx (to spend our commit's outputs) */
-const struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
-					    const struct peer *peer);
+const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer);
 
 /* Create a bitcoin spend tx (to spend their commit's outputs) */
-const struct bitcoin_tx *bitcoin_spend_theirs(const tal_t *ctx,
-					      const struct peer *peer,
+const struct bitcoin_tx *bitcoin_spend_theirs(const struct peer *peer,
 					      const struct bitcoin_event *btc);
 
 /* Create a bitcoin steal tx (to steal all their commit's outputs) */
-const struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
-				       const struct peer *peer,
+const struct bitcoin_tx *bitcoin_steal(const struct peer *peer,
 				       struct bitcoin_event *btc);
 
 /* Create our commit tx */
-const struct bitcoin_tx *bitcoin_commit(const tal_t *ctx, struct peer *peer);
+const struct bitcoin_tx *bitcoin_commit(struct peer *peer);
 
 /* Create a HTLC refund collection */
-const struct bitcoin_tx *bitcoin_htlc_timeout(const tal_t *ctx,
-					      const struct peer *peer,
+const struct bitcoin_tx *bitcoin_htlc_timeout(const struct peer *peer,
 					      const struct htlc *htlc);
 
 /* Create a HTLC collection */
-const struct bitcoin_tx *bitcoin_htlc_spend(const tal_t *ctx,
-					    const struct peer *peer,
+const struct bitcoin_tx *bitcoin_htlc_spend(const struct peer *peer,
 					    const struct htlc *htlc);
 
 #endif /* LIGHTNING_STATE_H */

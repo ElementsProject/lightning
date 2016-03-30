@@ -11,6 +11,7 @@
 #include "secrets.h"
 #include "state.h"
 #include <ccan/crypto/sha256/sha256.h>
+#include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
@@ -46,7 +47,7 @@ static Pkt *make_pkt(const tal_t *ctx, Pkt__PktCase type, const void *msg)
 	pkt__init(pkt);
 	pkt->pkt_case = type;
 	/* This is a union, so doesn't matter which we assign. */
-	pkt->error = (Error *)tal_steal(ctx, msg);
+	pkt->error = (Error *)tal_steal(pkt, msg);
 
 	/* This makes sure all packets are valid. */
 #ifndef NDEBUG
@@ -67,14 +68,28 @@ static Pkt *make_pkt(const tal_t *ctx, Pkt__PktCase type, const void *msg)
 	return pkt;
 }
 
-Pkt *pkt_open(const tal_t *ctx, const struct peer *peer,
-	      OpenChannel__AnchorOffer anchor)
+static void queue_raw_pkt(struct peer *peer, Pkt *pkt)
 {
-	OpenChannel *o = tal(ctx, OpenChannel);
+	size_t n = tal_count(peer->outpkt);
+	tal_resize(&peer->outpkt, n+1);
+	peer->outpkt[n] = pkt;
+
+	/* In case it was waiting for output. */
+	io_wake(peer);
+}
+
+static void queue_pkt(struct peer *peer, Pkt__PktCase type, const void *msg)
+{
+	queue_raw_pkt(peer, make_pkt(peer, type, msg));
+}
+
+void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor)
+{
+	OpenChannel *o = tal(peer, OpenChannel);
 
 	open_channel__init(o);
-	o->revocation_hash = sha256_to_proto(ctx, &peer->us.revocation_hash);
-	o->next_revocation_hash = sha256_to_proto(ctx, &peer->us.next_revocation_hash);
+	o->revocation_hash = sha256_to_proto(o, &peer->us.revocation_hash);
+	o->next_revocation_hash = sha256_to_proto(o, &peer->us.next_revocation_hash);
 	o->commit_key = pubkey_to_proto(o, &peer->us.commitkey);
 	o->final_key = pubkey_to_proto(o, &peer->us.finalkey);
 	o->delay = tal(o, Locktime);
@@ -91,13 +106,13 @@ Pkt *pkt_open(const tal_t *ctx, const struct peer *peer,
 		
 	o->anch = anchor;
 	o->min_depth = peer->us.mindepth;
-	return make_pkt(ctx, PKT__PKT_OPEN, o);
+	queue_pkt(peer, PKT__PKT_OPEN, o);
 }
-	
-Pkt *pkt_anchor(const tal_t *ctx, const struct peer *peer)
+
+void queue_pkt_anchor(struct peer *peer)
 {
 	struct signature sig;
-	OpenAnchor *a = tal(ctx, OpenAnchor);
+	OpenAnchor *a = tal(peer, OpenAnchor);
 
 	open_anchor__init(a);
 	a->txid = sha256_to_proto(a, &peer->anchor.txid.sha);
@@ -108,13 +123,13 @@ Pkt *pkt_anchor(const tal_t *ctx, const struct peer *peer)
 	peer_sign_theircommit(peer, peer->them.commit, &sig);
 	a->commit_sig = signature_to_proto(a, &sig);
 
-	return make_pkt(ctx, PKT__PKT_OPEN_ANCHOR, a);
+	queue_pkt(peer, PKT__PKT_OPEN_ANCHOR, a);
 }
 
-Pkt *pkt_open_commit_sig(const tal_t *ctx, const struct peer *peer)
+void queue_pkt_open_commit_sig(struct peer *peer)
 {
 	struct signature sig;
-	OpenCommitSig *s = tal(ctx, OpenCommitSig);
+	OpenCommitSig *s = tal(peer, OpenCommitSig);
 
 	open_commit_sig__init(s);
 
@@ -124,21 +139,21 @@ Pkt *pkt_open_commit_sig(const tal_t *ctx, const struct peer *peer)
 	peer_sign_theircommit(peer, peer->them.commit, &sig);
 	s->sig = signature_to_proto(s, &sig);
 
-	return make_pkt(ctx, PKT__PKT_OPEN_COMMIT_SIG, s);
+	queue_pkt(peer, PKT__PKT_OPEN_COMMIT_SIG, s);
 }
 
-Pkt *pkt_open_complete(const tal_t *ctx, const struct peer *peer)
+void queue_pkt_open_complete(struct peer *peer)
 {
-	OpenComplete *o = tal(ctx, OpenComplete);
+	OpenComplete *o = tal(peer, OpenComplete);
 
 	open_complete__init(o);
-	return make_pkt(ctx, PKT__PKT_OPEN_COMPLETE, o);
+	queue_pkt(peer, PKT__PKT_OPEN_COMPLETE, o);
 }
 
-Pkt *pkt_htlc_add(const tal_t *ctx, const struct peer *peer,
+void queue_pkt_htlc_add(struct peer *peer,
 		  const struct htlc_progress *htlc_prog)
 {
-	UpdateAddHtlc *u = tal(ctx, UpdateAddHtlc);
+	UpdateAddHtlc *u = tal(peer, UpdateAddHtlc);
 
 	update_add_htlc__init(u);
 	assert(htlc_prog->stage.type == HTLC_ADD);
@@ -148,13 +163,13 @@ Pkt *pkt_htlc_add(const tal_t *ctx, const struct peer *peer,
 	u->r_hash = sha256_to_proto(u, &htlc_prog->stage.add.htlc.rhash);
 	u->expiry = abs_locktime_to_proto(u, &htlc_prog->stage.add.htlc.expiry);
 
-	return make_pkt(ctx, PKT__PKT_UPDATE_ADD_HTLC, u);
+	queue_pkt(peer, PKT__PKT_UPDATE_ADD_HTLC, u);
 }
 
-Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct peer *peer,
+void queue_pkt_htlc_fulfill(struct peer *peer,
 		      const struct htlc_progress *htlc_prog)
 {
-	UpdateFulfillHtlc *f = tal(ctx, UpdateFulfillHtlc);
+	UpdateFulfillHtlc *f = tal(peer, UpdateFulfillHtlc);
 
 	update_fulfill_htlc__init(f);
 	assert(htlc_prog->stage.type == HTLC_FULFILL);
@@ -162,13 +177,13 @@ Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct peer *peer,
 	f->revocation_hash = sha256_to_proto(f, &htlc_prog->our_revocation_hash);
 	f->r = sha256_to_proto(f, &htlc_prog->stage.fulfill.r);
 
-	return make_pkt(ctx, PKT__PKT_UPDATE_FULFILL_HTLC, f);
+	queue_pkt(peer, PKT__PKT_UPDATE_FULFILL_HTLC, f);
 }
 
-Pkt *pkt_htlc_fail(const tal_t *ctx, const struct peer *peer,
+void queue_pkt_htlc_fail(struct peer *peer,
 		   const struct htlc_progress *htlc_prog)
 {
-	UpdateFailHtlc *f = tal(ctx, UpdateFailHtlc);
+	UpdateFailHtlc *f = tal(peer, UpdateFailHtlc);
 	const struct channel_htlc *htlc;
 
 	update_fail_htlc__init(f);
@@ -178,12 +193,12 @@ Pkt *pkt_htlc_fail(const tal_t *ctx, const struct peer *peer,
 	f->revocation_hash = sha256_to_proto(f, &htlc_prog->our_revocation_hash);
 	f->r_hash = sha256_to_proto(f, &htlc->rhash);
 
-	return make_pkt(ctx, PKT__PKT_UPDATE_FAIL_HTLC, f);
+	queue_pkt(peer, PKT__PKT_UPDATE_FAIL_HTLC, f);
 }
 
-Pkt *pkt_update_accept(const tal_t *ctx, const struct peer *peer)
+void queue_pkt_update_accept(struct peer *peer)
 {
-	UpdateAccept *u = tal(ctx, UpdateAccept);
+	UpdateAccept *u = tal(peer, UpdateAccept);
 	const struct htlc_progress *cur = peer->current_htlc;
 	struct signature sig;
 
@@ -195,12 +210,12 @@ Pkt *pkt_update_accept(const tal_t *ctx, const struct peer *peer)
 	u->revocation_hash
 		= sha256_to_proto(u, &cur->our_revocation_hash);
 
-	return make_pkt(ctx, PKT__PKT_UPDATE_ACCEPT, u);
+	queue_pkt(peer, PKT__PKT_UPDATE_ACCEPT, u);
 }
 
-Pkt *pkt_update_signature(const tal_t *ctx, const struct peer *peer)
+void queue_pkt_update_signature(struct peer *peer)
 {
-	UpdateSignature *u = tal(ctx, UpdateSignature);
+	UpdateSignature *u = tal(peer, UpdateSignature);
 	const struct htlc_progress *cur = peer->current_htlc;
 	struct signature sig;
 	struct sha256 preimage;
@@ -213,12 +228,12 @@ Pkt *pkt_update_signature(const tal_t *ctx, const struct peer *peer)
 	peer_get_revocation_preimage(peer, peer->commit_tx_counter-1, &preimage);
 	u->revocation_preimage = sha256_to_proto(u, &preimage);
 
-	return make_pkt(ctx, PKT__PKT_UPDATE_SIGNATURE, u);
+	queue_pkt(peer, PKT__PKT_UPDATE_SIGNATURE, u);
 }
 
-Pkt *pkt_update_complete(const tal_t *ctx, const struct peer *peer)
+void queue_pkt_update_complete(struct peer *peer)
 {
-	UpdateComplete *u = tal(ctx, UpdateComplete);
+	UpdateComplete *u = tal(peer, UpdateComplete);
 	struct sha256 preimage;
 
 	update_complete__init(u);
@@ -227,90 +242,94 @@ Pkt *pkt_update_complete(const tal_t *ctx, const struct peer *peer)
 	peer_get_revocation_preimage(peer, peer->commit_tx_counter-1, &preimage);
 	u->revocation_preimage = sha256_to_proto(u, &preimage);
 
-	return make_pkt(ctx, PKT__PKT_UPDATE_COMPLETE, u);
+	queue_pkt(peer, PKT__PKT_UPDATE_COMPLETE, u);
 }
 
-Pkt *pkt_err(const tal_t *ctx, const char *msg, ...)
+Pkt *pkt_err(struct peer *peer, const char *msg, ...)
 {
-	Error *e = tal(ctx, Error);
+	Error *e = tal(peer, Error);
 	va_list ap;
 
 	error__init(e);
 	va_start(ap, msg);
-	e->problem = tal_vfmt(ctx, msg, ap);
+	e->problem = tal_vfmt(e, msg, ap);
 	va_end(ap);
 
-	return make_pkt(ctx, PKT__PKT_ERROR, e);
+	return make_pkt(peer, PKT__PKT_ERROR, e);
 }
 
-Pkt *pkt_close_clearing(const tal_t *ctx, const struct peer *peer)
+void queue_pkt_err(struct peer *peer, Pkt *err)
 {
-	CloseClearing *c = tal(ctx, CloseClearing);
+	queue_raw_pkt(peer, err);
+}
+
+void queue_pkt_close_clearing(struct peer *peer)
+{
+	CloseClearing *c = tal(peer, CloseClearing);
 
 	close_clearing__init(c);
 
-	return make_pkt(ctx, PKT__PKT_CLOSE_CLEARING, c);
+	queue_pkt(peer, PKT__PKT_CLOSE_CLEARING, c);
 }
 
-Pkt *pkt_close_signature(const tal_t *ctx, const struct peer *peer)
+void queue_pkt_close_signature(struct peer *peer)
 {
-	CloseSignature *c = tal(ctx, CloseSignature);
+	CloseSignature *c = tal(peer, CloseSignature);
 	struct bitcoin_tx *close_tx;
 	struct signature our_close_sig;
 
 	close_signature__init(c);
-	close_tx = peer_create_close_tx(ctx, peer, peer->closing.our_fee);
+	close_tx = peer_create_close_tx(peer, peer->closing.our_fee);
 
 	peer_sign_mutual_close(peer, close_tx, &our_close_sig);
 	c->sig = signature_to_proto(c, &our_close_sig);
 	c->close_fee = peer->closing.our_fee;
 
-	return make_pkt(ctx, PKT__PKT_CLOSE_SIGNATURE, c);
+	queue_pkt(peer, PKT__PKT_CLOSE_SIGNATURE, c);
 }
 
-Pkt *pkt_err_unexpected(const tal_t *ctx, const Pkt *pkt)
+Pkt *pkt_err_unexpected(struct peer *peer, const Pkt *pkt)
 {
-	return pkt_err(ctx, "Unexpected packet %s", state_name(pkt->pkt_case));
+	return pkt_err(peer, "Unexpected packet %s", state_name(pkt->pkt_case));
 }
 
 /* Process various packets: return an error packet on failure. */
-Pkt *accept_pkt_open(const tal_t *ctx,
-		     struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt)
 {
 	struct rel_locktime locktime;
 	const OpenChannel *o = pkt->open;
 
 	if (!proto_to_rel_locktime(o->delay, &locktime))
-		return pkt_err(ctx, "Invalid delay");
+		return pkt_err(peer, "Invalid delay");
 	/* FIXME: handle blocks in locktime */
 	if (o->delay->locktime_case != LOCKTIME__LOCKTIME_SECONDS)
-		return pkt_err(ctx, "Delay in blocks not accepted");
+		return pkt_err(peer, "Delay in blocks not accepted");
 	if (o->delay->seconds > peer->dstate->config.rel_locktime_max)
-		return pkt_err(ctx, "Delay too great");
+		return pkt_err(peer, "Delay too great");
 	if (o->min_depth > peer->dstate->config.anchor_confirms_max)
-		return pkt_err(ctx, "min_depth too great");
+		return pkt_err(peer, "min_depth too great");
 	if (o->initial_fee_rate < peer->dstate->config.commitment_fee_rate_min)
-		return pkt_err(ctx, "Commitment fee rate too low");
+		return pkt_err(peer, "Commitment fee rate too low");
 	if (o->anch == OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR)
 		peer->them.offer_anchor = CMD_OPEN_WITH_ANCHOR;
 	else if (o->anch == OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR)
 		peer->them.offer_anchor = CMD_OPEN_WITHOUT_ANCHOR;
 	else
-		return pkt_err(ctx, "Unknown offer anchor value");
+		return pkt_err(peer, "Unknown offer anchor value");
 
 	if (peer->them.offer_anchor == peer->us.offer_anchor)
-		return pkt_err(ctx, "Only one side can offer anchor");
+		return pkt_err(peer, "Only one side can offer anchor");
 
 	if (!proto_to_rel_locktime(o->delay, &peer->them.locktime))
-		return pkt_err(ctx, "Malformed locktime");
+		return pkt_err(peer, "Malformed locktime");
 	peer->them.mindepth = o->min_depth;
 	peer->them.commit_fee_rate = o->initial_fee_rate;
 	if (!proto_to_pubkey(peer->dstate->secpctx,
 			     o->commit_key, &peer->them.commitkey))
-		return pkt_err(ctx, "Bad commitkey");
+		return pkt_err(peer, "Bad commitkey");
 	if (!proto_to_pubkey(peer->dstate->secpctx,
 			     o->final_key, &peer->them.finalkey))
-		return pkt_err(ctx, "Bad finalkey");
+		return pkt_err(peer, "Bad finalkey");
 	proto_to_sha256(o->revocation_hash, &peer->them.revocation_hash);
 	proto_to_sha256(o->next_revocation_hash, &peer->them.next_revocation_hash);
 
@@ -321,9 +340,7 @@ Pkt *accept_pkt_open(const tal_t *ctx,
 	return NULL;
 }
 
-Pkt *accept_pkt_anchor(const tal_t *ctx,
-		       struct peer *peer,
-		       const Pkt *pkt)
+Pkt *accept_pkt_anchor(struct peer *peer, const Pkt *pkt)
 {
 	const OpenAnchor *a = pkt->open_anchor;
 
@@ -341,7 +358,7 @@ Pkt *accept_pkt_anchor(const tal_t *ctx,
 				       peer->anchor.satoshis,
 				       peer->us.commit_fee_rate);
 	if (!peer->cstate)
-		return pkt_err(ctx, "Insufficient funds for fee");
+		return pkt_err(peer, "Insufficient funds for fee");
 
 	/* Now we can make initial (unsigned!) commit txs. */
 	make_commit_txs(peer, peer,
@@ -353,7 +370,7 @@ Pkt *accept_pkt_anchor(const tal_t *ctx,
 
 	peer->cur_commit.theirsig.stype = SIGHASH_ALL;
 	if (!proto_to_signature(a->commit_sig, &peer->cur_commit.theirsig.sig))
-		return pkt_err(ctx, "Malformed signature");
+		return pkt_err(peer, "Malformed signature");
 
 	/* Their sig should sign our commit tx. */
 	if (!check_tx_sig(peer->dstate->secpctx,
@@ -362,19 +379,18 @@ Pkt *accept_pkt_anchor(const tal_t *ctx,
 			  tal_count(peer->anchor.redeemscript),
 			  &peer->them.commitkey,
 			  &peer->cur_commit.theirsig))
-		return pkt_err(ctx, "Bad signature");
+		return pkt_err(peer, "Bad signature");
 
 	return NULL;
 }
 
-Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
-				struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_open_commit_sig(struct peer *peer, const Pkt *pkt)
 {
 	const OpenCommitSig *s = pkt->open_commit_sig;
 
 	peer->cur_commit.theirsig.stype = SIGHASH_ALL;
 	if (!proto_to_signature(s->sig, &peer->cur_commit.theirsig.sig))
-		return pkt_err(ctx, "Malformed signature");
+		return pkt_err(peer, "Malformed signature");
 
 	dump_tx("Checking sig for:", peer->us.commit);
 	dump_key("Using key:", &peer->them.commitkey);
@@ -386,13 +402,12 @@ Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
 			  tal_count(peer->anchor.redeemscript),
 			  &peer->them.commitkey,
 			  &peer->cur_commit.theirsig))
-		return pkt_err(ctx, "Bad signature");
+		return pkt_err(peer, "Bad signature");
 
 	return NULL;
 }
 
-Pkt *accept_pkt_open_complete(const tal_t *ctx,
-			      struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_open_complete(struct peer *peer, const Pkt *pkt)
 {
 	return NULL;
 }
@@ -409,8 +424,7 @@ static Pkt *decline_htlc(const tal_t *ctx, const char *why)
 	return make_pkt(ctx, PKT__PKT_UPDATE_DECLINE_HTLC, d);
 }
 
-Pkt *accept_pkt_htlc_add(const tal_t *ctx,
-			 struct peer *peer, const Pkt *pkt,
+Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt,
 			 Pkt **decline)
 {
 	const UpdateAddHtlc *u = pkt->update_add_htlc;
@@ -422,26 +436,26 @@ Pkt *accept_pkt_htlc_add(const tal_t *ctx,
 	proto_to_sha256(u->r_hash, &cur->stage.add.htlc.rhash);
 	proto_to_sha256(u->revocation_hash, &cur->their_revocation_hash);
 	if (!proto_to_abs_locktime(u->expiry, &cur->stage.add.htlc.expiry)) {
-		err = pkt_err(ctx, "Invalid HTLC expiry");
+		err = pkt_err(peer, "Invalid HTLC expiry");
 		goto fail;
 	}
 
 	/* FIXME: Handle block-based expiry! */
 	if (!abs_locktime_is_seconds(&cur->stage.add.htlc.expiry)) {
-		*decline = decline_htlc(ctx, 
+		*decline = decline_htlc(peer, 
 					"HTLC expiry in blocks not supported!");
 		goto decline;
 	}
 
 	if (abs_locktime_to_seconds(&cur->stage.add.htlc.expiry) <
 	    controlled_time().ts.tv_sec + peer->dstate->config.min_expiry) {
-		*decline = decline_htlc(ctx, "HTLC expiry too soon!");
+		*decline = decline_htlc(peer, "HTLC expiry too soon!");
 		goto decline;
 	}
 
 	if (abs_locktime_to_seconds(&cur->stage.add.htlc.expiry) >
 	    controlled_time().ts.tv_sec + peer->dstate->config.max_expiry) {
-		*decline = decline_htlc(ctx, "HTLC expiry too far!");
+		*decline = decline_htlc(peer, "HTLC expiry too far!");
 		goto decline;
 	}
 
@@ -450,7 +464,7 @@ Pkt *accept_pkt_htlc_add(const tal_t *ctx,
 				cur->stage.add.htlc.msatoshis,
 				&cur->stage.add.htlc.expiry,
 				&cur->stage.add.htlc.rhash, 0)) {
-		err = pkt_err(ctx, "Cannot afford %"PRIu64" milli-satoshis",
+		err = pkt_err(peer, "Cannot afford %"PRIu64" milli-satoshis",
 			      cur->stage.add.htlc.msatoshis);
 		goto fail;
 	}
@@ -484,7 +498,7 @@ decline:
 	return NULL;
 };
 
-Pkt *accept_pkt_htlc_fail(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 {
 	const UpdateFailHtlc *f = pkt->update_fail_htlc;
 	struct htlc_progress *cur = tal(peer, struct htlc_progress);
@@ -497,7 +511,7 @@ Pkt *accept_pkt_htlc_fail(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
 
 	i = funding_find_htlc(&peer->cstate->a, &rhash);
 	if (i == tal_count(peer->cstate->a.htlcs)) {
-		err = pkt_err(ctx, "Unknown HTLC");
+		err = pkt_err(peer, "Unknown HTLC");
 		goto fail;
 	}
 
@@ -527,8 +541,7 @@ fail:
 	return err;
 }
 
-Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
-			     struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 {
 	const UpdateFulfillHtlc *f = pkt->update_fulfill_htlc;
 	struct htlc_progress *cur = tal(peer, struct htlc_progress);
@@ -543,7 +556,7 @@ Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
 	sha256(&rhash, &cur->stage.fulfill.r, sizeof(cur->stage.fulfill.r));
 	i = funding_find_htlc(&peer->cstate->a, &rhash);
 	if (i == tal_count(peer->cstate->a.htlcs)) {
-		err = pkt_err(ctx, "Unknown HTLC");
+		err = pkt_err(peer, "Unknown HTLC");
 		goto fail;
 	}
 	cur->stage.fulfill.index = i;
@@ -611,8 +624,7 @@ static void update_to_new_htlcs(struct peer *peer)
 	peer->commit_tx_counter++;
 }
 
-Pkt *accept_pkt_update_accept(const tal_t *ctx,
-			      struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_update_accept(struct peer *peer, const Pkt *pkt)
 {
 	const UpdateAccept *a = pkt->update_accept;
 	struct htlc_progress *cur = peer->current_htlc;
@@ -621,7 +633,7 @@ Pkt *accept_pkt_update_accept(const tal_t *ctx,
 
 	cur->their_sig.stype = SIGHASH_ALL;
 	if (!proto_to_signature(a->sig, &cur->their_sig.sig))
-		return pkt_err(ctx, "Malformed signature");
+		return pkt_err(peer, "Malformed signature");
 
 	/* Now we can make commit tx pair. */
 	make_commit_txs(cur, peer, &cur->our_revocation_hash,
@@ -636,7 +648,7 @@ Pkt *accept_pkt_update_accept(const tal_t *ctx,
 			  tal_count(peer->anchor.redeemscript),
 			  &peer->them.commitkey,
 			  &cur->their_sig))
-		return pkt_err(ctx, "Bad signature");
+		return pkt_err(peer, "Bad signature");
 
 	/* Our next step will be to send the revocation preimage, so
 	 * update to new HTLC now so we never use the old one. */
@@ -653,15 +665,13 @@ static bool check_preimage(const Sha256Hash *preimage, const struct sha256 *hash
 	return structeq(&h, hash);
 }
 
-Pkt *accept_pkt_update_complete(const tal_t *ctx,
-				struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_update_complete(struct peer *peer, const Pkt *pkt)
 {
 	/* FIXME: Check preimage against old tx! */
 	return NULL;
 }
 
-Pkt *accept_pkt_update_signature(const tal_t *ctx,
-				 struct peer *peer,
+Pkt *accept_pkt_update_signature(struct peer *peer,
 				 const Pkt *pkt)
 {
 	const UpdateSignature *s = pkt->update_signature;
@@ -669,7 +679,7 @@ Pkt *accept_pkt_update_signature(const tal_t *ctx,
 
 	cur->their_sig.stype = SIGHASH_ALL;
 	if (!proto_to_signature(s->sig, &cur->their_sig.sig))
-		return pkt_err(ctx, "Malformed signature");
+		return pkt_err(peer, "Malformed signature");
 
 	/* Their sig should sign our new commit tx. */
 	if (!check_tx_sig(peer->dstate->secpctx,
@@ -678,11 +688,11 @@ Pkt *accept_pkt_update_signature(const tal_t *ctx,
 			  tal_count(peer->anchor.redeemscript),
 			  &peer->them.commitkey,
 			  &cur->their_sig))
-		return pkt_err(ctx, "Bad signature");
+		return pkt_err(peer, "Bad signature");
 
 	/* Check their revocation preimage. */
 	if (!check_preimage(s->revocation_preimage, &peer->them.revocation_hash))
-		return pkt_err(ctx, "Bad revocation preimage");
+		return pkt_err(peer, "Bad revocation preimage");
 
 	/* Our next step will be to send the revocation preimage, so
 	 * update to new HTLC now so we never use the old one. */
@@ -690,14 +700,13 @@ Pkt *accept_pkt_update_signature(const tal_t *ctx,
 	return NULL;
 }
 
-Pkt *accept_pkt_close_clearing(const tal_t *ctx, struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_close_clearing(struct peer *peer, const Pkt *pkt)
 {
 	/* FIXME: Reject unknown odd fields? */
 	return NULL;
 }
 
-Pkt *accept_pkt_close_sig(const tal_t *ctx, struct peer *peer, const Pkt *pkt,
-			  bool *matches)
+Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt, bool *matches)
 {
 	const CloseSignature *c = pkt->close_signature;
 	struct bitcoin_tx *close_tx;
@@ -712,7 +721,7 @@ Pkt *accept_pkt_close_sig(const tal_t *ctx, struct peer *peer, const Pkt *pkt,
 	if ((c->close_fee & 1)
 	    || c->close_fee > commit_tx_fee(peer->them.commit,
 					    peer->anchor.satoshis)) {
-		return pkt_err(ctx, "Invalid close fee");
+		return pkt_err(peer, "Invalid close fee");
 	}
 
 	/* FIXME: Don't accept tiny fee at all? */
@@ -726,10 +735,10 @@ Pkt *accept_pkt_close_sig(const tal_t *ctx, struct peer *peer, const Pkt *pkt,
 		/* We want more, they should give more. */
 		if (peer->closing.our_fee > peer->closing.their_fee) {
 			if (c->close_fee <= peer->closing.their_fee)
-				return pkt_err(ctx, "Didn't increase close fee");
+				return pkt_err(peer, "Didn't increase close fee");
 		} else {
 			if (c->close_fee >= peer->closing.their_fee)
-				return pkt_err(ctx, "Didn't decrease close fee");
+				return pkt_err(peer, "Didn't decrease close fee");
 		}
 	}
 
@@ -739,14 +748,14 @@ Pkt *accept_pkt_close_sig(const tal_t *ctx, struct peer *peer, const Pkt *pkt,
 	 * transaction, and MUST fail the connection if it is not. */
 	theirsig.stype = SIGHASH_ALL;
 	if (!proto_to_signature(c->sig, &theirsig.sig))
-		return pkt_err(ctx, "Invalid signature format");
+		return pkt_err(peer, "Invalid signature format");
 
-	close_tx = peer_create_close_tx(ctx, peer, c->close_fee);
+	close_tx = peer_create_close_tx(peer, c->close_fee);
 	if (!check_tx_sig(peer->dstate->secpctx, close_tx, 0,
 			  peer->anchor.redeemscript,
 			  tal_count(peer->anchor.redeemscript),
 			  &peer->them.commitkey, &theirsig))
-		return pkt_err(ctx, "Invalid signature");
+		return pkt_err(peer, "Invalid signature");
 
 	tal_free(peer->closing.their_sig);
 	peer->closing.their_sig = tal_dup(peer,
