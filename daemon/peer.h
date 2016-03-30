@@ -73,6 +73,12 @@ struct htlc_progress {
 	struct bitcoin_signature their_sig;
 };
 
+struct out_pkt {
+	Pkt *pkt;
+	void (*ack_cb)(struct peer *peer, void *arg);
+	void *ack_arg;
+};
+
 struct peer {
 	/* dstate->peers list */
 	struct list_node list;
@@ -112,7 +118,7 @@ struct peer {
 	Pkt *inpkt;
 
 	/* Queue of output packets. */
-	Pkt **outpkt;
+	struct out_pkt *outpkt;
 
 	/* Anchor tx output */
 	struct {

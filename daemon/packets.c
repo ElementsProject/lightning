@@ -72,7 +72,9 @@ static void queue_raw_pkt(struct peer *peer, Pkt *pkt)
 {
 	size_t n = tal_count(peer->outpkt);
 	tal_resize(&peer->outpkt, n+1);
-	peer->outpkt[n] = pkt;
+	peer->outpkt[n].pkt = pkt;
+	peer->outpkt[n].ack_cb = NULL;
+	peer->outpkt[n].ack_arg = NULL;
 
 	/* In case it was waiting for output. */
 	io_wake(peer);

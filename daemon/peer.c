@@ -136,7 +136,7 @@ static void state_single(struct peer *peer,
 	}
 
 	if (tal_count(peer->outpkt) > old_outpkts) {
-		Pkt *outpkt = peer->outpkt[old_outpkts];
+		Pkt *outpkt = peer->outpkt[old_outpkts].pkt;
 		log_add(peer->log, " (out %s)", input_name(outpkt->pkt_case));
 	}
 	if (broadcast) {
@@ -224,7 +224,7 @@ static void state_event(struct peer *peer,
 
 static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 {
-	Pkt *out;
+	struct out_pkt out;
 	size_t n = tal_count(peer->outpkt);
 
 	if (n == 0) {
@@ -237,7 +237,8 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 	out = peer->outpkt[0];
 	memmove(peer->outpkt, peer->outpkt + 1, (sizeof(*peer->outpkt)*(n-1)));
 	tal_resize(&peer->outpkt, n-1);
-	return peer_write_packet(conn, peer, out, NULL, NULL, pkt_out);
+	return peer_write_packet(conn, peer, out.pkt, out.ack_cb, out.ack_arg,
+				 pkt_out);
 }
 
 static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
@@ -341,7 +342,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->io_data = NULL;
 	peer->secrets = NULL;
 	list_head_init(&peer->watches);
-	peer->outpkt = tal_arr(peer, Pkt *, 0);
+	peer->outpkt = tal_arr(peer, struct out_pkt, 0);
 	peer->curr_cmd.cmd = INPUT_NONE;
 	list_head_init(&peer->pending_cmd);
 	peer->current_htlc = NULL;
