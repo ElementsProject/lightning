@@ -139,6 +139,7 @@ struct channel_state *initial_funding(const tal_t *ctx,
 	cstate->b.htlcs = tal_arr(cstate, struct channel_htlc, 0);
 	cstate->fee_rate = fee_rate;
 	cstate->anchor = anchor_satoshis;
+	cstate->changes = 0;
 
 	/* Anchor must fit in 32 bit. */
 	if (anchor_satoshis >= (1ULL << 32) / 1000)
@@ -199,6 +200,7 @@ void adjust_fee(struct channel_state *cstate, uint32_t fee_rate)
 	fee_msat = calculate_fee_msat(total_nondust_htlcs(cstate), fee_rate);
 
 	recalculate_fees(&cstate->a, &cstate->b, fee_msat);
+	cstate->changes++;
 }
 
 bool force_fee(struct channel_state *cstate, uint64_t fee)
@@ -207,6 +209,7 @@ bool force_fee(struct channel_state *cstate, uint64_t fee)
 	if (fee > 0xFFFFFFFFFFFFFFFFULL / 1000)
 		return false;
 	recalculate_fees(&cstate->a, &cstate->b, fee * 1000);
+	cstate->changes++;
 	return cstate->a.fee_msat + cstate->b.fee_msat == fee * 1000;
 }
 	
@@ -220,7 +223,7 @@ void invert_cstate(struct channel_state *cstate)
 }
 
 /* Add a HTLC to @creator if it can afford it. */
-static bool add_htlc(const struct channel_state *cstate,
+static bool add_htlc(struct channel_state *cstate,
 		     struct channel_oneside *creator,
 		     struct channel_oneside *recipient,
 		     u32 msatoshis, const struct abs_locktime *expiry,
@@ -250,11 +253,12 @@ static bool add_htlc(const struct channel_state *cstate,
 	memcheck(&creator->htlcs[n].msatoshis,
 		 sizeof(creator->htlcs[n].msatoshis));
 	memcheck(&creator->htlcs[n].rhash, sizeof(creator->htlcs[n].rhash));
+	cstate->changes++;
 	return true;
 }
 
 /* Remove htlc from creator, credit it to beneficiary. */
-static void remove_htlc(const struct channel_state *cstate,
+static void remove_htlc(struct channel_state *cstate,
 			struct channel_oneside *creator,
 			struct channel_oneside *beneficiary,
 			struct channel_oneside *non_beneficiary,
@@ -285,6 +289,7 @@ static void remove_htlc(const struct channel_state *cstate,
 	memmove(creator->htlcs + i, creator->htlcs + i + 1,
 		(n - i - 1) * sizeof(*creator->htlcs));
 	tal_resize(&creator->htlcs, n-1);
+	cstate->changes++;
 }
 
 bool funding_a_add_htlc(struct channel_state *cstate,

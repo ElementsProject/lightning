@@ -25,6 +25,8 @@ struct channel_state {
 	uint64_t anchor;
 	/* Satoshis per 1000 bytes. */
 	uint32_t fee_rate;
+	/* Generation counter (incremented on every change) */
+	uint32_t changes;
 	struct channel_oneside a, b;
 };
 
