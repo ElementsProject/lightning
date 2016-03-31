@@ -200,7 +200,7 @@ static void process_transactions(struct bitcoin_cli *bcli)
 
 	end = json_next(tokens);
 	for (t = tokens + 1; t < end; t = json_next(t)) {
-		struct sha256_double txid, blkhash = { 0 };
+		struct sha256_double txid, blkhash;
 		const jsmntok_t *txidtok, *conftok, *blkindxtok, *blktok;
 		unsigned int conf;
 		bool is_coinbase;
