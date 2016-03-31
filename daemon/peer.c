@@ -10,6 +10,7 @@
 #include "log.h"
 #include "names.h"
 #include "peer.h"
+#include "pseudorand.h"
 #include "secrets.h"
 #include "state.h"
 #include "timeout.h"
@@ -207,6 +208,36 @@ static void queue_cmd_(struct peer *peer,
 	try_command(peer);
 };
 
+/* All unrevoked commit txs must have no HTLCs in them. */
+bool committed_to_htlcs(const struct peer *peer)
+{
+	const struct commit_info *i;
+
+	/* Before anchor exchange, we don't even have cstate. */
+	if (!peer->us.commit || !peer->us.commit->cstate)
+		return false;
+	
+	i = peer->us.commit;
+	while (i && !i->revocation_preimage) {
+		if (tal_count(i->cstate->a.htlcs))
+			return true;
+		if (tal_count(i->cstate->b.htlcs))
+			return true;
+		i = i->prev;
+	}
+
+	i = peer->them.commit;
+	while (i && !i->revocation_preimage) {
+		if (tal_count(i->cstate->a.htlcs))
+			return true;
+		if (tal_count(i->cstate->b.htlcs))
+			return true;
+		i = i->prev;
+	}
+
+	return false;
+}
+
 static void state_event(struct peer *peer, 
 			const enum state_input input,
 			const union input *idata)
@@ -267,8 +298,8 @@ static void do_anchor_offer(struct peer *peer, void *unused)
 static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 {
 	peer_secrets_init(peer);
-	peer_get_revocation_hash(peer, 0, &peer->us.revocation_hash);
-	peer_get_revocation_hash(peer, 1, &peer->us.next_revocation_hash);
+
+	peer_get_revocation_hash(peer, 0, &peer->us.next_revocation_hash);
 
 	assert(peer->state == STATE_INIT);
 
@@ -345,14 +376,15 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->outpkt = tal_arr(peer, struct out_pkt, 0);
 	peer->curr_cmd.cmd = INPUT_NONE;
 	list_head_init(&peer->pending_cmd);
-	peer->current_htlc = NULL;
 	peer->commit_tx_counter = 0;
-	peer->cstate = NULL;
 	peer->close_watch_timeout = NULL;
 	peer->anchor.watches = NULL;
 	peer->cur_commit.watch = NULL;
 	peer->closing.their_sig = NULL;
 	peer->cleared = INPUT_NONE;
+	/* Make it different from other node (to catch bugs!), but a
+	 * round number for simple eyeballing. */
+	peer->htlc_id_counter = pseudorand(1ULL << 32) * 1000;
 
 	/* If we free peer, conn should be closed, but can't be freed
 	 * immediately so don't make peer a parent. */
@@ -368,7 +400,8 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->us.commit_fee_rate = dstate->config.commitment_fee_rate;
 
 	peer->us.commit = peer->them.commit = NULL;
-	
+	peer->us.staging_cstate = peer->them.staging_cstate = NULL;
+		
 	/* FIXME: Attach IO logging for this peer. */
 	tal_add_destructor(peer, destroy_peer);
 
@@ -615,6 +648,18 @@ static bool txmatch(const struct bitcoin_tx *txa, const struct bitcoin_tx *txb)
 	return true;
 }
 
+/* We may have two possible "current" commits; this loop will check them both. */
+static bool is_unrevoked_commit(const struct commit_info *ci,
+				const struct bitcoin_tx *tx)
+{
+	while (ci && !ci->revocation_preimage) {
+		if (txmatch(ci->tx, tx))
+			return true;
+		ci = ci->prev;
+	}
+	return false;
+}
+
 /* A mutual close is a simple 2 output p2sh to the final addresses, but
  * without knowing fee we can't determine order, so examine each output. */
 static bool is_mutual_close(const struct peer *peer,
@@ -663,7 +708,7 @@ static void anchor_spent(struct peer *peer,
 
 	/* FIXME: change type in idata? */
 	idata.btc = (struct bitcoin_event *)tx;
-	if (txmatch(tx, peer->them.commit))
+	if (is_unrevoked_commit(peer->them.commit, tx))
 		state_event(peer, w->theyspent, &idata);
 	else if (is_mutual_close(peer, tx))
 		add_close_tx_watch(peer, peer, tx, close_depth_cb);
@@ -799,7 +844,8 @@ void peer_watch_delayed(struct peer *peer,
 {
 	struct sha256_double txid;
 
-	assert(tx == peer->us.commit);
+	/* We only ever spend the last one. */
+	assert(tx == peer->us.commit->tx);
 	bitcoin_txid(tx, &txid);
 	memset(&peer->cur_commit.blockid, 0xFF,
 	       sizeof(peer->cur_commit.blockid));
@@ -852,7 +898,7 @@ struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee)
 	struct channel_state cstate;
 
 	/* We don't need a deep copy here, just fee levels. */
-	cstate = *peer->cstate;
+	cstate = *peer->us.staging_cstate;
 	if (!force_fee(&cstate, fee)) {
 		log_unusual(peer->log,
 			    "peer_create_close_tx: can't afford fee %"PRIu64,
@@ -896,7 +942,7 @@ void peer_calculate_close_fee(struct peer *peer)
 	 * fee of the final commitment transaction and MUST set
 	 * `close_fee` to an even number of satoshis.
 	 */
-	maxfee = commit_tx_fee(peer->us.commit, peer->anchor.satoshis);
+	maxfee = commit_tx_fee(peer->us.commit->tx, peer->anchor.satoshis);
 	if (peer->closing.our_fee > maxfee) {
 		/* This shouldn't happen: we never accept a commit fee
 		 * less than the min_rate, which is greater than the
@@ -1001,46 +1047,11 @@ void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt)
 	FIXME_STUB(peer);
 }
 
-/* Someone declined our HTLC: details in pkt (we will also get CMD_FAIL) */
-void peer_htlc_declined(struct peer *peer, const Pkt *pkt)
-{
-	log_unusual(peer->log, "Peer declined htlc, reason %i",
-		    pkt->update_decline_htlc->reason_case);
-	peer->current_htlc = tal_free(peer->current_htlc);
-}
-
-/* Called when their update overrides our update cmd. */
-void peer_htlc_ours_deferred(struct peer *peer)
-{
-	FIXME_STUB(peer);
-}
-
-/* Successfully added/fulfilled/timedout/routefail an HTLC. */
-void peer_htlc_done(struct peer *peer)
-{
-	peer->current_htlc = tal_free(peer->current_htlc);
-}
-
-/* Someone aborted an existing HTLC. */
-void peer_htlc_aborted(struct peer *peer)
-{
-	FIXME_STUB(peer);
-}
-
 /* An on-chain transaction revealed an R value. */
 const struct htlc *peer_tx_revealed_r_value(struct peer *peer,
 					    const struct bitcoin_event *btc)
 {
 	FIXME_STUB(peer);
-}
-
-bool committed_to_htlcs(const struct peer *peer)
-{
-	/* This is only set after anchor established. */
-	if (!peer->cstate)
-		return false;
-	return tal_count(peer->cstate->a.htlcs) != 0
-		|| tal_count(peer->cstate->b.htlcs) != 0;
 }
 
 void peer_watch_htlcs_cleared(struct peer *peer,
@@ -1079,7 +1090,7 @@ const struct bitcoin_tx *bitcoin_close(struct peer *peer)
 const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 {
 	u8 *redeemscript, *linear;
-	const struct bitcoin_tx *commit = peer->us.commit;
+	const struct bitcoin_tx *commit = peer->us.commit->tx;
 	struct bitcoin_signature sig;
 	struct bitcoin_tx *tx;
 	unsigned int p2sh_out;
@@ -1089,7 +1100,7 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 						      &peer->us.finalkey,
 						      &peer->them.locktime,
 						      &peer->them.finalkey,
-						      &peer->us.revocation_hash);
+						      &peer->us.commit->revocation_hash);
 
 	/* Now, create transaction to spend it. */
 	tx = bitcoin_tx(peer, 1, 1);
@@ -1161,21 +1172,21 @@ const struct bitcoin_tx *bitcoin_commit(struct peer *peer)
 	struct bitcoin_signature sig;
 
 	/* Can't be signed already! */
-	assert(peer->us.commit->input[0].script_length == 0);
+	assert(peer->us.commit->tx->input[0].script_length == 0);
 
 	sig.stype = SIGHASH_ALL;
-	peer_sign_ourcommit(peer, peer->us.commit, &sig.sig);
+	peer_sign_ourcommit(peer, peer->us.commit->tx, &sig.sig);
 
-	peer->us.commit->input[0].script
-		= scriptsig_p2sh_2of2(peer->us.commit,
-				      &peer->cur_commit.theirsig,
+	peer->us.commit->tx->input[0].script
+		= scriptsig_p2sh_2of2(peer->us.commit->tx,
+				      peer->us.commit->sig,
 				      &sig,
 				      &peer->them.commitkey,
 				      &peer->us.commitkey);
-	peer->us.commit->input[0].script_length
-		= tal_count(peer->us.commit->input[0].script);
+	peer->us.commit->tx->input[0].script_length
+		= tal_count(peer->us.commit->tx->input[0].script);
 
-	return peer->us.commit;
+	return peer->us.commit->tx;
 }
 
 /* Create a HTLC refund collection */
@@ -1201,22 +1212,6 @@ static void created_anchor(struct lightningd_state *dstate,
 	assert(peer->anchor.satoshis == tx->output[peer->anchor.index].amount);
 	/* We'll need this later, when we're told to broadcast it. */
 	peer->anchor.tx = tal_steal(peer, tx);
-
-	/* FIXME: Check their cstate too (different fee rate!) */
-	peer->cstate = initial_funding(peer,
-				       peer->us.offer_anchor == CMD_OPEN_WITH_ANCHOR,
-				       peer->anchor.satoshis,
-				       peer->us.commit_fee_rate);
-	if (!peer->cstate)
-		fatal("Insufficient anchor funds for commitfee");
-
-	/* Now we can make initial (unsigned!) commit txs. */
-	make_commit_txs(peer, peer,
-			&peer->us.revocation_hash,
-			&peer->them.revocation_hash,
-			peer->cstate,
-			&peer->us.commit,
-			&peer->them.commit);
 
 	state_event(peer, BITCOIN_ANCHOR_CREATED, NULL);
 }
@@ -1259,38 +1254,53 @@ const struct bitcoin_tx *bitcoin_anchor(struct peer *peer)
 	return peer->anchor.tx;
 }
 
-void make_commit_txs(const tal_t *ctx,
-		     const struct peer *peer,
-		     const struct sha256 *our_revocation_hash,
-		     const struct sha256 *their_revocation_hash,
-		     const struct channel_state *cstate,
-		     struct bitcoin_tx **ours, struct bitcoin_tx **theirs)
+/* Sets up the initial cstate and commit tx for both nodes: false if
+ * insufficient funds. */
+bool setup_first_commit(struct peer *peer)
 {
-	struct channel_state their_cstate;
+	assert(!peer->us.commit->tx);
+	assert(!peer->them.commit->tx);
 
-	*ours = create_commit_tx(ctx,
-				 &peer->us.finalkey,
-				 &peer->them.finalkey,
-				 &peer->them.locktime,
-				 &peer->anchor.txid,
-				 peer->anchor.index,
-				 peer->anchor.satoshis,
-				 our_revocation_hash,
-				 cstate);
+	/* Revocation hashes already filled in, from pkt_open */
+	peer->us.commit->cstate = initial_funding(peer,
+						  peer->us.offer_anchor
+						  == CMD_OPEN_WITH_ANCHOR,
+						  peer->anchor.satoshis,
+						  peer->us.commit_fee_rate);
+	if (!peer->us.commit->cstate)
+		return false;
 
-	/* Shallow copy: we don't touch HTLCs, just amounts and fees. */
-	their_cstate = *cstate;
-	invert_cstate(&their_cstate);
-	adjust_fee(&their_cstate, peer->them.commit_fee_rate);
-	*theirs = create_commit_tx(ctx,
-				   &peer->them.finalkey,
-				   &peer->us.finalkey,
-				   &peer->us.locktime,
-				   &peer->anchor.txid,
-				   peer->anchor.index,
-				   peer->anchor.satoshis,
-				   their_revocation_hash,
-				   &their_cstate);
+	peer->them.commit->cstate = initial_funding(peer,
+						    peer->them.offer_anchor
+						    == CMD_OPEN_WITH_ANCHOR,
+						    peer->anchor.satoshis,
+						    peer->them.commit_fee_rate);
+	if (!peer->them.commit->cstate)
+		return false;
+
+	peer->us.commit->tx = create_commit_tx(peer->us.commit,
+					       &peer->us.finalkey,
+					       &peer->them.finalkey,
+					       &peer->them.locktime,
+					       &peer->anchor.txid,
+					       peer->anchor.index,
+					       peer->anchor.satoshis,
+					       &peer->us.commit->revocation_hash,
+					       peer->us.commit->cstate);
+
+	peer->them.commit->tx = create_commit_tx(peer->them.commit,
+						 &peer->them.finalkey,
+						 &peer->us.finalkey,
+						 &peer->us.locktime,
+						 &peer->anchor.txid,
+						 peer->anchor.index,
+						 peer->anchor.satoshis,
+						 &peer->them.commit->revocation_hash,
+						 peer->them.commit->cstate);
+
+	peer->us.staging_cstate = copy_funding(peer, peer->us.commit->cstate);
+	peer->them.staging_cstate = copy_funding(peer, peer->them.commit->cstate);
+	return true;
 }
 
 static void json_add_abstime(struct json_result *response,
@@ -1305,16 +1315,13 @@ static void json_add_abstime(struct json_result *response,
 	json_object_end(response);
 }
 
-static void json_add_cstate(struct json_result *response,
-			    const char *id,
-			    const struct channel_oneside *side)
+static void json_add_htlcs(struct json_result *response,
+			   const char *id,
+			   const struct channel_oneside *side)
 {
 	size_t i;
 
-	json_object_start(response, id);
-	json_add_num(response, "pay", side->pay_msat);
-	json_add_num(response, "fee", side->fee_msat);
-	json_array_start(response, "htlcs");
+	json_array_start(response, id);
 	for (i = 0; i < tal_count(side->htlcs); i++) {
 		json_object_start(response, NULL);
 		json_add_u64(response, "msatoshis", side->htlcs[i].msatoshis);
@@ -1325,8 +1332,20 @@ static void json_add_cstate(struct json_result *response,
 		json_object_end(response);
 	}
 	json_array_end(response);
-	json_object_end(response);
 }
+
+/* This is money we can count on. */
+static const struct channel_state *last_signed_state(const struct commit_info *i)
+{
+	while (i) {
+		if (i->sig)
+			return i->cstate;
+		i = i->prev;
+	}
+	return NULL;
+}
+
+/* FIXME: add history command which shows all prior and current commit txs */
 
 /* FIXME: Somehow we should show running DNS lookups! */
 /* FIXME: Show status of peers! */
@@ -1339,6 +1358,8 @@ static void json_getpeers(struct command *cmd,
 	json_object_start(response, NULL);
 	json_array_start(response, "peers");
 	list_for_each(&cmd->dstate->peers, p, list) {
+		const struct channel_state *last;
+
 		json_object_start(response, NULL);
 		json_add_string(response, "name", log_prefix(p->log));
 		json_add_string(response, "state", state_name(p->state));
@@ -1349,12 +1370,26 @@ static void json_getpeers(struct command *cmd,
 			json_add_hex(response, "peerid",
 				     p->id.der, sizeof(p->id.der));
 
-		if (p->cstate) {
-			json_object_start(response, "channel");
-			json_add_cstate(response, "us", &p->cstate->a);
-			json_add_cstate(response, "them", &p->cstate->b);
+		/* FIXME: Report anchor. */
+
+		last = last_signed_state(p->us.commit);
+		if (!last) {
 			json_object_end(response);
+			continue;
 		}
+			
+		json_add_num(response, "our_amount", last->a.pay_msat);
+		json_add_num(response, "our_fee", last->a.fee_msat);
+		json_add_num(response, "their_amount", last->b.pay_msat);
+		json_add_num(response, "their_fee", last->b.fee_msat);
+		json_add_htlcs(response, "our_htlcs", &last->a);
+		json_add_htlcs(response, "their_htlcs", &last->b);
+
+		/* Any changes since then? */
+		if (p->us.staging_cstate->changes != last->changes)
+			json_add_num(response, "staged_changes",
+				     p->us.staging_cstate->changes
+				     - last->changes);
 		json_object_end(response);
 	}
 	json_array_end(response);
@@ -1370,26 +1405,22 @@ const struct json_command getpeers_command = {
 };
 
 static void set_htlc_command(struct peer *peer,
-			     struct channel_state *cstate,
 			     struct command *jsoncmd,
 			     enum state_input cmd,
 			     const union htlc_staging *stage)
 {
-	assert(!peer->current_htlc);
+	/* FIXME: memleak! */
+	/* FIXME: Get rid of struct htlc_progress */
+	struct htlc_progress *progress = tal(peer, struct htlc_progress);
 
-	peer->current_htlc = tal(peer, struct htlc_progress);
-	peer->current_htlc->cstate = tal_steal(peer->current_htlc, cstate);
-	peer->current_htlc->stage = *stage;
-
-	peer_get_revocation_hash(peer, peer->commit_tx_counter+1,
-				 &peer->current_htlc->our_revocation_hash);
-
-	/* FIXME: Do we need current_htlc as idata arg? */
-	set_current_command(peer, cmd, peer->current_htlc, jsoncmd);
+	progress->stage = *stage;
+	set_current_command(peer, cmd, progress, jsoncmd);
 }
 		
 /* FIXME: Keep a timeout for each peer, in case they're unresponsive. */
-	
+
+/* FIXME: Make sure no HTLCs in any unrevoked commit tx are live. */
+
 static void check_htlc_expiry(struct peer *peer, void *unused)
 {
 	size_t i;
@@ -1397,10 +1428,10 @@ static void check_htlc_expiry(struct peer *peer, void *unused)
 
 	stage.fail.fail = HTLC_FAIL;
 
-	/* Check their htlcs for expiry. */
-	for (i = 0; i < tal_count(peer->cstate->b.htlcs); i++) {
-		struct channel_htlc *htlc = &peer->cstate->b.htlcs[i];
-		struct channel_state *cstate;
+	/* Check their currently still-existing htlcs for expiry:
+	 * We eliminate them from staging as we go. */
+	for (i = 0; i < tal_count(peer->them.staging_cstate->a.htlcs); i++) {
+		struct channel_htlc *htlc = &peer->them.staging_cstate->a.htlcs[i];
 
 		/* Not a seconds-based expiry? */
 		if (!abs_locktime_is_seconds(&htlc->expiry))
@@ -1411,11 +1442,8 @@ static void check_htlc_expiry(struct peer *peer, void *unused)
 		    < abs_locktime_to_seconds(&htlc->expiry))
 			continue;
 
-		cstate = copy_funding(peer, peer->cstate);
-		funding_b_fail_htlc(cstate, i);
-		stage.fail.index = i;
-		set_htlc_command(peer, cstate, NULL, CMD_SEND_HTLC_FAIL,
-				 &stage);
+		stage.fail.id = htlc->id;
+		set_htlc_command(peer, NULL, CMD_SEND_HTLC_FAIL, &stage);
 		return;
 	}
 }
@@ -1450,25 +1478,54 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 	struct channel_state *cstate;
 	union htlc_staging stage;
 
+	/* Now we can assign counter and guarantee uniqueness. */
+	newhtlc->htlc.id = peer->htlc_id_counter;
 	stage.add.add = HTLC_ADD;
 	stage.add.htlc = newhtlc->htlc;
+		
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT add a HTLC if it would result in it
+	 * offering more than 1500 HTLCs in either commitment transaction.
+	 */
+	if (tal_count(peer->us.staging_cstate->a.htlcs) == 1500
+	    || tal_count(peer->them.staging_cstate->b.htlcs) == 1500) {
+		command_fail(newhtlc->jsoncmd, "Too many HTLCs");
+	}
 
-	/* Can we even offer this much?  We check now, just before we
-	 * execute. */
-	cstate = copy_funding(newhtlc, peer->cstate);
-	if (!funding_a_add_htlc(cstate, newhtlc->htlc.msatoshis,
-				&newhtlc->htlc.expiry, &newhtlc->htlc.rhash, 0)) {
+
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT offer `amount_msat` it cannot pay for in
+	 * both commitment transactions at the current `fee_rate`
+	 */
+	cstate = copy_funding(newhtlc, peer->them.staging_cstate);
+	if (!funding_b_add_htlc(cstate, newhtlc->htlc.msatoshis,
+				&newhtlc->htlc.expiry, &newhtlc->htlc.rhash,
+				newhtlc->htlc.id)) {
 		command_fail(newhtlc->jsoncmd,
-			     "Cannot afford %"PRIu64" milli-satoshis",
+			     "Cannot afford %"PRIu64
+			     " milli-satoshis in their commit tx",
 			     newhtlc->htlc.msatoshis);
 		return;
 	}
 
-	/* FIXME: Never propose duplicate rvalues? */
-	peer_add_htlc_expiry(peer, &newhtlc->htlc.expiry);
+	cstate = copy_funding(newhtlc, peer->us.staging_cstate);
+	if (!funding_a_add_htlc(cstate, newhtlc->htlc.msatoshis,
+				&newhtlc->htlc.expiry, &newhtlc->htlc.rhash,
+				newhtlc->htlc.id)) {
+		command_fail(newhtlc->jsoncmd,
+			     "Cannot afford %"PRIu64
+			     " milli-satoshis in our commit tx",
+			     newhtlc->htlc.msatoshis);
+		return;
+	}
 
-	set_htlc_command(peer, cstate, newhtlc->jsoncmd,
-			 CMD_SEND_HTLC_ADD, &stage);
+	/* Make sure we never offer the same one twice. */
+	peer->htlc_id_counter++;	
+
+	/* FIXME: Never propose duplicate rvalues? */
+	set_htlc_command(peer, newhtlc->jsoncmd, CMD_SEND_HTLC_ADD, &stage);
 }
 
 static void json_newhtlc(struct command *cmd,
@@ -1492,6 +1549,11 @@ static void json_newhtlc(struct command *cmd,
 	peer = find_peer(cmd->dstate, buffer, peeridtok);
 	if (!peer) {
 		command_fail(cmd, "Could not find peer with that peerid");
+		return;
+	}
+
+	if (!peer->them.commit || !peer->them.commit->cstate) {
+		command_fail(cmd, "peer not fully established");
 		return;
 	}
 
@@ -1544,6 +1606,7 @@ static void json_newhtlc(struct command *cmd,
 	queue_cmd(peer, do_newhtlc, newhtlc);
 }
 
+/* FIXME: Use HTLC ids, not r values! */
 const struct json_command newhtlc_command = {
 	"newhtlc",
 	json_newhtlc,
@@ -1559,7 +1622,6 @@ struct fulfillhtlc {
 static void do_fullfill(struct peer *peer,
 			struct fulfillhtlc *fulfillhtlc)
 {
-	struct channel_state *cstate;
 	struct sha256 rhash;
 	size_t i;
 	union htlc_staging stage;
@@ -1569,17 +1631,13 @@ static void do_fullfill(struct peer *peer,
 
 	sha256(&rhash, &fulfillhtlc->r, sizeof(fulfillhtlc->r));
 
-	i = funding_find_htlc(&peer->cstate->b, &rhash);
-	if (i == tal_count(peer->cstate->b.htlcs)) {
-		command_fail(fulfillhtlc->jsoncmd,
-			     "preimage htlc not found");
+	i = funding_find_htlc(&peer->them.staging_cstate->a, &rhash);
+	if (i == tal_count(peer->them.staging_cstate->a.htlcs)) {
+		command_fail(fulfillhtlc->jsoncmd, "preimage htlc not found");
 		return;
 	}
-	stage.fulfill.index = i;
-	cstate = copy_funding(fulfillhtlc, peer->cstate);
-	funding_b_fulfill_htlc(cstate, i);
-
-	set_htlc_command(peer, cstate, fulfillhtlc->jsoncmd,
+	stage.fulfill.id = peer->them.staging_cstate->a.htlcs[i].id;
+	set_htlc_command(peer, fulfillhtlc->jsoncmd,
 			 CMD_SEND_HTLC_FULFILL, &stage);
 }
 
@@ -1601,6 +1659,11 @@ static void json_fulfillhtlc(struct command *cmd,
 	peer = find_peer(cmd->dstate, buffer, peeridtok);
 	if (!peer) {
 		command_fail(cmd, "Could not find peer with that peerid");
+		return;
+	}
+
+	if (!peer->them.commit || !peer->them.commit->cstate) {
+		command_fail(cmd, "peer not fully established");
 		return;
 	}
 
@@ -1634,24 +1697,22 @@ struct failhtlc {
 static void do_failhtlc(struct peer *peer,
 			struct failhtlc *failhtlc)
 {
-	struct channel_state *cstate;
 	size_t i;
 	union htlc_staging stage;
 
 	stage.fail.fail = HTLC_FAIL;
 
-	i = funding_find_htlc(&peer->cstate->b, &failhtlc->rhash);
-	if (i == tal_count(peer->cstate->b.htlcs)) {
+	/* Look in peer->them.staging_cstate->a, as that's where we'll 
+	 * immediately remove it from: avoids double-handling. */
+	/* FIXME: Make sure it's also committed in previous commit tx! */
+	i = funding_find_htlc(&peer->them.staging_cstate->a, &failhtlc->rhash);
+	if (i == tal_count(peer->them.staging_cstate->a.htlcs)) {
 		command_fail(failhtlc->jsoncmd, "htlc not found");
 		return;
 	}
-	stage.fail.index = i;
+	stage.fail.id = peer->them.staging_cstate->a.htlcs[i].id;
 
-	cstate = copy_funding(failhtlc, peer->cstate);
-	funding_b_fail_htlc(cstate, i);
-
-	set_htlc_command(peer, cstate, failhtlc->jsoncmd,
-			 CMD_SEND_HTLC_FAIL, &stage);
+	set_htlc_command(peer, failhtlc->jsoncmd, CMD_SEND_HTLC_FAIL, &stage);
 }
 
 static void json_failhtlc(struct command *cmd,
@@ -1675,6 +1736,11 @@ static void json_failhtlc(struct command *cmd,
 		return;
 	}
 
+	if (!peer->them.commit || !peer->them.commit->cstate) {
+		command_fail(cmd, "peer not fully established");
+		return;
+	}
+
 	failhtlc = tal(cmd, struct failhtlc);
 	failhtlc->jsoncmd = cmd;
 
@@ -1694,6 +1760,51 @@ const struct json_command failhtlc_command = {
 	"failhtlc",
 	json_failhtlc,
 	"Fail htlc proposed by {peerid} which has redeem hash {rhash}",
+	"Returns an empty result on success"
+};
+
+static void do_commit(struct peer *peer, struct command *jsoncmd)
+{
+	/* We can have changes we suggested, or changes they suggested. */
+	if (peer->them.staging_cstate->changes == peer->them.commit->cstate->changes) {
+		command_fail(jsoncmd, "no changes to commit");
+		return;
+	}
+
+	set_current_command(peer, CMD_SEND_COMMIT, NULL, jsoncmd);
+}
+
+static void json_commit(struct command *cmd,
+			const char *buffer, const jsmntok_t *params)
+{
+	struct peer *peer;
+	jsmntok_t *peeridtok;
+
+	if (!json_get_params(buffer, params,
+			    "peerid", &peeridtok,
+			    NULL)) {
+		command_fail(cmd, "Need peerid");
+		return;
+	}
+
+	peer = find_peer(cmd->dstate, buffer, peeridtok);
+	if (!peer) {
+		command_fail(cmd, "Could not find peer with that peerid");
+		return;
+	}
+
+	if (!peer->them.commit || !peer->them.commit->cstate) {
+		command_fail(cmd, "peer not fully established");
+		return;
+	}
+
+	queue_cmd(peer, do_commit, cmd);
+}
+	
+const struct json_command commit_command = {
+	"commit",
+	json_commit,
+	"Commit all staged HTLC changes with {peerid}",
 	"Returns an empty result on success"
 };
 

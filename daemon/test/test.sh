@@ -94,8 +94,8 @@ check_status_single()
     them_fee=$6
     them_htlcs="$7"
 
-    if $lcli getpeers | tr -s '\012\011 ' ' ' | $FGREP '"channel" : { "us" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] }, "them" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] } }'; then :; else
-	echo Cannot find $lcli output: '"channel" : { "us" : { "pay" : '$us_pay', "fee" : '$us_fee', "htlcs" : [ '"$us_htlcs"'] }, "them" : { "pay" : '$them_pay', "fee" : '$them_fee', "htlcs" : [ '"$them_htlcs"'] } }' >&2
+    if $lcli getpeers | tr -s '\012\011 ' ' ' | $FGREP '"our_amount" : '$us_pay', "our_fee" : '$us_fee', "their_amount" : '$them_pay', "their_fee" : '$them_fee', "our_htlcs" : [ '"$us_htlcs"'], "their_htlcs" : [ '"$them_htlcs"']'; then :; else
+	echo Cannot find $lcli output: '"our_amount" : '$us_pay', "our_fee" : '$us_fee', "their_amount" : '$them_pay', "their_fee" : '$them_fee', "our_htlcs" : [ '"$us_htlcs"'], "their_htlcs" : [ '"$them_htlcs"']' >&2
 	$lcli getpeers | tr -s '\012\011 ' ' ' >&2
 	return 1
     fi
@@ -112,6 +112,18 @@ check_status()
 
     check_status_single lcli1 "$us_pay" "$us_fee" "$us_htlcs" "$them_pay" "$them_fee" "$them_htlcs" 
     check_status_single lcli2 "$them_pay" "$them_fee" "$them_htlcs" "$us_pay" "$us_fee" "$us_htlcs"
+}
+
+check_staged()
+{
+    lcli="$1"
+    num_htlcs="$2"
+
+    if $lcli getpeers | tr -s '\012\011 ' ' ' | $FGREP '"staged_changes" : '$num_htlcs; then :; else
+	echo Cannot find $lcli output: '"staged_changes" : '$num_htlcs >&2
+	$lcli getpeers | tr -s '\012\011 ' ' ' >&2
+	return 1
+    fi
 }
 
 check_tx_spend()
@@ -248,8 +260,8 @@ $CLI generate 2
 # They poll every second, so give them time to process.
 sleep 2
 
-lcli1 getpeers | $FGREP STATE_NORMAL_HIGHPRIO
-lcli2 getpeers | $FGREP STATE_NORMAL_LOWPRIO
+lcli1 getpeers | $FGREP STATE_NORMAL
+lcli2 getpeers | $FGREP STATE_NORMAL
 
 A_AMOUNT=$(($AMOUNT - $NO_HTLCS_FEE))
 A_FEE=$NO_HTLCS_FEE
@@ -262,12 +274,32 @@ SECRET=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd
 RHASH=`lcli1 dev-rhash $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 lcli1 newhtlc $ID2 1000000 $EXPIRY $RHASH
 
+# Nothing should have changed!
+check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
+# But 2 should register a staged htlc.
+check_staged lcli2 1
+
+# Now commit it.
+lcli1 commit $ID2
+
+# Node 1 hasn't got it committed, but node2 should have told it to stage.
+check_status_single lcli1 $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
+check_staged lcli1 1
+
 # Check channel status
 A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - 1000000))
 A_FEE=$(($A_FEE + $EXTRA_FEE))
+
+# Node 2 has it committed.
+check_status_single lcli2 $B_AMOUNT $B_FEE "" $A_AMOUNT $A_FEE '{ "msatoshis" : 1000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } '
+
+# Now node2 gives commitment to node1.
+lcli2 commit $ID1
 check_status $A_AMOUNT $A_FEE '{ "msatoshis" : 1000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
 
 lcli2 fulfillhtlc $ID1 $SECRET
+lcli2 commit $ID1
+lcli1 commit $ID2
 
 # We've transferred the HTLC amount to 2, who now has to pay fees,
 # so no net change for A who saves on fees.
@@ -280,6 +312,8 @@ check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 # A new one, at 10x the amount.
 lcli1 newhtlc $ID2 10000000 $EXPIRY $RHASH
+lcli1 commit $ID2
+lcli2 commit $ID1
 
 # Check channel status
 A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - 10000000))
@@ -287,6 +321,8 @@ A_FEE=$(($A_FEE + $EXTRA_FEE))
 check_status $A_AMOUNT $A_FEE '{ "msatoshis" : 10000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
 
 lcli2 failhtlc $ID1 $RHASH
+lcli2 commit $ID1
+lcli1 commit $ID2
 
 # Back to how we were before.
 A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + 10000000))
@@ -294,22 +330,26 @@ A_FEE=$(($A_FEE - $EXTRA_FEE))
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 # Same again, but this time it expires.
-lcli1 newhtlc $ID2 10000000 $EXPIRY $RHASH
+lcli1 newhtlc $ID2 10000001 $EXPIRY $RHASH
+lcli1 commit $ID2
+lcli2 commit $ID1
 
 # Check channel status
-A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - 10000000))
+A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - 10000001))
 A_FEE=$(($A_FEE + $EXTRA_FEE))
-check_status $A_AMOUNT $A_FEE '{ "msatoshis" : 10000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
+check_status $A_AMOUNT $A_FEE '{ "msatoshis" : 10000001, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
 
 # Make sure node1 accepts the expiry packet.
 lcli1 dev-mocktime $(($EXPIRY))
 
 # This should make node2 send it.
 lcli2 dev-mocktime $(($EXPIRY + 31))
+lcli2 commit $ID1
+lcli1 commit $ID2
 sleep 1
 
 # Back to how we were before.
-A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + 10000000))
+A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + 10000001))
 A_FEE=$(($A_FEE - $EXTRA_FEE))
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 

@@ -112,63 +112,57 @@ message open_complete {
   // FIXME: add a merkle proof plus block headers here?
 }
 
+// FIXME: Routing information.
+message routing {
+  required bytes info = 1;
+}
+
 // Start a new commitment tx to add an HTLC me -> you.
 message update_add_htlc {
-  // Hash for which I will supply preimage to revoke this commitment tx.
-  required sha256_hash revocation_hash = 1;
+  // Unique identifier for this HTLC.
+  required uint64 id = 1;
   // Amount for htlc (millisatoshi)
   required uint32 amount_msat = 2;
   // Hash for HTLC R value.
   required sha256_hash r_hash = 3;
   // Time at which HTLC expires (absolute)
   required locktime expiry = 4;
-  // FIXME: Routing information.
-}
-
-// We can't do this HTLC, sorry (instead of update_accept)
-message update_decline_htlc {
-  oneof reason {
-    funding insufficient_funds = 1;
-    bool cannot_route = 2;
-  };
+  // Onion-wrapped routing information.
+  required routing route = 5;
 }
 
 // Complete your HTLC: I have the R value, pay me!
 message update_fulfill_htlc {
-  // Hash for which I will supply preimage to revoke this commitment tx.
-  required sha256_hash revocation_hash = 1;
+  // Which HTLC
+  required uint64 id = 1;
   // HTLC R value.
   required sha256_hash r = 2;
 }
 
-// Remove your HTLC: routing has failed upstream, we didn't like it, or timeout.
+// FIXME: Failure information.
+message fail_reason {
+  required bytes info = 1;
+}
+
 message update_fail_htlc {
-  // Hash for which I will supply preimage to revoke this commitment tx.
-  required sha256_hash revocation_hash = 1;
-  // Hash for HTLC R value.
-  required sha256_hash r_hash = 2;
+  // Which HTLC
+  required uint64 id = 1;
+  // Reason for failure (for relay to initial node)
+  required fail_reason reason = 2;
 }
 
-// OK, I accept that update; here's your signature.
-message update_accept {
+// Commit all the staged HTLCs.
+message update_commit {
   // Signature for your new commitment tx.
   required signature sig = 1;
-  // Hash for which I will supply preimage to revoke this new commit tx.
-  required sha256_hash revocation_hash = 2;
-}
-
-// Thanks for accepting, here's my last bit.
-message update_signature {
-  // Signature for your new commitment tx.
-  required signature sig = 1;
-  // Hash preimage which revokes old commitment tx.
-  required sha256_hash revocation_preimage = 2;
 }
 
 // Complete the update.
-message update_complete {
+message update_revocation {
   // Hash preimage which revokes old commitment tx.
   required sha256_hash revocation_preimage = 1;
+  // Revocation hash for my next commit transaction
+  required sha256_hash next_revocation_hash = 2;
 }
 
 // Start clearing out the channel HTLCs so we can close it
@@ -199,12 +193,11 @@ message pkt {
     open_complete open_complete = 23;
     // Updating (most common)
     update_add_htlc update_add_htlc = 2;
-    update_accept update_accept = 3;
-    update_signature update_signature = 4;
-    update_complete update_complete = 5;
-    update_decline_htlc update_decline_htlc = 6;
-    update_fulfill_htlc update_fulfill_htlc = 7;
-    update_fail_htlc update_fail_htlc = 9;
+    update_fulfill_htlc update_fulfill_htlc = 3;
+    update_fail_htlc update_fail_htlc = 4;
+    update_commit update_commit = 5;
+    update_revocation update_revocation = 6;
+
     // Closing
     close_clearing close_clearing = 30;
     close_signature close_signature = 31;

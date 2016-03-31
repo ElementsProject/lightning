@@ -252,6 +252,7 @@ static const struct json_command *cmdlist[] = {
 	&newhtlc_command,
 	&fulfillhtlc_command,
 	&failhtlc_command,
+	&commit_command,
 	&close_command,
 	/* Developer/debugging options. */
 	&echo_command,
