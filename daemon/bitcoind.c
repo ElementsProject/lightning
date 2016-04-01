@@ -225,10 +225,14 @@ static void process_transactions(struct bitcoin_cli *bcli)
 
 		/* This can happen with zero conf. */
 		blkindxtok = json_get_member(bcli->output, t, "blockindex");
-		if (!blkindxtok)
+		if (!blkindxtok) {
+			if (conf != 0)
+				fatal("listtransactions: no blockindex");
 			is_coinbase = false;
-		else {
+		} else {
 			unsigned int blkidx;
+			if (conf == 0)
+				fatal("listtransactions: expect no blockindex");
 			if (!json_tok_number(bcli->output, blkindxtok, &blkidx))
 				fatal("listtransactions: bad blockindex '%.*s'",
 				      (int)(blkindxtok->end - blkindxtok->start),
@@ -254,7 +258,8 @@ static void process_transactions(struct bitcoin_cli *bcli)
 			  txid.sha.u.u8[2], txid.sha.u.u8[3],
 			  conf, is_coinbase);
 
-		cb(bcli->dstate, &txid, conf, is_coinbase, &blkhash);
+		cb(bcli->dstate, &txid, conf, is_coinbase,
+		   conf ? &blkhash : NULL);
 	}
 }
 
