@@ -6,9 +6,9 @@ bitcoin lightning (see:
 the original "lightning network").
 
 This implementation is being developed in parallel with the protocol
-definition, which you can find [https://github.com/rustyrussell/lightning](on my fork of the protocol description repository).
+definition, which you can find [on my fork of the protocol description repository](https://github.com/rustyrussell/lightning).
 
-So far, we are working on the [https://github.com/rustyrussell/lightning/blob/master/communications/low/01-encryption.md](inter-node encryption) and [https://github.com/rustyrussell/lightning/blob/master/communications/low/02-wire-protocol.md](transaction negotiation) phases.
+So far, we are working on the [inter-node encryption](https://github.com/rustyrussell/lightning/blob/master/communications/low/01-encryption.md) and [transaction negotiation](https://github.com/rustyrussell/lightning/blob/master/communications/low/02-wire-protocol.md) phases.
 
 Later steps will enhance the protocol to network individual daemons,
 advertise their IP addresses, publish routes and fees, and use that
