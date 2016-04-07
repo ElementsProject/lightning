@@ -35,9 +35,9 @@ enum failure {
 	FAIL_ACCEPT_OPEN,
 	FAIL_ACCEPT_ANCHOR,
 	FAIL_ACCEPT_OPEN_COMMIT_SIG,
-	FAIL_ACCEPT_HTLC_UPDATE,
-	FAIL_ACCEPT_HTLC_ROUTEFAIL,
-	FAIL_ACCEPT_HTLC_TIMEDOUT,
+	FAIL_ACCEPT_OPEN_COMPLETE,
+	FAIL_ACCEPT_HTLC_ADD,
+	FAIL_ACCEPT_HTLC_FAIL,
 	FAIL_ACCEPT_HTLC_FULFILL,
 	FAIL_ACCEPT_UPDATE_ACCEPT,
 	FAIL_ACCEPT_UPDATE_COMPLETE,
@@ -125,6 +125,10 @@ struct peer {
 
 	/* Have we created an anchor tx? */
 	bool anchor;
+	/* Have we broadcast anchor? */
+	bool anchor_broadcast;
+	/* Have we spent anchor (or seen them do it?) */
+	bool anchor_spent;
 
 	unsigned int num_htlcs_to_them, num_htlcs_to_us;
 	struct htlc htlcs_to_them[MAX_HTLCS], htlcs_to_us[MAX_HTLCS];
@@ -411,10 +415,9 @@ static const union input dup_idata(const tal_t *ctx,
 
 	if (input_is_pkt(input))
 		i.pkt = (Pkt *)tal_strdup(ctx, (const char *)idata->pkt);
-	else if (input == CMD_SEND_HTLC_UPDATE
+	else if (input == CMD_SEND_HTLC_ADD
 		 || input == CMD_SEND_HTLC_FULFILL
-		 || input == CMD_SEND_HTLC_ROUTEFAIL
-		 || input == CMD_SEND_HTLC_TIMEDOUT) {
+		 || input == CMD_SEND_HTLC_FAIL) {
 		i.htlc_prog = tal_dup(ctx, struct htlc_progress,
 				      idata->htlc_prog);
 	} else {
@@ -613,7 +616,7 @@ Pkt *pkt_open_complete(const tal_t *ctx, const struct peer *peer)
 	return new_pkt(ctx, PKT_OPEN_COMPLETE);
 }
 
-Pkt *pkt_htlc_update(const tal_t *ctx, const struct peer *peer,
+Pkt *pkt_htlc_add(const tal_t *ctx, const struct peer *peer,
 		     const struct htlc_progress *htlc_prog)
 {
 	return htlc_pkt(ctx, "PKT_UPDATE_ADD_HTLC", htlc_prog->htlc.id);
@@ -625,16 +628,10 @@ Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct peer *peer,
 	return htlc_pkt(ctx, "PKT_UPDATE_FULFILL_HTLC", htlc_prog->htlc.id);
 }
 
-Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct peer *peer,
-		       const struct htlc_progress *htlc_prog)
-{
-	return htlc_pkt(ctx, "PKT_UPDATE_TIMEDOUT_HTLC", htlc_prog->htlc.id);
-}
-
-Pkt *pkt_htlc_routefail(const tal_t *ctx, const struct peer *peer,
+Pkt *pkt_htlc_fail(const tal_t *ctx, const struct peer *peer,
 			const struct htlc_progress *htlc_prog)
 {
-	return htlc_pkt(ctx, "PKT_UPDATE_ROUTEFAIL_HTLC", htlc_prog->htlc.id);
+	return htlc_pkt(ctx, "PKT_UPDATE_FAIL_HTLC", htlc_prog->htlc.id);
 }
 
 Pkt *pkt_update_accept(const tal_t *ctx, const struct peer *peer)
@@ -712,11 +709,20 @@ Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
 	return NULL;
 }
 	
-Pkt *accept_pkt_htlc_update(const tal_t *ctx,
+Pkt *accept_pkt_open_complete(const tal_t *ctx,
+			      struct peer *peer,
+			      const Pkt *pkt)
+{
+	if (fail(peer, FAIL_ACCEPT_OPEN_COMPLETE))
+		return pkt_err(ctx, "Error inject");
+	return NULL;
+}
+
+Pkt *accept_pkt_htlc_add(const tal_t *ctx,
 			    struct peer *peer, const Pkt *pkt,
 			    Pkt **decline)
 {
-	if (fail(peer, FAIL_ACCEPT_HTLC_UPDATE))
+	if (fail(peer, FAIL_ACCEPT_HTLC_ADD))
 		return pkt_err(ctx, "Error inject");
 
 	/* This is the current htlc: If they propose it, it's to us. */
@@ -730,35 +736,18 @@ Pkt *accept_pkt_htlc_update(const tal_t *ctx,
 	return NULL;
 }
 
-Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
+Pkt *accept_pkt_htlc_fail(const tal_t *ctx,
 			       struct peer *peer, const Pkt *pkt)
 {
 	unsigned int id = htlc_id_from_pkt(pkt);
 	const struct htlc *h = find_htlc(peer, id);
 
-	if (fail(peer, FAIL_ACCEPT_HTLC_ROUTEFAIL))
+	if (fail(peer, FAIL_ACCEPT_HTLC_FAIL))
 		return pkt_err(ctx, "Error inject");
 
 	/* The shouldn't fail unless it's to them */
 	assert(h->to_them);
 	
-	/* This is the current htlc */
-	set_current_htlc(peer, h->id, h->to_them, false);
-	return NULL;
-}
-
-Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
-			      struct peer *peer, const Pkt *pkt)
-{
-	unsigned int id = htlc_id_from_pkt(pkt);
-	const struct htlc *h = find_htlc(peer, id);
-
-	if (fail(peer, FAIL_ACCEPT_HTLC_TIMEDOUT))
-		return pkt_err(ctx, "Error inject");
-
-	/* The shouldn't timeout unless it's to us */
-	assert(!h->to_them);
-
 	/* This is the current htlc */
 	set_current_htlc(peer, h->id, h->to_them, false);
 	return NULL;
@@ -870,12 +859,14 @@ const struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer)
 	if (!peer->anchor)
 		report_trail(peer->trail, "Can't create anchor tx: no anchor!");
 	peer->anchor = false;
+	peer->anchor_broadcast = true;
 	return bitcoin_tx("anchor");
 }
 
 const struct bitcoin_tx *bitcoin_close(const tal_t *ctx,
-				       const struct peer *peer)
+				       struct peer *peer)
 {
+	peer->anchor_spent = true;
 	return bitcoin_tx("close");
 }
 
@@ -903,6 +894,7 @@ const struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
 
 const struct bitcoin_tx *bitcoin_commit(const tal_t *ctx, struct peer *peer)
 {
+	peer->anchor_spent = true;
 	return bitcoin_tx("our commit");
 }
 
@@ -950,6 +942,8 @@ static void peer_init(struct peer *peer,
 	peer->error = NULL;
 	peer->htlc_declined = false;
 	peer->anchor = false;
+	peer->anchor_broadcast = false;
+	peer->anchor_spent = false;
 	memset(peer->core.outputs, 0, sizeof(peer->core.outputs));
 	peer->pkt_data[0] = -1;
 	peer->core.current_command = INPUT_NONE;
@@ -1470,7 +1464,7 @@ void peer_htlc_ours_deferred(struct peer *peer)
 	clear_current_htlc(peer);
 }
 
-/* Successfully added/fulfilled/timedout/routefail an HTLC. */
+/* Successfully added/fulfilled/timedout/fail an HTLC. */
 void peer_htlc_done(struct peer *peer)
 {
 	if (peer->current_htlc.htlc.id == -1)
@@ -1541,6 +1535,9 @@ static const char *check_changes(const struct peer *old, struct peer *new,
 		if (have_event(new->core.event_notifies,
 			       INPUT_CLOSE_COMPLETE_TIMEOUT))
 			return tal_fmt(NULL, "CLOSED with pending close timeout");
+		/* We must not leave anchor dangling, if we broadcast it. */
+		if (new->anchor_broadcast && !new->anchor_spent)
+			return tal_fmt(NULL, "CLOSED with unspent anchor?");
 	}
 
 	if (input == PKT_ERROR) {
@@ -1702,8 +1699,7 @@ static bool normal_path(enum state_input i, enum state src, enum state dst)
 	    || i == BITCOIN_ANCHOR_OTHERSPEND
 	    || i == BITCOIN_STEAL_DONE
 	    || i == PKT_UPDATE_DECLINE_HTLC
-	    || i == PKT_UPDATE_ROUTEFAIL_HTLC
-	    || i == PKT_UPDATE_TIMEDOUT_HTLC
+	    || i == PKT_UPDATE_FAIL_HTLC
 	    || i == INPUT_CLOSE_COMPLETE_TIMEOUT)
 		return false;
 
@@ -1829,6 +1825,14 @@ static void try_input(const struct peer *peer,
 	init_trail(&t, i, idata, peer, prev_trail);
 	copy.trail = &t;
 
+	/* The anchor is resolved in some way by these. */
+	if (i == BITCOIN_ANCHOR_UNSPENT
+	    || i == BITCOIN_ANCHOR_TIMEOUT
+	    || i == BITCOIN_ANCHOR_THEIRSPEND
+	    || i == BITCOIN_ANCHOR_OTHERSPEND
+	    || i == BITCOIN_CLOSE_DONE)
+		copy.anchor_spent = true;
+	
 	eliminate_input(&hist->inputs_per_state[copy.state], i);
 	cstatus = state(ctx, &copy, i, idata, &output, &broadcast);
 
@@ -2080,7 +2084,7 @@ static void run_peer(const struct peer *peer,
 
 		/* Add a new HTLC if not at max. */
 		if (copy.num_htlcs_to_them < MAX_HTLCS) {
-			copy.core.current_command = CMD_SEND_HTLC_UPDATE;
+			copy.core.current_command = CMD_SEND_HTLC_ADD;
 			idata->htlc_prog = tal(idata, struct htlc_progress);
 			idata->htlc_prog->adding = true;
 			idata->htlc_prog->htlc.to_them = true;
@@ -2098,7 +2102,7 @@ static void run_peer(const struct peer *peer,
 			copy.current_htlc.htlc.id = -1;
 		}
 
-		/* We can complete or routefail an HTLC they offered */
+		/* We can complete or fail an HTLC they offered */
 		for (i = 0; i < peer->num_htlcs_to_us; i++) {
 			idata->htlc_prog = tal(idata, struct htlc_progress);
 			idata->htlc_prog->htlc = peer->htlcs_to_us[i];
@@ -2117,25 +2121,7 @@ static void run_peer(const struct peer *peer,
 					  idata, normalpath, errorpath,
 					  prev_trail, hist);
 			}
-			copy.core.current_command = CMD_SEND_HTLC_ROUTEFAIL;
-			try_input(&copy, copy.core.current_command,
-				  idata, normalpath, errorpath,
-				  prev_trail, hist);
-			/* If it was requeued, may already be reset. */
-			copy.current_htlc.htlc.id = -1;
-		}
-
-		/* We can timeout an HTLC we offered. */
-		for (i = 0; i < peer->num_htlcs_to_them; i++) {
-			idata->htlc_prog = tal(idata, struct htlc_progress);
-			idata->htlc_prog->htlc = peer->htlcs_to_them[i];
-			idata->htlc_prog->adding = false;
-
-			set_current_htlc(&copy,
-					 idata->htlc_prog->htlc.id,
-					 idata->htlc_prog->htlc.to_them,
-					 idata->htlc_prog->adding);
-			copy.core.current_command = CMD_SEND_HTLC_TIMEDOUT;
+			copy.core.current_command = CMD_SEND_HTLC_FAIL;
 			try_input(&copy, copy.core.current_command,
 				  idata, normalpath, errorpath,
 				  prev_trail, hist);

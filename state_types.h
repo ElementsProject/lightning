@@ -30,32 +30,20 @@ enum state {
 	STATE_OPEN_WAIT_FOR_COMPLETE_THEIRANCHOR,
 
 	/*
-	 * Normal update loop.
-	 *
-	 * NOTE: High and low prios must alternate!
+	 * Normal state.
 	 */
-	STATE_NORMAL_LOWPRIO,
-	STATE_NORMAL_HIGHPRIO,
-
-	STATE_WAIT_FOR_HTLC_ACCEPT_LOWPRIO,
-	STATE_WAIT_FOR_HTLC_ACCEPT_HIGHPRIO,
-
-	STATE_WAIT_FOR_UPDATE_ACCEPT_LOWPRIO,
-	STATE_WAIT_FOR_UPDATE_ACCEPT_HIGHPRIO,
+	STATE_NORMAL,
+	STATE_NORMAL_COMMITTING,
 	
-	STATE_WAIT_FOR_UPDATE_COMPLETE_LOWPRIO,
-	STATE_WAIT_FOR_UPDATE_COMPLETE_HIGHPRIO,
-
-	STATE_WAIT_FOR_UPDATE_SIG_LOWPRIO,
-	STATE_WAIT_FOR_UPDATE_SIG_HIGHPRIO,
-
 	/*
 	 * Closing.
 	 */
-	/* We told them to close, waiting for complete msg. */
-	STATE_WAIT_FOR_CLOSE_COMPLETE,
-	/* They told us to close, waiting for ack msg. */
-	STATE_WAIT_FOR_CLOSE_ACK,	
+	/* We told them to clear. */
+	STATE_US_CLEARING,
+	/* They told us to clear, or acked our CLEARING. */
+	STATE_BOTH_CLEARING,
+	/* We're cleared, waiting for close signature / negotiation */
+	STATE_WAIT_FOR_CLOSE_SIG,
 
 	/* All closed. */
 	STATE_CLOSED,
@@ -190,25 +178,16 @@ enum state_input {
 	PKT_UPDATE_ADD_HTLC = PKT__PKT_UPDATE_ADD_HTLC,
 	/* Updating the commit transaction: I have your R value! */
 	PKT_UPDATE_FULFILL_HTLC = PKT__PKT_UPDATE_FULFILL_HTLC,
-	/* Updating the commit transaction: my HTLC timed out! */
-	PKT_UPDATE_TIMEDOUT_HTLC = PKT__PKT_UPDATE_TIMEDOUT_HTLC,
 	/* Updating the commit transaction: your HTLC failed upstream */
-	PKT_UPDATE_ROUTEFAIL_HTLC = PKT__PKT_UPDATE_ROUTEFAIL_HTLC,
+	PKT_UPDATE_FAIL_HTLC = PKT__PKT_UPDATE_FAIL_HTLC,
 
-	/* Update replies: */
-	PKT_UPDATE_ACCEPT = PKT__PKT_UPDATE_ACCEPT,
-	/* Only for PKT_UPDATE_ADD_HTLC. */
-	PKT_UPDATE_DECLINE_HTLC = PKT__PKT_UPDATE_DECLINE_HTLC,
-
-	/* Reply to PKT_UPDATE_ACCEPT */
-	PKT_UPDATE_SIGNATURE = PKT__PKT_UPDATE_SIGNATURE,
-	/* Reply to PKT_UPDATE_SIGNATURE */
-	PKT_UPDATE_COMPLETE = PKT__PKT_UPDATE_COMPLETE,
+	/* Committing updates */
+	PKT_UPDATE_COMMIT = PKT__PKT_UPDATE_COMMIT,
+	PKT_UPDATE_REVOCATION = PKT__PKT_UPDATE_REVOCATION,
 
 	/* Mutual close sequence. */
-	PKT_CLOSE = PKT__PKT_CLOSE,
-	PKT_CLOSE_COMPLETE = PKT__PKT_CLOSE_COMPLETE,
-	PKT_CLOSE_ACK = PKT__PKT_CLOSE_ACK,
+	PKT_CLOSE_CLEARING = PKT__PKT_CLOSE_CLEARING,
+	PKT_CLOSE_SIGNATURE = PKT__PKT_CLOSE_SIGNATURE,
 
 	/* Something unexpected went wrong. */
 	PKT_ERROR = PKT__PKT_ERROR,
@@ -258,6 +237,9 @@ enum state_input {
 	/* We are not watching any HTLCs any more. */
 	INPUT_NO_MORE_HTLCS,
 
+	/* No more HTLCs in either commitment tx. */
+	INPUT_HTLCS_CLEARED,
+	
 	/*
 	 * Timeouts.
 	 */
@@ -274,11 +256,14 @@ enum state_input {
 	/* Commands */
 	CMD_OPEN_WITH_ANCHOR,
 	CMD_OPEN_WITHOUT_ANCHOR,
-	CMD_SEND_HTLC_UPDATE,
+	CMD_SEND_HTLC_ADD,
 	CMD_SEND_HTLC_FULFILL,
-	CMD_SEND_HTLC_TIMEDOUT,
-	CMD_SEND_HTLC_ROUTEFAIL,
+	CMD_SEND_HTLC_FAIL,
+	CMD_SEND_COMMIT,
 	CMD_CLOSE,
+
+	/* Connection lost/timedout with other node. */
+	INPUT_CONNECTION_LOST,
 
 	INPUT_MAX
 };

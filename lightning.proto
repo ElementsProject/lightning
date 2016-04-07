@@ -35,7 +35,7 @@ message locktime {
 
 // Pubkey for commitment transaction input.
 message bitcoin_pubkey {
-  // Either 65 or 33 bytes.
+  // Must be 33 bytes.
   required bytes key = 1;
 }
 
@@ -65,6 +65,8 @@ message open_channel {
   required locktime delay = 1;
   // Hash for revoking first commitment transaction.
   required sha256_hash revocation_hash = 2;
+  // Hash for revoking second commitment transaction.
+  required sha256_hash next_revocation_hash = 8;
   // Pubkey for anchor to pay into commitment tx.
   required bitcoin_pubkey commit_key = 3;
   // How to pay money to us from commit_tx.
@@ -82,7 +84,7 @@ message open_channel {
   optional uint32 min_depth = 6 [ default = 0 ];
 
   // How much fee would I like on commitment tx?
-  required uint64 commitment_fee = 7;
+  required uint64 initial_fee_rate = 7;
 }
 
 // Whoever is supplying anchor sends this.
@@ -110,99 +112,68 @@ message open_complete {
   // FIXME: add a merkle proof plus block headers here?
 }
 
-// Let's spend some money in the channel!
-message update {
-  // Hash for which I will supply preimage to revoke this.
-  required sha256_hash revocation_hash = 1;
-  // Change in current payment to-me (implies reverse to-you).
-  required sint64 delta_msat = 2;
+// FIXME: Routing information.
+message routing {
+  required bytes info = 1;
 }
 
 // Start a new commitment tx to add an HTLC me -> you.
 message update_add_htlc {
-  // Hash for which I will supply preimage to revoke this commitment tx.
-  required sha256_hash revocation_hash = 1;
+  // Unique identifier for this HTLC.
+  required uint64 id = 1;
   // Amount for htlc (millisatoshi)
   required uint32 amount_msat = 2;
   // Hash for HTLC R value.
   required sha256_hash r_hash = 3;
   // Time at which HTLC expires (absolute)
   required locktime expiry = 4;
-  // FIXME: Routing information.
-}
-
-// We can't do this HTLC, sorry (instead of update_accept)
-message update_decline_htlc {
-  oneof reason {
-    funding insufficient_funds = 1;
-    bool cannot_route = 2;
-  };
+  // Onion-wrapped routing information.
+  required routing route = 5;
 }
 
 // Complete your HTLC: I have the R value, pay me!
 message update_fulfill_htlc {
-  // Hash for which I will supply preimage to revoke this commitment tx.
-  required sha256_hash revocation_hash = 1;
+  // Which HTLC
+  required uint64 id = 1;
   // HTLC R value.
   required sha256_hash r = 2;
 }
 
-// Remove my HTLC: it has timed out, before you got the R value.
-message update_timedout_htlc {
-  // Hash for which I will supply preimage to revoke this commitment tx.
-  required sha256_hash revocation_hash = 1;
-  // Hash for HTLC R value.
-  required sha256_hash r_hash = 2;
+// FIXME: Failure information.
+message fail_reason {
+  required bytes info = 1;
 }
 
-// Remove your HTLC: routing has failed upstream
-message update_routefail_htlc {
-  // Hash for which I will supply preimage to revoke this commitment tx.
-  required sha256_hash revocation_hash = 1;
-  // Hash for HTLC R value.
-  required sha256_hash r_hash = 2;
+message update_fail_htlc {
+  // Which HTLC
+  required uint64 id = 1;
+  // Reason for failure (for relay to initial node)
+  required fail_reason reason = 2;
 }
 
-// OK, I accept that update; here's your signature.
-message update_accept {
+// Commit all the staged HTLCs.
+message update_commit {
   // Signature for your new commitment tx.
   required signature sig = 1;
-  // Hash for which I will supply preimage to revoke this new commit tx.
-  required sha256_hash revocation_hash = 2;
-}
-
-// Thanks for accepting, here's my last bit.
-message update_signature {
-  // Signature for your new commitment tx.
-  required signature sig = 1;
-  // Hash preimage which revokes old commitment tx.
-  required sha256_hash revocation_preimage = 2;
 }
 
 // Complete the update.
-message update_complete {
+message update_revocation {
   // Hash preimage which revokes old commitment tx.
   required sha256_hash revocation_preimage = 1;
+  // Revocation hash for my next commit transaction
+  required sha256_hash next_revocation_hash = 2;
 }
 
-// Begin cooperative close of channel.
-message close_channel {
-  // This is our signature a new transaction which spends the anchor
-  // output to my open->final and your open->final,
-  // as per the last commit tx.
-  required signature sig = 1;
-  // Fee to pay for close transaction.
-  required uint64 close_fee = 2;
+// Start clearing out the channel HTLCs so we can close it
+message close_clearing {
 }
 
-// OK, here's my sig so you can broadcast it too.  We're done.
-message close_channel_complete {
-  // This is my signature for that same tx.
-  required signature sig = 1;
-}
-
-// Received close_channel_complete, you can close now.
-message close_channel_ack {
+message close_signature {
+  // Fee in satoshis.
+  required uint64 close_fee = 1;
+  // Signature on the close transaction.
+  required signature sig = 2;
 }
 
 // This means we're going to hang up; it's to help diagnose only! 
@@ -221,19 +192,15 @@ message pkt {
     open_commit_sig open_commit_sig = 22;
     open_complete open_complete = 23;
     // Updating (most common)
-    update update = 1;
     update_add_htlc update_add_htlc = 2;
-    update_accept update_accept = 3;
-    update_signature update_signature = 4;
-    update_complete update_complete = 5;
-    update_decline_htlc update_decline_htlc = 6;
-    update_fulfill_htlc update_fulfill_htlc = 7;
-    update_timedout_htlc update_timedout_htlc = 8;
-    update_routefail_htlc update_routefail_htlc = 9;
+    update_fulfill_htlc update_fulfill_htlc = 3;
+    update_fail_htlc update_fail_htlc = 4;
+    update_commit update_commit = 5;
+    update_revocation update_revocation = 6;
+
     // Closing
-    close_channel close = 30;
-    close_channel_complete close_complete = 31;
-    close_channel_ack close_ack = 32;
+    close_clearing close_clearing = 30;
+    close_signature close_signature = 31;
 
     // Unexpected issue.
     error error = 40;

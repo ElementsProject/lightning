@@ -13,6 +13,50 @@
 #include <ccan/list/list.h>
 #include <ccan/time/time.h>
 
+enum htlc_stage_type {
+	HTLC_ADD,
+	HTLC_FULFILL,
+	HTLC_FAIL
+};
+
+struct htlc_add {
+	enum htlc_stage_type add;
+	struct channel_htlc htlc;
+};
+
+struct htlc_fulfill {
+	enum htlc_stage_type fulfill;
+	u64 id;
+	struct sha256 r;
+};
+
+struct htlc_fail {
+	enum htlc_stage_type fail;
+	u64 id;
+};
+
+union htlc_staging {
+	enum htlc_stage_type type;
+	struct htlc_add add;
+	struct htlc_fulfill fulfill;
+	struct htlc_fail fail;
+};
+
+struct commit_info {
+	/* Previous one, if any. */
+	struct commit_info *prev;
+	/* Revocation hash. */
+	struct sha256 revocation_hash;
+	/* Commit tx. */
+	struct bitcoin_tx *tx;
+	/* Channel state for this tx. */
+	struct channel_state *cstate;
+	/* Other side's signature for last commit tx (if known) */
+	struct bitcoin_signature *sig;
+	/* Revocation preimage (if known). */
+	struct sha256 *revocation_preimage;
+};
+
 struct peer_visible_state {
 	/* CMD_OPEN_WITH_ANCHOR or CMD_OPEN_WITHOUT_ANCHOR */
 	enum state_input offer_anchor;
@@ -23,26 +67,24 @@ struct peer_visible_state {
 	/* Minimum depth of anchor before channel usable. */
 	unsigned int mindepth;
 	/* Commitment fee they're offering (satoshi). */
-	u64 commit_fee;
-	/* Revocation hash for latest commit tx. */
-	struct sha256 revocation_hash;
-	/* Current commit tx. */
-	struct bitcoin_tx *commit;
+	u64 commit_fee_rate;
+	/* Revocation hash for next commit tx. */
+	struct sha256 next_revocation_hash;
+	/* Commit txs: last one is current. */
+	struct commit_info *commit;
+	/* cstate to generate next commitment tx. */
+	struct channel_state *staging_cstate;
 };
 
 struct htlc_progress {
 	/* The HTLC we're working on. */
-	struct channel_htlc *htlc;
+	union htlc_staging stage;
+};
 
-	/* Set if we're fulfilling. */
-	struct sha256 r;
-	
-	/* Our next state. */
-	/* Channel funding state, after we've completed htlc. */
-	struct channel_state *cstate;
-	struct sha256 our_revocation_hash, their_revocation_hash;
-	struct bitcoin_tx *our_commit, *their_commit;
-	struct bitcoin_signature their_sig;
+struct out_pkt {
+	Pkt *pkt;
+	void (*ack_cb)(struct peer *peer, void *arg);
+	void *ack_arg;
 };
 
 struct peer {
@@ -71,9 +113,6 @@ struct peer {
 	/* Global state. */
 	struct lightningd_state *dstate;
 
-	/* Funding status for current commit tx (from our PoV). */
-	struct channel_state *cstate;
-
 	/* The other end's address. */
 	struct netaddr addr;
 
@@ -84,8 +123,7 @@ struct peer {
 	Pkt *inpkt;
 
 	/* Queue of output packets. */
-	Pkt *outpkt[5];
-	size_t num_outpkt;
+	struct out_pkt *outpkt;
 
 	/* Anchor tx output */
 	struct {
@@ -109,16 +147,24 @@ struct peer {
 		struct txwatch *watch;
 	} cur_commit;
 
-	/* Current HTLC, if any. */
-	struct htlc_progress *current_htlc;
 	/* Number of HTLC updates (== number of previous commit txs) */
-	u64 num_htlcs;
+	u64 commit_tx_counter;
 
-	/* FIXME: Group closing fields together in anon struct. */
-	/* Closing tx and signature once we've generated it */
-	struct bitcoin_tx *close_tx;
-	struct bitcoin_signature our_close_sig;
+	/* Counter to make unique HTLC ids. */
+	u64 htlc_id_counter;
 	
+	struct {
+		/* Our last suggested closing fee. */
+		u64 our_fee;
+		/* If they've offered a signature, these are set: */
+		struct bitcoin_signature *their_sig;
+		/* If their_sig is non-NULL, this is the fee. */
+		u64 their_fee;
+	} closing;
+
+	/* If not INPUT_NONE, send this when we have no more HTLCs. */
+	enum state_input cleared;
+
 	/* Current ongoing packetflow */
 	struct io_data *io_data;
 	
@@ -140,16 +186,14 @@ struct peer {
 
 void setup_listeners(struct lightningd_state *dstate, unsigned int portnum);
 
-void make_commit_txs(const tal_t *ctx,
-		     const struct peer *peer,
-		     const struct sha256 *our_revocation_hash,
-		     const struct sha256 *their_revocation_hash,
-		     const struct channel_state *cstate,
-		     struct bitcoin_tx **ours, struct bitcoin_tx **theirs);
+/* Populates very first peer->{us,them}.commit->{tx,cstate} */
+bool setup_first_commit(struct peer *peer);
 
 void peer_add_htlc_expiry(struct peer *peer,
 			  const struct abs_locktime *expiry);
 
-bool peer_create_close_tx(struct peer *peer, u64 fee_satoshis);
+struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee);
 
+uint64_t commit_tx_fee(const struct bitcoin_tx *commit,
+		       uint64_t anchor_satoshis);
 #endif /* LIGHTNING_DAEMON_PEER_H */

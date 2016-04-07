@@ -22,15 +22,18 @@ static void json_mocktime(struct command *cmd,
 	u64 prev_time, mocktime;
 	char mocktimestr[STR_MAX_CHARS(int64_t)];
 
-	json_get_params(buffer, params,
-			"mocktime", &mocktimetok,
-			NULL);
-
-	prev_time = controlled_time().ts.tv_sec;
-	if (!mocktimetok || !json_tok_u64(buffer, mocktimetok, &mocktime)) {
+	if (!json_get_params(buffer, params,
+			     "mocktime", &mocktimetok,
+			     NULL)) {
+		command_fail(cmd, "Need mocktime");
+		return;
+	}
+	if (!json_tok_u64(buffer, mocktimetok, &mocktime)) {
 		command_fail(cmd, "Need valid mocktime");
 		return;
 	}
+
+	prev_time = controlled_time().ts.tv_sec;
 	mock_time.ts.tv_sec = mocktime;
 
 	json_object_start(response, NULL);

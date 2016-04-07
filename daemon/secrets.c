@@ -176,5 +176,5 @@ void secrets_init(struct lightningd_state *dstate)
 		fatal("Invalid privkey");
 
 	log_info(dstate->base_log, "ID: ");
-	log_add_hex(dstate->base_log, dstate->id.der, pubkey_derlen(&dstate->id));
+	log_add_hex(dstate->base_log, dstate->id.der, sizeof(dstate->id.der));
 }

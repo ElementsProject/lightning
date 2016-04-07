@@ -25,18 +25,15 @@ typedef struct _OpenChannel OpenChannel;
 typedef struct _OpenAnchor OpenAnchor;
 typedef struct _OpenCommitSig OpenCommitSig;
 typedef struct _OpenComplete OpenComplete;
-typedef struct _Update Update;
+typedef struct _Routing Routing;
 typedef struct _UpdateAddHtlc UpdateAddHtlc;
-typedef struct _UpdateDeclineHtlc UpdateDeclineHtlc;
 typedef struct _UpdateFulfillHtlc UpdateFulfillHtlc;
-typedef struct _UpdateTimedoutHtlc UpdateTimedoutHtlc;
-typedef struct _UpdateRoutefailHtlc UpdateRoutefailHtlc;
-typedef struct _UpdateAccept UpdateAccept;
-typedef struct _UpdateSignature UpdateSignature;
-typedef struct _UpdateComplete UpdateComplete;
-typedef struct _CloseChannel CloseChannel;
-typedef struct _CloseChannelComplete CloseChannelComplete;
-typedef struct _CloseChannelAck CloseChannelAck;
+typedef struct _FailReason FailReason;
+typedef struct _UpdateFailHtlc UpdateFailHtlc;
+typedef struct _UpdateCommit UpdateCommit;
+typedef struct _UpdateRevocation UpdateRevocation;
+typedef struct _CloseClearing CloseClearing;
+typedef struct _CloseSignature CloseSignature;
 typedef struct _Error Error;
 typedef struct _Pkt Pkt;
 
@@ -117,7 +114,7 @@ struct  _BitcoinPubkey
 {
   ProtobufCMessage base;
   /*
-   * Either 65 or 33 bytes.
+   * Must be 33 bytes.
    */
   ProtobufCBinaryData key;
 };
@@ -183,6 +180,10 @@ struct  _OpenChannel
    */
   Sha256Hash *revocation_hash;
   /*
+   * Hash for revoking second commitment transaction.
+   */
+  Sha256Hash *next_revocation_hash;
+  /*
    * Pubkey for anchor to pay into commitment tx.
    */
   BitcoinPubkey *commit_key;
@@ -199,11 +200,11 @@ struct  _OpenChannel
   /*
    * How much fee would I like on commitment tx?
    */
-  uint64_t commitment_fee;
+  uint64_t initial_fee_rate;
 };
 #define OPEN_CHANNEL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&open_channel__descriptor) \
-    , NULL, NULL, NULL, NULL, 0, 0,0u, 0 }
+    , NULL, NULL, NULL, NULL, NULL, 0, 0,0u, 0 }
 
 
 /*
@@ -267,23 +268,16 @@ struct  _OpenComplete
 
 
 /*
- * Let's spend some money in the channel!
+ * FIXME: Routing information.
  */
-struct  _Update
+struct  _Routing
 {
   ProtobufCMessage base;
-  /*
-   * Hash for which I will supply preimage to revoke this.
-   */
-  Sha256Hash *revocation_hash;
-  /*
-   * Change in current payment to-me (implies reverse to-you).
-   */
-  int64_t delta_msat;
+  ProtobufCBinaryData info;
 };
-#define UPDATE__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&update__descriptor) \
-    , NULL, 0 }
+#define ROUTING__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&routing__descriptor) \
+    , {0,NULL} }
 
 
 /*
@@ -293,9 +287,9 @@ struct  _UpdateAddHtlc
 {
   ProtobufCMessage base;
   /*
-   * Hash for which I will supply preimage to revoke this commitment tx.
+   * Unique identifier for this HTLC.
    */
-  Sha256Hash *revocation_hash;
+  uint64_t id;
   /*
    * Amount for htlc (millisatoshi)
    */
@@ -307,37 +301,15 @@ struct  _UpdateAddHtlc
   /*
    * Time at which HTLC expires (absolute)
    */
-  /*
-   * FIXME: Routing information.
-   */
   Locktime *expiry;
+  /*
+   * Onion-wrapped routing information.
+   */
+  Routing *route;
 };
 #define UPDATE_ADD_HTLC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&update_add_htlc__descriptor) \
-    , NULL, 0, NULL, NULL }
-
-
-typedef enum {
-  UPDATE_DECLINE_HTLC__REASON__NOT_SET = 0,
-  UPDATE_DECLINE_HTLC__REASON_INSUFFICIENT_FUNDS = 1,
-  UPDATE_DECLINE_HTLC__REASON_CANNOT_ROUTE = 2,
-} UpdateDeclineHtlc__ReasonCase;
-
-/*
- * We can't do this HTLC, sorry (instead of update_accept)
- */
-struct  _UpdateDeclineHtlc
-{
-  ProtobufCMessage base;
-  UpdateDeclineHtlc__ReasonCase reason_case;
-  union {
-    Funding *insufficient_funds;
-    protobuf_c_boolean cannot_route;
-  };
-};
-#define UPDATE_DECLINE_HTLC__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&update_decline_htlc__descriptor) \
-    , UPDATE_DECLINE_HTLC__REASON__NOT_SET, {} }
+    , 0, 0, NULL, NULL, NULL }
 
 
 /*
@@ -347,9 +319,9 @@ struct  _UpdateFulfillHtlc
 {
   ProtobufCMessage base;
   /*
-   * Hash for which I will supply preimage to revoke this commitment tx.
+   * Which HTLC
    */
-  Sha256Hash *revocation_hash;
+  uint64_t id;
   /*
    * HTLC R value.
    */
@@ -357,153 +329,102 @@ struct  _UpdateFulfillHtlc
 };
 #define UPDATE_FULFILL_HTLC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&update_fulfill_htlc__descriptor) \
-    , NULL, NULL }
+    , 0, NULL }
 
 
 /*
- * Remove my HTLC: it has timed out, before you got the R value.
+ * FIXME: Failure information.
  */
-struct  _UpdateTimedoutHtlc
+struct  _FailReason
+{
+  ProtobufCMessage base;
+  ProtobufCBinaryData info;
+};
+#define FAIL_REASON__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&fail_reason__descriptor) \
+    , {0,NULL} }
+
+
+struct  _UpdateFailHtlc
 {
   ProtobufCMessage base;
   /*
-   * Hash for which I will supply preimage to revoke this commitment tx.
+   * Which HTLC
    */
-  Sha256Hash *revocation_hash;
+  uint64_t id;
   /*
-   * Hash for HTLC R value.
+   * Reason for failure (for relay to initial node)
    */
-  Sha256Hash *r_hash;
+  FailReason *reason;
 };
-#define UPDATE_TIMEDOUT_HTLC__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&update_timedout_htlc__descriptor) \
-    , NULL, NULL }
+#define UPDATE_FAIL_HTLC__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&update_fail_htlc__descriptor) \
+    , 0, NULL }
 
 
 /*
- * Remove your HTLC: routing has failed upstream
+ * Commit all the staged HTLCs.
  */
-struct  _UpdateRoutefailHtlc
-{
-  ProtobufCMessage base;
-  /*
-   * Hash for which I will supply preimage to revoke this commitment tx.
-   */
-  Sha256Hash *revocation_hash;
-  /*
-   * Hash for HTLC R value.
-   */
-  Sha256Hash *r_hash;
-};
-#define UPDATE_ROUTEFAIL_HTLC__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&update_routefail_htlc__descriptor) \
-    , NULL, NULL }
-
-
-/*
- * OK, I accept that update; here's your signature.
- */
-struct  _UpdateAccept
+struct  _UpdateCommit
 {
   ProtobufCMessage base;
   /*
    * Signature for your new commitment tx.
    */
   Signature *sig;
-  /*
-   * Hash for which I will supply preimage to revoke this new commit tx.
-   */
-  Sha256Hash *revocation_hash;
 };
-#define UPDATE_ACCEPT__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&update_accept__descriptor) \
-    , NULL, NULL }
-
-
-/*
- * Thanks for accepting, here's my last bit.
- */
-struct  _UpdateSignature
-{
-  ProtobufCMessage base;
-  /*
-   * Signature for your new commitment tx.
-   */
-  Signature *sig;
-  /*
-   * Hash preimage which revokes old commitment tx.
-   */
-  Sha256Hash *revocation_preimage;
-};
-#define UPDATE_SIGNATURE__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&update_signature__descriptor) \
-    , NULL, NULL }
+#define UPDATE_COMMIT__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&update_commit__descriptor) \
+    , NULL }
 
 
 /*
  * Complete the update.
  */
-struct  _UpdateComplete
+struct  _UpdateRevocation
 {
   ProtobufCMessage base;
   /*
    * Hash preimage which revokes old commitment tx.
    */
   Sha256Hash *revocation_preimage;
+  /*
+   * Revocation hash for my next commit transaction
+   */
+  Sha256Hash *next_revocation_hash;
 };
-#define UPDATE_COMPLETE__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&update_complete__descriptor) \
-    , NULL }
+#define UPDATE_REVOCATION__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&update_revocation__descriptor) \
+    , NULL, NULL }
 
 
 /*
- * Begin cooperative close of channel.
+ * Start clearing out the channel HTLCs so we can close it
  */
-struct  _CloseChannel
+struct  _CloseClearing
+{
+  ProtobufCMessage base;
+};
+#define CLOSE_CLEARING__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&close_clearing__descriptor) \
+     }
+
+
+struct  _CloseSignature
 {
   ProtobufCMessage base;
   /*
-   * This is our signature a new transaction which spends the anchor
-   * output to my open->final and your open->final,
-   * as per the last commit tx.
-   */
-  Signature *sig;
-  /*
-   * Fee to pay for close transaction.
+   * Fee in satoshis.
    */
   uint64_t close_fee;
-};
-#define CLOSE_CHANNEL__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&close_channel__descriptor) \
-    , NULL, 0 }
-
-
-/*
- * OK, here's my sig so you can broadcast it too.  We're done.
- */
-struct  _CloseChannelComplete
-{
-  ProtobufCMessage base;
   /*
-   * This is my signature for that same tx.
+   * Signature on the close transaction.
    */
   Signature *sig;
 };
-#define CLOSE_CHANNEL_COMPLETE__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&close_channel_complete__descriptor) \
-    , NULL }
-
-
-/*
- * Received close_channel_complete, you can close now.
- */
-struct  _CloseChannelAck
-{
-  ProtobufCMessage base;
-};
-#define CLOSE_CHANNEL_ACK__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&close_channel_ack__descriptor) \
-     }
+#define CLOSE_SIGNATURE__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&close_signature__descriptor) \
+    , 0, NULL }
 
 
 /*
@@ -526,18 +447,13 @@ typedef enum {
   PKT__PKT_OPEN_ANCHOR = 21,
   PKT__PKT_OPEN_COMMIT_SIG = 22,
   PKT__PKT_OPEN_COMPLETE = 23,
-  PKT__PKT_UPDATE = 1,
   PKT__PKT_UPDATE_ADD_HTLC = 2,
-  PKT__PKT_UPDATE_ACCEPT = 3,
-  PKT__PKT_UPDATE_SIGNATURE = 4,
-  PKT__PKT_UPDATE_COMPLETE = 5,
-  PKT__PKT_UPDATE_DECLINE_HTLC = 6,
-  PKT__PKT_UPDATE_FULFILL_HTLC = 7,
-  PKT__PKT_UPDATE_TIMEDOUT_HTLC = 8,
-  PKT__PKT_UPDATE_ROUTEFAIL_HTLC = 9,
-  PKT__PKT_CLOSE = 30,
-  PKT__PKT_CLOSE_COMPLETE = 31,
-  PKT__PKT_CLOSE_ACK = 32,
+  PKT__PKT_UPDATE_FULFILL_HTLC = 3,
+  PKT__PKT_UPDATE_FAIL_HTLC = 4,
+  PKT__PKT_UPDATE_COMMIT = 5,
+  PKT__PKT_UPDATE_REVOCATION = 6,
+  PKT__PKT_CLOSE_CLEARING = 30,
+  PKT__PKT_CLOSE_SIGNATURE = 31,
   PKT__PKT_ERROR = 40,
 } Pkt__PktCase;
 
@@ -563,21 +479,16 @@ struct  _Pkt
     /*
      * Updating (most common)
      */
-    Update *update;
     UpdateAddHtlc *update_add_htlc;
-    UpdateAccept *update_accept;
-    UpdateSignature *update_signature;
-    UpdateComplete *update_complete;
-    UpdateDeclineHtlc *update_decline_htlc;
     UpdateFulfillHtlc *update_fulfill_htlc;
-    UpdateTimedoutHtlc *update_timedout_htlc;
-    UpdateRoutefailHtlc *update_routefail_htlc;
+    UpdateFailHtlc *update_fail_htlc;
+    UpdateCommit *update_commit;
+    UpdateRevocation *update_revocation;
     /*
      * Closing
      */
-    CloseChannel *close;
-    CloseChannelComplete *close_complete;
-    CloseChannelAck *close_ack;
+    CloseClearing *close_clearing;
+    CloseSignature *close_signature;
     /*
      * Unexpected issue.
      */
@@ -779,24 +690,24 @@ OpenComplete *
 void   open_complete__free_unpacked
                      (OpenComplete *message,
                       ProtobufCAllocator *allocator);
-/* Update methods */
-void   update__init
-                     (Update         *message);
-size_t update__get_packed_size
-                     (const Update   *message);
-size_t update__pack
-                     (const Update   *message,
+/* Routing methods */
+void   routing__init
+                     (Routing         *message);
+size_t routing__get_packed_size
+                     (const Routing   *message);
+size_t routing__pack
+                     (const Routing   *message,
                       uint8_t             *out);
-size_t update__pack_to_buffer
-                     (const Update   *message,
+size_t routing__pack_to_buffer
+                     (const Routing   *message,
                       ProtobufCBuffer     *buffer);
-Update *
-       update__unpack
+Routing *
+       routing__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   update__free_unpacked
-                     (Update *message,
+void   routing__free_unpacked
+                     (Routing *message,
                       ProtobufCAllocator *allocator);
 /* UpdateAddHtlc methods */
 void   update_add_htlc__init
@@ -817,25 +728,6 @@ UpdateAddHtlc *
 void   update_add_htlc__free_unpacked
                      (UpdateAddHtlc *message,
                       ProtobufCAllocator *allocator);
-/* UpdateDeclineHtlc methods */
-void   update_decline_htlc__init
-                     (UpdateDeclineHtlc         *message);
-size_t update_decline_htlc__get_packed_size
-                     (const UpdateDeclineHtlc   *message);
-size_t update_decline_htlc__pack
-                     (const UpdateDeclineHtlc   *message,
-                      uint8_t             *out);
-size_t update_decline_htlc__pack_to_buffer
-                     (const UpdateDeclineHtlc   *message,
-                      ProtobufCBuffer     *buffer);
-UpdateDeclineHtlc *
-       update_decline_htlc__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   update_decline_htlc__free_unpacked
-                     (UpdateDeclineHtlc *message,
-                      ProtobufCAllocator *allocator);
 /* UpdateFulfillHtlc methods */
 void   update_fulfill_htlc__init
                      (UpdateFulfillHtlc         *message);
@@ -855,157 +747,119 @@ UpdateFulfillHtlc *
 void   update_fulfill_htlc__free_unpacked
                      (UpdateFulfillHtlc *message,
                       ProtobufCAllocator *allocator);
-/* UpdateTimedoutHtlc methods */
-void   update_timedout_htlc__init
-                     (UpdateTimedoutHtlc         *message);
-size_t update_timedout_htlc__get_packed_size
-                     (const UpdateTimedoutHtlc   *message);
-size_t update_timedout_htlc__pack
-                     (const UpdateTimedoutHtlc   *message,
+/* FailReason methods */
+void   fail_reason__init
+                     (FailReason         *message);
+size_t fail_reason__get_packed_size
+                     (const FailReason   *message);
+size_t fail_reason__pack
+                     (const FailReason   *message,
                       uint8_t             *out);
-size_t update_timedout_htlc__pack_to_buffer
-                     (const UpdateTimedoutHtlc   *message,
+size_t fail_reason__pack_to_buffer
+                     (const FailReason   *message,
                       ProtobufCBuffer     *buffer);
-UpdateTimedoutHtlc *
-       update_timedout_htlc__unpack
+FailReason *
+       fail_reason__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   update_timedout_htlc__free_unpacked
-                     (UpdateTimedoutHtlc *message,
+void   fail_reason__free_unpacked
+                     (FailReason *message,
                       ProtobufCAllocator *allocator);
-/* UpdateRoutefailHtlc methods */
-void   update_routefail_htlc__init
-                     (UpdateRoutefailHtlc         *message);
-size_t update_routefail_htlc__get_packed_size
-                     (const UpdateRoutefailHtlc   *message);
-size_t update_routefail_htlc__pack
-                     (const UpdateRoutefailHtlc   *message,
+/* UpdateFailHtlc methods */
+void   update_fail_htlc__init
+                     (UpdateFailHtlc         *message);
+size_t update_fail_htlc__get_packed_size
+                     (const UpdateFailHtlc   *message);
+size_t update_fail_htlc__pack
+                     (const UpdateFailHtlc   *message,
                       uint8_t             *out);
-size_t update_routefail_htlc__pack_to_buffer
-                     (const UpdateRoutefailHtlc   *message,
+size_t update_fail_htlc__pack_to_buffer
+                     (const UpdateFailHtlc   *message,
                       ProtobufCBuffer     *buffer);
-UpdateRoutefailHtlc *
-       update_routefail_htlc__unpack
+UpdateFailHtlc *
+       update_fail_htlc__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   update_routefail_htlc__free_unpacked
-                     (UpdateRoutefailHtlc *message,
+void   update_fail_htlc__free_unpacked
+                     (UpdateFailHtlc *message,
                       ProtobufCAllocator *allocator);
-/* UpdateAccept methods */
-void   update_accept__init
-                     (UpdateAccept         *message);
-size_t update_accept__get_packed_size
-                     (const UpdateAccept   *message);
-size_t update_accept__pack
-                     (const UpdateAccept   *message,
+/* UpdateCommit methods */
+void   update_commit__init
+                     (UpdateCommit         *message);
+size_t update_commit__get_packed_size
+                     (const UpdateCommit   *message);
+size_t update_commit__pack
+                     (const UpdateCommit   *message,
                       uint8_t             *out);
-size_t update_accept__pack_to_buffer
-                     (const UpdateAccept   *message,
+size_t update_commit__pack_to_buffer
+                     (const UpdateCommit   *message,
                       ProtobufCBuffer     *buffer);
-UpdateAccept *
-       update_accept__unpack
+UpdateCommit *
+       update_commit__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   update_accept__free_unpacked
-                     (UpdateAccept *message,
+void   update_commit__free_unpacked
+                     (UpdateCommit *message,
                       ProtobufCAllocator *allocator);
-/* UpdateSignature methods */
-void   update_signature__init
-                     (UpdateSignature         *message);
-size_t update_signature__get_packed_size
-                     (const UpdateSignature   *message);
-size_t update_signature__pack
-                     (const UpdateSignature   *message,
+/* UpdateRevocation methods */
+void   update_revocation__init
+                     (UpdateRevocation         *message);
+size_t update_revocation__get_packed_size
+                     (const UpdateRevocation   *message);
+size_t update_revocation__pack
+                     (const UpdateRevocation   *message,
                       uint8_t             *out);
-size_t update_signature__pack_to_buffer
-                     (const UpdateSignature   *message,
+size_t update_revocation__pack_to_buffer
+                     (const UpdateRevocation   *message,
                       ProtobufCBuffer     *buffer);
-UpdateSignature *
-       update_signature__unpack
+UpdateRevocation *
+       update_revocation__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   update_signature__free_unpacked
-                     (UpdateSignature *message,
+void   update_revocation__free_unpacked
+                     (UpdateRevocation *message,
                       ProtobufCAllocator *allocator);
-/* UpdateComplete methods */
-void   update_complete__init
-                     (UpdateComplete         *message);
-size_t update_complete__get_packed_size
-                     (const UpdateComplete   *message);
-size_t update_complete__pack
-                     (const UpdateComplete   *message,
+/* CloseClearing methods */
+void   close_clearing__init
+                     (CloseClearing         *message);
+size_t close_clearing__get_packed_size
+                     (const CloseClearing   *message);
+size_t close_clearing__pack
+                     (const CloseClearing   *message,
                       uint8_t             *out);
-size_t update_complete__pack_to_buffer
-                     (const UpdateComplete   *message,
+size_t close_clearing__pack_to_buffer
+                     (const CloseClearing   *message,
                       ProtobufCBuffer     *buffer);
-UpdateComplete *
-       update_complete__unpack
+CloseClearing *
+       close_clearing__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   update_complete__free_unpacked
-                     (UpdateComplete *message,
+void   close_clearing__free_unpacked
+                     (CloseClearing *message,
                       ProtobufCAllocator *allocator);
-/* CloseChannel methods */
-void   close_channel__init
-                     (CloseChannel         *message);
-size_t close_channel__get_packed_size
-                     (const CloseChannel   *message);
-size_t close_channel__pack
-                     (const CloseChannel   *message,
+/* CloseSignature methods */
+void   close_signature__init
+                     (CloseSignature         *message);
+size_t close_signature__get_packed_size
+                     (const CloseSignature   *message);
+size_t close_signature__pack
+                     (const CloseSignature   *message,
                       uint8_t             *out);
-size_t close_channel__pack_to_buffer
-                     (const CloseChannel   *message,
+size_t close_signature__pack_to_buffer
+                     (const CloseSignature   *message,
                       ProtobufCBuffer     *buffer);
-CloseChannel *
-       close_channel__unpack
+CloseSignature *
+       close_signature__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   close_channel__free_unpacked
-                     (CloseChannel *message,
-                      ProtobufCAllocator *allocator);
-/* CloseChannelComplete methods */
-void   close_channel_complete__init
-                     (CloseChannelComplete         *message);
-size_t close_channel_complete__get_packed_size
-                     (const CloseChannelComplete   *message);
-size_t close_channel_complete__pack
-                     (const CloseChannelComplete   *message,
-                      uint8_t             *out);
-size_t close_channel_complete__pack_to_buffer
-                     (const CloseChannelComplete   *message,
-                      ProtobufCBuffer     *buffer);
-CloseChannelComplete *
-       close_channel_complete__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   close_channel_complete__free_unpacked
-                     (CloseChannelComplete *message,
-                      ProtobufCAllocator *allocator);
-/* CloseChannelAck methods */
-void   close_channel_ack__init
-                     (CloseChannelAck         *message);
-size_t close_channel_ack__get_packed_size
-                     (const CloseChannelAck   *message);
-size_t close_channel_ack__pack
-                     (const CloseChannelAck   *message,
-                      uint8_t             *out);
-size_t close_channel_ack__pack_to_buffer
-                     (const CloseChannelAck   *message,
-                      ProtobufCBuffer     *buffer);
-CloseChannelAck *
-       close_channel_ack__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data);
-void   close_channel_ack__free_unpacked
-                     (CloseChannelAck *message,
+void   close_signature__free_unpacked
+                     (CloseSignature *message,
                       ProtobufCAllocator *allocator);
 /* Error methods */
 void   error__init
@@ -1077,41 +931,32 @@ typedef void (*OpenCommitSig_Closure)
 typedef void (*OpenComplete_Closure)
                  (const OpenComplete *message,
                   void *closure_data);
-typedef void (*Update_Closure)
-                 (const Update *message,
+typedef void (*Routing_Closure)
+                 (const Routing *message,
                   void *closure_data);
 typedef void (*UpdateAddHtlc_Closure)
                  (const UpdateAddHtlc *message,
                   void *closure_data);
-typedef void (*UpdateDeclineHtlc_Closure)
-                 (const UpdateDeclineHtlc *message,
-                  void *closure_data);
 typedef void (*UpdateFulfillHtlc_Closure)
                  (const UpdateFulfillHtlc *message,
                   void *closure_data);
-typedef void (*UpdateTimedoutHtlc_Closure)
-                 (const UpdateTimedoutHtlc *message,
+typedef void (*FailReason_Closure)
+                 (const FailReason *message,
                   void *closure_data);
-typedef void (*UpdateRoutefailHtlc_Closure)
-                 (const UpdateRoutefailHtlc *message,
+typedef void (*UpdateFailHtlc_Closure)
+                 (const UpdateFailHtlc *message,
                   void *closure_data);
-typedef void (*UpdateAccept_Closure)
-                 (const UpdateAccept *message,
+typedef void (*UpdateCommit_Closure)
+                 (const UpdateCommit *message,
                   void *closure_data);
-typedef void (*UpdateSignature_Closure)
-                 (const UpdateSignature *message,
+typedef void (*UpdateRevocation_Closure)
+                 (const UpdateRevocation *message,
                   void *closure_data);
-typedef void (*UpdateComplete_Closure)
-                 (const UpdateComplete *message,
+typedef void (*CloseClearing_Closure)
+                 (const CloseClearing *message,
                   void *closure_data);
-typedef void (*CloseChannel_Closure)
-                 (const CloseChannel *message,
-                  void *closure_data);
-typedef void (*CloseChannelComplete_Closure)
-                 (const CloseChannelComplete *message,
-                  void *closure_data);
-typedef void (*CloseChannelAck_Closure)
-                 (const CloseChannelAck *message,
+typedef void (*CloseSignature_Closure)
+                 (const CloseSignature *message,
                   void *closure_data);
 typedef void (*Error_Closure)
                  (const Error *message,
@@ -1136,18 +981,15 @@ extern const ProtobufCEnumDescriptor    open_channel__anchor_offer__descriptor;
 extern const ProtobufCMessageDescriptor open_anchor__descriptor;
 extern const ProtobufCMessageDescriptor open_commit_sig__descriptor;
 extern const ProtobufCMessageDescriptor open_complete__descriptor;
-extern const ProtobufCMessageDescriptor update__descriptor;
+extern const ProtobufCMessageDescriptor routing__descriptor;
 extern const ProtobufCMessageDescriptor update_add_htlc__descriptor;
-extern const ProtobufCMessageDescriptor update_decline_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_fulfill_htlc__descriptor;
-extern const ProtobufCMessageDescriptor update_timedout_htlc__descriptor;
-extern const ProtobufCMessageDescriptor update_routefail_htlc__descriptor;
-extern const ProtobufCMessageDescriptor update_accept__descriptor;
-extern const ProtobufCMessageDescriptor update_signature__descriptor;
-extern const ProtobufCMessageDescriptor update_complete__descriptor;
-extern const ProtobufCMessageDescriptor close_channel__descriptor;
-extern const ProtobufCMessageDescriptor close_channel_complete__descriptor;
-extern const ProtobufCMessageDescriptor close_channel_ack__descriptor;
+extern const ProtobufCMessageDescriptor fail_reason__descriptor;
+extern const ProtobufCMessageDescriptor update_fail_htlc__descriptor;
+extern const ProtobufCMessageDescriptor update_commit__descriptor;
+extern const ProtobufCMessageDescriptor update_revocation__descriptor;
+extern const ProtobufCMessageDescriptor close_clearing__descriptor;
+extern const ProtobufCMessageDescriptor close_signature__descriptor;
 extern const ProtobufCMessageDescriptor error__descriptor;
 extern const ProtobufCMessageDescriptor pkt__descriptor;
 

@@ -19,13 +19,21 @@
 
 #define BITCOIN_CLI "bitcoin-cli"
 
+char *bitcoin_datadir;
+
 static char **gather_args(const tal_t *ctx, const char *cmd, va_list ap)
 {
-	size_t n = 2;
-	char **args = tal_arr(ctx, char *, n+1);
+	size_t n = 0;
+	char **args = tal_arr(ctx, char *, 1);
 
-	args[0] = BITCOIN_CLI;
-	args[1] = cast_const(char *, cmd);
+	args[n++] = BITCOIN_CLI;
+	tal_resize(&args, n + 1);
+	if (bitcoin_datadir) {
+		args[n++] = tal_fmt(args, "-datadir=%s", bitcoin_datadir);
+		tal_resize(&args, n + 1);
+	}
+	args[n++] = cast_const(char *, cmd);
+	tal_resize(&args, n + 1);
 
 	while ((args[n] = va_arg(ap, char *)) != NULL) {
 		args[n] = tal_strdup(args, args[n]);
@@ -217,10 +225,14 @@ static void process_transactions(struct bitcoin_cli *bcli)
 
 		/* This can happen with zero conf. */
 		blkindxtok = json_get_member(bcli->output, t, "blockindex");
-		if (!blkindxtok)
+		if (!blkindxtok) {
+			if (conf != 0)
+				fatal("listtransactions: no blockindex");
 			is_coinbase = false;
-		else {
+		} else {
 			unsigned int blkidx;
+			if (conf == 0)
+				fatal("listtransactions: expect no blockindex");
 			if (!json_tok_number(bcli->output, blkindxtok, &blkidx))
 				fatal("listtransactions: bad blockindex '%.*s'",
 				      (int)(blkindxtok->end - blkindxtok->start),
@@ -246,7 +258,8 @@ static void process_transactions(struct bitcoin_cli *bcli)
 			  txid.sha.u.u8[2], txid.sha.u.u8[3],
 			  conf, is_coinbase);
 
-		cb(bcli->dstate, &txid, conf, is_coinbase, &blkhash);
+		cb(bcli->dstate, &txid, conf, is_coinbase,
+		   conf ? &blkhash : NULL);
 	}
 }
 

@@ -5,28 +5,18 @@ bitcoin lightning (see:
 [http://lightning.network](http://lightning.network) which proposed
 the original "lightning network").
 
-The first step was to develop a wire protocol for nodes to talk to
-each other.  The wire protocol is documented in
-[lightning.proto](lightning.proto) (a
-[protobuf](https://developers.google.com/protocol-buffers/) definition
-file).  There are command line utilities to create and process various
-packets in [test-cli](test-cli/HOWTO-USE.md).
+This implementation is being developed in parallel with the protocol
+definition, which you can find [https://github.com/rustyrussell/lightning](on my fork of the protocol description repository).
 
-The second step is to create a daemon which uses that protocol to
-communicate with others to set up channels and make simple payments.
-This also involves monitoring the blockchain for transactions.  This
-is where development is currently occurring.
+So far, we are working on the [https://github.com/rustyrussell/lightning/blob/master/communications/low/01-encryption.md](inter-node encryption) and [https://github.com/rustyrussell/lightning/blob/master/communications/low/02-wire-protocol.md](transaction negotiation) phases.
 
 Later steps will enhance the protocol to network individual daemons,
-advertize their IP addresses, publish routes and fees, and use that
+advertise their IP addresses, publish routes and fees, and use that
 information to pay specific nodes.  These details are currently being
 hashed out on the [mailing list](https://lists.linuxfoundation.org/mailman/listinfo/lightning-dev) and the IRC channel [#lightning-dev](https://botbot.me/freenode/lightning-dev/) on Freenode.
 
-The protocol requires features not currently in bitcoin, so by default
-it runs on top of the sidechain [Elements
-Alpha](https://github.com/ElementsProject/elements).  It can be tested
-with bitcoin (on testnet) with OP_NOP substitution, at the top level
-Makefile.
+The protocol requires features not currently in bitcoin, but can be tested
+with bitcoin (on testnet) with OP_NOP substitution.
 
 Final note: This is very much a testbed and work in progress; expect
 All The Things to change, all the time.

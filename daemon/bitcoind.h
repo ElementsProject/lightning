@@ -10,6 +10,8 @@ struct lightningd_state;
 struct ripemd160;
 struct bitcoin_tx;
 struct peer;
+/* -datadir arg for bitcoin-cli. */
+extern char *bitcoin_datadir;
 
 void bitcoind_watch_addr(struct lightningd_state *dstate,
 			 const struct ripemd160 *redeemhash);

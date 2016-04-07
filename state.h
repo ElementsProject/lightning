@@ -35,11 +35,9 @@ union input {
 	struct htlc_progress *htlc_prog;
 };
 
-enum command_status state(const tal_t *ctx,
-			  struct peer *peer,
+enum command_status state(struct peer *peer,
 			  const enum state_input input,
 			  const union input *idata,
-			  Pkt **out,
 			  const struct bitcoin_tx **broadcast);
 
 /* Any CMD_SEND_HTLC_* */
@@ -50,10 +48,9 @@ static inline bool input_is(enum state_input a, enum state_input b)
 {
 	if (b == CMD_SEND_UPDATE_ANY) {
 		/* Single | here, we want to record all. */
-		return input_is(a, CMD_SEND_HTLC_UPDATE)
+		return input_is(a, CMD_SEND_HTLC_ADD)
 			| input_is(a, CMD_SEND_HTLC_FULFILL)
-			| input_is(a, CMD_SEND_HTLC_TIMEDOUT)
-			| input_is(a, CMD_SEND_HTLC_ROUTEFAIL);
+			| input_is(a, CMD_SEND_HTLC_FAIL);
 	}
 
 /* For test_state_coverate to make the states. */
@@ -68,103 +65,52 @@ struct signature;
 /* Inform peer have an unexpected packet. */
 void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt);
 
-/* Current HTLC management.
- * The "current" htlc is set before sending CMD_SEND_HTLC_*, or by
- * accept_pkt_htlc_*.
- *
- * After that the state machine manages the current htlc, eventually giving one
- * of the following calls (which should reset the current HTLC):
- *
- * - peer_htlc_declined: sent PKT_UPDATE_DECLINE_HTLC.
- * - peer_htlc_ours_deferred: their update was higher priority, retry later.
- * - peer_htlc_added: a new HTLC was added successfully.
- * - peer_htlc_fulfilled: an existing HTLC was fulfilled successfully.
- * - peer_htlc_timedout: an existing HTLC was timed out successfully.
- * - peer_htlc_routefail: an existing HTLC failed to route.
- * - peer_htlc_aborted: eg. comms error
- */
-
-/* Someone declined our HTLC: details in pkt (we will also get CMD_FAIL) */
-void peer_htlc_declined(struct peer *peer, const Pkt *pkt);
-/* Called when their update overrides our update cmd. */
-void peer_htlc_ours_deferred(struct peer *peer);
-/* Successfully added/fulfilled/timedout/routefail an HTLC. */
-void peer_htlc_done(struct peer *peer);
-/* Someone aborted an existing HTLC. */
-void peer_htlc_aborted(struct peer *peer);
-
 /* An on-chain transaction revealed an R value. */
 const struct htlc *peer_tx_revealed_r_value(struct peer *peer,
 					    const struct bitcoin_event *btc);
 
-/* Create various kinds of packets, allocated off @ctx */
-Pkt *pkt_open(const tal_t *ctx, const struct peer *peer,
-	      OpenChannel__AnchorOffer anchor);
-Pkt *pkt_anchor(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_open_commit_sig(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_open_complete(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_htlc_update(const tal_t *ctx, const struct peer *peer,
-		     const struct htlc_progress *htlc_prog);
-Pkt *pkt_htlc_fulfill(const tal_t *ctx, const struct peer *peer,
-		      const struct htlc_progress *htlc_prog);
-Pkt *pkt_htlc_timedout(const tal_t *ctx, const struct peer *peer,
-		       const struct htlc_progress *htlc_prog);
-Pkt *pkt_htlc_routefail(const tal_t *ctx, const struct peer *peer,
+/* Send various kinds of packets */
+void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor);
+void queue_pkt_anchor(struct peer *peer);
+void queue_pkt_open_commit_sig(struct peer *peer);
+void queue_pkt_open_complete(struct peer *peer);
+void queue_pkt_htlc_add(struct peer *peer,
 			const struct htlc_progress *htlc_prog);
-Pkt *pkt_update_accept(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_update_signature(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_update_complete(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_err(const tal_t *ctx, const char *fmt, ...);
-Pkt *pkt_close(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_close_complete(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_close_ack(const tal_t *ctx, const struct peer *peer);
-Pkt *pkt_err_unexpected(const tal_t *ctx, const Pkt *pkt);
+void queue_pkt_htlc_fulfill(struct peer *peer,
+			    const struct htlc_progress *htlc_prog);
+void queue_pkt_htlc_fail(struct peer *peer,
+			 const struct htlc_progress *htlc_prog);
+void queue_pkt_commit(struct peer *peer);
+void queue_pkt_revocation(struct peer *peer);
+void queue_pkt_close_clearing(struct peer *peer);
+void queue_pkt_close_signature(struct peer *peer);
+
+Pkt *pkt_err(struct peer *peer, const char *msg, ...);
+void queue_pkt_err(struct peer *peer, Pkt *err);
+Pkt *pkt_err_unexpected(struct peer *peer, const Pkt *pkt);
 
 /* Process various packets: return an error packet on failure. */
-Pkt *accept_pkt_open(const tal_t *ctx,
-		     struct peer *peer,
-		     const Pkt *pkt);
+Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_anchor(const tal_t *ctx,
-		       struct peer *peer,
-		       const Pkt *pkt);
+Pkt *accept_pkt_anchor(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
-				struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_open_commit_sig(struct peer *peer, const Pkt *pkt);
 	
-Pkt *accept_pkt_htlc_update(const tal_t *ctx,
-			    struct peer *peer, const Pkt *pkt,
-			    Pkt **decline);
+Pkt *accept_pkt_open_complete(struct peer *peer, const Pkt *pkt);
+	
+Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_htlc_routefail(const tal_t *ctx,
-			       struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_htlc_timedout(const tal_t *ctx,
-			      struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_htlc_fulfill(const tal_t *ctx,
-			     struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_update_accept(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_update_accept(const tal_t *ctx,
-			      struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_update_complete(const tal_t *ctx,
-				struct peer *peer, const Pkt *pkt);
-
-Pkt *accept_pkt_update_signature(const tal_t *ctx,
-				 struct peer *peer,
-				 const Pkt *pkt);
-
-Pkt *accept_pkt_close(const tal_t *ctx, struct peer *peer, const Pkt *pkt);
-
-Pkt *accept_pkt_close_complete(const tal_t *ctx,
-			       struct peer *peer, const Pkt *pkt);
-
-Pkt *accept_pkt_simultaneous_close(const tal_t *ctx,
-				   struct peer *peer,
-				   const Pkt *pkt);
-
-Pkt *accept_pkt_close_ack(const tal_t *ctx, struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_close_clearing(struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt, bool *matches);
 
 /**
  * committed_to_htlcs: do we have any locked-in HTLCs?
@@ -173,6 +119,14 @@ Pkt *accept_pkt_close_ack(const tal_t *ctx, struct peer *peer, const Pkt *pkt);
  * If we were to generate a commit tx now, would it have HTLCs in it?
  */
 bool committed_to_htlcs(const struct peer *peer);
+
+/**
+ * peer_has_close_sig: do we have a valid close_sig from them?
+ * @peer: the state data for this peer.
+ *
+ * We use any acceptable close tx, if we have one, in preference to a commit tx.
+ */
+bool peer_has_close_sig(const struct peer *peer);
 
 /**
  * peer_watch_anchor: create a watch for the anchor transaction.
@@ -340,6 +294,20 @@ void peer_unwatch_htlc_spend(struct peer *peer,
 			     const struct htlc *htlc,
 			     enum state_input all_done);
 
+/**
+ * peer_watch_htlcs_cleared: tell us when no HTLCs are in commit txs.
+ * @peer: the state data for this peer.
+ * @all_done: input to give when all HTLCs are done.
+ */
+void peer_watch_htlcs_cleared(struct peer *peer,
+			      enum state_input all_done);
+
+/**
+ * peer_calculate_close_fee: figure out what the fee for closing is.
+ * @peer: the state data for this peer.
+ */
+void peer_calculate_close_fee(struct peer *peer);
+
 /* Start creation of the bitcoin anchor tx. */
 void bitcoin_create_anchor(struct peer *peer, enum state_input done);
 
@@ -348,37 +316,31 @@ void bitcoin_create_anchor(struct peer *peer, enum state_input done);
 void bitcoin_release_anchor(struct peer *peer, enum state_input done);
 
 /* Get the bitcoin anchor tx. */
-const struct bitcoin_tx *bitcoin_anchor(const tal_t *ctx, struct peer *peer);
+const struct bitcoin_tx *bitcoin_anchor(struct peer *peer);
 
 /* Create a bitcoin close tx. */
-const struct bitcoin_tx *bitcoin_close(const tal_t *ctx,
-				       const struct peer *peer);
+const struct bitcoin_tx *bitcoin_close(struct peer *peer);
 
 /* Create a bitcoin spend tx (to spend our commit's outputs) */
-const struct bitcoin_tx *bitcoin_spend_ours(const tal_t *ctx,
-					    const struct peer *peer);
+const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer);
 
 /* Create a bitcoin spend tx (to spend their commit's outputs) */
-const struct bitcoin_tx *bitcoin_spend_theirs(const tal_t *ctx,
-					      const struct peer *peer,
+const struct bitcoin_tx *bitcoin_spend_theirs(const struct peer *peer,
 					      const struct bitcoin_event *btc);
 
 /* Create a bitcoin steal tx (to steal all their commit's outputs) */
-const struct bitcoin_tx *bitcoin_steal(const tal_t *ctx,
-				       const struct peer *peer,
+const struct bitcoin_tx *bitcoin_steal(const struct peer *peer,
 				       struct bitcoin_event *btc);
 
 /* Create our commit tx */
-const struct bitcoin_tx *bitcoin_commit(const tal_t *ctx, struct peer *peer);
+const struct bitcoin_tx *bitcoin_commit(struct peer *peer);
 
 /* Create a HTLC refund collection */
-const struct bitcoin_tx *bitcoin_htlc_timeout(const tal_t *ctx,
-					      const struct peer *peer,
+const struct bitcoin_tx *bitcoin_htlc_timeout(const struct peer *peer,
 					      const struct htlc *htlc);
 
 /* Create a HTLC collection */
-const struct bitcoin_tx *bitcoin_htlc_spend(const tal_t *ctx,
-					    const struct peer *peer,
+const struct bitcoin_tx *bitcoin_htlc_spend(const struct peer *peer,
 					    const struct htlc *htlc);
 
 #endif /* LIGHTNING_STATE_H */

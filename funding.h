@@ -7,6 +7,7 @@
 #include <stdbool.h>
 
 struct channel_htlc {
+	u64 id;
 	u64 msatoshis;
 	struct abs_locktime expiry;
 	struct sha256 rhash;
@@ -20,6 +21,12 @@ struct channel_oneside {
 };
 
 struct channel_state {
+	/* Satoshis paid by anchor. */
+	uint64_t anchor;
+	/* Satoshis per 1000 bytes. */
+	uint32_t fee_rate;
+	/* Generation counter (incremented on every change) */
+	uint32_t changes;
 	struct channel_oneside a, b;
 };
 
@@ -28,14 +35,14 @@ struct channel_state {
  * @ctx: tal context to allocate return value from.
  * @am_funder: am I paying for the anchor?
  * @anchor_satoshis: The anchor amount.
- * @fee: amount to pay in fees (in satoshi).
+ * @fee_rate: amount to pay in fees per kb (in satoshi).
  *
  * Returns state, or NULL if malformed.
  */
 struct channel_state *initial_funding(const tal_t *ctx,
 				      bool am_funder,
 				      uint64_t anchor_satoshis,
-				      uint64_t fee);
+				      uint32_t fee_rate);
 
 /**
  * copy_funding: Make a deep copy of channel_state
@@ -46,58 +53,71 @@ struct channel_state *copy_funding(const tal_t *ctx,
 				   const struct channel_state *cstate);
 
 /**
- * funding_delta: With this change, what's the new state?
- * @a_is_funder: is A paying for the anchor?
- * @anchor_satoshis: The anchor amount.
- * @delta_a: How many millisatoshi A changes (-ve => A pay B, +ve => B pays A)
- * @htlc: Millisatoshi A is putting into a HTLC (-ve if htlc is cancelled)
- * @a_side: channel a's state to update.
- * @b_side: channel b's state to update.
+ * funding_a_add_htlc: append an HTLC to A's side of cstate if it can afford it
+ * @cstate: The channel state
+ * @msatoshis: Millisatoshi A is putting into a HTLC
+ * @expiry: time it expires
+ * @rhash: hash of redeem secret
+ * @id: 64-bit ID for htlc
+ *
+ * If A can't afford the HTLC (or still owes its half of the fees),
+ * this will return false and leave @cstate unchanged.  Otherwise
+ * cstate->a.htlcs will have the HTLC appended, and pay_msat and
+ * fee_msat are adjusted accordingly.
  */
-bool funding_delta(bool a_is_funder,
-		   uint64_t anchor_satoshis,
-		   int64_t delta_a_msat,
-		   int64_t htlc_msat,
-		   struct channel_oneside *a_side,
-		   struct channel_oneside *b_side);
+bool funding_a_add_htlc(struct channel_state *cstate,
+			u32 msatoshis, const struct abs_locktime *expiry,
+			const struct sha256 *rhash, uint64_t id);
+
+bool funding_b_add_htlc(struct channel_state *cstate,
+			u32 msatoshis, const struct abs_locktime *expiry,
+			const struct sha256 *rhash, uint64_t id);
 
 /**
- * adjust_fee: Change fee.
- * @a_is_funder: is A paying for the anchor?
- * @anchor_satoshis: The anchor amount.
- * @fee_satoshis: The new fee amount.
- * @a_side: channel a's state to update.
- * @b_side: channel b's state to update.
+ * funding_a_fail_htlc: remove an HTLC from A's side of cstate, funds to A
+ * @cstate: The channel state
+ * @index: the index into cstate->a.htlcs[].
+ *
+ * This will remove the @index'th entry in cstate->a.htlcs[], and credit
+ * the value of the HTLC (back) to A.
  */
-bool adjust_fee(bool a_is_funder,
-		uint64_t anchor_satoshis,
-		uint64_t fee_satoshis,
-		struct channel_oneside *a_side,
-		struct channel_oneside *b_side);
+void funding_a_fail_htlc(struct channel_state *cstate, size_t index);
+void funding_b_fail_htlc(struct channel_state *cstate, size_t index);
 
 /**
- * commit_fee: Fee amount for commit tx.
- * @a_satoshis: A's openchannel->commitment_fee offer
- * @b_satoshis: B's openchannel->commitment_fee offer
+ * funding_a_fulfill_htlc: remove an HTLC from A's side of cstate, funds to B
+ * @cstate: The channel state
+ * @index: the index into cstate->a.htlcs[].
+ *
+ * This will remove the @index'th entry in cstate->a.htlcs[], and credit
+ * the value of the HTLC to B.
  */
-uint64_t commit_fee(uint64_t a_satoshis, uint64_t b_satoshis);
+void funding_a_fulfill_htlc(struct channel_state *cstate, size_t index);
+void funding_b_fulfill_htlc(struct channel_state *cstate, size_t index);
+
+/**
+ * adjust_fee: Change fee rate.
+ * @cstate: The channel state
+ * @fee_rate: fee in satoshi per 1000 bytes.
+ */
+void adjust_fee(struct channel_state *cstate, uint32_t fee_rate);
+
+/**
+ * force_fee: Change fee to a specific value.
+ * @cstate: The channel state
+ * @fee: fee in satoshi.
+ *
+ * This is used for the close transaction, which specifies an exact fee.
+ * If the fee cannot be paid in full, this return false (but cstate will
+ * still be altered).
+ */
+bool force_fee(struct channel_state *cstate, uint64_t fee);
 
 /**
  * invert_cstate: Get the other side's state.
  * @cstate: the state to invert.
  */
 void invert_cstate(struct channel_state *cstate);
-
-/**
- * funding_add_htlc: append an HTLC to this side of the channel.
- * @creator: channel_state->a or channel_state->b, whichever originated htlc
- * @msatoshis: amount in millisatoshi
- * @expiry: time it expires
- * @rhash: hash of redeem secret
- */
-void funding_add_htlc(struct channel_oneside *creator,
-		      u32 msatoshis, const struct abs_locktime *expiry,
-		      const struct sha256 *rhash);
 
 /**
  * funding_find_htlc: find an HTLC on this side of the channel.
@@ -111,10 +131,29 @@ size_t funding_find_htlc(struct channel_oneside *creator,
 			 const struct sha256 *rhash);
 
 /**
- * funding_remove_htlc: remove an HTLC from this side of the channel.
+ * funding_htlc_by_id: find an HTLC on this side of the channel by ID.
  * @creator: channel_state->a or channel_state->b, whichever originated htlc
- * @i: index returned from funding_find_htlc.
+ * @id: id for HTLC.
+ *
+ * Returns a number < tal_count(creator->htlcs), or == tal_count(creator->htlcs)
+ * on fail.
  */
-void funding_remove_htlc(struct channel_oneside *creator, size_t i);
+size_t funding_htlc_by_id(struct channel_oneside *creator, uint64_t id);
+
+/**
+ * fee_for_feerate: calculate the fee (in satoshi) for a given fee_rate.
+ * @txsize: transaction size in bytes.
+ * @fee_rate: satoshi per 1000 bytes.
+ */
+uint64_t fee_by_feerate(size_t txsize, uint32_t fee_rate);
+
+/**
+ * is_dust_amount: is an output of this value considered dust?
+ * @satoshis: number of satoshis.
+ *
+ * Transactions with dust outputs will not be relayed by the bitcoin
+ * network.  It's not an exact definition, unfortunately.
+ */
+bool is_dust_amount(uint64_t satoshis);
 
 #endif /* LIGHTNING_FUNDING_H */

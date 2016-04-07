@@ -82,15 +82,15 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--forever-confirms", opt_set_u32, opt_show_u32,
 			 &dstate->config.forever_confirms,
 			 "Confirmations after which we consider a reorg impossible");
-	opt_register_arg("--commit-fee", opt_set_u64, opt_show_u64,
-			 &dstate->config.commitment_fee,
-			 "Satoshis to offer for commitment transaction fee");
-	opt_register_arg("--min-commit-fee", opt_set_u64, opt_show_u64,
-			 &dstate->config.commitment_fee_min,
-			 "Minimum satoshis to accept for commitment transaction fee");
-	opt_register_arg("--closing-fee", opt_set_u64, opt_show_u64,
-			 &dstate->config.closing_fee,
-			 "Satoshis to use for mutual close transaction fee");
+	opt_register_arg("--commit-fee-rate", opt_set_u64, opt_show_u64,
+			 &dstate->config.commitment_fee_rate,
+			 "Satoshis to offer for commitment transaction fee (per kb)");
+	opt_register_arg("--min-commit-fee-rate", opt_set_u64, opt_show_u64,
+			 &dstate->config.commitment_fee_rate_min,
+			 "Minimum satoshis to accept for commitment transaction fee (per kb)");
+	opt_register_arg("--closing-fee-rate", opt_set_u64, opt_show_u64,
+			 &dstate->config.closing_fee_rate,
+			 "Satoshis to use for mutual close transaction fee (per kb)");
 	opt_register_arg("--min-expiry", opt_set_u32, opt_show_u32,
 			 &dstate->config.min_expiry,
 			 "Minimum number of seconds to accept an HTLC before expiry");
@@ -128,14 +128,14 @@ static void default_config(struct config *config)
 	
 	/* FIXME: These should float with bitcoind's recommendations! */
 
-	/* Pay hefty fee (10x current suggested minimum). */
-	config->commitment_fee = 50000;
+	/* Pay hefty fee (double historic high of ~100k). */
+	config->commitment_fee_rate = 200000;
 
-	/* Don't accept less than double the current standard fee. */
-	config->commitment_fee_min = 10000;
+	/* Don't accept less than double the average 2-block fee. */
+	config->commitment_fee_rate_min = 50000;
 
 	/* Use this for mutual close. */
-	config->closing_fee = 10000;
+	config->closing_fee_rate = 20000;
 
 	/* Don't bother me unless I have 6 hours to collect. */
 	config->min_expiry = 6 * HOURS;
@@ -147,17 +147,24 @@ static void default_config(struct config *config)
 
 static void check_config(struct lightningd_state *dstate)
 {
-	if (dstate->config.closing_fee > dstate->config.commitment_fee)
-		fatal("Closing fee %"PRIu64
-		      " can't exceed commitment fee %"PRIu64,
-		      dstate->config.closing_fee,
-		      dstate->config.commitment_fee);
+	/* BOLT #2:
+	 * The sender MUST set `close_fee` lower than or equal to the
+	 * fee of the final commitment transaction.
+	 */
 
-	if (dstate->config.commitment_fee_min > dstate->config.commitment_fee)
-		fatal("Minumum fee %"PRIu64
-		      " can't exceed commitment fee %"PRIu64,
-		      dstate->config.commitment_fee_min,
-		      dstate->config.commitment_fee);
+	/* We do this by ensuring it's less than the minimum we would accept. */
+	if (dstate->config.closing_fee_rate > dstate->config.commitment_fee_rate_min)
+		fatal("Closing fee rate %"PRIu64
+		      " can't exceed minimum commitment fee rate %"PRIu64,
+		      dstate->config.closing_fee_rate,
+		      dstate->config.commitment_fee_rate_min);
+
+	if (dstate->config.commitment_fee_rate_min
+	    > dstate->config.commitment_fee_rate)
+		fatal("Minumum fee rate %"PRIu64
+		      " can't exceed commitment fee rate %"PRIu64,
+		      dstate->config.commitment_fee_rate_min,
+		      dstate->config.commitment_fee_rate);
 }
 
 static struct lightningd_state *lightningd_state(void)
@@ -207,12 +214,19 @@ int main(int argc, char *argv[])
 	err_set_progname(argv[0]);
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 
+	if (!streq(protobuf_c_version(), PROTOBUF_C_VERSION))
+		errx(1, "Compiled against protobuf %s, but have %s",
+		     PROTOBUF_C_VERSION, protobuf_c_version());
+	
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "\n"
 			   "A bitcoin lightning daemon.",
 			   "Print this message.");
 	opt_register_arg("--port", opt_set_uintval, NULL, &portnum,
 			 "Port to bind to (otherwise, dynamic port is used)");
+	opt_register_arg("--bitcoin-datadir", opt_set_charp, NULL,
+			 &bitcoin_datadir,
+			 "-datadir arg for bitcoin-cli");
 	opt_register_logging(dstate->base_log);
 	opt_register_version();
 

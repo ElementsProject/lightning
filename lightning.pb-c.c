@@ -437,47 +437,47 @@ void   open_complete__free_unpacked
   assert(message->base.descriptor == &open_complete__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   update__init
-                     (Update         *message)
+void   routing__init
+                     (Routing         *message)
 {
-  static Update init_value = UPDATE__INIT;
+  static Routing init_value = ROUTING__INIT;
   *message = init_value;
 }
-size_t update__get_packed_size
-                     (const Update *message)
+size_t routing__get_packed_size
+                     (const Routing *message)
 {
-  assert(message->base.descriptor == &update__descriptor);
+  assert(message->base.descriptor == &routing__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t update__pack
-                     (const Update *message,
+size_t routing__pack
+                     (const Routing *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &update__descriptor);
+  assert(message->base.descriptor == &routing__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t update__pack_to_buffer
-                     (const Update *message,
+size_t routing__pack_to_buffer
+                     (const Routing *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &update__descriptor);
+  assert(message->base.descriptor == &routing__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Update *
-       update__unpack
+Routing *
+       routing__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Update *)
-     protobuf_c_message_unpack (&update__descriptor,
+  return (Routing *)
+     protobuf_c_message_unpack (&routing__descriptor,
                                 allocator, len, data);
 }
-void   update__free_unpacked
-                     (Update *message,
+void   routing__free_unpacked
+                     (Routing *message,
                       ProtobufCAllocator *allocator)
 {
-  assert(message->base.descriptor == &update__descriptor);
+  assert(message->base.descriptor == &routing__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   update_add_htlc__init
@@ -523,49 +523,6 @@ void   update_add_htlc__free_unpacked
   assert(message->base.descriptor == &update_add_htlc__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   update_decline_htlc__init
-                     (UpdateDeclineHtlc         *message)
-{
-  static UpdateDeclineHtlc init_value = UPDATE_DECLINE_HTLC__INIT;
-  *message = init_value;
-}
-size_t update_decline_htlc__get_packed_size
-                     (const UpdateDeclineHtlc *message)
-{
-  assert(message->base.descriptor == &update_decline_htlc__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
-}
-size_t update_decline_htlc__pack
-                     (const UpdateDeclineHtlc *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &update_decline_htlc__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
-}
-size_t update_decline_htlc__pack_to_buffer
-                     (const UpdateDeclineHtlc *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &update_decline_htlc__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
-}
-UpdateDeclineHtlc *
-       update_decline_htlc__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (UpdateDeclineHtlc *)
-     protobuf_c_message_unpack (&update_decline_htlc__descriptor,
-                                allocator, len, data);
-}
-void   update_decline_htlc__free_unpacked
-                     (UpdateDeclineHtlc *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &update_decline_htlc__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
-}
 void   update_fulfill_htlc__init
                      (UpdateFulfillHtlc         *message)
 {
@@ -609,348 +566,262 @@ void   update_fulfill_htlc__free_unpacked
   assert(message->base.descriptor == &update_fulfill_htlc__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   update_timedout_htlc__init
-                     (UpdateTimedoutHtlc         *message)
+void   fail_reason__init
+                     (FailReason         *message)
 {
-  static UpdateTimedoutHtlc init_value = UPDATE_TIMEDOUT_HTLC__INIT;
+  static FailReason init_value = FAIL_REASON__INIT;
   *message = init_value;
 }
-size_t update_timedout_htlc__get_packed_size
-                     (const UpdateTimedoutHtlc *message)
+size_t fail_reason__get_packed_size
+                     (const FailReason *message)
 {
-  assert(message->base.descriptor == &update_timedout_htlc__descriptor);
+  assert(message->base.descriptor == &fail_reason__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t update_timedout_htlc__pack
-                     (const UpdateTimedoutHtlc *message,
+size_t fail_reason__pack
+                     (const FailReason *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &update_timedout_htlc__descriptor);
+  assert(message->base.descriptor == &fail_reason__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t update_timedout_htlc__pack_to_buffer
-                     (const UpdateTimedoutHtlc *message,
+size_t fail_reason__pack_to_buffer
+                     (const FailReason *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &update_timedout_htlc__descriptor);
+  assert(message->base.descriptor == &fail_reason__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-UpdateTimedoutHtlc *
-       update_timedout_htlc__unpack
+FailReason *
+       fail_reason__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (UpdateTimedoutHtlc *)
-     protobuf_c_message_unpack (&update_timedout_htlc__descriptor,
+  return (FailReason *)
+     protobuf_c_message_unpack (&fail_reason__descriptor,
                                 allocator, len, data);
 }
-void   update_timedout_htlc__free_unpacked
-                     (UpdateTimedoutHtlc *message,
+void   fail_reason__free_unpacked
+                     (FailReason *message,
                       ProtobufCAllocator *allocator)
 {
-  assert(message->base.descriptor == &update_timedout_htlc__descriptor);
+  assert(message->base.descriptor == &fail_reason__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   update_routefail_htlc__init
-                     (UpdateRoutefailHtlc         *message)
+void   update_fail_htlc__init
+                     (UpdateFailHtlc         *message)
 {
-  static UpdateRoutefailHtlc init_value = UPDATE_ROUTEFAIL_HTLC__INIT;
+  static UpdateFailHtlc init_value = UPDATE_FAIL_HTLC__INIT;
   *message = init_value;
 }
-size_t update_routefail_htlc__get_packed_size
-                     (const UpdateRoutefailHtlc *message)
+size_t update_fail_htlc__get_packed_size
+                     (const UpdateFailHtlc *message)
 {
-  assert(message->base.descriptor == &update_routefail_htlc__descriptor);
+  assert(message->base.descriptor == &update_fail_htlc__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t update_routefail_htlc__pack
-                     (const UpdateRoutefailHtlc *message,
+size_t update_fail_htlc__pack
+                     (const UpdateFailHtlc *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &update_routefail_htlc__descriptor);
+  assert(message->base.descriptor == &update_fail_htlc__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t update_routefail_htlc__pack_to_buffer
-                     (const UpdateRoutefailHtlc *message,
+size_t update_fail_htlc__pack_to_buffer
+                     (const UpdateFailHtlc *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &update_routefail_htlc__descriptor);
+  assert(message->base.descriptor == &update_fail_htlc__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-UpdateRoutefailHtlc *
-       update_routefail_htlc__unpack
+UpdateFailHtlc *
+       update_fail_htlc__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (UpdateRoutefailHtlc *)
-     protobuf_c_message_unpack (&update_routefail_htlc__descriptor,
+  return (UpdateFailHtlc *)
+     protobuf_c_message_unpack (&update_fail_htlc__descriptor,
                                 allocator, len, data);
 }
-void   update_routefail_htlc__free_unpacked
-                     (UpdateRoutefailHtlc *message,
+void   update_fail_htlc__free_unpacked
+                     (UpdateFailHtlc *message,
                       ProtobufCAllocator *allocator)
 {
-  assert(message->base.descriptor == &update_routefail_htlc__descriptor);
+  assert(message->base.descriptor == &update_fail_htlc__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   update_accept__init
-                     (UpdateAccept         *message)
+void   update_commit__init
+                     (UpdateCommit         *message)
 {
-  static UpdateAccept init_value = UPDATE_ACCEPT__INIT;
+  static UpdateCommit init_value = UPDATE_COMMIT__INIT;
   *message = init_value;
 }
-size_t update_accept__get_packed_size
-                     (const UpdateAccept *message)
+size_t update_commit__get_packed_size
+                     (const UpdateCommit *message)
 {
-  assert(message->base.descriptor == &update_accept__descriptor);
+  assert(message->base.descriptor == &update_commit__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t update_accept__pack
-                     (const UpdateAccept *message,
+size_t update_commit__pack
+                     (const UpdateCommit *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &update_accept__descriptor);
+  assert(message->base.descriptor == &update_commit__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t update_accept__pack_to_buffer
-                     (const UpdateAccept *message,
+size_t update_commit__pack_to_buffer
+                     (const UpdateCommit *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &update_accept__descriptor);
+  assert(message->base.descriptor == &update_commit__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-UpdateAccept *
-       update_accept__unpack
+UpdateCommit *
+       update_commit__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (UpdateAccept *)
-     protobuf_c_message_unpack (&update_accept__descriptor,
+  return (UpdateCommit *)
+     protobuf_c_message_unpack (&update_commit__descriptor,
                                 allocator, len, data);
 }
-void   update_accept__free_unpacked
-                     (UpdateAccept *message,
+void   update_commit__free_unpacked
+                     (UpdateCommit *message,
                       ProtobufCAllocator *allocator)
 {
-  assert(message->base.descriptor == &update_accept__descriptor);
+  assert(message->base.descriptor == &update_commit__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   update_signature__init
-                     (UpdateSignature         *message)
+void   update_revocation__init
+                     (UpdateRevocation         *message)
 {
-  static UpdateSignature init_value = UPDATE_SIGNATURE__INIT;
+  static UpdateRevocation init_value = UPDATE_REVOCATION__INIT;
   *message = init_value;
 }
-size_t update_signature__get_packed_size
-                     (const UpdateSignature *message)
+size_t update_revocation__get_packed_size
+                     (const UpdateRevocation *message)
 {
-  assert(message->base.descriptor == &update_signature__descriptor);
+  assert(message->base.descriptor == &update_revocation__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t update_signature__pack
-                     (const UpdateSignature *message,
+size_t update_revocation__pack
+                     (const UpdateRevocation *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &update_signature__descriptor);
+  assert(message->base.descriptor == &update_revocation__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t update_signature__pack_to_buffer
-                     (const UpdateSignature *message,
+size_t update_revocation__pack_to_buffer
+                     (const UpdateRevocation *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &update_signature__descriptor);
+  assert(message->base.descriptor == &update_revocation__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-UpdateSignature *
-       update_signature__unpack
+UpdateRevocation *
+       update_revocation__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (UpdateSignature *)
-     protobuf_c_message_unpack (&update_signature__descriptor,
+  return (UpdateRevocation *)
+     protobuf_c_message_unpack (&update_revocation__descriptor,
                                 allocator, len, data);
 }
-void   update_signature__free_unpacked
-                     (UpdateSignature *message,
+void   update_revocation__free_unpacked
+                     (UpdateRevocation *message,
                       ProtobufCAllocator *allocator)
 {
-  assert(message->base.descriptor == &update_signature__descriptor);
+  assert(message->base.descriptor == &update_revocation__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   update_complete__init
-                     (UpdateComplete         *message)
+void   close_clearing__init
+                     (CloseClearing         *message)
 {
-  static UpdateComplete init_value = UPDATE_COMPLETE__INIT;
+  static CloseClearing init_value = CLOSE_CLEARING__INIT;
   *message = init_value;
 }
-size_t update_complete__get_packed_size
-                     (const UpdateComplete *message)
+size_t close_clearing__get_packed_size
+                     (const CloseClearing *message)
 {
-  assert(message->base.descriptor == &update_complete__descriptor);
+  assert(message->base.descriptor == &close_clearing__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t update_complete__pack
-                     (const UpdateComplete *message,
+size_t close_clearing__pack
+                     (const CloseClearing *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &update_complete__descriptor);
+  assert(message->base.descriptor == &close_clearing__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t update_complete__pack_to_buffer
-                     (const UpdateComplete *message,
+size_t close_clearing__pack_to_buffer
+                     (const CloseClearing *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &update_complete__descriptor);
+  assert(message->base.descriptor == &close_clearing__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-UpdateComplete *
-       update_complete__unpack
+CloseClearing *
+       close_clearing__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (UpdateComplete *)
-     protobuf_c_message_unpack (&update_complete__descriptor,
+  return (CloseClearing *)
+     protobuf_c_message_unpack (&close_clearing__descriptor,
                                 allocator, len, data);
 }
-void   update_complete__free_unpacked
-                     (UpdateComplete *message,
+void   close_clearing__free_unpacked
+                     (CloseClearing *message,
                       ProtobufCAllocator *allocator)
 {
-  assert(message->base.descriptor == &update_complete__descriptor);
+  assert(message->base.descriptor == &close_clearing__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   close_channel__init
-                     (CloseChannel         *message)
+void   close_signature__init
+                     (CloseSignature         *message)
 {
-  static CloseChannel init_value = CLOSE_CHANNEL__INIT;
+  static CloseSignature init_value = CLOSE_SIGNATURE__INIT;
   *message = init_value;
 }
-size_t close_channel__get_packed_size
-                     (const CloseChannel *message)
+size_t close_signature__get_packed_size
+                     (const CloseSignature *message)
 {
-  assert(message->base.descriptor == &close_channel__descriptor);
+  assert(message->base.descriptor == &close_signature__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t close_channel__pack
-                     (const CloseChannel *message,
+size_t close_signature__pack
+                     (const CloseSignature *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &close_channel__descriptor);
+  assert(message->base.descriptor == &close_signature__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t close_channel__pack_to_buffer
-                     (const CloseChannel *message,
+size_t close_signature__pack_to_buffer
+                     (const CloseSignature *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &close_channel__descriptor);
+  assert(message->base.descriptor == &close_signature__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-CloseChannel *
-       close_channel__unpack
+CloseSignature *
+       close_signature__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (CloseChannel *)
-     protobuf_c_message_unpack (&close_channel__descriptor,
+  return (CloseSignature *)
+     protobuf_c_message_unpack (&close_signature__descriptor,
                                 allocator, len, data);
 }
-void   close_channel__free_unpacked
-                     (CloseChannel *message,
+void   close_signature__free_unpacked
+                     (CloseSignature *message,
                       ProtobufCAllocator *allocator)
 {
-  assert(message->base.descriptor == &close_channel__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
-}
-void   close_channel_complete__init
-                     (CloseChannelComplete         *message)
-{
-  static CloseChannelComplete init_value = CLOSE_CHANNEL_COMPLETE__INIT;
-  *message = init_value;
-}
-size_t close_channel_complete__get_packed_size
-                     (const CloseChannelComplete *message)
-{
-  assert(message->base.descriptor == &close_channel_complete__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
-}
-size_t close_channel_complete__pack
-                     (const CloseChannelComplete *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &close_channel_complete__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
-}
-size_t close_channel_complete__pack_to_buffer
-                     (const CloseChannelComplete *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &close_channel_complete__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
-}
-CloseChannelComplete *
-       close_channel_complete__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (CloseChannelComplete *)
-     protobuf_c_message_unpack (&close_channel_complete__descriptor,
-                                allocator, len, data);
-}
-void   close_channel_complete__free_unpacked
-                     (CloseChannelComplete *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &close_channel_complete__descriptor);
-  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
-}
-void   close_channel_ack__init
-                     (CloseChannelAck         *message)
-{
-  static CloseChannelAck init_value = CLOSE_CHANNEL_ACK__INIT;
-  *message = init_value;
-}
-size_t close_channel_ack__get_packed_size
-                     (const CloseChannelAck *message)
-{
-  assert(message->base.descriptor == &close_channel_ack__descriptor);
-  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
-}
-size_t close_channel_ack__pack
-                     (const CloseChannelAck *message,
-                      uint8_t       *out)
-{
-  assert(message->base.descriptor == &close_channel_ack__descriptor);
-  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
-}
-size_t close_channel_ack__pack_to_buffer
-                     (const CloseChannelAck *message,
-                      ProtobufCBuffer *buffer)
-{
-  assert(message->base.descriptor == &close_channel_ack__descriptor);
-  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
-}
-CloseChannelAck *
-       close_channel_ack__unpack
-                     (ProtobufCAllocator  *allocator,
-                      size_t               len,
-                      const uint8_t       *data)
-{
-  return (CloseChannelAck *)
-     protobuf_c_message_unpack (&close_channel_ack__descriptor,
-                                allocator, len, data);
-}
-void   close_channel_ack__free_unpacked
-                     (CloseChannelAck *message,
-                      ProtobufCAllocator *allocator)
-{
-  assert(message->base.descriptor == &close_channel_ack__descriptor);
+  assert(message->base.descriptor == &close_signature__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   error__init
@@ -1467,7 +1338,7 @@ const ProtobufCEnumDescriptor open_channel__anchor_offer__descriptor =
   NULL,NULL,NULL,NULL   /* reserved[1234] */
 };
 static const uint32_t open_channel__min_depth__default_value = 0u;
-static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
+static const ProtobufCFieldDescriptor open_channel__field_descriptors[8] =
 {
   {
     "delay",
@@ -1542,13 +1413,25 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "commitment_fee",
+    "initial_fee_rate",
     7,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_UINT64,
     0,   /* quantifier_offset */
-    offsetof(OpenChannel, commitment_fee),
+    offsetof(OpenChannel, initial_fee_rate),
     NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "next_revocation_hash",
+    8,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(OpenChannel, next_revocation_hash),
+    &sha256_hash__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -1557,16 +1440,17 @@ static const ProtobufCFieldDescriptor open_channel__field_descriptors[7] =
 static const unsigned open_channel__field_indices_by_name[] = {
   4,   /* field[4] = anch */
   2,   /* field[2] = commit_key */
-  6,   /* field[6] = commitment_fee */
   0,   /* field[0] = delay */
   3,   /* field[3] = final_key */
+  6,   /* field[6] = initial_fee_rate */
   5,   /* field[5] = min_depth */
+  7,   /* field[7] = next_revocation_hash */
   1,   /* field[1] = revocation_hash */
 };
 static const ProtobufCIntRange open_channel__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 7 }
+  { 0, 8 }
 };
 const ProtobufCMessageDescriptor open_channel__descriptor =
 {
@@ -1576,7 +1460,7 @@ const ProtobufCMessageDescriptor open_channel__descriptor =
   "OpenChannel",
   "",
   sizeof(OpenChannel),
-  7,
+  8,
   open_channel__field_descriptors,
   open_channel__field_indices_by_name,
   1,  open_channel__number_ranges,
@@ -1736,67 +1620,54 @@ const ProtobufCMessageDescriptor open_complete__descriptor =
   (ProtobufCMessageInit) open_complete__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor update__field_descriptors[2] =
+static const ProtobufCFieldDescriptor routing__field_descriptors[1] =
 {
   {
-    "revocation_hash",
+    "info",
     1,
     PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
+    PROTOBUF_C_TYPE_BYTES,
     0,   /* quantifier_offset */
-    offsetof(Update, revocation_hash),
-    &sha256_hash__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "delta_msat",
-    2,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_SINT64,
-    0,   /* quantifier_offset */
-    offsetof(Update, delta_msat),
+    offsetof(Routing, info),
     NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned update__field_indices_by_name[] = {
-  1,   /* field[1] = delta_msat */
-  0,   /* field[0] = revocation_hash */
+static const unsigned routing__field_indices_by_name[] = {
+  0,   /* field[0] = info */
 };
-static const ProtobufCIntRange update__number_ranges[1 + 1] =
+static const ProtobufCIntRange routing__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 2 }
+  { 0, 1 }
 };
-const ProtobufCMessageDescriptor update__descriptor =
+const ProtobufCMessageDescriptor routing__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "update",
-  "Update",
-  "Update",
+  "routing",
+  "Routing",
+  "Routing",
   "",
-  sizeof(Update),
-  2,
-  update__field_descriptors,
-  update__field_indices_by_name,
-  1,  update__number_ranges,
-  (ProtobufCMessageInit) update__init,
+  sizeof(Routing),
+  1,
+  routing__field_descriptors,
+  routing__field_indices_by_name,
+  1,  routing__number_ranges,
+  (ProtobufCMessageInit) routing__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor update_add_htlc__field_descriptors[4] =
+static const ProtobufCFieldDescriptor update_add_htlc__field_descriptors[5] =
 {
   {
-    "revocation_hash",
+    "id",
     1,
     PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
+    PROTOBUF_C_TYPE_UINT64,
     0,   /* quantifier_offset */
-    offsetof(UpdateAddHtlc, revocation_hash),
-    &sha256_hash__descriptor,
+    offsetof(UpdateAddHtlc, id),
+    NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -1837,17 +1708,30 @@ static const ProtobufCFieldDescriptor update_add_htlc__field_descriptors[4] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "route",
+    5,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(UpdateAddHtlc, route),
+    &routing__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned update_add_htlc__field_indices_by_name[] = {
   1,   /* field[1] = amount_msat */
   3,   /* field[3] = expiry */
+  0,   /* field[0] = id */
   2,   /* field[2] = r_hash */
-  0,   /* field[0] = revocation_hash */
+  4,   /* field[4] = route */
 };
 static const ProtobufCIntRange update_add_htlc__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 4 }
+  { 0, 5 }
 };
 const ProtobufCMessageDescriptor update_add_htlc__descriptor =
 {
@@ -1857,74 +1741,23 @@ const ProtobufCMessageDescriptor update_add_htlc__descriptor =
   "UpdateAddHtlc",
   "",
   sizeof(UpdateAddHtlc),
-  4,
+  5,
   update_add_htlc__field_descriptors,
   update_add_htlc__field_indices_by_name,
   1,  update_add_htlc__number_ranges,
   (ProtobufCMessageInit) update_add_htlc__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor update_decline_htlc__field_descriptors[2] =
-{
-  {
-    "insufficient_funds",
-    1,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(UpdateDeclineHtlc, reason_case),
-    offsetof(UpdateDeclineHtlc, insufficient_funds),
-    &funding__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "cannot_route",
-    2,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_BOOL,
-    offsetof(UpdateDeclineHtlc, reason_case),
-    offsetof(UpdateDeclineHtlc, cannot_route),
-    NULL,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned update_decline_htlc__field_indices_by_name[] = {
-  1,   /* field[1] = cannot_route */
-  0,   /* field[0] = insufficient_funds */
-};
-static const ProtobufCIntRange update_decline_htlc__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 2 }
-};
-const ProtobufCMessageDescriptor update_decline_htlc__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "update_decline_htlc",
-  "UpdateDeclineHtlc",
-  "UpdateDeclineHtlc",
-  "",
-  sizeof(UpdateDeclineHtlc),
-  2,
-  update_decline_htlc__field_descriptors,
-  update_decline_htlc__field_indices_by_name,
-  1,  update_decline_htlc__number_ranges,
-  (ProtobufCMessageInit) update_decline_htlc__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
 static const ProtobufCFieldDescriptor update_fulfill_htlc__field_descriptors[2] =
 {
   {
-    "revocation_hash",
+    "id",
     1,
     PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
+    PROTOBUF_C_TYPE_UINT64,
     0,   /* quantifier_offset */
-    offsetof(UpdateFulfillHtlc, revocation_hash),
-    &sha256_hash__descriptor,
+    offsetof(UpdateFulfillHtlc, id),
+    NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -1943,8 +1776,8 @@ static const ProtobufCFieldDescriptor update_fulfill_htlc__field_descriptors[2] 
   },
 };
 static const unsigned update_fulfill_htlc__field_indices_by_name[] = {
+  0,   /* field[0] = id */
   1,   /* field[1] = r */
-  0,   /* field[0] = revocation_hash */
 };
 static const ProtobufCIntRange update_fulfill_htlc__number_ranges[1 + 1] =
 {
@@ -1966,300 +1799,96 @@ const ProtobufCMessageDescriptor update_fulfill_htlc__descriptor =
   (ProtobufCMessageInit) update_fulfill_htlc__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor update_timedout_htlc__field_descriptors[2] =
+static const ProtobufCFieldDescriptor fail_reason__field_descriptors[1] =
 {
   {
-    "revocation_hash",
+    "info",
     1,
     PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
+    PROTOBUF_C_TYPE_BYTES,
     0,   /* quantifier_offset */
-    offsetof(UpdateTimedoutHtlc, revocation_hash),
-    &sha256_hash__descriptor,
+    offsetof(FailReason, info),
     NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "r_hash",
-    2,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(UpdateTimedoutHtlc, r_hash),
-    &sha256_hash__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned update_timedout_htlc__field_indices_by_name[] = {
-  1,   /* field[1] = r_hash */
-  0,   /* field[0] = revocation_hash */
+static const unsigned fail_reason__field_indices_by_name[] = {
+  0,   /* field[0] = info */
 };
-static const ProtobufCIntRange update_timedout_htlc__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 2 }
-};
-const ProtobufCMessageDescriptor update_timedout_htlc__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "update_timedout_htlc",
-  "UpdateTimedoutHtlc",
-  "UpdateTimedoutHtlc",
-  "",
-  sizeof(UpdateTimedoutHtlc),
-  2,
-  update_timedout_htlc__field_descriptors,
-  update_timedout_htlc__field_indices_by_name,
-  1,  update_timedout_htlc__number_ranges,
-  (ProtobufCMessageInit) update_timedout_htlc__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
-static const ProtobufCFieldDescriptor update_routefail_htlc__field_descriptors[2] =
-{
-  {
-    "revocation_hash",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(UpdateRoutefailHtlc, revocation_hash),
-    &sha256_hash__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "r_hash",
-    2,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(UpdateRoutefailHtlc, r_hash),
-    &sha256_hash__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned update_routefail_htlc__field_indices_by_name[] = {
-  1,   /* field[1] = r_hash */
-  0,   /* field[0] = revocation_hash */
-};
-static const ProtobufCIntRange update_routefail_htlc__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 2 }
-};
-const ProtobufCMessageDescriptor update_routefail_htlc__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "update_routefail_htlc",
-  "UpdateRoutefailHtlc",
-  "UpdateRoutefailHtlc",
-  "",
-  sizeof(UpdateRoutefailHtlc),
-  2,
-  update_routefail_htlc__field_descriptors,
-  update_routefail_htlc__field_indices_by_name,
-  1,  update_routefail_htlc__number_ranges,
-  (ProtobufCMessageInit) update_routefail_htlc__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
-static const ProtobufCFieldDescriptor update_accept__field_descriptors[2] =
-{
-  {
-    "sig",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(UpdateAccept, sig),
-    &signature__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "revocation_hash",
-    2,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(UpdateAccept, revocation_hash),
-    &sha256_hash__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned update_accept__field_indices_by_name[] = {
-  1,   /* field[1] = revocation_hash */
-  0,   /* field[0] = sig */
-};
-static const ProtobufCIntRange update_accept__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 2 }
-};
-const ProtobufCMessageDescriptor update_accept__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "update_accept",
-  "UpdateAccept",
-  "UpdateAccept",
-  "",
-  sizeof(UpdateAccept),
-  2,
-  update_accept__field_descriptors,
-  update_accept__field_indices_by_name,
-  1,  update_accept__number_ranges,
-  (ProtobufCMessageInit) update_accept__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
-static const ProtobufCFieldDescriptor update_signature__field_descriptors[2] =
-{
-  {
-    "sig",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(UpdateSignature, sig),
-    &signature__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "revocation_preimage",
-    2,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(UpdateSignature, revocation_preimage),
-    &sha256_hash__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned update_signature__field_indices_by_name[] = {
-  1,   /* field[1] = revocation_preimage */
-  0,   /* field[0] = sig */
-};
-static const ProtobufCIntRange update_signature__number_ranges[1 + 1] =
-{
-  { 1, 0 },
-  { 0, 2 }
-};
-const ProtobufCMessageDescriptor update_signature__descriptor =
-{
-  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "update_signature",
-  "UpdateSignature",
-  "UpdateSignature",
-  "",
-  sizeof(UpdateSignature),
-  2,
-  update_signature__field_descriptors,
-  update_signature__field_indices_by_name,
-  1,  update_signature__number_ranges,
-  (ProtobufCMessageInit) update_signature__init,
-  NULL,NULL,NULL    /* reserved[123] */
-};
-static const ProtobufCFieldDescriptor update_complete__field_descriptors[1] =
-{
-  {
-    "revocation_preimage",
-    1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(UpdateComplete, revocation_preimage),
-    &sha256_hash__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-};
-static const unsigned update_complete__field_indices_by_name[] = {
-  0,   /* field[0] = revocation_preimage */
-};
-static const ProtobufCIntRange update_complete__number_ranges[1 + 1] =
+static const ProtobufCIntRange fail_reason__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 1 }
 };
-const ProtobufCMessageDescriptor update_complete__descriptor =
+const ProtobufCMessageDescriptor fail_reason__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "update_complete",
-  "UpdateComplete",
-  "UpdateComplete",
+  "fail_reason",
+  "FailReason",
+  "FailReason",
   "",
-  sizeof(UpdateComplete),
+  sizeof(FailReason),
   1,
-  update_complete__field_descriptors,
-  update_complete__field_indices_by_name,
-  1,  update_complete__number_ranges,
-  (ProtobufCMessageInit) update_complete__init,
+  fail_reason__field_descriptors,
+  fail_reason__field_indices_by_name,
+  1,  fail_reason__number_ranges,
+  (ProtobufCMessageInit) fail_reason__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor close_channel__field_descriptors[2] =
+static const ProtobufCFieldDescriptor update_fail_htlc__field_descriptors[2] =
 {
   {
-    "sig",
+    "id",
     1,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(CloseChannel, sig),
-    &signature__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "close_fee",
-    2,
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_UINT64,
     0,   /* quantifier_offset */
-    offsetof(CloseChannel, close_fee),
+    offsetof(UpdateFailHtlc, id),
     NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "reason",
+    2,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(UpdateFailHtlc, reason),
+    &fail_reason__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
-static const unsigned close_channel__field_indices_by_name[] = {
-  1,   /* field[1] = close_fee */
-  0,   /* field[0] = sig */
+static const unsigned update_fail_htlc__field_indices_by_name[] = {
+  0,   /* field[0] = id */
+  1,   /* field[1] = reason */
 };
-static const ProtobufCIntRange close_channel__number_ranges[1 + 1] =
+static const ProtobufCIntRange update_fail_htlc__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 2 }
 };
-const ProtobufCMessageDescriptor close_channel__descriptor =
+const ProtobufCMessageDescriptor update_fail_htlc__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "close_channel",
-  "CloseChannel",
-  "CloseChannel",
+  "update_fail_htlc",
+  "UpdateFailHtlc",
+  "UpdateFailHtlc",
   "",
-  sizeof(CloseChannel),
+  sizeof(UpdateFailHtlc),
   2,
-  close_channel__field_descriptors,
-  close_channel__field_indices_by_name,
-  1,  close_channel__number_ranges,
-  (ProtobufCMessageInit) close_channel__init,
+  update_fail_htlc__field_descriptors,
+  update_fail_htlc__field_indices_by_name,
+  1,  update_fail_htlc__number_ranges,
+  (ProtobufCMessageInit) update_fail_htlc__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor close_channel_complete__field_descriptors[1] =
+static const ProtobufCFieldDescriptor update_commit__field_descriptors[1] =
 {
   {
     "sig",
@@ -2267,52 +1896,154 @@ static const ProtobufCFieldDescriptor close_channel_complete__field_descriptors[
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(CloseChannelComplete, sig),
+    offsetof(UpdateCommit, sig),
     &signature__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned close_channel_complete__field_indices_by_name[] = {
+static const unsigned update_commit__field_indices_by_name[] = {
   0,   /* field[0] = sig */
 };
-static const ProtobufCIntRange close_channel_complete__number_ranges[1 + 1] =
+static const ProtobufCIntRange update_commit__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 1 }
 };
-const ProtobufCMessageDescriptor close_channel_complete__descriptor =
+const ProtobufCMessageDescriptor update_commit__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "close_channel_complete",
-  "CloseChannelComplete",
-  "CloseChannelComplete",
+  "update_commit",
+  "UpdateCommit",
+  "UpdateCommit",
   "",
-  sizeof(CloseChannelComplete),
+  sizeof(UpdateCommit),
   1,
-  close_channel_complete__field_descriptors,
-  close_channel_complete__field_indices_by_name,
-  1,  close_channel_complete__number_ranges,
-  (ProtobufCMessageInit) close_channel_complete__init,
+  update_commit__field_descriptors,
+  update_commit__field_indices_by_name,
+  1,  update_commit__number_ranges,
+  (ProtobufCMessageInit) update_commit__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-#define close_channel_ack__field_descriptors NULL
-#define close_channel_ack__field_indices_by_name NULL
-#define close_channel_ack__number_ranges NULL
-const ProtobufCMessageDescriptor close_channel_ack__descriptor =
+static const ProtobufCFieldDescriptor update_revocation__field_descriptors[2] =
+{
+  {
+    "revocation_preimage",
+    1,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(UpdateRevocation, revocation_preimage),
+    &sha256_hash__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "next_revocation_hash",
+    2,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(UpdateRevocation, next_revocation_hash),
+    &sha256_hash__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned update_revocation__field_indices_by_name[] = {
+  1,   /* field[1] = next_revocation_hash */
+  0,   /* field[0] = revocation_preimage */
+};
+static const ProtobufCIntRange update_revocation__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 2 }
+};
+const ProtobufCMessageDescriptor update_revocation__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "close_channel_ack",
-  "CloseChannelAck",
-  "CloseChannelAck",
+  "update_revocation",
+  "UpdateRevocation",
+  "UpdateRevocation",
   "",
-  sizeof(CloseChannelAck),
+  sizeof(UpdateRevocation),
+  2,
+  update_revocation__field_descriptors,
+  update_revocation__field_indices_by_name,
+  1,  update_revocation__number_ranges,
+  (ProtobufCMessageInit) update_revocation__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+#define close_clearing__field_descriptors NULL
+#define close_clearing__field_indices_by_name NULL
+#define close_clearing__number_ranges NULL
+const ProtobufCMessageDescriptor close_clearing__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "close_clearing",
+  "CloseClearing",
+  "CloseClearing",
+  "",
+  sizeof(CloseClearing),
   0,
-  close_channel_ack__field_descriptors,
-  close_channel_ack__field_indices_by_name,
-  0,  close_channel_ack__number_ranges,
-  (ProtobufCMessageInit) close_channel_ack__init,
+  close_clearing__field_descriptors,
+  close_clearing__field_indices_by_name,
+  0,  close_clearing__number_ranges,
+  (ProtobufCMessageInit) close_clearing__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor close_signature__field_descriptors[2] =
+{
+  {
+    "close_fee",
+    1,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT64,
+    0,   /* quantifier_offset */
+    offsetof(CloseSignature, close_fee),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "sig",
+    2,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(CloseSignature, sig),
+    &signature__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned close_signature__field_indices_by_name[] = {
+  0,   /* field[0] = close_fee */
+  1,   /* field[1] = sig */
+};
+static const ProtobufCIntRange close_signature__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 2 }
+};
+const ProtobufCMessageDescriptor close_signature__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "close_signature",
+  "CloseSignature",
+  "CloseSignature",
+  "",
+  sizeof(CloseSignature),
+  2,
+  close_signature__field_descriptors,
+  close_signature__field_indices_by_name,
+  1,  close_signature__number_ranges,
+  (ProtobufCMessageInit) close_signature__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCFieldDescriptor error__field_descriptors[1] =
@@ -2353,20 +2084,8 @@ const ProtobufCMessageDescriptor error__descriptor =
   (ProtobufCMessageInit) error__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor pkt__field_descriptors[18] =
+static const ProtobufCFieldDescriptor pkt__field_descriptors[13] =
 {
-  {
-    "update",
-    1,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Pkt, pkt_case),
-    offsetof(Pkt, update),
-    &update__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
   {
     "update_add_htlc",
     2,
@@ -2380,56 +2099,8 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[18] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "update_accept",
-    3,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Pkt, pkt_case),
-    offsetof(Pkt, update_accept),
-    &update_accept__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "update_signature",
-    4,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Pkt, pkt_case),
-    offsetof(Pkt, update_signature),
-    &update_signature__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "update_complete",
-    5,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Pkt, pkt_case),
-    offsetof(Pkt, update_complete),
-    &update_complete__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "update_decline_htlc",
-    6,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Pkt, pkt_case),
-    offsetof(Pkt, update_decline_htlc),
-    &update_decline_htlc__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
     "update_fulfill_htlc",
-    7,
+    3,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
@@ -2440,25 +2111,37 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[18] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "update_timedout_htlc",
-    8,
+    "update_fail_htlc",
+    4,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
-    offsetof(Pkt, update_timedout_htlc),
-    &update_timedout_htlc__descriptor,
+    offsetof(Pkt, update_fail_htlc),
+    &update_fail_htlc__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "update_routefail_htlc",
-    9,
+    "update_commit",
+    5,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
-    offsetof(Pkt, update_routefail_htlc),
-    &update_routefail_htlc__descriptor,
+    offsetof(Pkt, update_commit),
+    &update_commit__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "update_revocation",
+    6,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Pkt, pkt_case),
+    offsetof(Pkt, update_revocation),
+    &update_revocation__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -2512,37 +2195,25 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[18] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "close",
+    "close_clearing",
     30,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
-    offsetof(Pkt, close),
-    &close_channel__descriptor,
+    offsetof(Pkt, close_clearing),
+    &close_clearing__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "close_complete",
+    "close_signature",
     31,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
-    offsetof(Pkt, close_complete),
-    &close_channel_complete__descriptor,
-    NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "close_ack",
-    32,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Pkt, pkt_case),
-    offsetof(Pkt, close_ack),
-    &close_channel_ack__descriptor,
+    offsetof(Pkt, close_signature),
+    &close_signature__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -2573,33 +2244,28 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[18] =
   },
 };
 static const unsigned pkt__field_indices_by_name[] = {
-  17,   /* field[17] = auth */
-  13,   /* field[13] = close */
-  15,   /* field[15] = close_ack */
-  14,   /* field[14] = close_complete */
-  16,   /* field[16] = error */
-  9,   /* field[9] = open */
-  10,   /* field[10] = open_anchor */
-  11,   /* field[11] = open_commit_sig */
-  12,   /* field[12] = open_complete */
-  0,   /* field[0] = update */
-  2,   /* field[2] = update_accept */
-  1,   /* field[1] = update_add_htlc */
-  4,   /* field[4] = update_complete */
-  5,   /* field[5] = update_decline_htlc */
-  6,   /* field[6] = update_fulfill_htlc */
-  8,   /* field[8] = update_routefail_htlc */
-  3,   /* field[3] = update_signature */
-  7,   /* field[7] = update_timedout_htlc */
+  12,   /* field[12] = auth */
+  9,   /* field[9] = close_clearing */
+  10,   /* field[10] = close_signature */
+  11,   /* field[11] = error */
+  5,   /* field[5] = open */
+  6,   /* field[6] = open_anchor */
+  7,   /* field[7] = open_commit_sig */
+  8,   /* field[8] = open_complete */
+  0,   /* field[0] = update_add_htlc */
+  3,   /* field[3] = update_commit */
+  2,   /* field[2] = update_fail_htlc */
+  1,   /* field[1] = update_fulfill_htlc */
+  4,   /* field[4] = update_revocation */
 };
 static const ProtobufCIntRange pkt__number_ranges[5 + 1] =
 {
-  { 1, 0 },
-  { 20, 9 },
-  { 30, 13 },
-  { 40, 16 },
-  { 50, 17 },
-  { 0, 18 }
+  { 2, 0 },
+  { 20, 5 },
+  { 30, 9 },
+  { 40, 11 },
+  { 50, 12 },
+  { 0, 13 }
 };
 const ProtobufCMessageDescriptor pkt__descriptor =
 {
@@ -2609,7 +2275,7 @@ const ProtobufCMessageDescriptor pkt__descriptor =
   "Pkt",
   "",
   sizeof(Pkt),
-  18,
+  13,
   pkt__field_descriptors,
   pkt__field_indices_by_name,
   5,  pkt__number_ranges,
