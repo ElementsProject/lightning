@@ -10,6 +10,7 @@ You will need several development libraries:
 To Build on Ubuntu 15.10
 ------------------------
 Build protobuf-c dependency (>= 1.1.0):
+
 ```
 sudo apt-get install libprotoc-dev
 git clone https://github.com/protobuf-c/protobuf-c.git
@@ -21,7 +22,20 @@ make install
 cd ../
 ```
 
+Build libsodium:
+
+```
+wget https://download.libsodium.org/libsodium/releases/LATEST.tar.gz
+tar zxvf LATEST.tar.gz
+cd libsodium-1.0.10
+./configure
+make && make check
+make install
+cd ../
+```
+
 Clone lightning and initialize submodules:
+
 ```
 git clone https://github.com/ElementsProject/lightning.git
 cd lighting
