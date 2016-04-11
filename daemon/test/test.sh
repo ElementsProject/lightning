@@ -224,8 +224,11 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     TIME=$(($TIME + 24 * 60 * 60))
     lcli1 dev-mocktime $TIME
 
+    # Move bitcoind median time as well, so CSV moves.
+    $CLI setmocktime $TIME
+    $CLI generate 6
+    
     # Due to laziness, we trigger by block generation.
-    $CLI generate 1
     TIME=$(($TIME + 1))
     lcli1 dev-mocktime $TIME
     sleep 2

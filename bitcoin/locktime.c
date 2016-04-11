@@ -66,7 +66,7 @@ u32 rel_locktime_to_seconds(const struct rel_locktime *rel)
 {
 	assert(rel_locktime_is_seconds(rel));
 #if HAS_BIP68
-	return rel->locktime & BIP68_LOCKTIME_MASK;
+	return (rel->locktime & BIP68_LOCKTIME_MASK) << BIP68_SECONDS_SHIFT;
 #else
 	return rel->locktime - SECONDS_POINT;
 #endif
