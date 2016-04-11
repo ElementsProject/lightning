@@ -14,10 +14,10 @@
 #include <ccan/mem/mem.h>
 #include <ccan/short_types/short_types.h>
 #include <inttypes.h>
-#include <sodium/crypto_aead_chacha20poly1305.h>
-#include <sodium/randombytes.h>
 #include <secp256k1.h>
 #include <secp256k1_ecdh.h>
+#include <sodium/crypto_aead_chacha20poly1305.h>
+#include <sodium/randombytes.h>
 
 #define MAX_PKT_LEN (1024 * 1024)
 

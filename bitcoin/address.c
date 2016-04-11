@@ -1,7 +1,7 @@
 #include "address.h"
 #include "pubkey.h"
-#include <ccan/mem/mem.h>
 #include <ccan/crypto/sha256/sha256.h>
+#include <ccan/mem/mem.h>
 
 void bitcoin_address(const struct pubkey *key, struct bitcoin_address *addr)
 {
