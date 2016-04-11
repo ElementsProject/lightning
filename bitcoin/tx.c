@@ -8,18 +8,8 @@
 #include <ccan/str/hex/hex.h>
 #include <stdio.h>
 
-enum styles {
-	/* For making a signature */
-	SIG_STYLE,
-	/* linearizing for sendrawtransaction/getrawtransaction. */
-	LINEARIZE_STYLE,
-	/* For making transaction IDs. */
-	TXID_STYLE
-};
-
 static void add_varint(varint_t v,
-		       void (*add)(const void *, size_t, void *), void *addp,
-		       enum styles style)
+		       void (*add)(const void *, size_t, void *), void *addp)
 {
 	u8 buf[9], *p = buf;
 
@@ -50,56 +40,51 @@ static void add_varint(varint_t v,
 }
 
 static void add_le32(u32 v,
-		     void (*add)(const void *, size_t, void *), void *addp,
-		     enum styles style)
+		     void (*add)(const void *, size_t, void *), void *addp)
 {
 	le32 l = cpu_to_le32(v);
 	add(&l, sizeof(l), addp);
 }
 
 static void add_le64(u64 v,
-		     void (*add)(const void *, size_t, void *), void *addp,
-		     enum styles style)
+		     void (*add)(const void *, size_t, void *), void *addp)
 {
 	le64 l = cpu_to_le64(v);
 	add(&l, sizeof(l), addp);
 }
 
 static void add_tx_input(const struct bitcoin_tx_input *input,
-			 void (*add)(const void *, size_t, void *), void *addp,
-			 enum styles style)
+			 void (*add)(const void *, size_t, void *), void *addp)
 {
 	add(&input->txid, sizeof(input->txid), addp);
-	add_le32(input->index, add, addp, style);
-	add_varint(input->script_length, add, addp, style);
+	add_le32(input->index, add, addp);
+	add_varint(input->script_length, add, addp);
 	add(input->script, input->script_length, addp);
-	add_le32(input->sequence_number, add, addp, style);
+	add_le32(input->sequence_number, add, addp);
 }
 
 static void add_tx_output(const struct bitcoin_tx_output *output,
-			  void (*add)(const void *, size_t, void *), void *addp,
-			  enum styles style)
+			  void (*add)(const void *, size_t, void *), void *addp)
 {
-	add_le64(output->amount, add, addp, style);
-	add_varint(output->script_length, add, addp, style);
+	add_le64(output->amount, add, addp);
+	add_varint(output->script_length, add, addp);
 	add(output->script, output->script_length, addp);
 }
 
 static void add_tx(const struct bitcoin_tx *tx,
-		   void (*add)(const void *, size_t, void *), void *addp,
-		   enum styles style)
+		   void (*add)(const void *, size_t, void *), void *addp)
 {
 	varint_t i;
 
-	add_le32(tx->version, add, addp, style);
-	add_varint(tx->input_count, add, addp, style);
+	add_le32(tx->version, add, addp);
+	add_varint(tx->input_count, add, addp);
 	for (i = 0; i < tx->input_count; i++)
-		add_tx_input(&tx->input[i], add, addp, style);
+		add_tx_input(&tx->input[i], add, addp);
 
-	add_varint(tx->output_count, add, addp, style);
+	add_varint(tx->output_count, add, addp);
 	for (i = 0; i < tx->output_count; i++)
-		add_tx_output(&tx->output[i], add, addp, style);
-	add_le32(tx->lock_time, add, addp, style);
+		add_tx_output(&tx->output[i], add, addp);
+	add_le32(tx->lock_time, add, addp);
 }
 
 static void add_sha(const void *data, size_t len, void *shactx_)
@@ -118,7 +103,7 @@ void sha256_tx_for_sig(struct sha256_ctx *ctx, const struct bitcoin_tx *tx,
 	for (i = 0; i < tx->input_count; i++)
 		if (i != input_num)
 			assert(tx->input[i].script_length == 0);
-	add_tx(tx, add_sha, ctx, SIG_STYLE);
+	add_tx(tx, add_sha, ctx);
 }
 
 static void add_linearize(const void *data, size_t len, void *pptr_)
@@ -133,7 +118,7 @@ static void add_linearize(const void *data, size_t len, void *pptr_)
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
 {
 	u8 *arr = tal_arr(ctx, u8, 0);
-	add_tx(tx, add_linearize, &arr, LINEARIZE_STYLE);
+	add_tx(tx, add_linearize, &arr);
 	return arr;
 }
 
@@ -141,7 +126,7 @@ void bitcoin_txid(const struct bitcoin_tx *tx, struct sha256_double *txid)
 {
 	struct sha256_ctx ctx = SHA256_INIT;
 
-	add_tx(tx, add_sha, &ctx, TXID_STYLE);
+	add_tx(tx, add_sha, &ctx);
 	sha256_double_done(&ctx, txid);
 }
 
