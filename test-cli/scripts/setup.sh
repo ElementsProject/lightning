@@ -15,7 +15,6 @@ mkdir $DATADIR
 cat > $DATADIR/bitcoin.conf <<EOF
 regtest=1
 testnet=0
-walletbroadcast=0
 EOF
 
 $DAEMON &

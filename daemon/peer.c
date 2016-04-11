@@ -1221,10 +1221,19 @@ const struct bitcoin_tx *bitcoin_htlc_spend(const struct peer *peer,
 
 static void created_anchor(struct lightningd_state *dstate,
 			   const struct bitcoin_tx *tx,
+			   int change_output,
 			   struct peer *peer)
 {
+	size_t real_out;
+
 	bitcoin_txid(tx, &peer->anchor.txid);
-	peer->anchor.index = find_p2sh_out(tx, peer->anchor.redeemscript);
+	if (change_output == -1)
+		real_out = 0;
+	else
+		real_out = !change_output;
+
+	assert(find_p2sh_out(tx, peer->anchor.redeemscript) == real_out);
+	peer->anchor.index = real_out;
 	assert(peer->anchor.satoshis == tx->output[peer->anchor.index].amount);
 	/* We'll need this later, when we're told to broadcast it. */
 	peer->anchor.tx = tal_steal(peer, tx);
@@ -1235,24 +1244,20 @@ static void created_anchor(struct lightningd_state *dstate,
 /* Start creation of the bitcoin anchor tx. */
 void bitcoin_create_anchor(struct peer *peer, enum state_input done)
 {
-	struct sha256 h;
-	struct ripemd160 redeemhash;
-	char *p2shaddr;
+	struct bitcoin_tx *template = bitcoin_tx(peer, 0, 1);
 
 	/* We must be offering anchor for us to try creating it */
 	assert(peer->us.offer_anchor);
 
-	sha256(&h, peer->anchor.redeemscript,
-	       tal_count(peer->anchor.redeemscript));
-	ripemd160(&redeemhash, h.u.u8, sizeof(h));
-
-	p2shaddr = p2sh_to_base58(peer, peer->dstate->config.testnet,
-				  &redeemhash);
+	template->output[0].amount = peer->anchor.satoshis;
+	template->output[0].script
+		= scriptpubkey_p2sh(template, peer->anchor.redeemscript);
+	template->output[0].script_length
+		= tal_count(template->output[0].script);
 
 	assert(done == BITCOIN_ANCHOR_CREATED);
 
-	bitcoind_create_payment(peer->dstate, p2shaddr, peer->anchor.satoshis,
-				created_anchor, peer);
+	bitcoind_fund_transaction(peer->dstate, template, created_anchor, peer);
 }
 
 /* We didn't end up broadcasting the anchor: release the utxos.

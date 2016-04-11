@@ -390,41 +390,147 @@ void bitcoind_send_tx(struct lightningd_state *dstate,
 	tal_free(raw);
 }
 
-static void process_sendtoaddress(struct bitcoin_cli *bcli)
+struct funding_process {
+	struct peer *peer;
+	void (*cb)(struct lightningd_state *state,
+		   const struct bitcoin_tx *tx,
+		   int change_output,
+		   struct peer *peer);
+	int change_output;
+};
+
+static void process_signrawtransaction(struct bitcoin_cli *bcli)
 {
-	const char *out = (char *)bcli->output;
-	struct txid_lookup *lookup = tal(bcli->dstate, struct txid_lookup);
+	const jsmntok_t *tokens, *hex, *complete;
+	bool valid;
+	struct bitcoin_tx *tx;
+	struct funding_process *f = bcli->cb_arg;
 
-	/* We expect a txid (followed by \n, vs buffer including \0) */
-	if (bcli->output_bytes != sizeof(lookup->txidhex))
-		fatal("sendtoaddress failed: %.*s",
-		      (int)bcli->output_bytes, out);
+	/* Output:
+	   "{\n"
+	   "  \"hex\" : \"value\",           (string) The hex-encoded raw transaction with signature(s)\n"
+            "  \"complete\" : true|false,   (boolean) If the transaction has a complete set of signatures\n"
+	    ...*/
+	if (!bcli->output)
+		fatal("%s signrawtransaction %s: failed",
+		      bcli->args[0], bcli->args[3]);
 
-	memcpy(lookup->txidhex, bcli->output, sizeof(lookup->txidhex)-1);
-	lookup->txidhex[sizeof(lookup->txidhex)-1] = '\0';
-	log_debug(bcli->dstate->base_log, "sendtoaddress gave %s",
-		  lookup->txidhex);
-	lookup->cb_arg = bcli->cb_arg;
+	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
+	if (!tokens)
+		fatal("%s signrawtransaction %s: %s response (%.*s)?",
+		      bcli->args[0], bcli->args[2],
+		      valid ? "partial" : "invalid",
+		      (int)bcli->output_bytes, bcli->output);
+	if (tokens[0].type != JSMN_OBJECT)
+		fatal("%s signrawtransaction %s: gave non-object (%.*s)?",
+		      bcli->args[0], bcli->args[2],
+		      (int)bcli->output_bytes, bcli->output);
 
-	/* Now we need the actual transaction. */
-	start_bitcoin_cli(bcli->dstate, process_tx, bcli->cb, lookup,
-			  "gettransaction", lookup->txidhex, NULL);
+	complete = json_get_member(bcli->output, tokens, "complete");
+	if (!complete)
+		fatal("%s signrawtransaction %s had no complete member (%.*s)?",
+		      bcli->args[0], bcli->args[2],
+		      (int)bcli->output_bytes, bcli->output);
+	if (complete->end - complete->start != strlen("true")
+	    || strncmp(bcli->output + complete->start, "true", strlen("true")))
+		fatal("%s signrawtransaction %s not complete (%.*s)?",
+		      bcli->args[0], bcli->args[2],
+		      complete->end - complete->start,
+		      bcli->output + complete->start);
+
+	hex = json_get_member(bcli->output, tokens, "hex");
+	if (!hex)
+		fatal("%s signrawtransaction %s had no hex member (%.*s)?",
+		      bcli->args[0], bcli->args[2],
+		      (int)bcli->output_bytes, bcli->output);
+
+	tx = bitcoin_tx_from_hex(bcli, bcli->output + hex->start,
+				 hex->end - hex->start);
+	if (!tx)
+		fatal("%s signrawtransaction %s had bad hex member (%.*s)?",
+		      bcli->args[0], bcli->args[2],
+		      hex->end - hex->start, bcli->output + hex->start);
+
+	f->cb(bcli->dstate, tx, f->change_output, f->peer);
 }
 
-void bitcoind_create_payment(struct lightningd_state *dstate,
-			     const char *addr,
-			     u64 satoshis,
-			     void (*cb)(struct lightningd_state *dstate,
-					const struct bitcoin_tx *tx,
-					struct peer *peer),
-			     struct peer *peer)
+/* FIXME: handle lack of funds! */	
+static void process_fundrawtransaction(struct bitcoin_cli *bcli)
 {
-	char amtstr[STR_MAX_CHARS(satoshis) * 2 + 1];
-	sprintf(amtstr, "%"PRIu64 "." "%08"PRIu64,
-		satoshis / 100000000, satoshis % 100000000);
-	
-	start_bitcoin_cli(dstate, process_sendtoaddress, cb, peer,
-			  "sendtoaddress", addr, amtstr, NULL);
+	const jsmntok_t *tokens, *hex, *changepos;
+	char *hexstr, *end;
+	bool valid;
+	struct funding_process *f = bcli->cb_arg;
+
+	/* Output:
+	   "{\n"
+	   "  \"hex\":       \"value\", (string)  The resulting raw transaction (hex-encoded string)\n"
+	   "  \"fee\":       n,         (numeric) Fee the resulting transaction pays\n"
+	   "  \"changepos\": n          (numeric) The position of the added change output, or -1\n"
+	   "}\n"
+	*/
+	if (!bcli->output)
+		fatal("%s fundrawtransaction %s: failed",
+		      bcli->args[0], bcli->args[3]);
+
+	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
+	if (!tokens)
+		fatal("%s fundrawtransaction %s: %s response (%.*s)?",
+		      bcli->args[0], bcli->args[2],
+		      valid ? "partial" : "invalid",
+		      (int)bcli->output_bytes, bcli->output);
+	if (tokens[0].type != JSMN_OBJECT)
+		fatal("%s fundrawtransaction %s: gave non-object (%.*s)?",
+		      bcli->args[0], bcli->args[2],
+		      (int)bcli->output_bytes, bcli->output);
+	hex = json_get_member(bcli->output, tokens, "hex");
+	if (!hex)
+		fatal("%s fundrawtransaction %s had no hex member (%.*s)?",
+		      bcli->args[0], bcli->args[2],
+		      (int)bcli->output_bytes, bcli->output);
+
+	changepos = json_get_member(bcli->output, tokens, "changepos");
+	if (!changepos)
+		fatal("%s fundrawtransaction %s had no changepos member (%.*s)?",
+		      bcli->args[0], bcli->args[2],
+		      (int)bcli->output_bytes, bcli->output);
+	f->change_output = strtol(bcli->output + changepos->start, &end, 0);
+	if (end != bcli->output + changepos->end)
+		fatal("%s fundrawtransaction %s had bad changepos (%.*s)?",
+		      bcli->args[0], bcli->args[2],
+		      changepos->end - changepos->start,
+		      bcli->output + changepos->start);
+
+	/* We need a nul-terminated string. */
+	hexstr = tal_strndup(bcli, bcli->output + hex->start,
+			     hex->end - hex->start);
+	/* Now we need to sign those inputs! */
+	start_bitcoin_cli(bcli->dstate, process_signrawtransaction, NULL,
+			  f, "signrawtransaction", hexstr, NULL);
+}
+
+/* Adds and signs inputs to this tx from wallet. */
+void bitcoind_fund_transaction(struct lightningd_state *dstate,
+			       struct bitcoin_tx *tx_no_inputs,
+			       void (*cb)(struct lightningd_state *dstate,
+					  const struct bitcoin_tx *tx,
+					  int change_output,
+					  struct peer *peer),
+			       struct peer *peer)
+{
+	struct funding_process *f = tal(peer, struct funding_process);
+	u8 *raw = linearize_tx(dstate, tx_no_inputs);
+	char *hex = tal_arr(raw, char, hex_str_size(tal_count(raw)));
+
+	assert(tx_no_inputs->input_count == 0);
+
+	hex_encode(raw, tal_count(raw), hex, tal_count(hex));
+
+	f->peer = peer;
+	f->cb = cb;
+	start_bitcoin_cli(dstate, process_fundrawtransaction, NULL, f,
+			  "fundrawtransaction", hex, NULL);
+	tal_free(raw);
 }
 
 static void process_getblock(struct bitcoin_cli *bcli)
@@ -474,14 +580,12 @@ void bitcoind_get_mediantime(struct lightningd_state *dstate,
 			  "getblock", hex, NULL);
 }
 
-/* We make sure they have walletbroadcast=0, so we don't broadcast
- * the anchor. */
+/* Make testnet/regtest status matches us. */
 void check_bitcoind_config(struct lightningd_state *dstate)
 {
 	void *ctx = tal(dstate, char);
 	char *path, *config, **lines;
 	size_t i;
-	bool nowalletbroadcast = false;
 	int testnet = -1, regtest = -1;
 
 	path = path_simplify(ctx, path_join(ctx, path_cwd(ctx),
@@ -497,9 +601,6 @@ void check_bitcoind_config(struct lightningd_state *dstate)
 	for (i = 0; lines[i]; i++) {
 		char *str;
 		if (tal_strreg(ctx, lines[i],
-			       "^[ \t]*walletbroadcast[ \t]*=[ \t]*0"))
-			nowalletbroadcast = true;
-		else if (tal_strreg(ctx, lines[i],
 				    "^[ \t]*testnet[ \t]*=[ \t]*([01])", &str))
 			testnet = atoi(str);
 		else if (tal_strreg(ctx, lines[i],
@@ -507,10 +608,6 @@ void check_bitcoind_config(struct lightningd_state *dstate)
 			regtest = atoi(str);
 	}
 
-	if (!nowalletbroadcast)
-		log_unusual(dstate->base_log,
-			    "%s does not contain walletbroadcast=0",
-			    path);
 	if (dstate->config.testnet) {
 		if (testnet != 1 && regtest != 1)
 			log_unusual(dstate->base_log,
