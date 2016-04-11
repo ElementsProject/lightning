@@ -1125,6 +1125,8 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 	p2sh_out = find_p2sh_out(commit, redeemscript);
 	tx->input[0].index = p2sh_out;
 	tx->input[0].sequence_number = bitcoin_nsequence(&peer->them.locktime);
+	tx->input[0].amount = tal_dup(tx->input, u64,
+				      &commit->output[p2sh_out].amount);
 
 	tx->output[0].amount = commit->output[p2sh_out].amount;
 	tx->output[0].script = scriptpubkey_p2sh(tx,

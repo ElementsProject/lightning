@@ -56,6 +56,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	/* Our input spends the anchor tx output. */
 	tx->input[0].txid = *anchor_txid;
 	tx->input[0].index = anchor_index;
+	tx->input[0].amount = tal_dup(tx->input, u64, &anchor_satoshis);
 
 	/* First output is a P2SH to a complex redeem script (usu. for me) */
 	redeemscript = bitcoin_redeem_secret_or_delay(tx, our_final,

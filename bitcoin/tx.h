@@ -31,6 +31,9 @@ struct bitcoin_tx_input {
 	u8 *script;
 	u32 sequence_number;
 
+	/* Value of the output we're spending (NULL if unknown). */
+	u64 *amount;
+
 	/* Only if BIP141 used. */
 	u8 **witness;
 };

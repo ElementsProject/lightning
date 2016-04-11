@@ -226,6 +226,7 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 		/* We assume NULL is a zero bitmap */
 		assert(tx->input[i].script == NULL);
 		tx->input[i].sequence_number = 0xFFFFFFFF;
+		tx->input[i].amount = NULL;
 		tx->input[i].witness = NULL;
 	}
 	tx->lock_time = 0;
