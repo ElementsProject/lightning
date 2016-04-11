@@ -8,6 +8,8 @@
 #include <ccan/str/hex/hex.h>
 #include <stdio.h>
 
+#define SEGREGATED_WITNESS_FLAG 0x1
+
 static void add_varint(varint_t v,
 		       void (*add)(const void *, size_t, void *), void *addp)
 {
@@ -71,12 +73,57 @@ static void add_tx_output(const struct bitcoin_tx_output *output,
 	add(output->script, output->script_length, addp);
 }
 
+/* BIP 141:
+ * It is followed by stack items, with each item starts with a var_int
+ * to indicate the length. */
+static void add_witness(const u8 *witness, 
+			void (*add)(const void *, size_t, void *), void *addp)
+{
+	add_varint(tal_count(witness), add, addp);
+	add(witness, tal_count(witness), addp);
+}
+
+/* BIP144:
+ * If the witness is empty, the old serialization format should be used. */
+static bool uses_witness(const struct bitcoin_tx *tx)
+{
+	size_t i;
+
+	for (i = 0; i < tx->input_count; i++) {
+		if (tx->input[i].witness)
+			return true;
+	}
+	return false;
+}
+
 static void add_tx(const struct bitcoin_tx *tx,
-		   void (*add)(const void *, size_t, void *), void *addp)
+		   void (*add)(const void *, size_t, void *), void *addp,
+		   bool extended)
 {
 	varint_t i;
+	u8 flag = 0;
 
 	add_le32(tx->version, add, addp);
+
+	if (extended) {
+		u8 marker;
+		/* BIP 144 */
+		/* marker 	char 	Must be zero */
+		/* flag 	char 	Must be nonzero */
+		marker = 0;
+		add(&marker, 1, addp);
+		/* BIP 141: The flag MUST be a 1-byte non-zero
+		 * value. Currently, 0x01 MUST be used.
+		 *
+		 * BUT: Current segwit4 branch breaks fundrawtransaction;
+		 * it sees 0 inputs and thinks it's extended format.
+		 * Make it really an extended format, but without
+		 * witness. */
+		if (uses_witness(tx))
+			flag = SEGREGATED_WITNESS_FLAG;
+		add(&flag, 1, addp);
+	}
+
 	add_varint(tx->input_count, add, addp);
 	for (i = 0; i < tx->input_count; i++)
 		add_tx_input(&tx->input[i], add, addp);
@@ -84,6 +131,32 @@ static void add_tx(const struct bitcoin_tx *tx,
 	add_varint(tx->output_count, add, addp);
 	for (i = 0; i < tx->output_count; i++)
 		add_tx_output(&tx->output[i], add, addp);
+
+	if (flag & SEGREGATED_WITNESS_FLAG) {
+		/* BIP 141:
+		 * The witness is a serialization of all witness data
+		 * of the transaction. Each txin is associated with a
+		 * witness field. A witness field starts with a
+		 * var_int to indicate the number of stack items for
+		 * the txin.  */
+		for (i = 0; i < tx->input_count; i++) {
+			size_t j, elements;
+
+			/* Not every input needs a witness. */
+			if (!tx->input[i].witness) {
+				add_varint(0, add, addp);
+				continue;
+			}
+			elements = tal_count(tx->input[i].witness);
+			add_varint(elements, add, addp);
+			for (j = 0;
+			     j < tal_count(tx->input[i].witness);
+			     j++) {
+				add_witness(tx->input[i].witness[j],
+					    add, addp);
+			}
+		}
+	}
 	add_le32(tx->lock_time, add, addp);
 }
 
@@ -103,7 +176,7 @@ void sha256_tx_for_sig(struct sha256_ctx *ctx, const struct bitcoin_tx *tx,
 	for (i = 0; i < tx->input_count; i++)
 		if (i != input_num)
 			assert(tx->input[i].script_length == 0);
-	add_tx(tx, add_sha, ctx);
+	add_tx(tx, add_sha, ctx, false);
 }
 
 static void add_linearize(const void *data, size_t len, void *pptr_)
@@ -118,7 +191,7 @@ static void add_linearize(const void *data, size_t len, void *pptr_)
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
 {
 	u8 *arr = tal_arr(ctx, u8, 0);
-	add_tx(tx, add_linearize, &arr);
+	add_tx(tx, add_linearize, &arr, uses_witness(tx));
 	return arr;
 }
 
@@ -126,7 +199,8 @@ void bitcoin_txid(const struct bitcoin_tx *tx, struct sha256_double *txid)
 {
 	struct sha256_ctx ctx = SHA256_INIT;
 
-	add_tx(tx, add_sha, &ctx);
+	/* For TXID, we never use extended form. */
+	add_tx(tx, add_sha, &ctx, false);
 	sha256_double_done(&ctx, txid);
 }
 
@@ -144,6 +218,7 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 		/* We assume NULL is a zero bitmap */
 		assert(tx->input[i].script == NULL);
 		tx->input[i].sequence_number = 0xFFFFFFFF;
+		tx->input[i].witness = NULL;
 	}
 	tx->lock_time = 0;
 #if HAS_BIP68
@@ -273,14 +348,51 @@ static void pull_output(const tal_t *ctx, const u8 **cursor, size_t *max,
 	pull(cursor, max, output->script, output->script_length);
 }
 
+static u8 *pull_witness_item(const tal_t *ctx, const u8 **cursor, size_t *max)
+{
+	uint64_t len = pull_length(cursor, max);
+	u8 *item;
+
+	item = tal_arr(ctx, u8, len);
+	pull(cursor, max, item, len);
+	return item;
+}
+
+static void pull_witness(struct bitcoin_tx_input *inputs, size_t i,
+			 const u8 **cursor, size_t *max)
+{
+	uint64_t j, num = pull_length(cursor, max);
+
+	/* 0 means not using witness. */
+	if (num == 0) {
+		inputs[i].witness = NULL;
+		return;
+	}
+
+	inputs[i].witness = tal_arr(inputs, u8 *, num);
+	for (j = 0; j < num; j++) {
+		inputs[i].witness[j] = pull_witness_item(inputs[i].witness, 
+							 cursor, max);
+	}
+}
+
 static struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 					  const u8 **cursor, size_t *max)
 {
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 	size_t i;
+	u8 flag = 0;
 
 	tx->version = pull_le32(cursor, max);
 	tx->input_count = pull_length(cursor, max);
+	/* BIP 144 marker is 0 (impossible to have tx with 0 inputs) */
+	if (tx->input_count == 0) {
+		pull(cursor, max, &flag, 1);
+		if (flag != SEGREGATED_WITNESS_FLAG)
+			return tal_free(tx);
+		tx->input_count = pull_length(cursor, max);
+	}
+
 	tx->input = tal_arr(tx, struct bitcoin_tx_input, tx->input_count);
 	for (i = 0; i < tx->input_count; i++)
 		pull_input(tx, cursor, max, tx->input + i);
@@ -289,6 +401,14 @@ static struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 	tx->output = tal_arr(tx, struct bitcoin_tx_output, tx->output_count);
 	for (i = 0; i < tx->output_count; i++)
 		pull_output(tx, cursor, max, tx->output + i);
+
+	if (flag & SEGREGATED_WITNESS_FLAG) {
+		for (i = 0; i < tx->input_count; i++)
+			pull_witness(tx->input, i, cursor, max);
+	} else {
+		for (i = 0; i < tx->input_count; i++)
+			tx->input[i].witness = NULL;
+	}
 	tx->lock_time = pull_le32(cursor, max);
 
 	/* If we ran short, or have bytes left over, fail. */

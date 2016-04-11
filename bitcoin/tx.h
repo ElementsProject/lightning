@@ -30,6 +30,9 @@ struct bitcoin_tx_input {
 	varint_t script_length;
 	u8 *script;
 	u32 sequence_number;
+
+	/* Only if BIP141 used. */
+	u8 **witness;
 };
 
 
