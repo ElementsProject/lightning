@@ -46,6 +46,10 @@ void sha256_tx_for_sig(struct sha256_ctx *ctx, const struct bitcoin_tx *tx,
 /* Linear bytes of tx. */
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx);
 
+/* Force linearization in extended form; useful if 0 inputs. */
+u8 *linearize_tx_force_extended(const tal_t *ctx,
+				const struct bitcoin_tx *tx);
+
 /* Allocate a tx: you just need to fill in inputs and outputs (they're
  * zeroed with inputs' sequence_number set to FFFFFFFF) */
 struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,

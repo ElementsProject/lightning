@@ -195,6 +195,14 @@ u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
 	return arr;
 }
 
+u8 *linearize_tx_force_extended(const tal_t *ctx,
+				const struct bitcoin_tx *tx)
+{
+	u8 *arr = tal_arr(ctx, u8, 0);
+	add_tx(tx, add_linearize, &arr, true);
+	return arr;
+}
+
 void bitcoin_txid(const struct bitcoin_tx *tx, struct sha256_double *txid)
 {
 	struct sha256_ctx ctx = SHA256_INIT;

@@ -519,7 +519,7 @@ void bitcoind_fund_transaction(struct lightningd_state *dstate,
 			       struct peer *peer)
 {
 	struct funding_process *f = tal(peer, struct funding_process);
-	u8 *raw = linearize_tx(dstate, tx_no_inputs);
+	u8 *raw = linearize_tx_force_extended(dstate, tx_no_inputs);
 	char *hex = tal_arr(raw, char, hex_str_size(tal_count(raw)));
 
 	assert(tx_no_inputs->input_count == 0);
