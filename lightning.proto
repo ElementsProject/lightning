@@ -57,6 +57,8 @@ message authenticate {
   required bitcoin_pubkey node_id = 1;
   // Signature of your session key. */
   required signature session_sig = 2;
+  // How many (non-authenticate) packets we've already received
+  optional uint64 ack = 3 [ default = 0 ];
 };
 
 // Set channel params.
@@ -155,6 +157,8 @@ message update_fail_htlc {
 message update_commit {
   // Signature for your new commitment tx.
   required signature sig = 1;
+  // How many (non-authenticate) packets we've already received
+  required uint64 ack = 2;
 }
 
 // Complete the update.
@@ -163,6 +167,8 @@ message update_revocation {
   required sha256_hash revocation_preimage = 1;
   // Revocation hash for my next commit transaction
   required sha256_hash next_revocation_hash = 2;
+  // How many (non-authenticate) packets we've already received
+  required uint64 ack = 3;
 }
 
 // Start clearing out the channel HTLCs so we can close it

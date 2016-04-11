@@ -159,10 +159,15 @@ struct  _Authenticate
    * Signature of your session key. * 
    */
   Signature *session_sig;
+  /*
+   * How many (non-authenticate) packets we've already received
+   */
+  protobuf_c_boolean has_ack;
+  uint64_t ack;
 };
 #define AUTHENTICATE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&authenticate__descriptor) \
-    , NULL, NULL }
+    , NULL, NULL, 0,0ull }
 
 
 /*
@@ -372,10 +377,14 @@ struct  _UpdateCommit
    * Signature for your new commitment tx.
    */
   Signature *sig;
+  /*
+   * How many (non-authenticate) packets we've already received
+   */
+  uint64_t ack;
 };
 #define UPDATE_COMMIT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&update_commit__descriptor) \
-    , NULL }
+    , NULL, 0 }
 
 
 /*
@@ -392,10 +401,14 @@ struct  _UpdateRevocation
    * Revocation hash for my next commit transaction
    */
   Sha256Hash *next_revocation_hash;
+  /*
+   * How many (non-authenticate) packets we've already received
+   */
+  uint64_t ack;
 };
 #define UPDATE_REVOCATION__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&update_revocation__descriptor) \
-    , NULL, NULL }
+    , NULL, NULL, 0 }
 
 
 /*

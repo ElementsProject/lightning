@@ -3,6 +3,7 @@
 #include "close_tx.h"
 #include "commit_tx.h"
 #include "controlled_time.h"
+#include "cryptopkt.h"
 #include "find_p2sh_out.h"
 #include "lightningd.h"
 #include "log.h"
@@ -333,6 +334,7 @@ void queue_pkt_commit(struct peer *peer)
 	/* Now send message */
 	update_commit__init(u);
 	u->sig = signature_to_proto(u, &ci->sig->sig);
+	u->ack = peer_outgoing_ack(peer);
 
 	queue_pkt(peer, PKT__PKT_UPDATE_COMMIT, u);
 }
@@ -362,6 +364,7 @@ void queue_pkt_revocation(struct peer *peer)
 
 	u->next_revocation_hash = sha256_to_proto(u,
 						  &peer->us.next_revocation_hash);
+	u->ack = peer_outgoing_ack(peer);
 
 	queue_pkt(peer, PKT__PKT_UPDATE_REVOCATION, u);
 }

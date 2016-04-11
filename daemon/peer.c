@@ -280,8 +280,17 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 	idata.pkt = tal_steal(ctx, peer->inpkt);
 
 	/* We ignore packets if they tell us to. */
-	if (peer->cond != PEER_CLOSED)
+	if (peer->cond != PEER_CLOSED) {
+		/* These two packets contain acknowledgements. */
+		if (idata.pkt->pkt_case == PKT__PKT_UPDATE_COMMIT)
+			peer_process_acks(peer,
+					  idata.pkt->update_commit->ack);
+		else if (idata.pkt->pkt_case == PKT__PKT_UPDATE_REVOCATION)
+			peer_process_acks(peer,
+					  idata.pkt->update_revocation->ack);
+
 		state_event(peer, peer->inpkt->pkt_case, &idata);
+	}
 
 	/* Free peer->inpkt unless stolen above. */
 	tal_free(ctx);

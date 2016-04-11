@@ -22,25 +22,16 @@
 #define MAX_PKT_LEN (1024 * 1024)
 
 /* BOLT#1:
-   The header consists of the following fields in order:
-
-   * `acknowledge`: an 8-byte little-endian field indicating the number of non-`authenticate` messages received and processed so far.
-   * `length`: a 4-byte little-endian field indicating the size of the unencrypted body.
+   `length` is a 4-byte little-endian field indicating the size of the unencrypted body.
  */
 
-/* Do NOT take sizeof() this, since there's extra padding at the end! */
 struct crypto_pkt {
-	le64 acknowledge;
 	le32 length;
 	u8 auth_tag[crypto_aead_chacha20poly1305_ABYTES];
 
 	/* ... contents... */
 	u8 data[];
 };
-
-/* Use this instead of sizeof(struct crypto_pkt) */
-#define CRYPTO_HDR_LEN_NOTAG (8 + 4)
-#define CRYPTO_HDR_LEN (CRYPTO_HDR_LEN_NOTAG + crypto_aead_chacha20poly1305_ABYTES)
 
 /* Temporary structure for negotiation (peer->io_data->neg) */
 struct key_negotiate {
@@ -113,7 +104,7 @@ struct io_data {
 	/* Stuff we need to keep around to talk to peer. */
 	struct dir_state in, out;
 
-	/* Header we're currently reading. */
+	/* Length we're currently reading. */
 	struct crypto_pkt hdr_in;
 
 	/* Callback once packet decrypted. */
@@ -221,7 +212,7 @@ static Pkt *decrypt_pkt(struct peer *peer, struct crypto_pkt *cpkt,
 	return ret;
 }
 
-static struct crypto_pkt *encrypt_pkt(struct peer *peer, const Pkt *pkt, u64 ack,
+static struct crypto_pkt *encrypt_pkt(struct peer *peer, const Pkt *pkt,
 				      size_t *totlen)
 {
 	struct crypto_pkt *cpkt;
@@ -229,14 +220,13 @@ static struct crypto_pkt *encrypt_pkt(struct peer *peer, const Pkt *pkt, u64 ack
 	struct io_data *iod = peer->io_data;
 
 	len = pkt__get_packed_size(pkt);
-	*totlen = CRYPTO_HDR_LEN + len + crypto_aead_chacha20poly1305_ABYTES;
+	*totlen = sizeof(*cpkt) + len + crypto_aead_chacha20poly1305_ABYTES;
 
 	cpkt = (struct crypto_pkt *)tal_arr(peer, char, *totlen);
-	cpkt->acknowledge = cpu_to_le64(ack);
 	cpkt->length = cpu_to_le32(len);
 
 	/* Encrypt header. */
-	encrypt_in_place(cpkt, CRYPTO_HDR_LEN_NOTAG,
+	encrypt_in_place(cpkt, sizeof(cpkt->length),
 			 &iod->out.nonce, &iod->out.enckey);
 
 	/* Encrypt body. */
@@ -246,10 +236,28 @@ static struct crypto_pkt *encrypt_pkt(struct peer *peer, const Pkt *pkt, u64 ack
 	return cpkt;
 }
 
-static struct io_plan *decrypt_body(struct io_conn *conn, struct peer *peer)
+void peer_process_acks(struct peer *peer, uint64_t acknum)
 {
 	struct io_data *iod = peer->io_data;
 	struct ack *ack;
+
+	while ((ack = list_top(&iod->acks, struct ack, list)) != NULL) {
+		if (acknum < ack->pktnum)
+			break;
+		ack->ack_cb(peer, ack->ack_arg);
+		list_del_from(&iod->acks, &ack->list);
+		tal_free(ack);
+	}
+}
+
+uint64_t peer_outgoing_ack(const struct peer *peer)
+{
+	return peer->io_data->in.count;
+}
+
+static struct io_plan *decrypt_body(struct io_conn *conn, struct peer *peer)
+{
+	struct io_data *iod = peer->io_data;
 
 	/* We have full packet. */
 	peer->inpkt = decrypt_pkt(peer, iod->in.cpkt,
@@ -261,20 +269,10 @@ static struct io_plan *decrypt_body(struct io_conn *conn, struct peer *peer)
 	if (peer->inpkt->pkt_case != PKT__PKT_AUTH)
 		iod->in.count++;
 
-	log_debug(peer->log, "Received packet ACK=%"PRIu64" LEN=%u, type=%s",
-		  le64_to_cpu(iod->hdr_in.acknowledge),
+	log_debug(peer->log, "Received packet LEN=%u, type=%s",
 		  le32_to_cpu(iod->hdr_in.length),
 		  peer->inpkt->pkt_case == PKT__PKT_AUTH ? "PKT_AUTH"
 		  : input_name(peer->inpkt->pkt_case));
-
-	/* Do callbacks for any packets it acknowledged receiving. */
-	while ((ack = list_top(&iod->acks, struct ack, list)) != NULL) {
-		if (le64_to_cpu(iod->hdr_in.acknowledge) < ack->pktnum)
-			break;
-		ack->ack_cb(peer, ack->ack_arg);
-		list_del_from(&iod->acks, &ack->list);
-		tal_free(ack);
-	}
 
 	return iod->cb(conn, peer);
 }
@@ -284,8 +282,8 @@ static struct io_plan *decrypt_header(struct io_conn *conn, struct peer *peer)
 	struct io_data *iod = peer->io_data;
 	size_t body_len;
 
-	/* We have header: Check it. */
-	if (!decrypt_in_place(&iod->hdr_in, CRYPTO_HDR_LEN_NOTAG,
+	/* We have length: Check it. */
+	if (!decrypt_in_place(&iod->hdr_in.length, sizeof(iod->hdr_in.length),
 			      &iod->in.nonce, &iod->in.enckey)) {
 		log_unusual(peer->log, "Header decryption failed");
 		return io_close(conn);
@@ -305,9 +303,9 @@ static struct io_plan *decrypt_header(struct io_conn *conn, struct peer *peer)
 	body_len = le32_to_cpu(iod->hdr_in.length)
 		+ crypto_aead_chacha20poly1305_ABYTES;
 
-	iod->in.cpkt = (struct crypto_pkt *)tal_arr(peer, char,
-						    CRYPTO_HDR_LEN + body_len);
-	memcpy(iod->in.cpkt, &iod->hdr_in, CRYPTO_HDR_LEN);
+	iod->in.cpkt = (struct crypto_pkt *)
+		tal_arr(peer, char, sizeof(iod->hdr_in) + body_len);
+	*iod->in.cpkt = iod->hdr_in;
 
 	return io_read(conn, iod->in.cpkt->data, body_len, decrypt_body, peer);
 }
@@ -320,7 +318,7 @@ struct io_plan *peer_read_packet(struct io_conn *conn,
 	struct io_data *iod = peer->io_data;
 
 	iod->cb = cb;
-	return io_read(conn, &iod->hdr_in, CRYPTO_HDR_LEN,
+	return io_read(conn, &iod->hdr_in, sizeof(iod->hdr_in),
 		       decrypt_header, peer);
 }
 
@@ -340,7 +338,7 @@ struct io_plan *peer_write_packet_(struct io_conn *conn,
 	 * via io_write */
 	tal_free(iod->out.cpkt);
 
-	iod->out.cpkt = encrypt_pkt(peer, pkt, peer->io_data->in.count, &totlen);
+	iod->out.cpkt = encrypt_pkt(peer, pkt, &totlen);
 
 	/* Set up ack callback if any. */
 	if (ack_cb) {
@@ -417,23 +415,25 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 		return io_close(conn);
 	}
 
-	tal_free(auth);
-
 	/* Auth messages don't add to count. */
 	assert(peer->io_data->in.count == 0);
 
 	/* BOLT #1:
-	 * The receiver MUST NOT examine the `acknowledge` value until
-	 * after the authentication fields have been successfully
-	 * validated.  The `acknowledge` field MUST BE set to the
-	 * number of non-authenticate messages received and processed.
+	 *
+	 * The receiver MUST NOT examine the `ack` value until after
+	 * the authentication fields have been successfully validated.
+	 * The `ack` field MUST BE set to the number of
+	 * non-authenticate messages received and processed if
+	 * non-zero.
 	 */
 	/* FIXME: Handle reconnects. */
-	if (le64_to_cpu(peer->io_data->hdr_in.acknowledge) != 0) {
+	if (auth->ack != 0) {
 		log_unusual(peer->log, "FIXME: non-zero acknowledge %"PRIu64,
-			    le64_to_cpu(peer->io_data->hdr_in.acknowledge));
+			    auth->ack);
 		return io_close(conn);
 	}
+
+	tal_free(auth);
 
 	/* All complete, return to caller. */
 	cb = neg->cb;
@@ -524,6 +524,8 @@ static struct io_plan *discard_extra(struct io_conn *conn, struct peer *peer)
 
 		len -= sizeof(neg->their_sessionpubkey);
 		discard = tal_arr(neg, char, len);
+		log_unusual(peer->log, "Ignoring %zu extra handshake bytes",
+			    len);
 		return io_read(conn, discard, len, keys_exchanged, peer);
 	}
 
@@ -592,7 +594,12 @@ struct io_plan *peer_crypto_setup(struct io_conn *conn, struct peer *peer,
 	secp256k1_pubkey sessionkey;
 	struct key_negotiate *neg;
 
-	BUILD_ASSERT(CRYPTO_HDR_LEN == offsetof(struct crypto_pkt, data));
+	/* BOLT #1:
+	 *
+	 * The 4-byte length for each message is encrypted separately
+	 * (resulting in a 20 byte header when the authentication tag
+	 * is appended) */
+	BUILD_ASSERT(sizeof(struct crypto_pkt) == 20);
 
 	peer->io_data = tal(peer, struct io_data);
 	list_head_init(&peer->io_data->acks);

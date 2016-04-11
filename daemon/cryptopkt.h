@@ -32,4 +32,11 @@ struct io_plan *peer_write_packet_(struct io_conn *conn,
 					       (ack_cb), (ack_arg),	\
 					       struct peer *),		\
 			   (ack_arg), (next))
+
+/* Acknowledgements are contained in some messages: caller must call this */
+void peer_process_acks(struct peer *peer, uint64_t ack);
+
+/* Ack counter for outgoing packets. */
+uint64_t peer_outgoing_ack(const struct peer *peer);
+
 #endif /* LIGHTNING_DAEMON_CRYPTOPKT_H */
