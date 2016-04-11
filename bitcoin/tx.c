@@ -171,17 +171,24 @@ static void add_sha(const void *data, size_t len, void *shactx_)
 	sha256_update(ctx, memcheck(data, len), len);
 }
 
-void sha256_tx_for_sig(struct sha256_ctx *ctx, const struct bitcoin_tx *tx,
-		       unsigned int input_num)
+void sha256_tx_for_sig(struct sha256_double *h, const struct bitcoin_tx *tx,
+		       unsigned int input_num, enum sighash_type stype)
 {
 	size_t i;
+	struct sha256_ctx ctx = SHA256_INIT;
+
+	/* We only support this. */
+	assert(stype == SIGHASH_ALL);
 
 	/* Caller should zero-out other scripts for signing! */
 	assert(input_num < tx->input_count);
 	for (i = 0; i < tx->input_count; i++)
 		if (i != input_num)
 			assert(tx->input[i].script_length == 0);
-	add_tx(tx, add_sha, ctx, false);
+	add_tx(tx, add_sha, &ctx, false);
+
+	sha256_le32(&ctx, stype);
+	sha256_double_done(&ctx, h);
 }
 
 static void add_linearize(const void *data, size_t len, void *pptr_)

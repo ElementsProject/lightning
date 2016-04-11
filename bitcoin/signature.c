@@ -93,7 +93,6 @@ static void sha256_tx_one_input(struct bitcoin_tx *tx,
 				const u8 *script, size_t script_len,
 				struct sha256_double *hash)
 {
-	struct sha256_ctx ctx = SHA256_INIT;
 	size_t i;
 
 	assert(input_num < tx->input_count);
@@ -105,11 +104,7 @@ static void sha256_tx_one_input(struct bitcoin_tx *tx,
 	tx->input[input_num].script_length = script_len;
 	tx->input[input_num].script = cast_const(u8 *, script);
 
-	sha256_init(&ctx);
-	sha256_tx_for_sig(&ctx, tx, input_num);
-	sha256_le32(&ctx, SIGHASH_ALL);
-
-	sha256_double_done(&ctx, hash);
+	sha256_tx_for_sig(hash, tx, input_num, SIGHASH_ALL);
 
 	/* Reset it for next time. */
 	tx->input[input_num].script_length = 0;
