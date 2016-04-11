@@ -163,7 +163,7 @@ static void state_single(struct peer *peer,
 	}
 
 	/* Break out and free this peer if it's completely done. */
-	if (peer->state == STATE_CLOSED)
+	if (peer->state == STATE_CLOSED && !peer->conn)
 		io_break(peer);
 }
 
@@ -333,7 +333,14 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 		return;
 	}
 
+	/* Completely dead?  Free it now. */
+	if (peer->state == STATE_CLOSED) {
+		io_break(peer);
+		return;
+	}
+	
 	/* FIXME: Try to reconnect. */
+	/* This is an expected close. */
 	if (peer->cond == PEER_CLOSED)
 		return;
 
