@@ -240,12 +240,25 @@ static u64 pull_value(const u8 **cursor, size_t *max)
 	return amount;
 }
 
+/* Pulls a varint which specifies a data length: ensures basic sanity to
+ * avoid trivial OOM */
+static u64 pull_length(const u8 **cursor, size_t *max)
+{
+	u64 v = pull_varint(cursor, max);
+	if (v > *max) {
+		*cursor = NULL;
+		*max = 0;
+		return 0;
+	}
+	return v;
+}
+	
 static void pull_input(const tal_t *ctx, const u8 **cursor, size_t *max,
 		       struct bitcoin_tx_input *input)
 {
 	pull_sha256_double(cursor, max, &input->txid);
 	input->index = pull_le32(cursor, max);
-	input->script_length = pull_varint(cursor, max);
+	input->script_length = pull_length(cursor, max);
 	input->script = tal_arr(ctx, u8, input->script_length);
 	pull(cursor, max, input->script, input->script_length);
 	input->sequence_number = pull_le32(cursor, max);
@@ -255,7 +268,7 @@ static void pull_output(const tal_t *ctx, const u8 **cursor, size_t *max,
 			struct bitcoin_tx_output *output)
 {
 	output->amount = pull_value(cursor, max);
-	output->script_length = pull_varint(cursor, max);
+	output->script_length = pull_length(cursor, max);
 	output->script = tal_arr(ctx, u8, output->script_length);
 	pull(cursor, max, output->script, output->script_length);
 }
@@ -267,12 +280,12 @@ static struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 	size_t i;
 
 	tx->version = pull_le32(cursor, max);
-	tx->input_count = pull_varint(cursor, max);
+	tx->input_count = pull_length(cursor, max);
 	tx->input = tal_arr(tx, struct bitcoin_tx_input, tx->input_count);
 	for (i = 0; i < tx->input_count; i++)
 		pull_input(tx, cursor, max, tx->input + i);
 
-	tx->output_count = pull_varint(cursor, max);
+	tx->output_count = pull_length(cursor, max);
 	tx->output = tal_arr(tx, struct bitcoin_tx_output, tx->output_count);
 	for (i = 0; i < tx->output_count; i++)
 		pull_output(tx, cursor, max, tx->output + i);
