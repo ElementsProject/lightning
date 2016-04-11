@@ -55,13 +55,20 @@ static void add_le64(u64 v,
 	add(&l, sizeof(l), addp);
 }
 
+static void add_varint_blob(const void *blob, varint_t len,
+			    void (*add)(const void *, size_t, void *),
+			    void *addp)
+{
+	add_varint(len, add, addp);
+	add(blob, len, addp);
+}
+
 static void add_tx_input(const struct bitcoin_tx_input *input,
 			 void (*add)(const void *, size_t, void *), void *addp)
 {
 	add(&input->txid, sizeof(input->txid), addp);
 	add_le32(input->index, add, addp);
-	add_varint(input->script_length, add, addp);
-	add(input->script, input->script_length, addp);
+	add_varint_blob(input->script, input->script_length, add, addp);
 	add_le32(input->sequence_number, add, addp);
 }
 
@@ -69,8 +76,7 @@ static void add_tx_output(const struct bitcoin_tx_output *output,
 			  void (*add)(const void *, size_t, void *), void *addp)
 {
 	add_le64(output->amount, add, addp);
-	add_varint(output->script_length, add, addp);
-	add(output->script, output->script_length, addp);
+	add_varint_blob(output->script, output->script_length, add, addp);
 }
 
 /* BIP 141:
@@ -79,8 +85,7 @@ static void add_tx_output(const struct bitcoin_tx_output *output,
 static void add_witness(const u8 *witness, 
 			void (*add)(const void *, size_t, void *), void *addp)
 {
-	add_varint(tal_count(witness), add, addp);
-	add(witness, tal_count(witness), addp);
+	add_varint_blob(witness, tal_count(witness), add, addp);
 }
 
 /* BIP144:
