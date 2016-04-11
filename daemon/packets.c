@@ -405,6 +405,8 @@ void queue_pkt_close_signature(struct peer *peer)
 	peer_sign_mutual_close(peer, close_tx, &our_close_sig);
 	c->sig = signature_to_proto(c, &our_close_sig);
 	c->close_fee = peer->closing.our_fee;
+	log_info(peer->log, "queue_pkt_close_signature: offered close fee %"
+		 PRIu64, c->close_fee);
 
 	queue_pkt(peer, PKT__PKT_CLOSE_SIGNATURE, c);
 }
@@ -748,11 +750,16 @@ Pkt *accept_pkt_close_clearing(struct peer *peer, const Pkt *pkt)
 	return NULL;
 }
 
-Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt, bool *matches)
+Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt, bool *acked,
+			  bool *we_agree)
 {
 	const CloseSignature *c = pkt->close_signature;
 	struct bitcoin_tx *close_tx;
 	struct bitcoin_signature theirsig;
+
+	log_info(peer->log, "accept_pkt_close_sig: they offered close fee %"
+		 PRIu64, c->close_fee);
+	*acked = *we_agree = false;
 
 	/* BOLT #2:
 	 *
@@ -805,7 +812,8 @@ Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt, bool *matches)
 	peer->closing.their_fee = c->close_fee;
 
 	if (peer->closing.our_fee == peer->closing.their_fee) {
-		*matches = true;
+		log_info(peer->log, "accept_pkt_close_sig: That's an ack");
+		*acked = true;
 	} else {
 		/* Adjust our fee to close on their fee. */
 		u64 sum;
@@ -817,10 +825,13 @@ Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt, bool *matches)
 		if (peer->closing.our_fee & 1)
 			peer->closing.our_fee++;
 
-		/* FIXME: Fees may *now* be equal, and they'll
-		 * consider this an ACK! */
+		log_info(peer->log, "accept_pkt_close_sig: we change to %"PRIu64,
+			 peer->closing.our_fee);
+
+		/* Corner case: we may now agree with them. */
+		if (peer->closing.our_fee == peer->closing.their_fee)
+			*we_agree = true;
 	}
-	*matches = false;
 
 	/* FIXME: Dynamic fee! */
 	return NULL;

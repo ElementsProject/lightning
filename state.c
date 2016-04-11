@@ -516,13 +516,21 @@ enum command_status state(struct peer *peer,
 		break;
 	case STATE_WAIT_FOR_CLOSE_SIG:
 		if (input_is(input, PKT_CLOSE_SIGNATURE)) {
-			bool matches;
-			err = accept_pkt_close_sig(peer, idata->pkt, &matches);
+			bool acked, we_agree;
+			err = accept_pkt_close_sig(peer, idata->pkt,
+						   &acked, &we_agree);
 			if (err)
 				goto err_start_unilateral_close;
 
-			/* Did they offer the same fee we did? */
-			if (matches) {
+			/* Are we about to offer the same fee they did? */
+			if (we_agree) {
+				/* Offer the new fee. */
+				queue_pkt_close_signature(peer);
+				acked = true;
+			}
+
+			/* Do fees now match? */
+			if (acked) {
 				peer_unwatch_close_timeout(peer,
 						   INPUT_CLOSE_COMPLETE_TIMEOUT);
 

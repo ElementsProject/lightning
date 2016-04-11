@@ -110,7 +110,8 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt);
 
 Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt);
 Pkt *accept_pkt_close_clearing(struct peer *peer, const Pkt *pkt);
-Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt, bool *matches);
+Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt,
+			  bool *acked, bool *we_agree);
 
 /**
  * committed_to_htlcs: do we have any locked-in HTLCs?
