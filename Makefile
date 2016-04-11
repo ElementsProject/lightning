@@ -9,9 +9,9 @@ CCANDIR := ccan
 
 # Bitcoin uses DER for signatures (Add BIP68 & HAS_CSV if it's supported)
 BITCOIN_FEATURES :=				\
-	-DHAS_BIP68=0				\
+	-DHAS_BIP68=1				\
 	-DHAS_CLTV=1				\
-	-DHAS_CSV=0				\
+	-DHAS_CSV=1				\
 	-DSCRIPTS_USE_DER=1
 
 FEATURES := $(BITCOIN_FEATURES)
