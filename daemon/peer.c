@@ -1110,6 +1110,7 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 	struct bitcoin_signature sig;
 	struct bitcoin_tx *tx;
 	unsigned int p2sh_out;
+	uint64_t fee;
 
 	/* The redeemscript for a commit tx is fairly complex. */
 	redeemscript = bitcoin_redeem_secret_or_delay(peer,
@@ -1123,7 +1124,6 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 	bitcoin_txid(commit, &tx->input[0].txid);
 	p2sh_out = find_p2sh_out(commit, redeemscript);
 	tx->input[0].index = p2sh_out;
-	tx->input[0].input_amount = commit->output[p2sh_out].amount;
 	tx->input[0].sequence_number = bitcoin_nsequence(&peer->them.locktime);
 
 	tx->output[0].amount = commit->output[p2sh_out].amount;
@@ -1145,19 +1145,19 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 	/* Now, calculate the fee, given length. */
 	/* FIXME: Dynamic fees! */
 	linear = linearize_tx(peer, tx);
-	tx->fee = fee_by_feerate(tal_count(linear),
+	fee = fee_by_feerate(tal_count(linear),
 				 peer->dstate->config.closing_fee_rate);
 	tal_free(linear);
 
 	/* FIXME: Fail gracefully in these cases (not worth collecting) */
-	if (tx->fee > tx->output[0].amount
-	    || is_dust_amount(tx->output[0].amount - tx->fee))
+	if (fee > tx->output[0].amount
+	    || is_dust_amount(tx->output[0].amount - fee))
 		fatal("Amount of %"PRIu64" won't cover fee %"PRIu64,
-		      tx->output[0].amount, tx->fee);
+		      tx->output[0].amount, fee);
 
 	/* Re-sign with the real values. */
 	tx->input[0].script_length = 0;
-	tx->output[0].amount -= tx->fee;
+	tx->output[0].amount -= fee;
 	peer_sign_spend(peer, tx, redeemscript, &sig.sig);
 
 	tx->input[0].script = scriptsig_p2sh_secret(tx, NULL, 0, &sig,

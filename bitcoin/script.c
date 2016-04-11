@@ -107,8 +107,7 @@ static void add_push_key(u8 **scriptp, const struct pubkey *key)
 
 static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
 {
-/* Bitcoin wants DER encoding. */
-#if SCRIPTS_USE_DER
+	/* Bitcoin wants DER encoding. */
 	u8 der[73];
 	secp256k1_context *secpctx = secp256k1_context_create(0);
 	size_t len = signature_to_der(secpctx, der, &sig->sig);
@@ -117,12 +116,6 @@ static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
 	der[len++] = sig->stype;
 	add_push_bytes(scriptp, der, len);
 	secp256k1_context_destroy(secpctx);
-#else /* Alpha uses raw encoding */
-	u8 with_sighash[sizeof(sig->sig) + 1];
-	memcpy(with_sighash, &sig->sig, sizeof(sig->sig));
-	with_sighash[sizeof(sig->sig)] = sig->stype;
-	add_push_bytes(scriptp, with_sighash, sizeof(with_sighash));
-#endif
 }
 
 /* FIXME: permute? */

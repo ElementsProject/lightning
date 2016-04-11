@@ -24,7 +24,6 @@ struct bitcoin_tx *create_close_tx(secp256k1_context *secpctx,
 	/* Our input spends the anchor tx output. */
 	tx->input[0].txid = *anchor_txid;
 	tx->input[0].index = anchor_index;
-	tx->input[0].input_amount = anchor_satoshis;
 
 	/* One output is to us. */
 	tx->output[0].amount = to_us;
@@ -38,10 +37,7 @@ struct bitcoin_tx *create_close_tx(secp256k1_context *secpctx,
 	tx->output[1].script = scriptpubkey_p2sh(tx, redeemscript);
 	tx->output[1].script_length = tal_count(tx->output[1].script);
 
-	assert(tx->output[0].amount + tx->output[1].amount
-	       <= tx->input[0].input_amount);
-	tx->fee = tx->input[0].input_amount
-		- (tx->output[0].amount + tx->output[1].amount);
+	assert(tx->output[0].amount + tx->output[1].amount <= anchor_satoshis);
 
 	permute_outputs(tx->output, 2, NULL);
 	return tx;

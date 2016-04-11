@@ -11,16 +11,6 @@ Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
 
 	assert(sig_valid(sig));
 
-#if USE_SCHNORR
-	memcpy(&pb->r1, sig->schnorr, 8);
-	memcpy(&pb->r2, sig->schnorr + 8, 8);
-	memcpy(&pb->r3, sig->schnorr + 16, 8);
-	memcpy(&pb->r4, sig->schnorr + 24, 8);
-	memcpy(&pb->s1, sig->schnorr + 32, 8);
-	memcpy(&pb->s2, sig->schnorr + 40, 8);
-	memcpy(&pb->s3, sig->schnorr + 48, 8);
-	memcpy(&pb->s4, sig->schnorr + 56, 8);
-#else
 	/* FIXME: Need a portable way to encode signatures in libsecp! */
 	
 	/* Kill me now... */
@@ -32,7 +22,6 @@ Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
 	memcpy(&pb->s2, sig->sig.data + 40, 8);
 	memcpy(&pb->s3, sig->sig.data + 48, 8);
 	memcpy(&pb->s4, sig->sig.data + 56, 8);
-#endif
 	
 	return pb;
 }
@@ -40,16 +29,6 @@ Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
 bool proto_to_signature(const Signature *pb, struct signature *sig)
 {
 	/* Kill me again. */
-#if USE_SCHNORR
-	memcpy(sig->schnorr, &pb->r1, 8);
-	memcpy(sig->schnorr + 8, &pb->r2, 8);
-	memcpy(sig->schnorr + 16, &pb->r3, 8);
-	memcpy(sig->schnorr + 24, &pb->r4, 8);
-	memcpy(sig->schnorr + 32, &pb->s1, 8);
-	memcpy(sig->schnorr + 40, &pb->s2, 8);
-	memcpy(sig->schnorr + 48, &pb->s3, 8);
-	memcpy(sig->schnorr + 56, &pb->s4, 8);
-#else
 	/* FIXME: Need a portable way to encode signatures in libsecp! */
 	
 	memcpy(sig->sig.data, &pb->r1, 8);
@@ -60,7 +39,6 @@ bool proto_to_signature(const Signature *pb, struct signature *sig)
 	memcpy(sig->sig.data + 40, &pb->s2, 8);
 	memcpy(sig->sig.data + 48, &pb->s3, 8);
 	memcpy(sig->sig.data + 56, &pb->s4, 8);
-#endif
 
 	return sig_valid(sig);
 }

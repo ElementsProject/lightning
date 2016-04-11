@@ -13,9 +13,6 @@ struct bitcoin_tx {
 	varint_t input_count;
 	struct bitcoin_tx_input *input;
 
-	/* Only in alpha. */
-	u64 fee;
-
 	varint_t output_count;
 	struct bitcoin_tx_output *output;
 	u32 lock_time;
@@ -28,9 +25,6 @@ struct bitcoin_tx_output {
 };
 
 struct bitcoin_tx_input {
-	/* In alpha, this is hashed for signature */
-	u64 input_amount;
-
 	struct sha256_double txid;
 	u32 index; /* output number referred to by above */
 	varint_t script_length;
@@ -54,12 +48,9 @@ u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx);
 struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 			      varint_t output_count);
 
-/* This takes a raw bitcoin tx in hex, with [:<64-bit-satoshi>] appended
- * for each input (required for -DALPHA). */
+/* This takes a raw bitcoin tx in hex. */
 struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,
 				       size_t hexlen);
-
-bool bitcoin_tx_write(int fd, const struct bitcoin_tx *tx);
 
 /* Parse hex string to get txid (reversed, a-la bitcoind). */
 bool bitcoin_txid_from_hex(const char *hexstr, size_t hexstr_len,

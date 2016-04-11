@@ -56,7 +56,6 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	/* Our input spends the anchor tx output. */
 	tx->input[0].txid = *anchor_txid;
 	tx->input[0].index = anchor_index;
-	tx->input[0].input_amount = anchor_satoshis;
 
 	/* First output is a P2SH to a complex redeem script (usu. for me) */
 	redeemscript = bitcoin_redeem_secret_or_delay(tx, our_final,
@@ -95,11 +94,8 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 		total += tx->output[num++].amount;
 	}
 	assert(num == tx->output_count);
-
-	/* Calculate fee; difference of inputs and outputs. */
-	assert(total <= tx->input[0].input_amount);
-	tx->fee = tx->input[0].input_amount - total;
-
+	assert(total <= anchor_satoshis);
+	
 	permute_outputs(tx->output, tx->output_count, NULL);
 	return tx;
 }

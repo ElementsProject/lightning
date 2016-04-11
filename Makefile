@@ -7,25 +7,13 @@ PROTOCC:=protoc-c
 # We use our own internal ccan copy.
 CCANDIR := ccan
 
-# Alpha has checksequenceverify, segregated witness+input-amount-in-sig+confidentual-transactions, schnorr, checklocktimeverify
-ALPHA_FEATURES :=				\
-	-DALPHA_TXSTYLE=1			\
-	-DHAS_BIP68=0				\
-	-DHAS_CLTV=1				\
-	-DHAS_CSV=1				\
-	-DSCRIPTS_USE_DER=0			\
-	-DUSE_SCHNORR=1
-
 # Bitcoin uses DER for signatures (Add BIP68 & HAS_CSV if it's supported)
 BITCOIN_FEATURES :=				\
-	-DALPHA_TXSTYLE=0			\
 	-DHAS_BIP68=0				\
 	-DHAS_CLTV=1				\
 	-DHAS_CSV=0				\
-	-DSCRIPTS_USE_DER=1			\
-	-DUSE_SCHNORR=0
+	-DSCRIPTS_USE_DER=1
 
-#FEATURES := $(ALPHA_FEATURES)
 FEATURES := $(BITCOIN_FEATURES)
 
 TEST_PROGRAMS :=				\
@@ -236,12 +224,12 @@ ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDU
 gen_state_names.h: state_types.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr state_types.h > $@
 
-# We build a static libsecpk1, since we need schnorr for alpha
+# We build a static libsecpk1, since we need ecdh
 # (and it's not API stable yet!).
 libsecp256k1.a: secp256k1/libsecp256k1.la
 
 secp256k1/libsecp256k1.la:
-	cd secp256k1 && ./autogen.sh && ./configure --enable-static=yes --enable-shared=no --enable-tests=no --enable-module-schnorr=yes --enable-module-ecdh=yes --libdir=`pwd`/..
+	cd secp256k1 && ./autogen.sh && ./configure --enable-static=yes --enable-shared=no --enable-tests=no --enable-module-ecdh=yes --libdir=`pwd`/..
 	$(MAKE) -C secp256k1 install-exec
 
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
