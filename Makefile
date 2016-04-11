@@ -190,7 +190,9 @@ test-onion3: test/test_onion test/onion_key
 test-onion4: test/test_onion test/onion_key
 	set -e; TMPF=/tmp/onion.$$$$; python test/test_onion.py generate $$(test/onion_key --pub `seq 20`) > $$TMPF; for k in `seq 20`; do python test/test_onion.py decode $$(test/onion_key --priv $$k) $$(test/onion_key --pub $$k) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
 
-check: daemon-tests test-onion
+check: daemon-tests test-onion bitcoin-tests
+
+include bitcoin/Makefile
 
 # Keep includes in alpha order.
 check-src-include-order/%: %
