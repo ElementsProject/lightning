@@ -361,6 +361,54 @@ void bitcoind_txid_lookup_(struct lightningd_state *dstate,
 			  "gettransaction", lookup->txidhex, NULL);
 }
 
+static void process_estimatefee(struct bitcoin_cli *bcli)
+{
+	double fee;
+	char *p, *end;
+	u64 fee_rate;
+	void (*cb)(struct lightningd_state *, u64, void *) = bcli->cb;
+
+	if (!bcli->output)
+		fatal("%s %s %s failed",
+		      bcli->args[0], bcli->args[2], bcli->args[3]);
+
+	p = tal_strndup(bcli, bcli->output, bcli->output_bytes);
+	fee = strtod(p, &end);
+	if (end == p || *end != '\n')
+		fatal("%s %s %s gave non-numeric fee %s",
+		      bcli->args[0], bcli->args[2], bcli->args[3], p);
+
+	/* Don't know at 2?  Try 6... */
+	if (fee < 0) {
+		if (streq(bcli->args[3], "2")) {
+			start_bitcoin_cli(bcli->dstate, process_estimatefee,
+					  bcli->cb, bcli->cb_arg,
+					  "estimatefee", "6", NULL);
+			return;
+		}
+		log_unusual(bcli->dstate->base_log,
+			    "Unable to estimate fee, using %"PRIu64,
+			    bcli->dstate->config.closing_fee_rate);
+		fee_rate = bcli->dstate->config.closing_fee_rate;
+	} else {
+		/* If we used 6 as an estimate, double it. */
+		if (streq(bcli->args[3], "6"))
+			fee *= 2;
+		fee_rate = fee * 100000000;
+	}
+
+	cb(bcli->dstate, fee_rate, bcli->cb_arg);
+}
+
+void bitcoind_estimate_fee_(struct lightningd_state *dstate,
+			    void (*cb)(struct lightningd_state *dstate,
+				       u64, void *),
+			    void *arg)
+{
+	start_bitcoin_cli(dstate, process_estimatefee, cb, arg,
+			  "estimatefee", "2", NULL);
+}
+
 static void process_sendrawrx(struct bitcoin_cli *bcli)
 {
 	struct sha256_double txid;

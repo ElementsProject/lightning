@@ -37,6 +37,19 @@ void bitcoind_txid_lookup_(struct lightningd_state *dstate,
 						  const struct bitcoin_tx *), \
 			      (arg))
 
+void bitcoind_estimate_fee_(struct lightningd_state *dstate,
+			    void (*cb)(struct lightningd_state *dstate,
+				       u64, void *),
+			    void *arg);
+
+#define bitcoind_estimate_fee(dstate, cb, arg)				\
+	bitcoind_estimate_fee_((dstate),				\
+			       typesafe_cb_preargs(void, void *, \
+						   (cb), (arg),		\
+						   struct lightningd_state *, \
+						   u64),		\
+			       (arg))
+
 void bitcoind_send_tx(struct lightningd_state *dstate,
 		      const struct bitcoin_tx *tx);
 
