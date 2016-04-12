@@ -10,6 +10,7 @@
 #include <ccan/io/io.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/take/take.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
@@ -76,6 +77,19 @@ static struct io_plan *output_init(struct io_conn *conn, struct bitcoin_cli *bcl
 
 static void next_bcli(struct lightningd_state *dstate);
 
+/* For printing: simple string of args. */
+static char *bcli_args(struct bitcoin_cli *bcli)
+{
+	size_t i;
+	char *ret = tal_strdup(bcli, bcli->args[0]);
+
+	for (i = 1; bcli->args[i]; i++) {
+		ret = tal_strcat(bcli, take(ret), " ");
+		ret = tal_strcat(bcli, take(ret), bcli->args[i]);
+	}
+	return ret;
+}
+	
 static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 {
 	int ret, status;
@@ -84,22 +98,25 @@ static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 	/* FIXME: If we waited for SIGCHILD, this could never hang! */
 	ret = waitpid(bcli->pid, &status, 0);
 	if (ret != bcli->pid)
-		fatal("bitcoind: '%s' '%s' %s",
-		      bcli->args[0], bcli->args[1],
+		fatal("%s %s", bcli_args(bcli),
 		      ret == 0 ? "not exited?" : strerror(errno));
 
 	if (!WIFEXITED(status))
-		fatal("bitcoind: '%s' '%s' died with signal %i",
-		      bcli->args[0], bcli->args[1],
+		fatal("%s died with signal %i",
+		      bcli_args(bcli),
 		      WTERMSIG(status));
 
 	if (WEXITSTATUS(status) != 0) {
 		log_unusual(dstate->base_log,
-			    "%s exited %u", bcli->args[1], WEXITSTATUS(status));
+			    "%s exited %u: '%.*s'", bcli_args(bcli),
+			    WEXITSTATUS(status),
+			    (int)bcli->output_bytes,
+			    bcli->output);
 		bcli->output = tal_free(bcli->output);
 		bcli->output_bytes = 0;
 	} else 
-		log_debug(dstate->base_log, "reaped %u: %s", ret, bcli->args[1]);
+		log_debug(dstate->base_log, "reaped %u: %s",
+			  ret, bcli_args(bcli));
 
 	dstate->bitcoin_req_running = false;
 	bcli->process(bcli);
@@ -119,7 +136,7 @@ static void next_bcli(struct lightningd_state *dstate)
 	if (!bcli)
 		return;
 
-	log_debug(bcli->dstate->base_log, "starting: %s", bcli->args[1]);
+	log_debug(bcli->dstate->base_log, "starting: %s", bcli_args(bcli));
 
 	bcli->pid = pipecmdarr(&bcli->fd, NULL, &bcli->fd, bcli->args);
 	if (bcli->pid < 0)
@@ -155,11 +172,10 @@ start_bitcoin_cli(struct lightningd_state *dstate,
 static void process_importaddress(struct bitcoin_cli *bcli)
 {
 	if (!bcli->output)
-		fatal("bitcoind: '%s' '%s' failed",
-		      bcli->args[0], bcli->args[1]);
+		fatal("%s failed", bcli_args(bcli));
 	if (bcli->output_bytes != 0)
-		fatal("bitcoind: '%s' '%s' unexpected output '%.*s'",
-		      bcli->args[0], bcli->args[1],
+		fatal("%s unexpected output '%.*s'",
+		      bcli_args(bcli),
 		      (int)bcli->output_bytes, bcli->output);
 }
 
@@ -184,18 +200,17 @@ static void process_transactions(struct bitcoin_cli *bcli)
 		   const struct sha256_double *blkhash) = bcli->cb;
 
 	if (!bcli->output)
-		fatal("bitcoind: '%s' '%s' failed",
-		      bcli->args[0], bcli->args[1]);
+		fatal("%s failed", bcli_args(bcli));
 
 	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
 	if (!tokens)
-		fatal("bitcoind: '%s' '%s' %s response",
-		      bcli->args[0], bcli->args[1],
+		fatal("%s: %s response",
+		      bcli_args(bcli),
 		      valid ? "partial" : "invalid");
 
 	if (tokens[0].type != JSMN_ARRAY)
-		fatal("listtransactions: '%s' '%s' gave non-array (%.*s)?",
-		      bcli->args[0], bcli->args[1],
+		fatal("listtransactions: %s gave non-array (%.*s)?",
+		      bcli_args(bcli),
 		      (int)bcli->output_bytes, bcli->output);
 
 	end = json_next(tokens);
@@ -289,13 +304,12 @@ static void process_rawtx(struct bitcoin_cli *bcli)
 		   const struct bitcoin_tx *tx, void *arg) = bcli->cb;
 
 	if (!bcli->output)
-		fatal("%s getrawtransaction %s unknown txid?",
-		      bcli->args[0], lookup->txidhex);
+		fatal("%s: unknown txid?", bcli_args(bcli));
 
 	tx = bitcoin_tx_from_hex(bcli, bcli->output, bcli->output_bytes);
  	if (!tx)
-		fatal("%s getrawtransaction %s bad txid: %.*s?",
-		      bcli->args[0], lookup->txidhex,
+		fatal("%s: bad txid: %.*s?",
+		      bcli_args(bcli),
 		      (int)bcli->output_bytes, (char *)bcli->output);
 	cb(bcli->dstate, tx, lookup->cb_arg);
 	tal_free(lookup);
@@ -319,25 +333,25 @@ static void process_tx(struct bitcoin_cli *bcli)
 
 	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
 	if (!tokens)
-		fatal("%s gettransaction %s: %s response (%.*s)?",
-		      bcli->args[0], lookup->txidhex,
+		fatal("%s: %s response (%.*s)?",
+		      bcli_args(bcli),
 		      valid ? "partial" : "invalid",
 		      (int)bcli->output_bytes, bcli->output);
 	if (tokens[0].type != JSMN_OBJECT)
-		fatal("%s gettransaction %s: gave non-object (%.*s)?",
-		      bcli->args[0], lookup->txidhex,
+		fatal("%s: gave non-object (%.*s)?",
+		      bcli_args(bcli),
 		      (int)bcli->output_bytes, bcli->output);
 	hex = json_get_member(bcli->output, tokens, "hex");
 	if (!hex)
-		fatal("%s gettransaction: %s had no hex member (%.*s)?",
-		      bcli->args[0], lookup->txidhex,
+		fatal("%s: had no hex member (%.*s)?",
+		      bcli_args(bcli),
 		      (int)bcli->output_bytes, bcli->output);
 
 	tx = bitcoin_tx_from_hex(bcli, bcli->output + hex->start,
 				 hex->end - hex->start);
 	if (!tx)
-		fatal("gettransaction: %s had bad hex member (%.*s)?",
-		      lookup->txidhex,
+		fatal("%s: had bad hex member (%.*s)?",
+		      bcli_args(bcli),
 		      hex->end - hex->start, bcli->output + hex->start);
 	cb(bcli->dstate, tx, lookup->cb_arg);
 	tal_free(lookup);
@@ -369,14 +383,13 @@ static void process_estimatefee(struct bitcoin_cli *bcli)
 	void (*cb)(struct lightningd_state *, u64, void *) = bcli->cb;
 
 	if (!bcli->output)
-		fatal("%s %s %s failed",
-		      bcli->args[0], bcli->args[2], bcli->args[3]);
+		fatal("%s failed", bcli_args(bcli));
 
 	p = tal_strndup(bcli, bcli->output, bcli->output_bytes);
 	fee = strtod(p, &end);
 	if (end == p || *end != '\n')
-		fatal("%s %s %s gave non-numeric fee %s",
-		      bcli->args[0], bcli->args[2], bcli->args[3], p);
+		fatal("%s: gave non-numeric fee %s",
+		      bcli_args(bcli), p);
 
 	/* Don't know at 2?  Try 6... */
 	if (fee < 0) {
@@ -415,9 +428,11 @@ static void process_sendrawrx(struct bitcoin_cli *bcli)
 	const char *out = (char *)bcli->output;
 
 	/* We expect a txid, plus \n */
+	if (!bcli->output)
+		fatal("%s failed", bcli_args(bcli));
 	if (bcli->output_bytes == 0
 	    || !bitcoin_txid_from_hex(out, bcli->output_bytes-1, &txid))
-		fatal("sendrawtransaction failed: %.*s",
+		fatal("sendrawtransaction bad hex: %.*s",
 		     (int)bcli->output_bytes, out);
 
 	log_debug(bcli->dstate->base_log, "sendrawtx gave %.*s",
@@ -445,33 +460,33 @@ static void process_getblock(struct bitcoin_cli *bcli)
 
 	log_debug(bcli->dstate->base_log, "Got getblock result");
 	if (!bcli->output)
-		fatal("bitcoind: '%s' '%s' failed",
-		      bcli->args[0], bcli->args[1]);
+		fatal("%s failed", bcli_args(bcli));
 
 	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
 	if (!tokens)
-		fatal("bitcoind: '%s' '%s' %s response",
-		      bcli->args[0], bcli->args[1],
+		fatal("%s: %s response",
+		      bcli_args(bcli),
 		      valid ? "partial" : "invalid");
 
 	if (tokens[0].type != JSMN_OBJECT)
-		fatal("getblock: '%s' gave non-object (%.*s)?",
-		      bcli->args[2],
+		fatal("%s: gave non-object (%.*s)?",
+		      bcli_args(bcli),
 		      (int)bcli->output_bytes, bcli->output);
 
 	mediantime = json_get_member(bcli->output, tokens, "mediantime");
 	if (!mediantime)
-		fatal("getblock: '%s' gave no mediantime field (%.*s)?",
-		      bcli->args[2],
+		fatal("%s: gave no mediantime field (%.*s)?",
+		      bcli_args(bcli),
 		      (int)bcli->output_bytes, bcli->output);
 
 	if (!json_tok_number(bcli->output, mediantime, bcli->cb_arg))
-		fatal("getblock: '%s' gave invalud mediantime (%.*s)?",
-		      bcli->args[2],
+		fatal("%s: gave invalud mediantime (%.*s)?",
+		      bcli_args(bcli),
 		      mediantime->end - mediantime->start,
 		      bcli->output + mediantime->start);
 
-	log_debug(bcli->dstate->base_log, "mediantime = %u", *(u32 *)bcli->cb_arg);
+	log_debug(bcli->dstate->base_log, "mediantime = %u",
+		  *(u32 *)bcli->cb_arg);
 }
 	
 void bitcoind_get_mediantime(struct lightningd_state *dstate,
