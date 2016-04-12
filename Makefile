@@ -28,7 +28,8 @@ BITCOIN_SRC :=					\
 	bitcoin/script.c			\
 	bitcoin/shadouble.c			\
 	bitcoin/signature.c			\
-	bitcoin/tx.c
+	bitcoin/tx.c				\
+	bitcoin/varint.c
 BITCOIN_OBJS := $(BITCOIN_SRC:.c=.o)
 
 CORE_SRC :=					\
@@ -135,7 +136,8 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/script.h			\
 	bitcoin/shadouble.h			\
 	bitcoin/signature.h			\
-	bitcoin/tx.h
+	bitcoin/tx.h				\
+	bitcoin/varint.h
 
 CORE_HEADERS := close_tx.h			\
 	commit_tx.h				\

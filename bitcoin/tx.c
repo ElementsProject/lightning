@@ -13,32 +13,9 @@
 static void add_varint(varint_t v,
 		       void (*add)(const void *, size_t, void *), void *addp)
 {
-	u8 buf[9], *p = buf;
+	u8 buf[VARINT_MAX_LEN];
 
-	if (v < 0xfd) {
-		*(p++) = v;
-	} else if (v <= 0xffff) {
-		(*p++) = 0xfd;
-		(*p++) = v;
-		(*p++) = v >> 8;
-	} else if (v <= 0xffffffff) {
-		(*p++) = 0xfe;
-		(*p++) = v;
-		(*p++) = v >> 8;
-		(*p++) = v >> 16;
-		(*p++) = v >> 24;
-	} else {
-		(*p++) = 0xff;
-		(*p++) = v;
-		(*p++) = v >> 8;
-		(*p++) = v >> 16;
-		(*p++) = v >> 24;
-		(*p++) = v >> 32;
-		(*p++) = v >> 40;
-		(*p++) = v >> 48;
-		(*p++) = v >> 56;
-	}
-	add(buf, p - buf, addp);
+	add(buf, varint_put(buf, v), addp);
 }
 
 static void add_le32(u32 v,
@@ -376,34 +353,15 @@ static const u8 *pull(const u8 **cursor, size_t *max, void *copy, size_t n)
 static u64 pull_varint(const u8 **cursor, size_t *max)
 {
 	u64 ret;
-	const u8 *p;
+	size_t len;
 
-	p = pull(cursor, max, NULL, 1);
-	if (!p)
+	len = varint_get(*cursor, *max, &ret);
+	if (len == 0) {
+		*cursor = NULL;
+		*max = 0;
 		return 0;
-
-	if (*p < 0xfd) {
-		ret = *p;
-	} else if (*p == 0xfd) {
-		p = pull(cursor, max, NULL, 2);
-		if (!p)
-			return 0;
-		ret = ((u64)p[1] << 8) + p[0];
-	} else if (*p == 0xfe) {
-		p = pull(cursor, max, NULL, 4);
-		if (!p)
-			return 0;
-		ret = ((u64)p[3] << 24) + ((u64)p[2] << 16)
-			+ ((u64)p[1] << 8) + p[0];
-	} else {
-		p = pull(cursor, max, NULL, 8);
-		if (!p)
-			return 0;
-		ret = ((u64)p[7] << 56) + ((u64)p[6] << 48)
-			+ ((u64)p[5] << 40) + ((u64)p[4] << 32)
-			+ ((u64)p[3] << 24) + ((u64)p[2] << 16)
-			+ ((u64)p[1] << 8) + p[0];
 	}
+	pull(cursor, max, NULL, len);
 	return ret;
 }
 

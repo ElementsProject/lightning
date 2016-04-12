@@ -3,11 +3,9 @@
 #include "config.h"
 #include "shadouble.h"
 #include "signature.h"
+#include "varint.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-
-/* We unpack varints for our in-memory representation */
-#define varint_t u64
 
 struct bitcoin_tx {
 	u32 version;

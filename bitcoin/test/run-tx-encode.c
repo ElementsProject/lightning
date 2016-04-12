@@ -1,5 +1,6 @@
 #include "bitcoin/tx.c"
 #include "bitcoin/shadouble.c"
+#include "bitcoin/varint.c"
 #include <assert.h>
 #include <ccan/str/hex/hex.h>
 
