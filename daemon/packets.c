@@ -487,6 +487,7 @@ static Pkt *check_and_save_commit_sig(struct peer *peer,
 			  ci->tx, 0,
 			  peer->anchor.redeemscript,
 			  tal_count(peer->anchor.redeemscript),
+			  NULL,
 			  &peer->them.commitkey,
 			  ci->sig))
 		return pkt_err(peer, "Bad signature");
@@ -806,6 +807,7 @@ Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt, bool *acked,
 	if (!check_tx_sig(peer->dstate->secpctx, close_tx, 0,
 			  peer->anchor.redeemscript,
 			  tal_count(peer->anchor.redeemscript),
+			  NULL,
 			  &peer->them.commitkey, &theirsig))
 		return pkt_err(peer, "Invalid signature");
 

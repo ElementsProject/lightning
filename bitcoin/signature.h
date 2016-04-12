@@ -39,6 +39,7 @@ void sign_tx_input(secp256k1_context *secpctx,
 		   struct bitcoin_tx *tx,
 		   unsigned int in,
 		   const u8 *subscript, size_t subscript_len,
+		   const u8 *witness,
 		   const struct privkey *privkey, const struct pubkey *pubkey,
 		   struct signature *sig);
 
@@ -46,12 +47,14 @@ void sign_tx_input(secp256k1_context *secpctx,
 bool check_tx_sig(secp256k1_context *secpctx,
 		  struct bitcoin_tx *tx, size_t input_num,
 		  const u8 *redeemscript, size_t redeemscript_len,
+		  const u8 *witness,
 		  const struct pubkey *key,
 		  const struct bitcoin_signature *sig);
 
 bool check_2of2_sig(secp256k1_context *secpctx,
 		    struct bitcoin_tx *tx, size_t input_num,
 		    const u8 *redeemscript, size_t redeemscript_len,
+		    const u8 *witness,
 		    const struct pubkey *key1, const struct pubkey *key2,
 		    const struct bitcoin_signature *sig1,
 		    const struct bitcoin_signature *sig2);

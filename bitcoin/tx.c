@@ -171,8 +171,104 @@ static void add_sha(const void *data, size_t len, void *shactx_)
 	sha256_update(ctx, memcheck(data, len), len);
 }
 
+static void hash_prevouts(struct sha256_double *h, const struct bitcoin_tx *tx)
+{
+	struct sha256_ctx ctx;
+	size_t i;
+
+	/* BIP143: If the ANYONECANPAY flag is not set, hashPrevouts is the
+	 * double SHA256 of the serialization of all input
+	 * outpoints */
+	sha256_init(&ctx);
+	for (i = 0; i < tx->input_count; i++) {
+		add_sha(&tx->input[i].txid, sizeof(tx->input[i].txid), &ctx);
+		add_le32(tx->input[i].index, add_sha, &ctx);
+	}
+	sha256_double_done(&ctx, h);
+}
+	
+static void hash_sequence(struct sha256_double *h, const struct bitcoin_tx *tx)
+{
+	struct sha256_ctx ctx;
+	size_t i;
+
+	/* BIP143: If none of the ANYONECANPAY, SINGLE, NONE sighash type
+	 * is set, hashSequence is the double SHA256 of the serialization
+	 * of nSequence of all inputs */
+	sha256_init(&ctx);
+	for (i = 0; i < tx->input_count; i++)
+		add_le32(tx->input[i].sequence_number, add_sha, &ctx);
+
+	sha256_double_done(&ctx, h);
+}
+
+/* If the sighash type is neither SINGLE nor NONE, hashOutputs is the
+ * double SHA256 of the serialization of all output value (8-byte
+ * little endian) with scriptPubKey (varInt for the length +
+ * script); */
+static void hash_outputs(struct sha256_double *h, const struct bitcoin_tx *tx)
+{
+	struct sha256_ctx ctx;
+	size_t i;
+
+	sha256_init(&ctx);
+	for (i = 0; i < tx->output_count; i++) {
+		add_le64(tx->output[i].amount, add_sha, &ctx);
+		add_varint_blob(tx->output[i].script,
+				tx->output[i].script_length,
+				add_sha, &ctx);
+	}
+	
+	sha256_double_done(&ctx, h);
+}
+
+static void hash_for_segwit(struct sha256_ctx *ctx,
+			    const struct bitcoin_tx *tx,
+			    unsigned int input_num,
+			    const u8 *witness_script)
+{
+	struct sha256_double h;
+
+	/* BIP143:
+	 *
+	 * Double SHA256 of the serialization of:
+	 *     1. nVersion of the transaction (4-byte little endian)
+	 */
+	add_le32(tx->version, add_sha, ctx);
+
+	/*     2. hashPrevouts (32-byte hash) */
+	hash_prevouts(&h, tx);
+	add_sha(&h, sizeof(h), ctx);
+
+	/*     3. hashSequence (32-byte hash) */
+	hash_sequence(&h, tx);
+	add_sha(&h, sizeof(h), ctx);
+
+	/*     4. outpoint (32-byte hash + 4-byte little endian)  */
+	add_sha(&tx->input[input_num].txid, sizeof(tx->input[input_num].txid),
+		ctx);
+	add_le32(tx->input[input_num].index, add_sha, ctx);
+
+	/*     5. scriptCode of the input (varInt for the length + script) */
+	add_varint_blob(witness_script, tal_count(witness_script), add_sha, ctx);
+
+	/*     6. value of the output spent by this input (8-byte little end) */
+	add_le64(*tx->input[input_num].amount, add_sha, ctx);
+
+	/*     7. nSequence of the input (4-byte little endian) */
+	add_le32(tx->input[input_num].sequence_number, add_sha, ctx);
+
+	/*     8. hashOutputs (32-byte hash) */
+	hash_outputs(&h, tx);
+	add_sha(&h, sizeof(h), ctx);
+
+	/*     9. nLocktime of the transaction (4-byte little endian) */
+	add_le32(tx->lock_time, add_sha, ctx);
+}
+
 void sha256_tx_for_sig(struct sha256_double *h, const struct bitcoin_tx *tx,
-		       unsigned int input_num, enum sighash_type stype)
+		       unsigned int input_num, enum sighash_type stype,
+		       const u8 *witness_script)
 {
 	size_t i;
 	struct sha256_ctx ctx = SHA256_INIT;
@@ -185,7 +281,14 @@ void sha256_tx_for_sig(struct sha256_double *h, const struct bitcoin_tx *tx,
 	for (i = 0; i < tx->input_count; i++)
 		if (i != input_num)
 			assert(tx->input[i].script_length == 0);
-	add_tx(tx, add_sha, &ctx, false);
+
+	if (witness_script) {
+		/* BIP143 hashing if OP_CHECKSIG is inside witness. */
+		hash_for_segwit(&ctx, tx, input_num, witness_script);
+	} else {
+		/* Otherwise signature hashing never includes witness. */
+		add_tx(tx, add_sha, &ctx, false);
+	}
 
 	sha256_le32(&ctx, stype);
 	sha256_double_done(&ctx, h);

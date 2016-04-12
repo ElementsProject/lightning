@@ -91,6 +91,7 @@ void sign_hash(secp256k1_context *secpctx,
 static void sha256_tx_one_input(struct bitcoin_tx *tx,
 				size_t input_num,
 				const u8 *script, size_t script_len,
+				const u8 *witness_script,
 				struct sha256_double *hash)
 {
 	size_t i;
@@ -104,7 +105,7 @@ static void sha256_tx_one_input(struct bitcoin_tx *tx,
 	tx->input[input_num].script_length = script_len;
 	tx->input[input_num].script = cast_const(u8 *, script);
 
-	sha256_tx_for_sig(hash, tx, input_num, SIGHASH_ALL);
+	sha256_tx_for_sig(hash, tx, input_num, SIGHASH_ALL, witness_script);
 
 	/* Reset it for next time. */
 	tx->input[input_num].script_length = 0;
@@ -116,12 +117,14 @@ void sign_tx_input(secp256k1_context *secpctx,
 		   struct bitcoin_tx *tx,
 		   unsigned int in,
 		   const u8 *subscript, size_t subscript_len,
+		   const u8 *witness_script,
 		   const struct privkey *privkey, const struct pubkey *key,
 		   struct signature *sig)
 {
 	struct sha256_double hash;
 
-	sha256_tx_one_input(tx, in, subscript, subscript_len, &hash);
+	sha256_tx_one_input(tx, in, subscript, subscript_len, witness_script,
+			    &hash);
 	dump_tx("Signing", tx, in, subscript, subscript_len, key, &hash);
 	sign_hash(secpctx, privkey, &hash, sig);
 }
@@ -142,6 +145,7 @@ bool check_signed_hash(secp256k1_context *secpctx,
 bool check_tx_sig(secp256k1_context *secpctx,
 		  struct bitcoin_tx *tx, size_t input_num,
 		  const u8 *redeemscript, size_t redeemscript_len,
+		  const u8 *witness_script,
 		  const struct pubkey *key,
 		  const struct bitcoin_signature *sig)
 {
@@ -151,7 +155,7 @@ bool check_tx_sig(secp256k1_context *secpctx,
 	assert(input_num < tx->input_count);
 
 	sha256_tx_one_input(tx, input_num, redeemscript, redeemscript_len,
-			    &hash);
+			    witness_script, &hash);
 
 	/* We only use SIGHASH_ALL for the moment. */
 	if (sig->stype != SIGHASH_ALL)
@@ -167,6 +171,7 @@ bool check_tx_sig(secp256k1_context *secpctx,
 bool check_2of2_sig(secp256k1_context *secpctx,
 		    struct bitcoin_tx *tx, size_t input_num,
 		    const u8 *redeemscript, size_t redeemscript_len,
+		    const u8 *witness,
 		    const struct pubkey *key1, const struct pubkey *key2,
 		    const struct bitcoin_signature *sig1,
 		    const struct bitcoin_signature *sig2)
@@ -175,7 +180,7 @@ bool check_2of2_sig(secp256k1_context *secpctx,
 	assert(input_num < tx->input_count);
 
 	sha256_tx_one_input(tx, input_num, redeemscript, redeemscript_len,
-			    &hash);
+			    witness, &hash);
 
 	/* We only use SIGHASH_ALL for the moment. */
 	if (sig1->stype != SIGHASH_ALL || sig2->stype != SIGHASH_ALL)
