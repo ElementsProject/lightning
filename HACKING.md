@@ -5,7 +5,7 @@ This repository contains a prototype for testing the lightning protocols.
 Getting Started
 ---------------
 It's in C, to encourage alternate implementations.  It uses the Linux
-coding style.  Patches are welcome!  Just look for FIXME if you want
+coding style.  Patches are welcome!  See the TODO.md file if you want
 ideas.
 
 To read the code, you'll probably need to understand ccan/tal: it's a
