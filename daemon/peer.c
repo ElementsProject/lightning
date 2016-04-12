@@ -1105,7 +1105,7 @@ const struct bitcoin_tx *bitcoin_close(struct peer *peer)
 /* Create a bitcoin spend tx (to spend our commit's outputs) */
 const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 {
-	u8 *redeemscript, *linear;
+	u8 *redeemscript;
 	const struct bitcoin_tx *commit = peer->us.commit->tx;
 	struct bitcoin_signature sig;
 	struct bitcoin_tx *tx;
@@ -1146,10 +1146,8 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 
 	/* Now, calculate the fee, given length. */
 	/* FIXME: Dynamic fees! */
-	linear = linearize_tx(peer, tx);
-	fee = fee_by_feerate(tal_count(linear),
+	fee = fee_by_feerate(measure_tx_len(tx),
 				 peer->dstate->config.closing_fee_rate);
-	tal_free(linear);
 
 	/* FIXME: Fail gracefully in these cases (not worth collecting) */
 	if (fee > tx->output[0].amount
