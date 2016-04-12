@@ -282,6 +282,32 @@ u8 *scriptsig_pay_to_pubkeyhash(const tal_t *ctx,
 	return script;
 }
 
+/* Create scriptcode (fake witness, basically) for P2WPKH */
+u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key)
+{
+	struct sha256 h;
+	struct ripemd160 pkhash;
+	u8 *script = tal_arr(ctx, u8, 0);
+
+	sha256(&h, key->der, sizeof(key->der));
+	ripemd160(&pkhash, h.u.u8, sizeof(h));
+	/* BIP143:
+	 *
+	 * For P2WPKH witness program, the scriptCode is
+	 * 0x1976a914{20-byte-pubkey-hash}88ac.
+	 */
+
+	/* PUSH(25): OP_DUP OP_HASH160 PUSH(20) 20-byte-pubkey-hash
+	 * OP_EQUALVERIFY OP_CHECKSIG */
+	add_op(&script, OP_DUP);
+	add_op(&script, OP_HASH160);
+	add_push_bytes(&script, &pkhash, sizeof(pkhash));
+	add_op(&script, OP_EQUALVERIFY);
+	add_op(&script, OP_CHECKSIG);
+
+	return script;
+}
+
 /* Assumes redeemscript contains CHECKSIG, not CHECKMULTISIG */
 u8 *scriptsig_p2sh_single_sig(const tal_t *ctx,
 			      const u8 *redeem_script,

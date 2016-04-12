@@ -41,6 +41,9 @@ u8 *scriptsig_pay_to_pubkeyhash(const tal_t *ctx,
 				const struct pubkey *key,
 				const struct bitcoin_signature *sig);
 
+/* Create scriptcode (fake witness, basically) for P2WPKH */
+u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key);
+
 u8 *scriptpubkey_htlc_send(const tal_t *ctx,
 			   const struct pubkey *ourkey,
 			   const struct pubkey *theirkey,
