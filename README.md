@@ -15,8 +15,8 @@ advertise their IP addresses, publish routes and fees, and use that
 information to pay specific nodes.  These details are currently being
 hashed out on the [mailing list](https://lists.linuxfoundation.org/mailman/listinfo/lightning-dev) and the IRC channel [#lightning-dev](https://botbot.me/freenode/lightning-dev/) on Freenode.
 
-The protocol requires features not currently in bitcoin, but can be tested
-with bitcoin (on testnet) with OP_NOP substitution.
+The protocol requires features not currently in bitcoin, so you will need
+Pieter Wuille's Segregated Witness bitcoind: https://github.com/sipa/bitcoin/tree/segwit4
 
 Final note: This is very much a testbed and work in progress; expect
 All The Things to change, all the time.
