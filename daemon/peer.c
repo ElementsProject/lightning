@@ -14,6 +14,7 @@
 #include "secrets.h"
 #include "state.h"
 #include "timeout.h"
+#include "wallet.h"
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
@@ -39,7 +40,7 @@ struct json_connecting {
 	/* This owns us, so we're freed after command_fail or command_success */
 	struct command *cmd;
 	const char *name, *port;
-	u64 satoshis;
+	struct anchor_input *input;
 };
 
 struct pending_cmd {
@@ -450,7 +451,8 @@ static struct io_plan *peer_connected_out(struct io_conn *conn,
 	}
 	log_info(peer->log, "Connected out to %s:%s",
 		 connect->name, connect->port);
-	peer->anchor.satoshis = connect->satoshis;
+
+	peer->anchor.input = tal_steal(peer, connect->input);
 
 	command_success(connect->cmd, null_response(connect));
 	return peer_crypto_setup(conn, peer, peer_crypto_on);
@@ -565,14 +567,17 @@ static void json_connect(struct command *cmd,
 			const char *buffer, const jsmntok_t *params)
 {
 	struct json_connecting *connect;
-	jsmntok_t *host, *port, *satoshis;
+	jsmntok_t *host, *port, *txtok;
+	struct bitcoin_tx *tx;
+	int output;
+	size_t txhexlen;
 
 	if (!json_get_params(buffer, params,
 			     "host", &host,
 			     "port", &port,
-			     "satoshis", &satoshis,
+			     "tx", &txtok,
 			     NULL)) {
-		command_fail(cmd, "Need host, port and satoshis");
+		command_fail(cmd, "Need host, port and tx to a wallet address");
 		return;
 	}
 
@@ -582,10 +587,35 @@ static void json_connect(struct command *cmd,
 				    host->end - host->start);
 	connect->port = tal_strndup(connect, buffer + port->start,
 				    port->end - port->start);
-	if (!json_tok_u64(buffer, satoshis, &connect->satoshis))
-		command_fail(cmd, "'%.*s' is not a valid number",
-			     (int)(satoshis->end - satoshis->start),
-			     buffer + satoshis->start);
+	connect->input = tal(connect, struct anchor_input);
+
+	txhexlen = txtok->end - txtok->start;
+	tx = bitcoin_tx_from_hex(connect->input, buffer + txtok->start,
+				 txhexlen);
+	if (!tx) {
+		command_fail(cmd, "'%.*s' is not a valid transaction",
+			     txtok->end - txtok->start,
+			     buffer + txtok->start);
+		return;
+	}
+
+	bitcoin_txid(tx, &connect->input->txid);
+
+	/* Find an output we know how to spend. */
+	connect->input->w = NULL;
+	for (output = 0; output < tx->output_count; output++) {
+		connect->input->w
+			= wallet_can_spend(cmd->dstate, &tx->output[output]);
+		if (connect->input->w)
+			break;
+	}
+	if (!connect->input->w) {
+		command_fail(cmd, "Tx doesn't send to wallet address");
+		return;
+	}
+
+	connect->input->index = output;
+	connect->input->amount = tx->output[output].amount;
 	if (!dns_resolve_and_connect(cmd->dstate, connect->name, connect->port,
 				     peer_connected_out, peer_failed, connect)) {
 		command_fail(cmd, "DNS failed");
@@ -1219,45 +1249,52 @@ const struct bitcoin_tx *bitcoin_htlc_spend(const struct peer *peer,
 	FIXME_STUB(peer);
 }
 
-static void created_anchor(struct lightningd_state *dstate,
-			   const struct bitcoin_tx *tx,
-			   int change_output,
-			   struct peer *peer)
+/* Now we can create anchor tx. */ 
+static void got_feerate(struct lightningd_state *dstate,
+			u64 rate, struct peer *peer)
 {
-	size_t real_out;
+	u64 fee;
+	struct bitcoin_tx *tx = bitcoin_tx(peer, 1, 1);
+
+	tx->output[0].script = scriptpubkey_p2sh(tx, peer->anchor.redeemscript);
+	tx->output[0].script_length = tal_count(tx->output[0].script);
+
+	/* Add input script length.  FIXME: This is normal case, not exact. */
+	fee = fee_by_feerate(measure_tx_len(tx) + 1+73 + 1+33 + 1, rate);
+	if (fee >= peer->anchor.input->amount)
+		/* FIXME: Report an error here!
+		 * We really should set this when they do command, but
+		 * we need to modify state to allow immediate anchor
+		 * creation: using estimate_fee is a convenient workaround. */
+		fatal("Amount %"PRIu64" below fee %"PRIu64,
+		      peer->anchor.input->amount, fee);
+
+	tx->output[0].amount = peer->anchor.input->amount - fee;
+
+	tx->input[0].txid = peer->anchor.input->txid;
+	tx->input[0].index = peer->anchor.input->index;
+	tx->input[0].amount = tal_dup(tx->input, u64,
+				      &peer->anchor.input->amount);
+
+	wallet_add_signed_input(peer->dstate, peer->anchor.input->w, tx, 0);
 
 	bitcoin_txid(tx, &peer->anchor.txid);
-	if (change_output == -1)
-		real_out = 0;
-	else
-		real_out = !change_output;
-
-	assert(find_p2sh_out(tx, peer->anchor.redeemscript) == real_out);
-	peer->anchor.index = real_out;
-	assert(peer->anchor.satoshis == tx->output[peer->anchor.index].amount);
+	peer->anchor.tx = tx;
+	peer->anchor.index = 0;
 	/* We'll need this later, when we're told to broadcast it. */
-	peer->anchor.tx = tal_steal(peer, tx);
+	peer->anchor.satoshis = tx->output[0].amount;
 
 	state_event(peer, BITCOIN_ANCHOR_CREATED, NULL);
 }
 
-/* Start creation of the bitcoin anchor tx. */
+/* Creation the bitcoin anchor tx, spending output user provided. */
 void bitcoin_create_anchor(struct peer *peer, enum state_input done)
 {
-	struct bitcoin_tx *template = bitcoin_tx(peer, 0, 1);
-
 	/* We must be offering anchor for us to try creating it */
 	assert(peer->us.offer_anchor);
 
-	template->output[0].amount = peer->anchor.satoshis;
-	template->output[0].script
-		= scriptpubkey_p2sh(template, peer->anchor.redeemscript);
-	template->output[0].script_length
-		= tal_count(template->output[0].script);
-
 	assert(done == BITCOIN_ANCHOR_CREATED);
-
-	bitcoind_fund_transaction(peer->dstate, template, created_anchor, peer);
+	bitcoind_estimate_fee(peer->dstate, got_feerate, peer);
 }
 
 /* We didn't end up broadcasting the anchor: release the utxos.

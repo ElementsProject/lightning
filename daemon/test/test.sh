@@ -16,8 +16,9 @@ REDIRERR1="$DIR1/errors"
 REDIRERR2="$DIR2/errors"
 FGREP="fgrep -q"
 
-# setup.sh gives us 0.00999999 bitcoin, = 999999 satoshi = 999999000 millisatoshi
-AMOUNT=999999000
+# We inject 0.01 bitcoin, but then fees (estimatefee fails and we use a
+# fee rate as per the close tx).
+AMOUNT=996160000
 
 # Default fee rate per kb.
 FEE_RATE=200000
@@ -129,7 +130,7 @@ check_staged()
 check_tx_spend()
 {
     $CLI generate 1
-    if [ $($CLI getblock $($CLI getbestblockhash) | grep -c '^    "') = 2 ]; then
+    if [ $($CLI getblock $($CLI getbestblockhash) | grep -c '^    "') -gt 1 ]; then
 	:
     else
 	echo "Block didn't include tx:" >&2
@@ -189,7 +190,12 @@ ID2=`$LCLI2 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'`
 
 PORT2=`$LCLI2 getlog | sed -n 's/.*on port \([0-9]*\).*/\1/p'`
 
-lcli1 connect localhost $PORT2 999999
+# Make a payment into a P2SH for anchor.
+P2SHADDR=`$LCLI1 newaddr | sed -n 's/{ "address" : "\(.*\)" }/\1/p'`
+TXID=`$CLI sendtoaddress $P2SHADDR 0.01`
+TX=`$CLI getrawtransaction $TXID`
+
+lcli1 connect localhost $PORT2 $TX
 sleep 2
 
 # Expect them to be waiting for anchor.

@@ -2,6 +2,7 @@
 #define LIGHTNING_DAEMON_PEER_H
 #include "config.h"
 #include "bitcoin/locktime.h"
+#include "bitcoin/privkey.h"
 #include "bitcoin/pubkey.h"
 #include "bitcoin/script.h"
 #include "bitcoin/shadouble.h"
@@ -40,6 +41,15 @@ union htlc_staging {
 	struct htlc_add add;
 	struct htlc_fulfill fulfill;
 	struct htlc_fail fail;
+};
+
+struct anchor_input {
+	struct sha256_double txid;
+	unsigned int index;
+	/* Amount of input (satoshis) */
+	u64 amount;
+	/* Wallet entry to use to spend. */
+	struct wallet *w;
 };
 
 struct commit_info {
@@ -131,6 +141,10 @@ struct peer {
 		unsigned int index;
 		u64 satoshis;
 		u8 *redeemscript;
+
+		/* If we're creating anchor, this tells us where to source it */
+		struct anchor_input *input;
+	
 		/* If we created it, we keep entire tx. */
 		const struct bitcoin_tx *tx;
 		struct anchor_watch *watches;

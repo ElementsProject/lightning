@@ -53,14 +53,6 @@ void bitcoind_estimate_fee_(struct lightningd_state *dstate,
 void bitcoind_send_tx(struct lightningd_state *dstate,
 		      const struct bitcoin_tx *tx);
 
-void bitcoind_fund_transaction(struct lightningd_state *dstate,
-			       struct bitcoin_tx *tx_no_inputs,
-			       void (*cb)(struct lightningd_state *dstate,
-					  const struct bitcoin_tx *tx,
-					  int change_output,
-					  struct peer *peer),
-			       struct peer *peer);
-
 void bitcoind_get_mediantime(struct lightningd_state *dstate,
 			     const struct sha256_double *blockid,
 			     u32 *mediantime);
