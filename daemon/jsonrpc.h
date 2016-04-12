@@ -64,4 +64,5 @@ extern const struct json_command failhtlc_command;
 extern const struct json_command commit_command;
 extern const struct json_command mocktime_command;
 extern const struct json_command close_command;
+extern const struct json_command newaddr_command;
 #endif /* LIGHTNING_DAEMON_JSONRPC_H */

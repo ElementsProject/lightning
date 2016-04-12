@@ -81,5 +81,8 @@ struct lightningd_state {
 	/* Outstanding bitcoind requests. */
 	struct list_head bitcoin_req;
 	bool bitcoin_req_running;
+
+	/* Wallet addresses we maintain. */
+	struct list_head wallet;
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */

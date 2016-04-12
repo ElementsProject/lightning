@@ -183,6 +183,7 @@ static struct lightningd_state *lightningd_state(void)
 						   | SECP256K1_CONTEXT_SIGN);
 	default_config(&dstate->config);
 	list_head_init(&dstate->bitcoin_req);
+	list_head_init(&dstate->wallet);
 	dstate->bitcoin_req_running = false;
 	return dstate;
 }
