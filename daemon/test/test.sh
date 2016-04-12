@@ -196,7 +196,7 @@ TXID=`$CLI sendtoaddress $P2SHADDR 0.01`
 TX=`$CLI getrawtransaction $TXID`
 
 lcli1 connect localhost $PORT2 $TX
-sleep 2
+sleep 5
 
 # Expect them to be waiting for anchor.
 lcli1 getpeers | $FGREP STATE_OPEN_WAITING_OURANCHOR
@@ -238,6 +238,9 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     TIME=$(($TIME + 1))
     lcli1 dev-mocktime $TIME
     sleep 2
+
+    # Now we need to trigger it again (first time it gets the mediantime).
+    $CLI generate 1
 
     # Sometimes it skips poll because it's busy.  Do it again.
     TIME=$(($TIME + 1))

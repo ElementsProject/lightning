@@ -27,7 +27,15 @@ while ! $CLI getinfo >/dev/null 2>&1; do
     sleep 1
     i=$(($i + 1))
 done
-    
+
+# Make sure they have segwit support!
+if $CLI help createwitnessaddress > /dev/null 2>&1; then :
+else
+    echo This bitcoind does not have segwit support. >&2
+    echo Please install one from https://github.com/sipa/bitcoin/tree/segwit4 >&2
+    exit 1
+fi
+
 scripts/generate-block.sh init
 
 A1=`scripts/get-new-address.sh`
