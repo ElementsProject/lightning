@@ -3,6 +3,7 @@
 #include "pubkey.h"
 #include "script.h"
 #include "signature.h"
+#include "tx.h"
 #include <assert.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/sha256/sha256.h>
@@ -46,6 +47,15 @@
 /* OP_NOP, otherwise bitcoind complains */
 #define OP_CHECKLOCKTIMEVERIFY	0x61
 #endif
+
+/* Bitcoin's OP_HASH160 is RIPEMD(SHA256()) */
+static void hash160(struct ripemd160 *redeemhash, const void *mem, size_t len)
+{
+	struct sha256 h;
+
+	sha256(&h, mem, len);
+	ripemd160(redeemhash, h.u.u8, sizeof(h));
+}
 
 static void add(u8 **scriptp, const void *mem, size_t len)
 {
@@ -105,17 +115,30 @@ static void add_push_key(u8 **scriptp, const struct pubkey *key)
 	add_push_bytes(scriptp, key->der, sizeof(key->der));
 }
 
-static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
+static u8 *stack_key(const tal_t *ctx, const struct pubkey *key)
 {
-	/* Bitcoin wants DER encoding. */
+	return tal_dup_arr(ctx, u8, key->der, sizeof(key->der), 0);
+}
+
+/* Bitcoin wants DER encoding. */
+static u8 *stack_sig(const tal_t *ctx, const struct bitcoin_signature *sig)
+{
 	u8 der[73];
+	/* FIXME: Use global! */ 
 	secp256k1_context *secpctx = secp256k1_context_create(0);
 	size_t len = signature_to_der(secpctx, der, &sig->sig);
+	secp256k1_context_destroy(secpctx);
 
 	/* Append sighash type */
 	der[len++] = sig->stype;
-	add_push_bytes(scriptp, der, len);
-	secp256k1_context_destroy(secpctx);
+	return tal_dup_arr(ctx, u8, der, len, 0);
+}
+
+static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
+{
+	u8 *der = stack_sig(*scriptp, sig);
+	add_push_bytes(scriptp, der, tal_count(der));
+	tal_free(der);
 }
 
 /* FIXME: permute? */
@@ -156,18 +179,52 @@ u8 *bitcoin_redeem_single(const tal_t *ctx, const struct pubkey *key)
 /* Create p2sh for this redeem script. */
 u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript)
 {
-	struct sha256 h;
 	struct ripemd160 redeemhash;
 	u8 *script = tal_arr(ctx, u8, 0);
 
 	add_op(&script, OP_HASH160);
-	sha256(&h, redeemscript, tal_count(redeemscript));
-	ripemd160(&redeemhash, h.u.u8, sizeof(h));
+	hash160(&redeemhash, redeemscript, tal_count(redeemscript));
 	add_push_bytes(&script, redeemhash.u.u8, sizeof(redeemhash.u.u8));
 	add_op(&script, OP_EQUAL);
 	return script;
 }
 
+/* Create the redeemscript for a P2SH + P2WPKH (for signing tx) */
+u8 *bitcoin_redeem_p2wpkh(const tal_t *ctx, const struct pubkey *key)
+{
+	struct ripemd160 keyhash;
+	u8 *script = tal_arr(ctx, u8, 0);
+
+	/* BIP141: BIP16 redeemScript pushed in the scriptSig is exactly a
+	 * push of a version byte plus a push of a witness program. */
+	add_number(&script, 0);
+	hash160(&keyhash, key->der, sizeof(key->der));
+	add_push_bytes(&script, &keyhash, sizeof(keyhash));
+	return script;
+}
+
+/* Create an input which spends the p2sh-p2wpkh. */
+void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
+				 struct bitcoin_tx_input *input,
+				 const struct bitcoin_signature *sig,
+				 const struct pubkey *key)
+{
+	u8 *redeemscript = bitcoin_redeem_p2wpkh(ctx, key);
+
+	/* BIP141: The scriptSig must be exactly a push of the BIP16 redeemScript
+	 * or validation fails. */
+	input->script = tal_arr(ctx, u8, 0);
+	add_push_bytes(&input->script, redeemscript, tal_count(redeemscript));
+	input->script_length = tal_count(input->script);
+
+	/* BIP141: The witness must consist of exactly 2 items (≤ 520
+	 * bytes each). The first one a signature, and the second one
+	 * a public key. */
+	input->witness = tal_arr(ctx, u8 *, 2);
+	input->witness[0] = stack_sig(input->witness, sig);
+	input->witness[1] = stack_key(input->witness, key);
+}
+	
 /* Create a script for our HTLC output: sending. */
 u8 *scriptpubkey_htlc_send(const tal_t *ctx,
 			   const struct pubkey *ourkey,
