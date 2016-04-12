@@ -1258,6 +1258,7 @@ static void got_feerate(struct lightningd_state *dstate,
 {
 	u64 fee;
 	struct bitcoin_tx *tx = bitcoin_tx(peer, 1, 1);
+	size_t i;
 
 	tx->output[0].script = scriptpubkey_p2sh(tx, peer->anchor.redeemscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
@@ -1287,6 +1288,10 @@ static void got_feerate(struct lightningd_state *dstate,
 	/* We'll need this later, when we're told to broadcast it. */
 	peer->anchor.satoshis = tx->output[0].amount;
 
+	/* To avoid malleation, all inputs must be segwit! */
+	for (i = 0; i < tx->input_count; i++)
+		assert(tx->input[i].witness);
+	
 	state_event(peer, BITCOIN_ANCHOR_CREATED, NULL);
 }
 
