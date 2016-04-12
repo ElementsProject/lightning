@@ -857,8 +857,10 @@ static void commit_tx_depth(struct peer *peer, int depth,
 	}
 
 	/* Don't yet know the median start time? */
-	if (!peer->cur_commit.start_time)
+	if (!peer->cur_commit.start_time) {
+		log_debug(peer->log, "... but we don't know start_time");
 		return;
+	}
 
 	/* FIXME: We should really use bitcoin time here. */
 	if (controlled_time().ts.tv_sec > peer->cur_commit.start_time
@@ -866,7 +868,8 @@ static void commit_tx_depth(struct peer *peer, int depth,
 		/* Free this watch; we're done */
 		peer->cur_commit.watch = tal_free(peer->cur_commit.watch);
 		state_event(peer, ptr2int(canspend), NULL);
-	}
+	} else
+		log_debug(peer->log, "... still CSV locked");
 }
 
 /* FIXME: We tell bitcoind to watch all the outputs, which is overkill */
