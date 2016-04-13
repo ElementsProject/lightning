@@ -266,12 +266,11 @@ static void process_transactions(struct bitcoin_cli *bcli)
 				      bcli->output + blktok->start);
 			}
 		}
-		/* FIXME: log txid, blkid */
+
 		log_debug(bcli->dstate->base_log,
-			  "txid %02x%02x%02x%02x..., conf %u, coinbase %u",
-			  txid.sha.u.u8[0], txid.sha.u.u8[1],
-			  txid.sha.u.u8[2], txid.sha.u.u8[3],
-			  conf, is_coinbase);
+			  "txid %s, conf %u, coinbase %u, blkhash %s",
+			  sha256_double_str(bcli, &txid), conf, is_coinbase,
+			  conf ? sha256_double_str(bcli, &blkhash) : "null");
 
 		cb(bcli->dstate, &txid, conf, is_coinbase,
 		   conf ? &blkhash : NULL);
