@@ -252,13 +252,10 @@ static void process_transactions(struct bitcoin_cli *bcli)
 			}
 		}
 
-		char *txid_str    = sha256_double_str(&txid);
-		char *blkhash_str = sha256_double_str(&blkhash);
 		log_debug(bcli->dstate->base_log,
 			  "txid %s, conf %u, coinbase %u, blkhash %s",
-			  txid_str, conf, is_coinbase, conf ? blkhash_str : "null");
-		tal_free(txid_str);
-		tal_free(blkhash_str);
+			  sha256_double_str(bcli, &txid), conf, is_coinbase,
+			  conf ? sha256_double_str(bcli, &blkhash) : "null");
 
 		cb(bcli->dstate, &txid, conf, is_coinbase,
 		   conf ? &blkhash : NULL);

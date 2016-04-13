@@ -1,6 +1,5 @@
 #include "shadouble.h"
 #include <ccan/mem/mem.h>
-#include <ccan/tal/tal.h>
 #include <stdio.h>
 
 void sha256_double(struct sha256_double *shadouble, const void *p, size_t len)
@@ -15,10 +14,10 @@ void sha256_double_done(struct sha256_ctx *shactx, struct sha256_double *res)
 	sha256(&res->sha, &res->sha, sizeof(res->sha));
 }
 
-char *sha256_str(struct sha256 *sha)
+char *sha256_str(const tal_t *ctx, struct sha256 *sha)
 {
 	const size_t size = sizeof(struct sha256);
-	char *hex = tal_arr(NULL, char, size * 2 + 1);
+	char *hex = tal_arr(ctx, char, size * 2 + 1);
 	size_t i = 0;
 	for (; i < size; i++) {
 		sprintf(hex + i*2, "%02x", sha->u.u8[size - i - 1]);
@@ -27,7 +26,7 @@ char *sha256_str(struct sha256 *sha)
 	return hex;
 }
 
-char *sha256_double_str(struct sha256_double *shadouble)
+char *sha256_double_str(const tal_t *ctx, struct sha256_double *shadouble)
 {
-	return sha256_str(&shadouble->sha);
+	return sha256_str(ctx, &shadouble->sha);
 }
