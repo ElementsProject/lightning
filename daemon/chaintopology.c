@@ -516,7 +516,27 @@ u32 get_last_mediantime(struct lightningd_state *dstate,
 	last_mediantime(topo->root, w, &mediantime);
 	return mediantime;
 }
-	
+
+u32 get_tip_mediantime(struct lightningd_state *dstate)
+{
+	struct topology *topo = dstate->topology;
+	size_t i, longest = 0;
+	u32 mediantime;
+
+	mediantime = topo->tips[longest]->mediantime;
+
+	for (i = 1; i < tal_count(topo->tips); i++) {
+		if (topo->tips[i]->height > topo->tips[longest]->height) {
+			longest = i;
+			mediantime = topo->tips[longest]->mediantime;
+		} else if (topo->tips[i]->height == topo->tips[longest]->height) {
+			if (topo->tips[i]->mediantime > mediantime)
+				mediantime = topo->tips[i]->mediantime;
+		}
+	}
+	return mediantime;
+}
+
 void setup_topology(struct lightningd_state *dstate)
 {
 	dstate->topology = tal(dstate, struct topology);

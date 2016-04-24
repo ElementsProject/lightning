@@ -848,17 +848,18 @@ static void commit_tx_depth(struct peer *peer, int depth,
 		return;
 
 	mediantime = get_last_mediantime(peer->dstate, txid);
-
 	assert(mediantime);
-	
-	/* FIXME: We should really use bitcoin time here. */
-	if (controlled_time().ts.tv_sec > mediantime
+
+	if (get_tip_mediantime(peer->dstate) > mediantime
 	    + rel_locktime_to_seconds(&peer->them.locktime)) {
 		/* Free this watch; we're done */
 		peer->cur_commit.watch = tal_free(peer->cur_commit.watch);
 		state_event(peer, ptr2int(canspend), NULL);
 	} else
-		log_debug(peer->log, "... still CSV locked");
+		log_debug(peer->log, "... still CSV locked (mediantime %u, need %u + %u)",
+			  get_tip_mediantime(peer->dstate),
+			  mediantime,
+			  rel_locktime_to_seconds(&peer->them.locktime));
 }
 
 /* We should map back from commit_tx permutation to figure out what happened. */
