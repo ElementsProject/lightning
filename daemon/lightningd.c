@@ -1,4 +1,5 @@
 #include "bitcoind.h"
+#include "chaintopology.h"
 #include "configdir.h"
 #include "controlled_time.h"
 #include "jsonrpc.h"
@@ -275,6 +276,9 @@ int main(int argc, char *argv[])
 
 	/* Create timer to do watches. */
 	setup_watch_timer(dstate);
+
+	/* Initialize block topology. */
+	setup_topology(dstate);
 
 	/* Make sure we use the artificially-controlled time for timers */
 	io_time_override(controlled_time);

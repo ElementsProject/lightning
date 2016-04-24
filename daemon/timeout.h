@@ -2,6 +2,7 @@
 #define LIGHTNING_DAEMON_TIMEOUT_H
 #include "config.h"
 
+#include <ccan/tal/tal.h>
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
