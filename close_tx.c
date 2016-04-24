@@ -1,6 +1,4 @@
-#include "bitcoin/pubkey.h"
 #include "bitcoin/script.h"
-#include "bitcoin/shadouble.h"
 #include "bitcoin/tx.h"
 #include "close_tx.h"
 #include "permute_tx.h"
@@ -8,15 +6,14 @@
 
 struct bitcoin_tx *create_close_tx(secp256k1_context *secpctx,
 				   const tal_t *ctx,
-				   const struct pubkey *our_final,
-				   const struct pubkey *their_final,
+				   const u8 *our_script,
+				   const u8 *their_script,
 				   const struct sha256_double *anchor_txid,
 				   unsigned int anchor_index,
 				   u64 anchor_satoshis,
 				   uint64_t to_us, uint64_t to_them)
 {
 	struct bitcoin_tx *tx;
-	const u8 *redeemscript;
 
 	/* Now create close tx: one input, two outputs. */
 	tx = bitcoin_tx(ctx, 1, 2);
@@ -28,14 +25,15 @@ struct bitcoin_tx *create_close_tx(secp256k1_context *secpctx,
 
 	/* One output is to us. */
 	tx->output[0].amount = to_us;
-	redeemscript = bitcoin_redeem_single(tx, our_final);
-	tx->output[0].script = scriptpubkey_p2sh(tx, redeemscript);
+	tx->output[0].script = tal_dup_arr(tx, u8,
+					   our_script, tal_count(our_script), 0);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
 	/* Other output is to them. */
 	tx->output[1].amount = to_them;
-	redeemscript = bitcoin_redeem_single(tx, their_final);
-	tx->output[1].script = scriptpubkey_p2sh(tx, redeemscript);
+	tx->output[1].script = tal_dup_arr(tx, u8,
+					   their_script, tal_count(their_script),
+					   0);
 	tx->output[1].script_length = tal_count(tx->output[1].script);
 
 	assert(tx->output[0].amount + tx->output[1].amount <= anchor_satoshis);

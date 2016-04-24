@@ -417,10 +417,14 @@ struct  _UpdateRevocation
 struct  _CloseClearing
 {
   ProtobufCMessage base;
+  /*
+   * Output script for mutual close tx.
+   */
+  ProtobufCBinaryData scriptpubkey;
 };
 #define CLOSE_CLEARING__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&close_clearing__descriptor) \
-     }
+    , {0,NULL} }
 
 
 struct  _CloseSignature

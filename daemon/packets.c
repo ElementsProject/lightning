@@ -388,9 +388,18 @@ void queue_pkt_err(struct peer *peer, Pkt *err)
 
 void queue_pkt_close_clearing(struct peer *peer)
 {
+	u8 *redeemscript;
 	CloseClearing *c = tal(peer, CloseClearing);
 
 	close_clearing__init(c);
+	redeemscript = bitcoin_redeem_single(c, &peer->us.finalkey);
+	peer->closing.our_script = scriptpubkey_p2sh(peer, redeemscript);
+
+	c->scriptpubkey.data = tal_dup_arr(c, u8,
+					   peer->closing.our_script,
+					   tal_count(peer->closing.our_script),
+					   0);
+	c->scriptpubkey.len = tal_count(c->scriptpubkey.data);
 
 	queue_pkt(peer, PKT__PKT_CLOSE_CLEARING, c);
 }
@@ -748,7 +757,13 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	
 Pkt *accept_pkt_close_clearing(struct peer *peer, const Pkt *pkt)
 {
-	/* FIXME: Reject unknown odd fields? */
+	const CloseClearing *c = pkt->close_clearing;
+
+	/* FIXME: Filter for non-standardness? */
+	peer->closing.their_script = tal_dup_arr(peer, u8,
+						 c->scriptpubkey.data,
+						 c->scriptpubkey.len, 0);
+
 	return NULL;
 }
 

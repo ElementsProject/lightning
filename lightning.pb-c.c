@@ -2017,9 +2017,29 @@ const ProtobufCMessageDescriptor update_revocation__descriptor =
   (ProtobufCMessageInit) update_revocation__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-#define close_clearing__field_descriptors NULL
-#define close_clearing__field_indices_by_name NULL
-#define close_clearing__number_ranges NULL
+static const ProtobufCFieldDescriptor close_clearing__field_descriptors[1] =
+{
+  {
+    "scriptPubkey",
+    1,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_BYTES,
+    0,   /* quantifier_offset */
+    offsetof(CloseClearing, scriptpubkey),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned close_clearing__field_indices_by_name[] = {
+  0,   /* field[0] = scriptPubkey */
+};
+static const ProtobufCIntRange close_clearing__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 1 }
+};
 const ProtobufCMessageDescriptor close_clearing__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
@@ -2028,10 +2048,10 @@ const ProtobufCMessageDescriptor close_clearing__descriptor =
   "CloseClearing",
   "",
   sizeof(CloseClearing),
-  0,
+  1,
   close_clearing__field_descriptors,
   close_clearing__field_indices_by_name,
-  0,  close_clearing__number_ranges,
+  1,  close_clearing__number_ranges,
   (ProtobufCMessageInit) close_clearing__init,
   NULL,NULL,NULL    /* reserved[123] */
 };

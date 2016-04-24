@@ -173,6 +173,8 @@ message update_revocation {
 
 // Start clearing out the channel HTLCs so we can close it
 message close_clearing {
+  // Output script for mutual close tx.
+  required bytes scriptPubkey = 1;
 }
 
 message close_signature {

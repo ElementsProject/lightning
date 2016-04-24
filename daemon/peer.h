@@ -170,6 +170,8 @@ struct peer {
 		struct bitcoin_signature *their_sig;
 		/* If their_sig is non-NULL, this is the fee. */
 		u64 their_fee;
+		/* scriptPubKey we/they want for closing. */
+		u8 *our_script, *their_script;
 	} closing;
 
 	/* If not INPUT_NONE, send this when we have no more HTLCs. */

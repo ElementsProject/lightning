@@ -948,8 +948,8 @@ struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee)
 		  cstate.b.pay_msat / 1000);
 
  	return create_close_tx(peer->dstate->secpctx, peer,
-			       &peer->us.finalkey,
-			       &peer->them.finalkey,
+			       peer->closing.our_script,
+			       peer->closing.their_script,
 			       &peer->anchor.txid,
 			       peer->anchor.index,
 			       peer->anchor.satoshis,
