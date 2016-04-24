@@ -10,6 +10,7 @@
 #include <ccan/mem/mem.h>
 
 /* Some standard ops */
+#define OP_0		0x00
 #define OP_PUSHBYTES(val) (val)
 #define OP_PUSHDATA1	0x4C
 #define OP_PUSHDATA2	0x4D
@@ -133,6 +134,24 @@ static u8 *stack_sig(const tal_t *ctx, const struct bitcoin_signature *sig)
 	return tal_dup_arr(ctx, u8, der, len, 0);
 }
 
+/* Bitcoin script stack values are a special, special snowflake.
+ *
+ * They're little endian values, but 0 is an empty value.  We only
+ * handle single byte values here. */
+static u8 *stack_number(const tal_t *ctx, unsigned int num)
+{
+	u8 val;
+
+	if (num == 0)
+		return tal_arr(ctx, u8, 0);
+
+	val = num;
+	assert(val == num);
+
+	/* We use tal_dup_arr since we want tal_count() to work */
+	return tal_dup_arr(ctx, u8, &val, 1, 0);
+}
+
 static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
 {
 	u8 *der = stack_sig(*scriptp, sig);
@@ -224,6 +243,43 @@ void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 	input->witness[1] = stack_key(input->witness, key);
 }
 	
+/* Create an output script for a 32-byte witness. */
+u8 *scriptpubkey_p2wsh(const tal_t *ctx, const u8 *witnessscript)
+{
+	struct sha256 h;
+	u8 *script = tal_arr(ctx, u8, 0);
+	
+	add_op(&script, OP_0);
+	sha256(&h, witnessscript, tal_count(witnessscript));
+	add_push_bytes(&script, h.u.u8, sizeof(h.u.u8));
+	return script;
+}
+
+/* Create a witness which spends the 2of2. */
+u8 **bitcoin_witness_2of2(const tal_t *ctx,
+			  const struct bitcoin_signature *sig1,
+			  const struct bitcoin_signature *sig2,
+			  const struct pubkey *key1,
+			  const struct pubkey *key2)
+{
+	u8 **witness = tal_arr(ctx, u8 *, 4);
+
+	/* OP_CHECKMULTISIG has an out-by-one bug, which MBZ */
+	witness[0] = stack_number(witness, 0);
+
+	/* sig order should match key order. */
+	if (key_less(key1, key2)) {
+		witness[1] = stack_sig(witness, sig1);
+		witness[2] = stack_sig(witness, sig2);
+	} else {
+		witness[1] = stack_sig(witness, sig2);
+		witness[2] = stack_sig(witness, sig1);
+	}
+
+	witness[3] = bitcoin_redeem_2of2(witness, key1, key2);
+	return witness;
+}
+
 /* Create a script for our HTLC output: sending. */
 u8 *scriptpubkey_htlc_send(const tal_t *ctx,
 			   const struct pubkey *ourkey,

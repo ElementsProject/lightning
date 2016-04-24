@@ -2,6 +2,7 @@
 #define LIGHTNING_BITCOIN_SCRIPT_H
 #include "config.h"
 #include "signature.h"
+#include "tx.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
@@ -65,6 +66,16 @@ u8 *scriptpubkey_htlc_recv(const tal_t *ctx,
 			   const struct rel_locktime *locktime,
 			   const struct sha256 *commit_revoke,
 			   const struct sha256 *rhash);
+
+/* Create an output script for a 32-byte witness. */
+u8 *scriptpubkey_p2wsh(const tal_t *ctx, const u8 *witnessscript);
+
+/* Create a witness which spends the 2of2. */
+u8 **bitcoin_witness_2of2(const tal_t *ctx,
+			  const struct bitcoin_signature *sig1,
+			  const struct bitcoin_signature *sig2,
+			  const struct pubkey *key1,
+			  const struct pubkey *key2);
 
 /* Create an input script to accept pay to pubkey */
 u8 *scriptsig_p2sh_2of2(const tal_t *ctx,
