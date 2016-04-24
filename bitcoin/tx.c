@@ -293,24 +293,9 @@ u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
 	return arr;
 }
 
-u8 *linearize_tx_force_extended(const tal_t *ctx,
-				const struct bitcoin_tx *tx)
-{
-	u8 *arr = tal_arr(ctx, u8, 0);
-	add_tx(tx, add_linearize, &arr, true);
-	return arr;
-}
-
 static void add_measure(const void *data, size_t len, void *lenp)
 {
 	*(size_t *)lenp += len;
-}
-
-size_t measure_tx_len(const struct bitcoin_tx *tx)
-{
-	size_t len = 0;
-	add_tx(tx, add_measure, &len, uses_witness(tx));
-	return len;
 }
 
 size_t measure_tx_cost(const struct bitcoin_tx *tx)

@@ -21,17 +21,6 @@ static u32 find_output(const struct bitcoin_tx *tx, const u8 *scriptpubkey)
 	return i;
 }
 
-u32 find_p2sh_out(const struct bitcoin_tx *tx, const u8 *redeemscript)
-{
-	/* This is the scriptPubKey commit tx will have */
-	u8 *p2sh = scriptpubkey_p2sh(NULL, redeemscript);
-	u32 i;
-
-	i = find_output(tx, p2sh);
-	tal_free(p2sh);
-	return i;
-}
-
 u32 find_p2wsh_out(const struct bitcoin_tx *tx, const u8 *witnessscript)
 {
 	/* This is the scriptPubKey commit tx will have */

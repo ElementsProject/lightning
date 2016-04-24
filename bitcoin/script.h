@@ -86,20 +86,6 @@ u8 **bitcoin_witness_secret(const tal_t *ctx,
 			    const struct bitcoin_signature *sig,
 			    const u8 *witnessscript);
 
-/* Create an input script to accept pay to pubkey */
-u8 *scriptsig_p2sh_2of2(const tal_t *ctx,
-			const struct bitcoin_signature *sig1,
-			const struct bitcoin_signature *sig2,
-			const struct pubkey *key1,
-			const struct pubkey *key2);
-
-/* Create an input script to solve by secret */
-u8 *scriptsig_p2sh_secret(const tal_t *ctx,
-			  const void *secret, size_t secret_len,
-			  const struct bitcoin_signature *sig,
-			  const u8 *redeemscript,
-			  size_t redeem_len);
-
 /* Is this a pay to script hash? */
 bool is_p2sh(const u8 *script, size_t script_len);
 

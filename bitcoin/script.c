@@ -152,13 +152,6 @@ static u8 *stack_number(const tal_t *ctx, unsigned int num)
 	return tal_dup_arr(ctx, u8, &val, 1, 0);
 }
 
-static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
-{
-	u8 *der = stack_sig(*scriptp, sig);
-	add_push_bytes(scriptp, der, tal_count(der));
-	tal_free(der);
-}
-
 /* FIXME: permute? */
 /* Is a < b? (If equal we don't care) */
 static bool key_less(const struct pubkey *a, const struct pubkey *b)
@@ -420,30 +413,6 @@ u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key)
 	return script;
 }
 
-u8 *scriptsig_p2sh_2of2(const tal_t *ctx,
-			const struct bitcoin_signature *sig1,
-			const struct bitcoin_signature *sig2,
-			const struct pubkey *key1,
-			const struct pubkey *key2)
-{
-	u8 *script = tal_arr(ctx, u8, 0);
-	u8 *redeemscript;
-
-	/* OP_CHECKMULTISIG has an out-by-one bug, which MBZ */
-	add_number(&script, 0);
-	/* sig order should match key order. */
-	if (key_less(key1, key2)) {
-		add_push_sig(&script, sig1);
-		add_push_sig(&script, sig2);
-	} else {
-		add_push_sig(&script, sig2);
-		add_push_sig(&script, sig1);
-	}
-	redeemscript = bitcoin_redeem_2of2(script, key1, key2);
-	add_push_bytes(&script, redeemscript, tal_count(redeemscript));
-	return script;
-}
-
 bool is_p2sh(const u8 *script, size_t script_len)
 {
 	if (script_len != 23)
@@ -489,21 +458,6 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 
 	add_op(&script, OP_ENDIF);
 	add_op(&script, OP_CHECKSIG);
-
-	return script;
-}
-
-u8 *scriptsig_p2sh_secret(const tal_t *ctx,
-			  const void *secret, size_t secret_len,
-			  const struct bitcoin_signature *sig,
-			  const u8 *redeemscript,
-			  size_t redeem_len)
-{
-	u8 *script = tal_arr(ctx, u8, 0);
-
-	add_push_sig(&script, sig);
-	add_push_bytes(&script, secret, secret_len);
-	add_push_bytes(&script, redeemscript, redeem_len);
 
 	return script;
 }

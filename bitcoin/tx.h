@@ -49,13 +49,6 @@ void sha256_tx_for_sig(struct sha256_double *h, const struct bitcoin_tx *tx,
 /* Linear bytes of tx. */
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx);
 
-/* Force linearization in extended form; useful if 0 inputs. */
-u8 *linearize_tx_force_extended(const tal_t *ctx,
-				const struct bitcoin_tx *tx);
-
-/* Get length of tx in bytes. */
-size_t measure_tx_len(const struct bitcoin_tx *tx);
-
 /* Get cost of tx in (x4 of non-witness bytecount). */
 size_t measure_tx_cost(const struct bitcoin_tx *tx);
 
