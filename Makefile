@@ -21,7 +21,6 @@ TEST_PROGRAMS :=				\
 	test/test_onion
 
 BITCOIN_SRC :=					\
-	bitcoin/address.c			\
 	bitcoin/base58.c			\
 	bitcoin/locktime.c			\
 	bitcoin/pubkey.c			\

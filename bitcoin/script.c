@@ -1,4 +1,3 @@
-#include "address.h"
 #include "locktime.h"
 #include "pubkey.h"
 #include "script.h"
@@ -327,18 +326,6 @@ u8 *scriptpubkey_htlc_recv(const tal_t *ctx,
 	return script;
 }
 
-u8 *scriptsig_pay_to_pubkeyhash(const tal_t *ctx,
-				const struct pubkey *key,
-				const struct bitcoin_signature *sig)
-{
-	u8 *script = tal_arr(ctx, u8, 0);
-
-	add_push_sig(&script, sig);
-	add_push_key(&script, key);
-
-	return script;
-}
-
 /* Create scriptcode (fake witness, basically) for P2WPKH */
 u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key)
 {
@@ -365,19 +352,6 @@ u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key)
 	return script;
 }
 
-/* Assumes redeemscript contains CHECKSIG, not CHECKMULTISIG */
-u8 *scriptsig_p2sh_single_sig(const tal_t *ctx,
-			      const u8 *redeem_script,
-			      size_t redeem_len,
-			      const struct bitcoin_signature *sig)
-{
-	u8 *script = tal_arr(ctx, u8, 0);
-
-	add_push_sig(&script, sig);
-	add_push_bytes(&script, redeem_script, redeem_len);
-	return script;
-}
-	
 u8 *scriptsig_p2sh_2of2(const tal_t *ctx,
 			const struct bitcoin_signature *sig1,
 			const struct bitcoin_signature *sig2,
@@ -400,24 +374,6 @@ u8 *scriptsig_p2sh_2of2(const tal_t *ctx,
 	redeemscript = bitcoin_redeem_2of2(script, key1, key2);
 	add_push_bytes(&script, redeemscript, tal_count(redeemscript));
 	return script;
-}
-
-/* Is this a normal pay to pubkey hash? */
-bool is_pay_to_pubkey_hash(const u8 *script, size_t script_len)
-{
-	if (script_len != 25)
-		return false;
-	if (script[0] != OP_DUP)
-		return false;
-	if (script[1] != OP_HASH160)
-		return false;
-	if (script[2] != OP_PUSHBYTES(20))
-		return false;
-	if (script[23] != OP_EQUALVERIFY)
-		return false;
-	if (script[24] != OP_CHECKSIG)
-		return false;
-	return true;
 }
 
 bool is_p2sh(const u8 *script, size_t script_len)

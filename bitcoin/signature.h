@@ -51,14 +51,6 @@ bool check_tx_sig(secp256k1_context *secpctx,
 		  const struct pubkey *key,
 		  const struct bitcoin_signature *sig);
 
-bool check_2of2_sig(secp256k1_context *secpctx,
-		    struct bitcoin_tx *tx, size_t input_num,
-		    const u8 *redeemscript, size_t redeemscript_len,
-		    const u8 *witness,
-		    const struct pubkey *key1, const struct pubkey *key2,
-		    const struct bitcoin_signature *sig1,
-		    const struct bitcoin_signature *sig2);
-
 /* Signature must have low S value. */
 bool sig_valid(const struct signature *s);
 
