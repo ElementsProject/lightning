@@ -51,7 +51,6 @@ struct txwatch {
 
 	/* A new depth (-1 if conflicted), blkhash valid if > 0 */
 	void (*cb)(struct peer *peer, int depth,
-		   const struct sha256_double *blkhash,
 		   const struct sha256_double *txid,
 		   void *cbdata);
 	void *cbdata;
@@ -68,8 +67,7 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 			    struct peer *peer,
 			    const struct sha256_double *txid,
 			    void (*cb)(struct peer *peer, int depth,
-				       const struct sha256_double *blkhash,
-				       const struct sha256_double *txidx,
+				       const struct sha256_double *txid,
 				       void *),
 			    void *cbdata);
 
@@ -79,16 +77,14 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 					(cb), (cbdata),			\
 					struct peer *,			\
 					int depth,			\
-					const struct sha256_double *,	\
-					const struct sha256_double *txidx), \
+					const struct sha256_double *),	\
 		    (cbdata))
 
 struct txwatch *watch_tx_(const tal_t *ctx,
 			  struct peer *peer,
 			  const struct bitcoin_tx *tx,
 			  void (*cb)(struct peer *peer, int depth,
-				     const struct sha256_double *blkhash,
-				     const struct sha256_double *txidx,
+				     const struct sha256_double *txid,
 				     void *),
 			  void *cbdata);
 
@@ -98,7 +94,6 @@ struct txwatch *watch_tx_(const tal_t *ctx,
 				      (cb), (cbdata),			\
 				      struct peer *,			\
 				      int depth,			\
-				      const struct sha256_double *,	\
 				      const struct sha256_double *),	\
 		  (cbdata))
 
@@ -124,8 +119,7 @@ void normalized_txid(const struct bitcoin_tx *tx, struct sha256_double *txid);
 
 void txwatch_fire(struct lightningd_state *dstate,
 		  struct txwatch *txw,
-		  unsigned int depth,
-		  const struct sha256_double *blkhash);
+		  unsigned int depth);
 
 void txowatch_fire(struct lightningd_state *dstate,
 		   const struct txowatch *txow,

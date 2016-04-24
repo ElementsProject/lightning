@@ -162,7 +162,7 @@ static void connect_blocks(struct lightningd_state *dstate, struct block *b)
 			add_tx_to_block(b, w);
 			/* Fire if it's the first we've seen it: this might
 			 * set up txo watches, which could fire in this block */
-			txwatch_fire(dstate, w, 0, &b->blkid);
+			txwatch_fire(dstate, w, 0);
 		}
 	}
 	b->full_txs = tal_free(b->full_txs);
@@ -219,16 +219,14 @@ static bool tx_in_block(const struct block *b, const struct txwatch *w)
 static size_t get_tx_branch_height(const struct topology *topo,
 				   const struct block *tip,
 				   const struct txwatch *w,
-				   struct sha256_double *blkid,
 				   size_t max)
 {
 	const struct block *b;
 
 	for (b = tip; b; b = b->prev) {
-		if (tx_in_block(b, w)) {
-			*blkid = b->blkid;
+		if (tx_in_block(b, w))
 			return b->height;
-		}
+
 		/* Don't bother returning less than max */
 		if (b->height < max)
 			return max;
@@ -237,16 +235,14 @@ static size_t get_tx_branch_height(const struct topology *topo,
 	return tip->height + 1;
 }
 
-size_t get_tx_depth(struct lightningd_state *dstate, const struct txwatch *w,
-		    struct sha256_double *blkid)
+size_t get_tx_depth(struct lightningd_state *dstate, const struct txwatch *w)
 {
 	const struct topology *topo = dstate->topology;
 	size_t i, max = 0, longest = 0;
 
 	/* Calculate tx height. */
 	for (i = 0; i < tal_count(topo->tips); i++) {
-		size_t h = get_tx_branch_height(topo, topo->tips[i], w, blkid,
-						max);
+		size_t h = get_tx_branch_height(topo, topo->tips[i], w, max);
 		if (h > max)
 			max = h;
 

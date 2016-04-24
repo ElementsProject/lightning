@@ -1,4 +1,5 @@
 #include "bitcoind.h"
+#include "chaintopology.h"
 #include "close_tx.h"
 #include "commit_tx.h"
 #include "controlled_time.h"
@@ -643,7 +644,6 @@ struct anchor_watch {
 };
 
 static void anchor_depthchange(struct peer *peer, int depth,
-			       const struct sha256_double *blkhash,
 			       const struct sha256_double *txid,
 			       void *unused)
 {
@@ -741,7 +741,6 @@ static bool is_mutual_close(const struct peer *peer,
 
 static void close_depth_cb(struct peer *peer, int depth,
 			   const struct sha256_double *txid,
-			   const struct sha256_double *blkhash,
 			   void *unused)
 {
 	if (depth >= peer->dstate->config.forever_confirms) {
@@ -836,39 +835,24 @@ void peer_unwatch_anchor_depth(struct peer *peer,
 }
 
 static void commit_tx_depth(struct peer *peer, int depth,
-			    const struct sha256_double *blkhash,
 			    const struct sha256_double *txid,
 			    ptrint_t *canspend)
 {
+	u32 mediantime;
+
 	log_debug(peer->log, "Commit tx reached depth %i", depth);
 	/* FIXME: Handle locktime in blocks, as well as seconds! */
 
 	/* Fell out of a block? */
-	if (depth < 0) {
-		/* Forget any old block. */
-		peer->cur_commit.start_time = 0;
-		memset(&peer->cur_commit.blockid, 0xFF,
-		       sizeof(peer->cur_commit.blockid));
+	if (depth <= 0)
 		return;
-	}
 
-	/* In a new block? */
-	if (!structeq(blkhash, &peer->cur_commit.blockid)) {
-		peer->cur_commit.start_time = 0;
-		peer->cur_commit.blockid = *blkhash;
-		bitcoind_get_mediantime(peer->dstate, blkhash,
-					&peer->cur_commit.start_time);
-		return;
-	}
+	mediantime = get_last_mediantime(peer->dstate, txid);
 
-	/* Don't yet know the median start time? */
-	if (!peer->cur_commit.start_time) {
-		log_debug(peer->log, "... but we don't know start_time");
-		return;
-	}
-
+	assert(mediantime);
+	
 	/* FIXME: We should really use bitcoin time here. */
-	if (controlled_time().ts.tv_sec > peer->cur_commit.start_time
+	if (controlled_time().ts.tv_sec > mediantime
 	    + rel_locktime_to_seconds(&peer->them.locktime)) {
 		/* Free this watch; we're done */
 		peer->cur_commit.watch = tal_free(peer->cur_commit.watch);
@@ -889,9 +873,12 @@ static void our_commit_spent(struct peer *peer,
 static void watch_commit_outputs(struct peer *peer, const struct bitcoin_tx *tx)
 {
 	varint_t i;
+	struct sha256_double txid;
 
+	normalized_txid(tx, &txid);
 	for (i = 0; i < tx->output_count; i++) {
-		watch_txo(peer, peer, tx, i, our_commit_spent, peer->us.commit);
+		watch_txo(peer, peer, &txid, i, our_commit_spent,
+			  peer->us.commit);
 	}
 }
 
@@ -902,17 +889,13 @@ void peer_watch_delayed(struct peer *peer,
 {
 	/* We only ever spend the last one. */
 	assert(tx == peer->us.commit->tx);
-	memset(&peer->cur_commit.blockid, 0xFF,
-	       sizeof(peer->cur_commit.blockid));
-	peer->cur_commit.watch
-		= watch_tx(tx, peer, tx, commit_tx_depth,
-			   int2ptr(canspend));
+	peer->cur_commit.watch = watch_tx(tx, peer, tx, commit_tx_depth,
+					  int2ptr(canspend));
 
 	watch_commit_outputs(peer, tx);
 }
 
 static void spend_tx_done(struct peer *peer, int depth,
-			  const struct sha256_double *blkhash,
 			  const struct sha256_double *txid,
 			  ptrint_t *done)
 {

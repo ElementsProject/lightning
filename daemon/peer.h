@@ -153,10 +153,6 @@ struct peer {
 	struct {
 		/* Their signature for our current commit sig. */
 		struct bitcoin_signature theirsig;
-		/* When it entered a block (mediantime). */
-		u32 start_time;
-		/* Which block it entered. */
-		struct sha256_double blockid;
 		/* The watch we have on a live commit tx. */
 		struct txwatch *watch;
 	} cur_commit;

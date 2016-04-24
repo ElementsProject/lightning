@@ -36,6 +36,7 @@
 #include "timeout.h"
 #include "watch.h"
 #include <ccan/hash/hash.h>
+#include <ccan/ptrint/ptrint.h>
 #include <ccan/structeq/structeq.h>
 
 const struct txwatch_output *txowatch_keyof(const struct txowatch *w)
@@ -83,7 +84,6 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 			    struct peer *peer,
 			    const struct sha256_double *txid,
 			    void (*cb)(struct peer *peer, int depth,
-				       const struct sha256_double *blkhash,
 				       const struct sha256_double *txid,
 				       void *arg),
 			    void *cb_arg)
@@ -110,7 +110,6 @@ struct txwatch *watch_tx_(const tal_t *ctx,
 			 struct peer *peer,
 			 const struct bitcoin_tx *tx,
 			 void (*cb)(struct peer *peer, int depth,
-				    const struct sha256_double *blkhash,
 				    const struct sha256_double *txid,
 				    void *arg),
 			  void *cb_arg)
@@ -147,8 +146,7 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 
 void txwatch_fire(struct lightningd_state *dstate,
 		  struct txwatch *txw,
-		  unsigned int depth,
-		  const struct sha256_double *blkhash)
+		  unsigned int depth)
 {
 	if (depth != txw->depth) {
 		log_debug(txw->peer->log,
@@ -158,8 +156,7 @@ void txwatch_fire(struct lightningd_state *dstate,
 			  txw->txid.sha.u.u8[1],
 			  txw->txid.sha.u.u8[2]);
 		txw->depth = depth;
-		txw->cb(txw->peer, txw->depth, blkhash, &txw->txid,
-			txw->cbdata);
+		txw->cb(txw->peer, txw->depth, &txw->txid, txw->cbdata);
 	}
 }
 
@@ -195,17 +192,16 @@ again:
 	for (w = txwatch_hash_first(&dstate->txwatches, &i);
 	     w;
 	     w = txwatch_hash_next(&dstate->txwatches, &i)) {
-		struct sha256_double blkid;
 		size_t depth;
 
 		/* Don't fire if we haven't seen it at all. */
 		if (w->depth == -1)
 			continue;
 
-		depth = get_tx_depth(dstate, w, &blkid);
+		depth = get_tx_depth(dstate, w);
 		if (depth != w->depth) {
 			w->depth = depth;
-			w->cb(w->peer, w->depth, &blkid, &w->txid, w->cbdata);
+			w->cb(w->peer, w->depth, &w->txid, w->cbdata);
 			needs_rerun = true;
 		}
 	}
