@@ -14,30 +14,6 @@ struct bitcoin_block;
 /* -datadir arg for bitcoin-cli. */
 extern char *bitcoin_datadir;
 
-void bitcoind_watch_addr(struct lightningd_state *dstate,
-			 const struct ripemd160 *redeemhash);
-
-void bitcoind_poll_transactions(struct lightningd_state *dstate,
-				void (*cb)(struct lightningd_state *dstate,
-					   const struct sha256_double *txid,
-					   int confirmations,
-					   bool is_coinbase,
-					   const struct sha256_double *blkhash));
-
-void bitcoind_txid_lookup_(struct lightningd_state *dstate,
-			  const struct sha256_double *txid,
-			  void (*cb)(struct lightningd_state *dstate,
-				     const struct bitcoin_tx *tx, void *),
-			   void *arg);
-
-#define bitcoind_txid_lookup(dstate, txid, cb, arg)			\
-	bitcoind_txid_lookup_((dstate), (txid),				\
-			      typesafe_cb_preargs(void, void *,		\
-						  (cb), (arg),		\
-						  struct lightningd_state *, \
-						  const struct bitcoin_tx *), \
-			      (arg))
-
 void bitcoind_estimate_fee_(struct lightningd_state *dstate,
 			    void (*cb)(struct lightningd_state *dstate,
 				       u64, void *),
@@ -54,10 +30,6 @@ void bitcoind_estimate_fee_(struct lightningd_state *dstate,
 void bitcoind_send_tx(struct lightningd_state *dstate,
 		      const struct bitcoin_tx *tx);
 
-void bitcoind_get_mediantime(struct lightningd_state *dstate,
-			     const struct sha256_double *blockid,
-			     u32 *mediantime);
-
 void bitcoind_get_chaintips_(struct lightningd_state *dstate,
 			     void (*cb)(struct lightningd_state *dstate,
 					struct sha256_double *blockids,
@@ -71,27 +43,6 @@ void bitcoind_get_chaintips_(struct lightningd_state *dstate,
 						    struct lightningd_state *, \
 						    struct sha256_double *), \
 				(arg))
-
-void bitcoind_getblock_(struct lightningd_state *dstate,
-			const struct sha256_double *blockid,
-			void (*cb)(struct lightningd_state *dstate,
-				   struct sha256_double *blkid,
-				   struct sha256_double *prevblock,
-				   struct sha256_double *txids,
-				   u32 mediantime,
-				   void *arg),
-			void *arg);
-
-#define bitcoind_getblock(dstate, blockid, cb, arg)		\
-	bitcoind_getblock_((dstate), (blockid),			\
-			   typesafe_cb_preargs(void, void *,		\
-					       (cb), (arg),		\
-					       struct lightningd_state *, \
-					       struct sha256_double *,	\
-					       struct sha256_double *,	\
-					       struct sha256_double *,	\
-					       u32 mediantime),		\
-			   (arg))
 
 void bitcoind_getblockcount_(struct lightningd_state *dstate,
 			     void (*cb)(struct lightningd_state *dstate,
