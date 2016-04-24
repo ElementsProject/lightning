@@ -877,17 +877,21 @@ static void commit_tx_depth(struct peer *peer, int depth,
 		log_debug(peer->log, "... still CSV locked");
 }
 
+/* We should map back from commit_tx permutation to figure out what happened. */
+static void our_commit_spent(struct peer *peer,
+			     const struct bitcoin_tx *commit_tx,
+			     struct commit_info *info)
+{
+	/* FIXME: do something useful here, if HTLCs spent */
+}
+
 /* FIXME: We tell bitcoind to watch all the outputs, which is overkill */
-static void watch_tx_outputs(struct peer *peer, const struct bitcoin_tx *tx)
+static void watch_commit_outputs(struct peer *peer, const struct bitcoin_tx *tx)
 {
 	varint_t i;
 
 	for (i = 0; i < tx->output_count; i++) {
-		struct ripemd160 redeemhash;
-		if (!is_p2sh(tx->output[i].script, tx->output[i].script_length))
-			fatal("Unexpected non-p2sh output");
-		memcpy(&redeemhash, tx->output[i].script+2, sizeof(redeemhash));
-		bitcoind_watch_addr(peer->dstate, &redeemhash);
+		watch_txo(peer, peer, tx, i, our_commit_spent, peer->us.commit);
 	}
 }
 
@@ -896,18 +900,15 @@ void peer_watch_delayed(struct peer *peer,
 			const struct bitcoin_tx *tx,
 			enum state_input canspend)
 {
-	struct sha256_double txid;
-
 	/* We only ever spend the last one. */
 	assert(tx == peer->us.commit->tx);
-	bitcoin_txid(tx, &txid);
 	memset(&peer->cur_commit.blockid, 0xFF,
 	       sizeof(peer->cur_commit.blockid));
 	peer->cur_commit.watch
-		= watch_txid(tx, peer, &txid, commit_tx_depth,
-			     int2ptr(canspend));
+		= watch_tx(tx, peer, tx, commit_tx_depth,
+			   int2ptr(canspend));
 
-	watch_tx_outputs(peer, tx);
+	watch_commit_outputs(peer, tx);
 }
 
 static void spend_tx_done(struct peer *peer, int depth,
