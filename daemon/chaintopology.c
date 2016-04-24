@@ -62,6 +62,7 @@ static bool block_eq(const struct block *b, const struct sha256_double *key)
 HTABLE_DEFINE_TYPE(struct block, keyof_block_map, hash_sha, block_eq, block_map);
 
 struct topology {
+	struct block *root;
 	struct block **tips;
 	struct sha256_double *newtips;
 	struct block_map block_map;
@@ -429,10 +430,10 @@ static void init_topo(struct lightningd_state *dstate,
 		      struct bitcoin_block *blk,
 		      ptrint_t *p)
 {
-	struct block *b;
+	struct topology *topo = dstate->topology;
 
-	b = add_block(dstate, blk);
-	b->height = ptr2int(p);
+	topo->root = add_block(dstate, blk);
+	topo->root->height = ptr2int(p);
 
 	/* Now grab chaintips immediately. */
 	bitcoind_get_chaintips(dstate, check_chaintips, NULL);
@@ -459,6 +460,37 @@ static void get_init_blockhash(struct lightningd_state *dstate, u32 blockcount,
 	bitcoind_getblockhash(dstate, start, get_init_block, int2ptr(start));
 }
 
+/* FIXME: Don't brute force this for the normal case! */
+static void last_mediantime(const struct block *b,
+			    const struct txwatch *w,
+			    u32 *mediantime)
+{
+	size_t i;
+
+	if (tx_in_block(b, w)) {
+		if (b->mediantime > *mediantime)
+			*mediantime = b->mediantime;
+		/* Can't be in a later block */
+		return;
+	}
+
+	for (i = 0; i < tal_count(b->nexts); i++)
+		last_mediantime(b->nexts[i], w, mediantime);
+}
+
+u32 get_last_mediantime(struct lightningd_state *dstate,
+			const struct sha256_double *txid)
+{
+	struct topology *topo = dstate->topology;
+	struct txwatch *w;
+	u32 mediantime = 0;
+
+	w = txwatch_hash_get(&dstate->txwatches, txid);
+
+	last_mediantime(topo->root, w, &mediantime);
+	return mediantime;
+}
+	
 void setup_topology(struct lightningd_state *dstate)
 {
 	dstate->topology = tal(dstate, struct topology);
