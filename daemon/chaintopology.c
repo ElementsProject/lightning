@@ -152,12 +152,8 @@ static void connect_blocks(struct lightningd_state *dstate, struct block *b)
 		}
 
 		/* We do spends first, in case that tells us to watch tx. */
-		normalized_txid(tx, &txid);
+		bitcoin_txid(tx, &txid);
 		w = txwatch_hash_get(&dstate->txwatches, &txid);
-		if (!w) {
-			bitcoin_txid(tx, &txid);
-			w = txwatch_hash_get(&dstate->txwatches, &txid);
-		}
 		if (w) {
 			add_tx_to_block(b, w);
 			/* Fire if it's the first we've seen it: this might

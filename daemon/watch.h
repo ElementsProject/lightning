@@ -114,9 +114,6 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 				      const struct bitcoin_tx *),	\
 		  (cbdata))
 
-/* FIXME: Seg witness removes need for this! */
-void normalized_txid(const struct bitcoin_tx *tx, struct sha256_double *txid);
-
 void txwatch_fire(struct lightningd_state *dstate,
 		  struct txwatch *txw,
 		  unsigned int depth);

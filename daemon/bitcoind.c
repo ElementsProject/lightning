@@ -414,23 +414,6 @@ void bitcoind_getblockhash_(struct lightningd_state *dstate,
 			  "getblockhash", str, NULL);
 }
 
-/* FIXME: Seg witness removes need for this! */
-void normalized_txid(const struct bitcoin_tx *tx, struct sha256_double *txid)
-{
-	size_t i;
-	struct bitcoin_tx tx_copy = *tx;
-	struct bitcoin_tx_input input_copy[tx->input_count];
-
-	/* Copy inputs, but scripts are 0 length. */
-	for (i = 0; i < tx_copy.input_count; i++) {
-		input_copy[i] = tx->input[i];
-		input_copy[i].script_length = 0;
-	}
-	tx_copy.input = input_copy;
-
-	bitcoin_txid(&tx_copy, txid);
-}
-
 /* Make testnet/regtest status matches us. */
 void check_bitcoind_config(struct lightningd_state *dstate)
 {

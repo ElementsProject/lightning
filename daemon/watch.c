@@ -116,7 +116,7 @@ struct txwatch *watch_tx_(const tal_t *ctx,
 {
 	struct sha256_double txid;
 
-	normalized_txid(tx, &txid);
+	bitcoin_txid(tx, &txid);
 	return watch_txid(ctx, peer, &txid, cb, cb_arg);
 }
 

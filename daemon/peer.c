@@ -876,7 +876,7 @@ static void watch_commit_outputs(struct peer *peer, const struct bitcoin_tx *tx)
 	varint_t i;
 	struct sha256_double txid;
 
-	normalized_txid(tx, &txid);
+	bitcoin_txid(tx, &txid);
 	for (i = 0; i < tx->output_count; i++) {
 		watch_txo(peer, peer, &txid, i, our_commit_spent,
 			  peer->us.commit);

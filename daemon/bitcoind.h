@@ -87,7 +87,5 @@ void bitcoind_getrawblock_(struct lightningd_state *dstate,
 						  struct bitcoin_block *), \
 			      (arg))
 
-void normalized_txid(const struct bitcoin_tx *tx, struct sha256_double *txid);
-
 void check_bitcoind_config(struct lightningd_state *dstate);
 #endif /* LIGHTNING_DAEMON_BITCOIND_H */
