@@ -259,9 +259,9 @@ static void process_transactions(struct bitcoin_cli *bcli)
 			if (!blktok)
 				fatal("listtransactions: no blockhash field!");
 
-			if (!hex_decode(bcli->output + blktok->start,
-					blktok->end - blktok->start,
-					&blkhash, sizeof(blkhash))) {
+			if (!bitcoin_blkid_from_hex(bcli->output + blktok->start,
+						    blktok->end - blktok->start,
+						    &blkhash)) {
 				fatal("listtransactions: bad blockhash '%.*s'",
 				      (int)(blktok->end - blktok->start),
 				      bcli->output + blktok->start);
@@ -496,7 +496,7 @@ void bitcoind_get_mediantime(struct lightningd_state *dstate,
 {
 	char hex[hex_str_size(sizeof(*blockid))];
 
-	hex_encode(blockid, sizeof(*blockid), hex, sizeof(hex));
+	bitcoin_blkid_to_hex(blockid, hex, sizeof(hex));
 	start_bitcoin_cli(dstate, process_getblock_for_mediantime,
 			  NULL, mediantime,
 			  "getblock", hex, NULL);
@@ -532,9 +532,9 @@ static void process_chaintips(struct bitcoin_cli *bcli)
 	for (i = 0, t = tokens + 1; t < end; t = json_next(t), i++) {
 		const jsmntok_t *hash = json_get_member(bcli->output, t, "hash");
 		tal_resize(&tips, i+1);
-		if (!hex_decode(bcli->output + hash->start,
-				hash->end - hash->start,
-				&tips[i], sizeof(tips[i])))
+		if (!bitcoin_blkid_from_hex(bcli->output + hash->start,
+					    hash->end - hash->start,
+					    &tips[i]))
 			fatal("%s: gave bad hash for %zu'th tip (%.*s)?",
 			      bcli_args(bcli), i,
 			      (int)bcli->output_bytes, bcli->output);
@@ -631,9 +631,9 @@ static void process_getblock(struct bitcoin_cli *bcli)
 	prevblk_tok = json_get_member(bcli->output, tokens, "previousblockhash");
 	if (prevblk_tok) {
 		prevblk = tal(bcli, struct sha256_double);
-		if (!hex_decode(bcli->output + prevblk_tok->start,
-				prevblk_tok->end - prevblk_tok->start,
-				prevblk, sizeof(*prevblk))) {
+		if (!bitcoin_blkid_from_hex(bcli->output + prevblk_tok->start,
+					    prevblk_tok->end - prevblk_tok->start,
+					    prevblk)) {
 			fatal("%s: bad previousblockhash '%.*s'",
 			      bcli_args(bcli),
 			      (int)(prevblk_tok->end - prevblk_tok->start),
@@ -648,9 +648,9 @@ static void process_getblock(struct bitcoin_cli *bcli)
 		      bcli_args(bcli),
 		      (int)bcli->output_bytes, bcli->output);
 
-	if (!hex_decode(bcli->output + blkid_tok->start,
-			blkid_tok->end - blkid_tok->start,
-			&blkid, sizeof(blkid))) {
+	if (!bitcoin_blkid_from_hex(bcli->output + blkid_tok->start,
+				    blkid_tok->end - blkid_tok->start,
+				    &blkid)) {
 		fatal("%s: bad hash '%.*s'",
 		      bcli_args(bcli),
 		      (int)(blkid_tok->end - blkid_tok->start),
@@ -720,7 +720,7 @@ void bitcoind_getblock_(struct lightningd_state *dstate,
 {
 	char hex[hex_str_size(sizeof(*blockid))];
 
-	hex_encode(blockid, sizeof(*blockid), hex, sizeof(hex));
+	bitcoin_blkid_to_hex(blockid, hex, sizeof(hex));
 	start_bitcoin_cli(dstate, process_getblock, cb, arg,
 			  "getblock", hex, NULL);
 }
@@ -754,7 +754,7 @@ void bitcoind_getrawblock_(struct lightningd_state *dstate,
 {
 	char hex[hex_str_size(sizeof(*blockid))];
 
-	hex_encode(blockid, sizeof(*blockid), hex, sizeof(hex));
+	bitcoin_blkid_to_hex(blockid, hex, sizeof(hex));
 	start_bitcoin_cli(dstate, process_rawblock, cb, arg,
 			  "getblock", hex, "false", NULL);
 }
@@ -800,8 +800,8 @@ static void process_getblockhash(struct bitcoin_cli *bcli)
 		fatal("%s: failed", bcli_args(bcli));
 
 	if (bcli->output_bytes == 0
-	    || !hex_decode(bcli->output, bcli->output_bytes-1,
-			   &blkid, sizeof(blkid))) {
+	    || !bitcoin_blkid_from_hex(bcli->output, bcli->output_bytes-1,
+				       &blkid)) {
 		fatal("%s: bad blockid '%.*s'",
 		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
 	}

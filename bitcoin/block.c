@@ -36,3 +36,15 @@ struct bitcoin_block *bitcoin_block_from_hex(const tal_t *ctx,
 	tal_free(linear_tx);
 	return b;
 }
+
+bool bitcoin_blkid_from_hex(const char *hexstr, size_t hexstr_len,
+			    struct sha256_double *blockid)
+{
+	return bitcoin_txid_from_hex(hexstr, hexstr_len, blockid);
+}
+
+bool bitcoin_blkid_to_hex(const struct sha256_double *blockid,
+			  char *hexstr, size_t hexstr_len)
+{
+	return bitcoin_txid_to_hex(blockid, hexstr, hexstr_len);
+}
