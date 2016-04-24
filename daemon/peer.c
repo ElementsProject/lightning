@@ -1104,15 +1104,12 @@ const struct bitcoin_tx *bitcoin_close(struct peer *peer)
 	our_close_sig.stype = SIGHASH_ALL;
 	peer_sign_mutual_close(peer, close_tx, &our_close_sig.sig);
 
-	/* Complete the close_tx, using signatures. */
-	close_tx->input[0].script
-		= scriptsig_p2sh_2of2(close_tx,
-				      peer->closing.their_sig,
-				      &our_close_sig,
-				      &peer->them.commitkey,
-				      &peer->us.commitkey);
-	close_tx->input[0].script_length
-		= tal_count(close_tx->input[0].script);
+	close_tx->input[0].witness
+		= bitcoin_witness_2of2(close_tx->input,
+				       peer->closing.their_sig,
+				       &our_close_sig,
+				       &peer->them.commitkey,
+				       &peer->us.commitkey);
 
 	return close_tx;
 }
@@ -1161,7 +1158,7 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 
 	/* Now, calculate the fee, given length. */
 	/* FIXME: Dynamic fees! */
-	fee = fee_by_feerate(measure_tx_len(tx),
+	fee = fee_by_feerate(measure_tx_cost(tx) / 4,
 				 peer->dstate->config.closing_fee_rate);
 
 	/* FIXME: Fail gracefully in these cases (not worth collecting) */
@@ -1202,20 +1199,19 @@ const struct bitcoin_tx *bitcoin_commit(struct peer *peer)
 {
 	struct bitcoin_signature sig;
 
-	/* Can't be signed already! */
+	/* Can't be signed already, and can't have scriptsig! */
 	assert(peer->us.commit->tx->input[0].script_length == 0);
+	assert(!peer->us.commit->tx->input[0].witness);
 
 	sig.stype = SIGHASH_ALL;
 	peer_sign_ourcommit(peer, peer->us.commit->tx, &sig.sig);
 
-	peer->us.commit->tx->input[0].script
-		= scriptsig_p2sh_2of2(peer->us.commit->tx,
-				      peer->us.commit->sig,
-				      &sig,
-				      &peer->them.commitkey,
-				      &peer->us.commitkey);
-	peer->us.commit->tx->input[0].script_length
-		= tal_count(peer->us.commit->tx->input[0].script);
+	peer->us.commit->tx->input[0].witness
+		= bitcoin_witness_2of2(peer->us.commit->tx->input,
+				       peer->us.commit->sig,
+				       &sig,
+				       &peer->them.commitkey,
+				       &peer->us.commitkey);
 
 	return peer->us.commit->tx;
 }
@@ -1242,11 +1238,11 @@ static void got_feerate(struct lightningd_state *dstate,
 	struct bitcoin_tx *tx = bitcoin_tx(peer, 1, 1);
 	size_t i;
 
-	tx->output[0].script = scriptpubkey_p2sh(tx, peer->anchor.redeemscript);
+	tx->output[0].script = scriptpubkey_p2wsh(tx, peer->anchor.witnessscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
 	/* Add input script length.  FIXME: This is normal case, not exact. */
-	fee = fee_by_feerate(measure_tx_len(tx) + 1+73 + 1+33 + 1, rate);
+	fee = fee_by_feerate(measure_tx_cost(tx)/4 + 1+73 + 1+33 + 1, rate);
 	if (fee >= peer->anchor.input->amount)
 		/* FIXME: Report an error here!
 		 * We really should set this when they do command, but

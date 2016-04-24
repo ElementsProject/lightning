@@ -18,7 +18,7 @@ FGREP="fgrep -q"
 
 # We inject 0.01 bitcoin, but then fees (estimatefee fails and we use a
 # fee rate as per the close tx).
-AMOUNT=996160000
+AMOUNT=995940000
 
 # Default fee rate per kb.
 FEE_RATE=200000

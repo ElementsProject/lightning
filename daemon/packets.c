@@ -464,8 +464,8 @@ Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt)
 	proto_to_sha256(o->next_revocation_hash,
 			&peer->them.next_revocation_hash);
 
-	/* Redeemscript for anchor. */
-	peer->anchor.redeemscript
+	/* Witness script for anchor. */
+	peer->anchor.witnessscript
 		= bitcoin_redeem_2of2(peer, &peer->us.commitkey,
 				      &peer->them.commitkey);
 	return NULL;
@@ -485,9 +485,8 @@ static Pkt *check_and_save_commit_sig(struct peer *peer,
 	/* Their sig should sign our commit tx. */
 	if (!check_tx_sig(peer->dstate->secpctx,
 			  ci->tx, 0,
-			  peer->anchor.redeemscript,
-			  tal_count(peer->anchor.redeemscript),
-			  NULL,
+			  NULL, 0,
+			  peer->anchor.witnessscript,
 			  &peer->them.commitkey,
 			  ci->sig))
 		return pkt_err(peer, "Bad signature");
@@ -805,9 +804,8 @@ Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt, bool *acked,
 
 	close_tx = peer_create_close_tx(peer, c->close_fee);
 	if (!check_tx_sig(peer->dstate->secpctx, close_tx, 0,
-			  peer->anchor.redeemscript,
-			  tal_count(peer->anchor.redeemscript),
-			  NULL,
+			  NULL, 0,
+			  peer->anchor.witnessscript,
 			  &peer->them.commitkey, &theirsig))
 		return pkt_err(peer, "Invalid signature");
 

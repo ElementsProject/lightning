@@ -140,7 +140,7 @@ struct peer {
 		struct sha256_double txid;
 		unsigned int index;
 		u64 satoshis;
-		u8 *redeemscript;
+		u8 *witnessscript;
 
 		/* If we're creating anchor, this tells us where to source it */
 		struct anchor_input *input;
