@@ -139,6 +139,26 @@ check_tx_spend()
     fi
 }
 
+check_peerstate()
+{
+    if $1 getpeers | $FGREP -w $2; then :
+    else
+	echo "$1" not in state "$2": >&2
+	$1 getpeers >&2
+	exit 1
+    fi
+}
+
+check_no_peers()
+{
+    if $1 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"peers" : [ ]'; then :
+    else
+	echo "$1" still has peers: >&2
+	$1 getpeers >&2
+	exit 1
+    fi
+}
+    
 all_ok()
 {
     # Look for valgrind errors.
@@ -199,8 +219,8 @@ lcli1 connect localhost $PORT2 $TX
 sleep 5
 
 # Expect them to be waiting for anchor.
-lcli1 getpeers | $FGREP STATE_OPEN_WAITING_OURANCHOR
-lcli2 getpeers | $FGREP STATE_OPEN_WAITING_THEIRANCHOR
+check_peerstate lcli1 STATE_OPEN_WAITING_OURANCHOR
+check_peerstate lcli2 STATE_OPEN_WAITING_THEIRANCHOR
 
 if [ -n "$TIMEOUT_ANCHOR" ]; then
     # Anchor gets 1 commit.
@@ -221,7 +241,7 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     sleep 2
 
     # It should send out commit tx.
-    lcli1 getpeers | $FGREP -w STATE_CLOSE_WAIT_OURCOMMIT
+    check_peerstate lcli1 STATE_CLOSE_WAIT_OURCOMMIT
 
     # Generate a block (should include commit tx)
     check_tx_spend
@@ -247,7 +267,7 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     lcli1 dev-mocktime $TIME
     sleep 2
     
-    lcli1 getpeers | $FGREP -w STATE_CLOSE_WAIT_SPENDOURS
+    check_peerstate lcli1 STATE_CLOSE_WAIT_SPENDOURS
     
     # Now it should have spent the commit tx.
     check_tx_spend
@@ -259,7 +279,7 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     sleep 2
 
     # Considers it all done now.
-    lcli1 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"peers" : [ ]'
+    check_no_peers lcli1
 
     lcli1 stop
     all_ok
@@ -272,8 +292,8 @@ $CLI generate 2
 # They poll every second, so give them time to process.
 sleep 2
 
-lcli1 getpeers | $FGREP STATE_NORMAL
-lcli2 getpeers | $FGREP STATE_NORMAL
+check_peerstate lcli1 STATE_NORMAL
+check_peerstate lcli2 STATE_NORMAL
 
 A_AMOUNT=$(($AMOUNT - $NO_HTLCS_FEE))
 A_FEE=$NO_HTLCS_FEE
@@ -370,8 +390,8 @@ lcli1 close $ID2
 sleep 1
 
 # They should be waiting for close.
-lcli1 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"STATE_CLOSE_WAIT_CLOSE"'
-lcli2 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"STATE_CLOSE_WAIT_CLOSE"'
+check_peerstate lcli1 STATE_CLOSE_WAIT_CLOSE
+check_peerstate lcli2 STATE_CLOSE_WAIT_CLOSE
 
 # Give it 99 blocks.
 $CLI generate 99
@@ -380,8 +400,8 @@ $CLI generate 99
 lcli1 dev-mocktime $(($EXPIRY + 32))
 lcli2 dev-mocktime $(($EXPIRY + 32))
 sleep 1
-lcli1 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"STATE_CLOSE_WAIT_CLOSE"'
-lcli2 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"STATE_CLOSE_WAIT_CLOSE"'
+check_peerstate lcli1 STATE_CLOSE_WAIT_CLOSE
+check_peerstate lcli2 STATE_CLOSE_WAIT_CLOSE
 
 # Now the final one.
 $CLI generate 1
@@ -390,8 +410,8 @@ lcli1 dev-mocktime $TIME
 lcli2 dev-mocktime $TIME
 sleep 1
 
-lcli1 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"peers" : [ ]'
-lcli2 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"peers" : [ ]'
+check_no_peers lcli1
+check_no_peers lcli2
 
 lcli1 stop
 lcli2 stop
