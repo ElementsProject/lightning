@@ -10,6 +10,7 @@ struct lightningd_state;
 struct ripemd160;
 struct bitcoin_tx;
 struct peer;
+struct bitcoin_block;
 /* -datadir arg for bitcoin-cli. */
 extern char *bitcoin_datadir;
 
@@ -120,6 +121,20 @@ void bitcoind_getblockhash_(struct lightningd_state *dstate,
 						   struct lightningd_state *, \
 						   const struct sha256_double *), \
 			       (arg))
+
+void bitcoind_getrawblock_(struct lightningd_state *dstate,
+			   const struct sha256_double *blockid,
+			   void (*cb)(struct lightningd_state *dstate,
+				      struct bitcoin_block *blk,
+				      void *arg),
+			   void *arg);
+#define bitcoind_getrawblock(dstate, blkid, cb, arg)			\
+	bitcoind_getrawblock_((dstate), (blkid),			\
+			      typesafe_cb_preargs(void, void *,		\
+						  (cb), (arg),		\
+						  struct lightningd_state *, \
+						  struct bitcoin_block *), \
+			      (arg))
 
 void normalized_txid(const struct bitcoin_tx *tx, struct sha256_double *txid);
 

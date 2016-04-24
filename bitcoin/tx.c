@@ -1,3 +1,4 @@
+#include "bitcoin/block.h"
 #include "tx.h"
 #include <assert.h>
 #include <ccan/cast/cast.h>
@@ -343,7 +344,7 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 }
 
 /* Sets *cursor to NULL and returns NULL when a pull fails. */
-static const u8 *pull(const u8 **cursor, size_t *max, void *copy, size_t n)
+const u8 *pull(const u8 **cursor, size_t *max, void *copy, size_t n)
 {
 	const u8 *p = *cursor;
 
@@ -362,7 +363,7 @@ static const u8 *pull(const u8 **cursor, size_t *max, void *copy, size_t n)
 	return memcheck(p, n);
 }
 
-static u64 pull_varint(const u8 **cursor, size_t *max)
+u64 pull_varint(const u8 **cursor, size_t *max)
 {
 	u64 ret;
 	size_t len;
@@ -470,8 +471,8 @@ static void pull_witness(struct bitcoin_tx_input *inputs, size_t i,
 	}
 }
 
-static struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
-					  const u8 **cursor, size_t *max)
+struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
+				   const u8 **cursor, size_t *max)
 {
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 	size_t i;
@@ -505,8 +506,8 @@ static struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 	}
 	tx->lock_time = pull_le32(cursor, max);
 
-	/* If we ran short, or have bytes left over, fail. */
-	if (!*cursor || *max != 0)
+	/* If we ran short, fail. */
+	if (!*cursor)
 		tx = tal_free(tx);
 	return tx;
 }
@@ -533,6 +534,9 @@ struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,
 	if (!tx)
 		goto fail;
 
+	if (len)
+		goto fail_free_tx;
+	
 	if (end != hex + hexlen && *end != '\n')
 		goto fail_free_tx;
 

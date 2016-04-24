@@ -73,4 +73,11 @@ bool bitcoin_txid_from_hex(const char *hexstr, size_t hexstr_len,
 bool bitcoin_txid_to_hex(const struct sha256_double *txid,
 			 char *hexstr, size_t hexstr_len);
 
+
+/* Internal de-linearization functions. */
+struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
+				   const u8 **cursor, size_t *max);
+u64 pull_varint(const u8 **cursor, size_t *max);
+const u8 *pull(const u8 **cursor, size_t *max, void *copy, size_t n);
+
 #endif /* LIGHTNING_BITCOIN_TX_H */

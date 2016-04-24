@@ -1,5 +1,6 @@
 /* Code for talking to bitcoind.  We use bitcoin-cli. */
 #include "bitcoin/base58.h"
+#include "bitcoin/block.h"
 #include "bitcoin/shadouble.h"
 #include "bitcoin/tx.h"
 #include "bitcoind.h"
@@ -722,6 +723,40 @@ void bitcoind_getblock_(struct lightningd_state *dstate,
 	hex_encode(blockid, sizeof(*blockid), hex, sizeof(hex));
 	start_bitcoin_cli(dstate, process_getblock, cb, arg,
 			  "getblock", hex, NULL);
+}
+
+static void process_rawblock(struct bitcoin_cli *bcli)
+{
+	struct bitcoin_block *blk;
+	void (*cb)(struct lightningd_state *dstate,
+		   struct bitcoin_block *blk,
+		   void *arg) = bcli->cb;
+
+	/* FIXME: Just get header if we can't get full block. */
+	if (!bcli->output)
+		fatal("%s: unknown block?", bcli_args(bcli));
+
+	blk = bitcoin_block_from_hex(bcli, bcli->output, bcli->output_bytes);
+	if (!blk)
+		fatal("%s: bad block '%.*s'?",
+		      bcli_args(bcli),
+		      (int)bcli->output_bytes, (char *)bcli->output);
+
+	cb(bcli->dstate, blk, bcli->cb_arg);
+}
+
+void bitcoind_getrawblock_(struct lightningd_state *dstate,
+			   const struct sha256_double *blockid,
+			   void (*cb)(struct lightningd_state *dstate,
+				      struct bitcoin_block *blk,
+				      void *arg),
+			   void *arg)
+{
+	char hex[hex_str_size(sizeof(*blockid))];
+
+	hex_encode(blockid, sizeof(*blockid), hex, sizeof(hex));
+	start_bitcoin_cli(dstate, process_rawblock, cb, arg,
+			  "getblock", hex, "false", NULL);
 }
 
 static void process_getblockcount(struct bitcoin_cli *bcli)
