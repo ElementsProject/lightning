@@ -453,7 +453,7 @@ void bitcoind_send_tx(struct lightningd_state *dstate,
 	tal_free(raw);
 }
 
-static void process_getblock(struct bitcoin_cli *bcli)
+static void process_getblock_for_mediantime(struct bitcoin_cli *bcli)
 {
 	const jsmntok_t *tokens, *mediantime;
 	bool valid;
@@ -496,8 +496,257 @@ void bitcoind_get_mediantime(struct lightningd_state *dstate,
 	char hex[hex_str_size(sizeof(*blockid))];
 
 	hex_encode(blockid, sizeof(*blockid), hex, sizeof(hex));
-	start_bitcoin_cli(dstate, process_getblock, NULL, mediantime,
+	start_bitcoin_cli(dstate, process_getblock_for_mediantime,
+			  NULL, mediantime,
 			  "getblock", hex, NULL);
+}
+
+static void process_chaintips(struct bitcoin_cli *bcli)
+{
+	const jsmntok_t *tokens, *t, *end;
+	bool valid;
+	size_t i;
+	struct sha256_double *tips;
+	void (*cb)(struct lightningd_state *dstate,
+		   struct sha256_double *blockids,
+		   void *arg) = bcli->cb;
+
+	log_debug(bcli->dstate->base_log, "Got getchaintips result");
+	if (!bcli->output)
+		fatal("%s failed", bcli_args(bcli));
+
+	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
+	if (!tokens)
+		fatal("%s: %s response",
+		      bcli_args(bcli),
+		      valid ? "partial" : "invalid");
+
+	if (tokens[0].type != JSMN_ARRAY)
+		fatal("%s: gave non-array (%.*s)?",
+		      bcli_args(bcli),
+		      (int)bcli->output_bytes, bcli->output);
+
+	tips = tal_arr(bcli, struct sha256_double, 0);
+	end = json_next(tokens);
+	for (i = 0, t = tokens + 1; t < end; t = json_next(t), i++) {
+		const jsmntok_t *hash = json_get_member(bcli->output, t, "hash");
+		tal_resize(&tips, i+1);
+		if (!hex_decode(bcli->output + hash->start,
+				hash->end - hash->start,
+				&tips[i], sizeof(tips[i])))
+			fatal("%s: gave bad hash for %zu'th tip (%.*s)?",
+			      bcli_args(bcli), i,
+			      (int)bcli->output_bytes, bcli->output);
+	}
+	if (i == 0)
+		fatal("%s: gave empty array (%.*s)?",
+		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
+
+	cb(bcli->dstate, tips, bcli->cb_arg);
+}
+
+void bitcoind_get_chaintips_(struct lightningd_state *dstate,
+			     void (*cb)(struct lightningd_state *dstate,
+					struct sha256_double *blockids,
+					void *arg),
+			     void *arg)
+{
+	start_bitcoin_cli(dstate, process_chaintips, cb, arg,
+			  "getchaintips", NULL);
+}
+
+static void process_getblock(struct bitcoin_cli *bcli)
+{
+	const jsmntok_t *tokens, *prevblk_tok, *txs_tok,
+		*mediantime_tok, *blkid_tok, *t, *end;
+	bool valid;
+	u32 mediantime;
+	struct sha256_double *txids;
+	struct sha256_double *prevblk, blkid;
+	size_t i;
+	void (*cb)(struct lightningd_state *dstate,
+		   struct sha256_double *blkid,
+		   struct sha256_double *prevblock,
+		   struct sha256_double *txids,
+		   u32 mediantime,
+		   void *arg) = bcli->cb;
+
+	log_debug(bcli->dstate->base_log, "Got getblock result");
+	if (!bcli->output)
+		fatal("%s failed", bcli_args(bcli));
+
+	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
+	if (!tokens)
+		fatal("%s: %s response",
+		      bcli_args(bcli),
+		      valid ? "partial" : "invalid");
+
+	if (tokens[0].type != JSMN_OBJECT)
+		fatal("%s: gave non-object (%.*s)?",
+		      bcli_args(bcli),
+		      (int)bcli->output_bytes, bcli->output);
+
+	mediantime_tok = json_get_member(bcli->output, tokens, "mediantime");
+	if (!mediantime_tok)
+		fatal("%s: gave no mediantime field (%.*s)?",
+		      bcli_args(bcli),
+		      (int)bcli->output_bytes, bcli->output);
+
+	if (!json_tok_number(bcli->output, mediantime_tok, &mediantime))
+		fatal("%s: gave invalid mediantime (%.*s)?",
+		      bcli_args(bcli),
+		      mediantime_tok->end - mediantime_tok->start,
+		      bcli->output + mediantime_tok->start);
+
+	/* Genesis block doesn't have this! */
+	prevblk_tok = json_get_member(bcli->output, tokens, "previousblockhash");
+	if (prevblk_tok) {
+		prevblk = tal(bcli, struct sha256_double);
+		if (!hex_decode(bcli->output + prevblk_tok->start,
+				prevblk_tok->end - prevblk_tok->start,
+				prevblk, sizeof(*prevblk))) {
+			fatal("%s: bad previousblockhash '%.*s'",
+			      bcli_args(bcli),
+			      (int)(prevblk_tok->end - prevblk_tok->start),
+			      bcli->output + prevblk_tok->start);
+		}
+	} else
+		prevblk = NULL;
+
+	blkid_tok = json_get_member(bcli->output, tokens, "hash");
+	if (!blkid_tok)
+		fatal("%s: gave no hash field (%.*s)?",
+		      bcli_args(bcli),
+		      (int)bcli->output_bytes, bcli->output);
+
+	if (!hex_decode(bcli->output + blkid_tok->start,
+			blkid_tok->end - blkid_tok->start,
+			&blkid, sizeof(blkid))) {
+		fatal("%s: bad hash '%.*s'",
+		      bcli_args(bcli),
+		      (int)(blkid_tok->end - blkid_tok->start),
+		      bcli->output + blkid_tok->start);
+	}
+
+	txs_tok = json_get_member(bcli->output, tokens,	"tx");
+	if (!txs_tok)
+		fatal("%s: gave no tx field (%.*s)?",
+		      bcli_args(bcli),
+		      (int)bcli->output_bytes, bcli->output);
+
+	if (txs_tok->type != JSMN_ARRAY)
+		fatal("%s: gave non-array txs field (%.*s)?",
+		      bcli_args(bcli),
+		      (int)bcli->output_bytes, bcli->output);
+
+	/* It's a flat array of strings, so we can just use tok->size here. */
+	txids = tal_arr(bcli, struct sha256_double, txs_tok->size);
+	end = json_next(txs_tok);
+	for (i = 0, t = txs_tok + 1; t < end; t = json_next(t), i++) {
+		assert(i < txs_tok->size);
+		if (!bitcoin_txid_from_hex(bcli->output + t->start,
+					   t->end - t->start,
+					   &txids[i]))
+			fatal("%s: gave bad txid for %zu'th tx (%.*s)?",
+			      bcli_args(bcli), i,
+			      (int)bcli->output_bytes, bcli->output);
+	}
+	/* We must have coinbase, at least! */
+	if (i == 0)
+		fatal("%s: gave empty txids array (%.*s)?",
+		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
+
+	log_debug(bcli->dstate->base_log,
+		  "%.*s: mediantime = %u, prevhash=%.*s, %zu txids",
+		  (int)(blkid_tok->end - blkid_tok->start),
+		  bcli->output + blkid_tok->start,
+		  mediantime,
+		  prevblk_tok ? (int)(prevblk_tok->end - prevblk_tok->start) : 0,
+		  prevblk_tok ? bcli->output + prevblk_tok->start : NULL,
+		  i);
+
+	cb(bcli->dstate, &blkid, prevblk, txids, mediantime, bcli->cb_arg);
+}
+
+void bitcoind_getblock_(struct lightningd_state *dstate,
+			const struct sha256_double *blockid,
+			void (*cb)(struct lightningd_state *dstate,
+				   struct sha256_double *blkid,
+				   struct sha256_double *prevblock,
+				   struct sha256_double *txids,
+				   u32 mediantime,
+				   void *arg),
+			void *arg)
+{
+	char hex[hex_str_size(sizeof(*blockid))];
+
+	hex_encode(blockid, sizeof(*blockid), hex, sizeof(hex));
+	start_bitcoin_cli(dstate, process_getblock, cb, arg,
+			  "getblock", hex, NULL);
+}
+
+static void process_getblockcount(struct bitcoin_cli *bcli)
+{
+	u32 blockcount;
+	char *p, *end;
+	void (*cb)(struct lightningd_state *dstate,
+		   u32 blockcount,
+		   void *arg) = bcli->cb;
+
+	if (!bcli->output)
+		fatal("%s: failed", bcli_args(bcli));
+
+	p = tal_strndup(bcli, bcli->output, bcli->output_bytes);
+	blockcount = strtol(p, &end, 10);
+	if (end == p || *end != '\n')
+		fatal("%s: gave non-numeric blockcount %s",
+		      bcli_args(bcli), p);
+
+	cb(bcli->dstate, blockcount, bcli->cb_arg);
+}
+
+void bitcoind_getblockcount_(struct lightningd_state *dstate,
+			      void (*cb)(struct lightningd_state *dstate,
+					 u32 blockcount,
+					 void *arg),
+			      void *arg)
+{
+	start_bitcoin_cli(dstate, process_getblockcount, cb, arg,
+			  "getblockcount", NULL);
+}
+
+static void process_getblockhash(struct bitcoin_cli *bcli)
+{
+	struct sha256_double blkid;
+	void (*cb)(struct lightningd_state *dstate,
+		   const struct sha256_double *blkid,
+		   void *arg) = bcli->cb;
+
+	if (!bcli->output)
+		fatal("%s: failed", bcli_args(bcli));
+
+	if (bcli->output_bytes == 0
+	    || !hex_decode(bcli->output, bcli->output_bytes-1,
+			   &blkid, sizeof(blkid))) {
+		fatal("%s: bad blockid '%.*s'",
+		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
+	}
+
+	cb(bcli->dstate, &blkid, bcli->cb_arg);
+}
+
+void bitcoind_getblockhash_(struct lightningd_state *dstate,
+			    u32 height,
+			    void (*cb)(struct lightningd_state *dstate,
+				       const struct sha256_double *blkid,
+				       void *arg),
+			    void *arg)
+{
+	char str[STR_MAX_CHARS(height)];
+	sprintf(str, "%u", height);
+
+	start_bitcoin_cli(dstate, process_getblockhash, cb, arg,
+			  "getblockhash", str, NULL);
 }
 
 /* Make testnet/regtest status matches us. */
