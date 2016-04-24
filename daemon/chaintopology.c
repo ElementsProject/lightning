@@ -1,9 +1,13 @@
+#include "bitcoin/block.h"
+#include "bitcoin/tx.h"
 #include "bitcoind.h"
 #include "chaintopology.h"
 #include "lightningd.h"
 #include "log.h"
 #include "timeout.h"
 #include "watch.h"
+#include <ccan/array_size/array_size.h>
+#include <ccan/asort/asort.h>
 #include <ccan/ptrint/ptrint.h>
 #include <ccan/structeq/structeq.h>
 
@@ -18,13 +22,19 @@ struct tx_in_block {
 struct block {
 	int height;
 
-	/* We can have a single parent */
-	struct sha256_double prevblkid;
-	/* ... but multiple children. */
+	/* Actual header. */
+	struct bitcoin_block_hdr hdr;
+
+	/* Previous block (if any). */
+	struct block *prev;
+
+	/* We can have multiple children. */
 	struct block **nexts;
 
 	/* Key for hash table */
 	struct sha256_double blkid;
+
+	/* 0 if not enough predecessors. */
 	u32 mediantime;
 
 	/* Transactions in this block we care about */
@@ -57,24 +67,49 @@ struct topology {
 	struct block_map block_map;
 };
 
-static struct block *connect_blocks(struct topology *topo,
-				    const struct sha256_double *blkid)
+static int cmp_times(const u32 *a, const u32 *b, void *unused)
 {
-	struct block *b = block_map_get(&topo->block_map, blkid);
-	struct block *prev;
+	if (*a > *b)
+		return -1;
+	else if (*b > * a)
+		return 1;
+	return 0;
+}
+
+/* Mediantime is median of previous 11 blocks. */
+static u32 get_mediantime(const struct topology *topo, const struct block *b)
+{
+	unsigned int i;
+	u32 times[11];
+
+	for (i = 0; i < ARRAY_SIZE(times); i++) {
+		if (!b)
+			return 0;
+		times[i] = le32_to_cpu(b->hdr.timestamp);
+		b = b->prev;
+	}
+	asort(times, ARRAY_SIZE(times), cmp_times, NULL);
+	return times[ARRAY_SIZE(times) / 2];
+}
+
+/* Fills in prev, height, mediantime. */
+static void connect_blocks(struct topology *topo, struct block *b)
+{
 	size_t n;
 
 	/* Hooked in already? */
 	if (b->height != -1)
-		return b;
+		return;
 
-	prev = connect_blocks(topo, &b->prevblkid);
-	b->height = prev->height + 1;
-	n = tal_count(prev->nexts);
-	tal_resize(&prev->nexts, n+1);
-	prev->nexts[n] = b;
+	b->prev = block_map_get(&topo->block_map, &b->hdr.prev_hash);
+	connect_blocks(topo, b->prev);
 
-	return b;
+	b->height = b->prev->height + 1;
+	n = tal_count(b->prev->nexts);
+	tal_resize(&b->prev->nexts, n+1);
+	b->prev->nexts[n] = b;
+
+	b->mediantime = get_mediantime(topo, b->prev);
 }
 
 /* This is expensive, but reorgs are usually short and txs are few.
@@ -128,13 +163,16 @@ static bool tx_in_block(const struct block *b, const struct txwatch *w)
 static size_t get_tx_branch_height(const struct topology *topo,
 				   const struct block *tip,
 				   const struct txwatch *w,
+				   struct sha256_double *blkid,
 				   size_t max)
 {
 	const struct block *b;
 
-	for (b = tip; b; b = block_map_get(&topo->block_map, &b->prevblkid)) {
-		if (tx_in_block(b, w))
+	for (b = tip; b; b = b->prev) {
+		if (tx_in_block(b, w)) {
+			*blkid = b->blkid;
 			return b->height;
+		}
 		/* Don't bother returning less than max */
 		if (b->height < max)
 			return max;
@@ -143,14 +181,16 @@ static size_t get_tx_branch_height(const struct topology *topo,
 	return tip->height + 1;
 }
 
-size_t get_tx_depth(struct lightningd_state *dstate, const struct txwatch *w)
+size_t get_tx_depth(struct lightningd_state *dstate, const struct txwatch *w,
+		    struct sha256_double *blkid)
 {
 	const struct topology *topo = dstate->topology;
 	size_t i, max = 0, longest = 0;
 
 	/* Calculate tx height. */
 	for (i = 0; i < tal_count(topo->tips); i++) {
-		size_t h = get_tx_branch_height(topo, topo->tips[i], w, max);
+		size_t h = get_tx_branch_height(topo, topo->tips[i], w, blkid,
+						max);
 		if (h > max)
 			max = h;
 
@@ -235,8 +275,11 @@ static void topology_changed(struct lightningd_state *dstate)
 
 	tal_free(topo->tips);
 	topo->tips = tal_arr(topo, struct block *, tal_count(topo->newtips));
-	for (i = 0; i < tal_count(topo->newtips); i++)
-		topo->tips[i] = connect_blocks(topo, &topo->newtips[i]);
+	for (i = 0; i < tal_count(topo->newtips); i++) {
+		topo->tips[i] = block_map_get(&topo->block_map,
+					      &topo->newtips[i]);
+		connect_blocks(topo, topo->tips[i]);
+	}
 
 	/* FIXME: Tell watch code to re-evaluate all txs. */
 }
@@ -258,31 +301,36 @@ static void add_tx_to_block(struct block *b, struct txwatch *w)
 }
 
 static struct block *add_block(struct lightningd_state *dstate,
-			       struct sha256_double *blkid,
-			       struct sha256_double *prevblock,
-			       struct sha256_double *txids,
-			       u32 mediantime)
+			       struct bitcoin_block *blk)
 {
 	size_t i;
 	struct topology *topo = dstate->topology;
 	struct block *b = tal(topo, struct block);
 
-	assert(!block_map_get(&topo->block_map, blkid));
+	sha256_double(&b->blkid, &blk->hdr, sizeof(blk->hdr));
+	log_debug(dstate->base_log, "Adding block %02x%02x%02x%02x...\n",
+			  b->blkid.sha.u.u8[0],
+			  b->blkid.sha.u.u8[1],
+			  b->blkid.sha.u.u8[2],
+			  b->blkid.sha.u.u8[3]);
+	assert(!block_map_get(&topo->block_map, &b->blkid));
 
 	/* We fill these out in topology_changed */
 	b->height = -1;
 	b->nexts = tal_arr(b, struct block *, 0);
+	b->mediantime = 0;
+	b->prev = NULL;
 
-	b->mediantime = mediantime;
-	b->blkid = *blkid;
-	b->prevblkid = *prevblock;
+	b->hdr = blk->hdr;
 
-	/* See if any of those txids are interesting. */
+	/* See if any of those txs are interesting. */
 	list_head_init(&b->txs);
-	for (i = 1; i < tal_count(txids); i++) {
+	for (i = 0; i < tal_count(blk->tx); i++) {
 		struct txwatch *w;
+		struct sha256_double txid;
 
-		w = txwatch_hash_get(&dstate->txwatches, &txids[i]);
+		bitcoin_txid(blk->tx[i], &txid);
+		w = txwatch_hash_get(&dstate->txwatches, &txid);
 		if (w)
 			add_tx_to_block(b, w);
 	}
@@ -292,28 +340,26 @@ static struct block *add_block(struct lightningd_state *dstate,
 }
 
 static void gather_blocks(struct lightningd_state *dstate,
-			  struct sha256_double *blkid,
-			  struct sha256_double *prevblock,
-			  struct sha256_double *txids,
-			  u32 mediantime,
+			  struct bitcoin_block *blk,
 			  ptrint_t *p)
 {
 	struct topology *topo = dstate->topology;
 	ptrdiff_t i;
 
-	add_block(dstate, blkid, prevblock, txids, mediantime);
+	add_block(dstate, blk);
 
 	/* Recurse if we need prev. */
-	if (!block_map_get(&topo->block_map, prevblock)) {
-		bitcoind_getblock(dstate, prevblock, gather_blocks, p);
+	if (!block_map_get(&topo->block_map, &blk->hdr.prev_hash)) {
+		bitcoind_getrawblock(dstate, &blk->hdr.prev_hash,
+				     gather_blocks, p);
 		return;
 	}
 
 	/* Recurse if more tips to map. */
 	for (i = ptr2int(p) + 1; i < tal_count(topo->newtips); i++) {
 		if (!block_map_get(&topo->block_map, &topo->newtips[i])) {
-			bitcoind_getblock(dstate, &topo->newtips[i],
-					  gather_blocks, int2ptr(i));
+			bitcoind_getrawblock(dstate, &topo->newtips[i],
+					     gather_blocks, int2ptr(i));
 			return;
 		}
 	}
@@ -357,8 +403,8 @@ static void check_chaintips(struct lightningd_state *dstate,
 	for (i = 0; i < tal_count(topo->newtips); i++) {
 		if (block_map_get(&topo->block_map, &topo->newtips[i]))
 			continue;
-		bitcoind_getblock(dstate, &topo->newtips[i], gather_blocks,
-				  int2ptr(i));
+		bitcoind_getrawblock(dstate, &topo->newtips[i], gather_blocks,
+				     int2ptr(i));
 		return;
 	}
 
@@ -380,15 +426,12 @@ static void start_poll_chaintips(struct lightningd_state *dstate)
 }
 
 static void init_topo(struct lightningd_state *dstate,
-		      struct sha256_double *blkid,
-		      struct sha256_double *prevblock,
-		      struct sha256_double *txids,
-		      u32 mediantime,
+		      struct bitcoin_block *blk,
 		      ptrint_t *p)
 {
 	struct block *b;
 
-	b = add_block(dstate, blkid, prevblock, txids, mediantime);
+	b = add_block(dstate, blk);
 	b->height = ptr2int(p);
 
 	/* Now grab chaintips immediately. */
@@ -399,7 +442,7 @@ static void get_init_block(struct lightningd_state *dstate,
 			   const struct sha256_double *blkid,
 			   ptrint_t *blknum)
 {
-	bitcoind_getblock(dstate, blkid, init_topo, blknum);
+	bitcoind_getrawblock(dstate, blkid, init_topo, blknum);
 }
 
 static void get_init_blockhash(struct lightningd_state *dstate, u32 blockcount,
