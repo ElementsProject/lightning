@@ -25,7 +25,7 @@ static bool add_htlc(struct bitcoin_tx *tx, size_t n,
 {
 	assert(!tx->output[n].script);
 
-	tx->output[n].script = scriptpubkey_p2sh(tx,
+	tx->output[n].script = scriptpubkey_p2wsh(tx,
 				 scriptpubkeyfn(tx, ourkey, theirkey,
 						&h->expiry, locktime, rhash,
 						&h->rhash));
