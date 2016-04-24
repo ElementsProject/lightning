@@ -39,6 +39,9 @@ struct block {
 
 	/* Transactions in this block we care about */
 	struct list_head txs;
+
+	/* Full copy of txs (trimmed to txs list in connect_blocks) */
+	struct bitcoin_tx **full_txs;
 };
 
 /* Hash blocks by sha */
@@ -77,7 +80,7 @@ static int cmp_times(const u32 *a, const u32 *b, void *unused)
 	return 0;
 }
 
-/* Mediantime is median of previous 11 blocks. */
+/* Mediantime is median of this and previous 10 blocks. */
 static u32 get_mediantime(const struct topology *topo, const struct block *b)
 {
 	unsigned int i;
@@ -93,24 +96,76 @@ static u32 get_mediantime(const struct topology *topo, const struct block *b)
 	return times[ARRAY_SIZE(times) / 2];
 }
 
-/* Fills in prev, height, mediantime. */
-static void connect_blocks(struct topology *topo, struct block *b)
+static void remove_tx(struct tx_in_block *t)
 {
-	size_t n;
+	list_del_from(&t->block->txs, &t->list);
+}
+
+static void add_tx_to_block(struct block *b, struct txwatch *w)
+{
+	/* We attach this to watch, so removed when that is */
+	struct tx_in_block *t = tal(w, struct tx_in_block);
+
+	t->block = b;
+	t->w = w;
+	list_add_tail(&b->txs, &t->list);
+	tal_add_destructor(t, remove_tx);
+}
+
+/* Fills in prev, height, mediantime. */
+static void connect_blocks(struct lightningd_state *dstate, struct block *b)
+{
+	const struct topology *topo = dstate->topology;
+	size_t n, i;
 
 	/* Hooked in already? */
 	if (b->height != -1)
 		return;
 
 	b->prev = block_map_get(&topo->block_map, &b->hdr.prev_hash);
-	connect_blocks(topo, b->prev);
+	connect_blocks(dstate, b->prev);
 
 	b->height = b->prev->height + 1;
 	n = tal_count(b->prev->nexts);
 	tal_resize(&b->prev->nexts, n+1);
 	b->prev->nexts[n] = b;
 
-	b->mediantime = get_mediantime(topo, b->prev);
+	b->mediantime = get_mediantime(topo, b);
+
+	/* Now we see if any of those txs are interesting. */
+	for (i = 0; i < tal_count(b->full_txs); i++) {
+		struct bitcoin_tx *tx = b->full_txs[i];
+		struct txwatch *w;
+		struct sha256_double txid;
+		size_t j;
+
+		/* Tell them if it spends a txo we care about. */
+		for (j = 0; j < tx->input_count; j++) {
+			struct txwatch_output out;
+			struct txowatch *txo;
+			out.txid = tx->input[j].txid;
+			out.index = tx->input[j].index;
+
+			txo = txowatch_hash_get(&dstate->txowatches, &out);
+			if (txo)
+				txowatch_fire(dstate, txo, tx);
+		}
+
+		/* We do spends first, in case that tells us to watch tx. */
+		normalized_txid(tx, &txid);
+		w = txwatch_hash_get(&dstate->txwatches, &txid);
+		if (!w) {
+			bitcoin_txid(tx, &txid);
+			w = txwatch_hash_get(&dstate->txwatches, &txid);
+		}
+		if (w) {
+			add_tx_to_block(b, w);
+			/* Fire if it's the first we've seen it: this might
+			 * set up txo watches, which could fire in this block */
+			txwatch_fire(dstate, w, 0, &b->blkid);
+		}
+	}
+	b->full_txs = tal_free(b->full_txs);
 }
 
 /* This is expensive, but reorgs are usually short and txs are few.
@@ -279,32 +334,16 @@ static void topology_changed(struct lightningd_state *dstate)
 	for (i = 0; i < tal_count(topo->newtips); i++) {
 		topo->tips[i] = block_map_get(&topo->block_map,
 					      &topo->newtips[i]);
-		connect_blocks(topo, topo->tips[i]);
+		connect_blocks(dstate, topo->tips[i]);
 	}
 
-	/* FIXME: Tell watch code to re-evaluate all txs. */
-}
-
-static void remove_tx(struct tx_in_block *t)
-{
-	list_del_from(&t->block->txs, &t->list);
-}
-
-static void add_tx_to_block(struct block *b, struct txwatch *w)
-{
-	/* We attach this to watch, so removed when that is */
-	struct tx_in_block *t = tal(w, struct tx_in_block);
-
-	t->block = b;
-	t->w = w;
-	list_add_tail(&b->txs, &t->list);
-	tal_add_destructor(t, remove_tx);
+	/* Tell watch code to re-evaluate all txs. */
+	watch_topology_changed(dstate);
 }
 
 static struct block *add_block(struct lightningd_state *dstate,
 			       struct bitcoin_block *blk)
 {
-	size_t i;
 	struct topology *topo = dstate->topology;
 	struct block *b = tal(topo, struct block);
 
@@ -324,17 +363,8 @@ static struct block *add_block(struct lightningd_state *dstate,
 
 	b->hdr = blk->hdr;
 
-	/* See if any of those txs are interesting. */
 	list_head_init(&b->txs);
-	for (i = 0; i < tal_count(blk->tx); i++) {
-		struct txwatch *w;
-		struct sha256_double txid;
-
-		bitcoin_txid(blk->tx[i], &txid);
-		w = txwatch_hash_get(&dstate->txwatches, &txid);
-		if (w)
-			add_tx_to_block(b, w);
-	}
+	b->full_txs = tal_steal(b, blk->tx);
 
 	block_map_add(&topo->block_map, b);
 	return b;

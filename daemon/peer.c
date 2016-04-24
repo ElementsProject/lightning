@@ -795,7 +795,6 @@ void peer_watch_anchor(struct peer *peer,
 	w->theyspent = theyspent;
 	w->otherspent = otherspent;
 
-	peer_watch_setup(peer);
 	watch_txid(w, peer, &peer->anchor.txid, anchor_depthchange, NULL);
 	watch_txo(w, peer, &peer->anchor.txid, 0, anchor_spent, NULL);
 

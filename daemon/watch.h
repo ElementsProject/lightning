@@ -119,10 +119,17 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 				      const struct bitcoin_tx *),	\
 		  (cbdata))
 
-void peer_watch_setup(struct peer *peer);
-
 /* FIXME: Seg witness removes need for this! */
 void normalized_txid(const struct bitcoin_tx *tx, struct sha256_double *txid);
 
-void setup_watch_timer(struct lightningd_state *dstate);
+void txwatch_fire(struct lightningd_state *dstate,
+		  struct txwatch *txw,
+		  unsigned int depth,
+		  const struct sha256_double *blkhash);
+
+void txowatch_fire(struct lightningd_state *dstate,
+		   const struct txowatch *txow,
+		   const struct bitcoin_tx *tx);
+
+void watch_topology_changed(struct lightningd_state *dstate);
 #endif /* LIGHTNING_DAEMON_WATCH_H */

@@ -259,9 +259,6 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     lcli1 dev-mocktime $TIME
     sleep 2
 
-    # Now we need to trigger it again (first time it gets the mediantime).
-    $CLI generate 1
-
     # Sometimes it skips poll because it's busy.  Do it again.
     TIME=$(($TIME + 1))
     lcli1 dev-mocktime $TIME

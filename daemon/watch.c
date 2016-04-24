@@ -29,6 +29,7 @@
 #include "bitcoin/script.h"
 #include "bitcoin/tx.h"
 #include "bitcoind.h"
+#include "chaintopology.h"
 #include "lightningd.h"
 #include "log.h"
 #include "peer.h"
@@ -76,22 +77,6 @@ bool txwatch_eq(const struct txwatch *w, const struct sha256_double *txid)
 static void destroy_txwatch(struct txwatch *w)
 {
 	txwatch_hash_del(&w->dstate->txwatches, w);
-}
-
-/* FIXME: This is a hack! */
-void peer_watch_setup(struct peer *peer)
-{
-	struct sha256 h;
-	struct ripemd160 redeemhash;
-
-	/* Telling bitcoind to watch the redeemhash address means
-	 * it'll tell is about the anchor itself (spend to that
-	 * address), and any commit txs (spend from that address).*/
-	sha256(&h, peer->anchor.redeemscript,
-	       tal_count(peer->anchor.redeemscript));
-	ripemd160(&redeemhash, h.u.u8, sizeof(h));
-
-	bitcoind_watch_addr(peer->dstate, &redeemhash);
 }
 
 struct txwatch *watch_txid_(const tal_t *ctx,
@@ -159,138 +144,71 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 	return w;
 }
 
-struct tx_info {
-	struct sha256_double blkhash;
-	int conf;
-};
 
-static void insert_null_txwatch(struct lightningd_state *dstate,
-				const struct sha256_double *txid)
+void txwatch_fire(struct lightningd_state *dstate,
+		  struct txwatch *txw,
+		  unsigned int depth,
+		  const struct sha256_double *blkhash)
 {
-	struct txwatch *w = tal(dstate, struct txwatch);
-	w->depth = 0;
-	w->txid = *txid;
-	w->dstate = dstate;
-	w->peer = NULL;
-	w->cb = NULL;
-	w->cbdata = NULL;
-
-	txwatch_hash_add(&w->dstate->txwatches, w);
-	tal_add_destructor(w, destroy_txwatch);
+	if (depth != txw->depth) {
+		log_debug(txw->peer->log,
+			  "Got depth change %u for %02x%02x%02x...\n",
+			  txw->depth,
+			  txw->txid.sha.u.u8[0],
+			  txw->txid.sha.u.u8[1],
+			  txw->txid.sha.u.u8[2]);
+		txw->depth = depth;
+		txw->cb(txw->peer, txw->depth, blkhash, &txw->txid,
+			txw->cbdata);
+	}
 }
 
-static void watched_normalized_txid(struct lightningd_state *dstate,
-				    const struct bitcoin_tx *tx,
-				    struct tx_info *txinfo)
+void txowatch_fire(struct lightningd_state *dstate,
+		   const struct txowatch *txow,
+		   const struct bitcoin_tx *tx)
 {
-	struct txwatch *txw;
 	struct sha256_double txid;
-	size_t i;
-	
-	normalized_txid(tx, &txid);
-	txw = txwatch_hash_get(&dstate->txwatches, &txid);
 
-	/* Reset to real txid for logging. */
 	bitcoin_txid(tx, &txid);
-
-	if (txw) {
-		if (txinfo->conf != txw->depth) {
-			log_debug(txw->peer->log,
-				  "Got depth change %u for %02x%02x%02x...\n",
-				  txinfo->conf,
-				  txid.sha.u.u8[0],
-				  txid.sha.u.u8[1],
-				  txid.sha.u.u8[2]);
-			txw->depth = txinfo->conf;
-			txw->cb(txw->peer, txw->depth, &txinfo->blkhash, &txid,
-				txw->cbdata);
-		}
-		return;
-	}
-
-	/* Hmm, otherwise it may be new */
-	for (i = 0; i < tx->input_count; i++) {
-		struct txowatch *txo;
-		struct txwatch_output out;
-
-		out.txid = tx->input[i].txid;
-		out.index = tx->input[i].index;
-		txo = txowatch_hash_get(&dstate->txowatches, &out);
-
-		/* Presumably, this sets a watch on it. */
-		if (txo) {
-			log_debug(txo->peer->log,
-				  "New tx spending %02x%02x%02x output %u:"
-				  " %02x%02x%02x...\n",
-				  out.txid.sha.u.u8[0],
-				  out.txid.sha.u.u8[1],
-				  out.txid.sha.u.u8[2],
-				  out.index,
-				  txid.sha.u.u8[0],
-				  txid.sha.u.u8[1],
-				  txid.sha.u.u8[2]);
-			txo->cb(txo->peer, tx, txo->cbdata);
-			return;
-		}
-	}
-
-	/* OK, not interesting.  Put in fake (on original txid). */
-	log_debug(dstate->base_log, "Ignoring tx %02x%02x%02x...\n",
+	log_debug(txow->peer->log,
+		  "Got UTXO spend for %02x%02x%02x:%u: %02x%02x%02x%02x...\n",
+		  txow->out.txid.sha.u.u8[0],
+		  txow->out.txid.sha.u.u8[1],
+		  txow->out.txid.sha.u.u8[2],
+		  txow->out.index,
 		  txid.sha.u.u8[0],
 		  txid.sha.u.u8[1],
-		  txid.sha.u.u8[2]);
-	insert_null_txwatch(dstate, &txid);
+		  txid.sha.u.u8[2],
+		  txid.sha.u.u8[3]);
+	txow->cb(txow->peer, tx, txow->cbdata);
 }
 
-static void watched_txid(struct lightningd_state *dstate,
-			 const struct sha256_double *txid,
-			 int confirmations,
-			 bool is_coinbase,
-			 const struct sha256_double *blkhash)
-
+void watch_topology_changed(struct lightningd_state *dstate)
 {
-	struct txwatch *txw;
-	struct tx_info *txinfo;
+	struct txwatch_hash_iter i;
+	struct txwatch *w;
+	bool needs_rerun;
 
-	/* Maybe it spent an output we're watching? */
-	if (is_coinbase)
-		return;
+again:
+	/* Iterating a htable during deletes is safe, but might skip entries. */
+	needs_rerun = false;
+	for (w = txwatch_hash_first(&dstate->txwatches, &i);
+	     w;
+	     w = txwatch_hash_next(&dstate->txwatches, &i)) {
+		struct sha256_double blkid;
+		size_t depth;
 
-	/* Are we watching this txid directly (or already reported)? */
-	txw = txwatch_hash_get(&dstate->txwatches, txid);
-	if (txw) {
-		if (txw->cb && confirmations != txw->depth) {
-			txw->depth = confirmations;
-			txw->cb(txw->peer, txw->depth, blkhash, txid,
-				txw->cbdata);
+		/* Don't fire if we haven't seen it at all. */
+		if (w->depth == -1)
+			continue;
+
+		depth = get_tx_depth(dstate, w, &blkid);
+		if (depth != w->depth) {
+			w->depth = depth;
+			w->cb(w->peer, w->depth, &blkid, &w->txid, w->cbdata);
+			needs_rerun = true;
 		}
-		return;
 	}
-
-	txinfo = tal(dstate, struct tx_info);
-	txinfo->conf = confirmations;
-	if (blkhash)
-		txinfo->blkhash = *blkhash;
-	/* FIXME: Since we don't use segwit, we need to normalize txids. */
-	bitcoind_txid_lookup(dstate, txid, watched_normalized_txid, txinfo);
-}
-
-static struct timeout watch_timeout;
-
-static void start_poll_transactions(struct lightningd_state *dstate)
-{
-	if (!list_empty(&dstate->bitcoin_req)) {
-		log_unusual(dstate->base_log,
-			    "Delaying start poll: commands in progress");
-	} else
-		bitcoind_poll_transactions(dstate, watched_txid);
-	refresh_timeout(dstate, &watch_timeout);
-}
-
-void setup_watch_timer(struct lightningd_state *dstate)
-{
-	init_timeout(&watch_timeout, dstate->config.poll_seconds,
-		     start_poll_transactions, dstate);
-	/* Run once immediately, in case there are issues. */
-	start_poll_transactions(dstate);
+	if (needs_rerun)
+		goto again;
 }

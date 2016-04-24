@@ -274,9 +274,6 @@ int main(int argc, char *argv[])
 	/* Set up node ID and private key. */
 	secrets_init(dstate);
 
-	/* Create timer to do watches. */
-	setup_watch_timer(dstate);
-
 	/* Initialize block topology. */
 	setup_topology(dstate);
 
