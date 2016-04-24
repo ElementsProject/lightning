@@ -555,6 +555,39 @@ void bitcoind_get_chaintips_(struct lightningd_state *dstate,
 			  "getchaintips", NULL);
 }
 
+struct normalizing {
+	u32 mediantime;
+	struct sha256_double prevblk, blkid;
+	struct sha256_double *txids;
+	size_t i;
+	void (*cb)(struct lightningd_state *dstate,
+		   struct sha256_double *blkid,
+		   struct sha256_double *prevblock,
+		   struct sha256_double *txids,
+		   u32 mediantime,
+		   void *arg);
+	void *cb_arg;
+};
+
+/* We append normalized ones, so block contains both.  Yuk! */
+static void normalize_txids(struct lightningd_state *dstate,
+			    const struct bitcoin_tx *tx,
+			    struct normalizing *norm)
+{
+	size_t num = tal_count(norm->txids) / 2;
+	normalized_txid(tx, &norm->txids[num + norm->i]);
+
+	norm->i++;
+	if (norm->i == num) {
+		norm->cb(dstate, &norm->blkid, &norm->prevblk, norm->txids,
+			 norm->mediantime, norm->cb_arg);
+		tal_free(norm);
+		return;
+	}
+	bitcoind_txid_lookup(dstate, &norm->txids[norm->i],
+			     normalize_txids, norm);
+}
+	
 static void process_getblock(struct bitcoin_cli *bcli)
 {
 	const jsmntok_t *tokens, *prevblk_tok, *txs_tok,
@@ -564,12 +597,7 @@ static void process_getblock(struct bitcoin_cli *bcli)
 	struct sha256_double *txids;
 	struct sha256_double *prevblk, blkid;
 	size_t i;
-	void (*cb)(struct lightningd_state *dstate,
-		   struct sha256_double *blkid,
-		   struct sha256_double *prevblock,
-		   struct sha256_double *txids,
-		   u32 mediantime,
-		   void *arg) = bcli->cb;
+	struct normalizing *norm = tal(bcli->dstate, struct normalizing);
 
 	log_debug(bcli->dstate->base_log, "Got getblock result");
 	if (!bcli->output)
@@ -665,7 +693,18 @@ static void process_getblock(struct bitcoin_cli *bcli)
 		  prevblk_tok ? bcli->output + prevblk_tok->start : NULL,
 		  i);
 
-	cb(bcli->dstate, &blkid, prevblk, txids, mediantime, bcli->cb_arg);
+	/* FIXME: After segwitness, all txids will be "normalized" */
+	norm->i = 0;
+	norm->blkid = blkid;
+	norm->prevblk = *prevblk;
+	norm->txids = tal_dup_arr(norm, struct sha256_double, txids,
+				  tal_count(txids), tal_count(txids));
+	norm->mediantime = mediantime;
+	norm->cb = bcli->cb;
+	norm->cb_arg = bcli->cb_arg;
+
+	bitcoind_txid_lookup(bcli->dstate, &norm->txids[0],
+			     normalize_txids, norm);
 }
 
 void bitcoind_getblock_(struct lightningd_state *dstate,
@@ -747,6 +786,23 @@ void bitcoind_getblockhash_(struct lightningd_state *dstate,
 
 	start_bitcoin_cli(dstate, process_getblockhash, cb, arg,
 			  "getblockhash", str, NULL);
+}
+
+/* FIXME: Seg witness removes need for this! */
+void normalized_txid(const struct bitcoin_tx *tx, struct sha256_double *txid)
+{
+	size_t i;
+	struct bitcoin_tx tx_copy = *tx;
+	struct bitcoin_tx_input input_copy[tx->input_count];
+
+	/* Copy inputs, but scripts are 0 length. */
+	for (i = 0; i < tx_copy.input_count; i++) {
+		input_copy[i] = tx->input[i];
+		input_copy[i].script_length = 0;
+	}
+	tx_copy.input = input_copy;
+
+	bitcoin_txid(&tx_copy, txid);
 }
 
 /* Make testnet/regtest status matches us. */

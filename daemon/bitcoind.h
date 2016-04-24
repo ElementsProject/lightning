@@ -31,7 +31,7 @@ void bitcoind_txid_lookup_(struct lightningd_state *dstate,
 
 #define bitcoind_txid_lookup(dstate, txid, cb, arg)			\
 	bitcoind_txid_lookup_((dstate), (txid),				\
-			      typesafe_cb_preargs(struct io_plan *, void *, \
+			      typesafe_cb_preargs(void, void *,		\
 						  (cb), (arg),		\
 						  struct lightningd_state *, \
 						  const struct bitcoin_tx *), \
@@ -120,6 +120,8 @@ void bitcoind_getblockhash_(struct lightningd_state *dstate,
 						   struct lightningd_state *, \
 						   const struct sha256_double *), \
 			       (arg))
+
+void normalized_txid(const struct bitcoin_tx *tx, struct sha256_double *txid);
 
 void check_bitcoind_config(struct lightningd_state *dstate);
 #endif /* LIGHTNING_DAEMON_BITCOIND_H */

@@ -276,7 +276,7 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     $CLI generate 99
     TIME=$(($TIME + 1))
     lcli1 dev-mocktime $TIME
-    sleep 2
+    sleep 5
 
     # Considers it all done now.
     check_no_peers lcli1
@@ -399,7 +399,7 @@ $CLI generate 99
 # Make sure they saw it!
 lcli1 dev-mocktime $(($EXPIRY + 32))
 lcli2 dev-mocktime $(($EXPIRY + 32))
-sleep 1
+sleep 5
 check_peerstate lcli1 STATE_CLOSE_WAIT_CLOSE
 check_peerstate lcli2 STATE_CLOSE_WAIT_CLOSE
 
