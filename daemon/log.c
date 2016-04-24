@@ -103,7 +103,7 @@ struct log_record *new_log_record(const tal_t *ctx,
 	lr->max_mem = max_mem;
 	lr->print = log_default_print;
 	lr->print_level = printlevel;
-	lr->init_time = controlled_time();
+	lr->init_time = time_now();
 	list_head_init(&lr->log);
 
 	return lr;
@@ -184,7 +184,7 @@ static struct log_entry *new_log_entry(struct log *log, enum log_level level)
 {
 	struct log_entry *l = tal(log->lr, struct log_entry);
 
-	l->time = controlled_time();
+	l->time = time_now();
 	l->level = level;
 	l->skipped = 0;
 	l->prefix = log->prefix;
