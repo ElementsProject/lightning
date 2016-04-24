@@ -67,8 +67,11 @@ u8 *scriptpubkey_htlc_recv(const tal_t *ctx,
 			   const struct sha256 *commit_revoke,
 			   const struct sha256 *rhash);
 
-/* Create an output script for a 32-byte witness. */
+/* Create an output script for a 32-byte witness program. */
 u8 *scriptpubkey_p2wsh(const tal_t *ctx, const u8 *witnessscript);
+
+/* Create an output script for a 20-byte witness program. */
+u8 *scriptpubkey_p2wpkh(const tal_t *ctx, const struct pubkey *key);
 
 /* Create a witness which spends the 2of2. */
 u8 **bitcoin_witness_2of2(const tal_t *ctx,
@@ -76,6 +79,12 @@ u8 **bitcoin_witness_2of2(const tal_t *ctx,
 			  const struct bitcoin_signature *sig2,
 			  const struct pubkey *key1,
 			  const struct pubkey *key2);
+
+/* Create a witness which spends a "secret_or_delay" scriptpubkey */
+u8 **bitcoin_witness_secret(const tal_t *ctx,
+			    const void *secret, size_t secret_len,
+			    const struct bitcoin_signature *sig,
+			    const u8 *witnessscript);
 
 /* Create an input script to accept pay to pubkey */
 u8 *scriptsig_p2sh_2of2(const tal_t *ctx,

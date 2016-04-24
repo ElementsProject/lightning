@@ -255,6 +255,18 @@ u8 *scriptpubkey_p2wsh(const tal_t *ctx, const u8 *witnessscript)
 	return script;
 }
 
+/* Create an output script for a 20-byte witness. */
+u8 *scriptpubkey_p2wpkh(const tal_t *ctx, const struct pubkey *key)
+{
+	struct ripemd160 h;
+	u8 *script = tal_arr(ctx, u8, 0);
+	
+	add_op(&script, OP_0);
+	hash160(&h, key->der, sizeof(key->der));
+	add_push_bytes(&script, &h, sizeof(h));
+	return script;
+}
+
 /* Create a witness which spends the 2of2. */
 u8 **bitcoin_witness_2of2(const tal_t *ctx,
 			  const struct bitcoin_signature *sig1,
@@ -494,4 +506,19 @@ u8 *scriptsig_p2sh_secret(const tal_t *ctx,
 	add_push_bytes(&script, redeemscript, redeem_len);
 
 	return script;
+}
+
+u8 **bitcoin_witness_secret(const tal_t *ctx,
+			    const void *secret, size_t secret_len,
+			    const struct bitcoin_signature *sig,
+			    const u8 *witnessscript)
+{
+	u8 **witness = tal_arr(ctx, u8 *, 3);
+
+	witness[0] = stack_sig(witness, sig);
+	witness[1] = tal_dup_arr(witness, u8, secret, secret_len, 0);
+	witness[2] = tal_dup_arr(witness, u8,
+				 witnessscript, tal_count(witnessscript), 0);
+
+	return witness;
 }

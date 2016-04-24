@@ -71,15 +71,14 @@ void peer_sign_ourcommit(const struct peer *peer,
 
 void peer_sign_spend(const struct peer *peer,
 		     struct bitcoin_tx *spend,
-		     const u8 *commit_redeemscript,
+		     const u8 *commit_witnessscript,
 		     struct signature *sig)
 {
 	/* Spend tx only has one input: that of the commit tx. */
 	sign_tx_input(peer->dstate->secpctx,
 		      spend, 0,
-		      commit_redeemscript,
-		      tal_count(commit_redeemscript),
-		      NULL,
+		      NULL, 0,
+		      commit_witnessscript,
 		      &peer->secrets->final,
 		      &peer->us.finalkey,
 		      sig);

@@ -4,7 +4,6 @@
 #include "commit_tx.h"
 #include "controlled_time.h"
 #include "cryptopkt.h"
-#include "find_p2sh_out.h"
 #include "lightningd.h"
 #include "log.h"
 #include "names.h"

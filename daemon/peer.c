@@ -1117,15 +1117,15 @@ const struct bitcoin_tx *bitcoin_close(struct peer *peer)
 /* Create a bitcoin spend tx (to spend our commit's outputs) */
 const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 {
-	u8 *redeemscript;
+	u8 *witnessscript;
 	const struct bitcoin_tx *commit = peer->us.commit->tx;
 	struct bitcoin_signature sig;
 	struct bitcoin_tx *tx;
-	unsigned int p2sh_out;
+	unsigned int p2wsh_out;
 	uint64_t fee;
 
 	/* The redeemscript for a commit tx is fairly complex. */
-	redeemscript = bitcoin_redeem_secret_or_delay(peer,
+	witnessscript = bitcoin_redeem_secret_or_delay(peer,
 						      &peer->us.finalkey,
 						      &peer->them.locktime,
 						      &peer->them.finalkey,
@@ -1134,25 +1134,24 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 	/* Now, create transaction to spend it. */
 	tx = bitcoin_tx(peer, 1, 1);
 	bitcoin_txid(commit, &tx->input[0].txid);
-	p2sh_out = find_p2sh_out(commit, redeemscript);
-	tx->input[0].index = p2sh_out;
+	p2wsh_out = find_p2wsh_out(commit, witnessscript);
+	tx->input[0].index = p2wsh_out;
 	tx->input[0].sequence_number = bitcoin_nsequence(&peer->them.locktime);
 	tx->input[0].amount = tal_dup(tx->input, u64,
-				      &commit->output[p2sh_out].amount);
+				      &commit->output[p2wsh_out].amount);
 
-	tx->output[0].amount = commit->output[p2sh_out].amount;
+	tx->output[0].amount = commit->output[p2wsh_out].amount;
+
 	tx->output[0].script = scriptpubkey_p2sh(tx,
 				 bitcoin_redeem_single(tx, &peer->us.finalkey));
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
 	/* Use signature, until we have fee. */
 	sig.stype = SIGHASH_ALL;
-	peer_sign_spend(peer, tx, redeemscript, &sig.sig);
+	peer_sign_spend(peer, tx, witnessscript, &sig.sig);
 
-	tx->input[0].script = scriptsig_p2sh_secret(tx, NULL, 0, &sig,
-						    redeemscript,
-						    tal_count(redeemscript));
-	tx->input[0].script_length = tal_count(tx->input[0].script);
+	tx->input[0].witness = bitcoin_witness_secret(tx, NULL, 0, &sig,
+						      witnessscript);
 
 	/* FIXME: Figure out length first, then calc fee! */
 
@@ -1168,14 +1167,13 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 		      tx->output[0].amount, fee);
 
 	/* Re-sign with the real values. */
-	tx->input[0].script_length = 0;
+	tx->input[0].witness = tal_free(tx->input[0].witness);
 	tx->output[0].amount -= fee;
-	peer_sign_spend(peer, tx, redeemscript, &sig.sig);
 
-	tx->input[0].script = scriptsig_p2sh_secret(tx, NULL, 0, &sig,
-						    redeemscript,
-						    tal_count(redeemscript));
-	tx->input[0].script_length = tal_count(tx->input[0].script);
+	peer_sign_spend(peer, tx, witnessscript, &sig.sig);
+
+	tx->input[0].witness = bitcoin_witness_secret(tx, NULL, 0, &sig,
+						      witnessscript);
 	
 	return tx;
 }

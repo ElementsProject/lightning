@@ -58,19 +58,17 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx->input[0].index = anchor_index;
 	tx->input[0].amount = tal_dup(tx->input, u64, &anchor_satoshis);
 
-	/* First output is a P2SH to a complex redeem script (usu. for me) */
+	/* First output is a P2WSH to a complex redeem script (usu. for me) */
 	redeemscript = bitcoin_redeem_secret_or_delay(tx, our_final,
 						      their_locktime,
 						      their_final,
 						      rhash);
-	tx->output[0].script = scriptpubkey_p2sh(tx, redeemscript);
+	tx->output[0].script = scriptpubkey_p2wsh(tx, redeemscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 	tx->output[0].amount = cstate->a.pay_msat / 1000;
 
-	/* Second output is a P2SH payment to them. */
-	tx->output[1].script = scriptpubkey_p2sh(tx,
-					 bitcoin_redeem_single(tx,
-							       their_final));
+	/* Second output is a P2WPKH payment to them. */
+	tx->output[1].script = scriptpubkey_p2wpkh(tx, their_final);
 	tx->output[1].script_length = tal_count(tx->output[1].script);
 	tx->output[1].amount = cstate->b.pay_msat / 1000;
 
