@@ -52,6 +52,7 @@ struct txwatch {
 	/* A new depth (-1 if conflicted), blkhash valid if > 0 */
 	void (*cb)(struct peer *peer, int depth,
 		   const struct sha256_double *blkhash,
+		   const struct sha256_double *txid,
 		   void *cbdata);
 	void *cbdata;
 };
@@ -63,51 +64,65 @@ HTABLE_DEFINE_TYPE(struct txwatch, txwatch_keyof, txid_hash, txwatch_eq,
 		   txwatch_hash);
 
 
-void add_anchor_watch_(const tal_t *ctx,
-		       struct peer *peer,
-		       const struct sha256_double *txid,
-		       unsigned int out,
-		       void (*anchor_cb)(struct peer *peer, int depth,
-					 const struct sha256_double *blkhash,
-					 void *),
-		       void (*spend_cb)(struct peer *peer,
-					const struct bitcoin_tx *, void *),
-		       void *cbdata);
+struct txwatch *watch_txid_(const tal_t *ctx,
+			    struct peer *peer,
+			    const struct sha256_double *txid,
+			    void (*cb)(struct peer *peer, int depth,
+				       const struct sha256_double *blkhash,
+				       const struct sha256_double *txidx,
+				       void *),
+			    void *cbdata);
 
-#define add_anchor_watch(ctx, peer, txid, out, anchor_cb, spend_cb, cbdata) \
-	add_anchor_watch_((ctx), (peer), (txid), (out),			\
-			  typesafe_cb_preargs(void, void *,		\
-					      (anchor_cb), (cbdata),	\
-					      struct peer *,		\
-					      int depth,		\
-					      const struct sha256_double *), \
-			  typesafe_cb_preargs(void, void *,		\
-					      (spend_cb), (cbdata),	\
-					      struct peer *,		\
-					      const struct bitcoin_tx *), \
-			  (cbdata))
+#define watch_txid(ctx, peer, txid, cb, cbdata)				\
+	watch_txid_((ctx), (peer), (txid),				\
+		    typesafe_cb_preargs(void, void *,			\
+					(cb), (cbdata),			\
+					struct peer *,			\
+					int depth,			\
+					const struct sha256_double *,	\
+					const struct sha256_double *txidx), \
+		    (cbdata))
 
-struct txwatch *add_commit_tx_watch_(const tal_t *ctx,
-				     struct peer *peer,
-				     const struct sha256_double *txid,
-				     void (*cb)(struct peer *peer, int depth,
-						const struct sha256_double *blkhash,
-						void *),
-				     void *cbdata);
+struct txwatch *watch_tx_(const tal_t *ctx,
+			  struct peer *peer,
+			  const struct bitcoin_tx *tx,
+			  void (*cb)(struct peer *peer, int depth,
+				     const struct sha256_double *blkhash,
+				     const struct sha256_double *txidx,
+				     void *),
+			  void *cbdata);
 
-#define add_commit_tx_watch(ctx, peer, txid, cb, cbdata)		  \
-	add_commit_tx_watch_((ctx), (peer), (txid),			\
-			     typesafe_cb_preargs(void, void *,		\
-						 (cb), (cbdata),	\
-						 struct peer *,		\
-						 int,			\
-						 const struct sha256_double *),	\
-			     (cbdata))
+#define watch_tx(ctx, peer, tx, cb, cbdata)				\
+	watch_tx_((ctx), (peer), (tx),					\
+		  typesafe_cb_preargs(void, void *,			\
+				      (cb), (cbdata),			\
+				      struct peer *,			\
+				      int depth,			\
+				      const struct sha256_double *,	\
+				      const struct sha256_double *),	\
+		  (cbdata))
 
-void add_close_tx_watch(const tal_t *ctx,
-			struct peer *peer,
-			const struct bitcoin_tx *tx,
-			void (*cb)(struct peer *peer, int depth));
+struct txowatch *watch_txo_(const tal_t *ctx,
+			    struct peer *peer,
+			    const struct sha256_double *txid,
+			    unsigned int output,
+			    void (*cb)(struct peer *peer,
+				       const struct bitcoin_tx *tx,
+				       void *),
+			    void *cbdata);
+
+#define watch_txo(ctx, peer, txid, outnum, cb, cbdata)			\
+	watch_txo_((ctx), (peer), (txid), (outnum),			\
+		  typesafe_cb_preargs(void, void *,			\
+				      (cb), (cbdata),			\
+				      struct peer *,			\
+				      const struct bitcoin_tx *),	\
+		  (cbdata))
+
+void peer_watch_setup(struct peer *peer);
+
+/* FIXME: Seg witness removes need for this! */
+void normalized_txid(const struct bitcoin_tx *tx, struct sha256_double *txid);
 
 void setup_watch_timer(struct lightningd_state *dstate);
 #endif /* LIGHTNING_DAEMON_WATCH_H */

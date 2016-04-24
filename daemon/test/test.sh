@@ -408,7 +408,7 @@ $CLI generate 1
 TIME=$(($EXPIRY + 33))
 lcli1 dev-mocktime $TIME
 lcli2 dev-mocktime $TIME
-sleep 1
+sleep 2
 
 check_no_peers lcli1
 check_no_peers lcli2

@@ -644,8 +644,10 @@ struct anchor_watch {
 
 static void anchor_depthchange(struct peer *peer, int depth,
 			       const struct sha256_double *blkhash,
-			       struct anchor_watch *w)
+			       const struct sha256_double *txid,
+			       void *unused)
 {
+	struct anchor_watch *w = peer->anchor.watches;
 	/* Still waiting for it to reach depth? */
 	if (w->depthok != INPUT_NONE) {
 		/* Beware sign! */
@@ -737,7 +739,10 @@ static bool is_mutual_close(const struct peer *peer,
 	return matches;
 }
 
-static void close_depth_cb(struct peer *peer, int depth)
+static void close_depth_cb(struct peer *peer, int depth,
+			   const struct sha256_double *txid,
+			   const struct sha256_double *blkhash,
+			   void *unused)
 {
 	if (depth >= peer->dstate->config.forever_confirms) {
 		state_event(peer, BITCOIN_CLOSE_DONE, NULL);
@@ -748,8 +753,9 @@ static void close_depth_cb(struct peer *peer, int depth)
  * invalid transactions! */
 static void anchor_spent(struct peer *peer,
 			 const struct bitcoin_tx *tx,
-			 struct anchor_watch *w)
+			 void *unused)
 {
+	struct anchor_watch *w = peer->anchor.watches;
 	union input idata;
 
 	/* FIXME: change type in idata? */
@@ -757,7 +763,7 @@ static void anchor_spent(struct peer *peer,
 	if (is_unrevoked_commit(peer->them.commit, tx))
 		state_event(peer, w->theyspent, &idata);
 	else if (is_mutual_close(peer, tx))
-		add_close_tx_watch(peer, peer, tx, close_depth_cb);
+		watch_tx(peer, peer, tx, close_depth_cb, NULL);
 	else
 		state_event(peer, w->otherspent, &idata);
 }
@@ -789,10 +795,9 @@ void peer_watch_anchor(struct peer *peer,
 	w->theyspent = theyspent;
 	w->otherspent = otherspent;
 
-	add_anchor_watch(w, peer, &peer->anchor.txid, peer->anchor.index,
-			 anchor_depthchange,
-			 anchor_spent,
-			 w);
+	peer_watch_setup(peer);
+	watch_txid(w, peer, &peer->anchor.txid, anchor_depthchange, NULL);
+	watch_txo(w, peer, &peer->anchor.txid, 0, anchor_spent, NULL);
 
 	/* For anchor timeout, expect 20 minutes per block, +2 hours.
 	 *
@@ -833,6 +838,7 @@ void peer_unwatch_anchor_depth(struct peer *peer,
 
 static void commit_tx_depth(struct peer *peer, int depth,
 			    const struct sha256_double *blkhash,
+			    const struct sha256_double *txid,
 			    ptrint_t *canspend)
 {
 	log_debug(peer->log, "Commit tx reached depth %i", depth);
@@ -899,14 +905,15 @@ void peer_watch_delayed(struct peer *peer,
 	memset(&peer->cur_commit.blockid, 0xFF,
 	       sizeof(peer->cur_commit.blockid));
 	peer->cur_commit.watch
-		= add_commit_tx_watch(tx, peer, &txid, commit_tx_depth,
-				      int2ptr(canspend));
+		= watch_txid(tx, peer, &txid, commit_tx_depth,
+			     int2ptr(canspend));
 
 	watch_tx_outputs(peer, tx);
 }
 
 static void spend_tx_done(struct peer *peer, int depth,
 			  const struct sha256_double *blkhash,
+			  const struct sha256_double *txid,
 			  ptrint_t *done)
 {
 	log_debug(peer->log, "tx reached depth %i", depth);
@@ -930,16 +937,7 @@ void peer_watch_tx(struct peer *peer,
 		   const struct bitcoin_tx *tx,
 		   enum state_input done)
 {
-	struct sha256_double txid;
-
-	bitcoin_txid(tx, &txid);
-	log_debug(peer->log, "Watching tx %02x%02x%02x%02x...",
-		  txid.sha.u.u8[0],
-		  txid.sha.u.u8[1],
-		  txid.sha.u.u8[2],
-		  txid.sha.u.u8[3]);
-
-	add_commit_tx_watch(tx, peer, &txid, spend_tx_done, int2ptr(done));
+	watch_tx(tx, peer, tx, spend_tx_done, int2ptr(done));
 }
 
 struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee)

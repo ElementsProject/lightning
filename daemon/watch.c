@@ -58,28 +58,6 @@ static void destroy_txowatch(struct txowatch *w)
 	txowatch_hash_del(&w->peer->dstate->txowatches, w);
 }
 
-/* Watch a txo. */
-static void insert_txo_watch(const tal_t *ctx,
-			     struct peer *peer,
-			     const struct sha256_double *txid,
-			     unsigned int txout,
-			     void (*cb)(struct peer *peer,
-					const struct bitcoin_tx *tx,
-					void *cbdata),
-			     void *cbdata)
-{
-	struct txowatch *w = tal(ctx, struct txowatch);
-
-	w->out.txid = *txid;
-	w->out.index = txout;
-	w->peer = peer;
-	w->cb = cb;
-	w->cbdata = cbdata;
-
-	txowatch_hash_add(&w->peer->dstate->txowatches, w);
-	tal_add_destructor(w, destroy_txowatch);
-}
-
 const struct sha256_double *txwatch_keyof(const struct txwatch *w)
 {
 	return &w->txid;
@@ -100,30 +78,42 @@ static void destroy_txwatch(struct txwatch *w)
 	txwatch_hash_del(&w->dstate->txwatches, w);
 }
 
-static struct txwatch *insert_txwatch(const tal_t *ctx,
-				      struct peer *peer,
-				      const struct sha256_double *txid,
-				      void (*cb)(struct peer *, int,
-						 const struct sha256_double *,
-						 void *),
-				      void *cbdata)
+/* FIXME: This is a hack! */
+void peer_watch_setup(struct peer *peer)
+{
+	struct sha256 h;
+	struct ripemd160 redeemhash;
+
+	/* Telling bitcoind to watch the redeemhash address means
+	 * it'll tell is about the anchor itself (spend to that
+	 * address), and any commit txs (spend from that address).*/
+	sha256(&h, peer->anchor.redeemscript,
+	       tal_count(peer->anchor.redeemscript));
+	ripemd160(&redeemhash, h.u.u8, sizeof(h));
+
+	bitcoind_watch_addr(peer->dstate, &redeemhash);
+}
+
+struct txwatch *watch_txid_(const tal_t *ctx,
+			    struct peer *peer,
+			    const struct sha256_double *txid,
+			    void (*cb)(struct peer *peer, int depth,
+				       const struct sha256_double *blkhash,
+				       const struct sha256_double *txid,
+				       void *arg),
+			    void *cb_arg)
 {
 	struct txwatch *w;
 
-	/* We could have a null-watch on it because we saw it spend a TXO */
-	w = txwatch_hash_get(&peer->dstate->txwatches, txid);
-	if (w) {
-		assert(!w->cb);
-		tal_free(w);
-	}
+	assert(!txwatch_hash_get(&peer->dstate->txwatches, txid));
 
 	w = tal(ctx, struct txwatch);
-	w->depth = 0;
+	w->depth = -1;
 	w->txid = *txid;
 	w->dstate = peer->dstate;
 	w->peer = peer;
 	w->cb = cb;
-	w->cbdata = cbdata;
+	w->cbdata = cb_arg;
 
 	txwatch_hash_add(&w->dstate->txwatches, w);
 	tal_add_destructor(w, destroy_txwatch);
@@ -131,8 +121,49 @@ static struct txwatch *insert_txwatch(const tal_t *ctx,
 	return w;
 }
 
-/* This just serves to avoid us doing bitcoind_txid_lookup repeatedly
- * on unknown txs. */
+struct txwatch *watch_tx_(const tal_t *ctx,
+			 struct peer *peer,
+			 const struct bitcoin_tx *tx,
+			 void (*cb)(struct peer *peer, int depth,
+				    const struct sha256_double *blkhash,
+				    const struct sha256_double *txid,
+				    void *arg),
+			  void *cb_arg)
+{
+	struct sha256_double txid;
+
+	normalized_txid(tx, &txid);
+	return watch_txid(ctx, peer, &txid, cb, cb_arg);
+}
+
+struct txowatch *watch_txo_(const tal_t *ctx,
+			    struct peer *peer,
+			    const struct sha256_double *txid,
+			    unsigned int output,
+			    void (*cb)(struct peer *peer,
+				       const struct bitcoin_tx *tx,
+				       void *),
+			    void *cbdata)
+{
+	struct txowatch *w = tal(ctx, struct txowatch);
+
+	w->out.txid = *txid;
+	w->out.index = output;
+	w->peer = peer;
+	w->cb = cb;
+	w->cbdata = cbdata;
+
+	txowatch_hash_add(&w->peer->dstate->txowatches, w);
+	tal_add_destructor(w, destroy_txowatch);
+
+	return w;
+}
+
+struct tx_info {
+	struct sha256_double blkhash;
+	int conf;
+};
+
 static void insert_null_txwatch(struct lightningd_state *dstate,
 				const struct sha256_double *txid)
 {
@@ -148,115 +179,100 @@ static void insert_null_txwatch(struct lightningd_state *dstate,
 	tal_add_destructor(w, destroy_txwatch);
 }
 
-void add_anchor_watch_(const tal_t *ctx,
-		       struct peer *peer,
-		       const struct sha256_double *txid,
-		       unsigned int out,
-		       void (*anchor_cb)(struct peer *peer, int depth,
-					 const struct sha256_double *blkhash,
-					 void *),
-		       void (*spend_cb)(struct peer *peer,
-					const struct bitcoin_tx *, void *),
-		       void *cbdata)
-{
-	struct sha256 h;
-	struct ripemd160 redeemhash;
-	u8 *redeemscript;
-
-	insert_txwatch(ctx, peer, txid, anchor_cb, cbdata);
-	insert_txo_watch(ctx, peer, txid, out, spend_cb, cbdata);
-
-	redeemscript = bitcoin_redeem_2of2(ctx, &peer->them.commitkey,
-					   &peer->us.commitkey);
-	sha256(&h, redeemscript, tal_count(redeemscript));
-	ripemd160(&redeemhash, h.u.u8, sizeof(h));
-	tal_free(redeemscript);
-
-	/* Telling bitcoind to watch the redeemhash address means
-	 * it'll tell is about the anchor itself (spend to that
-	 * address), and any commit txs (spend from that address).*/
-	bitcoind_watch_addr(peer->dstate, &redeemhash);
-}
-
-struct txwatch *add_commit_tx_watch_(const tal_t *ctx,
-				     struct peer *peer,
-				     const struct sha256_double *txid,
-				     void (*cb)(struct peer *peer, int depth,
-						const struct sha256_double *blkhash,
-						void *),
-				     void *cbdata)
-{
-	return insert_txwatch(ctx, peer, txid, cb, cbdata);
-
-	/* We are already watching the anchor txo, so we don't need to
-	 * watch anything else. */
-}
-
-static void cb_no_arg(struct peer *peer, int depth,
-		      const struct sha256_double *blkhash, void *vcb)
-{
-	void (*cb)(struct peer *peer, int depth) = vcb;
-	cb(peer, depth);
-}
-
-void add_close_tx_watch(const tal_t *ctx,
-			struct peer *peer,
-			const struct bitcoin_tx *tx,
-			void (*cb)(struct peer *peer, int depth))
-{
-	struct sha256_double txid;
-	bitcoin_txid(tx, &txid);
-	insert_txwatch(ctx, peer, &txid, cb_no_arg, cb);
-
-	/* We are already watching the anchor txo, so we don't need to
-	 * watch anything else. */
-}
-
-static void tx_watched_inputs(struct lightningd_state *dstate,
-			      const struct bitcoin_tx *tx, void *unused)
-{
-	size_t in;
-
-	for (in = 0; in < tx->input_count; in++) {
-		struct txwatch_output out;
-		struct txowatch *txow;
-
-		out.txid = tx->input[in].txid;
-		out.index = tx->input[in].index;
-
-		txow = txowatch_hash_get(&dstate->txowatches, &out);
-		if (txow)
-			txow->cb(txow->peer, tx, txow->cbdata);
-	}
-}
-
-static void watched_transaction(struct lightningd_state *dstate,
-				const struct sha256_double *txid,
-				int confirmations,
-				bool is_coinbase,
-				const struct sha256_double *blkhash)
-
+static void watched_normalized_txid(struct lightningd_state *dstate,
+				    const struct bitcoin_tx *tx,
+				    struct tx_info *txinfo)
 {
 	struct txwatch *txw;
+	struct sha256_double txid;
+	size_t i;
+	
+	normalized_txid(tx, &txid);
+	txw = txwatch_hash_get(&dstate->txwatches, &txid);
 
-	/* Are we watching this txid directly (or already reported)? */
-	txw = txwatch_hash_get(&dstate->txwatches, txid);
+	/* Reset to real txid for logging. */
+	bitcoin_txid(tx, &txid);
+
 	if (txw) {
-		if (confirmations != txw->depth) {
-			txw->depth = confirmations;
-			if (txw->cb)
-				txw->cb(txw->peer, txw->depth, blkhash,
-					txw->cbdata);
+		if (txinfo->conf != txw->depth) {
+			log_debug(txw->peer->log,
+				  "Got depth change %u for %02x%02x%02x...\n",
+				  txinfo->conf,
+				  txid.sha.u.u8[0],
+				  txid.sha.u.u8[1],
+				  txid.sha.u.u8[2]);
+			txw->depth = txinfo->conf;
+			txw->cb(txw->peer, txw->depth, &txinfo->blkhash, &txid,
+				txw->cbdata);
 		}
 		return;
 	}
 
-	/* Don't report about this txid twice. */
-	insert_null_txwatch(dstate, txid);
+	/* Hmm, otherwise it may be new */
+	for (i = 0; i < tx->input_count; i++) {
+		struct txowatch *txo;
+		struct txwatch_output out;
+
+		out.txid = tx->input[i].txid;
+		out.index = tx->input[i].index;
+		txo = txowatch_hash_get(&dstate->txowatches, &out);
+
+		/* Presumably, this sets a watch on it. */
+		if (txo) {
+			log_debug(txo->peer->log,
+				  "New tx spending %02x%02x%02x output %u:"
+				  " %02x%02x%02x...\n",
+				  out.txid.sha.u.u8[0],
+				  out.txid.sha.u.u8[1],
+				  out.txid.sha.u.u8[2],
+				  out.index,
+				  txid.sha.u.u8[0],
+				  txid.sha.u.u8[1],
+				  txid.sha.u.u8[2]);
+			txo->cb(txo->peer, tx, txo->cbdata);
+			return;
+		}
+	}
+
+	/* OK, not interesting.  Put in fake (on original txid). */
+	log_debug(dstate->base_log, "Ignoring tx %02x%02x%02x...\n",
+		  txid.sha.u.u8[0],
+		  txid.sha.u.u8[1],
+		  txid.sha.u.u8[2]);
+	insert_null_txwatch(dstate, &txid);
+}
+
+static void watched_txid(struct lightningd_state *dstate,
+			 const struct sha256_double *txid,
+			 int confirmations,
+			 bool is_coinbase,
+			 const struct sha256_double *blkhash)
+
+{
+	struct txwatch *txw;
+	struct tx_info *txinfo;
 
 	/* Maybe it spent an output we're watching? */
-	if (!is_coinbase)
-		bitcoind_txid_lookup(dstate, txid, tx_watched_inputs, NULL);
+	if (is_coinbase)
+		return;
+
+	/* Are we watching this txid directly (or already reported)? */
+	txw = txwatch_hash_get(&dstate->txwatches, txid);
+	if (txw) {
+		if (txw->cb && confirmations != txw->depth) {
+			txw->depth = confirmations;
+			txw->cb(txw->peer, txw->depth, blkhash, txid,
+				txw->cbdata);
+		}
+		return;
+	}
+
+	txinfo = tal(dstate, struct tx_info);
+	txinfo->conf = confirmations;
+	if (blkhash)
+		txinfo->blkhash = *blkhash;
+	/* FIXME: Since we don't use segwit, we need to normalize txids. */
+	bitcoind_txid_lookup(dstate, txid, watched_normalized_txid, txinfo);
 }
 
 static struct timeout watch_timeout;
@@ -267,7 +283,7 @@ static void start_poll_transactions(struct lightningd_state *dstate)
 		log_unusual(dstate->base_log,
 			    "Delaying start poll: commands in progress");
 	} else
-		bitcoind_poll_transactions(dstate, watched_transaction);
+		bitcoind_poll_transactions(dstate, watched_txid);
 	refresh_timeout(dstate, &watch_timeout);
 }
 
