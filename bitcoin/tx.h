@@ -56,6 +56,9 @@ u8 *linearize_tx_force_extended(const tal_t *ctx,
 /* Get length of tx in bytes. */
 size_t measure_tx_len(const struct bitcoin_tx *tx);
 
+/* Get cost of tx in (x4 of non-witness bytecount). */
+size_t measure_tx_cost(const struct bitcoin_tx *tx);
+
 /* Allocate a tx: you just need to fill in inputs and outputs (they're
  * zeroed with inputs' sequence_number set to FFFFFFFF) */
 struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,

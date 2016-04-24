@@ -79,6 +79,33 @@ static bool uses_witness(const struct bitcoin_tx *tx)
 	return false;
 }
 
+/* BIP 141: The witness is a serialization of all witness data of the
+ * transaction. Each txin is associated with a witness field. A
+ * witness field starts with a var_int to indicate the number of stack
+ * items for the txin.  */
+static void add_witnesses(const struct bitcoin_tx *tx,
+			  void (*add)(const void *, size_t, void *), void *addp)
+{
+	size_t i;
+	for (i = 0; i < tx->input_count; i++) {
+		size_t j, elements;
+
+		/* Not every input needs a witness. */
+		if (!tx->input[i].witness) {
+			add_varint(0, add, addp);
+			continue;
+		}
+		elements = tal_count(tx->input[i].witness);
+		add_varint(elements, add, addp);
+		for (j = 0;
+		     j < tal_count(tx->input[i].witness);
+		     j++) {
+			add_witness(tx->input[i].witness[j],
+				    add, addp);
+		}
+	}
+}
+
 static void add_tx(const struct bitcoin_tx *tx,
 		   void (*add)(const void *, size_t, void *), void *addp,
 		   bool extended)
@@ -115,31 +142,9 @@ static void add_tx(const struct bitcoin_tx *tx,
 	for (i = 0; i < tx->output_count; i++)
 		add_tx_output(&tx->output[i], add, addp);
 
-	if (flag & SEGREGATED_WITNESS_FLAG) {
-		/* BIP 141:
-		 * The witness is a serialization of all witness data
-		 * of the transaction. Each txin is associated with a
-		 * witness field. A witness field starts with a
-		 * var_int to indicate the number of stack items for
-		 * the txin.  */
-		for (i = 0; i < tx->input_count; i++) {
-			size_t j, elements;
+	if (flag & SEGREGATED_WITNESS_FLAG)
+		add_witnesses(tx, add, addp);
 
-			/* Not every input needs a witness. */
-			if (!tx->input[i].witness) {
-				add_varint(0, add, addp);
-				continue;
-			}
-			elements = tal_count(tx->input[i].witness);
-			add_varint(elements, add, addp);
-			for (j = 0;
-			     j < tal_count(tx->input[i].witness);
-			     j++) {
-				add_witness(tx->input[i].witness[j],
-					    add, addp);
-			}
-		}
-	}
 	add_le32(tx->lock_time, add, addp);
 }
 
@@ -306,6 +311,17 @@ size_t measure_tx_len(const struct bitcoin_tx *tx)
 	size_t len = 0;
 	add_tx(tx, add_measure, &len, uses_witness(tx));
 	return len;
+}
+
+size_t measure_tx_cost(const struct bitcoin_tx *tx)
+{
+	size_t non_witness_len = 0, witness_len = 0;
+	add_tx(tx, add_measure, &non_witness_len, false);
+	if (uses_witness(tx))
+		add_witnesses(tx, add_measure, &witness_len);
+
+	/* Witness bytes only add 1/4 of normal bytes, for cost. */
+	return non_witness_len * 4 + witness_len;
 }
 
 void bitcoin_txid(const struct bitcoin_tx *tx, struct sha256_double *txid)
