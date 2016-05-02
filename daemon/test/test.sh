@@ -1,7 +1,7 @@
 #! /bin/sh -e
 
-# We steal the test-cli scripts.
-cd test-cli
+# Wherever we are, we want to be in daemon/test dir.
+cd `git rev-parse --show-toplevel`/daemon/test
 
 . scripts/vars.sh
 
@@ -59,8 +59,8 @@ while [ $# != 0 ]; do
     shift
 done
 
-LCLI1="../daemon/lightning-cli --lightning-dir=$DIR1"
-LCLI2="../daemon/lightning-cli --lightning-dir=$DIR2"
+LCLI1="../lightning-cli --lightning-dir=$DIR1"
+LCLI2="../lightning-cli --lightning-dir=$DIR2"
 
 if [ -n "$VERBOSE" ]; then
     FGREP="fgrep"
@@ -176,14 +176,14 @@ if [ -n "$GDB1" ]; then
     echo Press return once you run: gdb --args daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR1 --bitcoin-datadir=$DATADIR
     read REPLY
 else
-    $PREFIX ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR1 --bitcoin-datadir=$DATADIR > $REDIR1 2> $REDIRERR1 &
+    $PREFIX ../lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR1 --bitcoin-datadir=$DATADIR > $REDIR1 2> $REDIRERR1 &
 fi
 
 if [ -n "$GDB2" ]; then
     echo Press return once you run: gdb --args daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR2 --bitcoin-datadir=$DATADIR
     read REPLY
 else
-    $PREFIX ../daemon/lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR2 --bitcoin-datadir=$DATADIR > $REDIR2 2> $REDIRERR2 &
+    $PREFIX ../lightningd --log-level=debug --bitcoind-poll=1 --min-expiry=900 --lightning-dir=$DIR2 --bitcoin-datadir=$DATADIR > $REDIR2 2> $REDIRERR2 &
 fi
 
 i=0

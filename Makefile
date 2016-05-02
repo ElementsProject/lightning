@@ -181,7 +181,7 @@ $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_H
 
 # These don't work in parallel, so we open-code them
 daemon-tests: daemon-all
-	cd test-cli; scripts/shutdown.sh 2>/dev/null || true
+	daemon/test/scripts/shutdown.sh 2>/dev/null || true
 	set -e; for arg in "" "--timeout-anchor"; do daemon/test/test.sh $$arg; done
 
 test-onion: test/test_onion test/onion_key
