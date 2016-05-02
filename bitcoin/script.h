@@ -89,4 +89,7 @@ u8 **bitcoin_witness_secret(const tal_t *ctx,
 /* Is this a pay to script hash? */
 bool is_p2sh(const u8 *script, size_t script_len);
 
+/* Are these two scripts equal? */
+bool scripteq(const u8 *s1, size_t s1len, const u8 *s2, size_t s2len);
+
 #endif /* LIGHTNING_BITCOIN_SCRIPT_H */

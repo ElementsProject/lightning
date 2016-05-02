@@ -10,9 +10,10 @@ static u32 find_output(const struct bitcoin_tx *tx, const u8 *scriptpubkey)
 	u32 i;
 
 	for (i = 0; i < tx->output_count; i++) {
-		if (tx->output[i].script_length != tal_count(scriptpubkey))
-			continue;
-		if (memcmp(tx->output[i].script, scriptpubkey, tal_count(scriptpubkey)) == 0)
+		if (scripteq(tx->output[i].script,
+			     tx->output[i].script_length,
+			     scriptpubkey,
+			     tal_count(scriptpubkey)))
 			break;
 	}
 	/* FIXME: Return failure! */

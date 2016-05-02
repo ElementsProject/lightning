@@ -476,3 +476,13 @@ u8 **bitcoin_witness_secret(const tal_t *ctx,
 
 	return witness;
 }
+
+bool scripteq(const u8 *s1, size_t s1len, const u8 *s2, size_t s2len)
+{
+	memcheck(s1, s1len);
+	memcheck(s2, s2len);
+
+	if (s1len != s2len)
+		return false;
+	return memcmp(s1, s2, s1len) == 0;
+}
