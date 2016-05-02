@@ -147,12 +147,10 @@ void queue_pkt_anchor(struct peer *peer)
 	}
 
 	/* Sign their commit sig */
-	peer->them.commit->sig = tal(peer->them.commit,
-				     struct bitcoin_signature);
-	peer->them.commit->sig->stype = SIGHASH_ALL;
+	peer->them.commit->sig.stype = SIGHASH_ALL;
 	peer_sign_theircommit(peer, peer->them.commit->tx,
-			      &peer->them.commit->sig->sig);
-	a->commit_sig = signature_to_proto(a, &peer->them.commit->sig->sig);
+			      &peer->them.commit->sig.sig);
+	a->commit_sig = signature_to_proto(a, &peer->them.commit->sig.sig);
 
 	queue_pkt(peer, PKT__PKT_OPEN_ANCHOR, a);
 }
@@ -166,12 +164,10 @@ void queue_pkt_open_commit_sig(struct peer *peer)
 	dump_tx("Creating sig for:", peer->them.commit->tx);
 	dump_key("Using key:", &peer->us.commitkey);
 
-	peer->them.commit->sig = tal(peer->them.commit,
-				     struct bitcoin_signature);
-	peer->them.commit->sig->stype = SIGHASH_ALL;
+	peer->them.commit->sig.stype = SIGHASH_ALL;
 	peer_sign_theircommit(peer, peer->them.commit->tx,
-			      &peer->them.commit->sig->sig);
-	s->sig = signature_to_proto(s, &peer->them.commit->sig->sig);
+			      &peer->them.commit->sig.sig);
+	s->sig = signature_to_proto(s, &peer->them.commit->sig.sig);
 
 	queue_pkt(peer, PKT__PKT_OPEN_COMMIT_SIG, s);
 }
@@ -323,16 +319,15 @@ void queue_pkt_commit(struct peer *peer)
 	 */
 	assert(ci->prev->cstate->changes != ci->cstate->changes);
 
-	ci->sig = tal(ci, struct bitcoin_signature);
-	ci->sig->stype = SIGHASH_ALL;
-	peer_sign_theircommit(peer, ci->tx, &ci->sig->sig);
+	ci->sig.stype = SIGHASH_ALL;
+	peer_sign_theircommit(peer, ci->tx, &ci->sig.sig);
 
 	/* Switch to the new commitment. */
 	peer->them.commit = ci;
 
 	/* Now send message */
 	update_commit__init(u);
-	u->sig = signature_to_proto(u, &ci->sig->sig);
+	u->sig = signature_to_proto(u, &ci->sig.sig);
 	u->ack = peer_outgoing_ack(peer);
 
 	queue_pkt(peer, PKT__PKT_UPDATE_COMMIT, u);
@@ -352,7 +347,7 @@ void queue_pkt_revocation(struct peer *peer)
 	assert(!peer->us.commit->prev->revocation_preimage);
 
 	/* We have their signature on the current one, right? */
-	assert(peer->us.commit->sig);
+	memcheck(&peer->us.commit->sig, sizeof(peer->us.commit->sig));
 
 	peer->us.commit->prev->revocation_preimage
 		= tal(peer->us.commit->prev, struct sha256);
@@ -484,10 +479,8 @@ static Pkt *check_and_save_commit_sig(struct peer *peer,
 				      struct commit_info *ci,
 				      const Signature *pb)
 {
-	assert(!ci->sig);
-	ci->sig = tal(ci, struct bitcoin_signature);
-	ci->sig->stype = SIGHASH_ALL;
-	if (!proto_to_signature(pb, &ci->sig->sig))
+	ci->sig.stype = SIGHASH_ALL;
+	if (!proto_to_signature(pb, &ci->sig.sig))
 		return pkt_err(peer, "Malformed signature");
 
 	/* Their sig should sign our commit tx. */
@@ -496,7 +489,7 @@ static Pkt *check_and_save_commit_sig(struct peer *peer,
 			  NULL, 0,
 			  peer->anchor.witnessscript,
 			  &peer->them.commitkey,
-			  ci->sig))
+			  &ci->sig))
 		return pkt_err(peer, "Bad signature");
 
 	return NULL;

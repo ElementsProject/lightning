@@ -1207,7 +1207,7 @@ const struct bitcoin_tx *bitcoin_commit(struct peer *peer)
 
 	peer->us.commit->tx->input[0].witness
 		= bitcoin_witness_2of2(peer->us.commit->tx->input,
-				       peer->us.commit->sig,
+				       &peer->us.commit->sig,
 				       &sig,
 				       &peer->them.commitkey,
 				       &peer->us.commitkey);
@@ -1377,17 +1377,6 @@ static void json_add_htlcs(struct json_result *response,
 	json_array_end(response);
 }
 
-/* This is money we can count on. */
-static const struct channel_state *last_signed_state(const struct commit_info *i)
-{
-	while (i) {
-		if (i->sig)
-			return i->cstate;
-		i = i->prev;
-	}
-	return NULL;
-}
-
 /* FIXME: add history command which shows all prior and current commit txs */
 
 /* FIXME: Somehow we should show running DNS lookups! */
@@ -1415,12 +1404,12 @@ static void json_getpeers(struct command *cmd,
 
 		/* FIXME: Report anchor. */
 
-		last = last_signed_state(p->us.commit);
-		if (!last) {
+		if (!p->us.commit) {
 			json_object_end(response);
 			continue;
 		}
-			
+		last = p->us.commit->cstate;
+
 		json_add_num(response, "our_amount", last->a.pay_msat);
 		json_add_num(response, "our_fee", last->a.fee_msat);
 		json_add_num(response, "their_amount", last->b.pay_msat);
