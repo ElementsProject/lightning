@@ -399,6 +399,8 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->anchor.watches = NULL;
 	peer->cur_commit.watch = NULL;
 	peer->closing.their_sig = NULL;
+	peer->closing.our_script = NULL;
+	peer->closing.their_script = NULL;
 	peer->cleared = INPUT_NONE;
 	/* Make it different from other node (to catch bugs!), but a
 	 * round number for simple eyeballing. */
@@ -708,35 +710,34 @@ static bool is_unrevoked_commit(const struct commit_info *ci,
 	return false;
 }
 
-/* A mutual close is a simple 2 output p2sh to the final addresses, but
- * without knowing fee we can't determine order, so examine each output. */
 static bool is_mutual_close(const struct peer *peer,
 			    const struct bitcoin_tx *tx)
 {
-	const u8 *ctx, *our_p2sh, *their_p2sh;
-	bool matches;
+	const u8 *ours, *theirs;
+
+	ours = peer->closing.our_script;
+	theirs = peer->closing.their_script;
+	/* If we don't know the closing scripts, can't have signed them. */
+	if (!ours || !theirs)
+		return false;
 
 	if (tx->output_count != 2)
 		return false;
 
-	if (!is_p2sh(tx->output[0].script, tx->output[0].script_length)
-	    || !is_p2sh(tx->output[1].script, tx->output[1].script_length))
-		return false;
+	/* Without knowing fee amounts, can't determine order.  Check both. */
+	if (scripteq(tx->output[0].script, tx->output[0].script_length,
+		     ours, tal_count(ours))
+	    && scripteq(tx->output[1].script, tx->output[1].script_length,
+			theirs, tal_count(theirs)))
+		return true;
 
-	/* FIXME: Cache these! */
-	ctx = tal(NULL, u8);	
-	our_p2sh = scriptpubkey_p2sh(ctx,
-			bitcoin_redeem_single(tx, &peer->us.finalkey));
-	their_p2sh = scriptpubkey_p2sh(ctx,
-			bitcoin_redeem_single(tx, &peer->them.finalkey));
+	if (scripteq(tx->output[0].script, tx->output[0].script_length,
+		     theirs, tal_count(theirs))
+	    && scripteq(tx->output[1].script, tx->output[1].script_length,
+			ours, tal_count(ours)))
+		return true;
 
-	matches =
-		(memcmp(tx->output[0].script, our_p2sh, tal_count(our_p2sh)) == 0
-		 && memcmp(tx->output[1].script, their_p2sh, tal_count(their_p2sh)) == 0)
-		|| (memcmp(tx->output[0].script, their_p2sh, tal_count(their_p2sh)) == 0
-		    && memcmp(tx->output[1].script, our_p2sh, tal_count(our_p2sh)) == 0);
-	tal_free(ctx);
-	return matches;
+	return false;
 }
 
 static void close_depth_cb(struct peer *peer, int depth,
