@@ -13,6 +13,21 @@ static void init_map(size_t *map, size_t len)
 		map[i] = i;
 }
 
+/* This map says where things ended up, eg. 0 might be in slot 3.  we
+ * want to change it so map[0] = 3. */
+static void invert_map(size_t *map, size_t len)
+{
+	if (map) {
+		size_t i, newmap[len];
+
+		memset(newmap, 0, sizeof(newmap));
+		for (i = 0; i < len; i++) {
+			newmap[map[i]] = i;
+		}
+		memcpy(map, newmap, sizeof(newmap));
+	}
+}
+
 static bool input_better(const struct bitcoin_tx_input *a,
 			 const struct bitcoin_tx_input *b)
 {
@@ -75,6 +90,8 @@ void permute_inputs(struct bitcoin_tx_input *inputs,
 		swap_inputs(inputs, map,
 			    i, i + find_best_in(inputs + i, num_inputs - i));
 	}
+
+	invert_map(map, num_inputs);
 }
 
 static void swap_outputs(struct bitcoin_tx_output *outputs, size_t *map,
@@ -141,4 +158,6 @@ void permute_outputs(struct bitcoin_tx_output *outputs,
 		swap_outputs(outputs, map,
 			     i, i + find_best_out(outputs + i, num_outputs - i));
 	}
+
+	invert_map(map, num_outputs);
 }
