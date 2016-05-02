@@ -212,20 +212,6 @@ void peer_watch_close(struct peer *peer,
 void peer_unwatch_close_timeout(struct peer *peer, enum state_input timedout);
 
 /**
- * peer_watch_anchor: create a watch for the anchor transaction.
- * @peer: the state data for this peer.
- * @depthok: the input to give when anchor reaches expected depth.
- * @timeout: the input to give if anchor doesn't reach depth in time.
- * @unspent: the input to give if anchor is unspent after @depthok.
- * @theyspent: the input to give if they spend anchor with their commit tx.
- * @otherspent: the input to give if they spend anchor otherwise.
- *
- * @depthok can be INPUT_NONE if it's our anchor (we don't time
- * ourselves out).
- */
-void peer_unwatch_close_timeout(struct peer *peer, enum state_input timedout);
-
-/**
  * peer_watch_our_htlc_outputs: HTLC outputs from our commit tx to watch.
  * @peer: the state data for this peer.
  * @tx: the commitment tx
