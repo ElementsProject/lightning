@@ -243,7 +243,7 @@ lightning.pb-c.c lightning.pb-c.h: lightning.proto
 $(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(CCAN_OBJS) version.o libsecp256k1.a
 
 ccan/config.h: ccan/tools/configurator/configurator
-	$< > $@
+	if $< > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
 
 doc/deployable-lightning.pdf: doc/deployable-lightning.lyx doc/bitcoin.bib
 	lyx -E pdf $@ $<
