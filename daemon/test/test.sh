@@ -313,10 +313,13 @@ B_AMOUNT=0
 B_FEE=0
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
+# This is 1000 satoshi, so not dust!
+HTLC_AMOUNT=10000000
+
 EXPIRY=$(( $(date +%s) + 1000))
 SECRET=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd
 RHASH=`lcli1 dev-rhash $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
-lcli1 newhtlc $ID2 1000000 $EXPIRY $RHASH
+lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
 
 # Nothing should have changed!
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
@@ -331,15 +334,15 @@ check_status_single lcli1 $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 check_staged lcli1 1
 
 # Check channel status
-A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - 1000000))
+A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - $HTLC_AMOUNT))
 A_FEE=$(($A_FEE + $EXTRA_FEE))
 
 # Node 2 has it committed.
-check_status_single lcli2 $B_AMOUNT $B_FEE "" $A_AMOUNT $A_FEE '{ "msatoshis" : 1000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } '
+check_status_single lcli2 $B_AMOUNT $B_FEE "" $A_AMOUNT $A_FEE '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } '
 
 # Now node2 gives commitment to node1.
 lcli2 commit $ID1
-check_status $A_AMOUNT $A_FEE '{ "msatoshis" : 1000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
+check_status $A_AMOUNT $A_FEE '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
 
 lcli2 fulfillhtlc $ID1 $SECRET
 lcli2 commit $ID1
@@ -347,41 +350,44 @@ lcli1 commit $ID2
 
 # We've transferred the HTLC amount to 2, who now has to pay fees,
 # so no net change for A who saves on fees.
-B_FEE=1000000
+B_FEE=$HTLC_AMOUNT
 # With no HTLCs, extra fee no longer required.
 A_FEE=$(($A_FEE - $EXTRA_FEE - $B_FEE))
-A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + 1000000))
+A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + $HTLC_AMOUNT))
 
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 # A new one, at 10x the amount.
-lcli1 newhtlc $ID2 10000000 $EXPIRY $RHASH
+HTLC_AMOUNT=100000000
+
+lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
 lcli1 commit $ID2
 lcli2 commit $ID1
 
 # Check channel status
-A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - 10000000))
+A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - $HTLC_AMOUNT))
 A_FEE=$(($A_FEE + $EXTRA_FEE))
-check_status $A_AMOUNT $A_FEE '{ "msatoshis" : 10000000, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
+check_status $A_AMOUNT $A_FEE '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
 
 lcli2 failhtlc $ID1 $RHASH
 lcli2 commit $ID1
 lcli1 commit $ID2
 
 # Back to how we were before.
-A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + 10000000))
+A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + $HTLC_AMOUNT))
 A_FEE=$(($A_FEE - $EXTRA_FEE))
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 # Same again, but this time it expires.
-lcli1 newhtlc $ID2 10000001 $EXPIRY $RHASH
+HTLC_AMOUNT=10000001
+lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
 lcli1 commit $ID2
 lcli2 commit $ID1
 
 # Check channel status
-A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - 10000001))
+A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - $HTLC_AMOUNT))
 A_FEE=$(($A_FEE + $EXTRA_FEE))
-check_status $A_AMOUNT $A_FEE '{ "msatoshis" : 10000001, "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
+check_status $A_AMOUNT $A_FEE '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
 
 # Make sure node1 accepts the expiry packet.
 lcli1 dev-mocktime $(($EXPIRY))
@@ -393,7 +399,7 @@ lcli1 commit $ID2
 sleep 1
 
 # Back to how we were before.
-A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + 10000001))
+A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + $HTLC_AMOUNT))
 A_FEE=$(($A_FEE - $EXTRA_FEE))
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
