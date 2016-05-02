@@ -11,3 +11,4 @@ libsecp256k1.a
 libsecp256k1.la
 gen_*
 daemon/lightning-cli
+check-bolt

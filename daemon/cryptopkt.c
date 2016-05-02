@@ -52,8 +52,8 @@ struct enckey {
 
 
 /* BOLT #1:
- * sending-key: SHA256(shared-secret || sending-node-id)
- * receiving-key: SHA256(shared-secret || receiving-node-id)
+ * * sending-key: SHA256(shared-secret || sending-node-session-pubkey)
+ * * receiving-key: SHA256(shared-secret || receiving-node-session-pubkey)
  */
 static struct enckey enckey_from_secret(const unsigned char secret[32],
 					const unsigned char serial_pubkey[33])

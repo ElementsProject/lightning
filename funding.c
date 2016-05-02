@@ -8,10 +8,9 @@ uint64_t fee_by_feerate(size_t txsize, uint32_t fee_rate)
 {
 	/* BOLT #2:
 	 * 
-	 * The fee for a commitment transaction MUST be calculated by
-	 * the multiplying this bytescount by the fee rate, dividing
-	 * by 1000 and truncating (rounding down) the result to an
-	 * even number of satoshis.
+	 * The fee for a transaction MUST be calculated by multiplying this
+	 * bytecount by the fee rate, dividing by 1000 and truncating
+	 * (rounding down) the result to an even number of satoshis.
 	 */
 	return txsize * fee_rate / 2000 * 2;
 }

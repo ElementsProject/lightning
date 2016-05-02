@@ -811,7 +811,8 @@ Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt, bool *acked,
 	/* BOLT #2:
 	 *
 	 * The receiver MUST check `sig` is valid for the close
-	 * transaction, and MUST fail the connection if it is not. */
+	 * transaction with the given `close_fee`, and MUST fail the
+	 * connection if it is not. */
 	theirsig.stype = SIGHASH_ALL;
 	if (!proto_to_signature(c->sig, &theirsig.sig))
 		return pkt_err(peer, "Invalid signature format");

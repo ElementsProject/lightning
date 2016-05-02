@@ -971,7 +971,7 @@ void peer_calculate_close_fee(struct peer *peer)
 
 	/* BOLT #2:
 	 * The sender MUST set `close_fee` lower than or equal to the
-	 * fee of the final commitment transaction and MUST set
+	 * fee of the final commitment transaction, and MUST set
 	 * `close_fee` to an even number of satoshis.
 	 */
 	maxfee = commit_tx_fee(peer->us.commit->tx, peer->anchor.satoshis);

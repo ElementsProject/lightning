@@ -7,6 +7,9 @@ PROTOCC:=protoc-c
 # We use our own internal ccan copy.
 CCANDIR := ccan
 
+# Where we keep the BOLT RFCs
+BOLTDIR := ../lightning-rfc/bolts/
+
 # Bitcoin uses DER for signatures (Add BIP68 & HAS_CSV if it's supported)
 BITCOIN_FEATURES :=				\
 	-DHAS_BIP68=1				\
@@ -212,7 +215,15 @@ check-makefile: check-daemon-makefile
 	@if [ x"`ls *.h | grep -v ^gen_ | fgrep -v lightning.pb-c.h | tr '\n' ' '`" != x"$(CORE_HEADERS) " ]; then echo CORE_HEADERS incorrect; exit 1; fi
 	@if [ x"$(CCANDIR)/config.h `find $(CCANDIR)/ccan -name '*.h' | grep -v /test/ | LC_ALL=C sort | tr '\n' ' '`" != x"$(CCAN_HEADERS) " ]; then echo CCAN_HEADERS incorrect; exit 1; fi
 
-check-source: check-makefile				\
+# Any mention of BOLT# must be followed by an exact quote, modulo whitepace.
+check-source-bolt: check-bolt
+	@if [ ! -d $(BOLTDIR) ]; then echo Not checking BOLT references: BOLTDIR $(BOLTDIR) does not exist >&2; else ./check-bolt $(BOLTDIR) $(CORE_SRC) $(BITCOIN_SRC) $(DAEMON_SRC) $(CORE_HEADERS) $(BITCOIN_HEADERS) $(DAEMON_HEADERS); fi
+
+check-bolt: check-bolt.o $(CCAN_OBJS)
+
+check-bolt.o: $(CCAN_HEADERS)
+
+check-source: check-makefile check-source-bolt		\
 	$(CORE_SRC:%=check-src-include-order/%)		\
 	$(BITCOIN_SRC:%=check-src-include-order/%)	\
 	$(CORE_HEADERS:%=check-hdr-include-order/%)	\

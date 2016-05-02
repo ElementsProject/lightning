@@ -150,7 +150,7 @@ static void check_config(struct lightningd_state *dstate)
 {
 	/* BOLT #2:
 	 * The sender MUST set `close_fee` lower than or equal to the
-	 * fee of the final commitment transaction.
+	 * fee of the final commitment transaction
 	 */
 
 	/* We do this by ensuring it's less than the minimum we would accept. */
