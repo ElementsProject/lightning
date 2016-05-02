@@ -42,7 +42,8 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    unsigned int anchor_index,
 				    u64 anchor_satoshis,
 				    const struct sha256 *rhash,
-				    const struct channel_state *cstate)
+				    const struct channel_state *cstate,
+				    int **map)
 {
 	struct bitcoin_tx *tx;
 	const u8 *redeemscript;
@@ -94,7 +95,8 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	}
 	assert(num == tx->output_count);
 	assert(total <= anchor_satoshis);
-	
-	permute_outputs(tx->output, tx->output_count, NULL);
+
+	*map = tal_arr(ctx, int, tx->output_count);
+	permute_outputs(tx->output, tx->output_count, *map);
 	return tx;
 }

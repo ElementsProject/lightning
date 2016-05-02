@@ -8,9 +8,9 @@
  */
 void permute_inputs(struct bitcoin_tx_input *inputs,
 		    size_t num_inputs,
-		    size_t *map);
+		    int *map);
 
 void permute_outputs(struct bitcoin_tx_output *outputs,
 		     size_t num_outputs,
-		     size_t *map);
+		     int *map);
 #endif /* LIGHTNING_PERMUTE_TX_H */

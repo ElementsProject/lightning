@@ -63,6 +63,8 @@ struct commit_info {
 	struct channel_state *cstate;
 	/* Other side's signature for this commit tx. */
 	struct bitcoin_signature sig;
+	/* Map for permutation: see commit_tx.c */
+	int *map;
 	/* Revocation preimage (if known). */
 	struct sha256 *revocation_preimage;
 };

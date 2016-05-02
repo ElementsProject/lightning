@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-static void init_map(size_t *map, size_t len)
+static void init_map(int *map, size_t len)
 {
 	size_t i;
 
@@ -15,10 +15,10 @@ static void init_map(size_t *map, size_t len)
 
 /* This map says where things ended up, eg. 0 might be in slot 3.  we
  * want to change it so map[0] = 3. */
-static void invert_map(size_t *map, size_t len)
+static void invert_map(int *map, size_t len)
 {
 	if (map) {
-		size_t i, newmap[len];
+		int i, newmap[len];
 
 		memset(newmap, 0, sizeof(newmap));
 		for (i = 0; i < len; i++) {
@@ -59,7 +59,7 @@ static size_t find_best_in(struct bitcoin_tx_input *inputs, size_t num)
 	return best;
 }
 
-static void swap_inputs(struct bitcoin_tx_input *inputs, size_t *map,
+static void swap_inputs(struct bitcoin_tx_input *inputs, int *map,
 			size_t i1, size_t i2)
 {
 	struct bitcoin_tx_input tmpinput;
@@ -78,7 +78,7 @@ static void swap_inputs(struct bitcoin_tx_input *inputs, size_t *map,
 
 void permute_inputs(struct bitcoin_tx_input *inputs,
 		    size_t num_inputs,
-		    size_t *map)
+		    int *map)
 {
 	size_t i;
 
@@ -94,7 +94,7 @@ void permute_inputs(struct bitcoin_tx_input *inputs,
 	invert_map(map, num_inputs);
 }
 
-static void swap_outputs(struct bitcoin_tx_output *outputs, size_t *map,
+static void swap_outputs(struct bitcoin_tx_output *outputs, int *map,
 			size_t i1, size_t i2)
 {
 	struct bitcoin_tx_output tmpoutput;
@@ -146,7 +146,7 @@ static size_t find_best_out(struct bitcoin_tx_output *outputs, size_t num)
 
 void permute_outputs(struct bitcoin_tx_output *outputs,
 		     size_t num_outputs,
-		     size_t *map)
+		     int *map)
 {
 	size_t i;
 

@@ -304,7 +304,8 @@ void queue_pkt_commit(struct peer *peer)
 				  peer->anchor.index,
 				  peer->anchor.satoshis,
 				  &ci->revocation_hash,
-				  ci->cstate);
+				  ci->cstate,
+				  &ci->map);
 
 	log_debug(peer->log, "Signing tx for %u/%u msatoshis, %zu/%zu htlcs",
 		  ci->cstate->a.pay_msat,
@@ -693,7 +694,8 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt)
 				  peer->anchor.index,
 				  peer->anchor.satoshis,
 				  &ci->revocation_hash,
-				  ci->cstate);
+				  ci->cstate,
+				  &ci->map);
 
 	/* BOLT #2:
 	 *

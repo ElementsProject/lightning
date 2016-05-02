@@ -20,5 +20,6 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    unsigned int anchor_index,
 				    u64 anchor_satoshis,
 				    const struct sha256 *rhash,
-				    const struct channel_state *cstate);
+				    const struct channel_state *cstate,
+				    int **map);
 #endif

@@ -1330,7 +1330,8 @@ bool setup_first_commit(struct peer *peer)
 					       peer->anchor.index,
 					       peer->anchor.satoshis,
 					       &peer->us.commit->revocation_hash,
-					       peer->us.commit->cstate);
+					       peer->us.commit->cstate,
+					       &peer->us.commit->map);
 
 	peer->them.commit->tx = create_commit_tx(peer->them.commit,
 						 &peer->them.finalkey,
@@ -1340,7 +1341,8 @@ bool setup_first_commit(struct peer *peer)
 						 peer->anchor.index,
 						 peer->anchor.satoshis,
 						 &peer->them.commit->revocation_hash,
-						 peer->them.commit->cstate);
+						 peer->them.commit->cstate,
+						 &peer->them.commit->map);
 
 	peer->us.staging_cstate = copy_funding(peer, peer->us.commit->cstate);
 	peer->them.staging_cstate = copy_funding(peer, peer->them.commit->cstate);
