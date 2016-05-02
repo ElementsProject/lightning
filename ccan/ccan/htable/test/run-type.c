@@ -111,12 +111,12 @@ int main(int argc, char *argv[])
 {
 	unsigned int i;
 	struct htable_obj ht;
-	struct obj val[NUM_VALS];
+	struct obj val[NUM_VALS], *result;
 	unsigned int dne;
 	void *p;
 	struct htable_obj_iter iter;
 
-	plan_tests(20);
+	plan_tests(26);
 	for (i = 0; i < NUM_VALS; i++)
 		val[i].key = i;
 	dne = i;
@@ -169,7 +169,33 @@ int main(int argc, char *argv[])
 
 	/* Delete them all by key. */
 	del_vals_bykey(&ht, val, NUM_VALS);
-	htable_obj_clear(&ht);
 
+	/* Write two of the same value. */
+	val[1] = val[0];
+	htable_obj_add(&ht, &val[0]);
+	htable_obj_add(&ht, &val[1]);
+	i = 0;
+
+	result = htable_obj_getfirst(&ht, &i, &iter);
+	ok1(result == &val[0] || result == &val[1]);
+	if (result == &val[0]) {
+		ok1(htable_obj_getnext(&ht, &i, &iter) == &val[1]);
+		ok1(htable_obj_getnext(&ht, &i, &iter) == NULL);
+
+		/* Deleting first should make us iterate over the other. */
+		ok1(htable_obj_del(&ht, &val[0]));
+		ok1(htable_obj_getfirst(&ht, &i, &iter) == &val[1]);
+		ok1(htable_obj_getnext(&ht, &i, &iter) == NULL);
+	} else {
+		ok1(htable_obj_getnext(&ht, &i, &iter) == &val[0]);
+		ok1(htable_obj_getnext(&ht, &i, &iter) == NULL);
+
+		/* Deleting first should make us iterate over the other. */
+		ok1(htable_obj_del(&ht, &val[1]));
+		ok1(htable_obj_getfirst(&ht, &i, &iter) == &val[0]);
+		ok1(htable_obj_getnext(&ht, &i, &iter) == NULL);
+	}
+
+	htable_obj_clear(&ht);
 	return exit_status();
 }

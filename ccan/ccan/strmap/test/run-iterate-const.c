@@ -14,9 +14,7 @@ static bool find_string(const char *str, char *member, const char *cmp)
 
 int main(void)
 {
-	struct strmap_charp {
-		STRMAP_MEMBERS(char *);
-	} map;
+	STRMAP(char *) map;
 
 	plan_tests(3);
 

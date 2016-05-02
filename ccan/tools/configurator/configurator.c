@@ -319,6 +319,52 @@ static struct test tests[] = {
 	  "-Werror -fopenmp" },
 	{ "HAVE_VALGRIND_MEMCHECK_H", OUTSIDE_MAIN, NULL, NULL,
 	  "#include <valgrind/memcheck.h>\n" },
+	{ "HAVE_UCONTEXT", DEFINES_EVERYTHING|EXECUTE,
+	  NULL, NULL,
+	  "#include <ucontext.h>\n"
+	  "static int x = 0;\n"
+	  "static char stack[2048];\n"
+	  "static ucontext_t a, b;\n"
+	  "static void fn(void) {\n"
+	  "	x |= 2;\n"
+	  "	setcontext(&b);\n"
+	  "	x |= 4;\n"
+	  "}\n"
+	  "int main(int argc, char *argv[]) {\n"
+	  "	x |= 1;\n"
+	  "	getcontext(&a);\n"
+	  "	a.uc_stack.ss_sp = stack;\n"
+	  "	a.uc_stack.ss_size = sizeof(stack);\n"
+	  "	makecontext(&a, fn, 0);\n"
+	  "	swapcontext(&b, &a);\n"
+	  "	return (x == 3) ? 0 : 1;\n"
+	  "}\n"
+	},
+	{ "HAVE_POINTER_SAFE_MAKECONTEXT", DEFINES_EVERYTHING|EXECUTE,
+	  "HAVE_UCONTEXT", NULL,
+	  "#include <stddef.h>\n"
+	  "#include <ucontext.h>\n"
+	  "static int worked = 0;\n"
+	  "static char stack[1024];\n"
+	  "static ucontext_t a, b;\n"
+	  "static void fn(void *p, void *q) {\n"
+	  "	void *cp = &worked;\n"
+	  "	void *cq = (void *)(~((ptrdiff_t)cp));\n"
+	  "	if ((p == cp) && (q == cq))\n"
+	  "		worked = 1;\n"
+	  "	setcontext(&b);\n"
+	  "}\n"
+	  "int main(int argc, char *argv[]) {\n"
+	  "	void *ap = &worked;\n"
+	  "	void *aq = (void *)(~((ptrdiff_t)ap));\n"
+	  "	getcontext(&a);\n"
+	  "	a.uc_stack.ss_sp = stack;\n"
+	  "	a.uc_stack.ss_size = sizeof(stack);\n"
+	  "	makecontext(&a, (void (*)(void))fn, 2, ap, aq);\n"
+	  "	swapcontext(&b, &a);\n"
+	  "	return worked ? 0 : 1;\n"
+	  "}\n"
+	},
 };
 
 static char *grab_fd(int fd)
@@ -497,7 +543,8 @@ static bool run_test(const char *cmd, struct test *test)
 	fclose(outf);
 
 	if (verbose > 1)
-		if (system("cat " INPUT_FILE) == -1);
+		if (system("cat " INPUT_FILE) == -1)
+			;
 
 	newcmd = strdup(cmd);
 

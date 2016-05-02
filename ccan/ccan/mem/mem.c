@@ -107,3 +107,22 @@ bool memeqzero(const void *data, size_t length)
 	/* Now we know that's zero, memcmp with self. */
 	return memcmp(data, p, length) == 0;
 }
+
+void memtaint(void *data, size_t len)
+{
+	/* Using 16 bytes is a bit quicker than 4 */
+	const unsigned tainter[]
+		= { 0xdeadbeef, 0xdeadbeef, 0xdeadbeef, 0xdeadbeef };
+	char *p = data;
+
+	while (len >= sizeof(tainter)) {
+		memcpy(p, tainter, sizeof(tainter));
+		p += sizeof(tainter);
+		len -= sizeof(tainter);
+	}
+	memcpy(p, tainter, len);
+
+#if HAVE_VALGRIND_MEMCHECK_H
+	VALGRIND_MAKE_MEM_UNDEFINED(data, len);
+#endif
+}

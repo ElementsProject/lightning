@@ -2,6 +2,7 @@
 #ifndef CCAN_HTABLE_TYPE_H
 #define CCAN_HTABLE_TYPE_H
 #include <ccan/htable/htable.h>
+#include <ccan/compiler/compiler.h>
 #include "config.h"
 
 /**
@@ -30,8 +31,14 @@
  *	bool <name>_del(struct <name> *ht, const <type> *e);
  *	bool <name>_delkey(struct <name> *ht, const <keytype> *k);
  *
- * Find function return the matching element, or NULL:
+ * Find and return the (first) matching element, or NULL:
  *	type *<name>_get(const struct @name *ht, const <keytype> *k);
+ *
+ * Find and return all matching elements, or NULL:
+ *	type *<name>_getfirst(const struct @name *ht, const <keytype> *k,
+ *			      struct <name>_iter *i);
+ *	type *<name>_getnext(const struct @name *ht, const <keytype> *k,
+ *			     struct <name>_iter *i);
  *
  * Iteration over hashtable is also supported:
  *	type *<name>_first(const struct <name> *ht, struct <name>_iter *i);
@@ -50,15 +57,16 @@
 	{								\
 		return hashfn(keyof((const type *)elem));		\
 	}								\
-	static inline void name##_init(struct name *ht)			\
+	static inline UNNEEDED void name##_init(struct name *ht)	\
 	{								\
 		htable_init(&ht->raw, name##_hash, NULL);		\
 	}								\
-	static inline void name##_init_sized(struct name *ht, size_t s)	\
+	static inline UNNEEDED void name##_init_sized(struct name *ht,	\
+						      size_t s)		\
 	{								\
 		htable_init_sized(&ht->raw, name##_hash, NULL, s);	\
 	}								\
-	static inline void name##_clear(struct name *ht)		\
+	static inline UNNEEDED void name##_clear(struct name *ht)	\
 	{								\
 		htable_clear(&ht->raw);					\
 	}								\
@@ -66,11 +74,12 @@
 	{								\
 		return htable_add(&ht->raw, hashfn(keyof(elem)), elem);	\
 	}								\
-	static inline bool name##_del(struct name *ht, const type *elem) \
+	static inline UNNEEDED bool name##_del(struct name *ht,		\
+					       const type *elem)	\
 	{								\
 		return htable_del(&ht->raw, hashfn(keyof(elem)), elem);	\
 	}								\
-	static inline type *name##_get(const struct name *ht,		\
+	static inline UNNEEDED type *name##_get(const struct name *ht,	\
 				       const HTABLE_KTYPE(keyof) k)	\
 	{								\
 		/* Typecheck for eqfn */				\
@@ -81,7 +90,36 @@
 				  (bool (*)(const void *, void *))(eqfn), \
 				  k);					\
 	}								\
-	static inline bool name##_delkey(struct name *ht,		\
+	static inline UNNEEDED type *name##_getmatch_(const struct name *ht, \
+				         const HTABLE_KTYPE(keyof) k,   \
+				         size_t h,			\
+				         type *v,			\
+					 struct name##_iter *iter)	\
+	{								\
+		while (v) {						\
+			if (eqfn(v, k))					\
+				break;					\
+			v = htable_nextval(&ht->raw, &iter->i, h);	\
+		}							\
+		return v;						\
+	}								\
+	static inline UNNEEDED type *name##_getfirst(const struct name *ht, \
+				         const HTABLE_KTYPE(keyof) k,   \
+					 struct name##_iter *iter)	\
+	{								\
+		size_t h = hashfn(k);					\
+		type *v = htable_firstval(&ht->raw, &iter->i, h);	\
+		return name##_getmatch_(ht, k, h, v, iter);			\
+	}								\
+	static inline UNNEEDED type *name##_getnext(const struct name *ht, \
+				         const HTABLE_KTYPE(keyof) k,   \
+					 struct name##_iter *iter)	\
+	{								\
+		size_t h = hashfn(k);					\
+		type *v = htable_nextval(&ht->raw, &iter->i, h);	\
+		return name##_getmatch_(ht, k, h, v, iter);		\
+	}								\
+	static inline UNNEEDED bool name##_delkey(struct name *ht,	\
 					 const HTABLE_KTYPE(keyof) k)	\
 	{								\
 		type *elem = name##_get(ht, k);				\
@@ -89,12 +127,12 @@
 			return name##_del(ht, elem);			\
 		return false;						\
 	}								\
-	static inline type *name##_first(const struct name *ht,		\
+	static inline UNNEEDED type *name##_first(const struct name *ht, \
 					 struct name##_iter *iter)	\
 	{								\
 		return htable_first(&ht->raw, &iter->i);		\
 	}								\
-	static inline type *name##_next(const struct name *ht,		\
+	static inline UNNEEDED type *name##_next(const struct name *ht,	\
 					struct name##_iter *iter)	\
 	{								\
 		return htable_next(&ht->raw, &iter->i);			\

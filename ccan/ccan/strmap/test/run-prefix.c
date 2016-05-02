@@ -24,11 +24,9 @@ static bool find_empty(const char *index, char *value, char *empty)
 
 int main(void)
 {
-	struct map {
-		STRMAP_MEMBERS(char *);
-	};
-	struct map map;
-	const struct map *sub;
+	typedef STRMAP(char *) map_t;
+	map_t map;
+	const map_t *sub;
 	unsigned int i;
 	char *str[NUM], *empty;
 
@@ -56,9 +54,9 @@ int main(void)
 
 	/* Everything */
 	sub = strmap_prefix(&map, "0");
-	ok1(sub->raw.u.n == map.raw.u.n);
+	ok1(tcon_unwrap(sub)->u.n == tcon_unwrap(&map)->u.n);
 	sub = strmap_prefix(&map, "");
-	ok1(sub->raw.u.n == map.raw.u.n);
+	ok1(tcon_unwrap(sub)->u.n == tcon_unwrap(&map)->u.n);
 
 	/* Single. */
 	sub = strmap_prefix(&map, "00000000");

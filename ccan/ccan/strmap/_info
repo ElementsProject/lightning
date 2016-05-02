@@ -29,7 +29,7 @@
  * int main(int argc, char *argv[])
  * {
  * 	size_t i;
- * 	struct { STRMAP_MEMBERS(size_t); } map;
+ * 	STRMAP(size_t) map;
  *
  * 	strmap_init(&map);
  * 	for (i = 1; i < argc; i++)

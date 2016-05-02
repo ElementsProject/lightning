@@ -275,4 +275,20 @@ static inline void *memcheck_(const void *data, size_t len)
 #else
 #define memcheck(data, len) memcheck_((data), (len))
 #endif
+
+/**
+ * memtaint - mark a memory region unused
+ * @data: start of region
+ * @len: length in bytes
+ *
+ * This writes an "0xdeadbeef" eyecatcher repeatedly to the memory.
+ * When running under valgrind, it also tells valgrind that the memory is
+ * uninitialized, triggering valgrind errors if it is used for branches
+ * or written out (or passed to memcheck!) in future.
+ *
+ * Example:
+ *	// We'll reuse this buffer later, but be sure we don't access it.
+ *	memtaint(somebytes, bytes_len);
+ */
+void memtaint(void *data, size_t len);
 #endif /* CCAN_MEM_H */

@@ -50,14 +50,12 @@ struct cdump_type {
 };
 
 /* The map of typenames to definitions */
-struct cdump_map {
-	STRMAP_MEMBERS(struct cdump_type *);
-};
+typedef STRMAP(struct cdump_type *) cdump_map_t;
 
 struct cdump_definitions {
-	struct cdump_map enums;
-	struct cdump_map structs;
-	struct cdump_map unions;
+	cdump_map_t enums;
+	cdump_map_t structs;
+	cdump_map_t unions;
 };
 
 /**

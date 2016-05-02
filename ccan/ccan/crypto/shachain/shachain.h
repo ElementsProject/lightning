@@ -14,49 +14,49 @@
 /**
  * shachain_from_seed - Generate an unpredictable SHA from a seed value.
  * @seed: (secret) seed value to use
- * @index: index of value to generate.
+ * @index: index of value to generate (0 == seed)
  * @hash: value generated
  *
  * There will be no way to derive the result from that generated for
- * any *lesser* index.
+ * any *greater* index.
  *
  * Example:
  * #include <time.h>
  *
  * static void next_hash(struct sha256 *hash)
  * {
- *	static uint64_t index = 0;
+ *	static uint64_t index = 0xFFFFFFFFFFFFFFFFULL;
  *	static struct sha256 seed;
  *
  *	// First time, initialize seed.
- *	if (index == 0) {
+ *	if (index == 0xFFFFFFFFFFFFFFFFULL) {
  *		// DO NOT DO THIS!  Very predictable!
  *		time_t now = time(NULL);
  *		memcpy(&seed, &now, sizeof(now));
  *	}
  *
- *	shachain_from_seed(&seed, index++, hash);
+ *	shachain_from_seed(&seed, index--, hash);
  * }
  */
 void shachain_from_seed(const struct sha256 *seed, shachain_index_t index,
 			struct sha256 *hash);
 
 /**
- * shachain - structure for recording/deriving incrementing chain members
- * @max_index: maximum index value successfully shachain_add_hash()ed.
- * @num_valid: number of known[] array valid.  If non-zero, @max_index valid.
- * @known: known values to allow us to derive those <= @max_index.
+ * shachain - structure for recording/deriving decrementing chain members
+ * @min_index: minimum index value successfully shachain_add_hash()ed.
+ * @num_valid: number of known[] array valid.  If non-zero, @min_index valid.
+ * @known: known values to allow us to derive those >= @min_index.
  *
  * This is sufficient storage to derive any shachain hash value previously
  * added.
  */
 struct shachain {
-	shachain_index_t max_index;
+	shachain_index_t min_index;
 	unsigned int num_valid;
 	struct {
 		shachain_index_t index;
 		struct sha256 hash;
-	} known[sizeof(shachain_index_t) * 8];
+	} known[sizeof(shachain_index_t) * 8 + 1];
 };
 
 /**
@@ -73,8 +73,9 @@ void shachain_init(struct shachain *chain);
  * @index: the index of the hash
  * @hash: the hash value.
  *
- * You can only add index 0 (for a freshly initialized chain), or one more
- * than the previously successfully added value.
+ * You can only add index 0xFFFFFFFFFFFFFFFF (for a freshly
+ * initialized chain), or one less than the previously successfully
+ * added value.
  *
  * This can fail (return false without altering @chain) if the hash
  * for this index isn't consistent with previous hashes (ie. wasn't
@@ -85,10 +86,10 @@ void shachain_init(struct shachain *chain);
  * Example:
  * static void next_hash(const struct sha256 *hash)
  * {
- *	static uint64_t index = 0;
+ *	static uint64_t index = 0xFFFFFFFFFFFFFFFFULL;
  *	static struct shachain chain;
  *
- *	if (!shachain_add_hash(&chain, index++, hash))
+ *	if (!shachain_add_hash(&chain, index--, hash))
  *		errx(1, "Corrupted hash value?");
  * }
  */
@@ -111,14 +112,14 @@ bool shachain_add_hash(struct shachain *chain,
  *
  * static void next_hash(const struct sha256 *hash)
  * {
- *	static uint64_t index = 0;
+ *	static uint64_t index = 0xFFFFFFFFFFFFFFFFULL;
  *	static struct shachain chain;
  *
- *	if (!shachain_add_hash(&chain, index++, hash))
+ *	if (!shachain_add_hash(&chain, index--, hash))
  *		errx(1, "Corrupted hash value?");
  *	else {
  *		struct sha256 check;
- *		assert(shachain_get_hash(&chain, index-1, &check));
+ *		assert(shachain_get_hash(&chain, index+1, &check));
  *		assert(structeq(&check, hash));
  *	}
  * }

@@ -4,9 +4,7 @@
 
 int main(void)
 {
-	struct strmap_charp {
-		STRMAP_MEMBERS(char *);
-	} map;
+	STRMAP(char *) map;
 	const char str[] = "hello";
 	const char val[] = "there";
 	const char none[] = "";

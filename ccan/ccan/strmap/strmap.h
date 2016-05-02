@@ -21,7 +21,7 @@ struct strmap {
 };
 
 /**
- * STRMAP_MEMBERS - declare members for a type-specific strmap.
+ * STRMAP - declare a type-specific strmap
  * @type: type for this map's values, or void * for any pointer.
  *
  * You use this to create your own typed strmap for a particular type.
@@ -29,14 +29,11 @@ struct strmap {
  * value!
  *
  * Example:
- *	struct strmap_intp {
- *		STRMAP_MEMBERS(int *);
- *	};
+ *	STRMAP(int *) int_strmap;
+ *	strmap_init(&int_strmap);
  */
-#define STRMAP_MEMBERS(type)			\
-	struct strmap raw;			\
-	TCON(type canary)
-
+#define STRMAP(type)				\
+	TCON_WRAP(struct strmap, type canary)
 
 /**
  * strmap_init - initialize a string map (empty)
@@ -46,11 +43,11 @@ struct strmap {
  * need this.
  *
  * Example:
- *	struct strmap_intp map;
+ *	STRMAP(int *) map;
  *
  *	strmap_init(&map);
  */
-#define strmap_init(map) strmap_init_(&(map)->raw)
+#define strmap_init(map) strmap_init_(tcon_unwrap(map))
 
 static inline void strmap_init_(struct strmap *map)
 {
@@ -65,7 +62,7 @@ static inline void strmap_init_(struct strmap *map)
  *	if (!strmap_empty(&map))
  *		abort();
  */
-#define strmap_empty(map) strmap_empty_(&(map)->raw)
+#define strmap_empty(map) strmap_empty_(tcon_unwrap(map))
 
 static inline bool strmap_empty_(const struct strmap *map)
 {
@@ -85,7 +82,7 @@ static inline bool strmap_empty_(const struct strmap *map)
  *		printf("hello => %i\n", *val);
  */
 #define strmap_get(map, member) \
-	tcon_cast((map), canary, strmap_get_(&(map)->raw, (member)))
+	tcon_cast((map), canary, strmap_get_(tcon_unwrap(map), (member)))
 void *strmap_get_(const struct strmap *map, const char *member);
 
 /**
@@ -106,8 +103,8 @@ void *strmap_get_(const struct strmap *map, const char *member);
  *	if (!strmap_add(&map, "goodbye", val))
  *		printf("goodbye was already in the map\n");
  */
-#define strmap_add(map, member, value)				\
-	strmap_add_(&tcon_check((map), canary, (value))->raw,	\
+#define strmap_add(map, member, value)					\
+	strmap_add_(tcon_unwrap(tcon_check((map), canary, (value))),	\
 		    (member), (void *)(value))
 
 bool strmap_add_(struct strmap *map, const char *member, const void *value);
@@ -130,7 +127,7 @@ bool strmap_add_(struct strmap *map, const char *member, const void *value);
  *		printf("goodbye was not in the map?\n");
  */
 #define strmap_del(map, member, valuep)					\
-	strmap_del_(&tcon_check_ptr((map), canary, valuep)->raw,	\
+	strmap_del_(tcon_unwrap(tcon_check_ptr((map), canary, valuep)), \
 		    (member), (void **)valuep)
 char *strmap_del_(struct strmap *map, const char *member, void **valuep);
 
@@ -143,7 +140,7 @@ char *strmap_del_(struct strmap *map, const char *member, void **valuep);
  * Example:
  *	strmap_clear(&map);
  */
-#define strmap_clear(map) strmap_clear_(&(map)->raw)
+#define strmap_clear(map) strmap_clear_(tcon_unwrap(map))
 
 void strmap_clear_(struct strmap *map);
 
@@ -160,9 +157,7 @@ void strmap_clear_(struct strmap *map);
  * You should not alter the map within the @handle function!
  *
  * Example:
- *	struct strmap_intp {
- *		STRMAP_MEMBERS(int *);
- *	};
+ *	typedef STRMAP(int *) strmap_intp;
  *	static bool dump_some(const char *member, int *value, int *num)
  *	{
  *		// Only dump out num nodes.
@@ -172,7 +167,7 @@ void strmap_clear_(struct strmap *map);
  *		return true;
  *	}
  *
- *	static void dump_map(const struct strmap_intp *map)
+ *	static void dump_map(const strmap_intp *map)
  *	{
  *		int max = 100;
  *		strmap_iterate(map, dump_some, &max);
@@ -181,7 +176,7 @@ void strmap_clear_(struct strmap *map);
  *	}
  */
 #define strmap_iterate(map, handle, arg)				\
-	strmap_iterate_(&(map)->raw,					\
+	strmap_iterate_(tcon_unwrap(map),				\
 			typesafe_cb_cast(bool (*)(const char *,		\
 						  void *, void *),	\
 					 bool (*)(const char *,		\
@@ -202,7 +197,7 @@ void strmap_iterate_(const struct strmap *map,
  * strmap_empty() on the returned pointer.
  *
  * Example:
- *	static void dump_prefix(const struct strmap_intp *map,
+ *	static void dump_prefix(const strmap_intp *map,
  *				const char *prefix)
  *	{
  *		int max = 100;
@@ -214,10 +209,10 @@ void strmap_iterate_(const struct strmap *map,
  */
 #if HAVE_TYPEOF
 #define strmap_prefix(map, prefix) \
-	((const __typeof__(map))strmap_prefix_(&(map)->raw, (prefix)))
+	((const __typeof__(map))strmap_prefix_(tcon_unwrap(map), (prefix)))
 #else
 #define strmap_prefix(map, prefix) \
-	((const void *)strmap_prefix_(&(map)->raw, (prefix)))
+	((const void *)strmap_prefix_(tcon_unwrap(map), (prefix)))
 #endif
 
 const struct strmap *strmap_prefix_(const struct strmap *map,

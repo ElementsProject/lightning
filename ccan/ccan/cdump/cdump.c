@@ -213,7 +213,7 @@ static struct cdump_type *get_type(struct cdump_definitions *defs,
 				   enum cdump_type_kind kind,
 				   const char *name)
 {
-	struct cdump_map *m;
+	cdump_map_t *m;
 	struct cdump_type *t;
 
 	switch (kind) {
@@ -609,7 +609,7 @@ static bool tok_take_enum(struct parse_state *ps)
 
 static bool gather_undefines(const char *name,
 			     struct cdump_type *t,
-			     struct cdump_map *undefs)
+			     cdump_map_t *undefs)
 {
 	if (!type_defined(t))
 		strmap_add(undefs, name, t);
@@ -618,15 +618,15 @@ static bool gather_undefines(const char *name,
 
 static bool remove_from_map(const char *name,
 			    struct cdump_type *t,
-			    struct cdump_map *map)
+			    cdump_map_t *map)
 {
 	strmap_del(map, name, NULL);
 	return true;
 }
 
-static void remove_undefined(struct cdump_map *map)
+static void remove_undefined(cdump_map_t *map)
 {
-	struct cdump_map undefs;
+	cdump_map_t undefs;
 
 	/* We can't delete inside iterator, so gather all the undefs
 	 * then remove them. */

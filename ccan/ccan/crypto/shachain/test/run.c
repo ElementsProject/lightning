@@ -10,32 +10,37 @@ int main(void)
 	struct sha256 seed;
 	struct shachain chain;
 	struct sha256 expect[NUM_TESTS];
-	size_t i, j;
+	uint64_t i, j;
 
 	/* This is how many tests you plan to run */
-	plan_tests(NUM_TESTS * 3 + NUM_TESTS * (NUM_TESTS + 1));
+	plan_tests(NUM_TESTS * 3 + NUM_TESTS * (NUM_TESTS + 1) - 1);
 
 	memset(&seed, 0, sizeof(seed));
 	/* Generate a whole heap. */
-	for (i = 0; i < NUM_TESTS; i++) {
-		shachain_from_seed(&seed, i, &expect[i]);
-		if (i == 0)
-			ok1(memcmp(&expect[i], &seed, sizeof(expect[i])));
-		else
-			ok1(memcmp(&expect[i], &expect[i-1], sizeof(expect[i])));
+	for (i = 0xFFFFFFFFFFFFFFFFULL;
+	     i > 0xFFFFFFFFFFFFFFFFULL - NUM_TESTS;
+	     i--) {
+		int expidx = 0xFFFFFFFFFFFFFFFFULL - i;
+		shachain_from_seed(&seed, i, &expect[expidx]);
+		if (i != 0xFFFFFFFFFFFFFFFFULL)
+			ok1(memcmp(&expect[expidx], &expect[expidx-1],
+				   sizeof(expect[expidx])));
 	}
 
 	shachain_init(&chain);
 
-	for (i = 0; i < NUM_TESTS; i++) {
+	for (i = 0xFFFFFFFFFFFFFFFFULL;
+	     i > 0xFFFFFFFFFFFFFFFFULL - NUM_TESTS;
+	     i--) {
 		struct sha256 hash;
-
-		ok1(shachain_add_hash(&chain, i, &expect[i]));
-		for (j = 0; j <= i; j++) {
+		int expidx = 0xFFFFFFFFFFFFFFFFULL - i;
+		ok1(shachain_add_hash(&chain, i, &expect[expidx]));
+		for (j = i; j != 0; j++) {
 			ok1(shachain_get_hash(&chain, j, &hash));
-			ok1(memcmp(&hash, &expect[j], sizeof(hash)) == 0);
+			expidx = 0xFFFFFFFFFFFFFFFFULL - j;
+			ok1(memcmp(&hash, &expect[expidx], sizeof(hash)) == 0);
 		}
-		ok1(!shachain_get_hash(&chain, i+1, &hash));
+		ok1(!shachain_get_hash(&chain, i-1, &hash));
 	}
 
 	return exit_status();

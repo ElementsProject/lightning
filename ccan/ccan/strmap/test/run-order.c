@@ -33,9 +33,7 @@ static bool dump(const char *member, char *value, bool *ok)
 
 int main(void)
 {
-	struct strmap_charp {
-		STRMAP_MEMBERS(char *);
-	} map;
+	STRMAP(char *) map;
 	unsigned int i;
 	char *str[NUM];
 	bool dump_ok;
