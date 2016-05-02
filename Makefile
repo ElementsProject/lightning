@@ -44,6 +44,7 @@ CORE_SRC :=					\
 	opt_bits.c				\
 	permute_tx.c				\
 	protobuf_convert.c			\
+	remove_dust.c				\
 	version.c
 CORE_OBJS := $(CORE_SRC:.c=.o)
 
@@ -152,6 +153,7 @@ CORE_HEADERS := close_tx.h			\
 	overflows.h				\
 	permute_tx.h				\
 	protobuf_convert.h			\
+	remove_dust.h				\
 	state.h					\
 	state_types.h				\
 	version.h

@@ -7,6 +7,7 @@
 #include "funding.h"
 #include "overflows.h"
 #include "permute_tx.h"
+#include "remove_dust.h"
 #include <assert.h>
 
 static bool add_htlc(struct bitcoin_tx *tx, size_t n,
@@ -98,5 +99,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 
 	*map = tal_arr(ctx, int, tx->output_count);
 	permute_outputs(tx->output, tx->output_count, *map);
+	remove_dust(tx, *map);
+
 	return tx;
 }
