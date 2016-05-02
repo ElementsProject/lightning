@@ -262,7 +262,7 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 
 	if (n == 0) {
 		/* We close the connection once we've sent everything. */
-		if (peer->cond == PEER_CLOSED)
+		if (!peer->fake_close && peer->cond == PEER_CLOSED)
 			return io_close(conn);
 		return io_out_wait(conn, peer, pkt_out, peer);
 	}
@@ -282,7 +282,7 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 	idata.pkt = tal_steal(ctx, peer->inpkt);
 
 	/* We ignore packets if they tell us to. */
-	if (peer->cond != PEER_CLOSED) {
+	if (!peer->fake_close && peer->cond != PEER_CLOSED) {
 		/* These two packets contain acknowledgements. */
 		if (idata.pkt->pkt_case == PKT__PKT_UPDATE_COMMIT)
 			peer_process_acks(peer,
@@ -409,6 +409,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	/* If we free peer, conn should be closed, but can't be freed
 	 * immediately so don't make peer a parent. */
 	peer->conn = conn;
+	peer->fake_close = false;
 	io_set_finish(conn, peer_disconnect, peer);
 	
 	peer->us.offer_anchor = offer_anchor;
@@ -1873,5 +1874,49 @@ const struct json_command close_command = {
 	"close",
 	json_close,
 	"Close the channel with peer {peerid}",
+	"Returns an empty result on success"
+};
+
+static void json_disconnect(struct command *cmd,
+			    const char *buffer, const jsmntok_t *params)
+{
+	struct peer *peer;
+	jsmntok_t *peeridtok;
+	const struct bitcoin_tx *broadcast;
+
+	if (!json_get_params(buffer, params,
+			     "peerid", &peeridtok,
+			     NULL)) {
+		command_fail(cmd, "Need peerid");
+		return;
+	}
+
+	peer = find_peer(cmd->dstate, buffer, peeridtok);
+	if (!peer) {
+		command_fail(cmd, "Could not find peer with that peerid");
+		return;
+	}
+
+	if (!peer->conn) {
+		command_fail(cmd, "Peer is already disconnected");
+		return;
+	}
+
+	/* We don't actually close it, since for testing we want only
+	 * one side to freak out.  We just ensure we ignore it. */
+	log_debug(peer->log, "Pretending connection is closed");
+	peer->fake_close = true;
+	state(peer, INPUT_CONNECTION_LOST, NULL, &broadcast);
+
+	if (broadcast)
+		bitcoind_send_tx(peer->dstate, broadcast);
+
+	command_success(cmd, null_response(cmd));
+}
+
+const struct json_command disconnect_command = {
+	"dev-disconnect",
+	json_disconnect,
+	"Force a disconned with peer {peerid}",
 	"Returns an empty result on success"
 };

@@ -259,7 +259,8 @@ static const struct json_command *cmdlist[] = {
 	&echo_command,
 	&rhash_command,
 	&mocktime_command,
-	&crash_command
+	&crash_command,
+	&disconnect_command,
 };
 
 static void json_help(struct command *cmd,

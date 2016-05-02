@@ -192,6 +192,9 @@ struct peer {
 	/* Private keys for dealing with this peer. */
 	struct peer_secrets *secrets;
 
+	/* For testing. */
+	bool fake_close;
+	
 	/* Stuff we have in common. */
 	struct peer_visible_state us, them;
 };
