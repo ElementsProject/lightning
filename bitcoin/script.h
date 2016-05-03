@@ -87,6 +87,12 @@ u8 **bitcoin_witness_secret(const tal_t *ctx,
 			    const struct bitcoin_signature *sig,
 			    const u8 *witnessscript);
 
+/* Create a witness which spends bitcoin_redeeem_htlc_recv/send */
+u8 **bitcoin_witness_htlc(const tal_t *ctx,
+			  const struct sha256 *htlc_or_revocation_preimage,
+			  const struct bitcoin_signature *sig,
+			  const u8 *witnessscript);
+
 /* Is this a pay to script hash? */
 bool is_p2sh(const u8 *script, size_t script_len);
 

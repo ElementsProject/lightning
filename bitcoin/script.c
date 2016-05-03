@@ -300,6 +300,11 @@ u8 *bitcoin_redeem_htlc_send(const tal_t *ctx,
 	u8 *script = tal_arr(ctx, u8, 0);
 	struct ripemd160 ripemd;
 
+	/* Must be 32 bytes long. */
+	add_op(&script, OP_SIZE);
+	add_number(&script, 32);
+	add_op(&script, OP_EQUALVERIFY);
+
 	add_op(&script, OP_HASH160);
 	add_op(&script, OP_DUP);
 	/* Did they supply HTLC R value? */
@@ -347,6 +352,10 @@ u8 *bitcoin_redeem_htlc_recv(const tal_t *ctx,
 	 * HTLC times out -> them. */
 	u8 *script = tal_arr(ctx, u8, 0);
 	struct ripemd160 ripemd;
+
+	add_op(&script, OP_SIZE);
+	add_number(&script, 32);
+	add_op(&script, OP_EQUALVERIFY);
 
 	add_op(&script, OP_HASH160);
 	add_op(&script, OP_DUP);
@@ -475,6 +484,22 @@ u8 **bitcoin_witness_secret(const tal_t *ctx,
 				 witnessscript, tal_count(witnessscript), 0);
 
 	return witness;
+}
+
+u8 **bitcoin_witness_htlc(const tal_t *ctx,
+			  const struct sha256 *htlc_or_revocation_preimage,
+			  const struct bitcoin_signature *sig,
+			  const u8 *witnessscript)
+{
+	static const struct sha256 no_preimage;
+
+	/* Use 32 zeroes if no preimage. */
+	if (!htlc_or_revocation_preimage)
+		htlc_or_revocation_preimage = &no_preimage;
+
+	return bitcoin_witness_secret(ctx, htlc_or_revocation_preimage,
+				      sizeof(*htlc_or_revocation_preimage), sig,
+				      witnessscript);
 }
 
 bool scripteq(const u8 *s1, size_t s1len, const u8 *s2, size_t s2len)
