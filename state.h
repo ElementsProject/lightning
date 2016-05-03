@@ -31,6 +31,7 @@ union input {
 	Pkt *pkt;
 	struct command *cmd;
 	struct bitcoin_event *btc;
+	struct bitcoin_tx *tx;
 	struct htlc_progress *htlc_prog;
 	struct htlc_onchain {
 		/* Which commitment we using. */
@@ -245,7 +246,7 @@ bool peer_watch_our_htlc_outputs(struct peer *peer,
  * Returns true if there were any htlc outputs to watch.
  */
 bool peer_watch_their_htlc_outputs(struct peer *peer,
-				   const struct bitcoin_event *tx,
+				   const struct bitcoin_tx *tx,
 				   enum state_input tous_timeout,
 				   enum state_input tothem_spent,
 				   enum state_input tothem_timeout);
@@ -317,10 +318,6 @@ const struct bitcoin_tx *bitcoin_close(struct peer *peer);
 
 /* Create a bitcoin spend tx (to spend our commit's outputs) */
 const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer);
-
-/* Create a bitcoin spend tx (to spend their commit's outputs) */
-const struct bitcoin_tx *bitcoin_spend_theirs(const struct peer *peer,
-					      const struct bitcoin_event *btc);
 
 /* Create a bitcoin steal tx (to steal all their commit's outputs) */
 const struct bitcoin_tx *bitcoin_steal(const struct peer *peer,

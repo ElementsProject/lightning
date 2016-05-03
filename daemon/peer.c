@@ -1086,7 +1086,7 @@ bool peer_watch_our_htlc_outputs(struct peer *peer,
 	return false;
 }
 bool peer_watch_their_htlc_outputs(struct peer *peer,
-				   const struct bitcoin_event *tx,
+				   const struct bitcoin_tx *tx,
 				   enum state_input tous_timeout,
 				   enum state_input tothem_spent,
 				   enum state_input tothem_timeout)
@@ -1220,13 +1220,6 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 						      witnessscript);
 	
 	return tx;
-}
-
-/* Create a bitcoin spend tx (to spend their commit's outputs) */
-const struct bitcoin_tx *bitcoin_spend_theirs(const struct peer *peer,
-					      const struct bitcoin_event *btc)
-{
-	FIXME_STUB(peer);
 }
 
 /* Create a bitcoin steal tx (to steal all their commit's outputs) */

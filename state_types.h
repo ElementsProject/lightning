@@ -6,7 +6,7 @@
 
 #define STATE_CLOSE_HTLCS_BIT 1
 #define STATE_CLOSE_STEAL_BIT 2
-#define STATE_CLOSE_SPENDTHEM_BIT 4
+#define STATE_CLOSE_THEIRCOMMIT_BIT 4
 #define STATE_CLOSE_CLOSE_BIT 8
 #define STATE_CLOSE_OURCOMMIT_BIT 16
 #define STATE_CLOSE_SPENDOURS_BIT 32
@@ -53,9 +53,10 @@ enum state {
 	/*
 	 * They can broadcast one or more revoked commit tx, or their latest
 	 * commit tx at any time.  We respond to revoked commit txs by stealing
-	 * their funds (steal).  We respond to their latest commit tx by
-	 * spending (spend_them).  They can also (with our help) broadcast
-	 * a mutual close tx (mutual_close).
+	 * their funds (steal).  We also track their latest commit tx (no need
+	 * to spend our output, it's just a P2WPKH for us) (their_commit).
+	 * They can also (with our help) broadcast a mutual close tx
+	 * (mutual_close).
 	 *
 	 * We can also broadcast one of the following:
 	 * 1) Our latest commit tx (our_commit).
@@ -64,30 +65,30 @@ enum state {
 	 *
 	 * Thus, we could be waiting for the following combinations:
 	 * - steal
-	 * - spend_them
-	 * - steal + spend_them
+	 * - their_commit
+	 * - steal + their_commit
 	 * - mutual_close
 	 * - steal + mutual_close
-	 * - spend_them + mutual_close
-	 * - steal + spend_them + mutual_close
+	 * - their_commit + mutual_close
+	 * - steal + their_commit + mutual_close
 	 *
 	 * - our_commit
 	 * - steal + our_commit
-	 * - spend_them + our_commit
-	 * - steal + spend_them + our_commit
+	 * - their_commit + our_commit
+	 * - steal + their_commit + our_commit
 	 * - mutual_close + our_commit
 	 * - steal + mutual_close + our_commit
-	 * - spend_them + mutual_close + our_commit
-	 * - steal + spend_them + mutual_close + our_commit
+	 * - their_commit + mutual_close + our_commit
+	 * - steal + their_commit + mutual_close + our_commit
 	 *
 	 * - spend_ours
 	 * - steal + spend_ours
-	 * - spend_them + spend_ours
-	 * - steal + spend_them + spend_ours
+	 * - their_commit + spend_ours
+	 * - steal + their_commit + spend_ours
 	 * - mutual_close + spend_ours
 	 * - steal + mutual_close + spend_ours
-	 * - spend_them + mutual_close + spend_ours
-	 * - steal + spend_them + mutual_close + spend_ours
+	 * - their_commit + mutual_close + spend_ours
+	 * - steal + their_commit + mutual_close + spend_ours
 	 *
 	 * Each of these has with-HTLC and without-HTLC variants, except:
 	 *
@@ -98,57 +99,57 @@ enum state {
 	 * because we could close partway through negotiation.  So, any
 	 * commit tx they publish could introduce HTLCs.
 	 *
-	 * Thus, HTLC variants are only possible with SPENDTHEM, OR
+	 * Thus, HTLC variants are only possible with THEIRCOMMIT, OR
 	 * OURCOMMIT/SPENDOURS, and only no CLOSE (since CLOSE implies no HTLCs).
 	 */
 	STATE_CLOSE_WAIT_STEAL,
 	STATE_UNUSED_CLOSE_WAIT_STEAL_WITH_HTLCS,
-	STATE_CLOSE_WAIT_SPENDTHEM,
-	STATE_CLOSE_WAIT_SPENDTHEM_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_SPENDTHEM,
-	STATE_CLOSE_WAIT_STEAL_SPENDTHEM_WITH_HTLCS,
+	STATE_CLOSE_WAIT_THEIRCOMMIT,
+	STATE_CLOSE_WAIT_THEIRCOMMIT_WITH_HTLCS,
+	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT,
+	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_WITH_HTLCS,
 	STATE_CLOSE_WAIT_CLOSE,
 	STATE_UNUSED_CLOSE_WAIT_CLOSE_WITH_HTLCS,
 	STATE_CLOSE_WAIT_STEAL_CLOSE,
 	STATE_UNUSED_CLOSE_WAIT_STEAL_CLOSE_WITH_HTLCS,
-	STATE_CLOSE_WAIT_SPENDTHEM_CLOSE,
-	STATE_CLOSE_WAIT_SPENDTHEM_CLOSE_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_SPENDTHEM_CLOSE,
-	STATE_CLOSE_WAIT_STEAL_SPENDTHEM_CLOSE_WITH_HTLCS,
+	STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE,
+	STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE_WITH_HTLCS,
+	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE,
+	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE_WITH_HTLCS,
 
 	STATE_CLOSE_WAIT_OURCOMMIT,
 	STATE_CLOSE_WAIT_OURCOMMIT_WITH_HTLCS,
 	STATE_CLOSE_WAIT_STEAL_OURCOMMIT,
 	STATE_CLOSE_WAIT_STEAL_OURCOMMIT_WITH_HTLCS,
-	STATE_CLOSE_WAIT_SPENDTHEM_OURCOMMIT,
-	STATE_CLOSE_WAIT_SPENDTHEM_OURCOMMIT_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_SPENDTHEM_OURCOMMIT,
-	STATE_CLOSE_WAIT_STEAL_SPENDTHEM_OURCOMMIT_WITH_HTLCS,
+	STATE_CLOSE_WAIT_THEIRCOMMIT_OURCOMMIT,
+	STATE_CLOSE_WAIT_THEIRCOMMIT_OURCOMMIT_WITH_HTLCS,
+	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_OURCOMMIT,
+	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_OURCOMMIT_WITH_HTLCS,
 	STATE_CLOSE_WAIT_CLOSE_OURCOMMIT,
 	STATE_UNUSED_CLOSE_WAIT_CLOSE_OURCOMMIT_WITH_HTLCS,
 	STATE_CLOSE_WAIT_STEAL_CLOSE_OURCOMMIT,
 	STATE_UNUSED_CLOSE_WAIT_STEAL_CLOSE_OURCOMMIT_WITH_HTLCS,
-	STATE_CLOSE_WAIT_SPENDTHEM_CLOSE_OURCOMMIT,
-	STATE_CLOSE_WAIT_SPENDTHEM_CLOSE_OURCOMMIT_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_SPENDTHEM_CLOSE_OURCOMMIT,
-	STATE_CLOSE_WAIT_STEAL_SPENDTHEM_CLOSE_OURCOMMIT_WITH_HTLCS,
+	STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE_OURCOMMIT,
+	STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE_OURCOMMIT_WITH_HTLCS,
+	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE_OURCOMMIT,
+	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE_OURCOMMIT_WITH_HTLCS,
 
 	STATE_CLOSE_WAIT_SPENDOURS,
 	STATE_CLOSE_WAIT_SPENDOURS_WITH_HTLCS,
 	STATE_CLOSE_WAIT_STEAL_SPENDOURS,
 	STATE_CLOSE_WAIT_STEAL_SPENDOURS_WITH_HTLCS,
-	STATE_CLOSE_WAIT_SPENDTHEM_SPENDOURS,
-	STATE_CLOSE_WAIT_SPENDTHEM_SPENDOURS_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_SPENDTHEM_SPENDOURS,
-	STATE_CLOSE_WAIT_STEAL_SPENDTHEM_SPENDOURS_WITH_HTLCS,
+	STATE_CLOSE_WAIT_THEIRCOMMIT_SPENDOURS,
+	STATE_CLOSE_WAIT_THEIRCOMMIT_SPENDOURS_WITH_HTLCS,
+	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_SPENDOURS,
+	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_SPENDOURS_WITH_HTLCS,
 	STATE_CLOSE_WAIT_CLOSE_SPENDOURS,
 	STATE_UNUSED_CLOSE_WAIT_CLOSE_SPENDOURS_WITH_HTLCS,
 	STATE_CLOSE_WAIT_STEAL_CLOSE_SPENDOURS,
 	STATE_UNUSED_CLOSE_WAIT_STEAL_CLOSE_SPENDOURS_WITH_HTLCS,
-	STATE_CLOSE_WAIT_SPENDTHEM_CLOSE_SPENDOURS,
-	STATE_CLOSE_WAIT_SPENDTHEM_CLOSE_SPENDOURS_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_SPENDTHEM_CLOSE_SPENDOURS,
-	STATE_CLOSE_WAIT_STEAL_SPENDTHEM_CLOSE_SPENDOURS_WITH_HTLCS,
+	STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE_SPENDOURS,
+	STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE_SPENDOURS_WITH_HTLCS,
+	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE_SPENDOURS,
+	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE_SPENDOURS_WITH_HTLCS,
 
 	/*
 	 * Where angels fear to tread.
@@ -221,8 +222,8 @@ enum state_input {
 	/* HTLC to us timed out. */
 	BITCOIN_HTLC_TOUS_TIMEOUT,
 	
-	/* Our spend of their commit tx is completely buried. */
-	BITCOIN_SPEND_THEIRS_DONE,
+	/* Their commit tx is completely buried. */
+	BITCOIN_THEIRCOMMIT_DONE,
 	/* Our spend of our own tx is completely buried. */
 	BITCOIN_SPEND_OURS_DONE,
 	/* Our spend of their revoked tx is completely buried. */

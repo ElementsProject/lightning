@@ -559,40 +559,40 @@ enum command_status state(struct peer *peer,
 	/* Close states are regular: handle as a group. */
 	case STATE_CLOSE_WAIT_HTLCS:
 	case STATE_CLOSE_WAIT_STEAL:
-	case STATE_CLOSE_WAIT_SPENDTHEM:
-	case STATE_CLOSE_WAIT_SPENDTHEM_WITH_HTLCS:
-	case STATE_CLOSE_WAIT_STEAL_SPENDTHEM:
-	case STATE_CLOSE_WAIT_STEAL_SPENDTHEM_WITH_HTLCS:
+	case STATE_CLOSE_WAIT_THEIRCOMMIT:
+	case STATE_CLOSE_WAIT_THEIRCOMMIT_WITH_HTLCS:
+	case STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT:
+	case STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_WITH_HTLCS:
 	case STATE_CLOSE_WAIT_CLOSE:
 	case STATE_CLOSE_WAIT_STEAL_CLOSE:
-	case STATE_CLOSE_WAIT_SPENDTHEM_CLOSE:
-	case STATE_CLOSE_WAIT_SPENDTHEM_CLOSE_WITH_HTLCS:
-	case STATE_CLOSE_WAIT_STEAL_SPENDTHEM_CLOSE:
-	case STATE_CLOSE_WAIT_STEAL_SPENDTHEM_CLOSE_WITH_HTLCS:
+	case STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE:
+	case STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE_WITH_HTLCS:
+	case STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE:
+	case STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE_WITH_HTLCS:
 	case STATE_CLOSE_WAIT_STEAL_OURCOMMIT:
 	case STATE_CLOSE_WAIT_STEAL_OURCOMMIT_WITH_HTLCS:
-	case STATE_CLOSE_WAIT_SPENDTHEM_OURCOMMIT:
-	case STATE_CLOSE_WAIT_SPENDTHEM_OURCOMMIT_WITH_HTLCS:
-	case STATE_CLOSE_WAIT_STEAL_SPENDTHEM_OURCOMMIT:
-	case STATE_CLOSE_WAIT_STEAL_SPENDTHEM_OURCOMMIT_WITH_HTLCS:
+	case STATE_CLOSE_WAIT_THEIRCOMMIT_OURCOMMIT:
+	case STATE_CLOSE_WAIT_THEIRCOMMIT_OURCOMMIT_WITH_HTLCS:
+	case STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_OURCOMMIT:
+	case STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_OURCOMMIT_WITH_HTLCS:
 	case STATE_CLOSE_WAIT_CLOSE_OURCOMMIT:
 	case STATE_CLOSE_WAIT_STEAL_CLOSE_OURCOMMIT:
-	case STATE_CLOSE_WAIT_SPENDTHEM_CLOSE_OURCOMMIT:
-	case STATE_CLOSE_WAIT_SPENDTHEM_CLOSE_OURCOMMIT_WITH_HTLCS:
-	case STATE_CLOSE_WAIT_STEAL_SPENDTHEM_CLOSE_OURCOMMIT:
-	case STATE_CLOSE_WAIT_STEAL_SPENDTHEM_CLOSE_OURCOMMIT_WITH_HTLCS:
+	case STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE_OURCOMMIT:
+	case STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE_OURCOMMIT_WITH_HTLCS:
+	case STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE_OURCOMMIT:
+	case STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE_OURCOMMIT_WITH_HTLCS:
 	case STATE_CLOSE_WAIT_STEAL_SPENDOURS:
 	case STATE_CLOSE_WAIT_STEAL_SPENDOURS_WITH_HTLCS:
-	case STATE_CLOSE_WAIT_SPENDTHEM_SPENDOURS:
-	case STATE_CLOSE_WAIT_SPENDTHEM_SPENDOURS_WITH_HTLCS:
-	case STATE_CLOSE_WAIT_STEAL_SPENDTHEM_SPENDOURS:
-	case STATE_CLOSE_WAIT_STEAL_SPENDTHEM_SPENDOURS_WITH_HTLCS:
+	case STATE_CLOSE_WAIT_THEIRCOMMIT_SPENDOURS:
+	case STATE_CLOSE_WAIT_THEIRCOMMIT_SPENDOURS_WITH_HTLCS:
+	case STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_SPENDOURS:
+	case STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_SPENDOURS_WITH_HTLCS:
 	case STATE_CLOSE_WAIT_CLOSE_SPENDOURS:
 	case STATE_CLOSE_WAIT_STEAL_CLOSE_SPENDOURS:
-	case STATE_CLOSE_WAIT_SPENDTHEM_CLOSE_SPENDOURS:
-	case STATE_CLOSE_WAIT_SPENDTHEM_CLOSE_SPENDOURS_WITH_HTLCS:
-	case STATE_CLOSE_WAIT_STEAL_SPENDTHEM_CLOSE_SPENDOURS:
-	case STATE_CLOSE_WAIT_STEAL_SPENDTHEM_CLOSE_SPENDOURS_WITH_HTLCS:
+	case STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE_SPENDOURS:
+	case STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE_SPENDOURS_WITH_HTLCS:
+	case STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE_SPENDOURS:
+	case STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE_SPENDOURS_WITH_HTLCS:
 	case STATE_CLOSE_WAIT_OURCOMMIT:
 	case STATE_CLOSE_WAIT_OURCOMMIT_WITH_HTLCS:
 	case STATE_CLOSE_WAIT_SPENDOURS:
@@ -609,6 +609,7 @@ enum command_status state(struct peer *peer,
 		else
 			closed = STATE_CLOSED;
 
+		/* Our steal is deep enough to forget? */
 		if ((bits & STATE_CLOSE_STEAL_BIT)
 		    && input_is(input, BITCOIN_STEAL_DONE)) {
 			/* One a steal is complete, we don't care about htlcs
@@ -618,13 +619,15 @@ enum command_status state(struct peer *peer,
 			return next_state(peer, cstatus, STATE_CLOSED);
 		}
 
-		if ((bits & STATE_CLOSE_SPENDTHEM_BIT)
-		    && input_is(input, BITCOIN_SPEND_THEIRS_DONE)) {
+		/* Their commit is buried deep enough to forget? */
+		if ((bits & STATE_CLOSE_THEIRCOMMIT_BIT)
+		    && input_is(input, BITCOIN_THEIRCOMMIT_DONE)) {
 			BUILD_ASSERT(!(STATE_TO_BITS(STATE_CLOSE_WAIT_HTLCS)
-				       & STATE_CLOSE_SPENDTHEM_BIT));
+				       & STATE_CLOSE_THEIRCOMMIT_BIT));
 			return next_state(peer, cstatus, closed);
 		}
 
+		/* Mutual close deep enough to forget? */
 		if ((bits & STATE_CLOSE_CLOSE_BIT)
 		    && input_is(input, BITCOIN_CLOSE_DONE)) {
 			BUILD_ASSERT(!(STATE_TO_BITS(STATE_CLOSE_WAIT_HTLCS)
@@ -632,10 +635,13 @@ enum command_status state(struct peer *peer,
 			return next_state(peer, cstatus, closed);
 		}
 
+		/* Our commit deep enough to spend our output? */
 		if ((bits & STATE_CLOSE_OURCOMMIT_BIT)
 		    && input_is(input, BITCOIN_ANCHOR_OURCOMMIT_DELAYPASSED)) {
 			BUILD_ASSERT(!(STATE_TO_BITS(STATE_CLOSE_WAIT_HTLCS)
 				       & STATE_CLOSE_OURCOMMIT_BIT));
+			/* FIXME: If our output was dust, just fire when
+			 * ourcommit deep enough to forget. */
 			tx = bitcoin_spend_ours(peer);
 			/* Now we need to wait for our commit to be done. */
 			queue_tx_broadcast(broadcast, tx);
@@ -645,6 +651,7 @@ enum command_status state(struct peer *peer,
 			return next_state(peer, cstatus, BITS_TO_STATE(bits));
 		}
 
+		/* Our spend of ourcommit is deep enough to forget? */
 		if ((bits & STATE_CLOSE_SPENDOURS_BIT)
 		    && input_is(input, BITCOIN_SPEND_OURS_DONE)) {
 			BUILD_ASSERT(!(STATE_TO_BITS(STATE_CLOSE_WAIT_HTLCS)
@@ -732,21 +739,21 @@ enum command_status state(struct peer *peer,
 			break;
 
 		/*
-		 * Now, other side can always spring a commit transaction on us
-		 * (even if they already have, due to tx malleability).
+		 * Now, other side can always spring a commit transaction on
+		 * us (they might have two valid ones, if they didn't send
+		 * revocation preimage yet, so always allow it).
 		 */
 		if (input_is(input, BITCOIN_ANCHOR_THEIRSPEND)) {
-			tx = bitcoin_spend_theirs(peer, idata->btc);
-			queue_tx_broadcast(broadcast, tx);
-			peer_watch_tx(peer, tx, BITCOIN_SPEND_THEIRS_DONE);
+			peer_watch_tx(peer, idata->tx, BITCOIN_THEIRCOMMIT_DONE);
+
 			/* HTLC watches: if any, set HTLCs bit. */
-			if (peer_watch_their_htlc_outputs(peer, idata->btc,
+			if (peer_watch_their_htlc_outputs(peer, idata->tx,
 						BITCOIN_HTLC_TOUS_TIMEOUT,
 						BITCOIN_HTLC_TOTHEM_SPENT,
 						BITCOIN_HTLC_TOTHEM_TIMEOUT))
 				bits |= STATE_CLOSE_HTLCS_BIT;
 
-			bits |= STATE_CLOSE_SPENDTHEM_BIT;
+			bits |= STATE_CLOSE_THEIRCOMMIT_BIT;
 			return next_state_bits(peer, cstatus, bits);
 			/* This can happen multiple times: need to steal ALL */
 		} else if (input_is(input, BITCOIN_ANCHOR_OTHERSPEND)) {
@@ -875,20 +882,18 @@ them_unilateral:
 
 	/* No more inputs, no more commands. */
 	set_peer_cond(peer, PEER_CLOSED);
-	tx = bitcoin_spend_theirs(peer, idata->btc);
-	queue_tx_broadcast(broadcast, tx);
-	peer_watch_tx(peer, tx, BITCOIN_SPEND_THEIRS_DONE);
+	peer_watch_tx(peer, idata->tx, BITCOIN_THEIRCOMMIT_DONE);
 
 	/* HTLC watches (based on what they broadcast, which *may* be out
 	 * of step with our current state by +/- 1 htlc. */
-	if (peer_watch_their_htlc_outputs(peer, idata->btc,
+	if (peer_watch_their_htlc_outputs(peer, idata->tx,
 					  BITCOIN_HTLC_TOUS_TIMEOUT,
 					  BITCOIN_HTLC_TOTHEM_SPENT,
 					  BITCOIN_HTLC_TOTHEM_TIMEOUT))
 		return next_state(peer, cstatus,
-				  STATE_CLOSE_WAIT_SPENDTHEM_WITH_HTLCS);
+				  STATE_CLOSE_WAIT_THEIRCOMMIT_WITH_HTLCS);
 
-	return next_state(peer, cstatus, STATE_CLOSE_WAIT_SPENDTHEM);
+	return next_state(peer, cstatus, STATE_CLOSE_WAIT_THEIRCOMMIT);
 
 start_clearing:
 	/*
