@@ -286,13 +286,13 @@ u8 **bitcoin_witness_2of2(const tal_t *ctx,
 }
 
 /* Create a script for our HTLC output: sending. */
-u8 *scriptpubkey_htlc_send(const tal_t *ctx,
-			   const struct pubkey *ourkey,
-			   const struct pubkey *theirkey,
-			   const struct abs_locktime *htlc_abstimeout,
-			   const struct rel_locktime *locktime,
-			   const struct sha256 *commit_revoke,
-			   const struct sha256 *rhash)
+u8 *bitcoin_redeem_htlc_send(const tal_t *ctx,
+			     const struct pubkey *ourkey,
+			     const struct pubkey *theirkey,
+			     const struct abs_locktime *htlc_abstimeout,
+			     const struct rel_locktime *locktime,
+			     const struct sha256 *commit_revoke,
+			     const struct sha256 *rhash)
 {
 	/* R value presented: -> them.
 	 * Commit revocation value presented: -> them.
@@ -334,13 +334,13 @@ u8 *scriptpubkey_htlc_send(const tal_t *ctx,
 }
 
 /* Create a script for our HTLC output: receiving. */
-u8 *scriptpubkey_htlc_recv(const tal_t *ctx,
-			   const struct pubkey *ourkey,
-			   const struct pubkey *theirkey,
-			   const struct abs_locktime *htlc_abstimeout,
-			   const struct rel_locktime *locktime,
-			   const struct sha256 *commit_revoke,
-			   const struct sha256 *rhash)
+u8 *bitcoin_redeem_htlc_recv(const tal_t *ctx,
+			     const struct pubkey *ourkey,
+			     const struct pubkey *theirkey,
+			     const struct abs_locktime *htlc_abstimeout,
+			     const struct rel_locktime *locktime,
+			     const struct sha256 *commit_revoke,
+			     const struct sha256 *rhash)
 {
 	/* R value presented: -> us.
 	 * Commit revocation value presented: -> them.

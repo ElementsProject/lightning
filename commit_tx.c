@@ -82,7 +82,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	for (i = 0; i < tal_count(cstate->a.htlcs); i++) {
 		if (!add_htlc(tx, num, &cstate->a.htlcs[i],
 			      our_final, their_final,
-			      rhash, their_locktime, scriptpubkey_htlc_send))
+			      rhash, their_locktime, bitcoin_redeem_htlc_send))
 			return tal_free(tx);
 		total += tx->output[num++].amount;
 	}
@@ -90,7 +90,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	for (i = 0; i < tal_count(cstate->b.htlcs); i++) {
 		if (!add_htlc(tx, num, &cstate->b.htlcs[i],
 			      our_final, their_final,
-			      rhash, their_locktime, scriptpubkey_htlc_recv))
+			      rhash, their_locktime, bitcoin_redeem_htlc_recv))
 			return tal_free(tx);
 		total += tx->output[num++].amount;
 	}

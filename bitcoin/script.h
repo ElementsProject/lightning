@@ -50,22 +50,23 @@ void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 /* Create scriptcode (fake witness, basically) for P2WPKH */
 u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key);
 
-u8 *scriptpubkey_htlc_send(const tal_t *ctx,
-			   const struct pubkey *ourkey,
-			   const struct pubkey *theirkey,
-			   const struct abs_locktime *htlc_abstimeout,
-			   const struct rel_locktime *locktime,
-			   const struct sha256 *commit_revoke,
-			   const struct sha256 *rhash);
+/* Create a script for our HTLC output: sending. */
+u8 *bitcoin_redeem_htlc_send(const tal_t *ctx,
+			     const struct pubkey *ourkey,
+			     const struct pubkey *theirkey,
+			     const struct abs_locktime *htlc_abstimeout,
+			     const struct rel_locktime *locktime,
+			     const struct sha256 *commit_revoke,
+			     const struct sha256 *rhash);
 
 /* Create a script for our HTLC output: receiving. */
-u8 *scriptpubkey_htlc_recv(const tal_t *ctx,
-			   const struct pubkey *ourkey,
-			   const struct pubkey *theirkey,
-			   const struct abs_locktime *htlc_abstimeout,
-			   const struct rel_locktime *locktime,
-			   const struct sha256 *commit_revoke,
-			   const struct sha256 *rhash);
+u8 *bitcoin_redeem_htlc_recv(const tal_t *ctx,
+			     const struct pubkey *ourkey,
+			     const struct pubkey *theirkey,
+			     const struct abs_locktime *htlc_abstimeout,
+			     const struct rel_locktime *locktime,
+			     const struct sha256 *commit_revoke,
+			     const struct sha256 *rhash);
 
 /* Create an output script for a 32-byte witness program. */
 u8 *scriptpubkey_p2wsh(const tal_t *ctx, const u8 *witnessscript);
