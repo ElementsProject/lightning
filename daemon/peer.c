@@ -703,45 +703,26 @@ static void anchor_depthchange(struct peer *peer, int depth,
 	}
 }
 
-/* We don't compare scriptSigs: we don't know them anyway! */
-static bool txmatch(const struct bitcoin_tx *txa, const struct bitcoin_tx *txb)
+/* Yay, segwit!  We can just compare txids, even though we don't have both
+ * signatures. */
+static bool txidmatch(const struct bitcoin_tx *tx,
+		      const struct sha256_double *txid)
 {
-	size_t i;
+	struct sha256_double tx_txid;
 
-	if (txa->version != txb->version
-	    || txa->input_count != txb->input_count
-	    || txa->output_count != txb->output_count
-	    || txa->lock_time != txb->lock_time)
-		return false;
-
-	for (i = 0; i < txa->input_count; i++) {
-		if (!structeq(&txa->input[i].txid, &txb->input[i].txid)
-		    || txa->input[i].index != txb->input[i].index
-		    || txa->input[i].sequence_number != txb->input[i].sequence_number)
-			return false;
-	}
-
-	for (i = 0; i < txa->output_count; i++) {
-		if (txa->output[i].amount != txb->output[i].amount
-		    || txa->output[i].script_length != txb->output[i].script_length
-		    || memcmp(txa->output[i].script, txb->output[i].script,
-			      txa->output[i].script_length != 0))
-			return false;
-	}
-
-	return true;
+	bitcoin_txid(tx, &tx_txid);
+	return structeq(txid, &tx_txid);
 }
 
-/* We may have two possible "current" commits; this loop will check them both. */
-static bool is_unrevoked_commit(const struct commit_info *ci,
-				const struct bitcoin_tx *tx)
+static struct commit_info *find_commit(struct commit_info *ci,
+				       const struct sha256_double *txid)
 {
-	while (ci && !ci->revocation_preimage) {
-		if (txmatch(ci->tx, tx))
-			return true;
+	while (ci) {
+		if (txidmatch(ci->tx, txid))
+			return ci;
 		ci = ci->prev;
 	}
-	return false;
+	return NULL;
 }
 
 static bool is_mutual_close(const struct peer *peer,
@@ -792,21 +773,30 @@ static void anchor_spent(struct peer *peer,
 {
 	struct anchor_watch *w = peer->anchor.watches;
 	union input idata;
-
+	struct sha256_double txid;
+	
 	assert(input_num < tx->input_count);
 
 	/* We only ever sign single-input txs. */
 	if (input_num != 0)
 		fatal("Anchor spend by non-single input tx");
 	
-	/* FIXME: change type in idata? */
-	idata.btc = (struct bitcoin_event *)tx;
-	if (is_unrevoked_commit(peer->them.commit, tx))
-		state_event(peer, w->theyspent, &idata);
-	else if (is_mutual_close(peer, tx))
+	bitcoin_txid(tx, &txid);
+
+	idata.ci = find_commit(peer->them.commit, &txid);
+	if (idata.ci) {
+		if (idata.ci->revocation_preimage)
+			state_event(peer, w->otherspent, &idata);
+		else {
+			idata.tx = idata.ci->tx;
+			state_event(peer, w->theyspent, &idata);
+		}
+	} else if (is_mutual_close(peer, tx)) {
 		watch_tx(peer, peer, tx, close_depth_cb, NULL);
-	else
-		state_event(peer, w->otherspent, &idata);
+	} else {
+		if (!txidmatch(peer->us.commit->tx, &txid))
+			fatal("Unknown tx spend!");
+	}
 }
 
 static void anchor_timeout(struct anchor_watch *w)
@@ -1224,7 +1214,7 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 
 /* Create a bitcoin steal tx (to steal all their commit's outputs) */
 const struct bitcoin_tx *bitcoin_steal(const struct peer *peer,
-				       struct bitcoin_event *btc)
+				       struct commit_info *ci)
 {
 	FIXME_STUB(peer);
 }

@@ -757,7 +757,7 @@ enum command_status state(struct peer *peer,
 			return next_state_bits(peer, cstatus, bits);
 			/* This can happen multiple times: need to steal ALL */
 		} else if (input_is(input, BITCOIN_ANCHOR_OTHERSPEND)) {
-			tx = bitcoin_steal(peer, idata->btc);
+			tx = bitcoin_steal(peer, idata->ci);
 			if (!tx)
 				return next_state(peer, cstatus,
 						  STATE_ERR_INFORMATION_LEAK);
@@ -953,7 +953,7 @@ old_commit_spotted:
 	set_peer_cond(peer, PEER_CLOSED);
 
 	/* If we can't find it, we're lost. */
-	tx = bitcoin_steal(peer, idata->btc);
+	tx = bitcoin_steal(peer, idata->ci);
 	if (!tx)
 		return next_state(peer, cstatus,
 				  STATE_ERR_INFORMATION_LEAK);

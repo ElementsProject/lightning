@@ -30,9 +30,9 @@ static inline bool input_is_pkt(enum state_input input)
 union input {
 	Pkt *pkt;
 	struct command *cmd;
-	struct bitcoin_event *btc;
 	struct bitcoin_tx *tx;
 	struct htlc_progress *htlc_prog;
+	struct commit_info *ci;
 	struct htlc_onchain {
 		/* Which commitment we using. */
 		struct commit_info *ci;
@@ -321,7 +321,7 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer);
 
 /* Create a bitcoin steal tx (to steal all their commit's outputs) */
 const struct bitcoin_tx *bitcoin_steal(const struct peer *peer,
-				       struct bitcoin_event *btc);
+				       struct commit_info *ci);
 
 /* Create our commit tx */
 const struct bitcoin_tx *bitcoin_commit(struct peer *peer);
