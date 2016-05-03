@@ -320,6 +320,8 @@ void queue_pkt_commit(struct peer *peer)
 	/* Switch to the new commitment. */
 	peer->them.commit = ci;
 
+	peer_check_if_cleared(peer);
+	
 	/* Now send message */
 	update_commit__init(u);
 	u->sig = signature_to_proto(u, &ci->sig.sig);
@@ -348,6 +350,7 @@ void queue_pkt_revocation(struct peer *peer)
 		= tal(peer->us.commit->prev, struct sha256);
 	peer_get_revocation_preimage(peer, peer->commit_tx_counter-1,
 				     peer->us.commit->prev->revocation_preimage);
+	peer_check_if_cleared(peer);
 	u->revocation_preimage
 		= sha256_to_proto(u, peer->us.commit->prev->revocation_preimage);
 
@@ -708,6 +711,8 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt)
 	peer->commit_tx_counter++;
 	peer_get_revocation_hash(peer, peer->commit_tx_counter + 1,
 				 &peer->us.next_revocation_hash);
+
+	peer_check_if_cleared(peer);
 	return NULL;
 }
 
@@ -736,6 +741,7 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 
 	proto_to_sha256(r->revocation_preimage,
 			peer->them.commit->prev->revocation_preimage);
+	peer_check_if_cleared(peer);
 
 	/* Save next revocation hash. */
 	proto_to_sha256(r->next_revocation_hash,

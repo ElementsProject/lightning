@@ -216,7 +216,7 @@ static void queue_cmd_(struct peer *peer,
 	try_command(peer);
 };
 
-static void UNNEEDED queue_input(struct peer *peer,
+static void queue_input(struct peer *peer,
 			enum state_input input,
 			const union input *idata)
 {
@@ -266,12 +266,6 @@ static void state_event(struct peer *peer,
 
 	state_single(peer, input, idata);
 
-	if (peer->cleared != INPUT_NONE && !committed_to_htlcs(peer)) {
-		enum state_input all_done = peer->cleared;
-		peer->cleared = INPUT_NONE;
-		state_single(peer, all_done, NULL);
-	}
-
 	pend = list_pop(&peer->pending_input, struct pending_input, list);
 	if (pend) {
 		state_event(peer, pend->input, &pend->idata);
@@ -279,6 +273,18 @@ static void state_event(struct peer *peer,
 	}
 
 	try_command(peer);
+}
+
+void peer_check_if_cleared(struct peer *peer)
+{
+	if (peer->cleared == INPUT_NONE)
+		return;
+
+	if (committed_to_htlcs(peer))
+		return;
+
+	queue_input(peer, peer->cleared, NULL);
+	peer->cleared = INPUT_NONE;
 }
 
 static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
@@ -1128,6 +1134,8 @@ void peer_watch_htlcs_cleared(struct peer *peer,
 	assert(peer->cleared == INPUT_NONE);
 	assert(all_done != INPUT_NONE);
 	peer->cleared = all_done;
+
+	peer_check_if_cleared(peer);
 }
 
 /* Create a bitcoin close tx, using last signature they sent. */
