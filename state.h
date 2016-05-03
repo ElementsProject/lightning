@@ -31,8 +31,15 @@ union input {
 	Pkt *pkt;
 	struct command *cmd;
 	struct bitcoin_event *btc;
-	struct htlc *htlc;
 	struct htlc_progress *htlc_prog;
+	struct htlc_onchain {
+		/* Which commitment we using. */
+		struct commit_info *ci;
+		/* Which HTLC. */
+		size_t i;
+		/* The rvalue (or NULL). */
+		u8 *r;
+	} *htlc_onchain;
 };
 
 enum command_status state(struct peer *peer,
@@ -66,8 +73,8 @@ struct signature;
 void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt);
 
 /* An on-chain transaction revealed an R value. */
-const struct htlc *peer_tx_revealed_r_value(struct peer *peer,
-					    const struct bitcoin_event *btc);
+void peer_tx_revealed_r_value(struct peer *peer,
+			      const struct htlc_onchain *htlc_onchain);
 
 /* Send various kinds of packets */
 void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor);
@@ -246,11 +253,11 @@ bool peer_watch_their_htlc_outputs(struct peer *peer,
 /**
  * peer_unwatch_htlc_output: stop watching an HTLC
  * @peer: the state data for this peer.
- * @htlc: the htlc to stop watching
+ * @htlc_onchain: the htlc to stop watching
  * @all_done: input to give if we're not watching any outputs anymore.
  */
 void peer_unwatch_htlc_output(struct peer *peer,
-			      const struct htlc *htlc,
+			      const struct htlc_onchain *htlc_onchain,
 			      enum state_input all_done);
 
 /**
@@ -263,22 +270,22 @@ void peer_unwatch_all_htlc_outputs(struct peer *peer);
  * peer_watch_htlc_spend: watch our spend of an HTLC output
  * @peer: the state data for this peer.
  * @tx: the commitment tx
- * @htlc: the htlc the tx is spending an output of
+ * @htlc_onchain: the htlc the tx is spending an output of
  * @done: input to give when it's completely buried.
  */
 void peer_watch_htlc_spend(struct peer *peer,
 			   const struct bitcoin_tx *tx,
-			   const struct htlc *htlc,
+			   const struct htlc_onchain *htlc_onchain,
 			   enum state_input done);
 
 /**
  * peer_unwatch_htlc_spend: stop watching our HTLC spend
  * @peer: the state data for this peer.
- * @htlc: the htlc to stop watching the spend for.
+ * @htlc_onchain: the htlc to stop watching the spend for.
  * @all_done: input to give if we're not watching anything anymore.
  */
 void peer_unwatch_htlc_spend(struct peer *peer,
-			     const struct htlc *htlc,
+			     const struct htlc_onchain *htlc_onchain,
 			     enum state_input all_done);
 
 /**
@@ -324,10 +331,10 @@ const struct bitcoin_tx *bitcoin_commit(struct peer *peer);
 
 /* Create a HTLC refund collection */
 const struct bitcoin_tx *bitcoin_htlc_timeout(const struct peer *peer,
-					      const struct htlc *htlc);
+				      const struct htlc_onchain *htlc_onchain);
 
 /* Create a HTLC collection */
 const struct bitcoin_tx *bitcoin_htlc_spend(const struct peer *peer,
-					    const struct htlc *htlc);
+				    const struct htlc_onchain *htlc_onchain);
 
 #endif /* LIGHTNING_STATE_H */

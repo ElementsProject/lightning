@@ -1094,7 +1094,7 @@ bool peer_watch_their_htlc_outputs(struct peer *peer,
 	FIXME_STUB(peer);
 }
 void peer_unwatch_htlc_output(struct peer *peer,
-			      const struct htlc *htlc,
+			      const struct htlc_onchain *htlc_onchain,
 			      enum state_input all_done)
 {
 	FIXME_STUB(peer);
@@ -1105,13 +1105,13 @@ void peer_unwatch_all_htlc_outputs(struct peer *peer)
 }
 void peer_watch_htlc_spend(struct peer *peer,
 			   const struct bitcoin_tx *tx,
-			   const struct htlc *htlc,
+			   const struct htlc_onchain *htlc_onchain,
 			   enum state_input done)
 {
 	/* FIXME! */
 }
 void peer_unwatch_htlc_spend(struct peer *peer,
-			     const struct htlc *htlc,
+			     const struct htlc_onchain *htlc_onchain,
 			     enum state_input all_done)
 {
 	FIXME_STUB(peer);
@@ -1122,8 +1122,7 @@ void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt)
 }
 
 /* An on-chain transaction revealed an R value. */
-const struct htlc *peer_tx_revealed_r_value(struct peer *peer,
-					    const struct bitcoin_event *btc)
+void peer_tx_revealed_r_value(struct peer *peer, const struct htlc_onchain *htlc_onchain)
 {
 	FIXME_STUB(peer);
 }
@@ -1261,14 +1260,14 @@ const struct bitcoin_tx *bitcoin_commit(struct peer *peer)
 
 /* Create a HTLC refund collection */
 const struct bitcoin_tx *bitcoin_htlc_timeout(const struct peer *peer,
-					      const struct htlc *htlc)
+					      const struct htlc_onchain *htlc_onchain)
 {
 	FIXME_STUB(peer);
 }
 
 /* Create a HTLC collection */
 const struct bitcoin_tx *bitcoin_htlc_spend(const struct peer *peer,
-					    const struct htlc *htlc)
+					    const struct htlc_onchain *htlc_onchain)
 {
 	FIXME_STUB(peer);
 }

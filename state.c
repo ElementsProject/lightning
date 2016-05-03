@@ -661,58 +661,67 @@ enum command_status state(struct peer *peer,
 				return next_state(peer, cstatus,
 						  BITS_TO_STATE(bits));
 			} else if (input_is(input, BITCOIN_HTLC_TOTHEM_SPENT)) {
-				const struct htlc *htlc;
 				/* They revealed R value. */
-				htlc = peer_tx_revealed_r_value(peer, idata->btc);
+				peer_tx_revealed_r_value(peer,
+							 idata->htlc_onchain);
 				/* We don't care any more. */
-				peer_unwatch_htlc_output(peer, htlc,
+				peer_unwatch_htlc_output(peer,
+							 idata->htlc_onchain,
 							 INPUT_NO_MORE_HTLCS);
 				return unchanged_state(cstatus);
 			} else if (input_is(input, BITCOIN_HTLC_TOTHEM_TIMEOUT)){
-				tx = bitcoin_htlc_timeout(peer, idata->htlc);
+				tx = bitcoin_htlc_timeout(peer,
+							  idata->htlc_onchain);
 				/* HTLC timed out, spend it back to us. */
 				queue_tx_broadcast(broadcast, tx);
 				/* Don't unwatch yet; they could yet
 				 * try to spend, revealing rvalue. */
 
 				/* We're done when that gets buried. */
-				peer_watch_htlc_spend(peer, tx, idata->htlc,
+				peer_watch_htlc_spend(peer, tx,
+						      idata->htlc_onchain,
 						      BITCOIN_HTLC_RETURN_SPEND_DONE);
 				return unchanged_state(cstatus);
 			} else if (input_is(input, INPUT_RVALUE)) {
 				tx = bitcoin_htlc_spend(peer,
-							idata->htlc);
+							idata->htlc_onchain);
 
 				/* Spend it... */
 				queue_tx_broadcast(broadcast, tx);
 				/* We're done when it gets buried. */
-				peer_watch_htlc_spend(peer, tx, idata->htlc,
+				peer_watch_htlc_spend(peer, tx,
+						      idata->htlc_onchain,
 						 BITCOIN_HTLC_FULFILL_SPEND_DONE);
 				/* Don't care about this one any more. */
-				peer_unwatch_htlc_output(peer, idata->htlc,
+				peer_unwatch_htlc_output(peer,
+							 idata->htlc_onchain,
 							 INPUT_NO_MORE_HTLCS);
 				return unchanged_state(cstatus);
 			} else if (input_is(input, BITCOIN_HTLC_FULFILL_SPEND_DONE)) {
 				/* Stop watching spend, send
 				 * INPUT_NO_MORE_HTLCS when done. */
-				peer_unwatch_htlc_spend(peer, idata->htlc,
+				peer_unwatch_htlc_spend(peer,
+							idata->htlc_onchain,
 							INPUT_NO_MORE_HTLCS);
 				return unchanged_state(cstatus);
 			} else if (input_is(input, BITCOIN_HTLC_RETURN_SPEND_DONE)) {
 				/* Stop watching spend, send
 				 * INPUT_NO_MORE_HTLCS when done. */
-				peer_unwatch_htlc_spend(peer, idata->htlc,
+				peer_unwatch_htlc_spend(peer,
+							idata->htlc_onchain,
 							INPUT_NO_MORE_HTLCS);
 
 				/* Don't need to watch the HTLC output any more,
 				 * either. */
-				peer_unwatch_htlc_output(peer, idata->htlc,
+				peer_unwatch_htlc_output(peer,
+							 idata->htlc_onchain,
 							 INPUT_NO_MORE_HTLCS);
 				return unchanged_state(cstatus);
 			} else if (input_is(input, BITCOIN_HTLC_TOUS_TIMEOUT)) {
 				/* They can spend, we no longer care
 				 * about this HTLC. */
-				peer_unwatch_htlc_output(peer, idata->htlc,
+				peer_unwatch_htlc_output(peer,
+							 idata->htlc_onchain,
 							 INPUT_NO_MORE_HTLCS);
 				return unchanged_state(cstatus);
 			}
