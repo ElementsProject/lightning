@@ -7,6 +7,7 @@
 #include "json.h"
 #include "lightningd.h"
 #include "log.h"
+#include "utils.h"
 #include <ccan/cast/cast.h>
 #include <ccan/io/io.h>
 #include <ccan/pipecmd/pipecmd.h>
@@ -240,9 +241,8 @@ void bitcoind_send_tx(struct lightningd_state *dstate,
 		      const struct bitcoin_tx *tx)
 {
 	u8 *raw = linearize_tx(dstate, tx);
-	char *hex = tal_arr(raw, char, hex_str_size(tal_count(raw)));
+	char *hex = tal_hexstr(raw, raw, tal_count(raw));
 
-	hex_encode(raw, tal_count(raw), hex, tal_count(hex));
 	start_bitcoin_cli(dstate, process_sendrawrx, NULL, NULL,
 			  "sendrawtransaction", hex, NULL);
 	tal_free(raw);

@@ -11,6 +11,7 @@
 #include "protobuf_convert.h"
 #include "secrets.h"
 #include "state.h"
+#include "utils.h"
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
@@ -22,23 +23,16 @@
 
 #define FIXME_STUB(peer) do { log_broken((peer)->dstate->base_log, "%s:%u: Implement %s!", __FILE__, __LINE__, __func__); abort(); } while(0)
 
-static char *hex_of(const tal_t *ctx, const void *p, size_t n)
-{
-	char *hex = tal_arr(ctx, char, hex_str_size(n));
-	hex_encode(p, n, hex, hex_str_size(n));
-	return hex;
-}
-
 static void dump_tx(const char *str, const struct bitcoin_tx *tx)
 {
 	u8 *linear = linearize_tx(NULL, tx);
-	printf("%s:%s\n", str, hex_of(linear, linear, tal_count(linear)));
+	printf("%s:%s\n", str, tal_hexstr(linear, linear, tal_count(linear)));
 	tal_free(linear);
 }
 
 static void dump_key(const char *str, const struct pubkey *key)
 {
-	printf("%s:%s\n", str, hex_of(NULL, key->der, sizeof(key->der)));
+	printf("%s:%s\n", str, tal_hexstr(NULL, key->der, sizeof(key->der)));
 }
 
 /* Wrap (and own!) member inside Pkt */

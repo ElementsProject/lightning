@@ -45,6 +45,7 @@ CORE_SRC :=					\
 	permute_tx.c				\
 	protobuf_convert.c			\
 	remove_dust.c				\
+	utils.c					\
 	version.c
 CORE_OBJS := $(CORE_SRC:.c=.o)
 
@@ -156,6 +157,7 @@ CORE_HEADERS := close_tx.h			\
 	remove_dust.h				\
 	state.h					\
 	state_types.h				\
+	utils.h					\
 	version.h
 
 GEN_HEADERS := 	gen_state_names.h		\

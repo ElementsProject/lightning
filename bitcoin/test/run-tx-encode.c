@@ -1,6 +1,7 @@
 #include "bitcoin/tx.c"
 #include "bitcoin/shadouble.c"
 #include "bitcoin/varint.c"
+#include "utils.c"
 #include <assert.h>
 #include <ccan/str/hex/hex.h>
 
@@ -8,8 +9,7 @@ const char extended_tx[] = "02000000000101b5bef485c41d0d1f58d1e8a561924ece5c476d
 
 static void hexeq(const void *p, size_t len, const char *hex)
 {
-	char *tmphex = tal_arr(NULL, char, hex_str_size(len));
-	hex_encode(p, len, tmphex, tal_count(tmphex));
+	char *tmphex = tal_hexstr(NULL, p, len);
 
 	if (strcmp(hex, tmphex)) {
 		fprintf(stderr, "Expected '%s' got '%s'", hex, tmphex);
