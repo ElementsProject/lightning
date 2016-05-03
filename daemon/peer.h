@@ -119,9 +119,12 @@ struct peer {
 		struct command *jsoncmd;
 	} curr_cmd;
 
+	/* Pending inputs. */
+	struct list_head pending_input;
+	
 	/* Pending commands. */
 	struct list_head pending_cmd;
-	
+
 	/* Global state. */
 	struct lightningd_state *dstate;
 

@@ -50,6 +50,12 @@ struct pending_cmd {
 	void *arg;
 };
 
+struct pending_input {
+	struct list_node list;
+	enum state_input input;
+	union input idata;
+};
+
 static struct peer *find_peer(struct lightningd_state *dstate,
 			      const char *buffer,
 			      jsmntok_t *peeridtok)
@@ -210,6 +216,18 @@ static void queue_cmd_(struct peer *peer,
 	try_command(peer);
 };
 
+static void UNNEEDED queue_input(struct peer *peer,
+			enum state_input input,
+			const union input *idata)
+{
+	struct pending_input *pend = tal(peer, struct pending_input);
+
+	pend->input = input;
+	if (idata)
+		pend->idata = *idata;
+	list_add_tail(&peer->pending_input, &pend->list);
+}
+	
 /* All unrevoked commit txs must have no HTLCs in them. */
 bool committed_to_htlcs(const struct peer *peer)
 {
@@ -244,12 +262,20 @@ static void state_event(struct peer *peer,
 			const enum state_input input,
 			const union input *idata)
 {
+	struct pending_input *pend;
+
 	state_single(peer, input, idata);
 
 	if (peer->cleared != INPUT_NONE && !committed_to_htlcs(peer)) {
 		enum state_input all_done = peer->cleared;
 		peer->cleared = INPUT_NONE;
 		state_single(peer, all_done, NULL);
+	}
+
+	pend = list_pop(&peer->pending_input, struct pending_input, list);
+	if (pend) {
+		state_event(peer, pend->input, &pend->idata);
+		tal_free(pend);
 	}
 
 	try_command(peer);
@@ -394,6 +420,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->outpkt = tal_arr(peer, struct out_pkt, 0);
 	peer->curr_cmd.cmd = INPUT_NONE;
 	list_head_init(&peer->pending_cmd);
+	list_head_init(&peer->pending_input);
 	peer->commit_tx_counter = 0;
 	peer->close_watch_timeout = NULL;
 	peer->anchor.watches = NULL;
