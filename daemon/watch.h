@@ -27,6 +27,7 @@ struct txowatch {
 	/* A new tx. */
 	void (*cb)(struct peer *peer,
 		   const struct bitcoin_tx *tx,
+		   size_t input_num,
 		   void *cbdata);
 
 	void *cbdata;
@@ -103,6 +104,7 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 			    unsigned int output,
 			    void (*cb)(struct peer *peer,
 				       const struct bitcoin_tx *tx,
+				       size_t input_num,
 				       void *),
 			    void *cbdata);
 
@@ -111,7 +113,8 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 		  typesafe_cb_preargs(void, void *,			\
 				      (cb), (cbdata),			\
 				      struct peer *,			\
-				      const struct bitcoin_tx *),	\
+				      const struct bitcoin_tx *,	\
+				      size_t),				\
 		  (cbdata))
 
 void txwatch_fire(struct lightningd_state *dstate,
@@ -120,7 +123,7 @@ void txwatch_fire(struct lightningd_state *dstate,
 
 void txowatch_fire(struct lightningd_state *dstate,
 		   const struct txowatch *txow,
-		   const struct bitcoin_tx *tx);
+		   const struct bitcoin_tx *tx, size_t input_num);
 
 void watch_topology_changed(struct lightningd_state *dstate);
 #endif /* LIGHTNING_DAEMON_WATCH_H */

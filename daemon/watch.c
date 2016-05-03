@@ -126,6 +126,7 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 			    unsigned int output,
 			    void (*cb)(struct peer *peer,
 				       const struct bitcoin_tx *tx,
+				       size_t input_num,
 				       void *),
 			    void *cbdata)
 {
@@ -162,7 +163,8 @@ void txwatch_fire(struct lightningd_state *dstate,
 
 void txowatch_fire(struct lightningd_state *dstate,
 		   const struct txowatch *txow,
-		   const struct bitcoin_tx *tx)
+		   const struct bitcoin_tx *tx,
+		   size_t input_num)
 {
 	struct sha256_double txid;
 
@@ -177,7 +179,7 @@ void txowatch_fire(struct lightningd_state *dstate,
 		  txid.sha.u.u8[1],
 		  txid.sha.u.u8[2],
 		  txid.sha.u.u8[3]);
-	txow->cb(txow->peer, tx, txow->cbdata);
+	txow->cb(txow->peer, tx, input_num, txow->cbdata);
 }
 
 void watch_topology_changed(struct lightningd_state *dstate)

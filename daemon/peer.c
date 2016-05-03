@@ -754,11 +754,18 @@ static void close_depth_cb(struct peer *peer, int depth,
  * invalid transactions! */
 static void anchor_spent(struct peer *peer,
 			 const struct bitcoin_tx *tx,
+			 size_t input_num,
 			 void *unused)
 {
 	struct anchor_watch *w = peer->anchor.watches;
 	union input idata;
 
+	assert(input_num < tx->input_count);
+
+	/* We only ever sign single-input txs. */
+	if (input_num != 0)
+		fatal("Anchor spend by non-single input tx");
+	
 	/* FIXME: change type in idata? */
 	idata.btc = (struct bitcoin_event *)tx;
 	if (is_unrevoked_commit(peer->them.commit, tx))
@@ -867,6 +874,7 @@ static void commit_tx_depth(struct peer *peer, int depth,
 /* We should map back from commit_tx permutation to figure out what happened. */
 static void our_commit_spent(struct peer *peer,
 			     const struct bitcoin_tx *commit_tx,
+			     size_t input_num,
 			     struct commit_info *info)
 {
 	/* FIXME: do something useful here, if HTLCs spent */

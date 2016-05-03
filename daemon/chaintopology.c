@@ -148,7 +148,7 @@ static void connect_blocks(struct lightningd_state *dstate, struct block *b)
 
 			txo = txowatch_hash_get(&dstate->txowatches, &out);
 			if (txo)
-				txowatch_fire(dstate, txo, tx);
+				txowatch_fire(dstate, txo, tx, j);
 		}
 
 		/* We do spends first, in case that tells us to watch tx. */
