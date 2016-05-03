@@ -1174,41 +1174,32 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 	tx->input[0].amount = tal_dup(tx->input, u64,
 				      &commit->output[p2wsh_out].amount);
 
-	tx->output[0].amount = commit->output[p2wsh_out].amount;
-
 	tx->output[0].script = scriptpubkey_p2sh(tx,
 				 bitcoin_redeem_single(tx, &peer->us.finalkey));
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
-	/* Use signature, until we have fee. */
+	/* Witness length can vary, due to DER encoding of sigs, but we
+	 * use 176 from an example run. */
+	assert(measure_tx_cost(tx) == 83 * 4);
+
+	/* FIXME: Dynamic fees! */
+	fee = fee_by_feerate(83 + 176 / 4,
+			     peer->dstate->config.closing_fee_rate);
+
+	/* FIXME: Fail gracefully in these cases (not worth collecting) */
+	if (fee > commit->output[p2wsh_out].amount
+	    || is_dust_amount(commit->output[p2wsh_out].amount - fee))
+		fatal("Amount of %"PRIu64" won't cover fee %"PRIu64,
+		      commit->output[p2wsh_out].amount, fee);
+
+	tx->output[0].amount = commit->output[p2wsh_out].amount - fee;
+
 	sig.stype = SIGHASH_ALL;
 	peer_sign_spend(peer, tx, witnessscript, &sig.sig);
 
 	tx->input[0].witness = bitcoin_witness_secret(tx, NULL, 0, &sig,
 						      witnessscript);
 
-	/* FIXME: Figure out length first, then calc fee! */
-
-	/* Now, calculate the fee, given length. */
-	/* FIXME: Dynamic fees! */
-	fee = fee_by_feerate(measure_tx_cost(tx) / 4,
-				 peer->dstate->config.closing_fee_rate);
-
-	/* FIXME: Fail gracefully in these cases (not worth collecting) */
-	if (fee > tx->output[0].amount
-	    || is_dust_amount(tx->output[0].amount - fee))
-		fatal("Amount of %"PRIu64" won't cover fee %"PRIu64,
-		      tx->output[0].amount, fee);
-
-	/* Re-sign with the real values. */
-	tx->input[0].witness = tal_free(tx->input[0].witness);
-	tx->output[0].amount -= fee;
-
-	peer_sign_spend(peer, tx, witnessscript, &sig.sig);
-
-	tx->input[0].witness = bitcoin_witness_secret(tx, NULL, 0, &sig,
-						      witnessscript);
-	
 	return tx;
 }
 
