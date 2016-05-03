@@ -90,8 +90,6 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 {
 	struct txwatch *w;
 
-	assert(!txwatch_hash_get(&peer->dstate->txwatches, txid));
-
 	w = tal(ctx, struct txwatch);
 	w->depth = -1;
 	w->txid = *txid;

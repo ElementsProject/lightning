@@ -137,6 +137,7 @@ static void connect_blocks(struct lightningd_state *dstate, struct block *b)
 		struct bitcoin_tx *tx = b->full_txs[i];
 		struct txwatch *w;
 		struct sha256_double txid;
+		struct txwatch_hash_iter iter;
 		size_t j;
 
 		/* Tell them if it spends a txo we care about. */
@@ -153,8 +154,9 @@ static void connect_blocks(struct lightningd_state *dstate, struct block *b)
 
 		/* We do spends first, in case that tells us to watch tx. */
 		bitcoin_txid(tx, &txid);
-		w = txwatch_hash_get(&dstate->txwatches, &txid);
-		if (w) {
+		for (w = txwatch_hash_getfirst(&dstate->txwatches, &txid, &iter);
+		     w;
+		     w = txwatch_hash_getnext(&dstate->txwatches, &txid, &iter)){
 			add_tx_to_block(b, w);
 			/* Fire if it's the first we've seen it: this might
 			 * set up txo watches, which could fire in this block */
