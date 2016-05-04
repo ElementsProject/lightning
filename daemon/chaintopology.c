@@ -14,12 +14,6 @@
 
 static struct timeout topology_timeout;
 
-struct tx_in_block {
-	struct list_node list;
-	struct txwatch *w;
-	struct block *block;
-};
-
 struct block {
 	int height;
 
@@ -39,9 +33,9 @@ struct block {
 	u32 mediantime;
 
 	/* Transactions in this block we care about */
-	struct list_head txs;
+	struct sha256_double *txids;
 
-	/* Full copy of txs (trimmed to txs list in connect_blocks) */
+	/* Full copy of txs (trimmed to txs list in connect_block) */
 	struct bitcoin_tx **full_txs;
 };
 
@@ -96,20 +90,13 @@ static u32 get_mediantime(const struct topology *topo, const struct block *b)
 	return times[ARRAY_SIZE(times) / 2];
 }
 
-static void remove_tx(struct tx_in_block *t)
+/* FIXME: Remove tx from block when peer done. */
+static void add_tx_to_block(struct block *b, const struct sha256_double *txid)
 {
-	list_del_from(&t->block->txs, &t->list);
-}
+	size_t n = tal_count(b->txids);
 
-static void add_tx_to_block(struct block *b, struct txwatch *w)
-{
-	/* We attach this to watch, so removed when that is */
-	struct tx_in_block *t = tal(w, struct tx_in_block);
-
-	t->block = b;
-	t->w = w;
-	list_add_tail(&b->txs, &t->list);
-	tal_add_destructor(t, remove_tx);
+	tal_resize(&b->txids, n+1);
+	b->txids[n] = *txid;
 }
 
 /* Fills in prev, height, mediantime. */
@@ -134,9 +121,7 @@ static void connect_block(struct lightningd_state *dstate,
 	/* Now we see if any of those txs are interesting. */
 	for (i = 0; i < tal_count(b->full_txs); i++) {
 		struct bitcoin_tx *tx = b->full_txs[i];
-		struct txwatch *w;
 		struct sha256_double txid;
-		struct txwatch_hash_iter iter;
 		size_t j;
 
 		/* Tell them if it spends a txo we care about. */
@@ -151,16 +136,10 @@ static void connect_block(struct lightningd_state *dstate,
 				txowatch_fire(dstate, txo, tx, j);
 		}
 
-		/* We do spends first, in case that tells us to watch tx. */
+		/* We did spends first, in case that tells us to watch tx. */
 		bitcoin_txid(tx, &txid);
-		for (w = txwatch_hash_getfirst(&dstate->txwatches, &txid, &iter);
-		     w;
-		     w = txwatch_hash_getnext(&dstate->txwatches, &txid, &iter)){
-			add_tx_to_block(b, w);
-			/* Fire if it's the first we've seen it: this might
-			 * set up txo watches, which could fire in this block */
-			txwatch_fire(dstate, w, 0);
-		}
+		if (watching_txid(dstate, &txid))
+			add_tx_to_block(b, &txid);
 	}
 	b->full_txs = tal_free(b->full_txs);
 }
@@ -168,19 +147,20 @@ static void connect_block(struct lightningd_state *dstate,
 static bool tx_in_block(const struct block *b,
 			const struct sha256_double *txid)
 {
-	struct tx_in_block *tx;
+	size_t i, n = tal_count(b->txids);
 
-	list_for_each(&b->txs, tx, list) {
-		if (structeq(&tx->w->txid, txid))
+	for (i = 0; i < n; i++) {
+		if (structeq(&b->txids[i], txid))
 			return true;
 	}
 	return false;
 }
 
-/* FIXME: put block pointer in txwatch. */
-static struct block *block_for_tx(struct topology *topo,
+/* FIXME: Use hash table. */
+static struct block *block_for_tx(struct lightningd_state *dstate,
 				  const struct sha256_double *txid)
 {
+	struct topology *topo = dstate->topology;
 	struct block *b;
 
 	for (b = topo->tip; b; b = b->prev) {
@@ -190,12 +170,13 @@ static struct block *block_for_tx(struct topology *topo,
 	return NULL;
 }
 
-size_t get_tx_depth(struct lightningd_state *dstate, const struct txwatch *w)
+size_t get_tx_depth(struct lightningd_state *dstate,
+		    const struct sha256_double *txid)
 {
 	struct topology *topo = dstate->topology;
 	const struct block *b;
 
-	b = block_for_tx(topo, &w->txid);
+	b = block_for_tx(dstate, txid);
 	if (!b)
 		return 0;
 	return topo->tip->height - b->height + 1;
@@ -244,7 +225,7 @@ static void rebroadcast_txs(struct lightningd_state *dstate)
 		list_for_each(&peer->outgoing_txs, otx, list) {
 			u8 *rawtx;
 
-			if (block_for_tx(dstate->topology, &otx->txid))
+			if (block_for_tx(dstate, &otx->txid))
 				continue;
 
 			tal_resize(&txs, num_txs+1);
@@ -291,11 +272,11 @@ static void free_blocks(struct lightningd_state *dstate, struct block *b)
 	struct block *next;
 
 	while (b) {
-		struct tx_in_block *tx, *n;
+		size_t i, n = tal_count(b->txids);
 
 		/* Notify that txs are kicked out. */
-		list_for_each_safe(&b->txs, tx, n, list)
-			txwatch_fire(dstate, tx->w, 0);
+		for (i = 0; i < n; i++)
+			txwatch_fire(dstate, &b->txids[i], 0);
 
 		next = b->next;
 		tal_free(b);
@@ -349,7 +330,7 @@ static struct block *new_block(struct lightningd_state *dstate,
 
 	b->hdr = blk->hdr;
 
-	list_head_init(&b->txs);
+	b->txids = tal_arr(b, struct sha256_double, 0);
 	b->full_txs = tal_steal(b, blk->tx);
 
 	return b;
@@ -441,7 +422,7 @@ u32 get_tx_mediantime(struct lightningd_state *dstate,
 {
 	struct block *b;
 
-	b = block_for_tx(dstate->topology, txid);
+	b = block_for_tx(dstate, txid);
 	if (b)
 		return b->mediantime;
 

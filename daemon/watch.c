@@ -91,7 +91,7 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 	struct txwatch *w;
 
 	w = tal(ctx, struct txwatch);
-	w->depth = -1;
+	w->depth = 0;
 	w->txid = *txid;
 	w->dstate = peer->dstate;
 	w->peer = peer;
@@ -104,6 +104,12 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 	return w;
 }
 
+bool watching_txid(struct lightningd_state *dstate,
+		   const struct sha256_double *txid)
+{
+	return txwatch_hash_get(&dstate->txwatches, txid) != NULL;
+}
+	
 struct txwatch *watch_tx_(const tal_t *ctx,
 			 struct peer *peer,
 			 const struct bitcoin_tx *tx,
@@ -142,12 +148,13 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 	return w;
 }
 
-
 void txwatch_fire(struct lightningd_state *dstate,
-		  struct txwatch *txw,
+		  const struct sha256_double *txid,
 		  unsigned int depth)
 {
-	if (depth != txw->depth) {
+	struct txwatch *txw = txwatch_hash_get(&dstate->txwatches, txid);
+
+	if (txw && depth != txw->depth) {
 		log_debug(txw->peer->log,
 			  "Got depth change %u for %02x%02x%02x...\n",
 			  txw->depth,
@@ -194,11 +201,7 @@ again:
 	     w = txwatch_hash_next(&dstate->txwatches, &i)) {
 		size_t depth;
 
-		/* Don't fire if we haven't seen it at all. */
-		if (w->depth == -1)
-			continue;
-
-		depth = get_tx_depth(dstate, w);
+		depth = get_tx_depth(dstate, &w->txid);
 		if (depth != w->depth) {
 			w->depth = depth;
 			w->cb(w->peer, w->depth, &w->txid, w->cbdata);

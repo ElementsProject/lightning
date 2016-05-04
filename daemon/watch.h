@@ -45,7 +45,7 @@ struct txwatch {
 
 	/* Peer who owns us. */
 	struct peer *peer;
-	
+
 	/* Transaction to watch. */
 	struct sha256_double txid;
 	int depth;
@@ -118,12 +118,15 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 		  (cbdata))
 
 void txwatch_fire(struct lightningd_state *dstate,
-		  struct txwatch *txw,
+		  const struct sha256_double *txid,
 		  unsigned int depth);
 
 void txowatch_fire(struct lightningd_state *dstate,
 		   const struct txowatch *txow,
 		   const struct bitcoin_tx *tx, size_t input_num);
+
+bool watching_txid(struct lightningd_state *dstate,
+		   const struct sha256_double *txid);
 
 void watch_topology_changed(struct lightningd_state *dstate);
 #endif /* LIGHTNING_DAEMON_WATCH_H */

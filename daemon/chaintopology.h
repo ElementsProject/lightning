@@ -8,7 +8,8 @@ struct txwatch;
 
 /* This is the number of blocks which would have to be mined to invalidate
  * the tx. */
-size_t get_tx_depth(struct lightningd_state *dstate, const struct txwatch *w);
+size_t get_tx_depth(struct lightningd_state *dstate,
+		    const struct sha256_double *txid);
 
 /* Get the mediantime of the block including this tx (must be one!) */
 u32 get_tx_mediantime(struct lightningd_state *dstate,
