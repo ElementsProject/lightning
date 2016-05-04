@@ -125,6 +125,14 @@ static void default_config(struct config *config)
 	config->anchor_confirms_max = 10;
 
 	/* At some point, you've got to let it go... */
+	/* BOLT #onchain:
+	 *
+	 * Outputs... are considered *irrevocably resolved* once they
+	 * are included in a block at least 100 deep on the most-work
+	 * blockchain.  100 blocks is far greater than the longest
+	 * known bitcoin fork, and the same value used to wait for
+	 * confirmations of miner's rewards[1].
+	 */
 	config->forever_confirms = 100;
 	
 	/* FIXME: These should float with bitcoind's recommendations! */
@@ -166,6 +174,11 @@ static void check_config(struct lightningd_state *dstate)
 		      " can't exceed commitment fee rate %"PRIu64,
 		      dstate->config.commitment_fee_rate_min,
 		      dstate->config.commitment_fee_rate);
+
+	if (dstate->config.forever_confirms < 100)
+		log_unusual(dstate->base_log,
+			    "Warning: forever-confirms of %u is less than 100!",
+			    dstate->config.forever_confirms);
 }
 
 static struct lightningd_state *lightningd_state(void)
