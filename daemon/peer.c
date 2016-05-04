@@ -20,6 +20,7 @@
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <ccan/io/io.h>
 #include <ccan/list/list.h>
 #include <ccan/noerr/noerr.h>
@@ -741,6 +742,31 @@ static void close_depth_cb(struct peer *peer, unsigned int depth,
 	if (depth >= peer->dstate->config.forever_confirms) {
 		state_event(peer, BITCOIN_CLOSE_DONE, NULL);
 	}
+}
+
+static UNNEEDED struct channel_htlc *htlc_by_index(const struct commit_info *ci, size_t index)
+{
+	if (ci->map[index] == -1)
+		return NULL;
+
+	/* First two are non-HTLC outputs to us, them. */
+	assert(index >= 2);
+	index -= 2;
+
+	if (index < tal_count(ci->cstate->a.htlcs))
+		return cast_const(struct channel_htlc *, ci->cstate->a.htlcs)
+			+ index;
+	index -= tal_count(ci->cstate->a.htlcs);
+	assert(index < tal_count(ci->cstate->b.htlcs));
+	return cast_const(struct channel_htlc *, ci->cstate->b.htlcs) + index;
+}
+
+static UNNEEDED bool htlc_a_offered(struct commit_info *ci, size_t index)
+{
+	assert(index >= 2);
+	index -= 2;
+
+	return index < tal_count(ci->cstate->a.htlcs);
 }
 
 /* We assume the tx is valid!  Don't do a blockchain.info and feed this
