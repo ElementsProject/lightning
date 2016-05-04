@@ -83,7 +83,7 @@ static void destroy_txwatch(struct txwatch *w)
 struct txwatch *watch_txid_(const tal_t *ctx,
 			    struct peer *peer,
 			    const struct sha256_double *txid,
-			    void (*cb)(struct peer *peer, int depth,
+			    void (*cb)(struct peer *peer, unsigned int depth,
 				       const struct sha256_double *txid,
 				       void *arg),
 			    void *cb_arg)
@@ -111,11 +111,11 @@ bool watching_txid(struct lightningd_state *dstate,
 }
 	
 struct txwatch *watch_tx_(const tal_t *ctx,
-			 struct peer *peer,
-			 const struct bitcoin_tx *tx,
-			 void (*cb)(struct peer *peer, int depth,
-				    const struct sha256_double *txid,
-				    void *arg),
+			  struct peer *peer,
+			  const struct bitcoin_tx *tx,
+			  void (*cb)(struct peer *peer, unsigned int depth,
+				     const struct sha256_double *txid,
+				     void *arg),
 			  void *cb_arg)
 {
 	struct sha256_double txid;

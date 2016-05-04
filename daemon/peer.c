@@ -659,15 +659,14 @@ struct anchor_watch {
 	struct oneshot *timer;
 };
 
-static void anchor_depthchange(struct peer *peer, int depth,
+static void anchor_depthchange(struct peer *peer, unsigned int depth,
 			       const struct sha256_double *txid,
 			       void *unused)
 {
 	struct anchor_watch *w = peer->anchor.watches;
 	/* Still waiting for it to reach depth? */
 	if (w->depthok != INPUT_NONE) {
-		/* Beware sign! */
-		if (depth >= (int)peer->us.mindepth) {
+		if (depth >= peer->us.mindepth) {
 			enum state_input in = w->depthok;
 			w->depthok = INPUT_NONE;
 			/* We don't need the timeout timer any more. */
@@ -675,7 +674,7 @@ static void anchor_depthchange(struct peer *peer, int depth,
 			state_event(peer, in, NULL);
 		}
 	} else {
-		if (depth < 0 && w->unspent != INPUT_NONE) {
+		if (depth == 0 && w->unspent != INPUT_NONE) {
 			enum state_input in = w->unspent;
 			w->unspent = INPUT_NONE;
 			state_event(peer, in, NULL);
@@ -735,7 +734,7 @@ static bool is_mutual_close(const struct peer *peer,
 	return false;
 }
 
-static void close_depth_cb(struct peer *peer, int depth,
+static void close_depth_cb(struct peer *peer, unsigned int depth,
 			   const struct sha256_double *txid,
 			   void *unused)
 {
@@ -846,7 +845,7 @@ void peer_unwatch_anchor_depth(struct peer *peer,
 	peer->anchor.watches = tal_free(peer->anchor.watches);
 }
 
-static void commit_tx_depth(struct peer *peer, int depth,
+static void commit_tx_depth(struct peer *peer, unsigned int depth,
 			    const struct sha256_double *txid,
 			    ptrint_t *canspend)
 {
@@ -856,7 +855,7 @@ static void commit_tx_depth(struct peer *peer, int depth,
 	/* FIXME: Handle locktime in blocks, as well as seconds! */
 
 	/* Fell out of a block? */
-	if (depth <= 0)
+	if (depth == 0)
 		return;
 
 	mediantime = get_tx_mediantime(peer->dstate, txid);
@@ -909,12 +908,12 @@ void peer_watch_delayed(struct peer *peer,
 	watch_commit_outputs(peer, tx);
 }
 
-static void spend_tx_done(struct peer *peer, int depth,
+static void spend_tx_done(struct peer *peer, unsigned int depth,
 			  const struct sha256_double *txid,
 			  ptrint_t *done)
 {
-	log_debug(peer->log, "tx reached depth %i", depth);
-	if (depth >= (int)peer->dstate->config.forever_confirms)
+	log_debug(peer->log, "tx reached depth %u", depth);
+	if (depth >= peer->dstate->config.forever_confirms)
 		state_event(peer, ptr2int(done), NULL);
 }
 

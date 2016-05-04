@@ -48,10 +48,10 @@ struct txwatch {
 
 	/* Transaction to watch. */
 	struct sha256_double txid;
-	int depth;
+	unsigned int depth;
 
-	/* A new depth (-1 if conflicted), blkhash valid if > 0 */
-	void (*cb)(struct peer *peer, int depth,
+	/* A new depth (0 if kicked out, otherwise 1 = tip, etc.) */
+	void (*cb)(struct peer *peer, unsigned int depth,
 		   const struct sha256_double *txid,
 		   void *cbdata);
 	void *cbdata;
@@ -67,7 +67,7 @@ HTABLE_DEFINE_TYPE(struct txwatch, txwatch_keyof, txid_hash, txwatch_eq,
 struct txwatch *watch_txid_(const tal_t *ctx,
 			    struct peer *peer,
 			    const struct sha256_double *txid,
-			    void (*cb)(struct peer *peer, int depth,
+			    void (*cb)(struct peer *peer, unsigned int depth,
 				       const struct sha256_double *txid,
 				       void *),
 			    void *cbdata);
@@ -77,14 +77,14 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 		    typesafe_cb_preargs(void, void *,			\
 					(cb), (cbdata),			\
 					struct peer *,			\
-					int depth,			\
+					unsigned int depth,		\
 					const struct sha256_double *),	\
 		    (cbdata))
 
 struct txwatch *watch_tx_(const tal_t *ctx,
 			  struct peer *peer,
 			  const struct bitcoin_tx *tx,
-			  void (*cb)(struct peer *peer, int depth,
+			  void (*cb)(struct peer *peer, unsigned int depth,
 				     const struct sha256_double *txid,
 				     void *),
 			  void *cbdata);
@@ -94,7 +94,7 @@ struct txwatch *watch_tx_(const tal_t *ctx,
 		  typesafe_cb_preargs(void, void *,			\
 				      (cb), (cbdata),			\
 				      struct peer *,			\
-				      int depth,			\
+				      unsigned int depth,		\
 				      const struct sha256_double *),	\
 		  (cbdata))
 
