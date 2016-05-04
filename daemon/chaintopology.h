@@ -18,6 +18,9 @@ u32 get_last_mediantime(struct lightningd_state *dstate,
 /* Get mediantime of the tip; if more than one, pick greatest time. */
 u32 get_tip_mediantime(struct lightningd_state *dstate);
 
+/* Broadcast a single tx, and rebroadcast as reqd (takes ownership of tx) */
+void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx);
+
 void setup_topology(struct lightningd_state *dstate);
 
 #endif /* LIGHTNING_DAEMON_CRYPTOPKT_H */

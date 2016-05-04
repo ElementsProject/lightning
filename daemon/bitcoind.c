@@ -220,34 +220,6 @@ void bitcoind_estimate_fee_(struct lightningd_state *dstate,
 			  "estimatefee", "2", NULL);
 }
 
-static void process_sendtx(struct bitcoin_cli *bcli)
-{
-	struct sha256_double txid;
-	const char *out = (char *)bcli->output;
-
-	/* We expect a txid, plus \n */
-	if (bcli->output_bytes == 0
-	    || !bitcoin_txid_from_hex(out, bcli->output_bytes-1, &txid))
-		fatal("sendrawtransaction bad hex: %.*s",
-		     (int)bcli->output_bytes, out);
-
-	log_debug(bcli->dstate->base_log, "sendrawtx gave %.*s",
-		  (int)bcli->output_bytes, out);
-
-	/* FIXME: Compare against expected txid? */
-}
-
-void bitcoind_send_tx(struct lightningd_state *dstate,
-		      const struct bitcoin_tx *tx)
-{
-	u8 *raw = linearize_tx(dstate, tx);
-	char *hex = tal_hexstr(raw, raw, tal_count(raw));
-
-	start_bitcoin_cli(dstate, process_sendtx, false, NULL, NULL,
-			  "sendrawtransaction", hex, NULL);
-	tal_free(raw);
-}
-
 static void process_sendrawtx(struct bitcoin_cli *bcli)
 {
 	void (*cb)(struct lightningd_state *dstate,

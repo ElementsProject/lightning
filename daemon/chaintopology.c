@@ -4,7 +4,9 @@
 #include "chaintopology.h"
 #include "lightningd.h"
 #include "log.h"
+#include "peer.h"
 #include "timeout.h"
+#include "utils.h"
 #include "watch.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
@@ -308,6 +310,107 @@ static struct block *find_common(struct topology *topo,
 }
 #endif
 
+static void try_broadcast(struct lightningd_state *dstate,
+			  const char *msg, char **txs)
+{
+	size_t num_txs = tal_count(txs);
+	const char *this_tx;
+
+	/* These are expected. */
+	if (strstr(msg, "txn-mempool-conflict")
+	    || strstr(msg, "transaction already in block chain"))
+		log_debug(dstate->base_log,
+			  "Expected error broadcasting tx %s: %s",
+			  txs[num_txs-1], msg);
+	else
+		log_unusual(dstate->base_log, "Broadcasting tx %s: %s",
+			    txs[num_txs-1], msg);
+
+	if (num_txs == 1) {
+		tal_free(txs);
+		return;
+	}
+
+	/* Strip off last one. */
+	this_tx = txs[num_txs-1];
+	tal_resize(&txs, num_txs-1);
+
+	bitcoind_sendrawtx(dstate, this_tx, try_broadcast, txs);
+}
+
+static bool found_in_main(const struct block *b,
+			  const struct sha256_double *txid)
+{
+	struct tx_in_block *tx;
+
+	do {
+		list_for_each(&b->txs, tx, list) {
+			if (structeq(&tx->w->txid, txid))
+				return true;
+		}
+		b = b->prev;
+	} while (b);
+
+	return false;
+}
+
+/* FIXME: This is dumb.  We can group txs and avoid bothering bitcoind
+ * if any one tx is in the main chain. */
+static void rebroadcast_txs(struct lightningd_state *dstate)
+{
+	/* Copy txs now (peers may go away, and they own txs). */
+	size_t num_txs = 0;
+	char **txs = tal_arr(dstate, char *, 0);
+	struct peer *peer;
+
+	list_for_each(&dstate->peers, peer, list) {
+		struct outgoing_tx *otx;
+
+		list_for_each(&peer->outgoing_txs, otx, list) {
+			u8 *rawtx;
+
+			if (found_in_main(dstate->topology->tips[0], &otx->txid))
+				continue;
+
+			tal_resize(&txs, num_txs+1);
+			rawtx = linearize_tx(txs, otx->tx);
+			txs[num_txs] = tal_hexstr(txs, rawtx, tal_count(rawtx));
+			num_txs++;
+		}
+	}
+
+	if (num_txs)
+		bitcoind_sendrawtx(dstate, txs[num_txs-1], try_broadcast, txs);
+	else
+		tal_free(txs);
+}
+
+static void destroy_outgoing_tx(struct outgoing_tx *otx)
+{
+	list_del(&otx->list);
+}
+
+void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx)
+{
+	struct outgoing_tx *otx = tal(peer, struct outgoing_tx);
+	char **txs = tal_arr(peer->dstate, char *, 1);
+	u8 *rawtx;
+
+	otx->tx = tal_steal(otx, tx);
+	bitcoin_txid(otx->tx, &otx->txid);
+	list_add_tail(&peer->outgoing_txs, &otx->list);
+	tal_add_destructor(otx, destroy_outgoing_tx);
+
+	/* FIXME: log_struct */
+	log_add(peer->log, " (tx %02x%02x%02x%02x...)",
+		otx->txid.sha.u.u8[0], otx->txid.sha.u.u8[1],
+		otx->txid.sha.u.u8[2], otx->txid.sha.u.u8[3]);
+
+	rawtx = linearize_tx(txs, otx->tx);
+	txs[0] = tal_hexstr(txs, rawtx, tal_count(rawtx));
+	bitcoind_sendrawtx(peer->dstate, txs[0], try_broadcast, txs);
+}
+
 static void topology_changed(struct lightningd_state *dstate)
 {
 	struct topology *topo = dstate->topology;
@@ -333,6 +436,9 @@ static void topology_changed(struct lightningd_state *dstate)
 
 	/* Tell watch code to re-evaluate all txs. */
 	watch_topology_changed(dstate);
+
+	/* Maybe need to rebroadcast. */
+	rebroadcast_txs(dstate);
 }
 
 static struct block *add_block(struct lightningd_state *dstate,

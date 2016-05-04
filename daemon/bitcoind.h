@@ -27,9 +27,6 @@ void bitcoind_estimate_fee_(struct lightningd_state *dstate,
 						   u64),		\
 			       (arg))
 
-void bitcoind_send_tx(struct lightningd_state *dstate,
-		      const struct bitcoin_tx *tx);
-
 void bitcoind_sendrawtx_(struct lightningd_state *dstate,
 			 const char *hextx,
 			 void (*cb)(struct lightningd_state *dstate,

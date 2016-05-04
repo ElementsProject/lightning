@@ -148,16 +148,8 @@ static void state_single(struct peer *peer,
 		Pkt *outpkt = peer->outpkt[old_outpkts].pkt;
 		log_add(peer->log, " (out %s)", input_name(outpkt->pkt_case));
 	}
-	if (broadcast) {
-		struct sha256_double txid;
-
-		bitcoin_txid(broadcast, &txid);
-		/* FIXME: log_struct */
-		log_add(peer->log, " (tx %02x%02x%02x%02x...)",
-			txid.sha.u.u8[0], txid.sha.u.u8[1],
-			txid.sha.u.u8[2], txid.sha.u.u8[3]);
-		bitcoind_send_tx(peer->dstate, broadcast);
-	}
+	if (broadcast)
+		broadcast_tx(peer, broadcast);
 
 	/* Start output if not running already; it will close conn. */
 	if (peer->cond == PEER_CLOSED)
@@ -414,6 +406,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->curr_cmd.cmd = INPUT_NONE;
 	list_head_init(&peer->pending_cmd);
 	list_head_init(&peer->pending_input);
+	list_head_init(&peer->outgoing_txs);
 	peer->commit_tx_counter = 0;
 	peer->close_watch_timeout = NULL;
 	peer->anchor.watches = NULL;

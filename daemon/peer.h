@@ -99,6 +99,13 @@ struct out_pkt {
 	void *ack_arg;
 };
 
+/* Off peer->outgoing_txs */
+struct outgoing_tx {
+	struct list_node list;
+	const struct bitcoin_tx *tx;
+	struct sha256_double txid;
+};
+
 struct peer {
 	/* dstate->peers list */
 	struct list_node list;
@@ -191,6 +198,9 @@ struct peer {
 	/* Things we're watching for (see watches.c) */
 	struct list_head watches;
 
+	/* Bitcoin transctions we're broadcasting (see chaintopology.c) */
+	struct list_head outgoing_txs;
+	
 	/* Timeout for close_watch. */
 	struct oneshot *close_watch_timeout;
 	
@@ -219,4 +229,5 @@ struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee);
 
 uint64_t commit_tx_fee(const struct bitcoin_tx *commit,
 		       uint64_t anchor_satoshis);
+
 #endif /* LIGHTNING_DAEMON_PEER_H */
