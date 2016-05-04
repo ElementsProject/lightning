@@ -178,6 +178,7 @@ log-level=debug
 bitcoind-poll=1
 min-expiry=900
 bitcoin-datadir=$DATADIR
+locktime=600
 EOF
 
 cat > $DIR2/config <<EOF
@@ -185,6 +186,7 @@ log-level=debug
 bitcoind-poll=1
 min-expiry=900
 bitcoin-datadir=$DATADIR
+locktime=600
 EOF
 
 if [ -n "$GDB1" ]; then

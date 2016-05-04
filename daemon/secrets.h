@@ -25,6 +25,11 @@ void peer_sign_spend(const struct peer *peer,
 		     const u8 *commit_witnessscript,
 		     struct signature *sig);
 
+void peer_sign_htlc_refund(const struct peer *peer,
+			   struct bitcoin_tx *spend,
+			   const u8 *htlc_witnessscript,
+			   struct signature *sig);
+
 void peer_sign_mutual_close(const struct peer *peer,
 			    struct bitcoin_tx *close,
 			    struct signature *sig);

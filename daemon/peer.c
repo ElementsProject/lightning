@@ -744,7 +744,8 @@ static void close_depth_cb(struct peer *peer, unsigned int depth,
 	}
 }
 
-static UNNEEDED struct channel_htlc *htlc_by_index(const struct commit_info *ci, size_t index)
+static struct channel_htlc *htlc_by_index(const struct commit_info *ci,
+					  size_t index)
 {
 	if (ci->map[index] == -1)
 		return NULL;
@@ -767,6 +768,70 @@ static UNNEEDED bool htlc_a_offered(struct commit_info *ci, size_t index)
 	index -= 2;
 
 	return index < tal_count(ci->cstate->a.htlcs);
+}
+
+/* Create a HTLC refund collection */
+static UNNEEDED const struct bitcoin_tx *htlc_timeout_tx(const struct peer *peer,
+						const struct commit_info *ci,
+						unsigned int i)
+{
+	u8 *wscript;
+	struct channel_htlc *htlc;
+	struct bitcoin_tx *tx = bitcoin_tx(peer, 1, 1);
+	struct bitcoin_signature sig;
+	u64 fee, satoshis;
+
+	htlc = htlc_by_index(ci, i);
+
+	wscript = bitcoin_redeem_htlc_send(peer,
+					   &peer->us.finalkey,
+					   &peer->them.finalkey,
+					   &htlc->expiry,
+					   &peer->them.locktime,
+					   &ci->revocation_hash,
+					   &htlc->rhash);
+
+	/* We must set locktime so HTLC expiry can OP_CHECKLOCKTIMEVERIFY */
+	tx->lock_time = htlc->expiry.locktime;
+	tx->input[0].index = 0;
+	bitcoin_txid(ci->tx, &tx->input[0].txid);
+	satoshis = htlc->msatoshis / 1000;
+	tx->input[0].amount = tal_dup(tx->input, u64, &satoshis);
+	tx->input[0].sequence_number = bitcoin_nsequence(&peer->them.locktime);
+
+	/* Using a new output address here would be useless: they can tell
+	 * it's our HTLC, and that we collected it via timeout. */
+	tx->output[0].script = scriptpubkey_p2sh(tx,
+				 bitcoin_redeem_single(tx, &peer->us.finalkey));
+	tx->output[0].script_length = tal_count(tx->output[0].script);
+
+	log_unusual(peer->log, "Pre-witness txlen = %zu\n",
+		    measure_tx_cost(tx) / 4);
+
+	assert(measure_tx_cost(tx) == 83 * 4);
+
+	/* Witness length can vary, due to DER encoding of sigs, but we
+	 * use 539 from an example run. */
+	/* FIXME: Dynamic fees! */
+	fee = fee_by_feerate(83 + 539 / 4,
+			     peer->dstate->config.closing_fee_rate);
+
+	/* FIXME: Fail gracefully in these cases (not worth collecting) */
+	if (fee > satoshis || is_dust_amount(satoshis - fee))
+		fatal("HTLC refund amount of %"PRIu64" won't cover fee %"PRIu64,
+		      satoshis, fee);
+
+	tx->output[0].amount = satoshis - fee;
+
+	sig.stype = SIGHASH_ALL;
+	peer_sign_htlc_refund(peer, tx, wscript, &sig.sig);
+
+	tx->input[0].witness = bitcoin_witness_htlc(tx, NULL, &sig, wscript);
+
+	log_unusual(peer->log, "tx cost for htlc timeout tx: %zu",
+		    measure_tx_cost(tx));
+
+	return tx;
 }
 
 /* We assume the tx is valid!  Don't do a blockchain.info and feed this
