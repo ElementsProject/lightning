@@ -119,6 +119,21 @@ static void set_current_command(struct peer *peer,
 	peer->curr_cmd.jsoncmd = jsoncmd;
 }
 
+static void peer_breakdown(struct peer *peer)
+{
+	/* If we have a closing tx, use it. */
+	if (peer->closing.their_sig) {
+		log_unusual(peer->log, "Peer breakdown: sending close tx");
+		broadcast_tx(peer, bitcoin_close(peer));
+	/* If we have a signed commit tx (maybe not if we just offered
+	 * anchor), use it. */
+	} else if (peer->us.commit->sig) {
+		log_unusual(peer->log, "Peer breakdown: sending commit tx");
+		broadcast_tx(peer, bitcoin_commit(peer));
+	} else
+		log_info(peer->log, "Peer breakdown: nothing to do");
+}
+
 static void state_single(struct peer *peer,
 			 const enum state_input input,
 			 const union input *idata)
@@ -157,8 +172,11 @@ static void state_single(struct peer *peer,
 	if (peer->cond == PEER_CLOSED)
 		io_wake(peer);
 
+	if (peer->state == STATE_ERR_BREAKDOWN)
+		peer_breakdown(peer);
+
 	/* FIXME: Some of these should just result in this peer being killed? */
-	if (state_is_error(peer->state)) {
+	else if (state_is_error(peer->state)) {
 		log_broken(peer->log, "Entered error state %s",
 			   state_name(peer->state));
 		fatal("Peer entered error state");
@@ -223,7 +241,7 @@ static void queue_input(struct peer *peer,
 }
 	
 /* All unrevoked commit txs must have no HTLCs in them. */
-bool committed_to_htlcs(const struct peer *peer)
+static bool committed_to_htlcs(const struct peer *peer)
 {
 	const struct commit_info *i;
 
@@ -358,21 +376,6 @@ static void destroy_peer(struct peer *peer)
 	list_del_from(&peer->dstate->peers, &peer->list);
 }
 
-static void peer_breakdown(struct peer *peer)
-{
-	/* If we have a closing tx, use it. */
-	if (peer->closing.their_sig) {
-		log_unusual(peer->log, "Peer breakdown: sending close tx");
-		broadcast_tx(peer, bitcoin_close(peer));
-	/* If we have a signed commit tx (maybe not if we just offered
-	 * anchor), use it. */
-	} else if (peer->us.commit->sig) {
-		log_unusual(peer->log, "Peer breakdown: sending commit tx");
-		broadcast_tx(peer, bitcoin_commit(peer));
-	} else
-		log_info(peer->log, "Peer breakdown: nothing to do");
-}
-
 static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 {
 	log_info(peer->log, "Disconnected");
@@ -397,7 +400,8 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 	if (peer->cond == PEER_CLOSED)
 		return;
 
-	peer_breakdown(peer);
+	if (peer->state != STATE_ERR_BREAKDOWN)
+		peer_breakdown(peer);
 }
 
 static struct peer *new_peer(struct lightningd_state *dstate,
@@ -674,9 +678,6 @@ struct anchor_watch {
 	struct peer *peer;
 	enum state_input depthok;
 	enum state_input timeout;
-	enum state_input unspent;
-	enum state_input theyspent;
-	enum state_input otherspent;
 
 	/* If timeout != INPUT_NONE, this is the timer. */
 	struct oneshot *timer;
@@ -687,6 +688,7 @@ static void anchor_depthchange(struct peer *peer, unsigned int depth,
 			       void *unused)
 {
 	struct anchor_watch *w = peer->anchor.watches;
+
 	/* Still waiting for it to reach depth? */
 	if (w->depthok != INPUT_NONE) {
 		if (depth >= peer->us.mindepth) {
@@ -696,13 +698,9 @@ static void anchor_depthchange(struct peer *peer, unsigned int depth,
 			w->timer = tal_free(w->timer);
 			state_event(peer, in, NULL);
 		}
-	} else {
-		if (depth == 0 && w->unspent != INPUT_NONE) {
-			enum state_input in = w->unspent;
-			w->unspent = INPUT_NONE;
-			state_event(peer, in, NULL);
-		}
-	}
+	} else if (depth == 0)
+		/* FIXME: Report losses! */
+		fatal("Funding transaction was unspent!");
 }
 
 /* Yay, segwit!  We can just compare txids, even though we don't have both
@@ -1347,8 +1345,6 @@ static void anchor_spent(struct peer *peer,
 
 	/* No longer call into the state machine. */
 	peer->anchor.watches->depthok = INPUT_NONE;
-	/* FIXME: Catch unspending of anchor, report issue. */
-	peer->anchor.watches->unspent = INPUT_NONE;
 }
 
 static void anchor_timeout(struct anchor_watch *w)
@@ -1362,10 +1358,7 @@ static void anchor_timeout(struct anchor_watch *w)
 
 void peer_watch_anchor(struct peer *peer,
 		       enum state_input depthok,
-		       enum state_input timeout,
-		       enum state_input unspent,
-		       enum state_input theyspent,
-		       enum state_input otherspent)
+		       enum state_input timeout)
 {
 	struct anchor_watch *w;
 
@@ -1374,9 +1367,6 @@ void peer_watch_anchor(struct peer *peer,
 	w->peer = peer;
 	w->depthok = depthok;
 	w->timeout = timeout;
-	w->unspent = unspent;
-	w->theyspent = theyspent;
-	w->otherspent = otherspent;
 
 	watch_txid(w, peer, &peer->anchor.txid, anchor_depthchange, NULL);
 	watch_txo(w, peer, &peer->anchor.txid, 0, anchor_spent, NULL);
@@ -1418,78 +1408,6 @@ void peer_unwatch_anchor_depth(struct peer *peer,
 	peer->anchor.watches = tal_free(peer->anchor.watches);
 }
 
-static void commit_tx_depth(struct peer *peer, unsigned int depth,
-			    const struct sha256_double *txid,
-			    ptrint_t *canspend)
-{
-	u32 mediantime;
-
-	log_debug(peer->log, "Commit tx reached depth %i", depth);
-	/* FIXME: Handle locktime in blocks, as well as seconds! */
-
-	/* Fell out of a block? */
-	if (depth == 0)
-		return;
-
-	mediantime = get_tx_mediantime(peer->dstate, txid);
-	assert(mediantime);
-
-	if (get_tip_mediantime(peer->dstate) > mediantime
-	    + rel_locktime_to_seconds(&peer->them.locktime)) {
-		/* Free this watch; we're done */
-		peer->cur_commit.watch = tal_free(peer->cur_commit.watch);
-		state_event(peer, ptr2int(canspend), NULL);
-	} else
-		log_debug(peer->log, "... still CSV locked (mediantime %u, need %u + %u)",
-			  get_tip_mediantime(peer->dstate),
-			  mediantime,
-			  rel_locktime_to_seconds(&peer->them.locktime));
-}
-
-/* We should map back from commit_tx permutation to figure out what happened. */
-static void our_commit_spent(struct peer *peer,
-			     const struct bitcoin_tx *commit_tx,
-			     size_t input_num,
-			     struct commit_info *info)
-{
-	/* FIXME: do something useful here, if HTLCs spent */
-}
-
-/* FIXME: We tell bitcoind to watch all the outputs, which is overkill */
-static void watch_commit_outputs(struct peer *peer, const struct bitcoin_tx *tx)
-{
-	varint_t i;
-	struct sha256_double txid;
-
-	bitcoin_txid(tx, &txid);
-	for (i = 0; i < tx->output_count; i++) {
-		watch_txo(peer, peer, &txid, i, our_commit_spent,
-			  peer->us.commit);
-	}
-}
-
-/* Watch the commit tx until our side is spendable. */
-void peer_watch_delayed(struct peer *peer,
-			const struct bitcoin_tx *tx,
-			enum state_input canspend)
-{
-	/* We only ever spend the last one. */
-	assert(tx == peer->us.commit->tx);
-	peer->cur_commit.watch = watch_tx(tx, peer, tx, commit_tx_depth,
-					  int2ptr(canspend));
-
-	watch_commit_outputs(peer, tx);
-}
-
-static void spend_tx_done(struct peer *peer, unsigned int depth,
-			  const struct sha256_double *txid,
-			  ptrint_t *done)
-{
-	log_debug(peer->log, "tx reached depth %u", depth);
-	if (depth >= peer->dstate->config.forever_confirms)
-		state_event(peer, ptr2int(done), NULL);
-}
-
 uint64_t commit_tx_fee(const struct bitcoin_tx *commit, uint64_t anchor_satoshis)
 {
 	uint64_t i, total = 0;
@@ -1499,14 +1417,6 @@ uint64_t commit_tx_fee(const struct bitcoin_tx *commit, uint64_t anchor_satoshis
 
 	assert(anchor_satoshis >= total);
 	return anchor_satoshis - total;
-}
-
-/* Watch this tx until it's buried enough to be forgotten. */
-void peer_watch_tx(struct peer *peer,
-		   const struct bitcoin_tx *tx,
-		   enum state_input done)
-{
-	watch_tx(tx, peer, tx, spend_tx_done, int2ptr(done));
 }
 
 struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee)
@@ -1576,95 +1486,7 @@ void peer_calculate_close_fee(struct peer *peer)
 	assert(!(peer->closing.our_fee & 1));
 }
 
-bool peer_has_close_sig(const struct peer *peer)
-{
-	return peer->closing.their_sig;
-}
-
-static void send_close_timeout(struct peer *peer)
-{
-	/* FIXME: Remove any close_tx watches! */
-	state_event(peer, INPUT_CLOSE_COMPLETE_TIMEOUT, NULL);
-}
-
-void peer_watch_close(struct peer *peer,
-		      enum state_input done, enum state_input timedout)
-{
-	/* We save some work by assuming these. */
-	assert(done == BITCOIN_CLOSE_DONE);
-
-	/* FIXME: We can't send CLOSE, so timeout immediately */
-	if (!peer->conn) {
-		assert(timedout == INPUT_CLOSE_COMPLETE_TIMEOUT);
-		oneshot_timeout(peer->dstate, peer, 0,
-				send_close_timeout, peer);
-		return;
-	}
-
-	/* Give them a reasonable time to respond. */
-	/* FIXME: config? */
-	if (timedout != INPUT_NONE) {
-		assert(timedout == INPUT_CLOSE_COMPLETE_TIMEOUT);
-		peer->close_watch_timeout
-			= oneshot_timeout(peer->dstate, peer, 120,
-					  send_close_timeout, peer);
-	}
-
-	/* anchor_spent will get called, we match against close_tx there. */
-}
-void peer_unwatch_close_timeout(struct peer *peer, enum state_input timedout)
-{
-	assert(peer->close_watch_timeout);
-	peer->close_watch_timeout = tal_free(peer->close_watch_timeout);
-}
-bool peer_watch_our_htlc_outputs(struct peer *peer,
-				 const struct bitcoin_tx *tx,
-				 enum state_input tous_timeout,
-				 enum state_input tothem_spent,
-				 enum state_input tothem_timeout)
-{
-	if (committed_to_htlcs(peer))
-		FIXME_STUB(peer);
-	return false;
-}
-bool peer_watch_their_htlc_outputs(struct peer *peer,
-				   const struct bitcoin_tx *tx,
-				   enum state_input tous_timeout,
-				   enum state_input tothem_spent,
-				   enum state_input tothem_timeout)
-{
-	FIXME_STUB(peer);
-}
-void peer_unwatch_htlc_output(struct peer *peer,
-			      const struct htlc_onchain *htlc_onchain,
-			      enum state_input all_done)
-{
-	FIXME_STUB(peer);
-}
-void peer_unwatch_all_htlc_outputs(struct peer *peer)
-{
-	FIXME_STUB(peer);
-}
-void peer_watch_htlc_spend(struct peer *peer,
-			   const struct bitcoin_tx *tx,
-			   const struct htlc_onchain *htlc_onchain,
-			   enum state_input done)
-{
-	/* FIXME! */
-}
-void peer_unwatch_htlc_spend(struct peer *peer,
-			     const struct htlc_onchain *htlc_onchain,
-			     enum state_input all_done)
-{
-	FIXME_STUB(peer);
-}
 void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt)
-{
-	FIXME_STUB(peer);
-}
-
-/* An on-chain transaction revealed an R value. */
-void peer_tx_revealed_r_value(struct peer *peer, const struct htlc_onchain *htlc_onchain)
 {
 	FIXME_STUB(peer);
 }
@@ -2477,6 +2299,7 @@ static void json_disconnect(struct command *cmd,
 	 * one side to freak out.  We just ensure we ignore it. */
 	log_debug(peer->log, "Pretending connection is closed");
 	peer->fake_close = true;
+	peer->state = STATE_ERR_BREAKDOWN;
 	peer_breakdown(peer);
 
 	command_success(cmd, null_response(cmd));

@@ -4,13 +4,6 @@
 /* FIXME: cdump is really dumb, so we put these in their own header. */
 #include "lightning.pb-c.h"
 
-#define STATE_CLOSE_HTLCS_BIT 1
-#define STATE_CLOSE_STEAL_BIT 2
-#define STATE_CLOSE_THEIRCOMMIT_BIT 4
-#define STATE_CLOSE_CLOSE_BIT 8
-#define STATE_CLOSE_OURCOMMIT_BIT 16
-#define STATE_CLOSE_SPENDOURS_BIT 32
-
 enum state {
 	STATE_INIT,
 
@@ -44,112 +37,11 @@ enum state {
 	STATE_BOTH_CLEARING,
 	/* We're cleared, waiting for close signature / negotiation */
 	STATE_WAIT_FOR_CLOSE_SIG,
-
+	/* We've broadcast the mutual close, waiting for onchain. */
+	STATE_CLOSE_WAIT_CLOSE,
+	
 	/* All closed. */
 	STATE_CLOSED,
-	/* Just waiting for HTLCs to resolve. */
-	STATE_CLOSE_WAIT_HTLCS,
-
-	/*
-	 * They can broadcast one or more revoked commit tx, or their latest
-	 * commit tx at any time.  We respond to revoked commit txs by stealing
-	 * their funds (steal).  We also track their latest commit tx (no need
-	 * to spend our output, it's just a P2WPKH for us) (their_commit).
-	 * They can also (with our help) broadcast a mutual close tx
-	 * (mutual_close).
-	 *
-	 * We can also broadcast one of the following:
-	 * 1) Our latest commit tx (our_commit).
-	 * 2) After delay has passed, spend of our tx (spend_ours).
-	 * 3) Mutual close tx (mutual_close), already covered above.
-	 *
-	 * Thus, we could be waiting for the following combinations:
-	 * - steal
-	 * - their_commit
-	 * - steal + their_commit
-	 * - mutual_close
-	 * - steal + mutual_close
-	 * - their_commit + mutual_close
-	 * - steal + their_commit + mutual_close
-	 *
-	 * - our_commit
-	 * - steal + our_commit
-	 * - their_commit + our_commit
-	 * - steal + their_commit + our_commit
-	 * - mutual_close + our_commit
-	 * - steal + mutual_close + our_commit
-	 * - their_commit + mutual_close + our_commit
-	 * - steal + their_commit + mutual_close + our_commit
-	 *
-	 * - spend_ours
-	 * - steal + spend_ours
-	 * - their_commit + spend_ours
-	 * - steal + their_commit + spend_ours
-	 * - mutual_close + spend_ours
-	 * - steal + mutual_close + spend_ours
-	 * - their_commit + mutual_close + spend_ours
-	 * - steal + their_commit + mutual_close + spend_ours
-	 *
-	 * Each of these has with-HTLC and without-HTLC variants, except:
-	 *
-	 * 1) We never agree to close with HTLCs,
-	 * 2) We don't care about htlcs if we steal (we steal all outputs).
-	 *
-	 * Now, it is possible for us to CLOSE and them to have an HTLC,
-	 * because we could close partway through negotiation.  So, any
-	 * commit tx they publish could introduce HTLCs.
-	 *
-	 * Thus, HTLC variants are only possible with THEIRCOMMIT, OR
-	 * OURCOMMIT/SPENDOURS, and only no CLOSE (since CLOSE implies no HTLCs).
-	 */
-	STATE_CLOSE_WAIT_STEAL,
-	STATE_UNUSED_CLOSE_WAIT_STEAL_WITH_HTLCS,
-	STATE_CLOSE_WAIT_THEIRCOMMIT,
-	STATE_CLOSE_WAIT_THEIRCOMMIT_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT,
-	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_WITH_HTLCS,
-	STATE_CLOSE_WAIT_CLOSE,
-	STATE_UNUSED_CLOSE_WAIT_CLOSE_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_CLOSE,
-	STATE_UNUSED_CLOSE_WAIT_STEAL_CLOSE_WITH_HTLCS,
-	STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE,
-	STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE,
-	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE_WITH_HTLCS,
-
-	STATE_CLOSE_WAIT_OURCOMMIT,
-	STATE_CLOSE_WAIT_OURCOMMIT_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_OURCOMMIT,
-	STATE_CLOSE_WAIT_STEAL_OURCOMMIT_WITH_HTLCS,
-	STATE_CLOSE_WAIT_THEIRCOMMIT_OURCOMMIT,
-	STATE_CLOSE_WAIT_THEIRCOMMIT_OURCOMMIT_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_OURCOMMIT,
-	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_OURCOMMIT_WITH_HTLCS,
-	STATE_CLOSE_WAIT_CLOSE_OURCOMMIT,
-	STATE_UNUSED_CLOSE_WAIT_CLOSE_OURCOMMIT_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_CLOSE_OURCOMMIT,
-	STATE_UNUSED_CLOSE_WAIT_STEAL_CLOSE_OURCOMMIT_WITH_HTLCS,
-	STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE_OURCOMMIT,
-	STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE_OURCOMMIT_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE_OURCOMMIT,
-	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE_OURCOMMIT_WITH_HTLCS,
-
-	STATE_CLOSE_WAIT_SPENDOURS,
-	STATE_CLOSE_WAIT_SPENDOURS_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_SPENDOURS,
-	STATE_CLOSE_WAIT_STEAL_SPENDOURS_WITH_HTLCS,
-	STATE_CLOSE_WAIT_THEIRCOMMIT_SPENDOURS,
-	STATE_CLOSE_WAIT_THEIRCOMMIT_SPENDOURS_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_SPENDOURS,
-	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_SPENDOURS_WITH_HTLCS,
-	STATE_CLOSE_WAIT_CLOSE_SPENDOURS,
-	STATE_UNUSED_CLOSE_WAIT_CLOSE_SPENDOURS_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_CLOSE_SPENDOURS,
-	STATE_UNUSED_CLOSE_WAIT_STEAL_CLOSE_SPENDOURS_WITH_HTLCS,
-	STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE_SPENDOURS,
-	STATE_CLOSE_WAIT_THEIRCOMMIT_CLOSE_SPENDOURS_WITH_HTLCS,
-	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE_SPENDOURS,
-	STATE_CLOSE_WAIT_STEAL_THEIRCOMMIT_CLOSE_SPENDOURS_WITH_HTLCS,
 
 	/* Four states to represent closing onchain (for getpeers) */
 	STATE_CLOSE_ONCHAIN_CHEATED,
@@ -160,12 +52,11 @@ enum state {
 	/*
 	 * Where angels fear to tread.
 	 */
+	/* Bad packet from them / protocol breakdown. */
+	STATE_ERR_BREAKDOWN,
 	/* Their anchor didn't reach blockchain in reasonable time. */
 	STATE_ERR_ANCHOR_TIMEOUT,
 	/* Anchor was double-spent, after both considered it sufficient depth. */
-	STATE_ERR_ANCHOR_LOST,
-	/* A commitment tx we didn't recognise spent the anchor (impossible) */
-	STATE_ERR_INFORMATION_LEAK,
 	/* We ended up in an unexpected state. */
 	STATE_ERR_INTERNAL,
 
@@ -213,37 +104,6 @@ enum state_input {
 	BITCOIN_ANCHOR_DEPTHOK,
 	/* It didn't reach the required depth in time. */
 	BITCOIN_ANCHOR_TIMEOUT,
-	/* It reached the required depth, then was forked off. */
-	BITCOIN_ANCHOR_UNSPENT,
-	/* Anchor was spent by our commit, and we can now spend it. */
-	BITCOIN_ANCHOR_OURCOMMIT_DELAYPASSED,
-	/* Anchor was spent by their commit tx. */
-	BITCOIN_ANCHOR_THEIRSPEND,
-	/* Anchor was spent by another commit tx (eg. expired). */
-	BITCOIN_ANCHOR_OTHERSPEND,
-	/* They spent an HTLC to them (revealing R value). */
-	BITCOIN_HTLC_TOTHEM_SPENT,
-	/* HTLC to them timed out, we can get funds now. */
-	BITCOIN_HTLC_TOTHEM_TIMEOUT,
-	/* HTLC to us timed out. */
-	BITCOIN_HTLC_TOUS_TIMEOUT,
-	
-	/* Their commit tx is completely buried. */
-	BITCOIN_THEIRCOMMIT_DONE,
-	/* Our spend of our own tx is completely buried. */
-	BITCOIN_SPEND_OURS_DONE,
-	/* Our spend of their revoked tx is completely buried. */
-	BITCOIN_STEAL_DONE,
-	/* Bitcoin close transaction considered completely buried. */
-	BITCOIN_CLOSE_DONE,
-	/* Our HTLC spend is completely buried. */
-	BITCOIN_HTLC_FULFILL_SPEND_DONE,
-	/* Our HTLC refund spend has is completely buried. */
-	BITCOIN_HTLC_RETURN_SPEND_DONE,
-
-	/* We are not watching any HTLCs any more. */
-	INPUT_NO_MORE_HTLCS,
-
 	/* No more HTLCs in either commitment tx. */
 	INPUT_HTLCS_CLEARED,
 	
@@ -251,14 +111,6 @@ enum state_input {
 	 * Timeouts.
 	 */
 	INPUT_CLOSE_COMPLETE_TIMEOUT,
-
-	/*
-	 * Inject a known R value.
-	 *
-	 * In normal operation, use CMD_SEND_HTLC_FULFILL; this is for
-	 * after a unilateral close.
-	 */
-	INPUT_RVALUE,
 
 	/* Commands */
 	CMD_OPEN_WITH_ANCHOR,
@@ -268,9 +120,6 @@ enum state_input {
 	CMD_SEND_HTLC_FAIL,
 	CMD_SEND_COMMIT,
 	CMD_CLOSE,
-
-	/* Connection lost/timedout with other node. */
-	INPUT_CONNECTION_LOST,
 
 	INPUT_MAX
 };
