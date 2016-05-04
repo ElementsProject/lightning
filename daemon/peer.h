@@ -61,8 +61,8 @@ struct commit_info {
 	struct bitcoin_tx *tx;
 	/* Channel state for this tx. */
 	struct channel_state *cstate;
-	/* Other side's signature for this commit tx. */
-	struct bitcoin_signature sig;
+	/* Other side's signature for last commit tx (if known) */
+	struct bitcoin_signature *sig;
 	/* Map for permutation: see commit_tx.c */
 	int *map;
 	/* Revocation preimage (if known). */

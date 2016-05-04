@@ -1294,7 +1294,7 @@ const struct bitcoin_tx *bitcoin_commit(struct peer *peer)
 
 	peer->us.commit->tx->input[0].witness
 		= bitcoin_witness_2of2(peer->us.commit->tx->input,
-				       &peer->us.commit->sig,
+				       peer->us.commit->sig,
 				       &sig,
 				       &peer->them.commitkey,
 				       &peer->us.commitkey);
