@@ -859,7 +859,7 @@ static void commit_tx_depth(struct peer *peer, int depth,
 	if (depth <= 0)
 		return;
 
-	mediantime = get_last_mediantime(peer->dstate, txid);
+	mediantime = get_tx_mediantime(peer->dstate, txid);
 	assert(mediantime);
 
 	if (get_tip_mediantime(peer->dstate) > mediantime

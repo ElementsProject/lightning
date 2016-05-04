@@ -10,10 +10,9 @@ struct txwatch;
  * the tx. */
 size_t get_tx_depth(struct lightningd_state *dstate, const struct txwatch *w);
 
-/* This is the worst-case (latest) mediantime of blocks including the txid.
- * Assumes the depth is > 0! */
-u32 get_last_mediantime(struct lightningd_state *dstate,
-			const struct sha256_double *txid);
+/* Get the mediantime of the block including this tx (must be one!) */
+u32 get_tx_mediantime(struct lightningd_state *dstate,
+		      const struct sha256_double *txid);
 
 /* Get mediantime of the tip; if more than one, pick greatest time. */
 u32 get_tip_mediantime(struct lightningd_state *dstate);
