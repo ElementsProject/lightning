@@ -363,8 +363,6 @@ static void destroy_peer(struct peer *peer)
 
 static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 {
-	const struct bitcoin_tx *broadcast;
-
 	log_info(peer->log, "Disconnected");
 
 	/* No longer connected. */
@@ -387,18 +385,7 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 	if (peer->cond == PEER_CLOSED)
 		return;
 
-	state(peer, INPUT_CONNECTION_LOST, NULL, &broadcast);
-
-	if (broadcast) {
-		struct sha256_double txid;
-
-		bitcoin_txid(broadcast, &txid);
-		/* FIXME: log_struct */
-		log_debug(peer->log, "INPUT_CONN_LOST: tx %02x%02x%02x%02x...",
-			  txid.sha.u.u8[0], txid.sha.u.u8[1],
-			  txid.sha.u.u8[2], txid.sha.u.u8[3]);
-		bitcoind_send_tx(peer->dstate, broadcast);
-	}
+	state_single(peer, INPUT_CONNECTION_LOST, NULL);
 }
 
 static struct peer *new_peer(struct lightningd_state *dstate,
@@ -1900,7 +1887,6 @@ static void json_disconnect(struct command *cmd,
 {
 	struct peer *peer;
 	jsmntok_t *peeridtok;
-	const struct bitcoin_tx *broadcast;
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,
@@ -1924,10 +1910,7 @@ static void json_disconnect(struct command *cmd,
 	 * one side to freak out.  We just ensure we ignore it. */
 	log_debug(peer->log, "Pretending connection is closed");
 	peer->fake_close = true;
-	state(peer, INPUT_CONNECTION_LOST, NULL, &broadcast);
-
-	if (broadcast)
-		bitcoind_send_tx(peer->dstate, broadcast);
+	state_single(peer, INPUT_CONNECTION_LOST, NULL);
 
 	command_success(cmd, null_response(cmd));
 }
