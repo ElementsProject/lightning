@@ -30,6 +30,20 @@ void bitcoind_estimate_fee_(struct lightningd_state *dstate,
 void bitcoind_send_tx(struct lightningd_state *dstate,
 		      const struct bitcoin_tx *tx);
 
+void bitcoind_sendrawtx_(struct lightningd_state *dstate,
+			 const char *hextx,
+			 void (*cb)(struct lightningd_state *dstate,
+				    const char *msg, void *),
+			 void *arg);
+
+#define bitcoind_sendrawtx(dstate, hextx, cb, arg)			\
+	bitcoind_sendrawtx_((dstate), (hextx),				\
+			    typesafe_cb_preargs(void, void *,		\
+						(cb), (arg),		\
+						struct lightningd_state *, \
+						const char *),		\
+			    (arg))
+
 void bitcoind_get_chaintips_(struct lightningd_state *dstate,
 			     void (*cb)(struct lightningd_state *dstate,
 					struct sha256_double *blockids,

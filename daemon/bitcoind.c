@@ -220,7 +220,7 @@ void bitcoind_estimate_fee_(struct lightningd_state *dstate,
 			  "estimatefee", "2", NULL);
 }
 
-static void process_sendrawrx(struct bitcoin_cli *bcli)
+static void process_sendtx(struct bitcoin_cli *bcli)
 {
 	struct sha256_double txid;
 	const char *out = (char *)bcli->output;
@@ -243,9 +243,32 @@ void bitcoind_send_tx(struct lightningd_state *dstate,
 	u8 *raw = linearize_tx(dstate, tx);
 	char *hex = tal_hexstr(raw, raw, tal_count(raw));
 
-	start_bitcoin_cli(dstate, process_sendrawrx, false, NULL, NULL,
+	start_bitcoin_cli(dstate, process_sendtx, false, NULL, NULL,
 			  "sendrawtransaction", hex, NULL);
 	tal_free(raw);
+}
+
+static void process_sendrawtx(struct bitcoin_cli *bcli)
+{
+	void (*cb)(struct lightningd_state *dstate,
+		   const char *msg, void *) = bcli->cb;
+	const char *msg = tal_strndup(bcli, (char *)bcli->output,
+				      bcli->output_bytes);
+
+	log_debug(bcli->dstate->base_log, "sendrawtx exit %u, gave %s",
+		  *bcli->exitstatus, msg);
+
+	cb(bcli->dstate, msg, bcli->cb_arg);
+}
+
+void bitcoind_sendrawtx_(struct lightningd_state *dstate,
+			 const char *hextx,
+			 void (*cb)(struct lightningd_state *dstate,
+				    const char *msg, void *),
+			 void *arg)
+{
+	start_bitcoin_cli(dstate, process_sendrawtx, true, cb, arg,
+			  "sendrawtransaction", hextx, NULL);
 }
 
 static void process_chaintips(struct bitcoin_cli *bcli)
