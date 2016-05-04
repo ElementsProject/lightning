@@ -99,6 +99,22 @@ static void add_tx_to_block(struct block *b, const struct sha256_double *txid)
 	b->txids[n] = *txid;
 }
 
+static bool we_broadcast(struct lightningd_state *dstate,
+			 const struct sha256_double *txid)
+{
+	struct peer *peer;
+
+	list_for_each(&dstate->peers, peer, list) {
+		struct outgoing_tx *otx;
+
+		list_for_each(&peer->outgoing_txs, otx, list) {
+			if (structeq(&otx->txid, txid))
+				return true;
+		}
+	}
+	return false;
+}
+
 /* Fills in prev, height, mediantime. */
 static void connect_block(struct lightningd_state *dstate,
 			  struct block *prev,
@@ -138,7 +154,7 @@ static void connect_block(struct lightningd_state *dstate,
 
 		/* We did spends first, in case that tells us to watch tx. */
 		bitcoin_txid(tx, &txid);
-		if (watching_txid(dstate, &txid))
+		if (watching_txid(dstate, &txid) || we_broadcast(dstate, &txid))
 			add_tx_to_block(b, &txid);
 	}
 	b->full_txs = tal_free(b->full_txs);
