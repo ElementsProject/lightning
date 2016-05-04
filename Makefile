@@ -8,7 +8,7 @@ PROTOCC:=protoc-c
 CCANDIR := ccan
 
 # Where we keep the BOLT RFCs
-BOLTDIR := ../lightning-rfc/bolts/
+BOLTDIR := ../lightning-rfc/
 
 # Bitcoin uses DER for signatures (Add BIP68 & HAS_CSV if it's supported)
 BITCOIN_FEATURES :=				\
