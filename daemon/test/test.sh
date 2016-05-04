@@ -49,6 +49,9 @@ while [ $# != 0 ]; do
 	x"--timeout-anchor")
 	    TIMEOUT_ANCHOR=1
 	    ;;
+	x"--dump-onchain")
+	    DUMP_ONCHAIN=1
+	    ;;
 	x"--verbose")
 	    VERBOSE=1
 	    ;;
@@ -363,6 +366,52 @@ check_status_single lcli2 $B_AMOUNT $B_FEE "" $A_AMOUNT $A_FEE '{ "msatoshis" : 
 lcli2 commit $ID1
 check_status $A_AMOUNT $A_FEE '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
 
+if [ -n "$DUMP_ONCHAIN" ]; then
+    # make node1 disconnect with node2.
+    lcli1 dev-disconnect $ID2
+    check_peerconnected lcli1 false
+
+    # lcli1 should have sent out commitment tx
+    check_tx_spend
+
+    # Now lcli2 sees it.
+    sleep 1
+    check_peerstate lcli1 STATE_CLOSE_ONCHAIN_OUR_UNILATERAL
+    check_peerstate lcli2 STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL
+
+    # both still know about htlc
+    check_status $A_AMOUNT $A_FEE '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
+
+    # Move bitcoind's time so CSV timeout has expired.
+    $CLI setmocktime $((`date +%s` + 600))
+    $CLI generate 6
+
+    # Now, lcli1 should spend its own output.
+    sleep 2
+    check_tx_spend
+    check_peerstate lcli1 STATE_CLOSE_ONCHAIN_OUR_UNILATERAL
+
+    # Move bitcoind's time so HTLC has expired.
+    $CLI setmocktime $(($EXPIRY + 1))
+    $CLI generate 6
+
+    # Wait for nodes to notice
+    sleep 2
+
+    # lcli1 should have gotten HTLC back.
+    check_tx_spend
+
+    # Now, after 100 blocks, should all be concluded.
+    $CLI generate 100
+    sleep 5
+
+    # Both consider it all done now.
+    check_no_peers lcli1
+
+    lcli1 stop
+    all_ok
+fi
+    
 lcli2 fulfillhtlc $ID1 $SECRET
 lcli2 commit $ID1
 lcli1 commit $ID2
