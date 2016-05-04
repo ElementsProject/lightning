@@ -149,6 +149,16 @@ check_peerstate()
     fi
 }
 
+check_peerconnected()
+{
+    if $1 getpeers | $FGREP -w '"connected" : '$2; then :
+    else
+	echo "$1" not connected "$2": >&2
+	$1 getpeers >&2
+	exit 1
+    fi
+}
+
 check_no_peers()
 {
     if $1 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"peers" : [ ]'; then :
@@ -258,13 +268,20 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     sleep 2
 
     # It should send out commit tx.
-    check_peerstate lcli1 STATE_CLOSE_WAIT_OURCOMMIT
+    check_peerconnected lcli1 false
 
     # Generate a block (should include commit tx)
     check_tx_spend
-   
+
+    # Should be handling it now.
+    TIME=$(($TIME + 1))
+    lcli1 dev-mocktime $TIME
+    sleep 1
+
+    check_peerstate lcli1 STATE_CLOSE_ONCHAIN_OUR_UNILATERAL
+
     # Now "wait" for 1 day, which is what node2 asked for on commit.
-    TIME=$(($TIME + 24 * 60 * 60))
+    TIME=$(($TIME + 24 * 60 * 60 - 1))
     lcli1 dev-mocktime $TIME
 
     # Move bitcoind median time as well, so CSV moves.
@@ -281,7 +298,7 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     lcli1 dev-mocktime $TIME
     sleep 2
     
-    check_peerstate lcli1 STATE_CLOSE_WAIT_SPENDOURS
+    check_peerstate lcli1 STATE_CLOSE_ONCHAIN_OUR_UNILATERAL
     
     # Now it should have spent the commit tx.
     check_tx_spend
@@ -413,19 +430,27 @@ sleep 1
 check_peerstate lcli1 STATE_CLOSE_WAIT_CLOSE
 check_peerstate lcli2 STATE_CLOSE_WAIT_CLOSE
 
-# Give it 99 blocks.
-$CLI generate 99
-
+$CLI generate 1
 # Make sure they saw it!
 lcli1 dev-mocktime $(($EXPIRY + 32))
 lcli2 dev-mocktime $(($EXPIRY + 32))
+sleep 1
+check_peerstate lcli1 STATE_CLOSE_ONCHAIN_MUTUAL
+check_peerstate lcli2 STATE_CLOSE_ONCHAIN_MUTUAL
+
+# Give it 99 blocks.
+$CLI generate 98
+
+# Make sure they saw it!
+lcli1 dev-mocktime $(($EXPIRY + 33))
+lcli2 dev-mocktime $(($EXPIRY + 33))
 sleep 5
-check_peerstate lcli1 STATE_CLOSE_WAIT_CLOSE
-check_peerstate lcli2 STATE_CLOSE_WAIT_CLOSE
+check_peerstate lcli1 STATE_CLOSE_ONCHAIN_MUTUAL
+check_peerstate lcli2 STATE_CLOSE_ONCHAIN_MUTUAL
 
 # Now the final one.
 $CLI generate 1
-TIME=$(($EXPIRY + 33))
+TIME=$(($EXPIRY + 34))
 lcli1 dev-mocktime $TIME
 lcli2 dev-mocktime $TIME
 sleep 2

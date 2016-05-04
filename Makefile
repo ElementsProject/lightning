@@ -62,6 +62,7 @@ CCAN_OBJS :=					\
 	ccan-isaac.o				\
 	ccan-isaac64.o				\
 	ccan-list.o				\
+	ccan-mem.o				\
 	ccan-noerr.o				\
 	ccan-opt-helpers.o			\
 	ccan-opt-parse.o			\
@@ -377,4 +378,6 @@ ccan-io-io.o: $(CCANDIR)/ccan/io/io.c
 ccan-io-poll.o: $(CCANDIR)/ccan/io/poll.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-pipecmd.o: $(CCANDIR)/ccan/pipecmd/pipecmd.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-mem.o: $(CCANDIR)/ccan/mem/mem.c
 	$(CC) $(CFLAGS) -c -o $@ $<

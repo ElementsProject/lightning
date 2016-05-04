@@ -174,7 +174,8 @@ struct peer {
 
 	/* Counter to make unique HTLC ids. */
 	u64 htlc_id_counter;
-	
+
+	/* Mutual close info. */
 	struct {
 		/* Our last suggested closing fee. */
 		u64 our_fee;
@@ -186,6 +187,14 @@ struct peer {
 		u8 *our_script, *their_script;
 	} closing;
 
+	/* If we're closing on-chain */
+	struct {
+		/* Everything (watches, resolved[], etc) tal'ed off this */
+		const struct bitcoin_tx *tx;
+		const struct commit_info *ci;
+		const struct bitcoin_tx **resolved;
+	} closing_onchain;
+	
 	/* If not INPUT_NONE, send this when we have no more HTLCs. */
 	enum state_input cleared;
 
@@ -230,4 +239,5 @@ struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee);
 uint64_t commit_tx_fee(const struct bitcoin_tx *commit,
 		       uint64_t anchor_satoshis);
 
+bool resolve_one_htlc(struct peer *peer, u64 id, const struct sha256 *preimage);
 #endif /* LIGHTNING_DAEMON_PEER_H */
