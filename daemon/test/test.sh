@@ -88,6 +88,26 @@ lcli2()
     $LCLI2 "$@"
 }
 
+# Usage: <node responsible> <cmd to test>...
+check()
+{
+    local i=0
+    local node="$1"
+    shift
+    while ! eval "$@"; do
+	# Try making time pass for the node (if on mocktime), then sleeping.
+	if [ -n "$MOCKTIME" ]; then 
+	    MOCKTIME=$(($MOCKTIME + 1))
+	    $node dev-mocktime $MOCKTIME
+	fi
+	sleep 1
+	i=$(($i + 1))
+	if [ $i = 20 ]; then
+	    return 1
+	fi
+    done
+}
+
 check_status_single()
 {
     lcli="$1"
@@ -98,7 +118,7 @@ check_status_single()
     them_fee=$6
     them_htlcs="$7"
 
-    if $lcli getpeers | tr -s '\012\011 ' ' ' | $FGREP '"our_amount" : '$us_pay', "our_fee" : '$us_fee', "their_amount" : '$them_pay', "their_fee" : '$them_fee', "our_htlcs" : [ '"$us_htlcs"'], "their_htlcs" : [ '"$them_htlcs"']'; then :; else
+    if check $lcli "$lcli getpeers | tr -s '\012\011\" ' ' ' | $FGREP \"our_amount : $us_pay, our_fee : $us_fee, their_amount : $them_pay, their_fee : $them_fee, our_htlcs : [ $us_htlcs], their_htlcs : [ $them_htlcs]\""; then :; else
 	echo Cannot find $lcli output: '"our_amount" : '$us_pay', "our_fee" : '$us_fee', "their_amount" : '$them_pay', "their_fee" : '$them_fee', "our_htlcs" : [ '"$us_htlcs"'], "their_htlcs" : [ '"$them_htlcs"']' >&2
 	$lcli getpeers | tr -s '\012\011 ' ' ' >&2
 	return 1
@@ -123,7 +143,7 @@ check_staged()
     lcli="$1"
     num_htlcs="$2"
 
-    if $lcli getpeers | tr -s '\012\011 ' ' ' | $FGREP '"staged_changes" : '$num_htlcs; then :; else
+    if check $lcli "$lcli getpeers | tr -s '\012\011\" ' ' ' | $FGREP 'staged_changes : '$num_htlcs"; then :; else
 	echo Cannot find $lcli output: '"staged_changes" : '$num_htlcs >&2
 	$lcli getpeers | tr -s '\012\011 ' ' ' >&2
 	return 1
@@ -132,19 +152,17 @@ check_staged()
 
 check_tx_spend()
 {
-    $CLI generate 1
-    if [ $($CLI getblock $($CLI getbestblockhash) | grep -c '^    "') -gt 1 ]; then
-	:
+    if check "$1" "$CLI getrawmempool | $FGREP '\"'"; then :;
     else
-	echo "Block didn't include tx:" >&2
-	$CLI getblock $($CLI getbestblockhash) >&2
+	echo "No tx in mempool:" >&2
+	$CLI getrawmempool >&2
 	exit 1
     fi
 }
 
 check_peerstate()
 {
-    if $1 getpeers | $FGREP -w $2; then :
+    if check "$1" "$1 getpeers | $FGREP -w $2"; then :
     else
 	echo "$1" not in state "$2": >&2
 	$1 getpeers >&2
@@ -154,7 +172,7 @@ check_peerstate()
 
 check_peerconnected()
 {
-    if $1 getpeers | $FGREP -w '"connected" : '$2; then :
+    if check "$1" "$1 getpeers | tr -s '\012\011\" ' ' ' | $FGREP -w 'connected : '$2"; then :
     else
 	echo "$1" not connected "$2": >&2
 	$1 getpeers >&2
@@ -164,7 +182,7 @@ check_peerconnected()
 
 check_no_peers()
 {
-    if $1 getpeers | tr -s '\012\011 ' ' ' | $FGREP '"peers" : [ ]'; then :
+    if check "$1" "$1 getpeers | tr -s '\012\011\" ' ' ' | $FGREP 'peers : [ ]'"; then :
     else
 	echo "$1" still has peers: >&2
 	$1 getpeers >&2
@@ -216,24 +234,15 @@ else
     $PREFIX ../lightningd --lightning-dir=$DIR2 > $REDIR2 2> $REDIRERR2 &
 fi
 
-i=0
-while ! $LCLI1 getlog 2>/dev/null | $FGREP Hello; do
-    sleep 1
-    i=$(($i + 1))
-    if [ $i -gt 10 ]; then
-	echo Failed to start daemon 1 >&2
-	exit 1
-    fi
-done
+if ! check "$LCLI1" "$LCLI1 getlog 2>/dev/null | $FGREP Hello"; then
+    echo Failed to start daemon 1 >&2
+    exit 1
+fi
 
-while ! $LCLI2 getlog 2>/dev/null | $FGREP 'listener on port'; do
-    sleep 1
-    i=$(($i + 1))
-    if [ $i -gt 10 ]; then
-	echo Failed to start daemon 2 >&2
-	exit 1
-    fi
-done
+if ! check "$LCLI2" "$LCLI2 getlog 2>/dev/null | $FGREP Hello"; then
+    echo Failed to start daemon 2 >&2
+    exit 1
+fi
 
 ID1=`$LCLI1 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'`
 ID2=`$LCLI2 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'`
@@ -244,73 +253,55 @@ PORT2=`$LCLI2 getlog | sed -n 's/.*on port \([0-9]*\).*/\1/p'`
 P2SHADDR=`$LCLI1 newaddr | sed -n 's/{ "address" : "\(.*\)" }/\1/p'`
 TXID=`$CLI sendtoaddress $P2SHADDR 0.01`
 TX=`$CLI getrawtransaction $TXID`
+$CLI generate 1
 
 lcli1 connect localhost $PORT2 $TX
-sleep 5
 
 # Expect them to be waiting for anchor.
 check_peerstate lcli1 STATE_OPEN_WAITING_OURANCHOR
 check_peerstate lcli2 STATE_OPEN_WAITING_THEIRANCHOR
 
 if [ -n "$TIMEOUT_ANCHOR" ]; then
-    # Anchor gets 1 commit.
-    check_tx_spend
+    # Check anchor emitted, not mined deep enough.
+    check_tx_spend lcli1
+    $CLI generate 2
 
-    # Timeout before anchor committed deep enough.
-    TIME=$((`date +%s` + 7200 + 3 * 1200 + 1))
+    # Timeout before anchor committed.
+    MOCKTIME=$((`date +%s` + 7200 + 3 * 1200 + 1))
 
-    lcli1 dev-mocktime $TIME
+    lcli1 dev-mocktime $MOCKTIME
 
     # This will crash immediately
-    if $LCLI2 dev-mocktime $TIME 2> /dev/null; then
+    if $LCLI2 dev-mocktime $MOCKTIME 2> /dev/null; then
 	echo Node2 did not crash >&2
 	exit 1
     fi
     $FGREP 'Entered error state STATE_ERR_ANCHOR_TIMEOUT' $DIR2/crash.log
 
-    sleep 2
-
-    # It should send out commit tx.
+    # Node1 should be disconnected.
     check_peerconnected lcli1 false
-
-    # Generate a block (should include commit tx)
-    check_tx_spend
-
-    # Should be handling it now.
-    TIME=$(($TIME + 1))
-    lcli1 dev-mocktime $TIME
-    sleep 1
+    
+    # It should send out commit tx; mine it.
+    check_tx_spend lcli1
+    $CLI generate 1
 
     check_peerstate lcli1 STATE_CLOSE_ONCHAIN_OUR_UNILATERAL
 
     # Now "wait" for 1 day, which is what node2 asked for on commit.
-    TIME=$(($TIME + 24 * 60 * 60 - 1))
-    lcli1 dev-mocktime $TIME
+    MOCKTIME=$(($MOCKTIME + 24 * 60 * 60 - 1))
+    lcli1 dev-mocktime $MOCKTIME
 
     # Move bitcoind median time as well, so CSV moves.
-    $CLI setmocktime $TIME
+    $CLI setmocktime $MOCKTIME
     $CLI generate 6
-    
-    # Due to laziness, we trigger by block generation.
-    TIME=$(($TIME + 1))
-    lcli1 dev-mocktime $TIME
-    sleep 2
 
-    # Sometimes it skips poll because it's busy.  Do it again.
-    TIME=$(($TIME + 1))
-    lcli1 dev-mocktime $TIME
-    sleep 2
-    
-    check_peerstate lcli1 STATE_CLOSE_ONCHAIN_OUR_UNILATERAL
-    
     # Now it should have spent the commit tx.
-    check_tx_spend
+    check_tx_spend lcli1
 
-    # 99 more blocks pass...
-    $CLI generate 99
-    TIME=$(($TIME + 1))
-    lcli1 dev-mocktime $TIME
-    sleep 5
+    # 100 blocks pass...
+    $CLI generate 100
+    MOCKTIME=$(($MOCKTIME + 1))
+    lcli1 dev-mocktime $MOCKTIME
 
     # Considers it all done now.
     check_no_peers lcli1
@@ -318,13 +309,10 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     lcli1 stop
     all_ok
 fi
-    
-# Now make it pass anchor (should be in first block, then two more to bury it)
-check_tx_spend
-$CLI generate 2
 
-# They poll every second, so give them time to process.
-sleep 2
+# Now make it pass anchor (should be in mempool: three blocks bury it)
+check_tx_spend lcli1
+$CLI generate 3
 
 check_peerstate lcli1 STATE_NORMAL
 check_peerstate lcli2 STATE_NORMAL
@@ -372,10 +360,11 @@ if [ -n "$DUMP_ONCHAIN" ]; then
     check_peerconnected lcli1 false
 
     # lcli1 should have sent out commitment tx
-    check_tx_spend
+    check_peerstate lcli1 STATE_ERR_BREAKDOWN
+    check_tx_spend lcli1
 
-    # Now lcli2 sees it.
-    sleep 1
+    # Mine it.
+    $CLI generate 1
     check_peerstate lcli1 STATE_CLOSE_ONCHAIN_OUR_UNILATERAL
     check_peerstate lcli2 STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL
 
@@ -387,23 +376,18 @@ if [ -n "$DUMP_ONCHAIN" ]; then
     $CLI generate 6
 
     # Now, lcli1 should spend its own output.
-    sleep 2
-    check_tx_spend
+    check_tx_spend lcli1
     check_peerstate lcli1 STATE_CLOSE_ONCHAIN_OUR_UNILATERAL
 
     # Move bitcoind's time so HTLC has expired.
     $CLI setmocktime $(($EXPIRY + 1))
     $CLI generate 6
 
-    # Wait for nodes to notice
-    sleep 2
-
     # lcli1 should have gotten HTLC back.
-    check_tx_spend
+    check_tx_spend lcli1
 
     # Now, after 100 blocks, should all be concluded.
     $CLI generate 100
-    sleep 5
 
     # Both consider it all done now.
     check_no_peers lcli1
@@ -458,13 +442,14 @@ A_FEE=$(($A_FEE + $EXTRA_FEE))
 check_status $A_AMOUNT $A_FEE '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
 
 # Make sure node1 accepts the expiry packet.
-lcli1 dev-mocktime $(($EXPIRY))
+MOCKTIME=$(($EXPIRY))
+lcli1 dev-mocktime $MOCKTIME
 
 # This should make node2 send it.
-lcli2 dev-mocktime $(($EXPIRY + 31))
+MOCKTIME=$(($MOCKTIME + 31))
+lcli2 dev-mocktime $MOCKTIME
 lcli2 commit $ID1
 lcli1 commit $ID2
-sleep 1
 
 # Back to how we were before.
 A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + $HTLC_AMOUNT))
@@ -473,17 +458,12 @@ check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 lcli1 close $ID2
 
-sleep 1
-
 # They should be waiting for close.
 check_peerstate lcli1 STATE_CLOSE_WAIT_CLOSE
 check_peerstate lcli2 STATE_CLOSE_WAIT_CLOSE
 
 $CLI generate 1
-# Make sure they saw it!
-lcli1 dev-mocktime $(($EXPIRY + 32))
-lcli2 dev-mocktime $(($EXPIRY + 32))
-sleep 1
+
 check_peerstate lcli1 STATE_CLOSE_ONCHAIN_MUTUAL
 check_peerstate lcli2 STATE_CLOSE_ONCHAIN_MUTUAL
 
@@ -491,18 +471,11 @@ check_peerstate lcli2 STATE_CLOSE_ONCHAIN_MUTUAL
 $CLI generate 98
 
 # Make sure they saw it!
-lcli1 dev-mocktime $(($EXPIRY + 33))
-lcli2 dev-mocktime $(($EXPIRY + 33))
-sleep 5
 check_peerstate lcli1 STATE_CLOSE_ONCHAIN_MUTUAL
 check_peerstate lcli2 STATE_CLOSE_ONCHAIN_MUTUAL
 
 # Now the final one.
 $CLI generate 1
-TIME=$(($EXPIRY + 34))
-lcli1 dev-mocktime $TIME
-lcli2 dev-mocktime $TIME
-sleep 2
 
 check_no_peers lcli1
 check_no_peers lcli2
