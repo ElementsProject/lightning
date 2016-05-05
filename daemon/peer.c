@@ -119,6 +119,13 @@ static void set_current_command(struct peer *peer,
 	peer->curr_cmd.jsoncmd = jsoncmd;
 }
 
+void set_peer_state(struct peer *peer, enum state newstate, const char *caller)
+{
+	log_debug(peer->log, "%s: %s => %s", caller,
+		  state_name(peer->state), state_name(newstate));
+	peer->state = newstate;
+}
+
 static void peer_breakdown(struct peer *peer)
 {
 	/* If we have a closing tx, use it. */
@@ -141,10 +148,9 @@ static void state_single(struct peer *peer,
 	enum command_status status;
 	const struct bitcoin_tx *broadcast;
 	size_t old_outpkts = tal_count(peer->outpkt);
-	
+
 	status = state(peer, input, idata, &broadcast);
-	log_debug(peer->log, "%s => %s",
-		  input_name(input), state_name(peer->state));
+	log_debug(peer->log, "Peer condition: %s", cstatus_name(peer->cond));
 	switch (status) {
 	case CMD_NONE:
 		break;
@@ -400,8 +406,10 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 	if (peer->cond == PEER_CLOSED)
 		return;
 
-	if (peer->state != STATE_ERR_BREAKDOWN)
+	if (peer->state != STATE_ERR_BREAKDOWN) {
+		set_peer_state(peer, STATE_ERR_BREAKDOWN, "peer_disconnect");
 		peer_breakdown(peer);
+	}
 }
 
 static struct peer *new_peer(struct lightningd_state *dstate,
@@ -1279,7 +1287,7 @@ static void check_for_resolution(struct peer *peer,
 	 * output which is not *irrevocably resolved* until all outputs are
 	 * *irrevocably resolved*.
 	 */
-	peer->state = STATE_CLOSED;
+	set_peer_state(peer, STATE_CLOSED, "check_for_resolution");
 	io_break(peer);
 }
 	    
@@ -1323,18 +1331,25 @@ static void anchor_spent(struct peer *peer,
 	peer->closing_onchain.ci = find_commit(peer->them.commit, &txid);
 	if (peer->closing_onchain.ci) {
 		if (peer->closing_onchain.ci->revocation_preimage) {
-			peer->state = STATE_CLOSE_ONCHAIN_CHEATED;
+			set_peer_state(peer, STATE_CLOSE_ONCHAIN_CHEATED,
+				       "anchor_spent");
 			resolve_cheating(peer);
 		} else {
-			peer->state = STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL;
+			set_peer_state(peer,
+				       STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL,
+				       "anchor_spent");
 			resolve_their_unilateral(peer);
 		}
 	} else if (txidmatch(peer->us.commit->tx, &txid)) {
-		peer->state = STATE_CLOSE_ONCHAIN_OUR_UNILATERAL;
+		set_peer_state(peer,
+			       STATE_CLOSE_ONCHAIN_OUR_UNILATERAL,
+			       "anchor_spent");
 		peer->closing_onchain.ci = peer->us.commit;
 		resolve_our_unilateral(peer);
 	} else if (is_mutual_close(peer, tx)) {
-		peer->state = STATE_CLOSE_ONCHAIN_MUTUAL;
+		set_peer_state(peer,
+			       STATE_CLOSE_ONCHAIN_MUTUAL,
+			       "anchor_spent");
 		resolve_mutual_close(peer);
 	} else
 		/* FIXME: Log harder! */
@@ -1799,7 +1814,7 @@ static void json_getpeers(struct command *cmd,
 
 		/* FIXME: Report anchor. */
 
-		if (!p->us.commit) {
+		if (!p->us.commit || !p->us.commit->cstate) {
 			json_object_end(response);
 			continue;
 		}
@@ -2299,7 +2314,7 @@ static void json_disconnect(struct command *cmd,
 	 * one side to freak out.  We just ensure we ignore it. */
 	log_debug(peer->log, "Pretending connection is closed");
 	peer->fake_close = true;
-	peer->state = STATE_ERR_BREAKDOWN;
+	set_peer_state(peer, STATE_ERR_BREAKDOWN, "json_disconnect");
 	peer_breakdown(peer);
 
 	command_success(cmd, null_response(cmd));

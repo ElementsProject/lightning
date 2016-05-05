@@ -228,6 +228,8 @@ void setup_listeners(struct lightningd_state *dstate, unsigned int portnum);
 /* Populates very first peer->{us,them}.commit->{tx,cstate} */
 bool setup_first_commit(struct peer *peer);
 
+void set_peer_state(struct peer *peer, enum state newstate, const char *why);
+
 /* Call this after commit changes, or revocation accepted/sent. */
 void peer_check_if_cleared(struct peer *peer);
 
