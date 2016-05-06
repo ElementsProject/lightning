@@ -15,6 +15,7 @@
 #include "secrets.h"
 #include "state.h"
 #include "timeout.h"
+#include "utils.h"
 #include "wallet.h"
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
@@ -2320,9 +2321,56 @@ static void json_disconnect(struct command *cmd,
 	command_success(cmd, null_response(cmd));
 }
 
+static void json_signcommit(struct command *cmd,
+			    const char *buffer, const jsmntok_t *params)
+{
+	struct peer *peer;
+	jsmntok_t *peeridtok;
+	u8 *linear;
+	const struct bitcoin_tx *tx;
+	struct json_result *response = new_json_result(cmd);
+
+	if (!json_get_params(buffer, params,
+			     "peerid", &peeridtok,
+			     NULL)) {
+		command_fail(cmd, "Need peerid");
+		return;
+	}
+
+	peer = find_peer(cmd->dstate, buffer, peeridtok);
+	if (!peer) {
+		command_fail(cmd, "Could not find peer with that peerid");
+		return;
+	}
+
+	if (!peer->us.commit->sig) {
+		command_fail(cmd, "Peer has not given us a signature");
+		return;
+	}
+
+	tx = bitcoin_commit(peer);
+	linear = linearize_tx(cmd, tx);
+
+	/* Clear witness for potential future uses. */
+	tx->input[0].witness = tal_free(tx->input[0].witness);
+
+	json_object_start(response, NULL);
+	json_add_string(response, "tx",
+			tal_hexstr(cmd, linear, tal_count(linear)));
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
 const struct json_command disconnect_command = {
 	"dev-disconnect",
 	json_disconnect,
 	"Force a disconned with peer {peerid}",
 	"Returns an empty result on success"
+};
+
+const struct json_command signcommit_command = {
+	"dev-signcommit",
+	json_signcommit,
+	"Sign and return the current commit with peer {peerid}",
+	"Returns a hex string on success"
 };
