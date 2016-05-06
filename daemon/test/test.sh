@@ -55,6 +55,8 @@ while [ $# != 0 ]; do
 	x"--steal")
 	    STEAL=1
 	    ;;
+	x"--normal")
+	    ;;
 	x"--verbose")
 	    VERBOSE=1
 	    ;;

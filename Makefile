@@ -184,10 +184,17 @@ $(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): 
 # Except for CCAN, everything depends on bitcoin/ and core headers.
 $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS)
 
-# These don't work in parallel, so we open-code them
-daemon-tests: daemon-all
+daemon-test-%:
 	daemon/test/scripts/shutdown.sh 2>/dev/null || true
-	set -e; for arg in "--steal" "--dump-onchain" "" "--timeout-anchor"; do daemon/test/test.sh $$arg; done
+	daemon/test/test.sh --$*
+
+# These don't work in parallel, so chain the deps
+daemon-test-steal: daemon-test-dump-onchain
+daemon-test-dump-onchain: daemon-test-timeout-anchor
+daemon-test-timeout-anchor: daemon-test-normal
+daemon-test-normal: daemon-all
+
+daemon-tests: daemon-test-steal
 
 test-onion: test/test_onion test/onion_key
 	set -e; TMPF=/tmp/onion.$$$$; test/test_onion --generate $$(test/onion_key --pub `seq 20`) > $$TMPF; for k in `seq 20`; do test/test_onion --decode $$(test/onion_key --priv $$k) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
