@@ -52,6 +52,9 @@ while [ $# != 0 ]; do
 	x"--dump-onchain")
 	    DUMP_ONCHAIN=1
 	    ;;
+	x"--steal")
+	    STEAL=1
+	    ;;
 	x"--verbose")
 	    VERBOSE=1
 	    ;;
@@ -354,6 +357,11 @@ check_status_single lcli2 $B_AMOUNT $B_FEE "" $A_AMOUNT $A_FEE '{ "msatoshis" : 
 lcli2 commit $ID1
 check_status $A_AMOUNT $A_FEE '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
 
+if [ -n "$STEAL" ]; then
+    $LCLI1 dev-signcommit $ID2 >&2
+    STEAL_TX=`$LCLI1 dev-signcommit $ID2 | cut -d\" -f4`
+fi
+
 if [ -n "$DUMP_ONCHAIN" ]; then
     # make node1 disconnect with node2.
     lcli1 dev-disconnect $ID2
@@ -455,6 +463,27 @@ lcli1 commit $ID2
 A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + $HTLC_AMOUNT))
 A_FEE=$(($A_FEE - $EXTRA_FEE))
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
+
+if [ -n "$STEAL" ]; then
+    # Send out old commit tx from peer 1.
+    $CLI sendrawtransaction $STEAL_TX
+    $CLI generate 1
+
+    # Node1 should get really upset; node2 should steal the transaction.
+    check_peerstate lcli1 STATE_ERR_INFORMATION_LEAK
+    check_peerstate lcli2 STATE_CLOSE_ONCHAIN_CHEATED
+    check_tx_spend
+
+    # Give it 100 blocks.
+    $CLI generate 100
+
+    check_no_peers lcli2
+
+    lcli1 stop
+    lcli2 stop
+    
+    all_ok
+fi
 
 lcli1 close $ID2
 

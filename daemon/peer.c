@@ -945,6 +945,7 @@ static void resolve_cheating(struct peer *peer)
 	n = 0;
 	if (ci->map[0] != -1) {
 		connect_input(ci, &steal_tx->input[n], ci->map[0]);
+		peer->closing_onchain.resolved[0] = steal_tx;
 		wscripts[n++]
 			= bitcoin_redeem_secret_or_delay(wscripts,
 							 &peer->them.finalkey,
