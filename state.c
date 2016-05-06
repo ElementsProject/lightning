@@ -462,6 +462,7 @@ enum command_status state(struct peer *peer,
 	/* Should never happen. */
 	case STATE_ERR_INTERNAL:
 	case STATE_ERR_ANCHOR_TIMEOUT:
+	case STATE_ERR_INFORMATION_LEAK:
 	case STATE_ERR_BREAKDOWN:
 	case STATE_CLOSE_WAIT_CLOSE:
 	case STATE_CLOSED:

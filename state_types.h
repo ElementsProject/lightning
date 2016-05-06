@@ -56,7 +56,8 @@ enum state {
 	STATE_ERR_BREAKDOWN,
 	/* Their anchor didn't reach blockchain in reasonable time. */
 	STATE_ERR_ANCHOR_TIMEOUT,
-	/* Anchor was double-spent, after both considered it sufficient depth. */
+	/* We saw a tx we didn't sign. */
+	STATE_ERR_INFORMATION_LEAK,
 	/* We ended up in an unexpected state. */
 	STATE_ERR_INTERNAL,
 

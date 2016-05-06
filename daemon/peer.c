@@ -1352,10 +1352,25 @@ static void anchor_spent(struct peer *peer,
 			       STATE_CLOSE_ONCHAIN_MUTUAL,
 			       "anchor_spent");
 		resolve_mutual_close(peer);
-	} else
+	} else {
+		/* BOLT #onchain:
+		 *
+		 * A node SHOULD report an error to the operator if it
+		 * sees a transaction spend the funding transaction
+		 * output which does not fall into one of these
+		 * categories (mutual close, unilateral close, or
+		 * cheating attempt).  Such a transaction implies its
+		 * private key has leaked, and funds may be lost.
+		 */
 		/* FIXME: Log harder! */
-		fatal("Unknown tx spend!");
-
+		log_broken(peer->log, "Unknown tx spend!  Funds may be lost!");
+		set_peer_state(peer,
+			       STATE_ERR_INFORMATION_LEAK,
+			       "anchor_spent");
+		/* No longer call into the state machine. */
+		peer->anchor.watches->depthok = INPUT_NONE;
+		return;
+	}
 	assert(peer->closing_onchain.resolved != NULL);
 	watch_tx(tx, peer, tx, check_for_resolution, NULL);
 
