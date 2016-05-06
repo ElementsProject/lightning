@@ -14,18 +14,14 @@ I've marked things as simple if you want something easy to work on!
 
 ## Minor improvements ##
 
-* Optimize `bitcoind_poll_transactions` not to list all transactions every time
 * Make `json_get_params` fail if unknown parameters are specified by user.
 * Print backtrace in `log_crash`
 * Support locktime in blocks in `accept_pkt_open`, `accept_pkt_htlc_add`, `commit_tx_depth`
-* Get bitcoind's idea of time for `commit_tx_depth`, not our wall clock.
 * When unpacking a packet, reject any with an unknown odd-numbered field as per BOLT #2.
 * Provide details (string) when a command fails because state() returns CMD_FAIL
 * logging: add `log_struct()` for common structs.
-* `state_single` should only kill the specific peer when it enters an error state.
 * Limit total number of peers in `new_peer`, or at least in `peer_connected_in`.
 * logging: add IO logging for peers.
-* implement on-chain HTLCs correctly (`peer_watch_our_htlc_outputs` etc in peer.c).
 * Add `history` RPC command which shows all prior commit txs.
 * Improve `getpeers` to show status of peers when connecting, DNS lookups etc.
 * Add pings to protocol
@@ -44,7 +40,7 @@ uncommitted to closing it (see BOLT #2 "Risks With HTLC Timeouts").
 
 ## Major improvements: ##
 
-* Use dynamic fee calculation for initial commitment fee rate.
+* Track fee estimation for each new block.
   * (MAJOR) Implement fee renegotiation acceptance.
   * (MAJOR) Implement fee renegotiation as fee rate changes.
 
@@ -52,7 +48,6 @@ uncommitted to closing it (see BOLT #2 "Risks With HTLC Timeouts").
 
 * (MAJOR) Do proper close, still allowing ongoing HTLCs to resolve.
 
-* (MAJOR) Use segregated witness for all transactions.
 * (MAJOR) Implement reconnection.
 * Save preimages in shachain.
   * (MAJOR) Implement persistence.
