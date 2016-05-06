@@ -558,10 +558,10 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	/* BOLT #2:
 	 *
 	 * A node MUST NOT add a HTLC if it would result in it
-	 * offering more than 1500 HTLCs in either commitment transaction.
+	 * offering more than 300 HTLCs in either commitment transaction.
 	 */
-	if (tal_count(peer->them.staging_cstate->a.htlcs) == 1500
-	    || tal_count(peer->us.staging_cstate->b.htlcs) == 1500)
+	if (tal_count(peer->them.staging_cstate->a.htlcs) == 300
+	    || tal_count(peer->us.staging_cstate->b.htlcs) == 300)
 		return pkt_err(peer, "Too many HTLCs");
 
 	/* BOLT #2:
