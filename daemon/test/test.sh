@@ -472,7 +472,7 @@ if [ -n "$STEAL" ]; then
     # Node1 should get really upset; node2 should steal the transaction.
     check_peerstate lcli1 STATE_ERR_INFORMATION_LEAK
     check_peerstate lcli2 STATE_CLOSE_ONCHAIN_CHEATED
-    check_tx_spend
+    check_tx_spend lcli2
 
     # Give it 100 blocks.
     $CLI generate 100
