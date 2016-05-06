@@ -112,6 +112,22 @@ void peer_sign_mutual_close(const struct peer *peer,
 		      sig);
 }
 
+void peer_sign_steal_input(const struct peer *peer,
+			   struct bitcoin_tx *spend,
+			   size_t i,
+			   const u8 *witnessscript,
+			   struct signature *sig)
+{
+	/* Spend tx only has one input: that of the commit tx. */
+	sign_tx_input(peer->dstate->secpctx,
+		      spend, i,
+		      NULL, 0,
+		      witnessscript,
+		      &peer->secrets->final,
+		      &peer->us.finalkey,
+		      sig);
+}
+
 static void new_keypair(struct lightningd_state *dstate,
 			struct privkey *privkey, struct pubkey *pubkey)
 {

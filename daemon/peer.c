@@ -782,7 +782,7 @@ static struct channel_htlc *htlc_by_index(const struct commit_info *ci,
 	return cast_const(struct channel_htlc *, ci->cstate->b.htlcs) + index;
 }
 
-static UNNEEDED bool htlc_a_offered(struct commit_info *ci, size_t index)
+static bool htlc_a_offered(const struct commit_info *ci, size_t index)
 {
 	assert(index >= 2);
 	index -= 2;
@@ -872,9 +872,137 @@ static const struct bitcoin_tx *irrevocably_resolved(struct peer *peer)
 	return peer->closing_onchain.tx;
 }
 
+static void connect_input(const struct commit_info *ci,
+			  struct bitcoin_tx_input *input,
+			  u32 index)
+{
+	bitcoin_txid(ci->tx, &input->txid);
+	input->index = index;
+	input->amount = tal_dup(ci, u64, &ci->tx->output[index].amount);
+}
+
 static void resolve_cheating(struct peer *peer)
 {
-	FIXME_STUB(peer);
+	const struct bitcoin_tx *tx = peer->closing_onchain.tx;
+	const struct commit_info *ci = peer->closing_onchain.ci;
+	struct bitcoin_tx *steal_tx;
+	u8 **wscripts;
+	size_t i, n, num_to_steal;
+
+	peer->closing_onchain.resolved
+		= tal_arrz(tx, const struct bitcoin_tx *, tal_count(ci->map));
+	
+	/* BOLT #onchain:
+	 *
+	 * If a node sees a *commitment tx* for which it has a revocation
+	 * preimage, it *resolves* the funding transaction output:
+	 *
+	 * 1. _A's main output_: No action is required; this is a
+	 *    simple P2WPKH output.  This output is considered
+	 *    *resolved* by the *commitment tx*.
+	 */
+
+	/* Their commit tx, so our output is [1], theirs in [0]. */
+	peer->closing_onchain.resolved[1] = tx;
+	
+	/* BOLT #onchain:
+	 *
+	 * 2. _B's main output_: The node MUST *resolve* this by
+	 * spending using the revocation preimage.
+	 *
+	 * 3. _A's offered HTLCs_: The node MUST *resolve* this by
+	 * spending using the revocation preimage.
+	 *
+	 * 4. _B's offered HTLCs_: The node MUST *resolve* this by
+	 * spending using the revocation preimage. */
+	num_to_steal = 0;
+	if (ci->map[0] == -1)
+		peer->closing_onchain.resolved[0] = tx;
+	else
+		num_to_steal++;
+
+	for (i = 2; i < tal_count(ci->map); i++)
+		if (ci->map[i] == -1)
+			peer->closing_onchain.resolved[i] = tx;
+		else
+			num_to_steal++;
+
+	/* Nothing to steal? */
+	if (num_to_steal == 0)
+		return;
+
+	/* BOLT #onchain:
+	 *
+	 * The node MAY use a single transaction to *resolve* all the
+	 * outputs; due to the 450 HTLC-per-party limit (See BOLT #2:
+	 * 3.2. Adding an HTLC) this can be done within a standard
+	 * transaction.
+	 */
+	steal_tx = bitcoin_tx(peer, num_to_steal, 1);
+
+	wscripts = tal_arr(steal_tx, u8 *, num_to_steal);
+
+	n = 0;
+	if (ci->map[0] != -1) {
+		connect_input(ci, &steal_tx->input[n], ci->map[0]);
+		wscripts[n++]
+			= bitcoin_redeem_secret_or_delay(wscripts,
+							 &peer->them.finalkey,
+							 &peer->us.locktime,
+							 &peer->us.finalkey,
+							 &ci->revocation_hash);
+	}
+
+	for (i = 2; i < tal_count(ci->map); i++) {
+		struct channel_htlc *h;
+
+		if (ci->map[i] == -1)
+			continue;
+
+		peer->closing_onchain.resolved[i] = steal_tx;
+
+		connect_input(ci, &steal_tx->input[n], ci->map[i]);
+
+		h = htlc_by_index(ci, i);
+		if (htlc_a_offered(ci, i)) {
+			wscripts[n]
+				= bitcoin_redeem_htlc_send(wscripts,
+							   &peer->them.finalkey,
+							   &peer->us.finalkey,
+							   &h->expiry,
+							   &peer->us.locktime,
+							   &ci->revocation_hash,
+							   &h->rhash);
+		} else {
+			wscripts[n]
+				= bitcoin_redeem_htlc_recv(wscripts,
+							   &peer->them.finalkey,
+							   &peer->us.finalkey,
+							   &h->expiry,
+							   &peer->us.locktime,
+							   &ci->revocation_hash,
+							   &h->rhash);
+		}
+		n++;
+	}
+	assert(n == num_to_steal);
+
+	/* Now, we can sign them all (they're all of same form). */
+	for (n = 0; n < num_to_steal; n++) {
+		struct bitcoin_signature sig;
+
+		sig.stype = SIGHASH_ALL;
+		peer_sign_steal_input(peer, steal_tx, n, wscripts[n], &sig.sig);
+
+		steal_tx->input[n].witness
+			= bitcoin_witness_secret(steal_tx,
+						 ci->revocation_preimage,
+						 sizeof(*ci->revocation_preimage),
+						 &sig,
+						 wscripts[n]);
+	}
+
+	broadcast_tx(peer, steal_tx);
 }
 
 static void our_htlc_spent(struct peer *peer,
