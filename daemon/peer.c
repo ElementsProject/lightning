@@ -1504,7 +1504,20 @@ void peer_calculate_close_fee(struct peer *peer)
 
 void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt)
 {
-	FIXME_STUB(peer);
+	const char *p;
+
+	/* Check packet for weird chars. */
+	for (p = pkt->error->problem; *p; p++) {
+		if (cisprint(*p))
+			continue;
+
+		p = tal_hexstr(peer, pkt->error->problem,
+			       strlen(pkt->error->problem));
+		log_unusual(peer->log, "Error pkt (hex) %s", p);
+		tal_free(p);
+		return;
+	}
+	log_unusual(peer->log, "Error pkt '%s'", pkt->error->problem);
 }
 
 void peer_watch_htlcs_cleared(struct peer *peer,
