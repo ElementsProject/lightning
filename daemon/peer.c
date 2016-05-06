@@ -11,6 +11,7 @@
 #include "log.h"
 #include "names.h"
 #include "peer.h"
+#include "permute_tx.h"
 #include "pseudorand.h"
 #include "secrets.h"
 #include "state.h"
@@ -888,6 +889,7 @@ static void resolve_cheating(struct peer *peer)
 	struct bitcoin_tx *steal_tx;
 	u8 **wscripts;
 	size_t i, n, num_to_steal;
+	int *map;
 
 	peer->closing_onchain.resolved
 		= tal_arrz(tx, const struct bitcoin_tx *, tal_count(ci->map));
@@ -988,14 +990,18 @@ static void resolve_cheating(struct peer *peer)
 	}
 	assert(n == num_to_steal);
 
+	/* This obscures the order in which HTLCs were received, at least. */
+	map = tal_arr(steal_tx, int, num_to_steal);
+	permute_inputs(steal_tx->input, steal_tx->input_count, map);
+
 	/* Now, we can sign them all (they're all of same form). */
 	for (n = 0; n < num_to_steal; n++) {
 		struct bitcoin_signature sig;
 
 		sig.stype = SIGHASH_ALL;
-		peer_sign_steal_input(peer, steal_tx, n, wscripts[n], &sig.sig);
+		peer_sign_steal_input(peer, steal_tx, map[n], wscripts[n], &sig.sig);
 
-		steal_tx->input[n].witness
+		steal_tx->input[map[n]].witness
 			= bitcoin_witness_secret(steal_tx,
 						 ci->revocation_preimage,
 						 sizeof(*ci->revocation_preimage),
