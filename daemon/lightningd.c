@@ -5,6 +5,7 @@
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
+#include "opt_time.h"
 #include "peer.h"
 #include "secrets.h"
 #include "timeout.h"
@@ -14,6 +15,7 @@
 #include <ccan/opt/opt.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -98,9 +100,9 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--max-expiry", opt_set_u32, opt_show_u32,
 			 &dstate->config.max_expiry,
 			 "Maximum number of seconds to accept an HTLC before expiry");
-	opt_register_arg("--bitcoind-poll", opt_set_u32, opt_show_u32,
-			 &dstate->config.poll_seconds,
-			 "Seconds between polling for new transactions");
+	opt_register_arg("--bitcoind-poll", opt_set_time, opt_show_time,
+			 &dstate->config.poll_time,
+			 "Time between polling for new transactions");
 }
 
 #define MINUTES 60
@@ -151,7 +153,7 @@ static void default_config(struct config *config)
 	/* Don't lock up channel for more than 5 days. */
 	config->max_expiry = 5 * DAYS;
 
-	config->poll_seconds = 30;
+	config->poll_time = time_from_sec(30);
 }
 
 static void check_config(struct lightningd_state *dstate)

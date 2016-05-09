@@ -211,7 +211,7 @@ mkdir $DIR1 $DIR2
 
 cat > $DIR1/config <<EOF
 log-level=debug
-bitcoind-poll=1
+bitcoind-poll=1s
 min-expiry=900
 bitcoin-datadir=$DATADIR
 locktime=600
@@ -219,7 +219,7 @@ EOF
 
 cat > $DIR2/config <<EOF
 log-level=debug
-bitcoind-poll=1
+bitcoind-poll=1s
 min-expiry=900
 bitcoin-datadir=$DATADIR
 locktime=600

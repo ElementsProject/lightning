@@ -67,7 +67,7 @@ static void start_poll_chaintips(struct lightningd_state *dstate);
 
 static void next_topology_timer(struct lightningd_state *dstate)
 {
-	new_reltimer(dstate, dstate, time_from_sec(dstate->config.poll_seconds),
+	new_reltimer(dstate, dstate, dstate->config.poll_time,
 		     start_poll_chaintips, dstate);
 }
 

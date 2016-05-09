@@ -41,8 +41,8 @@ struct config {
 	/* Minimum/maximum time for an expiring HTLC (seconds). */
 	u32 min_expiry, max_expiry;
 	
-	/* How long (seconds) between polling bitcoind. */
-	u32 poll_seconds;
+	/* How long between polling bitcoind. */
+	struct timerel poll_time;
 };
 
 /* Here's where the global variables hide! */
