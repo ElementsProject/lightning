@@ -55,6 +55,9 @@ while [ $# != 0 ]; do
 	x"--steal")
 	    STEAL=1
 	    ;;
+	x"--manual-commit")
+	    MANUALCOMMIT=1
+	    ;;
 	x"--normal")
 	    ;;
 	x"--verbose")
@@ -93,17 +96,17 @@ lcli2()
     $LCLI2 "$@"
 }
 
-# Usage: <node responsible> <cmd to test>...
+# Usage: <cmd to test>...
 check()
 {
     local i=0
-    local node="$1"
-    shift
     while ! eval "$@"; do
-	# Try making time pass for the node (if on mocktime), then sleeping.
+	# Try making time pass for the nodes (if on mocktime), then sleeping.
 	if [ -n "$MOCKTIME" ]; then 
 	    MOCKTIME=$(($MOCKTIME + 1))
-	    $node dev-mocktime $MOCKTIME
+	    # Some tests kill nodes, so ignore failure here.
+	    lcli1 dev-mocktime $MOCKTIME > /dev/null 2>&1 || true
+	    lcli2 dev-mocktime $MOCKTIME > /dev/null 2>&1 || true
 	fi
 	sleep 1
 	i=$(($i + 1))
@@ -123,7 +126,7 @@ check_status_single()
     them_fee=$6
     them_htlcs="$7"
 
-    if check $lcli "$lcli getpeers | tr -s '\012\011\" ' ' ' | $FGREP \"our_amount : $us_pay, our_fee : $us_fee, their_amount : $them_pay, their_fee : $them_fee, our_htlcs : [ $us_htlcs], their_htlcs : [ $them_htlcs]\""; then :; else
+    if check "$lcli getpeers | tr -s '\012\011\" ' ' ' | $FGREP \"our_amount : $us_pay, our_fee : $us_fee, their_amount : $them_pay, their_fee : $them_fee, our_htlcs : [ $us_htlcs], their_htlcs : [ $them_htlcs]\""; then :; else
 	echo Cannot find $lcli output: '"our_amount" : '$us_pay', "our_fee" : '$us_fee', "their_amount" : '$them_pay', "their_fee" : '$them_fee', "our_htlcs" : [ '"$us_htlcs"'], "their_htlcs" : [ '"$them_htlcs"']' >&2
 	$lcli getpeers | tr -s '\012\011 ' ' ' >&2
 	return 1
@@ -148,7 +151,7 @@ check_staged()
     lcli="$1"
     num_htlcs="$2"
 
-    if check $lcli "$lcli getpeers | tr -s '\012\011\" ' ' ' | $FGREP 'staged_changes : '$num_htlcs"; then :; else
+    if check "$lcli getpeers | tr -s '\012\011\" ' ' ' | $FGREP 'staged_changes : '$num_htlcs"; then :; else
 	echo Cannot find $lcli output: '"staged_changes" : '$num_htlcs >&2
 	$lcli getpeers | tr -s '\012\011 ' ' ' >&2
 	return 1
@@ -157,7 +160,7 @@ check_staged()
 
 check_tx_spend()
 {
-    if check "$1" "$CLI getrawmempool | $FGREP '\"'"; then :;
+    if check "$CLI getrawmempool | $FGREP '\"'"; then :;
     else
 	echo "No tx in mempool:" >&2
 	$CLI getrawmempool >&2
@@ -167,7 +170,7 @@ check_tx_spend()
 
 check_peerstate()
 {
-    if check "$1" "$1 getpeers | $FGREP -w $2"; then :
+    if check "$1 getpeers | $FGREP -w $2"; then :
     else
 	echo "$1" not in state "$2": >&2
 	$1 getpeers >&2
@@ -177,7 +180,7 @@ check_peerstate()
 
 check_peerconnected()
 {
-    if check "$1" "$1 getpeers | tr -s '\012\011\" ' ' ' | $FGREP -w 'connected : '$2"; then :
+    if check "$1 getpeers | tr -s '\012\011\" ' ' ' | $FGREP -w 'connected : '$2"; then :
     else
 	echo "$1" not connected "$2": >&2
 	$1 getpeers >&2
@@ -187,7 +190,7 @@ check_peerconnected()
 
 check_no_peers()
 {
-    if check "$1" "$1 getpeers | tr -s '\012\011\" ' ' ' | $FGREP 'peers : [ ]'"; then :
+    if check "$1 getpeers | tr -s '\012\011\" ' ' ' | $FGREP 'peers : [ ]'"; then :
     else
 	echo "$1" still has peers: >&2
 	$1 getpeers >&2
@@ -209,12 +212,20 @@ all_ok()
 trap "echo Results in $DIR1 and $DIR2 >&2; cat $DIR1/errors $DIR2/errors >&2" EXIT
 mkdir $DIR1 $DIR2
 
+if [ -n "$MANUALCOMMIT" ]; then
+    # Aka. never. 
+    COMMIT_TIME=1h
+else
+    COMMIT_TIME=10ms
+fi
+
 cat > $DIR1/config <<EOF
 log-level=debug
 bitcoind-poll=1s
 min-expiry=900
 bitcoin-datadir=$DATADIR
 locktime=600
+commit-time=$COMMIT_TIME
 EOF
 
 cat > $DIR2/config <<EOF
@@ -223,6 +234,7 @@ bitcoind-poll=1s
 min-expiry=900
 bitcoin-datadir=$DATADIR
 locktime=600
+commit-time=$COMMIT_TIME
 EOF
 
 if [ -n "$GDB1" ]; then
@@ -239,12 +251,12 @@ else
     $PREFIX ../lightningd --lightning-dir=$DIR2 > $REDIR2 2> $REDIRERR2 &
 fi
 
-if ! check "$LCLI1" "$LCLI1 getlog 2>/dev/null | $FGREP Hello"; then
+if ! check "$LCLI1 getlog 2>/dev/null | $FGREP Hello"; then
     echo Failed to start daemon 1 >&2
     exit 1
 fi
 
-if ! check "$LCLI2" "$LCLI2 getlog 2>/dev/null | $FGREP Hello"; then
+if ! check "$LCLI2 getlog 2>/dev/null | $FGREP Hello"; then
     echo Failed to start daemon 2 >&2
     exit 1
 fi
@@ -336,27 +348,34 @@ SECRET=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd
 RHASH=`lcli1 dev-rhash $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
 
-# Nothing should have changed!
-check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
-# But 2 should register a staged htlc.
-check_staged lcli2 1
+if [ -n "$MANUALCOMMIT" ]; then
+    # Nothing should have changed!
+    check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
+    # But 2 should register a staged htlc.
+    check_staged lcli2 1
 
-# Now commit it.
-lcli1 commit $ID2
+    # Now commit it.
+    lcli1 commit $ID2
 
-# Node 1 hasn't got it committed, but node2 should have told it to stage.
-check_status_single lcli1 $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
-check_staged lcli1 1
+    # Node 1 hasn't got it committed, but node2 should have told it to stage.
+    check_status_single lcli1 $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
+    check_staged lcli1 1
 
-# Check channel status
-A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - $HTLC_AMOUNT))
-A_FEE=$(($A_FEE + $EXTRA_FEE))
+    # Check channel status
+    A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - $HTLC_AMOUNT))
+    A_FEE=$(($A_FEE + $EXTRA_FEE))
 
-# Node 2 has it committed.
-check_status_single lcli2 $B_AMOUNT $B_FEE "" $A_AMOUNT $A_FEE '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } '
+    # Node 2 has it committed.
+    check_status_single lcli2 $B_AMOUNT $B_FEE "" $A_AMOUNT $A_FEE '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } '
 
-# Now node2 gives commitment to node1.
-lcli2 commit $ID1
+    # Now node2 gives commitment to node1.
+    lcli2 commit $ID1
+else
+    A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - $HTLC_AMOUNT))
+    A_FEE=$(($A_FEE + $EXTRA_FEE))
+fi
+
+# Both should have committed tx.
 check_status $A_AMOUNT $A_FEE '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
 
 if [ -n "$STEAL" ]; then
@@ -407,8 +426,8 @@ if [ -n "$DUMP_ONCHAIN" ]; then
 fi
     
 lcli2 fulfillhtlc $ID1 $SECRET
-lcli2 commit $ID1
-lcli1 commit $ID2
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 
 # We've transferred the HTLC amount to 2, who now has to pay fees,
 # so no net change for A who saves on fees.
@@ -423,8 +442,8 @@ check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 HTLC_AMOUNT=100000000
 
 lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
-lcli1 commit $ID2
-lcli2 commit $ID1
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 
 # Check channel status
 A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - $HTLC_AMOUNT))
@@ -432,8 +451,8 @@ A_FEE=$(($A_FEE + $EXTRA_FEE))
 check_status $A_AMOUNT $A_FEE '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
 
 lcli2 failhtlc $ID1 $RHASH
-lcli2 commit $ID1
-lcli1 commit $ID2
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 
 # Back to how we were before.
 A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + $HTLC_AMOUNT))
@@ -443,8 +462,8 @@ check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 # Same again, but this time it expires.
 HTLC_AMOUNT=10000001
 lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
-lcli1 commit $ID2
-lcli2 commit $ID1
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 
 # Check channel status
 A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - $HTLC_AMOUNT))
@@ -458,8 +477,8 @@ lcli1 dev-mocktime $MOCKTIME
 # This should make node2 send it.
 MOCKTIME=$(($MOCKTIME + 31))
 lcli2 dev-mocktime $MOCKTIME
-lcli2 commit $ID1
-lcli1 commit $ID2
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 
 # Back to how we were before.
 A_AMOUNT=$(($A_AMOUNT + $EXTRA_FEE + $HTLC_AMOUNT))

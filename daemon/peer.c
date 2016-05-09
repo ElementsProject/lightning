@@ -414,6 +414,45 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 	}
 }
 
+static void do_commit(struct peer *peer, struct command *jsoncmd)
+{
+	/* We can have changes we suggested, or changes they suggested. */
+	if (peer->them.staging_cstate
+	    && peer->them.commit
+	    && peer->them.commit->cstate
+	    && peer->them.staging_cstate->changes
+	    != peer->them.commit->cstate->changes) {
+		log_debug(peer->log, "do_commit: sending commit command");
+		set_current_command(peer, CMD_SEND_COMMIT, NULL, jsoncmd);
+		return;
+	}
+	log_debug(peer->log, "do_commit: no changes to commit");
+
+	if (jsoncmd) {
+		command_fail(jsoncmd, "no changes to commit");
+		return;
+	}
+}
+
+static void try_commit(struct peer *peer)
+{
+	peer->commit_timer = NULL;
+	queue_cmd(peer, do_commit, (struct command *)NULL);
+}
+
+void their_commit_changed(struct peer *peer)
+{
+	log_debug(peer->log, "their_commit_changed: changes=%u",
+		  peer->them.staging_cstate->changes);
+	if (!peer->commit_timer) {
+		log_debug(peer->log, "their_commit_changed: adding timer");
+		peer->commit_timer = new_reltimer(peer->dstate, peer,
+						  peer->dstate->config.commit_time,
+						  try_commit, peer);
+	} else
+		log_debug(peer->log, "their_commit_changed: timer already exists");
+}
+
 static struct peer *new_peer(struct lightningd_state *dstate,
 			     struct io_conn *conn,
 			     int addr_type, int addr_protocol,
@@ -452,6 +491,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->closing_onchain.tx = NULL;
 	peer->closing_onchain.resolved = NULL;
 	peer->closing_onchain.ci = NULL;
+	peer->commit_timer = NULL;
 	/* Make it different from other node (to catch bugs!), but a
 	 * round number for simple eyeballing. */
 	peer->htlc_id_counter = pseudorand(1ULL << 32) * 1000;
@@ -488,6 +528,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->log = new_log(peer, dstate->log_record, "%s%s:%s:",
 			    log_prefix(dstate->base_log), in_or_out,
 			    netaddr_name(peer, &peer->addr));
+
 	return peer;
 }
 
@@ -2369,17 +2410,6 @@ const struct json_command failhtlc_command = {
 	"Fail htlc proposed by {peerid} which has redeem hash {rhash}",
 	"Returns an empty result on success"
 };
-
-static void do_commit(struct peer *peer, struct command *jsoncmd)
-{
-	/* We can have changes we suggested, or changes they suggested. */
-	if (peer->them.staging_cstate->changes == peer->them.commit->cstate->changes) {
-		command_fail(jsoncmd, "no changes to commit");
-		return;
-	}
-
-	set_current_command(peer, CMD_SEND_COMMIT, NULL, jsoncmd);
-}
 
 static void json_commit(struct command *cmd,
 			const char *buffer, const jsmntok_t *params)

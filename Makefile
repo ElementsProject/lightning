@@ -192,7 +192,8 @@ daemon-test-%:
 daemon-test-steal: daemon-test-dump-onchain
 daemon-test-dump-onchain: daemon-test-timeout-anchor
 daemon-test-timeout-anchor: daemon-test-normal
-daemon-test-normal: daemon-all
+daemon-test-normal: daemon-test-manual-commit
+daemon-test-manual-commit: daemon-all
 
 daemon-tests: daemon-test-steal
 

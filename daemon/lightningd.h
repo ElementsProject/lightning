@@ -43,6 +43,9 @@ struct config {
 	
 	/* How long between polling bitcoind. */
 	struct timerel poll_time;
+
+	/* How long between changing commit and sending COMMIT message.. */
+	struct timerel commit_time;
 };
 
 /* Here's where the global variables hide! */

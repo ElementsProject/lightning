@@ -212,6 +212,9 @@ struct peer {
 	
 	/* Timeout for close_watch. */
 	struct oneshot *close_watch_timeout;
+
+	/* Timeout for collecting changes before sending commit. */
+	struct oneshot *commit_timer;
 	
 	/* Private keys for dealing with this peer. */
 	struct peer_secrets *secrets;
@@ -240,6 +243,9 @@ struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee);
 
 uint64_t commit_tx_fee(const struct bitcoin_tx *commit,
 		       uint64_t anchor_satoshis);
+
+/* We have something pending for them. */
+void their_commit_changed(struct peer *peer);
 
 bool resolve_one_htlc(struct peer *peer, u64 id, const struct sha256 *preimage);
 #endif /* LIGHTNING_DAEMON_PEER_H */

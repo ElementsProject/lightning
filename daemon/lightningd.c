@@ -103,6 +103,9 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--bitcoind-poll", opt_set_time, opt_show_time,
 			 &dstate->config.poll_time,
 			 "Time between polling for new transactions");
+	opt_register_arg("--commit-time", opt_set_time, opt_show_time,
+			 &dstate->config.commit_time,
+			 "Time after changes before sending out COMMIT");
 }
 
 #define MINUTES 60
@@ -154,6 +157,9 @@ static void default_config(struct config *config)
 	config->max_expiry = 5 * DAYS;
 
 	config->poll_time = time_from_sec(30);
+
+	/* Send commit 10msec after receiving; almost immediately. */
+	config->commit_time = time_from_msec(10);
 }
 
 static void check_config(struct lightningd_state *dstate)

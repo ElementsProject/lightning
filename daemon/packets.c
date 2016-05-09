@@ -217,7 +217,8 @@ void queue_pkt_htlc_add(struct peer *peer,
 		fatal("Could not add HTLC?");
 
 	peer_add_htlc_expiry(peer, &htlc_prog->stage.add.htlc.expiry);
-	
+
+	their_commit_changed(peer);
 	queue_pkt_with_ack(peer, PKT__PKT_UPDATE_ADD_HTLC, u,
 			   add_our_htlc_ourside,
 			   tal_dup(peer, struct channel_htlc,
@@ -248,6 +249,7 @@ void queue_pkt_htlc_fulfill(struct peer *peer,
 	/* We're about to send this, so their side will have it from now on. */
 	n = funding_htlc_by_id(&peer->them.staging_cstate->a, f->id);
 	funding_a_fulfill_htlc(peer->them.staging_cstate, n);
+	their_commit_changed(peer);
 
 	queue_pkt_with_ack(peer, PKT__PKT_UPDATE_FULFILL_HTLC, f,
 			   fulfill_their_htlc_ourside, int2ptr(f->id));
@@ -280,6 +282,7 @@ void queue_pkt_htlc_fail(struct peer *peer,
 	n = funding_htlc_by_id(&peer->them.staging_cstate->a, f->id);
 	funding_a_fail_htlc(peer->them.staging_cstate, n);
 
+	their_commit_changed(peer);
 	queue_pkt_with_ack(peer, PKT__PKT_UPDATE_FAIL_HTLC, f,
 			   fail_their_htlc_ourside, int2ptr(f->id));
 }
@@ -605,6 +608,7 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 			       u->amount_msat);
 
 	peer_add_htlc_expiry(peer, &expiry);
+	their_commit_changed(peer);
 
 	/* FIXME: Fees must be sufficient. */
 	return NULL;
@@ -651,6 +655,7 @@ Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 
 	funding_a_fail_htlc(peer->us.staging_cstate, n_us);
 	funding_b_fail_htlc(peer->them.staging_cstate, n_them);
+	their_commit_changed(peer);
 	return NULL;
 }
 
@@ -677,6 +682,7 @@ Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 
 	funding_a_fulfill_htlc(peer->us.staging_cstate, n_us);
 	funding_b_fulfill_htlc(peer->them.staging_cstate, n_them);
+	their_commit_changed(peer);
 	return NULL;
 }
 
