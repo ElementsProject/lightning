@@ -1559,9 +1559,10 @@ void peer_watch_anchor(struct peer *peer,
 	 * So, our formula of 12 + N*2 holds for N <= 20 at least.
 	 */
 	if (w->timeout != INPUT_NONE) {
-		w->timer = oneshot_timeout(peer->dstate, w,
-					   7200 + 20*peer->us.mindepth,
-					   anchor_timeout, w);
+		w->timer = new_reltimer(peer->dstate, w,
+					time_from_sec(7200
+						      + 20*peer->us.mindepth),
+					anchor_timeout, w);
 	} else
 		w->timer = NULL;
 }
@@ -2063,13 +2064,13 @@ static void htlc_expiry_timeout(struct peer *peer)
 void peer_add_htlc_expiry(struct peer *peer,
 			  const struct abs_locktime *expiry)
 {
-	time_t when;
+	struct timeabs absexpiry;
 
 	/* Add 30 seconds to be sure peers agree on timeout. */
-	when = abs_locktime_to_seconds(expiry) - controlled_time().ts.tv_sec;
-	when += 30;
+	absexpiry.ts.tv_sec = abs_locktime_to_seconds(expiry) + 30;
+	absexpiry.ts.tv_nsec = 0;
 
-	oneshot_timeout(peer->dstate, peer, when, htlc_expiry_timeout, peer);
+	new_abstimer(peer->dstate, peer, absexpiry, htlc_expiry_timeout, peer);
 }
 
 struct newhtlc {

@@ -307,11 +307,8 @@ int main(int argc, char *argv[])
 		 * NULL if we only broke out due to timer). */
 		tal_free(v);
 
-		if (expired) {
-			struct timeout *to;
-			to = container_of(expired, struct timeout, timer);
-			to->cb(to->arg);
-		}
+		if (expired)
+			timer_expired(dstate, expired);
 	}
 
 	tal_free(dstate);

@@ -12,8 +12,6 @@
 #include <ccan/asort/asort.h>
 #include <ccan/structeq/structeq.h>
 
-static struct timeout topology_timeout;
-
 struct block {
 	int height;
 
@@ -64,6 +62,14 @@ struct topology {
 	struct block *tip;
 	struct block_map block_map;
 };
+
+static void start_poll_chaintips(struct lightningd_state *dstate);
+
+static void next_topology_timer(struct lightningd_state *dstate)
+{
+	new_reltimer(dstate, dstate, time_from_sec(dstate->config.poll_seconds),
+		     start_poll_chaintips, dstate);
+}
 
 static int cmp_times(const u32 *a, const u32 *b, void *unused)
 {
@@ -371,7 +377,7 @@ static void gather_blocks(struct lightningd_state *dstate,
 
 	/* All done. */
 	topology_changed(dstate, prev, b);
-	refresh_timeout(dstate, &topology_timeout);
+	next_topology_timer(dstate);
 }
 
 static void check_chaintips(struct lightningd_state *dstate,
@@ -385,7 +391,8 @@ static void check_chaintips(struct lightningd_state *dstate,
 		bitcoind_getrawblock(dstate, &blockids[0], gather_blocks,
 				     (struct block *)NULL);
 	else
-		refresh_timeout(dstate, &topology_timeout);
+		/* Next! */
+		next_topology_timer(dstate);
 }
 
 static void start_poll_chaintips(struct lightningd_state *dstate)
@@ -393,10 +400,10 @@ static void start_poll_chaintips(struct lightningd_state *dstate)
 	if (!list_empty(&dstate->bitcoin_req)) {
 		log_unusual(dstate->base_log,
 			    "Delaying start poll: commands in progress");
-		refresh_timeout(dstate, &topology_timeout);
+		next_topology_timer(dstate);
 	} else
 		bitcoind_get_chaintips(dstate, check_chaintips, NULL);
-}
+ }
 
 static void init_topo(struct lightningd_state *dstate,
 		      struct bitcoin_block *blk,
@@ -457,7 +464,5 @@ void setup_topology(struct lightningd_state *dstate)
 	dstate->topology->tip = NULL;
 	block_map_init(&dstate->topology->block_map);
 
-	init_timeout(&topology_timeout, dstate->config.poll_seconds,
-		     start_poll_chaintips, dstate);
 	bitcoind_getblockcount(dstate, get_init_blockhash, NULL);
 }

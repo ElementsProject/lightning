@@ -7,31 +7,25 @@
 #include <ccan/timer/timer.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
 
-struct timeout {
-	struct timer timer;
-	struct timerel interval;
-	void (*cb)(void *);
-	void *arg;
-};
-
-struct lightningd_state;
-
-void init_timeout_(struct timeout *t, unsigned int interval,
-		   void (*cb)(void *), void *arg);
- 
-void refresh_timeout(struct lightningd_state *dstate, struct timeout *t);
-
-#define init_timeout(t, interval, func, arg)				\
-	init_timeout_((t), (interval),					\
-		     typesafe_cb(void, void *, (func), (arg)), (arg))
-
 /* tal_free this to disable timer. */
-struct oneshot *oneshot_timeout_(struct lightningd_state *dstate,
-				 const tal_t *ctx, unsigned int seconds,
-				 void (*cb)(void *), void *arg);
+struct oneshot *new_reltimer_(struct lightningd_state *dstate,
+			      const tal_t *ctx,
+			      struct timerel expire,
+			      void (*cb)(void *), void *arg);
 
-#define oneshot_timeout(dstate, ctx, interval, func, arg)		\
-	oneshot_timeout_((dstate), (ctx), (interval),			\
-			 typesafe_cb(void, void *, (func), (arg)), (arg))
+#define new_reltimer(dstate, ctx, relexpire, func, arg)		\
+	new_reltimer_((dstate), (ctx), (relexpire),			\
+		      typesafe_cb(void, void *, (func), (arg)), (arg))
+
+struct oneshot *new_abstimer_(struct lightningd_state *dstate,
+			      const tal_t *ctx,
+			      struct timeabs expire,
+			      void (*cb)(void *), void *arg);
+
+#define new_abstimer(dstate, ctx, absexpire, func, arg)		\
+	new_abstimer_((dstate), (ctx), (absexpire),			\
+		      typesafe_cb(void, void *, (func), (arg)), (arg))
+
+void timer_expired(struct lightningd_state *dstate, struct timer *timer);
 
 #endif /* LIGHTNING_DAEMON_TIMEOUT_H */
