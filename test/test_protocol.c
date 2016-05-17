@@ -29,6 +29,8 @@ struct commit_info {
 	struct funding funding;
 	/* Pending changes (for next commit_info) */
 	int *changes_incoming, *changes_outgoing;
+	/* Cache of funding with changes applied. */
+	struct funding funding_next;
 	/* Have sent/received revocation secret. */
 	bool revoked;
 	/* Have their signature, ie. can be broadcast */
@@ -61,7 +63,27 @@ static bool have_htlc(u32 htlcs, unsigned int htlc)
 	return htlcs & htlc_mask(htlc);
 }
 
-static bool add_change_internal(struct commit_info *ci, int **changes,
+/* Each side can add their own incoming HTLC, or close your outgoing HTLC. */
+static bool do_change(u32 *add, u32 *remove, u32 *fees, int htlc)
+{
+	/* We ignore fee changes from them: they only count when reflected
+	 * back to us via revocation. */
+	if (htlc == 0) {
+		if (fees)
+			(*fees)++;
+	} else if (htlc < 0) {
+		if (!have_htlc(*remove, -htlc))
+			return false;
+		*remove &= ~htlc_mask(-htlc);
+	} else {
+		if (have_htlc(*add, htlc))
+			return false;
+		*add |= htlc_mask(htlc);
+	}
+	return true;
+}
+
+static void add_change_internal(struct commit_info *ci, int **changes,
 				const u32 *add, const u32 *remove,
 				int c)
 {
@@ -73,19 +95,18 @@ static bool add_change_internal(struct commit_info *ci, int **changes,
 
 	/* Can't add/remove it already there/absent. */
 	if (c > 0 && have_htlc(*add, c))
-		return false;
+		errx(1, "Already added htlc %u", c);
 	else if (c < 0 && !have_htlc(*remove, -c))
-		return false;
+		errx(1, "Already removed htlc %u", -c);
 
 	/* Can't request add/remove twice. */
 	for (i = 0; i < n; i++)
 		if ((*changes)[i] == c)
-			return false;
+			errx(1, "Already requestd htlc %+i", c);
 
 add:
 	tal_resize(changes, n+1);
 	(*changes)[n] = c;
-	return true;
 }
 
 /*
@@ -97,11 +118,15 @@ static bool queue_changes_other(struct commit_info *ci, int *changes)
 	size_t i, n = tal_count(changes);
 
 	for (i = 0; i < n; i++) {
-		if (!add_change_internal(ci, &ci->changes_outgoing,
-					 &ci->funding.outhtlcs,
-					 &ci->funding.inhtlcs,
-					 changes[i]))
+		if (!do_change(&ci->funding_next.outhtlcs,
+			       &ci->funding_next.inhtlcs,
+			       &ci->funding_next.fee,
+			       changes[i]))
 			return false;
+		add_change_internal(ci, &ci->changes_outgoing,
+				    &ci->funding.outhtlcs,
+				    &ci->funding.inhtlcs,
+				    changes[i]);
 	}
 	return true;
 }
@@ -111,9 +136,13 @@ static bool queue_changes_other(struct commit_info *ci, int *changes)
  */
 static bool add_incoming_change(struct commit_info *ci, int c)
 {
-	return add_change_internal(ci, &ci->changes_incoming,
-				   &ci->funding.inhtlcs, &ci->funding.outhtlcs,
-				   c);
+	if (!do_change(&ci->funding_next.inhtlcs, &ci->funding_next.outhtlcs,
+		       NULL, c))
+		return false;
+	add_change_internal(ci, &ci->changes_incoming,
+			    &ci->funding.inhtlcs, &ci->funding.outhtlcs,
+			    c);
+	return true;
 }
 
 static struct commit_info *new_commit_info(const tal_t *ctx,
@@ -126,27 +155,9 @@ static struct commit_info *new_commit_info(const tal_t *ctx,
 	if (prev) {
 		ci->number = prev->number + 1;
 		ci->funding = prev->funding;
+		ci->funding_next = prev->funding_next;
 	}
 	return ci;
-}
-
-/* Each side can add their own incoming HTLC, or close your outgoing HTLC. */
-static void do_change(u32 *add, u32 *remove, u32 *fees, int htlc)
-{
-	/* We ignore fee changes from them: they only count when reflected
-	 * back to us via revocation. */
-	if (htlc == 0) {
-		if (fees)
-			(*fees)++;
-	} else if (htlc < 0) {
-		if (!have_htlc(*remove, -htlc))
-			errx(1, "Already removed htlc %u", -htlc);
-		*remove &= ~htlc_mask(-htlc);
-	} else {
-		if (have_htlc(*add, htlc))
-			errx(1, "Already added htlc %u", htlc);
-		*add |= htlc_mask(htlc);
-	}
 }
 
 /* We duplicate the commit info, with the changes applied. */
@@ -171,7 +182,8 @@ static struct commit_info *apply_changes(const tal_t *ctx,
 			  &ci->funding.inhtlcs,
 			  &ci->funding.fee,
 			  old->changes_outgoing[i]);
- 
+
+	assert(structeq(&ci->funding, &ci->funding_next));
 	return ci;
 }
 
