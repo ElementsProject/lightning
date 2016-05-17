@@ -1,21 +1,21 @@
 ***A***
-OUR COMMITS:
+LOCAL COMMITS:
  Commit 1:
   Offered htlcs: 1
   Received htlcs:
   SIGNED
-THEIR COMMITS:
+REMOTE COMMITS:
  Commit 1:
   Offered htlcs:
   Received htlcs: 1
   SIGNED
 ***B***
-OUR COMMITS:
+LOCAL COMMITS:
  Commit 1:
   Offered htlcs:
   Received htlcs: 1
   SIGNED
-THEIR COMMITS:
+REMOTE COMMITS:
  Commit 1:
   Offered htlcs: 1
   Received htlcs:

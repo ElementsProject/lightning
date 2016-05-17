@@ -1,67 +1,67 @@
 ***A after two commits with fee changes***
-OUR COMMITS:
+LOCAL COMMITS:
  Commit 0:
   Offered htlcs:
   Received htlcs:
   SIGNED
-THEIR COMMITS:
+REMOTE COMMITS:
  Commit 0:
   Offered htlcs:
   Received htlcs:
-  Pending incoming: FEE
+  Pending unacked: FEE
   SIGNED
  Commit 1:
   Offered htlcs:
   Received htlcs:
-  Pending incoming: FEE
+  Pending unacked: FEE
   SIGNED
  Commit 2:
   Offered htlcs:
   Received htlcs:
   SIGNED
 ***B after receiving fee change***
-OUR COMMITS:
+LOCAL COMMITS:
  Commit 0:
   Offered htlcs:
   Received htlcs:
-  Pending incoming: FEE
+  Pending unacked: FEE
   SIGNED
-THEIR COMMITS:
+REMOTE COMMITS:
  Commit 0:
   Offered htlcs:
   Received htlcs:
   SIGNED
 ***B after receiving first commit***
-OUR COMMITS:
+LOCAL COMMITS:
  Commit 1:
   Offered htlcs:
   Received htlcs:
   SIGNED
-THEIR COMMITS:
+REMOTE COMMITS:
  Commit 0:
   Offered htlcs:
   Received htlcs:
-  Pending outgoing
+  Pending acked
   SIGNED
 ***B after receiving second commit***
-OUR COMMITS:
+LOCAL COMMITS:
  Commit 2:
   Offered htlcs:
   Received htlcs:
   SIGNED
-THEIR COMMITS:
+REMOTE COMMITS:
  Commit 0:
   Offered htlcs:
   Received htlcs:
-  Pending outgoing
+  Pending acked
   SIGNED
 ***B after committing***
-OUR COMMITS:
+LOCAL COMMITS:
  Commit 2:
   Offered htlcs:
   Received htlcs:
   SIGNED
-THEIR COMMITS:
+REMOTE COMMITS:
  Commit 1:
   Offered htlcs:
   Received htlcs:

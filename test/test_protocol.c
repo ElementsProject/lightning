@@ -40,9 +40,9 @@ struct commit_info {
 	unsigned int number;
 	/* Funding before changes. */
 	const struct funding *funding;
-	/* Pending changes (for next commit_info) */
-	int *changes_incoming;
-	bool changes_outgoing;
+	/* Pending changes (already applied to funding_next) */
+	int *unacked_changeset;
+	bool have_acked_changes;
 	/* Cache of funding with changes applied. */
 	struct funding funding_next;
 	/* Have sent/received revocation secret. */
@@ -69,7 +69,7 @@ struct peer {
 	char *io;
 
 	/* Last one is the one we're changing. */
-	struct commit_info *us, *them;
+	struct commit_info *local, *remote;
 };
 
 static u32 htlc_mask(unsigned int htlc)
@@ -148,26 +148,35 @@ add:
 	(*changes)[n] = c;
 }
 
-/*
- * Once we're sending/receiving revoke, we queue the changes on the
- * alternate side.
+/* BOLT #2:
+ *
+ * The node sending `update_revocation` MUST add the local unacked
+ * changes to the set of remote acked changes.
+ *
+ * The receiver... MUST add the remote unacked changes to the set of
+ * local acked changes.
  */
-static bool apply_changes_other(struct peer *peer,
+static bool add_unacked_changes(struct peer *peer,
 				struct commit_info *ci, int *changes,
 				const char *what)
 {
 	size_t i, n = tal_count(changes);
 
 	if (n)
-		add_text(peer, "Changes to %s:", what);
+		add_text(peer, "%s acked:", what);
 
+	/* BOLT #2:
+	 *
+	 * Note that an implementation MAY optimize this internally,
+	 * for example, pre-applying the changesets in some cases
+	 */
 	for (i = 0; i < n; i++) {
 		if (!do_change(peer, what, &ci->funding_next.outhtlcs,
 			       &ci->funding_next.inhtlcs,
 			       &ci->funding_next.fee,
 			       changes[i]))
 			return false;
-		ci->changes_outgoing = true;
+		ci->have_acked_changes = true;
 	}
 	return true;
 }
@@ -175,17 +184,29 @@ static bool apply_changes_other(struct peer *peer,
 /*
  * Normally, we add incoming changes.
  */
+/* BOLT #2:
+ *
+ * A sending node MUST apply all remote acked and unacked changes
+ * except unacked fee changes to the remote commitment before
+ * generating `sig`. ... A receiving node MUST apply all local acked
+ * and unacked changes except unacked fee changes to the local
+ * commitment
+ */
 static bool add_incoming_change(struct peer *peer,
 				struct commit_info *ci, int c, const char *who)
 {
+	/* BOLT #2:
+	 *
+	 * Note that an implementation MAY optimize this internally,
+	 * for example, pre-applying the changesets in some cases
+	 */
 	if (!do_change(NULL, NULL,
 		       &ci->funding_next.inhtlcs, &ci->funding_next.outhtlcs,
 		       NULL, c))
 		return false;
 
-	add_text(peer, "Queue ");
-	add_change_internal(peer, &ci->changes_incoming, c);
-	add_text(peer, " to %s", who);
+	add_text(peer, "%s unacked: ", who);
+	add_change_internal(peer, &ci->unacked_changeset, c);
 	return true;
 }
 
@@ -194,8 +215,8 @@ static struct commit_info *new_commit_info(const struct peer *peer,
 {
 	struct commit_info *ci = talz(peer, struct commit_info);
 	ci->prev = prev;
-	ci->changes_incoming = tal_arr(ci, int, 0);
-	ci->changes_outgoing = false;
+	ci->unacked_changeset = tal_arr(ci, int, 0);
+	ci->have_acked_changes = false;
 	if (prev) {
 		ci->number = prev->number + 1;
 		ci->funding = &prev->funding_next;
@@ -268,19 +289,19 @@ static void dump_commit_info(const struct commit_info *ci)
 	if (ci->funding->fee)
 		printf("\n  Fee level %u", ci->funding->fee);
 
-	n = tal_count(ci->changes_incoming);
+	n = tal_count(ci->unacked_changeset);
 	if (n > 0) {
-		printf("\n  Pending incoming:");
+		printf("\n  Pending unacked:");
 		for (i = 0; i < n; i++) {
-			if (ci->changes_incoming[i] == 0)
+			if (ci->unacked_changeset[i] == 0)
 				printf(" FEE");
 			else
-				printf(" %+i", ci->changes_incoming[i]);
+				printf(" %+i", ci->unacked_changeset[i]);
 		}
 	}
 
-	if (ci->changes_outgoing) {
-		printf("\n  Pending outgoing");
+	if (ci->have_acked_changes) {
+		printf("\n  Pending acked");
 	}
 
 	if (ci->counterparty_signed)
@@ -301,11 +322,11 @@ static void dump_rev(const struct commit_info *ci, bool all)
 
 static void dump_peer(const struct peer *peer, bool all)
 {
-	printf("OUR COMMITS:\n");
-	dump_rev(peer->us, all);
+	printf("LOCAL COMMITS:\n");
+	dump_rev(peer->local, all);
 
-	printf("THEIR COMMITS:\n");
-	dump_rev(peer->them, all);
+	printf("REMOTE COMMITS:\n");
+	dump_rev(peer->remote, all);
 }
 
 static void read_in(int fd, void *p, size_t len)
@@ -326,39 +347,45 @@ static void read_peer(struct peer *peer, const char *str, const char *cmd)
 	tal_free(p);
 }
 
-/* Offers HTLC:
- * - Record the change to them.
+/* BOLT #2:
+ *
+ * The sending node MUST add the HTLC addition to the unacked
+ * changeset for its remote commitment
  */
 static void send_offer(struct peer *peer, unsigned int htlc)
 {
 	tal_append_fmt(&peer->io, "add_htlc %u", htlc);
 	/* Can't have sent already. */
-	if (!add_incoming_change(peer, peer->them, htlc, "them"))
+	if (!add_incoming_change(peer, peer->remote, htlc, "remote"))
 		errx(1, "offer: already offered %u", htlc);
 	write_out(peer->outfd, "+", 1);
 	write_out(peer->outfd, &htlc, sizeof(htlc));
 }
 
-/* Removes HTLC:
- * - Record the change to them.
+/* BOLT #2:
+ *
+ * The sending node MUST add the HTLC fulfill/fail to the unacked
+ * changeset for its remote commitment
  */
 static void send_remove(struct peer *peer, unsigned int htlc)
 {
 	tal_append_fmt(&peer->io, "fulfill_htlc %u", htlc);
 	/* Can't have removed already. */
-	if (!add_incoming_change(peer, peer->them, -htlc, "them"))
+	if (!add_incoming_change(peer, peer->remote, -htlc, "remote"))
 		errx(1, "remove: already removed of %u", htlc);
 	write_out(peer->outfd, "-", 1);
 	write_out(peer->outfd, &htlc, sizeof(htlc));
 }
 
-/* Fee change:
- * - Record the change to them (but don't ever apply it!).
+/* BOLT #2:
+ *
+ * The sending node MUST add the fee change to the unacked changeset
+ * for its remote commitment
  */
 static void send_feechange(struct peer *peer)
 {
 	tal_append_fmt(&peer->io, "update_fee");
-	if (!add_incoming_change(peer, peer->them, 0, "them"))
+	if (!add_incoming_change(peer, peer->remote, 0, "remote"))
 		errx(1, "INTERNAL: failed to change fee");
 	write_out(peer->outfd, "F", 1);
 }
@@ -384,25 +411,39 @@ static struct commit_info *last_unrevoked(struct commit_info *ci)
 }
 
 /* Commit:
- * - Apply changes to them.
+ * - Apply changes to remote.
  */
 static void send_commit(struct peer *peer)
 {
 	struct signature sig;
 
-	/* Must have changes. */
-	if (tal_count(peer->them->changes_incoming) == 0
-	    && !peer->them->changes_outgoing)
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT send an `update_commit` message which does
+	 * not include any updates. */
+	if (tal_count(peer->remote->unacked_changeset) == 0
+	    && !peer->remote->have_acked_changes)
 		errx(1, "commit: no changes to commit");
 
+	/* BOLT #2:
+	 *
+	 * An implementation MAY choose not to send an `update_commit`
+	 * until it receives the `update_revocation` response to the
+	 * previous `update_commit`, so there is only ever one
+	 * unrevoked local commitment. */
 	if (peer->commitwait
-	    && peer->them->prev && !peer->them->prev->revoked)
+	    && peer->remote->prev && !peer->remote->prev->revoked)
 		errx(1, "commit: must wait for previous commit");
 
 	tal_append_fmt(&peer->io, "update_commit");
-	peer->them = apply_changes(peer, peer->them, "THEM");
-	sig = commit_sig(peer->them);
-	peer->them->counterparty_signed = true;
+	/* BOLT #2:
+	 *
+	 * A sending node MUST apply all remote acked and unacked
+	 * changes except unacked fee changes to the remote commitment
+	 * before generating `sig`. */
+	peer->remote = apply_changes(peer, peer->remote, "REMOTE");
+	sig = commit_sig(peer->remote);
+	peer->remote->counterparty_signed = true;
 
 	/* Tell other side about commit and result (it should agree!) */
 	write_out(peer->outfd, "C", 1);
@@ -414,7 +455,7 @@ static void send_commit(struct peer *peer)
  */
 static void receive_revoke(struct peer *peer, u32 number)
 {
-	struct commit_info *ci = last_unrevoked(peer->them);
+	struct commit_info *ci = last_unrevoked(peer->remote);
 
 	if (!ci)
 		errx(1, "receive_revoke: no commit to revoke");
@@ -423,7 +464,7 @@ static void receive_revoke(struct peer *peer, u32 number)
 		     number, ci->number);
 
 	/* This shouldn't happen if we don't allow multiple commits. */
-	if (peer->commitwait && ci != peer->them->prev)
+	if (peer->commitwait && ci != peer->remote->prev)
 		errx(1, "receive_revoke: always revoke previous?");
 
 	tal_append_fmt(&peer->io, "<");
@@ -431,42 +472,52 @@ static void receive_revoke(struct peer *peer, u32 number)
 	if (!ci->counterparty_signed)
 		errx(1, "receive_revoke: revoked unsigned commit?");
 
-	/* The changes we sent with that commit, add them to us. */
-	if (!apply_changes_other(peer, peer->us, ci->changes_incoming, "us"))
-		errx(1, "receive_revoke: could not add their changes to us");
+	/* BOLT #2:
+	 *
+	 * The receiver of `update_revocation`... MUST add the remote
+	 * unacked changes to the set of local acked changes. */
+	if (!add_unacked_changes(peer, peer->local, ci->unacked_changeset,
+				 "local"))
+		errx(1, "receive_revoke: could not add their changes to local");
 
 	/* Cleans up dump output now we've consumed them. */
-	tal_free(ci->changes_incoming);
-	ci->changes_incoming = tal_arr(ci, int, 0);
+	tal_free(ci->unacked_changeset);
+	ci->unacked_changeset = tal_arr(ci, int, 0);
 }
 
-/* Receives HTLC offer:
- * - Record the change to us.
+/* BOLT #2:
+ *
+ * the receiving node MUST add the HTLC addition to the unacked
+ * changeset for its local commitment.
  */
 static void receive_offer(struct peer *peer, unsigned int htlc)
 {
 	tal_append_fmt(&peer->io, "<");
-	if (!add_incoming_change(peer, peer->us, htlc, "us"))
+	if (!add_incoming_change(peer, peer->local, htlc, "local"))
 		errx(1, "receive_offer: already offered of %u", htlc);
 }
 
-/* Receive HTLC remove:
- * - Record the change to us.
+/* BOLT #2:
+ *
+ * the receiving node MUST add the HTLC fulfill/fail to the unacked
+ * changeset for its local commitment.
  */
 static void receive_remove(struct peer *peer, unsigned int htlc)
 {
 	tal_append_fmt(&peer->io, "<");
-	if (!add_incoming_change(peer, peer->us, -htlc, "us"))
+	if (!add_incoming_change(peer, peer->local, -htlc, "local"))
 		errx(1, "receive_remove: already removed %u", htlc);
 }
 
-/* Receives fee change:
- * - Record the change to us (but never apply it).
+/* BOLT #2:
+ *
+ * the receiving node MUST add the fee change to the unacked changeset
+ * for its local commitment.
  */
 static void receive_feechange(struct peer *peer)
 {
 	tal_append_fmt(&peer->io, "<");
-	if (!add_incoming_change(peer, peer->us, 0, "us"))
+	if (!add_incoming_change(peer, peer->local, 0, "local"))
 		errx(1, "INTERNAL: failed to change fee");
 }
 
@@ -483,14 +534,17 @@ static void send_revoke(struct peer *peer, struct commit_info *ci)
 	assert(!ci->revoked);
 	ci->revoked = true;
 
-	/* Queue changes. */
-	if (!apply_changes_other(peer, peer->them, ci->changes_incoming,
-				 "them"))
-		errx(1, "Failed queueing changes to them for send_revoke");
+	/* BOLT #2:
+	 *
+	 * The node sending `update_revocation` MUST add the local
+	 * unacked changes to the set of remote acked changes. */
+	if (!add_unacked_changes(peer, peer->remote, ci->unacked_changeset,
+				 "remote"))
+		errx(1, "Failed queueing changes to remote for send_revoke");
 
 	/* Clean up for dump output. */
-	tal_free(ci->changes_incoming);
-	ci->changes_incoming = tal_arr(ci, int, 0);
+	tal_free(ci->unacked_changeset);
+	ci->unacked_changeset = tal_arr(ci, int, 0);
 	
 	write_out(peer->outfd, "R", 1);
 	write_out(peer->outfd, &ci->number, sizeof(ci->number));
@@ -503,24 +557,34 @@ static void receive_commit(struct peer *peer, const struct signature *sig)
 {
 	struct signature oursig;
 
-	/* Must have changes. */
-	if (tal_count(peer->us->changes_incoming) == 0
-	    && !peer->us->changes_outgoing)
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT send an `update_commit` message which does
+	 * not include any updates.
+	 */
+	if (tal_count(peer->local->unacked_changeset) == 0
+	    && !peer->local->have_acked_changes)
 		errx(1, "receive_commit: no changes to commit");
 
 	tal_append_fmt(&peer->io, "<");
 
-	peer->us = apply_changes(peer, peer->us, "US");
-	oursig = commit_sig(peer->us);
+	/* BOLT #2:
+	 *
+	 * A receiving node MUST apply all local acked and unacked
+	 * changes except unacked fee changes to the local commitment,
+	 * then it MUST check `sig` is valid for that transaction.
+	 */
+	peer->local = apply_changes(peer, peer->local, "LOCAL");
+	oursig = commit_sig(peer->local);
 	if (!structeq(sig, &oursig))
 		errx(1, "Commit state %#x/%#x/%u, they gave %#x/%#x/%u",
 		     sig->f.inhtlcs, sig->f.outhtlcs, sig->f.fee,
 		     oursig.f.inhtlcs, oursig.f.outhtlcs, oursig.f.fee);
-	peer->us->counterparty_signed = true;
+	peer->local->counterparty_signed = true;
 
 	/* This is the one case where we send without a command. */
 	tal_append_fmt(&peer->text, "\n");
-	send_revoke(peer, peer->us->prev);
+	send_revoke(peer, peer->local->prev);
 }
 
 static void do_cmd(struct peer *peer)
@@ -575,10 +639,10 @@ static void do_cmd(struct peer *peer)
 	} else if (streq(cmd, "nocommitwait")) {
 		peer->commitwait = false;
 	} else if (streq(cmd, "checksync")) {
-		write_all(peer->cmddonefd, peer->us->funding,
-			  sizeof(*peer->us->funding));
-		write_all(peer->cmddonefd, peer->them->funding,
-			  sizeof(*peer->them->funding));
+		write_all(peer->cmddonefd, peer->local->funding,
+			  sizeof(*peer->local->funding));
+		write_all(peer->cmddonefd, peer->remote->funding,
+			  sizeof(*peer->remote->funding));
 		return;
 	} else if (streq(cmd, "dump")) {
 		dump_peer(peer, false);
@@ -595,7 +659,7 @@ static void do_cmd(struct peer *peer)
 	tal_free(peer->io);
 
 	/* We must always have (at least one) signed, unrevoked commit. */
-	for (ci = peer->us; ci; ci = ci->prev) {
+	for (ci = peer->local; ci; ci = ci->prev) {
 		if (ci->counterparty_signed && !ci->revoked) {
 			return;
 		}
@@ -627,11 +691,11 @@ static void new_peer(int infdpair[2], int outfdpair[2], int cmdfdpair[2],
 	peer->commitwait = true;
 	
 	/* Create first, signed commit info. */
-	peer->us = new_commit_info(peer, NULL);
-	peer->us->counterparty_signed = true;
+	peer->local = new_commit_info(peer, NULL);
+	peer->local->counterparty_signed = true;
 	
-	peer->them = new_commit_info(peer, NULL);
-	peer->them->counterparty_signed = true;
+	peer->remote = new_commit_info(peer, NULL);
+	peer->remote->counterparty_signed = true;
 
 	peer->infd = infdpair[0];
 	peer->outfd = outfdpair[1];
@@ -662,7 +726,7 @@ static void draw_line(char **str,
 	if (n == 0)
 		errx(1, "Receive without send?");
 
-	tal_append_fmt(str, "<line x1=\"%i\" y1=\"%i\" x2=\"%i\" y2=\"%i\" marker-end=\"url(#tri)\" stroke=\"black\" stroke-width=\"0.2\"/>\n",
+	tal_append_fmt(str, "<line x1=\"%i\" y1=\"%i\" x2=\"%i\" y2=\"%i\" marker-end=\"url(#tri)\" stroke=\"black\" stroke-width=\"0.5\"/>\n",
 		       old_x, (*sent)[0].y - LINE_HEIGHT/2,
 		       new_x, new_y - LINE_HEIGHT/2);
 	tal_append_fmt(str, "<text text-anchor=\"middle\" "TEXT_STYLE" x=\"%i\" y=\"%i\">%s</text>\n",

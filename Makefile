@@ -242,7 +242,7 @@ check-makefile: check-daemon-makefile
 
 # Any mention of BOLT# must be followed by an exact quote, modulo whitepace.
 check-source-bolt: check-bolt
-	@if [ ! -d $(BOLTDIR) ]; then echo Not checking BOLT references: BOLTDIR $(BOLTDIR) does not exist >&2; else ./check-bolt $(BOLTDIR) $(CORE_SRC) $(BITCOIN_SRC) $(DAEMON_SRC) $(CORE_HEADERS) $(BITCOIN_HEADERS) $(DAEMON_HEADERS); fi
+	@if [ ! -d $(BOLTDIR) ]; then echo Not checking BOLT references: BOLTDIR $(BOLTDIR) does not exist >&2; else ./check-bolt $(BOLTDIR) $(CORE_SRC) $(BITCOIN_SRC) $(DAEMON_SRC) $(CORE_HEADERS) $(BITCOIN_HEADERS) $(DAEMON_HEADERS) $(TEST_PROGRAMS:=.c); fi
 
 check-bolt: check-bolt.o $(CCAN_OBJS)
 
