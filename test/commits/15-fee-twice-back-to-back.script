@@ -1,4 +1,5 @@
 # Test committing fees before receiving previous revocation.
+A:nocommitwait
 A:feechange
 A:commit
 A:feechange

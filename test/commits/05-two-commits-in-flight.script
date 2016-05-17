@@ -1,4 +1,5 @@
 # Test committing before receiving previous revocation.
+A:nocommitwait
 A:offer 1
 A:commit
 A:offer 3

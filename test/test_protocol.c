@@ -47,6 +47,9 @@ struct peer {
 	int infd, outfd, cmdfd, cmddonefd;
 
 	struct funding initial_funding;
+
+	/* Are we allowed to send another commit before receiving revoke? */
+	bool commitwait;
 	
 	/* Last one is the one we're changing. */
 	struct commit_info *us, *them;
@@ -286,9 +289,9 @@ static void send_feechange(struct peer *peer)
 	write_out(peer->outfd, "F", 1);
 }
 
-/* FIXME:
+/*
  * We don't enforce the rule that commits have to wait for revoke response
- * before the next one.  It might be simpler if we did?
+ * before the next one.
  */
 static struct commit_info *last_unrevoked(struct commit_info *ci)
 {
@@ -318,6 +321,10 @@ static void send_commit(struct peer *peer)
 	    && !peer->them->changes_outgoing)
 		errx(1, "commit: no changes to commit");
 
+	if (peer->commitwait
+	    && peer->them->prev && !peer->them->prev->revoked)
+		errx(1, "commit: must wait for previous commit");
+
 	peer->them = apply_changes(peer, peer->them);
 	sig = commit_sig(peer->them);
 	peer->them->counterparty_signed = true;
@@ -339,6 +346,11 @@ static void receive_revoke(struct peer *peer, u32 number)
 	if (ci->number != number)
 		errx(1, "receive_revoke: revoked %u but %u is next",
 		     number, ci->number);
+
+	/* This shouldn't happen if we don't allow multiple commits. */
+	if (peer->commitwait && ci != peer->them->prev)
+		errx(1, "receive_revoke: always revoke previous?");
+
 	ci->revoked = true;
 	if (!ci->counterparty_signed)
 		errx(1, "receive_revoke: revoked unsigned commit?");
@@ -470,6 +482,8 @@ static void do_cmd(struct peer *peer)
 		read_peer(peer, "C", cmd);
 		read_in(peer->infd, &sig, sizeof(sig));
 		receive_commit(peer, &sig);
+	} else if (streq(cmd, "nocommitwait")) {
+		peer->commitwait = false;
 	} else if (streq(cmd, "checksync")) {
 		write_all(peer->cmddonefd, peer->us->funding,
 			  sizeof(*peer->us->funding));
@@ -514,7 +528,8 @@ static void new_peer(int infdpair[2], int outfdpair[2], int cmdfdpair[2],
 
 	peer = tal(NULL, struct peer);
 	memset(&peer->initial_funding, 0, sizeof(peer->initial_funding));
-
+	peer->commitwait = true;
+	
 	/* Create first, signed commit info. */
 	peer->us = new_commit_info(peer, NULL);
 	peer->us->counterparty_signed = true;
