@@ -1,0 +1,69 @@
+***A after two commits with fee changes***
+OUR COMMITS:
+ Commit 0:
+  Offered htlcs:
+  Received htlcs:
+  SIGNED
+THEIR COMMITS:
+ Commit 0:
+  Offered htlcs:
+  Received htlcs:
+  Pending incoming: FEE
+  SIGNED
+ Commit 1:
+  Offered htlcs:
+  Received htlcs:
+  Pending incoming: FEE
+  SIGNED
+ Commit 2:
+  Offered htlcs:
+  Received htlcs:
+  SIGNED
+***B after receiving fee change***
+OUR COMMITS:
+ Commit 0:
+  Offered htlcs:
+  Received htlcs:
+  Pending incoming: FEE
+  SIGNED
+THEIR COMMITS:
+ Commit 0:
+  Offered htlcs:
+  Received htlcs:
+  SIGNED
+***B after receiving first commit***
+OUR COMMITS:
+ Commit 1:
+  Offered htlcs:
+  Received htlcs:
+  SIGNED
+THEIR COMMITS:
+ Commit 0:
+  Offered htlcs:
+  Received htlcs:
+  Pending outgoing: FEE
+  SIGNED
+***B after receiving second commit***
+OUR COMMITS:
+ Commit 2:
+  Offered htlcs:
+  Received htlcs:
+  SIGNED
+THEIR COMMITS:
+ Commit 0:
+  Offered htlcs:
+  Received htlcs:
+  Pending outgoing: FEE FEE
+  SIGNED
+***B after committing***
+OUR COMMITS:
+ Commit 2:
+  Offered htlcs:
+  Received htlcs:
+  SIGNED
+THEIR COMMITS:
+ Commit 1:
+  Offered htlcs:
+  Received htlcs:
+  Fee level 2
+  SIGNED

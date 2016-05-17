@@ -1,0 +1,25 @@
+# Test committing fees before receiving previous revocation.
+A:feechange
+A:commit
+A:feechange
+A:commit
+echo ***A after two commits with fee changes***
+A:dump
+B:recvfeechange
+echo ***B after receiving fee change***
+B:dump
+B:recvcommit
+echo ***B after receiving first commit***
+B:dump
+B:recvfeechange
+B:recvcommit
+echo ***B after receiving second commit***
+B:dump
+A:recvrevoke
+A:recvrevoke
+B:commit
+A:recvcommit
+B:recvrevoke
+echo ***B after committing***
+B:dump
+checksync

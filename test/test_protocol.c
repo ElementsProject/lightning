@@ -16,6 +16,8 @@
 struct funding {
 	/* inhtlcs = htlcs they offered, outhtlcs = htlcs we offered */
 	u32 inhtlcs, outhtlcs;
+	/* This is a simple counter, reflecting fee updates. */
+	u32 fee;
 };
 
 /* We keep one for them, one for us. */
@@ -64,9 +66,10 @@ static bool add_change_internal(struct commit_info *ci, int **changes,
 				int c)
 {
 	size_t i, n = tal_count(*changes);
-	
-	if (!c)
-		errx(1, "INTERNAL: Adding zero change?");
+
+	/* You can have as many fee changes as you like */
+	if (c == 0)
+		goto add;
 
 	/* Can't add/remove it already there/absent. */
 	if (c > 0 && have_htlc(*add, c))
@@ -79,6 +82,7 @@ static bool add_change_internal(struct commit_info *ci, int **changes,
 		if ((*changes)[i] == c)
 			return false;
 
+add:
 	tal_resize(changes, n+1);
 	(*changes)[n] = c;
 	return true;
@@ -127,15 +131,18 @@ static struct commit_info *new_commit_info(const tal_t *ctx,
 }
 
 /* Each side can add their own incoming HTLC, or close your outgoing HTLC. */
-static void do_change(u32 *add, u32 *remove, int htlc)
+static void do_change(u32 *add, u32 *remove, u32 *fees, int htlc)
 {
-	if (htlc < 0) {
+	/* We ignore fee changes from them: they only count when reflected
+	 * back to us via revocation. */
+	if (htlc == 0) {
+		if (fees)
+			(*fees)++;
+	} else if (htlc < 0) {
 		if (!have_htlc(*remove, -htlc))
 			errx(1, "Already removed htlc %u", -htlc);
 		*remove &= ~htlc_mask(-htlc);
 	} else {
-		if (htlc == 0)
-			errx(1, "zero change?");
 		if (have_htlc(*add, htlc))
 			errx(1, "Already added htlc %u", htlc);
 		*add |= htlc_mask(htlc);
@@ -154,6 +161,7 @@ static struct commit_info *apply_changes(const tal_t *ctx,
 	for (i = 0; i < n; i++)
 		do_change(&ci->funding.inhtlcs,
 			  &ci->funding.outhtlcs,
+			  NULL,
 			  old->changes_incoming[i]);
 
 	/* Changes we offered. */
@@ -161,6 +169,7 @@ static struct commit_info *apply_changes(const tal_t *ctx,
 	for (i = 0; i < n; i++)
 		do_change(&ci->funding.outhtlcs,
 			  &ci->funding.inhtlcs,
+			  &ci->funding.fee,
 			  old->changes_outgoing[i]);
  
 	return ci;
@@ -198,18 +207,30 @@ static void dump_commit_info(const struct commit_info *ci)
 	printf("\n  Received htlcs:");
 	dump_htlcs(ci->funding.inhtlcs);
 
+	/* Don't clutter output if fee level untouched. */
+	if (ci->funding.fee)
+		printf("\n  Fee level %u", ci->funding.fee);
+
 	n = tal_count(ci->changes_incoming);
 	if (n > 0) {
 		printf("\n  Pending incoming:");
-		for (i = 0; i < n; i++)
-			printf(" %+i", ci->changes_incoming[i]);
+		for (i = 0; i < n; i++) {
+			if (ci->changes_incoming[i] == 0)
+				printf(" FEE");
+			else
+				printf(" %+i", ci->changes_incoming[i]);
+		}
 	}
 
 	n = tal_count(ci->changes_outgoing);
 	if (n > 0) {
 		printf("\n  Pending outgoing:");
-		for (i = 0; i < n; i++)
-			printf(" %+i", ci->changes_outgoing[i]);
+		for (i = 0; i < n; i++) {
+			if (ci->changes_outgoing[i] == 0)
+				printf(" FEE");
+			else
+				printf(" %+i", ci->changes_outgoing[i]);
+		}
 	}
 
 	if (ci->counterparty_signed)
@@ -277,6 +298,16 @@ static void send_remove(struct peer *peer, unsigned int htlc)
 		errx(1, "remove: already removed of %u", htlc);
 	write_out(peer->outfd, "-", 1);
 	write_out(peer->outfd, &htlc, sizeof(htlc));
+}
+
+/* Fee change:
+ * - Record the change to them (but don't ever apply it!).
+ */
+static void send_feechange(struct peer *peer)
+{
+	if (!add_incoming_change(peer->them, 0))
+		errx(1, "INTERNAL: failed to change fee");
+	write_out(peer->outfd, "F", 1);
 }
 
 /* FIXME:
@@ -363,6 +394,15 @@ static void receive_remove(struct peer *peer, unsigned int htlc)
 		errx(1, "receive_remove: already removed %u", htlc);
 }
 
+/* Receives fee change:
+ * - Record the change to us (but never apply it).
+ */
+static void receive_feechange(struct peer *peer)
+{
+	if (!add_incoming_change(peer->us, 0))
+		errx(1, "INTERNAL: failed to change fee");
+}
+
 /* Send revoke.
  * - Queue changes to them.
  */
@@ -401,9 +441,9 @@ static void receive_commit(struct peer *peer, const struct signature *sig)
 	peer->us = apply_changes(peer, peer->us);
 	oursig = commit_sig(peer->us);
 	if (!structeq(sig, &oursig))
-		errx(1, "Commit state %#x/%#x, they gave %#x/%#x",
-		     sig->f.inhtlcs, sig->f.outhtlcs,
-		     oursig.f.inhtlcs, oursig.f.outhtlcs);
+		errx(1, "Commit state %#x/%#x/%u, they gave %#x/%#x/%u",
+		     sig->f.inhtlcs, sig->f.outhtlcs, sig->f.fee,
+		     oursig.f.inhtlcs, oursig.f.outhtlcs, oursig.f.fee);
 	peer->us->counterparty_signed = true;
 	send_revoke(peer, peer->us->prev);
 }
@@ -429,6 +469,8 @@ static void do_cmd(struct peer *peer)
 		send_offer(peer, htlc);
 	else if (sscanf(cmd, "remove %u", &htlc) == 1)
 		send_remove(peer, htlc);
+	else if (streq(cmd, "feechange"))
+		send_feechange(peer);
 	else if (streq(cmd, "commit"))
 		send_commit(peer);
 	else if (streq(cmd, "recvrevoke")) {
@@ -444,6 +486,9 @@ static void do_cmd(struct peer *peer)
 		read_peer(peer, "-", cmd);
 		read_in(peer->infd, &htlc, sizeof(htlc));
 		receive_remove(peer, htlc);
+	} else if (streq(cmd, "recvfeechange")) {
+		read_peer(peer, "F", cmd);
+		receive_feechange(peer);
 	} else if (streq(cmd, "recvcommit")) {
 		struct signature sig;
 		read_peer(peer, "C", cmd);
