@@ -41,7 +41,7 @@ THEIR COMMITS:
  Commit 0:
   Offered htlcs:
   Received htlcs:
-  Pending outgoing: FEE
+  Pending outgoing
   SIGNED
 ***B after receiving second commit***
 OUR COMMITS:
@@ -53,7 +53,7 @@ THEIR COMMITS:
  Commit 0:
   Offered htlcs:
   Received htlcs:
-  Pending outgoing: FEE FEE
+  Pending outgoing
   SIGNED
 ***B after committing***
 OUR COMMITS:

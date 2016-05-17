@@ -28,7 +28,8 @@ struct commit_info {
 	/* Channel state. */
 	struct funding funding;
 	/* Pending changes (for next commit_info) */
-	int *changes_incoming, *changes_outgoing;
+	int *changes_incoming;
+	bool changes_outgoing;
 	/* Cache of funding with changes applied. */
 	struct funding funding_next;
 	/* Have sent/received revocation secret. */
@@ -123,10 +124,7 @@ static bool queue_changes_other(struct commit_info *ci, int *changes)
 			       &ci->funding_next.fee,
 			       changes[i]))
 			return false;
-		add_change_internal(ci, &ci->changes_outgoing,
-				    &ci->funding.outhtlcs,
-				    &ci->funding.inhtlcs,
-				    changes[i]);
+		ci->changes_outgoing = true;
 	}
 	return true;
 }
@@ -151,7 +149,7 @@ static struct commit_info *new_commit_info(const tal_t *ctx,
 	struct commit_info *ci = talz(ctx, struct commit_info);
 	ci->prev = prev;
 	ci->changes_incoming = tal_arr(ci, int, 0);
-	ci->changes_outgoing = tal_arr(ci, int, 0);
+	ci->changes_outgoing = false;
 	if (prev) {
 		ci->number = prev->number + 1;
 		ci->funding = prev->funding;
@@ -217,15 +215,8 @@ static void dump_commit_info(const struct commit_info *ci)
 		}
 	}
 
-	n = tal_count(ci->changes_outgoing);
-	if (n > 0) {
-		printf("\n  Pending outgoing:");
-		for (i = 0; i < n; i++) {
-			if (ci->changes_outgoing[i] == 0)
-				printf(" FEE");
-			else
-				printf(" %+i", ci->changes_outgoing[i]);
-		}
+	if (ci->changes_outgoing) {
+		printf("\n  Pending outgoing");
 	}
 
 	if (ci->counterparty_signed)
@@ -334,7 +325,7 @@ static void send_commit(struct peer *peer)
 
 	/* Must have changes. */
 	if (tal_count(peer->them->changes_incoming) == 0
-	    && tal_count(peer->them->changes_outgoing) == 0)
+	    && !peer->them->changes_outgoing)
 		errx(1, "commit: no changes to commit");
 
 	peer->them = apply_changes(peer, peer->them);
@@ -430,7 +421,7 @@ static void receive_commit(struct peer *peer, const struct signature *sig)
 
 	/* Must have changes. */
 	if (tal_count(peer->us->changes_incoming) == 0
-	    && tal_count(peer->us->changes_outgoing) == 0)
+	    && !peer->us->changes_outgoing)
 		errx(1, "receive_commit: no changes to commit");
 
 	peer->us = apply_changes(peer, peer->us);
