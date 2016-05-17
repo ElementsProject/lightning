@@ -1,0 +1,22 @@
+***A***
+OUR COMMITS:
+ Commit 1:
+  Offered htlcs: 1
+  Received htlcs: 2
+  SIGNED
+THEIR COMMITS:
+ Commit 2:
+  Offered htlcs: 2
+  Received htlcs: 1
+  SIGNED
+***B***
+OUR COMMITS:
+ Commit 2:
+  Offered htlcs: 2
+  Received htlcs: 1
+  SIGNED
+THEIR COMMITS:
+ Commit 1:
+  Offered htlcs: 1
+  Received htlcs: 2
+  SIGNED

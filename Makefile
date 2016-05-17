@@ -21,6 +21,7 @@ FEATURES := $(BITCOIN_FEATURES)
 
 TEST_PROGRAMS :=				\
 	test/onion_key				\
+	test/test_protocol			\
 	test/test_onion
 
 BITCOIN_SRC :=					\
@@ -209,7 +210,10 @@ test-onion3: test/test_onion test/onion_key
 test-onion4: test/test_onion test/onion_key
 	set -e; TMPF=/tmp/onion.$$$$; python test/test_onion.py generate $$(test/onion_key --pub `seq 20`) > $$TMPF; for k in `seq 20`; do python test/test_onion.py decode $$(test/onion_key --priv $$k) $$(test/onion_key --pub $$k) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
 
-check: daemon-tests test-onion bitcoin-tests
+test-protocol: test/test_protocol
+	set -e; TMP=`mktemp`; for f in test/commits/*.script; do if ! test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
+
+check: daemon-tests test-onion test-protocol bitcoin-tests
 
 include bitcoin/Makefile
 
