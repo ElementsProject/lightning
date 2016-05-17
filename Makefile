@@ -216,6 +216,11 @@ test-onion4: test/test_onion test/onion_key
 test-protocol: test/test_protocol
 	set -e; TMP=`mktemp`; [ -n "$(NO_VALGRIND)" ] || PREFIX="valgrind -q --error-exitcode=7"; for f in test/commits/*.script; do if ! $$PREFIX test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
 
+doc/protocol-%.svg: test/test_protocol
+	test/test_protocol --svg < test/commits/$*.script > $@
+
+protocol-diagrams: $(patsubst %.script, doc/protocol-%.svg, $(notdir $(wildcard test/commits/*.script)))
+
 check: daemon-tests test-onion test-protocol bitcoin-tests
 
 include bitcoin/Makefile

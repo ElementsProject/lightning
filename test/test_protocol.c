@@ -7,11 +7,24 @@
 #include <ccan/str/str.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
+#include <ccan/tal/str/str.h>
 #include <inttypes.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/uio.h>
 #include <unistd.h>
+
+#define A_LINEX 50
+#define B_LINEX 195
+#define A_TEXTX 45
+#define B_TEXTX 200
+
+#define LINE_HEIGHT 5
+#define STEP_HEIGHT 10
+#define LETTER_WIDTH 3
+
+#define TEXT_STYLE "style=\"font-size:4;\""
 
 struct funding {
 	/* inhtlcs = htlcs they offered, outhtlcs = htlcs we offered */
@@ -50,7 +63,11 @@ struct peer {
 
 	/* Are we allowed to send another commit before receiving revoke? */
 	bool commitwait;
-	
+
+	/* For drawing svg */
+	char *text;
+	char *io;
+
 	/* Last one is the one we're changing. */
 	struct commit_info *us, *them;
 };
@@ -69,27 +86,47 @@ static bool have_htlc(u32 htlcs, unsigned int htlc)
 	return htlcs & htlc_mask(htlc);
 }
 
+static void PRINTF_FMT(2,3) add_text(struct peer *peer, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	tal_append_vfmt(&peer->text, fmt, ap);
+	va_end(ap);
+}
+
 /* Each side can add their own incoming HTLC, or close your outgoing HTLC. */
-static bool do_change(u32 *add, u32 *remove, u32 *fees, int htlc)
+static bool do_change(struct peer *peer, const char *what,
+		      u32 *add, u32 *remove, u32 *fees, int htlc)
 {
 	/* We ignore fee changes from them: they only count when reflected
 	 * back to us via revocation. */
 	if (htlc == 0) {
-		if (fees)
+		if (fees) {
+			if (what)
+				add_text(peer, " FEE");
 			(*fees)++;
+		} else {
+			if (what)
+				add_text(peer, " (ignoring FEE)");
+		}
 	} else if (htlc < 0) {
 		if (!have_htlc(*remove, -htlc))
 			return false;
 		*remove &= ~htlc_mask(-htlc);
+		if (what)
+			add_text(peer, " -%u", -htlc);
 	} else {
 		if (have_htlc(*add, htlc))
 			return false;
 		*add |= htlc_mask(htlc);
+		if (what)
+			add_text(peer, " +%u", htlc);
 	}
 	return true;
 }
 
-static void add_change_internal(struct commit_info *ci, int **changes, int c)
+static void add_change_internal(struct peer *peer, int **changes, int c)
 {
 	size_t i, n = tal_count(*changes);
 
@@ -103,6 +140,10 @@ static void add_change_internal(struct commit_info *ci, int **changes, int c)
 			errx(1, "Already requestd htlc %+i", c);
 
 add:
+	if (c)
+		add_text(peer, "%+i", c);
+	else
+		add_text(peer, "FEE");
 	tal_resize(changes, n+1);
 	(*changes)[n] = c;
 }
@@ -111,12 +152,17 @@ add:
  * Once we're sending/receiving revoke, we queue the changes on the
  * alternate side.
  */
-static bool apply_changes_other(struct commit_info *ci, int *changes)
+static bool apply_changes_other(struct peer *peer,
+				struct commit_info *ci, int *changes,
+				const char *what)
 {
 	size_t i, n = tal_count(changes);
 
+	if (n)
+		add_text(peer, "Changes to %s:", what);
+
 	for (i = 0; i < n; i++) {
-		if (!do_change(&ci->funding_next.outhtlcs,
+		if (!do_change(peer, what, &ci->funding_next.outhtlcs,
 			       &ci->funding_next.inhtlcs,
 			       &ci->funding_next.fee,
 			       changes[i]))
@@ -129,12 +175,17 @@ static bool apply_changes_other(struct commit_info *ci, int *changes)
 /*
  * Normally, we add incoming changes.
  */
-static bool add_incoming_change(struct commit_info *ci, int c)
+static bool add_incoming_change(struct peer *peer,
+				struct commit_info *ci, int c, const char *who)
 {
-	if (!do_change(&ci->funding_next.inhtlcs, &ci->funding_next.outhtlcs,
+	if (!do_change(NULL, NULL,
+		       &ci->funding_next.inhtlcs, &ci->funding_next.outhtlcs,
 		       NULL, c))
 		return false;
-	add_change_internal(ci, &ci->changes_incoming, c);
+
+	add_text(peer, "Queue ");
+	add_change_internal(peer, &ci->changes_incoming, c);
+	add_text(peer, " to %s", who);
 	return true;
 }
 
@@ -155,10 +206,30 @@ static struct commit_info *new_commit_info(const struct peer *peer,
 }
 
 /* We duplicate the commit info, with the changes applied. */
-static struct commit_info *apply_changes(const struct peer *peer,
-					 struct commit_info *old)
+static struct commit_info *apply_changes(struct peer *peer,
+					 struct commit_info *old,
+					 const char *who)
 {
-	return new_commit_info(peer, old);
+	struct commit_info *next = new_commit_info(peer, old);
+	size_t i;
+
+	add_text(peer, "%s:[", who);
+	if (old->funding_next.inhtlcs)
+		add_text(peer, "in");
+	for (i = 1; i <= 32; i++)
+		if (have_htlc(old->funding_next.inhtlcs, i))
+			add_text(peer, " %zu", i);
+	if (old->funding_next.outhtlcs)
+		add_text(peer, "%sout",
+			 old->funding_next.inhtlcs ? ", " : "");
+	for (i = 1; i <= 32; i++)
+		if (have_htlc(old->funding_next.outhtlcs, i))
+			add_text(peer, " %zu", i);
+	if (old->funding_next.fee)
+		add_text(peer, " fee %u", old->funding_next.fee);
+	add_text(peer, "]");
+
+	return next;
 }
 
 static struct signature commit_sig(const struct commit_info *ci)
@@ -260,8 +331,9 @@ static void read_peer(struct peer *peer, const char *str, const char *cmd)
  */
 static void send_offer(struct peer *peer, unsigned int htlc)
 {
+	tal_append_fmt(&peer->io, "add_htlc %u", htlc);
 	/* Can't have sent already. */
-	if (!add_incoming_change(peer->them, htlc))
+	if (!add_incoming_change(peer, peer->them, htlc, "them"))
 		errx(1, "offer: already offered %u", htlc);
 	write_out(peer->outfd, "+", 1);
 	write_out(peer->outfd, &htlc, sizeof(htlc));
@@ -272,8 +344,9 @@ static void send_offer(struct peer *peer, unsigned int htlc)
  */
 static void send_remove(struct peer *peer, unsigned int htlc)
 {
+	tal_append_fmt(&peer->io, "fulfill_htlc %u", htlc);
 	/* Can't have removed already. */
-	if (!add_incoming_change(peer->them, -htlc))
+	if (!add_incoming_change(peer, peer->them, -htlc, "them"))
 		errx(1, "remove: already removed of %u", htlc);
 	write_out(peer->outfd, "-", 1);
 	write_out(peer->outfd, &htlc, sizeof(htlc));
@@ -284,7 +357,8 @@ static void send_remove(struct peer *peer, unsigned int htlc)
  */
 static void send_feechange(struct peer *peer)
 {
-	if (!add_incoming_change(peer->them, 0))
+	tal_append_fmt(&peer->io, "update_fee");
+	if (!add_incoming_change(peer, peer->them, 0, "them"))
 		errx(1, "INTERNAL: failed to change fee");
 	write_out(peer->outfd, "F", 1);
 }
@@ -325,7 +399,8 @@ static void send_commit(struct peer *peer)
 	    && peer->them->prev && !peer->them->prev->revoked)
 		errx(1, "commit: must wait for previous commit");
 
-	peer->them = apply_changes(peer, peer->them);
+	tal_append_fmt(&peer->io, "update_commit");
+	peer->them = apply_changes(peer, peer->them, "THEM");
 	sig = commit_sig(peer->them);
 	peer->them->counterparty_signed = true;
 
@@ -351,12 +426,13 @@ static void receive_revoke(struct peer *peer, u32 number)
 	if (peer->commitwait && ci != peer->them->prev)
 		errx(1, "receive_revoke: always revoke previous?");
 
+	tal_append_fmt(&peer->io, "<");
 	ci->revoked = true;
 	if (!ci->counterparty_signed)
 		errx(1, "receive_revoke: revoked unsigned commit?");
 
 	/* The changes we sent with that commit, add them to us. */
-	if (!apply_changes_other(peer->us, ci->changes_incoming))
+	if (!apply_changes_other(peer, peer->us, ci->changes_incoming, "us"))
 		errx(1, "receive_revoke: could not add their changes to us");
 
 	/* Cleans up dump output now we've consumed them. */
@@ -369,7 +445,8 @@ static void receive_revoke(struct peer *peer, u32 number)
  */
 static void receive_offer(struct peer *peer, unsigned int htlc)
 {
-	if (!add_incoming_change(peer->us, htlc))
+	tal_append_fmt(&peer->io, "<");
+	if (!add_incoming_change(peer, peer->us, htlc, "us"))
 		errx(1, "receive_offer: already offered of %u", htlc);
 }
 
@@ -378,7 +455,8 @@ static void receive_offer(struct peer *peer, unsigned int htlc)
  */
 static void receive_remove(struct peer *peer, unsigned int htlc)
 {
-	if (!add_incoming_change(peer->us, -htlc))
+	tal_append_fmt(&peer->io, "<");
+	if (!add_incoming_change(peer, peer->us, -htlc, "us"))
 		errx(1, "receive_remove: already removed %u", htlc);
 }
 
@@ -387,7 +465,8 @@ static void receive_remove(struct peer *peer, unsigned int htlc)
  */
 static void receive_feechange(struct peer *peer)
 {
-	if (!add_incoming_change(peer->us, 0))
+	tal_append_fmt(&peer->io, "<");
+	if (!add_incoming_change(peer, peer->us, 0, "us"))
 		errx(1, "INTERNAL: failed to change fee");
 }
 
@@ -396,6 +475,8 @@ static void receive_feechange(struct peer *peer)
  */
 static void send_revoke(struct peer *peer, struct commit_info *ci)
 {
+	tal_append_fmt(&peer->io, "update_revocation");
+
 	/* We always revoke in order. */
 	assert(!ci->prev || ci->prev->revoked);
 	assert(ci->counterparty_signed);
@@ -403,7 +484,8 @@ static void send_revoke(struct peer *peer, struct commit_info *ci)
 	ci->revoked = true;
 
 	/* Queue changes. */
-	if (!apply_changes_other(peer->them, ci->changes_incoming))
+	if (!apply_changes_other(peer, peer->them, ci->changes_incoming,
+				 "them"))
 		errx(1, "Failed queueing changes to them for send_revoke");
 
 	/* Clean up for dump output. */
@@ -426,13 +508,18 @@ static void receive_commit(struct peer *peer, const struct signature *sig)
 	    && !peer->us->changes_outgoing)
 		errx(1, "receive_commit: no changes to commit");
 
-	peer->us = apply_changes(peer, peer->us);
+	tal_append_fmt(&peer->io, "<");
+
+	peer->us = apply_changes(peer, peer->us, "US");
 	oursig = commit_sig(peer->us);
 	if (!structeq(sig, &oursig))
 		errx(1, "Commit state %#x/%#x/%u, they gave %#x/%#x/%u",
 		     sig->f.inhtlcs, sig->f.outhtlcs, sig->f.fee,
 		     oursig.f.inhtlcs, oursig.f.outhtlcs, oursig.f.fee);
 	peer->us->counterparty_signed = true;
+
+	/* This is the one case where we send without a command. */
+	tal_append_fmt(&peer->text, "\n");
 	send_revoke(peer, peer->us->prev);
 }
 
@@ -442,16 +529,19 @@ static void do_cmd(struct peer *peer)
 	int i;
 	unsigned int htlc;
 	struct commit_info *ci;
+	struct iovec iov[2];
 
-	for (i = 0; i < sizeof(cmd); i++) {
-		if (!read_all(peer->cmdfd, cmd+i, 1))
-			err(1, "Reading command pipe");
-		if (!cmd[i])
-			break;
+	i = read(peer->cmdfd, cmd, sizeof(cmd)-1);
+	if (cmd[i-1] != '\0')
+		errx(1, "Unterminated command");
+
+	if (i == 1) {
+		fflush(stdout);
+		exit(0);
 	}
 
-	if (i == 0)
-		exit(0);
+	peer->io = tal_strdup(peer, "");
+	peer->text = tal_strdup(peer->io, "");
 	
 	if (sscanf(cmd, "offer %u", &htlc) == 1)
 		send_offer(peer, htlc);
@@ -497,10 +587,16 @@ static void do_cmd(struct peer *peer)
 	} else
 		errx(1, "Unknown command %s", cmd);
 
+	iov[0].iov_base = peer->io;
+	iov[0].iov_len = strlen(peer->io)+1;
+	iov[1].iov_base = peer->text;
+	iov[1].iov_len = strlen(peer->text)+1;
+	writev(peer->cmddonefd, iov, 2);
+	tal_free(peer->io);
+
 	/* We must always have (at least one) signed, unrevoked commit. */
 	for (ci = peer->us; ci; ci = ci->prev) {
 		if (ci->counterparty_signed && !ci->revoked) {
-			write(peer->cmddonefd, "", 1);
 			return;
 		}
 	}
@@ -546,12 +642,76 @@ static void new_peer(int infdpair[2], int outfdpair[2], int cmdfdpair[2],
 		do_cmd(peer);
 }
 
+struct sent {
+	int y;
+	const char *desc;
+};
+
+static void add_sent(struct sent **sent, int y, const char *msg)
+{
+	size_t n = tal_count(*sent);
+	tal_resize(sent, n+1);
+	(*sent)[n].y = y;
+	(*sent)[n].desc = tal_strdup(*sent, msg);
+}
+
+static void draw_line(char **str,
+		      int old_x, struct sent **sent, int new_x, int new_y)
+{
+	size_t n = tal_count(*sent);
+	if (n == 0)
+		errx(1, "Receive without send?");
+
+	tal_append_fmt(str, "<line x1=\"%i\" y1=\"%i\" x2=\"%i\" y2=\"%i\" marker-end=\"url(#tri)\" stroke=\"black\" stroke-width=\"0.2\"/>\n",
+		       old_x, (*sent)[0].y - LINE_HEIGHT/2,
+		       new_x, new_y - LINE_HEIGHT/2);
+	tal_append_fmt(str, "<text text-anchor=\"middle\" "TEXT_STYLE" x=\"%i\" y=\"%i\">%s</text>\n",
+		       (old_x + new_x) / 2,
+		       ((*sent)[0].y + new_y) / 2,
+		       (*sent)[0].desc);
+
+	memmove(*sent, (*sent)+1, sizeof(**sent) * (n-1));
+	tal_resize(sent, n-1);
+}
+
+static void append_text(char **svg, bool is_a, int *y, char *text,
+			size_t *max_chars)
+{
+	char *eol;
+	
+	eol = strchr(text, '\n');
+	if (eol)
+		*eol = '\0';
+
+	tal_append_fmt(svg,
+		       "<text x=\"%i\" y=\"%i\" text-anchor=\"%s\" "TEXT_STYLE">%s</text>",
+		       is_a ? A_TEXTX : B_TEXTX, *y,
+		       is_a ? "end" : "start",
+		       text);
+	if (strlen(text) > *max_chars)
+		*max_chars = strlen(text);
+
+	if (eol) {
+		*y += LINE_HEIGHT;
+		append_text(svg, is_a, y, eol+1, max_chars);
+	}
+	*y += STEP_HEIGHT;
+}
+
 int main(int argc, char *argv[])
 {
-	char cmd[80];
+	char cmd[80], output[200], *svg = tal_strdup(NULL, "");
 	int a_to_b[2], b_to_a[2], acmd[2], bcmd[2], adonefd[2], bdonefd[2];
+	int y = STEP_HEIGHT + LINE_HEIGHT;
+	struct sent *a_sent = tal_arr(NULL, struct sent, 0),
+		*b_sent = tal_arr(NULL, struct sent, 0);
+	bool output_svg = false;
+	size_t max_chars = 0;
 
 	err_set_progname(argv[0]);
+
+	if (argv[1] && streq(argv[1], "--svg"))
+		output_svg = true;
 
 	if (pipe(a_to_b) || pipe(b_to_a) || pipe(adonefd) || pipe(acmd))
 		err(1, "Creating pipes");
@@ -573,12 +733,13 @@ int main(int argc, char *argv[])
 	close(a_to_b[1]);
 
 	while (fgets(cmd, sizeof(cmd), stdin)) {
-		int cmdfd, donefd;
+		int cmdfd, donefd, r;
+		char *io, *text;
 
 		if (!strends(cmd, "\n"))
 			errx(1, "Truncated command");
 		cmd[strlen(cmd)-1] = '\0';
-		
+	
 		if (strstarts(cmd, "A:")) {
 			cmdfd = acmd[1];
 			donefd = adonefd[0];
@@ -586,8 +747,10 @@ int main(int argc, char *argv[])
 			cmdfd = bcmd[1];
 			donefd = bdonefd[0];
 		} else if (strstarts(cmd, "echo ")) {
-			printf("%s\n", cmd + 5);
-			fflush(stdout);
+			if (!output_svg) {
+				printf("%s\n", cmd + 5);
+				fflush(stdout);
+			}
 			continue;
 		} else if (streq(cmd, "checksync")) {
 			struct funding fa_us, fa_them, fb_us, fb_them;
@@ -609,14 +772,74 @@ int main(int argc, char *argv[])
 		else
 			errx(1, "Unknown command %s", cmd);
 
+		/* Don't dump if outputting svg. */
+		if (output_svg && strstarts(cmd+2, "dump"))
+			continue;
+
 		if (!write_all(cmdfd, cmd+2, strlen(cmd)-1))
 			errx(1, "Sending %s", cmd);
+
 		alarm(5);
-		if (!read_all(donefd, &cmdfd, 1))
+		r = read(donefd, output, sizeof(output)-2);
+		if (r <= 0)
 			errx(1, "Failed on cmd %s", cmd);
+		output[r] = output[r+1] = '\0';
+		io = output;
+		text = output + strlen(output) + 1;
+		if (r != strlen(text) + strlen(io) + 2)
+			errx(1, "Not nul-terminated: %s+%s gave %zi not %u",
+			     io, text, strlen(text) + strlen(io) + 2, r);
 		alarm(0);
+
+		/* We can recv and send for recvcommit */
+		if (strstarts(io, "<")) {
+			if (strstarts(cmd, "A:"))
+				draw_line(&svg, B_LINEX, &b_sent, A_LINEX, y);
+			else
+				draw_line(&svg, A_LINEX, &a_sent, B_LINEX, y);
+			memmove(io, io+1, strlen(io));
+		}
+		if (!streq(io, "")) {
+			if (strstarts(cmd, "A:"))
+				add_sent(&a_sent, y, io);
+			else
+				add_sent(&b_sent, y, io);
+		}
+		if (!streq(text, "") && output_svg) {
+			append_text(&svg,
+				    strstarts(cmd, "A:"),
+				    &y,
+				    text,
+				    &max_chars);
+		}
 	}
+
 	write_all(acmd[1], "", 1);
 	write_all(bcmd[1], "", 1);
+
+	/* Make sure they've finished */
+	alarm(5);
+	if (read_all(adonefd[0], &y, 1)
+	    || read_all(bdonefd[0], &y, 1))
+		errx(1, "Response after sending exit command");
+	alarm(0);
+
+	if (output_svg)
+		printf("<svg width=\"%zu\" height=\"%u\">\n"
+		       "<marker id=\"tri\" "
+		       "viewBox=\"0 0 5 5\" refX=\"0\" refY=\"5\" "
+		       "markerUnits=\"strokeWidth\" "
+		       "markerWidth=\"4\" markerHeight=\"3\" "
+		       "orient=\"auto\">"
+		       "<path d=\"M 0 0 L 10 5 L 0 10 z\" />"
+		       "</marker>"
+		       "<text x=\"%i\" y=\"%i\" text-anchor=\"middle\">Node A</text>\n"
+		       "<text x=\"%i\" y=\"%i\" text-anchor=\"middle\">Node B</text>\n"
+		       "%s\n"
+		       "</svg>\n",
+		       B_TEXTX + max_chars*LETTER_WIDTH, y + LINE_HEIGHT,
+		       A_LINEX, STEP_HEIGHT, B_LINEX, STEP_HEIGHT,
+		       svg);
+
 	return 0;
 }
