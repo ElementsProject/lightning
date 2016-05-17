@@ -449,6 +449,12 @@ static void do_cmd(struct peer *peer)
 		read_peer(peer, "C", cmd);
 		read_in(peer->infd, &sig, sizeof(sig));
 		receive_commit(peer, &sig);
+	} else if (streq(cmd, "checksync")) {
+		write_all(peer->cmddonefd, &peer->us->funding,
+			  sizeof(peer->us->funding));
+		write_all(peer->cmddonefd, &peer->them->funding,
+			  sizeof(peer->them->funding));
+		return;
 	} else if (streq(cmd, "dump")) {
 		dump_peer(peer, false);
 	} else if (streq(cmd, "dumpall")) {
@@ -544,6 +550,21 @@ int main(int argc, char *argv[])
 		} else if (strstarts(cmd, "echo ")) {
 			printf("%s\n", cmd + 5);
 			fflush(stdout);
+			continue;
+		} else if (streq(cmd, "checksync")) {
+			struct funding fa_us, fa_them, fb_us, fb_them;
+			if (!write_all(acmd[1], cmd, strlen(cmd)+1)
+			    || !write_all(bcmd[1], cmd, strlen(cmd)+1))
+				errx(1, "Failed writing command to peers");
+			alarm(5);
+			if (!read_all(adonefd[0], &fa_us, sizeof(fa_us))
+			    || !read_all(adonefd[0], &fa_them, sizeof(fa_them))
+			    || !read_all(bdonefd[0], &fb_us, sizeof(fb_us))
+			    || !read_all(bdonefd[0], &fb_them, sizeof(fb_them)))
+				errx(1, "Failed reading status from peers");
+			if (!structeq(&fa_us, &fb_them)
+			    || !structeq(&fa_them, &fb_us))
+				errx(1, "checksync: not equal");
 			continue;
 		} else if (strstarts(cmd, "#") || streq(cmd, ""))
 			continue;

@@ -14,6 +14,7 @@ A:recvrevoke
 B:commit
 A:recvcommit
 B:recvrevoke
+checksync
 echo ***A***
 A:dump
 echo ***B***
