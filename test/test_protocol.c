@@ -25,8 +25,8 @@ struct commit_info {
 	struct commit_info *prev;
 	/* How deep we are */
 	unsigned int number;
-	/* Channel state. */
-	struct funding funding;
+	/* Funding before changes. */
+	const struct funding *funding;
 	/* Pending changes (for next commit_info) */
 	int *changes_incoming;
 	bool changes_outgoing;
@@ -46,6 +46,8 @@ struct signature {
 struct peer {
 	int infd, outfd, cmdfd, cmddonefd;
 
+	struct funding initial_funding;
+	
 	/* Last one is the one we're changing. */
 	struct commit_info *us, *them;
 };
@@ -84,21 +86,13 @@ static bool do_change(u32 *add, u32 *remove, u32 *fees, int htlc)
 	return true;
 }
 
-static void add_change_internal(struct commit_info *ci, int **changes,
-				const u32 *add, const u32 *remove,
-				int c)
+static void add_change_internal(struct commit_info *ci, int **changes, int c)
 {
 	size_t i, n = tal_count(*changes);
 
 	/* You can have as many fee changes as you like */
 	if (c == 0)
 		goto add;
-
-	/* Can't add/remove it already there/absent. */
-	if (c > 0 && have_htlc(*add, c))
-		errx(1, "Already added htlc %u", c);
-	else if (c < 0 && !have_htlc(*remove, -c))
-		errx(1, "Already removed htlc %u", -c);
 
 	/* Can't request add/remove twice. */
 	for (i = 0; i < n; i++)
@@ -114,7 +108,7 @@ add:
  * Once we're sending/receiving revoke, we queue the changes on the
  * alternate side.
  */
-static bool queue_changes_other(struct commit_info *ci, int *changes)
+static bool apply_changes_other(struct commit_info *ci, int *changes)
 {
 	size_t i, n = tal_count(changes);
 
@@ -137,41 +131,37 @@ static bool add_incoming_change(struct commit_info *ci, int c)
 	if (!do_change(&ci->funding_next.inhtlcs, &ci->funding_next.outhtlcs,
 		       NULL, c))
 		return false;
-	add_change_internal(ci, &ci->changes_incoming,
-			    &ci->funding.inhtlcs, &ci->funding.outhtlcs,
-			    c);
+	add_change_internal(ci, &ci->changes_incoming, c);
 	return true;
 }
 
-static struct commit_info *new_commit_info(const tal_t *ctx,
+static struct commit_info *new_commit_info(const struct peer *peer,
 					   struct commit_info *prev)
 {
-	struct commit_info *ci = talz(ctx, struct commit_info);
+	struct commit_info *ci = talz(peer, struct commit_info);
 	ci->prev = prev;
 	ci->changes_incoming = tal_arr(ci, int, 0);
 	ci->changes_outgoing = false;
 	if (prev) {
 		ci->number = prev->number + 1;
-		ci->funding = prev->funding;
+		ci->funding = &prev->funding_next;
 		ci->funding_next = prev->funding_next;
-	}
+	} else
+		ci->funding = &peer->initial_funding;
 	return ci;
 }
 
 /* We duplicate the commit info, with the changes applied. */
-static struct commit_info *apply_changes(const tal_t *ctx,
+static struct commit_info *apply_changes(const struct peer *peer,
 					 struct commit_info *old)
 {
-	struct commit_info *ci = new_commit_info(ctx, old);
-	ci->funding = ci->funding_next;
-
-	return ci;
+	return new_commit_info(peer, old);
 }
 
 static struct signature commit_sig(const struct commit_info *ci)
 {
 	struct signature sig;
-	sig.f = ci->funding;
+	sig.f = *ci->funding;
 	return sig;
 }
 
@@ -196,13 +186,13 @@ static void dump_commit_info(const struct commit_info *ci)
 
 	printf(" Commit %u:", ci->number);
 	printf("\n  Offered htlcs:");
-	dump_htlcs(ci->funding.outhtlcs);
+	dump_htlcs(ci->funding->outhtlcs);
 	printf("\n  Received htlcs:");
-	dump_htlcs(ci->funding.inhtlcs);
+	dump_htlcs(ci->funding->inhtlcs);
 
 	/* Don't clutter output if fee level untouched. */
-	if (ci->funding.fee)
-		printf("\n  Fee level %u", ci->funding.fee);
+	if (ci->funding->fee)
+		printf("\n  Fee level %u", ci->funding->fee);
 
 	n = tal_count(ci->changes_incoming);
 	if (n > 0) {
@@ -354,7 +344,7 @@ static void receive_revoke(struct peer *peer, u32 number)
 		errx(1, "receive_revoke: revoked unsigned commit?");
 
 	/* The changes we sent with that commit, add them to us. */
-	if (!queue_changes_other(peer->us, ci->changes_incoming))
+	if (!apply_changes_other(peer->us, ci->changes_incoming))
 		errx(1, "receive_revoke: could not add their changes to us");
 
 	/* Cleans up dump output now we've consumed them. */
@@ -401,7 +391,7 @@ static void send_revoke(struct peer *peer, struct commit_info *ci)
 	ci->revoked = true;
 
 	/* Queue changes. */
-	if (!queue_changes_other(peer->them, ci->changes_incoming))
+	if (!apply_changes_other(peer->them, ci->changes_incoming))
 		errx(1, "Failed queueing changes to them for send_revoke");
 
 	/* Clean up for dump output. */
@@ -481,10 +471,10 @@ static void do_cmd(struct peer *peer)
 		read_in(peer->infd, &sig, sizeof(sig));
 		receive_commit(peer, &sig);
 	} else if (streq(cmd, "checksync")) {
-		write_all(peer->cmddonefd, &peer->us->funding,
-			  sizeof(peer->us->funding));
-		write_all(peer->cmddonefd, &peer->them->funding,
-			  sizeof(peer->them->funding));
+		write_all(peer->cmddonefd, peer->us->funding,
+			  sizeof(*peer->us->funding));
+		write_all(peer->cmddonefd, peer->them->funding,
+			  sizeof(*peer->them->funding));
 		return;
 	} else if (streq(cmd, "dump")) {
 		dump_peer(peer, false);
@@ -523,6 +513,8 @@ static void new_peer(int infdpair[2], int outfdpair[2], int cmdfdpair[2],
 	close(cmddonefdpair[0]);
 
 	peer = tal(NULL, struct peer);
+	memset(&peer->initial_funding, 0, sizeof(peer->initial_funding));
+
 	/* Create first, signed commit info. */
 	peer->us = new_commit_info(peer, NULL);
 	peer->us->counterparty_signed = true;
