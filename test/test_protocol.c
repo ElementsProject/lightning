@@ -165,25 +165,8 @@ static struct commit_info *apply_changes(const tal_t *ctx,
 					 struct commit_info *old)
 {
 	struct commit_info *ci = new_commit_info(ctx, old);
-	size_t i, n;
+	ci->funding = ci->funding_next;
 
-	/* Changes they offered. */
-	n = tal_count(old->changes_incoming);
-	for (i = 0; i < n; i++)
-		do_change(&ci->funding.inhtlcs,
-			  &ci->funding.outhtlcs,
-			  NULL,
-			  old->changes_incoming[i]);
-
-	/* Changes we offered. */
-	n = tal_count(old->changes_outgoing);
-	for (i = 0; i < n; i++)
-		do_change(&ci->funding.outhtlcs,
-			  &ci->funding.inhtlcs,
-			  &ci->funding.fee,
-			  old->changes_outgoing[i]);
-
-	assert(structeq(&ci->funding, &ci->funding_next));
 	return ci;
 }
 
