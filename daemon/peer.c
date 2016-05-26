@@ -49,18 +49,6 @@ struct json_connecting {
 	struct anchor_input *input;
 };
 
-struct pending_cmd {
-	struct list_node list;
-	void (*dequeue)(struct peer *, void *arg);
-	void *arg;
-};
-
-struct pending_input {
-	struct list_node list;
-	enum state_input input;
-	union input idata;
-};
-
 static struct peer *find_peer(struct lightningd_state *dstate,
 			      const char *buffer,
 			      jsmntok_t *peeridtok)
@@ -574,36 +562,16 @@ static void state_single(struct peer *peer,
 		io_break(peer);
 }
 
-static void UNNEEDED queue_input(struct peer *peer,
-			enum state_input input,
-			const union input *idata)
-{
-	struct pending_input *pend = tal(peer, struct pending_input);
-
-	pend->input = input;
-	if (idata)
-		pend->idata = *idata;
-	list_add_tail(&peer->pending_input, &pend->list);
-}
-	
 static void state_event(struct peer *peer, 
 			const enum state_input input,
 			const union input *idata)
 {
-	struct pending_input *pend;
-
 	if (!state_is_opening(peer->state) && !state_is_normal(peer->state)) {
 		log_unusual(peer->log,
 			    "Unexpected input %s while state %s",
 			    input_name(input), state_name(peer->state));
 	} else {
 		state_single(peer, input, idata);
-	}
-
-	pend = list_pop(&peer->pending_input, struct pending_input, list);
-	if (pend) {
-		state_event(peer, pend->input, &pend->idata);
-		tal_free(pend);
 	}
 }
 
@@ -772,8 +740,6 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	list_head_init(&peer->watches);
 	peer->outpkt = tal_arr(peer, Pkt *, 0);
 	peer->commit_jsoncmd = NULL;
-	list_head_init(&peer->pending_cmd);
-	list_head_init(&peer->pending_input);
 	list_head_init(&peer->outgoing_txs);
 	peer->close_watch_timeout = NULL;
 	peer->anchor.watches = NULL;
@@ -2276,7 +2242,6 @@ static void json_add_htlcs(struct json_result *response,
 /* FIXME: add history command which shows all prior and current commit txs */
 
 /* FIXME: Somehow we should show running DNS lookups! */
-/* FIXME: Show status of peers! */
 static void json_getpeers(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
