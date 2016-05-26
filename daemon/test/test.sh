@@ -63,6 +63,9 @@ while [ $# != 0 ]; do
 	    ;;
 	x"--normal")
 	    ;;
+	x"--crash")
+	    CRASH_ON_FAIL=1
+	    ;;
 	x"--verbose")
 	    VERBOSE=1
 	    ;;
@@ -213,7 +216,11 @@ all_ok()
     exit 0
 }
 
-trap "echo Results in $DIR1 and $DIR2 >&2; cat $DIR1/errors $DIR2/errors >&2" EXIT
+if [ -n "$CRASH_ON_FAIL" ]; then
+    trap "$LCLI1 dev-crash 2>/dev/null || true; $LCLI2 dev-crash 2>/dev/null || true; echo Crash results in $DIR1 and $DIR2 >&2; cat $DIR1/errors $DIR2/errors >&2" EXIT
+else
+    trap "echo Results in $DIR1 and $DIR2 >&2; cat $DIR1/errors $DIR2/errors >&2" EXIT
+fi
 mkdir $DIR1 $DIR2
 
 if [ -n "$MANUALCOMMIT" ]; then
