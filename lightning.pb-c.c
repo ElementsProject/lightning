@@ -1481,7 +1481,7 @@ const ProtobufCMessageDescriptor open_channel__descriptor =
   (ProtobufCMessageInit) open_channel__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor open_anchor__field_descriptors[4] =
+static const ProtobufCFieldDescriptor open_anchor__field_descriptors[3] =
 {
   {
     "txid",
@@ -1519,29 +1519,16 @@ static const ProtobufCFieldDescriptor open_anchor__field_descriptors[4] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
-  {
-    "commit_sig",
-    4,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_MESSAGE,
-    0,   /* quantifier_offset */
-    offsetof(OpenAnchor, commit_sig),
-    &signature__descriptor,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
 };
 static const unsigned open_anchor__field_indices_by_name[] = {
   2,   /* field[2] = amount */
-  3,   /* field[3] = commit_sig */
   1,   /* field[1] = output_index */
   0,   /* field[0] = txid */
 };
 static const ProtobufCIntRange open_anchor__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 4 }
+  { 0, 3 }
 };
 const ProtobufCMessageDescriptor open_anchor__descriptor =
 {
@@ -1551,7 +1538,7 @@ const ProtobufCMessageDescriptor open_anchor__descriptor =
   "OpenAnchor",
   "",
   sizeof(OpenAnchor),
-  4,
+  3,
   open_anchor__field_descriptors,
   open_anchor__field_indices_by_name,
   1,  open_anchor__number_ranges,

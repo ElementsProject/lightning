@@ -230,14 +230,10 @@ struct  _OpenAnchor
    * Amount of anchor output.
    */
   uint64_t amount;
-  /*
-   * Signature for your initial commitment tx.
-   */
-  Signature *commit_sig;
 };
 #define OPEN_ANCHOR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&open_anchor__descriptor) \
-    , NULL, 0, 0, NULL }
+    , NULL, 0, 0 }
 
 
 /*

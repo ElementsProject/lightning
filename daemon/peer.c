@@ -221,12 +221,16 @@ static void peer_breakdown(struct peer *peer)
 		log_unusual(peer->log, "Peer breakdown: sending close tx");
 		broadcast_tx(peer, bitcoin_close(peer));
 	/* If we have a signed commit tx (maybe not if we just offered
-	 * anchor), use it. */
+	 * anchor, or they supplied anchor). */
 	} else if (peer->local.commit->sig) {
 		log_unusual(peer->log, "Peer breakdown: sending commit tx");
 		broadcast_tx(peer, bitcoin_commit(peer));
-	} else
+	} else {
 		log_info(peer->log, "Peer breakdown: nothing to do");
+		/* We close immediately. */
+		set_peer_state(peer, STATE_CLOSED, __func__);
+		io_wake(peer);
+	}
 }
 
 static bool peer_uncommitted_changes(const struct peer *peer)

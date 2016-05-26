@@ -97,9 +97,6 @@ message open_anchor {
   required uint32 output_index = 2;
   // Amount of anchor output.
   required uint64 amount = 3;
-
-  // Signature for your initial commitment tx.
-  required signature commit_sig = 4;
 }
 
 // Reply: signature for your initial commitment tx

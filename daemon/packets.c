@@ -130,14 +130,6 @@ void queue_pkt_anchor(struct peer *peer)
 		return;
 	}
 
-	/* Sign their commit sig */
-	peer->remote.commit->sig = tal(peer->remote.commit,
-				     struct bitcoin_signature);
-	peer->remote.commit->sig->stype = SIGHASH_ALL;
-	peer_sign_theircommit(peer, peer->remote.commit->tx,
-			      &peer->remote.commit->sig->sig);
-	a->commit_sig = signature_to_proto(a, &peer->remote.commit->sig->sig);
-
 	queue_pkt(peer, PKT__PKT_OPEN_ANCHOR, a);
 }
 
@@ -560,7 +552,7 @@ Pkt *accept_pkt_anchor(struct peer *peer, const Pkt *pkt)
 	if (!setup_first_commit(peer))
 		return pkt_err(peer, "Insufficient funds for fee");
 
-	return check_and_save_commit_sig(peer, peer->local.commit, a->commit_sig);
+	return NULL;
 }
 
 Pkt *accept_pkt_open_commit_sig(struct peer *peer, const Pkt *pkt)
