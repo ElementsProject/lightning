@@ -2267,6 +2267,18 @@ const struct json_command newhtlc_command = {
 	"Returns an empty result on success"
 };
 
+/* Looks for their HTLC, but must be committed. */
+static size_t find_their_committed_htlc(struct peer *peer,
+					const struct sha256 *rhash)
+{
+	/* Must be in last committed cstate. */
+	if (funding_find_htlc(&peer->them.commit->cstate->a, rhash)
+	    == tal_count(peer->them.commit->cstate->a.htlcs))
+		return tal_count(peer->them.staging_cstate->a.htlcs);
+
+	return funding_find_htlc(&peer->them.staging_cstate->a, rhash);
+}
+
 struct fulfillhtlc {
 	struct command *jsoncmd;
 	struct sha256 r;
@@ -2284,7 +2296,7 @@ static void do_fullfill(struct peer *peer,
 
 	sha256(&rhash, &fulfillhtlc->r, sizeof(fulfillhtlc->r));
 
-	i = funding_find_htlc(&peer->them.staging_cstate->a, &rhash);
+	i = find_their_committed_htlc(peer, &rhash);
 	if (i == tal_count(peer->them.staging_cstate->a.htlcs)) {
 		command_fail(fulfillhtlc->jsoncmd, "preimage htlc not found");
 		return;
@@ -2358,8 +2370,7 @@ static void do_failhtlc(struct peer *peer,
 
 	/* Look in peer->them.staging_cstate->a, as that's where we'll 
 	 * immediately remove it from: avoids double-handling. */
-	/* FIXME: Make sure it's also committed in previous commit tx! */
-	i = funding_find_htlc(&peer->them.staging_cstate->a, &failhtlc->rhash);
+	i = find_their_committed_htlc(peer, &failhtlc->rhash);
 	if (i == tal_count(peer->them.staging_cstate->a.htlcs)) {
 		command_fail(failhtlc->jsoncmd, "htlc not found");
 		return;
