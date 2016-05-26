@@ -110,9 +110,8 @@ check()
 	# Try making time pass for the nodes (if on mocktime), then sleeping.
 	if [ -n "$MOCKTIME" ]; then 
 	    MOCKTIME=$(($MOCKTIME + 1))
-	    # Some tests kill nodes, so ignore failure here.
-	    lcli1 dev-mocktime $MOCKTIME > /dev/null 2>&1 || true
-	    lcli2 dev-mocktime $MOCKTIME > /dev/null 2>&1 || true
+	    lcli1 dev-mocktime $MOCKTIME
+	    lcli2 dev-mocktime $MOCKTIME
 	fi
 	sleep 1
 	i=$(($i + 1))
@@ -597,6 +596,38 @@ lcli1 fulfillhtlc $ID2 $SECRET2
 # We transferred amount from B to A.
 A_AMOUNT=$(($A_AMOUNT + $HTLC_AMOUNT))
 B_AMOUNT=$(($B_AMOUNT - $HTLC_AMOUNT))
+check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
+
+# Now, test making more changes before receiving commit reply.
+lcli2 dev-output $ID1 false
+lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
+
+# Make sure node1 sends commit (in the background, since it will block!)
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2 &
+# node2 will consider this committed.
+check_status_single lcli2 $(($B_AMOUNT - $EXTRA_FEE/2)) $(($B_FEE + $EXTRA_FEE/2)) "" $(($A_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE/2)) $(($A_FEE + $EXTRA_FEE/2)) '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } '
+
+# Now send another offer, and enable node2 output.
+lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH2
+lcli2 dev-output $ID1 true
+
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+
+# Both sides should be committed to htlcs
+check_status $(($A_AMOUNT - $HTLC_AMOUNT*2 - $EXTRA_FEE)) $(($A_FEE + $EXTRA_FEE)) '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" }, { "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH2'" } ' $(($B_AMOUNT - $EXTRA_FEE)) $(($B_FEE + $EXTRA_FEE)) ""
+
+# Node2 collects the HTLCs.
+lcli2 fulfillhtlc $ID1 $SECRET
+lcli2 fulfillhtlc $ID1 $SECRET2
+
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+
+# We transferred 2 * amount from A to B.
+A_AMOUNT=$(($A_AMOUNT - $HTLC_AMOUNT * 2))
+B_AMOUNT=$(($B_AMOUNT + $HTLC_AMOUNT * 2))
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 lcli1 close $ID2
