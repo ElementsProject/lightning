@@ -341,7 +341,7 @@ B_AMOUNT=0
 B_FEE=0
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
-# This is 1000 satoshi, so not dust!
+# This is 10,000 satoshi, so not dust!
 HTLC_AMOUNT=10000000
 
 EXPIRY=$(( $(date +%s) + 1000))
@@ -508,6 +508,52 @@ if [ -n "$STEAL" ]; then
     
     all_ok
 fi
+
+# First, give more money to node2, so it can offer HTLCs.
+EXPIRY=$(($MOCKTIME + 1000))
+HTLC_AMOUNT=100000000
+lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+
+check_status $(($A_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE)) $(($A_FEE + $EXTRA_FEE)) '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
+
+lcli2 fulfillhtlc $ID1 $SECRET
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+
+# Both now pay equal fees.
+A_FEE=$(($NO_HTLCS_FEE / 2))
+B_FEE=$(($NO_HTLCS_FEE / 2))
+# We transferred 10000000 before, and $HTLC_AMOUNT now.
+A_AMOUNT=$(($AMOUNT - 10000000 - $HTLC_AMOUNT - $A_FEE))
+B_AMOUNT=$((10000000 + $HTLC_AMOUNT - $B_FEE))
+
+check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
+
+# Now, two HTLCs at once, one from each direction.
+# Both sides can afford this.
+HTLC_AMOUNT=1000000
+lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
+SECRET2=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfe
+RHASH2=`lcli1 dev-rhash $SECRET2 | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
+lcli2 newhtlc $ID1 $HTLC_AMOUNT $EXPIRY $RHASH2
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+
+check_status $(($A_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE)) $(($A_FEE + $EXTRA_FEE)) '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $(($B_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE)) $(($B_FEE + $EXTRA_FEE)) '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH2'" } '
+
+lcli2 failhtlc $ID1 $RHASH
+lcli1 fulfillhtlc $ID2 $SECRET2
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+
+# We transferred amount from B to A.
+A_AMOUNT=$(($A_AMOUNT + $HTLC_AMOUNT))
+B_AMOUNT=$(($B_AMOUNT - $HTLC_AMOUNT))
+check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 lcli1 close $ID2
 
