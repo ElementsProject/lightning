@@ -130,6 +130,8 @@ void set_peer_state(struct peer *peer, enum state newstate, const char *caller)
 
 static void peer_breakdown(struct peer *peer)
 {
+	peer->cond = PEER_CLOSED;
+
 	/* If we have a closing tx, use it. */
 	if (peer->closing.their_sig) {
 		log_unusual(peer->log, "Peer breakdown: sending close tx");
@@ -173,12 +175,12 @@ static void state_single(struct peer *peer,
 	if (broadcast)
 		broadcast_tx(peer, broadcast);
 
+	if (peer->state == STATE_ERR_BREAKDOWN)
+		peer_breakdown(peer);
+
 	/* Start output if not running already; it will close conn. */
 	if (peer->cond == PEER_CLOSED)
 		io_wake(peer);
-
-	if (peer->state == STATE_ERR_BREAKDOWN)
-		peer_breakdown(peer);
 
 	/* FIXME: Some of these should just result in this peer being killed? */
 	else if (state_is_error(peer->state)) {
