@@ -220,17 +220,22 @@ static void try_command(struct peer *peer)
 				       struct peer *),			\
 		   (arg))
 
-static void queue_cmd_(struct peer *peer,
+static bool queue_cmd_(struct peer *peer,
 		       void (*dequeue)(struct peer *peer, void *arg),
 		       void *arg)
 {
-	struct pending_cmd *pend = tal(peer, struct pending_cmd);
+	struct pending_cmd *pend;
 
+	if (peer->cond == PEER_CLOSING || peer->cond == PEER_CLOSED)
+		return false;
+
+	pend = tal(peer, struct pending_cmd);
 	pend->dequeue = dequeue;
 	pend->arg = arg;
 
 	list_add_tail(&peer->pending_cmd, &pend->list);
 	try_command(peer);
+	return true;
 };
 
 static void queue_input(struct peer *peer,
@@ -2248,7 +2253,8 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
-	queue_cmd(peer, do_newhtlc, newhtlc);
+	if (!queue_cmd(peer, do_newhtlc, newhtlc))
+		command_fail(cmd, "Peer closing");
 }
 
 /* FIXME: Use HTLC ids, not r values! */
@@ -2324,7 +2330,8 @@ static void json_fulfillhtlc(struct command *cmd,
 		return;
 	}
 
-	queue_cmd(peer, do_fullfill, fulfillhtlc);
+	if (!queue_cmd(peer, do_fullfill, fulfillhtlc))
+		command_fail(cmd, "Peer closing");
 }
 	
 const struct json_command fulfillhtlc_command = {
@@ -2398,7 +2405,8 @@ static void json_failhtlc(struct command *cmd,
 		return;
 	}
 
-	queue_cmd(peer, do_failhtlc, failhtlc);
+	if (!queue_cmd(peer, do_failhtlc, failhtlc))
+		command_fail(cmd, "Peer closing");
 }
 	
 const struct json_command failhtlc_command = {
@@ -2432,7 +2440,8 @@ static void json_commit(struct command *cmd,
 		return;
 	}
 
-	queue_cmd(peer, do_commit, cmd);
+	if (!queue_cmd(peer, do_commit, cmd))
+		command_fail(cmd, "Peer closing");
 }
 	
 const struct json_command commit_command = {
