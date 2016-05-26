@@ -425,7 +425,7 @@ void queue_pkt_close_signature(struct peer *peer)
 
 Pkt *pkt_err_unexpected(struct peer *peer, const Pkt *pkt)
 {
-	return pkt_err(peer, "Unexpected packet %s", state_name(pkt->pkt_case));
+	return pkt_err(peer, "Unexpected packet %s", pkt_name(pkt->pkt_case));
 }
 
 /* Process various packets: return an error packet on failure. */

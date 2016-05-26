@@ -272,7 +272,7 @@ static struct io_plan *decrypt_body(struct io_conn *conn, struct peer *peer)
 	log_debug(peer->log, "Received packet LEN=%u, type=%s",
 		  le32_to_cpu(iod->hdr_in.length),
 		  peer->inpkt->pkt_case == PKT__PKT_AUTH ? "PKT_AUTH"
-		  : input_name(peer->inpkt->pkt_case));
+		  : pkt_name(peer->inpkt->pkt_case));
 
 	return iod->cb(conn, peer);
 }

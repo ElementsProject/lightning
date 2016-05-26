@@ -170,7 +170,7 @@ static void state_single(struct peer *peer,
 
 	if (tal_count(peer->outpkt) > old_outpkts) {
 		Pkt *outpkt = peer->outpkt[old_outpkts].pkt;
-		log_add(peer->log, " (out %s)", input_name(outpkt->pkt_case));
+		log_add(peer->log, " (out %s)", pkt_name(outpkt->pkt_case));
 	}
 	if (broadcast)
 		broadcast_tx(peer, broadcast);
