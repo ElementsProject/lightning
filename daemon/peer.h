@@ -118,18 +118,11 @@ struct peer {
 	/* State in state machine. */
 	enum state state;
 
-	/* Condition of communications */
-	enum state_peercond cond;
-
 	/* Network connection. */
 	struct io_conn *conn;
 
-	/* Current command (or INPUT_NONE) */
-	struct {
-		enum state_input cmd;
-		union input cmddata;
-		struct command *jsoncmd;
-	} curr_cmd;
+	/* If we're doing a commit, this is the command which triggered it */
+	struct command *commit_jsoncmd;
 
 	/* Pending inputs. */
 	struct list_head pending_input;
@@ -234,14 +227,18 @@ void setup_listeners(struct lightningd_state *dstate, unsigned int portnum);
 /* Populates very first peer->{local,remote}.commit->{tx,cstate} */
 bool setup_first_commit(struct peer *peer);
 
-void set_peer_state(struct peer *peer, enum state newstate, const char *why);
-
 /* Set up timer: we have something we can commit. */
 void remote_changes_pending(struct peer *peer);
 
 /* Add this unacked change */
 void add_unacked(struct peer_visible_state *which,
 		 const union htlc_staging *stage);
+
+/* Peer has recieved revocation, or problem (if non-NULL). */
+void peer_update_complete(struct peer *peer, const char *problem);
+
+/* Peer has completed open, or problem (if non-NULL). */
+void peer_open_complete(struct peer *peer, const char *problem);
 
 void peer_add_htlc_expiry(struct peer *peer,
 			  const struct abs_locktime *expiry);

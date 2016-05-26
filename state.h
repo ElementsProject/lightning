@@ -16,13 +16,60 @@
 
 static inline bool state_is_error(enum state s)
 {
-	return s >= STATE_ERR_ANCHOR_TIMEOUT && s <= STATE_ERR_INTERNAL;
+	return s >= STATE_ERR_BREAKDOWN && s <= STATE_ERR_INTERNAL;
 }
 
-static inline bool state_is_closing(enum state s)
+static inline bool state_is_clearing(enum state s)
 {
-	return s >= STATE_CLEARING;
+	return s == STATE_CLEARING || s == STATE_CLEARING_COMMITTING;
 }
+
+static inline bool state_is_onchain(enum state s)
+{
+	return s >= STATE_CLOSE_ONCHAIN_CHEATED
+		&& s <= STATE_CLOSE_ONCHAIN_MUTUAL;
+}
+
+static inline bool state_is_normal(enum state s)
+{
+	return s == STATE_NORMAL || s == STATE_NORMAL_COMMITTING;
+}
+
+static inline bool state_is_opening(enum state s)
+{
+	return s < STATE_NORMAL;
+}
+
+static inline bool state_can_io(enum state s)
+{
+	if (state_is_error(s))
+		return false;
+	if (s == STATE_CLOSED)
+		return false;
+	if (state_is_onchain(s))
+		return false;
+	return true;
+}
+
+static inline bool state_can_commit(enum state s)
+{
+	return s == STATE_NORMAL || s == STATE_CLEARING;
+}
+
+/* BOLT #2:
+ *
+ * A node MUST NOT send a `update_add_htlc` after a `close_clearing`
+ */
+static inline bool state_can_add_htlc(enum state s)
+{
+	return state_is_normal(s);
+}
+
+static inline bool state_can_remove_htlc(enum state s)
+{
+	return state_is_normal(s) || state_is_clearing(s);
+}
+
 
 struct peer;
 struct bitcoin_tx;
@@ -48,10 +95,10 @@ union input {
 	} *htlc_onchain;
 };
 
-enum command_status state(struct peer *peer,
-			  const enum state_input input,
-			  const union input *idata,
-			  const struct bitcoin_tx **broadcast);
+enum state state(struct peer *peer,
+		 const enum state_input input,
+		 const union input *idata,
+		 const struct bitcoin_tx **broadcast);
 
 /* Any CMD_SEND_HTLC_* */
 #define CMD_SEND_UPDATE_ANY INPUT_MAX

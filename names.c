@@ -23,26 +23,6 @@ const char *input_name(enum state_input in)
 	return "unknown";
 }
 
-const char *cstatus_name(enum command_status cstatus)
-{
-	size_t i;
-
-	for (i = 0; enum_command_status_names[i].name; i++)
-		if (enum_command_status_names[i].v == cstatus)
-			return enum_command_status_names[i].name;
-	return "unknown";
-}
-	
-const char *peercond_name(enum state_peercond peercond)
-{
-	size_t i;
-
-	for (i = 0; enum_state_peercond_names[i].name; i++)
-		if (enum_state_peercond_names[i].v == peercond)
-			return enum_state_peercond_names[i].name;
-	return "unknown";
-}
-
 const char *pkt_name(Pkt__PktCase pkt)
 {
 	size_t i;

@@ -298,18 +298,16 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     MOCKTIME=$((`date +%s` + 7200 + 3 * 1200 + 1))
 
     lcli1 dev-mocktime $MOCKTIME
+    lcli2 dev-mocktime $MOCKTIME
 
-    # This will crash immediately
-    if $LCLI2 dev-mocktime $MOCKTIME 2> /dev/null; then
-	echo Node2 did not crash >&2
-	exit 1
-    fi
-    $FGREP 'Entered error state STATE_ERR_ANCHOR_TIMEOUT' $DIR2/crash.log
+    # Node2 should have gone via STATE_ERR_ANCHOR_TIMEOUT, then closed.
+    lcli2 getlog | grep STATE_ERR_ANCHOR_TIMEOUT
+    check_no_peers lcli2
 
     # Node1 should be disconnected.
     check_peerconnected lcli1 false
     
-    # It should send out commit tx; mine it.
+    # Node1 should send out commit tx; mine it.
     check_tx_spend lcli1
     $CLI generate 1
 
@@ -335,6 +333,7 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     check_no_peers lcli1
 
     lcli1 stop
+    lcli2 stop
     all_ok
 fi
 

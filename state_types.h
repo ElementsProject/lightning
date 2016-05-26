@@ -117,23 +117,4 @@ enum state_input {
 
 	INPUT_MAX
 };
-
-enum state_peercond {
-	/* Ready to accept a new command. */
-	PEER_CMD_OK,
-	/* Don't send me commands, I'm busy. */
-	PEER_BUSY,
-	/* No more packets, I'm closed. */
-	PEER_CLOSED
-};
-
-enum command_status {
-	/* Nothing changed. */
-	CMD_NONE,
-	/* Command succeeded. */
-	CMD_SUCCESS,
-	/* Failed. */
-	CMD_FAIL
-};
-
 #endif /* LIGHTNING_STATE_TYPES_H */

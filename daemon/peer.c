@@ -90,132 +90,135 @@ static struct json_result *null_response(const tal_t *ctx)
 	return response;
 }
 
-static void complete_json_command(struct command *jsoncmd,
-				  enum command_status status)
+/* FIXME: reorder to avoid predecls. */
+static bool peer_uncommitted_changes(const struct peer *peer);
+static void state_event(struct peer *peer, 
+			const enum state_input input,
+			const union input *idata);
+
+void peer_update_complete(struct peer *peer, const char *problem)
 {
-	if (jsoncmd) {
-		if (status == CMD_FAIL)
-			/* FIXME: y'know, details. */
-			command_fail(jsoncmd, "Failed");
-		else {
-			assert(status == CMD_SUCCESS);
-			command_success(jsoncmd, null_response(jsoncmd));
-		}
+	if (!problem) {
+		log_debug(peer->log, "peer_update_complete");
+		if (peer->commit_jsoncmd)
+			command_success(peer->commit_jsoncmd,
+					null_response(peer->commit_jsoncmd));
+	} else {
+		log_unusual(peer->log, "peer_update_complete failed: %s",
+			    problem);
+		if (peer->commit_jsoncmd)
+			command_fail(peer->commit_jsoncmd, "%s", problem);
+	}
+
+	/* Simply unset it: it will free itself. */
+	peer->commit_jsoncmd = NULL;
+
+	/* Have we got more changes in the meantime? */
+	if (peer_uncommitted_changes(peer)) {
+		log_debug(peer->log, "peer_update_complete: more changes!");
+		remote_changes_pending(peer);
 	}
 }
 
-static void peer_cmd_complete(struct peer *peer, enum command_status status)
+void peer_open_complete(struct peer *peer, const char *problem)
 {
-	complete_json_command(peer->curr_cmd.jsoncmd, status);
-	peer->curr_cmd.jsoncmd = NULL;
-	peer->curr_cmd.cmd = INPUT_NONE;
+	if (problem)
+		log_unusual(peer->log, "peer open failed: %s", problem);
+	else
+		log_debug(peer->log, "peer open complete");
 }
 
-static void set_current_command(struct peer *peer, 
-				const enum state_input input,
-				void *idata,
-				struct command *jsoncmd)
-{
-	assert(peer->curr_cmd.cmd == INPUT_NONE);
-	assert(input != INPUT_NONE);
-
-	peer->curr_cmd.cmd = input;
-	/* This is a union, so assign to any member. */
-	peer->curr_cmd.cmddata.pkt = idata;
-	peer->curr_cmd.jsoncmd = jsoncmd;
-}
-
-void set_peer_state(struct peer *peer, enum state newstate, const char *caller)
+static void set_peer_state(struct peer *peer, enum state newstate,
+			   const char *caller)
 {
 	log_debug(peer->log, "%s: %s => %s", caller,
 		  state_name(peer->state), state_name(newstate));
 	peer->state = newstate;
 }
 
+/* FIXME: Flatten into do_commit. */
 static void command_send_commit(struct peer *peer, struct command *jsoncmd)
 {
-	assert(peer->curr_cmd.cmd == INPUT_NONE);
-
-	/* Commands should still be blocked during this! */
-	assert(peer->state != STATE_CLEARING_COMMITTING);
-
+	assert(state_can_commit(peer->state));
+	assert(!peer->commit_jsoncmd);
+	
+	peer->commit_jsoncmd = jsoncmd;
 	if (peer->state == STATE_CLEARING) {
-		peer->cond = PEER_BUSY;
-		peer->curr_cmd.jsoncmd = jsoncmd;
 		queue_pkt_commit(peer);
 		set_peer_state(peer, STATE_CLEARING_COMMITTING, __func__);
 	} else {
 		/* You can send commands if closing; peer->cond == CLOSING */
-		assert(!state_is_closing(peer->state));
-		set_current_command(peer, CMD_SEND_COMMIT, NULL, jsoncmd);
+		assert(peer->state == STATE_NORMAL);
+		state_event(peer, CMD_SEND_COMMIT, NULL);
 	}
 }
 
-static void set_htlc_command(struct peer *peer,
-			     struct command *jsoncmd,
-			     enum state_input cmd,
-			     const union htlc_staging *stage)
+static bool command_htlc_fail(struct peer *peer, u64 id, struct command *jsoncmd)
 {
-	/* FIXME: memleak! */
-	/* FIXME: Get rid of struct htlc_progress */
-	struct htlc_progress *progress = tal(peer, struct htlc_progress);
-
-	progress->stage = *stage;
-	set_current_command(peer, cmd, progress, jsoncmd);
-}
-
-static void command_htlc_fail(struct peer *peer, u64 id, struct command *jsoncmd)
-{
-	assert(peer->curr_cmd.cmd == INPUT_NONE);
-
-	/* Commands should still be blocked during this! */
-	assert(peer->state != STATE_CLEARING_COMMITTING);
+	if (!state_can_remove_htlc(peer->state)) {
+		if (jsoncmd)
+			command_fail(jsoncmd,
+				     "htlc_fail not possible in state %s",
+				     state_name(peer->state));
+		return false;
+	}
 
 	if (peer->state == STATE_CLEARING) {
 		queue_pkt_htlc_fail(peer, id);
-		complete_json_command(jsoncmd, CMD_SUCCESS);
 	} else {
-		union htlc_staging stage;
+		union input idata;
+		struct htlc_progress prog;
 
-		/* You can't send commands if closing; peer->cond == CLOSING */
-		assert(!state_is_closing(peer->state));
-
-		stage.fail.fail = HTLC_FAIL;
-		stage.fail.id = id;
-		set_htlc_command(peer, jsoncmd, CMD_SEND_HTLC_FAIL, &stage);
+		prog.stage.fail.fail = HTLC_FAIL;
+		prog.stage.fail.id = id;
+		/* FIXME: get rid of htlc_progress, just use htlc_staging. */
+		idata.htlc_prog = &prog;
+		state_event(peer, CMD_SEND_HTLC_FAIL, &idata);
 	}
+
+	if (jsoncmd)
+		command_success(jsoncmd, null_response(jsoncmd));
+	return true;
 }
 
-static void command_htlc_fulfill(struct peer *peer,
+/* FIXME: Flatten into json_fulfillhtlc. */
+static bool command_htlc_fulfill(struct peer *peer,
 				 u64 id,
 				 const struct sha256 *r,
 				 struct command *jsoncmd)
 {
-	assert(peer->curr_cmd.cmd == INPUT_NONE);
+	if (!state_can_remove_htlc(peer->state)) {
+		if (jsoncmd)
+			command_fail(jsoncmd,
+				     "htlc_fulfill not possible in state %s",
+				     state_name(peer->state));
+		return false;
+	}
 
 	/* Commands should still be blocked during this! */
 	assert(peer->state != STATE_CLEARING_COMMITTING);
 
 	if (peer->state == STATE_CLEARING) {
 		queue_pkt_htlc_fulfill(peer, id, r);
-		complete_json_command(jsoncmd, CMD_SUCCESS);
 	} else {
-		union htlc_staging stage;
+		union input idata;
+		struct htlc_progress prog;
 
-		/* You can't send commands if closing; peer->cond == CLOSING */
-		assert(!state_is_closing(peer->state));
-
-		stage.fulfill.fulfill = HTLC_FULFILL;
-		stage.fulfill.r = *r;
-		stage.fulfill.id = id;
-		set_htlc_command(peer, jsoncmd, CMD_SEND_HTLC_FULFILL, &stage);
+		prog.stage.fulfill.fulfill = HTLC_FULFILL;
+		prog.stage.fulfill.r = *r;
+		prog.stage.fulfill.id = id;
+		/* FIXME: get rid of htlc_progress, just use htlc_staging. */
+		idata.htlc_prog = &prog;
+		state_event(peer, CMD_SEND_HTLC_FULFILL, &idata);
 	}
+
+	if (jsoncmd)
+		command_success(jsoncmd, null_response(jsoncmd));
+	return true;
 }
 
 static void peer_breakdown(struct peer *peer)
 {
-	peer->cond = PEER_CLOSED;
-
 	/* If we have a closing tx, use it. */
 	if (peer->closing.their_sig) {
 		log_unusual(peer->log, "Peer breakdown: sending close tx");
@@ -279,7 +282,6 @@ static bool committed_to_htlcs(const struct peer *peer)
 static struct io_plan *peer_close(struct io_conn *conn, struct peer *peer)
 {
 	/* Tell writer to wrap it up (may have to xmit first) */
-	peer->cond = PEER_CLOSED;
 	io_wake(peer);
 	/* We do nothing more. */
 	return io_wait(conn, NULL, io_never, NULL);
@@ -419,9 +421,6 @@ static struct io_plan *closing_pkt_in(struct io_conn *conn, struct peer *peer)
 	return peer_read_packet(conn, peer, closing_pkt_in);
 }
 
-/* FIXME: Predecls are bad, move up! */
-static void try_command(struct peer *peer);
-
 /* This is the io loop while we're clearing. */
 static struct io_plan *clearing_pkt_in(struct io_conn *conn, struct peer *peer)
 {
@@ -438,11 +437,9 @@ static struct io_plan *clearing_pkt_in(struct io_conn *conn, struct peer *peer)
 			err = accept_pkt_revocation(peer, pkt);
 			if (!err) {
 				set_peer_state(peer, STATE_CLEARING, __func__);
-				peer_cmd_complete(peer, CMD_SUCCESS);
-				peer->cond = PEER_CMD_OK;
-				/* In case command is queued. */
-				try_command(peer);
-			}
+				peer_update_complete(peer, NULL);
+			} else
+				peer_update_complete(peer, "bad revocation");
 		}
 		break;
 
@@ -540,24 +537,12 @@ static void state_single(struct peer *peer,
 			 const enum state_input input,
 			 const union input *idata)
 {
-	enum command_status status;
 	const struct bitcoin_tx *broadcast;
+	enum state newstate;
 	size_t old_outpkts = tal_count(peer->outpkt);
 
-	status = state(peer, input, idata, &broadcast);
-	log_debug(peer->log, "Peer condition: %s", cstatus_name(peer->cond));
-	switch (status) {
-	case CMD_NONE:
-		break;
-	case CMD_SUCCESS:
-		log_add(peer->log, " (command success)");
-		peer_cmd_complete(peer, CMD_SUCCESS);
-		break;
-	case CMD_FAIL:
-		log_add(peer->log, " (command FAIL)");
-		peer_cmd_complete(peer, CMD_FAIL);
-		break;
-	}
+	newstate = state(peer, input, idata, &broadcast);
+	set_peer_state(peer, newstate, input_name(input));
 
 	/* If we added uncommitted changes, we should have set them to send. */
 	if (peer_uncommitted_changes(peer))
@@ -570,74 +555,24 @@ static void state_single(struct peer *peer,
 	if (broadcast)
 		broadcast_tx(peer, broadcast);
 
-	if (peer->state == STATE_ERR_BREAKDOWN)
+	if (peer->state == STATE_CLEARING
+	    || peer->state == STATE_CLEARING_COMMITTING) {
+		peer_start_clearing(peer);
+	} else if (state_is_error(peer->state)) {
+		/* Breakdown is common, others less so. */
+		if (peer->state != STATE_ERR_BREAKDOWN)
+			log_broken(peer->log, "Entered error state %s",
+				   state_name(peer->state));
 		peer_breakdown(peer);
 
-	/* Start output if not running already; it will close conn. */
-	if (peer->cond == PEER_CLOSED)
+		/* Start output if not running already; it will close conn. */
 		io_wake(peer);
-
-	else if (peer->state == STATE_CLEARING
-		 || peer->state == STATE_CLEARING_COMMITTING)
-		peer_start_clearing(peer);
-
-	/* FIXME: Some of these should just result in this peer being killed? */
-	else if (state_is_error(peer->state)) {
-		log_broken(peer->log, "Entered error state %s",
-			   state_name(peer->state));
-		fatal("Peer entered error state");
 	}
 
 	/* Break out and free this peer if it's completely done. */
 	if (peer->state == STATE_CLOSED && !peer->conn)
 		io_break(peer);
 }
-
-static void try_command(struct peer *peer)
-{
-	/* If we can accept a command, and we have one queued, run it. */
-	while (peer->cond == PEER_CMD_OK
-	       && !list_empty(&peer->pending_cmd)) {
-		struct pending_cmd *pend = list_pop(&peer->pending_cmd,
-						    struct pending_cmd, list);
-
-		assert(peer->curr_cmd.cmd == INPUT_NONE);
-
-		/* This can fail to enqueue a command! */
-		pend->dequeue(peer, pend->arg);
-		tal_free(pend);
-
-		if (peer->curr_cmd.cmd != INPUT_NONE) {
-			state_single(peer, peer->curr_cmd.cmd,
-				     &peer->curr_cmd.cmddata);
-		}
-	}
-}
-
-#define queue_cmd(peer, cb, arg)					\
-	queue_cmd_((peer),						\
-		   typesafe_cb_preargs(void, void *,			\
-				       (cb), (arg),			\
-				       struct peer *),			\
-		   (arg))
-
-static bool queue_cmd_(struct peer *peer,
-		       void (*dequeue)(struct peer *peer, void *arg),
-		       void *arg)
-{
-	struct pending_cmd *pend;
-
-	if (peer->cond == PEER_CLOSED)
-		return false;
-
-	pend = tal(peer, struct pending_cmd);
-	pend->dequeue = dequeue;
-	pend->arg = arg;
-
-	list_add_tail(&peer->pending_cmd, &pend->list);
-	try_command(peer);
-	return true;
-};
 
 static void UNNEEDED queue_input(struct peer *peer,
 			enum state_input input,
@@ -657,7 +592,7 @@ static void state_event(struct peer *peer,
 {
 	struct pending_input *pend;
 
-	if (state_is_closing(peer->state)) {
+	if (!state_is_opening(peer->state) && !state_is_normal(peer->state)) {
 		log_unusual(peer->log,
 			    "Unexpected input %s while state %s",
 			    input_name(input), state_name(peer->state));
@@ -670,8 +605,6 @@ static void state_event(struct peer *peer,
 		state_event(peer, pend->input, &pend->idata);
 		tal_free(pend);
 	}
-
-	try_command(peer);
 }
 
 static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
@@ -684,7 +617,7 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 
 	if (n == 0) {
 		/* We close the connection once we've sent everything. */
-		if (peer->cond == PEER_CLOSED)
+		if (!state_can_io(peer->state))
 			return io_close(conn);
 		return io_out_wait(conn, peer, pkt_out, peer);
 	}
@@ -711,7 +644,7 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 	idata.pkt = tal_steal(ctx, peer->inpkt);
 
 	/* We ignore packets if they tell us to. */
-	if (!peer->fake_close && peer->cond != PEER_CLOSED) {
+	if (!peer->fake_close && state_can_io(peer->state)) {
 		state_event(peer, peer->inpkt->pkt_case, &idata);
 	}
 
@@ -719,11 +652,6 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 	tal_free(ctx);
 
 	return peer_read_packet(conn, peer, pkt_in);
-}
-
-static void do_anchor_offer(struct peer *peer, void *unused)
-{
-	set_current_command(peer, peer->local.offer_anchor, NULL, NULL);
 }
 
 /* Crypto is on, we are live. */
@@ -735,8 +663,7 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 
 	assert(peer->state == STATE_INIT);
 
-	/* Using queue_cmd is overkill here, but it works. */
-	queue_cmd(peer, do_anchor_offer, NULL);
+	state_event(peer, peer->local.offer_anchor, NULL);
 
 	return io_duplex(conn,
 			 peer_read_packet(conn, peer, pkt_in),
@@ -768,13 +695,10 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 		io_break(peer);
 		return;
 	}
-	
-	/* FIXME: Try to reconnect. */
-	/* This is an expected close. */
-	if (peer->cond == PEER_CLOSED)
-		return;
 
-	if (peer->state != STATE_ERR_BREAKDOWN) {
+	/* This is an unexpected close. */
+	if (!state_is_onchain(peer->state) && !state_is_error(peer->state)) {
+		/* FIXME: Try to reconnect. */
 		set_peer_state(peer, STATE_ERR_BREAKDOWN, "peer_disconnect");
 		peer_breakdown(peer);
 	}
@@ -783,11 +707,7 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 static void do_commit(struct peer *peer, struct command *jsoncmd)
 {
 	/* We can have changes we suggested, or changes they suggested. */
-	if (peer->remote.staging_cstate
-	    && peer->remote.commit
-	    && peer->remote.commit->cstate
-	    && peer->remote.staging_cstate->changes
-	    != peer->remote.commit->cstate->changes) {
+	if (peer_uncommitted_changes(peer)) {
 		log_debug(peer->log, "do_commit: sending commit command");
 		command_send_commit(peer, jsoncmd);
 		return;
@@ -803,7 +723,17 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 static void try_commit(struct peer *peer)
 {
 	peer->commit_timer = NULL;
-	queue_cmd(peer, do_commit, (struct command *)NULL);
+
+	if (state_can_commit(peer->state))
+		do_commit(peer, NULL);
+	else {
+		/* FIXME: try again when we receive revocation, rather
+		 * than using timer! */
+		log_debug(peer->log, "try_commit: state=%s, re-queueing timer",
+			  state_name(peer->state));
+		
+		remote_changes_pending(peer);
+	}
 }
 
 void remote_changes_pending(struct peer *peer)
@@ -834,7 +764,6 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	list_add(&dstate->peers, &peer->list);
 
 	peer->state = STATE_INIT;
-	peer->cond = PEER_CMD_OK;
 	peer->dstate = dstate;
 	peer->addr.type = addr_type;
 	peer->addr.protocol = addr_protocol;
@@ -842,7 +771,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->secrets = NULL;
 	list_head_init(&peer->watches);
 	peer->outpkt = tal_arr(peer, Pkt *, 0);
-	peer->curr_cmd.cmd = INPUT_NONE;
+	peer->commit_jsoncmd = NULL;
 	list_head_init(&peer->pending_cmd);
 	list_head_init(&peer->pending_input);
 	list_head_init(&peer->outgoing_txs);
@@ -1832,7 +1761,10 @@ static void check_for_resolution(struct peer *peer,
 	 * *irrevocably resolved*.
 	 */
 	set_peer_state(peer, STATE_CLOSED, "check_for_resolution");
-	io_break(peer);
+
+	/* It's theoretically possible that peer is still writing output */
+	if (!peer->conn)
+		io_break(peer);
 }
 	    
 /* We assume the tx is valid!  Don't do a blockchain.info and feed this
@@ -1843,28 +1775,14 @@ static void anchor_spent(struct peer *peer,
 			 void *unused)
 {
 	struct sha256_double txid;
+	Pkt *err;
+	enum state newstate;
 
 	assert(input_num < tx->input_count);
 
 	/* We only ever sign single-input txs. */
 	if (input_num != 0)
 		fatal("Anchor spend by non-single input tx");
-
-	/* BOLT #onchain:
-	 *
-	 * A node SHOULD fail the connection if it is not already
-	 * closed when it sees the funding transaction spent.
-	 */
-	if (peer->cond != PEER_CLOSED) {
-		peer->cond = PEER_CLOSED;
-
-		/* BOLT #onchain:
-		 *
-		 * A node MAY send a descriptive error packet in this case.
-		 */
-		queue_pkt_err(peer,
-			      pkt_err(peer, "Funding transaction spent!"));
-	}
 
 	/* We may have been following a different spend.  Forget it. */
 	reset_onchain_closing(peer);
@@ -1875,25 +1793,23 @@ static void anchor_spent(struct peer *peer,
 	peer->closing_onchain.ci = find_commit(peer->remote.commit, &txid);
 	if (peer->closing_onchain.ci) {
 		if (peer->closing_onchain.ci->revocation_preimage) {
-			set_peer_state(peer, STATE_CLOSE_ONCHAIN_CHEATED,
-				       "anchor_spent");
+			newstate = STATE_CLOSE_ONCHAIN_CHEATED;
+			err = pkt_err(peer, "Revoked transaction seen");
 			resolve_cheating(peer);
 		} else {
-			set_peer_state(peer,
-				       STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL,
-				       "anchor_spent");
+			newstate = STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL;
+			err = pkt_err(peer, "Unilateral close tx seen");
 			resolve_their_unilateral(peer);
 		}
 	} else if (txidmatch(peer->local.commit->tx, &txid)) {
-		set_peer_state(peer,
-			       STATE_CLOSE_ONCHAIN_OUR_UNILATERAL,
-			       "anchor_spent");
+		newstate = STATE_CLOSE_ONCHAIN_OUR_UNILATERAL;
+		/* We're almost certainly closed to them by now. */
+		err = pkt_err(peer, "Our own unilateral close tx seen");
 		peer->closing_onchain.ci = peer->local.commit;
 		resolve_our_unilateral(peer);
 	} else if (is_mutual_close(peer, tx)) {
-		set_peer_state(peer,
-			       STATE_CLOSE_ONCHAIN_MUTUAL,
-			       "anchor_spent");
+		newstate = STATE_CLOSE_ONCHAIN_MUTUAL;
+		err = NULL;
 		resolve_mutual_close(peer);
 	} else {
 		/* BOLT #onchain:
@@ -1914,6 +1830,26 @@ static void anchor_spent(struct peer *peer,
 		peer->anchor.watches->depthok = INPUT_NONE;
 		return;
 	}
+
+	/* BOLT #onchain:
+	 *
+	 * A node MAY send a descriptive error packet in this case.
+	 */
+	if (err && state_can_io(peer->state))
+		queue_pkt_err(peer, err);
+
+	set_peer_state(peer, newstate, "anchor_spent");
+
+	/* If we've just closed connection, make output close it. */
+	io_wake(peer);
+	
+	/* BOLT #onchain:
+	 *
+	 * A node SHOULD fail the connection if it is not already
+	 * closed when it sees the funding transaction spent.
+	 */
+	assert(!state_can_io(peer->state));
+
 	assert(peer->closing_onchain.resolved != NULL);
 	watch_tx(tx, peer, tx, check_for_resolution, NULL);
 
@@ -2355,7 +2291,6 @@ static void json_getpeers(struct command *cmd,
 		json_object_start(response, NULL);
 		json_add_string(response, "name", log_prefix(p->log));
 		json_add_string(response, "state", state_name(p->state));
-		json_add_string(response, "cmd", input_name(p->curr_cmd.cmd));
 
 		/* This is only valid after crypto setup. */
 		if (p->state != STATE_INIT)
@@ -2407,9 +2342,11 @@ const struct json_command getpeers_command = {
 
 /* FIXME: Make sure no HTLCs in any unrevoked commit tx are live. */
 
-static void check_htlc_expiry(struct peer *peer, void *unused)
+static void check_htlc_expiry(struct peer *peer)
 {
 	size_t i;
+
+	log_debug(peer->log, "Expiry timedout!");
 
 	/* Check their currently still-existing htlcs for expiry:
 	 * We eliminate them from staging as we go. */
@@ -2425,15 +2362,10 @@ static void check_htlc_expiry(struct peer *peer, void *unused)
 		    < abs_locktime_to_seconds(&htlc->expiry))
 			continue;
 
+		/* This can fail only if we're in an error state. */
 		command_htlc_fail(peer, htlc->id, NULL);
 		return;
 	}
-}
-
-static void htlc_expiry_timeout(struct peer *peer)
-{
-	log_debug(peer->log, "Expiry timedout!");
-	queue_cmd(peer, check_htlc_expiry, NULL);
 }
 
 void peer_add_htlc_expiry(struct peer *peer,
@@ -2445,26 +2377,24 @@ void peer_add_htlc_expiry(struct peer *peer,
 	absexpiry.ts.tv_sec = abs_locktime_to_seconds(expiry) + 30;
 	absexpiry.ts.tv_nsec = 0;
 
-	new_abstimer(peer->dstate, peer, absexpiry, htlc_expiry_timeout, peer);
+	new_abstimer(peer->dstate, peer, absexpiry, check_htlc_expiry, peer);
 }
-
-struct newhtlc {
-	struct channel_htlc htlc;
-	struct command *jsoncmd;
-};
 
 /* We do final checks just before we start command, as things may have
  * changed. */
-static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
+static void do_newhtlc(struct peer *peer,
+		       const struct channel_htlc *htlc,
+		       struct command *jsoncmd)
 {
 	struct channel_state *cstate;
-	union htlc_staging stage;
+	union input idata;
+	struct htlc_progress prog;
 
 	/* Now we can assign counter and guarantee uniqueness. */
-	newhtlc->htlc.id = peer->htlc_id_counter;
-	stage.add.add = HTLC_ADD;
-	stage.add.htlc = newhtlc->htlc;
-		
+	prog.stage.add.add = HTLC_ADD;
+	prog.stage.add.htlc = *htlc;
+	prog.stage.add.htlc.id = peer->htlc_id_counter;
+
 	/* BOLT #2:
 	 *
 	 * A node MUST NOT add a HTLC if it would result in it
@@ -2472,16 +2402,12 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 	 */
 	if (tal_count(peer->local.staging_cstate->side[OURS].htlcs) == 300
 	    || tal_count(peer->remote.staging_cstate->side[OURS].htlcs) == 300) {
-		command_fail(newhtlc->jsoncmd, "Too many HTLCs");
+		command_fail(jsoncmd, "Too many HTLCs");
 		return;
 	}
 
-	/* BOLT #2:
-	 *
-	 * A node MUST NOT send a `update_add_htlc` after a `close_clearing`
-	 */
-	if (state_is_closing(peer->state)) {
-		command_fail(newhtlc->jsoncmd, "Channel closing, state %s",
+	if (!state_can_add_htlc(peer->state)) {
+		command_fail(jsoncmd, "Channel closing, state %s",
 			     state_name(peer->state));
 		return;
 	}
@@ -2491,25 +2417,25 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 	 * A node MUST NOT offer `amount_msat` it cannot pay for in
 	 * both commitment transactions at the current `fee_rate`
 	 */
-	cstate = copy_funding(newhtlc, peer->remote.staging_cstate);
-	if (!funding_add_htlc(cstate, newhtlc->htlc.msatoshis,
-			      &newhtlc->htlc.expiry, &newhtlc->htlc.rhash,
-			      newhtlc->htlc.id, OURS)) {
-		command_fail(newhtlc->jsoncmd,
+	cstate = copy_funding(jsoncmd, peer->remote.staging_cstate);
+	if (!funding_add_htlc(cstate, htlc->msatoshis,
+			      &htlc->expiry, &htlc->rhash,
+			      htlc->id, OURS)) {
+		command_fail(jsoncmd,
 			     "Cannot afford %"PRIu64
 			     " milli-satoshis in their commit tx",
-			     newhtlc->htlc.msatoshis);
+			     htlc->msatoshis);
 		return;
 	}
 
-	cstate = copy_funding(newhtlc, peer->local.staging_cstate);
-	if (!funding_add_htlc(cstate, newhtlc->htlc.msatoshis,
-			      &newhtlc->htlc.expiry, &newhtlc->htlc.rhash,
-			      newhtlc->htlc.id, OURS)) {
-		command_fail(newhtlc->jsoncmd,
+	cstate = copy_funding(jsoncmd, peer->local.staging_cstate);
+	if (!funding_add_htlc(cstate, htlc->msatoshis,
+			      &htlc->expiry, &htlc->rhash,
+			      htlc->id, OURS)) {
+		command_fail(jsoncmd,
 			     "Cannot afford %"PRIu64
 			     " milli-satoshis in our commit tx",
-			     newhtlc->htlc.msatoshis);
+			     htlc->msatoshis);
 		return;
 	}
 
@@ -2517,7 +2443,9 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 	peer->htlc_id_counter++;	
 
 	/* FIXME: Never propose duplicate rvalues? */
-	set_htlc_command(peer, newhtlc->jsoncmd, CMD_SEND_HTLC_ADD, &stage);
+	idata.htlc_prog = &prog;
+	state_event(peer, CMD_SEND_HTLC_ADD, &idata);
+	command_success(jsoncmd, null_response(jsoncmd));
 }
 
 static void json_newhtlc(struct command *cmd,
@@ -2526,7 +2454,7 @@ static void json_newhtlc(struct command *cmd,
 	struct peer *peer;
 	jsmntok_t *peeridtok, *msatoshistok, *expirytok, *rhashtok;
 	unsigned int expiry;
-	struct newhtlc *newhtlc;
+	struct channel_htlc htlc;
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,
@@ -2549,11 +2477,7 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
-	/* Attach to cmd until it's complete. */
-	newhtlc = tal(cmd, struct newhtlc);
-	newhtlc->jsoncmd = cmd;
-
-	if (!json_tok_u64(buffer, msatoshistok, &newhtlc->htlc.msatoshis)) {
+	if (!json_tok_u64(buffer, msatoshistok, &htlc.msatoshis)) {
 		command_fail(cmd, "'%.*s' is not a valid number",
 			     (int)(msatoshistok->end - msatoshistok->start),
 			     buffer + msatoshistok->start);
@@ -2566,20 +2490,20 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
-	if (!seconds_to_abs_locktime(expiry, &newhtlc->htlc.expiry)) {
+	if (!seconds_to_abs_locktime(expiry, &htlc.expiry)) {
 		command_fail(cmd, "'%.*s' is not a valid number",
 			     (int)(expirytok->end - expirytok->start),
 			     buffer + expirytok->start);
 		return;
 	}
 
-	if (abs_locktime_to_seconds(&newhtlc->htlc.expiry) <
+	if (abs_locktime_to_seconds(&htlc.expiry) <
 	    controlled_time().ts.tv_sec + peer->dstate->config.min_expiry) {
 		command_fail(cmd, "HTLC expiry too soon!");
 		return;
 	}
 
-	if (abs_locktime_to_seconds(&newhtlc->htlc.expiry) >
+	if (abs_locktime_to_seconds(&htlc.expiry) >
 	    controlled_time().ts.tv_sec + peer->dstate->config.max_expiry) {
 		command_fail(cmd, "HTLC expiry too far!");
 		return;
@@ -2587,16 +2511,15 @@ static void json_newhtlc(struct command *cmd,
 
 	if (!hex_decode(buffer + rhashtok->start,
 			rhashtok->end - rhashtok->start,
-			&newhtlc->htlc.rhash,
-			sizeof(newhtlc->htlc.rhash))) {
+			&htlc.rhash,
+			sizeof(htlc.rhash))) {
 		command_fail(cmd, "'%.*s' is not a valid sha256 hash",
 			     (int)(rhashtok->end - rhashtok->start),
 			     buffer + rhashtok->start);
 		return;
 	}
 
-	if (!queue_cmd(peer, do_newhtlc, newhtlc))
-		command_fail(cmd, "Peer closing");
+	do_newhtlc(peer, &htlc, cmd);
 }
 
 /* FIXME: Use HTLC ids, not r values! */
@@ -2618,27 +2541,24 @@ static size_t find_their_committed_htlc(struct peer *peer,
 	return funding_find_htlc(peer->remote.staging_cstate, rhash, THEIRS);
 }
 
-struct fulfillhtlc {
-	struct command *jsoncmd;
-	struct sha256 r;
-};
-
 static void do_fullfill(struct peer *peer,
-			struct fulfillhtlc *fulfillhtlc)
+			const struct sha256 *r,
+			struct command *jsoncmd)
 {
 	struct sha256 rhash;
 	size_t i;
 	u64 id;
 
-	sha256(&rhash, &fulfillhtlc->r, sizeof(fulfillhtlc->r));
+	sha256(&rhash, r, sizeof(*r));
 
 	i = find_their_committed_htlc(peer, &rhash);
 	if (i == -1) {
-		command_fail(fulfillhtlc->jsoncmd, "preimage htlc not found");
+		command_fail(jsoncmd, "preimage htlc not found");
 		return;
 	}
+
 	id = peer->remote.staging_cstate->side[THEIRS].htlcs[i].id;
-	command_htlc_fulfill(peer, id, &fulfillhtlc->r, fulfillhtlc->jsoncmd);
+	command_htlc_fulfill(peer, id, r, jsoncmd);
 }
 
 static void json_fulfillhtlc(struct command *cmd,
@@ -2646,7 +2566,7 @@ static void json_fulfillhtlc(struct command *cmd,
 {
 	struct peer *peer;
 	jsmntok_t *peeridtok, *rtok;
-	struct fulfillhtlc *fulfillhtlc;
+	struct sha256 r;
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,
@@ -2667,20 +2587,15 @@ static void json_fulfillhtlc(struct command *cmd,
 		return;
 	}
 
-	fulfillhtlc = tal(cmd, struct fulfillhtlc);
-	fulfillhtlc->jsoncmd = cmd;
-
 	if (!hex_decode(buffer + rtok->start,
 			rtok->end - rtok->start,
-			&fulfillhtlc->r, sizeof(fulfillhtlc->r))) {
+			&r, sizeof(r))) {
 		command_fail(cmd, "'%.*s' is not a valid sha256 preimage",
 			     (int)(rtok->end - rtok->start),
 			     buffer + rtok->start);
 		return;
 	}
-
-	if (!queue_cmd(peer, do_fullfill, fulfillhtlc))
-		command_fail(cmd, "Peer closing");
+	do_fullfill(peer, &r, cmd);
 }
 	
 const struct json_command fulfillhtlc_command = {
@@ -2690,26 +2605,23 @@ const struct json_command fulfillhtlc_command = {
 	"Returns an empty result on success"
 };
 
-struct failhtlc {
-	struct command *jsoncmd;
-	struct sha256 rhash;
-};
-
+/* FIXME: Flatten into json_failhtlc. */
 static void do_failhtlc(struct peer *peer,
-			struct failhtlc *failhtlc)
+			const struct sha256 *rhash,
+			struct command *jsoncmd)
 {
 	size_t i;
 	u64 id;
 
 	/* Look in peer->remote.staging_cstate->a, as that's where we'll 
 	 * immediately remove it from: avoids double-handling. */
-	i = find_their_committed_htlc(peer, &failhtlc->rhash);
+	i = find_their_committed_htlc(peer, rhash);
 	if (i == -1) {
-		command_fail(failhtlc->jsoncmd, "htlc not found");
+		command_fail(jsoncmd, "htlc not found");
 		return;
 	}
 	id = peer->remote.staging_cstate->side[THEIRS].htlcs[i].id;
-	command_htlc_fail(peer, id, failhtlc->jsoncmd);
+	command_htlc_fail(peer, id, jsoncmd);
 }
 
 static void json_failhtlc(struct command *cmd,
@@ -2717,7 +2629,7 @@ static void json_failhtlc(struct command *cmd,
 {
 	struct peer *peer;
 	jsmntok_t *peeridtok, *rhashtok;
-	struct failhtlc *failhtlc;
+	struct sha256 rhash;
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,
@@ -2738,20 +2650,16 @@ static void json_failhtlc(struct command *cmd,
 		return;
 	}
 
-	failhtlc = tal(cmd, struct failhtlc);
-	failhtlc->jsoncmd = cmd;
-
 	if (!hex_decode(buffer + rhashtok->start,
 			rhashtok->end - rhashtok->start,
-			&failhtlc->rhash, sizeof(failhtlc->rhash))) {
+			&rhash, sizeof(rhash))) {
 		command_fail(cmd, "'%.*s' is not a valid sha256 preimage",
 			     (int)(rhashtok->end - rhashtok->start),
 			     buffer + rhashtok->start);
 		return;
 	}
 
-	if (!queue_cmd(peer, do_failhtlc, failhtlc))
-		command_fail(cmd, "Peer closing");
+	do_failhtlc(peer, &rhash, cmd);
 }
 	
 const struct json_command failhtlc_command = {
@@ -2785,8 +2693,12 @@ static void json_commit(struct command *cmd,
 		return;
 	}
 
-	if (!queue_cmd(peer, do_commit, cmd))
-		command_fail(cmd, "Peer closing");
+	if (!state_can_commit(peer->state)) {
+		command_fail(cmd, "peer in state %s", state_name(peer->state));
+		return;
+	}
+
+	do_commit(peer, cmd);
 }
 	
 const struct json_command commit_command = {
@@ -2815,15 +2727,11 @@ static void json_close(struct command *cmd,
 		return;
 	}
 
-	if (state_is_closing(peer->state)) {
+	if (!state_is_normal(peer->state) && !state_is_opening(peer->state)) {
 		command_fail(cmd, "Peer is already closing: state %s",
 			     state_name(peer->state));
 		return;
 	}
-
-	/* Closing causes any current command to fail. */
-	if (peer->curr_cmd.cmd != INPUT_NONE)
-		peer_cmd_complete(peer, CMD_FAIL);
 
 	if (peer->state == STATE_NORMAL_COMMITTING)
 		set_peer_state(peer, STATE_CLEARING_COMMITTING, __func__);
