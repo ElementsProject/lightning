@@ -132,6 +132,8 @@ int main(int argc, char *argv[])
 	if (i < 0)
 		err(ERROR_TALKING_TO_LIGHTNINGD, "reading response");
 
+	resp[off] = '\0';
+
 	/* Parsing huge results is too slow, so hack fastpath common case */
 	result_end = tal_fmt(ctx, ", \"error\" : null, \"id\" : \"%s\" }\n",
 			     idstr);
