@@ -2100,13 +2100,10 @@ void bitcoin_create_anchor(struct peer *peer, enum state_input done)
 	bitcoind_estimate_fee(peer->dstate, got_feerate, peer);
 }
 
-/* We didn't end up broadcasting the anchor: release the utxos.
- * If done != INPUT_NONE, remove existing create_anchor too. */
+/* We didn't end up broadcasting the anchor: we don't need to do anything
+ * to "release" TXOs, since we have our own internal wallet now. */
 void bitcoin_release_anchor(struct peer *peer, enum state_input done)
 {
-	
-	/* FIXME: stop bitcoind command  */
-	log_unusual(peer->log, "Anchor not spent, please -zapwallettxs");
 }
 
 /* Get the bitcoin anchor tx. */
