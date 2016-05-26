@@ -64,15 +64,11 @@ static Pkt *make_pkt(const tal_t *ctx, Pkt__PktCase type, const void *msg)
 	return pkt;
 }
 
-static void queue_raw_pkt(struct peer *peer, Pkt *pkt,
-			  void (*ack_cb)(struct peer *peer, void *arg),
-			  void *ack_arg)
+static void queue_raw_pkt(struct peer *peer, Pkt *pkt)
 {
 	size_t n = tal_count(peer->outpkt);
 	tal_resize(&peer->outpkt, n+1);
-	peer->outpkt[n].pkt = pkt;
-	peer->outpkt[n].ack_cb = ack_cb;
-	peer->outpkt[n].ack_arg = ack_arg;
+	peer->outpkt[n] = pkt;
 
 	/* In case it was waiting for output. */
 	io_wake(peer);
@@ -80,7 +76,7 @@ static void queue_raw_pkt(struct peer *peer, Pkt *pkt,
 
 static void queue_pkt(struct peer *peer, Pkt__PktCase type, const void *msg)
 {
-	queue_raw_pkt(peer, make_pkt(peer, type, msg), NULL, NULL);
+	queue_raw_pkt(peer, make_pkt(peer, type, msg));
 }
 
 void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor)
@@ -269,6 +265,7 @@ void queue_pkt_commit(struct peer *peer)
 
 	/* Create new commit info for this commit tx. */
 	ci->prev = peer->remote.commit;
+	ci->commit_num = ci->prev->commit_num + 1;
 	ci->revocation_hash = peer->remote.next_revocation_hash;
 	/* BOLT #2:
 	 *
@@ -312,7 +309,6 @@ void queue_pkt_commit(struct peer *peer)
 	/* Now send message */
 	update_commit__init(u);
 	u->sig = signature_to_proto(u, &ci->sig->sig);
-	u->ack = peer_outgoing_ack(peer);
 
 	queue_pkt(peer, PKT__PKT_UPDATE_COMMIT, u);
 }
@@ -370,7 +366,6 @@ void queue_pkt_revocation(struct peer *peer)
 
 	update_revocation__init(u);
 
-	assert(peer->commit_tx_counter > 0);
 	assert(peer->local.commit);
 	assert(peer->local.commit->prev);
 	assert(!peer->local.commit->prev->revocation_preimage);
@@ -380,7 +375,7 @@ void queue_pkt_revocation(struct peer *peer)
 
 	peer->local.commit->prev->revocation_preimage
 		= tal(peer->local.commit->prev, struct sha256);
-	peer_get_revocation_preimage(peer, peer->commit_tx_counter-1,
+	peer_get_revocation_preimage(peer, peer->local.commit->prev->commit_num,
 				     peer->local.commit->prev->revocation_preimage);
 	peer_check_if_cleared(peer);
 	u->revocation_preimage
@@ -388,7 +383,6 @@ void queue_pkt_revocation(struct peer *peer)
 
 	u->next_revocation_hash = sha256_to_proto(u,
 						  &peer->local.next_revocation_hash);
-	u->ack = peer_outgoing_ack(peer);
 
 	queue_pkt(peer, PKT__PKT_UPDATE_REVOCATION, u);
 
@@ -424,7 +418,7 @@ Pkt *pkt_err(struct peer *peer, const char *msg, ...)
 
 void queue_pkt_err(struct peer *peer, Pkt *err)
 {
-	queue_raw_pkt(peer, err, NULL, NULL);
+	queue_raw_pkt(peer, err);
 }
 
 void queue_pkt_close_clearing(struct peer *peer)
@@ -745,6 +739,7 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt)
 
 	/* Create new commit info for this commit tx. */
 	ci->prev = peer->local.commit;
+	ci->commit_num = ci->prev->commit_num + 1;
 	ci->revocation_hash = peer->local.next_revocation_hash;
 
 	/* BOLT #2:
@@ -779,8 +774,7 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt)
 
 	/* Switch to the new commitment. */
 	peer->local.commit = ci;
-	peer->commit_tx_counter++;
-	peer_get_revocation_hash(peer, peer->commit_tx_counter + 1,
+	peer_get_revocation_hash(peer, ci->commit_num + 1,
 				 &peer->local.next_revocation_hash);
 
 	peer_check_if_cleared(peer);

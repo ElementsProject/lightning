@@ -55,6 +55,8 @@ struct anchor_input {
 struct commit_info {
 	/* Previous one, if any. */
 	struct commit_info *prev;
+	/* Commit number (0 == from open) */
+	u64 commit_num;
 	/* Revocation hash. */
 	struct sha256 revocation_hash;
 	/* Commit tx. */
@@ -148,7 +150,7 @@ struct peer {
 	Pkt *inpkt;
 
 	/* Queue of output packets. */
-	struct out_pkt *outpkt;
+	Pkt **outpkt;
 
 	/* Anchor tx output */
 	struct {
@@ -171,9 +173,6 @@ struct peer {
 		/* The watch we have on a live commit tx. */
 		struct txwatch *watch;
 	} cur_commit;
-
-	/* Number of HTLC updates (== number of previous commit txs) */
-	u64 commit_tx_counter;
 
 	/* Counter to make unique HTLC ids. */
 	u64 htlc_id_counter;

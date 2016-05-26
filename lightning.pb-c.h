@@ -368,7 +368,7 @@ struct  _UpdateFailHtlc
 
 
 /*
- * Commit all the staged HTLCs.
+ * Commit all the staged changes.
  */
 struct  _UpdateCommit
 {
@@ -377,14 +377,10 @@ struct  _UpdateCommit
    * Signature for your new commitment tx.
    */
   Signature *sig;
-  /*
-   * How many (non-authenticate) packets we've already received
-   */
-  uint64_t ack;
 };
 #define UPDATE_COMMIT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&update_commit__descriptor) \
-    , NULL, 0 }
+    , NULL }
 
 
 /*
@@ -401,14 +397,10 @@ struct  _UpdateRevocation
    * Revocation hash for my next commit transaction
    */
   Sha256Hash *next_revocation_hash;
-  /*
-   * How many (non-authenticate) packets we've already received
-   */
-  uint64_t ack;
 };
 #define UPDATE_REVOCATION__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&update_revocation__descriptor) \
-    , NULL, NULL, 0 }
+    , NULL, NULL }
 
 
 /*

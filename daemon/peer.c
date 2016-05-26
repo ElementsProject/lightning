@@ -145,6 +145,19 @@ static void peer_breakdown(struct peer *peer)
 		log_info(peer->log, "Peer breakdown: nothing to do");
 }
 
+static bool peer_uncommitted_changes(const struct peer *peer)
+{
+	/* Not initialized yet? */
+	if (!peer->remote.staging_cstate
+	    || !peer->remote.commit
+	    || !peer->remote.commit->cstate)
+		return false;
+
+	/* We could have proposed changes to their commit */
+	return peer->remote.staging_cstate->changes
+		!= peer->remote.commit->cstate->changes;
+}
+
 static void state_single(struct peer *peer,
 			 const enum state_input input,
 			 const union input *idata)
@@ -168,8 +181,12 @@ static void state_single(struct peer *peer,
 		break;
 	}
 
+	/* If we added uncommitted changes, we should have set them to send. */
+	if (peer_uncommitted_changes(peer))
+		assert(peer->commit_timer);
+	
 	if (tal_count(peer->outpkt) > old_outpkts) {
-		Pkt *outpkt = peer->outpkt[old_outpkts].pkt;
+		Pkt *outpkt = peer->outpkt[old_outpkts];
 		log_add(peer->log, " (out %s)", pkt_name(outpkt->pkt_case));
 	}
 	if (broadcast)
@@ -313,7 +330,7 @@ void peer_check_if_cleared(struct peer *peer)
 
 static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 {
-	struct out_pkt out;
+	Pkt *out;
 	size_t n = tal_count(peer->outpkt);
 
 	if (peer->fake_close)
@@ -329,8 +346,7 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 	out = peer->outpkt[0];
 	memmove(peer->outpkt, peer->outpkt + 1, (sizeof(*peer->outpkt)*(n-1)));
 	tal_resize(&peer->outpkt, n-1);
-	return peer_write_packet(conn, peer, out.pkt, out.ack_cb, out.ack_arg,
-				 pkt_out);
+	return peer_write_packet(conn, peer, out, pkt_out);
 }
 
 static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
@@ -342,14 +358,6 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 
 	/* We ignore packets if they tell us to. */
 	if (!peer->fake_close && peer->cond != PEER_CLOSED) {
-		/* These two packets contain acknowledgements. */
-		if (idata.pkt->pkt_case == PKT__PKT_UPDATE_COMMIT)
-			peer_process_acks(peer,
-					  idata.pkt->update_commit->ack);
-		else if (idata.pkt->pkt_case == PKT__PKT_UPDATE_REVOCATION)
-			peer_process_acks(peer,
-					  idata.pkt->update_revocation->ack);
-
 		state_event(peer, peer->inpkt->pkt_case, &idata);
 	}
 
@@ -479,12 +487,11 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->io_data = NULL;
 	peer->secrets = NULL;
 	list_head_init(&peer->watches);
-	peer->outpkt = tal_arr(peer, struct out_pkt, 0);
+	peer->outpkt = tal_arr(peer, Pkt *, 0);
 	peer->curr_cmd.cmd = INPUT_NONE;
 	list_head_init(&peer->pending_cmd);
 	list_head_init(&peer->pending_input);
 	list_head_init(&peer->outgoing_txs);
-	peer->commit_tx_counter = 0;
 	peer->close_watch_timeout = NULL;
 	peer->anchor.watches = NULL;
 	peer->cur_commit.watch = NULL;

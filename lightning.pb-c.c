@@ -1902,7 +1902,7 @@ const ProtobufCMessageDescriptor update_fail_htlc__descriptor =
   (ProtobufCMessageInit) update_fail_htlc__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor update_commit__field_descriptors[2] =
+static const ProtobufCFieldDescriptor update_commit__field_descriptors[1] =
 {
   {
     "sig",
@@ -1916,27 +1916,14 @@ static const ProtobufCFieldDescriptor update_commit__field_descriptors[2] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
-  {
-    "ack",
-    2,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_UINT64,
-    0,   /* quantifier_offset */
-    offsetof(UpdateCommit, ack),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
 };
 static const unsigned update_commit__field_indices_by_name[] = {
-  1,   /* field[1] = ack */
   0,   /* field[0] = sig */
 };
 static const ProtobufCIntRange update_commit__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 2 }
+  { 0, 1 }
 };
 const ProtobufCMessageDescriptor update_commit__descriptor =
 {
@@ -1946,14 +1933,14 @@ const ProtobufCMessageDescriptor update_commit__descriptor =
   "UpdateCommit",
   "",
   sizeof(UpdateCommit),
-  2,
+  1,
   update_commit__field_descriptors,
   update_commit__field_indices_by_name,
   1,  update_commit__number_ranges,
   (ProtobufCMessageInit) update_commit__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor update_revocation__field_descriptors[3] =
+static const ProtobufCFieldDescriptor update_revocation__field_descriptors[2] =
 {
   {
     "revocation_preimage",
@@ -1979,28 +1966,15 @@ static const ProtobufCFieldDescriptor update_revocation__field_descriptors[3] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
-  {
-    "ack",
-    3,
-    PROTOBUF_C_LABEL_REQUIRED,
-    PROTOBUF_C_TYPE_UINT64,
-    0,   /* quantifier_offset */
-    offsetof(UpdateRevocation, ack),
-    NULL,
-    NULL,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
 };
 static const unsigned update_revocation__field_indices_by_name[] = {
-  2,   /* field[2] = ack */
   1,   /* field[1] = next_revocation_hash */
   0,   /* field[0] = revocation_preimage */
 };
 static const ProtobufCIntRange update_revocation__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 3 }
+  { 0, 2 }
 };
 const ProtobufCMessageDescriptor update_revocation__descriptor =
 {
@@ -2010,7 +1984,7 @@ const ProtobufCMessageDescriptor update_revocation__descriptor =
   "UpdateRevocation",
   "",
   sizeof(UpdateRevocation),
-  3,
+  2,
   update_revocation__field_descriptors,
   update_revocation__field_indices_by_name,
   1,  update_revocation__number_ranges,
