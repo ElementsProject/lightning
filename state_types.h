@@ -141,8 +141,6 @@ enum command_status {
 	CMD_NONE,
 	/* Command succeeded. */
 	CMD_SUCCESS,
-	/* HTLC-command needs re-issuing (theirs takes preference) */
-	CMD_REQUEUE,
 	/* Failed. */
 	CMD_FAIL
 };

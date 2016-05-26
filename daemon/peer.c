@@ -164,9 +164,6 @@ static void state_single(struct peer *peer,
 		log_add(peer->log, " (command FAIL)");
 		peer_cmd_complete(peer, CMD_FAIL);
 		break;
-	case CMD_REQUEUE:
-		log_add(peer->log, " (Command requeue)");
-		break;
 	}
 
 	if (tal_count(peer->outpkt) > old_outpkts) {
