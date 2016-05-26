@@ -97,29 +97,29 @@ void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor)
 
 	/* Set up out commit info now: rest gets done in setup_first_commit
 	 * once anchor is established. */
-	peer->us.commit = talz(peer, struct commit_info);
-	peer->us.commit->revocation_hash = peer->us.next_revocation_hash;
-	peer_get_revocation_hash(peer, 1, &peer->us.next_revocation_hash);
+	peer->local.commit = talz(peer, struct commit_info);
+	peer->local.commit->revocation_hash = peer->local.next_revocation_hash;
+	peer_get_revocation_hash(peer, 1, &peer->local.next_revocation_hash);
 
 	open_channel__init(o);
-	o->revocation_hash = sha256_to_proto(o, &peer->us.commit->revocation_hash);
-	o->next_revocation_hash = sha256_to_proto(o, &peer->us.next_revocation_hash);
-	o->commit_key = pubkey_to_proto(o, &peer->us.commitkey);
-	o->final_key = pubkey_to_proto(o, &peer->us.finalkey);
+	o->revocation_hash = sha256_to_proto(o, &peer->local.commit->revocation_hash);
+	o->next_revocation_hash = sha256_to_proto(o, &peer->local.next_revocation_hash);
+	o->commit_key = pubkey_to_proto(o, &peer->local.commitkey);
+	o->final_key = pubkey_to_proto(o, &peer->local.finalkey);
 	o->delay = tal(o, Locktime);
 	locktime__init(o->delay);
 	o->delay->locktime_case = LOCKTIME__LOCKTIME_SECONDS;
-	o->delay->seconds = rel_locktime_to_seconds(&peer->us.locktime);
-	o->initial_fee_rate = peer->us.commit_fee_rate;
+	o->delay->seconds = rel_locktime_to_seconds(&peer->local.locktime);
+	o->initial_fee_rate = peer->local.commit_fee_rate;
 	if (anchor == OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR)
-		assert(peer->us.offer_anchor == CMD_OPEN_WITH_ANCHOR);
+		assert(peer->local.offer_anchor == CMD_OPEN_WITH_ANCHOR);
 	else {
 		assert(anchor == OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR);
-		assert(peer->us.offer_anchor == CMD_OPEN_WITHOUT_ANCHOR);
+		assert(peer->local.offer_anchor == CMD_OPEN_WITHOUT_ANCHOR);
 	}
 		
 	o->anch = anchor;
-	o->min_depth = peer->us.mindepth;
+	o->min_depth = peer->local.mindepth;
 	queue_pkt(peer, PKT__PKT_OPEN, o);
 }
 
@@ -141,12 +141,12 @@ void queue_pkt_anchor(struct peer *peer)
 	}
 
 	/* Sign their commit sig */
-	peer->them.commit->sig = tal(peer->them.commit,
+	peer->remote.commit->sig = tal(peer->remote.commit,
 				     struct bitcoin_signature);
-	peer->them.commit->sig->stype = SIGHASH_ALL;
-	peer_sign_theircommit(peer, peer->them.commit->tx,
-			      &peer->them.commit->sig->sig);
-	a->commit_sig = signature_to_proto(a, &peer->them.commit->sig->sig);
+	peer->remote.commit->sig->stype = SIGHASH_ALL;
+	peer_sign_theircommit(peer, peer->remote.commit->tx,
+			      &peer->remote.commit->sig->sig);
+	a->commit_sig = signature_to_proto(a, &peer->remote.commit->sig->sig);
 
 	queue_pkt(peer, PKT__PKT_OPEN_ANCHOR, a);
 }
@@ -157,15 +157,15 @@ void queue_pkt_open_commit_sig(struct peer *peer)
 
 	open_commit_sig__init(s);
 
-	dump_tx("Creating sig for:", peer->them.commit->tx);
-	dump_key("Using key:", &peer->us.commitkey);
+	dump_tx("Creating sig for:", peer->remote.commit->tx);
+	dump_key("Using key:", &peer->local.commitkey);
 
-	peer->them.commit->sig = tal(peer->them.commit,
+	peer->remote.commit->sig = tal(peer->remote.commit,
 				     struct bitcoin_signature);
-	peer->them.commit->sig->stype = SIGHASH_ALL;
-	peer_sign_theircommit(peer, peer->them.commit->tx,
-			      &peer->them.commit->sig->sig);
-	s->sig = signature_to_proto(s, &peer->them.commit->sig->sig);
+	peer->remote.commit->sig->stype = SIGHASH_ALL;
+	peer_sign_theircommit(peer, peer->remote.commit->tx,
+			      &peer->remote.commit->sig->sig);
+	s->sig = signature_to_proto(s, &peer->remote.commit->sig->sig);
 
 	queue_pkt(peer, PKT__PKT_OPEN_COMMIT_SIG, s);
 }
@@ -184,7 +184,7 @@ static void add_our_htlc_ourside(struct peer *peer, void *arg)
 	struct channel_htlc *htlc = arg;
 
 	/* FIXME: must add even if can't pay fee any more! */
-	if (!funding_a_add_htlc(peer->us.staging_cstate,
+	if (!funding_a_add_htlc(peer->local.staging_cstate,
 				htlc->msatoshis, &htlc->expiry,
 				&htlc->rhash, htlc->id))
 		fatal("FIXME: Failed to add htlc %"PRIu64" to self on ack",
@@ -209,7 +209,7 @@ void queue_pkt_htlc_add(struct peer *peer,
 	routing__init(u->route);
 
 	/* We're about to send this, so their side will have it from now on. */
-	if (!funding_b_add_htlc(peer->them.staging_cstate,
+	if (!funding_b_add_htlc(peer->remote.staging_cstate,
 				htlc_prog->stage.add.htlc.msatoshis,
 				&htlc_prog->stage.add.htlc.expiry,
 				&htlc_prog->stage.add.htlc.rhash,
@@ -230,8 +230,8 @@ static void fulfill_their_htlc_ourside(struct peer *peer, void *arg)
 {
 	size_t n;
 
-	n = funding_htlc_by_id(&peer->us.staging_cstate->b, ptr2int(arg));
-	funding_b_fulfill_htlc(peer->us.staging_cstate, n);
+	n = funding_htlc_by_id(&peer->local.staging_cstate->b, ptr2int(arg));
+	funding_b_fulfill_htlc(peer->local.staging_cstate, n);
 }
 
 void queue_pkt_htlc_fulfill(struct peer *peer,
@@ -247,8 +247,8 @@ void queue_pkt_htlc_fulfill(struct peer *peer,
 	f->r = sha256_to_proto(f, &htlc_prog->stage.fulfill.r);
 
 	/* We're about to send this, so their side will have it from now on. */
-	n = funding_htlc_by_id(&peer->them.staging_cstate->a, f->id);
-	funding_a_fulfill_htlc(peer->them.staging_cstate, n);
+	n = funding_htlc_by_id(&peer->remote.staging_cstate->a, f->id);
+	funding_a_fulfill_htlc(peer->remote.staging_cstate, n);
 	their_commit_changed(peer);
 
 	queue_pkt_with_ack(peer, PKT__PKT_UPDATE_FULFILL_HTLC, f,
@@ -260,8 +260,8 @@ static void fail_their_htlc_ourside(struct peer *peer, void *arg)
 {
 	size_t n;
 
-	n = funding_htlc_by_id(&peer->us.staging_cstate->b, ptr2int(arg));
-	funding_b_fail_htlc(peer->us.staging_cstate, n);
+	n = funding_htlc_by_id(&peer->local.staging_cstate->b, ptr2int(arg));
+	funding_b_fail_htlc(peer->local.staging_cstate, n);
 }
 
 void queue_pkt_htlc_fail(struct peer *peer,
@@ -279,8 +279,8 @@ void queue_pkt_htlc_fail(struct peer *peer,
 	fail_reason__init(f->reason);
 
 	/* We're about to send this, so their side will have it from now on. */
-	n = funding_htlc_by_id(&peer->them.staging_cstate->a, f->id);
-	funding_a_fail_htlc(peer->them.staging_cstate, n);
+	n = funding_htlc_by_id(&peer->remote.staging_cstate->a, f->id);
+	funding_a_fail_htlc(peer->remote.staging_cstate, n);
 
 	their_commit_changed(peer);
 	queue_pkt_with_ack(peer, PKT__PKT_UPDATE_FAIL_HTLC, f,
@@ -294,13 +294,13 @@ void queue_pkt_commit(struct peer *peer)
 	struct commit_info *ci = talz(peer, struct commit_info);
 
 	/* Create new commit info for this commit tx. */
-	ci->prev = peer->them.commit;
-	ci->revocation_hash = peer->them.next_revocation_hash;
-	ci->cstate = copy_funding(ci, peer->them.staging_cstate);
+	ci->prev = peer->remote.commit;
+	ci->revocation_hash = peer->remote.next_revocation_hash;
+	ci->cstate = copy_funding(ci, peer->remote.staging_cstate);
 	ci->tx = create_commit_tx(ci,
-				  &peer->them.finalkey,
-				  &peer->us.finalkey,
-				  &peer->us.locktime,
+				  &peer->remote.finalkey,
+				  &peer->local.finalkey,
+				  &peer->local.locktime,
 				  &peer->anchor.txid,
 				  peer->anchor.index,
 				  peer->anchor.satoshis,
@@ -326,7 +326,7 @@ void queue_pkt_commit(struct peer *peer)
 	peer_sign_theircommit(peer, ci->tx, &ci->sig->sig);
 
 	/* Switch to the new commitment. */
-	peer->them.commit = ci;
+	peer->remote.commit = ci;
 
 	peer_check_if_cleared(peer);
 	
@@ -339,7 +339,7 @@ void queue_pkt_commit(struct peer *peer)
 }
 
 /* Send a preimage for the old commit tx.  The one we've just committed to is
- * in peer->us.commit. */
+ * in peer->local.commit. */
 void queue_pkt_revocation(struct peer *peer)
 {
 	UpdateRevocation *u = tal(peer, UpdateRevocation);
@@ -347,23 +347,23 @@ void queue_pkt_revocation(struct peer *peer)
 	update_revocation__init(u);
 
 	assert(peer->commit_tx_counter > 0);
-	assert(peer->us.commit);
-	assert(peer->us.commit->prev);
-	assert(!peer->us.commit->prev->revocation_preimage);
+	assert(peer->local.commit);
+	assert(peer->local.commit->prev);
+	assert(!peer->local.commit->prev->revocation_preimage);
 
 	/* We have their signature on the current one, right? */
-	assert(peer->us.commit->sig);
+	assert(peer->local.commit->sig);
 
-	peer->us.commit->prev->revocation_preimage
-		= tal(peer->us.commit->prev, struct sha256);
+	peer->local.commit->prev->revocation_preimage
+		= tal(peer->local.commit->prev, struct sha256);
 	peer_get_revocation_preimage(peer, peer->commit_tx_counter-1,
-				     peer->us.commit->prev->revocation_preimage);
+				     peer->local.commit->prev->revocation_preimage);
 	peer_check_if_cleared(peer);
 	u->revocation_preimage
-		= sha256_to_proto(u, peer->us.commit->prev->revocation_preimage);
+		= sha256_to_proto(u, peer->local.commit->prev->revocation_preimage);
 
 	u->next_revocation_hash = sha256_to_proto(u,
-						  &peer->us.next_revocation_hash);
+						  &peer->local.next_revocation_hash);
 	u->ack = peer_outgoing_ack(peer);
 
 	queue_pkt(peer, PKT__PKT_UPDATE_REVOCATION, u);
@@ -393,7 +393,7 @@ void queue_pkt_close_clearing(struct peer *peer)
 	CloseClearing *c = tal(peer, CloseClearing);
 
 	close_clearing__init(c);
-	redeemscript = bitcoin_redeem_single(c, &peer->us.finalkey);
+	redeemscript = bitcoin_redeem_single(c, &peer->local.finalkey);
 	peer->closing.our_script = scriptpubkey_p2sh(peer, redeemscript);
 
 	c->scriptpubkey.data = tal_dup_arr(c, u8,
@@ -446,37 +446,37 @@ Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt)
 	if (o->initial_fee_rate < peer->dstate->config.commitment_fee_rate_min)
 		return pkt_err(peer, "Commitment fee rate too low");
 	if (o->anch == OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR)
-		peer->them.offer_anchor = CMD_OPEN_WITH_ANCHOR;
+		peer->remote.offer_anchor = CMD_OPEN_WITH_ANCHOR;
 	else if (o->anch == OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR)
-		peer->them.offer_anchor = CMD_OPEN_WITHOUT_ANCHOR;
+		peer->remote.offer_anchor = CMD_OPEN_WITHOUT_ANCHOR;
 	else
 		return pkt_err(peer, "Unknown offer anchor value");
 
-	if (peer->them.offer_anchor == peer->us.offer_anchor)
+	if (peer->remote.offer_anchor == peer->local.offer_anchor)
 		return pkt_err(peer, "Only one side can offer anchor");
 
-	if (!proto_to_rel_locktime(o->delay, &peer->them.locktime))
+	if (!proto_to_rel_locktime(o->delay, &peer->remote.locktime))
 		return pkt_err(peer, "Malformed locktime");
-	peer->them.mindepth = o->min_depth;
-	peer->them.commit_fee_rate = o->initial_fee_rate;
+	peer->remote.mindepth = o->min_depth;
+	peer->remote.commit_fee_rate = o->initial_fee_rate;
 	if (!proto_to_pubkey(peer->dstate->secpctx,
-			     o->commit_key, &peer->them.commitkey))
+			     o->commit_key, &peer->remote.commitkey))
 		return pkt_err(peer, "Bad commitkey");
 	if (!proto_to_pubkey(peer->dstate->secpctx,
-			     o->final_key, &peer->them.finalkey))
+			     o->final_key, &peer->remote.finalkey))
 		return pkt_err(peer, "Bad finalkey");
 
 	/* Set up their commit info now: rest gets done in setup_first_commit
 	 * once anchor is established. */
-	peer->them.commit = talz(peer, struct commit_info);
-	proto_to_sha256(o->revocation_hash, &peer->them.commit->revocation_hash);
+	peer->remote.commit = talz(peer, struct commit_info);
+	proto_to_sha256(o->revocation_hash, &peer->remote.commit->revocation_hash);
 	proto_to_sha256(o->next_revocation_hash,
-			&peer->them.next_revocation_hash);
+			&peer->remote.next_revocation_hash);
 
 	/* Witness script for anchor. */
 	peer->anchor.witnessscript
-		= bitcoin_redeem_2of2(peer, &peer->us.commitkey,
-				      &peer->them.commitkey);
+		= bitcoin_redeem_2of2(peer, &peer->local.commitkey,
+				      &peer->remote.commitkey);
 	return NULL;
 }
 
@@ -496,7 +496,7 @@ static Pkt *check_and_save_commit_sig(struct peer *peer,
 			  ci->tx, 0,
 			  NULL, 0,
 			  peer->anchor.witnessscript,
-			  &peer->them.commitkey,
+			  &peer->remote.commitkey,
 			  ci->sig))
 		return pkt_err(peer, "Bad signature");
 
@@ -508,8 +508,8 @@ Pkt *accept_pkt_anchor(struct peer *peer, const Pkt *pkt)
 	const OpenAnchor *a = pkt->open_anchor;
 
 	/* They must be offering anchor for us to try accepting */
-	assert(peer->us.offer_anchor == CMD_OPEN_WITHOUT_ANCHOR);
-	assert(peer->them.offer_anchor == CMD_OPEN_WITH_ANCHOR);
+	assert(peer->local.offer_anchor == CMD_OPEN_WITHOUT_ANCHOR);
+	assert(peer->remote.offer_anchor == CMD_OPEN_WITH_ANCHOR);
 
 	proto_to_sha256(a->txid, &peer->anchor.txid.sha);
 	peer->anchor.index = a->output_index;
@@ -518,14 +518,14 @@ Pkt *accept_pkt_anchor(struct peer *peer, const Pkt *pkt)
 	if (!setup_first_commit(peer))
 		return pkt_err(peer, "Insufficient funds for fee");
 
-	return check_and_save_commit_sig(peer, peer->us.commit, a->commit_sig);
+	return check_and_save_commit_sig(peer, peer->local.commit, a->commit_sig);
 }
 
 Pkt *accept_pkt_open_commit_sig(struct peer *peer, const Pkt *pkt)
 {
 	const OpenCommitSig *s = pkt->open_commit_sig;
 
-	return check_and_save_commit_sig(peer, peer->us.commit, s->sig);
+	return check_and_save_commit_sig(peer, peer->local.commit, s->sig);
 }
 
 Pkt *accept_pkt_open_complete(struct peer *peer, const Pkt *pkt)
@@ -563,8 +563,8 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	 * A node MUST NOT add a HTLC if it would result in it
 	 * offering more than 300 HTLCs in either commitment transaction.
 	 */
-	if (tal_count(peer->them.staging_cstate->a.htlcs) == 300
-	    || tal_count(peer->us.staging_cstate->b.htlcs) == 300)
+	if (tal_count(peer->remote.staging_cstate->a.htlcs) == 300
+	    || tal_count(peer->local.staging_cstate->b.htlcs) == 300)
 		return pkt_err(peer, "Too many HTLCs");
 
 	/* BOLT #2:
@@ -572,14 +572,14 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	 * A node MUST NOT set `id` equal to another HTLC which is in
 	 * the current staged commitment transaction.
 	 */
-	if (funding_htlc_by_id(&peer->them.staging_cstate->a, u->id)
-	    < tal_count(peer->them.staging_cstate->a.htlcs))
+	if (funding_htlc_by_id(&peer->remote.staging_cstate->a, u->id)
+	    < tal_count(peer->remote.staging_cstate->a.htlcs))
 		return pkt_err(peer, "HTLC id %"PRIu64" clashes for you", u->id);
 
 	/* FIXME: Assert this... */
 	/* Note: these should be in sync, so this should be redundant! */
-	if (funding_htlc_by_id(&peer->us.staging_cstate->b, u->id)
-	    < tal_count(peer->us.staging_cstate->b.htlcs))
+	if (funding_htlc_by_id(&peer->local.staging_cstate->b, u->id)
+	    < tal_count(peer->local.staging_cstate->b.htlcs))
 		return pkt_err(peer, "HTLC id %"PRIu64" clashes for us", u->id);
 
 	/* BOLT #2:
@@ -593,7 +593,7 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	/* FIXME: This is wrong!  We may have already added more txs to
 	 * them.staging_cstate, driving that fee up.
 	 * We should check against the last version they acknowledged. */
-	if (!funding_a_add_htlc(peer->them.staging_cstate,
+	if (!funding_a_add_htlc(peer->remote.staging_cstate,
 				u->amount_msat, &expiry, &rhash, u->id))
 		return pkt_err(peer, "Cannot afford %"PRIu64" milli-satoshis"
 			       " in your commitment tx",
@@ -601,7 +601,7 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 
 	/* If we fail here, we've already changed them.staging_cstate, so
 	 * MUST terminate. */
-	if (!funding_b_add_htlc(peer->us.staging_cstate,
+	if (!funding_b_add_htlc(peer->local.staging_cstate,
 				u->amount_msat, &expiry, &rhash, u->id))
 		return pkt_err(peer, "Cannot afford %"PRIu64" milli-satoshis"
 			       " in our commitment tx",
@@ -623,19 +623,19 @@ static Pkt *find_commited_htlc(struct peer *peer, uint64_t id,
 	 * current commitment transaction, and MUST fail the
 	 * connection if it does not.
 	 */
-	*n_us = funding_htlc_by_id(&peer->us.commit->cstate->a, id);
-	if (*n_us == tal_count(peer->us.commit->cstate->a.htlcs))
+	*n_us = funding_htlc_by_id(&peer->local.commit->cstate->a, id);
+	if (*n_us == tal_count(peer->local.commit->cstate->a.htlcs))
 		return pkt_err(peer, "Did not find HTLC %"PRIu64, id);
 
 	/* They must not fail/fulfill twice, so it should be in staging, too. */
-	*n_us = funding_htlc_by_id(&peer->us.staging_cstate->a, id);
-	if (*n_us == tal_count(peer->us.staging_cstate->a.htlcs))
+	*n_us = funding_htlc_by_id(&peer->local.staging_cstate->a, id);
+	if (*n_us == tal_count(peer->local.staging_cstate->a.htlcs))
 		return pkt_err(peer, "Already removed HTLC %"PRIu64, id);
 
 	/* FIXME: Assert this... */
 	/* Note: these should match. */
-	*n_them = funding_htlc_by_id(&peer->them.staging_cstate->b, id);
-	if (*n_them == tal_count(peer->them.staging_cstate->b.htlcs))
+	*n_them = funding_htlc_by_id(&peer->remote.staging_cstate->b, id);
+	if (*n_them == tal_count(peer->remote.staging_cstate->b.htlcs))
 		return pkt_err(peer, "Did not find your HTLC %"PRIu64, id);
 
 	return NULL;
@@ -653,8 +653,8 @@ Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 
 	/* FIXME: Save reason. */
 
-	funding_a_fail_htlc(peer->us.staging_cstate, n_us);
-	funding_b_fail_htlc(peer->them.staging_cstate, n_them);
+	funding_a_fail_htlc(peer->local.staging_cstate, n_us);
+	funding_b_fail_htlc(peer->remote.staging_cstate, n_them);
 	their_commit_changed(peer);
 	return NULL;
 }
@@ -674,14 +674,14 @@ Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 	proto_to_sha256(f->r, &r);
 	sha256(&rhash, &r, sizeof(r));
 
-	if (!structeq(&rhash, &peer->us.staging_cstate->a.htlcs[n_us].rhash))
+	if (!structeq(&rhash, &peer->local.staging_cstate->a.htlcs[n_us].rhash))
 		return pkt_err(peer, "Invalid r for %"PRIu64, f->id);
 
 	/* Same ID must have same rhash */
-	assert(structeq(&rhash, &peer->them.staging_cstate->b.htlcs[n_them].rhash));
+	assert(structeq(&rhash, &peer->remote.staging_cstate->b.htlcs[n_them].rhash));
 
-	funding_a_fulfill_htlc(peer->us.staging_cstate, n_us);
-	funding_b_fulfill_htlc(peer->them.staging_cstate, n_them);
+	funding_a_fulfill_htlc(peer->local.staging_cstate, n_us);
+	funding_b_fulfill_htlc(peer->remote.staging_cstate, n_them);
 	their_commit_changed(peer);
 	return NULL;
 }
@@ -693,13 +693,13 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt)
 	struct commit_info *ci = talz(peer, struct commit_info);
 
 	/* Create new commit info for this commit tx. */
-	ci->prev = peer->us.commit;
-	ci->revocation_hash = peer->us.next_revocation_hash;
-	ci->cstate = copy_funding(ci, peer->us.staging_cstate);
+	ci->prev = peer->local.commit;
+	ci->revocation_hash = peer->local.next_revocation_hash;
+	ci->cstate = copy_funding(ci, peer->local.staging_cstate);
 	ci->tx = create_commit_tx(ci,
-				  &peer->us.finalkey,
-				  &peer->them.finalkey,
-				  &peer->them.locktime,
+				  &peer->local.finalkey,
+				  &peer->remote.finalkey,
+				  &peer->remote.locktime,
 				  &peer->anchor.txid,
 				  peer->anchor.index,
 				  peer->anchor.satoshis,
@@ -720,10 +720,10 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt)
 		return err;
 
 	/* Switch to the new commitment. */
-	peer->us.commit = ci;
+	peer->local.commit = ci;
 	peer->commit_tx_counter++;
 	peer_get_revocation_hash(peer, peer->commit_tx_counter + 1,
-				 &peer->us.next_revocation_hash);
+				 &peer->local.next_revocation_hash);
 
 	peer_check_if_cleared(peer);
 	return NULL;
@@ -744,21 +744,21 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 
 	/* FIXME: Save preimage in shachain too. */
 	if (!check_preimage(r->revocation_preimage,
-			    &peer->them.commit->prev->revocation_hash))
+			    &peer->remote.commit->prev->revocation_hash))
 		return pkt_err(peer, "complete preimage incorrect");
 
 	/* They're revoking the previous one. */
-	assert(!peer->them.commit->prev->revocation_preimage);
-	peer->them.commit->prev->revocation_preimage
-		= tal(peer->them.commit->prev, struct sha256);
+	assert(!peer->remote.commit->prev->revocation_preimage);
+	peer->remote.commit->prev->revocation_preimage
+		= tal(peer->remote.commit->prev, struct sha256);
 
 	proto_to_sha256(r->revocation_preimage,
-			peer->them.commit->prev->revocation_preimage);
+			peer->remote.commit->prev->revocation_preimage);
 	peer_check_if_cleared(peer);
 
 	/* Save next revocation hash. */
 	proto_to_sha256(r->next_revocation_hash,
-			&peer->them.next_revocation_hash);
+			&peer->remote.next_revocation_hash);
 
 	return NULL;
 }
@@ -793,7 +793,7 @@ Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt, bool *acked,
 	 * number of satoshis.
 	 */
 	if ((c->close_fee & 1)
-	    || c->close_fee > commit_tx_fee(peer->them.commit->tx,
+	    || c->close_fee > commit_tx_fee(peer->remote.commit->tx,
 					    peer->anchor.satoshis)) {
 		return pkt_err(peer, "Invalid close fee");
 	}
@@ -829,7 +829,7 @@ Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt, bool *acked,
 	if (!check_tx_sig(peer->dstate->secpctx, close_tx, 0,
 			  NULL, 0,
 			  peer->anchor.witnessscript,
-			  &peer->them.commitkey, &theirsig))
+			  &peer->remote.commitkey, &theirsig))
 		return pkt_err(peer, "Invalid signature");
 
 	tal_free(peer->closing.their_sig);

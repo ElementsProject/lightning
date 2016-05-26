@@ -51,7 +51,7 @@ void peer_sign_theircommit(const struct peer *peer,
 		      NULL, 0,
 		      peer->anchor.witnessscript,
 		      &peer->secrets->commit,
-		      &peer->us.commitkey,
+		      &peer->local.commitkey,
 		      sig);
 }
 
@@ -65,7 +65,7 @@ void peer_sign_ourcommit(const struct peer *peer,
 		      NULL, 0,
 		      peer->anchor.witnessscript,
 		      &peer->secrets->commit,
-		      &peer->us.commitkey,
+		      &peer->local.commitkey,
 		      sig);
 }
 
@@ -80,7 +80,7 @@ void peer_sign_spend(const struct peer *peer,
 		      NULL, 0,
 		      commit_witnessscript,
 		      &peer->secrets->final,
-		      &peer->us.finalkey,
+		      &peer->local.finalkey,
 		      sig);
 }
 
@@ -95,7 +95,7 @@ void peer_sign_htlc_refund(const struct peer *peer,
 		      NULL, 0,
 		      htlc_witnessscript,
 		      &peer->secrets->final,
-		      &peer->us.finalkey,
+		      &peer->local.finalkey,
 		      sig);
 }
 
@@ -108,7 +108,7 @@ void peer_sign_mutual_close(const struct peer *peer,
 		      NULL, 0,
 		      peer->anchor.witnessscript,
 		      &peer->secrets->commit,
-		      &peer->us.commitkey,
+		      &peer->local.commitkey,
 		      sig);
 }
 
@@ -124,7 +124,7 @@ void peer_sign_steal_input(const struct peer *peer,
 		      NULL, 0,
 		      witnessscript,
 		      &peer->secrets->final,
-		      &peer->us.finalkey,
+		      &peer->local.finalkey,
 		      sig);
 }
 
@@ -142,8 +142,8 @@ void peer_secrets_init(struct peer *peer)
 {
 	peer->secrets = tal(peer, struct peer_secrets);
 
-	new_keypair(peer->dstate, &peer->secrets->commit, &peer->us.commitkey);
-	new_keypair(peer->dstate, &peer->secrets->final, &peer->us.finalkey);
+	new_keypair(peer->dstate, &peer->secrets->commit, &peer->local.commitkey);
+	new_keypair(peer->dstate, &peer->secrets->final, &peer->local.finalkey);
 	if (RAND_bytes(peer->secrets->revocation_seed.u.u8,
 		       sizeof(peer->secrets->revocation_seed.u.u8)) != 1)
 		fatal("Could not get random bytes for revocation seed");

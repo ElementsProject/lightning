@@ -223,12 +223,12 @@ struct peer {
 	bool fake_close;
 	
 	/* Stuff we have in common. */
-	struct peer_visible_state us, them;
+	struct peer_visible_state local, remote;
 };
 
 void setup_listeners(struct lightningd_state *dstate, unsigned int portnum);
 
-/* Populates very first peer->{us,them}.commit->{tx,cstate} */
+/* Populates very first peer->{local,remote}.commit->{tx,cstate} */
 bool setup_first_commit(struct peer *peer);
 
 void set_peer_state(struct peer *peer, enum state newstate, const char *why);
