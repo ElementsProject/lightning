@@ -84,8 +84,11 @@ struct peer_visible_state {
 	struct sha256 next_revocation_hash;
 	/* Commit txs: last one is current. */
 	struct commit_info *commit;
+
 	/* cstate to generate next commitment tx. */
 	struct channel_state *staging_cstate;
+	/* unacked changes (already applied to staging_cstate) */
+	union htlc_staging *unacked_changes;
 };
 
 struct htlc_progress {
@@ -236,6 +239,13 @@ void set_peer_state(struct peer *peer, enum state newstate, const char *why);
 /* Call this after commit changes, or revocation accepted/sent. */
 void peer_check_if_cleared(struct peer *peer);
 
+/* Set up timer: we have something we can commit. */
+void remote_changes_pending(struct peer *peer);
+
+/* Add this unacked change */
+void add_unacked(struct peer_visible_state *which,
+		 const union htlc_staging *stage);
+
 void peer_add_htlc_expiry(struct peer *peer,
 			  const struct abs_locktime *expiry);
 
@@ -243,9 +253,6 @@ struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee);
 
 uint64_t commit_tx_fee(const struct bitcoin_tx *commit,
 		       uint64_t anchor_satoshis);
-
-/* We have something pending for them. */
-void their_commit_changed(struct peer *peer);
 
 bool resolve_one_htlc(struct peer *peer, u64 id, const struct sha256 *preimage);
 #endif /* LIGHTNING_DAEMON_PEER_H */

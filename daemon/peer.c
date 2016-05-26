@@ -444,17 +444,17 @@ static void try_commit(struct peer *peer)
 	queue_cmd(peer, do_commit, (struct command *)NULL);
 }
 
-void their_commit_changed(struct peer *peer)
+void remote_changes_pending(struct peer *peer)
 {
-	log_debug(peer->log, "their_commit_changed: changes=%u",
+	log_debug(peer->log, "remote_changes_pending: changes=%u",
 		  peer->remote.staging_cstate->changes);
 	if (!peer->commit_timer) {
-		log_debug(peer->log, "their_commit_changed: adding timer");
+		log_debug(peer->log, "remote_changes_pending: adding timer");
 		peer->commit_timer = new_reltimer(peer->dstate, peer,
 						  peer->dstate->config.commit_time,
 						  try_commit, peer);
 	} else
-		log_debug(peer->log, "their_commit_changed: timer already exists");
+		log_debug(peer->log, "remote_changes_pending: timer already exists");
 }
 
 static struct peer *new_peer(struct lightningd_state *dstate,
@@ -1894,6 +1894,14 @@ const struct bitcoin_tx *bitcoin_anchor(struct peer *peer)
 	return peer->anchor.tx;
 }
 
+void add_unacked(struct peer_visible_state *which,
+		 const union htlc_staging *stage)
+{
+	size_t n = tal_count(which->unacked_changes);
+	tal_resize(&which->unacked_changes, n+1);
+	which->unacked_changes[n] = *stage;
+}
+
 /* Sets up the initial cstate and commit tx for both nodes: false if
  * insufficient funds. */
 bool setup_first_commit(struct peer *peer)
@@ -1944,6 +1952,10 @@ bool setup_first_commit(struct peer *peer)
 
 	peer->local.staging_cstate = copy_funding(peer, peer->local.commit->cstate);
 	peer->remote.staging_cstate = copy_funding(peer, peer->remote.commit->cstate);
+
+	peer->local.unacked_changes = tal_arr(peer, union htlc_staging, 0);
+	peer->remote.unacked_changes = tal_arr(peer, union htlc_staging, 0);
+	
 	return true;
 }
 
@@ -2022,9 +2034,14 @@ static void json_getpeers(struct command *cmd,
 
 		/* Any changes since then? */
 		if (p->local.staging_cstate->changes != last->changes)
-			json_add_num(response, "staged_changes",
+			json_add_num(response, "local_staged_changes",
 				     p->local.staging_cstate->changes
 				     - last->changes);
+		if (p->remote.staging_cstate->changes
+		    != p->remote.commit->cstate->changes)
+			json_add_num(response, "remote_staged_changes",
+				     p->remote.staging_cstate->changes
+				     - p->remote.commit->cstate->changes);
 		json_object_end(response);
 	}
 	json_array_end(response);

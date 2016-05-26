@@ -149,10 +149,11 @@ check_status()
 check_staged()
 {
     lcli="$1"
-    num_htlcs="$2"
+    what="$2"
+    num_htlcs="$3"
 
-    if check "$lcli getpeers | tr -s '\012\011\" ' ' ' | $FGREP 'staged_changes : '$num_htlcs"; then :; else
-	echo Cannot find $lcli output: '"staged_changes" : '$num_htlcs >&2
+    if check "$lcli getpeers | tr -s '\012\011\" ' ' ' | $FGREP ${what}_'staged_changes : '$num_htlcs"; then :; else
+	echo Cannot find $lcli output: '"'${what}_'staged_changes" : '$num_htlcs >&2
 	$lcli getpeers | tr -s '\012\011 ' ' ' >&2
 	return 1
     fi
@@ -351,15 +352,17 @@ lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
 if [ -n "$MANUALCOMMIT" ]; then
     # Nothing should have changed!
     check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
-    # But 2 should register a staged htlc.
-    check_staged lcli2 1
+    # But they should register a staged htlc.
+    check_staged lcli2 local 1
+    check_staged lcli1 remote 1
 
     # Now commit it.
     lcli1 commit $ID2
 
     # Node 1 hasn't got it committed, but node2 should have told it to stage.
     check_status_single lcli1 $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
-    check_staged lcli1 1
+    check_staged lcli1 local 1
+    check_staged lcli2 remote 1
 
     # Check channel status
     A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - $HTLC_AMOUNT))
