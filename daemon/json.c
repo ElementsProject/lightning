@@ -114,6 +114,23 @@ bool json_tok_is_null(const char *buffer, const jsmntok_t *tok)
 	return buffer[tok->start] == 'n';
 }
 
+bool json_tok_bool(const char *buffer, const jsmntok_t *tok, bool *b)
+{
+	if (tok->type != JSMN_PRIMITIVE)
+		return false;
+	if (tok->end - tok->start == strlen("true")
+	    && memcmp(buffer + tok->start, "true", strlen("true")) == 0) {
+		*b = true;
+		return true;
+	}
+	if (tok->end - tok->start == strlen("false")
+	    && memcmp(buffer + tok->start, "false", strlen("false")) == 0) {
+		*b = false;
+		return true;
+	}
+	return false;
+}
+
 const jsmntok_t *json_next(const jsmntok_t *tok)
 {
 	const jsmntok_t *t;

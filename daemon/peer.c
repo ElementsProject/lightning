@@ -675,9 +675,9 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 	Pkt *out;
 	size_t n = tal_count(peer->outpkt);
 
-	if (peer->fake_close)
+	if (peer->fake_close || !peer->output_enabled)
 		return io_out_wait(conn, peer, pkt_out, peer);
-	
+
 	if (n == 0) {
 		/* We close the connection once we've sent everything. */
 		if (peer->cond == PEER_CLOSED)
@@ -861,6 +861,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	 * immediately so don't make peer a parent. */
 	peer->conn = conn;
 	peer->fake_close = false;
+	peer->output_enabled = true;
 	io_set_finish(conn, peer_disconnect, peer);
 	
 	peer->local.offer_anchor = offer_anchor;
@@ -2910,6 +2911,54 @@ static void json_signcommit(struct command *cmd,
 	json_object_end(response);
 	command_success(cmd, response);
 }
+
+static void json_output(struct command *cmd,
+			const char *buffer, const jsmntok_t *params)
+{
+	struct peer *peer;
+	jsmntok_t *peeridtok, *enabletok;
+	bool enable;
+
+	if (!json_get_params(buffer, params,
+			     "peerid", &peeridtok,
+			     "enable", &enabletok,
+			     NULL)) {
+		command_fail(cmd, "Need peerid and enable");
+		return;
+	}
+
+	peer = find_peer(cmd->dstate, buffer, peeridtok);
+	if (!peer) {
+		command_fail(cmd, "Could not find peer with that peerid");
+		return;
+	}
+
+	if (!peer->conn) {
+		command_fail(cmd, "Peer is already disconnected");
+		return;
+	}
+
+	if (!json_tok_bool(buffer, enabletok, &enable)) {
+		command_fail(cmd, "enable must be true or false");
+		return;
+	}
+
+	log_debug(peer->log, "dev-output: output %s",
+		  enable ? "enabled" : "disabled");
+	peer->output_enabled = enable;
+
+	/* Flush any outstanding output */
+	if (peer->output_enabled)
+		io_wake(peer);
+	
+	command_success(cmd, null_response(cmd));
+}
+const struct json_command output_command = {
+	"dev-output",
+	json_output,
+	"Enable/disable any messages to peer {peerid} depending on {enable}",
+	"Returns an empty result on success"
+};
 
 const struct json_command disconnect_command = {
 	"dev-disconnect",

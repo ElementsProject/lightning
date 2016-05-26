@@ -32,6 +32,9 @@ bool json_tok_u64(const char *buffer, const jsmntok_t *tok,
 bool json_tok_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 			     uint64_t *satoshi);
 
+/* Extract boolean this (must be a true or false) */
+bool json_tok_bool(const char *buffer, const jsmntok_t *tok, bool *b);
+
 /* Is this the null primitive? */
 bool json_tok_is_null(const char *buffer, const jsmntok_t *tok);
 

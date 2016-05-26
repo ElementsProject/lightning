@@ -223,7 +223,8 @@ struct peer {
 
 	/* For testing. */
 	bool fake_close;
-	
+	bool output_enabled;
+
 	/* Stuff we have in common. */
 	struct peer_visible_state local, remote;
 };
