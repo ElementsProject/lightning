@@ -198,7 +198,8 @@ daemon-test-steal: daemon-test-dump-onchain
 daemon-test-dump-onchain: daemon-test-timeout-anchor
 daemon-test-timeout-anchor: daemon-test-normal
 daemon-test-normal: daemon-test-manual-commit
-daemon-test-manual-commit: daemon-all
+daemon-test-manual-commit: daemon-test-mutual-close-with-htlcs
+daemon-test-mutual-close-with-htlcs: daemon-all
 
 daemon-tests: daemon-test-steal
 

@@ -58,6 +58,9 @@ while [ $# != 0 ]; do
 	x"--manual-commit")
 	    MANUALCOMMIT=1
 	    ;;
+	x"--mutual-close-with-htlcs")
+	    CLOSE_WITH_HTLCS=1
+	    ;;
 	x"--normal")
 	    ;;
 	x"--verbose")
@@ -543,6 +546,41 @@ lcli2 newhtlc $ID1 $HTLC_AMOUNT $EXPIRY $RHASH2
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 
 check_status $(($A_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE)) $(($A_FEE + $EXTRA_FEE)) '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $(($B_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE)) $(($B_FEE + $EXTRA_FEE)) '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH2'" } '
+
+if [ -n "$CLOSE_WITH_HTLCS" ]; then
+    # Now begin close
+    lcli1 close $ID2
+
+    # They should be waiting for it to clear up.
+    check_peerstate lcli1 STATE_CLEARING
+    check_peerstate lcli2 STATE_CLEARING
+
+    # Fail one, still waiting.
+    lcli2 failhtlc $ID1 $RHASH
+    check_peerstate lcli1 STATE_CLEARING
+    check_peerstate lcli2 STATE_CLEARING
+
+    # Fulfill the other causes them to actually complete the close.
+    lcli1 fulfillhtlc $ID2 $SECRET2
+    check_peerstate lcli1 STATE_MUTUAL_CLOSING
+    check_peerstate lcli2 STATE_MUTUAL_CLOSING
+
+    $CLI generate 1
+
+    check_peerstate lcli1 STATE_CLOSE_ONCHAIN_MUTUAL
+    check_peerstate lcli2 STATE_CLOSE_ONCHAIN_MUTUAL
+
+    # Give it 100 blocks.
+    $CLI generate 99
+
+    check_no_peers lcli1
+    check_no_peers lcli2
+
+    lcli1 stop
+    lcli2 stop
+    
+    all_ok
+fi
 
 lcli2 failhtlc $ID1 $RHASH
 lcli1 fulfillhtlc $ID2 $SECRET2
