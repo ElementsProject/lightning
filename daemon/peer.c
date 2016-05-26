@@ -1976,7 +1976,8 @@ void peer_unwatch_anchor_depth(struct peer *peer,
 			       enum state_input timeout)
 {
 	assert(peer->anchor.watches);
-	peer->anchor.watches = tal_free(peer->anchor.watches);
+	assert(peer->anchor.watches->depthok == depthok);
+	peer->anchor.watches->depthok = INPUT_NONE;
 }
 
 uint64_t commit_tx_fee(const struct bitcoin_tx *commit, uint64_t anchor_satoshis)
