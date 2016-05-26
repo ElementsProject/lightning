@@ -1,5 +1,6 @@
 #include "funding.h"
 #include <assert.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <ccan/structeq/structeq.h>
 #include <string.h>
@@ -127,15 +128,14 @@ static bool change_funding(uint64_t anchor_satoshis,
 }
 
 struct channel_state *initial_funding(const tal_t *ctx,
-				      bool am_funder,
 				      uint64_t anchor_satoshis,
-				      uint32_t fee_rate)
+				      uint32_t fee_rate,
+				      enum channel_side funding)
 {
 	uint64_t fee_msat;
 	struct channel_state *cstate = talz(ctx, struct channel_state);
+	struct channel_oneside *funder, *fundee;
 
-	cstate->a.htlcs = tal_arr(cstate, struct channel_htlc, 0);
-	cstate->b.htlcs = tal_arr(cstate, struct channel_htlc, 0);
 	cstate->fee_rate = fee_rate;
 	cstate->anchor = anchor_satoshis;
 	cstate->changes = 0;
@@ -148,24 +148,22 @@ struct channel_state *initial_funding(const tal_t *ctx,
 	if (fee_msat > anchor_satoshis * 1000)
 		return tal_free(cstate);
 
-	/* Initially, all goes back to funder. */
-	cstate->a.pay_msat = anchor_satoshis * 1000 - fee_msat;
-	cstate->a.fee_msat = fee_msat;
+	funder = &cstate->side[funding];
+	fundee = &cstate->side[!funding];
 
-	/* If B (not A) is funder, invert. */
-	if (!am_funder)
-		invert_cstate(cstate);
+	/* Neither side has HTLCs. */
+	funder->htlcs = tal_arr(cstate, struct channel_htlc, 0);
+	fundee->htlcs = tal_arr(cstate, struct channel_htlc, 0);
+
+	/* Initially, all goes back to funder. */
+	funder->pay_msat = anchor_satoshis * 1000 - fee_msat;
+	funder->fee_msat = fee_msat;
 
 	/* Make sure it checks out. */
-	assert(change_funding(anchor_satoshis, fee_rate, 0,
-			      &cstate->a, &cstate->b, 0));
-	if (am_funder) {
-		assert(cstate->a.fee_msat == fee_msat);
-		assert(cstate->b.fee_msat == 0);
-	} else {
-		assert(cstate->b.fee_msat == fee_msat);
-		assert(cstate->a.fee_msat == 0);
-	}
+	assert(change_funding(anchor_satoshis, fee_rate, 0, funder, fundee, 0));
+	assert(funder->fee_msat == fee_msat);
+	assert(fundee->fee_msat == 0);
+
 	return cstate;
 }
 
@@ -188,8 +186,8 @@ static size_t count_nondust_htlcs(const struct channel_htlc *htlcs)
 
 static size_t total_nondust_htlcs(const struct channel_state *cstate)
 {
-	return count_nondust_htlcs(cstate->a.htlcs)
-		+ count_nondust_htlcs(cstate->b.htlcs);
+	return count_nondust_htlcs(cstate->side[OURS].htlcs)
+		+ count_nondust_htlcs(cstate->side[THEIRS].htlcs);
 }
 
 void adjust_fee(struct channel_state *cstate, uint32_t fee_rate)
@@ -198,7 +196,7 @@ void adjust_fee(struct channel_state *cstate, uint32_t fee_rate)
 
 	fee_msat = calculate_fee_msat(total_nondust_htlcs(cstate), fee_rate);
 
-	recalculate_fees(&cstate->a, &cstate->b, fee_msat);
+	recalculate_fees(&cstate->side[OURS], &cstate->side[THEIRS], fee_msat);
 	cstate->changes++;
 }
 
@@ -207,33 +205,34 @@ bool force_fee(struct channel_state *cstate, uint64_t fee)
 	/* Beware overflow! */
 	if (fee > 0xFFFFFFFFFFFFFFFFULL / 1000)
 		return false;
-	recalculate_fees(&cstate->a, &cstate->b, fee * 1000);
+	recalculate_fees(&cstate->side[OURS], &cstate->side[THEIRS], fee * 1000);
 	cstate->changes++;
-	return cstate->a.fee_msat + cstate->b.fee_msat == fee * 1000;
+	return cstate->side[OURS].fee_msat + cstate->side[THEIRS].fee_msat == fee * 1000;
 }
 	
 void invert_cstate(struct channel_state *cstate)
 {
 	struct channel_oneside tmp;
 
-	tmp = cstate->a;
-	cstate->a = cstate->b;
-	cstate->b = tmp;
+	tmp = cstate->side[OURS];
+	cstate->side[OURS] = cstate->side[THEIRS];
+	cstate->side[THEIRS] = tmp;
 }
 
 /* Add a HTLC to @creator if it can afford it. */
-static struct channel_htlc *add_htlc(struct channel_state *cstate,
-				     struct channel_oneside *creator,
-				     struct channel_oneside *recipient,
-				     u32 msatoshis,
-				     const struct abs_locktime *expiry,
-				     const struct sha256 *rhash, uint64_t id)
+struct channel_htlc *funding_add_htlc(struct channel_state *cstate,
+				      u32 msatoshis,
+				      const struct abs_locktime *expiry,
+				      const struct sha256 *rhash, uint64_t id,
+				      enum channel_side side)
+				      
 {
 	size_t n, nondust;
+	struct channel_oneside *creator, *recipient;
 
-	assert((creator == &cstate->a && recipient == &cstate->b)
-	       || (creator == &cstate->b && recipient == &cstate->a));
-
+	creator = &cstate->side[side];
+	recipient = &cstate->side[!side];
+	
 	/* Remember to count the new one in total txsize if not dust! */
 	nondust = total_nondust_htlcs(cstate);
 	if (!is_dust_amount(msatoshis / 1000))
@@ -259,108 +258,84 @@ static struct channel_htlc *add_htlc(struct channel_state *cstate,
 
 /* Remove htlc from creator, credit it to beneficiary. */
 static void remove_htlc(struct channel_state *cstate,
-			struct channel_oneside *creator,
-			struct channel_oneside *beneficiary,
-			struct channel_oneside *non_beneficiary,
+			enum channel_side creator,
+			enum channel_side beneficiary,
 			size_t i)
 {
-	size_t n = tal_count(creator->htlcs);
+	size_t n = tal_count(cstate->side[creator].htlcs);
 	size_t nondust;
 
 	assert(i < n);
-	assert(creator == &cstate->a || creator == &cstate->b);
-	assert((beneficiary == &cstate->a && non_beneficiary == &cstate->b)
-	       || (beneficiary == &cstate->b && non_beneficiary == &cstate->a));
 
 	/* Remember to remove this one in total txsize if not dust! */
 	nondust = total_nondust_htlcs(cstate);
-	if (!is_dust_amount(creator->htlcs[i].msatoshis / 1000)) {
+	if (!is_dust_amount(cstate->side[creator].htlcs[i].msatoshis / 1000)) {
 		assert(nondust > 0);
 		nondust--;
 	}
 
 	/* Can't fail since msatoshis is positive. */
 	if (!change_funding(cstate->anchor, cstate->fee_rate,
-			    -(int64_t)creator->htlcs[i].msatoshis,
-			    beneficiary, non_beneficiary, nondust))
+			    -(int64_t)cstate->side[creator].htlcs[i].msatoshis,
+			    &cstate->side[beneficiary],
+			    &cstate->side[!beneficiary], nondust))
 		abort();
 
 	/* Actually remove the HTLC. */
-	memmove(creator->htlcs + i, creator->htlcs + i + 1,
-		(n - i - 1) * sizeof(*creator->htlcs));
-	tal_resize(&creator->htlcs, n-1);
+	memmove(cstate->side[creator].htlcs + i,
+		cstate->side[creator].htlcs + i + 1,
+		(n - i - 1) * sizeof(*cstate->side[creator].htlcs));
+	tal_resize(&cstate->side[creator].htlcs, n-1);
 	cstate->changes++;
 }
 
-struct channel_htlc *funding_a_add_htlc(struct channel_state *cstate,
-					u32 msatoshis,
-					const struct abs_locktime *expiry,
-					const struct sha256 *rhash, uint64_t id)
+void funding_fail_htlc(struct channel_state *cstate, size_t index,
+		       enum channel_side side)
 {
-	return add_htlc(cstate, &cstate->a, &cstate->b,
-			msatoshis, expiry, rhash, id);
+	remove_htlc(cstate, side, side, index);
 }
 
-struct channel_htlc *funding_b_add_htlc(struct channel_state *cstate,
-					u32 msatoshis,
-					const struct abs_locktime *expiry,
-					const struct sha256 *rhash, uint64_t id)
+void funding_fulfill_htlc(struct channel_state *cstate, size_t index,
+			  enum channel_side side)
 {
-	return add_htlc(cstate, &cstate->b, &cstate->a,
-			msatoshis, expiry, rhash, id);
+	remove_htlc(cstate, side, !side, index);
 }
 
-void funding_a_fail_htlc(struct channel_state *cstate, size_t index)
-{
-	remove_htlc(cstate, &cstate->a, &cstate->a, &cstate->b, index);
-}
-
-void funding_b_fail_htlc(struct channel_state *cstate, size_t index)
-{
-	remove_htlc(cstate, &cstate->b, &cstate->b, &cstate->a, index);
-}
-
-void funding_a_fulfill_htlc(struct channel_state *cstate, size_t index)
-{
-	remove_htlc(cstate, &cstate->a, &cstate->b, &cstate->a, index);
-}
-
-void funding_b_fulfill_htlc(struct channel_state *cstate, size_t index)
-{
-	remove_htlc(cstate, &cstate->b, &cstate->a, &cstate->b, index);
-}
-
-size_t funding_find_htlc(struct channel_oneside *creator,
-			 const struct sha256 *rhash)
+size_t funding_find_htlc(const struct channel_state *cstate,
+			 const struct sha256 *rhash,
+			 enum channel_side side)
 {
 	size_t i;
 
-	for (i = 0; i < tal_count(creator->htlcs); i++) {
-		if (structeq(&creator->htlcs[i].rhash, rhash))
-			break;
+	for (i = 0; i < tal_count(cstate->side[side].htlcs); i++) {
+		if (structeq(&cstate->side[side].htlcs[i].rhash, rhash))
+			return i;
 	}
-	return i;
+	return -1;
 }
 
-size_t funding_htlc_by_id(struct channel_oneside *creator, uint64_t id)
+size_t funding_htlc_by_id(const struct channel_state *cstate,
+			  uint64_t id,
+			  enum channel_side side)
 {
 	size_t i;
 
-	for (i = 0; i < tal_count(creator->htlcs); i++) {
-		if (creator->htlcs[i].id == id)
-			break;
+	for (i = 0; i < tal_count(cstate->side[side].htlcs); i++) {
+		if (cstate->side[side].htlcs[i].id == id)
+			return i;
 	}
-	return i;
+	return -1;
 }
 
 struct channel_state *copy_funding(const tal_t *ctx,
 				   const struct channel_state *cstate)
 {
 	struct channel_state *cs = tal_dup(ctx, struct channel_state, cstate);
+	size_t i;
 
-	cs->a.htlcs = tal_dup_arr(cs, struct channel_htlc, cs->a.htlcs,
-				  tal_count(cs->a.htlcs), 0);
-	cs->b.htlcs = tal_dup_arr(cs, struct channel_htlc, cs->b.htlcs,
-				  tal_count(cs->b.htlcs), 0);
+	for (i = 0; i < ARRAY_SIZE(cs->side); i++)
+		cs->side[i].htlcs = tal_dup_arr(cs, struct channel_htlc,
+						cs->side[i].htlcs,
+						tal_count(cs->side[i].htlcs), 0);
 	return cs;
 }

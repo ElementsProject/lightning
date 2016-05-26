@@ -184,9 +184,9 @@ static void add_our_htlc_ourside(struct peer *peer, void *arg)
 	struct channel_htlc *htlc = arg;
 
 	/* FIXME: must add even if can't pay fee any more! */
-	if (!funding_a_add_htlc(peer->local.staging_cstate,
-				htlc->msatoshis, &htlc->expiry,
-				&htlc->rhash, htlc->id))
+	if (!funding_add_htlc(peer->local.staging_cstate,
+			      htlc->msatoshis, &htlc->expiry,
+			      &htlc->rhash, htlc->id, OURS))
 		fatal("FIXME: Failed to add htlc %"PRIu64" to self on ack",
 		      htlc->id);
 	tal_free(htlc);
@@ -209,11 +209,11 @@ void queue_pkt_htlc_add(struct peer *peer,
 	routing__init(u->route);
 
 	/* We're about to send this, so their side will have it from now on. */
-	if (!funding_b_add_htlc(peer->remote.staging_cstate,
-				htlc_prog->stage.add.htlc.msatoshis,
-				&htlc_prog->stage.add.htlc.expiry,
-				&htlc_prog->stage.add.htlc.rhash,
-				htlc_prog->stage.add.htlc.id))
+	if (!funding_add_htlc(peer->remote.staging_cstate,
+			      htlc_prog->stage.add.htlc.msatoshis,
+			      &htlc_prog->stage.add.htlc.expiry,
+			      &htlc_prog->stage.add.htlc.rhash,
+			      htlc_prog->stage.add.htlc.id, THEIRS))
 		fatal("Could not add HTLC?");
 
 	peer_add_htlc_expiry(peer, &htlc_prog->stage.add.htlc.expiry);
@@ -230,8 +230,9 @@ static void fulfill_their_htlc_ourside(struct peer *peer, void *arg)
 {
 	size_t n;
 
-	n = funding_htlc_by_id(&peer->local.staging_cstate->b, ptr2int(arg));
-	funding_b_fulfill_htlc(peer->local.staging_cstate, n);
+	n = funding_htlc_by_id(peer->local.staging_cstate, ptr2int(arg), THEIRS);
+	assert(n != -1);
+	funding_fulfill_htlc(peer->local.staging_cstate, n, THEIRS);
 }
 
 void queue_pkt_htlc_fulfill(struct peer *peer,
@@ -247,8 +248,9 @@ void queue_pkt_htlc_fulfill(struct peer *peer,
 	f->r = sha256_to_proto(f, &htlc_prog->stage.fulfill.r);
 
 	/* We're about to send this, so their side will have it from now on. */
-	n = funding_htlc_by_id(&peer->remote.staging_cstate->a, f->id);
-	funding_a_fulfill_htlc(peer->remote.staging_cstate, n);
+	n = funding_htlc_by_id(peer->remote.staging_cstate, f->id, OURS);
+	assert(n != -1);
+	funding_fulfill_htlc(peer->remote.staging_cstate, n, OURS);
 	their_commit_changed(peer);
 
 	queue_pkt_with_ack(peer, PKT__PKT_UPDATE_FULFILL_HTLC, f,
@@ -260,8 +262,9 @@ static void fail_their_htlc_ourside(struct peer *peer, void *arg)
 {
 	size_t n;
 
-	n = funding_htlc_by_id(&peer->local.staging_cstate->b, ptr2int(arg));
-	funding_b_fail_htlc(peer->local.staging_cstate, n);
+	n = funding_htlc_by_id(peer->local.staging_cstate, ptr2int(arg), THEIRS);
+	assert(n != -1);
+	funding_fail_htlc(peer->local.staging_cstate, n, THEIRS);
 }
 
 void queue_pkt_htlc_fail(struct peer *peer,
@@ -279,8 +282,9 @@ void queue_pkt_htlc_fail(struct peer *peer,
 	fail_reason__init(f->reason);
 
 	/* We're about to send this, so their side will have it from now on. */
-	n = funding_htlc_by_id(&peer->remote.staging_cstate->a, f->id);
-	funding_a_fail_htlc(peer->remote.staging_cstate, n);
+	n = funding_htlc_by_id(peer->remote.staging_cstate, f->id, OURS);
+	assert(n != -1);
+	funding_fail_htlc(peer->remote.staging_cstate, n, OURS);
 
 	their_commit_changed(peer);
 	queue_pkt_with_ack(peer, PKT__PKT_UPDATE_FAIL_HTLC, f,
@@ -309,10 +313,10 @@ void queue_pkt_commit(struct peer *peer)
 				  &ci->map);
 
 	log_debug(peer->log, "Signing tx for %u/%u msatoshis, %zu/%zu htlcs",
-		  ci->cstate->a.pay_msat,
-		  ci->cstate->b.pay_msat,
-		  tal_count(ci->cstate->a.htlcs),
-		  tal_count(ci->cstate->b.htlcs));
+		  ci->cstate->side[OURS].pay_msat,
+		  ci->cstate->side[THEIRS].pay_msat,
+		  tal_count(ci->cstate->side[OURS].htlcs),
+		  tal_count(ci->cstate->side[THEIRS].htlcs));
 
 	/* BOLT #2:
 	 *
@@ -563,8 +567,8 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	 * A node MUST NOT add a HTLC if it would result in it
 	 * offering more than 300 HTLCs in either commitment transaction.
 	 */
-	if (tal_count(peer->remote.staging_cstate->a.htlcs) == 300
-	    || tal_count(peer->local.staging_cstate->b.htlcs) == 300)
+	if (tal_count(peer->remote.staging_cstate->side[OURS].htlcs) == 300
+	    || tal_count(peer->local.staging_cstate->side[THEIRS].htlcs) == 300)
 		return pkt_err(peer, "Too many HTLCs");
 
 	/* BOLT #2:
@@ -572,14 +576,12 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	 * A node MUST NOT set `id` equal to another HTLC which is in
 	 * the current staged commitment transaction.
 	 */
-	if (funding_htlc_by_id(&peer->remote.staging_cstate->a, u->id)
-	    < tal_count(peer->remote.staging_cstate->a.htlcs))
+	if (funding_htlc_by_id(peer->remote.staging_cstate, u->id, OURS) != -1)
 		return pkt_err(peer, "HTLC id %"PRIu64" clashes for you", u->id);
 
 	/* FIXME: Assert this... */
 	/* Note: these should be in sync, so this should be redundant! */
-	if (funding_htlc_by_id(&peer->local.staging_cstate->b, u->id)
-	    < tal_count(peer->local.staging_cstate->b.htlcs))
+	if (funding_htlc_by_id(peer->local.staging_cstate, u->id, THEIRS) != -1)
 		return pkt_err(peer, "HTLC id %"PRIu64" clashes for us", u->id);
 
 	/* BOLT #2:
@@ -593,16 +595,16 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	/* FIXME: This is wrong!  We may have already added more txs to
 	 * them.staging_cstate, driving that fee up.
 	 * We should check against the last version they acknowledged. */
-	if (!funding_a_add_htlc(peer->remote.staging_cstate,
-				u->amount_msat, &expiry, &rhash, u->id))
+	if (!funding_add_htlc(peer->remote.staging_cstate,
+			      u->amount_msat, &expiry, &rhash, u->id, OURS))
 		return pkt_err(peer, "Cannot afford %"PRIu64" milli-satoshis"
 			       " in your commitment tx",
 			       u->amount_msat);
 
 	/* If we fail here, we've already changed them.staging_cstate, so
 	 * MUST terminate. */
-	if (!funding_b_add_htlc(peer->local.staging_cstate,
-				u->amount_msat, &expiry, &rhash, u->id))
+	if (!funding_add_htlc(peer->local.staging_cstate,
+			      u->amount_msat, &expiry, &rhash, u->id, THEIRS))
 		return pkt_err(peer, "Cannot afford %"PRIu64" milli-satoshis"
 			       " in our commitment tx",
 			       u->amount_msat);
@@ -623,19 +625,19 @@ static Pkt *find_commited_htlc(struct peer *peer, uint64_t id,
 	 * current commitment transaction, and MUST fail the
 	 * connection if it does not.
 	 */
-	*n_us = funding_htlc_by_id(&peer->local.commit->cstate->a, id);
-	if (*n_us == tal_count(peer->local.commit->cstate->a.htlcs))
+	*n_us = funding_htlc_by_id(peer->local.commit->cstate, id, OURS);
+	if (*n_us == -1)
 		return pkt_err(peer, "Did not find HTLC %"PRIu64, id);
 
 	/* They must not fail/fulfill twice, so it should be in staging, too. */
-	*n_us = funding_htlc_by_id(&peer->local.staging_cstate->a, id);
-	if (*n_us == tal_count(peer->local.staging_cstate->a.htlcs))
+	*n_us = funding_htlc_by_id(peer->local.staging_cstate, id, OURS);
+	if (*n_us == -1)
 		return pkt_err(peer, "Already removed HTLC %"PRIu64, id);
 
 	/* FIXME: Assert this... */
 	/* Note: these should match. */
-	*n_them = funding_htlc_by_id(&peer->remote.staging_cstate->b, id);
-	if (*n_them == tal_count(peer->remote.staging_cstate->b.htlcs))
+	*n_them = funding_htlc_by_id(peer->remote.staging_cstate, id, THEIRS);
+	if (*n_them == -1)
 		return pkt_err(peer, "Did not find your HTLC %"PRIu64, id);
 
 	return NULL;
@@ -653,8 +655,8 @@ Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 
 	/* FIXME: Save reason. */
 
-	funding_a_fail_htlc(peer->local.staging_cstate, n_us);
-	funding_b_fail_htlc(peer->remote.staging_cstate, n_them);
+	funding_fail_htlc(peer->local.staging_cstate, n_us, OURS);
+	funding_fail_htlc(peer->remote.staging_cstate, n_them, THEIRS);
 	their_commit_changed(peer);
 	return NULL;
 }
@@ -674,14 +676,14 @@ Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 	proto_to_sha256(f->r, &r);
 	sha256(&rhash, &r, sizeof(r));
 
-	if (!structeq(&rhash, &peer->local.staging_cstate->a.htlcs[n_us].rhash))
+	if (!structeq(&rhash, &peer->local.staging_cstate->side[OURS].htlcs[n_us].rhash))
 		return pkt_err(peer, "Invalid r for %"PRIu64, f->id);
 
 	/* Same ID must have same rhash */
-	assert(structeq(&rhash, &peer->remote.staging_cstate->b.htlcs[n_them].rhash));
+	assert(structeq(&rhash, &peer->remote.staging_cstate->side[THEIRS].htlcs[n_them].rhash));
 
-	funding_a_fulfill_htlc(peer->local.staging_cstate, n_us);
-	funding_b_fulfill_htlc(peer->remote.staging_cstate, n_them);
+	funding_fulfill_htlc(peer->local.staging_cstate, n_us, OURS);
+	funding_fulfill_htlc(peer->remote.staging_cstate, n_them, THEIRS);
 	their_commit_changed(peer);
 	return NULL;
 }

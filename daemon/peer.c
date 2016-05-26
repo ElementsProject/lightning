@@ -263,18 +263,18 @@ static bool committed_to_htlcs(const struct peer *peer)
 	
 	i = peer->local.commit;
 	while (i && !i->revocation_preimage) {
-		if (tal_count(i->cstate->a.htlcs))
+		if (tal_count(i->cstate->side[OURS].htlcs))
 			return true;
-		if (tal_count(i->cstate->b.htlcs))
+		if (tal_count(i->cstate->side[THEIRS].htlcs))
 			return true;
 		i = i->prev;
 	}
 
 	i = peer->remote.commit;
 	while (i && !i->revocation_preimage) {
-		if (tal_count(i->cstate->a.htlcs))
+		if (tal_count(i->cstate->side[OURS].htlcs))
 			return true;
-		if (tal_count(i->cstate->b.htlcs))
+		if (tal_count(i->cstate->side[THEIRS].htlcs))
 			return true;
 		i = i->prev;
 	}
@@ -820,20 +820,22 @@ static struct channel_htlc *htlc_by_index(const struct commit_info *ci,
 	assert(index >= 2);
 	index -= 2;
 
-	if (index < tal_count(ci->cstate->a.htlcs))
-		return cast_const(struct channel_htlc *, ci->cstate->a.htlcs)
+	if (index < tal_count(ci->cstate->side[OURS].htlcs))
+		return cast_const(struct channel_htlc *,
+				  ci->cstate->side[OURS].htlcs)
 			+ index;
-	index -= tal_count(ci->cstate->a.htlcs);
-	assert(index < tal_count(ci->cstate->b.htlcs));
-	return cast_const(struct channel_htlc *, ci->cstate->b.htlcs) + index;
+	index -= tal_count(ci->cstate->side[OURS].htlcs);
+	assert(index < tal_count(ci->cstate->side[THEIRS].htlcs));
+	return cast_const(struct channel_htlc *, ci->cstate->side[THEIRS].htlcs)
+		+ index;
 }
 
-static bool htlc_a_offered(const struct commit_info *ci, size_t index)
+static bool htlc_this_side_offered(const struct commit_info *ci, size_t index)
 {
 	assert(index >= 2);
 	index -= 2;
 
-	return index < tal_count(ci->cstate->a.htlcs);
+	return index < tal_count(ci->cstate->side[OURS].htlcs);
 }
 
 /* Create a HTLC refund collection */
@@ -1012,7 +1014,7 @@ static void resolve_cheating(struct peer *peer)
 		connect_input(ci, &steal_tx->input[n], ci->map[i]);
 
 		h = htlc_by_index(ci, i);
-		if (htlc_a_offered(ci, i)) {
+		if (htlc_this_side_offered(ci, i)) {
 			wscripts[n]
 				= bitcoin_redeem_htlc_send(wscripts,
 							   &peer->remote.finalkey,
@@ -1341,8 +1343,8 @@ static void resolve_our_unilateral(struct peer *peer)
 	 */
 	peer->closing_onchain.resolved[1] = tx;
 
-	num_ours = tal_count(ci->cstate->a.htlcs);
-	num_theirs = tal_count(ci->cstate->b.htlcs);
+	num_ours = tal_count(ci->cstate->side[OURS].htlcs);
+	num_theirs = tal_count(ci->cstate->side[THEIRS].htlcs);
 
 	/* BOLT #onchain:
 	 *
@@ -1391,8 +1393,8 @@ static void resolve_their_unilateral(struct peer *peer)
 	peer->closing_onchain.resolved[0] = tx;
 
 	/* Note the reversal, since ci is theirs, we are B */
-	num_ours = tal_count(ci->cstate->b.htlcs);
-	num_theirs = tal_count(ci->cstate->a.htlcs);
+	num_ours = tal_count(ci->cstate->side[THEIRS].htlcs);
+	num_theirs = tal_count(ci->cstate->side[OURS].htlcs);
 
 	/* BOLT #onchain:
 	 *
@@ -1651,8 +1653,8 @@ struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee)
 		  peer->local.finalkey.der[2], peer->local.finalkey.der[3],
 		  peer->remote.finalkey.der[0], peer->remote.finalkey.der[1],
 		  peer->remote.finalkey.der[2], peer->remote.finalkey.der[3],
-		  cstate.a.pay_msat / 1000,
-		  cstate.b.pay_msat / 1000);
+		  cstate.side[OURS].pay_msat / 1000,
+		  cstate.side[THEIRS].pay_msat / 1000);
 
  	return create_close_tx(peer->dstate->secpctx, peer,
 			       peer->closing.our_script,
@@ -1660,8 +1662,8 @@ struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee)
 			       &peer->anchor.txid,
 			       peer->anchor.index,
 			       peer->anchor.satoshis,
-			       cstate.a.pay_msat / 1000,
-			       cstate.b.pay_msat / 1000);
+			       cstate.side[OURS].pay_msat / 1000,
+			       cstate.side[THEIRS].pay_msat / 1000);
 }
 
 void peer_calculate_close_fee(struct peer *peer)
@@ -1901,18 +1903,20 @@ bool setup_first_commit(struct peer *peer)
 
 	/* Revocation hashes already filled in, from pkt_open */
 	peer->local.commit->cstate = initial_funding(peer,
-						  peer->local.offer_anchor
-						  == CMD_OPEN_WITH_ANCHOR,
-						  peer->anchor.satoshis,
-						  peer->local.commit_fee_rate);
+						     peer->anchor.satoshis,
+						     peer->local.commit_fee_rate,
+						     peer->local.offer_anchor
+						     == CMD_OPEN_WITH_ANCHOR ?
+						     OURS : THEIRS);
 	if (!peer->local.commit->cstate)
 		return false;
 
 	peer->remote.commit->cstate = initial_funding(peer,
-						    peer->remote.offer_anchor
-						    == CMD_OPEN_WITH_ANCHOR,
-						    peer->anchor.satoshis,
-						    peer->remote.commit_fee_rate);
+						      peer->anchor.satoshis,
+						      peer->remote.commit_fee_rate,
+						      peer->remote.offer_anchor
+						      == CMD_OPEN_WITH_ANCHOR ?
+						      OURS : THEIRS);
 	if (!peer->remote.commit->cstate)
 		return false;
 
@@ -2009,12 +2013,12 @@ static void json_getpeers(struct command *cmd,
 		}
 		last = p->local.commit->cstate;
 
-		json_add_num(response, "our_amount", last->a.pay_msat);
-		json_add_num(response, "our_fee", last->a.fee_msat);
-		json_add_num(response, "their_amount", last->b.pay_msat);
-		json_add_num(response, "their_fee", last->b.fee_msat);
-		json_add_htlcs(response, "our_htlcs", &last->a);
-		json_add_htlcs(response, "their_htlcs", &last->b);
+		json_add_num(response, "our_amount", last->side[OURS].pay_msat);
+		json_add_num(response, "our_fee", last->side[OURS].fee_msat);
+		json_add_num(response, "their_amount", last->side[THEIRS].pay_msat);
+		json_add_num(response, "their_fee", last->side[THEIRS].fee_msat);
+		json_add_htlcs(response, "our_htlcs", &last->side[OURS]);
+		json_add_htlcs(response, "their_htlcs", &last->side[THEIRS]);
 
 		/* Any changes since then? */
 		if (p->local.staging_cstate->changes != last->changes)
@@ -2061,8 +2065,8 @@ static void check_htlc_expiry(struct peer *peer, void *unused)
 
 	/* Check their currently still-existing htlcs for expiry:
 	 * We eliminate them from staging as we go. */
-	for (i = 0; i < tal_count(peer->remote.staging_cstate->a.htlcs); i++) {
-		struct channel_htlc *htlc = &peer->remote.staging_cstate->a.htlcs[i];
+	for (i = 0; i < tal_count(peer->remote.staging_cstate->side[OURS].htlcs); i++) {
+		struct channel_htlc *htlc = &peer->remote.staging_cstate->side[OURS].htlcs[i];
 
 		/* Not a seconds-based expiry? */
 		if (!abs_locktime_is_seconds(&htlc->expiry))
@@ -2119,8 +2123,8 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 	 * A node MUST NOT add a HTLC if it would result in it
 	 * offering more than 300 HTLCs in either commitment transaction.
 	 */
-	if (tal_count(peer->local.staging_cstate->a.htlcs) == 300
-	    || tal_count(peer->remote.staging_cstate->b.htlcs) == 300) {
+	if (tal_count(peer->local.staging_cstate->side[OURS].htlcs) == 300
+	    || tal_count(peer->remote.staging_cstate->side[THEIRS].htlcs) == 300) {
 		command_fail(newhtlc->jsoncmd, "Too many HTLCs");
 	}
 
@@ -2131,9 +2135,9 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 	 * both commitment transactions at the current `fee_rate`
 	 */
 	cstate = copy_funding(newhtlc, peer->remote.staging_cstate);
-	if (!funding_b_add_htlc(cstate, newhtlc->htlc.msatoshis,
-				&newhtlc->htlc.expiry, &newhtlc->htlc.rhash,
-				newhtlc->htlc.id)) {
+	if (!funding_add_htlc(cstate, newhtlc->htlc.msatoshis,
+			      &newhtlc->htlc.expiry, &newhtlc->htlc.rhash,
+			      newhtlc->htlc.id, THEIRS)) {
 		command_fail(newhtlc->jsoncmd,
 			     "Cannot afford %"PRIu64
 			     " milli-satoshis in their commit tx",
@@ -2142,9 +2146,9 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 	}
 
 	cstate = copy_funding(newhtlc, peer->local.staging_cstate);
-	if (!funding_a_add_htlc(cstate, newhtlc->htlc.msatoshis,
-				&newhtlc->htlc.expiry, &newhtlc->htlc.rhash,
-				newhtlc->htlc.id)) {
+	if (!funding_add_htlc(cstate, newhtlc->htlc.msatoshis,
+			      &newhtlc->htlc.expiry, &newhtlc->htlc.rhash,
+			      newhtlc->htlc.id, OURS)) {
 		command_fail(newhtlc->jsoncmd,
 			     "Cannot afford %"PRIu64
 			     " milli-satoshis in our commit tx",
@@ -2251,11 +2255,10 @@ static size_t find_their_committed_htlc(struct peer *peer,
 					const struct sha256 *rhash)
 {
 	/* Must be in last committed cstate. */
-	if (funding_find_htlc(&peer->remote.commit->cstate->a, rhash)
-	    == tal_count(peer->remote.commit->cstate->a.htlcs))
-		return tal_count(peer->remote.staging_cstate->a.htlcs);
+	if (funding_find_htlc(peer->remote.commit->cstate, rhash, OURS) == -1)
+		return -1;
 
-	return funding_find_htlc(&peer->remote.staging_cstate->a, rhash);
+	return funding_find_htlc(peer->remote.staging_cstate, rhash, OURS);
 }
 
 struct fulfillhtlc {
@@ -2276,11 +2279,11 @@ static void do_fullfill(struct peer *peer,
 	sha256(&rhash, &fulfillhtlc->r, sizeof(fulfillhtlc->r));
 
 	i = find_their_committed_htlc(peer, &rhash);
-	if (i == tal_count(peer->remote.staging_cstate->a.htlcs)) {
+	if (i == -1) {
 		command_fail(fulfillhtlc->jsoncmd, "preimage htlc not found");
 		return;
 	}
-	stage.fulfill.id = peer->remote.staging_cstate->a.htlcs[i].id;
+	stage.fulfill.id = peer->remote.staging_cstate->side[OURS].htlcs[i].id;
 	set_htlc_command(peer, fulfillhtlc->jsoncmd,
 			 CMD_SEND_HTLC_FULFILL, &stage);
 }
@@ -2350,11 +2353,11 @@ static void do_failhtlc(struct peer *peer,
 	/* Look in peer->remote.staging_cstate->a, as that's where we'll 
 	 * immediately remove it from: avoids double-handling. */
 	i = find_their_committed_htlc(peer, &failhtlc->rhash);
-	if (i == tal_count(peer->remote.staging_cstate->a.htlcs)) {
+	if (i == -1) {
 		command_fail(failhtlc->jsoncmd, "htlc not found");
 		return;
 	}
-	stage.fail.id = peer->remote.staging_cstate->a.htlcs[i].id;
+	stage.fail.id = peer->remote.staging_cstate->side[OURS].htlcs[i].id;
 
 	set_htlc_command(peer, failhtlc->jsoncmd, CMD_SEND_HTLC_FAIL, &stage);
 }

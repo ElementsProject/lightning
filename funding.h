@@ -20,6 +20,13 @@ struct channel_oneside {
 	struct channel_htlc *htlcs;
 };
 
+enum channel_side {
+	/* Output for us, htlcs we offered to them. */
+	OURS,
+	/* Output for them, htlcs they offered to us. */
+	THEIRS
+};
+
 struct channel_state {
 	/* Satoshis paid by anchor. */
 	uint64_t anchor;
@@ -27,22 +34,22 @@ struct channel_state {
 	uint32_t fee_rate;
 	/* Generation counter (incremented on every change) */
 	uint32_t changes;
-	struct channel_oneside a, b;
+	struct channel_oneside side[2];
 };
 
 /**
- * initial_funding: Given A, B, and anchor, what is initial state?
+ * initial_funding: Given initial fees and funding anchor, what is initial state?
  * @ctx: tal context to allocate return value from.
- * @am_funder: am I paying for the anchor?
  * @anchor_satoshis: The anchor amount.
  * @fee_rate: amount to pay in fees per kb (in satoshi).
+ * @dir: which side paid for the anchor.
  *
  * Returns state, or NULL if malformed.
  */
 struct channel_state *initial_funding(const tal_t *ctx,
-				      bool am_funder,
 				      uint64_t anchor_satoshis,
-				      uint32_t fee_rate);
+				      uint32_t fee_rate,
+				      enum channel_side side);
 
 /**
  * copy_funding: Make a deep copy of channel_state
@@ -53,49 +60,48 @@ struct channel_state *copy_funding(const tal_t *ctx,
 				   const struct channel_state *cstate);
 
 /**
- * funding_a_add_htlc: append an HTLC to A's side of cstate if it can afford it
+ * funding_add_htlc: append an HTLC to cstate if it can afford it
  * @cstate: The channel state
- * @msatoshis: Millisatoshi A is putting into a HTLC
+ * @msatoshis: Millisatoshi going into a HTLC
  * @expiry: time it expires
  * @rhash: hash of redeem secret
  * @id: 64-bit ID for htlc
+ * @side: OURS or THEIRS
  *
- * If A can't afford the HTLC (or still owes its half of the fees),
+ * If that direction can't afford the HTLC (or still owes its half of the fees),
  * this will return NULL and leave @cstate unchanged.  Otherwise
- * cstate->a.htlcs will have the HTLC appended, and pay_msat and
- * fee_msat are adjusted accordingly; &cstate->htlcs[<last] is returned.
+ * cstate->side[dir].htlcs will have the HTLC appended, and pay_msat and
+ * fee_msat are adjusted accordingly; &cstate->side[dir].htlcs[<last>]
+ * is returned.
  */
-struct channel_htlc *funding_a_add_htlc(struct channel_state *cstate,
-					u32 msatoshis,
-					const struct abs_locktime *expiry,
-					const struct sha256 *rhash, uint64_t id);
-
-struct channel_htlc *funding_b_add_htlc(struct channel_state *cstate,
-					u32 msatoshis,
-					const struct abs_locktime *expiry,
-					const struct sha256 *rhash, uint64_t id);
+struct channel_htlc *funding_add_htlc(struct channel_state *cstate,
+				      u32 msatoshis,
+				      const struct abs_locktime *expiry,
+				      const struct sha256 *rhash, uint64_t id,
+				      enum channel_side side);
+/**
+ * funding_fail_htlc: remove an HTLC, funds to the side which offered it.
+ * @cstate: The channel state
+ * @index: the index into cstate->side[dir].htlcs[].
+ * @side: OURS or THEIRS
+ *
+ * This will remove the @index'th entry in cstate->side[dir].htlcs[], and credit
+ * the value of the HTLC (back) to cstate->side[dir].
+ */
+void funding_fail_htlc(struct channel_state *cstate, size_t index,
+		       enum channel_side side);
 
 /**
- * funding_a_fail_htlc: remove an HTLC from A's side of cstate, funds to A
+ * funding_fulfill_htlc: remove an HTLC, funds to side which accepted it.
  * @cstate: The channel state
  * @index: the index into cstate->a.htlcs[].
+ * @side: OURS or THEIRS
  *
- * This will remove the @index'th entry in cstate->a.htlcs[], and credit
- * the value of the HTLC (back) to A.
+ * This will remove the @index'th entry in cstate->side[dir].htlcs[], and credit
+ * the value of the HTLC to cstate->side[!dir].
  */
-void funding_a_fail_htlc(struct channel_state *cstate, size_t index);
-void funding_b_fail_htlc(struct channel_state *cstate, size_t index);
-
-/**
- * funding_a_fulfill_htlc: remove an HTLC from A's side of cstate, funds to B
- * @cstate: The channel state
- * @index: the index into cstate->a.htlcs[].
- *
- * This will remove the @index'th entry in cstate->a.htlcs[], and credit
- * the value of the HTLC to B.
- */
-void funding_a_fulfill_htlc(struct channel_state *cstate, size_t index);
-void funding_b_fulfill_htlc(struct channel_state *cstate, size_t index);
+void funding_fulfill_htlc(struct channel_state *cstate, size_t index,
+			  enum channel_side side);
 
 /**
  * adjust_fee: Change fee rate.
@@ -123,24 +129,27 @@ void invert_cstate(struct channel_state *cstate);
 
 /**
  * funding_find_htlc: find an HTLC on this side of the channel.
- * @creator: channel_state->a or channel_state->b, whichever originated htlc
+ * @cstate: The channel state
  * @rhash: hash of redeem secret
+ * @side: OURS or THEIRS
  *
- * Returns a number < tal_count(creator->htlcs), or == tal_count(creator->htlcs)
- * on fail.
+ * Returns a number < tal_count(cstate->side[dir].htlcs), or -1 on fail.
  */
-size_t funding_find_htlc(struct channel_oneside *creator,
-			 const struct sha256 *rhash);
+size_t funding_find_htlc(const struct channel_state *cstate,
+			 const struct sha256 *rhash,
+			 enum channel_side side);
 
 /**
  * funding_htlc_by_id: find an HTLC on this side of the channel by ID.
- * @creator: channel_state->a or channel_state->b, whichever originated htlc
+ * @cstate: The channel state
  * @id: id for HTLC.
+ * @side: OURS or THEIRS
  *
- * Returns a number < tal_count(creator->htlcs), or == tal_count(creator->htlcs)
- * on fail.
+ * Returns a number < tal_count(cstate->side[dir].htlcs), or -1 on fail.
  */
-size_t funding_htlc_by_id(struct channel_oneside *creator, uint64_t id);
+size_t funding_htlc_by_id(const struct channel_state *cstate,
+			  uint64_t id,
+			  enum channel_side side);
 
 /**
  * fee_for_feerate: calculate the fee (in satoshi) for a given fee_rate.

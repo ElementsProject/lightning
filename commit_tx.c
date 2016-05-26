@@ -52,8 +52,8 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	uint64_t total;
 
 	/* Now create commitment tx: one input, two outputs (plus htlcs) */
-	tx = bitcoin_tx(ctx, 1, 2 + tal_count(cstate->a.htlcs)
-			+ tal_count(cstate->b.htlcs));
+	tx = bitcoin_tx(ctx, 1, 2 + tal_count(cstate->side[OURS].htlcs)
+			+ tal_count(cstate->side[THEIRS].htlcs));
 
 	/* Our input spends the anchor tx output. */
 	tx->input[0].txid = *anchor_txid;
@@ -67,28 +67,28 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 						      rhash);
 	tx->output[0].script = scriptpubkey_p2wsh(tx, redeemscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
-	tx->output[0].amount = cstate->a.pay_msat / 1000;
+	tx->output[0].amount = cstate->side[OURS].pay_msat / 1000;
 
 	/* Second output is a P2WPKH payment to them. */
 	tx->output[1].script = scriptpubkey_p2wpkh(tx, their_final);
 	tx->output[1].script_length = tal_count(tx->output[1].script);
-	tx->output[1].amount = cstate->b.pay_msat / 1000;
+	tx->output[1].amount = cstate->side[THEIRS].pay_msat / 1000;
 
 	/* First two outputs done, now for the HTLCs. */
 	total = tx->output[0].amount + tx->output[1].amount;
 	num = 2;
 
 	/* HTLCs we've sent. */
-	for (i = 0; i < tal_count(cstate->a.htlcs); i++) {
-		if (!add_htlc(tx, num, &cstate->a.htlcs[i],
+	for (i = 0; i < tal_count(cstate->side[OURS].htlcs); i++) {
+		if (!add_htlc(tx, num, &cstate->side[OURS].htlcs[i],
 			      our_final, their_final,
 			      rhash, their_locktime, bitcoin_redeem_htlc_send))
 			return tal_free(tx);
 		total += tx->output[num++].amount;
 	}
 	/* HTLCs we've received. */
-	for (i = 0; i < tal_count(cstate->b.htlcs); i++) {
-		if (!add_htlc(tx, num, &cstate->b.htlcs[i],
+	for (i = 0; i < tal_count(cstate->side[THEIRS].htlcs); i++) {
+		if (!add_htlc(tx, num, &cstate->side[THEIRS].htlcs[i],
 			      our_final, their_final,
 			      rhash, their_locktime, bitcoin_redeem_htlc_recv))
 			return tal_free(tx);
