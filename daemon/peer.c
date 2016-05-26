@@ -1802,13 +1802,6 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 	return tx;
 }
 
-/* Create a bitcoin steal tx (to steal all their commit's outputs) */
-const struct bitcoin_tx *bitcoin_steal(const struct peer *peer,
-				       struct commit_info *ci)
-{
-	FIXME_STUB(peer);
-}
-
 /* Sign and return our commit tx */
 const struct bitcoin_tx *bitcoin_commit(struct peer *peer)
 {
@@ -1829,20 +1822,6 @@ const struct bitcoin_tx *bitcoin_commit(struct peer *peer)
 				       &peer->us.commitkey);
 
 	return peer->us.commit->tx;
-}
-
-/* Create a HTLC refund collection */
-const struct bitcoin_tx *bitcoin_htlc_timeout(const struct peer *peer,
-					      const struct htlc_onchain *htlc_onchain)
-{
-	FIXME_STUB(peer);
-}
-
-/* Create a HTLC collection */
-const struct bitcoin_tx *bitcoin_htlc_spend(const struct peer *peer,
-					    const struct htlc_onchain *htlc_onchain)
-{
-	FIXME_STUB(peer);
 }
 
 /* Now we can create anchor tx. */ 

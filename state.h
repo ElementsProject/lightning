@@ -175,19 +175,7 @@ const struct bitcoin_tx *bitcoin_close(struct peer *peer);
 /* Create a bitcoin spend tx (to spend our commit's outputs) */
 const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer);
 
-/* Create a bitcoin steal tx (to steal all their commit's outputs) */
-const struct bitcoin_tx *bitcoin_steal(const struct peer *peer,
-				       struct commit_info *ci);
-
 /* Create our commit tx */
 const struct bitcoin_tx *bitcoin_commit(struct peer *peer);
-
-/* Create a HTLC refund collection */
-const struct bitcoin_tx *bitcoin_htlc_timeout(const struct peer *peer,
-				      const struct htlc_onchain *htlc_onchain);
-
-/* Create a HTLC collection */
-const struct bitcoin_tx *bitcoin_htlc_spend(const struct peer *peer,
-				    const struct htlc_onchain *htlc_onchain);
 
 #endif /* LIGHTNING_STATE_H */
