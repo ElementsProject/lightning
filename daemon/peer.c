@@ -2249,9 +2249,9 @@ const struct bitcoin_tx *bitcoin_anchor(struct peer *peer)
 void add_unacked(struct peer_visible_state *which,
 		 const union htlc_staging *stage)
 {
-	size_t n = tal_count(which->unacked_changes);
-	tal_resize(&which->unacked_changes, n+1);
-	which->unacked_changes[n] = *stage;
+	size_t n = tal_count(which->commit->unacked_changes);
+	tal_resize(&which->commit->unacked_changes, n+1);
+	which->commit->unacked_changes[n] = *stage;
 }
 
 /* Sets up the initial cstate and commit tx for both nodes: false if
@@ -2303,9 +2303,6 @@ bool setup_first_commit(struct peer *peer)
 	peer->local.staging_cstate = copy_funding(peer, peer->local.commit->cstate);
 	peer->remote.staging_cstate = copy_funding(peer, peer->remote.commit->cstate);
 
-	peer->local.unacked_changes = tal_arr(peer, union htlc_staging, 0);
-	peer->remote.unacked_changes = tal_arr(peer, union htlc_staging, 0);
-	
 	return true;
 }
 

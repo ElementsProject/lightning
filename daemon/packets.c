@@ -81,13 +81,20 @@ static void queue_pkt(struct peer *peer, Pkt__PktCase type, const void *msg)
 	queue_raw_pkt(peer, make_pkt(peer, type, msg));
 }
 
+static struct commit_info *new_commit_info(const tal_t *ctx)
+{
+	struct commit_info *ci = talz(ctx, struct commit_info);
+	ci->unacked_changes = tal_arr(ci, union htlc_staging, 0);
+	return ci;
+}
+
 void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor)
 {
 	OpenChannel *o = tal(peer, OpenChannel);
 
 	/* Set up out commit info now: rest gets done in setup_first_commit
 	 * once anchor is established. */
-	peer->local.commit = talz(peer, struct commit_info);
+	peer->local.commit = new_commit_info(peer);
 	peer->local.commit->revocation_hash = peer->local.next_revocation_hash;
 	peer_get_revocation_hash(peer, 1, &peer->local.next_revocation_hash);
 
@@ -259,7 +266,7 @@ void queue_pkt_htlc_fail(struct peer *peer, u64 id)
 void queue_pkt_commit(struct peer *peer)
 {
 	UpdateCommit *u = tal(peer, UpdateCommit);
-	struct commit_info *ci = talz(peer, struct commit_info);
+	struct commit_info *ci = new_commit_info(peer);
 
 	/* Create new commit info for this commit tx. */
 	ci->prev = peer->remote.commit;
@@ -363,23 +370,23 @@ static void apply_changeset(struct peer *peer,
 void queue_pkt_revocation(struct peer *peer)
 {
 	UpdateRevocation *u = tal(peer, UpdateRevocation);
+	struct commit_info *ci;
 
 	update_revocation__init(u);
 
 	assert(peer->local.commit);
-	assert(peer->local.commit->prev);
-	assert(!peer->local.commit->prev->revocation_preimage);
+	ci = peer->local.commit->prev;
+	assert(ci);
+	assert(!ci->revocation_preimage);
 
 	/* We have their signature on the current one, right? */
 	assert(peer->local.commit->sig);
 
-	peer->local.commit->prev->revocation_preimage
-		= tal(peer->local.commit->prev, struct sha256);
-	peer_get_revocation_preimage(peer, peer->local.commit->prev->commit_num,
-				     peer->local.commit->prev->revocation_preimage);
+	ci->revocation_preimage = tal(ci, struct sha256);
+	peer_get_revocation_preimage(peer, ci->commit_num,
+				     ci->revocation_preimage);
 
-	u->revocation_preimage
-		= sha256_to_proto(u, peer->local.commit->prev->revocation_preimage);
+	u->revocation_preimage = sha256_to_proto(u, ci->revocation_preimage);
 
 	u->next_revocation_hash = sha256_to_proto(u,
 						  &peer->local.next_revocation_hash);
@@ -391,16 +398,16 @@ void queue_pkt_revocation(struct peer *peer)
 	 * The node sending `update_revocation` MUST add the local unacked
 	 * changes to the set of remote acked changes.
 	 */
+	/* Note: this means the unacked changes as of the commit we're
+	 * revoking */
 	apply_changeset(peer, &peer->remote, THEIRS,
-			peer->local.unacked_changes,
-			tal_count(peer->local.unacked_changes));
+			ci->unacked_changes, tal_count(ci->unacked_changes));
 
-	if (tal_count(peer->local.unacked_changes))
+	if (tal_count(ci->unacked_changes))
 		remote_changes_pending(peer);
 
-	/* Reset for next time. */
-	tal_free(peer->local.unacked_changes);
-	peer->local.unacked_changes = tal_arr(peer, union htlc_staging, 0);
+	/* We should never look at this again. */
+	ci->unacked_changes = tal_free(ci->unacked_changes);
 }
 
 Pkt *pkt_err(struct peer *peer, const char *msg, ...)
@@ -502,7 +509,7 @@ Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt)
 
 	/* Set up their commit info now: rest gets done in setup_first_commit
 	 * once anchor is established. */
-	peer->remote.commit = talz(peer, struct commit_info);
+	peer->remote.commit = new_commit_info(peer);
 	proto_to_sha256(o->revocation_hash, &peer->remote.commit->revocation_hash);
 	proto_to_sha256(o->next_revocation_hash,
 			&peer->remote.next_revocation_hash);
@@ -735,7 +742,7 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt)
 {
 	const UpdateCommit *c = pkt->update_commit;
 	Pkt *err;
-	struct commit_info *ci = talz(peer, struct commit_info);
+	struct commit_info *ci = new_commit_info(peer);
 
 	/* Create new commit info for this commit tx. */
 	ci->prev = peer->local.commit;
@@ -794,6 +801,7 @@ static bool check_preimage(const Sha256Hash *preimage, const struct sha256 *hash
 Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 {
 	const UpdateRevocation *r = pkt->update_revocation;
+	struct commit_info *ci = peer->remote.commit->prev;
 
 	/* BOLT #2:
 	 *
@@ -802,17 +810,14 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	 * transaction, and MUST fail if it does not.
 	 */
 	/* FIXME: Save preimage in shachain too. */
-	if (!check_preimage(r->revocation_preimage,
-			    &peer->remote.commit->prev->revocation_hash))
+	if (!check_preimage(r->revocation_preimage, &ci->revocation_hash))
 		return pkt_err(peer, "complete preimage incorrect");
 
 	/* They're revoking the previous one. */
-	assert(!peer->remote.commit->prev->revocation_preimage);
-	peer->remote.commit->prev->revocation_preimage
-		= tal(peer->remote.commit->prev, struct sha256);
+	assert(!ci->revocation_preimage);
+	ci->revocation_preimage = tal(ci, struct sha256);
 
-	proto_to_sha256(r->revocation_preimage,
-			peer->remote.commit->prev->revocation_preimage);
+	proto_to_sha256(r->revocation_preimage, ci->revocation_preimage);
 
 	/* Save next revocation hash. */
 	proto_to_sha256(r->next_revocation_hash,
@@ -824,12 +829,11 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	 * unacked changes to the set of local acked changes.
 	 */
 	apply_changeset(peer, &peer->local, OURS,
-			peer->remote.unacked_changes,
-			tal_count(peer->remote.unacked_changes));
+			ci->unacked_changes,
+			tal_count(ci->unacked_changes));
 
-	/* Reset for next time. */
-	tal_free(peer->remote.unacked_changes);
-	peer->remote.unacked_changes = tal_arr(peer, union htlc_staging, 0);
+	/* Should never examine these again. */
+	ci->unacked_changes = tal_free(ci->unacked_changes);
 
 	return NULL;
 }

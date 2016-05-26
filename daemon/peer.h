@@ -69,6 +69,8 @@ struct commit_info {
 	int *map;
 	/* Revocation preimage (if known). */
 	struct sha256 *revocation_preimage;
+	/* unacked changes (already applied to staging_cstate) */
+	union htlc_staging *unacked_changes;
 };
 
 struct peer_visible_state {
@@ -89,8 +91,6 @@ struct peer_visible_state {
 
 	/* cstate to generate next commitment tx. */
 	struct channel_state *staging_cstate;
-	/* unacked changes (already applied to staging_cstate) */
-	union htlc_staging *unacked_changes;
 };
 
 struct htlc_progress {
