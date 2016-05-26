@@ -19,6 +19,11 @@ static inline bool state_is_error(enum state s)
 	return s >= STATE_ERR_ANCHOR_TIMEOUT && s <= STATE_ERR_INTERNAL;
 }
 
+static inline bool state_is_closing(enum state s)
+{
+	return s >= STATE_CLEARING;
+}
+
 struct peer;
 struct bitcoin_tx;
 
@@ -84,10 +89,8 @@ void queue_pkt_open_commit_sig(struct peer *peer);
 void queue_pkt_open_complete(struct peer *peer);
 void queue_pkt_htlc_add(struct peer *peer,
 			const struct htlc_progress *htlc_prog);
-void queue_pkt_htlc_fulfill(struct peer *peer,
-			    const struct htlc_progress *htlc_prog);
-void queue_pkt_htlc_fail(struct peer *peer,
-			 const struct htlc_progress *htlc_prog);
+void queue_pkt_htlc_fulfill(struct peer *peer, u64 id, const struct sha256 *r);
+void queue_pkt_htlc_fail(struct peer *peer, u64 id);
 void queue_pkt_commit(struct peer *peer);
 void queue_pkt_revocation(struct peer *peer);
 void queue_pkt_close_clearing(struct peer *peer);
@@ -118,8 +121,6 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt);
 
 Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt);
 Pkt *accept_pkt_close_clearing(struct peer *peer, const Pkt *pkt);
-Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt,
-			  bool *acked, bool *we_agree);
 
 /**
  * peer_watch_anchor: create a watch for the anchor transaction.
@@ -144,14 +145,6 @@ void peer_watch_anchor(struct peer *peer,
 void peer_unwatch_anchor_depth(struct peer *peer,
 			       enum state_input depthok,
 			       enum state_input timeout);
-
-/**
- * peer_watch_htlcs_cleared: tell us when no HTLCs are in commit txs.
- * @peer: the state data for this peer.
- * @all_done: input to give when all HTLCs are done.
- */
-void peer_watch_htlcs_cleared(struct peer *peer,
-			      enum state_input all_done);
 
 /**
  * peer_calculate_close_fee: figure out what the fee for closing is.

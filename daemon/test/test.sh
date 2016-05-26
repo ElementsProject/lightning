@@ -557,9 +557,9 @@ check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 lcli1 close $ID2
 
-# They should be waiting for close.
-check_peerstate lcli1 STATE_CLOSE_WAIT_CLOSE
-check_peerstate lcli2 STATE_CLOSE_WAIT_CLOSE
+# They should be negotiating the close.
+check_peerstate lcli1 STATE_MUTUAL_CLOSING
+check_peerstate lcli2 STATE_MUTUAL_CLOSING
 
 $CLI generate 1
 

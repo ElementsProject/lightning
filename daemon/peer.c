@@ -12,6 +12,7 @@
 #include "names.h"
 #include "peer.h"
 #include "permute_tx.h"
+#include "protobuf_convert.h"
 #include "pseudorand.h"
 #include "secrets.h"
 #include "state.h"
@@ -88,22 +89,25 @@ static struct json_result *null_response(const tal_t *ctx)
 	json_object_end(response);
 	return response;
 }
-	
-static void peer_cmd_complete(struct peer *peer, enum command_status status)
-{
-	assert(peer->curr_cmd.cmd != INPUT_NONE);
 
-	/* If it's a json command, complete that now. */
-	if (peer->curr_cmd.jsoncmd) {
+static void complete_json_command(struct command *jsoncmd,
+				  enum command_status status)
+{
+	if (jsoncmd) {
 		if (status == CMD_FAIL)
 			/* FIXME: y'know, details. */
-			command_fail(peer->curr_cmd.jsoncmd, "Failed");
+			command_fail(jsoncmd, "Failed");
 		else {
 			assert(status == CMD_SUCCESS);
-			command_success(peer->curr_cmd.jsoncmd,
-					null_response(peer->curr_cmd.jsoncmd));
+			command_success(jsoncmd, null_response(jsoncmd));
 		}
 	}
+}
+
+static void peer_cmd_complete(struct peer *peer, enum command_status status)
+{
+	complete_json_command(peer->curr_cmd.jsoncmd, status);
+	peer->curr_cmd.jsoncmd = NULL;
 	peer->curr_cmd.cmd = INPUT_NONE;
 }
 
@@ -126,6 +130,86 @@ void set_peer_state(struct peer *peer, enum state newstate, const char *caller)
 	log_debug(peer->log, "%s: %s => %s", caller,
 		  state_name(peer->state), state_name(newstate));
 	peer->state = newstate;
+}
+
+static void command_send_commit(struct peer *peer, struct command *jsoncmd)
+{
+	assert(peer->curr_cmd.cmd == INPUT_NONE);
+
+	/* Commands should still be blocked during this! */
+	assert(peer->state != STATE_CLEARING_COMMITTING);
+
+	if (peer->state == STATE_CLEARING) {
+		peer->cond = PEER_BUSY;
+		peer->curr_cmd.jsoncmd = jsoncmd;
+		queue_pkt_commit(peer);
+		set_peer_state(peer, STATE_CLEARING_COMMITTING, __func__);
+	} else {
+		/* You can send commands if closing; peer->cond == CLOSING */
+		assert(!state_is_closing(peer->state));
+		set_current_command(peer, CMD_SEND_COMMIT, NULL, jsoncmd);
+	}
+}
+
+static void set_htlc_command(struct peer *peer,
+			     struct command *jsoncmd,
+			     enum state_input cmd,
+			     const union htlc_staging *stage)
+{
+	/* FIXME: memleak! */
+	/* FIXME: Get rid of struct htlc_progress */
+	struct htlc_progress *progress = tal(peer, struct htlc_progress);
+
+	progress->stage = *stage;
+	set_current_command(peer, cmd, progress, jsoncmd);
+}
+
+static void command_htlc_fail(struct peer *peer, u64 id, struct command *jsoncmd)
+{
+	assert(peer->curr_cmd.cmd == INPUT_NONE);
+
+	/* Commands should still be blocked during this! */
+	assert(peer->state != STATE_CLEARING_COMMITTING);
+
+	if (peer->state == STATE_CLEARING) {
+		queue_pkt_htlc_fail(peer, id);
+		complete_json_command(jsoncmd, CMD_SUCCESS);
+	} else {
+		union htlc_staging stage;
+
+		/* You can't send commands if closing; peer->cond == CLOSING */
+		assert(!state_is_closing(peer->state));
+
+		stage.fail.fail = HTLC_FAIL;
+		stage.fail.id = id;
+		set_htlc_command(peer, jsoncmd, CMD_SEND_HTLC_FAIL, &stage);
+	}
+}
+
+static void command_htlc_fulfill(struct peer *peer,
+				 u64 id,
+				 const struct sha256 *r,
+				 struct command *jsoncmd)
+{
+	assert(peer->curr_cmd.cmd == INPUT_NONE);
+
+	/* Commands should still be blocked during this! */
+	assert(peer->state != STATE_CLEARING_COMMITTING);
+
+	if (peer->state == STATE_CLEARING) {
+		queue_pkt_htlc_fulfill(peer, id, r);
+		complete_json_command(jsoncmd, CMD_SUCCESS);
+	} else {
+		union htlc_staging stage;
+
+		/* You can't send commands if closing; peer->cond == CLOSING */
+		assert(!state_is_closing(peer->state));
+
+		stage.fulfill.fulfill = HTLC_FULFILL;
+		stage.fulfill.r = *r;
+		stage.fulfill.id = id;
+		set_htlc_command(peer, jsoncmd, CMD_SEND_HTLC_FULFILL, &stage);
+	}
 }
 
 static void peer_breakdown(struct peer *peer)
@@ -158,6 +242,296 @@ static bool peer_uncommitted_changes(const struct peer *peer)
 		!= peer->remote.commit->cstate->changes;
 }
 
+/* All unrevoked commit txs must have no HTLCs in them. */
+static bool committed_to_htlcs(const struct peer *peer)
+{
+	const struct commit_info *i;
+
+	/* Before anchor exchange, we don't even have cstate. */
+	if (!peer->local.commit || !peer->local.commit->cstate)
+		return false;
+	
+	i = peer->local.commit;
+	while (i && !i->revocation_preimage) {
+		if (tal_count(i->cstate->side[OURS].htlcs))
+			return true;
+		if (tal_count(i->cstate->side[THEIRS].htlcs))
+			return true;
+		i = i->prev;
+	}
+
+	i = peer->remote.commit;
+	while (i && !i->revocation_preimage) {
+		if (tal_count(i->cstate->side[OURS].htlcs))
+			return true;
+		if (tal_count(i->cstate->side[THEIRS].htlcs))
+			return true;
+		i = i->prev;
+	}
+
+	return false;
+}
+
+static struct io_plan *peer_close(struct io_conn *conn, struct peer *peer)
+{
+	/* Tell writer to wrap it up (may have to xmit first) */
+	peer->cond = PEER_CLOSED;
+	io_wake(peer);
+	/* We do nothing more. */
+	return io_wait(conn, NULL, io_never, NULL);
+}
+
+/* Communication failed: send err (if non-NULL), then dump to chain and close. */ 
+static struct io_plan *peer_comms_err(struct io_conn *conn, struct peer *peer,
+				      Pkt *err)
+{
+	if (err)
+		queue_pkt_err(peer, err);
+
+	set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__);
+	peer_breakdown(peer);
+	return peer_close(conn, peer);
+}
+
+/* Unexpected packet received: stop listening, start breakdown procedure. */
+static struct io_plan *peer_received_unexpected_pkt(struct io_conn *conn,
+						    struct peer *peer,
+						    const Pkt *pkt)
+{
+	peer_unexpected_pkt(peer, pkt);
+	return peer_comms_err(conn, peer, pkt_err_unexpected(peer, pkt));
+}
+
+/* This is the io loop while we're negotiating closing tx. */
+static struct io_plan *closing_pkt_in(struct io_conn *conn, struct peer *peer)
+{
+	const CloseSignature *c = peer->inpkt->close_signature;
+	struct bitcoin_tx *close_tx;
+	struct bitcoin_signature theirsig;
+
+	assert(peer->state == STATE_MUTUAL_CLOSING);
+
+	if (peer->inpkt->pkt_case != PKT__PKT_CLOSE_SIGNATURE)
+		return peer_received_unexpected_pkt(conn, peer, peer->inpkt);
+
+	log_info(peer->log, "closing_pkt_in: they offered close fee %"PRIu64,
+		 c->close_fee);
+
+	/* BOLT #2:
+	 *
+	 * The sender MUST set `close_fee` lower than or equal to the fee of the
+	 * final commitment transaction, and MUST set `close_fee` to an even
+	 * number of satoshis.
+	 */
+	if ((c->close_fee & 1)
+	    || c->close_fee > commit_tx_fee(peer->remote.commit->tx,
+					    peer->anchor.satoshis)) {
+		return peer_comms_err(conn, peer,
+				      pkt_err(peer, "Invalid close fee"));
+	}
+
+	/* FIXME: Don't accept tiny fee at all? */
+
+	/* BOLT #2:
+	   ... otherwise it SHOULD propose a
+	   value strictly between the received `close_fee` and its
+	   previously-sent `close_fee`.
+	*/
+	if (peer->closing.their_sig) {
+		/* We want more, they should give more. */
+		if (peer->closing.our_fee > peer->closing.their_fee) {
+			if (c->close_fee <= peer->closing.their_fee)
+				return peer_comms_err(conn, peer,
+						      pkt_err(peer, "Didn't increase close fee"));
+		} else {
+			if (c->close_fee >= peer->closing.their_fee)
+				return peer_comms_err(conn, peer,
+						      pkt_err(peer, "Didn't decrease close fee"));
+		}
+	}
+
+	/* BOLT #2:
+	 *
+	 * The receiver MUST check `sig` is valid for the close
+	 * transaction with the given `close_fee`, and MUST fail the
+	 * connection if it is not. */
+	theirsig.stype = SIGHASH_ALL;
+	if (!proto_to_signature(c->sig, &theirsig.sig))
+		return peer_comms_err(conn, peer,
+				      pkt_err(peer, "Invalid signature format"));
+
+	close_tx = peer_create_close_tx(peer, c->close_fee);
+	if (!check_tx_sig(peer->dstate->secpctx, close_tx, 0,
+			  NULL, 0,
+			  peer->anchor.witnessscript,
+			  &peer->remote.commitkey, &theirsig))
+		return peer_comms_err(conn, peer,
+				      pkt_err(peer, "Invalid signature"));
+
+	tal_free(peer->closing.their_sig);
+	peer->closing.their_sig = tal_dup(peer,
+					  struct bitcoin_signature, &theirsig);
+	peer->closing.their_fee = c->close_fee;
+
+	if (peer->closing.our_fee != peer->closing.their_fee) {
+		/* BOLT #2:
+		 *
+		 * If the receiver agrees with the fee, it SHOULD reply with a
+		 * `close_signature` with the same `close_fee` value,
+		 * otherwise it SHOULD propose a value strictly between the
+		 * received `close_fee` and its previously-sent `close_fee`.
+		 */
+
+		/* Adjust our fee to close on their fee. */
+		u64 sum;
+
+		/* Beware overflow! */
+		sum = (u64)peer->closing.our_fee + peer->closing.their_fee;
+
+		peer->closing.our_fee = sum / 2;
+		if (peer->closing.our_fee & 1)
+			peer->closing.our_fee++;
+
+		log_info(peer->log, "accept_pkt_close_sig: we change to %"PRIu64,
+			 peer->closing.our_fee);
+
+		queue_pkt_close_signature(peer);
+	}
+
+	/* Note corner case: we may *now* agree with them! */
+	if (peer->closing.our_fee == peer->closing.their_fee) {
+		log_info(peer->log, "accept_pkt_close_sig: we agree");
+		/* BOLT #2:
+		 *
+		 * Once a node has sent or received a `close_signature` with
+		 * matching `close_fee` it SHOULD close the connection and
+		 * SHOULD sign and broadcast the final closing transaction.
+		 */
+		broadcast_tx(peer, bitcoin_close(peer));
+		return peer_close(conn, peer);
+	}
+
+	/* FIXME: Dynamic fee! */
+	return peer_read_packet(conn, peer, closing_pkt_in);
+}
+
+/* FIXME: Predecls are bad, move up! */
+static void try_command(struct peer *peer);
+
+/* This is the io loop while we're clearing. */
+static struct io_plan *clearing_pkt_in(struct io_conn *conn, struct peer *peer)
+{
+	Pkt *err = NULL, *pkt = peer->inpkt;
+
+	assert(peer->state == STATE_CLEARING
+	       || peer->state == STATE_CLEARING_COMMITTING);
+
+	switch (pkt->pkt_case) {
+	case PKT__PKT_UPDATE_REVOCATION:
+		if (peer->state == STATE_CLEARING)
+			err = pkt_err_unexpected(peer, pkt);
+		else {
+			err = accept_pkt_revocation(peer, pkt);
+			if (!err) {
+				set_peer_state(peer, STATE_CLEARING, __func__);
+				peer_cmd_complete(peer, CMD_SUCCESS);
+				peer->cond = PEER_CMD_OK;
+				/* In case command is queued. */
+				try_command(peer);
+			}
+		}
+		break;
+
+	case PKT__PKT_UPDATE_ADD_HTLC:
+		/* BOLT #2:
+		 * 
+		 * A node MUST NOT send a `update_add_htlc` after a
+		 * `close_clearing` */
+		if (peer->closing.their_script)
+			err = pkt_err(peer, "Update during clearing");
+		else
+			err = accept_pkt_htlc_add(peer, pkt);
+		break;
+			
+	case PKT__PKT_CLOSE_CLEARING:
+		/* BOLT #2:
+		 * 
+		 * A node... MUST NOT send more than one `close_clearing`. */
+		if (peer->closing.their_script)
+			err = pkt_err_unexpected(peer, pkt);
+		else
+			err = accept_pkt_close_clearing(peer, pkt);
+		break;
+			
+	case PKT__PKT_UPDATE_FULFILL_HTLC:
+		err = accept_pkt_htlc_fulfill(peer, pkt);
+		break;
+	case PKT__PKT_UPDATE_FAIL_HTLC:
+		err = accept_pkt_htlc_fail(peer, pkt);
+		break;
+	case PKT__PKT_UPDATE_COMMIT:
+		err = accept_pkt_commit(peer, pkt);
+		if (!err)
+			queue_pkt_revocation(peer); 
+		break;
+	case PKT__PKT_ERROR:
+		peer_unexpected_pkt(peer, pkt);
+		return peer_comms_err(conn, peer, NULL);
+
+	case PKT__PKT_AUTH:
+	case PKT__PKT_OPEN:
+	case PKT__PKT_OPEN_ANCHOR:
+	case PKT__PKT_OPEN_COMMIT_SIG:
+	case PKT__PKT_OPEN_COMPLETE:
+	case PKT__PKT_CLOSE_SIGNATURE:
+	default:
+		peer_unexpected_pkt(peer, pkt);
+		err = pkt_err_unexpected(peer, pkt);
+		break;
+	}
+
+	if (err)
+		return peer_comms_err(conn, peer, err);
+
+	if (!committed_to_htlcs(peer)) {
+		set_peer_state(peer, STATE_MUTUAL_CLOSING, __func__);
+		peer_calculate_close_fee(peer);
+		queue_pkt_close_signature(peer);
+		return peer_read_packet(conn, peer, closing_pkt_in);
+	}
+
+	return peer_read_packet(conn, peer, clearing_pkt_in);
+}
+
+static void peer_start_clearing(struct peer *peer)
+{
+	assert(peer->state == STATE_CLEARING
+	       || peer->state == STATE_CLEARING_COMMITTING);
+
+	/* If they started close, we might not have sent ours. */
+	if (!peer->closing.our_script) {
+		u8 *redeemscript = bitcoin_redeem_single(peer,
+							 &peer->local.finalkey);
+
+		peer->closing.our_script = scriptpubkey_p2sh(peer, redeemscript);
+		tal_free(redeemscript);
+		/* BOLT #2:
+		 *
+		 * A node SHOULD send a `close_clearing` (if it has
+		 * not already) after receiving `close_clearing`.
+		 */
+		queue_pkt_close_clearing(peer);
+	}
+
+	/* Catch case where we've exchanged and had no HTLCs anyway. */
+	if (peer->closing.our_script && peer->closing.their_script
+	    && !committed_to_htlcs(peer)) {
+		set_peer_state(peer, STATE_MUTUAL_CLOSING, __func__);
+		peer_calculate_close_fee(peer);
+		queue_pkt_close_signature(peer);
+	}
+}
+	
 static void state_single(struct peer *peer,
 			 const enum state_input input,
 			 const union input *idata)
@@ -198,6 +572,10 @@ static void state_single(struct peer *peer,
 	/* Start output if not running already; it will close conn. */
 	if (peer->cond == PEER_CLOSED)
 		io_wake(peer);
+
+	else if (peer->state == STATE_CLEARING
+		 || peer->state == STATE_CLEARING_COMMITTING)
+		peer_start_clearing(peer);
 
 	/* FIXME: Some of these should just result in this peer being killed? */
 	else if (state_is_error(peer->state)) {
@@ -245,7 +623,7 @@ static bool queue_cmd_(struct peer *peer,
 {
 	struct pending_cmd *pend;
 
-	if (peer->cond == PEER_CLOSING || peer->cond == PEER_CLOSED)
+	if (peer->cond == PEER_CLOSED)
 		return false;
 
 	pend = tal(peer, struct pending_cmd);
@@ -257,7 +635,7 @@ static bool queue_cmd_(struct peer *peer,
 	return true;
 };
 
-static void queue_input(struct peer *peer,
+static void UNNEEDED queue_input(struct peer *peer,
 			enum state_input input,
 			const union input *idata)
 {
@@ -269,43 +647,19 @@ static void queue_input(struct peer *peer,
 	list_add_tail(&peer->pending_input, &pend->list);
 }
 	
-/* All unrevoked commit txs must have no HTLCs in them. */
-static bool committed_to_htlcs(const struct peer *peer)
-{
-	const struct commit_info *i;
-
-	/* Before anchor exchange, we don't even have cstate. */
-	if (!peer->local.commit || !peer->local.commit->cstate)
-		return false;
-	
-	i = peer->local.commit;
-	while (i && !i->revocation_preimage) {
-		if (tal_count(i->cstate->side[OURS].htlcs))
-			return true;
-		if (tal_count(i->cstate->side[THEIRS].htlcs))
-			return true;
-		i = i->prev;
-	}
-
-	i = peer->remote.commit;
-	while (i && !i->revocation_preimage) {
-		if (tal_count(i->cstate->side[OURS].htlcs))
-			return true;
-		if (tal_count(i->cstate->side[THEIRS].htlcs))
-			return true;
-		i = i->prev;
-	}
-
-	return false;
-}
-
 static void state_event(struct peer *peer, 
 			const enum state_input input,
 			const union input *idata)
 {
 	struct pending_input *pend;
 
-	state_single(peer, input, idata);
+	if (state_is_closing(peer->state)) {
+		log_unusual(peer->log,
+			    "Unexpected input %s while state %s",
+			    input_name(input), state_name(peer->state));
+	} else {
+		state_single(peer, input, idata);
+	}
 
 	pend = list_pop(&peer->pending_input, struct pending_input, list);
 	if (pend) {
@@ -314,18 +668,6 @@ static void state_event(struct peer *peer,
 	}
 
 	try_command(peer);
-}
-
-void peer_check_if_cleared(struct peer *peer)
-{
-	if (peer->cleared == INPUT_NONE)
-		return;
-
-	if (committed_to_htlcs(peer))
-		return;
-
-	queue_input(peer, peer->cleared, NULL);
-	peer->cleared = INPUT_NONE;
 }
 
 static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
@@ -352,8 +694,16 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	union input idata;
-	const tal_t *ctx = tal(peer, char);
+	const tal_t *ctx;
 
+	/* Did something move us into STATE_CLEARING? */
+	if (peer->state == STATE_CLEARING
+	    || peer->state == STATE_CLEARING_COMMITTING)
+		return clearing_pkt_in(conn, peer);
+	else if (peer->state == STATE_MUTUAL_CLOSING)
+		return closing_pkt_in(conn, peer);
+
+	ctx = tal(peer, char);
 	idata.pkt = tal_steal(ctx, peer->inpkt);
 
 	/* We ignore packets if they tell us to. */
@@ -435,7 +785,7 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 	    && peer->remote.staging_cstate->changes
 	    != peer->remote.commit->cstate->changes) {
 		log_debug(peer->log, "do_commit: sending commit command");
-		set_current_command(peer, CMD_SEND_COMMIT, NULL, jsoncmd);
+		command_send_commit(peer, jsoncmd);
 		return;
 	}
 	log_debug(peer->log, "do_commit: no changes to commit");
@@ -1724,16 +2074,6 @@ void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt)
 	log_unusual(peer->log, "Error pkt '%s'", pkt->error->problem);
 }
 
-void peer_watch_htlcs_cleared(struct peer *peer,
-			      enum state_input all_done)
-{
-	assert(peer->cleared == INPUT_NONE);
-	assert(all_done != INPUT_NONE);
-	peer->cleared = all_done;
-
-	peer_check_if_cleared(peer);
-}
-
 /* Create a bitcoin close tx, using last signature they sent. */
 const struct bitcoin_tx *bitcoin_close(struct peer *peer)
 {
@@ -2060,19 +2400,6 @@ const struct json_command getpeers_command = {
 	"Returns a 'peers' array"
 };
 
-static void set_htlc_command(struct peer *peer,
-			     struct command *jsoncmd,
-			     enum state_input cmd,
-			     const union htlc_staging *stage)
-{
-	/* FIXME: memleak! */
-	/* FIXME: Get rid of struct htlc_progress */
-	struct htlc_progress *progress = tal(peer, struct htlc_progress);
-
-	progress->stage = *stage;
-	set_current_command(peer, cmd, progress, jsoncmd);
-}
-		
 /* FIXME: Keep a timeout for each peer, in case they're unresponsive. */
 
 /* FIXME: Make sure no HTLCs in any unrevoked commit tx are live. */
@@ -2080,9 +2407,6 @@ static void set_htlc_command(struct peer *peer,
 static void check_htlc_expiry(struct peer *peer, void *unused)
 {
 	size_t i;
-	union htlc_staging stage;
-
-	stage.fail.fail = HTLC_FAIL;
 
 	/* Check their currently still-existing htlcs for expiry:
 	 * We eliminate them from staging as we go. */
@@ -2098,8 +2422,7 @@ static void check_htlc_expiry(struct peer *peer, void *unused)
 		    < abs_locktime_to_seconds(&htlc->expiry))
 			continue;
 
-		stage.fail.id = htlc->id;
-		set_htlc_command(peer, NULL, CMD_SEND_HTLC_FAIL, &stage);
+		command_htlc_fail(peer, htlc->id, NULL);
 		return;
 	}
 }
@@ -2147,9 +2470,19 @@ static void do_newhtlc(struct peer *peer, struct newhtlc *newhtlc)
 	if (tal_count(peer->local.staging_cstate->side[OURS].htlcs) == 300
 	    || tal_count(peer->remote.staging_cstate->side[OURS].htlcs) == 300) {
 		command_fail(newhtlc->jsoncmd, "Too many HTLCs");
+		return;
 	}
 
-
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT send a `update_add_htlc` after a `close_clearing`
+	 */
+	if (state_is_closing(peer->state)) {
+		command_fail(newhtlc->jsoncmd, "Channel closing, state %s",
+			     state_name(peer->state));
+		return;
+	}
+	
 	/* BOLT #2:
 	 *
 	 * A node MUST NOT offer `amount_msat` it cannot pay for in
@@ -2292,10 +2625,7 @@ static void do_fullfill(struct peer *peer,
 {
 	struct sha256 rhash;
 	size_t i;
-	union htlc_staging stage;
-
-	stage.fulfill.fulfill = HTLC_FULFILL;
-	stage.fulfill.r = fulfillhtlc->r;
+	u64 id;
 
 	sha256(&rhash, &fulfillhtlc->r, sizeof(fulfillhtlc->r));
 
@@ -2304,9 +2634,8 @@ static void do_fullfill(struct peer *peer,
 		command_fail(fulfillhtlc->jsoncmd, "preimage htlc not found");
 		return;
 	}
-	stage.fulfill.id = peer->remote.staging_cstate->side[THEIRS].htlcs[i].id;
-	set_htlc_command(peer, fulfillhtlc->jsoncmd,
-			 CMD_SEND_HTLC_FULFILL, &stage);
+	id = peer->remote.staging_cstate->side[THEIRS].htlcs[i].id;
+	command_htlc_fulfill(peer, id, &fulfillhtlc->r, fulfillhtlc->jsoncmd);
 }
 
 static void json_fulfillhtlc(struct command *cmd,
@@ -2367,9 +2696,7 @@ static void do_failhtlc(struct peer *peer,
 			struct failhtlc *failhtlc)
 {
 	size_t i;
-	union htlc_staging stage;
-
-	stage.fail.fail = HTLC_FAIL;
+	u64 id;
 
 	/* Look in peer->remote.staging_cstate->a, as that's where we'll 
 	 * immediately remove it from: avoids double-handling. */
@@ -2378,9 +2705,8 @@ static void do_failhtlc(struct peer *peer,
 		command_fail(failhtlc->jsoncmd, "htlc not found");
 		return;
 	}
-	stage.fail.id = peer->remote.staging_cstate->side[THEIRS].htlcs[i].id;
-
-	set_htlc_command(peer, failhtlc->jsoncmd, CMD_SEND_HTLC_FAIL, &stage);
+	id = peer->remote.staging_cstate->side[THEIRS].htlcs[i].id;
+	command_htlc_fail(peer, id, failhtlc->jsoncmd);
 }
 
 static void json_failhtlc(struct command *cmd,
@@ -2485,14 +2811,22 @@ static void json_close(struct command *cmd,
 		command_fail(cmd, "Could not find peer with that peerid");
 		return;
 	}
-	if (peer->cond == PEER_CLOSING) {
-		command_fail(cmd, "Peer is already closing");
+
+	if (state_is_closing(peer->state)) {
+		command_fail(cmd, "Peer is already closing: state %s",
+			     state_name(peer->state));
 		return;
 	}
 
-	/* Unlike other things, CMD_CLOSE is always valid. */
-	log_debug(peer->log, "Sending CMD_CLOSE");
-	state_event(peer, CMD_CLOSE, NULL);
+	/* Closing causes any current command to fail. */
+	if (peer->curr_cmd.cmd != INPUT_NONE)
+		peer_cmd_complete(peer, CMD_FAIL);
+
+	if (peer->state == STATE_NORMAL_COMMITTING)
+		set_peer_state(peer, STATE_CLEARING_COMMITTING, __func__);
+	else
+		set_peer_state(peer, STATE_CLEARING, __func__);
+	peer_start_clearing(peer);
 	command_success(cmd, null_response(cmd));
 }
 	

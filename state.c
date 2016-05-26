@@ -34,12 +34,6 @@ static enum command_status unchanged_state(const struct peer *peer,
 	return cstatus;
 }
 
-static void set_peer_cond(struct peer *peer, enum state_peercond cond)
-{
-	assert(peer->cond != cond);
-	peer->cond = cond;
-}
-
 static void change_peer_cond(struct peer *peer,
 			      enum state_peercond old,
 			      enum state_peercond new)
@@ -110,9 +104,6 @@ enum command_status state(struct peer *peer,
 				goto err_breakdown;
 			}
 			return next_state(peer, input, cstatus, STATE_OPEN_WAIT_FOR_ANCHOR);
-		} else if (input_is(input, CMD_CLOSE)) {
-			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto breakdown;
 		} else if (input_is_pkt(input)) {
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto unexpected_pkt;
@@ -128,9 +119,6 @@ enum command_status state(struct peer *peer,
 			bitcoin_create_anchor(peer, BITCOIN_ANCHOR_CREATED);
 			return next_state(peer, input, cstatus,
 					  STATE_OPEN_WAIT_FOR_ANCHOR_CREATE);
-		} else if (input_is(input, CMD_CLOSE)) {
-			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto breakdown;
 		} else if (input_is_pkt(input)) {
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto unexpected_pkt;
@@ -141,10 +129,6 @@ enum command_status state(struct peer *peer,
 			queue_pkt_anchor(peer);
 			return next_state(peer, input, cstatus,
 					  STATE_OPEN_WAIT_FOR_COMMIT_SIG);
-		} else if (input_is(input, CMD_CLOSE)) {
-			bitcoin_release_anchor(peer, BITCOIN_ANCHOR_CREATED);
-			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto breakdown;
 		} else if (input_is_pkt(input)) {
 			bitcoin_release_anchor(peer, BITCOIN_ANCHOR_CREATED);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
@@ -165,9 +149,6 @@ enum command_status state(struct peer *peer,
 
 			return next_state(peer, input, cstatus,
 					  STATE_OPEN_WAITING_THEIRANCHOR);
-		} else if (input_is(input, CMD_CLOSE)) {
-			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto breakdown;
 		} else if (input_is_pkt(input)) {
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto unexpected_pkt;
@@ -187,10 +168,6 @@ enum command_status state(struct peer *peer,
 					  INPUT_NONE);
 			return next_state(peer, input, cstatus,
 					  STATE_OPEN_WAITING_OURANCHOR);
-		} else if (input_is(input, CMD_CLOSE)) {
-			bitcoin_release_anchor(peer, INPUT_NONE);
-			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto breakdown;
 		} else if (input_is_pkt(input)) {
 			bitcoin_release_anchor(peer, INPUT_NONE);
 			complete_cmd(peer, &cstatus, CMD_FAIL);
@@ -221,13 +198,6 @@ enum command_status state(struct peer *peer,
 			}
 			return next_state(peer, input, cstatus,
 					  STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR);
-		} else if (input_is(input, CMD_CLOSE)) {
-			/* We no longer care about anchor depth. */
-			peer_unwatch_anchor_depth(peer,
-						  BITCOIN_ANCHOR_DEPTHOK,
-						  INPUT_NONE);
-			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto start_clearing;
 		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
 			/* We no longer care about anchor depth. */
 			peer_unwatch_anchor_depth(peer,
@@ -272,13 +242,6 @@ enum command_status state(struct peer *peer,
 			}
 			return next_state(peer, input, cstatus,
 					  STATE_OPEN_WAIT_FOR_COMPLETE_THEIRANCHOR);
-		} else if (input_is(input, CMD_CLOSE)) {
-			/* We no longer care about anchor depth. */
-			peer_unwatch_anchor_depth(peer,
-						  BITCOIN_ANCHOR_DEPTHOK,
-						  BITCOIN_ANCHOR_TIMEOUT);
-			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto start_clearing;
 		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
 			/* We no longer care about anchor depth. */
 			peer_unwatch_anchor_depth(peer,
@@ -306,9 +269,6 @@ enum command_status state(struct peer *peer,
 				complete_cmd(peer, &cstatus, CMD_SUCCESS);
 				return next_state(peer, input, cstatus, STATE_NORMAL);
 			}
-		} else if (input_is(input, CMD_CLOSE)) {
-			complete_cmd(peer, &cstatus, CMD_FAIL);
-			goto start_clearing;
 		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
 			complete_cmd(peer, &cstatus, CMD_FAIL);
 			goto accept_clearing;
@@ -337,12 +297,16 @@ enum command_status state(struct peer *peer,
 			queue_pkt_htlc_add(peer, idata->htlc_prog);
 			return instant_cmd_success(peer, cstatus);
 		} else if (input_is(input, CMD_SEND_HTLC_FULFILL)) {
+			assert(idata->htlc_prog->stage.type == HTLC_FULFILL);
 			/* We are to send an HTLC fulfill. */
-			queue_pkt_htlc_fulfill(peer, idata->htlc_prog);
+			queue_pkt_htlc_fulfill(peer,
+					       idata->htlc_prog->stage.fulfill.id,
+					       &idata->htlc_prog->stage.fulfill.r);
 			return instant_cmd_success(peer, cstatus);
 		} else if (input_is(input, CMD_SEND_HTLC_FAIL)) {
+			assert(idata->htlc_prog->stage.type == HTLC_FAIL);
 			/* We are to send an HTLC fail. */
-			queue_pkt_htlc_fail(peer, idata->htlc_prog);
+			queue_pkt_htlc_fail(peer, idata->htlc_prog->stage.fail.id);
 			return instant_cmd_success(peer, cstatus);
 		}
 		/* Fall through... */
@@ -359,9 +323,7 @@ enum command_status state(struct peer *peer,
 			return next_state(peer, input, cstatus, STATE_NORMAL);
 		}
 
-		if (input_is(input, CMD_CLOSE)) {
-			goto start_clearing;
-		} else if (input_is(input, PKT_UPDATE_ADD_HTLC)) {
+		if (input_is(input, PKT_UPDATE_ADD_HTLC)) {
 			err = accept_pkt_htlc_add(peer, idata->pkt);
 			if (err)
 				goto err_breakdown;
@@ -388,85 +350,17 @@ enum command_status state(struct peer *peer,
 			goto unexpected_pkt;
 		}
 		break;
-	case STATE_US_CLEARING:
-		/* This is their reply once they're clearing too. */
-		if (input_is(input, PKT_CLOSE_CLEARING)) {
-			err = accept_pkt_close_clearing(peer, idata->pkt);
-			if (err)
-				goto err_breakdown;
-
-			/* Notify us when there are no more htlcs in
-			 * either commit tx */
-			peer_watch_htlcs_cleared(peer, INPUT_HTLCS_CLEARED);
-
-			return next_state(peer, input, cstatus, STATE_BOTH_CLEARING);
-		/* FIXME: We must continue to allow fulfill & fail! */
-		} else if (input_is(input, CMD_SEND_HTLC_FAIL)
-			   || input_is(input, CMD_SEND_HTLC_FULFILL)) {
-			err = pkt_err(peer, "FIXME: cmd during clearing.");
-			goto err_breakdown;
-		} else if (input_is_pkt(input)) {
-			/* FIXME: We must continue to allow add, fulfill & fail packets */
-			goto unexpected_pkt;
-		}
-		break;
-	case STATE_BOTH_CLEARING:
-		if (input_is(input, INPUT_HTLCS_CLEARED)) {
-			goto start_closing_cleared;
-		} else if (input_is(input, CMD_SEND_HTLC_FAIL)
-			   || input_is(input, CMD_SEND_HTLC_FULFILL)) {
-			err = pkt_err(peer, "FIXME: cmd during clearing.");
-			goto err_breakdown;
-		} else if (input_is_pkt(input)) {
-			/* FIXME: We must continue to allow fulfill & fail packets */
-			goto unexpected_pkt;
-		}
-		break;
-	case STATE_WAIT_FOR_CLOSE_SIG:
-		if (input_is(input, PKT_CLOSE_SIGNATURE)) {
-			bool acked, we_agree;
-			err = accept_pkt_close_sig(peer, idata->pkt,
-						   &acked, &we_agree);
-			if (err)
-				goto err_breakdown;
-
-			/* Are we about to offer the same fee they did? */
-			if (we_agree) {
-				/* Offer the new fee. */
-				queue_pkt_close_signature(peer);
-				acked = true;
-			}
-
-			/* Do fees now match? */
-			if (acked) {
-				/* Send close TX. */
-				queue_tx_broadcast(broadcast,
-						   bitcoin_close(peer));
-				change_peer_cond(peer,
-						 PEER_CLOSING, PEER_CLOSED);
-				return next_state(peer, input, cstatus,
-						  STATE_CLOSE_WAIT_CLOSE);
-			}
-
-			/* Offer the new fee. */
-			queue_pkt_close_signature(peer);
-			return unchanged_state(peer, input, cstatus);
-		} else if (input_is(input, INPUT_CLOSE_COMPLETE_TIMEOUT)) {
-			err = pkt_err(peer, "Close timed out");
-			goto err_breakdown;
-		} else if (input_is_pkt(input)) {
-			goto unexpected_pkt;
-		}
-		break;
 
 	/* Should never happen. */
 	case STATE_ERR_INTERNAL:
 	case STATE_ERR_ANCHOR_TIMEOUT:
 	case STATE_ERR_INFORMATION_LEAK:
 	case STATE_ERR_BREAKDOWN:
-	case STATE_CLOSE_WAIT_CLOSE:
 	case STATE_CLOSED:
 	case STATE_MAX:
+	case STATE_CLEARING:
+	case STATE_CLEARING_COMMITTING:
+	case STATE_MUTUAL_CLOSING:
 	case STATE_CLOSE_ONCHAIN_CHEATED:
 	case STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL:
 	case STATE_CLOSE_ONCHAIN_OUR_UNILATERAL:
@@ -491,36 +385,13 @@ err_breakdown:
 breakdown:
 	return next_state(peer, input, cstatus, STATE_ERR_BREAKDOWN);
 
-start_clearing:
-	/*
-	 * Start a mutual close: tell them we want to clear.
-	 */
-	queue_pkt_close_clearing(peer);
-
-	/* No more commands, we're already closing. */
-	set_peer_cond(peer, PEER_CLOSING);
-
-	return next_state(peer, input, cstatus, STATE_US_CLEARING);
-
-start_closing_cleared:
-	/* As soon as we send packet, they could close. */
-	peer_calculate_close_fee(peer);
-	queue_pkt_close_signature(peer);
-	return next_state(peer, input, cstatus, STATE_WAIT_FOR_CLOSE_SIG);
-
 accept_clearing:
 	err = accept_pkt_close_clearing(peer, idata->pkt);
 	if (err)
 		goto err_breakdown;
 
-	/* Notify us when there are no more htlcs in either commit tx */
-	peer_watch_htlcs_cleared(peer, INPUT_HTLCS_CLEARED);
-
-	/* No more commands, we're already closing. */
-	set_peer_cond(peer, PEER_CLOSING);
-
-	/* Tell them we're clearing too. */
-	queue_pkt_close_clearing(peer);
-
-	return next_state(peer, input, cstatus, STATE_BOTH_CLEARING);
+	/* If we've sent commit, we're still waiting for it when clearing. */
+	if (peer->state == STATE_NORMAL_COMMITTING)
+		return next_state(peer, input, cstatus, STATE_CLEARING_COMMITTING);
+	return next_state(peer, input, cstatus, STATE_CLEARING);
 }

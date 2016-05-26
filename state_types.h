@@ -29,26 +29,21 @@ enum state {
 	STATE_NORMAL_COMMITTING,
 	
 	/*
-	 * Closing.
+	 * Closing (handled outside state machine).
 	 */
-	/* We told them to clear. */
-	STATE_US_CLEARING,
-	/* They told us to clear, or acked our CLEARING. */
-	STATE_BOTH_CLEARING,
-	/* We're cleared, waiting for close signature / negotiation */
-	STATE_WAIT_FOR_CLOSE_SIG,
-	/* We've broadcast the mutual close, waiting for onchain. */
-	STATE_CLOSE_WAIT_CLOSE,
+	STATE_CLEARING,
+	STATE_CLEARING_COMMITTING,
+	STATE_MUTUAL_CLOSING,
 	
-	/* All closed. */
-	STATE_CLOSED,
-
 	/* Four states to represent closing onchain (for getpeers) */
 	STATE_CLOSE_ONCHAIN_CHEATED,
 	STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL,
 	STATE_CLOSE_ONCHAIN_OUR_UNILATERAL,
 	STATE_CLOSE_ONCHAIN_MUTUAL,
 	
+	/* All closed. */
+	STATE_CLOSED,
+
 	/*
 	 * Where angels fear to tread.
 	 */
@@ -84,9 +79,8 @@ enum state_input {
 	PKT_UPDATE_COMMIT = PKT__PKT_UPDATE_COMMIT,
 	PKT_UPDATE_REVOCATION = PKT__PKT_UPDATE_REVOCATION,
 
-	/* Mutual close sequence. */
+	/* If they want to close. */
 	PKT_CLOSE_CLEARING = PKT__PKT_CLOSE_CLEARING,
-	PKT_CLOSE_SIGNATURE = PKT__PKT_CLOSE_SIGNATURE,
 
 	/* Something unexpected went wrong. */
 	PKT_ERROR = PKT__PKT_ERROR,
@@ -120,7 +114,6 @@ enum state_input {
 	CMD_SEND_HTLC_FULFILL,
 	CMD_SEND_HTLC_FAIL,
 	CMD_SEND_COMMIT,
-	CMD_CLOSE,
 
 	INPUT_MAX
 };
@@ -130,8 +123,6 @@ enum state_peercond {
 	PEER_CMD_OK,
 	/* Don't send me commands, I'm busy. */
 	PEER_BUSY,
-	/* No more commands, I'm closing. */
-	PEER_CLOSING,
 	/* No more packets, I'm closed. */
 	PEER_CLOSED
 };

@@ -70,6 +70,8 @@ static void queue_raw_pkt(struct peer *peer, Pkt *pkt)
 	tal_resize(&peer->outpkt, n+1);
 	peer->outpkt[n] = pkt;
 
+	log_debug(peer->log, "Queued pkt %s", pkt_name(pkt->pkt_case));
+
 	/* In case it was waiting for output. */
 	io_wake(peer);
 }
@@ -202,17 +204,15 @@ void queue_pkt_htlc_add(struct peer *peer,
 	queue_pkt(peer, PKT__PKT_UPDATE_ADD_HTLC, u);
 }
 
-void queue_pkt_htlc_fulfill(struct peer *peer,
-		      const struct htlc_progress *htlc_prog)
+void queue_pkt_htlc_fulfill(struct peer *peer, u64 id, const struct sha256 *r)
 {
 	UpdateFulfillHtlc *f = tal(peer, UpdateFulfillHtlc);
 	size_t n;
+	union htlc_staging stage;
 
 	update_fulfill_htlc__init(f);
-	assert(htlc_prog->stage.type == HTLC_FULFILL);
-
-	f->id = htlc_prog->stage.fulfill.id;
-	f->r = sha256_to_proto(f, &htlc_prog->stage.fulfill.r);
+	f->id = id;
+	f->r = sha256_to_proto(f, r);
 
 	/* BOLT #2:
 	 *
@@ -222,23 +222,26 @@ void queue_pkt_htlc_fulfill(struct peer *peer,
 	n = funding_htlc_by_id(peer->remote.staging_cstate, f->id, THEIRS);
 	assert(n != -1);
 	funding_fulfill_htlc(peer->remote.staging_cstate, n, THEIRS);
-	add_unacked(&peer->remote, &htlc_prog->stage);
+
+	stage.fulfill.fulfill = HTLC_FULFILL;
+	stage.fulfill.id = f->id;
+	stage.fulfill.r = *r;
+	add_unacked(&peer->remote, &stage);
 
 	remote_changes_pending(peer);
 
 	queue_pkt(peer, PKT__PKT_UPDATE_FULFILL_HTLC, f);
 }
 
-void queue_pkt_htlc_fail(struct peer *peer,
-		   const struct htlc_progress *htlc_prog)
+void queue_pkt_htlc_fail(struct peer *peer, u64 id)
 {
 	UpdateFailHtlc *f = tal(peer, UpdateFailHtlc);
 	size_t n;
+	union htlc_staging stage;
 
 	update_fail_htlc__init(f);
-	assert(htlc_prog->stage.type == HTLC_FAIL);
+	f->id = id;
 
-	f->id = htlc_prog->stage.fail.id;
 	/* FIXME: reason! */
 	f->reason = tal(f, FailReason);
 	fail_reason__init(f->reason);
@@ -251,7 +254,10 @@ void queue_pkt_htlc_fail(struct peer *peer,
 	n = funding_htlc_by_id(peer->remote.staging_cstate, f->id, THEIRS);
 	assert(n != -1);
 	funding_fail_htlc(peer->remote.staging_cstate, n, THEIRS);
-	add_unacked(&peer->remote, &htlc_prog->stage);
+
+	stage.fail.fail = HTLC_FAIL;
+	stage.fail.id = f->id;
+	add_unacked(&peer->remote, &stage);
 
 	remote_changes_pending(peer);
 	queue_pkt(peer, PKT__PKT_UPDATE_FAIL_HTLC, f);
@@ -306,8 +312,6 @@ void queue_pkt_commit(struct peer *peer)
 	/* Switch to the new commitment. */
 	peer->remote.commit = ci;
 
-	peer_check_if_cleared(peer);
-	
 	/* Now send message */
 	update_commit__init(u);
 	u->sig = signature_to_proto(u, &ci->sig->sig);
@@ -381,7 +385,7 @@ void queue_pkt_revocation(struct peer *peer)
 		= tal(peer->local.commit->prev, struct sha256);
 	peer_get_revocation_preimage(peer, peer->local.commit->prev->commit_num,
 				     peer->local.commit->prev->revocation_preimage);
-	peer_check_if_cleared(peer);
+
 	u->revocation_preimage
 		= sha256_to_proto(u, peer->local.commit->prev->revocation_preimage);
 
@@ -783,7 +787,6 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt)
 	peer_get_revocation_hash(peer, ci->commit_num + 1,
 				 &peer->local.next_revocation_hash);
 
-	peer_check_if_cleared(peer);
 	return NULL;
 }
 
@@ -818,7 +821,6 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 
 	proto_to_sha256(r->revocation_preimage,
 			peer->remote.commit->prev->revocation_preimage);
-	peer_check_if_cleared(peer);
 
 	/* Save next revocation hash. */
 	proto_to_sha256(r->next_revocation_hash,
@@ -849,93 +851,5 @@ Pkt *accept_pkt_close_clearing(struct peer *peer, const Pkt *pkt)
 						 c->scriptpubkey.data,
 						 c->scriptpubkey.len, 0);
 
-	return NULL;
-}
-
-Pkt *accept_pkt_close_sig(struct peer *peer, const Pkt *pkt, bool *acked,
-			  bool *we_agree)
-{
-	const CloseSignature *c = pkt->close_signature;
-	struct bitcoin_tx *close_tx;
-	struct bitcoin_signature theirsig;
-
-	log_info(peer->log, "accept_pkt_close_sig: they offered close fee %"
-		 PRIu64, c->close_fee);
-	*acked = *we_agree = false;
-
-	/* BOLT #2:
-	 *
-	 * The sender MUST set `close_fee` lower than or equal to the fee of the
-	 * final commitment transaction, and MUST set `close_fee` to an even
-	 * number of satoshis.
-	 */
-	if ((c->close_fee & 1)
-	    || c->close_fee > commit_tx_fee(peer->remote.commit->tx,
-					    peer->anchor.satoshis)) {
-		return pkt_err(peer, "Invalid close fee");
-	}
-
-	/* FIXME: Don't accept tiny fee at all? */
-
-	/* BOLT #2:
-	   ... otherwise it SHOULD propose a
-	   value strictly between the received `close_fee` and its
-	   previously-sent `close_fee`.
-	*/
-	if (peer->closing.their_sig) {
-		/* We want more, they should give more. */
-		if (peer->closing.our_fee > peer->closing.their_fee) {
-			if (c->close_fee <= peer->closing.their_fee)
-				return pkt_err(peer, "Didn't increase close fee");
-		} else {
-			if (c->close_fee >= peer->closing.their_fee)
-				return pkt_err(peer, "Didn't decrease close fee");
-		}
-	}
-
-	/* BOLT #2:
-	 *
-	 * The receiver MUST check `sig` is valid for the close
-	 * transaction with the given `close_fee`, and MUST fail the
-	 * connection if it is not. */
-	theirsig.stype = SIGHASH_ALL;
-	if (!proto_to_signature(c->sig, &theirsig.sig))
-		return pkt_err(peer, "Invalid signature format");
-
-	close_tx = peer_create_close_tx(peer, c->close_fee);
-	if (!check_tx_sig(peer->dstate->secpctx, close_tx, 0,
-			  NULL, 0,
-			  peer->anchor.witnessscript,
-			  &peer->remote.commitkey, &theirsig))
-		return pkt_err(peer, "Invalid signature");
-
-	tal_free(peer->closing.their_sig);
-	peer->closing.their_sig = tal_dup(peer,
-					  struct bitcoin_signature, &theirsig);
-	peer->closing.their_fee = c->close_fee;
-
-	if (peer->closing.our_fee == peer->closing.their_fee) {
-		log_info(peer->log, "accept_pkt_close_sig: That's an ack");
-		*acked = true;
-	} else {
-		/* Adjust our fee to close on their fee. */
-		u64 sum;
-
-		/* Beware overflow! */
-		sum = (u64)peer->closing.our_fee + peer->closing.their_fee;
-
-		peer->closing.our_fee = sum / 2;
-		if (peer->closing.our_fee & 1)
-			peer->closing.our_fee++;
-
-		log_info(peer->log, "accept_pkt_close_sig: we change to %"PRIu64,
-			 peer->closing.our_fee);
-
-		/* Corner case: we may now agree with them. */
-		if (peer->closing.our_fee == peer->closing.their_fee)
-			*we_agree = true;
-	}
-
-	/* FIXME: Dynamic fee! */
 	return NULL;
 }

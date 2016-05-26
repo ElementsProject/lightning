@@ -235,9 +235,6 @@ bool setup_first_commit(struct peer *peer);
 
 void set_peer_state(struct peer *peer, enum state newstate, const char *why);
 
-/* Call this after commit changes, or revocation accepted/sent. */
-void peer_check_if_cleared(struct peer *peer);
-
 /* Set up timer: we have something we can commit. */
 void remote_changes_pending(struct peer *peer);
 
