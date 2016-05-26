@@ -222,11 +222,12 @@ void invert_cstate(struct channel_state *cstate)
 }
 
 /* Add a HTLC to @creator if it can afford it. */
-static bool add_htlc(struct channel_state *cstate,
-		     struct channel_oneside *creator,
-		     struct channel_oneside *recipient,
-		     u32 msatoshis, const struct abs_locktime *expiry,
-		     const struct sha256 *rhash, uint64_t id)
+static struct channel_htlc *add_htlc(struct channel_state *cstate,
+				     struct channel_oneside *creator,
+				     struct channel_oneside *recipient,
+				     u32 msatoshis,
+				     const struct abs_locktime *expiry,
+				     const struct sha256 *rhash, uint64_t id)
 {
 	size_t n, nondust;
 
@@ -240,7 +241,7 @@ static bool add_htlc(struct channel_state *cstate,
 	
 	if (!change_funding(cstate->anchor, cstate->fee_rate,
 			    msatoshis, creator, recipient, nondust))
-		return false;
+		return NULL;
 
 	n = tal_count(creator->htlcs);
 	tal_resize(&creator->htlcs, n+1);
@@ -253,7 +254,7 @@ static bool add_htlc(struct channel_state *cstate,
 		 sizeof(creator->htlcs[n].msatoshis));
 	memcheck(&creator->htlcs[n].rhash, sizeof(creator->htlcs[n].rhash));
 	cstate->changes++;
-	return true;
+	return &creator->htlcs[n];
 }
 
 /* Remove htlc from creator, credit it to beneficiary. */
@@ -291,17 +292,19 @@ static void remove_htlc(struct channel_state *cstate,
 	cstate->changes++;
 }
 
-bool funding_a_add_htlc(struct channel_state *cstate,
-			u32 msatoshis, const struct abs_locktime *expiry,
-			const struct sha256 *rhash, uint64_t id)
+struct channel_htlc *funding_a_add_htlc(struct channel_state *cstate,
+					u32 msatoshis,
+					const struct abs_locktime *expiry,
+					const struct sha256 *rhash, uint64_t id)
 {
 	return add_htlc(cstate, &cstate->a, &cstate->b,
 			msatoshis, expiry, rhash, id);
 }
 
-bool funding_b_add_htlc(struct channel_state *cstate,
-			u32 msatoshis, const struct abs_locktime *expiry,
-			const struct sha256 *rhash, uint64_t id)
+struct channel_htlc *funding_b_add_htlc(struct channel_state *cstate,
+					u32 msatoshis,
+					const struct abs_locktime *expiry,
+					const struct sha256 *rhash, uint64_t id)
 {
 	return add_htlc(cstate, &cstate->b, &cstate->a,
 			msatoshis, expiry, rhash, id);

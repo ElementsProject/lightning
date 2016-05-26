@@ -61,17 +61,19 @@ struct channel_state *copy_funding(const tal_t *ctx,
  * @id: 64-bit ID for htlc
  *
  * If A can't afford the HTLC (or still owes its half of the fees),
- * this will return false and leave @cstate unchanged.  Otherwise
+ * this will return NULL and leave @cstate unchanged.  Otherwise
  * cstate->a.htlcs will have the HTLC appended, and pay_msat and
- * fee_msat are adjusted accordingly.
+ * fee_msat are adjusted accordingly; &cstate->htlcs[<last] is returned.
  */
-bool funding_a_add_htlc(struct channel_state *cstate,
-			u32 msatoshis, const struct abs_locktime *expiry,
-			const struct sha256 *rhash, uint64_t id);
+struct channel_htlc *funding_a_add_htlc(struct channel_state *cstate,
+					u32 msatoshis,
+					const struct abs_locktime *expiry,
+					const struct sha256 *rhash, uint64_t id);
 
-bool funding_b_add_htlc(struct channel_state *cstate,
-			u32 msatoshis, const struct abs_locktime *expiry,
-			const struct sha256 *rhash, uint64_t id);
+struct channel_htlc *funding_b_add_htlc(struct channel_state *cstate,
+					u32 msatoshis,
+					const struct abs_locktime *expiry,
+					const struct sha256 *rhash, uint64_t id);
 
 /**
  * funding_a_fail_htlc: remove an HTLC from A's side of cstate, funds to A
