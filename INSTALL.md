@@ -7,7 +7,10 @@ You will need several development libraries:
 * libsodium: for crypto.
 * libcrypto: (OpenSSL) library for bignum implementation
 
-To Build on Ubuntu 15.10
+You will also need a version of bitcoind with segregated witness support:
+* https://github.com/sipa/bitcoin/tree/segwit4
+
+To Build on Ubuntu 15.10 (not needed for 16.04)
 ------------------------
 Build protobuf-c dependency (>= 1.1.0):
 ```
