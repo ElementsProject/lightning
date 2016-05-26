@@ -1,5 +1,5 @@
 #! /usr/bin/make
-NAME=Butterfly Labs' Timely Delivery
+NAME=Nakamoto's Genesis Coins
 
 # Needs to have oneof support: Ubuntu vivid's is too old :(
 PROTOCC:=protoc-c
