@@ -209,15 +209,6 @@ bool force_fee(struct channel_state *cstate, uint64_t fee)
 	cstate->changes++;
 	return cstate->side[OURS].fee_msat + cstate->side[THEIRS].fee_msat == fee * 1000;
 }
-	
-void invert_cstate(struct channel_state *cstate)
-{
-	struct channel_oneside tmp;
-
-	tmp = cstate->side[OURS];
-	cstate->side[OURS] = cstate->side[THEIRS];
-	cstate->side[THEIRS] = tmp;
-}
 
 /* Add a HTLC to @creator if it can afford it. */
 struct channel_htlc *funding_add_htlc(struct channel_state *cstate,

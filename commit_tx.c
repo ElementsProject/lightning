@@ -38,18 +38,22 @@ static bool add_htlc(struct bitcoin_tx *tx, size_t n,
 struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    const struct pubkey *our_final,
 				    const struct pubkey *their_final,
+				    const struct rel_locktime *our_locktime,
 				    const struct rel_locktime *their_locktime,
 				    const struct sha256_double *anchor_txid,
 				    unsigned int anchor_index,
 				    u64 anchor_satoshis,
 				    const struct sha256 *rhash,
 				    const struct channel_state *cstate,
+				    enum channel_side side,
 				    int **map)
 {
 	struct bitcoin_tx *tx;
 	const u8 *redeemscript;
 	size_t i, num;
 	uint64_t total;
+	const struct pubkey *self, *other;
+	const struct rel_locktime *locktime;
 
 	/* Now create commitment tx: one input, two outputs (plus htlcs) */
 	tx = bitcoin_tx(ctx, 1, 2 + tal_count(cstate->side[OURS].htlcs)
@@ -60,37 +64,49 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx->input[0].index = anchor_index;
 	tx->input[0].amount = tal_dup(tx->input, u64, &anchor_satoshis);
 
-	/* First output is a P2WSH to a complex redeem script (usu. for me) */
-	redeemscript = bitcoin_redeem_secret_or_delay(tx, our_final,
-						      their_locktime,
-						      their_final,
+	/* For our commit tx, our payment is delayed by amount they said */
+	if (side == OURS) {
+		self = our_final;
+		other = their_final;
+		locktime = their_locktime;
+	} else {
+		self = their_final;
+		other = our_final;
+		locktime = our_locktime;
+	}
+	
+	/* First output is a P2WSH to a complex redeem script
+	 * (usu. for this side) */
+	redeemscript = bitcoin_redeem_secret_or_delay(tx, self,
+						      locktime,
+						      other,
 						      rhash);
 	tx->output[0].script = scriptpubkey_p2wsh(tx, redeemscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
-	tx->output[0].amount = cstate->side[OURS].pay_msat / 1000;
+	tx->output[0].amount = cstate->side[side].pay_msat / 1000;
 
-	/* Second output is a P2WPKH payment to them. */
-	tx->output[1].script = scriptpubkey_p2wpkh(tx, their_final);
+	/* Second output is a P2WPKH payment to other side. */
+	tx->output[1].script = scriptpubkey_p2wpkh(tx, other);
 	tx->output[1].script_length = tal_count(tx->output[1].script);
-	tx->output[1].amount = cstate->side[THEIRS].pay_msat / 1000;
+	tx->output[1].amount = cstate->side[!side].pay_msat / 1000;
 
 	/* First two outputs done, now for the HTLCs. */
 	total = tx->output[0].amount + tx->output[1].amount;
 	num = 2;
 
-	/* HTLCs we've sent. */
-	for (i = 0; i < tal_count(cstate->side[OURS].htlcs); i++) {
-		if (!add_htlc(tx, num, &cstate->side[OURS].htlcs[i],
-			      our_final, their_final,
-			      rhash, their_locktime, bitcoin_redeem_htlc_send))
+	/* HTLCs this side sent. */
+	for (i = 0; i < tal_count(cstate->side[side].htlcs); i++) {
+		if (!add_htlc(tx, num, &cstate->side[side].htlcs[i],
+			      self, other, rhash, locktime,
+			      bitcoin_redeem_htlc_send))
 			return tal_free(tx);
 		total += tx->output[num++].amount;
 	}
-	/* HTLCs we've received. */
-	for (i = 0; i < tal_count(cstate->side[THEIRS].htlcs); i++) {
-		if (!add_htlc(tx, num, &cstate->side[THEIRS].htlcs[i],
-			      our_final, their_final,
-			      rhash, their_locktime, bitcoin_redeem_htlc_recv))
+	/* HTLCs this side has received. */
+	for (i = 0; i < tal_count(cstate->side[!side].htlcs); i++) {
+		if (!add_htlc(tx, num, &cstate->side[!side].htlcs[i],
+			      self, other, rhash, locktime,
+			      bitcoin_redeem_htlc_recv))
 			return tal_free(tx);
 		total += tx->output[num++].amount;
 	}

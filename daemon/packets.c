@@ -191,7 +191,7 @@ void queue_pkt_htlc_add(struct peer *peer,
 			      htlc_prog->stage.add.htlc.msatoshis,
 			      &htlc_prog->stage.add.htlc.expiry,
 			      &htlc_prog->stage.add.htlc.rhash,
-			      htlc_prog->stage.add.htlc.id, THEIRS))
+			      htlc_prog->stage.add.htlc.id, OURS))
 		fatal("Could not add HTLC?");
 	add_unacked(&peer->remote, &htlc_prog->stage);
 
@@ -219,9 +219,9 @@ void queue_pkt_htlc_fulfill(struct peer *peer,
 	 * The sending node MUST add the HTLC fulfill/fail to the
 	 * unacked changeset for its remote commitment
 	 */
-	n = funding_htlc_by_id(peer->remote.staging_cstate, f->id, OURS);
+	n = funding_htlc_by_id(peer->remote.staging_cstate, f->id, THEIRS);
 	assert(n != -1);
-	funding_fulfill_htlc(peer->remote.staging_cstate, n, OURS);
+	funding_fulfill_htlc(peer->remote.staging_cstate, n, THEIRS);
 	add_unacked(&peer->remote, &htlc_prog->stage);
 
 	remote_changes_pending(peer);
@@ -248,9 +248,9 @@ void queue_pkt_htlc_fail(struct peer *peer,
 	 * The sending node MUST add the HTLC fulfill/fail to the
 	 * unacked changeset for its remote commitment
 	 */
-	n = funding_htlc_by_id(peer->remote.staging_cstate, f->id, OURS);
+	n = funding_htlc_by_id(peer->remote.staging_cstate, f->id, THEIRS);
 	assert(n != -1);
-	funding_fail_htlc(peer->remote.staging_cstate, n, OURS);
+	funding_fail_htlc(peer->remote.staging_cstate, n, THEIRS);
 	add_unacked(&peer->remote, &htlc_prog->stage);
 
 	remote_changes_pending(peer);
@@ -274,14 +274,16 @@ void queue_pkt_commit(struct peer *peer)
 	 * before generating `sig`. */
 	ci->cstate = copy_funding(ci, peer->remote.staging_cstate);
 	ci->tx = create_commit_tx(ci,
-				  &peer->remote.finalkey,
 				  &peer->local.finalkey,
+				  &peer->remote.finalkey,
 				  &peer->local.locktime,
+				  &peer->remote.locktime,
 				  &peer->anchor.txid,
 				  peer->anchor.index,
 				  peer->anchor.satoshis,
 				  &ci->revocation_hash,
 				  ci->cstate,
+				  THEIRS,
 				  &ci->map);
 
 	log_debug(peer->log, "Signing tx for %u/%u msatoshis, %zu/%zu htlcs",
@@ -316,6 +318,7 @@ void queue_pkt_commit(struct peer *peer)
 /* At revocation time, we apply the changeset to the other side. */
 static void apply_changeset(struct peer *peer,
 			    struct peer_visible_state *which,
+			    enum channel_side side,
 			    const union htlc_staging *changes,
 			    size_t num_changes)
 {
@@ -326,7 +329,7 @@ static void apply_changeset(struct peer *peer,
 		switch (changes[i].type) {
 		case HTLC_ADD:
 			n = funding_htlc_by_id(which->staging_cstate,
-					       changes[i].add.htlc.id, OURS);
+					       changes[i].add.htlc.id, side);
 			if (n != -1)
 				fatal("Can't add duplicate HTLC id %"PRIu64,
 				      changes[i].add.htlc.id);
@@ -334,24 +337,25 @@ static void apply_changeset(struct peer *peer,
 					      changes[i].add.htlc.msatoshis,
 					      &changes[i].add.htlc.expiry,
 					      &changes[i].add.htlc.rhash,
-					      changes[i].add.htlc.id, OURS))
-				fatal("Adding HTLC failed");
+					      changes[i].add.htlc.id, side))
+				fatal("Adding HTLC to %s failed",
+				      side == OURS ? "ours" : "theirs");
 			continue;
 		case HTLC_FAIL:
 			n = funding_htlc_by_id(which->staging_cstate,
-					       changes[i].fail.id, THEIRS);
+					       changes[i].fail.id, !side);
 			if (n == -1)
 				fatal("Can't fail non-exisent HTLC id %"PRIu64,
 				      changes[i].fail.id);
-			funding_fail_htlc(which->staging_cstate, n, THEIRS);
+			funding_fail_htlc(which->staging_cstate, n, !side);
 			continue;
 		case HTLC_FULFILL:
 			n = funding_htlc_by_id(which->staging_cstate,
-					       changes[i].fulfill.id, THEIRS);
+					       changes[i].fulfill.id, !side);
 			if (n == -1)
 				fatal("Can't fulfill non-exisent HTLC id %"PRIu64,
 				      changes[i].fulfill.id);
-			funding_fulfill_htlc(which->staging_cstate, n, THEIRS);
+			funding_fulfill_htlc(which->staging_cstate, n, !side);
 			continue;
 		}
 		abort();
@@ -391,7 +395,7 @@ void queue_pkt_revocation(struct peer *peer)
 	 * The node sending `update_revocation` MUST add the local unacked
 	 * changes to the set of remote acked changes.
 	 */
-	apply_changeset(peer, &peer->remote,
+	apply_changeset(peer, &peer->remote, THEIRS,
 			peer->local.unacked_changes,
 			tal_count(peer->local.unacked_changes));
 
@@ -599,7 +603,7 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	 * A node MUST NOT add a HTLC if it would result in it
 	 * offering more than 300 HTLCs in either commitment transaction.
 	 */
-	if (tal_count(peer->remote.staging_cstate->side[OURS].htlcs) == 300
+	if (tal_count(peer->remote.staging_cstate->side[THEIRS].htlcs) == 300
 	    || tal_count(peer->local.staging_cstate->side[THEIRS].htlcs) == 300)
 		return pkt_err(peer, "Too many HTLCs");
 
@@ -608,7 +612,7 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	 * A node MUST NOT set `id` equal to another HTLC which is in
 	 * the current staged commitment transaction.
 	 */
-	if (funding_htlc_by_id(peer->remote.staging_cstate, u->id, OURS) != -1)
+	if (funding_htlc_by_id(peer->remote.staging_cstate, u->id, THEIRS) != -1)
 		return pkt_err(peer, "HTLC id %"PRIu64" clashes for you", u->id);
 
 	/* FIXME: Assert this... */
@@ -752,12 +756,14 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt)
 	ci->tx = create_commit_tx(ci,
 				  &peer->local.finalkey,
 				  &peer->remote.finalkey,
+				  &peer->local.locktime,
 				  &peer->remote.locktime,
 				  &peer->anchor.txid,
 				  peer->anchor.index,
 				  peer->anchor.satoshis,
 				  &ci->revocation_hash,
 				  ci->cstate,
+				  OURS,
 				  &ci->map);
 
 	/* BOLT #2:
@@ -823,7 +829,7 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	 * The receiver of `update_revocation`... MUST add the remote
 	 * unacked changes to the set of local acked changes.
 	 */
-	apply_changeset(peer, &peer->local,
+	apply_changeset(peer, &peer->local, OURS,
 			peer->remote.unacked_changes,
 			tal_count(peer->remote.unacked_changes));
 

@@ -122,12 +122,6 @@ void adjust_fee(struct channel_state *cstate, uint32_t fee_rate);
 bool force_fee(struct channel_state *cstate, uint64_t fee);
 
 /**
- * invert_cstate: Get the other side's state.
- * @cstate: the state to invert.
- */
-void invert_cstate(struct channel_state *cstate);
-
-/**
  * funding_find_htlc: find an HTLC on this side of the channel.
  * @cstate: The channel state
  * @rhash: hash of redeem secret
