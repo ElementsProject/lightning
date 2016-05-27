@@ -2137,8 +2137,14 @@ bool setup_first_commit(struct peer *peer)
 	if (!peer->local.commit->cstate)
 		return false;
 
-	peer->remote.commit->cstate = copy_funding(peer,
-						   peer->local.commit->cstate);
+    peer->remote.commit->cstate = initial_funding(peer,
+                             peer->anchor.satoshis,
+                             peer->remote.commit_fee_rate,
+                             peer->local.offer_anchor
+                             == CMD_OPEN_WITH_ANCHOR ?
+                             OURS : THEIRS);
+    if (!peer->remote.commit->cstate)
+        return false;
 
 	peer->local.commit->tx = create_commit_tx(peer->local.commit,
 						  &peer->local.finalkey,
