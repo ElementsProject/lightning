@@ -196,7 +196,8 @@ daemon-test-%:
 # These don't work in parallel, so chain the deps
 daemon-test-steal: daemon-test-dump-onchain
 daemon-test-dump-onchain: daemon-test-timeout-anchor
-daemon-test-timeout-anchor: daemon-test-normal
+daemon-test-timeout-anchor: daemon-test-different-fee-rates
+daemon-test-different-fee-rates: daemon-test-normal
 daemon-test-normal: daemon-test-manual-commit
 daemon-test-manual-commit: daemon-test-mutual-close-with-htlcs
 daemon-test-mutual-close-with-htlcs: daemon-all

@@ -61,6 +61,9 @@ while [ $# != 0 ]; do
 	x"--mutual-close-with-htlcs")
 	    CLOSE_WITH_HTLCS=1
 	    ;;
+	x"--different-fee-rates")
+	    DIFFERENT_FEES=1
+	    ;;
 	x"--normal")
 	    ;;
 	x"--crash")
@@ -247,6 +250,13 @@ locktime=600
 commit-time=$COMMIT_TIME
 EOF
 
+if [ -n "$DIFFERENT_FEES" ]; then
+    FEE_RATE2=300000
+    CLOSE_FEE_RATE2=30000
+    echo "commit-fee-rate=$FEE_RATE2" >> $DIR2/config
+    echo "closing-fee-rate=$CLOSE_FEE_RATE2" >> $DIR2/config
+fi
+
 if [ -n "$GDB1" ]; then
     echo Press return once you run: gdb --args daemon/lightningd --lightning-dir=$DIR1 >&2
     read REPLY
@@ -342,6 +352,56 @@ $CLI generate 3
 
 check_peerstate lcli1 STATE_NORMAL
 check_peerstate lcli2 STATE_NORMAL
+
+if [ -n "$DIFFERENT_FEES" ]; then 
+    # This is 100,000 satoshi, so covers fees.
+    HTLC_AMOUNT=100000000
+
+    # Asymmetry, since fee rates different.
+    NO_HTLCS_FEE2=$((338 * $FEE_RATE2 / 2000 * 2000))
+    ONE_HTLCS_FEE2=$(( (338 + 32) * $FEE_RATE2 / 2000 * 2000))
+
+    A_AMOUNT1=$(($AMOUNT - $NO_HTLCS_FEE))
+    A_FEE1=$NO_HTLCS_FEE
+    A_AMOUNT2=$(($AMOUNT - $NO_HTLCS_FEE2))
+    A_FEE2=$NO_HTLCS_FEE2
+    B_AMOUNT=0
+    B_FEE=0
+    
+    check_status_single lcli1 $A_AMOUNT1 $A_FEE1 "" $B_AMOUNT $B_FEE "" 
+    check_status_single lcli2 $B_AMOUNT $B_FEE "" $(($A_AMOUNT2)) $(($A_FEE2)) ""
+
+    EXPIRY=$(( $(date +%s) + 1000))
+    SECRET=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd
+    RHASH=`lcli1 dev-rhash $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
+    lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
+    [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+    [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+    check_status_single lcli2 0 0 "" $(($AMOUNT - $HTLC_AMOUNT - $ONE_HTLCS_FEE2)) $(($ONE_HTLCS_FEE2)) '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } '
+    lcli2 fulfillhtlc $ID1 $SECRET
+    [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+    [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+
+    check_status_single lcli1 $(($AMOUNT - $HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) "" $(($HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) ""
+    check_status_single lcli2 $(($HTLC_AMOUNT - $NO_HTLCS_FEE2 / 2)) $(($NO_HTLCS_FEE2 / 2)) "" $(($AMOUNT - $HTLC_AMOUNT - $NO_HTLCS_FEE2 / 2)) $(($NO_HTLCS_FEE2 / 2)) ""
+
+    lcli1 close $ID2
+    # Make sure they notice it.
+    check_peerstate lcli1 STATE_MUTUAL_CLOSING
+    check_peerstate lcli2 STATE_MUTUAL_CLOSING
+    $CLI generate 1
+    check_peerstate lcli1 STATE_CLOSE_ONCHAIN_MUTUAL
+    check_peerstate lcli2 STATE_CLOSE_ONCHAIN_MUTUAL
+    # Give it 100 blocks.
+    $CLI generate 100
+    check_no_peers lcli1
+    check_no_peers lcli2
+
+    lcli1 stop
+    lcli2 stop
+
+    all_ok
+fi
 
 A_AMOUNT=$(($AMOUNT - $NO_HTLCS_FEE))
 A_FEE=$NO_HTLCS_FEE
