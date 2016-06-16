@@ -57,6 +57,7 @@ CCAN_OBJS :=					\
 	ccan-crypto-ripemd160.o			\
 	ccan-crypto-sha256.o			\
 	ccan-crypto-shachain.o			\
+	ccan-asort.o				\
 	ccan-err.o				\
 	ccan-hash.o				\
 	ccan-htable.o				\
@@ -357,6 +358,8 @@ ccan-tal-grab_file.o: $(CCANDIR)/ccan/tal/grab_file/grab_file.c
 ccan-take.o: $(CCANDIR)/ccan/take/take.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-list.o: $(CCANDIR)/ccan/list/list.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-asort.o: $(CCANDIR)/ccan/asort/asort.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-read_write_all.o: $(CCANDIR)/ccan/read_write_all/read_write_all.c
 	$(CC) $(CFLAGS) -c -o $@ $<
