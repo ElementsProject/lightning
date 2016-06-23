@@ -25,7 +25,8 @@ FEATURES := $(BITCOIN_FEATURES)
 TEST_PROGRAMS :=				\
 	test/onion_key				\
 	test/test_protocol			\
-	test/test_onion
+	test/test_onion				\
+	test/test_sphinx
 
 BITCOIN_SRC :=					\
 	bitcoin/base58.c			\
@@ -38,6 +39,7 @@ BITCOIN_SRC :=					\
 	bitcoin/signature.c			\
 	bitcoin/tx.c				\
 	bitcoin/varint.c
+
 BITCOIN_OBJS := $(BITCOIN_SRC:.c=.o)
 
 CORE_SRC :=					\
