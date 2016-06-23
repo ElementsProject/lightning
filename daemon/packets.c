@@ -809,7 +809,6 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	 * SHA256 hash of `revocation_preimage` matches the previous commitment
 	 * transaction, and MUST fail if it does not.
 	 */
-	/* FIXME: Save preimage in shachain too. */
 	if (!check_preimage(r->revocation_preimage, &ci->revocation_hash))
 		return pkt_err(peer, "complete preimage incorrect");
 
@@ -818,6 +817,9 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	ci->revocation_preimage = tal(ci, struct sha256);
 
 	proto_to_sha256(r->revocation_preimage, ci->revocation_preimage);
+
+    // save revocation preimages in shachain
+    shachain_add_hash(&peer->their_preimages, 0xFFFFFFFFFFFFFFFFL - ci->commit_num, ci->revocation_preimage);
 
 	/* Save next revocation hash. */
 	proto_to_sha256(r->next_revocation_hash,
