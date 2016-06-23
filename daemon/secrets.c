@@ -148,14 +148,14 @@ void peer_secrets_init(struct peer *peer)
 		       sizeof(peer->secrets->revocation_seed.u.u8)) != 1)
 		fatal("Could not get random bytes for revocation seed");
 
-    shachain_init(&peer->their_preimages);
+	shachain_init(&peer->their_preimages);
 }
 
 void peer_get_revocation_preimage(const struct peer *peer, u64 index,
 				  struct sha256 *preimage)
 {
-    // generate hashes in reverse order, otherwise the first hash gives away everything
-    shachain_from_seed(&peer->secrets->revocation_seed, 0xFFFFFFFFFFFFFFFFL - index, preimage);
+	// generate hashes in reverse order, otherwise the first hash gives away everything
+	shachain_from_seed(&peer->secrets->revocation_seed, 0xFFFFFFFFFFFFFFFFL - index, preimage);
 }
 	
 void peer_get_revocation_hash(const struct peer *peer, u64 index,

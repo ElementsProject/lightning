@@ -216,8 +216,8 @@ struct peer {
 	/* Stuff we have in common. */
 	struct peer_visible_state local, remote;
 
-    /* this is where we will store their revocation preimages*/
-    struct shachain their_preimages;
+	/* this is where we will store their revocation preimages*/
+	struct shachain their_preimages;
 };
 
 void setup_listeners(struct lightningd_state *dstate, unsigned int portnum);
