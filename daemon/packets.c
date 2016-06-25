@@ -819,7 +819,8 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	proto_to_sha256(r->revocation_preimage, ci->revocation_preimage);
 
 	// save revocation preimages in shachain
-	shachain_add_hash(&peer->their_preimages, 0xFFFFFFFFFFFFFFFFL - ci->commit_num, ci->revocation_preimage);
+	if (!shachain_add_hash(&peer->their_preimages, 0xFFFFFFFFFFFFFFFFL - ci->commit_num, ci->revocation_preimage))
+		return pkt_err(peer, "preimage not next in shachain");
 
 	/* Save next revocation hash. */
 	proto_to_sha256(r->next_revocation_hash,
