@@ -11,6 +11,7 @@
 #include "netaddr.h"
 #include "state.h"
 #include <ccan/crypto/sha256/sha256.h>
+#include <ccan/crypto/shachain/shachain.h>
 #include <ccan/list/list.h>
 #include <ccan/time/time.h>
 
@@ -214,6 +215,9 @@ struct peer {
 
 	/* Stuff we have in common. */
 	struct peer_visible_state local, remote;
+
+	/* this is where we will store their revocation preimages*/
+	struct shachain their_preimages;
 };
 
 void setup_listeners(struct lightningd_state *dstate, unsigned int portnum);
