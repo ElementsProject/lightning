@@ -10,7 +10,7 @@ INIT=$1
 if [ -n "$INIT" ]; then
     # To activate segwit via BIP9, we need at least 432 blocks!
     $CLI generate 432
-    if $CLI getblockchaininfo | tr -s '\012\011 ' ' ' | grep -q '{ "id": "witness", "status": "active" }'; then :
+    if $CLI getblockchaininfo | tr -s '\012\011 ' ' ' | grep -q '"segwit": { "status": "active",'; then :
     else
 	echo "Segwit not activated after 432 blocks?" >&2
 	$CLI getblockchaininfo >&2

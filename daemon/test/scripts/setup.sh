@@ -29,10 +29,10 @@ while ! $CLI getinfo >/dev/null 2>&1; do
 done
 
 # Make sure they have segwit support!
-if $CLI getblockchaininfo | grep -q '"witness"'; then :
+if $CLI getblockchaininfo | grep -q '"segwit"'; then :
 else
     echo This bitcoind does not have segwit support. >&2
-    echo Please install one from https://github.com/sipa/bitcoin/tree/segwit4 >&2
+    echo Please install a recent one >&2
     exit 1
 fi
 
