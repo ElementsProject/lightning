@@ -613,15 +613,20 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	/* BOLT #2:
 	 *
 	 * A node MUST NOT set `id` equal to another HTLC which is in
-	 * the current staged commitment transaction.
+	 * any unrevoked commitment transaction.
 	 */
-	if (funding_htlc_by_id(peer->remote.staging_cstate, u->id, THEIRS) != -1)
+	/* Note that it's not *our* problem if they do this, it's
+	 * theirs (future confusion).  Nonetheless, we detect and
+	 * error for them. */
+	if (funding_htlc_by_id(peer->remote.staging_cstate, u->id, THEIRS) != -1
+	    || funding_htlc_by_id(peer->remote.commit->cstate, u->id, THEIRS) != -1) {
 		return pkt_err(peer, "HTLC id %"PRIu64" clashes for you", u->id);
+	}
 
-	/* FIXME: Assert this... */
-	/* Note: these should be in sync, so this should be redundant! */
-	if (funding_htlc_by_id(peer->local.staging_cstate, u->id, THEIRS) != -1)
-		return pkt_err(peer, "HTLC id %"PRIu64" clashes for us", u->id);
+	if (funding_htlc_by_id(peer->local.staging_cstate, u->id, THEIRS) != -1
+	    || funding_htlc_by_id(peer->local.commit->cstate, u->id, THEIRS) != -1) {
+		return pkt_err(peer, "HTLC id %"PRIu64" clashes for you", u->id);
+	}
 
 	/* BOLT #2:
 	 *
