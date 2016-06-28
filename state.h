@@ -101,7 +101,10 @@ void queue_pkt_anchor(struct peer *peer);
 void queue_pkt_open_commit_sig(struct peer *peer);
 void queue_pkt_open_complete(struct peer *peer);
 void queue_pkt_htlc_add(struct peer *peer,
-			const struct channel_htlc *htlc);
+			u64 id,
+			u64 msatoshis,
+			const struct sha256 *rhash,
+			u32 expiry);
 void queue_pkt_htlc_fulfill(struct peer *peer, u64 id, const struct rval *r);
 void queue_pkt_htlc_fail(struct peer *peer, u64 id);
 void queue_pkt_commit(struct peer *peer);

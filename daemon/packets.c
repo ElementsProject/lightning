@@ -168,17 +168,25 @@ void queue_pkt_open_complete(struct peer *peer)
 	queue_pkt(peer, PKT__PKT_OPEN_COMPLETE, o);
 }
 
-void queue_pkt_htlc_add(struct peer *peer, const struct channel_htlc *htlc)
+void queue_pkt_htlc_add(struct peer *peer,
+			u64 id,
+			u64 msatoshis,
+			const struct sha256 *rhash,
+			u32 expiry)
 {
 	UpdateAddHtlc *u = tal(peer, UpdateAddHtlc);
 	union htlc_staging stage;
+	struct abs_locktime locktime;
+	struct channel_htlc *htlc;
 
 	update_add_htlc__init(u);
 
-	u->id = htlc->id;
-	u->amount_msat = htlc->msatoshis;
-	u->r_hash = sha256_to_proto(u, &htlc->rhash);
-	u->expiry = abs_locktime_to_proto(u, &htlc->expiry);
+	u->id = id;
+	u->amount_msat = msatoshis;
+	u->r_hash = sha256_to_proto(u, rhash);
+	if (!blocks_to_abs_locktime(expiry, &locktime))
+		fatal("Invalid locktime?");
+	u->expiry = abs_locktime_to_proto(u, &locktime);
 	/* FIXME: routing! */
 	u->route = tal(u, Routing);
 	routing__init(u->route);
@@ -188,11 +196,9 @@ void queue_pkt_htlc_add(struct peer *peer, const struct channel_htlc *htlc)
 	 * The sending node MUST add the HTLC addition to the unacked
 	 * changeset for its remote commitment
 	 */
-	if (!funding_add_htlc(peer->remote.staging_cstate,
-			      htlc->msatoshis,
-			      &htlc->expiry,
-			      &htlc->rhash,
-			      htlc->id, OURS))
+	htlc = funding_add_htlc(peer->remote.staging_cstate,
+				msatoshis, &locktime, rhash, id, OURS);
+	if (!htlc)
 		fatal("Could not add HTLC?");
 
 	stage.add.add = HTLC_ADD;

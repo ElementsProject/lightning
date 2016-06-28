@@ -552,6 +552,81 @@ static bool command_htlc_fulfill(struct peer *peer,
 	return true;
 }
 
+static bool command_htlc_add(struct peer *peer, u64 msatoshis,
+			     unsigned int expiry,
+			     const struct sha256 *rhash)
+{
+	struct channel_state *cstate;
+	struct abs_locktime locktime;
+
+	if (!blocks_to_abs_locktime(expiry, &locktime)) {
+		log_unusual(peer->log, "add_htlc: fail: bad expiry %u", expiry);
+		return false;
+	}
+
+	if (expiry < get_block_height(peer->dstate) + peer->dstate->config.min_htlc_expiry) {
+		log_unusual(peer->log, "add_htlc: fail: expiry %u is too soon",
+			    expiry);
+		return false;
+	}
+
+	if (expiry > get_block_height(peer->dstate) + peer->dstate->config.max_htlc_expiry) {
+		log_unusual(peer->log, "add_htlc: fail: expiry %u is too far",
+			    expiry);
+		return false;
+	}
+
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT add a HTLC if it would result in it
+	 * offering more than 300 HTLCs in either commitment transaction.
+	 */
+	if (tal_count(peer->local.staging_cstate->side[OURS].htlcs) == 300
+	    || tal_count(peer->remote.staging_cstate->side[OURS].htlcs) == 300) {
+		log_unusual(peer->log, "add_htlc: fail: already at limit");
+		return false;
+	}
+
+	if (!state_can_add_htlc(peer->state)) {
+		log_unusual(peer->log, "add_htlc: fail: peer state %s",
+			    state_name(peer->state));
+		return false;
+	}
+
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT offer `amount_msat` it cannot pay for in
+	 * both commitment transactions at the current `fee_rate`
+	 */
+	cstate = copy_funding(peer, peer->remote.staging_cstate);
+	if (!funding_add_htlc(cstate, msatoshis,
+			      &locktime, rhash, peer->htlc_id_counter, OURS)) {
+		log_unusual(peer->log, "add_htlc: fail: Cannot afford %"PRIu64
+			    " milli-satoshis in their commit tx",
+			    msatoshis);
+		return false;
+	}
+	tal_free(cstate);
+
+	cstate = copy_funding(peer, peer->local.staging_cstate);
+	if (!funding_add_htlc(cstate, msatoshis,
+			      &locktime, rhash, peer->htlc_id_counter, OURS)) {
+		log_unusual(peer->log, "add_htlc: fail: Cannot afford %"PRIu64
+			    " milli-satoshis in our commit tx",
+			    msatoshis);
+		return false;
+	}
+	tal_free(cstate);
+
+	queue_pkt_htlc_add(peer, peer->htlc_id_counter,
+			   msatoshis, rhash, expiry);
+
+	/* Make sure we never offer the same one twice. */
+	peer->htlc_id_counter++;
+
+	return true;
+}
+
 static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 {
 	Pkt *out;
@@ -2416,74 +2491,14 @@ const struct json_command getpeers_command = {
 	"Returns a 'peers' array"
 };
 
-static void do_newhtlc(struct peer *peer,
-		       struct channel_htlc *htlc,
-		       struct command *jsoncmd)
-{
-	struct channel_state *cstate;
-
-	/* Assign unique ID. */
-	htlc->id = peer->htlc_id_counter;
-
-	/* BOLT #2:
-	 *
-	 * A node MUST NOT add a HTLC if it would result in it
-	 * offering more than 300 HTLCs in either commitment transaction.
-	 */
-	if (tal_count(peer->local.staging_cstate->side[OURS].htlcs) == 300
-	    || tal_count(peer->remote.staging_cstate->side[OURS].htlcs) == 300) {
-		command_fail(jsoncmd, "Too many HTLCs");
-		return;
-	}
-
-	if (!state_can_add_htlc(peer->state)) {
-		command_fail(jsoncmd, "Channel closing, state %s",
-			     state_name(peer->state));
-		return;
-	}
-	
-	/* BOLT #2:
-	 *
-	 * A node MUST NOT offer `amount_msat` it cannot pay for in
-	 * both commitment transactions at the current `fee_rate`
-	 */
-	cstate = copy_funding(jsoncmd, peer->remote.staging_cstate);
-	if (!funding_add_htlc(cstate, htlc->msatoshis,
-			      &htlc->expiry, &htlc->rhash,
-			      htlc->id, OURS)) {
-		command_fail(jsoncmd,
-			     "Cannot afford %"PRIu64
-			     " milli-satoshis in their commit tx",
-			     htlc->msatoshis);
-		return;
-	}
-
-	cstate = copy_funding(jsoncmd, peer->local.staging_cstate);
-	if (!funding_add_htlc(cstate, htlc->msatoshis,
-			      &htlc->expiry, &htlc->rhash,
-			      htlc->id, OURS)) {
-		command_fail(jsoncmd,
-			     "Cannot afford %"PRIu64
-			     " milli-satoshis in our commit tx",
-			     htlc->msatoshis);
-		return;
-	}
-
-	/* Make sure we never offer the same one twice. */
-	peer->htlc_id_counter++;	
-
-	/* FIXME: Never propose duplicate rvalues? */
-	queue_pkt_htlc_add(peer, htlc);
-	command_success(jsoncmd, null_response(jsoncmd));
-}
-
 static void json_newhtlc(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	struct peer *peer;
 	jsmntok_t *peeridtok, *msatoshistok, *expirytok, *rhashtok;
 	unsigned int expiry;
-	struct channel_htlc htlc;
+	u64 msatoshis;
+	struct sha256 rhash;
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,
@@ -2506,7 +2521,7 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
-	if (!json_tok_u64(buffer, msatoshistok, &htlc.msatoshis)) {
+	if (!json_tok_u64(buffer, msatoshistok, &msatoshis)) {
 		command_fail(cmd, "'%.*s' is not a valid number",
 			     (int)(msatoshistok->end - msatoshistok->start),
 			     buffer + msatoshistok->start);
@@ -2519,36 +2534,21 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
-	if (!blocks_to_abs_locktime(expiry, &htlc.expiry)) {
-		command_fail(cmd, "'%.*s' is not a valid number block number",
-			     (int)(expirytok->end - expirytok->start),
-			     buffer + expirytok->start);
-		return;
-	}
-
-	if (abs_locktime_to_blocks(&htlc.expiry) <
-	    get_block_height(peer->dstate) + peer->dstate->config.min_htlc_expiry) {
-		command_fail(cmd, "HTLC expiry too soon!");
-		return;
-	}
-
-	if (abs_locktime_to_blocks(&htlc.expiry) >
-	    get_block_height(peer->dstate) + peer->dstate->config.max_htlc_expiry) {
-		command_fail(cmd, "HTLC expiry too far!");
-		return;
-	}
-
 	if (!hex_decode(buffer + rhashtok->start,
 			rhashtok->end - rhashtok->start,
-			&htlc.rhash,
-			sizeof(htlc.rhash))) {
+			&rhash, sizeof(rhash))) {
 		command_fail(cmd, "'%.*s' is not a valid sha256 hash",
 			     (int)(rhashtok->end - rhashtok->start),
 			     buffer + rhashtok->start);
 		return;
 	}
 
-	do_newhtlc(peer, &htlc, cmd);
+	if (!command_htlc_add(peer, msatoshis, expiry, &rhash)) {
+		command_fail(cmd, "could not add htlc");
+		return;
+	}
+
+	command_success(cmd, null_response(cmd));
 }
 
 /* FIXME: Use HTLC ids, not r values! */
