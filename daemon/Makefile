@@ -71,7 +71,7 @@ check-daemon-makefile:
 	@if [ "`echo daemon/*.h`" != "$(DAEMON_HEADERS)" ]; then echo DAEMON_HEADERS incorrect; exit 1; fi
 
 # Git submodules are seriously broken.
-daemon/jsmn/jsmn.c:
+daemon/jsmn/jsmn.c daemon/jsmn/jsmn.h:
 	git submodule update daemon/jsmn/
 	[ -f $@ ] || git submodule update --init daemon/jsmn/
 
