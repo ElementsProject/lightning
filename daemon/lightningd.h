@@ -90,5 +90,8 @@ struct lightningd_state {
 
 	/* Wallet addresses we maintain. */
 	struct list_head wallet;
+
+	/* Payments for r values we know about. */
+	struct list_head payments;
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */

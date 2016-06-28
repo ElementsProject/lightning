@@ -68,4 +68,5 @@ extern const struct json_command newaddr_command;
 extern const struct json_command disconnect_command;
 extern const struct json_command signcommit_command;
 extern const struct json_command output_command;
+extern const struct json_command accept_payment_command;
 #endif /* LIGHTNING_DAEMON_JSONRPC_H */

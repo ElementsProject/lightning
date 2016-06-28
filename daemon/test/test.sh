@@ -415,6 +415,11 @@ HTLC_AMOUNT=10000000
 EXPIRY=$(( $(date +%s) + 1000))
 SECRET=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd
 RHASH=`lcli1 dev-rhash $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
+
+# Tell node2 about payment: hash should be the same.
+RHASH2=`lcli2 accept-payment $HTLC_AMOUNT $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
+[ "$RHASH" = "$RHASH2" ]
+
 lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
 
 if [ -n "$MANUALCOMMIT" ]; then

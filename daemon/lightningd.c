@@ -206,6 +206,7 @@ static struct lightningd_state *lightningd_state(void)
 	default_config(&dstate->config);
 	list_head_init(&dstate->bitcoin_req);
 	list_head_init(&dstate->wallet);
+	list_head_init(&dstate->payments);
 	dstate->bitcoin_req_running = false;
 	return dstate;
 }
