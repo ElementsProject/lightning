@@ -167,18 +167,17 @@ void queue_pkt_open_complete(struct peer *peer)
 	queue_pkt(peer, PKT__PKT_OPEN_COMPLETE, o);
 }
 
-void queue_pkt_htlc_add(struct peer *peer,
-		  const struct htlc_progress *htlc_prog)
+void queue_pkt_htlc_add(struct peer *peer, const struct channel_htlc *htlc)
 {
 	UpdateAddHtlc *u = tal(peer, UpdateAddHtlc);
+	union htlc_staging stage;
 
 	update_add_htlc__init(u);
-	assert(htlc_prog->stage.type == HTLC_ADD);
 
-	u->id = htlc_prog->stage.add.htlc.id;
-	u->amount_msat = htlc_prog->stage.add.htlc.msatoshis;
-	u->r_hash = sha256_to_proto(u, &htlc_prog->stage.add.htlc.rhash);
-	u->expiry = abs_locktime_to_proto(u, &htlc_prog->stage.add.htlc.expiry);
+	u->id = htlc->id;
+	u->amount_msat = htlc->msatoshis;
+	u->r_hash = sha256_to_proto(u, &htlc->rhash);
+	u->expiry = abs_locktime_to_proto(u, &htlc->expiry);
 	/* FIXME: routing! */
 	u->route = tal(u, Routing);
 	routing__init(u->route);
@@ -189,16 +188,19 @@ void queue_pkt_htlc_add(struct peer *peer,
 	 * changeset for its remote commitment
 	 */
 	if (!funding_add_htlc(peer->remote.staging_cstate,
-			      htlc_prog->stage.add.htlc.msatoshis,
-			      &htlc_prog->stage.add.htlc.expiry,
-			      &htlc_prog->stage.add.htlc.rhash,
-			      htlc_prog->stage.add.htlc.id, OURS))
+			      htlc->msatoshis,
+			      &htlc->expiry,
+			      &htlc->rhash,
+			      htlc->id, OURS))
 		fatal("Could not add HTLC?");
-	add_unacked(&peer->remote, &htlc_prog->stage);
+
+	stage.add.add = HTLC_ADD;
+	stage.add.htlc = *htlc;
+	add_unacked(&peer->remote, &stage);
 
 	remote_changes_pending(peer);
 
-	peer_add_htlc_expiry(peer, &htlc_prog->stage.add.htlc.expiry);
+	peer_add_htlc_expiry(peer, &htlc->expiry);
 
 	queue_pkt(peer, PKT__PKT_UPDATE_ADD_HTLC, u);
 }

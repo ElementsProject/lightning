@@ -497,12 +497,11 @@ static bool command_htlc_fail(struct peer *peer, u64 id)
 		queue_pkt_htlc_fail(peer, id);
 	} else {
 		union input idata;
-		struct htlc_progress prog;
+		union htlc_staging stage;
 
-		prog.stage.fail.fail = HTLC_FAIL;
-		prog.stage.fail.id = id;
-		/* FIXME: get rid of htlc_progress, just use htlc_staging. */
-		idata.htlc_prog = &prog;
+		stage.fail.fail = HTLC_FAIL;
+		stage.fail.id = id;
+		idata.stage = &stage;
 		state_event(peer, CMD_SEND_HTLC_FAIL, &idata);
 	}
 	return true;
@@ -522,13 +521,12 @@ static bool command_htlc_fulfill(struct peer *peer,
 		queue_pkt_htlc_fulfill(peer, id, r);
 	} else {
 		union input idata;
-		struct htlc_progress prog;
+		union htlc_staging stage;
 
-		prog.stage.fulfill.fulfill = HTLC_FULFILL;
-		prog.stage.fulfill.r = *r;
-		prog.stage.fulfill.id = id;
-		/* FIXME: get rid of htlc_progress, just use htlc_staging. */
-		idata.htlc_prog = &prog;
+		stage.fulfill.fulfill = HTLC_FULFILL;
+		stage.fulfill.r = *r;
+		stage.fulfill.id = id;
+		idata.stage = &stage;
 		state_event(peer, CMD_SEND_HTLC_FULFILL, &idata);
 	}
 	return true;
@@ -2324,12 +2322,12 @@ static void do_newhtlc(struct peer *peer,
 {
 	struct channel_state *cstate;
 	union input idata;
-	struct htlc_progress prog;
+	union htlc_staging stage;
 
 	/* Now we can assign counter and guarantee uniqueness. */
-	prog.stage.add.add = HTLC_ADD;
-	prog.stage.add.htlc = *htlc;
-	prog.stage.add.htlc.id = peer->htlc_id_counter;
+	stage.add.add = HTLC_ADD;
+	stage.add.htlc = *htlc;
+	stage.add.htlc.id = peer->htlc_id_counter;
 
 	/* BOLT #2:
 	 *
@@ -2379,7 +2377,7 @@ static void do_newhtlc(struct peer *peer,
 	peer->htlc_id_counter++;	
 
 	/* FIXME: Never propose duplicate rvalues? */
-	idata.htlc_prog = &prog;
+	idata.stage = &stage;
 	state_event(peer, CMD_SEND_HTLC_ADD, &idata);
 	command_success(jsoncmd, null_response(jsoncmd));
 }

@@ -80,19 +80,10 @@ static inline bool input_is_pkt(enum state_input input)
 }
 
 union input {
+	/* For PKT_* */
 	Pkt *pkt;
-	struct command *cmd;
-	struct bitcoin_tx *tx;
-	struct htlc_progress *htlc_prog;
-	struct commit_info *ci;
-	struct htlc_onchain {
-		/* Which commitment we using. */
-		struct commit_info *ci;
-		/* Which HTLC. */
-		size_t i;
-		/* The rvalue (or NULL). */
-		u8 *r;
-	} *htlc_onchain;
+	/* For CMD_SEND_HTLC_ADD, CMD_SEND_HTLC_FULFILL, CMD_SEND_HTLC_FAIL */
+	union htlc_staging *stage;
 };
 
 enum state state(struct peer *peer,
@@ -125,17 +116,13 @@ struct signature;
 /* Inform peer have an unexpected packet. */
 void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt);
 
-/* An on-chain transaction revealed an R value. */
-void peer_tx_revealed_r_value(struct peer *peer,
-			      const struct htlc_onchain *htlc_onchain);
-
 /* Send various kinds of packets */
 void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor);
 void queue_pkt_anchor(struct peer *peer);
 void queue_pkt_open_commit_sig(struct peer *peer);
 void queue_pkt_open_complete(struct peer *peer);
 void queue_pkt_htlc_add(struct peer *peer,
-			const struct htlc_progress *htlc_prog);
+			const struct channel_htlc *htlc);
 void queue_pkt_htlc_fulfill(struct peer *peer, u64 id, const struct sha256 *r);
 void queue_pkt_htlc_fail(struct peer *peer, u64 id);
 void queue_pkt_commit(struct peer *peer);

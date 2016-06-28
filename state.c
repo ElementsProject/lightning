@@ -251,19 +251,20 @@ enum state state(struct peer *peer,
 	case STATE_NORMAL_COMMITTING:
 		if (input_is(input, CMD_SEND_HTLC_ADD)) {
 			/* We are to send an HTLC add. */
-			queue_pkt_htlc_add(peer, idata->htlc_prog);
+			assert(idata->stage->type == HTLC_ADD);
+			queue_pkt_htlc_add(peer, &idata->stage->add.htlc);
 			return unchanged_state(peer, input);
 		} else if (input_is(input, CMD_SEND_HTLC_FULFILL)) {
-			assert(idata->htlc_prog->stage.type == HTLC_FULFILL);
+			assert(idata->stage->type == HTLC_FULFILL);
 			/* We are to send an HTLC fulfill. */
 			queue_pkt_htlc_fulfill(peer,
-					       idata->htlc_prog->stage.fulfill.id,
-					       &idata->htlc_prog->stage.fulfill.r);
+					       idata->stage->fulfill.id,
+					       &idata->stage->fulfill.r);
 			return unchanged_state(peer, input);
 		} else if (input_is(input, CMD_SEND_HTLC_FAIL)) {
-			assert(idata->htlc_prog->stage.type == HTLC_FAIL);
+			assert(idata->stage->type == HTLC_FAIL);
 			/* We are to send an HTLC fail. */
-			queue_pkt_htlc_fail(peer, idata->htlc_prog->stage.fail.id);
+			queue_pkt_htlc_fail(peer, idata->stage->fail.id);
 			return unchanged_state(peer, input);
 		}
 		/* Only expect revocation in STATE_NORMAL_COMMITTING */

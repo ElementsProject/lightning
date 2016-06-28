@@ -94,11 +94,6 @@ struct peer_visible_state {
 	struct channel_state *staging_cstate;
 };
 
-struct htlc_progress {
-	/* The HTLC we're working on. */
-	union htlc_staging stage;
-};
-
 struct out_pkt {
 	Pkt *pkt;
 	void (*ack_cb)(struct peer *peer, void *arg);
