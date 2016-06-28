@@ -82,25 +82,27 @@ struct channel_htlc *funding_add_htlc(struct channel_state *cstate,
 /**
  * funding_fail_htlc: remove an HTLC, funds to the side which offered it.
  * @cstate: The channel state
- * @index: the index into cstate->side[dir].htlcs[].
+ * @htlc: the htlc in cstate->side[dir].htlcs[].
  * @side: OURS or THEIRS
  *
  * This will remove the @index'th entry in cstate->side[dir].htlcs[], and credit
  * the value of the HTLC (back) to cstate->side[dir].
  */
-void funding_fail_htlc(struct channel_state *cstate, size_t index,
+void funding_fail_htlc(struct channel_state *cstate,
+		       struct channel_htlc *htlc,
 		       enum channel_side side);
 
 /**
  * funding_fulfill_htlc: remove an HTLC, funds to side which accepted it.
  * @cstate: The channel state
- * @index: the index into cstate->a.htlcs[].
+ * @htlc: the htlc in cstate->side[dir].htlcs[].
  * @side: OURS or THEIRS
  *
  * This will remove the @index'th entry in cstate->side[dir].htlcs[], and credit
  * the value of the HTLC to cstate->side[!dir].
  */
-void funding_fulfill_htlc(struct channel_state *cstate, size_t index,
+void funding_fulfill_htlc(struct channel_state *cstate,
+			  struct channel_htlc *htlc,
 			  enum channel_side side);
 
 /**
@@ -139,11 +141,11 @@ size_t funding_find_htlc(const struct channel_state *cstate,
  * @id: id for HTLC.
  * @side: OURS or THEIRS
  *
- * Returns a number < tal_count(cstate->side[dir].htlcs), or -1 on fail.
+ * Returns a pointer into cstate->side[@side].htlcs, or NULL.
  */
-size_t funding_htlc_by_id(const struct channel_state *cstate,
-			  uint64_t id,
-			  enum channel_side side);
+struct channel_htlc *funding_htlc_by_id(const struct channel_state *cstate,
+					uint64_t id,
+					enum channel_side side);
 
 /**
  * fee_for_feerate: calculate the fee (in satoshi) for a given fee_rate.

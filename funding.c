@@ -251,45 +251,48 @@ struct channel_htlc *funding_add_htlc(struct channel_state *cstate,
 static void remove_htlc(struct channel_state *cstate,
 			enum channel_side creator,
 			enum channel_side beneficiary,
-			size_t i)
+			struct channel_htlc *htlc)
 {
-	size_t n = tal_count(cstate->side[creator].htlcs);
 	size_t nondust;
+	size_t n = tal_count(cstate->side[creator].htlcs); 
+	const struct channel_htlc *end;
 
-	assert(i < n);
+	end = cstate->side[creator].htlcs + n;
+
+	assert(htlc >= cstate->side[creator].htlcs && htlc < end);
 
 	/* Remember to remove this one in total txsize if not dust! */
 	nondust = total_nondust_htlcs(cstate);
-	if (!is_dust_amount(cstate->side[creator].htlcs[i].msatoshis / 1000)) {
+	if (!is_dust_amount(htlc->msatoshis / 1000)) {
 		assert(nondust > 0);
 		nondust--;
 	}
 
 	/* Can't fail since msatoshis is positive. */
 	if (!change_funding(cstate->anchor, cstate->fee_rate,
-			    -(int64_t)cstate->side[creator].htlcs[i].msatoshis,
+			    -(int64_t)htlc->msatoshis,
 			    &cstate->side[beneficiary],
 			    &cstate->side[!beneficiary], nondust))
 		abort();
 
 	/* Actually remove the HTLC. */
-	memmove(cstate->side[creator].htlcs + i,
-		cstate->side[creator].htlcs + i + 1,
-		(n - i - 1) * sizeof(*cstate->side[creator].htlcs));
+	memmove(htlc, htlc + 1, (end - htlc - 1) * sizeof(*htlc));
 	tal_resize(&cstate->side[creator].htlcs, n-1);
 	cstate->changes++;
 }
 
-void funding_fail_htlc(struct channel_state *cstate, size_t index,
+void funding_fail_htlc(struct channel_state *cstate,
+		       struct channel_htlc *htlc,
 		       enum channel_side side)
 {
-	remove_htlc(cstate, side, side, index);
+	remove_htlc(cstate, side, side, htlc);
 }
 
-void funding_fulfill_htlc(struct channel_state *cstate, size_t index,
+void funding_fulfill_htlc(struct channel_state *cstate,
+			  struct channel_htlc *htlc,
 			  enum channel_side side)
 {
-	remove_htlc(cstate, side, !side, index);
+	remove_htlc(cstate, side, !side, htlc);
 }
 
 size_t funding_find_htlc(const struct channel_state *cstate,
@@ -305,17 +308,17 @@ size_t funding_find_htlc(const struct channel_state *cstate,
 	return -1;
 }
 
-size_t funding_htlc_by_id(const struct channel_state *cstate,
-			  uint64_t id,
-			  enum channel_side side)
+struct channel_htlc *funding_htlc_by_id(const struct channel_state *cstate,
+					uint64_t id,
+					enum channel_side side)
 {
 	size_t i;
 
 	for (i = 0; i < tal_count(cstate->side[side].htlcs); i++) {
 		if (cstate->side[side].htlcs[i].id == id)
-			return i;
+			return &cstate->side[side].htlcs[i];
 	}
-	return -1;
+	return NULL;
 }
 
 struct channel_state *copy_funding(const tal_t *ctx,
