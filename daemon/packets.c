@@ -430,6 +430,7 @@ Pkt *pkt_err(struct peer *peer, const char *msg, ...)
 	e->problem = tal_vfmt(e, msg, ap);
 	va_end(ap);
 
+	log_unusual(peer->log, "Sending PKT_ERROR: %s", e->problem);
 	return make_pkt(peer, PKT__PKT_ERROR, e);
 }
 
