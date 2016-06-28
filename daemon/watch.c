@@ -33,9 +33,10 @@
 #include "lightningd.h"
 #include "log.h"
 #include "peer.h"
+#include "pseudorand.h"
 #include "timeout.h"
 #include "watch.h"
-#include <ccan/hash/hash.h>
+#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/ptrint/ptrint.h>
 #include <ccan/structeq/structeq.h>
 
@@ -46,7 +47,11 @@ const struct txwatch_output *txowatch_keyof(const struct txowatch *w)
 
 size_t txo_hash(const struct txwatch_output *out)
 {
-	return hash(&out->txid, 1, out->index);
+	/* This hash-in-one-go trick only works if they're consecutive. */
+	BUILD_ASSERT(offsetof(struct txwatch_output, index)
+		     == sizeof(((struct txwatch_output *)NULL)->txid));
+	return siphash24(siphash_seed(), &out->txid,
+			 sizeof(out->txid) + sizeof(out->index));
 }
 
 bool txowatch_eq(const struct txowatch *w, const struct txwatch_output *out)
@@ -67,7 +72,7 @@ const struct sha256_double *txwatch_keyof(const struct txwatch *w)
 
 size_t txid_hash(const struct sha256_double *txid)
 {
-	return hash(txid->sha.u.u8, sizeof(txid->sha.u.u8), 0);
+	return siphash24(siphash_seed(), txid->sha.u.u8, sizeof(txid->sha.u.u8));
 }
 
 bool txwatch_eq(const struct txwatch *w, const struct sha256_double *txid)

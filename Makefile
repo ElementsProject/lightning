@@ -58,8 +58,8 @@ CCAN_OBJS :=					\
 	ccan-crypto-sha256.o			\
 	ccan-crypto-shachain.o			\
 	ccan-asort.o				\
+	ccan-crypto-siphash24.o			\
 	ccan-err.o				\
-	ccan-hash.o				\
 	ccan-htable.o				\
 	ccan-ilog.o				\
 	ccan-io-io.o				\
@@ -99,9 +99,9 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/crypto/ripemd160/ripemd160.h	\
 	$(CCANDIR)/ccan/crypto/sha256/sha256.h		\
 	$(CCANDIR)/ccan/crypto/shachain/shachain.h	\
+	$(CCANDIR)/ccan/crypto/siphash24/siphash24.h	\
 	$(CCANDIR)/ccan/endian/endian.h			\
 	$(CCANDIR)/ccan/err/err.h			\
-	$(CCANDIR)/ccan/hash/hash.h			\
 	$(CCANDIR)/ccan/htable/htable.h			\
 	$(CCANDIR)/ccan/htable/htable_type.h		\
 	$(CCANDIR)/ccan/ilog/ilog.h			\
@@ -389,7 +389,7 @@ ccan-cdump.o: $(CCANDIR)/ccan/cdump/cdump.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-strmap.o: $(CCANDIR)/ccan/strmap/strmap.c
 	$(CC) $(CFLAGS) -c -o $@ $<
-ccan-hash.o: $(CCANDIR)/ccan/hash/hash.c
+ccan-crypto-siphash24.o: $(CCANDIR)/ccan/crypto/siphash24/siphash24.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-htable.o: $(CCANDIR)/ccan/htable/htable.c
 	$(CC) $(CFLAGS) -c -o $@ $<
