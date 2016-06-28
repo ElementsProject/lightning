@@ -185,38 +185,35 @@ static struct io_plan *peer_close(struct io_conn *conn, struct peer *peer)
 	return io_wait(conn, NULL, io_never, NULL);
 }
 
-/* Communication failed: send err (if non-NULL), then dump to chain and close. */ 
-static struct io_plan *peer_comms_err(struct io_conn *conn, struct peer *peer,
-				      Pkt *err)
+/* Communication failed: send err (if non-NULL), then dump to chain and close. */
+static bool peer_comms_err(struct peer *peer, Pkt *err)
 {
 	if (err)
 		queue_pkt_err(peer, err);
 
 	set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__);
 	peer_breakdown(peer);
-	return peer_close(conn, peer);
+	return false;
 }
 
 /* Unexpected packet received: stop listening, start breakdown procedure. */
-static struct io_plan *peer_received_unexpected_pkt(struct io_conn *conn,
-						    struct peer *peer,
-						    const Pkt *pkt)
+static bool peer_received_unexpected_pkt(struct peer *peer, const Pkt *pkt)
 {
 	peer_unexpected_pkt(peer, pkt);
-	return peer_comms_err(conn, peer, pkt_err_unexpected(peer, pkt));
+	return peer_comms_err(peer, pkt_err_unexpected(peer, pkt));
 }
 
 /* This is the io loop while we're negotiating closing tx. */
-static struct io_plan *closing_pkt_in(struct io_conn *conn, struct peer *peer)
+static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 {
-	const CloseSignature *c = peer->inpkt->close_signature;
+	const CloseSignature *c = pkt->close_signature;
 	struct bitcoin_tx *close_tx;
 	struct bitcoin_signature theirsig;
 
 	assert(peer->state == STATE_MUTUAL_CLOSING);
 
-	if (peer->inpkt->pkt_case != PKT__PKT_CLOSE_SIGNATURE)
-		return peer_received_unexpected_pkt(conn, peer, peer->inpkt);
+	if (pkt->pkt_case != PKT__PKT_CLOSE_SIGNATURE)
+		return peer_received_unexpected_pkt(peer, pkt);
 
 	log_info(peer->log, "closing_pkt_in: they offered close fee %"PRIu64,
 		 c->close_fee);
@@ -230,8 +227,7 @@ static struct io_plan *closing_pkt_in(struct io_conn *conn, struct peer *peer)
 	if ((c->close_fee & 1)
 	    || c->close_fee > commit_tx_fee(peer->remote.commit->tx,
 					    peer->anchor.satoshis)) {
-		return peer_comms_err(conn, peer,
-				      pkt_err(peer, "Invalid close fee"));
+		return peer_comms_err(peer, pkt_err(peer, "Invalid close fee"));
 	}
 
 	/* FIXME: Don't accept tiny fee at all? */
@@ -245,11 +241,11 @@ static struct io_plan *closing_pkt_in(struct io_conn *conn, struct peer *peer)
 		/* We want more, they should give more. */
 		if (peer->closing.our_fee > peer->closing.their_fee) {
 			if (c->close_fee <= peer->closing.their_fee)
-				return peer_comms_err(conn, peer,
+				return peer_comms_err(peer,
 						      pkt_err(peer, "Didn't increase close fee"));
 		} else {
 			if (c->close_fee >= peer->closing.their_fee)
-				return peer_comms_err(conn, peer,
+				return peer_comms_err(peer,
 						      pkt_err(peer, "Didn't decrease close fee"));
 		}
 	}
@@ -261,7 +257,7 @@ static struct io_plan *closing_pkt_in(struct io_conn *conn, struct peer *peer)
 	 * connection if it is not. */
 	theirsig.stype = SIGHASH_ALL;
 	if (!proto_to_signature(c->sig, &theirsig.sig))
-		return peer_comms_err(conn, peer,
+		return peer_comms_err(peer,
 				      pkt_err(peer, "Invalid signature format"));
 
 	close_tx = peer_create_close_tx(peer, c->close_fee);
@@ -269,7 +265,7 @@ static struct io_plan *closing_pkt_in(struct io_conn *conn, struct peer *peer)
 			  NULL, 0,
 			  peer->anchor.witnessscript,
 			  &peer->remote.commitkey, &theirsig))
-		return peer_comms_err(conn, peer,
+		return peer_comms_err(peer,
 				      pkt_err(peer, "Invalid signature"));
 
 	tal_free(peer->closing.their_sig);
@@ -312,22 +308,18 @@ static struct io_plan *closing_pkt_in(struct io_conn *conn, struct peer *peer)
 		 * SHOULD sign and broadcast the final closing transaction.
 		 */
 		broadcast_tx(peer, bitcoin_close(peer));
-		return peer_close(conn, peer);
+		return false;
 	}
 
 	/* FIXME: Dynamic fee! */
-	return peer_read_packet(conn, peer, closing_pkt_in);
+	return true;
 }
 
 /* This is the io loop while we're clearing. */
-static struct io_plan *clearing_pkt_in(struct io_conn *conn, struct peer *peer)
+static bool clearing_pkt_in(struct peer *peer, const Pkt *pkt)
 {
-	Pkt *err = NULL, *pkt = peer->inpkt;
+	Pkt *err = NULL;
 
-	/* FIXME: always demux via pkt_in */
-	if (peer->state == STATE_MUTUAL_CLOSING)
-		return closing_pkt_in(conn, peer);
-	
 	assert(peer->state == STATE_CLEARING
 	       || peer->state == STATE_CLEARING_COMMITTING);
 
@@ -378,7 +370,7 @@ static struct io_plan *clearing_pkt_in(struct io_conn *conn, struct peer *peer)
 		break;
 	case PKT__PKT_ERROR:
 		peer_unexpected_pkt(peer, pkt);
-		return peer_comms_err(conn, peer, NULL);
+		return peer_comms_err(peer, NULL);
 
 	case PKT__PKT_AUTH:
 	case PKT__PKT_OPEN:
@@ -393,16 +385,15 @@ static struct io_plan *clearing_pkt_in(struct io_conn *conn, struct peer *peer)
 	}
 
 	if (err)
-		return peer_comms_err(conn, peer, err);
+		return peer_comms_err(peer, err);
 
 	if (!committed_to_htlcs(peer)) {
 		set_peer_state(peer, STATE_MUTUAL_CLOSING, __func__);
 		peer_calculate_close_fee(peer);
 		queue_pkt_close_signature(peer);
-		return peer_read_packet(conn, peer, closing_pkt_in);
 	}
 
-	return peer_read_packet(conn, peer, clearing_pkt_in);
+	return true;
 }
 
 static void peer_start_clearing(struct peer *peer)
@@ -435,16 +426,9 @@ static void peer_start_clearing(struct peer *peer)
 }
 	
 /* This is the io loop while we're in normal mode. */
-static struct io_plan *normal_pkt_in(struct io_conn *conn, struct peer *peer)
+static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 {
-	Pkt *err = NULL, *pkt = peer->inpkt;
-
-	/* FIXME: This happens when we close via json; better to always
-	 * demux via pkt_in. */
-	if (state_is_clearing(peer->state))
-		return clearing_pkt_in(conn, peer);
-	if (state_is_error(peer->state) || state_is_onchain(peer->state))
-		return peer_close(conn, peer);
+	Pkt *err = NULL;
 
 	assert(peer->state == STATE_NORMAL
 	       || peer->state == STATE_NORMAL_COMMITTING);
@@ -481,7 +465,7 @@ static struct io_plan *normal_pkt_in(struct io_conn *conn, struct peer *peer)
 		}
 
 		peer_start_clearing(peer);
-		return peer_read_packet(conn, peer, clearing_pkt_in);
+		return true;
 
 	case PKT_UPDATE_REVOCATION:
 		if (peer->state == STATE_NORMAL_COMMITTING) {
@@ -494,14 +478,14 @@ static struct io_plan *normal_pkt_in(struct io_conn *conn, struct peer *peer)
 		}
 		/* Fall thru. */
 	default:
-		return peer_received_unexpected_pkt(conn, peer, pkt);
+		return peer_received_unexpected_pkt(peer, pkt);
 	}	
 
 	if (err) {
-		return peer_comms_err(conn, peer, err);
+		return peer_comms_err(peer, err);
 	}
 
-	return peer_read_packet(conn, peer, normal_pkt_in);
+	return true;
 }
 
 static void state_single(struct peer *peer,
@@ -536,10 +520,6 @@ static void state_single(struct peer *peer,
 		/* Start output if not running already; it will close conn. */
 		io_wake(peer);
 	}
-
-	/* Break out and free this peer if it's completely done. */
-	if (peer->state == STATE_CLOSED && !peer->conn)
-		io_break(peer);
 }
 
 static void state_event(struct peer *peer, 
@@ -598,19 +578,27 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 
 static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 {
-	if (state_is_normal(peer->state))
-		return normal_pkt_in(conn, peer);
-	else if (state_is_clearing(peer->state))
-		return clearing_pkt_in(conn, peer);
-	else if (peer->state == STATE_MUTUAL_CLOSING)
-		return closing_pkt_in(conn, peer);
+	bool keep_going;
 
-	/* We ignore packets if they tell us to. */
-	if (!peer->fake_close && state_can_io(peer->state)) {
+	/* We ignore packets if they tell us to, or we're closing already */
+	if (peer->fake_close || !state_can_io(peer->state))
+		keep_going = true;
+	else if (state_is_normal(peer->state))
+		keep_going = normal_pkt_in(peer, peer->inpkt);
+	else if (state_is_clearing(peer->state))
+		keep_going = clearing_pkt_in(peer, peer->inpkt);
+	else if (peer->state == STATE_MUTUAL_CLOSING)
+		keep_going = closing_pkt_in(peer, peer->inpkt);
+	else {
 		state_event(peer, peer->inpkt->pkt_case, peer->inpkt);
+		keep_going = true;
 	}
 
-	return peer_read_packet(conn, peer, pkt_in);
+	peer->inpkt = tal_free(peer->inpkt);
+	if (keep_going)
+		return peer_read_packet(conn, peer, pkt_in);
+	else
+		return peer_close(conn, peer);
 }
 
 /* Crypto is on, we are live. */
