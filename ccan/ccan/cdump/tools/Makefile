@@ -5,7 +5,7 @@ CFLAGS := -I$(CCANDIR) -Wall
 cdump-enumstr: cdump-enumstr.o $(CCAN_OBJS)
 
 clean:
-	$(RM) cdump-enumstr.o $(CCAN_OBJS)
+	rm -f cdump-enumstr.o $(CCAN_OBJS)
 
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
 	$(CC) $(CFLAGS) -c -o $@ $<

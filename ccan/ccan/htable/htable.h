@@ -75,6 +75,25 @@ bool htable_init_sized(struct htable *ht,
 void htable_clear(struct htable *ht);
 
 /**
+ * htable_copy - duplicate a hash table.
+ * @dst: the hash table to overwrite
+ * @src: the hash table to copy
+ *
+ * Only fails on out-of-memory.
+ *
+ * Equivalent to (but faster than):
+ *    if (!htable_init_sized(dst, src->rehash, src->priv, 1U << src->bits))
+ *	   return false;
+ *    v = htable_first(src, &i);
+ *    while (v) {
+ *		htable_add(dst, v);
+ *		v = htable_next(src, i);
+ *    }
+ *    return true;
+ */
+bool htable_copy(struct htable *dst, const struct htable *src);
+
+/**
  * htable_rehash - use a hashtree's rehash function
  * @elem: the argument to rehash()
  *
@@ -177,6 +196,21 @@ void *htable_first(const struct htable *htable, struct htable_iter *i);
  * This is usually used after htable_first or prior non-NULL htable_next.
  */
 void *htable_next(const struct htable *htable, struct htable_iter *i);
+
+/**
+ * htable_prev - find the previous entry in the hash table
+ * @ht: the hashtable
+ * @i: the struct htable_iter to use
+ *
+ * Get previous entry in the hashtable; NULL if all done.
+ *
+ * "previous" here only means the item that would have been returned by
+ * htable_next() before the item it returned most recently.
+ *
+ * This is usually used in the middle of (or after) a htable_next iteration and
+ * to "unwind" actions taken.
+ */
+void *htable_prev(const struct htable *htable, struct htable_iter *i);
 
 /**
  * htable_delval - remove an iterated pointer from a hash table

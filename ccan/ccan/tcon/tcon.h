@@ -321,6 +321,8 @@
  * tcon_container_of() evaluates to a pointer to the container
  * structure.  With sufficient compiler support, the pointer will be
  * correctly typed, and the type of @member_ptr will be verified.
+ * Note that const is discarded; a const @member_ptr still yields a
+ * non-const container (unless @canary is const).
  *
  * Returns NULL if @member_ptr is NULL.
  */
@@ -330,7 +332,7 @@
 		canary, tcon_container_of_((member_ptr),		\
 					   tcon_offset((x), canary)))
 
-static inline void *tcon_container_of_(void *member_ptr, size_t offset)
+static inline void *tcon_container_of_(const void *member_ptr, size_t offset)
 {
 	return member_ptr ? (char *)member_ptr - offset : NULL;
 }

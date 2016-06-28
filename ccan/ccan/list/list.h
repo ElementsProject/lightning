@@ -111,7 +111,7 @@ struct list_node *list_check_node(const struct list_node *n,
  * Example:
  *	static struct list_head my_list = LIST_HEAD_INIT(my_list);
  */
-#define LIST_HEAD_INIT(name) { { &name.n, &name.n } }
+#define LIST_HEAD_INIT(name) { { &(name).n, &(name).n } }
 
 /**
  * LIST_HEAD - define and initialize an empty list_head

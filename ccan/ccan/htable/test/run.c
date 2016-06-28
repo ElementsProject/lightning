@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 	void *p;
 	struct htable_iter iter;
 
-	plan_tests(35);
+	plan_tests(36);
 	for (i = 0; i < NUM_VALS; i++)
 		val[i] = i;
 	dne = i;
@@ -153,6 +153,11 @@ int main(int argc, char *argv[])
 	/* Walk once, should get them all. */
 	i = 0;
 	for (p = htable_first(&ht,&iter); p; p = htable_next(&ht, &iter))
+		i++;
+	ok1(i == NUM_VALS);
+
+	i = 0;
+	for (p = htable_prev(&ht, &iter); p; p = htable_prev(&ht, &iter))
 		i++;
 	ok1(i == NUM_VALS);
 

@@ -32,4 +32,4 @@ list.o: $(CCANDIR)/ccan/list/list.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	$(RM) *.o $(ALL)
+	rm -f *.o $(ALL)

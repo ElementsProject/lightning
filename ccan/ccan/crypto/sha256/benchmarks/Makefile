@@ -12,7 +12,7 @@ $(INTEL_OBJS): %.o : %.asm
 	yasm -f x64 -f elf64 -X gnu -g dwarf2 -D LINUX -o $@ $<
 
 clean:
-	$(RM) -f *.o
+	rm -f *.o
 
 ccan-crypto-sha256.o: $(CCANDIR)/ccan/crypto/sha256/sha256.c
 	$(CC) $(CFLAGS) -c -o $@ $<

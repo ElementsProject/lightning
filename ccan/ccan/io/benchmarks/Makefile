@@ -26,4 +26,4 @@ err.o: $(CCANDIR)/ccan/err/err.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	$(RM) -f *.o $(ALL)
+	rm -f *.o $(ALL)
