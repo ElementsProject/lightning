@@ -327,6 +327,10 @@ static struct io_plan *clearing_pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	Pkt *err = NULL, *pkt = peer->inpkt;
 
+	/* FIXME: always demux via pkt_in */
+	if (peer->state == STATE_MUTUAL_CLOSING)
+		return closing_pkt_in(conn, peer);
+	
 	assert(peer->state == STATE_CLEARING
 	       || peer->state == STATE_CLEARING_COMMITTING);
 
@@ -434,15 +438,89 @@ static void peer_start_clearing(struct peer *peer)
 	}
 }
 	
+/* This is the io loop while we're in normal mode. */
+static struct io_plan *normal_pkt_in(struct io_conn *conn, struct peer *peer)
+{
+	Pkt *err = NULL, *pkt = peer->inpkt;
+
+	/* FIXME: This happens when we close via json; better to always
+	 * demux via pkt_in. */
+	if (state_is_clearing(peer->state))
+		return clearing_pkt_in(conn, peer);
+	if (state_is_error(peer->state) || state_is_onchain(peer->state))
+		return peer_close(conn, peer);
+
+	assert(peer->state == STATE_NORMAL
+	       || peer->state == STATE_NORMAL_COMMITTING);
+
+	switch (pkt->pkt_case) {
+	case PKT_UPDATE_ADD_HTLC:
+		err = accept_pkt_htlc_add(peer, pkt);
+		break;
+		
+	case PKT_UPDATE_FULFILL_HTLC:
+		err = accept_pkt_htlc_fulfill(peer, pkt);
+		break;
+
+	case PKT_UPDATE_FAIL_HTLC:
+		err = accept_pkt_htlc_fail(peer, pkt);
+		break;
+
+	case PKT_UPDATE_COMMIT:
+		err = accept_pkt_commit(peer, pkt);
+		if (!err)
+			queue_pkt_revocation(peer);
+		break;
+
+	case PKT_CLOSE_CLEARING:
+		err = accept_pkt_close_clearing(peer, pkt);
+		if (err)
+			break;
+		if (peer->state == STATE_NORMAL)
+			set_peer_state(peer, STATE_CLEARING, __func__);
+		else {
+			assert(peer->state == STATE_NORMAL_COMMITTING);
+			set_peer_state(peer, STATE_CLEARING_COMMITTING,
+				       __func__);
+		}
+
+		peer_start_clearing(peer);
+		return peer_read_packet(conn, peer, clearing_pkt_in);
+
+	case PKT_UPDATE_REVOCATION:
+		if (peer->state == STATE_NORMAL_COMMITTING) {
+			err = accept_pkt_revocation(peer, pkt);
+			if (!err) {
+				peer_update_complete(peer, NULL);
+				set_peer_state(peer, STATE_NORMAL, __func__);
+			}
+			break;
+		}
+		/* Fall thru. */
+	default:
+		if (peer->state == STATE_NORMAL_COMMITTING)
+			peer_update_complete(peer, err->error->problem);
+		return peer_received_unexpected_pkt(conn, peer, pkt);
+	}	
+
+	if (err) {
+		if (peer->state == STATE_NORMAL_COMMITTING)
+			peer_update_complete(peer, err->error->problem);
+		return peer_comms_err(conn, peer, err);
+	}
+
+	return peer_read_packet(conn, peer, normal_pkt_in);
+}
+
 static void state_single(struct peer *peer,
 			 const enum state_input input,
-			 const union input *idata)
+			 const Pkt *pkt)
 {
 	const struct bitcoin_tx *broadcast;
 	enum state newstate;
 	size_t old_outpkts = tal_count(peer->outpkt);
 
-	newstate = state(peer, input, idata, &broadcast);
+	newstate = state(peer, input, pkt, &broadcast);
 	set_peer_state(peer, newstate, input_name(input));
 
 	/* If we added uncommitted changes, we should have set them to send. */
@@ -456,10 +534,7 @@ static void state_single(struct peer *peer,
 	if (broadcast)
 		broadcast_tx(peer, broadcast);
 
-	if (peer->state == STATE_CLEARING
-	    || peer->state == STATE_CLEARING_COMMITTING) {
-		peer_start_clearing(peer);
-	} else if (state_is_error(peer->state)) {
+	if (state_is_error(peer->state)) {
 		/* Breakdown is common, others less so. */
 		if (peer->state != STATE_ERR_BREAKDOWN)
 			log_broken(peer->log, "Entered error state %s",
@@ -477,14 +552,14 @@ static void state_single(struct peer *peer,
 
 static void state_event(struct peer *peer, 
 			const enum state_input input,
-			const union input *idata)
+			const Pkt *pkt)
 {
-	if (!state_is_opening(peer->state) && !state_is_normal(peer->state)) {
+	if (!state_is_opening(peer->state)) {
 		log_unusual(peer->log,
 			    "Unexpected input %s while state %s",
 			    input_name(input), state_name(peer->state));
 	} else {
-		state_single(peer, input, idata);
+		state_single(peer, input, pkt);
 	}
 }
 
@@ -493,17 +568,7 @@ static bool command_htlc_fail(struct peer *peer, u64 id)
 	if (!state_can_remove_htlc(peer->state))
 		return false;
 
-	if (peer->state == STATE_CLEARING) {
-		queue_pkt_htlc_fail(peer, id);
-	} else {
-		union input idata;
-		union htlc_staging stage;
-
-		stage.fail.fail = HTLC_FAIL;
-		stage.fail.id = id;
-		idata.stage = &stage;
-		state_event(peer, CMD_SEND_HTLC_FAIL, &idata);
-	}
+	queue_pkt_htlc_fail(peer, id);
 	return true;
 }
 
@@ -514,21 +579,7 @@ static bool command_htlc_fulfill(struct peer *peer,
 	if (!state_can_remove_htlc(peer->state))
 		return false;
 
-	/* Commands should still be blocked during this! */
-	assert(peer->state != STATE_CLEARING_COMMITTING);
-
-	if (peer->state == STATE_CLEARING) {
-		queue_pkt_htlc_fulfill(peer, id, r);
-	} else {
-		union input idata;
-		union htlc_staging stage;
-
-		stage.fulfill.fulfill = HTLC_FULFILL;
-		stage.fulfill.r = *r;
-		stage.fulfill.id = id;
-		idata.stage = &stage;
-		state_event(peer, CMD_SEND_HTLC_FULFILL, &idata);
-	}
+	queue_pkt_htlc_fulfill(peer, id, r);
 	return true;
 }
 
@@ -537,15 +588,15 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 	Pkt *out;
 	size_t n = tal_count(peer->outpkt);
 
-	if (peer->fake_close || !peer->output_enabled)
-		return io_out_wait(conn, peer, pkt_out, peer);
-
 	if (n == 0) {
 		/* We close the connection once we've sent everything. */
 		if (!state_can_io(peer->state))
 			return io_close(conn);
 		return io_out_wait(conn, peer, pkt_out, peer);
 	}
+
+	if (peer->fake_close || !peer->output_enabled)
+		return io_out_wait(conn, peer, pkt_out, peer);
 
 	out = peer->outpkt[0];
 	memmove(peer->outpkt, peer->outpkt + 1, (sizeof(*peer->outpkt)*(n-1)));
@@ -555,26 +606,17 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 
 static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 {
-	union input idata;
-	const tal_t *ctx;
-
-	/* Did something move us into STATE_CLEARING? */
-	if (peer->state == STATE_CLEARING
-	    || peer->state == STATE_CLEARING_COMMITTING)
+	if (state_is_normal(peer->state))
+		return normal_pkt_in(conn, peer);
+	else if (state_is_clearing(peer->state))
 		return clearing_pkt_in(conn, peer);
 	else if (peer->state == STATE_MUTUAL_CLOSING)
 		return closing_pkt_in(conn, peer);
 
-	ctx = tal(peer, char);
-	idata.pkt = tal_steal(ctx, peer->inpkt);
-
 	/* We ignore packets if they tell us to. */
 	if (!peer->fake_close && state_can_io(peer->state)) {
-		state_event(peer, peer->inpkt->pkt_case, &idata);
+		state_event(peer, peer->inpkt->pkt_case, peer->inpkt);
 	}
-
-	/* Free peer->inpkt unless stolen above. */
-	tal_free(ctx);
 
 	return peer_read_packet(conn, peer, pkt_in);
 }
@@ -643,14 +685,14 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 
 	assert(state_can_commit(peer->state));
 	assert(!peer->commit_jsoncmd);
-	
+
 	peer->commit_jsoncmd = jsoncmd;
+	queue_pkt_commit(peer);
 	if (peer->state == STATE_CLEARING) {
-		queue_pkt_commit(peer);
 		set_peer_state(peer, STATE_CLEARING_COMMITTING, __func__);
 	} else {
 		assert(peer->state == STATE_NORMAL);
-		state_event(peer, CMD_SEND_COMMIT, NULL);
+		set_peer_state(peer, STATE_NORMAL_COMMITTING, __func__);
 	}
 }
 
@@ -1697,6 +1739,8 @@ static void check_for_resolution(struct peer *peer,
 	/* It's theoretically possible that peer is still writing output */
 	if (!peer->conn)
 		io_break(peer);
+	else
+		io_wake(peer);
 }
 	    
 /* We assume the tx is valid!  Don't do a blockchain.info and feed this
@@ -2314,20 +2358,14 @@ void peer_add_htlc_expiry(struct peer *peer,
 	new_abstimer(peer->dstate, peer, absexpiry, check_htlc_expiry, peer);
 }
 
-/* We do final checks just before we start command, as things may have
- * changed. */
 static void do_newhtlc(struct peer *peer,
-		       const struct channel_htlc *htlc,
+		       struct channel_htlc *htlc,
 		       struct command *jsoncmd)
 {
 	struct channel_state *cstate;
-	union input idata;
-	union htlc_staging stage;
 
-	/* Now we can assign counter and guarantee uniqueness. */
-	stage.add.add = HTLC_ADD;
-	stage.add.htlc = *htlc;
-	stage.add.htlc.id = peer->htlc_id_counter;
+	/* Assign unique ID. */
+	htlc->id = peer->htlc_id_counter;
 
 	/* BOLT #2:
 	 *
@@ -2377,8 +2415,7 @@ static void do_newhtlc(struct peer *peer,
 	peer->htlc_id_counter++;	
 
 	/* FIXME: Never propose duplicate rvalues? */
-	idata.stage = &stage;
-	state_event(peer, CMD_SEND_HTLC_ADD, &idata);
+	queue_pkt_htlc_add(peer, htlc);
 	command_success(jsoncmd, null_response(jsoncmd));
 }
 

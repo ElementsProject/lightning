@@ -79,35 +79,14 @@ static inline bool input_is_pkt(enum state_input input)
 	return input <= PKT_ERROR;
 }
 
-union input {
-	/* For PKT_* */
-	Pkt *pkt;
-	/* For CMD_SEND_HTLC_ADD, CMD_SEND_HTLC_FULFILL, CMD_SEND_HTLC_FAIL */
-	union htlc_staging *stage;
-};
-
 enum state state(struct peer *peer,
 		 const enum state_input input,
-		 const union input *idata,
+		 const Pkt *pkt,
 		 const struct bitcoin_tx **broadcast);
 
-/* Any CMD_SEND_HTLC_* */
-#define CMD_SEND_UPDATE_ANY INPUT_MAX
-
-/* a == b?  (or one of several for CMD_SEND_UPDATE_ANY) */
+/* a == b? */
 static inline bool input_is(enum state_input a, enum state_input b)
 {
-	if (b == CMD_SEND_UPDATE_ANY) {
-		/* Single | here, we want to record all. */
-		return input_is(a, CMD_SEND_HTLC_ADD)
-			| input_is(a, CMD_SEND_HTLC_FULFILL)
-			| input_is(a, CMD_SEND_HTLC_FAIL);
-	}
-
-/* For test_state_coverate to make the states. */
-#ifdef MAPPING_INPUTS
-	MAPPING_INPUTS(b);
-#endif
 	return a == b;
 }
 

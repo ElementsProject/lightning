@@ -14,19 +14,6 @@ static enum state next_state(struct peer *peer,
 	return state;
 }
 
-/*
- * Simple marker to note we don't update state.
- *
- * This happens in normal state except when committing or closing.
- */
-static enum state unchanged_state(const struct peer *peer,
-				  const enum state_input input)
-{
-	log_debug(peer->log, "%s: %s unchanged",
-		  input_name(input), state_name(peer->state));
-	return peer->state;
-}
-
 static void queue_tx_broadcast(const struct bitcoin_tx **broadcast,
 			       const struct bitcoin_tx *tx)
 {
@@ -37,7 +24,7 @@ static void queue_tx_broadcast(const struct bitcoin_tx **broadcast,
 
 enum state state(struct peer *peer,
 		 const enum state_input input,
-		 const union input *idata,
+		 const Pkt *pkt,
 		 const struct bitcoin_tx **broadcast)
 {
 	Pkt *err;
@@ -63,7 +50,7 @@ enum state state(struct peer *peer,
 		break;
 	case STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR:
 		if (input_is(input, PKT_OPEN)) {
-			err = accept_pkt_open(peer, idata->pkt);
+			err = accept_pkt_open(peer, pkt);
 			if (err) {
 				peer_open_complete(peer, err->error->problem);
 				goto err_breakdown;
@@ -76,7 +63,7 @@ enum state state(struct peer *peer,
 		break;
 	case STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR:
 		if (input_is(input, PKT_OPEN)) {
-			err = accept_pkt_open(peer, idata->pkt);
+			err = accept_pkt_open(peer, pkt);
 			if (err) {
 				peer_open_complete(peer, err->error->problem);
 				goto err_breakdown;
@@ -102,7 +89,7 @@ enum state state(struct peer *peer,
 		break;
 	case STATE_OPEN_WAIT_FOR_ANCHOR:
 		if (input_is(input, PKT_OPEN_ANCHOR)) {
-			err = accept_pkt_anchor(peer, idata->pkt);
+			err = accept_pkt_anchor(peer, pkt);
 			if (err) {
 				peer_open_complete(peer, err->error->problem);
 				goto err_breakdown;
@@ -121,7 +108,7 @@ enum state state(struct peer *peer,
 		break;
 	case STATE_OPEN_WAIT_FOR_COMMIT_SIG:
 		if (input_is(input, PKT_OPEN_COMMIT_SIG)) {
-			err = accept_pkt_open_commit_sig(peer, idata->pkt);
+			err = accept_pkt_open_commit_sig(peer, pkt);
 			if (err) {
 				bitcoin_release_anchor(peer, INPUT_NONE);
 				peer_open_complete(peer, err->error->problem);
@@ -141,7 +128,7 @@ enum state state(struct peer *peer,
 		break;
 	case STATE_OPEN_WAITING_OURANCHOR:
 		if (input_is(input, PKT_OPEN_COMPLETE)) {
-			err = accept_pkt_open_complete(peer, idata->pkt);
+			err = accept_pkt_open_complete(peer, pkt);
 			if (err) {
 				peer_open_complete(peer, err->error->problem);
 				/* We no longer care about anchor depth. */
@@ -181,7 +168,7 @@ enum state state(struct peer *peer,
 		break;
 	case STATE_OPEN_WAITING_THEIRANCHOR:
 		if (input_is(input, PKT_OPEN_COMPLETE)) {
-			err = accept_pkt_open_complete(peer, idata->pkt);
+			err = accept_pkt_open_complete(peer, pkt);
 			if (err) {
 				peer_open_complete(peer, err->error->problem);
 				/* We no longer care about anchor depth. */
@@ -238,76 +225,9 @@ enum state state(struct peer *peer,
 		}
 		break;
 
-	/*
-	 * Channel normal operating states.
-	 */
-	case STATE_NORMAL:
-		/* You can only issue this command one at a time. */
-		if (input_is(input, CMD_SEND_COMMIT)) {
-			queue_pkt_commit(peer);
-			return next_state(peer, input, STATE_NORMAL_COMMITTING);
-		}
-		/* Fall through... */
-	case STATE_NORMAL_COMMITTING:
-		if (input_is(input, CMD_SEND_HTLC_ADD)) {
-			/* We are to send an HTLC add. */
-			assert(idata->stage->type == HTLC_ADD);
-			queue_pkt_htlc_add(peer, &idata->stage->add.htlc);
-			return unchanged_state(peer, input);
-		} else if (input_is(input, CMD_SEND_HTLC_FULFILL)) {
-			assert(idata->stage->type == HTLC_FULFILL);
-			/* We are to send an HTLC fulfill. */
-			queue_pkt_htlc_fulfill(peer,
-					       idata->stage->fulfill.id,
-					       &idata->stage->fulfill.r);
-			return unchanged_state(peer, input);
-		} else if (input_is(input, CMD_SEND_HTLC_FAIL)) {
-			assert(idata->stage->type == HTLC_FAIL);
-			/* We are to send an HTLC fail. */
-			queue_pkt_htlc_fail(peer, idata->stage->fail.id);
-			return unchanged_state(peer, input);
-		}
-		/* Only expect revocation in STATE_NORMAL_COMMITTING */
-		else if (peer->state == STATE_NORMAL_COMMITTING
-			 && input_is(input, PKT_UPDATE_REVOCATION)) {
-			err = accept_pkt_revocation(peer, idata->pkt);
-			if (err)
-				goto err_breakdown_maybe_committing;
-			peer_update_complete(peer, NULL);
-			return next_state(peer, input, STATE_NORMAL);
-		}
-
-		if (input_is(input, PKT_UPDATE_ADD_HTLC)) {
-			err = accept_pkt_htlc_add(peer, idata->pkt);
-			if (err)
-				goto err_breakdown_maybe_committing;
-			return unchanged_state(peer, input);
-		} else if (input_is(input, PKT_UPDATE_FULFILL_HTLC)) {
-			err = accept_pkt_htlc_fulfill(peer, idata->pkt);
-			if (err)
-				goto err_breakdown_maybe_committing;
-			return unchanged_state(peer, input);
-		} else if (input_is(input, PKT_UPDATE_FAIL_HTLC)) {
-			err = accept_pkt_htlc_fail(peer, idata->pkt);
-			if (err)
-				goto err_breakdown_maybe_committing;
-			return unchanged_state(peer, input);
-		} else if (input_is(input, PKT_UPDATE_COMMIT)) {
-			err = accept_pkt_commit(peer, idata->pkt);
-			if (err)
-				goto err_breakdown_maybe_committing;
-			queue_pkt_revocation(peer);
-			return unchanged_state(peer, input);
-		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
-			goto accept_clearing;
-		} else if (input_is_pkt(input)) {
-			if (peer->state == STATE_NORMAL_COMMITTING)
-				peer_update_complete(peer, "unexpected packet");
-			goto unexpected_pkt;
-		}
-		break;
-
 	/* Should never happen. */
+	case STATE_NORMAL:
+	case STATE_NORMAL_COMMITTING:
 	case STATE_ERR_INTERNAL:
 	case STATE_ERR_ANCHOR_TIMEOUT:
 	case STATE_ERR_INFORMATION_LEAK:
@@ -328,13 +248,13 @@ enum state state(struct peer *peer,
 	return next_state(peer, input, STATE_ERR_INTERNAL);
 
 unexpected_pkt:
-	peer_unexpected_pkt(peer, idata->pkt);
+	peer_unexpected_pkt(peer, pkt);
 
 	/* Don't reply to an error with an error. */
 	if (!input_is(input, PKT_ERROR)) {
 		goto breakdown;
 	}
-	err = pkt_err_unexpected(peer, idata->pkt);
+	err = pkt_err_unexpected(peer, pkt);
 	goto err_breakdown;
 
 err_breakdown_maybe_committing:
@@ -346,7 +266,7 @@ breakdown:
 	return next_state(peer, input, STATE_ERR_BREAKDOWN);
 
 accept_clearing:
-	err = accept_pkt_close_clearing(peer, idata->pkt);
+	err = accept_pkt_close_clearing(peer, pkt);
 	if (err)
 		goto err_breakdown_maybe_committing;
 
