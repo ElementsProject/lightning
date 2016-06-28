@@ -118,7 +118,24 @@ message open_complete {
   // FIXME: add a merkle proof plus block headers here?
 }
 
-// FIXME: Routing information.
+message route_step {
+  // Where to next?
+  oneof next {
+    // Actually, this is the last one
+    bool end = 1;
+    // Next lightning node.
+    bitcoin_pubkey bitcoin = 2;
+    // Other realms go here...
+  }
+
+  // How much to forward (difference is fee)
+  required uint32 amount = 4;
+};
+
+message route {
+  repeated route_step steps = 1;
+};
+
 message routing {
   required bytes info = 1;
 }

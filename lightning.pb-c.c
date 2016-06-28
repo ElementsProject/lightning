@@ -480,6 +480,92 @@ void   open_complete__free_unpacked
   assert(message->base.descriptor == &open_complete__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   route_step__init
+                     (RouteStep         *message)
+{
+  static RouteStep init_value = ROUTE_STEP__INIT;
+  *message = init_value;
+}
+size_t route_step__get_packed_size
+                     (const RouteStep *message)
+{
+  assert(message->base.descriptor == &route_step__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t route_step__pack
+                     (const RouteStep *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &route_step__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t route_step__pack_to_buffer
+                     (const RouteStep *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &route_step__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+RouteStep *
+       route_step__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (RouteStep *)
+     protobuf_c_message_unpack (&route_step__descriptor,
+                                allocator, len, data);
+}
+void   route_step__free_unpacked
+                     (RouteStep *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &route_step__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
+void   route__init
+                     (Route         *message)
+{
+  static Route init_value = ROUTE__INIT;
+  *message = init_value;
+}
+size_t route__get_packed_size
+                     (const Route *message)
+{
+  assert(message->base.descriptor == &route__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t route__pack
+                     (const Route *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &route__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t route__pack_to_buffer
+                     (const Route *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &route__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+Route *
+       route__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (Route *)
+     protobuf_c_message_unpack (&route__descriptor,
+                                allocator, len, data);
+}
+void   route__free_unpacked
+                     (Route *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &route__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
 void   routing__init
                      (Routing         *message)
 {
@@ -1739,6 +1825,109 @@ const ProtobufCMessageDescriptor open_complete__descriptor =
   open_complete__field_indices_by_name,
   1,  open_complete__number_ranges,
   (ProtobufCMessageInit) open_complete__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor route_step__field_descriptors[3] =
+{
+  {
+    "end",
+    1,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_BOOL,
+    offsetof(RouteStep, next_case),
+    offsetof(RouteStep, end),
+    NULL,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "bitcoin",
+    2,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(RouteStep, next_case),
+    offsetof(RouteStep, bitcoin),
+    &bitcoin_pubkey__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "amount",
+    4,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(RouteStep, amount),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned route_step__field_indices_by_name[] = {
+  2,   /* field[2] = amount */
+  1,   /* field[1] = bitcoin */
+  0,   /* field[0] = end */
+};
+static const ProtobufCIntRange route_step__number_ranges[2 + 1] =
+{
+  { 1, 0 },
+  { 4, 2 },
+  { 0, 3 }
+};
+const ProtobufCMessageDescriptor route_step__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "route_step",
+  "RouteStep",
+  "RouteStep",
+  "",
+  sizeof(RouteStep),
+  3,
+  route_step__field_descriptors,
+  route_step__field_indices_by_name,
+  2,  route_step__number_ranges,
+  (ProtobufCMessageInit) route_step__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor route__field_descriptors[1] =
+{
+  {
+    "steps",
+    1,
+    PROTOBUF_C_LABEL_REPEATED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Route, n_steps),
+    offsetof(Route, steps),
+    &route_step__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned route__field_indices_by_name[] = {
+  0,   /* field[0] = steps */
+};
+static const ProtobufCIntRange route__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 1 }
+};
+const ProtobufCMessageDescriptor route__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "route",
+  "Route",
+  "Route",
+  "",
+  sizeof(Route),
+  1,
+  route__field_descriptors,
+  route__field_indices_by_name,
+  1,  route__number_ranges,
+  (ProtobufCMessageInit) route__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCFieldDescriptor routing__field_descriptors[1] =

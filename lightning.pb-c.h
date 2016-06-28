@@ -26,6 +26,8 @@ typedef struct _OpenChannel OpenChannel;
 typedef struct _OpenAnchor OpenAnchor;
 typedef struct _OpenCommitSig OpenCommitSig;
 typedef struct _OpenComplete OpenComplete;
+typedef struct _RouteStep RouteStep;
+typedef struct _Route Route;
 typedef struct _Routing Routing;
 typedef struct _UpdateAddHtlc UpdateAddHtlc;
 typedef struct _UpdateFulfillHtlc UpdateFulfillHtlc;
@@ -282,9 +284,50 @@ struct  _OpenComplete
     , NULL }
 
 
-/*
- * FIXME: Routing information.
- */
+typedef enum {
+  ROUTE_STEP__NEXT__NOT_SET = 0,
+  ROUTE_STEP__NEXT_END = 1,
+  ROUTE_STEP__NEXT_BITCOIN = 2,
+} RouteStep__NextCase;
+
+struct  _RouteStep
+{
+  ProtobufCMessage base;
+  /*
+   * How much to forward (difference is fee)
+   */
+  uint32_t amount;
+  RouteStep__NextCase next_case;
+  union {
+    /*
+     * Actually, this is the last one
+     */
+    protobuf_c_boolean end;
+    /*
+     * Next lightning node.
+     */
+    /*
+     * Other realms go here...
+     */
+    BitcoinPubkey *bitcoin;
+  };
+};
+#define ROUTE_STEP__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&route_step__descriptor) \
+    , 0, ROUTE_STEP__NEXT__NOT_SET, {} }
+
+
+struct  _Route
+{
+  ProtobufCMessage base;
+  size_t n_steps;
+  RouteStep **steps;
+};
+#define ROUTE__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&route__descriptor) \
+    , 0,NULL }
+
+
 struct  _Routing
 {
   ProtobufCMessage base;
@@ -728,6 +771,44 @@ OpenComplete *
 void   open_complete__free_unpacked
                      (OpenComplete *message,
                       ProtobufCAllocator *allocator);
+/* RouteStep methods */
+void   route_step__init
+                     (RouteStep         *message);
+size_t route_step__get_packed_size
+                     (const RouteStep   *message);
+size_t route_step__pack
+                     (const RouteStep   *message,
+                      uint8_t             *out);
+size_t route_step__pack_to_buffer
+                     (const RouteStep   *message,
+                      ProtobufCBuffer     *buffer);
+RouteStep *
+       route_step__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   route_step__free_unpacked
+                     (RouteStep *message,
+                      ProtobufCAllocator *allocator);
+/* Route methods */
+void   route__init
+                     (Route         *message);
+size_t route__get_packed_size
+                     (const Route   *message);
+size_t route__pack
+                     (const Route   *message,
+                      uint8_t             *out);
+size_t route__pack_to_buffer
+                     (const Route   *message,
+                      ProtobufCBuffer     *buffer);
+Route *
+       route__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   route__free_unpacked
+                     (Route *message,
+                      ProtobufCAllocator *allocator);
 /* Routing methods */
 void   routing__init
                      (Routing         *message);
@@ -972,6 +1053,12 @@ typedef void (*OpenCommitSig_Closure)
 typedef void (*OpenComplete_Closure)
                  (const OpenComplete *message,
                   void *closure_data);
+typedef void (*RouteStep_Closure)
+                 (const RouteStep *message,
+                  void *closure_data);
+typedef void (*Route_Closure)
+                 (const Route *message,
+                  void *closure_data);
 typedef void (*Routing_Closure)
                  (const Routing *message,
                   void *closure_data);
@@ -1023,6 +1110,8 @@ extern const ProtobufCEnumDescriptor    open_channel__anchor_offer__descriptor;
 extern const ProtobufCMessageDescriptor open_anchor__descriptor;
 extern const ProtobufCMessageDescriptor open_commit_sig__descriptor;
 extern const ProtobufCMessageDescriptor open_complete__descriptor;
+extern const ProtobufCMessageDescriptor route_step__descriptor;
+extern const ProtobufCMessageDescriptor route__descriptor;
 extern const ProtobufCMessageDescriptor routing__descriptor;
 extern const ProtobufCMessageDescriptor update_add_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_fulfill_htlc__descriptor;
