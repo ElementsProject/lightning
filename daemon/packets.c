@@ -526,11 +526,18 @@ static Pkt *check_and_save_commit_sig(struct peer *peer,
 				      struct commit_info *ci,
 				      const Signature *pb)
 {
+	struct bitcoin_signature *sig = tal(ci, struct bitcoin_signature);
+
 	assert(!ci->sig);
-	ci->sig = tal(ci, struct bitcoin_signature);
-	ci->sig->stype = SIGHASH_ALL;
-	if (!proto_to_signature(pb, &ci->sig->sig))
+	sig->stype = SIGHASH_ALL;
+	if (!proto_to_signature(pb, &sig->sig))
 		return pkt_err(peer, "Malformed signature");
+
+	log_debug(peer->log, "Checking sig for %u/%u msatoshis, %zu/%zu htlcs",
+		  ci->cstate->side[OURS].pay_msat,
+		  ci->cstate->side[THEIRS].pay_msat,
+		  tal_count(ci->cstate->side[OURS].htlcs),
+		  tal_count(ci->cstate->side[THEIRS].htlcs));
 
 	/* Their sig should sign our commit tx. */
 	if (!check_tx_sig(peer->dstate->secpctx,
@@ -538,9 +545,10 @@ static Pkt *check_and_save_commit_sig(struct peer *peer,
 			  NULL, 0,
 			  peer->anchor.witnessscript,
 			  &peer->remote.commitkey,
-			  ci->sig))
+			  sig))
 		return pkt_err(peer, "Bad signature");
 
+	ci->sig = sig;
 	return NULL;
 }
 
