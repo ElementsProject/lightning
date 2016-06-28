@@ -264,6 +264,7 @@ static const struct json_command *cmdlist[] = {
 	&disconnect_command,
 	&signcommit_command,
 	&output_command,
+	&add_route_command,
 };
 
 static void json_help(struct command *cmd,
@@ -312,6 +313,16 @@ static void json_result(struct json_connection *jcon,
 	/* Queue for writing, and wake writer (and maybe reader). */
 	list_add_tail(&jcon->output, &out->list);
 	io_wake(jcon);
+}
+
+struct json_result *null_response(const tal_t *ctx)
+{
+	struct json_result *response;
+		
+	response = new_json_result(ctx);
+	json_object_start(response, NULL);
+	json_object_end(response);
+	return response;
 }
 
 void command_success(struct command *cmd, struct json_result *result)

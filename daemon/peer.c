@@ -75,16 +75,6 @@ static struct peer *find_peer_json(struct lightningd_state *dstate,
 	return find_peer(dstate, &peerid);
 }
 
-static struct json_result *null_response(const tal_t *ctx)
-{
-	struct json_result *response;
-		
-	response = new_json_result(ctx);
-	json_object_start(response, NULL);
-	json_object_end(response);
-	return response;
-}
-
 static bool peer_uncommitted_changes(const struct peer *peer)
 {
 	/* Not initialized yet? */

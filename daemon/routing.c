@@ -1,3 +1,4 @@
+#include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
 #include "overflows.h"
@@ -232,3 +233,69 @@ struct peer *find_route(struct lightningd_state *dstate,
 
 	return first;
 }
+
+static void json_add_route(struct command *cmd,
+			   const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *srctok, *dsttok, *basetok, *vartok, *delaytok, *minblockstok;
+	struct pubkey src, dst;
+	struct node *from, *to;
+	u32 base, var, delay, minblocks;
+
+	if (!json_get_params(buffer, params,
+			    "src", &srctok,
+			    "dst", &dsttok,
+			    "base", &basetok,
+			    "var", &vartok,
+			    "delay", &delaytok,
+			    "minblocks", &minblockstok,
+			    NULL)) {
+		command_fail(cmd, "Need src, dst, base, var, delay & minblocks");
+		return;
+	}
+
+	if (!pubkey_from_hexstr(cmd->dstate->secpctx,
+				buffer + srctok->start,
+				srctok->end - srctok->start, &src)) {
+		command_fail(cmd, "src %.*s not valid",
+			     srctok->end - srctok->start,
+			     buffer + srctok->start);
+		return;
+	}
+
+	if (!pubkey_from_hexstr(cmd->dstate->secpctx,
+				buffer + dsttok->start,
+				dsttok->end - dsttok->start, &dst)) {
+		command_fail(cmd, "dst %.*s not valid",
+			     dsttok->end - dsttok->start,
+			     buffer + dsttok->start);
+		return;
+	}
+
+	if (!json_tok_number(buffer, basetok, &base)
+	    || !json_tok_number(buffer, vartok, &var)
+	    || !json_tok_number(buffer, delaytok, &delay)
+	    || !json_tok_number(buffer, minblockstok, &minblocks)) {
+		command_fail(cmd,
+			     "base, var, delay and minblocks must be numbers");
+		return;
+	}
+
+	from = get_node(cmd->dstate, &src);
+	if (!from)
+		from = new_node(cmd->dstate, &src);
+	to = get_node(cmd->dstate, &dst);
+	if (!to)
+		to = new_node(cmd->dstate, &dst);
+
+	add_connection(cmd->dstate, from, to, base, var, delay, minblocks);
+	command_success(cmd, null_response(cmd));
+}
+	
+const struct json_command add_route_command = {
+	"add-route",
+	json_add_route,
+	"Add route from {src} to {dst}, {base} rate in msatoshi, {var} rate in msatoshi, {delay} blocks delay and {minblocks} minimum timeout",
+	"Returns an empty result on success"
+};
+
