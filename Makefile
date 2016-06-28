@@ -261,7 +261,7 @@ check-source: check-makefile check-source-bolt		\
 full-check: check $(TEST_PROGRAMS) check-source
 
 TAGS: FORCE
-	$(RM) TAGS; find . -name '*.[ch]' | xargs etags --append
+	$(RM) TAGS; find * -name '*.[ch]' | xargs etags --append
 FORCE::
 
 ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDUMP_OBJS) $(CCAN_OBJS)
