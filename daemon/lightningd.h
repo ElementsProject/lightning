@@ -93,5 +93,8 @@ struct lightningd_state {
 
 	/* Payments for r values we know about. */
 	struct list_head payments;
+
+	/* All known nodes. */
+	struct node_map *nodes;
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */

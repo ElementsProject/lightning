@@ -7,6 +7,7 @@
 #include "log.h"
 #include "opt_time.h"
 #include "peer.h"
+#include "routing.h"
 #include "secrets.h"
 #include "timeout.h"
 #include <ccan/container_of/container_of.h>
@@ -204,6 +205,7 @@ static struct lightningd_state *lightningd_state(void)
 	list_head_init(&dstate->wallet);
 	list_head_init(&dstate->payments);
 	dstate->bitcoin_req_running = false;
+	dstate->nodes = empty_node_map(dstate);
 	return dstate;
 }
 

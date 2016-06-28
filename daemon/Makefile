@@ -26,6 +26,7 @@ DAEMON_SRC :=					\
 	daemon/peer.c				\
 	daemon/packets.c			\
 	daemon/payment.c			\
+	daemon/routing.c			\
 	daemon/secrets.c			\
 	daemon/timeout.c			\
 	daemon/wallet.c				\
@@ -57,6 +58,7 @@ DAEMON_HEADERS :=				\
 	daemon/payment.h			\
 	daemon/peer.h				\
 	daemon/pseudorand.h			\
+	daemon/routing.h			\
 	daemon/secrets.h			\
 	daemon/timeout.h			\
 	daemon/wallet.h				\
