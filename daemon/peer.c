@@ -50,23 +50,29 @@ struct json_connecting {
 	struct anchor_input *input;
 };
 
-static struct peer *find_peer(struct lightningd_state *dstate,
+struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id)
+{
+	struct peer *peer;
+
+	list_for_each(&dstate->peers, peer, list) {
+		if (peer->state != STATE_INIT && pubkey_eq(&peer->id, id))
+			return peer;
+	}
+	return NULL;
+}
+
+static struct peer *find_peer_json(struct lightningd_state *dstate,
 			      const char *buffer,
 			      jsmntok_t *peeridtok)
 {
 	struct pubkey peerid;
-	struct peer *peer;
 
 	if (!pubkey_from_hexstr(dstate->secpctx,
 				buffer + peeridtok->start,
 				peeridtok->end - peeridtok->start, &peerid))
 		return NULL;
 
-	list_for_each(&dstate->peers, peer, list) {
-		if (peer->state != STATE_INIT && pubkey_eq(&peer->id, &peerid))
-			return peer;
-	}
-	return NULL;
+	return find_peer(dstate, &peerid);
 }
 
 static struct json_result *null_response(const tal_t *ctx)
@@ -2499,7 +2505,7 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
-	peer = find_peer(cmd->dstate, buffer, peeridtok);
+	peer = find_peer_json(cmd->dstate, buffer, peeridtok);
 	if (!peer) {
 		command_fail(cmd, "Could not find peer with that peerid");
 		return;
@@ -2592,7 +2598,7 @@ static void json_fulfillhtlc(struct command *cmd,
 		return;
 	}
 
-	peer = find_peer(cmd->dstate, buffer, peeridtok);
+	peer = find_peer_json(cmd->dstate, buffer, peeridtok);
 	if (!peer) {
 		command_fail(cmd, "Could not find peer with that peerid");
 		return;
@@ -2653,7 +2659,7 @@ static void json_failhtlc(struct command *cmd,
 		return;
 	}
 
-	peer = find_peer(cmd->dstate, buffer, peeridtok);
+	peer = find_peer_json(cmd->dstate, buffer, peeridtok);
 	if (!peer) {
 		command_fail(cmd, "Could not find peer with that peerid");
 		return;
@@ -2709,7 +2715,7 @@ static void json_commit(struct command *cmd,
 		return;
 	}
 
-	peer = find_peer(cmd->dstate, buffer, peeridtok);
+	peer = find_peer_json(cmd->dstate, buffer, peeridtok);
 	if (!peer) {
 		command_fail(cmd, "Could not find peer with that peerid");
 		return;
@@ -2748,7 +2754,7 @@ static void json_close(struct command *cmd,
 		return;
 	}
 
-	peer = find_peer(cmd->dstate, buffer, peeridtok);
+	peer = find_peer_json(cmd->dstate, buffer, peeridtok);
 	if (!peer) {
 		command_fail(cmd, "Could not find peer with that peerid");
 		return;
@@ -2788,7 +2794,7 @@ static void json_disconnect(struct command *cmd,
 		return;
 	}
 
-	peer = find_peer(cmd->dstate, buffer, peeridtok);
+	peer = find_peer_json(cmd->dstate, buffer, peeridtok);
 	if (!peer) {
 		command_fail(cmd, "Could not find peer with that peerid");
 		return;
@@ -2825,7 +2831,7 @@ static void json_signcommit(struct command *cmd,
 		return;
 	}
 
-	peer = find_peer(cmd->dstate, buffer, peeridtok);
+	peer = find_peer_json(cmd->dstate, buffer, peeridtok);
 	if (!peer) {
 		command_fail(cmd, "Could not find peer with that peerid");
 		return;
@@ -2864,7 +2870,7 @@ static void json_output(struct command *cmd,
 		return;
 	}
 
-	peer = find_peer(cmd->dstate, buffer, peeridtok);
+	peer = find_peer_json(cmd->dstate, buffer, peeridtok);
 	if (!peer) {
 		command_fail(cmd, "Could not find peer with that peerid");
 		return;
