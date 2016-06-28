@@ -257,9 +257,6 @@ unexpected_pkt:
 	err = pkt_err_unexpected(peer, pkt);
 	goto err_breakdown;
 
-err_breakdown_maybe_committing:
-	if (peer->state == STATE_NORMAL_COMMITTING)
-		peer_update_complete(peer, "bad packet");
 err_breakdown:
 	queue_pkt_err(peer, err);
 breakdown:
@@ -268,7 +265,7 @@ breakdown:
 accept_clearing:
 	err = accept_pkt_close_clearing(peer, pkt);
 	if (err)
-		goto err_breakdown_maybe_committing;
+		goto err_breakdown;
 
 	/* If we've sent commit, we're still waiting for it when clearing. */
 	if (peer->state == STATE_NORMAL_COMMITTING)

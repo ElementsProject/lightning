@@ -91,22 +91,14 @@ static bool peer_uncommitted_changes(const struct peer *peer)
 		!= peer->remote.commit->cstate->changes;
 }
 
-void peer_update_complete(struct peer *peer, const char *problem)
+void peer_update_complete(struct peer *peer)
 {
-	if (!problem) {
-		log_debug(peer->log, "peer_update_complete");
-		if (peer->commit_jsoncmd)
-			command_success(peer->commit_jsoncmd,
-					null_response(peer->commit_jsoncmd));
-	} else {
-		log_unusual(peer->log, "peer_update_complete failed: %s",
-			    problem);
-		if (peer->commit_jsoncmd)
-			command_fail(peer->commit_jsoncmd, "%s", problem);
+	log_debug(peer->log, "peer_update_complete");
+	if (peer->commit_jsoncmd) {
+		command_success(peer->commit_jsoncmd,
+				null_response(peer->commit_jsoncmd));
+		peer->commit_jsoncmd = NULL;
 	}
-
-	/* Simply unset it: it will free itself. */
-	peer->commit_jsoncmd = NULL;
 
 	/* Have we got more changes in the meantime? */
 	if (peer_uncommitted_changes(peer)) {
@@ -133,6 +125,11 @@ static void set_peer_state(struct peer *peer, enum state newstate,
 
 static void peer_breakdown(struct peer *peer)
 {
+	if (peer->commit_jsoncmd) {
+		command_fail(peer->commit_jsoncmd, "peer breakdown");
+		peer->commit_jsoncmd = NULL;
+	}
+	
 	/* If we have a closing tx, use it. */
 	if (peer->closing.their_sig) {
 		log_unusual(peer->log, "Peer breakdown: sending close tx");
@@ -342,9 +339,8 @@ static struct io_plan *clearing_pkt_in(struct io_conn *conn, struct peer *peer)
 			err = accept_pkt_revocation(peer, pkt);
 			if (!err) {
 				set_peer_state(peer, STATE_CLEARING, __func__);
-				peer_update_complete(peer, NULL);
-			} else
-				peer_update_complete(peer, "bad revocation");
+				peer_update_complete(peer);
+			}
 		}
 		break;
 
@@ -491,21 +487,17 @@ static struct io_plan *normal_pkt_in(struct io_conn *conn, struct peer *peer)
 		if (peer->state == STATE_NORMAL_COMMITTING) {
 			err = accept_pkt_revocation(peer, pkt);
 			if (!err) {
-				peer_update_complete(peer, NULL);
+				peer_update_complete(peer);
 				set_peer_state(peer, STATE_NORMAL, __func__);
 			}
 			break;
 		}
 		/* Fall thru. */
 	default:
-		if (peer->state == STATE_NORMAL_COMMITTING)
-			peer_update_complete(peer, err->error->problem);
 		return peer_received_unexpected_pkt(conn, peer, pkt);
 	}	
 
 	if (err) {
-		if (peer->state == STATE_NORMAL_COMMITTING)
-			peer_update_complete(peer, err->error->problem);
 		return peer_comms_err(conn, peer, err);
 	}
 

@@ -227,8 +227,8 @@ void remote_changes_pending(struct peer *peer);
 void add_unacked(struct peer_visible_state *which,
 		 const union htlc_staging *stage);
 
-/* Peer has recieved revocation, or problem (if non-NULL). */
-void peer_update_complete(struct peer *peer, const char *problem);
+/* Peer has recieved revocation. */
+void peer_update_complete(struct peer *peer);
 
 /* Peer has completed open, or problem (if non-NULL). */
 void peer_open_complete(struct peer *peer, const char *problem);
