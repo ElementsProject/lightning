@@ -546,7 +546,7 @@ static bool command_htlc_fail(struct peer *peer, u64 id)
 
 static bool command_htlc_fulfill(struct peer *peer,
 				 u64 id,
-				 const struct sha256 *r)
+				 const struct rval *r)
 {
 	if (!state_can_remove_htlc(peer->state))
 		return false;
@@ -1310,7 +1310,8 @@ static void our_htlc_spent(struct peer *peer,
 			   ptrint_t *pi)
 {
 	struct channel_htlc *h;
-	struct sha256 preimage, sha;
+	struct sha256 sha;
+	struct rval preimage;
 	size_t i = ptr2int(pi);
 
 	/* It should be spending the HTLC we expect. */
@@ -1468,7 +1469,7 @@ static void resolve_our_htlcs(struct peer *peer,
  * preimage.  Otherwise, the other node could spend it once it as *timed out*
  * as above.
  */
-bool resolve_one_htlc(struct peer *peer, u64 id, const struct sha256 *preimage)
+bool resolve_one_htlc(struct peer *peer, u64 id, const struct rval *preimage)
 {
 	FIXME_STUB(peer);
 }
@@ -2497,7 +2498,7 @@ static void json_fulfillhtlc(struct command *cmd,
 {
 	struct peer *peer;
 	jsmntok_t *peeridtok, *rtok;
-	struct sha256 r;
+	struct rval r;
 	struct sha256 rhash;
 	size_t i;
 	u64 id;

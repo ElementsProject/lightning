@@ -9,6 +9,7 @@
 #include "funding.h"
 #include "lightning.pb-c.h"
 #include "netaddr.h"
+#include "protobuf_convert.h"
 #include "state.h"
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/crypto/shachain/shachain.h>
@@ -29,7 +30,7 @@ struct htlc_add {
 struct htlc_fulfill {
 	enum htlc_stage_type fulfill;
 	u64 id;
-	struct sha256 r;
+	struct rval r;
 };
 
 struct htlc_fail {
@@ -241,5 +242,5 @@ struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee);
 uint64_t commit_tx_fee(const struct bitcoin_tx *commit,
 		       uint64_t anchor_satoshis);
 
-bool resolve_one_htlc(struct peer *peer, u64 id, const struct sha256 *preimage);
+bool resolve_one_htlc(struct peer *peer, u64 id, const struct rval *preimage);
 #endif /* LIGHTNING_DAEMON_PEER_H */

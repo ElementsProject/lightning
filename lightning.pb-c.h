@@ -16,6 +16,7 @@ PROTOBUF_C__BEGIN_DECLS
 
 
 typedef struct _Sha256Hash Sha256Hash;
+typedef struct _Rval Rval;
 typedef struct _Signature Signature;
 typedef struct _Locktime Locktime;
 typedef struct _BitcoinPubkey BitcoinPubkey;
@@ -67,6 +68,19 @@ struct  _Sha256Hash
 };
 #define SHA256_HASH__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&sha256_hash__descriptor) \
+    , 0, 0, 0, 0 }
+
+
+struct  _Rval
+{
+  ProtobufCMessage base;
+  uint64_t a;
+  uint64_t b;
+  uint64_t c;
+  uint64_t d;
+};
+#define RVAL__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&rval__descriptor) \
     , 0, 0, 0, 0 }
 
 
@@ -326,7 +340,7 @@ struct  _UpdateFulfillHtlc
   /*
    * HTLC R value.
    */
-  Sha256Hash *r;
+  Rval *r;
 };
 #define UPDATE_FULFILL_HTLC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&update_fulfill_htlc__descriptor) \
@@ -523,6 +537,25 @@ Sha256Hash *
                       const uint8_t       *data);
 void   sha256_hash__free_unpacked
                      (Sha256Hash *message,
+                      ProtobufCAllocator *allocator);
+/* Rval methods */
+void   rval__init
+                     (Rval         *message);
+size_t rval__get_packed_size
+                     (const Rval   *message);
+size_t rval__pack
+                     (const Rval   *message,
+                      uint8_t             *out);
+size_t rval__pack_to_buffer
+                     (const Rval   *message,
+                      ProtobufCBuffer     *buffer);
+Rval *
+       rval__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   rval__free_unpacked
+                     (Rval *message,
                       ProtobufCAllocator *allocator);
 /* Signature methods */
 void   signature__init
@@ -909,6 +942,9 @@ void   pkt__free_unpacked
 typedef void (*Sha256Hash_Closure)
                  (const Sha256Hash *message,
                   void *closure_data);
+typedef void (*Rval_Closure)
+                 (const Rval *message,
+                  void *closure_data);
 typedef void (*Signature_Closure)
                  (const Signature *message,
                   void *closure_data);
@@ -976,6 +1012,7 @@ typedef void (*Pkt_Closure)
 /* --- descriptors --- */
 
 extern const ProtobufCMessageDescriptor sha256_hash__descriptor;
+extern const ProtobufCMessageDescriptor rval__descriptor;
 extern const ProtobufCMessageDescriptor signature__descriptor;
 extern const ProtobufCMessageDescriptor locktime__descriptor;
 extern const ProtobufCMessageDescriptor bitcoin_pubkey__descriptor;

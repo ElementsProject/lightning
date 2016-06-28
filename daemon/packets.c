@@ -205,7 +205,7 @@ void queue_pkt_htlc_add(struct peer *peer, const struct channel_htlc *htlc)
 	queue_pkt(peer, PKT__PKT_UPDATE_ADD_HTLC, u);
 }
 
-void queue_pkt_htlc_fulfill(struct peer *peer, u64 id, const struct sha256 *r)
+void queue_pkt_htlc_fulfill(struct peer *peer, u64 id, const struct rval *r)
 {
 	UpdateFulfillHtlc *f = tal(peer, UpdateFulfillHtlc);
 	size_t n;
@@ -213,7 +213,7 @@ void queue_pkt_htlc_fulfill(struct peer *peer, u64 id, const struct sha256 *r)
 
 	update_fulfill_htlc__init(f);
 	f->id = id;
-	f->r = sha256_to_proto(f, r);
+	f->r = rval_to_proto(f, r);
 
 	/* BOLT #2:
 	 *
@@ -724,7 +724,8 @@ Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 {
 	const UpdateFulfillHtlc *f = pkt->update_fulfill_htlc;
 	size_t n_local;
-	struct sha256 r, rhash;
+	struct sha256 rhash;
+	struct rval r;
 	Pkt *err;
 	union htlc_staging stage;
 
@@ -733,7 +734,7 @@ Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 		return err;
 
 	/* Now, it must solve the HTLC rhash puzzle. */
-	proto_to_sha256(f->r, &r);
+	proto_to_rval(f->r, &r);
 	sha256(&rhash, &r, sizeof(r));
 
 	if (!structeq(&rhash, &peer->local.staging_cstate->side[OURS].htlcs[n_local].rhash))

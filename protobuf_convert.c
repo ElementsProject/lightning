@@ -89,6 +89,29 @@ void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash)
 	memcpy(hash->u.u8 + 24, &pb->d, 8);
 }
 
+Rval *rval_to_proto(const tal_t *ctx, const struct rval *r)
+{
+	Rval *pb = tal(ctx, Rval);
+	rval__init(pb);
+
+	/* Kill me now... */
+	memcpy(&pb->a, r->r, 8);
+	memcpy(&pb->b, r->r + 8, 8);
+	memcpy(&pb->c, r->r + 16, 8);
+	memcpy(&pb->d, r->r + 24, 8);
+	return pb;
+}
+
+void proto_to_rval(const Rval *pb, struct rval *r)
+{
+	/* Kill me again. */
+	memcpy(r->r, &pb->a, 8);
+	memcpy(r->r + 8, &pb->b, 8);
+	memcpy(r->r + 16, &pb->c, 8);
+	memcpy(r->r + 24, &pb->d, 8);
+}
+
+
 bool proto_to_rel_locktime(const Locktime *l, struct rel_locktime *locktime)
 {
 	switch (l->locktime_case) {

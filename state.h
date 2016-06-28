@@ -90,7 +90,7 @@ static inline bool input_is(enum state_input a, enum state_input b)
 	return a == b;
 }
 
-struct signature;
+struct rval;
 
 /* Inform peer have an unexpected packet. */
 void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt);
@@ -102,7 +102,7 @@ void queue_pkt_open_commit_sig(struct peer *peer);
 void queue_pkt_open_complete(struct peer *peer);
 void queue_pkt_htlc_add(struct peer *peer,
 			const struct channel_htlc *htlc);
-void queue_pkt_htlc_fulfill(struct peer *peer, u64 id, const struct sha256 *r);
+void queue_pkt_htlc_fulfill(struct peer *peer, u64 id, const struct rval *r);
 void queue_pkt_htlc_fail(struct peer *peer, u64 id);
 void queue_pkt_commit(struct peer *peer);
 void queue_pkt_revocation(struct peer *peer);
