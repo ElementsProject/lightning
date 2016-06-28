@@ -637,7 +637,8 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 	if (!peer_uncommitted_changes(peer)) {
 		log_debug(peer->log, "do_commit: no changes to commit");
 		if (jsoncmd)
-		command_fail(jsoncmd, "no changes to commit");
+			command_fail(jsoncmd, "no changes to commit");
+		return;
 	}
 
 	log_debug(peer->log, "do_commit: sending commit command");
