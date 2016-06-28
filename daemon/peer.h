@@ -73,6 +73,8 @@ struct commit_info {
 	struct sha256 *revocation_preimage;
 	/* unacked changes (already applied to staging_cstate) */
 	union htlc_staging *unacked_changes;
+	/* acked changes (already applied to staging_cstate) */
+	union htlc_staging *acked_changes;
 };
 
 struct peer_visible_state {
@@ -227,6 +229,14 @@ void remote_changes_pending(struct peer *peer);
 /* Add this unacked change */
 void add_unacked(struct peer_visible_state *which,
 		 const union htlc_staging *stage);
+
+/* These unacked changes are now acked; add them to acked set. */
+void add_acked_changes(union htlc_staging **acked,
+		       const union htlc_staging *changes);
+
+/* Both sides are committed to these changes they proposed. */
+void peer_both_committed_to(struct peer *peer,
+			    const union htlc_staging *changes, enum channel_side side);
 
 /* Peer has recieved revocation. */
 void peer_update_complete(struct peer *peer);

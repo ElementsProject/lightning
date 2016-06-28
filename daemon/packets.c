@@ -85,6 +85,7 @@ static struct commit_info *new_commit_info(const tal_t *ctx)
 {
 	struct commit_info *ci = talz(ctx, struct commit_info);
 	ci->unacked_changes = tal_arr(ci, union htlc_staging, 0);
+	ci->acked_changes = tal_arr(ci, union htlc_staging, 0);
 	return ci;
 }
 
@@ -402,6 +403,7 @@ void queue_pkt_revocation(struct peer *peer)
 	 */
 	/* Note: this means the unacked changes as of the commit we're
 	 * revoking */
+	add_acked_changes(&peer->remote.commit->acked_changes, ci->unacked_changes);
 	apply_changeset(peer, &peer->remote, THEIRS,
 			ci->unacked_changes, tal_count(ci->unacked_changes));
 
@@ -410,6 +412,12 @@ void queue_pkt_revocation(struct peer *peer)
 
 	/* We should never look at this again. */
 	ci->unacked_changes = tal_free(ci->unacked_changes);
+
+	/* That revocation has committed us to changes in the current commitment.
+	 * Any acked changes come from their commitment, so those are now committed
+	 * by both of us.
+	 */
+	peer_both_committed_to(peer, ci->acked_changes, OURS);
 }
 
 Pkt *pkt_err(struct peer *peer, const char *msg, ...)
@@ -848,6 +856,7 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	 * The receiver of `update_revocation`... MUST add the remote
 	 * unacked changes to the set of local acked changes.
 	 */
+	add_acked_changes(&peer->local.commit->acked_changes, ci->unacked_changes);
 	apply_changeset(peer, &peer->local, OURS,
 			ci->unacked_changes,
 			tal_count(ci->unacked_changes));
@@ -855,6 +864,12 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	/* Should never examine these again. */
 	ci->unacked_changes = tal_free(ci->unacked_changes);
 
+	/* That revocation has committed them to changes in the current commitment.
+	 * Any acked changes come from our commitment, so those are now committed
+	 * by both of us.
+	 */
+	peer_both_committed_to(peer, ci->acked_changes, THEIRS);
+	
 	return NULL;
 }
 	

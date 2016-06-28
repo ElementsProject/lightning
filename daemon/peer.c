@@ -2144,6 +2144,77 @@ void add_unacked(struct peer_visible_state *which,
 	which->commit->unacked_changes[n] = *stage;
 }
 
+void add_acked_changes(union htlc_staging **acked,
+		       const union htlc_staging *changes)
+{
+	size_t n_acked, n_changes;
+
+	n_acked = tal_count(*acked);
+	n_changes = tal_count(changes);
+	tal_resize(acked, n_acked + n_changes);
+	memcpy(*acked + n_acked, changes, n_changes * sizeof(*changes));
+}
+
+static const char *owner_name(enum channel_side side)
+{
+	return side == OURS ? "our" : "their";
+}
+
+/* When changes are committed to. */
+void peer_both_committed_to(struct peer *peer,
+			    const union htlc_staging *changes,
+			    enum channel_side side)
+{
+	size_t i, n = tal_count(changes);
+
+	for (i = 0; i < n; i++) {
+		u64 htlc_id;
+		const char *type, *owner;
+
+		switch (changes[i].type) {
+		case HTLC_ADD:
+			type = "ADD";
+			htlc_id = changes[i].add.htlc.id;
+			owner = owner_name(side);
+			assert(funding_htlc_by_id(peer->remote.commit->cstate, htlc_id,
+						  side));
+			assert(funding_htlc_by_id(peer->local.commit->cstate, htlc_id,
+						  side));
+			goto print;
+		case HTLC_FAIL:
+			type = "FAIL";
+			htlc_id = changes[i].fail.id;
+			owner = owner_name(!side);
+			assert(!funding_htlc_by_id(peer->remote.commit->cstate, htlc_id,
+						   !side));
+			assert(!funding_htlc_by_id(peer->local.commit->cstate, htlc_id,
+						   !side));
+			assert(funding_htlc_by_id(peer->remote.commit->prev->cstate,
+						  htlc_id, !side)
+			       || funding_htlc_by_id(peer->local.commit->prev->cstate,
+						     htlc_id, !side));
+			goto print;
+		case HTLC_FULFILL:
+			type = "FULFILL";
+			htlc_id = changes[i].fulfill.id;
+			owner = owner_name(!side);
+			assert(!funding_htlc_by_id(peer->remote.commit->cstate, htlc_id,
+						   !side));
+			assert(!funding_htlc_by_id(peer->local.commit->cstate, htlc_id,
+						   !side));
+			assert(funding_htlc_by_id(peer->remote.commit->prev->cstate,
+						  htlc_id, !side)
+			       || funding_htlc_by_id(peer->local.commit->prev->cstate,
+						     htlc_id, !side));
+			goto print;
+		}
+		abort();
+	print:
+		log_debug(peer->log, "Both committed to %s of %s HTLC %"PRIu64,
+			  type, owner, htlc_id);
+	}
+}
+
 /* Sets up the initial cstate and commit tx for both nodes: false if
  * insufficient funds. */
 bool setup_first_commit(struct peer *peer)

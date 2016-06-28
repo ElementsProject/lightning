@@ -439,8 +439,22 @@ if [ -n "$MANUALCOMMIT" ]; then
     # Node 2 has it committed.
     check_status_single lcli2 $B_AMOUNT $B_FEE "" $A_AMOUNT $A_FEE '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "second" : '$EXPIRY' }, "rhash" : "'$RHASH'" } '
 
+    # There should be no "both committed" here yet
+    if lcli1 getlog debug | $FGREP "Both committed"; then
+	echo "Node1 thinks they are both committed";
+	exit 1
+    fi
+    if lcli2 getlog debug | $FGREP "Both committed"; then
+	echo "Node2 thinks they are both committed";
+	exit 1
+    fi
+
     # Now node2 gives commitment to node1.
     lcli2 commit $ID1
+
+    # After revocation, they should know they're both committed.
+    check lcli1 "getlog debug | $FGREP 'Both committed to ADD of our HTLC'"
+    check lcli2 "getlog debug | $FGREP 'Both committed to ADD of their HTLC'"
 else
     A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - $HTLC_AMOUNT))
     A_FEE=$(($A_FEE + $EXTRA_FEE))
@@ -498,7 +512,22 @@ fi
     
 lcli2 fulfillhtlc $ID1 $SECRET
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+
+# Without manual commit, this check is racy.
+if [ -n "$MANUALCOMMIT" ]; then
+    if lcli1 getlog debug | $FGREP 'Both committed to FULFILL'; then
+	echo "Node1 thinks they are both committed";
+	exit 1
+    fi
+    if lcli2 getlog debug | $FGREP 'Both committed to FULFILL'; then
+	echo "Node2 thinks they are both committed";
+	exit 1
+    fi
+fi
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+
+check lcli1 "getlog debug | $FGREP 'Both committed to FULFILL of our HTLC'"
+check lcli2 "getlog debug | $FGREP 'Both committed to FULFILL of their HTLC'"
 
 # We've transferred the HTLC amount to 2, who now has to pay fees,
 # so no net change for A who saves on fees.
