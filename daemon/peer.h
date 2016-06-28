@@ -82,7 +82,7 @@ struct peer_visible_state {
 	enum state_input offer_anchor;
 	/* Key for commitment tx inputs, then key for commitment tx outputs */
 	struct pubkey commitkey, finalkey;
-	/* How long to they want the other's outputs locked (seconds) */
+	/* How long to they want the other's outputs locked (blocks) */
 	struct rel_locktime locktime;
 	/* Minimum depth of anchor before channel usable. */
 	unsigned int mindepth;
@@ -243,9 +243,6 @@ void peer_update_complete(struct peer *peer);
 
 /* Peer has completed open, or problem (if non-NULL). */
 void peer_open_complete(struct peer *peer, const char *problem);
-
-void peer_add_htlc_expiry(struct peer *peer,
-			  const struct abs_locktime *expiry);
 
 struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee);
 

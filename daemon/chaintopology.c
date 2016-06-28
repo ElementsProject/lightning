@@ -452,6 +452,11 @@ u32 get_tip_mediantime(struct lightningd_state *dstate)
 	return dstate->topology->tip->mediantime;
 }
 
+u32 get_block_height(struct lightningd_state *dstate)
+{
+	return dstate->topology->tip->height;
+}
+
 void setup_topology(struct lightningd_state *dstate)
 {
 	dstate->topology = tal(dstate, struct topology);

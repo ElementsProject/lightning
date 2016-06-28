@@ -14,11 +14,11 @@ struct config {
 	/* Are we on testnet? */
 	bool testnet;
 
-	/* How long do we want them to lock up their funds? (seconds) */
-	u32 rel_locktime;
+	/* How long do we want them to lock up their funds? (blocks) */
+	u32 locktime_blocks;
 
-	/* How long do we let them lock up our funds? (seconds) */
-	u32 rel_locktime_max;
+	/* How long do we let them lock up our funds? (blocks) */
+	u32 locktime_max;
 
 	/* How many confirms until we consider an anchor "settled". */
 	u32 anchor_confirms;
@@ -38,13 +38,13 @@ struct config {
 	/* What fee we use for the closing transaction (satoshis/kb) */
 	u64 closing_fee_rate;
 
-	/* Minimum/maximum time for an expiring HTLC (seconds). */
-	u32 min_expiry, max_expiry;
+	/* Minimum/maximum time for an expiring HTLC (blocks). */
+	u32 min_htlc_expiry, max_htlc_expiry;
 	
 	/* How long between polling bitcoind. */
 	struct timerel poll_time;
 
-	/* How long between changing commit and sending COMMIT message.. */
+	/* How long between changing commit and sending COMMIT message. */
 	struct timerel commit_time;
 };
 

@@ -70,11 +70,11 @@ static void opt_show_u32(char buf[OPT_SHOW_LEN], const u32 *u)
 
 static void config_register_opts(struct lightningd_state *dstate)
 {
-	opt_register_arg("--locktime", opt_set_u32, opt_show_u32,
-			 &dstate->config.rel_locktime,
-			 "Seconds before peer can unilaterally spend funds");
-	opt_register_arg("--max-locktime", opt_set_u32, opt_show_u32,
-			 &dstate->config.rel_locktime_max,
+	opt_register_arg("--locktime-blocks", opt_set_u32, opt_show_u32,
+			 &dstate->config.locktime_blocks,
+			 "Blocks before peer can unilaterally spend funds");
+	opt_register_arg("--max-locktime-blocks", opt_set_u32, opt_show_u32,
+			 &dstate->config.locktime_max,
 			 "Maximum seconds peer can lock up our funds");
 	opt_register_arg("--anchor-confirms", opt_set_u32, opt_show_u32,
 			 &dstate->config.anchor_confirms,
@@ -94,12 +94,12 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--closing-fee-rate", opt_set_u64, opt_show_u64,
 			 &dstate->config.closing_fee_rate,
 			 "Satoshis to use for mutual close transaction fee (per kb)");
-	opt_register_arg("--min-expiry", opt_set_u32, opt_show_u32,
-			 &dstate->config.min_expiry,
-			 "Minimum number of seconds to accept an HTLC before expiry");
-	opt_register_arg("--max-expiry", opt_set_u32, opt_show_u32,
-			 &dstate->config.max_expiry,
-			 "Maximum number of seconds to accept an HTLC before expiry");
+	opt_register_arg("--min-htlc-expiry", opt_set_u32, opt_show_u32,
+			 &dstate->config.min_htlc_expiry,
+			 "Minimum number of blocks to accept an HTLC before expiry");
+	opt_register_arg("--max-htlc-expiry", opt_set_u32, opt_show_u32,
+			 &dstate->config.max_htlc_expiry,
+			 "Maximum number of blocks to accept an HTLC before expiry");
 	opt_register_arg("--bitcoind-poll", opt_set_time, opt_show_time,
 			 &dstate->config.poll_time,
 			 "Time between polling for new transactions");
@@ -108,20 +108,16 @@ static void config_register_opts(struct lightningd_state *dstate)
 			 "Time after changes before sending out COMMIT");
 }
 
-#define MINUTES 60
-#define HOURS (60 * MINUTES)
-#define DAYS (24 * HOURS)
-
 static void default_config(struct config *config)
 {
 	/* aka. "Dude, where's my coins?" */
 	config->testnet = true;
 
-	/* One day to catch cheating attempts. */
-	config->rel_locktime = 1 * DAYS;
+	/* ~one day to catch cheating attempts. */
+	config->locktime_blocks = 6 * 24;
 
 	/* They can have up to 3 days. */
-	config->rel_locktime_max = 2 * DAYS;
+	config->locktime_max = 3 * 6 * 24;
 
 	/* We're fairly trusting, under normal circumstances. */
 	config->anchor_confirms = 3;
@@ -152,9 +148,9 @@ static void default_config(struct config *config)
 	config->closing_fee_rate = 20000;
 
 	/* Don't bother me unless I have 6 hours to collect. */
-	config->min_expiry = 6 * HOURS;
+	config->min_htlc_expiry = 6 * 6;
 	/* Don't lock up channel for more than 5 days. */
-	config->max_expiry = 5 * DAYS;
+	config->max_htlc_expiry = 5 * 6 * 24;
 
 	config->poll_time = time_from_sec(30);
 

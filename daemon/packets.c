@@ -106,8 +106,8 @@ void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor)
 	o->final_key = pubkey_to_proto(o, &peer->local.finalkey);
 	o->delay = tal(o, Locktime);
 	locktime__init(o->delay);
-	o->delay->locktime_case = LOCKTIME__LOCKTIME_SECONDS;
-	o->delay->seconds = rel_locktime_to_seconds(&peer->local.locktime);
+	o->delay->locktime_case = LOCKTIME__LOCKTIME_BLOCKS;
+	o->delay->blocks = rel_locktime_to_blocks(&peer->local.locktime);
 	o->initial_fee_rate = peer->local.commit_fee_rate;
 	if (anchor == OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR)
 		assert(peer->local.offer_anchor == CMD_OPEN_WITH_ANCHOR);
@@ -200,8 +200,6 @@ void queue_pkt_htlc_add(struct peer *peer, const struct channel_htlc *htlc)
 	add_unacked(&peer->remote, &stage);
 
 	remote_changes_pending(peer);
-
-	peer_add_htlc_expiry(peer, &htlc->expiry);
 
 	queue_pkt(peer, PKT__PKT_UPDATE_ADD_HTLC, u);
 }
@@ -488,10 +486,9 @@ Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt)
 
 	if (!proto_to_rel_locktime(o->delay, &locktime))
 		return pkt_err(peer, "Invalid delay");
-	/* FIXME: handle blocks in locktime */
-	if (o->delay->locktime_case != LOCKTIME__LOCKTIME_SECONDS)
-		return pkt_err(peer, "Delay in blocks not accepted");
-	if (o->delay->seconds > peer->dstate->config.rel_locktime_max)
+	if (o->delay->locktime_case != LOCKTIME__LOCKTIME_BLOCKS)
+		return pkt_err(peer, "Delay in seconds not accepted");
+	if (o->delay->blocks > peer->dstate->config.locktime_max)
 		return pkt_err(peer, "Delay too great");
 	if (o->min_depth > peer->dstate->config.anchor_confirms_max)
 		return pkt_err(peer, "min_depth too great");
@@ -616,9 +613,8 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	if (!proto_to_abs_locktime(u->expiry, &expiry))
 		return pkt_err(peer, "Invalid HTLC expiry");
 
-	/* FIXME: Handle block-based expiry! */
-	if (!abs_locktime_is_seconds(&expiry))
-		return pkt_err(peer, "HTLC expiry in blocks not supported!");
+	if (abs_locktime_is_seconds(&expiry))
+		return pkt_err(peer, "HTLC expiry in seconds not supported!");
 
 	/* BOLT #2:
 	 *
@@ -673,9 +669,6 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	stage.add.add = HTLC_ADD;
 	stage.add.htlc = *htlc;
 	add_unacked(&peer->local, &stage);
-
-	peer_add_htlc_expiry(peer, &expiry);
-
 
 	/* FIXME: Fees must be sufficient. */
 	return NULL;

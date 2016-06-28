@@ -753,10 +753,9 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	io_set_finish(conn, peer_disconnect, peer);
 	
 	peer->local.offer_anchor = offer_anchor;
-	if (!seconds_to_rel_locktime(dstate->config.rel_locktime,
-				     &peer->local.locktime))
-		fatal("Invalid locktime configuration %u",
-		      dstate->config.rel_locktime);
+	if (!blocks_to_rel_locktime(dstate->config.locktime_blocks,
+				    &peer->local.locktime))
+		fatal("Could not convert locktime_blocks");
 	peer->local.mindepth = dstate->config.anchor_confirms;
 	peer->local.commit_fee_rate = dstate->config.commitment_fee_rate;
 
@@ -975,6 +974,35 @@ const struct json_command connect_command = {
 	"Returns an empty result on success"
 };
 
+/* FIXME: Keep a timeout for each peer, in case they're unresponsive. */
+
+/* FIXME: Make sure no HTLCs in any unrevoked commit tx are live. */
+
+static void check_htlc_expiry(struct peer *peer)
+{
+	size_t i;
+	u32 height = get_block_height(peer->dstate);
+
+again:
+	/* Check their currently still-existing htlcs for expiry:
+	 * We eliminate them from staging as we go. */
+	for (i = 0; i < tal_count(peer->remote.staging_cstate->side[THEIRS].htlcs); i++) {
+		struct channel_htlc *htlc = &peer->remote.staging_cstate->side[THEIRS].htlcs[i];
+
+		assert(!abs_locktime_is_seconds(&htlc->expiry));
+
+		/* We give it an extra block, to avoid the worst of the
+		 * inter-node timing issues. */
+		if (height <= abs_locktime_to_blocks(&htlc->expiry))
+			continue;
+
+		/* This can fail only if we're in an error state. */
+		if (!command_htlc_fail(peer, htlc->id))
+			return;
+		goto again;
+	}
+}
+
 struct anchor_watch {
 	struct peer *peer;
 	enum state_input depthok;
@@ -1002,6 +1030,9 @@ static void anchor_depthchange(struct peer *peer, unsigned int depth,
 	} else if (depth == 0)
 		/* FIXME: Report losses! */
 		fatal("Funding transaction was unspent!");
+
+	/* Since this gets called on every new block, check HTLCs here. */
+	check_htlc_expiry(peer);
 }
 
 /* Yay, segwit!  We can just compare txids, even though we don't have both
@@ -1365,14 +1396,14 @@ static void our_htlc_depth(struct peer *peer,
 			   bool our_commit,
 			   size_t i)
 {
-	u32 mediantime;
 	struct channel_htlc *h;
+	u32 height;
 
 	/* Must be in a block. */
 	if (depth == 0)
 		return;
 
-	mediantime = get_tip_mediantime(peer->dstate);
+	height = get_block_height(peer->dstate);
 	h = htlc_by_index(peer->closing_onchain.ci, i);
 
 	/* BOLT #onchain:
@@ -1384,18 +1415,11 @@ static void our_htlc_depth(struct peer *peer,
 	 * `OP_CHECKSEQUENCEVERIFY` delay has passed.
 	 */
 
-	/* FIXME: Handle expiry in blocks. */
-	if (mediantime < abs_locktime_to_seconds(&h->expiry))
+	if (height < abs_locktime_to_blocks(&h->expiry))
 		return;
 
 	if (our_commit) {
-		u32 csv_timeout;
-
-		/* FIXME: Handle CSV in blocks. */
-		csv_timeout = get_tx_mediantime(peer->dstate, txid)
-			+ rel_locktime_to_seconds(&peer->remote.locktime);
-
-		if (mediantime <= csv_timeout)
+		if (depth < rel_locktime_to_blocks(&peer->remote.locktime))
 			return;
 	}
 
@@ -1480,7 +1504,7 @@ static void their_htlc_depth(struct peer *peer,
 			     const struct sha256_double *txid,
 			     ptrint_t *pi)
 {
-	u32 mediantime;
+	u32 height;
 	struct channel_htlc *h;
 	size_t i = ptr2int(pi);
 
@@ -1488,7 +1512,7 @@ static void their_htlc_depth(struct peer *peer,
 	if (depth == 0)
 		return;
 
-	mediantime = get_tip_mediantime(peer->dstate);
+	height = get_block_height(peer->dstate);
 	h = htlc_by_index(peer->closing_onchain.ci, i);
 
 	/* BOLT #onchain:
@@ -1497,8 +1521,7 @@ static void their_htlc_depth(struct peer *peer,
 	 * *irrevocably resolved*.
 	 */
 
-	/* FIXME: Handle expiry in blocks. */
-	if (mediantime < abs_locktime_to_seconds(&h->expiry))
+	if (height < abs_locktime_to_blocks(&h->expiry))
 		return;
 
 	peer->closing_onchain.resolved[i] = irrevocably_resolved(peer);
@@ -1528,19 +1551,8 @@ static void our_main_output_depth(struct peer *peer,
 				  const struct sha256_double *txid,
 				  void *unused)
 {
-	u32 mediantime, csv_timeout;
-
-	/* Not in block any more? */
-	if (depth == 0)
-		return;
-
-	mediantime = get_tip_mediantime(peer->dstate);
-	
-	/* FIXME: Handle CSV in blocks. */
-	csv_timeout = get_tx_mediantime(peer->dstate, txid)
-		+ rel_locktime_to_seconds(&peer->remote.locktime);
-
-	if (mediantime <= csv_timeout)
+	/* Not past CSV timeout? */
+	if (depth < rel_locktime_to_blocks(&peer->remote.locktime))
 		return;
 
 	/* Already done?  (FIXME: Delete after first time) */
@@ -2408,48 +2420,6 @@ const struct json_command getpeers_command = {
 	"Returns a 'peers' array"
 };
 
-/* FIXME: Keep a timeout for each peer, in case they're unresponsive. */
-
-/* FIXME: Make sure no HTLCs in any unrevoked commit tx are live. */
-
-static void check_htlc_expiry(struct peer *peer)
-{
-	size_t i;
-
-	log_debug(peer->log, "Expiry timedout!");
-
-	/* Check their currently still-existing htlcs for expiry:
-	 * We eliminate them from staging as we go. */
-	for (i = 0; i < tal_count(peer->remote.staging_cstate->side[THEIRS].htlcs); i++) {
-		struct channel_htlc *htlc = &peer->remote.staging_cstate->side[THEIRS].htlcs[i];
-
-		/* Not a seconds-based expiry? */
-		if (!abs_locktime_is_seconds(&htlc->expiry))
-			continue;
-
-		/* Not well-expired? */
-		if (controlled_time().ts.tv_sec - 30
-		    < abs_locktime_to_seconds(&htlc->expiry))
-			continue;
-
-		/* This can fail only if we're in an error state. */
-		command_htlc_fail(peer, htlc->id);
-		return;
-	}
-}
-
-void peer_add_htlc_expiry(struct peer *peer,
-			  const struct abs_locktime *expiry)
-{
-	struct timeabs absexpiry;
-
-	/* Add 30 seconds to be sure peers agree on timeout. */
-	absexpiry.ts.tv_sec = abs_locktime_to_seconds(expiry) + 30;
-	absexpiry.ts.tv_nsec = 0;
-
-	new_abstimer(peer->dstate, peer, absexpiry, check_htlc_expiry, peer);
-}
-
 static void do_newhtlc(struct peer *peer,
 		       struct channel_htlc *htlc,
 		       struct command *jsoncmd)
@@ -2553,21 +2523,21 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
-	if (!seconds_to_abs_locktime(expiry, &htlc.expiry)) {
-		command_fail(cmd, "'%.*s' is not a valid number",
+	if (!blocks_to_abs_locktime(expiry, &htlc.expiry)) {
+		command_fail(cmd, "'%.*s' is not a valid number block number",
 			     (int)(expirytok->end - expirytok->start),
 			     buffer + expirytok->start);
 		return;
 	}
 
-	if (abs_locktime_to_seconds(&htlc.expiry) <
-	    controlled_time().ts.tv_sec + peer->dstate->config.min_expiry) {
+	if (abs_locktime_to_blocks(&htlc.expiry) <
+	    get_block_height(peer->dstate) + peer->dstate->config.min_htlc_expiry) {
 		command_fail(cmd, "HTLC expiry too soon!");
 		return;
 	}
 
-	if (abs_locktime_to_seconds(&htlc.expiry) >
-	    controlled_time().ts.tv_sec + peer->dstate->config.max_expiry) {
+	if (abs_locktime_to_blocks(&htlc.expiry) >
+	    get_block_height(peer->dstate) + peer->dstate->config.max_htlc_expiry) {
 		command_fail(cmd, "HTLC expiry too far!");
 		return;
 	}
@@ -2589,7 +2559,7 @@ static void json_newhtlc(struct command *cmd,
 const struct json_command newhtlc_command = {
 	"newhtlc",
 	json_newhtlc,
-	"Offer {peerid} an HTLC worth {msatoshis} in {expiry} (in seconds since Jan 1 1970) with {rhash}",
+	"Offer {peerid} an HTLC worth {msatoshis} in {expiry} (block number) with {rhash}",
 	"Returns an empty result on success"
 };
 
