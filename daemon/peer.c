@@ -10,6 +10,7 @@
 #include "lightningd.h"
 #include "log.h"
 #include "names.h"
+#include "payment.h"
 #include "peer.h"
 #include "permute_tx.h"
 #include "protobuf_convert.h"
@@ -2167,6 +2168,7 @@ void peer_both_committed_to(struct peer *peer,
 {
 	size_t i, n = tal_count(changes);
 
+	/* All this, simply for debugging. */
 	for (i = 0; i < n; i++) {
 		u64 htlc_id;
 		const char *type, *owner;
@@ -2212,6 +2214,44 @@ void peer_both_committed_to(struct peer *peer,
 	print:
 		log_debug(peer->log, "Both committed to %s of %s HTLC %"PRIu64,
 			  type, owner, htlc_id);
+	}
+
+	/* We actually only respond to changes they made. */
+	if (side == OURS)
+		return;
+
+	for (i = 0; i < n; i++) {
+		struct payment *payment;
+
+		switch (changes[i].type) {
+		case HTLC_ADD:
+			payment = find_payment(peer->dstate, &changes[i].add.htlc.rhash);
+			if (payment) {
+				if (changes[i].add.htlc.msatoshis != payment->msatoshis) {
+					log_unusual(peer->log, "Got payment for %"PRIu64
+						    " not %"PRIu64 " satoshi!",
+						    changes[i].add.htlc.msatoshis,
+						    payment->msatoshis);
+					command_htlc_fail(peer,
+							  changes[i].add.htlc.id);
+				} else {
+					log_info(peer->log,
+						 "Immediately resolving HTLC %"PRIu64,
+						 changes[i].add.htlc.id);
+					command_htlc_fulfill(peer,
+							     changes[i].add.htlc.id,
+							     &payment->r);
+				}
+			}
+			/* FIXME: Otherwise, route. */
+			break;
+		case HTLC_FULFILL:
+			/* FIXME: resolve_one_htlc(peer, id, preimage); */
+			break;
+		case HTLC_FAIL:
+			/* FIXME: Route failure. */
+			break;
+		}
 	}
 }
 

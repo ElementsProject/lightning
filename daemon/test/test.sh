@@ -416,10 +416,6 @@ EXPIRY=$(( $(date +%s) + 1000))
 SECRET=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd
 RHASH=`lcli1 dev-rhash $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
-# Tell node2 about payment: hash should be the same.
-RHASH2=`lcli2 accept-payment $HTLC_AMOUNT $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
-[ "$RHASH" = "$RHASH2" ]
-
 lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
 
 if [ -n "$MANUALCOMMIT" ]; then
@@ -722,6 +718,34 @@ lcli2 fulfillhtlc $ID1 $SECRET2
 # We transferred 2 * amount from A to B.
 A_AMOUNT=$(($A_AMOUNT - $HTLC_AMOUNT * 2))
 B_AMOUNT=$(($B_AMOUNT + $HTLC_AMOUNT * 2))
+check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
+
+# Now, use automatic payment redemption
+RHASH3=`lcli2 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
+
+lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH3
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+
+# We transferred amount from A to B.
+A_AMOUNT=$(($A_AMOUNT - $HTLC_AMOUNT))
+B_AMOUNT=$(($B_AMOUNT + $HTLC_AMOUNT))
+check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
+
+# Now, failed payment (didn't pay enough)
+RHASH4=`lcli2 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
+
+lcli1 newhtlc $ID2 $(($HTLC_AMOUNT - 1)) $EXPIRY $RHASH4
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+
+check lcli2 "getlog | $FGREP 'Got payment for '$(($HTLC_AMOUNT - 1))' not '$HTLC_AMOUNT"
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 lcli1 close $ID2
