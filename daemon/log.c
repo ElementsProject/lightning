@@ -1,6 +1,10 @@
+#include "bitcoin/locktime.h"
+#include "bitcoin/pubkey.h"
+#include "bitcoin/tx.h"
 #include "controlled_time.h"
 #include "log.h"
 #include "pseudorand.h"
+#include "utils.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/list/list.h>
 #include <ccan/opt/opt.h>
@@ -263,11 +267,53 @@ void log_add(struct log *log, const char *fmt, ...)
 	va_end(ap);
 }
 
-void log_add_hex(struct log *log, const void *data, size_t len)
+void log_struct_(struct log *log, int level,
+		 const char *structname,
+		 const char *fmt, ...)
 {
-	char hex[hex_str_size(len)];
-	hex_encode(data, len, hex, hex_str_size(len));
-	log_add(log, "%s", hex);
+	char *s;
+	union loggable_structs u;
+	va_list ap;
+
+	/* Macro wrappers ensure we only have one arg. */
+	va_start(ap, fmt);
+	u.charp_ = va_arg(ap, const char *);
+	va_end(ap);
+
+	/* GCC checks we're one of these, so we should be. */
+	if (streq(structname, "struct pubkey"))
+		s = tal_hexstr(log, u.pubkey->der, sizeof(u.pubkey->der));
+	else if (streq(structname, "struct sha256_double"))
+		s = tal_hexstr(log, u.sha256_double, sizeof(*u.sha256_double));
+	else if (streq(structname, "struct sha256"))
+		s = tal_hexstr(log, u.sha256, sizeof(*u.sha256));
+	else if (streq(structname, "struct rel_locktime")) {
+		if (rel_locktime_is_seconds(u.rel_locktime))
+			s = tal_fmt(log, "+%usec",
+				    rel_locktime_to_seconds(u.rel_locktime));
+		else
+			s = tal_fmt(log, "+%ublocks",
+				    rel_locktime_to_blocks(u.rel_locktime));
+	} else if (streq(structname, "struct abs_locktime")) {
+		if (abs_locktime_is_seconds(u.abs_locktime))
+			s = tal_fmt(log, "%usec",
+				    abs_locktime_to_seconds(u.abs_locktime));
+		else
+			s = tal_fmt(log, "%ublocks",
+				    abs_locktime_to_blocks(u.abs_locktime));
+	} else if (streq(structname, "struct bitcoin_tx")) {
+		u8 *lin = linearize_tx(NULL, u.bitcoin_tx);
+		s = tal_hexstr(log, lin, tal_count(lin));
+		tal_free(lin);
+	} else
+		fatal("Logging unknown type %s", structname);
+
+	if (level == -1)
+		log_add(log, fmt, s);
+	else
+		log_(log, level, fmt, s);
+
+	tal_free(s);
 }
 
 void log_each_line_(const struct log_record *lr,

@@ -279,10 +279,7 @@ void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx)
 	list_add_tail(&peer->outgoing_txs, &otx->list);
 	tal_add_destructor(otx, destroy_outgoing_tx);
 
-	/* FIXME: log_struct */
-	log_add(peer->log, " (tx %02x%02x%02x%02x...)",
-		otx->txid.sha.u.u8[0], otx->txid.sha.u.u8[1],
-		otx->txid.sha.u.u8[2], otx->txid.sha.u.u8[3]);
+	log_add_struct(peer->log, " (tx %s)", struct sha256_double, &otx->txid);
 
 	rawtx = linearize_tx(txs, otx->tx);
 	txs[0] = tal_hexstr(txs, rawtx, tal_count(rawtx));
@@ -337,11 +334,8 @@ static struct block *new_block(struct lightningd_state *dstate,
 	struct block *b = tal(topo, struct block);
 
 	sha256_double(&b->blkid, &blk->hdr, sizeof(blk->hdr));
-	log_debug(dstate->base_log, "Adding block %02x%02x%02x%02x...\n",
-			  b->blkid.sha.u.u8[0],
-			  b->blkid.sha.u.u8[1],
-			  b->blkid.sha.u.u8[2],
-			  b->blkid.sha.u.u8[3]);
+	log_debug_struct(dstate->base_log, "Adding block %s",
+			 struct sha256_double, &b->blkid);
 	assert(!block_map_get(&topo->block_map, &b->blkid));
 	b->next = next;
 

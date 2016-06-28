@@ -39,18 +39,49 @@ void log_io(struct log *log, bool in, const void *data, size_t len);
 void log_(struct log *log, enum log_level level, const char *fmt, ...)
 	PRINTF_FMT(3,4);
 void log_add(struct log *log, const char *fmt, ...) PRINTF_FMT(2,3);
-void log_add_hex(struct log *log, const void *data, size_t len);
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap);
 
-#define log_add_struct(log, structtype, ptr)				\
-	log_add_struct_((log), stringify(structtype),			\
-		((void)sizeof((ptr) == (structtype *)NULL), (ptr)))
 
-#define log_add_enum(log, enumtype, val)				\
-	log_add_enum_((log), stringify(enumtype), (val))
+/* Makes sure ptr is a 'structtype', makes sure it's in loggable_structs. */
+#define log_struct_check_(log, loglevel, fmt, structtype, ptr)		\
+	log_struct_((log), (loglevel), stringify(structtype), (fmt), 	\
+		    ((void)sizeof((ptr) == (structtype *)NULL),		\
+		     ((union loggable_structs)(ptr)).charp_))
 
-void log_add_struct_(struct log *log, const char *structname, const void *ptr);
-void log_add_enum_(struct log *log, const char *enumname, unsigned int val);
+/* These must have %s where the struct is to go. */
+#define log_add_struct(log, fmt, structtype, ptr)			\
+	log_struct_check_((log), -1, (fmt), structtype, (ptr))
+
+#define log_debug_struct(log, fmt, structtype, ptr)	\
+	log_struct_check_((log), LOG_DBG, (fmt), structtype, (ptr))
+#define log_info_struct(log, fmt, structtype, ptr)	\
+	log_struct_check_((log), LOG_INFORM, (fmt), structtype, (ptr))
+#define log_unusual_struct(log, fmt, structtype, ptr)	\
+	log_struct_check_((log), LOG_UNUSUAL, (fmt), structtype, (ptr))
+#define log_broken_struct(log, fmt, structtype, ptr)	\
+	log_struct_check_((log), LOG_BROKEN, (fmt), structtype, (ptr))
+
+/* This must match the log_add_struct_ definitions. */
+union loggable_structs {
+	/* Yech, need both const and non-const versions. */
+	const struct pubkey *const_pubkey;
+	struct pubkey *pubkey;
+	const struct sha256_double *const_sha256_double;
+	struct sha256_double *sha256_double;
+	const struct sha256 *const_sha256;
+	struct sha256 *sha256;
+	const struct rel_locktime *const_rel_locktime;
+	struct rel_locktime *rel_locktime;
+	const struct abs_locktime *const_abs_locktime;
+	struct abs_locktime *abs_locktime;
+	const struct bitcoin_tx *const_bitcoin_tx;
+	struct bitcoin_tx *bitcoin_tx;
+	const char *charp_;
+};
+
+void PRINTF_FMT(4,5) log_struct_(struct log *log, int level,
+				 const char *structname,
+				 const char *fmt, ...);
 
 void set_log_level(struct log_record *lr, enum log_level level);
 void set_log_prefix(struct log *log, const char *prefix);
