@@ -6,7 +6,7 @@
 #include "bitcoin/pubkey.h"
 #include "bitcoin/script.h"
 #include "bitcoin/shadouble.h"
-#include "funding.h"
+#include "channel.h"
 #include "lightning.pb-c.h"
 #include "netaddr.h"
 #include "protobuf_convert.h"

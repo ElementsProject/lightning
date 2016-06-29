@@ -1,4 +1,4 @@
-#include "funding.h"
+#include "channel.h"
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
@@ -127,7 +127,7 @@ static bool change_funding(uint64_t anchor_satoshis,
 	return true;
 }
 
-struct channel_state *initial_funding(const tal_t *ctx,
+struct channel_state *initial_cstate(const tal_t *ctx,
 				      uint64_t anchor_satoshis,
 				      uint32_t fee_rate,
 				      enum channel_side funding)
@@ -211,7 +211,7 @@ bool force_fee(struct channel_state *cstate, uint64_t fee)
 }
 
 /* Add a HTLC to @creator if it can afford it. */
-struct channel_htlc *funding_add_htlc(struct channel_state *cstate,
+struct channel_htlc *cstate_add_htlc(struct channel_state *cstate,
 				      u32 msatoshis,
 				      const struct abs_locktime *expiry,
 				      const struct sha256 *rhash,
@@ -286,21 +286,21 @@ static void remove_htlc(struct channel_state *cstate,
 	cstate->changes++;
 }
 
-void funding_fail_htlc(struct channel_state *cstate,
+void cstate_fail_htlc(struct channel_state *cstate,
 		       struct channel_htlc *htlc,
 		       enum channel_side side)
 {
 	remove_htlc(cstate, side, side, htlc);
 }
 
-void funding_fulfill_htlc(struct channel_state *cstate,
+void cstate_fulfill_htlc(struct channel_state *cstate,
 			  struct channel_htlc *htlc,
 			  enum channel_side side)
 {
 	remove_htlc(cstate, side, !side, htlc);
 }
 
-size_t funding_find_htlc(const struct channel_state *cstate,
+size_t cstate_find_htlc(const struct channel_state *cstate,
 			 const struct sha256 *rhash,
 			 enum channel_side side)
 {
@@ -313,7 +313,7 @@ size_t funding_find_htlc(const struct channel_state *cstate,
 	return -1;
 }
 
-struct channel_htlc *funding_htlc_by_id(const struct channel_state *cstate,
+struct channel_htlc *cstate_htlc_by_id(const struct channel_state *cstate,
 					uint64_t id,
 					enum channel_side side)
 {
@@ -326,7 +326,7 @@ struct channel_htlc *funding_htlc_by_id(const struct channel_state *cstate,
 	return NULL;
 }
 
-struct channel_state *copy_funding(const tal_t *ctx,
+struct channel_state *copy_cstate(const tal_t *ctx,
 				   const struct channel_state *cstate)
 {
 	struct channel_state *cs = tal_dup(ctx, struct channel_state, cstate);

@@ -4,7 +4,7 @@
 #include "bitcoin/shadouble.h"
 #include "bitcoin/tx.h"
 #include "commit_tx.h"
-#include "funding.h"
+#include "daemon/channel.h"
 #include "overflows.h"
 #include "permute_tx.h"
 #include "remove_dust.h"

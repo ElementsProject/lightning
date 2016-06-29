@@ -602,8 +602,8 @@ static bool command_htlc_add(struct peer *peer, u64 msatoshis,
 	 * A node MUST NOT offer `amount_msat` it cannot pay for in
 	 * both commitment transactions at the current `fee_rate`
 	 */
-	cstate = copy_funding(peer, peer->remote.staging_cstate);
-	if (!funding_add_htlc(cstate, msatoshis,
+	cstate = copy_cstate(peer, peer->remote.staging_cstate);
+	if (!cstate_add_htlc(cstate, msatoshis,
 			      &locktime, rhash, peer->htlc_id_counter,
 			      route, tal_count(route),
 			      OURS)) {
@@ -614,8 +614,8 @@ static bool command_htlc_add(struct peer *peer, u64 msatoshis,
 	}
 	tal_free(cstate);
 
-	cstate = copy_funding(peer, peer->local.staging_cstate);
-	if (!funding_add_htlc(cstate, msatoshis,
+	cstate = copy_cstate(peer, peer->local.staging_cstate);
+	if (!cstate_add_htlc(cstate, msatoshis,
 			      &locktime, rhash, peer->htlc_id_counter,
 			      route, tal_count(route),
 			      OURS)) {
@@ -2359,35 +2359,35 @@ void peer_both_committed_to(struct peer *peer,
 			type = "ADD";
 			htlc_id = changes[i].add.htlc.id;
 			owner = owner_name(side);
-			assert(funding_htlc_by_id(peer->remote.commit->cstate, htlc_id,
+			assert(cstate_htlc_by_id(peer->remote.commit->cstate, htlc_id,
 						  side));
-			assert(funding_htlc_by_id(peer->local.commit->cstate, htlc_id,
+			assert(cstate_htlc_by_id(peer->local.commit->cstate, htlc_id,
 						  side));
 			goto print;
 		case HTLC_FAIL:
 			type = "FAIL";
 			htlc_id = changes[i].fail.id;
 			owner = owner_name(!side);
-			assert(!funding_htlc_by_id(peer->remote.commit->cstate, htlc_id,
+			assert(!cstate_htlc_by_id(peer->remote.commit->cstate, htlc_id,
 						   !side));
-			assert(!funding_htlc_by_id(peer->local.commit->cstate, htlc_id,
+			assert(!cstate_htlc_by_id(peer->local.commit->cstate, htlc_id,
 						   !side));
-			assert(funding_htlc_by_id(peer->remote.commit->prev->cstate,
+			assert(cstate_htlc_by_id(peer->remote.commit->prev->cstate,
 						  htlc_id, !side)
-			       || funding_htlc_by_id(peer->local.commit->prev->cstate,
+			       || cstate_htlc_by_id(peer->local.commit->prev->cstate,
 						     htlc_id, !side));
 			goto print;
 		case HTLC_FULFILL:
 			type = "FULFILL";
 			htlc_id = changes[i].fulfill.id;
 			owner = owner_name(!side);
-			assert(!funding_htlc_by_id(peer->remote.commit->cstate, htlc_id,
+			assert(!cstate_htlc_by_id(peer->remote.commit->cstate, htlc_id,
 						   !side));
-			assert(!funding_htlc_by_id(peer->local.commit->cstate, htlc_id,
+			assert(!cstate_htlc_by_id(peer->local.commit->cstate, htlc_id,
 						   !side));
-			assert(funding_htlc_by_id(peer->remote.commit->prev->cstate,
+			assert(cstate_htlc_by_id(peer->remote.commit->prev->cstate,
 						  htlc_id, !side)
-			       || funding_htlc_by_id(peer->local.commit->prev->cstate,
+			       || cstate_htlc_by_id(peer->local.commit->prev->cstate,
 						     htlc_id, !side));
 			goto print;
 		}
@@ -2424,7 +2424,7 @@ bool setup_first_commit(struct peer *peer)
 	assert(!peer->remote.commit->tx);
 
 	/* Revocation hashes already filled in, from pkt_open */
-	peer->local.commit->cstate = initial_funding(peer,
+	peer->local.commit->cstate = initial_cstate(peer,
 						     peer->anchor.satoshis,
 						     peer->local.commit_fee_rate,
 						     peer->local.offer_anchor
@@ -2433,7 +2433,7 @@ bool setup_first_commit(struct peer *peer)
 	if (!peer->local.commit->cstate)
 		return false;
 
-    peer->remote.commit->cstate = initial_funding(peer,
+    peer->remote.commit->cstate = initial_cstate(peer,
                              peer->anchor.satoshis,
                              peer->remote.commit_fee_rate,
                              peer->local.offer_anchor
@@ -2468,8 +2468,8 @@ bool setup_first_commit(struct peer *peer)
 						   THEIRS,
 						   &peer->remote.commit->map);
 
-	peer->local.staging_cstate = copy_funding(peer, peer->local.commit->cstate);
-	peer->remote.staging_cstate = copy_funding(peer, peer->remote.commit->cstate);
+	peer->local.staging_cstate = copy_cstate(peer, peer->local.commit->cstate);
+	peer->remote.staging_cstate = copy_cstate(peer, peer->remote.commit->cstate);
 
 	return true;
 }
@@ -2652,10 +2652,10 @@ static size_t find_their_committed_htlc(struct peer *peer,
 					const struct sha256 *rhash)
 {
 	/* Must be in last committed cstate. */
-	if (funding_find_htlc(peer->remote.commit->cstate, rhash, THEIRS) == -1)
+	if (cstate_find_htlc(peer->remote.commit->cstate, rhash, THEIRS) == -1)
 		return -1;
 
-	return funding_find_htlc(peer->remote.staging_cstate, rhash, THEIRS);
+	return cstate_find_htlc(peer->remote.staging_cstate, rhash, THEIRS);
 }
 
 static void json_fulfillhtlc(struct command *cmd,

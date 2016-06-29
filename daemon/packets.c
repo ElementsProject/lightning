@@ -198,7 +198,7 @@ void queue_pkt_htlc_add(struct peer *peer,
 	 * The sending node MUST add the HTLC addition to the unacked
 	 * changeset for its remote commitment
 	 */
-	htlc = funding_add_htlc(peer->remote.staging_cstate,
+	htlc = cstate_add_htlc(peer->remote.staging_cstate,
 				msatoshis, &locktime, rhash, id,
 				route, tal_count(route), OURS);
 	if (!htlc)
@@ -230,9 +230,9 @@ void queue_pkt_htlc_fulfill(struct peer *peer, u64 id, const struct rval *r)
 	 * The sending node MUST add the HTLC fulfill/fail to the
 	 * unacked changeset for its remote commitment
 	 */
-	htlc = funding_htlc_by_id(peer->remote.staging_cstate, f->id, THEIRS);
+	htlc = cstate_htlc_by_id(peer->remote.staging_cstate, f->id, THEIRS);
 	assert(htlc);
-	funding_fulfill_htlc(peer->remote.staging_cstate, htlc, THEIRS);
+	cstate_fulfill_htlc(peer->remote.staging_cstate, htlc, THEIRS);
 
 	stage.fulfill.fulfill = HTLC_FULFILL;
 	stage.fulfill.id = f->id;
@@ -262,9 +262,9 @@ void queue_pkt_htlc_fail(struct peer *peer, u64 id)
 	 * The sending node MUST add the HTLC fulfill/fail to the
 	 * unacked changeset for its remote commitment
 	 */
-	htlc = funding_htlc_by_id(peer->remote.staging_cstate, f->id, THEIRS);
+	htlc = cstate_htlc_by_id(peer->remote.staging_cstate, f->id, THEIRS);
 	assert(htlc);
-	funding_fail_htlc(peer->remote.staging_cstate, htlc, THEIRS);
+	cstate_fail_htlc(peer->remote.staging_cstate, htlc, THEIRS);
 
 	stage.fail.fail = HTLC_FAIL;
 	stage.fail.id = f->id;
@@ -289,7 +289,7 @@ void queue_pkt_commit(struct peer *peer)
 	 * A sending node MUST apply all remote acked and unacked
 	 * changes except unacked fee changes to the remote commitment
 	 * before generating `sig`. */
-	ci->cstate = copy_funding(ci, peer->remote.staging_cstate);
+	ci->cstate = copy_cstate(ci, peer->remote.staging_cstate);
 	ci->tx = create_commit_tx(ci,
 				  &peer->local.finalkey,
 				  &peer->remote.finalkey,
@@ -343,12 +343,12 @@ static void apply_changeset(struct peer *peer,
 	for (i = 0; i < num_changes; i++) {
 		switch (changes[i].type) {
 		case HTLC_ADD:
-			htlc = funding_htlc_by_id(which->staging_cstate,
+			htlc = cstate_htlc_by_id(which->staging_cstate,
 						  changes[i].add.htlc.id, side);
 			if (htlc)
 				fatal("Can't add duplicate HTLC id %"PRIu64,
 				      changes[i].add.htlc.id);
-			if (!funding_add_htlc(which->staging_cstate,
+			if (!cstate_add_htlc(which->staging_cstate,
 					      changes[i].add.htlc.msatoshis,
 					      &changes[i].add.htlc.expiry,
 					      &changes[i].add.htlc.rhash,
@@ -360,20 +360,20 @@ static void apply_changeset(struct peer *peer,
 				      side == OURS ? "ours" : "theirs");
 			continue;
 		case HTLC_FAIL:
-			htlc = funding_htlc_by_id(which->staging_cstate,
+			htlc = cstate_htlc_by_id(which->staging_cstate,
 					       changes[i].fail.id, !side);
 			if (!htlc)
 				fatal("Can't fail non-exisent HTLC id %"PRIu64,
 				      changes[i].fail.id);
-			funding_fail_htlc(which->staging_cstate, htlc, !side);
+			cstate_fail_htlc(which->staging_cstate, htlc, !side);
 			continue;
 		case HTLC_FULFILL:
-			htlc = funding_htlc_by_id(which->staging_cstate,
+			htlc = cstate_htlc_by_id(which->staging_cstate,
 						  changes[i].fulfill.id, !side);
 			if (!htlc)
 				fatal("Can't fulfill non-exisent HTLC id %"PRIu64,
 				      changes[i].fulfill.id);
-			funding_fulfill_htlc(which->staging_cstate, htlc, !side);
+			cstate_fulfill_htlc(which->staging_cstate, htlc, !side);
 			continue;
 		}
 		abort();
@@ -647,13 +647,13 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	/* Note that it's not *our* problem if they do this, it's
 	 * theirs (future confusion).  Nonetheless, we detect and
 	 * error for them. */
-	if (funding_htlc_by_id(peer->remote.staging_cstate, u->id, THEIRS)
-	    || funding_htlc_by_id(peer->remote.commit->cstate, u->id, THEIRS)) {
+	if (cstate_htlc_by_id(peer->remote.staging_cstate, u->id, THEIRS)
+	    || cstate_htlc_by_id(peer->remote.commit->cstate, u->id, THEIRS)) {
 		return pkt_err(peer, "HTLC id %"PRIu64" clashes for you", u->id);
 	}
 
-	if (funding_htlc_by_id(peer->local.staging_cstate, u->id, THEIRS)
-	    || funding_htlc_by_id(peer->local.commit->cstate, u->id, THEIRS)) {
+	if (cstate_htlc_by_id(peer->local.staging_cstate, u->id, THEIRS)
+	    || cstate_htlc_by_id(peer->local.commit->cstate, u->id, THEIRS)) {
 		return pkt_err(peer, "HTLC id %"PRIu64" clashes for you", u->id);
 	}
 
@@ -661,7 +661,7 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	 *
 	 * ...and the receiving node MUST add the HTLC addition to the
 	 * unacked changeset for its local commitment. */
-	htlc = funding_add_htlc(peer->local.staging_cstate,
+	htlc = cstate_add_htlc(peer->local.staging_cstate,
 				u->amount_msat, &expiry, &rhash, u->id,
 				u->route->info.data, u->route->info.len,
 				THEIRS);
@@ -701,12 +701,12 @@ static Pkt *find_commited_htlc(struct peer *peer, uint64_t id,
 	 * current commitment transaction, and MUST fail the
 	 * connection if it does not.
 	 */
-	htlc = funding_htlc_by_id(peer->local.commit->cstate, id, OURS);
+	htlc = cstate_htlc_by_id(peer->local.commit->cstate, id, OURS);
 	if (!htlc)
 		return pkt_err(peer, "Did not find HTLC %"PRIu64, id);
 
 	/* They must not fail/fulfill twice, so it should be in staging, too. */
-	*local_htlc = funding_htlc_by_id(peer->local.staging_cstate, id, OURS);
+	*local_htlc = cstate_htlc_by_id(peer->local.staging_cstate, id, OURS);
 	if (!*local_htlc)
 		return pkt_err(peer, "Already removed HTLC %"PRIu64, id);
 
@@ -726,7 +726,7 @@ Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 
 	/* FIXME: Save reason. */
 
-	funding_fail_htlc(peer->local.staging_cstate, htlc, OURS);
+	cstate_fail_htlc(peer->local.staging_cstate, htlc, OURS);
 
 	/* BOLT #2:
 	 *
@@ -764,7 +764,7 @@ Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 	 * ... and the receiving node MUST add the HTLC fulfill/fail
 	 * to the unacked changeset for its local commitment.
 	 */
-	funding_fulfill_htlc(peer->local.staging_cstate, htlc, OURS);
+	cstate_fulfill_htlc(peer->local.staging_cstate, htlc, OURS);
 
 	stage.fulfill.fulfill = HTLC_FULFILL;
 	stage.fulfill.id = f->id;
@@ -790,7 +790,7 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt)
 	 * changes except unacked fee changes to the local commitment
 	 */
 	/* (We already applied them to staging_cstate as we went) */
-	ci->cstate = copy_funding(ci, peer->local.staging_cstate);
+	ci->cstate = copy_cstate(ci, peer->local.staging_cstate);
 	ci->tx = create_commit_tx(ci,
 				  &peer->local.finalkey,
 				  &peer->remote.finalkey,

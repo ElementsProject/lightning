@@ -43,7 +43,6 @@ CORE_SRC :=					\
 	close_tx.c				\
 	commit_tx.c				\
 	find_p2sh_out.c				\
-	funding.c				\
 	lightning.pb-c.c			\
 	opt_bits.c				\
 	permute_tx.c				\
@@ -154,7 +153,6 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 CORE_HEADERS := close_tx.h			\
 	commit_tx.h				\
 	find_p2sh_out.h				\
-	funding.h				\
 	names.h					\
 	opt_bits.h				\
 	overflows.h				\

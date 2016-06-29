@@ -1,7 +1,7 @@
 #ifndef LIGHTNING_COMMIT_TX_H
 #define LIGHTNING_COMMIT_TX_H
 #include "config.h"
-#include "funding.h"
+#include "daemon/channel.h"
 
 struct channel_state;
 struct sha256_double;

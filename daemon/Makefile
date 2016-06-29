@@ -16,6 +16,7 @@ DAEMON_LIB_OBJS := $(DAEMON_LIB_SRC:.c=.o)
 DAEMON_SRC :=					\
 	daemon/bitcoind.c			\
 	daemon/chaintopology.c			\
+	daemon/channel.c			\
 	daemon/controlled_time.c		\
 	daemon/cryptopkt.c			\
 	daemon/dns.c				\
@@ -46,6 +47,7 @@ DAEMON_JSMN_HEADERS := daemon/jsmn/jsmn.h
 DAEMON_HEADERS :=				\
 	daemon/bitcoind.h			\
 	daemon/chaintopology.h			\
+	daemon/channel.h			\
 	daemon/configdir.h			\
 	daemon/controlled_time.h		\
 	daemon/cryptopkt.h			\
