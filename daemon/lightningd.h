@@ -96,5 +96,8 @@ struct lightningd_state {
 
 	/* All known nodes. */
 	struct node_map *nodes;
+
+	/* For testing: don't fail if we can't route. */
+	bool dev_never_routefail;
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */

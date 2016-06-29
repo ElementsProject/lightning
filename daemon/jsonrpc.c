@@ -265,6 +265,7 @@ static const struct json_command *cmdlist[] = {
 	&signcommit_command,
 	&output_command,
 	&add_route_command,
+	&routefail_command,
 };
 
 static void json_help(struct command *cmd,

@@ -204,6 +204,7 @@ static struct lightningd_state *lightningd_state(void)
 	list_head_init(&dstate->bitcoin_req);
 	list_head_init(&dstate->wallet);
 	list_head_init(&dstate->payments);
+	dstate->dev_never_routefail = false;
 	dstate->bitcoin_req_running = false;
 	dstate->nodes = empty_node_map(dstate);
 	return dstate;

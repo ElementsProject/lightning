@@ -299,3 +299,35 @@ const struct json_command add_route_command = {
 	"Returns an empty result on success"
 };
 
+static void json_routefail(struct command *cmd,
+			   const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *enabletok;
+	bool enable;
+
+	if (!json_get_params(buffer, params,
+			     "enable", &enabletok,
+			     NULL)) {
+		command_fail(cmd, "Need enable");
+		return;
+	}
+
+	if (!json_tok_bool(buffer, enabletok, &enable)) {
+		command_fail(cmd, "enable must be true or false");
+		return;
+	}
+
+	log_debug(cmd->dstate->base_log, "dev-routefail: routefail %s",
+		  enable ? "enabled" : "disabled");
+	cmd->dstate->dev_never_routefail = !enable;
+
+	command_success(cmd, null_response(cmd));
+}
+const struct json_command routefail_command = {
+	"dev-routefail",
+	json_routefail,
+	"FAIL htlcs that we can't route if {enable}",
+	"Returns an empty result on success"
+};
+
+
