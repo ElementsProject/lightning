@@ -2308,12 +2308,49 @@ static const char *owner_name(enum channel_side side)
 }
 
 static void route_htlc_onwards(struct peer *peer,
-			       const struct htlc *htlc,
+			       struct htlc *htlc,
 			       u64 msatoshis,
 			       const BitcoinPubkey *pb_id,
 			       const u8 *rest_of_route)
 {
-	/* FIXME: implement */
+	struct pubkey id;
+	struct peer *next;
+
+	if (!proto_to_pubkey(peer->dstate->secpctx, pb_id, &id)) {
+		log_unusual(peer->log,
+			    "Malformed pubkey for HTLC %"PRIu64, htlc->id);
+		command_htlc_fail(peer, htlc);
+		return;
+	}
+
+	next = find_peer(peer->dstate, &id);
+	if (!next || !next->nc) {
+		log_unusual(peer->log, "Can't route HTLC %"PRIu64, htlc->id);
+		log_add_struct(peer->log, " no peer %s", struct pubkey, &id);
+		if (!peer->dstate->dev_never_routefail)
+			command_htlc_fail(peer, htlc);
+		return;
+	}
+
+	/* Offered fee must be sufficient. */
+	if (htlc->msatoshis - msatoshis < connection_fee(next->nc, msatoshis)) {
+		log_unusual(peer->log,
+			    "Insufficient fee for HTLC %"PRIu64
+			    ": %"PRIi64" on %"PRIu64,
+			    htlc->id, htlc->msatoshis - msatoshis,
+			    msatoshis);
+		command_htlc_fail(peer, htlc);
+		return;
+	}
+
+	/* This checks the HTLC itself is possible. */
+	if (!command_htlc_add(next, msatoshis,
+			      abs_locktime_to_blocks(&htlc->expiry)
+			      - next->nc->delay,
+			      &htlc->rhash, htlc, rest_of_route)) {
+		command_htlc_fail(peer, htlc);
+		return;
+	}
 }
 
 static void their_htlc_added(struct peer *peer, struct htlc *htlc)
