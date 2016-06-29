@@ -737,6 +737,9 @@ Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 	if (!structeq(&rhash, &htlc->rhash))
 		return pkt_err(peer, "Invalid r for %"PRIu64, f->id);
 
+	/* We can relay this upstream immediately. */
+	our_htlc_fulfilled(peer, htlc, &r);
+
 	/* BOLT #2:
 	 *
 	 * ... and the receiving node MUST add the HTLC fulfill/fail

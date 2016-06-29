@@ -43,8 +43,6 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-#define FIXME_STUB(peer) do { log_broken((peer)->dstate->base_log, "%s:%u: Implement %s!", __FILE__, __LINE__, __func__); abort(); } while(0)
-
 struct json_connecting {
 	/* This owns us, so we're freed after command_fail or command_success */
 	struct command *cmd;
@@ -1635,9 +1633,13 @@ static void resolve_our_htlcs(struct peer *peer,
  * preimage.  Otherwise, the other node could spend it once it as *timed out*
  * as above.
  */
-bool resolve_one_htlc(struct peer *peer, u64 id, const struct rval *preimage)
+void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc,
+			const struct rval *preimage)
 {
-	FIXME_STUB(peer);
+	if (htlc->src)
+		command_htlc_fulfill(htlc->src->peer, htlc->src, preimage);
+	else
+		complete_pay_command(peer, htlc, preimage);
 }
 
 static void their_htlc_depth(struct peer *peer,
@@ -2514,7 +2516,7 @@ void peer_both_committed_to(struct peer *peer,
 			their_htlc_added(peer, changes[i].add.htlc);
 			break;
 		case HTLC_FULFILL:
-			/* FIXME: resolve_one_htlc(peer, id, preimage); */
+			/* We handled this as soon as we got it. */
 			break;
 		case HTLC_FAIL:
 			our_htlc_failed(peer, changes[i].fail.htlc);

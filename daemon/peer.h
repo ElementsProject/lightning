@@ -269,5 +269,7 @@ struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee);
 uint64_t commit_tx_fee(const struct bitcoin_tx *commit,
 		       uint64_t anchor_satoshis);
 
-bool resolve_one_htlc(struct peer *peer, u64 id, const struct rval *preimage);
+void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc,
+			const struct rval *preimage);
+
 #endif /* LIGHTNING_DAEMON_PEER_H */
