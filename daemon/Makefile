@@ -52,6 +52,7 @@ DAEMON_HEADERS :=				\
 	daemon/controlled_time.h		\
 	daemon/cryptopkt.h			\
 	daemon/dns.h				\
+	daemon/htlc.h				\
 	daemon/json.h				\
 	daemon/jsonrpc.h			\
 	daemon/lightningd.h			\
