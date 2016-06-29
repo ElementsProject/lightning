@@ -11,6 +11,7 @@ struct channel_htlc {
 	u64 msatoshis;
 	struct abs_locktime expiry;
 	struct sha256 rhash;
+	const u8 *routing;
 };
 
 struct channel_oneside {
@@ -66,6 +67,8 @@ struct channel_state *copy_funding(const tal_t *ctx,
  * @expiry: time it expires
  * @rhash: hash of redeem secret
  * @id: 64-bit ID for htlc
+ * @routing: onion routing blob
+ * @routing_len: onion routing blob length
  * @side: OURS or THEIRS
  *
  * If that direction can't afford the HTLC (or still owes its half of the fees),
@@ -77,7 +80,10 @@ struct channel_state *copy_funding(const tal_t *ctx,
 struct channel_htlc *funding_add_htlc(struct channel_state *cstate,
 				      u32 msatoshis,
 				      const struct abs_locktime *expiry,
-				      const struct sha256 *rhash, uint64_t id,
+				      const struct sha256 *rhash,
+				      uint64_t id,
+				      const u8 *routing,
+				      size_t routing_len,
 				      enum channel_side side);
 /**
  * funding_fail_htlc: remove an HTLC, funds to the side which offered it.

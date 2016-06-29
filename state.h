@@ -104,7 +104,8 @@ void queue_pkt_htlc_add(struct peer *peer,
 			u64 id,
 			u64 msatoshis,
 			const struct sha256 *rhash,
-			u32 expiry);
+			u32 expiry,
+			const u8 *route);
 void queue_pkt_htlc_fulfill(struct peer *peer, u64 id, const struct rval *r);
 void queue_pkt_htlc_fail(struct peer *peer, u64 id);
 void queue_pkt_commit(struct peer *peer);

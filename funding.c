@@ -214,9 +214,11 @@ bool force_fee(struct channel_state *cstate, uint64_t fee)
 struct channel_htlc *funding_add_htlc(struct channel_state *cstate,
 				      u32 msatoshis,
 				      const struct abs_locktime *expiry,
-				      const struct sha256 *rhash, uint64_t id,
+				      const struct sha256 *rhash,
+				      uint64_t id,
+				      const u8 *routing,
+				      size_t routing_len,
 				      enum channel_side side)
-				      
 {
 	size_t n, nondust;
 	struct channel_oneside *creator, *recipient;
@@ -240,6 +242,8 @@ struct channel_htlc *funding_add_htlc(struct channel_state *cstate,
 	creator->htlcs[n].expiry = *expiry;
 	creator->htlcs[n].rhash = *rhash;
 	creator->htlcs[n].id = id;
+	creator->htlcs[n].routing = tal_dup_arr(cstate, u8, routing,
+						routing_len, 0);
 	memcheck(&creator->htlcs[n].msatoshis,
 		 sizeof(creator->htlcs[n].msatoshis));
 	memcheck(&creator->htlcs[n].rhash, sizeof(creator->htlcs[n].rhash));
@@ -276,6 +280,7 @@ static void remove_htlc(struct channel_state *cstate,
 		abort();
 
 	/* Actually remove the HTLC. */
+	tal_free(htlc->routing);
 	memmove(htlc, htlc + 1, (end - htlc - 1) * sizeof(*htlc));
 	tal_resize(&cstate->side[creator].htlcs, n-1);
 	cstate->changes++;
@@ -325,11 +330,19 @@ struct channel_state *copy_funding(const tal_t *ctx,
 				   const struct channel_state *cstate)
 {
 	struct channel_state *cs = tal_dup(ctx, struct channel_state, cstate);
-	size_t i;
+	size_t i, j;
 
-	for (i = 0; i < ARRAY_SIZE(cs->side); i++)
+	for (i = 0; i < ARRAY_SIZE(cs->side); i++) {
 		cs->side[i].htlcs = tal_dup_arr(cs, struct channel_htlc,
 						cs->side[i].htlcs,
 						tal_count(cs->side[i].htlcs), 0);
+		for (j = 0; j < tal_count(cs->side[i].htlcs); j++) {
+			struct channel_htlc *h = &cs->side[i].htlcs[j];
+			h->routing = tal_dup_arr(cs, u8,
+						 h->routing,
+						 tal_count(h->routing),
+						 0);
+		}
+	}
 	return cs;
 }

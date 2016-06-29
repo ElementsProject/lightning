@@ -172,7 +172,8 @@ void queue_pkt_htlc_add(struct peer *peer,
 			u64 id,
 			u64 msatoshis,
 			const struct sha256 *rhash,
-			u32 expiry)
+			u32 expiry,
+			const u8 *route)
 {
 	UpdateAddHtlc *u = tal(peer, UpdateAddHtlc);
 	union htlc_staging stage;
@@ -197,11 +198,14 @@ void queue_pkt_htlc_add(struct peer *peer,
 	 * changeset for its remote commitment
 	 */
 	htlc = funding_add_htlc(peer->remote.staging_cstate,
-				msatoshis, &locktime, rhash, id, OURS);
+				msatoshis, &locktime, rhash, id,
+				route, tal_count(route), OURS);
 	if (!htlc)
 		fatal("Could not add HTLC?");
 
 	stage.add.add = HTLC_ADD;
+	/* FIXME: This assumes stage's lifetime >= htlc, since we copy
+	 * htlc.route pointer.  Why not just make stage.add.htlc a ptr? */ 
 	stage.add.htlc = *htlc;
 	add_unacked(&peer->remote, &stage);
 
@@ -347,7 +351,10 @@ static void apply_changeset(struct peer *peer,
 					      changes[i].add.htlc.msatoshis,
 					      &changes[i].add.htlc.expiry,
 					      &changes[i].add.htlc.rhash,
-					      changes[i].add.htlc.id, side))
+					      changes[i].add.htlc.id,
+					      changes[i].add.htlc.routing,
+					      tal_count(changes[i].add.htlc.routing),
+					      side))
 				fatal("Adding HTLC to %s failed",
 				      side == OURS ? "ours" : "theirs");
 			continue;
@@ -654,7 +661,9 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	 * ...and the receiving node MUST add the HTLC addition to the
 	 * unacked changeset for its local commitment. */
 	htlc = funding_add_htlc(peer->local.staging_cstate,
-				u->amount_msat, &expiry, &rhash, u->id, THEIRS);
+				u->amount_msat, &expiry, &rhash, u->id,
+				u->route->info.data, u->route->info.len,
+				THEIRS);
 
 	/* BOLT #2:
 	 *

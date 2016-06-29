@@ -10,11 +10,13 @@
 #include "lightningd.h"
 #include "log.h"
 #include "names.h"
+#include "onion.h"
 #include "payment.h"
 #include "peer.h"
 #include "permute_tx.h"
 #include "protobuf_convert.h"
 #include "pseudorand.h"
+#include "routing.h"
 #include "secrets.h"
 #include "state.h"
 #include "timeout.h"
@@ -554,7 +556,8 @@ static bool command_htlc_fulfill(struct peer *peer,
 
 static bool command_htlc_add(struct peer *peer, u64 msatoshis,
 			     unsigned int expiry,
-			     const struct sha256 *rhash)
+			     const struct sha256 *rhash,
+			     const u8 *route)
 {
 	struct channel_state *cstate;
 	struct abs_locktime locktime;
@@ -600,7 +603,9 @@ static bool command_htlc_add(struct peer *peer, u64 msatoshis,
 	 */
 	cstate = copy_funding(peer, peer->remote.staging_cstate);
 	if (!funding_add_htlc(cstate, msatoshis,
-			      &locktime, rhash, peer->htlc_id_counter, OURS)) {
+			      &locktime, rhash, peer->htlc_id_counter,
+			      route, tal_count(route),
+			      OURS)) {
 		log_unusual(peer->log, "add_htlc: fail: Cannot afford %"PRIu64
 			    " milli-satoshis in their commit tx",
 			    msatoshis);
@@ -610,7 +615,9 @@ static bool command_htlc_add(struct peer *peer, u64 msatoshis,
 
 	cstate = copy_funding(peer, peer->local.staging_cstate);
 	if (!funding_add_htlc(cstate, msatoshis,
-			      &locktime, rhash, peer->htlc_id_counter, OURS)) {
+			      &locktime, rhash, peer->htlc_id_counter,
+			      route, tal_count(route),
+			      OURS)) {
 		log_unusual(peer->log, "add_htlc: fail: Cannot afford %"PRIu64
 			    " milli-satoshis in our commit tx",
 			    msatoshis);
@@ -619,7 +626,7 @@ static bool command_htlc_add(struct peer *peer, u64 msatoshis,
 	tal_free(cstate);
 
 	queue_pkt_htlc_add(peer, peer->htlc_id_counter,
-			   msatoshis, rhash, expiry);
+			   msatoshis, rhash, expiry, route);
 
 	/* Make sure we never offer the same one twice. */
 	peer->htlc_id_counter++;
@@ -2491,6 +2498,15 @@ const struct json_command getpeers_command = {
 	"Returns a 'peers' array"
 };
 
+/* A zero-fee single route to this peer. */
+static const u8 *dummy_single_route(const tal_t *ctx,
+				    const struct peer *peer,
+				    u64 msatoshis)
+{
+	struct node_connection **path = tal_arr(ctx, struct node_connection *, 0);
+	return onion_create(ctx, path, msatoshis, 0);
+}
+
 static void json_newhtlc(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
@@ -2543,7 +2559,8 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
-	if (!command_htlc_add(peer, msatoshis, expiry, &rhash)) {
+	if (!command_htlc_add(peer, msatoshis, expiry, &rhash,
+			      dummy_single_route(cmd, peer, msatoshis))) {
 		command_fail(cmd, "could not add htlc");
 		return;
 	}
