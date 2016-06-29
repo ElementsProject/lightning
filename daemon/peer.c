@@ -1633,10 +1633,9 @@ static void resolve_our_htlcs(struct peer *peer,
 
 /* BOLT #onchain:
  *
- * If the node receives a redemption preimage for a *commitment tx* output it
- * was offered, it MUST *resolve* the output by spending it using the
- * preimage.  Otherwise, the other node could spend it once it as *timed out*
- * as above.
+ * If the node receives... a redemption preimage for an unresolved *commitment
+ * tx* output it was offered, it MUST *resolve* the output by spending it using
+ * the preimage.
  */
 void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc,
 			const struct rval *preimage)
