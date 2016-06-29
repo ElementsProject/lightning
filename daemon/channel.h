@@ -2,23 +2,17 @@
 #define LIGHTNING_DAEMON_CHANNEL_H
 #include "config.h"
 #include "bitcoin/locktime.h"
+#include "htlc.h"
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/tal/tal.h>
 #include <stdbool.h>
-
-struct channel_htlc {
-	u64 id;
-	u64 msatoshis;
-	struct abs_locktime expiry;
-	struct sha256 rhash;
-	const u8 *routing;
-};
 
 struct channel_oneside {
 	/* Payment and fee is in millisatoshi. */
 	uint32_t pay_msat, fee_msat;
 	/* Use tal_count to get the number */
-	struct channel_htlc *htlcs;
+	/* FIXME: Use htlc_map, but needs permute changes. */
+	struct htlc **htlcs;
 };
 
 enum channel_side {
@@ -63,28 +57,17 @@ struct channel_state *copy_cstate(const tal_t *ctx,
 /**
  * cstate_add_htlc: append an HTLC to cstate if it can afford it
  * @cstate: The channel state
- * @msatoshis: Millisatoshi going into a HTLC
- * @expiry: time it expires
- * @rhash: hash of redeem secret
- * @id: 64-bit ID for htlc
- * @routing: onion routing blob
- * @routing_len: onion routing blob length
+ * @htlc: the htlc pointer.
  * @side: OURS or THEIRS
  *
  * If that direction can't afford the HTLC (or still owes its half of the fees),
- * this will return NULL and leave @cstate unchanged.  Otherwise
+ * this will return false and leave @cstate unchanged.  Otherwise
  * cstate->side[dir].htlcs will have the HTLC appended, and pay_msat and
- * fee_msat are adjusted accordingly; &cstate->side[dir].htlcs[<last>]
- * is returned.
+ * fee_msat are adjusted accordingly; true is returned.
  */
-struct channel_htlc *cstate_add_htlc(struct channel_state *cstate,
-				      u32 msatoshis,
-				      const struct abs_locktime *expiry,
-				      const struct sha256 *rhash,
-				      uint64_t id,
-				      const u8 *routing,
-				      size_t routing_len,
-				      enum channel_side side);
+bool cstate_add_htlc(struct channel_state *cstate,
+		     struct htlc *htlc,
+		     enum channel_side side);
 /**
  * cstate_fail_htlc: remove an HTLC, funds to the side which offered it.
  * @cstate: The channel state
@@ -95,8 +78,8 @@ struct channel_htlc *cstate_add_htlc(struct channel_state *cstate,
  * the value of the HTLC (back) to cstate->side[dir].
  */
 void cstate_fail_htlc(struct channel_state *cstate,
-		       struct channel_htlc *htlc,
-		       enum channel_side side);
+		      struct htlc *htlc,
+		      enum channel_side side);
 
 /**
  * cstate_fulfill_htlc: remove an HTLC, funds to side which accepted it.
@@ -108,8 +91,8 @@ void cstate_fail_htlc(struct channel_state *cstate,
  * the value of the HTLC to cstate->side[!dir].
  */
 void cstate_fulfill_htlc(struct channel_state *cstate,
-			  struct channel_htlc *htlc,
-			  enum channel_side side);
+			 struct htlc *htlc,
+			 enum channel_side side);
 
 /**
  * adjust_fee: Change fee rate.
@@ -135,11 +118,11 @@ bool force_fee(struct channel_state *cstate, uint64_t fee);
  * @rhash: hash of redeem secret
  * @side: OURS or THEIRS
  *
- * Returns a number < tal_count(cstate->side[dir].htlcs), or -1 on fail.
+ * Returns the HTLC, or NULL on fail.
  */
-size_t cstate_find_htlc(const struct channel_state *cstate,
-			 const struct sha256 *rhash,
-			 enum channel_side side);
+struct htlc *cstate_find_htlc(const struct channel_state *cstate,
+			      const struct sha256 *rhash,
+			      enum channel_side side);
 
 /**
  * cstate_htlc_by_id: find an HTLC on this side of the channel by ID.
@@ -149,9 +132,9 @@ size_t cstate_find_htlc(const struct channel_state *cstate,
  *
  * Returns a pointer into cstate->side[@side].htlcs, or NULL.
  */
-struct channel_htlc *cstate_htlc_by_id(const struct channel_state *cstate,
-					uint64_t id,
-					enum channel_side side);
+struct htlc *cstate_htlc_by_id(const struct channel_state *cstate,
+			       uint64_t id,
+			       enum channel_side side);
 
 /**
  * fee_for_feerate: calculate the fee (in satoshi) for a given fee_rate.

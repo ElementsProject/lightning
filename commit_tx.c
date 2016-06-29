@@ -11,7 +11,7 @@
 #include <assert.h>
 
 static bool add_htlc(struct bitcoin_tx *tx, size_t n,
-		     const struct channel_htlc *h,
+		     const struct htlc *h,
 		     const struct pubkey *ourkey,
 		     const struct pubkey *theirkey,
 		     const struct sha256 *rhash,
@@ -96,7 +96,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 
 	/* HTLCs this side sent. */
 	for (i = 0; i < tal_count(cstate->side[side].htlcs); i++) {
-		if (!add_htlc(tx, num, &cstate->side[side].htlcs[i],
+		if (!add_htlc(tx, num, cstate->side[side].htlcs[i],
 			      self, other, rhash, locktime,
 			      bitcoin_redeem_htlc_send))
 			return tal_free(tx);
@@ -104,7 +104,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	}
 	/* HTLCs this side has received. */
 	for (i = 0; i < tal_count(cstate->side[!side].htlcs); i++) {
-		if (!add_htlc(tx, num, &cstate->side[!side].htlcs[i],
+		if (!add_htlc(tx, num, cstate->side[!side].htlcs[i],
 			      self, other, rhash, locktime,
 			      bitcoin_redeem_htlc_recv))
 			return tal_free(tx);

@@ -4,6 +4,7 @@
 #include "commit_tx.h"
 #include "controlled_time.h"
 #include "cryptopkt.h"
+#include "htlc.h"
 #include "lightningd.h"
 #include "log.h"
 #include "names.h"
@@ -168,29 +169,23 @@ void queue_pkt_open_complete(struct peer *peer)
 	queue_pkt(peer, PKT__PKT_OPEN_COMPLETE, o);
 }
 
-void queue_pkt_htlc_add(struct peer *peer,
-			u64 id,
-			u64 msatoshis,
-			const struct sha256 *rhash,
-			u32 expiry,
-			const u8 *route)
+void queue_pkt_htlc_add(struct peer *peer, struct htlc *htlc)
 {
 	UpdateAddHtlc *u = tal(peer, UpdateAddHtlc);
 	union htlc_staging stage;
-	struct abs_locktime locktime;
-	struct channel_htlc *htlc;
 
 	update_add_htlc__init(u);
 
-	u->id = id;
-	u->amount_msat = msatoshis;
-	u->r_hash = sha256_to_proto(u, rhash);
-	if (!blocks_to_abs_locktime(expiry, &locktime))
-		fatal("Invalid locktime?");
-	u->expiry = abs_locktime_to_proto(u, &locktime);
+	u->id = htlc->id;
+	u->amount_msat = htlc->msatoshis;
+	u->r_hash = sha256_to_proto(u, &htlc->rhash);
+	u->expiry = abs_locktime_to_proto(u, &htlc->expiry);
 	u->route = tal(u, Routing);
 	routing__init(u->route);
-	u->route->info.data = tal_dup_arr(u, u8, route, tal_count(route), 0);
+	u->route->info.data = tal_dup_arr(u, u8,
+					  htlc->routing,
+					  tal_count(htlc->routing),
+					  0);
 	u->route->info.len = tal_count(u->route->info.data);
 
 	/* BOLT #2:
@@ -198,16 +193,11 @@ void queue_pkt_htlc_add(struct peer *peer,
 	 * The sending node MUST add the HTLC addition to the unacked
 	 * changeset for its remote commitment
 	 */
-	htlc = cstate_add_htlc(peer->remote.staging_cstate,
-				msatoshis, &locktime, rhash, id,
-				route, tal_count(route), OURS);
-	if (!htlc)
+	if (!cstate_add_htlc(peer->remote.staging_cstate, htlc, OURS))
 		fatal("Could not add HTLC?");
 
 	stage.add.add = HTLC_ADD;
-	/* FIXME: This assumes stage's lifetime >= htlc, since we copy
-	 * htlc.route pointer.  Why not just make stage.add.htlc a ptr? */ 
-	stage.add.htlc = *htlc;
+	stage.add.htlc = htlc;
 	add_unacked(&peer->remote, &stage);
 
 	remote_changes_pending(peer);
@@ -215,14 +205,14 @@ void queue_pkt_htlc_add(struct peer *peer,
 	queue_pkt(peer, PKT__PKT_UPDATE_ADD_HTLC, u);
 }
 
-void queue_pkt_htlc_fulfill(struct peer *peer, u64 id, const struct rval *r)
+void queue_pkt_htlc_fulfill(struct peer *peer, struct htlc *htlc,
+			    const struct rval *r)
 {
 	UpdateFulfillHtlc *f = tal(peer, UpdateFulfillHtlc);
-	struct channel_htlc *htlc;
 	union htlc_staging stage;
 
 	update_fulfill_htlc__init(f);
-	f->id = id;
+	f->id = htlc->id;
 	f->r = rval_to_proto(f, r);
 
 	/* BOLT #2:
@@ -230,12 +220,12 @@ void queue_pkt_htlc_fulfill(struct peer *peer, u64 id, const struct rval *r)
 	 * The sending node MUST add the HTLC fulfill/fail to the
 	 * unacked changeset for its remote commitment
 	 */
-	htlc = cstate_htlc_by_id(peer->remote.staging_cstate, f->id, THEIRS);
-	assert(htlc);
+	assert(cstate_htlc_by_id(peer->remote.staging_cstate, f->id, THEIRS)
+	       == htlc);
 	cstate_fulfill_htlc(peer->remote.staging_cstate, htlc, THEIRS);
 
 	stage.fulfill.fulfill = HTLC_FULFILL;
-	stage.fulfill.id = f->id;
+	stage.fulfill.htlc = htlc;
 	stage.fulfill.r = *r;
 	add_unacked(&peer->remote, &stage);
 
@@ -244,14 +234,13 @@ void queue_pkt_htlc_fulfill(struct peer *peer, u64 id, const struct rval *r)
 	queue_pkt(peer, PKT__PKT_UPDATE_FULFILL_HTLC, f);
 }
 
-void queue_pkt_htlc_fail(struct peer *peer, u64 id)
+void queue_pkt_htlc_fail(struct peer *peer, struct htlc *htlc)
 {
 	UpdateFailHtlc *f = tal(peer, UpdateFailHtlc);
-	struct channel_htlc *htlc;
 	union htlc_staging stage;
 
 	update_fail_htlc__init(f);
-	f->id = id;
+	f->id = htlc->id;
 
 	/* FIXME: reason! */
 	f->reason = tal(f, FailReason);
@@ -262,12 +251,12 @@ void queue_pkt_htlc_fail(struct peer *peer, u64 id)
 	 * The sending node MUST add the HTLC fulfill/fail to the
 	 * unacked changeset for its remote commitment
 	 */
-	htlc = cstate_htlc_by_id(peer->remote.staging_cstate, f->id, THEIRS);
-	assert(htlc);
+	assert(cstate_htlc_by_id(peer->remote.staging_cstate, f->id, THEIRS)
+	       == htlc);
 	cstate_fail_htlc(peer->remote.staging_cstate, htlc, THEIRS);
 
 	stage.fail.fail = HTLC_FAIL;
-	stage.fail.id = f->id;
+	stage.fail.htlc = htlc;
 	add_unacked(&peer->remote, &stage);
 
 	remote_changes_pending(peer);
@@ -338,41 +327,38 @@ static void apply_changeset(struct peer *peer,
 			    size_t num_changes)
 {
 	size_t i;
-	struct channel_htlc *htlc;
+	struct htlc *htlc;
 
 	for (i = 0; i < num_changes; i++) {
 		switch (changes[i].type) {
 		case HTLC_ADD:
 			htlc = cstate_htlc_by_id(which->staging_cstate,
-						  changes[i].add.htlc.id, side);
+						 changes[i].add.htlc->id, side);
 			if (htlc)
 				fatal("Can't add duplicate HTLC id %"PRIu64,
-				      changes[i].add.htlc.id);
+				      changes[i].add.htlc->id);
 			if (!cstate_add_htlc(which->staging_cstate,
-					      changes[i].add.htlc.msatoshis,
-					      &changes[i].add.htlc.expiry,
-					      &changes[i].add.htlc.rhash,
-					      changes[i].add.htlc.id,
-					      changes[i].add.htlc.routing,
-					      tal_count(changes[i].add.htlc.routing),
-					      side))
+					     changes[i].add.htlc,
+					     side))
 				fatal("Adding HTLC to %s failed",
 				      side == OURS ? "ours" : "theirs");
 			continue;
 		case HTLC_FAIL:
 			htlc = cstate_htlc_by_id(which->staging_cstate,
-					       changes[i].fail.id, !side);
+						 changes[i].fail.htlc->id,
+						 !side);
 			if (!htlc)
 				fatal("Can't fail non-exisent HTLC id %"PRIu64,
-				      changes[i].fail.id);
+				      changes[i].fail.htlc->id);
 			cstate_fail_htlc(which->staging_cstate, htlc, !side);
 			continue;
 		case HTLC_FULFILL:
 			htlc = cstate_htlc_by_id(which->staging_cstate,
-						  changes[i].fulfill.id, !side);
+						  changes[i].fulfill.htlc->id,
+						 !side);
 			if (!htlc)
 				fatal("Can't fulfill non-exisent HTLC id %"PRIu64,
-				      changes[i].fulfill.id);
+				      changes[i].fulfill.htlc->id);
 			cstate_fulfill_htlc(which->staging_cstate, htlc, !side);
 			continue;
 		}
@@ -613,7 +599,7 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	const UpdateAddHtlc *u = pkt->update_add_htlc;
 	struct sha256 rhash;
 	struct abs_locktime expiry;
-	struct channel_htlc *htlc;
+	struct htlc *htlc;
 	union htlc_staging stage;
 
 	/* BOLT #2:
@@ -647,24 +633,17 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	/* Note that it's not *our* problem if they do this, it's
 	 * theirs (future confusion).  Nonetheless, we detect and
 	 * error for them. */
-	if (cstate_htlc_by_id(peer->remote.staging_cstate, u->id, THEIRS)
-	    || cstate_htlc_by_id(peer->remote.commit->cstate, u->id, THEIRS)) {
+	if (htlc_map_get(&peer->remote.htlcs, u->id))
 		return pkt_err(peer, "HTLC id %"PRIu64" clashes for you", u->id);
-	}
-
-	if (cstate_htlc_by_id(peer->local.staging_cstate, u->id, THEIRS)
-	    || cstate_htlc_by_id(peer->local.commit->cstate, u->id, THEIRS)) {
-		return pkt_err(peer, "HTLC id %"PRIu64" clashes for you", u->id);
-	}
 
 	/* BOLT #2:
 	 *
 	 * ...and the receiving node MUST add the HTLC addition to the
 	 * unacked changeset for its local commitment. */
-	htlc = cstate_add_htlc(peer->local.staging_cstate,
-				u->amount_msat, &expiry, &rhash, u->id,
-				u->route->info.data, u->route->info.len,
-				THEIRS);
+	htlc = peer_new_htlc(peer, u->id, u->amount_msat, &rhash,
+			     abs_locktime_to_blocks(&expiry),
+			     u->route->info.data, u->route->info.len,
+			     THEIRS);
 
 	/* BOLT #2:
 	 *
@@ -677,13 +656,15 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	/* FIXME: This is wrong!  We may have already added more txs to
 	 * them.staging_cstate, driving that fee up.
 	 * We should check against the last version they acknowledged. */
-	if (!htlc)
+	if (!cstate_add_htlc(peer->local.staging_cstate, htlc, THEIRS)) {
+		tal_free(htlc);
 		return pkt_err(peer, "Cannot afford %"PRIu64" milli-satoshis"
 			       " in your commitment tx",
 			       u->amount_msat);
+	}
 
 	stage.add.add = HTLC_ADD;
-	stage.add.htlc = *htlc;
+	stage.add.htlc = htlc;
 	add_unacked(&peer->local, &stage);
 
 	/* FIXME: Fees must be sufficient. */
@@ -691,18 +672,15 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 }
 
 static Pkt *find_commited_htlc(struct peer *peer, uint64_t id,
-			       struct channel_htlc **local_htlc)
+			       struct htlc **local_htlc)
 {
-	struct channel_htlc *htlc;
-
 	/* BOLT #2:
 	 *
 	 * A node MUST check that `id` corresponds to an HTLC in its
 	 * current commitment transaction, and MUST fail the
 	 * connection if it does not.
 	 */
-	htlc = cstate_htlc_by_id(peer->local.commit->cstate, id, OURS);
-	if (!htlc)
+	if (!cstate_htlc_by_id(peer->local.commit->cstate, id, OURS))
 		return pkt_err(peer, "Did not find HTLC %"PRIu64, id);
 
 	/* They must not fail/fulfill twice, so it should be in staging, too. */
@@ -716,7 +694,7 @@ static Pkt *find_commited_htlc(struct peer *peer, uint64_t id,
 Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 {
 	const UpdateFailHtlc *f = pkt->update_fail_htlc;
-	struct channel_htlc *htlc;
+	struct htlc *htlc;
 	Pkt *err;
 	union htlc_staging stage;
 
@@ -734,7 +712,7 @@ Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 	 * to the unacked changeset for its local commitment.
 	 */
 	stage.fail.fail = HTLC_FAIL;
-	stage.fail.id = f->id;
+	stage.fail.htlc = htlc;
 	add_unacked(&peer->local, &stage);
 	return NULL;
 }
@@ -742,7 +720,7 @@ Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 {
 	const UpdateFulfillHtlc *f = pkt->update_fulfill_htlc;
-	struct channel_htlc *htlc;
+	struct htlc *htlc;
 	struct sha256 rhash;
 	struct rval r;
 	Pkt *err;
@@ -767,7 +745,7 @@ Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 	cstate_fulfill_htlc(peer->local.staging_cstate, htlc, OURS);
 
 	stage.fulfill.fulfill = HTLC_FULFILL;
-	stage.fulfill.id = f->id;
+	stage.fulfill.htlc = htlc;
 	stage.fulfill.r = r;
 	add_unacked(&peer->local, &stage);
 	return NULL;

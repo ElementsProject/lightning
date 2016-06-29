@@ -7,6 +7,7 @@
 #include "bitcoin/script.h"
 #include "bitcoin/shadouble.h"
 #include "channel.h"
+#include "htlc.h"
 #include "lightning.pb-c.h"
 #include "netaddr.h"
 #include "protobuf_convert.h"
@@ -24,18 +25,18 @@ enum htlc_stage_type {
 
 struct htlc_add {
 	enum htlc_stage_type add;
-	struct channel_htlc htlc;
+	struct htlc *htlc;
 };
 
 struct htlc_fulfill {
 	enum htlc_stage_type fulfill;
-	u64 id;
+	struct htlc *htlc;
 	struct rval r;
 };
 
 struct htlc_fail {
 	enum htlc_stage_type fail;
-	u64 id;
+	struct htlc *htlc;
 };
 
 union htlc_staging {
@@ -95,6 +96,9 @@ struct peer_visible_state {
 
 	/* cstate to generate next commitment tx. */
 	struct channel_state *staging_cstate;
+
+	/* HTLCs offered by this side */
+	struct htlc_map htlcs;
 };
 
 struct out_pkt {
@@ -239,6 +243,16 @@ void add_acked_changes(union htlc_staging **acked,
 /* Both sides are committed to these changes they proposed. */
 void peer_both_committed_to(struct peer *peer,
 			    const union htlc_staging *changes, enum channel_side side);
+
+/* Freeing removes from map, too */
+struct htlc *peer_new_htlc(struct peer *peer, 
+			   u64 id,
+			   u64 msatoshis,
+			   const struct sha256 *rhash,
+			   u32 expiry,
+			   const u8 *route,
+			   size_t route_len,
+			   enum channel_side side);
 
 /* Peer has recieved revocation. */
 void peer_update_complete(struct peer *peer);

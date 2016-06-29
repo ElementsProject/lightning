@@ -100,14 +100,10 @@ void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor);
 void queue_pkt_anchor(struct peer *peer);
 void queue_pkt_open_commit_sig(struct peer *peer);
 void queue_pkt_open_complete(struct peer *peer);
-void queue_pkt_htlc_add(struct peer *peer,
-			u64 id,
-			u64 msatoshis,
-			const struct sha256 *rhash,
-			u32 expiry,
-			const u8 *route);
-void queue_pkt_htlc_fulfill(struct peer *peer, u64 id, const struct rval *r);
-void queue_pkt_htlc_fail(struct peer *peer, u64 id);
+void queue_pkt_htlc_add(struct peer *peer, struct htlc *htlc);
+void queue_pkt_htlc_fulfill(struct peer *peer, struct htlc *htlc,
+			    const struct rval *r);
+void queue_pkt_htlc_fail(struct peer *peer, struct htlc *htlc);
 void queue_pkt_commit(struct peer *peer);
 void queue_pkt_revocation(struct peer *peer);
 void queue_pkt_close_clearing(struct peer *peer);

@@ -36,13 +36,13 @@ static uint64_t calculate_fee_msat(size_t num_nondust_htlcs,
 }
 
 /* Total, in millisatoshi. */
-static uint64_t htlcs_total(const struct channel_htlc *htlcs)
+static uint64_t htlcs_total(struct htlc **htlcs)
 {
 	size_t i, n = tal_count(htlcs);
 	uint64_t total = 0;
 
 	for (i = 0; i < n; i++)
-		total += htlcs[i].msatoshis;
+		total += htlcs[i]->msatoshis;
 	return total;
 }
 
@@ -152,8 +152,8 @@ struct channel_state *initial_cstate(const tal_t *ctx,
 	fundee = &cstate->side[!funding];
 
 	/* Neither side has HTLCs. */
-	funder->htlcs = tal_arr(cstate, struct channel_htlc, 0);
-	fundee->htlcs = tal_arr(cstate, struct channel_htlc, 0);
+	funder->htlcs = tal_arr(cstate, struct htlc *, 0);
+	fundee->htlcs = tal_arr(cstate, struct htlc *, 0);
 
 	/* Initially, all goes back to funder. */
 	funder->pay_msat = anchor_satoshis * 1000 - fee_msat;
@@ -174,12 +174,12 @@ bool is_dust_amount(uint64_t satoshis)
 	return satoshis < 546;
 }
 
-static size_t count_nondust_htlcs(const struct channel_htlc *htlcs)
+static size_t count_nondust_htlcs(struct htlc **htlcs)
 {
 	size_t i, n = tal_count(htlcs), nondust = 0;
 
 	for (i = 0; i < n; i++)
-		if (!is_dust_amount(htlcs[i].msatoshis / 1000))
+		if (!is_dust_amount(htlcs[i]->msatoshis / 1000))
 			nondust++;
 	return nondust;
 }
@@ -211,14 +211,9 @@ bool force_fee(struct channel_state *cstate, uint64_t fee)
 }
 
 /* Add a HTLC to @creator if it can afford it. */
-struct channel_htlc *cstate_add_htlc(struct channel_state *cstate,
-				      u32 msatoshis,
-				      const struct abs_locktime *expiry,
-				      const struct sha256 *rhash,
-				      uint64_t id,
-				      const u8 *routing,
-				      size_t routing_len,
-				      enum channel_side side)
+bool cstate_add_htlc(struct channel_state *cstate,
+		     struct htlc *htlc,
+		     enum channel_side side)
 {
 	size_t n, nondust;
 	struct channel_oneside *creator, *recipient;
@@ -228,42 +223,32 @@ struct channel_htlc *cstate_add_htlc(struct channel_state *cstate,
 	
 	/* Remember to count the new one in total txsize if not dust! */
 	nondust = total_nondust_htlcs(cstate);
-	if (!is_dust_amount(msatoshis / 1000))
+	if (!is_dust_amount(htlc->msatoshis / 1000))
 		nondust++;
 	
 	if (!change_funding(cstate->anchor, cstate->fee_rate,
-			    msatoshis, creator, recipient, nondust))
-		return NULL;
+			    htlc->msatoshis, creator, recipient, nondust))
+		return false;
 
 	n = tal_count(creator->htlcs);
 	tal_resize(&creator->htlcs, n+1);
 
-	creator->htlcs[n].msatoshis = msatoshis;
-	creator->htlcs[n].expiry = *expiry;
-	creator->htlcs[n].rhash = *rhash;
-	creator->htlcs[n].id = id;
-	creator->htlcs[n].routing = tal_dup_arr(cstate, u8, routing,
-						routing_len, 0);
-	memcheck(&creator->htlcs[n].msatoshis,
-		 sizeof(creator->htlcs[n].msatoshis));
-	memcheck(&creator->htlcs[n].rhash, sizeof(creator->htlcs[n].rhash));
+	creator->htlcs[n] = htlc;
+	memcheck(&creator->htlcs[n]->msatoshis,
+		 sizeof(creator->htlcs[n]->msatoshis));
+	memcheck(&creator->htlcs[n]->rhash, sizeof(creator->htlcs[n]->rhash));
 	cstate->changes++;
-	return &creator->htlcs[n];
+	return true;
 }
 
 /* Remove htlc from creator, credit it to beneficiary. */
 static void remove_htlc(struct channel_state *cstate,
 			enum channel_side creator,
 			enum channel_side beneficiary,
-			struct channel_htlc *htlc)
+			struct htlc *htlc)
 {
 	size_t nondust;
-	size_t n = tal_count(cstate->side[creator].htlcs); 
-	const struct channel_htlc *end;
-
-	end = cstate->side[creator].htlcs + n;
-
-	assert(htlc >= cstate->side[creator].htlcs && htlc < end);
+	size_t i, n = tal_count(cstate->side[creator].htlcs); 
 
 	/* Remember to remove this one in total txsize if not dust! */
 	nondust = total_nondust_htlcs(cstate);
@@ -280,69 +265,69 @@ static void remove_htlc(struct channel_state *cstate,
 		abort();
 
 	/* Actually remove the HTLC. */
-	tal_free(htlc->routing);
-	memmove(htlc, htlc + 1, (end - htlc - 1) * sizeof(*htlc));
-	tal_resize(&cstate->side[creator].htlcs, n-1);
-	cstate->changes++;
+	for (i = 0; i < tal_count(cstate->side[creator].htlcs); i++) {
+		if (cstate->side[creator].htlcs[i] == htlc) {
+			memmove(cstate->side[creator].htlcs + i,
+				cstate->side[creator].htlcs + i + 1,
+				(n - i - 1) * sizeof(htlc));
+			tal_resize(&cstate->side[creator].htlcs, n-1);
+			cstate->changes++;
+			return;
+		}
+	}
+	abort();
 }
 
 void cstate_fail_htlc(struct channel_state *cstate,
-		       struct channel_htlc *htlc,
-		       enum channel_side side)
+		      struct htlc *htlc,
+		      enum channel_side side)
 {
 	remove_htlc(cstate, side, side, htlc);
 }
 
 void cstate_fulfill_htlc(struct channel_state *cstate,
-			  struct channel_htlc *htlc,
-			  enum channel_side side)
+			 struct htlc *htlc,
+			 enum channel_side side)
 {
 	remove_htlc(cstate, side, !side, htlc);
 }
 
-size_t cstate_find_htlc(const struct channel_state *cstate,
-			 const struct sha256 *rhash,
-			 enum channel_side side)
+struct htlc *cstate_find_htlc(const struct channel_state *cstate,
+			      const struct sha256 *rhash,
+			      enum channel_side side)
 {
 	size_t i;
 
 	for (i = 0; i < tal_count(cstate->side[side].htlcs); i++) {
-		if (structeq(&cstate->side[side].htlcs[i].rhash, rhash))
-			return i;
+		if (structeq(&cstate->side[side].htlcs[i]->rhash, rhash))
+			return cstate->side[side].htlcs[i];
 	}
-	return -1;
+	return NULL;
 }
 
-struct channel_htlc *cstate_htlc_by_id(const struct channel_state *cstate,
-					uint64_t id,
-					enum channel_side side)
+struct htlc *cstate_htlc_by_id(const struct channel_state *cstate,
+			       uint64_t id,
+			       enum channel_side side)
 {
 	size_t i;
 
 	for (i = 0; i < tal_count(cstate->side[side].htlcs); i++) {
-		if (cstate->side[side].htlcs[i].id == id)
-			return &cstate->side[side].htlcs[i];
+		if (cstate->side[side].htlcs[i]->id == id)
+			return cstate->side[side].htlcs[i];
 	}
 	return NULL;
 }
 
 struct channel_state *copy_cstate(const tal_t *ctx,
-				   const struct channel_state *cstate)
+				  const struct channel_state *cstate)
 {
 	struct channel_state *cs = tal_dup(ctx, struct channel_state, cstate);
-	size_t i, j;
+	size_t i;
 
 	for (i = 0; i < ARRAY_SIZE(cs->side); i++) {
-		cs->side[i].htlcs = tal_dup_arr(cs, struct channel_htlc,
+		cs->side[i].htlcs = tal_dup_arr(cs, struct htlc *,
 						cs->side[i].htlcs,
 						tal_count(cs->side[i].htlcs), 0);
-		for (j = 0; j < tal_count(cs->side[i].htlcs); j++) {
-			struct channel_htlc *h = &cs->side[i].htlcs[j];
-			h->routing = tal_dup_arr(cs, u8,
-						 h->routing,
-						 tal_count(h->routing),
-						 0);
-		}
 	}
 	return cs;
 }
