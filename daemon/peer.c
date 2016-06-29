@@ -110,8 +110,22 @@ void peer_open_complete(struct peer *peer, const char *problem)
 {
 	if (problem)
 		log_unusual(peer->log, "peer open failed: %s", problem);
-	else
+	else {
+		struct lightningd_state *dstate = peer->dstate;
+		struct node *n;
+
 		log_debug(peer->log, "peer open complete");
+		assert(!peer->nc);
+		n = get_node(dstate, &peer->id);
+		if (!n)
+			n = new_node(dstate, &peer->id);
+		peer->nc = add_connection(dstate,
+					  get_node(dstate, &dstate->id), n,
+					  dstate->config.fee_base,
+					  dstate->config.fee_per_satoshi,
+					  dstate->config.min_htlc_expiry,
+					  dstate->config.min_htlc_expiry);
+	}
 }
 
 static void set_peer_state(struct peer *peer, enum state newstate,
@@ -824,6 +838,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->closing_onchain.resolved = NULL;
 	peer->closing_onchain.ci = NULL;
 	peer->commit_timer = NULL;
+	peer->nc = NULL;
 	/* Make it different from other node (to catch bugs!), but a
 	 * round number for simple eyeballing. */
 	peer->htlc_id_counter = pseudorand(1ULL << 32) * 1000;

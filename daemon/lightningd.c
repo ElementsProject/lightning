@@ -59,6 +59,22 @@ static char *opt_set_u32(const char *arg, u32 *u)
 	return NULL;
 }
 
+static char *opt_set_s32(const char *arg, s32 *u)
+{
+	char *endp;
+	long l;
+
+	/* This is how the manpage says to do it.  Yech. */
+	errno = 0;
+	l = strtol(arg, &endp, 0);
+	if (*endp || !arg[0])
+		return tal_fmt(NULL, "'%s' is not a number", arg);
+	*u = l;
+	if (errno || *u != l)
+		return tal_fmt(NULL, "'%s' is out of range", arg);
+	return NULL;
+}
+
 static void opt_show_u64(char buf[OPT_SHOW_LEN], const u64 *u)
 {
 	snprintf(buf, OPT_SHOW_LEN, "%"PRIu64, *u);
@@ -67,6 +83,11 @@ static void opt_show_u64(char buf[OPT_SHOW_LEN], const u64 *u)
 static void opt_show_u32(char buf[OPT_SHOW_LEN], const u32 *u)
 {
 	snprintf(buf, OPT_SHOW_LEN, "%"PRIu32, *u);
+}
+
+static void opt_show_s32(char buf[OPT_SHOW_LEN], const s32 *u)
+{
+	snprintf(buf, OPT_SHOW_LEN, "%"PRIi32, *u);
 }
 
 static void config_register_opts(struct lightningd_state *dstate)
@@ -107,6 +128,13 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--commit-time", opt_set_time, opt_show_time,
 			 &dstate->config.commit_time,
 			 "Time after changes before sending out COMMIT");
+	opt_register_arg("--fee-base", opt_set_u32, opt_show_u32,
+			 &dstate->config.fee_base,
+			 "Millisatoshi minimum to charge for HTLC");
+	opt_register_arg("--fee-per-satoshi", opt_set_s32, opt_show_s32,
+			 &dstate->config.fee_per_satoshi,
+			 "Microsatoshi fee for every satoshi in HTLC");
+
 }
 
 static void default_config(struct config *config)
@@ -157,6 +185,11 @@ static void default_config(struct config *config)
 
 	/* Send commit 10msec after receiving; almost immediately. */
 	config->commit_time = time_from_msec(10);
+
+	/* Discourage dust payments */
+	config->fee_base = 546000;
+	/* Take 0.001% */
+	config->fee_per_satoshi = 10;
 }
 
 static void check_config(struct lightningd_state *dstate)
@@ -294,7 +327,8 @@ int main(int argc, char *argv[])
 
 	/* Set up node ID and private key. */
 	secrets_init(dstate);
-
+	new_node(dstate, &dstate->id);
+	
 	/* Initialize block topology. */
 	setup_topology(dstate);
 

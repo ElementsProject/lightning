@@ -211,6 +211,9 @@ struct peer {
 	/* Private keys for dealing with this peer. */
 	struct peer_secrets *secrets;
 
+	/* Our route connection to peer: NULL until we are in normal mode. */
+	struct node_connection *nc;
+	
 	/* For testing. */
 	bool fake_close;
 	bool output_enabled;
