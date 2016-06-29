@@ -534,6 +534,7 @@ static void state_event(struct peer *peer,
 	}
 }
 
+/* FIXME: Reason! */
 static bool command_htlc_fail(struct peer *peer, u64 id)
 {
 	if (!state_can_remove_htlc(peer->state))
@@ -2251,6 +2252,96 @@ static const char *owner_name(enum channel_side side)
 	return side == OURS ? "our" : "their";
 }
 
+static void route_htlc_onwards(struct peer *peer,
+			       const struct channel_htlc *htlc,
+			       u64 msatoshis,
+			       const BitcoinPubkey *pb_id,
+			       const u8 *rest_of_route)
+{
+	/* FIXME: implement */
+}
+
+static void their_htlc_added(struct peer *peer, const struct channel_htlc *htlc)
+{
+	RouteStep *step;
+	const u8 *rest_of_route;
+	struct payment *payment;
+
+	if (abs_locktime_is_seconds(&htlc->expiry)) {
+		log_unusual(peer->log, "HTLC %"PRIu64" is in seconds", htlc->id);
+		command_htlc_fail(peer, htlc->id);
+		return;
+	}
+
+	if (abs_locktime_to_blocks(&htlc->expiry) <=
+	    get_block_height(peer->dstate) + peer->dstate->config.min_htlc_expiry) {
+		log_unusual(peer->log, "HTLC %"PRIu64" expires too soon:"
+			    " block %u",
+			    htlc->id, abs_locktime_to_blocks(&htlc->expiry));
+		command_htlc_fail(peer, htlc->id);
+		return;
+	}
+
+	if (abs_locktime_to_blocks(&htlc->expiry) >
+	    get_block_height(peer->dstate) + peer->dstate->config.max_htlc_expiry) {
+		log_unusual(peer->log, "HTLC %"PRIu64" expires too far:"
+			    " block %u",
+			    htlc->id, abs_locktime_to_blocks(&htlc->expiry));
+		command_htlc_fail(peer, htlc->id);
+		return;
+	}
+
+	step = onion_unwrap(peer, htlc->routing, tal_count(htlc->routing),
+			    &rest_of_route);
+	if (!step) {
+		log_unusual(peer->log, "Bad onion, failing HTLC %"PRIu64,
+			    htlc->id);
+		command_htlc_fail(peer,	htlc->id);
+		return;
+	}
+
+	switch (step->next_case) {
+	case ROUTE_STEP__NEXT_END:
+		payment = find_payment(peer->dstate, &htlc->rhash);
+		if (!payment) {
+			log_unusual(peer->log, "No payment for HTLC %"PRIu64,
+				    htlc->id);
+			log_add_struct(peer->log, " rhash=%s",
+				       struct sha256, &htlc->rhash);
+			if (unlikely(!peer->dstate->dev_never_routefail))
+				command_htlc_fail(peer,	htlc->id);
+			goto free_rest;
+		}
+			
+		if (htlc->msatoshis != payment->msatoshis) {
+			log_unusual(peer->log, "Short payment for HTLC %"PRIu64
+				    ": %"PRIu64" not %"PRIu64 " satoshi!",
+				    htlc->id,
+				    htlc->msatoshis,
+				    payment->msatoshis);
+			command_htlc_fail(peer, htlc->id);
+			return;
+		}
+
+		log_info(peer->log, "Immediately resolving HTLC %"PRIu64,
+			 htlc->id);
+		command_htlc_fulfill(peer, htlc->id, &payment->r);
+		goto free_rest;
+
+	case ROUTE_STEP__NEXT_BITCOIN:
+		route_htlc_onwards(peer, htlc, step->amount, step->bitcoin,
+				   rest_of_route);
+		goto free_rest;
+	default:
+		log_info(peer->log, "Unknown step type %u", step->next_case);
+		command_htlc_fail(peer, htlc->id);
+		goto free_rest;
+	}
+
+free_rest:
+	tal_free(rest_of_route);
+}
+
 /* When changes are committed to. */
 void peer_both_committed_to(struct peer *peer,
 			    const union htlc_staging *changes,
@@ -2311,29 +2402,9 @@ void peer_both_committed_to(struct peer *peer,
 		return;
 
 	for (i = 0; i < n; i++) {
-		struct payment *payment;
-
 		switch (changes[i].type) {
 		case HTLC_ADD:
-			payment = find_payment(peer->dstate, &changes[i].add.htlc.rhash);
-			if (payment) {
-				if (changes[i].add.htlc.msatoshis != payment->msatoshis) {
-					log_unusual(peer->log, "Got payment for %"PRIu64
-						    " not %"PRIu64 " satoshi!",
-						    changes[i].add.htlc.msatoshis,
-						    payment->msatoshis);
-					command_htlc_fail(peer,
-							  changes[i].add.htlc.id);
-				} else {
-					log_info(peer->log,
-						 "Immediately resolving HTLC %"PRIu64,
-						 changes[i].add.htlc.id);
-					command_htlc_fulfill(peer,
-							     changes[i].add.htlc.id,
-							     &payment->r);
-				}
-			}
-			/* FIXME: Otherwise, route. */
+			their_htlc_added(peer, &changes[i].add.htlc);
 			break;
 		case HTLC_FULFILL:
 			/* FIXME: resolve_one_htlc(peer, id, preimage); */

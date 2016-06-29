@@ -358,6 +358,10 @@ $CLI generate 3
 check_peerstate lcli1 STATE_NORMAL
 check_peerstate lcli2 STATE_NORMAL
 
+# We turn off routing failure for the moment.
+lcli1 dev-routefail false
+lcli2 dev-routefail false
+
 if [ -n "$DIFFERENT_FEES" ]; then 
     # This is 100,000 satoshi, so covers fees.
     HTLC_AMOUNT=100000000
@@ -731,6 +735,8 @@ B_AMOUNT=$(($B_AMOUNT + $HTLC_AMOUNT * 2))
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 # Now, use automatic payment redemption
+lcli1 dev-routefail true
+lcli2 dev-routefail true
 RHASH3=`lcli2 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
 lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH3
@@ -748,6 +754,9 @@ check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 # Now, failed payment (didn't pay enough)
 RHASH4=`lcli2 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
+# Shouldn't have this already.
+if lcli2 getlog | $FGREP 'Short payment for HTLC'; then exit 1; fi
+
 lcli1 newhtlc $ID2 $(($HTLC_AMOUNT - 1)) $EXPIRY $RHASH4
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
@@ -755,7 +764,7 @@ lcli1 newhtlc $ID2 $(($HTLC_AMOUNT - 1)) $EXPIRY $RHASH4
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 
-check lcli2 "getlog | $FGREP 'Got payment for '$(($HTLC_AMOUNT - 1))' not '$HTLC_AMOUNT"
+check lcli2 "getlog | $FGREP 'Short payment for HTLC'"
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 lcli1 close $ID2

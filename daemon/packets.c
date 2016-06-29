@@ -188,9 +188,10 @@ void queue_pkt_htlc_add(struct peer *peer,
 	if (!blocks_to_abs_locktime(expiry, &locktime))
 		fatal("Invalid locktime?");
 	u->expiry = abs_locktime_to_proto(u, &locktime);
-	/* FIXME: routing! */
 	u->route = tal(u, Routing);
 	routing__init(u->route);
+	u->route->info.data = tal_dup_arr(u, u8, route, tal_count(route), 0);
+	u->route->info.len = tal_count(u->route->info.data);
 
 	/* BOLT #2:
 	 *
