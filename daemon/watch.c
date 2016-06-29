@@ -88,9 +88,10 @@ static void destroy_txwatch(struct txwatch *w)
 struct txwatch *watch_txid_(const tal_t *ctx,
 			    struct peer *peer,
 			    const struct sha256_double *txid,
-			    void (*cb)(struct peer *peer, unsigned int depth,
-				       const struct sha256_double *txid,
-				       void *arg),
+			    enum watch_result (*cb)(struct peer *peer,
+						    unsigned int depth,
+						    const struct sha256_double *,
+						    void *arg),
 			    void *cb_arg)
 {
 	struct txwatch *w;
@@ -118,9 +119,10 @@ bool watching_txid(struct lightningd_state *dstate,
 struct txwatch *watch_tx_(const tal_t *ctx,
 			  struct peer *peer,
 			  const struct bitcoin_tx *tx,
-			  void (*cb)(struct peer *peer, unsigned int depth,
-				     const struct sha256_double *txid,
-				     void *arg),
+			  enum watch_result (*cb)(struct peer *peer,
+						  unsigned int depth,
+						  const struct sha256_double *,
+						  void *arg),
 			  void *cb_arg)
 {
 	struct sha256_double txid;
@@ -133,10 +135,10 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 			    struct peer *peer,
 			    const struct sha256_double *txid,
 			    unsigned int output,
-			    void (*cb)(struct peer *peer,
-				       const struct bitcoin_tx *tx,
-				       size_t input_num,
-				       void *),
+			    enum watch_result (*cb)(struct peer *peer,
+						    const struct bitcoin_tx *tx,
+						    size_t input_num,
+						    void *),
 			    void *cbdata)
 {
 	struct txowatch *w = tal(ctx, struct txowatch);
@@ -160,6 +162,7 @@ void txwatch_fire(struct lightningd_state *dstate,
 	struct txwatch *txw = txwatch_hash_get(&dstate->txwatches, txid);
 
 	if (txw && depth != txw->depth) {
+		enum watch_result r;
 		log_debug(txw->peer->log,
 			  "Got depth change %u for %02x%02x%02x...\n",
 			  txw->depth,
@@ -167,7 +170,15 @@ void txwatch_fire(struct lightningd_state *dstate,
 			  txw->txid.sha.u.u8[1],
 			  txw->txid.sha.u.u8[2]);
 		txw->depth = depth;
-		txw->cb(txw->peer, txw->depth, &txw->txid, txw->cbdata);
+		r = txw->cb(txw->peer, txw->depth, &txw->txid, txw->cbdata);
+		switch (r) {
+		case DELETE_WATCH:
+			tal_free(txw);
+			return;
+		case KEEP_WATCHING:
+			return;
+		}
+		fatal("txwatch callback %p returned %i\n", txw->cb, r);
 	}
 }
 
@@ -177,6 +188,7 @@ void txowatch_fire(struct lightningd_state *dstate,
 		   size_t input_num)
 {
 	struct sha256_double txid;
+	enum watch_result r;
 
 	bitcoin_txid(tx, &txid);
 	log_debug(txow->peer->log,
@@ -189,7 +201,15 @@ void txowatch_fire(struct lightningd_state *dstate,
 		  txid.sha.u.u8[1],
 		  txid.sha.u.u8[2],
 		  txid.sha.u.u8[3]);
-	txow->cb(txow->peer, tx, input_num, txow->cbdata);
+	r = txow->cb(txow->peer, tx, input_num, txow->cbdata);
+	switch (r) {
+	case DELETE_WATCH:
+		tal_free(txow);
+		return;
+	case KEEP_WATCHING:
+		return;
+	}
+	fatal("txowatch callback %p returned %i\n", txow->cb, r);
 }
 
 void watch_topology_changed(struct lightningd_state *dstate)
@@ -208,9 +228,18 @@ again:
 
 		depth = get_tx_depth(dstate, &w->txid);
 		if (depth != w->depth) {
+			enum watch_result r;
 			w->depth = depth;
-			w->cb(w->peer, w->depth, &w->txid, w->cbdata);
 			needs_rerun = true;
+			r = w->cb(w->peer, w->depth, &w->txid, w->cbdata);
+			switch (r) {
+			case DELETE_WATCH:
+				tal_free(w);
+				continue;
+			case KEEP_WATCHING:
+				continue;
+			}
+			fatal("txwatch callback %p returned %i\n", w->cb, r);
 		}
 	}
 	if (needs_rerun)

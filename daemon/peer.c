@@ -1154,9 +1154,10 @@ struct anchor_watch {
 	struct oneshot *timer;
 };
 
-static void anchor_depthchange(struct peer *peer, unsigned int depth,
-			       const struct sha256_double *txid,
-			       void *unused)
+static enum watch_result anchor_depthchange(struct peer *peer,
+					    unsigned int depth,
+					    const struct sha256_double *txid,
+					    void *unused)
 {
 	struct anchor_watch *w = peer->anchor.watches;
 
@@ -1175,6 +1176,7 @@ static void anchor_depthchange(struct peer *peer, unsigned int depth,
 
 	/* Since this gets called on every new block, check HTLCs here. */
 	check_htlc_expiry(peer);
+	return KEEP_WATCHING;
 }
 
 /* Yay, segwit!  We can just compare txids, even though we don't have both
@@ -1474,10 +1476,10 @@ static void resolve_cheating(struct peer *peer)
 	broadcast_tx(peer, steal_tx);
 }
 
-static void our_htlc_spent(struct peer *peer,
-			   const struct bitcoin_tx *tx,
-			   size_t input_num,
-			   ptrint_t *pi)
+static enum watch_result our_htlc_spent(struct peer *peer,
+					const struct bitcoin_tx *tx,
+					size_t input_num,
+					ptrint_t *pi)
 {
 	struct htlc *h;
 	struct sha256 sha;
@@ -1503,7 +1505,8 @@ static void our_htlc_spent(struct peer *peer,
 	
 	/* Our timeout tx has all-zeroes, so we can distinguish it. */
 	if (memeqzero(tx->input[input_num].witness[1], sizeof(preimage)))
-		return;
+		/* They might try to race us. */
+		return KEEP_WATCHING;
 
 	memcpy(&preimage, tx->input[input_num].witness[1], sizeof(preimage));
 	sha256(&sha, &preimage, sizeof(preimage));
@@ -1526,20 +1529,21 @@ static void our_htlc_spent(struct peer *peer,
 	 * preimage; the knowledge is not revocable.
 	 */
 	peer->closing_onchain.resolved[i] = irrevocably_resolved(peer);
+	return DELETE_WATCH;
 }
 
-static void our_htlc_depth(struct peer *peer,
-			   unsigned int depth,
-			   const struct sha256_double *txid,
-			   bool our_commit,
-			   size_t i)
+static enum watch_result our_htlc_depth(struct peer *peer,
+					unsigned int depth,
+					const struct sha256_double *txid,
+					bool our_commit,
+					size_t i)
 {
 	struct htlc *h;
 	u32 height;
 
 	/* Must be in a block. */
 	if (depth == 0)
-		return;
+		return KEEP_WATCHING;
 
 	height = get_block_height(peer->dstate);
 	h = htlc_by_index(peer->closing_onchain.ci, i);
@@ -1554,11 +1558,11 @@ static void our_htlc_depth(struct peer *peer,
 	 */
 
 	if (height < abs_locktime_to_blocks(&h->expiry))
-		return;
+		return KEEP_WATCHING;
 
 	if (our_commit) {
 		if (depth < rel_locktime_to_blocks(&peer->remote.locktime))
-			return;
+			return KEEP_WATCHING;
 	}
 
 	/* BOLT #onchain:
@@ -1566,27 +1570,29 @@ static void our_htlc_depth(struct peer *peer,
 	 * If the output has *timed out* and not been *resolved*, the node
 	 * MUST *resolve* the output by spending it.
 	 */
+	/* FIXME: we should simply delete this watch if HTLC is fulfilled. */
 	if (!peer->closing_onchain.resolved[i]) {
 		peer->closing_onchain.resolved[i]
 			= htlc_timeout_tx(peer, peer->closing_onchain.ci, i);
 		broadcast_tx(peer, peer->closing_onchain.resolved[i]);
 	}
+	return DELETE_WATCH;
 }
 
-static void our_htlc_depth_ourcommit(struct peer *peer,
-				     unsigned int depth,
-				     const struct sha256_double *txid,
-				     ptrint_t *i)
+static enum watch_result our_htlc_depth_ourcommit(struct peer *peer,
+						  unsigned int depth,
+						  const struct sha256_double *txid,
+						  ptrint_t *i)
 {
-	our_htlc_depth(peer, depth, txid, true, ptr2int(i));
+	return our_htlc_depth(peer, depth, txid, true, ptr2int(i));
 }
 
-static void our_htlc_depth_theircommit(struct peer *peer,
-				       unsigned int depth,
-				       const struct sha256_double *txid,
-				       ptrint_t *i)
+static enum watch_result our_htlc_depth_theircommit(struct peer *peer,
+						    unsigned int depth,
+						    const struct sha256_double *txid,
+						    ptrint_t *i)
 {
-	our_htlc_depth(peer, depth, txid, false, ptr2int(i));
+	return our_htlc_depth(peer, depth, txid, false, ptr2int(i));
 }
 
 static void resolve_our_htlcs(struct peer *peer,
@@ -1644,10 +1650,10 @@ void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc,
 	}
 }
 
-static void their_htlc_depth(struct peer *peer,
-			     unsigned int depth,
-			     const struct sha256_double *txid,
-			     ptrint_t *pi)
+static enum watch_result their_htlc_depth(struct peer *peer,
+					  unsigned int depth,
+					  const struct sha256_double *txid,
+					  ptrint_t *pi)
 {
 	u32 height;
 	struct htlc *h;
@@ -1655,7 +1661,7 @@ static void their_htlc_depth(struct peer *peer,
 
 	/* Must be in a block. */
 	if (depth == 0)
-		return;
+		return KEEP_WATCHING;
 
 	height = get_block_height(peer->dstate);
 	h = htlc_by_index(peer->closing_onchain.ci, i);
@@ -1667,9 +1673,10 @@ static void their_htlc_depth(struct peer *peer,
 	 */
 
 	if (height < abs_locktime_to_blocks(&h->expiry))
-		return;
+		return KEEP_WATCHING;
 
 	peer->closing_onchain.resolved[i] = irrevocably_resolved(peer);
+	return DELETE_WATCH;
 }
 
 static void resolve_their_htlcs(struct peer *peer,
@@ -1691,18 +1698,16 @@ static void resolve_their_htlcs(struct peer *peer,
 	}	
 }
 
-static void our_main_output_depth(struct peer *peer,
-				  unsigned int depth,
-				  const struct sha256_double *txid,
-				  void *unused)
+static enum watch_result our_main_output_depth(struct peer *peer,
+					       unsigned int depth,
+					       const struct sha256_double *txid,
+					       void *unused)
 {
 	/* Not past CSV timeout? */
 	if (depth < rel_locktime_to_blocks(&peer->remote.locktime))
-		return;
+		return KEEP_WATCHING;
 
-	/* Already done?  (FIXME: Delete after first time) */
-	if (peer->closing_onchain.resolved[0])
-		return;
+	assert(!peer->closing_onchain.resolved[0]);
 
 	/* BOLT #onchain:
 	 *
@@ -1715,6 +1720,7 @@ static void our_main_output_depth(struct peer *peer,
 	 */
 	peer->closing_onchain.resolved[0] = bitcoin_spend_ours(peer);
 	broadcast_tx(peer, peer->closing_onchain.resolved[0]);
+	return DELETE_WATCH;
 }
 
 /* BOLT #onchain:
@@ -1832,10 +1838,10 @@ static void resolve_mutual_close(struct peer *peer)
 }
 
 /* Called every time the tx spending the funding tx changes depth. */
-static void check_for_resolution(struct peer *peer,
-				 unsigned int depth,
-				 const struct sha256_double *txid,
-				 void *unused)
+static enum watch_result check_for_resolution(struct peer *peer,
+					      unsigned int depth,
+					      const struct sha256_double *txid,
+					      void *unused)
 {
 	size_t i, n = tal_count(peer->closing_onchain.resolved);
 	size_t forever = peer->dstate->config.forever_confirms;
@@ -1848,7 +1854,7 @@ static void check_for_resolution(struct peer *peer,
 	 */
 	for (i = 0; i < n; i++)
 		if (!peer->closing_onchain.resolved[i])
-			return;
+			return KEEP_WATCHING;
 
 	/* BOLT #onchain:
 	 *
@@ -1857,14 +1863,14 @@ static void check_for_resolution(struct peer *peer,
 	 * 100 deep on the most-work blockchain.
 	 */
 	if (depth < forever)
-		return;
+		return KEEP_WATCHING;
 
 	for (i = 0; i < n; i++) {
 		struct sha256_double txid;
 
 		bitcoin_txid(peer->closing_onchain.resolved[i], &txid);
 		if (get_tx_depth(peer->dstate, &txid) < forever)
-			return;
+			return KEEP_WATCHING;
 	}
 
 	/* BOLT #onchain:
@@ -1880,14 +1886,16 @@ static void check_for_resolution(struct peer *peer,
 		io_break(peer);
 	else
 		io_wake(peer);
+
+	return DELETE_WATCH;
 }
 	    
 /* We assume the tx is valid!  Don't do a blockchain.info and feed this
  * invalid transactions! */
-static void anchor_spent(struct peer *peer,
-			 const struct bitcoin_tx *tx,
-			 size_t input_num,
-			 void *unused)
+static enum watch_result anchor_spent(struct peer *peer,
+				      const struct bitcoin_tx *tx,
+				      size_t input_num,
+				      void *unused)
 {
 	struct sha256_double txid;
 	Pkt *err;
@@ -1943,7 +1951,7 @@ static void anchor_spent(struct peer *peer,
 			       "anchor_spent");
 		/* No longer call into the state machine. */
 		peer->anchor.watches->depthok = INPUT_NONE;
-		return;
+		return DELETE_WATCH;
 	}
 
 	/* BOLT #onchain:
@@ -1970,6 +1978,7 @@ static void anchor_spent(struct peer *peer,
 
 	/* No longer call into the state machine. */
 	peer->anchor.watches->depthok = INPUT_NONE;
+	return KEEP_WATCHING;
 }
 
 static void anchor_timeout(struct anchor_watch *w)
