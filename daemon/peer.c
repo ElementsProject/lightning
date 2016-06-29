@@ -1112,6 +1112,13 @@ const struct json_command connect_command = {
 	"Returns an empty result on success"
 };
 
+static void complete_pay_command(struct peer *peer,
+				 struct htlc *htlc,
+				 const struct rval *rval)
+{
+	/* FIXME: implement. */
+}
+
 /* FIXME: Keep a timeout for each peer, in case they're unresponsive. */
 
 /* FIXME: Make sure no HTLCs in any unrevoked commit tx are live. */
@@ -2434,6 +2441,14 @@ free_rest:
 	tal_free(rest_of_route);
 }
 
+static void our_htlc_failed(struct peer *peer, struct htlc *htlc)
+{
+	if (htlc->src)
+		command_htlc_fail(htlc->src->peer, htlc->src);
+	else
+		complete_pay_command(peer, htlc, NULL);
+}
+
 /* When changes are committed to. */
 void peer_both_committed_to(struct peer *peer,
 			    const union htlc_staging *changes,
@@ -2502,7 +2517,7 @@ void peer_both_committed_to(struct peer *peer,
 			/* FIXME: resolve_one_htlc(peer, id, preimage); */
 			break;
 		case HTLC_FAIL:
-			/* FIXME: Route failure. */
+			our_htlc_failed(peer, changes[i].fail.htlc);
 			break;
 		}
 	}
