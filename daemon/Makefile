@@ -22,6 +22,7 @@ DAEMON_SRC :=					\
 	daemon/jsonrpc.c			\
 	daemon/lightningd.c			\
 	daemon/netaddr.c			\
+	daemon/onion.c				\
 	daemon/opt_time.c			\
 	daemon/peer.c				\
 	daemon/packets.c			\
@@ -54,6 +55,7 @@ DAEMON_HEADERS :=				\
 	daemon/lightningd.h			\
 	daemon/log.h				\
 	daemon/netaddr.h			\
+	daemon/onion.h				\
 	daemon/opt_time.h			\
 	daemon/payment.h			\
 	daemon/peer.h				\
