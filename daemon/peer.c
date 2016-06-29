@@ -11,6 +11,7 @@
 #include "log.h"
 #include "names.h"
 #include "onion.h"
+#include "pay.h"
 #include "payment.h"
 #include "peer.h"
 #include "permute_tx.h"
@@ -567,11 +568,11 @@ static bool command_htlc_fulfill(struct peer *peer,
 	return true;
 }
 
-static bool command_htlc_add(struct peer *peer, u64 msatoshis,
-			     unsigned int expiry,
-			     const struct sha256 *rhash,
-			     struct htlc *src,
-			     const u8 *route)
+struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
+			      unsigned int expiry,
+			      const struct sha256 *rhash,
+			      struct htlc *src,
+			      const u8 *route)
 {
 	struct channel_state *cstate;
 	struct abs_locktime locktime;
@@ -579,19 +580,19 @@ static bool command_htlc_add(struct peer *peer, u64 msatoshis,
 
 	if (!blocks_to_abs_locktime(expiry, &locktime)) {
 		log_unusual(peer->log, "add_htlc: fail: bad expiry %u", expiry);
-		return false;
+		return NULL;
 	}
 
 	if (expiry < get_block_height(peer->dstate) + peer->dstate->config.min_htlc_expiry) {
 		log_unusual(peer->log, "add_htlc: fail: expiry %u is too soon",
 			    expiry);
-		return false;
+		return NULL;
 	}
 
 	if (expiry > get_block_height(peer->dstate) + peer->dstate->config.max_htlc_expiry) {
 		log_unusual(peer->log, "add_htlc: fail: expiry %u is too far",
 			    expiry);
-		return false;
+		return NULL;
 	}
 
 	/* FIXME: This is wrong: constraint on remote is sufficient. */
@@ -603,13 +604,13 @@ static bool command_htlc_add(struct peer *peer, u64 msatoshis,
 	if (tal_count(peer->local.staging_cstate->side[OURS].htlcs) == 300
 	    || tal_count(peer->remote.staging_cstate->side[OURS].htlcs) == 300) {
 		log_unusual(peer->log, "add_htlc: fail: already at limit");
-		return false;
+		return NULL;
 	}
 
 	if (!state_can_add_htlc(peer->state)) {
 		log_unusual(peer->log, "add_htlc: fail: peer state %s",
 			    state_name(peer->state));
-		return false;
+		return NULL;
 	}
 
 	htlc = peer_new_htlc(peer, peer->htlc_id_counter,
@@ -628,8 +629,7 @@ static bool command_htlc_add(struct peer *peer, u64 msatoshis,
 		log_unusual(peer->log, "add_htlc: fail: Cannot afford %"PRIu64
 			    " milli-satoshis in their commit tx",
 			    msatoshis);
-		tal_free(htlc);
-		return false;
+		return tal_free(htlc);
 	}
 	tal_free(cstate);
 
@@ -638,8 +638,7 @@ static bool command_htlc_add(struct peer *peer, u64 msatoshis,
 		log_unusual(peer->log, "add_htlc: fail: Cannot afford %"PRIu64
 			    " milli-satoshis in our commit tx",
 			    msatoshis);
-		tal_free(htlc);
-		return false;
+		return tal_free(htlc);
 	}
 	tal_free(cstate);
 
@@ -648,7 +647,7 @@ static bool command_htlc_add(struct peer *peer, u64 msatoshis,
 	/* Make sure we never offer the same one twice. */
 	peer->htlc_id_counter++;
 
-	return true;
+	return htlc;
 }
 
 static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
@@ -658,8 +657,10 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 
 	if (n == 0) {
 		/* We close the connection once we've sent everything. */
-		if (!state_can_io(peer->state))
+		if (!state_can_io(peer->state)) {
+			log_debug(peer->log, "pkt_out: no IO possible, closing");
 			return io_close(conn);
+		}
 		return io_out_wait(conn, peer, pkt_out, peer);
 	}
 
@@ -825,6 +826,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->outpkt = tal_arr(peer, Pkt *, 0);
 	peer->commit_jsoncmd = NULL;
 	list_head_init(&peer->outgoing_txs);
+	list_head_init(&peer->pay_commands);
 	peer->close_watch_timeout = NULL;
 	peer->anchor.watches = NULL;
 	peer->cur_commit.watch = NULL;
@@ -1109,13 +1111,6 @@ const struct json_command connect_command = {
 	"Connect to a {host} at {port} offering anchor of {satoshis}",
 	"Returns an empty result on success"
 };
-
-static void complete_pay_command(struct peer *peer,
-				 struct htlc *htlc,
-				 const struct rval *rval)
-{
-	/* FIXME: implement. */
-}
 
 /* FIXME: Keep a timeout for each peer, in case they're unresponsive. */
 
@@ -2325,6 +2320,9 @@ static void route_htlc_onwards(struct peer *peer,
 	struct pubkey id;
 	struct peer *next;
 
+	log_debug_struct(peer->log, "Forwarding HTLC %s", struct sha256, &htlc->rhash);
+	log_add(peer->log, " (id %"PRIu64")", htlc->id);
+	
 	if (!proto_to_pubkey(peer->dstate->secpctx, pb_id, &id)) {
 		log_unusual(peer->log,
 			    "Malformed pubkey for HTLC %"PRIu64, htlc->id);
@@ -2334,8 +2332,9 @@ static void route_htlc_onwards(struct peer *peer,
 
 	next = find_peer(peer->dstate, &id);
 	if (!next || !next->nc) {
-		log_unusual(peer->log, "Can't route HTLC %"PRIu64, htlc->id);
-		log_add_struct(peer->log, " no peer %s", struct pubkey, &id);
+		log_unusual(peer->log, "Can't route HTLC %"PRIu64": no %speer ",
+			    htlc->id, next ? "ready " : "");
+		log_add_struct(peer->log, "%s", struct pubkey, &id);
 		if (!peer->dstate->dev_never_routefail)
 			command_htlc_fail(peer, htlc);
 		return;
@@ -2351,6 +2350,8 @@ static void route_htlc_onwards(struct peer *peer,
 		command_htlc_fail(peer, htlc);
 		return;
 	}
+
+	log_debug_struct(peer->log, "HTLC forward to %s", struct pubkey, &next->id);
 
 	/* This checks the HTLC itself is possible. */
 	if (!command_htlc_add(next, msatoshis,

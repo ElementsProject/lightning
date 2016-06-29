@@ -1,9 +1,13 @@
 #ifndef LIGHTNING_DAEMON_CHAINTOPOLOGY_H
 #define LIGHTNING_DAEMON_CHAINTOPOLOGY_H
 #include "config.h"
+#include <ccan/short_types/short_types.h>
 #include <stddef.h>
 
+struct bitcoin_tx;
 struct lightningd_state;
+struct peer;
+struct sha256_double;
 struct txwatch;
 
 /* This is the number of blocks which would have to be mined to invalidate

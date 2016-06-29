@@ -127,6 +127,9 @@ struct peer {
 	/* If we're doing a commit, this is the command which triggered it */
 	struct command *commit_jsoncmd;
 
+	/* Any outstanding "pay" commands. */
+	struct list_head pay_commands;
+	
 	/* Global state. */
 	struct lightningd_state *dstate;
 
@@ -257,6 +260,12 @@ struct htlc *peer_new_htlc(struct peer *peer,
 			   size_t route_len,
 			   struct htlc *src,
 			   enum channel_side side);
+
+struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
+			      unsigned int expiry,
+			      const struct sha256 *rhash,
+			      struct htlc *src,
+			      const u8 *route);
 
 /* Peer has recieved revocation. */
 void peer_update_complete(struct peer *peer);

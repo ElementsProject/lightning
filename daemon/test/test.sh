@@ -9,6 +9,7 @@ scripts/setup.sh
 
 DIR1=/tmp/lightning.$$.1
 DIR2=/tmp/lightning.$$.2
+DIR3=/tmp/lightning.$$.3
 
 REDIR1="$DIR1/output"
 REDIR2="$DIR2/output"
@@ -81,6 +82,7 @@ done
 
 LCLI1="../lightning-cli --lightning-dir=$DIR1"
 LCLI2="../lightning-cli --lightning-dir=$DIR2"
+LCLI3="../lightning-cli --lightning-dir=$DIR3"
 
 if [ -n "$VERBOSE" ]; then
     FGREP="fgrep"
@@ -103,6 +105,14 @@ lcli2()
 	echo $LCLI2 "$@" >&2
     fi
     $LCLI2 "$@"
+}
+
+lcli3()
+{
+    if [ -n "$VERBOSE" ]; then
+	echo $LCLI3 "$@" >&2
+    fi
+    $LCLI3 "$@"
 }
 
 blockheight()
@@ -217,9 +227,10 @@ all_ok()
     # Look for valgrind errors.
     if grep ^== $DIR1/errors; then exit 1; fi
     if grep ^== $DIR2/errors; then exit 1; fi
+    if grep ^== $DIR3/errors; then exit 1; fi
     scripts/shutdown.sh
 
-    trap "rm -rf $DIR1 $DIR2" EXIT
+    trap "rm -rf $DIR1 $DIR2 $DIR3" EXIT
     exit 0
 }
 
@@ -228,7 +239,7 @@ if [ -n "$CRASH_ON_FAIL" ]; then
 else
     trap "echo Results in $DIR1 and $DIR2 >&2; cat $DIR1/errors $DIR2/errors >&2" EXIT
 fi
-mkdir $DIR1 $DIR2
+mkdir $DIR1 $DIR2 $DIR3
 
 if [ -n "$MANUALCOMMIT" ]; then
     # Aka. never. 
@@ -255,6 +266,8 @@ locktime-blocks=6
 commit-time=$COMMIT_TIME
 EOF
 
+cp $DIR2/config $DIR3/config
+
 if [ -n "$DIFFERENT_FEES" ]; then
     FEE_RATE2=300000
     CLOSE_FEE_RATE2=30000
@@ -275,6 +288,7 @@ if [ -n "$GDB2" ]; then
 else
     $PREFIX ../lightningd --lightning-dir=$DIR2 > $REDIR2 2> $REDIRERR2 &
 fi
+$PREFIX ../lightningd --lightning-dir=$DIR3 > $DIR3/output 2> $DIR3/errors &
 
 if ! check "$LCLI1 getlog 2>/dev/null | $FGREP Hello"; then
     echo Failed to start daemon 1 >&2
@@ -286,10 +300,17 @@ if ! check "$LCLI2 getlog 2>/dev/null | $FGREP Hello"; then
     exit 1
 fi
 
+if ! check "$LCLI3 getlog 2>/dev/null | $FGREP Hello"; then
+    echo Failed to start daemon 3 >&2
+    exit 1
+fi
+
 ID1=`$LCLI1 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'`
 ID2=`$LCLI2 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'`
+ID3=`$LCLI3 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'`
 
 PORT2=`$LCLI2 getlog | sed -n 's/.*on port \([0-9]*\).*/\1/p'`
+PORT3=`$LCLI3 getlog | sed -n 's/.*on port \([0-9]*\).*/\1/p'`
 
 # Make a payment into a P2SH for anchor.
 P2SHADDR=`$LCLI1 newaddr | sed -n 's/{ "address" : "\(.*\)" }/\1/p'`
@@ -766,6 +787,49 @@ lcli1 newhtlc $ID2 $(($HTLC_AMOUNT - 1)) $EXPIRY $RHASH4
 
 check lcli2 "getlog | $FGREP 'Short payment for HTLC'"
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
+
+if [ ! -n "$MANUALCOMMIT" ]; then
+    # Test routing to a third node.
+    P2SHADDR2=`$LCLI2 newaddr | sed -n 's/{ "address" : "\(.*\)" }/\1/p'`
+    TXID2=`$CLI sendtoaddress $P2SHADDR2 0.01`
+    TX2=`$CLI getrawtransaction $TXID2`
+    $CLI generate 1
+
+    lcli2 connect localhost $PORT3 $TX2
+    check_tx_spend lcli2
+    $CLI generate 3
+
+    # Make sure it's STATE_NORMAL.
+    check_peerstate lcli3 STATE_NORMAL
+
+    # More than enough to cover commit fees.
+    HTLC_AMOUNT=100000000
+
+    # Tell node 1 about the 2->3 route.
+    lcli1 add-route $ID2 $ID3 546000 10 36 36
+    RHASH5=`lcli3 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
+
+    # Try wrong hash.
+    if lcli1 pay $ID3 $HTLC_AMOUNT $RHASH4; then
+	echo Paid with wrong hash? >&2
+	exit 1
+    fi
+
+    # Try underpaying.
+    if lcli1 pay $ID3 $(($HTLC_AMOUNT-1)) $RHASH5; then
+	echo Paid with too little? >&2
+	exit 1
+    fi
+
+    # Pay correctly.
+    lcli1 pay $ID3 $HTLC_AMOUNT $RHASH5
+
+    # Node 3 should end up with that amount (minus 1/2 tx fee)
+    # Note that it is delayed a little, since node2 fulfils as soon as fulfill
+    # starts.
+    check lcli3 "getpeers | $FGREP \"\\\"our_amount\\\" : $(($HTLC_AMOUNT - $NO_HTLCS_FEE / 2))\""
+    lcli3 close $ID2
+fi
 
 lcli1 close $ID2
 
