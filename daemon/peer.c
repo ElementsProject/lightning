@@ -558,6 +558,7 @@ static bool command_htlc_fulfill(struct peer *peer,
 static bool command_htlc_add(struct peer *peer, u64 msatoshis,
 			     unsigned int expiry,
 			     const struct sha256 *rhash,
+			     struct htlc *src,
 			     const u8 *route)
 {
 	struct channel_state *cstate;
@@ -601,7 +602,7 @@ static bool command_htlc_add(struct peer *peer, u64 msatoshis,
 
 	htlc = peer_new_htlc(peer, peer->htlc_id_counter,
 			     msatoshis, rhash, expiry, route, tal_count(route),
-			     OURS);
+			     src, OURS);
 
 	/* FIXME: BOLT is not correct here: we should say IFF we cannot
 	 * afford it in remote at its own current proposed fee-rate. */
@@ -880,6 +881,7 @@ struct htlc *peer_new_htlc(struct peer *peer,
 			   u32 expiry,
 			   const u8 *route,
 			   size_t routelen,
+			   struct htlc *src,
 			   enum channel_side side)
 {
 	struct htlc *h = tal(peer, struct htlc);
@@ -890,6 +892,7 @@ struct htlc *peer_new_htlc(struct peer *peer,
 	if (!blocks_to_abs_locktime(expiry, &h->expiry))
 		fatal("Invalid HTLC expiry %u", expiry);
 	h->routing = tal_dup_arr(h, u8, route, routelen, 0);
+	h->src = src;
 	if (side == OURS)
 		htlc_map_add(&peer->local.htlcs, h);
 	else {
@@ -2667,7 +2670,7 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
-	if (!command_htlc_add(peer, msatoshis, expiry, &rhash,
+	if (!command_htlc_add(peer, msatoshis, expiry, &rhash, NULL,
 			      dummy_single_route(cmd, peer, msatoshis))) {
 		command_fail(cmd, "could not add htlc");
 		return;

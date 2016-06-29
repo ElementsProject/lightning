@@ -252,6 +252,7 @@ struct htlc *peer_new_htlc(struct peer *peer,
 			   u32 expiry,
 			   const u8 *route,
 			   size_t route_len,
+			   struct htlc *src,
 			   enum channel_side side);
 
 /* Peer has recieved revocation. */
