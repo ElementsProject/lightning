@@ -2678,6 +2678,18 @@ const struct json_command getpeers_command = {
 	"Returns a 'peers' array"
 };
 
+/* To avoid freeing underneath ourselves, we free outside event loop. */
+void cleanup_peers(struct lightningd_state *dstate)
+{
+	struct peer *peer, *next;
+
+	list_for_each_safe(&dstate->peers, peer, next, list) {
+		/* Deletes itself from list. */
+		if (!peer->conn && peer->state == STATE_CLOSED)
+			tal_free(peer);
+	}
+}
+
 /* A zero-fee single route to this peer. */
 static const u8 *dummy_single_route(const tal_t *ctx,
 				    const struct peer *peer,

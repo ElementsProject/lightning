@@ -345,12 +345,10 @@ int main(int argc, char *argv[])
 		if (v == dstate)
 			break;
 
-		/* We use it on a peer when it needs freeing (may be
-		 * NULL if we only broke out due to timer). */
-		tal_free(v);
-
 		if (expired)
 			timer_expired(dstate, expired);
+		else
+			cleanup_peers(dstate);
 	}
 
 	tal_free(dstate);

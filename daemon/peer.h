@@ -272,4 +272,5 @@ uint64_t commit_tx_fee(const struct bitcoin_tx *commit,
 void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc,
 			const struct rval *preimage);
 
+void cleanup_peers(struct lightningd_state *dstate);
 #endif /* LIGHTNING_DAEMON_PEER_H */
