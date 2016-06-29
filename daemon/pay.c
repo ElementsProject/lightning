@@ -16,21 +16,19 @@ struct pay_command {
 	struct command *cmd;
 };
 
-void complete_pay_command(struct peer *peer,
-			  struct htlc *htlc,
-			  const struct rval *rval)
+void complete_pay_command(struct peer *peer, struct htlc *htlc)
 {
 	struct pay_command *i;
 
 	list_for_each(&peer->pay_commands, i, list) {
 		if (i->htlc == htlc) {
-			if (rval) {
+			if (htlc->r) {
 				struct json_result *response;
 
 				response = new_json_result(i->cmd);	
 				json_object_start(response, NULL);
 				json_add_hex(response, "preimage",
-					     rval->r, sizeof(rval->r));
+					     htlc->r, sizeof(*htlc->r));
 				json_object_end(response);
 				command_success(i->cmd, response);
 			} else {
@@ -39,10 +37,11 @@ void complete_pay_command(struct peer *peer,
 			return;
 		}
 	}
+
 	/* Can happen if RPC connection goes away. */
 	log_unusual(peer->log, "No command for HTLC %"PRIu64" %s",
-		    htlc->id, rval ? "fulfill" : "fail");
-}		
+		    htlc->id, htlc->r ? "fulfill" : "fail");
+}
 
 static void remove_from_list(struct pay_command *pc)
 {

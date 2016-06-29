@@ -561,6 +561,9 @@ static bool command_htlc_fulfill(struct peer *peer,
 				 struct htlc *htlc,
 				 const struct rval *r)
 {
+	assert(!htlc->r);
+	htlc->r = tal_dup(htlc, struct rval, r);
+
 	if (!state_can_remove_htlc(peer->state))
 		return false;
 
@@ -904,6 +907,7 @@ struct htlc *peer_new_htlc(struct peer *peer,
 	h->id = id;
 	h->msatoshis = msatoshis;
 	h->rhash = *rhash;
+	h->r = NULL;
 	if (!blocks_to_abs_locktime(expiry, &h->expiry))
 		fatal("Invalid HTLC expiry %u", expiry);
 	h->routing = tal_dup_arr(h, u8, route, routelen, 0);
@@ -1633,8 +1637,11 @@ void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc,
 {
 	if (htlc->src)
 		command_htlc_fulfill(htlc->src->peer, htlc->src, preimage);
-	else
-		complete_pay_command(peer, htlc, preimage);
+	else {
+		assert(!htlc->r);
+		htlc->r = tal_dup(htlc, struct rval, preimage);
+		complete_pay_command(peer, htlc);
+	}
 }
 
 static void their_htlc_depth(struct peer *peer,
@@ -2449,7 +2456,7 @@ static void our_htlc_failed(struct peer *peer, struct htlc *htlc)
 	if (htlc->src)
 		command_htlc_fail(htlc->src->peer, htlc->src);
 	else
-		complete_pay_command(peer, htlc, NULL);
+		complete_pay_command(peer, htlc);
 }
 
 /* When changes are committed to. */
