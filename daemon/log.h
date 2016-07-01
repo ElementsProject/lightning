@@ -46,7 +46,7 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap);
 #define log_struct_check_(log, loglevel, fmt, structtype, ptr)		\
 	log_struct_((log), (loglevel), stringify(structtype), (fmt), 	\
 		    ((void)sizeof((ptr) == (structtype *)NULL),		\
-		     ((union loggable_structs)(ptr)).charp_))
+		     ((union loggable_structs)((const structtype *)ptr)).charp_))
 
 /* These must have %s where the struct is to go. */
 #define log_add_struct(log, fmt, structtype, ptr)			\
@@ -63,19 +63,12 @@ void logv(struct log *log, enum log_level level, const char *fmt, va_list ap);
 
 /* This must match the log_add_struct_ definitions. */
 union loggable_structs {
-	/* Yech, need both const and non-const versions. */
-	const struct pubkey *const_pubkey;
-	struct pubkey *pubkey;
-	const struct sha256_double *const_sha256_double;
-	struct sha256_double *sha256_double;
-	const struct sha256 *const_sha256;
-	struct sha256 *sha256;
-	const struct rel_locktime *const_rel_locktime;
-	struct rel_locktime *rel_locktime;
-	const struct abs_locktime *const_abs_locktime;
-	struct abs_locktime *abs_locktime;
-	const struct bitcoin_tx *const_bitcoin_tx;
-	struct bitcoin_tx *bitcoin_tx;
+	const struct pubkey *pubkey;
+	const struct sha256_double *sha256_double;
+	const struct sha256 *sha256;
+	const struct rel_locktime *rel_locktime;
+	const struct abs_locktime *abs_locktime;
+	const struct bitcoin_tx *bitcoin_tx;
 	const char *charp_;
 };
 
