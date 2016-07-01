@@ -89,7 +89,7 @@ u8 **bitcoin_witness_secret(const tal_t *ctx,
 
 /* Create a witness which spends bitcoin_redeeem_htlc_recv/send */
 u8 **bitcoin_witness_htlc(const tal_t *ctx,
-			  const struct sha256 *htlc_or_revocation_preimage,
+			  const void *htlc_or_revocation_preimage,
 			  const struct bitcoin_signature *sig,
 			  const u8 *witnessscript);
 

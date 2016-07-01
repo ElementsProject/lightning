@@ -547,6 +547,93 @@ static void state_event(struct peer *peer,
 	}
 }
 
+static struct htlc *htlc_by_index(const struct commit_info *ci, size_t index)
+{
+	if (ci->map[index] == -1)
+		return NULL;
+
+	/* First two are non-HTLC outputs to us, them. */
+	assert(index >= 2);
+	index -= 2;
+
+	if (index < tal_count(ci->cstate->side[OURS].htlcs))
+		return ci->cstate->side[OURS].htlcs[index];
+	index -= tal_count(ci->cstate->side[OURS].htlcs);
+	assert(index < tal_count(ci->cstate->side[THEIRS].htlcs));
+	return ci->cstate->side[THEIRS].htlcs[index];
+}
+
+static bool htlc_is_ours(const struct commit_info *ci, size_t index)
+{
+	assert(index >= 2);
+	index -= 2;
+
+	return index < tal_count(ci->cstate->side[OURS].htlcs);
+}
+
+/* Create a HTLC fulfill transaction */
+static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
+						const struct commit_info *ci,
+						unsigned int i)
+{
+	u8 *wscript;
+	struct htlc *htlc;
+	struct bitcoin_tx *tx = bitcoin_tx(peer, 1, 1);
+	struct bitcoin_signature sig;
+	u64 fee, satoshis;
+
+	htlc = htlc_by_index(ci, i);
+	assert(htlc->r);
+
+	wscript = bitcoin_redeem_htlc_recv(peer,
+					   &peer->local.finalkey,
+					   &peer->remote.finalkey,
+					   &htlc->expiry,
+					   &peer->remote.locktime,
+					   &ci->revocation_hash,
+					   &htlc->rhash);
+
+	tx->input[0].index = ci->map[i];
+	bitcoin_txid(ci->tx, &tx->input[0].txid);
+	satoshis = htlc->msatoshis / 1000;
+	tx->input[0].amount = tal_dup(tx->input, u64, &satoshis);
+	tx->input[0].sequence_number = bitcoin_nsequence(&peer->remote.locktime);
+
+	/* Using a new output address here would be useless: they can tell
+	 * it's their HTLC, and that we collected it via rval. */
+	tx->output[0].script = scriptpubkey_p2sh(tx,
+				 bitcoin_redeem_single(tx, &peer->local.finalkey));
+	tx->output[0].script_length = tal_count(tx->output[0].script);
+
+	log_debug(peer->log, "Pre-witness txlen = %zu\n",
+		  measure_tx_cost(tx) / 4);
+
+	assert(measure_tx_cost(tx) == 83 * 4);
+
+	/* Witness length can vary, due to DER encoding of sigs, but we
+	 * use 539 from an example run. */
+	/* FIXME: Dynamic fees! */
+	fee = fee_by_feerate(83 + 539 / 4,
+			     peer->dstate->config.closing_fee_rate);
+
+	/* FIXME: Fail gracefully in these cases (not worth collecting) */
+	if (fee > satoshis || is_dust_amount(satoshis - fee))
+		fatal("HTLC fulfill amount of %"PRIu64" won't cover fee %"PRIu64,
+		      satoshis, fee);
+
+	tx->output[0].amount = satoshis - fee;
+
+	sig.stype = SIGHASH_ALL;
+	peer_sign_htlc_fulfill(peer, tx, wscript, &sig.sig);
+
+	tx->input[0].witness = bitcoin_witness_htlc(tx, htlc->r, &sig, wscript);
+
+	log_debug(peer->log, "tx cost for htlc fulfill tx: %zu",
+		  measure_tx_cost(tx));
+
+	return tx;
+}
+
 /* FIXME: Reason! */
 static bool command_htlc_fail(struct peer *peer, struct htlc *htlc)
 {
@@ -1231,30 +1318,6 @@ static bool is_mutual_close(const struct peer *peer,
 	return false;
 }
 
-static struct htlc *htlc_by_index(const struct commit_info *ci, size_t index)
-{
-	if (ci->map[index] == -1)
-		return NULL;
-
-	/* First two are non-HTLC outputs to us, them. */
-	assert(index >= 2);
-	index -= 2;
-
-	if (index < tal_count(ci->cstate->side[OURS].htlcs))
-		return ci->cstate->side[OURS].htlcs[index];
-	index -= tal_count(ci->cstate->side[OURS].htlcs);
-	assert(index < tal_count(ci->cstate->side[THEIRS].htlcs));
-	return ci->cstate->side[THEIRS].htlcs[index];
-}
-
-static bool htlc_is_ours(const struct commit_info *ci, size_t index)
-{
-	assert(index >= 2);
-	index -= 2;
-
-	return index < tal_count(ci->cstate->side[OURS].htlcs);
-}
-
 /* Create a HTLC refund collection */
 static const struct bitcoin_tx *htlc_timeout_tx(const struct peer *peer,
 						const struct commit_info *ci,
@@ -1521,6 +1584,8 @@ static enum watch_result our_htlc_spent(struct peer *peer,
 	log_unusual(peer->log, "Peer redeemed HTLC %zu on-chain using r value",
 		    i);
 
+	our_htlc_fulfilled(peer, h, &preimage);
+
 	/* BOLT #onchain:
 	 *
 	 * If a node sees a redemption transaction, the output is considered
@@ -1529,6 +1594,36 @@ static enum watch_result our_htlc_spent(struct peer *peer,
 	 * preimage; the knowledge is not revocable.
 	 */
 	peer->closing_onchain.resolved[i] = irrevocably_resolved(peer);
+	return DELETE_WATCH;
+}
+
+static void our_htlc_failed(struct peer *peer, struct htlc *htlc)
+{
+	if (htlc->src)
+		command_htlc_fail(htlc->src->peer, htlc->src);
+	else
+		complete_pay_command(peer, htlc);
+}
+
+/* We've spent an HTLC output to get our funds back.  There's still a 
+ * chance that they could also spend the HTLC output (using the preimage),
+ * so we need to wait for some confirms.
+ *
+ * However, we don't want to wait too long: our upstream will get upset if
+ * their HTLC has timed out and we don't close it.  So we wait one less
+ * than the HTLC timeout difference.
+ */
+static enum watch_result our_htlc_timeout_depth(struct peer *peer,
+						unsigned int depth,
+						const struct sha256_double *txid,
+						ptrint_t *i)
+{
+	if (depth == 0)
+		return KEEP_WATCHING;
+	if (depth + 1 < peer->dstate->config.min_htlc_expiry)
+		return KEEP_WATCHING;
+	our_htlc_failed(peer,
+			htlc_by_index(peer->closing_onchain.ci, ptr2int(i)));
 	return DELETE_WATCH;
 }
 
@@ -1574,6 +1669,10 @@ static enum watch_result our_htlc_depth(struct peer *peer,
 	if (!peer->closing_onchain.resolved[i]) {
 		peer->closing_onchain.resolved[i]
 			= htlc_timeout_tx(peer, peer->closing_onchain.ci, i);
+		watch_tx(peer->closing_onchain.resolved[i],
+			 peer,
+			 peer->closing_onchain.resolved[i],
+			 our_htlc_timeout_depth, int2ptr(i));
 		broadcast_tx(peer, peer->closing_onchain.resolved[i]);
 	}
 	return DELETE_WATCH;
@@ -1687,13 +1786,34 @@ static void resolve_their_htlcs(struct peer *peer,
 	size_t i;
 
 	for (i = start; i < start + num; i++) {
+		struct htlc *htlc;
+
 		/* Doesn't exist?  Resolved by tx itself. */
 		if (ci->map[i] == -1) {
 			resolved[i] = tx;
 			continue;
 		}
 
-		watch_tx(tx, peer, tx, their_htlc_depth, int2ptr(i));
+		/* BOLT #onchain:
+		 *
+		 * If the node ... already knows... a redemption
+		 * preimage for a *commitment tx* output it was offered, it
+		 * MUST *resolve* the output by spending it using the
+		 * preimage.
+		 */
+		htlc = htlc_by_index(ci, i);
+		if (htlc->r) {
+			peer->closing_onchain.resolved[i]
+				= htlc_fulfill_tx(peer, ci, i);
+			broadcast_tx(peer, peer->closing_onchain.resolved[i]);
+		} else {
+			/* BOLT #onchain:
+			 *
+			 * Otherwise, if the output HTLC has expired, it is
+			 * considered *irrevocably resolved*.
+			 */
+			watch_tx(tx, peer, tx, their_htlc_depth, int2ptr(i));
+		}
 	}	
 }
 
@@ -2457,14 +2577,6 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc)
 
 free_rest:
 	tal_free(rest_of_route);
-}
-
-static void our_htlc_failed(struct peer *peer, struct htlc *htlc)
-{
-	if (htlc->src)
-		command_htlc_fail(htlc->src->peer, htlc->src);
-	else
-		complete_pay_command(peer, htlc);
 }
 
 /* When changes are committed to. */

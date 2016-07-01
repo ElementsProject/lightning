@@ -99,6 +99,21 @@ void peer_sign_htlc_refund(const struct peer *peer,
 		      sig);
 }
 
+void peer_sign_htlc_fulfill(const struct peer *peer,
+			    struct bitcoin_tx *spend,
+			    const u8 *htlc_witnessscript,
+			    struct signature *sig)
+{
+	/* Spend tx only has one input: that of the commit tx. */
+	sign_tx_input(peer->dstate->secpctx,
+		      spend, 0,
+		      NULL, 0,
+		      htlc_witnessscript,
+		      &peer->secrets->final,
+		      &peer->local.finalkey,
+		      sig);
+}
+
 void peer_sign_mutual_close(const struct peer *peer,
 			    struct bitcoin_tx *close,
 			    struct signature *sig)

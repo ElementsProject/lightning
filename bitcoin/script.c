@@ -487,7 +487,7 @@ u8 **bitcoin_witness_secret(const tal_t *ctx,
 }
 
 u8 **bitcoin_witness_htlc(const tal_t *ctx,
-			  const struct sha256 *htlc_or_revocation_preimage,
+			  const void *htlc_or_revocation_preimage,
 			  const struct bitcoin_signature *sig,
 			  const u8 *witnessscript)
 {
@@ -498,8 +498,7 @@ u8 **bitcoin_witness_htlc(const tal_t *ctx,
 		htlc_or_revocation_preimage = &no_preimage;
 
 	return bitcoin_witness_secret(ctx, htlc_or_revocation_preimage,
-				      sizeof(*htlc_or_revocation_preimage), sig,
-				      witnessscript);
+				      32, sig, witnessscript);
 }
 
 bool scripteq(const u8 *s1, size_t s1len, const u8 *s2, size_t s2len)
