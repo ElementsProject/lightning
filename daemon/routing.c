@@ -218,7 +218,7 @@ struct peer *find_route(struct lightningd_state *dstate,
 
 	msatoshi += *fee;
 	log_info(dstate->base_log, "find_route:");
-	log_add_struct(dstate->base_log, "via %s", struct pubkey, &first->id);
+	log_add_struct(dstate->base_log, "via %s", struct pubkey, first->id);
 	for (i = 0; i < best; i++) {
 		log_add_struct(dstate->base_log, " %s",
 			       struct pubkey, &(*route)[i]->dst->id);

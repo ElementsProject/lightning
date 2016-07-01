@@ -13,6 +13,7 @@
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/structeq/structeq.h>
 #include <inttypes.h>
 #include <secp256k1.h>
 #include <secp256k1_ecdh.h>
@@ -351,6 +352,7 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 	struct signature sig;
 	struct io_plan *(*cb)(struct io_conn *, struct peer *);
 	Authenticate *auth;
+	struct pubkey id;
 
 	auth = pkt_unwrap(peer, PKT__PKT_AUTH);
 	if (!auth)
@@ -362,16 +364,24 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 		return io_close(conn);
 	}
 
-	if (!proto_to_pubkey(peer->dstate->secpctx, auth->node_id, &peer->id)) {
+	if (!proto_to_pubkey(peer->dstate->secpctx, auth->node_id, &id)) {
 		log_unusual(peer->log, "Invalid auth id");
 		return io_close(conn);
 	}
 
+	/* Did we expect a specific ID? */
+	if (!peer->id)
+		peer->id = tal_dup(peer, struct pubkey, &id);
+	else if (!structeq(&id, peer->id)) {
+		log_unusual(peer->log, "Incorrect auth id");
+		return io_close(conn);
+	}
+	
 	/* Signature covers *our* session key. */
 	sha256_double(&sha,
 		      neg->our_sessionpubkey, sizeof(neg->our_sessionpubkey));
 
-	if (!check_signed_hash(peer->dstate->secpctx, &sha, &sig, &peer->id)) {
+	if (!check_signed_hash(peer->dstate->secpctx, &sha, &sig, peer->id)) {
 		log_unusual(peer->log, "Bad auth signature");
 		return io_close(conn);
 	}

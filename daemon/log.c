@@ -324,7 +324,7 @@ static char *to_string_(const tal_t *ctx,
 			    h->r ? tal_hexstr(ctx, h->r, sizeof(*h->r))
 			    : "UNKNOWN",
 			    h->src ? to_string(ctx, lr, struct pubkey,
-					       &h->src->peer->id)
+					       h->src->peer->id)
 			    : "local");
 	}
 

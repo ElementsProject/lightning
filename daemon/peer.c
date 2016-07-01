@@ -56,7 +56,7 @@ struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id)
 	struct peer *peer;
 
 	list_for_each(&dstate->peers, peer, list) {
-		if (peer->state != STATE_INIT && pubkey_eq(&peer->id, id))
+		if (peer->id && pubkey_eq(peer->id, id))
 			return peer;
 	}
 	return NULL;
@@ -115,9 +115,9 @@ void peer_open_complete(struct peer *peer, const char *problem)
 
 		log_debug(peer->log, "peer open complete");
 		assert(!peer->nc);
-		n = get_node(dstate, &peer->id);
+		n = get_node(dstate, peer->id);
 		if (!n)
-			n = new_node(dstate, &peer->id);
+			n = new_node(dstate, peer->id);
 		peer->nc = add_connection(dstate,
 					  get_node(dstate, &dstate->id), n,
 					  dstate->config.fee_base,
@@ -939,6 +939,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	list_add(&dstate->peers, &peer->list);
 
 	peer->state = STATE_INIT;
+	peer->id = NULL;
 	peer->dstate = dstate;
 	peer->addr.type = addr_type;
 	peer->addr.protocol = addr_protocol;
@@ -2611,7 +2612,8 @@ static void route_htlc_onwards(struct peer *peer,
 		return;
 	}
 
-	log_debug_struct(peer->log, "HTLC forward to %s", struct pubkey, &next->id);
+	log_debug_struct(peer->log, "HTLC forward to %s",
+			 struct pubkey, next->id);
 
 	/* This checks the HTLC itself is possible. */
 	if (!command_htlc_add(next, msatoshis,
@@ -2898,10 +2900,9 @@ static void json_getpeers(struct command *cmd,
 		json_add_string(response, "name", log_prefix(p->log));
 		json_add_string(response, "state", state_name(p->state));
 
-		/* This is only valid after crypto setup. */
-		if (p->state != STATE_INIT)
+		if (p->id)
 			json_add_pubkey(response, cmd->dstate->secpctx,
-					"peerid", &p->id);
+					"peerid", p->id);
 
 		json_add_bool(response, "connected", p->conn && !p->fake_close);
 

@@ -137,7 +137,7 @@ struct peer {
 	struct netaddr addr;
 
 	/* Their ID. */
-	struct pubkey id;
+	struct pubkey *id;
 
 	/* Current received packet. */
 	Pkt *inpkt;
