@@ -101,12 +101,6 @@ struct peer_visible_state {
 	struct htlc_map htlcs;
 };
 
-struct out_pkt {
-	Pkt *pkt;
-	void (*ack_cb)(struct peer *peer, void *arg);
-	void *ack_arg;
-};
-
 /* Off peer->outgoing_txs */
 struct outgoing_tx {
 	struct list_node list;

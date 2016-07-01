@@ -516,7 +516,7 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,
 				       size_t hexlen)
 {
-	char *end;
+	const char *end;
 	u8 *linear_tx;
 	const u8 *p;
 	struct bitcoin_tx *tx;
@@ -524,7 +524,7 @@ struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,
 
 	end = memchr(hex, '\n', hexlen);
 	if (!end)
-		end = cast_const(char *, hex) + hexlen;
+		end = hex + hexlen;
 
 	len = hex_data_size(end - hex);
 	p = linear_tx = tal_arr(ctx, u8, len);
@@ -538,9 +538,6 @@ struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,
 	if (len)
 		goto fail_free_tx;
 	
-	if (end != hex + hexlen && *end != '\n')
-		goto fail_free_tx;
-
 	tal_free(linear_tx);
 	return tx;
 

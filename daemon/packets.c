@@ -655,7 +655,6 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	stage.add.htlc = htlc;
 	add_unacked(&peer->local, &stage);
 
-	/* FIXME: Fees must be sufficient. */
 	return NULL;
 }
 

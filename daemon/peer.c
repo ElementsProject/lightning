@@ -642,6 +642,7 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 /* FIXME: Reason! */
 static bool command_htlc_fail(struct peer *peer, struct htlc *htlc)
 {
+	/* If onchain, nothing we can do. */
 	if (!state_can_remove_htlc(peer->state))
 		return false;
 
