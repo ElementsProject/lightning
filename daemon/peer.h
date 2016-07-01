@@ -190,9 +190,6 @@ struct peer {
 		const struct bitcoin_tx **resolved;
 	} closing_onchain;
 	
-	/* If not INPUT_NONE, send this when we have no more HTLCs. */
-	enum state_input cleared;
-
 	/* Current ongoing packetflow */
 	struct io_data *io_data;
 	
@@ -205,9 +202,6 @@ struct peer {
 	/* Bitcoin transctions we're broadcasting (see chaintopology.c) */
 	struct list_head outgoing_txs;
 	
-	/* Timeout for close_watch. */
-	struct oneshot *close_watch_timeout;
-
 	/* Timeout for collecting changes before sending commit. */
 	struct oneshot *commit_timer;
 	

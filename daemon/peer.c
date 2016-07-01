@@ -949,13 +949,11 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->commit_jsoncmd = NULL;
 	list_head_init(&peer->outgoing_txs);
 	list_head_init(&peer->pay_commands);
-	peer->close_watch_timeout = NULL;
 	peer->anchor.watches = NULL;
 	peer->cur_commit.watch = NULL;
 	peer->closing.their_sig = NULL;
 	peer->closing.our_script = NULL;
 	peer->closing.their_script = NULL;
-	peer->cleared = INPUT_NONE;
 	peer->closing_onchain.tx = NULL;
 	peer->closing_onchain.resolved = NULL;
 	peer->closing_onchain.ci = NULL;
