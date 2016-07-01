@@ -714,14 +714,12 @@ struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
 		return NULL;
 	}
 
-	/* FIXME: This is wrong: constraint on remote is sufficient. */
 	/* BOLT #2:
 	 *
 	 * A node MUST NOT add a HTLC if it would result in it
-	 * offering more than 300 HTLCs in either commitment transaction.
+	 * offering more than 300 HTLCs in the remote commitment transaction.
 	 */
-	if (tal_count(peer->local.staging_cstate->side[OURS].htlcs) == 300
-	    || tal_count(peer->remote.staging_cstate->side[OURS].htlcs) == 300) {
+	if (tal_count(peer->remote.staging_cstate->side[OURS].htlcs) == 300) {
 		log_unusual(peer->log, "add_htlc: fail: already at limit");
 		return NULL;
 	}
