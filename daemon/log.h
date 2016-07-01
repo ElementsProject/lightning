@@ -6,6 +6,7 @@
 #include <stdarg.h>
 
 struct timerel;
+struct lightningd_state;
 
 enum log_level {
 	/* Logging all IO. */
@@ -21,7 +22,7 @@ enum log_level {
 };
 
 /* We have a single record. */
-struct log_record *new_log_record(const tal_t *ctx,
+struct log_record *new_log_record(struct lightningd_state *dstate,
 				  size_t max_mem,
 				  enum log_level printlevel);
 
