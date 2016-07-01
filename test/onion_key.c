@@ -35,7 +35,7 @@ static void gen_keys(secp256k1_context *ctx,
 		     struct seckey *seckey, struct compressed_pubkey *pubkey)
 {
 	secp256k1_pubkey pkey;
-	size_t len;
+	size_t len = sizeof(pubkey->u8);
 
 	random_key(ctx, seckey, &pkey);
 

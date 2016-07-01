@@ -276,7 +276,7 @@ gen_pkt_names.h: lightning.pb-c.h ccan/ccan/cdump/tools/cdump-enumstr
 libsecp256k1.a: secp256k1/libsecp256k1.la
 
 secp256k1/libsecp256k1.la:
-	cd secp256k1 && ./autogen.sh && ./configure --enable-static=yes --enable-shared=no --enable-tests=no --enable-module-ecdh=yes --libdir=`pwd`/..
+	cd secp256k1 && ./autogen.sh && ./configure --enable-static=yes --enable-shared=no --enable-tests=no --enable-experimental=yes --enable-module-ecdh=yes --libdir=`pwd`/..
 	$(MAKE) -C secp256k1 install-exec
 
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
@@ -325,6 +325,14 @@ update-ccan:
 	grep -v '^CCAN version:' ccan.old/README > ccan/README
 	echo CCAN version: `git -C ../ccan describe` >> ccan/README
 	$(RM) -r ccan.old
+
+update-secp256k1:
+	mv secp256k1 secp256k1.old
+	cp -a ../secp256k1 secp256k1
+	rm -rf secp256k1/.git
+	grep -v '^secp256k1 version:' secp256k1.old/README > secp256k1/README
+	echo secp256k1 version: `git -C ../secp256k1 describe 2>/dev/null || git -C ../secp256k1 show HEAD --format=%H` >> secp256k1/README
+	$(RM) -r secp256k1.old
 
 distclean: clean
 	$(MAKE) -C secp256k1/ distclean || true

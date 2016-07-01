@@ -29,6 +29,7 @@ AC_PROG_CC_C89
 if test x"$ac_cv_prog_cc_c89" = x"no"; then
   AC_MSG_ERROR([c89 compiler support required])
 fi
+AM_PROG_AS
 
 case $host_os in
   *darwin*)
@@ -93,23 +94,28 @@ AC_ARG_ENABLE(tests,
     [use_tests=$enableval],
     [use_tests=yes])
 
+AC_ARG_ENABLE(experimental,
+    AS_HELP_STRING([--enable-experimental],[allow experimental configure options (default is no)]),
+    [use_experimental=$enableval],
+    [use_experimental=no])
+
 AC_ARG_ENABLE(endomorphism,
     AS_HELP_STRING([--enable-endomorphism],[enable endomorphism (default is no)]),
     [use_endomorphism=$enableval],
     [use_endomorphism=no])
-    
+
 AC_ARG_ENABLE(ecmult_static_precomputation,
     AS_HELP_STRING([--enable-ecmult-static-precomputation],[enable precomputed ecmult table for signing (default is yes)]),
     [use_ecmult_static_precomputation=$enableval],
     [use_ecmult_static_precomputation=yes])
 
 AC_ARG_ENABLE(module_ecdh,
-    AS_HELP_STRING([--enable-module-ecdh],[enable ECDH shared secret computation (default is no)]),
+    AS_HELP_STRING([--enable-module-ecdh],[enable ECDH shared secret computation (experimental)]),
     [enable_module_ecdh=$enableval],
     [enable_module_ecdh=no])
 
 AC_ARG_ENABLE(module_schnorr,
-    AS_HELP_STRING([--enable-module-schnorr],[enable Schnorr signature module (default is no)]),
+    AS_HELP_STRING([--enable-module-schnorr],[enable Schnorr signature module (experimental)]),
     [enable_module_schnorr=$enableval],
     [enable_module_schnorr=no])
 
@@ -117,6 +123,11 @@ AC_ARG_ENABLE(module_recovery,
     AS_HELP_STRING([--enable-module-recovery],[enable ECDSA pubkey recovery module (default is no)]),
     [enable_module_recovery=$enableval],
     [enable_module_recovery=no])
+
+AC_ARG_ENABLE(jni,
+    AS_HELP_STRING([--enable-jni],[enable libsecp256k1_jni (default is auto)]),
+    [use_jni=$enableval],
+    [use_jni=auto])
 
 AC_ARG_WITH([field], [AS_HELP_STRING([--with-field=64bit|32bit|auto],
 [Specify Field Implementation. Default is auto])],[req_field=$withval], [req_field=auto])
@@ -127,8 +138,8 @@ AC_ARG_WITH([bignum], [AS_HELP_STRING([--with-bignum=gmp|no|auto],
 AC_ARG_WITH([scalar], [AS_HELP_STRING([--with-scalar=64bit|32bit|auto],
 [Specify scalar implementation. Default is auto])],[req_scalar=$withval], [req_scalar=auto])
 
-AC_ARG_WITH([asm], [AS_HELP_STRING([--with-asm=x86_64|no|auto]
-[Specify assembly optimizations to use. Default is auto])],[req_asm=$withval], [req_asm=auto])
+AC_ARG_WITH([asm], [AS_HELP_STRING([--with-asm=x86_64|arm|no|auto]
+[Specify assembly optimizations to use. Default is auto (experimental: arm)])],[req_asm=$withval], [req_asm=auto])
 
 AC_CHECK_TYPES([__int128])
 
@@ -154,6 +165,8 @@ else
     if test x"$has_64bit_asm" != x"yes"; then
       AC_MSG_ERROR([x86_64 assembly optimization requested but not available])
     fi
+    ;;
+  arm)
     ;;
   no)
     ;;
@@ -247,9 +260,14 @@ else
 fi
 
 # select assembly optimization
+use_external_asm=no
+
 case $set_asm in
 x86_64)
   AC_DEFINE(USE_ASM_X86_64, 1, [Define this symbol to enable x86_64 assembly optimizations])
+  ;;
+arm)
+  use_external_asm=yes
   ;;
 no)
   ;;
@@ -318,6 +336,32 @@ if test x"$use_tests" = x"yes"; then
   fi
 fi
 
+if test x"$use_jni" != x"no"; then
+  AX_JNI_INCLUDE_DIR
+  have_jni_dependencies=yes
+  if test x"$enable_module_schnorr" = x"no"; then
+    have_jni_dependencies=no
+  fi
+  if test x"$enable_module_ecdh" = x"no"; then
+    have_jni_dependencies=no
+  fi
+  if test "x$JNI_INCLUDE_DIRS" = "x"; then
+    have_jni_dependencies=no
+  fi
+  if test "x$have_jni_dependencies" = "xno"; then
+    if test x"$use_jni" = x"yes"; then
+      AC_MSG_ERROR([jni support explicitly requested but headers/dependencies were not found. Enable ECDH and Schnorr and try again.])
+    fi
+    AC_MSG_WARN([jni headers/dependencies not found. jni support disabled])
+    use_jni=no
+  else
+    use_jni=yes
+    for JNI_INCLUDE_DIR in $JNI_INCLUDE_DIRS; do
+      JNI_INCLUDES="$JNI_INCLUDES -I$JNI_INCLUDE_DIR"
+    done
+  fi
+fi
+
 if test x"$set_bignum" = x"gmp"; then
   SECP_LIBS="$SECP_LIBS $GMP_LIBS"
   SECP_INCLUDES="$SECP_INCLUDES $GMP_CPPFLAGS"
@@ -345,18 +389,42 @@ fi
 
 AC_C_BIGENDIAN()
 
+if test x"$use_external_asm" = x"yes"; then
+  AC_DEFINE(USE_EXTERNAL_ASM, 1, [Define this symbol if an external (non-inline) assembly implementation is used])
+fi
+
 AC_MSG_NOTICE([Using assembly optimizations: $set_asm])
 AC_MSG_NOTICE([Using field implementation: $set_field])
 AC_MSG_NOTICE([Using bignum implementation: $set_bignum])
 AC_MSG_NOTICE([Using scalar implementation: $set_scalar])
 AC_MSG_NOTICE([Using endomorphism optimizations: $use_endomorphism])
 AC_MSG_NOTICE([Building ECDH module: $enable_module_ecdh])
-
 AC_MSG_NOTICE([Building Schnorr signatures module: $enable_module_schnorr])
 AC_MSG_NOTICE([Building ECDSA pubkey recovery module: $enable_module_recovery])
+AC_MSG_NOTICE([Using jni: $use_jni])
+
+if test x"$enable_experimental" = x"yes"; then
+  AC_MSG_NOTICE([******])
+  AC_MSG_NOTICE([WARNING: experimental build])
+  AC_MSG_NOTICE([Experimental features do not have stable APIs or properties, and may not be safe for production use.])
+  AC_MSG_NOTICE([Building ECDH module: $enable_module_ecdh])
+  AC_MSG_NOTICE([Building Schnorr signatures module: $enable_module_schnorr])
+  AC_MSG_NOTICE([******])
+else
+  if test x"$enable_module_schnorr" = x"yes"; then
+    AC_MSG_ERROR([Schnorr signature module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$enable_module_ecdh" = x"yes"; then
+    AC_MSG_ERROR([ECDH module is experimental. Use --enable-experimental to allow.])
+  fi
+  if test x"$set_asm" = x"arm"; then
+    AC_MSG_ERROR([ARM assembly optimization is experimental. Use --enable-experimental to allow.])
+  fi
+fi
 
 AC_CONFIG_HEADERS([src/libsecp256k1-config.h])
 AC_CONFIG_FILES([Makefile libsecp256k1.pc])
+AC_SUBST(JNI_INCLUDES)
 AC_SUBST(SECP_INCLUDES)
 AC_SUBST(SECP_LIBS)
 AC_SUBST(SECP_TEST_LIBS)
@@ -367,6 +435,9 @@ AM_CONDITIONAL([USE_ECMULT_STATIC_PRECOMPUTATION], [test x"$use_ecmult_static_pr
 AM_CONDITIONAL([ENABLE_MODULE_ECDH], [test x"$enable_module_ecdh" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_SCHNORR], [test x"$enable_module_schnorr" = x"yes"])
 AM_CONDITIONAL([ENABLE_MODULE_RECOVERY], [test x"$enable_module_recovery" = x"yes"])
+AM_CONDITIONAL([USE_JNI], [test x"$use_jni" == x"yes"])
+AM_CONDITIONAL([USE_EXTERNAL_ASM], [test x"$use_external_asm" = x"yes"])
+AM_CONDITIONAL([USE_ASM_ARM], [test x"$set_asm" = x"arm"])
 
 dnl make sure nothing new is exported so that we don't break the cache
 PKGCONFIG_PATH_TEMP="$PKG_CONFIG_PATH"

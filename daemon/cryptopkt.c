@@ -571,6 +571,7 @@ struct io_plan *peer_crypto_setup(struct io_conn *conn, struct peer *peer,
 
 	gen_sessionkey(peer->dstate->secpctx, neg->seckey, &sessionkey);
 
+	outputlen = sizeof(neg->our_sessionpubkey);
 	secp256k1_ec_pubkey_serialize(peer->dstate->secpctx,
 				      neg->our_sessionpubkey, &outputlen,
 				      &sessionkey,
