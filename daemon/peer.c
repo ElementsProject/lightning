@@ -626,7 +626,8 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 	sig.stype = SIGHASH_ALL;
 	peer_sign_htlc_fulfill(peer, tx, wscript, &sig.sig);
 
-	tx->input[0].witness = bitcoin_witness_htlc(tx, htlc->r, &sig, wscript);
+	tx->input[0].witness = bitcoin_witness_htlc(tx, peer->dstate->secpctx,
+						    htlc->r, &sig, wscript);
 
 	log_debug(peer->log, "tx cost for htlc fulfill tx: %zu",
 		  measure_tx_cost(tx));
@@ -1445,7 +1446,8 @@ static const struct bitcoin_tx *htlc_timeout_tx(const struct peer *peer,
 	sig.stype = SIGHASH_ALL;
 	peer_sign_htlc_refund(peer, tx, wscript, &sig.sig);
 
-	tx->input[0].witness = bitcoin_witness_htlc(tx, NULL, &sig, wscript);
+	tx->input[0].witness = bitcoin_witness_htlc(tx, peer->dstate->secpctx,
+						    NULL, &sig, wscript);
 
 	log_unusual(peer->log, "tx cost for htlc timeout tx: %zu",
 		    measure_tx_cost(tx));
@@ -1601,6 +1603,7 @@ static void resolve_cheating(struct peer *peer)
 
 		steal_tx->input[map[n]].witness
 			= bitcoin_witness_secret(steal_tx,
+						 peer->dstate->secpctx,
 						 ci->revocation_preimage,
 						 sizeof(*ci->revocation_preimage),
 						 &sig,
@@ -2372,6 +2375,7 @@ const struct bitcoin_tx *bitcoin_close(struct peer *peer)
 
 	close_tx->input[0].witness
 		= bitcoin_witness_2of2(close_tx->input,
+				       peer->dstate->secpctx,
 				       peer->closing.their_sig,
 				       &our_close_sig,
 				       &peer->remote.commitkey,
@@ -2429,7 +2433,9 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 	sig.stype = SIGHASH_ALL;
 	peer_sign_spend(peer, tx, witnessscript, &sig.sig);
 
-	tx->input[0].witness = bitcoin_witness_secret(tx, NULL, 0, &sig,
+	tx->input[0].witness = bitcoin_witness_secret(tx,
+						      peer->dstate->secpctx,
+						      NULL, 0, &sig,
 						      witnessscript);
 
 	return tx;
@@ -2449,6 +2455,7 @@ const struct bitcoin_tx *bitcoin_commit(struct peer *peer)
 
 	peer->local.commit->tx->input[0].witness
 		= bitcoin_witness_2of2(peer->local.commit->tx->input,
+				       peer->dstate->secpctx,
 				       peer->local.commit->sig,
 				       &sig,
 				       &peer->remote.commitkey,
@@ -2924,7 +2931,7 @@ static const u8 *dummy_single_route(const tal_t *ctx,
 				    u64 msatoshis)
 {
 	struct node_connection **path = tal_arr(ctx, struct node_connection *, 0);
-	return onion_create(ctx, path, msatoshis, 0);
+	return onion_create(ctx, peer->dstate->secpctx, path, msatoshis, 0);
 }
 
 static void json_newhtlc(struct command *cmd,

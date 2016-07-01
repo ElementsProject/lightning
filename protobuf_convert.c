@@ -43,7 +43,9 @@ bool proto_to_signature(const Signature *pb, struct signature *sig)
 	return sig_valid(sig);
 }
 
-BitcoinPubkey *pubkey_to_proto(const tal_t *ctx, const struct pubkey *key)
+BitcoinPubkey *pubkey_to_proto(const tal_t *ctx,
+			       secp256k1_context *secpctx,
+			       const struct pubkey *key)
 {
 	BitcoinPubkey *p = tal(ctx, BitcoinPubkey);
 	struct pubkey check;
@@ -52,12 +54,9 @@ BitcoinPubkey *pubkey_to_proto(const tal_t *ctx, const struct pubkey *key)
 	p->key.len = sizeof(key->der);
 	p->key.data = tal_dup_arr(p, u8, key->der, p->key.len, 0);
 
-	{
-		secp256k1_context *secpctx = secp256k1_context_create(0);
-		assert(pubkey_from_der(secpctx, p->key.data, p->key.len, &check));
-		assert(pubkey_eq(&check, key));
-		secp256k1_context_destroy(secpctx);
-	}
+	assert(pubkey_from_der(secpctx, p->key.data, p->key.len, &check));
+	assert(pubkey_eq(&check, key));
+
 	return p;
 }
 

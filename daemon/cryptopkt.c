@@ -421,12 +421,13 @@ static Pkt *pkt_wrap(const tal_t *ctx, void *w, Pkt__PktCase pkt_case)
 }
 
 static Pkt *authenticate_pkt(const tal_t *ctx,
+			     secp256k1_context *secpctx,
 			     const struct pubkey *node_id,
 			     const struct signature *sig)
 {
 	Authenticate *auth = tal(ctx, Authenticate);
 	authenticate__init(auth);
-	auth->node_id = pubkey_to_proto(auth, node_id);
+	auth->node_id = pubkey_to_proto(auth, secpctx, node_id);
 	auth->session_sig = signature_to_proto(auth, sig);
 	return pkt_wrap(ctx, auth, PKT__PKT_AUTH);
 }
@@ -466,7 +467,8 @@ static struct io_plan *keys_exchanged(struct io_conn *conn, struct peer *peer)
 		     sizeof(neg->their_sessionpubkey), &sig);
 
 	/* FIXME: Free auth afterwards. */
-	auth = authenticate_pkt(peer, &peer->dstate->id, &sig);
+	auth = authenticate_pkt(peer, peer->dstate->secpctx,
+				&peer->dstate->id, &sig);
 	return peer_write_packet(conn, peer, auth, receive_proof);
 }
 

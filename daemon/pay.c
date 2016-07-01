@@ -115,7 +115,7 @@ static void json_pay(struct command *cmd,
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	expiry += get_block_height(cmd->dstate) + 1;
 
-	onion = onion_create(cmd, route, msatoshis, fee);
+	onion = onion_create(cmd, cmd->dstate->secpctx, route, msatoshis, fee);
 	pc = tal(cmd, struct pay_command);
 	pc->cmd = cmd;
 	pc->htlc = command_htlc_add(peer, msatoshis + fee, expiry, &rhash, NULL,

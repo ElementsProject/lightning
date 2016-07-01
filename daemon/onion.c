@@ -18,6 +18,7 @@ static const u8 *to_onion(const tal_t *ctx, const Route *r)
 
 /* Create an onion for sending msatoshi_with_fees down path. */
 const u8 *onion_create(const tal_t *ctx,
+		       secp256k1_context *secpctx,
 		       struct node_connection **path,
 		       u64 msatoshi, s64 fees)
 {
@@ -34,7 +35,8 @@ const u8 *onion_create(const tal_t *ctx,
 		r->steps[i] = tal(r, RouteStep);
 		route_step__init(r->steps[i]);
 		r->steps[i]->next_case = ROUTE_STEP__NEXT_BITCOIN;
-		r->steps[i]->bitcoin = pubkey_to_proto(r, &path[i]->dst->id);
+		r->steps[i]->bitcoin = pubkey_to_proto(r, secpctx,
+						       &path[i]->dst->id);
 		r->steps[i]->amount = amount;
 		amount += connection_fee(path[i], amount);
 	}

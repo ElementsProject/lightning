@@ -50,7 +50,7 @@ void wallet_add_signed_input(struct lightningd_state *dstate,
 		      &w->pubkey,
 		      &sig.sig);
 
-	bitcoin_witness_p2sh_p2wpkh(tx->input,
+	bitcoin_witness_p2sh_p2wpkh(tx->input, dstate->secpctx,
 				    &tx->input[input_num],
 				    &sig,
 				    &w->pubkey);

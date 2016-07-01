@@ -1,12 +1,12 @@
 #define _GNU_SOURCE 1
-#include "secp256k1.h"
-#include "secp256k1_ecdh.h"
 #include "onion_key.h"
 #include "version.h"
 #include <time.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/opt/opt.h>
 #include <assert.h>
+#include <secp256k1.h>
+#include <secp256k1_ecdh.h>
 #include <string.h>
 #include <stdio.h>
 #include <sys/types.h>

@@ -2,11 +2,11 @@
 #define LIGHTNING_BITCOIN_BASE58_H
 #include "config.h"
 
-#include "secp256k1.h"
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <openssl/bn.h>
+#include <secp256k1.h>
 #include <stdbool.h>
 #include <stdlib.h>
 

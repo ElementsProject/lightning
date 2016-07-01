@@ -2,8 +2,8 @@
 #define LIGHTNING_CLOSE_TX_H
 #include "config.h"
 #include "lightning.pb-c.h"
-#include "secp256k1.h"
 #include <ccan/tal/tal.h>
+#include <secp256k1.h>
 
 struct sha256_double;
 struct pubkey;

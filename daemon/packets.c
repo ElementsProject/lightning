@@ -103,8 +103,10 @@ void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor)
 	open_channel__init(o);
 	o->revocation_hash = sha256_to_proto(o, &peer->local.commit->revocation_hash);
 	o->next_revocation_hash = sha256_to_proto(o, &peer->local.next_revocation_hash);
-	o->commit_key = pubkey_to_proto(o, &peer->local.commitkey);
-	o->final_key = pubkey_to_proto(o, &peer->local.finalkey);
+	o->commit_key = pubkey_to_proto(o, peer->dstate->secpctx,
+					&peer->local.commitkey);
+	o->final_key = pubkey_to_proto(o, peer->dstate->secpctx,
+				       &peer->local.finalkey);
 	o->delay = tal(o, Locktime);
 	locktime__init(o->delay);
 	o->delay->locktime_case = LOCKTIME__LOCKTIME_BLOCKS;

@@ -121,13 +121,12 @@ static u8 *stack_key(const tal_t *ctx, const struct pubkey *key)
 }
 
 /* Bitcoin wants DER encoding. */
-static u8 *stack_sig(const tal_t *ctx, const struct bitcoin_signature *sig)
+static u8 *stack_sig(const tal_t *ctx,
+		     secp256k1_context *secpctx,
+		     const struct bitcoin_signature *sig)
 {
 	u8 der[73];
-	/* FIXME: Use global! */ 
-	secp256k1_context *secpctx = secp256k1_context_create(0);
 	size_t len = signature_to_der(secpctx, der, &sig->sig);
-	secp256k1_context_destroy(secpctx);
 
 	/* Append sighash type */
 	der[len++] = sig->stype;
@@ -216,6 +215,7 @@ u8 *bitcoin_redeem_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 
 /* Create an input which spends the p2sh-p2wpkh. */
 void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
+				 secp256k1_context *secpctx,
 				 struct bitcoin_tx_input *input,
 				 const struct bitcoin_signature *sig,
 				 const struct pubkey *key)
@@ -232,7 +232,7 @@ void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 	 * bytes each). The first one a signature, and the second one
 	 * a public key. */
 	input->witness = tal_arr(ctx, u8 *, 2);
-	input->witness[0] = stack_sig(input->witness, sig);
+	input->witness[0] = stack_sig(input->witness, secpctx, sig);
 	input->witness[1] = stack_key(input->witness, key);
 }
 	
@@ -262,6 +262,7 @@ u8 *scriptpubkey_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 
 /* Create a witness which spends the 2of2. */
 u8 **bitcoin_witness_2of2(const tal_t *ctx,
+			  secp256k1_context *secpctx,
 			  const struct bitcoin_signature *sig1,
 			  const struct bitcoin_signature *sig2,
 			  const struct pubkey *key1,
@@ -274,11 +275,11 @@ u8 **bitcoin_witness_2of2(const tal_t *ctx,
 
 	/* sig order should match key order. */
 	if (key_less(key1, key2)) {
-		witness[1] = stack_sig(witness, sig1);
-		witness[2] = stack_sig(witness, sig2);
+		witness[1] = stack_sig(witness, secpctx, sig1);
+		witness[2] = stack_sig(witness, secpctx, sig2);
 	} else {
-		witness[1] = stack_sig(witness, sig2);
-		witness[2] = stack_sig(witness, sig1);
+		witness[1] = stack_sig(witness, secpctx, sig2);
+		witness[2] = stack_sig(witness, secpctx, sig1);
 	}
 
 	witness[3] = bitcoin_redeem_2of2(witness, key1, key2);
@@ -472,13 +473,14 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 }
 
 u8 **bitcoin_witness_secret(const tal_t *ctx,
+			    secp256k1_context *secpctx,
 			    const void *secret, size_t secret_len,
 			    const struct bitcoin_signature *sig,
 			    const u8 *witnessscript)
 {
 	u8 **witness = tal_arr(ctx, u8 *, 3);
 
-	witness[0] = stack_sig(witness, sig);
+	witness[0] = stack_sig(witness, secpctx, sig);
 	witness[1] = tal_dup_arr(witness, u8, secret, secret_len, 0);
 	witness[2] = tal_dup_arr(witness, u8,
 				 witnessscript, tal_count(witnessscript), 0);
@@ -487,6 +489,7 @@ u8 **bitcoin_witness_secret(const tal_t *ctx,
 }
 
 u8 **bitcoin_witness_htlc(const tal_t *ctx,
+			  secp256k1_context *secpctx,
 			  const void *htlc_or_revocation_preimage,
 			  const struct bitcoin_signature *sig,
 			  const u8 *witnessscript)
@@ -497,7 +500,8 @@ u8 **bitcoin_witness_htlc(const tal_t *ctx,
 	if (!htlc_or_revocation_preimage)
 		htlc_or_revocation_preimage = &no_preimage;
 
-	return bitcoin_witness_secret(ctx, htlc_or_revocation_preimage,
+	return bitcoin_witness_secret(ctx, secpctx,
+				      htlc_or_revocation_preimage,
 				      32, sig, witnessscript);
 }
 

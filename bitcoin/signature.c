@@ -1,7 +1,6 @@
 #include "privkey.h"
 #include "pubkey.h"
 #include "script.h"
-#include "secp256k1.h"
 #include "shadouble.h"
 #include "signature.h"
 #include "tx.h"

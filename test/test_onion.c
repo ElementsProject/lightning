@@ -1,7 +1,5 @@
 #define _GNU_SOURCE 1
 #include "onion_key.h"
-#include "secp256k1.h"
-#include "secp256k1_ecdh.h"
 #include "version.h"
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
@@ -20,6 +18,8 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/opt/opt.h>
 #include <ccan/str/hex/hex.h>
+#include <secp256k1.h>
+#include <secp256k1_ecdh.h>
 
 /* 
  * The client knows the server's public key S (which has corresponding
