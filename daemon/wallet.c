@@ -27,8 +27,7 @@ static void new_keypair(struct lightningd_state *dstate,
 	do {
 		if (RAND_bytes(privkey->secret, sizeof(privkey->secret)) != 1)
 			fatal("Could not get random bytes for privkey");
-	} while (!pubkey_from_privkey(dstate->secpctx,
-				      privkey, pubkey, SECP256K1_EC_COMPRESSED));
+	} while (!pubkey_from_privkey(dstate->secpctx, privkey, pubkey));
 }
 
 void wallet_add_signed_input(struct lightningd_state *dstate,

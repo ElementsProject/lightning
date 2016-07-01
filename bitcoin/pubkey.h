@@ -25,8 +25,7 @@ char *pubkey_to_hexstr(const tal_t *ctx, secp256k1_context *secpctx,
 /* Pubkey from privkey */
 bool pubkey_from_privkey(secp256k1_context *secpctx,
 			 const struct privkey *privkey,
-			 struct pubkey *key,
-			 unsigned int compressed_flags);
+			 struct pubkey *key);
 
 /* Pubkey from DER encoding. */
 bool pubkey_from_der(secp256k1_context *secpctx,

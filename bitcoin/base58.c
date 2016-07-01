@@ -313,7 +313,6 @@ bool key_from_base58(secp256k1_context *secpctx,
 	u8 keybuf[1 + 32 + 1 + 4];
 	u8 csum[4];
 	BIGNUM bn;
-	bool compressed;
 	size_t keylen;
 	
 	BN_init(&bn);
@@ -321,11 +320,7 @@ bool key_from_base58(secp256k1_context *secpctx,
 		return false;
 
 	keylen = BN_num_bytes(&bn);
-	if (keylen == 1 + 32 + 4)
-		compressed = false;
-	else if (keylen == 1 + 32 + 1 + 4)
-		compressed = true;
-	else
+	if (keylen != 1 + 32 + 1 + 4)
 		goto fail_free_bn;
 	BN_bn2bin(&bn, keybuf);
 
@@ -334,7 +329,7 @@ bool key_from_base58(secp256k1_context *secpctx,
 		goto fail_free_bn;
 
 	/* Byte after key should be 1 to represent a compressed key. */
-	if (compressed && keybuf[1 + 32] != 1)
+	if (keybuf[1 + 32] != 1)
 		goto fail_free_bn;
 
 	if (keybuf[0] == 128)
@@ -350,9 +345,8 @@ bool key_from_base58(secp256k1_context *secpctx,
 	if (!secp256k1_ec_seckey_verify(secpctx, priv->secret))
 		goto fail_free_bn;
 
-	/* Get public key, too, since we know if it's compressed. */
-	if (!pubkey_from_privkey(secpctx, priv, key,
-				 compressed ? SECP256K1_EC_COMPRESSED : 0))
+	/* Get public key, too. */
+	if (!pubkey_from_privkey(secpctx, priv, key))
 		goto fail_free_bn;
 
 	BN_free(&bn);

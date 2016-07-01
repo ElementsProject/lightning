@@ -149,8 +149,7 @@ static void new_keypair(struct lightningd_state *dstate,
 	do {
 		if (RAND_bytes(privkey->secret, sizeof(privkey->secret)) != 1)
 			fatal("Could not get random bytes for privkey");
-	} while (!pubkey_from_privkey(dstate->secpctx,
-				      privkey, pubkey, SECP256K1_EC_COMPRESSED));
+	} while (!pubkey_from_privkey(dstate->secpctx, privkey, pubkey));
 }
 
 void peer_secrets_init(struct peer *peer)
@@ -220,8 +219,7 @@ void secrets_init(struct lightningd_state *dstate)
 		fatal("Failed to read privkey: %s", strerror(errno));
 	close(fd);
 	if (!pubkey_from_privkey(dstate->secpctx,
-				 &dstate->secret->privkey, &dstate->id,
-				 SECP256K1_EC_COMPRESSED))
+				 &dstate->secret->privkey, &dstate->id))
 		fatal("Invalid privkey");
 
 	log_info_struct(dstate->base_log, "ID: %s", struct pubkey, &dstate->id);
