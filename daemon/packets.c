@@ -626,8 +626,8 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 
 	/* BOLT #2:
 	 *
-	 * A node MUST NOT set `id` equal to another HTLC which is in
-	 * any unrevoked commitment transaction.
+	 * A node MUST set `id` to a unique identifier for this HTLC
+	 * amongst all past or future `update_add_htlc` messages.
 	 */
 	/* Note that it's not *our* problem if they do this, it's
 	 * theirs (future confusion).  Nonetheless, we detect and
