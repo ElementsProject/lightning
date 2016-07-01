@@ -122,6 +122,9 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--max-htlc-expiry", opt_set_u32, opt_show_u32,
 			 &dstate->config.max_htlc_expiry,
 			 "Maximum number of blocks to accept an HTLC before expiry");
+	opt_register_arg("--deadline-blocks", opt_set_u32, opt_show_u32,
+			 &dstate->config.deadline_blocks,
+			 "Number of blocks before HTLC timeout before we drop connection");
 	opt_register_arg("--bitcoind-poll", opt_set_time, opt_show_time,
 			 &dstate->config.poll_time,
 			 "Time between polling for new transactions");
@@ -181,6 +184,10 @@ static void default_config(struct config *config)
 	/* Don't lock up channel for more than 5 days. */
 	config->max_htlc_expiry = 5 * 6 * 24;
 
+	/* If we're closing on HTLC expiry, and you're unresponsive, we abort. */
+	config->deadline_blocks = 10;
+
+	/* How often to bother bitcoind. */
 	config->poll_time = time_from_sec(30);
 
 	/* Send commit 10msec after receiving; almost immediately. */
@@ -217,6 +224,16 @@ static void check_config(struct lightningd_state *dstate)
 		log_unusual(dstate->base_log,
 			    "Warning: forever-confirms of %u is less than 100!",
 			    dstate->config.forever_confirms);
+
+	/* BOLT #2:
+	 *
+	 * a node MUST estimate the deadline for successful redemption
+	 * for each HTLC it offers.  A node MUST NOT offer a HTLC
+	 * after this deadline */
+	if (dstate->config.deadline_blocks >= dstate->config.min_htlc_expiry)
+		fatal("Deadline %u can't be more than minimum expiry %u",
+		      dstate->config.deadline_blocks,
+		      dstate->config.min_htlc_expiry);
 }
 
 static struct lightningd_state *lightningd_state(void)

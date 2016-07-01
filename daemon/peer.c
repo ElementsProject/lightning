@@ -1028,9 +1028,16 @@ struct htlc *peer_new_htlc(struct peer *peer,
 		fatal("Invalid HTLC expiry %u", expiry);
 	h->routing = tal_dup_arr(h, u8, route, routelen, 0);
 	h->src = src;
-	if (side == OURS)
+	if (side == OURS) {
+		if (src) {
+			h->deadline = abs_locktime_to_blocks(&src->expiry)
+				- peer->dstate->config.deadline_blocks;
+		} else
+			/* If we're paying, give it a little longer. */
+			h->deadline = expiry
+				+ peer->dstate->config.min_htlc_expiry;
 		htlc_map_add(&peer->local.htlcs, h);
-	else {
+	} else {
 		assert(side == THEIRS);
 		htlc_map_add(&peer->remote.htlcs, h);
 	}
@@ -1232,9 +1239,24 @@ const struct json_command connect_command = {
 	"Returns an empty result on success"
 };
 
-/* FIXME: Keep a timeout for each peer, in case they're unresponsive. */
+/* Have any of our HTLCs passed their deadline? */
+static bool any_deadline_past(struct peer *peer,
+			      const struct channel_state *cstate)
+{
+	size_t i;
+	u32 height = get_block_height(peer->dstate);
+	struct htlc **htlcs = cstate->side[OURS].htlcs;
 
-/* FIXME: Make sure no HTLCs in any unrevoked commit tx are live. */
+	for (i = 0; i < tal_count(htlcs); i++) {
+		if (height >= htlcs[i]->deadline) {
+			log_unusual_struct(peer->log,
+					   "HTLC %s deadline has passed",
+					   struct htlc, htlcs[i]);
+			return true;
+		}
+	}
+	return false;
+}			      
 
 static void check_htlc_expiry(struct peer *peer)
 {
@@ -1258,6 +1280,28 @@ again:
 		if (!command_htlc_fail(peer, htlc))
 			return;
 		goto again;
+	}
+
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT offer a HTLC after this deadline, and MUST
+	 * fail the connection if an HTLC which it offered is in
+	 * either node's current commitment transaction past this
+	 * deadline.
+	 */
+
+	/* To save logic elsewhere (ie. to avoid signing a new commit with a
+	 * past-deadline HTLC) we also check staged HTLCs.
+	 */
+	if (!state_is_normal(peer->state))
+		return;
+
+	if (any_deadline_past(peer, peer->remote.staging_cstate)
+	    || any_deadline_past(peer, peer->local.staging_cstate)
+	    || any_deadline_past(peer, peer->remote.commit->cstate)
+	    || any_deadline_past(peer, peer->local.commit->cstate)) {
+		set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__);
+		peer_breakdown(peer);
 	}
 }
 

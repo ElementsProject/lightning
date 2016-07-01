@@ -27,6 +27,8 @@ struct htlc {
 	const u8 *routing;
 	/* Previous HTLC (if any) which made us offer this (OURS only) */
 	struct htlc *src;
+	/* Block number where we abort if it's still live (OURS only) */
+	u32 deadline;
 };
 
 /* htlc_map: ID -> htlc mapping. */

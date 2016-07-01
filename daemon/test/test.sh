@@ -251,6 +251,7 @@ fi
 cat > $DIR1/config <<EOF
 log-level=debug
 bitcoind-poll=1s
+deadline-blocks=5
 min-htlc-expiry=6
 bitcoin-datadir=$DATADIR
 locktime-blocks=6
@@ -260,6 +261,7 @@ EOF
 cat > $DIR2/config <<EOF
 log-level=debug
 bitcoind-poll=1s
+deadline-blocks=5
 min-htlc-expiry=6
 bitcoin-datadir=$DATADIR
 locktime-blocks=6
