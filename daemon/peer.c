@@ -1842,6 +1842,27 @@ static enum watch_result our_main_output_depth(struct peer *peer,
 	return DELETE_WATCH;
 }
 
+/* Any of our HTLCs we didn't have in our commitment tx, but they did,
+ * we can't fail until we're sure our commitment tx will win. */
+static enum watch_result our_unilateral_depth(struct peer *peer,
+					      unsigned int depth,
+					      const struct sha256_double *txid,
+					      void *unused)
+{
+	size_t i;
+
+	if (depth < peer->dstate->config.min_htlc_expiry)
+		return KEEP_WATCHING;
+
+	for (i = 0; i < tal_count(peer->local.commit->acked_changes); i++) {
+		if (peer->local.commit->acked_changes[i].type != HTLC_ADD)
+			continue;
+		our_htlc_failed(peer,
+				peer->local.commit->acked_changes[i].add.htlc);
+	}
+	return DELETE_WATCH;
+}
+
 /* BOLT #onchain:
  *
  * When node A sees its own *commitment tx*:
@@ -1855,6 +1876,11 @@ static void resolve_our_unilateral(struct peer *peer)
 	peer->closing_onchain.resolved
 		= tal_arrz(tx, const struct bitcoin_tx *, tal_count(ci->map));
 
+	/* This only works because we always watch for a long time before
+	 * freeing peer, by which time this has resolved.  We could create
+	 * resolved[] entries for these uncommitted HTLCs, too. */
+	watch_tx(tx, peer, tx, our_unilateral_depth, NULL);
+	
 	/* BOLT #onchain:
 	 *
 	 * 1. _A's main output_: A node SHOULD spend this output to a
@@ -2019,6 +2045,7 @@ static enum watch_result anchor_spent(struct peer *peer,
 	struct sha256_double txid;
 	Pkt *err;
 	enum state newstate;
+	size_t i;
 
 	assert(input_num < tx->input_count);
 
@@ -2031,6 +2058,14 @@ static enum watch_result anchor_spent(struct peer *peer,
 
 	peer->closing_onchain.tx = tal_steal(peer, tx);
 	bitcoin_txid(tx, &txid);
+
+	/* If we have any HTLCs we're not committed to yet, fail them now. */
+	for (i = 0; i < tal_count(peer->remote.commit->unacked_changes); i++) {
+		if (peer->remote.commit->unacked_changes[i].type != HTLC_ADD)
+			continue;
+		our_htlc_failed(peer,
+				peer->remote.commit->unacked_changes[i].add.htlc);
+	}
 
 	peer->closing_onchain.ci = find_commit(peer->remote.commit, &txid);
 	if (peer->closing_onchain.ci) {
