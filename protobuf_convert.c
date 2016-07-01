@@ -48,14 +48,12 @@ BitcoinPubkey *pubkey_to_proto(const tal_t *ctx,
 			       const struct pubkey *key)
 {
 	BitcoinPubkey *p = tal(ctx, BitcoinPubkey);
-	struct pubkey check;
 
 	bitcoin_pubkey__init(p);
-	p->key.len = sizeof(key->der);
-	p->key.data = tal_dup_arr(p, u8, key->der, p->key.len, 0);
+	p->key.len = PUBKEY_DER_LEN;
+	p->key.data = tal_arr(p, u8, p->key.len);
 
-	assert(pubkey_from_der(secpctx, p->key.data, p->key.len, &check));
-	assert(pubkey_eq(&check, key));
+	pubkey_to_der(secpctx, p->key.data, key);
 
 	return p;
 }

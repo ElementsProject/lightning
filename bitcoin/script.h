@@ -21,15 +21,19 @@ struct bitcoin_signature {
 
 /* tal_count() gives the length of the script. */
 u8 *bitcoin_redeem_2of2(const tal_t *ctx,
+			secp256k1_context *secpctx,
 			const struct pubkey *key1,
 			const struct pubkey *key2);
 
 /* tal_count() gives the length of the script. */
-u8 *bitcoin_redeem_single(const tal_t *ctx, const struct pubkey *key);
+u8 *bitcoin_redeem_single(const tal_t *ctx,
+			  secp256k1_context *secpctx,
+			  const struct pubkey *key);
 
 /* A common script pattern: A can have it with secret, or B can have
  * it after delay. */
 u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
+				   secp256k1_context *secpctx,
 				   const struct pubkey *delayed_key,
 				   const struct rel_locktime *locktime,
 				   const struct pubkey *key_if_secret_known,
@@ -39,7 +43,9 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript);
 
 /* Create the redeemscript for a P2SH + P2WPKH. */
-u8 *bitcoin_redeem_p2wpkh(const tal_t *ctx, const struct pubkey *key);
+u8 *bitcoin_redeem_p2wpkh(const tal_t *ctx,
+			  secp256k1_context *secpctx,
+			  const struct pubkey *key);
 
 /* Create a witness which spends the 2of2. */
 void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
@@ -49,10 +55,13 @@ void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 				 const struct pubkey *key);
 
 /* Create scriptcode (fake witness, basically) for P2WPKH */
-u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key);
+u8 *p2wpkh_scriptcode(const tal_t *ctx,
+		      secp256k1_context *secpctx,
+		      const struct pubkey *key);
 
 /* Create a script for our HTLC output: sending. */
 u8 *bitcoin_redeem_htlc_send(const tal_t *ctx,
+			     secp256k1_context *secpctx,
 			     const struct pubkey *ourkey,
 			     const struct pubkey *theirkey,
 			     const struct abs_locktime *htlc_abstimeout,
@@ -62,6 +71,7 @@ u8 *bitcoin_redeem_htlc_send(const tal_t *ctx,
 
 /* Create a script for our HTLC output: receiving. */
 u8 *bitcoin_redeem_htlc_recv(const tal_t *ctx,
+			     secp256k1_context *secpctx,
 			     const struct pubkey *ourkey,
 			     const struct pubkey *theirkey,
 			     const struct abs_locktime *htlc_abstimeout,
@@ -73,7 +83,9 @@ u8 *bitcoin_redeem_htlc_recv(const tal_t *ctx,
 u8 *scriptpubkey_p2wsh(const tal_t *ctx, const u8 *witnessscript);
 
 /* Create an output script for a 20-byte witness program. */
-u8 *scriptpubkey_p2wpkh(const tal_t *ctx, const struct pubkey *key);
+u8 *scriptpubkey_p2wpkh(const tal_t *ctx,
+			secp256k1_context *secpctx,
+			const struct pubkey *key);
 
 /* Create a witness which spends the 2of2. */
 u8 **bitcoin_witness_2of2(const tal_t *ctx,

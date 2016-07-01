@@ -12,6 +12,7 @@ struct rel_locktime;
 /* Create commitment tx to spend the anchor tx output; doesn't fill in
  * input scriptsig. */
 struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
+				    secp256k1_context *secpctx,
 				    const struct pubkey *our_final,
 				    const struct pubkey *their_final,
 				    const struct rel_locktime *our_locktime,

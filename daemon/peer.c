@@ -416,6 +416,7 @@ static void peer_start_clearing(struct peer *peer)
 	/* If they started close, we might not have sent ours. */
 	if (!peer->closing.our_script) {
 		u8 *redeemscript = bitcoin_redeem_single(peer,
+							 peer->dstate->secpctx,
 							 &peer->local.finalkey);
 
 		peer->closing.our_script = scriptpubkey_p2sh(peer, redeemscript);
@@ -586,6 +587,7 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 	assert(htlc->r);
 
 	wscript = bitcoin_redeem_htlc_recv(peer,
+					   peer->dstate->secpctx,
 					   &peer->local.finalkey,
 					   &peer->remote.finalkey,
 					   &htlc->expiry,
@@ -602,7 +604,9 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 	/* Using a new output address here would be useless: they can tell
 	 * it's their HTLC, and that we collected it via rval. */
 	tx->output[0].script = scriptpubkey_p2sh(tx,
-				 bitcoin_redeem_single(tx, &peer->local.finalkey));
+				 bitcoin_redeem_single(tx,
+						       peer->dstate->secpctx,
+						       &peer->local.finalkey));
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
 	log_debug(peer->log, "Pre-witness txlen = %zu\n",
@@ -1404,6 +1408,7 @@ static const struct bitcoin_tx *htlc_timeout_tx(const struct peer *peer,
 	htlc = htlc_by_index(ci, i);
 
 	wscript = bitcoin_redeem_htlc_send(peer,
+					   peer->dstate->secpctx,
 					   &peer->local.finalkey,
 					   &peer->remote.finalkey,
 					   &htlc->expiry,
@@ -1422,7 +1427,9 @@ static const struct bitcoin_tx *htlc_timeout_tx(const struct peer *peer,
 	/* Using a new output address here would be useless: they can tell
 	 * it's our HTLC, and that we collected it via timeout. */
 	tx->output[0].script = scriptpubkey_p2sh(tx,
-				 bitcoin_redeem_single(tx, &peer->local.finalkey));
+				 bitcoin_redeem_single(tx,
+						       peer->dstate->secpctx,
+						       &peer->local.finalkey));
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
 	log_unusual(peer->log, "Pre-witness txlen = %zu\n",
@@ -1550,6 +1557,7 @@ static void resolve_cheating(struct peer *peer)
 		peer->closing_onchain.resolved[0] = steal_tx;
 		wscripts[n++]
 			= bitcoin_redeem_secret_or_delay(wscripts,
+							 peer->dstate->secpctx,
 							 &peer->remote.finalkey,
 							 &peer->local.locktime,
 							 &peer->local.finalkey,
@@ -1570,6 +1578,7 @@ static void resolve_cheating(struct peer *peer)
 		if (!htlc_is_ours(ci, i)) {
 			wscripts[n]
 				= bitcoin_redeem_htlc_send(wscripts,
+							   peer->dstate->secpctx,
 							   &peer->remote.finalkey,
 							   &peer->local.finalkey,
 							   &h->expiry,
@@ -1579,6 +1588,7 @@ static void resolve_cheating(struct peer *peer)
 		} else {
 			wscripts[n]
 				= bitcoin_redeem_htlc_recv(wscripts,
+							   peer->dstate->secpctx,
 							   &peer->remote.finalkey,
 							   &peer->local.finalkey,
 							   &h->expiry,
@@ -2291,14 +2301,12 @@ struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee)
 	}
 
 	log_debug(peer->log,
-		  "creating close-tx with fee %"PRIu64": to %02x%02x%02x%02x/%02x%02x%02x%02x, amounts %u/%u",
+		  "creating close-tx with fee %"PRIu64" amounts %u/%u to ",
 		  fee,
-		  peer->local.finalkey.der[0], peer->local.finalkey.der[1],
-		  peer->local.finalkey.der[2], peer->local.finalkey.der[3],
-		  peer->remote.finalkey.der[0], peer->remote.finalkey.der[1],
-		  peer->remote.finalkey.der[2], peer->remote.finalkey.der[3],
 		  cstate.side[OURS].pay_msat / 1000,
 		  cstate.side[THEIRS].pay_msat / 1000);
+	log_add_struct(peer->log, "%s", struct pubkey, &peer->local.finalkey);
+	log_add_struct(peer->log, "/%s", struct pubkey, &peer->remote.finalkey);
 
  	return create_close_tx(peer->dstate->secpctx, peer,
 			       peer->closing.our_script,
@@ -2396,6 +2404,7 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 
 	/* The redeemscript for a commit tx is fairly complex. */
 	witnessscript = bitcoin_redeem_secret_or_delay(peer,
+						       peer->dstate->secpctx,
 						      &peer->local.finalkey,
 						      &peer->remote.locktime,
 						      &peer->remote.finalkey,
@@ -2411,7 +2420,9 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 				      &commit->output[p2wsh_out].amount);
 
 	tx->output[0].script = scriptpubkey_p2sh(tx,
-				 bitcoin_redeem_single(tx, &peer->local.finalkey));
+				 bitcoin_redeem_single(tx,
+						       peer->dstate->secpctx,
+						       &peer->local.finalkey));
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
 	/* Witness length can vary, due to DER encoding of sigs, but we
@@ -2787,6 +2798,7 @@ bool setup_first_commit(struct peer *peer)
         return false;
 
 	peer->local.commit->tx = create_commit_tx(peer->local.commit,
+						  peer->dstate->secpctx,
 						  &peer->local.finalkey,
 						  &peer->remote.finalkey,
 						  &peer->local.locktime,
@@ -2800,6 +2812,7 @@ bool setup_first_commit(struct peer *peer)
 						  &peer->local.commit->map);
 
 	peer->remote.commit->tx = create_commit_tx(peer->remote.commit,
+						   peer->dstate->secpctx,
 						   &peer->local.finalkey,
 						   &peer->remote.finalkey,
 						   &peer->local.locktime,
@@ -2828,6 +2841,17 @@ static void json_add_abstime(struct json_result *response,
 	else
 		json_add_num(response, "block", abs_locktime_to_blocks(t));
 	json_object_end(response);
+}
+
+static void json_add_pubkey(struct json_result *response,
+			    secp256k1_context *secpctx,
+			    const char *id,
+			    const struct pubkey *key)
+{
+	u8 der[PUBKEY_DER_LEN];
+
+	pubkey_to_der(secpctx, der, key);
+	json_add_hex(response, id, der, sizeof(der));
 }
 
 static void json_add_htlcs(struct json_result *response,
@@ -2869,8 +2893,8 @@ static void json_getpeers(struct command *cmd,
 
 		/* This is only valid after crypto setup. */
 		if (p->state != STATE_INIT)
-			json_add_hex(response, "peerid",
-				     p->id.der, sizeof(p->id.der));
+			json_add_pubkey(response, cmd->dstate->secpctx,
+					"peerid", &p->id);
 
 		json_add_bool(response, "connected", p->conn && !p->fake_close);
 

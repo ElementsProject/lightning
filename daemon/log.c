@@ -274,12 +274,13 @@ void log_add(struct log *log, const char *fmt, ...)
 	va_end(ap);
 }
 
-#define to_string(ctx, structtype, ptr)				\
-	to_string_((ctx), stringify(structtype),			\
+#define to_string(ctx, lr, structtype, ptr)				\
+	to_string_((ctx), lr, stringify(structtype),			\
 		   ((void)sizeof((ptr) == (structtype *)NULL),		\
 		    ((union loggable_structs)((const structtype *)ptr))))
 
 static char *to_string_(const tal_t *ctx,
+			struct log_record *lr,
 			const char *structname,
 			union loggable_structs u)
 {
@@ -287,7 +288,7 @@ static char *to_string_(const tal_t *ctx,
 
 	/* GCC checks we're one of these, so we should be. */
 	if (streq(structname, "struct pubkey"))
-		s = tal_hexstr(ctx, u.pubkey->der, sizeof(u.pubkey->der));
+		s = pubkey_to_hexstr(ctx, lr->dstate->secpctx, u.pubkey);
 	else if (streq(structname, "struct sha256_double"))
 		s = tal_hexstr(ctx, u.sha256_double, sizeof(*u.sha256_double));
 	else if (streq(structname, "struct sha256"))
@@ -318,11 +319,11 @@ static char *to_string_(const tal_t *ctx,
 			    " rval=%s"
 			    " src=%s }",
 			    h->id, h->msatoshis,
-			    to_string(ctx, struct abs_locktime, &h->expiry),
-			    to_string(ctx, struct sha256, &h->rhash),
+			    to_string(ctx, lr, struct abs_locktime, &h->expiry),
+			    to_string(ctx, lr, struct sha256, &h->rhash),
 			    h->r ? tal_hexstr(ctx, h->r, sizeof(*h->r))
 			    : "UNKNOWN",
-			    h->src ? to_string(ctx, struct pubkey,
+			    h->src ? to_string(ctx, lr, struct pubkey,
 					       &h->src->peer->id)
 			    : "local");
 	}
@@ -345,7 +346,7 @@ void log_struct_(struct log *log, int level,
 	va_end(ap);
 
 	/* GCC checks we're one of these, so we should be. */
-	s = to_string_(ctx, structname, u);
+	s = to_string_(ctx, log->lr, structname, u);
 	if (!s)
 		fatal("Logging unknown type %s", structname);
 

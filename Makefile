@@ -282,7 +282,7 @@ secp256k1/libsecp256k1.la:
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	$(PROTOCC) lightning.proto --c_out=.
 
-$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(CCAN_OBJS) version.o libsecp256k1.a
+$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(CCAN_OBJS) utils.o version.o libsecp256k1.a
 
 ccan/config.h: ccan/tools/configurator/configurator
 	if $< > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi

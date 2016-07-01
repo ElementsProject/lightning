@@ -110,14 +110,24 @@ static void add_number(u8 **script, u32 num)
 	}
 }
 
-static void add_push_key(u8 **scriptp, const struct pubkey *key)
+static void add_push_key(u8 **scriptp,
+			 secp256k1_context *secpctx,
+			 const struct pubkey *key)
 {
-	add_push_bytes(scriptp, key->der, sizeof(key->der));
+	u8 der[PUBKEY_DER_LEN];
+	pubkey_to_der(secpctx, der, key);
+
+	add_push_bytes(scriptp, der, sizeof(der));
 }
 
-static u8 *stack_key(const tal_t *ctx, const struct pubkey *key)
+static u8 *stack_key(const tal_t *ctx,
+		     secp256k1_context *secpctx,
+		     const struct pubkey *key)
 {
-	return tal_dup_arr(ctx, u8, key->der, sizeof(key->der), 0);
+	u8 der[PUBKEY_DER_LEN];
+	pubkey_to_der(secpctx, der, key);
+
+	return tal_dup_arr(ctx, u8, der, sizeof(der), 0);
 }
 
 /* Bitcoin wants DER encoding. */
@@ -151,26 +161,31 @@ static u8 *stack_number(const tal_t *ctx, unsigned int num)
 	return tal_dup_arr(ctx, u8, &val, 1, 0);
 }
 
-/* FIXME: permute? */
 /* Is a < b? (If equal we don't care) */
-static bool key_less(const struct pubkey *a, const struct pubkey *b)
+static bool key_less(secp256k1_context *secpctx,
+		     const struct pubkey *a, const struct pubkey *b)
 {
-	return memcmp(a->der, b->der, sizeof(a->der)) < 0;
+	u8 a_der[PUBKEY_DER_LEN], b_der[PUBKEY_DER_LEN];
+	pubkey_to_der(secpctx, a_der, a);
+	pubkey_to_der(secpctx, b_der, b);
+
+	return memcmp(a_der, b_der, sizeof(a_der)) < 0;
 }
 	
 /* tal_count() gives the length of the script. */
 u8 *bitcoin_redeem_2of2(const tal_t *ctx,
+			secp256k1_context *secpctx,
 			const struct pubkey *key1,
 			const struct pubkey *key2)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 	add_number(&script, 2);
-	if (key_less(key1, key2)) {
-		add_push_key(&script, key1);
-		add_push_key(&script, key2);
+	if (key_less(secpctx, key1, key2)) {
+		add_push_key(&script, secpctx, key1);
+		add_push_key(&script, secpctx, key2);
 	} else {
-		add_push_key(&script, key2);
-		add_push_key(&script, key1);
+		add_push_key(&script, secpctx, key2);
+		add_push_key(&script, secpctx, key1);
 	}
 	add_number(&script, 2);
 	add_op(&script, OP_CHECKMULTISIG);
@@ -178,10 +193,12 @@ u8 *bitcoin_redeem_2of2(const tal_t *ctx,
 }
 
 /* tal_count() gives the length of the script. */
-u8 *bitcoin_redeem_single(const tal_t *ctx, const struct pubkey *key)
+u8 *bitcoin_redeem_single(const tal_t *ctx,
+			  secp256k1_context *secpctx,
+			  const struct pubkey *key)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
-	add_push_key(&script, key);
+	add_push_key(&script, secpctx, key);
 	add_op(&script, OP_CHECKSIG);
 	return script;
 }
@@ -200,15 +217,19 @@ u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript)
 }
 
 /* Create the redeemscript for a P2SH + P2WPKH (for signing tx) */
-u8 *bitcoin_redeem_p2wpkh(const tal_t *ctx, const struct pubkey *key)
+u8 *bitcoin_redeem_p2wpkh(const tal_t *ctx,
+			  secp256k1_context *secpctx,
+			  const struct pubkey *key)
 {
 	struct ripemd160 keyhash;
+	u8 der[PUBKEY_DER_LEN];
 	u8 *script = tal_arr(ctx, u8, 0);
 
 	/* BIP141: BIP16 redeemScript pushed in the scriptSig is exactly a
 	 * push of a version byte plus a push of a witness program. */
 	add_number(&script, 0);
-	hash160(&keyhash, key->der, sizeof(key->der));
+	pubkey_to_der(secpctx, der, key);
+	hash160(&keyhash, der, sizeof(der));
 	add_push_bytes(&script, &keyhash, sizeof(keyhash));
 	return script;
 }
@@ -220,7 +241,7 @@ void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 				 const struct bitcoin_signature *sig,
 				 const struct pubkey *key)
 {
-	u8 *redeemscript = bitcoin_redeem_p2wpkh(ctx, key);
+	u8 *redeemscript = bitcoin_redeem_p2wpkh(ctx, secpctx, key);
 
 	/* BIP141: The scriptSig must be exactly a push of the BIP16 redeemScript
 	 * or validation fails. */
@@ -233,7 +254,7 @@ void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 	 * a public key. */
 	input->witness = tal_arr(ctx, u8 *, 2);
 	input->witness[0] = stack_sig(input->witness, secpctx, sig);
-	input->witness[1] = stack_key(input->witness, key);
+	input->witness[1] = stack_key(input->witness, secpctx, key);
 }
 	
 /* Create an output script for a 32-byte witness. */
@@ -249,13 +270,17 @@ u8 *scriptpubkey_p2wsh(const tal_t *ctx, const u8 *witnessscript)
 }
 
 /* Create an output script for a 20-byte witness. */
-u8 *scriptpubkey_p2wpkh(const tal_t *ctx, const struct pubkey *key)
+u8 *scriptpubkey_p2wpkh(const tal_t *ctx,
+			secp256k1_context *secpctx,
+			const struct pubkey *key)
 {
 	struct ripemd160 h;
+	u8 der[PUBKEY_DER_LEN];
 	u8 *script = tal_arr(ctx, u8, 0);
 	
 	add_op(&script, OP_0);
-	hash160(&h, key->der, sizeof(key->der));
+	pubkey_to_der(secpctx, der, key);
+	hash160(&h, der, sizeof(der));
 	add_push_bytes(&script, &h, sizeof(h));
 	return script;
 }
@@ -274,7 +299,7 @@ u8 **bitcoin_witness_2of2(const tal_t *ctx,
 	witness[0] = stack_number(witness, 0);
 
 	/* sig order should match key order. */
-	if (key_less(key1, key2)) {
+	if (key_less(secpctx, key1, key2)) {
 		witness[1] = stack_sig(witness, secpctx, sig1);
 		witness[2] = stack_sig(witness, secpctx, sig2);
 	} else {
@@ -282,12 +307,13 @@ u8 **bitcoin_witness_2of2(const tal_t *ctx,
 		witness[2] = stack_sig(witness, secpctx, sig1);
 	}
 
-	witness[3] = bitcoin_redeem_2of2(witness, key1, key2);
+	witness[3] = bitcoin_redeem_2of2(witness, secpctx, key1, key2);
 	return witness;
 }
 
 /* Create a script for our HTLC output: sending. */
 u8 *bitcoin_redeem_htlc_send(const tal_t *ctx,
+			     secp256k1_context *secpctx,
 			     const struct pubkey *ourkey,
 			     const struct pubkey *theirkey,
 			     const struct abs_locktime *htlc_abstimeout,
@@ -321,7 +347,7 @@ u8 *bitcoin_redeem_htlc_send(const tal_t *ctx,
 
 	/* If either matched... */
 	add_op(&script, OP_IF);
-	add_push_key(&script, theirkey);
+	add_push_key(&script, secpctx, theirkey);
 
 	add_op(&script, OP_ELSE);
 
@@ -331,7 +357,7 @@ u8 *bitcoin_redeem_htlc_send(const tal_t *ctx,
 	add_number(&script, locktime->locktime);
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 	add_op(&script, OP_2DROP);
-	add_push_key(&script, ourkey);
+	add_push_key(&script, secpctx, ourkey);
 
 	add_op(&script, OP_ENDIF);
 	add_op(&script, OP_CHECKSIG);
@@ -341,6 +367,7 @@ u8 *bitcoin_redeem_htlc_send(const tal_t *ctx,
 
 /* Create a script for our HTLC output: receiving. */
 u8 *bitcoin_redeem_htlc_recv(const tal_t *ctx,
+			     secp256k1_context *secpctx,
 			     const struct pubkey *ourkey,
 			     const struct pubkey *theirkey,
 			     const struct abs_locktime *htlc_abstimeout,
@@ -372,7 +399,7 @@ u8 *bitcoin_redeem_htlc_recv(const tal_t *ctx,
 	/* Drop extra hash as well as locktime. */
 	add_op(&script, OP_2DROP);
 
-	add_push_key(&script, ourkey);
+	add_push_key(&script, secpctx, ourkey);
 
 	add_op(&script, OP_ELSE);
 
@@ -389,7 +416,7 @@ u8 *bitcoin_redeem_htlc_recv(const tal_t *ctx,
 	add_op(&script, OP_DROP);
 	add_op(&script, OP_ENDIF);
 
-	add_push_key(&script, theirkey);
+	add_push_key(&script, secpctx, theirkey);
 	
 	add_op(&script, OP_ENDIF);
 	add_op(&script, OP_CHECKSIG);
@@ -398,13 +425,17 @@ u8 *bitcoin_redeem_htlc_recv(const tal_t *ctx,
 }
 
 /* Create scriptcode (fake witness, basically) for P2WPKH */
-u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key)
+u8 *p2wpkh_scriptcode(const tal_t *ctx,
+		      secp256k1_context *secpctx,
+		      const struct pubkey *key)
 {
 	struct sha256 h;
 	struct ripemd160 pkhash;
+	u8 der[PUBKEY_DER_LEN];
 	u8 *script = tal_arr(ctx, u8, 0);
 
-	sha256(&h, key->der, sizeof(key->der));
+	pubkey_to_der(secpctx, der, key);
+	sha256(&h, der, sizeof(der));
 	ripemd160(&pkhash, h.u.u8, sizeof(h));
 	/* BIP143:
 	 *
@@ -439,6 +470,7 @@ bool is_p2sh(const u8 *script, size_t script_len)
 /* A common script pattern: A can have it with secret, or B can have
  * it after delay. */
 u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
+				   secp256k1_context *secpctx,
 				   const struct pubkey *delayed_key,
 				   const struct rel_locktime *locktime,
 				   const struct pubkey *key_if_secret_known,
@@ -456,7 +488,7 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 	add_op(&script, OP_IF);
 	
 	/* They can collect the funds. */
-	add_push_key(&script, key_if_secret_known);
+	add_push_key(&script, secpctx, key_if_secret_known);
 
 	add_op(&script, OP_ELSE);
 
@@ -464,7 +496,7 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 	add_number(&script, locktime->locktime);
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 	add_op(&script, OP_DROP);
-	add_push_key(&script, delayed_key);
+	add_push_key(&script, secpctx, delayed_key);
 
 	add_op(&script, OP_ENDIF);
 	add_op(&script, OP_CHECKSIG);

@@ -22,20 +22,6 @@
 #include <ccan/tal/str/str.h>
 #include <inttypes.h>
 
-#define FIXME_STUB(peer) do { log_broken((peer)->dstate->base_log, "%s:%u: Implement %s!", __FILE__, __LINE__, __func__); abort(); } while(0)
-
-static void dump_tx(const char *str, const struct bitcoin_tx *tx)
-{
-	u8 *linear = linearize_tx(NULL, tx);
-	printf("%s:%s\n", str, tal_hexstr(linear, linear, tal_count(linear)));
-	tal_free(linear);
-}
-
-static void dump_key(const char *str, const struct pubkey *key)
-{
-	printf("%s:%s\n", str, tal_hexstr(NULL, key->der, sizeof(key->der)));
-}
-
 /* Wrap (and own!) member inside Pkt */
 static Pkt *make_pkt(const tal_t *ctx, Pkt__PktCase type, const void *msg)
 {
@@ -150,8 +136,10 @@ void queue_pkt_open_commit_sig(struct peer *peer)
 
 	open_commit_sig__init(s);
 
-	dump_tx("Creating sig for:", peer->remote.commit->tx);
-	dump_key("Using key:", &peer->local.commitkey);
+	log_debug_struct(peer->log, "Creating sig for %s",
+			 struct bitcoin_tx, peer->remote.commit->tx);
+	log_add_struct(peer->log, " using key %s",
+		       struct pubkey, &peer->local.commitkey);
 
 	peer->remote.commit->sig = tal(peer->remote.commit,
 				     struct bitcoin_signature);
@@ -281,7 +269,7 @@ void queue_pkt_commit(struct peer *peer)
 	 * changes except unacked fee changes to the remote commitment
 	 * before generating `sig`. */
 	ci->cstate = copy_cstate(ci, peer->remote.staging_cstate);
-	ci->tx = create_commit_tx(ci,
+	ci->tx = create_commit_tx(ci, peer->dstate->secpctx,
 				  &peer->local.finalkey,
 				  &peer->remote.finalkey,
 				  &peer->local.locktime,
@@ -445,7 +433,8 @@ void queue_pkt_close_clearing(struct peer *peer)
 	CloseClearing *c = tal(peer, CloseClearing);
 
 	close_clearing__init(c);
-	redeemscript = bitcoin_redeem_single(c, &peer->local.finalkey);
+	redeemscript = bitcoin_redeem_single(c, peer->dstate->secpctx,
+					     &peer->local.finalkey);
 	peer->closing.our_script = scriptpubkey_p2sh(peer, redeemscript);
 
 	c->scriptpubkey.data = tal_dup_arr(c, u8,
@@ -526,7 +515,8 @@ Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt)
 
 	/* Witness script for anchor. */
 	peer->anchor.witnessscript
-		= bitcoin_redeem_2of2(peer, &peer->local.commitkey,
+		= bitcoin_redeem_2of2(peer, peer->dstate->secpctx,
+				      &peer->local.commitkey,
 				      &peer->remote.commitkey);
 	return NULL;
 }
@@ -769,7 +759,7 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt)
 	 */
 	/* (We already applied them to staging_cstate as we went) */
 	ci->cstate = copy_cstate(ci, peer->local.staging_cstate);
-	ci->tx = create_commit_tx(ci,
+	ci->tx = create_commit_tx(ci, peer->dstate->secpctx,
 				  &peer->local.finalkey,
 				  &peer->remote.finalkey,
 				  &peer->local.locktime,
