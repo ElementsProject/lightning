@@ -328,7 +328,7 @@ update-ccan:
 
 distclean: clean
 	$(MAKE) -C secp256k1/ distclean || true
-	$(RM) libsecp256k1.a
+	$(RM) libsecp256k1.a secp256k1/libsecp256k1.la
 
 maintainter-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'
