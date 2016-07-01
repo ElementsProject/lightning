@@ -647,18 +647,14 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	/* BOLT #2:
 	 *
 	 * A node MUST NOT offer `amount_msat` it cannot pay for in
-	 * both commitment transactions at the current `fee_rate` (see
+	 * the remote commitment transaction at the current `fee_rate` (see
 	 * "Fee Calculation" ).  A node SHOULD fail the connection if
 	 * this occurs.
 	 */
-
-	/* FIXME: This is wrong!  We may have already added more txs to
-	 * them.staging_cstate, driving that fee up.
-	 * We should check against the last version they acknowledged. */
 	if (!cstate_add_htlc(peer->local.staging_cstate, htlc, THEIRS)) {
 		tal_free(htlc);
 		return pkt_err(peer, "Cannot afford %"PRIu64" milli-satoshis"
-			       " in your commitment tx",
+			       " in our commitment tx",
 			       u->amount_msat);
 	}
 

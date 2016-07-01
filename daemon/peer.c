@@ -739,7 +739,7 @@ struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
 	/* BOLT #2:
 	 *
 	 * A node MUST NOT offer `amount_msat` it cannot pay for in
-	 * both commitment transactions at the current `fee_rate`
+	 * the remote commitment transaction at the current `fee_rate`
 	 */
 	cstate = copy_cstate(peer, peer->remote.staging_cstate);
 	if (!cstate_add_htlc(cstate, htlc, OURS)) {
@@ -1534,7 +1534,7 @@ static void resolve_cheating(struct peer *peer)
 	/* BOLT #onchain:
 	 *
 	 * The node MAY use a single transaction to *resolve* all the
-	 * outputs; due to the 450 HTLC-per-party limit (See BOLT #2:
+	 * outputs; due to the 300 HTLC-per-party limit (See BOLT #2:
 	 * 3.2. Adding an HTLC) this can be done within a standard
 	 * transaction.
 	 */
