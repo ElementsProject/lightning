@@ -356,7 +356,8 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 	if (!auth)
 		return io_close(conn);
 
-	if (!proto_to_signature(auth->session_sig, &sig)) {
+	if (!proto_to_signature(peer->dstate->secpctx, auth->session_sig,
+				&sig)) {
 		log_unusual(peer->log, "Invalid auth signature");
 		return io_close(conn);
 	}
@@ -428,7 +429,7 @@ static Pkt *authenticate_pkt(const tal_t *ctx,
 	Authenticate *auth = tal(ctx, Authenticate);
 	authenticate__init(auth);
 	auth->node_id = pubkey_to_proto(auth, secpctx, node_id);
-	auth->session_sig = signature_to_proto(auth, sig);
+	auth->session_sig = signature_to_proto(auth, secpctx, sig);
 	return pkt_wrap(ctx, auth, PKT__PKT_AUTH);
 }
 

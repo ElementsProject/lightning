@@ -4,12 +4,14 @@
 #include "protobuf_convert.h"
 #include <ccan/crypto/sha256/sha256.h>
 
-Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
+Signature *signature_to_proto(const tal_t *ctx,
+			      secp256k1_context *secpctx,
+			      const struct signature *sig)
 {
 	Signature *pb = tal(ctx, Signature);
 	signature__init(pb);
 
-	assert(sig_valid(sig));
+	assert(sig_valid(secpctx, sig));
 
 	/* FIXME: Need a portable way to encode signatures in libsecp! */
 	
@@ -26,7 +28,9 @@ Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
 	return pb;
 }
 
-bool proto_to_signature(const Signature *pb, struct signature *sig)
+bool proto_to_signature(secp256k1_context *secpctx,
+			const Signature *pb,
+			struct signature *sig)
 {
 	/* Kill me again. */
 	/* FIXME: Need a portable way to encode signatures in libsecp! */
@@ -40,7 +44,7 @@ bool proto_to_signature(const Signature *pb, struct signature *sig)
 	memcpy(sig->sig.data + 48, &pb->s3, 8);
 	memcpy(sig->sig.data + 56, &pb->s4, 8);
 
-	return sig_valid(sig);
+	return sig_valid(secpctx, sig);
 }
 
 BitcoinPubkey *pubkey_to_proto(const tal_t *ctx,

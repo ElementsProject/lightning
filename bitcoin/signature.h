@@ -52,7 +52,7 @@ bool check_tx_sig(secp256k1_context *secpctx,
 		  const struct bitcoin_signature *sig);
 
 /* Signature must have low S value. */
-bool sig_valid(const struct signature *s);
+bool sig_valid(secp256k1_context *secpctx, const struct signature *sig);
 
 /* Give DER encoding of signature: returns length used (<= 72). */
 size_t signature_to_der(secp256k1_context *secpctx,

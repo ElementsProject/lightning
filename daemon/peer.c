@@ -268,7 +268,7 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 	 * transaction with the given `close_fee`, and MUST fail the
 	 * connection if it is not. */
 	theirsig.stype = SIGHASH_ALL;
-	if (!proto_to_signature(c->sig, &theirsig.sig))
+	if (!proto_to_signature(peer->dstate->secpctx, c->sig, &theirsig.sig))
 		return peer_comms_err(peer,
 				      pkt_err(peer, "Invalid signature format"));
 

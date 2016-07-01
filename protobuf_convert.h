@@ -8,8 +8,12 @@
 
 /* Convert to-from protobuf to internal representation. */
 struct signature;
-Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig);
-bool proto_to_signature(const Signature *pb, struct signature *sig);
+Signature *signature_to_proto(const tal_t *ctx,
+			      secp256k1_context *secpctx,
+			      const struct signature *sig);
+bool proto_to_signature(secp256k1_context *secpctx,
+			const Signature *pb,
+			struct signature *sig);
 
 /* Convert to-from protobuf to internal representation. */
 struct pubkey;

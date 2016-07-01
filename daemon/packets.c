@@ -146,7 +146,8 @@ void queue_pkt_open_commit_sig(struct peer *peer)
 	peer->remote.commit->sig->stype = SIGHASH_ALL;
 	peer_sign_theircommit(peer, peer->remote.commit->tx,
 			      &peer->remote.commit->sig->sig);
-	s->sig = signature_to_proto(s, &peer->remote.commit->sig->sig);
+	s->sig = signature_to_proto(s, peer->dstate->secpctx,
+				    &peer->remote.commit->sig->sig);
 
 	queue_pkt(peer, PKT__PKT_OPEN_COMMIT_SIG, s);
 }
@@ -304,7 +305,7 @@ void queue_pkt_commit(struct peer *peer)
 
 	/* Now send message */
 	update_commit__init(u);
-	u->sig = signature_to_proto(u, &ci->sig->sig);
+	u->sig = signature_to_proto(u, peer->dstate->secpctx, &ci->sig->sig);
 
 	queue_pkt(peer, PKT__PKT_UPDATE_COMMIT, u);
 }
@@ -456,7 +457,7 @@ void queue_pkt_close_signature(struct peer *peer)
 	close_tx = peer_create_close_tx(peer, peer->closing.our_fee);
 
 	peer_sign_mutual_close(peer, close_tx, &our_close_sig);
-	c->sig = signature_to_proto(c, &our_close_sig);
+	c->sig = signature_to_proto(c, peer->dstate->secpctx, &our_close_sig);
 	c->close_fee = peer->closing.our_fee;
 	log_info(peer->log, "queue_pkt_close_signature: offered close fee %"
 		 PRIu64, c->close_fee);
@@ -530,7 +531,7 @@ static Pkt *check_and_save_commit_sig(struct peer *peer,
 
 	assert(!ci->sig);
 	sig->stype = SIGHASH_ALL;
-	if (!proto_to_signature(pb, &sig->sig))
+	if (!proto_to_signature(peer->dstate->secpctx, pb, &sig->sig))
 		return pkt_err(peer, "Malformed signature");
 
 	log_debug(peer->log, "Checking sig for %u/%u msatoshis, %zu/%zu htlcs",

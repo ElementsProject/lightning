@@ -252,8 +252,11 @@ size_t signature_to_der(secp256k1_context *secpctx,
 }
 
 /* Signature must have low S value. */
-bool sig_valid(const struct signature *sig)
+bool sig_valid(secp256k1_context *secpctx, const struct signature *sig)
 {
-	/* FIXME!  Need libsecp support. */
-	return true;
+	secp256k1_ecdsa_signature tmp;
+
+	if (secp256k1_ecdsa_signature_normalize(secpctx, &tmp, &sig->sig) == 0)
+		return true;
+	return false;
 }
