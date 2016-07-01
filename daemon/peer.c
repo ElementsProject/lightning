@@ -644,12 +644,41 @@ static bool command_htlc_fail(struct peer *peer, struct htlc *htlc)
 	return true;
 }
 
+/* BOLT #onchain:
+ *
+ * If the node receives... a redemption preimage for an unresolved *commitment
+ * tx* output it was offered, it MUST *resolve* the output by spending it using
+ * the preimage.
+ */
+static bool fulfill_onchain(struct peer *peer, struct htlc *htlc)
+{
+	const struct commit_info *ci = peer->closing_onchain.ci;
+	size_t i;
+
+	for (i = 0; i < tal_count(ci->cstate->side[THEIRS].htlcs); i++) {
+		if (ci->cstate->side[THEIRS].htlcs[i] == htlc) {
+			/* Already irrevocably resolved? */
+			if (peer->closing_onchain.resolved[i])
+				return false;
+			peer->closing_onchain.resolved[i]
+				= htlc_fulfill_tx(peer, ci, i);
+			return true;
+		}
+	}
+	fatal("Unknown HTLC to fulfill onchain");
+}
+
 static bool command_htlc_fulfill(struct peer *peer,
 				 struct htlc *htlc,
 				 const struct rval *r)
 {
 	assert(!htlc->r);
 	htlc->r = tal_dup(htlc, struct rval, r);
+
+	if (peer->state == STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL
+	    || peer->state == STATE_CLOSE_ONCHAIN_OUR_UNILATERAL) {
+		return fulfill_onchain(peer, htlc);
+	}
 
 	if (!state_can_remove_htlc(peer->state))
 		return false;
@@ -1730,12 +1759,6 @@ static void resolve_our_htlcs(struct peer *peer,
 	}	
 }
 
-/* BOLT #onchain:
- *
- * If the node receives... a redemption preimage for an unresolved *commitment
- * tx* output it was offered, it MUST *resolve* the output by spending it using
- * the preimage.
- */
 void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc,
 			const struct rval *preimage)
 {
@@ -1796,8 +1819,8 @@ static void resolve_their_htlcs(struct peer *peer,
 
 		/* BOLT #onchain:
 		 *
-		 * If the node ... already knows... a redemption
-		 * preimage for a *commitment tx* output it was offered, it
+		 * If the node ... already knows... a redemption preimage for
+		 * an unresolved *commitment tx* output it was offered, it
 		 * MUST *resolve* the output by spending it using the
 		 * preimage.
 		 */
