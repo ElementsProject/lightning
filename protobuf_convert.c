@@ -8,22 +8,23 @@ Signature *signature_to_proto(const tal_t *ctx,
 			      secp256k1_context *secpctx,
 			      const struct signature *sig)
 {
+	u8 compact[64];
 	Signature *pb = tal(ctx, Signature);
 	signature__init(pb);
 
 	assert(sig_valid(secpctx, sig));
 
-	/* FIXME: Need a portable way to encode signatures in libsecp! */
-	
+	secp256k1_ecdsa_signature_serialize_compact(secpctx, compact, &sig->sig);
+
 	/* Kill me now... */
-	memcpy(&pb->r1, sig->sig.data, 8);
-	memcpy(&pb->r2, sig->sig.data + 8, 8);
-	memcpy(&pb->r3, sig->sig.data + 16, 8);
-	memcpy(&pb->r4, sig->sig.data + 24, 8);
-	memcpy(&pb->s1, sig->sig.data + 32, 8);
-	memcpy(&pb->s2, sig->sig.data + 40, 8);
-	memcpy(&pb->s3, sig->sig.data + 48, 8);
-	memcpy(&pb->s4, sig->sig.data + 56, 8);
+	memcpy(&pb->r1, compact, 8);
+	memcpy(&pb->r2, compact + 8, 8);
+	memcpy(&pb->r3, compact + 16, 8);
+	memcpy(&pb->r4, compact + 24, 8);
+	memcpy(&pb->s1, compact + 32, 8);
+	memcpy(&pb->s2, compact + 40, 8);
+	memcpy(&pb->s3, compact + 48, 8);
+	memcpy(&pb->s4, compact + 56, 8);
 	
 	return pb;
 }
@@ -32,17 +33,21 @@ bool proto_to_signature(secp256k1_context *secpctx,
 			const Signature *pb,
 			struct signature *sig)
 {
-	/* Kill me again. */
-	/* FIXME: Need a portable way to encode signatures in libsecp! */
-	
-	memcpy(sig->sig.data, &pb->r1, 8);
-	memcpy(sig->sig.data + 8, &pb->r2, 8);
-	memcpy(sig->sig.data + 16, &pb->r3, 8);
-	memcpy(sig->sig.data + 24, &pb->r4, 8);
-	memcpy(sig->sig.data + 32, &pb->s1, 8);
-	memcpy(sig->sig.data + 40, &pb->s2, 8);
-	memcpy(sig->sig.data + 48, &pb->s3, 8);
-	memcpy(sig->sig.data + 56, &pb->s4, 8);
+	u8 compact[64];
+
+ 	/* Kill me again. */
+	memcpy(compact, &pb->r1, 8);
+	memcpy(compact + 8, &pb->r2, 8);
+	memcpy(compact + 16, &pb->r3, 8);
+	memcpy(compact + 24, &pb->r4, 8);
+	memcpy(compact + 32, &pb->s1, 8);
+	memcpy(compact + 40, &pb->s2, 8);
+	memcpy(compact + 48, &pb->s3, 8);
+	memcpy(compact + 56, &pb->s4, 8);
+
+	if (secp256k1_ecdsa_signature_parse_compact(secpctx, &sig->sig, compact)
+	    != 1)
+		return false;
 
 	return sig_valid(secpctx, sig);
 }
