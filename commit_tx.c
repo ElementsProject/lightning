@@ -5,6 +5,7 @@
 #include "bitcoin/tx.h"
 #include "commit_tx.h"
 #include "daemon/channel.h"
+#include "daemon/htlc.h"
 #include "overflows.h"
 #include "permute_tx.h"
 #include "remove_dust.h"

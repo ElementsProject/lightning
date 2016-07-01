@@ -2,6 +2,7 @@
 #define LIGHTNING_DAEMON_HTLC_H
 #include "config.h"
 #include "bitcoin/locktime.h"
+#include "channel.h"
 #include "pseudorand.h"
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/crypto/siphash24/siphash24.h>
@@ -11,6 +12,10 @@
 struct htlc {
 	/* Useful for debugging, and decoding via ->src. */
 	struct peer *peer;
+	/* Block number where we abort if it's still live (OURS only) */
+	u32 deadline;
+	/* Did we create it, or did they? */
+	enum channel_side side; 
 	/* The unique ID for this peer and this direction (ours or theirs) */
 	u64 id;
 	/* The amount in millisatoshi. */
@@ -27,8 +32,6 @@ struct htlc {
 	const u8 *routing;
 	/* Previous HTLC (if any) which made us offer this (OURS only) */
 	struct htlc *src;
-	/* Block number where we abort if it's still live (OURS only) */
-	u32 deadline;
 };
 
 /* htlc_map: ID -> htlc mapping. */

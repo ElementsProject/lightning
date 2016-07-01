@@ -1004,8 +1004,16 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 
 static void htlc_destroy(struct htlc *htlc)
 {
-	if (!htlc_map_del(&htlc->peer->local.htlcs, htlc)
-	    && !htlc_map_del(&htlc->peer->remote.htlcs, htlc))
+	struct htlc_map *map;
+	
+	if (htlc->side == OURS)
+		map = &htlc->peer->local.htlcs;
+	else {
+		assert(htlc->side == THEIRS);
+		map = &htlc->peer->remote.htlcs;
+	}
+
+	if (!htlc_map_del(map, htlc))
 		fatal("Could not find htlc to destroy");
 }
 
@@ -1021,6 +1029,7 @@ struct htlc *peer_new_htlc(struct peer *peer,
 {
 	struct htlc *h = tal(peer, struct htlc);
 	h->peer = peer;
+	h->side = side;
 	h->id = id;
 	h->msatoshis = msatoshis;
 	h->rhash = *rhash;

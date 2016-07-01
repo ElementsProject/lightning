@@ -2,7 +2,6 @@
 #define LIGHTNING_DAEMON_CHANNEL_H
 #include "config.h"
 #include "bitcoin/locktime.h"
-#include "htlc.h"
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/tal/tal.h>
 #include <stdbool.h>

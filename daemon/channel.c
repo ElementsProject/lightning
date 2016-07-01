@@ -1,4 +1,5 @@
 #include "channel.h"
+#include "htlc.h"
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
