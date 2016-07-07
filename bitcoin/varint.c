@@ -39,21 +39,21 @@ size_t varint_get(const u8 *p, size_t max, varint_t *val)
 	case 0xfd:
 		if (max < 3)
 			return 0;
-		*val = ((u64)p[1] << 8) + p[0];
+		*val = ((u64)p[2] << 8) + p[1];
 		return 3;
 	case 0xfe:
 		if (max < 5)
 			return 0;
-		*val = ((u64)p[3] << 24) + ((u64)p[2] << 16)
-			+ ((u64)p[1] << 8) + p[0];
+		*val = ((u64)p[4] << 24) + ((u64)p[3] << 16)
+			+ ((u64)p[2] << 8) + p[1];
 		return 5;
 	case 0xff:
 		if (max < 9)
 			return 0;
-		*val = ((u64)p[7] << 56) + ((u64)p[6] << 48)
-			+ ((u64)p[5] << 40) + ((u64)p[4] << 32)
-			+ ((u64)p[3] << 24) + ((u64)p[2] << 16)
-			+ ((u64)p[1] << 8) + p[0];
+		*val = ((u64)p[8] << 56) + ((u64)p[7] << 48)
+			+ ((u64)p[6] << 40) + ((u64)p[5] << 32)
+			+ ((u64)p[4] << 24) + ((u64)p[3] << 16)
+			+ ((u64)p[2] << 8) + p[1];
 		return 9;
 	default:
 		*val = *p;
