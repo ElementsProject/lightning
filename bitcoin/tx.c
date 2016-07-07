@@ -497,7 +497,7 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 	tx->output = tal_arr(tx, struct bitcoin_tx_output, tx->output_count);
 	for (i = 0; i < tx->output_count; i++)
 		pull_output(tx, cursor, max, tx->output + i);
-     
+
 	if (flag & SEGREGATED_WITNESS_FLAG) {
 		for (i = 0; i < tx->input_count; i++)
 			pull_witness(tx->input, i, cursor, max);
