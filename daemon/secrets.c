@@ -147,7 +147,7 @@ static void new_keypair(struct lightningd_state *dstate,
 			struct privkey *privkey, struct pubkey *pubkey)
 {
 	do {
-            randombytes_buf(privkey->secret, sizeof(privkey->secret));
+		randombytes_buf(privkey->secret, sizeof(privkey->secret));
 	} while (!pubkey_from_privkey(dstate->secpctx, privkey, pubkey));
 }
 
