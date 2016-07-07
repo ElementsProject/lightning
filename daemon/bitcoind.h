@@ -41,19 +41,19 @@ void bitcoind_sendrawtx_(struct lightningd_state *dstate,
 						const char *),		\
 			    (arg))
 
-void bitcoind_get_chaintips_(struct lightningd_state *dstate,
+void bitcoind_get_chaintip_(struct lightningd_state *dstate,
 			     void (*cb)(struct lightningd_state *dstate,
-					struct sha256_double *blockids,
+					const struct sha256_double *tipid,
 					void *arg),
 			     void *arg);
 
-#define bitcoind_get_chaintips(dstate, cb, arg)				\
-	bitcoind_get_chaintips_((dstate),				\
-				typesafe_cb_preargs(void, void *,	\
-						    (cb), (arg),	\
-						    struct lightningd_state *, \
-						    struct sha256_double *), \
-				(arg))
+#define bitcoind_get_chaintip(dstate, cb, arg)				\
+	bitcoind_get_chaintip_((dstate),				\
+			       typesafe_cb_preargs(void, void *,	\
+						   (cb), (arg),		\
+						   struct lightningd_state *, \
+						   const struct sha256_double *), \
+			       (arg))
 
 void bitcoind_getblockcount_(struct lightningd_state *dstate,
 			     void (*cb)(struct lightningd_state *dstate,

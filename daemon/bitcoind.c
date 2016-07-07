@@ -248,9 +248,9 @@ static void process_chaintips(struct bitcoin_cli *bcli)
 	const jsmntok_t *tokens, *t, *end;
 	bool valid;
 	size_t i;
-	struct sha256_double *tips;
+	struct sha256_double tip;
 	void (*cb)(struct lightningd_state *dstate,
-		   struct sha256_double *blockids,
+		   struct sha256_double *tipid,
 		   void *arg) = bcli->cb;
 
 	log_debug(bcli->dstate->base_log, "Got getchaintips result");
@@ -266,30 +266,48 @@ static void process_chaintips(struct bitcoin_cli *bcli)
 		      bcli_args(bcli),
 		      (int)bcli->output_bytes, bcli->output);
 
-	tips = tal_arr(bcli, struct sha256_double, 0);
+	valid = false;
 	end = json_next(tokens);
 	for (i = 0, t = tokens + 1; t < end; t = json_next(t), i++) {
+		const jsmntok_t *status = json_get_member(bcli->output, t, "status");
 		const jsmntok_t *hash = json_get_member(bcli->output, t, "hash");
-		tal_resize(&tips, i+1);
+
+		if (!json_tok_streq(bcli->output, status, "active")) {
+			log_debug(bcli->dstate->base_log,
+				  "Ignoring chaintip %.*s status %.*s",
+				  hash->end - hash->start,
+				  bcli->output + hash->start,
+				  status->end - status->start,
+				  bcli->output + status->start);
+			continue;
+		}
+		if (valid) {
+			log_unusual(bcli->dstate->base_log,
+				    "%s: Two active chaintips? %.*s",
+				    bcli_args(bcli),
+				    (int)bcli->output_bytes, bcli->output);
+			continue;
+		}
 		if (!bitcoin_blkid_from_hex(bcli->output + hash->start,
 					    hash->end - hash->start,
-					    &tips[i]))
+					    &tip))
 			fatal("%s: gave bad hash for %zu'th tip (%.*s)?",
 			      bcli_args(bcli), i,
 			      (int)bcli->output_bytes, bcli->output);
+		valid = true;
 	}
-	if (i == 0)
-		fatal("%s: gave empty array (%.*s)?",
+	if (!valid)
+		fatal("%s: gave no active chaintips (%.*s)?",
 		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
 
-	cb(bcli->dstate, tips, bcli->cb_arg);
+	cb(bcli->dstate, &tip, bcli->cb_arg);
 }
 
-void bitcoind_get_chaintips_(struct lightningd_state *dstate,
-			     void (*cb)(struct lightningd_state *dstate,
-					struct sha256_double *blockids,
-					void *arg),
-			     void *arg)
+void bitcoind_get_chaintip_(struct lightningd_state *dstate,
+			    void (*cb)(struct lightningd_state *dstate,
+				       const struct sha256_double *tipid,
+				       void *arg),
+			    void *arg)
 {
 	start_bitcoin_cli(dstate, process_chaintips, false, cb, arg,
 			  "getchaintips", NULL);

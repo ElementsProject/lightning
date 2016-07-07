@@ -63,12 +63,12 @@ struct topology {
 	struct block_map block_map;
 };
 
-static void start_poll_chaintips(struct lightningd_state *dstate);
+static void start_poll_chaintip(struct lightningd_state *dstate);
 
 static void next_topology_timer(struct lightningd_state *dstate)
 {
 	new_reltimer(dstate, dstate, dstate->config.poll_time,
-		     start_poll_chaintips, dstate);
+		     start_poll_chaintip, dstate);
 }
 
 static int cmp_times(const u32 *a, const u32 *b, void *unused)
@@ -374,29 +374,29 @@ static void gather_blocks(struct lightningd_state *dstate,
 	next_topology_timer(dstate);
 }
 
-static void check_chaintips(struct lightningd_state *dstate,
-			    struct sha256_double *blockids,
-			    void *arg)
+static void check_chaintip(struct lightningd_state *dstate,
+			   const struct sha256_double *tipid,
+			   void *arg)
 {
 	struct topology *topo = dstate->topology;
 
 	/* 0 is the main tip. */
-	if (!topo->tip || !structeq(&blockids[0], &topo->tip->blkid))
-		bitcoind_getrawblock(dstate, &blockids[0], gather_blocks,
+	if (!topo->tip || !structeq(tipid, &topo->tip->blkid))
+		bitcoind_getrawblock(dstate, tipid, gather_blocks,
 				     (struct block *)NULL);
 	else
 		/* Next! */
 		next_topology_timer(dstate);
 }
 
-static void start_poll_chaintips(struct lightningd_state *dstate)
+static void start_poll_chaintip(struct lightningd_state *dstate)
 {
 	if (!list_empty(&dstate->bitcoin_req)) {
 		log_unusual(dstate->base_log,
 			    "Delaying start poll: commands in progress");
 		next_topology_timer(dstate);
 	} else
-		bitcoind_get_chaintips(dstate, check_chaintips, NULL);
+		bitcoind_get_chaintip(dstate, check_chaintip, NULL);
  }
 
 static void init_topo(struct lightningd_state *dstate,
@@ -409,8 +409,8 @@ static void init_topo(struct lightningd_state *dstate,
 	topo->root->height = ptr2int(p);
 	block_map_add(&topo->block_map, topo->root);
 
-	/* Now grab chaintips immediately. */
-	bitcoind_get_chaintips(dstate, check_chaintips, NULL);
+	/* Now grab chaintip immediately. */
+	bitcoind_get_chaintip(dstate, check_chaintip, NULL);
 }
 
 static void get_init_block(struct lightningd_state *dstate,
