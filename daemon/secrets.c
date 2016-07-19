@@ -13,11 +13,11 @@
 #include <ccan/short_types/short_types.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <openssl/rand.h>
 #include <secp256k1.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sodium/randombytes.h>
 
 struct secret {
 	/* Secret ID of our node; public is dstate->id. */
@@ -147,8 +147,7 @@ static void new_keypair(struct lightningd_state *dstate,
 			struct privkey *privkey, struct pubkey *pubkey)
 {
 	do {
-		if (RAND_bytes(privkey->secret, sizeof(privkey->secret)) != 1)
-			fatal("Could not get random bytes for privkey");
+		randombytes_buf(privkey->secret, sizeof(privkey->secret));
 	} while (!pubkey_from_privkey(dstate->secpctx, privkey, pubkey));
 }
 
@@ -158,10 +157,7 @@ void peer_secrets_init(struct peer *peer)
 
 	new_keypair(peer->dstate, &peer->secrets->commit, &peer->local.commitkey);
 	new_keypair(peer->dstate, &peer->secrets->final, &peer->local.finalkey);
-	if (RAND_bytes(peer->secrets->revocation_seed.u.u8,
-		       sizeof(peer->secrets->revocation_seed.u.u8)) != 1)
-		fatal("Could not get random bytes for revocation seed");
-
+	randombytes_buf(peer->secrets->revocation_seed.u.u8, sizeof(peer->secrets->revocation_seed.u.u8));
 	shachain_init(&peer->their_preimages);
 }
 

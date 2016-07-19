@@ -12,7 +12,7 @@
 #include "log.h"
 #include "wallet.h"
 #include <ccan/structeq/structeq.h>
-#include <openssl/rand.h>
+#include <sodium/randombytes.h>
 
 struct wallet {
 	struct list_node list;
@@ -25,8 +25,7 @@ static void new_keypair(struct lightningd_state *dstate,
 			struct privkey *privkey, struct pubkey *pubkey)
 {
 	do {
-		if (RAND_bytes(privkey->secret, sizeof(privkey->secret)) != 1)
-			fatal("Could not get random bytes for privkey");
+		randombytes_buf(privkey->secret, sizeof(privkey->secret));
 	} while (!pubkey_from_privkey(dstate->secpctx, privkey, pubkey));
 }
 
