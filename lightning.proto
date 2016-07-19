@@ -64,8 +64,9 @@ message authenticate {
   required bitcoin_pubkey node_id = 1;
   // Signature of your session key. */
   required signature session_sig = 2;
-  // How many (non-authenticate) packets we've already received
-  optional uint64 ack = 3 [ default = 0 ];
+  // How many commitment/revocation messages we've already received
+  optional uint64 commits_seen = 3 [ default = 0 ];
+  optional uint64 revocations_seen = 4 [ default = 0 ];
 };
 
 // Set channel params.

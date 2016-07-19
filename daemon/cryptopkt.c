@@ -358,28 +358,45 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 	if (!auth)
 		return io_close(conn);
 
-	if (!proto_to_signature(peer->dstate->secpctx, auth->session_sig,
-				&sig)) {
-		log_unusual(peer->log, "Invalid auth signature");
-		return io_close(conn);
-	}
-
+	/* BOLT #1:
+	 *
+	 * The receiving node MUST check that:
+	 *
+	 * 1. `node_id` is the expected value for the sending node.
+	 */
 	if (!proto_to_pubkey(peer->dstate->secpctx, auth->node_id, &id)) {
 		log_unusual(peer->log, "Invalid auth id");
 		return io_close(conn);
 	}
 
-	/* Did we expect a specific ID? */
 	if (!peer->id)
 		peer->id = tal_dup(peer, struct pubkey, &id);
 	else if (!structeq(&id, peer->id)) {
 		log_unusual(peer->log, "Incorrect auth id");
 		return io_close(conn);
 	}
-	
-	/* Signature covers *our* session key. */
-	sha256_double(&sha,
-		      neg->our_sessionpubkey, sizeof(neg->our_sessionpubkey));
+
+	/* BOLT #1:
+	 *
+	 * 2. `session_sig` is a valid secp256k1 ECDSA signature encoded as
+	 *     a 32-byte big endian R value, followed by a 32-byte big
+	 *     endian S value.
+	 */
+	if (!proto_to_signature(peer->dstate->secpctx, auth->session_sig,
+				&sig)) {
+		log_unusual(peer->log, "Invalid auth signature");
+		return io_close(conn);
+	}
+
+
+	/* BOLT #1:
+	 *
+	 * 3. `session_sig` is the signature of the SHA256 of SHA256 of the
+	 *     its own sessionpubkey, using the secret key corresponding to
+	 *     the sender's `node_id`.
+	 */
+	sha256_double(&sha, neg->our_sessionpubkey,
+		      sizeof(neg->our_sessionpubkey));
 
 	if (!check_signed_hash(peer->dstate->secpctx, &sha, &sig, peer->id)) {
 		log_unusual(peer->log, "Bad auth signature");
@@ -391,16 +408,19 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 
 	/* BOLT #1:
 	 *
-	 * The receiver MUST NOT examine the `ack` value until after
-	 * the authentication fields have been successfully validated.
-	 * The `ack` field MUST BE set to the number of
-	 * non-authenticate messages received and processed if
-	 * non-zero.
+	 * The receiver MUST NOT examine the `commits_seen` or
+	 *
+	 * `revocations_seen` values until after the authentication fields
+	 * have been successfully validated.  The `commits_seen` field MUST
+	 * BE set to the number of `update_commit` and `open_commit_sig`
+	 * messages received and processed if non-zero.  The
+	 * `revocations_seen` MUST BE set to the number of
+	 * `update_revocation` messages received and processed.
 	 */
 	/* FIXME: Handle reconnects. */
-	if (auth->ack != 0) {
-		log_unusual(peer->log, "FIXME: non-zero acknowledge %"PRIu64,
-			    auth->ack);
+	if (auth->commits_seen != 0 || auth->revocations_seen != 0) {
+		log_unusual(peer->log, "FIXME: non-zero seen %"PRIu64"/%"PRIu64,
+			    auth->commits_seen, auth->revocations_seen);
 		return io_close(conn);
 	}
 
@@ -473,7 +493,12 @@ static struct io_plan *keys_exchanged(struct io_conn *conn, struct peer *peer)
 	setup_crypto(&peer->io_data->out, shared_secret,
 		     neg->our_sessionpubkey);
 
-	/* Now sign their session key to prove who we are. */
+	/* BOLT #1:
+	 *
+	 * `session_sig` is the signature of the SHA256 of SHA256 of the its
+	 * own sessionpubkey, using the secret key corresponding to the
+	 * sender's `node_id`.
+	 */
 	privkey_sign(peer, neg->their_sessionpubkey,
 		     sizeof(neg->their_sessionpubkey), &sig);
 
