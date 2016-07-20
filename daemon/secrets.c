@@ -14,10 +14,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <secp256k1.h>
+#include <sodium/randombytes.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <sodium/randombytes.h>
 
 struct secret {
 	/* Secret ID of our node; public is dstate->id. */
