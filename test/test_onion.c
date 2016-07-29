@@ -1,12 +1,10 @@
 #define _GNU_SOURCE 1
 #include "onion_key.h"
 #include "version.h"
-#include <openssl/hmac.h>
-#include <openssl/evp.h>
-#include <openssl/aes.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <err.h>
 #include <stdbool.h>
 #include <assert.h>
@@ -20,6 +18,9 @@
 #include <ccan/str/hex/hex.h>
 #include <secp256k1.h>
 #include <secp256k1_ecdh.h>
+#include <sodium/crypto_stream_aes128ctr.h>
+#include <sodium/crypto_auth_hmacsha256.h>
+#include <sodium/utils.h>
 
 /* 
  * The client knows the server's public key S (which has corresponding
@@ -43,7 +44,7 @@ struct hmackey {
 };
 
 struct iv {
-	unsigned char iv[AES_BLOCK_SIZE];
+	unsigned char iv[crypto_stream_aes128ctr_NONCEBYTES];
 };
 
 static void sha_with_seed(const unsigned char secret[32],
@@ -234,51 +235,13 @@ static struct hop *myhop(const struct onion *onion)
 static bool aes_encrypt(void *dst, const void *src, size_t len,
 			const struct enckey *enckey, const struct iv *iv)
 {
-	EVP_CIPHER_CTX evpctx;
-	int outlen;
-
-	/* Counter mode allows parallelism in future. */
-	if (EVP_EncryptInit(&evpctx, EVP_aes_128_ctr(),
-			    memcheck(enckey->k.u.u8, sizeof(enckey->k)),
-			    memcheck(iv->iv, sizeof(iv->iv))) != 1)
-		return false;
-
-	/* No padding, we're a multiple of 128 bits. */
-	if (EVP_CIPHER_CTX_set_padding(&evpctx, 0) != 1)
-		return false;
-
-	EVP_EncryptUpdate(&evpctx, dst, &outlen, memcheck(src, len), len);
-	assert(outlen == len);
-	/* Shouldn't happen (no padding) */
-	if (EVP_EncryptFinal(&evpctx, dst, &outlen) != 1)
-		return false;
-	assert(outlen == 0);
-	return true;
+	return crypto_stream_aes128ctr_xor(dst, src, len, iv->iv, enckey->k.u.u8) == 0;
 }
 
 static bool aes_decrypt(void *dst, const void *src, size_t len,
 			const struct enckey *enckey, const struct iv *iv)
 {
-	EVP_CIPHER_CTX evpctx;
-	int outlen;
-
-	/* Counter mode allows parallelism in future. */
-	if (EVP_DecryptInit(&evpctx, EVP_aes_128_ctr(),
-			    memcheck(enckey->k.u.u8, sizeof(enckey->k)),
-			    memcheck(iv->iv, sizeof(iv->iv))) != 1)
-		return false;
-
-	/* No padding, we're a multiple of 128 bits. */
-	if (EVP_CIPHER_CTX_set_padding(&evpctx, 0) != 1)
-		return false;
-
-	EVP_DecryptUpdate(&evpctx, dst, &outlen, memcheck(src, len), len);
-	assert(outlen == len);
-	/* Shouldn't happen (no padding) */
-	if (EVP_DecryptFinal(&evpctx, dst, &outlen) != 1)
-		return false;
-	assert(outlen == 0);
-	return true;
+	return crypto_stream_aes128ctr_xor(dst, src, len, iv->iv, enckey->k.u.u8) == 0;
 }
 
 #if 0
@@ -333,18 +296,14 @@ static void make_hmac(const struct hop *hops, size_t num_hops,
 		      const struct hmackey *hmackey,
 		      struct sha256 *hmac)
 {
-	HMAC_CTX ctx;
-	size_t len, padlen;
-
-	/* Calculate HMAC of padding then onion up to and including pubkey. */
-	HMAC_CTX_init(&ctx);
-	HMAC_Init_ex(&ctx, memcheck(hmackey->k.u.u8, sizeof(hmackey->k)),
-		     sizeof(hmackey->k), EVP_sha256(), NULL);
-	padlen = (MAX_HOPS - num_hops) * sizeof(struct hop);
-	HMAC_Update(&ctx, memcheck((unsigned char *)padding, padlen), padlen);
+	crypto_auth_hmacsha256_state state;
+	size_t len, padlen = (MAX_HOPS - num_hops) * sizeof(struct hop);
 	len = num_hops*sizeof(struct hop) - sizeof(hops->hmac);
-	HMAC_Update(&ctx, memcheck((unsigned char *)hops, len), len);
-	HMAC_Final(&ctx, hmac->u.u8, NULL);
+	crypto_auth_hmacsha256_init(&state, hmackey->k.u.u8, sizeof(hmackey->k));
+	crypto_auth_hmacsha256_update(&state, memcheck((unsigned char *)padding, padlen), padlen);
+	crypto_auth_hmacsha256_update(&state, memcheck((unsigned char *)hops, len), len);
+	crypto_auth_hmacsha256_update(&state, memcheck((unsigned char *)padding, padlen), padlen);
+	crypto_auth_hmacsha256_final(&state, hmac->u.u8);
 }
 
 #if 0
@@ -370,7 +329,7 @@ static bool check_hmac(struct onion *onion, const struct hmackey *hmackey)
 	struct sha256 hmac;
 
 	make_hmac(onion->hop, MAX_HOPS, NULL, hmackey, &hmac);
-	return CRYPTO_memcmp(&hmac, &myhop(onion)->hmac, sizeof(hmac)) == 0;
+	return sodium_memcmp(&hmac, &myhop(onion)->hmac, sizeof(hmac)) == 0;
 }
 
 static bool create_onion(const secp256k1_pubkey pubkey[],
@@ -385,7 +344,7 @@ static bool create_onion(const secp256k1_pubkey pubkey[],
 	struct hmackey hmackeys[MAX_HOPS];
 	struct iv ivs[MAX_HOPS];
 	struct iv pad_ivs[MAX_HOPS];
-	HMAC_CTX padding_hmac[MAX_HOPS];
+	crypto_auth_hmacsha256_state padding_hmac[MAX_HOPS];
 	struct hop padding[MAX_HOPS];
 	size_t junk_hops;
 	secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN);
@@ -429,14 +388,13 @@ static bool create_onion(const secp256k1_pubkey pubkey[],
 		}
 		/* And generates more padding for next node. */
 		add_padding(&padding[0], &enckeys[i-1], &pad_ivs[i-1]);
-		HMAC_CTX_init(&padding_hmac[i]);
-		HMAC_Init_ex(&padding_hmac[i],
-			     hmackeys[i].k.u.u8, sizeof(hmackeys[i].k),
-			     EVP_sha256(), NULL);
-		HMAC_Update(&padding_hmac[i],
-			    memcheck((unsigned char *)padding,
-				     i * sizeof(struct hop)),
-			    i * sizeof(struct hop));
+		crypto_auth_hmacsha256_init(&padding_hmac[i],
+					    hmackeys[i].k.u.u8,
+					    sizeof(hmackeys[i].k));
+		crypto_auth_hmacsha256_update(&padding_hmac[i],
+					      memcheck((unsigned char *)padding,
+						       i * sizeof(struct hop)),
+					      i * sizeof(struct hop));
 	}
 
 	/*
@@ -475,9 +433,9 @@ static bool create_onion(const secp256k1_pubkey pubkey[],
 
 		/* HMAC covers entire thing except hmac itself. */
 		len = (other_hops + 1)*sizeof(struct hop) - sizeof(myhop->hmac);
-		HMAC_Update(&padding_hmac[i],
+		crypto_auth_hmacsha256_update(&padding_hmac[i],
 			    memcheck((unsigned char *)onion, len), len);
-		HMAC_Final(&padding_hmac[i], myhop->hmac.u.u8, NULL);
+		crypto_auth_hmacsha256_final(&padding_hmac[i], myhop->hmac.u.u8);
 	}
 
 	ok = true;
@@ -612,8 +570,6 @@ int main(int argc, char *argv[])
 	struct onion onion;
 	bool generate = false, decode = false;
 
-	assert(EVP_CIPHER_iv_length(EVP_aes_128_ctr()) == sizeof(struct iv));
-	
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "--generate <pubkey>... OR\n"
 			   "--decode <privkey>\n"
