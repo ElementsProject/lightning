@@ -186,7 +186,7 @@ default: $(PROGRAMS) daemon-all
 $(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): $(CCAN_HEADERS)
 
 # Except for CCAN, everything depends on bitcoin/ and core headers.
-$(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS)
+$(HELPER_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS)
 
 daemon-test-%:
 	daemon/test/scripts/shutdown.sh 2>/dev/null || true
@@ -338,7 +338,7 @@ distclean: clean
 	$(MAKE) -C secp256k1/ distclean || true
 	$(RM) libsecp256k1.a secp256k1/libsecp256k1.la
 
-maintainter-clean: distclean
+maintainer-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'
 	@echo 'deletes files that may need special tools to rebuild.'
 	$(RM) lightning.pb-c.c lightning.pb-c.h ccan/config.h $(GEN_HEADERS)
