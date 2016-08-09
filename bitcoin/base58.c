@@ -11,9 +11,9 @@
 #include <assert.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/tal/str/str.h>
+#include <libbase58.h>
 #include <secp256k1.h>
 #include <string.h>
-#include <libbase58.h>
 
 static bool my_sha256(void *digest, const void *data, size_t datasz)
 {
