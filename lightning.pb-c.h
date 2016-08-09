@@ -176,16 +176,14 @@ struct  _Authenticate
    */
   Signature *session_sig;
   /*
-   * How many commitment/revocation messages we've already received
+   * How many update_commit and update_revocation messages already received
    */
-  protobuf_c_boolean has_commits_seen;
-  uint64_t commits_seen;
-  protobuf_c_boolean has_revocations_seen;
-  uint64_t revocations_seen;
+  protobuf_c_boolean has_ack;
+  uint64_t ack;
 };
 #define AUTHENTICATE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&authenticate__descriptor) \
-    , NULL, NULL, 0,0ull, 0,0ull }
+    , NULL, NULL, 0,0ull }
 
 
 /*

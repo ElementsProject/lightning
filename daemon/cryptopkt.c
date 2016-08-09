@@ -408,19 +408,16 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 
 	/* BOLT #1:
 	 *
-	 * The receiver MUST NOT examine the `commits_seen` or
+	 * The receiver MUST NOT examine the `ack` value until after the
+	 * authentication fields have been successfully validated.
 	 *
-	 * `revocations_seen` values until after the authentication fields
-	 * have been successfully validated.  The `commits_seen` field MUST
-	 * BE set to the number of `update_commit` and `open_commit_sig`
-	 * messages received and processed if non-zero.  The
-	 * `revocations_seen` MUST BE set to the number of
-	 * `update_revocation` messages received and processed.
+	 * The `ack` field MUST BE set to the number of `update_commit`,
+	 * `open_commit_sig` and `update_revocation` messages received and
+	 * processed.
 	 */
 	/* FIXME: Handle reconnects. */
-	if (auth->commits_seen != 0 || auth->revocations_seen != 0) {
-		log_unusual(peer->log, "FIXME: non-zero seen %"PRIu64"/%"PRIu64,
-			    auth->commits_seen, auth->revocations_seen);
+	if (auth->ack != 0) {
+		log_unusual(peer->log, "FIXME: non-zero ack %"PRIu64, auth->ack);
 		return io_close(conn);
 	}
 

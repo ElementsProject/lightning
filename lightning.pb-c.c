@@ -1464,9 +1464,8 @@ const ProtobufCMessageDescriptor funding__descriptor =
   (ProtobufCMessageInit) funding__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const uint64_t authenticate__commits_seen__default_value = 0ull;
-static const uint64_t authenticate__revocations_seen__default_value = 0ull;
-static const ProtobufCFieldDescriptor authenticate__field_descriptors[4] =
+static const uint64_t authenticate__ack__default_value = 0ull;
+static const ProtobufCFieldDescriptor authenticate__field_descriptors[3] =
 {
   {
     "node_id",
@@ -1493,40 +1492,27 @@ static const ProtobufCFieldDescriptor authenticate__field_descriptors[4] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "commits_seen",
+    "ack",
     3,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_UINT64,
-    offsetof(Authenticate, has_commits_seen),
-    offsetof(Authenticate, commits_seen),
+    offsetof(Authenticate, has_ack),
+    offsetof(Authenticate, ack),
     NULL,
-    &authenticate__commits_seen__default_value,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
-  {
-    "revocations_seen",
-    4,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_UINT64,
-    offsetof(Authenticate, has_revocations_seen),
-    offsetof(Authenticate, revocations_seen),
-    NULL,
-    &authenticate__revocations_seen__default_value,
+    &authenticate__ack__default_value,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
 static const unsigned authenticate__field_indices_by_name[] = {
-  2,   /* field[2] = commits_seen */
+  2,   /* field[2] = ack */
   0,   /* field[0] = node_id */
-  3,   /* field[3] = revocations_seen */
   1,   /* field[1] = session_sig */
 };
 static const ProtobufCIntRange authenticate__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 4 }
+  { 0, 3 }
 };
 const ProtobufCMessageDescriptor authenticate__descriptor =
 {
@@ -1536,7 +1522,7 @@ const ProtobufCMessageDescriptor authenticate__descriptor =
   "Authenticate",
   "",
   sizeof(Authenticate),
-  4,
+  3,
   authenticate__field_descriptors,
   authenticate__field_indices_by_name,
   1,  authenticate__number_ranges,
