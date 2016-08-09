@@ -10,6 +10,7 @@
 #include "watch.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
+#include <ccan/io/io.h>
 #include <ccan/structeq/structeq.h>
 
 struct block {
@@ -381,7 +382,7 @@ static void check_chaintip(struct lightningd_state *dstate,
 	struct topology *topo = dstate->topology;
 
 	/* 0 is the main tip. */
-	if (!topo->tip || !structeq(tipid, &topo->tip->blkid))
+	if (!structeq(tipid, &topo->tip->blkid))
 		bitcoind_getrawblock(dstate, tipid, gather_blocks,
 				     (struct block *)NULL);
 	else
@@ -397,7 +398,7 @@ static void start_poll_chaintip(struct lightningd_state *dstate)
 		next_topology_timer(dstate);
 	} else
 		bitcoind_get_chaintip(dstate, check_chaintip, NULL);
- }
+}
 
 static void init_topo(struct lightningd_state *dstate,
 		      struct bitcoin_block *blk,
@@ -408,9 +409,11 @@ static void init_topo(struct lightningd_state *dstate,
 	topo->root = new_block(dstate, blk, NULL);
 	topo->root->height = ptr2int(p);
 	block_map_add(&topo->block_map, topo->root);
+	topo->tip = topo->root;
 
 	/* Now grab chaintip immediately. */
 	bitcoind_get_chaintip(dstate, check_chaintip, NULL);
+	io_break(dstate);
 }
 
 static void get_init_block(struct lightningd_state *dstate,
@@ -460,8 +463,10 @@ u32 get_block_height(struct lightningd_state *dstate)
 void setup_topology(struct lightningd_state *dstate)
 {
 	dstate->topology = tal(dstate, struct topology);
-	dstate->topology->tip = NULL;
 	block_map_init(&dstate->topology->block_map);
 
 	bitcoind_getblockcount(dstate, get_init_blockhash, NULL);
+
+	/* Once it gets first block, it calls io_break() and we return. */
+	io_loop(NULL, NULL);
 }
