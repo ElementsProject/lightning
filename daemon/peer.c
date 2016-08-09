@@ -2365,6 +2365,12 @@ void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt)
 {
 	const char *p;
 
+	log_unusual(peer->log, "Received unexpected pkt %u (%s)",
+		    pkt->pkt_case, pkt_name(pkt->pkt_case));
+
+	if (pkt->pkt_case != PKT__PKT_ERROR)
+		return;
+
 	/* Check packet for weird chars. */
 	for (p = pkt->error->problem; *p; p++) {
 		if (cisprint(*p))
@@ -2372,11 +2378,11 @@ void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt)
 
 		p = tal_hexstr(peer, pkt->error->problem,
 			       strlen(pkt->error->problem));
-		log_unusual(peer->log, "Error pkt (hex) %s", p);
+		log_add(peer->log, "hex: %s", p);
 		tal_free(p);
 		return;
 	}
-	log_unusual(peer->log, "Error pkt '%s'", pkt->error->problem);
+	log_add(peer->log, "'%s'", pkt->error->problem);
 }
 
 /* Create a bitcoin close tx, using last signature they sent. */
