@@ -5,10 +5,10 @@ You will need several development libraries:
 * libprotoc: the Google protocol buffer v2 library, 2.6.0 or above.
 * protobuf-c: version 1.1.0 or above.
 * libsodium: for crypto.
-* libcrypto: (OpenSSL) library for bignum implementation
+* libbase58: for bitcoin's base58 encoding.
 
-You will also need a version of bitcoind with segregated witness support:
-* https://github.com/sipa/bitcoin/tree/segwit4
+You will also need a version of bitcoind with segregated witness support,
+such as the 0.13 or above.
 
 To Build on Ubuntu 15.10 (not needed for 16.04)
 ------------------------
