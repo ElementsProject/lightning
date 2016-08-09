@@ -336,18 +336,18 @@ int main(int argc, char *argv[])
 	
 	check_bitcoind_config(dstate);
 
-	/* Create RPC socket (if any) */
-	setup_jsonrpc(dstate, dstate->rpc_filename);
-
-	/* Set up connections from peers. */
-	setup_listeners(dstate, portnum);
-
 	/* Set up node ID and private key. */
 	secrets_init(dstate);
 	new_node(dstate, &dstate->id);
 	
 	/* Initialize block topology. */
 	setup_topology(dstate);
+
+	/* Create RPC socket (if any) */
+	setup_jsonrpc(dstate, dstate->rpc_filename);
+
+	/* Set up connections from peers. */
+	setup_listeners(dstate, portnum);
 
 	/* Make sure we use the artificially-controlled time for timers */
 	io_time_override(controlled_time);
