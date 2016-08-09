@@ -668,6 +668,7 @@ static bool fulfill_onchain(struct peer *peer, struct htlc *htlc)
 				return false;
 			peer->closing_onchain.resolved[i]
 				= htlc_fulfill_tx(peer, ci, i);
+			broadcast_tx(peer, peer->closing_onchain.resolved[i]);
 			return true;
 		}
 	}
