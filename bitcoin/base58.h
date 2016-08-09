@@ -5,7 +5,6 @@
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <openssl/bn.h>
 #include <secp256k1.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -50,8 +49,6 @@ bool key_from_base58(secp256k1_context *secpctx,
 		     const char *base58, size_t base58_len,
 		     bool *test_net, struct privkey *priv, struct pubkey *key);
 
-bool raw_decode_base_n(BIGNUM *bn, const char *src, size_t len, int base);
-bool raw_decode_base58(BIGNUM *bn, const char *src, size_t len);
 void base58_get_checksum(u8 csum[4], const u8 buf[], size_t buflen);
 
 #endif /* PETTYCOIN_BITCOIN_BASE58_H */
