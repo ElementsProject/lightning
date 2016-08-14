@@ -10,7 +10,36 @@ You will need several development libraries:
 You will also need a version of bitcoind with segregated witness support,
 such as the 0.13 or above.
 
-To Build on Ubuntu 15.10 (not needed for 16.04)
+To Build on Ubuntu 16.04
+---------------------
+
+Get dependencies:
+```
+sudo apt-get install libprotobuf-c-dev libsodium-dev libbase58-dev
+```
+
+Clone lightning and initialize submodules:
+```
+git clone https://github.com/ElementsProject/lightning.git
+cd lightning
+git submodule init
+git submodule update
+```
+
+Build lightning:
+```
+make
+```
+
+Running lightning:
+```
+bitcoind
+./daemon/lightningd
+./daemon/lightning-cli help
+```
+**Note**: You may need to include `testnet=1` in `bitcoin.conf`
+
+To Build on Ubuntu 15.10
 ------------------------
 Build protobuf-c dependency (>= 1.1.0):
 ```
@@ -35,6 +64,12 @@ git submodule update
 Build lightning:
 ```
 make
+```
+
+Running lightning:
+```
+bitcoind
 export LD_LIBRARY_PATH=/usr/local/lib
 ./daemon/lightningd
+./daemon/lightning-cli help
 ```
