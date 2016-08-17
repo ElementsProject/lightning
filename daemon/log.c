@@ -326,7 +326,8 @@ static char *to_string_(const tal_t *ctx,
 			    h->src ? to_string(ctx, lr, struct pubkey,
 					       h->src->peer->id)
 			    : "local");
-	}
+	} else if (streq(structname, "struct rval"))
+		s = tal_hexstr(ctx, u.rval, sizeof(*u.rval));
 
 	return s;
 }

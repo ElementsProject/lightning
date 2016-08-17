@@ -71,6 +71,7 @@ union loggable_structs {
 	const struct abs_locktime *abs_locktime;
 	const struct bitcoin_tx *bitcoin_tx;
 	const struct htlc *htlc;
+	const struct rval *rval;
 	const char *charp_;
 };
 
