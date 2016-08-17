@@ -497,7 +497,6 @@ fi
 check_status $A_AMOUNT $A_FEE '{ "msatoshis" : '$HTLC_AMOUNT', "expiry" : { "block" : '$EXPIRY' }, "rhash" : "'$RHASH'" } ' $B_AMOUNT $B_FEE ""
 
 if [ -n "$STEAL" ]; then
-    $LCLI1 dev-signcommit $ID2 >&2
     STEAL_TX=`$LCLI1 dev-signcommit $ID2 | cut -d\" -f4`
 fi
 
