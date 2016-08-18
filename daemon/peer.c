@@ -2912,80 +2912,11 @@ static void json_add_htlcs(struct json_result *response,
 		    || h->state == SENT_REMOVE_ACK_REVOCATION)
 			continue;
 
-#if 1
-		/* Ignore uncommitted HTLCs. */
-		if (!htlc_has(h, HTLC_LOCAL_F_COMMITTED))
-			continue;
-#endif
-		
 		json_object_start(response, NULL);
 		json_add_u64(response, "msatoshis", h->msatoshis);
 		json_add_abstime(response, "expiry", &h->expiry);
 		json_add_hex(response, "rhash", &h->rhash, sizeof(h->rhash));
-#if 0
 		json_add_string(response, "state", htlc_state_name(h->state));
-#else
-		switch (h->state) {
-		case SENT_ADD_HTLC:
-			json_add_string(response, "committed", "none");
-			break;
-		case SENT_ADD_COMMIT:
-			json_add_string(response, "committed", "none");
-			break;
-		case RCVD_ADD_REVOCATION:
-			json_add_string(response, "committed", "them");
-			break;
-		case SENT_ADD_ACK_REVOCATION:
-			json_add_string(response, "committed", "both");
-			break;
-		case RCVD_REMOVE_HTLC:
-			json_add_string(response, "committed", "both");
-			break;
-		case SENT_REMOVE_REVOCATION:
-			json_add_string(response, "committed", "them");
-			break;
-		case SENT_REMOVE_ACK_COMMIT:
-			json_add_string(response, "committed", "them");
-			break;
-
-		case RCVD_ADD_HTLC:
-			json_add_string(response, "committed", "none");
-			break;
-		case SENT_ADD_REVOCATION:
-			json_add_string(response, "committed", "us");
-			break;
-		case SENT_ADD_ACK_COMMIT:
-			json_add_string(response, "committed", "us");
-			break;
-		case RCVD_ADD_ACK_REVOCATION:
-			json_add_string(response, "committed", "both");
-			break;
-		case SENT_REMOVE_HTLC:			
-			json_add_string(response, "committed", "both");
-			break;
-		case SENT_REMOVE_COMMIT:
-			json_add_string(response, "committed", "both");
-			break;
-		case RCVD_REMOVE_REVOCATION:
-			json_add_string(response, "committed", "us");
-			break;
-
-		/* These ones are temporary states, since we always
-		 * send revocation immediately. */
-		case RCVD_REMOVE_ACK_COMMIT:
-		case RCVD_REMOVE_COMMIT:
-		case RCVD_ADD_ACK_COMMIT:
-		case RCVD_ADD_COMMIT:
-		/* These are never printed (see continue above) */
-		case SENT_REMOVE_ACK_REVOCATION:
-		case RCVD_REMOVE_ACK_REVOCATION:
-			log_broken(peer->log,
-				   "Unexpected htlc state %s for %"PRIu64,
-				   htlc_state_name(h->state), h->id);
-			json_add_string(response, "committed", "unknown");
-			break;
-		}
-#endif
 		json_object_end(response);
 	}
 	json_array_end(response);
@@ -3029,17 +2960,6 @@ static void json_getpeers(struct command *cmd,
 		json_add_num(response, "their_fee", last->side[THEIRS].fee_msat);
 		json_add_htlcs(response, "our_htlcs", p, LOCAL);
 		json_add_htlcs(response, "their_htlcs", p, REMOTE);
-
-		/* Any changes since then? */
-		if (p->local.staging_cstate->changes != last->changes)
-			json_add_num(response, "local_staged_changes",
-				     p->local.staging_cstate->changes
-				     - last->changes);
-		if (p->remote.staging_cstate->changes
-		    != p->remote.commit->cstate->changes)
-			json_add_num(response, "remote_staged_changes",
-				     p->remote.staging_cstate->changes
-				     - p->remote.commit->cstate->changes);
 		json_object_end(response);
 	}
 	json_array_end(response);

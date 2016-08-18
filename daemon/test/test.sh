@@ -173,6 +173,12 @@ check_status_single()
     fi
 }
 
+# SEND_ -> RCVD_ and RCVD_ -> SEND_
+swap_status()
+{
+    echo "$@" | sed -e 's/state : RCVD_/@@/g' -e 's/state : SENT_/state : RCVD_/g' -e 's/@@/state : SENT_/g'
+}
+
 check_status()
 {
     us_pay=$1
@@ -183,20 +189,7 @@ check_status()
     them_htlcs="$6"
 
     check_status_single lcli1 "$us_pay" "$us_fee" "$us_htlcs" "$them_pay" "$them_fee" "$them_htlcs" 
-    check_status_single lcli2 "$them_pay" "$them_fee" "$them_htlcs" "$us_pay" "$us_fee" "$us_htlcs"
-}
-
-check_staged()
-{
-    lcli="$1"
-    what="$2"
-    num_htlcs="$3"
-
-    if check "$lcli getpeers | tr -s '\012\011\" ' ' ' | $FGREP ${what}_'staged_changes : '$num_htlcs"; then :; else
-	echo Cannot find $lcli output: '"'${what}_'staged_changes" : '$num_htlcs >&2
-	$lcli getpeers | tr -s '\012\011 ' ' ' >&2
-	return 1
-    fi
+    check_status_single lcli2 "$them_pay" "$them_fee" "`swap_status \"$them_htlcs\"`" "$us_pay" "$us_fee" "`swap_status \"$us_htlcs\"`"
 }
 
 check_tx_spend()
@@ -426,7 +419,7 @@ if [ -n "$DIFFERENT_FEES" ]; then
     lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
     [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
     [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
-    check_status_single lcli2 0 0 "" $(($AMOUNT - $HTLC_AMOUNT - $ONE_HTLCS_FEE2)) $(($ONE_HTLCS_FEE2)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both } "
+    check_status_single lcli2 0 0 "" $(($AMOUNT - $HTLC_AMOUNT - $ONE_HTLCS_FEE2)) $(($ONE_HTLCS_FEE2)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : RCVD_ADD_ACK_REVOCATION } "
     lcli2 fulfillhtlc $ID1 $SECRET
     [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
     [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
@@ -468,26 +461,21 @@ RHASH=`lcli1 dev-rhash $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
 
 if [ -n "$MANUALCOMMIT" ]; then
-    # Nothing should have changed!
-    check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
-    # But they should register a staged htlc.
-    check_staged lcli2 local 1
-    check_staged lcli1 remote 1
+    # They should register a staged htlc.
+    check_status $A_AMOUNT $A_FEE "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_HTLC } " $B_AMOUNT $B_FEE ""
 
     # Now commit it.
     lcli1 commit $ID2
 
     # Node 1 hasn't got it committed, but node2 should have told it to stage.
-    check_status_single lcli1 $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
-    check_staged lcli1 local 1
-    check_staged lcli2 remote 1
+    check_status_single lcli1 $A_AMOUNT $A_FEE "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : RCVD_ADD_REVOCATION } " $B_AMOUNT $B_FEE ""
 
     # Check channel status
     A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - $HTLC_AMOUNT))
     A_FEE=$(($A_FEE + $EXTRA_FEE))
 
     # Node 2 has it committed.
-    check_status_single lcli2 $B_AMOUNT $B_FEE "" $A_AMOUNT $A_FEE "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : us } "
+    check_status_single lcli2 $B_AMOUNT $B_FEE "" $A_AMOUNT $A_FEE "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_REVOCATION } "
 
     # There should be no "both committed" here yet
     if lcli1 getlog debug | $FGREP "Both committed"; then
@@ -511,7 +499,7 @@ else
 fi
 
 # Both should have committed tx.
-check_status $A_AMOUNT $A_FEE "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both } " $B_AMOUNT $B_FEE ""
+check_status $A_AMOUNT $A_FEE "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_ACK_REVOCATION } " $B_AMOUNT $B_FEE ""
 
 if [ -n "$STEAL" ]; then
     STEAL_TX=`$LCLI1 dev-signcommit $ID2 | cut -d\" -f4`
@@ -532,7 +520,7 @@ if [ -n "$DUMP_ONCHAIN" ]; then
     check_peerstate lcli2 STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL
 
     # both still know about htlc
-    check_status $A_AMOUNT $A_FEE "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both } " $B_AMOUNT $B_FEE ""
+    check_status $A_AMOUNT $A_FEE "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_ACK_REVOCATION } " $B_AMOUNT $B_FEE ""
 
     # Generate 6 blocks so CSV timeout has expired.
     $CLI generate 6
@@ -596,7 +584,7 @@ lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
 # Check channel status
 A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - $HTLC_AMOUNT))
 A_FEE=$(($A_FEE + $EXTRA_FEE))
-check_status $A_AMOUNT $A_FEE "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both } " $B_AMOUNT $B_FEE ""
+check_status $A_AMOUNT $A_FEE "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_ACK_REVOCATION } " $B_AMOUNT $B_FEE ""
 
 lcli2 failhtlc $ID1 $RHASH
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
@@ -616,7 +604,7 @@ lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
 # Check channel status
 A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - $HTLC_AMOUNT))
 A_FEE=$(($A_FEE + $EXTRA_FEE))
-check_status $A_AMOUNT $A_FEE "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both } " $B_AMOUNT $B_FEE ""
+check_status $A_AMOUNT $A_FEE "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_ACK_REVOCATION } " $B_AMOUNT $B_FEE ""
 
 # Make sure node1 accepts the expiry packet.
 while [ $(blockheight) != $EXPIRY ]; do
@@ -627,8 +615,7 @@ done
 $CLI generate 1
 
 if [ -n "$MANUALCOMMIT" ]; then
-    # Don't commit until it's noticed the new block
-    check_staged lcli2 remote 1
+    check_status $A_AMOUNT $A_FEE "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : RCVD_REMOVE_HTLC } " $B_AMOUNT $B_FEE ""
 
     lcli2 commit $ID1
     lcli1 commit $ID2
@@ -667,7 +654,7 @@ lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 
-check_status $(($A_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE)) $(($A_FEE + $EXTRA_FEE)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both } " $B_AMOUNT $B_FEE ""
+check_status $(($A_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE)) $(($A_FEE + $EXTRA_FEE)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_ACK_REVOCATION } " $B_AMOUNT $B_FEE ""
 
 lcli2 fulfillhtlc $ID1 $SECRET
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
@@ -693,7 +680,7 @@ lcli2 newhtlc $ID1 $HTLC_AMOUNT $EXPIRY $RHASH2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 
-check_status $(($A_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE)) $(($A_FEE + $EXTRA_FEE)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both } " $(($B_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE)) $(($B_FEE + $EXTRA_FEE)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , committed : both } "
+check_status $(($A_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE)) $(($A_FEE + $EXTRA_FEE)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_ACK_REVOCATION } " $(($B_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE)) $(($B_FEE + $EXTRA_FEE)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , state : RCVD_ADD_ACK_REVOCATION } "
 
 if [ -n "$CLOSE_WITH_HTLCS" ]; then
     # Now begin close
@@ -747,8 +734,17 @@ lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
 
 # Make sure node1 sends commit (in the background, since it will block!)
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2 &
-# node2 will consider this committed.
-check_status_single lcli2 $(($B_AMOUNT - $EXTRA_FEE/2)) $(($B_FEE + $EXTRA_FEE/2)) "" $(($A_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE/2)) $(($A_FEE + $EXTRA_FEE/2)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : us } "
+
+if [ -n "$MANUALCOMMIT" ]; then
+    # node2 will consider this committed.
+    check_status_single lcli2 $(($B_AMOUNT - $EXTRA_FEE/2)) $(($B_FEE + $EXTRA_FEE/2)) "" $(($A_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE/2)) $(($A_FEE + $EXTRA_FEE/2)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_REVOCATION } "
+else
+    # It will start committing by itself
+    check_status_single lcli2 $(($B_AMOUNT - $EXTRA_FEE/2)) $(($B_FEE + $EXTRA_FEE/2)) "" $(($A_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE/2)) $(($A_FEE + $EXTRA_FEE/2)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_ACK_COMMIT } "
+fi
+
+# node1 will still be awaiting node2's revocation reply.
+check_status_single lcli1 $(($A_AMOUNT)) $(($A_FEE)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_COMMIT } " $B_AMOUNT $B_FEE ""
 
 # Now send another offer, and enable node2 output.
 lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH2
@@ -764,9 +760,9 @@ check_balance_single lcli1 $(($A_AMOUNT - $HTLC_AMOUNT*2 - $EXTRA_FEE)) $(($A_FE
 check_balance_single lcli2 $(($B_AMOUNT - $EXTRA_FEE)) $(($B_FEE + $EXTRA_FEE)) $(($A_AMOUNT - $HTLC_AMOUNT*2 - $EXTRA_FEE)) $(($A_FEE + $EXTRA_FEE))
 
 # Once both balances are correct, this should be right.
-lcli1 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , committed : both } ], their_htlcs : [ ]" || lcli1 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , committed : both }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both } ], their_htlcs : [ ]"
+lcli1 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_ACK_REVOCATION }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , state : SENT_ADD_ACK_REVOCATION } ], their_htlcs : [ ]" || lcli1 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , state : SENT_ADD_ACK_REVOCATION }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_ACK_REVOCATION } ], their_htlcs : [ ]"
 
-lcli2 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ ], their_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , committed : both } ]" || lcli2 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ ], their_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , committed : both }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both } ]"
+lcli2 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ ], their_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : RCVD_ADD_ACK_REVOCATION }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , state : RCVD_ADD_ACK_REVOCATION } ]" || lcli2 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ ], their_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , state : RCVD_ADD_ACK_REVOCATION }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : RCVD_ADD_ACK_REVOCATION } ]"
 
 # Node2 collects the HTLCs.
 lcli2 fulfillhtlc $ID1 $SECRET
