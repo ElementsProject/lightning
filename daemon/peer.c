@@ -581,14 +581,13 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 	htlc = htlc_by_index(ci, i);
 	assert(htlc->r);
 
-	wscript = bitcoin_redeem_htlc_recv(peer,
-					   peer->dstate->secpctx,
-					   &peer->local.finalkey,
-					   &peer->remote.finalkey,
-					   &htlc->expiry,
-					   &peer->remote.locktime,
-					   &ci->revocation_hash,
-					   &htlc->rhash);
+	wscript = wscript_for_htlc(peer, peer->dstate->secpctx, htlc,
+				   &peer->local.finalkey,
+				   &peer->remote.finalkey,
+				   &peer->local.locktime,
+				   &peer->remote.locktime,
+				   &ci->revocation_hash,
+				   REMOTE);
 
 	tx->input[0].index = ci->map[i];
 	bitcoin_txid(ci->tx, &tx->input[0].txid);
