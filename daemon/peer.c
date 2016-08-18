@@ -585,7 +585,7 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 				   REMOTE);
 
 	tx->input[0].index = ci->map[i];
-	bitcoin_txid(ci->tx, &tx->input[0].txid);
+	tx->input[0].txid = ci->txid;
 	satoshis = htlc->msatoshis / 1000;
 	tx->input[0].amount = tal_dup(tx->input, u64, &satoshis);
 	tx->input[0].sequence_number = bitcoin_nsequence(&peer->remote.locktime);
@@ -1349,22 +1349,13 @@ static enum watch_result anchor_depthchange(struct peer *peer,
 	return KEEP_WATCHING;
 }
 
-/* Yay, segwit!  We can just compare txids, even though we don't have both
- * signatures. */
-static bool txidmatch(const struct bitcoin_tx *tx,
-		      const struct sha256_double *txid)
-{
-	struct sha256_double tx_txid;
-
-	bitcoin_txid(tx, &tx_txid);
-	return structeq(txid, &tx_txid);
-}
-
 static struct commit_info *find_commit(struct commit_info *ci,
 				       const struct sha256_double *txid)
 {
 	while (ci) {
-		if (txidmatch(ci->tx, txid))
+		/* Yay, segwit!  We can just compare txids, even
+		 * though we don't have both signatures. */
+		if (structeq(txid, &ci->txid))
 			return ci;
 		ci = ci->prev;
 	}
@@ -1426,7 +1417,7 @@ static const struct bitcoin_tx *htlc_timeout_tx(const struct peer *peer,
 	/* We must set locktime so HTLC expiry can OP_CHECKLOCKTIMEVERIFY */
 	tx->lock_time = htlc->expiry.locktime;
 	tx->input[0].index = 0;
-	bitcoin_txid(ci->tx, &tx->input[0].txid);
+	tx->input[0].txid = ci->txid;
 	satoshis = htlc->msatoshis / 1000;
 	tx->input[0].amount = tal_dup(tx->input, u64, &satoshis);
 	tx->input[0].sequence_number = bitcoin_nsequence(&peer->remote.locktime);
@@ -2163,7 +2154,7 @@ static enum watch_result anchor_spent(struct peer *peer,
 			err = pkt_err(peer, "Unilateral close tx seen");
 			resolve_their_unilateral(peer);
 		}
-	} else if (txidmatch(peer->local.commit->tx, &txid)) {
+	} else if (structeq(&peer->local.commit->txid, &txid)) {
 		newstate = STATE_CLOSE_ONCHAIN_OUR_UNILATERAL;
 		/* We're almost certainly closed to them by now. */
 		err = pkt_err(peer, "Our own unilateral close tx seen");
@@ -2425,7 +2416,7 @@ const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 
 	/* Now, create transaction to spend it. */
 	tx = bitcoin_tx(peer, 1, 1);
-	bitcoin_txid(commit, &tx->input[0].txid);
+	tx->input[0].txid = peer->local.commit->txid;
 	p2wsh_out = find_p2wsh_out(commit, witnessscript);
 	tx->input[0].index = p2wsh_out;
 	tx->input[0].sequence_number = bitcoin_nsequence(&peer->remote.locktime);
@@ -2802,14 +2793,14 @@ bool setup_first_commit(struct peer *peer)
 	if (!peer->local.commit->cstate)
 		return false;
 
-    peer->remote.commit->cstate = initial_cstate(peer,
-                             peer->anchor.satoshis,
-                             peer->remote.commit_fee_rate,
-                             peer->local.offer_anchor
-                             == CMD_OPEN_WITH_ANCHOR ?
-                             OURS : THEIRS);
-    if (!peer->remote.commit->cstate)
-        return false;
+	peer->remote.commit->cstate = initial_cstate(peer,
+						     peer->anchor.satoshis,
+						     peer->remote.commit_fee_rate,
+						     peer->local.offer_anchor
+						     == CMD_OPEN_WITH_ANCHOR ?
+						     OURS : THEIRS);
+	if (!peer->remote.commit->cstate)
+		return false;
 
 	peer->local.commit->tx = create_commit_tx(peer->local.commit,
 						  peer,
@@ -2817,6 +2808,7 @@ bool setup_first_commit(struct peer *peer)
 						  peer->local.commit->cstate,
 						  LOCAL,
 						  &peer->local.commit->map);
+	bitcoin_txid(peer->local.commit->tx, &peer->local.commit->txid);
 
 	peer->remote.commit->tx = create_commit_tx(peer->remote.commit,
 						   peer,
@@ -2824,6 +2816,7 @@ bool setup_first_commit(struct peer *peer)
 						   peer->remote.commit->cstate,
 						   REMOTE,
 						   &peer->remote.commit->map);
+	bitcoin_txid(peer->remote.commit->tx, &peer->remote.commit->txid);
 
 	peer->local.staging_cstate = copy_cstate(peer, peer->local.commit->cstate);
 	peer->remote.staging_cstate = copy_cstate(peer, peer->remote.commit->cstate);

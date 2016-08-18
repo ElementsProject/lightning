@@ -315,12 +315,14 @@ void queue_pkt_commit(struct peer *peer)
 	ci->cstate = copy_cstate(ci, peer->remote.staging_cstate);
 	ci->tx = create_commit_tx(ci, peer, &ci->revocation_hash,
 				  ci->cstate, REMOTE, &ci->map);
+	bitcoin_txid(ci->tx, &ci->txid);
 
 	log_debug(peer->log, "Signing tx for %u/%u msatoshis, %zu/%zu htlcs",
 		  ci->cstate->side[OURS].pay_msat,
 		  ci->cstate->side[THEIRS].pay_msat,
 		  tal_count(ci->cstate->side[OURS].htlcs),
 		  tal_count(ci->cstate->side[THEIRS].htlcs));
+	log_add_struct(peer->log, " (txid %s)", struct sha256_double, &ci->txid);
 
 	/* BOLT #2:
 	 *
@@ -819,6 +821,7 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt)
 	ci->cstate = copy_cstate(ci, peer->local.staging_cstate);
 	ci->tx = create_commit_tx(ci, peer, &ci->revocation_hash,
 				  ci->cstate, LOCAL, &ci->map);
+	bitcoin_txid(ci->tx, &ci->txid);
 
 	/* BOLT #2:
 	 *

@@ -62,8 +62,9 @@ struct commit_info {
 	u64 commit_num;
 	/* Revocation hash. */
 	struct sha256 revocation_hash;
-	/* Commit tx. */
+	/* Commit tx & txid */
 	struct bitcoin_tx *tx;
+	struct sha256_double txid;
 	/* Channel state for this tx. */
 	struct channel_state *cstate;
 	/* Other side's signature for last commit tx (if known) */
