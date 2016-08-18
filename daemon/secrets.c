@@ -157,7 +157,6 @@ void peer_secrets_init(struct peer *peer)
 	new_keypair(peer->dstate, &peer->secrets->commit, &peer->local.commitkey);
 	new_keypair(peer->dstate, &peer->secrets->final, &peer->local.finalkey);
 	randombytes_buf(peer->secrets->revocation_seed.u.u8, sizeof(peer->secrets->revocation_seed.u.u8));
-	shachain_init(&peer->their_preimages);
 }
 
 void peer_get_revocation_preimage(const struct peer *peer, u64 index,

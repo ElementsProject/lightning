@@ -1941,26 +1941,19 @@ static bool peer_reconnected(struct peer *peer,
 	return true;
 }
 
-static struct peer *new_peer(struct lightningd_state *dstate,
-			     struct io_conn *conn,
-			     int addr_type, int addr_protocol,
-			     enum state_input offer_anchor,
-			     bool we_connected)
+struct peer *new_peer(struct lightningd_state *dstate,
+		      enum state state,
+		      enum state_input offer_anchor)
 {
 	struct peer *peer = tal(dstate, struct peer);
 
 	assert(offer_anchor == CMD_OPEN_WITH_ANCHOR
 	       || offer_anchor == CMD_OPEN_WITHOUT_ANCHOR);
 
-	/* FIXME: Stop listening if too many peers? */
-	list_add(&dstate->peers, &peer->list);
-
-	peer->state = STATE_INIT;
+	peer->state = state;
 	peer->connected = false;
 	peer->id = NULL;
 	peer->dstate = dstate;
-	peer->addr.type = addr_type;
-	peer->addr.protocol = addr_protocol;
 	peer->io_data = NULL;
 	peer->secrets = NULL;
 	list_head_init(&peer->watches);
@@ -1985,7 +1978,41 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->onchain.wscripts = NULL;
 	peer->commit_timer = NULL;
 	peer->nc = NULL;
+	peer->log = NULL;
 	peer->their_prev_revocation_hash = NULL;
+	peer->conn = NULL;
+	peer->fake_close = false;
+	peer->output_enabled = true;
+	peer->local.offer_anchor = offer_anchor;
+	if (!blocks_to_rel_locktime(dstate->config.locktime_blocks,
+				    &peer->local.locktime))
+		fatal("Could not convert locktime_blocks");
+	peer->local.mindepth = dstate->config.anchor_confirms;
+	peer->local.commit = peer->remote.commit = NULL;
+	peer->local.staging_cstate = peer->remote.staging_cstate = NULL;
+
+	htlc_map_init(&peer->htlcs);
+	shachain_init(&peer->their_preimages);
+
+	list_add(&dstate->peers, &peer->list);
+	tal_add_destructor(peer, destroy_peer);
+	return peer;
+}
+
+static bool peer_first_connected(struct peer *peer,
+				 struct io_conn *conn,
+				 int addr_type, int addr_protocol,
+				 struct io_data *iod,
+				 const struct pubkey *id,
+				 bool we_connected)
+{
+	peer->io_data = tal_steal(peer, iod);
+	peer->id = tal_dup(peer, struct pubkey, id);
+	/* FIXME: Make this dynamic! */
+	peer->local.commit_fee_rate
+		= get_feerate(peer->dstate)
+		* peer->dstate->config.commitment_fee_percent / 100;
+
 	/* Make it different from other node (to catch bugs!), but a
 	 * round number for simple eyeballing. */
 	peer->htlc_id_counter = pseudorand(1ULL << 32) * 1000;
@@ -1993,39 +2020,24 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	/* If we free peer, conn should be closed, but can't be freed
 	 * immediately so don't make peer a parent. */
 	peer->conn = conn;
-	peer->fake_close = false;
-	peer->output_enabled = true;
 	io_set_finish(conn, peer_disconnect, peer);
 	
-	peer->local.offer_anchor = offer_anchor;
-	if (!blocks_to_rel_locktime(dstate->config.locktime_blocks,
-				    &peer->local.locktime))
-		fatal("Could not convert locktime_blocks");
-	peer->local.mindepth = dstate->config.anchor_confirms;
-	/* FIXME: Make this dynamic! */
-	peer->local.commit_fee_rate
-		= get_feerate(peer->dstate)
-		* peer->dstate->config.commitment_fee_percent / 100;
-	peer->local.commit = peer->remote.commit = NULL;
-	peer->local.staging_cstate = peer->remote.staging_cstate = NULL;
-
-	peer->anchor.min_depth = get_block_height(peer->dstate);
-	htlc_map_init(&peer->htlcs);
-	
 	/* FIXME: Attach IO logging for this peer. */
-	tal_add_destructor(peer, destroy_peer);
 
+	peer->addr.type = addr_type;
+	peer->addr.protocol = addr_protocol;
 	peer->addr.addrlen = sizeof(peer->addr.saddr);
 	if (getpeername(io_conn_fd(conn), &peer->addr.saddr.s,
 			&peer->addr.addrlen) != 0) {
-		log_unusual(dstate->base_log,
+		log_unusual(peer->dstate->base_log,
 			    "Could not get address for peer: %s",
 			    strerror(errno));
 		return tal_free(peer);
 	}
+	peer->anchor.min_depth = get_block_height(peer->dstate);
 
-	peer->log = new_log(peer, dstate->log_record, "%s%s:%s:",
-			    log_prefix(dstate->base_log),
+	peer->log = new_log(peer, peer->dstate->log_record, "%s%s:%s:",
+			    log_prefix(peer->dstate->base_log),
 			    we_connected ? "out" : "in",
 			    netaddr_name(peer, &peer->addr));
 
@@ -2063,7 +2075,6 @@ struct htlc *peer_new_htlc(struct peer *peer,
 {
 	struct htlc *h = tal(peer, struct htlc);
 	h->peer = peer;
-	assert(state == SENT_ADD_HTLC || state == RCVD_ADD_HTLC);
 	h->state = state;
 	h->id = id;
 	h->msatoshis = msatoshis;
@@ -2191,9 +2202,9 @@ static struct io_plan *crypto_on_out(struct io_conn *conn,
 				     struct json_connecting *connect)
 {
 	/* Initiator currently funds channel */
-	struct peer *peer = new_peer(dstate, conn, SOCK_STREAM, IPPROTO_TCP,
-				     CMD_OPEN_WITH_ANCHOR, true);
-	if (!peer) {
+	struct peer *peer = new_peer(dstate, STATE_INIT, CMD_OPEN_WITH_ANCHOR);
+	if (!peer_first_connected(peer, conn, SOCK_STREAM, IPPROTO_TCP,
+				  iod, id, true)) {
 		command_fail(connect->cmd, "Failed to make peer for %s:%s",
 			     connect->name, connect->port);
 		return io_close(conn);
@@ -2243,13 +2254,11 @@ static struct io_plan *crypto_on_in(struct io_conn *conn,
 	}
 
 	/* Initiator currently funds channel */
-	peer = new_peer(dstate, conn, SOCK_STREAM, IPPROTO_TCP,
-			CMD_OPEN_WITHOUT_ANCHOR, false);
-	if (!peer)
+	peer = new_peer(dstate, STATE_INIT, CMD_OPEN_WITHOUT_ANCHOR);
+	if (!peer_first_connected(peer, conn, SOCK_STREAM, IPPROTO_TCP,
+				  iod, id, false))
 		return io_close(conn);
 
-	peer->io_data = tal_steal(peer, iod);
-	peer->id = tal_dup(peer, struct pubkey, id);
 	return peer_crypto_on(conn, peer);
 }
 
