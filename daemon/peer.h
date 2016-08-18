@@ -39,8 +39,6 @@ struct their_commit {
 };
 	
 struct commit_info {
-	/* Previous one, if any. */
-	struct commit_info *prev;
 	/* Commit number (0 == from open) */
 	u64 commit_num;
 	/* Revocation hash. */

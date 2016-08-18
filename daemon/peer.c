@@ -765,8 +765,7 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 		return pkt_err(peer, "Empty commit");
 
 	/* Create new commit info for this commit tx. */
-	ci->prev = peer->local.commit;
-	ci->commit_num = ci->prev->commit_num + 1;
+	ci->commit_num = peer->local.commit->commit_num + 1;
 	ci->revocation_hash = peer->local.next_revocation_hash;
 
 	/* BOLT #2:
@@ -795,6 +794,7 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 		return pkt_err(peer, "Bad signature");
 
 	/* Switch to the new commitment. */
+	tal_free(peer->local.commit);
 	peer->local.commit = ci;
 	peer_get_revocation_hash(peer, ci->commit_num + 1,
 				 &peer->local.next_revocation_hash);
@@ -1520,8 +1520,7 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 		fatal("sent commit with no changes");
 
 	/* Create new commit info for this commit tx. */
-	ci->prev = peer->remote.commit;
-	ci->commit_num = ci->prev->commit_num + 1;
+	ci->commit_num = peer->remote.commit->commit_num + 1;
 	ci->revocation_hash = peer->remote.next_revocation_hash;
 	/* BOLT #2:
 	 *
@@ -1546,6 +1545,7 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 	peer_sign_theircommit(peer, ci->tx, &ci->sig->sig);
 
 	/* Switch to the new commitment. */
+	tal_free(peer->remote.commit);
 	peer->remote.commit = ci;
 
 	peer_add_their_commit(peer, &ci->txid, ci->commit_num);
