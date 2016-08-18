@@ -2874,20 +2874,55 @@ static void json_add_pubkey(struct json_result *response,
 	json_add_hex(response, id, der, sizeof(der));
 }
 
+/* Is this side fully committed to this HTLC? */
+static bool htlc_fully_committed(const struct commit_info *ci,
+				 const struct htlc *htlc)
+{
+	/* Must have it in our commitment. */
+	if (!cstate_htlc_by_id(ci->cstate, htlc->id, htlc_channel_side(htlc)))
+		return false;
+
+	/* If it wasn't in previous commitment, that must be revoked. */
+	if (!ci->prev || ci->prev->revocation_preimage)
+		return true;
+
+	if (!cstate_htlc_by_id(ci->prev->cstate, htlc->id,
+			       htlc_channel_side(htlc)))
+		return false;
+
+	return true;
+}
+
 static void json_add_htlcs(struct json_result *response,
 			   const char *id,
-			   const struct channel_oneside *side)
+			   const struct peer *peer,
+			   enum channel_side side)
 {
 	size_t i;
+	struct htlc **htlcs = peer->local.commit->cstate->side[side].htlcs;
 
 	json_array_start(response, id);
-	for (i = 0; i < tal_count(side->htlcs); i++) {
+	for (i = 0; i < tal_count(htlcs); i++) {
+		const char *committed;
+
 		json_object_start(response, NULL);
-		json_add_u64(response, "msatoshis", side->htlcs[i]->msatoshis);
-		json_add_abstime(response, "expiry", &side->htlcs[i]->expiry);
+		json_add_u64(response, "msatoshis", htlcs[i]->msatoshis);
+		json_add_abstime(response, "expiry", &htlcs[i]->expiry);
 		json_add_hex(response, "rhash",
-			     &side->htlcs[i]->rhash,
-			     sizeof(side->htlcs[i]->rhash));
+			     &htlcs[i]->rhash, sizeof(htlcs[i]->rhash));
+		if (htlc_fully_committed(peer->local.commit, htlcs[i])) {
+			if (htlc_fully_committed(peer->remote.commit, htlcs[i]))
+				committed = "both";
+			else
+				committed = "us";
+		} else {
+			if (htlc_fully_committed(peer->remote.commit, htlcs[i]))
+				committed = "them";
+			else
+				/* Weird, shouldn't happen. */
+				committed = "none";
+		}
+		json_add_string(response, "committed", committed);
 		json_object_end(response);
 	}
 	json_array_end(response);
@@ -2929,8 +2964,8 @@ static void json_getpeers(struct command *cmd,
 		json_add_num(response, "our_fee", last->side[OURS].fee_msat);
 		json_add_num(response, "their_amount", last->side[THEIRS].pay_msat);
 		json_add_num(response, "their_fee", last->side[THEIRS].fee_msat);
-		json_add_htlcs(response, "our_htlcs", &last->side[OURS]);
-		json_add_htlcs(response, "their_htlcs", &last->side[THEIRS]);
+		json_add_htlcs(response, "our_htlcs", p, OURS);
+		json_add_htlcs(response, "their_htlcs", p, THEIRS);
 
 		/* Any changes since then? */
 		if (p->local.staging_cstate->changes != last->changes)
@@ -3050,8 +3085,15 @@ const struct json_command newhtlc_command = {
 static struct htlc *find_their_committed_htlc(struct peer *peer,
 					      const struct sha256 *rhash)
 {
+	struct htlc *htlc;
+
 	/* Must be in last committed cstate. */
-	if (!cstate_find_htlc(peer->remote.commit->cstate, rhash, THEIRS))
+	htlc = cstate_find_htlc(peer->remote.commit->cstate, rhash, THEIRS);
+	if (!htlc)
+		return NULL;
+
+	/* Dangerous to fulfill unless the remote side is obliged to honor it. */
+	if (!htlc_fully_committed(peer->remote.commit, htlc))
 		return NULL;
 
 	return cstate_find_htlc(peer->remote.staging_cstate, rhash, THEIRS);
