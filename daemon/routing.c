@@ -40,6 +40,15 @@ struct node *get_node(struct lightningd_state *dstate,
 	return node_map_get(dstate->nodes, &id->pubkey);
 }
 
+static void destroy_node(struct node *node)
+{
+	/* These remove themselves from the array. */
+	while (tal_count(node->in))
+		tal_free(node->in[0]);
+	while (tal_count(node->out))
+		tal_free(node->out[0]);
+}
+
 struct node *new_node(struct lightningd_state *dstate,
 		      const struct pubkey *id)
 {
@@ -49,26 +58,63 @@ struct node *new_node(struct lightningd_state *dstate,
 
 	n = tal(dstate, struct node);
 	n->id = *id;
-	n->conns = tal_arr(n, struct node_connection, 0);
+	n->in = tal_arr(n, struct node_connection *, 0);
+	n->out = tal_arr(n, struct node_connection *, 0);
 	node_map_add(dstate->nodes, n);
+	tal_add_destructor(n, destroy_node);
 
 	return n;
 }
 
+static bool remove_conn_from_array(struct node_connection ***conns,
+				   struct node_connection *nc)
+{
+	size_t i, n;
+
+	n = tal_count(*conns);
+	for (i = 0; i < n; i++) {
+		if ((*conns)[i] != nc)
+			continue;
+		n--;
+		memmove(*conns + i, *conns + i + 1, sizeof(**conns) * (n - i));
+		tal_resize(conns, n);
+		return true;
+	}
+	return false;
+}
+
+static void destroy_connection(struct node_connection *nc)
+{
+	if (!remove_conn_from_array(&nc->dst->in, nc)
+	    || !remove_conn_from_array(&nc->src->out, nc))
+		fatal("Connection not found in array?!");
+}
+
 static struct node_connection *
 get_or_make_connection(struct lightningd_state *dstate,
-		       struct node *from, struct node *to)
+		       const struct pubkey *from_id,
+		       const struct pubkey *to_id)
 {
-	size_t i, n = tal_count(to->conns);
+	size_t i, n;
+	struct node *from, *to;
+	struct node_connection *nc;
 
+	from = get_node(dstate, from_id);
+	if (!from)
+		from = new_node(dstate, from_id);
+	to = get_node(dstate, to_id);
+	if (!to)
+		to = new_node(dstate, to_id);
+
+	n = tal_count(to->in);
 	for (i = 0; i < n; i++) {
-		if (to->conns[i].src == from) {
+		if (to->in[i]->src == from) {
 			log_debug_struct(dstate->base_log,
 					 "Updating existing route from %s",
 					 struct pubkey, &from->id);
 			log_add_struct(dstate->base_log, " to %s",
 				       struct pubkey, &to->id);
-			return &to->conns[i];
+			return to->in[i];
 		}
 	}
 
@@ -76,15 +122,26 @@ get_or_make_connection(struct lightningd_state *dstate,
 			 struct pubkey, &from->id);
 	log_add_struct(dstate->base_log, " to %s", struct pubkey, &to->id);
 
-	tal_resize(&to->conns, i+1);
-	to->conns[i].src = from;
-	to->conns[i].dst = to;
-	return &to->conns[i];
+	nc = tal(dstate, struct node_connection);
+	nc->src = from;
+	nc->dst = to;
+
+	/* Hook it into in/out arrays. */
+	i = tal_count(to->in);
+	tal_resize(&to->in, i+1);
+	to->in[i] = nc;
+	i = tal_count(from->out);
+	tal_resize(&from->out, i+1);
+	from->out[i] = nc;
+
+	tal_add_destructor(nc, destroy_connection);
+	return nc;
 }
 
 /* Updates existing route if required. */
 struct node_connection *add_connection(struct lightningd_state *dstate,
-				       struct node *from, struct node *to,
+				       const struct pubkey *from,
+				       const struct pubkey *to,
 				       u32 base_fee, s32 proportional_fee,
 				       u32 delay, u32 min_blocks)
 {
@@ -126,7 +183,7 @@ s64 connection_fee(const struct node_connection *c, u64 msatoshi)
  * on the current amount passing through. */
 static void bfg_one_edge(struct node *node, size_t edgenum)
 {
-	struct node_connection *c = &node->conns[edgenum];
+	struct node_connection *c = node->in[edgenum];
 	size_t h;
 
 	assert(c->dst == node);
@@ -173,7 +230,7 @@ struct peer *find_route(struct lightningd_state *dstate,
 		for (n = node_map_first(dstate->nodes, &it);
 		     n;
 		     n = node_map_next(dstate->nodes, &it)) {
-			size_t num_edges = tal_count(n->conns);
+			size_t num_edges = tal_count(n->in);
 			for (i = 0; i < num_edges; i++) {
 				bfg_one_edge(n, i);
 			}
@@ -239,7 +296,6 @@ static void json_add_route(struct command *cmd,
 {
 	jsmntok_t *srctok, *dsttok, *basetok, *vartok, *delaytok, *minblockstok;
 	struct pubkey src, dst;
-	struct node *from, *to;
 	u32 base, var, delay, minblocks;
 
 	if (!json_get_params(buffer, params,
@@ -281,14 +337,7 @@ static void json_add_route(struct command *cmd,
 		return;
 	}
 
-	from = get_node(cmd->dstate, &src);
-	if (!from)
-		from = new_node(cmd->dstate, &src);
-	to = get_node(cmd->dstate, &dst);
-	if (!to)
-		to = new_node(cmd->dstate, &dst);
-
-	add_connection(cmd->dstate, from, to, base, var, delay, minblocks);
+	add_connection(cmd->dstate, &src, &dst, base, var, delay, minblocks);
 	command_success(cmd, null_response(cmd));
 }
 	

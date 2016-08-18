@@ -20,8 +20,8 @@ struct node_connection {
 
 struct node {
 	struct pubkey id;
-	/* Routes connecting to us. */
-	struct node_connection *conns;
+	/* Routes connecting to us, from us. */
+	struct node_connection **in, **out;
 
 	/* Temporary data for routefinding. */
 	struct {
@@ -46,7 +46,8 @@ s64 connection_fee(const struct node_connection *c, u64 msatoshi);
 
 /* Updates existing connection, or creates new one as required. */
 struct node_connection *add_connection(struct lightningd_state *dstate,
-				       struct node *from, struct node *to,
+				       const struct pubkey *from,
+				       const struct pubkey *to,
 				       u32 base_fee, s32 proportional_fee,
 				       u32 delay, u32 min_blocks);
 

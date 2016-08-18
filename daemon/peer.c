@@ -254,15 +254,11 @@ void peer_open_complete(struct peer *peer, const char *problem)
 		log_unusual(peer->log, "peer open failed: %s", problem);
 	else {
 		struct lightningd_state *dstate = peer->dstate;
-		struct node *n;
 
 		log_debug(peer->log, "peer open complete");
 		assert(!peer->nc);
-		n = get_node(dstate, peer->id);
-		if (!n)
-			n = new_node(dstate, peer->id);
 		peer->nc = add_connection(dstate,
-					  get_node(dstate, &dstate->id), n,
+					  &dstate->id, peer->id,
 					  dstate->config.fee_base,
 					  dstate->config.fee_per_satoshi,
 					  dstate->config.min_htlc_expiry,
