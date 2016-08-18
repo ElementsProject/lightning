@@ -91,9 +91,6 @@ struct peer {
 	/* Network connection. */
 	struct io_conn *conn;
 
-	/* Did we connect to it? (Otherwise, they connected to us) */
-	bool we_connected;
-
 	/* Are we connected now? (Crypto handshake completed). */
 	bool connected;
 	

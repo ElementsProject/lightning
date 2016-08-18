@@ -1769,12 +1769,8 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 
 	/* This is an unexpected close. */
 	if (state_can_io(peer->state)) {
-		clear_output_queue(peer);
 		forget_uncommitted_changes(peer);
-		/* FIXME: We could try connecting back to them even if
-		 * they initiated the original? */
-		if (peer->we_connected)
-			try_reconnect(peer);
+		try_reconnect(peer);
 	}
 }
 
@@ -1904,7 +1900,8 @@ static bool peer_reconnected(struct peer *peer,
 			     struct io_conn *conn,
 			     int addr_type, int addr_protocol,
 			     struct io_data *iod,
-			     const struct pubkey *id)
+			     const struct pubkey *id,
+			     bool we_connected)
 {
 	char *prefix;
 
@@ -1922,7 +1919,7 @@ static bool peer_reconnected(struct peer *peer,
 
 	prefix = tal_fmt(peer, "%s%s:%s:",
 			 log_prefix(peer->dstate->base_log),
-			 peer->we_connected ? "out" : "in",
+			 we_connected ? "out" : "in",
 			 netaddr_name(peer, &peer->addr));
 	if (peer->log) {
 		log_info(peer->log, "Reconnected as %s", prefix);
@@ -1951,7 +1948,6 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	list_add(&dstate->peers, &peer->list);
 
 	peer->state = STATE_INIT;
-	peer->we_connected = we_connected;
 	peer->connected = false;
 	peer->id = NULL;
 	peer->dstate = dstate;
@@ -2093,6 +2089,9 @@ static struct io_plan *reconnect_pkt_in(struct io_conn *conn, struct peer *peer)
 		return pkt_out(conn, peer);
 	}
 
+	/* Queue prompted us to reconnect, but we need to eliminate it now. */
+	clear_output_queue(peer);
+
 	/* Send any packets they missed. */
 	retransmit_pkts(peer, peer->inpkt->reconnect->ack);
 
@@ -2122,13 +2121,14 @@ static struct io_plan *crypto_on_reconnect(struct io_conn *conn,
 					   struct lightningd_state *dstate,
 					   struct io_data *iod,
 					   const struct pubkey *id,
-					   struct peer *peer)
+					   struct peer *peer,
+					   bool we_connected)
 {
 	u64 sigs, revokes, shutdown, closing;
 
 	/* Setup peer->conn and peer->io_data */
 	if (!peer_reconnected(peer, conn, peer->addr.type,
-			      peer->addr.protocol, iod, id))
+			      peer->addr.protocol, iod, id, we_connected))
 		return io_close(conn);
 
 	sigs = peer_commitsigs_received(peer);
@@ -2155,6 +2155,24 @@ static struct io_plan *crypto_on_reconnect(struct io_conn *conn,
 				 pkt_reconnect(peer, sigs + revokes
 					       + shutdown + closing),
 				 read_reconnect_pkt);
+}
+
+static struct io_plan *crypto_on_reconnect_in(struct io_conn *conn,
+					      struct lightningd_state *dstate,
+					      struct io_data *iod,
+					      const struct pubkey *id,
+					      struct peer *peer)
+{
+	return crypto_on_reconnect(conn, dstate, iod, id, peer, false);
+}
+
+static struct io_plan *crypto_on_reconnect_out(struct io_conn *conn,
+					       struct lightningd_state *dstate,
+					       struct io_data *iod,
+					       const struct pubkey *id,
+					       struct peer *peer)
+{
+	return crypto_on_reconnect(conn, dstate, iod, id, peer, true);
 }
 
 static struct io_plan *crypto_on_out(struct io_conn *conn,
@@ -2212,7 +2230,7 @@ static struct io_plan *crypto_on_in(struct io_conn *conn,
 			peer->conn = NULL;
 			peer->connected = false;
 		}
-		return crypto_on_reconnect(conn, dstate, iod, id, peer);
+		return crypto_on_reconnect_in(conn, dstate, iod, id, peer);
 	}
 
 	/* Initiator currently funds channel */
@@ -3548,20 +3566,36 @@ bool setup_first_commit(struct peer *peer)
 
 static struct io_plan *peer_reconnect(struct io_conn *conn, struct peer *peer)
 {
+	/* In case they reconnected to us already. */
+	if (peer->conn)
+		return io_close(conn);
+
 	/* FIXME: log incoming address. */
 	log_debug(peer->log, "Reconnected, doing crypto...");
+	peer->conn = conn;
+	assert(!peer->connected);
 
 	assert(peer->id);
 	return peer_crypto_setup(conn, peer->dstate,
-				 peer->id, crypto_on_reconnect, peer);
+				 peer->id, crypto_on_reconnect_out, peer);
 }
 
-/* FIXME: Do timeouts and backoff */
+/* Only retry when we want to send something. */ 
 static void reconnect_failed(struct io_conn *conn, struct peer *peer)
 {
-	log_broken(peer->log, "reconnecting gave %s", strerror(errno));
-	set_peer_state(peer, STATE_ERR_BREAKDOWN, "try_reconnect");
-	peer_breakdown(peer);
+	/* Already otherwise connected (ie. they connected in)? */
+	if (peer->conn) {
+		log_debug(peer->log, "reconnect_failed: already connected");
+		return;
+	}
+
+	if (!tal_count(peer->outpkt)) {
+		log_debug(peer->log, "reconnect_failed: nothing to send");
+		return;
+	}
+
+	log_debug(peer->log, "Have packets to send, setting timer");
+	new_reltimer(peer->dstate, peer, time_from_sec(60), try_reconnect, peer);
 }
 
 static struct io_plan *init_conn(struct io_conn *conn, struct peer *peer)
@@ -3574,29 +3608,29 @@ static struct io_plan *init_conn(struct io_conn *conn, struct peer *peer)
 
 static void try_reconnect(struct peer *peer)
 {
+	struct io_conn *conn;
 	int fd = socket(peer->addr.saddr.s.sa_family, peer->addr.type,
 			peer->addr.protocol);
 	if (fd < 0) {
-		log_broken(peer->log, "try_reconnect: failed to create socket: %s",
+		log_broken(peer->log, "do_reconnect: failed to create socket: %s",
 			   strerror(errno));
-		reconnect_failed(NULL, peer);
+		set_peer_state(peer, STATE_ERR_BREAKDOWN, "do_reconnect");
+		peer_breakdown(peer);
 		return;
 	}
 
 	assert(!peer->conn);
-	peer->conn = io_new_conn(peer->dstate, fd, init_conn, peer);
+	conn = io_new_conn(peer->dstate, fd, init_conn, peer);
 	log_debug(peer->log, "Trying to reconnect..."); 
-	io_set_finish(peer->conn, reconnect_failed, peer);
+	io_set_finish(conn, reconnect_failed, peer);
 }
 
 void reconnect_peers(struct lightningd_state *dstate)
 {
 	struct peer *peer;
 
-	list_for_each(&dstate->peers, peer, list) {
-		if (peer->we_connected)
-			try_reconnect(peer);
-	}
+	list_for_each(&dstate->peers, peer, list)
+		try_reconnect(peer);
 }
 
 static void json_add_abstime(struct json_result *response,
