@@ -1,6 +1,7 @@
 /* Simple simulator for protocol. */
 #include "config.h"
 #include <assert.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/short_types/short_types.h>
@@ -38,13 +39,6 @@ struct commit_info {
 	struct commit_info *prev;
 	/* How deep we are */
 	unsigned int number;
-	/* Commit_Tx before changes. */
-	const struct commit_tx *commit_tx;
-	/* Pending changes (already applied to commit_tx_next) */
-	int *unacked_changeset;
-	bool have_acked_changes;
-	/* Cache of commit_tx with changes applied. */
-	struct commit_tx commit_tx_next;
 	/* Have sent/received revocation secret. */
 	bool revoked;
 	/* Have their signature, ie. can be broadcast */
@@ -56,17 +50,117 @@ struct signature {
 	struct commit_tx f;
 };
 
-struct peer {
-	int infd, outfd, cmdfd, cmddonefd;
+/* What are we doing: adding or removing? */
+#define ADDING				0x1000
+#define REMOVING			0x2000
 
-	struct commit_tx initial_commit_tx;
+#define PENDING				0x001 /* Change is pending. */
+#define COMMITTED			0x002 /* HTLC is in commit_tx */
+#define REVOKED				0x004 /* Old pre-change tx revoked */
+#define OWNER				0x020 /* This side owns it */
 
-	/* For drawing svg */
-	char *text;
-	char *io;
+#define OURS				LOCAL(OWNER)
+#define THEIRS				REMOTE(OWNER)
 
-	/* Last one is the one we're changing. */
-	struct commit_info *local, *remote;
+#define LOCAL_				0
+#define REMOTE_				6
+#define SIDE(flag,local_or_remote)	((flag) << local_or_remote)
+#define OTHER_SIDE(flag,local_or_remote)	((flag) << (6 - local_or_remote))
+#define LOCAL(flag)			SIDE(flag, LOCAL_)
+#define REMOTE(flag)			SIDE(flag, REMOTE_)
+
+enum htlc_state {
+	NONEXISTENT = 0,
+
+	/* When we add a new htlc, it goes in this order. */
+	SENT_ADD_HTLC = ADDING + OURS + REMOTE(PENDING),
+	SENT_ADD_COMMIT = SENT_ADD_HTLC - REMOTE(PENDING) + REMOTE(COMMITTED),
+	RECV_ADD_REVOCATION = SENT_ADD_COMMIT + REMOTE(REVOKED),
+	RECV_ADD_ACK_COMMIT = RECV_ADD_REVOCATION + LOCAL(COMMITTED),
+	SENT_ADD_ACK_REVOCATION = RECV_ADD_ACK_COMMIT + LOCAL(REVOKED) - ADDING,
+
+	/* When they remove an htlc, it goes from SENT_ADD_ACK_REVOCATION: */
+	RECV_REMOVE_HTLC = REMOVING + OURS + LOCAL(PENDING)
+				+ LOCAL(COMMITTED) + REMOTE(COMMITTED),
+	RECV_REMOVE_COMMIT = RECV_REMOVE_HTLC - LOCAL(PENDING) - LOCAL(COMMITTED),
+	SENT_REMOVE_REVOCATION = RECV_REMOVE_COMMIT + LOCAL(REVOKED),
+	SENT_REMOVE_ACK_COMMIT = SENT_REMOVE_REVOCATION - REMOTE(COMMITTED),
+	RECV_REMOVE_ACK_REVOCATION = SENT_REMOVE_ACK_COMMIT - REMOVING + REMOTE(REVOKED),
+
+	/* When they add a new htlc, it goes in this order. */
+	RECV_ADD_HTLC = ADDING + THEIRS + LOCAL(PENDING),
+	RECV_ADD_COMMIT = RECV_ADD_HTLC - LOCAL(PENDING) + LOCAL(COMMITTED),
+	SENT_ADD_REVOCATION = RECV_ADD_COMMIT + LOCAL(REVOKED),
+	SENT_ADD_ACK_COMMIT = SENT_ADD_REVOCATION + REMOTE(COMMITTED),
+	RECV_ADD_ACK_REVOCATION = SENT_ADD_ACK_COMMIT + REMOTE(REVOKED),
+
+	/* When we remove an htlc, it goes from RECV_ADD_ACK_REVOCATION: */
+	SENT_REMOVE_HTLC = REMOVING + THEIRS + REMOTE(PENDING)
+				+ LOCAL(COMMITTED) + REMOTE(COMMITTED),
+	SENT_REMOVE_COMMIT = SENT_REMOVE_HTLC - REMOTE(PENDING) - REMOTE(COMMITTED),
+	RECV_REMOVE_REVOCATION = SENT_REMOVE_COMMIT + REMOTE(REVOKED),
+	RECV_REMOVE_ACK_COMMIT = RECV_REMOVE_REVOCATION - LOCAL(COMMITTED),
+	SENT_REMOVE_ACK_REVOCATION = RECV_REMOVE_ACK_COMMIT + LOCAL(REVOKED) - REMOVING
+};
+
+static const char *htlc_statename(enum htlc_state state)
+{
+	switch (state) {
+	case NONEXISTENT: return "NONEXISTENT";
+	case SENT_ADD_HTLC: return "SENT_ADD_HTLC";
+	case SENT_ADD_COMMIT: return "SENT_ADD_COMMIT";
+	case RECV_ADD_REVOCATION: return "RECV_ADD_REVOCATION";
+	case RECV_ADD_ACK_COMMIT: return "RECV_ADD_ACK_COMMIT";
+	case SENT_ADD_ACK_REVOCATION: return "SENT_ADD_ACK_REVOCATION";
+	case RECV_REMOVE_HTLC: return "RECV_REMOVE_HTLC";
+	case RECV_REMOVE_COMMIT: return "RECV_REMOVE_COMMIT";
+	case SENT_REMOVE_REVOCATION: return "SENT_REMOVE_REVOCATION";
+	case SENT_REMOVE_ACK_COMMIT: return "SENT_REMOVE_ACK_COMMIT";
+	case RECV_REMOVE_ACK_REVOCATION: return "RECV_REMOVE_ACK_REVOCATION";
+	case RECV_ADD_HTLC: return "RECV_ADD_HTLC";
+	case RECV_ADD_COMMIT: return "RECV_ADD_COMMIT";
+	case SENT_ADD_REVOCATION: return "SENT_ADD_REVOCATION";
+	case SENT_ADD_ACK_COMMIT: return "SENT_ADD_ACK_COMMIT";
+	case RECV_ADD_ACK_REVOCATION: return "RECV_ADD_ACK_REVOCATION";
+	case SENT_REMOVE_HTLC: return "SENT_REMOVE_HTLC";
+	case SENT_REMOVE_COMMIT: return "SENT_REMOVE_COMMIT";
+	case RECV_REMOVE_REVOCATION: return "RECV_REMOVE_REVOCATION";
+	case RECV_REMOVE_ACK_COMMIT: return "RECV_REMOVE_ACK_COMMIT";
+	case SENT_REMOVE_ACK_REVOCATION: return "SENT_REMOVE_ACK_REVOCATION";
+	}
+	return tal_fmt(NULL, "UNKNOWN STATE %i", state);
+}
+
+static const char *htlc_stateflags(const tal_t *ctx, enum htlc_state state)
+{
+	char *flags = tal_strdup(ctx, "");
+#define ADD_STATE(flags, flag)					\
+	if (state & flag)						\
+		tal_append_fmt(&flags, #flag ",");
+
+	ADD_STATE(flags, ADDING);
+	ADD_STATE(flags, REMOVING);
+	ADD_STATE(flags, OURS);
+	ADD_STATE(flags, THEIRS);
+
+	ADD_STATE(flags, LOCAL(PENDING));
+	ADD_STATE(flags, LOCAL(COMMITTED));
+	ADD_STATE(flags, LOCAL(REVOKED));
+
+	ADD_STATE(flags, REMOTE(PENDING));
+	ADD_STATE(flags, REMOTE(COMMITTED));
+	ADD_STATE(flags, REMOTE(REVOKED));
+
+	if (strends(flags, ","))
+		flags[strlen(flags)-1] = '\0';
+
+	return flags;
+}
+
+struct htlc {
+	enum htlc_state state;
+	/* 0 means this is actually a new fee, not a HTLC. */
+	unsigned int id;
 };
 
 static u32 htlc_mask(unsigned int htlc)
@@ -78,182 +172,131 @@ static u32 htlc_mask(unsigned int htlc)
 	return (1U << (htlc-1));
 }
 
-static bool have_htlc(u32 htlcs, unsigned int htlc)
+/* Make commit tx for local/remote */
+static struct commit_tx make_commit_tx(struct htlc **htlcs, int local_or_remote)
 {
-	return htlcs & htlc_mask(htlc);
-}
+	size_t i, n = tal_count(htlcs);
+	int committed_flag = SIDE(COMMITTED, local_or_remote);
+	struct commit_tx tx = { 0, 0, 0 };
 
-static void PRINTF_FMT(2,3) add_text(struct peer *peer, const char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	tal_append_vfmt(&peer->text, fmt, ap);
-	va_end(ap);
-}
-
-/* Each side can add their own incoming HTLC, or close your outgoing HTLC. */
-static bool do_change(struct peer *peer, const char *what,
-		      u32 *add, u32 *remove, u32 *fees, int htlc)
-{
-	/* We ignore fee changes from them: they only count when reflected
-	 * back to us via revocation. */
-	if (htlc == 0) {
-		if (fees) {
-			if (what)
-				add_text(peer, " FEE");
-			(*fees)++;
-		} else {
-			if (what)
-				add_text(peer, " (ignoring FEE)");
-		}
-	} else if (htlc < 0) {
-		if (!have_htlc(*remove, -htlc))
-			return false;
-		*remove &= ~htlc_mask(-htlc);
-		if (what)
-			add_text(peer, " -%u", -htlc);
-	} else {
-		if (have_htlc(*add, htlc))
-			return false;
-		*add |= htlc_mask(htlc);
-		if (what)
-			add_text(peer, " +%u", htlc);
-	}
-	return true;
-}
-
-static void add_change_internal(struct peer *peer, int **changes, int c)
-{
-	size_t i, n = tal_count(*changes);
-
-	/* You can have as many fee changes as you like */
-	if (c == 0)
-		goto add;
-
-	/* Can't request add/remove twice. */
-	for (i = 0; i < n; i++)
-		if ((*changes)[i] == c)
-			errx(1, "Already requestd htlc %+i", c);
-
-add:
-	if (c)
-		add_text(peer, "%+i", c);
-	else
-		add_text(peer, "FEE");
-	tal_resize(changes, n+1);
-	(*changes)[n] = c;
-}
-
-/* BOLT #2:
- *
- * The node sending `update_revocation` MUST add the local unacked
- * changes to the set of remote acked changes.
- *
- * The receiver... MUST add the remote unacked changes to the set of
- * local acked changes.
- */
-static bool add_unacked_changes(struct peer *peer,
-				struct commit_info *ci, int *changes,
-				const char *what)
-{
-	size_t i, n = tal_count(changes);
-
-	if (n)
-		add_text(peer, "%s acked:", what);
-
-	/* BOLT #2:
-	 *
-	 * Note that an implementation MAY optimize this internally,
-	 * for example, pre-applying the changesets in some cases
-	 */
 	for (i = 0; i < n; i++) {
-		if (!do_change(peer, what, &ci->commit_tx_next.outhtlcs,
-			       &ci->commit_tx_next.inhtlcs,
-			       &ci->commit_tx_next.fee,
-			       changes[i]))
-			return false;
-		ci->have_acked_changes = true;
+		if (!(htlcs[i]->state & committed_flag))
+			continue;
+
+		if (!(htlcs[i]->state & SIDE(OWNER, local_or_remote))) {
+			/* We don't apply fee changes to each other. */
+			if (htlcs[i]->id)
+				tx.outhtlcs |= htlc_mask(htlcs[i]->id);
+		} else {
+			if (!htlcs[i]->id)
+				tx.fee++;
+			else
+				tx.inhtlcs |= htlc_mask(htlcs[i]->id);
+		}
 	}
-	return true;
+
+	return tx;
 }
 
-/*
- * Normally, we add incoming changes.
- */
-/* BOLT #2:
- *
- * A sending node MUST apply all remote acked and unacked changes
- * except unacked fee changes to the remote commitment before
- * generating `sig`. ... A receiving node MUST apply all local acked
- * and unacked changes except unacked fee changes to the local
- * commitment
- */
-static bool add_incoming_change(struct peer *peer,
-				struct commit_info *ci, int c, const char *who)
+struct peer {
+	int infd, outfd, cmdfd, cmddonefd;
+
+	/* For drawing svg */
+	char *text;
+	char *io;
+
+	/* All htlcs. */
+	struct htlc **htlcs;
+	
+	/* Last one is the one we're changing. */
+	struct commit_info *local, *remote;
+};
+
+static struct htlc *find_htlc(struct peer *peer, unsigned int htlc_id, int side)
 {
-	/* BOLT #2:
-	 *
-	 * Note that an implementation MAY optimize this internally,
-	 * for example, pre-applying the changesets in some cases
-	 */
-	if (!do_change(NULL, NULL,
-		       &ci->commit_tx_next.inhtlcs, &ci->commit_tx_next.outhtlcs,
-		       NULL, c))
-		return false;
+	size_t i, n = tal_count(peer->htlcs);
 
-	add_text(peer, "%s unacked: ", who);
-	add_change_internal(peer, &ci->unacked_changeset, c);
-	return true;
+	for (i = 0; i < n; i++) {
+		if ((peer->htlcs[i]->state & side)
+		    && peer->htlcs[i]->id == htlc_id)
+			return peer->htlcs[i];
+	}
+	return NULL;
+}
+	
+static struct htlc *new_htlc(struct peer *peer, unsigned int htlc_id, int side)
+{
+	size_t n = tal_count(peer->htlcs);
+
+	/* Fee changes don't have to be unique. */
+	if (htlc_id && find_htlc(peer, htlc_id, side))
+		errx(1, "%s duplicate new htlc %u",
+		     side == OURS ? "Our" : "Their", htlc_id);
+	tal_resize(&peer->htlcs, n+1);
+	peer->htlcs[n] = tal(peer, struct htlc);
+	peer->htlcs[n]->state = NONEXISTENT;
+	peer->htlcs[n]->id = htlc_id;
+
+	return peer->htlcs[n];
 }
 
+static void htlc_changestate(struct htlc *htlc,
+			     enum htlc_state old,
+			     enum htlc_state new)
+{
+	if (htlc->state != old)
+		errx(1, "htlc was in state %s not %s",
+		     htlc_statename(htlc->state), htlc_statename(old));
+	htlc->state = new;
+}
+
+struct state_table {
+	enum htlc_state from, to;
+};
+
+static bool change_htlcs_(struct peer *peer,
+			  const struct state_table *table,
+			  size_t n_table)
+{
+	size_t i, n = tal_count(peer->htlcs);
+	bool changed = false;
+
+	for (i = 0; i < n; i++) {
+		size_t t;
+		for (t = 0; t < n_table; t++) {
+			if (peer->htlcs[i]->state == table[t].from) {
+				htlc_changestate(peer->htlcs[i],
+						 table[t].from, table[t].to);
+				changed = true;
+				break;
+			}
+		}
+	}
+	return changed;
+}
+
+#define change_htlcs(peer, table)				\
+	change_htlcs_((peer), (table), ARRAY_SIZE(table))
+	
 static struct commit_info *new_commit_info(const struct peer *peer,
 					   struct commit_info *prev)
 {
-	struct commit_info *ci = talz(peer, struct commit_info);
+	struct commit_info *ci = tal(peer, struct commit_info);
+
 	ci->prev = prev;
-	ci->unacked_changeset = tal_arr(ci, int, 0);
-	ci->have_acked_changes = false;
-	if (prev) {
+	ci->revoked = false;
+	ci->counterparty_signed = false;
+	if (prev)
 		ci->number = prev->number + 1;
-		ci->commit_tx = &prev->commit_tx_next;
-		ci->commit_tx_next = prev->commit_tx_next;
-	} else
-		ci->commit_tx = &peer->initial_commit_tx;
+	else
+		ci->number = 0;
 	return ci;
 }
 
-/* We duplicate the commit info, with the changes applied. */
-static struct commit_info *apply_changes(struct peer *peer,
-					 struct commit_info *old,
-					 const char *who)
-{
-	struct commit_info *next = new_commit_info(peer, old);
-	size_t i;
-
-	add_text(peer, "%s:[", who);
-	if (old->commit_tx_next.inhtlcs)
-		add_text(peer, "in");
-	for (i = 1; i <= 32; i++)
-		if (have_htlc(old->commit_tx_next.inhtlcs, i))
-			add_text(peer, " %zu", i);
-	if (old->commit_tx_next.outhtlcs)
-		add_text(peer, "%sout",
-			 old->commit_tx_next.inhtlcs ? ", " : "");
-	for (i = 1; i <= 32; i++)
-		if (have_htlc(old->commit_tx_next.outhtlcs, i))
-			add_text(peer, " %zu", i);
-	if (old->commit_tx_next.fee)
-		add_text(peer, " fee %u", old->commit_tx_next.fee);
-	add_text(peer, "]");
-
-	return next;
-}
-
-static struct signature commit_sig(const struct commit_info *ci)
+static struct signature commit_sig(const struct commit_tx *commit_tx)
 {
 	struct signature sig;
-	sig.f = *ci->commit_tx;
+	sig.f = *commit_tx;
 	return sig;
 }
 
@@ -263,67 +306,84 @@ static void write_out(int fd, const void *p, size_t len)
 		err(1, "Writing to peer");
 }
 
-static void dump_htlcs(u32 htlcs)
+static void dump_htlcs(struct htlc **htlcs,
+		       const char *prefix,
+		       bool verbose,
+		       int flags_inc, int flags_exc)
 {
-	unsigned int i;
+	size_t i, n = tal_count(htlcs);
+	char *ctx = tal(htlcs, char);
+	bool printed = false;
 
-	for (i = 1; i <= 32; i++)
-		if (have_htlc(htlcs, i))
-			printf(" %u", i);
-}
-
-static void dump_commit_info(const struct commit_info *ci)
-{
-	size_t i, n;
-
-	printf(" Commit %u:", ci->number);
-	printf("\n  Offered htlcs:");
-	dump_htlcs(ci->commit_tx->outhtlcs);
-	printf("\n  Received htlcs:");
-	dump_htlcs(ci->commit_tx->inhtlcs);
-
-	/* Don't clutter output if fee level untouched. */
-	if (ci->commit_tx->fee)
-		printf("\n  Fee level %u", ci->commit_tx->fee);
-
-	n = tal_count(ci->unacked_changeset);
-	if (n > 0) {
-		printf("\n  Pending unacked:");
-		for (i = 0; i < n; i++) {
-			if (ci->unacked_changeset[i] == 0)
-				printf(" FEE");
-			else
-				printf(" %+i", ci->unacked_changeset[i]);
+	for (i = 0; i < n; i++) {
+		if ((htlcs[i]->state & flags_inc) != flags_inc)
+			continue;
+		if (htlcs[i]->state & flags_exc)
+			continue;
+		if (!htlcs[i]->id && !verbose)
+			continue;
+		if (!printed) {
+			printf("%s", prefix);
+			printed = true;
+		}
+		if (!htlcs[i]->id)
+			printf(" FEE");
+		else
+			printf(" %u", htlcs[i]->id);
+		if (verbose) {
+			printf(" (%s - %s)",
+			       htlc_statename(htlcs[i]->state),
+			       htlc_stateflags(ctx, htlcs[i]->state));
 		}
 	}
-
-	if (ci->have_acked_changes) {
-		printf("\n  Pending acked");
-	}
-
-	if (ci->counterparty_signed)
-		printf("\n  SIGNED");
-	if (ci->revoked)
-		printf("\n  REVOKED");
-	printf("\n");
-	fflush(stdout);
+	if (printed)
+		printf("\n");
+	tal_free(ctx);
 }
 
-static void dump_rev(const struct commit_info *ci, bool all)
+static void dump_commit_info(const struct peer *peer,
+			     const struct commit_info *ci,
+			     int local_or_remote)
 {
-	if (ci->prev)
-		dump_rev(ci->prev, all);
-	if (all || !ci->revoked)
-		dump_commit_info(ci);
+	struct commit_tx tx;
+	int committed_flag = SIDE(COMMITTED, local_or_remote);
+
+	tx = make_commit_tx(peer->htlcs, local_or_remote);
+
+	printf(" Commit %u:\n", ci->number);
+	dump_htlcs(peer->htlcs, "  Our htlcs:", false,
+		   OURS|committed_flag, 0);
+	dump_htlcs(peer->htlcs, "  Their htlcs:", false,
+		   THEIRS|committed_flag, 0);
+
+	/* Don't clutter output if fee level untouched. */
+	if (tx.fee)
+		printf("  Fee level %u\n", tx.fee);
+
+	dump_htlcs(peer->htlcs, "Pending unacked:", true,
+		   SIDE(PENDING, local_or_remote), committed_flag);
+
+	dump_htlcs(peer->htlcs, "Pending acked:", true,
+		   OTHER_SIDE(COMMITTED, local_or_remote), committed_flag);
+
+	if (ci->counterparty_signed)
+		printf("  SIGNED\n");
+	if (ci->revoked)
+		printf("  REVOKED\n");
+	fflush(stdout);
 }
 
 static void dump_peer(const struct peer *peer, bool all)
 {
-	printf("LOCAL COMMITS:\n");
-	dump_rev(peer->local, all);
+	printf("LOCAL COMMIT:\n");
+	dump_commit_info(peer, peer->local, LOCAL_);
 
-	printf("REMOTE COMMITS:\n");
-	dump_rev(peer->remote, all);
+	printf("REMOTE COMMIT:\n");
+	dump_commit_info(peer, peer->remote, REMOTE_);
+
+	if (all)
+		dump_htlcs(peer->htlcs, "OLD HTLCs:", true,
+			   0, LOCAL(COMMITTED)|REMOTE(COMMITTED));
 }
 
 static void read_in(int fd, void *p, size_t len)
@@ -344,46 +404,36 @@ static void read_peer(struct peer *peer, const char *str, const char *cmd)
 	tal_free(p);
 }
 
-/* BOLT #2:
- *
- * The sending node MUST add the HTLC addition to the unacked
- * changeset for its remote commitment
- */
 static void send_offer(struct peer *peer, unsigned int htlc)
 {
+	struct htlc *h = new_htlc(peer, htlc, OURS);
+
+	htlc_changestate(h, NONEXISTENT, SENT_ADD_HTLC);
 	tal_append_fmt(&peer->io, "add_htlc %u", htlc);
-	/* Can't have sent already. */
-	if (!add_incoming_change(peer, peer->remote, htlc, "remote"))
-		errx(1, "offer: already offered %u", htlc);
 	write_out(peer->outfd, "+", 1);
 	write_out(peer->outfd, &htlc, sizeof(htlc));
 }
 
-/* BOLT #2:
- *
- * The sending node MUST add the HTLC fulfill/fail to the unacked
- * changeset for its remote commitment
- */
 static void send_remove(struct peer *peer, unsigned int htlc)
 {
+	struct htlc *h = find_htlc(peer, htlc, THEIRS);
+
+	if (!h)
+		errx(1, "send_remove: htlc %u does not exist", htlc);
+		
+	htlc_changestate(h, RECV_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
+
 	tal_append_fmt(&peer->io, "fulfill_htlc %u", htlc);
-	/* Can't have removed already. */
-	if (!add_incoming_change(peer, peer->remote, -htlc, "remote"))
-		errx(1, "remove: already removed of %u", htlc);
 	write_out(peer->outfd, "-", 1);
 	write_out(peer->outfd, &htlc, sizeof(htlc));
 }
 
-/* BOLT #2:
- *
- * The sending node MUST add the fee change to the unacked changeset
- * for its remote commitment
- */
 static void send_feechange(struct peer *peer)
 {
+	struct htlc *fee = new_htlc(peer, 0, OURS);
+
+	htlc_changestate(fee, NONEXISTENT, SENT_ADD_HTLC);
 	tal_append_fmt(&peer->io, "update_fee");
-	if (!add_incoming_change(peer, peer->remote, 0, "remote"))
-		errx(1, "INTERNAL: failed to change fee");
 	write_out(peer->outfd, "F", 1);
 }
 
@@ -407,20 +457,16 @@ static struct commit_info *last_unrevoked(struct commit_info *ci)
 	return next;
 }
 
-/* Commit:
- * - Apply changes to remote.
- */
 static void send_commit(struct peer *peer)
 {
 	struct signature sig;
-
-	/* BOLT #2:
-	 *
-	 * A node MUST NOT send an `update_commit` message which does
-	 * not include any updates. */
-	if (tal_count(peer->remote->unacked_changeset) == 0
-	    && !peer->remote->have_acked_changes)
-		errx(1, "commit: no changes to commit");
+	struct commit_tx commit_tx;
+	static const struct state_table changes[] = {
+		{ SENT_ADD_HTLC, SENT_ADD_COMMIT },
+		{ SENT_REMOVE_REVOCATION, SENT_REMOVE_ACK_COMMIT },
+		{ SENT_ADD_REVOCATION, SENT_ADD_ACK_COMMIT},
+		{ SENT_REMOVE_HTLC, SENT_REMOVE_COMMIT}
+	};
 
 	/* BOLT #2:
 	 *
@@ -432,25 +478,40 @@ static void send_commit(struct peer *peer)
 		errx(1, "commit: must wait for previous commit");
 
 	tal_append_fmt(&peer->io, "update_commit");
+
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT send an `update_commit` message which does
+	 * not include any updates.
+	 */
+	if (!change_htlcs(peer, changes))
+		errx(1, "commit: no changes to commit");
+
 	/* BOLT #2:
 	 *
 	 * A sending node MUST apply all remote acked and unacked
 	 * changes except unacked fee changes to the remote commitment
-	 * before generating `sig`. */
-	peer->remote = apply_changes(peer, peer->remote, "REMOTE");
-	sig = commit_sig(peer->remote);
+	 * before generating `sig`.
+	 */
+	commit_tx = make_commit_tx(peer->htlcs, REMOTE_);
+
+	peer->remote = new_commit_info(peer, peer->remote);
 	peer->remote->counterparty_signed = true;
+	sig = commit_sig(&commit_tx);
 
 	/* Tell other side about commit and result (it should agree!) */
 	write_out(peer->outfd, "C", 1);
 	write_out(peer->outfd, &sig, sizeof(sig));
 }
 
-/* Receive revoke:
- * - Queue pending changes to us.
- */
 static void receive_revoke(struct peer *peer, u32 number)
 {
+	static const struct state_table changes[] = {
+		{ SENT_ADD_COMMIT, RECV_ADD_REVOCATION },
+		{ SENT_REMOVE_ACK_COMMIT, RECV_REMOVE_ACK_REVOCATION },
+		{ SENT_ADD_ACK_COMMIT, RECV_ADD_ACK_REVOCATION },
+		{ SENT_REMOVE_COMMIT, RECV_REMOVE_REVOCATION }
+	};
 	struct commit_info *ci = last_unrevoked(peer->remote);
 
 	if (!ci)
@@ -468,17 +529,8 @@ static void receive_revoke(struct peer *peer, u32 number)
 	if (!ci->counterparty_signed)
 		errx(1, "receive_revoke: revoked unsigned commit?");
 
-	/* BOLT #2:
-	 *
-	 * The receiver of `update_revocation`... MUST add the remote
-	 * unacked changes to the set of local acked changes. */
-	if (!add_unacked_changes(peer, peer->local, ci->unacked_changeset,
-				 "local"))
-		errx(1, "receive_revoke: could not add their changes to local");
-
-	/* Cleans up dump output now we've consumed them. */
-	tal_free(ci->unacked_changeset);
-	ci->unacked_changeset = tal_arr(ci, int, 0);
+	if (!change_htlcs(peer, changes))
+		errx(1, "receive_revoke: no changes?");
 }
 
 /* BOLT #2:
@@ -488,9 +540,10 @@ static void receive_revoke(struct peer *peer, u32 number)
  */
 static void receive_offer(struct peer *peer, unsigned int htlc)
 {
+	struct htlc *h = new_htlc(peer, htlc, THEIRS);
+
+	htlc_changestate(h, NONEXISTENT, RECV_ADD_HTLC);
 	tal_append_fmt(&peer->io, "<");
-	if (!add_incoming_change(peer, peer->local, htlc, "local"))
-		errx(1, "receive_offer: already offered of %u", htlc);
 }
 
 /* BOLT #2:
@@ -500,9 +553,13 @@ static void receive_offer(struct peer *peer, unsigned int htlc)
  */
 static void receive_remove(struct peer *peer, unsigned int htlc)
 {
+	struct htlc *h = find_htlc(peer, htlc, OURS);
+
+	if (!h)
+		errx(1, "recv_remove: htlc %u does not exist", htlc);
+
+	htlc_changestate(h, SENT_ADD_ACK_REVOCATION, RECV_REMOVE_HTLC);
 	tal_append_fmt(&peer->io, "<");
-	if (!add_incoming_change(peer, peer->local, -htlc, "local"))
-		errx(1, "receive_remove: already removed %u", htlc);
 }
 
 /* BOLT #2:
@@ -512,9 +569,10 @@ static void receive_remove(struct peer *peer, unsigned int htlc)
  */
 static void receive_feechange(struct peer *peer)
 {
+	struct htlc *fee = new_htlc(peer, 0, THEIRS);
+
+	htlc_changestate(fee, NONEXISTENT, RECV_ADD_HTLC);
 	tal_append_fmt(&peer->io, "<");
-	if (!add_incoming_change(peer, peer->local, 0, "local"))
-		errx(1, "INTERNAL: failed to change fee");
 }
 
 /* Send revoke.
@@ -522,6 +580,12 @@ static void receive_feechange(struct peer *peer)
  */
 static void send_revoke(struct peer *peer, struct commit_info *ci)
 {
+	static const struct state_table changes[] = {
+		{ RECV_ADD_ACK_COMMIT, SENT_ADD_ACK_REVOCATION },
+		{ RECV_REMOVE_COMMIT, SENT_REMOVE_REVOCATION },
+		{ RECV_ADD_COMMIT, SENT_ADD_REVOCATION },
+		{ RECV_REMOVE_ACK_COMMIT, SENT_REMOVE_ACK_REVOCATION }
+	};
 	tal_append_fmt(&peer->io, "update_revocation");
 
 	/* We always revoke in order. */
@@ -530,18 +594,9 @@ static void send_revoke(struct peer *peer, struct commit_info *ci)
 	assert(!ci->revoked);
 	ci->revoked = true;
 
-	/* BOLT #2:
-	 *
-	 * The node sending `update_revocation` MUST add the local
-	 * unacked changes to the set of remote acked changes. */
-	if (!add_unacked_changes(peer, peer->remote, ci->unacked_changeset,
-				 "remote"))
-		errx(1, "Failed queueing changes to remote for send_revoke");
+	if (!change_htlcs(peer, changes))
+		errx(1, "update_revocation: no changes?");
 
-	/* Clean up for dump output. */
-	tal_free(ci->unacked_changeset);
-	ci->unacked_changeset = tal_arr(ci, int, 0);
-	
 	write_out(peer->outfd, "R", 1);
 	write_out(peer->outfd, &ci->number, sizeof(ci->number));
 }
@@ -551,31 +606,33 @@ static void send_revoke(struct peer *peer, struct commit_info *ci)
  */
 static void receive_commit(struct peer *peer, const struct signature *sig)
 {
+	struct commit_tx commit_tx;
 	struct signature oursig;
+	static const struct state_table changes[] = {
+		{ RECV_ADD_REVOCATION, RECV_ADD_ACK_COMMIT },
+		{ RECV_REMOVE_HTLC, RECV_REMOVE_COMMIT },
+		{ RECV_ADD_HTLC, RECV_ADD_COMMIT },
+		{ RECV_REMOVE_REVOCATION, RECV_REMOVE_ACK_COMMIT }
+	};
+
+	tal_append_fmt(&peer->io, "<");
 
 	/* BOLT #2:
 	 *
 	 * A node MUST NOT send an `update_commit` message which does
 	 * not include any updates.
 	 */
-	if (tal_count(peer->local->unacked_changeset) == 0
-	    && !peer->local->have_acked_changes)
+	if (!change_htlcs(peer, changes))
 		errx(1, "receive_commit: no changes to commit");
 
-	tal_append_fmt(&peer->io, "<");
-
-	/* BOLT #2:
-	 *
-	 * A receiving node MUST apply all local acked and unacked
-	 * changes except unacked fee changes to the local commitment,
-	 * then it MUST check `sig` is valid for that transaction.
-	 */
-	peer->local = apply_changes(peer, peer->local, "LOCAL");
-	oursig = commit_sig(peer->local);
+	commit_tx = make_commit_tx(peer->htlcs, LOCAL_);
+	oursig = commit_sig(&commit_tx);
 	if (!structeq(sig, &oursig))
 		errx(1, "Commit state %#x/%#x/%u, they gave %#x/%#x/%u",
 		     sig->f.inhtlcs, sig->f.outhtlcs, sig->f.fee,
 		     oursig.f.inhtlcs, oursig.f.outhtlcs, oursig.f.fee);
+
+	peer->local = new_commit_info(peer, peer->local);
 	peer->local->counterparty_signed = true;
 
 	/* This is the one case where we send without a command. */
@@ -633,10 +690,12 @@ static void do_cmd(struct peer *peer)
 		read_in(peer->infd, &sig, sizeof(sig));
 		receive_commit(peer, &sig);
 	} else if (streq(cmd, "checksync")) {
-		write_all(peer->cmddonefd, peer->local->commit_tx,
-			  sizeof(*peer->local->commit_tx));
-		write_all(peer->cmddonefd, peer->remote->commit_tx,
-			  sizeof(*peer->remote->commit_tx));
+		struct commit_tx ours, theirs;
+
+		ours = make_commit_tx(peer->htlcs, LOCAL_);
+		theirs = make_commit_tx(peer->htlcs, REMOTE_);
+		write_all(peer->cmddonefd, &ours, sizeof(ours));
+		write_all(peer->cmddonefd, &theirs, sizeof(theirs));
 		return;
 	} else if (streq(cmd, "dump")) {
 		dump_peer(peer, false);
@@ -681,7 +740,7 @@ static void new_peer(int infdpair[2], int outfdpair[2], int cmdfdpair[2],
 	close(cmddonefdpair[0]);
 
 	peer = tal(NULL, struct peer);
-	memset(&peer->initial_commit_tx, 0, sizeof(peer->initial_commit_tx));
+	peer->htlcs = tal_arr(peer, struct htlc *, 0);
 	
 	/* Create first, signed commit info. */
 	peer->local = new_commit_info(peer, NULL);
