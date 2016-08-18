@@ -27,6 +27,7 @@ DAEMON_SRC :=					\
 	daemon/netaddr.c			\
 	daemon/onion.c				\
 	daemon/opt_time.c			\
+	daemon/output_to_htlc.c			\
 	daemon/packets.c			\
 	daemon/pay.c				\
 	daemon/payment.c			\
@@ -67,6 +68,7 @@ DAEMON_HEADERS :=				\
 	daemon/netaddr.h			\
 	daemon/onion.h				\
 	daemon/opt_time.h			\
+	daemon/output_to_htlc.h			\
 	daemon/packets.h			\
 	daemon/pay.h				\
 	daemon/payment.h			\

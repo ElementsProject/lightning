@@ -195,6 +195,8 @@ struct peer {
 	struct {
 		/* Everything (watches, resolved[], etc) tal'ed off this */
 		const struct bitcoin_tx *tx;
+		/* Set for STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL
+		 * and STATE_CLOSE_ONCHAIN_OUR_UNILATERAL */
 		const struct commit_info *ci;
 		const struct bitcoin_tx **resolved;
 	} closing_onchain;

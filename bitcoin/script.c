@@ -467,6 +467,17 @@ bool is_p2sh(const u8 *script, size_t script_len)
 	return true;
 }
 
+bool is_p2wsh(const u8 *script, size_t script_len)
+{
+	if (script_len != 1 + 1 + sizeof(struct sha256))
+		return false;
+	if (script[0] != OP_0)
+		return false;
+	if (script[1] != OP_PUSHBYTES(sizeof(struct sha256)))
+		return false;
+	return true;
+}
+
 /* A common script pattern: A can have it with secret, or B can have
  * it after delay. */
 u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
