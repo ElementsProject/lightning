@@ -55,6 +55,18 @@ struct anchor_input {
 	struct wallet *w;
 };
 
+/* Information we remember for their commitment txs which we signed.
+ *
+ * Given the commit_num, we can use shachain to derive the revocation preimage
+ * (if we've received it yet: we might have not, for the last).
+ */
+struct their_commit {
+	struct list_node list;
+
+	struct sha256_double txid;
+	u64 commit_num;
+};
+	
 struct commit_info {
 	/* Previous one, if any. */
 	struct commit_info *prev;
@@ -137,6 +149,9 @@ struct peer {
 	/* Queue of output packets. */
 	Pkt **outpkt;
 
+	/* Their commitments we have signed (which could appear on chain). */
+	struct list_head their_commits;
+	
 	/* Anchor tx output */
 	struct {
 		struct sha256_double txid;
@@ -225,6 +240,10 @@ struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id)
 
 /* Populates very first peer->{local,remote}.commit->{tx,cstate} */
 bool setup_first_commit(struct peer *peer);
+
+/* Whenever we send a signature, remember the txid -> commit_num mapping */
+void peer_add_their_commit(struct peer *peer,
+			   const struct sha256_double *txid, u64 commit_num);
 
 /* Allocate a new commit_info struct. */
 struct commit_info *new_commit_info(const tal_t *ctx);

@@ -56,6 +56,15 @@ static bool command_htlc_fail(struct peer *peer, struct htlc *htlc);
 static bool command_htlc_fulfill(struct peer *peer, struct htlc *htlc);
 static void try_commit(struct peer *peer);
 
+void peer_add_their_commit(struct peer *peer,
+			   const struct sha256_double *txid, u64 commit_num)
+{
+	struct their_commit *tc = tal(peer, struct their_commit);
+	tc->txid = *txid;
+	tc->commit_num = commit_num;
+	list_add_tail(&peer->their_commits, &tc->list);
+}
+
 /* Create a bitcoin close tx, using last signature they sent. */
 static const struct bitcoin_tx *bitcoin_close(struct peer *peer)
 {
@@ -1733,6 +1742,8 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 	/* Switch to the new commitment. */
 	peer->remote.commit = ci;
 
+	peer_add_their_commit(peer, &ci->txid, ci->commit_num);
+	
 	queue_pkt_commit(peer);
 	if (peer->state == STATE_CLEARING) {
 		set_peer_state(peer, STATE_CLEARING_COMMITTING, __func__);
@@ -1792,6 +1803,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->commit_jsoncmd = NULL;
 	list_head_init(&peer->outgoing_txs);
 	list_head_init(&peer->pay_commands);
+	list_head_init(&peer->their_commits);
 	peer->anchor.ok_depth = -1;
 	peer->cur_commit.watch = NULL;
 	peer->closing.their_sig = NULL;

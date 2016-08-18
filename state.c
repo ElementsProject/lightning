@@ -154,6 +154,8 @@ enum state state(struct peer *peer,
 			peer->remote.commit->sig->stype = SIGHASH_ALL;
 			peer_sign_theircommit(peer, peer->remote.commit->tx,
 					      &peer->remote.commit->sig->sig);
+			peer_add_their_commit(peer, &peer->remote.commit->txid,
+					      peer->remote.commit->commit_num);
 
 			queue_pkt_open_commit_sig(peer);
 			peer_watch_anchor(peer,
