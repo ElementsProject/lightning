@@ -41,7 +41,6 @@ BITCOIN_OBJS := $(BITCOIN_SRC:.c=.o)
 
 CORE_SRC :=					\
 	close_tx.c				\
-	commit_tx.c				\
 	find_p2sh_out.c				\
 	lightning.pb-c.c			\
 	opt_bits.c				\
@@ -151,7 +150,6 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/varint.h
 
 CORE_HEADERS := close_tx.h			\
-	commit_tx.h				\
 	find_p2sh_out.h				\
 	names.h					\
 	opt_bits.h				\
