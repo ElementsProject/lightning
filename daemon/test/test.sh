@@ -166,7 +166,7 @@ check_status_single()
 
     check_balance_single "$lcli" $us_pay $us_fee $them_pay $them_fee
 
-    if $lcli getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ $us_htlcs], their_htlcs : [ $them_htlcs]"; then :; else
+    if check "$lcli getpeers | tr -s '\012\011\" ' ' ' | $FGREP \"our_htlcs : [ $us_htlcs], their_htlcs : [ $them_htlcs]\""; then :; else
 	echo Cannot find $lcli output: "our_htlcs : [ $us_htlcs], their_htlcs : [ $them_htlcs]" >&2
 	$lcli getpeers | tr -s '\012\011" ' ' ' >&2
 	return 1
@@ -759,7 +759,14 @@ lcli2 dev-output $ID1 true
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 
 # Both sides should be committed to htlcs
-check_status $(($A_AMOUNT - $HTLC_AMOUNT*2 - $EXTRA_FEE)) $(($A_FEE + $EXTRA_FEE)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , committed : both } " $(($B_AMOUNT - $EXTRA_FEE)) $(($B_FEE + $EXTRA_FEE)) ""
+# We open-code check_status here: HTLCs could be in either order.
+check_balance_single lcli1 $(($A_AMOUNT - $HTLC_AMOUNT*2 - $EXTRA_FEE)) $(($A_FEE + $EXTRA_FEE)) $(($B_AMOUNT - $EXTRA_FEE)) $(($B_FEE + $EXTRA_FEE))
+check_balance_single lcli2 $(($B_AMOUNT - $EXTRA_FEE)) $(($B_FEE + $EXTRA_FEE)) $(($A_AMOUNT - $HTLC_AMOUNT*2 - $EXTRA_FEE)) $(($A_FEE + $EXTRA_FEE))
+
+# Once both balances are correct, this should be right.
+lcli1 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , committed : both } ], their_htlcs : [ ]" || lcli1 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , committed : both }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both } ], their_htlcs : [ ]"
+
+lcli2 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ ], their_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , committed : both } ]" || lcli2 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ ], their_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , committed : both }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , committed : both } ]"
 
 # Node2 collects the HTLCs.
 lcli2 fulfillhtlc $ID1 $SECRET

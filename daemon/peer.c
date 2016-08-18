@@ -2895,34 +2895,97 @@ static bool htlc_fully_committed(const struct commit_info *ci,
 
 static void json_add_htlcs(struct json_result *response,
 			   const char *id,
-			   const struct peer *peer,
-			   enum channel_side side)
+			   struct peer *peer,
+			   enum htlc_side owner)
 {
-	size_t i;
-	struct htlc **htlcs = peer->local.commit->cstate->side[side].htlcs;
+	struct htlc_map_iter it;
+	struct htlc *h;
+	const struct htlc_map *htlcs = &peer->htlcs;
 
 	json_array_start(response, id);
-	for (i = 0; i < tal_count(htlcs); i++) {
-		const char *committed;
+	for (h = htlc_map_first(htlcs, &it); h; h = htlc_map_next(htlcs, &it)) {
+		if (htlc_owner(h) != owner)
+			continue;
 
+		/* Ignore completed HTLCs. */
+		if (h->state == RCVD_REMOVE_ACK_REVOCATION
+		    || h->state == SENT_REMOVE_ACK_REVOCATION)
+			continue;
+
+#if 1
+		/* Ignore uncommitted HTLCs. */
+		if (!htlc_has(h, HTLC_LOCAL_F_COMMITTED))
+			continue;
+#endif
+		
 		json_object_start(response, NULL);
-		json_add_u64(response, "msatoshis", htlcs[i]->msatoshis);
-		json_add_abstime(response, "expiry", &htlcs[i]->expiry);
-		json_add_hex(response, "rhash",
-			     &htlcs[i]->rhash, sizeof(htlcs[i]->rhash));
-		if (htlc_fully_committed(peer->local.commit, htlcs[i])) {
-			if (htlc_fully_committed(peer->remote.commit, htlcs[i]))
-				committed = "both";
-			else
-				committed = "us";
-		} else {
-			if (htlc_fully_committed(peer->remote.commit, htlcs[i]))
-				committed = "them";
-			else
-				/* Weird, shouldn't happen. */
-				committed = "none";
+		json_add_u64(response, "msatoshis", h->msatoshis);
+		json_add_abstime(response, "expiry", &h->expiry);
+		json_add_hex(response, "rhash", &h->rhash, sizeof(h->rhash));
+#if 0
+		json_add_string(response, "state", htlc_state_name(h->state));
+#else
+		switch (h->state) {
+		case SENT_ADD_HTLC:
+			json_add_string(response, "committed", "none");
+			break;
+		case SENT_ADD_COMMIT:
+			json_add_string(response, "committed", "none");
+			break;
+		case RCVD_ADD_REVOCATION:
+			json_add_string(response, "committed", "them");
+			break;
+		case SENT_ADD_ACK_REVOCATION:
+			json_add_string(response, "committed", "both");
+			break;
+		case RCVD_REMOVE_HTLC:
+			json_add_string(response, "committed", "both");
+			break;
+		case SENT_REMOVE_REVOCATION:
+			json_add_string(response, "committed", "them");
+			break;
+		case SENT_REMOVE_ACK_COMMIT:
+			json_add_string(response, "committed", "them");
+			break;
+
+		case RCVD_ADD_HTLC:
+			json_add_string(response, "committed", "none");
+			break;
+		case SENT_ADD_REVOCATION:
+			json_add_string(response, "committed", "us");
+			break;
+		case SENT_ADD_ACK_COMMIT:
+			json_add_string(response, "committed", "us");
+			break;
+		case RCVD_ADD_ACK_REVOCATION:
+			json_add_string(response, "committed", "both");
+			break;
+		case SENT_REMOVE_HTLC:			
+			json_add_string(response, "committed", "both");
+			break;
+		case SENT_REMOVE_COMMIT:
+			json_add_string(response, "committed", "both");
+			break;
+		case RCVD_REMOVE_REVOCATION:
+			json_add_string(response, "committed", "us");
+			break;
+
+		/* These ones are temporary states, since we always
+		 * send revocation immediately. */
+		case RCVD_REMOVE_ACK_COMMIT:
+		case RCVD_REMOVE_COMMIT:
+		case RCVD_ADD_ACK_COMMIT:
+		case RCVD_ADD_COMMIT:
+		/* These are never printed (see continue above) */
+		case SENT_REMOVE_ACK_REVOCATION:
+		case RCVD_REMOVE_ACK_REVOCATION:
+			log_broken(peer->log,
+				   "Unexpected htlc state %s for %"PRIu64,
+				   htlc_state_name(h->state), h->id);
+			json_add_string(response, "committed", "unknown");
+			break;
 		}
-		json_add_string(response, "committed", committed);
+#endif
 		json_object_end(response);
 	}
 	json_array_end(response);
@@ -2964,8 +3027,8 @@ static void json_getpeers(struct command *cmd,
 		json_add_num(response, "our_fee", last->side[OURS].fee_msat);
 		json_add_num(response, "their_amount", last->side[THEIRS].pay_msat);
 		json_add_num(response, "their_fee", last->side[THEIRS].fee_msat);
-		json_add_htlcs(response, "our_htlcs", p, OURS);
-		json_add_htlcs(response, "their_htlcs", p, THEIRS);
+		json_add_htlcs(response, "our_htlcs", p, LOCAL);
+		json_add_htlcs(response, "their_htlcs", p, REMOTE);
 
 		/* Any changes since then? */
 		if (p->local.staging_cstate->changes != last->changes)
