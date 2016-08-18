@@ -733,7 +733,7 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 {
 	Pkt *err;
 	struct sha256 preimage;
-	struct commit_info *ci = new_commit_info(peer);
+	struct commit_info *ci;
 	/* FIXME: We can actually merge these two... */
 	static const struct state_table commit_changes[] = {
 		{ RCVD_ADD_REVOCATION, RCVD_ADD_ACK_COMMIT },
@@ -748,6 +748,7 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 		{ RCVD_REMOVE_ACK_COMMIT, SENT_REMOVE_ACK_REVOCATION }
 	};
 
+	ci = new_commit_info(peer, peer->local.commit->commit_num + 1);
 	ci->sig = tal(ci, struct bitcoin_signature);
 	err = accept_pkt_commit(peer, pkt, ci->sig);
 	if (err)
@@ -762,7 +763,6 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 		return pkt_err(peer, "Empty commit");
 
 	/* Create new commit info for this commit tx. */
-	ci->commit_num = peer->local.commit->commit_num + 1;
 	ci->revocation_hash = peer->local.next_revocation_hash;
 
 	/* BOLT #2:
@@ -1495,7 +1495,7 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 	assert(!peer->commit_jsoncmd);
 
 	peer->commit_jsoncmd = jsoncmd;
-	ci = new_commit_info(peer);
+	ci = new_commit_info(peer, peer->remote.commit->commit_num + 1);
 
 	assert(!peer->their_prev_revocation_hash);
 	peer->their_prev_revocation_hash
@@ -1511,7 +1511,6 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 		fatal("sent commit with no changes");
 
 	/* Create new commit info for this commit tx. */
-	ci->commit_num = peer->remote.commit->commit_num + 1;
 	ci->revocation_hash = peer->remote.next_revocation_hash;
 	/* BOLT #2:
 	 *
@@ -1566,9 +1565,13 @@ static void try_commit(struct peer *peer)
 	}
 }
 
-struct commit_info *new_commit_info(const tal_t *ctx)
+struct commit_info *new_commit_info(const tal_t *ctx, u64 commit_num)
 {
-	struct commit_info *ci = talz(ctx, struct commit_info);
+	struct commit_info *ci = tal(ctx, struct commit_info);
+	ci->commit_num = commit_num;
+	ci->tx = NULL;
+	ci->cstate = NULL;
+	ci->sig = NULL;
 	return ci;
 }
 

@@ -222,7 +222,7 @@ void peer_add_their_commit(struct peer *peer,
 			   const struct sha256_double *txid, u64 commit_num);
 
 /* Allocate a new commit_info struct. */
-struct commit_info *new_commit_info(const tal_t *ctx);
+struct commit_info *new_commit_info(const tal_t *ctx, u64 commit_num);
 
 /* Freeing removes from map, too */
 struct htlc *peer_new_htlc(struct peer *peer, 

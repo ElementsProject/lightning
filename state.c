@@ -28,7 +28,7 @@ static void send_open_pkt(struct peer *peer,
 {
 	/* Set up out commit info now: rest gets done in setup_first_commit
 	 * once anchor is established. */
-	peer->local.commit = new_commit_info(peer);
+	peer->local.commit = new_commit_info(peer, 0);
 	peer->local.commit->revocation_hash = peer->local.next_revocation_hash;
 	peer_get_revocation_hash(peer, 1, &peer->local.next_revocation_hash);
 
@@ -37,7 +37,7 @@ static void send_open_pkt(struct peer *peer,
 
 static Pkt *init_from_pkt_open(struct peer *peer, const Pkt *pkt)
 {
-	struct commit_info *ci = new_commit_info(peer);
+	struct commit_info *ci = new_commit_info(peer, 0);
 	Pkt *err;
 
 	err = accept_pkt_open(peer, pkt, &ci->revocation_hash,
