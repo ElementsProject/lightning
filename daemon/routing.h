@@ -58,4 +58,6 @@ struct peer *find_route(struct lightningd_state *dstate,
 
 struct node_map *empty_node_map(struct lightningd_state *dstate);
 
+char *opt_add_route(const char *arg, struct lightningd_state *dstate);
+
 #endif /* LIGHTNING_DAEMON_ROUTING_H */

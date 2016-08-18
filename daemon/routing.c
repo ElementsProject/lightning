@@ -303,6 +303,48 @@ struct peer *find_route(struct lightningd_state *dstate,
 	return first;
 }
 
+static bool get_slash_u32(const char **arg, u32 *v)
+{
+	size_t len;
+	char *endp;
+
+	if (**arg != '/')
+		return false;
+	(*arg)++;
+	len = strcspn(*arg, "/");
+	*v = strtoul(*arg, &endp, 10);
+	(*arg) += len;
+	return (endp == *arg);
+}
+
+/* srcid/dstid/base/var/delay/minblocks */
+char *opt_add_route(const char *arg, struct lightningd_state *dstate)
+{
+	size_t len;
+	struct pubkey src, dst;
+	u32 base, var, delay, minblocks;
+
+	len = strcspn(arg, "/");
+	if (!pubkey_from_hexstr(dstate->secpctx, arg, len, &src))
+		return "Bad src pubkey";
+	arg += len + 1;
+	len = strcspn(arg, "/");
+	if (!pubkey_from_hexstr(dstate->secpctx, arg, len, &dst))
+		return "Bad dst pubkey";
+	arg += len;
+
+	if (!get_slash_u32(&arg, &base)
+	    || !get_slash_u32(&arg, &var)
+	    || !get_slash_u32(&arg, &delay)
+	    || !get_slash_u32(&arg, &minblocks))
+		return "Bad base/var/delay/minblocks";
+	if (*arg)
+		return "Data after minblocks";
+
+	add_connection(dstate, &src, &dst, base, var, delay, minblocks);
+	return NULL;
+}
+
 static void json_add_route(struct command *cmd,
 			   const char *buffer, const jsmntok_t *params)
 {

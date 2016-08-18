@@ -141,6 +141,10 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--fee-per-satoshi", opt_set_s32, opt_show_s32,
 			 &dstate->config.fee_per_satoshi,
 			 "Microsatoshi fee for every satoshi in HTLC");
+	opt_register_arg("--add-route", opt_add_route, NULL,
+			 dstate,
+			 "Add route of form srcid/dstid/base/var/delay/minblocks"
+			 "(base in millisatoshi, var in millionths of satoshi per satoshi)");
 }
 
 static void dev_register_opts(struct lightningd_state *dstate)

@@ -140,11 +140,6 @@ lcli1()
 			    echo "dev-restart failed!">&2
 			    exit 1
 			fi
-			# It will have forgotten any added routes.
-			if [ -n "$ADDROUTE" ]; then
-			    echo $LCLI1 $ADDROUTE >&2
-			    $LCLI1 $ADDROUTE >&2
-			fi
 			# These are safe to resubmit, will simply fail.
 			if [ "$1" = "fulfillhtlc" -o "$1" = "failhtlc" ]; then
 			    if [ -z "$VERBOSE" ]; then
@@ -938,8 +933,9 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     HTLC_AMOUNT=100000000
 
     # Tell node 1 about the 2->3 route.
-    ADDROUTE="add-route $ID2 $ID3 546000 10 36 36"
-    lcli1 $ADDROUTE
+    lcli1 add-route $ID2 $ID3 546000 10 36 36
+    # Add to config in case we are restaring.
+    echo "add-route=$ID2/$ID3/546000/10/36/36" >> $DIR1/config
     RHASH5=`lcli3 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
     # Try wrong hash.
