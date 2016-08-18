@@ -1415,21 +1415,28 @@ bool db_add_commit_map(struct peer *peer,
 
 void db_forget_peer(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
-
+	size_t i;
+	const char *const tables[] = { "anchors", "htlcs", "commit_info", "shachain", "their_visible_state", "their_commitments", "peer_secrets", "closing", "peers" };
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(peer->state == STATE_CLOSED);
 
-	assert(!peer->dstate->db->in_transaction);
+	if (!db_start_transaction(peer))
+		fatal("%s:db_start_transaction failed", __func__);
 
-	/* FIXME: Implement cleanup of other tables, too. */
-	errmsg = db_exec(ctx, peer->dstate, "DELETE from peers WHERE peer=x'%s';",
-			 peerid);
-	
-	if (errmsg)
-		fatal("%s:%s", __func__, errmsg);
+	for (i = 0; i < ARRAY_SIZE(tables); i++) {
+		const char *errmsg;
+		errmsg = db_exec(ctx, peer->dstate,
+				 "DELETE from %s WHERE peer=x'%s';",
+				 tables[i], peerid);
+		if (errmsg)
+			fatal("%s:%s", __func__, errmsg);
+	}
+	if (!db_commit_transaction(peer))
+		fatal("%s:db_commi_transaction failed", __func__);
+
 	tal_free(ctx);
 }
 
