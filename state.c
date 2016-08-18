@@ -188,6 +188,7 @@ enum state state(struct peer *peer,
 				peer_open_complete(peer, err->error->problem);
 				goto err_breakdown;
 			}
+			peer->their_commitsigs++;
 			queue_tx_broadcast(broadcast, bitcoin_anchor(peer));
 			peer_watch_anchor(peer,
 					  peer->local.mindepth,

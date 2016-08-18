@@ -22,6 +22,7 @@ typedef struct _Locktime Locktime;
 typedef struct _BitcoinPubkey BitcoinPubkey;
 typedef struct _Funding Funding;
 typedef struct _Authenticate Authenticate;
+typedef struct _Reconnect Reconnect;
 typedef struct _OpenChannel OpenChannel;
 typedef struct _OpenAnchor OpenAnchor;
 typedef struct _OpenCommitSig OpenCommitSig;
@@ -175,15 +176,26 @@ struct  _Authenticate
    * Signature of your session key. * 
    */
   Signature *session_sig;
-  /*
-   * How many update_commit and update_revocation messages already received
-   */
-  protobuf_c_boolean has_ack;
-  uint64_t ack;
 };
 #define AUTHENTICATE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&authenticate__descriptor) \
-    , NULL, NULL, 0,0ull }
+    , NULL, NULL }
+
+
+/*
+ * We're reconnecting, here's what we've received already.
+ */
+struct  _Reconnect
+{
+  ProtobufCMessage base;
+  /*
+   * How many update_commit and update_revocation messages already received
+   */
+  uint64_t ack;
+};
+#define RECONNECT__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&reconnect__descriptor) \
+    , 0 }
 
 
 /*
@@ -505,6 +517,7 @@ struct  _Error
 typedef enum {
   PKT__PKT__NOT_SET = 0,
   PKT__PKT_AUTH = 50,
+  PKT__PKT_RECONNECT = 51,
   PKT__PKT_OPEN = 20,
   PKT__PKT_OPEN_ANCHOR = 21,
   PKT__PKT_OPEN_COMMIT_SIG = 22,
@@ -531,6 +544,7 @@ struct  _Pkt
      * Start of connection
      */
     Authenticate *auth;
+    Reconnect *reconnect;
     /*
      * Opening
      */
@@ -694,6 +708,25 @@ Authenticate *
                       const uint8_t       *data);
 void   authenticate__free_unpacked
                      (Authenticate *message,
+                      ProtobufCAllocator *allocator);
+/* Reconnect methods */
+void   reconnect__init
+                     (Reconnect         *message);
+size_t reconnect__get_packed_size
+                     (const Reconnect   *message);
+size_t reconnect__pack
+                     (const Reconnect   *message,
+                      uint8_t             *out);
+size_t reconnect__pack_to_buffer
+                     (const Reconnect   *message,
+                      ProtobufCBuffer     *buffer);
+Reconnect *
+       reconnect__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   reconnect__free_unpacked
+                     (Reconnect *message,
                       ProtobufCAllocator *allocator);
 /* OpenChannel methods */
 void   open_channel__init
@@ -1041,6 +1074,9 @@ typedef void (*Funding_Closure)
 typedef void (*Authenticate_Closure)
                  (const Authenticate *message,
                   void *closure_data);
+typedef void (*Reconnect_Closure)
+                 (const Reconnect *message,
+                  void *closure_data);
 typedef void (*OpenChannel_Closure)
                  (const OpenChannel *message,
                   void *closure_data);
@@ -1105,6 +1141,7 @@ extern const ProtobufCMessageDescriptor locktime__descriptor;
 extern const ProtobufCMessageDescriptor bitcoin_pubkey__descriptor;
 extern const ProtobufCMessageDescriptor funding__descriptor;
 extern const ProtobufCMessageDescriptor authenticate__descriptor;
+extern const ProtobufCMessageDescriptor reconnect__descriptor;
 extern const ProtobufCMessageDescriptor open_channel__descriptor;
 extern const ProtobufCEnumDescriptor    open_channel__anchor_offer__descriptor;
 extern const ProtobufCMessageDescriptor open_anchor__descriptor;

@@ -9,7 +9,7 @@ struct lightningd_state;
 struct signature;
 struct sha256;
 
-void privkey_sign(struct peer *peer, const void *src, size_t len,
+void privkey_sign(struct lightningd_state *dstate, const void *src, size_t len,
 		  struct signature *sig);
 
 void peer_sign_theircommit(const struct peer *peer,

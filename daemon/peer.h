@@ -151,6 +151,9 @@ struct peer {
 
 	/* Their commitments we have signed (which could appear on chain). */
 	struct list_head their_commits;
+
+	/* Number of commitment signatures we've received. */
+	u64 their_commitsigs;
 	
 	/* Anchor tx output */
 	struct {

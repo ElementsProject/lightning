@@ -24,14 +24,13 @@ struct secret {
 	struct privkey privkey;
 };
 
-void privkey_sign(struct peer *peer, const void *src, size_t len,
+void privkey_sign(struct lightningd_state *dstate, const void *src, size_t len,
 		  struct signature *sig)
 {
 	struct sha256_double h;
 
 	sha256_double(&h, memcheck(src, len), len);
-	sign_hash(peer->dstate->secpctx,
-		  &peer->dstate->secret->privkey, &h, sig);
+	sign_hash(dstate->secpctx, &dstate->secret->privkey, &h, sig);
 }
 
 struct peer_secrets {

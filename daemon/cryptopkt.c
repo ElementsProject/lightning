@@ -34,8 +34,10 @@ struct crypto_pkt {
 	u8 data[];
 };
 
-/* Temporary structure for negotiation (peer->io_data->neg) */
+/* Temporary structure for negotiation */
 struct key_negotiate {
+	struct lightningd_state *dstate;
+
 	/* Our session secret key. */
 	u8 seckey[32];
 
@@ -43,8 +45,19 @@ struct key_negotiate {
 	le32 keylen;
 	u8 our_sessionpubkey[33], their_sessionpubkey[33];
 
+	/* After DH key exchange, we create io_data to check auth. */
+	struct io_data *iod;
+
+	/* Did we expect a particular ID? */
+	const struct pubkey *expected_id;
+	
 	/* Callback once it's all done. */
-	struct io_plan *(*cb)(struct io_conn *, struct peer *);
+	struct io_plan *(*cb)(struct io_conn *conn,
+			      struct lightningd_state *dstate,
+			      struct io_data *iod,
+			      const struct pubkey *id,
+			      void *arg);
+	void *arg;
 };
 
 struct enckey {
@@ -74,9 +87,6 @@ struct dir_state {
 	u64 nonce;
 	struct enckey enckey;
 
-	/* Non-`authenticate` packets sent/seen */
-	u64 count;
-	
 	/* Current packet (encrypted). */
 	struct crypto_pkt *cpkt;
 	size_t pkt_len;
@@ -90,7 +100,6 @@ static void setup_crypto(struct dir_state *dir,
 
 	dir->enckey = enckey_from_secret(shared_secret, serial_pubkey);
 
-	dir->count = 0;
 	dir->cpkt = NULL;
 }
 
@@ -103,9 +112,9 @@ struct io_data {
 
 	/* Callback once packet decrypted. */
 	struct io_plan *(*cb)(struct io_conn *, struct peer *);
-	
-	/* For negotiation phase. */
-	struct key_negotiate *neg;
+
+	/* Once peer is assigned, this is set. */
+	struct peer *peer;
 };
 
 static void *proto_tal_alloc(void *allocator_data, size_t size)
@@ -175,45 +184,50 @@ static bool decrypt_in_place(void *data, size_t len,
 	return false;
 }
 
-static Pkt *decrypt_pkt(struct peer *peer, struct crypto_pkt *cpkt,
-			size_t data_len)
+static Pkt *decrypt_body(const tal_t *ctx, struct io_data *iod, struct log *log,
+			 struct crypto_pkt *cpkt, size_t data_len)
 {
-	struct io_data *iod = peer->io_data;
 	struct ProtobufCAllocator prototal;
 	Pkt *ret;
 
 	if (!decrypt_in_place(cpkt->data, data_len,
 			      &iod->in.nonce, &iod->in.enckey)) {
-		log_unusual(peer->log, "Body decryption failed");
+		log_unusual(log, "Body decryption failed");
 		return NULL;
 	}
 
 	/* De-protobuf it. */
 	prototal.alloc = proto_tal_alloc;
 	prototal.free = proto_tal_free;
-	prototal.allocator_data = tal(iod, char);
+	prototal.allocator_data = tal(ctx, char);
 
 	ret = pkt__unpack(&prototal, data_len, cpkt->data);
 	if (!ret) {
-		log_unusual(peer->log, "Packet failed to unpack!");
+		log_unusual(log, "Packet failed to unpack!");
 		tal_free(prototal.allocator_data);
-	} else
+	} else {
 		/* Make sure packet owns contents */
+		tal_steal(ctx, ret);
 		tal_steal(ret, prototal.allocator_data);
+
+		log_debug(log, "Received packet LEN=%u, type=%s",
+			  le32_to_cpu(iod->hdr_in.length),
+			  ret->pkt_case == PKT__PKT_AUTH ? "PKT_AUTH"
+			  : pkt_name(ret->pkt_case));
+	}
 	return ret;
 }
 
-static struct crypto_pkt *encrypt_pkt(struct peer *peer, const Pkt *pkt,
+static struct crypto_pkt *encrypt_pkt(struct io_data *iod, const Pkt *pkt,
 				      size_t *totlen)
 {
 	struct crypto_pkt *cpkt;
 	size_t len;
-	struct io_data *iod = peer->io_data;
 
 	len = pkt__get_packed_size(pkt);
 	*totlen = sizeof(*cpkt) + len + crypto_aead_chacha20poly1305_ABYTES;
 
-	cpkt = (struct crypto_pkt *)tal_arr(peer, char, *totlen);
+	cpkt = (struct crypto_pkt *)tal_arr(iod, char, *totlen);
 	cpkt->length = cpu_to_le32(len);
 
 	/* Encrypt header. */
@@ -227,59 +241,58 @@ static struct crypto_pkt *encrypt_pkt(struct peer *peer, const Pkt *pkt,
 	return cpkt;
 }
 
-static struct io_plan *decrypt_body(struct io_conn *conn, struct peer *peer)
+static struct io_plan *recv_body(struct io_conn *conn, struct peer *peer)
 {
 	struct io_data *iod = peer->io_data;
 
 	/* We have full packet. */
-	peer->inpkt = decrypt_pkt(peer, iod->in.cpkt,
-				  le32_to_cpu(iod->hdr_in.length));
+	peer->inpkt = decrypt_body(iod, iod, peer->log, iod->in.cpkt,
+				   le32_to_cpu(iod->hdr_in.length));
 	if (!peer->inpkt)
 		return io_close(conn);
-
-	/* Increment count if it wasn't an authenticate packet */
-	if (peer->inpkt->pkt_case != PKT__PKT_AUTH)
-		iod->in.count++;
-
-	log_debug(peer->log, "Received packet LEN=%u, type=%s",
-		  le32_to_cpu(iod->hdr_in.length),
-		  peer->inpkt->pkt_case == PKT__PKT_AUTH ? "PKT_AUTH"
-		  : pkt_name(peer->inpkt->pkt_case));
 
 	return iod->cb(conn, peer);
 }
 
-static struct io_plan *decrypt_header(struct io_conn *conn, struct peer *peer)
+static bool decrypt_header(struct log *log, struct io_data *iod,
+			   size_t *body_len)
 {
-	struct io_data *iod = peer->io_data;
-	size_t body_len;
-
 	/* We have length: Check it. */
 	if (!decrypt_in_place(&iod->hdr_in.length, sizeof(iod->hdr_in.length),
 			      &iod->in.nonce, &iod->in.enckey)) {
-		log_unusual(peer->log, "Header decryption failed");
-		return io_close(conn);
+		log_unusual(log, "Header decryption failed");
+		return false;
 	}
-	log_debug(peer->log, "Decrypted header len %u",
+	log_debug(log, "Decrypted header len %u",
 		  le32_to_cpu(iod->hdr_in.length));
 
 	/* BOLT #1: `length` MUST NOT exceed 1MB (1048576 bytes). */
 	if (le32_to_cpu(iod->hdr_in.length) > MAX_PKT_LEN) {
-		log_unusual(peer->log,
+		log_unusual(log,
 			    "Packet overlength: %"PRIu64,
 			    le64_to_cpu(iod->hdr_in.length));
-		return io_close(conn);
+		return false;
 	}
 
 	/* Allocate room for body, copy header. */
-	body_len = le32_to_cpu(iod->hdr_in.length)
+	*body_len = le32_to_cpu(iod->hdr_in.length)
 		+ crypto_aead_chacha20poly1305_ABYTES;
 
 	iod->in.cpkt = (struct crypto_pkt *)
-		tal_arr(peer, char, sizeof(iod->hdr_in) + body_len);
+		tal_arr(iod, char, sizeof(iod->hdr_in) + *body_len);
 	*iod->in.cpkt = iod->hdr_in;
+	return true;
+}
 
-	return io_read(conn, iod->in.cpkt->data, body_len, decrypt_body, peer);
+static struct io_plan *recv_header(struct io_conn *conn, struct peer *peer)
+{
+	struct io_data *iod = peer->io_data;
+	size_t body_len;
+
+	if (!decrypt_header(peer->log, iod, &body_len))
+		return io_close(conn);
+
+	return io_read(conn, iod->in.cpkt->data, body_len, recv_body, peer);
 }
 
 struct io_plan *peer_read_packet(struct io_conn *conn,
@@ -291,7 +304,7 @@ struct io_plan *peer_read_packet(struct io_conn *conn,
 
 	iod->cb = cb;
 	return io_read(conn, &iod->hdr_in, sizeof(iod->hdr_in),
-		       decrypt_header, peer);
+		       recv_header, peer);
 }
 
 /* Caller must free data! */
@@ -308,55 +321,51 @@ struct io_plan *peer_write_packet(struct io_conn *conn,
 	 * via io_write */
 	tal_free(iod->out.cpkt);
 
-	iod->out.cpkt = encrypt_pkt(peer, pkt, &totlen);
-
-	/* We don't add to count for authenticate case. */
-	if (pkt->pkt_case != PKT__PKT_AUTH)
-		peer->io_data->out.count++;
+	iod->out.cpkt = encrypt_pkt(iod, pkt, &totlen);
 
 	return io_write(conn, iod->out.cpkt, totlen, next, peer);
 }
 
-static void *pkt_unwrap(struct peer *peer, Pkt__PktCase which)
+static void *pkt_unwrap(Pkt *inpkt, struct log *log, Pkt__PktCase which)
 {
 	size_t i;
 	const ProtobufCMessage *base;
 
-	if (peer->inpkt->pkt_case != which) {
-		log_unusual(peer->log, "Expected %u, got %u",
-			    which, peer->inpkt->pkt_case);
+	if (inpkt->pkt_case != which) {
+		log_unusual(log, "Expected %u, got %u",
+			    which, inpkt->pkt_case);
 		return NULL;
 	}
 
 	/* It's a union, and each member starts with base.  Pick one */
-	base = &peer->inpkt->error->base;
+	base = &inpkt->error->base;
 
 	/* Look for unknown fields.  Remember, "It's OK to be odd!" */
 	for (i = 0; i < base->n_unknown_fields; i++) {
-		log_debug(peer->log, "Unknown field in %u: %u",
+		log_debug(log, "Unknown field in %u: %u",
 			  which, base->unknown_fields[i].tag);
 			/* Odd is OK */
 			if (base->unknown_fields[i].tag & 1)
 				continue;
-			log_unusual(peer->log, "Unknown field %u in %u",
+			log_unusual(log, "Unknown field %u in %u",
 				    base->unknown_fields[i].tag, which);
 			return NULL;
 	}
-	return peer->inpkt->error;
+	return inpkt->error;
 }
 
-static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
+static bool check_proof(struct key_negotiate *neg, struct log *log,
+			Pkt *inpkt,
+			const struct pubkey *expected_id,
+			struct pubkey *id)
 {
-	struct key_negotiate *neg = peer->io_data->neg;
 	struct sha256_double sha;
 	struct signature sig;
-	struct io_plan *(*cb)(struct io_conn *, struct peer *);
 	Authenticate *auth;
-	struct pubkey id;
 
-	auth = pkt_unwrap(peer, PKT__PKT_AUTH);
+	auth = pkt_unwrap(inpkt, log, PKT__PKT_AUTH);
 	if (!auth)
-		return io_close(conn);
+		return false;
 
 	/* BOLT #1:
 	 *
@@ -364,16 +373,14 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 	 *
 	 * 1. `node_id` is the expected value for the sending node.
 	 */
-	if (!proto_to_pubkey(peer->dstate->secpctx, auth->node_id, &id)) {
-		log_unusual(peer->log, "Invalid auth id");
-		return io_close(conn);
+	if (!proto_to_pubkey(neg->dstate->secpctx, auth->node_id, id)) {
+		log_unusual(log, "Invalid auth id");
+		return false;
 	}
 
-	if (!peer->id)
-		peer->id = tal_dup(peer, struct pubkey, &id);
-	else if (!structeq(&id, peer->id)) {
-		log_unusual(peer->log, "Incorrect auth id");
-		return io_close(conn);
+	if (expected_id && !structeq(id, expected_id)) {
+		log_unusual(log, "Incorrect auth id");
+		return false;
 	}
 
 	/* BOLT #1:
@@ -382,10 +389,10 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 	 *     a 32-byte big endian R value, followed by a 32-byte big
 	 *     endian S value.
 	 */
-	if (!proto_to_signature(peer->dstate->secpctx, auth->session_sig,
+	if (!proto_to_signature(neg->dstate->secpctx, auth->session_sig,
 				&sig)) {
-		log_unusual(peer->log, "Invalid auth signature");
-		return io_close(conn);
+		log_unusual(log, "Invalid auth signature");
+		return false;
 	}
 
 
@@ -398,43 +405,54 @@ static struct io_plan *check_proof(struct io_conn *conn, struct peer *peer)
 	sha256_double(&sha, neg->our_sessionpubkey,
 		      sizeof(neg->our_sessionpubkey));
 
-	if (!check_signed_hash(peer->dstate->secpctx, &sha, &sig, peer->id)) {
-		log_unusual(peer->log, "Bad auth signature");
-		return io_close(conn);
+	if (!check_signed_hash(neg->dstate->secpctx, &sha, &sig, id)) {
+		log_unusual(log, "Bad auth signature");
+		return false;
 	}
 
-	/* Auth messages don't add to count. */
-	assert(peer->io_data->in.count == 0);
-
-	/* BOLT #1:
-	 *
-	 * The receiver MUST NOT examine the `ack` value until after the
-	 * authentication fields have been successfully validated.
-	 *
-	 * The `ack` field MUST BE set to the number of `update_commit`,
-	 * `open_commit_sig` and `update_revocation` messages received and
-	 * processed.
-	 */
-	/* FIXME: Handle reconnects. */
-	if (auth->ack != 0) {
-		log_unusual(peer->log, "FIXME: non-zero ack %"PRIu64, auth->ack);
-		return io_close(conn);
-	}
-
-	tal_free(auth);
-
-	/* All complete, return to caller. */
-	cb = neg->cb;
-	peer->io_data->neg = tal_free(neg);
-	return cb(conn, peer);
+	return true;
 }
 
-static struct io_plan *receive_proof(struct io_conn *conn, struct peer *peer)
+static struct io_plan *recv_body_negotiate(struct io_conn *conn,
+					   struct key_negotiate *neg)
 {
-	/* The sent auth message doesn't add to count. */
-	assert(peer->io_data->out.count == 0);
+	struct io_data *iod = neg->iod;
+	struct io_plan *plan;
+	Pkt *pkt;
+	struct pubkey id;
 
-	return peer_read_packet(conn, peer, check_proof);
+	/* We have full packet. */
+	pkt = decrypt_body(neg, iod, neg->dstate->base_log, iod->in.cpkt,
+			   le32_to_cpu(iod->hdr_in.length));
+	if (!pkt)
+		return io_close(conn);
+
+	if (!check_proof(neg, neg->dstate->base_log, pkt, neg->expected_id, &id))
+		return io_close(conn);
+
+	plan = neg->cb(conn, neg->dstate, neg->iod, &id, neg->arg);
+	tal_free(neg);
+	return plan;
+}
+
+static struct io_plan *recv_header_negotiate(struct io_conn *conn,
+					     struct key_negotiate *neg)
+{
+	size_t body_len;
+	struct io_data *iod = neg->iod;
+
+	if (!decrypt_header(neg->dstate->base_log, iod, &body_len))
+		return io_close(conn);
+
+	return io_read(conn, iod->in.cpkt->data, body_len, recv_body_negotiate,
+		       neg);
+}
+
+static struct io_plan *receive_proof(struct io_conn *conn,
+				     struct key_negotiate *neg)
+{
+	return io_read(conn, &neg->iod->hdr_in, sizeof(neg->iod->hdr_in),
+		       recv_header_negotiate, neg);
 }
 
 /* Steals w onto the returned Pkt */
@@ -460,35 +478,35 @@ static Pkt *authenticate_pkt(const tal_t *ctx,
 	return pkt_wrap(ctx, auth, PKT__PKT_AUTH);
 }
 
-static struct io_plan *keys_exchanged(struct io_conn *conn, struct peer *peer)
+static struct io_plan *keys_exchanged(struct io_conn *conn,
+				      struct key_negotiate *neg)
 {
 	u8 shared_secret[32];
 	struct pubkey sessionkey;
 	struct signature sig;
-	struct key_negotiate *neg = peer->io_data->neg;
 	Pkt *auth;
+	size_t totlen;
 
-	if (!pubkey_from_der(peer->dstate->secpctx,
+	if (!pubkey_from_der(neg->dstate->secpctx,
 			     neg->their_sessionpubkey,
 			     sizeof(neg->their_sessionpubkey),
 			     &sessionkey)) {
 		/* FIXME: Dump key in this case. */
-		log_unusual(peer->log, "Bad sessionkey");
+		log_unusual(neg->dstate->base_log, "Bad sessionkey");
 		return io_close(conn);
 	}
 
 	/* Derive shared secret. */
-	if (!secp256k1_ecdh(peer->dstate->secpctx, shared_secret,
+	if (!secp256k1_ecdh(neg->dstate->secpctx, shared_secret,
 			    &sessionkey.pubkey, neg->seckey)) {
-		log_unusual(peer->log, "Bad ECDH");
+		log_unusual(neg->dstate->base_log, "Bad ECDH");
 		return io_close(conn);
 	}
 
 	/* Each side combines with their OWN session key to SENDING crypto. */
-	setup_crypto(&peer->io_data->in, shared_secret,
-		     neg->their_sessionpubkey);
-	setup_crypto(&peer->io_data->out, shared_secret,
-		     neg->our_sessionpubkey);
+	neg->iod = tal(neg, struct io_data);
+	setup_crypto(&neg->iod->in, shared_secret, neg->their_sessionpubkey);
+	setup_crypto(&neg->iod->out, shared_secret, neg->our_sessionpubkey);
 
 	/* BOLT #1:
 	 *
@@ -496,19 +514,20 @@ static struct io_plan *keys_exchanged(struct io_conn *conn, struct peer *peer)
 	 * own sessionpubkey, using the secret key corresponding to the
 	 * sender's `node_id`.
 	 */
-	privkey_sign(peer, neg->their_sessionpubkey,
+	privkey_sign(neg->dstate, neg->their_sessionpubkey,
 		     sizeof(neg->their_sessionpubkey), &sig);
 
-	/* FIXME: Free auth afterwards. */
-	auth = authenticate_pkt(peer, peer->dstate->secpctx,
-				&peer->dstate->id, &sig);
-	return peer_write_packet(conn, peer, auth, receive_proof);
+	auth = authenticate_pkt(neg, neg->dstate->secpctx,
+				&neg->dstate->id, &sig);
+
+	neg->iod->out.cpkt = encrypt_pkt(neg->iod, auth, &totlen);
+	return io_write(conn, neg->iod->out.cpkt, totlen, receive_proof, neg);
 }
 
 /* Read and ignore any extra bytes... */
-static struct io_plan *discard_extra(struct io_conn *conn, struct peer *peer)
+static struct io_plan *discard_extra(struct io_conn *conn,
+				     struct key_negotiate *neg)
 {
-	struct key_negotiate *neg = peer->io_data->neg;
 	size_t len = le32_to_cpu(neg->keylen);
 
 	/* BOLT#1: Additional fields MAY be added, and MUST be
@@ -519,48 +538,48 @@ static struct io_plan *discard_extra(struct io_conn *conn, struct peer *peer)
 
 		len -= sizeof(neg->their_sessionpubkey);
 		discard = tal_arr(neg, char, len);
-		log_unusual(peer->log, "Ignoring %zu extra handshake bytes",
+		log_unusual(neg->dstate->base_log,
+			    "Ignoring %zu extra handshake bytes",
 			    len);
-		return io_read(conn, discard, len, keys_exchanged, peer);
+		return io_read(conn, discard, len, keys_exchanged, neg);
 	}
 
-	return keys_exchanged(conn, peer);
+	return keys_exchanged(conn, neg);
 }
 
 static struct io_plan *session_key_receive(struct io_conn *conn,
-					   struct peer *peer)
+					   struct key_negotiate *neg)
 {
-	struct key_negotiate *neg = peer->io_data->neg;
-
 	/* BOLT#1: The `length` field is the length after the field
 	   itself, and MUST be 33 or greater. */
 	if (le32_to_cpu(neg->keylen) < sizeof(neg->their_sessionpubkey)) {
-		log_unusual(peer->log, "short session key length %u",
+		log_unusual(neg->dstate->base_log, "short session key length %u",
 			    le32_to_cpu(neg->keylen));
 		return io_close(conn);
 	}
 
 	/* BOLT#1: `length` MUST NOT exceed 1MB (1048576 bytes). */
 	if (le32_to_cpu(neg->keylen) > 1048576) {
-		log_unusual(peer->log, "Oversize session key length %u",
+		log_unusual(neg->dstate->base_log,
+			    "Oversize session key length %u",
 			    le32_to_cpu(neg->keylen));
 		return io_close(conn);
 	}
 
-	log_debug(peer->log, "Session key length %u", le32_to_cpu(neg->keylen));
+	log_debug(neg->dstate->base_log,
+		  "Session key length %u", le32_to_cpu(neg->keylen));
 
 	/* Now read their key. */
 	return io_read(conn, neg->their_sessionpubkey,
-		       sizeof(neg->their_sessionpubkey), discard_extra, peer);
+		       sizeof(neg->their_sessionpubkey), discard_extra, neg);
 }
 
 static struct io_plan *session_key_len_receive(struct io_conn *conn,
-					       struct peer *peer)
+					       struct key_negotiate *neg)
 {
-	struct key_negotiate *neg = peer->io_data->neg;
 	/* Read the amount of data they will send.. */
 	return io_read(conn, &neg->keylen, sizeof(neg->keylen),
-		       session_key_receive, peer);
+		       session_key_receive, neg);
 }
 
 static void gen_sessionkey(secp256k1_context *ctx,
@@ -572,18 +591,23 @@ static void gen_sessionkey(secp256k1_context *ctx,
 	} while (!secp256k1_ec_pubkey_create(ctx, pubkey, seckey));
 }
 
-static struct io_plan *write_sessionkey(struct io_conn *conn, struct peer *peer)
+static struct io_plan *write_sessionkey(struct io_conn *conn,
+					struct key_negotiate *neg)
 {
-	struct key_negotiate *neg = peer->io_data->neg;
-
 	return io_write(conn, neg->our_sessionpubkey,
 			sizeof(neg->our_sessionpubkey),
-			session_key_len_receive, peer);
+			session_key_len_receive, neg);
 }
 
-struct io_plan *peer_crypto_setup(struct io_conn *conn, struct peer *peer,
-				  struct io_plan *(*cb)(struct io_conn *,
-							struct peer *))
+struct io_plan *peer_crypto_setup_(struct io_conn *conn,
+				   struct lightningd_state *dstate,
+				   const struct pubkey *id,
+				   struct io_plan *(*cb)(struct io_conn *conn,
+						struct lightningd_state *dstate,
+						struct io_data *iod,
+						const struct pubkey *id,
+						void *arg),
+				   void *arg)
 {
 	size_t outputlen;
 	secp256k1_pubkey sessionkey;
@@ -596,21 +620,23 @@ struct io_plan *peer_crypto_setup(struct io_conn *conn, struct peer *peer,
 	 * is appended) */
 	BUILD_ASSERT(sizeof(struct crypto_pkt) == 20);
 
-	peer->io_data = tal(peer, struct io_data);
-
 	/* We store negotiation state here. */
-	neg = peer->io_data->neg = tal(peer->io_data, struct key_negotiate);
+	neg = tal(dstate, struct key_negotiate);
 	neg->cb = cb;
+	neg->arg = arg;
+	neg->dstate = dstate;
+	neg->expected_id = id;
+	/* FIXME: Create log buffer for neg, use that then pass to peer. */
 
-	gen_sessionkey(peer->dstate->secpctx, neg->seckey, &sessionkey);
+	gen_sessionkey(dstate->secpctx, neg->seckey, &sessionkey);
 
 	outputlen = sizeof(neg->our_sessionpubkey);
-	secp256k1_ec_pubkey_serialize(peer->dstate->secpctx,
+	secp256k1_ec_pubkey_serialize(dstate->secpctx,
 				      neg->our_sessionpubkey, &outputlen,
 				      &sessionkey,
 				      SECP256K1_EC_COMPRESSED);
 	assert(outputlen == sizeof(neg->our_sessionpubkey));
 	neg->keylen = cpu_to_le32(sizeof(neg->our_sessionpubkey));
 	return io_write(conn, &neg->keylen, sizeof(neg->keylen),
-			write_sessionkey, peer);
+			write_sessionkey, neg);
 }

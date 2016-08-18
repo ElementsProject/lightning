@@ -308,6 +308,49 @@ void   authenticate__free_unpacked
   assert(message->base.descriptor == &authenticate__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   reconnect__init
+                     (Reconnect         *message)
+{
+  static Reconnect init_value = RECONNECT__INIT;
+  *message = init_value;
+}
+size_t reconnect__get_packed_size
+                     (const Reconnect *message)
+{
+  assert(message->base.descriptor == &reconnect__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t reconnect__pack
+                     (const Reconnect *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &reconnect__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t reconnect__pack_to_buffer
+                     (const Reconnect *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &reconnect__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+Reconnect *
+       reconnect__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (Reconnect *)
+     protobuf_c_message_unpack (&reconnect__descriptor,
+                                allocator, len, data);
+}
+void   reconnect__free_unpacked
+                     (Reconnect *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &reconnect__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
 void   open_channel__init
                      (OpenChannel         *message)
 {
@@ -1464,8 +1507,7 @@ const ProtobufCMessageDescriptor funding__descriptor =
   (ProtobufCMessageInit) funding__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const uint64_t authenticate__ack__default_value = 0ull;
-static const ProtobufCFieldDescriptor authenticate__field_descriptors[3] =
+static const ProtobufCFieldDescriptor authenticate__field_descriptors[2] =
 {
   {
     "node_id",
@@ -1491,28 +1533,15 @@ static const ProtobufCFieldDescriptor authenticate__field_descriptors[3] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
-  {
-    "ack",
-    3,
-    PROTOBUF_C_LABEL_OPTIONAL,
-    PROTOBUF_C_TYPE_UINT64,
-    offsetof(Authenticate, has_ack),
-    offsetof(Authenticate, ack),
-    NULL,
-    &authenticate__ack__default_value,
-    0,             /* flags */
-    0,NULL,NULL    /* reserved1,reserved2, etc */
-  },
 };
 static const unsigned authenticate__field_indices_by_name[] = {
-  2,   /* field[2] = ack */
   0,   /* field[0] = node_id */
   1,   /* field[1] = session_sig */
 };
 static const ProtobufCIntRange authenticate__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 3 }
+  { 0, 2 }
 };
 const ProtobufCMessageDescriptor authenticate__descriptor =
 {
@@ -1522,11 +1551,49 @@ const ProtobufCMessageDescriptor authenticate__descriptor =
   "Authenticate",
   "",
   sizeof(Authenticate),
-  3,
+  2,
   authenticate__field_descriptors,
   authenticate__field_indices_by_name,
   1,  authenticate__number_ranges,
   (ProtobufCMessageInit) authenticate__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor reconnect__field_descriptors[1] =
+{
+  {
+    "ack",
+    1,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT64,
+    0,   /* quantifier_offset */
+    offsetof(Reconnect, ack),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned reconnect__field_indices_by_name[] = {
+  0,   /* field[0] = ack */
+};
+static const ProtobufCIntRange reconnect__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 1 }
+};
+const ProtobufCMessageDescriptor reconnect__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "reconnect",
+  "Reconnect",
+  "Reconnect",
+  "",
+  sizeof(Reconnect),
+  1,
+  reconnect__field_descriptors,
+  reconnect__field_indices_by_name,
+  1,  reconnect__number_ranges,
+  (ProtobufCMessageInit) reconnect__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCEnumValue open_channel__anchor_offer__enum_values_by_number[2] =
@@ -2414,7 +2481,7 @@ const ProtobufCMessageDescriptor error__descriptor =
   (ProtobufCMessageInit) error__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor pkt__field_descriptors[13] =
+static const ProtobufCFieldDescriptor pkt__field_descriptors[14] =
 {
   {
     "update_add_htlc",
@@ -2572,6 +2639,18 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[13] =
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "reconnect",
+    51,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Pkt, pkt_case),
+    offsetof(Pkt, reconnect),
+    &reconnect__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned pkt__field_indices_by_name[] = {
   12,   /* field[12] = auth */
@@ -2582,6 +2661,7 @@ static const unsigned pkt__field_indices_by_name[] = {
   6,   /* field[6] = open_anchor */
   7,   /* field[7] = open_commit_sig */
   8,   /* field[8] = open_complete */
+  13,   /* field[13] = reconnect */
   0,   /* field[0] = update_add_htlc */
   3,   /* field[3] = update_commit */
   2,   /* field[2] = update_fail_htlc */
@@ -2595,7 +2675,7 @@ static const ProtobufCIntRange pkt__number_ranges[5 + 1] =
   { 30, 9 },
   { 40, 11 },
   { 50, 12 },
-  { 0, 13 }
+  { 0, 14 }
 };
 const ProtobufCMessageDescriptor pkt__descriptor =
 {
@@ -2605,7 +2685,7 @@ const ProtobufCMessageDescriptor pkt__descriptor =
   "Pkt",
   "",
   sizeof(Pkt),
-  13,
+  14,
   pkt__field_descriptors,
   pkt__field_indices_by_name,
   5,  pkt__number_ranges,

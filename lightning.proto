@@ -64,8 +64,12 @@ message authenticate {
   required bitcoin_pubkey node_id = 1;
   // Signature of your session key. */
   required signature session_sig = 2;
+};
+
+// We're reconnecting, here's what we've received already.
+message reconnect {
   // How many update_commit and update_revocation messages already received
-  optional uint64 ack = 3 [ default = 0 ];
+  required uint64 ack = 1;
 };
 
 // Set channel params.
@@ -211,6 +215,8 @@ message pkt {
   oneof pkt {
     // Start of connection
     authenticate auth = 50;
+    reconnect reconnect = 51;
+
     // Opening
     open_channel open = 20;
     open_anchor open_anchor = 21;

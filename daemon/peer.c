@@ -886,6 +886,7 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	peer->local.commit = ci;
 	peer_get_revocation_hash(peer, ci->commit_num + 1,
 				 &peer->local.next_revocation_hash);
+	peer->their_commitsigs++;
 
 	/* Now, send the revocation. */
 	ci = peer->local.commit->prev;
@@ -1798,6 +1799,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	list_head_init(&peer->pay_commands);
 	list_head_init(&peer->their_commits);
 	peer->anchor.ok_depth = -1;
+	peer->their_commitsigs = 0;
 	peer->cur_commit.watch = NULL;
 	peer->closing.their_sig = NULL;
 	peer->closing.our_script = NULL;
@@ -1849,6 +1851,20 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	return peer;
 }
 
+/* Unused for the moment. */
+#if 0
+static u64 peer_commitsigs_received(struct peer *peer)
+{
+	return peer->their_commitsigs;
+}
+
+static u64 peer_revocations_received(struct peer *peer)
+{
+	/* How many preimages we've received. */
+	return -peer->their_preimages.min_index;
+}
+#endif
+
 static void htlc_destroy(struct htlc *htlc)
 {
 	if (!htlc_map_del(&htlc->peer->htlcs, htlc))
@@ -1894,9 +1910,11 @@ struct htlc *peer_new_htlc(struct peer *peer,
 	return h;
 }
 
-static struct io_plan *peer_connected_out(struct io_conn *conn,
-					  struct lightningd_state *dstate,
-					  struct json_connecting *connect)
+static struct io_plan *crypto_on_out(struct io_conn *conn,
+				     struct lightningd_state *dstate,
+				     struct io_data *iod,
+				     const struct pubkey *id,
+				     struct json_connecting *connect)
 {
 	/* Initiator currently funds channel */
 	struct peer *peer = new_peer(dstate, conn, SOCK_STREAM, IPPROTO_TCP,
@@ -1906,25 +1924,48 @@ static struct io_plan *peer_connected_out(struct io_conn *conn,
 			     connect->name, connect->port);
 		return io_close(conn);
 	}
-	log_info(peer->log, "Connected out to %s:%s",
-		 connect->name, connect->port);
-
+	peer->io_data = tal_steal(peer, iod);
+	peer->id = tal_dup(peer, struct pubkey, id);
 	peer->anchor.input = tal_steal(peer, connect->input);
 
 	command_success(connect->cmd, null_response(connect));
-	return peer_crypto_setup(conn, peer, peer_crypto_on);
+	return peer_crypto_on(conn, peer);
 }
 
-static struct io_plan *peer_connected_in(struct io_conn *conn,
-					 struct lightningd_state *dstate)
+static struct io_plan *peer_connected_out(struct io_conn *conn,
+					  struct lightningd_state *dstate,
+					  struct json_connecting *connect)
 {
+	log_debug(dstate->base_log, "Connected out to %s:%s",
+		  connect->name, connect->port);
+
+	return peer_crypto_setup(conn, dstate, NULL, crypto_on_out, connect);
+}
+
+static struct io_plan *crypto_on_in(struct io_conn *conn,
+				    struct lightningd_state *dstate,
+				    struct io_data *iod,
+				    const struct pubkey *id,
+				    void *unused)
+{
+	/* Initiator currently funds channel */
 	struct peer *peer = new_peer(dstate, conn, SOCK_STREAM, IPPROTO_TCP,
 				     CMD_OPEN_WITHOUT_ANCHOR, "in");
 	if (!peer)
 		return io_close(conn);
 
-	log_info(peer->log, "Peer connected in");
-	return peer_crypto_setup(conn, peer, peer_crypto_on);
+	peer->io_data = tal_steal(peer, iod);
+	peer->id = tal_dup(peer, struct pubkey, id);
+	return peer_crypto_on(conn, peer);
+}
+
+static struct io_plan *peer_connected_in(struct io_conn *conn,
+					 struct lightningd_state *dstate)
+{
+	/* FIXME: log incoming address. */
+	log_debug(dstate->base_log, "Connected in");
+
+	return peer_crypto_setup(conn, dstate, NULL, crypto_on_in, NULL);
 }
 
 static int make_listen_fd(struct lightningd_state *dstate,
