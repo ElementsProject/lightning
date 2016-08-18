@@ -67,6 +67,7 @@ DAEMON_HEADERS :=				\
 	daemon/netaddr.h			\
 	daemon/onion.h				\
 	daemon/opt_time.h			\
+	daemon/packets.h			\
 	daemon/pay.h				\
 	daemon/payment.h			\
 	daemon/peer.h				\

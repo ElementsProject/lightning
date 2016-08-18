@@ -8,6 +8,7 @@
 #include "lightningd.h"
 #include "log.h"
 #include "names.h"
+#include "packets.h"
 #include "peer.h"
 #include "protobuf_convert.h"
 #include "secrets.h"

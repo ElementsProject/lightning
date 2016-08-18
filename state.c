@@ -1,6 +1,7 @@
 #include <ccan/build_assert/build_assert.h>
 #include <daemon/lightningd.h>
 #include <daemon/log.h>
+#include <daemon/packets.h>
 #include <daemon/peer.h>
 #include <daemon/secrets.h>
 #include <names.h>

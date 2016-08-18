@@ -11,6 +11,7 @@
 #include "log.h"
 #include "names.h"
 #include "onion.h"
+#include "packets.h"
 #include "pay.h"
 #include "payment.h"
 #include "peer.h"
