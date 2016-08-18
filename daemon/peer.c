@@ -313,11 +313,7 @@ static bool committed_to_htlcs(const struct peer *peer)
 	for (h = htlc_map_first(&peer->htlcs, &it);
 	     h;
 	     h = htlc_map_next(&peer->htlcs, &it)) {
-		/* FIXME: Move these dead ones to a separate hash (or
-		 * just leave in database only). */
-		if (h->state == RCVD_REMOVE_ACK_REVOCATION)
-			continue;
-		if (h->state == SENT_REMOVE_ACK_REVOCATION)
+		if (htlc_is_dead(h))
 			continue;
 		return true;
 	}
@@ -3156,8 +3152,7 @@ static void json_add_htlcs(struct json_result *response,
 			continue;
 
 		/* Ignore completed HTLCs. */
-		if (h->state == RCVD_REMOVE_ACK_REVOCATION
-		    || h->state == SENT_REMOVE_ACK_REVOCATION)
+		if (htlc_is_dead(h))
 			continue;
 
 		json_object_start(response, NULL);

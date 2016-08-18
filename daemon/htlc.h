@@ -138,4 +138,11 @@ static inline size_t htlc_map_count(const struct htlc_map *htlcs)
 {
 	return htlcs->raw.elems;
 }
+
+/* FIXME: Move these out of the hash! */
+static inline bool htlc_is_dead(const struct htlc *htlc)
+{
+	return htlc->state == RCVD_REMOVE_ACK_REVOCATION
+		|| htlc->state == SENT_REMOVE_ACK_REVOCATION;
+}
 #endif /* LIGHTNING_DAEMON_HTLC_H */
