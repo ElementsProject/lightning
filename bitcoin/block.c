@@ -1,4 +1,5 @@
 #include "bitcoin/block.h"
+#include "bitcoin/pullpush.h"
 #include "bitcoin/tx.h"
 #include <ccan/str/hex/hex.h>
 

@@ -1,3 +1,4 @@
+#include "bitcoin/pullpush.c"
 #include "bitcoin/tx.c"
 #include "bitcoin/shadouble.c"
 #include "bitcoin/varint.c"
