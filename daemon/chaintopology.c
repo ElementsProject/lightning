@@ -64,12 +64,17 @@ struct topology {
 	struct block *tip;
 	struct block_map block_map;
 	u64 feerate;
+	bool startup;
 };
 
 static void start_poll_chaintip(struct lightningd_state *dstate);
 
 static void next_topology_timer(struct lightningd_state *dstate)
 {
+	if (dstate->topology->startup) {
+		dstate->topology->startup = false;
+		io_break(dstate);
+	}
 	new_reltimer(dstate, dstate, dstate->config.poll_time,
 		     start_poll_chaintip, dstate);
 }
@@ -425,7 +430,6 @@ static void init_topo(struct lightningd_state *dstate,
 
 	/* Now grab chaintip immediately. */
 	bitcoind_get_chaintip(dstate, check_chaintip, NULL);
-	io_break(dstate);
 }
 
 static void get_init_block(struct lightningd_state *dstate,
@@ -487,9 +491,11 @@ void setup_topology(struct lightningd_state *dstate)
 	dstate->topology = tal(dstate, struct topology);
 	block_map_init(&dstate->topology->block_map);
 
+	dstate->topology->startup = true;
 	dstate->topology->feerate = 0;
 	bitcoind_getblockcount(dstate, get_init_blockhash, NULL);
 
-	/* Once it gets first block, it calls io_break() and we return. */
+	/* Once it gets topology, it calls io_break() and we return. */
 	io_loop(NULL, NULL);
+	assert(!dstate->topology->startup);
 }
