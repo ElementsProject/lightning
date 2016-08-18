@@ -13,6 +13,7 @@
 #include "secrets.h"
 #include "state.h"
 #include "utils.h"
+#include <ccan/array_size/array_size.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
@@ -219,6 +220,7 @@ void queue_pkt_htlc_fulfill(struct peer *peer, struct htlc *htlc,
 	stage.fulfill.htlc = htlc;
 	stage.fulfill.r = *r;
 	add_unacked(&peer->remote, &stage);
+	htlc_changestate(htlc, RCVD_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
 
 	remote_changes_pending(peer);
 
@@ -249,9 +251,48 @@ void queue_pkt_htlc_fail(struct peer *peer, struct htlc *htlc)
 	stage.fail.fail = HTLC_FAIL;
 	stage.fail.htlc = htlc;
 	add_unacked(&peer->remote, &stage);
+	htlc_changestate(htlc, RCVD_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
 
 	remote_changes_pending(peer);
 	queue_pkt(peer, PKT__PKT_UPDATE_FAIL_HTLC, f);
+}
+
+struct state_table {
+	enum htlc_state from, to;
+};
+
+static bool htlcs_changestate(struct peer *peer,
+			      const struct state_table *table,
+			      size_t n)
+{
+	struct htlc_map_iter it;
+	struct htlc *h;
+	bool changed = false;
+
+	for (h = htlc_map_first(&peer->local.htlcs, &it);
+	     h;
+	     h = htlc_map_next(&peer->local.htlcs, &it)) {
+		size_t i;
+		for (i = 0; i < n; i++) {
+			if (h->state == table[i].from) {
+				htlc_changestate(h, table[i].from, table[i].to);
+				changed = true;
+			}
+		}
+	}
+
+	for (h = htlc_map_first(&peer->remote.htlcs, &it);
+	     h;
+	     h = htlc_map_next(&peer->remote.htlcs, &it)) {
+		size_t i;
+		for (i = 0; i < n; i++) {
+			if (h->state == table[i].from) {
+				htlc_changestate(h, table[i].from, table[i].to);
+				changed = true;
+			}
+		}
+	}
+	return changed;
 }
 
 /* OK, we're sending a signature for their pending changes. */
@@ -259,6 +300,20 @@ void queue_pkt_commit(struct peer *peer)
 {
 	UpdateCommit *u = tal(peer, UpdateCommit);
 	struct commit_info *ci = new_commit_info(peer);
+	static const struct state_table changes[] = {
+		{ SENT_ADD_HTLC, SENT_ADD_COMMIT },
+		{ SENT_REMOVE_REVOCATION, SENT_REMOVE_ACK_COMMIT },
+		{ SENT_ADD_REVOCATION, SENT_ADD_ACK_COMMIT},
+		{ SENT_REMOVE_HTLC, SENT_REMOVE_COMMIT}
+	};
+
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT send an `update_commit` message which does
+	 * not include any updates.
+	 */
+	if (!htlcs_changestate(peer, changes, ARRAY_SIZE(changes)))
+		fatal("sent commit with no changes");
 
 	/* Create new commit info for this commit tx. */
 	ci->prev = peer->remote.commit;
@@ -363,6 +418,12 @@ void queue_pkt_revocation(struct peer *peer)
 {
 	UpdateRevocation *u = tal(peer, UpdateRevocation);
 	struct commit_info *ci;
+	static const struct state_table changes[] = {
+		{ RCVD_ADD_ACK_COMMIT, SENT_ADD_ACK_REVOCATION },
+		{ RCVD_REMOVE_COMMIT, SENT_REMOVE_REVOCATION },
+		{ RCVD_ADD_COMMIT, SENT_ADD_REVOCATION },
+		{ RCVD_REMOVE_ACK_COMMIT, SENT_REMOVE_ACK_REVOCATION }
+	};
 
 	update_revocation__init(u);
 
@@ -373,6 +434,9 @@ void queue_pkt_revocation(struct peer *peer)
 
 	/* We have their signature on the current one, right? */
 	assert(peer->local.commit->sig);
+
+	if (!htlcs_changestate(peer, changes, ARRAY_SIZE(changes)))
+		fatal("sent revoke with no changes");
 
 	ci->revocation_preimage = tal(ci, struct sha256);
 	peer_get_revocation_preimage(peer, ci->commit_num,
@@ -701,6 +765,7 @@ Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 	stage.fail.fail = HTLC_FAIL;
 	stage.fail.htlc = htlc;
 	add_unacked(&peer->local, &stage);
+	htlc_changestate(htlc, SENT_ADD_ACK_REVOCATION, RCVD_REMOVE_HTLC);
 	return NULL;
 }
 
@@ -733,6 +798,7 @@ Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 	 * to the unacked changeset for its local commitment.
 	 */
 	cstate_fulfill_htlc(peer->local.staging_cstate, htlc, OURS);
+	htlc_changestate(htlc, SENT_ADD_ACK_REVOCATION, RCVD_REMOVE_HTLC);
 
 	stage.fulfill.fulfill = HTLC_FULFILL;
 	stage.fulfill.htlc = htlc;
@@ -746,6 +812,20 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt)
 	const UpdateCommit *c = pkt->update_commit;
 	Pkt *err;
 	struct commit_info *ci = new_commit_info(peer);
+	static const struct state_table changes[] = {
+		{ RCVD_ADD_REVOCATION, RCVD_ADD_ACK_COMMIT },
+		{ RCVD_REMOVE_HTLC, RCVD_REMOVE_COMMIT },
+		{ RCVD_ADD_HTLC, RCVD_ADD_COMMIT },
+		{ RCVD_REMOVE_REVOCATION, RCVD_REMOVE_ACK_COMMIT }
+	};
+
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT send an `update_commit` message which does
+	 * not include any updates.
+	 */
+	if (!htlcs_changestate(peer, changes, ARRAY_SIZE(changes)))
+		return pkt_err(peer, "Empty commit");
 
 	/* Create new commit info for this commit tx. */
 	ci->prev = peer->local.commit;
@@ -805,6 +885,12 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 {
 	const UpdateRevocation *r = pkt->update_revocation;
 	struct commit_info *ci = peer->remote.commit->prev;
+	static const struct state_table changes[] = {
+		{ SENT_ADD_COMMIT, RCVD_ADD_REVOCATION },
+		{ SENT_REMOVE_ACK_COMMIT, RCVD_REMOVE_ACK_REVOCATION },
+		{ SENT_ADD_ACK_COMMIT, RCVD_ADD_ACK_REVOCATION },
+		{ SENT_REMOVE_COMMIT, RCVD_REMOVE_REVOCATION }
+	};
 
 	/* BOLT #2:
 	 *
@@ -838,6 +924,9 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	apply_changeset(peer, &peer->local, OURS,
 			ci->unacked_changes,
 			tal_count(ci->unacked_changes));
+
+	if (!htlcs_changestate(peer, changes, ARRAY_SIZE(changes)))
+		fatal("Revocation received but we made empty commitment?");
 
 	/* Should never examine these again. */
 	ci->unacked_changes = tal_free(ci->unacked_changes);

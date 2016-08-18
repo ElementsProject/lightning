@@ -97,6 +97,7 @@ struct peer_visible_state {
 	/* cstate to generate next commitment tx. */
 	struct channel_state *staging_cstate;
 
+	/* FIXME: Use single map in struct peer. */
 	/* HTLCs offered by this side */
 	struct htlc_map htlcs;
 };

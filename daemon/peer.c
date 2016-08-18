@@ -162,30 +162,32 @@ static void peer_breakdown(struct peer *peer)
 /* All unrevoked commit txs must have no HTLCs in them. */
 static bool committed_to_htlcs(const struct peer *peer)
 {
-	const struct commit_info *i;
+	struct htlc_map_iter it;
+	struct htlc *h;
 
-	/* Before anchor exchange, we don't even have cstate. */
-	if (!peer->local.commit || !peer->local.commit->cstate)
-		return false;
-	
-	i = peer->local.commit;
-	while (i && !i->revocation_preimage) {
-		if (tal_count(i->cstate->side[OURS].htlcs))
-			return true;
-		if (tal_count(i->cstate->side[THEIRS].htlcs))
-			return true;
-		i = i->prev;
+	for (h = htlc_map_first(&peer->local.htlcs, &it);
+	     h;
+	     h = htlc_map_next(&peer->local.htlcs, &it)) {
+		/* FIXME: Move these dead ones to a separate hash (or
+		 * just leave in database only). */
+		if (h->state == RCVD_REMOVE_ACK_REVOCATION)
+			continue;
+		if (h->state == SENT_REMOVE_ACK_REVOCATION)
+			continue;
+		return true;
 	}
 
-	i = peer->remote.commit;
-	while (i && !i->revocation_preimage) {
-		if (tal_count(i->cstate->side[OURS].htlcs))
-			return true;
-		if (tal_count(i->cstate->side[THEIRS].htlcs))
-			return true;
-		i = i->prev;
+	for (h = htlc_map_first(&peer->remote.htlcs, &it);
+	     h;
+	     h = htlc_map_next(&peer->remote.htlcs, &it)) {
+		/* FIXME: Move these dead ones to a separate hash (or
+		 * just leave in database only). */
+		if (h->state == RCVD_REMOVE_ACK_REVOCATION)
+			continue;
+		if (h->state == SENT_REMOVE_ACK_REVOCATION)
+			continue;
+		return true;
 	}
-
 	return false;
 }
 
@@ -557,10 +559,15 @@ static struct htlc *htlc_by_index(const struct commit_info *ci, size_t index)
 	assert(index >= 2);
 	index -= 2;
 
-	if (index < tal_count(ci->cstate->side[OURS].htlcs))
+	if (index < tal_count(ci->cstate->side[OURS].htlcs)) {
+		assert(htlc_has(ci->cstate->side[OURS].htlcs[index],
+				HTLC_LOCAL_F_OWNER));
 		return ci->cstate->side[OURS].htlcs[index];
+	}
 	index -= tal_count(ci->cstate->side[OURS].htlcs);
 	assert(index < tal_count(ci->cstate->side[THEIRS].htlcs));
+	assert(htlc_has(ci->cstate->side[THEIRS].htlcs[index],
+			HTLC_REMOTE_F_OWNER));
 	return ci->cstate->side[THEIRS].htlcs[index];
 }
 
@@ -1034,6 +1041,7 @@ struct htlc *peer_new_htlc(struct peer *peer,
 	struct htlc *h = tal(peer, struct htlc);
 	h->peer = peer;
 	assert(state == SENT_ADD_HTLC || state == RCVD_ADD_HTLC);
+	h->state = state;
 	h->id = id;
 	h->msatoshis = msatoshis;
 	h->rhash = *rhash;
