@@ -6,12 +6,13 @@
 #include <ccan/tal/tal.h>
 #include <stdbool.h>
 
+struct htlc;
+
 struct channel_oneside {
 	/* Payment and fee is in millisatoshi. */
 	uint32_t pay_msat, fee_msat;
-	/* Use tal_count to get the number */
-	/* FIXME: Use htlc_map, but needs permute changes. */
-	struct htlc **htlcs;
+	/* Number of HTLCs (required for limiting total number) */
+	unsigned int num_htlcs;
 };
 
 enum channel_side {
@@ -26,8 +27,8 @@ struct channel_state {
 	uint64_t anchor;
 	/* Satoshis per 1000 bytes. */
 	uint32_t fee_rate;
-	/* Generation counter (incremented on every change) */
-	uint32_t changes;
+	/* Number of non-dust htlcs (to calculate txsize) */
+	unsigned int num_nondust;
 	struct channel_oneside side[2];
 };
 
@@ -57,41 +58,31 @@ struct channel_state *copy_cstate(const tal_t *ctx,
  * cstate_add_htlc: append an HTLC to cstate if it can afford it
  * @cstate: The channel state
  * @htlc: the htlc pointer.
- * @side: OURS or THEIRS
  *
  * If that direction can't afford the HTLC (or still owes its half of the fees),
- * this will return false and leave @cstate unchanged.  Otherwise
- * cstate->side[dir].htlcs will have the HTLC appended, and pay_msat and
+ * this will return false and leave @cstate unchanged.  Otherwise, pay_msat and
  * fee_msat are adjusted accordingly; true is returned.
  */
-bool cstate_add_htlc(struct channel_state *cstate,
-		     struct htlc *htlc,
-		     enum channel_side side);
+bool cstate_add_htlc(struct channel_state *cstate, const struct htlc *htlc);
 /**
  * cstate_fail_htlc: remove an HTLC, funds to the side which offered it.
  * @cstate: The channel state
- * @htlc: the htlc in cstate->side[dir].htlcs[].
- * @side: OURS or THEIRS
+ * @htlc: the htlc to remove.
  *
  * This will remove the @index'th entry in cstate->side[dir].htlcs[], and credit
  * the value of the HTLC (back) to cstate->side[dir].
  */
-void cstate_fail_htlc(struct channel_state *cstate,
-		      struct htlc *htlc,
-		      enum channel_side side);
+void cstate_fail_htlc(struct channel_state *cstate, const struct htlc *htlc);
 
 /**
  * cstate_fulfill_htlc: remove an HTLC, funds to side which accepted it.
  * @cstate: The channel state
- * @htlc: the htlc in cstate->side[dir].htlcs[].
- * @side: OURS or THEIRS
+ * @htlc: the htlc to remove
  *
  * This will remove the @index'th entry in cstate->side[dir].htlcs[], and credit
  * the value of the HTLC to cstate->side[!dir].
  */
-void cstate_fulfill_htlc(struct channel_state *cstate,
-			 struct htlc *htlc,
-			 enum channel_side side);
+void cstate_fulfill_htlc(struct channel_state *cstate, const struct htlc *htlc);
 
 /**
  * adjust_fee: Change fee rate.
@@ -112,31 +103,10 @@ void adjust_fee(struct channel_state *cstate, uint32_t fee_rate);
 bool force_fee(struct channel_state *cstate, uint64_t fee);
 
 /**
- * cstate_htlc_by_id: find an HTLC on this side of the channel by ID.
- * @cstate: The channel state
- * @id: id for HTLC.
- * @side: OURS or THEIRS
- *
- * Returns a pointer into cstate->side[@side].htlcs, or NULL.
- */
-struct htlc *cstate_htlc_by_id(const struct channel_state *cstate,
-			       uint64_t id,
-			       enum channel_side side);
-
-/**
  * fee_for_feerate: calculate the fee (in satoshi) for a given fee_rate.
  * @txsize: transaction size in bytes.
  * @fee_rate: satoshi per 1000 bytes.
  */
 uint64_t fee_by_feerate(size_t txsize, uint32_t fee_rate);
-
-/**
- * is_dust_amount: is an output of this value considered dust?
- * @satoshis: number of satoshis.
- *
- * Transactions with dust outputs will not be relayed by the bitcoin
- * network.  It's not an exact definition, unfortunately.
- */
-bool is_dust_amount(uint64_t satoshis);
 
 #endif /* LIGHTNING_DAEMON_CHANNEL_H */

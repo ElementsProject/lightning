@@ -375,7 +375,7 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt, struct htlc **h)
 	 * A node MUST NOT add a HTLC if it would result in it
 	 * offering more than 300 HTLCs in the remote commitment transaction.
 	 */
-	if (tal_count(peer->remote.staging_cstate->side[THEIRS].htlcs) == 300)
+	if (peer->remote.staging_cstate->side[THEIRS].num_htlcs == 300)
 		return pkt_err(peer, "Too many HTLCs");
 
 	/* BOLT #2:
@@ -403,19 +403,20 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt, struct htlc **h)
 static Pkt *find_commited_htlc(struct peer *peer, uint64_t id,
 			       struct htlc **local_htlc)
 {
+	*local_htlc = htlc_get(&peer->htlcs, id, LOCAL);
+
 	/* BOLT #2:
 	 *
 	 * A node MUST check that `id` corresponds to an HTLC in its
 	 * current commitment transaction, and MUST fail the
 	 * connection if it does not.
 	 */
-	if (!cstate_htlc_by_id(peer->local.commit->cstate, id, OURS))
+	if (!(*local_htlc))
 		return pkt_err(peer, "Did not find HTLC %"PRIu64, id);
 
-	/* They must not fail/fulfill twice, so it should be in staging, too. */
-	*local_htlc = cstate_htlc_by_id(peer->local.staging_cstate, id, OURS);
-	if (!*local_htlc)
-		return pkt_err(peer, "Already removed HTLC %"PRIu64, id);
+	if ((*local_htlc)->state != SENT_ADD_ACK_REVOCATION)
+		return pkt_err(peer, "HTLC %"PRIu64" state %s", id,
+			       htlc_state_name((*local_htlc)->state));
 
 	return NULL;
 }

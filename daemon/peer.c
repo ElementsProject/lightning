@@ -19,6 +19,7 @@
 #include "permute_tx.h"
 #include "protobuf_convert.h"
 #include "pseudorand.h"
+#include "remove_dust.h"
 #include "routing.h"
 #include "secrets.h"
 #include "state.h"
@@ -131,7 +132,7 @@ static const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 
 	/* FIXME: Fail gracefully in these cases (not worth collecting) */
 	if (fee > commit->output[p2wsh_out].amount
-	    || is_dust_amount(commit->output[p2wsh_out].amount - fee))
+	    || is_dust(commit->output[p2wsh_out].amount - fee))
 		fatal("Amount of %"PRIu64" won't cover fee %"PRIu64,
 		      commit->output[p2wsh_out].amount, fee);
 
@@ -223,8 +224,6 @@ static bool peer_uncommitted_changes(const struct peer *peer)
 
 static void remote_changes_pending(struct peer *peer)
 {
-	log_debug(peer->log, "remote_changes_pending: changes=%u",
-		  peer->remote.staging_cstate->changes);
 	if (!peer->commit_timer) {
 		log_debug(peer->log, "remote_changes_pending: adding timer");
 		peer->commit_timer = new_reltimer(peer->dstate, peer,
@@ -547,12 +546,12 @@ static void adjust_cstate_side(struct channel_state *cstate,
 
 	if (old_committed && !new_committed) {
 		if (h->r)
-			cstate_fulfill_htlc(cstate, h, htlc_channel_side(h));
+			cstate_fulfill_htlc(cstate, h);
 		else
-			cstate_fail_htlc(cstate, h, htlc_channel_side(h));
+			cstate_fail_htlc(cstate, h);
 	} else if (!old_committed && new_committed) {
 		/* FIXME: This can happen; see BOLT */
-		if (!cstate_add_htlc(cstate, h, htlc_channel_side(h)))
+		if (!cstate_add_htlc(cstate, h))
 			fatal("Could not afford htlc");
 	}
 }
@@ -839,7 +838,7 @@ static Pkt *handle_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	 * "Fee Calculation" ).  A node SHOULD fail the connection if
 	 * this occurs.
 	 */
-	if (!cstate_add_htlc(peer->local.staging_cstate, htlc, THEIRS)) {
+	if (!cstate_add_htlc(peer->local.staging_cstate, htlc)) {
 		tal_free(htlc);
 		return pkt_err(peer, "Cannot afford %"PRIu64" milli-satoshis"
 			       " in our commitment tx",
@@ -857,7 +856,7 @@ static Pkt *handle_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 	if (err)
 		return err;
 
-	cstate_fail_htlc(peer->local.staging_cstate, htlc, OURS);
+	cstate_fail_htlc(peer->local.staging_cstate, htlc);
 
 	/* BOLT #2:
 	 *
@@ -885,7 +884,7 @@ static Pkt *handle_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 	 * ... and the receiving node MUST add the HTLC fulfill/fail
 	 * to the unacked changeset for its local commitment.
 	 */
-	cstate_fulfill_htlc(peer->local.staging_cstate, htlc, OURS);
+	cstate_fulfill_htlc(peer->local.staging_cstate, htlc);
 	htlc_changestate(htlc, SENT_ADD_ACK_REVOCATION, RCVD_REMOVE_HTLC);
 	return NULL;
 }
@@ -1204,7 +1203,7 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 			     peer->dstate->config.closing_fee_rate);
 
 	/* FIXME: Fail gracefully in these cases (not worth collecting) */
-	if (fee > satoshis || is_dust_amount(satoshis - fee))
+	if (fee > satoshis || is_dust(satoshis - fee))
 		fatal("HTLC fulfill amount of %"PRIu64" won't cover fee %"PRIu64,
 		      satoshis, fee);
 
@@ -1234,9 +1233,7 @@ static bool command_htlc_fail(struct peer *peer, struct htlc *htlc)
 	 * The sending node MUST add the HTLC fulfill/fail to the
 	 * unacked changeset for its remote commitment
 	 */
-	assert(cstate_htlc_by_id(peer->remote.staging_cstate, htlc->id, THEIRS)
-	       == htlc);
-	cstate_fail_htlc(peer->remote.staging_cstate, htlc, THEIRS);
+	cstate_fail_htlc(peer->remote.staging_cstate, htlc);
 
 	htlc_changestate(htlc, RCVD_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
 
@@ -1285,9 +1282,7 @@ static bool command_htlc_fulfill(struct peer *peer, struct htlc *htlc)
 	 * The sending node MUST add the HTLC fulfill/fail to the
 	 * unacked changeset for its remote commitment
 	 */
-	assert(cstate_htlc_by_id(peer->remote.staging_cstate, htlc->id, THEIRS)
-	       == htlc);
-	cstate_fulfill_htlc(peer->remote.staging_cstate, htlc, THEIRS);
+	cstate_fulfill_htlc(peer->remote.staging_cstate, htlc);
 
 	htlc_changestate(htlc, RCVD_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
 
@@ -1329,7 +1324,7 @@ struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
 	 * A node MUST NOT add a HTLC if it would result in it
 	 * offering more than 300 HTLCs in the remote commitment transaction.
 	 */
-	if (tal_count(peer->remote.staging_cstate->side[OURS].htlcs) == 300) {
+	if (peer->remote.staging_cstate->side[OURS].num_htlcs == 300) {
 		log_unusual(peer->log, "add_htlc: fail: already at limit");
 		return NULL;
 	}
@@ -1352,7 +1347,7 @@ struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
 	 * the remote commitment transaction at the current `fee_rate`
 	 */
 	cstate = copy_cstate(peer, peer->remote.staging_cstate);
-	if (!cstate_add_htlc(cstate, htlc, OURS)) {
+	if (!cstate_add_htlc(cstate, htlc)) {
 		log_unusual(peer->log, "add_htlc: fail: Cannot afford %"PRIu64
 			    " milli-satoshis in their commit tx",
 			    msatoshis);
@@ -1361,7 +1356,7 @@ struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
 	tal_free(cstate);
 
 	cstate = copy_cstate(peer, peer->local.staging_cstate);
-	if (!cstate_add_htlc(cstate, htlc, OURS)) {
+	if (!cstate_add_htlc(cstate, htlc)) {
 		log_unusual(peer->log, "add_htlc: fail: Cannot afford %"PRIu64
 			    " milli-satoshis in our commit tx",
 			    msatoshis);
@@ -1374,7 +1369,7 @@ struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
 	 * The sending node MUST add the HTLC addition to the unacked
 	 * changeset for its remote commitment
 	 */
-	if (!cstate_add_htlc(peer->remote.staging_cstate, htlc, OURS))
+	if (!cstate_add_htlc(peer->remote.staging_cstate, htlc))
 		fatal("Could not add HTLC?");
 
 	remote_changes_pending(peer);
@@ -1538,11 +1533,12 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 				  ci->cstate, REMOTE);
 	bitcoin_txid(ci->tx, &ci->txid);
 
-	log_debug(peer->log, "Signing tx for %u/%u msatoshis, %zu/%zu htlcs",
+	log_debug(peer->log, "Signing tx for %u/%u msatoshis, %u/%u htlcs (%u non-dust)",
 		  ci->cstate->side[OURS].pay_msat,
 		  ci->cstate->side[THEIRS].pay_msat,
-		  tal_count(ci->cstate->side[OURS].htlcs),
-		  tal_count(ci->cstate->side[THEIRS].htlcs));
+		  ci->cstate->side[OURS].num_htlcs,
+		  ci->cstate->side[THEIRS].num_htlcs,
+		  ci->cstate->num_nondust);
 	log_add_struct(peer->log, " (txid %s)", struct sha256_double, &ci->txid);
 
 	ci->sig = tal(ci, struct bitcoin_signature);
@@ -1963,18 +1959,23 @@ const struct json_command connect_command = {
 };
 
 /* Have any of our HTLCs passed their deadline? */
-static bool any_deadline_past(struct peer *peer,
-			      const struct channel_state *cstate)
+static bool any_deadline_past(struct peer *peer)
 {
-	size_t i;
 	u32 height = get_block_height(peer->dstate);
-	struct htlc **htlcs = cstate->side[OURS].htlcs;
+	struct htlc_map_iter it;
+	struct htlc *h;
 
-	for (i = 0; i < tal_count(htlcs); i++) {
-		if (height >= htlcs[i]->deadline) {
+	for (h = htlc_map_first(&peer->htlcs, &it);
+	     h;
+	     h = htlc_map_next(&peer->htlcs, &it)) {
+		if (htlc_is_dead(h))
+			continue;
+		if (htlc_owner(h) != LOCAL)
+			continue;
+		if (height >= h->deadline) {
 			log_unusual_struct(peer->log,
 					   "HTLC %s deadline has passed",
-					   struct htlc, htlcs[i]);
+					   struct htlc, h);
 			return true;
 		}
 	}
@@ -1983,26 +1984,28 @@ static bool any_deadline_past(struct peer *peer,
 
 static void check_htlc_expiry(struct peer *peer)
 {
-	size_t i;
 	u32 height = get_block_height(peer->dstate);
+	struct htlc_map_iter it;
+	struct htlc *h;
 
-again:
-	/* Check their currently still-existing htlcs for expiry:
-	 * We eliminate them from staging as we go. */
-	for (i = 0; i < tal_count(peer->remote.staging_cstate->side[THEIRS].htlcs); i++) {
-		struct htlc *htlc = peer->remote.staging_cstate->side[THEIRS].htlcs[i];
+	/* Check their currently still-existing htlcs for expiry */
+	for (h = htlc_map_first(&peer->htlcs, &it);
+	     h;
+	     h = htlc_map_next(&peer->htlcs, &it)) {
+		assert(!abs_locktime_is_seconds(&h->expiry));
 
-		assert(!abs_locktime_is_seconds(&htlc->expiry));
+		/* Only their consider HTLCs which are completely locked in. */
+		if (h->state != RCVD_ADD_ACK_REVOCATION)
+			continue;
 
 		/* We give it an extra block, to avoid the worst of the
 		 * inter-node timing issues. */
-		if (height <= abs_locktime_to_blocks(&htlc->expiry))
+		if (height <= abs_locktime_to_blocks(&h->expiry))
 			continue;
 
 		/* This can fail only if we're in an error state. */
-		if (!command_htlc_fail(peer, htlc))
+		if (!command_htlc_fail(peer, h))
 			return;
-		goto again;
 	}
 
 	/* BOLT #2:
@@ -2019,10 +2022,7 @@ again:
 	if (!state_is_normal(peer->state))
 		return;
 
-	if (any_deadline_past(peer, peer->remote.staging_cstate)
-	    || any_deadline_past(peer, peer->local.staging_cstate)
-	    || any_deadline_past(peer, peer->remote.commit->cstate)
-	    || any_deadline_past(peer, peer->local.commit->cstate)) {
+	if (any_deadline_past(peer)) {
 		set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__);
 		peer_breakdown(peer);
 	}
@@ -2191,7 +2191,7 @@ static const struct bitcoin_tx *htlc_timeout_tx(const struct peer *peer,
 			     peer->dstate->config.closing_fee_rate);
 
 	/* FIXME: Fail gracefully in these cases (not worth collecting) */
-	if (fee > satoshis || is_dust_amount(satoshis - fee))
+	if (fee > satoshis || is_dust(satoshis - fee))
 		fatal("HTLC refund amount of %"PRIu64" won't cover fee %"PRIu64,
 		      satoshis, fee);
 
@@ -2735,7 +2735,7 @@ static void resolve_their_steal(struct peer *peer,
 	fee = peer->dstate->config.closing_fee_rate
 		* (measure_tx_cost(steal_tx) + wsize) / 1000;
 
-	if (fee > input_total || is_dust_amount(input_total - fee)) {
+	if (fee > input_total || is_dust(input_total - fee)) {
 		log_unusual(peer->log, "Not worth stealing tiny amount %"PRIu64,
 			    input_total);
 		/* Consider them all resolved by steal tx. */
