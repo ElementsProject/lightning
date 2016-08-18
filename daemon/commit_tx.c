@@ -111,29 +111,32 @@ u8 *commit_output_to_them(const tal_t *ctx,
 	}
 }
 
-static void add_output(struct bitcoin_tx *tx, u8 *script, u64 amount,
+static bool add_output(struct bitcoin_tx *tx, u8 *script, u64 amount,
 		       u64 *total)
 {
 	assert(tx->output_count < tal_count(tx->output));
 	if (is_dust(amount))
-		return;
+		return false;
 	tx->output[tx->output_count].script = script;
 	tx->output[tx->output_count].script_length = tal_count(script);
 	tx->output[tx->output_count].amount = amount;
 	tx->output_count++;
 	(*total) += amount;
+	return true;
 }
 
 struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    struct peer *peer,
 				    const struct sha256 *rhash,
 				    const struct channel_state *cstate,
-				    enum htlc_side side)
+				    enum htlc_side side,
+				    bool *otherside_only)
 {
 	struct bitcoin_tx *tx;
 	uint64_t total = 0;
 	struct htlc_map_iter it;
 	struct htlc *h;
+	bool pays_to[2];
 	int committed_flag = HTLC_FLAG(side,HTLC_F_COMMITTED);
 
 	/* Now create commitment tx: one input, two outputs (plus htlcs) */
@@ -145,21 +148,31 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx->input[0].amount = tal_dup(tx->input, u64, &peer->anchor.satoshis);
 
 	tx->output_count = 0;
-	add_output(tx, commit_output_to_us(tx, peer, rhash, side, NULL),
-		   cstate->side[OURS].pay_msat / 1000, &total);
-	add_output(tx, commit_output_to_them(tx, peer, rhash, side, NULL),
-		   cstate->side[THEIRS].pay_msat / 1000, &total);
+	pays_to[LOCAL] = add_output(tx, commit_output_to_us(tx, peer, rhash,
+							    side, NULL),
+				    cstate->side[OURS].pay_msat / 1000,
+				    &total);
+	pays_to[REMOTE] = add_output(tx, commit_output_to_them(tx, peer, rhash,
+							       side, NULL),
+				     cstate->side[THEIRS].pay_msat / 1000,
+				     &total);
+
+	/* If their tx doesn't pay to them, or our tx doesn't pay to us... */
+	*otherside_only = !pays_to[side];
 
 	/* First two outputs done, now for the HTLCs. */
 	for (h = htlc_map_first(&peer->htlcs, &it);
 	     h;
 	     h = htlc_map_next(&peer->htlcs, &it)) {
+		const u8 *wscript;
+
 		if (!htlc_has(h, committed_flag))
 			continue;
-		add_output(tx, scriptpubkey_p2wsh(tx,
-						  wscript_for_htlc(tx, peer, h,
-								   rhash, side)),
-			   h->msatoshis / 1000, &total);
+		wscript = wscript_for_htlc(tx, peer, h, rhash, side);
+		/* If we pay any HTLC, it's txout is not just to other side. */
+		if (add_output(tx, scriptpubkey_p2wsh(tx, wscript),
+			       h->msatoshis / 1000, &total))
+			*otherside_only = false;
 	}
 	assert(total <= peer->anchor.satoshis);
 

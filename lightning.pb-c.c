@@ -2270,7 +2270,7 @@ static const ProtobufCFieldDescriptor update_commit__field_descriptors[1] =
   {
     "sig",
     1,
-    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
     offsetof(UpdateCommit, sig),

@@ -180,8 +180,8 @@ message update_fail_htlc {
 
 // Commit all the staged changes.
 message update_commit {
-  // Signature for your new commitment tx.
-  required signature sig = 1;
+  // Signature for your new commitment tx (if any outputs are HTLCs or to you)
+  optional signature sig = 1;
 }
 
 // Complete the update.

@@ -439,7 +439,7 @@ struct  _UpdateCommit
 {
   ProtobufCMessage base;
   /*
-   * Signature for your new commitment tx.
+   * Signature for your new commitment tx (if any outputs are HTLCs or to you)
    */
   Signature *sig;
 };

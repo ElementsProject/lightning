@@ -185,7 +185,11 @@ void queue_pkt_commit(struct peer *peer, const struct bitcoin_signature *sig)
 
 	/* Now send message */
 	update_commit__init(u);
-	u->sig = signature_to_proto(u, peer->dstate->secpctx, &sig->sig);
+	if (sig)
+		u->sig = signature_to_proto(u, peer->dstate->secpctx,
+					    &sig->sig);
+	else
+		u->sig = NULL;
 
 	queue_pkt(peer, PKT__PKT_UPDATE_COMMIT, u);
 }
@@ -478,6 +482,15 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt,
 		       struct bitcoin_signature *sig)
 {
 	const UpdateCommit *c = pkt->update_commit;
+
+	if (!c->sig && sig)
+		return pkt_err(peer, "Expected signature");
+
+	if (!sig && c->sig)
+		return pkt_err(peer, "Unexpected signature");
+
+	if (!sig && !c->sig)
+		return NULL;
 
 	sig->stype = SIGHASH_ALL;
 	if (!proto_to_signature(peer->dstate->secpctx, c->sig, &sig->sig))

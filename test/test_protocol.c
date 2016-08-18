@@ -648,7 +648,7 @@ static void send_commit(struct peer *peer)
 
 	/* BOLT #2:
 	 *
-	 * A sending node MUST apply all remote acked and unacked
+	 * ...a sending node MUST apply all remote acked and unacked
 	 * changes except unacked fee changes to the remote commitment
 	 * before generating `sig`.
 	 */

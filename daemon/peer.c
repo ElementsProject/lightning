@@ -290,7 +290,7 @@ static void peer_breakdown(struct peer *peer)
 		log_unusual(peer->log, "Peer breakdown: sending close tx");
 		broadcast_tx(peer, bitcoin_close(peer));
 	/* If we have a signed commit tx (maybe not if we just offered
-	 * anchor, or they supplied anchor). */
+	 * anchor, or they supplied anchor, or no outputs to us). */
 	} else if (peer->local.commit->sig) {
 		log_unusual(peer->log, "Peer breakdown: sending commit tx");
 		broadcast_tx(peer, bitcoin_commit(peer));
@@ -769,6 +769,7 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	Pkt *err;
 	struct sha256 preimage;
 	struct commit_info *ci;
+	bool to_them_only;
 	/* FIXME: We can actually merge these two... */
 	static const struct state_table commit_changes[] = {
 		{ RCVD_ADD_REVOCATION, RCVD_ADD_ACK_COMMIT },
@@ -784,10 +785,6 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	};
 
 	ci = new_commit_info(peer, peer->local.commit->commit_num + 1);
-	ci->sig = tal(ci, struct bitcoin_signature);
-	err = accept_pkt_commit(peer, pkt, ci->sig);
-	if (err)
-		return err;
 
 	/* BOLT #2:
 	 *
@@ -808,8 +805,22 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	/* (We already applied them to staging_cstate as we went) */
 	ci->cstate = copy_cstate(ci, peer->local.staging_cstate);
 	ci->tx = create_commit_tx(ci, peer, &ci->revocation_hash,
-				  ci->cstate, LOCAL);
+				  ci->cstate, LOCAL, &to_them_only);
 	bitcoin_txid(ci->tx, &ci->txid);
+
+	/* BOLT #2:
+	 *
+	 * If the commitment transaction has only a single output which pays
+	 * to the other node, `sig` MUST be unset.  Otherwise, a sending node
+	 * MUST apply all remote acked and unacked changes except unacked fee
+	 * changes to the remote commitment before generating `sig`.
+	 */
+	if (!to_them_only)
+		ci->sig = tal(ci, struct bitcoin_signature);
+
+	err = accept_pkt_commit(peer, pkt, ci->sig);
+	if (err)
+		return err;
 
 	/* BOLT #2:
 	 *
@@ -817,12 +828,12 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	 * except unacked fee changes to the local commitment, then it MUST
 	 * check `sig` is valid for that transaction.
 	 */
-	if (!check_tx_sig(peer->dstate->secpctx,
-			  ci->tx, 0,
-			  NULL, 0,
-			  peer->anchor.witnessscript,
-			  &peer->remote.commitkey,
-			  ci->sig))
+	if (ci->sig && !check_tx_sig(peer->dstate->secpctx,
+				     ci->tx, 0,
+				     NULL, 0,
+				     peer->anchor.witnessscript,
+				     &peer->remote.commitkey,
+				     ci->sig))
 		return pkt_err(peer, "Bad signature");
 
 	/* Switch to the new commitment. */
@@ -835,7 +846,7 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	/* Now, send the revocation. */
 
 	/* We have their signature on the current one, right? */
-	assert(peer->local.commit->sig);
+	assert(to_them_only || peer->local.commit->sig);
 	assert(peer->local.commit->commit_num > 0);
 
 	if (!htlcs_changestate(peer, revocation_changes,
@@ -1666,13 +1677,6 @@ static void retransmit_pkts(struct peer *peer, s64 ack)
 	 */
 	while (ack < peer->order_counter) {
 		if (peer->remote.commit && ack == peer->remote.commit->order) {
-			if (!peer->remote.commit->sig) {
-				log_broken(peer->log, "No sig for commit order %"
-					   PRIu64, ack);
-				peer_comms_err(peer,
-					       pkt_err(peer, "invalid ack"));
-				return;
-			}
 			/* BOLT #2:
 			 *
 			 * Before retransmitting `update_commit`, the node
@@ -1783,6 +1787,7 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 		{ SENT_ADD_REVOCATION, SENT_ADD_ACK_COMMIT},
 		{ SENT_REMOVE_HTLC, SENT_REMOVE_COMMIT}
 	};
+	bool to_us_only;
 
 	/* We can have changes we suggested, or changes they suggested. */
 	if (!peer_uncommitted_changes(peer)) {
@@ -1818,25 +1823,27 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 	ci->revocation_hash = peer->remote.next_revocation_hash;
 	/* BOLT #2:
 	 *
-	 * A sending node MUST apply all remote acked and unacked
+	 * ...a sending node MUST apply all remote acked and unacked
 	 * changes except unacked fee changes to the remote commitment
 	 * before generating `sig`. */
 	ci->cstate = copy_cstate(ci, peer->remote.staging_cstate);
 	ci->tx = create_commit_tx(ci, peer, &ci->revocation_hash,
-				  ci->cstate, REMOTE);
+				  ci->cstate, REMOTE, &to_us_only);
 	bitcoin_txid(ci->tx, &ci->txid);
 
-	log_debug(peer->log, "Signing tx for %u/%u msatoshis, %u/%u htlcs (%u non-dust)",
-		  ci->cstate->side[OURS].pay_msat,
-		  ci->cstate->side[THEIRS].pay_msat,
-		  ci->cstate->side[OURS].num_htlcs,
-		  ci->cstate->side[THEIRS].num_htlcs,
-		  ci->cstate->num_nondust);
-	log_add_struct(peer->log, " (txid %s)", struct sha256_double, &ci->txid);
+	if (!to_us_only) {
+		log_debug(peer->log, "Signing tx for %u/%u msatoshis, %u/%u htlcs (%u non-dust)",
+			  ci->cstate->side[OURS].pay_msat,
+			  ci->cstate->side[THEIRS].pay_msat,
+			  ci->cstate->side[OURS].num_htlcs,
+			  ci->cstate->side[THEIRS].num_htlcs,
+			  ci->cstate->num_nondust);
+		log_add_struct(peer->log, " (txid %s)", struct sha256_double, &ci->txid);
 
-	ci->sig = tal(ci, struct bitcoin_signature);
-	ci->sig->stype = SIGHASH_ALL;
-	peer_sign_theircommit(peer, ci->tx, &ci->sig->sig);
+		ci->sig = tal(ci, struct bitcoin_signature);
+		ci->sig->stype = SIGHASH_ALL;
+		peer_sign_theircommit(peer, ci->tx, &ci->sig->sig);
+	}
 
 	/* Switch to the new commitment. */
 	tal_free(peer->remote.commit);
@@ -3523,6 +3530,8 @@ const struct bitcoin_tx *bitcoin_anchor(struct peer *peer)
  * insufficient funds. */
 bool setup_first_commit(struct peer *peer)
 {
+	bool to_them_only, to_us_only;
+
 	assert(!peer->local.commit->tx);
 	assert(!peer->remote.commit->tx);
 
@@ -3549,14 +3558,18 @@ bool setup_first_commit(struct peer *peer)
 						  peer,
 						  &peer->local.commit->revocation_hash,
 						  peer->local.commit->cstate,
-						  LOCAL);
+						  LOCAL, &to_them_only);
 	bitcoin_txid(peer->local.commit->tx, &peer->local.commit->txid);
 
 	peer->remote.commit->tx = create_commit_tx(peer->remote.commit,
 						   peer,
 						   &peer->remote.commit->revocation_hash,
 						   peer->remote.commit->cstate,
-						   REMOTE);
+						   REMOTE, &to_us_only);
+	assert(to_them_only != to_us_only);
+
+	/* If we offer anchor, their commit is to-us only. */
+	assert(to_us_only == (peer->local.offer_anchor == CMD_OPEN_WITH_ANCHOR));
 	bitcoin_txid(peer->remote.commit->tx, &peer->remote.commit->txid);
 
 	peer->local.staging_cstate = copy_cstate(peer, peer->local.commit->cstate);
