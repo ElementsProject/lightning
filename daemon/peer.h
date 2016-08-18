@@ -96,10 +96,6 @@ struct peer_visible_state {
 
 	/* cstate to generate next commitment tx. */
 	struct channel_state *staging_cstate;
-
-	/* FIXME: Use single map in struct peer. */
-	/* HTLCs offered by this side */
-	struct htlc_map htlcs;
 };
 
 /* Off peer->outgoing_txs */
@@ -184,7 +180,10 @@ struct peer {
 		const struct commit_info *ci;
 		const struct bitcoin_tx **resolved;
 	} closing_onchain;
-	
+
+	/* All HTLCs. */
+	struct htlc_map htlcs;
+
 	/* Current ongoing packetflow */
 	struct io_data *io_data;
 	

@@ -269,21 +269,9 @@ static bool htlcs_changestate(struct peer *peer,
 	struct htlc *h;
 	bool changed = false;
 
-	for (h = htlc_map_first(&peer->local.htlcs, &it);
+	for (h = htlc_map_first(&peer->htlcs, &it);
 	     h;
-	     h = htlc_map_next(&peer->local.htlcs, &it)) {
-		size_t i;
-		for (i = 0; i < n; i++) {
-			if (h->state == table[i].from) {
-				htlc_changestate(h, table[i].from, table[i].to);
-				changed = true;
-			}
-		}
-	}
-
-	for (h = htlc_map_first(&peer->remote.htlcs, &it);
-	     h;
-	     h = htlc_map_next(&peer->remote.htlcs, &it)) {
+	     h = htlc_map_next(&peer->htlcs, &it)) {
 		size_t i;
 		for (i = 0; i < n; i++) {
 			if (h->state == table[i].from) {
@@ -689,7 +677,7 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	/* Note that it's not *our* problem if they do this, it's
 	 * theirs (future confusion).  Nonetheless, we detect and
 	 * error for them. */
-	if (htlc_map_get(&peer->remote.htlcs, u->id))
+	if (htlc_get(&peer->htlcs, u->id, REMOTE))
 		return pkt_err(peer, "HTLC id %"PRIu64" clashes for you", u->id);
 
 	/* BOLT #2:

@@ -165,21 +165,9 @@ static bool committed_to_htlcs(const struct peer *peer)
 	struct htlc_map_iter it;
 	struct htlc *h;
 
-	for (h = htlc_map_first(&peer->local.htlcs, &it);
+	for (h = htlc_map_first(&peer->htlcs, &it);
 	     h;
-	     h = htlc_map_next(&peer->local.htlcs, &it)) {
-		/* FIXME: Move these dead ones to a separate hash (or
-		 * just leave in database only). */
-		if (h->state == RCVD_REMOVE_ACK_REVOCATION)
-			continue;
-		if (h->state == SENT_REMOVE_ACK_REVOCATION)
-			continue;
-		return true;
-	}
-
-	for (h = htlc_map_first(&peer->remote.htlcs, &it);
-	     h;
-	     h = htlc_map_next(&peer->remote.htlcs, &it)) {
+	     h = htlc_map_next(&peer->htlcs, &it)) {
 		/* FIXME: Move these dead ones to a separate hash (or
 		 * just leave in database only). */
 		if (h->state == RCVD_REMOVE_ACK_REVOCATION)
@@ -990,8 +978,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->local.commit = peer->remote.commit = NULL;
 	peer->local.staging_cstate = peer->remote.staging_cstate = NULL;
 
-	htlc_map_init(&peer->local.htlcs);
-	htlc_map_init(&peer->remote.htlcs);
+	htlc_map_init(&peer->htlcs);
 	
 	/* FIXME: Attach IO logging for this peer. */
 	tal_add_destructor(peer, destroy_peer);
@@ -1014,17 +1001,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 
 static void htlc_destroy(struct htlc *htlc)
 {
-	struct htlc_map *map;
-
-	/* FIXME: make peer->local/remote an array*/
-	if (htlc_owner(htlc) == LOCAL)
-		map = &htlc->peer->local.htlcs;
-	else {
-		assert(htlc_owner(htlc) == REMOTE);
-		map = &htlc->peer->remote.htlcs;
-	}
-
-	if (!htlc_map_del(map, htlc))
+	if (!htlc_map_del(&htlc->peer->htlcs, htlc))
 		fatal("Could not find htlc to destroy");
 }
 
@@ -1058,11 +1035,10 @@ struct htlc *peer_new_htlc(struct peer *peer,
 			/* If we're paying, give it a little longer. */
 			h->deadline = expiry
 				+ peer->dstate->config.min_htlc_expiry;
-		htlc_map_add(&peer->local.htlcs, h);
 	} else {
 		assert(htlc_owner(h) == REMOTE);
-		htlc_map_add(&peer->remote.htlcs, h);
 	}
+	htlc_map_add(&peer->htlcs, h);
 	tal_add_destructor(h, htlc_destroy);
 
 	return h;
