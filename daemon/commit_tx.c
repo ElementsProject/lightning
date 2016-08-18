@@ -7,11 +7,14 @@
 #include "commit_tx.h"
 #include "htlc.h"
 #include "lightningd.h"
+#include "log.h"
 #include "overflows.h"
 #include "peer.h"
 #include "permute_tx.h"
 #include "remove_dust.h"
+#include "utils.h"
 #include <assert.h>
+#include <inttypes.h>
 
 u8 *wscript_for_htlc(const tal_t *ctx,
 		     const struct peer *peer,
@@ -142,6 +145,17 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	/* Now create commitment tx: one input, two outputs (plus htlcs) */
 	tx = bitcoin_tx(ctx, 1, 2 + count_htlcs(&peer->htlcs, committed_flag));
 
+ 	log_debug(peer->log, "Creating commitment tx:");
+	log_add_struct(peer->log, " rhash = %s", struct sha256, rhash);
+	log_add_struct(peer->log, " My finalkey = %s", struct pubkey,
+		       &peer->local.finalkey);
+	log_add_struct(peer->log, " Their finalkey = %s", struct pubkey,
+		       &peer->remote.finalkey);
+	log_add_struct(peer->log, " My locktime = %s", struct rel_locktime,
+		       &peer->local.locktime);
+	log_add_struct(peer->log, " Their locktime = %s", struct rel_locktime,
+		       &peer->remote.locktime);
+
 	/* Our input spends the anchor tx output. */
 	tx->input[0].txid = peer->anchor.txid;
 	tx->input[0].index = peer->anchor.index;
@@ -152,10 +166,26 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 							    side, NULL),
 				    cstate->side[OURS].pay_msat / 1000,
 				    &total);
+	if (pays_to[LOCAL])
+		log_debug(peer->log, "Pays %u to local: %s",
+			  cstate->side[OURS].pay_msat / 1000,
+			  tal_hexstr(tx, tx->output[tx->output_count-1].script,
+				     tx->output[tx->output_count-1].script_length));
+	else
+		log_debug(peer->log, "DOES NOT pay %u to local",
+			  cstate->side[OURS].pay_msat / 1000);
 	pays_to[REMOTE] = add_output(tx, commit_output_to_them(tx, peer, rhash,
 							       side, NULL),
 				     cstate->side[THEIRS].pay_msat / 1000,
 				     &total);
+	if (pays_to[REMOTE])
+		log_debug(peer->log, "Pays %u to remote: %s",
+			  cstate->side[THEIRS].pay_msat / 1000,
+			  tal_hexstr(tx, tx->output[tx->output_count-1].script,
+				     tx->output[tx->output_count-1].script_length));
+	else
+		log_debug(peer->log, "DOES NOT pay %u to remote",
+			  cstate->side[THEIRS].pay_msat / 1000);
 
 	/* If their tx doesn't pay to them, or our tx doesn't pay to us... */
 	*otherside_only = !pays_to[side];
@@ -171,8 +201,19 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 		wscript = wscript_for_htlc(tx, peer, h, rhash, side);
 		/* If we pay any HTLC, it's txout is not just to other side. */
 		if (add_output(tx, scriptpubkey_p2wsh(tx, wscript),
-			       h->msatoshis / 1000, &total))
+			       h->msatoshis / 1000, &total)) {
 			*otherside_only = false;
+			log_debug(peer->log, "Pays %"PRIu64" to htlc %"PRIu64,
+				  h->msatoshis / 1000, h->id);
+			log_add_struct(peer->log, " expiry %s",
+				       struct abs_locktime, &h->expiry);
+			log_add_struct(peer->log, " rhash %s", struct sha256,
+				       &h->rhash);
+			log_debug(peer->log, "Script: %s",
+				  tal_hexstr(tx, wscript, tal_count(wscript)));
+		} else
+			log_debug(peer->log, "DOES NOT pay %"PRIu64" to htlc %"PRIu64,
+				  h->msatoshis / 1000, h->id);
 	}
 	assert(total <= peer->anchor.satoshis);
 
