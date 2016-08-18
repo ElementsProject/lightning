@@ -224,34 +224,8 @@ struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id)
 /* Populates very first peer->{local,remote}.commit->{tx,cstate} */
 bool setup_first_commit(struct peer *peer);
 
-/* Set up timer: we have something we can commit. */
-void remote_changes_pending(struct peer *peer);
-
-/* Add this unacked change */
-void add_unacked(struct peer_visible_state *which,
-		 const union htlc_staging *stage);
-
-/* These unacked changes are now acked; add them to acked set. */
-void add_acked_changes(union htlc_staging **acked,
-		       const union htlc_staging *changes);
-
-/* Both sides are committed to these changes they proposed. */
-void peer_both_committed_to(struct peer *peer,
-			    const union htlc_staging *changes, enum channel_side side);
-
 /* Allocate a new commit_info struct. */
 struct commit_info *new_commit_info(const tal_t *ctx);
-
-struct state_table {
-	enum htlc_state from, to;
-};
-bool htlcs_changestate(struct peer *peer,
-		       const struct state_table *table, size_t n);
-void apply_changeset(struct peer *peer,
-		     struct peer_visible_state *which,
-		     enum channel_side side,
-		     const union htlc_staging *changes,
-		     size_t num_changes);
 
 /* Freeing removes from map, too */
 struct htlc *peer_new_htlc(struct peer *peer, 
@@ -270,19 +244,12 @@ struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
 			      struct htlc *src,
 			      const u8 *route);
 
-/* Peer has recieved revocation. */
-void peer_update_complete(struct peer *peer);
+void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt);
 
 /* Peer has completed open, or problem (if non-NULL). */
 void peer_open_complete(struct peer *peer, const char *problem);
 
 struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee);
-
-uint64_t commit_tx_fee(const struct bitcoin_tx *commit,
-		       uint64_t anchor_satoshis);
-
-void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc,
-			const struct rval *preimage);
 
 void cleanup_peers(struct lightningd_state *dstate);
 #endif /* LIGHTNING_DAEMON_PEER_H */

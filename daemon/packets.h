@@ -9,9 +9,6 @@ struct sha256;
 struct bitcoin_signature;
 struct commit_info;
 
-/* Inform peer have an unexpected packet. */
-void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt);
-
 /* Send various kinds of packets */
 void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor);
 void queue_pkt_anchor(struct peer *peer);

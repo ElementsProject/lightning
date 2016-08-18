@@ -115,29 +115,14 @@ void peer_unwatch_anchor_depth(struct peer *peer,
 			       enum state_input depthok,
 			       enum state_input timeout);
 
-/**
- * peer_calculate_close_fee: figure out what the fee for closing is.
- * @peer: the state data for this peer.
- */
-void peer_calculate_close_fee(struct peer *peer);
-
 /* Start creation of the bitcoin anchor tx. */
 void bitcoin_create_anchor(struct peer *peer, enum state_input done);
-
-/* We didn't end up broadcasting the anchor: release the utxos.
- * If done != INPUT_NONE, remove existing create_anchor too. */
-void bitcoin_release_anchor(struct peer *peer, enum state_input done);
 
 /* Get the bitcoin anchor tx. */
 const struct bitcoin_tx *bitcoin_anchor(struct peer *peer);
 
-/* Create a bitcoin close tx. */
-const struct bitcoin_tx *bitcoin_close(struct peer *peer);
-
-/* Create a bitcoin spend tx (to spend our commit's outputs) */
-const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer);
-
-/* Create our commit tx */
-const struct bitcoin_tx *bitcoin_commit(struct peer *peer);
+/* We didn't end up broadcasting the anchor: release the utxos.
+ * If done != INPUT_NONE, remove existing create_anchor too. */
+void bitcoin_release_anchor(struct peer *peer, enum state_input done);
 
 #endif /* LIGHTNING_STATE_H */
