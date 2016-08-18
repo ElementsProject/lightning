@@ -252,18 +252,8 @@ void peer_open_complete(struct peer *peer, const char *problem)
 {
 	if (problem)
 		log_unusual(peer->log, "peer open failed: %s", problem);
-	else {
-		struct lightningd_state *dstate = peer->dstate;
-
+	else
 		log_debug(peer->log, "peer open complete");
-		assert(!peer->nc);
-		peer->nc = add_connection(dstate,
-					  &dstate->id, peer->id,
-					  dstate->config.fee_base,
-					  dstate->config.fee_per_satoshi,
-					  dstate->config.min_htlc_expiry,
-					  dstate->config.min_htlc_expiry);
-	}
 }
 
 static void set_peer_state(struct peer *peer, enum state newstate,
@@ -272,6 +262,10 @@ static void set_peer_state(struct peer *peer, enum state newstate,
 	log_debug(peer->log, "%s: %s => %s", caller,
 		  state_name(peer->state), state_name(newstate));
 	peer->state = newstate;
+
+	/* We can only route in normal state. */
+	if (!state_is_normal(peer->state))
+		peer->nc = tal_free(peer->nc);
 }
 
 static void peer_breakdown(struct peer *peer)
@@ -1170,6 +1164,17 @@ static void state_single(struct peer *peer,
 
 	newstate = state(peer, input, pkt, &broadcast);
 	set_peer_state(peer, newstate, input_name(input));
+
+	/* We never come here again once we leave opening states. */
+	if (state_is_normal(peer->state)) {
+		assert(!peer->nc);
+		peer->nc = add_connection(peer->dstate,
+					  &peer->dstate->id, peer->id,
+					  peer->dstate->config.fee_base,
+					  peer->dstate->config.fee_per_satoshi,
+					  peer->dstate->config.min_htlc_expiry,
+					  peer->dstate->config.min_htlc_expiry);
+	}
 
 	/* If we added uncommitted changes, we should have set them to send. */
 	if (peer_uncommitted_changes(peer))
