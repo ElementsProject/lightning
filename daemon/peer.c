@@ -1102,16 +1102,32 @@ static int make_listen_fd(struct lightningd_state *dstate,
 		return -1;
 	}
 
-	if (!addr || bind(fd, addr, len) == 0) {
-		if (listen(fd, 5) == 0)
-			return fd;
+	if (addr) {
+		int on = 1;
+
+		/* Re-use, please.. */
+		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)))
+			log_unusual(dstate->base_log,
+				    "Failed setting socket reuse: %s",
+				    strerror(errno));
+
+		if (bind(fd, addr, len) != 0) {
+			log_unusual(dstate->base_log,
+				    "Failed to bind on %u socket: %s",
+				    domain, strerror(errno));
+			goto fail;
+		}
+	}
+
+	if (listen(fd, 5) != 0) {
 		log_unusual(dstate->base_log,
 			    "Failed to listen on %u socket: %s",
 			    domain, strerror(errno));
-	} else
-		log_debug(dstate->base_log, "Failed to bind on %u socket: %s",
-			  domain, strerror(errno));
+		goto fail;
+	}
+	return fd;
 
+fail:
 	close_noerr(fd);
 	return -1;
 }
@@ -1124,10 +1140,12 @@ void setup_listeners(struct lightningd_state *dstate, unsigned int portnum)
 	int fd1, fd2;
 	u16 listen_port;
 
+	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = INADDR_ANY;
 	addr.sin_port = htons(portnum);
 
+	memset(&addr6, 0, sizeof(addr6));
 	addr6.sin6_family = AF_INET6;
 	addr6.sin6_addr = in6addr_any;
 	addr6.sin6_port = htons(portnum);
