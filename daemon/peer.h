@@ -131,6 +131,9 @@ struct peer {
 		u64 satoshis;
 		u8 *witnessscript;
 
+		/* Minimum possible depth for anchor */
+		unsigned int min_depth;
+
 		/* If we're creating anchor, this tells us where to source it */
 		struct anchor_input *input;
 	

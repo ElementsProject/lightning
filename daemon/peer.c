@@ -2001,6 +2001,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->local.commit = peer->remote.commit = NULL;
 	peer->local.staging_cstate = peer->remote.staging_cstate = NULL;
 
+	peer->anchor.min_depth = get_block_height(peer->dstate);
 	htlc_map_init(&peer->htlcs);
 	
 	/* FIXME: Attach IO logging for this peer. */
