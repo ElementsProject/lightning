@@ -231,7 +231,18 @@ check_no_peers()
 	exit 1
     fi
 }
-    
+
+extract_id()
+{
+    XID=`tr -s '\012\011\" ' ' ' | sed -n 's/{ id : \([0-9]*\) }/\1/p'`
+    case "$XID" in
+	[0-9]*)
+	    echo $XID;;
+	*)
+	    return 1;;
+    esac
+}
+
 all_ok()
 {
     # Look for valgrind errors.
@@ -416,7 +427,7 @@ if [ -n "$DIFFERENT_FEES" ]; then
     EXPIRY=$(( $(blockheight) + 10))
     SECRET=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd
     RHASH=`lcli1 dev-rhash $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
-    lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
+    HTLCID=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH | extract_id`
     [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
     [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
     check_status_single lcli2 0 0 "" $(($AMOUNT - $HTLC_AMOUNT - $ONE_HTLCS_FEE2)) $(($ONE_HTLCS_FEE2)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : RCVD_ADD_ACK_REVOCATION } "
@@ -458,7 +469,7 @@ EXPIRY=$(( $(blockheight) + 10))
 SECRET=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd
 RHASH=`lcli1 dev-rhash $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
-lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
+HTLCID=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH | extract_id`
 
 if [ -n "$MANUALCOMMIT" ]; then
     # They should register a staged htlc.
@@ -577,7 +588,7 @@ check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 # A new one, at 10x the amount.
 HTLC_AMOUNT=100000000
 
-lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
+HTLCID=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH | extract_id`
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 
@@ -597,7 +608,7 @@ check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 # Same again, but this time it expires.
 HTLC_AMOUNT=10000001
-lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
+HTLCID=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH | extract_id`
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 
@@ -650,7 +661,7 @@ fi
 # First, give more money to node2, so it can offer HTLCs.
 EXPIRY=$(( $(blockheight) + 10))
 HTLC_AMOUNT=100000000
-lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
+HTLCID=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH | extract_id`
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 
@@ -672,10 +683,10 @@ check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 # Now, two HTLCs at once, one from each direction.
 # Both sides can afford this.
 HTLC_AMOUNT=1000000
-lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
+HTLCID=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH | extract_id`
 SECRET2=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfe
 RHASH2=`lcli1 dev-rhash $SECRET2 | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
-lcli2 newhtlc $ID1 $HTLC_AMOUNT $EXPIRY $RHASH2
+HTLCID2=`lcli2 newhtlc $ID1 $HTLC_AMOUNT $EXPIRY $RHASH2 | extract_id`
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
@@ -730,7 +741,7 @@ check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 # Now, test making more changes before receiving commit reply.
 lcli2 dev-output $ID1 false
-lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH
+HTLCID=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH | extract_id`
 
 # Make sure node1 sends commit (in the background, since it will block!)
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2 &
@@ -747,7 +758,7 @@ fi
 check_status_single lcli1 $(($A_AMOUNT)) $(($A_FEE)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_COMMIT } " $B_AMOUNT $B_FEE ""
 
 # Now send another offer, and enable node2 output.
-lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH2
+HTLCID2=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH2 | extract_id`
 lcli2 dev-output $ID1 true
 
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
@@ -781,7 +792,7 @@ lcli1 dev-routefail true
 lcli2 dev-routefail true
 RHASH3=`lcli2 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
-lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH3
+HTLCID3=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH3 | extract_id`
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 
@@ -799,7 +810,7 @@ RHASH4=`lcli2 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 # Shouldn't have this already.
 if lcli2 getlog | $FGREP 'Short payment for HTLC'; then exit 1; fi
 
-lcli1 newhtlc $ID2 $(($HTLC_AMOUNT - 1)) $EXPIRY $RHASH4
+HTLCID4=`lcli1 newhtlc $ID2 $(($HTLC_AMOUNT - 1)) $EXPIRY $RHASH4 | extract_id`
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 

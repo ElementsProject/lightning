@@ -3339,6 +3339,8 @@ static void json_newhtlc(struct command *cmd,
 	unsigned int expiry;
 	u64 msatoshis;
 	struct sha256 rhash;
+	struct json_result *response = new_json_result(cmd);
+	struct htlc *htlc;
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,
@@ -3383,13 +3385,17 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
-	if (!command_htlc_add(peer, msatoshis, expiry, &rhash, NULL,
-			      dummy_single_route(cmd, peer, msatoshis))) {
+	htlc = command_htlc_add(peer, msatoshis, expiry, &rhash, NULL,
+				dummy_single_route(cmd, peer, msatoshis));
+	if (!htlc) {
 		command_fail(cmd, "could not add htlc");
 		return;
 	}
 
-	command_success(cmd, null_response(cmd));
+	json_object_start(response, NULL);
+	json_add_u64(response, "id", htlc->id);
+	json_object_end(response);
+	command_success(cmd, response);
 }
 
 /* FIXME: Use HTLC ids, not r values! */
@@ -3397,7 +3403,7 @@ const struct json_command newhtlc_command = {
 	"newhtlc",
 	json_newhtlc,
 	"Offer {peerid} an HTLC worth {msatoshis} in {expiry} (block number) with {rhash}",
-	"Returns an empty result on success"
+	"Returns { id: u64 } result on success"
 };
 
 /* Looks for their HTLC, but must be committed. */
