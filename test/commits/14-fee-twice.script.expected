@@ -1,24 +1,16 @@
 ***A***
-LOCAL COMMITS:
+LOCAL COMMIT:
  Commit 1:
-  Offered htlcs:
-  Received htlcs:
   Fee level 2
   SIGNED
-REMOTE COMMITS:
+REMOTE COMMIT:
  Commit 1:
-  Offered htlcs:
-  Received htlcs:
   SIGNED
 ***B***
-LOCAL COMMITS:
+LOCAL COMMIT:
  Commit 1:
-  Offered htlcs:
-  Received htlcs:
   SIGNED
-REMOTE COMMITS:
+REMOTE COMMIT:
  Commit 1:
-  Offered htlcs:
-  Received htlcs:
   Fee level 2
   SIGNED
