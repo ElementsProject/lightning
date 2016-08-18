@@ -1642,21 +1642,21 @@ again:
 		goto again;
 }
 
-static void retransmit_pkts(struct peer *peer, u64 ack)
+static void retransmit_pkts(struct peer *peer, s64 ack)
 {
-	log_debug(peer->log, "Our order counter is %"PRIu64", their ack %"PRIu64,
+	log_debug(peer->log, "Our order counter is %"PRIi64", their ack %"PRIi64,
 		  peer->order_counter, ack);
 
 	if (ack > peer->order_counter) {
-		log_unusual(peer->log, "reconnect ack %"PRIu64" > %"PRIu64,
+		log_unusual(peer->log, "reconnect ack %"PRIi64" > %"PRIi64,
 			    ack, peer->order_counter);
 		peer_comms_err(peer, pkt_err(peer, "invalid ack"));
 		return;
 	}
 
-	log_debug(peer->log, "They acked %"PRIu64", remote=%"PRIu64" local=%"PRIu64,
-		  ack, peer->remote.commit ? peer->remote.commit->order : 0,
-		  peer->local.commit ? peer->local.commit->order : 0);
+	log_debug(peer->log, "They acked %"PRIi64", remote=%"PRIi64" local=%"PRIi64,
+		  ack, peer->remote.commit ? peer->remote.commit->order : -2,
+		  peer->local.commit ? peer->local.commit->order : -2);
 
 	/* BOLT #2:
 	 *
@@ -1704,10 +1704,10 @@ static void retransmit_pkts(struct peer *peer, u64 ack)
 			queue_pkt_close_signature(peer);
 		} else {
 			log_broken(peer->log, "Can't rexmit %"PRIu64
-				   " when local commit %"PRIu64" and remote %"PRIu64,
+				   " when local commit %"PRIi64" and remote %"PRIi64,
 				   ack,
-				   peer->local.commit ? peer->local.commit->order : (u64)-2ULL,
-				   peer->remote.commit ? peer->remote.commit->order : (u64)-2ULL);
+				   peer->local.commit ? peer->local.commit->order : -2,
+				   peer->remote.commit ? peer->remote.commit->order : -2);
 			peer_comms_err(peer, pkt_err(peer, "invalid ack"));
 			return;
 		}
@@ -1877,7 +1877,7 @@ struct commit_info *new_commit_info(const tal_t *ctx, u64 commit_num)
 	ci->tx = NULL;
 	ci->cstate = NULL;
 	ci->sig = NULL;
-	ci->order = -1ULL;
+	ci->order = (s64)-1LL;
 	return ci;
 }
 
@@ -1968,8 +1968,8 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->closing.their_sig = NULL;
 	peer->closing.our_script = NULL;
 	peer->closing.their_script = NULL;
-	peer->closing.shutdown_order = -1ULL;
-	peer->closing.closing_order = -1ULL;
+	peer->closing.shutdown_order = (s64)-1LL;
+	peer->closing.closing_order = (s64)-1LL;
 	peer->closing.sigs_in = 0;
 	peer->onchain.tx = NULL;
 	peer->onchain.resolved = NULL;
