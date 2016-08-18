@@ -1,6 +1,12 @@
+#include "bitcoin/pullpush.h"
 #include "netaddr.h"
+#include "utils.h"
 #include <arpa/inet.h>
+#include <assert.h>
 #include <ccan/cast/cast.h>
+#include <ccan/endian/endian.h>
+#include <ccan/short_types/short_types.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -41,4 +47,33 @@ char *netaddr_name(const tal_t *ctx, const struct netaddr *a)
 		sprintf(name, "Unprintable-%u-address", a->saddr.s.sa_family);
 
 	return tal_fmt(ctx, "%s:%u", name, port);
+}
+
+char *netaddr_to_hex(const tal_t *ctx, const struct netaddr *a)
+{
+	u8 *blob = tal_arr(ctx, u8, 0);
+	char *hex;
+
+	push_le32(a->type, push, &blob);
+	push_le32(a->protocol, push, &blob);
+	push_le32(a->addrlen, push, &blob);
+	assert(a->addrlen <= sizeof(a->saddr));
+	push(&a->saddr, a->addrlen, &blob);
+
+	hex = tal_hexstr(ctx, blob, tal_count(blob));
+	tal_free(blob);
+	return hex;
+}
+
+bool netaddr_from_blob(const void *linear, size_t len, struct netaddr *a)
+{
+	const u8 *p = linear;
+
+	a->type = pull_le32(&p, &len);
+	a->protocol = pull_le32(&p, &len);
+	a->addrlen = pull_le32(&p, &len);
+	if (a->addrlen > sizeof(a->saddr))
+		return false;
+	pull(&p, &len, &a->saddr, a->addrlen);
+	return p != NULL && len == 0;
 }

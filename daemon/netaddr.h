@@ -26,4 +26,7 @@ char *netaddr_name(const tal_t *ctx, const struct netaddr *a);
 /* Create a addrinfo (as wanted by io_connect) for this address. */
 void netaddr_to_addrinfo(struct addrinfo *ai, const struct netaddr *a);
 
+bool netaddr_from_blob(const void *linear, size_t len, struct netaddr *a);
+char *netaddr_to_hex(const tal_t *ctx, const struct netaddr *a);
+
 #endif /* LIGHTNING_DAEMON_NETADDR_H */
