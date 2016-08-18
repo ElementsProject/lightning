@@ -51,8 +51,7 @@ Pkt *accept_pkt_update_accept(struct peer *peer, const Pkt *pkt);
 Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt,
 		       struct bitcoin_signature *sig);
 
-Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt,
-			   struct commit_info *ci);
+Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt);
 
 Pkt *accept_pkt_close_clearing(struct peer *peer, const Pkt *pkt);
 

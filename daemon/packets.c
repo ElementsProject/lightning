@@ -200,8 +200,7 @@ void queue_pkt_revocation(struct peer *peer,
 
 	update_revocation__init(u);
 
-	u->revocation_preimage
-		= sha256_to_proto(u, peer->local.commit->prev->revocation_preimage);
+	u->revocation_preimage = sha256_to_proto(u, preimage);
 
 	u->next_revocation_hash
 		= sha256_to_proto(u, &peer->local.next_revocation_hash);
@@ -468,15 +467,13 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt,
 	return NULL;
 }
 
-Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt,
-			   struct commit_info *ci)
+Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 {
 	const UpdateRevocation *r = pkt->update_revocation;
-	struct sha256 h;
+	struct sha256 h, preimage;
 
-	assert(!ci->revocation_preimage);
-	ci->revocation_preimage = tal(ci, struct sha256);
-	proto_to_sha256(r->revocation_preimage, ci->revocation_preimage);
+	assert(peer->their_prev_revocation_hash);
+	proto_to_sha256(r->revocation_preimage, &preimage);
 
 	/* BOLT #2:
 	 *
@@ -484,15 +481,20 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt,
 	 * SHA256 hash of `revocation_preimage` matches the previous commitment
 	 * transaction, and MUST fail if it does not.
 	 */
-	sha256(&h, ci->revocation_preimage, sizeof(*ci->revocation_preimage));
-	if (!structeq(&h, &ci->revocation_hash))
+	sha256(&h, &preimage, sizeof(preimage));
+	if (!structeq(&h, peer->their_prev_revocation_hash))
 		return pkt_err(peer, "complete preimage incorrect");
 
 	// save revocation preimages in shachain
 	if (!shachain_add_hash(&peer->their_preimages,
-			       0xFFFFFFFFFFFFFFFFL - ci->commit_num,
-			       ci->revocation_preimage))
+			       0xFFFFFFFFFFFFFFFFL
+			       - (peer->remote.commit->commit_num - 1),
+			       &preimage))
 		return pkt_err(peer, "preimage not next in shachain");
+
+	/* Clear the previous revocation hash. */
+	peer->their_prev_revocation_hash
+		= tal_free(peer->their_prev_revocation_hash);
 
 	/* Save next revocation hash. */
 	proto_to_sha256(r->next_revocation_hash,

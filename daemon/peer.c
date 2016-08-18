@@ -740,6 +740,7 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 {
 	Pkt *err;
+	struct sha256 preimage;
 	struct commit_info *ci = new_commit_info(peer);
 	/* FIXME: We can actually merge these two... */
 	static const struct state_table commit_changes[] = {
@@ -805,27 +806,23 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	peer->their_commitsigs++;
 
 	/* Now, send the revocation. */
-	ci = peer->local.commit->prev;
-	assert(ci);
-	assert(!ci->revocation_preimage);
 
 	/* We have their signature on the current one, right? */
 	assert(peer->local.commit->sig);
+	assert(peer->local.commit->commit_num > 0);
 
 	if (!htlcs_changestate(peer, revocation_changes,
 			       ARRAY_SIZE(revocation_changes)))
 		fatal("sent revoke with no changes");
 
-	ci->revocation_preimage = tal(ci, struct sha256);
-	peer_get_revocation_preimage(peer, ci->commit_num,
-				     ci->revocation_preimage);
+	peer_get_revocation_preimage(peer, peer->local.commit->commit_num - 1,
+				     &preimage);
 
 	/* Fire off timer if this ack caused new changes */
 	if (peer_uncommitted_changes(peer))
 		remote_changes_pending(peer);
 
-	queue_pkt_revocation(peer, ci->revocation_preimage,
-			     &peer->local.next_revocation_hash);
+	queue_pkt_revocation(peer, &preimage, &peer->local.next_revocation_hash);
 	return NULL;
 }
 
@@ -899,7 +896,6 @@ static Pkt *handle_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 
 static Pkt *handle_pkt_revocation(struct peer *peer, const Pkt *pkt)
 {
-	struct commit_info *ci = peer->remote.commit->prev;
 	Pkt *err;
 	static const struct state_table changes[] = {
 		{ SENT_ADD_COMMIT, RCVD_ADD_REVOCATION },
@@ -908,7 +904,7 @@ static Pkt *handle_pkt_revocation(struct peer *peer, const Pkt *pkt)
 		{ SENT_REMOVE_COMMIT, RCVD_REMOVE_REVOCATION }
 	};
 
-	err = accept_pkt_revocation(peer, pkt, ci);
+	err = accept_pkt_revocation(peer, pkt);
 	if (err)
 		return err;
 
@@ -1546,6 +1542,11 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 	peer->commit_jsoncmd = jsoncmd;
 	ci = new_commit_info(peer);
 
+	assert(!peer->their_prev_revocation_hash);
+	peer->their_prev_revocation_hash
+		= tal_dup(peer, struct sha256,
+			  &peer->remote.commit->revocation_hash);
+
 	/* BOLT #2:
 	 *
 	 * A node MUST NOT send an `update_commit` message which does
@@ -1653,6 +1654,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->closing_onchain.ci = NULL;
 	peer->commit_timer = NULL;
 	peer->nc = NULL;
+	peer->their_prev_revocation_hash = NULL;
 	/* Make it different from other node (to catch bugs!), but a
 	 * round number for simple eyeballing. */
 	peer->htlc_id_counter = pseudorand(1ULL << 32) * 1000;
@@ -2632,11 +2634,22 @@ static void resolve_our_unilateral(struct peer *peer,
  * Similarly, when node A sees a *commitment tx* from B:
  */
 static void resolve_their_unilateral(struct peer *peer,
-				     const struct bitcoin_tx *tx)
+				     const struct bitcoin_tx *tx,
+				     const struct sha256_double *txid,
+				     struct htlc **htlcs,
+				     const u8 **wscripts,
+				     int to_us_idx, int to_them_idx)
 {
-	const struct commit_info *ci = peer->closing_onchain.ci;
+	const struct commit_info *ci;
 	size_t num_ours, num_theirs;
 
+	/* FIXME: Remove closing_onchain.ci */
+	if (structeq(&peer->remote.commit->txid, txid))
+		peer->closing_onchain.ci = peer->remote.commit;
+	else
+		peer->closing_onchain.ci = peer->remote.commit->prev;
+
+	ci = peer->closing_onchain.ci;
 	peer->closing_onchain.resolved
 		= tal_arrz(tx, const struct bitcoin_tx *, tal_count(ci->map));
 
@@ -2761,44 +2774,20 @@ static bool find_their_old_tx(struct peer *peer,
 	return false;
 }
 
-static bool resolve_their_steal(struct peer *peer,
-				const struct bitcoin_tx *tx)
+static void resolve_their_steal(struct peer *peer,
+				const struct bitcoin_tx *tx,
+				const struct sha256_double *txid,
+				const struct sha256 *revocation_preimage,
+				struct htlc **htlcs,
+				const u8 **wscripts,
+				int to_us_idx, int to_them_idx)
 {
-	u64 commit_num;
-	struct sha256_double txid;
-	struct sha256 revocation_preimage, rhash;
-	int to_us_idx, to_them_idx, i, n;
-	struct htlc **htlcs;
-	const u8 **wscripts;
+	int i, n;
 	struct bitcoin_tx *steal_tx;
 	size_t wsize = 0;
 	u64 input_total = 0, fee;
 
-	bitcoin_txid(tx, &txid);
-	if (!find_their_old_tx(peer, &txid, &commit_num)) {
-		log_broken_struct(peer->log, "Could not find revoked txid %s",
-				  struct sha256_double, &txid);
-		return false;
-	}
-
-	if (!shachain_get_hash(&peer->their_preimages,
-			       0xFFFFFFFFFFFFFFFFL - commit_num,
-			       &revocation_preimage)) {
-		log_broken(peer->log, "Could not get shachain for %"PRIu64,
-			  commit_num);
-		return false;
-	}
-	sha256(&rhash, &revocation_preimage, sizeof(revocation_preimage));
-
-	htlcs = tx_map_outputs(peer, &rhash, tx, REMOTE, commit_num,
-			       &to_us_idx, &to_them_idx, &wscripts);
-	if (!htlcs) {
-		log_broken(peer->log, "Could not map_htlcs for %"PRIu64,
-			   commit_num);
-		return false;
-	}
-
-	/* FIXME: Caller should allocate this. */
+ 	/* FIXME: Caller should allocate this. */
 	peer->closing_onchain.resolved
 		= tal_arr(tx, const struct bitcoin_tx *, tx->output_count);
 	
@@ -2836,7 +2825,7 @@ static bool resolve_their_steal(struct peer *peer,
 		peer->closing_onchain.resolved[i] = steal_tx;
 
 		/* Connect it up. */
-		steal_tx->input[n].txid = txid;
+		steal_tx->input[n].txid = *txid;
 		steal_tx->input[n].index = i;
 		steal_tx->input[n].amount = tal_dup(steal_tx, u64,
 						    &tx->output[i].amount);
@@ -2858,7 +2847,7 @@ static bool resolve_their_steal(struct peer *peer,
 		for (i = 0; i < tal_count(peer->closing_onchain.resolved); i++)
 			peer->closing_onchain.resolved[i] = tx;
 		tal_free(steal_tx);
-		return true;
+		return;
 	}
 	steal_tx->output[0].amount = input_total - fee;
 	steal_tx->output[0].script = scriptpubkey_p2sh(steal_tx,
@@ -2877,14 +2866,38 @@ static bool resolve_their_steal(struct peer *peer,
 		steal_tx->input[i].witness
 			= bitcoin_witness_secret(steal_tx,
 						 peer->dstate->secpctx,
-						 &revocation_preimage,
-						 sizeof(revocation_preimage),
+						 revocation_preimage,
+						 sizeof(*revocation_preimage),
 						 &sig,
 						 wscripts[i]);
 	}
 
 	broadcast_tx(peer, steal_tx);
-	return true;
+}
+
+static struct sha256 *get_rhash(struct peer *peer, u64 commit_num,
+				struct sha256 *rhash)
+{
+	struct sha256 preimage;
+
+	/* Previous revoked tx? */
+	if (shachain_get_hash(&peer->their_preimages,
+			      0xFFFFFFFFFFFFFFFFL - commit_num,
+			      &preimage)) {
+		sha256(rhash, &preimage, sizeof(preimage));
+		return tal_dup(peer, struct sha256, &preimage);
+	}
+
+	/* Current tx? */
+	if (commit_num == peer->remote.commit->commit_num) {
+		*rhash = peer->remote.commit->revocation_hash;
+		return NULL;
+	}
+
+	/* Last tx, but we haven't got revoke for it yet? */
+	assert(commit_num == peer->remote.commit->commit_num-1);
+	*rhash = *peer->their_prev_revocation_hash;
+	return NULL;
 }
 	
 /* We assume the tx is valid!  Don't do a blockchain.info and feed this
@@ -2899,6 +2912,7 @@ static enum watch_result anchor_spent(struct peer *peer,
 	enum state newstate;
 	struct htlc_map_iter it;
 	struct htlc *h;
+	u64 commit_num;
 
 	assert(input_num < tx->input_count);
 
@@ -2935,26 +2949,40 @@ static enum watch_result anchor_spent(struct peer *peer,
 		err = pkt_err(peer, "Our own unilateral close tx seen");
 		peer->closing_onchain.ci = peer->local.commit;
 		resolve_our_unilateral(peer, tx);
-	/* Their unilateral */
-	} else if (structeq(&peer->remote.commit->txid, &txid)) {
-		newstate = STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL;
-		peer->closing_onchain.ci = peer->remote.commit;
-		err = pkt_err(peer, "Unilateral close tx seen");
-		resolve_their_unilateral(peer, tx);
-	/* Their previous, unrevoked unilateral */
-	} else if (peer->remote.commit->prev
-		   && !peer->remote.commit->prev->revocation_preimage
-		   && structeq(&peer->remote.commit->prev->txid, &txid)) {
-		newstate = STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL;
-		peer->closing_onchain.ci = peer->remote.commit->prev;
-		err = pkt_err(peer, "Unilateral close tx seen");
-		resolve_their_unilateral(peer, tx);
-	} else if (resolve_their_steal(peer, tx)) {
-		newstate = STATE_CLOSE_ONCHAIN_CHEATED;
-		err = pkt_err(peer, "Revoked transaction seen");
+	/* Must be their unilateral */
+	} else if (find_their_old_tx(peer, &txid, &commit_num)) {
+		struct sha256 *preimage, rhash;
+		int to_us_idx, to_them_idx;
+		struct htlc **htlcs;
+		const u8 **wscripts;
+
+		preimage = get_rhash(peer, commit_num, &rhash);
+		htlcs = tx_map_outputs(peer, &rhash, tx, REMOTE, commit_num,
+				       &to_us_idx, &to_them_idx, &wscripts);
+		if (!htlcs) {
+			/* Should not happen */
+			log_broken(peer->log,
+				   "Can't resolve known anchor spend %"PRIu64"!",
+				   commit_num);
+			goto unknown_spend;
+		}
+		if (preimage) {
+			newstate = STATE_CLOSE_ONCHAIN_CHEATED;
+			err = pkt_err(peer, "Revoked transaction seen");
+			resolve_their_steal(peer, tx, &txid, preimage,
+					    htlcs, wscripts,
+					    to_us_idx, to_them_idx);
+		} else {
+			newstate = STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL;
+			err = pkt_err(peer, "Unilateral close tx seen");
+			resolve_their_unilateral(peer, tx, &txid,
+						 htlcs, wscripts,
+						 to_us_idx, to_them_idx);
+		}
 	} else {
 		/* FIXME: Log harder! */
-		log_broken(peer->log, "Unknown anchor spend!  Funds may be lost!");
+		log_broken(peer->log,
+			   "Unknown anchor spend!  Funds may be lost!");
 		goto unknown_spend;
 	}
 

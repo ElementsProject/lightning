@@ -54,8 +54,6 @@ struct commit_info {
 	struct bitcoin_signature *sig;
 	/* Map for permutation: see commit_tx.c */
 	int *map;
-	/* Revocation preimage (if known). */
-	struct sha256 *revocation_preimage;
 };
 
 struct peer_visible_state {
@@ -202,6 +200,9 @@ struct peer {
 	/* Stuff we have in common. */
 	struct peer_visible_state local, remote;
 
+	/* If we have sent a new commit tx, but not received their revocation */
+	struct sha256 *their_prev_revocation_hash;
+	
 	/* this is where we will store their revocation preimages*/
 	struct shachain their_preimages;
 };
