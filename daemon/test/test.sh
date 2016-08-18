@@ -354,6 +354,14 @@ EOF
 
 cp $DIR2/config $DIR3/config
 
+if [ x"$RECONNECT" = xrestart ]; then
+    # Make sure node2 restarts on same port, by setting in config.
+    # Find a free TCP port.
+    port=4000
+    while netstat -ntl | grep -q ":$port "; do port=$(($port + 1)); done
+    echo port=$port >> $DIR2/config
+fi
+
 if [ -n "$DIFFERENT_FEES" ]; then
     # Simply override default fee (estimatefee fails on regtest anyway)
     CLOSE_FEE_RATE2=50000
@@ -373,11 +381,13 @@ else
     $LIGHTNINGD1 > $REDIR1 2> $REDIRERR1 &
 fi
 
+LIGHTNINGD2="$(readlink -f `pwd`/../lightningd) --lightning-dir=$DIR2"
 if [ -n "$GDB2" ]; then
-    echo Press return once you run: gdb --args daemon/lightningd --lightning-dir=$DIR2 >&2
+    echo Press return once you run: gdb --args $LIGHTNINGD2 >&2
     read REPLY
 else
-    $PREFIX ../lightningd --lightning-dir=$DIR2 > $REDIR2 2> $REDIRERR2 &
+    LIGHTNINGD2="$PREFIX $LIGHTNINGD2"
+    $LIGHTNINGD2 > $REDIR2 2> $REDIRERR2 &
 fi
 $PREFIX ../lightningd --lightning-dir=$DIR3 > $DIR3/output 2> $DIR3/errors &
 
@@ -847,6 +857,23 @@ check_balance_single lcli2 $(($B_AMOUNT - $EXTRA_FEE)) $(($B_FEE + $EXTRA_FEE)) 
 lcli1 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_ACK_REVOCATION }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , state : SENT_ADD_ACK_REVOCATION } ], their_htlcs : [ ]" || lcli1 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , state : SENT_ADD_ACK_REVOCATION }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_ACK_REVOCATION } ], their_htlcs : [ ]"
 
 lcli2 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ ], their_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : RCVD_ADD_ACK_REVOCATION }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , state : RCVD_ADD_ACK_REVOCATION } ]" || lcli2 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ ], their_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , state : RCVD_ADD_ACK_REVOCATION }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : RCVD_ADD_ACK_REVOCATION } ]"
+
+# Just for once, reconnect/restart node 2.
+case "$RECONNECT" in
+    reconnect)
+	echo RECONNECTING NODE2
+	$LCLI2 dev-reconnect $ID1 >/dev/null
+	sleep 1
+	;;
+    restart)
+	echo RESTARTING NODE2
+	$LCLI2 -- dev-restart $LIGHTNINGD2 >/dev/null 2>&1 || true
+	if ! check "$LCLI2 getlog 2>/dev/null | fgrep -q Hello"; then
+	    echo "Node2 dev-restart failed!">&2
+	    exit 1
+	fi
+	;;
+esac
 
 # Node2 collects the HTLCs.
 lcli2 fulfillhtlc $ID1 $HTLCID $SECRET

@@ -2321,7 +2321,7 @@ static struct io_plan *reconnect_pkt_in(struct io_conn *conn, struct peer *peer)
 		return pkt_out(conn, peer);
 	}
 
-	/* Queue prompted us to reconnect, but we need to eliminate it now. */
+	/* We need to eliminate queue now. */
 	clear_output_queue(peer);
 
 	/* They might have missed the error, tell them before hanging up */
@@ -3832,7 +3832,8 @@ static struct io_plan *peer_reconnect(struct io_conn *conn, struct peer *peer)
 				 peer->id, crypto_on_reconnect_out, peer);
 }
 
-/* Only retry when we want to send something. */ 
+/* We can't only retry when we want to send: they may want to send us
+ * something but not be able to connect (NAT).  So keep retrying.. */ 
 static void reconnect_failed(struct io_conn *conn, struct peer *peer)
 {
 	/* Already otherwise connected (ie. they connected in)? */
@@ -3841,13 +3842,8 @@ static void reconnect_failed(struct io_conn *conn, struct peer *peer)
 		return;
 	}
 
-	if (!tal_count(peer->outpkt)) {
-		log_debug(peer->log, "reconnect_failed: nothing to send");
-		return;
-	}
-
-	log_debug(peer->log, "Have packets to send, setting timer");
-	new_reltimer(peer->dstate, peer, time_from_sec(60), try_reconnect, peer);
+	log_debug(peer->log, "Setting timer to re-connect");
+	new_reltimer(peer->dstate, peer, time_from_sec(15), try_reconnect, peer);
 }
 
 static struct io_plan *init_conn(struct io_conn *conn, struct peer *peer)
