@@ -57,6 +57,60 @@ static size_t count_htlcs(const struct htlc_map *htlcs, int flag)
 	return n;
 }
 
+u8 *commit_output_to_us(const tal_t *ctx,
+			const struct peer *peer,
+			const struct sha256 *rhash,
+			enum htlc_side side,
+			u8 **wscript)
+{
+	u8 *tmp;
+	if (!wscript)
+		wscript = &tmp;
+	
+	/* Our output to ourself is encumbered by delay. */
+	if (side == LOCAL) {
+		*wscript = bitcoin_redeem_secret_or_delay(ctx,
+							  peer->dstate->secpctx,
+							  &peer->local.finalkey,
+							  &peer->remote.locktime,
+							  &peer->remote.finalkey,
+							  rhash);
+		return scriptpubkey_p2wsh(ctx, *wscript);
+	} else {
+		/* Their output to us is a simple p2wpkh */
+		*wscript = NULL;
+		return scriptpubkey_p2wpkh(ctx, peer->dstate->secpctx,
+					   &peer->local.finalkey);
+	}
+}
+
+u8 *commit_output_to_them(const tal_t *ctx,
+			  const struct peer *peer,
+			  const struct sha256 *rhash,
+			  enum htlc_side side,
+			  u8 **wscript)
+{
+	u8 *tmp;
+	if (!wscript)
+		wscript = &tmp;
+
+	/* Their output to themselves is encumbered by delay. */
+	if (side == REMOTE) {
+		*wscript = bitcoin_redeem_secret_or_delay(ctx,
+							  peer->dstate->secpctx,
+							  &peer->remote.finalkey,
+							  &peer->local.locktime,
+							  &peer->local.finalkey,
+							  rhash);
+		return scriptpubkey_p2wsh(ctx, *wscript);
+	} else {
+		/* Our output to them is a simple p2wpkh */
+		*wscript = NULL;
+		return scriptpubkey_p2wpkh(ctx, peer->dstate->secpctx,
+					   &peer->remote.finalkey);
+	}
+}
+
 struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    struct peer *peer,
 				    const struct sha256 *rhash,
@@ -65,14 +119,10 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    int **map)
 {
 	struct bitcoin_tx *tx;
-	const u8 *redeemscript;
 	size_t num;
 	uint64_t total;
-	const struct pubkey *self, *other;
-	const struct rel_locktime *locktime;
 	struct htlc_map_iter it;
 	struct htlc *h;
-	enum channel_side channel_side;
 	int committed_flag = HTLC_FLAG(side,HTLC_F_COMMITTED);
 
 	/* Now create commitment tx: one input, two outputs (plus htlcs) */
@@ -83,35 +133,13 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx->input[0].index = peer->anchor.index;
 	tx->input[0].amount = tal_dup(tx->input, u64, &peer->anchor.satoshis);
 
-	/* For our commit tx, our payment is delayed by amount they said */
-	if (side == LOCAL) {
-		channel_side = OURS;
-		self = &peer->local.finalkey;
-		other = &peer->remote.finalkey;
-		locktime = &peer->remote.locktime;
-	} else {
-		channel_side = THEIRS;
-		self = &peer->remote.finalkey;
-		other = &peer->local.finalkey;
-		locktime = &peer->local.locktime;
-	}
-
-	/* First output is a P2WSH to a complex redeem script
-	 * (usu. for this side) */
-	redeemscript = bitcoin_redeem_secret_or_delay(tx, peer->dstate->secpctx,
-						      self,
-						      locktime,
-						      other,
-						      rhash);
-	tx->output[0].script = scriptpubkey_p2wsh(tx, redeemscript);
+	tx->output[0].script = commit_output_to_us(tx, peer, rhash, side, NULL);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
-	tx->output[0].amount = cstate->side[channel_side].pay_msat / 1000;
+	tx->output[0].amount = cstate->side[OURS].pay_msat / 1000;
 
-	/* Second output is a P2WPKH payment to other side. */
-	tx->output[1].script = scriptpubkey_p2wpkh(tx, peer->dstate->secpctx,
-						   other);
+	tx->output[1].script = commit_output_to_them(tx, peer, rhash, side,NULL);
 	tx->output[1].script_length = tal_count(tx->output[1].script);
-	tx->output[1].amount = cstate->side[!channel_side].pay_msat / 1000;
+	tx->output[1].amount = cstate->side[THEIRS].pay_msat / 1000;
 
 	/* First two outputs done, now for the HTLCs. */
 	total = tx->output[0].amount + tx->output[1].amount;
