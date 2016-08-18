@@ -101,11 +101,12 @@ void queue_pkt_anchor(struct peer *peer);
 void queue_pkt_open_commit_sig(struct peer *peer);
 void queue_pkt_open_complete(struct peer *peer);
 void queue_pkt_htlc_add(struct peer *peer, struct htlc *htlc);
-void queue_pkt_htlc_fulfill(struct peer *peer, struct htlc *htlc,
-			    const struct rval *r);
+void queue_pkt_htlc_fulfill(struct peer *peer, struct htlc *htlc);
 void queue_pkt_htlc_fail(struct peer *peer, struct htlc *htlc);
 void queue_pkt_commit(struct peer *peer);
-void queue_pkt_revocation(struct peer *peer);
+void queue_pkt_revocation(struct peer *peer,
+			  const struct sha256 *preimage,
+			  const struct sha256 *next_hash);
 void queue_pkt_close_clearing(struct peer *peer);
 void queue_pkt_close_signature(struct peer *peer);
 

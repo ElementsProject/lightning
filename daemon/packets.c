@@ -69,23 +69,9 @@ static void queue_pkt(struct peer *peer, Pkt__PktCase type, const void *msg)
 	queue_raw_pkt(peer, make_pkt(peer, type, msg));
 }
 
-static struct commit_info *new_commit_info(const tal_t *ctx)
-{
-	struct commit_info *ci = talz(ctx, struct commit_info);
-	ci->unacked_changes = tal_arr(ci, union htlc_staging, 0);
-	ci->acked_changes = tal_arr(ci, union htlc_staging, 0);
-	return ci;
-}
-
 void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor)
 {
 	OpenChannel *o = tal(peer, OpenChannel);
-
-	/* Set up out commit info now: rest gets done in setup_first_commit
-	 * once anchor is established. */
-	peer->local.commit = new_commit_info(peer);
-	peer->local.commit->revocation_hash = peer->local.next_revocation_hash;
-	peer_get_revocation_hash(peer, 1, &peer->local.next_revocation_hash);
 
 	open_channel__init(o);
 	o->revocation_hash = sha256_to_proto(o, &peer->local.commit->revocation_hash);
@@ -120,14 +106,6 @@ void queue_pkt_anchor(struct peer *peer)
 	a->output_index = peer->anchor.index;
 	a->amount = peer->anchor.satoshis;
 
-	/* This shouldn't happen! */
-	if (!setup_first_commit(peer)) {
-		queue_pkt_err(peer,
-			      pkt_err(peer,
-				      "Own anchor has insufficient funds"));
-		return;
-	}
-
 	queue_pkt(peer, PKT__PKT_OPEN_ANCHOR, a);
 }
 
@@ -137,16 +115,6 @@ void queue_pkt_open_commit_sig(struct peer *peer)
 
 	open_commit_sig__init(s);
 
-	log_debug_struct(peer->log, "Creating sig for %s",
-			 struct bitcoin_tx, peer->remote.commit->tx);
-	log_add_struct(peer->log, " using key %s",
-		       struct pubkey, &peer->local.commitkey);
-
-	peer->remote.commit->sig = tal(peer->remote.commit,
-				     struct bitcoin_signature);
-	peer->remote.commit->sig->stype = SIGHASH_ALL;
-	peer_sign_theircommit(peer, peer->remote.commit->tx,
-			      &peer->remote.commit->sig->sig);
 	s->sig = signature_to_proto(s, peer->dstate->secpctx,
 				    &peer->remote.commit->sig->sig);
 
@@ -164,7 +132,6 @@ void queue_pkt_open_complete(struct peer *peer)
 void queue_pkt_htlc_add(struct peer *peer, struct htlc *htlc)
 {
 	UpdateAddHtlc *u = tal(peer, UpdateAddHtlc);
-	union htlc_staging stage;
 
 	update_add_htlc__init(u);
 
@@ -180,49 +147,16 @@ void queue_pkt_htlc_add(struct peer *peer, struct htlc *htlc)
 					  0);
 	u->route->info.len = tal_count(u->route->info.data);
 
-	/* BOLT #2:
-	 *
-	 * The sending node MUST add the HTLC addition to the unacked
-	 * changeset for its remote commitment
-	 */
-	if (!cstate_add_htlc(peer->remote.staging_cstate, htlc, OURS))
-		fatal("Could not add HTLC?");
-
-	stage.add.add = HTLC_ADD;
-	stage.add.htlc = htlc;
-	add_unacked(&peer->remote, &stage);
-
-	remote_changes_pending(peer);
-
 	queue_pkt(peer, PKT__PKT_UPDATE_ADD_HTLC, u);
 }
 
-void queue_pkt_htlc_fulfill(struct peer *peer, struct htlc *htlc,
-			    const struct rval *r)
+void queue_pkt_htlc_fulfill(struct peer *peer, struct htlc *htlc)
 {
 	UpdateFulfillHtlc *f = tal(peer, UpdateFulfillHtlc);
-	union htlc_staging stage;
 
 	update_fulfill_htlc__init(f);
 	f->id = htlc->id;
-	f->r = rval_to_proto(f, r);
-
-	/* BOLT #2:
-	 *
-	 * The sending node MUST add the HTLC fulfill/fail to the
-	 * unacked changeset for its remote commitment
-	 */
-	assert(cstate_htlc_by_id(peer->remote.staging_cstate, f->id, THEIRS)
-	       == htlc);
-	cstate_fulfill_htlc(peer->remote.staging_cstate, htlc, THEIRS);
-
-	stage.fulfill.fulfill = HTLC_FULFILL;
-	stage.fulfill.htlc = htlc;
-	stage.fulfill.r = *r;
-	add_unacked(&peer->remote, &stage);
-	htlc_changestate(htlc, RCVD_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
-
-	remote_changes_pending(peer);
+	f->r = rval_to_proto(f, htlc->r);
 
 	queue_pkt(peer, PKT__PKT_UPDATE_FULFILL_HTLC, f);
 }
@@ -230,7 +164,6 @@ void queue_pkt_htlc_fulfill(struct peer *peer, struct htlc *htlc,
 void queue_pkt_htlc_fail(struct peer *peer, struct htlc *htlc)
 {
 	UpdateFailHtlc *f = tal(peer, UpdateFailHtlc);
-	union htlc_staging stage;
 
 	update_fail_htlc__init(f);
 	f->id = htlc->id;
@@ -239,218 +172,39 @@ void queue_pkt_htlc_fail(struct peer *peer, struct htlc *htlc)
 	f->reason = tal(f, FailReason);
 	fail_reason__init(f->reason);
 
-	/* BOLT #2:
-	 *
-	 * The sending node MUST add the HTLC fulfill/fail to the
-	 * unacked changeset for its remote commitment
-	 */
-	assert(cstate_htlc_by_id(peer->remote.staging_cstate, f->id, THEIRS)
-	       == htlc);
-	cstate_fail_htlc(peer->remote.staging_cstate, htlc, THEIRS);
-
-	stage.fail.fail = HTLC_FAIL;
-	stage.fail.htlc = htlc;
-	add_unacked(&peer->remote, &stage);
-	htlc_changestate(htlc, RCVD_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
-
-	remote_changes_pending(peer);
 	queue_pkt(peer, PKT__PKT_UPDATE_FAIL_HTLC, f);
-}
-
-struct state_table {
-	enum htlc_state from, to;
-};
-
-static bool htlcs_changestate(struct peer *peer,
-			      const struct state_table *table,
-			      size_t n)
-{
-	struct htlc_map_iter it;
-	struct htlc *h;
-	bool changed = false;
-
-	for (h = htlc_map_first(&peer->htlcs, &it);
-	     h;
-	     h = htlc_map_next(&peer->htlcs, &it)) {
-		size_t i;
-		for (i = 0; i < n; i++) {
-			if (h->state == table[i].from) {
-				htlc_changestate(h, table[i].from, table[i].to);
-				changed = true;
-			}
-		}
-	}
-	return changed;
 }
 
 /* OK, we're sending a signature for their pending changes. */
 void queue_pkt_commit(struct peer *peer)
 {
 	UpdateCommit *u = tal(peer, UpdateCommit);
-	struct commit_info *ci = new_commit_info(peer);
-	static const struct state_table changes[] = {
-		{ SENT_ADD_HTLC, SENT_ADD_COMMIT },
-		{ SENT_REMOVE_REVOCATION, SENT_REMOVE_ACK_COMMIT },
-		{ SENT_ADD_REVOCATION, SENT_ADD_ACK_COMMIT},
-		{ SENT_REMOVE_HTLC, SENT_REMOVE_COMMIT}
-	};
-
-	/* BOLT #2:
-	 *
-	 * A node MUST NOT send an `update_commit` message which does
-	 * not include any updates.
-	 */
-	if (!htlcs_changestate(peer, changes, ARRAY_SIZE(changes)))
-		fatal("sent commit with no changes");
-
-	/* Create new commit info for this commit tx. */
-	ci->prev = peer->remote.commit;
-	ci->commit_num = ci->prev->commit_num + 1;
-	ci->revocation_hash = peer->remote.next_revocation_hash;
-	/* BOLT #2:
-	 *
-	 * A sending node MUST apply all remote acked and unacked
-	 * changes except unacked fee changes to the remote commitment
-	 * before generating `sig`. */
-	ci->cstate = copy_cstate(ci, peer->remote.staging_cstate);
-	ci->tx = create_commit_tx(ci, peer, &ci->revocation_hash,
-				  ci->cstate, REMOTE, &ci->map);
-	bitcoin_txid(ci->tx, &ci->txid);
-
-	log_debug(peer->log, "Signing tx for %u/%u msatoshis, %zu/%zu htlcs",
-		  ci->cstate->side[OURS].pay_msat,
-		  ci->cstate->side[THEIRS].pay_msat,
-		  tal_count(ci->cstate->side[OURS].htlcs),
-		  tal_count(ci->cstate->side[THEIRS].htlcs));
-	log_add_struct(peer->log, " (txid %s)", struct sha256_double, &ci->txid);
-
-	/* BOLT #2:
-	 *
-	 * A node MUST NOT send an `update_commit` message which does
-	 * not include any updates.
-	 */
-	assert(ci->prev->cstate->changes != ci->cstate->changes);
-
-	ci->sig = tal(ci, struct bitcoin_signature);
-	ci->sig->stype = SIGHASH_ALL;
-	peer_sign_theircommit(peer, ci->tx, &ci->sig->sig);
-
-	/* Switch to the new commitment. */
-	peer->remote.commit = ci;
 
 	/* Now send message */
 	update_commit__init(u);
-	u->sig = signature_to_proto(u, peer->dstate->secpctx, &ci->sig->sig);
+	u->sig = signature_to_proto(u, peer->dstate->secpctx,
+				    &peer->remote.commit->sig->sig);
 
 	queue_pkt(peer, PKT__PKT_UPDATE_COMMIT, u);
 }
 
-/* At revocation time, we apply the changeset to the other side. */
-static void apply_changeset(struct peer *peer,
-			    struct peer_visible_state *which,
-			    enum channel_side side,
-			    const union htlc_staging *changes,
-			    size_t num_changes)
-{
-	size_t i;
-	struct htlc *htlc;
-
-	for (i = 0; i < num_changes; i++) {
-		switch (changes[i].type) {
-		case HTLC_ADD:
-			htlc = cstate_htlc_by_id(which->staging_cstate,
-						 changes[i].add.htlc->id, side);
-			if (htlc)
-				fatal("Can't add duplicate HTLC id %"PRIu64,
-				      changes[i].add.htlc->id);
-			if (!cstate_add_htlc(which->staging_cstate,
-					     changes[i].add.htlc,
-					     side))
-				fatal("Adding HTLC to %s failed",
-				      side == OURS ? "ours" : "theirs");
-			continue;
-		case HTLC_FAIL:
-			htlc = cstate_htlc_by_id(which->staging_cstate,
-						 changes[i].fail.htlc->id,
-						 !side);
-			if (!htlc)
-				fatal("Can't fail non-exisent HTLC id %"PRIu64,
-				      changes[i].fail.htlc->id);
-			cstate_fail_htlc(which->staging_cstate, htlc, !side);
-			continue;
-		case HTLC_FULFILL:
-			htlc = cstate_htlc_by_id(which->staging_cstate,
-						  changes[i].fulfill.htlc->id,
-						 !side);
-			if (!htlc)
-				fatal("Can't fulfill non-exisent HTLC id %"PRIu64,
-				      changes[i].fulfill.htlc->id);
-			cstate_fulfill_htlc(which->staging_cstate, htlc, !side);
-			continue;
-		}
-		abort();
-	}
-}
 
 /* Send a preimage for the old commit tx.  The one we've just committed to is
  * in peer->local.commit. */
-void queue_pkt_revocation(struct peer *peer)
+void queue_pkt_revocation(struct peer *peer,
+			  const struct sha256 *preimage,
+			  const struct sha256 *next_hash)
 {
 	UpdateRevocation *u = tal(peer, UpdateRevocation);
-	struct commit_info *ci;
-	static const struct state_table changes[] = {
-		{ RCVD_ADD_ACK_COMMIT, SENT_ADD_ACK_REVOCATION },
-		{ RCVD_REMOVE_COMMIT, SENT_REMOVE_REVOCATION },
-		{ RCVD_ADD_COMMIT, SENT_ADD_REVOCATION },
-		{ RCVD_REMOVE_ACK_COMMIT, SENT_REMOVE_ACK_REVOCATION }
-	};
 
 	update_revocation__init(u);
 
-	assert(peer->local.commit);
-	ci = peer->local.commit->prev;
-	assert(ci);
-	assert(!ci->revocation_preimage);
+	u->revocation_preimage
+		= sha256_to_proto(u, peer->local.commit->prev->revocation_preimage);
 
-	/* We have their signature on the current one, right? */
-	assert(peer->local.commit->sig);
-
-	if (!htlcs_changestate(peer, changes, ARRAY_SIZE(changes)))
-		fatal("sent revoke with no changes");
-
-	ci->revocation_preimage = tal(ci, struct sha256);
-	peer_get_revocation_preimage(peer, ci->commit_num,
-				     ci->revocation_preimage);
-
-	u->revocation_preimage = sha256_to_proto(u, ci->revocation_preimage);
-
-	u->next_revocation_hash = sha256_to_proto(u,
-						  &peer->local.next_revocation_hash);
-
+	u->next_revocation_hash
+		= sha256_to_proto(u, &peer->local.next_revocation_hash);
 	queue_pkt(peer, PKT__PKT_UPDATE_REVOCATION, u);
-
-	/* BOLT #2:
-	 *
-	 * The node sending `update_revocation` MUST add the local unacked
-	 * changes to the set of remote acked changes.
-	 */
-	/* Note: this means the unacked changes as of the commit we're
-	 * revoking */
-	add_acked_changes(&peer->remote.commit->acked_changes, ci->unacked_changes);
-	apply_changeset(peer, &peer->remote, THEIRS,
-			ci->unacked_changes, tal_count(ci->unacked_changes));
-
-	if (tal_count(ci->unacked_changes))
-		remote_changes_pending(peer);
-
-	/* We should never look at this again. */
-	ci->unacked_changes = tal_free(ci->unacked_changes);
-
-	/* That revocation has committed us to changes in the current commitment.
-	 * Any acked changes come from their commitment, so those are now committed
-	 * by both of us.
-	 */
-	peer_both_committed_to(peer, ci->acked_changes, OURS);
 }
 
 Pkt *pkt_err(struct peer *peer, const char *msg, ...)

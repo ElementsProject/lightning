@@ -1,8 +1,7 @@
 #include <ccan/build_assert/build_assert.h>
 #include <daemon/log.h>
-#ifndef TEST_STATE_COVERAGE
 #include <daemon/peer.h>
-#endif
+#include <daemon/secrets.h>
 #include <names.h>
 #include <state.h>
 
@@ -22,6 +21,18 @@ static void queue_tx_broadcast(const struct bitcoin_tx **broadcast,
 	*broadcast = tx;
 }
 
+static void send_open_pkt(struct peer *peer,
+			  OpenChannel__AnchorOffer anchor)
+{
+	/* Set up out commit info now: rest gets done in setup_first_commit
+	 * once anchor is established. */
+	peer->local.commit = new_commit_info(peer);
+	peer->local.commit->revocation_hash = peer->local.next_revocation_hash;
+	peer_get_revocation_hash(peer, 1, &peer->local.next_revocation_hash);
+
+	queue_pkt_open(peer, anchor);
+}
+
 enum state state(struct peer *peer,
 		 const enum state_input input,
 		 const Pkt *pkt,
@@ -37,13 +48,13 @@ enum state state(struct peer *peer,
 	 */
 	case STATE_INIT:
 		if (input_is(input, CMD_OPEN_WITH_ANCHOR)) {
-			queue_pkt_open(peer,
-				       OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR);
+			send_open_pkt(peer,
+				      OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR);
 			return next_state(peer, input,
 					  STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR);
 		} else if (input_is(input, CMD_OPEN_WITHOUT_ANCHOR)) {
-			queue_pkt_open(peer,
-				       OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR);
+			send_open_pkt(peer,
+				      OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR);
 			return next_state(peer, input,
 					  STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR);
 		}
@@ -78,6 +89,13 @@ enum state state(struct peer *peer,
 		break;
 	case STATE_OPEN_WAIT_FOR_ANCHOR_CREATE:
 		if (input_is(input, BITCOIN_ANCHOR_CREATED)) {
+			/* This shouldn't happen! */
+			if (!setup_first_commit(peer)) {
+				err = pkt_err(peer,
+					      "Own anchor has insufficient funds");
+				peer_open_complete(peer, err->error->problem);
+				goto err_breakdown;
+			}
 			queue_pkt_anchor(peer);
 			return next_state(peer, input,
 					  STATE_OPEN_WAIT_FOR_COMMIT_SIG);
@@ -94,6 +112,18 @@ enum state state(struct peer *peer,
 				peer_open_complete(peer, err->error->problem);
 				goto err_breakdown;
 			}
+			log_debug_struct(peer->log, "Creating sig for %s",
+					 struct bitcoin_tx,
+					 peer->remote.commit->tx);
+			log_add_struct(peer->log, " using key %s",
+				       struct pubkey, &peer->local.commitkey);
+
+			peer->remote.commit->sig = tal(peer->remote.commit,
+						       struct bitcoin_signature);
+			peer->remote.commit->sig->stype = SIGHASH_ALL;
+			peer_sign_theircommit(peer, peer->remote.commit->tx,
+					      &peer->remote.commit->sig->sig);
+
 			queue_pkt_open_commit_sig(peer);
 			peer_watch_anchor(peer, 
 					  BITCOIN_ANCHOR_DEPTHOK,

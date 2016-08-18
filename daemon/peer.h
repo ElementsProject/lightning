@@ -239,6 +239,20 @@ void add_acked_changes(union htlc_staging **acked,
 void peer_both_committed_to(struct peer *peer,
 			    const union htlc_staging *changes, enum channel_side side);
 
+/* Allocate a new commit_info struct. */
+struct commit_info *new_commit_info(const tal_t *ctx);
+
+struct state_table {
+	enum htlc_state from, to;
+};
+bool htlcs_changestate(struct peer *peer,
+		       const struct state_table *table, size_t n);
+void apply_changeset(struct peer *peer,
+		     struct peer_visible_state *which,
+		     enum channel_side side,
+		     const union htlc_staging *changes,
+		     size_t num_changes);
+
 /* Freeing removes from map, too */
 struct htlc *peer_new_htlc(struct peer *peer, 
 			   u64 id,
