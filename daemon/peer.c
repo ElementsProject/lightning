@@ -2101,21 +2101,6 @@ struct commit_info *new_commit_info(const tal_t *ctx, u64 commit_num)
 	return ci;
 }
 
-static bool peer_getaddr(struct peer *peer,
-			 int fd, int addr_type, int addr_protocol)
-{
-	peer->addr.type = addr_type;
-	peer->addr.protocol = addr_protocol;
-	peer->addr.addrlen = sizeof(peer->addr.saddr);
-	if (getpeername(fd, &peer->addr.saddr.s, &peer->addr.addrlen) != 0) {
-		log_broken(peer->dstate->base_log,
-			   "Could not get address for peer: %s",
-			   strerror(errno));
-		return false;
-	}
-	return true;
-}
-
 static bool peer_reconnected(struct peer *peer,
 			     struct io_conn *conn,
 			     int addr_type, int addr_protocol,
@@ -2123,13 +2108,15 @@ static bool peer_reconnected(struct peer *peer,
 			     const struct pubkey *id,
 			     bool we_connected)
 {
-	char *prefix;
+	char *name;
+	struct netaddr addr;
 
 	assert(structeq(peer->id, id));
 
 	peer->io_data = tal_steal(peer, iod);
+
 	/* FIXME: Attach IO logging for this peer. */
-	if (!peer_getaddr(peer, io_conn_fd(conn), addr_type, addr_protocol))
+	if (!netaddr_from_fd(io_conn_fd(conn), addr_type, addr_protocol, &addr))
 		return false;
 
 	/* If we free peer, conn should be closed, but can't be freed
@@ -2137,18 +2124,10 @@ static bool peer_reconnected(struct peer *peer,
 	peer->conn = conn;
 	io_set_finish(conn, peer_disconnect, peer);
 
-	prefix = tal_fmt(peer, "%s%s:%s:",
-			 log_prefix(peer->dstate->base_log),
-			 we_connected ? "out" : "in",
-			 netaddr_name(peer, &peer->addr));
-	if (peer->log) {
-		log_info(peer->log, "Reconnected as %s", prefix);
-		set_log_prefix(peer->log, prefix);
-	} else {
-		peer->log = new_log(peer, peer->dstate->log_record,
-				    "%s", prefix);
-	}
-	tal_free(prefix);
+	name = netaddr_name(peer, &addr);
+	log_info(peer->log, "Reconnected %s %s", 
+		 we_connected ? "out to" : "in from", name);
+	tal_free(name);
 
 	return true;
 }
@@ -2202,6 +2181,8 @@ struct peer *new_peer(struct lightningd_state *dstate,
 	peer->local.mindepth = dstate->config.anchor_confirms;
 	peer->local.commit = peer->remote.commit = NULL;
 	peer->local.staging_cstate = peer->remote.staging_cstate = NULL;
+	peer->log = new_log(peer, peer->dstate->log_record, "%s:peer %p:",
+			    log_prefix(peer->dstate->base_log), peer);
 
 	htlc_map_init(&peer->htlcs);
 	shachain_init(&peer->their_preimages);
@@ -2211,6 +2192,34 @@ struct peer *new_peer(struct lightningd_state *dstate,
 	return peer;
 }
 
+static struct peer_address *find_address(struct lightningd_state *dstate,
+					 const struct pubkey *id)
+{
+	struct peer_address *i;
+
+	list_for_each(&dstate->addresses, i, list) {
+		if (structeq(&id->pubkey, &i->id.pubkey))
+			return i;
+	}
+	return NULL;
+}
+
+static bool add_peer_address(struct lightningd_state *dstate,
+			     const struct pubkey *id,
+			     const struct netaddr *addr)
+{
+	struct peer_address *a = find_address(dstate, id);
+	if (a) {
+		a->addr = *addr;
+	} else {
+		a = tal(dstate, struct peer_address);
+		a->addr = *addr;
+		a->id = *id;
+		list_add_tail(&dstate->addresses, &a->list);
+	}
+	return db_add_peer_address(dstate, a);
+}
+
 static bool peer_first_connected(struct peer *peer,
 				 struct io_conn *conn,
 				 int addr_type, int addr_protocol,
@@ -2218,6 +2227,9 @@ static bool peer_first_connected(struct peer *peer,
 				 const struct pubkey *id,
 				 bool we_connected)
 {
+	char *name;
+	struct netaddr addr;
+
 	peer->io_data = tal_steal(peer, iod);
 	peer->id = tal_dup(peer, struct pubkey, id);
 	/* FIXME: Make this dynamic! */
@@ -2234,28 +2246,25 @@ static bool peer_first_connected(struct peer *peer,
 	peer->conn = conn;
 	io_set_finish(conn, peer_disconnect, peer);
 	
-	/* FIXME: Attach IO logging for this peer. */
-
-	peer->addr.type = addr_type;
-	peer->addr.protocol = addr_protocol;
-	peer->addr.addrlen = sizeof(peer->addr.saddr);
-	if (getpeername(io_conn_fd(conn), &peer->addr.saddr.s,
-			&peer->addr.addrlen) != 0) {
-		log_unusual(peer->dstate->base_log,
-			    "Could not get address for peer: %s",
-			    strerror(errno));
-		return tal_free(peer);
-	}
 	peer->anchor.min_depth = get_block_height(peer->dstate);
 
-	peer->log = new_log(peer, peer->dstate->log_record, "%s%s:%s:",
-			    log_prefix(peer->dstate->base_log),
-			    we_connected ? "out" : "in",
-			    netaddr_name(peer, &peer->addr));
+	/* FIXME: Attach IO logging for this peer. */
+	if (!netaddr_from_fd(io_conn_fd(conn), addr_type, addr_protocol, &addr))
+		return false;
+
+	/* Save/update address if we connected to them. */
+	if (we_connected && !add_peer_address(peer->dstate, peer->id, &addr))
+		return false;
+
+	name = netaddr_name(peer, &addr);
+	log_info(peer->log, "Connected %s %s id %s", 
+		 we_connected ? "out to" : "in from", name,
+		 pubkey_to_hexstr(name, peer->dstate->secpctx, peer->id));
+	tal_free(name);
 
 	log_debug(peer->log, "Using fee rate %"PRIu64,
 		  peer->local.commit_fee_rate);
-	return peer;
+	return true;
 }
 
 static u64 peer_commitsigs_received(struct peer *peer)
@@ -2372,8 +2381,8 @@ static struct io_plan *crypto_on_reconnect(struct io_conn *conn,
 	u64 sigs, revokes, shutdown, closing;
 
 	/* Setup peer->conn and peer->io_data */
-	if (!peer_reconnected(peer, conn, peer->addr.type,
-			      peer->addr.protocol, iod, id, we_connected))
+	if (!peer_reconnected(peer, conn, SOCK_STREAM, IPPROTO_TCP,
+			      iod, id, we_connected))
 		return io_close(conn);
 
 	sigs = peer_commitsigs_received(peer);
@@ -3849,14 +3858,17 @@ static void reconnect_failed(struct io_conn *conn, struct peer *peer)
 static struct io_plan *init_conn(struct io_conn *conn, struct peer *peer)
 {
 	struct addrinfo a;
+	struct peer_address *addr = find_address(peer->dstate, peer->id);
 
-	netaddr_to_addrinfo(&a, &peer->addr);
+	netaddr_to_addrinfo(&a, &addr->addr);
 	return io_connect(conn, &a, peer_reconnect, peer);
 }
 
 static void try_reconnect(struct peer *peer)
 {
 	struct io_conn *conn;
+	struct peer_address *addr;
+	char *name;
 	int fd;
 
 	/* Already reconnected? */
@@ -3865,8 +3877,14 @@ static void try_reconnect(struct peer *peer)
 		return;
 	}
 
-	fd = socket(peer->addr.saddr.s.sa_family, peer->addr.type,
-		    peer->addr.protocol);
+	addr = find_address(peer->dstate, peer->id);
+	if (!addr) {
+		log_debug(peer->log, "try_reconnect: no known address");
+		return;
+	}
+	
+	fd = socket(addr->addr.saddr.s.sa_family, addr->addr.type,
+		    addr->addr.protocol);
 	if (fd < 0) {
 		log_broken(peer->log, "do_reconnect: failed to create socket: %s",
 			   strerror(errno));
@@ -3877,7 +3895,9 @@ static void try_reconnect(struct peer *peer)
 
 	assert(!peer->conn);
 	conn = io_new_conn(peer->dstate, fd, init_conn, peer);
-	log_debug(peer->log, "Trying to reconnect..."); 
+	name = netaddr_name(peer, &addr->addr);
+	log_debug(peer->log, "Trying to reconnect to %s", name);
+	tal_free(name);
 	io_set_finish(conn, reconnect_failed, peer);
 }
 

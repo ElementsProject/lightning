@@ -17,6 +17,9 @@ bool db_commit_transaction(struct peer *peer);
 void db_add_wallet_privkey(struct lightningd_state *dstate,
 			   const struct privkey *privkey);
 
+bool db_add_peer_address(struct lightningd_state *dstate,
+			 const struct peer_address *addr);
+
 /* Must NOT be inside transaction. */
 bool db_htlc_fulfilled(struct peer *peer, const struct htlc *htlc);
 bool db_set_our_closing_script(struct peer *peer);

@@ -103,9 +103,6 @@ struct peer {
 	/* Global state. */
 	struct lightningd_state *dstate;
 
-	/* The other end's address. */
-	struct netaddr addr;
-
 	/* Their ID. */
 	struct pubkey *id;
 
@@ -226,6 +223,13 @@ struct peer {
 	
 	/* this is where we will store their revocation preimages*/
 	struct shachain their_preimages;
+};
+
+/* Mapping for id -> network address. */
+struct peer_address {
+	struct list_node list;
+	struct pubkey id;
+	struct netaddr addr;
 };
 
 void setup_listeners(struct lightningd_state *dstate, unsigned int portnum);

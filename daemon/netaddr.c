@@ -77,3 +77,12 @@ bool netaddr_from_blob(const void *linear, size_t len, struct netaddr *a)
 	pull(&p, &len, &a->saddr, a->addrlen);
 	return p != NULL && len == 0;
 }
+
+bool netaddr_from_fd(int fd, int type, int protocol, struct netaddr *a)
+{
+	a->type = type;
+	a->protocol = protocol;
+	a->addrlen = sizeof(a->saddr);
+	return getpeername(fd, &a->saddr.s, &a->addrlen) == 0;
+}
+	

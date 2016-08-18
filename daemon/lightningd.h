@@ -84,6 +84,9 @@ struct lightningd_state {
 	/* Our peers. */
 	struct list_head peers;
 
+	/* Addresses to contact peers. */
+	struct list_head addresses;
+
 	/* Crypto tables for global use. */
 	secp256k1_context *secpctx;
 

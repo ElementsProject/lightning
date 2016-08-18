@@ -203,48 +203,6 @@ void db_add_wallet_privkey(struct lightningd_state *dstate,
 		fatal("db_add_wallet_privkey:%s", err);
 }
 
-static void load_peer_address(struct peer *peer)
-{
-	int err;
-	sqlite3_stmt *stmt;
-	sqlite3 *sql = peer->dstate->db->sql;
-	char *ctx = tal(peer, char);
-	const char *select;
-	bool addr_set = false;
-
-	select = tal_fmt(ctx,
-			 "SELECT * FROM peer_address WHERE peer = x'%s';",
-			 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id));
-
-	err = sqlite3_prepare_v2(sql, select, -1, &stmt, NULL);
-	if (err != SQLITE_OK)
-		fatal("load_peer_address:prepare gave %s:%s",
-		      sqlite3_errstr(err), sqlite3_errmsg(sql));
-
-	while ((err = sqlite3_step(stmt)) != SQLITE_DONE) {
-		if (err != SQLITE_ROW)
-			fatal("load_peer_address:step gave %s:%s",
-			      sqlite3_errstr(err), sqlite3_errmsg(sql));
-		if (addr_set)
-			fatal("load_peer_address: two addresses for '%s'",
-			      select);
-		if (!netaddr_from_blob(sqlite3_column_blob(stmt, 1),
-				       sqlite3_column_bytes(stmt, 1),
-				       &peer->addr))
-			fatal("load_peer_address: unparsable addresses for '%s'",
-			      select);
-		addr_set = true;
-		peer->log = new_log(peer, peer->dstate->log_record, "%s%s:",
-				    log_prefix(peer->dstate->base_log),
-				    netaddr_name(peer, &peer->addr));
-	}
-
-	if (!addr_set)
-		fatal("load_peer_address: no addresses for '%s'", select);
-
-	tal_free(ctx);
-}
-
 static void load_peer_secrets(struct peer *peer)
 {
 	int err;
@@ -928,7 +886,6 @@ static void db_load_peers(struct lightningd_state *dstate)
 		      sqlite3_errmsg(dstate->db->sql));
 
 	list_for_each(&dstate->peers, peer, list) {
-		load_peer_address(peer);
 		load_peer_secrets(peer);
 		load_peer_closing(peer);
 		peer->anchor.min_depth = 0;
@@ -946,10 +903,45 @@ static void db_load_peers(struct lightningd_state *dstate)
 	connect_htlc_src(dstate);
 }
 
+static void db_load_addresses(struct lightningd_state *dstate)
+{
+	int err;
+	sqlite3_stmt *stmt;
+	sqlite3 *sql = dstate->db->sql;
+	char *ctx = tal(dstate, char);
+	const char *select;
+
+	select = tal_fmt(ctx, "SELECT * FROM peer_address;");
+
+	err = sqlite3_prepare_v2(sql, select, -1, &stmt, NULL);
+	if (err != SQLITE_OK)
+		fatal("load_peer_addresses:prepare gave %s:%s",
+		      sqlite3_errstr(err), sqlite3_errmsg(sql));
+
+	while ((err = sqlite3_step(stmt)) != SQLITE_DONE) {
+		struct peer_address *addr;
+
+		if (err != SQLITE_ROW)
+			fatal("load_peer_addresses:step gave %s:%s",
+			      sqlite3_errstr(err), sqlite3_errmsg(sql));
+		addr = tal(dstate, struct peer_address);
+		pubkey_from_sql(dstate->secpctx, stmt, 0, &addr->id);
+		if (!netaddr_from_blob(sqlite3_column_blob(stmt, 1),
+				       sqlite3_column_bytes(stmt, 1),
+				       &addr->addr))
+			fatal("load_peer_addresses: unparsable addresses for '%s'",
+			      select);
+		list_add_tail(&dstate->addresses, &addr->list);
+		log_debug(dstate->base_log, "load_peer_addresses:%s",
+			  pubkey_to_hexstr(ctx, dstate->secpctx, &addr->id));
+	}
+	tal_free(ctx);
+}
+
 static void db_load(struct lightningd_state *dstate)
 {
 	db_load_wallet(dstate);
-
+	db_load_addresses(dstate);
 	db_load_peers(dstate);
 }
 
@@ -1149,14 +1141,6 @@ bool db_create_peer(struct peer *peer)
 	errmsg = db_exec(ctx, peer->dstate, 
 			 "INSERT INTO peer_secrets VALUES (x'%s', %s);",
 			 peerid, peer_secrets_for_db(ctx, peer));
-	if (errmsg)
-		goto out;
-
-	errmsg = db_exec(ctx, peer->dstate, 
-			 "INSERT INTO peer_address VALUES (x'%s', x'%s');",
-			 peerid,
-			 netaddr_to_hex(ctx, &peer->addr));
-
 	if (errmsg)
 		goto out;
 
@@ -1413,6 +1397,26 @@ bool db_add_commit_map(struct peer *peer,
 	return !errmsg;
 }
 
+/* FIXME: Clean out old ones! */
+bool db_add_peer_address(struct lightningd_state *dstate,
+			 const struct peer_address *addr)
+{
+	const char *errmsg, *ctx = tal(dstate, char);
+
+	log_debug(dstate->base_log, "%s", __func__);
+
+	assert(!dstate->db->in_transaction);
+	errmsg = db_exec(ctx, dstate,
+			 "INSERT OR REPLACE INTO peer_address VALUES (x'%s', x'%s');",
+			 pubkey_to_hexstr(ctx, dstate->secpctx, &addr->id),
+			 netaddr_to_hex(ctx, &addr->addr));
+
+	if (errmsg)
+		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
+	tal_free(ctx);
+	return !errmsg;
+}
+	
 void db_forget_peer(struct peer *peer)
 {
 	const char *ctx = tal(peer, char);
