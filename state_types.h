@@ -30,8 +30,8 @@ enum state {
 	/*
 	 * Closing (handled outside state machine).
 	 */
-	STATE_CLEARING,
-	STATE_CLEARING_COMMITTING,
+	STATE_SHUTDOWN,
+	STATE_SHUTDOWN_COMMITTING,
 	STATE_MUTUAL_CLOSING,
 	
 	/* Four states to represent closing onchain (for getpeers) */
@@ -79,7 +79,7 @@ enum state_input {
 	PKT_UPDATE_REVOCATION = PKT__PKT_UPDATE_REVOCATION,
 
 	/* If they want to close. */
-	PKT_CLOSE_CLEARING = PKT__PKT_CLOSE_CLEARING,
+	PKT_CLOSE_SHUTDOWN = PKT__PKT_CLOSE_SHUTDOWN,
 
 	/* Something unexpected went wrong. */
 	PKT_ERROR = PKT__PKT_ERROR,

@@ -699,13 +699,13 @@ if [ -n "$CLOSE_WITH_HTLCS" ]; then
     lcli1 close $ID2
 
     # They should be waiting for it to clear up.
-    check_peerstate lcli1 STATE_CLEARING
-    check_peerstate lcli2 STATE_CLEARING
+    check_peerstate lcli1 STATE_SHUTDOWN
+    check_peerstate lcli2 STATE_SHUTDOWN
 
     # Fail one, still waiting.
     lcli2 failhtlc $ID1 $HTLCID
-    check_peerstate lcli1 STATE_CLEARING
-    check_peerstate lcli2 STATE_CLEARING
+    check_peerstate lcli1 STATE_SHUTDOWN
+    check_peerstate lcli2 STATE_SHUTDOWN
 
     # Fulfill the other causes them to actually complete the close.
     lcli1 fulfillhtlc $ID2 $HTLCID2 $SECRET2

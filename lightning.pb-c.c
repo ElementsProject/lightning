@@ -910,47 +910,47 @@ void   update_revocation__free_unpacked
   assert(message->base.descriptor == &update_revocation__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   close_clearing__init
-                     (CloseClearing         *message)
+void   close_shutdown__init
+                     (CloseShutdown         *message)
 {
-  static CloseClearing init_value = CLOSE_CLEARING__INIT;
+  static CloseShutdown init_value = CLOSE_SHUTDOWN__INIT;
   *message = init_value;
 }
-size_t close_clearing__get_packed_size
-                     (const CloseClearing *message)
+size_t close_shutdown__get_packed_size
+                     (const CloseShutdown *message)
 {
-  assert(message->base.descriptor == &close_clearing__descriptor);
+  assert(message->base.descriptor == &close_shutdown__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t close_clearing__pack
-                     (const CloseClearing *message,
+size_t close_shutdown__pack
+                     (const CloseShutdown *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &close_clearing__descriptor);
+  assert(message->base.descriptor == &close_shutdown__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t close_clearing__pack_to_buffer
-                     (const CloseClearing *message,
+size_t close_shutdown__pack_to_buffer
+                     (const CloseShutdown *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &close_clearing__descriptor);
+  assert(message->base.descriptor == &close_shutdown__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-CloseClearing *
-       close_clearing__unpack
+CloseShutdown *
+       close_shutdown__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (CloseClearing *)
-     protobuf_c_message_unpack (&close_clearing__descriptor,
+  return (CloseShutdown *)
+     protobuf_c_message_unpack (&close_shutdown__descriptor,
                                 allocator, len, data);
 }
-void   close_clearing__free_unpacked
-                     (CloseClearing *message,
+void   close_shutdown__free_unpacked
+                     (CloseShutdown *message,
                       ProtobufCAllocator *allocator)
 {
-  assert(message->base.descriptor == &close_clearing__descriptor);
+  assert(message->base.descriptor == &close_shutdown__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   close_signature__init
@@ -2354,7 +2354,7 @@ const ProtobufCMessageDescriptor update_revocation__descriptor =
   (ProtobufCMessageInit) update_revocation__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor close_clearing__field_descriptors[1] =
+static const ProtobufCFieldDescriptor close_shutdown__field_descriptors[1] =
 {
   {
     "scriptPubkey",
@@ -2362,34 +2362,34 @@ static const ProtobufCFieldDescriptor close_clearing__field_descriptors[1] =
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_BYTES,
     0,   /* quantifier_offset */
-    offsetof(CloseClearing, scriptpubkey),
+    offsetof(CloseShutdown, scriptpubkey),
     NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned close_clearing__field_indices_by_name[] = {
+static const unsigned close_shutdown__field_indices_by_name[] = {
   0,   /* field[0] = scriptPubkey */
 };
-static const ProtobufCIntRange close_clearing__number_ranges[1 + 1] =
+static const ProtobufCIntRange close_shutdown__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 1 }
 };
-const ProtobufCMessageDescriptor close_clearing__descriptor =
+const ProtobufCMessageDescriptor close_shutdown__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "close_clearing",
-  "CloseClearing",
-  "CloseClearing",
+  "close_shutdown",
+  "CloseShutdown",
+  "CloseShutdown",
   "",
-  sizeof(CloseClearing),
+  sizeof(CloseShutdown),
   1,
-  close_clearing__field_descriptors,
-  close_clearing__field_indices_by_name,
-  1,  close_clearing__number_ranges,
-  (ProtobufCMessageInit) close_clearing__init,
+  close_shutdown__field_descriptors,
+  close_shutdown__field_indices_by_name,
+  1,  close_shutdown__number_ranges,
+  (ProtobufCMessageInit) close_shutdown__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCFieldDescriptor close_signature__field_descriptors[2] =
@@ -2592,13 +2592,13 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[14] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "close_clearing",
+    "close_shutdown",
     30,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
-    offsetof(Pkt, close_clearing),
-    &close_clearing__descriptor,
+    offsetof(Pkt, close_shutdown),
+    &close_shutdown__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -2654,7 +2654,7 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[14] =
 };
 static const unsigned pkt__field_indices_by_name[] = {
   12,   /* field[12] = auth */
-  9,   /* field[9] = close_clearing */
+  9,   /* field[9] = close_shutdown */
   10,   /* field[10] = close_signature */
   11,   /* field[11] = error */
   5,   /* field[5] = open */

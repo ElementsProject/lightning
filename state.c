@@ -213,9 +213,9 @@ enum state state(struct peer *peer,
 			}
 			return next_state(peer, input,
 					  STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR);
-		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
-			peer_open_complete(peer, "Received PKT_CLOSE_CLEARING");
-			goto accept_clearing;
+		} else if (input_is(input, PKT_CLOSE_SHUTDOWN)) {
+			peer_open_complete(peer, "Received PKT_CLOSE_SHUTDOWN");
+			goto accept_shutdown;
 		} else if (input_is_pkt(input)) {
 			peer_open_complete(peer, "unexpected packet");
 			goto unexpected_pkt;
@@ -245,9 +245,9 @@ enum state state(struct peer *peer,
 			}
 			return next_state(peer, input,
 					  STATE_OPEN_WAIT_FOR_COMPLETE_THEIRANCHOR);
-		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
-			peer_open_complete(peer, "Received PKT_CLOSE_CLEARING");
-			goto accept_clearing;
+		} else if (input_is(input, PKT_CLOSE_SHUTDOWN)) {
+			peer_open_complete(peer, "Received PKT_CLOSE_SHUTDOWN");
+			goto accept_shutdown;
 		} else if (input_is_pkt(input)) {
 			peer_open_complete(peer, "unexpected packet");
 			goto unexpected_pkt;
@@ -259,9 +259,9 @@ enum state state(struct peer *peer,
 			/* Ready for business! */
 			peer_open_complete(peer, NULL);
 			return next_state(peer, input, STATE_NORMAL);
-		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
-			peer_open_complete(peer, "Received PKT_CLOSE_CLEARING");
-			goto accept_clearing;
+		} else if (input_is(input, PKT_CLOSE_SHUTDOWN)) {
+			peer_open_complete(peer, "Received PKT_CLOSE_SHUTDOWN");
+			goto accept_shutdown;
 		} else if (input_is_pkt(input)) {
 			peer_open_complete(peer, "unexpected packet");
 			goto unexpected_pkt;
@@ -277,8 +277,8 @@ enum state state(struct peer *peer,
 	case STATE_ERR_BREAKDOWN:
 	case STATE_CLOSED:
 	case STATE_MAX:
-	case STATE_CLEARING:
-	case STATE_CLEARING_COMMITTING:
+	case STATE_SHUTDOWN:
+	case STATE_SHUTDOWN_COMMITTING:
 	case STATE_MUTUAL_CLOSING:
 	case STATE_CLOSE_ONCHAIN_CHEATED:
 	case STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL:
@@ -305,13 +305,13 @@ err_breakdown:
 breakdown:
 	return next_state(peer, input, STATE_ERR_BREAKDOWN);
 
-accept_clearing:
-	err = accept_pkt_close_clearing(peer, pkt);
+accept_shutdown:
+	err = accept_pkt_close_shutdown(peer, pkt);
 	if (err)
 		goto err_breakdown;
 
-	/* If we've sent commit, we're still waiting for it when clearing. */
+	/* If we've sent commit, we're still waiting for it when shutdown. */
 	if (peer->state == STATE_NORMAL_COMMITTING)
-		return next_state(peer, input, STATE_CLEARING_COMMITTING);
-	return next_state(peer, input, STATE_CLEARING);
+		return next_state(peer, input, STATE_SHUTDOWN_COMMITTING);
+	return next_state(peer, input, STATE_SHUTDOWN);
 }

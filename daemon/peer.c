@@ -728,7 +728,7 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 	return true;
 }
 
-/* We can get update_commit in both normal and clearing states. */
+/* We can get update_commit in both normal and shutdown states. */
 static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 {
 	Pkt *err;
@@ -941,22 +941,22 @@ static void peer_calculate_close_fee(struct peer *peer)
 	assert(!(peer->closing.our_fee & 1));
 }
 
-/* This is the io loop while we're clearing. */
-static bool clearing_pkt_in(struct peer *peer, const Pkt *pkt)
+/* This is the io loop while we're shutdown. */
+static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 {
 	Pkt *err = NULL;
 
-	assert(peer->state == STATE_CLEARING
-	       || peer->state == STATE_CLEARING_COMMITTING);
+	assert(peer->state == STATE_SHUTDOWN
+	       || peer->state == STATE_SHUTDOWN_COMMITTING);
 
 	switch (pkt->pkt_case) {
 	case PKT__PKT_UPDATE_REVOCATION:
-		if (peer->state == STATE_CLEARING)
+		if (peer->state == STATE_SHUTDOWN)
 			err = pkt_err_unexpected(peer, pkt);
 		else {
 			err = handle_pkt_revocation(peer, pkt);
 			if (!err) {
-				set_peer_state(peer, STATE_CLEARING, __func__);
+				set_peer_state(peer, STATE_SHUTDOWN, __func__);
 				peer_update_complete(peer);
 			}
 		}
@@ -966,21 +966,21 @@ static bool clearing_pkt_in(struct peer *peer, const Pkt *pkt)
 		/* BOLT #2:
 		 * 
 		 * A node MUST NOT send a `update_add_htlc` after a
-		 * `close_clearing` */
+		 * `close_shutdown` */
 		if (peer->closing.their_script)
-			err = pkt_err(peer, "Update during clearing");
+			err = pkt_err(peer, "Update during shutdown");
 		else
 			err = handle_pkt_htlc_add(peer, pkt);
 		break;
 			
-	case PKT__PKT_CLOSE_CLEARING:
+	case PKT__PKT_CLOSE_SHUTDOWN:
 		/* BOLT #2:
 		 * 
-		 * A node... MUST NOT send more than one `close_clearing`. */
+		 * A node... MUST NOT send more than one `close_shutdown`. */
 		if (peer->closing.their_script)
 			err = pkt_err_unexpected(peer, pkt);
 		else
-			err = accept_pkt_close_clearing(peer, pkt);
+			err = accept_pkt_close_shutdown(peer, pkt);
 		break;
 			
 	case PKT__PKT_UPDATE_FULFILL_HTLC:
@@ -1020,10 +1020,10 @@ static bool clearing_pkt_in(struct peer *peer, const Pkt *pkt)
 	return true;
 }
 
-static void peer_start_clearing(struct peer *peer)
+static void peer_start_shutdown(struct peer *peer)
 {
-	assert(peer->state == STATE_CLEARING
-	       || peer->state == STATE_CLEARING_COMMITTING);
+	assert(peer->state == STATE_SHUTDOWN
+	       || peer->state == STATE_SHUTDOWN_COMMITTING);
 
 	/* If they started close, we might not have sent ours. */
 	if (!peer->closing.our_script) {
@@ -1035,10 +1035,10 @@ static void peer_start_clearing(struct peer *peer)
 		tal_free(redeemscript);
 		/* BOLT #2:
 		 *
-		 * A node SHOULD send a `close_clearing` (if it has
-		 * not already) after receiving `close_clearing`.
+		 * A node SHOULD send a `close_shutdown` (if it has
+		 * not already) after receiving `close_shutdown`.
 		 */
-		queue_pkt_close_clearing(peer);
+		queue_pkt_close_shutdown(peer);
 	}
 
 	/* Catch case where we've exchanged and had no HTLCs anyway. */
@@ -1075,19 +1075,19 @@ static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 		err = handle_pkt_commit(peer, pkt);
 		break;
 
-	case PKT_CLOSE_CLEARING:
-		err = accept_pkt_close_clearing(peer, pkt);
+	case PKT_CLOSE_SHUTDOWN:
+		err = accept_pkt_close_shutdown(peer, pkt);
 		if (err)
 			break;
 		if (peer->state == STATE_NORMAL)
-			set_peer_state(peer, STATE_CLEARING, __func__);
+			set_peer_state(peer, STATE_SHUTDOWN, __func__);
 		else {
 			assert(peer->state == STATE_NORMAL_COMMITTING);
-			set_peer_state(peer, STATE_CLEARING_COMMITTING,
+			set_peer_state(peer, STATE_SHUTDOWN_COMMITTING,
 				       __func__);
 		}
 
-		peer_start_clearing(peer);
+		peer_start_shutdown(peer);
 		return true;
 
 	case PKT_UPDATE_REVOCATION:
@@ -1405,8 +1405,8 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 		keep_going = true;
 	else if (state_is_normal(peer->state))
 		keep_going = normal_pkt_in(peer, peer->inpkt);
-	else if (state_is_clearing(peer->state))
-		keep_going = clearing_pkt_in(peer, peer->inpkt);
+	else if (state_is_shutdown(peer->state))
+		keep_going = shutdown_pkt_in(peer, peer->inpkt);
 	else if (peer->state == STATE_MUTUAL_CLOSING)
 		keep_going = closing_pkt_in(peer, peer->inpkt);
 	else {
@@ -1541,8 +1541,8 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 	peer_add_their_commit(peer, &ci->txid, ci->commit_num);
 	
 	queue_pkt_commit(peer);
-	if (peer->state == STATE_CLEARING) {
-		set_peer_state(peer, STATE_CLEARING_COMMITTING, __func__);
+	if (peer->state == STATE_SHUTDOWN) {
+		set_peer_state(peer, STATE_SHUTDOWN_COMMITTING, __func__);
 	} else {
 		assert(peer->state == STATE_NORMAL);
 		set_peer_state(peer, STATE_NORMAL_COMMITTING, __func__);
@@ -2580,7 +2580,7 @@ static void resolve_mutual_close(struct peer *peer)
 	 *
 	 * A node doesn't need to do anything else as it has already agreed to
 	 * the output, which is sent to its specified scriptpubkey (see BOLT
-	 * #2 "4.1: Closing initiation: close_clearing").
+	 * #2 "4.1: Closing initiation: close_shutdown").
 	 */
 	for (i = 0; i < peer->onchain.tx->output_count; i++)
 		peer->onchain.resolved[i] = irrevocably_resolved(peer);
@@ -3496,10 +3496,10 @@ static void json_close(struct command *cmd,
 	}
 
 	if (peer->state == STATE_NORMAL_COMMITTING)
-		set_peer_state(peer, STATE_CLEARING_COMMITTING, __func__);
+		set_peer_state(peer, STATE_SHUTDOWN_COMMITTING, __func__);
 	else
-		set_peer_state(peer, STATE_CLEARING, __func__);
-	peer_start_clearing(peer);
+		set_peer_state(peer, STATE_SHUTDOWN, __func__);
+	peer_start_shutdown(peer);
 	command_success(cmd, null_response(cmd));
 }
 	

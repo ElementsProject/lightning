@@ -21,7 +21,7 @@ void queue_pkt_commit(struct peer *peer);
 void queue_pkt_revocation(struct peer *peer,
 			  const struct sha256 *preimage,
 			  const struct sha256 *next_hash);
-void queue_pkt_close_clearing(struct peer *peer);
+void queue_pkt_close_shutdown(struct peer *peer);
 void queue_pkt_close_signature(struct peer *peer);
 
 Pkt *pkt_err(struct peer *peer, const char *msg, ...);
@@ -53,6 +53,6 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt,
 
 Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_close_clearing(struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_close_shutdown(struct peer *peer, const Pkt *pkt);
 
 #endif /* LIGHTNING_DAEMON_PACKETS_H */

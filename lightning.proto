@@ -193,7 +193,7 @@ message update_revocation {
 }
 
 // Start clearing out the channel HTLCs so we can close it
-message close_clearing {
+message close_shutdown {
   // Output script for mutual close tx.
   required bytes scriptPubkey = 1;
 }
@@ -230,7 +230,7 @@ message pkt {
     update_revocation update_revocation = 6;
 
     // Closing
-    close_clearing close_clearing = 30;
+    close_shutdown close_shutdown = 30;
     close_signature close_signature = 31;
 
     // Unexpected issue.

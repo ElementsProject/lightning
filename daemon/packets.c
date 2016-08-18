@@ -227,12 +227,12 @@ void queue_pkt_err(struct peer *peer, Pkt *err)
 	queue_raw_pkt(peer, err);
 }
 
-void queue_pkt_close_clearing(struct peer *peer)
+void queue_pkt_close_shutdown(struct peer *peer)
 {
 	u8 *redeemscript;
-	CloseClearing *c = tal(peer, CloseClearing);
+	CloseShutdown *c = tal(peer, CloseShutdown);
 
-	close_clearing__init(c);
+	close_shutdown__init(c);
 	redeemscript = bitcoin_redeem_single(c, peer->dstate->secpctx,
 					     &peer->local.finalkey);
 	peer->closing.our_script = scriptpubkey_p2sh(peer, redeemscript);
@@ -243,7 +243,7 @@ void queue_pkt_close_clearing(struct peer *peer)
 					   0);
 	c->scriptpubkey.len = tal_count(c->scriptpubkey.data);
 
-	queue_pkt(peer, PKT__PKT_CLOSE_CLEARING, c);
+	queue_pkt(peer, PKT__PKT_CLOSE_SHUTDOWN, c);
 }
 
 void queue_pkt_close_signature(struct peer *peer)
@@ -509,9 +509,9 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	return NULL;
 }
 	
-Pkt *accept_pkt_close_clearing(struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_close_shutdown(struct peer *peer, const Pkt *pkt)
 {
-	const CloseClearing *c = pkt->close_clearing;
+	const CloseShutdown *c = pkt->close_shutdown;
 
 	/* FIXME: Filter for non-standardness? */
 	peer->closing.their_script = tal_dup_arr(peer, u8,

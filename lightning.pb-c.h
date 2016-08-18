@@ -36,7 +36,7 @@ typedef struct _FailReason FailReason;
 typedef struct _UpdateFailHtlc UpdateFailHtlc;
 typedef struct _UpdateCommit UpdateCommit;
 typedef struct _UpdateRevocation UpdateRevocation;
-typedef struct _CloseClearing CloseClearing;
+typedef struct _CloseShutdown CloseShutdown;
 typedef struct _CloseSignature CloseSignature;
 typedef struct _Error Error;
 typedef struct _Pkt Pkt;
@@ -471,7 +471,7 @@ struct  _UpdateRevocation
 /*
  * Start clearing out the channel HTLCs so we can close it
  */
-struct  _CloseClearing
+struct  _CloseShutdown
 {
   ProtobufCMessage base;
   /*
@@ -479,8 +479,8 @@ struct  _CloseClearing
    */
   ProtobufCBinaryData scriptpubkey;
 };
-#define CLOSE_CLEARING__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&close_clearing__descriptor) \
+#define CLOSE_SHUTDOWN__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&close_shutdown__descriptor) \
     , {0,NULL} }
 
 
@@ -527,7 +527,7 @@ typedef enum {
   PKT__PKT_UPDATE_FAIL_HTLC = 4,
   PKT__PKT_UPDATE_COMMIT = 5,
   PKT__PKT_UPDATE_REVOCATION = 6,
-  PKT__PKT_CLOSE_CLEARING = 30,
+  PKT__PKT_CLOSE_SHUTDOWN = 30,
   PKT__PKT_CLOSE_SIGNATURE = 31,
   PKT__PKT_ERROR = 40,
 } Pkt__PktCase;
@@ -563,7 +563,7 @@ struct  _Pkt
     /*
      * Closing
      */
-    CloseClearing *close_clearing;
+    CloseShutdown *close_shutdown;
     CloseSignature *close_signature;
     /*
      * Unexpected issue.
@@ -975,24 +975,24 @@ UpdateRevocation *
 void   update_revocation__free_unpacked
                      (UpdateRevocation *message,
                       ProtobufCAllocator *allocator);
-/* CloseClearing methods */
-void   close_clearing__init
-                     (CloseClearing         *message);
-size_t close_clearing__get_packed_size
-                     (const CloseClearing   *message);
-size_t close_clearing__pack
-                     (const CloseClearing   *message,
+/* CloseShutdown methods */
+void   close_shutdown__init
+                     (CloseShutdown         *message);
+size_t close_shutdown__get_packed_size
+                     (const CloseShutdown   *message);
+size_t close_shutdown__pack
+                     (const CloseShutdown   *message,
                       uint8_t             *out);
-size_t close_clearing__pack_to_buffer
-                     (const CloseClearing   *message,
+size_t close_shutdown__pack_to_buffer
+                     (const CloseShutdown   *message,
                       ProtobufCBuffer     *buffer);
-CloseClearing *
-       close_clearing__unpack
+CloseShutdown *
+       close_shutdown__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   close_clearing__free_unpacked
-                     (CloseClearing *message,
+void   close_shutdown__free_unpacked
+                     (CloseShutdown *message,
                       ProtobufCAllocator *allocator);
 /* CloseSignature methods */
 void   close_signature__init
@@ -1116,8 +1116,8 @@ typedef void (*UpdateCommit_Closure)
 typedef void (*UpdateRevocation_Closure)
                  (const UpdateRevocation *message,
                   void *closure_data);
-typedef void (*CloseClearing_Closure)
-                 (const CloseClearing *message,
+typedef void (*CloseShutdown_Closure)
+                 (const CloseShutdown *message,
                   void *closure_data);
 typedef void (*CloseSignature_Closure)
                  (const CloseSignature *message,
@@ -1156,7 +1156,7 @@ extern const ProtobufCMessageDescriptor fail_reason__descriptor;
 extern const ProtobufCMessageDescriptor update_fail_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_commit__descriptor;
 extern const ProtobufCMessageDescriptor update_revocation__descriptor;
-extern const ProtobufCMessageDescriptor close_clearing__descriptor;
+extern const ProtobufCMessageDescriptor close_shutdown__descriptor;
 extern const ProtobufCMessageDescriptor close_signature__descriptor;
 extern const ProtobufCMessageDescriptor error__descriptor;
 extern const ProtobufCMessageDescriptor pkt__descriptor;
