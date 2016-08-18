@@ -11,6 +11,7 @@
 #include <ccan/tal/tal.h>
 #include <ccan/tal/str/str.h>
 #include <inttypes.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,6 +48,9 @@ struct commit_info {
 	bool revoked;
 	/* Have their signature, ie. can be broadcast */
 	bool counterparty_signed;
+	u16 pad;
+	/* num_commit_or_revoke when we sent/received this. */
+	size_t order;
 };
 
 /* A "signature" is a copy of the commit tx state, for easy diagnosis. */
@@ -202,6 +206,20 @@ static struct commit_tx make_commit_tx(struct htlc **htlcs, int local_or_remote)
 	return tx;
 }
 
+struct database {
+	/* This keeps *all* our HTLCs, including expired ones. */
+	size_t num_htlcs;
+	struct htlc htlcs[100];
+
+	/* This counts the number of received commit and revocation pkts. */
+	size_t last_recv;
+	size_t last_sent;
+
+	/* We keep remote_prev because it might not be revoked, and this
+	 * makes our receive_revoke logic simpler. */
+	struct commit_info local, remote, remote_prev;
+};
+
 struct peer {
 	const char *name;
 
@@ -210,12 +228,70 @@ struct peer {
 	/* For drawing svg */
 	char *info;
 
+	/* What we save on disk. */
+	struct database db;
+	
 	/* All htlcs. */
 	struct htlc **htlcs;
-	
+
 	/* Last one is the one we're changing. */
 	struct commit_info *local, *remote;
 };
+
+static void db_update_htlc(struct database *db, const struct htlc *htlc)
+{
+	size_t i;
+
+	for (i = 0; i < db->num_htlcs; i++) {
+		if ((db->htlcs[i].state & (OURS|THEIRS))
+		    != (htlc->state & (OURS|THEIRS)))
+			continue;
+		/* FIXME: This isn't quite right for multiple fee changes. */
+		if (db->htlcs[i].id == htlc->id)
+			break;
+	}
+	if (i == db->num_htlcs) {
+		db->num_htlcs++;
+		if (db->num_htlcs > ARRAY_SIZE(db->htlcs))
+			errx(1, "Too many htlcs");
+	}
+	db->htlcs[i] = *htlc;
+}
+
+static void db_recv_local_commit(struct database *db,
+				 const struct commit_info *ci)
+{
+	db->last_recv++;
+	db->local = *ci;
+}
+
+static void db_send_remote_commit(struct peer *peer,
+				  struct database *db,
+				  const struct commit_info *ci,
+				  struct signature sig)
+{
+	if (ci->prev)
+		db->remote_prev = *ci->prev;
+	db->remote = *ci;
+	db->remote.order = ++db->last_sent;
+}
+
+static void db_send_local_revoke(struct database *db,
+				 const struct commit_info *ci)
+{
+	db->last_sent++;
+}
+
+static void db_recv_remote_revoke(struct database *db,
+				  const struct commit_info *ci)
+{
+	assert(ci->revoked);
+
+	db->last_recv++;
+	db->remote_prev.revoked = true;
+
+	/* A real db would save the previous revocation hash here too */
+}
 
 static struct htlc *find_htlc(struct peer *peer, unsigned int htlc_id, int side)
 {
@@ -247,6 +323,7 @@ static struct htlc *new_htlc(struct peer *peer, unsigned int htlc_id, int side)
 
 static void htlc_changestate(struct peer *peer,
 			     struct htlc *htlc,
+			     bool commit,
 			     enum htlc_state old,
 			     enum htlc_state new)
 {
@@ -267,13 +344,15 @@ static void htlc_changestate(struct peer *peer,
 			       htlc_statename(new));
 	}
 	htlc->state = new;
+	if (commit)
+		db_update_htlc(&peer->db, htlc);
 }
 
 struct state_table {
 	enum htlc_state from, to;
 };
 
-static bool change_htlcs_(struct peer *peer,
+static bool change_htlcs_(struct peer *peer, bool commit,
 			  const struct state_table *table,
 			  size_t n_table)
 {
@@ -284,7 +363,7 @@ static bool change_htlcs_(struct peer *peer,
 		size_t t;
 		for (t = 0; t < n_table; t++) {
 			if (peer->htlcs[i]->state == table[t].from) {
-				htlc_changestate(peer, peer->htlcs[i],
+				htlc_changestate(peer, peer->htlcs[i], commit,
 						 table[t].from, table[t].to);
 				changed = true;
 				break;
@@ -294,8 +373,8 @@ static bool change_htlcs_(struct peer *peer,
 	return changed;
 }
 
-#define change_htlcs(peer, table)				\
-	change_htlcs_((peer), (table), ARRAY_SIZE(table))
+#define change_htlcs(peer, table, commit)				\
+	change_htlcs_((peer), (commit), (table), ARRAY_SIZE(table))
 	
 static struct commit_info *new_commit_info(const struct peer *peer,
 					   struct commit_info *prev)
@@ -305,6 +384,8 @@ static struct commit_info *new_commit_info(const struct peer *peer,
 	ci->prev = prev;
 	ci->revoked = false;
 	ci->counterparty_signed = false;
+	ci->pad = 0;
+	ci->order = 0;
 	if (prev)
 		ci->number = prev->number + 1;
 	else
@@ -433,6 +514,14 @@ static void PRINTF_FMT(2,3) record_send(struct peer *peer, const char *fmt, ...)
 	tal_append_vfmt(&peer->info, fmt, ap);
 	tal_append_fmt(&peer->info, "\n");
 	va_end(ap);
+
+	if (verbose) {
+		va_start(ap, fmt);
+		printf("%s: SEND ", peer->name);
+		vprintf(fmt, ap);
+		printf("\n");
+		va_end(ap);
+	}
 }
 	
 static void PRINTF_FMT(2,3) record_recv(struct peer *peer, const char *fmt, ...)
@@ -444,16 +533,56 @@ static void PRINTF_FMT(2,3) record_recv(struct peer *peer, const char *fmt, ...)
 	tal_append_vfmt(&peer->info, fmt, ap);
 	tal_append_fmt(&peer->info, "\n");
 	va_end(ap);
+
+	if (verbose) {
+		va_start(ap, fmt);
+		printf("%s: RECEIVE ", peer->name);
+		vprintf(fmt, ap);
+		printf("\n");
+		va_end(ap);
+	}
+}
+
+static void xmit_add_htlc(struct peer *peer, const struct htlc *h)
+{
+	record_send(peer, "add_htlc %u", h->id);
+	write_out(peer->outfd, "+", 1);
+	write_out(peer->outfd, &h->id, sizeof(h->id));
+}
+
+static void xmit_remove_htlc(struct peer *peer, const struct htlc *h)
+{
+	record_send(peer, "fulfill_htlc %u", h->id);
+	write_out(peer->outfd, "-", 1);
+	write_out(peer->outfd, &h->id, sizeof(h->id));
+}
+
+static void xmit_feechange(struct peer *peer)
+{
+	record_send(peer, "update_fee");
+	write_out(peer->outfd, "F", 1);
+}
+
+static void xmit_commit(struct peer *peer, struct signature sig)
+{
+	record_send(peer, "update_commit");
+	write_out(peer->outfd, "C", 1);
+	write_out(peer->outfd, &sig, sizeof(sig));
+}
+
+static void xmit_revoke(struct peer *peer, unsigned int number)
+{
+	record_send(peer, "update_revocation");
+	write_out(peer->outfd, "R", 1);
+	write_out(peer->outfd, &number, sizeof(number));
 }
 
 static void send_offer(struct peer *peer, unsigned int htlc)
 {
 	struct htlc *h = new_htlc(peer, htlc, OURS);
 
-	htlc_changestate(peer, h, NONEXISTENT, SENT_ADD_HTLC);
-	record_send(peer, "add_htlc %u", htlc);
-	write_out(peer->outfd, "+", 1);
-	write_out(peer->outfd, &htlc, sizeof(htlc));
+	htlc_changestate(peer, h, false, NONEXISTENT, SENT_ADD_HTLC);
+	xmit_add_htlc(peer, h);
 }
 
 static void send_remove(struct peer *peer, unsigned int htlc)
@@ -461,22 +590,19 @@ static void send_remove(struct peer *peer, unsigned int htlc)
 	struct htlc *h = find_htlc(peer, htlc, THEIRS);
 
 	if (!h)
-		errx(1, "send_remove: htlc %u does not exist", htlc);
+		errx(1, "%s: send_remove: htlc %u does not exist",
+		     peer->name, htlc);
 		
-	htlc_changestate(peer, h, RECV_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
-
-	record_send(peer, "fulfill_htlc %u", htlc);
-	write_out(peer->outfd, "-", 1);
-	write_out(peer->outfd, &htlc, sizeof(htlc));
+	htlc_changestate(peer, h, false, RECV_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
+	xmit_remove_htlc(peer, h);
 }
 
 static void send_feechange(struct peer *peer)
 {
 	struct htlc *fee = new_htlc(peer, 0, OURS);
 
-	htlc_changestate(peer, fee, NONEXISTENT, SENT_ADD_HTLC);
-	record_send(peer, "update_fee");
-	write_out(peer->outfd, "F", 1);
+	htlc_changestate(peer, fee, false, NONEXISTENT, SENT_ADD_HTLC);
+	xmit_feechange(peer);
 }
 
 /*
@@ -501,8 +627,9 @@ static struct commit_info *last_unrevoked(struct commit_info *ci)
 
 static void send_commit(struct peer *peer)
 {
+	struct commit_tx tx;
 	struct signature sig;
-	struct commit_tx commit_tx;
+
 	static const struct state_table changes[] = {
 		{ SENT_ADD_HTLC, SENT_ADD_COMMIT },
 		{ SENT_REMOVE_REVOCATION, SENT_REMOVE_ACK_COMMIT },
@@ -517,17 +644,7 @@ static void send_commit(struct peer *peer)
 	 * previous `update_commit`, so there is only ever one
 	 * unrevoked local commitment. */
 	if (peer->remote->prev && !peer->remote->prev->revoked)
-		errx(1, "commit: must wait for previous commit");
-
-	record_send(peer, "update_commit");
-
-	/* BOLT #2:
-	 *
-	 * A node MUST NOT send an `update_commit` message which does
-	 * not include any updates.
-	 */
-	if (!change_htlcs(peer, changes))
-		errx(1, "commit: no changes to commit");
+		errx(1, "%s: commit: must wait for previous commit", peer->name);
 
 	/* BOLT #2:
 	 *
@@ -535,15 +652,23 @@ static void send_commit(struct peer *peer)
 	 * changes except unacked fee changes to the remote commitment
 	 * before generating `sig`.
 	 */
-	commit_tx = make_commit_tx(peer->htlcs, REMOTE_);
+	if (!change_htlcs(peer, changes, true)) {
+		/* BOLT #2:
+		 *
+		 * A node MUST NOT send an `update_commit` message which does
+		 * not include any updates.
+		 */
+		errx(1, "%s: commit: no changes to commit", peer->name);
+	}
+	tx = make_commit_tx(peer->htlcs, REMOTE_);
+	sig = commit_sig(&tx);
 
 	peer->remote = new_commit_info(peer, peer->remote);
 	peer->remote->counterparty_signed = true;
-	sig = commit_sig(&commit_tx);
+	db_send_remote_commit(peer, &peer->db, peer->remote, sig);
 
 	/* Tell other side about commit and result (it should agree!) */
-	write_out(peer->outfd, "C", 1);
-	write_out(peer->outfd, &sig, sizeof(sig));
+	xmit_commit(peer, sig);
 }
 
 static void receive_revoke(struct peer *peer, u32 number)
@@ -557,22 +682,29 @@ static void receive_revoke(struct peer *peer, u32 number)
 	struct commit_info *ci = last_unrevoked(peer->remote);
 
 	if (!ci)
-		errx(1, "receive_revoke: no commit to revoke");
+		errx(1, "%s: receive_revoke: no commit to revoke", peer->name);
 	if (ci->number != number)
-		errx(1, "receive_revoke: revoked %u but %u is next",
-		     number, ci->number);
+		errx(1, "%s: receive_revoke: revoked %u but %u is next",
+		     peer->name, number, ci->number);
 
 	/* This shouldn't happen if we don't allow multiple commits. */
 	if (ci != peer->remote->prev)
-		errx(1, "receive_revoke: always revoke previous?");
+		errx(1, "%s: receive_revoke: always revoke previous?",
+		     peer->name);
+
+	if (ci->revoked)
+		errx(1, "%s: receive_revoke: already revoked?", peer->name);
 
 	record_recv(peer, "update_revocation");
 	ci->revoked = true;
 	if (!ci->counterparty_signed)
-		errx(1, "receive_revoke: revoked unsigned commit?");
+		errx(1, "%s: receive_revoke: revoked unsigned commit?",
+		     peer->name);
 
-	if (!change_htlcs(peer, changes))
-		errx(1, "receive_revoke: no changes?");
+	if (!change_htlcs(peer, changes, true))
+		errx(1, "%s: receive_revoke: no changes?", peer->name);
+
+	db_recv_remote_revoke(&peer->db, ci);
 }
 
 /* BOLT #2:
@@ -584,7 +716,7 @@ static void receive_offer(struct peer *peer, unsigned int htlc)
 {
 	struct htlc *h = new_htlc(peer, htlc, THEIRS);
 
-	htlc_changestate(peer, h, NONEXISTENT, RECV_ADD_HTLC);
+	htlc_changestate(peer, h, false, NONEXISTENT, RECV_ADD_HTLC);
 	record_recv(peer, "add_htlc %u", h->id);
 }
 
@@ -598,9 +730,10 @@ static void receive_remove(struct peer *peer, unsigned int htlc)
 	struct htlc *h = find_htlc(peer, htlc, OURS);
 
 	if (!h)
-		errx(1, "recv_remove: htlc %u does not exist", htlc);
+		errx(1, "%s: recv_remove: htlc %u does not exist",
+		     peer->name, htlc);
 
-	htlc_changestate(peer, h, SENT_ADD_ACK_REVOCATION, RECV_REMOVE_HTLC);
+	htlc_changestate(peer, h, false, SENT_ADD_ACK_REVOCATION, RECV_REMOVE_HTLC);
 	record_recv(peer, "fulfill_htlc %u", h->id);
 }
 
@@ -613,7 +746,7 @@ static void receive_feechange(struct peer *peer)
 {
 	struct htlc *fee = new_htlc(peer, 0, THEIRS);
 
-	htlc_changestate(peer, fee, NONEXISTENT, RECV_ADD_HTLC);
+	htlc_changestate(peer, fee, false, NONEXISTENT, RECV_ADD_HTLC);
 	record_recv(peer, "update_fee");
 }
 
@@ -628,7 +761,6 @@ static void send_revoke(struct peer *peer, struct commit_info *ci)
 		{ RECV_ADD_COMMIT, SENT_ADD_REVOCATION },
 		{ RECV_REMOVE_ACK_COMMIT, SENT_REMOVE_ACK_REVOCATION }
 	};
-	record_send(peer, "update_revocation");
 
 	/* We always revoke in order. */
 	assert(!ci->prev || ci->prev->revoked);
@@ -636,11 +768,11 @@ static void send_revoke(struct peer *peer, struct commit_info *ci)
 	assert(!ci->revoked);
 	ci->revoked = true;
 
-	if (!change_htlcs(peer, changes))
-		errx(1, "update_revocation: no changes?");
+	if (!change_htlcs(peer, changes, true))
+		errx(1, "%s: update_revocation: no changes?", peer->name);
 
-	write_out(peer->outfd, "R", 1);
-	write_out(peer->outfd, &ci->number, sizeof(ci->number));
+	db_send_local_revoke(&peer->db, ci);
+	xmit_revoke(peer, ci->number);
 }
 
 /* Receive commit:
@@ -664,20 +796,133 @@ static void receive_commit(struct peer *peer, const struct signature *sig)
 	 * A node MUST NOT send an `update_commit` message which does
 	 * not include any updates.
 	 */
-	if (!change_htlcs(peer, changes))
-		errx(1, "receive_commit: no changes to commit");
+	if (!change_htlcs(peer, changes, true))
+		errx(1, "%s: receive_commit: no changes to commit", peer->name);
 
 	commit_tx = make_commit_tx(peer->htlcs, LOCAL_);
 	oursig = commit_sig(&commit_tx);
 	if (!structeq(sig, &oursig))
-		errx(1, "Commit state %#x/%#x/%u, they gave %#x/%#x/%u",
+		errx(1, "%s: Commit state %#x/%#x/%u, they gave %#x/%#x/%u",
+		     peer->name,
 		     sig->f.inhtlcs, sig->f.outhtlcs, sig->f.fee,
 		     oursig.f.inhtlcs, oursig.f.outhtlcs, oursig.f.fee);
 
 	peer->local = new_commit_info(peer, peer->local);
 	peer->local->counterparty_signed = true;
 
+	db_recv_local_commit(&peer->db, peer->local);
+
 	send_revoke(peer, peer->local->prev);
+}
+
+static void resend_updates(struct peer *peer)
+{
+	size_t i;
+
+	/* Re-transmit our add, removes and fee changes. */
+	for (i = 0; i < tal_count(peer->htlcs); i++) {
+		switch (peer->htlcs[i]->state) {
+		case SENT_ADD_COMMIT:
+			if (peer->htlcs[i]->id)
+				xmit_add_htlc(peer, peer->htlcs[i]);
+			else
+				xmit_feechange(peer);
+			break;
+		case SENT_REMOVE_COMMIT:
+			xmit_remove_htlc(peer, peer->htlcs[i]);
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+static void restore_state(struct peer *peer)
+{
+	size_t i, sent, num_revokes, revoke_idx;
+
+	peer->htlcs = tal_arr(peer, struct htlc *, peer->db.num_htlcs);
+	for (i = 0; i < peer->db.num_htlcs; i++) {
+		peer->htlcs[i] = tal_dup(peer->htlcs, struct htlc,
+					 &peer->db.htlcs[i]);
+		if (verbose)
+			printf("%s: HTLC %u %s\n",
+			       peer->name, peer->htlcs[i]->id,
+			       htlc_statename(peer->htlcs[i]->state));
+	}
+
+	*peer->local = peer->db.local;
+	peer->local->prev = NULL;
+
+	*peer->remote = peer->db.remote;
+	if (peer->remote->number != 0) {
+		peer->remote->prev = tal(peer, struct commit_info);
+		*peer->remote->prev = peer->db.remote_prev;
+		peer->remote->prev->prev = NULL;
+	} else
+		peer->remote->prev = NULL;
+
+	/* Tell peer where we've received. */
+	write_out(peer->outfd, "!", 1);
+	write_out(peer->outfd, &peer->db.last_recv, sizeof(peer->db.last_recv));
+
+	/* Find out where peer is up to. */
+	read_peer(peer, "!", "restore");
+	read_in(peer->infd, &sent, sizeof(sent));
+
+	if (verbose)
+		printf("%s: peer is up to %zu/%zu: last commit at %zu\n",
+		       peer->name, sent, peer->db.last_sent,peer->remote->order);
+
+	if (sent > peer->db.last_sent)
+		errx(1, "%s: peer said up to %zu, but we only sent %zu",
+		     peer->name, sent, peer->db.last_sent);
+
+	/* All up to date?  Nothing to do. */
+	if (sent == peer->db.last_sent)
+		return;
+
+	/* Since we wait for revocation replies, only one of the missing
+	 * could be our update; the rest must be revocations. */
+	num_revokes = peer->db.last_sent - sent - (sent < peer->remote->order);
+
+	if (num_revokes > peer->local->number)
+		errx(1, "%s: can't rexmit %zu revoke txs at %u",
+		     peer->name, num_revokes, peer->local->number);
+
+	revoke_idx = peer->local->number - num_revokes;
+
+	/* If we sent a revocation before the commit. */
+	if (sent + 1 < peer->remote->order) {
+		xmit_revoke(peer, revoke_idx++);
+		num_revokes--;
+		sent++;
+	}
+
+	/* If they didn't get the last commit, re-send all. */
+	if (sent + 1 == peer->remote->order) {
+		struct commit_tx tx;
+		struct signature sig;
+
+		resend_updates(peer);
+		tx = make_commit_tx(peer->htlcs, REMOTE_);
+		sig = commit_sig(&tx);
+		xmit_commit(peer, sig);
+		sent++;
+	}
+
+	/* Now send any revocations after the commit. */
+	if (sent + 1 == peer->db.last_sent) {
+		num_revokes--;
+		xmit_revoke(peer, revoke_idx++);
+		sent++;
+	}
+
+	if (sent != peer->db.last_sent)
+		errx(1, "%s: could not catch up %zu to %zu",
+		     peer->name, sent, peer->db.last_sent);
+
+	assert(num_revokes == 0);
 }
 
 static void do_cmd(struct peer *peer)
@@ -729,6 +974,14 @@ static void do_cmd(struct peer *peer)
 		read_peer(peer, "C", cmd);
 		read_in(peer->infd, &sig, sizeof(sig));
 		receive_commit(peer, &sig);
+	} else if (streq(cmd, "save")) {
+		write_all(peer->cmddonefd, &peer->db, sizeof(peer->db));
+		return;
+	} else if (streq(cmd, "restore")) {
+		write_all(peer->cmddonefd, "", 1);
+		/* Ack, then read in blob */
+		read_all(peer->cmdfd, &peer->db, sizeof(peer->db));
+		restore_state(peer);
 	} else if (streq(cmd, "checksync")) {
 		struct commit_tx ours, theirs;
 
@@ -778,6 +1031,8 @@ static void new_peer(const char *name,
 	peer = tal(NULL, struct peer);
 	peer->name = name;
 	peer->htlcs = tal_arr(peer, struct htlc *, 0);
+
+	memset(&peer->db, 0, sizeof(peer->db));
 	
 	/* Create first, signed commit info. */
 	peer->local = new_commit_info(peer, NULL);
@@ -785,6 +1040,9 @@ static void new_peer(const char *name,
 	
 	peer->remote = new_commit_info(peer, NULL);
 	peer->remote->counterparty_signed = true;
+
+	peer->db.local = *peer->local;
+	peer->db.remote = *peer->remote;
 
 	peer->infd = infdpair[0];
 	peer->outfd = outfdpair[1];
@@ -808,6 +1066,18 @@ static void add_sent(struct sent **sent, int y, const char *msg)
 	(*sent)[n].desc = tal_strdup(*sent, msg);
 }
 
+static void draw_restart(char **str, const char *name,
+			 struct sent **a_sent, struct sent **b_sent,
+			 int *y)
+{
+	*y += STEP_HEIGHT / 2;
+	tal_append_fmt(str, "<line x1=\"%i\" y1=\"%i\" x2=\"%i\" y2=\"%i\" stroke=\"black\" stroke-width=\"1\"/>\n",
+		       A_TEXTX - 50, *y, B_TEXTX + 50, *y);
+	tal_append_fmt(str, "<text text-anchor=\"middle\" "TEXT_STYLE" x=\"%i\" y=\"%i\">%s</text>\n",
+		       (A_TEXTX + B_TEXTX) / 2, *y - TEXT_HEIGHT/2, name);
+	*y += STEP_HEIGHT / 2;
+}
+
 static void draw_line(char **str,
 		      int old_x, struct sent **sent, const char *what,
 		      int new_x, int new_y)
@@ -819,16 +1089,31 @@ static void draw_line(char **str,
 	if (!streq((*sent)->desc, what))
 		errx(1, "Received %s but sent %s?", what, (*sent)->desc);
 
-	tal_append_fmt(str, "<line x1=\"%i\" y1=\"%i\" x2=\"%i\" y2=\"%i\" marker-end=\"url(#tri)\" stroke=\"black\" stroke-width=\"0.5\"/>\n",
-		       old_x, (*sent)[0].y - LINE_HEIGHT/2,
-		       new_x, new_y - LINE_HEIGHT/2);
-	tal_append_fmt(str, "<text text-anchor=\"middle\" "TEXT_STYLE" x=\"%i\" y=\"%i\">%s</text>\n",
-		       (old_x + new_x) / 2,
-		       ((*sent)[0].y + new_y) / 2,
-		       (*sent)[0].desc);
+	if (*str) {
+		tal_append_fmt(str, "<line x1=\"%i\" y1=\"%i\" x2=\"%i\" y2=\"%i\" marker-end=\"url(#tri)\" stroke=\"black\" stroke-width=\"0.5\"/>\n",
+			       old_x, (*sent)[0].y - LINE_HEIGHT/2,
+			       new_x, new_y - LINE_HEIGHT/2);
+		tal_append_fmt(str, "<text text-anchor=\"middle\" "TEXT_STYLE" x=\"%i\" y=\"%i\">%s</text>\n",
+			       (old_x + new_x) / 2,
+			       ((*sent)[0].y + new_y) / 2,
+			       (*sent)[0].desc);
+	}
 
 	memmove(*sent, (*sent)+1, sizeof(**sent) * (n-1));
 	tal_resize(sent, n-1);
+}
+
+static void reset_sends(char **svg, bool is_a, struct sent **sent, int *y)
+{
+	/* These sends were lost. */
+	while (tal_count(*sent)) {
+		if (is_a)
+			draw_line(svg, A_LINEX, sent, (*sent)->desc,
+				  (B_LINEX + A_LINEX)/2, *y - STEP_HEIGHT/2);
+		else
+			draw_line(svg, B_LINEX, sent, (*sent)->desc,
+				  (B_LINEX + A_LINEX)/2, *y - STEP_HEIGHT/2);
+	}
 }
 
 static bool append_text(char **svg, bool is_a, int *y, const char *text,
@@ -872,16 +1157,17 @@ static bool process_output(char **svg, bool is_a, const char *output,
 			else
 				draw_line(svg, A_LINEX, a_sent, outputs[i]+1,
 					  B_LINEX, *y);
+			*y += STEP_HEIGHT;
 		} else if (strstarts(outputs[i], ">")) {
 			if (is_a)
 				add_sent(a_sent, *y, outputs[i]+1);
 			else
 				add_sent(b_sent, *y, outputs[i]+1);
+			*y += STEP_HEIGHT;
 		} else {
 			append_text(svg, is_a, y, outputs[i], max_chars);
 		}
 	}
-	*y += STEP_HEIGHT;
 	return true;
 }
 
@@ -902,6 +1188,81 @@ static void get_output(int donefd, char **svg, bool is_a,
 
 	if (*svg)
 		process_output(svg, is_a, output, a_sent, b_sent, y, max_chars);
+}
+
+static void start_clients(int a_to_b[2],
+			  int b_to_a[2],
+			  int acmd[2],
+			  int bcmd[2],
+			  int adonefd[2],
+			  int bdonefd[2])
+{
+	if (pipe(a_to_b) || pipe(b_to_a) || pipe(adonefd) || pipe(acmd))
+		err(1, "Creating pipes");
+
+	new_peer("A", a_to_b, b_to_a, acmd, adonefd);
+
+	if (pipe(bdonefd) || pipe(bcmd))
+		err(1, "Creating pipes");
+
+	new_peer("B", b_to_a, a_to_b, bcmd, bdonefd);
+
+	close(acmd[0]);
+	close(bcmd[0]);
+	close(adonefd[1]);
+	close(bdonefd[1]);
+	close(b_to_a[0]);
+	close(b_to_a[1]);
+	close(a_to_b[0]);
+	close(a_to_b[1]);
+}
+
+static void do_nothing(int sig)
+{
+}
+
+static void read_from_client(const char *desc, int fd, void *dst, size_t len)
+{
+	alarm(5);
+	while (len) {
+		int r = read(fd, dst, len);
+		if (r < 0)
+			err(1, "Reading from %s", desc);
+		if (r == 0)
+			errx(1, "%s closed", desc);
+		len -= r;
+		dst += r;
+	}
+	alarm(0);
+}
+	
+static void write_to_client(const char *desc, int fd, const void *dst, size_t len)
+{
+	if (!write_all(fd, dst, len))
+		err(1, "Writing to %s", desc);
+}
+	
+
+static void stop_clients(int acmd[2],
+			 int bcmd[2],
+			 int adonefd[2],
+			 int bdonefd[2])
+{
+	char unused;
+
+	write_to_client("A", acmd[1], "", 1);
+	write_to_client("B", bcmd[1], "", 1);
+
+	/* Make sure they've finished */
+	alarm(5);
+	if (read(adonefd[0], &unused, 1) || read(bdonefd[0], &unused, 1))
+		errx(1, "Response after sending exit command");
+	alarm(0);
+
+	close(acmd[1]);
+	close(bcmd[1]);
+	close(adonefd[0]);
+	close(bdonefd[0]);
 }
 
 int main(int argc, char *argv[])
@@ -931,24 +1292,22 @@ int main(int argc, char *argv[])
 	else
 		svg = NULL;
 
-	if (pipe(a_to_b) || pipe(b_to_a) || pipe(adonefd) || pipe(acmd))
-		err(1, "Creating pipes");
+#if 1
+	{
+	struct sigaction alarmed, old;
 
-	new_peer("A", a_to_b, b_to_a, acmd, adonefd);
+	memset(&alarmed, 0, sizeof(alarmed));
+	alarmed.sa_flags = SA_RESETHAND;
+	alarmed.sa_handler = do_nothing;
 
-	if (pipe(bdonefd) || pipe(bcmd))
-		err(1, "Creating pipes");
-
-	new_peer("B", b_to_a, a_to_b, bcmd, bdonefd);
-
-	close(acmd[0]);
-	close(bcmd[0]);
-	close(adonefd[1]);
-	close(bdonefd[1]);
-	close(b_to_a[0]);
-	close(b_to_a[1]);
-	close(a_to_b[0]);
-	close(a_to_b[1]);
+	if (sigaction(SIGALRM, &alarmed, &old) != 0)
+		err(1, "Setting alarm handler");
+	}
+#else
+	signal(SIGALRM, do_nothing);
+#endif
+	
+	start_clients(a_to_b, b_to_a, acmd, bcmd, adonefd, bdonefd);
 
 	while (fgets(cmd, sizeof(cmd), stdin)) {
 		int cmdfd, donefd;
@@ -974,18 +1333,59 @@ int main(int argc, char *argv[])
 			continue;
 		} else if (streq(cmd, "checksync")) {
 			struct commit_tx fa_us, fa_them, fb_us, fb_them;
-			if (!write_all(acmd[1], cmd, strlen(cmd)+1)
-			    || !write_all(bcmd[1], cmd, strlen(cmd)+1))
-				errx(1, "Failed writing command to peers");
-			alarm(5);
-			if (!read_all(adonefd[0], &fa_us, sizeof(fa_us))
-			    || !read_all(adonefd[0], &fa_them, sizeof(fa_them))
-			    || !read_all(bdonefd[0], &fb_us, sizeof(fb_us))
-			    || !read_all(bdonefd[0], &fb_them, sizeof(fb_them)))
-				errx(1, "Failed reading status from peers");
+			write_to_client("A", acmd[1], cmd, strlen(cmd)+1);
+			write_to_client("B", bcmd[1], cmd, strlen(cmd)+1);
+			read_from_client("A", adonefd[0], &fa_us, sizeof(fa_us));
+			read_from_client("B", bdonefd[0], &fb_us, sizeof(fb_us));
+			read_from_client("A", adonefd[0],
+					 &fa_them, sizeof(fa_them));
+			read_from_client("A", bdonefd[0],
+					 &fb_them, sizeof(fb_them));
 			if (!structeq(&fa_us, &fb_them)
 			    || !structeq(&fa_them, &fb_us))
 				errx(1, "checksync: not equal");
+			continue;
+		} else if (streq(cmd, "restart")) {
+			struct database a_db, b_db;
+			char ack;
+
+			if (svg)
+				draw_restart(&svg, "RESTART",
+					     &a_sent, &b_sent, &y);
+
+			write_to_client("A", acmd[1], "save", strlen("save")+1);
+			write_to_client("B", bcmd[1], "save", strlen("save")+1);
+
+			read_from_client("A", adonefd[0], &a_db, sizeof(a_db));
+			read_from_client("B", bdonefd[0], &b_db, sizeof(b_db));
+
+			stop_clients(acmd, bcmd, adonefd, bdonefd);
+
+			/* Forget everything they sent */
+			reset_sends(&svg, true, &a_sent, &y);
+			reset_sends(&svg, false, &b_sent, &y);
+
+			start_clients(a_to_b, b_to_a, acmd, bcmd,
+				      adonefd, bdonefd);
+
+			/* Send restore command, wait for ack, send blob */
+			write_to_client("A", acmd[1], "restore", strlen("restore")+1);
+			write_to_client("B", bcmd[1], "restore", strlen("restore")+1);
+
+			read_from_client("A", adonefd[0], &ack, 1);
+			read_from_client("B", bdonefd[0], &ack, 1);
+
+			write_to_client("A", acmd[1], &a_db, sizeof(a_db));
+			write_to_client("B", bcmd[1], &b_db, sizeof(b_db));
+
+			get_output(adonefd[0], &svg, true,
+				   &a_sent, &b_sent, &y, &max_chars);
+			get_output(bdonefd[0], &svg, false,
+				   &a_sent, &b_sent, &y, &max_chars);
+
+			if (svg)
+				draw_restart(&svg, "RESTART END",
+					     &a_sent, &b_sent, &y);
 			continue;
 		} else if (strstarts(cmd, "#") || streq(cmd, ""))
 			continue;
@@ -996,22 +1396,13 @@ int main(int argc, char *argv[])
 		if (svg && strstarts(cmd+2, "dump"))
 			continue;
 
-		if (!write_all(cmdfd, cmd+2, strlen(cmd)-1))
-			errx(1, "Sending %s", cmd);
+		write_to_client(cmd, cmdfd, cmd+2, strlen(cmd)-1);
 
 		get_output(donefd, &svg, strstarts(cmd, "A:"),
 			   &a_sent, &b_sent, &y, &max_chars);
 	}
 
-	write_all(acmd[1], "", 1);
-	write_all(bcmd[1], "", 1);
-
-	/* Make sure they've finished */
-	alarm(5);
-	if (read_all(adonefd[0], &y, 1)
-	    || read_all(bdonefd[0], &y, 1))
-		errx(1, "Response after sending exit command");
-	alarm(0);
+	stop_clients(acmd, bcmd, adonefd, bdonefd);
 
 	if (svg)
 		printf("<svg width=\"%zu\" height=\"%u\">\n"
