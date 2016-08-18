@@ -142,6 +142,9 @@ struct peer {
 
 		/* Depth to trigger anchor if still opening, or -1. */
 		int ok_depth;
+
+		/* Did we create anchor? */
+		bool ours;
 	} anchor;
 
 	struct {

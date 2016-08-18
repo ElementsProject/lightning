@@ -104,6 +104,7 @@ enum state state(struct peer *peer,
 				goto err_breakdown;
 			}
 			bitcoin_create_anchor(peer);
+			peer->anchor.ours = true;
 
 			/* This shouldn't happen! */
 			if (!setup_first_commit(peer)) {
@@ -128,6 +129,7 @@ enum state state(struct peer *peer,
 				goto err_breakdown;
 			}
 
+			peer->anchor.ours = false;
 			if (!setup_first_commit(peer)) {
 				err = pkt_err(peer, "Insufficient funds for fee");
 				peer_open_complete(peer, err->error->problem);
