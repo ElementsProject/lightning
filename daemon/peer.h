@@ -161,11 +161,18 @@ struct peer {
 
 	/* If we're closing on-chain */
 	struct {
-		/* Everything (watches, resolved[], etc) tal'ed off this */
+		/* Everything (watches, resolved[], etc) tal'ed off this:
+		 * The commit which spends the anchor tx. */
 		const struct bitcoin_tx *tx;
-		/* Set for STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL
-		 * and STATE_CLOSE_ONCHAIN_OUR_UNILATERAL */
-		const struct commit_info *ci;
+		struct sha256_double txid;
+
+		/* If >= 0, indicates which txout is to us and to them. */
+		int to_us_idx, to_them_idx;
+		/* Maps what txouts are HTLCs (NULL implies to_us/them_idx). */
+		struct htlc **htlcs;
+		/* Witness scripts for each output (where appropriate) */
+		const u8 **wscripts;
+		/* The tx which resolves each txout. */
 		const struct bitcoin_tx **resolved;
 	} closing_onchain;
 
