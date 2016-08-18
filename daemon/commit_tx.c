@@ -11,31 +11,33 @@
 #include "remove_dust.h"
 #include <assert.h>
 
-static bool add_htlc(struct bitcoin_tx *tx, size_t n,
+u8 *wscript_for_htlc(const tal_t *ctx,
 		     secp256k1_context *secpctx,
 		     const struct htlc *h,
-		     const struct pubkey *ourkey,
-		     const struct pubkey *theirkey,
+		     const struct pubkey *our_final,
+		     const struct pubkey *their_final,
+		     const struct rel_locktime *our_locktime,
+		     const struct rel_locktime *their_locktime,
 		     const struct sha256 *rhash,
-		     const struct rel_locktime *locktime,
-		     u8 *(*scriptpubkeyfn)(const tal_t *,
-					   secp256k1_context *,
-					   const struct pubkey *,
-					   const struct pubkey *,
-					   const struct abs_locktime *,
-					   const struct rel_locktime *,
-					   const struct sha256 *,
-					   const struct sha256 *))
+		     enum htlc_side side)
 {
-	assert(!tx->output[n].script);
+	u8 *(*fn)(const tal_t *, secp256k1_context *,
+		  const struct pubkey *, const struct pubkey *,
+		  const struct abs_locktime *, const struct rel_locktime *,
+		  const struct sha256 *, const struct sha256 *);
 
-	tx->output[n].script = scriptpubkey_p2wsh(tx,
-				 scriptpubkeyfn(tx, secpctx, ourkey, theirkey,
-						&h->expiry, locktime, rhash,
-						&h->rhash));
-	tx->output[n].script_length = tal_count(tx->output[n].script);
-	tx->output[n].amount = h->msatoshis / 1000;
-	return true;
+	/* scripts are different for htlcs offered vs accepted */
+	if (side == htlc_owner(h))
+		fn = bitcoin_redeem_htlc_send;
+	else
+		fn = bitcoin_redeem_htlc_recv;
+
+	if (side == LOCAL)
+		return fn(ctx, secpctx, our_final, their_final,
+			  &h->expiry, our_locktime, rhash, &h->rhash);
+	else
+		return fn(ctx, secpctx, their_final, our_final,
+			  &h->expiry, their_locktime, rhash, &h->rhash);
 }
 
 struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
@@ -58,6 +60,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	uint64_t total;
 	const struct pubkey *self, *other;
 	const struct rel_locktime *locktime;
+	enum htlc_side htlc_side;
 
 	/* Now create commitment tx: one input, two outputs (plus htlcs) */
 	tx = bitcoin_tx(ctx, 1, 2 + tal_count(cstate->side[OURS].htlcs)
@@ -70,10 +73,12 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 
 	/* For our commit tx, our payment is delayed by amount they said */
 	if (side == OURS) {
+		htlc_side = LOCAL;
 		self = our_final;
 		other = their_final;
 		locktime = their_locktime;
 	} else {
+		htlc_side = REMOTE;
 		self = their_final;
 		other = our_final;
 		locktime = our_locktime;
@@ -98,20 +103,32 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	total = tx->output[0].amount + tx->output[1].amount;
 	num = 2;
 
-	/* HTLCs this side sent. */
 	for (i = 0; i < tal_count(cstate->side[side].htlcs); i++) {
-		if (!add_htlc(tx, num, secpctx, cstate->side[side].htlcs[i],
-			      self, other, rhash, locktime,
-			      bitcoin_redeem_htlc_send))
-			return tal_free(tx);
+		tx->output[num].script
+			= scriptpubkey_p2wsh(tx,
+				wscript_for_htlc(tx, secpctx,
+						 cstate->side[side].htlcs[i],
+						 our_final, their_final,
+						 our_locktime, their_locktime,
+						 rhash, htlc_side));
+		tx->output[num].script_length
+			= tal_count(tx->output[num].script);
+		tx->output[num].amount
+			= cstate->side[side].htlcs[i]->msatoshis / 1000;
 		total += tx->output[num++].amount;
 	}
-	/* HTLCs this side has received. */
 	for (i = 0; i < tal_count(cstate->side[!side].htlcs); i++) {
-		if (!add_htlc(tx, num, secpctx, cstate->side[!side].htlcs[i],
-			      self, other, rhash, locktime,
-			      bitcoin_redeem_htlc_recv))
-			return tal_free(tx);
+		tx->output[num].script
+			= scriptpubkey_p2wsh(tx,
+				wscript_for_htlc(tx, secpctx,
+						 cstate->side[!side].htlcs[i],
+						 our_final, their_final,
+						 our_locktime, their_locktime,
+						 rhash, htlc_side));
+		tx->output[num].script_length
+			= tal_count(tx->output[num].script);
+		tx->output[num].amount
+			= cstate->side[!side].htlcs[i]->msatoshis / 1000;
 		total += tx->output[num++].amount;
 	}
 	assert(num == tx->output_count);
