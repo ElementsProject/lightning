@@ -170,7 +170,7 @@ struct peer {
 		const u8 **wscripts;
 		/* The tx which resolves each txout. */
 		const struct bitcoin_tx **resolved;
-	} closing_onchain;
+	} onchain;
 
 	/* All HTLCs. */
 	struct htlc_map htlcs;
