@@ -1,5 +1,6 @@
 #include "bitcoin/script.h"
 #include "bitcoin/tx.h"
+#include "chaintopology.h"
 #include "close_tx.h"
 #include "commit_tx.h"
 #include "controlled_time.h"
@@ -275,6 +276,7 @@ Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt,
 {
 	struct rel_locktime locktime;
 	const OpenChannel *o = pkt->open;
+	u64 feerate = get_feerate(peer->dstate);
 
 	if (!proto_to_rel_locktime(o->delay, &locktime))
 		return pkt_err(peer, "Invalid delay");
@@ -284,7 +286,11 @@ Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt,
 		return pkt_err(peer, "Delay too great");
 	if (o->min_depth > peer->dstate->config.anchor_confirms_max)
 		return pkt_err(peer, "min_depth too great");
-	if (o->initial_fee_rate < peer->dstate->config.commitment_fee_rate_min)
+	if (o->initial_fee_rate
+	    < feerate * peer->dstate->config.commitment_fee_min_percent / 100)
+		return pkt_err(peer, "Commitment fee rate too low");
+	if (o->initial_fee_rate
+	    > feerate * peer->dstate->config.commitment_fee_max_percent / 100)
 		return pkt_err(peer, "Commitment fee rate too low");
 	if (o->anch == OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR)
 		peer->remote.offer_anchor = CMD_OPEN_WITH_ANCHOR;

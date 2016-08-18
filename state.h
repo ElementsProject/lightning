@@ -107,7 +107,7 @@ void peer_watch_anchor(struct peer *peer,
 		       enum state_input timeout);
 
 /* Start creation of the bitcoin anchor tx. */
-void bitcoin_create_anchor(struct peer *peer, enum state_input done);
+void bitcoin_create_anchor(struct peer *peer);
 
 /* Get the bitcoin anchor tx. */
 const struct bitcoin_tx *bitcoin_anchor(struct peer *peer);

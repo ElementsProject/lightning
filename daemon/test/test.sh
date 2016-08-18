@@ -18,8 +18,8 @@ REDIRERR2="$DIR2/errors"
 FGREP="fgrep -q"
 
 # We inject 0.01 bitcoin, but then fees (estimatefee fails and we use a
-# fee rate as per the close tx).
-AMOUNT=995940000
+# fee rate as per the default).
+AMOUNT=991880000
 
 # Default fee rate per kb.
 FEE_RATE=200000
@@ -292,10 +292,11 @@ EOF
 cp $DIR2/config $DIR3/config
 
 if [ -n "$DIFFERENT_FEES" ]; then
-    FEE_RATE2=300000
-    CLOSE_FEE_RATE2=30000
-    echo "commit-fee-rate=$FEE_RATE2" >> $DIR2/config
-    echo "closing-fee-rate=$CLOSE_FEE_RATE2" >> $DIR2/config
+    # Simply override default fee (estimatefee fails on regtest anyway)
+    CLOSE_FEE_RATE2=50000
+    # We use 5x fee rate for commits, by defailt.
+    FEE_RATE2=$(($CLOSE_FEE_RATE2 * 5))
+    echo "default-fee-rate=$CLOSE_FEE_RATE2" >> $DIR2/config
 fi
 
 if [ -n "$GDB1" ]; then

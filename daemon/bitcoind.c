@@ -191,9 +191,8 @@ static void process_estimatefee_6(struct bitcoin_cli *bcli)
 
 	if (fee < 0) {
 		log_unusual(bcli->dstate->base_log,
-			    "Unable to estimate fee, using %"PRIu64,
-			    bcli->dstate->config.closing_fee_rate);
-		fee_rate = bcli->dstate->config.closing_fee_rate;
+			    "Unable to estimate fee");
+		fee_rate = 0;
 	} else {
 		/* Since we used 6 as an estimate, double it. */
 		fee *= 2;

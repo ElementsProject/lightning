@@ -126,9 +126,7 @@ static const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 	 * use 176 from an example run. */
 	assert(measure_tx_cost(tx) == 83 * 4);
 
-	/* FIXME: Dynamic fees! */
-	fee = fee_by_feerate(83 + 176 / 4,
-			     peer->dstate->config.closing_fee_rate);
+	fee = fee_by_feerate(83 + 176 / 4, get_feerate(peer->dstate));
 
 	/* FIXME: Fail gracefully in these cases (not worth collecting) */
 	if (fee > commit->output[p2wsh_out].amount
@@ -727,7 +725,6 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 		return false;
 	}
 
-	/* FIXME: Dynamic fee! */
 	return true;
 }
 
@@ -921,9 +918,8 @@ static void peer_calculate_close_fee(struct peer *peer)
 	const uint64_t txsize = 41 + 221 + 10 + 32 + 32;
 	uint64_t maxfee;
 
-	/* FIXME: Dynamic fee */
 	peer->closing.our_fee
-		= fee_by_feerate(txsize, peer->dstate->config.closing_fee_rate);
+		= fee_by_feerate(txsize, get_feerate(peer->dstate));
 
 	/* BOLT #2:
 	 * The sender MUST set `close_fee` lower than or equal to the
@@ -932,10 +928,7 @@ static void peer_calculate_close_fee(struct peer *peer)
 	 */
 	maxfee = commit_tx_fee(peer->local.commit->tx, peer->anchor.satoshis);
 	if (peer->closing.our_fee > maxfee) {
-		/* This shouldn't happen: we never accept a commit fee
-		 * less than the min_rate, which is greater than the
-		 * closing_fee_rate.  Also, our txsize estimate for
-		 * the closing tx is 2 bytes smaller than the commitment tx. */
+		/* This could only happen if the fee rate dramatically */
 		log_unusual(peer->log,
 			    "Closing fee %"PRIu64" exceeded commit fee %"PRIu64", reducing.",
 			    peer->closing.our_fee, maxfee);
@@ -1198,9 +1191,7 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 
 	/* Witness length can vary, due to DER encoding of sigs, but we
 	 * use 539 from an example run. */
-	/* FIXME: Dynamic fees! */
-	fee = fee_by_feerate(83 + 539 / 4,
-			     peer->dstate->config.closing_fee_rate);
+	fee = fee_by_feerate(83 + 539 / 4, get_feerate(peer->dstate));
 
 	/* FIXME: Fail gracefully in these cases (not worth collecting) */
 	if (fee > satoshis || is_dust(satoshis - fee))
@@ -1637,8 +1628,10 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 				    &peer->local.locktime))
 		fatal("Could not convert locktime_blocks");
 	peer->local.mindepth = dstate->config.anchor_confirms;
-	peer->local.commit_fee_rate = dstate->config.commitment_fee_rate;
-
+	/* FIXME: Make this dynamic! */
+	peer->local.commit_fee_rate
+		= get_feerate(peer->dstate)
+		* peer->dstate->config.commitment_fee_percent / 100;
 	peer->local.commit = peer->remote.commit = NULL;
 	peer->local.staging_cstate = peer->remote.staging_cstate = NULL;
 
@@ -1660,6 +1653,8 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 			    log_prefix(dstate->base_log), in_or_out,
 			    netaddr_name(peer, &peer->addr));
 
+	log_debug(peer->log, "Using fee rate %"PRIu64,
+		  peer->local.commit_fee_rate);
 	return peer;
 }
 
@@ -2181,9 +2176,7 @@ static const struct bitcoin_tx *htlc_timeout_tx(const struct peer *peer,
 
 	/* Witness length can vary, due to DER encoding of sigs, but we
 	 * use 539 from an example run. */
-	/* FIXME: Dynamic fees! */
-	fee = fee_by_feerate(83 + 539 / 4,
-			     peer->dstate->config.closing_fee_rate);
+	fee = fee_by_feerate(83 + 539 / 4, get_feerate(peer->dstate));
 
 	/* FIXME: Fail gracefully in these cases (not worth collecting) */
 	if (fee > satoshis || is_dust(satoshis - fee))
@@ -2720,8 +2713,7 @@ static void resolve_their_steal(struct peer *peer,
 	}
 	assert(n == steal_tx->input_count);
 
-	/* FIXME: Dynamic fees! */
-	fee = peer->dstate->config.closing_fee_rate
+	fee = get_feerate(peer->dstate)
 		* (measure_tx_cost(steal_tx) + wsize) / 1000;
 
 	if (fee > input_total || is_dust(input_total - fee)) {
@@ -2992,19 +2984,22 @@ struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee)
 			       cstate.side[THEIRS].pay_msat / 1000);
 }
 
-/* Now we can create anchor tx. */ 
-static void got_feerate(struct lightningd_state *dstate,
-			u64 rate, struct peer *peer)
+/* Creation the bitcoin anchor tx, spending output user provided. */
+void bitcoin_create_anchor(struct peer *peer)
 {
 	u64 fee;
 	struct bitcoin_tx *tx = bitcoin_tx(peer, 1, 1);
 	size_t i;
 
+	/* We must be offering anchor for us to try creating it */
+	assert(peer->local.offer_anchor);
+
 	tx->output[0].script = scriptpubkey_p2wsh(tx, peer->anchor.witnessscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
 	/* Add input script length.  FIXME: This is normal case, not exact. */
-	fee = fee_by_feerate(measure_tx_cost(tx)/4 + 1+73 + 1+33 + 1, rate);
+	fee = fee_by_feerate(measure_tx_cost(tx)/4 + 1+73 + 1+33 + 1,
+			     get_feerate(peer->dstate));
 	if (fee >= peer->anchor.input->amount)
 		/* FIXME: Report an error here!
 		 * We really should set this when they do command, but
@@ -3031,18 +3026,6 @@ static void got_feerate(struct lightningd_state *dstate,
 	/* To avoid malleation, all inputs must be segwit! */
 	for (i = 0; i < tx->input_count; i++)
 		assert(tx->input[i].witness);
-	
-	state_event(peer, BITCOIN_ANCHOR_CREATED, NULL);
-}
-
-/* Creation the bitcoin anchor tx, spending output user provided. */
-void bitcoin_create_anchor(struct peer *peer, enum state_input done)
-{
-	/* We must be offering anchor for us to try creating it */
-	assert(peer->local.offer_anchor);
-
-	assert(done == BITCOIN_ANCHOR_CREATED);
-	bitcoind_estimate_fee(peer->dstate, got_feerate, peer);
 }
 
 /* We didn't end up broadcasting the anchor: we don't need to do anything

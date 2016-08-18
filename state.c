@@ -103,16 +103,8 @@ enum state state(struct peer *peer,
 				peer_open_complete(peer, err->error->problem);
 				goto err_breakdown;
 			}
-			bitcoin_create_anchor(peer, BITCOIN_ANCHOR_CREATED);
-			return next_state(peer, input,
-					  STATE_OPEN_WAIT_FOR_ANCHOR_CREATE);
-		} else if (input_is_pkt(input)) {
-			peer_open_complete(peer, "unexpected packet");
-			goto unexpected_pkt;
-		}
-		break;
-	case STATE_OPEN_WAIT_FOR_ANCHOR_CREATE:
-		if (input_is(input, BITCOIN_ANCHOR_CREATED)) {
+			bitcoin_create_anchor(peer);
+
 			/* This shouldn't happen! */
 			if (!setup_first_commit(peer)) {
 				err = pkt_err(peer,
@@ -124,7 +116,6 @@ enum state state(struct peer *peer,
 			return next_state(peer, input,
 					  STATE_OPEN_WAIT_FOR_COMMIT_SIG);
 		} else if (input_is_pkt(input)) {
-			bitcoin_release_anchor(peer, BITCOIN_ANCHOR_CREATED);
 			peer_open_complete(peer, "unexpected packet");
 			goto unexpected_pkt;
 		}

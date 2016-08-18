@@ -12,6 +12,7 @@
 #include <ccan/asort/asort.h>
 #include <ccan/io/io.h>
 #include <ccan/structeq/structeq.h>
+#include <inttypes.h>
 
 struct block {
 	int height;
@@ -62,6 +63,7 @@ struct topology {
 	struct block *root;
 	struct block *tip;
 	struct block_map block_map;
+	u64 feerate;
 };
 
 static void start_poll_chaintip(struct lightningd_state *dstate);
@@ -304,6 +306,13 @@ static void free_blocks(struct lightningd_state *dstate, struct block *b)
 	}
 }
 
+static void update_fee(struct lightningd_state *dstate, u64 rate, u64 *feerate)
+{
+	log_debug(dstate->base_log, "Feerate %"PRIu64" -> %"PRIu64,
+		  rate, *feerate);
+	*feerate = rate;
+}
+
 /* B is the new chain (linked by ->next); update topology */
 static void topology_changed(struct lightningd_state *dstate,
 			     struct block *prev,
@@ -325,6 +334,9 @@ static void topology_changed(struct lightningd_state *dstate,
 
 	/* Maybe need to rebroadcast. */
 	rebroadcast_txs(dstate);
+
+	/* Once per new block head, update fee estimate. */
+	bitcoind_estimate_fee(dstate, update_fee, &dstate->topology->feerate);
 }
 
 static struct block *new_block(struct lightningd_state *dstate,
@@ -460,11 +472,22 @@ u32 get_block_height(struct lightningd_state *dstate)
 	return dstate->topology->tip->height;
 }
 
+u64 get_feerate(struct lightningd_state *dstate)
+{
+	if (dstate->topology->feerate == 0) {
+		log_info(dstate->base_log,
+			 "No fee estimate: using default fee rate");
+		return dstate->config.default_fee_rate;
+	}
+	return dstate->topology->feerate;
+}
+
 void setup_topology(struct lightningd_state *dstate)
 {
 	dstate->topology = tal(dstate, struct topology);
 	block_map_init(&dstate->topology->block_map);
 
+	dstate->topology->feerate = 0;
 	bitcoind_getblockcount(dstate, get_init_blockhash, NULL);
 
 	/* Once it gets first block, it calls io_break() and we return. */

@@ -12,7 +12,6 @@ enum state {
 	 */
 	STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR,
 	STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR,
-	STATE_OPEN_WAIT_FOR_ANCHOR_CREATE,
 	STATE_OPEN_WAIT_FOR_ANCHOR,
 	STATE_OPEN_WAIT_FOR_COMMIT_SIG,
 	STATE_OPEN_WAITING_OURANCHOR,
@@ -93,8 +92,6 @@ enum state_input {
 	/*
 	 * Bitcoin events
 	 */
-	/* Bitcoin anchor tx created. */
-	BITCOIN_ANCHOR_CREATED,
 	/* It reached the required depth. */
 	BITCOIN_ANCHOR_DEPTHOK,
 	/* It didn't reach the required depth in time. */
