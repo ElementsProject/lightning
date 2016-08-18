@@ -26,7 +26,7 @@
 
 #define TEXT_STYLE "style=\"font-size:4;\""
 
-struct funding {
+struct commit_tx {
 	/* inhtlcs = htlcs they offered, outhtlcs = htlcs we offered */
 	u32 inhtlcs, outhtlcs;
 	/* This is a simple counter, reflecting fee updates. */
@@ -38,13 +38,13 @@ struct commit_info {
 	struct commit_info *prev;
 	/* How deep we are */
 	unsigned int number;
-	/* Funding before changes. */
-	const struct funding *funding;
-	/* Pending changes (already applied to funding_next) */
+	/* Commit_Tx before changes. */
+	const struct commit_tx *commit_tx;
+	/* Pending changes (already applied to commit_tx_next) */
 	int *unacked_changeset;
 	bool have_acked_changes;
-	/* Cache of funding with changes applied. */
-	struct funding funding_next;
+	/* Cache of commit_tx with changes applied. */
+	struct commit_tx commit_tx_next;
 	/* Have sent/received revocation secret. */
 	bool revoked;
 	/* Have their signature, ie. can be broadcast */
@@ -53,13 +53,13 @@ struct commit_info {
 
 /* A "signature" is a copy of the commit tx state, for easy diagnosis. */
 struct signature {
-	struct funding f;
+	struct commit_tx f;
 };
 
 struct peer {
 	int infd, outfd, cmdfd, cmddonefd;
 
-	struct funding initial_funding;
+	struct commit_tx initial_commit_tx;
 
 	/* Are we allowed to send another commit before receiving revoke? */
 	bool commitwait;
@@ -171,9 +171,9 @@ static bool add_unacked_changes(struct peer *peer,
 	 * for example, pre-applying the changesets in some cases
 	 */
 	for (i = 0; i < n; i++) {
-		if (!do_change(peer, what, &ci->funding_next.outhtlcs,
-			       &ci->funding_next.inhtlcs,
-			       &ci->funding_next.fee,
+		if (!do_change(peer, what, &ci->commit_tx_next.outhtlcs,
+			       &ci->commit_tx_next.inhtlcs,
+			       &ci->commit_tx_next.fee,
 			       changes[i]))
 			return false;
 		ci->have_acked_changes = true;
@@ -201,7 +201,7 @@ static bool add_incoming_change(struct peer *peer,
 	 * for example, pre-applying the changesets in some cases
 	 */
 	if (!do_change(NULL, NULL,
-		       &ci->funding_next.inhtlcs, &ci->funding_next.outhtlcs,
+		       &ci->commit_tx_next.inhtlcs, &ci->commit_tx_next.outhtlcs,
 		       NULL, c))
 		return false;
 
@@ -219,10 +219,10 @@ static struct commit_info *new_commit_info(const struct peer *peer,
 	ci->have_acked_changes = false;
 	if (prev) {
 		ci->number = prev->number + 1;
-		ci->funding = &prev->funding_next;
-		ci->funding_next = prev->funding_next;
+		ci->commit_tx = &prev->commit_tx_next;
+		ci->commit_tx_next = prev->commit_tx_next;
 	} else
-		ci->funding = &peer->initial_funding;
+		ci->commit_tx = &peer->initial_commit_tx;
 	return ci;
 }
 
@@ -235,19 +235,19 @@ static struct commit_info *apply_changes(struct peer *peer,
 	size_t i;
 
 	add_text(peer, "%s:[", who);
-	if (old->funding_next.inhtlcs)
+	if (old->commit_tx_next.inhtlcs)
 		add_text(peer, "in");
 	for (i = 1; i <= 32; i++)
-		if (have_htlc(old->funding_next.inhtlcs, i))
+		if (have_htlc(old->commit_tx_next.inhtlcs, i))
 			add_text(peer, " %zu", i);
-	if (old->funding_next.outhtlcs)
+	if (old->commit_tx_next.outhtlcs)
 		add_text(peer, "%sout",
-			 old->funding_next.inhtlcs ? ", " : "");
+			 old->commit_tx_next.inhtlcs ? ", " : "");
 	for (i = 1; i <= 32; i++)
-		if (have_htlc(old->funding_next.outhtlcs, i))
+		if (have_htlc(old->commit_tx_next.outhtlcs, i))
 			add_text(peer, " %zu", i);
-	if (old->funding_next.fee)
-		add_text(peer, " fee %u", old->funding_next.fee);
+	if (old->commit_tx_next.fee)
+		add_text(peer, " fee %u", old->commit_tx_next.fee);
 	add_text(peer, "]");
 
 	return next;
@@ -256,7 +256,7 @@ static struct commit_info *apply_changes(struct peer *peer,
 static struct signature commit_sig(const struct commit_info *ci)
 {
 	struct signature sig;
-	sig.f = *ci->funding;
+	sig.f = *ci->commit_tx;
 	return sig;
 }
 
@@ -281,13 +281,13 @@ static void dump_commit_info(const struct commit_info *ci)
 
 	printf(" Commit %u:", ci->number);
 	printf("\n  Offered htlcs:");
-	dump_htlcs(ci->funding->outhtlcs);
+	dump_htlcs(ci->commit_tx->outhtlcs);
 	printf("\n  Received htlcs:");
-	dump_htlcs(ci->funding->inhtlcs);
+	dump_htlcs(ci->commit_tx->inhtlcs);
 
 	/* Don't clutter output if fee level untouched. */
-	if (ci->funding->fee)
-		printf("\n  Fee level %u", ci->funding->fee);
+	if (ci->commit_tx->fee)
+		printf("\n  Fee level %u", ci->commit_tx->fee);
 
 	n = tal_count(ci->unacked_changeset);
 	if (n > 0) {
@@ -639,10 +639,10 @@ static void do_cmd(struct peer *peer)
 	} else if (streq(cmd, "nocommitwait")) {
 		peer->commitwait = false;
 	} else if (streq(cmd, "checksync")) {
-		write_all(peer->cmddonefd, peer->local->funding,
-			  sizeof(*peer->local->funding));
-		write_all(peer->cmddonefd, peer->remote->funding,
-			  sizeof(*peer->remote->funding));
+		write_all(peer->cmddonefd, peer->local->commit_tx,
+			  sizeof(*peer->local->commit_tx));
+		write_all(peer->cmddonefd, peer->remote->commit_tx,
+			  sizeof(*peer->remote->commit_tx));
 		return;
 	} else if (streq(cmd, "dump")) {
 		dump_peer(peer, false);
@@ -687,7 +687,7 @@ static void new_peer(int infdpair[2], int outfdpair[2], int cmdfdpair[2],
 	close(cmddonefdpair[0]);
 
 	peer = tal(NULL, struct peer);
-	memset(&peer->initial_funding, 0, sizeof(peer->initial_funding));
+	memset(&peer->initial_commit_tx, 0, sizeof(peer->initial_commit_tx));
 	peer->commitwait = true;
 	
 	/* Create first, signed commit info. */
@@ -817,7 +817,7 @@ int main(int argc, char *argv[])
 			}
 			continue;
 		} else if (streq(cmd, "checksync")) {
-			struct funding fa_us, fa_them, fb_us, fb_them;
+			struct commit_tx fa_us, fa_them, fb_us, fb_them;
 			if (!write_all(acmd[1], cmd, strlen(cmd)+1)
 			    || !write_all(bcmd[1], cmd, strlen(cmd)+1))
 				errx(1, "Failed writing command to peers");
