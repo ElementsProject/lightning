@@ -269,7 +269,9 @@ Pkt *pkt_err_unexpected(struct peer *peer, const Pkt *pkt)
 }
 
 /* Process various packets: return an error packet on failure. */
-Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt,
+		     struct sha256 *revocation_hash,
+		     struct sha256 *next_revocation_hash)
 {
 	struct rel_locktime locktime;
 	const OpenChannel *o = pkt->open;
@@ -305,49 +307,8 @@ Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt)
 			     o->final_key, &peer->remote.finalkey))
 		return pkt_err(peer, "Bad finalkey");
 
-	/* Set up their commit info now: rest gets done in setup_first_commit
-	 * once anchor is established. */
-	peer->remote.commit = new_commit_info(peer);
-	proto_to_sha256(o->revocation_hash, &peer->remote.commit->revocation_hash);
-	proto_to_sha256(o->next_revocation_hash,
-			&peer->remote.next_revocation_hash);
-
-	/* Witness script for anchor. */
-	peer->anchor.witnessscript
-		= bitcoin_redeem_2of2(peer, peer->dstate->secpctx,
-				      &peer->local.commitkey,
-				      &peer->remote.commitkey);
-	return NULL;
-}
-
-/* Save and check signature. */
-static Pkt *check_and_save_commit_sig(struct peer *peer,
-				      struct commit_info *ci,
-				      const Signature *pb)
-{
-	struct bitcoin_signature *sig = tal(ci, struct bitcoin_signature);
-
-	assert(!ci->sig);
-	sig->stype = SIGHASH_ALL;
-	if (!proto_to_signature(peer->dstate->secpctx, pb, &sig->sig))
-		return pkt_err(peer, "Malformed signature");
-
-	log_debug(peer->log, "Checking sig for %u/%u msatoshis, %zu/%zu htlcs",
-		  ci->cstate->side[OURS].pay_msat,
-		  ci->cstate->side[THEIRS].pay_msat,
-		  tal_count(ci->cstate->side[OURS].htlcs),
-		  tal_count(ci->cstate->side[THEIRS].htlcs));
-
-	/* Their sig should sign our commit tx. */
-	if (!check_tx_sig(peer->dstate->secpctx,
-			  ci->tx, 0,
-			  NULL, 0,
-			  peer->anchor.witnessscript,
-			  &peer->remote.commitkey,
-			  sig))
-		return pkt_err(peer, "Bad signature");
-
-	ci->sig = sig;
+	proto_to_sha256(o->revocation_hash, revocation_hash);
+	proto_to_sha256(o->next_revocation_hash, next_revocation_hash);
 	return NULL;
 }
 
@@ -362,18 +323,22 @@ Pkt *accept_pkt_anchor(struct peer *peer, const Pkt *pkt)
 	proto_to_sha256(a->txid, &peer->anchor.txid.sha);
 	peer->anchor.index = a->output_index;
 	peer->anchor.satoshis = a->amount;
-
-	if (!setup_first_commit(peer))
-		return pkt_err(peer, "Insufficient funds for fee");
-
 	return NULL;
 }
 
-Pkt *accept_pkt_open_commit_sig(struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_open_commit_sig(struct peer *peer, const Pkt *pkt,
+				struct bitcoin_signature **sig)
 {
 	const OpenCommitSig *s = pkt->open_commit_sig;
+	struct signature signature;
 
-	return check_and_save_commit_sig(peer, peer->local.commit, s->sig);
+	if (!proto_to_signature(peer->dstate->secpctx, s->sig, &signature))
+		return pkt_err(peer, "Malformed signature");
+
+	*sig = tal(peer, struct bitcoin_signature);	
+	(*sig)->stype = SIGHASH_ALL;
+	(*sig)->sig = signature;	
+	return NULL;
 }
 
 Pkt *accept_pkt_open_complete(struct peer *peer, const Pkt *pkt)
@@ -385,13 +350,11 @@ Pkt *accept_pkt_open_complete(struct peer *peer, const Pkt *pkt)
  * We add changes to both our staging cstate (as they did when they sent
  * it) and theirs (as they will when we ack it).
  */
-Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt, struct htlc **h)
 {
 	const UpdateAddHtlc *u = pkt->update_add_htlc;
 	struct sha256 rhash;
 	struct abs_locktime expiry;
-	struct htlc *htlc;
-	union htlc_staging stage;
 
 	/* BOLT #2:
 	 *
@@ -430,29 +393,10 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	 *
 	 * ...and the receiving node MUST add the HTLC addition to the
 	 * unacked changeset for its local commitment. */
-	htlc = peer_new_htlc(peer, u->id, u->amount_msat, &rhash,
-			     abs_locktime_to_blocks(&expiry),
-			     u->route->info.data, u->route->info.len,
-			     NULL, RCVD_ADD_HTLC);
-
-	/* BOLT #2:
-	 *
-	 * A node MUST NOT offer `amount_msat` it cannot pay for in
-	 * the remote commitment transaction at the current `fee_rate` (see
-	 * "Fee Calculation" ).  A node SHOULD fail the connection if
-	 * this occurs.
-	 */
-	if (!cstate_add_htlc(peer->local.staging_cstate, htlc, THEIRS)) {
-		tal_free(htlc);
-		return pkt_err(peer, "Cannot afford %"PRIu64" milli-satoshis"
-			       " in our commitment tx",
-			       u->amount_msat);
-	}
-
-	stage.add.add = HTLC_ADD;
-	stage.add.htlc = htlc;
-	add_unacked(&peer->local, &stage);
-
+	*h = peer_new_htlc(peer, u->id, u->amount_msat, &rhash,
+			   abs_locktime_to_blocks(&expiry),
+			   u->route->info.data, u->route->info.len,
+			   NULL, RCVD_ADD_HTLC);
 	return NULL;
 }
 
@@ -476,43 +420,27 @@ static Pkt *find_commited_htlc(struct peer *peer, uint64_t id,
 	return NULL;
 }
 
-Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt, struct htlc **h)
 {
 	const UpdateFailHtlc *f = pkt->update_fail_htlc;
-	struct htlc *htlc;
 	Pkt *err;
-	union htlc_staging stage;
 
-	err = find_commited_htlc(peer, f->id, &htlc);
+	err = find_commited_htlc(peer, f->id, h);
 	if (err)
 		return err;
 
 	/* FIXME: Save reason. */
-
-	cstate_fail_htlc(peer->local.staging_cstate, htlc, OURS);
-
-	/* BOLT #2:
-	 *
-	 * ... and the receiving node MUST add the HTLC fulfill/fail
-	 * to the unacked changeset for its local commitment.
-	 */
-	stage.fail.fail = HTLC_FAIL;
-	stage.fail.htlc = htlc;
-	add_unacked(&peer->local, &stage);
-	htlc_changestate(htlc, SENT_ADD_ACK_REVOCATION, RCVD_REMOVE_HTLC);
 	return NULL;
 }
 
-Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt, struct htlc **h)
 {
 	const UpdateFulfillHtlc *f = pkt->update_fulfill_htlc;
-	struct htlc *htlc;
 	struct sha256 rhash;
 	struct rval r;
 	Pkt *err;
-	union htlc_staging stage;
 
-	err = find_commited_htlc(peer, f->id, &htlc);
+	err = find_commited_htlc(peer, f->id, h);
 	if (err)
 		return err;
 
@@ -520,102 +448,34 @@ Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 	proto_to_rval(f->r, &r);
 	sha256(&rhash, &r, sizeof(r));
 
-	if (!structeq(&rhash, &htlc->rhash))
+	if (!structeq(&rhash, &(*h)->rhash))
 		return pkt_err(peer, "Invalid r for %"PRIu64, f->id);
 
-	/* We can relay this upstream immediately. */
-	our_htlc_fulfilled(peer, htlc, &r);
-
-	/* BOLT #2:
-	 *
-	 * ... and the receiving node MUST add the HTLC fulfill/fail
-	 * to the unacked changeset for its local commitment.
-	 */
-	cstate_fulfill_htlc(peer->local.staging_cstate, htlc, OURS);
-	htlc_changestate(htlc, SENT_ADD_ACK_REVOCATION, RCVD_REMOVE_HTLC);
-
-	stage.fulfill.fulfill = HTLC_FULFILL;
-	stage.fulfill.htlc = htlc;
-	stage.fulfill.r = r;
-	add_unacked(&peer->local, &stage);
+	assert(!(*h)->r);
+	(*h)->r = tal_dup(*h, struct rval, &r);
 	return NULL;
 }
 
-Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt,
+		       struct bitcoin_signature *sig)
 {
 	const UpdateCommit *c = pkt->update_commit;
-	Pkt *err;
-	struct commit_info *ci = new_commit_info(peer);
-	static const struct state_table changes[] = {
-		{ RCVD_ADD_REVOCATION, RCVD_ADD_ACK_COMMIT },
-		{ RCVD_REMOVE_HTLC, RCVD_REMOVE_COMMIT },
-		{ RCVD_ADD_HTLC, RCVD_ADD_COMMIT },
-		{ RCVD_REMOVE_REVOCATION, RCVD_REMOVE_ACK_COMMIT }
-	};
 
-	/* BOLT #2:
-	 *
-	 * A node MUST NOT send an `update_commit` message which does
-	 * not include any updates.
-	 */
-	if (!htlcs_changestate(peer, changes, ARRAY_SIZE(changes)))
-		return pkt_err(peer, "Empty commit");
-
-	/* Create new commit info for this commit tx. */
-	ci->prev = peer->local.commit;
-	ci->commit_num = ci->prev->commit_num + 1;
-	ci->revocation_hash = peer->local.next_revocation_hash;
-
-	/* BOLT #2:
-	 *
-	 * A receiving node MUST apply all local acked and unacked
-	 * changes except unacked fee changes to the local commitment
-	 */
-	/* (We already applied them to staging_cstate as we went) */
-	ci->cstate = copy_cstate(ci, peer->local.staging_cstate);
-	ci->tx = create_commit_tx(ci, peer, &ci->revocation_hash,
-				  ci->cstate, LOCAL, &ci->map);
-	bitcoin_txid(ci->tx, &ci->txid);
-
-	/* BOLT #2:
-	 *
-	 * A node MUST NOT send an `update_commit` message which does
-	 * not include any updates.
-	 */
-	if (ci->prev->cstate->changes == ci->cstate->changes)
-		return pkt_err(peer, "Empty commit");
-
-	err = check_and_save_commit_sig(peer, ci, c->sig);
-	if (err)
-		return err;
-
-	/* Switch to the new commitment. */
-	peer->local.commit = ci;
-	peer_get_revocation_hash(peer, ci->commit_num + 1,
-				 &peer->local.next_revocation_hash);
-
+	sig->stype = SIGHASH_ALL;
+	if (!proto_to_signature(peer->dstate->secpctx, c->sig, &sig->sig))
+		return pkt_err(peer, "Malformed signature");
 	return NULL;
 }
 
-static bool check_preimage(const Sha256Hash *preimage, const struct sha256 *hash)
-{
-	struct sha256 h;
-
-	proto_to_sha256(preimage, &h);
-	sha256(&h, &h, sizeof(h));
-	return structeq(&h, hash);
-}
-
-Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
+Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt,
+			   struct commit_info *ci)
 {
 	const UpdateRevocation *r = pkt->update_revocation;
-	struct commit_info *ci = peer->remote.commit->prev;
-	static const struct state_table changes[] = {
-		{ SENT_ADD_COMMIT, RCVD_ADD_REVOCATION },
-		{ SENT_REMOVE_ACK_COMMIT, RCVD_REMOVE_ACK_REVOCATION },
-		{ SENT_ADD_ACK_COMMIT, RCVD_ADD_ACK_REVOCATION },
-		{ SENT_REMOVE_COMMIT, RCVD_REMOVE_REVOCATION }
-	};
+	struct sha256 h;
+
+	assert(!ci->revocation_preimage);
+	ci->revocation_preimage = tal(ci, struct sha256);
+	proto_to_sha256(r->revocation_preimage, ci->revocation_preimage);
 
 	/* BOLT #2:
 	 *
@@ -623,45 +483,19 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	 * SHA256 hash of `revocation_preimage` matches the previous commitment
 	 * transaction, and MUST fail if it does not.
 	 */
-	if (!check_preimage(r->revocation_preimage, &ci->revocation_hash))
+	sha256(&h, ci->revocation_preimage, sizeof(*ci->revocation_preimage));
+	if (!structeq(&h, &ci->revocation_hash))
 		return pkt_err(peer, "complete preimage incorrect");
 
-	/* They're revoking the previous one. */
-	assert(!ci->revocation_preimage);
-	ci->revocation_preimage = tal(ci, struct sha256);
-
-	proto_to_sha256(r->revocation_preimage, ci->revocation_preimage);
-
 	// save revocation preimages in shachain
-	if (!shachain_add_hash(&peer->their_preimages, 0xFFFFFFFFFFFFFFFFL - ci->commit_num, ci->revocation_preimage))
+	if (!shachain_add_hash(&peer->their_preimages,
+			       0xFFFFFFFFFFFFFFFFL - ci->commit_num,
+			       ci->revocation_preimage))
 		return pkt_err(peer, "preimage not next in shachain");
 
 	/* Save next revocation hash. */
 	proto_to_sha256(r->next_revocation_hash,
 			&peer->remote.next_revocation_hash);
-
-	/* BOLT #2:
-	 *
-	 * The receiver of `update_revocation`... MUST add the remote
-	 * unacked changes to the set of local acked changes.
-	 */
-	add_acked_changes(&peer->local.commit->acked_changes, ci->unacked_changes);
-	apply_changeset(peer, &peer->local, OURS,
-			ci->unacked_changes,
-			tal_count(ci->unacked_changes));
-
-	if (!htlcs_changestate(peer, changes, ARRAY_SIZE(changes)))
-		fatal("Revocation received but we made empty commitment?");
-
-	/* Should never examine these again. */
-	ci->unacked_changes = tal_free(ci->unacked_changes);
-
-	/* That revocation has committed them to changes in the current commitment.
-	 * Any acked changes come from our commitment, so those are now committed
-	 * by both of us.
-	 */
-	peer_both_committed_to(peer, ci->acked_changes, THEIRS);
-	
 	return NULL;
 }
 	

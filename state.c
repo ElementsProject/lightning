@@ -1,4 +1,5 @@
 #include <ccan/build_assert/build_assert.h>
+#include <daemon/lightningd.h>
 #include <daemon/log.h>
 #include <daemon/peer.h>
 #include <daemon/secrets.h>
@@ -33,6 +34,28 @@ static void send_open_pkt(struct peer *peer,
 	queue_pkt_open(peer, anchor);
 }
 
+static Pkt *init_from_pkt_open(struct peer *peer, const Pkt *pkt)
+{
+	struct commit_info *ci = new_commit_info(peer);
+	Pkt *err;
+
+	err = accept_pkt_open(peer, pkt, &ci->revocation_hash,
+			      &peer->remote.next_revocation_hash);
+	if (err)
+		return err;
+	
+	/* Set up their commit info now: rest gets done in setup_first_commit
+	 * once anchor is established. */
+	peer->remote.commit = ci;
+
+	/* Witness script for anchor. */
+	peer->anchor.witnessscript
+		= bitcoin_redeem_2of2(peer, peer->dstate->secpctx,
+				      &peer->local.commitkey,
+				      &peer->remote.commitkey);
+	return NULL;
+}
+
 enum state state(struct peer *peer,
 		 const enum state_input input,
 		 const Pkt *pkt,
@@ -61,7 +84,7 @@ enum state state(struct peer *peer,
 		break;
 	case STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR:
 		if (input_is(input, PKT_OPEN)) {
-			err = accept_pkt_open(peer, pkt);
+			err = init_from_pkt_open(peer, pkt);
 			if (err) {
 				peer_open_complete(peer, err->error->problem);
 				goto err_breakdown;
@@ -74,7 +97,7 @@ enum state state(struct peer *peer,
 		break;
 	case STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR:
 		if (input_is(input, PKT_OPEN)) {
-			err = accept_pkt_open(peer, pkt);
+			err = init_from_pkt_open(peer, pkt);
 			if (err) {
 				peer_open_complete(peer, err->error->problem);
 				goto err_breakdown;
@@ -112,6 +135,13 @@ enum state state(struct peer *peer,
 				peer_open_complete(peer, err->error->problem);
 				goto err_breakdown;
 			}
+
+			if (!setup_first_commit(peer)) {
+				err = pkt_err(peer, "Insufficient funds for fee");
+				peer_open_complete(peer, err->error->problem);
+				goto err_breakdown;
+			}
+
 			log_debug_struct(peer->log, "Creating sig for %s",
 					 struct bitcoin_tx,
 					 peer->remote.commit->tx);
@@ -138,7 +168,17 @@ enum state state(struct peer *peer,
 		break;
 	case STATE_OPEN_WAIT_FOR_COMMIT_SIG:
 		if (input_is(input, PKT_OPEN_COMMIT_SIG)) {
-			err = accept_pkt_open_commit_sig(peer, pkt);
+			err = accept_pkt_open_commit_sig(peer, pkt,
+							 &peer->local.commit->sig);
+			if (!err &&
+			    !check_tx_sig(peer->dstate->secpctx,
+					  peer->local.commit->tx, 0,
+					  NULL, 0,
+					  peer->anchor.witnessscript,
+					  &peer->remote.commitkey,
+					  peer->local.commit->sig))
+				err = pkt_err(peer, "Bad signature");
+
 			if (err) {
 				bitcoin_release_anchor(peer, INPUT_NONE);
 				peer_open_complete(peer, err->error->problem);

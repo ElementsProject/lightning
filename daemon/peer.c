@@ -368,19 +368,78 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 {
 	Pkt *err;
-	struct commit_info *ci;
-	static const struct state_table changes[] = {
+	struct commit_info *ci = new_commit_info(peer);
+	/* FIXME: We can actually merge these two... */
+	static const struct state_table commit_changes[] = {
+		{ RCVD_ADD_REVOCATION, RCVD_ADD_ACK_COMMIT },
+		{ RCVD_REMOVE_HTLC, RCVD_REMOVE_COMMIT },
+		{ RCVD_ADD_HTLC, RCVD_ADD_COMMIT },
+		{ RCVD_REMOVE_REVOCATION, RCVD_REMOVE_ACK_COMMIT }
+	};
+	static const struct state_table revocation_changes[] = {
 		{ RCVD_ADD_ACK_COMMIT, SENT_ADD_ACK_REVOCATION },
 		{ RCVD_REMOVE_COMMIT, SENT_REMOVE_REVOCATION },
 		{ RCVD_ADD_COMMIT, SENT_ADD_REVOCATION },
 		{ RCVD_REMOVE_ACK_COMMIT, SENT_REMOVE_ACK_REVOCATION }
 	};
 
-	err = accept_pkt_commit(peer, pkt);
+	ci->sig = tal(ci, struct bitcoin_signature);
+	err = accept_pkt_commit(peer, pkt, ci->sig);
 	if (err)
 		return err;
 
-	assert(peer->local.commit);
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT send an `update_commit` message which does
+	 * not include any updates.
+	 */
+	if (!htlcs_changestate(peer, commit_changes, ARRAY_SIZE(commit_changes)))
+		return pkt_err(peer, "Empty commit");
+
+	/* Create new commit info for this commit tx. */
+	ci->prev = peer->local.commit;
+	ci->commit_num = ci->prev->commit_num + 1;
+	ci->revocation_hash = peer->local.next_revocation_hash;
+
+	/* BOLT #2:
+	 *
+	 * A receiving node MUST apply all local acked and unacked
+	 * changes except unacked fee changes to the local commitment
+	 */
+	/* (We already applied them to staging_cstate as we went) */
+	ci->cstate = copy_cstate(ci, peer->local.staging_cstate);
+	ci->tx = create_commit_tx(ci, peer, &ci->revocation_hash,
+				  ci->cstate, LOCAL, &ci->map);
+	bitcoin_txid(ci->tx, &ci->txid);
+
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT send an `update_commit` message which does
+	 * not include any updates.
+	 */
+	if (ci->prev->cstate->changes == ci->cstate->changes)
+		return pkt_err(peer, "Empty commit");
+
+	/* BOLT #2:
+	 *
+	 * A receiving node MUST apply all local acked and unacked changes
+	 * except unacked fee changes to the local commitment, then it MUST
+	 * check `sig` is valid for that transaction.
+	 */
+	if (!check_tx_sig(peer->dstate->secpctx,
+			  ci->tx, 0,
+			  NULL, 0,
+			  peer->anchor.witnessscript,
+			  &peer->remote.commitkey,
+			  ci->sig))
+		return pkt_err(peer, "Bad signature");
+
+	/* Switch to the new commitment. */
+	peer->local.commit = ci;
+	peer_get_revocation_hash(peer, ci->commit_num + 1,
+				 &peer->local.next_revocation_hash);
+
+	/* Now, send the revocation. */
 	ci = peer->local.commit->prev;
 	assert(ci);
 	assert(!ci->revocation_preimage);
@@ -388,7 +447,8 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	/* We have their signature on the current one, right? */
 	assert(peer->local.commit->sig);
 
-	if (!htlcs_changestate(peer, changes, ARRAY_SIZE(changes)))
+	if (!htlcs_changestate(peer, revocation_changes,
+			       ARRAY_SIZE(revocation_changes)))
 		fatal("sent revoke with no changes");
 
 	ci->revocation_preimage = tal(ci, struct sha256);
@@ -402,7 +462,8 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	 */
 	/* Note: this means the unacked changes as of the commit we're
 	 * revoking */
-	add_acked_changes(&peer->remote.commit->acked_changes, ci->unacked_changes);
+	add_acked_changes(&peer->remote.commit->acked_changes,
+			  ci->unacked_changes);
 	apply_changeset(peer, &peer->remote, THEIRS,
 			ci->unacked_changes, tal_count(ci->unacked_changes));
 
@@ -412,9 +473,9 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	/* We should never look at this again. */
 	ci->unacked_changes = tal_free(ci->unacked_changes);
 
-	/* That revocation has committed us to changes in the current commitment.
-	 * Any acked changes come from their commitment, so those are now committed
-	 * by both of us.
+	/* That revocation has committed us to changes in the current
+	 * commitment.  Any acked changes come from their commitment, so
+	 * those are now committed by both of us.
 	 */
 	peer_both_committed_to(peer, ci->acked_changes, OURS);
 
@@ -422,6 +483,127 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 			     &peer->local.next_revocation_hash);
 	return NULL;
 }
+
+static Pkt *handle_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
+{
+	union htlc_staging stage;
+	struct htlc *htlc;
+	Pkt *err;
+
+	err = accept_pkt_htlc_add(peer, pkt, &htlc);
+	if (err)
+		return err;
+
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT offer `amount_msat` it cannot pay for in
+	 * the remote commitment transaction at the current `fee_rate` (see
+	 * "Fee Calculation" ).  A node SHOULD fail the connection if
+	 * this occurs.
+	 */
+	if (!cstate_add_htlc(peer->local.staging_cstate, htlc, THEIRS)) {
+		tal_free(htlc);
+		return pkt_err(peer, "Cannot afford %"PRIu64" milli-satoshis"
+			       " in our commitment tx",
+			       htlc->msatoshis);
+	}
+
+	stage.add.add = HTLC_ADD;
+	stage.add.htlc = htlc;
+	add_unacked(&peer->local, &stage);
+	return NULL;
+}
+	
+static Pkt *handle_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
+{
+	union htlc_staging stage;
+	struct htlc *htlc;
+	Pkt *err;
+
+	err = accept_pkt_htlc_fail(peer, pkt, &htlc);
+	if (err)
+		return err;
+
+	cstate_fail_htlc(peer->local.staging_cstate, htlc, OURS);
+
+	/* BOLT #2:
+	 *
+	 * ... and the receiving node MUST add the HTLC fulfill/fail
+	 * to the unacked changeset for its local commitment.
+	 */
+	stage.fail.fail = HTLC_FAIL;
+	stage.fail.htlc = htlc;
+	add_unacked(&peer->local, &stage);
+	htlc_changestate(htlc, SENT_ADD_ACK_REVOCATION, RCVD_REMOVE_HTLC);
+	return NULL;
+}
+
+static Pkt *handle_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
+{
+	union htlc_staging stage;
+	struct htlc *htlc;
+	Pkt *err;
+
+	err = accept_pkt_htlc_fulfill(peer, pkt, &htlc);
+	if (err)
+		return err;
+	
+	/* We can relay this upstream immediately. */
+	our_htlc_fulfilled(peer, htlc, htlc->r);
+
+	/* BOLT #2:
+	 *
+	 * ... and the receiving node MUST add the HTLC fulfill/fail
+	 * to the unacked changeset for its local commitment.
+	 */
+	cstate_fulfill_htlc(peer->local.staging_cstate, htlc, OURS);
+	htlc_changestate(htlc, SENT_ADD_ACK_REVOCATION, RCVD_REMOVE_HTLC);
+
+	stage.fulfill.fulfill = HTLC_FULFILL;
+	stage.fulfill.htlc = htlc;
+	stage.fulfill.r = *htlc->r;
+	add_unacked(&peer->local, &stage);
+	return NULL;
+}
+
+static Pkt *handle_pkt_revocation(struct peer *peer, const Pkt *pkt)
+{
+	struct commit_info *ci = peer->remote.commit->prev;
+	Pkt *err;
+	static const struct state_table changes[] = {
+		{ SENT_ADD_COMMIT, RCVD_ADD_REVOCATION },
+		{ SENT_REMOVE_ACK_COMMIT, RCVD_REMOVE_ACK_REVOCATION },
+		{ SENT_ADD_ACK_COMMIT, RCVD_ADD_ACK_REVOCATION },
+		{ SENT_REMOVE_COMMIT, RCVD_REMOVE_REVOCATION }
+	};
+
+	err = accept_pkt_revocation(peer, pkt, ci);
+	if (err)
+		return err;
+
+	/* BOLT #2:
+	 *
+	 * The receiver of `update_revocation`... MUST add the remote
+	 * unacked changes to the set of local acked changes.
+	 */
+	add_acked_changes(&peer->local.commit->acked_changes,
+			  ci->unacked_changes);
+	apply_changeset(peer, &peer->local, OURS,
+			ci->unacked_changes,
+			tal_count(ci->unacked_changes));
+
+	if (!htlcs_changestate(peer, changes, ARRAY_SIZE(changes)))
+		fatal("Revocation received but we made empty commitment?");
+
+	/* Should never examine these again. */
+	ci->unacked_changes = tal_free(ci->unacked_changes);
+
+	/* That revocation has committed them to changes in the current
+	 * commitment.  Any acked changes come from our commitment, so those
+	 * are now committed by both of us. */
+	peer_both_committed_to(peer, ci->acked_changes, THEIRS);
+	return NULL;
+}	
 
 /* This is the io loop while we're clearing. */
 static bool clearing_pkt_in(struct peer *peer, const Pkt *pkt)
@@ -436,7 +618,7 @@ static bool clearing_pkt_in(struct peer *peer, const Pkt *pkt)
 		if (peer->state == STATE_CLEARING)
 			err = pkt_err_unexpected(peer, pkt);
 		else {
-			err = accept_pkt_revocation(peer, pkt);
+			err = handle_pkt_revocation(peer, pkt);
 			if (!err) {
 				set_peer_state(peer, STATE_CLEARING, __func__);
 				peer_update_complete(peer);
@@ -452,7 +634,7 @@ static bool clearing_pkt_in(struct peer *peer, const Pkt *pkt)
 		if (peer->closing.their_script)
 			err = pkt_err(peer, "Update during clearing");
 		else
-			err = accept_pkt_htlc_add(peer, pkt);
+			err = handle_pkt_htlc_add(peer, pkt);
 		break;
 			
 	case PKT__PKT_CLOSE_CLEARING:
@@ -466,10 +648,10 @@ static bool clearing_pkt_in(struct peer *peer, const Pkt *pkt)
 		break;
 			
 	case PKT__PKT_UPDATE_FULFILL_HTLC:
-		err = accept_pkt_htlc_fulfill(peer, pkt);
+		err = handle_pkt_htlc_fulfill(peer, pkt);
 		break;
 	case PKT__PKT_UPDATE_FAIL_HTLC:
-		err = accept_pkt_htlc_fail(peer, pkt);
+		err = handle_pkt_htlc_fail(peer, pkt);
 		break;
 	case PKT__PKT_UPDATE_COMMIT:
 		err = handle_pkt_commit(peer, pkt);
@@ -542,15 +724,15 @@ static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 
 	switch (pkt->pkt_case) {
 	case PKT_UPDATE_ADD_HTLC:
-		err = accept_pkt_htlc_add(peer, pkt);
+		err = handle_pkt_htlc_add(peer, pkt);
 		break;
 		
 	case PKT_UPDATE_FULFILL_HTLC:
-		err = accept_pkt_htlc_fulfill(peer, pkt);
+		err = handle_pkt_htlc_fulfill(peer, pkt);
 		break;
 
 	case PKT_UPDATE_FAIL_HTLC:
-		err = accept_pkt_htlc_fail(peer, pkt);
+		err = handle_pkt_htlc_fail(peer, pkt);
 		break;
 
 	case PKT_UPDATE_COMMIT:
@@ -574,7 +756,7 @@ static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 
 	case PKT_UPDATE_REVOCATION:
 		if (peer->state == STATE_NORMAL_COMMITTING) {
-			err = accept_pkt_revocation(peer, pkt);
+			err = handle_pkt_revocation(peer, pkt);
 			if (!err) {
 				peer_update_complete(peer);
 				set_peer_state(peer, STATE_NORMAL, __func__);
@@ -785,13 +967,9 @@ static bool fulfill_onchain(struct peer *peer, struct htlc *htlc)
 }
 
 static bool command_htlc_fulfill(struct peer *peer,
-				 struct htlc *htlc,
-				 const struct rval *r)
+				 struct htlc *htlc)
 {
 	union htlc_staging stage;
-
-	assert(!htlc->r);
-	htlc->r = tal_dup(htlc, struct rval, r);
 
 	if (peer->state == STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL
 	    || peer->state == STATE_CLOSE_ONCHAIN_OUR_UNILATERAL) {
@@ -812,7 +990,7 @@ static bool command_htlc_fulfill(struct peer *peer,
 
 	stage.fulfill.fulfill = HTLC_FULFILL;
 	stage.fulfill.htlc = htlc;
-	stage.fulfill.r = *r;
+	stage.fulfill.r = *htlc->r;
 	add_unacked(&peer->remote, &stage);
 	htlc_changestate(htlc, RCVD_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
 
@@ -2051,11 +2229,11 @@ static void resolve_our_htlcs(struct peer *peer,
 void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc,
 			const struct rval *preimage)
 {
-	if (htlc->src)
-		command_htlc_fulfill(htlc->src->peer, htlc->src, preimage);
-	else {
-		assert(!htlc->r);
-		htlc->r = tal_dup(htlc, struct rval, preimage);
+	if (htlc->src) {
+		assert(!htlc->src->r);
+		htlc->src->r = tal_dup(htlc->src, struct rval, htlc->r);
+		command_htlc_fulfill(htlc->src->peer, htlc->src);
+	} else {
 		complete_pay_command(peer, htlc);
 	}
 }
@@ -2921,7 +3099,10 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc)
 
 		log_info(peer->log, "Immediately resolving HTLC %"PRIu64,
 			 htlc->id);
-		command_htlc_fulfill(peer, htlc, &payment->r);
+
+		assert(!htlc->r);
+		htlc->r = tal_dup(htlc, struct rval, &payment->r);
+		command_htlc_fulfill(peer, htlc);
 		goto free_rest;
 
 	case ROUTE_STEP__NEXT_BITCOIN:
@@ -3336,7 +3517,10 @@ static void json_fulfillhtlc(struct command *cmd,
 		return;
 	}
 
-	if (command_htlc_fulfill(peer, htlc, &r))
+	assert(!htlc->r);
+	htlc->r = tal_dup(htlc, struct rval, &r);
+
+	if (command_htlc_fulfill(peer, htlc))
 		command_success(cmd, null_response(cmd));
 	else
 		command_fail(cmd,

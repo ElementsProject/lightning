@@ -73,6 +73,7 @@ static inline bool state_can_remove_htlc(enum state s)
 
 struct peer;
 struct bitcoin_tx;
+struct commit_info;
 
 static inline bool input_is_pkt(enum state_input input)
 {
@@ -115,25 +116,32 @@ void queue_pkt_err(struct peer *peer, Pkt *err);
 Pkt *pkt_err_unexpected(struct peer *peer, const Pkt *pkt);
 
 /* Process various packets: return an error packet on failure. */
-Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt,
+		     struct sha256 *revocation_hash,
+		     struct sha256 *next_revocation_hash);
+
 
 Pkt *accept_pkt_anchor(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_open_commit_sig(struct peer *peer, const Pkt *pkt);
-	
+Pkt *accept_pkt_open_commit_sig(struct peer *peer, const Pkt *pkt,
+				struct bitcoin_signature **sig);
+
 Pkt *accept_pkt_open_complete(struct peer *peer, const Pkt *pkt);
 	
-Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt, struct htlc **h);
 
-Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt, struct htlc **h);
 
-Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt, struct htlc **h);
 
 Pkt *accept_pkt_update_accept(struct peer *peer, const Pkt *pkt);
 
-Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt,
+		       struct bitcoin_signature *sig);
 
-Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt);
+Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt,
+			   struct commit_info *ci);
+
 Pkt *accept_pkt_close_clearing(struct peer *peer, const Pkt *pkt);
 
 /**
