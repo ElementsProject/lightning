@@ -60,7 +60,8 @@ static void queue_raw_pkt(struct peer *peer, Pkt *pkt)
 	tal_resize(&peer->outpkt, n+1);
 	peer->outpkt[n] = pkt;
 
-	log_debug(peer->log, "Queued pkt %s", pkt_name(pkt->pkt_case));
+	log_debug(peer->log, "Queued pkt %s (order=%"PRIu64")",
+		  pkt_name(pkt->pkt_case), peer->order_counter);
 
 	/* In case it was waiting for output. */
 	io_wake(peer);
@@ -178,14 +179,13 @@ void queue_pkt_htlc_fail(struct peer *peer, struct htlc *htlc)
 }
 
 /* OK, we're sending a signature for their pending changes. */
-void queue_pkt_commit(struct peer *peer)
+void queue_pkt_commit(struct peer *peer, const struct bitcoin_signature *sig)
 {
 	UpdateCommit *u = tal(peer, UpdateCommit);
 
 	/* Now send message */
 	update_commit__init(u);
-	u->sig = signature_to_proto(u, peer->dstate->secpctx,
-				    &peer->remote.commit->sig->sig);
+	u->sig = signature_to_proto(u, peer->dstate->secpctx, &sig->sig);
 
 	queue_pkt(peer, PKT__PKT_UPDATE_COMMIT, u);
 }
@@ -202,9 +202,7 @@ void queue_pkt_revocation(struct peer *peer,
 	update_revocation__init(u);
 
 	u->revocation_preimage = sha256_to_proto(u, preimage);
-
-	u->next_revocation_hash
-		= sha256_to_proto(u, &peer->local.next_revocation_hash);
+	u->next_revocation_hash	= sha256_to_proto(u, next_hash);
 	queue_pkt(peer, PKT__PKT_UPDATE_REVOCATION, u);
 }
 
@@ -220,6 +218,14 @@ Pkt *pkt_err(struct peer *peer, const char *msg, ...)
 
 	log_unusual(peer->log, "Sending PKT_ERROR: %s", e->problem);
 	return make_pkt(peer, PKT__PKT_ERROR, e);
+}
+
+Pkt *pkt_reconnect(struct peer *peer, u64 ack)
+{
+	Reconnect *r = tal(peer, Reconnect);
+	reconnect__init(r);
+	r->ack = ack;
+	return make_pkt(peer, PKT__PKT_RECONNECT, r);
 }
 
 void queue_pkt_err(struct peer *peer, Pkt *err)
@@ -440,7 +446,8 @@ Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt, struct htlc **h)
 	return NULL;
 }
 
-Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt, struct htlc **h)
+Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt, struct htlc **h,
+			     bool *was_already_fulfilled)
 {
 	const UpdateFulfillHtlc *f = pkt->update_fulfill_htlc;
 	struct sha256 rhash;
@@ -458,8 +465,12 @@ Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt, struct htlc **h)
 	if (!structeq(&rhash, &(*h)->rhash))
 		return pkt_err(peer, "Invalid r for %"PRIu64, f->id);
 
-	assert(!(*h)->r);
-	(*h)->r = tal_dup(*h, struct rval, &r);
+	if ((*h)->r) {
+		*was_already_fulfilled = true;
+	} else {
+		*was_already_fulfilled = false;
+		(*h)->r = tal_dup(*h, struct rval, &r);
+	}
 	return NULL;
 }
 
@@ -489,8 +500,11 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	 * transaction, and MUST fail if it does not.
 	 */
 	sha256(&h, &preimage, sizeof(preimage));
-	if (!structeq(&h, peer->their_prev_revocation_hash))
+	if (!structeq(&h, peer->their_prev_revocation_hash)) {
+		log_unusual(peer->log, "Incorrect preimage for %"PRIu64,
+			    peer->remote.commit->commit_num - 1);
 		return pkt_err(peer, "complete preimage incorrect");
+	}
 
 	// save revocation preimages in shachain
 	if (!shachain_add_hash(&peer->their_preimages,
@@ -498,6 +512,9 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 			       - (peer->remote.commit->commit_num - 1),
 			       &preimage))
 		return pkt_err(peer, "preimage not next in shachain");
+
+	log_debug(peer->log, "Got revocation preimage %"PRIu64,
+		  peer->remote.commit->commit_num - 1);
 
 	/* Clear the previous revocation hash. */
 	peer->their_prev_revocation_hash

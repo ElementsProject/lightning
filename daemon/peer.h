@@ -50,6 +50,8 @@ struct commit_info {
 	struct channel_state *cstate;
 	/* Other side's signature for last commit tx (if known) */
 	struct bitcoin_signature *sig;
+	/* Order which commit was sent (theirs) / revocation was sent (ours) */
+	u64 order;
 };
 
 struct peer_visible_state {
@@ -89,6 +91,12 @@ struct peer {
 	/* Network connection. */
 	struct io_conn *conn;
 
+	/* Did we connect to it? (Otherwise, they connected to us) */
+	bool we_connected;
+
+	/* Are we connected now? (Crypto handshake completed). */
+	bool connected;
+	
 	/* If we're doing a commit, this is the command which triggered it */
 	struct command *commit_jsoncmd;
 
@@ -104,6 +112,9 @@ struct peer {
 	/* Their ID. */
 	struct pubkey *id;
 
+	/* Order counter for transmission of revocations/commitments. */
+	u64 order_counter;
+	
 	/* Current received packet. */
 	Pkt *inpkt;
 
@@ -153,6 +164,10 @@ struct peer {
 		u64 their_fee;
 		/* scriptPubKey we/they want for closing. */
 		u8 *our_script, *their_script;
+		/* Last sent (in case we need to retransmit) */
+		u64 shutdown_order, closing_order;
+		/* How many closing sigs have we receieved? */
+		u32 sigs_in;
 	} closing;
 
 	/* If we're closing on-chain */
@@ -248,5 +263,6 @@ void peer_open_complete(struct peer *peer, const char *problem);
 
 struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee);
 
+void reconnect_peers(struct lightningd_state *dstate);
 void cleanup_peers(struct lightningd_state *dstate);
 #endif /* LIGHTNING_DAEMON_PEER_H */

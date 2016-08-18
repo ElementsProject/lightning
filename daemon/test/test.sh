@@ -7,6 +7,10 @@ cd `git rev-parse --show-toplevel`/daemon/test
 
 scripts/setup.sh
 
+# Bash variables for in-depth debugging.
+#set -vx
+#export PS4='+(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
+
 DIR1=/tmp/lightning.$$.1
 DIR2=/tmp/lightning.$$.2
 DIR3=/tmp/lightning.$$.3
@@ -67,6 +71,9 @@ while [ $# != 0 ]; do
 	    ;;
 	x"--normal")
 	    ;;
+	x"--reconnect")
+	    RECONNECT=1
+	    ;;
 	x"--crash")
 	    CRASH_ON_FAIL=1
 	    ;;
@@ -97,6 +104,24 @@ lcli1()
 	echo $LCLI1 "$@" >&2
     fi
     $LCLI1 "$@"
+    STATUS=$?
+    if [ -n "$DO_RECONNECT" ]; then
+	case "$1" in
+	    # Don't restart on every get* command.
+	    get*)
+	    ;;
+	    dev-mocktime*)
+	    ;;
+	    stop)
+	    ;;
+	    *)
+		[ -z "$VERBOSE" ] || echo RECONNECTING >&2
+		$LCLI1 dev-reconnect $ID2 >/dev/null 
+		sleep 1
+		;;
+	esac
+    fi
+    return $STATUS
 }
 
 lcli2()
@@ -347,6 +372,8 @@ lcli1 connect localhost $PORT2 $TX
 # Expect them to be waiting for anchor.
 check_peerstate lcli1 STATE_OPEN_WAITING_OURANCHOR
 check_peerstate lcli2 STATE_OPEN_WAITING_THEIRANCHOR
+
+DO_RECONNECT=$RECONNECT
 
 if [ -n "$TIMEOUT_ANCHOR" ]; then
     # Check anchor emitted, not mined deep enough.
@@ -741,6 +768,7 @@ B_AMOUNT=$(($B_AMOUNT - $HTLC_AMOUNT))
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 # Now, test making more changes before receiving commit reply.
+DO_RECONNECT=""
 lcli2 dev-output $ID1 false
 HTLCID=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH | extract_id`
 
@@ -765,6 +793,8 @@ lcli2 dev-output $ID1 true
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+
+DO_RECONNECT=$RECONNECT
 
 # Both sides should be committed to htlcs
 # We open-code check_status here: HTLCs could be in either order.

@@ -157,3 +157,24 @@ void htlc_changestate(struct htlc *h,
 
 	h->state = newstate;
 }
+
+void htlc_undostate(struct htlc *h,
+		    enum htlc_state oldstate,
+		    enum htlc_state newstate)
+{
+	log_debug(h->peer->log, "htlc %"PRIu64": %s->%s", h->id,
+		  htlc_state_name(h->state), htlc_state_name(newstate));
+	assert(h->state == oldstate);
+
+	/* You can only return to previous state. */
+	assert(newstate == h->state - 1);
+
+	/* And must only be proposal, not commit. */
+	assert(h->state == SENT_REMOVE_HTLC || h->state == RCVD_REMOVE_HTLC);
+
+	/* You can't change sides. */
+	assert((htlc_state_flags(h->state)&(HTLC_LOCAL_F_OWNER|HTLC_REMOTE_F_OWNER))
+	       == (htlc_state_flags(newstate)&(HTLC_LOCAL_F_OWNER|HTLC_REMOTE_F_OWNER)));
+
+	h->state = newstate;
+}

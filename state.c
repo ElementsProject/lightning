@@ -148,6 +148,7 @@ enum state state(struct peer *peer,
 			peer_add_their_commit(peer, &peer->remote.commit->txid,
 					      peer->remote.commit->commit_num);
 
+			peer->remote.commit->order = peer->order_counter++;
 			queue_pkt_open_commit_sig(peer);
 			peer_watch_anchor(peer,
 					  peer->local.mindepth,

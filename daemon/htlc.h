@@ -105,6 +105,9 @@ static inline enum channel_side htlc_channel_side(const struct htlc *h)
 	return THEIRS;
 }
 
+void htlc_undostate(struct htlc *h,
+		    enum htlc_state oldstate, enum htlc_state newstate);
+
 /* htlc_map: ID -> htlc mapping. */
 static inline u64 htlc_key(const struct htlc *h)
 {

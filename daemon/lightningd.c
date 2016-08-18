@@ -344,6 +344,9 @@ int main(int argc, char *argv[])
 	
 	log_info(dstate->base_log, "Hello world!");
 
+	/* If we loaded peers from database, reconnect now. */
+	reconnect_peers(dstate);
+	
 	for (;;) {
 		struct timer *expired;
 		void *v = io_loop(&dstate->timers, &expired);

@@ -17,7 +17,7 @@ void queue_pkt_open_complete(struct peer *peer);
 void queue_pkt_htlc_add(struct peer *peer, struct htlc *htlc);
 void queue_pkt_htlc_fulfill(struct peer *peer, struct htlc *htlc);
 void queue_pkt_htlc_fail(struct peer *peer, struct htlc *htlc);
-void queue_pkt_commit(struct peer *peer);
+void queue_pkt_commit(struct peer *peer, const struct bitcoin_signature *sig);
 void queue_pkt_revocation(struct peer *peer,
 			  const struct sha256 *preimage,
 			  const struct sha256 *next_hash);
@@ -25,6 +25,7 @@ void queue_pkt_close_shutdown(struct peer *peer);
 void queue_pkt_close_signature(struct peer *peer);
 
 Pkt *pkt_err(struct peer *peer, const char *msg, ...);
+Pkt *pkt_reconnect(struct peer *peer, u64 ack);
 void queue_pkt_err(struct peer *peer, Pkt *err);
 Pkt *pkt_err_unexpected(struct peer *peer, const Pkt *pkt);
 
@@ -44,7 +45,8 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt, struct htlc **h);
 
 Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt, struct htlc **h);
 
-Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt, struct htlc **h);
+Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt, struct htlc **h,
+			     bool *was_already_fulfilled);
 
 Pkt *accept_pkt_update_accept(struct peer *peer, const Pkt *pkt);
 

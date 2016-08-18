@@ -66,6 +66,7 @@ extern const struct json_command commit_command;
 extern const struct json_command mocktime_command;
 extern const struct json_command close_command;
 extern const struct json_command newaddr_command;
+extern const struct json_command reconnect_command;
 extern const struct json_command disconnect_command;
 extern const struct json_command signcommit_command;
 extern const struct json_command output_command;

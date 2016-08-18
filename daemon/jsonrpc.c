@@ -263,6 +263,7 @@ static const struct json_command *cmdlist[] = {
 	&mocktime_command,
 	&crash_command,
 	&disconnect_command,
+	&reconnect_command,
 	&signcommit_command,
 	&output_command,
 	&add_route_command,
