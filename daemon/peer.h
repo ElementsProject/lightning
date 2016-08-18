@@ -247,7 +247,7 @@ struct htlc *peer_new_htlc(struct peer *peer,
 			   const u8 *route,
 			   size_t route_len,
 			   struct htlc *src,
-			   enum channel_side side);
+			   enum htlc_state state);
 
 struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
 			      unsigned int expiry,

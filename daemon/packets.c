@@ -635,7 +635,7 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	htlc = peer_new_htlc(peer, u->id, u->amount_msat, &rhash,
 			     abs_locktime_to_blocks(&expiry),
 			     u->route->info.data, u->route->info.len,
-			     NULL, THEIRS);
+			     NULL, RCVD_ADD_HTLC);
 
 	/* BOLT #2:
 	 *

@@ -739,7 +739,7 @@ struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
 
 	htlc = peer_new_htlc(peer, peer->htlc_id_counter,
 			     msatoshis, rhash, expiry, route, tal_count(route),
-			     src, OURS);
+			     src, SENT_ADD_HTLC);
 
 	/* FIXME: BOLT is not correct here: we should say IFF we cannot
 	 * afford it in remote at its own current proposed fee-rate. */
@@ -1008,11 +1008,12 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 static void htlc_destroy(struct htlc *htlc)
 {
 	struct htlc_map *map;
-	
-	if (htlc->side == OURS)
+
+	/* FIXME: make peer->local/remote an array*/
+	if (htlc_owner(htlc) == LOCAL)
 		map = &htlc->peer->local.htlcs;
 	else {
-		assert(htlc->side == THEIRS);
+		assert(htlc_owner(htlc) == REMOTE);
 		map = &htlc->peer->remote.htlcs;
 	}
 
@@ -1028,11 +1029,11 @@ struct htlc *peer_new_htlc(struct peer *peer,
 			   const u8 *route,
 			   size_t routelen,
 			   struct htlc *src,
-			   enum channel_side side)
+			   enum htlc_state state)
 {
 	struct htlc *h = tal(peer, struct htlc);
 	h->peer = peer;
-	h->side = side;
+	assert(state == SENT_ADD_HTLC || state == RCVD_ADD_HTLC);
 	h->id = id;
 	h->msatoshis = msatoshis;
 	h->rhash = *rhash;
@@ -1041,7 +1042,7 @@ struct htlc *peer_new_htlc(struct peer *peer,
 		fatal("Invalid HTLC expiry %u", expiry);
 	h->routing = tal_dup_arr(h, u8, route, routelen, 0);
 	h->src = src;
-	if (side == OURS) {
+	if (htlc_owner(h) == LOCAL) {
 		if (src) {
 			h->deadline = abs_locktime_to_blocks(&src->expiry)
 				- peer->dstate->config.deadline_blocks;
@@ -1051,7 +1052,7 @@ struct htlc *peer_new_htlc(struct peer *peer,
 				+ peer->dstate->config.min_htlc_expiry;
 		htlc_map_add(&peer->local.htlcs, h);
 	} else {
-		assert(side == THEIRS);
+		assert(htlc_owner(h) == REMOTE);
 		htlc_map_add(&peer->remote.htlcs, h);
 	}
 	tal_add_destructor(h, htlc_destroy);

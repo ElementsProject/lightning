@@ -20,6 +20,7 @@ DAEMON_SRC :=					\
 	daemon/controlled_time.c		\
 	daemon/cryptopkt.c			\
 	daemon/dns.c				\
+	daemon/htlc.c				\
 	daemon/jsonrpc.c			\
 	daemon/lightningd.c			\
 	daemon/netaddr.c			\
@@ -45,6 +46,8 @@ DAEMON_CLI_OBJS := $(DAEMON_CLI_SRC:.c=.o)
 DAEMON_JSMN_OBJS := daemon/jsmn.o
 DAEMON_JSMN_HEADERS := daemon/jsmn/jsmn.h
 
+DAEMON_GEN_HEADERS := daemon/gen_htlc_state_names.h
+
 DAEMON_HEADERS :=				\
 	daemon/bitcoind.h			\
 	daemon/chaintopology.h			\
@@ -54,6 +57,7 @@ DAEMON_HEADERS :=				\
 	daemon/cryptopkt.h			\
 	daemon/dns.h				\
 	daemon/htlc.h				\
+	daemon/htlc_state.h			\
 	daemon/json.h				\
 	daemon/jsonrpc.h			\
 	daemon/lightningd.h			\
@@ -71,7 +75,10 @@ DAEMON_HEADERS :=				\
 	daemon/wallet.h				\
 	daemon/watch.h
 
-$(DAEMON_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_CLI_OBJS): $(DAEMON_HEADERS) $(DAEMON_JSMN_HEADERS) $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS) $(CCAN_HEADERS)
+daemon/gen_htlc_state_names.h: daemon/htlc_state.h ccan/ccan/cdump/tools/cdump-enumstr
+	ccan/ccan/cdump/tools/cdump-enumstr daemon/htlc_state.h > $@
+
+$(DAEMON_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_CLI_OBJS): $(DAEMON_HEADERS) $(DAEMON_JSMN_HEADERS) $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS) $(DAEMON_GEN_HEADERS) $(CCAN_HEADERS)
 $(DAEMON_JSMN_OBJS): $(DAEMON_JSMN_HEADERS)
 
 check-source: $(DAEMON_SRC:%=check-src-include-order/%)
@@ -79,7 +86,7 @@ check-source: $(DAEMON_LIB_SRC:%=check-src-include-order/%)
 check-source: $(DAEMON_CLI_SRC:%=check-src-include-order/%)
 check-source: $(DAEMON_HEADERS:%=check-hdr-include-order/%)
 check-daemon-makefile:
-	@if [ "`echo daemon/*.h`" != "$(DAEMON_HEADERS)" ]; then echo DAEMON_HEADERS incorrect; exit 1; fi
+	@if [ "`ls daemon/*.h | grep -v daemon/gen | tr '\012' ' '`" != "`echo $(DAEMON_HEADERS) ''`" ]; then echo DAEMON_HEADERS incorrect; exit 1; fi
 
 # Git submodules are seriously broken.
 daemon/jsmn/jsmn.c daemon/jsmn/jsmn.h:
@@ -95,3 +102,6 @@ daemon/lightning-cli: $(DAEMON_CLI_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_JSMN_OBJS) 
 
 daemon-clean:
 	$(RM) $(DAEMON_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_CLI_OBJS) $(DAEMON_JSMN_OBJS)
+
+daemon-maintainer-clean:
+	$(RM) $(DAEMON_GEN_HEADERS)

@@ -3,19 +3,56 @@
 #include "config.h"
 #include "bitcoin/locktime.h"
 #include "channel.h"
+#include "htlc_state.h"
 #include "pseudorand.h"
+#include <assert.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/short_types/short_types.h>
+
+/* What are we doing: adding or removing? */
+#define HTLC_ADDING			0x400
+#define HTLC_REMOVING			0x800
+
+/* Uncommitted change is pending */
+#define HTLC_F_PENDING			0x01
+/* HTLC is in commit_tx */
+#define HTLC_F_COMMITTED		0x02
+/* We have revoked the previous commit_tx */
+#define HTLC_F_REVOKED			0x04
+/* We offered it it. */
+#define HTLC_F_OWNER			0x08
+/* HTLC was ever in a commit_tx */
+#define HTLC_F_WAS_COMMITTED		0x10
+
+/* Each of the above flags applies to both sides */
+enum htlc_side {
+	LOCAL,
+	REMOTE
+};
+
+#define HTLC_FLAG(side,flag)		((flag) << ((side) * 5))
+
+#define HTLC_REMOTE_F_PENDING		HTLC_FLAG(REMOTE,HTLC_F_PENDING)
+#define HTLC_REMOTE_F_COMMITTED		HTLC_FLAG(REMOTE,HTLC_F_COMMITTED)
+#define HTLC_REMOTE_F_REVOKED		HTLC_FLAG(REMOTE,HTLC_F_REVOKED)
+#define HTLC_REMOTE_F_OWNER		HTLC_FLAG(REMOTE,HTLC_F_OWNER)
+#define HTLC_REMOTE_F_WAS_COMMITTED	HTLC_FLAG(REMOTE,HTLC_F_WAS_COMMITTED)
+
+#define HTLC_LOCAL_F_PENDING		HTLC_FLAG(LOCAL,HTLC_F_PENDING)
+#define HTLC_LOCAL_F_COMMITTED		HTLC_FLAG(LOCAL,HTLC_F_COMMITTED)
+#define HTLC_LOCAL_F_REVOKED		HTLC_FLAG(LOCAL,HTLC_F_REVOKED)
+#define HTLC_LOCAL_F_OWNER		HTLC_FLAG(LOCAL,HTLC_F_OWNER)
+#define HTLC_LOCAL_F_WAS_COMMITTED	HTLC_FLAG(LOCAL,HTLC_F_WAS_COMMITTED)
 
 struct htlc {
 	/* Useful for debugging, and decoding via ->src. */
 	struct peer *peer;
 	/* Block number where we abort if it's still live (OURS only) */
 	u32 deadline;
-	/* Did we create it, or did they? */
-	enum channel_side side; 
+	/* What's the status. */
+	enum htlc_state state; 
 	/* The unique ID for this peer and this direction (ours or theirs) */
 	u64 id;
 	/* The amount in millisatoshi. */
@@ -34,6 +71,40 @@ struct htlc {
 	struct htlc *src;
 };
 
+const char *htlc_state_name(enum htlc_state s);
+void htlc_changestate(struct htlc *h,
+		      enum htlc_state oldstate,
+		      enum htlc_state newstate);
+int htlc_state_flags(enum htlc_state state);
+
+static inline bool htlc_has(const struct htlc *h, int flag)
+{
+	return htlc_state_flags(h->state) & flag;
+}
+
+static inline enum htlc_side htlc_owner(const struct htlc *h)
+{
+	if (h->state < RCVD_ADD_HTLC) {
+		assert((htlc_state_flags(h->state)
+			& (HTLC_REMOTE_F_OWNER|HTLC_LOCAL_F_OWNER))
+		       == HTLC_LOCAL_F_OWNER);
+		return LOCAL;
+	} else {
+		assert((htlc_state_flags(h->state)
+			& (HTLC_REMOTE_F_OWNER|HTLC_LOCAL_F_OWNER))
+		       == HTLC_REMOTE_F_OWNER);
+		return REMOTE;
+	}
+}
+
+/* FIXME: Transitional function. */
+static inline enum channel_side htlc_channel_side(const struct htlc *h)
+{
+	if (htlc_owner(h) == LOCAL)
+		return OURS;
+	return THEIRS;
+}
+
 /* htlc_map: ID -> htlc mapping. */
 static inline u64 htlc_key(const struct htlc *h)
 {
@@ -48,6 +119,20 @@ static inline size_t htlc_hash(u64 id)
 	return siphash24(siphash_seed(), &id, sizeof(id));
 }
 HTABLE_DEFINE_TYPE(struct htlc, htlc_key, htlc_hash, htlc_cmp, htlc_map);
+
+static inline struct htlc *htlc_get(struct htlc_map *htlcs, u64 id, enum htlc_side owner)
+{
+	struct htlc *h;
+	struct htlc_map_iter it;
+
+	for (h = htlc_map_getfirst(htlcs, id, &it);
+	     h;
+	     h = htlc_map_getnext(htlcs, id, &it)) {
+		if (h->id == id && htlc_has(h, HTLC_FLAG(owner,HTLC_F_OWNER)))
+			return h;
+	}
+	return NULL;
+}
 
 static inline size_t htlc_map_count(const struct htlc_map *htlcs)
 {
