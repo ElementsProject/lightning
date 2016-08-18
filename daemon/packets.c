@@ -313,18 +313,8 @@ void queue_pkt_commit(struct peer *peer)
 	 * changes except unacked fee changes to the remote commitment
 	 * before generating `sig`. */
 	ci->cstate = copy_cstate(ci, peer->remote.staging_cstate);
-	ci->tx = create_commit_tx(ci, peer->dstate->secpctx,
-				  &peer->local.finalkey,
-				  &peer->remote.finalkey,
-				  &peer->local.locktime,
-				  &peer->remote.locktime,
-				  &peer->anchor.txid,
-				  peer->anchor.index,
-				  peer->anchor.satoshis,
-				  &ci->revocation_hash,
-				  ci->cstate,
-				  THEIRS,
-				  &ci->map);
+	ci->tx = create_commit_tx(ci, peer, &ci->revocation_hash,
+				  ci->cstate, REMOTE, &ci->map);
 
 	log_debug(peer->log, "Signing tx for %u/%u msatoshis, %zu/%zu htlcs",
 		  ci->cstate->side[OURS].pay_msat,
@@ -827,18 +817,8 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt)
 	 */
 	/* (We already applied them to staging_cstate as we went) */
 	ci->cstate = copy_cstate(ci, peer->local.staging_cstate);
-	ci->tx = create_commit_tx(ci, peer->dstate->secpctx,
-				  &peer->local.finalkey,
-				  &peer->remote.finalkey,
-				  &peer->local.locktime,
-				  &peer->remote.locktime,
-				  &peer->anchor.txid,
-				  peer->anchor.index,
-				  peer->anchor.satoshis,
-				  &ci->revocation_hash,
-				  ci->cstate,
-				  OURS,
-				  &ci->map);
+	ci->tx = create_commit_tx(ci, peer, &ci->revocation_hash,
+				  ci->cstate, LOCAL, &ci->map);
 
 	/* BOLT #2:
 	 *

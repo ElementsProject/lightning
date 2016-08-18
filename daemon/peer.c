@@ -581,12 +581,7 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 	htlc = htlc_by_index(ci, i);
 	assert(htlc->r);
 
-	wscript = wscript_for_htlc(peer, peer->dstate->secpctx, htlc,
-				   &peer->local.finalkey,
-				   &peer->remote.finalkey,
-				   &peer->local.locktime,
-				   &peer->remote.locktime,
-				   &ci->revocation_hash,
+	wscript = wscript_for_htlc(peer, peer, htlc, &ci->revocation_hash,
 				   REMOTE);
 
 	tx->input[0].index = ci->map[i];
@@ -2817,31 +2812,17 @@ bool setup_first_commit(struct peer *peer)
         return false;
 
 	peer->local.commit->tx = create_commit_tx(peer->local.commit,
-						  peer->dstate->secpctx,
-						  &peer->local.finalkey,
-						  &peer->remote.finalkey,
-						  &peer->local.locktime,
-						  &peer->remote.locktime,
-						  &peer->anchor.txid,
-						  peer->anchor.index,
-						  peer->anchor.satoshis,
+						  peer,
 						  &peer->local.commit->revocation_hash,
 						  peer->local.commit->cstate,
-						  OURS,
+						  LOCAL,
 						  &peer->local.commit->map);
 
 	peer->remote.commit->tx = create_commit_tx(peer->remote.commit,
-						   peer->dstate->secpctx,
-						   &peer->local.finalkey,
-						   &peer->remote.finalkey,
-						   &peer->local.locktime,
-						   &peer->remote.locktime,
-						   &peer->anchor.txid,
-						   peer->anchor.index,
-						   peer->anchor.satoshis,
+						   peer,
 						   &peer->remote.commit->revocation_hash,
 						   peer->remote.commit->cstate,
-						   THEIRS,
+						   REMOTE,
 						   &peer->remote.commit->map);
 
 	peer->local.staging_cstate = copy_cstate(peer, peer->local.commit->cstate);
