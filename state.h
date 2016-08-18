@@ -94,6 +94,7 @@ static inline bool input_is(enum state_input a, enum state_input b)
 /**
  * peer_watch_anchor: create a watch for the anchor transaction.
  * @peer: the state data for this peer.
+ * @depth: depth at which to fire @depthok.
  * @depthok: the input to give when anchor reaches expected depth.
  * @timeout: the input to give if anchor doesn't reach depth in time.
  *
@@ -101,19 +102,9 @@ static inline bool input_is(enum state_input a, enum state_input b)
  * ourselves out).
  */
 void peer_watch_anchor(struct peer *peer,
+		       int depth,
 		       enum state_input depthok,
 		       enum state_input timeout);
-/**
- * peer_unwatch_anchor_depth: remove depth watch for the anchor.
- * @peer: the state data for this peer.
- * @depthok: the input to give when anchor reaches expected depth.
- * @timeout: the input to give if anchor doesn't reach depth in time.
- *
- * @depthok and @timeout must match bitcoin_watch_anchor() call.
- */
-void peer_unwatch_anchor_depth(struct peer *peer,
-			       enum state_input depthok,
-			       enum state_input timeout);
 
 /* Start creation of the bitcoin anchor tx. */
 void bitcoin_create_anchor(struct peer *peer, enum state_input done);

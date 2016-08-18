@@ -149,7 +149,9 @@ struct peer {
 	
 		/* If we created it, we keep entire tx. */
 		const struct bitcoin_tx *tx;
-		struct anchor_watch *watches;
+
+		/* Depth to trigger anchor if still opening, or -1. */
+		int ok_depth;
 	} anchor;
 
 	struct {

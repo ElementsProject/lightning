@@ -1792,7 +1792,7 @@ static struct peer *new_peer(struct lightningd_state *dstate,
 	peer->commit_jsoncmd = NULL;
 	list_head_init(&peer->outgoing_txs);
 	list_head_init(&peer->pay_commands);
-	peer->anchor.watches = NULL;
+	peer->anchor.ok_depth = -1;
 	peer->cur_commit.watch = NULL;
 	peer->closing.their_sig = NULL;
 	peer->closing.our_script = NULL;
@@ -2166,30 +2166,16 @@ again:
 	}
 }
 
-struct anchor_watch {
-	struct peer *peer;
-	enum state_input depthok;
-	enum state_input timeout;
-
-	/* If timeout != INPUT_NONE, this is the timer. */
-	struct oneshot *timer;
-};
-
 static enum watch_result anchor_depthchange(struct peer *peer,
 					    unsigned int depth,
 					    const struct sha256_double *txid,
 					    void *unused)
 {
-	struct anchor_watch *w = peer->anchor.watches;
-
 	/* Still waiting for it to reach depth? */
-	if (w->depthok != INPUT_NONE) {
-		if (depth >= peer->local.mindepth) {
-			enum state_input in = w->depthok;
-			w->depthok = INPUT_NONE;
-			/* We don't need the timeout timer any more. */
-			w->timer = tal_free(w->timer);
-			state_event(peer, in, NULL);
+	if (state_is_opening(peer->state)) {
+		if ((int)depth >= peer->anchor.ok_depth) {
+			state_event(peer, BITCOIN_ANCHOR_DEPTHOK, NULL);
+			peer->anchor.ok_depth = -1;
 		}
 	} else if (depth == 0)
 		/* FIXME: Report losses! */
@@ -3010,8 +2996,6 @@ static enum watch_result anchor_spent(struct peer *peer,
 		set_peer_state(peer,
 			       STATE_ERR_INFORMATION_LEAK,
 			       "anchor_spent");
-		/* No longer call into the state machine. */
-		peer->anchor.watches->depthok = INPUT_NONE;
 		return DELETE_WATCH;
 	}
 
@@ -3037,34 +3021,28 @@ static enum watch_result anchor_spent(struct peer *peer,
 	assert(peer->closing_onchain.resolved != NULL);
 	watch_tx(tx, peer, tx, check_for_resolution, NULL);
 
-	/* No longer call into the state machine. */
-	peer->anchor.watches->depthok = INPUT_NONE;
 	return KEEP_WATCHING;
 }
 
-static void anchor_timeout(struct anchor_watch *w)
+static void anchor_timeout(struct peer *peer)
 {
-	assert(w == w->peer->anchor.watches);
-	state_event(w->peer, w->timeout, NULL);
-
-	/* Freeing this gets rid of the other watches, and timer, too. */
-	w->peer->anchor.watches = tal_free(w);
+	/* FIXME: We could just forget timeout once we're not opening. */
+	if (state_is_opening(peer->state))
+		state_event(peer, BITCOIN_ANCHOR_TIMEOUT, NULL);
 }
 
 void peer_watch_anchor(struct peer *peer,
+		       int depth,
 		       enum state_input depthok,
 		       enum state_input timeout)
 {
-	struct anchor_watch *w;
+	/* We assume this. */
+	assert(depthok == BITCOIN_ANCHOR_DEPTHOK);
+	assert(timeout == BITCOIN_ANCHOR_TIMEOUT || timeout == INPUT_NONE);
 
-	w = peer->anchor.watches = tal(peer, struct anchor_watch);
-
-	w->peer = peer;
-	w->depthok = depthok;
-	w->timeout = timeout;
-
-	watch_txid(w, peer, &peer->anchor.txid, anchor_depthchange, NULL);
-	watch_txo(w, peer, &peer->anchor.txid, 0, anchor_spent, NULL);
+	peer->anchor.ok_depth = depth;
+	watch_txid(peer, peer, &peer->anchor.txid, anchor_depthchange, NULL);
+	watch_txo(peer, peer, &peer->anchor.txid, 0, anchor_spent, NULL);
 
 	/* For anchor timeout, expect 20 minutes per block, +2 hours.
 	 *
@@ -3087,22 +3065,10 @@ void peer_watch_anchor(struct peer *peer,
 	 *
 	 * So, our formula of 12 + N*2 holds for N <= 20 at least.
 	 */
-	if (w->timeout != INPUT_NONE) {
-		w->timer = new_reltimer(peer->dstate, w,
-					time_from_sec(7200
-						      + 20*peer->local.mindepth),
-					anchor_timeout, w);
-	} else
-		w->timer = NULL;
-}
-
-void peer_unwatch_anchor_depth(struct peer *peer,
-			       enum state_input depthok,
-			       enum state_input timeout)
-{
-	assert(peer->anchor.watches);
-	assert(peer->anchor.watches->depthok == depthok);
-	peer->anchor.watches->depthok = INPUT_NONE;
+	if (timeout != INPUT_NONE)
+		new_reltimer(peer->dstate, peer,
+			     time_from_sec(7200 + 20*peer->anchor.ok_depth),
+			     anchor_timeout, peer);
 }
 
 struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee)

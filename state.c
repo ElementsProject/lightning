@@ -156,7 +156,8 @@ enum state state(struct peer *peer,
 					      &peer->remote.commit->sig->sig);
 
 			queue_pkt_open_commit_sig(peer);
-			peer_watch_anchor(peer, 
+			peer_watch_anchor(peer,
+					  peer->local.mindepth,
 					  BITCOIN_ANCHOR_DEPTHOK,
 					  BITCOIN_ANCHOR_TIMEOUT);
 
@@ -187,6 +188,7 @@ enum state state(struct peer *peer,
 			}
 			queue_tx_broadcast(broadcast, bitcoin_anchor(peer));
 			peer_watch_anchor(peer,
+					  peer->local.mindepth,
 					  BITCOIN_ANCHOR_DEPTHOK,
 					  INPUT_NONE);
 			return next_state(peer, input,
@@ -202,10 +204,6 @@ enum state state(struct peer *peer,
 			err = accept_pkt_open_complete(peer, pkt);
 			if (err) {
 				peer_open_complete(peer, err->error->problem);
-				/* We no longer care about anchor depth. */
-				peer_unwatch_anchor_depth(peer, 
-							  BITCOIN_ANCHOR_DEPTHOK,
-							  INPUT_NONE);
 				goto err_breakdown;
 			}
 			return next_state(peer, input,
@@ -222,17 +220,9 @@ enum state state(struct peer *peer,
 			return next_state(peer, input,
 					  STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR);
 		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
-			/* We no longer care about anchor depth. */
-			peer_unwatch_anchor_depth(peer,
-						  BITCOIN_ANCHOR_DEPTHOK,
-						  INPUT_NONE);
 			peer_open_complete(peer, "Received PKT_CLOSE_CLEARING");
 			goto accept_clearing;
 		} else if (input_is_pkt(input)) {
-			/* We no longer care about anchor depth. */
-			peer_unwatch_anchor_depth(peer,
-						  BITCOIN_ANCHOR_DEPTHOK,
-						  INPUT_NONE);
 			peer_open_complete(peer, "unexpected packet");
 			goto unexpected_pkt;
 		}
@@ -242,10 +232,6 @@ enum state state(struct peer *peer,
 			err = accept_pkt_open_complete(peer, pkt);
 			if (err) {
 				peer_open_complete(peer, err->error->problem);
-				/* We no longer care about anchor depth. */
-				peer_unwatch_anchor_depth(peer, 
-							  BITCOIN_ANCHOR_DEPTHOK,
-							  BITCOIN_ANCHOR_TIMEOUT);
 				goto err_breakdown;
 			}
 			return next_state(peer, input,
@@ -266,17 +252,9 @@ enum state state(struct peer *peer,
 			return next_state(peer, input,
 					  STATE_OPEN_WAIT_FOR_COMPLETE_THEIRANCHOR);
 		} else if (input_is(input, PKT_CLOSE_CLEARING)) {
-			/* We no longer care about anchor depth. */
-			peer_unwatch_anchor_depth(peer,
-						  BITCOIN_ANCHOR_DEPTHOK,
-						  BITCOIN_ANCHOR_TIMEOUT);
 			peer_open_complete(peer, "Received PKT_CLOSE_CLEARING");
 			goto accept_clearing;
 		} else if (input_is_pkt(input)) {
-			/* We no longer care about anchor depth. */
-			peer_unwatch_anchor_depth(peer,
-						  BITCOIN_ANCHOR_DEPTHOK,
-						  BITCOIN_ANCHOR_TIMEOUT);
 			peer_open_complete(peer, "unexpected packet");
 			goto unexpected_pkt;
 		}
