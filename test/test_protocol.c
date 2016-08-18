@@ -16,12 +16,13 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
-#define A_LINEX 50
-#define B_LINEX 195
-#define A_TEXTX 45
-#define B_TEXTX 200
+#define A_LINEX 100
+#define B_LINEX 245
+#define A_TEXTX 95
+#define B_TEXTX 250
 
 #define LINE_HEIGHT 5
+#define TEXT_HEIGHT 4
 #define STEP_HEIGHT 10
 #define LETTER_WIDTH 3
 
@@ -202,8 +203,7 @@ struct peer {
 	int infd, outfd, cmdfd, cmddonefd;
 
 	/* For drawing svg */
-	char *text;
-	char *io;
+	char *info;
 
 	/* All htlcs. */
 	struct htlc **htlcs;
@@ -240,13 +240,20 @@ static struct htlc *new_htlc(struct peer *peer, unsigned int htlc_id, int side)
 	return peer->htlcs[n];
 }
 
-static void htlc_changestate(struct htlc *htlc,
+static void htlc_changestate(struct peer *peer,
+			     struct htlc *htlc,
 			     enum htlc_state old,
 			     enum htlc_state new)
 {
 	if (htlc->state != old)
 		errx(1, "htlc was in state %s not %s",
 		     htlc_statename(htlc->state), htlc_statename(old));
+	if (htlc->id)
+		tal_append_fmt(&peer->info, "%u:%s\n",
+			       htlc->id, htlc_statename(new));
+	else
+		tal_append_fmt(&peer->info, "FEE:%s\n",
+			       htlc_statename(new));
 	htlc->state = new;
 }
 
@@ -265,7 +272,7 @@ static bool change_htlcs_(struct peer *peer,
 		size_t t;
 		for (t = 0; t < n_table; t++) {
 			if (peer->htlcs[i]->state == table[t].from) {
-				htlc_changestate(peer->htlcs[i],
+				htlc_changestate(peer, peer->htlcs[i],
 						 table[t].from, table[t].to);
 				changed = true;
 				break;
@@ -404,12 +411,34 @@ static void read_peer(struct peer *peer, const char *str, const char *cmd)
 	tal_free(p);
 }
 
+static void PRINTF_FMT(2,3) record_send(struct peer *peer, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	tal_append_fmt(&peer->info, ">");
+	tal_append_vfmt(&peer->info, fmt, ap);
+	tal_append_fmt(&peer->info, "\n");
+	va_end(ap);
+}
+	
+static void PRINTF_FMT(2,3) record_recv(struct peer *peer, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	tal_append_fmt(&peer->info, "<");
+	tal_append_vfmt(&peer->info, fmt, ap);
+	tal_append_fmt(&peer->info, "\n");
+	va_end(ap);
+}
+
 static void send_offer(struct peer *peer, unsigned int htlc)
 {
 	struct htlc *h = new_htlc(peer, htlc, OURS);
 
-	htlc_changestate(h, NONEXISTENT, SENT_ADD_HTLC);
-	tal_append_fmt(&peer->io, "add_htlc %u", htlc);
+	htlc_changestate(peer, h, NONEXISTENT, SENT_ADD_HTLC);
+	record_send(peer, "add_htlc %u", htlc);
 	write_out(peer->outfd, "+", 1);
 	write_out(peer->outfd, &htlc, sizeof(htlc));
 }
@@ -421,9 +450,9 @@ static void send_remove(struct peer *peer, unsigned int htlc)
 	if (!h)
 		errx(1, "send_remove: htlc %u does not exist", htlc);
 		
-	htlc_changestate(h, RECV_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
+	htlc_changestate(peer, h, RECV_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
 
-	tal_append_fmt(&peer->io, "fulfill_htlc %u", htlc);
+	record_send(peer, "fulfill_htlc %u", htlc);
 	write_out(peer->outfd, "-", 1);
 	write_out(peer->outfd, &htlc, sizeof(htlc));
 }
@@ -432,8 +461,8 @@ static void send_feechange(struct peer *peer)
 {
 	struct htlc *fee = new_htlc(peer, 0, OURS);
 
-	htlc_changestate(fee, NONEXISTENT, SENT_ADD_HTLC);
-	tal_append_fmt(&peer->io, "update_fee");
+	htlc_changestate(peer, fee, NONEXISTENT, SENT_ADD_HTLC);
+	record_send(peer, "update_fee");
 	write_out(peer->outfd, "F", 1);
 }
 
@@ -477,7 +506,7 @@ static void send_commit(struct peer *peer)
 	if (peer->remote->prev && !peer->remote->prev->revoked)
 		errx(1, "commit: must wait for previous commit");
 
-	tal_append_fmt(&peer->io, "update_commit");
+	record_send(peer, "update_commit");
 
 	/* BOLT #2:
 	 *
@@ -524,7 +553,7 @@ static void receive_revoke(struct peer *peer, u32 number)
 	if (ci != peer->remote->prev)
 		errx(1, "receive_revoke: always revoke previous?");
 
-	tal_append_fmt(&peer->io, "<");
+	record_recv(peer, "update_revocation");
 	ci->revoked = true;
 	if (!ci->counterparty_signed)
 		errx(1, "receive_revoke: revoked unsigned commit?");
@@ -542,8 +571,8 @@ static void receive_offer(struct peer *peer, unsigned int htlc)
 {
 	struct htlc *h = new_htlc(peer, htlc, THEIRS);
 
-	htlc_changestate(h, NONEXISTENT, RECV_ADD_HTLC);
-	tal_append_fmt(&peer->io, "<");
+	htlc_changestate(peer, h, NONEXISTENT, RECV_ADD_HTLC);
+	record_recv(peer, "add_htlc %u", h->id);
 }
 
 /* BOLT #2:
@@ -558,8 +587,8 @@ static void receive_remove(struct peer *peer, unsigned int htlc)
 	if (!h)
 		errx(1, "recv_remove: htlc %u does not exist", htlc);
 
-	htlc_changestate(h, SENT_ADD_ACK_REVOCATION, RECV_REMOVE_HTLC);
-	tal_append_fmt(&peer->io, "<");
+	htlc_changestate(peer, h, SENT_ADD_ACK_REVOCATION, RECV_REMOVE_HTLC);
+	record_recv(peer, "fulfill_htlc %u", h->id);
 }
 
 /* BOLT #2:
@@ -571,8 +600,8 @@ static void receive_feechange(struct peer *peer)
 {
 	struct htlc *fee = new_htlc(peer, 0, THEIRS);
 
-	htlc_changestate(fee, NONEXISTENT, RECV_ADD_HTLC);
-	tal_append_fmt(&peer->io, "<");
+	htlc_changestate(peer, fee, NONEXISTENT, RECV_ADD_HTLC);
+	record_recv(peer, "update_fee");
 }
 
 /* Send revoke.
@@ -586,7 +615,7 @@ static void send_revoke(struct peer *peer, struct commit_info *ci)
 		{ RECV_ADD_COMMIT, SENT_ADD_REVOCATION },
 		{ RECV_REMOVE_ACK_COMMIT, SENT_REMOVE_ACK_REVOCATION }
 	};
-	tal_append_fmt(&peer->io, "update_revocation");
+	record_send(peer, "update_revocation");
 
 	/* We always revoke in order. */
 	assert(!ci->prev || ci->prev->revoked);
@@ -615,7 +644,7 @@ static void receive_commit(struct peer *peer, const struct signature *sig)
 		{ RECV_REMOVE_REVOCATION, RECV_REMOVE_ACK_COMMIT }
 	};
 
-	tal_append_fmt(&peer->io, "<");
+	record_recv(peer, "update_commit");
 
 	/* BOLT #2:
 	 *
@@ -635,8 +664,6 @@ static void receive_commit(struct peer *peer, const struct signature *sig)
 	peer->local = new_commit_info(peer, peer->local);
 	peer->local->counterparty_signed = true;
 
-	/* This is the one case where we send without a command. */
-	tal_append_fmt(&peer->text, "\n");
 	send_revoke(peer, peer->local->prev);
 }
 
@@ -646,7 +673,6 @@ static void do_cmd(struct peer *peer)
 	int i;
 	unsigned int htlc;
 	struct commit_info *ci;
-	struct iovec iov[2];
 
 	i = read(peer->cmdfd, cmd, sizeof(cmd)-1);
 	if (cmd[i-1] != '\0')
@@ -657,8 +683,7 @@ static void do_cmd(struct peer *peer)
 		exit(0);
 	}
 
-	peer->io = tal_strdup(peer, "");
-	peer->text = tal_strdup(peer->io, "");
+	peer->info = tal_strdup(peer, "");
 	
 	if (sscanf(cmd, "offer %u", &htlc) == 1)
 		send_offer(peer, htlc);
@@ -704,12 +729,7 @@ static void do_cmd(struct peer *peer)
 	} else
 		errx(1, "Unknown command %s", cmd);
 
-	iov[0].iov_base = peer->io;
-	iov[0].iov_len = strlen(peer->io)+1;
-	iov[1].iov_base = peer->text;
-	iov[1].iov_len = strlen(peer->text)+1;
-	writev(peer->cmddonefd, iov, 2);
-	tal_free(peer->io);
+	write(peer->cmddonefd, peer->info, strlen(peer->info)+1);
 
 	/* We must always have (at least one) signed, unrevoked commit. */
 	for (ci = peer->local; ci; ci = ci->prev) {
@@ -772,11 +792,15 @@ static void add_sent(struct sent **sent, int y, const char *msg)
 }
 
 static void draw_line(char **str,
-		      int old_x, struct sent **sent, int new_x, int new_y)
+		      int old_x, struct sent **sent, const char *what,
+		      int new_x, int new_y)
 {
 	size_t n = tal_count(*sent);
 	if (n == 0)
 		errx(1, "Receive without send?");
+
+	if (!streq((*sent)->desc, what))
+		errx(1, "Received %s but sent %s?", what, (*sent)->desc);
 
 	tal_append_fmt(str, "<line x1=\"%i\" y1=\"%i\" x2=\"%i\" y2=\"%i\" marker-end=\"url(#tri)\" stroke=\"black\" stroke-width=\"0.5\"/>\n",
 		       old_x, (*sent)[0].y - LINE_HEIGHT/2,
@@ -790,44 +814,93 @@ static void draw_line(char **str,
 	tal_resize(sent, n-1);
 }
 
-static void append_text(char **svg, bool is_a, int *y, char *text,
+static bool append_text(char **svg, bool is_a, int *y, const char *text,
 			size_t *max_chars)
 {
-	char *eol;
-	
-	eol = strchr(text, '\n');
-	if (eol)
-		*eol = '\0';
+	char **texts = tal_strsplit(NULL, text, "\n", STR_NO_EMPTY);
+	size_t i;
 
-	tal_append_fmt(svg,
-		       "<text x=\"%i\" y=\"%i\" text-anchor=\"%s\" "TEXT_STYLE">%s</text>",
-		       is_a ? A_TEXTX : B_TEXTX, *y,
-		       is_a ? "end" : "start",
-		       text);
-	if (strlen(text) > *max_chars)
-		*max_chars = strlen(text);
+	if (tal_count(texts) == 1)
+		return false;
 
-	if (eol) {
-		*y += LINE_HEIGHT;
-		append_text(svg, is_a, y, eol+1, max_chars);
+	for (i = 0; i < tal_count(texts) - 1; i++) {
+		tal_append_fmt(svg,
+			       "<text x=\"%i\" y=\"%i\" text-anchor=\"%s\" "TEXT_STYLE">%s</text>",
+			       is_a ? A_TEXTX : B_TEXTX, *y,
+			       is_a ? "end" : "start",
+			       texts[i]);
+		*y += TEXT_HEIGHT;
+		if (strlen(texts[i]) > *max_chars)
+			*max_chars = strlen(texts[i]);
+	}
+	return true;
+}
+
+static bool process_output(char **svg, bool is_a, const char *output,
+			   struct sent **a_sent, struct sent **b_sent,
+			   int *y, size_t *max_chars)
+{
+	/* We can recv and send for recvcommit */
+	char **outputs = tal_strsplit(NULL, output, "\n", STR_NO_EMPTY);
+	size_t i;
+
+	if (tal_count(outputs) == 1)
+		return false;
+
+	for (i = 0; i < tal_count(outputs)-1; i++) {
+		if (strstarts(outputs[i], "<")) {
+			if (is_a)
+				draw_line(svg, B_LINEX, b_sent, outputs[i]+1,
+					  A_LINEX, *y);
+			else
+				draw_line(svg, A_LINEX, a_sent, outputs[i]+1,
+					  B_LINEX, *y);
+		} else if (strstarts(outputs[i], ">")) {
+			if (is_a)
+				add_sent(a_sent, *y, outputs[i]+1);
+			else
+				add_sent(b_sent, *y, outputs[i]+1);
+		} else {
+			append_text(svg, is_a, y, outputs[i], max_chars);
+		}
 	}
 	*y += STEP_HEIGHT;
+	return true;
+}
+
+static bool get_output(int donefd, char **svg, bool is_a,
+		       struct sent **a_sent, struct sent **b_sent,
+		       int *y, size_t *max_chars)
+{
+	char output[200];
+	int r;
+
+	alarm(5);
+	/* FIXME: Assumes large pipebuf, atomic read */
+	r = read(donefd, output, sizeof(output)-1);
+	if (r <= 0)
+		return false;
+	output[r] = '\0';
+	alarm(0);
+
+	if (*svg)
+		process_output(svg, is_a, output, a_sent, b_sent, y, max_chars);
+	return true;
 }
 
 int main(int argc, char *argv[])
 {
-	char cmd[80], output[200], *svg = tal_strdup(NULL, "");
+	char cmd[80], *svg = NULL;
 	int a_to_b[2], b_to_a[2], acmd[2], bcmd[2], adonefd[2], bdonefd[2];
 	int y = STEP_HEIGHT + LINE_HEIGHT;
 	struct sent *a_sent = tal_arr(NULL, struct sent, 0),
 		*b_sent = tal_arr(NULL, struct sent, 0);
-	bool output_svg = false;
 	size_t max_chars = 0;
 
 	err_set_progname(argv[0]);
 
 	if (argv[1] && streq(argv[1], "--svg"))
-		output_svg = true;
+		svg = tal_strdup(NULL, "");
 
 	if (pipe(a_to_b) || pipe(b_to_a) || pipe(adonefd) || pipe(acmd))
 		err(1, "Creating pipes");
@@ -849,8 +922,7 @@ int main(int argc, char *argv[])
 	close(a_to_b[1]);
 
 	while (fgets(cmd, sizeof(cmd), stdin)) {
-		int cmdfd, donefd, r;
-		char *io, *text;
+		int cmdfd, donefd;
 
 		if (!strends(cmd, "\n"))
 			errx(1, "Truncated command");
@@ -863,7 +935,7 @@ int main(int argc, char *argv[])
 			cmdfd = bcmd[1];
 			donefd = bdonefd[0];
 		} else if (strstarts(cmd, "echo ")) {
-			if (!output_svg) {
+			if (!svg) {
 				printf("%s\n", cmd + 5);
 				fflush(stdout);
 			}
@@ -889,45 +961,14 @@ int main(int argc, char *argv[])
 			errx(1, "Unknown command %s", cmd);
 
 		/* Don't dump if outputting svg. */
-		if (output_svg && strstarts(cmd+2, "dump"))
+		if (svg && strstarts(cmd+2, "dump"))
 			continue;
 
 		if (!write_all(cmdfd, cmd+2, strlen(cmd)-1))
 			errx(1, "Sending %s", cmd);
 
-		alarm(5);
-		r = read(donefd, output, sizeof(output)-2);
-		if (r <= 0)
-			errx(1, "Failed on cmd %s", cmd);
-		output[r] = output[r+1] = '\0';
-		io = output;
-		text = output + strlen(output) + 1;
-		if (r != strlen(text) + strlen(io) + 2)
-			errx(1, "Not nul-terminated: %s+%s gave %zi not %u",
-			     io, text, strlen(text) + strlen(io) + 2, r);
-		alarm(0);
-
-		/* We can recv and send for recvcommit */
-		if (strstarts(io, "<")) {
-			if (strstarts(cmd, "A:"))
-				draw_line(&svg, B_LINEX, &b_sent, A_LINEX, y);
-			else
-				draw_line(&svg, A_LINEX, &a_sent, B_LINEX, y);
-			memmove(io, io+1, strlen(io));
-		}
-		if (!streq(io, "")) {
-			if (strstarts(cmd, "A:"))
-				add_sent(&a_sent, y, io);
-			else
-				add_sent(&b_sent, y, io);
-		}
-		if (!streq(text, "") && output_svg) {
-			append_text(&svg,
-				    strstarts(cmd, "A:"),
-				    &y,
-				    text,
-				    &max_chars);
-		}
+		get_output(donefd, &svg, strstarts(cmd, "A:"),
+			   &a_sent, &b_sent, &y, &max_chars);
 	}
 
 	write_all(acmd[1], "", 1);
@@ -940,7 +981,7 @@ int main(int argc, char *argv[])
 		errx(1, "Response after sending exit command");
 	alarm(0);
 
-	if (output_svg)
+	if (svg)
 		printf("<svg width=\"%zu\" height=\"%u\">\n"
 		       "<marker id=\"tri\" "
 		       "viewBox=\"0 0 5 5\" refX=\"0\" refY=\"5\" "
