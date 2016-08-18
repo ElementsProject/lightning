@@ -61,9 +61,6 @@ struct peer {
 
 	struct commit_tx initial_commit_tx;
 
-	/* Are we allowed to send another commit before receiving revoke? */
-	bool commitwait;
-
 	/* For drawing svg */
 	char *text;
 	char *io;
@@ -431,8 +428,7 @@ static void send_commit(struct peer *peer)
 	 * until it receives the `update_revocation` response to the
 	 * previous `update_commit`, so there is only ever one
 	 * unrevoked local commitment. */
-	if (peer->commitwait
-	    && peer->remote->prev && !peer->remote->prev->revoked)
+	if (peer->remote->prev && !peer->remote->prev->revoked)
 		errx(1, "commit: must wait for previous commit");
 
 	tal_append_fmt(&peer->io, "update_commit");
@@ -464,7 +460,7 @@ static void receive_revoke(struct peer *peer, u32 number)
 		     number, ci->number);
 
 	/* This shouldn't happen if we don't allow multiple commits. */
-	if (peer->commitwait && ci != peer->remote->prev)
+	if (ci != peer->remote->prev)
 		errx(1, "receive_revoke: always revoke previous?");
 
 	tal_append_fmt(&peer->io, "<");
@@ -636,8 +632,6 @@ static void do_cmd(struct peer *peer)
 		read_peer(peer, "C", cmd);
 		read_in(peer->infd, &sig, sizeof(sig));
 		receive_commit(peer, &sig);
-	} else if (streq(cmd, "nocommitwait")) {
-		peer->commitwait = false;
 	} else if (streq(cmd, "checksync")) {
 		write_all(peer->cmddonefd, peer->local->commit_tx,
 			  sizeof(*peer->local->commit_tx));
@@ -688,7 +682,6 @@ static void new_peer(int infdpair[2], int outfdpair[2], int cmdfdpair[2],
 
 	peer = tal(NULL, struct peer);
 	memset(&peer->initial_commit_tx, 0, sizeof(peer->initial_commit_tx));
-	peer->commitwait = true;
 	
 	/* Create first, signed commit info. */
 	peer->local = new_commit_info(peer, NULL);
