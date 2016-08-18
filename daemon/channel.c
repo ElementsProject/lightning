@@ -219,6 +219,7 @@ bool cstate_add_htlc(struct channel_state *cstate,
 	size_t n, nondust;
 	struct channel_oneside *creator, *recipient;
 
+	assert(htlc_channel_side(htlc) == side);
 	creator = &cstate->side[side];
 	recipient = &cstate->side[!side];
 	
@@ -283,6 +284,7 @@ void cstate_fail_htlc(struct channel_state *cstate,
 		      struct htlc *htlc,
 		      enum channel_side side)
 {
+	assert(htlc_channel_side(htlc) == side);
 	remove_htlc(cstate, side, side, htlc);
 }
 
@@ -290,6 +292,7 @@ void cstate_fulfill_htlc(struct channel_state *cstate,
 			 struct htlc *htlc,
 			 enum channel_side side)
 {
+	assert(htlc_channel_side(htlc) == side);
 	remove_htlc(cstate, side, !side, htlc);
 }
 
