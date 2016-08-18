@@ -141,9 +141,15 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--fee-per-satoshi", opt_set_s32, opt_show_s32,
 			 &dstate->config.fee_per_satoshi,
 			 "Microsatoshi fee for every satoshi in HTLC");
-
 }
 
+static void dev_register_opts(struct lightningd_state *dstate)
+{
+	controlled_time_register_opts();
+	opt_register_noarg("--dev-no-routefail", opt_set_bool,
+			   &dstate->dev_never_routefail, opt_hidden);
+}
+	
 static void default_config(struct config *config)
 {
 	/* aka. "Dude, where's my coins?" */
@@ -248,6 +254,7 @@ static struct lightningd_state *lightningd_state(void)
 	dstate->dev_never_routefail = false;
 	dstate->bitcoin_req_running = false;
 	dstate->nodes = empty_node_map(dstate);
+	dstate->reexec = NULL;
 	return dstate;
 }
 
@@ -297,6 +304,7 @@ int main(int argc, char *argv[])
 	configdir_register_opts(dstate,
 				&dstate->config_dir, &dstate->rpc_filename);
 	config_register_opts(dstate);
+	dev_register_opts(dstate);
 
 	/* Get any configdir options first. */
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
@@ -363,6 +371,35 @@ int main(int argc, char *argv[])
 			timer_expired(dstate, expired);
 		else
 			cleanup_peers(dstate);
+	}
+
+	if (dstate->reexec) {
+		int fd;
+		char *mocktimearg;
+
+		log_unusual(dstate->base_log, "Restart at user request");
+		fflush(stdout);
+		fflush(stderr);
+
+		/* Manually close all fds (or near enough!) */
+		for (fd = 3; fd < 1024; fd++)
+			close(fd);
+
+		/* Maybe append mocktime arg. */
+		mocktimearg = controlled_time_arg(dstate->reexec);
+		if (mocktimearg) {
+			size_t n = tal_count(dstate->reexec);
+			tal_resizez(&dstate->reexec, n+1);
+			dstate->reexec[n-1] = mocktimearg;
+		}
+		if (dstate->dev_never_routefail) {
+			size_t n = tal_count(dstate->reexec);
+			tal_resizez(&dstate->reexec, n+1);
+			dstate->reexec[n-1] = "--dev-no-routefail";
+		}
+		execvp(dstate->reexec[0], dstate->reexec);
+		fatal("Exec '%s' failed: %s",
+		      dstate->reexec[0], strerror(errno));
 	}
 
 	tal_free(dstate);

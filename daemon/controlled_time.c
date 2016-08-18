@@ -2,6 +2,8 @@
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
+#include "opt_time.h"
+#include <ccan/tal/str/str.h>
 #include <inttypes.h>
 #include <stdio.h>
 
@@ -12,6 +14,22 @@ struct timeabs controlled_time(void)
 	if (mock_time.ts.tv_sec)
 		return mock_time;
 	return time_now();
+}
+
+void controlled_time_register_opts(void)
+{
+	opt_register_arg("--mocktime", opt_set_timeabs, opt_show_timeabs,
+			 &mock_time, opt_hidden);
+}
+
+char *controlled_time_arg(const tal_t *ctx)
+{
+	char buf[sizeof("--mocktime=") + OPT_SHOW_LEN] = "--mocktime=";
+	if (!mock_time.ts.tv_sec)
+		return NULL;
+
+	opt_show_timeabs(buf + strlen(buf), &mock_time);
+	return tal_strdup(ctx, buf);
 }
 
 static void json_mocktime(struct command *cmd,

@@ -1,9 +1,11 @@
 /* Code for JSON_RPC API */
 /* eg: { "method" : "dev-echo", "params" : [ "hello", "Arabella!" ], "id" : "1" } */
+#include "controlled_time.h"
 #include "json.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
+#include "peer.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
@@ -243,6 +245,37 @@ static const struct json_command crash_command = {
 	"Simple crash test for developers"
 };
 
+static void json_restart(struct command *cmd,
+			 const char *buffer, const jsmntok_t *params)
+{
+	const jsmntok_t *p, *end;
+	size_t n = 0;
+
+	if (params->type != JSMN_ARRAY) {
+		command_fail(cmd, "Need array to reexec");
+		return;
+	}
+	end = json_next(params);
+
+	cmd->dstate->reexec = tal_arrz(cmd->dstate, char *, n+1);
+	for (p = params + 1; p != end; p = json_next(p)) {
+		tal_resizez(&cmd->dstate->reexec, n+2);
+		cmd->dstate->reexec[n++] = tal_strndup(cmd->dstate->reexec,
+						       buffer + p->start,
+						       p->end - p->start);
+	}
+	debug_dump_peers(cmd->dstate);
+	io_break(cmd->dstate);
+	command_success(cmd, null_response(cmd));
+}	
+	
+static const struct json_command restart_command = {
+	"dev-restart",
+	json_restart,
+	"Re-exec the given {binary}.",
+	"Simple restart test for developers"
+};
+
 static const struct json_command *cmdlist[] = {
 	&help_command,
 	&stop_command,
@@ -262,6 +295,7 @@ static const struct json_command *cmdlist[] = {
 	&rhash_command,
 	&mocktime_command,
 	&crash_command,
+	&restart_command,
 	&disconnect_command,
 	&reconnect_command,
 	&signcommit_command,
@@ -340,6 +374,7 @@ void command_success(struct command *cmd, struct json_result *result)
 	}
 	assert(jcon->current == cmd);
 	json_result(jcon, cmd->id, json_result_string(result), "null");
+	log_debug(jcon->log, "Success");
 	jcon->current = tal_free(cmd);
 }
 
@@ -359,6 +394,8 @@ void command_fail(struct command *cmd, const char *fmt, ...)
 	va_start(ap, fmt);
 	error = tal_vfmt(cmd, fmt, ap);
 	va_end(ap);
+
+	log_debug(jcon->log, "Failing: %s", error);
 
 	/* Remove " */
 	while ((quote = strchr(error, '"')) != NULL)

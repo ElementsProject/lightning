@@ -205,7 +205,13 @@ daemon-test-timeout-anchor\ --reconnect: daemon-test-different-fee-rates\ --reco
 daemon-test-different-fee-rates\ --reconnect: daemon-test-normal\ --reconnect
 daemon-test-normal\ --reconnect: daemon-test-manual-commit\ --reconnect
 daemon-test-manual-commit\ --reconnect: daemon-test-mutual-close-with-htlcs\ --reconnect
-daemon-test-mutual-close-with-htlcs\ --reconnect: daemon-all
+daemon-test-mutual-close-with-htlcs\ --reconnect: daemon-test-steal\ --restart
+daemon-test-steal\ --restart: daemon-test-dump-onchain\ --restart
+daemon-test-dump-onchain\ --restart: daemon-test-timeout-anchor\ --restart
+daemon-test-timeout-anchor\ --restart: daemon-test-different-fee-rates\ --restart
+daemon-test-different-fee-rates\ --restart: daemon-test-normal\ --restart
+daemon-test-normal\ --restart: daemon-test-mutual-close-with-htlcs\ --restart
+daemon-test-mutual-close-with-htlcs\ --restart: daemon-all
 daemon-tests: daemon-test-steal
 
 test-onion: test/test_onion test/onion_key

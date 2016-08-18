@@ -112,5 +112,8 @@ struct lightningd_state {
 
 	/* For testing: don't fail if we can't route. */
 	bool dev_never_routefail;
+
+	/* Re-exec hack for testing. */
+	char **reexec;
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */

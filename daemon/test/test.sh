@@ -72,7 +72,10 @@ while [ $# != 0 ]; do
 	x"--normal")
 	    ;;
 	x"--reconnect")
-	    RECONNECT=1
+	    RECONNECT=reconnect
+	    ;;
+	x"--restart")
+	    RECONNECT=restart
 	    ;;
 	x"--crash")
 	    CRASH_ON_FAIL=1
@@ -93,9 +96,11 @@ LCLI3="../lightning-cli --lightning-dir=$DIR3"
 
 if [ -n "$VERBOSE" ]; then
     FGREP="fgrep"
+    SHOW="cat >&2"
 else
     # Suppress command output.
     exec >/dev/null
+    SHOW="cat"
 fi
 
 lcli1()
@@ -112,12 +117,45 @@ lcli1()
 	    ;;
 	    dev-mocktime*)
 	    ;;
+	    dev-disconnect)
+	    ;;
 	    stop)
 	    ;;
 	    *)
-		[ -z "$VERBOSE" ] || echo RECONNECTING >&2
-		$LCLI1 dev-reconnect $ID2 >/dev/null 
-		sleep 1
+		case "$RECONNECT" in
+		    reconnect)
+			[ -z "$VERBOSE" ] || echo RECONNECTING >&2
+			$LCLI1 dev-reconnect $ID2 >/dev/null
+			sleep 1
+			;;
+		    restart)
+			[ -z "$VERBOSE" ] || echo RESTARTING >&2
+			# FIXME: Instead, check if command was committed, and
+			# if not, resubmit!
+			if [ "$1" = "newhtlc" ]; then
+			    $LCLI1 commit $ID2 >/dev/null 2>&1 || true
+			fi
+			$LCLI1 -- dev-restart $LIGHTNINGD1 >/dev/null 2>&1 || true
+			if ! check "$LCLI1 getlog 2>/dev/null | fgrep -q Hello"; then
+			    echo "dev-restart failed!">&2
+			    exit 1
+			fi
+			# It will have forgotten any added routes.
+			if [ -n "$ADDROUTE" ]; then
+			    echo $LCLI1 $ADDROUTE >&2
+			    $LCLI1 $ADDROUTE >&2
+			fi
+			# These are safe to resubmit, will simply fail.
+			if [ "$1" = "fulfillhtlc" -o "$1" = "failhtlc" ]; then
+			    if [ -z "$VERBOSE" ]; then
+				$LCLI1 "$@" >/dev/null 2>&1 || true
+			    else
+				echo "Rerunning $LCLI1 $@" >&2
+				$LCLI1 "$@" 2>&1 || true
+			    fi
+			fi
+			;;
+		esac
 		;;
 	esac
     fi
@@ -324,11 +362,15 @@ if [ -n "$DIFFERENT_FEES" ]; then
     echo "default-fee-rate=$CLOSE_FEE_RATE2" >> $DIR2/config
 fi
 
+# Need absolute path for re-exec testing.
+LIGHTNINGD1="$(readlink -f `pwd`/../lightningd) --lightning-dir=$DIR1"
 if [ -n "$GDB1" ]; then
-    echo Press return once you run: gdb --args daemon/lightningd --lightning-dir=$DIR1 >&2
+    echo Press return once you run: gdb --args $LIGHTNINGD1 >&2
+    
     read REPLY
 else
-    $PREFIX ../lightningd --lightning-dir=$DIR1 > $REDIR1 2> $REDIRERR1 &
+    LIGHTNINGD1="$PREFIX $LIGHTNINGD1"
+    $LIGHTNINGD1 > $REDIR1 2> $REDIRERR1 &
 fi
 
 if [ -n "$GDB2" ]; then
@@ -869,7 +911,8 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     HTLC_AMOUNT=100000000
 
     # Tell node 1 about the 2->3 route.
-    lcli1 add-route $ID2 $ID3 546000 10 36 36
+    ADDROUTE="add-route $ID2 $ID3 546000 10 36 36"
+    lcli1 $ADDROUTE
     RHASH5=`lcli3 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
     # Try wrong hash.
