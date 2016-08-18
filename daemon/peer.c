@@ -3210,25 +3210,6 @@ static void json_add_pubkey(struct json_result *response,
 	json_add_hex(response, id, der, sizeof(der));
 }
 
-/* Is this side fully committed to this HTLC? */
-static bool htlc_fully_committed(const struct commit_info *ci,
-				 const struct htlc *htlc)
-{
-	/* Must have it in our commitment. */
-	if (!cstate_htlc_by_id(ci->cstate, htlc->id, htlc_channel_side(htlc)))
-		return false;
-
-	/* If it wasn't in previous commitment, that must be revoked. */
-	if (!ci->prev || ci->prev->revocation_preimage)
-		return true;
-
-	if (!cstate_htlc_by_id(ci->prev->cstate, htlc->id,
-			       htlc_channel_side(htlc)))
-		return false;
-
-	return true;
-}
-
 static void json_add_htlcs(struct json_result *response,
 			   const char *id,
 			   struct peer *peer,
@@ -3406,38 +3387,22 @@ const struct json_command newhtlc_command = {
 	"Returns { id: u64 } result on success"
 };
 
-/* Looks for their HTLC, but must be committed. */
-static struct htlc *find_their_committed_htlc(struct peer *peer,
-					      const struct sha256 *rhash)
-{
-	struct htlc *htlc;
-
-	/* Must be in last committed cstate. */
-	htlc = cstate_find_htlc(peer->remote.commit->cstate, rhash, THEIRS);
-	if (!htlc)
-		return NULL;
-
-	/* Dangerous to fulfill unless the remote side is obliged to honor it. */
-	if (!htlc_fully_committed(peer->remote.commit, htlc))
-		return NULL;
-
-	return cstate_find_htlc(peer->remote.staging_cstate, rhash, THEIRS);
-}
-
 static void json_fulfillhtlc(struct command *cmd,
 			     const char *buffer, const jsmntok_t *params)
 {
 	struct peer *peer;
-	jsmntok_t *peeridtok, *rtok;
-	struct rval r;
-	struct sha256 rhash;
+	jsmntok_t *peeridtok, *idtok, *rtok;
+	u64 id;
 	struct htlc *htlc;
+	struct sha256 rhash;
+	struct rval r;
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,
+			     "id", &idtok,
 			     "r", &rtok,
 			     NULL)) {
-		command_fail(cmd, "Need peerid and r");
+		command_fail(cmd, "Need peerid, id and r");
 		return;
 	}
 
@@ -3452,6 +3417,13 @@ static void json_fulfillhtlc(struct command *cmd,
 		return;
 	}
 
+	if (!json_tok_u64(buffer, idtok, &id)) {
+		command_fail(cmd, "'%.*s' is not a valid id",
+			     (int)(idtok->end - idtok->start),
+			     buffer + idtok->start);
+		return;
+	}
+
 	if (!hex_decode(buffer + rtok->start,
 			rtok->end - rtok->start,
 			&r, sizeof(r))) {
@@ -3461,11 +3433,21 @@ static void json_fulfillhtlc(struct command *cmd,
 		return;
 	}
 
-	sha256(&rhash, &r, sizeof(r));
-
-	htlc = find_their_committed_htlc(peer, &rhash);
+	htlc = htlc_get(&peer->htlcs, id, REMOTE);
 	if (!htlc) {
 		command_fail(cmd, "preimage htlc not found");
+		return;
+	}
+
+	if (htlc->state != RCVD_ADD_ACK_REVOCATION) {
+		command_fail(cmd, "htlc in state %s",
+			     htlc_state_name(htlc->state));
+		return;
+	}
+
+	sha256(&rhash, &r, sizeof(r));
+	if (!structeq(&htlc->rhash, &rhash)) {
+		command_fail(cmd, "preimage incorrect");
 		return;
 	}
 
@@ -3483,7 +3465,7 @@ static void json_fulfillhtlc(struct command *cmd,
 const struct json_command fulfillhtlc_command = {
 	"fulfillhtlc",
 	json_fulfillhtlc,
-	"Redeem htlc proposed by {peerid} using {r}",
+	"Redeem htlc proposed by {peerid} of {id} using {r}",
 	"Returns an empty result on success"
 };
 
@@ -3491,15 +3473,15 @@ static void json_failhtlc(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
 	struct peer *peer;
-	jsmntok_t *peeridtok, *rhashtok;
-	struct sha256 rhash;
+	jsmntok_t *peeridtok, *idtok;
+	u64 id;
 	struct htlc *htlc;
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,
-			     "rhash", &rhashtok,
+			     "id", &idtok,
 			     NULL)) {
-		command_fail(cmd, "Need peerid and rhash");
+		command_fail(cmd, "Need peerid and id");
 		return;
 	}
 
@@ -3514,22 +3496,25 @@ static void json_failhtlc(struct command *cmd,
 		return;
 	}
 
-	if (!hex_decode(buffer + rhashtok->start,
-			rhashtok->end - rhashtok->start,
-			&rhash, sizeof(rhash))) {
-		command_fail(cmd, "'%.*s' is not a valid sha256 preimage",
-			     (int)(rhashtok->end - rhashtok->start),
-			     buffer + rhashtok->start);
+	if (!json_tok_u64(buffer, idtok, &id)) {
+		command_fail(cmd, "'%.*s' is not a valid id",
+			     (int)(idtok->end - idtok->start),
+			     buffer + idtok->start);
 		return;
 	}
 
-	/* Look in peer->remote.staging_cstate->a, as that's where we'll 
-	 * immediately remove it from: avoids double-handling. */
-	htlc = find_their_committed_htlc(peer, &rhash);
+	htlc = htlc_get(&peer->htlcs, id, REMOTE);
 	if (!htlc) {
-		command_fail(cmd, "htlc not found");
+		command_fail(cmd, "preimage htlc not found");
 		return;
 	}
+
+	if (htlc->state != RCVD_ADD_ACK_REVOCATION) {
+		command_fail(cmd, "htlc in state %s",
+			     htlc_state_name(htlc->state));
+		return;
+	}
+
 	if (command_htlc_fail(peer, htlc))
 		command_success(cmd, null_response(cmd));
 	else
@@ -3541,7 +3526,7 @@ static void json_failhtlc(struct command *cmd,
 const struct json_command failhtlc_command = {
 	"failhtlc",
 	json_failhtlc,
-	"Fail htlc proposed by {peerid} which has redeem hash {rhash}",
+	"Fail htlc proposed by {peerid} which has {id}",
 	"Returns an empty result on success"
 };
 

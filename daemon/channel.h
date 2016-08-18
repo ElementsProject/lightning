@@ -112,18 +112,6 @@ void adjust_fee(struct channel_state *cstate, uint32_t fee_rate);
 bool force_fee(struct channel_state *cstate, uint64_t fee);
 
 /**
- * cstate_find_htlc: find an HTLC on this side of the channel.
- * @cstate: The channel state
- * @rhash: hash of redeem secret
- * @side: OURS or THEIRS
- *
- * Returns the HTLC, or NULL on fail.
- */
-struct htlc *cstate_find_htlc(const struct channel_state *cstate,
-			      const struct sha256 *rhash,
-			      enum channel_side side);
-
-/**
  * cstate_htlc_by_id: find an HTLC on this side of the channel by ID.
  * @cstate: The channel state
  * @id: id for HTLC.

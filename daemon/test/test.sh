@@ -431,7 +431,7 @@ if [ -n "$DIFFERENT_FEES" ]; then
     [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
     [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
     check_status_single lcli2 0 0 "" $(($AMOUNT - $HTLC_AMOUNT - $ONE_HTLCS_FEE2)) $(($ONE_HTLCS_FEE2)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : RCVD_ADD_ACK_REVOCATION } "
-    lcli2 fulfillhtlc $ID1 $SECRET
+    lcli2 fulfillhtlc $ID1 $HTLCID $SECRET
     [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
     [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 
@@ -557,7 +557,7 @@ if [ -n "$DUMP_ONCHAIN" ]; then
     all_ok
 fi
     
-lcli2 fulfillhtlc $ID1 $SECRET
+lcli2 fulfillhtlc $ID1 $HTLCID $SECRET
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 
 # Without manual commit, this check is racy.
@@ -597,7 +597,7 @@ A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - $HTLC_AMOUNT))
 A_FEE=$(($A_FEE + $EXTRA_FEE))
 check_status $A_AMOUNT $A_FEE "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_ACK_REVOCATION } " $B_AMOUNT $B_FEE ""
 
-lcli2 failhtlc $ID1 $RHASH
+lcli2 failhtlc $ID1 $HTLCID
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 
@@ -667,7 +667,7 @@ HTLCID=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH | extract_id`
 
 check_status $(($A_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE)) $(($A_FEE + $EXTRA_FEE)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_ACK_REVOCATION } " $B_AMOUNT $B_FEE ""
 
-lcli2 fulfillhtlc $ID1 $SECRET
+lcli2 fulfillhtlc $ID1 $HTLCID $SECRET
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 
@@ -702,12 +702,12 @@ if [ -n "$CLOSE_WITH_HTLCS" ]; then
     check_peerstate lcli2 STATE_CLEARING
 
     # Fail one, still waiting.
-    lcli2 failhtlc $ID1 $RHASH
+    lcli2 failhtlc $ID1 $HTLCID
     check_peerstate lcli1 STATE_CLEARING
     check_peerstate lcli2 STATE_CLEARING
 
     # Fulfill the other causes them to actually complete the close.
-    lcli1 fulfillhtlc $ID2 $SECRET2
+    lcli1 fulfillhtlc $ID2 $HTLCID2 $SECRET2
     check_peerstate lcli1 STATE_MUTUAL_CLOSING
     check_peerstate lcli2 STATE_MUTUAL_CLOSING
 
@@ -728,8 +728,8 @@ if [ -n "$CLOSE_WITH_HTLCS" ]; then
     all_ok
 fi
 
-lcli2 failhtlc $ID1 $RHASH
-lcli1 fulfillhtlc $ID2 $SECRET2
+lcli2 failhtlc $ID1 $HTLCID
+lcli1 fulfillhtlc $ID2 $HTLCID2 $SECRET2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
@@ -776,8 +776,8 @@ lcli1 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ { msatoshis : $H
 lcli2 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ ], their_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : RCVD_ADD_ACK_REVOCATION }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , state : RCVD_ADD_ACK_REVOCATION } ]" || lcli2 getpeers | tr -s '\012\011" ' ' ' | $FGREP "our_htlcs : [ ], their_htlcs : [ { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , state : RCVD_ADD_ACK_REVOCATION }, { msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : RCVD_ADD_ACK_REVOCATION } ]"
 
 # Node2 collects the HTLCs.
-lcli2 fulfillhtlc $ID1 $SECRET
-lcli2 fulfillhtlc $ID1 $SECRET2
+lcli2 fulfillhtlc $ID1 $HTLCID $SECRET
+lcli2 fulfillhtlc $ID1 $HTLCID2 $SECRET2
 
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2

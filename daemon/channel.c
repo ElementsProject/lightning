@@ -299,19 +299,6 @@ void cstate_fulfill_htlc(struct channel_state *cstate,
 	remove_htlc(cstate, side, !side, htlc);
 }
 
-struct htlc *cstate_find_htlc(const struct channel_state *cstate,
-			      const struct sha256 *rhash,
-			      enum channel_side side)
-{
-	size_t i;
-
-	for (i = 0; i < tal_count(cstate->side[side].htlcs); i++) {
-		if (structeq(&cstate->side[side].htlcs[i]->rhash, rhash))
-			return cstate->side[side].htlcs[i];
-	}
-	return NULL;
-}
-
 struct htlc *cstate_htlc_by_id(const struct channel_state *cstate,
 			       uint64_t id,
 			       enum channel_side side)
