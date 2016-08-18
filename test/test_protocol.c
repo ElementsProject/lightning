@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
+#include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/str/str.h>
@@ -27,6 +28,8 @@
 #define LETTER_WIDTH 3
 
 #define TEXT_STYLE "style=\"font-size:4;\""
+
+static bool verbose = false;
 
 struct commit_tx {
 	/* inhtlcs = htlcs they offered, outhtlcs = htlcs we offered */
@@ -200,6 +203,8 @@ static struct commit_tx make_commit_tx(struct htlc **htlcs, int local_or_remote)
 }
 
 struct peer {
+	const char *name;
+
 	int infd, outfd, cmdfd, cmddonefd;
 
 	/* For drawing svg */
@@ -230,7 +235,7 @@ static struct htlc *new_htlc(struct peer *peer, unsigned int htlc_id, int side)
 
 	/* Fee changes don't have to be unique. */
 	if (htlc_id && find_htlc(peer, htlc_id, side))
-		errx(1, "%s duplicate new htlc %u",
+		errx(1, "%s: %s duplicate new htlc %u", peer->name,
 		     side == OURS ? "Our" : "Their", htlc_id);
 	tal_resize(&peer->htlcs, n+1);
 	peer->htlcs[n] = tal(peer, struct htlc);
@@ -246,14 +251,21 @@ static void htlc_changestate(struct peer *peer,
 			     enum htlc_state new)
 {
 	if (htlc->state != old)
-		errx(1, "htlc was in state %s not %s",
+		errx(1, "%s: htlc was in state %s not %s", peer->name,
 		     htlc_statename(htlc->state), htlc_statename(old));
-	if (htlc->id)
+	if (htlc->id) {
+		if (verbose)
+			printf("%s: HTLC %u -> %s\n",
+			       peer->name, htlc->id, htlc_statename(new));
 		tal_append_fmt(&peer->info, "%u:%s\n",
 			       htlc->id, htlc_statename(new));
-	else
+	} else {
+		if (verbose)
+			printf("%s: FEE -> %s\n",
+			       peer->name, htlc_statename(new));
 		tal_append_fmt(&peer->info, "FEE:%s\n",
 			       htlc_statename(new));
+	}
 	htlc->state = new;
 }
 
@@ -407,7 +419,8 @@ static void read_peer(struct peer *peer, const char *str, const char *cmd)
 	read_in(peer->infd, p, strlen(str));
 	p[strlen(str)] = '\0';
 	if (!streq(p, str))
-		errx(1, "%s: Expected %s from peer, got %s", cmd, str, p);
+		errx(1, "%s: %s: Expected %s from peer, got %s",
+		     peer->name, cmd, str, p);
 	tal_free(p);
 }
 
@@ -675,8 +688,10 @@ static void do_cmd(struct peer *peer)
 	struct commit_info *ci;
 
 	i = read(peer->cmdfd, cmd, sizeof(cmd)-1);
+	if (i <= 0)
+		err(1, "%s: reading command", peer->name);
 	if (cmd[i-1] != '\0')
-		errx(1, "Unterminated command");
+		errx(1, "%s: Unterminated command", peer->name);
 
 	if (i == 1) {
 		fflush(stdout);
@@ -727,7 +742,7 @@ static void do_cmd(struct peer *peer)
 	} else if (streq(cmd, "dumpall")) {
 		dump_peer(peer, true);
 	} else
-		errx(1, "Unknown command %s", cmd);
+		errx(1, "%s: Unknown command %s", peer->name, cmd);
 
 	write(peer->cmddonefd, peer->info, strlen(peer->info)+1);
 
@@ -737,10 +752,11 @@ static void do_cmd(struct peer *peer)
 			return;
 		}
 	}
-	errx(1, "No signed, unrevoked commit!");
+	errx(1, "%s: No signed, unrevoked commit!", peer->name);
 }
 
-static void new_peer(int infdpair[2], int outfdpair[2], int cmdfdpair[2],
+static void new_peer(const char *name,
+		     int infdpair[2], int outfdpair[2], int cmdfdpair[2],
 		     int cmddonefdpair[2])
 {
 	struct peer *peer;
@@ -760,6 +776,7 @@ static void new_peer(int infdpair[2], int outfdpair[2], int cmdfdpair[2],
 	close(cmddonefdpair[0]);
 
 	peer = tal(NULL, struct peer);
+	peer->name = name;
 	peer->htlcs = tal_arr(peer, struct htlc *, 0);
 	
 	/* Create first, signed commit info. */
@@ -868,7 +885,7 @@ static bool process_output(char **svg, bool is_a, const char *output,
 	return true;
 }
 
-static bool get_output(int donefd, char **svg, bool is_a,
+static void get_output(int donefd, char **svg, bool is_a,
 		       struct sent **a_sent, struct sent **b_sent,
 		       int *y, size_t *max_chars)
 {
@@ -879,38 +896,50 @@ static bool get_output(int donefd, char **svg, bool is_a,
 	/* FIXME: Assumes large pipebuf, atomic read */
 	r = read(donefd, output, sizeof(output)-1);
 	if (r <= 0)
-		return false;
+		err(1, "Reading from %s", is_a ? "A" : "B");
 	output[r] = '\0';
 	alarm(0);
 
 	if (*svg)
 		process_output(svg, is_a, output, a_sent, b_sent, y, max_chars);
-	return true;
 }
 
 int main(int argc, char *argv[])
 {
-	char cmd[80], *svg = NULL;
+	char cmd[80], *svg;
 	int a_to_b[2], b_to_a[2], acmd[2], bcmd[2], adonefd[2], bdonefd[2];
 	int y = STEP_HEIGHT + LINE_HEIGHT;
 	struct sent *a_sent = tal_arr(NULL, struct sent, 0),
 		*b_sent = tal_arr(NULL, struct sent, 0);
 	size_t max_chars = 0;
+	bool do_svg = false;
 
 	err_set_progname(argv[0]);
-
-	if (argv[1] && streq(argv[1], "--svg"))
+	opt_register_noarg("--help|-h", opt_usage_and_exit,
+			   "\n"
+			   "Lightning protocol tester.",
+			   "Print this message.");
+	opt_register_noarg("--svg", opt_set_bool, &do_svg, "Output SVG diagram");
+	opt_register_noarg("--verbose", opt_set_bool, &verbose,
+			   "Extra output");
+	opt_parse(&argc, argv, opt_log_stderr_exit);
+	if (argc != 1)
+		errx(1, "no arguments accepted");
+	
+	if (do_svg)
 		svg = tal_strdup(NULL, "");
+	else
+		svg = NULL;
 
 	if (pipe(a_to_b) || pipe(b_to_a) || pipe(adonefd) || pipe(acmd))
 		err(1, "Creating pipes");
 
-	new_peer(a_to_b, b_to_a, acmd, adonefd);
+	new_peer("A", a_to_b, b_to_a, acmd, adonefd);
 
 	if (pipe(bdonefd) || pipe(bcmd))
 		err(1, "Creating pipes");
 
-	new_peer(b_to_a, a_to_b, bcmd, bdonefd);
+	new_peer("B", b_to_a, a_to_b, bcmd, bdonefd);
 
 	close(acmd[0]);
 	close(bcmd[0]);
@@ -927,7 +956,10 @@ int main(int argc, char *argv[])
 		if (!strends(cmd, "\n"))
 			errx(1, "Truncated command");
 		cmd[strlen(cmd)-1] = '\0';
-	
+
+		if (verbose)
+			printf("%s\n", cmd);
+
 		if (strstarts(cmd, "A:")) {
 			cmdfd = acmd[1];
 			donefd = adonefd[0];
