@@ -7,7 +7,7 @@
 #include <ccan/structeq/structeq.h>
 #include <string.h>
 
-uint64_t fee_by_feerate(size_t txsize, uint32_t fee_rate)
+uint64_t fee_by_feerate(size_t txsize, uint64_t fee_rate)
 {
 	/* BOLT #2:
 	 * 
@@ -19,7 +19,7 @@ uint64_t fee_by_feerate(size_t txsize, uint32_t fee_rate)
 }
 
 static uint64_t calculate_fee_msat(size_t num_nondust_htlcs,
-				   uint32_t fee_rate)
+				   uint64_t fee_rate)
 {
 	uint64_t bytes;
 
@@ -86,7 +86,7 @@ static void recalculate_fees(struct channel_oneside *a,
 
 /* a transfers htlc_msat to a HTLC (gains it, if -ve) */
 static bool change_funding(uint64_t anchor_satoshis,
-			   uint32_t fee_rate,
+			   uint64_t fee_rate,
 			   int64_t htlc_msat,
 			   struct channel_oneside *a,
 			   struct channel_oneside *b,
@@ -118,7 +118,7 @@ static bool change_funding(uint64_t anchor_satoshis,
 
 struct channel_state *initial_cstate(const tal_t *ctx,
 				      uint64_t anchor_satoshis,
-				      uint32_t fee_rate,
+				      uint64_t fee_rate,
 				      enum channel_side funding)
 {
 	uint64_t fee_msat;
@@ -155,7 +155,7 @@ struct channel_state *initial_cstate(const tal_t *ctx,
 	return cstate;
 }
 
-void adjust_fee(struct channel_state *cstate, uint32_t fee_rate)
+void adjust_fee(struct channel_state *cstate, uint64_t fee_rate)
 {
 	uint64_t fee_msat;
 

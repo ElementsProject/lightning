@@ -26,7 +26,7 @@ struct channel_state {
 	/* Satoshis paid by anchor. */
 	uint64_t anchor;
 	/* Satoshis per 1000 bytes. */
-	uint32_t fee_rate;
+	uint64_t fee_rate;
 	/* Number of non-dust htlcs (to calculate txsize) */
 	unsigned int num_nondust;
 	struct channel_oneside side[2];
@@ -43,7 +43,7 @@ struct channel_state {
  */
 struct channel_state *initial_cstate(const tal_t *ctx,
 				     uint64_t anchor_satoshis,
-				     uint32_t fee_rate,
+				     uint64_t fee_rate,
 				     enum channel_side side);
 
 /**
@@ -89,7 +89,7 @@ void cstate_fulfill_htlc(struct channel_state *cstate, const struct htlc *htlc);
  * @cstate: The channel state
  * @fee_rate: fee in satoshi per 1000 bytes.
  */
-void adjust_fee(struct channel_state *cstate, uint32_t fee_rate);
+void adjust_fee(struct channel_state *cstate, uint64_t fee_rate);
 
 /**
  * force_fee: Change fee to a specific value.
@@ -107,6 +107,6 @@ bool force_fee(struct channel_state *cstate, uint64_t fee);
  * @txsize: transaction size in bytes.
  * @fee_rate: satoshi per 1000 bytes.
  */
-uint64_t fee_by_feerate(size_t txsize, uint32_t fee_rate);
+uint64_t fee_by_feerate(size_t txsize, uint64_t fee_rate);
 
 #endif /* LIGHTNING_DAEMON_CHANNEL_H */
