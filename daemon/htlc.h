@@ -72,6 +72,7 @@ struct htlc {
 };
 
 const char *htlc_state_name(enum htlc_state s);
+enum htlc_state htlc_state_from_name(const char *name);
 void htlc_changestate(struct htlc *h,
 		      enum htlc_state oldstate,
 		      enum htlc_state newstate);
@@ -82,19 +83,24 @@ static inline bool htlc_has(const struct htlc *h, int flag)
 	return htlc_state_flags(h->state) & flag;
 }
 
-static inline enum htlc_side htlc_owner(const struct htlc *h)
+static inline enum htlc_side htlc_state_owner(enum htlc_state state)
 {
-	if (h->state < RCVD_ADD_HTLC) {
-		assert((htlc_state_flags(h->state)
+	if (state < RCVD_ADD_HTLC) {
+		assert((htlc_state_flags(state)
 			& (HTLC_REMOTE_F_OWNER|HTLC_LOCAL_F_OWNER))
 		       == HTLC_LOCAL_F_OWNER);
 		return LOCAL;
 	} else {
-		assert((htlc_state_flags(h->state)
+		assert((htlc_state_flags(state)
 			& (HTLC_REMOTE_F_OWNER|HTLC_LOCAL_F_OWNER))
 		       == HTLC_REMOTE_F_OWNER);
 		return REMOTE;
 	}
+}
+
+static inline enum htlc_side htlc_owner(const struct htlc *h)
+{
+	return htlc_state_owner(h->state);
 }
 
 /* FIXME: Transitional function. */

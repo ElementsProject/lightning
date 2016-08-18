@@ -6,6 +6,7 @@ You will need several development libraries:
 * protobuf-c: version 1.1.0 or above.
 * libsodium: for crypto.
 * libbase58: for bitcoin's base58 encoding.
+* libsqlite3: for database support.
 
 You will also need a version of bitcoind with segregated witness support,
 such as the 0.13 or above.
@@ -15,7 +16,7 @@ To Build on Ubuntu 16.04
 
 Get dependencies:
 ```
-sudo apt-get install libprotobuf-c-dev libsodium-dev libbase58-dev
+sudo apt-get install libprotobuf-c-dev libsodium-dev libbase58-dev libsqlite3-dev
 ```
 
 Clone lightning and initialize submodules:

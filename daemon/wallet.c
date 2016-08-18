@@ -21,6 +21,26 @@ struct wallet {
 	struct ripemd160 p2sh;
 };
 
+bool restore_wallet_address(struct lightningd_state *dstate,
+			    const struct privkey *privkey)
+{
+	struct wallet *w = tal(dstate, struct wallet);
+	u8 *redeemscript;
+	struct sha256 h;
+
+	w->privkey = *privkey;
+	if (!pubkey_from_privkey(dstate->secpctx, &w->privkey, &w->pubkey))
+		return false;
+
+	redeemscript = bitcoin_redeem_p2wpkh(w, dstate->secpctx, &w->pubkey);
+	sha256(&h, redeemscript, tal_count(redeemscript));
+	ripemd160(&w->p2sh, h.u.u8, sizeof(h));
+
+	list_add_tail(&dstate->wallet, &w->list);
+	tal_free(redeemscript);
+	return true;
+}
+	
 static void new_keypair(struct lightningd_state *dstate,
 			struct privkey *privkey, struct pubkey *pubkey)
 {

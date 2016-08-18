@@ -20,6 +20,7 @@ DAEMON_SRC :=					\
 	daemon/commit_tx.c			\
 	daemon/controlled_time.c		\
 	daemon/cryptopkt.c			\
+	daemon/db.c				\
 	daemon/dns.c				\
 	daemon/htlc.c				\
 	daemon/jsonrpc.c			\
@@ -58,6 +59,7 @@ DAEMON_HEADERS :=				\
 	daemon/configdir.h			\
 	daemon/controlled_time.h		\
 	daemon/cryptopkt.h			\
+	daemon/db.h				\
 	daemon/dns.h				\
 	daemon/htlc.h				\
 	daemon/htlc_state.h			\

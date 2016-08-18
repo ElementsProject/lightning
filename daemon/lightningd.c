@@ -2,6 +2,7 @@
 #include "chaintopology.h"
 #include "configdir.h"
 #include "controlled_time.h"
+#include "db.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
@@ -329,7 +330,10 @@ int main(int argc, char *argv[])
 	/* Set up node ID and private key. */
 	secrets_init(dstate);
 	new_node(dstate, &dstate->id);
-	
+
+	/* Read or create database. */
+	db_init(dstate);
+
 	/* Initialize block topology. */
 	setup_topology(dstate);
 

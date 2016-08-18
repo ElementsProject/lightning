@@ -15,6 +15,16 @@ const char *htlc_state_name(enum htlc_state s)
 	return "unknown";
 }
 
+enum htlc_state htlc_state_from_name(const char *name)
+{
+	size_t i;
+
+	for (i = 0; enum_htlc_state_names[i].name; i++)
+		if (streq(enum_htlc_state_names[i].name, name))
+			return enum_htlc_state_names[i].v;
+	return HTLC_STATE_INVALID;
+}
+
 /* This is the flags for each state. */
 static const int per_state_bits[] = {
 	[SENT_ADD_HTLC] = HTLC_ADDING + HTLC_LOCAL_F_OWNER

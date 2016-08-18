@@ -5,12 +5,14 @@
 #include "log.h"
 #include "peer.h"
 #include "secrets.h"
+#include "utils.h"
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/mem/mem.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/tal/str/str.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <secp256k1.h>
@@ -173,6 +175,48 @@ void peer_get_revocation_hash(const struct peer *peer, u64 index,
 
 	peer_get_revocation_preimage(peer, index, &preimage);
 	sha256(rhash, preimage.u.u8, sizeof(preimage.u.u8));
+}
+
+const char *peer_secrets_for_db(const tal_t *ctx, struct peer *peer)
+{
+	const struct peer_secrets *ps = peer->secrets;
+	return tal_fmt(ctx, "x'%s', x'%s', x'%s'",
+		       tal_hexstr(ctx, &ps->commit, sizeof(ps->commit)),
+		       tal_hexstr(ctx, &ps->final, sizeof(ps->final)),
+		       tal_hexstr(ctx, &ps->revocation_seed,
+				  sizeof(ps->revocation_seed)));
+}
+
+void peer_set_secrets_from_db(struct peer *peer,
+			      const void *commit_privkey,
+			      size_t commit_privkey_len,
+			      const void *final_privkey,
+			      size_t final_privkey_len,
+			      const void *revocation_seed,
+			      size_t revocation_seed_len)
+{
+	struct peer_secrets *ps = tal(peer, struct peer_secrets);
+
+	assert(!peer->secrets);
+	peer->secrets = ps;
+	
+	if (commit_privkey_len != sizeof(ps->commit)
+	    || final_privkey_len != sizeof(ps->final)
+	    || revocation_seed_len != sizeof(ps->revocation_seed))
+		fatal("peer_set_secrets_from_db: bad lengths %zu/%zu/%zu",
+		      commit_privkey_len, final_privkey_len,
+		      revocation_seed_len);
+
+	memcpy(&ps->commit, commit_privkey, commit_privkey_len);
+	memcpy(&ps->final, final_privkey, final_privkey_len);
+	memcpy(&ps->revocation_seed, revocation_seed, revocation_seed_len);
+
+	if (!pubkey_from_privkey(peer->dstate->secpctx, &ps->commit,
+				 &peer->local.commitkey))
+		fatal("peer_set_secrets_from_db:bad commit privkey");
+	if (!pubkey_from_privkey(peer->dstate->secpctx, &ps->final,
+				 &peer->local.finalkey))
+		fatal("peer_set_secrets_from_db:bad final privkey");
 }
 
 void secrets_init(struct lightningd_state *dstate)

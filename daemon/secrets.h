@@ -45,6 +45,16 @@ void peer_sign_steal_input(const struct peer *peer,
 			   const u8 *witnessscript,
 			   struct signature *sig);
 
+const char *peer_secrets_for_db(const tal_t *ctx, struct peer *peer);
+
+void peer_set_secrets_from_db(struct peer *peer,
+			      const void *commit_privkey,
+			      size_t commit_privkey_len,
+			      const void *final_privkey,
+			      size_t final_privkey_len,
+			      const void *revocation_seed,
+			      size_t revocation_seed_len);
+
 void peer_secrets_init(struct peer *peer);
 
 void peer_get_revocation_hash(const struct peer *peer, u64 index,

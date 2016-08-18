@@ -72,6 +72,9 @@ struct lightningd_state {
 	/* Configuration settings. */
 	struct config config;
 
+	/* The database where we keep our stuff. */
+	struct db *db;
+
 	/* Any pending timers. */
 	struct timers timers;
 

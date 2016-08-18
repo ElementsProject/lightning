@@ -7,6 +7,9 @@ struct lightningd_state;
 struct bitcoin_tx;
 struct bitcoin_tx_output;
 
+bool restore_wallet_address(struct lightningd_state *dstate,
+			    const struct privkey *privkey);
+
 void wallet_add_signed_input(struct lightningd_state *dstate,
 			     const struct wallet *w,
 			     struct bitcoin_tx *tx,
