@@ -1,4 +1,5 @@
 #include <ccan/build_assert/build_assert.h>
+#include <daemon/db.h>
 #include <daemon/lightningd.h>
 #include <daemon/log.h>
 #include <daemon/packets.h>
@@ -44,7 +45,10 @@ static Pkt *init_from_pkt_open(struct peer *peer, const Pkt *pkt)
 			      &peer->remote.next_revocation_hash);
 	if (err)
 		return err;
-	
+
+	if (!db_set_visible_state(peer))
+		return pkt_err(peer, "Database error");
+
 	/* Set up their commit info now: rest gets done in setup_first_commit
 	 * once anchor is established. */
 	peer->remote.commit = ci;
@@ -147,10 +151,39 @@ enum state state(struct peer *peer,
 			peer->remote.commit->sig->stype = SIGHASH_ALL;
 			peer_sign_theircommit(peer, peer->remote.commit->tx,
 					      &peer->remote.commit->sig->sig);
-			peer_add_their_commit(peer, &peer->remote.commit->txid,
-					      peer->remote.commit->commit_num);
 
 			peer->remote.commit->order = peer->order_counter++;
+			if (!db_start_transaction(peer)) {
+				err = pkt_err(peer, "database error");
+				peer_open_complete(peer, err->error->problem);
+				goto err_breakdown;
+			}
+			if (!db_set_anchor(peer)) {
+				err = pkt_err(peer, "database error");
+				peer_open_complete(peer, err->error->problem);
+				db_abort_transaction(peer);
+				goto err_breakdown;
+			}
+			if (!db_new_commit_info(peer, THEIRS, NULL)) {
+				err = pkt_err(peer, "database error");
+				peer_open_complete(peer, err->error->problem);
+				db_abort_transaction(peer);
+				goto err_breakdown;
+			}
+			if (!peer_add_their_commit(peer,
+						   &peer->remote.commit->txid,
+						   peer->remote.commit->commit_num)) {
+				err = pkt_err(peer, "database error");
+				peer_open_complete(peer, err->error->problem);
+				db_abort_transaction(peer);
+				goto err_breakdown;
+			}
+			if (!db_commit_transaction(peer)) {
+				err = pkt_err(peer, "database error");
+				peer_open_complete(peer, err->error->problem);
+				goto err_breakdown;
+			}
+
 			queue_pkt_open_commit_sig(peer);
 			peer_watch_anchor(peer,
 					  peer->local.mindepth,
@@ -183,6 +216,33 @@ enum state state(struct peer *peer,
 				goto err_breakdown;
 			}
 			peer->their_commitsigs++;
+
+			if (!db_start_transaction(peer)) {
+				bitcoin_release_anchor(peer, INPUT_NONE);
+				err = pkt_err(peer, "database error");
+				peer_open_complete(peer, err->error->problem);
+				goto err_breakdown;
+			}
+			if (!db_set_anchor(peer)) {
+				bitcoin_release_anchor(peer, INPUT_NONE);
+				err = pkt_err(peer, "database error");
+				peer_open_complete(peer, err->error->problem);
+				db_abort_transaction(peer);
+				goto err_breakdown;
+			}
+			if (!db_new_commit_info(peer, OURS, NULL)) {
+				bitcoin_release_anchor(peer, INPUT_NONE);
+				err = pkt_err(peer, "database error");
+				peer_open_complete(peer, err->error->problem);
+				db_abort_transaction(peer);
+				goto err_breakdown;
+			}
+			if (!db_commit_transaction(peer)) {
+				bitcoin_release_anchor(peer, INPUT_NONE);
+				err = pkt_err(peer, "database error");
+				peer_open_complete(peer, err->error->problem);
+				goto err_breakdown;
+			}
 			queue_tx_broadcast(broadcast, bitcoin_anchor(peer));
 			peer_watch_anchor(peer,
 					  peer->local.mindepth,

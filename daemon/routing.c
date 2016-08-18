@@ -125,6 +125,7 @@ get_or_make_connection(struct lightningd_state *dstate,
 	nc = tal(dstate, struct node_connection);
 	nc->src = from;
 	nc->dst = to;
+	log_add(dstate->base_log, " = %p (%p->%p)", nc, from, to);
 
 	/* Hook it into in/out arrays. */
 	i = tal_count(to->in);
@@ -226,6 +227,7 @@ struct peer *find_route(struct lightningd_state *dstate,
 	src->bfg[0].total = msatoshi;
 
 	for (runs = 0; runs < ROUTING_MAX_HOPS; runs++) {
+		log_debug(dstate->base_log, "Run %i", runs);
 		/* Run through every edge. */
 		for (n = node_map_first(dstate->nodes, &it);
 		     n;
@@ -233,6 +235,16 @@ struct peer *find_route(struct lightningd_state *dstate,
 			size_t num_edges = tal_count(n->in);
 			for (i = 0; i < num_edges; i++) {
 				bfg_one_edge(n, i);
+				log_debug(dstate->base_log, "We seek %p->%p, this is %p -> %p",
+					  dst, src, n->in[i]->src, n->in[i]->dst);
+				log_debug_struct(dstate->base_log,
+						 "Checking from %s",
+						 struct pubkey,
+						 &n->in[i]->src->id);
+				log_add_struct(dstate->base_log,
+					       " to %s",
+					       struct pubkey,
+					       &n->in[i]->dst->id);
 			}
 		}
 	}

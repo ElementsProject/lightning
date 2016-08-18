@@ -1,3 +1,4 @@
+#include "db.h"
 #include "htlc.h"
 #include "log.h"
 #include "peer.h"
@@ -150,9 +151,10 @@ int htlc_state_flags(enum htlc_state state)
 	return per_state_bits[state];
 }
 
-void htlc_changestate(struct htlc *h,
+bool htlc_changestate(struct htlc *h,
 		      enum htlc_state oldstate,
-		      enum htlc_state newstate)
+		      enum htlc_state newstate,
+		      bool db_commit)
 {
 	log_debug(h->peer->log, "htlc %"PRIu64": %s->%s", h->id,
 		  htlc_state_name(h->state), htlc_state_name(newstate));
@@ -166,6 +168,18 @@ void htlc_changestate(struct htlc *h,
 	       == (htlc_state_flags(newstate)&(HTLC_LOCAL_F_OWNER|HTLC_REMOTE_F_OWNER)));
 
 	h->state = newstate;
+
+	if (db_commit) {
+		if (newstate == RCVD_ADD_COMMIT || newstate == SENT_ADD_COMMIT)
+			return db_new_htlc(h->peer, h);
+		/* These never hit the database. */
+		if (oldstate == RCVD_REMOVE_HTLC)
+			oldstate = SENT_ADD_ACK_REVOCATION;
+		else if (oldstate == SENT_REMOVE_HTLC)
+			oldstate = RCVD_ADD_ACK_REVOCATION;
+		return db_update_htlc_state(h->peer, h, oldstate);
+	}
+	return true;
 }
 
 void htlc_undostate(struct htlc *h,

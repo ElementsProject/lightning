@@ -443,11 +443,18 @@ static void get_init_blockhash(struct lightningd_state *dstate, u32 blockcount,
 			       void *unused)
 {
 	u32 start;
+	struct peer *peer;
 
 	if (blockcount < 100)
 		start = 0;
 	else
 		start = blockcount - 100;
+
+	/* If loaded from database, go back to earliest possible peer anchor. */
+	list_for_each(&dstate->peers, peer, list) {
+		if (peer->anchor.min_depth && peer->anchor.min_depth < start)
+			start = peer->anchor.min_depth;
+	}
 
 	/* Start topology from 100 blocks back. */
 	bitcoind_getblockhash(dstate, start, get_init_block, int2ptr(start));

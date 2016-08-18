@@ -7,6 +7,7 @@
 #include "bitcoin/script.h"
 #include "bitcoin/signature.h"
 #include "bitcoin/tx.h"
+#include "db.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
@@ -108,6 +109,7 @@ static void json_newaddr(struct command *cmd,
 	ripemd160(&w->p2sh, h.u.u8, sizeof(h));
 
 	list_add_tail(&cmd->dstate->wallet, &w->list);
+	db_add_wallet_privkey(cmd->dstate, &w->privkey);
 	
 	json_object_start(response, NULL);
 	json_add_string(response, "address",

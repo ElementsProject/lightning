@@ -4,12 +4,14 @@
 #include "commit_tx.h"
 #include "controlled_time.h"
 #include "cryptopkt.h"
+#include "db.h"
 #include "dns.h"
 #include "find_p2sh_out.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
 #include "names.h"
+#include "netaddr.h"
 #include "onion.h"
 #include "output_to_htlc.h"
 #include "packets.h"
@@ -59,13 +61,15 @@ static bool command_htlc_fail(struct peer *peer, struct htlc *htlc);
 static bool command_htlc_fulfill(struct peer *peer, struct htlc *htlc);
 static void try_commit(struct peer *peer);
 
-void peer_add_their_commit(struct peer *peer,
+bool peer_add_their_commit(struct peer *peer,
 			   const struct sha256_double *txid, u64 commit_num)
 {
 	struct their_commit *tc = tal(peer, struct their_commit);
 	tc->txid = *txid;
 	tc->commit_num = commit_num;
 	list_add_tail(&peer->their_commits, &tc->list);
+
+	return db_add_commit_map(peer, txid, commit_num);
 }
 
 /* Create a bitcoin close tx, using last signature they sent. */
@@ -193,6 +197,33 @@ struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id)
 	return NULL;
 }
 
+void debug_dump_peers(struct lightningd_state *dstate)
+{
+	struct peer *peer;
+
+	list_for_each(&dstate->peers, peer, list) {
+		if (!peer->local.commit
+		    || !peer->remote.commit)
+			continue;
+		log_debug(peer->log,
+			  "Local cstate: pay %u/%u fee %u/%u htlcs %u/%u",
+			  peer->local.commit->cstate->side[OURS].pay_msat,
+			  peer->local.commit->cstate->side[THEIRS].pay_msat,
+			  peer->local.commit->cstate->side[OURS].fee_msat,
+			  peer->local.commit->cstate->side[THEIRS].fee_msat,
+			  peer->local.commit->cstate->side[OURS].num_htlcs,
+			  peer->local.commit->cstate->side[THEIRS].num_htlcs);
+		log_debug(peer->log,
+			  "Remote cstate: pay %u/%u fee %u/%u htlcs %u/%u",
+			  peer->remote.commit->cstate->side[OURS].pay_msat,
+			  peer->remote.commit->cstate->side[THEIRS].pay_msat,
+			  peer->remote.commit->cstate->side[OURS].fee_msat,
+			  peer->remote.commit->cstate->side[THEIRS].fee_msat,
+			  peer->remote.commit->cstate->side[OURS].num_htlcs,
+			  peer->remote.commit->cstate->side[THEIRS].num_htlcs);
+	}
+}
+
 static struct peer *find_peer_json(struct lightningd_state *dstate,
 			      const char *buffer,
 			      jsmntok_t *peeridtok)
@@ -256,8 +287,8 @@ void peer_open_complete(struct peer *peer, const char *problem)
 		log_debug(peer->log, "peer open complete");
 }
 
-static void set_peer_state(struct peer *peer, enum state newstate,
-			   const char *caller)
+static bool set_peer_state(struct peer *peer, enum state newstate,
+			   const char *caller, bool db_commit)
 {
 	log_debug(peer->log, "%s: %s => %s", caller,
 		  state_name(peer->state), state_name(newstate));
@@ -266,6 +297,10 @@ static void set_peer_state(struct peer *peer, enum state newstate,
 	/* We can only route in normal state. */
 	if (!state_is_normal(peer->state))
 		peer->nc = tal_free(peer->nc);
+
+	if (db_commit)
+		return db_update_state(peer);
+	return true;
 }
 
 static void peer_breakdown(struct peer *peer)
@@ -281,13 +316,14 @@ static void peer_breakdown(struct peer *peer)
 		broadcast_tx(peer, bitcoin_close(peer));
 	/* If we have a signed commit tx (maybe not if we just offered
 	 * anchor, or they supplied anchor, or no outputs to us). */
-	} else if (peer->local.commit->sig) {
+	} else if (peer->local.commit && peer->local.commit->sig) {
 		log_unusual(peer->log, "Peer breakdown: sending commit tx");
 		broadcast_tx(peer, bitcoin_commit(peer));
 	} else {
 		log_info(peer->log, "Peer breakdown: nothing to do");
 		/* We close immediately. */
-		set_peer_state(peer, STATE_CLOSED, __func__);
+		set_peer_state(peer, STATE_CLOSED, __func__, false);
+		db_forget_peer(peer);
 		io_wake(peer);
 	}
 }
@@ -322,7 +358,8 @@ static bool peer_comms_err(struct peer *peer, Pkt *err)
 	if (err)
 		queue_pkt_err(peer, err);
 
-	set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__);
+	/* FIXME: Save state here? */
+	set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__, false);
 	peer_breakdown(peer);
 	return false;
 }
@@ -365,6 +402,7 @@ void set_htlc_rval(struct peer *peer,
 {
 	assert(!htlc->r);
 	htlc->r = tal_dup(htlc, struct rval, rval);
+	db_htlc_fulfilled(peer, htlc);
 }
 
 static void route_htlc_onwards(struct peer *peer,
@@ -623,8 +661,9 @@ struct state_table {
 	enum htlc_state from, to;
 };
 
-static bool htlcs_changestate(struct peer *peer,
-			      const struct state_table *table, size_t n)
+static const char *htlcs_changestate(struct peer *peer,
+				     const struct state_table *table, size_t n,
+				     bool db_commit)
 {
 	struct htlc_map_iter it;
 	struct htlc *h;
@@ -638,13 +677,22 @@ static bool htlcs_changestate(struct peer *peer,
 			if (h->state == table[i].from) {
 				adjust_cstates(peer, h,
 					       table[i].from, table[i].to);
-				htlc_changestate(h, table[i].from, table[i].to);
+				if (!htlc_changestate(h, table[i].from,
+						      table[i].to, db_commit))
+					return "database error";
 				check_both_committed(peer, h);
 				changed = true;
 			}
 		}
 	}
-	return changed;
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT send an `update_commit` message which does
+	 * not include any updates.
+	 */
+	if (!changed)
+		return "no changes made";
+	return NULL;
 }
 
 /* This is the io loop while we're negotiating closing tx. */
@@ -718,6 +766,11 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 	peer->closing.their_fee = c->close_fee;
 	peer->closing.sigs_in++;
 
+	if (!db_update_their_closing(peer)) {
+		return peer_comms_err(peer,
+				      pkt_err(peer, "Database error"));
+	}
+
 	if (peer->closing.our_fee != peer->closing.their_fee) {
 		/* BOLT #2:
 		 *
@@ -741,6 +794,11 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 			 peer->closing.our_fee);
 
 		peer->closing.closing_order = peer->order_counter++;
+
+		if (!db_update_our_closing(peer)) {
+			return peer_comms_err(peer,
+					      pkt_err(peer, "Database error"));
+		}
 		queue_pkt_close_signature(peer);
 	}
 
@@ -764,6 +822,7 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 {
 	Pkt *err;
+	const char *errmsg;
 	struct sha256 preimage;
 	struct commit_info *ci;
 	bool to_them_only;
@@ -783,13 +842,21 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 
 	ci = new_commit_info(peer, peer->local.commit->commit_num + 1);
 
+	if (!db_start_transaction(peer))
+		return pkt_err(peer, "database error");
+	
 	/* BOLT #2:
 	 *
 	 * A node MUST NOT send an `update_commit` message which does
 	 * not include any updates.
 	 */
-	if (!htlcs_changestate(peer, commit_changes, ARRAY_SIZE(commit_changes)))
-		return pkt_err(peer, "Empty commit");
+	errmsg = htlcs_changestate(peer,
+				   commit_changes, ARRAY_SIZE(commit_changes),
+				   true);
+	if (errmsg) {
+		db_abort_transaction(peer);
+		return pkt_err(peer, "%s", errmsg);
+	}
 
 	/* Create new commit info for this commit tx. */
 	ci->revocation_hash = peer->local.next_revocation_hash;
@@ -804,6 +871,15 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	ci->tx = create_commit_tx(ci, peer, &ci->revocation_hash,
 				  ci->cstate, LOCAL, &to_them_only);
 	bitcoin_txid(ci->tx, &ci->txid);
+
+	log_debug(peer->log, "Check tx %"PRIu64" sig for %u/%u msatoshis, %u/%u htlcs (%u non-dust)",
+		  ci->commit_num,
+		  ci->cstate->side[THEIRS].pay_msat,
+		  ci->cstate->side[OURS].pay_msat,
+		  ci->cstate->side[THEIRS].num_htlcs,
+		  ci->cstate->side[OURS].num_htlcs,
+		  ci->cstate->num_nondust);
+	log_add_struct(peer->log, " (txid %s)", struct sha256_double, &ci->txid);
 
 	/* BOLT #2:
 	 *
@@ -830,12 +906,20 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 				     NULL, 0,
 				     peer->anchor.witnessscript,
 				     &peer->remote.commitkey,
-				     ci->sig))
+				     ci->sig)) {
+		db_abort_transaction(peer);
 		return pkt_err(peer, "Bad signature");
+	}
 
 	/* Switch to the new commitment. */
 	tal_free(peer->local.commit);
 	peer->local.commit = ci;
+	peer->local.commit->order = peer->order_counter++;
+
+	if (!db_new_commit_info(peer, OURS, NULL)) {
+		db_abort_transaction(peer);
+		return pkt_err(peer, "Database error");
+	}
 	peer_get_revocation_hash(peer, ci->commit_num + 1,
 				 &peer->local.next_revocation_hash);
 	peer->their_commitsigs++;
@@ -846,9 +930,13 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	assert(to_them_only || peer->local.commit->sig);
 	assert(peer->local.commit->commit_num > 0);
 
-	if (!htlcs_changestate(peer, revocation_changes,
-			       ARRAY_SIZE(revocation_changes)))
-		fatal("sent revoke with no changes");
+	errmsg = htlcs_changestate(peer, revocation_changes,
+				   ARRAY_SIZE(revocation_changes), true);
+	if (errmsg) {
+		log_broken(peer->log, "queue_pkt_revocation: %s", errmsg);
+		/* FIXME: Return error. */
+		fatal("revocation_changes: %s", errmsg);
+	}
 
 	peer_get_revocation_preimage(peer, peer->local.commit->commit_num - 1,
 				     &preimage);
@@ -857,7 +945,9 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	if (peer_uncommitted_changes(peer))
 		remote_changes_pending(peer);
 
-	peer->local.commit->order = peer->order_counter++;
+	if (!db_commit_transaction(peer))
+		return pkt_err(peer, "Database error");
+
 	queue_pkt_revocation(peer, &preimage, &peer->local.next_revocation_hash);
 	return NULL;
 }
@@ -904,7 +994,7 @@ static Pkt *handle_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 	 * ... and the receiving node MUST add the HTLC fulfill/fail
 	 * to the unacked changeset for its local commitment.
 	 */
-	htlc_changestate(htlc, SENT_ADD_ACK_REVOCATION, RCVD_REMOVE_HTLC);
+	htlc_changestate(htlc, SENT_ADD_ACK_REVOCATION, RCVD_REMOVE_HTLC, false);
 	return NULL;
 }
 
@@ -929,13 +1019,15 @@ static Pkt *handle_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 	 * to the unacked changeset for its local commitment.
 	 */
 	cstate_fulfill_htlc(peer->local.staging_cstate, htlc);
-	htlc_changestate(htlc, SENT_ADD_ACK_REVOCATION, RCVD_REMOVE_HTLC);
+	htlc_changestate(htlc, SENT_ADD_ACK_REVOCATION, RCVD_REMOVE_HTLC, false);
 	return NULL;
 }
 
-static Pkt *handle_pkt_revocation(struct peer *peer, const Pkt *pkt)
+static Pkt *handle_pkt_revocation(struct peer *peer, const Pkt *pkt,
+				  enum state next_state)
 {
 	Pkt *err;
+	const char *errmsg;
 	static const struct state_table changes[] = {
 		{ SENT_ADD_COMMIT, RCVD_ADD_REVOCATION },
 		{ SENT_REMOVE_ACK_COMMIT, RCVD_REMOVE_ACK_REVOCATION },
@@ -952,8 +1044,33 @@ static Pkt *handle_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	 * The receiver of `update_revocation`... MUST add the remote
 	 * unacked changes to the set of local acked changes.
 	 */
-	if (!htlcs_changestate(peer, changes, ARRAY_SIZE(changes)))
-		fatal("Revocation received but we made empty commitment?");
+	if (!db_start_transaction(peer))
+		return pkt_err(peer, "database error");
+	errmsg = htlcs_changestate(peer, changes, ARRAY_SIZE(changes), true);
+	if (errmsg) {
+		log_broken(peer->log, "accept_pkt_revocation: %s", errmsg);
+		db_abort_transaction(peer);
+		return pkt_err(peer, "failure accepting update_revocation: %s",
+			       errmsg);
+	}
+	if (!db_save_shachain(peer)) {
+		db_abort_transaction(peer);
+		return pkt_err(peer, "database error");
+	}
+	if (!db_update_next_revocation_hash(peer)) {
+		db_abort_transaction(peer);
+		return pkt_err(peer, "database error");
+	}
+	if (!set_peer_state(peer, next_state, __func__, true)) {
+		db_abort_transaction(peer);
+		return pkt_err(peer, "database error");
+	}
+	if (!db_remove_their_prev_revocation_hash(peer)) {
+		db_abort_transaction(peer);
+		return pkt_err(peer, "database error");
+	}
+	if (!db_commit_transaction(peer))
+		return pkt_err(peer, "database error");
 
 	return NULL;
 }	
@@ -988,7 +1105,40 @@ static void peer_calculate_close_fee(struct peer *peer)
 	assert(!(peer->closing.our_fee & 1));
 }
 
-/* This is the io loop while we're shutdown. */
+static bool start_closing_in_transaction(struct peer *peer)
+{
+	assert(!committed_to_htlcs(peer));
+
+	if (!set_peer_state(peer, STATE_MUTUAL_CLOSING, __func__, true))
+		return false;
+
+	peer_calculate_close_fee(peer);
+	peer->closing.closing_order = peer->order_counter++;
+	if (!db_update_our_closing(peer))
+		return false;
+	queue_pkt_close_signature(peer);
+	return true;
+}
+
+static Pkt *start_closing(struct peer *peer)
+{
+	if (!db_start_transaction(peer))
+		goto fail;
+
+	if (!start_closing_in_transaction(peer)) {
+		db_abort_transaction(peer);
+		goto fail;
+	}
+
+	if (!db_commit_transaction(peer))
+		goto fail;
+	return NULL;
+
+fail:
+	return pkt_err(peer, "database error");
+}
+
+/* This is the io loop while we're doing shutdown. */
 static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 {
 	Pkt *err = NULL;
@@ -1001,11 +1151,9 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 		if (peer->state == STATE_SHUTDOWN)
 			err = pkt_err_unexpected(peer, pkt);
 		else {
-			err = handle_pkt_revocation(peer, pkt);
-			if (!err) {
-				set_peer_state(peer, STATE_SHUTDOWN, __func__);
+			err = handle_pkt_revocation(peer, pkt, STATE_SHUTDOWN);
+			if (!err)
 				peer_update_complete(peer);
-			}
 		}
 		break;
 
@@ -1026,8 +1174,13 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 		 * A node... MUST NOT send more than one `close_shutdown`. */
 		if (peer->closing.their_script)
 			err = pkt_err_unexpected(peer, pkt);
-		else
+		else {
 			err = accept_pkt_close_shutdown(peer, pkt);
+			if (!err) {
+				if (!db_set_their_closing_script(peer))
+					err = pkt_err(peer, "database error");
+			}
+		}
 		break;
 			
 	case PKT__PKT_UPDATE_FULFILL_HTLC:
@@ -1055,49 +1208,70 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 		break;
 	}
 
+	if (!err && !committed_to_htlcs(peer))
+		err = start_closing(peer);
+
 	if (err)
 		return peer_comms_err(peer, err);
-
-	if (!committed_to_htlcs(peer)) {
-		set_peer_state(peer, STATE_MUTUAL_CLOSING, __func__);
-		peer_calculate_close_fee(peer);
-		peer->closing.closing_order = peer->order_counter++;
-		queue_pkt_close_signature(peer);
-	}
 
 	return true;
 }
 
-static void peer_start_shutdown(struct peer *peer)
+static bool peer_start_shutdown(struct peer *peer)
 {
-	assert(peer->state == STATE_SHUTDOWN
-	       || peer->state == STATE_SHUTDOWN_COMMITTING);
+	enum state newstate;
+	u8 *redeemscript;
+
+	if (!db_start_transaction(peer))
+		return false;
+
+	if (!db_begin_shutdown(peer)) {
+		db_abort_transaction(peer);
+		return false;
+	}
 
 	/* If they started close, we might not have sent ours. */
-	if (!peer->closing.our_script) {
-		u8 *redeemscript = bitcoin_redeem_single(peer,
-							 peer->dstate->secpctx,
-							 &peer->local.finalkey);
+	assert(!peer->closing.our_script);
 
-		peer->closing.our_script = scriptpubkey_p2sh(peer, redeemscript);
-		tal_free(redeemscript);
-		/* BOLT #2:
-		 *
-		 * A node SHOULD send a `close_shutdown` (if it has
-		 * not already) after receiving `close_shutdown`.
-		 */
-		peer->closing.shutdown_order = peer->order_counter++;
-		queue_pkt_close_shutdown(peer);
+	redeemscript = bitcoin_redeem_single(peer,
+					     peer->dstate->secpctx,
+					     &peer->local.finalkey);
+
+	peer->closing.our_script = scriptpubkey_p2sh(peer, redeemscript);
+	tal_free(redeemscript);
+
+	/* BOLT #2:
+	 *
+	 * A node SHOULD send a `close_shutdown` (if it has
+	 * not already) after receiving `close_shutdown`.
+	 */
+	peer->closing.shutdown_order = peer->order_counter++;
+	if (!db_set_our_closing_script(peer)) {
+		db_abort_transaction(peer);
+		return false;
+	}
+
+	queue_pkt_close_shutdown(peer);
+
+	if (peer->state == STATE_NORMAL_COMMITTING)
+		newstate = STATE_SHUTDOWN_COMMITTING;
+	else {
+		assert(peer->state == STATE_NORMAL);
+		newstate = STATE_SHUTDOWN;
+	}
+	if (!set_peer_state(peer, newstate, __func__, true)) {
+		db_abort_transaction(peer);
+		return false;
 	}
 
 	/* Catch case where we've exchanged and had no HTLCs anyway. */
-	if (peer->closing.our_script && peer->closing.their_script
-	    && !committed_to_htlcs(peer)) {
-		set_peer_state(peer, STATE_MUTUAL_CLOSING, __func__);
-		peer_calculate_close_fee(peer);
-		peer->closing.closing_order = peer->order_counter++;
-		queue_pkt_close_signature(peer);
+	if (peer->closing.their_script && !committed_to_htlcs(peer)) {
+		if (!start_closing_in_transaction(peer)) {
+			db_abort_transaction(peer);
+			return false;
+		}
 	}
+	return db_commit_transaction(peer);
 }
 	
 /* This is the io loop while we're in normal mode. */
@@ -1129,24 +1303,17 @@ static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 		err = accept_pkt_close_shutdown(peer, pkt);
 		if (err)
 			break;
-		if (peer->state == STATE_NORMAL)
-			set_peer_state(peer, STATE_SHUTDOWN, __func__);
-		else {
-			assert(peer->state == STATE_NORMAL_COMMITTING);
-			set_peer_state(peer, STATE_SHUTDOWN_COMMITTING,
-				       __func__);
+		if (!peer_start_shutdown(peer)) {
+			err = pkt_err(peer, "database error");
+			break;
 		}
-
-		peer_start_shutdown(peer);
 		return true;
 
 	case PKT_UPDATE_REVOCATION:
 		if (peer->state == STATE_NORMAL_COMMITTING) {
-			err = handle_pkt_revocation(peer, pkt);
-			if (!err) {
+			err = handle_pkt_revocation(peer, pkt, STATE_NORMAL);
+			if (!err)
 				peer_update_complete(peer);
-				set_peer_state(peer, STATE_NORMAL, __func__);
-			}
 			break;
 		}
 		/* Fall thru. */
@@ -1170,7 +1337,7 @@ static void state_single(struct peer *peer,
 	size_t old_outpkts = tal_count(peer->outpkt);
 
 	newstate = state(peer, input, pkt, &broadcast);
-	set_peer_state(peer, newstate, input_name(input));
+	set_peer_state(peer, newstate, input_name(input), false);
 
 	/* We never come here again once we leave opening states. */
 	if (state_is_normal(peer->state)) {
@@ -1203,6 +1370,19 @@ static void state_single(struct peer *peer,
 
 		/* Start output if not running already; it will close conn. */
 		io_wake(peer);
+	} else if (!state_is_opening(peer->state)) {
+		/* Now in STATE_NORMAL, so save. */
+		if (!db_start_transaction(peer)
+		    || !db_update_state(peer)
+		    || !db_commit_transaction(peer)) {
+			set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__,
+				       false);
+			peer_breakdown(peer);
+
+			/* Start output if not running already; it will close conn. */
+			io_wake(peer);
+			return;
+		}
 	}
 }
 
@@ -1287,7 +1467,7 @@ static bool command_htlc_fail(struct peer *peer, struct htlc *htlc)
 	 */
 	cstate_fail_htlc(peer->remote.staging_cstate, htlc);
 
-	htlc_changestate(htlc, RCVD_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
+	htlc_changestate(htlc, RCVD_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC, false);
 
 	remote_changes_pending(peer);
 
@@ -1336,7 +1516,7 @@ static bool command_htlc_fulfill(struct peer *peer, struct htlc *htlc)
 	 */
 	cstate_fulfill_htlc(peer->remote.staging_cstate, htlc);
 
-	htlc_changestate(htlc, RCVD_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
+	htlc_changestate(htlc, RCVD_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC, false);
 
 	remote_changes_pending(peer);
 
@@ -1705,6 +1885,12 @@ static void retransmit_pkts(struct peer *peer, s64 ack)
 			assert(commit_num < peer->local.commit->commit_num);
 			peer_get_revocation_preimage(peer, commit_num,&preimage);
 			peer_get_revocation_hash(peer, commit_num + 2, &next);
+			log_debug(peer->log, "Re-sending revocation hash %"PRIu64,
+				  commit_num + 2);
+			log_add_struct(peer->log, "value %s", struct sha256,
+				       &next);
+			log_add_struct(peer->log, "local.next=%s", struct sha256,
+				       &peer->local.next_revocation_hash);
 			log_debug(peer->log, "Re-sending revocation %"PRIu64,
 				  commit_num);
 			queue_pkt_revocation(peer, &preimage, &next);
@@ -1740,6 +1926,9 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 	peer_get_revocation_hash(peer, 0, &peer->local.next_revocation_hash);
 
 	assert(peer->state == STATE_INIT);
+
+	if (!db_create_peer(peer))
+		fatal("Database error in %s", __func__);
 
 	state_event(peer, peer->local.offer_anchor, NULL);
 
@@ -1789,6 +1978,7 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 static void do_commit(struct peer *peer, struct command *jsoncmd)
 {
 	struct commit_info *ci;
+	const char *errmsg;
 	static const struct state_table changes[] = {
 		{ SENT_ADD_HTLC, SENT_ADD_COMMIT },
 		{ SENT_REMOVE_REVOCATION, SENT_REMOVE_ACK_COMMIT },
@@ -1819,13 +2009,17 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 		= tal_dup(peer, struct sha256,
 			  &peer->remote.commit->revocation_hash);
 
-	/* BOLT #2:
-	 *
-	 * A node MUST NOT send an `update_commit` message which does
-	 * not include any updates.
-	 */
-	if (!htlcs_changestate(peer, changes, ARRAY_SIZE(changes)))
-		fatal("sent commit with no changes");
+	if (!db_start_transaction(peer)) {
+		/* FIXME: Return error. */
+		fatal("queue_pkt_commit: db fail");
+	}
+		
+	errmsg = htlcs_changestate(peer, changes, ARRAY_SIZE(changes), true);
+	if (errmsg) {
+		log_broken(peer->log, "queue_pkt_commit: %s", errmsg);
+		/* FIXME: Return error. */
+		fatal("queue_pkt_commit: %s", errmsg);
+	}
 
 	/* Create new commit info for this commit tx. */
 	ci->revocation_hash = peer->remote.next_revocation_hash;
@@ -1840,7 +2034,8 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 	bitcoin_txid(ci->tx, &ci->txid);
 
 	if (!to_us_only) {
-		log_debug(peer->log, "Signing tx for %u/%u msatoshis, %u/%u htlcs (%u non-dust)",
+		log_debug(peer->log, "Signing tx %"PRIu64" for %u/%u msatoshis, %u/%u htlcs (%u non-dust)",
+			  ci->commit_num,
 			  ci->cstate->side[OURS].pay_msat,
 			  ci->cstate->side[THEIRS].pay_msat,
 			  ci->cstate->side[OURS].num_htlcs,
@@ -1856,19 +2051,29 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 	/* Switch to the new commitment. */
 	tal_free(peer->remote.commit);
 	peer->remote.commit = ci;
-
-	peer_add_their_commit(peer, &ci->txid, ci->commit_num);
-	
 	peer->remote.commit->order = peer->order_counter++;
-	queue_pkt_commit(peer, ci->sig);
+	if (!db_new_commit_info(peer, THEIRS, peer->their_prev_revocation_hash)){
+		/* FIXME: Return error. */
+		fatal("queue_pkt_commit: database error");
+	}
+	/* We don't need to remember their commit if we don't give sig. */
+	if (ci->sig && !peer_add_their_commit(peer, &ci->txid, ci->commit_num))
+		/* FIXME: Return error. */
+		fatal("queue_pkt_commit: database error");
+
 	if (peer->state == STATE_SHUTDOWN) {
-		set_peer_state(peer, STATE_SHUTDOWN_COMMITTING, __func__);
+		set_peer_state(peer, STATE_SHUTDOWN_COMMITTING, __func__, true);
 	} else {
 		assert(peer->state == STATE_NORMAL);
-		set_peer_state(peer, STATE_NORMAL_COMMITTING, __func__);
+		set_peer_state(peer, STATE_NORMAL_COMMITTING, __func__, true);
 	}
+	if (!db_commit_transaction(peer))
+		/* FIXME: Return error. */
+		fatal("queue_pkt_commit: database error");
+	queue_pkt_commit(peer, ci->sig);
 }
 
+/* FIXME: don't spin on this timer if we're not connected! */
 static void try_commit(struct peer *peer)
 {
 	peer->commit_timer = NULL;
@@ -2119,6 +2324,13 @@ static struct io_plan *reconnect_pkt_in(struct io_conn *conn, struct peer *peer)
 	/* Queue prompted us to reconnect, but we need to eliminate it now. */
 	clear_output_queue(peer);
 
+	/* They might have missed the error, tell them before hanging up */
+	if (state_is_error(peer->state)) {
+		queue_pkt_err(peer, pkt_err(peer, "In error state %s",
+					    state_name(peer->state)));
+		return pkt_out(conn, peer);
+	}
+	
 	/* Send any packets they missed. */
 	retransmit_pkts(peer, peer->inpkt->reconnect->ack);
 
@@ -2127,7 +2339,13 @@ static struct io_plan *reconnect_pkt_in(struct io_conn *conn, struct peer *peer)
 	if (!state_can_io(peer->state)) {
 		log_debug(peer->log, "State %s, closing immediately",
 			  state_name(peer->state));
-		return io_close(conn);
+		return pkt_out(conn, peer);
+	}
+
+	/* We could have commitments pending from before. */
+	if (peer_uncommitted_changes(peer)) {
+		log_debug(peer->log, "reconnect_pkt_in: changes pending.");
+		remote_changes_pending(peer);
 	}
 	
 	/* Back into normal mode. */
@@ -2521,7 +2739,7 @@ static void check_htlc_expiry(struct peer *peer)
 		return;
 
 	if (any_deadline_past(peer)) {
-		set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__);
+		set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__, false);
 		peer_breakdown(peer);
 	}
 }
@@ -3133,7 +3351,8 @@ static enum watch_result check_for_resolution(struct peer *peer,
 	 * output which is not *irrevocably resolved* until all outputs are
 	 * *irrevocably resolved*.
 	 */
-	set_peer_state(peer, STATE_CLOSED, "check_for_resolution");
+	set_peer_state(peer, STATE_CLOSED, "check_for_resolution", false);
+	db_forget_peer(peer);
 
 	/* It's theoretically possible that peer is still writing output */
 	if (!peer->conn)
@@ -3378,7 +3597,8 @@ static enum watch_result anchor_spent(struct peer *peer,
 	if (err && state_can_io(peer->state))
 		queue_pkt_err(peer, err);
 
-	set_peer_state(peer, newstate, "anchor_spent");
+	/* Don't need to save to DB: it will be replayed if we crash. */
+	set_peer_state(peer, newstate, "anchor_spent", false);
 
 	/* If we've just closed connection, make output close it. */
 	io_wake(peer);
@@ -3405,7 +3625,8 @@ unknown_spend:
 	 * cheating attempt).  Such a transaction implies its
 	 * private key has leaked, and funds may be lost.
 	 */
-	set_peer_state(peer, STATE_ERR_INFORMATION_LEAK, "anchor_spent");
+	/* FIXME: Save to db. */
+	set_peer_state(peer, STATE_ERR_INFORMATION_LEAK, "anchor_spent", false);
 	return DELETE_WATCH;
 }
 
@@ -3640,12 +3861,20 @@ static struct io_plan *init_conn(struct io_conn *conn, struct peer *peer)
 static void try_reconnect(struct peer *peer)
 {
 	struct io_conn *conn;
-	int fd = socket(peer->addr.saddr.s.sa_family, peer->addr.type,
-			peer->addr.protocol);
+	int fd;
+
+	/* Already reconnected? */
+	if (peer->conn) {
+		log_debug(peer->log, "try_reconnect: already connected");
+		return;
+	}
+
+	fd = socket(peer->addr.saddr.s.sa_family, peer->addr.type,
+		    peer->addr.protocol);
 	if (fd < 0) {
 		log_broken(peer->log, "do_reconnect: failed to create socket: %s",
 			   strerror(errno));
-		set_peer_state(peer, STATE_ERR_BREAKDOWN, "do_reconnect");
+		set_peer_state(peer, STATE_ERR_BREAKDOWN, "do_reconnect", false);
 		peer_breakdown(peer);
 		return;
 	}
@@ -3842,12 +4071,14 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
+	log_debug(peer->log, "JSON command to add new HTLC");
 	htlc = command_htlc_add(peer, msatoshis, expiry, &rhash, NULL,
 				dummy_single_route(cmd, peer, msatoshis));
 	if (!htlc) {
 		command_fail(cmd, "could not add htlc");
 		return;
 	}
+	log_debug(peer->log, "JSON new HTLC is %"PRIu64, htlc->id);
 
 	json_object_start(response, NULL);
 	json_add_u64(response, "id", htlc->id);
@@ -3927,7 +4158,11 @@ static void json_fulfillhtlc(struct command *cmd,
 		return;
 	}
 
-	set_htlc_rval(peer, htlc, &r);
+	/* This can happen if we're disconnected, and thus haven't sent
+	 * fulfill yet; we stored r in database immediately. */
+	if (!htlc->r)
+		set_htlc_rval(peer, htlc, &r);
+
 	if (command_htlc_fulfill(peer, htlc))
 		command_success(cmd, null_response(cmd));
 	else
@@ -4068,11 +4303,10 @@ static void json_close(struct command *cmd,
 		return;
 	}
 
-	if (peer->state == STATE_NORMAL_COMMITTING)
-		set_peer_state(peer, STATE_SHUTDOWN_COMMITTING, __func__);
-	else
-		set_peer_state(peer, STATE_SHUTDOWN, __func__);
-	peer_start_shutdown(peer);
+	if (!peer_start_shutdown(peer)) {
+		command_fail(cmd, "Database error");
+		return;
+	}
 	command_success(cmd, null_response(cmd));
 }
 	
@@ -4111,7 +4345,7 @@ static void json_disconnect(struct command *cmd,
 	 * one side to freak out.  We just ensure we ignore it. */
 	log_debug(peer->log, "Pretending connection is closed");
 	peer->fake_close = true;
-	set_peer_state(peer, STATE_ERR_BREAKDOWN, "json_disconnect");
+	set_peer_state(peer, STATE_ERR_BREAKDOWN, "json_disconnect", false);
 	peer_breakdown(peer);
 
 	command_success(cmd, null_response(cmd));

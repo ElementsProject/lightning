@@ -243,7 +243,7 @@ void set_htlc_rval(struct peer *peer,
 bool setup_first_commit(struct peer *peer);
 
 /* Whenever we send a signature, remember the txid -> commit_num mapping */
-void peer_add_their_commit(struct peer *peer,
+bool peer_add_their_commit(struct peer *peer,
 			   const struct sha256_double *txid, u64 commit_num);
 
 /* Allocate a new commit_info struct. */
@@ -272,6 +272,8 @@ void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt, const char *where);
 void peer_open_complete(struct peer *peer, const char *problem);
 
 struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee);
+
+void debug_dump_peers(struct lightningd_state *dstate);
 
 void reconnect_peers(struct lightningd_state *dstate);
 void cleanup_peers(struct lightningd_state *dstate);
