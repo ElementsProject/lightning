@@ -9,4 +9,8 @@ void remove_dust(struct bitcoin_tx *tx, int *map);
 /* Less than this is dust. */
 #define DUST_THRESHOLD 546
 
+static inline bool is_dust(u64 amount)
+{
+	return amount < DUST_THRESHOLD;
+}
 #endif /* LIGHTNING_REMOVE_DUST_H */

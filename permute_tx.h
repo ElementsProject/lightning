@@ -3,14 +3,8 @@
 #include "config.h"
 #include "bitcoin/tx.h"
 
-/* Permute the transaction into BIP69 order.
- * map[0] is set to the new index of input 0, etc.
- */
-void permute_inputs(struct bitcoin_tx_input *inputs,
-		    size_t num_inputs,
-		    int *map);
+/* Permute the transaction into BIP69 order. */
+void permute_inputs(struct bitcoin_tx_input *inputs, size_t num_inputs);
 
-void permute_outputs(struct bitcoin_tx_output *outputs,
-		     size_t num_outputs,
-		     int *map);
+void permute_outputs(struct bitcoin_tx_output *outputs, size_t num_outputs);
 #endif /* LIGHTNING_PERMUTE_TX_H */

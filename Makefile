@@ -47,7 +47,6 @@ CORE_SRC :=					\
 	opt_bits.c				\
 	permute_tx.c				\
 	protobuf_convert.c			\
-	remove_dust.c				\
 	utils.c					\
 	version.c
 CORE_OBJS := $(CORE_SRC:.c=.o)

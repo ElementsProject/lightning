@@ -111,16 +111,27 @@ u8 *commit_output_to_them(const tal_t *ctx,
 	}
 }
 
+static void add_output(struct bitcoin_tx *tx, u8 *script, u64 amount,
+		       u64 *total)
+{
+	assert(tx->output_count < tal_count(tx->output));
+	if (is_dust(amount))
+		return;
+	tx->output[tx->output_count].script = script;
+	tx->output[tx->output_count].script_length = tal_count(script);
+	tx->output[tx->output_count].amount = amount;
+	tx->output_count++;
+	(*total) += amount;
+}
+
 struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    struct peer *peer,
 				    const struct sha256 *rhash,
 				    const struct channel_state *cstate,
-				    enum htlc_side side,
-				    int **map)
+				    enum htlc_side side)
 {
 	struct bitcoin_tx *tx;
-	size_t num;
-	uint64_t total;
+	uint64_t total = 0;
 	struct htlc_map_iter it;
 	struct htlc *h;
 	int committed_flag = HTLC_FLAG(side,HTLC_F_COMMITTED);
@@ -133,38 +144,25 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx->input[0].index = peer->anchor.index;
 	tx->input[0].amount = tal_dup(tx->input, u64, &peer->anchor.satoshis);
 
-	tx->output[0].script = commit_output_to_us(tx, peer, rhash, side, NULL);
-	tx->output[0].script_length = tal_count(tx->output[0].script);
-	tx->output[0].amount = cstate->side[OURS].pay_msat / 1000;
-
-	tx->output[1].script = commit_output_to_them(tx, peer, rhash, side,NULL);
-	tx->output[1].script_length = tal_count(tx->output[1].script);
-	tx->output[1].amount = cstate->side[THEIRS].pay_msat / 1000;
+	tx->output_count = 0;
+	add_output(tx, commit_output_to_us(tx, peer, rhash, side, NULL),
+		   cstate->side[OURS].pay_msat / 1000, &total);
+	add_output(tx, commit_output_to_them(tx, peer, rhash, side, NULL),
+		   cstate->side[THEIRS].pay_msat / 1000, &total);
 
 	/* First two outputs done, now for the HTLCs. */
-	total = tx->output[0].amount + tx->output[1].amount;
-	num = 2;
-
 	for (h = htlc_map_first(&peer->htlcs, &it);
 	     h;
 	     h = htlc_map_next(&peer->htlcs, &it)) {
 		if (!htlc_has(h, committed_flag))
 			continue;
-		tx->output[num].script
-			= scriptpubkey_p2wsh(tx,
-					     wscript_for_htlc(tx, peer, h,
-							      rhash, side));
-		tx->output[num].script_length
-			= tal_count(tx->output[num].script);
-		tx->output[num].amount = h->msatoshis / 1000;
-		total += tx->output[num++].amount;
+		add_output(tx, scriptpubkey_p2wsh(tx,
+						  wscript_for_htlc(tx, peer, h,
+								   rhash, side)),
+			   h->msatoshis / 1000, &total);
 	}
-	assert(num == tx->output_count);
 	assert(total <= peer->anchor.satoshis);
 
-	*map = tal_arr(ctx, int, tx->output_count);
-	permute_outputs(tx->output, tx->output_count, *map);
-	remove_dust(tx, *map);
-
+	permute_outputs(tx->output, tx->output_count);
 	return tx;
 }

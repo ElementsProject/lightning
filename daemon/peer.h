@@ -52,8 +52,6 @@ struct commit_info {
 	struct channel_state *cstate;
 	/* Other side's signature for last commit tx (if known) */
 	struct bitcoin_signature *sig;
-	/* Map for permutation: see commit_tx.c */
-	int *map;
 };
 
 struct peer_visible_state {

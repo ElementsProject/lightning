@@ -34,6 +34,5 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    struct peer *peer,
 				    const struct sha256 *rhash,
 				    const struct channel_state *cstate,
-				    enum htlc_side side,
-				    int **map);
+				    enum htlc_side side);
 #endif

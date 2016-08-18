@@ -782,7 +782,7 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	/* (We already applied them to staging_cstate as we went) */
 	ci->cstate = copy_cstate(ci, peer->local.staging_cstate);
 	ci->tx = create_commit_tx(ci, peer, &ci->revocation_hash,
-				  ci->cstate, LOCAL, &ci->map);
+				  ci->cstate, LOCAL);
 	bitcoin_txid(ci->tx, &ci->txid);
 
 	/* BOLT #2:
@@ -1539,7 +1539,7 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 	 * before generating `sig`. */
 	ci->cstate = copy_cstate(ci, peer->remote.staging_cstate);
 	ci->tx = create_commit_tx(ci, peer, &ci->revocation_hash,
-				  ci->cstate, REMOTE, &ci->map);
+				  ci->cstate, REMOTE);
 	bitcoin_txid(ci->tx, &ci->txid);
 
 	log_debug(peer->log, "Signing tx for %u/%u msatoshis, %zu/%zu htlcs",
@@ -3102,16 +3102,14 @@ bool setup_first_commit(struct peer *peer)
 						  peer,
 						  &peer->local.commit->revocation_hash,
 						  peer->local.commit->cstate,
-						  LOCAL,
-						  &peer->local.commit->map);
+						  LOCAL);
 	bitcoin_txid(peer->local.commit->tx, &peer->local.commit->txid);
 
 	peer->remote.commit->tx = create_commit_tx(peer->remote.commit,
 						   peer,
 						   &peer->remote.commit->revocation_hash,
 						   peer->remote.commit->cstate,
-						   REMOTE,
-						   &peer->remote.commit->map);
+						   REMOTE);
 	bitcoin_txid(peer->remote.commit->tx, &peer->remote.commit->txid);
 
 	peer->local.staging_cstate = copy_cstate(peer, peer->local.commit->cstate);

@@ -38,6 +38,6 @@ struct bitcoin_tx *create_close_tx(secp256k1_context *secpctx,
 
 	assert(tx->output[0].amount + tx->output[1].amount <= anchor_satoshis);
 
-	permute_outputs(tx->output, 2, NULL);
+	permute_outputs(tx->output, 2);
 	return tx;
 }
