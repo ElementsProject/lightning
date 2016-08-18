@@ -209,15 +209,16 @@ static struct peer *find_peer_json(struct lightningd_state *dstate,
 
 static bool peer_uncommitted_changes(const struct peer *peer)
 {
-	/* Not initialized yet? */
-	if (!peer->remote.staging_cstate
-	    || !peer->remote.commit
-	    || !peer->remote.commit->cstate)
-		return false;
+	struct htlc_map_iter it;
+	struct htlc *h;
 
-	/* We could have proposed changes to their commit */
-	return peer->remote.staging_cstate->changes
-		!= peer->remote.commit->cstate->changes;
+	for (h = htlc_map_first(&peer->htlcs, &it);
+	     h;
+	     h = htlc_map_next(&peer->htlcs, &it)) {
+		if (htlc_has(h, HTLC_REMOTE_F_PENDING))
+			return true;
+	}
+	return false;
 }
 
 static void remote_changes_pending(struct peer *peer)
@@ -373,78 +374,6 @@ static bool peer_received_unexpected_pkt(struct peer *peer, const Pkt *pkt)
 	return peer_comms_err(peer, pkt_err_unexpected(peer, pkt));
 }
 
-/* At revocation time, we apply the changeset to the other side. */
-static void apply_changeset(struct peer *peer,
-			    struct peer_visible_state *which,
-			    enum channel_side side,
-			    const union htlc_staging *changes,
-			    size_t num_changes)
-{
-	size_t i;
-	struct htlc *htlc;
-
-	for (i = 0; i < num_changes; i++) {
-		switch (changes[i].type) {
-		case HTLC_ADD:
-			htlc = cstate_htlc_by_id(which->staging_cstate,
-						 changes[i].add.htlc->id, side);
-			if (htlc)
-				fatal("Can't add duplicate HTLC id %"PRIu64,
-				      changes[i].add.htlc->id);
-			if (!cstate_add_htlc(which->staging_cstate,
-					     changes[i].add.htlc,
-					     side))
-				fatal("Adding HTLC to %s failed",
-				      side == OURS ? "ours" : "theirs");
-			continue;
-		case HTLC_FAIL:
-			htlc = cstate_htlc_by_id(which->staging_cstate,
-						 changes[i].fail.htlc->id,
-						 !side);
-			if (!htlc)
-				fatal("Can't fail non-exisent HTLC id %"PRIu64,
-				      changes[i].fail.htlc->id);
-			cstate_fail_htlc(which->staging_cstate, htlc, !side);
-			continue;
-		case HTLC_FULFILL:
-			htlc = cstate_htlc_by_id(which->staging_cstate,
-						  changes[i].fulfill.htlc->id,
-						 !side);
-			if (!htlc)
-				fatal("Can't fulfill non-exisent HTLC id %"PRIu64,
-				      changes[i].fulfill.htlc->id);
-			cstate_fulfill_htlc(which->staging_cstate, htlc, !side);
-			continue;
-		}
-		abort();
-	}
-}
-
-struct state_table {
-	enum htlc_state from, to;
-};
-
-static bool htlcs_changestate(struct peer *peer,
-			      const struct state_table *table, size_t n)
-{
-	struct htlc_map_iter it;
-	struct htlc *h;
-	bool changed = false;
-
-	for (h = htlc_map_first(&peer->htlcs, &it);
-	     h;
-	     h = htlc_map_next(&peer->htlcs, &it)) {
-		size_t i;
-		for (i = 0; i < n; i++) {
-			if (h->state == table[i].from) {
-				htlc_changestate(h, table[i].from, table[i].to);
-				changed = true;
-			}
-		}
-	}
-	return changed;
-}
-
 static void route_htlc_onwards(struct peer *peer,
 			       struct htlc *htlc,
 			       u64 msatoshis,
@@ -496,11 +425,6 @@ static void route_htlc_onwards(struct peer *peer,
 		command_htlc_fail(peer, htlc);
 		return;
 	}
-}
-
-static const char *owner_name(enum channel_side side)
-{
-	return side == OURS ? "our" : "their";
 }
 
 static void their_htlc_added(struct peer *peer, struct htlc *htlc)
@@ -607,97 +531,97 @@ static void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc,
 	}
 }
 
-/* When changes are committed to. */
-static void peer_both_committed_to(struct peer *peer,
-				   const union htlc_staging *changes,
-				   enum channel_side side)
+static void adjust_cstate_side(struct channel_state *cstate,
+			       struct htlc *h,
+			       enum htlc_state old, enum htlc_state new,
+			       enum htlc_side side)
 {
-	size_t i, n = tal_count(changes);
-
-	/* All this, simply for debugging. */
-	for (i = 0; i < n; i++) {
-		u64 htlc_id;
-		const char *type, *owner;
-
-		switch (changes[i].type) {
-		case HTLC_ADD:
-			type = "ADD";
-			htlc_id = changes[i].add.htlc->id;
-			owner = owner_name(side);
-			assert(cstate_htlc_by_id(peer->remote.commit->cstate, htlc_id,
-						  side));
-			assert(cstate_htlc_by_id(peer->local.commit->cstate, htlc_id,
-						  side));
-			goto print;
-		case HTLC_FAIL:
-			type = "FAIL";
-			htlc_id = changes[i].fail.htlc->id;
-			owner = owner_name(!side);
-			assert(!cstate_htlc_by_id(peer->remote.commit->cstate, htlc_id,
-						   !side));
-			assert(!cstate_htlc_by_id(peer->local.commit->cstate, htlc_id,
-						   !side));
-			assert(cstate_htlc_by_id(peer->remote.commit->prev->cstate,
-						  htlc_id, !side)
-			       || cstate_htlc_by_id(peer->local.commit->prev->cstate,
-						     htlc_id, !side));
-			goto print;
-		case HTLC_FULFILL:
-			type = "FULFILL";
-			htlc_id = changes[i].fulfill.htlc->id;
-			owner = owner_name(!side);
-			assert(!cstate_htlc_by_id(peer->remote.commit->cstate, htlc_id,
-						   !side));
-			assert(!cstate_htlc_by_id(peer->local.commit->cstate, htlc_id,
-						   !side));
-			assert(cstate_htlc_by_id(peer->remote.commit->prev->cstate,
-						  htlc_id, !side)
-			       || cstate_htlc_by_id(peer->local.commit->prev->cstate,
-						     htlc_id, !side));
-			goto print;
-		}
-		abort();
-	print:
-		log_debug(peer->log, "Both committed to %s of %s HTLC %"PRIu64,
-			  type, owner, htlc_id);
-	}
-
-	/* We actually only respond to changes they made. */
-	if (side == OURS)
+	int oldf = htlc_state_flags(old), newf = htlc_state_flags(new);
+	bool old_committed, new_committed;
+	
+	/* We applied changes to staging_cstate when we first received 
+	 * add/remove packet, so we could make sure it was valid.  Don't
+	 * do that again. */
+	if (old == SENT_ADD_HTLC || old == RCVD_REMOVE_HTLC
+	    || old == RCVD_ADD_HTLC || old == SENT_REMOVE_HTLC)
 		return;
+	
+	old_committed = (oldf & HTLC_FLAG(side, HTLC_F_COMMITTED));
+	new_committed = (newf & HTLC_FLAG(side, HTLC_F_COMMITTED));
 
-	for (i = 0; i < n; i++) {
-		switch (changes[i].type) {
-		case HTLC_ADD:
-			their_htlc_added(peer, changes[i].add.htlc);
-			break;
-		case HTLC_FULFILL:
-			/* We handled this as soon as we got it. */
-			break;
-		case HTLC_FAIL:
-			our_htlc_failed(peer, changes[i].fail.htlc);
-			break;
-		}
+	if (old_committed && !new_committed) {
+		if (h->r)
+			cstate_fulfill_htlc(cstate, h, htlc_channel_side(h));
+		else
+			cstate_fail_htlc(cstate, h, htlc_channel_side(h));
+	} else if (!old_committed && new_committed) {
+		/* FIXME: This can happen; see BOLT */
+		if (!cstate_add_htlc(cstate, h, htlc_channel_side(h)))
+			fatal("Could not afford htlc");
 	}
 }
 
-static void add_unacked(struct peer_visible_state *which,
-			const union htlc_staging *stage)
+/* We apply changes to staging_cstate when we first PENDING, so we can
+ * make sure they're valid.  So here we change the staging_cstate on
+ * the revocation receive (ie. when acked). */
+static void adjust_cstates(struct peer *peer, struct htlc *h,
+			   enum htlc_state old, enum htlc_state new)
 {
-	size_t n = tal_count(which->commit->unacked_changes);
-	tal_resize(&which->commit->unacked_changes, n+1);
-	which->commit->unacked_changes[n] = *stage;
+	adjust_cstate_side(peer->remote.staging_cstate, h, old, new, REMOTE);
+	adjust_cstate_side(peer->local.staging_cstate, h, old, new, LOCAL);
 }
 
-static void add_acked_changes(union htlc_staging **acked,
-			      const union htlc_staging *changes)
+static void check_both_committed(struct peer *peer, struct htlc *h)
 {
-	size_t n_acked, n_changes;
+	if (!htlc_has(h, HTLC_ADDING) && !htlc_has(h, HTLC_REMOVING))
+		log_debug(peer->log,
+			  "Both committed to %s of %s HTLC %"PRIu64 "(%s)",
+			  h->state == SENT_ADD_ACK_REVOCATION
+			  || h->state == RCVD_ADD_ACK_REVOCATION ? "ADD"
+			  : h->r ? "FULFILL" : "FAIL",
+			  htlc_owner(h) == LOCAL ? "our" : "their",
+			  h->id, htlc_state_name(h->state));
 
-	n_acked = tal_count(*acked);
-	n_changes = tal_count(changes);
-	tal_resize(acked, n_acked + n_changes);
-	memcpy(*acked + n_acked, changes, n_changes * sizeof(*changes));
+	switch (h->state) {
+	case RCVD_REMOVE_ACK_REVOCATION:
+		/* If it was fulfilled, we handled it immediately. */
+		if (!h->r)
+			our_htlc_failed(peer, h);
+		break;
+	case RCVD_ADD_ACK_REVOCATION:
+		their_htlc_added(peer, h);
+		break;
+	default:
+		break;
+	}
+}
+
+struct state_table {
+	enum htlc_state from, to;
+};
+
+static bool htlcs_changestate(struct peer *peer,
+			      const struct state_table *table, size_t n)
+{
+	struct htlc_map_iter it;
+	struct htlc *h;
+	bool changed = false;
+
+	for (h = htlc_map_first(&peer->htlcs, &it);
+	     h;
+	     h = htlc_map_next(&peer->htlcs, &it)) {
+		size_t i;
+		for (i = 0; i < n; i++) {
+			if (h->state == table[i].from) {
+				adjust_cstates(peer, h,
+					       table[i].from, table[i].to);
+				htlc_changestate(h, table[i].from, table[i].to);
+				check_both_committed(peer, h);
+				changed = true;
+			}
+		}
+	}
+	return changed;
 }
 
 /* This is the io loop while we're negotiating closing tx. */
@@ -862,14 +786,6 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 
 	/* BOLT #2:
 	 *
-	 * A node MUST NOT send an `update_commit` message which does
-	 * not include any updates.
-	 */
-	if (ci->prev->cstate->changes == ci->cstate->changes)
-		return pkt_err(peer, "Empty commit");
-
-	/* BOLT #2:
-	 *
 	 * A receiving node MUST apply all local acked and unacked changes
 	 * except unacked fee changes to the local commitment, then it MUST
 	 * check `sig` is valid for that transaction.
@@ -904,29 +820,9 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	peer_get_revocation_preimage(peer, ci->commit_num,
 				     ci->revocation_preimage);
 
-	/* BOLT #2:
-	 *
-	 * The node sending `update_revocation` MUST add the local unacked
-	 * changes to the set of remote acked changes.
-	 */
-	/* Note: this means the unacked changes as of the commit we're
-	 * revoking */
-	add_acked_changes(&peer->remote.commit->acked_changes,
-			  ci->unacked_changes);
-	apply_changeset(peer, &peer->remote, THEIRS,
-			ci->unacked_changes, tal_count(ci->unacked_changes));
-
-	if (tal_count(ci->unacked_changes))
+	/* Fire off timer if this ack caused new changes */
+	if (peer_uncommitted_changes(peer))
 		remote_changes_pending(peer);
-
-	/* We should never look at this again. */
-	ci->unacked_changes = tal_free(ci->unacked_changes);
-
-	/* That revocation has committed us to changes in the current
-	 * commitment.  Any acked changes come from their commitment, so
-	 * those are now committed by both of us.
-	 */
-	peer_both_committed_to(peer, ci->acked_changes, OURS);
 
 	queue_pkt_revocation(peer, ci->revocation_preimage,
 			     &peer->local.next_revocation_hash);
@@ -935,14 +831,14 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 
 static Pkt *handle_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 {
-	union htlc_staging stage;
 	struct htlc *htlc;
 	Pkt *err;
 
 	err = accept_pkt_htlc_add(peer, pkt, &htlc);
 	if (err)
 		return err;
-
+	assert(htlc->state == RCVD_ADD_HTLC);
+	
 	/* BOLT #2:
 	 *
 	 * A node MUST NOT offer `amount_msat` it cannot pay for in
@@ -956,16 +852,11 @@ static Pkt *handle_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 			       " in our commitment tx",
 			       htlc->msatoshis);
 	}
-
-	stage.add.add = HTLC_ADD;
-	stage.add.htlc = htlc;
-	add_unacked(&peer->local, &stage);
 	return NULL;
 }
 	
 static Pkt *handle_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 {
-	union htlc_staging stage;
 	struct htlc *htlc;
 	Pkt *err;
 
@@ -980,16 +871,12 @@ static Pkt *handle_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 	 * ... and the receiving node MUST add the HTLC fulfill/fail
 	 * to the unacked changeset for its local commitment.
 	 */
-	stage.fail.fail = HTLC_FAIL;
-	stage.fail.htlc = htlc;
-	add_unacked(&peer->local, &stage);
 	htlc_changestate(htlc, SENT_ADD_ACK_REVOCATION, RCVD_REMOVE_HTLC);
 	return NULL;
 }
 
 static Pkt *handle_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 {
-	union htlc_staging stage;
 	struct htlc *htlc;
 	Pkt *err;
 
@@ -1007,11 +894,6 @@ static Pkt *handle_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 	 */
 	cstate_fulfill_htlc(peer->local.staging_cstate, htlc, OURS);
 	htlc_changestate(htlc, SENT_ADD_ACK_REVOCATION, RCVD_REMOVE_HTLC);
-
-	stage.fulfill.fulfill = HTLC_FULFILL;
-	stage.fulfill.htlc = htlc;
-	stage.fulfill.r = *htlc->r;
-	add_unacked(&peer->local, &stage);
 	return NULL;
 }
 
@@ -1035,22 +917,9 @@ static Pkt *handle_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	 * The receiver of `update_revocation`... MUST add the remote
 	 * unacked changes to the set of local acked changes.
 	 */
-	add_acked_changes(&peer->local.commit->acked_changes,
-			  ci->unacked_changes);
-	apply_changeset(peer, &peer->local, OURS,
-			ci->unacked_changes,
-			tal_count(ci->unacked_changes));
-
 	if (!htlcs_changestate(peer, changes, ARRAY_SIZE(changes)))
 		fatal("Revocation received but we made empty commitment?");
 
-	/* Should never examine these again. */
-	ci->unacked_changes = tal_free(ci->unacked_changes);
-
-	/* That revocation has committed them to changes in the current
-	 * commitment.  Any acked changes come from our commitment, so those
-	 * are now committed by both of us. */
-	peer_both_committed_to(peer, ci->acked_changes, THEIRS);
 	return NULL;
 }	
 
@@ -1390,8 +1259,6 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 /* FIXME: Reason! */
 static bool command_htlc_fail(struct peer *peer, struct htlc *htlc)
 {
-	union htlc_staging stage;
-
 	/* If onchain, nothing we can do. */
 	if (!state_can_remove_htlc(peer->state))
 		return false;
@@ -1405,9 +1272,6 @@ static bool command_htlc_fail(struct peer *peer, struct htlc *htlc)
 	       == htlc);
 	cstate_fail_htlc(peer->remote.staging_cstate, htlc, THEIRS);
 
-	stage.fail.fail = HTLC_FAIL;
-	stage.fail.htlc = htlc;
-	add_unacked(&peer->remote, &stage);
 	htlc_changestate(htlc, RCVD_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
 
 	remote_changes_pending(peer);
@@ -1443,8 +1307,6 @@ static bool fulfill_onchain(struct peer *peer, struct htlc *htlc)
 
 static bool command_htlc_fulfill(struct peer *peer, struct htlc *htlc)
 {
-	union htlc_staging stage;
-
 	if (peer->state == STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL
 	    || peer->state == STATE_CLOSE_ONCHAIN_OUR_UNILATERAL) {
 		return fulfill_onchain(peer, htlc);
@@ -1462,10 +1324,6 @@ static bool command_htlc_fulfill(struct peer *peer, struct htlc *htlc)
 	       == htlc);
 	cstate_fulfill_htlc(peer->remote.staging_cstate, htlc, THEIRS);
 
-	stage.fulfill.fulfill = HTLC_FULFILL;
-	stage.fulfill.htlc = htlc;
-	stage.fulfill.r = *htlc->r;
-	add_unacked(&peer->remote, &stage);
 	htlc_changestate(htlc, RCVD_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
 
 	remote_changes_pending(peer);
@@ -1483,7 +1341,6 @@ struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
 	struct channel_state *cstate;
 	struct abs_locktime locktime;
 	struct htlc *htlc;
-	union htlc_staging stage;
 
 	if (!blocks_to_abs_locktime(expiry, &locktime)) {
 		log_unusual(peer->log, "add_htlc: fail: bad expiry %u", expiry);
@@ -1554,10 +1411,6 @@ struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
 	 */
 	if (!cstate_add_htlc(peer->remote.staging_cstate, htlc, OURS))
 		fatal("Could not add HTLC?");
-
-	stage.add.add = HTLC_ADD;
-	stage.add.htlc = htlc;
-	add_unacked(&peer->remote, &stage);
 
 	remote_changes_pending(peer);
 
@@ -1722,13 +1575,6 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 		  tal_count(ci->cstate->side[THEIRS].htlcs));
 	log_add_struct(peer->log, " (txid %s)", struct sha256_double, &ci->txid);
 
-	/* BOLT #2:
-	 *
-	 * A node MUST NOT send an `update_commit` message which does
-	 * not include any updates.
-	 */
-	assert(ci->prev->cstate->changes != ci->cstate->changes);
-
 	ci->sig = tal(ci, struct bitcoin_signature);
 	ci->sig->stype = SIGHASH_ALL;
 	peer_sign_theircommit(peer, ci->tx, &ci->sig->sig);
@@ -1766,8 +1612,6 @@ static void try_commit(struct peer *peer)
 struct commit_info *new_commit_info(const tal_t *ctx)
 {
 	struct commit_info *ci = talz(ctx, struct commit_info);
-	ci->unacked_changes = tal_arr(ci, union htlc_staging, 0);
-	ci->acked_changes = tal_arr(ci, union htlc_staging, 0);
 	return ci;
 }
 
@@ -2706,16 +2550,23 @@ static enum watch_result our_unilateral_depth(struct peer *peer,
 					      const struct sha256_double *txid,
 					      void *unused)
 {
-	size_t i;
+	struct htlc_map_iter it;
+	struct htlc *h;
 
 	if (depth < peer->dstate->config.min_htlc_expiry)
 		return KEEP_WATCHING;
 
-	for (i = 0; i < tal_count(peer->local.commit->acked_changes); i++) {
-		if (peer->local.commit->acked_changes[i].type != HTLC_ADD)
-			continue;
-		our_htlc_failed(peer,
-				peer->local.commit->acked_changes[i].add.htlc);
+	for (h = htlc_map_first(&peer->htlcs, &it);
+	     h;
+	     h = htlc_map_next(&peer->htlcs, &it)) {
+		if (htlc_owner(h) == LOCAL
+		    && !htlc_has(h, HTLC_LOCAL_F_COMMITTED)
+		    && htlc_has(h, HTLC_REMOTE_F_COMMITTED)) {
+			log_debug(peer->log,
+				  "%s:failing uncommitted htlc %"PRIu64,
+				  __func__, h->id);
+			our_htlc_failed(peer, h);
+		}
 	}
 	return DELETE_WATCH;
 }

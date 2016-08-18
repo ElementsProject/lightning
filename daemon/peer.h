@@ -17,35 +17,6 @@
 #include <ccan/list/list.h>
 #include <ccan/time/time.h>
 
-enum htlc_stage_type {
-	HTLC_ADD,
-	HTLC_FULFILL,
-	HTLC_FAIL
-};
-
-struct htlc_add {
-	enum htlc_stage_type add;
-	struct htlc *htlc;
-};
-
-struct htlc_fulfill {
-	enum htlc_stage_type fulfill;
-	struct htlc *htlc;
-	struct rval r;
-};
-
-struct htlc_fail {
-	enum htlc_stage_type fail;
-	struct htlc *htlc;
-};
-
-union htlc_staging {
-	enum htlc_stage_type type;
-	struct htlc_add add;
-	struct htlc_fulfill fulfill;
-	struct htlc_fail fail;
-};
-
 struct anchor_input {
 	struct sha256_double txid;
 	unsigned int index;
@@ -85,10 +56,6 @@ struct commit_info {
 	int *map;
 	/* Revocation preimage (if known). */
 	struct sha256 *revocation_preimage;
-	/* unacked changes (already applied to staging_cstate) */
-	union htlc_staging *unacked_changes;
-	/* acked changes (already applied to staging_cstate) */
-	union htlc_staging *acked_changes;
 };
 
 struct peer_visible_state {

@@ -223,6 +223,9 @@ bool cstate_add_htlc(struct channel_state *cstate,
 	creator = &cstate->side[side];
 	recipient = &cstate->side[!side];
 	
+	for (n = 0; n < tal_count(creator->htlcs); n++)
+		assert(creator->htlcs[n] != htlc);
+
 	/* Remember to count the new one in total txsize if not dust! */
 	nondust = total_nondust_htlcs(cstate);
 	if (!is_dust_amount(htlc->msatoshis / 1000))
