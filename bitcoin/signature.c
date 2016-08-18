@@ -51,8 +51,8 @@ static void dump_tx(const char *msg,
 		fprintf(stderr, "%02x", script[i]);
 	if (key) {
 		fprintf(stderr, "\nPubkey: ");
-		for (i = 0; i < sizeof(key->der); i++)
-			fprintf(stderr, "%02x", key->der[i]);
+		for (i = 0; i < sizeof(key->pubkey); i++)
+			fprintf(stderr, "%02x", ((u8 *)&key->pubkey)[i]);
 		fprintf(stderr, "\n");
 	}
 	if (h) {

@@ -327,12 +327,13 @@ static bool peer_comms_err(struct peer *peer, Pkt *err)
 	return false;
 }
 
-void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt)
+void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt, const char *where)
 {
 	const char *p;
 
-	log_unusual(peer->log, "Received unexpected pkt %u (%s)",
-		    pkt->pkt_case, pkt_name(pkt->pkt_case));
+	log_unusual(peer->log, "%s: received unexpected pkt %u (%s) in %s",
+		    where, pkt->pkt_case, pkt_name(pkt->pkt_case),
+		    state_name(peer->state));
 
 	if (pkt->pkt_case != PKT__PKT_ERROR)
 		return;
@@ -352,10 +353,18 @@ void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt)
 }
 
 /* Unexpected packet received: stop listening, start breakdown procedure. */
-static bool peer_received_unexpected_pkt(struct peer *peer, const Pkt *pkt)
+static bool peer_received_unexpected_pkt(struct peer *peer, const Pkt *pkt,
+					 const char *where)
 {
-	peer_unexpected_pkt(peer, pkt);
+	peer_unexpected_pkt(peer, pkt, where);
 	return peer_comms_err(peer, pkt_err_unexpected(peer, pkt));
+}
+
+void set_htlc_rval(struct peer *peer,
+		   struct htlc *htlc, const struct rval *rval)
+{
+	assert(!htlc->r);
+	htlc->r = tal_dup(htlc, struct rval, rval);
 }
 
 static void route_htlc_onwards(struct peer *peer,
@@ -486,8 +495,7 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 		log_info(peer->log, "Immediately resolving HTLC %"PRIu64,
 			 htlc->id);
 
-		assert(!htlc->r);
-		htlc->r = tal_dup(htlc, struct rval, &payment->r);
+		set_htlc_rval(peer, htlc, &payment->r);
 		command_htlc_fulfill(peer, htlc);
 		goto free_rest;
 
@@ -517,8 +525,7 @@ static void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc,
 			       const struct rval *preimage)
 {
 	if (htlc->src) {
-		assert(!htlc->src->r);
-		htlc->src->r = tal_dup(htlc->src, struct rval, htlc->r);
+		set_htlc_rval(htlc->src->peer, htlc->src, htlc->r);
 		command_htlc_fulfill(htlc->src->peer, htlc->src);
 	} else {
 		complete_pay_command(peer, htlc);
@@ -650,7 +657,7 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 	assert(peer->state == STATE_MUTUAL_CLOSING);
 
 	if (pkt->pkt_case != PKT__PKT_CLOSE_SIGNATURE)
-		return peer_received_unexpected_pkt(peer, pkt);
+		return peer_received_unexpected_pkt(peer, pkt, __func__);
 
 	log_info(peer->log, "closing_pkt_in: they offered close fee %"PRIu64,
 		 c->close_fee);
@@ -1033,7 +1040,7 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 		err = handle_pkt_commit(peer, pkt);
 		break;
 	case PKT__PKT_ERROR:
-		peer_unexpected_pkt(peer, pkt);
+		peer_unexpected_pkt(peer, pkt, __func__);
 		return peer_comms_err(peer, NULL);
 
 	case PKT__PKT_AUTH:
@@ -1043,7 +1050,7 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 	case PKT__PKT_OPEN_COMPLETE:
 	case PKT__PKT_CLOSE_SIGNATURE:
 	default:
-		peer_unexpected_pkt(peer, pkt);
+		peer_unexpected_pkt(peer, pkt, __func__);
 		err = pkt_err_unexpected(peer, pkt);
 		break;
 	}
@@ -1144,7 +1151,7 @@ static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 		}
 		/* Fall thru. */
 	default:
-		return peer_received_unexpected_pkt(peer, pkt);
+		return peer_received_unexpected_pkt(peer, pkt, __func__);
 	}	
 
 	if (err) {
@@ -2105,7 +2112,7 @@ struct htlc *peer_new_htlc(struct peer *peer,
 static struct io_plan *reconnect_pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	if (peer->inpkt->pkt_case != PKT__PKT_RECONNECT) {
-		peer_received_unexpected_pkt(peer, peer->inpkt);
+		peer_received_unexpected_pkt(peer, peer->inpkt, __func__);
 		return pkt_out(conn, peer);
 	}
 
@@ -3920,9 +3927,7 @@ static void json_fulfillhtlc(struct command *cmd,
 		return;
 	}
 
-	assert(!htlc->r);
-	htlc->r = tal_dup(htlc, struct rval, &r);
-
+	set_htlc_rval(peer, htlc, &r);
 	if (command_htlc_fulfill(peer, htlc))
 		command_success(cmd, null_response(cmd));
 	else

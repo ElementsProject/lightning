@@ -294,7 +294,7 @@ enum state state(struct peer *peer,
 	return next_state(peer, input, STATE_ERR_INTERNAL);
 
 unexpected_pkt:
-	peer_unexpected_pkt(peer, pkt);
+	peer_unexpected_pkt(peer, pkt, __func__);
 
 	/* Don't reply to an error with an error. */
 	if (!input_is(input, PKT_ERROR)) {

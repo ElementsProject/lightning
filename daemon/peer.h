@@ -236,6 +236,9 @@ struct peer *new_peer(struct lightningd_state *dstate,
 		      enum state state,
 		      enum state_input offer_anchor);
 
+void set_htlc_rval(struct peer *peer,
+		   struct htlc *htlc, const struct rval *rval);
+
 /* Populates very first peer->{local,remote}.commit->{tx,cstate} */
 bool setup_first_commit(struct peer *peer);
 
@@ -263,7 +266,7 @@ struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
 			      struct htlc *src,
 			      const u8 *route);
 
-void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt);
+void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt, const char *where);
 
 /* Peer has completed open, or problem (if non-NULL). */
 void peer_open_complete(struct peer *peer, const char *problem);

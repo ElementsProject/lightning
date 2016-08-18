@@ -239,14 +239,9 @@ void queue_pkt_err(struct peer *peer, Pkt *err)
 
 void queue_pkt_close_shutdown(struct peer *peer)
 {
-	u8 *redeemscript;
 	CloseShutdown *c = tal(peer, CloseShutdown);
 
 	close_shutdown__init(c);
-	redeemscript = bitcoin_redeem_single(c, peer->dstate->secpctx,
-					     &peer->local.finalkey);
-	peer->closing.our_script = scriptpubkey_p2sh(peer, redeemscript);
-
 	c->scriptpubkey.data = tal_dup_arr(c, u8,
 					   peer->closing.our_script,
 					   tal_count(peer->closing.our_script),
@@ -473,7 +468,7 @@ Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt, struct htlc **h,
 		*was_already_fulfilled = true;
 	} else {
 		*was_already_fulfilled = false;
-		(*h)->r = tal_dup(*h, struct rval, &r);
+		set_htlc_rval(peer, *h, &r);
 	}
 	return NULL;
 }
