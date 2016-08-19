@@ -17,7 +17,7 @@ To Build on Ubuntu 16.04
 
 Get dependencies:
 ```
-sudo apt-get install autoconf libtool libprotobuf-c-dev libsodium-dev libbase58-dev libsqlite3-dev libgmp-dev
+sudo apt-get install autoconf libtool libprotobuf-c-dev libsodium-dev libbase58-dev libsqlite3-dev libgmp-dev libsqlite3-dev
 ```
 
 Clone lightning and initialize submodules:
