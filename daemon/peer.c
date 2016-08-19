@@ -2679,7 +2679,7 @@ static void json_connect(struct command *cmd,
 const struct json_command connect_command = {
 	"connect",
 	json_connect,
-	"Connect to a {host} at {port} offering anchor of {satoshis}",
+	"Connect to a {host} at {port} using hex-encoded {tx} to fund",
 	"Returns an empty result on success"
 };
 
