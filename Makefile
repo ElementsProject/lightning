@@ -1,5 +1,5 @@
 #! /usr/bin/make
-NAME=Nakamoto's Genesis Coins
+NAME=Wright's Cryptographic Proof
 
 # Needs to have oneof support: Ubuntu vivid's is too old :(
 PROTOCC:=protoc-c
