@@ -18,23 +18,23 @@ uint64_t fee_by_feerate(size_t txsize, uint64_t fee_rate)
 	return txsize * fee_rate / 2000 * 2;
 }
 
+/* BOLT #2:
+ *
+ * A node MUST use the formula 338 + 32 bytes for every non-dust HTLC
+ * as the bytecount for calculating commitment transaction fees.  Note
+ * that the fee requirement is unchanged, even if the elimination of
+ * dust HTLC outputs has caused a non-zero fee already.
+ */
+static size_t tx_bytes(size_t num_nondust_htlcs)
+{
+	return 338 + 32 * num_nondust_htlcs;
+}
+
 static uint64_t calculate_fee_msat(size_t num_nondust_htlcs,
 				   uint64_t fee_rate)
 {
-	uint64_t bytes;
-
-	/* BOLT #2:
-	 *
-	 * A node MUST use the formula 338 + 32 bytes for every
-	 * non-dust HTLC as the bytecount for calculating commitment
-	 * transaction fees.  Note that the fee requirement is
-	 * unchanged, even if the elimination of dust HTLC outputs has
-	 * caused a non-zero fee already.
-	*/
-	bytes = 338 + 32 * num_nondust_htlcs;
-
 	/* milli-satoshis */
-	return fee_by_feerate(bytes, fee_rate) * 1000;
+	return fee_by_feerate(tx_bytes(num_nondust_htlcs), fee_rate) * 1000;
 }
 
 /* Pay this much fee, if possible.  Return amount unpaid. */
@@ -153,6 +153,26 @@ struct channel_state *initial_cstate(const tal_t *ctx,
 	assert(fundee->fee_msat == 0);
 
 	return cstate;
+}
+
+/* FIXME: Write exact variant! */
+uint64_t approx_max_feerate(const struct channel_state *cstate,
+			    enum channel_side side)
+{
+	uint64_t max_funds;
+
+	max_funds = cstate->side[side].pay_msat + cstate->side[side].fee_msat;
+
+	return max_funds * 1000 / tx_bytes(cstate->num_nondust);
+}
+
+bool can_afford_feerate(const struct channel_state *cstate, uint64_t fee_rate,
+			enum channel_side side)
+{
+	u64 fee_msat = calculate_fee_msat(cstate->num_nondust, fee_rate);
+
+	return cstate->side[side].pay_msat + cstate->side[side].fee_msat
+		>= fee_msat;
 }
 
 void adjust_fee(struct channel_state *cstate, uint64_t fee_rate)

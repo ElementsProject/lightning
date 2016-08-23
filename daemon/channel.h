@@ -85,6 +85,25 @@ void cstate_fail_htlc(struct channel_state *cstate, const struct htlc *htlc);
 void cstate_fulfill_htlc(struct channel_state *cstate, const struct htlc *htlc);
 
 /**
+ * approx_max_feerate: what's the most side could raise fee rate to?
+ * @cstate: The channel state
+ * @side: OURS or THEIRS
+ *
+ * This is not exact!  To check if their offer is valid, use can_afford_feerate.
+ */
+uint64_t approx_max_feerate(const struct channel_state *cstate,
+			    enum channel_side side);
+
+/**
+ * can_afford_feerate: could this side pay for the fee if changed to fee_rate?
+ * @cstate: The channel state
+ * @fee_rate: the new fee rate proposed
+ * @side: OURS or THEIRS
+ */
+bool can_afford_feerate(const struct channel_state *cstate, uint64_t fee_rate,
+			enum channel_side side);
+
+/**
  * adjust_fee: Change fee rate.
  * @cstate: The channel state
  * @fee_rate: fee in satoshi per 1000 bytes.
