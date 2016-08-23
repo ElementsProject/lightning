@@ -824,6 +824,49 @@ void   update_fail_htlc__free_unpacked
   assert(message->base.descriptor == &update_fail_htlc__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   update_fee__init
+                     (UpdateFee         *message)
+{
+  static UpdateFee init_value = UPDATE_FEE__INIT;
+  *message = init_value;
+}
+size_t update_fee__get_packed_size
+                     (const UpdateFee *message)
+{
+  assert(message->base.descriptor == &update_fee__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t update_fee__pack
+                     (const UpdateFee *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &update_fee__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t update_fee__pack_to_buffer
+                     (const UpdateFee *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &update_fee__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+UpdateFee *
+       update_fee__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (UpdateFee *)
+     protobuf_c_message_unpack (&update_fee__descriptor,
+                                allocator, len, data);
+}
+void   update_fee__free_unpacked
+                     (UpdateFee *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &update_fee__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
 void   update_commit__init
                      (UpdateCommit         *message)
 {
@@ -2265,6 +2308,44 @@ const ProtobufCMessageDescriptor update_fail_htlc__descriptor =
   (ProtobufCMessageInit) update_fail_htlc__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
+static const ProtobufCFieldDescriptor update_fee__field_descriptors[1] =
+{
+  {
+    "fee_rate",
+    1,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(UpdateFee, fee_rate),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned update_fee__field_indices_by_name[] = {
+  0,   /* field[0] = fee_rate */
+};
+static const ProtobufCIntRange update_fee__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 1 }
+};
+const ProtobufCMessageDescriptor update_fee__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "update_fee",
+  "UpdateFee",
+  "UpdateFee",
+  "",
+  sizeof(UpdateFee),
+  1,
+  update_fee__field_descriptors,
+  update_fee__field_indices_by_name,
+  1,  update_fee__number_ranges,
+  (ProtobufCMessageInit) update_fee__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
 static const ProtobufCFieldDescriptor update_commit__field_descriptors[1] =
 {
   {
@@ -2481,7 +2562,7 @@ const ProtobufCMessageDescriptor error__descriptor =
   (ProtobufCMessageInit) error__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor pkt__field_descriptors[14] =
+static const ProtobufCFieldDescriptor pkt__field_descriptors[15] =
 {
   {
     "update_add_htlc",
@@ -2520,8 +2601,20 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[14] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
-    "update_commit",
+    "update_fee",
     5,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Pkt, pkt_case),
+    offsetof(Pkt, update_fee),
+    &update_fee__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "update_commit",
+    6,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
@@ -2533,7 +2626,7 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[14] =
   },
   {
     "update_revocation",
-    6,
+    7,
     PROTOBUF_C_LABEL_OPTIONAL,
     PROTOBUF_C_TYPE_MESSAGE,
     offsetof(Pkt, pkt_case),
@@ -2653,29 +2746,30 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[14] =
   },
 };
 static const unsigned pkt__field_indices_by_name[] = {
-  12,   /* field[12] = auth */
-  9,   /* field[9] = close_shutdown */
-  10,   /* field[10] = close_signature */
-  11,   /* field[11] = error */
-  5,   /* field[5] = open */
-  6,   /* field[6] = open_anchor */
-  7,   /* field[7] = open_commit_sig */
-  8,   /* field[8] = open_complete */
-  13,   /* field[13] = reconnect */
+  13,   /* field[13] = auth */
+  10,   /* field[10] = close_shutdown */
+  11,   /* field[11] = close_signature */
+  12,   /* field[12] = error */
+  6,   /* field[6] = open */
+  7,   /* field[7] = open_anchor */
+  8,   /* field[8] = open_commit_sig */
+  9,   /* field[9] = open_complete */
+  14,   /* field[14] = reconnect */
   0,   /* field[0] = update_add_htlc */
-  3,   /* field[3] = update_commit */
+  4,   /* field[4] = update_commit */
   2,   /* field[2] = update_fail_htlc */
+  3,   /* field[3] = update_fee */
   1,   /* field[1] = update_fulfill_htlc */
-  4,   /* field[4] = update_revocation */
+  5,   /* field[5] = update_revocation */
 };
 static const ProtobufCIntRange pkt__number_ranges[5 + 1] =
 {
   { 2, 0 },
-  { 20, 5 },
-  { 30, 9 },
-  { 40, 11 },
-  { 50, 12 },
-  { 0, 14 }
+  { 20, 6 },
+  { 30, 10 },
+  { 40, 12 },
+  { 50, 13 },
+  { 0, 15 }
 };
 const ProtobufCMessageDescriptor pkt__descriptor =
 {
@@ -2685,7 +2779,7 @@ const ProtobufCMessageDescriptor pkt__descriptor =
   "Pkt",
   "",
   sizeof(Pkt),
-  14,
+  15,
   pkt__field_descriptors,
   pkt__field_indices_by_name,
   5,  pkt__number_ranges,

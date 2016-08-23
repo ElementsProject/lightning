@@ -34,6 +34,7 @@ typedef struct _UpdateAddHtlc UpdateAddHtlc;
 typedef struct _UpdateFulfillHtlc UpdateFulfillHtlc;
 typedef struct _FailReason FailReason;
 typedef struct _UpdateFailHtlc UpdateFailHtlc;
+typedef struct _UpdateFee UpdateFee;
 typedef struct _UpdateCommit UpdateCommit;
 typedef struct _UpdateRevocation UpdateRevocation;
 typedef struct _CloseShutdown CloseShutdown;
@@ -433,6 +434,19 @@ struct  _UpdateFailHtlc
 
 
 /*
+ * Fee rate change proposal
+ */
+struct  _UpdateFee
+{
+  ProtobufCMessage base;
+  uint32_t fee_rate;
+};
+#define UPDATE_FEE__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&update_fee__descriptor) \
+    , 0 }
+
+
+/*
  * Commit all the staged changes.
  */
 struct  _UpdateCommit
@@ -525,8 +539,9 @@ typedef enum {
   PKT__PKT_UPDATE_ADD_HTLC = 2,
   PKT__PKT_UPDATE_FULFILL_HTLC = 3,
   PKT__PKT_UPDATE_FAIL_HTLC = 4,
-  PKT__PKT_UPDATE_COMMIT = 5,
-  PKT__PKT_UPDATE_REVOCATION = 6,
+  PKT__PKT_UPDATE_FEE = 5,
+  PKT__PKT_UPDATE_COMMIT = 6,
+  PKT__PKT_UPDATE_REVOCATION = 7,
   PKT__PKT_CLOSE_SHUTDOWN = 30,
   PKT__PKT_CLOSE_SIGNATURE = 31,
   PKT__PKT_ERROR = 40,
@@ -558,6 +573,7 @@ struct  _Pkt
     UpdateAddHtlc *update_add_htlc;
     UpdateFulfillHtlc *update_fulfill_htlc;
     UpdateFailHtlc *update_fail_htlc;
+    UpdateFee *update_fee;
     UpdateCommit *update_commit;
     UpdateRevocation *update_revocation;
     /*
@@ -937,6 +953,25 @@ UpdateFailHtlc *
 void   update_fail_htlc__free_unpacked
                      (UpdateFailHtlc *message,
                       ProtobufCAllocator *allocator);
+/* UpdateFee methods */
+void   update_fee__init
+                     (UpdateFee         *message);
+size_t update_fee__get_packed_size
+                     (const UpdateFee   *message);
+size_t update_fee__pack
+                     (const UpdateFee   *message,
+                      uint8_t             *out);
+size_t update_fee__pack_to_buffer
+                     (const UpdateFee   *message,
+                      ProtobufCBuffer     *buffer);
+UpdateFee *
+       update_fee__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   update_fee__free_unpacked
+                     (UpdateFee *message,
+                      ProtobufCAllocator *allocator);
 /* UpdateCommit methods */
 void   update_commit__init
                      (UpdateCommit         *message);
@@ -1110,6 +1145,9 @@ typedef void (*FailReason_Closure)
 typedef void (*UpdateFailHtlc_Closure)
                  (const UpdateFailHtlc *message,
                   void *closure_data);
+typedef void (*UpdateFee_Closure)
+                 (const UpdateFee *message,
+                  void *closure_data);
 typedef void (*UpdateCommit_Closure)
                  (const UpdateCommit *message,
                   void *closure_data);
@@ -1154,6 +1192,7 @@ extern const ProtobufCMessageDescriptor update_add_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_fulfill_htlc__descriptor;
 extern const ProtobufCMessageDescriptor fail_reason__descriptor;
 extern const ProtobufCMessageDescriptor update_fail_htlc__descriptor;
+extern const ProtobufCMessageDescriptor update_fee__descriptor;
 extern const ProtobufCMessageDescriptor update_commit__descriptor;
 extern const ProtobufCMessageDescriptor update_revocation__descriptor;
 extern const ProtobufCMessageDescriptor close_shutdown__descriptor;

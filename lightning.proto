@@ -178,6 +178,11 @@ message update_fail_htlc {
   required fail_reason reason = 2;
 }
 
+// Fee rate change proposal
+message update_fee {
+  required uint32 fee_rate = 1;
+}
+
 // Commit all the staged changes.
 message update_commit {
   // Signature for your new commitment tx (if any outputs are HTLCs or to you)
@@ -226,8 +231,9 @@ message pkt {
     update_add_htlc update_add_htlc = 2;
     update_fulfill_htlc update_fulfill_htlc = 3;
     update_fail_htlc update_fail_htlc = 4;
-    update_commit update_commit = 5;
-    update_revocation update_revocation = 6;
+    update_fee update_fee = 5;
+    update_commit update_commit = 6;
+    update_revocation update_revocation = 7;
 
     // Closing
     close_shutdown close_shutdown = 30;
