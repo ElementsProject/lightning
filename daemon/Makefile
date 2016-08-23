@@ -112,3 +112,5 @@ daemon-clean:
 
 daemon-maintainer-clean:
 	$(RM) $(DAEMON_GEN_HEADERS)
+
+include daemon/test/Makefile

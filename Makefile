@@ -187,33 +187,6 @@ $(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): 
 # Except for CCAN, everything depends on bitcoin/ and core headers.
 $(HELPER_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS)
 
-daemon-test-%:
-	daemon/test/scripts/shutdown.sh 2>/dev/null || true
-	NO_VALGRIND=$(NO_VALGRIND) daemon/test/test.sh --$*
-
-# These don't work in parallel, so chain the deps
-daemon-test-steal: daemon-test-dump-onchain
-daemon-test-dump-onchain: daemon-test-timeout-anchor
-daemon-test-timeout-anchor: daemon-test-different-fee-rates
-daemon-test-different-fee-rates: daemon-test-normal
-daemon-test-normal: daemon-test-manual-commit
-daemon-test-manual-commit: daemon-test-mutual-close-with-htlcs
-daemon-test-mutual-close-with-htlcs: daemon-test-steal\ --reconnect
-daemon-test-steal\ --reconnect: daemon-test-dump-onchain\ --reconnect
-daemon-test-dump-onchain\ --reconnect: daemon-test-timeout-anchor\ --reconnect
-daemon-test-timeout-anchor\ --reconnect: daemon-test-different-fee-rates\ --reconnect
-daemon-test-different-fee-rates\ --reconnect: daemon-test-normal\ --reconnect
-daemon-test-normal\ --reconnect: daemon-test-manual-commit\ --reconnect
-daemon-test-manual-commit\ --reconnect: daemon-test-mutual-close-with-htlcs\ --reconnect
-daemon-test-mutual-close-with-htlcs\ --reconnect: daemon-test-steal\ --restart
-daemon-test-steal\ --restart: daemon-test-dump-onchain\ --restart
-daemon-test-dump-onchain\ --restart: daemon-test-timeout-anchor\ --restart
-daemon-test-timeout-anchor\ --restart: daemon-test-different-fee-rates\ --restart
-daemon-test-different-fee-rates\ --restart: daemon-test-normal\ --restart
-daemon-test-normal\ --restart: daemon-test-mutual-close-with-htlcs\ --restart
-daemon-test-mutual-close-with-htlcs\ --restart: daemon-all
-daemon-tests: daemon-test-steal
-
 test-onion: test/test_onion test/onion_key
 	set -e; TMPF=/tmp/onion.$$$$; test/test_onion --generate $$(test/onion_key --pub `seq 20`) > $$TMPF; for k in `seq 20`; do test/test_onion --decode $$(test/onion_key --priv $$k) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
 
@@ -234,7 +207,7 @@ doc/protocol-%.svg: test/test_protocol
 
 protocol-diagrams: $(patsubst %.script, doc/protocol-%.svg, $(notdir $(wildcard test/commits/*.script)))
 
-check: daemon-tests test-onion test-protocol bitcoin-tests
+check: test-onion test-protocol bitcoin-tests
 
 include bitcoin/Makefile
 
