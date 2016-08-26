@@ -352,9 +352,7 @@ cp $DIR2/config $DIR3/config
 if [ x"$RECONNECT" = xrestart ]; then
     # Make sure node2 restarts on same port, by setting in config.
     # Find a free TCP port.
-    port=4000
-    while netstat -ntl | grep -q ":$port "; do port=$(($port + 1)); done
-    echo port=$port >> $DIR2/config
+    echo port=`findport 4000` >> $DIR2/config
 fi
 
 if [ -n "$DIFFERENT_FEES" ]; then

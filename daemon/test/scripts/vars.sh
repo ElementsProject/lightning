@@ -11,4 +11,10 @@ else
 	SEQ_ENFORCEMENT=false
 fi
 
+findport()
+{
+    PORT=$1
+    while netstat -ntl | grep -q ":$PORT "; do PORT=$(($PORT + 1)); done
+    echo $PORT
+}
 #PREFIX="valgrind --vgdb-error=1"

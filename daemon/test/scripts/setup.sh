@@ -11,10 +11,16 @@ fi
 rm -rf $DATADIR
 mkdir $DATADIR
 
+# Find a free port (racy, but hey)
+PORT=`findport 18332`
+RPCPORT=`findport $(($PORT + 1))`
+
 # Create appropriate config file so cmdline matches.
 cat > $DATADIR/bitcoin.conf <<EOF
 regtest=1
 testnet=0
+rpcport=$RPCPORT
+port=$PORT
 EOF
 
 $DAEMON &
