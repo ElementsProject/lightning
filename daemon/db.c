@@ -510,7 +510,6 @@ static void load_peer_htlcs(struct peer *peer)
 		struct htlc *htlc;
 		struct sha256 rhash;
 		enum htlc_state hstate;
-		u64 id;
 
 		if (err != SQLITE_ROW)
 			fatal("load_peer_htlcs:step gave %s:%s",

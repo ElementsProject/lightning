@@ -1091,6 +1091,45 @@ static Pkt *handle_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 	return NULL;
 }
 
+static void set_feechange(struct peer *peer, u64 fee_rate,
+			  enum feechange_state state)
+{
+	/* If we already have a feechange for this commit, simply update it. */
+	if (peer->feechanges[state]) {
+		log_debug(peer->log, "Feechange: fee %"PRIu64" to %"PRIu64,
+			  peer->feechanges[state]->fee_rate,
+			  fee_rate);
+		peer->feechanges[state]->fee_rate = fee_rate;
+	} else {
+		log_debug(peer->log, "Feechange: New fee %"PRIu64, fee_rate);
+		peer->feechanges[state] = new_feechange(peer, fee_rate, state);
+	}
+}
+
+static Pkt *handle_pkt_feechange(struct peer *peer, const Pkt *pkt)
+{
+	u64 feerate;
+	Pkt *err;
+
+	err = accept_pkt_update_fee(peer, pkt, &feerate);
+	if (err)
+		return err;
+
+	/* BOLT #2:
+	 *
+	 * The sending node MUST NOT send a `fee_rate` which it could not
+	 * afford (see "Fee Calculation), were it applied to the receiving
+	 * node's commitment transaction.  The receiving node SHOULD fail the
+	 * connection if this occurs.
+	 */
+	if (!can_afford_feerate(peer->local.staging_cstate, feerate, REMOTE))
+		return pkt_err(peer, "Cannot afford feerate %"PRIu64,
+			       feerate);
+
+	set_feechange(peer, feerate, RCVD_FEECHANGE);
+	return NULL;
+}
+
 static Pkt *handle_pkt_revocation(struct peer *peer, const Pkt *pkt,
 				  enum state next_state)
 {
@@ -1262,6 +1301,9 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 	case PKT__PKT_UPDATE_FAIL_HTLC:
 		err = handle_pkt_htlc_fail(peer, pkt);
 		break;
+	case PKT__PKT_UPDATE_FEE:
+		err = handle_pkt_feechange(peer, pkt);
+		break;
 	case PKT__PKT_UPDATE_COMMIT:
 		err = handle_pkt_commit(peer, pkt);
 		break;
@@ -1366,6 +1408,10 @@ static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 
 	case PKT_UPDATE_FAIL_HTLC:
 		err = handle_pkt_htlc_fail(peer, pkt);
+		break;
+
+	case PKT__PKT_UPDATE_FEE:
+		err = handle_pkt_feechange(peer, pkt);
 		break;
 
 	case PKT_UPDATE_COMMIT:

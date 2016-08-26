@@ -483,6 +483,14 @@ Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt, struct htlc **h,
 	return NULL;
 }
 
+Pkt *accept_pkt_update_fee(struct peer *peer, const Pkt *pkt, u64 *feerate)
+{
+	const UpdateFee *f = pkt->update_fee;
+
+	*feerate = f->fee_rate;
+	return NULL;
+}
+
 Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt,
 		       struct bitcoin_signature *sig)
 {
