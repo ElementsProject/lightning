@@ -359,10 +359,10 @@ fi
 
 if [ -n "$DIFFERENT_FEES" ]; then
     # Simply override default fee (estimatefee fails on regtest anyway)
-    CLOSE_FEE_RATE2=50000
+    DEFAULT_FEE_RATE2=50000
     # We use 5x fee rate for commits, by defailt.
-    FEE_RATE2=$(($CLOSE_FEE_RATE2 * 5))
-    echo "default-fee-rate=$CLOSE_FEE_RATE2" >> $DIR2/config
+    FEE_RATE2=$(($DEFAULT_FEE_RATE2 * 5))
+    echo "default-fee-rate=$DEFAULT_FEE_RATE2" >> $DIR2/config
 fi
 
 # Need absolute path for re-exec testing.
@@ -512,6 +512,14 @@ if [ -n "$DIFFERENT_FEES" ]; then
 
     check_status_single lcli1 $(($AMOUNT - $HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) "" $(($HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) ""
     check_status_single lcli2 $(($HTLC_AMOUNT - $NO_HTLCS_FEE2 / 2)) $(($NO_HTLCS_FEE2 / 2)) "" $(($AMOUNT - $HTLC_AMOUNT - $NO_HTLCS_FEE2 / 2)) $(($NO_HTLCS_FEE2 / 2)) ""
+
+    # Change fee rate on node2 to same as node1.
+    lcli2 dev-feerate 40000
+    $CLI generate 1
+    [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+    [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+
+    check_status $(($AMOUNT - $HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) "" $(($HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) "" 
 
     lcli1 close $ID2
     # Make sure they notice it.

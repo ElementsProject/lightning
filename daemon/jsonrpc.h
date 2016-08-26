@@ -74,4 +74,5 @@ extern const struct json_command accept_payment_command;
 extern const struct json_command add_route_command;
 extern const struct json_command routefail_command;
 extern const struct json_command pay_command;
+extern const struct json_command feerate_command;
 #endif /* LIGHTNING_DAEMON_JSONRPC_H */

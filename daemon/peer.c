@@ -4537,6 +4537,35 @@ const struct json_command close_command = {
 	"Returns an empty result on success"
 };
 
+static void json_feerate(struct command *cmd,
+			 const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *feeratetok;
+	u64 feerate;
+
+	if (!json_get_params(buffer, params,
+			     "feerate", &feeratetok,
+			     NULL)) {
+		command_fail(cmd, "Need feerate");
+		return;
+	}
+
+	if (!json_tok_u64(buffer, feeratetok, &feerate)) {
+		command_fail(cmd, "Invalid feerate");
+		return;
+	}
+	cmd->dstate->config.default_fee_rate = feerate;
+	
+	command_success(cmd, null_response(cmd));
+}
+
+const struct json_command feerate_command = {
+	"dev-feerate",
+	json_feerate,
+	"Change the (default) fee rate to {feerate}",
+	"Returns an empty result on success"
+};
+
 static void json_disconnect(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
 {
