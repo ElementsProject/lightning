@@ -178,6 +178,16 @@ void queue_pkt_htlc_fail(struct peer *peer, struct htlc *htlc)
 	queue_pkt(peer, PKT__PKT_UPDATE_FAIL_HTLC, f);
 }
 
+void queue_pkt_feechange(struct peer *peer, u64 feerate)
+{
+	UpdateFee *f = tal(peer, UpdateFee);
+
+	update_fee__init(f);
+	f->fee_rate = feerate;
+
+	queue_pkt(peer, PKT__PKT_UPDATE_FEE, f);
+}
+
 /* OK, we're sending a signature for their pending changes. */
 void queue_pkt_commit(struct peer *peer, const struct bitcoin_signature *sig)
 {

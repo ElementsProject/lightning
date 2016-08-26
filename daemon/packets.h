@@ -17,6 +17,7 @@ void queue_pkt_open_complete(struct peer *peer);
 void queue_pkt_htlc_add(struct peer *peer, struct htlc *htlc);
 void queue_pkt_htlc_fulfill(struct peer *peer, struct htlc *htlc);
 void queue_pkt_htlc_fail(struct peer *peer, struct htlc *htlc);
+void queue_pkt_feechange(struct peer *peer, u64 feerate);
 void queue_pkt_commit(struct peer *peer, const struct bitcoin_signature *sig);
 void queue_pkt_revocation(struct peer *peer,
 			  const struct sha256 *preimage,

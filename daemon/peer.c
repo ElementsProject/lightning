@@ -242,11 +242,19 @@ static bool peer_uncommitted_changes(const struct peer *peer)
 {
 	struct htlc_map_iter it;
 	struct htlc *h;
+	enum feechange_state i;
 
 	for (h = htlc_map_first(&peer->htlcs, &it);
 	     h;
 	     h = htlc_map_next(&peer->htlcs, &it)) {
 		if (htlc_has(h, HTLC_REMOTE_F_PENDING))
+			return true;
+	}
+	/* Pending feechange we sent, or pending ack of theirs. */
+	for (i = 0; i < ARRAY_SIZE(peer->feechanges); i++) {
+		if (!peer->feechanges[i])
+			continue;
+		if (feechange_state_flags(i) & HTLC_REMOTE_F_PENDING)
 			return true;
 	}
 	return false;
@@ -632,6 +640,34 @@ static void adjust_cstates(struct peer *peer, struct htlc *h,
 	adjust_cstate_side(peer->local.staging_cstate, h, old, new, LOCAL);
 }
 
+static void adjust_cstate_fee_side(struct channel_state *cstate,
+				   const struct feechange *f,
+				   enum feechange_state old,
+				   enum feechange_state new,
+				   enum htlc_side side)
+{
+	/* We applied changes to staging_cstate when we first received 
+	 * feechange packet, so we could make sure it was valid.  Don't
+	 * do that again. */
+	if (old == SENT_FEECHANGE || old == RCVD_FEECHANGE)
+		return;
+
+	/* Feechanges only ever get applied to the side which created them:
+	 * ours gets applied when they ack, theirs gets applied when we ack. */
+	if (side == LOCAL && new == RCVD_FEECHANGE_REVOCATION)
+		adjust_fee(cstate, f->fee_rate);
+	else if (side == REMOTE && new == SENT_FEECHANGE_REVOCATION)
+		adjust_fee(cstate, f->fee_rate);
+}
+
+static void adjust_cstates_fee(struct peer *peer, const struct feechange *f,
+			       enum feechange_state old,
+			       enum feechange_state new)
+{
+	adjust_cstate_fee_side(peer->remote.staging_cstate, f, old, new, REMOTE);
+	adjust_cstate_fee_side(peer->local.staging_cstate, f, old, new, LOCAL);
+}
+
 static void check_both_committed(struct peer *peer, struct htlc *h)
 {
 	if (!htlc_has(h, HTLC_ADDING) && !htlc_has(h, HTLC_REMOVING))
@@ -657,22 +693,29 @@ static void check_both_committed(struct peer *peer, struct htlc *h)
 	}
 }
 
-struct state_table {
+struct htlcs_table {
 	enum htlc_state from, to;
 };
 
-static const char *htlcs_changestate(struct peer *peer,
-				     const struct state_table *table, size_t n,
-				     bool db_commit)
+struct feechanges_table {
+	enum feechange_state from, to;
+};
+
+static const char *changestates(struct peer *peer,
+				const struct htlcs_table *table,
+				size_t n,
+				const struct feechanges_table *ftable,
+				size_t n_ftable,
+				bool db_commit)
 {
 	struct htlc_map_iter it;
 	struct htlc *h;
 	bool changed = false;
+	size_t i;
 
 	for (h = htlc_map_first(&peer->htlcs, &it);
 	     h;
 	     h = htlc_map_next(&peer->htlcs, &it)) {
-		size_t i;
 		for (i = 0; i < n; i++) {
 			if (h->state == table[i].from) {
 				adjust_cstates(peer, h,
@@ -685,6 +728,19 @@ static const char *htlcs_changestate(struct peer *peer,
 			}
 		}
 	}
+
+	for (i = 0; i < n_ftable; i++) {
+		struct feechange *f = peer->feechanges[ftable[i].from];
+		if (!f)
+			continue;
+		adjust_cstates_fee(peer, f, ftable[i].from, ftable[i].to);
+		if (!feechange_changestate(peer, f,
+					   ftable[i].from, ftable[i].to,
+					   db_commit))
+			return "database error";
+		changed = true;
+	}
+
 	/* BOLT #2:
 	 *
 	 * A node MUST NOT send an `update_commit` message which does
@@ -827,17 +883,25 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	struct commit_info *ci;
 	bool to_them_only;
 	/* FIXME: We can actually merge these two... */
-	static const struct state_table commit_changes[] = {
+	static const struct htlcs_table commit_changes[] = {
 		{ RCVD_ADD_REVOCATION, RCVD_ADD_ACK_COMMIT },
 		{ RCVD_REMOVE_HTLC, RCVD_REMOVE_COMMIT },
 		{ RCVD_ADD_HTLC, RCVD_ADD_COMMIT },
 		{ RCVD_REMOVE_REVOCATION, RCVD_REMOVE_ACK_COMMIT }
 	};
-	static const struct state_table revocation_changes[] = {
+	static const struct feechanges_table commit_feechanges[] = {
+		{ RCVD_FEECHANGE_REVOCATION, RCVD_FEECHANGE_ACK_COMMIT },
+		{ RCVD_FEECHANGE, RCVD_FEECHANGE_COMMIT }
+	};
+	static const struct htlcs_table revocation_changes[] = {
 		{ RCVD_ADD_ACK_COMMIT, SENT_ADD_ACK_REVOCATION },
 		{ RCVD_REMOVE_COMMIT, SENT_REMOVE_REVOCATION },
 		{ RCVD_ADD_COMMIT, SENT_ADD_REVOCATION },
 		{ RCVD_REMOVE_ACK_COMMIT, SENT_REMOVE_ACK_REVOCATION }
+	};
+	static const struct feechanges_table revocation_feechanges[] = {
+		{ RCVD_FEECHANGE_ACK_COMMIT, SENT_FEECHANGE_ACK_REVOCATION },
+		{ RCVD_FEECHANGE_COMMIT, SENT_FEECHANGE_REVOCATION }
 	};
 
 	ci = new_commit_info(peer, peer->local.commit->commit_num + 1);
@@ -850,9 +914,10 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	 * A node MUST NOT send an `update_commit` message which does
 	 * not include any updates.
 	 */
-	errmsg = htlcs_changestate(peer,
-				   commit_changes, ARRAY_SIZE(commit_changes),
-				   true);
+	errmsg = changestates(peer,
+			      commit_changes, ARRAY_SIZE(commit_changes),
+			      commit_feechanges, ARRAY_SIZE(commit_feechanges),
+			      true);
 	if (errmsg) {
 		db_abort_transaction(peer);
 		return pkt_err(peer, "%s", errmsg);
@@ -930,8 +995,11 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	assert(to_them_only || peer->local.commit->sig);
 	assert(peer->local.commit->commit_num > 0);
 
-	errmsg = htlcs_changestate(peer, revocation_changes,
-				   ARRAY_SIZE(revocation_changes), true);
+	errmsg = changestates(peer,
+			      revocation_changes, ARRAY_SIZE(revocation_changes),
+			      revocation_feechanges,
+			      ARRAY_SIZE(revocation_feechanges),
+			      true);
 	if (errmsg) {
 		log_broken(peer->log, "queue_pkt_revocation: %s", errmsg);
 		/* FIXME: Return error. */
@@ -1028,11 +1096,15 @@ static Pkt *handle_pkt_revocation(struct peer *peer, const Pkt *pkt,
 {
 	Pkt *err;
 	const char *errmsg;
-	static const struct state_table changes[] = {
+	static const struct htlcs_table changes[] = {
 		{ SENT_ADD_COMMIT, RCVD_ADD_REVOCATION },
 		{ SENT_REMOVE_ACK_COMMIT, RCVD_REMOVE_ACK_REVOCATION },
 		{ SENT_ADD_ACK_COMMIT, RCVD_ADD_ACK_REVOCATION },
 		{ SENT_REMOVE_COMMIT, RCVD_REMOVE_REVOCATION }
+	};
+	static const struct feechanges_table feechanges[] = {
+		{ SENT_FEECHANGE_COMMIT, RCVD_FEECHANGE_REVOCATION },
+		{ SENT_FEECHANGE_ACK_COMMIT, RCVD_FEECHANGE_ACK_REVOCATION }
 	};
 
 	err = accept_pkt_revocation(peer, pkt);
@@ -1046,7 +1118,8 @@ static Pkt *handle_pkt_revocation(struct peer *peer, const Pkt *pkt,
 	 */
 	if (!db_start_transaction(peer))
 		return pkt_err(peer, "database error");
-	errmsg = htlcs_changestate(peer, changes, ARRAY_SIZE(changes), true);
+	errmsg = changestates(peer, changes, ARRAY_SIZE(changes),
+			      feechanges, ARRAY_SIZE(feechanges), true);
 	if (errmsg) {
 		log_broken(peer->log, "accept_pkt_revocation: %s", errmsg);
 		db_abort_transaction(peer);
@@ -1705,6 +1778,17 @@ static void retransmit_updates(struct peer *peer)
 			break;
 		}
 	}
+
+	/* This feechange may not be appropriate any more, but that's no
+	 * different from when we sent it last time.  And this avoids us
+	 * creating different commit txids on retransmission */
+	if (peer->feechanges[SENT_FEECHANGE_COMMIT]) {
+		u64 feerate = peer->feechanges[SENT_FEECHANGE_COMMIT]->fee_rate;
+		log_debug(peer->log,
+			  "Retransmitting feechange %"PRIu64, feerate);
+		queue_pkt_feechange(peer, feerate);
+	}
+	assert(!peer->feechanges[SENT_FEECHANGE]);
 }
 
 /* FIXME: Maybe it would be neater to remember all pay commands, and simply
@@ -1802,7 +1886,7 @@ again:
 				if (!cstate_add_htlc(peer->remote.staging_cstate, h))
 					fatal("Could not add HTLC?");
 				break;
-			}
+			} /* Fall thru */
 		case RCVD_ADD_HTLC:
 			log_debug(peer->log, "Forgetting %s %"PRIu64,
 				  htlc_state_name(h->state), h->id);
@@ -1839,6 +1923,12 @@ again:
 	}
 	if (retry)
 		goto again;
+
+	/* Forget uncommitted feechanges */
+	peer->feechanges[SENT_FEECHANGE]
+		= tal_free(peer->feechanges[SENT_FEECHANGE]);
+	peer->feechanges[RCVD_FEECHANGE]
+		= tal_free(peer->feechanges[RCVD_FEECHANGE]);
 }
 
 static void retransmit_pkts(struct peer *peer, s64 ack)
@@ -1979,11 +2069,15 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 {
 	struct commit_info *ci;
 	const char *errmsg;
-	static const struct state_table changes[] = {
+	static const struct htlcs_table changes[] = {
 		{ SENT_ADD_HTLC, SENT_ADD_COMMIT },
 		{ SENT_REMOVE_REVOCATION, SENT_REMOVE_ACK_COMMIT },
 		{ SENT_ADD_REVOCATION, SENT_ADD_ACK_COMMIT},
 		{ SENT_REMOVE_HTLC, SENT_REMOVE_COMMIT}
+	};
+	static const struct feechanges_table feechanges[] = {
+		{ SENT_FEECHANGE, SENT_FEECHANGE_COMMIT },
+		{ SENT_FEECHANGE_REVOCATION, SENT_FEECHANGE_ACK_COMMIT}
 	};
 	bool to_us_only;
 
@@ -2014,7 +2108,8 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 		fatal("queue_pkt_commit: db fail");
 	}
 		
-	errmsg = htlcs_changestate(peer, changes, ARRAY_SIZE(changes), true);
+	errmsg = changestates(peer, changes, ARRAY_SIZE(changes),
+			      feechanges, ARRAY_SIZE(feechanges), true);
 	if (errmsg) {
 		log_broken(peer->log, "queue_pkt_commit: %s", errmsg);
 		/* FIXME: Return error. */
@@ -2185,6 +2280,7 @@ struct peer *new_peer(struct lightningd_state *dstate,
 			    log_prefix(peer->dstate->base_log), peer);
 
 	htlc_map_init(&peer->htlcs);
+	memset(peer->feechanges, 0, sizeof(peer->feechanges));
 	shachain_init(&peer->their_preimages);
 
 	list_add(&dstate->peers, &peer->list);

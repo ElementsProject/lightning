@@ -32,8 +32,12 @@ bool db_update_their_closing(struct peer *peer);
 
 /* Must be inside transaction. */
 bool db_new_htlc(struct peer *peer, const struct htlc *htlc);
+bool db_new_feechange(struct peer *peer, const struct feechange *feechange);
 bool db_update_htlc_state(struct peer *peer, const struct htlc *htlc,
 				 enum htlc_state oldstate);
+bool db_update_feechange_state(struct peer *peer,
+			       const struct feechange *f,
+			       enum htlc_state oldstate);
 bool db_new_commit_info(struct peer *peer, enum channel_side side,
 			const struct sha256 *prev_rhash);
 bool db_remove_their_prev_revocation_hash(struct peer *peer);

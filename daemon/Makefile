@@ -22,6 +22,7 @@ DAEMON_SRC :=					\
 	daemon/cryptopkt.c			\
 	daemon/db.c				\
 	daemon/dns.c				\
+	daemon/feechange.c			\
 	daemon/htlc.c				\
 	daemon/jsonrpc.c			\
 	daemon/lightningd.c			\
@@ -49,7 +50,9 @@ DAEMON_CLI_OBJS := $(DAEMON_CLI_SRC:.c=.o)
 DAEMON_JSMN_OBJS := daemon/jsmn.o
 DAEMON_JSMN_HEADERS := daemon/jsmn/jsmn.h
 
-DAEMON_GEN_HEADERS := daemon/gen_htlc_state_names.h
+DAEMON_GEN_HEADERS :=				\
+	daemon/gen_feechange_state_names.h	\
+	daemon/gen_htlc_state_names.h 
 
 DAEMON_HEADERS :=				\
 	daemon/bitcoind.h			\
@@ -61,6 +64,8 @@ DAEMON_HEADERS :=				\
 	daemon/cryptopkt.h			\
 	daemon/db.h				\
 	daemon/dns.h				\
+	daemon/feechange.h			\
+	daemon/feechange_state.h		\
 	daemon/htlc.h				\
 	daemon/htlc_state.h			\
 	daemon/json.h				\
@@ -84,6 +89,9 @@ DAEMON_HEADERS :=				\
 
 daemon/gen_htlc_state_names.h: daemon/htlc_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr daemon/htlc_state.h > $@
+
+daemon/gen_feechange_state_names.h: daemon/feechange_state.h ccan/ccan/cdump/tools/cdump-enumstr
+	ccan/ccan/cdump/tools/cdump-enumstr daemon/feechange_state.h > $@
 
 $(DAEMON_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_CLI_OBJS): $(DAEMON_HEADERS) $(DAEMON_JSMN_HEADERS) $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS) $(DAEMON_GEN_HEADERS) $(CCAN_HEADERS)
 $(DAEMON_JSMN_OBJS): $(DAEMON_JSMN_HEADERS)

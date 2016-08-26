@@ -7,6 +7,7 @@
 #include "bitcoin/script.h"
 #include "bitcoin/shadouble.h"
 #include "channel.h"
+#include "feechange.h"
 #include "htlc.h"
 #include "lightning.pb-c.h"
 #include "netaddr.h"
@@ -189,6 +190,9 @@ struct peer {
 
 	/* All HTLCs. */
 	struct htlc_map htlcs;
+
+	/* We only track one feechange per state: last one counts. */
+	struct feechange *feechanges[FEECHANGE_STATE_INVALID];
 
 	/* Current ongoing packetflow */
 	struct io_data *io_data;

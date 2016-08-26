@@ -1,6 +1,7 @@
 #include "bitcoin/pullpush.h"
 #include "commit_tx.h"
 #include "db.h"
+#include "feechange.h"
 #include "htlc.h"
 #include "lightningd.h"
 #include "log.h"
@@ -434,21 +435,48 @@ static void load_peer_commit_info(struct peer *peer)
 		fatal("load_peer_commit_info:no remote commit info found");
 }
 
-/* This htlc no longer committed; either resolved or failed. */
-static void htlc_resolved(struct channel_state *cstate, const struct htlc *htlc)
+static void apply_htlc(struct channel_state *cstate, const struct htlc *htlc,
+		       enum htlc_side side)
 {
-	if (htlc->r)
-		cstate_fulfill_htlc(cstate, htlc);
-	else
-		cstate_fail_htlc(cstate, htlc);
+	const char *sidestr = (side == LOCAL ? "LOCAL" : "REMOTE");
+
+	if (!htlc_has(htlc, HTLC_FLAG(side,HTLC_F_WAS_COMMITTED)))
+		return;
+
+	log_debug(htlc->peer->log, "  %s committed", sidestr);
+	if (!cstate_add_htlc(cstate, htlc))
+		fatal("load_peer_htlcs:can't add %s HTLC", sidestr);
+
+	if (!htlc_has(htlc, HTLC_FLAG(side, HTLC_F_COMMITTED))) {
+		log_debug(htlc->peer->log, "  %s %s",
+			  sidestr, htlc->r ? "resolved" : "failed");
+		if (htlc->r)
+			cstate_fulfill_htlc(cstate, htlc);
+		else
+			cstate_fail_htlc(cstate, htlc);
+	}
 }
+
+static void apply_feechange(struct channel_state *cstate,
+			    const struct feechange *f,
+			    enum htlc_side side)
+{
+	/* We only ever apply feechanges to the owner. */
+	if (feechange_side(f->state) != side)
+		return;
+
+	if (!feechange_has(f, HTLC_FLAG(side,HTLC_F_WAS_COMMITTED)))
+		return;
+
+	adjust_fee(cstate, f->fee_rate);
+}	
 
 /* As we load the HTLCs, we apply them to get the final channel_state.
  * We also get the last used htlc id.
  * This is slow, but sure. */
 static void load_peer_htlcs(struct peer *peer)
 {
-	int err;
+	int err, i;
 	sqlite3_stmt *stmt;
 	sqlite3 *sql = peer->dstate->db->sql;
 	char *ctx = tal(peer, char);
@@ -482,6 +510,7 @@ static void load_peer_htlcs(struct peer *peer)
 		struct htlc *htlc;
 		struct sha256 rhash;
 		enum htlc_state hstate;
+		u64 id;
 
 		if (err != SQLITE_ROW)
 			fatal("load_peer_htlcs:step gave %s:%s",
@@ -521,34 +550,63 @@ static void load_peer_htlcs(struct peer *peer)
 			peer->htlc_id_counter = htlc->id + 1;
 
 		/* Update cstate with this HTLC. */
-		if (htlc_has(htlc, HTLC_LOCAL_F_WAS_COMMITTED)) {
-			log_debug(peer->log, "  Local committed");
-			if (!cstate_add_htlc(peer->local.commit->cstate, htlc))
-				fatal("load_peer_htlcs:can't add local HTLC");
-
-			if (!htlc_has(htlc, HTLC_LOCAL_F_COMMITTED)) {
-				log_debug(peer->log, "  Local %s",
-					  htlc->r ? "resolved" : "failed");
-				htlc_resolved(peer->local.commit->cstate, htlc);
-			}
-		}
-
-		if (htlc_has(htlc, HTLC_REMOTE_F_WAS_COMMITTED)) {
-			log_debug(peer->log, "  Remote committed");
-			if (!cstate_add_htlc(peer->remote.commit->cstate, htlc)) 
-				fatal("load_peer_htlcs:can't add remote HTLC");
-			if (!htlc_has(htlc, HTLC_REMOTE_F_COMMITTED)) {
-				log_debug(peer->log, "  Remote %s",
-					  htlc->r ? "resolved" : "failed");
-				htlc_resolved(peer->remote.commit->cstate, htlc);
-			}
-		}
+		apply_htlc(peer->local.commit->cstate, htlc, LOCAL);
+		apply_htlc(peer->remote.commit->cstate, htlc, REMOTE);
 	}
 
 	err = sqlite3_finalize(stmt);
 	if (err != SQLITE_OK)
 		fatal("load_peer_htlcs:finalize gave %s:%s",
 		      sqlite3_errstr(err), sqlite3_errmsg(sql));
+
+	/* Now set any in-progress fee changes. */
+	select = tal_fmt(ctx,
+			 "SELECT * FROM feechanges WHERE peer = x'%s';",
+			 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id));
+
+	err = sqlite3_prepare_v2(sql, select, -1, &stmt, NULL);
+	if (err != SQLITE_OK)
+		fatal("load_peer_htlcs:prepare gave %s:%s",
+		      sqlite3_errstr(err), sqlite3_errmsg(sql));
+
+	while ((err = sqlite3_step(stmt)) != SQLITE_DONE) {
+		enum feechange_state feechange_state;
+
+		if (err != SQLITE_ROW)
+			fatal("load_peer_htlcs:step gave %s:%s",
+			      sqlite3_errstr(err), sqlite3_errmsg(sql));
+
+		if (sqlite3_column_count(stmt) != 3)
+			fatal("load_peer_htlcs:step gave %i cols, not 3",
+			      sqlite3_column_count(stmt));
+
+		feechange_state
+			= feechange_state_from_name(sqlite3_column_str(stmt, 1));
+		if (feechange_state == FEECHANGE_STATE_INVALID)
+			fatal("load_peer_htlcs:invalid feechange state %s",
+			      sqlite3_column_str(stmt, 1));
+		if (peer->feechanges[feechange_state])
+			fatal("load_peer_htlcs: second feechange in state %s",
+			      sqlite3_column_str(stmt, 1));
+		peer->feechanges[feechange_state]
+			= new_feechange(peer, sqlite3_column_int64(stmt, 2),
+					feechange_state);
+	}
+	err = sqlite3_finalize(stmt);
+	if (err != SQLITE_OK)
+		fatal("load_peer_htlcs:finalize gave %s:%s",
+		      sqlite3_errstr(err), sqlite3_errmsg(sql));
+
+	/* Apply feechanges from oldest to newest (newest counts). */
+	for (i = FEECHANGE_STATE_INVALID - 1; i >= SENT_FEECHANGE; i--) {
+		if (!peer->feechanges[i])
+			continue;
+		
+		apply_feechange(peer->local.commit->cstate,
+				peer->feechanges[i], LOCAL);
+		apply_feechange(peer->remote.commit->cstate,
+				peer->feechanges[i], REMOTE);
+	}
 
 	/* Update commit->tx and commit->map */
 	peer->local.commit->tx = create_commit_tx(peer->local.commit,
@@ -985,6 +1043,7 @@ void db_init(struct lightningd_state *dstate)
 			 "CREATE TABLE wallet (privkey "SQL_PRIVKEY");"
 			 "CREATE TABLE anchors (peer "SQL_PUBKEY", txid "SQL_TXID", idx INT, amount INT, ok_depth INT, min_depth INT, bool ours, PRIMARY KEY(peer));"
 			 "CREATE TABLE htlcs (peer "SQL_PUBKEY", id INT, state TEXT, msatoshis INT, expiry INT, rhash "SQL_RHASH", r "SQL_R", routing "SQL_ROUTING", src_peer "SQL_PUBKEY", src_id INT, PRIMARY KEY(peer, id));"
+			 "CREATE TABLE feechanges (peer "SQL_PUBKEY", state TEXT, fee_rate INT, PRIMARY KEY(peer,state));"
 			 "CREATE TABLE commit_info (peer "SQL_PUBKEY", side TEXT, commit_num INT, revocation_hash "SQL_SHA256", xmit_order INT, sig "SQL_SIGNATURE", prev_revocation_hash "SQL_SHA256", PRIMARY KEY(peer, side));"
 			 "CREATE TABLE shachain (peer "SQL_PUBKEY", shachain BINARY(%zu), PRIMARY KEY(peer));"
 			 "CREATE TABLE their_visible_state (peer "SQL_PUBKEY", offered_anchor BOOLEAN, commitkey "SQL_PUBKEY", finalkey "SQL_PUBKEY", locktime INT, mindepth INT, commit_fee_rate INT, next_revocation_hash "SQL_SHA256", PRIMARY KEY(peer));"
@@ -1242,6 +1301,28 @@ bool db_new_htlc(struct peer *peer, const struct htlc *htlc)
 	return !errmsg;
 }
 
+bool db_new_feechange(struct peer *peer, const struct feechange *feechange)
+{
+	const char *errmsg, *ctx = tal(peer, char);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+
+	log_debug(peer->log, "%s(%s)", __func__, peerid);
+	assert(peer->dstate->db->in_transaction);
+
+	/* "CREATE TABLE feechanges (peer "SQL_PUBKEY", state TEXT, fee_rate INT, PRIMARY KEY(peer,state));" */
+	errmsg = db_exec(ctx, peer->dstate, 
+			 "INSERT INTO feechanges VALUES"
+				 " (x'%s', '%s', %"PRIu64");",
+			 peerid,
+			 feechange_state_name(feechange->state),
+			 feechange->fee_rate);
+
+	if (errmsg)
+		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	tal_free(ctx);
+	return !errmsg;
+}
+
 bool db_update_htlc_state(struct peer *peer, const struct htlc *htlc,
 			  enum htlc_state oldstate)
 {
@@ -1256,6 +1337,28 @@ bool db_update_htlc_state(struct peer *peer, const struct htlc *htlc,
 			 "UPDATE htlcs SET state='%s' WHERE peer=x'%s' AND id=%"PRIu64" AND state='%s';",
 			 htlc_state_name(htlc->state), peerid,
 			 htlc->id, htlc_state_name(oldstate));
+
+	if (errmsg)
+		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	tal_free(ctx);
+	return !errmsg;
+}
+
+bool db_update_feechange_state(struct peer *peer,
+			       const struct feechange *f,
+			       enum htlc_state oldstate)
+{
+	const char *errmsg, *ctx = tal(peer, char);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+
+	log_debug(peer->log, "%s(%s): %s->%s", __func__, peerid,
+		  feechange_state_name(oldstate),
+		  feechange_state_name(f->state));
+	assert(peer->dstate->db->in_transaction);
+	errmsg = db_exec(ctx, peer->dstate, 
+			 "UPDATE feechanges SET state='%s' WHERE peer=x'%s' AND state='%s';",
+			 feechange_state_name(f->state), peerid,
+			 feechange_state_name(oldstate));
 
 	if (errmsg)
 		log_broken(peer->log, "%s:%s", __func__, errmsg);
