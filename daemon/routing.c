@@ -278,7 +278,7 @@ struct peer *find_route(struct lightningd_state *dstate,
 	assert(n == src);
 
 	/* We should only add routes if we have a peer. */
-	first = find_peer(dstate, &(*route)[0]->src->id);
+	first = find_peer(dstate, &dst->id);
 	if (!first) {
 		log_broken_struct(dstate->base_log, "No peer %s?",
 				  struct pubkey, &(*route)[0]->src->id);
