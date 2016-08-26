@@ -2111,6 +2111,44 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 	}
 }
 
+static u64 desired_commit_feerate(struct lightningd_state *dstate)
+{
+	return get_feerate(dstate) * dstate->config.commitment_fee_percent / 100;
+}
+
+static void maybe_propose_new_feerate(struct peer *peer)
+{
+	u64 rate, max_rate;
+
+	rate = desired_commit_feerate(peer->dstate);
+	max_rate = approx_max_feerate(peer->remote.commit->cstate, LOCAL);
+
+	/* BOLT #2:
+	 *
+	 * The sending node MUST NOT send a `fee_rate` which it could not
+	 * afford (see "Fee Calculation), were it applied to the receiving
+	 * node's commitment transaction.  */
+	if (rate > max_rate) {
+		log_debug(peer->log,
+			  "Cannot afford feerate %"PRIi64" using %"PRIi64,
+			  rate, max_rate);
+		rate = max_rate;
+
+		/* If this is less than we have no, don't change! */
+		if (rate < peer->local.staging_cstate->fee_rate) {
+			log_debug(peer->log, "Leaving old rate in place");
+			return;
+		}
+	}
+
+	/* No fee rate change?  Fine. */
+	if (peer->local.staging_cstate->fee_rate == rate)
+		return;
+
+	set_feechange(peer, rate, SENT_FEECHANGE);
+	queue_pkt_feechange(peer, rate);
+}
+
 static void do_commit(struct peer *peer, struct command *jsoncmd)
 {
 	struct commit_info *ci;
@@ -2126,6 +2164,9 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 		{ SENT_FEECHANGE_REVOCATION, SENT_FEECHANGE_ACK_COMMIT}
 	};
 	bool to_us_only;
+
+	/* If we want to change the payrate, do it now. */
+	maybe_propose_new_feerate(peer);
 
 	/* We can have changes we suggested, or changes they suggested. */
 	if (!peer_uncommitted_changes(peer)) {
@@ -2374,10 +2415,7 @@ static bool peer_first_connected(struct peer *peer,
 
 	peer->io_data = tal_steal(peer, iod);
 	peer->id = tal_dup(peer, struct pubkey, id);
-	/* FIXME: Make this dynamic! */
-	peer->local.commit_fee_rate
-		= get_feerate(peer->dstate)
-		* peer->dstate->config.commitment_fee_percent / 100;
+	peer->local.commit_fee_rate = desired_commit_feerate(peer->dstate);
 
 	/* Make it different from other node (to catch bugs!), but a
 	 * round number for simple eyeballing. */
@@ -2912,6 +2950,30 @@ static enum watch_result anchor_depthchange(struct peer *peer,
 
 	/* Since this gets called on every new block, check HTLCs here. */
 	check_htlc_expiry(peer);
+
+	/* If fee rate has changed, fire off update to change it. */
+	if (peer->local.staging_cstate->fee_rate
+	    != desired_commit_feerate(peer->dstate)) {
+		log_debug(peer->log, "fee rate changed to %"PRIu64,
+			  desired_commit_feerate(peer->dstate));
+		remote_changes_pending(peer);
+	}
+
+	/* BOLT #2:
+	 *
+	 * A node MUST update bitcoin fees if it estimates that the
+	 * current commitment transaction will not be processed in a
+	 * timely manner (see "Risks With HTLC Timeouts").
+	 */
+	/* FIXME: BOLT should say what to do if it can't!  We drop conn. */
+	if (peer->local.commit->cstate->fee_rate < get_feerate(peer->dstate)) {
+		log_broken(peer->log, "fee rate %"PRIu64" lower than %"PRIu64,
+			   peer->local.commit->cstate->fee_rate,
+			   get_feerate(peer->dstate));
+		set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__, false);
+		peer_breakdown(peer);
+	}
+	
 	return KEEP_WATCHING;
 }
 
