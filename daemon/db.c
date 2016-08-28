@@ -435,6 +435,9 @@ static void load_peer_commit_info(struct peer *peer)
 		fatal("load_peer_commit_info:no remote commit info found");
 }
 
+/* Because their HTLCs are not ordered wrt to ours, we can go negative
+ * and do normally-impossible things in intermediate states.  So we
+ * mangle cstate balances manually. */
 static void apply_htlc(struct channel_state *cstate, const struct htlc *htlc,
 		       enum htlc_side side)
 {
@@ -444,39 +447,24 @@ static void apply_htlc(struct channel_state *cstate, const struct htlc *htlc,
 		return;
 
 	log_debug(htlc->peer->log, "  %s committed", sidestr);
-	if (!cstate_add_htlc(cstate, htlc))
-		fatal("load_peer_htlcs:can't add %s HTLC", sidestr);
+	force_add_htlc(cstate, htlc);
 
 	if (!htlc_has(htlc, HTLC_FLAG(side, HTLC_F_COMMITTED))) {
 		log_debug(htlc->peer->log, "  %s %s",
 			  sidestr, htlc->r ? "resolved" : "failed");
 		if (htlc->r)
-			cstate_fulfill_htlc(cstate, htlc);
+			force_fulfill_htlc(cstate, htlc);
 		else
-			cstate_fail_htlc(cstate, htlc);
+			force_fail_htlc(cstate, htlc);
 	}
 }
-
-static void apply_feechange(struct channel_state *cstate,
-			    const struct feechange *f,
-			    enum htlc_side side)
-{
-	/* We only ever apply feechanges to the owner. */
-	if (feechange_side(f->state) != side)
-		return;
-
-	if (!feechange_has(f, HTLC_FLAG(side,HTLC_F_WAS_COMMITTED)))
-		return;
-
-	adjust_fee(cstate, f->fee_rate);
-}	
 
 /* As we load the HTLCs, we apply them to get the final channel_state.
  * We also get the last used htlc id.
  * This is slow, but sure. */
 static void load_peer_htlcs(struct peer *peer)
 {
-	int err, i;
+	int err;
 	sqlite3_stmt *stmt;
 	sqlite3 *sql = peer->dstate->db->sql;
 	char *ctx = tal(peer, char);
@@ -518,7 +506,7 @@ static void load_peer_htlcs(struct peer *peer)
 		if (sqlite3_column_count(stmt) != 10)
 			fatal("load_peer_htlcs:step gave %i cols, not 10",
 			      sqlite3_column_count(stmt));
-		/* CREATE TABLE htlcs (peer "SQL_PUBKEY", id INT, state TEXT, msatoshis INT, expiry INT, rhash "SQL_RHASH", r "SQL_R", routing "SQL_ROUTING", src_peer "SQL_PUBKEY", src_id INT, PRIMARY KEY(peer, id)); */
+		/* CREATE TABLE htlcs (peer "SQL_PUBKEY", id INT, state TEXT, msatoshis INT, expiry INT, rhash "SQL_RHASH", r "SQL_R", routing "SQL_ROUTING", src_peer "SQL_PUBKEY", src_id INT, PRIMARY KEY(peer, id, state)); */
 		sha256_from_sql(stmt, 5, &rhash);
 
 		hstate = htlc_state_from_name(sqlite3_column_str(stmt, 2));
@@ -596,16 +584,9 @@ static void load_peer_htlcs(struct peer *peer)
 		fatal("load_peer_htlcs:finalize gave %s:%s",
 		      sqlite3_errstr(err), sqlite3_errmsg(sql));
 
-	/* Apply feechanges from oldest to newest (newest counts). */
-	for (i = FEECHANGE_STATE_INVALID - 1; i >= SENT_FEECHANGE; i--) {
-		if (!peer->feechanges[i])
-			continue;
-		
-		apply_feechange(peer->local.commit->cstate,
-				peer->feechanges[i], LOCAL);
-		apply_feechange(peer->remote.commit->cstate,
-				peer->feechanges[i], REMOTE);
-	}
+	if (!balance_after_force(peer->local.commit->cstate)
+	    || !balance_after_force(peer->remote.commit->cstate))
+		fatal("load_peer_htlcs:channel didn't balance");
 
 	/* Update commit->tx and commit->map */
 	peer->local.commit->tx = create_commit_tx(peer->local.commit,
@@ -1041,7 +1022,8 @@ void db_init(struct lightningd_state *dstate)
 	errmsg = db_exec(dstate, dstate,
 			 "CREATE TABLE wallet (privkey "SQL_PRIVKEY");"
 			 "CREATE TABLE anchors (peer "SQL_PUBKEY", txid "SQL_TXID", idx INT, amount INT, ok_depth INT, min_depth INT, bool ours, PRIMARY KEY(peer));"
-			 "CREATE TABLE htlcs (peer "SQL_PUBKEY", id INT, state TEXT, msatoshis INT, expiry INT, rhash "SQL_RHASH", r "SQL_R", routing "SQL_ROUTING", src_peer "SQL_PUBKEY", src_id INT, PRIMARY KEY(peer, id));"
+			 /* FIXME: state in primary key is overkill: just need side */
+			 "CREATE TABLE htlcs (peer "SQL_PUBKEY", id INT, state TEXT, msatoshis INT, expiry INT, rhash "SQL_RHASH", r "SQL_R", routing "SQL_ROUTING", src_peer "SQL_PUBKEY", src_id INT, PRIMARY KEY(peer, id, state));"
 			 "CREATE TABLE feechanges (peer "SQL_PUBKEY", state TEXT, fee_rate INT, PRIMARY KEY(peer,state));"
 			 "CREATE TABLE commit_info (peer "SQL_PUBKEY", side TEXT, commit_num INT, revocation_hash "SQL_SHA256", xmit_order INT, sig "SQL_SIGNATURE", prev_revocation_hash "SQL_SHA256", PRIMARY KEY(peer, side));"
 			 "CREATE TABLE shachain (peer "SQL_PUBKEY", shachain BINARY(%zu), PRIMARY KEY(peer));"

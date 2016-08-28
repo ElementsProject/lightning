@@ -128,4 +128,10 @@ bool force_fee(struct channel_state *cstate, uint64_t fee);
  */
 uint64_t fee_by_feerate(size_t txsize, uint64_t fee_rate);
 
+/* Routines to db to force HTLC changes out-of-order which may wrap. */
+void force_add_htlc(struct channel_state *cstate, const struct htlc *htlc);
+void force_fail_htlc(struct channel_state *cstate, const struct htlc *htlc);
+void force_fulfill_htlc(struct channel_state *cstate, const struct htlc *htlc);
+bool balance_after_force(struct channel_state *cstate);
+
 #endif /* LIGHTNING_DAEMON_CHANNEL_H */

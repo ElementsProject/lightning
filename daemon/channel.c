@@ -261,3 +261,58 @@ struct channel_state *copy_cstate(const tal_t *ctx,
 {
 	return tal_dup(ctx, struct channel_state, cstate);
 }
+
+void force_add_htlc(struct channel_state *cstate, const struct htlc *htlc)
+{
+	struct channel_oneside *creator;
+
+	creator = &cstate->side[htlc_channel_side(htlc)];
+	creator->num_htlcs++;
+	creator->pay_msat -= htlc->msatoshis;
+	
+	/* Remember to count the new one in total txsize if not dust! */
+	if (!is_dust(htlc->msatoshis / 1000))
+		cstate->num_nondust++;
+}
+
+static void force_remove_htlc(struct channel_state *cstate,
+			      enum channel_side beneficiary,
+			      const struct htlc *htlc)
+{
+	cstate->side[beneficiary].pay_msat += htlc->msatoshis;
+	cstate->side[htlc_channel_side(htlc)].num_htlcs--;
+	if (!is_dust(htlc->msatoshis / 1000))
+		cstate->num_nondust--;
+}
+
+void force_fail_htlc(struct channel_state *cstate, const struct htlc *htlc)
+{
+	force_remove_htlc(cstate, htlc_channel_side(htlc), htlc);
+}
+	
+void force_fulfill_htlc(struct channel_state *cstate, const struct htlc *htlc)
+{
+	force_remove_htlc(cstate, !htlc_channel_side(htlc), htlc);
+}
+
+bool balance_after_force(struct channel_state *cstate)
+{
+	/* We should not spend more than anchor */
+	if (cstate->side[OURS].pay_msat + cstate->side[THEIRS].pay_msat
+	    > cstate->anchor * 1000)
+		return false;
+
+	/* Check for wrap. */
+	if (cstate->side[OURS].pay_msat > cstate->anchor * 1000)
+		return false;
+	if (cstate->side[THEIRS].pay_msat > cstate->anchor * 1000)
+		return false;
+
+	if (cstate->num_nondust
+	    > cstate->side[OURS].num_htlcs + cstate->side[THEIRS].num_htlcs)
+		return false;
+
+	/* Recalc fees. */
+	adjust_fee(cstate, cstate->fee_rate);
+	return true;
+}
