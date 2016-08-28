@@ -1932,7 +1932,15 @@ again:
 				if (!cstate_add_htlc(peer->remote.staging_cstate, h))
 					fatal("Could not add HTLC?");
 				break;
-			} /* Fall thru */
+			}
+			/* Adjust counter to lowest HTLC removed */
+			if (peer->htlc_id_counter > h->id) {
+				log_debug(peer->log,
+					  "Lowering htlc_id_counter to %"PRIu64,
+					  h->id);
+				peer->htlc_id_counter = h->id;
+			}
+			 /* Fall thru */
 		case RCVD_ADD_HTLC:
 			log_debug(peer->log, "Forgetting %s %"PRIu64,
 				  htlc_state_name(h->state), h->id);
@@ -1975,6 +1983,11 @@ again:
 		= tal_free(peer->feechanges[SENT_FEECHANGE]);
 	peer->feechanges[RCVD_FEECHANGE]
 		= tal_free(peer->feechanges[RCVD_FEECHANGE]);
+
+	/* Make sure our HTLC counter is correct. */
+	if (peer->htlc_id_counter != 0)
+		assert(htlc_get(&peer->htlcs, peer->htlc_id_counter-1, LOCAL));
+	assert(!htlc_get(&peer->htlcs, peer->htlc_id_counter, LOCAL));
 }
 
 static void retransmit_pkts(struct peer *peer, s64 ack)
@@ -2417,9 +2430,7 @@ static bool peer_first_connected(struct peer *peer,
 	peer->id = tal_dup(peer, struct pubkey, id);
 	peer->local.commit_fee_rate = desired_commit_feerate(peer->dstate);
 
-	/* Make it different from other node (to catch bugs!), but a
-	 * round number for simple eyeballing. */
-	peer->htlc_id_counter = pseudorand(1ULL << 32) * 1000;
+	peer->htlc_id_counter = 0;
 
 	/* If we free peer, conn should be closed, but can't be freed
 	 * immediately so don't make peer a parent. */
