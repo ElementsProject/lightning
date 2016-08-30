@@ -567,8 +567,7 @@ static void our_htlc_failed(struct peer *peer, struct htlc *htlc)
 		complete_pay_command(peer, htlc);
 }
 
-static void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc,
-			       const struct rval *preimage)
+static void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc)
 {
 	if (htlc->src) {
 		set_htlc_rval(htlc->src->peer, htlc->src, htlc->r);
@@ -1107,7 +1106,7 @@ static Pkt *handle_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 	
 	/* We can relay this upstream immediately. */
 	if (!was_already_fulfilled)
-		our_htlc_fulfilled(peer, htlc, htlc->r);
+		our_htlc_fulfilled(peer, htlc);
 
 	/* BOLT #2:
 	 *
@@ -3337,7 +3336,8 @@ static enum watch_result our_htlc_spent(struct peer *peer,
 		    h->id);
 	log_add_struct(peer->log, " using rvalue %s", struct rval, &preimage);
 
-	our_htlc_fulfilled(peer, h, &preimage);
+	set_htlc_rval(peer, h, &preimage);
+	our_htlc_fulfilled(peer, h);
 
 	/* BOLT #onchain:
 	 *
