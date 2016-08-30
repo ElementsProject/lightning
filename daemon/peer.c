@@ -578,11 +578,27 @@ static void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc,
 	}
 }
 
+/* FIXME: Slow! */
+static struct htlc *htlc_with_source(struct peer *peer, struct htlc *src)
+{
+	struct htlc_map_iter it;
+	struct htlc *h;
+
+	for (h = htlc_map_first(&peer->htlcs, &it);
+	     h;
+	     h = htlc_map_next(&peer->htlcs, &it)) {
+		if (h->src == src)
+			return h;
+	}
+	return NULL;
+}
+
 /* peer has come back online: re-send any we have to send to them. */
 static void retry_all_routing(struct peer *restarted_peer)
 {
 	struct peer *peer;
 
+	/* Look for added htlcs from other peers which need to go here. */
 	list_for_each(&restarted_peer->dstate->peers, peer, list) {
 		struct htlc_map_iter it;
 		struct htlc *h;
@@ -594,6 +610,8 @@ static void retry_all_routing(struct peer *restarted_peer)
 		     h;
 		     h = htlc_map_next(&peer->htlcs, &it)) {
 			if (h->state != RCVD_ADD_ACK_REVOCATION)
+				continue;
+			if (htlc_with_source(peer, h))
 				continue;
 			their_htlc_added(peer, h, restarted_peer);
 		}
