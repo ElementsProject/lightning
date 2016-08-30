@@ -1837,42 +1837,6 @@ static void retransmit_updates(struct peer *peer)
 	assert(!peer->feechanges[SENT_FEECHANGE]);
 }
 
-/* FIXME: Maybe it would be neater to remember all pay commands, and simply
- * re-run them after reconnect if they didn't get committed. */
-static void resend_local_requests(struct peer *peer)
-{
-	struct htlc_map_iter it;
-	struct htlc *h;
-
-	for (h = htlc_map_first(&peer->htlcs, &it);
-	     h;
-	     h = htlc_map_next(&peer->htlcs, &it)) {
-		switch (h->state) {
-		case SENT_ADD_HTLC:
-			/* We removed everything which was routed. */
-			assert(!h->src);
-			log_debug(peer->log, "Re-sending local add HTLC %"PRIu64,
-				  h->id);
-			queue_pkt_htlc_add(peer, h);
-			remote_changes_pending(peer);
-			break;
-		case SENT_REMOVE_HTLC:
-			/* We removed everything which was routed. */
-			assert(!h->src);
-			log_debug(peer->log, "Re-sending local %s HTLC %"PRIu64,
-				  h->r ? "fulfill" : "fail", h->id);
-			if (h->r)
-				queue_pkt_htlc_fulfill(peer, h);
-			else
-				queue_pkt_htlc_fail(peer, h);
-			remote_changes_pending(peer);
-			break;
-		default:
-			break;
-		}
-	}
-}
-
 /* BOLT #2:
  *
  * On disconnection, a node MUST reverse any uncommitted changes sent by the
@@ -1926,13 +1890,6 @@ again:
 	     h = htlc_map_next(&peer->htlcs, &it)) {
 		switch (h->state) {
 		case SENT_ADD_HTLC:
-			/* FIXME: re-submit these after connect, instead? */
-			/* Keep local adds. */
-			if (!h->src) {
-				if (!cstate_add_htlc(peer->remote.staging_cstate, h))
-					fatal("Could not add HTLC?");
-				break;
-			}
 			/* Adjust counter to lowest HTLC removed */
 			if (peer->htlc_id_counter > h->id) {
 				log_debug(peer->log,
@@ -1955,17 +1912,6 @@ again:
 				       SENT_ADD_ACK_REVOCATION);
 			break;
 		case SENT_REMOVE_HTLC:
-			/* Keep local removes. */
-			/* FIXME: re-submit these after connect, instead? */
-			if (!h->src) {
-				if (h->r) {
-					cstate_fulfill_htlc(peer->remote.staging_cstate,
-							    h);
-				} else {
-					cstate_fail_htlc(peer->remote.staging_cstate, h);
-				}
-				break;
-			}
 			log_debug(peer->log, "Undoing %s %"PRIu64,
 				  htlc_state_name(h->state), h->id);
 			htlc_undostate(h, SENT_REMOVE_HTLC,
@@ -2060,8 +2006,6 @@ static void retransmit_pkts(struct peer *peer, s64 ack)
 		}
 		ack++;
 	}
-
-	resend_local_requests(peer);
 
 	/* We might need to re-propose HTLCs which were from other peers. */
 	retry_all_routing(peer);
@@ -4197,7 +4141,7 @@ static void json_getpeers(struct command *cmd,
 			json_add_pubkey(response, cmd->dstate->secpctx,
 					"peerid", p->id);
 
-		json_add_bool(response, "connected", p->conn && !p->fake_close);
+		json_add_bool(response, "connected", p->connected);
 
 		/* FIXME: Report anchor. */
 
@@ -4352,6 +4296,11 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
+	if (!peer->connected) {
+		command_fail(cmd, "peer not connected");
+		return;
+	}
+
 	if (!json_tok_u64(buffer, msatoshistok, &msatoshis)) {
 		command_fail(cmd, "'%.*s' is not a valid number",
 			     (int)(msatoshistok->end - msatoshistok->start),
@@ -4424,6 +4373,11 @@ static void json_fulfillhtlc(struct command *cmd,
 
 	if (!peer->remote.commit || !peer->remote.commit->cstate) {
 		command_fail(cmd, "peer not fully established");
+		return;
+	}
+
+	if (!peer->connected) {
+		command_fail(cmd, "peer not connected");
 		return;
 	}
 
@@ -4508,6 +4462,11 @@ static void json_failhtlc(struct command *cmd,
 		return;
 	}
 
+	if (!peer->connected) {
+		command_fail(cmd, "peer not connected");
+		return;
+	}
+
 	if (!json_tok_u64(buffer, idtok, &id)) {
 		command_fail(cmd, "'%.*s' is not a valid id",
 			     (int)(idtok->end - idtok->start),
@@ -4563,6 +4522,11 @@ static void json_commit(struct command *cmd,
 
 	if (!peer->remote.commit || !peer->remote.commit->cstate) {
 		command_fail(cmd, "peer not fully established");
+		return;
+	}
+
+	if (!peer->connected) {
+		command_fail(cmd, "peer not connected");
 		return;
 	}
 
@@ -4677,6 +4641,7 @@ static void json_disconnect(struct command *cmd,
 	 * one side to freak out.  We just ensure we ignore it. */
 	log_debug(peer->log, "Pretending connection is closed");
 	peer->fake_close = true;
+	peer->connected = false;
 	set_peer_state(peer, STATE_ERR_BREAKDOWN, "json_disconnect", false);
 	peer_breakdown(peer);
 

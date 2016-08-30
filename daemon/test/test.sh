@@ -103,6 +103,19 @@ else
     SHOW="cat"
 fi
 
+# Peer $1 -> $2's htlc $3 is in state $4
+htlc_is_state()
+{
+    if [ $# != 4 ]; then echo "htlc_is_state got $# ARGS: $@" >&2; exit 1; fi
+    $1 gethtlcs $2 true | tr -s '\012\011\" ' ' ' | $FGREP "id : $3, state : $4 ," >&2
+}
+
+# Peer $1 -> $2's htlc $3 exists
+htlc_exists()
+{
+    $1 gethtlcs $2 true | tr -s '\012\011\" ' ' ' | $FGREP "id : $3," >&2
+}
+
 lcli1()
 {
     if [ -n "$VERBOSE" ]; then
@@ -130,31 +143,51 @@ lcli1()
 		    reconnect)
 			[ -z "$VERBOSE" ] || echo RECONNECTING >&2
 			$LCLI1 dev-reconnect $ID2 >/dev/null
-			sleep 1
 			;;
 		    restart)
 			[ -z "$VERBOSE" ] || echo RESTARTING >&2
-			# FIXME: Instead, check if command was committed, and
-			# if not, resubmit!
-			if [ "$1" = "newhtlc" ]; then
-			    $LCLI1 commit $ID2 >/dev/null 2>&1 || true
-			fi
 			$LCLI1 -- dev-restart $LIGHTNINGD1 >/dev/null 2>&1 || true
 			if ! check "$LCLI1 getlog 2>/dev/null | fgrep -q Hello"; then
 			    echo "dev-restart failed!">&2
 			    exit 1
 			fi
-			# These are safe to resubmit, will simply fail.
-			if [ "$1" = "fulfillhtlc" -o "$1" = "failhtlc" ]; then
-			    if [ -z "$VERBOSE" ]; then
-				$LCLI1 "$@" >/dev/null 2>&1 || true
-			    else
-				echo "Rerunning $LCLI1 $@" >&2
-				$LCLI1 "$@" 2>&1 || true
-			    fi
-			fi
 			;;
 		esac
+		# Wait for reconnect;
+		if ! check "$LCLI1 getpeers | tr -s '\012\011\" ' ' ' | fgrep -q 'connected : true'"; then
+		    echo "Failed to reconnect!">&2
+		    exit 1
+		fi
+
+		if [ "$1" = "newhtlc" ]; then
+		    # It might have gotten committed, or might be forgotten.
+		    ID=`echo "$OUT" | extract_id`
+		    if ! htlc_exists "$LCLI1" $2 $ID; then
+			if [ -z "$VERBOSE" ]; then
+			    $LCLI1 "$@" >/dev/null 2>&1 || true
+			else
+			    echo "Rerunning $LCLI1 $@" >&2
+			    $LCLI1 "$@" >&2 || true
+			fi
+		    fi
+		    # Make sure it's confirmed before we run next command,
+		    # in case *that* restarts (unless manual commit)
+		    [ -n "$MANUALCOMMIT" ] || check ! htlc_is_state \'"$LCLI1"\' $2 $ID SENT_ADD_HTLC
+		# Removals may also be forgotten.
+		elif [ "$1" = "fulfillhtlc" -o "$1" = "failhtlc" ]; then
+		    ID="$3"
+		    if htlc_is_state "$LCLI1" $2 $ID RCVD_ADD_ACK_REVOCATION; then
+			if [ -z "$VERBOSE" ]; then
+			    $LCLI1 "$@" >/dev/null 2>&1 || true
+			else
+			    echo "Rerunning $LCLI1 $@" >&2
+			    $LCLI1 "$@" >&2 || true
+			fi
+			# Make sure it's confirmed before we run next command,
+			# in case *that* restarts.
+			[ -n "$MANUALCOMMIT" ] || check ! htlc_is_state \'"$LCLI1"\' $2 $ID SENT_REMOVE_HTLC
+		    fi
+		fi
 		;;
 	esac
     fi
@@ -767,13 +800,13 @@ check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 # Now, two HTLCs at once, one from each direction.
 # Both sides can afford this.
 HTLC_AMOUNT=1000000
-HTLCID=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH | extract_id`
 SECRET2=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfe
 RHASH2=`lcli1 dev-rhash $SECRET2 | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
+HTLCID=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH | extract_id`
 HTLCID2=`lcli2 newhtlc $ID1 $HTLC_AMOUNT $EXPIRY $RHASH2 | extract_id`
-[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 
 check_status $(($A_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE)) $(($A_FEE + $EXTRA_FEE)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_ACK_REVOCATION } " $(($B_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE)) $(($B_FEE + $EXTRA_FEE)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , state : RCVD_ADD_ACK_REVOCATION } "
 
@@ -812,8 +845,8 @@ if [ -n "$CLOSE_WITH_HTLCS" ]; then
     all_ok
 fi
 
-lcli2 failhtlc $ID1 $HTLCID
 lcli1 fulfillhtlc $ID2 $HTLCID2 $SECRET2
+lcli2 failhtlc $ID1 $HTLCID
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
@@ -878,6 +911,11 @@ case "$RECONNECT" in
 	fi
 	;;
 esac
+
+if ! check "$LCLI2 getpeers | tr -s '\012\011\" ' ' ' | fgrep -q 'connected : true'"; then
+    echo "Failed to reconnect!">&2
+    exit 1
+fi
 
 # Node2 collects the HTLCs.
 lcli2 fulfillhtlc $ID1 $HTLCID $SECRET
