@@ -597,12 +597,11 @@ static struct htlc *htlc_with_source(struct peer *peer, struct htlc *src)
 static void retry_all_routing(struct peer *restarted_peer)
 {
 	struct peer *peer;
+	struct htlc_map_iter it;
+	struct htlc *h;
 
 	/* Look for added htlcs from other peers which need to go here. */
 	list_for_each(&restarted_peer->dstate->peers, peer, list) {
-		struct htlc_map_iter it;
-		struct htlc *h;
-
 		if (peer == restarted_peer)
 			continue;
 
@@ -616,6 +615,17 @@ static void retry_all_routing(struct peer *restarted_peer)
 			their_htlc_added(peer, h, restarted_peer);
 		}
 	}
+
+	/* Catch any HTLCs which are fulfilled, but the message got reset
+	 * by reconnect. */
+	for (h = htlc_map_first(&restarted_peer->htlcs, &it);
+	     h;
+	     h = htlc_map_next(&restarted_peer->htlcs, &it)) {
+		if (h->r && h->state == RCVD_ADD_ACK_REVOCATION)
+			command_htlc_fulfill(restarted_peer, h);
+	}
+
+	/* FIXME: Also any HTLCs which were failed! */
 }
 
 static void adjust_cstate_side(struct channel_state *cstate,
@@ -2025,7 +2035,7 @@ static void retransmit_pkts(struct peer *peer, s64 ack)
 		ack++;
 	}
 
-	/* We might need to re-propose HTLCs which were from other peers. */
+	/* We might need to update HTLCs which were from other peers. */
 	retry_all_routing(peer);
 }
 
