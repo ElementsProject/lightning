@@ -108,8 +108,12 @@ lcli1()
     if [ -n "$VERBOSE" ]; then
 	echo $LCLI1 "$@" >&2
     fi
-    $LCLI1 "$@"
-    STATUS=$?
+    # Make sure we output if it fails; we need to capture it otherwise.
+    if ! OUT=`$LCLI1 "$@"`; then
+	echo "$OUT"
+	return 1
+    fi
+    echo "$OUT"
     if [ -n "$DO_RECONNECT" ]; then
 	case "$1" in
 	    # Don't restart on every get* command.
@@ -154,7 +158,6 @@ lcli1()
 		;;
 	esac
     fi
-    return $STATUS
 }
 
 lcli2()
@@ -939,9 +942,9 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     HTLC_AMOUNT=100000000
 
     # Tell node 1 about the 2->3 route.
-    lcli1 add-route $ID2 $ID3 546000 10 36 36
     # Add to config in case we are restaring.
     echo "add-route=$ID2/$ID3/546000/10/36/36" >> $DIR1/config
+    lcli1 add-route $ID2 $ID3 546000 10 36 36
     RHASH5=`lcli3 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
     # Try wrong hash.
