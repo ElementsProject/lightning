@@ -173,3 +173,35 @@ Locktime *abs_locktime_to_proto(const tal_t *ctx,
 	}
 	return l;
 }
+
+static void *proto_tal_alloc(void *allocator_data, size_t size)
+{
+	return tal_arr(allocator_data, char, size);
+}
+
+static void proto_tal_free(void *allocator_data, void *pointer)
+{
+	tal_free(pointer);
+}
+	
+/* Get allocator so decoded protobuf will be tal off it. */
+struct ProtobufCAllocator *make_prototal(const tal_t *ctx)
+{
+	struct ProtobufCAllocator *prototal;
+
+	prototal = tal(ctx, struct ProtobufCAllocator);
+	prototal->alloc = proto_tal_alloc;
+	prototal->free = proto_tal_free;
+	prototal->allocator_data = tal(prototal, char);
+
+	return prototal;
+}
+	
+/* Now steal object off of allocator (and free prototal) */
+void steal_from_prototal(const tal_t *ctx, struct ProtobufCAllocator *prototal,
+			 const void *pb)
+{
+	tal_steal(ctx, pb);
+	tal_steal(pb, prototal->allocator_data);
+	tal_free(prototal);
+}

@@ -42,4 +42,11 @@ Locktime *rel_locktime_to_proto(const tal_t *ctx,
 				const struct rel_locktime *locktime);
 Locktime *abs_locktime_to_proto(const tal_t *ctx,
 				const struct abs_locktime *locktime);
+
+/* Get allocator so decoded protobuf will be tal off it. */
+struct ProtobufCAllocator *make_prototal(const tal_t *ctx);
+/* Now steal object off of allocator (and free prototal) */
+void steal_from_prototal(const tal_t *ctx, struct ProtobufCAllocator *prototal,
+			 const void *pb);
+
 #endif /* LIGHTNING_PROTOBUF_CONVERT_H */

@@ -54,41 +54,25 @@ const u8 *onion_create(const tal_t *ctx,
 	return to_onion(ctx, r);
 }
 
-static void *proto_tal_alloc(void *allocator_data, size_t size)
-{
-	return tal_arr(allocator_data, char, size);
-}
-
-static void proto_tal_free(void *allocator_data, void *pointer)
-{
-	tal_free(pointer);
-}
-	
 /* Decode next step in the route, and fill out the onion to send onwards. */
 RouteStep *onion_unwrap(struct peer *peer,
 			const void *data, size_t len, const u8 **next)
 {
-	struct ProtobufCAllocator prototal;
+	struct ProtobufCAllocator *prototal = make_prototal(peer);
 	Route *r;
 	RouteStep *step;
 
-	/* De-protobuf it. */
-	prototal.alloc = proto_tal_alloc;
-	prototal.free = proto_tal_free;
-	prototal.allocator_data = tal(peer, char);
-
-	r = route__unpack(&prototal, len, data);
+	r = route__unpack(prototal, len, data);
 	if (!r || r->n_steps == 0) { 
 		log_unusual(peer->log, "Failed to unwrap onion");
-		tal_free(prototal.allocator_data);
+		tal_free(prototal);
 		return NULL;
 	}
 
 	/* Remove first step. */
 	step = r->steps[0];
 	/* Make sure that step owns the rest */
-	tal_steal(peer, step);
-	tal_steal(step, prototal.allocator_data);
+	steal_from_prototal(peer, prototal, step);
 
 	/* Re-pack with remaining steps. */
 	r->n_steps--;
