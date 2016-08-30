@@ -4227,6 +4227,78 @@ const struct json_command getpeers_command = {
 	"Returns a 'peers' array"
 };
 
+static void json_gethtlcs(struct command *cmd,
+			  const char *buffer, const jsmntok_t *params)
+{
+	struct peer *peer;
+	jsmntok_t *peeridtok, *resolvedtok;
+	bool resolved = false;
+	struct json_result *response = new_json_result(cmd);
+	struct htlc *h;
+	struct htlc_map_iter it;
+
+	if (!json_get_params(buffer, params,
+			     "peerid", &peeridtok,
+			     "?resolved", &resolvedtok,
+			     NULL)) {
+		command_fail(cmd, "Need peerid");
+		return;
+	}
+
+	peer = find_peer_json(cmd->dstate, buffer, peeridtok);
+	if (!peer) {
+		command_fail(cmd, "Could not find peer with that peerid");
+		return;
+	}
+
+	if (resolvedtok && !json_tok_bool(buffer, resolvedtok, &resolved)) {
+		command_fail(cmd, "resolved must be true or false");
+		return;
+	}
+
+	json_object_start(response, NULL);
+	json_array_start(response, "htlcs");
+	for (h = htlc_map_first(&peer->htlcs, &it);
+	     h; h = htlc_map_next(&peer->htlcs, &it)) {
+		if (htlc_is_dead(h) && !resolved)
+			continue;
+
+		json_object_start(response, NULL);
+		json_add_u64(response, "id", h->id);
+		json_add_string(response, "state", htlc_state_name(h->state));
+		json_add_u64(response, "msatoshis", h->msatoshis);
+		json_add_abstime(response, "expiry", &h->expiry);
+		json_add_hex(response, "rhash", &h->rhash, sizeof(h->rhash));
+		if (h->r)
+			json_add_hex(response, "r", h->r, sizeof(*h->r));
+		if (htlc_owner(h) == LOCAL) {
+			json_add_num(response, "deadline", h->deadline);
+			if (h->src) {
+				json_object_start(response, "src");
+				json_add_pubkey(response, cmd->dstate->secpctx,
+						"peerid", h->src->peer->id);
+				json_add_u64(response, "id", h->src->id);
+				json_object_end(response);
+			}
+		} else {
+			if (h->routing)
+				json_add_hex(response, "routing",
+					     h->routing, tal_count(h->routing));
+		}
+		json_object_end(response);
+	}
+	json_array_end(response);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+const struct json_command gethtlcs_command = {
+	"gethtlcs",
+	json_gethtlcs,
+	"List HTLCs for {peer}; all if {resolved} is true.",
+	"Returns a 'htlcs' array"
+};
+
 /* To avoid freeing underneath ourselves, we free outside event loop. */
 void cleanup_peers(struct lightningd_state *dstate)
 {
