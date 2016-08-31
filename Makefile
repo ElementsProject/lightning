@@ -126,12 +126,9 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/structeq/structeq.h		\
 	$(CCANDIR)/ccan/take/take.h			\
 	$(CCANDIR)/ccan/tal/grab_file/grab_file.h	\
-	$(CCANDIR)/ccan/tal/link/link.h			\
 	$(CCANDIR)/ccan/tal/path/path.h			\
-	$(CCANDIR)/ccan/tal/stack/stack.h		\
 	$(CCANDIR)/ccan/tal/str/str.h			\
 	$(CCANDIR)/ccan/tal/tal.h			\
-	$(CCANDIR)/ccan/tal/talloc/talloc.h		\
 	$(CCANDIR)/ccan/tcon/tcon.h			\
 	$(CCANDIR)/ccan/time/time.h			\
 	$(CCANDIR)/ccan/timer/timer.h			\
