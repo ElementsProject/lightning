@@ -42,6 +42,22 @@ void log_(struct log *log, enum log_level level, const char *fmt, ...)
 void log_add(struct log *log, const char *fmt, ...) PRINTF_FMT(2,3);
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap);
 
+void log_blob_(struct log *log, enum log_level level, const char *fmt,
+	       size_t len, ...)
+	PRINTF_FMT(3,5);
+
+/* These must have %s where the blob is to go. */
+#define log_add_blob(log, fmt, blob, len)			\
+	log_blob_((log), -1, (fmt), (len), (char *)(blob))
+
+#define log_debug_blob(log, fmt, blob, len)			\
+	log_blob_((log), LOG_DBG, (fmt), (len), (char *)(blob))
+#define log_info_blob(log, fmt, blob, len)				\
+	log_blob_((log), LOG_INFORM, (fmt), (len), (char *)(blob))
+#define log_unusual_blob(log, fmt, blob, len)				\
+	log_blob_((log), LOG_UNUSUAL, (fmt), (len), (char *)(blob))
+#define log_broken_blob(log, fmt, blob, len)				\
+	log_blob_((log), LOG_BROKEN, (fmt), (len), (char *)(blob))
 
 /* Makes sure ptr is a 'structtype', makes sure it's in loggable_structs. */
 #define log_struct_check_(log, loglevel, fmt, structtype, ptr)		\

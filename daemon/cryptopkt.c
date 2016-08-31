@@ -495,8 +495,9 @@ static struct io_plan *keys_exchanged(struct io_conn *conn,
 			     neg->their_sessionpubkey,
 			     sizeof(neg->their_sessionpubkey),
 			     &sessionkey)) {
-		/* FIXME: Dump key in this case. */
-		log_unusual(neg->log, "Bad sessionkey");
+		log_unusual_blob(neg->log,  "Bad sessionkey %s",
+				 neg->their_sessionpubkey,
+				 sizeof(neg->their_sessionpubkey));
 		return io_close(conn);
 	}
 

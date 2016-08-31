@@ -359,6 +359,26 @@ void log_struct_(struct log *log, int level,
 	tal_free(ctx);
 }
 
+void log_blob_(struct log *log, enum log_level level, const char *fmt,
+	       size_t len, ...)
+{
+	va_list ap;
+	const void *blob;
+	const char *hex;
+
+	/* Macro wrappers ensure we only have one arg. */
+	va_start(ap, len);
+	blob = va_arg(ap, void *);
+	va_end(ap);
+
+	hex = tal_hexstr(log, blob, len);
+	if (level == -1)
+		log_add(log, fmt, hex);
+	else
+		log_(log, level, fmt, hex);
+	tal_free(hex);
+}
+
 void log_each_line_(const struct log_record *lr,
 		    void (*func)(unsigned int skipped,
 				 struct timerel time,

@@ -3197,8 +3197,9 @@ static const struct bitcoin_tx *htlc_timeout_tx(const struct peer *peer,
 static void reset_onchain_closing(struct peer *peer)
 {
 	if (peer->onchain.tx) {
-		/* FIXME: Log old txid */
-		log_unusual(peer->log, "New anchor spend, forgetting old");
+		log_unusual_struct(peer->log,
+				   "New anchor spend, forgetting old tx %s",
+				   struct sha256_double, &peer->onchain.txid);
 		peer->onchain.tx = tal_free(peer->onchain.tx);
 		peer->onchain.resolved = NULL;
 		peer->onchain.htlcs = NULL;
