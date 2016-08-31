@@ -8,25 +8,29 @@
 struct io_data;
 struct json_connecting;
 struct lightningd_state;
+struct log;
 struct peer;
 
 struct io_plan *peer_crypto_setup_(struct io_conn *conn,
 				   struct lightningd_state *dstate,
 				   const struct pubkey *id,
+				   struct log *log,
 				   struct io_plan *(*cb)(struct io_conn *conn,
 						 struct lightningd_state *dstate,
 						 struct io_data *iod,
+						 struct log *log,
 						 const struct pubkey *id,
 						 void *arg),
 				   void *arg);
 
-#define peer_crypto_setup(conn, dstate, id, cb, arg)			\
-	peer_crypto_setup_((conn), (dstate), (id),			\
+#define peer_crypto_setup(conn, dstate, id, log_, cb, arg)		\
+	peer_crypto_setup_((conn), (dstate), (id), (log_),		\
 			   typesafe_cb_preargs(struct io_plan *, void *, \
 					       (cb), (arg),		\
 					       struct io_conn *,	\
 					       struct lightningd_state *, \
 					       struct io_data *,	\
+					       struct log *,		\
 					       const struct pubkey *),	\
 			   (arg))
 

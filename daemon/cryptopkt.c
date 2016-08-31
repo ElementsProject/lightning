@@ -48,6 +48,9 @@ struct key_negotiate {
 	/* After DH key exchange, we create io_data to check auth. */
 	struct io_data *iod;
 
+	/* Logging structure we're using. */
+	struct log *log;
+	
 	/* Did we expect a particular ID? */
 	const struct pubkey *expected_id;
 	
@@ -55,6 +58,7 @@ struct key_negotiate {
 	struct io_plan *(*cb)(struct io_conn *conn,
 			      struct lightningd_state *dstate,
 			      struct io_data *iod,
+			      struct log *log,
 			      const struct pubkey *id,
 			      void *arg);
 	void *arg;
@@ -422,15 +426,15 @@ static struct io_plan *recv_body_negotiate(struct io_conn *conn,
 	struct pubkey id;
 
 	/* We have full packet. */
-	pkt = decrypt_body(neg, iod, neg->dstate->base_log, iod->in.cpkt,
+	pkt = decrypt_body(neg, iod, neg->log, iod->in.cpkt,
 			   le32_to_cpu(iod->hdr_in.length));
 	if (!pkt)
 		return io_close(conn);
 
-	if (!check_proof(neg, neg->dstate->base_log, pkt, neg->expected_id, &id))
+	if (!check_proof(neg, neg->log, pkt, neg->expected_id, &id))
 		return io_close(conn);
 
-	plan = neg->cb(conn, neg->dstate, neg->iod, &id, neg->arg);
+	plan = neg->cb(conn, neg->dstate, neg->iod, neg->log, &id, neg->arg);
 	tal_free(neg);
 	return plan;
 }
@@ -441,7 +445,7 @@ static struct io_plan *recv_header_negotiate(struct io_conn *conn,
 	size_t body_len;
 	struct io_data *iod = neg->iod;
 
-	if (!decrypt_header(neg->dstate->base_log, iod, &body_len))
+	if (!decrypt_header(neg->log, iod, &body_len))
 		return io_close(conn);
 
 	return io_read(conn, iod->in.cpkt->data, body_len, recv_body_negotiate,
@@ -492,14 +496,14 @@ static struct io_plan *keys_exchanged(struct io_conn *conn,
 			     sizeof(neg->their_sessionpubkey),
 			     &sessionkey)) {
 		/* FIXME: Dump key in this case. */
-		log_unusual(neg->dstate->base_log, "Bad sessionkey");
+		log_unusual(neg->log, "Bad sessionkey");
 		return io_close(conn);
 	}
 
 	/* Derive shared secret. */
 	if (!secp256k1_ecdh(neg->dstate->secpctx, shared_secret,
 			    &sessionkey.pubkey, neg->seckey)) {
-		log_unusual(neg->dstate->base_log, "Bad ECDH");
+		log_unusual(neg->log, "Bad ECDH");
 		return io_close(conn);
 	}
 
@@ -538,7 +542,7 @@ static struct io_plan *discard_extra(struct io_conn *conn,
 
 		len -= sizeof(neg->their_sessionpubkey);
 		discard = tal_arr(neg, char, len);
-		log_unusual(neg->dstate->base_log,
+		log_unusual(neg->log,
 			    "Ignoring %zu extra handshake bytes",
 			    len);
 		return io_read(conn, discard, len, keys_exchanged, neg);
@@ -553,21 +557,20 @@ static struct io_plan *session_key_receive(struct io_conn *conn,
 	/* BOLT#1: The `length` field is the length after the field
 	   itself, and MUST be 33 or greater. */
 	if (le32_to_cpu(neg->keylen) < sizeof(neg->their_sessionpubkey)) {
-		log_unusual(neg->dstate->base_log, "short session key length %u",
+		log_unusual(neg->log, "short session key length %u",
 			    le32_to_cpu(neg->keylen));
 		return io_close(conn);
 	}
 
 	/* BOLT#1: `length` MUST NOT exceed 1MB (1048576 bytes). */
 	if (le32_to_cpu(neg->keylen) > 1048576) {
-		log_unusual(neg->dstate->base_log,
+		log_unusual(neg->log,
 			    "Oversize session key length %u",
 			    le32_to_cpu(neg->keylen));
 		return io_close(conn);
 	}
 
-	log_debug(neg->dstate->base_log,
-		  "Session key length %u", le32_to_cpu(neg->keylen));
+	log_debug(neg->log, "Session key length %u", le32_to_cpu(neg->keylen));
 
 	/* Now read their key. */
 	return io_read(conn, neg->their_sessionpubkey,
@@ -602,11 +605,13 @@ static struct io_plan *write_sessionkey(struct io_conn *conn,
 struct io_plan *peer_crypto_setup_(struct io_conn *conn,
 				   struct lightningd_state *dstate,
 				   const struct pubkey *id,
+				   struct log *log,
 				   struct io_plan *(*cb)(struct io_conn *conn,
-						struct lightningd_state *dstate,
-						struct io_data *iod,
-						const struct pubkey *id,
-						void *arg),
+						 struct lightningd_state *dstate,
+						 struct io_data *iod,
+						 struct log *log,
+						 const struct pubkey *id,
+						 void *arg),
 				   void *arg)
 {
 	size_t outputlen;
@@ -626,7 +631,7 @@ struct io_plan *peer_crypto_setup_(struct io_conn *conn,
 	neg->arg = arg;
 	neg->dstate = dstate;
 	neg->expected_id = id;
-	/* FIXME: Create log buffer for neg, use that then pass to peer. */
+	neg->log = log;
 
 	gen_sessionkey(dstate->secpctx, neg->seckey, &sessionkey);
 

@@ -2351,6 +2351,7 @@ static bool peer_reconnected(struct peer *peer,
 }
 
 struct peer *new_peer(struct lightningd_state *dstate,
+		      struct log *log,
 		      enum state state,
 		      enum state_input offer_anchor)
 {
@@ -2386,7 +2387,6 @@ struct peer *new_peer(struct lightningd_state *dstate,
 	peer->onchain.wscripts = NULL;
 	peer->commit_timer = NULL;
 	peer->nc = NULL;
-	peer->log = NULL;
 	peer->their_prev_revocation_hash = NULL;
 	peer->conn = NULL;
 	peer->fake_close = false;
@@ -2398,9 +2398,9 @@ struct peer *new_peer(struct lightningd_state *dstate,
 	peer->local.mindepth = dstate->config.anchor_confirms;
 	peer->local.commit = peer->remote.commit = NULL;
 	peer->local.staging_cstate = peer->remote.staging_cstate = NULL;
-	peer->log = new_log(peer, peer->dstate->log_record, "%s:peer %p:",
-			    log_prefix(peer->dstate->base_log), peer);
-
+	peer->log = tal_steal(peer, log);
+	log_debug(peer->log, "New peer %p", peer);
+	
 	htlc_map_init(&peer->htlcs);
 	memset(peer->feechanges, 0, sizeof(peer->feechanges));
 	shachain_init(&peer->their_preimages);
@@ -2445,7 +2445,7 @@ static bool peer_first_connected(struct peer *peer,
 				 const struct pubkey *id,
 				 bool we_connected)
 {
-	char *name;
+	char *name, *idstr;
 	struct netaddr addr;
 
 	peer->io_data = tal_steal(peer, iod);
@@ -2470,9 +2470,10 @@ static bool peer_first_connected(struct peer *peer,
 		return false;
 
 	name = netaddr_name(peer, &addr);
-	log_info(peer->log, "Connected %s %s id %s", 
-		 we_connected ? "out to" : "in from", name,
-		 pubkey_to_hexstr(name, peer->dstate->secpctx, peer->id));
+	idstr = pubkey_to_hexstr(name, peer->dstate->secpctx, peer->id);
+	log_info(peer->log, "Connected %s %s id %s, changing prefix", 
+		 we_connected ? "out to" : "in from", name, idstr);
+	set_log_prefix(peer->log, tal_fmt(name, "%s:", idstr));
 	tal_free(name);
 
 	log_debug(peer->log, "Using fee rate %"PRIu64,
@@ -2628,29 +2629,34 @@ static struct io_plan *crypto_on_reconnect(struct io_conn *conn,
 static struct io_plan *crypto_on_reconnect_in(struct io_conn *conn,
 					      struct lightningd_state *dstate,
 					      struct io_data *iod,
+					      struct log *log,
 					      const struct pubkey *id,
 					      struct peer *peer)
 {
+	assert(log == peer->log);
 	return crypto_on_reconnect(conn, dstate, iod, id, peer, false);
 }
 
 static struct io_plan *crypto_on_reconnect_out(struct io_conn *conn,
 					       struct lightningd_state *dstate,
 					       struct io_data *iod,
+					       struct log *log,
 					       const struct pubkey *id,
 					       struct peer *peer)
 {
+	assert(log == peer->log);
 	return crypto_on_reconnect(conn, dstate, iod, id, peer, true);
 }
 
 static struct io_plan *crypto_on_out(struct io_conn *conn,
 				     struct lightningd_state *dstate,
 				     struct io_data *iod,
+				     struct log *log,
 				     const struct pubkey *id,
 				     struct json_connecting *connect)
 {
 	/* Initiator currently funds channel */
-	struct peer *peer = new_peer(dstate, STATE_INIT, CMD_OPEN_WITH_ANCHOR);
+	struct peer *peer = new_peer(dstate, log, STATE_INIT, CMD_OPEN_WITH_ANCHOR);
 	if (!peer_first_connected(peer, conn, SOCK_STREAM, IPPROTO_TCP,
 				  iod, id, true)) {
 		command_fail(connect->cmd, "Failed to make peer for %s:%s",
@@ -2669,15 +2675,27 @@ static struct io_plan *peer_connected_out(struct io_conn *conn,
 					  struct lightningd_state *dstate,
 					  struct json_connecting *connect)
 {
-	log_debug(dstate->base_log, "Connected out to %s:%s",
-		  connect->name, connect->port);
+	struct log *l;
+	const char *name;
+	struct netaddr addr;
 
-	return peer_crypto_setup(conn, dstate, NULL, crypto_on_out, connect);
+	l = new_log(conn, dstate->log_record, "OUT-%s:%s:",
+		    connect->name, connect->port);
+
+	if (!netaddr_from_fd(io_conn_fd(conn), SOCK_STREAM, IPPROTO_TCP, &addr)) {
+		log_unusual(l, "Failed to get netaddr: %s", strerror(errno));
+		return io_close(conn);
+	}
+	name = netaddr_name(conn, &addr);
+
+	log_debug(l, "Connected out to %s", name);
+	return peer_crypto_setup(conn, dstate, NULL, l, crypto_on_out, connect);
 }
 
 static struct io_plan *crypto_on_in(struct io_conn *conn,
 				    struct lightningd_state *dstate,
 				    struct io_data *iod,
+				    struct log *log,
 				    const struct pubkey *id,
 				    void *unused)
 {
@@ -2691,6 +2709,7 @@ static struct io_plan *crypto_on_in(struct io_conn *conn,
 	if (peer) {
 		/* Close any existing connection, without side effects. */
 		if (peer->conn) {
+			log_debug(log, "This is reconnect for peer %p", peer);
 			log_debug(peer->log, "Reconnect: closing old conn %p for new conn %p",
 				  peer->conn, conn);
 			io_set_finish(peer->conn, NULL, NULL);
@@ -2698,11 +2717,12 @@ static struct io_plan *crypto_on_in(struct io_conn *conn,
 			peer->conn = NULL;
 			peer->connected = false;
 		}
-		return crypto_on_reconnect_in(conn, dstate, iod, id, peer);
+		return crypto_on_reconnect_in(conn, dstate, iod, peer->log, id,
+					      peer);
 	}
 
 	/* Initiator currently funds channel */
-	peer = new_peer(dstate, STATE_INIT, CMD_OPEN_WITHOUT_ANCHOR);
+	peer = new_peer(dstate, log, STATE_INIT, CMD_OPEN_WITHOUT_ANCHOR);
 	if (!peer_first_connected(peer, conn, SOCK_STREAM, IPPROTO_TCP,
 				  iod, id, false))
 		return io_close(conn);
@@ -2713,10 +2733,18 @@ static struct io_plan *crypto_on_in(struct io_conn *conn,
 static struct io_plan *peer_connected_in(struct io_conn *conn,
 					 struct lightningd_state *dstate)
 {
-	/* FIXME: log incoming address. */
-	log_debug(dstate->base_log, "Connected in");
+	struct netaddr addr;
+	struct log *l;
+	const char *name;
 
-	return peer_crypto_setup(conn, dstate, NULL, crypto_on_in, NULL);
+	if (!netaddr_from_fd(io_conn_fd(conn), SOCK_STREAM, IPPROTO_TCP, &addr))
+		return false;
+	name = netaddr_name(conn, &addr);
+	l = new_log(conn, dstate->log_record, "IN-%s:", name);
+
+	log_debug(l, "Connected in");
+
+	return peer_crypto_setup(conn, dstate, NULL, l, crypto_on_in, NULL);
 }
 
 static int make_listen_fd(struct lightningd_state *dstate,
@@ -4086,7 +4114,8 @@ static struct io_plan *peer_reconnect(struct io_conn *conn, struct peer *peer)
 
 	assert(peer->id);
 	return peer_crypto_setup(conn, peer->dstate,
-				 peer->id, crypto_on_reconnect_out, peer);
+				 peer->id, peer->log,
+				 crypto_on_reconnect_out, peer);
 }
 
 /* We can't only retry when we want to send: they may want to send us

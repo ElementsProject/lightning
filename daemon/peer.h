@@ -239,6 +239,7 @@ void setup_listeners(struct lightningd_state *dstate, unsigned int portnum);
 struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id);
 
 struct peer *new_peer(struct lightningd_state *dstate,
+		      struct log *log,
 		      enum state state,
 		      enum state_input offer_anchor);
 

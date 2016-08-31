@@ -903,6 +903,9 @@ static void db_load_peers(struct lightningd_state *dstate)
 
 	while ((err = sqlite3_step(stmt)) != SQLITE_DONE) {
 		enum state state;
+		struct log *l;
+		struct pubkey id;
+		const char *idstr;
 
 		if (err != SQLITE_ROW)
 			fatal("db_load_peers:step gave %s:%s",
@@ -915,15 +918,17 @@ static void db_load_peers(struct lightningd_state *dstate)
 		if (state == STATE_MAX)
 			fatal("db_load_peers:unknown state %s",
 			      sqlite3_column_str(stmt, 1));
-		peer = new_peer(dstate, state, sqlite3_column_int(stmt, 2) ?
+		pubkey_from_sql(dstate->secpctx, stmt, 0, &id);
+		idstr = pubkey_to_hexstr(dstate, dstate->secpctx, &id);
+		l = new_log(dstate, dstate->log_record, "%s:", idstr);
+		tal_free(idstr);
+		peer = new_peer(dstate, l, state, sqlite3_column_int(stmt, 2) ?
 				CMD_OPEN_WITH_ANCHOR : CMD_OPEN_WITHOUT_ANCHOR);
 		peer->htlc_id_counter = 0;
-		peer->id = tal(peer, struct pubkey);
-		pubkey_from_sql(dstate->secpctx, stmt, 0, peer->id);
+		peer->id = tal_dup(peer, struct pubkey, &id);
 		peer->local.commit_fee_rate = sqlite3_column_int64(stmt, 3);
-		log_debug(dstate->base_log, "%s:%s:",
+		log_debug(peer->log, "%s:%s",
 			  __func__, state_name(peer->state));
-		log_add_struct(dstate->base_log, "%s", struct pubkey, peer->id);
 	}
 	err = sqlite3_finalize(stmt);
 	if (err != SQLITE_OK)
