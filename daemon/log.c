@@ -1,6 +1,7 @@
 #include "bitcoin/locktime.h"
 #include "bitcoin/pubkey.h"
 #include "bitcoin/tx.h"
+#include "channel.h"
 #include "controlled_time.h"
 #include "htlc.h"
 #include "lightningd.h"
@@ -326,8 +327,29 @@ static char *to_string_(const tal_t *ctx,
 			    h->src ? to_string(ctx, lr, struct pubkey,
 					       h->src->peer->id)
 			    : "local");
-	} else if (streq(structname, "struct rval"))
+	} else if (streq(structname, "struct rval")) {
 		s = tal_hexstr(ctx, u.rval, sizeof(*u.rval));
+	} else if (streq(structname, "struct channel_oneside")) {
+		s = tal_fmt(ctx, "{ pay_msat=%u"
+			    " fee_msat=%u"
+			    " num_htlcs=%u }",
+			    u.channel_oneside->pay_msat,
+			    u.channel_oneside->fee_msat,
+			    u.channel_oneside->num_htlcs);
+	} else if (streq(structname, "struct channel_state")) {
+		s = tal_fmt(ctx, "{ anchor=%"PRIu64
+			    " fee_rate=%"PRIu64
+			    " num_nondust=%u"
+			    " ours=%s"
+			    " theirs=%s }",
+			    u.cstate->anchor,
+			    u.cstate->fee_rate,
+			    u.cstate->num_nondust,
+			    to_string(ctx, lr, struct channel_oneside,
+				      &u.cstate->side[OURS]),
+			    to_string(ctx, lr, struct channel_oneside,
+				      &u.cstate->side[THEIRS]));
+	}
 
 	return s;
 }

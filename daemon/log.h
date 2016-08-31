@@ -88,6 +88,8 @@ union loggable_structs {
 	const struct bitcoin_tx *bitcoin_tx;
 	const struct htlc *htlc;
 	const struct rval *rval;
+	const struct channel_state *cstate;
+	const struct channel_oneside *channel_oneside;
 	const char *charp_;
 };
 

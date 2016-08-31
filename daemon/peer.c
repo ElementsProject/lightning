@@ -207,22 +207,12 @@ void debug_dump_peers(struct lightningd_state *dstate)
 		if (!peer->local.commit
 		    || !peer->remote.commit)
 			continue;
-		log_debug(peer->log,
-			  "Local cstate: pay %u/%u fee %u/%u htlcs %u/%u",
-			  peer->local.commit->cstate->side[OURS].pay_msat,
-			  peer->local.commit->cstate->side[THEIRS].pay_msat,
-			  peer->local.commit->cstate->side[OURS].fee_msat,
-			  peer->local.commit->cstate->side[THEIRS].fee_msat,
-			  peer->local.commit->cstate->side[OURS].num_htlcs,
-			  peer->local.commit->cstate->side[THEIRS].num_htlcs);
-		log_debug(peer->log,
-			  "Remote cstate: pay %u/%u fee %u/%u htlcs %u/%u",
-			  peer->remote.commit->cstate->side[OURS].pay_msat,
-			  peer->remote.commit->cstate->side[THEIRS].pay_msat,
-			  peer->remote.commit->cstate->side[OURS].fee_msat,
-			  peer->remote.commit->cstate->side[THEIRS].fee_msat,
-			  peer->remote.commit->cstate->side[OURS].num_htlcs,
-			  peer->remote.commit->cstate->side[THEIRS].num_htlcs);
+		log_debug_struct(peer->log, "our cstate: %s",
+				 struct channel_state,
+				 peer->local.commit->cstate);
+		log_debug_struct(peer->log, "their cstate: %s",
+				 struct channel_state,
+				 peer->remote.commit->cstate);
 	}
 }
 
@@ -996,13 +986,8 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 				  ci->cstate, LOCAL, &to_them_only);
 	bitcoin_txid(ci->tx, &ci->txid);
 
-	log_debug(peer->log, "Check tx %"PRIu64" sig for %u/%u msatoshis, %u/%u htlcs (%u non-dust)",
-		  ci->commit_num,
-		  ci->cstate->side[THEIRS].pay_msat,
-		  ci->cstate->side[OURS].pay_msat,
-		  ci->cstate->side[THEIRS].num_htlcs,
-		  ci->cstate->side[OURS].num_htlcs,
-		  ci->cstate->num_nondust);
+	log_debug(peer->log, "Check tx %"PRIu64" sig", ci->commit_num);
+	log_add_struct(peer->log, " for %s", struct channel_state, ci->cstate);
 	log_add_struct(peer->log, " (txid %s)", struct sha256_double, &ci->txid);
 
 	/* BOLT #2:
@@ -1933,24 +1918,14 @@ static void forget_uncommitted_changes(struct peer *peer)
 		return;
 
 	log_debug(peer->log, "Forgetting uncommitted");
-	log_debug(peer->log, "LOCAL: changing from (us) %u/%u and (them) %u/%u to %u/%u and %u/%u",
-		  peer->local.staging_cstate->side[OURS].pay_msat,
-		  peer->local.staging_cstate->side[OURS].fee_msat,
-		  peer->local.staging_cstate->side[THEIRS].pay_msat,
-		  peer->local.staging_cstate->side[THEIRS].fee_msat,
-		  peer->local.commit->cstate->side[OURS].pay_msat,
-		  peer->local.commit->cstate->side[OURS].fee_msat,
-		  peer->local.commit->cstate->side[THEIRS].pay_msat,
-		  peer->local.commit->cstate->side[THEIRS].fee_msat);
-	log_debug(peer->log, "REMOTE: changing from (us) %u/%u and (them) %u/%u to %u/%u and %u/%u",
-		  peer->remote.staging_cstate->side[OURS].pay_msat,
-		  peer->remote.staging_cstate->side[OURS].fee_msat,
-		  peer->remote.staging_cstate->side[THEIRS].pay_msat,
-		  peer->remote.staging_cstate->side[THEIRS].fee_msat,
-		  peer->remote.commit->cstate->side[OURS].pay_msat,
-		  peer->remote.commit->cstate->side[OURS].fee_msat,
-		  peer->remote.commit->cstate->side[THEIRS].pay_msat,
-		  peer->remote.commit->cstate->side[THEIRS].fee_msat);
+	log_debug_struct(peer->log, "LOCAL: changing from %s",
+			 struct channel_state, peer->local.staging_cstate);
+	log_add_struct(peer->log, " to %s",
+			 struct channel_state, peer->local.commit->cstate);
+	log_debug_struct(peer->log, "REMOTE: changing from %s",
+			 struct channel_state, peer->remote.staging_cstate);
+	log_add_struct(peer->log, " to %s",
+			 struct channel_state, peer->remote.commit->cstate);
 
 	tal_free(peer->local.staging_cstate);
 	tal_free(peer->remote.staging_cstate);
@@ -2249,14 +2224,11 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 	bitcoin_txid(ci->tx, &ci->txid);
 
 	if (!to_us_only) {
-		log_debug(peer->log, "Signing tx %"PRIu64" for %u/%u msatoshis, %u/%u htlcs (%u non-dust)",
-			  ci->commit_num,
-			  ci->cstate->side[OURS].pay_msat,
-			  ci->cstate->side[THEIRS].pay_msat,
-			  ci->cstate->side[OURS].num_htlcs,
-			  ci->cstate->side[THEIRS].num_htlcs,
-			  ci->cstate->num_nondust);
-		log_add_struct(peer->log, " (txid %s)", struct sha256_double, &ci->txid);
+		log_debug(peer->log, "Signing tx %"PRIu64, ci->commit_num);
+		log_add_struct(peer->log, " for %s",
+			       struct channel_state, ci->cstate);
+		log_add_struct(peer->log, " (txid %s)",
+			       struct sha256_double, &ci->txid);
 
 		ci->sig = tal(ci, struct bitcoin_signature);
 		ci->sig->stype = SIGHASH_ALL;
