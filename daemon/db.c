@@ -698,7 +698,6 @@ static void connect_htlc_src(struct lightningd_state *dstate)
 	tal_free(ctx);
 }
 
-/* FIXME: Expose pull/push and use that here. */
 static const char *linearize_shachain(const tal_t *ctx,
 				      const struct shachain *shachain)
 {

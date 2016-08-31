@@ -4107,7 +4107,6 @@ static struct io_plan *peer_reconnect(struct io_conn *conn, struct peer *peer)
 	if (peer->conn)
 		return io_close(conn);
 
-	/* FIXME: log incoming address. */
 	log_debug(peer->log, "Reconnected, doing crypto...");
 	peer->conn = conn;
 	assert(!peer->connected);
@@ -4440,7 +4439,6 @@ static void json_newhtlc(struct command *cmd,
 	command_success(cmd, response);
 }
 
-/* FIXME: Use HTLC ids, not r values! */
 const struct json_command newhtlc_command = {
 	"newhtlc",
 	json_newhtlc,
