@@ -1382,7 +1382,7 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 		break;
 	}
 
-	if (!err && !committed_to_htlcs(peer))
+	if (!err && !committed_to_htlcs(peer) && peer->closing.their_script)
 		err = start_closing(peer);
 
 	if (err)
