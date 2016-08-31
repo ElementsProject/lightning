@@ -2,24 +2,24 @@
 #define LIGHTNING_DAEMON_CHANNEL_H
 #include "config.h"
 #include "bitcoin/locktime.h"
+#include <assert.h>
 #include <ccan/crypto/sha256/sha256.h>
+#include <ccan/str/str.h>
 #include <ccan/tal/tal.h>
 #include <stdbool.h>
 
 struct htlc;
+
+enum side {
+	LOCAL,
+	REMOTE
+};
 
 struct channel_oneside {
 	/* Payment and fee is in millisatoshi. */
 	uint32_t pay_msat, fee_msat;
 	/* Number of HTLCs (required for limiting total number) */
 	unsigned int num_htlcs;
-};
-
-enum channel_side {
-	/* Output for us, htlcs we offered to them. */
-	OURS,
-	/* Output for them, htlcs they offered to us. */
-	THEIRS
 };
 
 struct channel_state {
@@ -44,7 +44,7 @@ struct channel_state {
 struct channel_state *initial_cstate(const tal_t *ctx,
 				     uint64_t anchor_satoshis,
 				     uint64_t fee_rate,
-				     enum channel_side side);
+				     enum side side);
 
 /**
  * copy_cstate: Make a deep copy of channel_state
@@ -92,21 +92,21 @@ void cstate_fulfill_htlc(struct channel_state *cstate, const struct htlc *htlc);
 /**
  * approx_max_feerate: what's the most side could raise fee rate to?
  * @cstate: The channel state
- * @side: OURS or THEIRS
+ * @side: LOCAL or REMOTE
  *
  * This is not exact!  To check if their offer is valid, use can_afford_feerate.
  */
 uint64_t approx_max_feerate(const struct channel_state *cstate,
-			    enum channel_side side);
+			    enum side side);
 
 /**
  * can_afford_feerate: could this side pay for the fee if changed to fee_rate?
  * @cstate: The channel state
  * @fee_rate: the new fee rate proposed
- * @side: OURS or THEIRS
+ * @side: LOCAL or REMOTE
  */
 bool can_afford_feerate(const struct channel_state *cstate, uint64_t fee_rate,
-			enum channel_side side);
+			enum side side);
 
 /**
  * adjust_fee: Change fee rate.
@@ -139,4 +139,20 @@ void force_fail_htlc(struct channel_state *cstate, const struct htlc *htlc);
 void force_fulfill_htlc(struct channel_state *cstate, const struct htlc *htlc);
 bool balance_after_force(struct channel_state *cstate);
 
+static inline const char *side_to_str(enum side side)
+{
+	switch (side) {
+	case LOCAL: return "LOCAL";
+	case REMOTE: return "REMOTE";
+	}
+	abort();
+}
+
+static inline enum side str_to_side(const char *str)
+{
+	if (streq(str, "LOCAL"))
+		return LOCAL;
+	assert(streq(str, "REMOTE"));
+	return REMOTE;
+}
 #endif /* LIGHTNING_DAEMON_CHANNEL_H */

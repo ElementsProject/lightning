@@ -10,7 +10,7 @@ struct sha256;
 struct htlc_output_map *get_htlc_output_map(const tal_t *ctx,
 					    const struct peer *peer,
 					    const struct sha256 *rhash,
-					    enum htlc_side side,
+					    enum side side,
 					    unsigned int commit_num);
 
 /* If this scriptPubkey pays to a HTLC, get the full wscript */

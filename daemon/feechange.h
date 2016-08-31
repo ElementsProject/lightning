@@ -1,8 +1,10 @@
 #ifndef LIGHTNING_DAEMON_FEECHANGE_H
 #define LIGHTNING_DAEMON_FEECHANGE_H
 #include "config.h"
+#include "channel.h"
 #include "feechange_state.h"
-#include "htlc.h"
+
+struct peer;
 
 struct feechange {
 	/* What's the status */
@@ -11,7 +13,7 @@ struct feechange {
 	u64 fee_rate;
 };
 
-static inline enum htlc_side feechange_side(enum feechange_state state)
+static inline enum side feechange_side(enum feechange_state state)
 {
 	if (state <= SENT_FEECHANGE_ACK_REVOCATION) {
 		return LOCAL;

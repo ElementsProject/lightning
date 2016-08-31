@@ -20,7 +20,7 @@ u8 *wscript_for_htlc(const tal_t *ctx,
 		     const struct peer *peer,
 		     const struct htlc *h,
 		     const struct sha256 *rhash,
-		     enum htlc_side side)
+		     enum side side)
 {
 	const struct peer_visible_state *this_side, *other_side;
 	u8 *(*fn)(const tal_t *, secp256k1_context *,
@@ -63,7 +63,7 @@ static size_t count_htlcs(const struct htlc_map *htlcs, int flag)
 u8 *commit_output_to_us(const tal_t *ctx,
 			const struct peer *peer,
 			const struct sha256 *rhash,
-			enum htlc_side side,
+			enum side side,
 			u8 **wscript)
 {
 	u8 *tmp;
@@ -90,7 +90,7 @@ u8 *commit_output_to_us(const tal_t *ctx,
 u8 *commit_output_to_them(const tal_t *ctx,
 			  const struct peer *peer,
 			  const struct sha256 *rhash,
-			  enum htlc_side side,
+			  enum side side,
 			  u8 **wscript)
 {
 	u8 *tmp;
@@ -132,7 +132,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				    struct peer *peer,
 				    const struct sha256 *rhash,
 				    const struct channel_state *cstate,
-				    enum htlc_side side,
+				    enum side side,
 				    bool *otherside_only)
 {
 	struct bitcoin_tx *tx;
@@ -164,28 +164,28 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	tx->output_count = 0;
 	pays_to[LOCAL] = add_output(tx, commit_output_to_us(tx, peer, rhash,
 							    side, NULL),
-				    cstate->side[OURS].pay_msat / 1000,
+				    cstate->side[LOCAL].pay_msat / 1000,
 				    &total);
 	if (pays_to[LOCAL])
 		log_debug(peer->log, "Pays %u to local: %s",
-			  cstate->side[OURS].pay_msat / 1000,
+			  cstate->side[LOCAL].pay_msat / 1000,
 			  tal_hexstr(tx, tx->output[tx->output_count-1].script,
 				     tx->output[tx->output_count-1].script_length));
 	else
 		log_debug(peer->log, "DOES NOT pay %u to local",
-			  cstate->side[OURS].pay_msat / 1000);
+			  cstate->side[LOCAL].pay_msat / 1000);
 	pays_to[REMOTE] = add_output(tx, commit_output_to_them(tx, peer, rhash,
 							       side, NULL),
-				     cstate->side[THEIRS].pay_msat / 1000,
+				     cstate->side[REMOTE].pay_msat / 1000,
 				     &total);
 	if (pays_to[REMOTE])
 		log_debug(peer->log, "Pays %u to remote: %s",
-			  cstate->side[THEIRS].pay_msat / 1000,
+			  cstate->side[REMOTE].pay_msat / 1000,
 			  tal_hexstr(tx, tx->output[tx->output_count-1].script,
 				     tx->output[tx->output_count-1].script_length));
 	else
 		log_debug(peer->log, "DOES NOT pay %u to remote",
-			  cstate->side[THEIRS].pay_msat / 1000);
+			  cstate->side[REMOTE].pay_msat / 1000);
 
 	/* If their tx doesn't pay to them, or our tx doesn't pay to us... */
 	*otherside_only = !pays_to[side];

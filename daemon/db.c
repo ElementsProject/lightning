@@ -384,10 +384,10 @@ static void load_peer_commit_info(struct peer *peer)
 			fatal("load_peer_commit_info:step gave %i cols, not 7",
 			      sqlite3_column_count(stmt));
 
-		if (streq(sqlite3_column_str(stmt, 1), "OURS"))
+		if (streq(sqlite3_column_str(stmt, 1), "LOCAL"))
 			cip = &peer->local.commit;
 		else {
-			if (!streq(sqlite3_column_str(stmt, 1), "THEIRS"))
+			if (!streq(sqlite3_column_str(stmt, 1), "REMOTE"))
 				fatal("load_peer_commit_info:bad side %s",
 				      sqlite3_column_str(stmt, 1));
 			cip = &peer->remote.commit;
@@ -439,9 +439,9 @@ static void load_peer_commit_info(struct peer *peer)
  * and do normally-impossible things in intermediate states.  So we
  * mangle cstate balances manually. */
 static void apply_htlc(struct channel_state *cstate, const struct htlc *htlc,
-		       enum htlc_side side)
+		       enum side side)
 {
-	const char *sidestr = (side == LOCAL ? "LOCAL" : "REMOTE");
+	const char *sidestr = side_to_str(side);
 
 	if (!htlc_has(htlc, HTLC_FLAG(side,HTLC_F_WAS_COMMITTED)))
 		return;
@@ -485,13 +485,13 @@ static void load_peer_htlcs(struct peer *peer)
 						    peer->local.commit_fee_rate,
 						    peer->local.offer_anchor
 						    == CMD_OPEN_WITH_ANCHOR ?
-						    OURS : THEIRS);
+						    LOCAL : REMOTE);
 	peer->remote.commit->cstate = initial_cstate(peer,
 						     peer->anchor.satoshis,
 						     peer->remote.commit_fee_rate,
 						     peer->local.offer_anchor
 						     == CMD_OPEN_WITH_ANCHOR ?
-						     OURS : THEIRS);
+						     LOCAL : REMOTE);
 
 	/* We rebuild cstate by running *every* HTLC through. */
 	while ((err = sqlite3_step(stmt)) != SQLITE_DONE) {
@@ -614,19 +614,19 @@ static void load_peer_htlcs(struct peer *peer)
 	peer->remote.staging_cstate = copy_cstate(peer, peer->remote.commit->cstate);
 	peer->local.staging_cstate = copy_cstate(peer, peer->local.commit->cstate);
 	log_debug(peer->log, "Local staging: pay %u/%u fee %u/%u htlcs %u/%u",
-		  peer->local.staging_cstate->side[OURS].pay_msat,
-		  peer->local.staging_cstate->side[THEIRS].pay_msat,
-		  peer->local.staging_cstate->side[OURS].fee_msat,
-		  peer->local.staging_cstate->side[THEIRS].fee_msat,
-		  peer->local.staging_cstate->side[OURS].num_htlcs,
-		  peer->local.staging_cstate->side[THEIRS].num_htlcs);
+		  peer->local.staging_cstate->side[LOCAL].pay_msat,
+		  peer->local.staging_cstate->side[REMOTE].pay_msat,
+		  peer->local.staging_cstate->side[LOCAL].fee_msat,
+		  peer->local.staging_cstate->side[REMOTE].fee_msat,
+		  peer->local.staging_cstate->side[LOCAL].num_htlcs,
+		  peer->local.staging_cstate->side[REMOTE].num_htlcs);
 	log_debug(peer->log, "Remote staging: pay %u/%u fee %u/%u htlcs %u/%u",
-		  peer->remote.staging_cstate->side[OURS].pay_msat,
-		  peer->remote.staging_cstate->side[THEIRS].pay_msat,
-		  peer->remote.staging_cstate->side[OURS].fee_msat,
-		  peer->remote.staging_cstate->side[THEIRS].fee_msat,
-		  peer->remote.staging_cstate->side[OURS].num_htlcs,
-		  peer->remote.staging_cstate->side[THEIRS].num_htlcs);
+		  peer->remote.staging_cstate->side[LOCAL].pay_msat,
+		  peer->remote.staging_cstate->side[REMOTE].pay_msat,
+		  peer->remote.staging_cstate->side[LOCAL].fee_msat,
+		  peer->remote.staging_cstate->side[REMOTE].fee_msat,
+		  peer->remote.staging_cstate->side[LOCAL].num_htlcs,
+		  peer->remote.staging_cstate->side[REMOTE].num_htlcs);
 	
 	tal_free(ctx);
 }
@@ -1076,8 +1076,9 @@ bool db_set_anchor(struct peer *peer)
 		goto out;
 
 	errmsg = db_exec(ctx, peer->dstate, 
-			 "INSERT INTO commit_info VALUES(x'%s', 'OURS', 0, x'%s', %"PRIi64", %s, NULL);",
+			 "INSERT INTO commit_info VALUES(x'%s', '%s', 0, x'%s', %"PRIi64", %s, NULL);",
 			 peerid,
+			 side_to_str(LOCAL),
 			 tal_hexstr(ctx, &peer->local.commit->revocation_hash,
 				    sizeof(peer->local.commit->revocation_hash)),
 			 peer->local.commit->order,
@@ -1087,8 +1088,9 @@ bool db_set_anchor(struct peer *peer)
 		goto out;
 
 	errmsg = db_exec(ctx, peer->dstate, 
-			 "INSERT INTO commit_info VALUES(x'%s', 'THEIRS', 0, x'%s', %"PRIi64", %s, NULL);",
+			 "INSERT INTO commit_info VALUES(x'%s', '%s', 0, x'%s', %"PRIi64", %s, NULL);",
 			 peerid,
+			 side_to_str(REMOTE),
 			 tal_hexstr(ctx, &peer->remote.commit->revocation_hash,
 				    sizeof(peer->remote.commit->revocation_hash)),
 			 peer->remote.commit->order,
@@ -1422,22 +1424,19 @@ bool db_htlc_failed(struct peer *peer, const struct htlc *htlc)
 	return !errmsg;
 }
 
-bool db_new_commit_info(struct peer *peer, enum channel_side side,
+bool db_new_commit_info(struct peer *peer, enum side side,
 			const struct sha256 *prev_rhash)
 {
 	struct commit_info *ci;
-	const char *sidestr;
 	const char *errmsg, *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(peer->dstate->db->in_transaction);
-	if (side == OURS) {
-		sidestr = "OURS";
+	if (side == LOCAL) {
 		ci = peer->local.commit;
 	} else {
-		sidestr = "THEIRS";
 		ci = peer->remote.commit;
 	}
 
@@ -1449,7 +1448,7 @@ bool db_new_commit_info(struct peer *peer, enum channel_side side,
 			 sig_to_sql(ctx, peer->dstate->secpctx, ci->sig),
 			 ci->order,
 			 sql_hex_or_null(ctx, prev_rhash, sizeof(*prev_rhash)),
-			 peerid, sidestr);
+			 peerid, side_to_str(side));
 	if (errmsg)
 		log_broken(peer->log, "%s:%s", __func__, errmsg);
 	tal_free(ctx);
@@ -1467,7 +1466,7 @@ bool db_remove_their_prev_revocation_hash(struct peer *peer)
 	assert(peer->dstate->db->in_transaction);
 
 	// CREATE TABLE commit_info (peer "SQL_PUBKEY", side TEXT, commit_num INT, revocation_hash "SQL_SHA256", xmit_order INT, sig "SQL_SIGNATURE", prev_revocation_hash "SQL_SHA256", PRIMARY KEY(peer, side));
-	errmsg = db_exec(ctx, peer->dstate, "UPDATE commit_info SET prev_revocation_hash=NULL WHERE peer=x'%s' AND side='THEIRS' and prev_revocation_hash IS NOT NULL;",
+	errmsg = db_exec(ctx, peer->dstate, "UPDATE commit_info SET prev_revocation_hash=NULL WHERE peer=x'%s' AND side='REMOTE' and prev_revocation_hash IS NOT NULL;",
 			 peerid);
 	if (errmsg)
 		log_broken(peer->log, "%s:%s", __func__, errmsg);

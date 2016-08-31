@@ -16,7 +16,7 @@ struct htlc_output_map {
 struct htlc_output_map *get_htlc_output_map(const tal_t *ctx,
 					    const struct peer *peer,
 					    const struct sha256 *rhash,
-					    enum htlc_side side,
+					    enum side side,
 					    unsigned int commit_num)
 {
 	struct htlc_map_iter it;

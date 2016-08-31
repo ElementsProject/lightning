@@ -123,7 +123,7 @@ static bool change_funding(uint64_t anchor_satoshis,
 struct channel_state *initial_cstate(const tal_t *ctx,
 				      uint64_t anchor_satoshis,
 				      uint64_t fee_rate,
-				      enum channel_side funding)
+				      enum side funding)
 {
 	uint64_t fee_msat;
 	struct channel_state *cstate = talz(ctx, struct channel_state);
@@ -161,7 +161,7 @@ struct channel_state *initial_cstate(const tal_t *ctx,
 
 /* FIXME: Write exact variant! */
 uint64_t approx_max_feerate(const struct channel_state *cstate,
-			    enum channel_side side)
+			    enum side side)
 {
 	uint64_t max_funds;
 
@@ -171,7 +171,7 @@ uint64_t approx_max_feerate(const struct channel_state *cstate,
 }
 
 bool can_afford_feerate(const struct channel_state *cstate, uint64_t fee_rate,
-			enum channel_side side)
+			enum side side)
 {
 	u64 fee_msat = calculate_fee_msat(cstate->num_nondust, fee_rate);
 
@@ -185,7 +185,7 @@ void adjust_fee(struct channel_state *cstate, uint64_t fee_rate)
 
 	fee_msat = calculate_fee_msat(cstate->num_nondust, fee_rate);
 
-	recalculate_fees(&cstate->side[OURS], &cstate->side[THEIRS], fee_msat);
+	recalculate_fees(&cstate->side[LOCAL], &cstate->side[REMOTE], fee_msat);
 }
 
 bool force_fee(struct channel_state *cstate, uint64_t fee)
@@ -193,8 +193,8 @@ bool force_fee(struct channel_state *cstate, uint64_t fee)
 	/* Beware overflow! */
 	if (fee > 0xFFFFFFFFFFFFFFFFULL / 1000)
 		return false;
-	recalculate_fees(&cstate->side[OURS], &cstate->side[THEIRS], fee * 1000);
-	return cstate->side[OURS].fee_msat + cstate->side[THEIRS].fee_msat == fee * 1000;
+	recalculate_fees(&cstate->side[LOCAL], &cstate->side[REMOTE], fee * 1000);
+	return cstate->side[LOCAL].fee_msat + cstate->side[REMOTE].fee_msat == fee * 1000;
 }
 
 /* Add a HTLC to @creator if it can afford it. */
@@ -204,8 +204,8 @@ bool cstate_add_htlc(struct channel_state *cstate, const struct htlc *htlc,
 	size_t nondust;
 	struct channel_oneside *creator, *recipient;
 
-	creator = &cstate->side[htlc_channel_side(htlc)];
-	recipient = &cstate->side[!htlc_channel_side(htlc)];
+	creator = &cstate->side[htlc_owner(htlc)];
+	recipient = &cstate->side[!htlc_owner(htlc)];
 	
 	/* Remember to count the new one in total txsize if not dust! */
 	nondust = cstate->num_nondust;
@@ -224,8 +224,8 @@ bool cstate_add_htlc(struct channel_state *cstate, const struct htlc *htlc,
 
 /* Remove htlc from creator, credit it to beneficiary. */
 static void remove_htlc(struct channel_state *cstate,
-			enum channel_side creator,
-			enum channel_side beneficiary,
+			enum side creator,
+			enum side beneficiary,
 			const struct htlc *htlc)
 {
 	size_t nondust;
@@ -252,14 +252,12 @@ static void remove_htlc(struct channel_state *cstate,
 
 void cstate_fail_htlc(struct channel_state *cstate, const struct htlc *htlc)
 {
-	remove_htlc(cstate, htlc_channel_side(htlc), htlc_channel_side(htlc),
-		    htlc);
+	remove_htlc(cstate, htlc_owner(htlc), htlc_owner(htlc), htlc);
 }
 
 void cstate_fulfill_htlc(struct channel_state *cstate, const struct htlc *htlc)
 {
-	remove_htlc(cstate, htlc_channel_side(htlc), !htlc_channel_side(htlc),
-		    htlc);
+	remove_htlc(cstate, htlc_owner(htlc), !htlc_owner(htlc), htlc);
 }
 
 struct channel_state *copy_cstate(const tal_t *ctx,
@@ -272,7 +270,7 @@ void force_add_htlc(struct channel_state *cstate, const struct htlc *htlc)
 {
 	struct channel_oneside *creator;
 
-	creator = &cstate->side[htlc_channel_side(htlc)];
+	creator = &cstate->side[htlc_owner(htlc)];
 	creator->num_htlcs++;
 	creator->pay_msat -= htlc->msatoshis;
 	
@@ -282,40 +280,40 @@ void force_add_htlc(struct channel_state *cstate, const struct htlc *htlc)
 }
 
 static void force_remove_htlc(struct channel_state *cstate,
-			      enum channel_side beneficiary,
+			      enum side beneficiary,
 			      const struct htlc *htlc)
 {
 	cstate->side[beneficiary].pay_msat += htlc->msatoshis;
-	cstate->side[htlc_channel_side(htlc)].num_htlcs--;
+	cstate->side[htlc_owner(htlc)].num_htlcs--;
 	if (!is_dust(htlc->msatoshis / 1000))
 		cstate->num_nondust--;
 }
 
 void force_fail_htlc(struct channel_state *cstate, const struct htlc *htlc)
 {
-	force_remove_htlc(cstate, htlc_channel_side(htlc), htlc);
+	force_remove_htlc(cstate, htlc_owner(htlc), htlc);
 }
 	
 void force_fulfill_htlc(struct channel_state *cstate, const struct htlc *htlc)
 {
-	force_remove_htlc(cstate, !htlc_channel_side(htlc), htlc);
+	force_remove_htlc(cstate, !htlc_owner(htlc), htlc);
 }
 
 bool balance_after_force(struct channel_state *cstate)
 {
 	/* We should not spend more than anchor */
-	if (cstate->side[OURS].pay_msat + cstate->side[THEIRS].pay_msat
+	if (cstate->side[LOCAL].pay_msat + cstate->side[REMOTE].pay_msat
 	    > cstate->anchor * 1000)
 		return false;
 
 	/* Check for wrap. */
-	if (cstate->side[OURS].pay_msat > cstate->anchor * 1000)
+	if (cstate->side[LOCAL].pay_msat > cstate->anchor * 1000)
 		return false;
-	if (cstate->side[THEIRS].pay_msat > cstate->anchor * 1000)
+	if (cstate->side[REMOTE].pay_msat > cstate->anchor * 1000)
 		return false;
 
 	if (cstate->num_nondust
-	    > cstate->side[OURS].num_htlcs + cstate->side[THEIRS].num_htlcs)
+	    > cstate->side[LOCAL].num_htlcs + cstate->side[REMOTE].num_htlcs)
 		return false;
 
 	/* Recalc fees. */

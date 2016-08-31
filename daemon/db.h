@@ -39,7 +39,7 @@ bool db_update_htlc_state(struct peer *peer, const struct htlc *htlc,
 bool db_update_feechange_state(struct peer *peer,
 			       const struct feechange *f,
 			       enum htlc_state oldstate);
-bool db_new_commit_info(struct peer *peer, enum channel_side side,
+bool db_new_commit_info(struct peer *peer, enum side side,
 			const struct sha256 *prev_rhash);
 bool db_remove_their_prev_revocation_hash(struct peer *peer);
 bool db_update_next_revocation_hash(struct peer *peer);

@@ -652,7 +652,7 @@ static void retry_all_routing(struct peer *restarted_peer)
 static bool adjust_cstate_side(struct channel_state *cstate,
 			       struct htlc *h,
 			       enum htlc_state old, enum htlc_state new,
-			       enum htlc_side side)
+			       enum side side)
 {
 	int oldf = htlc_state_flags(old), newf = htlc_state_flags(new);
 	bool old_committed, new_committed;
@@ -701,7 +701,7 @@ static void adjust_cstate_fee_side(struct channel_state *cstate,
 				   const struct feechange *f,
 				   enum feechange_state old,
 				   enum feechange_state new,
-				   enum htlc_side side)
+				   enum side side)
 {
 	/* We applied changes to staging_cstate when we first received 
 	 * feechange packet, so we could make sure it was valid.  Don't
@@ -1034,7 +1034,7 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	peer->local.commit = ci;
 	peer->local.commit->order = peer->order_counter++;
 
-	if (!db_new_commit_info(peer, OURS, NULL)) {
+	if (!db_new_commit_info(peer, LOCAL, NULL)) {
 		db_abort_transaction(peer);
 		return pkt_err(peer, "Database error");
 	}
@@ -1745,7 +1745,7 @@ const char *command_htlc_add(struct peer *peer, u64 msatoshis,
 	 * A node MUST NOT add a HTLC if it would result in it
 	 * offering more than 300 HTLCs in the remote commitment transaction.
 	 */
-	if (peer->remote.staging_cstate->side[OURS].num_htlcs == 300) {
+	if (peer->remote.staging_cstate->side[LOCAL].num_htlcs == 300) {
 		log_unusual(peer->log, "add_htlc: fail: already at limit");
 		*error_code = SERVICE_UNAVAILABLE_503;
 		return "channel full";
@@ -2236,7 +2236,7 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 	tal_free(peer->remote.commit);
 	peer->remote.commit = ci;
 	peer->remote.commit->order = peer->order_counter++;
-	if (!db_new_commit_info(peer, THEIRS, peer->their_prev_revocation_hash))
+	if (!db_new_commit_info(peer, REMOTE, peer->their_prev_revocation_hash))
 		goto database_error;
 
 	/* We don't need to remember their commit if we don't give sig. */
@@ -3023,7 +3023,7 @@ static bool outputscript_eq(const struct bitcoin_tx_output *out,
 static bool map_onchain_outputs(struct peer *peer,
 				const struct sha256 *rhash,
 				const struct bitcoin_tx *tx,
-				enum htlc_side side,
+				enum side side,
 				unsigned int commit_num)
 {
 	u8 *to_us, *to_them, *to_them_wscript, *to_us_wscript;
@@ -3216,7 +3216,7 @@ static enum watch_result our_htlc_timeout_depth(struct peer *peer,
 static enum watch_result our_htlc_depth(struct peer *peer,
 					unsigned int depth,
 					const struct sha256_double *txid,
-					enum htlc_side whose_commit,
+					enum side whose_commit,
 					unsigned int out_num)
 {
 	struct htlc *h = peer->onchain.htlcs[out_num];
@@ -3949,8 +3949,8 @@ struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee)
 	log_debug(peer->log,
 		  "creating close-tx with fee %"PRIu64" amounts %u/%u to ",
 		  fee,
-		  cstate.side[OURS].pay_msat / 1000,
-		  cstate.side[THEIRS].pay_msat / 1000);
+		  cstate.side[LOCAL].pay_msat / 1000,
+		  cstate.side[REMOTE].pay_msat / 1000);
 	log_add_struct(peer->log, "%s", struct pubkey, &peer->local.finalkey);
 	log_add_struct(peer->log, "/%s", struct pubkey, &peer->remote.finalkey);
 
@@ -3960,8 +3960,8 @@ struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee)
 			       &peer->anchor.txid,
 			       peer->anchor.index,
 			       peer->anchor.satoshis,
-			       cstate.side[OURS].pay_msat / 1000,
-			       cstate.side[THEIRS].pay_msat / 1000);
+			       cstate.side[LOCAL].pay_msat / 1000,
+			       cstate.side[REMOTE].pay_msat / 1000);
 }
 
 /* Creation the bitcoin anchor tx, spending output user provided. */
@@ -4035,7 +4035,7 @@ bool setup_first_commit(struct peer *peer)
 						     peer->local.commit_fee_rate,
 						     peer->local.offer_anchor
 						     == CMD_OPEN_WITH_ANCHOR ?
-						     OURS : THEIRS);
+						     LOCAL : REMOTE);
 	if (!peer->local.commit->cstate)
 		return false;
 
@@ -4044,7 +4044,7 @@ bool setup_first_commit(struct peer *peer)
 						     peer->remote.commit_fee_rate,
 						     peer->local.offer_anchor
 						     == CMD_OPEN_WITH_ANCHOR ?
-						     OURS : THEIRS);
+						     LOCAL : REMOTE);
 	if (!peer->remote.commit->cstate)
 		return false;
 
@@ -4171,7 +4171,7 @@ static void json_add_abstime(struct json_result *response,
 static void json_add_htlcs(struct json_result *response,
 			   const char *id,
 			   struct peer *peer,
-			   enum htlc_side owner)
+			   enum side owner)
 {
 	struct htlc_map_iter it;
 	struct htlc *h;
@@ -4228,10 +4228,10 @@ static void json_getpeers(struct command *cmd,
 		}
 		last = p->local.commit->cstate;
 
-		json_add_num(response, "our_amount", last->side[OURS].pay_msat);
-		json_add_num(response, "our_fee", last->side[OURS].fee_msat);
-		json_add_num(response, "their_amount", last->side[THEIRS].pay_msat);
-		json_add_num(response, "their_fee", last->side[THEIRS].fee_msat);
+		json_add_num(response, "our_amount", last->side[LOCAL].pay_msat);
+		json_add_num(response, "our_fee", last->side[LOCAL].fee_msat);
+		json_add_num(response, "their_amount", last->side[REMOTE].pay_msat);
+		json_add_num(response, "their_fee", last->side[REMOTE].fee_msat);
 		json_add_htlcs(response, "our_htlcs", p, LOCAL);
 		json_add_htlcs(response, "their_htlcs", p, REMOTE);
 		json_object_end(response);

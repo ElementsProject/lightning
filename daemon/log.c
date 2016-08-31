@@ -346,9 +346,9 @@ static char *to_string_(const tal_t *ctx,
 			    u.cstate->fee_rate,
 			    u.cstate->num_nondust,
 			    to_string(ctx, lr, struct channel_oneside,
-				      &u.cstate->side[OURS]),
+				      &u.cstate->side[LOCAL]),
 			    to_string(ctx, lr, struct channel_oneside,
-				      &u.cstate->side[THEIRS]));
+				      &u.cstate->side[REMOTE]));
 	}
 
 	return s;

@@ -27,11 +27,6 @@
 #define HTLC_F_WAS_COMMITTED		0x10
 
 /* Each of the above flags applies to both sides */
-enum htlc_side {
-	LOCAL,
-	REMOTE
-};
-
 #define HTLC_FLAG(side,flag)		((flag) << ((side) * 5))
 
 #define HTLC_REMOTE_F_PENDING		HTLC_FLAG(REMOTE,HTLC_F_PENDING)
@@ -49,11 +44,11 @@ enum htlc_side {
 struct htlc {
 	/* Useful for debugging, and decoding via ->src. */
 	struct peer *peer;
-	/* Block number where we abort if it's still live (OURS only) */
+	/* Block number where we abort if it's still live (LOCAL only) */
 	u32 deadline;
 	/* What's the status. */
 	enum htlc_state state; 
-	/* The unique ID for this peer and this direction (ours or theirs) */
+	/* The unique ID for this peer and this direction (LOCAL or REMOTE) */
 	u64 id;
 	/* The amount in millisatoshi. */
 	u64 msatoshis;
@@ -67,7 +62,7 @@ struct htlc {
 	/* FIXME: We could union these together: */
 	/* Routing information sent with this HTLC. */
 	const u8 *routing;
-	/* Previous HTLC (if any) which made us offer this (OURS only) */
+	/* Previous HTLC (if any) which made us offer this (LOCAL only) */
 	struct htlc *src;
 	const u8 *fail;
 };
@@ -85,7 +80,7 @@ static inline bool htlc_has(const struct htlc *h, int flag)
 	return htlc_state_flags(h->state) & flag;
 }
 
-static inline enum htlc_side htlc_state_owner(enum htlc_state state)
+static inline enum side htlc_state_owner(enum htlc_state state)
 {
 	if (state < RCVD_ADD_HTLC) {
 		assert((htlc_state_flags(state)
@@ -100,17 +95,9 @@ static inline enum htlc_side htlc_state_owner(enum htlc_state state)
 	}
 }
 
-static inline enum htlc_side htlc_owner(const struct htlc *h)
+static inline enum side htlc_owner(const struct htlc *h)
 {
 	return htlc_state_owner(h->state);
-}
-
-/* FIXME: Transitional function. */
-static inline enum channel_side htlc_channel_side(const struct htlc *h)
-{
-	if (htlc_owner(h) == LOCAL)
-		return OURS;
-	return THEIRS;
 }
 
 void htlc_undostate(struct htlc *h,
@@ -131,7 +118,7 @@ static inline size_t htlc_hash(u64 id)
 }
 HTABLE_DEFINE_TYPE(struct htlc, htlc_key, htlc_hash, htlc_cmp, htlc_map);
 
-static inline struct htlc *htlc_get(struct htlc_map *htlcs, u64 id, enum htlc_side owner)
+static inline struct htlc *htlc_get(struct htlc_map *htlcs, u64 id, enum side owner)
 {
 	struct htlc *h;
 	struct htlc_map_iter it;

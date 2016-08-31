@@ -164,7 +164,7 @@ enum state state(struct peer *peer,
 				db_abort_transaction(peer);
 				goto err_breakdown;
 			}
-			if (!db_new_commit_info(peer, THEIRS, NULL)) {
+			if (!db_new_commit_info(peer, REMOTE, NULL)) {
 				err = pkt_err(peer, "database error");
 				peer_open_complete(peer, err->error->problem);
 				db_abort_transaction(peer);
@@ -230,7 +230,7 @@ enum state state(struct peer *peer,
 				db_abort_transaction(peer);
 				goto err_breakdown;
 			}
-			if (!db_new_commit_info(peer, OURS, NULL)) {
+			if (!db_new_commit_info(peer, LOCAL, NULL)) {
 				bitcoin_release_anchor(peer, INPUT_NONE);
 				err = pkt_err(peer, "database error");
 				peer_open_complete(peer, err->error->problem);
