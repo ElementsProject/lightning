@@ -1061,8 +1061,8 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 			      true);
 	if (errmsg) {
 		log_broken(peer->log, "queue_pkt_revocation: %s", errmsg);
-		/* FIXME: Return error. */
-		fatal("revocation_changes: %s", errmsg);
+		db_abort_transaction(peer);
+		return pkt_err(peer, "Database error");
 	}
 
 	peer_get_revocation_preimage(peer, peer->local.commit->commit_num - 1,
@@ -2226,17 +2226,14 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 		= tal_dup(peer, struct sha256,
 			  &peer->remote.commit->revocation_hash);
 
-	if (!db_start_transaction(peer)) {
-		/* FIXME: Return error. */
-		fatal("queue_pkt_commit: db fail");
-	}
+	if (!db_start_transaction(peer))
+		goto database_error;
 		
 	errmsg = changestates(peer, changes, ARRAY_SIZE(changes),
 			      feechanges, ARRAY_SIZE(feechanges), true);
 	if (errmsg) {
 		log_broken(peer->log, "queue_pkt_commit: %s", errmsg);
-		/* FIXME: Return error. */
-		fatal("queue_pkt_commit: %s", errmsg);
+		goto database_error;
 	}
 
 	/* Create new commit info for this commit tx. */
@@ -2270,14 +2267,12 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 	tal_free(peer->remote.commit);
 	peer->remote.commit = ci;
 	peer->remote.commit->order = peer->order_counter++;
-	if (!db_new_commit_info(peer, THEIRS, peer->their_prev_revocation_hash)){
-		/* FIXME: Return error. */
-		fatal("queue_pkt_commit: database error");
-	}
+	if (!db_new_commit_info(peer, THEIRS, peer->their_prev_revocation_hash))
+		goto database_error;
+
 	/* We don't need to remember their commit if we don't give sig. */
 	if (ci->sig && !peer_add_their_commit(peer, &ci->txid, ci->commit_num))
-		/* FIXME: Return error. */
-		fatal("queue_pkt_commit: database error");
+		goto database_error;
 
 	if (peer->state == STATE_SHUTDOWN) {
 		set_peer_state(peer, STATE_SHUTDOWN_COMMITTING, __func__, true);
@@ -2286,9 +2281,15 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 		set_peer_state(peer, STATE_NORMAL_COMMITTING, __func__, true);
 	}
 	if (!db_commit_transaction(peer))
-		/* FIXME: Return error. */
-		fatal("queue_pkt_commit: database error");
+		goto database_error;
+
 	queue_pkt_commit(peer, ci->sig);
+	return;
+
+database_error:
+	db_abort_transaction(peer);
+	set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__, false);
+	peer_breakdown(peer);
 }
 
 /* FIXME: don't spin on this timer if we're not connected! */
