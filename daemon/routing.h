@@ -51,6 +51,9 @@ struct node_connection *add_connection(struct lightningd_state *dstate,
 				       u32 base_fee, s32 proportional_fee,
 				       u32 delay, u32 min_blocks);
 
+void remove_connection(struct lightningd_state *dstate,
+		       const struct pubkey *src, const struct pubkey *dst);
+
 struct peer *find_route(struct lightningd_state *dstate,
 			const struct pubkey *to,
 			u64 msatoshi, s64 *fee,

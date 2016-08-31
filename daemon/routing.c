@@ -154,6 +154,39 @@ struct node_connection *add_connection(struct lightningd_state *dstate,
 	return c;
 }
 
+void remove_connection(struct lightningd_state *dstate,
+		       const struct pubkey *src, const struct pubkey *dst)
+{
+	struct node *from, *to;
+	size_t i, num_edges;
+
+	log_debug_struct(dstate->base_log, "Removing route from %s",
+			 struct pubkey, src);
+	log_add_struct(dstate->base_log, " to %s", struct pubkey, dst);
+
+	from = get_node(dstate, src);
+	to = get_node(dstate, dst);
+	if (!from || !to) {
+		log_debug(dstate->base_log, "Not found: src=%p dst=%p",
+			  from, to);
+		return;
+	}
+
+	num_edges = tal_count(from->out);
+
+	for (i = 0; i < num_edges; i++) {
+		if (from->out[i]->dst != to)
+			continue;
+
+		log_add(dstate->base_log, " Matched route %zu of %zu",
+			i, num_edges);
+		/* Destructor makes it delete itself */
+		tal_free(from->out[i]);
+		return;
+	}
+	log_add(dstate->base_log, " None of %zu routes matched", num_edges);
+}
+
 /* Too big to reach, but don't overflow if added. */
 #define INFINITE 0x3FFFFFFFFFFFFFFFULL
 

@@ -16,7 +16,7 @@ struct pay_command {
 	struct list_node list;
 	struct sha256 rhash;
 	u64 msatoshis;
-	struct pubkey id;
+	struct pubkey *ids;
 	/* Set if this is in progress. */
 	struct htlc *htlc;
 	/* Preimage if this succeeded. */
@@ -35,9 +35,9 @@ static void json_pay_success(struct command *cmd, const struct rval *rval)
 	command_success(cmd, response);
 }
 
-static void handle_json(struct command *cmd, const struct htlc *htlc)
+static void handle_json(struct command *cmd, const struct htlc *htlc,
+			const FailInfo *f)
 {
-	FailInfo *f;
 	struct pubkey id;
 	const char *idstr = "INVALID";
 
@@ -46,7 +46,6 @@ static void handle_json(struct command *cmd, const struct htlc *htlc)
 		return;
 	}
 
-	f = failinfo_unwrap(cmd, htlc->fail, tal_count(htlc->fail));
 	if (!f) {
 		command_fail(cmd, "failed (bad message)");
 		return;
@@ -60,6 +59,40 @@ static void handle_json(struct command *cmd, const struct htlc *htlc)
 		     f->error_code, idstr, f->reason ? f->reason : "unknown");
 }
 
+static void check_routing_failure(struct lightningd_state *dstate,
+				  const struct pay_command *pc,
+				  const FailInfo *f)
+{
+	size_t i;
+	struct pubkey id;
+
+	if (!f)
+		return;
+
+	/* FIXME: We remove route on *any* failure. */
+	log_debug(dstate->base_log, "Seeking route for fail code %u",
+		  f->error_code);
+	if (!proto_to_pubkey(dstate->secpctx, f->id, &id)) {
+		log_add(dstate->base_log, " - bad node");
+		return;
+	}
+
+	log_add_struct(dstate->base_log, " node %s", struct pubkey, &id);
+
+	/* Don't remove route if it's last node (obviously) */
+	for (i = 0; i+1 < tal_count(pc->ids); i++) {
+		if (structeq(&pc->ids[i], &id)) {
+			remove_connection(dstate, &pc->ids[i], &pc->ids[i+1]);
+			return;
+		}
+	}
+
+	if (structeq(&pc->ids[i], &id))
+		log_debug(dstate->base_log, "Final node: ignoring");
+	else
+		log_debug(dstate->base_log, "Node not on route: ignoring");
+}
+
 void complete_pay_command(struct lightningd_state *dstate,
 			  const struct htlc *htlc)
 {
@@ -67,13 +100,21 @@ void complete_pay_command(struct lightningd_state *dstate,
 
 	list_for_each(&dstate->pay_commands, i, list) {
 		if (i->htlc == htlc) {
+			FailInfo *f = NULL;
 			if (htlc->r)
 				i->rval = tal_dup(i, struct rval, htlc->r);
+			else {
+				f = failinfo_unwrap(i->cmd, htlc->fail,
+						    tal_count(htlc->fail));
+				check_routing_failure(dstate, i, f);
+			}
+
+			/* No longer connected to live HTLC. */
 			i->htlc = NULL;
 
 			/* Can be NULL if JSON RPC goes away. */
 			if (i->cmd)
-				handle_json(i->cmd, htlc);
+				handle_json(i->cmd, htlc, f);
 			return;
 		}
 	}
@@ -305,6 +346,7 @@ static void json_sendpay(struct command *cmd,
 			return;
 		}
 		if (pc->rval) {
+			size_t old_nhops = tal_count(pc->ids);
 			log_add(cmd->dstate->base_log, "... succeeded");
 			/* Must match successful payment parameters. */
 			if (pc->msatoshis != amounts[n_hops-1]) {
@@ -313,11 +355,11 @@ static void json_sendpay(struct command *cmd,
 					     PRIu64, pc->msatoshis);
 				return;
 			}
-			if (!structeq(&pc->id, &ids[n_hops-1])) {
+			if (!structeq(&pc->ids[old_nhops-1], &ids[n_hops-1])) {
 				char *previd;
 				previd = pubkey_to_hexstr(cmd,
 							  cmd->dstate->secpctx,
-							  &pc->id);
+							  &pc->ids[old_nhops-1]);
 				command_fail(cmd,
 					     "already succeeded to %s",
 					     previd);
@@ -339,12 +381,14 @@ static void json_sendpay(struct command *cmd,
 	onion = onion_create(cmd, cmd->dstate->secpctx, ids+1, amounts+1,
 			     n_hops-1);
 
-	if (!pc)
+	if (pc)
+		pc->ids = tal_free(pc->ids);
+	else
 		pc = tal(cmd->dstate, struct pay_command);
 	pc->cmd = cmd;
 	pc->rhash = rhash;
 	pc->rval = NULL;
-	pc->id = ids[n_hops-1];
+	pc->ids = tal_steal(pc, ids);
 	pc->msatoshis = amounts[n_hops-1];
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */

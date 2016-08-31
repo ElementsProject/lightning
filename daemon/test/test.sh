@@ -1048,6 +1048,20 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     lcli1 sendpay "$SHORTROUTE" $RHASH5 | $FGREP "already succeeded to $ID3"
     lcli1 sendpay "$UNDERPAY" $RHASH5 | $FGREP "already succeeded with amount $HTLC_AMOUNT"
 
+    # Now node2 should fail to route.
+    if lcli1 sendpay "$ROUTE" $RHASH4 | $FGREP "failed: error code 404 node $ID2 reason Unknown peer"; then : ;
+    else
+	echo "Pay to node3 didn't give 404" >&2
+	exit 1
+    fi
+
+    # Now node1 should fail to route (route deleted)
+    if lcli1 getroute $ID3 $HTLC_AMOUNT | $FGREP "no route found"; then : ;
+    else
+	echo "Pay to node3 didn't fail instantly second time" >&2
+	exit 1
+    fi
+
     DO_RECONNECT=$RECONNECT
 fi
 
