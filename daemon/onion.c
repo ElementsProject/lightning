@@ -16,41 +16,35 @@ static const u8 *to_onion(const tal_t *ctx, const Route *r)
 	return onion;
 }
 
-/* Create an onion for sending msatoshi_with_fees down path. */
+/* Create an onion for this path. */
 const u8 *onion_create(const tal_t *ctx,
 		       secp256k1_context *secpctx,
-		       struct node_connection **path,
-		       u64 msatoshi, s64 fees)
+		       const struct pubkey *ids,
+		       const u64 *amounts,
+		       size_t num_hops)
 {
 	Route *r = tal(ctx, Route);
-	int i;
-	u64 amount = msatoshi;
+	size_t i;
 
 	route__init(r);
-	r->n_steps = tal_count(path) + 1;
+	r->n_steps = num_hops + 1;
 	r->steps = tal_arr(r, RouteStep *, r->n_steps);
 
-	/* Create backwards, so we can get fees correct. */
-	for (i = tal_count(path) - 1; i >= 0; i--) {
+	for (i = 0; i < num_hops; i++) {
 		r->steps[i] = tal(r, RouteStep);
 		route_step__init(r->steps[i]);
 		r->steps[i]->next_case = ROUTE_STEP__NEXT_BITCOIN;
-		r->steps[i]->bitcoin = pubkey_to_proto(r, secpctx,
-						       &path[i]->dst->id);
-		r->steps[i]->amount = amount;
-		amount += connection_fee(path[i], amount);
+		r->steps[i]->bitcoin = pubkey_to_proto(r, secpctx, &ids[i]);
+		r->steps[i]->amount = amounts[i];
 	}
 
 	/* Now the stop marker. */
-	i = tal_count(path);
 	r->steps[i] = tal(r, RouteStep);
 	route_step__init(r->steps[i]);
 	r->steps[i]->next_case = ROUTE_STEP__NEXT_END;
 	r->steps[i]->end = true;
 	r->steps[i]->amount = 0;
 
-	assert(amount == msatoshi + fees);
-	
 	return to_onion(ctx, r);
 }
 

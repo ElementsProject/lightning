@@ -96,11 +96,13 @@ int main(int argc, char *argv[])
 		      method, idstr);
 
 	for (i = 2; i < argc; i++) {
-		/* Numbers and bools are left unquoted,
+		/* Numbers, bools, objects and arrays are left unquoted,
 		 * and quoted things left alone. */
 		if (strspn(argv[i], "0123456789") == strlen(argv[i])
 		    || streq(argv[i], "true")
 		    || streq(argv[i], "false")
+		    || argv[i][0] == '{'
+		    || argv[i][0] == '['
 		    || argv[i][0] == '"')
 			tal_append_fmt(&cmd, "%s", argv[i]);
 		else

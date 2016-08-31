@@ -4169,17 +4169,6 @@ static void json_add_abstime(struct json_result *response,
 	json_object_end(response);
 }
 
-static void json_add_pubkey(struct json_result *response,
-			    secp256k1_context *secpctx,
-			    const char *id,
-			    const struct pubkey *key)
-{
-	u8 der[PUBKEY_DER_LEN];
-
-	pubkey_to_der(secpctx, der, key);
-	json_add_hex(response, id, der, sizeof(der));
-}
-
 static void json_add_htlcs(struct json_result *response,
 			   const char *id,
 			   struct peer *peer,
@@ -4344,15 +4333,6 @@ void cleanup_peers(struct lightningd_state *dstate)
 	}
 }
 
-/* A zero-fee single route to this peer. */
-static const u8 *dummy_single_route(const tal_t *ctx,
-				    const struct peer *peer,
-				    u64 msatoshis)
-{
-	struct node_connection **path = tal_arr(ctx, struct node_connection *, 0);
-	return onion_create(ctx, peer->dstate->secpctx, path, msatoshis, 0);
-}
-
 static void json_newhtlc(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
@@ -4416,7 +4396,8 @@ static void json_newhtlc(struct command *cmd,
 
 	log_debug(peer->log, "JSON command to add new HTLC");
 	err = command_htlc_add(peer, msatoshis, expiry, &rhash, NULL,
-			       dummy_single_route(cmd, peer, msatoshis),
+			       onion_create(cmd, cmd->dstate->secpctx,
+					    NULL, NULL, 0),
 			       &error_code, &htlc);
 	if (err) {
 		command_fail(cmd, "could not add htlc: %u:%s", error_code, err);

@@ -15,7 +15,7 @@
 struct pay_command {
 	struct list_node list;
 	struct sha256 rhash;
-	u64 msatoshis, fee;
+	u64 msatoshis;
 	struct pubkey id;
 	/* Set if this is in progress. */
 	struct htlc *htlc;
@@ -110,29 +110,37 @@ static struct pay_command *find_pay_command(struct lightningd_state *dstate,
 	return NULL;
 }
 
-static void json_pay(struct command *cmd,
-		     const char *buffer, const jsmntok_t *params)
+static void json_add_route(struct json_result *response,
+			   secp256k1_context *secpctx,
+			   const struct pubkey *id,
+			   u64 amount, unsigned int delay)
+{
+	json_object_start(response, NULL);
+	json_add_pubkey(response, secpctx, "id", id);
+	json_add_u64(response, "msatoshis", amount);
+	json_add_num(response, "delay", delay);
+	json_object_end(response);
+}
+
+static void json_getroute(struct command *cmd,
+			  const char *buffer, const jsmntok_t *params)
 {
 	struct pubkey id;
-	jsmntok_t *idtok, *msatoshistok, *rhashtok;
-	unsigned int expiry;
+	jsmntok_t *idtok, *msatoshistok;
+	struct json_result *response;
 	int i;
 	u64 msatoshis;
 	s64 fee;
-	struct sha256 rhash;
 	struct node_connection **route;
 	struct peer *peer;
-	struct pay_command *pc;
-	const u8 *onion;
-	enum fail_error error_code;
-	const char *err;
+	u64 *amounts, total_amount;
+	unsigned int total_delay, *delays;
 
 	if (!json_get_params(buffer, params,
 			     "id", &idtok,
 			     "msatoshis", &msatoshistok,
-			     "rhash", &rhashtok,
 			     NULL)) {
-		command_fail(cmd, "Need id, msatoshis and rhash");
+		command_fail(cmd, "Need id and msatoshis");
 		return;
 	}
 
@@ -150,6 +158,79 @@ static void json_pay(struct command *cmd,
 		return;
 	}
 
+	peer = find_route(cmd->dstate, &id, msatoshis, &fee, &route);
+	if (!peer) {
+		command_fail(cmd, "no route found");
+		return;
+	}
+
+	/* Fees, delays need to be calculated backwards along route. */
+	amounts = tal_arr(cmd, u64, tal_count(route)+1);
+	delays = tal_arr(cmd, unsigned int, tal_count(route)+1);
+	total_amount = msatoshis;
+
+	total_delay = 0;
+	for (i = tal_count(route) - 1; i >= 0; i--) {
+		amounts[i+1] = total_amount;
+		total_amount += connection_fee(route[i], total_amount);
+
+		total_delay += route[i]->delay;
+		if (total_delay < route[i]->min_blocks)
+			total_delay = route[i]->min_blocks;
+		delays[i+1] = total_delay;
+	}
+	/* We don't charge ourselves any fees. */
+	amounts[0] = total_amount;
+	/* We do require delay though. */
+	total_delay += peer->nc->delay;
+	if (total_delay < peer->nc->min_blocks)
+		total_delay = peer->nc->min_blocks;
+	delays[0] = total_delay;
+
+	response = new_json_result(cmd);
+	json_object_start(response, NULL);
+	json_array_start(response, "route");
+	json_add_route(response, cmd->dstate->secpctx,
+		       peer->id, amounts[0], delays[0]);
+	for (i = 0; i < tal_count(route); i++)
+		json_add_route(response, cmd->dstate->secpctx,
+			       &route[i]->dst->id, amounts[i+1], delays[i+1]);
+	json_array_end(response);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+const struct json_command getroute_command = {
+	"getroute",
+	json_getroute,
+	"Return route for {msatoshis} to {id}",
+	"Returns a {route} array of {id} {msatoshis} {delay}: msatoshis and delay (in blocks) is cumulative."
+};
+
+static void json_sendpay(struct command *cmd,
+			 const char *buffer, const jsmntok_t *params)
+{
+	struct pubkey *ids;
+	u64 *amounts;
+	jsmntok_t *routetok, *rhashtok;
+	const jsmntok_t *t, *end;
+	unsigned int delay;
+	size_t n_hops;
+	struct sha256 rhash;
+	struct peer *peer;
+	struct pay_command *pc;
+	const u8 *onion;
+	enum fail_error error_code;
+	const char *err;
+
+	if (!json_get_params(buffer, params,
+			     "route", &routetok,
+			     "rhash", &rhashtok,
+			     NULL)) {
+		command_fail(cmd, "Need route and rhash");
+		return;
+	}
+
 	if (!hex_decode(buffer + rhashtok->start,
 			rhashtok->end - rhashtok->start,
 			&rhash, sizeof(rhash))) {
@@ -159,9 +240,65 @@ static void json_pay(struct command *cmd,
 		return;
 	}
 
+	if (routetok->type != JSMN_ARRAY) {
+		command_fail(cmd, "'%.*s' is not an array",
+			     (int)(routetok->end - routetok->start),
+			     buffer + routetok->start);
+		return;
+	}
+
+	end = json_next(routetok);
+	n_hops = 0;
+	amounts = tal_arr(cmd, u64, n_hops);
+	ids = tal_arr(cmd, struct pubkey, n_hops);
+	for (t = routetok + 1; t < end; t = json_next(t)) {
+		const jsmntok_t *amttok, *idtok, *delaytok;
+
+		if (t->type != JSMN_OBJECT) {
+			command_fail(cmd, "route %zu '%.*s' is not an object",
+				     n_hops,
+				     (int)(t->end - t->start),
+				     buffer + t->start);
+			return;
+		}
+		amttok = json_get_member(buffer, t, "msatoshis");
+		idtok = json_get_member(buffer, t, "id");
+		delaytok = json_get_member(buffer, t, "delay");
+		if (!amttok || !idtok || !delaytok) {
+			command_fail(cmd, "route %zu needs msatoshis/id/delay",
+				     n_hops);
+			return;
+		}
+
+		tal_resize(&amounts, n_hops+1);
+		if (!json_tok_u64(buffer, amttok, &amounts[n_hops])) {
+			command_fail(cmd, "route %zu invalid msatoshis", n_hops);
+			return;
+		}
+		tal_resize(&ids, n_hops+1);
+		if (!pubkey_from_hexstr(cmd->dstate->secpctx,
+					buffer + idtok->start,
+					idtok->end - idtok->start,
+					&ids[n_hops])) {
+			command_fail(cmd, "route %zu invalid id", n_hops);
+			return;
+		}
+		/* Only need first delay. */
+		if (n_hops == 0 && !json_tok_number(buffer, delaytok, &delay)) {
+			command_fail(cmd, "route %zu invalid delay", n_hops);
+			return;
+		}
+		n_hops++;
+	}
+
+	if (n_hops == 0) {
+		command_fail(cmd, "Empty route");
+		return;
+	}
+
 	pc = find_pay_command(cmd->dstate, &rhash);
 	if (pc) {
-		log_debug(cmd->dstate->base_log, "json_pay: found previous");
+		log_debug(cmd->dstate->base_log, "json_sendpay: found previous");
 		if (pc->htlc) {
 			log_add(cmd->dstate->base_log, "... still in progress");
 			command_fail(cmd, "still in progress");
@@ -170,13 +307,13 @@ static void json_pay(struct command *cmd,
 		if (pc->rval) {
 			log_add(cmd->dstate->base_log, "... succeeded");
 			/* Must match successful payment parameters. */
-			if (pc->msatoshis != msatoshis) {
+			if (pc->msatoshis != amounts[n_hops-1]) {
 				command_fail(cmd,
 					     "already succeeded with amount %"
 					     PRIu64, pc->msatoshis);
 				return;
 			}
-			if (!structeq(&pc->id, &id)) {
+			if (!structeq(&pc->id, &ids[n_hops-1])) {
 				char *previd;
 				previd = pubkey_to_hexstr(cmd,
 							  cmd->dstate->secpctx,
@@ -192,38 +329,28 @@ static void json_pay(struct command *cmd,
 		log_add(cmd->dstate->base_log, "... retrying");
 	}
 
-	/* FIXME: Add fee param, check for excessive fee. */
-	peer = find_route(cmd->dstate, &id, msatoshis, &fee, &route);
+	peer = find_peer(cmd->dstate, &ids[0]);
 	if (!peer) {
-		command_fail(cmd, "no route found");
+		command_fail(cmd, "no connection to first peer found");
 		return;
 	}
 
-	expiry = 0;
-	for (i = tal_count(route) - 1; i >= 0; i--) {
-		expiry += route[i]->delay;
-		if (expiry < route[i]->min_blocks)
-			expiry = route[i]->min_blocks;
-	}
-	expiry += peer->nc->delay;
-	if (expiry < peer->nc->min_blocks)
-		expiry = peer->nc->min_blocks;
-
-	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
-	expiry += get_block_height(cmd->dstate) + 1;
-
-	onion = onion_create(cmd, cmd->dstate->secpctx, route, msatoshis, fee);
+	/* Onion will carry us from first peer onwards. */
+	onion = onion_create(cmd, cmd->dstate->secpctx, ids+1, amounts+1,
+			     n_hops-1);
 
 	if (!pc)
 		pc = tal(cmd->dstate, struct pay_command);
 	pc->cmd = cmd;
 	pc->rhash = rhash;
 	pc->rval = NULL;
-	pc->id = id;
-	pc->msatoshis = msatoshis;
-	pc->fee = fee;
+	pc->id = ids[n_hops-1];
+	pc->msatoshis = amounts[n_hops-1];
 
-	err = command_htlc_add(peer, msatoshis + fee, expiry, &rhash, NULL,
+	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
+	err = command_htlc_add(peer, amounts[0],
+			       delay + get_block_height(cmd->dstate) + 1,
+			       &rhash, NULL,
 			       onion, &error_code, &pc->htlc);
 	if (err) {
 		command_fail(cmd, "could not add htlc: %u: %s", error_code, err);
@@ -235,9 +362,9 @@ static void json_pay(struct command *cmd,
 	tal_add_destructor(cmd, remove_cmd_from_pc);
 }
 
-const struct json_command pay_command = {
-	"pay",
-	json_pay,
-	"Send {id} {msatoshis} in return for preimage of {rhash}",
+const struct json_command sendpay_command = {
+	"sendpay",
+	json_sendpay,
+	"Send along {route} in return for preimage of {rhash}",
 	"Returns the {preimage} on success"
 };

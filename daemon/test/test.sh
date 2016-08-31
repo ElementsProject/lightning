@@ -1011,20 +1011,26 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     # FIXME: We don't save payments in db yet!
     DO_RECONNECT=""
 
+    # Get route.
+    ROUTE=`lcli1 getroute $ID3 $HTLC_AMOUNT`
+    ROUTE=`echo $ROUTE | sed 's/^{ "route" : \(.*\) }$/\1/'`
+
     # Try wrong hash.
-    if lcli1 pay $ID3 $HTLC_AMOUNT $RHASH4; then
+    if lcli1 sendpay "$ROUTE" $RHASH4; then
 	echo Paid with wrong hash? >&2
 	exit 1
     fi
 
     # Try underpaying.
-    if lcli1 pay $ID3 $(($HTLC_AMOUNT-1)) $RHASH5; then
+    PAID=`echo "$ROUTE" | sed -n 's/.*"msatoshis" : \([0-9]*\),.*/\1/p'`
+    UNDERPAY=`echo "$ROUTE" | sed "s/: $PAID,/: $(($PAID - 1)),/"`
+    if lcli1 sendpay "$UNDERPAY" $RHASH5; then
 	echo Paid with too little? >&2
 	exit 1
     fi
 
     # Pay correctly.
-    lcli1 pay $ID3 $HTLC_AMOUNT $RHASH5
+    lcli1 sendpay "$ROUTE" $RHASH5
 
     # Node 3 should end up with that amount (minus 1/2 tx fee)
     # Note that it is delayed a little, since node2 fulfils as soon as fulfill
@@ -1033,11 +1039,12 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     lcli3 close $ID2
 
     # Re-send should be a noop (doesn't matter that node3 is down!)
-    lcli1 pay $ID3 $HTLC_AMOUNT $RHASH5
+    lcli1 sendpay "$ROUTE" $RHASH5
 
     # Re-send to different id or amount should complain.
-    lcli1 pay $ID2 $HTLC_AMOUNT $RHASH5 | $FGREP "already succeeded to $ID3"
-    lcli1 pay $ID2 $(($HTLC_AMOUNT + 1)) $RHASH5 | $FGREP "already succeeded with amount $HTLC_AMOUNT"
+    SHORTROUTE=`echo "$ROUTE" | sed 's/, { "id" : .* }//' | sed 's/"msatoshis" : [0-9]*,/"msatoshis" : '$HTLC_AMOUNT,/`
+    lcli1 sendpay "$SHORTROUTE" $RHASH5 | $FGREP "already succeeded to $ID3"
+    lcli1 sendpay "$UNDERPAY" $RHASH5 | $FGREP "already succeeded with amount $HTLC_AMOUNT"
 
     DO_RECONNECT=$RECONNECT
 fi

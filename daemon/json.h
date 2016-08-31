@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_DAEMON_JSON_H
 #define LIGHTNING_DAEMON_JSON_H
 #include "config.h"
+#include <bitcoin/pubkey.h>
 #include <ccan/tal/tal.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -98,6 +99,11 @@ void json_add_null(struct json_result *result, const char *fieldname);
 /* '"fieldname" : "0189abcdef..."' or "0189abcdef..." if fieldname is NULL */
 void json_add_hex(struct json_result *result, const char *fieldname,
 		  const void *data, size_t len);
+/* '"fieldname" : "0289abcdef..."' or "0289abcdef..." if fieldname is NULL */
+void json_add_pubkey(struct json_result *response,
+		     secp256k1_context *secpctx,
+		     const char *fieldname,
+		     const struct pubkey *key);
 
 void json_add_object(struct json_result *result, ...);
 

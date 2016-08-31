@@ -425,6 +425,17 @@ void json_add_hex(struct json_result *result, const char *fieldname,
 	json_add_string(result, fieldname, hex);
 }
 
+void json_add_pubkey(struct json_result *response,
+		     secp256k1_context *secpctx,
+		     const char *fieldname,
+		     const struct pubkey *key)
+{
+	u8 der[PUBKEY_DER_LEN];
+
+	pubkey_to_der(secpctx, der, key);
+	json_add_hex(response, fieldname, der, sizeof(der));
+}
+
 void json_add_object(struct json_result *result, ...)
 {
 	va_list ap;

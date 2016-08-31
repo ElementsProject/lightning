@@ -15,6 +15,7 @@ RouteStep *onion_unwrap(struct peer *peer,
 /* Create an onion for sending msatoshi down path, paying fees. */
 const u8 *onion_create(const tal_t *ctx,
 		       secp256k1_context *secpctx,
-		       struct node_connection **path,
-		       u64 msatoshi, s64 fees);
+		       const struct pubkey *ids,
+		       const u64 *amounts,
+		       size_t num_hops);
 #endif /* LIGHTNING_DAEMON_ONION_H */
