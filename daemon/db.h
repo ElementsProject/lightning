@@ -22,6 +22,7 @@ bool db_add_peer_address(struct lightningd_state *dstate,
 
 /* Must NOT be inside transaction. */
 bool db_htlc_fulfilled(struct peer *peer, const struct htlc *htlc);
+bool db_htlc_failed(struct peer *peer, const struct htlc *htlc);
 bool db_set_our_closing_script(struct peer *peer);
 bool db_set_their_closing_script(struct peer *peer);
 bool db_update_our_closing(struct peer *peer);

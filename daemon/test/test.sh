@@ -714,7 +714,7 @@ A_AMOUNT=$(($A_AMOUNT - $EXTRA_FEE - $HTLC_AMOUNT))
 A_FEE=$(($A_FEE + $EXTRA_FEE))
 check_status $A_AMOUNT $A_FEE "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : SENT_ADD_ACK_REVOCATION } " $B_AMOUNT $B_FEE ""
 
-lcli2 failhtlc $ID1 $HTLCID
+lcli2 failhtlc $ID1 $HTLCID 695
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 
@@ -819,7 +819,7 @@ if [ -n "$CLOSE_WITH_HTLCS" ]; then
     check_peerstate lcli2 STATE_SHUTDOWN
 
     # Fail one, still waiting.
-    lcli2 failhtlc $ID1 $HTLCID
+    lcli2 failhtlc $ID1 $HTLCID 800
     check_peerstate lcli1 STATE_SHUTDOWN
     check_peerstate lcli2 STATE_SHUTDOWN
 
@@ -846,7 +846,7 @@ if [ -n "$CLOSE_WITH_HTLCS" ]; then
 fi
 
 lcli1 fulfillhtlc $ID2 $HTLCID2 $SECRET2
-lcli2 failhtlc $ID1 $HTLCID
+lcli2 failhtlc $ID1 $HTLCID 849
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1

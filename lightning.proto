@@ -166,7 +166,13 @@ message update_fulfill_htlc {
   required rval r = 2;
 }
 
-// FIXME: Failure information.
+// This is encrypted in fail_reason.
+message fail_info {
+  required bitcoin_pubkey id = 1;
+  required uint32 error_code = 2;
+  optional string reason = 3;
+}
+
 message fail_reason {
   required bytes info = 1;
 }

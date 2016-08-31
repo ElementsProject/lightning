@@ -22,6 +22,7 @@ DAEMON_SRC :=					\
 	daemon/cryptopkt.c			\
 	daemon/db.c				\
 	daemon/dns.c				\
+	daemon/failure.c			\
 	daemon/feechange.c			\
 	daemon/htlc.c				\
 	daemon/jsonrpc.c			\
@@ -64,6 +65,7 @@ DAEMON_HEADERS :=				\
 	daemon/cryptopkt.h			\
 	daemon/db.h				\
 	daemon/dns.h				\
+	daemon/failure.h			\
 	daemon/feechange.h			\
 	daemon/feechange_state.h		\
 	daemon/htlc.h				\

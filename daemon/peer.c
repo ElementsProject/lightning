@@ -57,6 +57,8 @@ struct json_connecting {
 	struct anchor_input *input;
 };
 
+static bool command_htlc_set_fail(struct peer *peer, struct htlc *htlc,
+				  enum fail_error error_code, const char *why);
 static bool command_htlc_fail(struct peer *peer, struct htlc *htlc);
 static bool command_htlc_fulfill(struct peer *peer, struct htlc *htlc);
 static void try_commit(struct peer *peer);
@@ -409,8 +411,18 @@ void set_htlc_rval(struct peer *peer,
 		   struct htlc *htlc, const struct rval *rval)
 {
 	assert(!htlc->r);
+	assert(!htlc->fail);
 	htlc->r = tal_dup(htlc, struct rval, rval);
 	db_htlc_fulfilled(peer, htlc);
+}
+
+void set_htlc_fail(struct peer *peer,
+		   struct htlc *htlc, const void *fail, size_t len)
+{
+	assert(!htlc->r);
+	assert(!htlc->fail);
+	htlc->fail = tal_dup_arr(htlc, u8, fail, len, 0);
+	db_htlc_failed(peer, htlc);
 }
 
 static void route_htlc_onwards(struct peer *peer,
@@ -422,6 +434,9 @@ static void route_htlc_onwards(struct peer *peer,
 {
 	struct pubkey id;
 	struct peer *next;
+	struct htlc *newhtlc;
+	enum fail_error error_code;
+	const char *err;
 
 	if (!only_dest) {
 		log_debug_struct(peer->log, "Forwarding HTLC %s",
@@ -432,7 +447,8 @@ static void route_htlc_onwards(struct peer *peer,
 	if (!proto_to_pubkey(peer->dstate->secpctx, pb_id, &id)) {
 		log_unusual(peer->log,
 			    "Malformed pubkey for HTLC %"PRIu64, htlc->id);
-		command_htlc_fail(peer, htlc);
+		command_htlc_set_fail(peer, htlc, BAD_REQUEST_400,
+				      "Malformed pubkey");
 		return;
 	}
 
@@ -442,7 +458,8 @@ static void route_htlc_onwards(struct peer *peer,
 			    htlc->id, next ? "ready " : "");
 		log_add_struct(peer->log, "%s", struct pubkey, &id);
 		if (!peer->dstate->dev_never_routefail)
-			command_htlc_fail(peer, htlc);
+			command_htlc_set_fail(peer, htlc, NOT_FOUND_404,
+					      "Unknown peer");
 		return;
 	}
 
@@ -456,7 +473,8 @@ static void route_htlc_onwards(struct peer *peer,
 			    ": %"PRIi64" on %"PRIu64,
 			    htlc->id, htlc->msatoshis - msatoshis,
 			    msatoshis);
-		command_htlc_fail(peer, htlc);
+		command_htlc_set_fail(peer, htlc, PAYMENT_REQUIRED_402,
+				      "Insufficent fee");
 		return;
 	}
 
@@ -464,13 +482,13 @@ static void route_htlc_onwards(struct peer *peer,
 			 struct pubkey, next->id);
 
 	/* This checks the HTLC itself is possible. */
-	if (!command_htlc_add(next, msatoshis,
-			      abs_locktime_to_blocks(&htlc->expiry)
-			      - next->nc->delay,
-			      &htlc->rhash, htlc, rest_of_route)) {
-		command_htlc_fail(peer, htlc);
-		return;
-	}
+	err = command_htlc_add(next, msatoshis,
+			       abs_locktime_to_blocks(&htlc->expiry)
+			       - next->nc->delay,
+			       &htlc->rhash, htlc, rest_of_route,
+			       &error_code, &newhtlc);
+	if (err)
+		command_htlc_set_fail(peer, htlc, error_code, err);
 }
 
 static void their_htlc_added(struct peer *peer, struct htlc *htlc,
@@ -482,7 +500,8 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 
 	if (abs_locktime_is_seconds(&htlc->expiry)) {
 		log_unusual(peer->log, "HTLC %"PRIu64" is in seconds", htlc->id);
-		command_htlc_fail(peer, htlc);
+		command_htlc_set_fail(peer, htlc, BAD_REQUEST_400,
+				      "bad locktime");
 		return;
 	}
 
@@ -491,7 +510,8 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 		log_unusual(peer->log, "HTLC %"PRIu64" expires too soon:"
 			    " block %u",
 			    htlc->id, abs_locktime_to_blocks(&htlc->expiry));
-		command_htlc_fail(peer, htlc);
+		command_htlc_set_fail(peer, htlc, BAD_REQUEST_400,
+				      "expiry too soon");
 		return;
 	}
 
@@ -500,7 +520,8 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 		log_unusual(peer->log, "HTLC %"PRIu64" expires too far:"
 			    " block %u",
 			    htlc->id, abs_locktime_to_blocks(&htlc->expiry));
-		command_htlc_fail(peer, htlc);
+		command_htlc_set_fail(peer, htlc, BAD_REQUEST_400,
+				      "expiry too far");
 		return;
 	}
 
@@ -509,7 +530,8 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 	if (!step) {
 		log_unusual(peer->log, "Bad onion, failing HTLC %"PRIu64,
 			    htlc->id);
-		command_htlc_fail(peer,	htlc);
+		command_htlc_set_fail(peer, htlc, BAD_REQUEST_400,
+				      "invalid onion");
 		return;
 	}
 
@@ -524,7 +546,9 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 			log_add_struct(peer->log, " rhash=%s",
 				       struct sha256, &htlc->rhash);
 			if (unlikely(!peer->dstate->dev_never_routefail))
-				command_htlc_fail(peer,	htlc);
+				command_htlc_set_fail(peer, htlc,
+						      UNAUTHORIZED_401,
+						      "unknown rhash");
 			goto free_rest;
 		}
 			
@@ -534,7 +558,9 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 				    htlc->id,
 				    htlc->msatoshis,
 				    payment->msatoshis);
-			command_htlc_fail(peer, htlc);
+			command_htlc_set_fail(peer, htlc,
+					      UNAUTHORIZED_401,
+					      "incorrect amount");
 			return;
 		}
 
@@ -551,7 +577,8 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 		goto free_rest;
 	default:
 		log_info(peer->log, "Unknown step type %u", step->next_case);
-		command_htlc_fail(peer, htlc);
+		command_htlc_set_fail(peer, htlc, VERSION_NOT_SUPPORTED_505,
+				      "unknown step type");
 		goto free_rest;
 	}
 
@@ -561,9 +588,12 @@ free_rest:
 
 static void our_htlc_failed(struct peer *peer, struct htlc *htlc)
 {
-	if (htlc->src)
+	assert(htlc_owner(htlc) == LOCAL);
+	if (htlc->src) {
+		set_htlc_fail(htlc->src->peer, htlc->src,
+			      htlc->fail, tal_count(htlc->fail));
 		command_htlc_fail(htlc->src->peer, htlc->src);
-	else
+	} else
 		complete_pay_command(peer, htlc);
 }
 
@@ -709,7 +739,7 @@ static void check_both_committed(struct peer *peer, struct htlc *h)
 	switch (h->state) {
 	case RCVD_REMOVE_ACK_REVOCATION:
 		/* If it was fulfilled, we handled it immediately. */
-		if (!h->r)
+		if (h->fail)
 			our_htlc_failed(peer, h);
 		break;
 	case RCVD_ADD_ACK_REVOCATION:
@@ -1599,7 +1629,17 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 	return tx;
 }
 
-/* FIXME: Reason! */
+static bool command_htlc_set_fail(struct peer *peer, struct htlc *htlc,
+				  enum fail_error error_code, const char *why)
+{
+	const u8 *fail = failinfo_create(htlc, peer->dstate->secpctx,
+					 &peer->dstate->id, error_code, why);
+
+	set_htlc_fail(peer, htlc, fail, tal_count(fail));
+	tal_free(fail);
+	return command_htlc_fail(peer, htlc);
+}
+
 static bool command_htlc_fail(struct peer *peer, struct htlc *htlc)
 {
 	/* If onchain, nothing we can do. */
@@ -1670,31 +1710,35 @@ static bool command_htlc_fulfill(struct peer *peer, struct htlc *htlc)
 	return true;
 }
 
-struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
-			      unsigned int expiry,
-			      const struct sha256 *rhash,
-			      struct htlc *src,
-			      const u8 *route)
+const char *command_htlc_add(struct peer *peer, u64 msatoshis,
+			     unsigned int expiry,
+			     const struct sha256 *rhash,
+			     struct htlc *src,
+			     const u8 *route,
+			     u32 *error_code,
+			     struct htlc **htlc)
 {
 	struct channel_state *cstate;
 	struct abs_locktime locktime;
-	struct htlc *htlc;
 
 	if (!blocks_to_abs_locktime(expiry, &locktime)) {
 		log_unusual(peer->log, "add_htlc: fail: bad expiry %u", expiry);
-		return NULL;
+		*error_code = BAD_REQUEST_400;
+		return "bad expiry";
 	}
 
 	if (expiry < get_block_height(peer->dstate) + peer->dstate->config.min_htlc_expiry) {
 		log_unusual(peer->log, "add_htlc: fail: expiry %u is too soon",
 			    expiry);
-		return NULL;
+		*error_code = BAD_REQUEST_400;
+		return "expiry too soon";
 	}
 
 	if (expiry > get_block_height(peer->dstate) + peer->dstate->config.max_htlc_expiry) {
 		log_unusual(peer->log, "add_htlc: fail: expiry %u is too far",
 			    expiry);
-		return NULL;
+		*error_code = BAD_REQUEST_400;
+		return "expiry too far";
 	}
 
 	/* BOLT #2:
@@ -1704,18 +1748,20 @@ struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
 	 */
 	if (peer->remote.staging_cstate->side[OURS].num_htlcs == 300) {
 		log_unusual(peer->log, "add_htlc: fail: already at limit");
-		return NULL;
+		*error_code = SERVICE_UNAVAILABLE_503;
+		return "channel full";
 	}
 
 	if (!state_can_add_htlc(peer->state)) {
 		log_unusual(peer->log, "add_htlc: fail: peer state %s",
 			    state_name(peer->state));
-		return NULL;
+		*error_code = NOT_FOUND_404;
+		return "peer not available";
 	}
 
-	htlc = peer_new_htlc(peer, peer->htlc_id_counter,
-			     msatoshis, rhash, expiry, route, tal_count(route),
-			     src, SENT_ADD_HTLC);
+	*htlc = peer_new_htlc(peer, peer->htlc_id_counter,
+			      msatoshis, rhash, expiry, route, tal_count(route),
+			      src, SENT_ADD_HTLC);
 
 	/* FIXME: BOLT is not correct here: we should say IFF we cannot
 	 * afford it in remote at its own current proposed fee-rate. */
@@ -1725,20 +1771,24 @@ struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
 	 * the remote commitment transaction at the current `fee_rate`
 	 */
 	cstate = copy_cstate(peer, peer->remote.staging_cstate);
-	if (!cstate_add_htlc(cstate, htlc)) {
+	if (!cstate_add_htlc(cstate, *htlc)) {
 		log_unusual(peer->log, "add_htlc: fail: Cannot afford %"PRIu64
 			    " milli-satoshis in their commit tx",
 			    msatoshis);
-		return tal_free(htlc);
+		*htlc = tal_free(*htlc);
+		*error_code = SERVICE_UNAVAILABLE_503;
+		return "cannot afford htlc";
 	}
 	tal_free(cstate);
 
 	cstate = copy_cstate(peer, peer->local.staging_cstate);
-	if (!cstate_add_htlc(cstate, htlc)) {
+	if (!cstate_add_htlc(cstate, *htlc)) {
 		log_unusual(peer->log, "add_htlc: fail: Cannot afford %"PRIu64
 			    " milli-satoshis in our commit tx",
 			    msatoshis);
-		return tal_free(htlc);
+		*htlc = tal_free(*htlc);
+		*error_code = SERVICE_UNAVAILABLE_503;
+		return "cannot afford htlc";
 	}
 	tal_free(cstate);
 
@@ -1747,17 +1797,17 @@ struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
 	 * The sending node MUST add the HTLC addition to the unacked
 	 * changeset for its remote commitment
 	 */
-	if (!cstate_add_htlc(peer->remote.staging_cstate, htlc))
+	if (!cstate_add_htlc(peer->remote.staging_cstate, *htlc))
 		fatal("Could not add HTLC?");
 
 	remote_changes_pending(peer);
 
-	queue_pkt_htlc_add(peer, htlc);
+	queue_pkt_htlc_add(peer, *htlc);
 
 	/* Make sure we never offer the same one twice. */
 	peer->htlc_id_counter++;
 
-	return htlc;
+	return NULL;
 }
 
 static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
@@ -2463,6 +2513,7 @@ struct htlc *peer_new_htlc(struct peer *peer,
 	h->msatoshis = msatoshis;
 	h->rhash = *rhash;
 	h->r = NULL;
+	h->fail = NULL;
 	if (!blocks_to_abs_locktime(expiry, &h->expiry))
 		fatal("Invalid HTLC expiry %u", expiry);
 	h->routing = tal_dup_arr(h, u8, route, routelen, 0);
@@ -2891,7 +2942,8 @@ static void check_htlc_expiry(struct peer *peer)
 			continue;
 
 		/* This can fail only if we're in an error state. */
-		if (!command_htlc_fail(peer, h))
+		if (!command_htlc_set_fail(peer, h,
+					   REQUEST_TIMEOUT_408, "timed out"))
 			return;
 	}
 
@@ -3132,6 +3184,14 @@ static const struct bitcoin_tx *irrevocably_resolved(struct peer *peer)
 	return peer->onchain.tx;
 }
 
+/* We usually don't fail HTLCs we offered, but if the peer breaks down
+ * before we've confirmed it, this is exactly what happens. */
+static void fail_own_htlc(struct peer *peer, struct htlc *htlc)
+{
+	set_htlc_fail(peer, htlc, "peer closed", strlen("peer closed"));
+	our_htlc_failed(peer, htlc);
+}
+
 /* We've spent an HTLC output to get our funds back.  There's still a 
  * chance that they could also spend the HTLC output (using the preimage),
  * so we need to wait for some confirms.
@@ -3149,7 +3209,7 @@ static enum watch_result our_htlc_timeout_depth(struct peer *peer,
 		return KEEP_WATCHING;
 	if (depth + 1 < peer->dstate->config.min_htlc_expiry)
 		return KEEP_WATCHING;
-	our_htlc_failed(peer, htlc);
+	fail_own_htlc(peer, htlc);
 	return DELETE_WATCH;
 }
 
@@ -3291,7 +3351,7 @@ static enum watch_result our_unilateral_depth(struct peer *peer,
 			log_debug(peer->log,
 				  "%s:failing uncommitted htlc %"PRIu64,
 				  __func__, h->id);
-			our_htlc_failed(peer, h);
+			fail_own_htlc(peer, h);
 		}
 	}
 	return DELETE_WATCH;
@@ -3728,7 +3788,7 @@ static enum watch_result anchor_spent(struct peer *peer,
 	     h;
 	     h = htlc_map_next(&peer->htlcs, &it)) {
 		if (h->state == SENT_ADD_HTLC) {
-			our_htlc_failed(peer, h);
+			fail_own_htlc(peer, h);
 		}
 	}
 
@@ -4302,6 +4362,8 @@ static void json_newhtlc(struct command *cmd,
 	struct sha256 rhash;
 	struct json_result *response = new_json_result(cmd);
 	struct htlc *htlc;
+	const char *err;
+	enum fail_error error_code;
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,
@@ -4352,10 +4414,11 @@ static void json_newhtlc(struct command *cmd,
 	}
 
 	log_debug(peer->log, "JSON command to add new HTLC");
-	htlc = command_htlc_add(peer, msatoshis, expiry, &rhash, NULL,
-				dummy_single_route(cmd, peer, msatoshis));
-	if (!htlc) {
-		command_fail(cmd, "could not add htlc");
+	err = command_htlc_add(peer, msatoshis, expiry, &rhash, NULL,
+			       dummy_single_route(cmd, peer, msatoshis),
+			       &error_code, &htlc);
+	if (err) {
+		command_fail(cmd, "could not add htlc: %u:%s", error_code, err);
 		return;
 	}
 	log_debug(peer->log, "JSON new HTLC is %"PRIu64, htlc->id);
@@ -4467,15 +4530,16 @@ static void json_failhtlc(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
 	struct peer *peer;
-	jsmntok_t *peeridtok, *idtok;
+	jsmntok_t *peeridtok, *idtok, *reasontok;
 	u64 id;
 	struct htlc *htlc;
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,
 			     "id", &idtok,
+			     "reason", &reasontok,
 			     NULL)) {
-		command_fail(cmd, "Need peerid and id");
+		command_fail(cmd, "Need peerid, id and reason");
 		return;
 	}
 
@@ -4514,6 +4578,8 @@ static void json_failhtlc(struct command *cmd,
 		return;
 	}
 
+	set_htlc_fail(peer, htlc, buffer + reasontok->start,
+		      reasontok->end - reasontok->start);
 	if (command_htlc_fail(peer, htlc))
 		command_success(cmd, null_response(cmd));
 	else
@@ -4525,7 +4591,7 @@ static void json_failhtlc(struct command *cmd,
 const struct json_command failhtlc_command = {
 	"failhtlc",
 	json_failhtlc,
-	"Fail htlc proposed by {peerid} which has {id}",
+	"Fail htlc proposed by {peerid} which has {id}, using {reason}",
 	"Returns an empty result on success"
 };
 

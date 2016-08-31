@@ -503,10 +503,10 @@ static void load_peer_htlcs(struct peer *peer)
 			fatal("load_peer_htlcs:step gave %s:%s",
 			      sqlite3_errstr(err), sqlite3_errmsg(sql));
 
-		if (sqlite3_column_count(stmt) != 10)
-			fatal("load_peer_htlcs:step gave %i cols, not 10",
+		if (sqlite3_column_count(stmt) != 11)
+			fatal("load_peer_htlcs:step gave %i cols, not 11",
 			      sqlite3_column_count(stmt));
-		/* CREATE TABLE htlcs (peer "SQL_PUBKEY", id INT, state TEXT, msatoshis INT, expiry INT, rhash "SQL_RHASH", r "SQL_R", routing "SQL_ROUTING", src_peer "SQL_PUBKEY", src_id INT, PRIMARY KEY(peer, id, state)); */
+		/* CREATE TABLE htlcs (peer "SQL_PUBKEY", id INT, state TEXT, msatoshis INT, expiry INT, rhash "SQL_RHASH", r "SQL_R", routing "SQL_ROUTING", src_peer "SQL_PUBKEY", src_id INT, fail BLOB, PRIMARY KEY(peer, id, state)); */
 		sha256_from_sql(stmt, 5, &rhash);
 
 		hstate = htlc_state_from_name(sqlite3_column_str(stmt, 2));
@@ -527,6 +527,14 @@ static void load_peer_htlcs(struct peer *peer)
 			htlc->r = tal(htlc, struct rval);
 			from_sql_blob(stmt, 6, htlc->r, sizeof(*htlc->r));
 		}
+		if (sqlite3_column_type(stmt, 10) != SQLITE_NULL) {
+			htlc->fail = tal_sql_blob(htlc, stmt, 10);
+		}
+
+		if (htlc->r && htlc->fail)
+			fatal("%s HTLC %"PRIu64" has failed and fulfilled?",
+			      htlc_owner(htlc) == LOCAL ? "local" : "remote",
+			      htlc->id);
 
 		log_debug(peer->log, "Loaded %s HTLC %"PRIu64" (%s)",
 			  htlc_owner(htlc) == LOCAL ? "local" : "remote",
@@ -1023,7 +1031,7 @@ void db_init(struct lightningd_state *dstate)
 			 "CREATE TABLE wallet (privkey "SQL_PRIVKEY");"
 			 "CREATE TABLE anchors (peer "SQL_PUBKEY", txid "SQL_TXID", idx INT, amount INT, ok_depth INT, min_depth INT, bool ours, PRIMARY KEY(peer));"
 			 /* FIXME: state in primary key is overkill: just need side */
-			 "CREATE TABLE htlcs (peer "SQL_PUBKEY", id INT, state TEXT, msatoshis INT, expiry INT, rhash "SQL_RHASH", r "SQL_R", routing "SQL_ROUTING", src_peer "SQL_PUBKEY", src_id INT, PRIMARY KEY(peer, id, state));"
+			 "CREATE TABLE htlcs (peer "SQL_PUBKEY", id INT, state TEXT, msatoshis INT, expiry INT, rhash "SQL_RHASH", r "SQL_R", routing "SQL_ROUTING", src_peer "SQL_PUBKEY", src_id INT, fail BLOB, PRIMARY KEY(peer, id, state));"
 			 "CREATE TABLE feechanges (peer "SQL_PUBKEY", state TEXT, fee_rate INT, PRIMARY KEY(peer,state));"
 			 "CREATE TABLE commit_info (peer "SQL_PUBKEY", side TEXT, commit_num INT, revocation_hash "SQL_SHA256", xmit_order INT, sig "SQL_SIGNATURE", prev_revocation_hash "SQL_SHA256", PRIMARY KEY(peer, side));"
 			 "CREATE TABLE shachain (peer "SQL_PUBKEY", shachain BINARY(%zu), PRIMARY KEY(peer));"
@@ -1253,7 +1261,7 @@ bool db_new_htlc(struct peer *peer, const struct htlc *htlc)
 	if (htlc->src) {
 		errmsg = db_exec(ctx, peer->dstate, 
 				 "INSERT INTO htlcs VALUES"
-				 " (x'%s', %"PRIu64", '%s', %"PRIu64", %u, x'%s', NULL, x'%s', x'%s', %"PRIu64");",
+				 " (x'%s', %"PRIu64", '%s', %"PRIu64", %u, x'%s', NULL, x'%s', x'%s', %"PRIu64", NULL);",
 				 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id),
 				 htlc->id,
 				 htlc_state_name(htlc->state),
@@ -1266,7 +1274,7 @@ bool db_new_htlc(struct peer *peer, const struct htlc *htlc)
 	} else {
 		errmsg = db_exec(ctx, peer->dstate, 
 				 "INSERT INTO htlcs VALUES"
-				 " (x'%s', %"PRIu64", '%s', %"PRIu64", %u, x'%s', NULL, x'%s', NULL, NULL);",
+				 " (x'%s', %"PRIu64", '%s', %"PRIu64", %u, x'%s', NULL, x'%s', NULL, NULL, NULL);",
 				 peerid,
 				 htlc->id,
 				 htlc_state_name(htlc->state),
@@ -1378,6 +1386,28 @@ bool db_htlc_fulfilled(struct peer *peer, const struct htlc *htlc)
 	errmsg = db_exec(ctx, peer->dstate, 
 			 "UPDATE htlcs SET r=x'%s' WHERE peer=x'%s' AND id=%"PRIu64" AND state='%s';",
 			 tal_hexstr(ctx, htlc->r, sizeof(*htlc->r)),
+			 peerid,
+			 htlc->id,
+			 htlc_state_name(htlc->state));
+
+	if (errmsg)
+		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	tal_free(ctx);
+	return !errmsg;
+}
+
+bool db_htlc_failed(struct peer *peer, const struct htlc *htlc)
+{
+	const char *errmsg, *ctx = tal(peer, char);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+
+	log_debug(peer->log, "%s(%s)", __func__, peerid);
+
+	/* When called from their_htlc_added() we're routing a failure,
+	 * we are in a transaction.  Otherwise, not. */
+	errmsg = db_exec(ctx, peer->dstate, 
+			 "UPDATE htlcs SET fail=x'%s' WHERE peer=x'%s' AND id=%"PRIu64" AND state='%s';",
+			 tal_hexstr(ctx, htlc->fail, sizeof(*htlc->fail)),
 			 peerid,
 			 htlc->id,
 			 htlc_state_name(htlc->state));

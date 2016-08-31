@@ -32,6 +32,7 @@ typedef struct _Route Route;
 typedef struct _Routing Routing;
 typedef struct _UpdateAddHtlc UpdateAddHtlc;
 typedef struct _UpdateFulfillHtlc UpdateFulfillHtlc;
+typedef struct _FailInfo FailInfo;
 typedef struct _FailReason FailReason;
 typedef struct _UpdateFailHtlc UpdateFailHtlc;
 typedef struct _UpdateFee UpdateFee;
@@ -404,8 +405,20 @@ struct  _UpdateFulfillHtlc
 
 
 /*
- * FIXME: Failure information.
+ * This is encrypted in fail_reason.
  */
+struct  _FailInfo
+{
+  ProtobufCMessage base;
+  BitcoinPubkey *id;
+  uint32_t error_code;
+  char *reason;
+};
+#define FAIL_INFO__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&fail_info__descriptor) \
+    , NULL, 0, NULL }
+
+
 struct  _FailReason
 {
   ProtobufCMessage base;
@@ -915,6 +928,25 @@ UpdateFulfillHtlc *
 void   update_fulfill_htlc__free_unpacked
                      (UpdateFulfillHtlc *message,
                       ProtobufCAllocator *allocator);
+/* FailInfo methods */
+void   fail_info__init
+                     (FailInfo         *message);
+size_t fail_info__get_packed_size
+                     (const FailInfo   *message);
+size_t fail_info__pack
+                     (const FailInfo   *message,
+                      uint8_t             *out);
+size_t fail_info__pack_to_buffer
+                     (const FailInfo   *message,
+                      ProtobufCBuffer     *buffer);
+FailInfo *
+       fail_info__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   fail_info__free_unpacked
+                     (FailInfo *message,
+                      ProtobufCAllocator *allocator);
 /* FailReason methods */
 void   fail_reason__init
                      (FailReason         *message);
@@ -1139,6 +1171,9 @@ typedef void (*UpdateAddHtlc_Closure)
 typedef void (*UpdateFulfillHtlc_Closure)
                  (const UpdateFulfillHtlc *message,
                   void *closure_data);
+typedef void (*FailInfo_Closure)
+                 (const FailInfo *message,
+                  void *closure_data);
 typedef void (*FailReason_Closure)
                  (const FailReason *message,
                   void *closure_data);
@@ -1190,6 +1225,7 @@ extern const ProtobufCMessageDescriptor route__descriptor;
 extern const ProtobufCMessageDescriptor routing__descriptor;
 extern const ProtobufCMessageDescriptor update_add_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_fulfill_htlc__descriptor;
+extern const ProtobufCMessageDescriptor fail_info__descriptor;
 extern const ProtobufCMessageDescriptor fail_reason__descriptor;
 extern const ProtobufCMessageDescriptor update_fail_htlc__descriptor;
 extern const ProtobufCMessageDescriptor update_fee__descriptor;

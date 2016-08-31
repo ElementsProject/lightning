@@ -69,6 +69,7 @@ struct htlc {
 	const u8 *routing;
 	/* Previous HTLC (if any) which made us offer this (OURS only) */
 	struct htlc *src;
+	const u8 *fail;
 };
 
 const char *htlc_state_name(enum htlc_state s);

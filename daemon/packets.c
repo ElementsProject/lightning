@@ -171,9 +171,11 @@ void queue_pkt_htlc_fail(struct peer *peer, struct htlc *htlc)
 	update_fail_htlc__init(f);
 	f->id = htlc->id;
 
-	/* FIXME: reason! */
 	f->reason = tal(f, FailReason);
 	fail_reason__init(f->reason);
+	f->reason->info.len = tal_count(htlc->fail);
+	f->reason->info.data = tal_dup_arr(f->reason, u8,
+					   htlc->fail, f->reason->info.len, 0);
 
 	queue_pkt(peer, PKT__PKT_UPDATE_FAIL_HTLC, f);
 }
@@ -451,7 +453,16 @@ Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt, struct htlc **h)
 	if (err)
 		return err;
 
-	/* FIXME: Save reason. */
+	if ((*h)->r)
+		return pkt_err(peer, "HTLC %"PRIu64" already fulfilled",
+			       (*h)->id);
+
+	/* This can happen with re-transmissions; simply note it. */
+	if ((*h)->fail) {
+		log_debug(peer->log, "HTLC %"PRIu64" failed twice", (*h)->id);
+		(*h)->fail = tal_free((*h)->fail);
+	}
+	set_htlc_fail(peer, *h, f->reason->info.data, f->reason->info.len);
 	return NULL;
 }
 

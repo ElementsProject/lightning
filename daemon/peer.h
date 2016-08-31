@@ -7,6 +7,7 @@
 #include "bitcoin/script.h"
 #include "bitcoin/shadouble.h"
 #include "channel.h"
+#include "failure.h"
 #include "feechange.h"
 #include "htlc.h"
 #include "lightning.pb-c.h"
@@ -247,6 +248,9 @@ struct peer *new_peer(struct lightningd_state *dstate,
 void set_htlc_rval(struct peer *peer,
 		   struct htlc *htlc, const struct rval *rval);
 
+void set_htlc_fail(struct peer *peer,
+		   struct htlc *htlc, const void *fail, size_t fail_len);
+
 /* Populates very first peer->{local,remote}.commit->{tx,cstate} */
 bool setup_first_commit(struct peer *peer);
 
@@ -268,11 +272,13 @@ struct htlc *peer_new_htlc(struct peer *peer,
 			   struct htlc *src,
 			   enum htlc_state state);
 
-struct htlc *command_htlc_add(struct peer *peer, u64 msatoshis,
-			      unsigned int expiry,
-			      const struct sha256 *rhash,
-			      struct htlc *src,
-			      const u8 *route);
+const char *command_htlc_add(struct peer *peer, u64 msatoshis,
+			     unsigned int expiry,
+			     const struct sha256 *rhash,
+			     struct htlc *src,
+			     const u8 *route,
+			     enum fail_error *error_code,
+			     struct htlc **htlc);
 
 void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt, const char *where);
 

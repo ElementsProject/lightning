@@ -1,4 +1,5 @@
 #include "chaintopology.h"
+#include "failure.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
@@ -32,7 +33,29 @@ void complete_pay_command(struct peer *peer, struct htlc *htlc)
 				json_object_end(response);
 				command_success(i->cmd, response);
 			} else {
-				command_fail(i->cmd, "htlc failed");
+				FailInfo *f;
+				f = failinfo_unwrap(i->cmd, htlc->fail,
+						    tal_count(htlc->fail));
+				if (!f) {
+					command_fail(i->cmd,
+						     "htlc failed (bad message)");
+				} else {
+					struct pubkey id;
+					secp256k1_context *secpctx;
+					const char *idstr = "INVALID";
+
+					secpctx = i->cmd->dstate->secpctx;
+					if (proto_to_pubkey(secpctx,
+							    f->id, &id))
+						idstr = pubkey_to_hexstr(i->cmd,
+							 secpctx, &id);
+					command_fail(i->cmd,
+						     "htlc failed: error code %u"
+						     " node %s, reason %s",
+						     f->error_code, idstr,
+						     f->reason ? f->reason
+						     : "unknown");
+				}
 			}
 			return;
 		}
@@ -62,6 +85,8 @@ static void json_pay(struct command *cmd,
 	struct peer *peer;
 	struct pay_command *pc;
 	const u8 *onion;
+	enum fail_error error_code;
+	const char *err;
 
 	if (!json_get_params(buffer, params,
 			     "id", &idtok,
@@ -118,10 +143,10 @@ static void json_pay(struct command *cmd,
 	onion = onion_create(cmd, cmd->dstate->secpctx, route, msatoshis, fee);
 	pc = tal(cmd, struct pay_command);
 	pc->cmd = cmd;
-	pc->htlc = command_htlc_add(peer, msatoshis + fee, expiry, &rhash, NULL,
-				    onion);
-	if (!pc->htlc) {
-		command_fail(cmd, "could not add htlc");
+	err = command_htlc_add(peer, msatoshis + fee, expiry, &rhash, NULL,
+			       onion, &error_code, &pc->htlc);
+	if (err) {
+		command_fail(cmd, "could not add htlc: %u: %s", error_code, err);
 		return;
 	}
 

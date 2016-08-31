@@ -738,6 +738,49 @@ void   update_fulfill_htlc__free_unpacked
   assert(message->base.descriptor == &update_fulfill_htlc__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   fail_info__init
+                     (FailInfo         *message)
+{
+  static FailInfo init_value = FAIL_INFO__INIT;
+  *message = init_value;
+}
+size_t fail_info__get_packed_size
+                     (const FailInfo *message)
+{
+  assert(message->base.descriptor == &fail_info__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t fail_info__pack
+                     (const FailInfo *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &fail_info__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t fail_info__pack_to_buffer
+                     (const FailInfo *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &fail_info__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+FailInfo *
+       fail_info__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (FailInfo *)
+     protobuf_c_message_unpack (&fail_info__descriptor,
+                                allocator, len, data);
+}
+void   fail_info__free_unpacked
+                     (FailInfo *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &fail_info__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
 void   fail_reason__init
                      (FailReason         *message)
 {
@@ -2217,6 +2260,70 @@ const ProtobufCMessageDescriptor update_fulfill_htlc__descriptor =
   update_fulfill_htlc__field_indices_by_name,
   1,  update_fulfill_htlc__number_ranges,
   (ProtobufCMessageInit) update_fulfill_htlc__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor fail_info__field_descriptors[3] =
+{
+  {
+    "id",
+    1,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(FailInfo, id),
+    &bitcoin_pubkey__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "error_code",
+    2,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(FailInfo, error_code),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "reason",
+    3,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_STRING,
+    0,   /* quantifier_offset */
+    offsetof(FailInfo, reason),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned fail_info__field_indices_by_name[] = {
+  1,   /* field[1] = error_code */
+  0,   /* field[0] = id */
+  2,   /* field[2] = reason */
+};
+static const ProtobufCIntRange fail_info__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 3 }
+};
+const ProtobufCMessageDescriptor fail_info__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "fail_info",
+  "FailInfo",
+  "FailInfo",
+  "",
+  sizeof(FailInfo),
+  3,
+  fail_info__field_descriptors,
+  fail_info__field_indices_by_name,
+  1,  fail_info__number_ranges,
+  (ProtobufCMessageInit) fail_info__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCFieldDescriptor fail_reason__field_descriptors[1] =
