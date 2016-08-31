@@ -797,11 +797,34 @@ B_AMOUNT=$((10000000 + $HTLC_AMOUNT - $B_FEE))
 
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
+# Two failures crossover
+SECRET2=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfe
+RHASH2=`lcli1 dev-rhash $SECRET2 | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
+
+# This means B will *just* afford it.
+HTLC_AMOUNT=$(($B_AMOUNT - $EXTRA_FEE))
+HTLCID2=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH2 | extract_id`
+HTLCID=`lcli2 newhtlc $ID1 $HTLC_AMOUNT $EXPIRY $RHASH | extract_id`
+
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+
+check_status $(($A_AMOUNT - $HTLC_AMOUNT - $EXTRA_FEE)) $(($A_FEE + $EXTRA_FEE)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH2 , state : SENT_ADD_ACK_REVOCATION } " 0 $(($B_FEE + $EXTRA_FEE)) "{ msatoshis : $HTLC_AMOUNT, expiry : { block : $EXPIRY }, rhash : $RHASH , state : RCVD_ADD_ACK_REVOCATION } "
+
+# Fail both, to reset.
+lcli1 failhtlc $ID2 $HTLCID 830
+lcli2 failhtlc $ID1 $HTLCID2 829
+
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+[ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
+[ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
+
+check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
+
 # Now, two HTLCs at once, one from each direction.
 # Both sides can afford this.
 HTLC_AMOUNT=1000000
-SECRET2=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfe
-RHASH2=`lcli1 dev-rhash $SECRET2 | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 HTLCID=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH | extract_id`
 HTLCID2=`lcli2 newhtlc $ID1 $HTLC_AMOUNT $EXPIRY $RHASH2 | extract_id`
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
