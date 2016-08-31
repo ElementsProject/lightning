@@ -99,9 +99,6 @@ struct peer {
 	/* If we're doing a commit, this is the command which triggered it */
 	struct command *commit_jsoncmd;
 
-	/* Any outstanding "pay" commands. */
-	struct list_head pay_commands;
-	
 	/* Global state. */
 	struct lightningd_state *dstate;
 

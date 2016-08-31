@@ -594,7 +594,7 @@ static void our_htlc_failed(struct peer *peer, struct htlc *htlc)
 			      htlc->fail, tal_count(htlc->fail));
 		command_htlc_fail(htlc->src->peer, htlc->src);
 	} else
-		complete_pay_command(peer, htlc);
+		complete_pay_command(peer->dstate, htlc);
 }
 
 static void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc)
@@ -603,7 +603,7 @@ static void our_htlc_fulfilled(struct peer *peer, struct htlc *htlc)
 		set_htlc_rval(htlc->src->peer, htlc->src, htlc->r);
 		command_htlc_fulfill(htlc->src->peer, htlc->src);
 	} else {
-		complete_pay_command(peer, htlc);
+		complete_pay_command(peer->dstate, htlc);
 	}
 }
 
@@ -2369,7 +2369,6 @@ struct peer *new_peer(struct lightningd_state *dstate,
 	peer->outpkt = tal_arr(peer, Pkt *, 0);
 	peer->commit_jsoncmd = NULL;
 	list_head_init(&peer->outgoing_txs);
-	list_head_init(&peer->pay_commands);
 	list_head_init(&peer->their_commits);
 	peer->anchor.ok_depth = -1;
 	peer->order_counter = 0;

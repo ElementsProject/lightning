@@ -87,6 +87,9 @@ struct lightningd_state {
 	/* Addresses to contact peers. */
 	struct list_head addresses;
 
+	/* Any outstanding "pay" commands. */
+	struct list_head pay_commands;
+	
 	/* Crypto tables for global use. */
 	secp256k1_context *secpctx;
 

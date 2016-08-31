@@ -1008,6 +1008,9 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     lcli1 add-route $ID2 $ID3 546000 10 36 36
     RHASH5=`lcli3 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
+    # FIXME: We don't save payments in db yet!
+    DO_RECONNECT=""
+
     # Try wrong hash.
     if lcli1 pay $ID3 $HTLC_AMOUNT $RHASH4; then
 	echo Paid with wrong hash? >&2
@@ -1028,6 +1031,15 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     # starts.
     check lcli3 "getpeers | $FGREP \"\\\"our_amount\\\" : $(($HTLC_AMOUNT - $NO_HTLCS_FEE / 2))\""
     lcli3 close $ID2
+
+    # Re-send should be a noop (doesn't matter that node3 is down!)
+    lcli1 pay $ID3 $HTLC_AMOUNT $RHASH5
+
+    # Re-send to different id or amount should complain.
+    lcli1 pay $ID2 $HTLC_AMOUNT $RHASH5 | $FGREP "already succeeded to $ID3"
+    lcli1 pay $ID2 $(($HTLC_AMOUNT + 1)) $RHASH5 | $FGREP "already succeeded with amount $HTLC_AMOUNT"
+
+    DO_RECONNECT=$RECONNECT
 fi
 
 lcli1 close $ID2

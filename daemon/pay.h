@@ -2,10 +2,10 @@
 #define LIGHTNING_DAEMON_PAY_H
 #include "config.h"
 
-struct peer;
+struct lightningd_state;
 struct htlc;
-struct rval;
 
-void complete_pay_command(struct peer *peer, struct htlc *htlc);
+void complete_pay_command(struct lightningd_state *dstate,
+			  const struct htlc *htlc);
 
 #endif /* LIGHTNING_DAEMON_PAY_H */
