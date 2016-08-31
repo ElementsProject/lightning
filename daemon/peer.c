@@ -457,7 +457,8 @@ static void route_htlc_onwards(struct peer *peer,
 		return;
 	
 	/* Offered fee must be sufficient. */
-	if (htlc->msatoshis - msatoshis < connection_fee(next->nc, msatoshis)) {
+	if ((s64)(htlc->msatoshis - msatoshis)
+	    < connection_fee(next->nc, msatoshis)) {
 		log_unusual(peer->log,
 			    "Insufficient fee for HTLC %"PRIu64
 			    ": %"PRIi64" on %"PRIu64,
