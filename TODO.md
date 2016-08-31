@@ -16,18 +16,14 @@ I've marked things as simple if you want something easy to work on!
 
 * Make `json_get_params` fail if unknown parameters are specified by user.
 * Print backtrace in `log_crash`
-* Support locktime in blocks in `accept_pkt_open`, `accept_pkt_htlc_add`, `commit_tx_depth`
 * When unpacking a packet, reject any with an unknown odd-numbered field as per BOLT #2.
 * Provide details (string) when a command fails because state() returns CMD_FAIL
-* logging: add `log_struct()` for common structs.
 * Limit total number of peers in `new_peer`, or at least in `peer_connected_in`.
 * logging: add IO logging for peers.
 * Add `history` RPC command which shows all prior commit txs.
 * Improve `getpeers` to show status of peers when connecting, DNS lookups etc.
 * Add pings to protocol
   * Timeout a peer if they don't respond in a given time (eg. 2 pings)
-* Add timers to drop peer if we approach timeout for HTLCs and they're still
-uncommitted to closing it (see BOLT #2 "Risks With HTLC Timeouts").
 
 ## Testing: ##
 
@@ -40,19 +36,9 @@ uncommitted to closing it (see BOLT #2 "Risks With HTLC Timeouts").
 
 ## Major improvements: ##
 
-* Track fee estimation for each new block.
-  * (MAJOR) Implement fee renegotiation acceptance.
-  * (MAJOR) Implement fee renegotiation as fee rate changes.
-
 * Don't fail funding if fees insufficient, fall back as per BOLT #2.
 
-* (MAJOR) Do proper close, still allowing ongoing HTLCs to resolve.
-
-* (MAJOR) Implement reconnection.
-* Save preimages in shachain.
-  * (MAJOR) Implement persistence.
 * (MAJOR) Implement onion
-  * (MAJOR) Implement routing
   * (MAJOR) Implement failure messages
 
 ## Other ##
