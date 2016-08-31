@@ -8,9 +8,7 @@
 #include <names.h>
 #include <state.h>
 
-static enum state next_state(struct peer *peer,
-			     const enum state_input input,
-			     const enum state state)
+static enum state next_state(struct peer *peer, const enum state state)
 {
 	assert(peer->state != state);
 	return state;
@@ -78,12 +76,12 @@ enum state state(struct peer *peer,
 		if (input_is(input, CMD_OPEN_WITH_ANCHOR)) {
 			send_open_pkt(peer,
 				      OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR);
-			return next_state(peer, input,
+			return next_state(peer,
 					  STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR);
 		} else if (input_is(input, CMD_OPEN_WITHOUT_ANCHOR)) {
 			send_open_pkt(peer,
 				      OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR);
-			return next_state(peer, input,
+			return next_state(peer,
 					  STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR);
 		}
 		break;
@@ -94,7 +92,7 @@ enum state state(struct peer *peer,
 				peer_open_complete(peer, err->error->problem);
 				goto err_breakdown;
 			}
-			return next_state(peer, input, STATE_OPEN_WAIT_FOR_ANCHOR);
+			return next_state(peer, STATE_OPEN_WAIT_FOR_ANCHOR);
 		} else if (input_is_pkt(input)) {
 			peer_open_complete(peer, "unexpected packet");
 			goto unexpected_pkt;
@@ -118,8 +116,7 @@ enum state state(struct peer *peer,
 				goto err_breakdown;
 			}
 			queue_pkt_anchor(peer);
-			return next_state(peer, input,
-					  STATE_OPEN_WAIT_FOR_COMMIT_SIG);
+			return next_state(peer, STATE_OPEN_WAIT_FOR_COMMIT_SIG);
 		} else if (input_is_pkt(input)) {
 			peer_open_complete(peer, "unexpected packet");
 			goto unexpected_pkt;
@@ -190,8 +187,7 @@ enum state state(struct peer *peer,
 					  BITCOIN_ANCHOR_DEPTHOK,
 					  BITCOIN_ANCHOR_TIMEOUT);
 
-			return next_state(peer, input,
-					  STATE_OPEN_WAITING_THEIRANCHOR);
+			return next_state(peer, STATE_OPEN_WAITING_THEIRANCHOR);
 		} else if (input_is_pkt(input)) {
 			peer_open_complete(peer, "unexpected packet");
 			goto unexpected_pkt;
@@ -248,8 +244,7 @@ enum state state(struct peer *peer,
 					  peer->local.mindepth,
 					  BITCOIN_ANCHOR_DEPTHOK,
 					  INPUT_NONE);
-			return next_state(peer, input,
-					  STATE_OPEN_WAITING_OURANCHOR);
+			return next_state(peer, STATE_OPEN_WAITING_OURANCHOR);
 		} else if (input_is_pkt(input)) {
 			bitcoin_release_anchor(peer, INPUT_NONE);
 			peer_open_complete(peer, "unexpected packet");
@@ -263,7 +258,7 @@ enum state state(struct peer *peer,
 				peer_open_complete(peer, err->error->problem);
 				goto err_breakdown;
 			}
-			return next_state(peer, input,
+			return next_state(peer,
 					  STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED);
 		}
 	/* Fall thru */
@@ -272,9 +267,9 @@ enum state state(struct peer *peer,
 			queue_pkt_open_complete(peer);
 			if (peer->state == STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED) {
 				peer_open_complete(peer, NULL);
-				return next_state(peer, input, STATE_NORMAL);
+				return next_state(peer, STATE_NORMAL);
 			}
-			return next_state(peer, input,
+			return next_state(peer,
 					  STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR);
 		} else if (input_is(input, PKT_CLOSE_SHUTDOWN)) {
 			peer_open_complete(peer, "Received PKT_CLOSE_SHUTDOWN");
@@ -291,7 +286,7 @@ enum state state(struct peer *peer,
 				peer_open_complete(peer, err->error->problem);
 				goto err_breakdown;
 			}
-			return next_state(peer, input,
+			return next_state(peer,
 					  STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED);
 		}
 	/* Fall thru */
@@ -299,14 +294,14 @@ enum state state(struct peer *peer,
 		if (input_is(input, BITCOIN_ANCHOR_TIMEOUT)) {
 			/* Anchor didn't reach blockchain in reasonable time. */
 			queue_pkt_err(peer, pkt_err(peer, "Anchor timed out"));
-			return next_state(peer, input, STATE_ERR_ANCHOR_TIMEOUT);
+			return next_state(peer, STATE_ERR_ANCHOR_TIMEOUT);
 		} else if (input_is(input, BITCOIN_ANCHOR_DEPTHOK)) {
 			queue_pkt_open_complete(peer);
 			if (peer->state == STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED) {
 				peer_open_complete(peer, NULL);
-				return next_state(peer, input, STATE_NORMAL);
+				return next_state(peer, STATE_NORMAL);
 			}
-			return next_state(peer, input,
+			return next_state(peer,
 					  STATE_OPEN_WAIT_FOR_COMPLETE_THEIRANCHOR);
 		} else if (input_is(input, PKT_CLOSE_SHUTDOWN)) {
 			peer_open_complete(peer, "Received PKT_CLOSE_SHUTDOWN");
@@ -321,7 +316,7 @@ enum state state(struct peer *peer,
 		if (input_is(input, PKT_OPEN_COMPLETE)) {
 			/* Ready for business! */
 			peer_open_complete(peer, NULL);
-			return next_state(peer, input, STATE_NORMAL);
+			return next_state(peer, STATE_NORMAL);
 		} else if (input_is(input, PKT_CLOSE_SHUTDOWN)) {
 			peer_open_complete(peer, "Received PKT_CLOSE_SHUTDOWN");
 			goto accept_shutdown;
@@ -347,11 +342,11 @@ enum state state(struct peer *peer,
 	case STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL:
 	case STATE_CLOSE_ONCHAIN_OUR_UNILATERAL:
 	case STATE_CLOSE_ONCHAIN_MUTUAL:
-		return next_state(peer, input, STATE_ERR_INTERNAL);
+		return next_state(peer, STATE_ERR_INTERNAL);
 	}
 
 	/* State machine should handle all possible states. */
-	return next_state(peer, input, STATE_ERR_INTERNAL);
+	return next_state(peer, STATE_ERR_INTERNAL);
 
 unexpected_pkt:
 	peer_unexpected_pkt(peer, pkt, __func__);
@@ -366,7 +361,7 @@ unexpected_pkt:
 err_breakdown:
 	queue_pkt_err(peer, err);
 breakdown:
-	return next_state(peer, input, STATE_ERR_BREAKDOWN);
+	return next_state(peer, STATE_ERR_BREAKDOWN);
 
 accept_shutdown:
 	err = accept_pkt_close_shutdown(peer, pkt);
@@ -375,6 +370,6 @@ accept_shutdown:
 
 	/* If we've sent commit, we're still waiting for it when shutdown. */
 	if (peer->state == STATE_NORMAL_COMMITTING)
-		return next_state(peer, input, STATE_SHUTDOWN_COMMITTING);
-	return next_state(peer, input, STATE_SHUTDOWN);
+		return next_state(peer, STATE_SHUTDOWN_COMMITTING);
+	return next_state(peer, STATE_SHUTDOWN);
 }
