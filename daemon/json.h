@@ -56,8 +56,7 @@ const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 				 const char *label);
 
 /* Get index'th array member. */
-const jsmntok_t *json_get_arr(const char *buffer, const jsmntok_t tok[],
-			      size_t index);
+const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index);
 
 /* Guide is a string with . for members, [] around indexes. */
 const jsmntok_t *json_delve(const char *buffer,

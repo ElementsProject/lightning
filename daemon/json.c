@@ -157,8 +157,7 @@ const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 	return NULL;
 }
 
-const jsmntok_t *json_get_arr(const char *buffer, const jsmntok_t tok[],
-			      size_t index)
+const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index)
 {
 	const jsmntok_t *t, *end;
 
@@ -195,7 +194,7 @@ const jsmntok_t *json_delve(const char *buffer,
 		case '[':
 			if (tok->type != JSMN_ARRAY)
 				return tal_free(key);
-			tok = json_get_arr(buffer, tok, atol(key));
+			tok = json_get_arr(tok, atol(key));
 			if (!tok)
 				return tal_free(key);
 			/* Must be terminated */
