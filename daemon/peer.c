@@ -649,7 +649,7 @@ static void retry_all_routing(struct peer *restarted_peer)
 	}
 }
 
-static void adjust_cstate_side(struct channel_state *cstate,
+static bool adjust_cstate_side(struct channel_state *cstate,
 			       struct htlc *h,
 			       enum htlc_state old, enum htlc_state new,
 			       enum htlc_side side)
@@ -662,7 +662,7 @@ static void adjust_cstate_side(struct channel_state *cstate,
 	 * do that again. */
 	if (old == SENT_ADD_HTLC || old == RCVD_REMOVE_HTLC
 	    || old == RCVD_ADD_HTLC || old == SENT_REMOVE_HTLC)
-		return;
+		return true;
 	
 	old_committed = (oldf & HTLC_FLAG(side, HTLC_F_COMMITTED));
 	new_committed = (newf & HTLC_FLAG(side, HTLC_F_COMMITTED));
@@ -673,20 +673,28 @@ static void adjust_cstate_side(struct channel_state *cstate,
 		else
 			cstate_fail_htlc(cstate, h);
 	} else if (!old_committed && new_committed) {
-		/* FIXME: This can happen; see BOLT */
-		if (!cstate_add_htlc(cstate, h))
-			fatal("Could not afford htlc");
+		if (!cstate_add_htlc(cstate, h, false)) {
+			log_broken_struct(h->peer->log,
+					  "Cannot afford htlc %s",
+					  struct htlc, h);
+			log_add_struct(h->peer->log, " channel state %s",
+				       struct channel_state, cstate);
+			return false;
+		}
 	}
+	return true;
 }
 
 /* We apply changes to staging_cstate when we first PENDING, so we can
  * make sure they're valid.  So here we change the staging_cstate on
  * the revocation receive (ie. when acked). */
-static void adjust_cstates(struct peer *peer, struct htlc *h,
+static bool adjust_cstates(struct peer *peer, struct htlc *h,
 			   enum htlc_state old, enum htlc_state new)
 {
-	adjust_cstate_side(peer->remote.staging_cstate, h, old, new, REMOTE);
-	adjust_cstate_side(peer->local.staging_cstate, h, old, new, LOCAL);
+	return adjust_cstate_side(peer->remote.staging_cstate, h, old, new,
+				  REMOTE)
+		&& adjust_cstate_side(peer->local.staging_cstate, h, old, new,
+				      LOCAL);
 }
 
 static void adjust_cstate_fee_side(struct channel_state *cstate,
@@ -767,8 +775,9 @@ static const char *changestates(struct peer *peer,
 	     h = htlc_map_next(&peer->htlcs, &it)) {
 		for (i = 0; i < n; i++) {
 			if (h->state == table[i].from) {
-				adjust_cstates(peer, h,
-					       table[i].from, table[i].to);
+				if (!adjust_cstates(peer, h,
+						    table[i].from, table[i].to))
+					return "accounting error";
 				if (!htlc_changestate(h, table[i].from,
 						      table[i].to, db_commit))
 					return "database error";
@@ -1081,11 +1090,15 @@ static Pkt *handle_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	 * "Fee Calculation" ).  A node SHOULD fail the connection if
 	 * this occurs.
 	 */
-	if (!cstate_add_htlc(peer->local.staging_cstate, htlc)) {
+	if (!cstate_add_htlc(peer->local.staging_cstate, htlc, true)) {
+		u64 id = htlc->id;
+		log_broken_struct(peer->log, "They cannot afford htlc %s",
+				  struct htlc, htlc);
+		log_add_struct(peer->log, " cstate %s",
+			       struct channel_state,
+			       peer->local.staging_cstate);
 		tal_free(htlc);
-		return pkt_err(peer, "Cannot afford %"PRIu64" milli-satoshis"
-			       " in our commitment tx",
-			       htlc->msatoshis);
+		return pkt_err(peer, "Cannot afford htlc %"PRIu64, id);
 	}
 	return NULL;
 }
@@ -1705,7 +1718,6 @@ const char *command_htlc_add(struct peer *peer, u64 msatoshis,
 			     u32 *error_code,
 			     struct htlc **htlc)
 {
-	struct channel_state *cstate;
 	struct abs_locktime locktime;
 
 	if (!blocks_to_abs_locktime(expiry, &locktime)) {
@@ -1750,42 +1762,27 @@ const char *command_htlc_add(struct peer *peer, u64 msatoshis,
 			      msatoshis, rhash, expiry, route, tal_count(route),
 			      src, SENT_ADD_HTLC);
 
-	/* FIXME: BOLT is not correct here: we should say IFF we cannot
-	 * afford it in remote at its own current proposed fee-rate. */
-	/* BOLT #2:
-	 *
-	 * A node MUST NOT offer `amount_msat` it cannot pay for in
-	 * the remote commitment transaction at the current `fee_rate`
-	 */
-	cstate = copy_cstate(peer, peer->remote.staging_cstate);
-	if (!cstate_add_htlc(cstate, *htlc)) {
-		log_unusual(peer->log, "add_htlc: fail: Cannot afford %"PRIu64
-			    " milli-satoshis in their commit tx",
-			    msatoshis);
-		*htlc = tal_free(*htlc);
-		*error_code = SERVICE_UNAVAILABLE_503;
-		return "cannot afford htlc";
-	}
-	tal_free(cstate);
-
-	cstate = copy_cstate(peer, peer->local.staging_cstate);
-	if (!cstate_add_htlc(cstate, *htlc)) {
-		log_unusual(peer->log, "add_htlc: fail: Cannot afford %"PRIu64
-			    " milli-satoshis in our commit tx",
-			    msatoshis);
-		*htlc = tal_free(*htlc);
-		*error_code = SERVICE_UNAVAILABLE_503;
-		return "cannot afford htlc";
-	}
-	tal_free(cstate);
-
 	/* BOLT #2:
 	 *
 	 * The sending node MUST add the HTLC addition to the unacked
 	 * changeset for its remote commitment
 	 */
-	if (!cstate_add_htlc(peer->remote.staging_cstate, *htlc))
-		fatal("Could not add HTLC?");
+	if (!cstate_add_htlc(peer->remote.staging_cstate, *htlc, true)) {
+		/* BOLT #2:
+		 *
+		 * A node MUST NOT offer `amount_msat` it cannot pay for in
+		 * the remote commitment transaction at the current `fee_rate`
+		 */
+ 		log_unusual(peer->log, "add_htlc: fail: Cannot afford %"PRIu64
+ 			    " milli-satoshis in their commit tx",
+ 			    msatoshis);
+		log_add_struct(peer->log, " channel state %s",
+			       struct channel_state,
+			       peer->remote.staging_cstate);
+ 		*htlc = tal_free(*htlc);
+		*error_code = SERVICE_UNAVAILABLE_503;
+		return "cannot afford htlc";
+ 	}
 
 	remote_changes_pending(peer);
 

@@ -90,7 +90,8 @@ static bool change_funding(uint64_t anchor_satoshis,
 			   int64_t htlc_msat,
 			   struct channel_oneside *a,
 			   struct channel_oneside *b,
-			   size_t num_nondust_htlcs)
+			   size_t num_nondust_htlcs,
+			   bool must_afford_fee)
 {
 	uint64_t fee_msat;
 	uint64_t htlcs_total;
@@ -101,8 +102,11 @@ static bool change_funding(uint64_t anchor_satoshis,
 	fee_msat = calculate_fee_msat(num_nondust_htlcs, fee_rate);
 
 	/* If A is paying, can it afford it? */
-	if (htlc_msat > 0) {
-		if (htlc_msat + fee_msat / 2 > a->pay_msat + a->fee_msat)
+	if (htlc_msat >= 0) {
+		uint64_t cost = htlc_msat;
+		if (must_afford_fee)
+			cost += fee_msat / 2;
+		if (cost > a->pay_msat + a->fee_msat)
 			return false;
 	}
 
@@ -148,7 +152,7 @@ struct channel_state *initial_cstate(const tal_t *ctx,
 	funder->fee_msat = fee_msat;
 
 	/* Make sure it checks out. */
-	assert(change_funding(anchor_satoshis, fee_rate, 0, funder, fundee, 0));
+	assert(change_funding(anchor_satoshis, fee_rate, 0, funder, fundee, 0, false));
 	assert(funder->fee_msat == fee_msat);
 	assert(fundee->fee_msat == 0);
 
@@ -194,7 +198,8 @@ bool force_fee(struct channel_state *cstate, uint64_t fee)
 }
 
 /* Add a HTLC to @creator if it can afford it. */
-bool cstate_add_htlc(struct channel_state *cstate, const struct htlc *htlc)
+bool cstate_add_htlc(struct channel_state *cstate, const struct htlc *htlc,
+		     bool must_afford_fee)
 {
 	size_t nondust;
 	struct channel_oneside *creator, *recipient;
@@ -208,7 +213,8 @@ bool cstate_add_htlc(struct channel_state *cstate, const struct htlc *htlc)
 		nondust++;
 	
 	if (!change_funding(cstate->anchor, cstate->fee_rate,
-			    htlc->msatoshis, creator, recipient, nondust))
+			    htlc->msatoshis, creator, recipient, nondust,
+			    must_afford_fee))
 		return false;
 
 	cstate->num_nondust = nondust;
@@ -235,7 +241,7 @@ static void remove_htlc(struct channel_state *cstate,
 	if (!change_funding(cstate->anchor, cstate->fee_rate,
 			    -(int64_t)htlc->msatoshis,
 			    &cstate->side[beneficiary],
-			    &cstate->side[!beneficiary], nondust))
+			    &cstate->side[!beneficiary], nondust, false))
 		abort();
 
 	/* Actually remove the HTLC. */

@@ -58,12 +58,17 @@ struct channel_state *copy_cstate(const tal_t *ctx,
  * cstate_add_htlc: append an HTLC to cstate if it can afford it
  * @cstate: The channel state
  * @htlc: the htlc pointer.
+ * @must_afford_fee: true if payer must meet fee.
  *
- * If that direction can't afford the HTLC (or still owes its half of the fees),
- * this will return false and leave @cstate unchanged.  Otherwise, pay_msat and
- * fee_msat are adjusted accordingly; true is returned.
+ * If that direction can't afford the HTLC this will return false and
+ * leave @cstate unchanged.  If @must_afford_fee is true, and the
+ * direction can't afford its half of the fees, it will also return
+ * false and leave @cstate unchanged. Otherwise, pay_msat and fee_msat
+ * are adjusted accordingly; true is returned.
  */
-bool cstate_add_htlc(struct channel_state *cstate, const struct htlc *htlc);
+bool cstate_add_htlc(struct channel_state *cstate, const struct htlc *htlc,
+		     bool must_afford_fee);
+
 /**
  * cstate_fail_htlc: remove an HTLC, funds to the side which offered it.
  * @cstate: The channel state
