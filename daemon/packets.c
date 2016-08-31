@@ -567,10 +567,28 @@ Pkt *accept_pkt_close_shutdown(struct peer *peer, const Pkt *pkt)
 {
 	const CloseShutdown *c = pkt->close_shutdown;
 
-	/* FIXME: Filter for non-standardness? */
+	/* BOLT #2:
+	 *
+	 * 1. `OP_DUP` `OP_HASH160` `20` 20-bytes `OP_EQUALVERIFY` `OP_CHECKSIG`
+	 *  (pay to pubkey hash), OR
+	 * 2. `OP_HASH160` `20` 20-bytes `OP_EQUAL` (pay to script hash), OR
+	 * 3. `OP_0` `20` 20-bytes (version 0 pay to witness pubkey), OR
+	 * 4. `OP_0` `32` 32-bytes (version 0 pay to witness script hash)
+	 *
+	 * A node receiving `close_shutdown` SHOULD fail the connection
+	 * `script_pubkey` is not one of those forms.
+	 */
+	if (!is_p2pkh(c->scriptpubkey.data, c->scriptpubkey.len)
+	    && !is_p2sh(c->scriptpubkey.data, c->scriptpubkey.len)
+	    && !is_p2wpkh(c->scriptpubkey.data, c->scriptpubkey.len)
+	    && !is_p2wsh(c->scriptpubkey.data, c->scriptpubkey.len)) {
+		log_broken_blob(peer->log, "Bad script_pubkey %s",
+				c->scriptpubkey.data, c->scriptpubkey.len);
+		return pkt_err(peer, "Bad script_pubkey");
+	}
+
 	peer->closing.their_script = tal_dup_arr(peer, u8,
 						 c->scriptpubkey.data,
 						 c->scriptpubkey.len, 0);
-
 	return NULL;
 }

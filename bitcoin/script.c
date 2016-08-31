@@ -454,6 +454,23 @@ u8 *p2wpkh_scriptcode(const tal_t *ctx,
 	return script;
 }
 
+bool is_p2pkh(const u8 *script, size_t script_len)
+{
+	if (script_len != 25)
+		return false;
+	if (script[0] != OP_DUP)
+		return false;
+	if (script[1] != OP_HASH160)
+		return false;
+	if (script[2] != OP_PUSHBYTES(20))
+		return false;
+	if (script[23] != OP_EQUALVERIFY)
+		return false;
+	if (script[24] != OP_CHECKSIG)
+		return false;
+	return true;
+}
+
 bool is_p2sh(const u8 *script, size_t script_len)
 {
 	if (script_len != 23)
@@ -474,6 +491,17 @@ bool is_p2wsh(const u8 *script, size_t script_len)
 	if (script[0] != OP_0)
 		return false;
 	if (script[1] != OP_PUSHBYTES(sizeof(struct sha256)))
+		return false;
+	return true;
+}
+
+bool is_p2wpkh(const u8 *script, size_t script_len)
+{
+	if (script_len != 1 + 1 + sizeof(struct ripemd160))
+		return false;
+	if (script[0] != OP_0)
+		return false;
+	if (script[1] != OP_PUSHBYTES(sizeof(struct ripemd160)))
 		return false;
 	return true;
 }
