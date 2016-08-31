@@ -650,11 +650,13 @@ static void retry_all_routing(struct peer *restarted_peer)
 	for (h = htlc_map_first(&restarted_peer->htlcs, &it);
 	     h;
 	     h = htlc_map_next(&restarted_peer->htlcs, &it)) {
-		if (h->r && h->state == RCVD_ADD_ACK_REVOCATION)
+		if (h->state != RCVD_ADD_ACK_REVOCATION)
+			continue;
+		if (h->r)
 			command_htlc_fulfill(restarted_peer, h);
+		else if (h->fail)
+			command_htlc_fail(restarted_peer, h);
 	}
-
-	/* FIXME: Also any HTLCs which were failed! */
 }
 
 static void adjust_cstate_side(struct channel_state *cstate,
