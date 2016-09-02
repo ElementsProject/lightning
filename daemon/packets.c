@@ -444,7 +444,8 @@ static Pkt *find_commited_htlc(struct peer *peer, uint64_t id,
 	return NULL;
 }
 
-Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt, struct htlc **h)
+Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt, struct htlc **h,
+			  u8 **fail)
 {
 	const UpdateFailHtlc *f = pkt->update_fail_htlc;
 	Pkt *err;
@@ -457,12 +458,7 @@ Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt, struct htlc **h)
 		return pkt_err(peer, "HTLC %"PRIu64" already fulfilled",
 			       (*h)->id);
 
-	/* This can happen with re-transmissions; simply note it. */
-	if ((*h)->fail) {
-		log_debug(peer->log, "HTLC %"PRIu64" failed twice", (*h)->id);
-		(*h)->fail = tal_free((*h)->fail);
-	}
-	set_htlc_fail(peer, *h, f->reason->info.data, f->reason->info.len);
+	*fail = tal_dup_arr(*h, u8, f->reason->info.data, f->reason->info.len,0);
 	return NULL;
 }
 

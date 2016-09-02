@@ -411,8 +411,8 @@ static void set_htlc_rval(struct peer *peer,
 	db_htlc_fulfilled(peer, htlc);
 }
 
-void set_htlc_fail(struct peer *peer,
-		   struct htlc *htlc, const void *fail, size_t len)
+static void set_htlc_fail(struct peer *peer,
+			  struct htlc *htlc, const void *fail, size_t len)
 {
 	assert(!htlc->r);
 	assert(!htlc->fail);
@@ -1112,11 +1112,27 @@ static Pkt *handle_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 static Pkt *handle_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 {
 	struct htlc *htlc;
+	u8 *fail;
 	Pkt *err;
 
-	err = accept_pkt_htlc_fail(peer, pkt, &htlc);
+	err = accept_pkt_htlc_fail(peer, pkt, &htlc, &fail);
 	if (err)
 		return err;
+
+	/* This can happen with re-transmissions; simply note it. */
+	if (htlc->fail) {
+		log_debug(peer->log, "HTLC %"PRIu64" failed twice", htlc->id);
+		htlc->fail = tal_free(htlc->fail);
+	}
+	
+	if (!db_start_transaction(peer))
+		return pkt_err(peer, "database error");
+
+	set_htlc_fail(peer, htlc, fail, tal_count(fail));
+	tal_free(fail);
+
+	if (!db_commit_transaction(peer))
+		return pkt_err(peer, "database error");
 
 	cstate_fail_htlc(peer->local.staging_cstate, htlc);
 
@@ -2951,10 +2967,17 @@ static void check_htlc_expiry(struct peer *peer)
 		if (height <= abs_locktime_to_blocks(&h->expiry))
 			continue;
 
-		/* This can fail only if we're in an error state. */
-		if (!command_htlc_set_fail(peer, h,
-					   REQUEST_TIMEOUT_408, "timed out"))
+		if (!db_start_transaction(peer)) {
+			peer_fail(peer, __func__);
 			return;
+		}
+		/* This can fail only if we're in an error state. */
+		command_htlc_set_fail(peer, h,
+				      REQUEST_TIMEOUT_408, "timed out");
+		if (!db_commit_transaction(peer)) {
+			peer_fail(peer, __func__);
+			return;
+		}
 	}
 
 	/* BOLT #2:
@@ -3196,8 +3219,11 @@ static const struct bitcoin_tx *irrevocably_resolved(struct peer *peer)
  * before we've confirmed it, this is exactly what happens. */
 static void fail_own_htlc(struct peer *peer, struct htlc *htlc)
 {
+	/* We can't do anything about db failures; peer already closed. */
+	db_start_transaction(peer);
 	set_htlc_fail(peer, htlc, "peer closed", strlen("peer closed"));
 	our_htlc_failed(peer, htlc);
+	db_commit_transaction(peer);
 }
 
 /* We've spent an HTLC output to get our funds back.  There's still a 
@@ -4580,8 +4606,19 @@ static void json_failhtlc(struct command *cmd,
 		return;
 	}
 
+	if (!db_start_transaction(peer)) {
+		command_fail(cmd, "database error");
+		return;
+	}
+
 	set_htlc_fail(peer, htlc, buffer + reasontok->start,
 		      reasontok->end - reasontok->start);
+
+	if (!db_commit_transaction(peer)) {
+		command_fail(cmd, "database error");
+		return;
+	}
+
 	if (command_htlc_fail(peer, htlc))
 		command_success(cmd, null_response(cmd));
 	else

@@ -1407,8 +1407,7 @@ bool db_htlc_failed(struct peer *peer, const struct htlc *htlc)
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
-	/* When called from their_htlc_added() we're routing a failure,
-	 * we are in a transaction.  Otherwise, not. */
+	assert(peer->dstate->db->in_transaction);
 	errmsg = db_exec(ctx, peer->dstate, 
 			 "UPDATE htlcs SET fail=x'%s' WHERE peer=x'%s' AND id=%"PRIu64" AND state='%s';",
 			 tal_hexstr(ctx, htlc->fail, sizeof(*htlc->fail)),
