@@ -233,7 +233,7 @@ static struct bolt_file *find_bolt(const char *bolt_prefix,
 				   struct bolt_file *bolts)
 {
 	size_t i, n = tal_count(bolts);
-	size_t boltnum;
+	int boltnum;
 
 	for (i = 0; i < n; i++)
 		if (streq(bolts[i].prefix, bolt_prefix))
