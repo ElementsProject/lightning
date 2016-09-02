@@ -352,15 +352,20 @@ static struct io_plan *peer_close(struct io_conn *conn, struct peer *peer)
 	return io_wait(conn, NULL, io_never, NULL);
 }
 
+void peer_fail(struct peer *peer, const char *caller)
+{
+	/* FIXME: Save state here? */
+	set_peer_state(peer, STATE_ERR_BREAKDOWN, caller, false);
+	peer_breakdown(peer);
+}
+
 /* Communication failed: send err (if non-NULL), then dump to chain and close. */
 static bool peer_comms_err(struct peer *peer, Pkt *err)
 {
 	if (err)
 		queue_pkt_err(peer, err);
 
-	/* FIXME: Save state here? */
-	set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__, false);
-	peer_breakdown(peer);
+	peer_fail(peer, __func__);
 	return false;
 }
 
@@ -1552,9 +1557,7 @@ static void state_single(struct peer *peer,
 		if (!db_start_transaction(peer)
 		    || !db_update_state(peer)
 		    || !db_commit_transaction(peer)) {
-			set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__,
-				       false);
-			peer_breakdown(peer);
+			peer_fail(peer, __func__);
 
 			/* Start output if not running already; it will close conn. */
 			io_wake(peer);
@@ -2258,8 +2261,7 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 
 database_error:
 	db_abort_transaction(peer);
-	set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__, false);
-	peer_breakdown(peer);
+	peer_fail(peer, __func__);
 }
 
 /* FIXME: don't spin on this timer if we're not connected! */
@@ -2961,10 +2963,8 @@ static void check_htlc_expiry(struct peer *peer)
 	if (!state_is_normal(peer->state))
 		return;
 
-	if (any_deadline_past(peer)) {
-		set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__, false);
-		peer_breakdown(peer);
-	}
+	if (any_deadline_past(peer))
+		peer_fail(peer, __func__);
 }
 
 static enum watch_result anchor_depthchange(struct peer *peer,
@@ -3004,8 +3004,7 @@ static enum watch_result anchor_depthchange(struct peer *peer,
 		log_broken(peer->log, "fee rate %"PRIu64" lower than %"PRIu64,
 			   peer->local.commit->cstate->fee_rate,
 			   get_feerate(peer->dstate));
-		set_peer_state(peer, STATE_ERR_BREAKDOWN, __func__, false);
-		peer_breakdown(peer);
+		peer_fail(peer, __func__);
 	}
 	
 	return KEEP_WATCHING;
@@ -4136,8 +4135,7 @@ static void try_reconnect(struct peer *peer)
 	if (fd < 0) {
 		log_broken(peer->log, "do_reconnect: failed to create socket: %s",
 			   strerror(errno));
-		set_peer_state(peer, STATE_ERR_BREAKDOWN, "do_reconnect", false);
-		peer_breakdown(peer);
+		peer_fail(peer, __func__);
 		return;
 	}
 
@@ -4717,8 +4715,7 @@ static void json_disconnect(struct command *cmd,
 	log_debug(peer->log, "Pretending connection is closed");
 	peer->fake_close = true;
 	peer->connected = false;
-	set_peer_state(peer, STATE_ERR_BREAKDOWN, "json_disconnect", false);
-	peer_breakdown(peer);
+	peer_fail(peer, __func__);
 
 	command_success(cmd, null_response(cmd));
 }

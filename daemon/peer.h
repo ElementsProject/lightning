@@ -280,6 +280,9 @@ const char *command_htlc_add(struct peer *peer, u64 msatoshis,
 
 void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt, const char *where);
 
+/* Peer has an issue, breakdown and fail. */
+void peer_fail(struct peer *peer, const char *caller);
+
 /* Peer has completed open, or problem (if non-NULL). */
 void peer_open_complete(struct peer *peer, const char *problem);
 
