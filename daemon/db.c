@@ -1386,9 +1386,7 @@ bool db_htlc_fulfilled(struct peer *peer, const struct htlc *htlc)
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
-	/* When called from their_htlc_added() and it's a payment to
-	 * us, we are in a transaction.  When called due to
-	 * PKT_UPDATE_FULFILL_HTLC we are not. */
+	assert(peer->dstate->db->in_transaction);
 	errmsg = db_exec(ctx, peer->dstate, 
 			 "UPDATE htlcs SET r=x'%s' WHERE peer=x'%s' AND id=%"PRIu64" AND state='%s';",
 			 tal_hexstr(ctx, htlc->r, sizeof(*htlc->r)),

@@ -243,9 +243,6 @@ struct peer *new_peer(struct lightningd_state *dstate,
 		      enum state state,
 		      enum state_input offer_anchor);
 
-void set_htlc_rval(struct peer *peer,
-		   struct htlc *htlc, const struct rval *rval);
-
 void set_htlc_fail(struct peer *peer,
 		   struct htlc *htlc, const void *fail, size_t fail_len);
 

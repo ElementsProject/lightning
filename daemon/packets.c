@@ -467,11 +467,10 @@ Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt, struct htlc **h)
 }
 
 Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt, struct htlc **h,
-			     bool *was_already_fulfilled)
+			     struct rval *r)
 {
 	const UpdateFulfillHtlc *f = pkt->update_fulfill_htlc;
 	struct sha256 rhash;
-	struct rval r;
 	Pkt *err;
 
 	err = find_commited_htlc(peer, f->id, h);
@@ -479,18 +478,12 @@ Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt, struct htlc **h,
 		return err;
 
 	/* Now, it must solve the HTLC rhash puzzle. */
-	proto_to_rval(f->r, &r);
-	sha256(&rhash, &r, sizeof(r));
+	proto_to_rval(f->r, r);
+	sha256(&rhash, r, sizeof(*r));
 
 	if (!structeq(&rhash, &(*h)->rhash))
 		return pkt_err(peer, "Invalid r for %"PRIu64, f->id);
 
-	if ((*h)->r) {
-		*was_already_fulfilled = true;
-	} else {
-		*was_already_fulfilled = false;
-		set_htlc_rval(peer, *h, &r);
-	}
 	return NULL;
 }
 

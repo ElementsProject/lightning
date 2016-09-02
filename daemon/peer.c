@@ -402,8 +402,8 @@ static bool peer_received_unexpected_pkt(struct peer *peer, const Pkt *pkt,
 	return peer_comms_err(peer, pkt_err_unexpected(peer, pkt));
 }
 
-void set_htlc_rval(struct peer *peer,
-		   struct htlc *htlc, const struct rval *rval)
+static void set_htlc_rval(struct peer *peer,
+			  struct htlc *htlc, const struct rval *rval)
 {
 	assert(!htlc->r);
 	assert(!htlc->fail);
@@ -1133,16 +1133,24 @@ static Pkt *handle_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 {
 	struct htlc *htlc;
 	Pkt *err;
-	bool was_already_fulfilled;
+	struct rval r;
 
-	/* Reconnect may mean HTLC was already fulfilled.  That's OK. */
-	err = accept_pkt_htlc_fulfill(peer, pkt, &htlc, &was_already_fulfilled);
+	err = accept_pkt_htlc_fulfill(peer, pkt, &htlc, &r);
 	if (err)
 		return err;
 	
-	/* We can relay this upstream immediately. */
-	if (!was_already_fulfilled)
+	/* Reconnect may mean HTLC was already fulfilled.  That's OK. */
+	if (!htlc->r) {
+		if (!db_start_transaction(peer))
+			return pkt_err(peer, "database error");
+
+		set_htlc_rval(peer, htlc, &r);
+
+		/* We can relay this upstream immediately. */
 		our_htlc_fulfilled(peer, htlc);
+		if (!db_commit_transaction(peer))
+			return pkt_err(peer, "database error");
+	}
 
 	/* BOLT #2:
 	 *
@@ -4409,6 +4417,7 @@ static void json_newhtlc(struct command *cmd,
 	command_success(cmd, response);
 }
 
+/* FIXME: rename to dev- */
 const struct json_command newhtlc_command = {
 	"newhtlc",
 	json_newhtlc,
@@ -4416,6 +4425,7 @@ const struct json_command newhtlc_command = {
 	"Returns { id: u64 } result on success"
 };
 
+/* FIXME: rename to dev- */
 static void json_fulfillhtlc(struct command *cmd,
 			     const char *buffer, const jsmntok_t *params)
 {
@@ -4487,8 +4497,21 @@ static void json_fulfillhtlc(struct command *cmd,
 
 	/* This can happen if we're disconnected, and thus haven't sent
 	 * fulfill yet; we stored r in database immediately. */
-	if (!htlc->r)
+	if (!htlc->r) {
+		if (!db_start_transaction(peer)) {
+			command_fail(cmd, "database error");
+			return;
+		}
+
 		set_htlc_rval(peer, htlc, &r);
+
+		/* We can relay this upstream immediately. */
+		our_htlc_fulfilled(peer, htlc);
+		if (!db_commit_transaction(peer)) {
+			command_fail(cmd, "database error");
+			return;
+		}
+	}
 
 	if (command_htlc_fulfill(peer, htlc))
 		command_success(cmd, null_response(cmd));

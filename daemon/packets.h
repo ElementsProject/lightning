@@ -47,7 +47,7 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt, struct htlc **h);
 Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt, struct htlc **h);
 
 Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt, struct htlc **h,
-			     bool *was_already_fulfilled);
+			     struct rval *r);
 
 Pkt *accept_pkt_update_fee(struct peer *peer, const Pkt *pkt, u64 *feerate);
 
