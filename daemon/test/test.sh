@@ -1010,9 +1010,6 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     lcli1 add-route $ID2 $ID3 546000 10 36 36
     RHASH5=`lcli3 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
-    # FIXME: We don't save payments in db yet!
-    DO_RECONNECT=""
-
     # Get route.
     ROUTE=`lcli1 getroute $ID3 $HTLC_AMOUNT`
     ROUTE=`echo $ROUTE | sed 's/^{ "route" : \(.*\) }$/\1/'`
@@ -1061,8 +1058,6 @@ if [ ! -n "$MANUALCOMMIT" ]; then
 	echo "Pay to node3 didn't fail instantly second time" >&2
 	exit 1
     fi
-
-    DO_RECONNECT=$RECONNECT
 fi
 
 lcli1 close $ID2

@@ -27,6 +27,16 @@ bool db_set_our_closing_script(struct peer *peer);
 bool db_set_their_closing_script(struct peer *peer);
 bool db_update_our_closing(struct peer *peer);
 bool db_update_their_closing(struct peer *peer);
+bool db_new_pay_command(struct lightningd_state *dstate,
+			const struct sha256 *rhash,
+			const struct pubkey *ids,
+			u64 msatoshis,
+			const struct htlc *htlc);
+bool db_replace_pay_command(struct lightningd_state *dstate,
+			    const struct sha256 *rhash,
+			    const struct pubkey *ids,
+			    u64 msatoshis,
+			    const struct htlc *htlc);
 
 /* FIXME: save error handling until db_commit_transaction for calls
  * which have to be inside transaction anyway. */
@@ -36,6 +46,8 @@ bool db_new_htlc(struct peer *peer, const struct htlc *htlc);
 bool db_new_feechange(struct peer *peer, const struct feechange *feechange);
 bool db_update_htlc_state(struct peer *peer, const struct htlc *htlc,
 				 enum htlc_state oldstate);
+bool db_complete_pay_command(struct lightningd_state *state,
+			     const struct htlc *htlc);
 bool db_update_feechange_state(struct peer *peer,
 			       const struct feechange *f,
 			       enum htlc_state oldstate);

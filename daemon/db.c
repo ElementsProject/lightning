@@ -7,6 +7,7 @@
 #include "log.h"
 #include "names.h"
 #include "netaddr.h"
+#include "pay.h"
 #include "routing.h"
 #include "secrets.h"
 #include "utils.h"
@@ -953,6 +954,109 @@ static void db_load_peers(struct lightningd_state *dstate)
 	connect_htlc_src(dstate);
 }
 
+
+static const char *pubkeys_to_hex(const tal_t *ctx,
+				  secp256k1_context *secpctx,
+				  const struct pubkey *ids)
+{
+	u8 *ders = tal_arr(ctx, u8, PUBKEY_DER_LEN * tal_count(ids));
+	size_t i;
+
+	for (i = 0; i < tal_count(ids); i++)
+		pubkey_to_der(secpctx, ders + i * PUBKEY_DER_LEN, &ids[i]);
+
+	return tal_hexstr(ctx, ders, tal_count(ders));
+}
+static struct pubkey *pubkeys_from_arr(const tal_t *ctx,
+				       secp256k1_context *secpctx,
+				       const void *blob, size_t len)
+{
+	struct pubkey *ids;
+	size_t i;
+
+	if (len % PUBKEY_DER_LEN)
+		fatal("ids array bad length %zu", len);
+
+	ids = tal_arr(ctx, struct pubkey, len / PUBKEY_DER_LEN);
+	for (i = 0; i < tal_count(ids); i++) {
+		if (!pubkey_from_der(secpctx, blob, PUBKEY_DER_LEN, &ids[i]))
+			fatal("ids array invalid %zu", i);
+		blob = (const u8 *)blob + PUBKEY_DER_LEN;
+	}
+	return ids;
+}
+
+static void db_load_pay(struct lightningd_state *dstate)
+{
+	int err;
+	sqlite3_stmt *stmt;
+	char *ctx = tal(dstate, char);
+
+	err = sqlite3_prepare_v2(dstate->db->sql, "SELECT * FROM pay;", -1,
+				 &stmt, NULL);
+
+	if (err != SQLITE_OK)
+		fatal("db_load_pay:prepare gave %s:%s",
+		      sqlite3_errstr(err), sqlite3_errmsg(dstate->db->sql));
+
+	/* CREATE TABLE pay (rhash "SQL_RHASH", msatoshis INT, ids BLOB, htlc_peer "SQL_PUBKEY", htlc_id INT, r "SQL_R", fail BLOB, PRIMARY KEY(rhash)); */
+	while ((err = sqlite3_step(stmt)) != SQLITE_DONE) {
+		struct sha256 rhash;
+		struct htlc *htlc;
+		struct pubkey *peer_id;
+		u64 htlc_id, msatoshis;
+		struct pubkey *ids;
+		struct rval *r;
+		void *fail;
+
+		if (err != SQLITE_ROW)
+			fatal("db_load_pay:step gave %s:%s",
+			      sqlite3_errstr(err),
+			      sqlite3_errmsg(dstate->db->sql));
+		if (sqlite3_column_count(stmt) != 7)
+			fatal("db_load_pay:step gave %i cols, not 7",
+			      sqlite3_column_count(stmt));
+
+		sha256_from_sql(stmt, 0, &rhash);
+		msatoshis = sqlite3_column_int64(stmt, 1);
+		ids = pubkeys_from_arr(ctx, dstate->secpctx,
+				       sqlite3_column_blob(stmt, 2),
+				       sqlite3_column_bytes(stmt, 2));
+		if (sqlite3_column_type(stmt, 3) == SQLITE_NULL)
+			peer_id = NULL;
+		else {
+			peer_id = tal(ctx, struct pubkey);
+			pubkey_from_sql(dstate->secpctx, stmt, 3, peer_id);
+		}
+		htlc_id = sqlite3_column_int64(stmt, 4);
+		if (sqlite3_column_type(stmt, 5) == SQLITE_NULL)
+			r = NULL;
+		else {
+			r = tal(ctx, struct rval);
+			from_sql_blob(stmt, 5, r, sizeof(*r));
+		}
+		fail = tal_sql_blob(ctx, stmt, 6);
+		/* Exactly one of these must be set. */
+		if (!fail + !peer_id + !r != 2)
+			fatal("db_load_pay: not exactly one set:"
+			      " fail=%p peer_id=%p r=%p",
+			      fail, peer_id, r);
+		if (peer_id) {
+			struct peer *peer = find_peer(dstate, peer_id);
+			if (!peer)
+				fatal("db_load_pay: unknown peer");
+			htlc = htlc_get(&peer->htlcs, htlc_id, LOCAL);
+			if (!htlc)
+				fatal("db_load_pay: unknown htlc");
+		} else
+			htlc = NULL;
+
+		if (!pay_add(dstate, &rhash, msatoshis, ids, htlc, fail, r))
+			fatal("db_load_pay: could not add pay");
+	}
+	tal_free(ctx);
+}
+
 static void db_load_addresses(struct lightningd_state *dstate)
 {
 	int err;
@@ -993,6 +1097,7 @@ static void db_load(struct lightningd_state *dstate)
 	db_load_wallet(dstate);
 	db_load_addresses(dstate);
 	db_load_peers(dstate);
+	db_load_pay(dstate);
 }
 
 void db_init(struct lightningd_state *dstate)
@@ -1033,6 +1138,7 @@ void db_init(struct lightningd_state *dstate)
 	/* Set up tables. */
 	errmsg = db_exec(dstate, dstate,
 			 "CREATE TABLE wallet (privkey "SQL_PRIVKEY");"
+			 "CREATE TABLE pay (rhash "SQL_RHASH", msatoshis INT, ids BLOB, htlc_peer "SQL_PUBKEY", htlc_id INT, r "SQL_R", fail BLOB, PRIMARY KEY(rhash));"
 			 "CREATE TABLE anchors (peer "SQL_PUBKEY", txid "SQL_TXID", idx INT, amount INT, ok_depth INT, min_depth INT, bool ours, PRIMARY KEY(peer));"
 			 /* FIXME: state in primary key is overkill: just need side */
 			 "CREATE TABLE htlcs (peer "SQL_PUBKEY", id INT, state TEXT, msatoshis INT, expiry INT, rhash "SQL_RHASH", r "SQL_R", routing "SQL_ROUTING", src_peer "SQL_PUBKEY", src_id INT, fail BLOB, PRIMARY KEY(peer, id, state));"
@@ -1651,6 +1757,83 @@ bool db_update_their_closing(struct peer *peer)
 			 peerid);
 	if (errmsg)
 		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	tal_free(ctx);
+	return !errmsg;
+}
+
+bool db_new_pay_command(struct lightningd_state *dstate,
+			const struct sha256 *rhash,
+			const struct pubkey *ids,
+			u64 msatoshis,
+			const struct htlc *htlc)
+{
+	const char *errmsg, *ctx = tal(dstate, char);
+
+	log_debug(dstate->base_log, "%s", __func__);
+	log_add_struct(dstate->base_log, "(%s)", struct sha256, rhash);
+
+	assert(!dstate->db->in_transaction);
+	/* CREATE TABLE pay (rhash "SQL_RHASH", msatoshis INT, ids BLOB, htlc_peer "SQL_PUBKEY", htlc_id INT, r "SQL_R", fail BLOB, PRIMARY KEY(rhash)); */
+	errmsg = db_exec(ctx, dstate, "INSERT INTO pay VALUES (x'%s', %"PRIu64", x'%s', x'%s', %"PRIu64", NULL, NULL);",
+			 tal_hexstr(ctx, rhash, sizeof(*rhash)),
+			 msatoshis,
+			 pubkeys_to_hex(ctx, dstate->secpctx, ids),
+			 pubkey_to_hexstr(ctx, dstate->secpctx, htlc->peer->id),
+			 htlc->id);
+	if (errmsg)
+		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
+	tal_free(ctx);
+	return !errmsg;
+}
+
+bool db_replace_pay_command(struct lightningd_state *dstate,
+			    const struct sha256 *rhash,
+			    const struct pubkey *ids,
+			    u64 msatoshis,
+			    const struct htlc *htlc)
+{
+	const char *errmsg, *ctx = tal(dstate, char);
+
+	log_debug(dstate->base_log, "%s", __func__);
+	log_add_struct(dstate->base_log, "(%s)", struct sha256, rhash);
+
+	assert(!dstate->db->in_transaction);
+	/* CREATE TABLE pay (rhash "SQL_RHASH", msatoshis INT, ids BLOB, htlc_peer "SQL_PUBKEY", htlc_id INT, r "SQL_R", fail BLOB, PRIMARY KEY(rhash)); */
+	errmsg = db_exec(ctx, dstate, "UPDATE pay SET msatoshis=%"PRIu64", ids=x'%s', htlc_peer=x'%s', htlc_id=%"PRIu64", r=NULL, fail=NULL WHERE rhash=x'%s';",
+			 msatoshis,
+			 pubkeys_to_hex(ctx, dstate->secpctx, ids),
+			 pubkey_to_hexstr(ctx, dstate->secpctx, htlc->peer->id),
+			 htlc->id,
+			 tal_hexstr(ctx, rhash, sizeof(*rhash)));
+	if (errmsg)
+		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
+	tal_free(ctx);
+	return !errmsg;
+}
+
+bool db_complete_pay_command(struct lightningd_state *dstate,
+			     const struct htlc *htlc)
+{
+	const char *errmsg, *ctx = tal(dstate, char);
+
+	log_debug(dstate->base_log, "%s", __func__);
+	log_add_struct(dstate->base_log, "(%s)", struct sha256, &htlc->rhash);
+
+	assert(dstate->db->in_transaction);
+	/* CREATE TABLE pay (rhash "SQL_RHASH", msatoshis INT, ids BLOB, htlc_peer "SQL_PUBKEY", htlc_id INT, r "SQL_R", fail BLOB, PRIMARY KEY(rhash)); */
+	if (htlc->r)
+		errmsg = db_exec(ctx, dstate,
+				 "UPDATE pay SET r=x'%s', htlc_peer=NULL WHERE rhash=x'%s';",
+				 tal_hexstr(ctx, htlc->r, sizeof(*htlc->r)),
+				 tal_hexstr(ctx, &htlc->rhash, sizeof(htlc->rhash)));
+	else
+		errmsg = db_exec(ctx, dstate,
+				 "UPDATE pay SET fail=x'%s', htlc_peer=NULL WHERE rhash=x'%s';",
+				 tal_hexstr(ctx, htlc->fail, tal_count(htlc->fail)),
+				 tal_hexstr(ctx, &htlc->rhash, sizeof(htlc->rhash)));
+
+	if (errmsg)
+		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
 	tal_free(ctx);
 	return !errmsg;
 }
