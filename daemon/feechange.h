@@ -23,7 +23,7 @@ static inline enum side feechange_side(enum feechange_state state)
 	}
 }
 
-bool feechange_changestate(struct peer *peer,
+void feechange_changestate(struct peer *peer,
 			   struct feechange *feechange,
 			   enum feechange_state oldstate,
 			   enum feechange_state newstate,

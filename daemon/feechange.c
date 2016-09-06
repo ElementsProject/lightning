@@ -103,7 +103,7 @@ struct feechange *new_feechange(struct peer *peer,
 	return f;
 }
 
-bool feechange_changestate(struct peer *peer,
+void feechange_changestate(struct peer *peer,
 			   struct feechange *f,
 			   enum feechange_state oldstate,
 			   enum feechange_state newstate,
@@ -133,10 +133,9 @@ bool feechange_changestate(struct peer *peer,
 	if (db_commit) {
 		if (newstate == RCVD_FEECHANGE_COMMIT
 		    || newstate == SENT_FEECHANGE_COMMIT)
-			return db_new_feechange(peer, f);
-
-		return db_update_feechange_state(peer, f, oldstate);
+			db_new_feechange(peer, f);
+		else
+			db_update_feechange_state(peer, f, oldstate);
 	}
-	return true;
 }
 	

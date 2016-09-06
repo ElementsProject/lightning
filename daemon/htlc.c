@@ -151,7 +151,7 @@ int htlc_state_flags(enum htlc_state state)
 	return per_state_bits[state];
 }
 
-bool htlc_changestate(struct htlc *h,
+void htlc_changestate(struct htlc *h,
 		      enum htlc_state oldstate,
 		      enum htlc_state newstate,
 		      bool db_commit)
@@ -170,16 +170,17 @@ bool htlc_changestate(struct htlc *h,
 	h->state = newstate;
 
 	if (db_commit) {
-		if (newstate == RCVD_ADD_COMMIT || newstate == SENT_ADD_COMMIT)
-			return db_new_htlc(h->peer, h);
+		if (newstate == RCVD_ADD_COMMIT || newstate == SENT_ADD_COMMIT) {
+			db_new_htlc(h->peer, h);
+			return;
+		}
 		/* These never hit the database. */
 		if (oldstate == RCVD_REMOVE_HTLC)
 			oldstate = SENT_ADD_ACK_REVOCATION;
 		else if (oldstate == SENT_REMOVE_HTLC)
 			oldstate = RCVD_ADD_ACK_REVOCATION;
-		return db_update_htlc_state(h->peer, h, oldstate);
+		db_update_htlc_state(h->peer, h, oldstate);
 	}
-	return true;
 }
 
 void htlc_undostate(struct htlc *h,

@@ -247,7 +247,7 @@ struct peer *new_peer(struct lightningd_state *dstate,
 bool setup_first_commit(struct peer *peer);
 
 /* Whenever we send a signature, remember the txid -> commit_num mapping */
-bool peer_add_their_commit(struct peer *peer,
+void peer_add_their_commit(struct peer *peer,
 			   const struct sha256_double *txid, u64 commit_num);
 
 /* Allocate a new commit_info struct. */

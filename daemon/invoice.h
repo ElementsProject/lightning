@@ -23,7 +23,7 @@ void invoice_add(struct lightningd_state *dstate,
 		 const char *label,
 		 u64 complete);
 
-bool resolve_invoice(struct lightningd_state *dstate,
+void resolve_invoice(struct lightningd_state *dstate,
 		     struct invoice *invoice);
 
 struct invoice *find_unpaid(struct lightningd_state *dstate,

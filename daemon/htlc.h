@@ -69,7 +69,7 @@ struct htlc {
 
 const char *htlc_state_name(enum htlc_state s);
 enum htlc_state htlc_state_from_name(const char *name);
-bool htlc_changestate(struct htlc *h,
+void htlc_changestate(struct htlc *h,
 		      enum htlc_state oldstate,
 		      enum htlc_state newstate,
 		      bool db_commit);

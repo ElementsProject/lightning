@@ -82,7 +82,7 @@ static void tell_waiter(struct command *cmd, const struct invoice *paid)
 	command_success(cmd, response);
 }
 	
-bool resolve_invoice(struct lightningd_state *dstate,
+void resolve_invoice(struct lightningd_state *dstate,
 		     struct invoice *invoice)
 {
 	struct invoice_waiter *w;
@@ -97,7 +97,7 @@ bool resolve_invoice(struct lightningd_state *dstate,
 			     list)) != NULL)
 		tell_waiter(w->cmd, invoice);
 
-	return db_resolve_invoice(dstate, invoice->label, invoice->paid_num);
+	db_resolve_invoice(dstate, invoice->label, invoice->paid_num);
 }
 	
 static void json_invoice(struct command *cmd,

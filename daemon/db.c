@@ -31,6 +31,7 @@
 
 struct db {
 	bool in_transaction;
+	const char *err;
 	sqlite3 *sql;
 };
 
@@ -79,28 +80,34 @@ static const char *sql_bool(bool b)
 	return (b) ? "1" : "0";
 }
 
-static char *PRINTF_FMT(3,4)
-	db_exec(const tal_t *ctx,
+static bool PRINTF_FMT(3,4)
+	db_exec(const char *caller,
 		struct lightningd_state *dstate, const char *fmt, ...)
 {
 	va_list ap;
 	char *cmd, *errmsg;
 	int err;
 
+	if (dstate->db->in_transaction && dstate->db->err)
+		return false;
+
 	va_start(ap, fmt);
-	cmd = tal_vfmt(ctx, fmt, ap);
+	cmd = tal_vfmt(dstate->db, fmt, ap);
 	va_end(ap);
 
 	err = sqlite3_exec(dstate->db->sql, cmd, NULL, NULL, &errmsg);
 	if (err != SQLITE_OK) {
-		char *e = tal_fmt(ctx, "%s:%s:%s",
-				  sqlite3_errstr(err), cmd, errmsg);
+		tal_free(dstate->db->err);
+		dstate->db->err = tal_fmt(dstate->db, "%s:%s:%s:%s",
+					  caller, sqlite3_errstr(err),
+					  cmd, errmsg);
 		sqlite3_free(errmsg);
 		tal_free(cmd);
-		return e;
+		log_broken(dstate->base_log, "%s", dstate->db->err);
+		return false;
 	}
 	tal_free(cmd);
-	return NULL;
+	return true;
 }
 
 static char *sql_hex_or_null(const tal_t *ctx, const void *buf, size_t len)
@@ -216,14 +223,12 @@ void db_add_wallet_privkey(struct lightningd_state *dstate,
 			   const struct privkey *privkey)
 {
 	char *ctx = tal(dstate, char);
-	char *err;
 
 	log_debug(dstate->base_log, "%s", __func__);
-	err = db_exec(ctx, dstate,
+	if (!db_exec(__func__, dstate,
 		      "INSERT INTO wallet VALUES (x'%s');",
-		      tal_hexstr(ctx, privkey, sizeof(*privkey)));
-	if (err)
-		fatal("db_add_wallet_privkey:%s", err);
+		     tal_hexstr(ctx, privkey, sizeof(*privkey))))
+		fatal("db_add_wallet_privkey failed");
 }
 
 static void load_peer_secrets(struct peer *peer)
@@ -1155,7 +1160,6 @@ static void db_load(struct lightningd_state *dstate)
 void db_init(struct lightningd_state *dstate)
 {
 	int err;
-	char *errmsg;
 	bool created = false;
 
 	if (SQLITE_VERSION_NUMBER != sqlite3_libversion_number())
@@ -1181,145 +1185,132 @@ void db_init(struct lightningd_state *dstate)
 
 	tal_add_destructor(dstate->db, close_db);
 	dstate->db->in_transaction = false;
-	
+	dstate->db->err = NULL;
+
 	if (!created) {
 		db_load(dstate);
 		return;
 	}
 
 	/* Set up tables. */
-	errmsg = db_exec(dstate, dstate,
-			 TABLE(wallet,
-			       SQL_PRIVKEY(privkey))
-			 TABLE(pay,
-			       SQL_RHASH(rhash), SQL_U64(msatoshi),
-			       SQL_BLOB(ids), SQL_PUBKEY(htlc_peer),
-			       SQL_U64(htlc_id), SQL_R(r), SQL_FAIL(fail),
-			       "PRIMARY KEY(rhash)")
-			 TABLE(invoice,
-			       SQL_R(r), SQL_U64(msatoshi), SQL_INVLABEL(label),
-			       SQL_U64(paid_num),
-			       "PRIMARY KEY(label)")
-			 TABLE(anchors,
-			       SQL_PUBKEY(peer),
-			       SQL_TXID(txid), SQL_U32(idx), SQL_U64(amount),
-			       SQL_U32(ok_depth), SQL_U32(min_depth),
-			       SQL_BOOL(ours))
-			 /* FIXME: state in key is overkill: just need side */
-			 TABLE(htlcs,
-			       SQL_PUBKEY(peer), SQL_U64(id),
-			       SQL_STATENAME(state), SQL_U64(msatoshi),
-			       SQL_U32(expiry), SQL_RHASH(rhash), SQL_R(r),
-			       SQL_ROUTING(routing), SQL_PUBKEY(src_peer),
-			       SQL_U64(src_id), SQL_BLOB(fail),
-			       "PRIMARY KEY(peer, id, state)")
-			 TABLE(feechanges,
-			       SQL_PUBKEY(peer), SQL_STATENAME(state),
-			       SQL_U32(fee_rate),
-			       "PRIMARY KEY(peer,state)")
-			 TABLE(commit_info,
-			       SQL_PUBKEY(peer), SQL_U32(side),
-			       SQL_U64(commit_num), SQL_SHA256(revocation_hash),
-			       SQL_U64(xmit_order), SQL_SIGNATURE(sig),
-			       SQL_SHA256(prev_revocation_hash),
-			       "PRIMARY KEY(peer, side)")
-			 TABLE(shachain,
-			       SQL_PUBKEY(peer), SQL_SHACHAIN(shachain),
-			       "PRIMARY KEY(peer)")
-			 TABLE(their_visible_state,
-			       SQL_PUBKEY(peer), SQL_BOOL(offered_anchor),
-			       SQL_PUBKEY(commitkey), SQL_PUBKEY(finalkey),
-			       SQL_U32(locktime), SQL_U32(mindepth),
-			       SQL_U32(commit_fee_rate),
-			       SQL_SHA256(next_revocation_hash),
-			       "PRIMARY KEY(peer)")
-			 TABLE(their_commitments,
-			       SQL_PUBKEY(peer), SQL_SHA256(txid),
-			       SQL_U64(commit_num),
-			       "PRIMARY KEY(peer, txid)")
-			 TABLE(peer_secrets,
-			       SQL_PUBKEY(peer), SQL_PRIVKEY(commitkey),
-			       SQL_PRIVKEY(finalkey),
-			       SQL_SHA256(revocation_seed),
-			       "PRIMARY KEY(peer)")
-			 TABLE(peer_address,
-			       SQL_PUBKEY(peer), SQL_BLOB(addr),
-			       "PRIMARY KEY(peer)")
-			 TABLE(closing,
-			       SQL_PUBKEY(peer), SQL_U64(our_fee),
-			       SQL_U64(their_fee), SQL_SIGNATURE(their_sig),
-			       SQL_BLOB(our_script), SQL_BLOB(their_script),
-			       SQL_U64(shutdown_order), SQL_U64(closing_order),
-			       SQL_U64(sigs_in),
-			       "PRIMARY KEY(peer)")
-			 TABLE(peers,
-			       SQL_PUBKEY(peer), SQL_STATENAME(state),
-			       SQL_BOOL(offered_anchor), SQL_U32(our_feerate),
-			       "PRIMARY KEY(peer)"));
-
-	if (errmsg) {
+	if (!db_exec(__func__, dstate,
+		     TABLE(wallet,
+			   SQL_PRIVKEY(privkey))
+		     TABLE(pay,
+			   SQL_RHASH(rhash), SQL_U64(msatoshi),
+			   SQL_BLOB(ids), SQL_PUBKEY(htlc_peer),
+			   SQL_U64(htlc_id), SQL_R(r), SQL_FAIL(fail),
+			   "PRIMARY KEY(rhash)")
+		     TABLE(invoice,
+			   SQL_R(r), SQL_U64(msatoshi), SQL_INVLABEL(label),
+			   SQL_U64(paid_num),
+			   "PRIMARY KEY(label)")
+		     TABLE(anchors,
+			   SQL_PUBKEY(peer),
+			   SQL_TXID(txid), SQL_U32(idx), SQL_U64(amount),
+			   SQL_U32(ok_depth), SQL_U32(min_depth),
+			   SQL_BOOL(ours))
+		     /* FIXME: state in key is overkill: just need side */
+		     TABLE(htlcs,
+			   SQL_PUBKEY(peer), SQL_U64(id),
+			   SQL_STATENAME(state), SQL_U64(msatoshi),
+			   SQL_U32(expiry), SQL_RHASH(rhash), SQL_R(r),
+			   SQL_ROUTING(routing), SQL_PUBKEY(src_peer),
+			   SQL_U64(src_id), SQL_BLOB(fail),
+			   "PRIMARY KEY(peer, id, state)")
+		     TABLE(feechanges,
+			   SQL_PUBKEY(peer), SQL_STATENAME(state),
+			   SQL_U32(fee_rate),
+			   "PRIMARY KEY(peer,state)")
+		     TABLE(commit_info,
+			   SQL_PUBKEY(peer), SQL_U32(side),
+			   SQL_U64(commit_num), SQL_SHA256(revocation_hash),
+			   SQL_U64(xmit_order), SQL_SIGNATURE(sig),
+			   SQL_SHA256(prev_revocation_hash),
+			   "PRIMARY KEY(peer, side)")
+		     TABLE(shachain,
+			   SQL_PUBKEY(peer), SQL_SHACHAIN(shachain),
+			   "PRIMARY KEY(peer)")
+		     TABLE(their_visible_state,
+			   SQL_PUBKEY(peer), SQL_BOOL(offered_anchor),
+			   SQL_PUBKEY(commitkey), SQL_PUBKEY(finalkey),
+			   SQL_U32(locktime), SQL_U32(mindepth),
+			   SQL_U32(commit_fee_rate),
+			   SQL_SHA256(next_revocation_hash),
+			   "PRIMARY KEY(peer)")
+		     TABLE(their_commitments,
+			   SQL_PUBKEY(peer), SQL_SHA256(txid),
+			   SQL_U64(commit_num),
+			   "PRIMARY KEY(peer, txid)")
+		     TABLE(peer_secrets,
+			   SQL_PUBKEY(peer), SQL_PRIVKEY(commitkey),
+			   SQL_PRIVKEY(finalkey),
+			   SQL_SHA256(revocation_seed),
+			   "PRIMARY KEY(peer)")
+		     TABLE(peer_address,
+			   SQL_PUBKEY(peer), SQL_BLOB(addr),
+			   "PRIMARY KEY(peer)")
+		     TABLE(closing,
+			   SQL_PUBKEY(peer), SQL_U64(our_fee),
+			   SQL_U64(their_fee), SQL_SIGNATURE(their_sig),
+			   SQL_BLOB(our_script), SQL_BLOB(their_script),
+			   SQL_U64(shutdown_order), SQL_U64(closing_order),
+			   SQL_U64(sigs_in),
+			   "PRIMARY KEY(peer)")
+		     TABLE(peers,
+			   SQL_PUBKEY(peer), SQL_STATENAME(state),
+			   SQL_BOOL(offered_anchor), SQL_U32(our_feerate),
+			   "PRIMARY KEY(peer)"))) {
 		unlink(DB_FILE);
-		fatal("%s", errmsg);
+		fatal("%s", dstate->db->err);
 	}
 }
 
-bool db_set_anchor(struct peer *peer)
+void db_set_anchor(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid;
 
 	assert(peer->dstate->db->in_transaction);
 	peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
-	errmsg = db_exec(ctx, peer->dstate, 
-			 "INSERT INTO anchors VALUES (x'%s', x'%s', %u, %"PRIu64", %i, %u, %s);",
-			 peerid,
-			 tal_hexstr(ctx, &peer->anchor.txid,
-				    sizeof(peer->anchor.txid)),
-			 peer->anchor.index,
-			 peer->anchor.satoshis,
-			 peer->anchor.ok_depth,
-			 peer->anchor.min_depth,
-			 sql_bool(peer->anchor.ours));
-	if (errmsg)
-		goto out;
+	db_exec(__func__, peer->dstate, 
+		"INSERT INTO anchors VALUES (x'%s', x'%s', %u, %"PRIu64", %i, %u, %s);",
+		peerid,
+		tal_hexstr(ctx, &peer->anchor.txid, sizeof(peer->anchor.txid)),
+		peer->anchor.index,
+		peer->anchor.satoshis,
+		peer->anchor.ok_depth,
+		peer->anchor.min_depth,
+		sql_bool(peer->anchor.ours));
 
-	errmsg = db_exec(ctx, peer->dstate, 
-			 "INSERT INTO commit_info VALUES(x'%s', '%s', 0, x'%s', %"PRIi64", %s, NULL);",
-			 peerid,
-			 side_to_str(LOCAL),
-			 tal_hexstr(ctx, &peer->local.commit->revocation_hash,
-				    sizeof(peer->local.commit->revocation_hash)),
-			 peer->local.commit->order,
-			 sig_to_sql(ctx, peer->dstate->secpctx,
-				    peer->local.commit->sig));
-	if (errmsg)
-		goto out;
+	db_exec(__func__, peer->dstate, 
+		"INSERT INTO commit_info VALUES(x'%s', '%s', 0, x'%s', %"PRIi64", %s, NULL);",
+		peerid,
+		side_to_str(LOCAL),
+		tal_hexstr(ctx, &peer->local.commit->revocation_hash,
+			   sizeof(peer->local.commit->revocation_hash)),
+		peer->local.commit->order,
+		sig_to_sql(ctx, peer->dstate->secpctx,
+			   peer->local.commit->sig));
 
-	errmsg = db_exec(ctx, peer->dstate, 
-			 "INSERT INTO commit_info VALUES(x'%s', '%s', 0, x'%s', %"PRIi64", %s, NULL);",
-			 peerid,
-			 side_to_str(REMOTE),
-			 tal_hexstr(ctx, &peer->remote.commit->revocation_hash,
-				    sizeof(peer->remote.commit->revocation_hash)),
-			 peer->remote.commit->order,
-			 sig_to_sql(ctx, peer->dstate->secpctx,
-				    peer->remote.commit->sig));
+	db_exec(__func__, peer->dstate, 
+		"INSERT INTO commit_info VALUES(x'%s', '%s', 0, x'%s', %"PRIi64", %s, NULL);",
+		peerid,
+		side_to_str(REMOTE),
+		tal_hexstr(ctx, &peer->remote.commit->revocation_hash,
+			   sizeof(peer->remote.commit->revocation_hash)),
+		peer->remote.commit->order,
+		sig_to_sql(ctx, peer->dstate->secpctx,
+			   peer->remote.commit->sig));
 
-	if (errmsg)
-		goto out;
+	db_exec(__func__, peer->dstate,
+		"INSERT INTO shachain VALUES (x'%s', x'%s');",
+		peerid,
+		linearize_shachain(ctx, &peer->their_preimages));
 
-	errmsg = db_exec(ctx, peer->dstate, "INSERT INTO shachain VALUES (x'%s', x'%s');",
-			 peerid,
-			 linearize_shachain(ctx, &peer->their_preimages));
-
-out:
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
-	
 	tal_free(ctx);
-	return !errmsg;
 }
 
 bool db_set_visible_state(struct peer *peer)
@@ -1328,59 +1319,43 @@ bool db_set_visible_state(struct peer *peer)
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
-	if (!db_start_transaction(peer)) {
-		tal_free(ctx);
-		return false;
-	}
+	db_start_transaction(peer);
 
-	errmsg = db_exec(ctx, peer->dstate, 
-			 "INSERT INTO their_visible_state VALUES (x'%s', %s, x'%s', x'%s', %u, %u, %"PRIu64", x'%s');",
-			 peerid,
-			 sql_bool(peer->remote.offer_anchor
-				  == CMD_OPEN_WITH_ANCHOR),
-			 pubkey_to_hexstr(ctx, peer->dstate->secpctx,
-					  &peer->remote.commitkey),
-			 pubkey_to_hexstr(ctx, peer->dstate->secpctx,
-					  &peer->remote.finalkey),
-			 peer->remote.locktime.locktime,
-			 peer->remote.mindepth,
-			 peer->remote.commit_fee_rate,
-			 tal_hexstr(ctx, &peer->remote.next_revocation_hash,
-				    sizeof(peer->remote.next_revocation_hash)));
-	if (errmsg)
-		goto out;
+	db_exec(__func__, peer->dstate, 
+		"INSERT INTO their_visible_state VALUES (x'%s', %s, x'%s', x'%s', %u, %u, %"PRIu64", x'%s');",
+		peerid,
+		sql_bool(peer->remote.offer_anchor == CMD_OPEN_WITH_ANCHOR),
+		pubkey_to_hexstr(ctx, peer->dstate->secpctx,
+				 &peer->remote.commitkey),
+		pubkey_to_hexstr(ctx, peer->dstate->secpctx,
+				 &peer->remote.finalkey),
+		peer->remote.locktime.locktime,
+		peer->remote.mindepth,
+		peer->remote.commit_fee_rate,
+		tal_hexstr(ctx, &peer->remote.next_revocation_hash,
+			   sizeof(peer->remote.next_revocation_hash)));
 
-	if (!db_commit_transaction(peer))
-		errmsg = "Commit failed";
+	errmsg = db_commit_transaction(peer);
 
-out:
-	if (errmsg) {
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
-		db_abort_transaction(peer);
-	}
-	
 	tal_free(ctx);
 	return !errmsg;
 }
 
-bool db_update_next_revocation_hash(struct peer *peer)
+void db_update_next_revocation_hash(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s):%s", __func__, peerid,
 		tal_hexstr(ctx, &peer->remote.next_revocation_hash,
 			   sizeof(peer->remote.next_revocation_hash)));
 	assert(peer->dstate->db->in_transaction);
-	errmsg = db_exec(ctx, peer->dstate, 
-			 "UPDATE their_visible_state SET next_revocation_hash=x'%s' WHERE peer=x'%s';",
-			 tal_hexstr(ctx, &peer->remote.next_revocation_hash,
-				    sizeof(peer->remote.next_revocation_hash)),
-			 peerid);
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	db_exec(__func__, peer->dstate, 
+		"UPDATE their_visible_state SET next_revocation_hash=x'%s' WHERE peer=x'%s';",
+		tal_hexstr(ctx, &peer->remote.next_revocation_hash,
+			   sizeof(peer->remote.next_revocation_hash)),
+		peerid);
 	tal_free(ctx);
-	return !errmsg;
 }
 
 bool db_create_peer(struct peer *peer)
@@ -1389,252 +1364,212 @@ bool db_create_peer(struct peer *peer)
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
-	if (!db_start_transaction(peer)) {
-		tal_free(ctx);
-		return false;
-	}
-	errmsg = db_exec(ctx, peer->dstate, 
-			 "INSERT INTO peers VALUES (x'%s', '%s', %s, %"PRIi64");",
-			 peerid,
-			 state_name(peer->state),
-			 sql_bool(peer->local.offer_anchor == CMD_OPEN_WITH_ANCHOR),
-			 peer->local.commit_fee_rate);
-	if (errmsg)
-		goto out;
-	
-	errmsg = db_exec(ctx, peer->dstate, 
-			 "INSERT INTO peer_secrets VALUES (x'%s', %s);",
-			 peerid, peer_secrets_for_db(ctx, peer));
-	if (errmsg)
-		goto out;
+	db_start_transaction(peer);
+	db_exec(__func__, peer->dstate, 
+		"INSERT INTO peers VALUES (x'%s', '%s', %s, %"PRIi64");",
+		peerid,
+		state_name(peer->state),
+		sql_bool(peer->local.offer_anchor == CMD_OPEN_WITH_ANCHOR),
+		peer->local.commit_fee_rate);
 
-	if (!db_commit_transaction(peer))
-		errmsg = "Commit failed";
+	db_exec(__func__, peer->dstate, 
+		"INSERT INTO peer_secrets VALUES (x'%s', %s);",
+		peerid, peer_secrets_for_db(ctx, peer));
 
-out:
-	if (errmsg) {
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
-		db_abort_transaction(peer);
-	}
-	
+	errmsg = db_commit_transaction(peer);
 	tal_free(ctx);
 	return !errmsg;
 }
 
-bool db_start_transaction(struct peer *peer)
+void db_start_transaction(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(!peer->dstate->db->in_transaction);
-	errmsg = db_exec(ctx, peer->dstate, "BEGIN IMMEDIATE;");
-	if (!errmsg)
-		peer->dstate->db->in_transaction = true;
-	else
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	peer->dstate->db->in_transaction = true;
+	peer->dstate->db->err = tal_free(peer->dstate->db->err);
+
+	db_exec(__func__, peer->dstate, "BEGIN IMMEDIATE;");
 	tal_free(ctx);
-	return !errmsg;
 }
 
 void db_abort_transaction(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
 	peer->dstate->db->in_transaction = false;
-	errmsg = db_exec(ctx, peer->dstate, "ROLLBACK;");
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	db_exec(__func__, peer->dstate, "ROLLBACK;");
 	tal_free(ctx);
 }
 
-bool db_commit_transaction(struct peer *peer)
+const char *db_commit_transaction(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
-	peer->dstate->db->in_transaction = false;
-	errmsg = db_exec(ctx, peer->dstate, "COMMIT;");
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	if (!db_exec(__func__, peer->dstate, "COMMIT;"))
+		db_abort_transaction(peer);
+	else
+		peer->dstate->db->in_transaction = false;
 	tal_free(ctx);
-	return !errmsg;
+
+	return peer->dstate->db->err;
 }
 
-bool db_new_htlc(struct peer *peer, const struct htlc *htlc)
+void db_new_htlc(struct peer *peer, const struct htlc *htlc)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
 
 	if (htlc->src) {
-		errmsg = db_exec(ctx, peer->dstate, 
-				 "INSERT INTO htlcs VALUES"
-				 " (x'%s', %"PRIu64", '%s', %"PRIu64", %u, x'%s', NULL, x'%s', x'%s', %"PRIu64", NULL);",
-				 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id),
-				 htlc->id,
-				 htlc_state_name(htlc->state),
-				 htlc->msatoshi,
-				 abs_locktime_to_blocks(&htlc->expiry),
-				 tal_hexstr(ctx, &htlc->rhash, sizeof(htlc->rhash)),
-				 tal_hexstr(ctx, htlc->routing, tal_count(htlc->routing)),
-				 peerid,
-				 htlc->src->id);
+		db_exec(__func__, peer->dstate, 
+			"INSERT INTO htlcs VALUES"
+			" (x'%s', %"PRIu64", '%s', %"PRIu64", %u, x'%s', NULL, x'%s', x'%s', %"PRIu64", NULL);",
+			pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id),
+			htlc->id,
+			htlc_state_name(htlc->state),
+			htlc->msatoshi,
+			abs_locktime_to_blocks(&htlc->expiry),
+			tal_hexstr(ctx, &htlc->rhash, sizeof(htlc->rhash)),
+			tal_hexstr(ctx, htlc->routing, tal_count(htlc->routing)),
+			peerid,
+			htlc->src->id);
 	} else {
-		errmsg = db_exec(ctx, peer->dstate, 
-				 "INSERT INTO htlcs VALUES"
-				 " (x'%s', %"PRIu64", '%s', %"PRIu64", %u, x'%s', NULL, x'%s', NULL, NULL, NULL);",
-				 peerid,
-				 htlc->id,
-				 htlc_state_name(htlc->state),
-				 htlc->msatoshi,
-				 abs_locktime_to_blocks(&htlc->expiry),
-				 tal_hexstr(ctx, &htlc->rhash, sizeof(htlc->rhash)),
-				 tal_hexstr(ctx, htlc->routing, tal_count(htlc->routing)));
+		db_exec(__func__, peer->dstate, 
+			"INSERT INTO htlcs VALUES"
+			" (x'%s', %"PRIu64", '%s', %"PRIu64", %u, x'%s', NULL, x'%s', NULL, NULL, NULL);",
+			peerid,
+			htlc->id,
+			htlc_state_name(htlc->state),
+			htlc->msatoshi,
+			abs_locktime_to_blocks(&htlc->expiry),
+			tal_hexstr(ctx, &htlc->rhash, sizeof(htlc->rhash)),
+			tal_hexstr(ctx, htlc->routing, tal_count(htlc->routing)));
 	}
 
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
 	tal_free(ctx);
-	return !errmsg;
 }
 
-bool db_new_feechange(struct peer *peer, const struct feechange *feechange)
+void db_new_feechange(struct peer *peer, const struct feechange *feechange)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
 
-	errmsg = db_exec(ctx, peer->dstate, 
-			 "INSERT INTO feechanges VALUES"
-				 " (x'%s', '%s', %"PRIu64");",
-			 peerid,
-			 feechange_state_name(feechange->state),
-			 feechange->fee_rate);
+	db_exec(__func__, peer->dstate, 
+		"INSERT INTO feechanges VALUES"
+		" (x'%s', '%s', %"PRIu64");",
+		peerid,
+		feechange_state_name(feechange->state),
+		feechange->fee_rate);
 
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
 	tal_free(ctx);
-	return !errmsg;
 }
 
-bool db_update_htlc_state(struct peer *peer, const struct htlc *htlc,
+void db_update_htlc_state(struct peer *peer, const struct htlc *htlc,
 			  enum htlc_state oldstate)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s): %"PRIu64" %s->%s", __func__, peerid,
 		  htlc->id, htlc_state_name(oldstate),
 		  htlc_state_name(htlc->state));
 	assert(peer->dstate->db->in_transaction);
-	errmsg = db_exec(ctx, peer->dstate, 
-			 "UPDATE htlcs SET state='%s' WHERE peer=x'%s' AND id=%"PRIu64" AND state='%s';",
-			 htlc_state_name(htlc->state), peerid,
-			 htlc->id, htlc_state_name(oldstate));
+	db_exec(__func__, peer->dstate, 
+		"UPDATE htlcs SET state='%s' WHERE peer=x'%s' AND id=%"PRIu64" AND state='%s';",
+		htlc_state_name(htlc->state), peerid,
+		htlc->id, htlc_state_name(oldstate));
 
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
 	tal_free(ctx);
-	return !errmsg;
 }
 
-bool db_update_feechange_state(struct peer *peer,
+void db_update_feechange_state(struct peer *peer,
 			       const struct feechange *f,
 			       enum htlc_state oldstate)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s): %s->%s", __func__, peerid,
 		  feechange_state_name(oldstate),
 		  feechange_state_name(f->state));
 	assert(peer->dstate->db->in_transaction);
-	errmsg = db_exec(ctx, peer->dstate, 
-			 "UPDATE feechanges SET state='%s' WHERE peer=x'%s' AND state='%s';",
-			 feechange_state_name(f->state), peerid,
-			 feechange_state_name(oldstate));
+	db_exec(__func__, peer->dstate, 
+		"UPDATE feechanges SET state='%s' WHERE peer=x'%s' AND state='%s';",
+		feechange_state_name(f->state), peerid,
+		feechange_state_name(oldstate));
 
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
 	tal_free(ctx);
-	return !errmsg;
 }
 
-bool db_update_state(struct peer *peer)
+void db_update_state(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(peer->dstate->db->in_transaction);
-	errmsg = db_exec(ctx, peer->dstate, 
-			 "UPDATE peers SET state='%s' WHERE peer=x'%s';",
-			 state_name(peer->state), peerid);
-
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	db_exec(__func__, peer->dstate, 
+		"UPDATE peers SET state='%s' WHERE peer=x'%s';",
+		state_name(peer->state), peerid);
 	tal_free(ctx);
-	return !errmsg;
 }
 
-bool db_htlc_fulfilled(struct peer *peer, const struct htlc *htlc)
+void db_htlc_fulfilled(struct peer *peer, const struct htlc *htlc)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(peer->dstate->db->in_transaction);
-	errmsg = db_exec(ctx, peer->dstate, 
-			 "UPDATE htlcs SET r=x'%s' WHERE peer=x'%s' AND id=%"PRIu64" AND state='%s';",
-			 tal_hexstr(ctx, htlc->r, sizeof(*htlc->r)),
-			 peerid,
-			 htlc->id,
-			 htlc_state_name(htlc->state));
+	db_exec(__func__, peer->dstate, 
+		"UPDATE htlcs SET r=x'%s' WHERE peer=x'%s' AND id=%"PRIu64" AND state='%s';",
+		tal_hexstr(ctx, htlc->r, sizeof(*htlc->r)),
+		peerid,
+		htlc->id,
+		htlc_state_name(htlc->state));
 
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
 	tal_free(ctx);
-	return !errmsg;
 }
 
-bool db_htlc_failed(struct peer *peer, const struct htlc *htlc)
+void db_htlc_failed(struct peer *peer, const struct htlc *htlc)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(peer->dstate->db->in_transaction);
-	errmsg = db_exec(ctx, peer->dstate, 
-			 "UPDATE htlcs SET fail=x'%s' WHERE peer=x'%s' AND id=%"PRIu64" AND state='%s';",
-			 tal_hexstr(ctx, htlc->fail, sizeof(*htlc->fail)),
-			 peerid,
-			 htlc->id,
-			 htlc_state_name(htlc->state));
+	db_exec(__func__, peer->dstate, 
+		"UPDATE htlcs SET fail=x'%s' WHERE peer=x'%s' AND id=%"PRIu64" AND state='%s';",
+		tal_hexstr(ctx, htlc->fail, sizeof(*htlc->fail)),
+		peerid,
+		htlc->id,
+		htlc_state_name(htlc->state));
 
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
 	tal_free(ctx);
-	return !errmsg;
 }
 
-bool db_new_commit_info(struct peer *peer, enum side side,
+void db_new_commit_info(struct peer *peer, enum side side,
 			const struct sha256 *prev_rhash)
 {
 	struct commit_info *ci;
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1646,96 +1581,84 @@ bool db_new_commit_info(struct peer *peer, enum side side,
 		ci = peer->remote.commit;
 	}
 
-	errmsg = db_exec(ctx, peer->dstate, "UPDATE commit_info SET commit_num=%"PRIu64", revocation_hash=x'%s', sig=%s, xmit_order=%"PRIi64", prev_revocation_hash=%s WHERE peer=x'%s' AND side='%s';",
-			 ci->commit_num,
-			 tal_hexstr(ctx, &ci->revocation_hash,
-				    sizeof(ci->revocation_hash)),
-			 sig_to_sql(ctx, peer->dstate->secpctx, ci->sig),
-			 ci->order,
-			 sql_hex_or_null(ctx, prev_rhash, sizeof(*prev_rhash)),
-			 peerid, side_to_str(side));
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	db_exec(__func__, peer->dstate, "UPDATE commit_info SET commit_num=%"PRIu64", revocation_hash=x'%s', sig=%s, xmit_order=%"PRIi64", prev_revocation_hash=%s WHERE peer=x'%s' AND side='%s';",
+		ci->commit_num,
+		tal_hexstr(ctx, &ci->revocation_hash,
+			   sizeof(ci->revocation_hash)),
+		sig_to_sql(ctx, peer->dstate->secpctx, ci->sig),
+		ci->order,
+		sql_hex_or_null(ctx, prev_rhash, sizeof(*prev_rhash)),
+		peerid, side_to_str(side));
 	tal_free(ctx);
-	return !errmsg;
 }
 
 /* FIXME: Is this strictly necessary? */
-bool db_remove_their_prev_revocation_hash(struct peer *peer)
+void db_remove_their_prev_revocation_hash(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(peer->dstate->db->in_transaction);
 
-	errmsg = db_exec(ctx, peer->dstate, "UPDATE commit_info SET prev_revocation_hash=NULL WHERE peer=x'%s' AND side='REMOTE' and prev_revocation_hash IS NOT NULL;",
+	db_exec(__func__, peer->dstate, "UPDATE commit_info SET prev_revocation_hash=NULL WHERE peer=x'%s' AND side='REMOTE' and prev_revocation_hash IS NOT NULL;",
 			 peerid);
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
 	tal_free(ctx);
-	return !errmsg;
 }
 	
 
-bool db_save_shachain(struct peer *peer)
+void db_save_shachain(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(peer->dstate->db->in_transaction);
-	errmsg = db_exec(ctx, peer->dstate, "UPDATE shachain SET shachain=x'%s' WHERE peer=x'%s';",
-			 linearize_shachain(ctx, &peer->their_preimages),
-			 peerid);
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	db_exec(__func__, peer->dstate, "UPDATE shachain SET shachain=x'%s' WHERE peer=x'%s';",
+		linearize_shachain(ctx, &peer->their_preimages),
+		peerid);
 	tal_free(ctx);
-	return !errmsg;
 }
 
-bool db_add_commit_map(struct peer *peer,
+void db_add_commit_map(struct peer *peer,
 		       const struct sha256_double *txid, u64 commit_num)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s),commit_num=%"PRIu64, __func__, peerid,
 		  commit_num);
 
 	assert(peer->dstate->db->in_transaction);
-	errmsg = db_exec(ctx, peer->dstate, "INSERT INTO their_commitments VALUES (x'%s', x'%s', %"PRIu64");",
-			 peerid,
-			 tal_hexstr(ctx, txid, sizeof(*txid)),
-			 commit_num);
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	db_exec(__func__, peer->dstate,
+		"INSERT INTO their_commitments VALUES (x'%s', x'%s', %"PRIu64");",
+		peerid,
+		tal_hexstr(ctx, txid, sizeof(*txid)),
+		commit_num);
 	tal_free(ctx);
-	return !errmsg;
 }
 
 /* FIXME: Clean out old ones! */
 bool db_add_peer_address(struct lightningd_state *dstate,
 			 const struct peer_address *addr)
 {
-	const char *errmsg, *ctx = tal(dstate, char);
+	const char *ctx = tal(dstate, char);
+	bool ok;
 
 	log_debug(dstate->base_log, "%s", __func__);
 
 	assert(!dstate->db->in_transaction);
-	errmsg = db_exec(ctx, dstate,
-			 "INSERT OR REPLACE INTO peer_address VALUES (x'%s', x'%s');",
-			 pubkey_to_hexstr(ctx, dstate->secpctx, &addr->id),
-			 netaddr_to_hex(ctx, &addr->addr));
+	ok = db_exec(__func__, dstate,
+		     "INSERT OR REPLACE INTO peer_address VALUES (x'%s', x'%s');",
+		     pubkey_to_hexstr(ctx, dstate->secpctx, &addr->id),
+		     netaddr_to_hex(ctx, &addr->addr));
 
-	if (errmsg)
-		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
 	tal_free(ctx);
-	return !errmsg;
+	return ok;
 }
-	
+
 void db_forget_peer(struct peer *peer)
 {
 	const char *ctx = tal(peer, char);
@@ -1746,113 +1669,105 @@ void db_forget_peer(struct peer *peer)
 
 	assert(peer->state == STATE_CLOSED);
 
-	if (!db_start_transaction(peer))
-		fatal("%s:db_start_transaction failed", __func__);
+	db_start_transaction(peer);
 
 	for (i = 0; i < ARRAY_SIZE(tables); i++) {
-		const char *errmsg;
-		errmsg = db_exec(ctx, peer->dstate,
-				 "DELETE from %s WHERE peer=x'%s';",
-				 tables[i], peerid);
-		if (errmsg)
-			fatal("%s:%s", __func__, errmsg);
+		db_exec(__func__, peer->dstate,
+			"DELETE from %s WHERE peer=x'%s';",
+			tables[i], peerid);
 	}
-	if (!db_commit_transaction(peer))
+	if (db_commit_transaction(peer) != NULL)
 		fatal("%s:db_commi_transaction failed", __func__);
 
 	tal_free(ctx);
 }
 
-bool db_begin_shutdown(struct peer *peer)
+void db_begin_shutdown(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(peer->dstate->db->in_transaction);
-	errmsg = db_exec(ctx, peer->dstate, "INSERT INTO closing VALUES (x'%s', 0, 0, NULL, NULL, NULL, 0, 0, 0);",
-			 peerid);
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	db_exec(__func__, peer->dstate,
+		"INSERT INTO closing VALUES (x'%s', 0, 0, NULL, NULL, NULL, 0, 0, 0);",
+		peerid);
 	tal_free(ctx);
-	return !errmsg;
 }
 
-bool db_set_our_closing_script(struct peer *peer)
+void db_set_our_closing_script(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(peer->dstate->db->in_transaction);
-	errmsg = db_exec(ctx, peer->dstate, "UPDATE closing SET our_script=x'%s',shutdown_order=%"PRIu64" WHERE peer=x'%s';",
-			 tal_hexstr(ctx, peer->closing.our_script,
-				    tal_count(peer->closing.our_script)),
-			 peer->closing.shutdown_order,
-			 peerid);
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	db_exec(__func__, peer->dstate, "UPDATE closing SET our_script=x'%s',shutdown_order=%"PRIu64" WHERE peer=x'%s';",
+		tal_hexstr(ctx, peer->closing.our_script,
+			   tal_count(peer->closing.our_script)),
+		peer->closing.shutdown_order,
+		peerid);
 	tal_free(ctx);
-	return !errmsg;
 }
 
 bool db_set_their_closing_script(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
+	bool ok;
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(!peer->dstate->db->in_transaction);
-	errmsg = db_exec(ctx, peer->dstate, "UPDATE closing SET their_script=x'%s' WHERE peer=x'%s';",
-			 tal_hexstr(ctx, peer->closing.their_script,
-				    tal_count(peer->closing.their_script)),
-			 peerid);
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	ok = db_exec(__func__, peer->dstate,
+		     "UPDATE closing SET their_script=x'%s' WHERE peer=x'%s';",
+		     tal_hexstr(ctx, peer->closing.their_script,
+				tal_count(peer->closing.their_script)),
+		     peerid);
 	tal_free(ctx);
-	return !errmsg;
+	return ok;
 }
 
 /* For first time, we are in transaction to make it atomic with peer->state
  * update.  Later calls are not. */
+/* FIXME: make caller wrap in transaction. */
 bool db_update_our_closing(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
+	bool ok;
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
-	errmsg = db_exec(ctx, peer->dstate, "UPDATE closing SET our_fee=%"PRIu64", closing_order=%"PRIi64" WHERE peer=x'%s';",
-			 peer->closing.our_fee,
-			 peer->closing.closing_order,
-			 peerid);
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	ok = db_exec(__func__, peer->dstate,
+		     "UPDATE closing SET our_fee=%"PRIu64", closing_order=%"PRIi64" WHERE peer=x'%s';",
+		     peer->closing.our_fee,
+		     peer->closing.closing_order,
+		     peerid);
 	tal_free(ctx);
-	return !errmsg;
+	return ok;
 }
 
 bool db_update_their_closing(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *ctx = tal(peer, char);
+	bool ok;
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(!peer->dstate->db->in_transaction);
-	errmsg = db_exec(ctx, peer->dstate, "UPDATE closing SET their_fee=%"PRIu64", their_sig=x'%s', sigs_in=%u WHERE peer=x'%s';",
-			 peer->closing.their_fee,
-			 tal_hexstr(ctx, peer->closing.their_sig,
-				    tal_count(peer->closing.their_sig)),
-			 peer->closing.sigs_in,
-			 peerid);
-	if (errmsg)
-		log_broken(peer->log, "%s:%s", __func__, errmsg);
+	ok = db_exec(__func__, peer->dstate,
+		     "UPDATE closing SET their_fee=%"PRIu64", their_sig=x'%s', sigs_in=%u WHERE peer=x'%s';",
+		     peer->closing.their_fee,
+		     tal_hexstr(ctx, peer->closing.their_sig,
+				tal_count(peer->closing.their_sig)),
+		     peer->closing.sigs_in,
+		     peerid);
 	tal_free(ctx);
-	return !errmsg;
+	return ok;
 }
 
 bool db_new_pay_command(struct lightningd_state *dstate,
@@ -1861,22 +1776,22 @@ bool db_new_pay_command(struct lightningd_state *dstate,
 			u64 msatoshi,
 			const struct htlc *htlc)
 {
-	const char *errmsg, *ctx = tal(dstate, char);
+	const char *ctx = tal(dstate, char);
+	bool ok;
 
 	log_debug(dstate->base_log, "%s", __func__);
 	log_add_struct(dstate->base_log, "(%s)", struct sha256, rhash);
 
 	assert(!dstate->db->in_transaction);
-	errmsg = db_exec(ctx, dstate, "INSERT INTO pay VALUES (x'%s', %"PRIu64", x'%s', x'%s', %"PRIu64", NULL, NULL);",
-			 tal_hexstr(ctx, rhash, sizeof(*rhash)),
-			 msatoshi,
-			 pubkeys_to_hex(ctx, dstate->secpctx, ids),
-			 pubkey_to_hexstr(ctx, dstate->secpctx, htlc->peer->id),
-			 htlc->id);
-	if (errmsg)
-		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
+	ok = db_exec(__func__, dstate,
+		     "INSERT INTO pay VALUES (x'%s', %"PRIu64", x'%s', x'%s', %"PRIu64", NULL, NULL);",
+		     tal_hexstr(ctx, rhash, sizeof(*rhash)),
+		     msatoshi,
+		     pubkeys_to_hex(ctx, dstate->secpctx, ids),
+		     pubkey_to_hexstr(ctx, dstate->secpctx, htlc->peer->id),
+		     htlc->id);
 	tal_free(ctx);
-	return !errmsg;
+	return ok;
 }
 
 bool db_replace_pay_command(struct lightningd_state *dstate,
@@ -1885,48 +1800,45 @@ bool db_replace_pay_command(struct lightningd_state *dstate,
 			    u64 msatoshi,
 			    const struct htlc *htlc)
 {
-	const char *errmsg, *ctx = tal(dstate, char);
+	const char *ctx = tal(dstate, char);
+	bool ok;
 
 	log_debug(dstate->base_log, "%s", __func__);
 	log_add_struct(dstate->base_log, "(%s)", struct sha256, rhash);
 
 	assert(!dstate->db->in_transaction);
-	errmsg = db_exec(ctx, dstate, "UPDATE pay SET msatoshi=%"PRIu64", ids=x'%s', htlc_peer=x'%s', htlc_id=%"PRIu64", r=NULL, fail=NULL WHERE rhash=x'%s';",
-			 msatoshi,
-			 pubkeys_to_hex(ctx, dstate->secpctx, ids),
-			 pubkey_to_hexstr(ctx, dstate->secpctx, htlc->peer->id),
-			 htlc->id,
-			 tal_hexstr(ctx, rhash, sizeof(*rhash)));
-	if (errmsg)
-		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
+	ok = db_exec(__func__, dstate,
+		     "UPDATE pay SET msatoshi=%"PRIu64", ids=x'%s', htlc_peer=x'%s', htlc_id=%"PRIu64", r=NULL, fail=NULL WHERE rhash=x'%s';",
+		     msatoshi,
+		     pubkeys_to_hex(ctx, dstate->secpctx, ids),
+		     pubkey_to_hexstr(ctx, dstate->secpctx, htlc->peer->id),
+		     htlc->id,
+		     tal_hexstr(ctx, rhash, sizeof(*rhash)));
 	tal_free(ctx);
-	return !errmsg;
+	return ok;
 }
 
-bool db_complete_pay_command(struct lightningd_state *dstate,
+void db_complete_pay_command(struct lightningd_state *dstate,
 			     const struct htlc *htlc)
 {
-	const char *errmsg, *ctx = tal(dstate, char);
+	const char *ctx = tal(dstate, char);
 
 	log_debug(dstate->base_log, "%s", __func__);
 	log_add_struct(dstate->base_log, "(%s)", struct sha256, &htlc->rhash);
 
 	assert(dstate->db->in_transaction);
 	if (htlc->r)
-		errmsg = db_exec(ctx, dstate,
-				 "UPDATE pay SET r=x'%s', htlc_peer=NULL WHERE rhash=x'%s';",
-				 tal_hexstr(ctx, htlc->r, sizeof(*htlc->r)),
-				 tal_hexstr(ctx, &htlc->rhash, sizeof(htlc->rhash)));
+		db_exec(__func__, dstate,
+			"UPDATE pay SET r=x'%s', htlc_peer=NULL WHERE rhash=x'%s';",
+			tal_hexstr(ctx, htlc->r, sizeof(*htlc->r)),
+			tal_hexstr(ctx, &htlc->rhash, sizeof(htlc->rhash)));
 	else
-		errmsg = db_exec(ctx, dstate,
-				 "UPDATE pay SET fail=x'%s', htlc_peer=NULL WHERE rhash=x'%s';",
-				 tal_hexstr(ctx, htlc->fail, tal_count(htlc->fail)),
-				 tal_hexstr(ctx, &htlc->rhash, sizeof(htlc->rhash)));
+		db_exec(__func__, dstate,
+			"UPDATE pay SET fail=x'%s', htlc_peer=NULL WHERE rhash=x'%s';",
+			tal_hexstr(ctx, htlc->fail, tal_count(htlc->fail)),
+			tal_hexstr(ctx, &htlc->rhash, sizeof(htlc->rhash)));
 
-	if (errmsg)
-		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
 	tal_free(ctx);
-	return !errmsg;
 }
 
 bool db_new_invoice(struct lightningd_state *dstate,
@@ -1934,54 +1846,50 @@ bool db_new_invoice(struct lightningd_state *dstate,
 		    const char *label,
 		    const struct rval *r)
 {
-	const char *errmsg, *ctx = tal(dstate, char);
-
+	const char *ctx = tal(dstate, char);
+	bool ok;
+	
 	log_debug(dstate->base_log, "%s", __func__);
 
 	assert(!dstate->db->in_transaction);
 
 	/* Insert label as hex; suspect injection attacks. */
-	errmsg = db_exec(ctx, dstate, "INSERT INTO invoice VALUES (x'%s', %"PRIu64", x'%s', %s);",
-			 tal_hexstr(ctx, r, sizeof(*r)),
-			 msatoshi,
-			 tal_hexstr(ctx, label, strlen(label)),
-			 sql_bool(false));
-	if (errmsg)
-		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
+	ok = db_exec(__func__, dstate,
+		     "INSERT INTO invoice VALUES (x'%s', %"PRIu64", x'%s', %s);",
+		     tal_hexstr(ctx, r, sizeof(*r)),
+		     msatoshi,
+		     tal_hexstr(ctx, label, strlen(label)),
+		     sql_bool(false));
 	tal_free(ctx);
-	return !errmsg;
+	return ok;
 }
 
-bool db_resolve_invoice(struct lightningd_state *dstate,
+void db_resolve_invoice(struct lightningd_state *dstate,
 			const char *label, u64 paid_num)
 {
-	const char *errmsg, *ctx = tal(dstate, char);
+	const char *ctx = tal(dstate, char);
 
 	log_debug(dstate->base_log, "%s", __func__);
 
 	assert(dstate->db->in_transaction);
 	
-	errmsg = db_exec(ctx, dstate, "UPDATE invoice SET paid_num=%"PRIu64" WHERE label=x'%s';",
-			 paid_num, tal_hexstr(ctx, label, strlen(label)));
-	if (errmsg)
-		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
+	db_exec(__func__, dstate, "UPDATE invoice SET paid_num=%"PRIu64" WHERE label=x'%s';",
+		paid_num, tal_hexstr(ctx, label, strlen(label)));
 	tal_free(ctx);
-	return !errmsg;
 }
 
 bool db_remove_invoice(struct lightningd_state *dstate,
 		       const char *label)
 {
-	const char *errmsg, *ctx = tal(dstate, char);
+	const char *ctx = tal(dstate, char);
+	bool ok;
 
 	log_debug(dstate->base_log, "%s", __func__);
 
 	assert(!dstate->db->in_transaction);
 	
-	errmsg = db_exec(ctx, dstate, "DELETE FROM invoice WHERE label=x'%s';",
+	ok = db_exec(__func__, dstate, "DELETE FROM invoice WHERE label=x'%s';",
 			 tal_hexstr(ctx, label, strlen(label)));
-	if (errmsg)
-		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
 	tal_free(ctx);
-	return !errmsg;
+	return ok;
 }
