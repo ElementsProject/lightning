@@ -321,18 +321,20 @@ struct peer *find_route(struct lightningd_state *dstate,
 	msatoshi += *fee;
 	log_info(dstate->base_log, "find_route:");
 	log_add_struct(dstate->base_log, "via %s", struct pubkey, first->id);
-	for (i = 0; i < best; i++) {
-		log_add_struct(dstate->base_log, " %s",
-			       struct pubkey, &(*route)[i]->dst->id);
-		log_add(dstate->base_log, "(%i+%i=%"PRIu64")",
-			(*route)[i]->base_fee,
-			(*route)[i]->proportional_fee,
-			connection_fee((*route)[i], msatoshi));
-		msatoshi -= connection_fee((*route)[i], msatoshi);
+	/* If there are intermidiaries, dump them, and total fees. */
+	if (best != 0) {
+		for (i = 0; i < best; i++) {
+			log_add_struct(dstate->base_log, " %s",
+				       struct pubkey, &(*route)[i]->dst->id);
+			log_add(dstate->base_log, "(%i+%i=%"PRIu64")",
+				(*route)[i]->base_fee,
+				(*route)[i]->proportional_fee,
+				connection_fee((*route)[i], msatoshi));
+			msatoshi -= connection_fee((*route)[i], msatoshi);
+		}
+		log_add(dstate->base_log, "=%"PRIi64"(%+"PRIi64")",
+			(*route)[best-1]->dst->bfg[best-1].total, *fee);
 	}
-	log_add(dstate->base_log, "=%"PRIi64"(%+"PRIi64")",
-		(*route)[best-1]->dst->bfg[best-1].total, *fee);
-
 	return first;
 }
 
