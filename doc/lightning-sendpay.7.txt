@@ -1,0 +1,52 @@
+LIGHTNING-SENDPAY(7)
+====================
+:doctype: manpage
+
+NAME
+----
+lightning-sendpay - Protocol for sending a payment via a route.
+
+SYNOPSIS
+--------
+*sendpay* 'route' 'hash'
+
+DESCRIPTION
+-----------
+
+The *sendpay* RPC command attempts to send funds associated with the
+given 'hash', along a route to the final destination in the route.
+
+Generally, a client would call getroute(7) to resolve a route, then
+use *sendpay* to send it.  If it fails, it would call getroute(7)
+again to retry.
+
+The response will occur when the payment fails or succeeds.  Once a
+payment has succeeded, calls to *sendpay* with the same 'hash' will
+fail; this prevents accidental multiple payments.
+
+RETURN VALUE
+------------
+
+On success, a 'preimage' hex string is returned as proof that the
+destination received the payment.  The 'preimage' will SHA256 to the
+'hash' given by the caller.
+
+On error, if the error occurred from a node other than the final
+destination, the route table will be updated so that getroute(7)
+should return an alternate route (if any).  An error from the final
+destination implies the payment should not be retried.
+
+//FIXME:Enumerate errors
+
+AUTHOR
+------
+Rusty Russell <rusty@rustcorp.com.au> is mainly responsible.
+
+SEE ALSO
+--------
+lightning-listinvoice(7), lightning-delinvoice(7),
+lightning-getroute(7), lightning-invoice(7).
+
+RESOURCES
+---------
+Main web site: https://github.com/ElementsProject/lightning

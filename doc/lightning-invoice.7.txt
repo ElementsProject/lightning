@@ -1,0 +1,44 @@
+LIGHTNING-INVOICE(7)
+====================
+:doctype: manpage
+
+NAME
+----
+lightning-invoice - Protocol for accepting payments.
+
+SYNOPSIS
+--------
+*invoice* 'msatoshi' 'label'
+
+DESCRIPTION
+-----------
+The *invoice* RPC command creates the expectation of a payment of a
+given amount of milli-satoshi: it returns a unique token which another
+lightning daemon can use to pay this invoice.
+
+The 'label' must be unique; it is never revealed to other nodes on
+the lightning network, but it can be used to query the status of this
+invoice.
+
+RETURN VALUE
+------------
+
+On success, a hash is returned as 'rhash' to be given to the payer.
+On failure, an error is returned and no invoice is created.  If the
+lightning process fails before responding, the caller should use
+getinvoice(7) to query whether this invoice was created or not.
+
+//FIXME:Enumerate errors
+
+AUTHOR
+------
+Rusty Russell <rusty@rustcorp.com.au> is mainly responsible.
+
+SEE ALSO
+--------
+lightning-listinvoice(7), lightning-delinvoice(7),
+lightning-getroute(7), lightning-sendpay(7).
+
+RESOURCES
+---------
+Main web site: https://github.com/ElementsProject/lightning

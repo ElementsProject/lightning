@@ -1,0 +1,51 @@
+'\" t
+.\"     Title: lightning-invoice
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 09/06/2016
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNING\-INVOICE" "7" "09/06/2016" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightning-invoice \- Protocol for accepting payments\&.
+.SH "SYNOPSIS"
+.sp
+\fBinvoice\fR \fImsatoshi\fR \fIlabel\fR
+.SH "DESCRIPTION"
+.sp
+The \fBinvoice\fR RPC command creates the expectation of a payment of a given amount of milli\-satoshi: it returns a unique token which another lightning daemon can use to pay this invoice\&.
+.sp
+The \fIlabel\fR must be unique; it is never revealed to other nodes on the lightning network, but it can be used to query the status of this invoice\&.
+.SH "RETURN VALUE"
+.sp
+On success, a hash is returned as \fIrhash\fR to be given to the payer\&. On failure, an error is returned and no invoice is created\&. If the lightning process fails before responding, the caller should use getinvoice(7) to query whether this invoice was created or not\&.
+.SH "AUTHOR"
+.sp
+Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.
+.SH "SEE ALSO"
+.sp
+lightning\-listinvoice(7), lightning\-delinvoice(7), lightning\-getroute(7), lightning\-sendpay(7)\&.
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning

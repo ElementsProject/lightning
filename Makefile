@@ -168,6 +168,14 @@ GEN_HEADERS := 	gen_pkt_names.h			\
 
 CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
+MANPAGES := doc/lightning-cli.1 \
+	doc/lightning-delinvoice.7 \
+	doc/lightning-getroute.7 \
+	doc/lightning-invoice.7 \
+	doc/lightning-listinvoice.7 \
+	doc/lightning-sendpay.7 \
+	doc/lightning-waitinvoice.7
+
 PROGRAMS := $(TEST_PROGRAMS)
 
 CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition
@@ -177,7 +185,10 @@ CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) -I secp256k1/include/ -I . 
 LDLIBS := -lprotobuf-c -lgmp -lsodium -lbase58 -lsqlite3
 $(PROGRAMS): CFLAGS+=-I.
 
-default: $(PROGRAMS) daemon-all
+default: $(PROGRAMS) $(MANPAGES) daemon-all
+
+$(MANPAGES): doc/%: doc/%.txt
+	a2x --format=manpage $<
 
 # Everything depends on the CCAN headers.
 $(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): $(CCAN_HEADERS)
@@ -325,6 +336,7 @@ maintainer-clean: distclean
 	@echo 'deletes files that may need special tools to rebuild.'
 	$(RM) lightning.pb-c.c lightning.pb-c.h ccan/config.h $(GEN_HEADERS)
 	$(RM) doc/deployable-lightning.pdf
+	$(RM) $(MANPAGES)
 
 clean: daemon-clean
 	$(MAKE) -C secp256k1/ clean || true

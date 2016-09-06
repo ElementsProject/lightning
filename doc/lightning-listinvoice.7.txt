@@ -1,0 +1,36 @@
+LIGHTNING-LISTINVOICE(7)
+========================
+:doctype: manpage
+
+NAME
+----
+lightning-listinvoice - Protocol for querying invoice status
+
+SYNOPSIS
+--------
+*listinvoice* ['label']
+
+DESCRIPTION
+-----------
+The *listinvoice* RPC command gets the status of a specific invoice, if
+it exists, or the status of all invoices if given no argument.
+
+RETURN VALUE
+------------
+On success, an array 'invoices' of objects containing 'label',
+'rhash', 'msatoshi' and 'complete' will be returned.  'complete' is a
+boolean.
+
+//FIXME:Enumerate errors
+
+AUTHOR
+------
+Rusty Russell <rusty@rustcorp.com.au> is mainly responsible.
+
+SEE ALSO
+--------
+lightning-waitinvoice(7), lightning-delinvoice(7), lightning-invoice(7).
+
+RESOURCES
+---------
+Main web site: https://github.com/ElementsProject/lightning

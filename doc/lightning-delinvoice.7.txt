@@ -1,0 +1,35 @@
+LIGHTNING-DELINVOICE(7)
+=======================
+:doctype: manpage
+
+NAME
+----
+lightning-delinvoice - Protocol for removing an unpaid invoice.
+
+SYNOPSIS
+--------
+*delinvoice* 'label'
+
+DESCRIPTION
+-----------
+The *delinvoice* RPC command removes an unpaid invoice.  The caller
+should be particularly aware of the error case caused by a payment
+just before this command is invoked!
+
+RETURN VALUE
+------------
+On success, the 'rhash', 'label' and 'msatoshi' will be returned.
+
+//FIXME:Enumerate errors
+
+AUTHOR
+------
+Rusty Russell <rusty@rustcorp.com.au> is mainly responsible.
+
+SEE ALSO
+--------
+lightning-listinvoice(7), lightning-waitinvoice(7), lightning-invoice(7).
+
+RESOURCES
+---------
+Main web site: https://github.com/ElementsProject/lightning

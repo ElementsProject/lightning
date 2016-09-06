@@ -1,0 +1,267 @@
+'\" t
+.\"     Title: lightning-getroute
+.\"    Author: [see the "AUTHOR" section]
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 09/06/2016
+.\"    Manual: \ \&
+.\"    Source: \ \&
+.\"  Language: English
+.\"
+.TH "LIGHTNING\-GETROUTE" "7" "09/06/2016" "\ \&" "\ \&"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.\" -----------------------------------------------------------------
+.\" * set default formatting
+.\" -----------------------------------------------------------------
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.\" -----------------------------------------------------------------
+.\" * MAIN CONTENT STARTS HERE *
+.\" -----------------------------------------------------------------
+.SH "NAME"
+lightning-getroute \- Protocol for routing a payment\&.
+.SH "SYNOPSIS"
+.sp
+\fBgetroute\fR \fImsatoshi\fR \fIid\fR \fIriskfactor\fR
+.SH "DESCRIPTION"
+.sp
+The \fBgetroute\fR RPC command attempts to find the best route for the payment of \fImsatoshi\fR to lightning node \fIid\fR\&.
+.sp
+There are two considerations for how good a route is: how low the fees are, and how long your payment will get stuck if a node goes down during the process\&. The \fIriskfactor\fR floating\-point field controls this tradeoff; it is the annual cost of your funds being stuck (as a percentage), multiplied by the percentage chance of each node failing\&.
+.sp
+For example, if you thought there was a 1% chance that a node would fail, and it would cost you 20% per annum if that happened, \fIriskfactor\fR would be 20\&.
+.sp
+If you didn\(cqt care about risk, \fIriskfactor\fR would be zero\&.
+.SH "RISKFACTOR EFFECT ON ROUTING"
+.sp
+The risk factor is treated as if it were an additional fee on the route, for the purposes of comparing routes\&.
+.sp
+The formula used is the following approximation:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+hop\-risk = num\-hops x per\-hop\-risk
+timeout\-cost = blocks\-timeout x per\-block\-cost
+risk\-fee = amount x hop\-risk x timeout\-cost
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+We are given a \fIriskfactor\fR; expressed as two multiplied percentages is the same as fractions multiplied by 10000\&. There are 52596 blocks per year, thus \fIper\-block\-cost\fR x \fIper\-hop\-risk\fR is riskfactor\*(Aq divided by 5,259,600,000\&.
+.sp
+The final result is:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+risk\-fee = amount x num\-hops x blocks\-timeout x riskfactor / 5259600000
+.fi
+.if n \{\
+.RE
+.\}
+.sp
+Here are the risk fees as a percentage of the amount sent, using various parameters\&. For comparison with actual fees, we assume nodes charge 0\&.05%:
+.TS
+allbox tab(:);
+ltB ltB ltB ltB ltB.
+T{
+Riskfactor
+T}:T{
+Nodes
+T}:T{
+Delay per node
+T}:T{
+Risk Fee %
+T}:T{
+Route fee %
+T}
+.T&
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt
+lt lt lt lt lt.
+T{
+.sp
+0\&.001
+T}:T{
+.sp
+5
+T}:T{
+.sp
+6
+T}:T{
+.sp
+0
+T}:T{
+.sp
+0\&.25
+T}
+T{
+.sp
+1
+T}:T{
+.sp
+5
+T}:T{
+.sp
+6
+T}:T{
+.sp
+0
+T}:T{
+.sp
+0\&.25
+T}
+T{
+.sp
+1000
+T}:T{
+.sp
+5
+T}:T{
+.sp
+6
+T}:T{
+.sp
+0\&.0029
+T}:T{
+.sp
+0\&.25
+T}
+T{
+.sp
+0\&.001
+T}:T{
+.sp
+10
+T}:T{
+.sp
+72
+T}:T{
+.sp
+0
+T}:T{
+.sp
+0\&.5
+T}
+T{
+.sp
+1
+T}:T{
+.sp
+10
+T}:T{
+.sp
+72
+T}:T{
+.sp
+0\&.0001
+T}:T{
+.sp
+0\&.5
+T}
+T{
+.sp
+1000
+T}:T{
+.sp
+10
+T}:T{
+.sp
+72
+T}:T{
+.sp
+0\&.1369
+T}:T{
+.sp
+0\&.5
+T}
+T{
+.sp
+0\&.001
+T}:T{
+.sp
+20
+T}:T{
+.sp
+1008
+T}:T{
+.sp
+0
+T}:T{
+.sp
+1\&.0
+T}
+T{
+.sp
+1
+T}:T{
+.sp
+20
+T}:T{
+.sp
+1008
+T}:T{
+.sp
+0\&.0077
+T}:T{
+.sp
+1\&.0
+T}
+T{
+.sp
+1000
+T}:T{
+.sp
+20
+T}:T{
+.sp
+1008
+T}:T{
+.sp
+7\&.6660
+T}:T{
+.sp
+1\&.0
+T}
+.TE
+.sp 1
+.SH "RECOMMENDED RISKFACTOR VALUES"
+.sp
+0\&.001 is a value for tie\-breaking in favor of shorter routes, but not really costing in any risk\&.
+.sp
+1 is a conservative value for a stable lightning network with very few failures\&.
+.sp
+1000 is an aggressive value for trying to minimize timeouts at all costs\&.
+.SH "RETURN VALUE"
+.sp
+On success, a "route" array is returned\&. Each array element contains
+.sp
+timeout for the payment failure, in blocks\&.
+.SH "AUTHOR"
+.sp
+Rusty Russell <rusty@rustcorp\&.com\&.au> is mainly responsible\&.
+.SH "SEE ALSO"
+.sp
+lightning\-listinvoice(7), lightning\-delinvoice(7), lightning\-getroute(7), lightning\-sendpay(7)\&.
+.SH "RESOURCES"
+.sp
+Main web site: https://github\&.com/ElementsProject/lightning
