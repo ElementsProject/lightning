@@ -1,0 +1,30 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * cppmagic - Abuse of the C preprocessor
+ *
+ * This contains a bunch of fancy macro techniques such as
+ * preprocessor-time evaluated conditionals and (quasi) recursion and
+ * iteration.
+ *
+ * It's based on these articles:
+ *  - http://jhnet.co.uk/articles/cpp_magic
+ *  - https://github.com/pfultz2/Cloak/wiki/C-Preprocessor-tricks,-tips,-and-idioms
+ * and code from the Boost C++ library.
+ *
+ * License: BSD-MIT
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		return 0;
+	}
+
+	return 1;
+}

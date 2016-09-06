@@ -6,7 +6,7 @@
 #include <stdlib.h>
 
 /* Uncomment this to use openssl's RIPEMD160 routines (and link with -lcrypto) */
-//#define CCAN_CRYPTO_RIPEMD160_USE_OPENSSL 1
+/*#define CCAN_CRYPTO_RIPEMD160_USE_OPENSSL 1*/
 
 #ifdef CCAN_CRYPTO_RIPEMD160_USE_OPENSSL
 #include <openssl/ripemd.h>
@@ -37,7 +37,7 @@ struct ripemd160 {
  * The bytes pointed to by @p is RIPEMD160 hashed into @ripemd160.  This is
  * equivalent to ripemd160_init(), ripemd160_update() then ripemd160_done().
  */
-void ripemd160(struct ripemd160 *sha, const void *p, size_t size);
+void ripemd160(struct ripemd160 *ripemd, const void *p, size_t size);
 
 /**
  * struct ripemd160_ctx - structure to store running context for ripemd160

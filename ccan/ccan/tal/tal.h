@@ -256,7 +256,7 @@ const char *tal_name(const tal_t *ptr);
  * tal_count - get the count of objects in a tal_arr.
  * @ptr: The tal allocated object array.
  *
- * Returns 0 if @ptr has no length property, but we aware that that is
+ * Returns 0 if @ptr has no length property, but be aware that that is
  * also a valid size!
  */
 size_t tal_count(const tal_t *ptr);

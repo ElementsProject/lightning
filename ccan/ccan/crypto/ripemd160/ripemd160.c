@@ -8,6 +8,7 @@
  */
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/endian/endian.h>
+#include <ccan/compiler/compiler.h>
 #include <stdbool.h>
 #include <assert.h>
 #include <string.h>
@@ -21,7 +22,7 @@ static void invalidate_ripemd160(struct ripemd160_ctx *ctx)
 #endif
 }
 
-static void check_ripemd160(struct ripemd160_ctx *ctx)
+static void check_ripemd160(struct ripemd160_ctx *ctx UNUSED)
 {
 #ifdef CCAN_CRYPTO_RIPEMD160_USE_OPENSSL
 	assert(ctx->c.num != -1U);
@@ -54,19 +55,9 @@ static uint32_t inline f3(uint32_t x, uint32_t y, uint32_t z) { return (x | ~y) 
 static uint32_t inline f4(uint32_t x, uint32_t y, uint32_t z) { return (x & z) | (y & ~z); }
 static uint32_t inline f5(uint32_t x, uint32_t y, uint32_t z) { return x ^ (y | ~z); }
 
-/** Initialize RIPEMD-160 state. */
-static void inline Initialize(uint32_t* s)
-{
-    s[0] = 0x67452301ul;
-    s[1] = 0xEFCDAB89ul;
-    s[2] = 0x98BADCFEul;
-    s[3] = 0x10325476ul;
-    s[4] = 0xC3D2E1F0ul;
-}
-
 static uint32_t inline rol(uint32_t x, int i) { return (x << i) | (x >> (32 - i)); }
 
-static void inline Round(uint32_t *a, uint32_t b, uint32_t *c, uint32_t d, uint32_t e, uint32_t f, uint32_t x, uint32_t k, int r)
+static void inline Round(uint32_t *a, uint32_t b UNUSED, uint32_t *c, uint32_t d UNUSED, uint32_t e, uint32_t f, uint32_t x, uint32_t k, int r)
 {
     *a = rol(*a + f + x + k, r) + e;
     *c = rol(*c, 10);
@@ -93,6 +84,7 @@ static void Transform(uint32_t *s, const uint32_t *chunk)
     uint32_t w4 = le32_to_cpu(chunk[4]), w5 = le32_to_cpu(chunk[5]), w6 = le32_to_cpu(chunk[6]), w7 = le32_to_cpu(chunk[7]);
     uint32_t w8 = le32_to_cpu(chunk[8]), w9 = le32_to_cpu(chunk[9]), w10 = le32_to_cpu(chunk[10]), w11 = le32_to_cpu(chunk[11]);
     uint32_t w12 = le32_to_cpu(chunk[12]), w13 = le32_to_cpu(chunk[13]), w14 = le32_to_cpu(chunk[14]), w15 = le32_to_cpu(chunk[15]);
+    uint32_t t;
 
     R11(&a1, b1, &c1, d1, e1, w0, 11);
     R12(&a2, b2, &c2, d2, e2, w5, 8);
@@ -259,7 +251,7 @@ static void Transform(uint32_t *s, const uint32_t *chunk)
     R51(&b1, c1, &d1, e1, a1, w13, 6);
     R52(&b2, c2, &d2, e2, a2, w11, 11);
 
-    uint32_t t = s[0];
+    t = s[0];
     s[0] = s[1] + c1 + d2;
     s[1] = s[2] + d1 + e2;
     s[2] = s[3] + e1 + a2;
@@ -267,7 +259,7 @@ static void Transform(uint32_t *s, const uint32_t *chunk)
     s[4] = t + b1 + c2;
 }
 
-static bool alignment_ok(const void *p, size_t n)
+static bool alignment_ok(const void *p UNUSED, size_t n UNUSED)
 {
 #if HAVE_UNALIGNED_ACCESS
 	return true;
@@ -282,7 +274,7 @@ static void add(struct ripemd160_ctx *ctx, const void *p, size_t len)
 	size_t bufsize = ctx->bytes % 64;
 
 	if (bufsize + len >= 64) {
-		// Fill the buffer, and process it.
+		/* Fill the buffer, and process it. */
 		memcpy(ctx->buf.u8 + bufsize, data, 64 - bufsize);
 		ctx->bytes += 64 - bufsize;
 		data += 64 - bufsize;
@@ -292,7 +284,7 @@ static void add(struct ripemd160_ctx *ctx, const void *p, size_t len)
 	}
 
 	while (len >= 64) {
-		// Process full chunks directly from the source.
+		/* Process full chunks directly from the source. */
 		if (alignment_ok(data, sizeof(uint32_t)))
 			Transform(ctx->s, (const uint32_t *)data);
 		else {
@@ -305,7 +297,7 @@ static void add(struct ripemd160_ctx *ctx, const void *p, size_t len)
 	}
 	    
 	if (len) {
-		// Fill the buffer with what remains.
+		/* Fill the buffer with what remains. */
 		memcpy(ctx->buf.u8 + bufsize, data, len);
 		ctx->bytes += len;
 	}
@@ -340,13 +332,13 @@ void ripemd160_done(struct ripemd160_ctx *ctx, struct ripemd160 *res)
 }
 #endif
 
-void ripemd160(struct ripemd160 *sha, const void *p, size_t size)
+void ripemd160(struct ripemd160 *ripemd, const void *p, size_t size)
 {
 	struct ripemd160_ctx ctx;
 
 	ripemd160_init(&ctx);
 	ripemd160_update(&ctx, p, size);
-	ripemd160_done(&ctx, sha);
+	ripemd160_done(&ctx, ripemd);
 }
 	
 void ripemd160_u8(struct ripemd160_ctx *ctx, uint8_t v)

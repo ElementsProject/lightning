@@ -30,9 +30,9 @@ static const struct sha256_ctx after_16M_by_64 = {
 	  LE32_TO_CPU(0xd407a8fc), LE32_TO_CPU(0x1fad409b),
 	  LE32_TO_CPU(0x51fa46cc), LE32_TO_CPU(0xea528ae5),
 	  LE32_TO_CPU(0x5fa58ebb), LE32_TO_CPU(0x8be97931) },
-	1073741824,
 	{ .u32 = { 0x64636261, 0x68676665, 0x65646362, 0x69686766,
-		   0x66656463, 0x6a696867, 0x67666564, 0x6b6a6968 } }
+		   0x66656463, 0x6a696867, 0x67666564, 0x6b6a6968 } },
+	1073741824
 #endif
 };
 

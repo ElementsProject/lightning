@@ -38,8 +38,8 @@
  *	{
  *		size_t i;
  *		for (i = 0; i < strlen(haystack); i++)
- *		if (memcmp("needle", haystack+i, strlen("needle")) == 0)
- *			return cast_const(char *, haystack+i);
+ *			if (memcmp("needle", haystack+i, strlen("needle")) == 0)
+ *				return cast_const(char *, haystack+i);
  *		return NULL;
  *	}
  */

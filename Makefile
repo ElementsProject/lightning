@@ -94,6 +94,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/check_type/check_type.h		\
 	$(CCANDIR)/ccan/compiler/compiler.h		\
 	$(CCANDIR)/ccan/container_of/container_of.h	\
+	$(CCANDIR)/ccan/cppmagic/cppmagic.h		\
 	$(CCANDIR)/ccan/crypto/ripemd160/ripemd160.h	\
 	$(CCANDIR)/ccan/crypto/sha256/sha256.h		\
 	$(CCANDIR)/ccan/crypto/shachain/shachain.h	\

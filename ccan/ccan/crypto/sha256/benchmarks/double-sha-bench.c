@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 	memset(&block, 0, sizeof(block));
 	sha256(&block.h, &n, sizeof(n));
 	block.u8[sizeof(block.h)] = 0x80;
-	// Size is 256 bits
+	/* Size is 256 bits */
 	block.u8[sizeof(block)-2] = 1;
 
 	start = time_now();

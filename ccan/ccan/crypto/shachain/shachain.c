@@ -12,12 +12,12 @@ static void change_bit(unsigned char *arr, size_t index)
 	arr[index / CHAR_BIT] ^= (1 << (index % CHAR_BIT));
 }
 
-static int count_trailing_zeroes(shachain_index_t index)
+static unsigned int count_trailing_zeroes(shachain_index_t index)
 {
 #if HAVE_BUILTIN_CTZLL
-	return index ? __builtin_ctzll(index) : INDEX_BITS;
+	return index ? (unsigned int)__builtin_ctzll(index) : INDEX_BITS;
 #else
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < INDEX_BITS; i++) {
 		if (index & (1ULL << i))
@@ -77,7 +77,7 @@ void shachain_init(struct shachain *chain)
 bool shachain_add_hash(struct shachain *chain,
 		       shachain_index_t index, const struct sha256 *hash)
 {
-	int i, pos;
+	unsigned int i, pos;
 
 	/* You have to insert them in order! */
 	assert(index == chain->min_index - 1 ||
@@ -107,7 +107,7 @@ bool shachain_add_hash(struct shachain *chain,
 bool shachain_get_hash(const struct shachain *chain,
 		       shachain_index_t index, struct sha256 *hash)
 {
-	int i;
+	unsigned int i;
 
 	for (i = 0; i < chain->num_valid; i++) {
 		/* If we can get from key to index only by resetting bits,

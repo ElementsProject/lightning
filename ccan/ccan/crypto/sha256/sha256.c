@@ -8,6 +8,7 @@
  */
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/endian/endian.h>
+#include <ccan/compiler/compiler.h>
 #include <stdbool.h>
 #include <assert.h>
 #include <string.h>
@@ -17,16 +18,16 @@ static void invalidate_sha256(struct sha256_ctx *ctx)
 #ifdef CCAN_CRYPTO_SHA256_USE_OPENSSL
 	ctx->c.md_len = 0;
 #else
-	ctx->bytes = -1ULL;
+	ctx->bytes = (size_t)-1;
 #endif
 }
 
-static void check_sha256(struct sha256_ctx *ctx)
+static void check_sha256(struct sha256_ctx *ctx UNUSED)
 {
 #ifdef CCAN_CRYPTO_SHA256_USE_OPENSSL
 	assert(ctx->c.md_len != 0);
 #else
-	assert(ctx->bytes != -1ULL);
+	assert(ctx->bytes != (size_t)-1);
 #endif
 }
 
@@ -166,7 +167,7 @@ static void Transform(uint32_t *s, const uint32_t *chunk)
 	s[7] += h;
 }
 
-static bool alignment_ok(const void *p, size_t n)
+static bool alignment_ok(const void *p UNUSED, size_t n UNUSED)
 {
 #if HAVE_UNALIGNED_ACCESS
 	return true;
@@ -181,7 +182,7 @@ static void add(struct sha256_ctx *ctx, const void *p, size_t len)
 	size_t bufsize = ctx->bytes % 64;
 
 	if (bufsize + len >= 64) {
-		// Fill the buffer, and process it.
+		/* Fill the buffer, and process it. */
 		memcpy(ctx->buf.u8 + bufsize, data, 64 - bufsize);
 		ctx->bytes += 64 - bufsize;
 		data += 64 - bufsize;
@@ -191,7 +192,7 @@ static void add(struct sha256_ctx *ctx, const void *p, size_t len)
 	}
 
 	while (len >= 64) {
-		// Process full chunks directly from the source.
+		/* Process full chunks directly from the source. */
 		if (alignment_ok(data, sizeof(uint32_t)))
 			Transform(ctx->s, (const uint32_t *)data);
 		else {
@@ -204,7 +205,7 @@ static void add(struct sha256_ctx *ctx, const void *p, size_t len)
 	}
 	    
 	if (len) {
-		// Fill the buffer with what remains.
+		/* Fill the buffer with what remains. */
 		memcpy(ctx->buf.u8 + bufsize, data, len);
 		ctx->bytes += len;
 	}
@@ -228,9 +229,9 @@ void sha256_done(struct sha256_ctx *ctx, struct sha256 *res)
 	uint64_t sizedesc;
 	size_t i;
 
-	sizedesc = cpu_to_be64(ctx->bytes << 3);
+	sizedesc = cpu_to_be64((uint64_t)ctx->bytes << 3);
 	/* Add '1' bit to terminate, then all 0 bits, up to next block - 8. */
-	add(ctx, pad, 1 + ((119 - (ctx->bytes % 64)) % 64));
+	add(ctx, pad, 1 + ((128 - 8 - (ctx->bytes % 64) - 1) % 64));
 	/* Add number of bits of data (big endian) */
 	add(ctx, &sizedesc, 8);
 	for (i = 0; i < sizeof(ctx->s) / sizeof(ctx->s[0]); i++)
