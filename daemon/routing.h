@@ -27,6 +27,8 @@ struct node {
 	struct {
 		/* Total to get to here from target. */
 		s64 total;
+		/* Total risk premium of this route. */
+		u64 risk;
 		/* Where that came from. */
 		struct node_connection *prev;
 	} bfg[ROUTING_MAX_HOPS+1];
@@ -56,7 +58,9 @@ void remove_connection(struct lightningd_state *dstate,
 
 struct peer *find_route(struct lightningd_state *dstate,
 			const struct pubkey *to,
-			u64 msatoshi, s64 *fee,
+			u64 msatoshi,
+			double riskfactor,
+			s64 *fee,
 			struct node_connection ***route);
 
 struct node_map *empty_node_map(struct lightningd_state *dstate);

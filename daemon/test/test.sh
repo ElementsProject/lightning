@@ -1013,7 +1013,7 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     RHASH5=`lcli3 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
     # Get route.
-    ROUTE=`lcli1 getroute $ID3 $HTLC_AMOUNT`
+    ROUTE=`lcli1 getroute $ID3 $HTLC_AMOUNT 1`
     ROUTE=`echo $ROUTE | sed 's/^{ "route" : \(.*\) }$/\1/'`
 
     # Try wrong hash.
@@ -1058,7 +1058,7 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     fi
 
     # Can't pay twice (try from node2)
-    ROUTE2=`lcli2 getroute $ID3 $HTLC_AMOUNT`
+    ROUTE2=`lcli2 getroute $ID3 $HTLC_AMOUNT 1`
     ROUTE2=`echo $ROUTE2 | sed 's/^{ "route" : \(.*\) }$/\1/'`
     if lcli2 sendpay "$ROUTE2" $RHASH5; then
 	echo "Paying twice worked?" >&2
@@ -1083,7 +1083,7 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     fi
 
     # Now node1 should fail to route (route deleted)
-    if lcli1 getroute $ID3 $HTLC_AMOUNT | $FGREP "no route found"; then : ;
+    if lcli1 getroute $ID3 $HTLC_AMOUNT 1 | $FGREP "no route found"; then : ;
     else
 	echo "Pay to node3 didn't fail instantly second time" >&2
 	exit 1

@@ -64,6 +64,16 @@ bool json_tok_u64(const char *buffer, const jsmntok_t *tok,
 	return true;
 }
 
+bool json_tok_double(const char *buffer, const jsmntok_t *tok, double *num)
+{
+	char *end;
+
+	*num = strtod(buffer + tok->start, &end);
+	if (end != buffer + tok->end)
+		return false;
+	return true;
+}
+
 bool json_tok_number(const char *buffer, const jsmntok_t *tok,
 		     unsigned int *num)
 {

@@ -199,11 +199,12 @@ static void json_getroute(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
 	struct pubkey id;
-	jsmntok_t *idtok, *msatoshitok;
+	jsmntok_t *idtok, *msatoshitok, *riskfactortok;
 	struct json_result *response;
 	int i;
 	u64 msatoshi;
 	s64 fee;
+	double riskfactor;
 	struct node_connection **route;
 	struct peer *peer;
 	u64 *amounts, total_amount;
@@ -212,6 +213,7 @@ static void json_getroute(struct command *cmd,
 	if (!json_get_params(buffer, params,
 			     "id", &idtok,
 			     "msatoshi", &msatoshitok,
+			     "riskfactor", &riskfactortok,
 			     NULL)) {
 		command_fail(cmd, "Need id and msatoshi");
 		return;
@@ -231,7 +233,14 @@ static void json_getroute(struct command *cmd,
 		return;
 	}
 
-	peer = find_route(cmd->dstate, &id, msatoshi, &fee, &route);
+	if (!json_tok_double(buffer, riskfactortok, &riskfactor)) {
+		command_fail(cmd, "'%.*s' is not a valid double",
+			     (int)(riskfactortok->end - riskfactortok->start),
+			     buffer + riskfactortok->start);
+		return;
+	}
+
+	peer = find_route(cmd->dstate, &id, msatoshi, riskfactor, &fee, &route);
 	if (!peer) {
 		command_fail(cmd, "no route found");
 		return;

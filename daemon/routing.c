@@ -11,6 +11,9 @@
 #include <ccan/structeq/structeq.h>
 #include <inttypes.h>
 
+/* 365.25 * 24 * 60 / 10 */
+#define BLOCKS_PER_YEAR 52596
+
 static const secp256k1_pubkey *keyof_node(const struct node *n)
 {
 	return &n->id.pubkey;
@@ -197,8 +200,10 @@ static void clear_bfg(struct node_map *nodes)
 
 	for (n = node_map_first(nodes, &it); n; n = node_map_next(nodes, &it)) {
 		size_t i;
-		for (i = 0; i < ARRAY_SIZE(n->bfg); i++)
+		for (i = 0; i < ARRAY_SIZE(n->bfg); i++) {
 			n->bfg[i].total = INFINITE;
+			n->bfg[i].risk = 0;
+		}
 	}
 }
 
@@ -213,20 +218,34 @@ s64 connection_fee(const struct node_connection *c, u64 msatoshi)
 	return c->base_fee + fee;
 }
 
+/* Risk of passing through this channel.  We insert a tiny constant here
+ * in order to prefer shorter routes, all things equal. */
+static u64 risk_fee(s64 amount, u32 delay, double riskfactor)
+{
+	/* If fees are so negative we're making money, ignore risk. */
+	if (amount < 0)
+		return 1;
+
+	return 1 + amount * delay * riskfactor / BLOCKS_PER_YEAR / 10000;
+}
+
 /* We track totals, rather than costs.  That's because the fee depends
  * on the current amount passing through. */
-static void bfg_one_edge(struct node *node, size_t edgenum)
+static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
 {
 	struct node_connection *c = node->in[edgenum];
 	size_t h;
 
 	assert(c->dst == node);
 	for (h = 0; h < ROUTING_MAX_HOPS; h++) {
-		/* FIXME: Bias towards smaller expiry values. */
 		/* FIXME: Bias against smaller channels. */
 		s64 fee = connection_fee(c, node->bfg[h].total);
-		if (node->bfg[h].total + fee < c->src->bfg[h+1].total) {
+		u64 risk = node->bfg[h].risk + risk_fee(node->bfg[h].total + fee,
+							c->delay, riskfactor);
+		if (node->bfg[h].total + (s64)fee + (s64)risk
+		    < c->src->bfg[h+1].total + (s64)c->src->bfg[h+1].risk) {
 			c->src->bfg[h+1].total = node->bfg[h].total + fee;
+			c->src->bfg[h+1].risk = risk;
 			c->src->bfg[h+1].prev = c;
 		}
 	}
@@ -234,7 +253,9 @@ static void bfg_one_edge(struct node *node, size_t edgenum)
 
 struct peer *find_route(struct lightningd_state *dstate,
 			const struct pubkey *to,
-			u64 msatoshi, s64 *fee,
+			u64 msatoshi,
+			double riskfactor,
+			s64 *fee,
 			struct node_connection ***route)
 {
 	struct node *n, *src, *dst;
@@ -258,6 +279,7 @@ struct peer *find_route(struct lightningd_state *dstate,
 	/* Bellman-Ford-Gibson: like Bellman-Ford, but keep values for
 	 * every path length. */
 	src->bfg[0].total = msatoshi;
+	src->bfg[0].risk = 0;
 
 	for (runs = 0; runs < ROUTING_MAX_HOPS; runs++) {
 		log_debug(dstate->base_log, "Run %i", runs);
@@ -267,7 +289,7 @@ struct peer *find_route(struct lightningd_state *dstate,
 		     n = node_map_next(dstate->nodes, &it)) {
 			size_t num_edges = tal_count(n->in);
 			for (i = 0; i < num_edges; i++) {
-				bfg_one_edge(n, i);
+				bfg_one_edge(n, i, riskfactor);
 				log_debug(dstate->base_log, "We seek %p->%p, this is %p -> %p",
 					  dst, src, n->in[i]->src, n->in[i]->dst);
 				log_debug_struct(dstate->base_log,
