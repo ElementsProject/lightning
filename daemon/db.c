@@ -1088,23 +1088,22 @@ static void db_load_invoice(struct lightningd_state *dstate)
 
 	while ((err = sqlite3_step(stmt)) != SQLITE_DONE) {
 		struct rval r;
-		u64 msatoshi;
-		bool complete;
+		u64 msatoshi, paid_num;
 		const char *label;
 
 		if (err != SQLITE_ROW)
 			fatal("db_load_invoice:step gave %s:%s",
 			      sqlite3_errstr(err),
 			      sqlite3_errmsg(dstate->db->sql));
-		if (sqlite3_column_count(stmt) != 3)
-			fatal("db_load_pay:step gave %i cols, not 3",
+		if (sqlite3_column_count(stmt) != 4)
+			fatal("db_load_invoice:step gave %i cols, not 4",
 			      sqlite3_column_count(stmt));
 
 		from_sql_blob(stmt, 0, &r, sizeof(r));
 		msatoshi = sqlite3_column_int64(stmt, 1);
 		label = (const char *)sqlite3_column_text(stmt, 2);
-		complete = sqlite3_column_int(stmt, 3);
-		invoice_add(dstate, &r, msatoshi, label, complete);
+		paid_num = sqlite3_column_int64(stmt, 3);
+		invoice_add(dstate, &r, msatoshi, label, paid_num);
 	}
 	tal_free(ctx);
 }
@@ -1199,8 +1198,8 @@ void db_init(struct lightningd_state *dstate)
 			       "PRIMARY KEY(rhash)")
 			 TABLE(invoice,
 			       SQL_R(r), SQL_U64(msatoshi), SQL_INVLABEL(label),
-			       SQL_BOOL(complete),
-			       "PRIMARY KEY(r)")
+			       SQL_U64(paid_num),
+			       "PRIMARY KEY(label)")
 			 TABLE(anchors,
 			       SQL_PUBKEY(peer),
 			       SQL_TXID(txid), SQL_U32(idx), SQL_U64(amount),
@@ -1953,7 +1952,8 @@ bool db_new_invoice(struct lightningd_state *dstate,
 	return !errmsg;
 }
 
-bool db_resolve_invoice(struct lightningd_state *dstate, const struct rval *r)
+bool db_resolve_invoice(struct lightningd_state *dstate,
+			const char *label, u64 paid_num)
 {
 	const char *errmsg, *ctx = tal(dstate, char);
 
@@ -1961,9 +1961,8 @@ bool db_resolve_invoice(struct lightningd_state *dstate, const struct rval *r)
 
 	assert(dstate->db->in_transaction);
 	
-	errmsg = db_exec(ctx, dstate, "UPDATE invoice SET complete=%s WHERE r=x'%s';",
-			 sql_bool(true),
-			 tal_hexstr(ctx, r, sizeof(*r)));
+	errmsg = db_exec(ctx, dstate, "UPDATE invoice SET paid_num=%"PRIu64" WHERE label=x'%s';",
+			 paid_num, tal_hexstr(ctx, label, strlen(label)));
 	if (errmsg)
 		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
 	tal_free(ctx);

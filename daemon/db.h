@@ -55,7 +55,8 @@ bool db_update_htlc_state(struct peer *peer, const struct htlc *htlc,
 				 enum htlc_state oldstate);
 bool db_complete_pay_command(struct lightningd_state *dstate,
 			     const struct htlc *htlc);
-bool db_resolve_invoice(struct lightningd_state *dstate, const struct rval *r);
+bool db_resolve_invoice(struct lightningd_state *dstate,
+			const char *label, u64 paid_num);
 bool db_update_feechange_state(struct peer *peer,
 			       const struct feechange *f,
 			       enum htlc_state oldstate);

@@ -535,7 +535,7 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 	case ROUTE_STEP__NEXT_END:
 		if (only_dest)
 			return;
-		invoice = find_invoice(peer->dstate, &htlc->rhash);
+		invoice = find_unpaid(peer->dstate, &htlc->rhash);
 		if (!invoice) {
 			log_unusual(peer->log, "No invoice for HTLC %"PRIu64,
 				    htlc->id);
@@ -561,28 +561,16 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 			return;
 		}
 
-		/* This is a courtesy: we could simply take your money! */
-		if (invoice->complete) {
-			log_unusual(peer->log,
-				    "Repeated payment for '%s' HTLC %"PRIu64,
-				    invoice->label, htlc->id);
-			command_htlc_set_fail(peer, htlc,
-					      UNAUTHORIZED_401,
-					      "already received payment");
-			return;
-		}
-
 		log_info(peer->log, "Immediately resolving '%s' HTLC %"PRIu64,
 			 invoice->label, htlc->id);
 
-		if (!db_resolve_invoice(peer->dstate, &invoice->r)) {
+		if (!resolve_invoice(peer->dstate, invoice)) {
 			command_htlc_set_fail(peer, htlc,
 					      INTERNAL_SERVER_ERROR_500,
 					      "database error");
 			return;
 		}
 
-		invoice->complete = true;
 		set_htlc_rval(peer, htlc, &invoice->r);
 		command_htlc_fulfill(peer, htlc);
 		goto free_rest;

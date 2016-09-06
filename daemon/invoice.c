@@ -7,24 +7,36 @@
 #include <ccan/tal/str/str.h>
 #include <sodium/randombytes.h>
 
-struct invoice *find_invoice(struct lightningd_state *dstate,
-			     const struct sha256 *rhash)
+static struct invoice *find_inv(const struct list_head *list,
+				const struct sha256 *rhash)
 {
 	struct invoice *i;
 
-	list_for_each(&dstate->invoices, i, list) {
+	list_for_each(list, i, list) {
 		if (structeq(rhash, &i->rhash))
 			return i;
 	}
 	return NULL;
 }
 
-static struct invoice *find_invoice_by_label(struct lightningd_state *dstate,
+struct invoice *find_unpaid(struct lightningd_state *dstate,
+			     const struct sha256 *rhash)
+{
+	return find_inv(&dstate->unpaid, rhash);
+}
+
+static struct invoice *find_paid(struct lightningd_state *dstate,
+				 const struct sha256 *rhash)
+{
+	return find_inv(&dstate->paid, rhash);
+}
+
+static struct invoice *find_invoice_by_label(const struct list_head *list,
 					     const char *label)
 {
 	struct invoice *i;
 
-	list_for_each(&dstate->invoices, i, list) {
+	list_for_each(list, i, list) {
 		if (streq(i->label, label))
 			return i;
 	}
@@ -35,18 +47,33 @@ void invoice_add(struct lightningd_state *dstate,
 		 const struct rval *r,
 		 u64 msatoshi,
 		 const char *label,
-		 bool complete)
+		 u64 paid_num)
 {
 	struct invoice *invoice = tal(dstate, struct invoice);
 
 	invoice->msatoshi = msatoshi;
 	invoice->r = *r;
-	invoice->complete = complete;
+	invoice->paid_num = paid_num;
 	invoice->label = tal_strdup(invoice, label);
 	sha256(&invoice->rhash, invoice->r.r, sizeof(invoice->r.r));
-	list_add(&dstate->invoices, &invoice->list);
+
+	if (paid_num) {
+		list_add(&dstate->paid, &invoice->list);
+		if (paid_num > dstate->invoices_completed)
+			dstate->invoices_completed = paid_num;
+	} else
+		list_add(&dstate->unpaid, &invoice->list);
 }
 
+bool resolve_invoice(struct lightningd_state *dstate,
+		     struct invoice *invoice)
+{
+	invoice->paid_num = ++dstate->invoices_completed;
+	list_del_from(&dstate->unpaid, &invoice->list);
+	list_add_tail(&dstate->paid, &invoice->list);
+	return db_resolve_invoice(dstate, invoice->label, invoice->paid_num);
+}
+	
 static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
@@ -75,7 +102,8 @@ static void json_invoice(struct command *cmd,
 		randombytes_buf(invoice->r.r, sizeof(invoice->r.r));
 
 	sha256(&invoice->rhash, invoice->r.r, sizeof(invoice->r.r));
-	if (find_invoice(cmd->dstate, &invoice->rhash)) {
+	if (find_unpaid(cmd->dstate, &invoice->rhash)
+	    || find_paid(cmd->dstate, &invoice->rhash)) {
 		command_fail(cmd, "Duplicate r value '%.*s'",
 			     r->end - r->start, buffer + r->start);
 		return;
@@ -91,7 +119,8 @@ static void json_invoice(struct command *cmd,
 
 	invoice->label = tal_strndup(invoice, buffer + label->start,
 				     label->end - label->start);
-	if (find_invoice_by_label(cmd->dstate, invoice->label)) {
+	if (find_invoice_by_label(&cmd->dstate->paid, invoice->label)
+	    || find_invoice_by_label(&cmd->dstate->unpaid, invoice->label)) {
 		command_fail(cmd, "Duplicate label '%s'", invoice->label);
 		return;
 	}
@@ -100,7 +129,7 @@ static void json_invoice(struct command *cmd,
 			     INVOICE_MAX_LABEL_LEN);
 		return;
 	}
-	invoice->complete = false;
+	invoice->paid_num = 0;
 
 	if (!db_new_invoice(cmd->dstate, invoice->msatoshi, invoice->label,
 			    &invoice->r)) {
@@ -109,7 +138,7 @@ static void json_invoice(struct command *cmd,
 	}		
 	/* OK, connect it to main state, respond with hash */
 	tal_steal(cmd->dstate, invoice);
-	list_add(&cmd->dstate->invoices, &invoice->list);
+	list_add(&cmd->dstate->unpaid, &invoice->list);
 
 	json_object_start(response, NULL);
 	json_add_hex(response, "rhash",
@@ -126,10 +155,27 @@ const struct json_command invoice_command = {
 	"Returns the {rhash} on success. "
 };
 
+static void json_add_invoices(struct json_result *response,
+			      const struct list_head *list,
+			      const char *buffer, const jsmntok_t *label)
+{
+	struct invoice *i;
+
+	list_for_each(list, i, list) {
+		if (label && !json_tok_streq(buffer, label, i->label))
+			continue;
+		json_object_start(response, NULL);
+		json_add_string(response, "label", i->label);
+		json_add_hex(response, "rhash", &i->rhash, sizeof(i->rhash));
+		json_add_u64(response, "msatoshi", i->msatoshi);
+		json_add_bool(response, "complete", i->paid_num != 0);
+		json_object_end(response);
+	}
+}
+
 static void json_listinvoice(struct command *cmd,
 			     const char *buffer, const jsmntok_t *params)
 {
-	struct invoice *i;
 	jsmntok_t *label = NULL;
 	struct json_result *response = new_json_result(cmd);	
 
@@ -143,16 +189,8 @@ static void json_listinvoice(struct command *cmd,
 	
 	json_object_start(response, NULL);
 	json_array_start(response, NULL);
-	list_for_each(&cmd->dstate->invoices, i, list) {
-		if (label && !json_tok_streq(buffer, label, i->label))
-			continue;
-		json_object_start(response, NULL);
-		json_add_string(response, "label", i->label);
-		json_add_hex(response, "rhash", &i->rhash, sizeof(i->rhash));
-		json_add_u64(response, "msatoshi", i->msatoshi);
-		json_add_bool(response, "complete", i->complete);
-		json_object_end(response);
-	}
+	json_add_invoices(response, &cmd->dstate->paid, buffer, label);
+	json_add_invoices(response, &cmd->dstate->unpaid, buffer, label);
 	json_array_end(response);
 	json_object_end(response);
 	command_success(cmd, response);
@@ -182,20 +220,16 @@ static void json_delinvoice(struct command *cmd,
 
 	label = tal_strndup(cmd, buffer + labeltok->start,
 			    labeltok->end - labeltok->start);
-	i = find_invoice_by_label(cmd->dstate, label);
+	i = find_invoice_by_label(&cmd->dstate->unpaid, label);
 	if (!i) {
 		command_fail(cmd, "Unknown invoice");
-		return;
-	}
-	if (i->complete) {
-		command_fail(cmd, "Invoice already paid");
 		return;
 	}
 	if (!db_remove_invoice(cmd->dstate, i->label)) {
 		command_fail(cmd, "Database error");
 		return;
 	}
-	list_del_from(&cmd->dstate->invoices, &i->list);
+	list_del_from(&cmd->dstate->unpaid, &i->list);
 	
 	json_object_start(response, NULL);
 	json_add_string(response, "label", i->label);

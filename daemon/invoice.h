@@ -11,7 +11,7 @@ struct invoice {
 	u64 msatoshi;
 	struct rval r;
 	struct sha256 rhash;
-	bool complete;
+	u64 paid_num;
 };
 
 #define INVOICE_MAX_LABEL_LEN 128
@@ -21,9 +21,12 @@ void invoice_add(struct lightningd_state *dstate,
 		 const struct rval *r,
 		 u64 msatoshi,
 		 const char *label,
-		 bool complete);
+		 u64 complete);
 
-struct invoice *find_invoice(struct lightningd_state *dstate,
-			     const struct sha256 *rhash);
+bool resolve_invoice(struct lightningd_state *dstate,
+		     struct invoice *invoice);
+
+struct invoice *find_unpaid(struct lightningd_state *dstate,
+			    const struct sha256 *rhash);
 
 #endif /* LIGHTNING_DAEMON_INVOICE_H */
