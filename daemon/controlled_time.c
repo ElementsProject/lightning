@@ -65,7 +65,7 @@ static void json_mocktime(struct command *cmd,
 	command_success(cmd, response);
 }
 
-const struct json_command mocktime_command = {
+const struct json_command dev_mocktime_command = {
 	"dev-mocktime",
 	json_mocktime,
 	"Set current time to {mocktime} seconds (0 to return to normal)",

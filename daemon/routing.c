@@ -452,8 +452,8 @@ static void json_add_route(struct command *cmd,
 	command_success(cmd, null_response(cmd));
 }
 	
-const struct json_command add_route_command = {
-	"add-route",
+const struct json_command dev_add_route_command = {
+	"dev-add-route",
 	json_add_route,
 	"Add route from {src} to {dst}, {base} rate in msatoshi, {var} rate in msatoshi, {delay} blocks delay and {minblocks} minimum timeout",
 	"Returns an empty result on success"
@@ -483,7 +483,7 @@ static void json_routefail(struct command *cmd,
 
 	command_success(cmd, null_response(cmd));
 }
-const struct json_command routefail_command = {
+const struct json_command dev_routefail_command = {
 	"dev-routefail",
 	json_routefail,
 	"FAIL htlcs that we can't route if {enable}",

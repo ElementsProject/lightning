@@ -43,27 +43,6 @@ static const struct json_command help_command = {
 	"[<command>] if specified gives details about a single command."
 };
 
-static void json_echo(struct command *cmd,
-		      const char *buffer, const jsmntok_t *params)
-{
-	struct json_result *response = new_json_result(cmd);
-
-	json_object_start(response, NULL);
-	json_add_num(response, "num", params->size);
-	json_add_literal(response, "echo",
-			 json_tok_contents(buffer, params),
-			 json_tok_len(params));
-	json_object_end(response);
-	command_success(cmd, response);
-}
-
-static const struct json_command echo_command = {
-	"dev-echo",
-	json_echo,
-	"echo parameters",
-	"Simple echo test for developers"
-};
-
 static void json_stop(struct command *cmd,
 		      const char *buffer, const jsmntok_t *params)
 {
@@ -225,7 +204,7 @@ static void json_rhash(struct command *cmd,
 	command_success(cmd, response);
 }
 
-static const struct json_command rhash_command = {
+static const struct json_command dev_rhash_command = {
 	"dev-rhash",
 	json_rhash,
 	"SHA256 of {secret}",
@@ -238,7 +217,7 @@ static void json_crash(struct command *cmd,
 	fatal("Crash at user request");
 }
 
-static const struct json_command crash_command = {
+static const struct json_command dev_crash_command = {
 	"dev-crash",
 	json_crash,
 	"Call fatal().",
@@ -269,7 +248,7 @@ static void json_restart(struct command *cmd,
 	command_success(cmd, null_response(cmd));
 }	
 	
-static const struct json_command restart_command = {
+static const struct json_command dev_restart_command = {
 	"dev-restart",
 	json_restart,
 	"Re-exec the given {binary}.",
@@ -283,10 +262,6 @@ static const struct json_command *cmdlist[] = {
 	&connect_command,
 	&getpeers_command,
 	&gethtlcs_command,
-	&newhtlc_command,
-	&fulfillhtlc_command,
-	&failhtlc_command,
-	&commit_command,
 	&close_command,
 	&newaddr_command,
 	&invoice_command,
@@ -295,19 +270,22 @@ static const struct json_command *cmdlist[] = {
 	&waitinvoice_command,
 	&getroute_command,
 	&sendpay_command,
-	&feerate_command,
 	/* Developer/debugging options. */
-	&echo_command,
-	&rhash_command,
-	&mocktime_command,
-	&crash_command,
-	&restart_command,
-	&disconnect_command,
-	&reconnect_command,
-	&signcommit_command,
-	&output_command,
-	&add_route_command,
-	&routefail_command,
+	&dev_newhtlc_command,
+	&dev_fulfillhtlc_command,
+	&dev_failhtlc_command,
+	&dev_commit_command,
+	&dev_feerate_command,
+	&dev_rhash_command,
+	&dev_mocktime_command,
+	&dev_crash_command,
+	&dev_restart_command,
+	&dev_disconnect_command,
+	&dev_reconnect_command,
+	&dev_signcommit_command,
+	&dev_output_command,
+	&dev_add_route_command,
+	&dev_routefail_command,
 };
 
 static void json_help(struct command *cmd,

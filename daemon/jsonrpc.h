@@ -56,28 +56,36 @@ void PRINTF_FMT(2, 3) command_fail(struct command *cmd, const char *fmt, ...);
 /* For initialization */
 void setup_jsonrpc(struct lightningd_state *dstate, const char *rpc_filename);
 
-/* Commands (from other files) */
-extern const struct json_command connect_command;
-extern const struct json_command getpeers_command;
-extern const struct json_command gethtlcs_command;
-extern const struct json_command newhtlc_command;
-extern const struct json_command fulfillhtlc_command;
-extern const struct json_command failhtlc_command;
-extern const struct json_command commit_command;
-extern const struct json_command mocktime_command;
-extern const struct json_command close_command;
+/* Peer management */
 extern const struct json_command newaddr_command;
-extern const struct json_command reconnect_command;
-extern const struct json_command disconnect_command;
-extern const struct json_command signcommit_command;
-extern const struct json_command output_command;
+extern const struct json_command connect_command;
+extern const struct json_command close_command;
+extern const struct json_command getpeers_command;
+
+/* Invoice management. */
 extern const struct json_command invoice_command;
 extern const struct json_command listinvoice_command;
 extern const struct json_command delinvoice_command;
 extern const struct json_command waitinvoice_command;
-extern const struct json_command add_route_command;
-extern const struct json_command routefail_command;
+
+/* Payment management. */
 extern const struct json_command getroute_command;
 extern const struct json_command sendpay_command;
-extern const struct json_command feerate_command;
+
+/* Low-level commands. */
+extern const struct json_command gethtlcs_command;
+
+/* Developer commands. */
+extern const struct json_command dev_add_route_command;
+extern const struct json_command dev_newhtlc_command;
+extern const struct json_command dev_fulfillhtlc_command;
+extern const struct json_command dev_failhtlc_command;
+extern const struct json_command dev_commit_command;
+extern const struct json_command dev_mocktime_command;
+extern const struct json_command dev_reconnect_command;
+extern const struct json_command dev_disconnect_command;
+extern const struct json_command dev_signcommit_command;
+extern const struct json_command dev_output_command;
+extern const struct json_command dev_routefail_command;
+extern const struct json_command dev_feerate_command;
 #endif /* LIGHTNING_DAEMON_JSONRPC_H */

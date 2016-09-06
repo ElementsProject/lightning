@@ -4451,15 +4451,13 @@ static void json_newhtlc(struct command *cmd,
 	command_success(cmd, response);
 }
 
-/* FIXME: rename to dev- */
-const struct json_command newhtlc_command = {
-	"newhtlc",
+const struct json_command dev_newhtlc_command = {
+	"dev-newhtlc",
 	json_newhtlc,
 	"Offer {peerid} an HTLC worth {msatoshi} in {expiry} (block number) with {rhash}",
 	"Returns { id: u64 } result on success"
 };
 
-/* FIXME: rename to dev- */
 static void json_fulfillhtlc(struct command *cmd,
 			     const char *buffer, const jsmntok_t *params)
 {
@@ -4555,8 +4553,8 @@ static void json_fulfillhtlc(struct command *cmd,
 			     state_name(peer->state));
 }
 
-const struct json_command fulfillhtlc_command = {
-	"fulfillhtlc",
+const struct json_command dev_fulfillhtlc_command = {
+	"dev-fulfillhtlc",
 	json_fulfillhtlc,
 	"Redeem htlc proposed by {peerid} of {id} using {r}",
 	"Returns an empty result on success"
@@ -4635,8 +4633,8 @@ static void json_failhtlc(struct command *cmd,
 			     state_name(peer->state));
 }
 
-const struct json_command failhtlc_command = {
-	"failhtlc",
+const struct json_command dev_failhtlc_command = {
+	"dev-failhtlc",
 	json_failhtlc,
 	"Fail htlc proposed by {peerid} which has {id}, using {reason}",
 	"Returns an empty result on success"
@@ -4679,8 +4677,8 @@ static void json_commit(struct command *cmd,
 	do_commit(peer, cmd);
 }
 	
-const struct json_command commit_command = {
-	"commit",
+const struct json_command dev_commit_command = {
+	"dev-commit",
 	json_commit,
 	"Commit all staged HTLC changes with {peerid}",
 	"Returns an empty result on success"
@@ -4717,7 +4715,7 @@ static void json_close(struct command *cmd,
 	}
 	command_success(cmd, null_response(cmd));
 }
-	
+
 const struct json_command close_command = {
 	"close",
 	json_close,
@@ -4747,7 +4745,7 @@ static void json_feerate(struct command *cmd,
 	command_success(cmd, null_response(cmd));
 }
 
-const struct json_command feerate_command = {
+const struct json_command dev_feerate_command = {
 	"dev-feerate",
 	json_feerate,
 	"Change the (default) fee rate to {feerate}",
@@ -4898,28 +4896,28 @@ static void json_output(struct command *cmd,
 	
 	command_success(cmd, null_response(cmd));
 }
-const struct json_command output_command = {
+const struct json_command dev_output_command = {
 	"dev-output",
 	json_output,
 	"Enable/disable any messages to peer {peerid} depending on {enable}",
 	"Returns an empty result on success"
 };
 
-const struct json_command disconnect_command = {
+const struct json_command dev_disconnect_command = {
 	"dev-disconnect",
 	json_disconnect,
 	"Force a disconnect with peer {peerid}",
 	"Returns an empty result on success"
 };
 
-const struct json_command reconnect_command = {
+const struct json_command dev_reconnect_command = {
 	"dev-reconnect",
 	json_reconnect,
 	"Force a reconnect with peer {peerid}",
 	"Returns an empty result on success"
 };
 
-const struct json_command signcommit_command = {
+const struct json_command dev_signcommit_command = {
 	"dev-signcommit",
 	json_signcommit,
 	"Sign and return the current commit with peer {peerid}",
