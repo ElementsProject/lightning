@@ -33,13 +33,13 @@ static struct invoice *find_invoice_by_label(struct lightningd_state *dstate,
 
 void invoice_add(struct lightningd_state *dstate,
 		 const struct rval *r,
-		 u64 msatoshis,
+		 u64 msatoshi,
 		 const char *label,
 		 bool complete)
 {
 	struct invoice *invoice = tal(dstate, struct invoice);
 
-	invoice->msatoshis = msatoshis;
+	invoice->msatoshi = msatoshi;
 	invoice->r = *r;
 	invoice->complete = complete;
 	invoice->label = tal_strdup(invoice, label);
@@ -51,11 +51,11 @@ static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	struct invoice *invoice;
-	jsmntok_t *msatoshis, *r, *label;
+	jsmntok_t *msatoshi, *r, *label;
 	struct json_result *response = new_json_result(cmd);	
 
 	if (!json_get_params(buffer, params,
-			     "amount", &msatoshis,
+			     "amount", &msatoshi,
 			     "label", &label,
 			     "?r", &r,
 			     NULL)) {
@@ -81,11 +81,11 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 
-	if (!json_tok_u64(buffer, msatoshis, &invoice->msatoshis)
-	    || invoice->msatoshis == 0) {
+	if (!json_tok_u64(buffer, msatoshi, &invoice->msatoshi)
+	    || invoice->msatoshi == 0) {
 		command_fail(cmd, "'%.*s' is not a valid positive number",
-			     msatoshis->end - msatoshis->start,
-			     buffer + msatoshis->start);
+			     msatoshi->end - msatoshi->start,
+			     buffer + msatoshi->start);
 		return;
 	}
 
@@ -102,7 +102,7 @@ static void json_invoice(struct command *cmd,
 	}
 	invoice->complete = false;
 
-	if (!db_new_invoice(cmd->dstate, invoice->msatoshis, invoice->label,
+	if (!db_new_invoice(cmd->dstate, invoice->msatoshi, invoice->label,
 			    &invoice->r)) {
 		command_fail(cmd, "database error");
 		return;
@@ -122,6 +122,6 @@ static void json_invoice(struct command *cmd,
 const struct json_command invoice_command = {
 	"invoice",
 	json_invoice,
-	"Create invoice for {msatoshis} with {label} (with a set {r}, otherwise generate one)",
+	"Create invoice for {msatoshi} with {label} (with a set {r}, otherwise generate one)",
 	"Returns the {rhash} on success. "
 };

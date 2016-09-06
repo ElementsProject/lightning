@@ -209,11 +209,11 @@ bool cstate_add_htlc(struct channel_state *cstate, const struct htlc *htlc,
 	
 	/* Remember to count the new one in total txsize if not dust! */
 	nondust = cstate->num_nondust;
-	if (!is_dust(htlc->msatoshis / 1000))
+	if (!is_dust(htlc->msatoshi / 1000))
 		nondust++;
 	
 	if (!change_funding(cstate->anchor, cstate->fee_rate,
-			    htlc->msatoshis, creator, recipient, nondust,
+			    htlc->msatoshi, creator, recipient, nondust,
 			    must_afford_fee))
 		return false;
 
@@ -232,14 +232,14 @@ static void remove_htlc(struct channel_state *cstate,
 
 	/* Remember to remove this one in total txsize if not dust! */
 	nondust = cstate->num_nondust;
-	if (!is_dust(htlc->msatoshis / 1000)) {
+	if (!is_dust(htlc->msatoshi / 1000)) {
 		assert(nondust > 0);
 		nondust--;
 	}
 
-	/* Can't fail since msatoshis is positive. */
+	/* Can't fail since msatoshi is positive. */
 	if (!change_funding(cstate->anchor, cstate->fee_rate,
-			    -(int64_t)htlc->msatoshis,
+			    -(int64_t)htlc->msatoshi,
 			    &cstate->side[beneficiary],
 			    &cstate->side[!beneficiary], nondust, false))
 		abort();
@@ -272,10 +272,10 @@ void force_add_htlc(struct channel_state *cstate, const struct htlc *htlc)
 
 	creator = &cstate->side[htlc_owner(htlc)];
 	creator->num_htlcs++;
-	creator->pay_msat -= htlc->msatoshis;
+	creator->pay_msat -= htlc->msatoshi;
 	
 	/* Remember to count the new one in total txsize if not dust! */
-	if (!is_dust(htlc->msatoshis / 1000))
+	if (!is_dust(htlc->msatoshi / 1000))
 		cstate->num_nondust++;
 }
 
@@ -283,9 +283,9 @@ static void force_remove_htlc(struct channel_state *cstate,
 			      enum side beneficiary,
 			      const struct htlc *htlc)
 {
-	cstate->side[beneficiary].pay_msat += htlc->msatoshis;
+	cstate->side[beneficiary].pay_msat += htlc->msatoshi;
 	cstate->side[htlc_owner(htlc)].num_htlcs--;
-	if (!is_dust(htlc->msatoshis / 1000))
+	if (!is_dust(htlc->msatoshi / 1000))
 		cstate->num_nondust--;
 }
 

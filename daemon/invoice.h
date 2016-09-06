@@ -8,7 +8,7 @@ struct lightningd_state;
 struct invoice {
 	struct list_node list;
 	const char *label;
-	u64 msatoshis;
+	u64 msatoshi;
 	struct rval r;
 	struct sha256 rhash;
 	bool complete;
@@ -19,7 +19,7 @@ struct invoice {
 /* From database */
 void invoice_add(struct lightningd_state *dstate,
 		 const struct rval *r,
-		 u64 msatoshis,
+		 u64 msatoshi,
 		 const char *label,
 		 bool complete);
 

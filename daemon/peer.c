@@ -422,7 +422,7 @@ static void set_htlc_fail(struct peer *peer,
 
 static void route_htlc_onwards(struct peer *peer,
 			       struct htlc *htlc,
-			       u64 msatoshis,
+			       u64 msatoshi,
 			       const BitcoinPubkey *pb_id,
 			       const u8 *rest_of_route,
 			       const struct peer *only_dest)
@@ -462,13 +462,13 @@ static void route_htlc_onwards(struct peer *peer,
 		return;
 	
 	/* Offered fee must be sufficient. */
-	if ((s64)(htlc->msatoshis - msatoshis)
-	    < connection_fee(next->nc, msatoshis)) {
+	if ((s64)(htlc->msatoshi - msatoshi)
+	    < connection_fee(next->nc, msatoshi)) {
 		log_unusual(peer->log,
 			    "Insufficient fee for HTLC %"PRIu64
 			    ": %"PRIi64" on %"PRIu64,
-			    htlc->id, htlc->msatoshis - msatoshis,
-			    msatoshis);
+			    htlc->id, htlc->msatoshi - msatoshi,
+			    msatoshi);
 		command_htlc_set_fail(peer, htlc, PAYMENT_REQUIRED_402,
 				      "Insufficent fee");
 		return;
@@ -478,7 +478,7 @@ static void route_htlc_onwards(struct peer *peer,
 			 struct pubkey, next->id);
 
 	/* This checks the HTLC itself is possible. */
-	err = command_htlc_add(next, msatoshis,
+	err = command_htlc_add(next, msatoshi,
 			       abs_locktime_to_blocks(&htlc->expiry)
 			       - next->nc->delay,
 			       &htlc->rhash, htlc, rest_of_route,
@@ -548,13 +548,13 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 			goto free_rest;
 		}
 			
-		if (htlc->msatoshis != invoice->msatoshis) {
+		if (htlc->msatoshi != invoice->msatoshi) {
 			log_unusual(peer->log, "Short payment for '%s' HTLC %"PRIu64
 				    ": %"PRIu64" not %"PRIu64 " satoshi!",
 				    invoice->label,
 				    htlc->id,
-				    htlc->msatoshis,
-				    invoice->msatoshis);
+				    htlc->msatoshi,
+				    invoice->msatoshi);
 			command_htlc_set_fail(peer, htlc,
 					      UNAUTHORIZED_401,
 					      "incorrect amount");
@@ -1637,7 +1637,7 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 
 	tx->input[0].index = out_num;
 	tx->input[0].txid = peer->onchain.txid;
-	satoshis = htlc->msatoshis / 1000;
+	satoshis = htlc->msatoshi / 1000;
 	tx->input[0].amount = tal_dup(tx->input, u64, &satoshis);
 	tx->input[0].sequence_number = bitcoin_nsequence(&peer->remote.locktime);
 
@@ -1758,7 +1758,7 @@ static bool command_htlc_fulfill(struct peer *peer, struct htlc *htlc)
 	return true;
 }
 
-const char *command_htlc_add(struct peer *peer, u64 msatoshis,
+const char *command_htlc_add(struct peer *peer, u64 msatoshi,
 			     unsigned int expiry,
 			     const struct sha256 *rhash,
 			     struct htlc *src,
@@ -1807,7 +1807,7 @@ const char *command_htlc_add(struct peer *peer, u64 msatoshis,
 	}
 
 	*htlc = peer_new_htlc(peer, peer->htlc_id_counter,
-			      msatoshis, rhash, expiry, route, tal_count(route),
+			      msatoshi, rhash, expiry, route, tal_count(route),
 			      src, SENT_ADD_HTLC);
 
 	/* BOLT #2:
@@ -1823,7 +1823,7 @@ const char *command_htlc_add(struct peer *peer, u64 msatoshis,
 		 */
  		log_unusual(peer->log, "add_htlc: fail: Cannot afford %"PRIu64
  			    " milli-satoshis in their commit tx",
- 			    msatoshis);
+ 			    msatoshi);
 		log_add_struct(peer->log, " channel state %s",
 			       struct channel_state,
 			       peer->remote.staging_cstate);
@@ -2517,7 +2517,7 @@ static void htlc_destroy(struct htlc *htlc)
 
 struct htlc *peer_new_htlc(struct peer *peer, 
 			   u64 id,
-			   u64 msatoshis,
+			   u64 msatoshi,
 			   const struct sha256 *rhash,
 			   u32 expiry,
 			   const u8 *route,
@@ -2529,7 +2529,7 @@ struct htlc *peer_new_htlc(struct peer *peer,
 	h->peer = peer;
 	h->state = state;
 	h->id = id;
-	h->msatoshis = msatoshis;
+	h->msatoshi = msatoshi;
 	h->rhash = *rhash;
 	h->r = NULL;
 	h->fail = NULL;
@@ -3175,7 +3175,7 @@ static const struct bitcoin_tx *htlc_timeout_tx(const struct peer *peer,
 	tx->lock_time = htlc->expiry.locktime;
 	tx->input[0].index = out_num;
 	tx->input[0].txid = peer->onchain.txid;
-	satoshis = htlc->msatoshis / 1000;
+	satoshis = htlc->msatoshi / 1000;
 	tx->input[0].amount = tal_dup(tx->input, u64, &satoshis);
 	tx->input[0].sequence_number = bitcoin_nsequence(&peer->remote.locktime);
 
@@ -4240,7 +4240,7 @@ static void json_add_htlcs(struct json_result *response,
 			continue;
 
 		json_object_start(response, NULL);
-		json_add_u64(response, "msatoshis", h->msatoshis);
+		json_add_u64(response, "msatoshi", h->msatoshi);
 		json_add_abstime(response, "expiry", &h->expiry);
 		json_add_hex(response, "rhash", &h->rhash, sizeof(h->rhash));
 		json_add_string(response, "state", htlc_state_name(h->state));
@@ -4340,7 +4340,7 @@ static void json_gethtlcs(struct command *cmd,
 		json_object_start(response, NULL);
 		json_add_u64(response, "id", h->id);
 		json_add_string(response, "state", htlc_state_name(h->state));
-		json_add_u64(response, "msatoshis", h->msatoshis);
+		json_add_u64(response, "msatoshi", h->msatoshi);
 		json_add_abstime(response, "expiry", &h->expiry);
 		json_add_hex(response, "rhash", &h->rhash, sizeof(h->rhash));
 		if (h->r)
@@ -4389,9 +4389,9 @@ static void json_newhtlc(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	struct peer *peer;
-	jsmntok_t *peeridtok, *msatoshistok, *expirytok, *rhashtok;
+	jsmntok_t *peeridtok, *msatoshitok, *expirytok, *rhashtok;
 	unsigned int expiry;
-	u64 msatoshis;
+	u64 msatoshi;
 	struct sha256 rhash;
 	struct json_result *response = new_json_result(cmd);
 	struct htlc *htlc;
@@ -4400,11 +4400,11 @@ static void json_newhtlc(struct command *cmd,
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,
-			     "msatoshis", &msatoshistok,
+			     "msatoshi", &msatoshitok,
 			     "expiry", &expirytok,
 			     "rhash", &rhashtok,
 			     NULL)) {
-		command_fail(cmd, "Need peerid, msatoshis, expiry and rhash");
+		command_fail(cmd, "Need peerid, msatoshi, expiry and rhash");
 		return;
 	}
 
@@ -4424,10 +4424,10 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
-	if (!json_tok_u64(buffer, msatoshistok, &msatoshis)) {
+	if (!json_tok_u64(buffer, msatoshitok, &msatoshi)) {
 		command_fail(cmd, "'%.*s' is not a valid number",
-			     (int)(msatoshistok->end - msatoshistok->start),
-			     buffer + msatoshistok->start);
+			     (int)(msatoshitok->end - msatoshitok->start),
+			     buffer + msatoshitok->start);
 		return;
 	}
 	if (!json_tok_number(buffer, expirytok, &expiry)) {
@@ -4447,7 +4447,7 @@ static void json_newhtlc(struct command *cmd,
 	}
 
 	log_debug(peer->log, "JSON command to add new HTLC");
-	err = command_htlc_add(peer, msatoshis, expiry, &rhash, NULL,
+	err = command_htlc_add(peer, msatoshi, expiry, &rhash, NULL,
 			       onion_create(cmd, cmd->dstate->secpctx,
 					    NULL, NULL, 0),
 			       &error_code, &htlc);
@@ -4467,7 +4467,7 @@ static void json_newhtlc(struct command *cmd,
 const struct json_command newhtlc_command = {
 	"newhtlc",
 	json_newhtlc,
-	"Offer {peerid} an HTLC worth {msatoshis} in {expiry} (block number) with {rhash}",
+	"Offer {peerid} an HTLC worth {msatoshi} in {expiry} (block number) with {rhash}",
 	"Returns { id: u64 } result on success"
 };
 

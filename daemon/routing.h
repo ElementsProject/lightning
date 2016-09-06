@@ -43,7 +43,7 @@ struct node *get_node(struct lightningd_state *dstate,
 		      const struct pubkey *id);
 
 /* msatoshi must be possible (< 21 million BTC), ie < 2^60.
- * If it returns more than msatoshis, it overflowed. */
+ * If it returns more than msatoshi, it overflowed. */
 s64 connection_fee(const struct node_connection *c, u64 msatoshi);
 
 /* Updates existing connection, or creates new one as required. */

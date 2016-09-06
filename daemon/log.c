@@ -314,12 +314,12 @@ static char *to_string_(const tal_t *ctx,
 	} else if (streq(structname, "struct htlc")) {
 		const struct htlc *h = u.htlc;
 		s = tal_fmt(ctx, "{ id=%"PRIu64
-			    " msatoshis=%"PRIu64
+			    " msatoshi=%"PRIu64
 			    " expiry=%s"
 			    " rhash=%s"
 			    " rval=%s"
 			    " src=%s }",
-			    h->id, h->msatoshis,
+			    h->id, h->msatoshi,
 			    to_string(ctx, lr, struct abs_locktime, &h->expiry),
 			    to_string(ctx, lr, struct sha256, &h->rhash),
 			    h->r ? tal_hexstr(ctx, h->r, sizeof(*h->r))

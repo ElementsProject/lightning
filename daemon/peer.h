@@ -256,7 +256,7 @@ struct commit_info *new_commit_info(const tal_t *ctx, u64 commit_num);
 /* Freeing removes from map, too */
 struct htlc *peer_new_htlc(struct peer *peer, 
 			   u64 id,
-			   u64 msatoshis,
+			   u64 msatoshi,
 			   const struct sha256 *rhash,
 			   u32 expiry,
 			   const u8 *route,
@@ -264,7 +264,7 @@ struct htlc *peer_new_htlc(struct peer *peer,
 			   struct htlc *src,
 			   enum htlc_state state);
 
-const char *command_htlc_add(struct peer *peer, u64 msatoshis,
+const char *command_htlc_add(struct peer *peer, u64 msatoshi,
 			     unsigned int expiry,
 			     const struct sha256 *rhash,
 			     struct htlc *src,

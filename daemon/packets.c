@@ -139,7 +139,7 @@ void queue_pkt_htlc_add(struct peer *peer, struct htlc *htlc)
 	update_add_htlc__init(u);
 
 	u->id = htlc->id;
-	u->amount_msat = htlc->msatoshis;
+	u->amount_msat = htlc->msatoshi;
 	u->r_hash = sha256_to_proto(u, &htlc->rhash);
 	u->expiry = abs_locktime_to_proto(u, &htlc->expiry);
 	u->route = tal(u, Routing);

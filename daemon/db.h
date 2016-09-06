@@ -30,15 +30,15 @@ bool db_update_their_closing(struct peer *peer);
 bool db_new_pay_command(struct lightningd_state *dstate,
 			const struct sha256 *rhash,
 			const struct pubkey *ids,
-			u64 msatoshis,
+			u64 msatoshi,
 			const struct htlc *htlc);
 bool db_replace_pay_command(struct lightningd_state *dstate,
 			    const struct sha256 *rhash,
 			    const struct pubkey *ids,
-			    u64 msatoshis,
+			    u64 msatoshi,
 			    const struct htlc *htlc);
 bool db_new_invoice(struct lightningd_state *dstate,
-		    u64 msatoshis,
+		    u64 msatoshi,
 		    const char *label,
 		    const struct rval *r);
 

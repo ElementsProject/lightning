@@ -1020,7 +1020,7 @@ static void db_load_pay(struct lightningd_state *dstate)
 		struct sha256 rhash;
 		struct htlc *htlc;
 		struct pubkey *peer_id;
-		u64 htlc_id, msatoshis;
+		u64 htlc_id, msatoshi;
 		struct pubkey *ids;
 		struct rval *r;
 		void *fail;
@@ -1034,7 +1034,7 @@ static void db_load_pay(struct lightningd_state *dstate)
 			      sqlite3_column_count(stmt));
 
 		sha256_from_sql(stmt, 0, &rhash);
-		msatoshis = sqlite3_column_int64(stmt, 1);
+		msatoshi = sqlite3_column_int64(stmt, 1);
 		ids = pubkeys_from_arr(ctx, dstate->secpctx,
 				       sqlite3_column_blob(stmt, 2),
 				       sqlite3_column_bytes(stmt, 2));
@@ -1067,7 +1067,7 @@ static void db_load_pay(struct lightningd_state *dstate)
 		} else
 			htlc = NULL;
 
-		if (!pay_add(dstate, &rhash, msatoshis, ids, htlc, fail, r))
+		if (!pay_add(dstate, &rhash, msatoshi, ids, htlc, fail, r))
 			fatal("db_load_pay: could not add pay");
 	}
 	tal_free(ctx);
@@ -1088,7 +1088,7 @@ static void db_load_invoice(struct lightningd_state *dstate)
 
 	while ((err = sqlite3_step(stmt)) != SQLITE_DONE) {
 		struct rval r;
-		u64 msatoshis;
+		u64 msatoshi;
 		bool complete;
 		const char *label;
 
@@ -1101,10 +1101,10 @@ static void db_load_invoice(struct lightningd_state *dstate)
 			      sqlite3_column_count(stmt));
 
 		from_sql_blob(stmt, 0, &r, sizeof(r));
-		msatoshis = sqlite3_column_int64(stmt, 1);
+		msatoshi = sqlite3_column_int64(stmt, 1);
 		label = (const char *)sqlite3_column_text(stmt, 2);
 		complete = sqlite3_column_int(stmt, 3);
-		invoice_add(dstate, &r, msatoshis, label, complete);
+		invoice_add(dstate, &r, msatoshi, label, complete);
 	}
 	tal_free(ctx);
 }
@@ -1193,12 +1193,12 @@ void db_init(struct lightningd_state *dstate)
 			 TABLE(wallet,
 			       SQL_PRIVKEY(privkey))
 			 TABLE(pay,
-			       SQL_RHASH(rhash), SQL_U64(msatoshis),
+			       SQL_RHASH(rhash), SQL_U64(msatoshi),
 			       SQL_BLOB(ids), SQL_PUBKEY(htlc_peer),
 			       SQL_U64(htlc_id), SQL_R(r), SQL_FAIL(fail),
 			       "PRIMARY KEY(rhash)")
 			 TABLE(invoice,
-			       SQL_R(r), SQL_U64(msatoshis), SQL_INVLABEL(label),
+			       SQL_R(r), SQL_U64(msatoshi), SQL_INVLABEL(label),
 			       SQL_BOOL(complete),
 			       "PRIMARY KEY(r)")
 			 TABLE(anchors,
@@ -1209,7 +1209,7 @@ void db_init(struct lightningd_state *dstate)
 			 /* FIXME: state in key is overkill: just need side */
 			 TABLE(htlcs,
 			       SQL_PUBKEY(peer), SQL_U64(id),
-			       SQL_STATENAME(state), SQL_U64(msatoshis),
+			       SQL_STATENAME(state), SQL_U64(msatoshi),
 			       SQL_U32(expiry), SQL_RHASH(rhash), SQL_R(r),
 			       SQL_ROUTING(routing), SQL_PUBKEY(src_peer),
 			       SQL_U64(src_id), SQL_BLOB(fail),
@@ -1482,7 +1482,7 @@ bool db_new_htlc(struct peer *peer, const struct htlc *htlc)
 				 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id),
 				 htlc->id,
 				 htlc_state_name(htlc->state),
-				 htlc->msatoshis,
+				 htlc->msatoshi,
 				 abs_locktime_to_blocks(&htlc->expiry),
 				 tal_hexstr(ctx, &htlc->rhash, sizeof(htlc->rhash)),
 				 tal_hexstr(ctx, htlc->routing, tal_count(htlc->routing)),
@@ -1495,7 +1495,7 @@ bool db_new_htlc(struct peer *peer, const struct htlc *htlc)
 				 peerid,
 				 htlc->id,
 				 htlc_state_name(htlc->state),
-				 htlc->msatoshis,
+				 htlc->msatoshi,
 				 abs_locktime_to_blocks(&htlc->expiry),
 				 tal_hexstr(ctx, &htlc->rhash, sizeof(htlc->rhash)),
 				 tal_hexstr(ctx, htlc->routing, tal_count(htlc->routing)));
@@ -1859,7 +1859,7 @@ bool db_update_their_closing(struct peer *peer)
 bool db_new_pay_command(struct lightningd_state *dstate,
 			const struct sha256 *rhash,
 			const struct pubkey *ids,
-			u64 msatoshis,
+			u64 msatoshi,
 			const struct htlc *htlc)
 {
 	const char *errmsg, *ctx = tal(dstate, char);
@@ -1870,7 +1870,7 @@ bool db_new_pay_command(struct lightningd_state *dstate,
 	assert(!dstate->db->in_transaction);
 	errmsg = db_exec(ctx, dstate, "INSERT INTO pay VALUES (x'%s', %"PRIu64", x'%s', x'%s', %"PRIu64", NULL, NULL);",
 			 tal_hexstr(ctx, rhash, sizeof(*rhash)),
-			 msatoshis,
+			 msatoshi,
 			 pubkeys_to_hex(ctx, dstate->secpctx, ids),
 			 pubkey_to_hexstr(ctx, dstate->secpctx, htlc->peer->id),
 			 htlc->id);
@@ -1883,7 +1883,7 @@ bool db_new_pay_command(struct lightningd_state *dstate,
 bool db_replace_pay_command(struct lightningd_state *dstate,
 			    const struct sha256 *rhash,
 			    const struct pubkey *ids,
-			    u64 msatoshis,
+			    u64 msatoshi,
 			    const struct htlc *htlc)
 {
 	const char *errmsg, *ctx = tal(dstate, char);
@@ -1892,8 +1892,8 @@ bool db_replace_pay_command(struct lightningd_state *dstate,
 	log_add_struct(dstate->base_log, "(%s)", struct sha256, rhash);
 
 	assert(!dstate->db->in_transaction);
-	errmsg = db_exec(ctx, dstate, "UPDATE pay SET msatoshis=%"PRIu64", ids=x'%s', htlc_peer=x'%s', htlc_id=%"PRIu64", r=NULL, fail=NULL WHERE rhash=x'%s';",
-			 msatoshis,
+	errmsg = db_exec(ctx, dstate, "UPDATE pay SET msatoshi=%"PRIu64", ids=x'%s', htlc_peer=x'%s', htlc_id=%"PRIu64", r=NULL, fail=NULL WHERE rhash=x'%s';",
+			 msatoshi,
 			 pubkeys_to_hex(ctx, dstate->secpctx, ids),
 			 pubkey_to_hexstr(ctx, dstate->secpctx, htlc->peer->id),
 			 htlc->id,
@@ -1931,7 +1931,7 @@ bool db_complete_pay_command(struct lightningd_state *dstate,
 }
 
 bool db_new_invoice(struct lightningd_state *dstate,
-		    u64 msatoshis,
+		    u64 msatoshi,
 		    const char *label,
 		    const struct rval *r)
 {
@@ -1944,7 +1944,7 @@ bool db_new_invoice(struct lightningd_state *dstate,
 	/* Insert label as hex; suspect injection attacks. */
 	errmsg = db_exec(ctx, dstate, "INSERT INTO invoice VALUES (x'%s', %"PRIu64", x'%s', %s);",
 			 tal_hexstr(ctx, r, sizeof(*r)),
-			 msatoshis,
+			 msatoshi,
 			 tal_hexstr(ctx, label, strlen(label)),
 			 sql_bool(false));
 	if (errmsg)

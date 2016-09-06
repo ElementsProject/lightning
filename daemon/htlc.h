@@ -51,7 +51,7 @@ struct htlc {
 	/* The unique ID for this peer and this direction (LOCAL or REMOTE) */
 	u64 id;
 	/* The amount in millisatoshi. */
-	u64 msatoshis;
+	u64 msatoshi;
 	/* When the HTLC can no longer be redeemed. */
 	struct abs_locktime expiry;
 	/* The hash of the preimage which can redeem this HTLC */

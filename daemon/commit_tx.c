@@ -201,10 +201,10 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 		wscript = wscript_for_htlc(tx, peer, h, rhash, side);
 		/* If we pay any HTLC, it's txout is not just to other side. */
 		if (add_output(tx, scriptpubkey_p2wsh(tx, wscript),
-			       h->msatoshis / 1000, &total)) {
+			       h->msatoshi / 1000, &total)) {
 			*otherside_only = false;
 			log_debug(peer->log, "Pays %"PRIu64" to htlc %"PRIu64,
-				  h->msatoshis / 1000, h->id);
+				  h->msatoshi / 1000, h->id);
 			log_add_struct(peer->log, " expiry %s",
 				       struct abs_locktime, &h->expiry);
 			log_add_struct(peer->log, " rhash %s", struct sha256,
@@ -213,7 +213,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 				  tal_hexstr(tx, wscript, tal_count(wscript)));
 		} else
 			log_debug(peer->log, "DOES NOT pay %"PRIu64" to htlc %"PRIu64,
-				  h->msatoshis / 1000, h->id);
+				  h->msatoshi / 1000, h->id);
 	}
 	assert(total <= peer->anchor.satoshis);
 
