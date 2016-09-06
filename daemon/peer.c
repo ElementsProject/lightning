@@ -560,9 +560,28 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 			return;
 		}
 
+		/* This is a courtesy: we could simply take your money! */
+		if (payment->complete) {
+			log_unusual(peer->log,
+				    "Repeated payment for HTLC %"PRIu64,
+				    htlc->id);
+			command_htlc_set_fail(peer, htlc,
+					      UNAUTHORIZED_401,
+					      "already received payment");
+			return;
+		}
+
 		log_info(peer->log, "Immediately resolving HTLC %"PRIu64,
 			 htlc->id);
 
+		if (!db_resolve_payment(peer->dstate, &payment->r)) {
+			command_htlc_set_fail(peer, htlc,
+					      INTERNAL_SERVER_ERROR_500,
+					      "database error");
+			return;
+		}
+
+		payment->complete = true;
 		set_htlc_rval(peer, htlc, &payment->r);
 		command_htlc_fulfill(peer, htlc);
 		goto free_rest;

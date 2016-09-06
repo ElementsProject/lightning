@@ -386,9 +386,10 @@ EOF
 cp $DIR2/config $DIR3/config
 
 if [ x"$RECONNECT" = xrestart ]; then
-    # Make sure node2 restarts on same port, by setting in config.
+    # Make sure node2 & 3 restart on same port, by setting in config.
     # Find a free TCP port.
     echo port=`findport 4000` >> $DIR2/config
+    echo port=`findport 4010` >> $DIR3/config
 fi
 
 if [ -n "$DIFFERENT_FEES" ]; then
@@ -418,7 +419,8 @@ else
     LIGHTNINGD2="$PREFIX $LIGHTNINGD2"
     $LIGHTNINGD2 > $REDIR2 2> $REDIRERR2 &
 fi
-$PREFIX ../lightningd --lightning-dir=$DIR3 > $DIR3/output 2> $DIR3/errors &
+LIGHTNINGD3="$PREFIX $(readlink -f `pwd`/../lightningd) --lightning-dir=$DIR3"
+$LIGHTNINGD3 > $DIR3/output 2> $DIR3/errors &
 
 if ! check "$LCLI1 getlog 2>/dev/null | $FGREP Hello"; then
     echo Failed to start daemon 1 >&2
@@ -1028,6 +1030,15 @@ if [ ! -n "$MANUALCOMMIT" ]; then
 	exit 1
     fi
 
+    # If restarting, make sure node3 remembers incoming payment.
+    if [ "$RECONNECT" = restart ]; then
+	$LCLI3 -- dev-restart $LIGHTNINGD3 >/dev/null 2>&1 || true
+	if ! check "$LCLI3 getpeers | tr -s '\012\011\" ' ' ' | fgrep -q 'connected : true'"; then
+	    echo "Failed to reconnect!">&2
+	    exit 1
+	fi
+    fi
+    
     # Pay correctly.
     lcli1 sendpay "$ROUTE" $RHASH5
 
@@ -1035,6 +1046,25 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     # Note that it is delayed a little, since node2 fulfils as soon as fulfill
     # starts.
     check lcli3 "getpeers | $FGREP \"\\\"our_amount\\\" : $(($HTLC_AMOUNT - $NO_HTLCS_FEE / 2))\""
+
+    # If restarting, make sure node3 remembers completed payment.
+    if [ "$RECONNECT" = restart ]; then
+	echo RESTARTING NODE3
+	$LCLI3 -- dev-restart $LIGHTNINGD3 >/dev/null 2>&1 || true
+	if ! check "$LCLI3 getpeers 2>/dev/null | tr -s '\012\011\" ' ' ' | fgrep -q 'connected : true'"; then
+	    echo "Failed to reconnect!">&2
+	    exit 1
+	fi
+    fi
+
+    # Can't pay twice (try from node2)
+    ROUTE2=`lcli2 getroute $ID3 $HTLC_AMOUNT`
+    ROUTE2=`echo $ROUTE2 | sed 's/^{ "route" : \(.*\) }$/\1/'`
+    if lcli2 sendpay "$ROUTE2" $RHASH5; then
+	echo "Paying twice worked?" >&2
+	exit 1
+    fi
+
     lcli3 close $ID2
 
     # Re-send should be a noop (doesn't matter that node3 is down!)

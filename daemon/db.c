@@ -8,6 +8,7 @@
 #include "names.h"
 #include "netaddr.h"
 #include "pay.h"
+#include "payment.h"
 #include "routing.h"
 #include "secrets.h"
 #include "utils.h"
@@ -1071,6 +1072,40 @@ static void db_load_pay(struct lightningd_state *dstate)
 	tal_free(ctx);
 }
 
+static void db_load_payment(struct lightningd_state *dstate)
+{
+	int err;
+	sqlite3_stmt *stmt;
+	char *ctx = tal(dstate, char);
+
+	err = sqlite3_prepare_v2(dstate->db->sql, "SELECT * FROM payment;", -1,
+				 &stmt, NULL);
+
+	if (err != SQLITE_OK)
+		fatal("db_load_payment:prepare gave %s:%s",
+		      sqlite3_errstr(err), sqlite3_errmsg(dstate->db->sql));
+
+	while ((err = sqlite3_step(stmt)) != SQLITE_DONE) {
+		struct rval r;
+		u64 msatoshis;
+		bool complete;
+
+		if (err != SQLITE_ROW)
+			fatal("db_load_payment:step gave %s:%s",
+			      sqlite3_errstr(err),
+			      sqlite3_errmsg(dstate->db->sql));
+		if (sqlite3_column_count(stmt) != 3)
+			fatal("db_load_pay:step gave %i cols, not 3",
+			      sqlite3_column_count(stmt));
+
+		from_sql_blob(stmt, 0, &r, sizeof(r));
+		msatoshis = sqlite3_column_int64(stmt, 1);
+		complete = sqlite3_column_int(stmt, 2);
+		payment_add(dstate, &r, msatoshis, complete);
+	}
+	tal_free(ctx);
+}
+
 static void db_load_addresses(struct lightningd_state *dstate)
 {
 	int err;
@@ -1112,6 +1147,7 @@ static void db_load(struct lightningd_state *dstate)
 	db_load_addresses(dstate);
 	db_load_peers(dstate);
 	db_load_pay(dstate);
+	db_load_payment(dstate);
 }
 
 void db_init(struct lightningd_state *dstate)
@@ -1158,6 +1194,9 @@ void db_init(struct lightningd_state *dstate)
 			       SQL_BLOB(ids), SQL_PUBKEY(htlc_peer),
 			       SQL_U64(htlc_id), SQL_R(r), SQL_FAIL(fail),
 			       "PRIMARY KEY(rhash)")
+			 TABLE(payment,
+			       SQL_R(r), SQL_U64(msatoshis), SQL_BOOL(complete),
+			       "PRIMARY KEY(r)")
 			 TABLE(anchors,
 			       SQL_PUBKEY(peer),
 			       SQL_TXID(txid), SQL_U32(idx), SQL_U64(amount),
@@ -1881,6 +1920,43 @@ bool db_complete_pay_command(struct lightningd_state *dstate,
 				 tal_hexstr(ctx, htlc->fail, tal_count(htlc->fail)),
 				 tal_hexstr(ctx, &htlc->rhash, sizeof(htlc->rhash)));
 
+	if (errmsg)
+		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
+	tal_free(ctx);
+	return !errmsg;
+}
+
+bool db_new_payment(struct lightningd_state *dstate,
+		    u64 msatoshis,
+		    const struct rval *r)
+{
+	const char *errmsg, *ctx = tal(dstate, char);
+
+	log_debug(dstate->base_log, "%s", __func__);
+
+	assert(!dstate->db->in_transaction);
+	
+	errmsg = db_exec(ctx, dstate, "INSERT INTO payment VALUES (x'%s', %"PRIu64", %s);",
+			 tal_hexstr(ctx, r, sizeof(*r)),
+			 msatoshis,
+			 sql_bool(false));
+	if (errmsg)
+		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
+	tal_free(ctx);
+	return !errmsg;
+}
+
+bool db_resolve_payment(struct lightningd_state *dstate, const struct rval *r)
+{
+	const char *errmsg, *ctx = tal(dstate, char);
+
+	log_debug(dstate->base_log, "%s", __func__);
+
+	assert(dstate->db->in_transaction);
+	
+	errmsg = db_exec(ctx, dstate, "UPDATE payment SET complete=%s WHERE r=x'%s';",
+			 sql_bool(true),
+			 tal_hexstr(ctx, r, sizeof(*r)));
 	if (errmsg)
 		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
 	tal_free(ctx);

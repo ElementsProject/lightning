@@ -1,3 +1,4 @@
+#include "db.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "payment.h"
@@ -15,6 +16,20 @@ struct payment *find_payment(struct lightningd_state *dstate,
 			return i;
 	}
 	return NULL;
+}
+
+void payment_add(struct lightningd_state *dstate,
+		 const struct rval *r,
+		 u64 msatoshis,
+		 bool complete)
+{
+	struct payment *payment = tal(dstate, struct payment);
+
+	payment->msatoshis = msatoshis;
+	payment->r = *r;
+	payment->complete = complete;
+	sha256(&payment->rhash, payment->r.r, sizeof(payment->r.r));
+	list_add(&dstate->payments, &payment->list);
 }
 
 static void json_accept_payment(struct command *cmd,
@@ -57,7 +72,12 @@ static void json_accept_payment(struct command *cmd,
 			     buffer + msatoshis->start);
 		return;
 	}
+	payment->complete = false;
 
+	if (!db_new_payment(cmd->dstate, payment->msatoshis, &payment->r)) {
+		command_fail(cmd, "database error");
+		return;
+	}		
 	/* OK, connect it to main state, respond with hash */
 	tal_steal(cmd->dstate, payment);
 	list_add(&cmd->dstate->payments, &payment->list);

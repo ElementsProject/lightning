@@ -37,6 +37,9 @@ bool db_replace_pay_command(struct lightningd_state *dstate,
 			    const struct pubkey *ids,
 			    u64 msatoshis,
 			    const struct htlc *htlc);
+bool db_new_payment(struct lightningd_state *dstate,
+		    u64 msatoshis,
+		    const struct rval *r);
 
 /* FIXME: save error handling until db_commit_transaction for calls
  * which have to be inside transaction anyway. */
@@ -46,8 +49,9 @@ bool db_new_htlc(struct peer *peer, const struct htlc *htlc);
 bool db_new_feechange(struct peer *peer, const struct feechange *feechange);
 bool db_update_htlc_state(struct peer *peer, const struct htlc *htlc,
 				 enum htlc_state oldstate);
-bool db_complete_pay_command(struct lightningd_state *state,
+bool db_complete_pay_command(struct lightningd_state *dstate,
 			     const struct htlc *htlc);
+bool db_resolve_payment(struct lightningd_state *dstate, const struct rval *r);
 bool db_update_feechange_state(struct peer *peer,
 			       const struct feechange *f,
 			       enum htlc_state oldstate);
