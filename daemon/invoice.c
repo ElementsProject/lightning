@@ -7,6 +7,11 @@
 #include <ccan/tal/str/str.h>
 #include <sodium/randombytes.h>
 
+struct invoice_waiter {
+	struct list_node list;
+	struct command *cmd;
+};
+
 static struct invoice *find_inv(const struct list_head *list,
 				const struct sha256 *rhash)
 {
@@ -65,12 +70,33 @@ void invoice_add(struct lightningd_state *dstate,
 		list_add(&dstate->unpaid, &invoice->list);
 }
 
+static void tell_waiter(struct command *cmd, const struct invoice *paid)
+{
+	struct json_result *response = new_json_result(cmd);
+
+	json_object_start(response, NULL);
+	json_add_string(response, "label", paid->label);
+	json_add_hex(response, "rhash", &paid->rhash, sizeof(paid->rhash));
+	json_add_u64(response, "msatoshi", paid->msatoshi);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+	
 bool resolve_invoice(struct lightningd_state *dstate,
 		     struct invoice *invoice)
 {
+	struct invoice_waiter *w;
+
 	invoice->paid_num = ++dstate->invoices_completed;
 	list_del_from(&dstate->unpaid, &invoice->list);
 	list_add_tail(&dstate->paid, &invoice->list);
+
+	/* Tell all the waiters about the new paid invoice */
+	while ((w = list_pop(&dstate->invoice_waiters,
+			     struct invoice_waiter,
+			     list)) != NULL)
+		tell_waiter(w->cmd, invoice);
+
 	return db_resolve_invoice(dstate, invoice->label, invoice->paid_num);
 }
 	
@@ -247,3 +273,50 @@ const struct json_command delinvoice_command = {
 	"Returns {label}, {rhash} and {msatoshi} on success. "
 };
 
+static void json_waitinvoice(struct command *cmd,
+			    const char *buffer, const jsmntok_t *params)
+{
+	struct invoice *i;
+	jsmntok_t *labeltok;
+	const char *label = NULL;
+	struct invoice_waiter *w;
+
+	if (!json_get_params(buffer, params,
+			     "?label", &labeltok,
+			     NULL)) {
+		command_fail(cmd, "Invalid arguments");
+		return;
+	}
+
+	if (!labeltok)
+		i = list_top(&cmd->dstate->paid, struct invoice, list);
+	else {
+		label = tal_strndup(cmd, buffer + labeltok->start,
+				    labeltok->end - labeltok->start);
+		i = find_invoice_by_label(&cmd->dstate->paid, label);
+		if (!i) {
+			command_fail(cmd, "Label not found");
+			return;
+		}
+		i = list_next(&cmd->dstate->paid, i, list);
+	}
+
+	/* If we found one, return it. */
+	if (i) {
+		tell_waiter(cmd, i);
+		return;
+	}
+
+	/* Otherwise, wait. */
+	/* FIXME: Better to use io_wait directly? */
+	w = tal(cmd, struct invoice_waiter);
+	w->cmd = cmd;
+	list_add_tail(&cmd->dstate->invoice_waiters, &w->list);
+}
+
+const struct json_command waitinvoice_command = {
+	"waitinvoice",
+	json_waitinvoice,
+	"Wait for the next invoice to be paid, after {label} (if supplied)))",
+	"Returns {label}, {rhash} and {msatoshi} on success. "
+};

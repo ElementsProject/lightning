@@ -1076,7 +1076,9 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     fi
 
     [ "`lcli3 listinvoice RHASH5 | tr -s '\012\011\" ' ' '`" = "{ [ { label : RHASH5 , rhash : $RHASH5 , msatoshi : $HTLC_AMOUNT, complete : true } ] } " ]
-    
+
+    [ "`lcli3 waitinvoice | tr -s '\012\011\" ' ' '`" = "{ label : RHASH5 , rhash : $RHASH5 , msatoshi : $HTLC_AMOUNT } " ]
+
     # Can't pay twice (try from node2)
     ROUTE2=`lcli2 getroute $ID3 $HTLC_AMOUNT 1`
     ROUTE2=`echo $ROUTE2 | sed 's/^{ "route" : \(.*\) }$/\1/'`

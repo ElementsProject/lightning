@@ -258,6 +258,7 @@ static struct lightningd_state *lightningd_state(void)
 	list_head_init(&dstate->unpaid);
 	list_head_init(&dstate->paid);
 	dstate->invoices_completed = 0;
+	list_head_init(&dstate->invoice_waiters);
 	list_head_init(&dstate->addresses);
 	dstate->dev_never_routefail = false;
 	dstate->bitcoin_req_running = false;
