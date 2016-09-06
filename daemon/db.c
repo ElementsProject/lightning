@@ -14,6 +14,7 @@
 #include "wallet.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
+#include <ccan/cppmagic/cppmagic.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
@@ -43,20 +44,31 @@ static const char *sqlite3_column_str(sqlite3_stmt *stmt, int iCol)
 	return cast_signed(const char *, sqlite3_column_text(stmt, iCol));
 }
 
-#define SQL_PUBKEY	"BINARY(33)"
-#define SQL_PRIVKEY	"BINARY(32)"
-#define SQL_SIGNATURE	"BINARY(64)"
-#define SQL_TXID	"BINARY(32)"
-#define SQL_RHASH	"BINARY(32)"
-#define SQL_SHA256	"BINARY(32)"
-#define SQL_R		"BINARY(32)"
+#define SQL_U64(var)		stringify(var)" BIGINT" /* Actually, an s64 */
+#define SQL_U32(var)		stringify(var)" INT"
+#define SQL_BOOL(var)		stringify(var)" BOOLEAN"
+#define SQL_BLOB(var)		stringify(var)" BLOB"
+
+#define SQL_PUBKEY(var)		stringify(var)" CHAR(33)"
+#define SQL_PRIVKEY(var)	stringify(var)" CHAR(32)"
+#define SQL_SIGNATURE(var)	stringify(var)" CHAR(64)"
+#define SQL_TXID(var)		stringify(var)" CHAR(32)"
+#define SQL_RHASH(var)		stringify(var)" CHAR(32)"
+#define SQL_SHA256(var)		stringify(var)" CHAR(32)"
+#define SQL_R(var)		stringify(var)" CHAR(32)"
+#define SQL_STATENAME(var)	stringify(var)" VARCHAR(44)"
+/* STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED == 44*/
 
 /* 8 + 4 + (8 + 32) * (64 + 1) */
 #define SHACHAIN_SIZE	2612
-#define SQL_SHACHAIN	"BINARY(2612)"
+#define SQL_SHACHAIN(var)	stringify(var)" CHAR(2612)"
 
 /* FIXME: Should be fixed size. */
-#define SQL_ROUTING	"BLOB"
+#define SQL_ROUTING(var)	stringify(var)" BLOB"
+#define SQL_FAIL(var)		stringify(var)" BLOB"
+
+#define TABLE(tablename, ...)					\
+	"CREATE TABLE " #tablename " (" CPPMAGIC_JOIN(", ", __VA_ARGS__) ");"
 
 static char *PRINTF_FMT(3,4)
 	db_exec(const tal_t *ctx,
@@ -254,7 +266,6 @@ static void load_peer_anchor(struct peer *peer)
 	const char *select;
 	bool anchor_set = false;
 
-	/* CREATE TABLE anchors (peer "SQL_PUBKEY", txid "SQL_TXID", idx INT, amount INT, ok_depth INT, min_depth INT, bool ours); */
 	select = tal_fmt(ctx,
 			 "SELECT * FROM anchors WHERE peer = x'%s';",
 			 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id));
@@ -299,7 +310,6 @@ static void load_peer_visible_state(struct peer *peer)
 	const char *select;
 	bool visible_set = false;
 
-	/* "CREATE TABLE their_visible_state (peer "SQL_PUBKEY", offered_anchor BOOLEAN, commitkey "SQL_PUBKEY", finalkey "SQL_PUBKEY", locktime INT, mindepth INT, commit_fee_rate INT, next_revocation_hash "SQL_SHA256", PRIMARY KEY(peer)); */
 	select = tal_fmt(ctx,
 			 "SELECT * FROM their_visible_state WHERE peer = x'%s';",
 			 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id));
@@ -507,7 +517,6 @@ static void load_peer_htlcs(struct peer *peer)
 		if (sqlite3_column_count(stmt) != 11)
 			fatal("load_peer_htlcs:step gave %i cols, not 11",
 			      sqlite3_column_count(stmt));
-		/* CREATE TABLE htlcs (peer "SQL_PUBKEY", id INT, state TEXT, msatoshis INT, expiry INT, rhash "SQL_RHASH", r "SQL_R", routing "SQL_ROUTING", src_peer "SQL_PUBKEY", src_id INT, fail BLOB, PRIMARY KEY(peer, id, state)); */
 		sha256_from_sql(stmt, 5, &rhash);
 
 		hstate = htlc_state_from_name(sqlite3_column_str(stmt, 2));
@@ -813,7 +822,6 @@ static void load_peer_closing(struct peer *peer)
 			fatal("load_peer_closing:step gave %s:%s",
 			      sqlite3_errstr(err), sqlite3_errmsg(sql));
 
-		/* CREATE TABLE closing (peer "SQL_PUBKEY", our_fee INTEGER, their_fee INTEGER, their_sig "SQL_SIGNATURE", our_script BLOB, their_script BLOB, shutdown_order INTEGER, closing_order INTEGER, sigs_in INTEGER, PRIMARY KEY(peer)); */
 		if (sqlite3_column_count(stmt) != 9)
 			fatal("load_peer_closing:step gave %i cols, not 9",
 			      sqlite3_column_count(stmt));
@@ -999,7 +1007,6 @@ static void db_load_pay(struct lightningd_state *dstate)
 		fatal("db_load_pay:prepare gave %s:%s",
 		      sqlite3_errstr(err), sqlite3_errmsg(dstate->db->sql));
 
-	/* CREATE TABLE pay (rhash "SQL_RHASH", msatoshis INT, ids BLOB, htlc_peer "SQL_PUBKEY", htlc_id INT, r "SQL_R", fail BLOB, PRIMARY KEY(rhash)); */
 	while ((err = sqlite3_step(stmt)) != SQLITE_DONE) {
 		struct sha256 rhash;
 		struct htlc *htlc;
@@ -1137,21 +1144,69 @@ void db_init(struct lightningd_state *dstate)
 
 	/* Set up tables. */
 	errmsg = db_exec(dstate, dstate,
-			 "CREATE TABLE wallet (privkey "SQL_PRIVKEY");"
-			 "CREATE TABLE pay (rhash "SQL_RHASH", msatoshis INT, ids BLOB, htlc_peer "SQL_PUBKEY", htlc_id INT, r "SQL_R", fail BLOB, PRIMARY KEY(rhash));"
-			 "CREATE TABLE anchors (peer "SQL_PUBKEY", txid "SQL_TXID", idx INT, amount INT, ok_depth INT, min_depth INT, bool ours, PRIMARY KEY(peer));"
-			 /* FIXME: state in primary key is overkill: just need side */
-			 "CREATE TABLE htlcs (peer "SQL_PUBKEY", id INT, state TEXT, msatoshis INT, expiry INT, rhash "SQL_RHASH", r "SQL_R", routing "SQL_ROUTING", src_peer "SQL_PUBKEY", src_id INT, fail BLOB, PRIMARY KEY(peer, id, state));"
-			 "CREATE TABLE feechanges (peer "SQL_PUBKEY", state TEXT, fee_rate INT, PRIMARY KEY(peer,state));"
-			 "CREATE TABLE commit_info (peer "SQL_PUBKEY", side TEXT, commit_num INT, revocation_hash "SQL_SHA256", xmit_order INT, sig "SQL_SIGNATURE", prev_revocation_hash "SQL_SHA256", PRIMARY KEY(peer, side));"
-			 "CREATE TABLE shachain (peer "SQL_PUBKEY", shachain BINARY(%zu), PRIMARY KEY(peer));"
-			 "CREATE TABLE their_visible_state (peer "SQL_PUBKEY", offered_anchor BOOLEAN, commitkey "SQL_PUBKEY", finalkey "SQL_PUBKEY", locktime INT, mindepth INT, commit_fee_rate INT, next_revocation_hash "SQL_SHA256", PRIMARY KEY(peer));"
-			 "CREATE TABLE their_commitments (peer "SQL_PUBKEY", txid "SQL_SHA256", INT commit_num, PRIMARY KEY(peer, txid));"
-			 "CREATE TABLE peer_secrets (peer "SQL_PUBKEY", commitkey "SQL_PRIVKEY", finalkey "SQL_PRIVKEY", revocation_seed "SQL_SHA256", PRIMARY KEY(peer));"
-			 "CREATE TABLE peer_address (peer "SQL_PUBKEY", addr BLOB, PRIMARY KEY(peer));"
-			 "CREATE TABLE closing (peer "SQL_PUBKEY", our_fee INTEGER, their_fee INTEGER, their_sig "SQL_SIGNATURE", our_script BLOB, their_script BLOB, shutdown_order INTEGER, closing_order INTEGER, sigs_in INTEGER, PRIMARY KEY(peer));"
-			 "CREATE TABLE peers (peer "SQL_PUBKEY", state TEXT, offered_anchor BOOLEAN, our_feerate INT, PRIMARY KEY(peer));",
-			 sizeof(struct shachain));
+			 TABLE(wallet,
+			       SQL_PRIVKEY(privkey))
+			 TABLE(pay,
+			       SQL_RHASH(rhash), SQL_U64(msatoshis),
+			       SQL_BLOB(ids), SQL_PUBKEY(htlc_peer),
+			       SQL_U64(htlc_id), SQL_R(r), SQL_FAIL(fail),
+			       "PRIMARY KEY(rhash)")
+			 TABLE(anchors,
+			       SQL_PUBKEY(peer),
+			       SQL_TXID(txid), SQL_U32(idx), SQL_U64(amount),
+			       SQL_U32(ok_depth), SQL_U32(min_depth),
+			       SQL_BOOL(ours))
+			 /* FIXME: state in key is overkill: just need side */
+			 TABLE(htlcs,
+			       SQL_PUBKEY(peer), SQL_U64(id),
+			       SQL_STATENAME(state), SQL_U64(msatoshis),
+			       SQL_U32(expiry), SQL_RHASH(rhash), SQL_R(r),
+			       SQL_ROUTING(routing), SQL_PUBKEY(src_peer),
+			       SQL_U64(src_id), SQL_BLOB(fail),
+			       "PRIMARY KEY(peer, id, state)")
+			 TABLE(feechanges,
+			       SQL_PUBKEY(peer), SQL_STATENAME(state),
+			       SQL_U32(fee_rate),
+			       "PRIMARY KEY(peer,state)")
+			 TABLE(commit_info,
+			       SQL_PUBKEY(peer), SQL_U32(side),
+			       SQL_U64(commit_num), SQL_SHA256(revocation_hash),
+			       SQL_U64(xmit_order), SQL_SIGNATURE(sig),
+			       SQL_SHA256(prev_revocation_hash),
+			       "PRIMARY KEY(peer, side)")
+			 TABLE(shachain,
+			       SQL_PUBKEY(peer), SQL_SHACHAIN(shachain),
+			       "PRIMARY KEY(peer)")
+			 TABLE(their_visible_state,
+			       SQL_PUBKEY(peer), SQL_BOOL(offered_anchor),
+			       SQL_PUBKEY(commitkey), SQL_PUBKEY(finalkey),
+			       SQL_U32(locktime), SQL_U32(mindepth),
+			       SQL_U32(commit_fee_rate),
+			       SQL_SHA256(next_revocation_hash),
+			       "PRIMARY KEY(peer)")
+			 TABLE(their_commitments,
+			       SQL_PUBKEY(peer), SQL_SHA256(txid),
+			       SQL_U64(commit_num),
+			       "PRIMARY KEY(peer, txid)")
+			 TABLE(peer_secrets,
+			       SQL_PUBKEY(peer), SQL_PRIVKEY(commitkey),
+			       SQL_PRIVKEY(finalkey),
+			       SQL_SHA256(revocation_seed),
+			       "PRIMARY KEY(peer)")
+			 TABLE(peer_address,
+			       SQL_PUBKEY(peer), SQL_BLOB(addr),
+			       "PRIMARY KEY(peer)")
+			 TABLE(closing,
+			       SQL_PUBKEY(peer), SQL_U64(our_fee),
+			       SQL_U64(their_fee), SQL_SIGNATURE(their_sig),
+			       SQL_BLOB(our_script), SQL_BLOB(their_script),
+			       SQL_U64(shutdown_order), SQL_U64(closing_order),
+			       SQL_U64(sigs_in),
+			       "PRIMARY KEY(peer)")
+			 TABLE(peers,
+			       SQL_PUBKEY(peer), SQL_STATENAME(state),
+			       SQL_BOOL(offered_anchor), SQL_U32(our_feerate),
+			       "PRIMARY KEY(peer)"));
 
 	if (errmsg) {
 		unlink(DB_FILE);
@@ -1220,7 +1275,6 @@ out:
 
 bool db_set_visible_state(struct peer *peer)
 {
-	/* "CREATE TABLE their_visible_state (peer "SQL_PUBKEY", offered_anchor BOOLEAN, commitkey "SQL_PUBKEY", finalkey "SQL_PUBKEY", locktime INT, mindepth INT, commit_fee_rate INT, next_revocation_hash "SQL_SHA256", PRIMARY KEY(peer));" */
 	const char *errmsg, *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
@@ -1410,7 +1464,6 @@ bool db_new_feechange(struct peer *peer, const struct feechange *feechange)
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
 
-	/* "CREATE TABLE feechanges (peer "SQL_PUBKEY", state TEXT, fee_rate INT, PRIMARY KEY(peer,state));" */
 	errmsg = db_exec(ctx, peer->dstate, 
 			 "INSERT INTO feechanges VALUES"
 				 " (x'%s', '%s', %"PRIu64");",
@@ -1543,7 +1596,6 @@ bool db_new_commit_info(struct peer *peer, enum side side,
 		ci = peer->remote.commit;
 	}
 
-	// CREATE TABLE commit_info (peer "SQL_PUBKEY", side TEXT, commit_num INT, revocation_hash "SQL_SHA256", xmit_order INT, sig "SQL_SIGNATURE", prev_revocation_hash "SQL_SHA256", PRIMARY KEY(peer, side));
 	errmsg = db_exec(ctx, peer->dstate, "UPDATE commit_info SET commit_num=%"PRIu64", revocation_hash=x'%s', sig=%s, xmit_order=%"PRIi64", prev_revocation_hash=%s WHERE peer=x'%s' AND side='%s';",
 			 ci->commit_num,
 			 tal_hexstr(ctx, &ci->revocation_hash,
@@ -1568,7 +1620,6 @@ bool db_remove_their_prev_revocation_hash(struct peer *peer)
 
 	assert(peer->dstate->db->in_transaction);
 
-	// CREATE TABLE commit_info (peer "SQL_PUBKEY", side TEXT, commit_num INT, revocation_hash "SQL_SHA256", xmit_order INT, sig "SQL_SIGNATURE", prev_revocation_hash "SQL_SHA256", PRIMARY KEY(peer, side));
 	errmsg = db_exec(ctx, peer->dstate, "UPDATE commit_info SET prev_revocation_hash=NULL WHERE peer=x'%s' AND side='REMOTE' and prev_revocation_hash IS NOT NULL;",
 			 peerid);
 	if (errmsg)
@@ -1586,7 +1637,6 @@ bool db_save_shachain(struct peer *peer)
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(peer->dstate->db->in_transaction);
-	// "CREATE TABLE shachain (peer "SQL_PUBKEY", shachain BINARY(%zu), PRIMARY KEY(peer));"
 	errmsg = db_exec(ctx, peer->dstate, "UPDATE shachain SET shachain=x'%s' WHERE peer=x'%s';",
 			 linearize_shachain(ctx, &peer->their_preimages),
 			 peerid);
@@ -1606,7 +1656,6 @@ bool db_add_commit_map(struct peer *peer,
 		  commit_num);
 
 	assert(peer->dstate->db->in_transaction);
-	// "CREATE TABLE their_commitments (peer "SQL_PUBKEY", txid "SQL_SHA256", INT commit_num, PRIMARY KEY(peer, txid));"
 	errmsg = db_exec(ctx, peer->dstate, "INSERT INTO their_commitments VALUES (x'%s', x'%s', %"PRIu64");",
 			 peerid,
 			 tal_hexstr(ctx, txid, sizeof(*txid)),
@@ -1672,7 +1721,6 @@ bool db_begin_shutdown(struct peer *peer)
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(peer->dstate->db->in_transaction);
-	//  "CREATE TABLE closing (peer "SQL_PUBKEY", our_fee INTEGER, their_fee INTEGER, their_sig "SQL_SIGNATURE", our_script BLOB, their_script BLOB, shutdown_order INTEGER, closing_order INTEGER, sigs_in INTEGER, PRIMARY KEY(peer));"
 	errmsg = db_exec(ctx, peer->dstate, "INSERT INTO closing VALUES (x'%s', 0, 0, NULL, NULL, NULL, 0, 0, 0);",
 			 peerid);
 	if (errmsg)
@@ -1689,7 +1737,6 @@ bool db_set_our_closing_script(struct peer *peer)
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(peer->dstate->db->in_transaction);
-	//  "CREATE TABLE closing (peer "SQL_PUBKEY", our_fee INTEGER, their_fee INTEGER, their_sig "SQL_SIGNATURE", our_script BLOB, their_script BLOB, shutdown_order INTEGER, closing_order INTEGER, sigs_in INTEGER, PRIMARY KEY(peer));"
 	errmsg = db_exec(ctx, peer->dstate, "UPDATE closing SET our_script=x'%s',shutdown_order=%"PRIu64" WHERE peer=x'%s';",
 			 tal_hexstr(ctx, peer->closing.our_script,
 				    tal_count(peer->closing.our_script)),
@@ -1709,7 +1756,6 @@ bool db_set_their_closing_script(struct peer *peer)
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(!peer->dstate->db->in_transaction);
-	//  "CREATE TABLE closing (peer "SQL_PUBKEY", our_fee INTEGER, their_fee INTEGER, their_sig "SQL_SIGNATURE", our_script BLOB, their_script BLOB, shutdown_order INTEGER, closing_order INTEGER, sigs_in INTEGER, PRIMARY KEY(peer));"
 	errmsg = db_exec(ctx, peer->dstate, "UPDATE closing SET their_script=x'%s' WHERE peer=x'%s';",
 			 tal_hexstr(ctx, peer->closing.their_script,
 				    tal_count(peer->closing.their_script)),
@@ -1729,7 +1775,6 @@ bool db_update_our_closing(struct peer *peer)
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
-	//  "CREATE TABLE closing (peer "SQL_PUBKEY", our_fee INTEGER, their_fee INTEGER, their_sig "SQL_SIGNATURE", our_script BLOB, their_script BLOB, shutdown_order INTEGER, closing_order INTEGER, sigs_in INTEGER, PRIMARY KEY(peer));"
 	errmsg = db_exec(ctx, peer->dstate, "UPDATE closing SET our_fee=%"PRIu64", closing_order=%"PRIi64" WHERE peer=x'%s';",
 			 peer->closing.our_fee,
 			 peer->closing.closing_order,
@@ -1748,7 +1793,6 @@ bool db_update_their_closing(struct peer *peer)
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(!peer->dstate->db->in_transaction);
-	//  "CREATE TABLE closing (peer "SQL_PUBKEY", our_fee INTEGER, their_fee INTEGER, their_sig "SQL_SIGNATURE", our_script BLOB, their_script BLOB, shutdown_order INTEGER, closing_order INTEGER, sigs_in INTEGER, PRIMARY KEY(peer));"
 	errmsg = db_exec(ctx, peer->dstate, "UPDATE closing SET their_fee=%"PRIu64", their_sig=x'%s', sigs_in=%u WHERE peer=x'%s';",
 			 peer->closing.their_fee,
 			 tal_hexstr(ctx, peer->closing.their_sig,
@@ -1773,7 +1817,6 @@ bool db_new_pay_command(struct lightningd_state *dstate,
 	log_add_struct(dstate->base_log, "(%s)", struct sha256, rhash);
 
 	assert(!dstate->db->in_transaction);
-	/* CREATE TABLE pay (rhash "SQL_RHASH", msatoshis INT, ids BLOB, htlc_peer "SQL_PUBKEY", htlc_id INT, r "SQL_R", fail BLOB, PRIMARY KEY(rhash)); */
 	errmsg = db_exec(ctx, dstate, "INSERT INTO pay VALUES (x'%s', %"PRIu64", x'%s', x'%s', %"PRIu64", NULL, NULL);",
 			 tal_hexstr(ctx, rhash, sizeof(*rhash)),
 			 msatoshis,
@@ -1798,7 +1841,6 @@ bool db_replace_pay_command(struct lightningd_state *dstate,
 	log_add_struct(dstate->base_log, "(%s)", struct sha256, rhash);
 
 	assert(!dstate->db->in_transaction);
-	/* CREATE TABLE pay (rhash "SQL_RHASH", msatoshis INT, ids BLOB, htlc_peer "SQL_PUBKEY", htlc_id INT, r "SQL_R", fail BLOB, PRIMARY KEY(rhash)); */
 	errmsg = db_exec(ctx, dstate, "UPDATE pay SET msatoshis=%"PRIu64", ids=x'%s', htlc_peer=x'%s', htlc_id=%"PRIu64", r=NULL, fail=NULL WHERE rhash=x'%s';",
 			 msatoshis,
 			 pubkeys_to_hex(ctx, dstate->secpctx, ids),
@@ -1820,7 +1862,6 @@ bool db_complete_pay_command(struct lightningd_state *dstate,
 	log_add_struct(dstate->base_log, "(%s)", struct sha256, &htlc->rhash);
 
 	assert(dstate->db->in_transaction);
-	/* CREATE TABLE pay (rhash "SQL_RHASH", msatoshis INT, ids BLOB, htlc_peer "SQL_PUBKEY", htlc_id INT, r "SQL_R", fail BLOB, PRIMARY KEY(rhash)); */
 	if (htlc->r)
 		errmsg = db_exec(ctx, dstate,
 				 "UPDATE pay SET r=x'%s', htlc_peer=NULL WHERE rhash=x'%s';",
