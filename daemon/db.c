@@ -70,6 +70,13 @@ static const char *sqlite3_column_str(sqlite3_stmt *stmt, int iCol)
 #define TABLE(tablename, ...)					\
 	"CREATE TABLE " #tablename " (" CPPMAGIC_JOIN(", ", __VA_ARGS__) ");"
 
+static const char *sql_bool(bool b)
+{
+	/* SQL2003 says TRUE and FALSE are binary literal keywords.
+	 * sqlite3 barfs. */
+	return (b) ? "1" : "0";
+}
+
 static char *PRINTF_FMT(3,4)
 	db_exec(const tal_t *ctx,
 		struct lightningd_state *dstate, const char *fmt, ...)
@@ -1224,7 +1231,7 @@ bool db_set_anchor(struct peer *peer)
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	errmsg = db_exec(ctx, peer->dstate, 
-			 "INSERT INTO anchors VALUES (x'%s', x'%s', %u, %"PRIu64", %i, %u, %u);",
+			 "INSERT INTO anchors VALUES (x'%s', x'%s', %u, %"PRIu64", %i, %u, %s);",
 			 peerid,
 			 tal_hexstr(ctx, &peer->anchor.txid,
 				    sizeof(peer->anchor.txid)),
@@ -1232,7 +1239,7 @@ bool db_set_anchor(struct peer *peer)
 			 peer->anchor.satoshis,
 			 peer->anchor.ok_depth,
 			 peer->anchor.min_depth,
-			 peer->anchor.ours);
+			 sql_bool(peer->anchor.ours));
 	if (errmsg)
 		goto out;
 
@@ -1285,9 +1292,10 @@ bool db_set_visible_state(struct peer *peer)
 	}
 
 	errmsg = db_exec(ctx, peer->dstate, 
-			 "INSERT INTO their_visible_state VALUES (x'%s', %u, x'%s', x'%s', %u, %u, %"PRIu64", x'%s');",
+			 "INSERT INTO their_visible_state VALUES (x'%s', %s, x'%s', x'%s', %u, %u, %"PRIu64", x'%s');",
 			 peerid,
-			 peer->remote.offer_anchor == CMD_OPEN_WITH_ANCHOR,
+			 sql_bool(peer->remote.offer_anchor
+				  == CMD_OPEN_WITH_ANCHOR),
 			 pubkey_to_hexstr(ctx, peer->dstate->secpctx,
 					  &peer->remote.commitkey),
 			 pubkey_to_hexstr(ctx, peer->dstate->secpctx,
@@ -1344,10 +1352,10 @@ bool db_create_peer(struct peer *peer)
 		return false;
 	}
 	errmsg = db_exec(ctx, peer->dstate, 
-			 "INSERT INTO peers VALUES (x'%s', '%s', %u, %"PRIi64");",
+			 "INSERT INTO peers VALUES (x'%s', '%s', %s, %"PRIi64");",
 			 peerid,
 			 state_name(peer->state),
-			 peer->local.offer_anchor == CMD_OPEN_WITH_ANCHOR,
+			 sql_bool(peer->local.offer_anchor == CMD_OPEN_WITH_ANCHOR),
 			 peer->local.commit_fee_rate);
 	if (errmsg)
 		goto out;
