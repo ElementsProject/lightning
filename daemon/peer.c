@@ -914,7 +914,9 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 
 		peer->closing.closing_order = peer->order_counter++;
 
-		if (!db_update_our_closing(peer)) {
+		db_start_transaction(peer);
+		db_update_our_closing(peer);
+		if (db_commit_transaction(peer) != NULL) {
 			return peer_comms_err(peer,
 					      pkt_err(peer, "Database error"));
 		}
@@ -1283,7 +1285,7 @@ static void peer_calculate_close_fee(struct peer *peer)
 	assert(!(peer->closing.our_fee & 1));
 }
 
-static bool start_closing_in_transaction(struct peer *peer)
+static void start_closing_in_transaction(struct peer *peer)
 {
 	assert(!committed_to_htlcs(peer));
 
@@ -1291,26 +1293,18 @@ static bool start_closing_in_transaction(struct peer *peer)
 
 	peer_calculate_close_fee(peer);
 	peer->closing.closing_order = peer->order_counter++;
-	if (!db_update_our_closing(peer))
-		return false;
+	db_update_our_closing(peer);
 	queue_pkt_close_signature(peer);
-	return true;
 }
 
 static Pkt *start_closing(struct peer *peer)
 {
 	db_start_transaction(peer);
-	if (!start_closing_in_transaction(peer)) {
-		db_abort_transaction(peer);
-		goto fail;
-	}
+	start_closing_in_transaction(peer);
 
 	if (db_commit_transaction(peer) != NULL)
-		goto fail;
+		return pkt_err(peer, "database error");
 	return NULL;
-
-fail:
-	return pkt_err(peer, "database error");
 }
 
 /* This is the io loop while we're doing shutdown. */
@@ -1433,12 +1427,9 @@ static bool peer_start_shutdown(struct peer *peer)
 	set_peer_state(peer, newstate, __func__, true);
 
 	/* Catch case where we've exchanged and had no HTLCs anyway. */
-	if (peer->closing.their_script && !committed_to_htlcs(peer)) {
-		if (!start_closing_in_transaction(peer)) {
-			db_abort_transaction(peer);
-			return false;
-		}
-	}
+	if (peer->closing.their_script && !committed_to_htlcs(peer))
+		start_closing_in_transaction(peer);
+
 	return db_commit_transaction(peer) == NULL;
 }
 	

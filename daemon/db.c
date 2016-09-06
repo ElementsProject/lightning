@@ -1733,21 +1733,19 @@ bool db_set_their_closing_script(struct peer *peer)
 /* For first time, we are in transaction to make it atomic with peer->state
  * update.  Later calls are not. */
 /* FIXME: make caller wrap in transaction. */
-bool db_update_our_closing(struct peer *peer)
+void db_update_our_closing(struct peer *peer)
 {
 	const char *ctx = tal(peer, char);
-	bool ok;
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
-	ok = db_exec(__func__, peer->dstate,
-		     "UPDATE closing SET our_fee=%"PRIu64", closing_order=%"PRIi64" WHERE peer=x'%s';",
-		     peer->closing.our_fee,
-		     peer->closing.closing_order,
-		     peerid);
+	db_exec(__func__, peer->dstate,
+		"UPDATE closing SET our_fee=%"PRIu64", closing_order=%"PRIi64" WHERE peer=x'%s';",
+		peer->closing.our_fee,
+		peer->closing.closing_order,
+		peerid);
 	tal_free(ctx);
-	return ok;
 }
 
 bool db_update_their_closing(struct peer *peer)
