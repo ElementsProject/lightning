@@ -71,7 +71,7 @@ extern const struct json_command reconnect_command;
 extern const struct json_command disconnect_command;
 extern const struct json_command signcommit_command;
 extern const struct json_command output_command;
-extern const struct json_command accept_payment_command;
+extern const struct json_command invoice_command;
 extern const struct json_command add_route_command;
 extern const struct json_command routefail_command;
 extern const struct json_command getroute_command;

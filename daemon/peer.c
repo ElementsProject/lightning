@@ -7,6 +7,7 @@
 #include "db.h"
 #include "dns.h"
 #include "find_p2sh_out.h"
+#include "invoice.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
@@ -16,7 +17,6 @@
 #include "output_to_htlc.h"
 #include "packets.h"
 #include "pay.h"
-#include "payment.h"
 #include "peer.h"
 #include "permute_tx.h"
 #include "protobuf_convert.h"
@@ -492,7 +492,7 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 {
 	RouteStep *step;
 	const u8 *rest_of_route;
-	struct payment *payment;
+	struct invoice *invoice;
 
 	if (abs_locktime_is_seconds(&htlc->expiry)) {
 		log_unusual(peer->log, "HTLC %"PRIu64" is in seconds", htlc->id);
@@ -535,9 +535,9 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 	case ROUTE_STEP__NEXT_END:
 		if (only_dest)
 			return;
-		payment = find_payment(peer->dstate, &htlc->rhash);
-		if (!payment) {
-			log_unusual(peer->log, "No payment for HTLC %"PRIu64,
+		invoice = find_invoice(peer->dstate, &htlc->rhash);
+		if (!invoice) {
+			log_unusual(peer->log, "No invoice for HTLC %"PRIu64,
 				    htlc->id);
 			log_add_struct(peer->log, " rhash=%s",
 				       struct sha256, &htlc->rhash);
@@ -548,12 +548,13 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 			goto free_rest;
 		}
 			
-		if (htlc->msatoshis != payment->msatoshis) {
-			log_unusual(peer->log, "Short payment for HTLC %"PRIu64
+		if (htlc->msatoshis != invoice->msatoshis) {
+			log_unusual(peer->log, "Short payment for '%s' HTLC %"PRIu64
 				    ": %"PRIu64" not %"PRIu64 " satoshi!",
+				    invoice->label,
 				    htlc->id,
 				    htlc->msatoshis,
-				    payment->msatoshis);
+				    invoice->msatoshis);
 			command_htlc_set_fail(peer, htlc,
 					      UNAUTHORIZED_401,
 					      "incorrect amount");
@@ -561,28 +562,28 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 		}
 
 		/* This is a courtesy: we could simply take your money! */
-		if (payment->complete) {
+		if (invoice->complete) {
 			log_unusual(peer->log,
-				    "Repeated payment for HTLC %"PRIu64,
-				    htlc->id);
+				    "Repeated payment for '%s' HTLC %"PRIu64,
+				    invoice->label, htlc->id);
 			command_htlc_set_fail(peer, htlc,
 					      UNAUTHORIZED_401,
 					      "already received payment");
 			return;
 		}
 
-		log_info(peer->log, "Immediately resolving HTLC %"PRIu64,
-			 htlc->id);
+		log_info(peer->log, "Immediately resolving '%s' HTLC %"PRIu64,
+			 invoice->label, htlc->id);
 
-		if (!db_resolve_payment(peer->dstate, &payment->r)) {
+		if (!db_resolve_invoice(peer->dstate, &invoice->r)) {
 			command_htlc_set_fail(peer, htlc,
 					      INTERNAL_SERVER_ERROR_500,
 					      "database error");
 			return;
 		}
 
-		payment->complete = true;
-		set_htlc_rval(peer, htlc, &payment->r);
+		invoice->complete = true;
+		set_htlc_rval(peer, htlc, &invoice->r);
 		command_htlc_fulfill(peer, htlc);
 		goto free_rest;
 

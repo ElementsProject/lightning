@@ -111,7 +111,7 @@ struct lightningd_state {
 	struct list_head wallet;
 
 	/* Payments for r values we know about. */
-	struct list_head payments;
+	struct list_head invoices;
 
 	/* All known nodes. */
 	struct node_map *nodes;

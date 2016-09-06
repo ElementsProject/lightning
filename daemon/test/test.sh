@@ -959,7 +959,7 @@ check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 # Now, use automatic payment redemption
 lcli1 dev-routefail true
 lcli2 dev-routefail true
-RHASH3=`lcli2 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
+RHASH3=`lcli2 invoice $HTLC_AMOUNT RHASH3 | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
 HTLCID3=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH3 | extract_id`
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
@@ -974,7 +974,7 @@ B_AMOUNT=$(($B_AMOUNT + $HTLC_AMOUNT))
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 # Now, failed payment (didn't pay enough)
-RHASH4=`lcli2 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
+RHASH4=`lcli2 invoice $HTLC_AMOUNT RHASH4 | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
 # Shouldn't have this already.
 if lcli2 getlog | $FGREP 'Short payment for HTLC'; then exit 1; fi
@@ -1010,7 +1010,7 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     # Add to config in case we are restaring.
     echo "add-route=$ID2/$ID3/546000/10/36/36" >> $DIR1/config
     lcli1 add-route $ID2 $ID3 546000 10 36 36
-    RHASH5=`lcli3 accept-payment $HTLC_AMOUNT | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
+    RHASH5=`lcli3 invoice $HTLC_AMOUNT RHASH5 | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
     # Get route.
     ROUTE=`lcli1 getroute $ID3 $HTLC_AMOUNT 1`

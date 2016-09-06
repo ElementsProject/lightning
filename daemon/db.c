@@ -3,12 +3,12 @@
 #include "db.h"
 #include "feechange.h"
 #include "htlc.h"
+#include "invoice.h"
 #include "lightningd.h"
 #include "log.h"
 #include "names.h"
 #include "netaddr.h"
 #include "pay.h"
-#include "payment.h"
 #include "routing.h"
 #include "secrets.h"
 #include "utils.h"
@@ -57,12 +57,13 @@ static const char *sqlite3_column_str(sqlite3_stmt *stmt, int iCol)
 #define SQL_RHASH(var)		stringify(var)" CHAR(32)"
 #define SQL_SHA256(var)		stringify(var)" CHAR(32)"
 #define SQL_R(var)		stringify(var)" CHAR(32)"
-#define SQL_STATENAME(var)	stringify(var)" VARCHAR(44)"
 /* STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED == 44*/
+#define SQL_STATENAME(var)	stringify(var)" VARCHAR(44)"
+#define SQL_INVLABEL(var)	stringify(var)" VARCHAR("stringify(INVOICE_MAX_LABEL_LEN)")"
 
 /* 8 + 4 + (8 + 32) * (64 + 1) */
 #define SHACHAIN_SIZE	2612
-#define SQL_SHACHAIN(var)	stringify(var)" CHAR(2612)"
+#define SQL_SHACHAIN(var)	stringify(var)" CHAR("stringify(SHACHAIN_SIZE)")"
 
 /* FIXME: Should be fixed size. */
 #define SQL_ROUTING(var)	stringify(var)" BLOB"
@@ -1072,26 +1073,27 @@ static void db_load_pay(struct lightningd_state *dstate)
 	tal_free(ctx);
 }
 
-static void db_load_payment(struct lightningd_state *dstate)
+static void db_load_invoice(struct lightningd_state *dstate)
 {
 	int err;
 	sqlite3_stmt *stmt;
 	char *ctx = tal(dstate, char);
 
-	err = sqlite3_prepare_v2(dstate->db->sql, "SELECT * FROM payment;", -1,
+	err = sqlite3_prepare_v2(dstate->db->sql, "SELECT * FROM invoice;", -1,
 				 &stmt, NULL);
 
 	if (err != SQLITE_OK)
-		fatal("db_load_payment:prepare gave %s:%s",
+		fatal("db_load_invoice:prepare gave %s:%s",
 		      sqlite3_errstr(err), sqlite3_errmsg(dstate->db->sql));
 
 	while ((err = sqlite3_step(stmt)) != SQLITE_DONE) {
 		struct rval r;
 		u64 msatoshis;
 		bool complete;
+		const char *label;
 
 		if (err != SQLITE_ROW)
-			fatal("db_load_payment:step gave %s:%s",
+			fatal("db_load_invoice:step gave %s:%s",
 			      sqlite3_errstr(err),
 			      sqlite3_errmsg(dstate->db->sql));
 		if (sqlite3_column_count(stmt) != 3)
@@ -1100,8 +1102,9 @@ static void db_load_payment(struct lightningd_state *dstate)
 
 		from_sql_blob(stmt, 0, &r, sizeof(r));
 		msatoshis = sqlite3_column_int64(stmt, 1);
-		complete = sqlite3_column_int(stmt, 2);
-		payment_add(dstate, &r, msatoshis, complete);
+		label = (const char *)sqlite3_column_text(stmt, 2);
+		complete = sqlite3_column_int(stmt, 3);
+		invoice_add(dstate, &r, msatoshis, label, complete);
 	}
 	tal_free(ctx);
 }
@@ -1147,7 +1150,7 @@ static void db_load(struct lightningd_state *dstate)
 	db_load_addresses(dstate);
 	db_load_peers(dstate);
 	db_load_pay(dstate);
-	db_load_payment(dstate);
+	db_load_invoice(dstate);
 }
 
 void db_init(struct lightningd_state *dstate)
@@ -1194,8 +1197,9 @@ void db_init(struct lightningd_state *dstate)
 			       SQL_BLOB(ids), SQL_PUBKEY(htlc_peer),
 			       SQL_U64(htlc_id), SQL_R(r), SQL_FAIL(fail),
 			       "PRIMARY KEY(rhash)")
-			 TABLE(payment,
-			       SQL_R(r), SQL_U64(msatoshis), SQL_BOOL(complete),
+			 TABLE(invoice,
+			       SQL_R(r), SQL_U64(msatoshis), SQL_INVLABEL(label),
+			       SQL_BOOL(complete),
 			       "PRIMARY KEY(r)")
 			 TABLE(anchors,
 			       SQL_PUBKEY(peer),
@@ -1926,8 +1930,9 @@ bool db_complete_pay_command(struct lightningd_state *dstate,
 	return !errmsg;
 }
 
-bool db_new_payment(struct lightningd_state *dstate,
+bool db_new_invoice(struct lightningd_state *dstate,
 		    u64 msatoshis,
+		    const char *label,
 		    const struct rval *r)
 {
 	const char *errmsg, *ctx = tal(dstate, char);
@@ -1935,10 +1940,12 @@ bool db_new_payment(struct lightningd_state *dstate,
 	log_debug(dstate->base_log, "%s", __func__);
 
 	assert(!dstate->db->in_transaction);
-	
-	errmsg = db_exec(ctx, dstate, "INSERT INTO payment VALUES (x'%s', %"PRIu64", %s);",
+
+	/* Insert label as hex; suspect injection attacks. */
+	errmsg = db_exec(ctx, dstate, "INSERT INTO invoice VALUES (x'%s', %"PRIu64", x'%s', %s);",
 			 tal_hexstr(ctx, r, sizeof(*r)),
 			 msatoshis,
+			 tal_hexstr(ctx, label, strlen(label)),
 			 sql_bool(false));
 	if (errmsg)
 		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
@@ -1946,7 +1953,7 @@ bool db_new_payment(struct lightningd_state *dstate,
 	return !errmsg;
 }
 
-bool db_resolve_payment(struct lightningd_state *dstate, const struct rval *r)
+bool db_resolve_invoice(struct lightningd_state *dstate, const struct rval *r)
 {
 	const char *errmsg, *ctx = tal(dstate, char);
 
@@ -1954,7 +1961,7 @@ bool db_resolve_payment(struct lightningd_state *dstate, const struct rval *r)
 
 	assert(dstate->db->in_transaction);
 	
-	errmsg = db_exec(ctx, dstate, "UPDATE payment SET complete=%s WHERE r=x'%s';",
+	errmsg = db_exec(ctx, dstate, "UPDATE invoice SET complete=%s WHERE r=x'%s';",
 			 sql_bool(true),
 			 tal_hexstr(ctx, r, sizeof(*r)));
 	if (errmsg)

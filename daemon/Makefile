@@ -25,6 +25,7 @@ DAEMON_SRC :=					\
 	daemon/failure.c			\
 	daemon/feechange.c			\
 	daemon/htlc.c				\
+	daemon/invoice.c			\
 	daemon/jsonrpc.c			\
 	daemon/lightningd.c			\
 	daemon/netaddr.c			\
@@ -33,7 +34,6 @@ DAEMON_SRC :=					\
 	daemon/output_to_htlc.c			\
 	daemon/packets.c			\
 	daemon/pay.c				\
-	daemon/payment.c			\
 	daemon/peer.c				\
 	daemon/routing.c			\
 	daemon/secrets.c			\
@@ -70,6 +70,7 @@ DAEMON_HEADERS :=				\
 	daemon/feechange_state.h		\
 	daemon/htlc.h				\
 	daemon/htlc_state.h			\
+	daemon/invoice.h			\
 	daemon/json.h				\
 	daemon/jsonrpc.h			\
 	daemon/lightningd.h			\
@@ -80,7 +81,6 @@ DAEMON_HEADERS :=				\
 	daemon/output_to_htlc.h			\
 	daemon/packets.h			\
 	daemon/pay.h				\
-	daemon/payment.h			\
 	daemon/peer.h				\
 	daemon/pseudorand.h			\
 	daemon/routing.h			\
