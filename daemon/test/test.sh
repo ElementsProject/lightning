@@ -961,6 +961,9 @@ lcli1 dev-routefail true
 lcli2 dev-routefail true
 RHASH3=`lcli2 invoice $HTLC_AMOUNT RHASH3 | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
+lcli2 listinvoice
+[ "`lcli2 listinvoice | tr -s '\012\011\" ' ' '`" = "{ [ { label : RHASH3 , rhash : $RHASH3 , msatoshi : $HTLC_AMOUNT, complete : false } ] } " ]
+
 HTLCID3=`lcli1 newhtlc $ID2 $HTLC_AMOUNT $EXPIRY $RHASH3 | extract_id`
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
@@ -973,11 +976,19 @@ A_AMOUNT=$(($A_AMOUNT - $HTLC_AMOUNT))
 B_AMOUNT=$(($B_AMOUNT + $HTLC_AMOUNT))
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
+[ "`lcli2 listinvoice | tr -s '\012\011\" ' ' '`" = "{ [ { label : RHASH3 , rhash : $RHASH3 , msatoshi : $HTLC_AMOUNT, complete : true } ] } " ]
+
 # Now, failed payment (didn't pay enough)
 RHASH4=`lcli2 invoice $HTLC_AMOUNT RHASH4 | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
 # Shouldn't have this already.
-if lcli2 getlog | $FGREP 'Short payment for HTLC'; then exit 1; fi
+if lcli2 getlog | $FGREP 'Short payment for'; then exit 1; fi
+
+# Test listinvoice with both, or subset (either order possible!)
+INVOICES=`lcli2 listinvoice | tr -s '\012\011\" ' ' '`
+[ "$INVOICES" = "{ [ { label : RHASH3 , rhash : $RHASH3 , msatoshi : $HTLC_AMOUNT, complete : true }, { label : RHASH4 , rhash : $RHASH4 , msatoshi : $HTLC_AMOUNT, complete : false } ] } " ] || [ "$INVOICES" = "{ [ { label : RHASH4 , rhash : $RHASH4 , msatoshi : $HTLC_AMOUNT, complete : false }, { label : RHASH3 , rhash : $RHASH3 , msatoshi : $HTLC_AMOUNT, complete : true } ] } " ]
+[ "`lcli2 listinvoice RHASH3 | tr -s '\012\011\" ' ' '`" = "{ [ { label : RHASH3 , rhash : $RHASH3 , msatoshi : $HTLC_AMOUNT, complete : true } ] } " ]
+[ "`lcli2 listinvoice RHASH4 | tr -s '\012\011\" ' ' '`" = "{ [ { label : RHASH4 , rhash : $RHASH4 , msatoshi : $HTLC_AMOUNT, complete : false } ] } " ]
 
 HTLCID4=`lcli1 newhtlc $ID2 $(($HTLC_AMOUNT - 1)) $EXPIRY $RHASH4 | extract_id`
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
@@ -986,7 +997,7 @@ HTLCID4=`lcli1 newhtlc $ID2 $(($HTLC_AMOUNT - 1)) $EXPIRY $RHASH4 | extract_id`
 [ ! -n "$MANUALCOMMIT" ] || lcli2 commit $ID1
 [ ! -n "$MANUALCOMMIT" ] || lcli1 commit $ID2
 
-check lcli2 "getlog | $FGREP 'Short payment for HTLC'"
+check lcli2 "getlog | $FGREP 'Short payment for'"
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
 if [ ! -n "$MANUALCOMMIT" ]; then
@@ -1039,6 +1050,7 @@ if [ ! -n "$MANUALCOMMIT" ]; then
 	fi
     fi
     
+    [ "`lcli3 listinvoice RHASH5 | tr -s '\012\011\" ' ' '`" = "{ [ { label : RHASH5 , rhash : $RHASH5 , msatoshi : $HTLC_AMOUNT, complete : false } ] } " ]
     # Pay correctly.
     lcli1 sendpay "$ROUTE" $RHASH5
 
@@ -1057,6 +1069,8 @@ if [ ! -n "$MANUALCOMMIT" ]; then
 	fi
     fi
 
+    [ "`lcli3 listinvoice RHASH5 | tr -s '\012\011\" ' ' '`" = "{ [ { label : RHASH5 , rhash : $RHASH5 , msatoshi : $HTLC_AMOUNT, complete : true } ] } " ]
+    
     # Can't pay twice (try from node2)
     ROUTE2=`lcli2 getroute $ID3 $HTLC_AMOUNT 1`
     ROUTE2=`echo $ROUTE2 | sed 's/^{ "route" : \(.*\) }$/\1/'`

@@ -125,3 +125,43 @@ const struct json_command invoice_command = {
 	"Create invoice for {msatoshi} with {label} (with a set {r}, otherwise generate one)",
 	"Returns the {rhash} on success. "
 };
+
+static void json_listinvoice(struct command *cmd,
+			     const char *buffer, const jsmntok_t *params)
+{
+	struct invoice *i;
+	jsmntok_t *label = NULL;
+	struct json_result *response = new_json_result(cmd);	
+
+	if (!json_get_params(buffer, params,
+			     "?label", &label,
+			     NULL)) {
+		command_fail(cmd, "Invalid arguments");
+		return;
+	}
+
+	
+	json_object_start(response, NULL);
+	json_array_start(response, NULL);
+	list_for_each(&cmd->dstate->invoices, i, list) {
+		if (label && !json_tok_streq(buffer, label, i->label))
+			continue;
+		json_object_start(response, NULL);
+		json_add_string(response, "label", i->label);
+		json_add_hex(response, "rhash", &i->rhash, sizeof(i->rhash));
+		json_add_u64(response, "msatoshi", i->msatoshi);
+		json_add_bool(response, "complete", i->complete);
+		json_object_end(response);
+	}
+	json_array_end(response);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+const struct json_command listinvoice_command = {
+	"listinvoice",
+	json_listinvoice,
+	"Show invoice {label} (or all, if no {label}))",
+	"Returns an array of {label}, {rhash}, {msatoshi} and {complete} on success. "
+};
+
