@@ -1000,6 +1000,12 @@ HTLCID4=`lcli1 newhtlc $ID2 $(($HTLC_AMOUNT - 1)) $EXPIRY $RHASH4 | extract_id`
 check lcli2 "getlog | $FGREP 'Short payment for'"
 check_status $A_AMOUNT $A_FEE "" $B_AMOUNT $B_FEE ""
 
+lcli2 delinvoice RHASH4
+if lcli2 delinvoice RHASH3 >/dev/null; then
+    echo "Should not be able to delete completed invoice!" >&2
+    exit 1
+fi
+
 if [ ! -n "$MANUALCOMMIT" ]; then
     # Test routing to a third node.
     P2SHADDR2=`$LCLI2 newaddr | sed -n 's/{ "address" : "\(.*\)" }/\1/p'`

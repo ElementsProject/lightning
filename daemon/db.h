@@ -42,6 +42,9 @@ bool db_new_invoice(struct lightningd_state *dstate,
 		    const char *label,
 		    const struct rval *r);
 
+bool db_remove_invoice(struct lightningd_state *dstate,
+		       const char *label);
+
 /* FIXME: save error handling until db_commit_transaction for calls
  * which have to be inside transaction anyway. */
 

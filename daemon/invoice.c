@@ -165,3 +165,51 @@ const struct json_command listinvoice_command = {
 	"Returns an array of {label}, {rhash}, {msatoshi} and {complete} on success. "
 };
 
+static void json_delinvoice(struct command *cmd,
+			    const char *buffer, const jsmntok_t *params)
+{
+	struct invoice *i;
+	jsmntok_t *labeltok;
+	struct json_result *response = new_json_result(cmd);
+	const char *label;
+
+	if (!json_get_params(buffer, params,
+			     "label", &labeltok,
+			     NULL)) {
+		command_fail(cmd, "Invalid arguments");
+		return;
+	}
+
+	label = tal_strndup(cmd, buffer + labeltok->start,
+			    labeltok->end - labeltok->start);
+	i = find_invoice_by_label(cmd->dstate, label);
+	if (!i) {
+		command_fail(cmd, "Unknown invoice");
+		return;
+	}
+	if (i->complete) {
+		command_fail(cmd, "Invoice already paid");
+		return;
+	}
+	if (!db_remove_invoice(cmd->dstate, i->label)) {
+		command_fail(cmd, "Database error");
+		return;
+	}
+	list_del_from(&cmd->dstate->invoices, &i->list);
+	
+	json_object_start(response, NULL);
+	json_add_string(response, "label", i->label);
+	json_add_hex(response, "rhash", &i->rhash, sizeof(i->rhash));
+	json_add_u64(response, "msatoshi", i->msatoshi);
+	json_object_end(response);
+	command_success(cmd, response);
+	tal_free(i);
+}
+
+const struct json_command delinvoice_command = {
+	"delinvoice",
+	json_delinvoice,
+	"Delete unpaid invoice {label}))",
+	"Returns {label}, {rhash} and {msatoshi} on success. "
+};
+

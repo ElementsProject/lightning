@@ -1969,3 +1969,20 @@ bool db_resolve_invoice(struct lightningd_state *dstate, const struct rval *r)
 	tal_free(ctx);
 	return !errmsg;
 }
+
+bool db_remove_invoice(struct lightningd_state *dstate,
+		       const char *label)
+{
+	const char *errmsg, *ctx = tal(dstate, char);
+
+	log_debug(dstate->base_log, "%s", __func__);
+
+	assert(!dstate->db->in_transaction);
+	
+	errmsg = db_exec(ctx, dstate, "DELETE FROM invoice WHERE label=x'%s';",
+			 tal_hexstr(ctx, label, strlen(label)));
+	if (errmsg)
+		log_broken(dstate->base_log, "%s:%s", __func__, errmsg);
+	tal_free(ctx);
+	return !errmsg;
+}
