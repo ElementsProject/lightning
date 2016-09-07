@@ -3,6 +3,7 @@
 #include "configdir.h"
 #include "controlled_time.h"
 #include "db.h"
+#include "irc_announce.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
@@ -145,6 +146,9 @@ static void config_register_opts(struct lightningd_state *dstate)
 			 dstate,
 			 "Add route of form srcid/dstid/base/var/delay/minblocks"
 			 "(base in millisatoshi, var in millionths of satoshi per satoshi)");
+	opt_register_noarg("--disable-irc", opt_set_invbool,
+			   &dstate->config.use_irc,
+			   "Disable IRC peer discovery for routing");
 }
 
 static void dev_register_opts(struct lightningd_state *dstate)
@@ -210,6 +214,9 @@ static void default_config(struct config *config)
 	config->fee_base = 546000;
 	/* Take 0.001% */
 	config->fee_per_satoshi = 10;
+
+	/* Discover new peers using IRC */
+	config->use_irc = true;
 }
 
 static void check_config(struct lightningd_state *dstate)
@@ -359,6 +366,10 @@ int main(int argc, char *argv[])
 
 	/* Set up connections from peers. */
 	setup_listeners(dstate, portnum);
+
+	/* set up IRC peer discovery */
+	if (dstate->config.use_irc)
+		setup_irc_connection(dstate);
 
 	/* Make sure we use the artificially-controlled time for timers */
 	io_time_override(controlled_time);

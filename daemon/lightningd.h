@@ -56,6 +56,9 @@ struct config {
 
 	/* How long between changing commit and sending COMMIT message. */
 	struct timerel commit_time;
+
+	/* Whether to enable IRC peer discovery. */
+	bool use_irc;
 };
 
 /* Here's where the global variables hide! */

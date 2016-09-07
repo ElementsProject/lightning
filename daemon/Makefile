@@ -26,6 +26,7 @@ DAEMON_SRC :=					\
 	daemon/feechange.c			\
 	daemon/htlc.c				\
 	daemon/invoice.c			\
+	daemon/irc_announce.c			\
 	daemon/jsonrpc.c			\
 	daemon/lightningd.c			\
 	daemon/netaddr.c			\
@@ -41,6 +42,7 @@ DAEMON_SRC :=					\
 	daemon/wallet.c				\
 	daemon/watch.c				\
 	names.c					\
+	irc.c					\
 	state.c
 
 DAEMON_OBJS := $(DAEMON_SRC:.c=.o)
