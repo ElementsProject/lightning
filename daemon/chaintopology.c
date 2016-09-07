@@ -493,6 +493,27 @@ u64 get_feerate(struct lightningd_state *dstate)
 	return dstate->topology->feerate;
 }
 
+struct txlocator *locate_tx(const void *ctx, struct lightningd_state *dstate,
+			    const struct sha256_double *txid)
+{
+	struct block *block = block_for_tx(dstate, txid);
+	if (block == NULL) {
+		return NULL;
+	}
+
+	struct txlocator *loc = talz(ctx, struct txlocator);
+	loc->blkheight = block->height;
+
+	size_t i, n = tal_count(block->txids);
+	for (i = 0; i < n; i++) {
+		if (structeq(&block->txids[i], txid)){
+			loc->index = i;
+			break;
+		}
+	}
+	return loc;
+}
+
 void setup_topology(struct lightningd_state *dstate)
 {
 	dstate->topology = tal(dstate, struct topology);

@@ -251,6 +251,12 @@ size_t signature_to_der(secp256k1_context *secpctx,
 	return len;
 }
 
+bool signature_from_der(secp256k1_context *secpctx,
+			const u8 *der, size_t len, struct signature *sig)
+{
+	return secp256k1_ecdsa_signature_parse_der(secpctx, &sig->sig, der, len);
+}
+
 /* Signature must have low S value. */
 bool sig_valid(secp256k1_context *secpctx, const struct signature *sig)
 {

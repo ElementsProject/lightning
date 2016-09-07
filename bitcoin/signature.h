@@ -58,4 +58,8 @@ bool sig_valid(secp256k1_context *secpctx, const struct signature *sig);
 size_t signature_to_der(secp256k1_context *secpctx,
 			u8 der[72], const struct signature *s);
 
+/* Parse DER encoding into signature sig */
+bool signature_from_der(secp256k1_context *secpctx,
+			const u8 *der, size_t len, struct signature *sig);
+
 #endif /* LIGHTNING_BITCOIN_SIGNATURE_H */
