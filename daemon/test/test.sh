@@ -364,6 +364,7 @@ else
 fi
 
 cat > $DIR1/config <<EOF
+disable-irc
 log-level=debug
 bitcoind-poll=1s
 deadline-blocks=5
@@ -374,6 +375,7 @@ commit-time=$COMMIT_TIME
 EOF
 
 cat > $DIR2/config <<EOF
+disable-irc
 log-level=debug
 bitcoind-poll=1s
 deadline-blocks=5
