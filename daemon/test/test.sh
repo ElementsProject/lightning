@@ -1052,7 +1052,7 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     # If restarting, make sure node3 remembers incoming payment.
     if [ "$RECONNECT" = restart ]; then
 	$LCLI3 -- dev-restart $LIGHTNINGD3 >/dev/null 2>&1 || true
-	if ! check "$LCLI3 getpeers | tr -s '\012\011\" ' ' ' | fgrep -q 'connected : true'"; then
+	if ! check "$LCLI3 getpeers 2>/dev/null | tr -s '\012\011\" ' ' ' | fgrep -q 'connected : true'"; then
 	    echo "Failed to reconnect!">&2
 	    exit 1
 	fi
