@@ -191,7 +191,7 @@ $(MANPAGES): doc/%: doc/%.txt
 	a2x --format=manpage $<
 
 # Everything depends on the CCAN headers.
-$(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): $(CCAN_HEADERS)
+$(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
 
 # Except for CCAN, everything depends on bitcoin/ and core headers.
 $(HELPER_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS)
@@ -343,6 +343,7 @@ clean: daemon-clean
 	$(RM) libsecp256k1.{a,la}
 	$(RM) $(PROGRAMS)
 	$(RM) bitcoin/*.o *.o $(PROGRAMS:=.o) $(CCAN_OBJS)
+	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 
 include daemon/Makefile
