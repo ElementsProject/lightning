@@ -72,6 +72,9 @@ struct lightningd_state {
 	char *config_dir;
 	char *rpc_filename;
 
+	/* Port we're listening on */
+	u16 portnum;
+	
 	/* Configuration settings. */
 	struct config config;
 

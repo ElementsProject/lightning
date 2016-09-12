@@ -255,6 +255,28 @@ static const struct json_command dev_restart_command = {
 	"Simple restart test for developers"
 };
 
+static void json_getinfo(struct command *cmd,
+			 const char *buffer, const jsmntok_t *params)
+{
+	struct json_result *response = new_json_result(cmd);
+
+	json_object_start(response, NULL);
+	json_add_pubkey(response, cmd->dstate->secpctx, "id", &cmd->dstate->id);
+	/* FIXME: Keep netaddrs and list them all. */
+	if (cmd->dstate->portnum)
+		json_add_num(response, "port", cmd->dstate->portnum);
+	json_add_bool(response, "testnet", cmd->dstate->config.testnet);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+static const struct json_command getinfo_command = {
+	"getinfo",
+	json_getinfo,
+	"Get general information about this node",
+	"Returns {id}, {port}, {testnet}, etc."
+};
+
 static const struct json_command *cmdlist[] = {
 	&help_command,
 	&stop_command,

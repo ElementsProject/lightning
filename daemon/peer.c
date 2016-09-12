@@ -2745,7 +2745,6 @@ void setup_listeners(struct lightningd_state *dstate, unsigned int portnum)
 	struct sockaddr_in6 addr6;
 	socklen_t len;
 	int fd1, fd2;
-	u16 listen_port;
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
@@ -2771,10 +2770,10 @@ void setup_listeners(struct lightningd_state *dstate, unsigned int portnum)
 			close_noerr(fd1);
 		} else {
 			addr.sin_port = in6.sin6_port;
-			listen_port = ntohs(addr.sin_port);
+			dstate->portnum = ntohs(addr.sin_port);
 			log_info(dstate->base_log,
 				 "Creating IPv6 listener on port %u",
-				 listen_port);
+				 dstate->portnum);
 			io_new_listener(dstate, fd1, peer_connected_in, dstate);
 		}
 	}
@@ -2790,10 +2789,10 @@ void setup_listeners(struct lightningd_state *dstate, unsigned int portnum)
 				    strerror(errno));
 			close_noerr(fd2);
 		} else {
-			listen_port = ntohs(addr.sin_port);
+			dstate->portnum = ntohs(addr.sin_port);
 			log_info(dstate->base_log,
 				 "Creating IPv4 listener on port %u",
-				 listen_port);
+				 dstate->portnum);
 			io_new_listener(dstate, fd2, peer_connected_in, dstate);
 		}
 	}

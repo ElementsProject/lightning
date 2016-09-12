@@ -254,6 +254,7 @@ static struct lightningd_state *lightningd_state(void)
 
 	list_head_init(&dstate->peers);
 	list_head_init(&dstate->pay_commands);
+	dstate->portnum = 0;
 	timers_init(&dstate->timers, controlled_time());
 	txwatch_hash_init(&dstate->txwatches);
 	txowatch_hash_init(&dstate->txowatches);
