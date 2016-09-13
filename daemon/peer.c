@@ -2968,10 +2968,14 @@ static enum watch_result anchor_depthchange(struct peer *peer,
 	check_htlc_expiry(peer);
 
 	/* If fee rate has changed, fire off update to change it. */
-	if (peer->local.staging_cstate->fee_rate
+	if ((state_is_normal(peer->state) || state_is_shutdown(peer->state))
+	    && peer->local.staging_cstate->fee_rate
 	    != desired_commit_feerate(peer->dstate)) {
 		log_debug(peer->log, "fee rate changed to %"PRIu64,
 			  desired_commit_feerate(peer->dstate));
+		/* FIXME: If fee changes back before update, we screw
+		 * up and send an empty commit.  We need to generate a
+		 * real packet here! */
 		remote_changes_pending(peer);
 	}
 
