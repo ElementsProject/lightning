@@ -2960,8 +2960,8 @@ static enum watch_result anchor_depthchange(struct peer *peer,
 					    void *unused)
 {
 	/* Still waiting for it to reach depth? */
-	if (state_is_opening(peer->state)) {
-		if ((int)depth >= peer->anchor.ok_depth) {
+	if (state_is_waiting_for_anchor(peer->state)) {
+		if ((int)depth == peer->anchor.ok_depth) {
 			state_event(peer, BITCOIN_ANCHOR_DEPTHOK, NULL);
 			peer->anchor.ok_depth = -1;
 		}

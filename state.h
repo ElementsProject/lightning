@@ -40,6 +40,14 @@ static inline bool state_is_opening(enum state s)
 	return s < STATE_NORMAL;
 }
 
+static inline bool state_is_waiting_for_anchor(enum state s)
+{
+	return s == STATE_OPEN_WAITING_OURANCHOR
+		|| s == STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED
+		|| s == STATE_OPEN_WAITING_THEIRANCHOR
+		|| s == STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED;
+}
+
 static inline bool state_can_io(enum state s)
 {
 	if (state_is_error(s))
