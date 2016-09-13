@@ -133,6 +133,12 @@ bool force_fee(struct channel_state *cstate, uint64_t fee);
  */
 uint64_t fee_by_feerate(size_t txsize, uint64_t fee_rate);
 
+/**
+ * anchor_too_large: does anchor amount fit in 32-bits of millisatoshi.
+ * @anchor_satoshis: amount in satoshis
+ */
+bool anchor_too_large(uint64_t anchor_satoshis);
+
 /* Routines to db to force HTLC changes out-of-order which may wrap. */
 void force_add_htlc(struct channel_state *cstate, const struct htlc *htlc);
 void force_fail_htlc(struct channel_state *cstate, const struct htlc *htlc);

@@ -120,6 +120,12 @@ static bool change_funding(uint64_t anchor_satoshis,
 	return true;
 }
 
+bool anchor_too_large(uint64_t anchor_satoshis)
+{
+	/* Anchor must fit in 32 bit. */
+	return anchor_satoshis >= (1ULL << 32) / 1000;
+}
+
 struct channel_state *initial_cstate(const tal_t *ctx,
 				      uint64_t anchor_satoshis,
 				      uint64_t fee_rate,
@@ -134,8 +140,7 @@ struct channel_state *initial_cstate(const tal_t *ctx,
 	cstate->num_nondust = 0;
 
 	/* Anchor must fit in 32 bit. */
-	if (anchor_satoshis >= (1ULL << 32) / 1000)
-		return tal_free(cstate);
+	assert(!anchor_too_large(anchor_satoshis));
 
 	fee_msat = calculate_fee_msat(0, fee_rate);
 	if (fee_msat > anchor_satoshis * 1000)

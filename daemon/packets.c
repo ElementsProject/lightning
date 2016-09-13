@@ -343,6 +343,9 @@ Pkt *accept_pkt_anchor(struct peer *peer, const Pkt *pkt)
 	assert(peer->local.offer_anchor == CMD_OPEN_WITHOUT_ANCHOR);
 	assert(peer->remote.offer_anchor == CMD_OPEN_WITH_ANCHOR);
 
+	if (anchor_too_large(a->amount))
+		return pkt_err(peer, "Anchor millisatoshis exceeds 32 bits");
+	
 	proto_to_sha256(a->txid, &peer->anchor.txid.sha);
 	peer->anchor.index = a->output_index;
 	peer->anchor.satoshis = a->amount;

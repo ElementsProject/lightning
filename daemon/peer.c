@@ -2862,6 +2862,11 @@ static void json_connect(struct command *cmd,
 
 	connect->input->index = output;
 	connect->input->amount = tx->output[output].amount;
+	if (anchor_too_large(connect->input->amount)) {
+		command_fail(cmd, "Amount %"PRIu64" is too large",
+			     connect->input->amount);
+		return;
+	}
 	if (!dns_resolve_and_connect(cmd->dstate, connect->name, connect->port,
 				     peer_connected_out, peer_failed, connect)) {
 		command_fail(cmd, "DNS failed");
