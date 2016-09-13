@@ -439,6 +439,10 @@ if ! check "$LCLI3 getlog 2>/dev/null | $FGREP Hello"; then
     exit 1
 fi
 
+# Version should be correct
+VERSION=`$LCLI1 getinfo | sed -n 's/.*"version" : "\([^"]*\)".*/\1/p'`
+[ $VERSION = `git describe --always --dirty` ] || (echo Wrong version $VERSION >&2; exit 1)
+
 ID1=`$LCLI1 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'`
 [ `$LCLI1 getinfo | sed -n 's/.*"id" : "\([0-9a-f]*\)".*/\1/p'` = $ID1 ]
 ID2=`$LCLI2 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'`

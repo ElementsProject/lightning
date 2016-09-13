@@ -6,6 +6,7 @@
 #include "lightningd.h"
 #include "log.h"
 #include "peer.h"
+#include "version.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
@@ -266,6 +267,7 @@ static void json_getinfo(struct command *cmd,
 	if (cmd->dstate->portnum)
 		json_add_num(response, "port", cmd->dstate->portnum);
 	json_add_bool(response, "testnet", cmd->dstate->config.testnet);
+	json_add_string(response, "version", version());
 	json_object_end(response);
 	command_success(cmd, response);
 }

@@ -2,6 +2,11 @@
 #include "version.h"
 #include <stdio.h>
 
+const char *version(void)
+{
+	return VERSION;
+}
+
 char *version_and_exit(const void *unused)
 {
 	printf("%s\n"
