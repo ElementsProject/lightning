@@ -440,8 +440,11 @@ if ! check "$LCLI3 getlog 2>/dev/null | $FGREP Hello"; then
 fi
 
 ID1=`$LCLI1 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'`
+[ `$LCLI1 getinfo | sed -n 's/.*"id" : "\([0-9a-f]*\)".*/\1/p'` = $ID1 ]
 ID2=`$LCLI2 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'`
+[ `$LCLI2 getinfo | sed -n 's/.*"id" : "\([0-9a-f]*\)".*/\1/p'` = $ID2 ]
 ID3=`$LCLI3 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'`
+[ `$LCLI3 getinfo | sed -n 's/.*"id" : "\([0-9a-f]*\)".*/\1/p'` = $ID3 ]
 
 PORT2=`$LCLI2 getlog | sed -n 's/.*on port \([0-9]*\).*/\1/p'`
 PORT3=`$LCLI3 getlog | sed -n 's/.*on port \([0-9]*\).*/\1/p'`
