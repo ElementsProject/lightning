@@ -71,10 +71,10 @@ struct log_info {
 static void add_skipped(struct log_info *info)
 {
 	if (info->num_skipped) {
-		json_array_start(info->response, NULL);
+		json_object_start(info->response, NULL);
 		json_add_string(info->response, "type", "SKIPPED");
 		json_add_num(info->response, "num_skipped", info->num_skipped);
-		json_array_end(info->response);
+		json_object_end(info->response);
 		info->num_skipped = 0;
 	}
 }
@@ -106,7 +106,7 @@ static void log_to_json(unsigned int skipped,
 
 	add_skipped(info);
 
-	json_array_start(info->response, NULL);
+	json_object_start(info->response, NULL);
 	json_add_string(info->response, "type",
 			level == LOG_BROKEN ? "BROKEN"
 			: level == LOG_UNUSUAL ? "UNUSUAL"
@@ -126,7 +126,7 @@ static void log_to_json(unsigned int skipped,
 	} else
 		json_add_string(info->response, "log", log);
 
-	json_array_end(info->response);
+	json_object_end(info->response);
 }
 
 static void json_getlog(struct command *cmd,
@@ -160,9 +160,9 @@ static void json_getlog(struct command *cmd,
 	json_add_time(info.response, "creation_time", log_init_time(lr)->ts);
 	json_add_num(info.response, "bytes_used", (unsigned int)log_used(lr));
 	json_add_num(info.response, "bytes_max", (unsigned int)log_max_mem(lr));
-	json_object_start(info.response, "log");
+	json_array_start(info.response, "log");
 	log_each_line(lr, log_to_json, &info);
-	json_object_end(info.response);
+	json_array_end(info.response);
 	json_object_end(info.response);
 	command_success(cmd, info.response);
 }
