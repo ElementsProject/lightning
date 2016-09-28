@@ -20,6 +20,11 @@ struct node_connection {
 
 struct node {
 	struct pubkey id;
+
+	/* IP/Hostname and port of this node */
+	char *hostname;
+	int port;
+
 	/* Routes connecting to us, from us. */
 	struct node_connection **in, **out;
 
@@ -45,6 +50,12 @@ struct node *get_node(struct lightningd_state *dstate,
 /* msatoshi must be possible (< 21 million BTC), ie < 2^60.
  * If it returns more than msatoshi, it overflowed. */
 s64 connection_fee(const struct node_connection *c, u64 msatoshi);
+
+/* Updates existing node, or creates a new one as required. */
+struct node *add_node(struct lightningd_state *dstate,
+		      const struct pubkey *pk,
+		      char *hostname,
+		      int port);
 
 /* Updates existing connection, or creates new one as required. */
 struct node_connection *add_connection(struct lightningd_state *dstate,

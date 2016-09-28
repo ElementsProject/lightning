@@ -28,6 +28,7 @@ static bool node_eq(const struct node *n, const secp256k1_pubkey *key)
 {
 	return structeq(&n->id.pubkey, key);
 }
+
 HTABLE_DEFINE_TYPE(struct node, keyof_node, hash_key, node_eq, node_map);
 
 struct node_map *empty_node_map(struct lightningd_state *dstate)
@@ -66,6 +67,26 @@ struct node *new_node(struct lightningd_state *dstate,
 	node_map_add(dstate->nodes, n);
 	tal_add_destructor(n, destroy_node);
 
+	return n;
+}
+
+struct node *add_node(
+	struct lightningd_state *dstate,
+	const struct pubkey *pk,
+	char *hostname,
+	int port)
+{
+	struct node *n = get_node(dstate, pk);
+	if (!n) {
+		n = new_node(dstate, pk);
+		log_debug_struct(dstate->base_log, "Creating new node %s",
+				 struct pubkey, pk);
+	} else {
+		log_debug_struct(dstate->base_log, "Update existing node %s",
+				 struct pubkey, pk);
+	}
+	n->hostname = tal_steal(n, hostname);
+	n->port = port;
 	return n;
 }
 
