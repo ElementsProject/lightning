@@ -66,7 +66,7 @@ if [ "$RECONNECT" = restart ]; then
 	exit 1
     fi
 fi
-    
+
 [ "`lcli3 listinvoice RHASH | tr -s '\012\011\" ' ' '`" = "[ { label : RHASH , rhash : $RHASH , msatoshi : $HTLC_AMOUNT, complete : false } ] " ]
 # Pay correctly.
 lcli1 sendpay "$ROUTE" $RHASH
@@ -80,6 +80,8 @@ check lcli3 "getpeers | $FGREP \"\\\"our_amount\\\" : $(($HTLC_AMOUNT - $NO_HTLC
 if [ "$RECONNECT" = restart ]; then
     echo RESTARTING NODE3
     $LCLI3 -- dev-restart $LIGHTNINGD3 >/dev/null 2>&1 || true
+    sleep 5
+    $LCLI2 -- dev-restart $LIGHTNINGD2 >/dev/null 2>&1 || true
     if ! check "$LCLI3 getpeers 2>/dev/null | tr -s '\012\011\" ' ' ' | fgrep -q 'connected : true'"; then
 	echo "Failed to reconnect!">&2
 	exit 1
