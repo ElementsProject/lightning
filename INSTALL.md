@@ -8,6 +8,7 @@ You will need several development libraries:
 * libbase58: for bitcoin's base58 encoding.
 * libsqlite3: for database support.
 * libgmp: for secp256k1
+* asciidoc: for formatting the man page
 
 You will also need a version of bitcoind with segregated witness support,
 such as the 0.13 or above.
@@ -17,7 +18,7 @@ To Build on Ubuntu 16.04
 
 Get dependencies:
 ```
-sudo apt-get install autoconf libtool libprotobuf-c-dev libsodium-dev libbase58-dev libsqlite3-dev libgmp-dev libsqlite3-dev
+sudo apt-get install autoconf libtool libprotobuf-c-dev libsodium-dev libbase58-dev libsqlite3-dev libgmp-dev libsqlite3-dev asciidoc
 ```
 
 Clone lightning and initialize submodules:
