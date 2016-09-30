@@ -61,6 +61,7 @@ extern const struct json_command newaddr_command;
 extern const struct json_command connect_command;
 extern const struct json_command close_command;
 extern const struct json_command getpeers_command;
+extern const struct json_command getnodes_command;
 
 /* Invoice management. */
 extern const struct json_command invoice_command;

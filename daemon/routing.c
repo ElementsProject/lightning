@@ -64,6 +64,7 @@ struct node *new_node(struct lightningd_state *dstate,
 	n->id = *id;
 	n->in = tal_arr(n, struct node_connection *, 0);
 	n->out = tal_arr(n, struct node_connection *, 0);
+	n->port = 0;
 	node_map_add(dstate->nodes, n);
 	tal_add_destructor(n, destroy_node);
 
@@ -511,4 +512,40 @@ const struct json_command dev_routefail_command = {
 	"Returns an empty result on success"
 };
 
+static void json_getnodes(struct command *cmd,
+			  const char *buffer, const jsmntok_t *params)
+{
+	struct json_result *response = new_json_result(cmd);
+	struct node *n;
+	struct node_map_iter i;
 
+	n = node_map_first(cmd->dstate->nodes, &i);
+
+	json_object_start(response, NULL);
+	json_array_start(response, "nodes");
+
+	while (n != NULL) {
+		json_object_start(response, NULL);
+		json_add_pubkey(response, cmd->dstate->secpctx,
+				"nodeid", &n->id);
+		json_add_num(response, "port", n->port);
+		if (!n->port)
+			json_add_null(response, "hostname");
+		else
+			json_add_string(response, "hostname", n->hostname);
+
+		json_object_end(response);
+		n = node_map_next(cmd->dstate->nodes, &i);
+	}
+
+	json_array_end(response);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+const struct json_command getnodes_command = {
+	"getnodes",
+	json_getnodes,
+	"List all known nodes in the network.",
+	"Returns a 'nodes' array"
+};
