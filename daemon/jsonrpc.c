@@ -292,6 +292,7 @@ static const struct json_command *cmdlist[] = {
 	&listinvoice_command,
 	&delinvoice_command,
 	&waitinvoice_command,
+	&getchannels_command,
 	&getroute_command,
 	&sendpay_command,
 	&getinfo_command,

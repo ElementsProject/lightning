@@ -451,12 +451,48 @@ static void json_add_route(struct command *cmd,
 	add_connection(cmd->dstate, &src, &dst, base, var, delay, minblocks);
 	command_success(cmd, null_response(cmd));
 }
-	
+
 const struct json_command dev_add_route_command = {
 	"dev-add-route",
 	json_add_route,
 	"Add route from {src} to {dst}, {base} rate in msatoshi, {var} rate in msatoshi, {delay} blocks delay and {minblocks} minimum timeout",
 	"Returns an empty result on success"
+};
+
+static void json_getchannels(struct command *cmd,
+			     const char *buffer, const jsmntok_t *params)
+{
+	struct json_result *response = new_json_result(cmd);
+	struct node_map_iter it;
+	struct node *n;
+	struct node_map *nodes = cmd->dstate->nodes;
+	struct node_connection *c;
+	int num_conn, i;
+
+	json_object_start(response, NULL);
+	json_array_start(response, "channels");
+	for (n = node_map_first(nodes, &it); n; n = node_map_next(nodes, &it)) {
+	        num_conn = tal_count(n->out);
+		for (i = 0; i < num_conn; i++){
+			c = n->out[i];
+			json_object_start(response, NULL);
+			json_add_pubkey(response, cmd->dstate->secpctx, "from", &n->id);
+			json_add_pubkey(response, cmd->dstate->secpctx, "to", &c->dst->id);
+			json_add_num(response, "base_fee", c->base_fee);
+			json_add_num(response, "proportional_fee", c->proportional_fee);
+			json_object_end(response);
+		}
+	}
+		json_array_end(response);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+const struct json_command getchannels_command = {
+	"getchannels",
+	json_getchannels,
+	"List all known channels.",
+	"Returns a 'channels' array with all known channels including their fees."
 };
 
 static void json_routefail(struct command *cmd,
