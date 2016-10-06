@@ -30,7 +30,6 @@ DAEMON_SRC :=					\
 	daemon/jsonrpc.c			\
 	daemon/lightningd.c			\
 	daemon/netaddr.c			\
-	daemon/onion.c				\
 	daemon/opt_time.c			\
 	daemon/output_to_htlc.c			\
 	daemon/packets.c			\
@@ -38,6 +37,7 @@ DAEMON_SRC :=					\
 	daemon/peer.c				\
 	daemon/routing.c			\
 	daemon/secrets.c			\
+	daemon/sphinx.c				\
 	daemon/timeout.c			\
 	daemon/wallet.c				\
 	daemon/watch.c				\
@@ -79,7 +79,6 @@ DAEMON_HEADERS :=				\
 	daemon/lightningd.h			\
 	daemon/log.h				\
 	daemon/netaddr.h			\
-	daemon/onion.h				\
 	daemon/opt_time.h			\
 	daemon/output_to_htlc.h			\
 	daemon/packets.h			\
@@ -88,6 +87,7 @@ DAEMON_HEADERS :=				\
 	daemon/pseudorand.h			\
 	daemon/routing.h			\
 	daemon/secrets.h			\
+	daemon/sphinx.h				\
 	daemon/timeout.h			\
 	daemon/wallet.h				\
 	daemon/watch.h

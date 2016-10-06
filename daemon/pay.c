@@ -4,13 +4,14 @@
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
-#include "onion.h"
 #include "pay.h"
 #include "peer.h"
 #include "routing.h"
+#include "sphinx.h"
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
 #include <inttypes.h>
+#include <sodium/randombytes.h>
 
 /* Outstanding "pay" commands. */
 struct pay_command {
@@ -293,7 +294,6 @@ static void json_sendpay(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	struct pubkey *ids;
-	u64 *amounts;
 	jsmntok_t *routetok, *rhashtok;
 	const jsmntok_t *t, *end;
 	unsigned int delay;
@@ -303,8 +303,12 @@ static void json_sendpay(struct command *cmd,
 	struct pay_command *pc;
 	bool replacing = false;
 	const u8 *onion;
+	u8 sessionkey[32];
 	enum fail_error error_code;
 	const char *err;
+	struct hoppayload *hoppayloads;
+	u64 amount, lastamount;
+	struct onionpacket *packet;
 
 	if (!json_get_params(buffer, params,
 			     "route", &routetok,
@@ -332,8 +336,8 @@ static void json_sendpay(struct command *cmd,
 
 	end = json_next(routetok);
 	n_hops = 0;
-	amounts = tal_arr(cmd, u64, n_hops);
 	ids = tal_arr(cmd, struct pubkey, n_hops);
+	hoppayloads = tal_arr(cmd, struct hoppayload, 0);
 	for (t = routetok + 1; t < end; t = json_next(t)) {
 		const jsmntok_t *amttok, *idtok, *delaytok;
 
@@ -353,12 +357,26 @@ static void json_sendpay(struct command *cmd,
 			return;
 		}
 
-		tal_resize(&amounts, n_hops+1);
-		if (!json_tok_u64(buffer, amttok, &amounts[n_hops])) {
-			command_fail(cmd, "route %zu invalid msatoshi", n_hops);
-			return;
+		if (n_hops == 0) {
+			/* What we will send */
+			if (!json_tok_u64(buffer, amttok, &amount)) {
+				command_fail(cmd, "route %zu invalid msatoshi", n_hops);
+				return;
+			}
+			lastamount = amount;
+		} else{
+			/* What that hop will forward */
+			tal_resize(&hoppayloads, n_hops);
+			memset(&hoppayloads[n_hops-1], 0, sizeof(struct hoppayload));
+			if (!json_tok_u64(buffer, amttok, &hoppayloads[n_hops-1].amount)) {
+				command_fail(cmd, "route %zu invalid msatoshi", n_hops);
+				return;
+			}
+			lastamount = hoppayloads[n_hops-1].amount;
 		}
+
 		tal_resize(&ids, n_hops+1);
+		memset(&ids[n_hops], 0, sizeof(ids[n_hops]));
 		if (!pubkey_from_hexstr(cmd->dstate->secpctx,
 					buffer + idtok->start,
 					idtok->end - idtok->start,
@@ -373,6 +391,10 @@ static void json_sendpay(struct command *cmd,
 		}
 		n_hops++;
 	}
+
+	/* Add payload for final hop */
+	tal_resize(&hoppayloads, n_hops);
+	memset(&hoppayloads[n_hops-1], 0, sizeof(struct hoppayload));
 
 	if (n_hops == 0) {
 		command_fail(cmd, "Empty route");
@@ -392,7 +414,7 @@ static void json_sendpay(struct command *cmd,
 			size_t old_nhops = tal_count(pc->ids);
 			log_add(cmd->dstate->base_log, "... succeeded");
 			/* Must match successful payment parameters. */
-			if (pc->msatoshi != amounts[n_hops-1]) {
+			if (pc->msatoshi != lastamount) {
 				command_fail(cmd,
 					     "already succeeded with amount %"
 					     PRIu64, pc->msatoshi);
@@ -420,9 +442,13 @@ static void json_sendpay(struct command *cmd,
 		return;
 	}
 
+	randombytes_buf(&sessionkey, sizeof(sessionkey));
+
 	/* Onion will carry us from first peer onwards. */
-	onion = onion_create(cmd, cmd->dstate->secpctx, ids+1, amounts+1,
-			     n_hops-1);
+	packet = create_onionpacket(
+		cmd, cmd->dstate->secpctx, ids, hoppayloads,
+		sessionkey, (u8*)"", 0);
+	onion = serialize_onionpacket(cmd, cmd->dstate->secpctx, packet);
 
 	if (pc)
 		pc->ids = tal_free(pc->ids);
@@ -432,10 +458,10 @@ static void json_sendpay(struct command *cmd,
 	pc->rhash = rhash;
 	pc->rval = NULL;
 	pc->ids = tal_steal(pc, ids);
-	pc->msatoshi = amounts[n_hops-1];
+	pc->msatoshi = lastamount;
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
-	err = command_htlc_add(peer, amounts[0],
+	err = command_htlc_add(peer, amount,
 			       delay + get_block_height(cmd->dstate) + 1,
 			       &rhash, NULL,
 			       onion, &error_code, &pc->htlc);
