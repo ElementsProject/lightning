@@ -241,6 +241,12 @@ Pkt *pkt_init(struct peer *peer, u64 ack)
 	Init *i = tal(peer, Init);
 	init__init(i);
 	i->ack = ack;
+	/* BOLT #2:
+	 *
+	 * A node SHOULD set the `features` field of the `init`
+	 * message to a bitset representing features it supports.
+	 */
+	/* No features yet! */
 	return make_pkt(peer, PKT__PKT_INIT, i);
 }
 

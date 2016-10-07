@@ -2108,6 +2108,11 @@ static struct io_plan *init_pkt_in(struct io_conn *conn, struct peer *peer)
 	if (peer->inpkt->init->has_features) {
 		size_t i;
 
+		/* BOLT #2:
+		 *
+		 * The receiving node SHOULD ignore any odd feature bits it
+		 * does not support, and MUST fail the connection if any
+		 * unsupported even `features` bit is set. */
 		for (i = 0; i < peer->inpkt->init->features.len*CHAR_BIT; i++) {
 			size_t byte = i / CHAR_BIT, bit = i % CHAR_BIT;
 			if (peer->inpkt->init->features.data[byte] & (1<<bit)) {
@@ -2176,16 +2181,12 @@ static struct io_plan *peer_send_init(struct io_conn *conn, struct peer *peer)
 
 	/* BOLT #2:
 	 *
-	 * A node reconnecting after receiving or sending an `open_channel`
-	 * message SHOULD send a `reconnect` message on the new connection
-	 * immediately after it has validated the `authenticate` message. */
-
-	/* BOLT #2:
-	 *
-	 * A node MUST set the `ack` field in the `reconnect` message to the
-	 * the sum of previously-processed messages of types
-	 * `open_commit_sig`, `update_commit`, `update_revocation`,
-	 * `close_shutdown` and `close_signature`. */
+	 * A node MUST send an `init` message immediately immediately after
+	 * it has validated the `authenticate` message.  A node MUST set
+	 * the `ack` field in the `init` message to the the sum of
+	 * previously-processed messages of types `open_commit_sig`,
+	 * `update_commit`, `update_revocation`, `close_shutdown` and
+	 * `close_signature`. */
 	return peer_write_packet(conn, peer,
 				 pkt_init(peer, sigs + revokes
 					  + shutdown + closing),
