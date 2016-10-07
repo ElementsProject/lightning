@@ -163,8 +163,6 @@ static void dev_register_opts(struct lightningd_state *dstate)
 	
 static void default_config(struct config *config)
 {
-	/* aka. "Dude, where's my coins?" */
-	config->testnet = true;
 	config->regtest = false;
 
 	/* ~one day to catch cheating attempts. */
@@ -263,6 +261,7 @@ static struct lightningd_state *lightningd_state(void)
 	list_head_init(&dstate->peers);
 	list_head_init(&dstate->pay_commands);
 	dstate->portnum = 0;
+	dstate->testnet = true;
 	timers_init(&dstate->timers, controlled_time());
 	txwatch_hash_init(&dstate->txwatches);
 	txowatch_hash_init(&dstate->txowatches);

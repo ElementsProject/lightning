@@ -113,8 +113,7 @@ static void json_newaddr(struct command *cmd,
 	
 	json_object_start(response, NULL);
 	json_add_string(response, "address",
-			p2sh_to_base58(cmd, cmd->dstate->config.testnet,
-				       &w->p2sh));
+			p2sh_to_base58(cmd, cmd->dstate->testnet, &w->p2sh));
 	json_object_end(response);
 	command_success(cmd, response);
 }

@@ -11,8 +11,8 @@
 
 /* Various adjustable things. */
 struct config {
-	/* Are we on testnet? regtest?*/
-	bool testnet, regtest;
+	/* Are we on regtest? */
+	bool regtest;
 
 	/* How long do we want them to lock up their funds? (blocks) */
 	u32 locktime_blocks;
@@ -74,7 +74,10 @@ struct lightningd_state {
 
 	/* Port we're listening on */
 	u16 portnum;
-	
+
+	/* We're on testnet. */
+	bool testnet;
+
 	/* Configuration settings. */
 	struct config config;
 

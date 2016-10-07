@@ -266,7 +266,7 @@ static void json_getinfo(struct command *cmd,
 	/* FIXME: Keep netaddrs and list them all. */
 	if (cmd->dstate->portnum)
 		json_add_num(response, "port", cmd->dstate->portnum);
-	json_add_bool(response, "testnet", cmd->dstate->config.testnet);
+	json_add_bool(response, "testnet", cmd->dstate->testnet);
 	json_add_string(response, "version", version());
 	json_object_end(response);
 	command_success(cmd, response);

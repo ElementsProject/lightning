@@ -34,7 +34,7 @@ static char **gather_args(struct lightningd_state *dstate,
 	if (dstate->config.regtest)
 		args[n++] = "-regtest=1";
 	else
-		args[n++] = tal_fmt(args, "-testnet=%u", dstate->config.testnet);
+		args[n++] = tal_fmt(args, "-testnet=%u", dstate->testnet);
 	if (bitcoin_datadir) {
 		args[n++] = tal_fmt(args, "-datadir=%s", bitcoin_datadir);
 		tal_resize(&args, n + 1);
