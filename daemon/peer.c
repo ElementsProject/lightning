@@ -2047,6 +2047,31 @@ static void retransmit_pkts(struct peer *peer, s64 ack)
 	retry_all_routing(peer);
 }
 
+static u64 desired_commit_feerate(struct lightningd_state *dstate)
+{
+	return get_feerate(dstate) * dstate->config.commitment_fee_percent / 100;
+}
+
+static bool want_feechange(const struct peer *peer)
+{
+	if (!state_is_normal(peer->state) && !state_is_shutdown(peer->state))
+		return false;
+	return peer->local.staging_cstate->fee_rate
+		!= desired_commit_feerate(peer->dstate);
+}
+
+static void peer_has_connected(struct peer *peer)
+{
+	assert(!peer->connected);
+	peer->connected = true;
+
+	/* Do we want to send something? */
+	if (peer_uncommitted_changes(peer) || want_feechange(peer)) {
+		log_debug(peer->log, "connected: changes pending");
+		remote_changes_pending(peer);
+	}
+}
+
 /* Crypto is on, we are live. */
 static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 {
@@ -2063,8 +2088,7 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 
 	state_event(peer, peer->local.offer_anchor, NULL);
 
-	assert(!peer->connected);
-	peer->connected = true;
+	peer_has_connected(peer);
 	return io_duplex(conn,
 			 peer_read_packet(conn, peer, pkt_in),
 			 pkt_out(conn, peer));
@@ -2107,11 +2131,6 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 		forget_uncommitted_changes(peer);
 		try_reconnect(peer);
 	}
-}
-
-static u64 desired_commit_feerate(struct lightningd_state *dstate)
-{
-	return get_feerate(dstate) * dstate->config.commitment_fee_percent / 100;
 }
 
 static void maybe_propose_new_feerate(struct peer *peer)
@@ -2249,12 +2268,17 @@ database_error:
 	peer_fail(peer, __func__);
 }
 
-/* FIXME: don't spin on this timer if we're not connected! */
 static void try_commit(struct peer *peer)
 {
 	peer->commit_timer = NULL;
 
-	if (state_can_commit(peer->state) && peer->connected)
+	if (!peer->connected) {
+		log_debug(peer->log, "try_commit: state=%s, not connected",
+			  state_name(peer->state));
+		return;
+	}
+
+	if (state_can_commit(peer->state))
 		do_commit(peer, NULL);
 	else {
 		/* FIXME: try again when we receive revocation /
@@ -2524,15 +2548,8 @@ static struct io_plan *reconnect_pkt_in(struct io_conn *conn, struct peer *peer)
 		return pkt_out(conn, peer);
 	}
 
-	/* We could have commitments pending from before. */
-	if (peer_uncommitted_changes(peer)) {
-		log_debug(peer->log, "reconnect_pkt_in: changes pending.");
-		remote_changes_pending(peer);
-	}
-	
 	/* Back into normal mode. */
-	assert(!peer->connected);
-	peer->connected = true;
+	peer_has_connected(peer);
 	return io_duplex(conn,
 			 peer_read_packet(conn, peer, pkt_in),
 			 pkt_out(conn, peer));
@@ -2993,9 +3010,7 @@ static enum watch_result anchor_depthchange(struct peer *peer,
 	check_htlc_expiry(peer);
 
 	/* If fee rate has changed, fire off update to change it. */
-	if ((state_is_normal(peer->state) || state_is_shutdown(peer->state))
-	    && peer->local.staging_cstate->fee_rate
-	    != desired_commit_feerate(peer->dstate)) {
+	if (want_feechange(peer)) {
 		log_debug(peer->log, "fee rate changed to %"PRIu64,
 			  desired_commit_feerate(peer->dstate));
 		/* FIXME: If fee changes back before update, we screw
