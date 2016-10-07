@@ -236,12 +236,12 @@ Pkt *pkt_err(struct peer *peer, const char *msg, ...)
 	return make_pkt(peer, PKT__PKT_ERROR, e);
 }
 
-Pkt *pkt_reconnect(struct peer *peer, u64 ack)
+Pkt *pkt_init(struct peer *peer, u64 ack)
 {
-	Reconnect *r = tal(peer, Reconnect);
-	reconnect__init(r);
-	r->ack = ack;
-	return make_pkt(peer, PKT__PKT_RECONNECT, r);
+	Init *i = tal(peer, Init);
+	init__init(i);
+	i->ack = ack;
+	return make_pkt(peer, PKT__PKT_INIT, i);
 }
 
 void queue_pkt_err(struct peer *peer, Pkt *err)

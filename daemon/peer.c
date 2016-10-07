@@ -2091,6 +2091,86 @@ static void peer_has_connected(struct peer *peer)
 	}
 }
 
+static struct io_plan *init_pkt_in(struct io_conn *conn, struct peer *peer)
+{
+	if (peer->inpkt->pkt_case != PKT__PKT_INIT) {
+		peer_received_unexpected_pkt(peer, peer->inpkt, __func__);
+		return pkt_out(conn, peer);
+	}
+
+	/* They might have missed the error, tell them before hanging up */
+	if (state_is_error(peer->state)) {
+		queue_pkt_err(peer, pkt_err(peer, "In error state %s",
+					    state_name(peer->state)));
+		return pkt_out(conn, peer);
+	}
+	
+	/* Send any packets they missed. */
+	retransmit_pkts(peer, peer->inpkt->init->ack);
+
+	/* We let the conversation go this far in case they missed the
+	 * close packets.  But now we can close if we're done. */
+	if (!state_can_io(peer->state)) {
+		log_debug(peer->log, "State %s, closing immediately",
+			  state_name(peer->state));
+		return pkt_out(conn, peer);
+	}
+
+	/* Back into normal mode. */
+	peer_has_connected(peer);
+	return io_duplex(conn,
+			 peer_read_packet(conn, peer, pkt_in),
+			 pkt_out(conn, peer));
+}
+
+static struct io_plan *read_init_pkt(struct io_conn *conn,
+					  struct peer *peer)
+{
+	return peer_read_packet(conn, peer, init_pkt_in);
+}
+
+static u64 peer_commitsigs_received(struct peer *peer)
+{
+	return peer->their_commitsigs;
+}
+
+static u64 peer_revocations_received(struct peer *peer)
+{
+	/* How many preimages we've received. */
+	return -peer->their_preimages.min_index;
+}
+
+static struct io_plan *peer_send_init(struct io_conn *conn, struct peer *peer)
+{
+	u64 sigs, revokes, shutdown, closing;
+
+	sigs = peer_commitsigs_received(peer);
+	revokes = peer_revocations_received(peer);
+	shutdown = peer->closing.their_script ? 1 : 0;
+	closing = peer->closing.sigs_in;
+	log_debug(peer->log,
+		  "Init with ack %"PRIu64" sigs + %"PRIu64" revokes"
+		  " + %"PRIu64" shutdown + %"PRIu64" closing",
+		  sigs, revokes, shutdown, closing);
+
+	/* BOLT #2:
+	 *
+	 * A node reconnecting after receiving or sending an `open_channel`
+	 * message SHOULD send a `reconnect` message on the new connection
+	 * immediately after it has validated the `authenticate` message. */
+
+	/* BOLT #2:
+	 *
+	 * A node MUST set the `ack` field in the `reconnect` message to the
+	 * the sum of previously-processed messages of types
+	 * `open_commit_sig`, `update_commit`, `update_revocation`,
+	 * `close_shutdown` and `close_signature`. */
+	return peer_write_packet(conn, peer,
+				 pkt_init(peer, sigs + revokes
+					  + shutdown + closing),
+				 read_init_pkt);
+}
+
 /* Crypto is on, we are live. */
 static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 {
@@ -2107,10 +2187,7 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 
 	state_event(peer, peer->local.offer_anchor, NULL);
 
-	peer_has_connected(peer);
-	return io_duplex(conn,
-			 peer_read_packet(conn, peer, pkt_in),
-			 pkt_out(conn, peer));
+	return peer_send_init(conn,peer);
 }
 
 static void destroy_peer(struct peer *peer)
@@ -2484,17 +2561,6 @@ static bool peer_first_connected(struct peer *peer,
 	return true;
 }
 
-static u64 peer_commitsigs_received(struct peer *peer)
-{
-	return peer->their_commitsigs;
-}
-
-static u64 peer_revocations_received(struct peer *peer)
-{
-	/* How many preimages we've received. */
-	return -peer->their_preimages.min_index;
-}
-
 static void htlc_destroy(struct htlc *htlc)
 {
 	if (!htlc_map_del(&htlc->peer->htlcs, htlc))
@@ -2540,48 +2606,6 @@ struct htlc *peer_new_htlc(struct peer *peer,
 	return h;
 }
 
-
-static struct io_plan *reconnect_pkt_in(struct io_conn *conn, struct peer *peer)
-{
-	if (peer->inpkt->pkt_case != PKT__PKT_RECONNECT) {
-		peer_received_unexpected_pkt(peer, peer->inpkt, __func__);
-		return pkt_out(conn, peer);
-	}
-
-	/* We need to eliminate queue now. */
-	clear_output_queue(peer);
-
-	/* They might have missed the error, tell them before hanging up */
-	if (state_is_error(peer->state)) {
-		queue_pkt_err(peer, pkt_err(peer, "In error state %s",
-					    state_name(peer->state)));
-		return pkt_out(conn, peer);
-	}
-	
-	/* Send any packets they missed. */
-	retransmit_pkts(peer, peer->inpkt->reconnect->ack);
-
-	/* We let the conversation go this far in case they missed the
-	 * close packets.  But now we can close if we're done. */
-	if (!state_can_io(peer->state)) {
-		log_debug(peer->log, "State %s, closing immediately",
-			  state_name(peer->state));
-		return pkt_out(conn, peer);
-	}
-
-	/* Back into normal mode. */
-	peer_has_connected(peer);
-	return io_duplex(conn,
-			 peer_read_packet(conn, peer, pkt_in),
-			 pkt_out(conn, peer));
-}
-
-static struct io_plan *read_reconnect_pkt(struct io_conn *conn,
-					  struct peer *peer)
-{
-	return peer_read_packet(conn, peer, reconnect_pkt_in);
-}
-
 static struct io_plan *crypto_on_reconnect(struct io_conn *conn,
 					   struct lightningd_state *dstate,
 					   struct io_data *iod,
@@ -2589,37 +2613,15 @@ static struct io_plan *crypto_on_reconnect(struct io_conn *conn,
 					   struct peer *peer,
 					   bool we_connected)
 {
-	u64 sigs, revokes, shutdown, closing;
-
 	/* Setup peer->conn and peer->io_data */
 	if (!peer_reconnected(peer, conn, SOCK_STREAM, IPPROTO_TCP,
 			      iod, id, we_connected))
 		return io_close(conn);
 
-	sigs = peer_commitsigs_received(peer);
-	revokes = peer_revocations_received(peer);
-	shutdown = peer->closing.their_script ? 1 : 0;
-	closing = peer->closing.sigs_in;
-	log_debug(peer->log,
-		  "Reconnecting with ack %"PRIu64" sigs + %"PRIu64" revokes"
-		  " + %"PRIu64" shutdown + %"PRIu64" closing",
-		  sigs, revokes, shutdown, closing);
-	/* BOLT #2:
-	 *
-	 * A node reconnecting after receiving or sending an `open_channel`
-	 * message SHOULD send a `reconnect` message on the new connection
-	 * immediately after it has validated the `authenticate` message. */
+	/* We need to eliminate queue now. */
+	clear_output_queue(peer);
 
-	/* BOLT #2:
-	 *
-	 * A node MUST set the `ack` field in the `reconnect` message to the
-	 * the sum of previously-processed messages of types
-	 * `open_commit_sig`, `update_commit`, `update_revocation`,
-	 * `close_shutdown` and `close_signature`. */
-	return peer_write_packet(conn, peer,
-				 pkt_reconnect(peer, sigs + revokes
-					       + shutdown + closing),
-				 read_reconnect_pkt);
+	return peer_send_init(conn, peer);
 }
 
 static struct io_plan *crypto_on_reconnect_in(struct io_conn *conn,

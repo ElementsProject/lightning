@@ -26,7 +26,7 @@ void queue_pkt_close_shutdown(struct peer *peer);
 void queue_pkt_close_signature(struct peer *peer);
 
 Pkt *pkt_err(struct peer *peer, const char *msg, ...);
-Pkt *pkt_reconnect(struct peer *peer, u64 ack);
+Pkt *pkt_init(struct peer *peer, u64 ack);
 void queue_pkt_err(struct peer *peer, Pkt *err);
 Pkt *pkt_err_unexpected(struct peer *peer, const Pkt *pkt);
 

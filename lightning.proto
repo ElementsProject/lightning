@@ -66,8 +66,8 @@ message authenticate {
   required signature session_sig = 2;
 };
 
-// We're reconnecting, here's what we've received already.
-message reconnect {
+// We're authenticated.  Here's what we've received already.
+message init {
   // How many update_commit and update_revocation messages already received
   required uint64 ack = 1;
 };
@@ -226,7 +226,7 @@ message pkt {
   oneof pkt {
     // Start of connection
     authenticate auth = 50;
-    reconnect reconnect = 51;
+    init init = 51;
 
     // Opening
     open_channel open = 20;
