@@ -96,6 +96,9 @@ struct peer {
 	/* Are we connected now? (Crypto handshake completed). */
 	bool connected;
 	
+	/* If we're doing an open, this is the command which triggered it */
+	struct command *open_jsoncmd;
+
 	/* If we're doing a commit, this is the command which triggered it */
 	struct command *commit_jsoncmd;
 

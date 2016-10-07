@@ -461,7 +461,7 @@ TXID=`$CLI sendtoaddress $P2SHADDR 0.01`
 TX=`$CLI getrawtransaction $TXID`
 $CLI generate 1
 
-lcli1 connect localhost $PORT2 $TX
+lcli1 connect localhost $PORT2 $TX &
 
 # Expect them to be waiting for anchor.
 check_peerstate lcli1 STATE_OPEN_WAITING_OURANCHOR
@@ -1032,7 +1032,7 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     TX2=`$CLI getrawtransaction $TXID2`
     $CLI generate 1
 
-    lcli2 connect localhost $PORT3 $TX2
+    lcli2 connect localhost $PORT3 $TX2 &
     check_tx_spend lcli2
     $CLI generate 1
 

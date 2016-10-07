@@ -281,10 +281,26 @@ static void peer_update_complete(struct peer *peer)
 
 void peer_open_complete(struct peer *peer, const char *problem)
 {
-	if (problem)
+	if (problem) {
 		log_unusual(peer->log, "peer open failed: %s", problem);
-	else
+		if (peer->open_jsoncmd)  {
+			command_fail(peer->open_jsoncmd, "%s", problem);
+			peer->open_jsoncmd = NULL;
+		}
+	} else {
 		log_debug(peer->log, "peer open complete");
+		if (peer->open_jsoncmd) {
+			struct json_result *response;
+			response = new_json_result(peer->open_jsoncmd);
+
+			json_object_start(response, NULL);
+			json_add_pubkey(response, peer->dstate->secpctx,
+					"id", peer->id);
+			json_object_end(response);
+			command_success(peer->open_jsoncmd, response);
+			peer->open_jsoncmd = NULL;
+		}
+	}
 }
 
 static void set_peer_state(struct peer *peer, enum state newstate,
@@ -2354,6 +2370,7 @@ struct peer *new_peer(struct lightningd_state *dstate,
 	peer->secrets = NULL;
 	list_head_init(&peer->watches);
 	peer->outpkt = tal_arr(peer, Pkt *, 0);
+	peer->open_jsoncmd = NULL;
 	peer->commit_jsoncmd = NULL;
 	list_head_init(&peer->outgoing_txs);
 	list_head_init(&peer->their_commits);
@@ -2654,8 +2671,7 @@ static struct io_plan *crypto_on_out(struct io_conn *conn,
 	peer->io_data = tal_steal(peer, iod);
 	peer->id = tal_dup(peer, struct pubkey, id);
 	peer->anchor.input = tal_steal(peer, connect->input);
-
-	command_success(connect->cmd, null_response(connect));
+	peer->open_jsoncmd = connect->cmd;
 	return peer_crypto_on(conn, peer);
 }
 
@@ -2914,7 +2930,7 @@ const struct json_command connect_command = {
 	"connect",
 	json_connect,
 	"Connect to a {host} at {port} using hex-encoded {tx} to fund",
-	"Returns an empty result on success"
+	"Returns the {id} on success (once channel established)"
 };
 
 /* Have any of our HTLCs passed their deadline? */
