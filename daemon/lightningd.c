@@ -16,6 +16,7 @@
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/opt/opt.h>
+#include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <ccan/time/time.h>
@@ -28,6 +29,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <version.h>
+
+/* FIXME: Put into ccan/time. */
+#define TIME_FROM_SEC(sec) { { .tv_nsec = 0, .tv_sec = sec } }
+#define TIME_FROM_MSEC(msec) \
+	{ { .tv_nsec = ((msec) % 1000) * 1000000, .tv_sec = (msec) / 1000 } }
 
 static char *opt_set_u64(const char *arg, u64 *u)
 {
@@ -160,22 +166,19 @@ static void dev_register_opts(struct lightningd_state *dstate)
 	opt_register_noarg("--dev-no-routefail", opt_set_bool,
 			   &dstate->dev_never_routefail, opt_hidden);
 }
-	
-static void default_config(struct config *config)
-{
-	config->regtest = false;
 
-	/* ~one day to catch cheating attempts. */
-	config->locktime_blocks = 6 * 24;
+static const struct config testnet_config = {
+	/* 6 blocks to catch cheating attempts. */
+	.locktime_blocks = 6,
 
 	/* They can have up to 3 days. */
-	config->locktime_max = 3 * 6 * 24;
+	.locktime_max = 3 * 6 * 24,
 
 	/* We're fairly trusting, under normal circumstances. */
-	config->anchor_confirms = 3;
+	.anchor_confirms = 1,
 
 	/* More than 10 confirms seems overkill. */
-	config->anchor_confirms_max = 10;
+	.anchor_confirms_max = 10,
 
 	/* At some point, you've got to let it go... */
 	/* BOLT #onchain:
@@ -186,40 +189,98 @@ static void default_config(struct config *config)
 	 * known bitcoin fork, and the same value used to wait for
 	 * confirmations of miner's rewards[1].
 	 */
-	config->forever_confirms = 100;
-	
-	/* Insist between 2 and 20 times the 2-block fee. */
-	config->commitment_fee_min_percent = 200;
-	config->commitment_fee_max_percent = 2000;
+	.forever_confirms = 10,
+
+	/* Testnet fees are crazy, allow infinite feerange. */
+	.commitment_fee_min_percent = 0,
+	.commitment_fee_max_percent = 0,
 
 	/* We offer to pay 5 times 2-block fee */
-	config->commitment_fee_percent = 500;
+	.commitment_fee_percent = 500,
 
 	/* Use this rate by default if estimatefee doesn't estimate. */
-	config->default_fee_rate = 40000;
+	.default_fee_rate = 40000,
 
 	/* Don't bother me unless I have 6 hours to collect. */
-	config->min_htlc_expiry = 6 * 6;
+	.min_htlc_expiry = 6 * 6,
 	/* Don't lock up channel for more than 5 days. */
-	config->max_htlc_expiry = 5 * 6 * 24;
+	.max_htlc_expiry = 5 * 6 * 24,
 
 	/* If we're closing on HTLC expiry, and you're unresponsive, we abort. */
-	config->deadline_blocks = 10;
+	.deadline_blocks = 4,
 
 	/* How often to bother bitcoind. */
-	config->poll_time = time_from_sec(30);
+	.poll_time = TIME_FROM_SEC(10),
 
 	/* Send commit 10msec after receiving; almost immediately. */
-	config->commit_time = time_from_msec(10);
+	.commit_time = TIME_FROM_MSEC(10),
 
-	/* Discourage dust payments */
-	config->fee_base = 546000;
+	/* Allow dust payments */
+	.fee_base = 1,
 	/* Take 0.001% */
-	config->fee_per_satoshi = 10;
+	.fee_per_satoshi = 10,
 
 	/* Discover new peers using IRC */
-	config->use_irc = true;
-}
+	.use_irc = true,
+};
+
+/* aka. "Dude, where's my coins?" */
+static const struct config mainnet_config = {
+	/* ~one day to catch cheating attempts. */
+	.locktime_blocks = 6 * 24,
+
+	/* They can have up to 3 days. */
+	.locktime_max = 3 * 6 * 24,
+
+	/* We're fairly trusting, under normal circumstances. */
+	.anchor_confirms = 3,
+
+	/* More than 10 confirms seems overkill. */
+	.anchor_confirms_max = 10,
+
+	/* At some point, you've got to let it go... */
+	/* BOLT #onchain:
+	 *
+	 * Outputs... are considered *irrevocably resolved* once they
+	 * are included in a block at least 100 deep on the most-work
+	 * blockchain.  100 blocks is far greater than the longest
+	 * known bitcoin fork, and the same value used to wait for
+	 * confirmations of miner's rewards[1].
+	 */
+	.forever_confirms = 100,
+
+	/* Insist between 2 and 20 times the 2-block fee. */
+	.commitment_fee_min_percent = 200,
+	.commitment_fee_max_percent = 2000,
+
+	/* We offer to pay 5 times 2-block fee */
+	.commitment_fee_percent = 500,
+
+	/* Use this rate by default if estimatefee doesn't estimate. */
+	.default_fee_rate = 40000,
+
+	/* Don't bother me unless I have 6 hours to collect. */
+	.min_htlc_expiry = 6 * 6,
+	/* Don't lock up channel for more than 5 days. */
+	.max_htlc_expiry = 5 * 6 * 24,
+
+	/* If we're closing on HTLC expiry, and you're unresponsive, we abort. */
+	.deadline_blocks = 10,
+
+	/* How often to bother bitcoind. */
+	.poll_time = TIME_FROM_SEC(30),
+
+	/* Send commit 10msec after receiving; almost immediately. */
+	.commit_time = TIME_FROM_MSEC(10),
+
+	/* Discourage dust payments */
+	.fee_base = 546000,
+	/* Take 0.001% */
+	.fee_per_satoshi = 10,
+
+	/* Discover new peers using IRC */
+	.use_irc = true,
+};
 
 static void check_config(struct lightningd_state *dstate)
 {
@@ -231,7 +292,7 @@ static void check_config(struct lightningd_state *dstate)
 		      dstate->config.commitment_fee_min_percent,
 		      dstate->config.commitment_fee_max_percent);
 
-	if (dstate->config.forever_confirms < 100)
+	if (dstate->config.forever_confirms < 100 && !dstate->testnet)
 		log_unusual(dstate->base_log,
 			    "Warning: forever-confirms of %u is less than 100!",
 			    dstate->config.forever_confirms);
@@ -267,7 +328,6 @@ static struct lightningd_state *lightningd_state(void)
 	txowatch_hash_init(&dstate->txowatches);
 	dstate->secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						   | SECP256K1_CONTEXT_SIGN);
-	default_config(&dstate->config);
 	list_head_init(&dstate->bitcoin_req);
 	list_head_init(&dstate->wallet);
 	list_head_init(&dstate->unpaid);
@@ -301,6 +361,83 @@ static void tal_freefn(void *ptr)
 	tal_free(ptr);
 }
 
+static void setup_default_config(struct lightningd_state *dstate)
+{
+	if (dstate->testnet)
+		dstate->config = testnet_config;
+	else
+		dstate->config = mainnet_config;
+}
+
+
+/* FIXME: make this nicer! */
+static void config_log_stderr_exit(const char *fmt, ...)
+{
+	char *msg;
+	va_list ap;
+
+	va_start(ap, fmt);
+
+	/* This is the format we expect: mangle it to remove '--'. */
+	if (streq(fmt, "%s: %.*s: %s")) {
+		const char *argv0 = va_arg(ap, const char *);
+		unsigned int len = va_arg(ap, unsigned int);
+		const char *arg = va_arg(ap, const char *);
+		const char *problem = va_arg(ap, const char *);
+
+		msg = tal_fmt(NULL, "%s line %s: %.*s: %s",
+			      argv0, arg+strlen(arg)+1, len-2, arg+2, problem);
+	} else {
+		msg = tal_vfmt(NULL, fmt, ap);
+	}
+	va_end(ap);
+
+	fatal("%s", msg);
+}
+
+/* We turn the config file into cmdline arguments. */
+static void opt_parse_from_config(struct lightningd_state *dstate)
+{
+	char *contents, **lines;
+	char **argv;
+	int i, argc;
+
+	contents = grab_file(dstate, "config");
+	/* Doesn't have to exist. */
+	if (!contents) {
+		if (errno != ENOENT)
+			fatal("Opening and reading config: %s",
+			      strerror(errno));
+		/* Now we can set up defaults, since no config file. */
+		setup_default_config(dstate);
+		return;
+	}
+
+	lines = tal_strsplit(contents, contents, "\r\n", STR_NO_EMPTY);
+
+	/* We have to keep argv around, since opt will point into it */
+	argv = tal_arr(dstate, char *, argc = 1);
+	argv[0] = "lightning config file";
+
+	for (i = 0; i < tal_count(lines) - 1; i++) {
+		if (strstarts(lines[i], "#"))
+			continue;
+		/* Only valid forms are "foo" and "foo=bar" */
+		tal_resize(&argv, argc+1);
+		/* Stash line number after nul. */
+		argv[argc++] = tal_fmt(argv, "--%s%c%u", lines[i], 0, i+1);
+	}
+	tal_resize(&argv, argc+1);
+	argv[argc] = NULL;
+
+	opt_early_parse(argc, argv, config_log_stderr_exit);
+	/* Now we can set up defaults, depending on whether testnet or not */
+	setup_default_config(dstate);
+
+	opt_parse(&argc, argv, config_log_stderr_exit);
+	tal_free(contents);
+}
+
 int main(int argc, char *argv[])
 {
 	struct lightningd_state *dstate = lightningd_state();
@@ -330,7 +467,7 @@ int main(int argc, char *argv[])
 	config_register_opts(dstate);
 	dev_register_opts(dstate);
 
-	/* Get any configdir options first. */
+	/* Get any configdir/testnet options first. */
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
 
 	/* Move to config dir, to save ourselves the hassle of path manip. */

@@ -472,7 +472,6 @@ DO_RECONNECT=$RECONNECT
 if [ -n "$TIMEOUT_ANCHOR" ]; then
     # Check anchor emitted, not mined deep enough.
     check_tx_spend lcli1
-    $CLI generate 2
 
     # Timeout before anchor committed.
     MOCKTIME=$((`date +%s` + 7200 + 3 * 1200 + 1))
@@ -517,9 +516,9 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     all_ok
 fi
 
-# Now make it pass anchor (should be in mempool: three blocks bury it)
+# Now make it pass anchor (should be in mempool: one block to bury it)
 check_tx_spend lcli1
-$CLI generate 3
+$CLI generate 1
 
 check_peerstate lcli1 STATE_NORMAL
 check_peerstate lcli2 STATE_NORMAL
@@ -584,8 +583,8 @@ if [ -n "$DIFFERENT_FEES" ]; then
     $CLI generate 1
     check_peerstate lcli1 STATE_CLOSE_ONCHAIN_MUTUAL
     check_peerstate lcli2 STATE_CLOSE_ONCHAIN_MUTUAL
-    # Give it 100 blocks.
-    $CLI generate 100
+    # Give it 10 blocks ie "forever"
+    $CLI generate 10
     check_no_peers lcli1
     check_no_peers lcli2
 
@@ -686,8 +685,8 @@ if [ -n "$DUMP_ONCHAIN" ]; then
     # lcli1 should have gotten HTLC back.
     check_tx_spend lcli1
 
-    # Now, after 100 blocks, should all be concluded.
-    $CLI generate 100
+    # Now, after 10 blocks, should all be concluded.
+    $CLI generate 10
 
     # Both consider it all done now.
     check_no_peers lcli1
@@ -786,8 +785,8 @@ if [ -n "$STEAL" ]; then
     check_peerstate lcli2 STATE_CLOSE_ONCHAIN_CHEATED
     check_tx_spend lcli2
 
-    # Give it 100 blocks.
-    $CLI generate 100
+    # Give it "forever" blocks.
+    $CLI generate 10
 
     check_no_peers lcli2
 
@@ -880,8 +879,8 @@ if [ -n "$CLOSE_WITH_HTLCS" ]; then
     check_peerstate lcli1 STATE_CLOSE_ONCHAIN_MUTUAL
     check_peerstate lcli2 STATE_CLOSE_ONCHAIN_MUTUAL
 
-    # Give it 100 blocks.
-    $CLI generate 99
+    # Give it "forever" blocks.
+    $CLI generate 9
 
     check_no_peers lcli1
     check_no_peers lcli2
@@ -1035,7 +1034,7 @@ if [ ! -n "$MANUALCOMMIT" ]; then
 
     lcli2 connect localhost $PORT3 $TX2
     check_tx_spend lcli2
-    $CLI generate 3
+    $CLI generate 1
 
     # Make sure it's STATE_NORMAL.
     check_peerstate lcli3 STATE_NORMAL
@@ -1143,8 +1142,8 @@ $CLI generate 1
 check_peerstate lcli1 STATE_CLOSE_ONCHAIN_MUTUAL
 check_peerstate lcli2 STATE_CLOSE_ONCHAIN_MUTUAL
 
-# Give it 99 blocks.
-$CLI generate 98
+# Give it forever-1 blocks.
+$CLI generate 8
 
 # Make sure they saw it!
 check_peerstate lcli1 STATE_CLOSE_ONCHAIN_MUTUAL

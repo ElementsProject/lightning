@@ -6,6 +6,4 @@
 void configdir_register_opts(const tal_t *ctx,
 			     char **config_dir, char **rpc_filename);
 
-void opt_parse_from_config(const tal_t *ctx);
-
 #endif /* LIGHTNING_DAEMON_CONFIGDIR_H */
