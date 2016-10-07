@@ -1,6 +1,6 @@
-#include "irc.h"
 #include "daemon/dns.h"
 #include "daemon/log.h"
+#include "irc.h"
 
 void (*irc_privmsg_cb)(struct ircstate *, const struct privmsg *) = NULL;
 void (*irc_disconnect_cb)(struct ircstate *) = NULL;

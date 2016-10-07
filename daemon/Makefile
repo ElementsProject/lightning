@@ -73,6 +73,7 @@ DAEMON_HEADERS :=				\
 	daemon/htlc.h				\
 	daemon/htlc_state.h			\
 	daemon/invoice.h			\
+	daemon/irc_announce.h			\
 	daemon/json.h				\
 	daemon/jsonrpc.h			\
 	daemon/lightningd.h			\

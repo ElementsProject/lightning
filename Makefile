@@ -150,6 +150,7 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 
 CORE_HEADERS := close_tx.h			\
 	find_p2sh_out.h				\
+	irc.h					\
 	names.h					\
 	opt_bits.h				\
 	overflows.h				\

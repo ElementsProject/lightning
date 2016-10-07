@@ -1,17 +1,17 @@
 #ifndef LIGHTNING_IRC_H
 #define LIGHTNING_IRC_H
 
-#include <stdio.h>
-#include <sys/socket.h>
-#include <netdb.h>
+#include "config.h"
+#include "daemon/lightningd.h"
 #include <ccan/io/io.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
-
-#include "daemon/lightningd.h"
+#include <netdb.h>
+#include <stdio.h>
+#include <sys/socket.h>
 
 struct irccommand {
 	struct list_node list;
