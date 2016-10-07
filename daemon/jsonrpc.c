@@ -1,5 +1,6 @@
 /* Code for JSON_RPC API */
 /* eg: { "method" : "dev-echo", "params" : [ "hello", "Arabella!" ], "id" : "1" } */
+#include "chaintopology.h"
 #include "controlled_time.h"
 #include "json.h"
 #include "jsonrpc.h"
@@ -268,6 +269,7 @@ static void json_getinfo(struct command *cmd,
 		json_add_num(response, "port", cmd->dstate->portnum);
 	json_add_bool(response, "testnet", cmd->dstate->testnet);
 	json_add_string(response, "version", version());
+	json_add_num(response, "blockheight", get_block_height(cmd->dstate));
 	json_object_end(response);
 	command_success(cmd, response);
 }
