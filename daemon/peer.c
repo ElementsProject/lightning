@@ -2056,6 +2056,9 @@ static bool want_feechange(const struct peer *peer)
 {
 	if (!state_is_normal(peer->state) && !state_is_shutdown(peer->state))
 		return false;
+	log_debug(peer->log, "Current fee_rate: %"PRIu64" want %"PRIu64,
+		  peer->local.staging_cstate->fee_rate,
+		  desired_commit_feerate(peer->dstate));
 	return peer->local.staging_cstate->fee_rate
 		!= desired_commit_feerate(peer->dstate);
 }
@@ -2165,6 +2168,7 @@ static void maybe_propose_new_feerate(struct peer *peer)
 
 	set_feechange(peer, rate, SENT_FEECHANGE);
 	queue_pkt_feechange(peer, rate);
+	peer->local.staging_cstate->fee_rate = rate;
 }
 
 static void do_commit(struct peer *peer, struct command *jsoncmd)
@@ -4729,6 +4733,7 @@ static void json_feerate(struct command *cmd,
 		command_fail(cmd, "Invalid feerate");
 		return;
 	}
+	log_debug(cmd->jcon->log, "Fee rate changed to %"PRIu64, feerate);
 	cmd->dstate->config.default_fee_rate = feerate;
 	
 	command_success(cmd, null_response(cmd));

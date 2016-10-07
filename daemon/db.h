@@ -58,6 +58,8 @@ void db_resolve_invoice(struct lightningd_state *dstate,
 void db_update_feechange_state(struct peer *peer,
 			       const struct feechange *f,
 			       enum htlc_state oldstate);
+void db_remove_feechange(struct peer *peer, const struct feechange *feechange,
+			 enum htlc_state oldstate);
 void db_new_commit_info(struct peer *peer, enum side side,
 			const struct sha256 *prev_rhash);
 void db_remove_their_prev_revocation_hash(struct peer *peer);

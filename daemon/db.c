@@ -1515,6 +1515,22 @@ void db_update_feechange_state(struct peer *peer,
 	tal_free(ctx);
 }
 
+void db_remove_feechange(struct peer *peer, const struct feechange *feechange,
+			 enum htlc_state oldstate)
+{
+	const char *ctx = tal(peer, char);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+
+	log_debug(peer->log, "%s(%s)", __func__, peerid);
+	assert(peer->dstate->db->in_transaction);
+
+	db_exec(__func__, peer->dstate, 
+		"DELETE FROM feechanges WHERE peer=x'%s' AND state='%s';",
+		peerid, feechange_state_name(oldstate));
+
+	tal_free(ctx);
+}
+
 void db_update_state(struct peer *peer)
 {
 	const char *ctx = tal(peer, char);
