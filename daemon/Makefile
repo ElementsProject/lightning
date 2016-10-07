@@ -109,9 +109,14 @@ check-daemon-makefile:
 	@if [ "`ls daemon/*.h | grep -v daemon/gen | tr '\012' ' '`" != "`echo $(DAEMON_HEADERS) ''`" ]; then echo DAEMON_HEADERS incorrect; exit 1; fi
 
 # Git submodules are seriously broken.
-daemon/jsmn/jsmn.c daemon/jsmn/jsmn.h:
+daemon/jsmn/jsmn.h:
 	git submodule update daemon/jsmn/
 	[ -f $@ ] || git submodule update --init daemon/jsmn/
+
+# If we tell Make that the above builds both, it runs it twice in
+# parallel.  So we lie :(
+daemon/jsmn/jsmn.c: daemon/jsmn/jsmn.h
+	[ -f $@ ]
 
 daemon/jsmn.o: daemon/jsmn/jsmn.c
 	$(COMPILE.c) -DJSMN_STRICT=1 $(OUTPUT_OPTION) $<
