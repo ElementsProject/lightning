@@ -2959,8 +2959,12 @@ static enum watch_result anchor_depthchange(struct peer *peer,
 					    const struct sha256_double *txid,
 					    void *unused)
 {
+	log_debug(peer->log, "Anchor at depth %u", depth);
+
 	/* Still waiting for it to reach depth? */
 	if (state_is_waiting_for_anchor(peer->state)) {
+		log_debug(peer->log, "Waiting for depth %i",
+			  peer->anchor.ok_depth);
 		/* We can see a run of blocks all at once, so may be > depth */
 		if ((int)depth >= peer->anchor.ok_depth) {
 			state_event(peer, BITCOIN_ANCHOR_DEPTHOK, NULL);
@@ -3893,6 +3897,10 @@ void peer_watch_anchor(struct peer *peer,
 		       enum state_input depthok,
 		       enum state_input timeout)
 {
+	log_debug_struct(peer->log, "watching for anchor %s",
+			 struct sha256_double, &peer->anchor.txid);
+	log_add(peer->log, " to hit depth %i", depth);
+
 	/* We assume this. */
 	assert(depthok == BITCOIN_ANCHOR_DEPTHOK);
 	assert(timeout == BITCOIN_ANCHOR_TIMEOUT || timeout == INPUT_NONE);
