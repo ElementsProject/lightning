@@ -300,24 +300,31 @@ Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt,
 	if (o->delay->locktime_case != LOCKTIME__LOCKTIME_BLOCKS)
 		return pkt_err(peer, "Delay in seconds not accepted");
 	if (o->delay->blocks > peer->dstate->config.locktime_max)
-		return pkt_err(peer, "Delay too great");
+		return pkt_err(peer, "Delay %u too great", o->delay->blocks);
 	if (o->min_depth > peer->dstate->config.anchor_confirms_max)
-		return pkt_err(peer, "min_depth too great");
+		return pkt_err(peer, "min_depth %u too great", o->min_depth);
 	if (o->initial_fee_rate
 	    < feerate * peer->dstate->config.commitment_fee_min_percent / 100)
-		return pkt_err(peer, "Commitment fee rate too low");
+		return pkt_err(peer, "Commitment fee %u below %"PRIu64" x %u%%",
+			       o->initial_fee_rate, feerate,
+			       peer->dstate->config.commitment_fee_min_percent);
 	if (o->initial_fee_rate
 	    > feerate * peer->dstate->config.commitment_fee_max_percent / 100)
-		return pkt_err(peer, "Commitment fee rate too low");
+		return pkt_err(peer, "Commitment fee %u above %"PRIu64" x %u%%",
+			       o->initial_fee_rate, feerate,
+			       peer->dstate->config.commitment_fee_max_percent);
 	if (o->anch == OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR)
 		peer->remote.offer_anchor = CMD_OPEN_WITH_ANCHOR;
 	else if (o->anch == OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR)
 		peer->remote.offer_anchor = CMD_OPEN_WITHOUT_ANCHOR;
 	else
-		return pkt_err(peer, "Unknown offer anchor value");
+		return pkt_err(peer, "Unknown offer anchor value %u",
+			       o->anch);
 
 	if (peer->remote.offer_anchor == peer->local.offer_anchor)
-		return pkt_err(peer, "Only one side can offer anchor");
+		return pkt_err(peer, "Exactly one side can offer anchor (we %s)",
+			       peer->local.offer_anchor == CMD_OPEN_WITH_ANCHOR
+			       ? "do" : "don't");
 
 	if (!proto_to_rel_locktime(o->delay, &peer->remote.locktime))
 		return pkt_err(peer, "Malformed locktime");
