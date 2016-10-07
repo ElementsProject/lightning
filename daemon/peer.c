@@ -2087,6 +2087,7 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 
 	/* Not even set up yet?  Simply free.*/
 	if (peer->state == STATE_INIT) {
+		db_forget_peer(peer);
 		tal_free(peer);
 		return;
 	}
