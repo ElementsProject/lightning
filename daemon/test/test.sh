@@ -366,6 +366,7 @@ fi
 cat > $DIR1/config <<EOF
 disable-irc
 log-level=debug
+bitcoind-regtest
 bitcoind-poll=1s
 deadline-blocks=5
 min-htlc-expiry=6
@@ -376,6 +377,7 @@ EOF
 
 cat > $DIR2/config <<EOF
 disable-irc
+bitcoind-regtest
 log-level=debug
 bitcoind-poll=1s
 deadline-blocks=5

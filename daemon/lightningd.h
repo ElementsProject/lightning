@@ -11,8 +11,8 @@
 
 /* Various adjustable things. */
 struct config {
-	/* Are we on testnet? */
-	bool testnet;
+	/* Are we on testnet? regtest?*/
+	bool testnet, regtest;
 
 	/* How long do we want them to lock up their funds? (blocks) */
 	u32 locktime_blocks;

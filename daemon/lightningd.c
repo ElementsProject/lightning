@@ -94,6 +94,9 @@ static void opt_show_s32(char buf[OPT_SHOW_LEN], const s32 *u)
 
 static void config_register_opts(struct lightningd_state *dstate)
 {
+	opt_register_noarg("--bitcoind-regtest", opt_set_bool,
+			   &dstate->config.regtest,
+			   "Bitcoind is in regtest mode");
 	opt_register_arg("--locktime-blocks", opt_set_u32, opt_show_u32,
 			 &dstate->config.locktime_blocks,
 			 "Blocks before peer can unilaterally spend funds");
@@ -162,6 +165,7 @@ static void default_config(struct config *config)
 {
 	/* aka. "Dude, where's my coins?" */
 	config->testnet = true;
+	config->regtest = false;
 
 	/* ~one day to catch cheating attempts. */
 	config->locktime_blocks = 6 * 24;
@@ -353,8 +357,6 @@ int main(int argc, char *argv[])
 
 	check_config(dstate);
 	
-	check_bitcoind_config(dstate);
-
 	/* Set up node ID and private key. */
 	secrets_init(dstate);
 	new_node(dstate, &dstate->id);

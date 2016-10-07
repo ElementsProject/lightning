@@ -24,13 +24,17 @@
 
 char *bitcoin_datadir;
 
-static char **gather_args(const tal_t *ctx, const char *cmd, va_list ap)
+static char **gather_args(struct lightningd_state *dstate,
+			  const tal_t *ctx, const char *cmd, va_list ap)
 {
 	size_t n = 0;
-	char **args = tal_arr(ctx, char *, 1);
+	char **args = tal_arr(ctx, char *, 3);
 
 	args[n++] = BITCOIN_CLI;
-	tal_resize(&args, n + 1);
+	if (dstate->config.regtest)
+		args[n++] = "-regtest=1";
+	else
+		args[n++] = tal_fmt(args, "-testnet=%u", dstate->config.testnet);
 	if (bitcoin_datadir) {
 		args[n++] = tal_fmt(args, "-datadir=%s", bitcoin_datadir);
 		tal_resize(&args, n + 1);
@@ -169,7 +173,7 @@ start_bitcoin_cli(struct lightningd_state *dstate,
 	else
 		bcli->exitstatus = NULL;
 	va_start(ap, cmd);
-	bcli->args = gather_args(bcli, cmd, ap);
+	bcli->args = gather_args(dstate, bcli, cmd, ap);
 	va_end(ap);
 
 	list_add_tail(&dstate->bitcoin_req, &bcli->list);
@@ -429,46 +433,4 @@ void bitcoind_getblockhash_(struct lightningd_state *dstate,
 
 	start_bitcoin_cli(dstate, process_getblockhash, false, cb, arg,
 			  "getblockhash", str, NULL);
-}
-
-/* Make testnet/regtest status matches us. */
-void check_bitcoind_config(struct lightningd_state *dstate)
-{
-	void *ctx = tal(dstate, char);
-	char *path, *config, **lines;
-	size_t i;
-	int testnet = -1, regtest = -1;
-
-	path = path_simplify(ctx, path_join(ctx, path_cwd(ctx),
-					    "../.bitcoin/bitcoin.conf"));
-	config = grab_file(ctx, path);
-	if (!config) {
-		log_unusual(dstate->base_log, "Could not open %s to check it",
-			    path);
-		goto out;
-	}
-
-	lines = tal_strsplit(ctx, config, "\n", STR_NO_EMPTY);
-	for (i = 0; lines[i]; i++) {
-		char *str;
-		if (tal_strreg(ctx, lines[i],
-				    "^[ \t]*testnet[ \t]*=[ \t]*([01])", &str))
-			testnet = atoi(str);
-		else if (tal_strreg(ctx, lines[i],
-				    "^[ \t]*regtest[ \t]*=[ \t]*([01])", &str))
-			regtest = atoi(str);
-	}
-
-	if (dstate->config.testnet) {
-		if (testnet != 1 && regtest != 1)
-			log_unusual(dstate->base_log,
-				    "%s does not set testnet/regtest,"
-				    " but we are on testnet.",
-				    path);
-	} else if (testnet == 1 || regtest == 1)
-		log_unusual(dstate->base_log,
-			    "%s sets %s, but we are not on testnet",
-			    path, testnet == 1 ? "testnet" : "regtest");
-out:
-	tal_free(ctx);
 }
