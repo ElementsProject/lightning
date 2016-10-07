@@ -2608,8 +2608,17 @@ static struct io_plan *crypto_on_out(struct io_conn *conn,
 				     const struct pubkey *id,
 				     struct json_connecting *connect)
 {
+	struct peer *peer;
+
+	if (find_peer(dstate, id)) {
+		command_fail(connect->cmd, "Already connected to peer %s",
+			     pubkey_to_hexstr(connect->cmd,
+					      dstate->secpctx, id));
+		return io_close(conn);
+	}
+
 	/* Initiator currently funds channel */
-	struct peer *peer = new_peer(dstate, log, STATE_INIT, CMD_OPEN_WITH_ANCHOR);
+	peer = new_peer(dstate, log, STATE_INIT, CMD_OPEN_WITH_ANCHOR);
 	if (!peer_first_connected(peer, conn, SOCK_STREAM, IPPROTO_TCP,
 				  iod, id, true)) {
 		command_fail(connect->cmd, "Failed to make peer for %s:%s",
