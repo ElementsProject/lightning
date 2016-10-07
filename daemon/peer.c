@@ -2119,7 +2119,8 @@ static void maybe_propose_new_feerate(struct peer *peer)
 	u64 rate, max_rate;
 
 	rate = desired_commit_feerate(peer->dstate);
-	max_rate = approx_max_feerate(peer->remote.commit->cstate, LOCAL);
+	max_rate = approx_max_feerate(peer->remote.staging_cstate, LOCAL);
+	assert(can_afford_feerate(peer->remote.staging_cstate, max_rate, LOCAL));
 
 	/* BOLT #2:
 	 *

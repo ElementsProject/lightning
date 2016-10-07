@@ -172,7 +172,7 @@ uint64_t approx_max_feerate(const struct channel_state *cstate,
 
 	max_funds = cstate->side[side].pay_msat + cstate->side[side].fee_msat;
 
-	return max_funds * 1000 / tx_bytes(cstate->num_nondust);
+	return max_funds / tx_bytes(cstate->num_nondust);
 }
 
 bool can_afford_feerate(const struct channel_state *cstate, uint64_t fee_rate,
