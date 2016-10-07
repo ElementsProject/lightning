@@ -194,10 +194,15 @@ struct  _Init
    * How many update_commit and update_revocation messages already received
    */
   uint64_t ack;
+  /*
+   * What features do we support (odd) and require (even)
+   */
+  protobuf_c_boolean has_features;
+  ProtobufCBinaryData features;
 };
 #define INIT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&init__descriptor) \
-    , 0 }
+    , 0, 0,{0,NULL} }
 
 
 /*

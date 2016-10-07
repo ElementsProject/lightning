@@ -2104,7 +2104,28 @@ static struct io_plan *init_pkt_in(struct io_conn *conn, struct peer *peer)
 					    state_name(peer->state)));
 		return pkt_out(conn, peer);
 	}
-	
+
+	if (peer->inpkt->init->has_features) {
+		size_t i;
+
+		for (i = 0; i < peer->inpkt->init->features.len*CHAR_BIT; i++) {
+			size_t byte = i / CHAR_BIT, bit = i % CHAR_BIT;
+			if (peer->inpkt->init->features.data[byte] & (1<<bit)) {
+				/* Can't handle even features. */
+				if (i % 2 != 0) {
+					log_debug(peer->log,
+						  "They offered feature %zu", i);
+					continue;
+				}
+				queue_pkt_err(peer,
+					      pkt_err(peer,
+						      "Unsupported feature %zu",
+						      i));
+				return pkt_out(conn, peer);
+			}
+		}
+	}
+
 	/* Send any packets they missed. */
 	retransmit_pkts(peer, peer->inpkt->init->ack);
 

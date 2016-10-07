@@ -1644,7 +1644,7 @@ const ProtobufCMessageDescriptor authenticate__descriptor =
   (ProtobufCMessageInit) authenticate__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor init__field_descriptors[1] =
+static const ProtobufCFieldDescriptor init__field_descriptors[2] =
 {
   {
     "ack",
@@ -1658,14 +1658,27 @@ static const ProtobufCFieldDescriptor init__field_descriptors[1] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "features",
+    2,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_BYTES,
+    offsetof(Init, has_features),
+    offsetof(Init, features),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned init__field_indices_by_name[] = {
   0,   /* field[0] = ack */
+  1,   /* field[1] = features */
 };
 static const ProtobufCIntRange init__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 1 }
+  { 0, 2 }
 };
 const ProtobufCMessageDescriptor init__descriptor =
 {
@@ -1675,7 +1688,7 @@ const ProtobufCMessageDescriptor init__descriptor =
   "Init",
   "",
   sizeof(Init),
-  1,
+  2,
   init__field_descriptors,
   init__field_indices_by_name,
   1,  init__number_ranges,

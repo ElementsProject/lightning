@@ -70,6 +70,8 @@ message authenticate {
 message init {
   // How many update_commit and update_revocation messages already received
   required uint64 ack = 1;
+  // What features do we support (odd) and require (even)
+  optional bytes features = 2;
 };
 
 // Set channel params.
