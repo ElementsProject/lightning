@@ -2056,6 +2056,8 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 
 	assert(peer->state == STATE_INIT);
 
+	/* FIXME: Delay db write until we have something to keep, or handle
+	 * reconnect with STATE_INIT state. */
 	if (!db_create_peer(peer))
 		fatal("Database error in %s", __func__);
 
@@ -2087,6 +2089,8 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 
 	/* Not even set up yet?  Simply free.*/
 	if (peer->state == STATE_INIT) {
+		/* FIXME: Make reconnect work for STATE_INIT, but
+		 * cleanup if we don't reconnect after some duration. */
 		db_forget_peer(peer);
 		tal_free(peer);
 		return;
