@@ -117,7 +117,7 @@ static void config_register_opts(struct lightningd_state *dstate)
 			 "Minimum percentage of fee to accept for commitment");
 	opt_register_arg("--commit-fee-max=<percent>", opt_set_u32, opt_show_u32,
 			 &dstate->config.commitment_fee_max_percent,
-			 "Maximum percentage of fee to accept for commitment");
+			 "Maximum percentage of fee to accept for commitment (0 for unlimited)");
 	opt_register_arg("--commit-fee=<percent>", opt_set_u32, opt_show_u32,
 			 &dstate->config.commitment_fee_percent,
 			 "Percentage of fee to request for their commitment");
@@ -226,7 +226,8 @@ static void default_config(struct config *config)
 static void check_config(struct lightningd_state *dstate)
 {
 	/* We do this by ensuring it's less than the minimum we would accept. */
-	if (dstate->config.commitment_fee_max_percent
+	if (dstate->config.commitment_fee_max_percent != 0
+	    && dstate->config.commitment_fee_max_percent
 	    < dstate->config.commitment_fee_min_percent)
 		fatal("Commitment fee invalid min-max %u-%u",
 		      dstate->config.commitment_fee_min_percent,

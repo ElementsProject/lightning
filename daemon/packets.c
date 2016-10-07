@@ -308,8 +308,9 @@ Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt,
 		return pkt_err(peer, "Commitment fee %u below %"PRIu64" x %u%%",
 			       o->initial_fee_rate, feerate,
 			       peer->dstate->config.commitment_fee_min_percent);
-	if (o->initial_fee_rate
-	    > feerate * peer->dstate->config.commitment_fee_max_percent / 100)
+	if (peer->dstate->config.commitment_fee_max_percent != 0
+	    && (o->initial_fee_rate
+		> feerate * peer->dstate->config.commitment_fee_max_percent/100))
 		return pkt_err(peer, "Commitment fee %u above %"PRIu64" x %u%%",
 			       o->initial_fee_rate, feerate,
 			       peer->dstate->config.commitment_fee_max_percent);
