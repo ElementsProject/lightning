@@ -233,6 +233,9 @@ static void check_config(struct lightningd_state *dstate)
 			    "Warning: forever-confirms of %u is less than 100!",
 			    dstate->config.forever_confirms);
 
+	if (dstate->config.anchor_confirms == 0)
+		fatal("anchor-confirms must be greater than zero");
+		
 	/* BOLT #2:
 	 *
 	 * a node MUST estimate the deadline for successful redemption
