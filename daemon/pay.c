@@ -285,7 +285,7 @@ static void json_getroute(struct command *cmd,
 const struct json_command getroute_command = {
 	"getroute",
 	json_getroute,
-	"Return route for {msatoshi} to {id}",
+	"Return route to {id} for {msatoshi}, using {riskfactor}",
 	"Returns a {route} array of {id} {msatoshi} {delay}: msatoshi and delay (in blocks) is cumulative."
 };
 
