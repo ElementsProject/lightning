@@ -188,8 +188,9 @@ $(PROGRAMS): CFLAGS+=-I.
 
 default: $(PROGRAMS) $(MANPAGES) daemon-all
 
+# Git doesn't maintain timestamps, so we only regen if git says we should.
 $(MANPAGES): doc/%: doc/%.txt
-	a2x --format=manpage $<
+	if [ "`git log $@ | head -n1`" != "`git log $< | head -n1`" ] || [ "`git diff $<`" != "" ]; then a2x --format=manpage $<; else touch $@; fi
 
 # Everything depends on the CCAN headers.
 $(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
