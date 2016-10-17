@@ -401,7 +401,9 @@ struct onionpacket *create_onionpacket(
 
 	if (MESSAGE_SIZE > messagelen) {
 		memset(&packet->hoppayloads, 0, TOTAL_HOP_PAYLOAD_SIZE);
+#if MESSAGE_SIZE != 0  /* Suppress GCC warning about 0-length memset */
 		memset(&packet->payload, 0xFF, MESSAGE_SIZE);
+#endif
 		memcpy(&packet->payload, message, messagelen);
 		packet->payload[messagelen] = 0x7f;
 	}
