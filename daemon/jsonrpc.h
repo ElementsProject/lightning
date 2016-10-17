@@ -60,6 +60,7 @@ void setup_jsonrpc(struct lightningd_state *dstate, const char *rpc_filename);
 extern const struct json_command newaddr_command;
 extern const struct json_command connect_command;
 extern const struct json_command close_command;
+extern const struct json_command getchannels_command;
 extern const struct json_command getpeers_command;
 
 /* Invoice management. */
