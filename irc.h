@@ -53,8 +53,10 @@ struct ircstate {
 	struct timerel reconnect_timeout;
 };
 
-/* Callback to register for incoming messages */
+/* Callbacks to register for incoming messages, events and raw commands */
 extern void (*irc_privmsg_cb)(struct ircstate *, const struct privmsg *);
+extern void (*irc_command_cb)(struct ircstate *, const struct irccommand *);
+extern void (*irc_connect_cb)(struct ircstate *);
 extern void (*irc_disconnect_cb)(struct ircstate *);
 
 /* Send messages to IRC */

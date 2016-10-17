@@ -133,5 +133,8 @@ struct lightningd_state {
 
 	/* Re-exec hack for testing. */
 	char **reexec;
+
+	/* IP/hostname to be announced for incoming connections */
+	char *external_ip;
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */

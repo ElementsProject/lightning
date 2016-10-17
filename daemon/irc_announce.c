@@ -13,12 +13,20 @@
 #include <ccan/list/list.h>
 #include <ccan/str/hex/hex.h>
 
-static bool announce_channel(const tal_t *ctx, struct ircstate *state, struct peer *p)
+/* Sign a privmsg by prepending the signature to the message */
+static void sign_privmsg(struct ircstate *state, struct privmsg *msg)
 {
-	char txid[65];
 	int siglen;
 	u8 der[72];
 	struct signature sig;
+	privkey_sign(state->dstate, msg->msg, strlen(msg->msg), &sig);
+	siglen = signature_to_der(state->dstate->secpctx, der, &sig);
+	msg->msg = tal_fmt(msg, "%s %s", tal_hexstr(msg, der, siglen), msg->msg);
+}
+
+static bool announce_channel(const tal_t *ctx, struct ircstate *state, struct peer *p)
+{
+	char txid[65];
 	struct privmsg *msg = talz(ctx, struct privmsg);
 	struct txlocator *loc = locate_tx(ctx, state->dstate, &p->anchor.txid);
 
@@ -38,19 +46,44 @@ static bool announce_channel(const tal_t *ctx, struct ircstate *state, struct pe
 		state->dstate->config.fee_per_satoshi,
 		p->remote.locktime.locktime
 		);
-
-	privkey_sign(state->dstate, msg->msg, strlen(msg->msg), &sig);
-	siglen = signature_to_der(state->dstate->secpctx, der, &sig);
-	msg->msg = tal_fmt(msg, "%s %s", tal_hexstr(ctx, der, siglen), msg->msg);
-
+	sign_privmsg(state, msg);
 	irc_send_msg(state, msg);
 	return true;
 }
 
-static void announce_channels(struct ircstate *state)
+/* Send an announcement for this node to the channel, including its
+ * hostname, port and ID */
+static void announce_node(const tal_t *ctx, struct ircstate *state)
 {
+	char *hostname = state->dstate->external_ip;
+	int port = state->dstate->portnum;
+	struct privmsg *msg = talz(ctx, struct privmsg);
+
+	if (hostname == NULL) {
+		//FIXME: log that we don't know our IP yet.
+		return;
+	}
+
+	msg->channel = "#lightning-nodes";
+	msg->msg = tal_fmt(
+		msg, "NODE %s %s %d",
+		pubkey_to_hexstr(msg, state->dstate->secpctx, &state->dstate->id),
+		hostname,
+		port
+		);
+
+	sign_privmsg(state, msg);
+	irc_send_msg(state, msg);
+}
+
+/* Announce the node's contact information and all of its channels */
+static void announce(struct ircstate *state)
+{
+
 	tal_t *ctx = tal(state, tal_t);
 	struct peer *p;
+
+	announce_node(ctx, state);
 
 	list_for_each(&state->dstate->peers, p, list) {
 
@@ -60,7 +93,7 @@ static void announce_channels(struct ircstate *state)
 	}
 	tal_free(ctx);
 
-	new_reltimer(state->dstate, state, time_from_sec(60), announce_channels, state);
+	new_reltimer(state->dstate, state, time_from_sec(60), announce, state);
 }
 
 /* Reconnect to IRC server upon disconnection. */
@@ -69,42 +102,41 @@ static void handle_irc_disconnect(struct ircstate *state)
 	new_reltimer(state->dstate, state, state->reconnect_timeout, irc_connect, state);
 }
 
-/*
- * Handle an incoming message by checking if it is a channel
- * announcement, parse it and add the channel to the topology if yes.
- *
- * The format for a valid announcement is:
- * <sig> CHAN <pk1> <pk2> <anchor txid> <block height> <tx position> <base_fee>
- * <proportional_fee> <locktime>
- */
-static void handle_irc_privmsg(struct ircstate *istate, const struct privmsg *msg)
+/* Verify a signed privmsg */
+static bool verify_signed_privmsg(
+	struct ircstate *istate,
+	const struct pubkey *pk,
+	const struct privmsg *msg)
 {
-	int blkheight;
-	char **splits = tal_strsplit(msg, msg->msg + 1, " ", STR_NO_EMPTY);
-
-	if (tal_count(splits) != 11 || !streq(splits[1], "CHAN"))
-		return;
-
-	int siglen = hex_data_size(strlen(splits[0]));
-	u8 *der = tal_hexdata(msg, splits[0], strlen(splits[0]));
-	if (der == NULL)
-		return;
-
 	struct signature sig;
 	struct sha256_double hash;
-	char *content = strchr(msg->msg, ' ') + 1;
+	const char *m = msg->msg + 1;
+	int siglen = strchr(m, ' ') - m;
+	const char *content = m + siglen + 1;
+	u8 *der = tal_hexdata(msg, m, siglen);
+
+	siglen = hex_data_size(siglen);
+	if (der == NULL)
+		return false;
+
 	if (!signature_from_der(istate->dstate->secpctx, der, siglen, &sig))
-		return;
-
+		return false;
 	sha256_double(&hash, content, strlen(content));
-	splits++;
+	return check_signed_hash(istate->dstate->secpctx, &hash, &sig, pk);
+}
 
+static void handle_channel_announcement(
+	struct ircstate *istate,
+	const struct privmsg *msg,
+	char **splits)
+{
 	struct pubkey *pk1 = talz(msg, struct pubkey);
 	struct pubkey *pk2 = talz(msg, struct pubkey);
 	struct sha256_double *txid = talz(msg, struct sha256_double);
 	int index;
-
 	bool ok = true;
+	int blkheight;
+
 	ok &= pubkey_from_hexstr(istate->dstate->secpctx, splits[1], strlen(splits[1]), pk1);
 	ok &= pubkey_from_hexstr(istate->dstate->secpctx, splits[2], strlen(splits[2]), pk2);
 	ok &= bitcoin_txid_from_hex(splits[3], strlen(splits[3]), txid);
@@ -115,7 +147,7 @@ static void handle_irc_privmsg(struct ircstate *istate, const struct privmsg *ms
 		return;
 	}
 
-	if (!check_signed_hash(istate->dstate->secpctx, &hash, &sig, pk1)) {
+	if (!verify_signed_privmsg(istate, pk1, msg)) {
 		log_debug(istate->log,
 			  "Ignoring announcement from %s, signature check failed.",
 			  splits[1]);
@@ -131,11 +163,80 @@ static void handle_irc_privmsg(struct ircstate *istate, const struct privmsg *ms
 		       atoi(splits[7]), atoi(splits[8]), 6);
 }
 
+static void handle_node_announcement(
+	struct ircstate *istate,
+	const struct privmsg *msg,
+	char **splits)
+{
+	struct pubkey *pk = talz(msg, struct pubkey);
+	char *hostname = tal_strdup(msg, splits[2]);
+	int port = atoi(splits[3]);
+
+	if (!pubkey_from_hexstr(istate->dstate->secpctx, splits[1], strlen(splits[1]), pk) || port < 1)
+		return;
+
+	if (!verify_signed_privmsg(istate, pk, msg)) {
+		log_debug(istate->log, "Ignoring node announcement from %s, signature check failed.",
+			  splits[1]);
+		return;
+	}
+
+	add_node(istate->dstate, pk, hostname, port);
+}
+
+/*
+ * Handle an incoming message by checking if it is a channel
+ * announcement, parse it and add the channel to the topology if yes.
+ *
+ * The format for a valid announcement is:
+ * <sig> CHAN <pk1> <pk2> <anchor txid> <block height> <tx position> <base_fee>
+ * <proportional_fee> <locktime>
+ */
+static void handle_irc_privmsg(struct ircstate *istate, const struct privmsg *msg)
+{
+	char **splits = tal_strsplit(msg, msg->msg + 1, " ", STR_NO_EMPTY);
+	int splitcount = tal_count(splits) - 1;
+
+	if (splitcount < 2)
+		return;
+
+	char *type = splits[1];
+
+	if (splitcount == 10 && streq(type, "CHAN"))
+		handle_channel_announcement(istate, msg, splits + 1);
+	else if (splitcount == 5 && streq(type, "NODE"))
+		handle_node_announcement(istate, msg, splits + 1);
+}
+
+static void handle_irc_command(struct ircstate *istate, const struct irccommand *cmd)
+{
+	struct lightningd_state *dstate = istate->dstate;
+	char **params = tal_strsplit(cmd, cmd->params, " ", STR_NO_EMPTY);
+	int numparams = tal_count(params) - 1;
+
+	if (streq(cmd->command, "378")) {
+		dstate->external_ip = tal_strdup(
+			istate->dstate, params[numparams - 1]);
+
+		// Add our node to the node_map for completeness
+		add_node(istate->dstate, &dstate->id,
+			 dstate->external_ip, dstate->portnum);
+	}
+}
+
+static void handle_irc_connected(struct ircstate *istate)
+{
+	irc_send(istate, "JOIN", "#lightning-nodes");
+	irc_send(istate, "WHOIS", "%s", istate->nick);
+}
+
 void setup_irc_connection(struct lightningd_state *dstate)
 {
 	// Register callback
 	irc_privmsg_cb = *handle_irc_privmsg;
+	irc_connect_cb = *handle_irc_connected;
 	irc_disconnect_cb = *handle_irc_disconnect;
+	irc_command_cb = *handle_irc_command;
 
 	struct ircstate *state = talz(dstate, struct ircstate);
 	state->dstate = dstate;
@@ -151,5 +252,5 @@ void setup_irc_connection(struct lightningd_state *dstate)
 		pubkey_to_hexstr(state, dstate->secpctx, &dstate->id) + 1);
 
 	irc_connect(state);
-	announce_channels(state);
+	announce(state);
 }

@@ -3,6 +3,8 @@
 #include "irc.h"
 
 void (*irc_privmsg_cb)(struct ircstate *, const struct privmsg *) = NULL;
+void (*irc_command_cb)(struct ircstate *, const struct irccommand *) = NULL;
+void (*irc_connect_cb)(struct ircstate *) = NULL;
 void (*irc_disconnect_cb)(struct ircstate *) = NULL;
 
 static struct io_plan *irc_connected(struct io_conn *conn, struct lightningd_state *dstate, struct ircstate *state);
@@ -63,7 +65,7 @@ static struct io_plan *irc_write_loop(struct io_conn *conn, struct ircstate *sta
 		       );
 }
 
-/* 
+/*
  * Called by the read loop to handle individual lines. This splits the
  * line into a struct irccommand and passes it on to the specific
  * handlers for the irccommand type. It silently drops any irccommand
@@ -94,10 +96,14 @@ static void handle_irc_command(struct ircstate *state, const char *line)
 		pm->msg = tal_strjoin(m, splits + 2, " ", STR_NO_TRAIL);
 		irc_privmsg_cb(state, pm);
 	}
+
+	if (irc_command_cb != NULL)
+		irc_command_cb(state, m);
+
 	tal_free(m);
 }
 
-/* 
+/*
  * Read incoming data and split it along the newline boundaries. Takes
  * care of buffering incomplete lines and passes the lines to the
  * handle_irc_command handler.
@@ -168,7 +174,9 @@ static struct io_plan *irc_connected(struct io_conn *conn, struct lightningd_sta
 	state->connected = true;
 	irc_send(state, "USER", "%s 0 * :A lightning node", state->nick);
 	irc_send(state, "NICK", "%s", state->nick);
-	irc_send(state, "JOIN", "#lightning-nodes");
+
+	if (irc_connect_cb != NULL)
+		irc_connect_cb(state);
 
 	return io_duplex(conn,
 			 io_read_partial(conn,
