@@ -13,7 +13,6 @@
 #include "log.h"
 #include "names.h"
 #include "netaddr.h"
-#include "onion.h"
 #include "output_to_htlc.h"
 #include "packets.h"
 #include "pay.h"
@@ -24,6 +23,7 @@
 #include "remove_dust.h"
 #include "routing.h"
 #include "secrets.h"
+#include "sphinx.h"
 #include "state.h"
 #include "timeout.h"
 #include "utils.h"
@@ -46,6 +46,7 @@
 #include <inttypes.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <sodium/randombytes.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -194,6 +195,19 @@ struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id)
 
 	list_for_each(&dstate->peers, peer, list) {
 		if (peer->id && pubkey_eq(peer->id, id))
+			return peer;
+	}
+	return NULL;
+}
+
+struct peer *find_peer_by_pkhash(struct lightningd_state *dstate, const u8 *pkhash)
+{
+	struct peer *peer;
+	u8 addr[20];
+
+	list_for_each(&dstate->peers, peer, list) {
+		pubkey_hash160(dstate->secpctx, addr, peer->id);
+		if (memcmp(addr, pkhash, sizeof(addr)) == 0)
 			return peer;
 	}
 	return NULL;
@@ -438,11 +452,10 @@ static void set_htlc_fail(struct peer *peer,
 static void route_htlc_onwards(struct peer *peer,
 			       struct htlc *htlc,
 			       u64 msatoshi,
-			       const BitcoinPubkey *pb_id,
+			       const u8 *pb_id,
 			       const u8 *rest_of_route,
 			       const struct peer *only_dest)
 {
-	struct pubkey id;
 	struct peer *next;
 	struct htlc *newhtlc;
 	enum fail_error error_code;
@@ -454,19 +467,10 @@ static void route_htlc_onwards(struct peer *peer,
 		log_add(peer->log, " (id %"PRIu64")", htlc->id);
 	}
 	
-	if (!proto_to_pubkey(peer->dstate->secpctx, pb_id, &id)) {
-		log_unusual(peer->log,
-			    "Malformed pubkey for HTLC %"PRIu64, htlc->id);
-		command_htlc_set_fail(peer, htlc, BAD_REQUEST_400,
-				      "Malformed pubkey");
-		return;
-	}
-
-	next = find_peer(peer->dstate, &id);
+	next = find_peer_by_pkhash(peer->dstate, pb_id);
 	if (!next || !next->nc) {
 		log_unusual(peer->log, "Can't route HTLC %"PRIu64": no %speer ",
 			    htlc->id, next ? "ready " : "");
-		log_add_struct(peer->log, "%s", struct pubkey, &id);
 		if (!peer->dstate->dev_never_routefail)
 			command_htlc_set_fail(peer, htlc, NOT_FOUND_404,
 					      "Unknown peer");
@@ -505,9 +509,10 @@ static void route_htlc_onwards(struct peer *peer,
 static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 			     struct peer *only_dest)
 {
-	RouteStep *step;
-	const u8 *rest_of_route;
 	struct invoice *invoice;
+	struct privkey pk;
+	struct onionpacket *packet;
+	struct route_step *step = NULL;
 
 	if (abs_locktime_is_seconds(&htlc->expiry)) {
 		log_unusual(peer->log, "HTLC %"PRIu64" is in seconds", htlc->id);
@@ -536,8 +541,13 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 		return;
 	}
 
-	step = onion_unwrap(peer, htlc->routing, tal_count(htlc->routing),
-			    &rest_of_route);
+	//FIXME: dirty trick to retrieve unexported state
+	memcpy(&pk, peer->dstate->secret, sizeof(pk));
+	packet = parse_onionpacket(peer, peer->dstate->secpctx,
+				   htlc->routing, tal_count(htlc->routing));
+	if (packet)
+		step = process_onionpacket(peer, peer->dstate->secpctx, packet, &pk);
+
 	if (!step) {
 		log_unusual(peer->log, "Bad onion, failing HTLC %"PRIu64,
 			    htlc->id);
@@ -546,8 +556,8 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 		return;
 	}
 
-	switch (step->next_case) {
-	case ROUTE_STEP__NEXT_END:
+	switch (step->nextcase) {
+	case ONION_END:
 		if (only_dest)
 			return;
 		invoice = find_unpaid(peer->dstate, &htlc->rhash);
@@ -584,19 +594,20 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 		command_htlc_fulfill(peer, htlc);
 		goto free_rest;
 
-	case ROUTE_STEP__NEXT_BITCOIN:
-		route_htlc_onwards(peer, htlc, step->amount, step->bitcoin,
-				   rest_of_route, only_dest);
+	case ONION_FORWARD:
+		printf("FORWARDING %lu\n", step->hoppayload->amount);
+		route_htlc_onwards(peer, htlc, step->hoppayload->amount, step->next->nexthop,
+				   serialize_onionpacket(step, peer->dstate->secpctx, step->next), only_dest);
 		goto free_rest;
 	default:
-		log_info(peer->log, "Unknown step type %u", step->next_case);
+		log_info(peer->log, "Unknown step type %u", step->nextcase);
 		command_htlc_set_fail(peer, htlc, VERSION_NOT_SUPPORTED_505,
 				      "unknown step type");
 		goto free_rest;
 	}
 
 free_rest:
-	tal_free(rest_of_route);
+	tal_free(step);
 }
 
 static void our_htlc_failed(struct peer *peer, struct htlc *htlc)
@@ -4420,6 +4431,11 @@ static void json_newhtlc(struct command *cmd,
 	struct htlc *htlc;
 	const char *err;
 	enum fail_error error_code;
+	struct hoppayload *hoppayloads;
+	u8 sessionkey[32];
+	struct onionpacket *packet;
+	u8 *onion;
+	struct pubkey *path = tal_arrz(cmd, struct pubkey, 1);
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,
@@ -4469,10 +4485,20 @@ static void json_newhtlc(struct command *cmd,
 		return;
 	}
 
+	tal_arr(cmd, struct pubkey, 1);
+	hoppayloads = tal_arrz(cmd, struct hoppayload, 1);
+	memcpy(&path[0], peer->id, sizeof(struct pubkey));
+	randombytes_buf(&sessionkey, sizeof(sessionkey));
+	packet = create_onionpacket(
+		cmd,
+		cmd->dstate->secpctx,
+		path,
+		hoppayloads, sessionkey, (u8*)"", 0);
+	onion = serialize_onionpacket(cmd, cmd->dstate->secpctx, packet);
+
 	log_debug(peer->log, "JSON command to add new HTLC");
 	err = command_htlc_add(peer, msatoshi, expiry, &rhash, NULL,
-			       onion_create(cmd, cmd->dstate->secpctx,
-					    NULL, NULL, 0),
+			       onion,
 			       &error_code, &htlc);
 	if (err) {
 		command_fail(cmd, "could not add htlc: %u:%s", error_code, err);

@@ -23,9 +23,8 @@ BITCOIN_FEATURES :=				\
 FEATURES := $(BITCOIN_FEATURES)
 
 TEST_PROGRAMS :=				\
-	test/onion_key				\
 	test/test_protocol			\
-	test/test_onion
+	test/test_sphinx
 
 BITCOIN_SRC :=					\
 	bitcoin/base58.c			\
@@ -38,6 +37,7 @@ BITCOIN_SRC :=					\
 	bitcoin/signature.c			\
 	bitcoin/tx.c				\
 	bitcoin/varint.c
+
 BITCOIN_OBJS := $(BITCOIN_SRC:.c=.o)
 
 CORE_SRC :=					\
@@ -198,18 +198,6 @@ $(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) c
 # Except for CCAN, everything depends on bitcoin/ and core headers.
 $(HELPER_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS)
 
-test-onion: test/test_onion test/onion_key
-	set -e; TMPF=/tmp/onion.$$$$; test/test_onion --generate $$(test/onion_key --pub `seq 20`) > $$TMPF; for k in `seq 20`; do test/test_onion --decode $$(test/onion_key --priv $$k) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
-
-test-onion2: test/test_onion test/onion_key
-	set -e; TMPF=/tmp/onion.$$$$; python test/test_onion.py generate $$(test/onion_key --pub `seq 20`) > $$TMPF; for k in `seq 20`; do test/test_onion --decode $$(test/onion_key --priv $$k) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
-
-test-onion3: test/test_onion test/onion_key
-	set -e; TMPF=/tmp/onion.$$$$; test/test_onion --generate $$(test/onion_key --pub `seq 20`) > $$TMPF; for k in `seq 20`; do python test/test_onion.py decode $$(test/onion_key --priv $$k) $$(test/onion_key --pub $$k) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
-
-test-onion4: test/test_onion test/onion_key
-	set -e; TMPF=/tmp/onion.$$$$; python test/test_onion.py generate $$(test/onion_key --pub `seq 20`) > $$TMPF; for k in `seq 20`; do python test/test_onion.py decode $$(test/onion_key --priv $$k) $$(test/onion_key --pub $$k) < $$TMPF > $$TMPF.unwrap; mv $$TMPF.unwrap $$TMPF; done; rm -f $$TMPF
-
 test-protocol: test/test_protocol
 	set -e; TMP=`mktemp`; [ -n "$(NO_VALGRIND)" ] || PREFIX="valgrind -q --error-exitcode=7"; for f in test/commits/*.script; do if ! $$PREFIX test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
 
@@ -218,7 +206,7 @@ doc/protocol-%.svg: test/test_protocol
 
 protocol-diagrams: $(patsubst %.script, doc/protocol-%.svg, $(notdir $(wildcard test/commits/*.script)))
 
-check: test-onion test-protocol bitcoin-tests
+check: test-protocol bitcoin-tests
 
 include bitcoin/Makefile
 
