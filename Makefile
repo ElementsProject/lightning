@@ -1,5 +1,5 @@
 #! /usr/bin/make
-NAME=Wright's Cryptographic Proof
+NAME=Bitcoin Savings & Trust Daily Interest
 
 # Needs to have oneof support: Ubuntu vivid's is too old :(
 PROTOCC:=protoc-c
