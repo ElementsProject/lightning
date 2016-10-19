@@ -559,22 +559,23 @@ if [ -n "$DIFFERENT_FEES" ]; then
     check_status_single lcli1 $(($AMOUNT - $HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) "" $(($HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) ""
     check_status_single lcli2 $(($HTLC_AMOUNT - $NO_HTLCS_FEE2 / 2)) $(($NO_HTLCS_FEE2 / 2)) "" $(($AMOUNT - $HTLC_AMOUNT - $NO_HTLCS_FEE2 / 2)) $(($NO_HTLCS_FEE2 / 2)) ""
 
-    # Change fee rate on node2 to same as node1.
-    lcli2 dev-feerate 40000
-    $CLI generate 1
-    [ ! -n "$MANUALCOMMIT" ] || lcli2 dev-commit $ID1
-    [ ! -n "$MANUALCOMMIT" ] || lcli1 dev-commit $ID2
+    # FIXME: reactivate feechanges!
+    # # Change fee rate on node2 to same as node1.
+    # lcli2 dev-feerate 40000
+    # $CLI generate 1
+    # [ ! -n "$MANUALCOMMIT" ] || lcli2 dev-commit $ID1
+    # [ ! -n "$MANUALCOMMIT" ] || lcli1 dev-commit $ID2
 
-    check_status $(($AMOUNT - $HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) "" $(($HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) "" 
+    # check_status $(($AMOUNT - $HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) "" $(($HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) "" 
 
-    # Change back.
-    lcli2 dev-feerate 50000
-    $CLI generate 1
-    [ ! -n "$MANUALCOMMIT" ] || lcli2 dev-commit $ID1
-    [ ! -n "$MANUALCOMMIT" ] || lcli1 dev-commit $ID2
+    # # Change back.
+    # lcli2 dev-feerate 50000
+    # $CLI generate 1
+    # [ ! -n "$MANUALCOMMIT" ] || lcli2 dev-commit $ID1
+    # [ ! -n "$MANUALCOMMIT" ] || lcli1 dev-commit $ID2
 
-    check_status_single lcli1 $(($AMOUNT - $HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) "" $(($HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) ""
-    check_status_single lcli2 $(($HTLC_AMOUNT - $NO_HTLCS_FEE2 / 2)) $(($NO_HTLCS_FEE2 / 2)) "" $(($AMOUNT - $HTLC_AMOUNT - $NO_HTLCS_FEE2 / 2)) $(($NO_HTLCS_FEE2 / 2)) ""
+    # check_status_single lcli1 $(($AMOUNT - $HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) "" $(($HTLC_AMOUNT - $NO_HTLCS_FEE / 2)) $(($NO_HTLCS_FEE / 2)) ""
+    # check_status_single lcli2 $(($HTLC_AMOUNT - $NO_HTLCS_FEE2 / 2)) $(($NO_HTLCS_FEE2 / 2)) "" $(($AMOUNT - $HTLC_AMOUNT - $NO_HTLCS_FEE2 / 2)) $(($NO_HTLCS_FEE2 / 2)) ""
 
     lcli1 close $ID2
     # Make sure they notice it.

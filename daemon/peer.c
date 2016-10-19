@@ -1898,15 +1898,6 @@ static void retransmit_updates(struct peer *peer)
 		}
 	}
 
-	/* This feechange may not be appropriate any more, but that's no
-	 * different from when we sent it last time.  And this avoids us
-	 * creating different commit txids on retransmission */
-	if (peer->feechanges[SENT_FEECHANGE_COMMIT]) {
-		u64 feerate = peer->feechanges[SENT_FEECHANGE_COMMIT]->fee_rate;
-		log_debug(peer->log,
-			  "Retransmitting feechange %"PRIu64, feerate);
-		queue_pkt_feechange(peer, feerate);
-	}
 	assert(!peer->feechanges[SENT_FEECHANGE]);
 }
 
@@ -2086,8 +2077,8 @@ static bool want_feechange(const struct peer *peer)
 	log_debug(peer->log, "Current fee_rate: %"PRIu64" want %"PRIu64,
 		  peer->local.staging_cstate->fee_rate,
 		  desired_commit_feerate(peer->dstate));
-	return peer->local.staging_cstate->fee_rate
-		!= desired_commit_feerate(peer->dstate);
+	/* FIXME: Send fee changes when we want it */
+	return false;
 }
 
 static void peer_has_connected(struct peer *peer)
@@ -2262,41 +2253,6 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 	}
 }
 
-static void maybe_propose_new_feerate(struct peer *peer)
-{
-	u64 rate, max_rate;
-
-	rate = desired_commit_feerate(peer->dstate);
-	max_rate = approx_max_feerate(peer->remote.staging_cstate, LOCAL);
-	assert(can_afford_feerate(peer->remote.staging_cstate, max_rate, LOCAL));
-
-	/* BOLT #2:
-	 *
-	 * The sending node MUST NOT send a `fee_rate` which it could not
-	 * afford (see "Fee Calculation), were it applied to the receiving
-	 * node's commitment transaction.  */
-	if (rate > max_rate) {
-		log_debug(peer->log,
-			  "Cannot afford feerate %"PRIi64" using %"PRIi64,
-			  rate, max_rate);
-		rate = max_rate;
-
-		/* If this is less than we have no, don't change! */
-		if (rate < peer->local.staging_cstate->fee_rate) {
-			log_debug(peer->log, "Leaving old rate in place");
-			return;
-		}
-	}
-
-	/* No fee rate change?  Fine. */
-	if (peer->local.staging_cstate->fee_rate == rate)
-		return;
-
-	set_feechange(peer, rate, SENT_FEECHANGE);
-	queue_pkt_feechange(peer, rate);
-	peer->local.staging_cstate->fee_rate = rate;
-}
-
 static void do_commit(struct peer *peer, struct command *jsoncmd)
 {
 	struct commit_info *ci;
@@ -2312,9 +2268,6 @@ static void do_commit(struct peer *peer, struct command *jsoncmd)
 		{ SENT_FEECHANGE_REVOCATION, SENT_FEECHANGE_ACK_COMMIT}
 	};
 	bool to_us_only;
-
-	/* If we want to change the payrate, do it now. */
-	maybe_propose_new_feerate(peer);
 
 	/* We can have changes we suggested, or changes they suggested. */
 	if (!peer_uncommitted_changes(peer)) {
