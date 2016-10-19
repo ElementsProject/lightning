@@ -1,0 +1,18 @@
+#! /bin/sh -e
+# A terrible script to fund a channel.
+
+if [ $# -ne 3 ]; then
+    echo "Usage: <network-address> <portnum> <amount>" >&2
+    exit 1
+fi
+HOST="$1"
+PORT="$2"
+AMOUNT="$3"
+
+NEWADDR=`daemon/lightning-cli newaddr | sed -n 's/{ "address" : "\(.*\)" }/\1/p'`
+TXID=`bitcoin-cli -testnet sendtoaddress $NEWADDR $AMOUNT`
+RAWTX=`bitcoin-cli -testnet getrawtransaction $TXID`
+
+echo "Connecting to $HOST port $PORT with $AMOUNT (minus fee) in address $NEWADDR tx $TXID"
+echo "(Note: this will block until we get sufficient confirmations!)"
+exec daemon/lightning-cli connect "$HOST" "$PORT" $RAWTX
