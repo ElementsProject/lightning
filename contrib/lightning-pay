@@ -1,0 +1,32 @@
+#! /bin/sh -e
+# A terrible script to make a payment.
+
+if [ $# -ne 3 ]; then
+    echo "Usage: <destination-id> <amount-in-milli-satoshi> <payment-hash>" >&2
+    exit 1
+fi
+DEST="$1"
+AMOUNT="$2"
+PHASH="$3"
+
+if ROUTE=`daemon/lightning-cli getroute $DEST $AMOUNT 1`; then
+    # Strip down to raw array.
+    ROUTE=`echo $ROUTE | sed 's/^{ "route" : \(.*\) }$/\1/'`
+    # Get first amount.
+    PAID=`echo $ROUTE | tr , '\012' | sed -n 's/.*msatoshi[^0-9]*\([0-9]*\).*/\1/p' | head -n1`
+    echo -n "Paying fee $(($PAID - $AMOUNT)) on $AMOUNT ("`echo "scale=3; ($PAID - $AMOUNT) * 100 / $AMOUNT" | bc`"%).  Send [Y/n]? "
+    read REPLY
+    case $REPLY in
+	""|y*|Y)
+	    daemon/lightning-cli sendpay "$ROUTE" "$PHASH"
+	    exit
+	    ;;
+	*)
+	    echo Not sending.
+	    exit 1
+	    ;;
+    esac
+else
+    echo Routing failed >&2
+    exit 1
+fi
