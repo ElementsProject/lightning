@@ -17,11 +17,25 @@ JSON-RPC interface is documented in the following manual pages:
 * [getroute](doc/lightning-getroute.7.txt)
 * [sendpay](doc/lightning-sendpay.7.txt)
 
-So far, we have [inter-node encryption](https://github.com/rustyrussell/lightning-rfc/blob/master/bolts/01-encryption.md) and [transaction negotiation](https://github.com/rustyrussell/lightning-rfc/blob/master/bolts/02-wire-protocol.md).
+Steps:
 
-Routing between non-adjacent nodes is currently done manually using the 'dev-addroute' command; later on daemons will
-advertise their IP addresses, and publish routes and fees.  These details are currently being
-hashed out on the [mailing list](https://lists.linuxfoundation.org/mailman/listinfo/lightning-dev) and the IRC channel [#lightning-dev](https://botbot.me/freenode/lightning-dev/) on Freenode.
+1.  [Install and compile](INSTALL.md) the requirements.
+2.  Make sure bitcoind is running in testnet mode, and has the latest
+    blocks.
+3.  Get some test bitcoins, such as from [TPs' testnet faucet](http://tpfaucet.appspot.com/).
+4.  Run `daemon/lightningd`.
+5.  Run `daemon/lightning-cli getinfo` to check it's working.
+6.  Find a node using `daemon/lightning-cli getnodes` (this will populate
+    over time).
+7.  Create a new connection to the node using `contrib/lightning-open-channel
+    ADDRESS PORT AMOUNT` where AMOUNT is in BTC (.04294967 is the maximum
+    possible).  If successful, this will return only once a block has been
+    mined with the funding transaction in it.
+8.  You can create more channels if you wish.
+9.  You can accept payment using `daemon/lightning-cli invoice
+    MILLISATOSHI LABEL`; it will give you a payment hash to give to the
+    payer.
+10. You can send payments using `contrib/lightning-pay DEST-ID MILLISATOSHI PAYMENT-HASH`.
 
 Final note: This is very much a testbed and work in progress; expect
 All The Things to change, all the time.
