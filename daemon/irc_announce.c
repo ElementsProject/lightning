@@ -93,12 +93,18 @@ static void announce(struct ircstate *state)
 	}
 	tal_free(ctx);
 
-	new_reltimer(state->dstate, state, time_from_sec(60), announce, state);
+	/* By default we announce every 6 hours, otherwise when someone joins */
+	log_debug(state->log, "Setting long announce time: 6 hours");
+	state->dstate->announce = new_reltimer(state->dstate, state,
+					       time_from_sec(3600 * 6),
+					       announce, state);
 }
 
 /* Reconnect to IRC server upon disconnection. */
 static void handle_irc_disconnect(struct ircstate *state)
 {
+	/* Stop announcing. */
+	state->dstate->announce = tal_free(state->dstate->announce);
 	new_reltimer(state->dstate, state, state->reconnect_timeout, irc_connect, state);
 }
 
@@ -221,6 +227,19 @@ static void handle_irc_command(struct ircstate *istate, const struct irccommand 
 		// Add our node to the node_map for completeness
 		add_node(istate->dstate, &dstate->id,
 			 dstate->external_ip, dstate->portnum);
+	} else if (streq(cmd->command, "JOIN")) {
+		unsigned int delay;
+
+		/* Throw away any existing announce timer, and announce within
+		 * 60 seconds. */
+		dstate->announce = tal_free(dstate->announce);
+
+		delay = pseudorand(60000000);
+		log_debug(istate->log, "Setting new announce time %u sec",
+			  delay / 1000000);
+		dstate->announce = new_reltimer(dstate, istate,
+						time_from_usec(delay),
+						announce, istate);
 	}
 }
 
@@ -251,6 +270,6 @@ void setup_irc_connection(struct lightningd_state *dstate)
 		"N%.12s",
 		pubkey_to_hexstr(state, dstate->secpctx, &dstate->id) + 1);
 
+	/* We will see our own JOIN message, which will trigger announce */
 	irc_connect(state);
-	announce(state);
 }

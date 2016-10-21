@@ -339,6 +339,8 @@ static struct lightningd_state *lightningd_state(void)
 	dstate->bitcoin_req_running = false;
 	dstate->nodes = empty_node_map(dstate);
 	dstate->reexec = NULL;
+	dstate->external_ip = NULL;
+	dstate->announce = NULL;
 	return dstate;
 }
 

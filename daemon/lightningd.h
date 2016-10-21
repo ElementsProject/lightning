@@ -136,5 +136,8 @@ struct lightningd_state {
 
 	/* IP/hostname to be announced for incoming connections */
 	char *external_ip;
+
+	/* Announce timer. */
+	struct oneshot *announce;
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */
