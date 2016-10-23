@@ -213,12 +213,10 @@ static void json_listinvoice(struct command *cmd,
 	}
 
 	
-	json_object_start(response, NULL);
 	json_array_start(response, NULL);
 	json_add_invoices(response, &cmd->dstate->paid, buffer, label);
 	json_add_invoices(response, &cmd->dstate->unpaid, buffer, label);
 	json_array_end(response);
-	json_object_end(response);
 	command_success(cmd, response);
 }
 
