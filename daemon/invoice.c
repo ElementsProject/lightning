@@ -186,9 +186,12 @@ static void json_add_invoices(struct json_result *response,
 			      const char *buffer, const jsmntok_t *label)
 {
 	struct invoice *i;
+	char *lbl = NULL;
+	if (label)
+		lbl = tal_strndup(response, &buffer[label->start], label->end - label->start);
 
 	list_for_each(list, i, list) {
-		if (label && !json_tok_streq(buffer, label, i->label))
+		if (lbl && !streq(i->label, lbl))
 			continue;
 		json_object_start(response, NULL);
 		json_add_string(response, "label", i->label);
