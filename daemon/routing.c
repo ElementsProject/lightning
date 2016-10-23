@@ -289,8 +289,13 @@ struct peer *find_route(struct lightningd_state *dstate,
 	 * at the end, and need to derive how much we need to send. */
 	dst = get_node(dstate, &dstate->id);
 	src = get_node(dstate, to);
+
 	if (!src) {
 		log_info_struct(dstate->base_log, "find_route: cannot find %s",
+				struct pubkey, to);
+		return NULL;
+	} else if (dst == src) {
+		log_info_struct(dstate->base_log, "find_route: this is %s, refusing to create empty route",
 				struct pubkey, to);
 		return NULL;
 	}
