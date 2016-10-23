@@ -353,12 +353,18 @@ static void json_result(struct json_connection *jcon,
 			const char *id, const char *res, const char *err)
 {
 	struct json_output *out = tal(jcon, struct json_output);
-
-	out->json = tal_fmt(out,
-			    "{ \"result\" : %s,"
-			    " \"error\" : %s,"
-			    " \"id\" : %s }\n",
-			    res, err, id);
+	if (err == NULL)
+		out->json = tal_fmt(out,
+				    "{ \"jsonrpc\": \"2.0\", "
+				    "\"result\" : %s,"
+				    " \"id\" : %s }\n",
+				    res, id);
+	else
+		out->json = tal_fmt(out,
+				    "{ \"jsonrpc\": \"2.0\", "
+				    " \"error\" : %s,"
+				    " \"id\" : %s }\n",
+				    err, id);
 
 	/* Queue for writing, and wake writer (and maybe reader). */
 	list_add_tail(&jcon->output, &out->list);
@@ -386,7 +392,7 @@ void command_success(struct command *cmd, struct json_result *result)
 		return;
 	}
 	assert(jcon->current == cmd);
-	json_result(jcon, cmd->id, json_result_string(result), "null");
+	json_result(jcon, cmd->id, json_result_string(result), NULL);
 	log_debug(jcon->log, "Success");
 	jcon->current = tal_free(cmd);
 }
@@ -418,7 +424,7 @@ void command_fail(struct command *cmd, const char *fmt, ...)
 	quote = tal_fmt(cmd, "\"%s\"", error);
 
 	assert(jcon->current == cmd);
-	json_result(jcon, cmd->id, "null", quote);
+	json_result(jcon, cmd->id, NULL, quote);
 	jcon->current = tal_free(cmd);
 }
 
@@ -426,7 +432,7 @@ static void json_command_malformed(struct json_connection *jcon,
 				   const char *id,
 				   const char *error)
 {
-	return json_result(jcon, id, "null", error);
+	return json_result(jcon, id, NULL, error);
 }
 
 static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])

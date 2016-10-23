@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
 			tal_resize(&resp, tal_count(resp) * 2);
 
 		/* parsing huge outputs is slow: do quick check first. */
-		if (num_opens == num_closes && strstr(resp, "\"result\""))
+		if (num_opens == num_closes)
 			break;
 	}
 	if (i < 0)
@@ -158,13 +158,10 @@ int main(int argc, char *argv[])
 		     "Non-object response '%s'", resp);
 
 	result = json_get_member(resp, toks, "result");
-	if (!result)
-		errx(ERROR_TALKING_TO_LIGHTNINGD,
-		     "Missing 'result' in response '%s'", resp);
 	error = json_get_member(resp, toks, "error");
-	if (!error)
+	if (!error && !result)
 		errx(ERROR_TALKING_TO_LIGHTNINGD,
-		     "Missing 'error' in response '%s'", resp);
+		     "Either 'result' or 'error' must be returned in response '%s'", resp);
 	id = json_get_member(resp, toks, "id");
 	if (!id)
 		errx(ERROR_TALKING_TO_LIGHTNINGD,
@@ -174,7 +171,7 @@ int main(int argc, char *argv[])
 		     "Incorrect 'id' in response: %.*s",
 		     json_tok_len(id), json_tok_contents(resp, id));
 
-	if (json_tok_is_null(resp, error)) {
+	if (!error || json_tok_is_null(resp, error)) {
 		printf("%.*s\n",
 		       json_tok_len(result),
 		       json_tok_contents(resp, result));
