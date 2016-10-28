@@ -65,6 +65,7 @@ struct node *new_node(struct lightningd_state *dstate,
 	n->in = tal_arr(n, struct node_connection *, 0);
 	n->out = tal_arr(n, struct node_connection *, 0);
 	n->port = 0;
+	n->alias = NULL;
 	node_map_add(dstate->nodes, n);
 	tal_add_destructor(n, destroy_node);
 
