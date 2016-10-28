@@ -44,7 +44,7 @@ static bool announce_channel(const tal_t *ctx, struct ircstate *state, struct pe
 		loc->index,
 		state->dstate->config.fee_base,
 		state->dstate->config.fee_per_satoshi,
-		p->remote.locktime.locktime
+		state->dstate->config.min_htlc_expiry
 		);
 	sign_privmsg(state, msg);
 	irc_send_msg(state, msg);
