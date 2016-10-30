@@ -279,19 +279,19 @@ static void destroy_outgoing_tx(struct outgoing_tx *otx)
 void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx)
 {
 	struct outgoing_tx *otx = tal(peer, struct outgoing_tx);
-	char **txs = tal_arr(peer->dstate, char *, 1);
-	u8 *rawtx;
+	char *hextx;
 
 	otx->tx = tal_steal(otx, tx);
+	otx->peer = peer;
 	bitcoin_txid(otx->tx, &otx->txid);
 	list_add_tail(&peer->outgoing_txs, &otx->list);
 	tal_add_destructor(otx, destroy_outgoing_tx);
 
 	log_add_struct(peer->log, " (tx %s)", struct sha256_double, &otx->txid);
 
-	rawtx = linearize_tx(txs, otx->tx);
-	txs[0] = tal_hexstr(txs, rawtx, tal_count(rawtx));
-	bitcoind_sendrawtx(peer->dstate, txs[0], try_broadcast, txs);
+	otx->rawtx = linearize_tx(otx, otx->tx);
+	hextx = tal_hexstr(otx->rawtx, otx->rawtx, tal_count(otx->rawtx));
+	bitcoind_sendrawtx(peer->dstate, hextx, broadcast_tx_complete, otx);
 }
 
 static void free_blocks(struct lightningd_state *dstate, struct block *b)
