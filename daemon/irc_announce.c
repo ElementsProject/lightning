@@ -44,7 +44,7 @@ static bool announce_channel(const tal_t *ctx, struct ircstate *state, struct pe
 		loc->index,
 		state->dstate->config.fee_base,
 		state->dstate->config.fee_per_satoshi,
-		p->remote.locktime.locktime
+		state->dstate->config.min_htlc_expiry
 		);
 	sign_privmsg(state, msg);
 	irc_send_msg(state, msg);
@@ -177,7 +177,6 @@ static void handle_node_announcement(
 	struct pubkey *pk = talz(msg, struct pubkey);
 	char *hostname = tal_strdup(msg, splits[2]);
 	int port = atoi(splits[3]);
-
 	if (!pubkey_from_hexstr(istate->dstate->secpctx, splits[1], strlen(splits[1]), pk) || port < 1)
 		return;
 
@@ -185,9 +184,16 @@ static void handle_node_announcement(
 		log_debug(istate->log, "Ignoring node announcement from %s, signature check failed.",
 			  splits[1]);
 		return;
+	} else if(splits[4] != NULL && strlen(splits[4]) > 64) {
+		log_debug(istate->log, "Ignoring node announcement from %s, alias too long",
+			splits[1]);
 	}
 
-	add_node(istate->dstate, pk, hostname, port);
+	struct node *node = add_node(istate->dstate, pk, hostname, port);
+	if (splits[4] != NULL){
+		tal_free(node->alias);
+		node->alias = tal_hexdata(node, splits[5], strlen(splits[4]));
+	}
 }
 
 /*
@@ -210,7 +216,7 @@ static void handle_irc_privmsg(struct ircstate *istate, const struct privmsg *ms
 
 	if (splitcount == 10 && streq(type, "CHAN"))
 		handle_channel_announcement(istate, msg, splits + 1);
-	else if (splitcount == 5 && streq(type, "NODE"))
+	else if (splitcount >= 5 && streq(type, "NODE"))
 		handle_node_announcement(istate, msg, splits + 1);
 }
 

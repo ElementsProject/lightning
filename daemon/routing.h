@@ -37,6 +37,9 @@ struct node {
 		/* Where that came from. */
 		struct node_connection *prev;
 	} bfg[ROUTING_MAX_HOPS+1];
+
+	/* UTF-8 encoded alias as tal_arr, not zero terminated */
+	u8 *alias;
 };
 
 struct lightningd_state;
