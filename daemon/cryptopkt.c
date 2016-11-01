@@ -188,14 +188,16 @@ static bool decrypt_in_place(void *data, size_t len,
 	return false;
 }
 
-static Pkt *decrypt_body(const tal_t *ctx, struct io_data *iod, struct log *log,
-			 struct crypto_pkt *cpkt, size_t data_len)
+static Pkt *decrypt_body(const tal_t *ctx, struct io_data *iod, struct log *log)
 {
 	struct ProtobufCAllocator prototal;
 	Pkt *ret;
+	size_t data_len = le32_to_cpu(iod->hdr_in.length);
 
-	if (!decrypt_in_place(cpkt->data, data_len,
+	if (!decrypt_in_place(iod->in.cpkt->data, data_len,
 			      &iod->in.nonce, &iod->in.enckey)) {
+		/* Free encrypted packet. */
+		iod->in.cpkt = tal_free(iod->in.cpkt);
 		log_unusual(log, "Body decryption failed");
 		return NULL;
 	}
@@ -205,7 +207,7 @@ static Pkt *decrypt_body(const tal_t *ctx, struct io_data *iod, struct log *log,
 	prototal.free = proto_tal_free;
 	prototal.allocator_data = tal(ctx, char);
 
-	ret = pkt__unpack(&prototal, data_len, cpkt->data);
+	ret = pkt__unpack(&prototal, data_len, iod->in.cpkt->data);
 	if (!ret) {
 		log_unusual(log, "Packet failed to unpack!");
 		tal_free(prototal.allocator_data);
@@ -214,11 +216,15 @@ static Pkt *decrypt_body(const tal_t *ctx, struct io_data *iod, struct log *log,
 		tal_steal(ctx, ret);
 		tal_steal(ret, prototal.allocator_data);
 
-		log_debug(log, "Received packet LEN=%u, type=%s",
-			  le32_to_cpu(iod->hdr_in.length),
+		log_debug(log, "Received packet LEN=%zu, type=%s",
+			  data_len,
 			  ret->pkt_case == PKT__PKT_AUTH ? "PKT_AUTH"
 			  : pkt_name(ret->pkt_case));
 	}
+
+	/* Free encrypted packet. */
+	iod->in.cpkt = tal_free(iod->in.cpkt);
+
 	return ret;
 }
 
@@ -250,8 +256,7 @@ static struct io_plan *recv_body(struct io_conn *conn, struct peer *peer)
 	struct io_data *iod = peer->io_data;
 
 	/* We have full packet. */
-	peer->inpkt = decrypt_body(iod, iod, peer->log, iod->in.cpkt,
-				   le32_to_cpu(iod->hdr_in.length));
+	peer->inpkt = decrypt_body(iod, iod, peer->log);
 	if (!peer->inpkt)
 		return io_close(conn);
 
@@ -426,8 +431,7 @@ static struct io_plan *recv_body_negotiate(struct io_conn *conn,
 	struct pubkey id;
 
 	/* We have full packet. */
-	pkt = decrypt_body(neg, iod, neg->log, iod->in.cpkt,
-			   le32_to_cpu(iod->hdr_in.length));
+	pkt = decrypt_body(neg, iod, neg->log);
 	if (!pkt)
 		return io_close(conn);
 
