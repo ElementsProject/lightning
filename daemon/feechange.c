@@ -135,7 +135,7 @@ void feechange_changestate(struct peer *peer,
 		    || newstate == SENT_FEECHANGE_COMMIT)
 			db_new_feechange(peer, f);
 		else if (newstate == RCVD_FEECHANGE_ACK_REVOCATION
-			 || SENT_FEECHANGE_ACK_REVOCATION)
+			 || newstate == SENT_FEECHANGE_ACK_REVOCATION)
 			db_remove_feechange(peer, f, oldstate);
 		else
 			db_update_feechange_state(peer, f, oldstate);
