@@ -2,6 +2,7 @@
 #include "invoice.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
+#include "utils.h"
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
@@ -130,8 +131,9 @@ static void json_invoice(struct command *cmd,
 	sha256(&invoice->rhash, invoice->r.r, sizeof(invoice->r.r));
 	if (find_unpaid(cmd->dstate, &invoice->rhash)
 	    || find_paid(cmd->dstate, &invoice->rhash)) {
-		command_fail(cmd, "Duplicate r value '%.*s'",
-			     r->end - r->start, buffer + r->start);
+		command_fail(cmd, "Duplicate r value '%s'",
+			     tal_hexstr(cmd, &invoice->rhash,
+					sizeof(invoice->rhash)));
 		return;
 	}
 
