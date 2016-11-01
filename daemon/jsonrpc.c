@@ -33,6 +33,7 @@ static void finish_jcon(struct io_conn *conn, struct json_connection *jcon)
 		log_unusual(jcon->log, "Abandoning current command");
 		jcon->current->jcon = NULL;
 	}
+	tal_free(jcon);
 }
 
 static void json_help(struct command *cmd,
