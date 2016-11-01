@@ -21,7 +21,7 @@ static const secp256k1_pubkey *keyof_node(const struct node *n)
 
 static size_t hash_key(const secp256k1_pubkey *key)
 {
-	return siphash24(siphash_seed(), key, sizeof(key));
+	return siphash24(siphash_seed(), key, sizeof(*key));
 }
 
 static bool node_eq(const struct node *n, const secp256k1_pubkey *key)
