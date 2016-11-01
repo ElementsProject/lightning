@@ -358,7 +358,7 @@ void log_struct_(struct log *log, int level,
 		 const char *structname,
 		 const char *fmt, ...)
 {
-	tal_t *ctx = tal(log, char);
+	const tal_t *ctx = tal_tmpctx(log);
 	char *s;
 	union loggable_structs u;
 	va_list ap;

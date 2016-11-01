@@ -1,5 +1,6 @@
 /* Simple simulator for protocol. */
 #include "config.h"
+#include "utils.h"
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
@@ -412,7 +413,7 @@ static void dump_htlcs(struct htlc **htlcs,
 		       int flags_inc, int flags_exc)
 {
 	size_t i, n = tal_count(htlcs);
-	char *ctx = tal(htlcs, char);
+	const tal_t *ctx = tal_tmpctx(htlcs);
 	bool printed = false;
 
 	for (i = 0; i < n; i++) {

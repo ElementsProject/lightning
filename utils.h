@@ -10,4 +10,8 @@ char *tal_hexstr(const tal_t *ctx, const void *data, size_t len);
 /* Allocate and fill a buffer with the data of this hex string. */
 u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len);
 
+#define tal_tmpctx(ctx)							\
+	tal_alloc_((ctx), 0, false,					\
+		   __FILE__ ":" stringify(__LINE__) ":tal_tmpctx")
+
 #endif /* LIGHTNING_UTILS_H */

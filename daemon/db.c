@@ -222,13 +222,14 @@ static void db_load_wallet(struct lightningd_state *dstate)
 void db_add_wallet_privkey(struct lightningd_state *dstate,
 			   const struct privkey *privkey)
 {
-	char *ctx = tal(dstate, char);
+	char *ctx = tal_tmpctx(dstate);
 
 	log_debug(dstate->base_log, "%s", __func__);
 	if (!db_exec(__func__, dstate,
 		      "INSERT INTO wallet VALUES (x'%s');",
 		     tal_hexstr(ctx, privkey, sizeof(*privkey))))
 		fatal("db_add_wallet_privkey failed");
+	tal_free(ctx);
 }
 
 static void load_peer_secrets(struct peer *peer)
@@ -236,7 +237,7 @@ static void load_peer_secrets(struct peer *peer)
 	int err;
 	sqlite3_stmt *stmt;
 	sqlite3 *sql = peer->dstate->db->sql;
-	char *ctx = tal(peer, char);
+	char *ctx = tal_tmpctx(peer);
 	const char *select;
 	bool secrets_set = false;
 
@@ -276,7 +277,7 @@ static void load_peer_anchor(struct peer *peer)
 	int err;
 	sqlite3_stmt *stmt;
 	sqlite3 *sql = peer->dstate->db->sql;
-	char *ctx = tal(peer, char);
+	char *ctx = tal_tmpctx(peer);
 	const char *select;
 	bool anchor_set = false;
 
@@ -320,7 +321,7 @@ static void load_peer_visible_state(struct peer *peer)
 	int err;
 	sqlite3_stmt *stmt;
 	sqlite3 *sql = peer->dstate->db->sql;
-	char *ctx = tal(peer, char);
+	char *ctx = tal_tmpctx(peer);
 	const char *select;
 	bool visible_set = false;
 
@@ -385,7 +386,7 @@ static void load_peer_commit_info(struct peer *peer)
 	int err;
 	sqlite3_stmt *stmt;
 	sqlite3 *sql = peer->dstate->db->sql;
-	char *ctx = tal(peer, char);
+	char *ctx = tal_tmpctx(peer);
 	const char *select;
 
 	select = tal_fmt(ctx,
@@ -492,7 +493,7 @@ static void load_peer_htlcs(struct peer *peer)
 	int err;
 	sqlite3_stmt *stmt;
 	sqlite3 *sql = peer->dstate->db->sql;
-	char *ctx = tal(peer, char);
+	char *ctx = tal_tmpctx(peer);
 	const char *select;
 	bool to_them_only, to_us_only;
 
@@ -662,7 +663,7 @@ static void connect_htlc_src(struct lightningd_state *dstate)
 	sqlite3 *sql = dstate->db->sql;
 	int err;
 	sqlite3_stmt *stmt;
-	char *ctx = tal(dstate, char);
+	char *ctx = tal_tmpctx(dstate);
 	const char *select;
 
 	select = tal_fmt(ctx,
@@ -769,7 +770,7 @@ static void load_peer_shachain(struct peer *peer)
 	int err;
 	sqlite3_stmt *stmt;
 	sqlite3 *sql = peer->dstate->db->sql;
-	char *ctx = tal(peer, char);
+	char *ctx = tal_tmpctx(peer);
 	bool shachain_found = false;
 	const char *select;
 
@@ -818,7 +819,7 @@ static void load_peer_closing(struct peer *peer)
 	int err;
 	sqlite3_stmt *stmt;
 	sqlite3 *sql = peer->dstate->db->sql;
-	char *ctx = tal(peer, char);
+	char *ctx = tal_tmpctx(peer);
 	bool closing_found = false;
 	const char *select;
 
@@ -1012,7 +1013,7 @@ static void db_load_pay(struct lightningd_state *dstate)
 {
 	int err;
 	sqlite3_stmt *stmt;
-	char *ctx = tal(dstate, char);
+	char *ctx = tal_tmpctx(dstate);
 
 	err = sqlite3_prepare_v2(dstate->db->sql, "SELECT * FROM pay;", -1,
 				 &stmt, NULL);
@@ -1082,7 +1083,7 @@ static void db_load_invoice(struct lightningd_state *dstate)
 {
 	int err;
 	sqlite3_stmt *stmt;
-	char *ctx = tal(dstate, char);
+	char *ctx = tal_tmpctx(dstate);
 
 	err = sqlite3_prepare_v2(dstate->db->sql, "SELECT * FROM invoice;", -1,
 				 &stmt, NULL);
@@ -1118,7 +1119,7 @@ static void db_load_addresses(struct lightningd_state *dstate)
 	int err;
 	sqlite3_stmt *stmt;
 	sqlite3 *sql = dstate->db->sql;
-	char *ctx = tal(dstate, char);
+	char *ctx = tal_tmpctx(dstate);
 	const char *select;
 
 	select = tal_fmt(ctx, "SELECT * FROM peer_address;");
@@ -1268,7 +1269,7 @@ void db_init(struct lightningd_state *dstate)
 
 void db_set_anchor(struct peer *peer)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid;
 
 	assert(peer->dstate->db->in_transaction);
@@ -1315,7 +1316,7 @@ void db_set_anchor(struct peer *peer)
 
 bool db_set_visible_state(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *errmsg, *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1343,7 +1344,7 @@ bool db_set_visible_state(struct peer *peer)
 
 void db_update_next_revocation_hash(struct peer *peer)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s):%s", __func__, peerid,
@@ -1360,7 +1361,7 @@ void db_update_next_revocation_hash(struct peer *peer)
 
 bool db_create_peer(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal(peer, char);
+	const char *errmsg, *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1383,7 +1384,7 @@ bool db_create_peer(struct peer *peer)
 
 void db_start_transaction(struct peer *peer)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1397,7 +1398,7 @@ void db_start_transaction(struct peer *peer)
 
 void db_abort_transaction(struct peer *peer)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1409,7 +1410,7 @@ void db_abort_transaction(struct peer *peer)
 
 const char *db_commit_transaction(struct peer *peer)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1425,7 +1426,7 @@ const char *db_commit_transaction(struct peer *peer)
 
 void db_new_htlc(struct peer *peer, const struct htlc *htlc)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1462,7 +1463,7 @@ void db_new_htlc(struct peer *peer, const struct htlc *htlc)
 
 void db_new_feechange(struct peer *peer, const struct feechange *feechange)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1481,7 +1482,7 @@ void db_new_feechange(struct peer *peer, const struct feechange *feechange)
 void db_update_htlc_state(struct peer *peer, const struct htlc *htlc,
 			  enum htlc_state oldstate)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s): %"PRIu64" %s->%s", __func__, peerid,
@@ -1500,7 +1501,7 @@ void db_update_feechange_state(struct peer *peer,
 			       const struct feechange *f,
 			       enum htlc_state oldstate)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s): %s->%s", __func__, peerid,
@@ -1533,7 +1534,7 @@ void db_remove_feechange(struct peer *peer, const struct feechange *feechange,
 
 void db_update_state(struct peer *peer)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1547,7 +1548,7 @@ void db_update_state(struct peer *peer)
 
 void db_htlc_fulfilled(struct peer *peer, const struct htlc *htlc)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1565,7 +1566,7 @@ void db_htlc_fulfilled(struct peer *peer, const struct htlc *htlc)
 
 void db_htlc_failed(struct peer *peer, const struct htlc *htlc)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1585,7 +1586,7 @@ void db_new_commit_info(struct peer *peer, enum side side,
 			const struct sha256 *prev_rhash)
 {
 	struct commit_info *ci;
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1611,7 +1612,7 @@ void db_new_commit_info(struct peer *peer, enum side side,
 /* FIXME: Is this strictly necessary? */
 void db_remove_their_prev_revocation_hash(struct peer *peer)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1626,7 +1627,7 @@ void db_remove_their_prev_revocation_hash(struct peer *peer)
 
 void db_save_shachain(struct peer *peer)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1641,7 +1642,7 @@ void db_save_shachain(struct peer *peer)
 void db_add_commit_map(struct peer *peer,
 		       const struct sha256_double *txid, u64 commit_num)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s),commit_num=%"PRIu64, __func__, peerid,
@@ -1660,7 +1661,7 @@ void db_add_commit_map(struct peer *peer,
 bool db_add_peer_address(struct lightningd_state *dstate,
 			 const struct peer_address *addr)
 {
-	const char *ctx = tal(dstate, char);
+	const tal_t *ctx = tal_tmpctx(dstate);
 	bool ok;
 
 	log_debug(dstate->base_log, "%s", __func__);
@@ -1677,7 +1678,7 @@ bool db_add_peer_address(struct lightningd_state *dstate,
 
 void db_forget_peer(struct peer *peer)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 	size_t i;
 	const char *const tables[] = { "anchors", "htlcs", "commit_info", "shachain", "their_visible_state", "their_commitments", "peer_secrets", "closing", "peers" };
@@ -1700,7 +1701,7 @@ void db_forget_peer(struct peer *peer)
 
 void db_begin_shutdown(struct peer *peer)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1714,7 +1715,7 @@ void db_begin_shutdown(struct peer *peer)
 
 void db_set_our_closing_script(struct peer *peer)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1730,7 +1731,7 @@ void db_set_our_closing_script(struct peer *peer)
 
 bool db_set_their_closing_script(struct peer *peer)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	bool ok;
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
@@ -1751,7 +1752,7 @@ bool db_set_their_closing_script(struct peer *peer)
 /* FIXME: make caller wrap in transaction. */
 void db_update_our_closing(struct peer *peer)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1766,7 +1767,7 @@ void db_update_our_closing(struct peer *peer)
 
 bool db_update_their_closing(struct peer *peer)
 {
-	const char *ctx = tal(peer, char);
+	const char *ctx = tal_tmpctx(peer);
 	bool ok;
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
@@ -1790,7 +1791,7 @@ bool db_new_pay_command(struct lightningd_state *dstate,
 			u64 msatoshi,
 			const struct htlc *htlc)
 {
-	const char *ctx = tal(dstate, char);
+	const tal_t *ctx = tal_tmpctx(dstate);
 	bool ok;
 
 	log_debug(dstate->base_log, "%s", __func__);
@@ -1814,7 +1815,7 @@ bool db_replace_pay_command(struct lightningd_state *dstate,
 			    u64 msatoshi,
 			    const struct htlc *htlc)
 {
-	const char *ctx = tal(dstate, char);
+	const tal_t *ctx = tal_tmpctx(dstate);
 	bool ok;
 
 	log_debug(dstate->base_log, "%s", __func__);
@@ -1835,7 +1836,7 @@ bool db_replace_pay_command(struct lightningd_state *dstate,
 void db_complete_pay_command(struct lightningd_state *dstate,
 			     const struct htlc *htlc)
 {
-	const char *ctx = tal(dstate, char);
+	const tal_t *ctx = tal_tmpctx(dstate);
 
 	log_debug(dstate->base_log, "%s", __func__);
 	log_add_struct(dstate->base_log, "(%s)", struct sha256, &htlc->rhash);
@@ -1860,7 +1861,7 @@ bool db_new_invoice(struct lightningd_state *dstate,
 		    const char *label,
 		    const struct rval *r)
 {
-	const char *ctx = tal(dstate, char);
+	const tal_t *ctx = tal_tmpctx(dstate);
 	bool ok;
 	
 	log_debug(dstate->base_log, "%s", __func__);
@@ -1881,7 +1882,7 @@ bool db_new_invoice(struct lightningd_state *dstate,
 void db_resolve_invoice(struct lightningd_state *dstate,
 			const char *label, u64 paid_num)
 {
-	const char *ctx = tal(dstate, char);
+	const tal_t *ctx = tal_tmpctx(dstate);
 
 	log_debug(dstate->base_log, "%s", __func__);
 
@@ -1895,7 +1896,7 @@ void db_resolve_invoice(struct lightningd_state *dstate,
 bool db_remove_invoice(struct lightningd_state *dstate,
 		       const char *label)
 {
-	const char *ctx = tal(dstate, char);
+	const tal_t *ctx = tal_tmpctx(dstate);
 	bool ok;
 
 	log_debug(dstate->base_log, "%s", __func__);
