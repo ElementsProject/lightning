@@ -331,6 +331,8 @@ struct io_plan *peer_write_packet(struct io_conn *conn,
 	tal_free(iod->out.cpkt);
 
 	iod->out.cpkt = encrypt_pkt(iod, pkt, &totlen);
+	/* Free unencrypted packet. */
+	tal_free(pkt);
 
 	return io_write(conn, iod->out.cpkt, totlen, next, peer);
 }
