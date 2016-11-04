@@ -4071,16 +4071,16 @@ bool setup_first_commit(struct peer *peer)
 	assert(!peer->remote.commit->tx);
 
 	/* Revocation hashes already filled in, from pkt_open */
-	peer->local.commit->cstate = initial_cstate(peer,
-						     peer->anchor.satoshis,
-						     peer->local.commit_fee_rate,
-						     peer->local.offer_anchor
-						     == CMD_OPEN_WITH_ANCHOR ?
-						     LOCAL : REMOTE);
+	peer->local.commit->cstate = initial_cstate(peer->local.commit,
+						    peer->anchor.satoshis,
+						    peer->local.commit_fee_rate,
+						    peer->local.offer_anchor
+						    == CMD_OPEN_WITH_ANCHOR ?
+						    LOCAL : REMOTE);
 	if (!peer->local.commit->cstate)
 		return false;
 
-	peer->remote.commit->cstate = initial_cstate(peer,
+	peer->remote.commit->cstate = initial_cstate(peer->remote.commit,
 						     peer->anchor.satoshis,
 						     peer->remote.commit_fee_rate,
 						     peer->local.offer_anchor
