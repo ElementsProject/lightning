@@ -203,7 +203,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 
 		if (!htlc_has(h, committed_flag))
 			continue;
-		wscript = wscript_for_htlc(tx, peer, h, rhash, side);
+		wscript = wscript_for_htlc(tmpctx, peer, h, rhash, side);
 		/* If we pay any HTLC, it's txout is not just to other side. */
 		if (add_output(tx, scriptpubkey_p2wsh(tmpctx, wscript),
 			       h->msatoshi / 1000, &total)) {
