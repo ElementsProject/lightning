@@ -110,9 +110,9 @@ static struct hoppayload *parse_hoppayload(const tal_t *ctx, u8 *src)
 	int p = 0;
 	struct hoppayload *result = talz(ctx, struct hoppayload);
 
-	read_buffer(&result->realm, src, sizeof(&result->realm), &p);
-	read_buffer(&result->amount, src, sizeof(&result->amount), &p);
-	read_buffer(&result->remainder, src, sizeof(&result->remainder), &p);
+	read_buffer(&result->realm, src, sizeof(result->realm), &p);
+	read_buffer(&result->amount, src, sizeof(result->amount), &p);
+	read_buffer(&result->remainder, src, sizeof(result->remainder), &p);
 	return result;
 }
 
@@ -120,9 +120,9 @@ static void serialize_hoppayload(u8 *dst, struct hoppayload *hp)
 {
 	int p = 0;
 
-	write_buffer(dst, &hp->realm, sizeof(&hp->realm), &p);
-	write_buffer(dst, &hp->amount, sizeof(&hp->amount), &p);
-	write_buffer(dst, &hp->remainder, sizeof(&hp->remainder), &p);
+	write_buffer(dst, &hp->realm, sizeof(hp->realm), &p);
+	write_buffer(dst, &hp->amount, sizeof(hp->amount), &p);
+	write_buffer(dst, &hp->remainder, sizeof(hp->remainder), &p);
 }
 
 
@@ -518,7 +518,7 @@ struct route_step *process_onionpacket(
 	stream_decrypt(step->next->payload, msg->payload, sizeof(msg->payload), keys.pi);
 	memcpy(&step->next->routinginfo, paddedheader + 2 * SECURITY_PARAMETER, ROUTING_INFO_SIZE);
 
-	if (memeqzero(step->next->mac, sizeof(&step->next->mac))) {
+	if (memeqzero(step->next->mac, sizeof(step->next->mac))) {
 		step->nextcase = ONION_END;
 	} else {
 		step->nextcase = ONION_FORWARD;
