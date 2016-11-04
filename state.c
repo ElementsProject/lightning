@@ -180,8 +180,11 @@ enum state state(struct peer *peer,
 	case STATE_OPEN_WAIT_FOR_COMMIT_SIG:
 		if (input_is(input, PKT_OPEN_COMMIT_SIG)) {
 			const char *db_err;
+
+			peer->local.commit->sig = tal(peer->local.commit,
+						      struct bitcoin_signature);
 			err = accept_pkt_open_commit_sig(peer, pkt,
-							 &peer->local.commit->sig);
+							 peer->local.commit->sig);
 			if (!err &&
 			    !check_tx_sig(peer->dstate->secpctx,
 					  peer->local.commit->tx, 0,
@@ -192,6 +195,8 @@ enum state state(struct peer *peer,
 				err = pkt_err(peer, "Bad signature");
 
 			if (err) {
+				peer->local.commit->sig
+					= tal_free(peer->local.commit->sig);
 				bitcoin_release_anchor(peer, INPUT_NONE);
 				peer_open_complete(peer, err->error->problem);
 				goto err_breakdown;

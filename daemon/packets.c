@@ -367,17 +367,14 @@ Pkt *accept_pkt_anchor(struct peer *peer, const Pkt *pkt)
 }
 
 Pkt *accept_pkt_open_commit_sig(struct peer *peer, const Pkt *pkt,
-				struct bitcoin_signature **sig)
+				struct bitcoin_signature *sig)
 {
 	const OpenCommitSig *s = pkt->open_commit_sig;
-	struct signature signature;
 
-	if (!proto_to_signature(peer->dstate->secpctx, s->sig, &signature))
+	if (!proto_to_signature(peer->dstate->secpctx, s->sig, &sig->sig))
 		return pkt_err(peer, "Malformed signature");
 
-	*sig = tal(peer, struct bitcoin_signature);	
-	(*sig)->stype = SIGHASH_ALL;
-	(*sig)->sig = signature;	
+	sig->stype = SIGHASH_ALL;
 	return NULL;
 }
 
