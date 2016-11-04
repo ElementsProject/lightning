@@ -192,7 +192,7 @@ static void handle_node_announcement(
 	struct node *node = add_node(istate->dstate, pk, hostname, port);
 	if (splits[4] != NULL){
 		tal_free(node->alias);
-		node->alias = tal_hexdata(node, splits[5], strlen(splits[4]));
+		node->alias = tal_hexdata(node, splits[4], strlen(splits[4]));
 	}
 }
 
