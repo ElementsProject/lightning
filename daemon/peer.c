@@ -2659,8 +2659,6 @@ static struct io_plan *crypto_on_out(struct io_conn *conn,
 			     connect->name, connect->port);
 		return io_close(conn);
 	}
-	peer->io_data = tal_steal(peer, iod);
-	peer->id = tal_dup(peer, struct pubkey, id);
 	peer->anchor.input = tal_steal(peer, connect->input);
 	peer->open_jsoncmd = connect->cmd;
 	return peer_crypto_on(conn, peer);
