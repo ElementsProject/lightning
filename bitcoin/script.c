@@ -248,6 +248,7 @@ void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 	input->script = tal_arr(ctx, u8, 0);
 	add_push_bytes(&input->script, redeemscript, tal_count(redeemscript));
 	input->script_length = tal_count(input->script);
+	tal_free(redeemscript);
 
 	/* BIP141: The witness must consist of exactly 2 items (≤ 520
 	 * bytes each). The first one a signature, and the second one
