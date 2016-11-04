@@ -255,6 +255,8 @@ static struct io_plan *recv_body(struct io_conn *conn, struct peer *peer)
 {
 	struct io_data *iod = peer->io_data;
 
+	assert(!peer->inpkt);
+
 	/* We have full packet. */
 	peer->inpkt = decrypt_body(iod, iod, peer->log);
 	if (!peer->inpkt)

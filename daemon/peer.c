@@ -2145,6 +2145,8 @@ static struct io_plan *init_pkt_in(struct io_conn *conn, struct peer *peer)
 	}
 
 	/* Back into normal mode. */
+	peer->inpkt = tal_free(peer->inpkt);
+
 	peer_has_connected(peer);
 	return io_duplex(conn,
 			 peer_read_packet(conn, peer, pkt_in),
@@ -2432,6 +2434,7 @@ struct peer *new_peer(struct lightningd_state *dstate,
 	peer->io_data = NULL;
 	peer->secrets = NULL;
 	list_head_init(&peer->watches);
+	peer->inpkt = NULL;
 	peer->outpkt = tal_arr(peer, Pkt *, 0);
 	peer->open_jsoncmd = NULL;
 	peer->commit_jsoncmd = NULL;
