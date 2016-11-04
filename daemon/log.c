@@ -349,6 +349,8 @@ static char *to_string_(const tal_t *ctx,
 				      &u.cstate->side[LOCAL]),
 			    to_string(ctx, lr, struct channel_oneside,
 				      &u.cstate->side[REMOTE]));
+	} else if (streq(structname, "struct netaddr")) {
+		s = netaddr_name(ctx, u.netaddr);
 	}
 
 	return s;

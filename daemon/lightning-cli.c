@@ -45,6 +45,13 @@ struct timeabs controlled_time(void)
 	return time_now();
 }
 
+struct netaddr;
+char *netaddr_name(const tal_t *ctx, const struct netaddr *a);
+char *netaddr_name(const tal_t *ctx, const struct netaddr *a)
+{
+	return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	int fd, i, off;

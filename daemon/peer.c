@@ -2668,7 +2668,6 @@ static struct io_plan *peer_connected_out(struct io_conn *conn,
 					  struct json_connecting *connect)
 {
 	struct log *l;
-	const char *name;
 	struct netaddr addr;
 
 	l = new_log(conn, dstate->log_record, "OUT-%s:%s:",
@@ -2678,9 +2677,8 @@ static struct io_plan *peer_connected_out(struct io_conn *conn,
 		log_unusual(l, "Failed to get netaddr: %s", strerror(errno));
 		return io_close(conn);
 	}
-	name = netaddr_name(conn, &addr);
 
-	log_debug(l, "Connected out to %s", name);
+	log_debug_struct(l, "Connected out to %s", struct netaddr, &addr);
 	return peer_crypto_setup(conn, dstate, NULL, l, crypto_on_out, connect);
 }
 
