@@ -2855,6 +2855,7 @@ static void json_connect(struct command *cmd,
 	struct bitcoin_tx *tx;
 	int output;
 	size_t txhexlen;
+	const tal_t *tmpctx = tal_tmpctx(cmd);
 
 	if (!json_get_params(buffer, params,
 			     "host", &host,
@@ -2874,8 +2875,7 @@ static void json_connect(struct command *cmd,
 	connect->input = tal(connect, struct anchor_input);
 
 	txhexlen = txtok->end - txtok->start;
-	tx = bitcoin_tx_from_hex(connect->input, buffer + txtok->start,
-				 txhexlen);
+	tx = bitcoin_tx_from_hex(tmpctx, buffer + txtok->start, txhexlen);
 	if (!tx) {
 		command_fail(cmd, "'%.*s' is not a valid transaction",
 			     txtok->end - txtok->start,
@@ -2910,6 +2910,8 @@ static void json_connect(struct command *cmd,
 		command_fail(cmd, "DNS failed");
 		return;
 	}
+
+	tal_free(tmpctx);
 }
 
 const struct json_command connect_command = {
