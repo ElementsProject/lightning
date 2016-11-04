@@ -633,7 +633,7 @@ struct io_plan *peer_crypto_setup_(struct io_conn *conn,
 	BUILD_ASSERT(sizeof(struct crypto_pkt) == 20);
 
 	/* We store negotiation state here. */
-	neg = tal(dstate, struct key_negotiate);
+	neg = tal(conn, struct key_negotiate);
 	neg->cb = cb;
 	neg->arg = arg;
 	neg->dstate = dstate;
