@@ -1469,15 +1469,15 @@ static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 	       || peer->state == STATE_NORMAL_COMMITTING);
 
 	switch (pkt->pkt_case) {
-	case PKT_UPDATE_ADD_HTLC:
+	case PKT__PKT_UPDATE_ADD_HTLC:
 		err = handle_pkt_htlc_add(peer, pkt);
 		break;
 		
-	case PKT_UPDATE_FULFILL_HTLC:
+	case PKT__PKT_UPDATE_FULFILL_HTLC:
 		err = handle_pkt_htlc_fulfill(peer, pkt);
 		break;
 
-	case PKT_UPDATE_FAIL_HTLC:
+	case PKT__PKT_UPDATE_FAIL_HTLC:
 		err = handle_pkt_htlc_fail(peer, pkt);
 		break;
 
@@ -1485,11 +1485,11 @@ static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 		err = handle_pkt_feechange(peer, pkt);
 		break;
 
-	case PKT_UPDATE_COMMIT:
+	case PKT__PKT_UPDATE_COMMIT:
 		err = handle_pkt_commit(peer, pkt);
 		break;
 
-	case PKT_CLOSE_SHUTDOWN:
+	case PKT__PKT_CLOSE_SHUTDOWN:
 		err = accept_pkt_close_shutdown(peer, pkt);
 		if (err)
 			break;
@@ -1499,7 +1499,7 @@ static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 		}
 		return true;
 
-	case PKT_UPDATE_REVOCATION:
+	case PKT__PKT_UPDATE_REVOCATION:
 		if (peer->state == STATE_NORMAL_COMMITTING) {
 			err = handle_pkt_revocation(peer, pkt, STATE_NORMAL);
 			if (!err)
