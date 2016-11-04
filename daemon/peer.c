@@ -546,20 +546,20 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 	packet = parse_onionpacket(peer, peer->dstate->secpctx,
 				   htlc->routing, tal_count(htlc->routing));
 	if (packet)
-		step = process_onionpacket(peer, peer->dstate->secpctx, packet, &pk);
+		step = process_onionpacket(packet, peer->dstate->secpctx, packet, &pk);
 
 	if (!step) {
 		log_unusual(peer->log, "Bad onion, failing HTLC %"PRIu64,
 			    htlc->id);
 		command_htlc_set_fail(peer, htlc, BAD_REQUEST_400,
 				      "invalid onion");
-		return;
+		goto free_packet;
 	}
 
 	switch (step->nextcase) {
 	case ONION_END:
 		if (only_dest)
-			return;
+			goto free_packet;
 		invoice = find_unpaid(peer->dstate, &htlc->rhash);
 		if (!invoice) {
 			log_unusual(peer->log, "No invoice for HTLC %"PRIu64,
@@ -570,7 +570,7 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 				command_htlc_set_fail(peer, htlc,
 						      UNAUTHORIZED_401,
 						      "unknown rhash");
-			goto free_rest;
+			goto free_packet;
 		}
 			
 		if (htlc->msatoshi != invoice->msatoshi) {
@@ -583,7 +583,7 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 			command_htlc_set_fail(peer, htlc,
 					      UNAUTHORIZED_401,
 					      "incorrect amount");
-			return;
+			goto free_packet;
 		}
 
 		log_info(peer->log, "Immediately resolving '%s' HTLC %"PRIu64,
@@ -592,22 +592,22 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 		resolve_invoice(peer->dstate, invoice);
 		set_htlc_rval(peer, htlc, &invoice->r);
 		command_htlc_fulfill(peer, htlc);
-		goto free_rest;
+		goto free_packet;
 
 	case ONION_FORWARD:
 		printf("FORWARDING %lu\n", step->hoppayload->amount);
 		route_htlc_onwards(peer, htlc, step->hoppayload->amount, step->next->nexthop,
 				   serialize_onionpacket(step, peer->dstate->secpctx, step->next), only_dest);
-		goto free_rest;
+		goto free_packet;
 	default:
 		log_info(peer->log, "Unknown step type %u", step->nextcase);
 		command_htlc_set_fail(peer, htlc, VERSION_NOT_SUPPORTED_505,
 				      "unknown step type");
-		goto free_rest;
+		goto free_packet;
 	}
 
-free_rest:
-	tal_free(step);
+free_packet:
+	tal_free(packet);
 }
 
 static void our_htlc_failed(struct peer *peer, struct htlc *htlc)
