@@ -506,13 +506,13 @@ static void load_peer_htlcs(struct peer *peer)
 		fatal("load_peer_htlcs:prepare gave %s:%s",
 		      sqlite3_errstr(err), sqlite3_errmsg(sql));
 
-	peer->local.commit->cstate = initial_cstate(peer,
+	peer->local.commit->cstate = initial_cstate(peer->local.commit,
 						    peer->anchor.satoshis,
 						    peer->local.commit_fee_rate,
 						    peer->local.offer_anchor
 						    == CMD_OPEN_WITH_ANCHOR ?
 						    LOCAL : REMOTE);
-	peer->remote.commit->cstate = initial_cstate(peer,
+	peer->remote.commit->cstate = initial_cstate(peer->remote.commit,
 						     peer->anchor.satoshis,
 						     peer->remote.commit_fee_rate,
 						     peer->local.offer_anchor
