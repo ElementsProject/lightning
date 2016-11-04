@@ -273,7 +273,8 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
 	}
 }
 
-struct peer *find_route(struct lightningd_state *dstate,
+struct peer *find_route(const tal_t *ctx,
+			struct lightningd_state *dstate,
 			const struct pubkey *to,
 			u64 msatoshi,
 			double riskfactor,
@@ -350,15 +351,6 @@ struct peer *find_route(struct lightningd_state *dstate,
 	dst = dst->bfg[best].prev->dst;
 	best--;
 
-	*fee = dst->bfg[best].total - msatoshi;
-	*route = tal_arr(dstate, struct node_connection *, best);
-	for (i = 0, n = dst;
-	     i < best;
-	     n = n->bfg[best-i].prev->dst, i++) {
-		(*route)[i] = n->bfg[best-i].prev;
-	}
-	assert(n == src);
-
 	/* We should only add routes if we have a peer. */
 	first = find_peer(dstate, &dst->id);
 	if (!first) {
@@ -366,6 +358,15 @@ struct peer *find_route(struct lightningd_state *dstate,
 				  struct pubkey, &(*route)[0]->src->id);
 		return NULL;
 	}
+
+	*fee = dst->bfg[best].total - msatoshi;
+	*route = tal_arr(ctx, struct node_connection *, best);
+	for (i = 0, n = dst;
+	     i < best;
+	     n = n->bfg[best-i].prev->dst, i++) {
+		(*route)[i] = n->bfg[best-i].prev;
+	}
+	assert(n == src);
 
 	msatoshi += *fee;
 	log_info(dstate->base_log, "find_route:");

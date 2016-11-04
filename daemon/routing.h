@@ -67,7 +67,8 @@ struct node_connection *add_connection(struct lightningd_state *dstate,
 void remove_connection(struct lightningd_state *dstate,
 		       const struct pubkey *src, const struct pubkey *dst);
 
-struct peer *find_route(struct lightningd_state *dstate,
+struct peer *find_route(const tal_t *ctx,
+			struct lightningd_state *dstate,
 			const struct pubkey *to,
 			u64 msatoshi,
 			double riskfactor,
