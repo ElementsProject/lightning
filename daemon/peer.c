@@ -546,20 +546,20 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 	packet = parse_onionpacket(peer, peer->dstate->secpctx,
 				   htlc->routing, tal_count(htlc->routing));
 	if (packet)
-		step = process_onionpacket(peer, peer->dstate->secpctx, packet, &pk);
+		step = process_onionpacket(packet, peer->dstate->secpctx, packet, &pk);
 
 	if (!step) {
 		log_unusual(peer->log, "Bad onion, failing HTLC %"PRIu64,
 			    htlc->id);
 		command_htlc_set_fail(peer, htlc, BAD_REQUEST_400,
 				      "invalid onion");
-		return;
+		goto free_packet;
 	}
 
 	switch (step->nextcase) {
 	case ONION_END:
 		if (only_dest)
-			return;
+			goto free_packet;
 		invoice = find_unpaid(peer->dstate, &htlc->rhash);
 		if (!invoice) {
 			log_unusual(peer->log, "No invoice for HTLC %"PRIu64,
@@ -570,7 +570,7 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 				command_htlc_set_fail(peer, htlc,
 						      UNAUTHORIZED_401,
 						      "unknown rhash");
-			goto free_rest;
+			goto free_packet;
 		}
 			
 		if (htlc->msatoshi != invoice->msatoshi) {
@@ -583,7 +583,7 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 			command_htlc_set_fail(peer, htlc,
 					      UNAUTHORIZED_401,
 					      "incorrect amount");
-			return;
+			goto free_packet;
 		}
 
 		log_info(peer->log, "Immediately resolving '%s' HTLC %"PRIu64,
@@ -592,22 +592,22 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 		resolve_invoice(peer->dstate, invoice);
 		set_htlc_rval(peer, htlc, &invoice->r);
 		command_htlc_fulfill(peer, htlc);
-		goto free_rest;
+		goto free_packet;
 
 	case ONION_FORWARD:
 		printf("FORWARDING %lu\n", step->hoppayload->amount);
 		route_htlc_onwards(peer, htlc, step->hoppayload->amount, step->next->nexthop,
 				   serialize_onionpacket(step, peer->dstate->secpctx, step->next), only_dest);
-		goto free_rest;
+		goto free_packet;
 	default:
 		log_info(peer->log, "Unknown step type %u", step->nextcase);
 		command_htlc_set_fail(peer, htlc, VERSION_NOT_SUPPORTED_505,
 				      "unknown step type");
-		goto free_rest;
+		goto free_packet;
 	}
 
-free_rest:
-	tal_free(step);
+free_packet:
+	tal_free(packet);
 }
 
 static void our_htlc_failed(struct peer *peer, struct htlc *htlc)
@@ -2145,6 +2145,8 @@ static struct io_plan *init_pkt_in(struct io_conn *conn, struct peer *peer)
 	}
 
 	/* Back into normal mode. */
+	peer->inpkt = tal_free(peer->inpkt);
+
 	peer_has_connected(peer);
 	return io_duplex(conn,
 			 peer_read_packet(conn, peer, pkt_in),
@@ -2432,6 +2434,7 @@ struct peer *new_peer(struct lightningd_state *dstate,
 	peer->io_data = NULL;
 	peer->secrets = NULL;
 	list_head_init(&peer->watches);
+	peer->inpkt = NULL;
 	peer->outpkt = tal_arr(peer, Pkt *, 0);
 	peer->open_jsoncmd = NULL;
 	peer->commit_jsoncmd = NULL;
@@ -2656,8 +2659,6 @@ static struct io_plan *crypto_on_out(struct io_conn *conn,
 			     connect->name, connect->port);
 		return io_close(conn);
 	}
-	peer->io_data = tal_steal(peer, iod);
-	peer->id = tal_dup(peer, struct pubkey, id);
 	peer->anchor.input = tal_steal(peer, connect->input);
 	peer->open_jsoncmd = connect->cmd;
 	return peer_crypto_on(conn, peer);
@@ -2668,7 +2669,6 @@ static struct io_plan *peer_connected_out(struct io_conn *conn,
 					  struct json_connecting *connect)
 {
 	struct log *l;
-	const char *name;
 	struct netaddr addr;
 
 	l = new_log(conn, dstate->log_record, "OUT-%s:%s:",
@@ -2678,9 +2678,8 @@ static struct io_plan *peer_connected_out(struct io_conn *conn,
 		log_unusual(l, "Failed to get netaddr: %s", strerror(errno));
 		return io_close(conn);
 	}
-	name = netaddr_name(conn, &addr);
 
-	log_debug(l, "Connected out to %s", name);
+	log_debug_struct(l, "Connected out to %s", struct netaddr, &addr);
 	return peer_crypto_setup(conn, dstate, NULL, l, crypto_on_out, connect);
 }
 
@@ -2857,6 +2856,7 @@ static void json_connect(struct command *cmd,
 	struct bitcoin_tx *tx;
 	int output;
 	size_t txhexlen;
+	const tal_t *tmpctx = tal_tmpctx(cmd);
 
 	if (!json_get_params(buffer, params,
 			     "host", &host,
@@ -2876,8 +2876,7 @@ static void json_connect(struct command *cmd,
 	connect->input = tal(connect, struct anchor_input);
 
 	txhexlen = txtok->end - txtok->start;
-	tx = bitcoin_tx_from_hex(connect->input, buffer + txtok->start,
-				 txhexlen);
+	tx = bitcoin_tx_from_hex(tmpctx, buffer + txtok->start, txhexlen);
 	if (!tx) {
 		command_fail(cmd, "'%.*s' is not a valid transaction",
 			     txtok->end - txtok->start,
@@ -2912,6 +2911,8 @@ static void json_connect(struct command *cmd,
 		command_fail(cmd, "DNS failed");
 		return;
 	}
+
+	tal_free(tmpctx);
 }
 
 const struct json_command connect_command = {
@@ -4071,16 +4072,16 @@ bool setup_first_commit(struct peer *peer)
 	assert(!peer->remote.commit->tx);
 
 	/* Revocation hashes already filled in, from pkt_open */
-	peer->local.commit->cstate = initial_cstate(peer,
-						     peer->anchor.satoshis,
-						     peer->local.commit_fee_rate,
-						     peer->local.offer_anchor
-						     == CMD_OPEN_WITH_ANCHOR ?
-						     LOCAL : REMOTE);
+	peer->local.commit->cstate = initial_cstate(peer->local.commit,
+						    peer->anchor.satoshis,
+						    peer->local.commit_fee_rate,
+						    peer->local.offer_anchor
+						    == CMD_OPEN_WITH_ANCHOR ?
+						    LOCAL : REMOTE);
 	if (!peer->local.commit->cstate)
 		return false;
 
-	peer->remote.commit->cstate = initial_cstate(peer,
+	peer->remote.commit->cstate = initial_cstate(peer->remote.commit,
 						     peer->anchor.satoshis,
 						     peer->remote.commit_fee_rate,
 						     peer->local.offer_anchor

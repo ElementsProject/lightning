@@ -90,6 +90,7 @@ union loggable_structs {
 	const struct rval *rval;
 	const struct channel_state *cstate;
 	const struct channel_oneside *channel_oneside;
+	const struct netaddr *netaddr;
 	const char *charp_;
 };
 

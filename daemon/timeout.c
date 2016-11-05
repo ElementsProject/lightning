@@ -1,6 +1,7 @@
 #include "controlled_time.h"
 #include "lightningd.h"
 #include "timeout.h"
+#include "utils.h"
 
 struct oneshot {
 	struct lightningd_state *dstate;
@@ -44,9 +45,10 @@ struct oneshot *new_reltimer_(struct lightningd_state *dstate,
 void timer_expired(struct lightningd_state *dstate, struct timer *timer)
 {
 	struct oneshot *t = container_of(timer, struct oneshot, timer);
-	tal_t *tmpctx = tal(dstate, char);
+	const tal_t *tmpctx = tal_tmpctx(dstate);
 
 	/* If it doesn't free itself, freeing tmpctx will do it */
 	tal_steal(tmpctx, t);
 	t->cb(t->arg);
+	tal_free(tmpctx);
 }

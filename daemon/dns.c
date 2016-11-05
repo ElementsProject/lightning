@@ -16,7 +16,6 @@
 #include <sys/wait.h>
 
 struct dns_async {
-	size_t use;
 	struct lightningd_state *dstate;
 	struct io_plan *(*init)(struct io_conn *, struct lightningd_state *,
 				void *);
@@ -72,11 +71,15 @@ static void lookup_and_write(int fd, const char *name, const char *port)
 
 static struct io_plan *connected(struct io_conn *conn, struct dns_async *d)
 {
-	/* No longer need to try more connections. */
+	struct io_plan *plan;
+
+	/* No longer need to try more connections via connect_failed. */
 	io_set_finish(conn, NULL, NULL);
 
-	/* Keep use count, so reap_child won't fail. */
-	return d->init(conn, d->dstate, d->arg);
+	plan = d->init(conn, d->dstate, d->arg);
+	tal_free(d);
+
+	return plan;
 }
 
 static void try_connect_one(struct dns_async *d);
@@ -100,7 +103,6 @@ static struct io_plan *init_conn(struct io_conn *conn, struct dns_async *d)
 	io_set_finish(conn, connect_failed, d);
 
 	/* That new connection owns d */
-	tal_steal(conn, d);
 	return io_connect(conn, &a, connected, d);
 }
 
@@ -132,8 +134,8 @@ static void try_connect_one(struct dns_async *d)
 	}
 
 	/* We're out of things to try.  Fail. */
-	if (--d->use == 0)
-		d->fail(d->dstate, d->arg);
+	d->fail(d->dstate, d->arg);
+	tal_free(d);
 }
 
 static struct io_plan *start_connecting(struct io_conn *conn,
@@ -141,9 +143,12 @@ static struct io_plan *start_connecting(struct io_conn *conn,
 {
 	assert(d->num_addresses);
 
-	/* reap_child and our connections can race: only last one should call
-	 * fail. */
-	d->use++;
+	/* OK, we've read all we want, child should exit. */
+	waitpid(d->pid, NULL, 0);
+
+	/* No need to call dns_lookup_failed now. */
+	io_set_finish(conn, NULL, NULL);
+
 	try_connect_one(d);
 	return io_close(conn);
 }
@@ -162,12 +167,11 @@ static struct io_plan *init_dns_conn(struct io_conn *conn, struct dns_async *d)
 		       read_addresses, d);
 }
 
-static void reap_child(struct io_conn *conn, struct dns_async *d)
+static void dns_lookup_failed(struct io_conn *conn, struct dns_async *d)
 {
 	waitpid(d->pid, NULL, 0);
-	/* Last user calls fail. */
-	if (--d->use == 0)
-		d->fail(d->dstate, d->arg);
+	d->fail(d->dstate, d->arg);
+	tal_free(d);
 }
 
 struct dns_async *dns_resolve_and_connect_(struct lightningd_state *dstate,
@@ -179,7 +183,7 @@ struct dns_async *dns_resolve_and_connect_(struct lightningd_state *dstate,
 		  void *arg)
 {
 	int pfds[2];
-	struct dns_async *d = tal(NULL, struct dns_async);
+	struct dns_async *d = tal(dstate, struct dns_async);
 	struct io_conn *conn;
 
 	d->dstate = dstate;
@@ -212,9 +216,7 @@ struct dns_async *dns_resolve_and_connect_(struct lightningd_state *dstate,
 	}
 
 	close(pfds[1]);
-	d->use = 1;
 	conn = io_new_conn(dstate, pfds[0], init_dns_conn, d);
-	io_set_finish(conn, reap_child, d);
-	tal_steal(conn, d);
+	io_set_finish(conn, dns_lookup_failed, d);
 	return d;
 }

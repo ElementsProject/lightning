@@ -1815,7 +1815,7 @@ static void try_input(const struct peer *peer,
 	const char *problem;
 	Pkt *output;
 	const struct bitcoin_tx *broadcast;
-	const tal_t *ctx = tal(NULL, char);
+	const tal_t *ctx = tal_tmpctx(NULL);
 	enum command_status cstatus;
 
 	copy_peers(&copy, &other, peer);
@@ -2220,7 +2220,7 @@ static enum state_input **map_inputs(void)
 {
 	enum state_input **inps = tal_arr(NULL, enum state_input *, STATE_MAX);
 	unsigned int i;
-	const tal_t *ctx = tal(NULL, char);
+	const tal_t *ctx = tal_tmpctx(NULL);
 
 	for (i = 0; i < STATE_MAX; i++) {
 		/* This is a global */

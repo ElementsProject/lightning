@@ -241,7 +241,8 @@ static void json_getroute(struct command *cmd,
 		return;
 	}
 
-	peer = find_route(cmd->dstate, &id, msatoshi, riskfactor, &fee, &route);
+	peer = find_route(cmd, cmd->dstate, &id, msatoshi, riskfactor,
+			  &fee, &route);
 	if (!peer) {
 		command_fail(cmd, "no route found");
 		return;

@@ -91,12 +91,12 @@ struct onionpacket *parse_onionpacket(
 	read_buffer(&m->version, src, 1, &p);
 	if (m->version != 0x01) {
 		// FIXME add logging
-		return NULL;
+		return tal_free(m);
 	}
 	read_buffer(rawEphemeralkey, src, 33, &p);
 
 	if (secp256k1_ec_pubkey_parse(secpctx, &m->ephemeralkey, rawEphemeralkey, 33) != 1)
-		return NULL;
+		return tal_free(m);
 
 	read_buffer(&m->mac, src, 20, &p);
 	read_buffer(&m->routinginfo, src, ROUTING_INFO_SIZE, &p);
@@ -478,7 +478,7 @@ struct route_step *process_onionpacket(
 	u8 stream[NUM_STREAM_BYTES];
 	u8 paddedheader[ROUTING_INFO_SIZE + 2 * SECURITY_PARAMETER];
 
-	step->next = talz(ctx, struct onionpacket);
+	step->next = talz(step, struct onionpacket);
 	step->next->version = msg->version;
 	create_shared_secret(secpctx, secret, &msg->ephemeralkey, hop_privkey->secret);
 	generate_key_set(secret, &keys);
@@ -487,7 +487,7 @@ struct route_step *process_onionpacket(
 
 	if (memcmp(msg->mac, hmac, sizeof(hmac)) != 0) {
 		warnx("Computed MAC does not match expected MAC, the message was modified.");
-		return NULL;
+		return tal_free(step);
 	}
 
 	//FIXME:store seen secrets to avoid replay attacks
@@ -509,7 +509,7 @@ struct route_step *process_onionpacket(
 
 	compute_blinding_factor(secpctx, &msg->ephemeralkey, secret, blind);
 	if (!blind_group_element(secpctx, &step->next->ephemeralkey, &msg->ephemeralkey, blind))
-		return NULL;
+		return tal_free(step);
 	memcpy(&step->next->nexthop, paddedheader, SECURITY_PARAMETER);
 	memcpy(&step->next->mac,
 	       paddedheader + SECURITY_PARAMETER,
