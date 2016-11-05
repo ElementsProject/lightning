@@ -81,6 +81,8 @@ struct outgoing_tx {
 	struct list_node list;
 	const struct bitcoin_tx *tx;
 	struct sha256_double txid;
+	struct peer *peer;
+	u8 *rawtx;
 };
 
 struct peer {
@@ -290,4 +292,6 @@ void debug_dump_peers(struct lightningd_state *dstate);
 
 void reconnect_peers(struct lightningd_state *dstate);
 void cleanup_peers(struct lightningd_state *dstate);
+
+void broadcast_tx_complete(struct lightningd_state *dstate, const char *msg, struct outgoing_tx *otx);
 #endif /* LIGHTNING_DAEMON_PEER_H */

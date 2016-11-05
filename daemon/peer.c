@@ -2922,6 +2922,17 @@ const struct json_command connect_command = {
 	"Returns the {id} on success (once channel established)"
 };
 
+void broadcast_tx_complete(struct lightningd_state *dstate,
+			   const char *msg, struct outgoing_tx *otx)
+{
+	if (strstr(msg, "bad-txns-inputs-spent") && otx->peer &&
+	    otx->peer->open_jsoncmd) {
+		command_fail(otx->peer->open_jsoncmd,
+			     "Inputs already spent: %s", msg);
+		otx->peer->open_jsoncmd = NULL;
+	}
+}
+
 /* Have any of our HTLCs passed their deadline? */
 static bool any_deadline_past(struct peer *peer)
 {
