@@ -127,6 +127,9 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--commit-fee=<percent>", opt_set_u32, opt_show_u32,
 			 &dstate->config.commitment_fee_percent,
 			 "Percentage of fee to request for their commitment");
+	opt_register_arg("--override-fee-rate", opt_set_u64, opt_show_u64,
+			 &dstate->config.override_fee_rate,
+			 "Force a specific rate in satoshis per kb regardless of estimated fees");
 	opt_register_arg("--default-fee-rate", opt_set_u64, opt_show_u64,
 			 &dstate->config.default_fee_rate,
 			 "Satoshis per kb if can't estimate fees");
@@ -198,6 +201,9 @@ static const struct config testnet_config = {
 	/* We offer to pay 5 times 2-block fee */
 	.commitment_fee_percent = 500,
 
+	/* Use this rate, if specified, regardless of what estimatefee says. */
+	.override_fee_rate = 0,
+
 	/* Use this rate by default if estimatefee doesn't estimate. */
 	.default_fee_rate = 40000,
 
@@ -255,6 +261,9 @@ static const struct config mainnet_config = {
 
 	/* We offer to pay 5 times 2-block fee */
 	.commitment_fee_percent = 500,
+
+	/* Use this rate, if specified, regardless of what estimatefee says. */
+	.override_fee_rate = 0,
 
 	/* Use this rate by default if estimatefee doesn't estimate. */
 	.default_fee_rate = 40000,
