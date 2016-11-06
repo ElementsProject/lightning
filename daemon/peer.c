@@ -3038,8 +3038,10 @@ static enum watch_result anchor_depthchange(struct peer *peer,
 	 * current commitment transaction will not be processed in a
 	 * timely manner (see "Risks With HTLC Timeouts").
 	 */
+	/* Note: we don't do this when we're told to ignore fees. */
 	/* FIXME: BOLT should say what to do if it can't!  We drop conn. */
 	if (!state_is_onchain(peer->state) && !state_is_error(peer->state)
+	    && peer->dstate->config.commitment_fee_min_percent != 0
 	    && peer->local.commit->cstate->fee_rate < get_feerate(peer->dstate)) {
 		log_broken(peer->log, "fee rate %"PRIu64" lower than %"PRIu64,
 			   peer->local.commit->cstate->fee_rate,
