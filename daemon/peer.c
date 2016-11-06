@@ -383,6 +383,10 @@ static struct io_plan *peer_close(struct io_conn *conn, struct peer *peer)
 
 void peer_fail(struct peer *peer, const char *caller)
 {
+	/* Don't fail twice. */
+	if (state_is_error(peer->state) || state_is_onchain(peer->state))
+		return;
+
 	/* FIXME: Save state here? */
 	set_peer_state(peer, STATE_ERR_BREAKDOWN, caller, false);
 	peer_breakdown(peer);
