@@ -3035,7 +3035,8 @@ static enum watch_result anchor_depthchange(struct peer *peer,
 	 * timely manner (see "Risks With HTLC Timeouts").
 	 */
 	/* FIXME: BOLT should say what to do if it can't!  We drop conn. */
-	if (peer->local.commit->cstate->fee_rate < get_feerate(peer->dstate)) {
+	if (!state_is_onchain(peer->state) && !state_is_error(peer->state)
+	    && peer->local.commit->cstate->fee_rate < get_feerate(peer->dstate)) {
 		log_broken(peer->log, "fee rate %"PRIu64" lower than %"PRIu64,
 			   peer->local.commit->cstate->fee_rate,
 			   get_feerate(peer->dstate));
