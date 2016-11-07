@@ -76,12 +76,13 @@ void peer_add_their_commit(struct peer *peer,
 }
 
 /* Create a bitcoin close tx, using last signature they sent. */
-static const struct bitcoin_tx *bitcoin_close(struct peer *peer)
+static const struct bitcoin_tx *mk_bitcoin_close(const tal_t *ctx,
+						 struct peer *peer)
 {
 	struct bitcoin_tx *close_tx;
 	struct bitcoin_signature our_close_sig;
 
-	close_tx = peer_create_close_tx(peer, peer->closing.their_fee);
+	close_tx = peer_create_close_tx(ctx, peer, peer->closing.their_fee);
 
 	our_close_sig.stype = SIGHASH_ALL;
 	peer_sign_mutual_close(peer, close_tx, &our_close_sig.sig);
@@ -155,8 +156,8 @@ static const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 	return tx;
 }
 
-/* Sign and return our commit tx */
-static const struct bitcoin_tx *bitcoin_commit(struct peer *peer)
+/* Sign and local commit tx */
+static void sign_commit_tx(struct peer *peer)
 {
 	struct bitcoin_signature sig;
 
@@ -174,8 +175,6 @@ static const struct bitcoin_tx *bitcoin_commit(struct peer *peer)
 				       &sig,
 				       &peer->remote.commitkey,
 				       &peer->local.commitkey);
-
-	return peer->local.commit->tx;
 }
 
 static u64 commit_tx_fee(const struct bitcoin_tx *commit, u64 anchor_satoshis)
@@ -341,13 +340,16 @@ static void peer_breakdown(struct peer *peer)
 	
 	/* If we have a closing tx, use it. */
 	if (peer->closing.their_sig) {
+		const struct bitcoin_tx *close = mk_bitcoin_close(peer, peer);
 		log_unusual(peer->log, "Peer breakdown: sending close tx");
-		broadcast_tx(peer, bitcoin_close(peer), NULL);
+		broadcast_tx(peer, close, NULL);
+		tal_free(close);
 	/* If we have a signed commit tx (maybe not if we just offered
 	 * anchor, or they supplied anchor, or no outputs to us). */
 	} else if (peer->local.commit && peer->local.commit->sig) {
 		log_unusual(peer->log, "Peer breakdown: sending commit tx");
-		broadcast_tx(peer, bitcoin_commit(peer), NULL);
+		sign_commit_tx(peer);
+		broadcast_tx(peer, peer->local.commit->tx, NULL);
 	} else {
 		log_info(peer->log, "Peer breakdown: nothing to do");
 		/* We close immediately. */
@@ -902,7 +904,7 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 		return peer_comms_err(peer,
 				      pkt_err(peer, "Invalid signature format"));
 
-	close_tx = peer_create_close_tx(peer, c->close_fee);
+	close_tx = peer_create_close_tx(c, peer, c->close_fee);
 	if (!check_tx_sig(peer->dstate->secpctx, close_tx, 0,
 			  NULL, 0,
 			  peer->anchor.witnessscript,
@@ -956,6 +958,7 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 
 	/* Note corner case: we may *now* agree with them! */
 	if (peer->closing.our_fee == peer->closing.their_fee) {
+		const struct bitcoin_tx *close;
 		log_info(peer->log, "accept_pkt_close_sig: we agree");
 		/* BOLT #2:
 		 *
@@ -963,7 +966,9 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 		 * matching `close_fee` it SHOULD close the connection and
 		 * SHOULD sign and broadcast the final closing transaction.
 		 */
-		broadcast_tx(peer, bitcoin_close(peer), NULL);
+		close = mk_bitcoin_close(peer, peer);
+		broadcast_tx(peer, close, NULL);
+		tal_free(close);
 		return false;
 	}
 
@@ -3995,7 +4000,8 @@ void peer_watch_anchor(struct peer *peer,
 			     anchor_timeout, peer);
 }
 
-struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee)
+struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
+					struct peer *peer, u64 fee)
 {
 	struct channel_state cstate;
 
@@ -4016,7 +4022,7 @@ struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee)
 	log_add_struct(peer->log, "%s", struct pubkey, &peer->local.finalkey);
 	log_add_struct(peer->log, "/%s", struct pubkey, &peer->remote.finalkey);
 
- 	return create_close_tx(peer->dstate->secpctx, peer,
+ 	return create_close_tx(peer->dstate->secpctx, ctx,
 			       peer->closing.our_script,
 			       peer->closing.their_script,
 			       &peer->anchor.txid,
@@ -4855,7 +4861,6 @@ static void json_signcommit(struct command *cmd,
 	struct peer *peer;
 	jsmntok_t *peeridtok;
 	u8 *linear;
-	const struct bitcoin_tx *tx;
 	struct json_result *response = new_json_result(cmd);
 
 	if (!json_get_params(buffer, params,
@@ -4876,11 +4881,12 @@ static void json_signcommit(struct command *cmd,
 		return;
 	}
 
-	tx = bitcoin_commit(peer);
-	linear = linearize_tx(cmd, tx);
+	sign_commit_tx(peer);
+	linear = linearize_tx(cmd, peer->local.commit->tx);
 
 	/* Clear witness for potential future uses. */
-	tx->input[0].witness = tal_free(tx->input[0].witness);
+	peer->local.commit->tx->input[0].witness
+		= tal_free(peer->local.commit->tx->input[0].witness);
 
 	json_object_start(response, NULL);
 	json_add_string(response, "tx",

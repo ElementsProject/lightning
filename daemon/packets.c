@@ -276,7 +276,7 @@ void queue_pkt_close_signature(struct peer *peer)
 	struct signature our_close_sig;
 
 	close_signature__init(c);
-	close_tx = peer_create_close_tx(peer, peer->closing.our_fee);
+	close_tx = peer_create_close_tx(c, peer, peer->closing.our_fee);
 
 	peer_sign_mutual_close(peer, close_tx, &our_close_sig);
 	c->sig = signature_to_proto(c, peer->dstate->secpctx, &our_close_sig);

@@ -286,7 +286,8 @@ void peer_fail(struct peer *peer, const char *caller);
 /* Peer has completed open, or problem (if non-NULL). */
 void peer_open_complete(struct peer *peer, const char *problem);
 
-struct bitcoin_tx *peer_create_close_tx(struct peer *peer, u64 fee);
+struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
+					struct peer *peer, u64 fee);
 
 void debug_dump_peers(struct lightningd_state *dstate);
 
