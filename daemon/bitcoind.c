@@ -63,6 +63,7 @@ struct bitcoin_cli {
 	void (*process)(struct bitcoin_cli *);
 	void *cb;
 	void *cb_arg;
+	struct bitcoin_cli **stopper;
 };
 
 static struct io_plan *read_more(struct io_conn *conn, struct bitcoin_cli *bcli)
@@ -154,8 +155,28 @@ static void next_bcli(struct lightningd_state *dstate)
 	io_set_finish(conn, bcli_finished, bcli);
 }
 
+static void process_donothing(struct bitcoin_cli *bcli)
+{
+}
+
+/* If stopper gets freed first, set process() to a noop. */
+static void stop_process_bcli(struct bitcoin_cli **stopper)
+{
+	(*stopper)->process = process_donothing;
+	(*stopper)->stopper = NULL;
+}
+
+/* It command finishes first, free stopper. */
+static void remove_stopper(struct bitcoin_cli *bcli)
+{
+	/* Calls stop_process_bcli, but we don't care. */
+	tal_free(bcli->stopper);
+}
+
+/* If ctx is non-NULL, and is freed before we return, we don't call process() */
 static void
 start_bitcoin_cli(struct lightningd_state *dstate,
+		  const tal_t *ctx,
 		  void (*process)(struct bitcoin_cli *),
 		  bool nonzero_exit_ok,
 		  void *cb, void *cb_arg,
@@ -168,6 +189,15 @@ start_bitcoin_cli(struct lightningd_state *dstate,
 	bcli->process = process;
 	bcli->cb = cb;
 	bcli->cb_arg = cb_arg;
+	if (ctx) {
+		/* Create child whose destructor will stop us calling */
+		bcli->stopper = tal(ctx, struct bitcoin_cli *);
+		*bcli->stopper = bcli;
+		tal_add_destructor(bcli->stopper, stop_process_bcli);
+		tal_add_destructor(bcli, remove_stopper);
+	} else
+		bcli->stopper = NULL;
+
 	if (nonzero_exit_ok)
 		bcli->exitstatus = tal(bcli, int);
 	else
@@ -221,7 +251,7 @@ static void process_estimatefee_2(struct bitcoin_cli *bcli)
 
 	/* Don't know at 2?  Try 6... */
 	if (fee < 0) {
-		start_bitcoin_cli(bcli->dstate, process_estimatefee_6,
+		start_bitcoin_cli(bcli->dstate, NULL, process_estimatefee_6,
 				  false, bcli->cb, bcli->cb_arg,
 				  "estimatefee", "6", NULL);
 		return;
@@ -235,7 +265,7 @@ void bitcoind_estimate_fee_(struct lightningd_state *dstate,
 				       u64, void *),
 			    void *arg)
 {
-	start_bitcoin_cli(dstate, process_estimatefee_2, false, cb, arg,
+	start_bitcoin_cli(dstate, NULL, process_estimatefee_2, false, cb, arg,
 			  "estimatefee", "2", NULL);
 }
 
@@ -258,7 +288,7 @@ void bitcoind_sendrawtx_(struct lightningd_state *dstate,
 				    const char *msg, void *),
 			 void *arg)
 {
-	start_bitcoin_cli(dstate, process_sendrawtx, true, cb, arg,
+	start_bitcoin_cli(dstate, NULL, process_sendrawtx, true, cb, arg,
 			  "sendrawtransaction", hextx, NULL);
 }
 
@@ -328,7 +358,7 @@ void bitcoind_get_chaintip_(struct lightningd_state *dstate,
 				       void *arg),
 			    void *arg)
 {
-	start_bitcoin_cli(dstate, process_chaintips, false, cb, arg,
+	start_bitcoin_cli(dstate, NULL, process_chaintips, false, cb, arg,
 			  "getchaintips", NULL);
 }
 
@@ -373,7 +403,7 @@ void bitcoind_getrawblock_(struct lightningd_state *dstate,
 	char hex[hex_str_size(sizeof(*blockid))];
 
 	bitcoin_blkid_to_hex(blockid, hex, sizeof(hex));
-	start_bitcoin_cli(dstate, process_rawblock, false, cb, arg,
+	start_bitcoin_cli(dstate, NULL, process_rawblock, false, cb, arg,
 			  "getblock", hex, "false", NULL);
 }
 
@@ -400,7 +430,7 @@ void bitcoind_getblockcount_(struct lightningd_state *dstate,
 					 void *arg),
 			      void *arg)
 {
-	start_bitcoin_cli(dstate, process_getblockcount, false, cb, arg,
+	start_bitcoin_cli(dstate, NULL, process_getblockcount, false, cb, arg,
 			  "getblockcount", NULL);
 }
 
@@ -431,6 +461,6 @@ void bitcoind_getblockhash_(struct lightningd_state *dstate,
 	char str[STR_MAX_CHARS(height)];
 	sprintf(str, "%u", height);
 
-	start_bitcoin_cli(dstate, process_getblockhash, false, cb, arg,
+	start_bitcoin_cli(dstate, NULL, process_getblockhash, false, cb, arg,
 			  "getblockhash", str, NULL);
 }
