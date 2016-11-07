@@ -1522,6 +1522,18 @@ static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 	return true;
 }
 
+static void funding_tx_failed(struct peer *peer,
+			      int exitstatus,
+			      const char *err)
+{
+	const char *str = tal_fmt(peer, "Broadcasting funding gave %i: %s",
+				  exitstatus, err);
+
+	peer_open_complete(peer, str);
+	peer_breakdown(peer);
+	queue_pkt_err(peer, pkt_err(peer, "Funding failed"));
+}
+
 static void state_single(struct peer *peer,
 			 const enum state_input input,
 			 const Pkt *pkt)
@@ -1553,7 +1565,7 @@ static void state_single(struct peer *peer,
 		log_add(peer->log, " (out %s)", pkt_name(outpkt->pkt_case));
 	}
 	if (broadcast)
-		broadcast_tx(peer, broadcast, NULL);
+		broadcast_tx(peer, broadcast, funding_tx_failed);
 
 	if (state_is_error(peer->state)) {
 		/* Breakdown is common, others less so. */
