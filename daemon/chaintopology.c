@@ -214,7 +214,7 @@ size_t get_tx_depth(struct lightningd_state *dstate,
 }
 
 static void broadcast_remainder(struct lightningd_state *dstate,
-				const char *msg, char **txs)
+				int exitstatus, const char *msg, char **txs)
 {
 	size_t num_txs = tal_count(txs);
 	const char *this_tx;
@@ -225,9 +225,9 @@ static void broadcast_remainder(struct lightningd_state *dstate,
 		log_debug(dstate->base_log,
 			  "Expected error broadcasting tx %s: %s",
 			  txs[num_txs-1], msg);
-	else
-		log_unusual(dstate->base_log, "Broadcasting tx %s: %s",
-			    txs[num_txs-1], msg);
+	else if (exitstatus)
+		log_unusual(dstate->base_log, "Broadcasting tx %s: %i %s",
+			    txs[num_txs-1], exitstatus, msg);
 
 	if (num_txs == 1) {
 		tal_free(txs);
@@ -276,7 +276,8 @@ static void destroy_outgoing_tx(struct outgoing_tx *otx)
 }
 
 static void broadcast_done(struct lightningd_state *dstate,
-			   const char *msg, struct outgoing_tx *otx)
+			   int exitstatus, const char *msg,
+			   struct outgoing_tx *otx)
 {
 	/* For continual rebroadcasting */
 	list_add_tail(&otx->peer->outgoing_txs, &otx->list);

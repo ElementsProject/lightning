@@ -272,20 +272,21 @@ void bitcoind_estimate_fee_(struct lightningd_state *dstate,
 static void process_sendrawtx(struct bitcoin_cli *bcli)
 {
 	void (*cb)(struct lightningd_state *dstate,
-		   const char *msg, void *) = bcli->cb;
+		   int, const char *msg, void *) = bcli->cb;
 	const char *msg = tal_strndup(bcli, (char *)bcli->output,
 				      bcli->output_bytes);
 
 	log_debug(bcli->dstate->base_log, "sendrawtx exit %u, gave %s",
 		  *bcli->exitstatus, msg);
 
-	cb(bcli->dstate, msg, bcli->cb_arg);
+	cb(bcli->dstate, *bcli->exitstatus, msg, bcli->cb_arg);
 }
 
-void bitcoind_sendrawtx_(struct peer *peer,struct lightningd_state *dstate,
+void bitcoind_sendrawtx_(struct peer *peer,
+			 struct lightningd_state *dstate,
 			 const char *hextx,
 			 void (*cb)(struct lightningd_state *dstate,
-				    const char *msg, void *),
+				    int exitstatus, const char *msg, void *),
 			 void *arg)
 {
 	start_bitcoin_cli(dstate, NULL, process_sendrawtx, true, cb, arg,

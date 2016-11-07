@@ -31,7 +31,7 @@ void bitcoind_sendrawtx_(struct peer *peer,
 			 struct lightningd_state *dstate,
 			 const char *hextx,
 			 void (*cb)(struct lightningd_state *dstate,
-				    const char *msg, void *),
+				    int exitstatus, const char *msg, void *),
 			 void *arg);
 
 #define bitcoind_sendrawtx(peer_, dstate, hextx, cb, arg)		\
@@ -39,7 +39,7 @@ void bitcoind_sendrawtx_(struct peer *peer,
 			    typesafe_cb_preargs(void, void *,		\
 						(cb), (arg),		\
 						struct lightningd_state *, \
-						const char *),		\
+						int, const char *),	\
 			    (arg))
 
 void bitcoind_get_chaintip_(struct lightningd_state *dstate,
