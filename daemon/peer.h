@@ -79,7 +79,8 @@ struct peer_visible_state {
 /* Off peer->outgoing_txs */
 struct outgoing_tx {
 	struct list_node list;
-	const struct bitcoin_tx *tx;
+	struct peer *peer;
+	const char *hextx;
 	struct sha256_double txid;
 };
 

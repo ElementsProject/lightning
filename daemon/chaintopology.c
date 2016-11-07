@@ -12,6 +12,7 @@
 #include <ccan/asort/asort.h>
 #include <ccan/io/io.h>
 #include <ccan/structeq/structeq.h>
+#include <ccan/tal/str/str.h>
 #include <inttypes.h>
 
 struct block {
@@ -212,8 +213,8 @@ size_t get_tx_depth(struct lightningd_state *dstate,
 	return topo->tip->height - b->height + 1;
 }
 
-static void try_broadcast(struct lightningd_state *dstate,
-			  const char *msg, char **txs)
+static void broadcast_remainder(struct lightningd_state *dstate,
+				const char *msg, char **txs)
 {
 	size_t num_txs = tal_count(txs);
 	const char *this_tx;
@@ -237,7 +238,7 @@ static void try_broadcast(struct lightningd_state *dstate,
 	this_tx = txs[num_txs-1];
 	tal_resize(&txs, num_txs-1);
 
-	bitcoind_sendrawtx(NULL, dstate, this_tx, try_broadcast, txs);
+	bitcoind_sendrawtx(NULL, dstate, this_tx, broadcast_remainder, txs);
 }
 
 /* FIXME: This is dumb.  We can group txs and avoid bothering bitcoind
@@ -253,46 +254,48 @@ static void rebroadcast_txs(struct lightningd_state *dstate)
 		struct outgoing_tx *otx;
 
 		list_for_each(&peer->outgoing_txs, otx, list) {
-			u8 *rawtx;
-
 			if (block_for_tx(dstate, &otx->txid))
 				continue;
 
 			tal_resize(&txs, num_txs+1);
-			rawtx = linearize_tx(txs, otx->tx);
-			txs[num_txs] = tal_hexstr(txs, rawtx, tal_count(rawtx));
+			txs[num_txs] = tal_strdup(txs, otx->hextx);
 			num_txs++;
 		}
 	}
 
 	if (num_txs)
 		bitcoind_sendrawtx(NULL, dstate, txs[num_txs-1],
-				   try_broadcast, txs);
+				   broadcast_remainder, txs);
 	else
 		tal_free(txs);
 }
 
 static void destroy_outgoing_tx(struct outgoing_tx *otx)
 {
-	list_del(&otx->list);
+	list_del_from(&otx->peer->outgoing_txs, &otx->list);
+}
+
+static void broadcast_done(struct lightningd_state *dstate,
+			   const char *msg, struct outgoing_tx *otx)
+{
+	/* For continual rebroadcasting */
+	list_add_tail(&otx->peer->outgoing_txs, &otx->list);
+	tal_add_destructor(otx, destroy_outgoing_tx);
 }
 
 void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx)
 {
 	struct outgoing_tx *otx = tal(peer, struct outgoing_tx);
-	char **txs = tal_arr(peer->dstate, char *, 1);
-	u8 *rawtx;
+	const u8 *rawtx = linearize_tx(otx, tx);
 
-	otx->tx = tal_steal(otx, tx);
-	bitcoin_txid(otx->tx, &otx->txid);
-	list_add_tail(&peer->outgoing_txs, &otx->list);
-	tal_add_destructor(otx, destroy_outgoing_tx);
+	otx->peer = peer;
+	bitcoin_txid(tx, &otx->txid);
+	otx->hextx = tal_hexstr(otx, rawtx, tal_count(rawtx));
+	tal_free(rawtx);
 
 	log_add_struct(peer->log, " (tx %s)", struct sha256_double, &otx->txid);
 
-	rawtx = linearize_tx(txs, otx->tx);
-	txs[0] = tal_hexstr(txs, rawtx, tal_count(rawtx));
-	bitcoind_sendrawtx(peer, peer->dstate, txs[0], try_broadcast, txs);
+	bitcoind_sendrawtx(peer, peer->dstate, otx->hextx, broadcast_done, otx);
 }
 
 static void free_blocks(struct lightningd_state *dstate, struct block *b)

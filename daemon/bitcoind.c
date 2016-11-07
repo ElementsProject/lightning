@@ -282,14 +282,13 @@ static void process_sendrawtx(struct bitcoin_cli *bcli)
 	cb(bcli->dstate, msg, bcli->cb_arg);
 }
 
-void bitcoind_sendrawtx_(struct peer *peer,
-			 struct lightningd_state *dstate,
+void bitcoind_sendrawtx_(struct peer *peer,struct lightningd_state *dstate,
 			 const char *hextx,
 			 void (*cb)(struct lightningd_state *dstate,
 				    const char *msg, void *),
 			 void *arg)
 {
-	start_bitcoin_cli(dstate, peer, process_sendrawtx, true, cb, arg,
+	start_bitcoin_cli(dstate, NULL, process_sendrawtx, true, cb, arg,
 			  "sendrawtransaction", hextx, NULL);
 }
 
