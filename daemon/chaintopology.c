@@ -213,32 +213,36 @@ size_t get_tx_depth(struct lightningd_state *dstate,
 	return topo->tip->height - b->height + 1;
 }
 
+/* We just sent the last entry in txs[].  Shrink and send the next last. */
 static void broadcast_remainder(struct lightningd_state *dstate,
 				int exitstatus, const char *msg, char **txs)
 {
 	size_t num_txs = tal_count(txs);
-	const char *this_tx;
+	const char *sent_tx, *next_tx;
+
+	sent_tx = txs[num_txs-1];
 
 	/* These are expected. */
 	if (strstr(msg, "txn-mempool-conflict")
 	    || strstr(msg, "transaction already in block chain"))
 		log_debug(dstate->base_log,
 			  "Expected error broadcasting tx %s: %s",
-			  txs[num_txs-1], msg);
+			  sent_tx, msg);
 	else if (exitstatus)
 		log_unusual(dstate->base_log, "Broadcasting tx %s: %i %s",
-			    txs[num_txs-1], exitstatus, msg);
+			    sent_tx, exitstatus, msg);
 
-	if (num_txs == 1) {
+	/* Strip off last one. */
+	tal_resize(&txs, --num_txs);
+
+	if (num_txs == 0) {
 		tal_free(txs);
 		return;
 	}
 
-	/* Strip off last one. */
-	this_tx = txs[num_txs-1];
-	tal_resize(&txs, num_txs-1);
-
-	bitcoind_sendrawtx(NULL, dstate, this_tx, broadcast_remainder, txs);
+	/* Broadcast next one. */
+	next_tx = txs[num_txs-1];
+	bitcoind_sendrawtx(NULL, dstate, next_tx, broadcast_remainder, txs);
 }
 
 /* FIXME: This is dumb.  We can group txs and avoid bothering bitcoind
