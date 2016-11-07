@@ -485,7 +485,12 @@ u32 get_block_height(struct lightningd_state *dstate)
 
 u64 get_feerate(struct lightningd_state *dstate)
 {
-	if (dstate->topology->feerate == 0) {
+	if (dstate->config.override_fee_rate) {
+		log_debug(dstate->base_log,
+			"Forcing fee rate, ignoring estimate");
+		return dstate->config.override_fee_rate;
+	}
+	else if (dstate->topology->feerate == 0) {
 		log_info(dstate->base_log,
 			 "No fee estimate: using default fee rate");
 		return dstate->config.default_fee_rate;
