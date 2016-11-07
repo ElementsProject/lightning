@@ -237,7 +237,7 @@ static void try_broadcast(struct lightningd_state *dstate,
 	this_tx = txs[num_txs-1];
 	tal_resize(&txs, num_txs-1);
 
-	bitcoind_sendrawtx(dstate, this_tx, try_broadcast, txs);
+	bitcoind_sendrawtx(NULL, dstate, this_tx, try_broadcast, txs);
 }
 
 /* FIXME: This is dumb.  We can group txs and avoid bothering bitcoind
@@ -266,7 +266,8 @@ static void rebroadcast_txs(struct lightningd_state *dstate)
 	}
 
 	if (num_txs)
-		bitcoind_sendrawtx(dstate, txs[num_txs-1], try_broadcast, txs);
+		bitcoind_sendrawtx(NULL, dstate, txs[num_txs-1],
+				   try_broadcast, txs);
 	else
 		tal_free(txs);
 }
@@ -291,7 +292,7 @@ void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx)
 
 	rawtx = linearize_tx(txs, otx->tx);
 	txs[0] = tal_hexstr(txs, rawtx, tal_count(rawtx));
-	bitcoind_sendrawtx(peer->dstate, txs[0], try_broadcast, txs);
+	bitcoind_sendrawtx(peer, peer->dstate, txs[0], try_broadcast, txs);
 }
 
 static void free_blocks(struct lightningd_state *dstate, struct block *b)

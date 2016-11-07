@@ -27,14 +27,15 @@ void bitcoind_estimate_fee_(struct lightningd_state *dstate,
 						   u64),		\
 			       (arg))
 
-void bitcoind_sendrawtx_(struct lightningd_state *dstate,
+void bitcoind_sendrawtx_(struct peer *peer,
+			 struct lightningd_state *dstate,
 			 const char *hextx,
 			 void (*cb)(struct lightningd_state *dstate,
 				    const char *msg, void *),
 			 void *arg);
 
-#define bitcoind_sendrawtx(dstate, hextx, cb, arg)			\
-	bitcoind_sendrawtx_((dstate), (hextx),				\
+#define bitcoind_sendrawtx(peer_, dstate, hextx, cb, arg)		\
+	bitcoind_sendrawtx_((peer_), (dstate), (hextx),			\
 			    typesafe_cb_preargs(void, void *,		\
 						(cb), (arg),		\
 						struct lightningd_state *, \
