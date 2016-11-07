@@ -38,8 +38,12 @@ u32 get_block_height(struct lightningd_state *dstate);
 /* Get fee rate. */
 u64 get_feerate(struct lightningd_state *dstate);
 
-/* Broadcast a single tx, and rebroadcast as reqd (copies tx). */
-void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx);
+/* Broadcast a single tx, and rebroadcast as reqd (copies tx).
+ * If failed is non-NULL, call that and don't rebroadcast. */
+void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx,
+		  void (*failed)(struct peer *peer,
+				 int exitstatus,
+				 const char *err));
 
 void setup_topology(struct lightningd_state *dstate);
 

@@ -279,12 +279,19 @@ static void broadcast_done(struct lightningd_state *dstate,
 			   int exitstatus, const char *msg,
 			   struct outgoing_tx *otx)
 {
-	/* For continual rebroadcasting */
-	list_add_tail(&otx->peer->outgoing_txs, &otx->list);
-	tal_add_destructor(otx, destroy_outgoing_tx);
+	if (otx->failed && exitstatus != 0) {
+		otx->failed(otx->peer, exitstatus, msg);
+		tal_free(otx);
+	} else {
+		/* For continual rebroadcasting */
+		list_add_tail(&otx->peer->outgoing_txs, &otx->list);
+		tal_add_destructor(otx, destroy_outgoing_tx);
+	}
 }
 
-void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx)
+void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx,
+		  void (*failed)(struct peer *peer,
+				 int exitstatus, const char *err))
 {
 	struct outgoing_tx *otx = tal(peer, struct outgoing_tx);
 	const u8 *rawtx = linearize_tx(otx, tx);
@@ -292,6 +299,7 @@ void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx)
 	otx->peer = peer;
 	bitcoin_txid(tx, &otx->txid);
 	otx->hextx = tal_hexstr(otx, rawtx, tal_count(rawtx));
+	otx->failed = failed;
 	tal_free(rawtx);
 
 	log_add_struct(peer->log, " (tx %s)", struct sha256_double, &otx->txid);

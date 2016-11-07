@@ -82,6 +82,7 @@ struct outgoing_tx {
 	struct peer *peer;
 	const char *hextx;
 	struct sha256_double txid;
+	void (*failed)(struct peer *peer, int exitstatus, const char *err);
 };
 
 struct peer {

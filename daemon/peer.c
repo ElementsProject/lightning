@@ -342,12 +342,12 @@ static void peer_breakdown(struct peer *peer)
 	/* If we have a closing tx, use it. */
 	if (peer->closing.their_sig) {
 		log_unusual(peer->log, "Peer breakdown: sending close tx");
-		broadcast_tx(peer, bitcoin_close(peer));
+		broadcast_tx(peer, bitcoin_close(peer), NULL);
 	/* If we have a signed commit tx (maybe not if we just offered
 	 * anchor, or they supplied anchor, or no outputs to us). */
 	} else if (peer->local.commit && peer->local.commit->sig) {
 		log_unusual(peer->log, "Peer breakdown: sending commit tx");
-		broadcast_tx(peer, bitcoin_commit(peer));
+		broadcast_tx(peer, bitcoin_commit(peer), NULL);
 	} else {
 		log_info(peer->log, "Peer breakdown: nothing to do");
 		/* We close immediately. */
@@ -963,7 +963,7 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 		 * matching `close_fee` it SHOULD close the connection and
 		 * SHOULD sign and broadcast the final closing transaction.
 		 */
-		broadcast_tx(peer, bitcoin_close(peer));
+		broadcast_tx(peer, bitcoin_close(peer), NULL);
 		return false;
 	}
 
@@ -1553,7 +1553,7 @@ static void state_single(struct peer *peer,
 		log_add(peer->log, " (out %s)", pkt_name(outpkt->pkt_case));
 	}
 	if (broadcast)
-		broadcast_tx(peer, broadcast);
+		broadcast_tx(peer, broadcast, NULL);
 
 	if (state_is_error(peer->state)) {
 		/* Breakdown is common, others less so. */
@@ -1694,7 +1694,7 @@ static bool fulfill_onchain(struct peer *peer, struct htlc *htlc)
 				return false;
 			peer->onchain.resolved[i]
 				= htlc_fulfill_tx(peer, i);
-			broadcast_tx(peer, peer->onchain.resolved[i]);
+			broadcast_tx(peer, peer->onchain.resolved[i], NULL);
 			return true;
 		}
 	}
@@ -3301,7 +3301,7 @@ static enum watch_result our_htlc_depth(struct peer *peer,
 			 peer,
 			 peer->onchain.resolved[out_num],
 			 our_htlc_timeout_depth, h);
-		broadcast_tx(peer, peer->onchain.resolved[out_num]);
+		broadcast_tx(peer, peer->onchain.resolved[out_num], NULL);
 	}
 	return DELETE_WATCH;
 }
@@ -3370,7 +3370,8 @@ static enum watch_result our_main_output_depth(struct peer *peer,
 	 */
 	peer->onchain.resolved[peer->onchain.to_us_idx]
 		= bitcoin_spend_ours(peer);
-	broadcast_tx(peer, peer->onchain.resolved[peer->onchain.to_us_idx]);
+	broadcast_tx(peer, peer->onchain.resolved[peer->onchain.to_us_idx],
+		     NULL);
 	return DELETE_WATCH;
 }
 
@@ -3486,7 +3487,7 @@ static void resolve_their_htlc(struct peer *peer, unsigned int out_num)
 	 */
 	if (peer->onchain.htlcs[out_num]->r) {
 		peer->onchain.resolved[out_num]	= htlc_fulfill_tx(peer, out_num);
-		broadcast_tx(peer, peer->onchain.resolved[out_num]);
+		broadcast_tx(peer, peer->onchain.resolved[out_num], NULL);
 	} else {
 		/* BOLT #onchain:
 		 *
@@ -3773,7 +3774,7 @@ static void resolve_their_steal(struct peer *peer,
 						 peer->onchain.wscripts[i]);
 	}
 
-	broadcast_tx(peer, steal_tx);
+	broadcast_tx(peer, steal_tx, NULL);
 }
 
 static struct sha256 *get_rhash(struct peer *peer, u64 commit_num,
