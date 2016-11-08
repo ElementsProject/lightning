@@ -22,8 +22,8 @@
 struct anchor_input {
 	struct sha256_double txid;
 	unsigned int index;
-	/* Amount of input (satoshis) */
-	u64 amount;
+	/* Amount of input (satoshis), and output (satoshis) */
+	u64 in_amount, out_amount;
 	/* Wallet entry to use to spend. */
 	struct pubkey walletkey;
 };

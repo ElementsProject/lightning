@@ -514,7 +514,6 @@ out:
 /* Creation the bitcoin anchor tx, spending output user provided. */
 static void bitcoin_create_anchor(struct peer *peer)
 {
-	u64 fee;
 	struct bitcoin_tx *tx = bitcoin_tx(peer, 1, 1);
 	size_t i;
 
@@ -524,23 +523,12 @@ static void bitcoin_create_anchor(struct peer *peer)
 	tx->output[0].script = scriptpubkey_p2wsh(tx, peer->anchor.witnessscript);
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
-	/* Add input script length.  FIXME: This is normal case, not exact. */
-	fee = fee_by_feerate(measure_tx_cost(tx)/4 + 1+73 + 1+33 + 1,
-			     get_feerate(peer->dstate));
-	if (fee >= peer->anchor.input->amount)
-		/* FIXME: Report an error here!
-		 * We really should set this when they do command, but
-		 * we need to modify state to allow immediate anchor
-		 * creation: using estimate_fee is a convenient workaround. */
-		fatal("Amount %"PRIu64" below fee %"PRIu64,
-		      peer->anchor.input->amount, fee);
-
-	tx->output[0].amount = peer->anchor.input->amount - fee;
+	tx->output[0].amount = peer->anchor.input->out_amount;
 
 	tx->input[0].txid = peer->anchor.input->txid;
 	tx->input[0].index = peer->anchor.input->index;
 	tx->input[0].amount = tal_dup(tx->input, u64,
-				      &peer->anchor.input->amount);
+				      &peer->anchor.input->in_amount);
 
 	wallet_add_signed_input(peer->dstate, &peer->anchor.input->walletkey,
 				tx, 0);
@@ -3120,6 +3108,7 @@ static void json_connect(struct command *cmd,
 	struct bitcoin_tx *tx;
 	int output;
 	size_t txhexlen;
+	u64 fee;
 	const tal_t *tmpctx = tal_tmpctx(cmd);
 
 	if (!json_get_params(buffer, params,
@@ -3162,10 +3151,18 @@ static void json_connect(struct command *cmd,
 	}
 
 	connect->input->index = output;
-	connect->input->amount = tx->output[output].amount;
-	if (anchor_too_large(connect->input->amount)) {
+	connect->input->in_amount = tx->output[output].amount;
+
+	/* FIXME: This is normal case, not exact. */
+	fee = fee_by_feerate(94 + 1+73 + 1+33 + 1, get_feerate(cmd->dstate));
+	if (fee >= connect->input->in_amount)
+		command_fail(cmd, "Amount %"PRIu64" below fee %"PRIu64,
+			     connect->input->in_amount, fee);
+
+	connect->input->out_amount = connect->input->in_amount - fee;
+	if (anchor_too_large(connect->input->out_amount)) {
 		command_fail(cmd, "Amount %"PRIu64" is too large",
-			     connect->input->amount);
+			     connect->input->out_amount);
 		return;
 	}
 	if (!dns_resolve_and_connect(cmd->dstate, connect->name, connect->port,
