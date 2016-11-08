@@ -2118,14 +2118,14 @@ static struct io_plan *init_pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	if (peer->inpkt->pkt_case != PKT__PKT_INIT) {
 		peer_received_unexpected_pkt(peer, peer->inpkt, __func__);
-		return pkt_out(conn, peer);
+		goto fail;
 	}
 
 	/* They might have missed the error, tell them before hanging up */
 	if (state_is_error(peer->state)) {
 		queue_pkt_err(peer, pkt_err(peer, "In error state %s",
 					    state_name(peer->state)));
-		return pkt_out(conn, peer);
+		goto fail;
 	}
 
 	if (peer->inpkt->init->has_features) {
@@ -2149,7 +2149,7 @@ static struct io_plan *init_pkt_in(struct io_conn *conn, struct peer *peer)
 					      pkt_err(peer,
 						      "Unsupported feature %zu",
 						      i));
-				return pkt_out(conn, peer);
+				goto fail;
 			}
 		}
 	}
@@ -2162,7 +2162,7 @@ static struct io_plan *init_pkt_in(struct io_conn *conn, struct peer *peer)
 	if (!state_can_io(peer->state)) {
 		log_debug(peer->log, "State %s, closing immediately",
 			  state_name(peer->state));
-		return pkt_out(conn, peer);
+		goto fail;
 	}
 
 	/* Back into normal mode. */
@@ -2172,6 +2172,11 @@ static struct io_plan *init_pkt_in(struct io_conn *conn, struct peer *peer)
 	return io_duplex(conn,
 			 peer_read_packet(conn, peer, pkt_in),
 			 pkt_out(conn, peer));
+
+fail:
+	/* We always free inpkt; they may yet reconnect. */
+	peer->inpkt = tal_free(peer->inpkt);
+	return pkt_out(conn, peer);
 }
 
 static struct io_plan *read_init_pkt(struct io_conn *conn,
