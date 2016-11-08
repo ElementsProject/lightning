@@ -724,7 +724,9 @@ if [ -n "$MANUALCOMMIT" ]; then
 fi
 [ ! -n "$MANUALCOMMIT" ] || lcli1 dev-commit $ID2
 
-check lcli1 "getlog debug | $FGREP 'Both committed to FULFILL of our HTLC'"
+# If we're very slow, manually committed above, and we're restarting,
+# we may restart *after* this and thus not see it in the log.
+[ "$RECONNECT$MANUALCOMMIT" = restart1 ] || check lcli1 "getlog debug | $FGREP 'Both committed to FULFILL of our HTLC'"
 check lcli2 "getlog debug | $FGREP 'Both committed to FULFILL of their HTLC'"
 
 # We've transferred the HTLC amount to 2, who now has to pay fees,
