@@ -2,6 +2,7 @@
 #include "commit_tx.h"
 #include "db.h"
 #include "feechange.h"
+#include "gen_version.h"
 #include "htlc.h"
 #include "invoice.h"
 #include "lightningd.h"
@@ -1149,8 +1150,38 @@ static void db_load_addresses(struct lightningd_state *dstate)
 	tal_free(ctx);
 }
 
+static void db_check_version(struct lightningd_state *dstate)
+{
+	int err;
+	sqlite3_stmt *stmt;
+	sqlite3 *sql = dstate->db->sql;
+	char *ctx = tal_tmpctx(dstate);
+	const char *select;
+
+	select = tal_fmt(ctx, "SELECT * FROM version;");
+
+	err = sqlite3_prepare_v2(sql, select, -1, &stmt, NULL);
+	if (err != SQLITE_OK)
+		fatal("DATABASE NEEDS UPDATE.  Can't access VERSION: %s:%s",
+		      sqlite3_errstr(err), sqlite3_errmsg(sql));
+
+	while ((err = sqlite3_step(stmt)) != SQLITE_DONE) {
+		const char *ver;
+
+		if (err != SQLITE_ROW)
+			fatal("db_check_version:step gave %s:%s",
+			      sqlite3_errstr(err), sqlite3_errmsg(sql));
+		ver = sqlite3_column_str(stmt, 0);
+		if (!streq(ver, VERSION))
+			fatal("DATABASE NEEDS UPDATE. Version %s does not match %s",
+			      ver, VERSION);
+	}
+	tal_free(ctx);
+}
+
 static void db_load(struct lightningd_state *dstate)
 {
+	db_check_version(dstate);
 	db_load_wallet(dstate);
 	db_load_addresses(dstate);
 	db_load_peers(dstate);
@@ -1194,74 +1225,82 @@ void db_init(struct lightningd_state *dstate)
 	}
 
 	/* Set up tables. */
-	if (!db_exec(__func__, dstate,
-		     TABLE(wallet,
-			   SQL_PRIVKEY(privkey))
-		     TABLE(pay,
-			   SQL_RHASH(rhash), SQL_U64(msatoshi),
-			   SQL_BLOB(ids), SQL_PUBKEY(htlc_peer),
-			   SQL_U64(htlc_id), SQL_R(r), SQL_FAIL(fail),
-			   "PRIMARY KEY(rhash)")
-		     TABLE(invoice,
-			   SQL_R(r), SQL_U64(msatoshi), SQL_INVLABEL(label),
-			   SQL_U64(paid_num),
-			   "PRIMARY KEY(label)")
-		     TABLE(anchors,
-			   SQL_PUBKEY(peer),
-			   SQL_TXID(txid), SQL_U32(idx), SQL_U64(amount),
-			   SQL_U32(ok_depth), SQL_U32(min_depth),
-			   SQL_BOOL(ours))
-		     /* FIXME: state in key is overkill: just need side */
-		     TABLE(htlcs,
-			   SQL_PUBKEY(peer), SQL_U64(id),
-			   SQL_STATENAME(state), SQL_U64(msatoshi),
-			   SQL_U32(expiry), SQL_RHASH(rhash), SQL_R(r),
-			   SQL_ROUTING(routing), SQL_PUBKEY(src_peer),
-			   SQL_U64(src_id), SQL_BLOB(fail),
-			   "PRIMARY KEY(peer, id, state)")
-		     TABLE(feechanges,
-			   SQL_PUBKEY(peer), SQL_STATENAME(state),
-			   SQL_U32(fee_rate),
-			   "PRIMARY KEY(peer,state)")
-		     TABLE(commit_info,
-			   SQL_PUBKEY(peer), SQL_U32(side),
-			   SQL_U64(commit_num), SQL_SHA256(revocation_hash),
-			   SQL_U64(xmit_order), SQL_SIGNATURE(sig),
-			   SQL_SHA256(prev_revocation_hash),
-			   "PRIMARY KEY(peer, side)")
-		     TABLE(shachain,
-			   SQL_PUBKEY(peer), SQL_SHACHAIN(shachain),
-			   "PRIMARY KEY(peer)")
-		     TABLE(their_visible_state,
-			   SQL_PUBKEY(peer), SQL_BOOL(offered_anchor),
-			   SQL_PUBKEY(commitkey), SQL_PUBKEY(finalkey),
-			   SQL_U32(locktime), SQL_U32(mindepth),
-			   SQL_U32(commit_fee_rate),
-			   SQL_SHA256(next_revocation_hash),
-			   "PRIMARY KEY(peer)")
-		     TABLE(their_commitments,
-			   SQL_PUBKEY(peer), SQL_SHA256(txid),
-			   SQL_U64(commit_num),
-			   "PRIMARY KEY(peer, txid)")
-		     TABLE(peer_secrets,
-			   SQL_PUBKEY(peer), SQL_PRIVKEY(commitkey),
-			   SQL_PRIVKEY(finalkey),
-			   SQL_SHA256(revocation_seed),
-			   "PRIMARY KEY(peer)")
-		     TABLE(peer_address,
-			   SQL_PUBKEY(peer), SQL_BLOB(addr),
-			   "PRIMARY KEY(peer)")
-		     TABLE(closing,
-			   SQL_PUBKEY(peer), SQL_U64(our_fee),
-			   SQL_U64(their_fee), SQL_SIGNATURE(their_sig),
-			   SQL_BLOB(our_script), SQL_BLOB(their_script),
-			   SQL_U64(shutdown_order), SQL_U64(closing_order),
-			   SQL_U64(sigs_in),
-			   "PRIMARY KEY(peer)")
-		     TABLE(peers,
-			   SQL_PUBKEY(peer), SQL_STATENAME(state),
-			   SQL_BOOL(offered_anchor), SQL_U32(our_feerate),
-			   "PRIMARY KEY(peer)"))) {
+	dstate->db->in_transaction = true;
+	db_exec(__func__, dstate, "BEGIN IMMEDIATE;");
+	db_exec(__func__, dstate,
+		TABLE(wallet,
+		      SQL_PRIVKEY(privkey))
+		TABLE(pay,
+		      SQL_RHASH(rhash), SQL_U64(msatoshi),
+		      SQL_BLOB(ids), SQL_PUBKEY(htlc_peer),
+		      SQL_U64(htlc_id), SQL_R(r), SQL_FAIL(fail),
+		      "PRIMARY KEY(rhash)")
+		TABLE(invoice,
+		      SQL_R(r), SQL_U64(msatoshi), SQL_INVLABEL(label),
+		      SQL_U64(paid_num),
+		      "PRIMARY KEY(label)")
+		TABLE(anchors,
+		      SQL_PUBKEY(peer),
+		      SQL_TXID(txid), SQL_U32(idx), SQL_U64(amount),
+		      SQL_U32(ok_depth), SQL_U32(min_depth),
+		      SQL_BOOL(ours))
+		/* FIXME: state in key is overkill: just need side */
+		TABLE(htlcs,
+		      SQL_PUBKEY(peer), SQL_U64(id),
+		      SQL_STATENAME(state), SQL_U64(msatoshi),
+		      SQL_U32(expiry), SQL_RHASH(rhash), SQL_R(r),
+		      SQL_ROUTING(routing), SQL_PUBKEY(src_peer),
+		      SQL_U64(src_id), SQL_BLOB(fail),
+		      "PRIMARY KEY(peer, id, state)")
+		TABLE(feechanges,
+		      SQL_PUBKEY(peer), SQL_STATENAME(state),
+		      SQL_U32(fee_rate),
+		      "PRIMARY KEY(peer,state)")
+		TABLE(commit_info,
+		      SQL_PUBKEY(peer), SQL_U32(side),
+		      SQL_U64(commit_num), SQL_SHA256(revocation_hash),
+		      SQL_U64(xmit_order), SQL_SIGNATURE(sig),
+		      SQL_SHA256(prev_revocation_hash),
+		      "PRIMARY KEY(peer, side)")
+		TABLE(shachain,
+		      SQL_PUBKEY(peer), SQL_SHACHAIN(shachain),
+		      "PRIMARY KEY(peer)")
+		TABLE(their_visible_state,
+		      SQL_PUBKEY(peer), SQL_BOOL(offered_anchor),
+		      SQL_PUBKEY(commitkey), SQL_PUBKEY(finalkey),
+		      SQL_U32(locktime), SQL_U32(mindepth),
+		      SQL_U32(commit_fee_rate),
+		      SQL_SHA256(next_revocation_hash),
+		      "PRIMARY KEY(peer)")
+		TABLE(their_commitments,
+		      SQL_PUBKEY(peer), SQL_SHA256(txid),
+		      SQL_U64(commit_num),
+		      "PRIMARY KEY(peer, txid)")
+		TABLE(peer_secrets,
+		      SQL_PUBKEY(peer), SQL_PRIVKEY(commitkey),
+		      SQL_PRIVKEY(finalkey),
+		      SQL_SHA256(revocation_seed),
+		      "PRIMARY KEY(peer)")
+		TABLE(peer_address,
+		      SQL_PUBKEY(peer), SQL_BLOB(addr),
+		      "PRIMARY KEY(peer)")
+		TABLE(closing,
+		      SQL_PUBKEY(peer), SQL_U64(our_fee),
+		      SQL_U64(their_fee), SQL_SIGNATURE(their_sig),
+		      SQL_BLOB(our_script), SQL_BLOB(their_script),
+		      SQL_U64(shutdown_order), SQL_U64(closing_order),
+		      SQL_U64(sigs_in),
+		      "PRIMARY KEY(peer)")
+		TABLE(peers,
+		      SQL_PUBKEY(peer), SQL_STATENAME(state),
+		      SQL_BOOL(offered_anchor), SQL_U32(our_feerate),
+		      "PRIMARY KEY(peer)")
+		TABLE(version, "version VARCHAR(100)"));
+	db_exec(__func__, dstate, "INSERT INTO version VALUES ('"VERSION"');");
+	db_exec(__func__, dstate, "COMMIT;");
+	dstate->db->in_transaction = false;
+
+	if (dstate->db->err) {
 		unlink(DB_FILE);
 		fatal("%s", dstate->db->err);
 	}
