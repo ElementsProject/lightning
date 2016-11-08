@@ -732,14 +732,13 @@ static bool open_wait_pkt_in(struct peer *peer, const Pkt *pkt)
 		if (err)
 			return peer_comms_err(peer, err);
 
-		/* FIXME: All in one transaction! */
-		if (!db_set_their_closing_script(peer))
-			err = pkt_err(peer, "database error");
-		else
-			err = start_closing(peer);
+		peer_open_complete(peer, "Shutdown request received");
+		db_start_transaction(peer);
+		db_set_their_closing_script(peer);
+		start_closing_in_transaction(peer);
+		if (db_commit_transaction(peer) != NULL)
+			return peer_database_err(peer);
 
-		if (err)
-			return peer_comms_err(peer, err);
 		return false;
 	}
 
@@ -1673,7 +1672,9 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 		else {
 			err = accept_pkt_close_shutdown(peer, pkt);
 			if (!err) {
-				if (!db_set_their_closing_script(peer))
+				db_start_transaction(peer);
+				db_set_their_closing_script(peer);
+				if (db_commit_transaction(peer) != NULL)
 					err = pkt_err(peer, "database error");
 			}
 		}
@@ -1707,6 +1708,8 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 		break;
 	}
 
+	/* FIXME: This should be in the same transaction as whatever
+	 * triggered it */
 	if (!err && !committed_to_htlcs(peer) && peer->closing.their_script)
 		err = start_closing(peer);
 
@@ -4921,6 +4924,7 @@ static void json_close(struct command *cmd,
 		command_fail(cmd, "Database error");
 		return;
 	}
+	/* FIXME: Block until closed! */
 	command_success(cmd, null_response(cmd));
 }
 

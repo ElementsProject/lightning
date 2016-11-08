@@ -1762,22 +1762,20 @@ void db_set_our_closing_script(struct peer *peer)
 	tal_free(ctx);
 }
 
-bool db_set_their_closing_script(struct peer *peer)
+void db_set_their_closing_script(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
-	bool ok;
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
-	assert(!peer->dstate->db->in_transaction);
-	ok = db_exec(__func__, peer->dstate,
-		     "UPDATE closing SET their_script=x'%s' WHERE peer=x'%s';",
-		     tal_hexstr(ctx, peer->closing.their_script,
-				tal_count(peer->closing.their_script)),
-		     peerid);
+	assert(peer->dstate->db->in_transaction);
+	db_exec(__func__, peer->dstate,
+		"UPDATE closing SET their_script=x'%s' WHERE peer=x'%s';",
+		tal_hexstr(ctx, peer->closing.their_script,
+			   tal_count(peer->closing.their_script)),
+		peerid);
 	tal_free(ctx);
-	return ok;
 }
 
 /* For first time, we are in transaction to make it atomic with peer->state
