@@ -441,9 +441,14 @@ if ! check "$LCLI3 getlog 2>/dev/null | $FGREP Hello"; then
     exit 1
 fi
 
-# Version should be correct
-VERSION=`$LCLI1 getinfo | sed -n 's/.*"version" : "\([^"]*\)".*/\1/p'`
-[ $VERSION = `git describe --always --dirty` ] || (echo Wrong version $VERSION >&2; exit 1)
+# Version should match binary version
+GETINFO_VERSION=`$LCLI1 getinfo | sed -n 's/.*"version" : "\([^"]*\)".*/\1/p'`
+LCLI_VERSION=$($LCLI1 --version | head -n1)
+LDAEMON_VERSION=$($LIGHTNINGD1 --version | head -n1)
+if [ $GETINFO_VERSION != $LCLI_VERSION -o $GETINFO_VERSION != $LDAEMON_VERSION ]; then
+   echo Wrong versions: getinfo gave $GETINFO_VERSION, cli gave $LCLI_VERSION, daemon gave $LDAEMON_VERSION >&2
+   exit 1
+fi
 
 ID1=`$LCLI1 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'`
 [ `$LCLI1 getinfo | sed -n 's/.*"id" : "\([0-9a-f]*\)".*/\1/p'` = $ID1 ]

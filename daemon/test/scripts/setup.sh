@@ -2,6 +2,9 @@
 
 . `dirname $0`/vars.sh
 
+VERSION=$(`dirname $0`/../../lightning-cli --version | head -n1)
+[ $VERSION = `git describe --always --dirty` ] || (echo Wrong version $VERSION >&2; exit 1)
+
 if $CLI getinfo 2>/dev/null; then
     echo $DAEMON already running >&2
     exit 1
