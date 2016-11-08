@@ -59,8 +59,8 @@ static const char *sqlite3_column_str(sqlite3_stmt *stmt, int iCol)
 #define SQL_RHASH(var)		stringify(var)" CHAR(32)"
 #define SQL_SHA256(var)		stringify(var)" CHAR(32)"
 #define SQL_R(var)		stringify(var)" CHAR(32)"
-/* STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED == 44*/
-#define SQL_STATENAME(var)	stringify(var)" VARCHAR(44)"
+/* STATE_OPEN_WAIT_ANCHORDEPTH_AND_THEIRCOMPLETE == 45*/
+#define SQL_STATENAME(var)	stringify(var)" VARCHAR(45)"
 #define SQL_INVLABEL(var)	stringify(var)" VARCHAR("stringify(INVOICE_MAX_LABEL_LEN)")"
 
 /* 8 + 4 + (8 + 32) * (64 + 1) */
@@ -953,7 +953,7 @@ static void db_load_peers(struct lightningd_state *dstate)
 		load_peer_secrets(peer);
 		load_peer_closing(peer);
 		peer->anchor.min_depth = 0;
-		if (peer->state >= STATE_OPEN_WAITING_OURANCHOR
+		if (peer->state >= STATE_OPEN_WAIT_ANCHORDEPTH_AND_THEIRCOMPLETE
 		    && !state_is_error(peer->state)) {
 			load_peer_anchor(peer);
 			load_peer_visible_state(peer);

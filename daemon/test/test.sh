@@ -475,9 +475,9 @@ $CLI generate 1
 
 lcli1 connect localhost $PORT2 $TX &
 
-# Expect them to be waiting for anchor.
-check_peerstate lcli1 STATE_OPEN_WAITING_OURANCHOR
-check_peerstate lcli2 STATE_OPEN_WAITING_THEIRANCHOR
+# Expect them to be waiting for anchor, and ack from other side.
+check_peerstate lcli1 STATE_OPEN_WAIT_ANCHORDEPTH_AND_THEIRCOMPLETE
+check_peerstate lcli2 STATE_OPEN_WAIT_ANCHORDEPTH_AND_THEIRCOMPLETE
 
 DO_RECONNECT=$RECONNECT
 

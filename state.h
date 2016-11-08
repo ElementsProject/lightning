@@ -35,17 +35,22 @@ static inline bool state_is_normal(enum state s)
 	return s == STATE_NORMAL || s == STATE_NORMAL_COMMITTING;
 }
 
-static inline bool state_is_opening(enum state s)
-{
-	return s < STATE_NORMAL;
-}
-
 static inline bool state_is_waiting_for_anchor(enum state s)
 {
-	return s == STATE_OPEN_WAITING_OURANCHOR
-		|| s == STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED
-		|| s == STATE_OPEN_WAITING_THEIRANCHOR
-		|| s == STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED;
+	return s == STATE_OPEN_WAIT_ANCHORDEPTH_AND_THEIRCOMPLETE
+		|| s == STATE_OPEN_WAIT_ANCHORDEPTH;
+}
+
+static inline bool state_is_openwait(enum state s)
+{
+	return s == STATE_OPEN_WAIT_ANCHORDEPTH_AND_THEIRCOMPLETE
+		|| s == STATE_OPEN_WAIT_ANCHORDEPTH
+		|| s == STATE_OPEN_WAIT_THEIRCOMPLETE;
+}
+
+static inline bool state_is_opening(enum state s)
+{
+	return s <= STATE_OPEN_WAIT_THEIRCOMPLETE;
 }
 
 static inline bool state_can_io(enum state s)
