@@ -1,40 +1,53 @@
 check: daemon-tests
 
-daemon-test.sh-%:
-	NO_VALGRIND=$(NO_VALGRIND) daemon/test/test.sh --$*
+# We run three different bitcoinds, for different types of tests.
+# Provides limited paralellism.
+daemon-test.sh-0-%:
+	NO_VALGRIND=$(NO_VALGRIND) VARIANT=0 daemon/test/test.sh --$*
+daemon-test.sh-1-%:
+	NO_VALGRIND=$(NO_VALGRIND) VARIANT=1 daemon/test/test.sh --$*
+daemon-test.sh-2-%:
+	NO_VALGRIND=$(NO_VALGRIND) VARIANT=2 daemon/test/test.sh --$*
 
 # These don't work in parallel, so chain the deps
-daemon-test.sh-steal: daemon-test.sh-dump-onchain
-daemon-test.sh-dump-onchain: daemon-test.sh-timeout-anchor
-daemon-test.sh-timeout-anchor: daemon-test.sh-different-fee-rates
-daemon-test.sh-different-fee-rates: daemon-test.sh-normal
-daemon-test.sh-normal: daemon-test.sh-manual-commit
-daemon-test.sh-manual-commit: daemon-test.sh-mutual-close-with-htlcs
-daemon-test.sh-mutual-close-with-htlcs: daemon-test.sh-steal\ --reconnect
-daemon-test.sh-steal\ --reconnect: daemon-test.sh-dump-onchain\ --reconnect
-daemon-test.sh-dump-onchain\ --reconnect: daemon-test.sh-timeout-anchor\ --reconnect
-daemon-test.sh-timeout-anchor\ --reconnect: daemon-test.sh-different-fee-rates\ --reconnect
-daemon-test.sh-different-fee-rates\ --reconnect: daemon-test.sh-normal\ --reconnect
-daemon-test.sh-normal\ --reconnect: daemon-test.sh-manual-commit\ --reconnect
-daemon-test.sh-manual-commit\ --reconnect: daemon-test.sh-mutual-close-with-htlcs\ --reconnect
-daemon-test.sh-mutual-close-with-htlcs\ --reconnect: daemon-test.sh-steal\ --restart
-daemon-test.sh-steal\ --restart: daemon-test.sh-dump-onchain\ --restart
-daemon-test.sh-dump-onchain\ --restart: daemon-test.sh-timeout-anchor\ --restart
-daemon-test.sh-timeout-anchor\ --restart: daemon-test.sh-different-fee-rates\ --restart
-daemon-test.sh-different-fee-rates\ --restart: daemon-test.sh-normal\ --restart
-daemon-test.sh-normal\ --restart: daemon-test.sh-mutual-close-with-htlcs\ --restart
-daemon-test.sh-mutual-close-with-htlcs\ --restart: daemon-test-setup
+daemon-test.sh-0-steal: daemon-test.sh-0-dump-onchain
+daemon-test.sh-0-dump-onchain: daemon-test.sh-0-timeout-anchor
+daemon-test.sh-0-timeout-anchor: daemon-test.sh-0-different-fee-rates
+daemon-test.sh-0-different-fee-rates: daemon-test.sh-0-normal
+daemon-test.sh-0-normal: daemon-test.sh-0-manual-commit
+daemon-test.sh-0-manual-commit: daemon-test.sh-0-mutual-close-with-htlcs
+daemon-test.sh-0-mutual-close-with-htlcs: daemon-test-setup-0
+
+daemon-test.sh-1-steal\ --restart: daemon-test.sh-1-dump-onchain\ --restart
+daemon-test.sh-1-dump-onchain\ --restart: daemon-test.sh-1-timeout-anchor\ --restart
+daemon-test.sh-1-timeout-anchor\ --restart: daemon-test.sh-1-different-fee-rates\ --restart
+daemon-test.sh-1-different-fee-rates\ --restart: daemon-test.sh-1-normal\ --restart
+daemon-test.sh-1-normal\ --restart: daemon-test.sh-1-manual-commit\ --restart
+daemon-test.sh-1-manual-commit\ --restart: daemon-test.sh-1-mutual-close-with-htlcs\ --restart
+daemon-test.sh-1-mutual-close-with-htlcs\ --restart: daemon-test-setup-1
+
+daemon-test.sh-2-steal\ --reconnect: daemon-test.sh-2-dump-onchain\ --reconnect
+daemon-test.sh-2-dump-onchain\ --reconnect: daemon-test.sh-2-timeout-anchor\ --reconnect
+daemon-test.sh-2-timeout-anchor\ --reconnect: daemon-test.sh-2-different-fee-rates\ --reconnect
+daemon-test.sh-2-different-fee-rates\ --reconnect: daemon-test.sh-2-normal\ --reconnect
+daemon-test.sh-2-normal\ --reconnect: daemon-test.sh-2-manual-commit\ --reconnect
+daemon-test.sh-2-manual-commit\ --reconnect: daemon-test.sh-2-mutual-close-with-htlcs\ --reconnect
+daemon-test.sh-2-mutual-close-with-htlcs\ --reconnect: daemon-test-setup-2
 
 # We shutdown first in case something is left over.
-daemon-test-setup: daemon-all
-	daemon/test/scripts/shutdown.sh 2>/dev/null || true
-	daemon/test/scripts/setup.sh
+daemon-test-setup-%: daemon-all
+	VARIANT=$* daemon/test/scripts/shutdown.sh 2>/dev/null || true
+	VARIANT=$* daemon/test/scripts/setup.sh
 
-daemon-test-shutdown: daemon-test.sh-steal
-	daemon/test/scripts/shutdown.sh
+daemon-test-shutdown-0: daemon-test.sh-0-steal
+	VARIANT=0 daemon/test/scripts/shutdown.sh
+daemon-test-shutdown-1: daemon-test.sh-1-steal\ --restart
+	VARIANT=1 daemon/test/scripts/shutdown.sh
+daemon-test-shutdown-2: daemon-test.sh-2-steal\ --reconnect
+	VARIANT=2 daemon/test/scripts/shutdown.sh
 
-# Forms a long dependency chain.
-daemon-all-test.sh: daemon-test-shutdown
+# Forms long dependency chains.
+daemon-all-test.sh: daemon-test-shutdown-0 daemon-test-shutdown-1 daemon-test-shutdown-2
 
 # Note that these actually #include everything they need, except ccan/ and bitcoin/.
 # That allows for unit testing of statics, and special effects.

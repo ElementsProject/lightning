@@ -234,7 +234,7 @@ check()
 	fi
 	sleep 1
 	i=$(($i + 1))
-	if [ $i = 30 ]; then
+	if [ $i = 60 ]; then
 	    return 1
 	fi
     done
@@ -399,8 +399,8 @@ cp $DIR2/config $DIR3/config
 if [ x"$RECONNECT" = xrestart ]; then
     # Make sure node2 & 3 restart on same port, by setting in config.
     # Find a free TCP port.
-    echo port=`findport 4000` >> $DIR2/config
-    echo port=`findport 4010` >> $DIR3/config
+    echo port=`findport 4000 $VARIANT` >> $DIR2/config
+    echo port=`findport 4010 $VARIANT` >> $DIR3/config
 fi
 
 if [ -n "$DIFFERENT_FEES" ]; then

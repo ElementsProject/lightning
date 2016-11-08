@@ -15,7 +15,7 @@ rm -rf $DATADIR
 mkdir $DATADIR
 
 # Find a free port (racy, but hey)
-PORT=`findport 18332`
+PORT=`findport 18332 $VARIANT`
 RPCPORT=`findport $(($PORT + 1))`
 
 # Create appropriate config file so cmdline matches.
@@ -29,7 +29,7 @@ EOF
 $DAEMON &
 i=0
 while ! $CLI getinfo >/dev/null 2>&1; do
-    if [ $i -gt 30 ]; then
+    if [ $i -gt 60 ]; then
 	echo $DAEMON start failed? >&1
 	exit 1
     fi
