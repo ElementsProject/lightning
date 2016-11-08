@@ -2338,7 +2338,7 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 	assert(peer->state == STATE_INIT);
 
 	/* FIXME: Start timeout, and close peer if they don't progress! */
-	if (peer->local.offer_anchor == CMD_OPEN_WITH_ANCHOR) {
+	if (peer->local.offer_anchor) {
 		set_peer_state(peer, STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR,
 			       __func__, false);
 		anchor = OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR;
@@ -2469,12 +2469,9 @@ static bool peer_reconnected(struct peer *peer,
 struct peer *new_peer(struct lightningd_state *dstate,
 		      struct log *log,
 		      enum state state,
-		      enum state_input offer_anchor)
+		      bool offer_anchor)
 {
 	struct peer *peer = tal(dstate, struct peer);
-
-	assert(offer_anchor == CMD_OPEN_WITH_ANCHOR
-	       || offer_anchor == CMD_OPEN_WITHOUT_ANCHOR);
 
 	peer->state = state;
 	peer->connected = false;
@@ -2701,7 +2698,7 @@ static struct io_plan *crypto_on_out(struct io_conn *conn,
 	}
 
 	/* Initiator currently funds channel */
-	peer = new_peer(dstate, log, STATE_INIT, CMD_OPEN_WITH_ANCHOR);
+	peer = new_peer(dstate, log, STATE_INIT, true);
 	if (!peer_first_connected(peer, conn, SOCK_STREAM, IPPROTO_TCP,
 				  iod, id, true)) {
 		command_fail(connect->cmd, "Failed to make peer for %s:%s",
@@ -2762,7 +2759,7 @@ static struct io_plan *crypto_on_in(struct io_conn *conn,
 	}
 
 	/* Initiator currently funds channel */
-	peer = new_peer(dstate, log, STATE_INIT, CMD_OPEN_WITHOUT_ANCHOR);
+	peer = new_peer(dstate, log, STATE_INIT, false);
 	if (!peer_first_connected(peer, conn, SOCK_STREAM, IPPROTO_TCP,
 				  iod, id, false))
 		return io_close(conn);
@@ -4129,8 +4126,7 @@ bool setup_first_commit(struct peer *peer)
 	peer->local.commit->cstate = initial_cstate(peer->local.commit,
 						    peer->anchor.satoshis,
 						    peer->local.commit_fee_rate,
-						    peer->local.offer_anchor
-						    == CMD_OPEN_WITH_ANCHOR ?
+						    peer->local.offer_anchor ?
 						    LOCAL : REMOTE);
 	if (!peer->local.commit->cstate)
 		return false;
@@ -4138,8 +4134,7 @@ bool setup_first_commit(struct peer *peer)
 	peer->remote.commit->cstate = initial_cstate(peer->remote.commit,
 						     peer->anchor.satoshis,
 						     peer->remote.commit_fee_rate,
-						     peer->local.offer_anchor
-						     == CMD_OPEN_WITH_ANCHOR ?
+						     peer->local.offer_anchor ?
 						     LOCAL : REMOTE);
 	if (!peer->remote.commit->cstate)
 		return false;
@@ -4159,7 +4154,7 @@ bool setup_first_commit(struct peer *peer)
 	assert(to_them_only != to_us_only);
 
 	/* If we offer anchor, their commit is to-us only. */
-	assert(to_us_only == (peer->local.offer_anchor == CMD_OPEN_WITH_ANCHOR));
+	assert(to_us_only == peer->local.offer_anchor);
 	bitcoin_txid(peer->remote.commit->tx, &peer->remote.commit->txid);
 
 	peer->local.staging_cstate = copy_cstate(peer, peer->local.commit->cstate);

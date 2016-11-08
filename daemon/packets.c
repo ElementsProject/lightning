@@ -89,10 +89,10 @@ void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor)
 	o->delay->blocks = rel_locktime_to_blocks(&peer->local.locktime);
 	o->initial_fee_rate = peer->local.commit_fee_rate;
 	if (anchor == OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR)
-		assert(peer->local.offer_anchor == CMD_OPEN_WITH_ANCHOR);
+		assert(peer->local.offer_anchor);
 	else {
 		assert(anchor == OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR);
-		assert(peer->local.offer_anchor == CMD_OPEN_WITHOUT_ANCHOR);
+		assert(!peer->local.offer_anchor);
 	}
 		
 	o->anch = anchor;
@@ -321,17 +321,16 @@ Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt,
 			       o->initial_fee_rate, feerate,
 			       peer->dstate->config.commitment_fee_max_percent);
 	if (o->anch == OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR)
-		peer->remote.offer_anchor = CMD_OPEN_WITH_ANCHOR;
+		peer->remote.offer_anchor = true;
 	else if (o->anch == OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR)
-		peer->remote.offer_anchor = CMD_OPEN_WITHOUT_ANCHOR;
+		peer->remote.offer_anchor = false;
 	else
 		return pkt_err(peer, "Unknown offer anchor value %u",
 			       o->anch);
 
 	if (peer->remote.offer_anchor == peer->local.offer_anchor)
 		return pkt_err(peer, "Exactly one side can offer anchor (we %s)",
-			       peer->local.offer_anchor == CMD_OPEN_WITH_ANCHOR
-			       ? "do" : "don't");
+			       peer->local.offer_anchor ? "do" : "don't");
 
 	if (!proto_to_rel_locktime(o->delay, &peer->remote.locktime))
 		return pkt_err(peer, "Malformed locktime");
@@ -354,8 +353,8 @@ Pkt *accept_pkt_anchor(struct peer *peer, const Pkt *pkt)
 	const OpenAnchor *a = pkt->open_anchor;
 
 	/* They must be offering anchor for us to try accepting */
-	assert(peer->local.offer_anchor == CMD_OPEN_WITHOUT_ANCHOR);
-	assert(peer->remote.offer_anchor == CMD_OPEN_WITH_ANCHOR);
+	assert(!peer->local.offer_anchor);
+	assert(peer->remote.offer_anchor);
 
 	if (anchor_too_large(a->amount))
 		return pkt_err(peer, "Anchor millisatoshis exceeds 32 bits");

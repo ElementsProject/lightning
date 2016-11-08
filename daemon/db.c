@@ -345,11 +345,8 @@ static void load_peer_visible_state(struct peer *peer)
 		if (visible_set)
 			fatal("load_peer_visible_state: two states for %s", select);
 		visible_set = true;
-		
-		if (sqlite3_column_int64(stmt, 1))
-			peer->remote.offer_anchor = CMD_OPEN_WITH_ANCHOR;
-		else
-			peer->remote.offer_anchor = CMD_OPEN_WITHOUT_ANCHOR;
+
+		peer->remote.offer_anchor = sqlite3_column_int(stmt, 1);
 		pubkey_from_sql(peer->dstate->secpctx, stmt, 2,
 				&peer->remote.commitkey);
 		pubkey_from_sql(peer->dstate->secpctx, stmt, 3,
@@ -508,14 +505,12 @@ static void load_peer_htlcs(struct peer *peer)
 	peer->local.commit->cstate = initial_cstate(peer->local.commit,
 						    peer->anchor.satoshis,
 						    peer->local.commit_fee_rate,
-						    peer->local.offer_anchor
-						    == CMD_OPEN_WITH_ANCHOR ?
+						    peer->local.offer_anchor ?
 						    LOCAL : REMOTE);
 	peer->remote.commit->cstate = initial_cstate(peer->remote.commit,
 						     peer->anchor.satoshis,
 						     peer->remote.commit_fee_rate,
-						     peer->local.offer_anchor
-						     == CMD_OPEN_WITH_ANCHOR ?
+						     peer->local.offer_anchor ?
 						     LOCAL : REMOTE);
 
 	/* We rebuild cstate by running *every* HTLC through. */
@@ -866,10 +861,7 @@ static void load_peer_closing(struct peer *peer)
 /* FIXME: much of this is redundant. */
 static void restore_peer_local_visible_state(struct peer *peer)
 {
-	if (peer->remote.offer_anchor == CMD_OPEN_WITH_ANCHOR)
-		peer->local.offer_anchor = CMD_OPEN_WITHOUT_ANCHOR;
-	else
-		peer->local.offer_anchor = CMD_OPEN_WITH_ANCHOR;
+	peer->local.offer_anchor = !peer->remote.offer_anchor;
 
 	/* peer->local.commitkey and peer->local.finalkey set by
 	 * peer_set_secrets_from_db(). */
@@ -944,8 +936,7 @@ static void db_load_peers(struct lightningd_state *dstate)
 		idstr = pubkey_to_hexstr(dstate, dstate->secpctx, &id);
 		l = new_log(dstate, dstate->log_record, "%s:", idstr);
 		tal_free(idstr);
-		peer = new_peer(dstate, l, state, sqlite3_column_int(stmt, 2) ?
-				CMD_OPEN_WITH_ANCHOR : CMD_OPEN_WITHOUT_ANCHOR);
+		peer = new_peer(dstate, l, state, sqlite3_column_int(stmt, 2));
 		peer->htlc_id_counter = 0;
 		peer->id = tal_dup(peer, struct pubkey, &id);
 		peer->local.commit_fee_rate = sqlite3_column_int64(stmt, 3);
@@ -1370,7 +1361,7 @@ bool db_set_visible_state(struct peer *peer)
 	db_exec(__func__, peer->dstate, 
 		"INSERT INTO their_visible_state VALUES (x'%s', %s, x'%s', x'%s', %u, %u, %"PRIu64", x'%s');",
 		peerid,
-		sql_bool(peer->remote.offer_anchor == CMD_OPEN_WITH_ANCHOR),
+		sql_bool(peer->remote.offer_anchor),
 		pubkey_to_hexstr(ctx, peer->dstate->secpctx,
 				 &peer->remote.commitkey),
 		pubkey_to_hexstr(ctx, peer->dstate->secpctx,
@@ -1415,7 +1406,7 @@ bool db_create_peer(struct peer *peer)
 		"INSERT INTO peers VALUES (x'%s', '%s', %s, %"PRIi64");",
 		peerid,
 		state_name(peer->state),
-		sql_bool(peer->local.offer_anchor == CMD_OPEN_WITH_ANCHOR),
+		sql_bool(peer->local.offer_anchor),
 		peer->local.commit_fee_rate);
 
 	db_exec(__func__, peer->dstate, 

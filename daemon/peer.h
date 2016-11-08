@@ -57,9 +57,8 @@ struct commit_info {
 };
 
 struct peer_visible_state {
-	/* CMD_OPEN_WITH_ANCHOR or CMD_OPEN_WITHOUT_ANCHOR */
-	/* FIXME: Make a bool. */
-	enum state_input offer_anchor;
+	/* Is this side funding the channel? */
+	bool offer_anchor;
 	/* Key for commitment tx inputs, then key for commitment tx outputs */
 	struct pubkey commitkey, finalkey;
 	/* How long to they want the other's outputs locked (blocks) */
@@ -248,7 +247,7 @@ struct peer *find_peer_by_pkhash(struct lightningd_state *dstate, const u8 *pkha
 struct peer *new_peer(struct lightningd_state *dstate,
 		      struct log *log,
 		      enum state state,
-		      enum state_input offer_anchor);
+		      bool offer_anchor);
 
 /* Populates very first peer->{local,remote}.commit->{tx,cstate} */
 bool setup_first_commit(struct peer *peer);
