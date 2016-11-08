@@ -162,9 +162,7 @@ CORE_HEADERS := close_tx.h			\
 	utils.h					\
 	version.h
 
-GEN_HEADERS := 	gen_pkt_names.h			\
-	gen_state_names.h			\
-	gen_version.h				\
+GEN_HEADERS := 	gen_version.h			\
 	lightning.pb-c.h
 
 CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
@@ -248,13 +246,6 @@ TAGS: FORCE
 FORCE::
 
 ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDUMP_OBJS) $(CCAN_OBJS)
-
-gen_state_names.h: state_types.h ccan/ccan/cdump/tools/cdump-enumstr
-	ccan/ccan/cdump/tools/cdump-enumstr state_types.h > $@
-
-# lightning.pb-c.h doesn't create a named enum, just a typedef.  Hack it.
-gen_pkt_names.h: lightning.pb-c.h ccan/ccan/cdump/tools/cdump-enumstr
-	(echo 'enum PktCase {'; grep '^  PKT__' lightning.pb-c.h; echo '};') | 	ccan/ccan/cdump/tools/cdump-enumstr - | sed 's/enum PktCase/Pkt__PktCase/' > $@
 
 # We build a static libsecpk1, since we need ecdh
 # (and it's not API stable yet!).

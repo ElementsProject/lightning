@@ -54,7 +54,9 @@ DAEMON_JSMN_HEADERS := daemon/jsmn/jsmn.h
 
 DAEMON_GEN_HEADERS :=				\
 	daemon/gen_feechange_state_names.h	\
-	daemon/gen_htlc_state_names.h 
+	daemon/gen_htlc_state_names.h		\
+	daemon/gen_pkt_names.h			\
+	daemon/gen_state_names.h
 
 DAEMON_HEADERS :=				\
 	daemon/bitcoind.h			\
@@ -96,6 +98,13 @@ daemon/gen_htlc_state_names.h: daemon/htlc_state.h ccan/ccan/cdump/tools/cdump-e
 
 daemon/gen_feechange_state_names.h: daemon/feechange_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr daemon/feechange_state.h > $@
+
+daemon/gen_state_names.h: state_types.h ccan/ccan/cdump/tools/cdump-enumstr
+	ccan/ccan/cdump/tools/cdump-enumstr state_types.h > $@
+
+# lightning.pb-c.h doesn't create a named enum, just a typedef.  Hack it.
+daemon/gen_pkt_names.h: lightning.pb-c.h ccan/ccan/cdump/tools/cdump-enumstr
+	(echo 'enum PktCase {'; grep '^  PKT__' lightning.pb-c.h; echo '};') | 	ccan/ccan/cdump/tools/cdump-enumstr - | sed 's/enum PktCase/Pkt__PktCase/' > $@
 
 $(DAEMON_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_CLI_OBJS): $(DAEMON_HEADERS) $(DAEMON_JSMN_HEADERS) $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS) $(DAEMON_GEN_HEADERS) $(CCAN_HEADERS)
 $(DAEMON_JSMN_OBJS): $(DAEMON_JSMN_HEADERS)

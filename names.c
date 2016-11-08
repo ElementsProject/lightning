@@ -1,8 +1,8 @@
 #include "names.h"
 #include <ccan/str/str.h>
 /* Indented for 'check-source' because it has to be included after names.h */
-  #include "gen_state_names.h"
-  #include "gen_pkt_names.h"
+  #include "daemon/gen_state_names.h"
+  #include "daemon/gen_pkt_names.h"
 
 const char *state_name(enum state s)
 {
