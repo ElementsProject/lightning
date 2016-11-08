@@ -50,15 +50,31 @@ static void new_keypair(struct lightningd_state *dstate,
 	} while (!pubkey_from_privkey(dstate->secpctx, privkey, pubkey));
 }
 
-void wallet_add_signed_input(struct lightningd_state *dstate,
-			     const struct wallet *w,
+static struct wallet *find_by_pubkey(struct lightningd_state *dstate,
+				     const struct pubkey *walletkey)
+{
+	struct wallet *w;
+
+	list_for_each(&dstate->wallet, w, list) {
+		if (pubkey_eq(walletkey, &w->pubkey))
+			return w;
+	}
+	return NULL;
+}
+
+bool wallet_add_signed_input(struct lightningd_state *dstate,
+			     const struct pubkey *walletkey,
 			     struct bitcoin_tx *tx,
 			     unsigned int input_num)
 {
 	u8 *redeemscript;
 	struct bitcoin_signature sig;
-	assert(input_num < tx->input_count);
+	struct wallet *w = find_by_pubkey(dstate, walletkey);
 
+	assert(input_num < tx->input_count);
+	if (!w)
+		return false;
+	
 	redeemscript = bitcoin_redeem_p2wpkh(tx, dstate->secpctx, &w->pubkey);
 
 	sig.stype = SIGHASH_ALL;
@@ -75,10 +91,12 @@ void wallet_add_signed_input(struct lightningd_state *dstate,
 				    &sig,
 				    &w->pubkey);
 	tal_free(redeemscript);
+	return true;
 }
 
-struct wallet *wallet_can_spend(struct lightningd_state *dstate,
-				const struct bitcoin_tx_output *output)
+bool wallet_can_spend(struct lightningd_state *dstate,
+		      const struct bitcoin_tx_output *output,
+		      struct pubkey *walletkey)
 {
 	struct ripemd160 h;
 	struct wallet *w;
@@ -88,10 +106,12 @@ struct wallet *wallet_can_spend(struct lightningd_state *dstate,
 
 	memcpy(&h, output->script + 2, 20);
 	list_for_each(&dstate->wallet, w, list) {
-		if (structeq(&h, &w->p2sh))
-			return w;
+		if (structeq(&h, &w->p2sh)) {
+			*walletkey = w->pubkey;
+			return true;
+		}
 	}
-	return NULL;
+	return false;
 }
 	
 static void json_newaddr(struct command *cmd,

@@ -542,7 +542,8 @@ static void bitcoin_create_anchor(struct peer *peer)
 	tx->input[0].amount = tal_dup(tx->input, u64,
 				      &peer->anchor.input->amount);
 
-	wallet_add_signed_input(peer->dstate, peer->anchor.input->w, tx, 0);
+	wallet_add_signed_input(peer->dstate, &peer->anchor.input->walletkey,
+				tx, 0);
 
 	bitcoin_txid(tx, &peer->anchor.txid);
 	peer->anchor.tx = tx;
@@ -3150,14 +3151,12 @@ static void json_connect(struct command *cmd,
 	bitcoin_txid(tx, &connect->input->txid);
 
 	/* Find an output we know how to spend. */
-	connect->input->w = NULL;
 	for (output = 0; output < tx->output_count; output++) {
-		connect->input->w
-			= wallet_can_spend(cmd->dstate, &tx->output[output]);
-		if (connect->input->w)
+		if (wallet_can_spend(cmd->dstate, &tx->output[output],
+				     &connect->input->walletkey))
 			break;
 	}
-	if (!connect->input->w) {
+	if (output == tx->output_count) {
 		command_fail(cmd, "Tx doesn't send to wallet address");
 		return;
 	}

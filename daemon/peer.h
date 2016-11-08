@@ -25,7 +25,7 @@ struct anchor_input {
 	/* Amount of input (satoshis) */
 	u64 amount;
 	/* Wallet entry to use to spend. */
-	struct wallet *w;
+	struct pubkey walletkey;
 };
 
 /* Information we remember for their commitment txs which we signed.
