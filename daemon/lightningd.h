@@ -62,6 +62,9 @@ struct config {
 
 	/* Whether to enable IRC peer discovery. */
 	bool use_irc;
+
+	/* Whether to ignore database version. */
+	bool db_version_ignore;
 };
 
 /* Here's where the global variables hide! */

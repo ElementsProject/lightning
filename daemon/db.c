@@ -1172,9 +1172,17 @@ static void db_check_version(struct lightningd_state *dstate)
 			fatal("db_check_version:step gave %s:%s",
 			      sqlite3_errstr(err), sqlite3_errmsg(sql));
 		ver = sqlite3_column_str(stmt, 0);
-		if (!streq(ver, VERSION))
-			fatal("DATABASE NEEDS UPDATE. Version %s does not match %s",
-			      ver, VERSION);
+		if (!streq(ver, VERSION)) {
+			if (dstate->config.db_version_ignore)
+				log_unusual(dstate->base_log,
+					    "DATABASE NEEDS UPDATE."
+					    " Version %s does not match %s",
+					    ver, VERSION);
+			else
+				fatal("DATABASE NEEDS UPDATE."
+				      " Version %s does not match %s",
+				      ver, VERSION);
+		}
 	}
 	tal_free(ctx);
 }

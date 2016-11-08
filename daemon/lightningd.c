@@ -161,6 +161,10 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_noarg("--disable-irc", opt_set_invbool,
 			   &dstate->config.use_irc,
 			   "Disable IRC peer discovery for routing");
+
+	opt_register_noarg("--ignore-dbversion", opt_set_bool,
+			   &dstate->config.db_version_ignore,
+			   "Continue despite invalid database version (DANGEROUS!)");
 }
 
 static void dev_register_opts(struct lightningd_state *dstate)
@@ -228,6 +232,9 @@ static const struct config testnet_config = {
 
 	/* Discover new peers using IRC */
 	.use_irc = true,
+
+	/* Don't ignore database version */
+	.db_version_ignore = false,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -289,6 +296,9 @@ static const struct config mainnet_config = {
 
 	/* Discover new peers using IRC */
 	.use_irc = true,
+
+	/* Don't ignore database version */
+	.db_version_ignore = false,
 };
 
 static void check_config(struct lightningd_state *dstate)
