@@ -474,6 +474,11 @@ static bool peer_comms_err(struct peer *peer, Pkt *err)
 	return false;
 }
 
+static bool peer_database_err(struct peer *peer)
+{
+	return peer_comms_err(peer, pkt_err(peer, "database error"));
+}
+
 void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt, const char *where)
 {
 	const char *p;
@@ -596,19 +601,15 @@ static bool open_pkt_in(struct peer *peer, const Pkt *pkt)
 		}
 		set_peer_state(peer,  STATE_OPEN_WAIT_FOR_COMMIT_SIGPKT,
 			       __func__, false);
-		if (db_commit_transaction(peer) != NULL) {
-			err = pkt_err(peer, "database error");
-			return peer_comms_err(peer, err);
-		}
+		if (db_commit_transaction(peer) != NULL)
+			return peer_database_err(peer);
 		queue_pkt_anchor(peer);
 		return true;
 	} else {
 		set_peer_state(peer,  STATE_OPEN_WAIT_FOR_ANCHORPKT,
 			       __func__, false);
-		if (db_commit_transaction(peer) != NULL) {
-			err = pkt_err(peer, "database error");
-			return peer_comms_err(peer, err);
-		}
+		if (db_commit_transaction(peer) != NULL)
+			return peer_database_err(peer);
 		return true;
 	}
 }
@@ -658,10 +659,9 @@ static bool open_ouranchor_pkt_in(struct peer *peer, const Pkt *pkt)
 	set_peer_state(peer,
 		       STATE_OPEN_WAIT_ANCHORDEPTH_AND_THEIRCOMPLETE,
 		       __func__, false);
-	if (db_commit_transaction(peer) != NULL) {
-		err = pkt_err(peer, "database error");
-		return peer_comms_err(peer, err);
-	}
+	if (db_commit_transaction(peer) != NULL)
+		return peer_database_err(peer);
+
 	broadcast_tx(peer, peer->anchor.tx, funding_tx_failed);
 	peer_watch_anchor(peer, peer->local.mindepth);
 	return true;
@@ -712,9 +712,8 @@ static bool open_theiranchor_pkt_in(struct peer *peer, const Pkt *pkt)
 		       __func__, false);
 	db_err = db_commit_transaction(peer);
 	if (db_err) {
-		err = pkt_err(peer, "database error");
 		peer_open_complete(peer, db_err);
-		return peer_comms_err(peer, err);
+		return peer_database_err(peer);
 	}
 
 	queue_pkt_open_commit_sig(peer);
@@ -767,9 +766,8 @@ static bool open_wait_pkt_in(struct peer *peer, const Pkt *pkt)
 
 		db_err = db_commit_transaction(peer);
 		if (db_err) {
-			err = pkt_err(peer, "database error");
 			peer_open_complete(peer, db_err);
-			return peer_comms_err(peer, err);
+			return peer_database_err(peer);
 		}
 		return true;
 
@@ -1266,10 +1264,8 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 	peer->closing.their_fee = c->close_fee;
 	peer->closing.sigs_in++;
 
-	if (!db_update_their_closing(peer)) {
-		return peer_comms_err(peer,
-				      pkt_err(peer, "Database error"));
-	}
+	if (!db_update_their_closing(peer))
+		return peer_database_err(peer);
 
 	if (peer->closing.our_fee != peer->closing.their_fee) {
 		/* BOLT #2:
@@ -1297,10 +1293,9 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 
 		db_start_transaction(peer);
 		db_update_our_closing(peer);
-		if (db_commit_transaction(peer) != NULL) {
-			return peer_comms_err(peer,
-					      pkt_err(peer, "Database error"));
-		}
+		if (db_commit_transaction(peer) != NULL)
+			return peer_database_err(peer);
+
 		queue_pkt_close_signature(peer);
 	}
 
@@ -3285,7 +3280,7 @@ static void peer_depth_ok(struct peer *peer)
 	}
 
 	if (db_commit_transaction(peer))
-		peer_comms_err(peer, pkt_err(peer, "Database error"));
+		peer_database_err(peer);
 }
 
 static enum watch_result anchor_depthchange(struct peer *peer,
