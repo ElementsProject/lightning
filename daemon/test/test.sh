@@ -5,7 +5,13 @@ cd `git rev-parse --show-toplevel`/daemon/test
 
 . scripts/vars.sh
 
-scripts/setup.sh
+# If bitcoind not already running, start it.
+if ! $CLI getinfo >/dev/null 2>&1; then
+    scripts/setup.sh
+    SHUTDOWN_BITCOIN=scripts/shutdown.sh
+else
+    SHUTDOWN_BITCOIN=/bin/true
+fi
 
 # Bash variables for in-depth debugging.
 #set -vx
@@ -343,7 +349,7 @@ all_ok()
     if grep ^== $DIR1/errors; then exit 1; fi
     if grep ^== $DIR2/errors; then exit 1; fi
     if grep ^== $DIR3/errors; then exit 1; fi
-    scripts/shutdown.sh
+    $SHUTDOWN_BITCOIN
 
     trap "rm -rf $DIR1 $DIR2 $DIR3" EXIT
     exit 0
