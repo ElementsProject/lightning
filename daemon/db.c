@@ -1775,10 +1775,10 @@ bool db_update_their_closing(struct peer *peer)
 
 	assert(!peer->dstate->db->in_transaction);
 	ok = db_exec(__func__, peer->dstate,
-		     "UPDATE closing SET their_fee=%"PRIu64", their_sig=x'%s', sigs_in=%u WHERE peer=x'%s';",
+		     "UPDATE closing SET their_fee=%"PRIu64", their_sig=%s, sigs_in=%u WHERE peer=x'%s';",
 		     peer->closing.their_fee,
-		     tal_hexstr(ctx, peer->closing.their_sig,
-				tal_count(peer->closing.their_sig)),
+		     sig_to_sql(ctx, peer->dstate->secpctx,
+				peer->closing.their_sig),
 		     peer->closing.sigs_in,
 		     peerid);
 	tal_free(ctx);
