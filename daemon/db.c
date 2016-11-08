@@ -931,7 +931,6 @@ static void restore_peer_local_visible_state(struct peer *peer)
 	if (!peer->anchor.ours)
 		peer->their_commitsigs--;
 
-	peer->order_counter = 0;
 	if (peer->local.commit->order + 1 > peer->order_counter)
 		peer->order_counter = peer->local.commit->order + 1;
 	if (peer->remote.commit->order + 1 > peer->order_counter)
@@ -980,6 +979,7 @@ static void db_load_peers(struct lightningd_state *dstate)
 		peer->htlc_id_counter = 0;
 		peer->id = tal_dup(peer, struct pubkey, &id);
 		peer->local.commit_fee_rate = sqlite3_column_int64(stmt, 3);
+		peer->order_counter = 1;
 		log_debug(peer->log, "%s:%s",
 			  __func__, state_name(peer->state));
 	}
@@ -1439,13 +1439,13 @@ void db_update_next_revocation_hash(struct peer *peer)
 	tal_free(ctx);
 }
 
-bool db_create_peer(struct peer *peer)
+void db_create_peer(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal_tmpctx(peer);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
-	db_start_transaction(peer);
+	assert(peer->dstate->db->in_transaction);
 	db_exec(__func__, peer->dstate, 
 		"INSERT INTO peers VALUES (x'%s', '%s', %s, %"PRIi64");",
 		peerid,
@@ -1470,9 +1470,7 @@ bool db_create_peer(struct peer *peer)
 			pubkey_to_hexstr(ctx, peer->dstate->secpctx,
 					 &peer->anchor.input->walletkey));
 	
-	errmsg = db_commit_transaction(peer);
 	tal_free(ctx);
-	return !errmsg;
 }
 
 void db_start_transaction(struct peer *peer)

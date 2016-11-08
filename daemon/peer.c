@@ -588,14 +588,14 @@ static bool open_pkt_in(struct peer *peer, const Pkt *pkt)
 			return peer_comms_err(peer, err);
 		}
 		set_peer_state(peer,  STATE_OPEN_WAIT_FOR_COMMIT_SIGPKT,
-			       __func__, false);
+			       __func__, true);
 		if (db_commit_transaction(peer) != NULL)
 			return peer_database_err(peer);
 		queue_pkt_anchor(peer);
 		return true;
 	} else {
 		set_peer_state(peer,  STATE_OPEN_WAIT_FOR_ANCHORPKT,
-			       __func__, false);
+			       __func__, true);
 		if (db_commit_transaction(peer) != NULL)
 			return peer_database_err(peer);
 		return true;
@@ -646,7 +646,7 @@ static bool open_ouranchor_pkt_in(struct peer *peer, const Pkt *pkt)
 	db_new_commit_info(peer, LOCAL, NULL);
 	set_peer_state(peer,
 		       STATE_OPEN_WAIT_ANCHORDEPTH_AND_THEIRCOMPLETE,
-		       __func__, false);
+		       __func__, true);
 	if (db_commit_transaction(peer) != NULL)
 		return peer_database_err(peer);
 
@@ -697,7 +697,7 @@ static bool open_theiranchor_pkt_in(struct peer *peer, const Pkt *pkt)
 			      &peer->remote.commit->txid,
 			      peer->remote.commit->commit_num);
 	set_peer_state(peer, STATE_OPEN_WAIT_ANCHORDEPTH_AND_THEIRCOMPLETE,
-		       __func__, false);
+		       __func__, true);
 	db_err = db_commit_transaction(peer);
 	if (db_err) {
 		peer_open_complete(peer, db_err);
@@ -748,7 +748,7 @@ static bool open_wait_pkt_in(struct peer *peer, const Pkt *pkt)
 			set_peer_state(peer, STATE_NORMAL, __func__, true);
 		} else {
 			set_peer_state(peer, STATE_OPEN_WAIT_ANCHORDEPTH,
-				       __func__, false);
+				       __func__, true);
 		}
 
 		db_err = db_commit_transaction(peer);
@@ -2352,7 +2352,12 @@ static void retransmit_pkts(struct peer *peer, s64 ack)
 	 * type which was not counted by the `ack` field.
 	 */
 	while (ack < peer->order_counter) {
-		if (peer->remote.commit && ack == peer->remote.commit->order) {
+		if (ack == 0) {
+			queue_pkt_open(peer, peer->local.offer_anchor);
+		} else if (ack == 1) {
+			queue_pkt_open_commit_sig(peer);
+		} else if (peer->remote.commit
+			   && ack == peer->remote.commit->order) {
 			/* BOLT #2:
 			 *
 			 * Before retransmitting `update_commit`, the node
@@ -2516,27 +2521,28 @@ static u64 peer_revocations_received(struct peer *peer)
 
 static struct io_plan *peer_send_init(struct io_conn *conn, struct peer *peer)
 {
-	u64 sigs, revokes, shutdown, closing;
+	u64 open, sigs, revokes, shutdown, closing;
 
+	open = (peer->state == STATE_OPEN_WAIT_FOR_OPENPKT ? 0 : 1);
 	sigs = peer_commitsigs_received(peer);
 	revokes = peer_revocations_received(peer);
 	shutdown = peer->closing.their_script ? 1 : 0;
 	closing = peer->closing.sigs_in;
 	log_debug(peer->log,
-		  "Init with ack %"PRIu64" sigs + %"PRIu64" revokes"
-		  " + %"PRIu64" shutdown + %"PRIu64" closing",
-		  sigs, revokes, shutdown, closing);
+		  "Init with ack %"PRIu64" opens + %"PRIu64" sigs + %"
+		  PRIu64" revokes + %"PRIu64" shutdown + %"PRIu64" closing",
+		  open, sigs, revokes, shutdown, closing);
 
 	/* BOLT #2:
 	 *
 	 * A node MUST send an `init` message immediately immediately after
 	 * it has validated the `authenticate` message.  A node MUST set
 	 * the `ack` field in the `init` message to the the sum of
-	 * previously-processed messages of types `open_commit_sig`,
+	 * previously-processed messages of types `open`, `open_commit_sig`,
 	 * `update_commit`, `update_revocation`, `close_shutdown` and
 	 * `close_signature`. */
 	return peer_write_packet(conn, peer,
-				 pkt_init(peer, sigs + revokes
+				 pkt_init(peer, open + sigs + revokes
 					  + shutdown + closing),
 				 read_init_pkt);
 }
@@ -2550,12 +2556,18 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 
 	assert(peer->state == STATE_INIT);
 
-	set_peer_state(peer, STATE_OPEN_WAIT_FOR_OPENPKT, __func__, false);
+	/* Counter is 1 for sending pkt_open: we'll do it in retransmit_pkts */
+	peer->order_counter++;
+
+	db_start_transaction(peer);
+	set_peer_state(peer, STATE_OPEN_WAIT_FOR_OPENPKT, __func__, true);
 
 	/* FIXME: Start timeout, and close peer if they don't progress! */
-
-	if (!db_create_peer(peer))
-		fatal("Database error in %s", __func__);
+	db_create_peer(peer);
+	if (db_commit_transaction(peer) != NULL) {
+		peer_database_err(peer);
+		return peer_close(conn, peer);
+	}
 
 	/* Set up out commit info now: rest gets done in setup_first_commit
 	 * once anchor is established. */
@@ -2563,7 +2575,6 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 	peer->local.commit->revocation_hash = peer->local.next_revocation_hash;
 	peer_get_revocation_hash(peer, 1, &peer->local.next_revocation_hash);
 
-	queue_pkt_open(peer, peer->local.offer_anchor);
 	return peer_send_init(conn,peer);
 }
 
@@ -3261,7 +3272,7 @@ static void peer_depth_ok(struct peer *peer)
 	switch (peer->state) {
 	case STATE_OPEN_WAIT_ANCHORDEPTH_AND_THEIRCOMPLETE:
 		set_peer_state(peer, STATE_OPEN_WAIT_THEIRCOMPLETE,
-			       __func__, false);
+			       __func__, true);
 		break;
 	case STATE_OPEN_WAIT_ANCHORDEPTH:
 		peer_open_complete(peer, NULL);
