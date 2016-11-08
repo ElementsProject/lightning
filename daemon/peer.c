@@ -435,16 +435,6 @@ static void start_closing_in_transaction(struct peer *peer)
 	queue_pkt_close_signature(peer);
 }
 
-static Pkt *start_closing(struct peer *peer)
-{
-	db_start_transaction(peer);
-	start_closing_in_transaction(peer);
-
-	if (db_commit_transaction(peer) != NULL)
-		return pkt_err(peer, "database error");
-	return NULL;
-}
-
 static struct io_plan *peer_close(struct io_conn *conn, struct peer *peer)
 {
 	/* Tell writer to wrap it up (may have to xmit first) */
@@ -1447,10 +1437,15 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	if (peer_uncommitted_changes(peer))
 		remote_changes_pending(peer);
 
+	queue_pkt_revocation(peer, &preimage, &peer->local.next_revocation_hash);
+
+	/* If we're shutting down and no more HTLCs, begin closing */
+	if (peer->closing.their_script && !committed_to_htlcs(peer))
+		start_closing_in_transaction(peer);
+	
 	if (db_commit_transaction(peer) != NULL)
 		return pkt_err(peer, "Database error");
 
-	queue_pkt_revocation(peer, &preimage, &peer->local.next_revocation_hash);
 	return NULL;
 }
 
@@ -1627,6 +1622,11 @@ static Pkt *handle_pkt_revocation(struct peer *peer, const Pkt *pkt,
 	db_update_next_revocation_hash(peer);
 	set_peer_state(peer, next_state, __func__, true);
 	db_remove_their_prev_revocation_hash(peer);
+
+	/* If we're shutting down and no more HTLCs, begin closing */
+	if (peer->closing.their_script && !committed_to_htlcs(peer))
+		start_closing_in_transaction(peer);
+
 	if (db_commit_transaction(peer) != NULL)
 		return pkt_err(peer, "database error");
 
@@ -1674,6 +1674,9 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 			if (!err) {
 				db_start_transaction(peer);
 				db_set_their_closing_script(peer);
+				/* If no more HTLCs, we're closing. */
+				if (!committed_to_htlcs(peer))
+					start_closing_in_transaction(peer);
 				if (db_commit_transaction(peer) != NULL)
 					err = pkt_err(peer, "database error");
 			}
@@ -1707,11 +1710,6 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 		err = pkt_err_unexpected(peer, pkt);
 		break;
 	}
-
-	/* FIXME: This should be in the same transaction as whatever
-	 * triggered it */
-	if (!err && !committed_to_htlcs(peer) && peer->closing.their_script)
-		err = start_closing(peer);
 
 	if (err)
 		return peer_comms_err(peer, err);
