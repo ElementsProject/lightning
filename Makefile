@@ -314,7 +314,7 @@ distclean: clean
 maintainer-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'
 	@echo 'deletes files that may need special tools to rebuild.'
-	$(RM) lightning.pb-c.c lightning.pb-c.h ccan/config.h $(GEN_HEADERS)
+	$(RM) lightning.pb-c.c lightning.pb-c.h
 	$(RM) doc/deployable-lightning.pdf
 	$(RM) $(MANPAGES)
 
@@ -323,6 +323,7 @@ clean: daemon-clean
 	$(RM) libsecp256k1.{a,la}
 	$(RM) $(PROGRAMS)
 	$(RM) bitcoin/*.o *.o $(PROGRAMS:=.o) $(CCAN_OBJS)
+	$(RM) ccan/config.h gen_*.h
 	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 
