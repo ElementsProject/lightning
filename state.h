@@ -84,35 +84,4 @@ static inline bool state_can_remove_htlc(enum state s)
 	return state_is_normal(s) || state_is_shutdown(s);
 }
 
-
-struct peer;
-struct bitcoin_tx;
-struct commit_info;
-
-static inline bool input_is_pkt(enum state_input input)
-{
-	return input <= PKT_ERROR;
-}
-
-enum state state(struct peer *peer,
-		 const enum state_input input,
-		 const Pkt *pkt,
-		 const struct bitcoin_tx **broadcast);
-
-/* a == b? */
-static inline bool input_is(enum state_input a, enum state_input b)
-{
-	return a == b;
-}
-
-/**
- * peer_watch_anchor: create a watch for the anchor transaction.
- * @peer: the state data for this peer.
- * @depth: depth at which to fire @depthok.
- */
-void peer_watch_anchor(struct peer *peer, int depth);
-
-/* Get the bitcoin anchor tx. */
-const struct bitcoin_tx *bitcoin_anchor(struct peer *peer);
-
 #endif /* LIGHTNING_STATE_H */

@@ -42,8 +42,7 @@ DAEMON_SRC :=					\
 	daemon/wallet.c				\
 	daemon/watch.c				\
 	names.c					\
-	irc.c					\
-	state.c
+	irc.c
 
 DAEMON_OBJS := $(DAEMON_SRC:.c=.o)
 

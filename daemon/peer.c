@@ -294,7 +294,7 @@ static void peer_update_complete(struct peer *peer)
 
 /* FIXME: Split success and fail functions, roll state changes etc into
  * success case. */
-void peer_open_complete(struct peer *peer, const char *problem)
+static void peer_open_complete(struct peer *peer, const char *problem)
 {
 	if (problem) {
 		log_unusual(peer->log, "peer open failed: %s", problem);
@@ -371,8 +371,10 @@ static void peer_breakdown(struct peer *peer)
 		/* We close immediately. */
 		set_peer_state(peer, STATE_CLOSED, __func__, false);
 		db_forget_peer(peer);
-		io_wake(peer);
 	}
+
+	/* Always wake peer to close or flush packets. */
+	io_wake(peer);
 }
 
 /* All unrevoked commit txs must have no HTLCs in them. */
@@ -562,9 +564,31 @@ static bool open_pkt_in(struct peer *peer, const Pkt *pkt)
 	}
 }
 
+static void funding_tx_failed(struct peer *peer,
+			      int exitstatus,
+			      const char *err)
+{
+	const char *str = tal_fmt(peer, "Broadcasting funding gave %i: %s",
+				  exitstatus, err);
+
+	peer_open_complete(peer, str);
+	peer_breakdown(peer);
+	queue_pkt_err(peer, pkt_err(peer, "Funding failed"));
+}
+
 static bool open_ouranchor_pkt_in(struct peer *peer, const Pkt *pkt)
 {
 	Pkt *err;
+
+	if (pkt->pkt_case == PKT__PKT_CLOSE_SHUTDOWN) {
+		err = accept_pkt_close_shutdown(peer, pkt);
+		if (err)
+			return peer_comms_err(peer, err);
+
+		set_peer_state(peer, STATE_SHUTDOWN, __func__, false);
+		peer_breakdown(peer);
+		return false;
+	}
 
 	switch (peer->state) {
 	case STATE_OPEN_WAIT_FOR_COMMIT_SIG:
@@ -601,7 +625,7 @@ static bool open_ouranchor_pkt_in(struct peer *peer, const Pkt *pkt)
 			err = pkt_err(peer, "database error");
 			return peer_comms_err(peer, err);
 		}
-		broadcast_tx(peer, bitcoin_anchor(peer));
+		broadcast_tx(peer, peer->anchor.tx, funding_tx_failed);
 		peer_watch_anchor(peer, peer->local.mindepth);
 		return true;
 
@@ -631,15 +655,7 @@ static bool open_ouranchor_pkt_in(struct peer *peer, const Pkt *pkt)
 		}
 	/* Fall thru */
 	case STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED:
-		if (pkt->pkt_case != PKT__PKT_CLOSE_SHUTDOWN)
-			return peer_received_unexpected_pkt(peer, pkt, __func__);
-
-		err = accept_pkt_close_shutdown(peer, pkt);
-		if (err)
-			return peer_comms_err(peer, err);
-
-		set_peer_state(peer, STATE_SHUTDOWN, __func__, false);
-		return true;
+		return peer_received_unexpected_pkt(peer, pkt, __func__);
 
 	default:
 		log_unusual(peer->log,
@@ -650,6 +666,112 @@ static bool open_ouranchor_pkt_in(struct peer *peer, const Pkt *pkt)
 	}
 }
 
+static bool open_theiranchor_pkt_in(struct peer *peer, const Pkt *pkt)
+{
+	Pkt *err;
+	const char *db_err;
+
+	if (pkt->pkt_case == PKT__PKT_CLOSE_SHUTDOWN) {
+		err = accept_pkt_close_shutdown(peer, pkt);
+		if (err)
+			return peer_comms_err(peer, err);
+
+		set_peer_state(peer, STATE_SHUTDOWN, __func__, false);
+		peer_breakdown(peer);
+		return false;
+	}
+
+	switch (peer->state) {
+	case STATE_OPEN_WAIT_FOR_ANCHOR:
+		if (pkt->pkt_case != PKT__PKT_OPEN_ANCHOR)
+			return peer_received_unexpected_pkt(peer, pkt, __func__);
+
+		err = accept_pkt_anchor(peer, pkt);
+		if (err) {
+			peer_open_complete(peer, err->error->problem);
+			return peer_comms_err(peer, err);
+		}
+
+		peer->anchor.ours = false;
+		if (!setup_first_commit(peer)) {
+			err = pkt_err(peer, "Insufficient funds for fee");
+			peer_open_complete(peer, err->error->problem);
+			return peer_comms_err(peer, err);
+		}
+
+		log_debug_struct(peer->log, "Creating sig for %s",
+				 struct bitcoin_tx,
+				 peer->remote.commit->tx);
+		log_add_struct(peer->log, " using key %s",
+			       struct pubkey, &peer->local.commitkey);
+
+		peer->remote.commit->sig = tal(peer->remote.commit,
+					       struct bitcoin_signature);
+		peer->remote.commit->sig->stype = SIGHASH_ALL;
+		peer_sign_theircommit(peer, peer->remote.commit->tx,
+				      &peer->remote.commit->sig->sig);
+
+		peer->remote.commit->order = peer->order_counter++;
+		db_start_transaction(peer);
+		db_set_anchor(peer);
+		db_new_commit_info(peer, REMOTE, NULL);
+		peer_add_their_commit(peer,
+				      &peer->remote.commit->txid,
+				      peer->remote.commit->commit_num);
+		set_peer_state(peer, STATE_OPEN_WAITING_THEIRANCHOR, __func__,
+			       false);
+		db_err = db_commit_transaction(peer);
+		if (db_err) {
+			err = pkt_err(peer, "database error");
+			peer_open_complete(peer, db_err);
+			return peer_comms_err(peer, err);
+		}
+
+		queue_pkt_open_commit_sig(peer);
+		peer_watch_anchor(peer, peer->local.mindepth);
+		return true;
+
+	case STATE_OPEN_WAITING_THEIRANCHOR:
+	case STATE_OPEN_WAIT_FOR_COMPLETE_THEIRANCHOR:
+		if (pkt->pkt_case == PKT__PKT_OPEN_COMPLETE) {
+			err = accept_pkt_open_complete(peer, pkt);
+			if (err) {
+				peer_open_complete(peer, err->error->problem);
+				return peer_comms_err(peer, err);
+			}
+
+			db_start_transaction(peer);
+			if (peer->state == STATE_OPEN_WAITING_THEIRANCHOR) {
+				set_peer_state(peer,
+					       STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED,
+					       __func__, false);
+			} else {
+				peer_open_complete(peer, NULL);
+				set_peer_state(peer, STATE_NORMAL,
+					       __func__, true);
+			}
+
+			db_err = db_commit_transaction(peer);
+			if (db_err) {
+				err = pkt_err(peer, "database error");
+				peer_open_complete(peer, db_err);
+				return peer_comms_err(peer, err);
+			}
+			return true;
+		}
+	/* Fall thru */
+	case STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED:
+		return peer_received_unexpected_pkt(peer, pkt, __func__);
+
+	default:
+		log_unusual(peer->log,
+			    "%s: unexpected state %s",
+			    __func__, state_name(peer->state));
+		peer_fail(peer, __func__);
+		return false;
+	}
+}
+		
 static void set_htlc_rval(struct peer *peer,
 			  struct htlc *htlc, const struct rval *rval)
 {
@@ -1843,70 +1965,6 @@ static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 	return true;
 }
 
-static void funding_tx_failed(struct peer *peer,
-			      int exitstatus,
-			      const char *err)
-{
-	const char *str = tal_fmt(peer, "Broadcasting funding gave %i: %s",
-				  exitstatus, err);
-
-	peer_open_complete(peer, str);
-	peer_breakdown(peer);
-	queue_pkt_err(peer, pkt_err(peer, "Funding failed"));
-}
-
-static void state_single(struct peer *peer,
-			 const enum state_input input,
-			 const Pkt *pkt)
-{
-	const struct bitcoin_tx *broadcast;
-	enum state newstate;
-	size_t old_outpkts = tal_count(peer->outpkt);
-
-	newstate = state(peer, input, pkt, &broadcast);
-	set_peer_state(peer, newstate, input_name(input), false);
-
-	/* If we added uncommitted changes, we should have set them to send. */
-	if (peer_uncommitted_changes(peer))
-		assert(peer->commit_timer);
-	
-	if (tal_count(peer->outpkt) > old_outpkts) {
-		Pkt *outpkt = peer->outpkt[old_outpkts];
-		log_add(peer->log, " (out %s)", pkt_name(outpkt->pkt_case));
-	}
-	if (broadcast)
-		broadcast_tx(peer, broadcast, funding_tx_failed);
-
-	if (state_is_error(peer->state)) {
-		/* Breakdown is common, others less so. */
-		if (peer->state != STATE_ERR_BREAKDOWN)
-			log_broken(peer->log, "Entered error state %s",
-				   state_name(peer->state));
-		peer_breakdown(peer);
-
-		/* Start output if not running already; it will close conn. */
-		io_wake(peer);
-	} else if (!state_is_opening(peer->state)) {
-		/* Now in STATE_NORMAL, so save. */
-		db_start_transaction(peer);
-		db_update_state(peer);
-		if (db_commit_transaction(peer) != NULL) {
-			peer_fail(peer, __func__);
-
-			/* Start output if not running already; it will close conn. */
-			io_wake(peer);
-			return;
-		}
-	}
-}
-
-static void state_event(struct peer *peer, 
-			const enum state_input input,
-			const Pkt *pkt)
-{
-	state_single(peer, input, pkt);
-}
-
 /* Create a HTLC fulfill transaction for onchain.tx[out_num]. */
 static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 						unsigned int out_num)
@@ -2176,10 +2234,8 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 	else if (state_is_opening(peer->state)) {
 		if (peer->local.offer_anchor)
 			keep_going = open_ouranchor_pkt_in(peer, peer->inpkt);
-		else {
-			state_event(peer, peer->inpkt->pkt_case, peer->inpkt);
-			keep_going = true;
-		}
+		else
+			keep_going = open_theiranchor_pkt_in(peer, peer->inpkt);
 	} else {
 		log_unusual(peer->log,
 			    "Unexpected state %s", state_name(peer->state));
@@ -3271,7 +3327,6 @@ static void peer_depth_ok(struct peer *peer)
 		log_broken(peer->log, "%s: state %s",
 			   __func__, state_name(peer->state));
 		peer_fail(peer, __func__);
-		io_wake(peer);
 		break;
 	}
 
@@ -4253,12 +4308,6 @@ struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
 			       peer->anchor.satoshis,
 			       cstate.side[LOCAL].pay_msat / 1000,
 			       cstate.side[REMOTE].pay_msat / 1000);
-}
-
-/* Get the bitcoin anchor tx. */
-const struct bitcoin_tx *bitcoin_anchor(struct peer *peer)
-{
-	return peer->anchor.tx;
 }
 
 /* Sets up the initial cstate and commit tx for both nodes: false if
