@@ -169,7 +169,6 @@ enum state state(struct peer *peer,
 			if (err) {
 				peer->local.commit->sig
 					= tal_free(peer->local.commit->sig);
-				bitcoin_release_anchor(peer, INPUT_NONE);
 				peer_open_complete(peer, err->error->problem);
 				goto err_breakdown;
 			}
@@ -181,7 +180,6 @@ enum state state(struct peer *peer,
 			db_err = db_commit_transaction(peer);
 
 			if (db_err) {
-				bitcoin_release_anchor(peer, INPUT_NONE);
 				err = pkt_err(peer, "database error");
 				peer_open_complete(peer, db_err);
 				goto err_breakdown;
@@ -190,7 +188,6 @@ enum state state(struct peer *peer,
 			peer_watch_anchor(peer, peer->local.mindepth);
 			return next_state(peer, STATE_OPEN_WAITING_OURANCHOR);
 		} else if (input_is_pkt(input)) {
-			bitcoin_release_anchor(peer, INPUT_NONE);
 			peer_open_complete(peer, "unexpected packet");
 			goto unexpected_pkt;
 		}

@@ -4101,12 +4101,6 @@ void bitcoin_create_anchor(struct peer *peer)
 		assert(tx->input[i].witness);
 }
 
-/* We didn't end up broadcasting the anchor: we don't need to do anything
- * to "release" TXOs, since we have our own internal wallet now. */
-void bitcoin_release_anchor(struct peer *peer, enum state_input done)
-{
-}
-
 /* Get the bitcoin anchor tx. */
 const struct bitcoin_tx *bitcoin_anchor(struct peer *peer)
 {

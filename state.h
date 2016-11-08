@@ -112,8 +112,4 @@ void bitcoin_create_anchor(struct peer *peer);
 /* Get the bitcoin anchor tx. */
 const struct bitcoin_tx *bitcoin_anchor(struct peer *peer);
 
-/* We didn't end up broadcasting the anchor: release the utxos.
- * If done != INPUT_NONE, remove existing create_anchor too. */
-void bitcoin_release_anchor(struct peer *peer, enum state_input done);
-
 #endif /* LIGHTNING_STATE_H */
