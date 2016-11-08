@@ -393,6 +393,58 @@ static bool committed_to_htlcs(const struct peer *peer)
 	return false;
 }
 
+static void peer_calculate_close_fee(struct peer *peer)
+{
+	/* Use actual worst-case length of close tx: based on BOLT#02's
+	 * commitment tx numbers, but only 1 byte for output count */
+	const uint64_t txsize = 41 + 221 + 10 + 32 + 32;
+	uint64_t maxfee;
+
+	peer->closing.our_fee
+		= fee_by_feerate(txsize, get_feerate(peer->dstate));
+
+	/* BOLT #2:
+	 * The sender MUST set `close_fee` lower than or equal to the
+	 * fee of the final commitment transaction, and MUST set
+	 * `close_fee` to an even number of satoshis.
+	 */
+	maxfee = commit_tx_fee(peer->local.commit->tx, peer->anchor.satoshis);
+	if (peer->closing.our_fee > maxfee) {
+		/* This could only happen if the fee rate dramatically */
+		log_unusual(peer->log,
+			    "Closing fee %"PRIu64" exceeded commit fee %"PRIu64", reducing.",
+			    peer->closing.our_fee, maxfee);
+		peer->closing.our_fee = maxfee;
+
+		/* This can happen if actual commit txfee is odd. */
+		if (peer->closing.our_fee & 1)
+			peer->closing.our_fee--;
+	}
+	assert(!(peer->closing.our_fee & 1));
+}
+
+static void start_closing_in_transaction(struct peer *peer)
+{
+	assert(!committed_to_htlcs(peer));
+
+	set_peer_state(peer, STATE_MUTUAL_CLOSING, __func__, true);
+
+	peer_calculate_close_fee(peer);
+	peer->closing.closing_order = peer->order_counter++;
+	db_update_our_closing(peer);
+	queue_pkt_close_signature(peer);
+}
+
+static Pkt *start_closing(struct peer *peer)
+{
+	db_start_transaction(peer);
+	start_closing_in_transaction(peer);
+
+	if (db_commit_transaction(peer) != NULL)
+		return pkt_err(peer, "database error");
+	return NULL;
+}
+
 static struct io_plan *peer_close(struct io_conn *conn, struct peer *peer)
 {
 	/* Tell writer to wrap it up (may have to xmit first) */
@@ -1623,58 +1675,6 @@ static Pkt *handle_pkt_revocation(struct peer *peer, const Pkt *pkt,
 
 	return NULL;
 }	
-
-static void peer_calculate_close_fee(struct peer *peer)
-{
-	/* Use actual worst-case length of close tx: based on BOLT#02's
-	 * commitment tx numbers, but only 1 byte for output count */
-	const uint64_t txsize = 41 + 221 + 10 + 32 + 32;
-	uint64_t maxfee;
-
-	peer->closing.our_fee
-		= fee_by_feerate(txsize, get_feerate(peer->dstate));
-
-	/* BOLT #2:
-	 * The sender MUST set `close_fee` lower than or equal to the
-	 * fee of the final commitment transaction, and MUST set
-	 * `close_fee` to an even number of satoshis.
-	 */
-	maxfee = commit_tx_fee(peer->local.commit->tx, peer->anchor.satoshis);
-	if (peer->closing.our_fee > maxfee) {
-		/* This could only happen if the fee rate dramatically */
-		log_unusual(peer->log,
-			    "Closing fee %"PRIu64" exceeded commit fee %"PRIu64", reducing.",
-			    peer->closing.our_fee, maxfee);
-		peer->closing.our_fee = maxfee;
-
-		/* This can happen if actual commit txfee is odd. */
-		if (peer->closing.our_fee & 1)
-			peer->closing.our_fee--;
-	}
-	assert(!(peer->closing.our_fee & 1));
-}
-
-static void start_closing_in_transaction(struct peer *peer)
-{
-	assert(!committed_to_htlcs(peer));
-
-	set_peer_state(peer, STATE_MUTUAL_CLOSING, __func__, true);
-
-	peer_calculate_close_fee(peer);
-	peer->closing.closing_order = peer->order_counter++;
-	db_update_our_closing(peer);
-	queue_pkt_close_signature(peer);
-}
-
-static Pkt *start_closing(struct peer *peer)
-{
-	db_start_transaction(peer);
-	start_closing_in_transaction(peer);
-
-	if (db_commit_transaction(peer) != NULL)
-		return pkt_err(peer, "database error");
-	return NULL;
-}
 
 /* This is the io loop while we're doing shutdown. */
 static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
