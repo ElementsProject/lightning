@@ -1425,6 +1425,105 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 	return true;
 }
 
+static bool do_commit(struct peer *peer, struct command *jsoncmd)
+{
+	struct commit_info *ci;
+	const char *errmsg;
+	static const struct htlcs_table changes[] = {
+		{ SENT_ADD_HTLC, SENT_ADD_COMMIT },
+		{ SENT_REMOVE_REVOCATION, SENT_REMOVE_ACK_COMMIT },
+		{ SENT_ADD_REVOCATION, SENT_ADD_ACK_COMMIT},
+		{ SENT_REMOVE_HTLC, SENT_REMOVE_COMMIT}
+	};
+	static const struct feechanges_table feechanges[] = {
+		{ SENT_FEECHANGE, SENT_FEECHANGE_COMMIT },
+		{ SENT_FEECHANGE_REVOCATION, SENT_FEECHANGE_ACK_COMMIT}
+	};
+	bool to_us_only;
+
+	/* We can have changes we suggested, or changes they suggested. */
+	if (!peer_uncommitted_changes(peer)) {
+		log_debug(peer->log, "do_commit: no changes to commit");
+		if (jsoncmd)
+			command_fail(jsoncmd, "no changes to commit");
+		return true;
+	}
+
+	log_debug(peer->log, "do_commit: sending commit command %"PRIu64,
+		  peer->remote.commit->commit_num + 1);
+
+	assert(state_can_commit(peer->state));
+	assert(!peer->commit_jsoncmd);
+
+	peer->commit_jsoncmd = jsoncmd;
+	ci = new_commit_info(peer, peer->remote.commit->commit_num + 1);
+
+	assert(!peer->their_prev_revocation_hash);
+	peer->their_prev_revocation_hash
+		= tal_dup(peer, struct sha256,
+			  &peer->remote.commit->revocation_hash);
+
+	db_start_transaction(peer);
+		
+	errmsg = changestates(peer, changes, ARRAY_SIZE(changes),
+			      feechanges, ARRAY_SIZE(feechanges), true);
+	if (errmsg) {
+		log_broken(peer->log, "queue_pkt_commit: %s", errmsg);
+		goto database_error;
+	}
+
+	/* Create new commit info for this commit tx. */
+	ci->revocation_hash = peer->remote.next_revocation_hash;
+	/* BOLT #2:
+	 *
+	 * ...a sending node MUST apply all remote acked and unacked
+	 * changes except unacked fee changes to the remote commitment
+	 * before generating `sig`. */
+	ci->cstate = copy_cstate(ci, peer->remote.staging_cstate);
+	ci->tx = create_commit_tx(ci, peer, &ci->revocation_hash,
+				  ci->cstate, REMOTE, &to_us_only);
+	bitcoin_txid(ci->tx, &ci->txid);
+
+	if (!to_us_only) {
+		log_debug(peer->log, "Signing tx %"PRIu64, ci->commit_num);
+		log_add_struct(peer->log, " for %s",
+			       struct channel_state, ci->cstate);
+		log_add_struct(peer->log, " (txid %s)",
+			       struct sha256_double, &ci->txid);
+
+		ci->sig = tal(ci, struct bitcoin_signature);
+		ci->sig->stype = SIGHASH_ALL;
+		peer_sign_theircommit(peer, ci->tx, &ci->sig->sig);
+	}
+
+	/* Switch to the new commitment. */
+	tal_free(peer->remote.commit);
+	peer->remote.commit = ci;
+	peer->remote.commit->order = peer->order_counter++;
+	db_new_commit_info(peer, REMOTE, peer->their_prev_revocation_hash);
+
+	/* We don't need to remember their commit if we don't give sig. */
+	if (ci->sig)
+		peer_add_their_commit(peer, &ci->txid, ci->commit_num);
+
+	if (peer->state == STATE_SHUTDOWN) {
+		set_peer_state(peer, STATE_SHUTDOWN_COMMITTING, __func__, true);
+	} else {
+		assert(peer->state == STATE_NORMAL);
+		set_peer_state(peer, STATE_NORMAL_COMMITTING, __func__, true);
+	}
+	if (db_commit_transaction(peer) != NULL)
+		goto database_error;
+
+	queue_pkt_commit(peer, ci->sig);
+	return true;
+
+database_error:
+	db_abort_transaction(peer);
+	peer_fail(peer, __func__);
+	return false;
+}
+
 static bool peer_start_shutdown(struct peer *peer)
 {
 	enum state newstate;
@@ -2279,104 +2378,6 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 		forget_uncommitted_changes(peer);
 		try_reconnect(peer);
 	}
-}
-
-static void do_commit(struct peer *peer, struct command *jsoncmd)
-{
-	struct commit_info *ci;
-	const char *errmsg;
-	static const struct htlcs_table changes[] = {
-		{ SENT_ADD_HTLC, SENT_ADD_COMMIT },
-		{ SENT_REMOVE_REVOCATION, SENT_REMOVE_ACK_COMMIT },
-		{ SENT_ADD_REVOCATION, SENT_ADD_ACK_COMMIT},
-		{ SENT_REMOVE_HTLC, SENT_REMOVE_COMMIT}
-	};
-	static const struct feechanges_table feechanges[] = {
-		{ SENT_FEECHANGE, SENT_FEECHANGE_COMMIT },
-		{ SENT_FEECHANGE_REVOCATION, SENT_FEECHANGE_ACK_COMMIT}
-	};
-	bool to_us_only;
-
-	/* We can have changes we suggested, or changes they suggested. */
-	if (!peer_uncommitted_changes(peer)) {
-		log_debug(peer->log, "do_commit: no changes to commit");
-		if (jsoncmd)
-			command_fail(jsoncmd, "no changes to commit");
-		return;
-	}
-
-	log_debug(peer->log, "do_commit: sending commit command %"PRIu64,
-		  peer->remote.commit->commit_num + 1);
-
-	assert(state_can_commit(peer->state));
-	assert(!peer->commit_jsoncmd);
-
-	peer->commit_jsoncmd = jsoncmd;
-	ci = new_commit_info(peer, peer->remote.commit->commit_num + 1);
-
-	assert(!peer->their_prev_revocation_hash);
-	peer->their_prev_revocation_hash
-		= tal_dup(peer, struct sha256,
-			  &peer->remote.commit->revocation_hash);
-
-	db_start_transaction(peer);
-		
-	errmsg = changestates(peer, changes, ARRAY_SIZE(changes),
-			      feechanges, ARRAY_SIZE(feechanges), true);
-	if (errmsg) {
-		log_broken(peer->log, "queue_pkt_commit: %s", errmsg);
-		goto database_error;
-	}
-
-	/* Create new commit info for this commit tx. */
-	ci->revocation_hash = peer->remote.next_revocation_hash;
-	/* BOLT #2:
-	 *
-	 * ...a sending node MUST apply all remote acked and unacked
-	 * changes except unacked fee changes to the remote commitment
-	 * before generating `sig`. */
-	ci->cstate = copy_cstate(ci, peer->remote.staging_cstate);
-	ci->tx = create_commit_tx(ci, peer, &ci->revocation_hash,
-				  ci->cstate, REMOTE, &to_us_only);
-	bitcoin_txid(ci->tx, &ci->txid);
-
-	if (!to_us_only) {
-		log_debug(peer->log, "Signing tx %"PRIu64, ci->commit_num);
-		log_add_struct(peer->log, " for %s",
-			       struct channel_state, ci->cstate);
-		log_add_struct(peer->log, " (txid %s)",
-			       struct sha256_double, &ci->txid);
-
-		ci->sig = tal(ci, struct bitcoin_signature);
-		ci->sig->stype = SIGHASH_ALL;
-		peer_sign_theircommit(peer, ci->tx, &ci->sig->sig);
-	}
-
-	/* Switch to the new commitment. */
-	tal_free(peer->remote.commit);
-	peer->remote.commit = ci;
-	peer->remote.commit->order = peer->order_counter++;
-	db_new_commit_info(peer, REMOTE, peer->their_prev_revocation_hash);
-
-	/* We don't need to remember their commit if we don't give sig. */
-	if (ci->sig)
-		peer_add_their_commit(peer, &ci->txid, ci->commit_num);
-
-	if (peer->state == STATE_SHUTDOWN) {
-		set_peer_state(peer, STATE_SHUTDOWN_COMMITTING, __func__, true);
-	} else {
-		assert(peer->state == STATE_NORMAL);
-		set_peer_state(peer, STATE_NORMAL_COMMITTING, __func__, true);
-	}
-	if (db_commit_transaction(peer) != NULL)
-		goto database_error;
-
-	queue_pkt_commit(peer, ci->sig);
-	return;
-
-database_error:
-	db_abort_transaction(peer);
-	peer_fail(peer, __func__);
 }
 
 static void try_commit(struct peer *peer)
