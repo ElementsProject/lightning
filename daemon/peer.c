@@ -3026,6 +3026,46 @@ static void check_htlc_expiry(struct peer *peer)
 		peer_fail(peer, __func__);
 }
 
+static void peer_depth_ok(struct peer *peer)
+{
+	queue_pkt_open_complete(peer);
+
+	db_start_transaction(peer);
+	
+	switch (peer->state) {
+	case STATE_OPEN_WAITING_OURANCHOR:
+		set_peer_state(peer, STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR,
+			       __func__, false);
+		break;
+	case STATE_OPEN_WAITING_THEIRANCHOR:
+		set_peer_state(peer, STATE_OPEN_WAIT_FOR_COMPLETE_THEIRANCHOR,
+			       __func__, false);
+		break;
+	case STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED:
+	case STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED:
+		assert(!peer->nc);
+		/* We're connected, so record it. */
+		peer->nc = add_connection(peer->dstate,
+					  &peer->dstate->id, peer->id,
+					  peer->dstate->config.fee_base,
+					  peer->dstate->config.fee_per_satoshi,
+					  peer->dstate->config.min_htlc_expiry,
+					  peer->dstate->config.min_htlc_expiry);
+		peer_open_complete(peer, NULL);
+		set_peer_state(peer, STATE_NORMAL, __func__, true);
+		break;
+	default:
+		log_broken(peer->log, "%s: state %s",
+			   __func__, state_name(peer->state));
+		peer_fail(peer, __func__);
+		io_wake(peer);
+		break;
+	}
+
+	if (db_commit_transaction(peer))
+		peer_comms_err(peer, pkt_err(peer, "Database error"));
+}
+
 static enum watch_result anchor_depthchange(struct peer *peer,
 					    unsigned int depth,
 					    const struct sha256_double *txid,
@@ -3039,7 +3079,7 @@ static enum watch_result anchor_depthchange(struct peer *peer,
 			  peer->anchor.ok_depth);
 		/* We can see a run of blocks all at once, so may be > depth */
 		if ((int)depth >= peer->anchor.ok_depth) {
-			state_event(peer, BITCOIN_ANCHOR_DEPTHOK, NULL);
+			peer_depth_ok(peer);
 			peer->anchor.ok_depth = -1;
 		}
 	} else if (depth == 0)
@@ -3968,7 +4008,6 @@ static void anchor_timeout(struct peer *peer)
 
 void peer_watch_anchor(struct peer *peer,
 		       int depth,
-		       enum state_input depthok,
 		       enum state_input timeout)
 {
 	log_debug_struct(peer->log, "watching for anchor %s",
@@ -3976,7 +4015,6 @@ void peer_watch_anchor(struct peer *peer,
 	log_add(peer->log, " to hit depth %i", depth);
 
 	/* We assume this. */
-	assert(depthok == BITCOIN_ANCHOR_DEPTHOK);
 	assert(timeout == BITCOIN_ANCHOR_TIMEOUT || timeout == INPUT_NONE);
 
 	peer->anchor.ok_depth = depth;

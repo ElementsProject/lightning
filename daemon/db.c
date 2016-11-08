@@ -306,8 +306,7 @@ static void load_peer_anchor(struct peer *peer)
 
 		/* FIXME: Do timeout! */
 		peer_watch_anchor(peer,
-				  sqlite3_column_int(stmt, 4),
-				  BITCOIN_ANCHOR_DEPTHOK, INPUT_NONE);
+				  sqlite3_column_int(stmt, 4), INPUT_NONE);
 		peer->anchor.min_depth = sqlite3_column_int(stmt, 5);
 		anchor_set = true;
 	}

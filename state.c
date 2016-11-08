@@ -168,7 +168,6 @@ enum state state(struct peer *peer,
 			queue_pkt_open_commit_sig(peer);
 			peer_watch_anchor(peer,
 					  peer->local.mindepth,
-					  BITCOIN_ANCHOR_DEPTHOK,
 					  BITCOIN_ANCHOR_TIMEOUT);
 
 			return next_state(peer, STATE_OPEN_WAITING_THEIRANCHOR);
@@ -217,7 +216,6 @@ enum state state(struct peer *peer,
 			queue_tx_broadcast(broadcast, bitcoin_anchor(peer));
 			peer_watch_anchor(peer,
 					  peer->local.mindepth,
-					  BITCOIN_ANCHOR_DEPTHOK,
 					  INPUT_NONE);
 			return next_state(peer, STATE_OPEN_WAITING_OURANCHOR);
 		} else if (input_is_pkt(input)) {
@@ -238,15 +236,7 @@ enum state state(struct peer *peer,
 		}
 	/* Fall thru */
 	case STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED:
-		if (input_is(input, BITCOIN_ANCHOR_DEPTHOK)) {
-			queue_pkt_open_complete(peer);
-			if (peer->state == STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED) {
-				peer_open_complete(peer, NULL);
-				return next_state(peer, STATE_NORMAL);
-			}
-			return next_state(peer,
-					  STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR);
-		} else if (input_is(input, PKT_CLOSE_SHUTDOWN)) {
+		if (input_is(input, PKT_CLOSE_SHUTDOWN)) {
 			peer_open_complete(peer, "Received PKT_CLOSE_SHUTDOWN");
 			goto accept_shutdown;
 		} else if (input_is_pkt(input)) {
@@ -270,14 +260,6 @@ enum state state(struct peer *peer,
 			/* Anchor didn't reach blockchain in reasonable time. */
 			queue_pkt_err(peer, pkt_err(peer, "Anchor timed out"));
 			return next_state(peer, STATE_ERR_ANCHOR_TIMEOUT);
-		} else if (input_is(input, BITCOIN_ANCHOR_DEPTHOK)) {
-			queue_pkt_open_complete(peer);
-			if (peer->state == STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED) {
-				peer_open_complete(peer, NULL);
-				return next_state(peer, STATE_NORMAL);
-			}
-			return next_state(peer,
-					  STATE_OPEN_WAIT_FOR_COMPLETE_THEIRANCHOR);
 		} else if (input_is(input, PKT_CLOSE_SHUTDOWN)) {
 			peer_open_complete(peer, "Received PKT_CLOSE_SHUTDOWN");
 			goto accept_shutdown;
