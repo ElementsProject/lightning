@@ -41,7 +41,7 @@ DAEMON_SRC :=					\
 	daemon/timeout.c			\
 	daemon/wallet.c				\
 	daemon/watch.c				\
-	names.c					\
+	daemon/names.c				\
 	irc.c
 
 DAEMON_OBJS := $(DAEMON_SRC:.c=.o)
@@ -79,6 +79,7 @@ DAEMON_HEADERS :=				\
 	daemon/jsonrpc.h			\
 	daemon/lightningd.h			\
 	daemon/log.h				\
+	daemon/names.h				\
 	daemon/netaddr.h			\
 	daemon/opt_time.h			\
 	daemon/output_to_htlc.h			\
