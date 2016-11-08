@@ -45,8 +45,8 @@ else
     exit 1
 fi
 
-scripts/generate-block.sh init
+`dirname $0`/generate-block.sh init
 
-A1=`scripts/get-new-address.sh`
+A1=$(`dirname $0`/get-new-address.sh)
 TX=`$CLI sendmany "" "{ \"$A1\":0.01 }"`
-scripts/generate-block.sh
+`dirname $0`/generate-block.sh

@@ -1,7 +1,6 @@
 check: daemon-tests
 
 daemon-test.sh-%:
-	daemon/test/scripts/shutdown.sh 2>/dev/null || true
 	NO_VALGRIND=$(NO_VALGRIND) daemon/test/test.sh --$*
 
 # These don't work in parallel, so chain the deps
@@ -24,8 +23,18 @@ daemon-test.sh-dump-onchain\ --restart: daemon-test.sh-timeout-anchor\ --restart
 daemon-test.sh-timeout-anchor\ --restart: daemon-test.sh-different-fee-rates\ --restart
 daemon-test.sh-different-fee-rates\ --restart: daemon-test.sh-normal\ --restart
 daemon-test.sh-normal\ --restart: daemon-test.sh-mutual-close-with-htlcs\ --restart
-daemon-test.sh-mutual-close-with-htlcs\ --restart: daemon-all
-daemon-all-test.sh: daemon-test.sh-steal
+daemon-test.sh-mutual-close-with-htlcs\ --restart: daemon-test-setup
+
+# We shutdown first in case something is left over.
+daemon-test-setup: daemon-all
+	daemon/test/scripts/shutdown.sh 2>/dev/null || true
+	daemon/test/scripts/setup.sh
+
+daemon-test-shutdown: daemon-test.sh-steal
+	daemon/test/scripts/shutdown.sh
+
+# Forms a long dependency chain.
+daemon-all-test.sh: daemon-test-shutdown
 
 # Note that these actually #include everything they need, except ccan/ and bitcoin/.
 # That allows for unit testing of statics, and special effects.
