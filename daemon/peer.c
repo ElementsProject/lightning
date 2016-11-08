@@ -2554,8 +2554,6 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 
 	/* FIXME: Start timeout, and close peer if they don't progress! */
 
-	/* FIXME: Delay db write until we have something to keep, or handle
-	 * reconnect with STATE_INIT state. */
 	if (!db_create_peer(peer))
 		fatal("Database error in %s", __func__);
 

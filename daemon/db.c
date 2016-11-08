@@ -303,8 +303,6 @@ static void load_peer_anchor(struct peer *peer)
 		peer->anchor.index = sqlite3_column_int64(stmt, 2);
 		peer->anchor.satoshis = sqlite3_column_int64(stmt, 3);
 		peer->anchor.ours = sqlite3_column_int(stmt, 6);
-
-		/* FIXME: Set up timeout in case they don't make progress */
 		peer_watch_anchor(peer, sqlite3_column_int(stmt, 4));
 		peer->anchor.min_depth = sqlite3_column_int(stmt, 5);
 		anchor_set = true;
@@ -312,6 +310,48 @@ static void load_peer_anchor(struct peer *peer)
 
 	if (!anchor_set)
 		fatal("load_peer_anchor: no anchor for '%s'", select);
+	tal_free(ctx);
+}
+
+static void load_peer_anchor_input(struct peer *peer)
+{
+	int err;
+	sqlite3_stmt *stmt;
+	sqlite3 *sql = peer->dstate->db->sql;
+	char *ctx = tal_tmpctx(peer);
+	const char *select;
+	bool anchor_input_set = false;
+
+	select = tal_fmt(ctx,
+			 "SELECT * FROM anchor_inputs WHERE peer = x'%s';",
+			 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id));
+
+	err = sqlite3_prepare_v2(sql, select, -1, &stmt, NULL);
+	if (err != SQLITE_OK)
+		fatal("load_peer_anchor_input:prepare gave %s:%s",
+		      sqlite3_errstr(err), sqlite3_errmsg(sql));
+
+	while ((err = sqlite3_step(stmt)) != SQLITE_DONE) {
+		if (err != SQLITE_ROW)
+			fatal("load_peer_anchor_input:step gave %s:%s",
+			      sqlite3_errstr(err), sqlite3_errmsg(sql));
+		if (anchor_input_set)
+			fatal("load_peer_anchor_input: two inputs for '%s'",
+			      select);
+		peer->anchor.input = tal(peer, struct anchor_input);
+		from_sql_blob(stmt, 1,
+			      &peer->anchor.input->txid,
+			      sizeof(peer->anchor.input->txid));
+		peer->anchor.input->index = sqlite3_column_int(stmt, 2);
+		peer->anchor.input->in_amount = sqlite3_column_int64(stmt, 3);
+		peer->anchor.input->out_amount = sqlite3_column_int64(stmt, 4);
+		pubkey_from_sql(peer->dstate->secpctx,
+				stmt, 5, &peer->anchor.input->walletkey);
+		anchor_input_set = true;
+	}
+
+	if (!anchor_input_set)
+		fatal("load_peer_anchor_input: no inputs for '%s'", select);
 	tal_free(ctx);
 }
 
@@ -861,7 +901,7 @@ static void load_peer_closing(struct peer *peer)
 /* FIXME: much of this is redundant. */
 static void restore_peer_local_visible_state(struct peer *peer)
 {
-	peer->local.offer_anchor = !peer->remote.offer_anchor;
+	assert(peer->local.offer_anchor == !peer->remote.offer_anchor);
 
 	/* peer->local.commitkey and peer->local.finalkey set by
 	 * peer_set_secrets_from_db(). */
@@ -962,6 +1002,8 @@ static void db_load_peers(struct lightningd_state *dstate)
 			load_peer_htlcs(peer);
 			restore_peer_local_visible_state(peer);
 		}
+		if (peer->local.offer_anchor)
+			load_peer_anchor_input(peer);
 	}
 
 	connect_htlc_src(dstate);
@@ -1236,6 +1278,11 @@ void db_init(struct lightningd_state *dstate)
 		      SQL_R(r), SQL_U64(msatoshi), SQL_INVLABEL(label),
 		      SQL_U64(paid_num),
 		      "PRIMARY KEY(label)")
+		TABLE(anchor_inputs,
+		      SQL_PUBKEY(peer),
+		      SQL_TXID(txid), SQL_U32(idx),
+		      SQL_U64(in_amount), SQL_U64(out_amount),
+		      SQL_PUBKEY(walletkey))
 		TABLE(anchors,
 		      SQL_PUBKEY(peer),
 		      SQL_TXID(txid), SQL_U32(idx), SQL_U64(amount),
@@ -1410,6 +1457,19 @@ bool db_create_peer(struct peer *peer)
 		"INSERT INTO peer_secrets VALUES (x'%s', %s);",
 		peerid, peer_secrets_for_db(ctx, peer));
 
+	if (peer->local.offer_anchor)
+		db_exec(__func__, peer->dstate, 
+			"INSERT INTO anchor_inputs VALUES"
+			" (x'%s', x'%s', %u, %"PRIi64", %"PRIi64", x'%s');",
+			peerid,
+			tal_hexstr(ctx, &peer->anchor.input->txid,
+				   sizeof(peer->anchor.input->txid)),
+			peer->anchor.input->index,
+			peer->anchor.input->in_amount,
+			peer->anchor.input->out_amount,
+			pubkey_to_hexstr(ctx, peer->dstate->secpctx,
+					 &peer->anchor.input->walletkey));
+	
 	errmsg = db_commit_transaction(peer);
 	tal_free(ctx);
 	return !errmsg;
