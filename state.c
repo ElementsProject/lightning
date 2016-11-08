@@ -14,14 +14,6 @@ static enum state next_state(struct peer *peer, const enum state state)
 	return state;
 }
 
-static void queue_tx_broadcast(const struct bitcoin_tx **broadcast,
-			       const struct bitcoin_tx *tx)
-{
-	assert(!*broadcast);
-	assert(tx);
-	*broadcast = tx;
-}
-
 static Pkt *init_from_pkt_open(struct peer *peer, const Pkt *pkt)
 {
 	struct commit_info *ci = new_commit_info(peer, 0);
@@ -70,30 +62,6 @@ enum state state(struct peer *peer,
 				goto err_breakdown;
 			}
 			return next_state(peer, STATE_OPEN_WAIT_FOR_ANCHOR);
-		} else if (input_is_pkt(input)) {
-			peer_open_complete(peer, "unexpected packet");
-			goto unexpected_pkt;
-		}
-		break;
-	case STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR:
-		if (input_is(input, PKT_OPEN)) {
-			err = init_from_pkt_open(peer, pkt);
-			if (err) {
-				peer_open_complete(peer, err->error->problem);
-				goto err_breakdown;
-			}
-			bitcoin_create_anchor(peer);
-			peer->anchor.ours = true;
-
-			/* This shouldn't happen! */
-			if (!setup_first_commit(peer)) {
-				err = pkt_err(peer,
-					      "Own anchor has insufficient funds");
-				peer_open_complete(peer, err->error->problem);
-				goto err_breakdown;
-			}
-			queue_pkt_anchor(peer);
-			return next_state(peer, STATE_OPEN_WAIT_FOR_COMMIT_SIG);
 		} else if (input_is_pkt(input)) {
 			peer_open_complete(peer, "unexpected packet");
 			goto unexpected_pkt;
@@ -151,69 +119,6 @@ enum state state(struct peer *peer,
 			goto unexpected_pkt;
 		}
 		break;
-	case STATE_OPEN_WAIT_FOR_COMMIT_SIG:
-		if (input_is(input, PKT_OPEN_COMMIT_SIG)) {
-			const char *db_err;
-
-			peer->local.commit->sig = tal(peer->local.commit,
-						      struct bitcoin_signature);
-			err = accept_pkt_open_commit_sig(peer, pkt,
-							 peer->local.commit->sig);
-			if (!err &&
-			    !check_tx_sig(peer->dstate->secpctx,
-					  peer->local.commit->tx, 0,
-					  NULL, 0,
-					  peer->anchor.witnessscript,
-					  &peer->remote.commitkey,
-					  peer->local.commit->sig))
-				err = pkt_err(peer, "Bad signature");
-
-			if (err) {
-				peer->local.commit->sig
-					= tal_free(peer->local.commit->sig);
-				peer_open_complete(peer, err->error->problem);
-				goto err_breakdown;
-			}
-			peer->their_commitsigs++;
-
-			db_start_transaction(peer);
-			db_set_anchor(peer);
-			db_new_commit_info(peer, LOCAL, NULL);
-			db_err = db_commit_transaction(peer);
-
-			if (db_err) {
-				err = pkt_err(peer, "database error");
-				peer_open_complete(peer, db_err);
-				goto err_breakdown;
-			}
-			queue_tx_broadcast(broadcast, bitcoin_anchor(peer));
-			peer_watch_anchor(peer, peer->local.mindepth);
-			return next_state(peer, STATE_OPEN_WAITING_OURANCHOR);
-		} else if (input_is_pkt(input)) {
-			peer_open_complete(peer, "unexpected packet");
-			goto unexpected_pkt;
-		}
-		break;
-	case STATE_OPEN_WAITING_OURANCHOR:
-		if (input_is(input, PKT_OPEN_COMPLETE)) {
-			err = accept_pkt_open_complete(peer, pkt);
-			if (err) {
-				peer_open_complete(peer, err->error->problem);
-				goto err_breakdown;
-			}
-			return next_state(peer,
-					  STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED);
-		}
-	/* Fall thru */
-	case STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED:
-		if (input_is(input, PKT_CLOSE_SHUTDOWN)) {
-			peer_open_complete(peer, "Received PKT_CLOSE_SHUTDOWN");
-			goto accept_shutdown;
-		} else if (input_is_pkt(input)) {
-			peer_open_complete(peer, "unexpected packet");
-			goto unexpected_pkt;
-		}
-		break;
 	case STATE_OPEN_WAITING_THEIRANCHOR:
 		if (input_is(input, PKT_OPEN_COMPLETE)) {
 			err = accept_pkt_open_complete(peer, pkt);
@@ -251,6 +156,10 @@ enum state state(struct peer *peer,
 
 	/* Should never happen. */
 	case STATE_INIT:
+	case STATE_OPEN_WAIT_FOR_COMMIT_SIG:
+	case STATE_OPEN_WAITING_OURANCHOR:
+	case STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED:
+	case STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR:
 	case STATE_NORMAL:
 	case STATE_NORMAL_COMMITTING:
 	case STATE_ERR_INTERNAL:

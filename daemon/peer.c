@@ -292,6 +292,8 @@ static void peer_update_complete(struct peer *peer)
 	}
 }
 
+/* FIXME: Split success and fail functions, roll state changes etc into
+ * success case. */
 void peer_open_complete(struct peer *peer, const char *problem)
 {
 	if (problem) {
@@ -302,6 +304,14 @@ void peer_open_complete(struct peer *peer, const char *problem)
 		}
 	} else {
 		log_debug(peer->log, "peer open complete");
+		assert(!peer->nc);
+		/* We're connected, so record it. */
+		peer->nc = add_connection(peer->dstate,
+					  &peer->dstate->id, peer->id,
+					  peer->dstate->config.fee_base,
+					  peer->dstate->config.fee_per_satoshi,
+					  peer->dstate->config.min_htlc_expiry,
+					  peer->dstate->config.min_htlc_expiry);
 		if (peer->open_jsoncmd) {
 			struct json_result *response;
 			response = new_json_result(peer->open_jsoncmd);
@@ -337,7 +347,13 @@ static void peer_breakdown(struct peer *peer)
 		command_fail(peer->commit_jsoncmd, "peer breakdown");
 		peer->commit_jsoncmd = NULL;
 	}
-	
+
+	/* FIXME: Reason. */
+	if (peer->open_jsoncmd)  {
+		command_fail(peer->open_jsoncmd, "peer breakdown");
+		peer->open_jsoncmd = NULL;
+	}
+
 	/* If we have a closing tx, use it. */
 	if (peer->closing.their_sig) {
 		const struct bitcoin_tx *close = mk_bitcoin_close(peer, peer);
@@ -435,6 +451,203 @@ static bool peer_received_unexpected_pkt(struct peer *peer, const Pkt *pkt,
 {
 	peer_unexpected_pkt(peer, pkt, where);
 	return peer_comms_err(peer, pkt_err_unexpected(peer, pkt));
+}
+
+/* Creation the bitcoin anchor tx, spending output user provided. */
+static void bitcoin_create_anchor(struct peer *peer)
+{
+	u64 fee;
+	struct bitcoin_tx *tx = bitcoin_tx(peer, 1, 1);
+	size_t i;
+
+	/* We must be offering anchor for us to try creating it */
+	assert(peer->local.offer_anchor);
+
+	tx->output[0].script = scriptpubkey_p2wsh(tx, peer->anchor.witnessscript);
+	tx->output[0].script_length = tal_count(tx->output[0].script);
+
+	/* Add input script length.  FIXME: This is normal case, not exact. */
+	fee = fee_by_feerate(measure_tx_cost(tx)/4 + 1+73 + 1+33 + 1,
+			     get_feerate(peer->dstate));
+	if (fee >= peer->anchor.input->amount)
+		/* FIXME: Report an error here!
+		 * We really should set this when they do command, but
+		 * we need to modify state to allow immediate anchor
+		 * creation: using estimate_fee is a convenient workaround. */
+		fatal("Amount %"PRIu64" below fee %"PRIu64,
+		      peer->anchor.input->amount, fee);
+
+	tx->output[0].amount = peer->anchor.input->amount - fee;
+
+	tx->input[0].txid = peer->anchor.input->txid;
+	tx->input[0].index = peer->anchor.input->index;
+	tx->input[0].amount = tal_dup(tx->input, u64,
+				      &peer->anchor.input->amount);
+
+	wallet_add_signed_input(peer->dstate, peer->anchor.input->w, tx, 0);
+
+	bitcoin_txid(tx, &peer->anchor.txid);
+	peer->anchor.tx = tx;
+	peer->anchor.index = 0;
+	/* We'll need this later, when we're told to broadcast it. */
+	peer->anchor.satoshis = tx->output[0].amount;
+
+	/* To avoid malleation, all inputs must be segwit! */
+	for (i = 0; i < tx->input_count; i++)
+		assert(tx->input[i].witness);
+}
+
+static bool open_pkt_in(struct peer *peer, const Pkt *pkt)
+{
+	Pkt *err;
+	struct commit_info *ci;
+
+	/* FIXME: Collapse these two states */
+	assert(peer->state == STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR
+	       || peer->state == STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR);
+
+	/* FIXME: Handle PKT_SHUTDOWN? */
+	if (pkt->pkt_case != PKT__PKT_OPEN)
+		return peer_received_unexpected_pkt(peer, pkt, __func__);
+
+	db_start_transaction(peer);
+	ci = new_commit_info(peer, 0);
+
+	err = accept_pkt_open(peer, pkt, &ci->revocation_hash,
+			      &peer->remote.next_revocation_hash);
+	if (err) {
+		db_abort_transaction(peer);
+		return peer_comms_err(peer, err);
+	}
+
+	db_set_visible_state(peer);
+
+	/* Set up their commit info now: rest gets done in setup_first_commit
+	 * once anchor is established. */
+	peer->remote.commit = ci;
+
+	/* Witness script for anchor. */
+	peer->anchor.witnessscript
+		= bitcoin_redeem_2of2(peer, peer->dstate->secpctx,
+				      &peer->local.commitkey,
+				      &peer->remote.commitkey);
+
+	if (peer->local.offer_anchor) {
+		bitcoin_create_anchor(peer);
+		/* FIXME: Redundant with peer->local.offer_anchor? */
+		peer->anchor.ours = true;
+
+		/* This shouldn't happen! */
+		if (!setup_first_commit(peer)) {
+			db_abort_transaction(peer);
+			err = pkt_err(peer, "Own anchor has insufficient funds");
+			return peer_comms_err(peer, err);
+		}
+		set_peer_state(peer,  STATE_OPEN_WAIT_FOR_COMMIT_SIG,
+			       __func__, false);
+		if (db_commit_transaction(peer) != NULL) {
+			err = pkt_err(peer, "database error");
+			return peer_comms_err(peer, err);
+		}
+		queue_pkt_anchor(peer);
+		return true;
+	} else {
+		set_peer_state(peer,  STATE_OPEN_WAIT_FOR_ANCHOR,
+			       __func__, false);
+		if (db_commit_transaction(peer) != NULL) {
+			err = pkt_err(peer, "database error");
+			return peer_comms_err(peer, err);
+		}
+		return true;
+	}
+}
+
+static bool open_ouranchor_pkt_in(struct peer *peer, const Pkt *pkt)
+{
+	Pkt *err;
+
+	switch (peer->state) {
+	case STATE_OPEN_WAIT_FOR_COMMIT_SIG:
+		if (pkt->pkt_case != PKT__PKT_OPEN_COMMIT_SIG)
+			return peer_received_unexpected_pkt(peer, pkt, __func__);
+
+		peer->local.commit->sig = tal(peer->local.commit,
+					      struct bitcoin_signature);
+		err = accept_pkt_open_commit_sig(peer, pkt,
+						 peer->local.commit->sig);
+		if (!err &&
+		    !check_tx_sig(peer->dstate->secpctx,
+				  peer->local.commit->tx, 0,
+				  NULL, 0,
+				  peer->anchor.witnessscript,
+				  &peer->remote.commitkey,
+				  peer->local.commit->sig))
+			err = pkt_err(peer, "Bad signature");
+
+		if (err) {
+			peer->local.commit->sig
+				= tal_free(peer->local.commit->sig);
+			return peer_comms_err(peer, err);
+		}
+
+		peer->their_commitsigs++;
+
+		db_start_transaction(peer);
+		db_set_anchor(peer);
+		db_new_commit_info(peer, LOCAL, NULL);
+		set_peer_state(peer,  STATE_OPEN_WAITING_OURANCHOR,
+			       __func__, false);
+		if (db_commit_transaction(peer) != NULL) {
+			err = pkt_err(peer, "database error");
+			return peer_comms_err(peer, err);
+		}
+		broadcast_tx(peer, bitcoin_anchor(peer));
+		peer_watch_anchor(peer, peer->local.mindepth);
+		return true;
+
+	case STATE_OPEN_WAITING_OURANCHOR:
+	case STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR:
+		if (pkt->pkt_case == PKT__PKT_OPEN_COMPLETE) {
+			err = accept_pkt_open_complete(peer, pkt);
+			if (err)
+				return peer_comms_err(peer, err);
+
+			db_start_transaction(peer);
+			/* We've already noticed anchor reach depth? */
+			if (peer->state == STATE_OPEN_WAIT_FOR_COMPLETE_OURANCHOR) {
+				peer_open_complete(peer, NULL);
+				set_peer_state(peer, STATE_NORMAL,
+					       __func__, true);
+			} else {
+				set_peer_state(peer,
+					       STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED,
+					       __func__, false);
+			}
+			if (db_commit_transaction(peer) != NULL) {
+				err = pkt_err(peer, "database error");
+				return peer_comms_err(peer, err);
+			}
+			return true;
+		}
+	/* Fall thru */
+	case STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED:
+		if (pkt->pkt_case != PKT__PKT_CLOSE_SHUTDOWN)
+			return peer_received_unexpected_pkt(peer, pkt, __func__);
+
+		err = accept_pkt_close_shutdown(peer, pkt);
+		if (err)
+			return peer_comms_err(peer, err);
+
+		set_peer_state(peer, STATE_SHUTDOWN, __func__, false);
+		return true;
+
+	default:
+		log_unusual(peer->log,
+			    "%s: unexpected state %s",
+			    __func__, state_name(peer->state));
+		peer_fail(peer, __func__);
+		return false;
+	}
 }
 
 static void set_htlc_rval(struct peer *peer,
@@ -1653,17 +1866,6 @@ static void state_single(struct peer *peer,
 	newstate = state(peer, input, pkt, &broadcast);
 	set_peer_state(peer, newstate, input_name(input), false);
 
-	/* We never come here again once we leave opening states. */
-	if (state_is_normal(peer->state)) {
-		assert(!peer->nc);
-		peer->nc = add_connection(peer->dstate,
-					  &peer->dstate->id, peer->id,
-					  peer->dstate->config.fee_base,
-					  peer->dstate->config.fee_per_satoshi,
-					  peer->dstate->config.min_htlc_expiry,
-					  peer->dstate->config.min_htlc_expiry);
-	}
-
 	/* If we added uncommitted changes, we should have set them to send. */
 	if (peer_uncommitted_changes(peer))
 		assert(peer->commit_timer);
@@ -1702,13 +1904,7 @@ static void state_event(struct peer *peer,
 			const enum state_input input,
 			const Pkt *pkt)
 {
-	if (!state_is_opening(peer->state)) {
-		log_unusual(peer->log,
-			    "Unexpected input %s while state %s",
-			    input_name(input), state_name(peer->state));
-	} else {
-		state_single(peer, input, pkt);
-	}
+	state_single(peer, input, pkt);
 }
 
 /* Create a HTLC fulfill transaction for onchain.tx[out_num]. */
@@ -1975,9 +2171,19 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 		keep_going = shutdown_pkt_in(peer, peer->inpkt);
 	else if (peer->state == STATE_MUTUAL_CLOSING)
 		keep_going = closing_pkt_in(peer, peer->inpkt);
-	else {
-		state_event(peer, peer->inpkt->pkt_case, peer->inpkt);
-		keep_going = true;
+	else if (state_is_waiting_for_open(peer->state))
+		keep_going = open_pkt_in(peer, peer->inpkt);
+	else if (state_is_opening(peer->state)) {
+		if (peer->local.offer_anchor)
+			keep_going = open_ouranchor_pkt_in(peer, peer->inpkt);
+		else {
+			state_event(peer, peer->inpkt->pkt_case, peer->inpkt);
+			keep_going = true;
+		}
+	} else {
+		log_unusual(peer->log,
+			    "Unexpected state %s", state_name(peer->state));
+		keep_going = false;
 	}
 
 	peer->inpkt = tal_free(peer->inpkt);
@@ -3058,14 +3264,6 @@ static void peer_depth_ok(struct peer *peer)
 		break;
 	case STATE_OPEN_WAITING_OURANCHOR_THEYCOMPLETED:
 	case STATE_OPEN_WAITING_THEIRANCHOR_THEYCOMPLETED:
-		assert(!peer->nc);
-		/* We're connected, so record it. */
-		peer->nc = add_connection(peer->dstate,
-					  &peer->dstate->id, peer->id,
-					  peer->dstate->config.fee_base,
-					  peer->dstate->config.fee_per_satoshi,
-					  peer->dstate->config.min_htlc_expiry,
-					  peer->dstate->config.min_htlc_expiry);
 		peer_open_complete(peer, NULL);
 		set_peer_state(peer, STATE_NORMAL, __func__, true);
 		break;
@@ -4055,50 +4253,6 @@ struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
 			       peer->anchor.satoshis,
 			       cstate.side[LOCAL].pay_msat / 1000,
 			       cstate.side[REMOTE].pay_msat / 1000);
-}
-
-/* Creation the bitcoin anchor tx, spending output user provided. */
-void bitcoin_create_anchor(struct peer *peer)
-{
-	u64 fee;
-	struct bitcoin_tx *tx = bitcoin_tx(peer, 1, 1);
-	size_t i;
-
-	/* We must be offering anchor for us to try creating it */
-	assert(peer->local.offer_anchor);
-
-	tx->output[0].script = scriptpubkey_p2wsh(tx, peer->anchor.witnessscript);
-	tx->output[0].script_length = tal_count(tx->output[0].script);
-
-	/* Add input script length.  FIXME: This is normal case, not exact. */
-	fee = fee_by_feerate(measure_tx_cost(tx)/4 + 1+73 + 1+33 + 1,
-			     get_feerate(peer->dstate));
-	if (fee >= peer->anchor.input->amount)
-		/* FIXME: Report an error here!
-		 * We really should set this when they do command, but
-		 * we need to modify state to allow immediate anchor
-		 * creation: using estimate_fee is a convenient workaround. */
-		fatal("Amount %"PRIu64" below fee %"PRIu64,
-		      peer->anchor.input->amount, fee);
-
-	tx->output[0].amount = peer->anchor.input->amount - fee;
-
-	tx->input[0].txid = peer->anchor.input->txid;
-	tx->input[0].index = peer->anchor.input->index;
-	tx->input[0].amount = tal_dup(tx->input, u64,
-				      &peer->anchor.input->amount);
-
-	wallet_add_signed_input(peer->dstate, peer->anchor.input->w, tx, 0);
-
-	bitcoin_txid(tx, &peer->anchor.txid);
-	peer->anchor.tx = tx;
-	peer->anchor.index = 0;
-	/* We'll need this later, when we're told to broadcast it. */
-	peer->anchor.satoshis = tx->output[0].amount;
-
-	/* To avoid malleation, all inputs must be segwit! */
-	for (i = 0; i < tx->input_count; i++)
-		assert(tx->input[i].witness);
 }
 
 /* Get the bitcoin anchor tx. */

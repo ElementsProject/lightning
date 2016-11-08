@@ -40,6 +40,12 @@ static inline bool state_is_opening(enum state s)
 	return s < STATE_NORMAL;
 }
 
+static inline bool state_is_waiting_for_open(enum state s)
+{
+	return s == STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR
+		|| s == STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR;
+}
+
 static inline bool state_is_waiting_for_anchor(enum state s)
 {
 	return s == STATE_OPEN_WAITING_OURANCHOR
@@ -105,9 +111,6 @@ static inline bool input_is(enum state_input a, enum state_input b)
  * @depth: depth at which to fire @depthok.
  */
 void peer_watch_anchor(struct peer *peer, int depth);
-
-/* Start creation of the bitcoin anchor tx. */
-void bitcoin_create_anchor(struct peer *peer);
 
 /* Get the bitcoin anchor tx. */
 const struct bitcoin_tx *bitcoin_anchor(struct peer *peer);
