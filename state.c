@@ -32,7 +32,9 @@ static Pkt *init_from_pkt_open(struct peer *peer, const Pkt *pkt)
 	if (err)
 		return err;
 
-	if (!db_set_visible_state(peer))
+	db_start_transaction(peer);
+	db_set_visible_state(peer);
+	if (db_commit_transaction(peer) != NULL)
 		return pkt_err(peer, "Database error");
 
 	/* Set up their commit info now: rest gets done in setup_first_commit

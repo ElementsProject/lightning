@@ -7,7 +7,6 @@
 void db_init(struct lightningd_state *dstate);
 
 bool db_create_peer(struct peer *peer);
-bool db_set_visible_state(struct peer *peer);
 
 void db_start_transaction(struct peer *peer);
 void db_abort_transaction(struct peer *peer);
@@ -44,6 +43,7 @@ bool db_remove_invoice(struct lightningd_state *dstate,
  * which have to be inside transaction anyway. */
 
 /* Must be inside transaction. */
+void db_set_visible_state(struct peer *peer);
 void db_set_anchor(struct peer *peer);
 void db_new_htlc(struct peer *peer, const struct htlc *htlc);
 void db_new_feechange(struct peer *peer, const struct feechange *feechange);

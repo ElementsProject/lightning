@@ -1350,13 +1350,13 @@ void db_set_anchor(struct peer *peer)
 	tal_free(ctx);
 }
 
-bool db_set_visible_state(struct peer *peer)
+void db_set_visible_state(struct peer *peer)
 {
-	const char *errmsg, *ctx = tal_tmpctx(peer);
+	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
-	db_start_transaction(peer);
+	assert(peer->dstate->db->in_transaction);
 
 	db_exec(__func__, peer->dstate, 
 		"INSERT INTO their_visible_state VALUES (x'%s', %s, x'%s', x'%s', %u, %u, %"PRIu64", x'%s');",
@@ -1372,10 +1372,7 @@ bool db_set_visible_state(struct peer *peer)
 		tal_hexstr(ctx, &peer->remote.next_revocation_hash,
 			   sizeof(peer->remote.next_revocation_hash)));
 
-	errmsg = db_commit_transaction(peer);
-
 	tal_free(ctx);
-	return !errmsg;
 }
 
 void db_update_next_revocation_hash(struct peer *peer)
