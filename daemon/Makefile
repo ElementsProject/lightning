@@ -90,6 +90,8 @@ DAEMON_HEADERS :=				\
 	daemon/routing.h			\
 	daemon/secrets.h			\
 	daemon/sphinx.h				\
+	daemon/state.h				\
+	daemon/state_types.h			\
 	daemon/timeout.h			\
 	daemon/wallet.h				\
 	daemon/watch.h
@@ -100,8 +102,8 @@ daemon/gen_htlc_state_names.h: daemon/htlc_state.h ccan/ccan/cdump/tools/cdump-e
 daemon/gen_feechange_state_names.h: daemon/feechange_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr daemon/feechange_state.h > $@
 
-daemon/gen_state_names.h: state_types.h ccan/ccan/cdump/tools/cdump-enumstr
-	ccan/ccan/cdump/tools/cdump-enumstr state_types.h > $@
+daemon/gen_state_names.h: daemon/state_types.h ccan/ccan/cdump/tools/cdump-enumstr
+	ccan/ccan/cdump/tools/cdump-enumstr daemon/state_types.h > $@
 
 # lightning.pb-c.h doesn't create a named enum, just a typedef.  Hack it.
 daemon/gen_pkt_names.h: lightning.pb-c.h ccan/ccan/cdump/tools/cdump-enumstr

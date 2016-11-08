@@ -48,7 +48,7 @@ enum state {
 	 */
 	/* Bad packet from them / protocol breakdown. */
 	STATE_ERR_BREAKDOWN,
-	/* Their anchor didn't reach blockchain in reasonable time. */
+	/* The anchor didn't reach blockchain in reasonable time. */
 	STATE_ERR_ANCHOR_TIMEOUT,
 	/* We saw a tx we didn't sign. */
 	STATE_ERR_INFORMATION_LEAK,

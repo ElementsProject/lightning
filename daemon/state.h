@@ -1,18 +1,9 @@
-#ifndef LIGHTNING_STATE_H
-#define LIGHTNING_STATE_H
+#ifndef LIGHTNING_DAEMON_STATE_H
+#define LIGHTNING_DAEMON_STATE_H
 #include "config.h"
 
-#include <ccan/tal/tal.h>
-#include <state_types.h>
+#include "daemon/state_types.h"
 #include <stdbool.h>
-
-/*
- * This is the core state machine.
- *
- * Calling the state machine updates updates peer->state, and may call
- * various peer_ callbacks.  It also returns the status of the current
- * command.
- */
 
 static inline bool state_is_error(enum state s)
 {

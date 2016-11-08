@@ -156,8 +156,6 @@ CORE_HEADERS := close_tx.h			\
 	permute_tx.h				\
 	protobuf_convert.h			\
 	remove_dust.h				\
-	state.h					\
-	state_types.h				\
 	utils.h					\
 	version.h
 
