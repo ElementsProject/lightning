@@ -10,7 +10,7 @@ struct bitcoin_signature;
 struct commit_info;
 
 /* Send various kinds of packets */
-void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor);
+void queue_pkt_open(struct peer *peer, bool offer_anchor);
 void queue_pkt_anchor(struct peer *peer);
 void queue_pkt_open_commit_sig(struct peer *peer);
 void queue_pkt_open_complete(struct peer *peer);

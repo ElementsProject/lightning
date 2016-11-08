@@ -2555,8 +2555,6 @@ static struct io_plan *peer_send_init(struct io_conn *conn, struct peer *peer)
 /* Crypto is on, we are live. */
 static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 {
-	OpenChannel__AnchorOffer anchor;
-
 	peer_secrets_init(peer);
 
 	peer_get_revocation_hash(peer, 0, &peer->local.next_revocation_hash);
@@ -2566,10 +2564,6 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 	set_peer_state(peer, STATE_OPEN_WAIT_FOR_OPENPKT, __func__, false);
 
 	/* FIXME: Start timeout, and close peer if they don't progress! */
-	if (peer->local.offer_anchor)
-		anchor = OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR;
-	else
-		anchor = OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR;
 
 	/* FIXME: Delay db write until we have something to keep, or handle
 	 * reconnect with STATE_INIT state. */
@@ -2582,7 +2576,7 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 	peer->local.commit->revocation_hash = peer->local.next_revocation_hash;
 	peer_get_revocation_hash(peer, 1, &peer->local.next_revocation_hash);
 
-	queue_pkt_open(peer, anchor);
+	queue_pkt_open(peer, peer->local.offer_anchor);
 	return peer_send_init(conn,peer);
 }
 

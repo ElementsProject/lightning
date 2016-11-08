@@ -72,7 +72,7 @@ static void queue_pkt(struct peer *peer, Pkt__PktCase type, const void *msg)
 	queue_raw_pkt(peer, make_pkt(peer, type, msg));
 }
 
-void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor)
+void queue_pkt_open(struct peer *peer, bool offer_anchor)
 {
 	OpenChannel *o = tal(peer, OpenChannel);
 
@@ -88,14 +88,10 @@ void queue_pkt_open(struct peer *peer, OpenChannel__AnchorOffer anchor)
 	o->delay->locktime_case = LOCKTIME__LOCKTIME_BLOCKS;
 	o->delay->blocks = rel_locktime_to_blocks(&peer->local.locktime);
 	o->initial_fee_rate = peer->local.commit_fee_rate;
-	if (anchor == OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR)
-		assert(peer->local.offer_anchor);
-	else {
-		assert(anchor == OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR);
-		assert(!peer->local.offer_anchor);
-	}
-		
-	o->anch = anchor;
+	if (offer_anchor)
+		o->anch = OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR;
+	else
+		o->anch = OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR;
 	o->min_depth = peer->local.mindepth;
 	queue_pkt(peer, PKT__PKT_OPEN, o);
 }
