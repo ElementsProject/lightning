@@ -189,8 +189,10 @@ $(PROGRAMS): CFLAGS+=-I.
 default: $(PROGRAMS) $(MANPAGES) daemon-all
 
 # Git doesn't maintain timestamps, so we only regen if git says we should.
+CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o x"`git diff $<`" != x"" ]
+
 $(MANPAGES): doc/%: doc/%.txt
-	if [ "`git log $@ | head -n1`" != "`git log $< | head -n1`" ] || [ "`git diff $<`" != "" ]; then a2x --format=manpage $<; else touch $@; fi
+	@if $(CHANGED_FROM_GIT); then echo a2x --format=manpage $<; a2x --format=manpage $<; else touch $@; fi
 
 # Everything depends on the CCAN headers.
 $(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
@@ -263,7 +265,7 @@ secp256k1/libsecp256k1.la:
 	$(MAKE) -C secp256k1 install-exec
 
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
-	$(PROTOCC) lightning.proto --c_out=.
+	@if $(CHANGED_FROM_GIT); then echo $(PROTOCC) lightning.proto --c_out=.; $(PROTOCC) lightning.proto --c_out=.; else touch $@; fi
 
 $(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(CCAN_OBJS) utils.o version.o libsecp256k1.a
 
