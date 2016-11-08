@@ -504,9 +504,7 @@ static bool open_pkt_in(struct peer *peer, const Pkt *pkt)
 	Pkt *err;
 	struct commit_info *ci;
 
-	/* FIXME: Collapse these two states */
-	assert(peer->state == STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR
-	       || peer->state == STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR);
+	assert(peer->state == STATE_OPEN_WAIT_FOR_OPENPKT);
 
 	/* FIXME: Handle PKT_SHUTDOWN? */
 	if (pkt->pkt_case != PKT__PKT_OPEN)
@@ -2229,7 +2227,7 @@ static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 		keep_going = shutdown_pkt_in(peer, peer->inpkt);
 	else if (peer->state == STATE_MUTUAL_CLOSING)
 		keep_going = closing_pkt_in(peer, peer->inpkt);
-	else if (state_is_waiting_for_open(peer->state))
+	else if (peer->state == STATE_OPEN_WAIT_FOR_OPENPKT)
 		keep_going = open_pkt_in(peer, peer->inpkt);
 	else if (state_is_opening(peer->state)) {
 		if (peer->local.offer_anchor)
@@ -2599,16 +2597,13 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 
 	assert(peer->state == STATE_INIT);
 
+	set_peer_state(peer, STATE_OPEN_WAIT_FOR_OPENPKT, __func__, false);
+
 	/* FIXME: Start timeout, and close peer if they don't progress! */
-	if (peer->local.offer_anchor) {
-		set_peer_state(peer, STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR,
-			       __func__, false);
+	if (peer->local.offer_anchor)
 		anchor = OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR;
-	} else {
-		set_peer_state(peer, STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR,
-			       __func__, false);
+	else
 		anchor = OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR;
-	}
 
 	/* FIXME: Delay db write until we have something to keep, or handle
 	 * reconnect with STATE_INIT state. */
