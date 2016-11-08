@@ -304,9 +304,8 @@ static void load_peer_anchor(struct peer *peer)
 		peer->anchor.satoshis = sqlite3_column_int64(stmt, 3);
 		peer->anchor.ours = sqlite3_column_int(stmt, 6);
 
-		/* FIXME: Do timeout! */
-		peer_watch_anchor(peer,
-				  sqlite3_column_int(stmt, 4), INPUT_NONE);
+		/* FIXME: Set up timeout in case they don't make progress */
+		peer_watch_anchor(peer, sqlite3_column_int(stmt, 4));
 		peer->anchor.min_depth = sqlite3_column_int(stmt, 5);
 		anchor_set = true;
 	}

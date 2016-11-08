@@ -90,14 +90,6 @@ enum state_input {
 	INPUT_NONE,
 
 	/*
-	 * Bitcoin events
-	 */
-	/* It didn't reach the required depth in time. */
-	BITCOIN_ANCHOR_TIMEOUT,
-	/* No more HTLCs in either commitment tx. */
-	INPUT_HTLCS_CLEARED,
-	
-	/*
 	 * Timeouts.
 	 */
 	INPUT_CLOSE_COMPLETE_TIMEOUT,

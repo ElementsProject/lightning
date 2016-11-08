@@ -2340,6 +2340,7 @@ static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 	if (!db_create_peer(peer))
 		fatal("Database error in %s", __func__);
 
+	/* FIXME: Start timeout, and close peer if they don't progress! */
 	state_event(peer, peer->local.offer_anchor, NULL);
 
 	return peer_send_init(conn,peer);
@@ -3999,53 +4000,15 @@ unknown_spend:
 	return DELETE_WATCH;
 }
 
-static void anchor_timeout(struct peer *peer)
-{
-	/* FIXME: We could just forget timeout once we're not opening. */
-	if (state_is_opening(peer->state))
-		state_event(peer, BITCOIN_ANCHOR_TIMEOUT, NULL);
-}
-
-void peer_watch_anchor(struct peer *peer,
-		       int depth,
-		       enum state_input timeout)
+void peer_watch_anchor(struct peer *peer, int depth)
 {
 	log_debug_struct(peer->log, "watching for anchor %s",
 			 struct sha256_double, &peer->anchor.txid);
 	log_add(peer->log, " to hit depth %i", depth);
 
-	/* We assume this. */
-	assert(timeout == BITCOIN_ANCHOR_TIMEOUT || timeout == INPUT_NONE);
-
 	peer->anchor.ok_depth = depth;
 	watch_txid(peer, peer, &peer->anchor.txid, anchor_depthchange, NULL);
 	watch_txo(peer, peer, &peer->anchor.txid, 0, anchor_spent, NULL);
-
-	/* For anchor timeout, expect 20 minutes per block, +2 hours.
-	 *
-	 * Probability(no block in time N) = e^(-N/600).
-	 * Thus for 1 block, P = e^(-(7200+1*1200)/600) = 0.83 in a million.
-	 *
-	 * Glenn Willen says, if we want to know how many 10-minute intervals for
-	 * a 1 in a million chance of spurious failure for N blocks, put
-	 * this into http://www.wolframalpha.com:
-	 *
-	 *   e^(-x) * sum x^i / fact(i), i=0 to N < 1/1000000
-	 * 
-	 * N=20: 51
-	 * N=10: 35
-	 * N=8:  31
-	 * N=6:  28
-	 * N=4:  24
-	 * N=3:  22
-	 * N=2:  20
-	 *
-	 * So, our formula of 12 + N*2 holds for N <= 20 at least.
-	 */
-	if (timeout != INPUT_NONE)
-		new_reltimer(peer->dstate, peer,
-			     time_from_sec(7200 + 20*peer->anchor.ok_depth),
-			     anchor_timeout, peer);
 }
 
 struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
