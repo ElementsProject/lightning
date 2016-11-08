@@ -469,16 +469,22 @@ static bool peer_database_err(struct peer *peer)
 	return peer_comms_err(peer, pkt_err(peer, "database error"));
 }
 
-void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt, const char *where)
+/* Unexpected packet received: stop listening, send error, start
+ * breakdown procedure, return false. */
+static bool peer_received_unexpected_pkt(struct peer *peer, const Pkt *pkt,
+					 const char *where)
 {
 	const char *p;
+	Pkt *err;
 
 	log_unusual(peer->log, "%s: received unexpected pkt %u (%s) in %s",
 		    where, pkt->pkt_case, pkt_name(pkt->pkt_case),
 		    state_name(peer->state));
 
-	if (pkt->pkt_case != PKT__PKT_ERROR)
-		return;
+	if (pkt->pkt_case != PKT__PKT_ERROR) {
+		err = pkt_err_unexpected(peer, pkt);
+		goto out;
+	}
 
 	/* Check packet for weird chars. */
 	for (p = pkt->error->problem; *p; p++) {
@@ -489,17 +495,20 @@ void peer_unexpected_pkt(struct peer *peer, const Pkt *pkt, const char *where)
 			       strlen(pkt->error->problem));
 		log_unusual(peer->log, "Error pkt (hex) %s", p);
 		tal_free(p);
-		return;
+		goto out;
 	}
 	log_unusual(peer->log, "Error pkt '%s'", pkt->error->problem);
-}
 
-/* Unexpected packet received: stop listening, start breakdown procedure. */
-static bool peer_received_unexpected_pkt(struct peer *peer, const Pkt *pkt,
-					 const char *where)
-{
-	peer_unexpected_pkt(peer, pkt, where);
-	return peer_comms_err(peer, pkt_err_unexpected(peer, pkt));
+	/* BOLT #2:
+	 *
+	 * A node MUST fail the connection if it receives an `err`
+	 * message, and MUST NOT send an `err` message in this case.
+	 * For other connection failures, a node SHOULD send an
+	 * informative `err` message.
+	 */
+	err = NULL;
+out:
+	return peer_comms_err(peer, err);
 }
 
 /* Creation the bitcoin anchor tx, spending output user provided. */
@@ -1644,7 +1653,7 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 	switch (pkt->pkt_case) {
 	case PKT__PKT_UPDATE_REVOCATION:
 		if (peer->state == STATE_SHUTDOWN)
-			err = pkt_err_unexpected(peer, pkt);
+			return peer_received_unexpected_pkt(peer, pkt, __func__);
 		else {
 			err = handle_pkt_revocation(peer, pkt, STATE_SHUTDOWN);
 			if (!err)
@@ -1668,7 +1677,7 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 		 * 
 		 * A node... MUST NOT send more than one `close_shutdown`. */
 		if (peer->closing.their_script)
-			err = pkt_err_unexpected(peer, pkt);
+			return peer_received_unexpected_pkt(peer, pkt, __func__);
 		else {
 			err = accept_pkt_close_shutdown(peer, pkt);
 			if (!err) {
@@ -1696,8 +1705,7 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 		err = handle_pkt_commit(peer, pkt);
 		break;
 	case PKT__PKT_ERROR:
-		peer_unexpected_pkt(peer, pkt, __func__);
-		return peer_comms_err(peer, NULL);
+		return peer_received_unexpected_pkt(peer, pkt, __func__);
 
 	case PKT__PKT_AUTH:
 	case PKT__PKT_OPEN:
@@ -1706,9 +1714,7 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 	case PKT__PKT_OPEN_COMPLETE:
 	case PKT__PKT_CLOSE_SIGNATURE:
 	default:
-		peer_unexpected_pkt(peer, pkt, __func__);
-		err = pkt_err_unexpected(peer, pkt);
-		break;
+		return peer_received_unexpected_pkt(peer, pkt, __func__);
 	}
 
 	if (err)
@@ -2790,7 +2796,7 @@ static bool peer_first_connected(struct peer *peer,
 	 * immediately so don't make peer a parent. */
 	peer->conn = conn;
 	io_set_finish(conn, peer_disconnect, peer);
-	
+
 	peer->anchor.min_depth = get_block_height(peer->dstate);
 
 	/* FIXME: Attach IO logging for this peer. */
