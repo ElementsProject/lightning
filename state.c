@@ -22,18 +22,6 @@ static void queue_tx_broadcast(const struct bitcoin_tx **broadcast,
 	*broadcast = tx;
 }
 
-static void send_open_pkt(struct peer *peer,
-			  OpenChannel__AnchorOffer anchor)
-{
-	/* Set up out commit info now: rest gets done in setup_first_commit
-	 * once anchor is established. */
-	peer->local.commit = new_commit_info(peer, 0);
-	peer->local.commit->revocation_hash = peer->local.next_revocation_hash;
-	peer_get_revocation_hash(peer, 1, &peer->local.next_revocation_hash);
-
-	queue_pkt_open(peer, anchor);
-}
-
 static Pkt *init_from_pkt_open(struct peer *peer, const Pkt *pkt)
 {
 	struct commit_info *ci = new_commit_info(peer, 0);
@@ -72,19 +60,6 @@ enum state state(struct peer *peer,
 	/*
 	 * Initial channel opening states.
 	 */
-	case STATE_INIT:
-		if (input_is(input, CMD_OPEN_WITH_ANCHOR)) {
-			send_open_pkt(peer,
-				      OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR);
-			return next_state(peer,
-					  STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR);
-		} else if (input_is(input, CMD_OPEN_WITHOUT_ANCHOR)) {
-			send_open_pkt(peer,
-				      OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR);
-			return next_state(peer,
-					  STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR);
-		}
-		break;
 	case STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR:
 		if (input_is(input, PKT_OPEN)) {
 			err = init_from_pkt_open(peer, pkt);
@@ -276,6 +251,7 @@ enum state state(struct peer *peer,
 		break;
 
 	/* Should never happen. */
+	case STATE_INIT:
 	case STATE_NORMAL:
 	case STATE_NORMAL_COMMITTING:
 	case STATE_ERR_INTERNAL:

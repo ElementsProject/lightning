@@ -2329,20 +2329,37 @@ static struct io_plan *peer_send_init(struct io_conn *conn, struct peer *peer)
 /* Crypto is on, we are live. */
 static struct io_plan *peer_crypto_on(struct io_conn *conn, struct peer *peer)
 {
+	OpenChannel__AnchorOffer anchor;
+
 	peer_secrets_init(peer);
 
 	peer_get_revocation_hash(peer, 0, &peer->local.next_revocation_hash);
 
 	assert(peer->state == STATE_INIT);
 
+	/* FIXME: Start timeout, and close peer if they don't progress! */
+	if (peer->local.offer_anchor == CMD_OPEN_WITH_ANCHOR) {
+		set_peer_state(peer, STATE_OPEN_WAIT_FOR_OPEN_WITHANCHOR,
+			       __func__, false);
+		anchor = OPEN_CHANNEL__ANCHOR_OFFER__WILL_CREATE_ANCHOR;
+	} else {
+		set_peer_state(peer, STATE_OPEN_WAIT_FOR_OPEN_NOANCHOR,
+			       __func__, false);
+		anchor = OPEN_CHANNEL__ANCHOR_OFFER__WONT_CREATE_ANCHOR;
+	}
+
 	/* FIXME: Delay db write until we have something to keep, or handle
 	 * reconnect with STATE_INIT state. */
 	if (!db_create_peer(peer))
 		fatal("Database error in %s", __func__);
 
-	/* FIXME: Start timeout, and close peer if they don't progress! */
-	state_event(peer, peer->local.offer_anchor, NULL);
+	/* Set up out commit info now: rest gets done in setup_first_commit
+	 * once anchor is established. */
+	peer->local.commit = new_commit_info(peer, 0);
+	peer->local.commit->revocation_hash = peer->local.next_revocation_hash;
+	peer_get_revocation_hash(peer, 1, &peer->local.next_revocation_hash);
 
+	queue_pkt_open(peer, anchor);
 	return peer_send_init(conn,peer);
 }
 

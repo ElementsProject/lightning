@@ -58,6 +58,7 @@ struct commit_info {
 
 struct peer_visible_state {
 	/* CMD_OPEN_WITH_ANCHOR or CMD_OPEN_WITHOUT_ANCHOR */
+	/* FIXME: Make a bool. */
 	enum state_input offer_anchor;
 	/* Key for commitment tx inputs, then key for commitment tx outputs */
 	struct pubkey commitkey, finalkey;
