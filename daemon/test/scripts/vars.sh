@@ -1,10 +1,13 @@
 # Sourced by other scripts
 
+# Suppress sync if we can, for speedup.
+if which eatmydata >/dev/null; then EATMYDATA=eatmydata; fi
+
 STYLE=bitcoin
 DATADIR=/tmp/bitcoin-lightning
 CLI="bitcoin-cli -datadir=$DATADIR"
 REGTESTDIR=regtest
-DAEMON="bitcoind -datadir=$DATADIR"
+DAEMON="$EATMYDATA bitcoind -datadir=$DATADIR"
 
 findport()
 {

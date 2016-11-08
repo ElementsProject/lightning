@@ -40,12 +40,13 @@ ONE_HTLCS_FEE=$(( (338 + 32) * $FEE_RATE / 2000 * 2000))
 EXTRA_FEE=$(($ONE_HTLCS_FEE - $NO_HTLCS_FEE))
 
 # Always use valgrind if available.
-[ -n "$NO_VALGRIND" ] || PREFIX="valgrind -q --error-exitcode=7"
+PREFIX=$EATMYDATA
+[ -n "$NO_VALGRIND" ] || PREFIX="$EATMYDATA valgrind -q --error-exitcode=7"
 
 while [ $# != 0 ]; do
     case x"$1" in
 	x"--valgrind-vgdb")
-	    [ -n "$NO_VALGRIND" ] || PREFIX="valgrind --vgdb-error=1"
+	    [ -n "$NO_VALGRIND" ] || PREFIX="$EATMYDATA valgrind --vgdb-error=1"
 	    REDIR1="/dev/tty"
 	    REDIRERR1="/dev/tty"
 	    REDIR2="/dev/tty"
