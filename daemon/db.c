@@ -1778,7 +1778,7 @@ bool db_update_their_closing(struct peer *peer)
 		     "UPDATE closing SET their_fee=%"PRIu64", their_sig=x'%s', sigs_in=%u WHERE peer=x'%s';",
 		     peer->closing.their_fee,
 		     tal_hexstr(ctx, peer->closing.their_sig,
-				tal_count(peer->closing.their_sig)),
+				sizeof(*peer->closing.their_sig)),
 		     peer->closing.sigs_in,
 		     peerid);
 	tal_free(ctx);
