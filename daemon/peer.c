@@ -1529,6 +1529,10 @@ static bool peer_start_shutdown(struct peer *peer)
 	enum state newstate;
 	u8 *redeemscript;
 
+	/* We might have uncommited changes; if so, commit them now. */
+	if (!do_commit(peer, NULL))
+		return false;
+
 	db_start_transaction(peer);
 
 	db_begin_shutdown(peer);
