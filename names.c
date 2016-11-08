@@ -25,16 +25,6 @@ enum state name_to_state(const char *name)
 	return STATE_MAX;
 }
 
-const char *input_name(enum state_input in)
-{
-	size_t i;
-
-	for (i = 0; enum_state_input_names[i].name; i++)
-		if (enum_state_input_names[i].v == in)
-			return enum_state_input_names[i].name;
-	return "unknown";
-}
-
 const char *pkt_name(Pkt__PktCase pkt)
 {
 	size_t i;
