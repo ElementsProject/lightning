@@ -1,7 +1,7 @@
 #include <ccan/asort/asort.h>
 #include <ccan/asort/asort.c>
 
-static int cmp(char *const *a, char *const *b, int *flag)
+static int cmp(char *const *a UNNEEDED, char *const *b UNNEEDED, int *flag UNNEEDED)
 {
 	return 0;
 }

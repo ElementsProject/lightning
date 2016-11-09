@@ -36,6 +36,7 @@
  *	// Wrapper for rehash function pointer.
  *	static size_t rehash(const void *e, void *unused)
  *	{
+ *		(void)unused;
  *		return hash_string(((struct name_to_digit *)e)->name);
  *	}
  *
@@ -64,7 +65,7 @@
  *	int main(int argc, char *argv[])
  *	{
  *		struct htable ht;
- *		unsigned int i;
+ *		int i;
  *		unsigned long val;
  *
  *		if (argc < 2)
@@ -73,7 +74,7 @@
  *
  *		// Create and populate hash table.
  *		htable_init(&ht, rehash, NULL);
- *		for (i = 0; i < sizeof(map)/sizeof(map[0]); i++)
+ *		for (i = 0; i < (int)(sizeof(map)/sizeof(map[0])); i++)
  *			htable_add(&ht, hash_string(map[i].name), &map[i]);
  *
  *		// Add any aliases to the hash table.

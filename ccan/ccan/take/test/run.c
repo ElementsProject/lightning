@@ -15,7 +15,7 @@ static void *my_realloc(void *p, size_t len)
 #include <ccan/tap/tap.h>
 
 static int my_allocfail_called;
-static void my_allocfail(const void *p)
+static void my_allocfail(const void *p UNNEEDED)
 {
 	my_allocfail_called++;
 }	

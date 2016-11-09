@@ -45,6 +45,7 @@ static void check_siphash24(struct siphash24_ctx *ctx)
 static bool alignment_ok(const void *p, size_t n)
 {
 #if HAVE_UNALIGNED_ACCESS
+	(void)p; (void)n;
 	return true;
 #else
 	return ((size_t)p % n == 0);

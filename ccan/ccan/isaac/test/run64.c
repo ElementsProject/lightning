@@ -262,7 +262,7 @@ static const uint64_t STATEVEC64[ISAAC64_SZ<<1]={
   0x1877B51E57A764D5ULL, 0x001F837CC7350524ULL
 };
 
-int main(int _argc,const char *_argv[]){
+int main(void){
   isaac64_ctx isaac64;
   int         i;
   int         j;

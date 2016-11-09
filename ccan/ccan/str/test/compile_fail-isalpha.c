@@ -3,6 +3,7 @@
 
 int main(int argc, char *argv[])
 {
+	(void)argc;
 #ifdef FAIL
 #if !HAVE_BUILTIN_TYPES_COMPATIBLE_P || !HAVE_TYPEOF
 #error We need typeof to check isalpha.

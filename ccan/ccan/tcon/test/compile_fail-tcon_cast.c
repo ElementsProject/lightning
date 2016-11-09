@@ -10,7 +10,7 @@ struct int_and_charp_container {
 	TCON(int *tc1; char *tc2);
 };
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	struct int_and_charp_container icon;
 #ifdef FAIL

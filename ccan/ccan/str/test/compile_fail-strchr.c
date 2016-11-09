@@ -1,7 +1,7 @@
 #define CCAN_STR_DEBUG 1
 #include <ccan/str/str.h>
 
-int main(int argc, char *argv[])
+int main(void)
 {
 #ifdef FAIL
 #if !HAVE_TYPEOF

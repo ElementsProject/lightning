@@ -2,9 +2,11 @@
 
 static void PRINTF_FMT(2,3) my_printf(int x, const char *fmt, ...)
 {
+	(void)x;
+	(void)fmt;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	unsigned int i = 0;
 

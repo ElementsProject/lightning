@@ -32,39 +32,39 @@ int main(void)
 	path = path_join(ctx, "foo", take(tal_strdup(ctx, "bar")));
 	ok1(streq(path, "foo/bar"));
 	ok1(tal_parent(path) == ctx);
-	ok1(tal_first(ctx) == path && tal_next(ctx, path) == NULL);
+	ok1(tal_first(ctx) == path && tal_next(path) == NULL && tal_first(path) == NULL);
 	tal_free(path);
 
 	path = path_join(ctx, "foo", take(tal_strdup(ctx, "/bar")));
 	ok1(streq(path, "/bar"));
 	ok1(tal_parent(path) == ctx);
-	ok1(tal_first(ctx) == path && tal_next(ctx, path) == NULL);
+	ok1(tal_first(ctx) == path && tal_next(path) == NULL && tal_first(path) == NULL);
 	tal_free(path);
 
 	path = path_join(ctx, take(tal_strdup(ctx, "foo")), "bar");
 	ok1(streq(path, "foo/bar"));
 	ok1(tal_parent(path) == ctx);
-	ok1(tal_first(ctx) == path && tal_next(ctx, path) == NULL);
+	ok1(tal_first(ctx) == path && tal_next(path) == NULL && tal_first(path) == NULL);
 	tal_free(path);
 
 	path = path_join(ctx, take(tal_strdup(ctx, "foo")), "/bar");
 	ok1(streq(path, "/bar"));
 	ok1(tal_parent(path) == ctx);
-	ok1(tal_first(ctx) == path && tal_next(ctx, path) == NULL);
+	ok1(tal_first(ctx) == path && tal_next(path) == NULL && tal_first(path) == NULL);
 	tal_free(path);
 
 	path = path_join(ctx, take(tal_strdup(ctx, "foo")),
 			 take(tal_strdup(ctx, "bar")));
 	ok1(streq(path, "foo/bar"));
 	ok1(tal_parent(path) == ctx);
-	ok1(tal_first(ctx) == path && tal_next(ctx, path) == NULL);
+	ok1(tal_first(ctx) == path && tal_next(path) == NULL && tal_first(path) == NULL);
 	tal_free(path);
 
 	path = path_join(ctx, take(tal_strdup(ctx, "foo")),
 			 take(tal_strdup(ctx, "/bar")));
 	ok1(streq(path, "/bar"));
 	ok1(tal_parent(path) == ctx);
-	ok1(tal_first(ctx) == path && tal_next(ctx, path) == NULL);
+	ok1(tal_first(ctx) == path && tal_next(path) == NULL && tal_first(path) == NULL);
 	tal_free(path);
 
 	path = path_join(ctx, take(NULL), "bar");

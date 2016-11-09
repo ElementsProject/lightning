@@ -24,6 +24,7 @@
  *	#include <ccan/cast/cast.h>
  *	#include <stdint.h>
  *	#include <stdio.h>
+ *	#include <stdlib.h>
  *
  *	// Find char @orig in @str, if @repl, replace them.  Return number.
  *	static size_t find_chars(char *str, char orig, char repl)
@@ -53,6 +54,9 @@
  *	{
  *		uint64_t hash;
  *
+ *		if (argc != 2) {
+ *			fprintf(stderr, "Needs argument\n"); exit(1);
+ *		}
  *		// find_chars wants a non-const string, but doesn't
  *		// need it if repl == 0.
  *		printf("%zu %c's in 'test string'\n",

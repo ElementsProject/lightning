@@ -23,6 +23,7 @@ int main(int argc, char *argv[])
 	TCON_WRAP(struct container, int tc) iconw;
 	TCON_WRAP(struct container, int tc1; char *tc2) ciconw;
 
+	(void)argc;
 	tcon_check(&icon, tc, 7)->raw.p = NULL;
 	tcon_check(&cicon, tc1, 7)->raw.p = argv[0];
 	tcon_check(&cicon, tc2, argv[0])->raw.p = argv[0];

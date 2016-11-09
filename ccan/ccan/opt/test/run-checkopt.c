@@ -53,7 +53,7 @@ static void reset(void)
 	opt_count = opt_num_short = opt_num_short_arg = opt_num_long = 0;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	int exitval;
 

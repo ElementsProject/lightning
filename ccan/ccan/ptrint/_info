@@ -29,7 +29,7 @@
  *
  *	void (*cb)(void *opaque) = callback;
  *
- *	int main(int argc, char *argv[])
+ *	int main(void)
  *	{
  *		int val = 17;
  *

@@ -32,7 +32,7 @@ typedef void tal_t;
  *	*p = 1;
  */
 #define tal(ctx, type)							\
-	((type *)tal_alloc_((ctx), sizeof(type), false, TAL_LABEL(type, "")))
+	((type *)tal_alloc_((ctx), sizeof(type), false, false, TAL_LABEL(type, "")))
 
 /**
  * talz - zeroing allocator function
@@ -46,7 +46,7 @@ typedef void tal_t;
  *	assert(*p == 0);
  */
 #define talz(ctx, type)							\
-	((type *)tal_alloc_((ctx), sizeof(type), true, TAL_LABEL(type, "")))
+	((type *)tal_alloc_((ctx), sizeof(type), true, false, TAL_LABEL(type, "")))
 
 /**
  * tal_free - free a tal-allocated pointer.
@@ -259,10 +259,19 @@ const char *tal_name(const tal_t *ptr);
  * Returns 0 if @ptr has no length property, but be aware that that is
  * also a valid size!
  */
-size_t tal_count(const tal_t *ptr);
+#define tal_count(p) (tal_len(p) / sizeof(*p))
 
 /**
- * tal_first - get the first tal object child.
+ * tal_len - get the count of bytes in a tal_arr.
+ * @ptr: The tal allocated object array.
+ *
+ * Returns 0 if @ptr has no length property, but be aware that that is
+ * also a valid size!
+ */
+size_t tal_len(const tal_t *ptr);
+
+/**
+ * tal_first - get the first immediate tal object child.
  * @root: The tal allocated object to start with, or NULL.
  *
  * Returns NULL if there are no children.
@@ -270,15 +279,13 @@ size_t tal_count(const tal_t *ptr);
 tal_t *tal_first(const tal_t *root);
 
 /**
- * tal_next - get the next tal object child.
- * @root: The tal allocated object to start with, or NULL.
+ * tal_next - get the next immediate tal object child.
  * @prev: The return value from tal_first or tal_next.
  *
- * Returns NULL if there are no more children.  This should be safe to
- * call on an altering tree unless @prev is no longer a descendent of
- * @root.
+ * Returns NULL if there are no more immediate children.  This should be safe to
+ * call on an altering tree unless @prev is no longer valid.
  */
-tal_t *tal_next(const tal_t *root, const tal_t *prev);
+tal_t *tal_next(const tal_t *prev);
 
 /**
  * tal_parent - get the parent of a tal object.
@@ -425,12 +432,13 @@ bool tal_set_name_(tal_t *ctx, const char *name, bool literal);
 #define tal_typechk_(ptr, ptype) (ptr)
 #endif
 
-void *tal_alloc_(const tal_t *ctx, size_t bytes, bool clear, const char *label);
+void *tal_alloc_(const tal_t *ctx, size_t bytes, bool clear,
+		 bool add_length, const char *label);
 void *tal_alloc_arr_(const tal_t *ctx, size_t bytes, size_t count, bool clear,
-		     bool add_count, const char *label);
+		     bool add_length, const char *label);
 
 void *tal_dup_(const tal_t *ctx, const void *p, size_t size,
-	       size_t n, size_t extra, bool add_count,
+	       size_t n, size_t extra, bool add_length,
 	       const char *label);
 
 tal_t *tal_steal_(const tal_t *new_parent, const tal_t *t);

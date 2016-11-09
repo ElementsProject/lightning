@@ -3,6 +3,8 @@
 
 int main(int argc, char *argv[])
 {
+	(void)argc;
+	(void)argv;
 	plan_tests(2);
 
 	ok1(!IS_COMPILE_CONSTANT(argc));

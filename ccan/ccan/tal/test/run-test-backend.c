@@ -31,7 +31,7 @@ static void *my_realloc(void *old, size_t new_size)
 
 #define NUM_ALLOCS 1000
 
-static void destroy_p(void *p)
+static void destroy_p(void *p UNNEEDED)
 {
 }
 

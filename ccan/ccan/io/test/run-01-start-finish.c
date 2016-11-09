@@ -69,7 +69,7 @@ static int make_listen_fd(const char *port, struct addrinfo **info)
 int main(void)
 {
 	int state = 0;
-	struct addrinfo *addrinfo;
+	struct addrinfo *addrinfo = NULL;
 	struct io_listener *l;
 	int fd;
 

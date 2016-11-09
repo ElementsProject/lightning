@@ -3,6 +3,8 @@
 
 static void _register_callback(void (*cb)(int x, void *arg), void *arg)
 {
+	(void)cb;
+	(void)arg;
 }
 
 #define register_callback(cb, arg)				\
@@ -10,9 +12,11 @@ static void _register_callback(void (*cb)(int x, void *arg), void *arg)
 
 static void my_callback(int x, char *p)
 {
+	(void)p;
+	(void)x;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
 #ifdef FAIL
 	int *p;

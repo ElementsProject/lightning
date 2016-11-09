@@ -31,7 +31,7 @@
  *	{
  *		struct parent p;
  *		struct child *c;
- *		unsigned int i;
+ *		int i;
  *
  *		if (argc < 2)
  *			errx(1, "Usage: %s parent children...", argv[0]);

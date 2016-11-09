@@ -29,9 +29,9 @@ struct timer;
  * Example:
  *	struct timers timeouts;
  *
- *	timers_init(&timeouts, time_now());
+ *	timers_init(&timeouts, time_mono());
  */
-void timers_init(struct timers *timers, struct timeabs start);
+void timers_init(struct timers *timers, struct timemono start);
 
 /**
  * timers_cleanup - free allocations within timers struct.
@@ -56,19 +56,39 @@ void timers_cleanup(struct timers *timers);
 void timer_init(struct timer *t);
 
 /**
- * timer_add - insert a timer.
+ * timer_addrel - insert a relative timer.
  * @timers: the struct timers
  * @timer: the (initialized or timer_del'd) timer to add
- * @when: when @timer expires.
+ * @rel: when @timer expires (relative).
+ *
+ * This efficiently adds @timer to @timers, to expire @rel (rounded to
+ * TIMER_GRANULARITY nanoseconds) after the current time.  This
+ * is a convenient wrapper around timer_addmono().
+ *
+ * Example:
+ *	// Timeout in 100ms.
+ *	timer_addrel(&timeouts, &t, time_from_msec(100));
+ */
+void timer_addrel(struct timers *timers, struct timer *timer, struct timerel rel);
+
+/**
+ * timer_addmono - insert an absolute timer.
+ * @timers: the struct timers
+ * @timer: the (initialized or timer_del'd) timer to add
+ * @when: when @timer expires (absolute).
  *
  * This efficiently adds @timer to @timers, to expire @when (rounded to
  * TIMER_GRANULARITY nanoseconds).
  *
+ * Note that if @when is before time_mono(), then it will be set to expire
+ * immediately.
+ *
  * Example:
  *	// Timeout in 100ms.
- *	timer_add(&timeouts, &t, timeabs_add(time_now(), time_from_msec(100)));
+ *	timer_addmono(&timeouts, &t, timemono_add(time_mono(), time_from_msec(100)));
  */
-void timer_add(struct timers *timers, struct timer *timer, struct timeabs when);
+void timer_addmono(struct timers *timers, struct timer *timer,
+		   struct timemono when);
 
 /**
  * timer_del - remove a timer.
@@ -94,10 +114,10 @@ void timer_del(struct timers *timers, struct timer *timer);
  * timer (rounded to TIMER_GRANULARITY nanoseconds), and returns true.
  *
  * Example:
- *	struct timeabs next = { { (time_t)-1ULL, -1UL } };
+ *	struct timemono next = { { (time_t)-1ULL, -1UL } };
  *	timer_earliest(&timeouts, &next);
  */
-bool timer_earliest(struct timers *timers, struct timeabs *first);
+bool timer_earliest(struct timers *timers, struct timemono *first);
 
 /**
  * timers_expire - update timers structure and remove one expire timer.
@@ -118,11 +138,11 @@ bool timer_earliest(struct timers *timers, struct timeabs *first);
  * Example:
  *	struct timer *expired;
  *
- *	while ((expired = timers_expire(&timeouts, time_now())) != NULL)
+ *	while ((expired = timers_expire(&timeouts, time_mono())) != NULL)
  *		printf("Timer expired!\n");
  *
  */
-struct timer *timers_expire(struct timers *timers, struct timeabs expire);
+struct timer *timers_expire(struct timers *timers, struct timemono expire);
 
 /**
  * timers_check - check timer structure for consistency

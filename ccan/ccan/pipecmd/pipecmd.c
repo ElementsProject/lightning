@@ -16,9 +16,12 @@ static char **gather_args(const char *arg0, va_list ap)
 	arr[0] = (char *)arg0;
 
 	while ((arr[n++] = va_arg(ap, char *)) != NULL) {
-		arr = realloc(arr, sizeof(char *) * (n + 1));
-		if (!arr)
+		char **narr = realloc(arr, sizeof(char *) * (n + 1));
+		if (!narr) {
+			free(arr);
 			return NULL;
+		}
+		arr = narr;
 	}
 	return arr;
 }
@@ -119,7 +122,10 @@ pid_t pipecmdarr(int *fd_fromchild, int *fd_tochild, int *fd_errfromchild,
 
 	child_errno_fail:
 		err = errno;
-		write(execfail[1], &err, sizeof(err));
+		/* Gcc's warn-unused-result fail. */
+		if (write(execfail[1], &err, sizeof(err))) {
+			;
+		}
 		exit(127);
 	}
 

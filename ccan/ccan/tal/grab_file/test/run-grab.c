@@ -10,7 +10,7 @@
 #include <ccan/tal/str/str.h>
 
 int
-main(int argc, char *argv[])
+main(void)
 {
 	unsigned int	i;
 	char 		**split, *str;

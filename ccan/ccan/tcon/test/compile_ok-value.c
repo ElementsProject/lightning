@@ -26,7 +26,7 @@ struct offs_container {
 	     TCON_VALUE(off2, offsetof(struct other_struct, x2)));
 };
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	struct val_container valcon;
 	struct offs_container offscon;

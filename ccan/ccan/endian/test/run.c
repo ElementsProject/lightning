@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <ccan/tap/tap.h>
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	union {
 		uint64_t u64;

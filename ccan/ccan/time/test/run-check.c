@@ -17,10 +17,11 @@ void abort(void)
 int main(void)
 {
 	struct timeabs t1, t2, epoch = { { 0, 0 } };
+	struct timemono t1m, t2m;
 	struct timerel t3, t4, zero = { { 0, 0 } };
 	int fds[2];
 
-	plan_tests(64);
+	plan_tests(69);
 
 	/* Test time_now */
 	t1 = time_now();
@@ -42,6 +43,21 @@ int main(void)
 	t3.ts.tv_sec = 1;
 	ok1(timerel_eq(t3, t3));
 	ok1(!timerel_eq(t3, zero));
+
+	/* Test time_mono */
+	t1m = time_mono();
+	t2m = time_mono();
+
+	ok1(!time_less_(t2m.ts, t1m.ts));
+
+	t3.ts.tv_sec = 1;
+	t3.ts.tv_nsec = 0;
+
+	ok1(time_less(timemono_between(t2m, t1m), t3));
+	ok1(time_less(timemono_since(t1m), t3));
+
+	ok1(timemono_add(t1m, t3).ts.tv_sec == t1m.ts.tv_sec + 1);
+	ok1(timemono_add(t2m, t3).ts.tv_nsec == t2m.ts.tv_nsec);
 
 	/* Make sure t2 > t1. */
 	t3.ts.tv_sec = 0;
@@ -156,7 +172,8 @@ int main(void)
 	ok1(t3.ts.tv_sec == 2);
 	ok1(t3.ts.tv_nsec == 147483648);
 
-	pipe(fds);
+	if (pipe(fds) != 0)
+		exit(1);
 
 	fflush(stdout);
 	switch (fork()) {

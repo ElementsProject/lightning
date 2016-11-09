@@ -17,7 +17,7 @@ static bool list_expect(struct list_head *h, ...)
 	return (n->next == &h->n);
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	struct list_head h1, h2;
 	struct list_node n[4];

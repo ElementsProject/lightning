@@ -3,6 +3,9 @@
  *
  * Copyright 2011 Rusty Russell <rusty@rustcorp.com.au>.  MIT license.
  *
+ * c12r_err, c12r_errx functions copied from ccan/err/err.c
+ * Copyright Rusty Russell <rusty@rustcorp.com.au>. CC0 (Public domain) License.
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
@@ -21,23 +24,46 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+#define _POSIX_C_SOURCE 200809L                /* For pclose, popen, strdup */
+
+#include <errno.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <err.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include <string.h>
 
+#ifdef _MSC_VER
+#define popen _popen
+#define pclose _pclose
+#endif
+
+#ifdef _MSC_VER
+#define DEFAULT_COMPILER "cl"
+/* Note:  Dash options avoid POSIX path conversion when used under msys bash
+ *        and are therefore preferred to slash (e.g. -nologo over /nologo)
+ * Note:  Disable Warning 4200 "nonstandard extension used : zero-sized array
+ *        in struct/union" for flexible array members.
+ */
+#define DEFAULT_FLAGS "-nologo -Zi -W4 -wd4200 " \
+	"-D_CRT_NONSTDC_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS"
+#define DEFAULT_OUTPUT_EXE_FLAG "-Fe:"
+#else
 #define DEFAULT_COMPILER "cc"
 #define DEFAULT_FLAGS "-g3 -ggdb -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition"
+#define DEFAULT_OUTPUT_EXE_FLAG "-o"
+#endif
 
 #define OUTPUT_FILE "configurator.out"
 #define INPUT_FILE "configuratortest.c"
 
+#ifdef _WIN32
+#define DIR_SEP   "\\"
+#else
+#define DIR_SEP   "/"
+#endif
+
+static const char *progname = "";
 static int verbose;
 
 enum test_style {
@@ -62,7 +88,7 @@ struct test {
 };
 
 static struct test tests[] = {
-	{ "HAVE_32BIT_OFF_T", DEFINES_EVERYTHING|EXECUTE, NULL, NULL,
+	{ "HAVE_32BIT_OFF_T", DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE, NULL, NULL,
 	  "#include <sys/types.h>\n"
 	  "int main(void) {\n"
 	  "	return sizeof(off_t) == 4 ? 0 : 1;\n"
@@ -167,7 +193,7 @@ static struct test tests[] = {
 	{ "HAVE_COMPOUND_LITERALS", INSIDE_MAIN, NULL, NULL,
 	  "int *foo = (int[]) { 1, 2, 3, 4 };\n"
 	  "return foo[0] ? 0 : 1;" },
-	{ "HAVE_FCHDIR", DEFINES_EVERYTHING|EXECUTE, NULL, NULL,
+	{ "HAVE_FCHDIR", DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE, NULL, NULL,
 	  "#include <sys/types.h>\n"
 	  "#include <sys/stat.h>\n"
 	  "#include <fcntl.h>\n"
@@ -188,7 +214,7 @@ static struct test tests[] = {
 	  "	if (arg == 4)\n"
 	  "		warnx(\"warn %u\", arg);\n"
 	  "}\n" },
-	{ "HAVE_FILE_OFFSET_BITS", DEFINES_EVERYTHING|EXECUTE,
+	{ "HAVE_FILE_OFFSET_BITS", DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE,
 	  "HAVE_32BIT_OFF_T", NULL,
 	  "#define _FILE_OFFSET_BITS 64\n"
 	  "#include <sys/types.h>\n"
@@ -196,8 +222,9 @@ static struct test tests[] = {
 	  "	return sizeof(off_t) == 8 ? 0 : 1;\n"
 	  "}\n" },
 	{ "HAVE_FOR_LOOP_DECLARATION", INSIDE_MAIN, NULL, NULL,
-	  "for (int i = 0; i < argc; i++) { return 0; };\n"
-	  "return 1;" },
+	  "int ret = 1;\n"
+	  "for (int i = 0; i < argc; i++) { ret = 0; };\n"
+	  "return ret;" },
 	{ "HAVE_FLEXIBLE_ARRAY_MEMBER", OUTSIDE_MAIN, NULL, NULL,
 	  "struct foo { unsigned int x; int arr[]; };" },
 	{ "HAVE_GETPAGESIZE", DEFINES_FUNC, NULL, NULL,
@@ -234,7 +261,7 @@ static struct test tests[] = {
 	  "static void *func(int fd) {\n"
 	  "	return mmap(0, 65536, PROT_READ, MAP_SHARED, fd, 0);\n"
 	  "}" },
-	{ "HAVE_PROC_SELF_MAPS", DEFINES_EVERYTHING|EXECUTE, NULL, NULL,
+	{ "HAVE_PROC_SELF_MAPS", DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE, NULL, NULL,
 	  "#include <sys/types.h>\n"
 	  "#include <sys/stat.h>\n"
 	  "#include <fcntl.h>\n"
@@ -271,7 +298,8 @@ static struct test tests[] = {
 	  "	return __stop_mysec - __start_mysec;\n"
 	  "}\n" },
 	{ "HAVE_STACK_GROWS_UPWARDS", DEFINES_EVERYTHING|EXECUTE, NULL, NULL,
-	  "static long nest(const void *base, unsigned int i)\n"
+	  "#include <stddef.h>\n"
+	  "static ptrdiff_t nest(const void *base, unsigned int i)\n"
 	  "{\n"
 	  "	if (i == 0)\n"
 	  "		return (const char *)&i - (const char *)base;\n"
@@ -319,7 +347,7 @@ static struct test tests[] = {
 	  "-Werror -fopenmp" },
 	{ "HAVE_VALGRIND_MEMCHECK_H", OUTSIDE_MAIN, NULL, NULL,
 	  "#include <valgrind/memcheck.h>\n" },
-	{ "HAVE_UCONTEXT", DEFINES_EVERYTHING|EXECUTE,
+	{ "HAVE_UCONTEXT", DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE,
 	  NULL, NULL,
 	  "#include <ucontext.h>\n"
 	  "static int x = 0;\n"
@@ -340,7 +368,7 @@ static struct test tests[] = {
 	  "	return (x == 3) ? 0 : 1;\n"
 	  "}\n"
 	},
-	{ "HAVE_POINTER_SAFE_MAKECONTEXT", DEFINES_EVERYTHING|EXECUTE,
+	{ "HAVE_POINTER_SAFE_MAKECONTEXT", DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE,
 	  "HAVE_UCONTEXT", NULL,
 	  "#include <stddef.h>\n"
 	  "#include <ucontext.h>\n"
@@ -367,71 +395,95 @@ static struct test tests[] = {
 	},
 };
 
-static char *grab_fd(int fd)
+static void c12r_err(int eval, const char *fmt, ...)
 {
-	int ret;
-	size_t max, size = 0;
+	int err_errno = errno;
+	va_list ap;
+
+	fprintf(stderr, "%s: ", progname);
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	fprintf(stderr, ": %s\n", strerror(err_errno));
+	exit(eval);
+}
+
+static void c12r_errx(int eval, const char *fmt, ...)
+{
+	va_list ap;
+
+	fprintf(stderr, "%s: ", progname);
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	fprintf(stderr, "\n");
+	exit(eval);
+}
+
+static size_t fcopy(FILE *fsrc, FILE *fdst)
+{
+	char buffer[BUFSIZ];
+	size_t rsize, wsize;
+	size_t copied = 0;
+
+	while ((rsize = fread(buffer, 1, BUFSIZ, fsrc)) > 0) {
+		wsize = fwrite(buffer, 1, rsize, fdst);
+		copied += wsize;
+		if (wsize != rsize)
+			break;
+	}
+
+	return copied;
+}
+
+static char *grab_stream(FILE *file)
+{
+	size_t max, ret, size = 0;
 	char *buffer;
 
-	max = 16384;
-	buffer = malloc(max+1);
-	while ((ret = read(fd, buffer + size, max - size)) > 0) {
+	max = BUFSIZ;
+	buffer = malloc(max);
+	while ((ret = fread(buffer+size, 1, max - size, file)) == max - size) {
 		size += ret;
-		if (size == max)
-			buffer = realloc(buffer, max *= 2);
+		buffer = realloc(buffer, max *= 2);
 	}
-	if (ret < 0)
-		err(1, "reading from command");
+	size += ret;
+	if (ferror(file))
+		c12r_err(1, "reading from command");
 	buffer[size] = '\0';
 	return buffer;
 }
 
 static char *run(const char *cmd, int *exitstatus)
 {
-	pid_t pid;
-	int p[2];
+	static const char redir[] = " 2>&1";
+	size_t cmdlen;
+	char *cmdredir;
+	FILE *cmdout;
 	char *ret;
-	int status;
 
-	if (pipe(p) != 0)
-		err(1, "creating pipe");
+	cmdlen = strlen(cmd);
+	cmdredir = malloc(cmdlen + sizeof(redir));
+	memcpy(cmdredir, cmd, cmdlen);
+	memcpy(cmdredir + cmdlen, redir, sizeof(redir));
 
-	pid = fork();
-	if (pid == -1)
-		err(1, "forking");
+	cmdout = popen(cmdredir, "r");
+	if (!cmdout)
+		c12r_err(1, "popen \"%s\"", cmdredir);
 
-	if (pid == 0) {
-		if (dup2(p[1], STDOUT_FILENO) != STDOUT_FILENO
-		    || dup2(p[1], STDERR_FILENO) != STDERR_FILENO
-		    || close(p[0]) != 0
-		    || close(STDIN_FILENO) != 0
-		    || open("/dev/null", O_RDONLY) != STDIN_FILENO)
-			exit(128);
+	free(cmdredir);
 
-		status = system(cmd);
-		if (WIFEXITED(status))
-			exit(WEXITSTATUS(status));
-		/* Here's a hint... */
-		exit(128 + WTERMSIG(status));
-	}
-
-	close(p[1]);
-	ret = grab_fd(p[0]);
-	/* This shouldn't fail... */
-	if (waitpid(pid, &status, 0) != pid)
-		err(1, "Failed to wait for child");
-	close(p[0]);
-	if (WIFEXITED(status))
-		*exitstatus = WEXITSTATUS(status);
-	else
-		*exitstatus = -WTERMSIG(status);
+	ret = grab_stream(cmdout);
+	*exitstatus = pclose(cmdout);
 	return ret;
 }
 
-static char *connect_args(const char *argv[], const char *extra)
+static char *connect_args(const char *argv[], const char *outflag,
+		const char *files)
 {
-	unsigned int i, len = strlen(extra) + 1;
+	unsigned int i;
 	char *ret;
+	size_t len = strlen(outflag) + strlen(files) + 1;
 
 	for (i = 1; argv[i]; i++)
 		len += 1 + strlen(argv[i]);
@@ -441,10 +493,12 @@ static char *connect_args(const char *argv[], const char *extra)
 	for (i = 1; argv[i]; i++) {
 		strcpy(ret + len, argv[i]);
 		len += strlen(argv[i]);
-		if (argv[i+1])
+		if (argv[i+1] || *outflag)
 			ret[len++] = ' ';
 	}
-	strcpy(ret + len, extra);
+	strcpy(ret + len, outflag);
+	len += strlen(outflag);
+	strcpy(ret + len, files);
 	return ret;
 }
 
@@ -483,7 +537,7 @@ static bool run_test(const char *cmd, struct test *test)
 		char *dep;
 
 		/* Space-separated dependencies, could be ! for inverse. */
-		while ((len = strcspn(deps, " "))) {
+		while ((len = strcspn(deps, " ")) != 0) {
 			bool positive = true;
 			if (deps[len]) {
 				dep = strdup(deps);
@@ -509,9 +563,9 @@ static bool run_test(const char *cmd, struct test *test)
 		}
 	}
 
-	outf = fopen(INPUT_FILE, "w");
+	outf = fopen(INPUT_FILE, verbose > 1 ? "w+" : "w");
 	if (!outf)
-		err(1, "creating %s", INPUT_FILE);
+		c12r_err(1, "creating %s", INPUT_FILE);
 
 	fprintf(outf, "%s", PRE_BOILERPLATE);
 	switch (test->style & ~(EXECUTE|MAY_NOT_COMPILE)) {
@@ -540,11 +594,13 @@ static bool run_test(const char *cmd, struct test *test)
 		abort();
 
 	}
-	fclose(outf);
 
-	if (verbose > 1)
-		if (system("cat " INPUT_FILE) == -1)
-			;
+	if (verbose > 1) {
+		fseek(outf, 0, SEEK_SET);
+		fcopy(outf, stdout);
+	}
+
+	fclose(outf);
 
 	newcmd = strdup(cmd);
 
@@ -576,8 +632,8 @@ static bool run_test(const char *cmd, struct test *test)
 			       status ? "fail" : "warning",
 			       test->name, status, output);
 		if ((test->style & EXECUTE) && !(test->style & MAY_NOT_COMPILE))
-			errx(1, "Test for %s did not compile:\n%s",
-			     test->name, output);
+			c12r_errx(1, "Test for %s did not compile:\n%s",
+				  test->name, output);
 		test->answer = false;
 		free(output);
 	} else {
@@ -585,10 +641,10 @@ static bool run_test(const char *cmd, struct test *test)
 		free(output);
 		/* We run INSIDE_MAIN tests for sanity checking. */
 		if ((test->style & EXECUTE) || (test->style & INSIDE_MAIN)) {
-			output = run("./" OUTPUT_FILE, &status);
+			output = run("." DIR_SEP OUTPUT_FILE, &status);
 			if (!(test->style & EXECUTE) && status != 0)
-				errx(1, "Test for %s failed with %i:\n%s",
-				     test->name, status, output);
+				c12r_errx(1, "Test for %s failed with %i:\n%s",
+					  test->name, status, output);
 			if (verbose && status)
 				printf("%s exited %i\n", test->name, status);
 			free(output);
@@ -611,36 +667,53 @@ int main(int argc, const char *argv[])
 	unsigned int i;
 	const char *default_args[]
 		= { "", DEFAULT_COMPILER, DEFAULT_FLAGS, NULL };
+	const char *outflag = DEFAULT_OUTPUT_EXE_FLAG;
 
-	if (argc > 1) {
+	if (argc > 0)
+		progname = argv[0];
+
+	while (argc > 1) {
 		if (strcmp(argv[1], "--help") == 0) {
-			printf("Usage: configurator [-v] [<compiler> <flags>...]\n"
-			       "  <compiler> <flags> will have \"-o <outfile> <infile.c>\" appended\n"
-			       "Default: %s %s\n",
-			       DEFAULT_COMPILER, DEFAULT_FLAGS);
+			printf("Usage: configurator [-v] [-O<outflag>] [<compiler> <flags>...]\n"
+			       "  <compiler> <flags> will have \"<outflag> <outfile> <infile.c>\" appended\n"
+			       "Default: %s %s %s\n",
+			       DEFAULT_COMPILER, DEFAULT_FLAGS,
+			       DEFAULT_OUTPUT_EXE_FLAG);
 			exit(0);
 		}
-		if (strcmp(argv[1], "-v") == 0) {
+		if (strncmp(argv[1], "-O", 2) == 0) {
 			argc--;
 			argv++;
-			verbose = 1;
+			outflag = argv[1] + 2;
+			if (!*outflag) {
+				fprintf(stderr,
+					"%s: option requires an argument -- O\n",
+					argv[0]);
+				exit(1);
+			}
+		} else if (strcmp(argv[1], "-v") == 0) {
+			argc--;
+			argv++;
+			verbose++;
 		} else if (strcmp(argv[1], "-vv") == 0) {
 			argc--;
 			argv++;
-			verbose = 2;
+			verbose += 2;
+		} else {
+			break;
 		}
 	}
 
 	if (argc == 1)
 		argv = default_args;
 
-	cmd = connect_args(argv, " -o " OUTPUT_FILE " " INPUT_FILE);
+	cmd = connect_args(argv, outflag, OUTPUT_FILE " " INPUT_FILE);
 	for (i = 0; i < sizeof(tests)/sizeof(tests[0]); i++)
 		run_test(cmd, &tests[i]);
 	free(cmd);
 
-	unlink(OUTPUT_FILE);
-	unlink(INPUT_FILE);
+	remove(OUTPUT_FILE);
+	remove(INPUT_FILE);
 
 	printf("/* Generated by CCAN configurator */\n"
 	       "#ifndef CCAN_CONFIG_H\n"
@@ -649,9 +722,10 @@ int main(int argc, const char *argv[])
 	printf("#define _GNU_SOURCE /* Always use GNU extensions. */\n");
 	printf("#endif\n");
 	printf("#define CCAN_COMPILER \"%s\"\n", argv[1]);
-	cmd = connect_args(argv+1, "");
-	printf("#define CCAN_CFLAGS \"%s\"\n\n", cmd);
+	cmd = connect_args(argv + 1, "", "");
+	printf("#define CCAN_CFLAGS \"%s\"\n", cmd);
 	free(cmd);
+	printf("#define CCAN_OUTPUT_EXE_CFLAG \"%s\"\n\n", outflag);
 	/* This one implies "#include <ccan/..." works, eg. for tdb2.h */
 	printf("#define HAVE_CCAN 1\n");
 	for (i = 0; i < sizeof(tests)/sizeof(tests[0]); i++)

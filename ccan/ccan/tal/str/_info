@@ -20,6 +20,8 @@
  *		char *textfile;
  *		char **lines;
  *
+ *		if (argc > 2)
+ *			errx(1, "Takes 0 or 1 arguments");
  *		// Grab lines in file.
  *		textfile = grab_file(NULL, argv[1]);
  *		if (!textfile)

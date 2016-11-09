@@ -24,7 +24,7 @@
 			   const _type *b,				\
 			   void *ctx)					\
 	{								\
-		return _order_##_oname(a, b, int2ptr(0));		\
+		(void)ctx; return _order_##_oname(a, b, int2ptr(0));	\
 	}								\
 	int _order_##_oname##_reverse(const void *a,			\
 				      const void *b,			\
@@ -36,6 +36,7 @@
 				     const _type *b,			\
 				     void *ctx)				\
 	{								\
+		(void)ctx;						\
 		return _order_##_oname##_reverse(a, b, int2ptr(0));	\
 	}								\
 	int order_##_oname##_noctx(const void *a,			\

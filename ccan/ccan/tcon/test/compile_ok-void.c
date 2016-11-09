@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
 	struct void_container vcon;
 	TCON_WRAP(struct container, void *canary) vconw;
 
+	(void)argc;
 	tcon_check(&vcon, canary, NULL)->raw.p = NULL;
 	tcon_check(&vcon, canary, argv[0])->raw.p = NULL;
 	tcon_check(&vcon, canary, main)->raw.p = NULL;

@@ -16,11 +16,11 @@ static struct pollfd *pollfds = NULL;
 static struct fd **fds = NULL;
 static LIST_HEAD(closing);
 static LIST_HEAD(always);
-static struct timeabs (*nowfn)(void) = time_now;
+static struct timemono (*nowfn)(void) = time_mono;
 
-struct timeabs (*io_time_override(struct timeabs (*now)(void)))(void)
+struct timemono (*io_time_override(struct timemono (*now)(void)))(void)
 {
-	struct timeabs (*old)(void) = nowfn;
+	struct timemono (*old)(void) = nowfn;
 	nowfn = now;
 	return old;
 }
@@ -262,7 +262,7 @@ void *io_loop(struct timers *timers, struct timer **expired)
 		assert(num_waiting);
 
 		if (timers) {
-			struct timeabs now, first;
+			struct timemono now, first;
 
 			now = nowfn();
 
@@ -274,7 +274,7 @@ void *io_loop(struct timers *timers, struct timer **expired)
 			/* Now figure out how long to wait for the next one. */
 			if (timer_earliest(timers, &first)) {
 				uint64_t next;
-				next = time_to_msec(time_between(first, now));
+				next = time_to_msec(timemono_between(first, now));
 				if (next < INT_MAX)
 					ms_timeout = next;
 				else

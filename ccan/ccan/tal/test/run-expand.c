@@ -24,7 +24,7 @@ int main(void)
 	ok1(a[1] == 1);
 	ok1(a[2] == 2);
 	ok1(a[3] == 0);
-	ok1(tal_first(NULL) == a && !tal_next(NULL, a));
+	ok1(tal_first(NULL) == a && !tal_next(a) && !tal_first(a));
 
 	tal_free(a);
 

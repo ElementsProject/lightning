@@ -6,7 +6,7 @@
 #include "helper.h"
 
 /* Empty format string: should still terminate! */
-int main(int argc, char *argv[])
+int main(void)
 {
 	char *str;
 	const char *fmt = "";

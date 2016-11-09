@@ -185,7 +185,7 @@ void opt_register_table(const struct opt_table *table, const char *desc);
  * string (or see opt_set_alloc) and return false.
  *
  * Example:
- * static char *explode(const char *optarg, void *unused)
+ * static char *explode(const char *optarg, void *unused UNNEEDED)
  * {
  *	errx(1, "BOOM! %s", optarg);
  * }

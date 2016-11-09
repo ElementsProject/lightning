@@ -47,8 +47,7 @@ static struct io_plan *init_conn(struct io_conn *conn, struct data *d)
 	d->conn = conn;
 	io_set_finish(conn, finish_ok, d);
 
-	timer_add(&d->timers, &d->timer,
-		  timeabs_add(time_now(), time_from_usec(d->timeout_usec)));
+	timer_addrel(&d->timers, &d->timer, time_from_usec(d->timeout_usec));
 
 	return io_read(conn, d->buf, sizeof(d->buf), no_timeout, d);
 }
@@ -97,7 +96,7 @@ int main(void)
 	plan_tests(21);
 	d->state = 0;
 	d->timeout_usec = 100000;
-	timers_init(&d->timers, time_now());
+	timers_init(&d->timers, time_mono());
 	timer_init(&d->timer);
 	fd = make_listen_fd(PORT, &addrinfo);
 	ok1(fd >= 0);
@@ -131,7 +130,7 @@ int main(void)
 
 	/* One element, d->timer. */
 	ok1(expired == &d->timer);
-	ok1(!timers_expire(&d->timers, time_now()));
+	ok1(!timers_expire(&d->timers, time_mono()));
 	ok1(d->state == 1);
 
 	io_close(d->conn);

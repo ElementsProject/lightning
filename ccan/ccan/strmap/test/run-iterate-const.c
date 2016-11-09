@@ -5,7 +5,7 @@
 static bool found = false;
 
 /* Make sure const args work. */
-static bool find_string(const char *str, char *member, const char *cmp)
+static bool find_string(const char *str UNNEEDED, char *member, const char *cmp)
 {
 	if (strcmp(member, cmp) == 0)
 		found = true;

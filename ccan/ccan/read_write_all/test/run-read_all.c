@@ -17,6 +17,7 @@ static int p2c[2], c2p[2];
 static void got_signal(int sig)
 {
 	char c = 0;
+	(void)sig;
 	if (write(p2c[1], &c, 1) == 1)
 		sigcount++;
 }
@@ -24,7 +25,7 @@ static void got_signal(int sig)
 /* < PIPE_BUF *will* be atomic.  But > PIPE_BUF only *might* be non-atomic. */
 #define BUFSZ (1024*1024)
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	char *buffer;
 	char c = 0;

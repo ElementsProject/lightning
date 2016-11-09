@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <signal.h>
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	struct list_head list1, list2;
 	struct list_node n1, n2, n3;

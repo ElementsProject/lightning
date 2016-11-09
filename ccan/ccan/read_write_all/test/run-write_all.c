@@ -19,6 +19,9 @@ static ssize_t write_return;
 
 static ssize_t test_write(int fd, const void *buf, size_t count)
 {
+	(void)fd;
+	(void)buf;
+
 	if (write_return == 0) {
 		errno = ENOSPC;
 		return 0;
@@ -39,7 +42,7 @@ static ssize_t test_write(int fd, const void *buf, size_t count)
 
 #define BUFSZ 1024
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	char *buffer;
 

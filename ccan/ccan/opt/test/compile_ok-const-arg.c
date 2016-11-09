@@ -4,7 +4,7 @@
 #include <ccan/opt/parse.c>
 #include <ccan/opt/usage.c>
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	opt_register_noarg("-v", opt_version_and_exit,
 			   (const char *)"1.2.3",

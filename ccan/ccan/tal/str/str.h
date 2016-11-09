@@ -171,6 +171,7 @@ char *tal_strjoin(const void *ctx, char *strings[], const char *delim,
  *	{
  *		char *person, *input;
  *
+ *		(void)argc;
  *		// Join args and trim trailing space.
  *		input = tal_strjoin(NULL, argv+1, " ", STR_NO_TRAIL);
  *		if (tal_strreg(NULL, input,

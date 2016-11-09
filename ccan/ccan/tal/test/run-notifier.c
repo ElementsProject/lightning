@@ -20,7 +20,7 @@ static void *my_realloc(void *old, size_t size)
 	return new;
 }
 
-static void notify1(char *p, enum tal_notify_type notify, void *info)
+static void notify1(char *p UNNEEDED, enum tal_notify_type notify, void *info)
 {
 	ok1(ctx == ctx);
 	ok1(notify == expect);
@@ -31,7 +31,9 @@ static void notify1(char *p, enum tal_notify_type notify, void *info)
 	notified1++;
 }
 
-static void notify2(char *ctx, enum tal_notify_type notify, void *info)
+static void notify2(char *ctx UNNEEDED,
+		    enum tal_notify_type notify UNNEEDED,
+		    void *info UNNEEDED)
 {
 	notified2++;
 }

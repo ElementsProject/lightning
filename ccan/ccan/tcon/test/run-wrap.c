@@ -4,7 +4,7 @@
 
 typedef TCON_WRAP(int, char *canary) canaried_int;
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	canaried_int ci = TCON_WRAP_INIT(0);
 

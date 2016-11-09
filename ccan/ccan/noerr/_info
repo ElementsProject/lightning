@@ -37,7 +37,7 @@
  *			return false;
  *		}
  *		// A short write means out of space.
- *		if (ret < strlen(string)) {
+ *		if (ret < (int)strlen(string)) {
  *			unlink(file);
  *			errno = ENOSPC;
  *			return false;

@@ -213,7 +213,7 @@ static struct cdump_type *get_type(struct cdump_definitions *defs,
 				   enum cdump_type_kind kind,
 				   const char *name)
 {
-	cdump_map_t *m;
+	cdump_map_t *m = (void *)0x1L; /* Shouldn't be used */
 	struct cdump_type *t;
 
 	switch (kind) {

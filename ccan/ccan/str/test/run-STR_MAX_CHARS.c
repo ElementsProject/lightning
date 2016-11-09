@@ -4,7 +4,7 @@
 #include <ccan/tap/tap.h>
 #include <stdint.h>
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	char str[1000];
 	struct {

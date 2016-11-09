@@ -36,7 +36,7 @@ int main(void)
 	ok1(strstarts(path, cwd));
 	ok1(path[strlen(cwd)] == PATH_SEP);
 	ok1(strlen(path) == strlen(cwd) + 1 + strlen("run-canon-foo"));
-	ok1(tal_first(ctx) == path && tal_next(ctx, path) == NULL);
+	ok1(tal_first(ctx) == path && tal_next(path) == NULL);
 	path2 = path_canon(ctx, "run-canon-link");
 	ok1(streq(path2, path));
 

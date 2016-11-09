@@ -47,7 +47,7 @@ int main(void)
 	path = path_dirname(ctx, take(tal_strdup(ctx, "..")));
 	ok1(streq(path, "."));
 	ok1(tal_parent(path) == ctx);
-	ok1(tal_first(ctx) == path && !tal_next(ctx, path));
+	ok1(tal_first(ctx) == path && !tal_next(path));
 	tal_free(path);
 	ok1(path_dirname(ctx, take(NULL)) == NULL);
 	ok1(!tal_first(ctx));

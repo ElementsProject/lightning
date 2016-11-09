@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	const char *name = "noerr.file";
 	int fd;

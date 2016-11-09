@@ -25,7 +25,7 @@ int main(void)
 
 	/* Iteration test. */
 	i = 0;
-	for (p = tal_first(parent); p; p = tal_next(parent, p)) {
+	for (p = tal_first(parent); p; p = tal_next(p)) {
 		*p = '1';
 		i++;
 	}

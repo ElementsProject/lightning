@@ -18,7 +18,7 @@ int check_parameter(const struct foo *array)
 #endif
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	return check_parameter(NULL);
 }

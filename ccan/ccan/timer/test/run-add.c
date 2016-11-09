@@ -20,7 +20,7 @@ int main(void)
 	struct timer t;
 	uint64_t diff;
 	unsigned int i;
-	struct timeabs epoch = { { 0, 0 } };
+	struct timemono epoch = { { 0, 0 } };
 
 	/* This is how many tests you plan to run */
 	plan_tests(2 + (18 + (MAX_ORD - 4) * 3) * (18 + (MAX_ORD - 4) * 3));
@@ -38,7 +38,7 @@ int main(void)
 		for (timers.base = 0;
 		     timers.base < (1ULL << MAX_ORD)+2;
 		     timers.base = next(timers.base)) {
-			timer_add(&timers, &t, grains_to_time(timers.base + diff));
+			timer_addmono(&timers, &t, grains_to_time(timers.base + diff));
 			ok1(timers_check(&timers, NULL));
 			timer_del(&timers, &t);
 		}

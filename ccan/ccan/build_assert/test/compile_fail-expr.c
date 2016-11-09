@@ -1,6 +1,6 @@
 #include <ccan/build_assert/build_assert.h>
 
-int main(int argc, char *argv[])
+int main(void)
 {
 #ifdef FAIL
 	return BUILD_ASSERT_OR_ZERO(1 == 0);

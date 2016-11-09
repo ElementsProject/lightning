@@ -8,7 +8,7 @@ struct data {
 };
 
 /* Hash is simply key itself. */
-static size_t hash(const void *e, void *unused)
+static size_t hash(const void *e, void *unused UNNEEDED)
 {
 	struct data *d = (struct data *)e;
 

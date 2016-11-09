@@ -33,7 +33,7 @@ struct timemono time_mono(void)
 #else /* Best we can do */
 	ret.ts = time_now().ts;
 #endif /* !HAVE_TIME_MONOTONIC */
-	return ret;
+	return TIMEMONO_CHECK(ret);
 }
 
 struct timerel time_divide(struct timerel t, unsigned long div)
@@ -124,6 +124,14 @@ struct timerel timerel_check(struct timerel t, const char *abortstr)
 struct timeabs timeabs_check(struct timeabs t, const char *abortstr)
 {
 	struct timeabs ret;
+
+	ret.ts = time_check_(t.ts, abortstr);
+	return ret;
+}
+
+struct timemono timemono_check(struct timemono t, const char *abortstr)
+{
+	struct timemono ret;
 
 	ret.ts = time_check_(t.ts, abortstr);
 	return ret;

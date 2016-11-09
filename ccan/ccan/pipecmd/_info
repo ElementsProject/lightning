@@ -28,7 +28,8 @@
  *	char input[12];
  *
  *	if (argc == 2) {
- *		write(STDOUT_FILENO, "hello world\n", 12);
+ *		if (write(STDOUT_FILENO, "hello world\n", 12) != 12)
+ *			exit(1);
  *		exit(0);
  *	}
  *	child = pipecmd(&outputfd, NULL, NULL, argv[0], "ignoredarg", NULL);

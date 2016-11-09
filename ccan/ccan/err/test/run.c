@@ -15,6 +15,7 @@ int main(int argc, char *argv[])
 	int pfd[2];
 	const char *base;
 
+	(void)argc;
 	plan_tests(24);
 
 	err_set_progname(argv[0]);
@@ -27,7 +28,8 @@ int main(int argc, char *argv[])
 		base = argv[0];
 
 	/* Test err() in child */
-	pipe(pfd);
+	if (pipe(pfd))
+		abort();
 	fflush(stdout);
 	if (fork()) {
 		char buffer[BUFFER_MAX+1];
@@ -59,7 +61,8 @@ int main(int argc, char *argv[])
 	}
 
 	/* Test errx() in child */
-	pipe(pfd);
+	if (pipe(pfd))
+		abort();
 	fflush(stdout);
 	if (fork()) {
 		char buffer[BUFFER_MAX+1];
@@ -89,7 +92,8 @@ int main(int argc, char *argv[])
 
 
 	/* Test warn() in child */
-	pipe(pfd);
+	if (pipe(pfd))
+		abort();
 	fflush(stdout);
 	if (fork()) {
 		char buffer[BUFFER_MAX+1];
@@ -121,7 +125,8 @@ int main(int argc, char *argv[])
 	}
 
 	/* Test warnx() in child */
-	pipe(pfd);
+	if (pipe(pfd))
+		abort();
 	fflush(stdout);
 	if (fork()) {
 		char buffer[BUFFER_MAX+1];

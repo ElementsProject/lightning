@@ -5,7 +5,7 @@
 #include <ccan/opt/parse.c>
 
 /* Test consume_words helper. */
-int main(int argc, char *argv[])
+int main(void)
 {
 	size_t prefix, len;
 	bool start = true;

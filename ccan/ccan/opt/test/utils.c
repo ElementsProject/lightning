@@ -8,7 +8,7 @@
 #include "utils.h"
 
 unsigned int test_cb_called;
-char *test_noarg(void *arg)
+char *test_noarg(void *arg UNNEEDED)
 {
 	test_cb_called++;
 	return NULL;

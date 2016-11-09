@@ -4,7 +4,7 @@
 
 static int error_count;
 
-static void my_error(const char *msg)
+static void my_error(const char *msg UNNEEDED)
 {
 	error_count++;
 }
@@ -48,7 +48,7 @@ int main(void)
 		     (size_t)-1UL / sizeof(int) / 2);
 	ok1(!pi);
 	ok1(error_count == 4);
-	ok1(tal_first(NULL) == origpi && !tal_next(NULL, origpi));
+	ok1(tal_first(NULL) == origpi && !tal_next(origpi) && !tal_first(origpi));
 	tal_free(origpi);
 
 	/* Now, check that with taltk() we free old one on failure. */

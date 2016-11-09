@@ -19,7 +19,7 @@ static LIST_HEAD(static_list);
 
 #define ref(obj, counter) ((counter)++, (obj))
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	struct parent parent;
 	struct child c1, c2, c3, *c, *n;

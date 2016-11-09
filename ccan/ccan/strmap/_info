@@ -16,10 +16,11 @@
  *	license_depends_compat FAIL
  *
  * Example:
+ * #include <ccan/compiler/compiler.h>
  * #include <ccan/strmap/strmap.h>
  * #include <stdio.h>
  *
- * static bool dump(const char *member, size_t value, void *unused)
+ * static bool dump(const char *member, size_t value, void *unused UNNEEDED)
  * {
  * 	printf("%s at %zu. ", member, value);
  * 	// true means keep going with iteration.
@@ -32,7 +33,7 @@
  * 	STRMAP(size_t) map;
  *
  * 	strmap_init(&map);
- * 	for (i = 1; i < argc; i++)
+ * 	for (i = 1; i < (size_t)argc; i++)
  *		// This only adds the first time for this arg.
  * 		strmap_add(&map, argv[i], i);
  *

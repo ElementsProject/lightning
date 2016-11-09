@@ -8,7 +8,7 @@ struct child {
 	struct list_node list;
 };
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	struct child c1, c2;
 	struct list_head list = LIST_HEAD_INIT(list);

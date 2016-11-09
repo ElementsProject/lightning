@@ -24,7 +24,7 @@ static void destroy_child(char *p)
 	destroy_count++;
 }
 
-static void destroy_inc(char *p)
+static void destroy_inc(char *p UNNEEDED)
 {
 	destroy_count++;
 }

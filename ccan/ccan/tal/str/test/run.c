@@ -10,7 +10,7 @@
 static const char *substrings[]
 = { "far", "bar", "baz", "b", "ba", "z", "ar", NULL };
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	char **split, *str;
 	void *ctx;

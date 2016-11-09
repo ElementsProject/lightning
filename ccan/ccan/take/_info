@@ -37,7 +37,7 @@
  *	{
  *		char *b;
  *
- *		if (argv[1]) // Mangle in place.
+ *		if (argc > 1) // Mangle in place.
  *			b = base(take(argv[1]));
  *		else
  *			b = base("test/string");

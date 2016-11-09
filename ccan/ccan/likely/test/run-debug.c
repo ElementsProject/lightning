@@ -26,7 +26,7 @@ static bool likely_one_unlikely_two(unsigned int val1, unsigned int val2)
 	return false;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	char *bad;
 

@@ -30,7 +30,7 @@ int main(void)
 	link = path_readlink(ctx, take(tal_strdup(ctx, "run-readlink-link")));
 	ok1(tal_parent(link) == ctx);
 	ok1(streq(link, "/tmp"));
-	ok1(tal_first(ctx) == link && tal_next(ctx, link) == NULL);
+	ok1(tal_first(ctx) == link && tal_next(link) == NULL && tal_first(link) == NULL);
 
 	unlink("run-readlink-link");
 

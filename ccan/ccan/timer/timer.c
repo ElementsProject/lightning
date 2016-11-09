@@ -12,15 +12,15 @@ struct timer_level {
 	struct list_head list[PER_LEVEL];
 };
 
-static uint64_t time_to_grains(struct timeabs t)
+static uint64_t time_to_grains(struct timemono t)
 {
 	return t.ts.tv_sec * ((uint64_t)1000000000 / TIMER_GRANULARITY)
 		+ (t.ts.tv_nsec / TIMER_GRANULARITY);
 }
 
-static struct timeabs grains_to_time(uint64_t grains)
+static struct timemono grains_to_time(uint64_t grains)
 {
-	struct timeabs t;
+	struct timemono t;
 
 	t.ts.tv_sec = grains / (1000000000 / TIMER_GRANULARITY);
 	t.ts.tv_nsec = (grains % (1000000000 / TIMER_GRANULARITY))
@@ -28,7 +28,7 @@ static struct timeabs grains_to_time(uint64_t grains)
 	return t;
 }
 
-void timers_init(struct timers *timers, struct timeabs start)
+void timers_init(struct timers *timers, struct timemono start)
 {
 	unsigned int i;
 
@@ -79,7 +79,26 @@ static bool list_node_initted(const struct list_node *n)
 	return n->prev == n;
 }
 
-void timer_add(struct timers *timers, struct timer *t, struct timeabs when)
+void timer_addrel(struct timers *timers, struct timer *t, struct timerel rel)
+{
+	assert(list_node_initted(&t->list));
+
+	t->time = time_to_grains(timemono_add(time_mono(), rel));
+
+#if TIME_HAVE_MONOTONIC
+	assert(t->time >= timers->base);
+#else
+	/* Added in the past?  Treat it as imminent. */
+	if (t->time < timers->base)
+		t->time = timers->base;
+#endif
+	if (t->time < timers->first)
+		timers->first = t->time;
+
+	timer_add_raw(timers, t);
+}
+
+void timer_addmono(struct timers *timers, struct timer *t, struct timemono when)
 {
 	assert(list_node_initted(&t->list));
 
@@ -95,7 +114,7 @@ void timer_add(struct timers *timers, struct timer *t, struct timeabs when)
 }
 
 /* FIXME: inline */
-void timer_del(struct timers *timers, struct timer *t)
+void timer_del(struct timers *timers UNNEEDED, struct timer *t)
 {
 	list_del_init(&t->list);
 }
@@ -241,7 +260,7 @@ static bool update_first(struct timers *timers)
 	return true;
 }
 
-bool timer_earliest(struct timers *timers, struct timeabs *first)
+bool timer_earliest(struct timers *timers, struct timemono *first)
 {
 	if (!update_first(timers))
 		return false;
@@ -298,7 +317,7 @@ static void timer_fast_forward(struct timers *timers, uint64_t time)
 }
 
 /* Returns an expired timer. */
-struct timer *timers_expire(struct timers *timers, struct timeabs expire)
+struct timer *timers_expire(struct timers *timers, struct timemono expire)
 {
 	uint64_t now = time_to_grains(expire);
 	unsigned int off;

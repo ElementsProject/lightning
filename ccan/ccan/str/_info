@@ -26,11 +26,11 @@
  *
  *	int main(int argc, char *argv[])
  *	{
- *		if (argv[1] && streq(argv[1], "--verbose"))
+ *		if (argc > 1 && streq(argv[1], "--verbose"))
  *			printf("verbose set\n");
- *		if (argv[1] && strstarts(argv[1], "--"))
+ *		if (argc > 1 && strstarts(argv[1], "--"))
  *			printf("Some option set\n");
- *		if (argv[1] && strends(argv[1], "cow-powers"))
+ *		if (argc > 1 && strends(argv[1], "cow-powers"))
  *			printf("Magic option set\n");
  *		return 0;
  *	}

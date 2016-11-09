@@ -7,25 +7,25 @@
 static void new_timer(struct timers *timers, unsigned long nsec)
 {
 	struct timer *timer;
-	struct timeabs when;
+	struct timemono when;
 
 	timer = malloc(sizeof(*timer));
 	timer_init(timer);
 	when.ts.tv_sec = 0; when.ts.tv_nsec = nsec;
-	timer_add(timers, timer, when);
+	timer_addmono(timers, timer, when);
 }
 
 static void update_and_expire(struct timers *timers)
 {
-	struct timeabs when;
+	struct timemono when;
 
 	timer_earliest(timers, &when);
 	free(timers_expire(timers, when));
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
-	struct timeabs when;
+	struct timemono when;
 	struct timers timers;
 
 	plan_tests(7);

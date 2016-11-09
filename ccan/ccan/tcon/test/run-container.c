@@ -28,7 +28,7 @@ struct info_tcon {
 	     TCON_CONTAINER(fi2, struct outer0, inner));
 };
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	struct info_tcon info;
 	TCON_WRAP(struct info_base,

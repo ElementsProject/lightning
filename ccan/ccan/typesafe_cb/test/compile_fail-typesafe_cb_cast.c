@@ -4,12 +4,13 @@ void _set_some_value(void *val);
 
 void _set_some_value(void *val)
 {
+	(void)val;
 }
 
 #define set_some_value(expr)						\
 	_set_some_value(typesafe_cb_cast(void *, unsigned long, (expr)))
 
-int main(int argc, char *argv[])
+int main(void)
 {
 #ifdef FAIL
 	int x = 0;

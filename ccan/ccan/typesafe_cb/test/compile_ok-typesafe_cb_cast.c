@@ -19,9 +19,10 @@ struct any {
 
 static void take_any(struct any *any)
 {
+	(void)any;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	/* Otherwise we get unused warnings for these. */
 	struct foo *foo = NULL;

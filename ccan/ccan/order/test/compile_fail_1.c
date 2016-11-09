@@ -12,7 +12,7 @@ typedef int item_t;
 typedef struct item item_t;
 #endif
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	total_order_cb(cb0, struct item, struct cmp_info *) = fancy_cmp;
 	_total_order_cb cb1 = total_order_cast(fancy_cmp,

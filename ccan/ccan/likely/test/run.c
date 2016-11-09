@@ -17,7 +17,7 @@ static bool one_seems_unlikely(unsigned int val)
 	return false;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	plan_tests(4);
 

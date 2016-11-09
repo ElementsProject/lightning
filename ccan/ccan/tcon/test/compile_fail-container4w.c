@@ -17,7 +17,7 @@ struct info_base {
 	char *infop;
 };
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	TCON_WRAP(struct info_base,
 		  TCON_CONTAINER(concan, struct outer, inner)) info;

@@ -2,7 +2,7 @@
 #include <ccan/tal/tal.c>
 #include <ccan/tap/tap.h>
 
-static void destroy_errno(char *p)
+static void destroy_errno(char *p UNNEEDED)
 {
 	errno = ENOENT;
 }

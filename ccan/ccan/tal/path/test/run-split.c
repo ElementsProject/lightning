@@ -98,7 +98,7 @@ int main(void)
 	ok1(!split);
 	ok1(tal_first(ctx) == NULL);
 
-	ok1(tal_first(NULL) == ctx && tal_next(NULL, ctx) == NULL);
+	ok1(tal_first(NULL) == ctx && tal_next(ctx) == NULL && tal_first(ctx) == NULL);
 	tal_free(ctx);
 
 	return exit_status();

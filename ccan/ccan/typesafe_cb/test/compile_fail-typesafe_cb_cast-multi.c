@@ -23,9 +23,10 @@ struct other {
 
 static void take_any(struct any *any)
 {
+	(void)any;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
 #ifdef FAIL
 	struct other

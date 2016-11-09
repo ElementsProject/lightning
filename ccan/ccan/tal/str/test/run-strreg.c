@@ -14,7 +14,7 @@ static bool find_parent(tal_t *child, tal_t *parent)
 	return false;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	void *ctx = tal_strdup(NULL, "toplevel");
 	char *a, *b;

@@ -10,7 +10,7 @@ struct int_container {
 	TCON(int *canary);
 };
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	struct int_container icon;
 #ifdef FAIL

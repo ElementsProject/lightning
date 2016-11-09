@@ -41,7 +41,7 @@
  *		va_end(ap);
  *	}
  *
- *	int main(int argc, char *argv[])
+ *	int main(int argc, char *argv[] UNNEEDED)
  *	{
  *		if (argc != 1) {
  *			logger(3, "Don't want %i arguments!\n", argc-1);

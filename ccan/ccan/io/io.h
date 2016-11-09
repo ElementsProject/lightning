@@ -47,7 +47,8 @@ struct io_conn;
  *	int fd[2];
  *	struct io_conn *conn;
  *
- *	pipe(fd);
+ *	if (pipe(fd) != 0)
+ *		exit(1);
  *	conn = io_new_conn(NULL, fd[0], conn_init, (const char *)"hi!");
  *	if (!conn)
  *		exit(1);
@@ -653,11 +654,11 @@ int io_conn_fd(const struct io_conn *conn);
  * io_time_override - override the normal call for time.
  * @nowfn: the function to call.
  *
- * io usually uses time_now() internally, but this forces it
+ * io usually uses time_mono() internally, but this forces it
  * to use your function (eg. for debugging).  Returns the old
  * one.
  */
-struct timeabs (*io_time_override(struct timeabs (*now)(void)))(void);
+struct timemono (*io_time_override(struct timemono (*now)(void)))(void);
 
 /**
  * io_set_debug - set synchronous mode on a connection.

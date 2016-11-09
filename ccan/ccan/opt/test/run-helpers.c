@@ -52,7 +52,7 @@ static int saved_printf(const char *fmt, ...)
 	return ret;
 }
 
-static int saved_fprintf(FILE *ignored, const char *fmt, ...)
+static int saved_fprintf(FILE *ignored UNNEEDED, const char *fmt, ...)
 {
 	va_list ap;
 	int ret;

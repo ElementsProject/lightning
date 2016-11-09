@@ -6,7 +6,7 @@ struct char_struct {
 	char c;
 };
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	char **uc;
 	const

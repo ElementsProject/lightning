@@ -29,7 +29,7 @@
  * Example:
  *	#include <stdio.h>
  *	#include <err.h>
- *	#include <ccan/talloc/talloc.h>
+ *	#include <ccan/tal/tal.h>
  *
  *	// A structure containing a popened command.
  *	struct command {

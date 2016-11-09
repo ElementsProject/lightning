@@ -17,7 +17,7 @@
  *	#include <ccan/read_write_all/read_write_all.h>
  *
  *	#define BUFFER_SIZE 10
- *	int main(int argc, char *argv[])
+ *	int main(void)
  *	{
  *		char buffer[BUFFER_SIZE+1];
  *

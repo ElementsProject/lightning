@@ -22,7 +22,7 @@ struct info_tcon {
 	TCON(TCON_CONTAINER(fi, struct outer, inner));
 };
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	/* Const should work! */
 	const struct outer *ovar = NULL;

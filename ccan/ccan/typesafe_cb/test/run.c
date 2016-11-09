@@ -89,7 +89,7 @@ struct callback_postargs cb_postargs
 = { typesafe_cb_postargs(void, void *, my_callback_postargs, 
 			 (char *)(intptr_t)"hi", int, int), "hi" };
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	void *p = &dummy;
 	unsigned long l = (unsigned long)p;

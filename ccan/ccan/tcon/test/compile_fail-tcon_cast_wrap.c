@@ -5,7 +5,7 @@ struct container {
 	void *p;
 };
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	TCON_WRAP(struct container,
 		  int *tc1; char *tc2) icon;

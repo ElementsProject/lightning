@@ -19,7 +19,7 @@ static int test_ilog64(uint64_t _v){
 
 #define NTRIALS (64)
 
-int main(int _argc,const char *_argv[]){
+int main(void){
   int i;
   int j;
   /*This is how many tests you plan to run.*/

@@ -14,7 +14,7 @@ struct child {
 	struct list_node list;
 };
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	struct parent parent;
 	struct child c1, c2, c3;

@@ -17,6 +17,7 @@ static int my_fprintf(FILE *stream, const char *format, ...)
 {
 	va_list ap;
 	int ret;
+	(void)stream;
 	va_start(ap, format);
 	ret = vsprintf(printf_buffer, format, ap);
 	va_end(ap);
@@ -28,7 +29,7 @@ static int my_fprintf(FILE *stream, const char *format, ...)
 #include <ccan/tap/tap.h>
 #include <ccan/list/list.c>
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	struct list_head list;
 	struct list_node n1;
@@ -44,7 +45,7 @@ int main(int argc, char *argv[])
 	list.n.prev = &n1;
 
 	/* Aborting version. */
-	sprintf(expect, "run-CCAN_LIST_DEBUG.c:50: prev corrupt in node %p (0) of %p\n",
+	sprintf(expect, "run-CCAN_LIST_DEBUG.c:51: prev corrupt in node %p (0) of %p\n",
 		&list, &list);
 	if (setjmp(aborted) == 0) {
 		assert(list_empty(&list));

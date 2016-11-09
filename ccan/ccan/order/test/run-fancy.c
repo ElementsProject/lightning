@@ -8,7 +8,7 @@
 
 #include "fancy_cmp.h"
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	struct item item1 = {
 		.value = 0,

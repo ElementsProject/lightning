@@ -250,6 +250,7 @@ static inline void *memcheck_(const void *data, size_t len)
 #else
 static inline void *memcheck_(const void *data, size_t len)
 {
+	(void)len;
 	return (void *)data;
 }
 #endif

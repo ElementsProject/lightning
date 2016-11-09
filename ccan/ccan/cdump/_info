@@ -29,7 +29,8 @@
  * {
  * 	char *code, *problems;
  * 	struct cdump_definitions *defs;
- * 	int i, j;
+ * 	int i;
+ *	size_t j;
  *
  * 	// Read code from stdin.
  * 	code = grab_file(NULL, NULL);

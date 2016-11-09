@@ -16,7 +16,7 @@ struct charp_and_int_container {
 	TCON(int tc1; char *tc2);
 };
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	struct int_container icon;
 	struct charp_and_int_container cicon;

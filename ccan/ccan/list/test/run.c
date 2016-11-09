@@ -16,7 +16,7 @@ struct child {
 
 static LIST_HEAD(static_list);
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	struct parent parent;
 	struct child c1, c2, c3, x1, *c, *n;

@@ -45,9 +45,9 @@ static int make_listen_fd(const char *port, struct addrinfo **info)
 	return fd;
 }
 
-static struct timeabs fake_time;
+static struct timemono fake_time;
 
-static struct timeabs get_fake_time(void)
+static struct timemono get_fake_time(void)
 {
 	return fake_time;
 }
@@ -63,12 +63,12 @@ int main(void)
 	/* This is how many tests you plan to run */
 	plan_tests(7);
 
-	fake_time = time_now();
+	fake_time = time_mono();
 
 	timers_init(&timers, fake_time);
 	timer_init(&timer);
-	timer_add(&timers, &timer,
-		  timeabs_add(fake_time, time_from_sec(1000)));
+	timer_addmono(&timers, &timer,
+		      timemono_add(fake_time, time_from_sec(1000)));
 
 	fd = make_listen_fd(PORT, &addrinfo);
 	freeaddrinfo(addrinfo);
@@ -77,12 +77,12 @@ int main(void)
 	ok1(l);
 
 	fake_time.ts.tv_sec += 1000;
-	ok1(io_time_override(get_fake_time) == time_now);
+	ok1(io_time_override(get_fake_time) == time_mono);
 	ok1(io_loop(&timers, &expired) == NULL);
 
 	ok1(expired == &timer);
 	ok1(!timers_expire(&timers, fake_time));
-	ok1(io_time_override(time_now) == get_fake_time);
+	ok1(io_time_override(time_mono) == get_fake_time);
 	io_close_listener(l);
 
 	timers_cleanup(&timers);

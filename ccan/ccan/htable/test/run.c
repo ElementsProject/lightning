@@ -10,7 +10,7 @@
 /* We use the number divided by two as the hash (for lots of
    collisions), plus set all the higher bits so we can detect if they
    don't get masked out. */
-static size_t hash(const void *elem, void *unused)
+static size_t hash(const void *elem, void *unused UNNEEDED)
 {
 	size_t h = *(uint64_t *)elem / 2;
 	h |= -1UL << NUM_BITS;
@@ -95,7 +95,7 @@ static bool check_mask(struct htable *ht, uint64_t val[], unsigned num)
 	return true;
 }
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	unsigned int i, weight;
 	uintptr_t perfect_bit;

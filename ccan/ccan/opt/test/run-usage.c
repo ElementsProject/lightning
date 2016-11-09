@@ -6,7 +6,7 @@
 #include "utils.h"
 
 /* Ensure width is sane. */
-static const char *getenv_override(const char *name)
+static const char *getenv_override(const char *name UNNEEDED)
 {
 	return "100";
 }
@@ -18,13 +18,13 @@ static const char *getenv_override(const char *name)
 #include <ccan/opt/helpers.c>
 #include <ccan/opt/parse.c>
 
-static char *my_cb(void *p)
+static char *my_cb(void *p UNNEEDED)
 {
 	return NULL;
 }
 
 /* Test helpers. */
-int main(int argc, char *argv[])
+int main(void)
 {
 	char *output;
 	char *longname = strdup("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");

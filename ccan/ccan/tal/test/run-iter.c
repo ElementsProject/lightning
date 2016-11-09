@@ -4,9 +4,33 @@
 
 #define NUM 1000
 
+static int set_children(const tal_t *parent, char val)
+{
+	char *iter;
+	int num = 0;
+
+	for (iter = tal_first(parent); iter; iter = tal_next(iter)) {
+		ok1(*iter == '0');
+		*iter = val;
+		num++;
+		num += set_children(iter, val);
+	}
+	return num;
+}
+
+static void check_children(const tal_t *parent, char val)
+{
+	const char *iter;
+
+	for (iter = tal_first(parent); iter; iter = tal_next(iter)) {
+		ok1(*iter == val);
+		check_children(iter, val);
+	}
+}
+
 int main(void)
 {
-	char *p[NUM] = { NULL }, *iter;
+	char *p[NUM] = { NULL };
 	int i;
 
 	plan_tests(NUM + 1 + NUM);
@@ -17,18 +41,13 @@ int main(void)
 		*p[i] = '0';
 	}
 
-	i = 0;
-	for (iter = tal_first(NULL); iter; iter = tal_next(NULL, iter)) {
-		i++;
-		ok1(*iter == '0');
-		*iter = '1';
-	}
+	i = set_children(NULL, '1');
 	ok1(i == NUM);
 
-	for (i = NUM-1; i >= 0; i--) {
-		ok1(*p[i] == '1');
+	check_children(NULL, '1');
+	for (i = NUM-1; i >= 0; i--)
 		tal_free(p[i]);
-	}
+
 	tal_cleanup();
 	return exit_status();
 }

@@ -30,7 +30,7 @@ static void nofail_on_error(const char *msg)
 	err_count++;
 }
 
-static void destroy_p(void *p)
+static void destroy_p(void *p UNNEEDED)
 {
 }
 

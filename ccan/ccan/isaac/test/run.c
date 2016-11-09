@@ -134,7 +134,7 @@ static const uint32_t STATEVEC[ISAAC_SZ<<1]={
   0x46D95CA5, 0xC54CD95B, 0x9D855E89, 0x4BB5AF29
 };
 
-int main(int _argc,const char *_argv[]){
+int main(void){
   isaac_ctx   isaac;
   int         i;
   int         j;

@@ -2,15 +2,15 @@
 #include <stdlib.h>
 
 /* Make sure we override these! */
-static void *no_malloc(size_t size)
+static void *no_malloc(size_t size UNNEEDED)
 {
 	abort();
 }
-static void *no_realloc(void *p, size_t size)
+static void *no_realloc(void *p UNNEEDED, size_t size UNNEEDED)
 {
 	abort();
 }
-static void no_free(void *p)
+static void no_free(void *p UNNEEDED)
 {
 	abort();
 }

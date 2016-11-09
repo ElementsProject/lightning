@@ -5,7 +5,7 @@
 #include <ccan/tap/tap.h>
 #include "helper.h"
 
-int main(int argc, char *argv[])
+int main(void)
 {
 	char *str, *copy;
 

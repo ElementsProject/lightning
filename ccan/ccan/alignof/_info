@@ -21,7 +21,7 @@
  *
  *	// Output contains "ALIGNOF(char) == 1"
  *	// Will also print out whether an onstack char array can hold a long.
- *	int main(int argc, char *argv[])
+ *	int main(void)
  *	{
  *		char arr[sizeof(int)];
  *

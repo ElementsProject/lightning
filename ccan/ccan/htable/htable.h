@@ -35,6 +35,7 @@ struct htable {
  *	// For simplicity's sake, say hash value is contents of elem.
  *	static size_t rehash(const void *elem, void *unused)
  *	{
+ *		(void)unused;
  *		return *(size_t *)elem;
  *	}
  *	static struct htable ht = HTABLE_INITIALIZER(ht, rehash, NULL);

@@ -10,7 +10,7 @@
 #include <ccan/opt/parse.c>
 
 /* Test iterators. */
-int main(int argc, char *argv[])
+int main(void)
 {
 	unsigned j, i, len = 0;
 	const char *p;

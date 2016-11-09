@@ -2,6 +2,8 @@
 
 int main(int argc, char *argv[])
 {
+	(void)argc;
+	(void)argv;
 #ifdef FAIL
 #if HAVE_TYPEOF
 	check_type(argc, unsigned int);

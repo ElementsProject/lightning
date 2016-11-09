@@ -18,6 +18,8 @@
  *	{
  *		char *file;
  *
+ *		if (argc > 2)
+ *			err(1, "Takes 0 or 1 arguments");
  *		file = grab_file(NULL, argv[1]);
  *		if (!file)
  *			err(1, "Could not read file %s", argv[1]);
