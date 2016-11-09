@@ -291,5 +291,6 @@ struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
 void debug_dump_peers(struct lightningd_state *dstate);
 
 void reconnect_peers(struct lightningd_state *dstate);
+void rebroadcast_anchors(struct lightningd_state *dstate);
 void cleanup_peers(struct lightningd_state *dstate);
 #endif /* LIGHTNING_DAEMON_PEER_H */

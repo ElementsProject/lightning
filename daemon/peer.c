@@ -512,7 +512,7 @@ out:
 }
 
 /* Creation the bitcoin anchor tx, spending output user provided. */
-static void bitcoin_create_anchor(struct peer *peer)
+static bool bitcoin_create_anchor(struct peer *peer)
 {
 	struct bitcoin_tx *tx = bitcoin_tx(peer, 1, 1);
 	size_t i;
@@ -530,8 +530,10 @@ static void bitcoin_create_anchor(struct peer *peer)
 	tx->input[0].amount = tal_dup(tx->input, u64,
 				      &peer->anchor.input->in_amount);
 
-	wallet_add_signed_input(peer->dstate, &peer->anchor.input->walletkey,
-				tx, 0);
+	if (!wallet_add_signed_input(peer->dstate,
+				     &peer->anchor.input->walletkey,
+				     tx, 0))
+		return false;
 
 	bitcoin_txid(tx, &peer->anchor.txid);
 	peer->anchor.tx = tx;
@@ -542,6 +544,7 @@ static void bitcoin_create_anchor(struct peer *peer)
 	/* To avoid malleation, all inputs must be segwit! */
 	for (i = 0; i < tx->input_count; i++)
 		assert(tx->input[i].witness);
+	return true;
 }
 
 static bool open_pkt_in(struct peer *peer, const Pkt *pkt)
@@ -577,7 +580,11 @@ static bool open_pkt_in(struct peer *peer, const Pkt *pkt)
 				      &peer->remote.commitkey);
 
 	if (peer->local.offer_anchor) {
-		bitcoin_create_anchor(peer);
+		if (!bitcoin_create_anchor(peer)) {
+			db_abort_transaction(peer);
+			err = pkt_err(peer, "Own anchor unavailable");
+			return peer_comms_err(peer, err);
+		}
 		/* FIXME: Redundant with peer->local.offer_anchor? */
 		peer->anchor.ours = true;
 
@@ -4417,6 +4424,23 @@ void reconnect_peers(struct lightningd_state *dstate)
 
 	list_for_each(&dstate->peers, peer, list)
 		try_reconnect(peer);
+}
+
+/* We may have gone down before broadcasting the anchor.  Try again. */
+void rebroadcast_anchors(struct lightningd_state *dstate)
+{
+	struct peer *peer;
+
+	list_for_each(&dstate->peers, peer, list) {
+		if (!state_is_waiting_for_anchor(peer->state))
+			continue;
+		if (!peer->anchor.ours)
+			continue;
+		if (!bitcoin_create_anchor(peer))
+			peer_fail(peer, __func__);
+		else
+			broadcast_tx(peer, peer->anchor.tx, NULL);
+	}
 }
 
 static void json_add_abstime(struct json_result *response,

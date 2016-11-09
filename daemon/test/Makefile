@@ -18,11 +18,9 @@ daemon-test.sh-0-mutual-close-with-htlcs: daemon-test.sh-0-manual-commit
 daemon-test.sh-0-manual-commit: daemon-test.sh-0-normal
 daemon-test.sh-0-normal: daemon-test-setup-0
 
-#FIXME: daemon-test.sh-1-timeout-anchor\ --restart
-# This doesn't work because we don't retransmit anchor!
-
 daemon-test.sh-1-steal\ --restart: daemon-test.sh-1-dump-onchain\ --restart
-daemon-test.sh-1-dump-onchain\ --restart: daemon-test.sh-1-different-fee-rates\ --restart
+daemon-test.sh-1-dump-onchain\ --restart: daemon-test.sh-1-timeout-anchor\ --restart
+daemon-test.sh-1-timeout-anchor\ --restart: daemon-test.sh-1-different-fee-rates\ --restart
 daemon-test.sh-1-different-fee-rates\ --restart: daemon-test.sh-1-mutual-close-with-htlcs\ --restart
 daemon-test.sh-1-mutual-close-with-htlcs\ --restart: daemon-test.sh-1-manual-commit\ --restart
 daemon-test.sh-1-manual-commit\ --restart: daemon-test.sh-1-normal\ --restart

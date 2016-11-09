@@ -554,6 +554,9 @@ int main(int argc, char *argv[])
 
 	/* If we loaded peers from database, reconnect now. */
 	reconnect_peers(dstate);
+
+	/* And send out anchors again if we're waiting. */
+	rebroadcast_anchors(dstate);
 	
 	for (;;) {
 		struct timer *expired;
