@@ -15,12 +15,13 @@ static void remove_timer(struct oneshot *t)
 	timer_del(&t->dstate->timers, &t->timer);
 }
 
-struct oneshot *new_abstimer_(struct lightningd_state *dstate,
+struct oneshot *new_reltimer_(struct lightningd_state *dstate,
 			      const tal_t *ctx,
-			      struct timeabs expiry,
+			      struct timerel relexpiry,
 			      void (*cb)(void *), void *arg)
 {
 	struct oneshot *t = tal(ctx, struct oneshot);
+	struct timeabs expiry = timeabs_add(controlled_time(), relexpiry);
 
 	t->cb = cb;
 	t->arg = arg;
@@ -30,16 +31,6 @@ struct oneshot *new_abstimer_(struct lightningd_state *dstate,
 	tal_add_destructor(t, remove_timer);
 
 	return t;
-}
-
-struct oneshot *new_reltimer_(struct lightningd_state *dstate,
-			      const tal_t *ctx,
-			      struct timerel relexpiry,
-			      void (*cb)(void *), void *arg)
-{
-	return new_abstimer_(dstate, ctx,
-			     timeabs_add(controlled_time(), relexpiry),
-			     cb, arg);
 }
 
 void timer_expired(struct lightningd_state *dstate, struct timer *timer)

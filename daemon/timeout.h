@@ -17,15 +17,6 @@ struct oneshot *new_reltimer_(struct lightningd_state *dstate,
 	new_reltimer_((dstate), (ctx), (relexpire),			\
 		      typesafe_cb(void, void *, (func), (arg)), (arg))
 
-struct oneshot *new_abstimer_(struct lightningd_state *dstate,
-			      const tal_t *ctx,
-			      struct timeabs expire,
-			      void (*cb)(void *), void *arg);
-
-#define new_abstimer(dstate, ctx, absexpire, func, arg)		\
-	new_abstimer_((dstate), (ctx), (absexpire),			\
-		      typesafe_cb(void, void *, (func), (arg)), (arg))
-
 void timer_expired(struct lightningd_state *dstate, struct timer *timer);
 
 #endif /* LIGHTNING_DAEMON_TIMEOUT_H */
