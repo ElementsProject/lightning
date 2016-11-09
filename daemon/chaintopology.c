@@ -2,6 +2,7 @@
 #include "bitcoin/tx.h"
 #include "bitcoind.h"
 #include "chaintopology.h"
+#include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
 #include "peer.h"
@@ -218,6 +219,9 @@ struct txs_to_broadcast {
 	size_t cursor;
 	/* These are hex encoded already, for bitcoind_sendrawtx */
 	const char **txs;
+
+	/* Command to complete when we're done, iff dev-broadcast triggered */
+	struct command *cmd;
 };
 
 /* We just sent the last entry in txs[].  Shrink and send the next last. */
@@ -237,6 +241,8 @@ static void broadcast_remainder(struct lightningd_state *dstate,
 
 	txs->cursor++;
 	if (txs->cursor == tal_count(txs->txs)) {
+		if (txs->cmd)
+			command_success(txs->cmd, null_response(txs->cmd));
 		tal_free(txs);
 		return;
 	}
@@ -248,12 +254,19 @@ static void broadcast_remainder(struct lightningd_state *dstate,
 
 /* FIXME: This is dumb.  We can group txs and avoid bothering bitcoind
  * if any one tx is in the main chain. */
-static void rebroadcast_txs(struct lightningd_state *dstate)
+static void rebroadcast_txs(struct lightningd_state *dstate,
+			    struct command *cmd)
 {
 	/* Copy txs now (peers may go away, and they own txs). */
 	size_t num_txs = 0;
-	struct txs_to_broadcast *txs = tal(dstate, struct txs_to_broadcast);
+	struct txs_to_broadcast *txs;
 	struct peer *peer;
+
+	if (dstate->dev_no_broadcast)
+		return;
+
+	txs = tal(dstate, struct txs_to_broadcast);
+	txs->cmd = cmd;
 
 	/* Put any txs we want to broadcast in ->txs. */
 	txs->txs = tal_arr(txs, const char *, 0);
@@ -309,7 +322,11 @@ void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx,
 
 	log_add_struct(peer->log, " (tx %s)", struct sha256_double, &otx->txid);
 
-	bitcoind_sendrawtx(peer, peer->dstate, otx->hextx, broadcast_done, otx);
+	if (peer->dstate->dev_no_broadcast)
+		broadcast_done(peer->dstate, 0, "dev_no_broadcast", otx);
+	else
+		bitcoind_sendrawtx(peer, peer->dstate, otx->hextx,
+				   broadcast_done, otx);
 }
 
 static void free_blocks(struct lightningd_state *dstate, struct block *b)
@@ -356,7 +373,7 @@ static void topology_changed(struct lightningd_state *dstate,
 	watch_topology_changed(dstate);
 
 	/* Maybe need to rebroadcast. */
-	rebroadcast_txs(dstate);
+	rebroadcast_txs(dstate, NULL);
 
 	/* Once per new block head, update fee estimate. */
 	bitcoind_estimate_fee(dstate, update_fee, &dstate->topology->feerate);
@@ -536,6 +553,42 @@ struct txlocator *locate_tx(const void *ctx, struct lightningd_state *dstate,
 	}
 	return loc;
 }
+
+static void json_dev_broadcast(struct command *cmd,
+			       const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *enabletok;
+	bool enable;
+
+	if (!json_get_params(buffer, params,
+			     "enable", &enabletok,
+			     NULL)) {
+		command_fail(cmd, "Need enable");
+		return;
+	}
+
+	if (!json_tok_bool(buffer, enabletok, &enable)) {
+		command_fail(cmd, "enable must be true or false");
+		return;
+	}
+
+	log_debug(cmd->dstate->base_log, "dev-broadcast: broadcast %s",
+		  enable ? "enabled" : "disabled");
+	cmd->dstate->dev_no_broadcast = !enable;
+
+	/* If enabling, flush and wait. */
+	if (enable)
+		rebroadcast_txs(cmd->dstate, cmd);
+	else
+		command_success(cmd, null_response(cmd));		
+}
+
+const struct json_command dev_broadcast_command = {
+	"dev-broadcast",
+	json_dev_broadcast,
+	"Pretend we broadcast txs, but don't send to bitcoind",
+	"Returns an empty result on success (waits for flush if enabled)"
+};
 
 void setup_topology(struct lightningd_state *dstate)
 {

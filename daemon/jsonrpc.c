@@ -316,6 +316,7 @@ static const struct json_command *cmdlist[] = {
 	&dev_output_command,
 	&dev_add_route_command,
 	&dev_routefail_command,
+	&dev_broadcast_command,
 };
 
 static void json_help(struct command *cmd,

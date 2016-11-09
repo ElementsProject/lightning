@@ -172,6 +172,8 @@ static void dev_register_opts(struct lightningd_state *dstate)
 	controlled_time_register_opts();
 	opt_register_noarg("--dev-no-routefail", opt_set_bool,
 			   &dstate->dev_never_routefail, opt_hidden);
+	opt_register_noarg("--dev-no-broadcast", opt_set_bool,
+			   &dstate->dev_no_broadcast, opt_hidden);
 }
 
 static const struct config testnet_config = {
@@ -355,6 +357,7 @@ static struct lightningd_state *lightningd_state(void)
 	list_head_init(&dstate->invoice_waiters);
 	list_head_init(&dstate->addresses);
 	dstate->dev_never_routefail = false;
+	dstate->dev_no_broadcast = false;
 	dstate->bitcoin_req_running = false;
 	dstate->nodes = empty_node_map(dstate);
 	dstate->reexec = NULL;

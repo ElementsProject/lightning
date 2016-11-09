@@ -90,4 +90,5 @@ extern const struct json_command dev_signcommit_command;
 extern const struct json_command dev_output_command;
 extern const struct json_command dev_routefail_command;
 extern const struct json_command dev_feerate_command;
+extern const struct json_command dev_broadcast_command;
 #endif /* LIGHTNING_DAEMON_JSONRPC_H */
