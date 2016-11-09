@@ -1,7 +1,6 @@
 /* Code for JSON_RPC API */
 /* eg: { "method" : "dev-echo", "params" : [ "hello", "Arabella!" ], "id" : "1" } */
 #include "chaintopology.h"
-#include "controlled_time.h"
 #include "json.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
@@ -307,7 +306,6 @@ static const struct json_command *cmdlist[] = {
 	&dev_commit_command,
 	&dev_feerate_command,
 	&dev_rhash_command,
-	&dev_mocktime_command,
 	&dev_crash_command,
 	&dev_restart_command,
 	&dev_disconnect_command,

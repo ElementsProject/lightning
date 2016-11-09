@@ -1,7 +1,6 @@
 #include "bitcoind.h"
 #include "chaintopology.h"
 #include "configdir.h"
-#include "controlled_time.h"
 #include "db.h"
 #include "irc_announce.h"
 #include "jsonrpc.h"
@@ -172,7 +171,6 @@ static void config_register_opts(struct lightningd_state *dstate)
 
 static void dev_register_opts(struct lightningd_state *dstate)
 {
-	controlled_time_register_opts();
 	opt_register_noarg("--dev-no-routefail", opt_set_bool,
 			   &dstate->dev_never_routefail, opt_hidden);
 	opt_register_noarg("--dev-no-broadcast", opt_set_bool,
@@ -353,7 +351,7 @@ static struct lightningd_state *lightningd_state(void)
 	list_head_init(&dstate->pay_commands);
 	dstate->portnum = 0;
 	dstate->testnet = true;
-	timers_init(&dstate->timers, controlled_time());
+	timers_init(&dstate->timers, time_now());
 	txwatch_hash_init(&dstate->txwatches);
 	txowatch_hash_init(&dstate->txowatches);
 	dstate->secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
@@ -547,9 +545,6 @@ int main(int argc, char *argv[])
 	if (dstate->config.use_irc)
 		setup_irc_connection(dstate);
 
-	/* Make sure we use the artificially-controlled time for timers */
-	io_time_override(controlled_time);
-	
 	log_info(dstate->base_log, "Hello world!");
 
 	/* If we loaded peers from database, reconnect now. */
@@ -574,7 +569,6 @@ int main(int argc, char *argv[])
 
 	if (dstate->reexec) {
 		int fd;
-		char *mocktimearg;
 
 		log_unusual(dstate->base_log, "Restart at user request");
 		fflush(stdout);
@@ -584,13 +578,6 @@ int main(int argc, char *argv[])
 		for (fd = 3; fd < 1024; fd++)
 			close(fd);
 
-		/* Maybe append mocktime arg. */
-		mocktimearg = controlled_time_arg(dstate->reexec);
-		if (mocktimearg) {
-			size_t n = tal_count(dstate->reexec);
-			tal_resizez(&dstate->reexec, n+1);
-			dstate->reexec[n-1] = mocktimearg;
-		}
 		if (dstate->dev_never_routefail) {
 			size_t n = tal_count(dstate->reexec);
 			tal_resizez(&dstate->reexec, n+1);

@@ -3,7 +3,6 @@
 #include "chaintopology.h"
 #include "close_tx.h"
 #include "commit_tx.h"
-#include "controlled_time.h"
 #include "cryptopkt.h"
 #include "htlc.h"
 #include "lightningd.h"

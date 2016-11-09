@@ -1,4 +1,3 @@
-#include "controlled_time.h"
 #include "lightningd.h"
 #include "timeout.h"
 #include "utils.h"
@@ -21,7 +20,7 @@ struct oneshot *new_reltimer_(struct lightningd_state *dstate,
 			      void (*cb)(void *), void *arg)
 {
 	struct oneshot *t = tal(ctx, struct oneshot);
-	struct timeabs expiry = timeabs_add(controlled_time(), relexpiry);
+	struct timeabs expiry = timeabs_add(time_now(), relexpiry);
 
 	t->cb = cb;
 	t->arg = arg;

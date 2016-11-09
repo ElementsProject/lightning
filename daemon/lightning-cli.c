@@ -2,7 +2,6 @@
  * Helper to submit via JSON-RPC and get back response.
  */
 #include "configdir.h"
-#include "controlled_time.h"
 #include "json.h"
 #include "version.h"
 #include <ccan/err/err.h>
@@ -38,11 +37,6 @@ static void *tal_reallocfn(void *ptr, size_t size)
 static void tal_freefn(void *ptr)
 {
 	tal_free(ptr);
-}
-
-struct timeabs controlled_time(void)
-{
-	return time_now();
 }
 
 struct netaddr;

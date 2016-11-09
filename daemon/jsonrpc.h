@@ -83,7 +83,6 @@ extern const struct json_command dev_newhtlc_command;
 extern const struct json_command dev_fulfillhtlc_command;
 extern const struct json_command dev_failhtlc_command;
 extern const struct json_command dev_commit_command;
-extern const struct json_command dev_mocktime_command;
 extern const struct json_command dev_reconnect_command;
 extern const struct json_command dev_disconnect_command;
 extern const struct json_command dev_signcommit_command;

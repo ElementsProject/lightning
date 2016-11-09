@@ -50,7 +50,6 @@ Here's a list of parts, with notes:
 
   - Misc:
     - configdir: support for ~/.lightning/config
-    - controlled_time: support for dev-mocktime to alter time.
     - log: logging routines
     - pseudorand: pseudorandom wrapper
     - secrets: routines for using secret keys.

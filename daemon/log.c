@@ -2,7 +2,6 @@
 #include "bitcoin/pubkey.h"
 #include "bitcoin/tx.h"
 #include "channel.h"
-#include "controlled_time.h"
 #include "htlc.h"
 #include "lightningd.h"
 #include "log.h"

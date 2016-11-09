@@ -18,7 +18,6 @@ DAEMON_SRC :=					\
 	daemon/chaintopology.c			\
 	daemon/channel.c			\
 	daemon/commit_tx.c			\
-	daemon/controlled_time.c		\
 	daemon/cryptopkt.c			\
 	daemon/db.c				\
 	daemon/dns.c				\
@@ -64,7 +63,6 @@ DAEMON_HEADERS :=				\
 	daemon/channel.h			\
 	daemon/commit_tx.h			\
 	daemon/configdir.h			\
-	daemon/controlled_time.h		\
 	daemon/cryptopkt.h			\
 	daemon/db.h				\
 	daemon/dns.h				\
