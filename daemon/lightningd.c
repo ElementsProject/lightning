@@ -109,6 +109,9 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--max-locktime-blocks", opt_set_u32, opt_show_u32,
 			 &dstate->config.locktime_max,
 			 "Maximum seconds peer can lock up our funds");
+	opt_register_arg("--anchor-onchain", opt_set_u32, opt_show_u32,
+			 &dstate->config.anchor_onchain_wait,
+			 "Blocks before we give up on pending anchor transaction");
 	opt_register_arg("--anchor-confirms", opt_set_u32, opt_show_u32,
 			 &dstate->config.anchor_confirms,
 			 "Confirmations required for anchor transaction");
@@ -183,6 +186,9 @@ static const struct config testnet_config = {
 	/* They can have up to 3 days. */
 	.locktime_max = 3 * 6 * 24,
 
+	/* Testnet can have long runs of empty blocks. */
+	.anchor_onchain_wait = 100,
+
 	/* We're fairly trusting, under normal circumstances. */
 	.anchor_confirms = 1,
 
@@ -246,6 +252,9 @@ static const struct config mainnet_config = {
 
 	/* They can have up to 3 days. */
 	.locktime_max = 3 * 6 * 24,
+
+	/* You should get in within 10 blocks. */
+	.anchor_onchain_wait = 10,
 
 	/* We're fairly trusting, under normal circumstances. */
 	.anchor_confirms = 3,

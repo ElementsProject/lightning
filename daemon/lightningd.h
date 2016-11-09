@@ -20,6 +20,9 @@ struct config {
 	/* How long do we let them lock up our funds? (blocks) */
 	u32 locktime_max;
 
+	/* How many blocks before we expect to see anchor?. */
+	u32 anchor_onchain_wait;
+
 	/* How many confirms until we consider an anchor "settled". */
 	u32 anchor_confirms;
 

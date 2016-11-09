@@ -278,6 +278,8 @@ const char *command_htlc_add(struct peer *peer, u64 msatoshi,
 			     enum fail_error *error_code,
 			     struct htlc **htlc);
 
+void peers_new_block(struct lightningd_state *dstate, unsigned int height);
+
 /* Peer has an issue, breakdown and fail. */
 void peer_fail(struct peer *peer, const char *caller);
 

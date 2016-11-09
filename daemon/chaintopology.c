@@ -174,6 +174,9 @@ static void connect_block(struct lightningd_state *dstate,
 			add_tx_to_block(b, &txid);
 	}
 	b->full_txs = tal_free(b->full_txs);
+
+	/* Tell peers about new block. */
+	peers_new_block(dstate, b->height);
 }
 
 static bool tx_in_block(const struct block *b,

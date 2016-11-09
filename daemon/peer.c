@@ -3342,6 +3342,27 @@ static enum watch_result anchor_depthchange(struct peer *peer,
 	return KEEP_WATCHING;
 }
 
+void peers_new_block(struct lightningd_state *dstate, unsigned int height)
+{
+	/* This is where we check for anchor timeouts. */
+	struct peer *peer;
+
+	list_for_each(&dstate->peers, peer, list) {
+		if (!state_is_waiting_for_anchor(peer->state))
+			continue;
+
+		/* If we haven't seen anchor yet, we can timeout. */
+		if (height >= peer->anchor.min_depth
+		    + dstate->config.anchor_onchain_wait
+		    + dstate->config.anchor_confirms) {
+			queue_pkt_err(peer, pkt_err(peer, "Funding timeout"));
+			set_peer_state(peer, STATE_ERR_ANCHOR_TIMEOUT, __func__,
+				       false);
+			peer_breakdown(peer);
+		}
+	}
+}
+
 static bool outputscript_eq(const struct bitcoin_tx_output *out,
 			    size_t i, const u8 *script)
 {
