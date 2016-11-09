@@ -139,8 +139,6 @@ lcli1()
 	    # Don't restart on every get* command.
 	    get*)
 	    ;;
-	    dev-mocktime*)
-	    ;;
 	    dev-disconnect)
 	    ;;
 	    stop)
@@ -160,8 +158,8 @@ lcli1()
 			fi
 			;;
 		esac
-		# Wait for reconnect;
-		if ! check "$LCLI1 getpeers | tr -s '\012\011\" ' ' ' | fgrep -q 'connected : true'"; then
+		# Wait for reconnect (if peer2 still there)
+		if [ -z "$NO_PEER2" ] && ! check "$LCLI1 getpeers | tr -s '\012\011\" ' ' ' | fgrep -q 'connected : true'"; then
 		    echo "Failed to reconnect!">&2
 		    exit 1
 		fi
@@ -226,12 +224,6 @@ check()
 {
     local i=0
     while ! eval "$@"; do
-	# Try making time pass for the nodes (if on mocktime), then sleeping.
-	if [ -n "$MOCKTIME" ]; then 
-	    MOCKTIME=$(($MOCKTIME + 5))
-	    lcli1 dev-mocktime $MOCKTIME
-	    lcli2 dev-mocktime $MOCKTIME
-	fi
 	sleep 1
 	i=$(($i + 1))
 	if [ $i = 60 ]; then
@@ -473,6 +465,15 @@ TXID=`$CLI sendtoaddress $P2SHADDR 0.01`
 TX=`$CLI getrawtransaction $TXID`
 $CLI generate 1
 
+# Make sure they see it (for timeout we need to know what height they were)
+BLOCKHEIGHT=`$CLI getblockcount`
+check "$LCLI1 getinfo | $FGREP '\"blockheight\" : $BLOCKHEIGHT'"
+check "$LCLI2 getinfo | $FGREP '\"blockheight\" : $BLOCKHEIGHT'"
+
+# Prevent anchor broadcast if we want to test timeout.
+if [ -n "$TIMEOUT_ANCHOR" ]; then
+    lcli1 dev-broadcast false
+fi
 lcli1 connect localhost $PORT2 $TX &
 
 # Expect them to be waiting for anchor, and ack from other side.
@@ -482,43 +483,57 @@ check_peerstate lcli2 STATE_OPEN_WAIT_ANCHORDEPTH_AND_THEIRCOMPLETE
 DO_RECONNECT=$RECONNECT
 
 if [ -n "$TIMEOUT_ANCHOR" ]; then
-    # Check anchor emitted, not mined deep enough.
-    check_tx_spend lcli1
+    # Blocks before anchor committed (100 to hit chain, 1 to reach depth)
+    $CLI generate 100
 
-    # Timeout before anchor committed.
-    MOCKTIME=$((`date +%s` + 7200 + 3 * 1200 + 1))
+    # Still waiting.
+    check_peerstate lcli1 STATE_OPEN_WAIT_ANCHORDEPTH_AND_THEIRCOMPLETE
+    check_peerstate lcli2 STATE_OPEN_WAIT_ANCHORDEPTH_AND_THEIRCOMPLETE
 
-    lcli1 dev-mocktime $MOCKTIME
-    lcli2 dev-mocktime $MOCKTIME
+    # Make sure whichever times out first doesn't tell the other.
+    lcli1 dev-output $ID2 false
+    lcli2 dev-output $ID1 false
+    $CLI generate 1
 
-    # Node2 should have gone via STATE_ERR_ANCHOR_TIMEOUT, then closed.
-    lcli2 getlog | grep STATE_ERR_ANCHOR_TIMEOUT
+    # Node1 should have gone into STATE_ERR_ANCHOR_TIMEOUT.
+    check "lcli1 getlog debug | $FGREP STATE_ERR_ANCHOR_TIMEOUT"
+
+    # Don't try to reconnect any more if we are.
+    if [ x"$RECONNECT" = xreconnect ]; then DO_RECONNECT=""; fi
+    NO_PEER2=1
+    
+    # Now let them send errors if they're still trying.
+    lcli2 dev-output $ID1 true || true
+    lcli1 dev-output $ID2 true || true
+
+    # Peer 2 should give up, and have forgotten all about it.
+    check "lcli2 getlog debug | $FGREP STATE_CLOSED"
     check_no_peers lcli2
 
     # Node1 should be disconnected.
     check_peerconnected lcli1 false
-    
-    # Node1 should send out commit tx; mine it.
-    check_tx_spend lcli1
+
+    # Now let node1 broadcast anchor and unilateral close belatedly!
+    lcli1 dev-broadcast true
+
+    # Now mine that transaction so they see it.
     $CLI generate 1
 
     check_peerstate lcli1 STATE_CLOSE_ONCHAIN_OUR_UNILATERAL
 
-    # Now "wait" for 1 day, which is what node2 asked for on commit.
-    MOCKTIME=$(($MOCKTIME + 24 * 60 * 60 - 1))
-    lcli1 dev-mocktime $MOCKTIME
+    # Now move bitcoind 1 day, which is what node2 asked for on commit.
+    # Get current time from last block (works if we run this twice).
+    CURTIME=$($CLI getblock $($CLI getblockhash $(($BLOCKHEIGHT + 100))) | sed -n 's/ "time": \([0-9]*\),/\1/p')
+    $CLI setmocktime $(($CURTIME + 24 * 60 * 60))
 
-    # Move bitcoind median time as well, so CSV moves.
-    $CLI setmocktime $MOCKTIME
+    # Move average so CSV moves.
     $CLI generate 6
 
     # Now it should have spent the commit tx.
     check_tx_spend lcli1
 
-    # 100 blocks pass...
+    # 100 blocks pass
     $CLI generate 100
-    MOCKTIME=$(($MOCKTIME + 1))
-    lcli1 dev-mocktime $MOCKTIME
 
     # Considers it all done now.
     check_no_peers lcli1

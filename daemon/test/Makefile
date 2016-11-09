@@ -9,15 +9,17 @@ daemon-test.sh-1-%:
 daemon-test.sh-2-%:
 	NO_VALGRIND=$(NO_VALGRIND) VARIANT=2 daemon/test/test.sh --$*
 
-# FIXME: Timeout-anchor tests.
-
 # These don't work in parallel, so chain the deps
 daemon-test.sh-0-steal: daemon-test.sh-0-dump-onchain
-daemon-test.sh-0-dump-onchain: daemon-test.sh-0-different-fee-rates
+daemon-test.sh-0-dump-onchain: daemon-test.sh-0-timeout-anchor
+daemon-test.sh-0-timeout-anchor: daemon-test.sh-0-different-fee-rates
 daemon-test.sh-0-different-fee-rates: daemon-test.sh-0-mutual-close-with-htlcs
 daemon-test.sh-0-mutual-close-with-htlcs: daemon-test.sh-0-manual-commit
 daemon-test.sh-0-manual-commit: daemon-test.sh-0-normal
 daemon-test.sh-0-normal: daemon-test-setup-0
+
+#FIXME: daemon-test.sh-1-timeout-anchor\ --restart
+# This doesn't work because we don't retransmit anchor!
 
 daemon-test.sh-1-steal\ --restart: daemon-test.sh-1-dump-onchain\ --restart
 daemon-test.sh-1-dump-onchain\ --restart: daemon-test.sh-1-different-fee-rates\ --restart
@@ -27,7 +29,8 @@ daemon-test.sh-1-manual-commit\ --restart: daemon-test.sh-1-normal\ --restart
 daemon-test.sh-1-normal\ --restart: daemon-test-setup-1
 
 daemon-test.sh-2-steal\ --reconnect: daemon-test.sh-2-dump-onchain\ --reconnect
-daemon-test.sh-2-dump-onchain\ --reconnect: daemon-test.sh-2-different-fee-rates\ --reconnect
+daemon-test.sh-2-dump-onchain\ --reconnect: daemon-test.sh-2-timeout-anchor\ --reconnect
+daemon-test.sh-2-timeout-anchor\ --reconnect: daemon-test.sh-2-different-fee-rates\ --reconnect
 daemon-test.sh-2-different-fee-rates\ --reconnect: daemon-test.sh-2-mutual-close-with-htlcs\ --reconnect
 daemon-test.sh-2-mutual-close-with-htlcs\ --reconnect: daemon-test.sh-2-manual-commit\ --reconnect
 daemon-test.sh-2-manual-commit\ --reconnect: daemon-test.sh-2-normal\ --reconnect
