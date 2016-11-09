@@ -11,7 +11,7 @@ char *tal_hexstr(const tal_t *ctx, const void *data, size_t len);
 u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len);
 
 #define tal_tmpctx(ctx)							\
-	tal_alloc_((ctx), 0, false,					\
+	tal_alloc_((ctx), 0, false, false,				\
 		   __FILE__ ":" stringify(__LINE__) ":tal_tmpctx")
 
 #endif /* LIGHTNING_UTILS_H */
