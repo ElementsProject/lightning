@@ -213,36 +213,37 @@ size_t get_tx_depth(struct lightningd_state *dstate,
 	return topo->tip->height - b->height + 1;
 }
 
+struct txs_to_broadcast {
+	/* We just sent txs[cursor] */
+	size_t cursor;
+	/* These are hex encoded already, for bitcoind_sendrawtx */
+	const char **txs;
+};
+
 /* We just sent the last entry in txs[].  Shrink and send the next last. */
 static void broadcast_remainder(struct lightningd_state *dstate,
-				int exitstatus, const char *msg, char **txs)
+				int exitstatus, const char *msg,
+				struct txs_to_broadcast *txs)
 {
-	size_t num_txs = tal_count(txs);
-	const char *sent_tx, *next_tx;
-
-	sent_tx = txs[num_txs-1];
-
 	/* These are expected. */
 	if (strstr(msg, "txn-mempool-conflict")
 	    || strstr(msg, "transaction already in block chain"))
 		log_debug(dstate->base_log,
 			  "Expected error broadcasting tx %s: %s",
-			  sent_tx, msg);
+			  txs->txs[txs->cursor], msg);
 	else if (exitstatus)
 		log_unusual(dstate->base_log, "Broadcasting tx %s: %i %s",
-			    sent_tx, exitstatus, msg);
+			    txs->txs[txs->cursor], exitstatus, msg);
 
-	/* Strip off last one. */
-	tal_resize(&txs, --num_txs);
-
-	if (num_txs == 0) {
+	txs->cursor++;
+	if (txs->cursor == tal_count(txs->txs)) {
 		tal_free(txs);
 		return;
 	}
 
 	/* Broadcast next one. */
-	next_tx = txs[num_txs-1];
-	bitcoind_sendrawtx(NULL, dstate, next_tx, broadcast_remainder, txs);
+	bitcoind_sendrawtx(NULL, dstate, txs->txs[txs->cursor],
+			   broadcast_remainder, txs);
 }
 
 /* FIXME: This is dumb.  We can group txs and avoid bothering bitcoind
@@ -251,9 +252,11 @@ static void rebroadcast_txs(struct lightningd_state *dstate)
 {
 	/* Copy txs now (peers may go away, and they own txs). */
 	size_t num_txs = 0;
-	char **txs = tal_arr(dstate, char *, 0);
+	struct txs_to_broadcast *txs = tal(dstate, struct txs_to_broadcast);
 	struct peer *peer;
 
+	/* Put any txs we want to broadcast in ->txs. */
+	txs->txs = tal_arr(txs, const char *, 0);
 	list_for_each(&dstate->peers, peer, list) {
 		struct outgoing_tx *otx;
 
@@ -261,17 +264,15 @@ static void rebroadcast_txs(struct lightningd_state *dstate)
 			if (block_for_tx(dstate, &otx->txid))
 				continue;
 
-			tal_resize(&txs, num_txs+1);
-			txs[num_txs] = tal_strdup(txs, otx->hextx);
+			tal_resize(&txs->txs, num_txs+1);
+			txs->txs[num_txs] = tal_strdup(txs, otx->hextx);
 			num_txs++;
 		}
 	}
 
-	if (num_txs)
-		bitcoind_sendrawtx(NULL, dstate, txs[num_txs-1],
-				   broadcast_remainder, txs);
-	else
-		tal_free(txs);
+	/* Let this do the dirty work. */
+	txs->cursor = (size_t)-1;
+	broadcast_remainder(dstate, 0, "", txs);
 }
 
 static void destroy_outgoing_tx(struct outgoing_tx *otx)
