@@ -351,7 +351,7 @@ static struct lightningd_state *lightningd_state(void)
 	list_head_init(&dstate->pay_commands);
 	dstate->portnum = 0;
 	dstate->testnet = true;
-	timers_init(&dstate->timers, time_now());
+	timers_init(&dstate->timers, time_mono());
 	txwatch_hash_init(&dstate->txwatches);
 	txowatch_hash_init(&dstate->txowatches);
 	dstate->secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY

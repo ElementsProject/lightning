@@ -20,13 +20,12 @@ struct oneshot *new_reltimer_(struct lightningd_state *dstate,
 			      void (*cb)(void *), void *arg)
 {
 	struct oneshot *t = tal(ctx, struct oneshot);
-	struct timeabs expiry = timeabs_add(time_now(), relexpiry);
 
 	t->cb = cb;
 	t->arg = arg;
 	t->dstate = dstate;
 	timer_init(&t->timer);
-	timer_add(&dstate->timers, &t->timer, expiry);
+	timer_addrel(&dstate->timers, &t->timer, relexpiry);
 	tal_add_destructor(t, remove_timer);
 
 	return t;
