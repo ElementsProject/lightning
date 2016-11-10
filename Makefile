@@ -225,7 +225,10 @@ check-bolt: check-bolt.o $(CCAN_OBJS)
 
 check-bolt.o: $(CCAN_HEADERS)
 
-check-source: check-makefile check-source-bolt		\
+check-whitespace:
+	if grep -n '[ 	]$$' Makefile daemon/test/Makefile daemon/Makefile bitcoin/Makefile check-bolt.c $(CORE_SRC) $(BITCOIN_SRC) $(DAEMON_SRC); then echo Extraneous whitespace found >&2; exit 1; fi
+
+check-source: check-makefile check-source-bolt check-whitespace	\
 	$(CORE_SRC:%=check-src-include-order/%)		\
 	$(BITCOIN_SRC:%=check-src-include-order/%)	\
 	$(CORE_HEADERS:%=check-hdr-include-order/%)	\
