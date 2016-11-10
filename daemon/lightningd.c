@@ -22,6 +22,7 @@
 #include <ccan/timer/timer.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <signal.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -524,7 +525,10 @@ int main(int argc, char *argv[])
 		errx(1, "no arguments accepted");
 
 	check_config(dstate);
-	
+
+	/* Ignore SIGPIPE: we look at our write return values*/
+	signal(SIGPIPE, SIG_IGN);
+
 	/* Set up node ID and private key. */
 	secrets_init(dstate);
 	new_node(dstate, &dstate->id);
