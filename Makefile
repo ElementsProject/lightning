@@ -15,7 +15,7 @@ BOLTVERSION := master
 #NO_VALGRIND := 1
 
 # This is where we add new features as bitcoin adds them.
-FEATURES := 
+FEATURES :=
 
 TEST_PROGRAMS :=				\
 	test/test_protocol			\

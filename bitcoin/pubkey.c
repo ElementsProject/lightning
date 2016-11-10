@@ -40,7 +40,7 @@ bool pubkey_from_privkey(secp256k1_context *secpctx,
 		return false;
 	return true;
 }
-	
+
 bool pubkey_from_hexstr(secp256k1_context *secpctx,
 			const char *derstr, size_t slen, struct pubkey *key)
 {
@@ -65,7 +65,7 @@ char *pubkey_to_hexstr(const tal_t *ctx, secp256k1_context *secpctx,
 	pubkey_to_der(secpctx, der, key);
 	return tal_hexstr(ctx, der, sizeof(der));
 }
-	
+
 bool pubkey_eq(const struct pubkey *a, const struct pubkey *b)
 {
 	return structeq(&a->pubkey, &b->pubkey);

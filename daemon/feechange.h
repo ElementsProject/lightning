@@ -8,7 +8,7 @@ struct peer;
 
 struct feechange {
 	/* What's the status */
-	enum feechange_state state; 
+	enum feechange_state state;
 	/* The rate. */
 	u64 fee_rate;
 };

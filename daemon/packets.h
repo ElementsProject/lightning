@@ -41,7 +41,7 @@ Pkt *accept_pkt_open_commit_sig(struct peer *peer, const Pkt *pkt,
 				struct bitcoin_signature *sig);
 
 Pkt *accept_pkt_open_complete(struct peer *peer, const Pkt *pkt);
-	
+
 Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt, struct htlc **h);
 
 Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt, struct htlc **h,

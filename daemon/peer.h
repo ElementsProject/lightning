@@ -39,7 +39,7 @@ struct their_commit {
 	struct sha256_double txid;
 	u64 commit_num;
 };
-	
+
 struct commit_info {
 	/* Commit number (0 == from open) */
 	u64 commit_num;
@@ -97,7 +97,7 @@ struct peer {
 
 	/* Are we connected now? (Crypto handshake completed). */
 	bool connected;
-	
+
 	/* If we're doing an open, this is the command which triggered it */
 	struct command *open_jsoncmd;
 
@@ -112,7 +112,7 @@ struct peer {
 
 	/* Order counter for transmission of revocations/commitments. */
 	s64 order_counter;
-	
+
 	/* Current received packet. */
 	Pkt *inpkt;
 
@@ -124,7 +124,7 @@ struct peer {
 
 	/* Number of commitment signatures we've received. */
 	u64 their_commitsigs;
-	
+
 	/* Anchor tx output */
 	struct {
 		struct sha256_double txid;
@@ -137,7 +137,7 @@ struct peer {
 
 		/* If we're creating anchor, this tells us where to source it */
 		struct anchor_input *input;
-	
+
 		/* If we created it, we keep entire tx. */
 		const struct bitcoin_tx *tx;
 
@@ -199,7 +199,7 @@ struct peer {
 
 	/* Current ongoing packetflow */
 	struct io_data *io_data;
-	
+
 	/* What happened. */
 	struct log *log;
 
@@ -208,16 +208,16 @@ struct peer {
 
 	/* Bitcoin transctions we're broadcasting (see chaintopology.c) */
 	struct list_head outgoing_txs;
-	
+
 	/* Timeout for collecting changes before sending commit. */
 	struct oneshot *commit_timer;
-	
+
 	/* Private keys for dealing with this peer. */
 	struct peer_secrets *secrets;
 
 	/* Our route connection to peer: NULL until we are in normal mode. */
 	struct node_connection *nc;
-	
+
 	/* For testing. */
 	bool fake_close;
 	bool output_enabled;
@@ -227,7 +227,7 @@ struct peer {
 
 	/* If we have sent a new commit tx, but not received their revocation */
 	struct sha256 *their_prev_revocation_hash;
-	
+
 	/* this is where we will store their revocation preimages*/
 	struct shachain their_preimages;
 };
@@ -260,7 +260,7 @@ void peer_add_their_commit(struct peer *peer,
 struct commit_info *new_commit_info(const tal_t *ctx, u64 commit_num);
 
 /* Freeing removes from map, too */
-struct htlc *peer_new_htlc(struct peer *peer, 
+struct htlc *peer_new_htlc(struct peer *peer,
 			   u64 id,
 			   u64 msatoshi,
 			   const struct sha256 *rhash,

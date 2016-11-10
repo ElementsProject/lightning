@@ -228,7 +228,7 @@ static void fail_nobolt(const char *filename,
 		filename, line, bolt_prefix);
 	exit(1);
 }
-	
+
 static struct bolt_file *find_bolt(const char *bolt_prefix,
 				   struct bolt_file *bolts)
 {
@@ -297,4 +297,3 @@ int main(int argc, char *argv[])
 	}
 	return 0;
 }
-	

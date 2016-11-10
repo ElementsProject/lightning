@@ -71,7 +71,7 @@ static void dump_tx(const char *msg,
 {
 }
 #endif
-	
+
 void sign_hash(secp256k1_context *secpctx,
 	       const struct privkey *privkey,
 	       const struct sha256_double *h,
@@ -159,7 +159,7 @@ bool check_tx_sig(secp256k1_context *secpctx,
 	/* We only use SIGHASH_ALL for the moment. */
 	if (sig->stype != SIGHASH_ALL)
 		return false;
-	
+
 	ret = check_signed_hash(secpctx, &hash, &sig->sig, key);
 	if (!ret)
 		dump_tx("Sig failed", tx, input_num,
@@ -209,7 +209,7 @@ static bool IsValidSignatureEncoding(const unsigned char sig[], size_t len)
     // Verify that the length of the signature matches the sum of the length
     // of the elements.
     if ((size_t)(lenR + lenS + 7) != len) return false;
- 
+
     // Check whether the R element is an integer.
     if (sig[2] != 0x02) return false;
 

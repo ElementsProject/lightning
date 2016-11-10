@@ -82,7 +82,7 @@ static void tell_waiter(struct command *cmd, const struct invoice *paid)
 	json_object_end(response);
 	command_success(cmd, response);
 }
-	
+
 void resolve_invoice(struct lightningd_state *dstate,
 		     struct invoice *invoice)
 {
@@ -100,13 +100,13 @@ void resolve_invoice(struct lightningd_state *dstate,
 
 	db_resolve_invoice(dstate, invoice->label, invoice->paid_num);
 }
-	
+
 static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	struct invoice *invoice;
 	jsmntok_t *msatoshi, *r, *label;
-	struct json_result *response = new_json_result(cmd);	
+	struct json_result *response = new_json_result(cmd);
 
 	if (!json_get_params(buffer, params,
 			     "amount", &msatoshi,
@@ -163,7 +163,7 @@ static void json_invoice(struct command *cmd,
 			    &invoice->r)) {
 		command_fail(cmd, "database error");
 		return;
-	}		
+	}
 	/* OK, connect it to main state, respond with hash */
 	tal_steal(cmd->dstate, invoice);
 	list_add(&cmd->dstate->unpaid, &invoice->list);
@@ -208,7 +208,7 @@ static void json_listinvoice(struct command *cmd,
 			     const char *buffer, const jsmntok_t *params)
 {
 	jsmntok_t *label = NULL;
-	struct json_result *response = new_json_result(cmd);	
+	struct json_result *response = new_json_result(cmd);
 
 	if (!json_get_params(buffer, params,
 			     "?label", &label,
@@ -217,7 +217,7 @@ static void json_listinvoice(struct command *cmd,
 		return;
 	}
 
-	
+
 	json_array_start(response, NULL);
 	json_add_invoices(response, &cmd->dstate->paid, buffer, label);
 	json_add_invoices(response, &cmd->dstate->unpaid, buffer, label);
@@ -259,7 +259,7 @@ static void json_delinvoice(struct command *cmd,
 		return;
 	}
 	list_del_from(&cmd->dstate->unpaid, &i->list);
-	
+
 	json_object_start(response, NULL);
 	json_add_string(response, "label", i->label);
 	json_add_hex(response, "rhash", &i->rhash, sizeof(i->rhash));

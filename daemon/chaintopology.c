@@ -149,7 +149,7 @@ static void connect_block(struct lightningd_state *dstate,
 	b->mediantime = get_mediantime(topo, b);
 
 	block_map_add(&topo->block_map, b);
-	
+
 	/* Now we see if any of those txs are interesting. */
 	for (i = 0; i < tal_count(b->full_txs); i++) {
 		struct bitcoin_tx *tx = b->full_txs[i];
@@ -584,7 +584,7 @@ static void json_dev_broadcast(struct command *cmd,
 	if (enable)
 		rebroadcast_txs(cmd->dstate, cmd);
 	else
-		command_success(cmd, null_response(cmd));		
+		command_success(cmd, null_response(cmd));
 }
 
 const struct json_command dev_broadcast_command = {

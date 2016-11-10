@@ -167,7 +167,7 @@ void peer_get_revocation_preimage(const struct peer *peer, u64 index,
 	// generate hashes in reverse order, otherwise the first hash gives away everything
 	shachain_from_seed(&peer->secrets->revocation_seed, 0xFFFFFFFFFFFFFFFFL - index, preimage);
 }
-	
+
 void peer_get_revocation_hash(const struct peer *peer, u64 index,
 			      struct sha256 *rhash)
 {
@@ -199,7 +199,7 @@ void peer_set_secrets_from_db(struct peer *peer,
 
 	assert(!peer->secrets);
 	peer->secrets = ps;
-	
+
 	if (commit_privkey_len != sizeof(ps->commit)
 	    || final_privkey_len != sizeof(ps->final)
 	    || revocation_seed_len != sizeof(ps->revocation_seed))

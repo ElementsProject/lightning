@@ -47,7 +47,7 @@ struct htlc {
 	/* Block number where we abort if it's still live (LOCAL only) */
 	u32 deadline;
 	/* What's the status. */
-	enum htlc_state state; 
+	enum htlc_state state;
 	/* The unique ID for this peer and this direction (LOCAL or REMOTE) */
 	u64 id;
 	/* The amount in millisatoshi. */

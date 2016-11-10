@@ -55,7 +55,7 @@ char *opt_set_time(const char *arg, struct timerel *t)
 		return tal_fmt(NULL, "Unknown time unit %s", endp);
 	return NULL;
 }
-	
+
 void opt_show_time(char buf[OPT_SHOW_LEN], const struct timerel *t)
 {
 	if (t->ts.tv_nsec) {

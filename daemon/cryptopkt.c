@@ -50,10 +50,10 @@ struct key_negotiate {
 
 	/* Logging structure we're using. */
 	struct log *log;
-	
+
 	/* Did we expect a particular ID? */
 	const struct pubkey *expected_id;
-	
+
 	/* Callback once it's all done. */
 	struct io_plan *(*cb)(struct io_conn *conn,
 			      struct lightningd_state *dstate,
@@ -138,7 +138,7 @@ static void le64_nonce(unsigned char *npub, u64 nonce)
 	memcpy(npub, &le_nonce, sizeof(le_nonce));
 	BUILD_ASSERT(crypto_aead_chacha20poly1305_NPUBBYTES == sizeof(le_nonce));
 }
-	
+
 /* Encrypts data..data + len - 1 inclusive into data..data + len - 1 and
  * then writes the authentication tag at data+len.
  *
@@ -175,7 +175,7 @@ static bool decrypt_in_place(void *data, size_t len,
 
 	le64_nonce(npub, *nonce);
 	mlen = len + crypto_aead_chacha20poly1305_ABYTES;
-	
+
 	ret = crypto_aead_chacha20poly1305_decrypt(data, &mlen, NULL,
 						   memcheck(data, mlen), mlen,
 						   NULL, 0,

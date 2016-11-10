@@ -31,7 +31,7 @@ static void push_tx_output(const struct bitcoin_tx_output *output,
 /* BIP 141:
  * It is followed by stack items, with each item starts with a var_int
  * to indicate the length. */
-static void push_witness(const u8 *witness, 
+static void push_witness(const u8 *witness,
 			void (*push)(const void *, size_t, void *), void *pushp)
 {
 	push_varint_blob(witness, tal_count(witness), push, pushp);
@@ -140,7 +140,7 @@ static void hash_prevouts(struct sha256_double *h, const struct bitcoin_tx *tx)
 	}
 	sha256_double_done(&ctx, h);
 }
-	
+
 static void hash_sequence(struct sha256_double *h, const struct bitcoin_tx *tx)
 {
 	struct sha256_ctx ctx;
@@ -172,7 +172,7 @@ static void hash_outputs(struct sha256_double *h, const struct bitcoin_tx *tx)
 				tx->output[i].script_length,
 				push_sha, &ctx);
 	}
-	
+
 	sha256_double_done(&ctx, h);
 }
 
@@ -337,7 +337,7 @@ static u64 pull_length(const u8 **cursor, size_t *max)
 	}
 	return v;
 }
-	
+
 static void pull_input(const tal_t *ctx, const u8 **cursor, size_t *max,
 		       struct bitcoin_tx_input *input)
 {
@@ -381,7 +381,7 @@ static void pull_witness(struct bitcoin_tx_input *inputs, size_t i,
 
 	inputs[i].witness = tal_arr(inputs, u8 *, num);
 	for (j = 0; j < num; j++) {
-		inputs[i].witness[j] = pull_witness_item(inputs[i].witness, 
+		inputs[i].witness[j] = pull_witness_item(inputs[i].witness,
 							 cursor, max);
 	}
 }
@@ -451,7 +451,7 @@ struct bitcoin_tx *bitcoin_tx_from_hex(const tal_t *ctx, const char *hex,
 
 	if (len)
 		goto fail_free_tx;
-	
+
 	tal_free(linear_tx);
 	return tx;
 

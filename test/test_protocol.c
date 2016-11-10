@@ -231,7 +231,7 @@ struct peer {
 
 	/* What we save on disk. */
 	struct database db;
-	
+
 	/* All htlcs. */
 	struct htlc **htlcs;
 
@@ -305,7 +305,7 @@ static struct htlc *find_htlc(struct peer *peer, unsigned int htlc_id, int side)
 	}
 	return NULL;
 }
-	
+
 static struct htlc *new_htlc(struct peer *peer, unsigned int htlc_id, int side)
 {
 	size_t n = tal_count(peer->htlcs);
@@ -376,7 +376,7 @@ static bool change_htlcs_(struct peer *peer, bool commit,
 
 #define change_htlcs(peer, table, commit)				\
 	change_htlcs_((peer), (commit), (table), ARRAY_SIZE(table))
-	
+
 static struct commit_info *new_commit_info(const struct peer *peer,
 					   struct commit_info *prev)
 {
@@ -524,7 +524,7 @@ static void PRINTF_FMT(2,3) record_send(struct peer *peer, const char *fmt, ...)
 		va_end(ap);
 	}
 }
-	
+
 static void PRINTF_FMT(2,3) record_recv(struct peer *peer, const char *fmt, ...)
 {
 	va_list ap;
@@ -593,7 +593,7 @@ static void send_remove(struct peer *peer, unsigned int htlc)
 	if (!h)
 		errx(1, "%s: send_remove: htlc %u does not exist",
 		     peer->name, htlc);
-		
+
 	htlc_changestate(peer, h, false, RECV_ADD_ACK_REVOCATION, SENT_REMOVE_HTLC);
 	xmit_remove_htlc(peer, h);
 }
@@ -617,7 +617,7 @@ static struct commit_info *last_unrevoked(struct commit_info *ci)
 	/* If this is already revoked, all are. */
 	if (ci->revoked)
 		return NULL;
-	
+
 	/* Find revoked commit; one we hit before that was last unrevoked. */
 	for (; ci; next = ci, ci = ci->prev) {
 		if (ci->revoked)
@@ -945,7 +945,7 @@ static void do_cmd(struct peer *peer)
 	}
 
 	peer->info = tal_strdup(peer, "");
-	
+
 	if (sscanf(cmd, "offer %u", &htlc) == 1)
 		send_offer(peer, htlc);
 	else if (sscanf(cmd, "remove %u", &htlc) == 1)
@@ -1034,11 +1034,11 @@ static void new_peer(const char *name,
 	peer->htlcs = tal_arr(peer, struct htlc *, 0);
 
 	memset(&peer->db, 0, sizeof(peer->db));
-	
+
 	/* Create first, signed commit info. */
 	peer->local = new_commit_info(peer, NULL);
 	peer->local->counterparty_signed = true;
-	
+
 	peer->remote = new_commit_info(peer, NULL);
 	peer->remote->counterparty_signed = true;
 
@@ -1236,13 +1236,13 @@ static void read_from_client(const char *desc, int fd, void *dst, size_t len)
 	}
 	alarm(0);
 }
-	
+
 static void write_to_client(const char *desc, int fd, const void *dst, size_t len)
 {
 	if (!write_all(fd, dst, len))
 		err(1, "Writing to %s", desc);
 }
-	
+
 
 static void stop_clients(int acmd[2],
 			 int bcmd[2],
@@ -1287,7 +1287,7 @@ int main(int argc, char *argv[])
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc != 1)
 		errx(1, "no arguments accepted");
-	
+
 	if (do_svg)
 		svg = tal_strdup(NULL, "");
 	else
@@ -1307,7 +1307,7 @@ int main(int argc, char *argv[])
 #else
 	signal(SIGALRM, do_nothing);
 #endif
-	
+
 	start_clients(a_to_b, b_to_a, acmd, bcmd, adonefd, bdonefd);
 
 	while (fgets(cmd, sizeof(cmd), stdin)) {
@@ -1323,7 +1323,7 @@ int main(int argc, char *argv[])
 		if (strstarts(cmd, "A:")) {
 			cmdfd = acmd[1];
 			donefd = adonefd[0];
-		} else if (strstarts(cmd, "B:")) { 
+		} else if (strstarts(cmd, "B:")) {
 			cmdfd = bcmd[1];
 			donefd = bdonefd[0];
 		} else if (strstarts(cmd, "echo ")) {

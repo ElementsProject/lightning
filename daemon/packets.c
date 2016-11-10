@@ -40,7 +40,7 @@ static Pkt *make_pkt(const tal_t *ctx, Pkt__PktCase type, const void *msg)
 		size_t len;
 		u8 *packed;
 		Pkt *cpy;
-		
+
 		len = pkt__get_packed_size(pkt);
 		packed = tal_arr(pkt, u8, len);
 		pkt__pack(pkt, packed);
@@ -353,7 +353,7 @@ Pkt *accept_pkt_anchor(struct peer *peer, const Pkt *pkt)
 
 	if (anchor_too_large(a->amount))
 		return pkt_err(peer, "Anchor millisatoshis exceeds 32 bits");
-	
+
 	proto_to_sha256(a->txid, &peer->anchor.txid.sha);
 	peer->anchor.index = a->output_index;
 	peer->anchor.satoshis = a->amount;
@@ -559,7 +559,7 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 			&peer->remote.next_revocation_hash);
 	return NULL;
 }
-	
+
 Pkt *accept_pkt_close_shutdown(struct peer *peer, const Pkt *pkt)
 {
 	const CloseShutdown *c = pkt->close_shutdown;
