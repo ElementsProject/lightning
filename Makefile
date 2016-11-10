@@ -13,14 +13,8 @@ BOLTDIR := ../lightning-rfc/
 # If you don't have (working) valgrind.
 #NO_VALGRIND := 1
 
-# Bitcoin uses DER for signatures (Add BIP68 & HAS_CSV if it's supported)
-BITCOIN_FEATURES :=				\
-	-DHAS_BIP68=1				\
-	-DHAS_CLTV=1				\
-	-DHAS_CSV=1				\
-	-DSCRIPTS_USE_DER=1
-
-FEATURES := $(BITCOIN_FEATURES)
+# This is where we add new features as bitcoin adds them.
+FEATURES := 
 
 TEST_PROGRAMS :=				\
 	test/test_protocol			\

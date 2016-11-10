@@ -47,6 +47,6 @@ fi
 
 `dirname $0`/generate-block.sh init
 
-A1=$(`dirname $0`/get-new-address.sh)
+A1=$($CLI getnewaddress)
 TX=`$CLI sendmany "" "{ \"$A1\":0.01 }"`
 `dirname $0`/generate-block.sh

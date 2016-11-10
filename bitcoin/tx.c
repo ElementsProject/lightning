@@ -307,11 +307,7 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 		tx->input[i].witness = NULL;
 	}
 	tx->lock_time = 0;
-#if HAS_BIP68
 	tx->version = 2;
-#else
-	tx->version = 1;
-#endif
 	return tx;
 }
 

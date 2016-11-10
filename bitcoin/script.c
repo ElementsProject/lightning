@@ -33,20 +33,8 @@
 #define OP_CHECKSIG	0xAC
 #define OP_CHECKMULTISIG	0xAE
 #define OP_HASH160	0xA9
-
-#if HAS_CSV
 #define OP_CHECKSEQUENCEVERIFY	0xB2
-#else
-/* OP_NOP, otherwise bitcoind complains */
-#define OP_CHECKSEQUENCEVERIFY	0x61
-#endif
-
-#if HAS_CLTV
 #define OP_CHECKLOCKTIMEVERIFY	0xB1
-#else
-/* OP_NOP, otherwise bitcoind complains */
-#define OP_CHECKLOCKTIMEVERIFY	0x61
-#endif
 
 /* Bitcoin's OP_HASH160 is RIPEMD(SHA256()) */
 static void hash160(struct ripemd160 *redeemhash, const void *mem, size_t len)

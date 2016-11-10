@@ -3,7 +3,6 @@
 # Suppress sync if we can, for speedup.
 if which eatmydata >/dev/null; then EATMYDATA=eatmydata; fi
 
-STYLE=bitcoin
 DATADIR=/tmp/bitcoin-lightning$VARIANT
 CLI="bitcoin-cli -datadir=$DATADIR"
 REGTESTDIR=regtest
