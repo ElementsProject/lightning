@@ -74,7 +74,7 @@ check '[ `get_info_field "$LCLI2" blockheight` = $BLOCKHEIGHT ]'
 if [ -n "$TIMEOUT_ANCHOR" ]; then
     lcli1 dev-broadcast false
 fi
-lcli1 connect localhost $PORT2 $TX &
+lcli1 connect localhost $PORT2 $FUND_INPUT_TX &
 
 # Expect them to be waiting for anchor, and ack from other side.
 check_peerstate lcli1 STATE_OPEN_WAIT_ANCHORDEPTH_AND_THEIRCOMPLETE
@@ -130,7 +130,7 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
     $CLI generate 6
 
     # Now it should have spent the commit tx.
-    check_tx_spend lcli1
+    check_tx_spend
 
     # 100 blocks pass
     $CLI generate 100
@@ -144,7 +144,7 @@ if [ -n "$TIMEOUT_ANCHOR" ]; then
 fi
 
 # Now make it pass anchor (should be in mempool: one block to bury it)
-check_tx_spend lcli1
+check_tx_spend
 $CLI generate 1
 
 check_peerstate lcli1 STATE_NORMAL
@@ -289,7 +289,7 @@ if [ -n "$DUMP_ONCHAIN" ]; then
 
     # lcli1 should have sent out commitment tx
     check_peerstate lcli1 STATE_ERR_BREAKDOWN
-    check_tx_spend lcli1
+    check_tx_spend
 
     # Mine it.
     $CLI generate 1
@@ -303,7 +303,7 @@ if [ -n "$DUMP_ONCHAIN" ]; then
     $CLI generate 6
 
     # Now, lcli1 should spend its own output.
-    check_tx_spend lcli1
+    check_tx_spend
     check_peerstate lcli1 STATE_CLOSE_ONCHAIN_OUR_UNILATERAL
 
     while [ $(blockheight) != $EXPIRY ]; do
@@ -311,7 +311,7 @@ if [ -n "$DUMP_ONCHAIN" ]; then
     done
 
     # lcli1 should have gotten HTLC back.
-    check_tx_spend lcli1
+    check_tx_spend
 
     # Now, after 10 blocks, should all be concluded.
     $CLI generate 10
@@ -413,7 +413,7 @@ if [ -n "$STEAL" ]; then
     # Node1 should get really upset; node2 should steal the transaction.
     check_peerstate lcli1 STATE_ERR_INFORMATION_LEAK
     check_peerstate lcli2 STATE_CLOSE_ONCHAIN_CHEATED
-    check_tx_spend lcli2
+    check_tx_spend
 
     # Give it "forever" blocks.
     $CLI generate 10
@@ -663,7 +663,7 @@ if [ ! -n "$MANUALCOMMIT" ]; then
     $CLI generate 1
 
     lcli2 connect localhost $PORT3 $TX2 &
-    check_tx_spend lcli2
+    check_tx_spend
     $CLI generate 1
 
     # Make sure it's STATE_NORMAL.

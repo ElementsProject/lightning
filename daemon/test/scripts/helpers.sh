@@ -393,9 +393,15 @@ check_status()
 
 check_tx_spend()
 {
-    if check "$CLI getrawmempool | $FGREP '\"'"; then :;
+    local FAIL
+    FAIL=0
+    if [ $# = 1 ]; then
+	check "$CLI getrawmempool | $FGREP $1" || FAIL=1
     else
-	echo "No tx in mempool:" >&2
+	check "$CLI getrawmempool | $FGREP '\"'" || FAIL=1
+    fi
+    if [ $FAIL = 1 ]; then
+	echo "No tx $1 in mempool:" >&2
 	$CLI getrawmempool >&2
 	exit 1
     fi
