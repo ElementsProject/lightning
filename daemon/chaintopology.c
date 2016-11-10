@@ -483,10 +483,11 @@ static void get_init_blockhash(struct lightningd_state *dstate, u32 blockcount,
 	u32 start;
 	struct peer *peer;
 
-	if (blockcount < 100)
+	/* Start back before any reasonable forks. */
+	if (blockcount < dstate->config.forever_confirms)
 		start = 0;
 	else
-		start = blockcount - 100;
+		start = blockcount - dstate->config.forever_confirms;
 
 	/* If loaded from database, go back to earliest possible peer anchor. */
 	list_for_each(&dstate->peers, peer, list) {
