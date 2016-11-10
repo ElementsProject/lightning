@@ -2603,9 +2603,7 @@ static void peer_disconnect(struct io_conn *conn, struct peer *peer)
 
 	/* Not even set up yet?  Simply free.*/
 	if (peer->state == STATE_INIT) {
-		/* FIXME: Make reconnect work for STATE_INIT, but
-		 * cleanup if we don't reconnect after some duration. */
-		db_forget_peer(peer);
+		/* This means we didn't get past crypto handshake or hit db */
 		tal_free(peer);
 		return;
 	}
