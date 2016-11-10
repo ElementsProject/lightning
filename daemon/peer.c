@@ -4046,7 +4046,7 @@ static void resolve_their_steal(struct peer *peer,
 		steal_tx->input[n].amount = tal_dup(steal_tx, u64,
 						    &tx->output[i].amount);
 		/* Track witness size, for fee. */
-		wsize += tal_count(peer->onchain.wscripts[n]);
+		wsize += tal_count(peer->onchain.wscripts[i]);
 		input_total += tx->output[i].amount;
 		n++;
 	}
@@ -4072,22 +4072,29 @@ static void resolve_their_steal(struct peer *peer,
 	steal_tx->output[0].script_length = tal_count(steal_tx->output[0].script);
 
 	/* Now, we can sign them all (they're all of same form). */
-	for (i = 0; i < n; i++) {
+	n = 0;
+	for (i = 0; i < tx->output_count; i++) {
 		struct bitcoin_signature sig;
 
+		/* Don't bother stealing the output already to us. */
+		if (i == peer->onchain.to_us_idx)
+			continue;
+
 		sig.stype = SIGHASH_ALL;
-		peer_sign_steal_input(peer, steal_tx, i,
+		peer_sign_steal_input(peer, steal_tx, n,
 				      peer->onchain.wscripts[i],
 				      &sig.sig);
 
-		steal_tx->input[i].witness
+		steal_tx->input[n].witness
 			= bitcoin_witness_secret(steal_tx,
 						 peer->dstate->secpctx,
 						 revocation_preimage,
 						 sizeof(*revocation_preimage),
 						 &sig,
 						 peer->onchain.wscripts[i]);
+		n++;
 	}
+	assert(n == steal_tx->input_count);
 
 	broadcast_tx(peer, steal_tx, NULL);
 }
