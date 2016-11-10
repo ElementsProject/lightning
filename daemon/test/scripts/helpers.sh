@@ -148,6 +148,7 @@ start_lightningd()
 
     # If bitcoind not already running, start it.
     if ! $CLI getinfo >/dev/null 2>&1; then
+	echo Starting bitcoind...
 	scripts/setup.sh
 	SHUTDOWN_BITCOIN=scripts/shutdown.sh
     else
