@@ -65,12 +65,6 @@ start_lightningd 3
 [ `$LCLI2 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'` = $ID2 ]
 [ $NUM_LIGHTNINGD = 2 ] || [ `$LCLI3 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'` = $ID3 ]
 
-# Make a payment into a P2SH for anchor.
-P2SHADDR=`$LCLI1 newaddr | sed -n 's/{ "address" : "\(.*\)" }/\1/p'`
-TXID=`$CLI sendtoaddress $P2SHADDR 0.01`
-TX=`$CLI getrawtransaction $TXID`
-$CLI generate 1
-
 # Make sure they see it (for timeout we need to know what height they were)
 BLOCKHEIGHT=`$CLI getblockcount`
 check '[ `get_info_field "$LCLI1" blockheight` = $BLOCKHEIGHT ]'

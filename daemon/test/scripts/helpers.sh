@@ -188,6 +188,14 @@ start_lightningd()
 
     PORT2=`get_info_field "$LCLI2" port`
     [ $NUM_LIGHTNINGD = 2 ] || PORT3=`get_info_field "$LCLI3" port`
+
+    # Make a payment into a P2SH for anchor.
+    P2SHADDR=`$LCLI1 newaddr | sed -n 's/{ "address" : "\(.*\)" }/\1/p'`
+    FUND_INPUT_TXID=`$CLI sendtoaddress $P2SHADDR 0.01`
+    FUND_INPUT_TX=`$CLI getrawtransaction $FUND_INPUT_TXID`
+
+    # Mine it so check_tx_spend doesn't see it (breaks some tests).
+    $CLI generate 1
 }
 
 lcli1()
