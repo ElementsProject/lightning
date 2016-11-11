@@ -741,7 +741,7 @@ static bool open_wait_pkt_in(struct peer *peer, const Pkt *pkt)
 	case STATE_OPEN_WAIT_THEIRCOMPLETE:
 		if (pkt->pkt_case != PKT__PKT_OPEN_COMPLETE)
 			return peer_received_unexpected_pkt(peer, pkt, __func__);
-			
+
 		err = accept_pkt_open_complete(peer, pkt);
 		if (err) {
 			peer_open_complete(peer, err->error->problem);
@@ -811,7 +811,7 @@ static void route_htlc_onwards(struct peer *peer,
 				 struct sha256, &htlc->rhash);
 		log_add(peer->log, " (id %"PRIu64")", htlc->id);
 	}
-	
+
 	next = find_peer_by_pkhash(peer->dstate, pb_id);
 	if (!next || !next->nc) {
 		log_unusual(peer->log, "Can't route HTLC %"PRIu64": no %speer ",
@@ -824,7 +824,7 @@ static void route_htlc_onwards(struct peer *peer,
 
 	if (only_dest && next != only_dest)
 		return;
-	
+
 	/* Offered fee must be sufficient. */
 	if ((s64)(htlc->msatoshi - msatoshi)
 	    < connection_fee(next->nc, msatoshi)) {
@@ -917,7 +917,7 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 						      "unknown rhash");
 			goto free_packet;
 		}
-			
+
 		if (htlc->msatoshi != invoice->msatoshi) {
 			log_unusual(peer->log, "Short payment for '%s' HTLC %"PRIu64
 				    ": %"PRIu64" not %"PRIu64 " satoshi!",
@@ -1035,14 +1035,14 @@ static bool adjust_cstate_side(struct channel_state *cstate,
 {
 	int oldf = htlc_state_flags(old), newf = htlc_state_flags(new);
 	bool old_committed, new_committed;
-	
-	/* We applied changes to staging_cstate when we first received 
+
+	/* We applied changes to staging_cstate when we first received
 	 * add/remove packet, so we could make sure it was valid.  Don't
 	 * do that again. */
 	if (old == SENT_ADD_HTLC || old == RCVD_REMOVE_HTLC
 	    || old == RCVD_ADD_HTLC || old == SENT_REMOVE_HTLC)
 		return true;
-	
+
 	old_committed = (oldf & HTLC_FLAG(side, HTLC_F_COMMITTED));
 	new_committed = (newf & HTLC_FLAG(side, HTLC_F_COMMITTED));
 
@@ -1082,7 +1082,7 @@ static void adjust_cstate_fee_side(struct channel_state *cstate,
 				   enum feechange_state new,
 				   enum side side)
 {
-	/* We applied changes to staging_cstate when we first received 
+	/* We applied changes to staging_cstate when we first received
 	 * feechange packet, so we could make sure it was valid.  Don't
 	 * do that again. */
 	if (old == SENT_FEECHANGE || old == RCVD_FEECHANGE)
@@ -1344,7 +1344,7 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	ci = new_commit_info(peer, peer->local.commit->commit_num + 1);
 
 	db_start_transaction(peer);
-	
+
 	/* BOLT #2:
 	 *
 	 * A node MUST NOT send an `update_commit` message which does
@@ -1446,7 +1446,7 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	/* If we're shutting down and no more HTLCs, begin closing */
 	if (peer->closing.their_script && !committed_to_htlcs(peer))
 		start_closing_in_transaction(peer);
-	
+
 	if (db_commit_transaction(peer) != NULL)
 		return pkt_err(peer, "Database error");
 
@@ -1462,7 +1462,7 @@ static Pkt *handle_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	if (err)
 		return err;
 	assert(htlc->state == RCVD_ADD_HTLC);
-	
+
 	/* BOLT #2:
 	 *
 	 * A node MUST NOT offer `amount_msat` it cannot pay for in
@@ -1482,7 +1482,7 @@ static Pkt *handle_pkt_htlc_add(struct peer *peer, const Pkt *pkt)
 	}
 	return NULL;
 }
-	
+
 static Pkt *handle_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 {
 	struct htlc *htlc;
@@ -1498,7 +1498,7 @@ static Pkt *handle_pkt_htlc_fail(struct peer *peer, const Pkt *pkt)
 		log_debug(peer->log, "HTLC %"PRIu64" failed twice", htlc->id);
 		htlc->fail = tal_free(htlc->fail);
 	}
-	
+
 	db_start_transaction(peer);
 
 	set_htlc_fail(peer, htlc, fail, tal_count(fail));
@@ -1527,7 +1527,7 @@ static Pkt *handle_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 	err = accept_pkt_htlc_fulfill(peer, pkt, &htlc, &r);
 	if (err)
 		return err;
-	
+
 	/* Reconnect may mean HTLC was already fulfilled.  That's OK. */
 	if (!htlc->r) {
 		db_start_transaction(peer);
@@ -1635,7 +1635,7 @@ static Pkt *handle_pkt_revocation(struct peer *peer, const Pkt *pkt,
 		return pkt_err(peer, "database error");
 
 	return NULL;
-}	
+}
 
 /* This is the io loop while we're doing shutdown. */
 static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
@@ -1658,7 +1658,7 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 
 	case PKT__PKT_UPDATE_ADD_HTLC:
 		/* BOLT #2:
-		 * 
+		 *
 		 * A node MUST NOT send a `update_add_htlc` after a
 		 * `close_shutdown` */
 		if (peer->closing.their_script)
@@ -1666,10 +1666,10 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 		else
 			err = handle_pkt_htlc_add(peer, pkt);
 		break;
-			
+
 	case PKT__PKT_CLOSE_SHUTDOWN:
 		/* BOLT #2:
-		 * 
+		 *
 		 * A node... MUST NOT send more than one `close_shutdown`. */
 		if (peer->closing.their_script)
 			return peer_received_unexpected_pkt(peer, pkt, __func__);
@@ -1686,7 +1686,7 @@ static bool shutdown_pkt_in(struct peer *peer, const Pkt *pkt)
 			}
 		}
 		break;
-			
+
 	case PKT__PKT_UPDATE_FULFILL_HTLC:
 		err = handle_pkt_htlc_fulfill(peer, pkt);
 		break;
@@ -1757,7 +1757,7 @@ static bool do_commit(struct peer *peer, struct command *jsoncmd)
 			  &peer->remote.commit->revocation_hash);
 
 	db_start_transaction(peer);
-		
+
 	errmsg = changestates(peer, changes, ARRAY_SIZE(changes),
 			      feechanges, ARRAY_SIZE(feechanges), true);
 	if (errmsg) {
@@ -1864,7 +1864,7 @@ static bool peer_start_shutdown(struct peer *peer)
 
 	return db_commit_transaction(peer) == NULL;
 }
-	
+
 /* This is the io loop while we're in normal mode. */
 static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 {
@@ -1877,7 +1877,7 @@ static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 	case PKT__PKT_UPDATE_ADD_HTLC:
 		err = handle_pkt_htlc_add(peer, pkt);
 		break;
-		
+
 	case PKT__PKT_UPDATE_FULFILL_HTLC:
 		err = handle_pkt_htlc_fulfill(peer, pkt);
 		break;
@@ -1914,7 +1914,7 @@ static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 		/* Fall thru. */
 	default:
 		return peer_received_unexpected_pkt(peer, pkt, __func__);
-	}	
+	}
 
 	if (err) {
 		return peer_comms_err(peer, err);
@@ -2638,7 +2638,7 @@ static void try_commit(struct peer *peer)
 		 * reconnect, rather than using timer! */
 		log_debug(peer->log, "try_commit: state=%s, re-queueing timer",
 			  state_name(peer->state));
-		
+
 		remote_changes_pending(peer);
 	}
 }
@@ -2678,7 +2678,7 @@ static bool peer_reconnected(struct peer *peer,
 	io_set_finish(conn, peer_disconnect, peer);
 
 	name = netaddr_name(peer, &addr);
-	log_info(peer->log, "Reconnected %s %s", 
+	log_info(peer->log, "Reconnected %s %s",
 		 we_connected ? "out to" : "in from", name);
 	tal_free(name);
 
@@ -2734,7 +2734,7 @@ struct peer *new_peer(struct lightningd_state *dstate,
 	peer->local.staging_cstate = peer->remote.staging_cstate = NULL;
 	peer->log = tal_steal(peer, log);
 	log_debug(peer->log, "New peer %p", peer);
-	
+
 	htlc_map_init(&peer->htlcs);
 	memset(peer->feechanges, 0, sizeof(peer->feechanges));
 	shachain_init(&peer->their_preimages);
@@ -2805,7 +2805,7 @@ static bool peer_first_connected(struct peer *peer,
 
 	name = netaddr_name(peer, &addr);
 	idstr = pubkey_to_hexstr(name, peer->dstate->secpctx, peer->id);
-	log_info(peer->log, "Connected %s %s id %s, changing prefix", 
+	log_info(peer->log, "Connected %s %s id %s, changing prefix",
 		 we_connected ? "out to" : "in from", name, idstr);
 	set_log_prefix(peer->log, tal_fmt(name, "%s:", idstr));
 	tal_free(name);
@@ -2821,7 +2821,7 @@ static void htlc_destroy(struct htlc *htlc)
 		fatal("Could not find htlc to destroy");
 }
 
-struct htlc *peer_new_htlc(struct peer *peer, 
+struct htlc *peer_new_htlc(struct peer *peer,
 			   u64 id,
 			   u64 msatoshi,
 			   const struct sha256 *rhash,
@@ -3216,7 +3216,7 @@ static bool any_deadline_past(struct peer *peer)
 		}
 	}
 	return false;
-}			      
+}
 
 static void check_htlc_expiry(struct peer *peer)
 {
@@ -3272,7 +3272,7 @@ static void peer_depth_ok(struct peer *peer)
 	queue_pkt_open_complete(peer);
 
 	db_start_transaction(peer);
-	
+
 	switch (peer->state) {
 	case STATE_OPEN_WAIT_ANCHORDEPTH_AND_THEIRCOMPLETE:
 		set_peer_state(peer, STATE_OPEN_WAIT_THEIRCOMPLETE,
@@ -3342,7 +3342,7 @@ static enum watch_result anchor_depthchange(struct peer *peer,
 			   get_feerate(peer->dstate));
 		peer_fail(peer, __func__);
 	}
-	
+
 	return KEEP_WATCHING;
 }
 
@@ -3552,7 +3552,7 @@ static void fail_own_htlc(struct peer *peer, struct htlc *htlc)
 	db_commit_transaction(peer);
 }
 
-/* We've spent an HTLC output to get our funds back.  There's still a 
+/* We've spent an HTLC output to get our funds back.  There's still a
  * chance that they could also spend the HTLC output (using the preimage),
  * so we need to wait for some confirms.
  *
@@ -3739,7 +3739,7 @@ static enum watch_result our_htlc_spent(struct peer *peer,
 	    || tal_count(tx->input[input_num].witness) != 3
 	    || tal_count(tx->input[input_num].witness[1]) != sizeof(preimage))
 		fatal("Impossible HTLC spend for %"PRIu64, h->id);
-	
+
 	/* Our timeout tx has all-zeroes, so we can distinguish it. */
 	if (memeqzero(tx->input[input_num].witness[1], sizeof(preimage)))
 		/* They might try to race us. */
@@ -3811,7 +3811,7 @@ static void resolve_their_htlc(struct peer *peer, unsigned int out_num)
 		 */
 		watch_tx(peer->onchain.tx, peer, peer->onchain.tx,
 			 their_htlc_depth, int2ptr(out_num));
-	}	
+	}
 }
 
 /* BOLT #onchain:
@@ -3934,7 +3934,7 @@ static enum watch_result check_for_resolution(struct peer *peer,
 {
 	size_t i, n = tal_count(peer->onchain.resolved);
 	size_t forever = peer->dstate->config.forever_confirms;
-		
+
 	/* BOLT #onchain:
 	 *
 	 * A node MUST *resolve* all outputs as specified below, and MUST be
@@ -3980,7 +3980,7 @@ static enum watch_result check_for_resolution(struct peer *peer,
 	return DELETE_WATCH;
 }
 
-static bool find_their_old_tx(struct peer *peer, 
+static bool find_their_old_tx(struct peer *peer,
 			      const struct sha256_double *txid,
 			      u64 *idx)
 {
@@ -4123,7 +4123,7 @@ static struct sha256 *get_rhash(struct peer *peer, u64 commit_num,
 	*rhash = *peer->their_prev_revocation_hash;
 	return NULL;
 }
-	
+
 /* We assume the tx is valid!  Don't do a blockchain.info and feed this
  * invalid transactions! */
 static enum watch_result anchor_spent(struct peer *peer,
@@ -4226,7 +4226,7 @@ static enum watch_result anchor_spent(struct peer *peer,
 
 	/* If we've just closed connection, make output close it. */
 	io_wake(peer);
-	
+
 	/* BOLT #onchain:
 	 *
 	 * A node SHOULD fail the connection if it is not already
@@ -4364,7 +4364,7 @@ static struct io_plan *peer_reconnect(struct io_conn *conn, struct peer *peer)
 }
 
 /* We can't only retry when we want to send: they may want to send us
- * something but not be able to connect (NAT).  So keep retrying.. */ 
+ * something but not be able to connect (NAT).  So keep retrying.. */
 static void reconnect_failed(struct io_conn *conn, struct peer *peer)
 {
 	/* Already otherwise connected (ie. they connected in)? */
@@ -4404,7 +4404,7 @@ static void try_reconnect(struct peer *peer)
 		log_debug(peer->log, "try_reconnect: no known address");
 		return;
 	}
-	
+
 	fd = socket(addr->addr.saddr.s.sa_family, addr->addr.type,
 		    addr->addr.protocol);
 	if (fd < 0) {
@@ -4494,7 +4494,7 @@ static void json_getpeers(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
 	struct peer *p;
-	struct json_result *response = new_json_result(cmd);	
+	struct json_result *response = new_json_result(cmd);
 
 	json_object_start(response, NULL);
 	json_array_start(response, "peers");
@@ -4939,7 +4939,7 @@ static void json_commit(struct command *cmd,
 
 	do_commit(peer, cmd);
 }
-	
+
 const struct json_command dev_commit_command = {
 	"dev-commit",
 	json_commit,
@@ -5006,7 +5006,7 @@ static void json_feerate(struct command *cmd,
 	}
 	log_debug(cmd->jcon->log, "Fee rate changed to %"PRIu64, feerate);
 	cmd->dstate->config.default_fee_rate = feerate;
-	
+
 	command_success(cmd, null_response(cmd));
 }
 
@@ -5158,7 +5158,7 @@ static void json_output(struct command *cmd,
 	/* Flush any outstanding output */
 	if (peer->output_enabled)
 		io_wake(peer);
-	
+
 	command_success(cmd, null_response(cmd));
 }
 const struct json_command dev_output_command = {

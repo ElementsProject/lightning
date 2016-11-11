@@ -69,7 +69,7 @@ u8 *commit_output_to_us(const tal_t *ctx,
 	u8 *tmp;
 	if (!wscript)
 		wscript = &tmp;
-	
+
 	/* Our output to ourself is encumbered by delay. */
 	if (side == LOCAL) {
 		*wscript = bitcoin_redeem_secret_or_delay(ctx,

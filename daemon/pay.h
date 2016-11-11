@@ -15,5 +15,4 @@ bool pay_add(struct lightningd_state *dstate,
 	     struct htlc *htlc,
 	     const u8 *fail,
 	     const struct rval *r);
-	     
 #endif /* LIGHTNING_DAEMON_PAY_H */

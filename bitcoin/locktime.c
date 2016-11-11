@@ -72,7 +72,7 @@ bool seconds_to_abs_locktime(u32 seconds, struct abs_locktime *abs)
 {
 	return abs_seconds_to_locktime(seconds, &abs->locktime);
 }
-	
+
 bool blocks_to_abs_locktime(u32 blocks, struct abs_locktime *abs)
 {
 	return abs_blocks_to_locktime(blocks, &abs->locktime);

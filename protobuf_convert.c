@@ -25,7 +25,7 @@ Signature *signature_to_proto(const tal_t *ctx,
 	memcpy(&pb->s2, compact + 40, 8);
 	memcpy(&pb->s3, compact + 48, 8);
 	memcpy(&pb->s4, compact + 56, 8);
-	
+
 	return pb;
 }
 
@@ -147,7 +147,7 @@ Locktime *rel_locktime_to_proto(const tal_t *ctx,
 {
 	Locktime *l = tal(ctx, Locktime);
 	locktime__init(l);
-	
+
 	if (rel_locktime_is_seconds(locktime)) {
 		l->locktime_case = LOCKTIME__LOCKTIME_SECONDS;
 		l->seconds = rel_locktime_to_seconds(locktime);
@@ -183,7 +183,7 @@ static void proto_tal_free(void *allocator_data, void *pointer)
 {
 	tal_free(pointer);
 }
-	
+
 /* Get allocator so decoded protobuf will be tal off it. */
 struct ProtobufCAllocator *make_prototal(const tal_t *ctx)
 {
@@ -196,7 +196,7 @@ struct ProtobufCAllocator *make_prototal(const tal_t *ctx)
 
 	return prototal;
 }
-	
+
 /* Now steal object off of allocator (and free prototal) */
 void steal_from_prototal(const tal_t *ctx, struct ProtobufCAllocator *prototal,
 			 const void *pb)

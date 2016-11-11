@@ -159,7 +159,7 @@ static bool key_less(secp256k1_context *secpctx,
 
 	return memcmp(a_der, b_der, sizeof(a_der)) < 0;
 }
-	
+
 /* tal_count() gives the length of the script. */
 u8 *bitcoin_redeem_2of2(const tal_t *ctx,
 			secp256k1_context *secpctx,
@@ -245,13 +245,13 @@ void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 	input->witness[0] = stack_sig(input->witness, secpctx, sig);
 	input->witness[1] = stack_key(input->witness, secpctx, key);
 }
-	
+
 /* Create an output script for a 32-byte witness. */
 u8 *scriptpubkey_p2wsh(const tal_t *ctx, const u8 *witnessscript)
 {
 	struct sha256 h;
 	u8 *script = tal_arr(ctx, u8, 0);
-	
+
 	add_op(&script, OP_0);
 	sha256(&h, witnessscript, tal_count(witnessscript));
 	add_push_bytes(&script, h.u.u8, sizeof(h.u.u8));
@@ -266,7 +266,7 @@ u8 *scriptpubkey_p2wpkh(const tal_t *ctx,
 	struct ripemd160 h;
 	u8 der[PUBKEY_DER_LEN];
 	u8 *script = tal_arr(ctx, u8, 0);
-	
+
 	add_op(&script, OP_0);
 	pubkey_to_der(secpctx, der, key);
 	hash160(&h, der, sizeof(der));
@@ -406,7 +406,7 @@ u8 *bitcoin_redeem_htlc_recv(const tal_t *ctx,
 	add_op(&script, OP_ENDIF);
 
 	add_push_key(&script, secpctx, theirkey);
-	
+
 	add_op(&script, OP_ENDIF);
 	add_op(&script, OP_CHECKSIG);
 
@@ -514,7 +514,7 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 	add_push_bytes(&script, ripemd.u.u8, sizeof(ripemd.u.u8));
 	add_op(&script, OP_EQUAL);
 	add_op(&script, OP_IF);
-	
+
 	/* They can collect the funds. */
 	add_push_key(&script, secpctx, key_if_secret_known);
 

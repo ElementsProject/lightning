@@ -248,8 +248,8 @@ static void json_restart(struct command *cmd,
 	debug_dump_peers(cmd->dstate);
 	io_break(cmd->dstate);
 	command_success(cmd, null_response(cmd));
-}	
-	
+}
+
 static const struct json_command dev_restart_command = {
 	"dev-restart",
 	json_restart,
@@ -374,7 +374,7 @@ static void json_result(struct json_connection *jcon,
 struct json_result *null_response(const tal_t *ctx)
 {
 	struct json_result *response;
-		
+
 	response = new_json_result(ctx);
 	json_object_start(response, NULL);
 	json_object_end(response);
@@ -502,7 +502,7 @@ static struct io_plan *write_json(struct io_conn *conn,
 				  struct json_connection *jcon)
 {
 	struct json_output *out;
-	
+
 	out = list_pop(&jcon->output, struct json_output, list);
 	if (!out) {
 		if (jcon->stop) {

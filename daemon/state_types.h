@@ -26,20 +26,20 @@ enum state {
 	 */
 	STATE_NORMAL,
 	STATE_NORMAL_COMMITTING,
-	
+
 	/*
 	 * Closing (handled outside state machine).
 	 */
 	STATE_SHUTDOWN,
 	STATE_SHUTDOWN_COMMITTING,
 	STATE_MUTUAL_CLOSING,
-	
+
 	/* Four states to represent closing onchain (for getpeers) */
 	STATE_CLOSE_ONCHAIN_CHEATED,
 	STATE_CLOSE_ONCHAIN_THEIR_UNILATERAL,
 	STATE_CLOSE_ONCHAIN_OUR_UNILATERAL,
 	STATE_CLOSE_ONCHAIN_MUTUAL,
-	
+
 	/* All closed. */
 	STATE_CLOSED,
 

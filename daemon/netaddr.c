@@ -85,4 +85,4 @@ bool netaddr_from_fd(int fd, int type, int protocol, struct netaddr *a)
 	a->addrlen = sizeof(a->saddr);
 	return getpeername(fd, &a->saddr.s, &a->addrlen) == 0;
 }
-	
+

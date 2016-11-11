@@ -141,4 +141,3 @@ void feechange_changestate(struct peer *peer,
 			db_update_feechange_state(peer, f, oldstate);
 	}
 }
-	

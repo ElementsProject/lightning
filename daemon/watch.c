@@ -12,7 +12,7 @@
  *
  * - HTLC spend tx:
  *   - Reached a given depth.
- * 
+ *
  * - Anchor tx output:
  *   - Is spent by their current tx.
  *   - Is spent by a revoked tx.
@@ -115,7 +115,7 @@ bool watching_txid(struct lightningd_state *dstate,
 {
 	return txwatch_hash_get(&dstate->txwatches, txid) != NULL;
 }
-	
+
 struct txwatch *watch_tx_(const tal_t *ctx,
 			  struct peer *peer,
 			  const struct bitcoin_tx *tx,

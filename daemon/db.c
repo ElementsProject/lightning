@@ -686,7 +686,7 @@ static void load_peer_htlcs(struct peer *peer)
 		  peer->remote.staging_cstate->side[REMOTE].fee_msat,
 		  peer->remote.staging_cstate->side[LOCAL].num_htlcs,
 		  peer->remote.staging_cstate->side[REMOTE].num_htlcs);
-	
+
 	tal_free(ctx);
 }
 
@@ -776,7 +776,7 @@ static const char *linearize_shachain(const tal_t *ctx,
 		push_le64(0, push, &p);
 		push(zeroes, sizeof(zeroes), &p);
 	}
-		
+
 	assert(tal_count(p) == SHACHAIN_SIZE);
 	str = tal_hexstr(ctx, p, tal_count(p));
 	tal_free(p);
@@ -1359,7 +1359,7 @@ void db_set_anchor(struct peer *peer)
 	peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
-	db_exec(__func__, peer->dstate, 
+	db_exec(__func__, peer->dstate,
 		"INSERT INTO anchors VALUES (x'%s', x'%s', %u, %"PRIu64", %i, %u, %s);",
 		peerid,
 		tal_hexstr(ctx, &peer->anchor.txid, sizeof(peer->anchor.txid)),
@@ -1369,7 +1369,7 @@ void db_set_anchor(struct peer *peer)
 		peer->anchor.min_depth,
 		sql_bool(peer->anchor.ours));
 
-	db_exec(__func__, peer->dstate, 
+	db_exec(__func__, peer->dstate,
 		"INSERT INTO commit_info VALUES(x'%s', '%s', 0, x'%s', %"PRIi64", %s, NULL);",
 		peerid,
 		side_to_str(LOCAL),
@@ -1379,7 +1379,7 @@ void db_set_anchor(struct peer *peer)
 		sig_to_sql(ctx, peer->dstate->secpctx,
 			   peer->local.commit->sig));
 
-	db_exec(__func__, peer->dstate, 
+	db_exec(__func__, peer->dstate,
 		"INSERT INTO commit_info VALUES(x'%s', '%s', 0, x'%s', %"PRIi64", %s, NULL);",
 		peerid,
 		side_to_str(REMOTE),
@@ -1405,7 +1405,7 @@ void db_set_visible_state(struct peer *peer)
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
 
-	db_exec(__func__, peer->dstate, 
+	db_exec(__func__, peer->dstate,
 		"INSERT INTO their_visible_state VALUES (x'%s', %s, x'%s', x'%s', %u, %u, %"PRIu64", x'%s');",
 		peerid,
 		sql_bool(peer->remote.offer_anchor),
@@ -1431,7 +1431,7 @@ void db_update_next_revocation_hash(struct peer *peer)
 		tal_hexstr(ctx, &peer->remote.next_revocation_hash,
 			   sizeof(peer->remote.next_revocation_hash)));
 	assert(peer->dstate->db->in_transaction);
-	db_exec(__func__, peer->dstate, 
+	db_exec(__func__, peer->dstate,
 		"UPDATE their_visible_state SET next_revocation_hash=x'%s' WHERE peer=x'%s';",
 		tal_hexstr(ctx, &peer->remote.next_revocation_hash,
 			   sizeof(peer->remote.next_revocation_hash)),
@@ -1446,19 +1446,19 @@ void db_create_peer(struct peer *peer)
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
-	db_exec(__func__, peer->dstate, 
+	db_exec(__func__, peer->dstate,
 		"INSERT INTO peers VALUES (x'%s', '%s', %s, %"PRIi64");",
 		peerid,
 		state_name(peer->state),
 		sql_bool(peer->local.offer_anchor),
 		peer->local.commit_fee_rate);
 
-	db_exec(__func__, peer->dstate, 
+	db_exec(__func__, peer->dstate,
 		"INSERT INTO peer_secrets VALUES (x'%s', %s);",
 		peerid, peer_secrets_for_db(ctx, peer));
 
 	if (peer->local.offer_anchor)
-		db_exec(__func__, peer->dstate, 
+		db_exec(__func__, peer->dstate,
 			"INSERT INTO anchor_inputs VALUES"
 			" (x'%s', x'%s', %u, %"PRIi64", %"PRIi64", x'%s');",
 			peerid,
@@ -1469,7 +1469,7 @@ void db_create_peer(struct peer *peer)
 			peer->anchor.input->out_amount,
 			pubkey_to_hexstr(ctx, peer->dstate->secpctx,
 					 &peer->anchor.input->walletkey));
-	
+
 	tal_free(ctx);
 }
 
@@ -1524,7 +1524,7 @@ void db_new_htlc(struct peer *peer, const struct htlc *htlc)
 	assert(peer->dstate->db->in_transaction);
 
 	if (htlc->src) {
-		db_exec(__func__, peer->dstate, 
+		db_exec(__func__, peer->dstate,
 			"INSERT INTO htlcs VALUES"
 			" (x'%s', %"PRIu64", '%s', %"PRIu64", %u, x'%s', NULL, x'%s', x'%s', %"PRIu64", NULL);",
 			pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id),
@@ -1537,7 +1537,7 @@ void db_new_htlc(struct peer *peer, const struct htlc *htlc)
 			peerid,
 			htlc->src->id);
 	} else {
-		db_exec(__func__, peer->dstate, 
+		db_exec(__func__, peer->dstate,
 			"INSERT INTO htlcs VALUES"
 			" (x'%s', %"PRIu64", '%s', %"PRIu64", %u, x'%s', NULL, x'%s', NULL, NULL, NULL);",
 			peerid,
@@ -1560,7 +1560,7 @@ void db_new_feechange(struct peer *peer, const struct feechange *feechange)
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
 
-	db_exec(__func__, peer->dstate, 
+	db_exec(__func__, peer->dstate,
 		"INSERT INTO feechanges VALUES"
 		" (x'%s', '%s', %"PRIu64");",
 		peerid,
@@ -1580,7 +1580,7 @@ void db_update_htlc_state(struct peer *peer, const struct htlc *htlc,
 		  htlc->id, htlc_state_name(oldstate),
 		  htlc_state_name(htlc->state));
 	assert(peer->dstate->db->in_transaction);
-	db_exec(__func__, peer->dstate, 
+	db_exec(__func__, peer->dstate,
 		"UPDATE htlcs SET state='%s' WHERE peer=x'%s' AND id=%"PRIu64" AND state='%s';",
 		htlc_state_name(htlc->state), peerid,
 		htlc->id, htlc_state_name(oldstate));
@@ -1599,7 +1599,7 @@ void db_update_feechange_state(struct peer *peer,
 		  feechange_state_name(oldstate),
 		  feechange_state_name(f->state));
 	assert(peer->dstate->db->in_transaction);
-	db_exec(__func__, peer->dstate, 
+	db_exec(__func__, peer->dstate,
 		"UPDATE feechanges SET state='%s' WHERE peer=x'%s' AND state='%s';",
 		feechange_state_name(f->state), peerid,
 		feechange_state_name(oldstate));
@@ -1616,7 +1616,7 @@ void db_remove_feechange(struct peer *peer, const struct feechange *feechange,
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
 
-	db_exec(__func__, peer->dstate, 
+	db_exec(__func__, peer->dstate,
 		"DELETE FROM feechanges WHERE peer=x'%s' AND state='%s';",
 		peerid, feechange_state_name(oldstate));
 
@@ -1631,7 +1631,7 @@ void db_update_state(struct peer *peer)
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(peer->dstate->db->in_transaction);
-	db_exec(__func__, peer->dstate, 
+	db_exec(__func__, peer->dstate,
 		"UPDATE peers SET state='%s' WHERE peer=x'%s';",
 		state_name(peer->state), peerid);
 	tal_free(ctx);
@@ -1645,7 +1645,7 @@ void db_htlc_fulfilled(struct peer *peer, const struct htlc *htlc)
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(peer->dstate->db->in_transaction);
-	db_exec(__func__, peer->dstate, 
+	db_exec(__func__, peer->dstate,
 		"UPDATE htlcs SET r=x'%s' WHERE peer=x'%s' AND id=%"PRIu64" AND state='%s';",
 		tal_hexstr(ctx, htlc->r, sizeof(*htlc->r)),
 		peerid,
@@ -1663,7 +1663,7 @@ void db_htlc_failed(struct peer *peer, const struct htlc *htlc)
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	assert(peer->dstate->db->in_transaction);
-	db_exec(__func__, peer->dstate, 
+	db_exec(__func__, peer->dstate,
 		"UPDATE htlcs SET fail=x'%s' WHERE peer=x'%s' AND id=%"PRIu64" AND state='%s';",
 		tal_hexstr(ctx, htlc->fail, sizeof(*htlc->fail)),
 		peerid,
@@ -1714,7 +1714,7 @@ void db_remove_their_prev_revocation_hash(struct peer *peer)
 			 peerid);
 	tal_free(ctx);
 }
-	
+
 
 void db_save_shachain(struct peer *peer)
 {
@@ -1952,7 +1952,7 @@ bool db_new_invoice(struct lightningd_state *dstate,
 {
 	const tal_t *ctx = tal_tmpctx(dstate);
 	bool ok;
-	
+
 	log_debug(dstate->base_log, "%s", __func__);
 
 	assert(!dstate->db->in_transaction);
@@ -1976,7 +1976,7 @@ void db_resolve_invoice(struct lightningd_state *dstate,
 	log_debug(dstate->base_log, "%s", __func__);
 
 	assert(dstate->db->in_transaction);
-	
+
 	db_exec(__func__, dstate, "UPDATE invoice SET paid_num=%"PRIu64" WHERE label=x'%s';",
 		paid_num, tal_hexstr(ctx, label, strlen(label)));
 	tal_free(ctx);
@@ -1991,7 +1991,7 @@ bool db_remove_invoice(struct lightningd_state *dstate,
 	log_debug(dstate->base_log, "%s", __func__);
 
 	assert(!dstate->db->in_transaction);
-	
+
 	ok = db_exec(__func__, dstate, "DELETE FROM invoice WHERE label=x'%s';",
 			 tal_hexstr(ctx, label, strlen(label)));
 	tal_free(ctx);

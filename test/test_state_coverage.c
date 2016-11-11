@@ -149,9 +149,9 @@ struct peer {
 	/* Current input and idata (for fail()) */
 	enum state_input current_input;
 	const union input *current_idata;
-	
+
 	const char *error;
-	
+
 	/* ID. */
 	const char *name;
 	/* The other peer's data. */
@@ -325,7 +325,7 @@ static void update_core(struct core_state *core, const struct peer *peer)
 
 	for (i = core->num_outputs; i < ARRAY_SIZE(core->outputs); i++)
 		assert(core->outputs[i] == 0);
-		
+
 	core->has_current_htlc = peer->current_htlc.htlc.id != -1;
 	core->state = peer->state;
 	BUILD_ASSERT(STATE_MAX < 256);
@@ -397,7 +397,7 @@ static const struct trail *clone_trail(const tal_t *ctx,
 
 	if (!trail)
 		return NULL;
-	
+
 	t = tal_dup(ctx, struct trail, trail);
 	t->before = tal_dup(t, struct peer, trail->before);
 	t->after = trail->after ? tal_dup(t, struct peer, trail->after)
@@ -708,7 +708,7 @@ Pkt *accept_pkt_open_commit_sig(const tal_t *ctx,
 		return pkt_err(ctx, "Error inject");
 	return NULL;
 }
-	
+
 Pkt *accept_pkt_open_complete(const tal_t *ctx,
 			      struct peer *peer,
 			      const Pkt *pkt)
@@ -747,7 +747,7 @@ Pkt *accept_pkt_htlc_fail(const tal_t *ctx,
 
 	/* The shouldn't fail unless it's to them */
 	assert(h->to_them);
-	
+
 	/* This is the current htlc */
 	set_current_htlc(peer, h->id, h->to_them, false);
 	return NULL;
@@ -980,7 +980,7 @@ static void init_trail(struct trail *t,
 	    || input == BITCOIN_HTLC_TOTHEM_SPENT
 	    || input == BITCOIN_HTLC_TOUS_TIMEOUT
 	    || input == BITCOIN_HTLC_FULFILL_SPEND_DONE
-	    || input == BITCOIN_HTLC_RETURN_SPEND_DONE) 
+	    || input == BITCOIN_HTLC_RETURN_SPEND_DONE)
 		t->htlc_id = idata->htlc->id;
 	else if (input == PKT_UPDATE_ADD_HTLC)
 		t->htlc_id = htlc_id_from_pkt(idata->pkt);
@@ -1123,7 +1123,7 @@ static void remove_htlc_id(struct peer *peer, unsigned int id)
 		    peer->htlcs_to_them, &peer->num_htlcs_to_them,
 		    ARRAY_SIZE(peer->htlcs_to_us), h);
 }
-	
+
 
 static bool outstanding_htlc_watches(const struct peer *peer)
 {
@@ -1143,7 +1143,7 @@ static bool add_event_(struct peer *peer, enum state_input input)
 	/* This is how they say "no event please" */
 	if (input == INPUT_NONE)
 		return true;
-			
+
 	assert(input < 64);
 	if (have_event(peer->core.event_notifies, input))
 		return false;
@@ -1156,7 +1156,7 @@ static bool remove_event_(uint64_t *events, enum state_input input)
 	/* This is how they say "no event please" */
 	if (input == INPUT_NONE)
 		return true;
-			
+
 	assert(input < 64);
 	if (!have_event(*events, input))
 		return false;
@@ -1201,7 +1201,7 @@ void bitcoin_create_anchor(struct peer *peer, enum state_input done)
 	assert(done == BITCOIN_ANCHOR_CREATED);
 	if (peer->anchor)
 		report_trail(peer->trail, "Anchor already created?");
-		
+
 	peer->anchor = true;
 	add_event(peer, done);
 }
@@ -1263,7 +1263,7 @@ void peer_watch_close(struct peer *peer,
 		      enum state_input done, enum state_input timedout)
 {
 	add_event(peer, done);
-	
+
 	/* We assume this. */
 	assert(timedout == INPUT_CLOSE_COMPLETE_TIMEOUT || timedout == INPUT_NONE);
 	add_event(peer, timedout);
@@ -1383,7 +1383,7 @@ void peer_unwatch_htlc_output(struct peer *peer,
 		if (!outstanding_htlc_watches(peer))
 			add_event(peer, all_done);
 	}
-}	
+}
 
 void peer_unwatch_all_htlc_outputs(struct peer *peer)
 {
@@ -1498,14 +1498,14 @@ void peer_htlc_declined(struct peer *peer, const Pkt *pkt)
 	clear_current_htlc(peer);
 	peer->htlc_declined = true;
 }
-	       
+
 const struct htlc *peer_tx_revealed_r_value(struct peer *peer,
 					    const struct bitcoin_event *btc)
 {
 	const struct htlc *htlc = (struct htlc *)btc;
 	add_rval(peer, htlc->id);
 	return htlc;
-}	
+}
 
 static const char *check_changes(const struct peer *old, struct peer *new,
 				 enum state_input input)
@@ -1652,7 +1652,7 @@ static void record_output(enum state_input **outputs, enum state_input out)
 	tal_resize(outputs, n+1);
 	(*outputs)[n] = out;
 }
-				
+
 static void record_state(struct state_dump **sd,
 			 enum state_input input,
 			 enum state newstate,
@@ -1681,7 +1681,7 @@ static void record_state(struct state_dump **sd,
 	(*sd)[n].next = newstate;
 	(*sd)[n].pkt = pkt;
 }
-				
+
 static bool error_path(enum state_input i, enum state src, enum state dst)
 {
 	return state_is_error(dst) || i == PKT_ERROR;
@@ -1832,7 +1832,7 @@ static void try_input(const struct peer *peer,
 	    || i == BITCOIN_ANCHOR_OTHERSPEND
 	    || i == BITCOIN_CLOSE_DONE)
 		copy.anchor_spent = true;
-	
+
 	eliminate_input(&hist->inputs_per_state[copy.state], i);
 	cstatus = state(ctx, &copy, i, idata, &output, &broadcast);
 
@@ -1880,7 +1880,7 @@ static void try_input(const struct peer *peer,
 		record_state(&hist->state_dump[peer->state], i, copy.state,
 			     (const char *)output);
 	}
-	
+
 	/* Have we been in this overall situation before? */
 	if (!sithash_update(&hist->sithash, &copy)) {
 		/*
@@ -2038,7 +2038,7 @@ static void run_peer(const struct peer *peer,
 
 	/* We want to frob some things... */
 	copy_peers(&copy, &other, peer);
-	
+
 	/* If in init state, we can only send start command. */
 	if (peer->state == STATE_INIT) {
 		if (streq(peer->name, "A"))
@@ -2050,7 +2050,7 @@ static void run_peer(const struct peer *peer,
 			  prev_trail, hist);
 		return;
 	}
-	
+
 	/* Try the event notifiers */
 	old_notifies = copy.core.event_notifies;
 	for (i = 0; i < 64; i++) {
@@ -2175,7 +2175,7 @@ static void run_peer(const struct peer *peer,
 	/* Allowed to send packets? */
 	if (copy.cond != PEER_CLOSED) {
 		enum state_input i;
-		
+
 		if (other.core.num_outputs) {
 			i = other.core.outputs[0];
 			if (i == PKT_ERROR)
@@ -2215,7 +2215,7 @@ static bool record_input_mapping(int b)
 	mapping_inputs[n] = b;
 	return true;
 }
-	
+
 static enum state_input **map_inputs(void)
 {
 	enum state_input **inps = tal_arr(NULL, enum state_input *, STATE_MAX);
@@ -2378,7 +2378,7 @@ int main(int argc, char *argv[])
 			}
 		}
 	} while (!more_failpoints);
-	
+
 	for (i = 0; i < STATE_MAX; i++) {
 		bool a_expect = true, b_expect = true;
 
@@ -2468,6 +2468,6 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
-					       
+
 	return 0;
-}	
+}

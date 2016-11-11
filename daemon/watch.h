@@ -25,7 +25,7 @@ struct txwatch_output {
 struct txowatch {
 	/* Peer who owns us. */
 	struct peer *peer;
-	
+
 	/* Output to watch. */
 	struct txwatch_output out;
 

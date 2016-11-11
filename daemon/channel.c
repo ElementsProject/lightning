@@ -10,7 +10,7 @@
 uint64_t fee_by_feerate(size_t txsize, uint64_t fee_rate)
 {
 	/* BOLT #2:
-	 * 
+	 *
 	 * The fee for a transaction MUST be calculated by multiplying this
 	 * bytecount by the fee rate, dividing by 1000 and truncating
 	 * (rounding down) the result to an even number of satoshis.
@@ -211,12 +211,12 @@ bool cstate_add_htlc(struct channel_state *cstate, const struct htlc *htlc,
 
 	creator = &cstate->side[htlc_owner(htlc)];
 	recipient = &cstate->side[!htlc_owner(htlc)];
-	
+
 	/* Remember to count the new one in total txsize if not dust! */
 	nondust = cstate->num_nondust;
 	if (!is_dust(htlc->msatoshi / 1000))
 		nondust++;
-	
+
 	if (!change_funding(cstate->anchor, cstate->fee_rate,
 			    htlc->msatoshi, creator, recipient, nondust,
 			    must_afford_fee))
@@ -278,7 +278,7 @@ void force_add_htlc(struct channel_state *cstate, const struct htlc *htlc)
 	creator = &cstate->side[htlc_owner(htlc)];
 	creator->num_htlcs++;
 	creator->pay_msat -= htlc->msatoshi;
-	
+
 	/* Remember to count the new one in total txsize if not dust! */
 	if (!is_dust(htlc->msatoshi / 1000))
 		cstate->num_nondust++;
@@ -298,7 +298,7 @@ void force_fail_htlc(struct channel_state *cstate, const struct htlc *htlc)
 {
 	force_remove_htlc(cstate, htlc_owner(htlc), htlc);
 }
-	
+
 void force_fulfill_htlc(struct channel_state *cstate, const struct htlc *htlc)
 {
 	force_remove_htlc(cstate, !htlc_owner(htlc), htlc);

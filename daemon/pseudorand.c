@@ -39,4 +39,3 @@ const struct siphash_seed *siphash_seed(void)
 
 	return &siphashseed;
 }
-	

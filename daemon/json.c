@@ -163,7 +163,7 @@ const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 	for (t = tok + 1; t < end; t = json_next(t+1))
 		if (json_tok_streq(buffer, t, label))
 			return t + 1;
-		
+
 	return NULL;
 }
 
@@ -277,7 +277,7 @@ jsmntok_t *json_parse_input(const char *input, int len, bool *valid)
 
 	toks = tal_arr(input, jsmntok_t, 10);
 
-again:	
+again:
 	jsmn_init(&parser);
 	ret = jsmn_parse(&parser, input, len, toks, tal_count(toks) - 1);
 
@@ -299,7 +299,7 @@ again:
 	/* Make sure last one is always referencable. */
 	toks[ret].type = -1;
 	toks[ret].start = toks[ret].end = toks[ret].size = 0;
-	
+
 	return toks;
 }
 
@@ -399,7 +399,7 @@ void json_add_u64(struct json_result *result, const char *fieldname,
 	json_start_member(result, fieldname);
 	result_append_fmt(result, "%"PRIu64, value);
 }
-	
+
 void json_add_literal(struct json_result *result, const char *fieldname,
 		      const char *literal, int len)
 {
@@ -473,7 +473,7 @@ struct json_result *new_json_result(const tal_t *ctx)
 	r->indent = 0;
 	return r;
 }
-	
+
 const char *json_result_string(const struct json_result *result)
 {
 	assert(!result->indent);

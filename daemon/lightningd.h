@@ -52,11 +52,11 @@ struct config {
 
 	/* How many blocks before upstream HTLC expiry do we panic and dump? */
 	u32 deadline_blocks;
-	
+
 	/* Fee rates. */
 	u32 fee_base;
 	s32 fee_per_satoshi;
-	
+
 	/* How long between polling bitcoind. */
 	struct timerel poll_time;
 
@@ -72,7 +72,7 @@ struct config {
 
 /* Here's where the global variables hide! */
 struct lightningd_state {
-	/* Where all our logging goes. */ 
+	/* Where all our logging goes. */
 	struct log_record *log_record;
 	struct log *base_log;
 	FILE *logf;
@@ -98,7 +98,7 @@ struct lightningd_state {
 
 	/* Cached block topology. */
 	struct topology *topology;
-	
+
 	/* Our peers. */
 	struct list_head peers;
 
@@ -107,7 +107,7 @@ struct lightningd_state {
 
 	/* Any outstanding "pay" commands. */
 	struct list_head pay_commands;
-	
+
 	/* Crypto tables for global use. */
 	secp256k1_context *secpctx;
 
@@ -133,7 +133,7 @@ struct lightningd_state {
 	u64 invoices_completed;
 	/* Waiting for new invoices to be paid. */
 	struct list_head invoice_waiters;
-	
+
 	/* All known nodes. */
 	struct node_map *nodes;
 
@@ -142,7 +142,7 @@ struct lightningd_state {
 
 	/* For testing: don't broadcast txs (but pretend it worked)(. */
 	bool dev_no_broadcast;
-	
+
 	/* Re-exec hack for testing. */
 	char **reexec;
 
