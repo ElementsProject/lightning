@@ -940,7 +940,6 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 		goto free_packet;
 
 	case ONION_FORWARD:
-		printf("FORWARDING %lu\n", step->hoppayload->amount);
 		route_htlc_onwards(peer, htlc, step->hoppayload->amount, step->next->nexthop,
 				   serialize_onionpacket(step, peer->dstate->secpctx, step->next), only_dest);
 		goto free_packet;
