@@ -1,0 +1,38 @@
+# This file is used to build and test `lightningd`
+
+# Image automatically built by https://github.com/cdecker/dockerfiles/tree/master/lightning/ci
+image: cdecker/lightning-ci:latest
+
+build:
+  stage: build
+  before_script:
+    - >-
+      curl -s -H "Authorization: token $GITHUB_STATUS_TOKEN"
+      -X POST
+      --data '{"state": "pending", "description": "Gitlab-CI is building the commit", "context": "gitlab-ci"}'
+      https://api.github.com/repos/ElementsProject/lightning/statuses/$CI_BUILD_REF || true
+  script:
+    - make
+    - make -j 12 check
+    - make check-source
+
+  artifacts:
+    paths:
+      - daemon/lightningd
+      - daemon/lightning-cli
+
+update-status-fail:
+  image: tutum/curl
+  stage: deploy
+  when: on_failure
+  script:
+    - >-
+      curl -s -H "Authorization: token $GITHUB_STATUS_TOKEN" -X POST --data '{"state": "failure", "description": "Gitlab-CI build failed, please contact @cdecker for details about build #$CI_BUILD_ID.", "context": "gitlab-ci"}' https://api.github.com/repos/ElementsProject/lightning/statuses/$CI_BUILD_REF || true
+
+update-status-success:
+  image: tutum/curl
+  stage: deploy
+  when: on_success
+  script:
+    - >-
+      curl -s -H "Authorization: token $GITHUB_STATUS_TOKEN" -X POST --data '{"state": "success", "description": "Gitlab-CI build succeeded.", "context": "gitlab-ci"}' https://api.github.com/repos/ElementsProject/lightning/statuses/$CI_BUILD_REF || true
