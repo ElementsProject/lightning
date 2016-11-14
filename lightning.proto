@@ -223,6 +223,12 @@ message error {
   optional string problem = 1;
 }
 
+// Nested message to transport standard protocol messages through the legacy transport
+message nested_pkt {
+  required uint32 type = 1;
+  required bytes inner_pkt = 2;
+}
+
 // This is the union which defines all of them
 message pkt {
   oneof pkt {
@@ -249,5 +255,8 @@ message pkt {
 
     // Unexpected issue.
     error error = 40;
+
+    // Shim to upgrade to new packet format
+    nested_pkt nested = 128;
   }
 }

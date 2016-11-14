@@ -1125,6 +1125,49 @@ void   error__free_unpacked
   assert(message->base.descriptor == &error__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   nested_pkt__init
+                     (NestedPkt         *message)
+{
+  static NestedPkt init_value = NESTED_PKT__INIT;
+  *message = init_value;
+}
+size_t nested_pkt__get_packed_size
+                     (const NestedPkt *message)
+{
+  assert(message->base.descriptor == &nested_pkt__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t nested_pkt__pack
+                     (const NestedPkt *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &nested_pkt__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t nested_pkt__pack_to_buffer
+                     (const NestedPkt *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &nested_pkt__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+NestedPkt *
+       nested_pkt__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (NestedPkt *)
+     protobuf_c_message_unpack (&nested_pkt__descriptor,
+                                allocator, len, data);
+}
+void   nested_pkt__free_unpacked
+                     (NestedPkt *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &nested_pkt__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
 void   pkt__init
                      (Pkt         *message)
 {
@@ -2682,7 +2725,58 @@ const ProtobufCMessageDescriptor error__descriptor =
   (ProtobufCMessageInit) error__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor pkt__field_descriptors[15] =
+static const ProtobufCFieldDescriptor nested_pkt__field_descriptors[2] =
+{
+  {
+    "type",
+    1,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_UINT32,
+    0,   /* quantifier_offset */
+    offsetof(NestedPkt, type),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "inner_pkt",
+    2,
+    PROTOBUF_C_LABEL_REQUIRED,
+    PROTOBUF_C_TYPE_BYTES,
+    0,   /* quantifier_offset */
+    offsetof(NestedPkt, inner_pkt),
+    NULL,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned nested_pkt__field_indices_by_name[] = {
+  1,   /* field[1] = inner_pkt */
+  0,   /* field[0] = type */
+};
+static const ProtobufCIntRange nested_pkt__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 2 }
+};
+const ProtobufCMessageDescriptor nested_pkt__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "nested_pkt",
+  "NestedPkt",
+  "NestedPkt",
+  "",
+  sizeof(NestedPkt),
+  2,
+  nested_pkt__field_descriptors,
+  nested_pkt__field_indices_by_name,
+  1,  nested_pkt__number_ranges,
+  (ProtobufCMessageInit) nested_pkt__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor pkt__field_descriptors[16] =
 {
   {
     "update_add_htlc",
@@ -2864,6 +2958,18 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[15] =
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "nested",
+    128,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Pkt, pkt_case),
+    offsetof(Pkt, nested),
+    &nested_pkt__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned pkt__field_indices_by_name[] = {
   13,   /* field[13] = auth */
@@ -2871,6 +2977,7 @@ static const unsigned pkt__field_indices_by_name[] = {
   11,   /* field[11] = close_signature */
   12,   /* field[12] = error */
   14,   /* field[14] = init */
+  15,   /* field[15] = nested */
   6,   /* field[6] = open */
   7,   /* field[7] = open_anchor */
   8,   /* field[8] = open_commit_sig */
@@ -2882,14 +2989,15 @@ static const unsigned pkt__field_indices_by_name[] = {
   1,   /* field[1] = update_fulfill_htlc */
   5,   /* field[5] = update_revocation */
 };
-static const ProtobufCIntRange pkt__number_ranges[5 + 1] =
+static const ProtobufCIntRange pkt__number_ranges[6 + 1] =
 {
   { 2, 0 },
   { 20, 6 },
   { 30, 10 },
   { 40, 12 },
   { 50, 13 },
-  { 0, 15 }
+  { 128, 15 },
+  { 0, 16 }
 };
 const ProtobufCMessageDescriptor pkt__descriptor =
 {
@@ -2899,10 +3007,10 @@ const ProtobufCMessageDescriptor pkt__descriptor =
   "Pkt",
   "",
   sizeof(Pkt),
-  15,
+  16,
   pkt__field_descriptors,
   pkt__field_indices_by_name,
-  5,  pkt__number_ranges,
+  6,  pkt__number_ranges,
   (ProtobufCMessageInit) pkt__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
