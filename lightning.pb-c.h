@@ -41,6 +41,7 @@ typedef struct _UpdateRevocation UpdateRevocation;
 typedef struct _CloseShutdown CloseShutdown;
 typedef struct _CloseSignature CloseSignature;
 typedef struct _Error Error;
+typedef struct _NestedPkt NestedPkt;
 typedef struct _Pkt Pkt;
 
 
@@ -546,6 +547,20 @@ struct  _Error
     , NULL }
 
 
+/*
+ * Nested message to transport standard protocol messages through the legacy transport
+ */
+struct  _NestedPkt
+{
+  ProtobufCMessage base;
+  uint32_t type;
+  ProtobufCBinaryData inner_pkt;
+};
+#define NESTED_PKT__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&nested_pkt__descriptor) \
+    , 0, {0,NULL} }
+
+
 typedef enum {
   PKT__PKT__NOT_SET = 0,
   PKT__PKT_AUTH = 50,
@@ -563,6 +578,7 @@ typedef enum {
   PKT__PKT_CLOSE_SHUTDOWN = 30,
   PKT__PKT_CLOSE_SIGNATURE = 31,
   PKT__PKT_ERROR = 40,
+  PKT__PKT_NESTED = 128,
 } Pkt__PktCase;
 
 /*
@@ -603,6 +619,10 @@ struct  _Pkt
      * Unexpected issue.
      */
     Error *error;
+    /*
+     * Shim to upgrade to new packet format
+     */
+    NestedPkt *nested;
   };
 };
 #define PKT__INIT \
@@ -1104,6 +1124,25 @@ Error *
 void   error__free_unpacked
                      (Error *message,
                       ProtobufCAllocator *allocator);
+/* NestedPkt methods */
+void   nested_pkt__init
+                     (NestedPkt         *message);
+size_t nested_pkt__get_packed_size
+                     (const NestedPkt   *message);
+size_t nested_pkt__pack
+                     (const NestedPkt   *message,
+                      uint8_t             *out);
+size_t nested_pkt__pack_to_buffer
+                     (const NestedPkt   *message,
+                      ProtobufCBuffer     *buffer);
+NestedPkt *
+       nested_pkt__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   nested_pkt__free_unpacked
+                     (NestedPkt *message,
+                      ProtobufCAllocator *allocator);
 /* Pkt methods */
 void   pkt__init
                      (Pkt         *message);
@@ -1203,6 +1242,9 @@ typedef void (*CloseSignature_Closure)
 typedef void (*Error_Closure)
                  (const Error *message,
                   void *closure_data);
+typedef void (*NestedPkt_Closure)
+                 (const NestedPkt *message,
+                  void *closure_data);
 typedef void (*Pkt_Closure)
                  (const Pkt *message,
                   void *closure_data);
@@ -1239,6 +1281,7 @@ extern const ProtobufCMessageDescriptor update_revocation__descriptor;
 extern const ProtobufCMessageDescriptor close_shutdown__descriptor;
 extern const ProtobufCMessageDescriptor close_signature__descriptor;
 extern const ProtobufCMessageDescriptor error__descriptor;
+extern const ProtobufCMessageDescriptor nested_pkt__descriptor;
 extern const ProtobufCMessageDescriptor pkt__descriptor;
 
 PROTOBUF_C__END_DECLS
