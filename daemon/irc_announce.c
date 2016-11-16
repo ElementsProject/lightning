@@ -225,7 +225,7 @@ static void handle_irc_command(struct ircstate *istate, const struct irccommand 
 	struct lightningd_state *dstate = istate->dstate;
 	char **params = tal_strsplit(cmd, cmd->params, " ", STR_NO_EMPTY);
 
-	if (streq(cmd->command, "338")) {
+	if (streq(cmd->command, "338") && tal_count(params) >= 4) {
 		dstate->external_ip = tal_strdup(
 			istate->dstate, params[3]);
 		log_debug(dstate->base_log, "Detected my own IP as %s", dstate->external_ip);
