@@ -3167,9 +3167,11 @@ static void json_connect(struct command *cmd,
 
 	/* FIXME: This is normal case, not exact. */
 	fee = fee_by_feerate(94 + 1+73 + 1+33 + 1, get_feerate(cmd->dstate));
-	if (fee >= connect->input->in_amount)
+	if (fee >= connect->input->in_amount) {
 		command_fail(cmd, "Amount %"PRIu64" below fee %"PRIu64,
 			     connect->input->in_amount, fee);
+		return;
+	}
 
 	connect->input->out_amount = connect->input->in_amount - fee;
 	if (anchor_too_large(connect->input->out_amount)) {
