@@ -87,7 +87,7 @@ struct onionpacket *create_onionpacket(
 struct route_step *process_onionpacket(
 	const tal_t * ctx,
 	secp256k1_context * secpctx,
-	struct onionpacket *packet,
+	const struct onionpacket *packet,
 	struct privkey *hop_privkey
 	);
 

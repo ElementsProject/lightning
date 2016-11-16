@@ -181,7 +181,7 @@ static bool compute_hmac(
 	return true;
 }
 
-static void compute_packet_hmac(struct onionpacket *packet, u8 *mukey, u8 *hmac)
+static void compute_packet_hmac(const struct onionpacket *packet, u8 *mukey, u8 *hmac)
 {
 	u8 mactemp[ROUTING_INFO_SIZE + TOTAL_HOP_PAYLOAD_SIZE + MESSAGE_SIZE];
 
@@ -222,8 +222,8 @@ static bool generate_header_padding(
 }
 
 static void compute_blinding_factor(secp256k1_context *secpctx,
-				    secp256k1_pubkey *key,
-				    u8 sharedsecret[SHARED_SECRET_SIZE],
+				    const secp256k1_pubkey *key,
+				    const u8 sharedsecret[SHARED_SECRET_SIZE],
 				    u8 res[BLINDING_FACTOR_SIZE])
 {
 	struct sha256_ctx ctx;
@@ -243,8 +243,8 @@ static void compute_blinding_factor(secp256k1_context *secpctx,
 static bool blind_group_element(
 	secp256k1_context *secpctx,
 	secp256k1_pubkey *blindedelement,
-	secp256k1_pubkey *pubkey,
-	u8 blind[BLINDING_FACTOR_SIZE])
+	const secp256k1_pubkey *pubkey,
+	const u8 blind[BLINDING_FACTOR_SIZE])
 {
 	/* tweak_mul is inplace so copy first. */
 	if (pubkey != blindedelement)
@@ -464,7 +464,7 @@ struct onionpacket *create_onionpacket(
 struct route_step *process_onionpacket(
 	const tal_t *ctx,
 	secp256k1_context *secpctx,
-	struct onionpacket *msg,
+	const struct onionpacket *msg,
 	struct privkey *hop_privkey
 	)
 {
