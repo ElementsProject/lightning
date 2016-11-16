@@ -248,7 +248,7 @@ static bool blind_group_element(
 {
 	/* tweak_mul is inplace so copy first. */
 	if (pubkey != blindedelement)
-		memcpy(blindedelement, pubkey, sizeof(secp256k1_pubkey));
+		*blindedelement = *pubkey;
 	if (secp256k1_ec_pubkey_tweak_mul(secpctx, blindedelement, blind) != 1)
 		return false;
 	return true;
@@ -264,7 +264,7 @@ static bool create_shared_secret(
 	secp256k1_pubkey pkcopy;
 	u8 ecres[33];
 
-	memcpy(&pkcopy, pubkey, sizeof(pkcopy));
+	pkcopy = *pubkey;
 
 	if (secp256k1_ec_pubkey_tweak_mul(secpctx, &pkcopy, sessionkey) != 1)
 		return false;
@@ -346,7 +346,7 @@ static struct hop_params *generate_hop_params(
 		 * Order is indifferent, multiplication is commutative.
 		 */
 		memcpy(&blind, sessionkey, 32);
-		memcpy(&temp, &path[i], sizeof(temp));
+		temp = path[i].pubkey;
 		if (!blind_group_element(secpctx, &temp, &temp, blind))
 			return NULL;
 		for (j = 0; j < i; j++)
