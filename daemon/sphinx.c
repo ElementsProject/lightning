@@ -128,7 +128,7 @@ static void serialize_hoppayload(u8 *dst, struct hoppayload *hp)
 
 static void xorbytes(uint8_t *d, const uint8_t *a, const uint8_t *b, size_t len)
 {
-	size_t i = 0;
+	size_t i;
 
 	for (i = 0; i < len; i++)
 		d[i] = a[i] ^ b[i];
