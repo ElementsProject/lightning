@@ -45,9 +45,9 @@ bool json_tok_u64(const char *buffer, const jsmntok_t *tok,
 		  uint64_t *num)
 {
 	char *end;
-	unsigned long l;
+	unsigned long long l;
 
-	l = strtoul(buffer + tok->start, &end, 0);
+	l = strtoull(buffer + tok->start, &end, 0);
 	if (end != buffer + tok->end)
 		return false;
 
@@ -55,7 +55,7 @@ bool json_tok_u64(const char *buffer, const jsmntok_t *tok,
 	*num = l;
 
 	/* Check for overflow */
-	if (l == ULONG_MAX && errno == ERANGE)
+	if (l == ULLONG_MAX && errno == ERANGE)
 		return false;
 
 	if (*num != l)
