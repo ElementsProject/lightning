@@ -12,7 +12,7 @@
 
 #define BLINDING_FACTOR_SIZE 32
 #define SHARED_SECRET_SIZE 32
-#define NUM_STREAM_BYTES (2 * NUM_MAX_HOPS + 2) * SECURITY_PARAMETER
+#define NUM_STREAM_BYTES ((2 * NUM_MAX_HOPS + 2) * SECURITY_PARAMETER)
 #define KEY_LEN 32
 
 struct hop_params {
@@ -128,7 +128,7 @@ static void serialize_hoppayload(u8 *dst, struct hoppayload *hp)
 
 static void xorbytes(uint8_t *d, const uint8_t *a, const uint8_t *b, size_t len)
 {
-	size_t i = 0;
+	size_t i;
 
 	for (i = 0; i < len; i++)
 		d[i] = a[i] ^ b[i];
@@ -181,7 +181,7 @@ static bool compute_hmac(
 	return true;
 }
 
-static void compute_packet_hmac(struct onionpacket *packet, u8 *mukey, u8 *hmac)
+static void compute_packet_hmac(const struct onionpacket *packet, u8 *mukey, u8 *hmac)
 {
 	u8 mactemp[ROUTING_INFO_SIZE + TOTAL_HOP_PAYLOAD_SIZE + MESSAGE_SIZE];
 
@@ -222,8 +222,8 @@ static bool generate_header_padding(
 }
 
 static void compute_blinding_factor(secp256k1_context *secpctx,
-				    secp256k1_pubkey *key,
-				    u8 sharedsecret[SHARED_SECRET_SIZE],
+				    const secp256k1_pubkey *key,
+				    const u8 sharedsecret[SHARED_SECRET_SIZE],
 				    u8 res[BLINDING_FACTOR_SIZE])
 {
 	struct sha256_ctx ctx;
@@ -243,12 +243,12 @@ static void compute_blinding_factor(secp256k1_context *secpctx,
 static bool blind_group_element(
 	secp256k1_context *secpctx,
 	secp256k1_pubkey *blindedelement,
-	secp256k1_pubkey *pubkey,
-	u8 blind[BLINDING_FACTOR_SIZE])
+	const secp256k1_pubkey *pubkey,
+	const u8 blind[BLINDING_FACTOR_SIZE])
 {
 	/* tweak_mul is inplace so copy first. */
 	if (pubkey != blindedelement)
-		memcpy(blindedelement, pubkey, sizeof(secp256k1_pubkey));
+		*blindedelement = *pubkey;
 	if (secp256k1_ec_pubkey_tweak_mul(secpctx, blindedelement, blind) != 1)
 		return false;
 	return true;
@@ -264,7 +264,7 @@ static bool create_shared_secret(
 	secp256k1_pubkey pkcopy;
 	u8 ecres[33];
 
-	memcpy(&pkcopy, pubkey, sizeof(pkcopy));
+	pkcopy = *pubkey;
 
 	if (secp256k1_ec_pubkey_tweak_mul(secpctx, &pkcopy, sessionkey) != 1)
 		return false;
@@ -346,7 +346,7 @@ static struct hop_params *generate_hop_params(
 		 * Order is indifferent, multiplication is commutative.
 		 */
 		memcpy(&blind, sessionkey, 32);
-		memcpy(&temp, &path[i], sizeof(temp));
+		temp = path[i].pubkey;
 		if (!blind_group_element(secpctx, &temp, &temp, blind))
 			return NULL;
 		for (j = 0; j < i; j++)
@@ -464,7 +464,7 @@ struct onionpacket *create_onionpacket(
 struct route_step *process_onionpacket(
 	const tal_t *ctx,
 	secp256k1_context *secpctx,
-	struct onionpacket *msg,
+	const struct onionpacket *msg,
 	struct privkey *hop_privkey
 	)
 {

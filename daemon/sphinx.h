@@ -13,11 +13,11 @@
 #define SECURITY_PARAMETER 20
 #define NUM_MAX_HOPS 20
 #define HOP_PAYLOAD_SIZE 20
-#define TOTAL_HOP_PAYLOAD_SIZE NUM_MAX_HOPS * HOP_PAYLOAD_SIZE
+#define TOTAL_HOP_PAYLOAD_SIZE (NUM_MAX_HOPS * HOP_PAYLOAD_SIZE)
 #define MESSAGE_SIZE 0
-#define ROUTING_INFO_SIZE 2 * NUM_MAX_HOPS * SECURITY_PARAMETER
-#define TOTAL_PACKET_SIZE 1 + 33 + SECURITY_PARAMETER + ROUTING_INFO_SIZE + \
-	TOTAL_HOP_PAYLOAD_SIZE + MESSAGE_SIZE
+#define ROUTING_INFO_SIZE (2 * NUM_MAX_HOPS * SECURITY_PARAMETER)
+#define TOTAL_PACKET_SIZE (1 + 33 + SECURITY_PARAMETER + ROUTING_INFO_SIZE + \
+			   TOTAL_HOP_PAYLOAD_SIZE + MESSAGE_SIZE)
 
 struct onionpacket {
 	/* Cleartext information */
@@ -87,7 +87,7 @@ struct onionpacket *create_onionpacket(
 struct route_step *process_onionpacket(
 	const tal_t * ctx,
 	secp256k1_context * secpctx,
-	struct onionpacket *packet,
+	const struct onionpacket *packet,
 	struct privkey *hop_privkey
 	);
 
