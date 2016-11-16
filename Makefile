@@ -247,7 +247,7 @@ ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDU
 libsecp256k1.a: secp256k1/libsecp256k1.la
 
 secp256k1/libsecp256k1.la:
-	cd secp256k1 && ./autogen.sh && ./configure --enable-static=yes --enable-shared=no --enable-tests=no --enable-experimental=yes --enable-module-ecdh=yes --libdir=`pwd`/..
+	cd secp256k1 && ./autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-shared=no --enable-tests=no --enable-experimental=yes --enable-module-ecdh=yes --libdir=`pwd`/..
 	$(MAKE) -C secp256k1 install-exec
 
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
