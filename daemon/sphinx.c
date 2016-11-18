@@ -184,11 +184,13 @@ static bool compute_hmac(
 static void compute_packet_hmac(const struct onionpacket *packet, u8 *mukey, u8 *hmac)
 {
 	u8 mactemp[ROUTING_INFO_SIZE + TOTAL_HOP_PAYLOAD_SIZE + MESSAGE_SIZE];
+	u8 mac[32];
 
 	memcpy(mactemp, packet->routinginfo, ROUTING_INFO_SIZE);
 	memcpy(mactemp + ROUTING_INFO_SIZE, packet->hoppayloads, TOTAL_HOP_PAYLOAD_SIZE);
 	memcpy(mactemp + ROUTING_INFO_SIZE + TOTAL_HOP_PAYLOAD_SIZE, packet->payload, sizeof(packet->payload));
-	compute_hmac(hmac, mactemp, sizeof(mactemp), mukey, KEY_LEN);
+	compute_hmac(mac, mactemp, sizeof(mactemp), mukey, KEY_LEN);
+	memcpy(hmac, mac, 20);
 }
 
 static bool generate_key(void *k, const char *t, u8 tlen, const u8 *s)
