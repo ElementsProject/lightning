@@ -224,11 +224,11 @@ static void handle_irc_command(struct ircstate *istate, const struct irccommand 
 {
 	struct lightningd_state *dstate = istate->dstate;
 	char **params = tal_strsplit(cmd, cmd->params, " ", STR_NO_EMPTY);
-	int numparams = tal_count(params) - 1;
 
-	if (streq(cmd->command, "378")) {
+	if (streq(cmd->command, "338") && tal_count(params) >= 4) {
 		dstate->external_ip = tal_strdup(
-			istate->dstate, params[numparams - 1]);
+			istate->dstate, params[3]);
+		log_debug(dstate->base_log, "Detected my own IP as %s", dstate->external_ip);
 
 		// Add our node to the node_map for completeness
 		add_node(istate->dstate, &dstate->id,
@@ -265,7 +265,7 @@ void setup_irc_connection(struct lightningd_state *dstate)
 
 	struct ircstate *state = talz(dstate, struct ircstate);
 	state->dstate = dstate;
-	state->server = "irc.freenode.net";
+	state->server = "irc.lfnet.org";
 	state->reconnect_timeout = time_from_sec(15);
 	state->log = new_log(state, state->dstate->log_record, "%s:irc",
 			     log_prefix(state->dstate->base_log));
