@@ -117,12 +117,9 @@ EOF
     cp $DIR1/config $DIR2/config
     [ $NUM_LIGHTNINGD = 2 ] || cp $DIR1/config $DIR3/config
 
-    if [ x"$RECONNECT" = xrestart ]; then
-	# Make sure node2 & 3 restart on same port, by setting in config.
-	# Find a free TCP port.
-	echo port=`findport 4000 $VARIANT` >> $DIR2/config
-	[ $NUM_LIGHTNINGD = 2 ] || echo port=`findport 4010 $VARIANT` >> $DIR3/config
-    fi
+    # Find a free TCP port.
+    echo port=`findport 4000 $VARIANT` >> $DIR2/config
+    [ $NUM_LIGHTNINGD = 2 ] || echo port=`findport 4010 $VARIANT` >> $DIR3/config
 }
 
 # Use DIR REDIR REDIRERR GDBFLAG

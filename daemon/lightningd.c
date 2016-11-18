@@ -487,7 +487,7 @@ int main(int argc, char *argv[])
 			   "A bitcoin lightning daemon.",
 			   "Print this message.");
 	opt_register_arg("--port", opt_set_uintval, NULL, &portnum,
-			 "Port to bind to (otherwise, dynamic port is used)");
+			 "Port to bind to (otherwise, we don't listen)");
 	opt_register_arg("--bitcoin-datadir", opt_set_charp, NULL,
 			 &bitcoin_datadir,
 			 "-datadir arg for bitcoin-cli");
@@ -543,7 +543,8 @@ int main(int argc, char *argv[])
 	setup_jsonrpc(dstate, dstate->rpc_filename);
 
 	/* Set up connections from peers. */
-	setup_listeners(dstate, portnum);
+	if (portnum != 0)
+		setup_listeners(dstate, portnum);
 
 	/* set up IRC peer discovery */
 	if (dstate->config.use_irc)
