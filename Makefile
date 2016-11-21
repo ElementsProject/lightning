@@ -1,5 +1,5 @@
 #! /usr/bin/make
-NAME=Bitcoin Savings & Trust Daily Interest
+NAME=Bitcoin Savings & Trust Daily Interest II
 
 # Needs to have oneof support: Ubuntu vivid's is too old :(
 PROTOCC:=protoc-c
