@@ -67,11 +67,7 @@ $(DAEMON_TEST_PROGRAMS): $(CCAN_OBJS) $(BITCOIN_OBJS) libsecp256k1.a utils.o
 
 $(DAEMON_TEST_OBJS): $(DAEMON_HEADERS) $(DAEMON_JSMN_HEADERS) $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS) $(DAEMON_GEN_HEADERS) $(CCAN_HEADERS)
 
-VALGRIND=valgrind -q --error-exitcode=99
-VALGRIND_TEST_ARGS = --track-origins=yes --leak-check=full --show-reachable=yes
-
-daemon-unit-tests: $(DAEMON_TEST_PROGRAMS)
-	set -e; for f in $(DAEMON_TEST_PROGRAMS); do $(VALGRIND) $(VALGRIND_TEST_ARGS) $$f; done
+daemon-unit-tests: $(DAEMON_TEST_PROGRAMS:%=unittest/%)
 
 daemon-tests: daemon-unit-tests daemon-all-test
 

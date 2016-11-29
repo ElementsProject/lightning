@@ -14,6 +14,11 @@ BOLTVERSION := master
 # If you don't have (working) valgrind.
 #NO_VALGRIND := 1
 
+ifneq ($(NO_VALGRIND),1)
+VALGRIND=valgrind -q --error-exitcode=7
+VALGRIND_TEST_ARGS = --track-origins=yes --leak-check=full --show-reachable=yes
+endif
+
 # This is where we add new features as bitcoin adds them.
 FEATURES :=
 
@@ -192,14 +197,14 @@ $(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) c
 $(HELPER_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS)
 
 test-protocol: test/test_protocol
-	set -e; TMP=`mktemp`; [ -n "$(NO_VALGRIND)" ] || PREFIX="valgrind -q --error-exitcode=7"; for f in test/commits/*.script; do if ! $$PREFIX test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
+	set -e; TMP=`mktemp`; for f in test/commits/*.script; do if ! $(VALGRIND) test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
 
 doc/protocol-%.svg: test/test_protocol
 	test/test_protocol --svg < test/commits/$*.script > $@
 
 protocol-diagrams: $(patsubst %.script, doc/protocol-%.svg, $(notdir $(wildcard test/commits/*.script)))
 
-check: test-protocol bitcoin-tests
+check: test-protocol
 
 include bitcoin/Makefile
 include wire/Makefile
@@ -343,6 +348,9 @@ update-mocks/%: %
           fi; \
 	  tail -n +$$END $< >> $$BASE.new; mv $$BASE.new $<; \
 	fi
+
+unittest/%: %
+	$(VALGRIND) $(VALGRIND_TEST_ARGS) $*
 
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
 	$(CC) $(CFLAGS) -c -o $@ $<
