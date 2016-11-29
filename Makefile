@@ -338,7 +338,7 @@ update-mocks/%: %
 	  head -n $$START $< > $$BASE.new; \
 	  (cat $$BASE.new; tail -n +$$END $<) > $$BASE.test.c; \
 	  if ! $(CC) $(CFLAGS) $$BASE.test.c -o $$BASE.out $(HELPER_OBJS) $(CCAN_OBJS) $(LDLIBS) 2>$$BASE.err; then \
-	    daemon/test/scripts/mockup.sh < $$BASE.err >> $$BASE.new; \
+	    test/scripts/mockup.sh < $$BASE.err >> $$BASE.new; \
 	    sed -n 's,.*Generated stub for \(.*\) .*,\t\1,p' < $$BASE.new; \
           fi; \
 	  tail -n +$$END $< >> $$BASE.new; mv $$BASE.new $<; \
