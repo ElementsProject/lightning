@@ -35,5 +35,5 @@ for SYMBOL; do
     END=$(tail -n +$LINE < $FILE | grep -n ';$');
     NUM=${END%%:*}
 
-    tail -n +$LINE < $FILE | head -n $NUM | sed 's/^extern *//' | sed 's/PRINTF_FMT([^)]*)//' | sed 's/,/ UNNEEDED,/g' | sed 's/\([a-z0-9A-Z*_]* [a-z0-9A-Z*_]*\));/\1 UNNEEDED);/' | sed "s/;\$/$STUB/"
+    tail -n +$LINE < $FILE | head -n $NUM | sed 's/^extern *//' | sed 's/PRINTF_FMT([^)]*)//' | sed 's/,/ UNNEEDED,/g' | sed 's/\([a-z0-9A-Z*_]* [a-z0-9A-Z*_]*\));/\1 UNNEEDED);/' | sed "s/;\$/$STUB/" | sed 's/\s*$//'
 done
