@@ -27,7 +27,9 @@ wire/gen_wire.o: wire/gen_wire.h
 
 clean: wire-clean
 
+wire-all: wire/gen_wire.o wire/fromwire.o wire/towire.o
+
 wire-clean:
-	$(RM) $(WIRE_OBJS) $(WIRE_GEN_SRC) $(WIRE_GEN_HEADERS)
+	$(RM) $(WIRE_OBJS) $(WIRE_GEN_SRC) $(WIRE_GEN_HEADERS) towire.c fromwire.c
 
 include wire/test/Makefile 
