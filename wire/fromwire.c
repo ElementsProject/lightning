@@ -64,25 +64,25 @@ u64 fromwire_u64(const u8 **cursor, size_t *max)
 	return be64_to_cpu(ret);
 }
 
-void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)
+void fromwire_pubkey(secp256k1_context *secpctx, const u8 **cursor, size_t *max, struct pubkey *pubkey)
 {
 	u8 der[PUBKEY_DER_LEN];
 
 	if (!fromwire(cursor, max, der, sizeof(der)))
 		return;
 
-	if (!pubkey_from_der(secp256k1_ctx, der, sizeof(der), pubkey))
+	if (!pubkey_from_der(secpctx, der, sizeof(der), pubkey))
 		fail_pull(cursor, max);
 }
 
-void fromwire_signature(const u8 **cursor, size_t *max, struct signature *sig)
+void fromwire_signature(secp256k1_context *secpctx, const u8 **cursor, size_t *max, struct signature *sig)
 {
 	u8 compact[64];
 
 	if (!fromwire(cursor, max, compact, sizeof(compact)))
 		return;
 
-	if (secp256k1_ecdsa_signature_parse_compact(secp256k1_ctx,
+	if (secp256k1_ecdsa_signature_parse_compact(secpctx,
 						    &sig->sig, compact)
 	    != 1)
 		fail_pull(cursor, max);
@@ -122,11 +122,12 @@ void fromwire_pad_array(const u8 **cursor, size_t *max, u8 *arr, size_t num)
 	fromwire(cursor, max, arr, num);
 }
 	
-void fromwire_signature_array(const u8 **cursor, size_t *max,
+void fromwire_signature_array(secp256k1_context *secpctx,
+			      const u8 **cursor, size_t *max,
 			      struct signature *arr, size_t num)
 {
 	size_t i;
 
 	for (i = 0; i < num; i++)
-		fromwire_signature(cursor, max, arr + i);
+		fromwire_signature(secpctx, cursor, max, arr + i);
 }
