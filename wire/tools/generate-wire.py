@@ -8,11 +8,19 @@ import re
 
 Enumtype = namedtuple('Enumtype', ['name', 'value'])
 
+# Field types that require a crypto context
+crypto_types = [
+    'struct pubkey',
+    'struct signature'
+]
+
 class Field(object):
     def __init__(self,message,name,size):
         self.message = message
         self.name = name.replace('-', '_')
         (self.typename, self.basesize) = Field._guess_type(message,self.name,size)
+
+        self.is_crypto = self.typename in crypto_types
 
         try:
             if int(size) % self.basesize != 0:
@@ -102,6 +110,7 @@ class Message(object):
         self.name = name
         self.enum = enum
         self.fields = []
+        self.is_crypto = False
 
     def checkLenField(self,field):
         for f in self.fields:
@@ -123,6 +132,7 @@ class Message(object):
         if field.is_variable_size():
             self.checkLenField(field)
         self.fields.append(field)
+        self.is_crypto |= field.is_crypto
 
     def print_structure(self):
         print('struct msg_{} {{'.format(self.name));
@@ -139,7 +149,9 @@ class Message(object):
         print('};')
 
     def print_fromwire(self,is_header):
-        print('struct msg_{} *fromwire_{}(const tal_t *ctx, const void *p, size_t *len)'.format(self.name,self.name), end='')
+        crypto_arg = "secp256k1_context *secpctx, " if self.is_crypto else ""
+
+        print('struct msg_{0} *fromwire_{0}({1}const tal_t *ctx, const void *p, size_t *len)'.format(self.name, crypto_arg), end='')
 
         if is_header:
             print(';')
@@ -156,20 +168,25 @@ class Message(object):
             if f.typename.startswith('struct '):
                 basetype=f.typename[7:]
 
+            crypto_param = "secpctx, " if f.is_crypto else ""
             if f.is_array():
-                print('\tfromwire_{}_array(&cursor, len, in->{}, {});'
-                      .format(basetype, f.name, f.num_elems))
+                print("\t//1th case", f.name)
+                print('\tfromwire_{}_array({}&cursor, len, in->{}, {});'
+                      .format(basetype, crypto_param, f.name, f.num_elems))
             elif f.is_variable_size():
+                print("\t//2th case", f.name)
                 print('\tin->{} = tal_arr(in, {}, in->{});'
                       .format(f.name, f.typename, f.lenvar))
-                print('\tfromwire_{}_array(&cursor, len, in->{}, in->{});'
-                      .format(basetype, f.name, f.lenvar))
+                print('\tfromwire_{}_array({}&cursor, len, in->{}, in->{});'
+                      .format(basetype, crypto_param, f.name, f.lenvar))
             elif f.is_assignable():
+                print("\t//3th case", f.name)
                 print('\tin->{} = fromwire_{}(&cursor, len);'
                       .format(f.name, basetype))
             else:
-                print('\tfromwire_{}(&cursor, len, &in->{});'
-                      .format(basetype, f.name))
+                print("\t//4th case", f.name)
+                print('\tfromwire_{}({}&cursor, len, &in->{});'
+                      .format(basetype, crypto_param, f.name))
 
         print('\n'
               '\tif (!cursor)\n'
@@ -178,7 +195,8 @@ class Message(object):
               '}\n')
    
     def print_towire(self,is_header):
-        print('u8 *towire_{}(const tal_t *ctx, const struct msg_{} *out)'.format(self.name,self.name), end='')
+        crypto_arg = "secp256k1_context *secpctx, " if self.is_crypto else ""
+        print('u8 *towire_{0}({1}const tal_t *ctx, const struct msg_{0} *out)'.format(self.name, crypto_arg), end='')
 
         if is_header:
             print(';')
@@ -194,18 +212,19 @@ class Message(object):
             if f.typename.startswith('struct '):
                 basetype=f.typename[7:]
 
+            crypto_param = "secpctx, " if f.is_crypto else ""
             if f.is_array():
-                print('\ttowire_{}_array(&p, out->{}, {});'
-                      .format(basetype, f.name, f.num_elems))
+                print('\ttowire_{}_array({}&p, out->{}, {});'
+                      .format(basetype, crypto_param, f.name, f.num_elems))
             elif f.is_variable_size():
-                print('\ttowire_{}_array(&p, out->{}, out->{});'
-                      .format(basetype, f.name, f.lenvar))
+                print('\ttowire_{}_array({}&p, out->{}, out->{});'
+                      .format(basetype, crypto_param, f.name, f.lenvar))
             elif f.is_assignable():
-                print('\ttowire_{}(&p, out->{});'
-                      .format(basetype, f.name))
+                print('\ttowire_{}({}&p, out->{});'
+                      .format(basetype, crypto_param, f.name))
             else:
-                print('\ttowire_{}(&p, &out->{});'
-                      .format(basetype, f.name))
+                print('\ttowire_{}({}&p, &out->{});'
+                      .format(basetype, crypto_param, f.name))
 
         print('\n'
               '\treturn p;\n'
