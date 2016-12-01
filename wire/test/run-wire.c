@@ -203,6 +203,20 @@ static bool node_announcement_eq(const struct msg_node_announcement *a,
 		assert(!b);					\
 	}
 
+#define crypto_test_corruption(a, b, type)			\
+	for (i = 0; i < tal_count(msg) * 8; i++) {		\
+		len = tal_count(msg);				\
+		msg[i / 8] ^= (1 << (i%8));			\
+		b = fromwire_##type(secp256k1_ctx, ctx, msg, &len);	\
+		assert(!b || !type##_eq(a, b));			\
+		msg[i / 8] ^= (1 << (i%8));			\
+	}							\
+	for (i = 0; i < tal_count(msg); i++) {			\
+		len = i;					\
+		b = fromwire_##type(secp256k1_ctx, ctx, msg, &len);	\
+		assert(!b);					\
+	}
+
 int main(void)
 {
 	struct msg_channel_announcement ca, *ca2;
@@ -236,22 +250,22 @@ int main(void)
 	set_pubkey(&ca.bitcoin_key_1);
 	set_pubkey(&ca.bitcoin_key_2);
 	
-	msg = towire_channel_announcement(ctx, &ca);
+	msg = towire_channel_announcement(secp256k1_ctx, ctx, &ca);
 	len = tal_count(msg);
-	ca2 = fromwire_channel_announcement(ctx, msg, &len);
+	ca2 = fromwire_channel_announcement(secp256k1_ctx, ctx, msg, &len);
 	assert(len == 0);
 	assert(channel_announcement_eq(&ca, ca2));
-	test_corruption(&ca, ca2, channel_announcement);
+	crypto_test_corruption(&ca, ca2, channel_announcement);
 
 	memset(&fl, 2, sizeof(fl));
 	set_pubkey(&fl.next_per_commitment_point);
 	
-	msg = towire_funding_locked(ctx, &fl);
+	msg = towire_funding_locked(secp256k1_ctx, ctx, &fl);
 	len = tal_count(msg);
-	fl2 = fromwire_funding_locked(ctx, msg, &len);
+	fl2 = fromwire_funding_locked(secp256k1_ctx, ctx, msg, &len);
 	assert(len == 0);
 	assert(funding_locked_eq(&fl, fl2));
-	test_corruption(&fl, fl2, funding_locked);
+	crypto_test_corruption(&fl, fl2, funding_locked);
 	
 	memset(&ufh, 2, sizeof(ufh));
 	
@@ -260,37 +274,37 @@ int main(void)
 	ufh2 = fromwire_update_fail_htlc(ctx, msg, &len);
 	assert(len == 0);
 	assert(update_fail_htlc_eq(&ufh, ufh2));
-	test_corruption(&ufh, ufh2, update_fail_htlc);
+	test_corruption(&ufh, ufh2, update_fail_htlc)
 
 	memset(&cs, 2, sizeof(cs));
 	cs.num_htlcs = 2;
 	cs.htlc_signature = tal_arr(ctx, struct signature, 2);
 	memset(cs.htlc_signature, 2, sizeof(struct signature)*2);
 	
-	msg = towire_commit_sig(ctx, &cs);
+	msg = towire_commit_sig(secp256k1_ctx, ctx, &cs);
 	len = tal_count(msg);
-	cs2 = fromwire_commit_sig(ctx, msg, &len);
+	cs2 = fromwire_commit_sig(secp256k1_ctx, ctx, msg, &len);
 	assert(len == 0);
 	assert(commit_sig_eq(&cs, cs2));
-	test_corruption(&cs, cs2, commit_sig);
+	crypto_test_corruption(&cs, cs2, commit_sig);
 
 	memset(&fs, 2, sizeof(fs));
 	
-	msg = towire_funding_signed(ctx, &fs);
+	msg = towire_funding_signed(secp256k1_ctx, ctx, &fs);
 	len = tal_count(msg);
-	fs2 = fromwire_funding_signed(ctx, msg, &len);
+	fs2 = fromwire_funding_signed(secp256k1_ctx, ctx, msg, &len);
 	assert(len == 0);
 	assert(funding_signed_eq(&fs, fs2));
-	test_corruption(&fs, fs2, funding_signed);
+	crypto_test_corruption(&fs, fs2, funding_signed);
 
 	memset(&cls, 2, sizeof(cls));
 	
-	msg = towire_closing_signed(ctx, &cls);
+	msg = towire_closing_signed(secp256k1_ctx, ctx, &cls);
 	len = tal_count(msg);
-	cls2 = fromwire_closing_signed(ctx, msg, &len);
+	cls2 = fromwire_closing_signed(secp256k1_ctx, ctx, msg, &len);
 	assert(len == 0);
 	assert(closing_signed_eq(&cls, cls2));
-	test_corruption(&cls, cls2, closing_signed);
+	crypto_test_corruption(&cls, cls2, closing_signed);
 	
 	memset(&uflh, 2, sizeof(uflh));
 	
@@ -351,12 +365,12 @@ int main(void)
 	
 	memset(&fc, 2, sizeof(fc));
 	
-	msg = towire_funding_created(ctx, &fc);
+	msg = towire_funding_created(secp256k1_ctx, ctx, &fc);
 	len = tal_count(msg);
-	fc2 = fromwire_funding_created(ctx, msg, &len);
+	fc2 = fromwire_funding_created(secp256k1_ctx, ctx, msg, &len);
 	assert(len == 0);
 	assert(funding_created_eq(&fc, fc2));
-	test_corruption(&fc, fc2, funding_created);
+	crypto_test_corruption(&fc, fc2, funding_created);
 
 	memset(&raa, 2, sizeof(raa));
 	set_pubkey(&raa.next_per_commitment_point);
@@ -364,12 +378,12 @@ int main(void)
 	raa.htlc_timeout_signature = tal_arr(ctx, struct signature, 2);
 	memset(raa.htlc_timeout_signature, 2, sizeof(struct signature) * 2);
 	
-	msg = towire_revoke_and_ack(ctx, &raa);
+	msg = towire_revoke_and_ack(secp256k1_ctx, ctx, &raa);
 	len = tal_count(msg);
-	raa2 = fromwire_revoke_and_ack(ctx, msg, &len);
+	raa2 = fromwire_revoke_and_ack(secp256k1_ctx, ctx, msg, &len);
 	assert(len == 0);
 	assert(revoke_and_ack_eq(&raa, raa2));
-	test_corruption(&raa, raa2, revoke_and_ack);
+	crypto_test_corruption(&raa, raa2, revoke_and_ack);
 
 	memset(&oc, 2, sizeof(oc));
 	set_pubkey(&oc.funding_pubkey);
@@ -378,21 +392,21 @@ int main(void)
 	set_pubkey(&oc.delayed_payment_basepoint);
 	set_pubkey(&oc.first_per_commitment_point);
 	
-	msg = towire_open_channel(ctx, &oc);
+	msg = towire_open_channel(secp256k1_ctx, ctx, &oc);
 	len = tal_count(msg);
-	oc2 = fromwire_open_channel(ctx, msg, &len);
+	oc2 = fromwire_open_channel(secp256k1_ctx, ctx, msg, &len);
 	assert(len == 0);
 	assert(open_channel_eq(&oc, oc2));
-	test_corruption(&oc, oc2, open_channel);
+	crypto_test_corruption(&oc, oc2, open_channel);
 
 	memset(&cu, 2, sizeof(cu));
 	
-	msg = towire_channel_update(ctx, &cu);
+	msg = towire_channel_update(secp256k1_ctx, ctx, &cu);
 	len = tal_count(msg);
-	cu2 = fromwire_channel_update(ctx, msg, &len);
+	cu2 = fromwire_channel_update(secp256k1_ctx, ctx, msg, &len);
 	assert(len == 0);
 	assert(channel_update_eq(&cu, cu2));
-	test_corruption(&cu, cu2, channel_update);
+	crypto_test_corruption(&cu, cu2, channel_update);
 
 	memset(&ac, 2, sizeof(ac));
 	set_pubkey(&ac.funding_pubkey);
@@ -401,12 +415,12 @@ int main(void)
 	set_pubkey(&ac.delayed_payment_basepoint);
 	set_pubkey(&ac.first_per_commitment_point);
 	
-	msg = towire_accept_channel(ctx, &ac);
+	msg = towire_accept_channel(secp256k1_ctx, ctx, &ac);
 	len = tal_count(msg);
-	ac2 = fromwire_accept_channel(ctx, msg, &len);
+	ac2 = fromwire_accept_channel(secp256k1_ctx, ctx, msg, &len);
 	assert(len == 0);
 	assert(accept_channel_eq(&ac, ac2));
-	test_corruption(&ac, ac2, accept_channel);
+	crypto_test_corruption(&ac, ac2, accept_channel);
 
 	memset(&uah, 2, sizeof(uah));
 	
@@ -420,12 +434,12 @@ int main(void)
 	memset(&na, 2, sizeof(na));
 	set_pubkey(&na.node_id);
 
-	msg = towire_node_announcement(ctx, &na);
+	msg = towire_node_announcement(secp256k1_ctx, ctx, &na);
 	len = tal_count(msg);
-	na2 = fromwire_node_announcement(ctx, msg, &len);
+	na2 = fromwire_node_announcement(secp256k1_ctx, ctx, msg, &len);
 	assert(len == 0);
 	assert(node_announcement_eq(&na, na2));
-	test_corruption(&na, na2, node_announcement);
+	crypto_test_corruption(&na, na2, node_announcement);
 
 	/* No memory leaks please */
 	secp256k1_context_destroy(secp256k1_ctx);
