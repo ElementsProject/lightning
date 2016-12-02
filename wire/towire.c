@@ -1,3 +1,4 @@
+#include "utils.h"
 #include "wire.h"
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
@@ -34,22 +35,22 @@ void towire_u64(u8 **pptr, u64 v)
 	towire(pptr, &l, sizeof(l));
 }
 
-void towire_pubkey(secp256k1_context *secpctx, u8 **pptr, const struct pubkey *pubkey)
+void towire_pubkey(u8 **pptr, const struct pubkey *pubkey)
 {
 	u8 output[PUBKEY_DER_LEN];
 	size_t outputlen = sizeof(output);
 
-	secp256k1_ec_pubkey_serialize(secpctx, output, &outputlen,
+	secp256k1_ec_pubkey_serialize(secp256k1_ctx, output, &outputlen,
 				      &pubkey->pubkey,
 				      SECP256K1_EC_COMPRESSED);
 	towire(pptr, output, outputlen);
 }
 
-void towire_signature(secp256k1_context *secpctx, u8 **pptr, const struct signature *sig)
+void towire_signature(u8 **pptr, const struct signature *sig)
 {
 	u8 compact[64];
 
-	secp256k1_ecdsa_signature_serialize_compact(secpctx,
+	secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx,
 						    compact, &sig->sig);
 	towire(pptr, compact, sizeof(compact));
 }
@@ -88,10 +89,10 @@ void towire_pad_array(u8 **pptr, const u8 *arr, size_t num)
 	memset(*pptr + oldsize, 0, num);
 }
 	
-void towire_signature_array(secp256k1_context *secpctx, u8 **pptr, const struct signature *arr, size_t num)
+void towire_signature_array(u8 **pptr, const struct signature *arr, size_t num)
 {
 	size_t i;
 
 	for (i = 0; i < num; i++)
-		towire_signature(secpctx, pptr, arr+i);
+		towire_signature(pptr, arr+i);
 }

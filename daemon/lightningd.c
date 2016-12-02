@@ -11,6 +11,7 @@
 #include "routing.h"
 #include "secrets.h"
 #include "timeout.h"
+#include "utils.h"
 #include <ccan/container_of/container_of.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
@@ -355,7 +356,7 @@ static struct lightningd_state *lightningd_state(void)
 	timers_init(&dstate->timers, time_mono());
 	txwatch_hash_init(&dstate->txwatches);
 	txowatch_hash_init(&dstate->txowatches);
-	dstate->secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+	secp256k1_ctx = dstate->secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						   | SECP256K1_CONTEXT_SIGN);
 	list_head_init(&dstate->bitcoin_req);
 	list_head_init(&dstate->wallet);
