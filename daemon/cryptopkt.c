@@ -8,6 +8,7 @@
 #include "peer.h"
 #include "protobuf_convert.h"
 #include "secrets.h"
+#include "utils.h"
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/endian/endian.h>
@@ -507,7 +508,7 @@ static struct io_plan *keys_exchanged(struct io_conn *conn,
 	}
 
 	/* Derive shared secret. */
-	if (!secp256k1_ecdh(neg->dstate->secpctx, shared_secret,
+	if (!secp256k1_ecdh(secp256k1_ctx, shared_secret,
 			    &sessionkey.pubkey, neg->seckey)) {
 		log_unusual(neg->log, "Bad ECDH");
 		return io_close(conn);
@@ -590,13 +591,12 @@ static struct io_plan *session_key_len_receive(struct io_conn *conn,
 		       session_key_receive, neg);
 }
 
-static void gen_sessionkey(secp256k1_context *ctx,
-			   u8 seckey[32],
+static void gen_sessionkey(u8 seckey[32],
 			   secp256k1_pubkey *pubkey)
 {
 	do {
 		randombytes_buf(seckey, 32);
-	} while (!secp256k1_ec_pubkey_create(ctx, pubkey, seckey));
+	} while (!secp256k1_ec_pubkey_create(secp256k1_ctx, pubkey, seckey));
 }
 
 static struct io_plan *write_sessionkey(struct io_conn *conn,
@@ -638,10 +638,10 @@ struct io_plan *peer_crypto_setup_(struct io_conn *conn,
 	neg->expected_id = id;
 	neg->log = log;
 
-	gen_sessionkey(dstate->secpctx, neg->seckey, &sessionkey);
+	gen_sessionkey(neg->seckey, &sessionkey);
 
 	outputlen = sizeof(neg->our_sessionpubkey);
-	secp256k1_ec_pubkey_serialize(dstate->secpctx,
+	secp256k1_ec_pubkey_serialize(secp256k1_ctx,
 				      neg->our_sessionpubkey, &outputlen,
 				      &sessionkey,
 				      SECP256K1_EC_COMPRESSED);

@@ -107,9 +107,6 @@ struct lightningd_state {
 	/* Any outstanding "pay" commands. */
 	struct list_head pay_commands;
 
-	/* Crypto tables for global use. */
-	secp256k1_context *secpctx;
-
 	/* Our private key */
 	struct secret *secret;
 

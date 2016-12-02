@@ -356,8 +356,6 @@ static struct lightningd_state *lightningd_state(void)
 	timers_init(&dstate->timers, time_mono());
 	txwatch_hash_init(&dstate->txwatches);
 	txowatch_hash_init(&dstate->txowatches);
-	secp256k1_ctx = dstate->secpctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						   | SECP256K1_CONTEXT_SIGN);
 	list_head_init(&dstate->bitcoin_req);
 	list_head_init(&dstate->wallet);
 	list_head_init(&dstate->unpaid);
@@ -483,6 +481,9 @@ int main(int argc, char *argv[])
 		errx(1, "Compiled against protobuf %s, but have %s",
 		     PROTOBUF_C_VERSION, protobuf_c_version());
 
+	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+						 | SECP256K1_CONTEXT_SIGN);
+	
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "\n"
 			   "A bitcoin lightning daemon.",
