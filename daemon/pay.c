@@ -52,8 +52,8 @@ static void handle_json(struct command *cmd, const struct htlc *htlc,
 		return;
 	}
 
-	if (proto_to_pubkey(cmd->dstate->secpctx, f->id, &id))
-		idstr = pubkey_to_hexstr(cmd, cmd->dstate->secpctx, &id);
+	if (proto_to_pubkey(f->id, &id))
+		idstr = pubkey_to_hexstr(cmd, &id);
 
 	command_fail(cmd,
 		     "failed: error code %u node %s reason %s",
@@ -73,7 +73,7 @@ static void check_routing_failure(struct lightningd_state *dstate,
 	/* FIXME: We remove route on *any* failure. */
 	log_debug(dstate->base_log, "Seeking route for fail code %u",
 		  f->error_code);
-	if (!proto_to_pubkey(dstate->secpctx, f->id, &id)) {
+	if (!proto_to_pubkey(f->id, &id)) {
 		log_add(dstate->base_log, " - bad node");
 		return;
 	}
@@ -185,12 +185,11 @@ bool pay_add(struct lightningd_state *dstate,
 }
 
 static void json_add_route(struct json_result *response,
-			   secp256k1_context *secpctx,
 			   const struct pubkey *id,
 			   u64 amount, unsigned int delay)
 {
 	json_object_start(response, NULL);
-	json_add_pubkey(response, secpctx, "id", id);
+	json_add_pubkey(response, "id", id);
 	json_add_u64(response, "msatoshi", amount);
 	json_add_num(response, "delay", delay);
 	json_object_end(response);
@@ -220,8 +219,7 @@ static void json_getroute(struct command *cmd,
 		return;
 	}
 
-	if (!pubkey_from_hexstr(cmd->dstate->secpctx,
-				buffer + idtok->start,
+	if (!pubkey_from_hexstr(buffer + idtok->start,
 				idtok->end - idtok->start, &id)) {
 		command_fail(cmd, "Invalid id");
 		return;
@@ -274,10 +272,9 @@ static void json_getroute(struct command *cmd,
 	response = new_json_result(cmd);
 	json_object_start(response, NULL);
 	json_array_start(response, "route");
-	json_add_route(response, cmd->dstate->secpctx,
-		       peer->id, amounts[0], delays[0]);
+	json_add_route(response, peer->id, amounts[0], delays[0]);
 	for (i = 0; i < tal_count(route); i++)
-		json_add_route(response, cmd->dstate->secpctx,
+		json_add_route(response,
 			       &route[i]->dst->id, amounts[i+1], delays[i+1]);
 	json_array_end(response);
 	json_object_end(response);
@@ -378,8 +375,7 @@ static void json_sendpay(struct command *cmd,
 
 		tal_resize(&ids, n_hops+1);
 		memset(&ids[n_hops], 0, sizeof(ids[n_hops]));
-		if (!pubkey_from_hexstr(cmd->dstate->secpctx,
-					buffer + idtok->start,
+		if (!pubkey_from_hexstr(buffer + idtok->start,
 					idtok->end - idtok->start,
 					&ids[n_hops])) {
 			command_fail(cmd, "route %zu invalid id", n_hops);
@@ -424,7 +420,6 @@ static void json_sendpay(struct command *cmd,
 			if (!structeq(&pc->ids[old_nhops-1], &ids[n_hops-1])) {
 				char *previd;
 				previd = pubkey_to_hexstr(cmd,
-							  cmd->dstate->secpctx,
 							  &pc->ids[old_nhops-1]);
 				command_fail(cmd,
 					     "already succeeded to %s",
@@ -447,9 +442,9 @@ static void json_sendpay(struct command *cmd,
 
 	/* Onion will carry us from first peer onwards. */
 	packet = create_onionpacket(
-		cmd, cmd->dstate->secpctx, ids, hoppayloads,
+		cmd, ids, hoppayloads,
 		sessionkey, (u8*)"", 0);
-	onion = serialize_onionpacket(cmd, cmd->dstate->secpctx, packet);
+	onion = serialize_onionpacket(cmd, packet);
 
 	if (pc)
 		pc->ids = tal_free(pc->ids);

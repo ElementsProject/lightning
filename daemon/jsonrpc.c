@@ -263,7 +263,7 @@ static void json_getinfo(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 
 	json_object_start(response, NULL);
-	json_add_pubkey(response, cmd->dstate->secpctx, "id", &cmd->dstate->id);
+	json_add_pubkey(response, "id", &cmd->dstate->id);
 	/* FIXME: Keep netaddrs and list them all. */
 	if (cmd->dstate->portnum)
 		json_add_num(response, "port", cmd->dstate->portnum);

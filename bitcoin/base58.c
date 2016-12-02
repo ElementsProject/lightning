@@ -8,6 +8,7 @@
 #include "privkey.h"
 #include "pubkey.h"
 #include "shadouble.h"
+#include "utils.h"
 #include <assert.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/tal/str/str.h>
@@ -121,8 +122,7 @@ char *key_to_base58(const tal_t *ctx, bool test_net, const struct privkey *key)
 	return tal_strdup(ctx, out);
 }
 
-bool key_from_base58(secp256k1_context *secpctx,
-		     const char *base58, size_t base58_len,
+bool key_from_base58(const char *base58, size_t base58_len,
 		     bool *test_net, struct privkey *priv, struct pubkey *key)
 {
 	// 1 byte version, 32 byte private key, 1 byte compressed, 4 byte checksum
@@ -147,11 +147,11 @@ bool key_from_base58(secp256k1_context *secpctx,
 	/* Copy out secret. */
 	memcpy(priv->secret, keybuf + 1, sizeof(priv->secret));
 
-	if (!secp256k1_ec_seckey_verify(secpctx, priv->secret))
+	if (!secp256k1_ec_seckey_verify(secp256k1_ctx, priv->secret))
 		return false;
 
 	/* Get public key, too. */
-	if (!pubkey_from_privkey(secpctx, priv, key))
+	if (!pubkey_from_privkey(priv, key))
 		return false;
 
 	return true;

@@ -288,7 +288,7 @@ static char *to_string_(const tal_t *ctx,
 
 	/* GCC checks we're one of these, so we should be. */
 	if (streq(structname, "struct pubkey"))
-		s = pubkey_to_hexstr(ctx, lr->dstate->secpctx, u.pubkey);
+		s = pubkey_to_hexstr(ctx, u.pubkey);
 	else if (streq(structname, "struct sha256_double"))
 		s = tal_hexstr(ctx, u.sha256_double, sizeof(*u.sha256_double));
 	else if (streq(structname, "struct sha256"))

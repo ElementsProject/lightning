@@ -88,7 +88,6 @@ static const struct bitcoin_tx *mk_bitcoin_close(const tal_t *ctx,
 
 	close_tx->input[0].witness
 		= bitcoin_witness_2of2(close_tx->input,
-				       peer->dstate->secpctx,
 				       peer->closing.their_sig,
 				       &our_close_sig,
 				       &peer->remote.commitkey,
@@ -109,7 +108,6 @@ static const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 
 	/* The redeemscript for a commit tx is fairly complex. */
 	witnessscript = bitcoin_redeem_secret_or_delay(peer,
-						       peer->dstate->secpctx,
 						      &peer->local.finalkey,
 						      &peer->remote.locktime,
 						      &peer->remote.finalkey,
@@ -126,7 +124,6 @@ static const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 
 	tx->output[0].script = scriptpubkey_p2sh(tx,
 				 bitcoin_redeem_single(tx,
-						       peer->dstate->secpctx,
 						       &peer->local.finalkey));
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
@@ -148,7 +145,6 @@ static const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 	peer_sign_spend(peer, tx, witnessscript, &sig.sig);
 
 	tx->input[0].witness = bitcoin_witness_secret(tx,
-						      peer->dstate->secpctx,
 						      NULL, 0, &sig,
 						      witnessscript);
 
@@ -169,7 +165,6 @@ static void sign_commit_tx(struct peer *peer)
 
 	peer->local.commit->tx->input[0].witness
 		= bitcoin_witness_2of2(peer->local.commit->tx->input,
-				       peer->dstate->secpctx,
 				       peer->local.commit->sig,
 				       &sig,
 				       &peer->remote.commitkey,
@@ -204,7 +199,7 @@ struct peer *find_peer_by_pkhash(struct lightningd_state *dstate, const u8 *pkha
 	u8 addr[20];
 
 	list_for_each(&dstate->peers, peer, list) {
-		pubkey_hash160(dstate->secpctx, addr, peer->id);
+		pubkey_hash160(addr, peer->id);
 		if (memcmp(addr, pkhash, sizeof(addr)) == 0)
 			return peer;
 	}
@@ -234,8 +229,7 @@ static struct peer *find_peer_json(struct lightningd_state *dstate,
 {
 	struct pubkey peerid;
 
-	if (!pubkey_from_hexstr(dstate->secpctx,
-				buffer + peeridtok->start,
+	if (!pubkey_from_hexstr(buffer + peeridtok->start,
 				peeridtok->end - peeridtok->start, &peerid))
 		return NULL;
 
@@ -316,8 +310,7 @@ static void peer_open_complete(struct peer *peer, const char *problem)
 			response = new_json_result(peer->open_jsoncmd);
 
 			json_object_start(response, NULL);
-			json_add_pubkey(response, peer->dstate->secpctx,
-					"id", peer->id);
+			json_add_pubkey(response, "id", peer->id);
 			json_object_end(response);
 			command_success(peer->open_jsoncmd, response);
 			peer->open_jsoncmd = NULL;
@@ -574,7 +567,7 @@ static bool open_pkt_in(struct peer *peer, const Pkt *pkt)
 
 	/* Witness script for anchor. */
 	peer->anchor.witnessscript
-		= bitcoin_redeem_2of2(peer, peer->dstate->secpctx,
+		= bitcoin_redeem_2of2(peer,
 				      &peer->local.commitkey,
 				      &peer->remote.commitkey);
 
@@ -632,8 +625,7 @@ static bool open_ouranchor_pkt_in(struct peer *peer, const Pkt *pkt)
 	err = accept_pkt_open_commit_sig(peer, pkt,
 					 peer->local.commit->sig);
 	if (!err &&
-	    !check_tx_sig(peer->dstate->secpctx,
-			  peer->local.commit->tx, 0,
+	    !check_tx_sig(peer->local.commit->tx, 0,
 			  NULL, 0,
 			  peer->anchor.witnessscript,
 			  &peer->remote.commitkey,
@@ -888,10 +880,10 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 
 	//FIXME: dirty trick to retrieve unexported state
 	memcpy(&pk, peer->dstate->secret, sizeof(pk));
-	packet = parse_onionpacket(peer, peer->dstate->secpctx,
+	packet = parse_onionpacket(peer,
 				   htlc->routing, tal_count(htlc->routing));
 	if (packet)
-		step = process_onionpacket(packet, peer->dstate->secpctx, packet, &pk);
+		step = process_onionpacket(packet, packet, &pk);
 
 	if (!step) {
 		log_unusual(peer->log, "Bad onion, failing HTLC %"PRIu64,
@@ -941,7 +933,7 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 
 	case ONION_FORWARD:
 		route_htlc_onwards(peer, htlc, step->hoppayload->amount, step->next->nexthop,
-				   serialize_onionpacket(step, peer->dstate->secpctx, step->next), only_dest);
+				   serialize_onionpacket(step, step->next), only_dest);
 		goto free_packet;
 	default:
 		log_info(peer->log, "Unknown step type %u", step->nextcase);
@@ -1238,12 +1230,12 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 	 * transaction with the given `close_fee`, and MUST fail the
 	 * connection if it is not. */
 	theirsig.stype = SIGHASH_ALL;
-	if (!proto_to_signature(peer->dstate->secpctx, c->sig, &theirsig.sig))
+	if (!proto_to_signature(c->sig, &theirsig.sig))
 		return peer_comms_err(peer,
 				      pkt_err(peer, "Invalid signature format"));
 
 	close_tx = peer_create_close_tx(c, peer, c->close_fee);
-	if (!check_tx_sig(peer->dstate->secpctx, close_tx, 0,
+	if (!check_tx_sig(close_tx, 0,
 			  NULL, 0,
 			  peer->anchor.witnessscript,
 			  &peer->remote.commitkey, &theirsig))
@@ -1396,8 +1388,7 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	 * except unacked fee changes to the local commitment, then it MUST
 	 * check `sig` is valid for that transaction.
 	 */
-	if (ci->sig && !check_tx_sig(peer->dstate->secpctx,
-				     ci->tx, 0,
+	if (ci->sig && !check_tx_sig(ci->tx, 0,
 				     NULL, 0,
 				     peer->anchor.witnessscript,
 				     &peer->remote.commitkey,
@@ -1832,9 +1823,7 @@ static bool peer_start_shutdown(struct peer *peer)
 	/* If they started close, we might not have sent ours. */
 	assert(!peer->closing.our_script);
 
-	redeemscript = bitcoin_redeem_single(peer,
-					     peer->dstate->secpctx,
-					     &peer->local.finalkey);
+	redeemscript = bitcoin_redeem_single(peer, &peer->local.finalkey);
 
 	peer->closing.our_script = scriptpubkey_p2sh(peer, redeemscript);
 	tal_free(redeemscript);
@@ -1944,7 +1933,6 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 	 * it's their HTLC, and that we collected it via rval. */
 	tx->output[0].script = scriptpubkey_p2sh(tx,
 				 bitcoin_redeem_single(tx,
-						       peer->dstate->secpctx,
 						       &peer->local.finalkey));
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
@@ -1967,7 +1955,7 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 	sig.stype = SIGHASH_ALL;
 	peer_sign_htlc_fulfill(peer, tx, wscript, &sig.sig);
 
-	tx->input[0].witness = bitcoin_witness_htlc(tx, peer->dstate->secpctx,
+	tx->input[0].witness = bitcoin_witness_htlc(tx,
 						    htlc->r, &sig, wscript);
 
 	log_debug(peer->log, "tx cost for htlc fulfill tx: %zu",
@@ -1979,7 +1967,7 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 static bool command_htlc_set_fail(struct peer *peer, struct htlc *htlc,
 				  enum fail_error error_code, const char *why)
 {
-	const u8 *fail = failinfo_create(htlc, peer->dstate->secpctx,
+	const u8 *fail = failinfo_create(htlc,
 					 &peer->dstate->id, error_code, why);
 
 	set_htlc_fail(peer, htlc, fail, tal_count(fail));
@@ -2803,7 +2791,7 @@ static bool peer_first_connected(struct peer *peer,
 		return false;
 
 	name = netaddr_name(peer, &addr);
-	idstr = pubkey_to_hexstr(name, peer->dstate->secpctx, peer->id);
+	idstr = pubkey_to_hexstr(name, peer->id);
 	log_info(peer->log, "Connected %s %s id %s, changing prefix",
 		 we_connected ? "out to" : "in from", name, idstr);
 	set_log_prefix(peer->log, tal_fmt(name, "%s:", idstr));
@@ -2910,8 +2898,7 @@ static struct io_plan *crypto_on_out(struct io_conn *conn,
 
 	if (find_peer(dstate, id)) {
 		command_fail(connect->cmd, "Already connected to peer %s",
-			     pubkey_to_hexstr(connect->cmd,
-					      dstate->secpctx, id));
+			     pubkey_to_hexstr(connect->cmd, id));
 		return io_close(conn);
 	}
 
@@ -3490,7 +3477,6 @@ static const struct bitcoin_tx *htlc_timeout_tx(const struct peer *peer,
 	 * it's our HTLC, and that we collected it via timeout. */
 	tx->output[0].script = scriptpubkey_p2sh(tx,
 				 bitcoin_redeem_single(tx,
-						       peer->dstate->secpctx,
 						       &peer->local.finalkey));
 	tx->output[0].script_length = tal_count(tx->output[0].script);
 
@@ -3513,7 +3499,7 @@ static const struct bitcoin_tx *htlc_timeout_tx(const struct peer *peer,
 	sig.stype = SIGHASH_ALL;
 	peer_sign_htlc_refund(peer, tx, wscript, &sig.sig);
 
-	tx->input[0].witness = bitcoin_witness_htlc(tx, peer->dstate->secpctx,
+	tx->input[0].witness = bitcoin_witness_htlc(tx,
 						    NULL, &sig, wscript);
 
 	log_unusual(peer->log, "tx cost for htlc timeout tx: %zu",
@@ -4068,7 +4054,6 @@ static void resolve_their_steal(struct peer *peer,
 	steal_tx->output[0].amount = input_total - fee;
 	steal_tx->output[0].script = scriptpubkey_p2sh(steal_tx,
 				 bitcoin_redeem_single(steal_tx,
-						       peer->dstate->secpctx,
 						       &peer->local.finalkey));
 	steal_tx->output[0].script_length = tal_count(steal_tx->output[0].script);
 
@@ -4088,7 +4073,6 @@ static void resolve_their_steal(struct peer *peer,
 
 		steal_tx->input[n].witness
 			= bitcoin_witness_secret(steal_tx,
-						 peer->dstate->secpctx,
 						 revocation_preimage,
 						 sizeof(*revocation_preimage),
 						 &sig,
@@ -4288,7 +4272,7 @@ struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
 	log_add_struct(peer->log, "%s", struct pubkey, &peer->local.finalkey);
 	log_add_struct(peer->log, "/%s", struct pubkey, &peer->remote.finalkey);
 
- 	return create_close_tx(peer->dstate->secpctx, ctx,
+ 	return create_close_tx(ctx,
 			       peer->closing.our_script,
 			       peer->closing.their_script,
 			       &peer->anchor.txid,
@@ -4507,8 +4491,7 @@ static void json_getpeers(struct command *cmd,
 		json_add_string(response, "state", state_name(p->state));
 
 		if (p->id)
-			json_add_pubkey(response, cmd->dstate->secpctx,
-					"peerid", p->id);
+			json_add_pubkey(response, "peerid", p->id);
 
 		json_add_bool(response, "connected", p->connected);
 
@@ -4588,7 +4571,7 @@ static void json_gethtlcs(struct command *cmd,
 			json_add_num(response, "deadline", h->deadline);
 			if (h->src) {
 				json_object_start(response, "src");
-				json_add_pubkey(response, cmd->dstate->secpctx,
+				json_add_pubkey(response,
 						"peerid", h->src->peer->id);
 				json_add_u64(response, "id", h->src->id);
 				json_object_end(response);
@@ -4696,10 +4679,9 @@ static void json_newhtlc(struct command *cmd,
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
 	packet = create_onionpacket(
 		cmd,
-		cmd->dstate->secpctx,
 		path,
 		hoppayloads, sessionkey, (u8*)"", 0);
-	onion = serialize_onionpacket(cmd, cmd->dstate->secpctx, packet);
+	onion = serialize_onionpacket(cmd, packet);
 
 	log_debug(peer->log, "JSON command to add new HTLC");
 	err = command_htlc_add(peer, msatoshi, expiry, &rhash, NULL,

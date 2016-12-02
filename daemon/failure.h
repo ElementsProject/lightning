@@ -27,7 +27,6 @@ enum fail_error {
 };
 
 const u8 *failinfo_create(const tal_t *ctx,
-			  secp256k1_context *secpctx,
 			  const struct pubkey *id,
 			  enum fail_error error_code,
 			  const char *reason);

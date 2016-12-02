@@ -15,25 +15,20 @@ struct pubkey {
 };
 
 /* Convert from hex string of DER (scriptPubKey from validateaddress) */
-bool pubkey_from_hexstr(secp256k1_context *secpctx,
-			const char *derstr, size_t derlen, struct pubkey *key);
+bool pubkey_from_hexstr(const char *derstr, size_t derlen, struct pubkey *key);
 
 /* Convert from hex string of DER (scriptPubKey from validateaddress) */
-char *pubkey_to_hexstr(const tal_t *ctx, secp256k1_context *secpctx,
-		       const struct pubkey *key);
+char *pubkey_to_hexstr(const tal_t *ctx, const struct pubkey *key);
 
 /* Pubkey from privkey */
-bool pubkey_from_privkey(secp256k1_context *secpctx,
-			 const struct privkey *privkey,
+bool pubkey_from_privkey(const struct privkey *privkey,
 			 struct pubkey *key);
 
 /* Pubkey from DER encoding. */
-bool pubkey_from_der(secp256k1_context *secpctx,
-		     const u8 *der, size_t len, struct pubkey *key);
+bool pubkey_from_der(const u8 *der, size_t len, struct pubkey *key);
 
 /* Pubkey to DER encoding: must be valid pubkey. */
-void pubkey_to_der(secp256k1_context *secpctx, u8 der[PUBKEY_DER_LEN],
-		   const struct pubkey *key);
+void pubkey_to_der(u8 der[PUBKEY_DER_LEN], const struct pubkey *key);
 
 /* Are these keys equal? */
 bool pubkey_eq(const struct pubkey *a, const struct pubkey *b);

@@ -55,7 +55,6 @@ struct route_step {
  * over a path of intermediate nodes.
  *
  * @ctx: tal context to allocate from
- * @secpctx: the secp256k1_context for EC operations
  * @path: public keys of nodes along the path.
  * @hoppayloads: payloads destined for individual hosts (limited to
  *    HOP_PAYLOAD_SIZE bytes)
@@ -66,7 +65,6 @@ struct route_step {
  */
 struct onionpacket *create_onionpacket(
 	const tal_t * ctx,
-	secp256k1_context * secpctx,
 	struct pubkey path[],
 	struct hoppayload hoppayloads[],
 	const u8 * sessionkey,
@@ -79,14 +77,12 @@ struct onionpacket *create_onionpacket(
  * onion layer and return the packet for the next hop.
  *
  * @ctx: tal context to allocate from
- * @secpctx: the secp256k1_context for EC operations
  * @packet: incoming packet being processed
  * @hop_privkey: the processing node's private key to decrypt the packet
  * @hoppayload: the per-hop payload destined for the processing node.
  */
 struct route_step *process_onionpacket(
 	const tal_t * ctx,
-	secp256k1_context * secpctx,
 	const struct onionpacket *packet,
 	struct privkey *hop_privkey
 	);
@@ -95,31 +91,26 @@ struct route_step *process_onionpacket(
  * serialize_onionpacket - Serialize an onionpacket to a buffer.
  *
  * @ctx: tal context to allocate from
- * @secpctx: the secp256k1_context for EC operations
  * @packet: the packet to serialize
  */
 u8 *serialize_onionpacket(
 	const tal_t *ctx,
-	const secp256k1_context *secpctx,
 	const struct onionpacket *packet);
 
 /**
  * parese_onionpacket - Parse an onionpacket from a buffer.
  *
  * @ctx: tal context to allocate from
- * @secpctx: the secp256k1_context for EC operations
  * @src: buffer to read the packet from
  * @srclen: length of the @src
  */
 struct onionpacket *parse_onionpacket(
 	const tal_t *ctx,
-	const secp256k1_context *secpctx,
 	const void *src,
 	const size_t srclen
 	);
 
 void pubkey_hash160(
-	const secp256k1_context *secpctx,
 	u8 *dst,
 	const struct pubkey *pubkey);
 

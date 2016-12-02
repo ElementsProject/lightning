@@ -4,7 +4,6 @@
 
 /* FIXME: Crypto! */
 const u8 *failinfo_create(const tal_t *ctx,
-			  secp256k1_context *secpctx,
 			  const struct pubkey *id,
 			  u32 error_code,
 			  const char *reason)
@@ -13,7 +12,7 @@ const u8 *failinfo_create(const tal_t *ctx,
 	u8 *arr;
 
 	fail_info__init(f);
-	f->id = pubkey_to_proto(f, secpctx, id);
+	f->id = pubkey_to_proto(f, id);
 	f->error_code = error_code;
 	if (reason)
 		f->reason = tal_strdup(f, reason);

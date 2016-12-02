@@ -30,10 +30,10 @@ bool restore_wallet_address(struct lightningd_state *dstate,
 	struct sha256 h;
 
 	w->privkey = *privkey;
-	if (!pubkey_from_privkey(dstate->secpctx, &w->privkey, &w->pubkey))
+	if (!pubkey_from_privkey(&w->privkey, &w->pubkey))
 		return false;
 
-	redeemscript = bitcoin_redeem_p2wpkh(w, dstate->secpctx, &w->pubkey);
+	redeemscript = bitcoin_redeem_p2wpkh(w, &w->pubkey);
 	sha256(&h, redeemscript, tal_count(redeemscript));
 	ripemd160(&w->p2sh, h.u.u8, sizeof(h));
 
@@ -42,12 +42,11 @@ bool restore_wallet_address(struct lightningd_state *dstate,
 	return true;
 }
 
-static void new_keypair(struct lightningd_state *dstate,
-			struct privkey *privkey, struct pubkey *pubkey)
+static void new_keypair(struct privkey *privkey, struct pubkey *pubkey)
 {
 	do {
 		randombytes_buf(privkey->secret, sizeof(privkey->secret));
-	} while (!pubkey_from_privkey(dstate->secpctx, privkey, pubkey));
+	} while (!pubkey_from_privkey(privkey, pubkey));
 }
 
 static struct wallet *find_by_pubkey(struct lightningd_state *dstate,
@@ -75,18 +74,17 @@ bool wallet_add_signed_input(struct lightningd_state *dstate,
 	if (!w)
 		return false;
 
-	redeemscript = bitcoin_redeem_p2wpkh(tx, dstate->secpctx, &w->pubkey);
+	redeemscript = bitcoin_redeem_p2wpkh(tx, &w->pubkey);
 
 	sig.stype = SIGHASH_ALL;
-	sign_tx_input(dstate->secpctx, tx, input_num,
+	sign_tx_input(tx, input_num,
 		      redeemscript, tal_count(redeemscript),
-		      p2wpkh_scriptcode(redeemscript, dstate->secpctx,
-					&w->pubkey),
+		      p2wpkh_scriptcode(redeemscript, &w->pubkey),
 		      &w->privkey,
 		      &w->pubkey,
 		      &sig.sig);
 
-	bitcoin_witness_p2sh_p2wpkh(tx->input, dstate->secpctx,
+	bitcoin_witness_p2sh_p2wpkh(tx->input,
 				    &tx->input[input_num],
 				    &sig,
 				    &w->pubkey);
@@ -122,9 +120,8 @@ static void json_newaddr(struct command *cmd,
 	u8 *redeemscript;
 	struct sha256 h;
 
-	new_keypair(cmd->dstate, &w->privkey, &w->pubkey);
-	redeemscript = bitcoin_redeem_p2wpkh(cmd, cmd->dstate->secpctx,
-					     &w->pubkey);
+	new_keypair(&w->privkey, &w->pubkey);
+	redeemscript = bitcoin_redeem_p2wpkh(cmd, &w->pubkey);
 	sha256(&h, redeemscript, tal_count(redeemscript));
 	ripemd160(&w->p2sh, h.u.u8, sizeof(h));
 

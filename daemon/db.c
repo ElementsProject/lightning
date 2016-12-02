@@ -146,10 +146,9 @@ static u8 *tal_sql_blob(const tal_t *ctx, sqlite3_stmt *stmt, int idx)
 	return p;
 }
 
-static void pubkey_from_sql(secp256k1_context *secpctx,
-			    sqlite3_stmt *stmt, int idx, struct pubkey *pk)
+static void pubkey_from_sql(sqlite3_stmt *stmt, int idx, struct pubkey *pk)
 {
-	if (!pubkey_from_der(secpctx, sqlite3_column_blob(stmt, idx),
+	if (!pubkey_from_der(sqlite3_column_blob(stmt, idx),
 			     sqlite3_column_bytes(stmt, idx), pk))
 		fatal("db:bad pubkey length %i",
 		      sqlite3_column_bytes(stmt, idx));
@@ -160,21 +159,19 @@ static void sha256_from_sql(sqlite3_stmt *stmt, int idx, struct sha256 *sha)
 	from_sql_blob(stmt, idx, sha, sizeof(*sha));
 }
 
-static void sig_from_sql(secp256k1_context *secpctx,
-			 sqlite3_stmt *stmt, int idx,
+static void sig_from_sql(sqlite3_stmt *stmt, int idx,
 			 struct bitcoin_signature *sig)
 {
 	u8 compact[64];
 
 	from_sql_blob(stmt, idx, compact, sizeof(compact));
-	if (secp256k1_ecdsa_signature_parse_compact(secpctx, &sig->sig.sig,
+	if (secp256k1_ecdsa_signature_parse_compact(secp256k1_ctx, &sig->sig.sig,
 						    compact) != 1)
 		fatal("db:bad signature blob");
 	sig->stype = SIGHASH_ALL;
 }
 
 static char *sig_to_sql(const tal_t *ctx,
-			secp256k1_context *secpctx,
 			const struct bitcoin_signature *sig)
 {
 	u8 compact[64];
@@ -183,7 +180,7 @@ static char *sig_to_sql(const tal_t *ctx,
 		return sql_hex_or_null(ctx, NULL, 0);
 
 	assert(sig->stype == SIGHASH_ALL);
-	secp256k1_ecdsa_signature_serialize_compact(secpctx, compact,
+	secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx, compact,
 						    &sig->sig.sig);
 	return sql_hex_or_null(ctx, compact, sizeof(compact));
 }
@@ -244,7 +241,7 @@ static void load_peer_secrets(struct peer *peer)
 
 	select = tal_fmt(ctx,
 			 "SELECT * FROM peer_secrets WHERE peer = x'%s';",
-			 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id));
+			 pubkey_to_hexstr(ctx, peer->id));
 
 	err = sqlite3_prepare_v2(sql, select, -1, &stmt, NULL);
 	if (err != SQLITE_OK)
@@ -284,7 +281,7 @@ static void load_peer_anchor(struct peer *peer)
 
 	select = tal_fmt(ctx,
 			 "SELECT * FROM anchors WHERE peer = x'%s';",
-			 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id));
+			 pubkey_to_hexstr(ctx, peer->id));
 
 	err = sqlite3_prepare_v2(sql, select, -1, &stmt, NULL);
 	if (err != SQLITE_OK)
@@ -324,7 +321,7 @@ static void load_peer_anchor_input(struct peer *peer)
 
 	select = tal_fmt(ctx,
 			 "SELECT * FROM anchor_inputs WHERE peer = x'%s';",
-			 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id));
+			 pubkey_to_hexstr(ctx, peer->id));
 
 	err = sqlite3_prepare_v2(sql, select, -1, &stmt, NULL);
 	if (err != SQLITE_OK)
@@ -345,8 +342,7 @@ static void load_peer_anchor_input(struct peer *peer)
 		peer->anchor.input->index = sqlite3_column_int(stmt, 2);
 		peer->anchor.input->in_amount = sqlite3_column_int64(stmt, 3);
 		peer->anchor.input->out_amount = sqlite3_column_int64(stmt, 4);
-		pubkey_from_sql(peer->dstate->secpctx,
-				stmt, 5, &peer->anchor.input->walletkey);
+		pubkey_from_sql(stmt, 5, &peer->anchor.input->walletkey);
 		anchor_input_set = true;
 	}
 
@@ -366,7 +362,7 @@ static void load_peer_visible_state(struct peer *peer)
 
 	select = tal_fmt(ctx,
 			 "SELECT * FROM their_visible_state WHERE peer = x'%s';",
-			 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id));
+			 pubkey_to_hexstr(ctx, peer->id));
 
 	err = sqlite3_prepare_v2(sql, select, -1, &stmt, NULL);
 	if (err != SQLITE_OK)
@@ -387,10 +383,8 @@ static void load_peer_visible_state(struct peer *peer)
 		visible_set = true;
 
 		peer->remote.offer_anchor = sqlite3_column_int(stmt, 1);
-		pubkey_from_sql(peer->dstate->secpctx, stmt, 2,
-				&peer->remote.commitkey);
-		pubkey_from_sql(peer->dstate->secpctx, stmt, 3,
-				&peer->remote.finalkey);
+		pubkey_from_sql(stmt, 2, &peer->remote.commitkey);
+		pubkey_from_sql(stmt, 3, &peer->remote.finalkey);
 		peer->remote.locktime.locktime = sqlite3_column_int(stmt, 4);
 		peer->remote.mindepth = sqlite3_column_int(stmt, 5);
 		peer->remote.commit_fee_rate = sqlite3_column_int64(stmt, 6);
@@ -402,7 +396,7 @@ static void load_peer_visible_state(struct peer *peer)
 
 		/* Now we can fill in anchor witnessscript. */
 		peer->anchor.witnessscript
-			= bitcoin_redeem_2of2(peer, peer->dstate->secpctx,
+			= bitcoin_redeem_2of2(peer,
 					      &peer->local.commitkey,
 					      &peer->remote.commitkey);
 	}
@@ -427,7 +421,7 @@ static void load_peer_commit_info(struct peer *peer)
 
 	select = tal_fmt(ctx,
 			 "SELECT * FROM commit_info WHERE peer = x'%s';",
-			 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id));
+			 pubkey_to_hexstr(ctx, peer->id));
 
 	err = sqlite3_prepare_v2(sql, select, -1, &stmt, NULL);
 	if (err != SQLITE_OK)
@@ -477,7 +471,7 @@ static void load_peer_commit_info(struct peer *peer)
 			ci->sig = NULL;
 		else {
 			ci->sig = tal(ci, struct bitcoin_signature);
-			sig_from_sql(peer->dstate->secpctx, stmt, 5, ci->sig);
+			sig_from_sql(stmt, 5, ci->sig);
 		}
 
 		/* Set once we have updated HTLCs. */
@@ -535,7 +529,7 @@ static void load_peer_htlcs(struct peer *peer)
 
 	select = tal_fmt(ctx,
 			 "SELECT * FROM htlcs WHERE peer = x'%s' ORDER BY id;",
-			 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id));
+			 pubkey_to_hexstr(ctx, peer->id));
 
 	err = sqlite3_prepare_v2(sql, select, -1, &stmt, NULL);
 	if (err != SQLITE_OK)
@@ -616,7 +610,7 @@ static void load_peer_htlcs(struct peer *peer)
 	/* Now set any in-progress fee changes. */
 	select = tal_fmt(ctx,
 			 "SELECT * FROM feechanges WHERE peer = x'%s';",
-			 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id));
+			 pubkey_to_hexstr(ctx, peer->id));
 
 	err = sqlite3_prepare_v2(sql, select, -1, &stmt, NULL);
 	if (err != SQLITE_OK)
@@ -718,7 +712,7 @@ static void connect_htlc_src(struct lightningd_state *dstate)
 			fatal("connect_htlc_src:step gave %s:%s",
 			      sqlite3_errstr(err), sqlite3_errmsg(sql));
 
-		pubkey_from_sql(dstate->secpctx, stmt, 0, &id);
+		pubkey_from_sql(stmt, 0, &id);
 		peer = find_peer(dstate, &id);
 		if (!peer)
 			continue;
@@ -735,7 +729,7 @@ static void connect_htlc_src(struct lightningd_state *dstate)
 			      sqlite3_column_int64(stmt, 1),
 			      sqlite3_column_str(stmt, 2));
 
-		pubkey_from_sql(dstate->secpctx, stmt, 4, &id);
+		pubkey_from_sql(stmt, 4, &id);
 		peer = find_peer(dstate, &id);
 		if (!peer)
 			fatal("connect_htlc_src:unknown src peer %s",
@@ -810,7 +804,7 @@ static void load_peer_shachain(struct peer *peer)
 
 	select = tal_fmt(ctx,
 			 "SELECT * FROM shachain WHERE peer = x'%s';",
-			 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id));
+			 pubkey_to_hexstr(ctx, peer->id));
 
 	err = sqlite3_prepare_v2(sql, select, -1, &stmt, NULL);
 	if (err != SQLITE_OK)
@@ -859,7 +853,7 @@ static void load_peer_closing(struct peer *peer)
 
 	select = tal_fmt(ctx,
 			 "SELECT * FROM closing WHERE peer = x'%s';",
-			 pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id));
+			 pubkey_to_hexstr(ctx, peer->id));
 
 	err = sqlite3_prepare_v2(sql, select, -1, &stmt, NULL);
 	if (err != SQLITE_OK)
@@ -885,8 +879,7 @@ static void load_peer_closing(struct peer *peer)
 		else {
 			peer->closing.their_sig = tal(peer,
 						      struct bitcoin_signature);
-			sig_from_sql(peer->dstate->secpctx, stmt, 3,
-				     peer->closing.their_sig);
+			sig_from_sql(stmt, 3, peer->closing.their_sig);
 		}
 		peer->closing.our_script = tal_sql_blob(peer, stmt, 4);
 		peer->closing.their_script = tal_sql_blob(peer, stmt, 5);
@@ -971,8 +964,8 @@ static void db_load_peers(struct lightningd_state *dstate)
 		if (state == STATE_MAX)
 			fatal("db_load_peers:unknown state %s",
 			      sqlite3_column_str(stmt, 1));
-		pubkey_from_sql(dstate->secpctx, stmt, 0, &id);
-		idstr = pubkey_to_hexstr(dstate, dstate->secpctx, &id);
+		pubkey_from_sql(stmt, 0, &id);
+		idstr = pubkey_to_hexstr(dstate, &id);
 		l = new_log(dstate, dstate->log_record, "%s:", idstr);
 		tal_free(idstr);
 		peer = new_peer(dstate, l, state, sqlite3_column_int(stmt, 2));
@@ -1010,20 +1003,17 @@ static void db_load_peers(struct lightningd_state *dstate)
 }
 
 
-static const char *pubkeys_to_hex(const tal_t *ctx,
-				  secp256k1_context *secpctx,
-				  const struct pubkey *ids)
+static const char *pubkeys_to_hex(const tal_t *ctx, const struct pubkey *ids)
 {
 	u8 *ders = tal_arr(ctx, u8, PUBKEY_DER_LEN * tal_count(ids));
 	size_t i;
 
 	for (i = 0; i < tal_count(ids); i++)
-		pubkey_to_der(secpctx, ders + i * PUBKEY_DER_LEN, &ids[i]);
+		pubkey_to_der(ders + i * PUBKEY_DER_LEN, &ids[i]);
 
 	return tal_hexstr(ctx, ders, tal_count(ders));
 }
 static struct pubkey *pubkeys_from_arr(const tal_t *ctx,
-				       secp256k1_context *secpctx,
 				       const void *blob, size_t len)
 {
 	struct pubkey *ids;
@@ -1034,7 +1024,7 @@ static struct pubkey *pubkeys_from_arr(const tal_t *ctx,
 
 	ids = tal_arr(ctx, struct pubkey, len / PUBKEY_DER_LEN);
 	for (i = 0; i < tal_count(ids); i++) {
-		if (!pubkey_from_der(secpctx, blob, PUBKEY_DER_LEN, &ids[i]))
+		if (!pubkey_from_der(blob, PUBKEY_DER_LEN, &ids[i]))
 			fatal("ids array invalid %zu", i);
 		blob = (const u8 *)blob + PUBKEY_DER_LEN;
 	}
@@ -1073,14 +1063,14 @@ static void db_load_pay(struct lightningd_state *dstate)
 
 		sha256_from_sql(stmt, 0, &rhash);
 		msatoshi = sqlite3_column_int64(stmt, 1);
-		ids = pubkeys_from_arr(ctx, dstate->secpctx,
+		ids = pubkeys_from_arr(ctx,
 				       sqlite3_column_blob(stmt, 2),
 				       sqlite3_column_bytes(stmt, 2));
 		if (sqlite3_column_type(stmt, 3) == SQLITE_NULL)
 			peer_id = NULL;
 		else {
 			peer_id = tal(ctx, struct pubkey);
-			pubkey_from_sql(dstate->secpctx, stmt, 3, peer_id);
+			pubkey_from_sql(stmt, 3, peer_id);
 		}
 		htlc_id = sqlite3_column_int64(stmt, 4);
 		if (sqlite3_column_type(stmt, 5) == SQLITE_NULL)
@@ -1168,7 +1158,7 @@ static void db_load_addresses(struct lightningd_state *dstate)
 			fatal("load_peer_addresses:step gave %s:%s",
 			      sqlite3_errstr(err), sqlite3_errmsg(sql));
 		addr = tal(dstate, struct peer_address);
-		pubkey_from_sql(dstate->secpctx, stmt, 0, &addr->id);
+		pubkey_from_sql(stmt, 0, &addr->id);
 		if (!netaddr_from_blob(sqlite3_column_blob(stmt, 1),
 				       sqlite3_column_bytes(stmt, 1),
 				       &addr->addr))
@@ -1176,7 +1166,7 @@ static void db_load_addresses(struct lightningd_state *dstate)
 			      select);
 		list_add_tail(&dstate->addresses, &addr->list);
 		log_debug(dstate->base_log, "load_peer_addresses:%s",
-			  pubkey_to_hexstr(ctx, dstate->secpctx, &addr->id));
+			  pubkey_to_hexstr(ctx, &addr->id));
 	}
 	tal_free(ctx);
 }
@@ -1356,7 +1346,7 @@ void db_set_anchor(struct peer *peer)
 	const char *peerid;
 
 	assert(peer->dstate->db->in_transaction);
-	peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	peerid = pubkey_to_hexstr(ctx, peer->id);
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
 	db_exec(__func__, peer->dstate,
@@ -1376,8 +1366,7 @@ void db_set_anchor(struct peer *peer)
 		tal_hexstr(ctx, &peer->local.commit->revocation_hash,
 			   sizeof(peer->local.commit->revocation_hash)),
 		peer->local.commit->order,
-		sig_to_sql(ctx, peer->dstate->secpctx,
-			   peer->local.commit->sig));
+		sig_to_sql(ctx, peer->local.commit->sig));
 
 	db_exec(__func__, peer->dstate,
 		"INSERT INTO commit_info VALUES(x'%s', '%s', 0, x'%s', %"PRIi64", %s, NULL);",
@@ -1386,8 +1375,7 @@ void db_set_anchor(struct peer *peer)
 		tal_hexstr(ctx, &peer->remote.commit->revocation_hash,
 			   sizeof(peer->remote.commit->revocation_hash)),
 		peer->remote.commit->order,
-		sig_to_sql(ctx, peer->dstate->secpctx,
-			   peer->remote.commit->sig));
+		sig_to_sql(ctx, peer->remote.commit->sig));
 
 	db_exec(__func__, peer->dstate,
 		"INSERT INTO shachain VALUES (x'%s', x'%s');",
@@ -1400,7 +1388,7 @@ void db_set_anchor(struct peer *peer)
 void db_set_visible_state(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
@@ -1409,10 +1397,8 @@ void db_set_visible_state(struct peer *peer)
 		"INSERT INTO their_visible_state VALUES (x'%s', %s, x'%s', x'%s', %u, %u, %"PRIu64", x'%s');",
 		peerid,
 		sql_bool(peer->remote.offer_anchor),
-		pubkey_to_hexstr(ctx, peer->dstate->secpctx,
-				 &peer->remote.commitkey),
-		pubkey_to_hexstr(ctx, peer->dstate->secpctx,
-				 &peer->remote.finalkey),
+		pubkey_to_hexstr(ctx, &peer->remote.commitkey),
+		pubkey_to_hexstr(ctx, &peer->remote.finalkey),
 		peer->remote.locktime.locktime,
 		peer->remote.mindepth,
 		peer->remote.commit_fee_rate,
@@ -1425,7 +1411,7 @@ void db_set_visible_state(struct peer *peer)
 void db_update_next_revocation_hash(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s):%s", __func__, peerid,
 		tal_hexstr(ctx, &peer->remote.next_revocation_hash,
@@ -1442,7 +1428,7 @@ void db_update_next_revocation_hash(struct peer *peer)
 void db_create_peer(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
@@ -1467,8 +1453,7 @@ void db_create_peer(struct peer *peer)
 			peer->anchor.input->index,
 			peer->anchor.input->in_amount,
 			peer->anchor.input->out_amount,
-			pubkey_to_hexstr(ctx, peer->dstate->secpctx,
-					 &peer->anchor.input->walletkey));
+			pubkey_to_hexstr(ctx, &peer->anchor.input->walletkey));
 
 	tal_free(ctx);
 }
@@ -1476,7 +1461,7 @@ void db_create_peer(struct peer *peer)
 void db_start_transaction(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(!peer->dstate->db->in_transaction);
@@ -1490,7 +1475,7 @@ void db_start_transaction(struct peer *peer)
 void db_abort_transaction(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
@@ -1502,7 +1487,7 @@ void db_abort_transaction(struct peer *peer)
 const char *db_commit_transaction(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
@@ -1518,7 +1503,7 @@ const char *db_commit_transaction(struct peer *peer)
 void db_new_htlc(struct peer *peer, const struct htlc *htlc)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
@@ -1527,7 +1512,7 @@ void db_new_htlc(struct peer *peer, const struct htlc *htlc)
 		db_exec(__func__, peer->dstate,
 			"INSERT INTO htlcs VALUES"
 			" (x'%s', %"PRIu64", '%s', %"PRIu64", %u, x'%s', NULL, x'%s', x'%s', %"PRIu64", NULL);",
-			pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id),
+			pubkey_to_hexstr(ctx, peer->id),
 			htlc->id,
 			htlc_state_name(htlc->state),
 			htlc->msatoshi,
@@ -1555,7 +1540,7 @@ void db_new_htlc(struct peer *peer, const struct htlc *htlc)
 void db_new_feechange(struct peer *peer, const struct feechange *feechange)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
@@ -1574,7 +1559,7 @@ void db_update_htlc_state(struct peer *peer, const struct htlc *htlc,
 			  enum htlc_state oldstate)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s): %"PRIu64" %s->%s", __func__, peerid,
 		  htlc->id, htlc_state_name(oldstate),
@@ -1593,7 +1578,7 @@ void db_update_feechange_state(struct peer *peer,
 			       enum htlc_state oldstate)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s): %s->%s", __func__, peerid,
 		  feechange_state_name(oldstate),
@@ -1611,7 +1596,7 @@ void db_remove_feechange(struct peer *peer, const struct feechange *feechange,
 			 enum htlc_state oldstate)
 {
 	const char *ctx = tal(peer, char);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 	assert(peer->dstate->db->in_transaction);
@@ -1626,7 +1611,7 @@ void db_remove_feechange(struct peer *peer, const struct feechange *feechange,
 void db_update_state(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
@@ -1640,7 +1625,7 @@ void db_update_state(struct peer *peer)
 void db_htlc_fulfilled(struct peer *peer, const struct htlc *htlc)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
@@ -1658,7 +1643,7 @@ void db_htlc_fulfilled(struct peer *peer, const struct htlc *htlc)
 void db_htlc_failed(struct peer *peer, const struct htlc *htlc)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
@@ -1678,7 +1663,7 @@ void db_new_commit_info(struct peer *peer, enum side side,
 {
 	struct commit_info *ci;
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
@@ -1693,7 +1678,7 @@ void db_new_commit_info(struct peer *peer, enum side side,
 		ci->commit_num,
 		tal_hexstr(ctx, &ci->revocation_hash,
 			   sizeof(ci->revocation_hash)),
-		sig_to_sql(ctx, peer->dstate->secpctx, ci->sig),
+		sig_to_sql(ctx, ci->sig),
 		ci->order,
 		sql_hex_or_null(ctx, prev_rhash, sizeof(*prev_rhash)),
 		peerid, side_to_str(side));
@@ -1704,7 +1689,7 @@ void db_new_commit_info(struct peer *peer, enum side side,
 void db_remove_their_prev_revocation_hash(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
@@ -1719,7 +1704,7 @@ void db_remove_their_prev_revocation_hash(struct peer *peer)
 void db_save_shachain(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
@@ -1734,7 +1719,7 @@ void db_add_commit_map(struct peer *peer,
 		       const struct sha256_double *txid, u64 commit_num)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s),commit_num=%"PRIu64, __func__, peerid,
 		  commit_num);
@@ -1760,7 +1745,7 @@ bool db_add_peer_address(struct lightningd_state *dstate,
 	assert(!dstate->db->in_transaction);
 	ok = db_exec(__func__, dstate,
 		     "INSERT OR REPLACE INTO peer_address VALUES (x'%s', x'%s');",
-		     pubkey_to_hexstr(ctx, dstate->secpctx, &addr->id),
+		     pubkey_to_hexstr(ctx, &addr->id),
 		     netaddr_to_hex(ctx, &addr->addr));
 
 	tal_free(ctx);
@@ -1770,7 +1755,7 @@ bool db_add_peer_address(struct lightningd_state *dstate,
 void db_forget_peer(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 	size_t i;
 	const char *const tables[] = { "anchors", "htlcs", "commit_info", "shachain", "their_visible_state", "their_commitments", "peer_secrets", "closing", "peers" };
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
@@ -1793,7 +1778,7 @@ void db_forget_peer(struct peer *peer)
 void db_begin_shutdown(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
@@ -1807,7 +1792,7 @@ void db_begin_shutdown(struct peer *peer)
 void db_set_our_closing_script(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
@@ -1823,7 +1808,7 @@ void db_set_our_closing_script(struct peer *peer)
 void db_set_their_closing_script(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
@@ -1842,7 +1827,7 @@ void db_set_their_closing_script(struct peer *peer)
 void db_update_our_closing(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
@@ -1858,7 +1843,7 @@ bool db_update_their_closing(struct peer *peer)
 {
 	const char *ctx = tal_tmpctx(peer);
 	bool ok;
-	const char *peerid = pubkey_to_hexstr(ctx, peer->dstate->secpctx, peer->id);
+	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
 
 	log_debug(peer->log, "%s(%s)", __func__, peerid);
 
@@ -1866,8 +1851,7 @@ bool db_update_their_closing(struct peer *peer)
 	ok = db_exec(__func__, peer->dstate,
 		     "UPDATE closing SET their_fee=%"PRIu64", their_sig=%s, sigs_in=%u WHERE peer=x'%s';",
 		     peer->closing.their_fee,
-		     sig_to_sql(ctx, peer->dstate->secpctx,
-				peer->closing.their_sig),
+		     sig_to_sql(ctx, peer->closing.their_sig),
 		     peer->closing.sigs_in,
 		     peerid);
 	tal_free(ctx);
@@ -1891,8 +1875,8 @@ bool db_new_pay_command(struct lightningd_state *dstate,
 		     "INSERT INTO pay VALUES (x'%s', %"PRIu64", x'%s', x'%s', %"PRIu64", NULL, NULL);",
 		     tal_hexstr(ctx, rhash, sizeof(*rhash)),
 		     msatoshi,
-		     pubkeys_to_hex(ctx, dstate->secpctx, ids),
-		     pubkey_to_hexstr(ctx, dstate->secpctx, htlc->peer->id),
+		     pubkeys_to_hex(ctx, ids),
+		     pubkey_to_hexstr(ctx, htlc->peer->id),
 		     htlc->id);
 	tal_free(ctx);
 	return ok;
@@ -1914,8 +1898,8 @@ bool db_replace_pay_command(struct lightningd_state *dstate,
 	ok = db_exec(__func__, dstate,
 		     "UPDATE pay SET msatoshi=%"PRIu64", ids=x'%s', htlc_peer=x'%s', htlc_id=%"PRIu64", r=NULL, fail=NULL WHERE rhash=x'%s';",
 		     msatoshi,
-		     pubkeys_to_hex(ctx, dstate->secpctx, ids),
-		     pubkey_to_hexstr(ctx, dstate->secpctx, htlc->peer->id),
+		     pubkeys_to_hex(ctx, ids),
+		     pubkey_to_hexstr(ctx, htlc->peer->id),
 		     htlc->id,
 		     tal_hexstr(ctx, rhash, sizeof(*rhash)));
 	tal_free(ctx);

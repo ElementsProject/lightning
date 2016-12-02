@@ -78,10 +78,8 @@ void queue_pkt_open(struct peer *peer, bool offer_anchor)
 	open_channel__init(o);
 	o->revocation_hash = sha256_to_proto(o, &peer->local.commit->revocation_hash);
 	o->next_revocation_hash = sha256_to_proto(o, &peer->local.next_revocation_hash);
-	o->commit_key = pubkey_to_proto(o, peer->dstate->secpctx,
-					&peer->local.commitkey);
-	o->final_key = pubkey_to_proto(o, peer->dstate->secpctx,
-				       &peer->local.finalkey);
+	o->commit_key = pubkey_to_proto(o, &peer->local.commitkey);
+	o->final_key = pubkey_to_proto(o, &peer->local.finalkey);
 	o->delay = tal(o, Locktime);
 	locktime__init(o->delay);
 	o->delay->locktime_case = LOCKTIME__LOCKTIME_BLOCKS;
@@ -113,8 +111,7 @@ void queue_pkt_open_commit_sig(struct peer *peer)
 
 	open_commit_sig__init(s);
 
-	s->sig = signature_to_proto(s, peer->dstate->secpctx,
-				    &peer->remote.commit->sig->sig);
+	s->sig = signature_to_proto(s, &peer->remote.commit->sig->sig);
 
 	queue_pkt(peer, PKT__PKT_OPEN_COMMIT_SIG, s);
 }
@@ -193,8 +190,7 @@ void queue_pkt_commit(struct peer *peer, const struct bitcoin_signature *sig)
 	/* Now send message */
 	update_commit__init(u);
 	if (sig)
-		u->sig = signature_to_proto(u, peer->dstate->secpctx,
-					    &sig->sig);
+		u->sig = signature_to_proto(u, &sig->sig);
 	else
 		u->sig = NULL;
 
@@ -274,7 +270,7 @@ void queue_pkt_close_signature(struct peer *peer)
 	close_tx = peer_create_close_tx(c, peer, peer->closing.our_fee);
 
 	peer_sign_mutual_close(peer, close_tx, &our_close_sig);
-	c->sig = signature_to_proto(c, peer->dstate->secpctx, &our_close_sig);
+	c->sig = signature_to_proto(c, &our_close_sig);
 	c->close_fee = peer->closing.our_fee;
 	log_info(peer->log, "queue_pkt_close_signature: offered close fee %"
 		 PRIu64, c->close_fee);
@@ -331,11 +327,9 @@ Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt,
 		return pkt_err(peer, "Malformed locktime");
 	peer->remote.mindepth = o->min_depth;
 	peer->remote.commit_fee_rate = o->initial_fee_rate;
-	if (!proto_to_pubkey(peer->dstate->secpctx,
-			     o->commit_key, &peer->remote.commitkey))
+	if (!proto_to_pubkey(o->commit_key, &peer->remote.commitkey))
 		return pkt_err(peer, "Bad commitkey");
-	if (!proto_to_pubkey(peer->dstate->secpctx,
-			     o->final_key, &peer->remote.finalkey))
+	if (!proto_to_pubkey(o->final_key, &peer->remote.finalkey))
 		return pkt_err(peer, "Bad finalkey");
 
 	proto_to_sha256(o->revocation_hash, revocation_hash);
@@ -365,7 +359,7 @@ Pkt *accept_pkt_open_commit_sig(struct peer *peer, const Pkt *pkt,
 {
 	const OpenCommitSig *s = pkt->open_commit_sig;
 
-	if (!proto_to_signature(peer->dstate->secpctx, s->sig, &sig->sig))
+	if (!proto_to_signature(s->sig, &sig->sig))
 		return pkt_err(peer, "Malformed signature");
 
 	sig->stype = SIGHASH_ALL;
@@ -514,7 +508,7 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt,
 		return NULL;
 
 	sig->stype = SIGHASH_ALL;
-	if (!proto_to_signature(peer->dstate->secpctx, c->sig, &sig->sig))
+	if (!proto_to_signature(c->sig, &sig->sig))
 		return pkt_err(peer, "Malformed signature");
 	return NULL;
 }

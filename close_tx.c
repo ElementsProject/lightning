@@ -4,8 +4,7 @@
 #include "permute_tx.h"
 #include "protobuf_convert.h"
 
-struct bitcoin_tx *create_close_tx(secp256k1_context *secpctx,
-				   const tal_t *ctx,
+struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 				   const u8 *our_script,
 				   const u8 *their_script,
 				   const struct sha256_double *anchor_txid,

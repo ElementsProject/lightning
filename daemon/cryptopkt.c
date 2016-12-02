@@ -386,7 +386,7 @@ static bool check_proof(struct key_negotiate *neg, struct log *log,
 	 *
 	 * 1. `node_id` is the expected value for the sending node.
 	 */
-	if (!proto_to_pubkey(neg->dstate->secpctx, auth->node_id, id)) {
+	if (!proto_to_pubkey(auth->node_id, id)) {
 		log_unusual(log, "Invalid auth id");
 		return false;
 	}
@@ -402,8 +402,7 @@ static bool check_proof(struct key_negotiate *neg, struct log *log,
 	 *     a 32-byte big endian R value, followed by a 32-byte big
 	 *     endian S value.
 	 */
-	if (!proto_to_signature(neg->dstate->secpctx, auth->session_sig,
-				&sig)) {
+	if (!proto_to_signature(auth->session_sig, &sig)) {
 		log_unusual(log, "Invalid auth signature");
 		return false;
 	}
@@ -418,7 +417,7 @@ static bool check_proof(struct key_negotiate *neg, struct log *log,
 	sha256_double(&sha, neg->our_sessionpubkey,
 		      sizeof(neg->our_sessionpubkey));
 
-	if (!check_signed_hash(neg->dstate->secpctx, &sha, &sig, id)) {
+	if (!check_signed_hash(&sha, &sig, id)) {
 		log_unusual(log, "Bad auth signature");
 		return false;
 	}
@@ -479,14 +478,13 @@ static Pkt *pkt_wrap(const tal_t *ctx, void *w, Pkt__PktCase pkt_case)
 }
 
 static Pkt *authenticate_pkt(const tal_t *ctx,
-			     secp256k1_context *secpctx,
 			     const struct pubkey *node_id,
 			     const struct signature *sig)
 {
 	Authenticate *auth = tal(ctx, Authenticate);
 	authenticate__init(auth);
-	auth->node_id = pubkey_to_proto(auth, secpctx, node_id);
-	auth->session_sig = signature_to_proto(auth, secpctx, sig);
+	auth->node_id = pubkey_to_proto(auth, node_id);
+	auth->session_sig = signature_to_proto(auth, sig);
 	return pkt_wrap(ctx, auth, PKT__PKT_AUTH);
 }
 
@@ -499,8 +497,7 @@ static struct io_plan *keys_exchanged(struct io_conn *conn,
 	Pkt *auth;
 	size_t totlen;
 
-	if (!pubkey_from_der(neg->dstate->secpctx,
-			     neg->their_sessionpubkey,
+	if (!pubkey_from_der(neg->their_sessionpubkey,
 			     sizeof(neg->their_sessionpubkey),
 			     &sessionkey)) {
 		log_unusual_blob(neg->log,  "Bad sessionkey %s",
@@ -530,8 +527,7 @@ static struct io_plan *keys_exchanged(struct io_conn *conn,
 	privkey_sign(neg->dstate, neg->their_sessionpubkey,
 		     sizeof(neg->their_sessionpubkey), &sig);
 
-	auth = authenticate_pkt(neg, neg->dstate->secpctx,
-				&neg->dstate->id, &sig);
+	auth = authenticate_pkt(neg, &neg->dstate->id, &sig);
 
 	neg->iod->out.cpkt = encrypt_pkt(neg->iod, auth, &totlen);
 	return io_write(conn, neg->iod->out.cpkt, totlen, receive_proof, neg);

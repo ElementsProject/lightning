@@ -20,7 +20,7 @@ static void sign_privmsg(struct ircstate *state, struct privmsg *msg)
 	u8 der[72];
 	struct signature sig;
 	privkey_sign(state->dstate, msg->msg, strlen(msg->msg), &sig);
-	siglen = signature_to_der(state->dstate->secpctx, der, &sig);
+	siglen = signature_to_der(der, &sig);
 	msg->msg = tal_fmt(msg, "%s %s", tal_hexstr(msg, der, siglen), msg->msg);
 }
 
@@ -37,8 +37,8 @@ static bool announce_channel(const tal_t *ctx, struct ircstate *state, struct pe
 	msg->channel = "#lightning-nodes";
 	msg->msg = tal_fmt(
 		msg, "CHAN %s %s %s %d %d %d %d %d",
-		pubkey_to_hexstr(msg, state->dstate->secpctx, &state->dstate->id),
-		pubkey_to_hexstr(msg, state->dstate->secpctx, p->id),
+		pubkey_to_hexstr(msg, &state->dstate->id),
+		pubkey_to_hexstr(msg, p->id),
 		txid,
 		loc->blkheight,
 		loc->index,
@@ -67,7 +67,7 @@ static void announce_node(const tal_t *ctx, struct ircstate *state)
 	msg->channel = "#lightning-nodes";
 	msg->msg = tal_fmt(
 		msg, "NODE %s %s %d",
-		pubkey_to_hexstr(msg, state->dstate->secpctx, &state->dstate->id),
+		pubkey_to_hexstr(msg, &state->dstate->id),
 		hostname,
 		port
 		);
@@ -125,10 +125,10 @@ static bool verify_signed_privmsg(
 	if (der == NULL)
 		return false;
 
-	if (!signature_from_der(istate->dstate->secpctx, der, siglen, &sig))
+	if (!signature_from_der(der, siglen, &sig))
 		return false;
 	sha256_double(&hash, content, strlen(content));
-	return check_signed_hash(istate->dstate->secpctx, &hash, &sig, pk);
+	return check_signed_hash(&hash, &sig, pk);
 }
 
 static void handle_channel_announcement(
@@ -143,8 +143,8 @@ static void handle_channel_announcement(
 	bool ok = true;
 	int blkheight;
 
-	ok &= pubkey_from_hexstr(istate->dstate->secpctx, splits[1], strlen(splits[1]), pk1);
-	ok &= pubkey_from_hexstr(istate->dstate->secpctx, splits[2], strlen(splits[2]), pk2);
+	ok &= pubkey_from_hexstr(splits[1], strlen(splits[1]), pk1);
+	ok &= pubkey_from_hexstr(splits[2], strlen(splits[2]), pk2);
 	ok &= bitcoin_txid_from_hex(splits[3], strlen(splits[3]), txid);
 	blkheight = atoi(splits[4]);
 	index = atoi(splits[5]);
@@ -177,7 +177,7 @@ static void handle_node_announcement(
 	struct pubkey *pk = talz(msg, struct pubkey);
 	char *hostname = tal_strdup(msg, splits[2]);
 	int port = atoi(splits[3]);
-	if (!pubkey_from_hexstr(istate->dstate->secpctx, splits[1], strlen(splits[1]), pk) || port < 1)
+	if (!pubkey_from_hexstr(splits[1], strlen(splits[1]), pk) || port < 1)
 		return;
 
 	if (!verify_signed_privmsg(istate, pk, msg)) {
@@ -274,7 +274,7 @@ void setup_irc_connection(struct lightningd_state *dstate)
 	state->nick = tal_fmt(
 		state,
 		"N%.12s",
-		pubkey_to_hexstr(state, dstate->secpctx, &dstate->id) + 1);
+		pubkey_to_hexstr(state, &dstate->id) + 1);
 
 	/* We will see our own JOIN message, which will trigger announce */
 	irc_connect(state);

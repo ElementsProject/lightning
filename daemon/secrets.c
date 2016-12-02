@@ -32,7 +32,7 @@ void privkey_sign(struct lightningd_state *dstate, const void *src, size_t len,
 	struct sha256_double h;
 
 	sha256_double(&h, memcheck(src, len), len);
-	sign_hash(dstate->secpctx, &dstate->secret->privkey, &h, sig);
+	sign_hash(&dstate->secret->privkey, &h, sig);
 }
 
 struct peer_secrets {
@@ -47,8 +47,7 @@ void peer_sign_theircommit(const struct peer *peer,
 			   struct signature *sig)
 {
 	/* Commit tx only has one input: that of the anchor. */
-	sign_tx_input(peer->dstate->secpctx,
-		      commit, 0,
+	sign_tx_input(commit, 0,
 		      NULL, 0,
 		      peer->anchor.witnessscript,
 		      &peer->secrets->commit,
@@ -61,8 +60,7 @@ void peer_sign_ourcommit(const struct peer *peer,
 			 struct signature *sig)
 {
 	/* Commit tx only has one input: that of the anchor. */
-	sign_tx_input(peer->dstate->secpctx,
-		      commit, 0,
+	sign_tx_input(commit, 0,
 		      NULL, 0,
 		      peer->anchor.witnessscript,
 		      &peer->secrets->commit,
@@ -76,8 +74,7 @@ void peer_sign_spend(const struct peer *peer,
 		     struct signature *sig)
 {
 	/* Spend tx only has one input: that of the commit tx. */
-	sign_tx_input(peer->dstate->secpctx,
-		      spend, 0,
+	sign_tx_input(spend, 0,
 		      NULL, 0,
 		      commit_witnessscript,
 		      &peer->secrets->final,
@@ -91,8 +88,7 @@ void peer_sign_htlc_refund(const struct peer *peer,
 			   struct signature *sig)
 {
 	/* Spend tx only has one input: that of the commit tx. */
-	sign_tx_input(peer->dstate->secpctx,
-		      spend, 0,
+	sign_tx_input(spend, 0,
 		      NULL, 0,
 		      htlc_witnessscript,
 		      &peer->secrets->final,
@@ -106,8 +102,7 @@ void peer_sign_htlc_fulfill(const struct peer *peer,
 			    struct signature *sig)
 {
 	/* Spend tx only has one input: that of the commit tx. */
-	sign_tx_input(peer->dstate->secpctx,
-		      spend, 0,
+	sign_tx_input(spend, 0,
 		      NULL, 0,
 		      htlc_witnessscript,
 		      &peer->secrets->final,
@@ -119,8 +114,7 @@ void peer_sign_mutual_close(const struct peer *peer,
 			    struct bitcoin_tx *close,
 			    struct signature *sig)
 {
-	sign_tx_input(peer->dstate->secpctx,
-		      close, 0,
+	sign_tx_input(close, 0,
 		      NULL, 0,
 		      peer->anchor.witnessscript,
 		      &peer->secrets->commit,
@@ -135,8 +129,7 @@ void peer_sign_steal_input(const struct peer *peer,
 			   struct signature *sig)
 {
 	/* Spend tx only has one input: that of the commit tx. */
-	sign_tx_input(peer->dstate->secpctx,
-		      spend, i,
+	sign_tx_input(spend, i,
 		      NULL, 0,
 		      witnessscript,
 		      &peer->secrets->final,
@@ -149,7 +142,7 @@ static void new_keypair(struct lightningd_state *dstate,
 {
 	do {
 		randombytes_buf(privkey->secret, sizeof(privkey->secret));
-	} while (!pubkey_from_privkey(dstate->secpctx, privkey, pubkey));
+	} while (!pubkey_from_privkey(privkey, pubkey));
 }
 
 void peer_secrets_init(struct peer *peer)
@@ -211,11 +204,9 @@ void peer_set_secrets_from_db(struct peer *peer,
 	memcpy(&ps->final, final_privkey, final_privkey_len);
 	memcpy(&ps->revocation_seed, revocation_seed, revocation_seed_len);
 
-	if (!pubkey_from_privkey(peer->dstate->secpctx, &ps->commit,
-				 &peer->local.commitkey))
+	if (!pubkey_from_privkey(&ps->commit, &peer->local.commitkey))
 		fatal("peer_set_secrets_from_db:bad commit privkey");
-	if (!pubkey_from_privkey(peer->dstate->secpctx, &ps->final,
-				 &peer->local.finalkey))
+	if (!pubkey_from_privkey(&ps->final, &peer->local.finalkey))
 		fatal("peer_set_secrets_from_db:bad final privkey");
 }
 
@@ -256,8 +247,7 @@ void secrets_init(struct lightningd_state *dstate)
 		      sizeof(dstate->secret->privkey.secret)))
 		fatal("Failed to read privkey: %s", strerror(errno));
 	close(fd);
-	if (!pubkey_from_privkey(dstate->secpctx,
-				 &dstate->secret->privkey, &dstate->id))
+	if (!pubkey_from_privkey(&dstate->secret->privkey, &dstate->id))
 		fatal("Invalid privkey");
 
 	log_info_struct(dstate->base_log, "ID: %s", struct pubkey, &dstate->id);

@@ -72,7 +72,7 @@ void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)
 	if (!fromwire(cursor, max, der, sizeof(der)))
 		return;
 
-	if (!pubkey_from_der(secp256k1_ctx, der, sizeof(der), pubkey))
+	if (!pubkey_from_der(der, sizeof(der), pubkey))
 		fail_pull(cursor, max);
 }
 

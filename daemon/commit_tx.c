@@ -23,7 +23,7 @@ u8 *wscript_for_htlc(const tal_t *ctx,
 		     enum side side)
 {
 	const struct peer_visible_state *this_side, *other_side;
-	u8 *(*fn)(const tal_t *, secp256k1_context *,
+	u8 *(*fn)(const tal_t *,
 		  const struct pubkey *, const struct pubkey *,
 		  const struct abs_locktime *, const struct rel_locktime *,
 		  const struct sha256 *, const struct sha256 *);
@@ -42,7 +42,7 @@ u8 *wscript_for_htlc(const tal_t *ctx,
 		other_side = &peer->local;
 	}
 
-	return fn(ctx, peer->dstate->secpctx,
+	return fn(ctx,
 		  &this_side->finalkey, &other_side->finalkey,
 		  &h->expiry, &this_side->locktime, rhash, &h->rhash);
 }
@@ -73,7 +73,6 @@ u8 *commit_output_to_us(const tal_t *ctx,
 	/* Our output to ourself is encumbered by delay. */
 	if (side == LOCAL) {
 		*wscript = bitcoin_redeem_secret_or_delay(ctx,
-							  peer->dstate->secpctx,
 							  &peer->local.finalkey,
 							  &peer->remote.locktime,
 							  &peer->remote.finalkey,
@@ -82,8 +81,7 @@ u8 *commit_output_to_us(const tal_t *ctx,
 	} else {
 		/* Their output to us is a simple p2wpkh */
 		*wscript = NULL;
-		return scriptpubkey_p2wpkh(ctx, peer->dstate->secpctx,
-					   &peer->local.finalkey);
+		return scriptpubkey_p2wpkh(ctx, &peer->local.finalkey);
 	}
 }
 
@@ -100,7 +98,6 @@ u8 *commit_output_to_them(const tal_t *ctx,
 	/* Their output to themselves is encumbered by delay. */
 	if (side == REMOTE) {
 		*wscript = bitcoin_redeem_secret_or_delay(ctx,
-							  peer->dstate->secpctx,
 							  &peer->remote.finalkey,
 							  &peer->local.locktime,
 							  &peer->local.finalkey,
@@ -109,8 +106,7 @@ u8 *commit_output_to_them(const tal_t *ctx,
 	} else {
 		/* Our output to them is a simple p2wpkh */
 		*wscript = NULL;
-		return scriptpubkey_p2wpkh(ctx, peer->dstate->secpctx,
-					   &peer->remote.finalkey);
+		return scriptpubkey_p2wpkh(ctx, &peer->remote.finalkey);
 	}
 }
 

@@ -411,11 +411,11 @@ char *opt_add_route(const char *arg, struct lightningd_state *dstate)
 	u32 base, var, delay, minblocks;
 
 	len = strcspn(arg, "/");
-	if (!pubkey_from_hexstr(dstate->secpctx, arg, len, &src))
+	if (!pubkey_from_hexstr(arg, len, &src))
 		return "Bad src pubkey";
 	arg += len + 1;
 	len = strcspn(arg, "/");
-	if (!pubkey_from_hexstr(dstate->secpctx, arg, len, &dst))
+	if (!pubkey_from_hexstr(arg, len, &dst))
 		return "Bad dst pubkey";
 	arg += len;
 
@@ -450,8 +450,7 @@ static void json_add_route(struct command *cmd,
 		return;
 	}
 
-	if (!pubkey_from_hexstr(cmd->dstate->secpctx,
-				buffer + srctok->start,
+	if (!pubkey_from_hexstr(buffer + srctok->start,
 				srctok->end - srctok->start, &src)) {
 		command_fail(cmd, "src %.*s not valid",
 			     srctok->end - srctok->start,
@@ -459,8 +458,7 @@ static void json_add_route(struct command *cmd,
 		return;
 	}
 
-	if (!pubkey_from_hexstr(cmd->dstate->secpctx,
-				buffer + dsttok->start,
+	if (!pubkey_from_hexstr(buffer + dsttok->start,
 				dsttok->end - dsttok->start, &dst)) {
 		command_fail(cmd, "dst %.*s not valid",
 			     dsttok->end - dsttok->start,
@@ -505,8 +503,8 @@ static void json_getchannels(struct command *cmd,
 		for (i = 0; i < num_conn; i++){
 			c = n->out[i];
 			json_object_start(response, NULL);
-			json_add_pubkey(response, cmd->dstate->secpctx, "from", &n->id);
-			json_add_pubkey(response, cmd->dstate->secpctx, "to", &c->dst->id);
+			json_add_pubkey(response, "from", &n->id);
+			json_add_pubkey(response, "to", &c->dst->id);
 			json_add_num(response, "base_fee", c->base_fee);
 			json_add_num(response, "proportional_fee", c->proportional_fee);
 			json_object_end(response);
@@ -569,8 +567,7 @@ static void json_getnodes(struct command *cmd,
 
 	while (n != NULL) {
 		json_object_start(response, NULL);
-		json_add_pubkey(response, cmd->dstate->secpctx,
-				"nodeid", &n->id);
+		json_add_pubkey(response, "nodeid", &n->id);
 		json_add_num(response, "port", n->port);
 		if (!n->port)
 			json_add_null(response, "hostname");

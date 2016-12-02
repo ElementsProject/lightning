@@ -2,19 +2,19 @@
 #include "bitcoin/pubkey.h"
 #include "bitcoin/signature.h"
 #include "protobuf_convert.h"
+#include "utils.h"
 #include <ccan/crypto/sha256/sha256.h>
 
-Signature *signature_to_proto(const tal_t *ctx,
-			      secp256k1_context *secpctx,
-			      const struct signature *sig)
+Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
 {
 	u8 compact[64];
 	Signature *pb = tal(ctx, Signature);
 	signature__init(pb);
 
-	assert(sig_valid(secpctx, sig));
+	assert(sig_valid(sig));
 
-	secp256k1_ecdsa_signature_serialize_compact(secpctx, compact, &sig->sig);
+	secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx,
+						    compact, &sig->sig);
 
 	/* Kill me now... */
 	memcpy(&pb->r1, compact, 8);
@@ -29,8 +29,7 @@ Signature *signature_to_proto(const tal_t *ctx,
 	return pb;
 }
 
-bool proto_to_signature(secp256k1_context *secpctx,
-			const Signature *pb,
+bool proto_to_signature(const Signature *pb,
 			struct signature *sig)
 {
 	u8 compact[64];
@@ -45,16 +44,15 @@ bool proto_to_signature(secp256k1_context *secpctx,
 	memcpy(compact + 48, &pb->s3, 8);
 	memcpy(compact + 56, &pb->s4, 8);
 
-	if (secp256k1_ecdsa_signature_parse_compact(secpctx, &sig->sig, compact)
+	if (secp256k1_ecdsa_signature_parse_compact(secp256k1_ctx,
+						    &sig->sig, compact)
 	    != 1)
 		return false;
 
-	return sig_valid(secpctx, sig);
+	return sig_valid(sig);
 }
 
-BitcoinPubkey *pubkey_to_proto(const tal_t *ctx,
-			       secp256k1_context *secpctx,
-			       const struct pubkey *key)
+BitcoinPubkey *pubkey_to_proto(const tal_t *ctx, const struct pubkey *key)
 {
 	BitcoinPubkey *p = tal(ctx, BitcoinPubkey);
 
@@ -62,15 +60,14 @@ BitcoinPubkey *pubkey_to_proto(const tal_t *ctx,
 	p->key.len = PUBKEY_DER_LEN;
 	p->key.data = tal_arr(p, u8, p->key.len);
 
-	pubkey_to_der(secpctx, p->key.data, key);
+	pubkey_to_der(p->key.data, key);
 
 	return p;
 }
 
-bool proto_to_pubkey(secp256k1_context *secpctx,
-		     const BitcoinPubkey *pb, struct pubkey *key)
+bool proto_to_pubkey(const BitcoinPubkey *pb, struct pubkey *key)
 {
-	return pubkey_from_der(secpctx, pb->key.data, pb->key.len, key);
+	return pubkey_from_der(pb->key.data, pb->key.len, key);
 }
 
 Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash)

@@ -6,7 +6,6 @@
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/timer/timer.h>
-#include <secp256k1.h>
 #include <stdio.h>
 
 /* Various adjustable things. */

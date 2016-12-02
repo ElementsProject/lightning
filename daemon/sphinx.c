@@ -1,4 +1,5 @@
 #include "sphinx.h"
+#include "utils.h"
 #include <assert.h>
 
 #include <ccan/crypto/ripemd160/ripemd160.h>
@@ -48,7 +49,6 @@ static void read_buffer(void *dst, const u8 *src, const size_t len, int *pos)
 
 u8 *serialize_onionpacket(
 	const tal_t *ctx,
-	const secp256k1_context *secpctx,
 	const struct onionpacket *m)
 {
 	u8 *dst = tal_arr(ctx, u8, TOTAL_PACKET_SIZE);
@@ -57,7 +57,7 @@ u8 *serialize_onionpacket(
 	size_t outputlen = 33;
 	int p = 0;
 
-	secp256k1_ec_pubkey_serialize(secpctx,
+	secp256k1_ec_pubkey_serialize(secp256k1_ctx,
 				      der,
 				      &outputlen,
 				      &m->ephemeralkey,
@@ -74,7 +74,6 @@ u8 *serialize_onionpacket(
 
 struct onionpacket *parse_onionpacket(
 	const tal_t *ctx,
-	const secp256k1_context *secpctx,
 	const void *src,
 	const size_t srclen
 	)
@@ -95,7 +94,7 @@ struct onionpacket *parse_onionpacket(
 	}
 	read_buffer(rawEphemeralkey, src, 33, &p);
 
-	if (secp256k1_ec_pubkey_parse(secpctx, &m->ephemeralkey, rawEphemeralkey, 33) != 1)
+	if (secp256k1_ec_pubkey_parse(secp256k1_ctx, &m->ephemeralkey, rawEphemeralkey, 33) != 1)
 		return tal_free(m);
 
 	read_buffer(&m->mac, src, 20, &p);
@@ -223,8 +222,7 @@ static bool generate_header_padding(
 	return true;
 }
 
-static void compute_blinding_factor(secp256k1_context *secpctx,
-				    const secp256k1_pubkey *key,
+static void compute_blinding_factor(const secp256k1_pubkey *key,
 				    const u8 sharedsecret[SHARED_SECRET_SIZE],
 				    u8 res[BLINDING_FACTOR_SIZE])
 {
@@ -233,7 +231,7 @@ static void compute_blinding_factor(secp256k1_context *secpctx,
 	size_t outputlen = 33;
 	struct sha256 temp;
 
-	secp256k1_ec_pubkey_serialize(secpctx, der, &outputlen, key,
+	secp256k1_ec_pubkey_serialize(secp256k1_ctx, der, &outputlen, key,
 				      SECP256K1_EC_COMPRESSED);
 	sha256_init(&ctx);
 	sha256_update(&ctx, der, sizeof(der));
@@ -243,7 +241,6 @@ static void compute_blinding_factor(secp256k1_context *secpctx,
 }
 
 static bool blind_group_element(
-	secp256k1_context *secpctx,
 	secp256k1_pubkey *blindedelement,
 	const secp256k1_pubkey *pubkey,
 	const u8 blind[BLINDING_FACTOR_SIZE])
@@ -251,13 +248,12 @@ static bool blind_group_element(
 	/* tweak_mul is inplace so copy first. */
 	if (pubkey != blindedelement)
 		*blindedelement = *pubkey;
-	if (secp256k1_ec_pubkey_tweak_mul(secpctx, blindedelement, blind) != 1)
+	if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx, blindedelement, blind) != 1)
 		return false;
 	return true;
 }
 
 static bool create_shared_secret(
-	secp256k1_context *secpctx,
 	u8 *secret,
 	const secp256k1_pubkey *pubkey,
 	const u8 *sessionkey)
@@ -268,12 +264,12 @@ static bool create_shared_secret(
 
 	pkcopy = *pubkey;
 
-	if (secp256k1_ec_pubkey_tweak_mul(secpctx, &pkcopy, sessionkey) != 1)
+	if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx, &pkcopy, sessionkey) != 1)
 		return false;
 
 	/* Serialize and strip first byte, this gives us the X coordinate */
 	size_t outputlen = 33;
-	secp256k1_ec_pubkey_serialize(secpctx, ecres, &outputlen,
+	secp256k1_ec_pubkey_serialize(secp256k1_ctx, ecres, &outputlen,
 				      &pkcopy, SECP256K1_EC_COMPRESSED);
 	struct sha256 h;
 	sha256(&h, ecres + 1, sizeof(ecres) - 1);
@@ -282,7 +278,6 @@ static bool create_shared_secret(
 }
 
 void pubkey_hash160(
-	const secp256k1_context *secpctx,
 	u8 *dst,
 	const struct pubkey *pubkey)
 {
@@ -291,7 +286,7 @@ void pubkey_hash160(
 	u8 der[33];
 	size_t outputlen = 33;
 
-	secp256k1_ec_pubkey_serialize(secpctx,
+	secp256k1_ec_pubkey_serialize(secp256k1_ctx,
 				      der,
 				      &outputlen,
 				      &pubkey->pubkey,
@@ -312,7 +307,6 @@ static void generate_key_set(u8 secret[SHARED_SECRET_SIZE], struct keyset *keys)
 
 static struct hop_params *generate_hop_params(
 	const tal_t *ctx,
-	secp256k1_context *secpctx,
 	const u8 *sessionkey,
 	struct pubkey path[])
 {
@@ -323,15 +317,15 @@ static struct hop_params *generate_hop_params(
 
 	/* Initialize the first hop with the raw information */
 	if (secp256k1_ec_pubkey_create(
-		    secpctx, &params[0].ephemeralkey, sessionkey) != 1)
+		    secp256k1_ctx, &params[0].ephemeralkey, sessionkey) != 1)
 		return NULL;
 
 	if (!create_shared_secret(
-		    secpctx, params[0].secret, &path[0].pubkey, sessionkey))
+		    params[0].secret, &path[0].pubkey, sessionkey))
 		return NULL;
 
 	compute_blinding_factor(
-		secpctx, &params[0].ephemeralkey, params[0].secret,
+		&params[0].ephemeralkey, params[0].secret,
 		params[0].blind);
 
 	/* Recursively compute all following ephemeral public keys,
@@ -339,7 +333,7 @@ static struct hop_params *generate_hop_params(
 	 */
 	for (i = 1; i < num_hops; i++) {
 		if (!blind_group_element(
-			    secpctx, &params[i].ephemeralkey,
+			    &params[i].ephemeralkey,
 			    &params[i - 1].ephemeralkey,
 			    params[i - 1].blind))
 			return NULL;
@@ -349,11 +343,10 @@ static struct hop_params *generate_hop_params(
 		 */
 		memcpy(&blind, sessionkey, 32);
 		temp = path[i].pubkey;
-		if (!blind_group_element(secpctx, &temp, &temp, blind))
+		if (!blind_group_element(&temp, &temp, blind))
 			return NULL;
 		for (j = 0; j < i; j++)
 			if (!blind_group_element(
-				    secpctx,
 				    &temp,
 				    &temp,
 				    params[j].blind))
@@ -365,14 +358,14 @@ static struct hop_params *generate_hop_params(
 		u8 der[33];
 		size_t outputlen = 33;
 		secp256k1_ec_pubkey_serialize(
-			secpctx, der, &outputlen, &temp,
+			secp256k1_ctx, der, &outputlen, &temp,
 			SECP256K1_EC_COMPRESSED);
 		struct sha256 h;
 		sha256(&h, der + 1, sizeof(der) - 1);
 		memcpy(&params[i].secret, &h, sizeof(h));
 
 		compute_blinding_factor(
-			secpctx, &params[i].ephemeralkey,
+			&params[i].ephemeralkey,
 			params[i].secret, params[i].blind);
 	}
 	return params;
@@ -380,7 +373,6 @@ static struct hop_params *generate_hop_params(
 
 struct onionpacket *create_onionpacket(
 	const tal_t *ctx,
-	secp256k1_context *secpctx,
 	struct pubkey *path,
 	struct hoppayload hoppayloads[],
 	const u8 *sessionkey,
@@ -395,7 +387,7 @@ struct onionpacket *create_onionpacket(
 	struct keyset keys;
 	u8 nextaddr[20], nexthmac[SECURITY_PARAMETER];
 	u8 stream[ROUTING_INFO_SIZE], hopstream[TOTAL_HOP_PAYLOAD_SIZE];
-	struct hop_params *params = generate_hop_params(ctx, secpctx, sessionkey, path);
+	struct hop_params *params = generate_hop_params(ctx, sessionkey, path);
 	u8 binhoppayloads[tal_count(path)][HOP_PAYLOAD_SIZE];
 
 	for (i = 0; i < num_hops; i++)
@@ -452,7 +444,7 @@ struct onionpacket *create_onionpacket(
 		stream_encrypt(packet->payload, packet->payload, sizeof(packet->payload), keys.pi);
 
 		compute_packet_hmac(packet, keys.mu, nexthmac);
-		pubkey_hash160(secpctx, nextaddr, &path[i]);
+		pubkey_hash160(nextaddr, &path[i]);
 	}
 	memcpy(packet->mac, nexthmac, sizeof(nexthmac));
 	memcpy(&packet->ephemeralkey, &params[0].ephemeralkey, sizeof(secp256k1_pubkey));
@@ -465,7 +457,6 @@ struct onionpacket *create_onionpacket(
  */
 struct route_step *process_onionpacket(
 	const tal_t *ctx,
-	secp256k1_context *secpctx,
 	const struct onionpacket *msg,
 	struct privkey *hop_privkey
 	)
@@ -482,7 +473,7 @@ struct route_step *process_onionpacket(
 
 	step->next = talz(step, struct onionpacket);
 	step->next->version = msg->version;
-	create_shared_secret(secpctx, secret, &msg->ephemeralkey, hop_privkey->secret);
+	create_shared_secret(secret, &msg->ephemeralkey, hop_privkey->secret);
 	generate_key_set(secret, &keys);
 
 	compute_packet_hmac(msg, keys.mu, hmac);
@@ -509,8 +500,8 @@ struct route_step *process_onionpacket(
 	memcpy(&step->next->hoppayloads, paddedhoppayloads + HOP_PAYLOAD_SIZE,
 	       TOTAL_HOP_PAYLOAD_SIZE);
 
-	compute_blinding_factor(secpctx, &msg->ephemeralkey, secret, blind);
-	if (!blind_group_element(secpctx, &step->next->ephemeralkey, &msg->ephemeralkey, blind))
+	compute_blinding_factor(&msg->ephemeralkey, secret, blind);
+	if (!blind_group_element(&step->next->ephemeralkey, &msg->ephemeralkey, blind))
 		return tal_free(step);
 	memcpy(&step->next->nexthop, paddedheader, SECURITY_PARAMETER);
 	memcpy(&step->next->mac,

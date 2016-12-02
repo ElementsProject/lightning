@@ -15,10 +15,11 @@
 int main(int argc, char **argv)
 {
 	bool generate = false, decode = false;
-	secp256k1_context *secpctx = secp256k1_context_create(
-		SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
 	const tal_t *ctx = talz(NULL, tal_t);
 
+	secp256k1_ctx = secp256k1_context_create(
+		SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
+	
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "--generate <pubkey1> <pubkey2>... OR\n"
 			   "--decode <privkey>\n"
@@ -44,7 +45,7 @@ int main(int argc, char **argv)
 		int i;
 		for (i = 0; i < num_hops; i++) {
 			hex_decode(argv[1 + i], 66, privkeys[i], 33);
-			if (secp256k1_ec_pubkey_create(secpctx, &path[i].pubkey, privkeys[i]) != 1)
+			if (secp256k1_ec_pubkey_create(secp256k1_ctx, &path[i].pubkey, privkeys[i]) != 1)
 				return 1;
 		}
 
@@ -52,14 +53,14 @@ int main(int argc, char **argv)
 		for (i=0; i<num_hops; i++)
 			memset(&hoppayloads[i], 'A', sizeof(hoppayloads[i]));
 
-		struct onionpacket *res = create_onionpacket(ctx, secpctx,
+		struct onionpacket *res = create_onionpacket(ctx,
 				   path,
 				   hoppayloads,
 				   sessionkey,
 				   (u8*)"testing",
 				   7);
 
-		u8 *serialized = serialize_onionpacket(ctx, secpctx, res);
+		u8 *serialized = serialize_onionpacket(ctx, res);
 		if (!serialized)
 			errx(1, "Error serializing message.");
 
@@ -84,23 +85,23 @@ int main(int argc, char **argv)
 			errx(1, "Reading in onion");
 		hex_decode(hextemp, sizeof(hextemp), serialized, sizeof(serialized));
 
-		msg = parse_onionpacket(ctx, secpctx, serialized, sizeof(serialized));
+		msg = parse_onionpacket(ctx, serialized, sizeof(serialized));
 		if (!msg)
 			errx(1, "Error parsing message.");
 
-		step = process_onionpacket(ctx, secpctx, msg, &seckey);
+		step = process_onionpacket(ctx, msg, &seckey);
 
 		if (!step->next)
 			errx(1, "Error processing message.");
 
-		u8 *ser = serialize_onionpacket(ctx, secpctx, step->next);
+		u8 *ser = serialize_onionpacket(ctx, step->next);
 		if (!ser)
 			errx(1, "Error serializing message.");
 
 		hex_encode(ser, tal_count(ser), hextemp, sizeof(hextemp));
 		printf("%s\n", hextemp);
 	}
-	secp256k1_context_destroy(secpctx);
+	secp256k1_context_destroy(secp256k1_ctx);
 	tal_free(ctx);
 	return 0;
 }

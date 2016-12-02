@@ -4,6 +4,7 @@
 #include "shadouble.h"
 #include "signature.h"
 #include "tx.h"
+#include "utils.h"
 #include <assert.h>
 #include <ccan/cast/cast.h>
 
@@ -72,14 +73,13 @@ static void dump_tx(const char *msg,
 }
 #endif
 
-void sign_hash(secp256k1_context *secpctx,
-	       const struct privkey *privkey,
+void sign_hash(const struct privkey *privkey,
 	       const struct sha256_double *h,
 	       struct signature *s)
 {
 	bool ok;
 
-	ok = secp256k1_ecdsa_sign(secpctx,
+	ok = secp256k1_ecdsa_sign(secp256k1_ctx,
 				  &s->sig,
 				  h->sha.u.u8,
 				  privkey->secret, NULL, NULL);
@@ -112,8 +112,7 @@ static void sha256_tx_one_input(struct bitcoin_tx *tx,
 }
 
 /* Only does SIGHASH_ALL */
-void sign_tx_input(secp256k1_context *secpctx,
-		   struct bitcoin_tx *tx,
+void sign_tx_input(struct bitcoin_tx *tx,
 		   unsigned int in,
 		   const u8 *subscript, size_t subscript_len,
 		   const u8 *witness_script,
@@ -125,24 +124,22 @@ void sign_tx_input(secp256k1_context *secpctx,
 	sha256_tx_one_input(tx, in, subscript, subscript_len, witness_script,
 			    &hash);
 	dump_tx("Signing", tx, in, subscript, subscript_len, key, &hash);
-	sign_hash(secpctx, privkey, &hash, sig);
+	sign_hash(privkey, &hash, sig);
 }
 
-bool check_signed_hash(secp256k1_context *secpctx,
-		       const struct sha256_double *hash,
+bool check_signed_hash(const struct sha256_double *hash,
 		       const struct signature *signature,
 		       const struct pubkey *key)
 {
 	int ret;
 
-	ret = secp256k1_ecdsa_verify(secpctx,
+	ret = secp256k1_ecdsa_verify(secp256k1_ctx,
 				     &signature->sig,
 				     hash->sha.u.u8, &key->pubkey);
 	return ret == 1;
 }
 
-bool check_tx_sig(secp256k1_context *secpctx,
-		  struct bitcoin_tx *tx, size_t input_num,
+bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
 		  const u8 *redeemscript, size_t redeemscript_len,
 		  const u8 *witness_script,
 		  const struct pubkey *key,
@@ -160,7 +157,7 @@ bool check_tx_sig(secp256k1_context *secpctx,
 	if (sig->stype != SIGHASH_ALL)
 		return false;
 
-	ret = check_signed_hash(secpctx, &hash, &sig->sig, key);
+	ret = check_signed_hash(&hash, &sig->sig, key);
 	if (!ret)
 		dump_tx("Sig failed", tx, input_num,
 			redeemscript, redeemscript_len, key, &hash);
@@ -239,30 +236,31 @@ static bool IsValidSignatureEncoding(const unsigned char sig[], size_t len)
     return true;
 }
 
-size_t signature_to_der(secp256k1_context *secpctx,
-			u8 der[72], const struct signature *sig)
+size_t signature_to_der(u8 der[72], const struct signature *sig)
 {
 	size_t len = 72;
 
-	secp256k1_ecdsa_signature_serialize_der(secpctx, der, &len, &sig->sig);
+	secp256k1_ecdsa_signature_serialize_der(secp256k1_ctx,
+						der, &len, &sig->sig);
 
 	/* IsValidSignatureEncoding() expect extra byte for sighash */
 	assert(IsValidSignatureEncoding(der, len + 1));
 	return len;
 }
 
-bool signature_from_der(secp256k1_context *secpctx,
-			const u8 *der, size_t len, struct signature *sig)
+bool signature_from_der(const u8 *der, size_t len, struct signature *sig)
 {
-	return secp256k1_ecdsa_signature_parse_der(secpctx, &sig->sig, der, len);
+	return secp256k1_ecdsa_signature_parse_der(secp256k1_ctx,
+						   &sig->sig, der, len);
 }
 
 /* Signature must have low S value. */
-bool sig_valid(secp256k1_context *secpctx, const struct signature *sig)
+bool sig_valid(const struct signature *sig)
 {
 	secp256k1_ecdsa_signature tmp;
 
-	if (secp256k1_ecdsa_signature_normalize(secpctx, &tmp, &sig->sig) == 0)
+	if (secp256k1_ecdsa_signature_normalize(secp256k1_ctx,
+						&tmp, &sig->sig) == 0)
 		return true;
 	return false;
 }

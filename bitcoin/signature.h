@@ -24,19 +24,16 @@ struct privkey;
 struct bitcoin_tx_output;
 struct bitcoin_signature;
 
-void sign_hash(secp256k1_context *secpctx,
-	       const struct privkey *p,
+void sign_hash(const struct privkey *p,
 	       const struct sha256_double *h,
 	       struct signature *s);
 
-bool check_signed_hash(secp256k1_context *secpctx,
-		       const struct sha256_double *hash,
+bool check_signed_hash(const struct sha256_double *hash,
 		       const struct signature *signature,
 		       const struct pubkey *key);
 
 /* All tx input scripts must be set to 0 len. */
-void sign_tx_input(secp256k1_context *secpctx,
-		   struct bitcoin_tx *tx,
+void sign_tx_input(struct bitcoin_tx *tx,
 		   unsigned int in,
 		   const u8 *subscript, size_t subscript_len,
 		   const u8 *witness,
@@ -44,22 +41,19 @@ void sign_tx_input(secp256k1_context *secpctx,
 		   struct signature *sig);
 
 /* Does this sig sign the tx with this input for this pubkey. */
-bool check_tx_sig(secp256k1_context *secpctx,
-		  struct bitcoin_tx *tx, size_t input_num,
+bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
 		  const u8 *redeemscript, size_t redeemscript_len,
 		  const u8 *witness,
 		  const struct pubkey *key,
 		  const struct bitcoin_signature *sig);
 
 /* Signature must have low S value. */
-bool sig_valid(secp256k1_context *secpctx, const struct signature *sig);
+bool sig_valid(const struct signature *sig);
 
 /* Give DER encoding of signature: returns length used (<= 72). */
-size_t signature_to_der(secp256k1_context *secpctx,
-			u8 der[72], const struct signature *s);
+size_t signature_to_der(u8 der[72], const struct signature *s);
 
 /* Parse DER encoding into signature sig */
-bool signature_from_der(secp256k1_context *secpctx,
-			const u8 *der, size_t len, struct signature *sig);
+bool signature_from_der(const u8 *der, size_t len, struct signature *sig);
 
 #endif /* LIGHTNING_BITCOIN_SIGNATURE_H */

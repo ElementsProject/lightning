@@ -23,7 +23,7 @@ static void set_pubkey(struct pubkey *key)
 {
 	u8 der[PUBKEY_DER_LEN];
 	memset(der, 2, sizeof(der));
-	assert(pubkey_from_der(secp256k1_ctx, der, sizeof(der), key));
+	assert(pubkey_from_der(der, sizeof(der), key));
 }
 
 /* Size up to field. */

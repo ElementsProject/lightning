@@ -103,7 +103,6 @@ void json_add_hex(struct json_result *result, const char *fieldname,
 		  const void *data, size_t len);
 /* '"fieldname" : "0289abcdef..."' or "0289abcdef..." if fieldname is NULL */
 void json_add_pubkey(struct json_result *response,
-		     secp256k1_context *secpctx,
 		     const char *fieldname,
 		     const struct pubkey *key);
 
