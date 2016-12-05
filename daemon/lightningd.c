@@ -483,7 +483,7 @@ int main(int argc, char *argv[])
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
-	
+
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "\n"
 			   "A bitcoin lightning daemon.",
