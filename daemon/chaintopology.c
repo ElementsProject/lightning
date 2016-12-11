@@ -37,6 +37,9 @@ struct block {
 	/* Transactions in this block we care about */
 	struct sha256_double *txids;
 
+	/* And their associated index in the block */
+	u32 *txnums;
+
 	/* Full copy of txs (trimmed to txs list in connect_block) */
 	struct bitcoin_tx **full_txs;
 };
@@ -107,12 +110,14 @@ static u32 get_mediantime(const struct topology *topo, const struct block *b)
 }
 
 /* FIXME: Remove tx from block when peer done. */
-static void add_tx_to_block(struct block *b, const struct sha256_double *txid)
+static void add_tx_to_block(struct block *b, const struct sha256_double *txid, const u32 txnum)
 {
 	size_t n = tal_count(b->txids);
 
 	tal_resize(&b->txids, n+1);
+	tal_resize(&b->txnums, n+1);
 	b->txids[n] = *txid;
+	b->txnums[n] = txnum;
 }
 
 static bool we_broadcast(struct lightningd_state *dstate,
@@ -171,7 +176,7 @@ static void connect_block(struct lightningd_state *dstate,
 		/* We did spends first, in case that tells us to watch tx. */
 		bitcoin_txid(tx, &txid);
 		if (watching_txid(dstate, &txid) || we_broadcast(dstate, &txid))
-			add_tx_to_block(b, &txid);
+			add_tx_to_block(b, &txid, i);
 	}
 	b->full_txs = tal_free(b->full_txs);
 
@@ -403,6 +408,7 @@ static struct block *new_block(struct lightningd_state *dstate,
 	b->hdr = blk->hdr;
 
 	b->txids = tal_arr(b, struct sha256_double, 0);
+	b->txnums = tal_arr(b, u32, 0);
 	b->full_txs = tal_steal(b, blk->tx);
 
 	return b;
@@ -547,15 +553,14 @@ struct txlocator *locate_tx(const void *ctx, struct lightningd_state *dstate,
 
 	struct txlocator *loc = talz(ctx, struct txlocator);
 	loc->blkheight = block->height;
-
 	size_t i, n = tal_count(block->txids);
 	for (i = 0; i < n; i++) {
 		if (structeq(&block->txids[i], txid)){
-			loc->index = i;
-			break;
+			loc->index = block->txnums[i];
+			return loc;
 		}
 	}
-	return loc;
+	return tal_free(loc);
 }
 
 static void json_dev_broadcast(struct command *cmd,
