@@ -24,6 +24,7 @@ void queue_pkt_revocation(struct peer *peer,
 			  const struct sha256 *next_hash);
 void queue_pkt_close_shutdown(struct peer *peer);
 void queue_pkt_close_signature(struct peer *peer);
+void queue_pkt_nested(struct peer *peer, int type, const u8 *nested_pkt);
 
 Pkt *pkt_err(struct peer *peer, const char *msg, ...);
 Pkt *pkt_init(struct peer *peer, u64 ack);

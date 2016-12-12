@@ -1854,6 +1854,39 @@ static bool peer_start_shutdown(struct peer *peer)
 	return db_commit_transaction(peer) == NULL;
 }
 
+/* Shim to handle the new packet format until we complete the
+ * switch. Handing the protobuf in anyway to fall back on protobuf
+ * based error handling. */
+static bool nested_pkt_in(struct peer *peer, const u32 type,
+				 const u8 *innerpkt, size_t innerpktlen,
+				 const Pkt *pkt)
+{
+	switch (type) {
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+		handle_channel_announcement(
+			peer, fromwire_channel_announcement(peer, innerpkt, &innerpktlen));
+		break;
+	case WIRE_CHANNEL_UPDATE:
+		handle_channel_update(
+			peer, fromwire_channel_update(peer, innerpkt, &innerpktlen));
+		break;
+	case WIRE_NODE_ANNOUNCEMENT:
+		handle_node_announcement(
+			peer, fromwire_node_announcement(peer, innerpkt, &innerpktlen));
+		break;
+	default:
+		/* BOLT01: Unknown even typed packets MUST kill the
+		   connection, unknown odd-typed packets MAY be ignored. */
+		if (type % 2 == 0){
+			return peer_received_unexpected_pkt(peer, pkt, __func__);
+		} else {
+			log_debug(peer->log, "Ignoring odd typed (%d) unknown packet.", type);
+			return true;
+		}
+	}
+	return true;
+}
+
 /* This is the io loop while we're in normal mode. */
 static bool normal_pkt_in(struct peer *peer, const Pkt *pkt)
 {
@@ -2164,11 +2197,18 @@ static void clear_output_queue(struct peer *peer)
 
 static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 {
-	bool keep_going;
+	bool keep_going = true;
 
 	/* We ignore packets if they tell us to, or we're closing already */
 	if (peer->fake_close || !state_can_io(peer->state))
 		keep_going = true;
+
+	/* Sidestep the state machine for nested packets */
+	else if (peer->inpkt->pkt_case == PKT__PKT_NESTED)
+		keep_going = nested_pkt_in(peer, peer->inpkt->nested->type,
+					   peer->inpkt->nested->inner_pkt.data,
+					   peer->inpkt->nested->inner_pkt.len,
+					   peer->inpkt);
 	else if (state_is_normal(peer->state))
 		keep_going = normal_pkt_in(peer, peer->inpkt);
 	else if (state_is_shutdown(peer->state))

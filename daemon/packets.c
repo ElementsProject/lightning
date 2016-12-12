@@ -213,6 +213,19 @@ void queue_pkt_revocation(struct peer *peer,
 	queue_pkt(peer, PKT__PKT_UPDATE_REVOCATION, u);
 }
 
+/* Send a serialized nested packet. */
+void queue_pkt_nested(struct peer *peer,
+		      int type,
+		      const u8 *nested_pkt)
+{
+		NestedPkt *pb = tal(peer, NestedPkt);
+		nested_pkt__init(pb);
+		pb->type = type;
+		pb->inner_pkt.len = tal_count(nested_pkt);
+		pb->inner_pkt.data = tal_dup_arr(pb, u8, nested_pkt, pb->inner_pkt.len, 0);
+		queue_pkt(peer, PKT__PKT_NESTED, pb);
+}
+
 Pkt *pkt_err(struct peer *peer, const char *msg, ...)
 {
 	Error *e = tal(peer, Error);
