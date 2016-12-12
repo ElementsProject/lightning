@@ -66,6 +66,7 @@ struct node *new_node(struct lightningd_state *dstate,
 	n->out = tal_arr(n, struct node_connection *, 0);
 	n->port = 0;
 	n->alias = NULL;
+	n->hostname = NULL;
 	node_map_add(dstate->nodes, n);
 	tal_add_destructor(n, destroy_node);
 
@@ -116,6 +117,48 @@ static void destroy_connection(struct node_connection *nc)
 		fatal("Connection not found in array?!");
 }
 
+struct node_connection * get_connection(struct lightningd_state *dstate,
+					const struct pubkey *from_id,
+					const struct pubkey *to_id)
+{
+	int i, n;
+	struct node *from, *to;
+	from = get_node(dstate, from_id);
+	to = get_node(dstate, to_id);
+	if (!from || ! to)
+		return NULL;
+
+	n = tal_count(to->in);
+	for (i = 0; i < n; i++) {
+		if (to->in[i]->src == from)
+			return to->in[i];
+	}
+	return NULL;
+}
+
+struct node_connection *get_connection_by_cid(const struct lightningd_state *dstate,
+					      const struct channel_id *chanid,
+					      const u8 direction)
+{
+	struct node *n;
+	int i, num_conn;
+	struct node_map *nodes = dstate->nodes;
+	struct node_connection *c;
+	struct node_map_iter it;
+
+	//FIXME(cdecker) We probably want to speed this up by indexing by chanid.
+	for (n = node_map_first(nodes, &it); n; n = node_map_next(nodes, &it)) {
+	        num_conn = tal_count(n->out);
+		for (i = 0; i < num_conn; i++){
+			c = n->out[i];
+			if (memcmp(&c->channel_id, chanid, sizeof(*chanid)) == 0 &&
+			    (c->flags&0x1) == direction)
+			    return c;
+		}
+	}
+	return NULL;
+}
+
 static struct node_connection *
 get_or_make_connection(struct lightningd_state *dstate,
 		       const struct pubkey *from_id,
@@ -151,6 +194,7 @@ get_or_make_connection(struct lightningd_state *dstate,
 	nc = tal(dstate, struct node_connection);
 	nc->src = from;
 	nc->dst = to;
+	memset(&nc->channel_id, 0, sizeof(nc->channel_id));
 	log_add(dstate->base_log, " = %p (%p->%p)", nc, from, to);
 
 	/* Hook it into in/out arrays. */
@@ -165,6 +209,28 @@ get_or_make_connection(struct lightningd_state *dstate,
 	return nc;
 }
 
+struct node_connection *half_add_connection(struct lightningd_state *dstate,
+					    const struct pubkey *from,
+					    const struct pubkey *to,
+					    const struct channel_id *chanid,
+					    const u16 flags
+	)
+{
+	struct node_connection *nc;
+	nc = get_or_make_connection(dstate, from, to);
+	memcpy(&nc->channel_id, chanid, sizeof(nc->channel_id));
+	nc->active = false;
+	nc->last_timestamp = 0;
+	nc->flags = flags;
+	nc->min_blocks = 0;
+	nc->proportional_fee = 0;
+	nc->base_fee = 0;
+	nc->delay = 0;
+	return nc;
+}
+
+
+
 /* Updates existing route if required. */
 struct node_connection *add_connection(struct lightningd_state *dstate,
 				       const struct pubkey *from,
@@ -177,6 +243,10 @@ struct node_connection *add_connection(struct lightningd_state *dstate,
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
 	c->min_blocks = min_blocks;
+	c->active = true;
+	c->last_timestamp = 0;
+	memset(&c->channel_id, 0, sizeof(c->channel_id));
+	c->flags = pubkey_cmp(from, to) > 0;
 	return c;
 }
 
@@ -507,6 +577,8 @@ static void json_getchannels(struct command *cmd,
 			json_add_pubkey(response, "to", &c->dst->id);
 			json_add_num(response, "base_fee", c->base_fee);
 			json_add_num(response, "proportional_fee", c->proportional_fee);
+			json_add_num(response, "expiry", c->delay);
+			json_add_bool(response, "active", c->active);
 			json_object_end(response);
 		}
 	}

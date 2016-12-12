@@ -2,6 +2,7 @@
 #define LIGHTNING_DAEMON_ROUTING_H
 #include "config.h"
 #include "bitcoin/pubkey.h"
+#include "wire/wire.h"
 
 #define ROUTING_MAX_HOPS 20
 
@@ -16,6 +17,21 @@ struct node_connection {
 	u32 delay;
 	/* Minimum allowable HTLC expiry in blocks. */
 	u32 min_blocks;
+
+	/* Is this connection active? */
+	bool active;
+
+	u32 last_timestamp;
+
+	/* Minimum number of msatoshi in an HTLC */
+	u32 htlc_minimum_msat;
+	
+	/* The channel ID, as determined by the anchor transaction */
+	struct channel_id channel_id;
+
+	/* Flags as specified by the `channel_update`s, among other
+	 * things indicated direction wrt the `channel_id` */
+	u16 flags;
 };
 
 struct node {
@@ -24,6 +40,8 @@ struct node {
 	/* IP/Hostname and port of this node */
 	char *hostname;
 	int port;
+
+	u32 last_timestamp;
 
 	/* Routes connecting to us, from us. */
 	struct node_connection **in, **out;
@@ -40,6 +58,9 @@ struct node {
 
 	/* UTF-8 encoded alias as tal_arr, not zero terminated */
 	u8 *alias;
+
+	/* Color to be used when displaying the name */
+	u8 rgb_color[3];
 };
 
 struct lightningd_state;
@@ -66,6 +87,28 @@ struct node_connection *add_connection(struct lightningd_state *dstate,
 				       const struct pubkey *to,
 				       u32 base_fee, s32 proportional_fee,
 				       u32 delay, u32 min_blocks);
+
+/* Add a connection to the routing table, but do not mark it as usable
+ * yet. Used by channel_announcements before the channel_update comes
+ * in. */
+
+struct node_connection *half_add_connection(struct lightningd_state *dstate,
+					    const struct pubkey *from,
+					    const struct pubkey *to,
+					    const struct channel_id *chanid,
+					    const u16 flags);
+
+/* Get an existing connection between `from` and `to`, NULL if no such
+ * connection exists. */
+struct node_connection *get_connection(struct lightningd_state *dstate,
+				       const struct pubkey *from,
+				       const struct pubkey *to);
+
+/* Given a channel_id, retrieve the matching connection, or NULL if it is
+ * unknown. */
+struct node_connection *get_connection_by_cid(const struct lightningd_state *dstate,
+					      const struct channel_id *chanid,
+					      const u8 direction);
 
 void remove_connection(struct lightningd_state *dstate,
 		       const struct pubkey *src, const struct pubkey *dst);
