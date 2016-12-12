@@ -32,4 +32,7 @@ void pubkey_to_der(u8 der[PUBKEY_DER_LEN], const struct pubkey *key);
 
 /* Are these keys equal? */
 bool pubkey_eq(const struct pubkey *a, const struct pubkey *b);
+
+/* Compare the keys `a` and `b`. Return <0 if `a`<`b`, 0 if equal and >0 otherwise */
+int pubkey_cmp(const struct pubkey *a, const struct pubkey *b);
 #endif /* LIGHTNING_PUBKEY_H */
