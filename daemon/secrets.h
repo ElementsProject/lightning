@@ -3,6 +3,7 @@
 /* Routines to handle private keys. */
 #include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <ccan/tal/tal.h>
 
 struct peer;
 struct lightningd_state;
