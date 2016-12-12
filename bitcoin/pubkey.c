@@ -65,3 +65,11 @@ bool pubkey_eq(const struct pubkey *a, const struct pubkey *b)
 {
 	return structeq(&a->pubkey, &b->pubkey);
 }
+
+int pubkey_cmp(const struct pubkey *a, const struct pubkey *b)
+{
+	u8 keya[33], keyb[33];
+	pubkey_to_der(keya, a);
+	pubkey_to_der(keyb, b);
+	return memcmp(keya, keyb, sizeof(keya));
+}
