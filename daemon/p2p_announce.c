@@ -263,7 +263,9 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 {
 	struct msg_channel_announcement *msg = tal(peer, struct msg_channel_announcement);
 	struct txlocator *loc;
-	u8 *ser;
+	struct signature *my_node_signature;
+	struct signature *my_bitcoin_signature;
+	u8 *serialized;
 
 	loc = locate_tx(msg, dstate, &peer->anchor.txid);
 
@@ -271,21 +273,40 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 	msg->channel_id.txnum = loc->index;
 	msg->channel_id.outnum = peer->anchor.index;
 
+
+	/* Set all sigs to zero */
+	memset(&msg->node_signature_1, 0, sizeof(msg->node_signature_1));
+	memset(&msg->bitcoin_signature_1, 0, sizeof(msg->bitcoin_signature_1));
+	memset(&msg->node_signature_2, 0, sizeof(msg->node_signature_2));
+	memset(&msg->bitcoin_signature_2, 0, sizeof(msg->bitcoin_signature_2));
+
+	//FIXME(cdecker) Copy remote stored signatures into place
 	if (pubkey_cmp(&dstate->id, peer->id) > 0) {
 		msg->node_id_1 = *peer->id;
 		msg->node_id_2 = dstate->id;
 		msg->bitcoin_key_1 = *peer->id;
 		msg->bitcoin_key_2 = dstate->id;
+		my_node_signature = &msg->node_signature_2;
+		my_bitcoin_signature = &msg->bitcoin_signature_2;
 	} else {
 		msg->node_id_2 = *peer->id;
 		msg->node_id_1 = dstate->id;
 		msg->bitcoin_key_2 = *peer->id;
 		msg->bitcoin_key_1 = dstate->id;
+		my_node_signature = &msg->node_signature_1;
+		my_bitcoin_signature = &msg->bitcoin_signature_1;
 	}
+	/* Sign the node_id with the bitcoin_key, proves delegation */
+	serialized = tal_arr(msg, u8, 0);
+	towire_pubkey(&serialized, &dstate->id);
+	privkey_sign(dstate, serialized, tal_count(serialized), my_bitcoin_signature);
 
-	//FIXME(cdecker) actually sign this packet, currently not pinned down in spec
-	ser = towire_channel_announcement(msg, msg);
-	broadcast(dstate, WIRE_CHANNEL_ANNOUNCEMENT, ser, NULL);
+	/* Sign the entire packet with `node_id`, proves integrity and origin */
+	serialized = towire_channel_announcement(msg, msg);
+	privkey_sign(dstate, serialized + 128, tal_count(serialized) - 128, my_node_signature);
+
+	serialized = towire_channel_announcement(msg, msg);
+	broadcast(dstate, WIRE_CHANNEL_ANNOUNCEMENT, serialized, NULL);
 	tal_free(msg);
 }
 
