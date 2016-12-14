@@ -112,14 +112,14 @@ struct io_data {
 	/* Stuff we need to keep around to talk to peer. */
 	struct dir_state in, out;
 
-	/* Length we're currently reading. */
-	struct crypto_pkt hdr_in;
-
 	/* Callback once packet decrypted. */
 	struct io_plan *(*cb)(struct io_conn *, struct peer *);
 
 	/* Once peer is assigned, this is set. */
 	struct peer *peer;
+
+	/* Length we're currently reading. */
+	struct crypto_pkt hdr_in;
 };
 
 static void *proto_tal_alloc(void *allocator_data, size_t size)
