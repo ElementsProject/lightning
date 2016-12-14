@@ -371,6 +371,7 @@ static struct lightningd_state *lightningd_state(void)
 	dstate->reexec = NULL;
 	dstate->external_ip = NULL;
 	dstate->announce = NULL;
+	list_head_init(&dstate->broadcast_queue);
 	return dstate;
 }
 
