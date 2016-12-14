@@ -28,14 +28,10 @@
  */
 #include "bitcoin/script.h"
 #include "bitcoin/tx.h"
-#include "bitcoind.h"
 #include "chaintopology.h"
 #include "lightningd.h"
 #include "log.h"
 #include "peer.h"
-#include "pseudorand.h"
-#include "timeout.h"
-#include "watch.h"
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/ptrint/ptrint.h>
 #include <ccan/structeq/structeq.h>

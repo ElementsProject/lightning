@@ -3,7 +3,6 @@
 #include "log.h"
 #include "overflows.h"
 #include "peer.h"
-#include "pseudorand.h"
 #include "routing.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/siphash24/siphash24.h>

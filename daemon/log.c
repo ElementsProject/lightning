@@ -7,7 +7,6 @@
 #include "log.h"
 #include "peer.h"
 #include "protobuf_convert.h"
-#include "pseudorand.h"
 #include "utils.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/list/list.h>
@@ -20,9 +19,6 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <signal.h>
-#include <stdio.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 struct log_entry {

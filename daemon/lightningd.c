@@ -7,7 +7,6 @@
 #include "lightningd.h"
 #include "log.h"
 #include "opt_time.h"
-#include "peer.h"
 #include "routing.h"
 #include "secrets.h"
 #include "timeout.h"
@@ -25,9 +24,7 @@
 #include <inttypes.h>
 #include <signal.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <version.h>
 

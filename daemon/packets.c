@@ -4,7 +4,6 @@
 #include "close_tx.h"
 #include "commit_tx.h"
 #include "cryptopkt.h"
-#include "htlc.h"
 #include "lightningd.h"
 #include "log.h"
 #include "names.h"
@@ -12,7 +11,6 @@
 #include "peer.h"
 #include "protobuf_convert.h"
 #include "secrets.h"
-#include "state.h"
 #include "utils.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/sha256/sha256.h>

@@ -1,7 +1,5 @@
 #include "db.h"
-#include "htlc.h"
 #include "log.h"
-#include "peer.h"
   #include "gen_htlc_state_names.h"
 #include <ccan/array_size/array_size.h>
 #include <inttypes.h>

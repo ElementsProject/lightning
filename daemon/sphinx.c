@@ -1,6 +1,5 @@
 #include "sphinx.h"
 #include "utils.h"
-#include <assert.h>
 
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/sha256/sha256.h>

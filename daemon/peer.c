@@ -1,4 +1,3 @@
-#include "bitcoind.h"
 #include "chaintopology.h"
 #include "close_tx.h"
 #include "commit_tx.h"
@@ -44,11 +43,6 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <netdb.h>
-#include <netinet/in.h>
-#include <sodium/randombytes.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 
 struct json_connecting {
 	/* This owns us, so we're freed after command_fail or command_success */

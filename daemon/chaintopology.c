@@ -8,7 +8,6 @@
 #include "peer.h"
 #include "timeout.h"
 #include "utils.h"
-#include "watch.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/io/io.h>

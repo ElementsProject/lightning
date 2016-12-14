@@ -9,7 +9,6 @@
 #include "pubkey.h"
 #include "shadouble.h"
 #include "utils.h"
-#include <assert.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/tal/str/str.h>
 #include <libbase58.h>

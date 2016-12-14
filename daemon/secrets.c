@@ -17,8 +17,6 @@
 #include <fcntl.h>
 #include <secp256k1.h>
 #include <sodium/randombytes.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 struct secret {

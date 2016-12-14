@@ -10,7 +10,6 @@
 #include <ccan/tal/str/str.h>
 #include <netdb.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 void netaddr_to_addrinfo(struct addrinfo *ai, const struct netaddr *a)
 {
