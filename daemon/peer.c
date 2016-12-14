@@ -467,7 +467,7 @@ static bool peer_received_unexpected_pkt(struct peer *peer, const Pkt *pkt,
 					 const char *where)
 {
 	const char *p;
-	Pkt *err;
+	Pkt *err = NULL;
 
 	log_unusual(peer->log, "%s: received unexpected pkt %u (%s) in %s",
 		    where, pkt->pkt_case, pkt_name(pkt->pkt_case),
@@ -4120,7 +4120,7 @@ static enum watch_result anchor_spent(struct peer *peer,
 	enum state newstate;
 	struct htlc_map_iter it;
 	struct htlc *h;
-	u64 commit_num;
+	u64 commit_num = 0;
 
 	assert(input_num < tx->input_count);
 
