@@ -388,6 +388,8 @@ struct peer *find_route(const tal_t *ctx,
 		     n = node_map_next(dstate->nodes, &it)) {
 			size_t num_edges = tal_count(n->in);
 			for (i = 0; i < num_edges; i++) {
+				if (!n->in[i]->active)
+					continue;
 				bfg_one_edge(n, i, riskfactor);
 				log_debug(dstate->base_log, "We seek %p->%p, this is %p -> %p",
 					  dst, src, n->in[i]->src, n->in[i]->dst);
