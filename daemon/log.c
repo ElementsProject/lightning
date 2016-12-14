@@ -382,7 +382,7 @@ void log_struct_(struct log *log, int level,
 	tal_free(ctx);
 }
 
-void log_blob_(struct log *log, enum log_level level, const char *fmt,
+void log_blob_(struct log *log, int level, const char *fmt,
 	       size_t len, ...)
 {
 	va_list ap;
