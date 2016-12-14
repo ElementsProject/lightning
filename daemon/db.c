@@ -1575,7 +1575,7 @@ void db_update_htlc_state(struct peer *peer, const struct htlc *htlc,
 
 void db_update_feechange_state(struct peer *peer,
 			       const struct feechange *f,
-			       enum htlc_state oldstate)
+			       enum feechange_state oldstate)
 {
 	const char *ctx = tal_tmpctx(peer);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
@@ -1593,7 +1593,7 @@ void db_update_feechange_state(struct peer *peer,
 }
 
 void db_remove_feechange(struct peer *peer, const struct feechange *feechange,
-			 enum htlc_state oldstate)
+			 enum feechange_state oldstate)
 {
 	const char *ctx = tal(peer, char);
 	const char *peerid = pubkey_to_hexstr(ctx, peer->id);
