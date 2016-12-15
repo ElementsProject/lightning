@@ -40,6 +40,10 @@ BITCOIN_SRC :=					\
 
 BITCOIN_OBJS := $(BITCOIN_SRC:.c=.o)
 
+LIBBASE58_SRC :=	bitcoin/libbase58/base58.c
+
+LIBBASE58_OBJS := $(LIBBASE58_SRC:.c=.o)
+
 CORE_SRC :=					\
 	close_tx.c				\
 	find_p2sh_out.c				\
@@ -163,6 +167,8 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/tx.h				\
 	bitcoin/varint.h
 
+LIBBASE58_HEADERS := bitcoin/libbase58/libbase58.h
+
 CORE_HEADERS := close_tx.h			\
 	find_p2sh_out.h				\
 	irc.h					\
@@ -196,7 +202,7 @@ CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations 
 CDEBUGFLAGS := -g -fstack-protector
 CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) -I secp256k1/include/ -I . $(FEATURES)
 
-LDLIBS := -lprotobuf-c -lgmp -lsodium -lbase58 -lsqlite3
+LDLIBS := -lprotobuf-c -lgmp -lsodium -lsqlite3
 $(PROGRAMS): CFLAGS+=-I.
 
 default: $(PROGRAMS) $(MANPAGES) daemon-all
@@ -208,10 +214,10 @@ $(MANPAGES): doc/%: doc/%.txt
 	@if $(CHANGED_FROM_GIT); then echo a2x --format=manpage $<; a2x --format=manpage $<; else touch $@; fi
 
 # Everything depends on the CCAN headers.
-$(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
+$(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
 
 # Except for CCAN, everything depends on bitcoin/ and core headers.
-$(HELPER_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS)
+$(HELPER_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS)
 
 test-protocol: test/test_protocol
 	set -e; TMP=`mktemp`; for f in test/commits/*.script; do if ! $(VALGRIND) test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
@@ -285,7 +291,7 @@ secp256k1/libsecp256k1.la:
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	@if $(CHANGED_FROM_GIT); then echo $(PROTOCC) lightning.proto --c_out=.; $(PROTOCC) lightning.proto --c_out=.; else touch $@; fi
 
-$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) utils.o version.o libsecp256k1.a
+$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) utils.o version.o libsecp256k1.a
 
 ccan/config.h: ccan/tools/configurator/configurator
 	if $< > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
