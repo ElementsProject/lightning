@@ -998,7 +998,9 @@ static void do_cmd(struct peer *peer)
 	} else
 		errx(1, "%s: Unknown command %s", peer->name, cmd);
 
-	write(peer->cmddonefd, peer->info, strlen(peer->info)+1);
+	if (write(peer->cmddonefd, peer->info, strlen(peer->info)+1)
+	    != strlen(peer->info)+1)
+		abort();
 
 	/* We must always have (at least one) signed, unrevoked commit. */
 	for (ci = peer->local; ci; ci = ci->prev) {

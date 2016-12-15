@@ -226,7 +226,8 @@ bool json_get_params(const char *buffer, const jsmntok_t param[], ...)
 {
 	va_list ap;
 	const char *name;
-	const jsmntok_t **tokptr, *p, *end;
+	 /* Uninitialized warnings on p and end */
+	const jsmntok_t **tokptr, *p = NULL, *end = NULL;
 
 	if (param->type == JSMN_ARRAY) {
 		if (param->size == 0)
