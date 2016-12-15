@@ -478,6 +478,15 @@ static bool peer_received_unexpected_pkt(struct peer *peer, const Pkt *pkt,
 		goto out;
 	}
 
+	/* BOLT #2:
+	 *
+	 * A node MUST fail the connection if it receives an `err`
+	 * message, and MUST NOT send an `err` message in this case.
+	 * For other connection failures, a node SHOULD send an
+	 * informative `err` message.
+	 */
+	err = NULL;
+
 	/* Check packet for weird chars. */
 	for (p = pkt->error->problem; *p; p++) {
 		if (cisprint(*p))
@@ -491,14 +500,6 @@ static bool peer_received_unexpected_pkt(struct peer *peer, const Pkt *pkt,
 	}
 	log_unusual(peer->log, "Error pkt '%s'", pkt->error->problem);
 
-	/* BOLT #2:
-	 *
-	 * A node MUST fail the connection if it receives an `err`
-	 * message, and MUST NOT send an `err` message in this case.
-	 * For other connection failures, a node SHOULD send an
-	 * informative `err` message.
-	 */
-	err = NULL;
 out:
 	return peer_comms_err(peer, err);
 }
