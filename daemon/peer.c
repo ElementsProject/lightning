@@ -4167,7 +4167,7 @@ static enum watch_result anchor_spent(struct peer *peer,
 					 peer->local.commit->commit_num)) {
 			log_broken(peer->log,
 				   "Can't resolve own anchor spend %"PRIu64"!",
-				   commit_num);
+				   peer->local.commit->commit_num);
 			goto unknown_spend;
 		}
 		resolve_our_unilateral(peer);
