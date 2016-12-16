@@ -747,6 +747,7 @@ static bool open_wait_pkt_in(struct peer *peer, const Pkt *pkt)
 			peer_open_complete(peer, NULL);
 			set_peer_state(peer, STATE_NORMAL, __func__, true);
 			announce_channel(peer->dstate, peer);
+			sync_routing_table(peer->dstate, peer);
 		} else {
 			set_peer_state(peer, STATE_OPEN_WAIT_ANCHORDEPTH,
 				       __func__, true);
@@ -2529,8 +2530,10 @@ static struct io_plan *init_pkt_in(struct io_conn *conn, struct peer *peer)
 
 	peer_has_connected(peer);
 
-	if (state_is_normal(peer->state))
+	if (state_is_normal(peer->state)){
 		announce_channel(peer->dstate, peer);
+		sync_routing_table(peer->dstate, peer);
+	}
 
 	return io_duplex(conn,
 			 peer_read_packet(conn, peer, pkt_in),
@@ -3317,6 +3320,7 @@ static void peer_depth_ok(struct peer *peer)
 		peer_open_complete(peer, NULL);
 		set_peer_state(peer, STATE_NORMAL, __func__, true);
 		announce_channel(peer->dstate, peer);
+		sync_routing_table(peer->dstate, peer);
 		break;
 	default:
 		log_broken(peer->log, "%s: state %s",

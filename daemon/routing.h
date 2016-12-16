@@ -32,6 +32,10 @@ struct node_connection {
 	/* Flags as specified by the `channel_update`s, among other
 	 * things indicated direction wrt the `channel_id` */
 	u16 flags;
+
+	/* Cached `channel_announcement` and `channel_update` we might forward to new peers*/
+	u8 *channel_announcement;
+	u8 *channel_update;
 };
 
 struct node {
@@ -61,6 +65,9 @@ struct node {
 
 	/* Color to be used when displaying the name */
 	u8 rgb_color[3];
+
+	/* Cached `node_announcement` we might forward to new peers. */
+	u8 *node_announcement;
 };
 
 struct lightningd_state;
@@ -124,5 +131,8 @@ struct peer *find_route(const tal_t *ctx,
 struct node_map *empty_node_map(struct lightningd_state *dstate);
 
 char *opt_add_route(const char *arg, struct lightningd_state *dstate);
+
+/* Dump all known channels and nodes to the peer. Used when a new connection was established. */
+void sync_routing_table(struct lightningd_state *dstate, struct peer *peer);
 
 #endif /* LIGHTNING_DAEMON_ROUTING_H */

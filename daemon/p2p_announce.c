@@ -113,8 +113,8 @@ static bool add_channel_direction(struct lightningd_state *dstate,
 				  const struct pubkey *from,
 				  const struct pubkey *to,
 				  const int direction,
-				  const struct channel_id *channel_id
-	)
+				  const struct channel_id *channel_id,
+				  const u8 *announcement)
 {
 	struct node_connection *c = get_connection(dstate, from, to);
 	if (c){
@@ -126,10 +126,13 @@ static bool add_channel_direction(struct lightningd_state *dstate,
 	}else if(get_connection_by_cid(dstate, channel_id, direction)) {
 		return false;
 	}
-	half_add_connection(dstate,
-			    from,
-			    to,
-			    channel_id, direction);
+
+	c = half_add_connection(dstate, from, to, channel_id, direction);
+
+	/* Remember the announcement so we can forward it to new peers */
+	tal_free(c->channel_announcement);
+	c->channel_announcement = tal_dup_arr(c, u8, announcement,
+					      tal_count(announcement), 0);
 	return true;
 }
 
@@ -145,29 +148,32 @@ void handle_channel_announcement(
 	//FIXME(cdecker) Check signatures, when the spec is settled
 	//FIXME(cdecker) Check chain topology for the anchor TX
 
-	log_debug(peer->log, "Received channel_announcement for channel %d:%d:%d",
-			  msg->channel_id.blocknum,
-			  msg->channel_id.txnum,
-			  msg->channel_id.outnum
+	serialized = towire_channel_announcement(msg, msg);
+
+	log_debug(peer->log,
+		  "Received channel_announcement for channel %d:%d:%d",
+		  msg->channel_id.blocknum,
+		  msg->channel_id.txnum,
+		  msg->channel_id.outnum
 		);
+
 	forward |= add_channel_direction(peer->dstate, &msg->node_id_1,
-					 &msg->node_id_2, 0, &msg->channel_id);
+					 &msg->node_id_2, 0, &msg->channel_id,
+					 serialized);
 	forward |= add_channel_direction(peer->dstate, &msg->node_id_2,
-					 &msg->node_id_1, 1, &msg->channel_id);
+					 &msg->node_id_1, 1, &msg->channel_id,
+					 serialized);
 	if (!forward){
 		log_debug(peer->log, "Not forwarding channel_announcement");
 		return;
 	}
 
-	serialized = towire_channel_announcement(msg, msg);
-
 	u8 *tag = tal_arr(msg, u8, 0);
 	towire_channel_id(&tag, &msg->channel_id);
-	queue_broadcast(peer->dstate,
-			WIRE_CHANNEL_ANNOUNCEMENT,
+	queue_broadcast(peer->dstate, WIRE_CHANNEL_ANNOUNCEMENT,
 			0, /* `channel_announcement`s do not have a timestamp */
-			tag,
-			serialized, peer);
+			tag, serialized, peer);
+
 	tal_free(msg);
 }
 
@@ -223,6 +229,9 @@ void handle_channel_update(struct peer *peer, const struct msg_channel_update *m
 			msg->timestamp,
 			tag,
 			serialized, peer);
+
+	tal_free(c->channel_update);
+	c->channel_update = tal_dup_arr(c, u8, serialized, tal_count(serialized), 0);
 	tal_free(msg);
 }
 
@@ -273,6 +282,8 @@ void handle_node_announcement(
 			msg->timestamp,
 			tag,
 			serialized, peer);
+	tal_free(node->node_announcement);
+	node->node_announcement = tal_dup_arr(node, u8, serialized, tal_count(serialized), 0);
 	tal_free(msg);
 }
 
@@ -325,7 +336,6 @@ static void broadcast_node_announcement(struct lightningd_state *dstate)
 	serialized = towire_node_announcement(msg, msg);
 	broadcast(dstate, WIRE_NODE_ANNOUNCEMENT, serialized, NULL);
 	tal_free(msg);
-
 }
 
 static void broadcast_channel_announcement(struct lightningd_state *dstate, struct peer *peer)
