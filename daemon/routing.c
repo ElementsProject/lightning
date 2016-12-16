@@ -2,6 +2,7 @@
 #include "lightningd.h"
 #include "log.h"
 #include "overflows.h"
+#include "packets.h"
 #include "peer.h"
 #include "pseudorand.h"
 #include "routing.h"
@@ -67,6 +68,7 @@ struct node *new_node(struct lightningd_state *dstate,
 	n->port = 0;
 	n->alias = NULL;
 	n->hostname = NULL;
+	n->node_announcement = NULL;
 	node_map_add(dstate->nodes, n);
 	tal_add_destructor(n, destroy_node);
 
@@ -195,6 +197,8 @@ get_or_make_connection(struct lightningd_state *dstate,
 	nc->src = from;
 	nc->dst = to;
 	memset(&nc->channel_id, 0, sizeof(nc->channel_id));
+	nc->channel_announcement = NULL;
+	nc->channel_update = NULL;
 	log_add(dstate->base_log, " = %p (%p->%p)", nc, from, to);
 
 	/* Hook it into in/out arrays. */
@@ -549,6 +553,26 @@ static void json_add_route(struct command *cmd,
 
 	add_connection(cmd->dstate, &src, &dst, base, var, delay, minblocks);
 	command_success(cmd, null_response(cmd));
+}
+
+void sync_routing_table(struct lightningd_state *dstate, struct peer *peer)
+{
+	struct node *n;
+	struct node_map_iter it;
+	int i;
+	struct node_connection *nc;
+	for (n = node_map_first(dstate->nodes, &it); n; n = node_map_next(dstate->nodes, &it)) {
+		size_t num_edges = tal_count(n->out);
+		for (i = 0; i < num_edges; i++) {
+			nc = n->out[i];
+			if (nc->channel_announcement)
+				queue_pkt_nested(peer, WIRE_CHANNEL_ANNOUNCEMENT, nc->channel_announcement);
+			if (nc->channel_update)
+				queue_pkt_nested(peer, WIRE_CHANNEL_UPDATE, nc->channel_update);
+		}
+		if (n->node_announcement)
+			queue_pkt_nested(peer, WIRE_NODE_ANNOUNCEMENT, n->node_announcement);
+	}
 }
 
 const struct json_command dev_add_route_command = {
