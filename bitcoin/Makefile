@@ -29,7 +29,7 @@ bitcoin/libbase58/libbase58.h:
 
 # If we tell Make that the above builds both, it runs it twice in
 # parallel.  So we lie :(
-bitcoin/libbase58/base58.c: bitcoin/libbase58/libbase58.h 
+bitcoin/libbase58/base58.c: bitcoin/libbase58/libbase58.h
 	[ -f $@ ]
 
 bitcoin/libbase58.o: bitcoin/libbase58/base58.c
