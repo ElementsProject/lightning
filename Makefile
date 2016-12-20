@@ -40,10 +40,6 @@ BITCOIN_SRC :=					\
 
 BITCOIN_OBJS := $(BITCOIN_SRC:.c=.o)
 
-LIBBASE58_SRC :=	bitcoin/libbase58/base58.c
-
-LIBBASE58_OBJS := $(LIBBASE58_SRC:.c=.o)
-
 CORE_SRC :=					\
 	close_tx.c				\
 	find_p2sh_out.c				\
@@ -167,8 +163,6 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/tx.h				\
 	bitcoin/varint.h
 
-LIBBASE58_HEADERS := bitcoin/libbase58/libbase58.h
-
 CORE_HEADERS := close_tx.h			\
 	find_p2sh_out.h				\
 	irc.h					\
@@ -207,6 +201,9 @@ $(PROGRAMS): CFLAGS+=-I.
 
 default: $(PROGRAMS) $(MANPAGES) daemon-all
 
+include bitcoin/Makefile
+include wire/Makefile
+
 # Git doesn't maintain timestamps, so we only regen if git says we should.
 CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o x"`git diff $<`" != x"" ]
 
@@ -214,10 +211,10 @@ $(MANPAGES): doc/%: doc/%.txt
 	@if $(CHANGED_FROM_GIT); then echo a2x --format=manpage $<; a2x --format=manpage $<; else touch $@; fi
 
 # Everything depends on the CCAN headers.
-$(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
+$(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
 
 # Except for CCAN, everything depends on bitcoin/ and core headers.
-$(HELPER_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS)
+$(HELPER_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS) $(LIBBASE58_HEADERS)
 
 test-protocol: test/test_protocol
 	set -e; TMP=`mktemp`; for f in test/commits/*.script; do if ! $(VALGRIND) test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
@@ -228,9 +225,6 @@ doc/protocol-%.svg: test/test_protocol
 protocol-diagrams: $(patsubst %.script, doc/protocol-%.svg, $(notdir $(wildcard test/commits/*.script)))
 
 check: test-protocol
-
-include bitcoin/Makefile
-include wire/Makefile
 
 # Keep includes in alpha order.
 check-src-include-order/%: %
