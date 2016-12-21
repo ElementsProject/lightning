@@ -263,8 +263,7 @@ void handle_node_announcement(
 	}
 
 	node->last_timestamp = msg->timestamp;
-	if (node->hostname)
-		node->hostname = tal_free(node->hostname);
+	node->hostname = tal_free(node->hostname);
 	node->hostname = read_ip(node, &msg->ipv6);
 	node->port = msg->port;
 	memcpy(node->rgb_color, msg->rgb_color, 3);
@@ -296,6 +295,7 @@ static void broadcast_channel_update(struct lightningd_state *dstate, struct pee
 	msg->channel_id.outnum = peer->anchor.index;
 	msg->flags = pubkey_cmp(&dstate->id, peer->id) > 0;
 	msg->expiry = dstate->config.min_htlc_expiry;
+	//FIXME(cdecker) Make the minimum HTLC configurable
 	msg->htlc_minimum_msat = 1;
 	msg->fee_base_msat = dstate->config.fee_base;
 	msg->fee_proportional_millionths = dstate->config.fee_per_satoshi;
