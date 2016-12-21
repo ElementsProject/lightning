@@ -26,9 +26,6 @@ struct queued_message {
 	u8 *payload;
 
 	struct list_node list;
-
-	/* who told us about this message? */
-	struct peer *origin;
 };
 
 u8 ipv4prefix[] = {
@@ -81,8 +78,7 @@ static void queue_broadcast(struct lightningd_state *dstate,
 			    const int type,
 			    const u32 timestamp,
 			    const u8 *tag,
-			    const u8 *payload,
-			    struct peer *origin)
+			    const u8 *payload)
 {
 	struct queued_message *el, *msg;
 	list_for_each(&dstate->broadcast_queue, el, list) {
@@ -94,7 +90,6 @@ static void queue_broadcast(struct lightningd_state *dstate,
 			el->payload = tal_free(el->payload);
 			el->payload = tal_dup_arr(el, u8, payload, tal_count(payload), 0);
 			el->timestamp = timestamp;
-			el->origin = origin;
 			return;
 		}
 	}
@@ -105,7 +100,6 @@ static void queue_broadcast(struct lightningd_state *dstate,
 	msg->timestamp = timestamp;
 	msg->tag = tal_dup_arr(msg, u8, tag, tal_count(tag), 0);
 	msg->payload = tal_dup_arr(msg, u8, payload, tal_count(payload), 0);
-	msg->origin = origin;
 	list_add_tail(&dstate->broadcast_queue, &msg->list);
 }
 
@@ -172,7 +166,7 @@ void handle_channel_announcement(
 	towire_channel_id(&tag, &msg->channel_id);
 	queue_broadcast(peer->dstate, WIRE_CHANNEL_ANNOUNCEMENT,
 			0, /* `channel_announcement`s do not have a timestamp */
-			tag, serialized, peer);
+			tag, serialized);
 
 	tal_free(msg);
 }
@@ -228,7 +222,7 @@ void handle_channel_update(struct peer *peer, const struct msg_channel_update *m
 			WIRE_CHANNEL_UPDATE,
 			msg->timestamp,
 			tag,
-			serialized, peer);
+			serialized);
 
 	tal_free(c->channel_update);
 	c->channel_update = tal_dup_arr(c, u8, serialized, tal_count(serialized), 0);
@@ -281,7 +275,7 @@ void handle_node_announcement(
 			WIRE_NODE_ANNOUNCEMENT,
 			msg->timestamp,
 			tag,
-			serialized, peer);
+			serialized);
 	tal_free(node->node_announcement);
 	node->node_announcement = tal_dup_arr(node, u8, serialized, tal_count(serialized), 0);
 	tal_free(msg);
