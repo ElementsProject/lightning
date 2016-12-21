@@ -31,6 +31,7 @@ DAEMON_SRC :=					\
 	daemon/netaddr.c			\
 	daemon/opt_time.c			\
 	daemon/output_to_htlc.c			\
+	daemon/p2p_announce.c			\
 	daemon/packets.c			\
 	daemon/pay.c				\
 	daemon/peer.c				\
@@ -81,6 +82,7 @@ DAEMON_HEADERS :=				\
 	daemon/netaddr.h			\
 	daemon/opt_time.h			\
 	daemon/output_to_htlc.h			\
+	daemon/p2p_announce.h			\
 	daemon/packets.h			\
 	daemon/pay.h				\
 	daemon/peer.h				\

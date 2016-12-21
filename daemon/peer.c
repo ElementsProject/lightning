@@ -13,6 +13,7 @@
 #include "names.h"
 #include "netaddr.h"
 #include "output_to_htlc.h"
+#include "p2p_announce.h"
 #include "packets.h"
 #include "pay.h"
 #include "peer.h"

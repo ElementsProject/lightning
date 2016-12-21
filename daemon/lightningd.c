@@ -7,6 +7,7 @@
 #include "lightningd.h"
 #include "log.h"
 #include "opt_time.h"
+#include "p2p_announce.h"
 #include "peer.h"
 #include "routing.h"
 #include "secrets.h"
@@ -551,6 +552,9 @@ int main(int argc, char *argv[])
 	/* set up IRC peer discovery */
 	if (dstate->config.use_irc)
 		setup_irc_connection(dstate);
+
+	/* set up P2P gossip protocol */
+	setup_p2p_announce(dstate);
 
 	log_info(dstate->base_log, "Hello world!");
 
