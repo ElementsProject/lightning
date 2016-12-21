@@ -153,7 +153,7 @@ struct node_connection *get_connection_by_cid(const struct lightningd_state *dst
 	        num_conn = tal_count(n->out);
 		for (i = 0; i < num_conn; i++){
 			c = n->out[i];
-			if (memcmp(&c->channel_id, chanid, sizeof(*chanid)) == 0 &&
+			if (structeq(&c->channel_id, chanid) &&
 			    (c->flags&0x1) == direction)
 			    return c;
 		}
@@ -196,7 +196,6 @@ get_or_make_connection(struct lightningd_state *dstate,
 	nc = tal(dstate, struct node_connection);
 	nc->src = from;
 	nc->dst = to;
-	memset(&nc->channel_id, 0, sizeof(nc->channel_id));
 	nc->channel_announcement = NULL;
 	nc->channel_update = NULL;
 	log_add(dstate->base_log, " = %p (%p->%p)", nc, from, to);
@@ -570,7 +569,7 @@ void sync_routing_table(struct lightningd_state *dstate, struct peer *peer)
 			if (nc->channel_update)
 				queue_pkt_nested(peer, WIRE_CHANNEL_UPDATE, nc->channel_update);
 		}
-		if (n->node_announcement)
+		if (n->node_announcement && num_edges > 0)
 			queue_pkt_nested(peer, WIRE_NODE_ANNOUNCEMENT, n->node_announcement);
 	}
 }
