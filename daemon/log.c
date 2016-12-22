@@ -55,6 +55,7 @@ static void log_default_print(const char *prefix,
 	} else {
 		printf("%s \t%s\n", prefix, str);
 	}
+	fflush(stdout);
 }
 
 static size_t log_bufsize(const struct log_entry *e)
