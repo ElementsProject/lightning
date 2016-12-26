@@ -61,6 +61,9 @@ class Field(object):
 
         if fieldname.endswith('features'):
             return ('u8',1)
+
+        if fieldname == 'addresses':
+            return ('u8', 1)
     
         # We translate signatures and pubkeys.
         if 'signature' in fieldname:
