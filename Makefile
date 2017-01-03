@@ -179,10 +179,13 @@ CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations 
 CDEBUGFLAGS := -g -fstack-protector
 CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) -I secp256k1/include/ -I . $(FEATURES)
 
-LDLIBS := -lprotobuf-c -lgmp -lsodium -lbase58 -lsqlite3
+LDLIBS := -lprotobuf-c -lgmp -lsodium -lsqlite3
 $(PROGRAMS): CFLAGS+=-I.
 
 default: $(PROGRAMS) $(MANPAGES) daemon-all
+
+include bitcoin/Makefile
+include wire/Makefile
 
 # Git doesn't maintain timestamps, so we only regen if git says we should.
 CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o x"`git diff $<`" != x"" ]
@@ -194,7 +197,7 @@ $(MANPAGES): doc/%: doc/%.txt
 $(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
 
 # Except for CCAN, everything depends on bitcoin/ and core headers.
-$(HELPER_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS)
+$(HELPER_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS) $(LIBBASE58_HEADERS)
 
 test-protocol: test/test_protocol
 	set -e; TMP=`mktemp`; for f in test/commits/*.script; do if ! $(VALGRIND) test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
@@ -205,9 +208,6 @@ doc/protocol-%.svg: test/test_protocol
 protocol-diagrams: $(patsubst %.script, doc/protocol-%.svg, $(notdir $(wildcard test/commits/*.script)))
 
 check: test-protocol
-
-include bitcoin/Makefile
-include wire/Makefile
 
 # Keep includes in alpha order.
 check-src-include-order/%: %
@@ -260,7 +260,7 @@ secp256k1/libsecp256k1.la:
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	@if $(CHANGED_FROM_GIT); then echo $(PROTOCC) lightning.proto --c_out=.; $(PROTOCC) lightning.proto --c_out=.; else touch $@; fi
 
-$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) utils.o version.o libsecp256k1.a
+$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) utils.o version.o libsecp256k1.a
 
 ccan/config.h: ccan/tools/configurator/configurator
 	if $< > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi

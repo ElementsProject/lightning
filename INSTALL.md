@@ -5,7 +5,6 @@ You will need several development libraries:
 * libprotoc: the Google protocol buffer v2 library, 2.6.0 or above.
 * protobuf-c: version 1.1.0 or above.
 * libsodium: for crypto.
-* libbase58: for bitcoin's base58 encoding.
 * libsqlite3: for database support.
 * libgmp: for secp256k1
 * asciidoc: for formatting the man page (if you change them)
@@ -18,7 +17,7 @@ To Build on Ubuntu 16.04
 
 Get dependencies:
 ```
-sudo apt-get install autoconf libtool libprotobuf-c-dev libsodium-dev libbase58-dev libsqlite3-dev libgmp-dev libsqlite3-dev asciidoc
+sudo apt-get install autoconf libtool libprotobuf-c-dev libsodium-dev libsqlite3-dev libgmp-dev libsqlite3-dev asciidoc
 ```
 
 Clone lightning and initialize submodules:
