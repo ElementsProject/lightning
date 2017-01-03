@@ -5,7 +5,6 @@
 #include "bitcoin/tx.h"
 #include "channel.h"
 #include "commit_tx.h"
-#include "htlc.h"
 #include "lightningd.h"
 #include "log.h"
 #include "overflows.h"
@@ -13,7 +12,6 @@
 #include "permute_tx.h"
 #include "remove_dust.h"
 #include "utils.h"
-#include <assert.h>
 #include <inttypes.h>
 
 u8 *wscript_for_htlc(const tal_t *ctx,

@@ -16,7 +16,6 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/uio.h>
 #include <unistd.h>
 
 #define A_LINEX 100

@@ -1,14 +1,11 @@
 #include "bitcoin/pullpush.h"
 #include "commit_tx.h"
 #include "db.h"
-#include "feechange.h"
 #include "gen_version.h"
-#include "htlc.h"
 #include "invoice.h"
 #include "lightningd.h"
 #include "log.h"
 #include "names.h"
-#include "netaddr.h"
 #include "pay.h"
 #include "routing.h"
 #include "secrets.h"
@@ -22,7 +19,6 @@
 #include <ccan/tal/str/str.h>
 #include <inttypes.h>
 #include <sqlite3.h>
-#include <stdarg.h>
 #include <unistd.h>
 
 #define DB_FILE "lightning.sqlite3"

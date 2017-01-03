@@ -11,7 +11,6 @@
 #include <ccan/tal/str/str.h>
 #include <stdio.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
 

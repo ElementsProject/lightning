@@ -5,10 +5,8 @@ void towire_pad_array_orig(u8 **pptr, const u8 *arr, size_t num);
 #include "../towire.c"
 #undef towire_pad_array
 
-#include "../fromwire.c"
 #include <ccan/structeq/structeq.h>
 #include <assert.h>
-#include <stdio.h>
 
 secp256k1_context *secp256k1_ctx;
 

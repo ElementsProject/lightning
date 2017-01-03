@@ -263,6 +263,7 @@ bool json_get_params(const char *buffer, const jsmntok_t param[], ...)
 			*tokptr = NULL;
 		}
 		if (compulsory && !*tokptr)
+			va_end(ap);
 			return false;
 	}
 

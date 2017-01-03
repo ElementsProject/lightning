@@ -1,8 +1,6 @@
 #include "locktime.h"
 #include "pubkey.h"
 #include "script.h"
-#include "signature.h"
-#include "tx.h"
 #include <assert.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/sha256/sha256.h>

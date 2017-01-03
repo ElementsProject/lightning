@@ -1,9 +1,6 @@
 #include "db.h"
-#include "feechange.h"
 #include "log.h"
-#include "peer.h"
 #include <ccan/array_size/array_size.h>
-#include <inttypes.h>
   #include "gen_feechange_state_names.h"
 
 /* This is the HTLC-like flags for each state. */

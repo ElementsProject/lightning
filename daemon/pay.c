@@ -1,17 +1,14 @@
 #include "chaintopology.h"
 #include "db.h"
-#include "failure.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
 #include "pay.h"
-#include "peer.h"
 #include "routing.h"
 #include "sphinx.h"
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
 #include <inttypes.h>
-#include <sodium/randombytes.h>
 
 /* Outstanding "pay" commands. */
 struct pay_command {

@@ -6,7 +6,6 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <err.h>
 #include <stdio.h>
-#include <assert.h>
 #include <unistd.h>
 
 #include "daemon/sphinx.h"

@@ -3,16 +3,12 @@
 #include "lightningd.h"
 #include "log.h"
 #include "peer.h"
-#include <assert.h>
 #include <ccan/err/err.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <errno.h>
 #include <netdb.h>
-#include <stdio.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 
 struct dns_async {

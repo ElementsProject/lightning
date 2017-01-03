@@ -1,9 +1,6 @@
 #include "privkey.h"
 #include "pubkey.h"
 #include "script.h"
-#include "shadouble.h"
-#include "signature.h"
-#include "tx.h"
 #include "utils.h"
 #include <assert.h>
 #include <ccan/cast/cast.h>
