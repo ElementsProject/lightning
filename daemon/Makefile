@@ -121,6 +121,8 @@ check-source: $(DAEMON_HEADERS:%=check-hdr-include-order/%)
 check-daemon-makefile:
 	@if [ "`ls daemon/*.h | grep -v daemon/gen | tr '\012' ' '`" != "`echo $(DAEMON_HEADERS) ''`" ]; then echo DAEMON_HEADERS incorrect; exit 1; fi
 
+check-source-bolt: $(DAEMON_SRC:%=bolt-check/%) $(DAEMON_HEADERS:%=bolt-check/%)
+
 # Git submodules are seriously broken.
 daemon/jsmn/jsmn.h:
 	git submodule update daemon/jsmn/

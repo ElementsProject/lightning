@@ -25,6 +25,9 @@ wire/gen_wire.c: wire/tools/generate-wire.py wire/gen_wire_csv
 
 wire/gen_wire.o: wire/gen_wire.h
 
+check-source: $(WIRE_SRC:%=check-src-include-order/%) $(WIRE_HEADERS:%=check-hdr-include-order/%)
+
+check-source-bolt: $(WIRE_SRC:%=bolt-check/%) $(WIRE_HEADERS:%=bolt-check/%)
 clean: wire-clean
 
 wire-all: wire/gen_wire.o wire/fromwire.o wire/towire.o

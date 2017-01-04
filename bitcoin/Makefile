@@ -13,4 +13,6 @@ $(BITCOIN_TEST_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(BITCOIN_SRC)
 
 check: bitcoin-tests
 
+check-source-bolt: $(BITCOIN_SRC:%=bolt-check/%) $(BITCOIN_HEADERS:%=bolt-check/%)
+
 bitcoin-tests: $(BITCOIN_TEST_PROGRAMS:%=unittest/%)

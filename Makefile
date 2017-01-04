@@ -240,8 +240,13 @@ check-makefile: check-daemon-makefile
 	@if [ x"$(CCANDIR)/config.h `find $(CCANDIR)/ccan -name '*.h' | grep -v /test/ | LC_ALL=C sort | tr '\n' ' '`" != x"$(CCAN_HEADERS) " ]; then echo CCAN_HEADERS incorrect; exit 1; fi
 
 # Any mention of BOLT# must be followed by an exact quote, modulo whitepace.
-check-source-bolt: check-bolt
-	@if [ ! -d $(BOLTDIR) ]; then echo Not checking BOLT references: BOLTDIR $(BOLTDIR) does not exist >&2; else set -e; rm -rf .tmp.lightningrfc; if [ -n "$(BOLTVERSION)" ]; then git clone -q -b $(BOLTVERSION) $(BOLTDIR) .tmp.lightningrfc; else cp -a $(BOLTDIR) .tmp.lightningrfc; fi; ./check-bolt .tmp.lightningrfc $(CORE_SRC) $(BITCOIN_SRC) $(DAEMON_SRC) $(CORE_HEADERS) $(BITCOIN_HEADERS) $(DAEMON_HEADERS) $(WIRE_SRC) $(WIRE_HEADERS) $(TEST_PROGRAMS:=.c); fi
+bolt-check/%: % bolt-precheck check-bolt
+	@[ ! -d .tmp.lightningrfc ] || ./check-bolt .tmp.lightningrfc $<
+
+bolt-precheck:
+	@rm -rf .tmp.lightningrfc; if [ ! -d $(BOLTDIR) ]; then echo Not checking BOLT references: BOLTDIR $(BOLTDIR) does not exist >&2; exit 0; fi; set -e; if [ -n "$(BOLTVERSION)" ]; then git clone -q -b $(BOLTVERSION) $(BOLTDIR) .tmp.lightningrfc; else cp -a $(BOLTDIR) .tmp.lightningrfc; fi
+
+check-source-bolt: $(CORE_SRC:%=bolt-check/%) $(CORE_HEADERS:%=bolt-check/%) $(TEST_PROGRAMS:%=bolt-check/%.c)
 
 check-bolt: check-bolt.o $(CCAN_OBJS)
 
