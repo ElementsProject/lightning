@@ -18,6 +18,9 @@ struct ipv6 {
 	u8 addr[16];
 };
 
+/* Read the type; returns -1 if not long enough.  cursor is a tal ptr. */
+int fromwire_peektype(const u8 *cursor);
+
 void towire(u8 **pptr, const void *data, size_t len);
 void towire_pubkey(u8 **pptr, const struct pubkey *pubkey);
 void towire_signature(u8 **pptr, const struct signature *signature);

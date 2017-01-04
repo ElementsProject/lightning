@@ -232,7 +232,7 @@ static void *towire_struct_channel_announcement(const tal_t *ctx,
 					   &s->bitcoin_key_2);
 }
 
-static struct msg_channel_announcement *fromwire_struct_channel_announcement(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_channel_announcement *fromwire_struct_channel_announcement(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_channel_announcement *s = tal(ctx, struct msg_channel_announcement);
 	if (!fromwire_channel_announcement(p, plen, 
@@ -270,9 +270,10 @@ static void *towire_struct_open_channel(const tal_t *ctx,
 				   &s->first_per_commitment_point);
 }
 
-static struct msg_open_channel *fromwire_struct_open_channel(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_open_channel *fromwire_struct_open_channel(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_open_channel *s = tal(ctx, struct msg_open_channel);
+
 	if (fromwire_open_channel(p, plen, 
 				  &s->temporary_channel_id,
 				  &s->funding_satoshis,
@@ -312,9 +313,10 @@ static void *towire_struct_accept_channel(const tal_t *ctx,
 				     &s->first_per_commitment_point);
 }
 
-static struct msg_accept_channel *fromwire_struct_accept_channel(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_accept_channel *fromwire_struct_accept_channel(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_accept_channel *s = tal(ctx, struct msg_accept_channel);
+
 	if (fromwire_accept_channel(p, plen, 
 				    &s->temporary_channel_id,
 				    &s->dust_limit_satoshis,
@@ -347,7 +349,7 @@ static void *towire_struct_node_announcement(const tal_t *ctx,
 					s->alias);
 }
 
-static struct msg_node_announcement *fromwire_struct_node_announcement(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_node_announcement *fromwire_struct_node_announcement(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_node_announcement *s = tal(ctx, struct msg_node_announcement);
 	fromwire_pad_arr = s->padding;
@@ -377,9 +379,10 @@ static void *towire_struct_channel_update(const tal_t *ctx,
 				     s->fee_proportional_millionths);
 }
 
-static struct msg_channel_update *fromwire_struct_channel_update(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_channel_update *fromwire_struct_channel_update(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_channel_update *s = tal(ctx, struct msg_channel_update);
+
 	if (fromwire_channel_update(p, plen, 
 				    &s->signature,
 				    &s->channel_id,
@@ -404,9 +407,10 @@ static void *towire_struct_funding_locked(const tal_t *ctx,
 				     &s->next_per_commitment_point);
 }
 
-static struct msg_funding_locked *fromwire_struct_funding_locked(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_funding_locked *fromwire_struct_funding_locked(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_funding_locked *s = tal(ctx, struct msg_funding_locked);
+
 	if (fromwire_funding_locked(p, plen, 
 				    &s->temporary_channel_id,
 				    &s->channel_id,
@@ -426,9 +430,10 @@ static void *towire_struct_update_fail_htlc(const tal_t *ctx,
 				       s->reason);
 }
 
-static struct msg_update_fail_htlc *fromwire_struct_update_fail_htlc(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_update_fail_htlc *fromwire_struct_update_fail_htlc(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_update_fail_htlc *s = tal(ctx, struct msg_update_fail_htlc);
+
 	if (fromwire_update_fail_htlc(p, plen, 
 				      &s->channel_id,
 				      &s->id,
@@ -446,9 +451,10 @@ static void *towire_struct_update_fulfill_htlc(const tal_t *ctx,
 				       &s->payment_preimage);
 }
 
-static struct msg_update_fulfill_htlc *fromwire_struct_update_fulfill_htlc(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_update_fulfill_htlc *fromwire_struct_update_fulfill_htlc(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_update_fulfill_htlc *s = tal(ctx, struct msg_update_fulfill_htlc);
+
 	if (fromwire_update_fulfill_htlc(p, plen, 
 				      &s->channel_id,
 				      &s->id,
@@ -467,9 +473,10 @@ static void *towire_struct_commit_sig(const tal_t *ctx,
 				 s->htlc_signature);
 }
 
-static struct msg_commit_sig *fromwire_struct_commit_sig(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_commit_sig *fromwire_struct_commit_sig(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_commit_sig *s = tal(ctx, struct msg_commit_sig);
+
 	if (!fromwire_commit_sig(s, p, plen, 
 				&s->channel_id,
 				&s->signature,
@@ -491,9 +498,10 @@ static void *towire_struct_revoke_and_ack(const tal_t *ctx,
 				     s->htlc_timeout_signature);
 }
 
-static struct msg_revoke_and_ack *fromwire_struct_revoke_and_ack(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_revoke_and_ack *fromwire_struct_revoke_and_ack(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_revoke_and_ack *s = tal(ctx, struct msg_revoke_and_ack);
+
 	fromwire_pad_arr = s->padding;
 	if (!fromwire_revoke_and_ack(s, p, plen, 
 				    &s->channel_id,
@@ -514,9 +522,10 @@ static void *towire_struct_funding_signed(const tal_t *ctx,
 				     &s->signature);
 }
 
-static struct msg_funding_signed *fromwire_struct_funding_signed(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_funding_signed *fromwire_struct_funding_signed(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_funding_signed *s = tal(ctx, struct msg_funding_signed);
+
 	if (fromwire_funding_signed(p, plen, 
 				    &s->temporary_channel_id,
 				    &s->signature))
@@ -533,9 +542,10 @@ static void *towire_struct_closing_signed(const tal_t *ctx,
 				     &s->signature);
 }
 
-static struct msg_closing_signed *fromwire_struct_closing_signed(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_closing_signed *fromwire_struct_closing_signed(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_closing_signed *s = tal(ctx, struct msg_closing_signed);
+
 	if (fromwire_closing_signed(p, plen, 
 				    &s->channel_id,
 				    &s->fee_satoshis,
@@ -553,9 +563,10 @@ static void *towire_struct_shutdown(const tal_t *ctx,
 			       s->scriptpubkey);
 }
 
-static struct msg_shutdown *fromwire_struct_shutdown(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_shutdown *fromwire_struct_shutdown(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_shutdown *s = tal(ctx, struct msg_shutdown);
+
 	if (!fromwire_shutdown(s, p, plen, 
 			      &s->channel_id,
 			      &s->scriptpubkey))
@@ -574,9 +585,10 @@ static void *towire_struct_funding_created(const tal_t *ctx,
 				      &s->signature);
 }
 
-static struct msg_funding_created *fromwire_struct_funding_created(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_funding_created *fromwire_struct_funding_created(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_funding_created *s = tal(ctx, struct msg_funding_created);
+
 	if (fromwire_funding_created(p, plen, 
 				     &s->temporary_channel_id,
 				     &s->txid,
@@ -595,9 +607,10 @@ static void *towire_struct_error(const tal_t *ctx,
 			    s->data);
 }
 
-static struct msg_error *fromwire_struct_error(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_error *fromwire_struct_error(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_error *s = tal(ctx, struct msg_error);
+
 	if (!fromwire_error(s, p, plen, 
 			   &s->channel_id,
 			    &s->data))
@@ -618,9 +631,10 @@ static void *towire_struct_update_add_htlc(const tal_t *ctx,
 				      s->onion_routing_packet);
 }
 
-static struct msg_update_add_htlc *fromwire_struct_update_add_htlc(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_update_add_htlc *fromwire_struct_update_add_htlc(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_update_add_htlc *s = tal(ctx, struct msg_update_add_htlc);
+
 	if (fromwire_update_add_htlc(p, plen, 
 				     &s->channel_id,
 				     &s->id,
@@ -641,9 +655,10 @@ static void *towire_struct_update_fee(const tal_t *ctx,
 				 s->feerate_per_kw);
 }
 
-static struct msg_update_fee *fromwire_struct_update_fee(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_update_fee *fromwire_struct_update_fee(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_update_fee *s = tal(ctx, struct msg_update_fee);
+
 	if (fromwire_update_fee(p, plen, 
 				&s->channel_id,
 				&s->feerate_per_kw))
@@ -661,9 +676,10 @@ static void *towire_struct_init(const tal_t *ctx,
 			   s->localfeatures);
 }
 
-static struct msg_init *fromwire_struct_init(const tal_t *ctx, const void *p, size_t *plen)
+static struct msg_init *fromwire_struct_init(const tal_t *ctx, const u8 *p, size_t *plen)
 {
 	struct msg_init *s = tal(ctx, struct msg_init);
+
 	if (!fromwire_init(s, p, plen, 
 			  &s->globalfeatures,
 			  &s->localfeatures))

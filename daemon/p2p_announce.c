@@ -295,7 +295,7 @@ void handle_node_announcement(
 			 "Received node_announcement for node %s",
 			 struct pubkey, &node_id);
 
-	sha256_double(&hash, serialized + 64, tal_count(serialized) - 64);
+	sha256_double(&hash, serialized + 66, tal_count(serialized) - 66);
 	if (!check_signed_hash(&hash, &signature, &node_id)) {
 		log_debug(peer->dstate->base_log,
 			  "Ignoring node announcement, signature verification failed.");
@@ -359,7 +359,7 @@ static void broadcast_channel_update(struct lightningd_state *dstate, struct pee
 					   1,
 					   dstate->config.fee_base,
 					   dstate->config.fee_per_satoshi);
-	privkey_sign(dstate, serialized + 64, tal_count(serialized) - 64,
+	privkey_sign(dstate, serialized + 66, tal_count(serialized) - 66,
 		     &signature);
 	serialized = towire_channel_update(tmpctx, &signature, &channel_id,
 					   timestamp,
@@ -397,7 +397,7 @@ static void broadcast_node_announcement(struct lightningd_state *dstate)
 					      timestamp,
 					      &ipv6, dstate->portnum,
 					      &dstate->id, rgb_color, alias);
-	privkey_sign(dstate, serialized + 64, tal_count(serialized) - 64,
+	privkey_sign(dstate, serialized + 66, tal_count(serialized) - 66,
 		     &signature);
 	serialized = towire_node_announcement(tmpctx, &signature,
 					      timestamp,

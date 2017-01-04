@@ -29,6 +29,17 @@ const u8 *fromwire(const u8 **cursor, size_t *max, void *copy, size_t n)
 	return memcheck(p, n);
 }
 
+int fromwire_peektype(const u8 *cursor)
+{
+	be16 be_type;
+	size_t max = tal_count(cursor);
+
+	fromwire(&cursor, &max, &be_type, sizeof(be_type));
+	if (!cursor)
+		return -1;
+	return be16_to_cpu(be_type);
+}
+
 u8 fromwire_u8(const u8 **cursor, size_t *max)
 {
 	u8 ret;

@@ -137,9 +137,6 @@ class Message(object):
         self.fields.append(field)
 
     def print_fromwire(self,is_header):
-        if not self.fields:
-            return
-
         if self.has_variable_fields:
             ctx_arg = 'const tal_t *ctx, '
         else:
@@ -165,14 +162,17 @@ class Message(object):
             return
 
         print(')\n'
-              '{\n')
+              '{')
 
         for f in self.fields:
             if f.is_len_var:
-                print('\t{} {};\n'.format(f.typename, f.name));
+                print('\t{} {};'.format(f.typename, f.name));
 
         print('\tconst u8 *cursor = p;\n'
-              '')
+              '\n'
+              '\tif (fromwire_u16(&cursor, plen) != {})\n'
+              '\t\treturn false;'
+              .format(self.enum.name))
 
         for f in self.fields:
             basetype=f.typename
@@ -213,9 +213,6 @@ class Message(object):
               '}\n')
 
     def print_towire(self,is_header):
-        if not self.fields:
-            return
-
         print('u8 *towire_{}(const tal_t *ctx'
               .format(self.name), end='')
 
@@ -234,9 +231,10 @@ class Message(object):
             return
 
         print(')\n'
-              '{\n'
+              '{{\n'
               '\tu8 *p = tal_arr(ctx, u8, 0);\n'
-              '')
+              ''
+              '\ttowire_u16(&p, {});'.format(self.enum.name))
 
         for f in self.fields:
             basetype=f.typename
