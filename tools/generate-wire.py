@@ -290,7 +290,7 @@ else:
           ''.format(args[0]))
 
 # Maps message names to messages
-messages = { }
+messages = []
 comments = []
 
 # Read csv lines.  Single comma is the message values, more is offset/len.
@@ -307,28 +307,29 @@ for line in fileinput.input(args[2:]):
 
     if len(parts) == 2:
         # eg commit_sig,132
-        messages[parts[0]] = Message(parts[0],Enumtype("WIRE_" + parts[0].upper(), int(parts[1],0)),comments)
+        messages.append(Message(parts[0],Enumtype("WIRE_" + parts[0].upper(), int(parts[1],0)),comments))
         comments=[]
     else:
         # eg commit_sig,0,channel-id,8
-        if not parts[0] in messages:
-            messages[parts[0]] = Message(parts[0],None,[])
-        messages[parts[0]].addField(Field(parts[0], parts[2], parts[3], comments))
+        for m in messages:
+            if m.name == parts[0]:
+                m.addField(Field(parts[0], parts[2], parts[3], comments))
+                break
         comments=[]
 
 if options.output_header:
     # Dump out enum, sorted by value order.
     print('enum {} {{'.format(args[1]))
-    for m in sorted([x for x in messages.values() if x.enum is not None],key=lambda x:x.enum.value):
+    for m in messages:
         for c in m.comments:
             print('\t/*{} */'.format(c))
         print('\t{} = {},'.format(m.enum.name, m.enum.value))
     print('};')
 
-for m in messages.values():
+for m in messages:
     m.print_fromwire(options.output_header)
 
-for m in messages.values():
+for m in messages:
     m.print_towire(options.output_header)
     
 if options.output_header:
