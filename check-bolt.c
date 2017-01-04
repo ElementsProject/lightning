@@ -41,7 +41,7 @@ static char *canonicalize(char *str)
 	return str;
 }
 
-static void get_files(const char *dir, const char *subdir,
+static bool get_files(const char *dir, const char *subdir,
 		      struct bolt_file **files)
 {
 	char *path = path_join(NULL, dir, subdir);
@@ -50,7 +50,7 @@ static void get_files(const char *dir, const char *subdir,
 	struct dirent *e;
 
 	if (!d)
-		err(1, "Opening BOLT dir %s", path);
+		return false;
 
 	while ((e = readdir(d)) != NULL) {
 		int preflen;
@@ -82,13 +82,16 @@ static void get_files(const char *dir, const char *subdir,
 							   e->d_name)));
 		n++;
 	}
+	return true;
 }
 
 static struct bolt_file *get_bolt_files(const char *dir)
 {
 	struct bolt_file *bolts = tal_arr(NULL, struct bolt_file, 0);
 
-	get_files(dir, "bolts", &bolts);
+	if (!get_files(dir, ".", &bolts))
+		err(1, "Opening BOLT dir %s", dir);
+	/* This currently does not exist. */
 	get_files(dir, "early-drafts", &bolts);
 	return bolts;
 }

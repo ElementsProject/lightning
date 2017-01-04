@@ -4,13 +4,13 @@
 wire-wrongdir:
 	$(MAKE) -C .. wire-all
 
-WIRE_OBJS := wire/gen_wire.o	\
-	wire/fromwire.o		\
-	wire/towire.o
-
 WIRE_HEADERS := wire/wire.h
 WIRE_GEN_HEADERS := wire/gen_wire.h
 WIRE_GEN_SRC := wire/gen_wire.c
+WIRE_SRC := wire/fromwire.c	\
+		wire/towire.c
+
+WIRE_OBJS := $(WIRE_SRC:.c=.o) $(WIRE_GEN_SRC:.c=.o)
 
 # They may not have the bolts.
 BOLT_EXTRACT=$(BOLTDIR)/tools/extract-formats.py

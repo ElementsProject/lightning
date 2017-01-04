@@ -241,7 +241,7 @@ check-makefile: check-daemon-makefile
 
 # Any mention of BOLT# must be followed by an exact quote, modulo whitepace.
 check-source-bolt: check-bolt
-	@if [ ! -d $(BOLTDIR) ]; then echo Not checking BOLT references: BOLTDIR $(BOLTDIR) does not exist >&2; else rm -rf .tmp.lightningrfc; git clone -q -b $(BOLTVERSION) $(BOLTDIR) .tmp.lightningrfc && ./check-bolt .tmp.lightningrfc $(CORE_SRC) $(BITCOIN_SRC) $(DAEMON_SRC) $(CORE_HEADERS) $(BITCOIN_HEADERS) $(DAEMON_HEADERS) $(TEST_PROGRAMS:=.c); fi
+	@if [ ! -d $(BOLTDIR) ]; then echo Not checking BOLT references: BOLTDIR $(BOLTDIR) does not exist >&2; else rm -rf .tmp.lightningrfc; git clone -q -b $(BOLTVERSION) $(BOLTDIR) .tmp.lightningrfc && ./check-bolt .tmp.lightningrfc $(CORE_SRC) $(BITCOIN_SRC) $(DAEMON_SRC) $(CORE_HEADERS) $(BITCOIN_HEADERS) $(DAEMON_HEADERS) $(WIRE_SRC) $(WIRE_HEADERS) $(TEST_PROGRAMS:=.c); fi
 
 check-bolt: check-bolt.o $(CCAN_OBJS)
 
