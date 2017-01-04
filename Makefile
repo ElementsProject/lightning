@@ -47,6 +47,7 @@ CORE_SRC :=					\
 	opt_bits.c				\
 	permute_tx.c				\
 	protobuf_convert.c			\
+	type_to_string.c			\
 	utils.c					\
 	version.c
 
@@ -170,6 +171,7 @@ CORE_HEADERS := close_tx.h			\
 	permute_tx.h				\
 	protobuf_convert.h			\
 	remove_dust.h				\
+	type_to_string.h			\
 	utils.h					\
 	version.h
 

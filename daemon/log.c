@@ -1,12 +1,4 @@
-#include "bitcoin/locktime.h"
-#include "bitcoin/pubkey.h"
-#include "bitcoin/tx.h"
-#include "channel.h"
-#include "htlc.h"
-#include "lightningd.h"
 #include "log.h"
-#include "peer.h"
-#include "protobuf_convert.h"
 #include "pseudorand.h"
 #include "utils.h"
 #include <ccan/array_size/array_size.h>
@@ -274,94 +266,13 @@ void log_add(struct log *log, const char *fmt, ...)
 	va_end(ap);
 }
 
-#define to_string(ctx, lr, structtype, ptr)				\
-	to_string_((ctx), lr, stringify(structtype),			\
-		   ((void)sizeof((ptr) == (structtype *)NULL),		\
-		    ((union loggable_structs)((const structtype *)ptr))))
-
-static char *to_string_(const tal_t *ctx,
-			struct log_record *lr,
-			const char *structname,
-			union loggable_structs u)
-{
-	char *s = NULL;
-
-	/* GCC checks we're one of these, so we should be. */
-	if (streq(structname, "struct pubkey"))
-		s = pubkey_to_hexstr(ctx, u.pubkey);
-	else if (streq(structname, "struct sha256_double"))
-		s = tal_hexstr(ctx, u.sha256_double, sizeof(*u.sha256_double));
-	else if (streq(structname, "struct sha256"))
-		s = tal_hexstr(ctx, u.sha256, sizeof(*u.sha256));
-	else if (streq(structname, "struct rel_locktime")) {
-		if (rel_locktime_is_seconds(u.rel_locktime))
-			s = tal_fmt(ctx, "+%usec",
-				    rel_locktime_to_seconds(u.rel_locktime));
-		else
-			s = tal_fmt(ctx, "+%ublocks",
-				    rel_locktime_to_blocks(u.rel_locktime));
-	} else if (streq(structname, "struct abs_locktime")) {
-		if (abs_locktime_is_seconds(u.abs_locktime))
-			s = tal_fmt(ctx, "%usec",
-				    abs_locktime_to_seconds(u.abs_locktime));
-		else
-			s = tal_fmt(ctx, "%ublocks",
-				    abs_locktime_to_blocks(u.abs_locktime));
-	} else if (streq(structname, "struct bitcoin_tx")) {
-		u8 *lin = linearize_tx(ctx, u.bitcoin_tx);
-		s = tal_hexstr(ctx, lin, tal_count(lin));
-	} else if (streq(structname, "struct htlc")) {
-		const struct htlc *h = u.htlc;
-		s = tal_fmt(ctx, "{ id=%"PRIu64
-			    " msatoshi=%"PRIu64
-			    " expiry=%s"
-			    " rhash=%s"
-			    " rval=%s"
-			    " src=%s }",
-			    h->id, h->msatoshi,
-			    to_string(ctx, lr, struct abs_locktime, &h->expiry),
-			    to_string(ctx, lr, struct sha256, &h->rhash),
-			    h->r ? tal_hexstr(ctx, h->r, sizeof(*h->r))
-			    : "UNKNOWN",
-			    h->src ? to_string(ctx, lr, struct pubkey,
-					       h->src->peer->id)
-			    : "local");
-	} else if (streq(structname, "struct rval")) {
-		s = tal_hexstr(ctx, u.rval, sizeof(*u.rval));
-	} else if (streq(structname, "struct channel_oneside")) {
-		s = tal_fmt(ctx, "{ pay_msat=%u"
-			    " fee_msat=%u"
-			    " num_htlcs=%u }",
-			    u.channel_oneside->pay_msat,
-			    u.channel_oneside->fee_msat,
-			    u.channel_oneside->num_htlcs);
-	} else if (streq(structname, "struct channel_state")) {
-		s = tal_fmt(ctx, "{ anchor=%"PRIu64
-			    " fee_rate=%"PRIu64
-			    " num_nondust=%u"
-			    " ours=%s"
-			    " theirs=%s }",
-			    u.cstate->anchor,
-			    u.cstate->fee_rate,
-			    u.cstate->num_nondust,
-			    to_string(ctx, lr, struct channel_oneside,
-				      &u.cstate->side[LOCAL]),
-			    to_string(ctx, lr, struct channel_oneside,
-				      &u.cstate->side[REMOTE]));
-	} else if (streq(structname, "struct netaddr")) {
-		s = netaddr_name(ctx, u.netaddr);
-	}
-
-	return s;
-}
-
 void log_struct_(struct log *log, int level,
 		 const char *structname,
 		 const char *fmt, ...)
 {
 	const tal_t *ctx = tal_tmpctx(log);
 	char *s;
-	union loggable_structs u;
+	union printable_types u;
 	va_list ap;
 
 	/* Macro wrappers ensure we only have one arg. */
@@ -370,7 +281,7 @@ void log_struct_(struct log *log, int level,
 	va_end(ap);
 
 	/* GCC checks we're one of these, so we should be. */
-	s = to_string_(ctx, log->lr, structname, u);
+	s = type_to_string_(ctx, structname, u);
 	if (!s)
 		fatal("Logging unknown type %s", structname);
 

@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_DAEMON_LOG_H
 #define LIGHTNING_DAEMON_LOG_H
 #include "config.h"
+#include "type_to_string.h"
 #include <ccan/tal/tal.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <stdarg.h>
@@ -59,11 +60,11 @@ void log_blob_(struct log *log, int level, const char *fmt,
 #define log_broken_blob(log, fmt, blob, len)				\
 	log_blob_((log), LOG_BROKEN, (fmt), (len), (char *)(blob))
 
-/* Makes sure ptr is a 'structtype', makes sure it's in loggable_structs. */
+/* Makes sure ptr is a 'structtype', makes sure it's in printable_types. */
 #define log_struct_check_(log, loglevel, fmt, structtype, ptr)		\
 	log_struct_((log), (loglevel), stringify(structtype), (fmt), 	\
 		    ((void)sizeof((ptr) == (structtype *)NULL),		\
-		     ((union loggable_structs)((const structtype *)ptr)).charp_))
+		     ((union printable_types)((const structtype *)ptr)).charp_))
 
 /* These must have %s where the struct is to go. */
 #define log_add_struct(log, fmt, structtype, ptr)			\
@@ -77,22 +78,6 @@ void log_blob_(struct log *log, int level, const char *fmt,
 	log_struct_check_((log), LOG_UNUSUAL, (fmt), structtype, (ptr))
 #define log_broken_struct(log, fmt, structtype, ptr)	\
 	log_struct_check_((log), LOG_BROKEN, (fmt), structtype, (ptr))
-
-/* This must match the log_add_struct_ definitions. */
-union loggable_structs {
-	const struct pubkey *pubkey;
-	const struct sha256_double *sha256_double;
-	const struct sha256 *sha256;
-	const struct rel_locktime *rel_locktime;
-	const struct abs_locktime *abs_locktime;
-	const struct bitcoin_tx *bitcoin_tx;
-	const struct htlc *htlc;
-	const struct rval *rval;
-	const struct channel_state *cstate;
-	const struct channel_oneside *channel_oneside;
-	const struct netaddr *netaddr;
-	const char *charp_;
-};
 
 void PRINTF_FMT(4,5) log_struct_(struct log *log, int level,
 				 const char *structname,
