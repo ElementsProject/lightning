@@ -29,6 +29,7 @@ DAEMON_SRC :=					\
 	daemon/jsonrpc.c			\
 	daemon/lightningd.c			\
 	daemon/netaddr.c			\
+	daemon/options.c			\
 	daemon/opt_time.c			\
 	daemon/output_to_htlc.c			\
 	daemon/p2p_announce.c			\
@@ -80,6 +81,7 @@ DAEMON_HEADERS :=				\
 	daemon/log.h				\
 	daemon/names.h				\
 	daemon/netaddr.h			\
+	daemon/options.h			\
 	daemon/opt_time.h			\
 	daemon/output_to_htlc.h			\
 	daemon/p2p_announce.h			\
