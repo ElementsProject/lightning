@@ -28,6 +28,9 @@ wire/gen_wire.o: wire/gen_wire.h
 check-source: $(WIRE_SRC:%=check-src-include-order/%) $(WIRE_HEADERS:%=check-hdr-include-order/%)
 
 check-source-bolt: $(WIRE_SRC:%=bolt-check/%) $(WIRE_HEADERS:%=bolt-check/%)
+
+check-whitespace: $(WIRE_SRC:%=check-whitespace/%) $(WIRE_HEADERS:%=check-whitespace/%) check-whitespace/wire/Makefile
+
 clean: wire-clean
 
 wire-all: wire/gen_wire.o wire/fromwire.o wire/towire.o
@@ -35,4 +38,4 @@ wire-all: wire/gen_wire.o wire/fromwire.o wire/towire.o
 wire-clean:
 	$(RM) $(WIRE_OBJS) $(WIRE_GEN_SRC) $(WIRE_GEN_HEADERS) towire.c fromwire.c
 
-include wire/test/Makefile 
+include wire/test/Makefile

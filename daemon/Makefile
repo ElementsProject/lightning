@@ -123,6 +123,8 @@ check-daemon-makefile:
 
 check-source-bolt: $(DAEMON_SRC:%=bolt-check/%) $(DAEMON_HEADERS:%=bolt-check/%)
 
+check-whitespace: $(DAEMON_SRC:%=check-whitespace/%) $(DAEMON_HEADERS:%=check-whitespace/%) check-whitespace/daemon/Makefile
+
 # Git submodules are seriously broken.
 daemon/jsmn/jsmn.h:
 	git submodule update daemon/jsmn/

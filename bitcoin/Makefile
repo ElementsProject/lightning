@@ -15,4 +15,6 @@ check: bitcoin-tests
 
 check-source-bolt: $(BITCOIN_SRC:%=bolt-check/%) $(BITCOIN_HEADERS:%=bolt-check/%)
 
+check-whitespace: $(BITCOIN_SRC:%=check-whitespace/%) $(BITCOIN_HEADERS:%=check-whitespace/%) check-whitespace/bitcoin/Makefile
+
 bitcoin-tests: $(BITCOIN_TEST_PROGRAMS:%=unittest/%)

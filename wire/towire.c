@@ -59,7 +59,7 @@ void towire_channel_id(u8 **pptr, const struct channel_id *channel_id)
 {
 	be32 txnum = cpu_to_be32(channel_id->txnum);
 	u8 outnum = channel_id->outnum;
-	
+
 	towire_u32(pptr, channel_id->blocknum);
 	towire(pptr, (char *)&txnum + 1, 3);
 	towire(pptr, &outnum, 1);
@@ -88,7 +88,7 @@ void towire_pad_array(u8 **pptr, const u8 *arr, size_t num)
 	tal_resize(pptr, oldsize + num);
 	memset(*pptr + oldsize, 0, num);
 }
-	
+
 void towire_signature_array(u8 **pptr, const struct signature *arr, size_t num)
 {
 	size_t i;

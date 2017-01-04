@@ -5,7 +5,7 @@
 
 struct lightningd_state;
 
-/* After this, we're in the .lightning dir, config file parsed. 
+/* After this, we're in the .lightning dir, config file parsed.
  * If we just created the dir, returns true.
  */
 bool handle_opts(struct lightningd_state *dstate, int argc, char *argv[]);

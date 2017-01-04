@@ -25,7 +25,7 @@ struct node_connection {
 
 	/* Minimum number of msatoshi in an HTLC */
 	u32 htlc_minimum_msat;
-	
+
 	/* The channel ID, as determined by the anchor transaction */
 	struct channel_id channel_id;
 

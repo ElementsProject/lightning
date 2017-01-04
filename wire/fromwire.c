@@ -46,7 +46,7 @@ u16 fromwire_u16(const u8 **cursor, size_t *max)
 		return 0;
 	return be16_to_cpu(ret);
 }
-	
+
 u32 fromwire_u32(const u8 **cursor, size_t *max)
 {
 	be32 ret;
@@ -102,7 +102,7 @@ void fromwire_channel_id(const u8 **cursor, size_t *max,
 	fromwire(cursor, max, &outnum, 1);
 	channel_id->outnum = outnum;
 }
-	
+
 void fromwire_sha256(const u8 **cursor, size_t *max, struct sha256 *sha256)
 {
 	fromwire(cursor, max, sha256, sizeof(*sha256));
@@ -122,7 +122,7 @@ void fromwire_pad_array(const u8 **cursor, size_t *max, u8 *arr, size_t num)
 {
 	fromwire(cursor, max, arr, num);
 }
-	
+
 void fromwire_signature_array(const u8 **cursor, size_t *max,
 			      struct signature *arr, size_t num)
 {
