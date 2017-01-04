@@ -124,11 +124,8 @@ struct lightningd_state {
 	/* Wallet addresses we maintain. */
 	struct list_head wallet;
 
-	/* Payments for r values we know about. */
-	struct list_head paid, unpaid;
-	u64 invoices_completed;
-	/* Waiting for new invoices to be paid. */
-	struct list_head invoice_waiters;
+	/* Maintained by invoices.c */
+	struct invoices *invoices;
 
 	/* All known nodes. */
 	struct node_map *nodes;

@@ -1131,7 +1131,7 @@ static void db_load_invoice(struct lightningd_state *dstate)
 		msatoshi = sqlite3_column_int64(stmt, 1);
 		label = (const char *)sqlite3_column_text(stmt, 2);
 		paid_num = sqlite3_column_int64(stmt, 3);
-		invoice_add(dstate, &r, msatoshi, label, paid_num);
+		invoice_add(dstate->invoices, &r, msatoshi, label, paid_num);
 	}
 	tal_free(ctx);
 }

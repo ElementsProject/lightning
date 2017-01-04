@@ -901,7 +901,7 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 	case ONION_END:
 		if (only_dest)
 			goto free_packet;
-		invoice = find_unpaid(peer->dstate, &htlc->rhash);
+		invoice = find_unpaid(peer->dstate->invoices, &htlc->rhash);
 		if (!invoice) {
 			log_unusual(peer->log, "No invoice for HTLC %"PRIu64,
 				    htlc->id);
