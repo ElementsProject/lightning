@@ -12,6 +12,7 @@ class Field(object):
     def __init__(self,message,name,size):
         self.message = message
         self.name = name.replace('-', '_')
+        self.is_len_var = False
         (self.typename, self.basesize) = Field._guess_type(message,self.name,size)
 
         try:
@@ -108,6 +109,7 @@ class Message(object):
         self.name = name
         self.enum = enum
         self.fields = []
+        self.has_variable_fields = False
 
     def checkLenField(self,field):
         for f in self.fields:
@@ -119,6 +121,7 @@ class Message(object):
                 if f.is_array() or f.is_variable_size():
                     raise ValueError('Field {} has non-simple length variable {}'
                                      .format(field.name, field.lenvar))
+                f.is_len_var = True;
                 return
         raise ValueError('Field {} unknown length variable {}'
                          .format(field.name, field.lenvar))
@@ -128,82 +131,104 @@ class Message(object):
         # massive allocations.
         if field.is_variable_size():
             self.checkLenField(field)
+            self.has_variable_fields = True
         self.fields.append(field)
-
-    def print_structure(self):
-        if not self.fields:
-            return
-
-        print('struct msg_{} {{'.format(self.name));
-
-        for f in self.fields:
-            # If size isn't known, it's a pointer.
-            if f.is_array():
-                print('\t{} {}[{}];'.format(f.typename, f.name, f.num_elems))
-            elif f.is_variable_size():
-                print('\t{} *{};'.format(f.typename, f.name))
-            else:
-                print('\t{} {};'.format(f.typename, f.name))
-
-        print('};')
 
     def print_fromwire(self,is_header):
         if not self.fields:
             return
 
-        print('struct msg_{0} *fromwire_{0}(const tal_t *ctx, const void *p, size_t *len)'.format(self.name), end='')
+        if self.has_variable_fields:
+            ctx_arg = 'const tal_t *ctx, '
+        else:
+            ctx_arg = ''
+
+        print('bool fromwire_{}({}const void *p, size_t *plen'
+              .format(self.name, ctx_arg), end='')
+
+        for f in self.fields:
+            if f.is_len_var:
+                continue
+            if f.is_padding():
+                continue
+            if f.is_array():
+                print(', {} {}[{}]'.format(f.typename, f.name, f.num_elems), end='')
+            elif f.is_variable_size():
+                print(', {} **{}'.format(f.typename, f.name), end='')
+            else:
+                print(', {} *{}'.format(f.typename, f.name), end='')
 
         if is_header:
-            print(';')
+            print(');')
             return
 
-        print('\n'
-              '{{\n'
-              '\tconst u8 *cursor = p;\n'
-              '\tstruct msg_{} *in = tal(ctx, struct msg_{});\n'
-              ''.format(self.name, self.name));
+        print(')\n'
+              '{\n')
+
+        for f in self.fields:
+            if f.is_len_var:
+                print('\t{} {};\n'.format(f.typename, f.name));
+
+        print('\tconst u8 *cursor = p;\n'
+              '')
 
         for f in self.fields:
             basetype=f.typename
             if f.typename.startswith('struct '):
                 basetype=f.typename[7:]
 
-            if f.is_array():
+            if f.is_padding():
+                print('\tfromwire_pad(&cursor, plen, {});'
+                      .format(f.num_elems))
+            elif f.is_array():
                 print("\t//1th case", f.name)
-                print('\tfromwire_{}_array(&cursor, len, in->{}, {});'
+                print('\tfromwire_{}_array(&cursor, plen, {}, {});'
                       .format(basetype, f.name, f.num_elems))
             elif f.is_variable_size():
                 print("\t//2th case", f.name)
-                print('\tin->{} = tal_arr(in, {}, in->{});'
+                print('\t*{} = tal_arr(ctx, {}, {});'
                       .format(f.name, f.typename, f.lenvar))
-                print('\tfromwire_{}_array(&cursor, len, in->{}, in->{});'
+                print('\tfromwire_{}_array(&cursor, plen, *{}, {});'
                       .format(basetype, f.name, f.lenvar))
             elif f.is_assignable():
                 print("\t//3th case", f.name)
-                print('\tin->{} = fromwire_{}(&cursor, len);'
-                      .format(f.name, basetype))
+                if f.is_len_var:
+                    print('\t{} = fromwire_{}(&cursor, plen);'
+                          .format(f.name, basetype))
+                else:
+                    print('\t*{} = fromwire_{}(&cursor, plen);'
+                          .format(f.name, basetype))
             else:
                 print("\t//4th case", f.name)
-                print('\tfromwire_{}(&cursor, len, &in->{});'
+                print('\tfromwire_{}(&cursor, plen, {});'
                       .format(basetype, f.name))
 
         print('\n'
-              '\tif (!cursor)\n'
-              '\t\treturn tal_free(in);\n'
-              '\treturn in;\n'
+              '\treturn cursor != NULL;\n'
               '}\n')
-   
+
     def print_towire(self,is_header):
         if not self.fields:
             return
 
-        print('u8 *towire_{0}(const tal_t *ctx, const struct msg_{0} *out)'.format(self.name), end='')
+        print('u8 *towire_{}(const tal_t *ctx'
+              .format(self.name), end='')
+
+        for f in self.fields:
+            if f.is_padding():
+                continue
+            if f.is_array():
+                print(', const {} {}[{}]'.format(f.typename, f.name, f.num_elems), end='')
+            elif f.is_assignable():
+                print(', {} {}'.format(f.typename, f.name), end='')
+            else:
+                print(', const {} *{}'.format(f.typename, f.name), end='')
 
         if is_header:
-            print(';')
+            print(');')
             return
-    
-        print('\n'
+
+        print(')\n'
               '{\n'
               '\tu8 *p = tal_arr(ctx, u8, 0);\n'
               '')
@@ -213,17 +238,17 @@ class Message(object):
             if f.typename.startswith('struct '):
                 basetype=f.typename[7:]
 
-            if f.is_array():
-                print('\ttowire_{}_array(&p, out->{}, {});'
+            if f.is_padding():
+                print('\ttowire_pad(&p, {});'
+                      .format(f.num_elems))
+            elif f.is_array():
+                print('\ttowire_{}_array(&p, {}, {});'
                       .format(basetype, f.name, f.num_elems))
             elif f.is_variable_size():
-                print('\ttowire_{}_array(&p, out->{}, out->{});'
+                print('\ttowire_{}_array(&p, {}, {});'
                       .format(basetype, f.name, f.lenvar))
-            elif f.is_assignable():
-                print('\ttowire_{}(&p, out->{});'
-                      .format(basetype, f.name))
             else:
-                print('\ttowire_{}(&p, &out->{});'
+                print('\ttowire_{}(&p, {});'
                       .format(basetype, f.name))
 
         print('\n'
@@ -246,8 +271,6 @@ if options.output_header:
           '#define LIGHTNING_{0}\n'
           '#include <ccan/tal/tal.h>\n'
           '#include <wire/wire.h>\n'
-          '\n'
-          'typedef u8 pad;\n'
           ''.format(idem))
 else:
     print('#include <{}>\n'
@@ -275,10 +298,6 @@ if options.output_header:
     for m in sorted([x for x in messages.values() if x.enum is not None],key=lambda x:x.enum.value):
         print('\t{} = {},'.format(m.enum.name, m.enum.value))
     print('};')
-
-    # Dump out structure definitions.
-    for m in messages.values():
-        m.print_structure()
 
 for m in messages.values():
     m.print_fromwire(options.output_header)

@@ -80,7 +80,7 @@ void towire_u8_array(u8 **pptr, const u8 *arr, size_t num)
 	towire(pptr, arr, num);
 }
 
-void towire_pad_array(u8 **pptr, const u8 *arr, size_t num)
+void towire_pad(u8 **pptr, size_t num)
 {
 	/* Simply insert zeros. */
 	size_t oldsize = tal_count(*pptr);

@@ -118,9 +118,9 @@ void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num)
 	fromwire(cursor, max, arr, num);
 }
 
-void fromwire_pad_array(const u8 **cursor, size_t *max, u8 *arr, size_t num)
+void fromwire_pad(const u8 **cursor, size_t *max, size_t num)
 {
-	fromwire(cursor, max, arr, num);
+	fromwire(cursor, max, NULL, num);
 }
 
 void fromwire_signature_array(const u8 **cursor, size_t *max,

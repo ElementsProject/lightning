@@ -6,6 +6,7 @@
 #include "daemon/routing.h"
 #include "daemon/secrets.h"
 #include "daemon/timeout.h"
+#include "utils.h"
 
 #include <arpa/inet.h>
 #include <ccan/tal/str/str.h>
@@ -132,255 +133,348 @@ static bool add_channel_direction(struct lightningd_state *dstate,
 
 void handle_channel_announcement(
 	struct peer *peer,
-	const struct msg_channel_announcement *msg)
+	const u8 *announce, size_t len)
 {
 	u8 *serialized;
 	bool forward = false;
-	if (!msg)
+	struct signature node_signature_1;
+	struct signature node_signature_2;
+	struct channel_id channel_id;
+	struct signature bitcoin_signature_1;
+	struct signature bitcoin_signature_2;
+	struct pubkey node_id_1;
+	struct pubkey node_id_2;
+	struct pubkey bitcoin_key_1;
+	struct pubkey bitcoin_key_2;
+	const tal_t *tmpctx = tal_tmpctx(peer);
+
+	serialized = tal_dup_arr(tmpctx, u8, announce, len, 0);
+	/* FIXME: use NULL arg to mean tal_count() here! */
+	if (!fromwire_channel_announcement(serialized, &len,
+					   &node_signature_1, &node_signature_2,
+					   &channel_id,
+					   &bitcoin_signature_1,
+					   &bitcoin_signature_2,
+					   &node_id_1, &node_id_2,
+					   &bitcoin_key_1, &bitcoin_key_2)) {
+		tal_free(tmpctx);
 		return;
+	}
 
 	//FIXME(cdecker) Check signatures, when the spec is settled
 	//FIXME(cdecker) Check chain topology for the anchor TX
 
-	serialized = towire_channel_announcement(msg, msg);
-
 	log_debug(peer->log,
 		  "Received channel_announcement for channel %d:%d:%d",
-		  msg->channel_id.blocknum,
-		  msg->channel_id.txnum,
-		  msg->channel_id.outnum
+		  channel_id.blocknum,
+		  channel_id.txnum,
+		  channel_id.outnum
 		);
 
-	forward |= add_channel_direction(peer->dstate, &msg->node_id_1,
-					 &msg->node_id_2, 0, &msg->channel_id,
+	forward |= add_channel_direction(peer->dstate, &node_id_1,
+					 &node_id_2, 0, &channel_id,
 					 serialized);
-	forward |= add_channel_direction(peer->dstate, &msg->node_id_2,
-					 &msg->node_id_1, 1, &msg->channel_id,
+	forward |= add_channel_direction(peer->dstate, &node_id_2,
+					 &node_id_1, 1, &channel_id,
 					 serialized);
 	if (!forward){
 		log_debug(peer->log, "Not forwarding channel_announcement");
+		tal_free(tmpctx);
 		return;
 	}
 
-	u8 *tag = tal_arr(msg, u8, 0);
-	towire_channel_id(&tag, &msg->channel_id);
+	u8 *tag = tal_arr(tmpctx, u8, 0);
+	towire_channel_id(&tag, &channel_id);
 	queue_broadcast(peer->dstate, WIRE_CHANNEL_ANNOUNCEMENT,
 			0, /* `channel_announcement`s do not have a timestamp */
 			tag, serialized);
 
-	tal_free(msg);
+	tal_free(tmpctx);
 }
 
-void handle_channel_update(struct peer *peer, const struct msg_channel_update *msg)
+void handle_channel_update(struct peer *peer, const u8 *update, size_t len)
 {
-	if (!msg)
-		return;
-
 	u8 *serialized;
 	struct node_connection *c;
+	struct signature signature;
+	struct channel_id channel_id;
+	u32 timestamp;
+	u16 flags;
+	u16 expiry;
+	u32 htlc_minimum_msat;
+	u32 fee_base_msat;
+	u32 fee_proportional_millionths;
+	const tal_t *tmpctx = tal_tmpctx(peer);
+
+	serialized = tal_dup_arr(tmpctx, u8, update, len, 0);
+	/* FIXME: use NULL arg to mean tal_count() here! */
+	if (!fromwire_channel_update(serialized, &len, &signature, &channel_id,
+				     &timestamp, &flags, &expiry,
+				     &htlc_minimum_msat, &fee_base_msat,
+				     &fee_proportional_millionths)) {
+		tal_free(tmpctx);
+		return;
+	}
+
 
 	log_debug(peer->log, "Received channel_update for channel %d:%d:%d(%d)",
-		  msg->channel_id.blocknum,
-		  msg->channel_id.txnum,
-		  msg->channel_id.outnum,
-		  msg->flags & 0x01
+		  channel_id.blocknum,
+		  channel_id.txnum,
+		  channel_id.outnum,
+		  flags & 0x01
 		);
 
-	c = get_connection_by_cid(peer->dstate, &msg->channel_id, msg->flags & 0x1);
+	c = get_connection_by_cid(peer->dstate, &channel_id, flags & 0x1);
 
 	if (!c) {
 		log_debug(peer->log, "Ignoring update for unknown channel %d:%d:%d",
-			  msg->channel_id.blocknum,
-			  msg->channel_id.txnum,
-			  msg->channel_id.outnum
+			  channel_id.blocknum,
+			  channel_id.txnum,
+			  channel_id.outnum
 			);
+		tal_free(tmpctx);
 		return;
-	} else if (c->last_timestamp >= msg->timestamp) {
+	} else if (c->last_timestamp >= timestamp) {
 		log_debug(peer->log, "Ignoring outdated update.");
+		tal_free(tmpctx);
 		return;
 	}
 
 	//FIXME(cdecker) Check signatures
-	serialized = towire_channel_update(msg, msg);
-
-	c->last_timestamp = msg->timestamp;
-	c->delay = msg->expiry;
-	c->htlc_minimum_msat = msg->htlc_minimum_msat;
-	c->base_fee = msg->fee_base_msat;
-	c->proportional_fee = msg->fee_proportional_millionths;
+	c->last_timestamp = timestamp;
+	c->delay = expiry;
+	c->htlc_minimum_msat = htlc_minimum_msat;
+	c->base_fee = fee_base_msat;
+	c->proportional_fee = fee_proportional_millionths;
 	c->active = true;
 	log_debug(peer->log, "Channel %d:%d:%d(%d) was updated.",
-		  msg->channel_id.blocknum,
-		  msg->channel_id.txnum,
-		  msg->channel_id.outnum,
-		  msg->flags
+		  channel_id.blocknum,
+		  channel_id.txnum,
+		  channel_id.outnum,
+		  flags
 		);
 
-	u8 *tag = tal_arr(msg, u8, 0);
-	towire_channel_id(&tag, &msg->channel_id);
+	u8 *tag = tal_arr(tmpctx, u8, 0);
+	towire_channel_id(&tag, &channel_id);
 	queue_broadcast(peer->dstate,
 			WIRE_CHANNEL_UPDATE,
-			msg->timestamp,
+			timestamp,
 			tag,
 			serialized);
 
 	tal_free(c->channel_update);
-	c->channel_update = tal_dup_arr(c, u8, serialized, tal_count(serialized), 0);
-	tal_free(msg);
+	c->channel_update = tal_steal(c, serialized);
+	tal_free(tmpctx);
 }
 
 void handle_node_announcement(
-	struct peer *peer, const struct msg_node_announcement *msg)
+	struct peer *peer, const u8 *node_ann, size_t len)
 {
 	u8 *serialized;
 	struct sha256_double hash;
 	struct node *node;
+	struct signature signature;
+	u32 timestamp;
+	struct ipv6 ipv6;
+	u16 port;
+	struct pubkey node_id;
+	u8 rgb_color[3];
+	u8 alias[32];
+	const tal_t *tmpctx = tal_tmpctx(peer);
 
-	if (!msg)
+	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
+	/* FIXME: use NULL arg to mean tal_count() here! */
+	if (!fromwire_node_announcement(serialized, &len,
+					&signature, &timestamp, &ipv6, &port,
+					&node_id, rgb_color, alias)) {
+		tal_free(tmpctx);
 		return;
+	}
 
 	log_debug_struct(peer->log,
 			 "Received node_announcement for node %s",
-			 struct pubkey, &msg->node_id);
+			 struct pubkey, &node_id);
 
-	serialized = towire_node_announcement(msg, msg);
 	sha256_double(&hash, serialized + 64, tal_count(serialized) - 64);
-	if (!check_signed_hash(&hash, &msg->signature, &msg->node_id)) {
+	if (!check_signed_hash(&hash, &signature, &node_id)) {
 		log_debug(peer->dstate->base_log,
 			  "Ignoring node announcement, signature verification failed.");
+		tal_free(tmpctx);
 		return;
 	}
-	node = get_node(peer->dstate, &msg->node_id);
+	node = get_node(peer->dstate, &node_id);
 
 	if (!node) {
 		log_debug(peer->dstate->base_log,
 			  "Node not found, was the node_announcement preceeded by at least channel_announcement?");
+		tal_free(tmpctx);
 		return;
-	} else if (node->last_timestamp >= msg->timestamp) {
+	} else if (node->last_timestamp >= timestamp) {
 		log_debug(peer->dstate->base_log,
 			  "Ignoring node announcement, it's outdated.");
+		tal_free(tmpctx);
 		return;
 	}
 
-	node->last_timestamp = msg->timestamp;
+	node->last_timestamp = timestamp;
 	node->hostname = tal_free(node->hostname);
-	node->hostname = read_ip(node, &msg->ipv6);
-	node->port = msg->port;
-	memcpy(node->rgb_color, msg->rgb_color, 3);
+	node->hostname = read_ip(node, &ipv6);
+	node->port = port;
+	memcpy(node->rgb_color, rgb_color, 3);
 
-	u8 *tag = tal_arr(msg, u8, 0);
-	towire_pubkey(&tag, &msg->node_id);
+	u8 *tag = tal_arr(tmpctx, u8, 0);
+	towire_pubkey(&tag, &node_id);
 	queue_broadcast(peer->dstate,
 			WIRE_NODE_ANNOUNCEMENT,
-			msg->timestamp,
+			timestamp,
 			tag,
 			serialized);
 	tal_free(node->node_announcement);
-	node->node_announcement = tal_dup_arr(node, u8, serialized, tal_count(serialized), 0);
-	tal_free(msg);
+	node->node_announcement = tal_steal(node, serialized);
+	tal_free(tmpctx);
 }
 
 static void broadcast_channel_update(struct lightningd_state *dstate, struct peer *peer)
 {
-	struct msg_channel_update *msg;
 	struct txlocator *loc;
 	u8 *serialized;
+	struct signature signature;
+	struct channel_id channel_id;
+	u32 timestamp = time_now().ts.tv_sec;
+	const tal_t *tmpctx = tal_tmpctx(dstate);
 
-	msg = tal(peer, struct msg_channel_update);
-	loc = locate_tx(msg, dstate, &peer->anchor.txid);
-
-	msg->timestamp = timeabs_to_timeval(time_now()).tv_sec;
-	msg->channel_id.blocknum = loc->blkheight;
-	msg->channel_id.txnum = loc->index;
-	msg->channel_id.outnum = peer->anchor.index;
-	msg->flags = pubkey_cmp(&dstate->id, peer->id) > 0;
-	msg->expiry = dstate->config.min_htlc_expiry;
-	//FIXME(cdecker) Make the minimum HTLC configurable
-	msg->htlc_minimum_msat = 1;
-	msg->fee_base_msat = dstate->config.fee_base;
-	msg->fee_proportional_millionths = dstate->config.fee_per_satoshi;
+	loc = locate_tx(tmpctx, dstate, &peer->anchor.txid);
+	channel_id.blocknum = loc->blkheight;
+	channel_id.txnum = loc->index;
+	channel_id.outnum = peer->anchor.index;
 
 	/* Avoid triggering memcheck */
-	memset(&msg->signature, 0, sizeof(msg->signature));
-	serialized = towire_channel_update(msg, msg);
-	privkey_sign(dstate, serialized + 64, tal_count(serialized) - 64, &msg->signature);
-	serialized = towire_channel_update(msg, msg);
+	memset(&signature, 0, sizeof(signature));
+
+	serialized = towire_channel_update(tmpctx, &signature, &channel_id,
+					   timestamp,
+					   pubkey_cmp(&dstate->id, peer->id) > 0,
+					   dstate->config.min_htlc_expiry,
+	//FIXME(cdecker) Make the minimum HTLC configurable
+					   1,
+					   dstate->config.fee_base,
+					   dstate->config.fee_per_satoshi);
+	privkey_sign(dstate, serialized + 64, tal_count(serialized) - 64,
+		     &signature);
+	serialized = towire_channel_update(tmpctx, &signature, &channel_id,
+					   timestamp,
+					   pubkey_cmp(&dstate->id, peer->id) > 0,
+					   dstate->config.min_htlc_expiry,
+					   1,
+					   dstate->config.fee_base,
+					   dstate->config.fee_per_satoshi);
 
 	broadcast(dstate, WIRE_CHANNEL_UPDATE, serialized, NULL);
-	tal_free(msg);
+	tal_free(tmpctx);
 }
 
 static void broadcast_node_announcement(struct lightningd_state *dstate)
 {
 	u8 *serialized;
+	struct signature signature;
+	struct ipv6 ipv6;
+	static const u8 rgb_color[3];
+	static const u8 alias[32];
+	u32 timestamp = time_now().ts.tv_sec;
+	const tal_t *tmpctx = tal_tmpctx(dstate);
 
-	/* Are we listeing for incoming connections at all? */
-	if (!dstate->external_ip || !dstate->portnum)
+	/* Are we listening for incoming connections at all? */
+	if (!dstate->external_ip || !dstate->portnum) {
+		tal_free(tmpctx);
 		return;
+	}
 
-	struct msg_node_announcement *msg = tal(dstate, struct msg_node_announcement);
-	msg->timestamp = timeabs_to_timeval(time_now()).tv_sec;
-	msg->node_id = dstate->id;
-	write_ip(&msg->ipv6, dstate->external_ip);
-	msg->port = dstate->portnum;
-	memset(&msg->rgb_color, 0x00, 3);
+	/* Avoid triggering memcheck */
+	memset(&signature, 0, sizeof(signature));
 
-	serialized = towire_node_announcement(msg, msg);
-	privkey_sign(dstate, serialized + 64, tal_count(serialized) - 64, &msg->signature);
-	serialized = towire_node_announcement(msg, msg);
+	write_ip(&ipv6, dstate->external_ip);
+	serialized = towire_node_announcement(tmpctx, &signature,
+					      timestamp,
+					      &ipv6, dstate->portnum,
+					      &dstate->id, rgb_color, alias);
+	privkey_sign(dstate, serialized + 64, tal_count(serialized) - 64,
+		     &signature);
+	serialized = towire_node_announcement(tmpctx, &signature,
+					      timestamp,
+					      &ipv6, dstate->portnum,
+					      &dstate->id, rgb_color, alias);
 	broadcast(dstate, WIRE_NODE_ANNOUNCEMENT, serialized, NULL);
-	tal_free(msg);
+	tal_free(tmpctx);
 }
 
 static void broadcast_channel_announcement(struct lightningd_state *dstate, struct peer *peer)
 {
-	struct msg_channel_announcement *msg = tal(peer, struct msg_channel_announcement);
 	struct txlocator *loc;
+	struct channel_id channel_id;
+	struct signature node_signature[2];
+	struct signature bitcoin_signature[2];
+	const struct pubkey *node_id[2];
+	const struct pubkey *bitcoin_key[2];
 	struct signature *my_node_signature;
 	struct signature *my_bitcoin_signature;
 	u8 *serialized;
+	const tal_t *tmpctx = tal_tmpctx(dstate);
 
-	loc = locate_tx(msg, dstate, &peer->anchor.txid);
+	loc = locate_tx(tmpctx, dstate, &peer->anchor.txid);
 
-	msg->channel_id.blocknum = loc->blkheight;
-	msg->channel_id.txnum = loc->index;
-	msg->channel_id.outnum = peer->anchor.index;
-
+	channel_id.blocknum = loc->blkheight;
+	channel_id.txnum = loc->index;
+	channel_id.outnum = peer->anchor.index;
 
 	/* Set all sigs to zero */
-	memset(&msg->node_signature_1, 0, sizeof(msg->node_signature_1));
-	memset(&msg->bitcoin_signature_1, 0, sizeof(msg->bitcoin_signature_1));
-	memset(&msg->node_signature_2, 0, sizeof(msg->node_signature_2));
-	memset(&msg->bitcoin_signature_2, 0, sizeof(msg->bitcoin_signature_2));
+	memset(node_signature, 0, sizeof(node_signature));
+	memset(bitcoin_signature, 0, sizeof(bitcoin_signature));
 
 	//FIXME(cdecker) Copy remote stored signatures into place
 	if (pubkey_cmp(&dstate->id, peer->id) > 0) {
-		msg->node_id_1 = *peer->id;
-		msg->node_id_2 = dstate->id;
-		msg->bitcoin_key_1 = *peer->id;
-		msg->bitcoin_key_2 = dstate->id;
-		my_node_signature = &msg->node_signature_2;
-		my_bitcoin_signature = &msg->bitcoin_signature_2;
+		node_id[0] = peer->id;
+		node_id[1] = &dstate->id;
+		bitcoin_key[0] = peer->id;
+		bitcoin_key[1] = &dstate->id;
+		my_node_signature = &node_signature[1];
+		my_bitcoin_signature = &bitcoin_signature[1];
 	} else {
-		msg->node_id_2 = *peer->id;
-		msg->node_id_1 = dstate->id;
-		msg->bitcoin_key_2 = *peer->id;
-		msg->bitcoin_key_1 = dstate->id;
-		my_node_signature = &msg->node_signature_1;
-		my_bitcoin_signature = &msg->bitcoin_signature_1;
+		node_id[1] = peer->id;
+		node_id[0] = &dstate->id;
+		bitcoin_key[1] = peer->id;
+		bitcoin_key[0] = &dstate->id;
+		my_node_signature = &node_signature[0];
+		my_bitcoin_signature = &bitcoin_signature[0];
 	}
+
 	/* Sign the node_id with the bitcoin_key, proves delegation */
-	serialized = tal_arr(msg, u8, 0);
+	serialized = tal_arr(tmpctx, u8, 0);
 	towire_pubkey(&serialized, &dstate->id);
 	privkey_sign(dstate, serialized, tal_count(serialized), my_bitcoin_signature);
 
 	/* Sign the entire packet with `node_id`, proves integrity and origin */
-	serialized = towire_channel_announcement(msg, msg);
+	serialized = towire_channel_announcement(tmpctx, &node_signature[0],
+						 &node_signature[1],
+						 &channel_id,
+						 &bitcoin_signature[0],
+						 &bitcoin_signature[1],
+						 node_id[0],
+						 node_id[1],
+						 bitcoin_key[0],
+						 bitcoin_key[1]);
 	privkey_sign(dstate, serialized + 128, tal_count(serialized) - 128, my_node_signature);
 
-	serialized = towire_channel_announcement(msg, msg);
+	serialized = towire_channel_announcement(tmpctx, &node_signature[0],
+						 &node_signature[1],
+						 &channel_id,
+						 &bitcoin_signature[0],
+						 &bitcoin_signature[1],
+						 node_id[0],
+						 node_id[1],
+						 bitcoin_key[0],
+						 bitcoin_key[1]);
 	broadcast(dstate, WIRE_CHANNEL_ANNOUNCEMENT, serialized, NULL);
-	tal_free(msg);
+	tal_free(tmpctx);
 }
 
 static void announce(struct lightningd_state *dstate)

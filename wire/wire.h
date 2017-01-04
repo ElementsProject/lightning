@@ -28,9 +28,9 @@ void towire_u8(u8 **pptr, u8 v);
 void towire_u16(u8 **pptr, u16 v);
 void towire_u32(u8 **pptr, u32 v);
 void towire_u64(u8 **pptr, u64 v);
+void towire_pad(u8 **pptr, size_t num);
 
 void towire_u8_array(u8 **pptr, const u8 *arr, size_t num);
-void towire_pad_array(u8 **pptr, const u8 *arr, size_t num);
 void towire_signature_array(u8 **pptr, const struct signature *arr, size_t num);
 
 
@@ -46,11 +46,10 @@ void fromwire_channel_id(const u8 **cursor, size_t *max,
 			 struct channel_id *channel_id);
 void fromwire_sha256(const u8 **cursor, size_t *max, struct sha256 *sha256);
 void fromwire_ipv6(const u8 **cursor, size_t *max, struct ipv6 *ipv6);
+void fromwire_pad(const u8 **cursor, size_t *max, size_t num);
 
 void fromwire_u8_array(const u8 **cursor, size_t *max,
 		       u8 *arr, size_t num);
-void fromwire_pad_array(const u8 **cursor, size_t *max,
-			u8 *arr, size_t num);
 void fromwire_signature_array(const u8 **cursor, size_t *max,
 			      struct signature *arr, size_t num);
 

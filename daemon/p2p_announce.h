@@ -7,9 +7,9 @@
 void setup_p2p_announce(struct lightningd_state *dstate);
 
 /* Handlers for incoming messages */
-void handle_channel_announcement(struct peer *peer, const struct msg_channel_announcement *announce);
-void handle_channel_update(struct peer *peer, const struct msg_channel_update *update);
-void handle_node_announcement(struct peer *peer, const struct msg_node_announcement *node);
+void handle_channel_announcement(struct peer *peer, const u8 *announce, size_t len);
+void handle_channel_update(struct peer *peer, const u8 *update, size_t len);
+void handle_node_announcement(struct peer *peer, const u8 *node, size_t len);
 
 /* Used to announce the existence of a channel and the endpoints */
 void announce_channel(struct lightningd_state *dstate, struct peer *peer);
