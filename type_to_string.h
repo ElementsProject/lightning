@@ -1,7 +1,8 @@
 #ifndef LIGHTNING_TYPE_TO_STRING_H
 #define LIGHTNING_TYPE_TO_STRING_H
 #include "config.h"
-#include <ccan/tal/tal.h>
+#include "utils.h"
+#include <ccan/autodata/autodata.h>
 
 /* This must match the type_to_string_ cases. */
 union printable_types {
@@ -27,4 +28,31 @@ union printable_types {
 char *type_to_string_(const tal_t *ctx, const char *typename,
 		      union printable_types u);
 
+#define REGISTER_TYPE_TO_STRING(typename, fmtfn)			\
+	static char *fmt_##typename##_(const tal_t *ctx,		\
+				       union printable_types u)		\
+	{								\
+		return fmtfn(ctx, u.typename);				\
+	}								\
+	static struct type_to_string ttos_##typename = {		\
+		#typename, fmt_##typename##_				\
+	};								\
+	AUTODATA(type_to_string, &ttos_##typename)
+
+#define REGISTER_TYPE_TO_HEXSTR(typename)				\
+	static char *fmt_##typename##_(const tal_t *ctx,		\
+				       union printable_types u)		\
+	{								\
+		return tal_hexstr(ctx, u.typename, sizeof(*u.typename)); \
+	}								\
+	static struct type_to_string ttos_##typename = {		\
+		#typename, fmt_##typename##_				\
+	};								\
+	AUTODATA(type_to_string, &ttos_##typename)
+
+struct type_to_string {
+	const char *typename;
+	char *(*fmt)(const tal_t *ctx, union printable_types u);
+};
+AUTODATA_TYPE(type_to_string, struct type_to_string);
 #endif /* LIGHTNING_UTILS_H */

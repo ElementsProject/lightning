@@ -11,6 +11,8 @@
 #include <ccan/tal/str/str.h>
 #include <inttypes.h>
 
+REGISTER_TYPE_TO_STRING(netaddr, netaddr_name);
+
 char *type_to_string_(const tal_t *ctx,  const char *typename,
 		      union printable_types u)
 {
@@ -78,9 +80,26 @@ char *type_to_string_(const tal_t *ctx,  const char *typename,
 					   &u.cstate->side[LOCAL]),
 			    type_to_string(ctx, struct channel_oneside,
 					   &u.cstate->side[REMOTE]));
-	} else if (streq(typename, "struct netaddr")) {
-		s = netaddr_name(ctx, u.netaddr);
-	}
+	} else {
+		size_t i;
+		static size_t num_p;
+		static struct type_to_string **t = NULL;
 
+		if (!t)
+			t = autodata_get(type_to_string, &num_p);
+
+		/* Typenames in registrations don't include "struct " */
+		if (strstarts(typename, "struct "))
+			typename += strlen("struct ");
+
+		for (i = 0; i < num_p; i++) {
+			if (streq(t[i]->typename, typename)) {
+				s = t[i]->fmt(ctx, u);
+				break;
+			}
+		}
+		if (!s)
+			s = tal_fmt(ctx, "UNKNOWN TYPE %s", typename);
+	}
 	return s;
 }
