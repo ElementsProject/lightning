@@ -35,6 +35,12 @@ void towire_u64(u8 **pptr, u64 v)
 	towire(pptr, &l, sizeof(l));
 }
 
+void towire_bool(u8 **pptr, bool v)
+{
+	u8 val = !!v;
+	towire(pptr, &val, sizeof(val));
+}
+
 void towire_pubkey(u8 **pptr, const struct pubkey *pubkey)
 {
 	u8 output[PUBKEY_DER_LEN];

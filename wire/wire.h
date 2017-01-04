@@ -32,6 +32,7 @@ void towire_u16(u8 **pptr, u16 v);
 void towire_u32(u8 **pptr, u32 v);
 void towire_u64(u8 **pptr, u64 v);
 void towire_pad(u8 **pptr, size_t num);
+void towire_bool(u8 **pptr, bool v);
 
 void towire_u8_array(u8 **pptr, const u8 *arr, size_t num);
 void towire_signature_array(u8 **pptr, const struct signature *arr, size_t num);
@@ -42,6 +43,7 @@ u8 fromwire_u8(const u8 **cursor, size_t *max);
 u16 fromwire_u16(const u8 **cursor, size_t *max);
 u32 fromwire_u32(const u8 **cursor, size_t *max);
 u64 fromwire_u64(const u8 **cursor, size_t *max);
+bool fromwire_bool(const u8 **cursor, size_t *max);
 void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey);
 void fromwire_signature(const u8 **cursor, size_t *max,
 			struct signature *signature);

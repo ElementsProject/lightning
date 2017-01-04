@@ -76,6 +76,17 @@ u64 fromwire_u64(const u8 **cursor, size_t *max)
 	return be64_to_cpu(ret);
 }
 
+bool fromwire_bool(const u8 **cursor, size_t *max)
+{
+	u8 ret;
+
+	if (!fromwire(cursor, max, &ret, sizeof(ret)))
+		return false;
+	if (ret != 0 && ret != 1)
+		fail_pull(cursor, max);
+	return ret;
+}
+
 void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)
 {
 	u8 der[PUBKEY_DER_LEN];

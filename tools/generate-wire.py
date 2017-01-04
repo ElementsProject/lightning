@@ -14,7 +14,7 @@ class FieldType(object):
         self.tsize = FieldType._typesize(name)
 
     def is_assignable(self):
-        return self.name == 'u8' or self.name == 'u16' or self.name == 'u32' or self.name == 'u64'
+        return self.name == 'u8' or self.name == 'u16' or self.name == 'u32' or self.name == 'u64' or self.name == 'bool'
 
     # Returns typename and base size
     @staticmethod
@@ -38,6 +38,8 @@ class FieldType(object):
         elif typename == 'u16':
             return 2
         elif typename == 'u8':
+            return 1
+        elif typename == 'bool':
             return 1
         else:
             raise ValueError('Unknown typename {}'.format(typename))
