@@ -453,10 +453,10 @@ bool handle_opts(struct lightningd_state *dstate, int argc, char *argv[])
 
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 
-	opt_register_noarg("--help|-h", opt_usage_and_exit,
-			   "\n"
-			   "A bitcoin lightning daemon.",
-			   "Print this message.");
+	opt_register_early_noarg("--help|-h", opt_usage_and_exit,
+				 "\n"
+				 "A bitcoin lightning daemon.",
+				 "Print this message.");
 	opt_register_arg("--port", opt_set_u16, opt_show_u16, &dstate->portnum,
 			 "Port to bind to (0 means don't listen)");
 	opt_register_arg("--bitcoin-datadir", opt_set_charp, NULL,
