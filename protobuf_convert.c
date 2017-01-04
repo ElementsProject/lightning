@@ -2,6 +2,7 @@
 #include "bitcoin/pubkey.h"
 #include "bitcoin/signature.h"
 #include "protobuf_convert.h"
+#include "type_to_string.h"
 #include "utils.h"
 #include <ccan/crypto/sha256/sha256.h>
 
@@ -202,3 +203,5 @@ void steal_from_prototal(const tal_t *ctx, struct ProtobufCAllocator *prototal,
 	tal_steal(pb, prototal->allocator_data);
 	tal_free(prototal);
 }
+
+REGISTER_TYPE_TO_HEXSTR(rval);

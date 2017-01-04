@@ -1,6 +1,7 @@
 #include "bitcoin/block.h"
 #include "bitcoin/pullpush.h"
 #include "bitcoin/tx.h"
+#include "type_to_string.h"
 #include <assert.h>
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/sha256/sha256.h>
@@ -492,3 +493,13 @@ bool bitcoin_txid_to_hex(const struct sha256_double *txid,
 	reverse_bytes(rev.sha.u.u8, sizeof(rev.sha.u.u8));
 	return hex_encode(&rev, sizeof(rev), hexstr, hexstr_len);
 }
+
+static char *fmt_bitcoin_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
+{
+	u8 *lin = linearize_tx(ctx, tx);
+	char *s = tal_hexstr(ctx, lin, tal_count(lin));
+	tal_free(lin);
+	return s;
+}
+
+REGISTER_TYPE_TO_STRING(bitcoin_tx, fmt_bitcoin_tx);

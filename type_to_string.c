@@ -11,95 +11,32 @@
 #include <ccan/tal/str/str.h>
 #include <inttypes.h>
 
-REGISTER_TYPE_TO_STRING(netaddr, netaddr_name);
+/* We need at least one, and this is in CCAN so register it here. */
+REGISTER_TYPE_TO_HEXSTR(sha256);
 
 char *type_to_string_(const tal_t *ctx,  const char *typename,
 		      union printable_types u)
 {
 	char *s = NULL;
+	size_t i;
+	static size_t num_p;
+	static struct type_to_string **t = NULL;
 
-	/* GCC checks we're one of these, so we should be. */
-	if (streq(typename, "struct pubkey"))
-		s = pubkey_to_hexstr(ctx, u.pubkey);
-	else if (streq(typename, "struct sha256_double"))
-		s = tal_hexstr(ctx, u.sha256_double, sizeof(*u.sha256_double));
-	else if (streq(typename, "struct sha256"))
-		s = tal_hexstr(ctx, u.sha256, sizeof(*u.sha256));
-	else if (streq(typename, "struct rel_locktime")) {
-		if (rel_locktime_is_seconds(u.rel_locktime))
-			s = tal_fmt(ctx, "+%usec",
-				    rel_locktime_to_seconds(u.rel_locktime));
-		else
-			s = tal_fmt(ctx, "+%ublocks",
-				    rel_locktime_to_blocks(u.rel_locktime));
-	} else if (streq(typename, "struct abs_locktime")) {
-		if (abs_locktime_is_seconds(u.abs_locktime))
-			s = tal_fmt(ctx, "%usec",
-				    abs_locktime_to_seconds(u.abs_locktime));
-		else
-			s = tal_fmt(ctx, "%ublocks",
-				    abs_locktime_to_blocks(u.abs_locktime));
-	} else if (streq(typename, "struct bitcoin_tx")) {
-		u8 *lin = linearize_tx(ctx, u.bitcoin_tx);
-		s = tal_hexstr(ctx, lin, tal_count(lin));
-	} else if (streq(typename, "struct htlc")) {
-		const struct htlc *h = u.htlc;
-		s = tal_fmt(ctx, "{ id=%"PRIu64
-			    " msatoshi=%"PRIu64
-			    " expiry=%s"
-			    " rhash=%s"
-			    " rval=%s"
-			    " src=%s }",
-			    h->id, h->msatoshi,
-			    type_to_string(ctx, struct abs_locktime, &h->expiry),
-			    type_to_string(ctx, struct sha256, &h->rhash),
-			    h->r ? tal_hexstr(ctx, h->r, sizeof(*h->r))
-			    : "UNKNOWN",
-			    h->src ? type_to_string(ctx, struct pubkey,
-						    h->src->peer->id)
-			    : "local");
-	} else if (streq(typename, "struct rval")) {
-		s = tal_hexstr(ctx, u.rval, sizeof(*u.rval));
-	} else if (streq(typename, "struct channel_oneside")) {
-		s = tal_fmt(ctx, "{ pay_msat=%u"
-			    " fee_msat=%u"
-			    " num_htlcs=%u }",
-			    u.channel_oneside->pay_msat,
-			    u.channel_oneside->fee_msat,
-			    u.channel_oneside->num_htlcs);
-	} else if (streq(typename, "struct channel_state")) {
-		s = tal_fmt(ctx, "{ anchor=%"PRIu64
-			    " fee_rate=%"PRIu64
-			    " num_nondust=%u"
-			    " ours=%s"
-			    " theirs=%s }",
-			    u.cstate->anchor,
-			    u.cstate->fee_rate,
-			    u.cstate->num_nondust,
-			    type_to_string(ctx, struct channel_oneside,
-					   &u.cstate->side[LOCAL]),
-			    type_to_string(ctx, struct channel_oneside,
-					   &u.cstate->side[REMOTE]));
-	} else {
-		size_t i;
-		static size_t num_p;
-		static struct type_to_string **t = NULL;
+	if (!t)
+		t = autodata_get(type_to_string, &num_p);
 
-		if (!t)
-			t = autodata_get(type_to_string, &num_p);
+	/* Typenames in registrations don't include "struct " */
+	if (strstarts(typename, "struct "))
+		typename += strlen("struct ");
 
-		/* Typenames in registrations don't include "struct " */
-		if (strstarts(typename, "struct "))
-			typename += strlen("struct ");
-
-		for (i = 0; i < num_p; i++) {
-			if (streq(t[i]->typename, typename)) {
-				s = t[i]->fmt(ctx, u);
-				break;
-			}
+	for (i = 0; i < num_p; i++) {
+		if (streq(t[i]->typename, typename)) {
+			s = t[i]->fmt(ctx, u);
+			break;
 		}
-		if (!s)
-			s = tal_fmt(ctx, "UNKNOWN TYPE %s", typename);
 	}
+	if (!s)
+		s = tal_fmt(ctx, "UNKNOWN TYPE %s", typename);
+
 	return s;
 }

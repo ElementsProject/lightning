@@ -1,5 +1,6 @@
 #include "bitcoin/pullpush.h"
 #include "netaddr.h"
+#include "type_to_string.h"
 #include "utils.h"
 #include <arpa/inet.h>
 #include <assert.h>
@@ -86,3 +87,4 @@ bool netaddr_from_fd(int fd, int type, int protocol, struct netaddr *a)
 	return getpeername(fd, &a->saddr.s, &a->addrlen) == 0;
 }
 
+REGISTER_TYPE_TO_STRING(netaddr, netaddr_name);

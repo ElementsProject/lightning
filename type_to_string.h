@@ -14,7 +14,7 @@ union printable_types {
 	const struct bitcoin_tx *bitcoin_tx;
 	const struct htlc *htlc;
 	const struct rval *rval;
-	const struct channel_state *cstate;
+	const struct channel_state *channel_state;
 	const struct channel_oneside *channel_oneside;
 	const struct netaddr *netaddr;
 	const char *charp_;

@@ -1,10 +1,13 @@
 #include "channel.h"
 #include "htlc.h"
 #include "remove_dust.h"
+#include "type_to_string.h"
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <ccan/structeq/structeq.h>
+#include <ccan/tal/str/str.h>
+#include <inttypes.h>
 #include <string.h>
 
 uint64_t fee_by_feerate(size_t txsize, uint64_t fee_rate)
@@ -325,3 +328,32 @@ bool balance_after_force(struct channel_state *cstate)
 	adjust_fee(cstate, cstate->fee_rate);
 	return true;
 }
+
+static char *fmt_channel_oneside(const tal_t *ctx,
+				 const struct channel_oneside *co)
+{
+	return tal_fmt(ctx, "{ pay_msat=%u"
+		       " fee_msat=%u"
+		       " num_htlcs=%u }",
+		       co->pay_msat,
+		       co->fee_msat,
+		       co->num_htlcs);
+}
+
+static char *fmt_channel_state(const tal_t *ctx,
+			       const struct channel_state *cs)
+{
+	return tal_fmt(ctx, "{ anchor=%"PRIu64
+		       " fee_rate=%"PRIu64
+		       " num_nondust=%u"
+		       " ours=%s"
+		       " theirs=%s }",
+		       cs->anchor,
+		       cs->fee_rate,
+		       cs->num_nondust,
+		       fmt_channel_oneside(ctx, &cs->side[LOCAL]),
+		       fmt_channel_oneside(ctx, &cs->side[REMOTE]));
+}
+
+REGISTER_TYPE_TO_STRING(channel_oneside, fmt_channel_oneside);
+REGISTER_TYPE_TO_STRING(channel_state, fmt_channel_state);

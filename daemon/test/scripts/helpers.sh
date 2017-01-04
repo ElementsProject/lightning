@@ -293,6 +293,11 @@ all_ok()
     if grep ^== $DIR1/errors; then exit 1; fi
     if grep ^== $DIR2/errors; then exit 1; fi
     [ $NUM_LIGHTNINGD = 2 ] || if grep ^== $DIR3/errors; then exit 1; fi
+
+    # Look for unknown logging types.
+    if grep "UNKNOWN TYPE" $DIR1/output >&2; then exit 1; fi
+    if grep "UNKNOWN TYPE" $DIR2/output >&2; then exit 1; fi
+    [ $NUM_LIGHTNINGD = 2 ] || if grep "UNKNOWN TYPE" $DIR3/output >&2; then exit 1; fi
     $SHUTDOWN_BITCOIN
 
     trap "rm -rf $DIR1 $DIR2 $DIR3" EXIT

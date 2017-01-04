@@ -2,8 +2,10 @@
 #include "htlc.h"
 #include "log.h"
 #include "peer.h"
+#include "type_to_string.h"
   #include "gen_htlc_state_names.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/tal/str/str.h>
 #include <inttypes.h>
 
 const char *htlc_state_name(enum htlc_state s)
@@ -203,3 +205,22 @@ void htlc_undostate(struct htlc *h,
 
 	h->state = newstate;
 }
+
+static char *fmt_htlc(const tal_t *ctx, const struct htlc *h)
+{
+	return tal_fmt(ctx, "{ id=%"PRIu64
+		       " msatoshi=%"PRIu64
+		       " expiry=%s"
+		       " rhash=%s"
+		       " rval=%s"
+		       " src=%s }",
+		       h->id, h->msatoshi,
+		       type_to_string(ctx, struct abs_locktime, &h->expiry),
+		       type_to_string(ctx, struct sha256, &h->rhash),
+		       h->r ? tal_hexstr(ctx, h->r, sizeof(*h->r))
+		       : "UNKNOWN",
+		       h->src ? type_to_string(ctx, struct pubkey,
+					       h->src->peer->id)
+		       : "local");
+}
+REGISTER_TYPE_TO_STRING(htlc, fmt_htlc);

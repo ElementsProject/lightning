@@ -1,4 +1,5 @@
 #include "shadouble.h"
+#include "type_to_string.h"
 #include <ccan/mem/mem.h>
 
 void sha256_double(struct sha256_double *shadouble, const void *p, size_t len)
@@ -12,3 +13,5 @@ void sha256_double_done(struct sha256_ctx *shactx, struct sha256_double *res)
 	sha256_done(shactx, &res->sha);
 	sha256(&res->sha, &res->sha, sizeof(res->sha));
 }
+
+REGISTER_TYPE_TO_HEXSTR(sha256_double);

@@ -78,7 +78,7 @@ update-mocks-daemon/test/%: daemon/test/%
 
 update-mocks: $(DAEMON_TEST_SRC:%=update-mocks-%)
 
-$(DAEMON_TEST_PROGRAMS): $(CCAN_OBJS) $(BITCOIN_OBJS) libsecp256k1.a utils.o
+$(DAEMON_TEST_PROGRAMS): $(CCAN_OBJS) $(BITCOIN_OBJS) $(CORE_OBJS) libsecp256k1.a utils.o
 
 $(DAEMON_TEST_OBJS): $(DAEMON_HEADERS) $(DAEMON_JSMN_HEADERS) $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS) $(DAEMON_GEN_HEADERS) $(CCAN_HEADERS)
 

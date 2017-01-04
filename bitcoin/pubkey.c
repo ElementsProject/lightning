@@ -1,5 +1,6 @@
 #include "privkey.h"
 #include "pubkey.h"
+#include "type_to_string.h"
 #include "utils.h"
 #include <assert.h>
 #include <ccan/mem/mem.h>
@@ -65,6 +66,8 @@ bool pubkey_eq(const struct pubkey *a, const struct pubkey *b)
 {
 	return structeq(&a->pubkey, &b->pubkey);
 }
+
+REGISTER_TYPE_TO_STRING(pubkey, pubkey_to_hexstr);
 
 int pubkey_cmp(const struct pubkey *a, const struct pubkey *b)
 {
