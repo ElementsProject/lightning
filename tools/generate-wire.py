@@ -128,6 +128,9 @@ class Message(object):
         self.fields.append(field)
 
     def print_structure(self):
+        if not self.fields:
+            return
+
         print('struct msg_{} {{'.format(self.name));
 
         for f in self.fields:
@@ -142,6 +145,9 @@ class Message(object):
         print('};')
 
     def print_fromwire(self,is_header):
+        if not self.fields:
+            return
+
         print('struct msg_{0} *fromwire_{0}(const tal_t *ctx, const void *p, size_t *len)'.format(self.name), end='')
 
         if is_header:
@@ -185,6 +191,9 @@ class Message(object):
               '}\n')
    
     def print_towire(self,is_header):
+        if not self.fields:
+            return
+
         print('u8 *towire_{0}(const tal_t *ctx, const struct msg_{0} *out)'.format(self.name), end='')
 
         if is_header:
@@ -221,27 +230,31 @@ class Message(object):
 parser = OptionParser()
 parser.add_option("--header",
                   action="store_true", dest="output_header", default=False,
-                  help="Create gen_wire.h")
+                  help="Create wire header")
 
 (options, args) = parser.parse_args()
 
+if len(args) != 2:
+    parser.error("Expect headerfilename and enumname")
+
 if options.output_header:
-    print('#ifndef LIGHTNING_WIRE_GEN_WIRE_H\n'
-          '#define LIGHTNING_WIRE_GEN_WIRE_H\n'
+    idem = re.sub(r'[^A-Z]+', '_', args[0].upper())
+    print('#ifndef LIGHTNING_{0}\n'
+          '#define LIGHTNING_{0}\n'
           '#include <ccan/tal/tal.h>\n'
           '#include <wire/wire.h>\n'
           '\n'
           'typedef u8 pad;\n'
-          '')
+          ''.format(idem))
 else:
-    print('#include "gen_wire.h"\n'
-          '')
+    print('#include <{}>\n'
+          ''.format(args[0]))
 
 # Maps message names to messages
 messages = { }
 
 # Read csv lines.  Single comma is the message values, more is offset/len.
-for line in fileinput.input(args):
+for line in fileinput.input(args[2:]):
     parts = line.rstrip().split(',')
 
     if len(parts) == 2:
@@ -249,12 +262,14 @@ for line in fileinput.input(args):
         messages[parts[0]] = Message(parts[0],Enumtype("WIRE_" + parts[0].upper(), int(parts[1])))
     else:
         # eg commit_sig,0,channel-id,8
+        if not parts[0] in messages:
+            messages[parts[0]] = Message(parts[0],None)
         messages[parts[0]].addField(Field(parts[0], parts[2], parts[3]))
 
 if options.output_header:
     # Dump out enum, sorted by value order.
-    print('enum wire_type {')
-    for m in sorted(messages.values(),key=lambda x:x.enum.value):
+    print('enum {} {{'.format(args[1]))
+    for m in sorted([x for x in messages.values() if x.enum is not None],key=lambda x:x.enum.value):
         print('\t{} = {},'.format(m.enum.name, m.enum.value))
     print('};')
 
@@ -269,4 +284,4 @@ for m in messages.values():
     m.print_towire(options.output_header)
     
 if options.output_header:
-    print('#endif /* LIGHTNING_WIRE_GEN_WIRE_H */\n')
+    print('#endif /* LIGHTNING_{} */\n'.format(idem))

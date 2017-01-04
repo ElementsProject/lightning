@@ -14,7 +14,7 @@
 #include "netaddr.h"
 #include "protobuf_convert.h"
 #include "state.h"
-#include "wire/gen_wire.h"
+#include "wire/gen_peer_wire.h"
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/list/list.h>

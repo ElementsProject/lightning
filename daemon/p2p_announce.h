@@ -2,7 +2,7 @@
 #define LIGHTNING_DAEMON_P2P_ANNOUNCE_H
 #include "config.h"
 #include "lightningd.h"
-#include "wire/gen_wire.h"
+#include "wire/gen_peer_wire.h"
 
 void setup_p2p_announce(struct lightningd_state *dstate);
 

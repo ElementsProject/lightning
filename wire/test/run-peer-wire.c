@@ -1,4 +1,4 @@
-#include "../gen_wire.c"
+#include "../gen_peer_wire.c"
 
 void towire_pad_array_orig(u8 **pptr, const u8 *arr, size_t num);
 #define towire_pad_array towire_pad_array_orig

@@ -180,6 +180,8 @@ GEN_HEADERS := 	gen_version.h			\
 
 CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
+WIRE_GEN := tools/generate-wire.py
+
 MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-delinvoice.7 \
 	doc/lightning-getroute.7 \
