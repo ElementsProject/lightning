@@ -574,12 +574,13 @@ void sync_routing_table(struct lightningd_state *dstate, struct peer *peer)
 	}
 }
 
-const struct json_command dev_add_route_command = {
+static const struct json_command dev_add_route_command = {
 	"dev-add-route",
 	json_add_route,
 	"Add route from {src} to {dst}, {base} rate in msatoshi, {var} rate in msatoshi, {delay} blocks delay and {minblocks} minimum timeout",
 	"Returns an empty result on success"
 };
+AUTODATA(json_command, &dev_add_route_command);
 
 static void json_getchannels(struct command *cmd,
 			     const char *buffer, const jsmntok_t *params)
@@ -612,12 +613,13 @@ static void json_getchannels(struct command *cmd,
 	command_success(cmd, response);
 }
 
-const struct json_command getchannels_command = {
+static const struct json_command getchannels_command = {
 	"getchannels",
 	json_getchannels,
 	"List all known channels.",
 	"Returns a 'channels' array with all known channels including their fees."
 };
+AUTODATA(json_command, &getchannels_command);
 
 static void json_routefail(struct command *cmd,
 			   const char *buffer, const jsmntok_t *params)
@@ -643,12 +645,13 @@ static void json_routefail(struct command *cmd,
 
 	command_success(cmd, null_response(cmd));
 }
-const struct json_command dev_routefail_command = {
+static const struct json_command dev_routefail_command = {
 	"dev-routefail",
 	json_routefail,
 	"FAIL htlcs that we can't route if {enable}",
 	"Returns an empty result on success"
 };
+AUTODATA(json_command, &dev_routefail_command);
 
 static void json_getnodes(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
@@ -680,9 +683,10 @@ static void json_getnodes(struct command *cmd,
 	command_success(cmd, response);
 }
 
-const struct json_command getnodes_command = {
+static const struct json_command getnodes_command = {
 	"getnodes",
 	json_getnodes,
 	"List all known nodes in the network.",
 	"Returns a 'nodes' array"
 };
+AUTODATA(json_command, &getnodes_command);

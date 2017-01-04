@@ -196,12 +196,13 @@ static void json_invoice(struct command *cmd,
 	command_success(cmd, response);
 }
 
-const struct json_command invoice_command = {
+static const struct json_command invoice_command = {
 	"invoice",
 	json_invoice,
 	"Create invoice for {msatoshi} with {label} (with a set {r}, otherwise generate one)",
 	"Returns the {rhash} on success. "
 };
+AUTODATA(json_command, &invoice_command);
 
 static void json_add_invoices(struct json_result *response,
 			      const struct list_head *list,
@@ -246,12 +247,13 @@ static void json_listinvoice(struct command *cmd,
 	command_success(cmd, response);
 }
 
-const struct json_command listinvoice_command = {
+static const struct json_command listinvoice_command = {
 	"listinvoice",
 	json_listinvoice,
 	"Show invoice {label} (or all, if no {label}))",
 	"Returns an array of {label}, {rhash}, {msatoshi} and {complete} on success. "
 };
+AUTODATA(json_command, &listinvoice_command);
 
 static void json_delinvoice(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
@@ -291,12 +293,13 @@ static void json_delinvoice(struct command *cmd,
 	tal_free(i);
 }
 
-const struct json_command delinvoice_command = {
+static const struct json_command delinvoice_command = {
 	"delinvoice",
 	json_delinvoice,
 	"Delete unpaid invoice {label}))",
 	"Returns {label}, {rhash} and {msatoshi} on success. "
 };
+AUTODATA(json_command, &delinvoice_command);
 
 static void json_waitinvoice(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
@@ -340,9 +343,10 @@ static void json_waitinvoice(struct command *cmd,
 	list_add_tail(&invs->invoice_waiters, &w->list);
 }
 
-const struct json_command waitinvoice_command = {
+static const struct json_command waitinvoice_command = {
 	"waitinvoice",
 	json_waitinvoice,
 	"Wait for the next invoice to be paid, after {label} (if supplied)))",
 	"Returns {label}, {rhash} and {msatoshi} on success. "
 };
+AUTODATA(json_command, &waitinvoice_command);

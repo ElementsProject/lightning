@@ -135,9 +135,10 @@ static void json_newaddr(struct command *cmd,
 	command_success(cmd, response);
 }
 
-const struct json_command newaddr_command = {
+static const struct json_command newaddr_command = {
 	"newaddr",
 	json_newaddr,
 	"Get a new address to fund a channel",
 	"Returns {address} a p2sh address"
 };
+AUTODATA(json_command, &newaddr_command);

@@ -281,12 +281,13 @@ static void json_getroute(struct command *cmd,
 	command_success(cmd, response);
 }
 
-const struct json_command getroute_command = {
+static const struct json_command getroute_command = {
 	"getroute",
 	json_getroute,
 	"Return route to {id} for {msatoshi}, using {riskfactor}",
 	"Returns a {route} array of {id} {msatoshi} {delay}: msatoshi and delay (in blocks) is cumulative."
 };
+AUTODATA(json_command, &getroute_command);
 
 static void json_sendpay(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
@@ -494,9 +495,10 @@ static void json_sendpay(struct command *cmd,
 	tal_add_destructor(cmd, remove_cmd_from_pc);
 }
 
-const struct json_command sendpay_command = {
+static const struct json_command sendpay_command = {
 	"sendpay",
 	json_sendpay,
 	"Send along {route} in return for preimage of {rhash}",
 	"Returns the {preimage} on success"
 };
+AUTODATA(json_command, &sendpay_command);

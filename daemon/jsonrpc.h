@@ -2,6 +2,7 @@
 #define LIGHTNING_DAEMON_JSONRPC_H
 #include "config.h"
 #include "json.h"
+#include <ccan/autodata/autodata.h>
 #include <ccan/list/list.h>
 
 /* Context for a command (from JSON, but might outlive the connection!)
@@ -56,38 +57,5 @@ void PRINTF_FMT(2, 3) command_fail(struct command *cmd, const char *fmt, ...);
 /* For initialization */
 void setup_jsonrpc(struct lightningd_state *dstate, const char *rpc_filename);
 
-/* Peer management */
-extern const struct json_command newaddr_command;
-extern const struct json_command connect_command;
-extern const struct json_command close_command;
-extern const struct json_command getchannels_command;
-extern const struct json_command getpeers_command;
-extern const struct json_command getnodes_command;
-
-/* Invoice management. */
-extern const struct json_command invoice_command;
-extern const struct json_command listinvoice_command;
-extern const struct json_command delinvoice_command;
-extern const struct json_command waitinvoice_command;
-
-/* Payment management. */
-extern const struct json_command getroute_command;
-extern const struct json_command sendpay_command;
-
-/* Low-level commands. */
-extern const struct json_command gethtlcs_command;
-
-/* Developer commands. */
-extern const struct json_command dev_add_route_command;
-extern const struct json_command dev_newhtlc_command;
-extern const struct json_command dev_fulfillhtlc_command;
-extern const struct json_command dev_failhtlc_command;
-extern const struct json_command dev_commit_command;
-extern const struct json_command dev_reconnect_command;
-extern const struct json_command dev_disconnect_command;
-extern const struct json_command dev_signcommit_command;
-extern const struct json_command dev_output_command;
-extern const struct json_command dev_routefail_command;
-extern const struct json_command dev_feerate_command;
-extern const struct json_command dev_broadcast_command;
+AUTODATA_TYPE(json_command, struct json_command);
 #endif /* LIGHTNING_DAEMON_JSONRPC_H */

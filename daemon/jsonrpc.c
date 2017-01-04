@@ -44,6 +44,7 @@ static const struct json_command help_command = {
 	"describe commands",
 	"[<command>] if specified gives details about a single command."
 };
+AUTODATA(json_command, &help_command);
 
 static void json_stop(struct command *cmd,
 		      const char *buffer, const jsmntok_t *params)
@@ -62,6 +63,7 @@ static const struct json_command stop_command = {
 	"Shutdown the lightningd process",
 	"What part of shutdown wasn't clear?"
 };
+AUTODATA(json_command, &stop_command);
 
 struct log_info {
 	enum log_level level;
@@ -174,6 +176,7 @@ static const struct json_command getlog_command = {
 	"Get logs, with optional level: [io|debug|info|unusual]",
 	"Returns log array"
 };
+AUTODATA(json_command, &getlog_command);
 
 static void json_rhash(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
@@ -212,6 +215,7 @@ static const struct json_command dev_rhash_command = {
 	"SHA256 of {secret}",
 	"Returns a hash value"
 };
+AUTODATA(json_command, &dev_rhash_command);
 
 static void json_crash(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
@@ -225,6 +229,7 @@ static const struct json_command dev_crash_command = {
 	"Call fatal().",
 	"Simple crash test for developers"
 };
+AUTODATA(json_command, &dev_crash_command);
 
 static void json_restart(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
@@ -256,6 +261,7 @@ static const struct json_command dev_restart_command = {
 	"Re-exec the given {binary}.",
 	"Simple restart test for developers"
 };
+AUTODATA(json_command, &dev_restart_command);
 
 static void json_getinfo(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
@@ -280,51 +286,28 @@ static const struct json_command getinfo_command = {
 	"Get general information about this node",
 	"Returns {id}, {port}, {testnet}, etc."
 };
+AUTODATA(json_command, &getinfo_command);
 
-static const struct json_command *cmdlist[] = {
-	&help_command,
-	&stop_command,
-	&getlog_command,
-	&connect_command,
-	&getpeers_command,
-	&getnodes_command,
-	&gethtlcs_command,
-	&close_command,
-	&newaddr_command,
-	&invoice_command,
-	&listinvoice_command,
-	&delinvoice_command,
-	&waitinvoice_command,
-	&getchannels_command,
-	&getroute_command,
-	&sendpay_command,
-	&getinfo_command,
-	/* Developer/debugging options. */
-	&dev_newhtlc_command,
-	&dev_fulfillhtlc_command,
-	&dev_failhtlc_command,
-	&dev_commit_command,
-	&dev_feerate_command,
-	&dev_rhash_command,
-	&dev_crash_command,
-	&dev_restart_command,
-	&dev_disconnect_command,
-	&dev_reconnect_command,
-	&dev_signcommit_command,
-	&dev_output_command,
-	&dev_add_route_command,
-	&dev_routefail_command,
-	&dev_broadcast_command,
-};
+static size_t num_cmdlist;
+
+static struct json_command **get_cmdlist(void)
+{
+	static struct json_command **cmdlist;
+	if (!cmdlist)
+		cmdlist = autodata_get(json_command, &num_cmdlist);
+
+	return cmdlist;
+}
 
 static void json_help(struct command *cmd,
 		      const char *buffer, const jsmntok_t *params)
 {
 	unsigned int i;
 	struct json_result *response = new_json_result(cmd);
+	struct json_command **cmdlist = get_cmdlist();
 
 	json_array_start(response, NULL);
-	for (i = 0; i < ARRAY_SIZE(cmdlist); i++) {
+	for (i = 0; i < num_cmdlist; i++) {
 		json_add_object(response,
 				"command", JSMN_STRING,
 				cmdlist[i]->name,
@@ -340,9 +323,10 @@ static const struct json_command *find_cmd(const char *buffer,
 					   const jsmntok_t *tok)
 {
 	unsigned int i;
+	struct json_command **cmdlist = get_cmdlist();
 
 	/* cmdlist[i]->name can be NULL in test code. */
-	for (i = 0; i < ARRAY_SIZE(cmdlist); i++)
+	for (i = 0; i < num_cmdlist; i++)
 		if (cmdlist[i]->name
 		    && json_tok_streq(buffer, tok, cmdlist[i]->name))
 			return cmdlist[i];

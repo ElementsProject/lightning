@@ -3225,12 +3225,13 @@ static void json_connect(struct command *cmd,
 	tal_free(tmpctx);
 }
 
-const struct json_command connect_command = {
+static const struct json_command connect_command = {
 	"connect",
 	json_connect,
 	"Connect to a {host} at {port} using hex-encoded {tx} to fund",
 	"Returns the {id} on success (once channel established)"
 };
+AUTODATA(json_command, &connect_command);
 
 /* Have any of our HTLCs passed their deadline? */
 static bool any_deadline_past(struct peer *peer)
@@ -4568,12 +4569,13 @@ static void json_getpeers(struct command *cmd,
 	command_success(cmd, response);
 }
 
-const struct json_command getpeers_command = {
+static const struct json_command getpeers_command = {
 	"getpeers",
 	json_getpeers,
 	"List the current peers",
 	"Returns a 'peers' array"
 };
+AUTODATA(json_command, &getpeers_command);
 
 static void json_gethtlcs(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
@@ -4640,12 +4642,13 @@ static void json_gethtlcs(struct command *cmd,
 	command_success(cmd, response);
 }
 
-const struct json_command gethtlcs_command = {
+static const struct json_command gethtlcs_command = {
 	"gethtlcs",
 	json_gethtlcs,
 	"List HTLCs for {peer}; all if {resolved} is true.",
 	"Returns a 'htlcs' array"
 };
+AUTODATA(json_command, &gethtlcs_command);
 
 /* To avoid freeing underneath ourselves, we free outside event loop. */
 void cleanup_peers(struct lightningd_state *dstate)
@@ -4751,12 +4754,13 @@ static void json_newhtlc(struct command *cmd,
 	command_success(cmd, response);
 }
 
-const struct json_command dev_newhtlc_command = {
+static const struct json_command dev_newhtlc_command = {
 	"dev-newhtlc",
 	json_newhtlc,
 	"Offer {peerid} an HTLC worth {msatoshi} in {expiry} (block number) with {rhash}",
 	"Returns { id: u64 } result on success"
 };
+AUTODATA(json_command, &dev_newhtlc_command);
 
 static void json_fulfillhtlc(struct command *cmd,
 			     const char *buffer, const jsmntok_t *params)
@@ -4852,12 +4856,13 @@ static void json_fulfillhtlc(struct command *cmd,
 			     state_name(peer->state));
 }
 
-const struct json_command dev_fulfillhtlc_command = {
+static const struct json_command dev_fulfillhtlc_command = {
 	"dev-fulfillhtlc",
 	json_fulfillhtlc,
 	"Redeem htlc proposed by {peerid} of {id} using {r}",
 	"Returns an empty result on success"
 };
+AUTODATA(json_command, &dev_fulfillhtlc_command);
 
 static void json_failhtlc(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
@@ -4931,12 +4936,13 @@ static void json_failhtlc(struct command *cmd,
 			     state_name(peer->state));
 }
 
-const struct json_command dev_failhtlc_command = {
+static const struct json_command dev_failhtlc_command = {
 	"dev-failhtlc",
 	json_failhtlc,
 	"Fail htlc proposed by {peerid} which has {id}, using {reason}",
 	"Returns an empty result on success"
 };
+AUTODATA(json_command, &dev_failhtlc_command);
 
 static void json_commit(struct command *cmd,
 			const char *buffer, const jsmntok_t *params)
@@ -4975,12 +4981,13 @@ static void json_commit(struct command *cmd,
 	do_commit(peer, cmd);
 }
 
-const struct json_command dev_commit_command = {
+static const struct json_command dev_commit_command = {
 	"dev-commit",
 	json_commit,
 	"Commit all staged HTLC changes with {peerid}",
 	"Returns an empty result on success"
 };
+AUTODATA(json_command, &dev_commit_command);
 
 static void json_close(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
@@ -5015,12 +5022,13 @@ static void json_close(struct command *cmd,
 	command_success(cmd, null_response(cmd));
 }
 
-const struct json_command close_command = {
+static const struct json_command close_command = {
 	"close",
 	json_close,
 	"Close the channel with peer {peerid}",
 	"Returns an empty result on success"
 };
+AUTODATA(json_command, &close_command);
 
 static void json_feerate(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
@@ -5045,12 +5053,13 @@ static void json_feerate(struct command *cmd,
 	command_success(cmd, null_response(cmd));
 }
 
-const struct json_command dev_feerate_command = {
+static const struct json_command dev_feerate_command = {
 	"dev-feerate",
 	json_feerate,
 	"Change the (default) fee rate to {feerate}",
 	"Returns an empty result on success"
 };
+AUTODATA(json_command, &dev_feerate_command);
 
 static void json_disconnect(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
@@ -5196,30 +5205,34 @@ static void json_output(struct command *cmd,
 
 	command_success(cmd, null_response(cmd));
 }
-const struct json_command dev_output_command = {
+static const struct json_command dev_output_command = {
 	"dev-output",
 	json_output,
 	"Enable/disable any messages to peer {peerid} depending on {enable}",
 	"Returns an empty result on success"
 };
+AUTODATA(json_command, &dev_output_command);
 
-const struct json_command dev_disconnect_command = {
+static const struct json_command dev_disconnect_command = {
 	"dev-disconnect",
 	json_disconnect,
 	"Force a disconnect with peer {peerid}",
 	"Returns an empty result on success"
 };
+AUTODATA(json_command, &dev_disconnect_command);
 
-const struct json_command dev_reconnect_command = {
+static const struct json_command dev_reconnect_command = {
 	"dev-reconnect",
 	json_reconnect,
 	"Force a reconnect with peer {peerid}",
 	"Returns an empty result on success"
 };
+AUTODATA(json_command, &dev_reconnect_command);
 
-const struct json_command dev_signcommit_command = {
+static const struct json_command dev_signcommit_command = {
 	"dev-signcommit",
 	json_signcommit,
 	"Sign and return the current commit with peer {peerid}",
 	"Returns a hex string on success"
 };
+AUTODATA(json_command, &dev_signcommit_command);

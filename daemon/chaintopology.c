@@ -592,12 +592,13 @@ static void json_dev_broadcast(struct command *cmd,
 		command_success(cmd, null_response(cmd));
 }
 
-const struct json_command dev_broadcast_command = {
+static const struct json_command dev_broadcast_command = {
 	"dev-broadcast",
 	json_dev_broadcast,
 	"Pretend we broadcast txs, but don't send to bitcoind",
 	"Returns an empty result on success (waits for flush if enabled)"
 };
+AUTODATA(json_command, &dev_broadcast_command);
 
 void setup_topology(struct lightningd_state *dstate)
 {
