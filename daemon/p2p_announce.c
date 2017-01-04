@@ -149,8 +149,7 @@ void handle_channel_announcement(
 	const tal_t *tmpctx = tal_tmpctx(peer);
 
 	serialized = tal_dup_arr(tmpctx, u8, announce, len, 0);
-	/* FIXME: use NULL arg to mean tal_count() here! */
-	if (!fromwire_channel_announcement(serialized, &len,
+	if (!fromwire_channel_announcement(serialized, NULL,
 					   &node_signature_1, &node_signature_2,
 					   &channel_id,
 					   &bitcoin_signature_1,
@@ -207,8 +206,7 @@ void handle_channel_update(struct peer *peer, const u8 *update, size_t len)
 	const tal_t *tmpctx = tal_tmpctx(peer);
 
 	serialized = tal_dup_arr(tmpctx, u8, update, len, 0);
-	/* FIXME: use NULL arg to mean tal_count() here! */
-	if (!fromwire_channel_update(serialized, &len, &signature, &channel_id,
+	if (!fromwire_channel_update(serialized, NULL, &signature, &channel_id,
 				     &timestamp, &flags, &expiry,
 				     &htlc_minimum_msat, &fee_base_msat,
 				     &fee_proportional_millionths)) {
@@ -283,8 +281,7 @@ void handle_node_announcement(
 	const tal_t *tmpctx = tal_tmpctx(peer);
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
-	/* FIXME: use NULL arg to mean tal_count() here! */
-	if (!fromwire_node_announcement(serialized, &len,
+	if (!fromwire_node_announcement(serialized, NULL,
 					&signature, &timestamp, &ipv6, &port,
 					&node_id, rgb_color, alias)) {
 		tal_free(tmpctx);

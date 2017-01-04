@@ -169,7 +169,12 @@ class Message(object):
                 print('\t{} {};'.format(f.typename, f.name));
 
         print('\tconst u8 *cursor = p;\n'
+              '\tsize_t tmp_len;\n'
               '\n'
+              '\tif (!plen) {{\n'
+              '\t\ttmp_len = tal_count(p);\n'
+              '\t\tplen = &tmp_len;\n'
+              '\t}}\n'
               '\tif (fromwire_u16(&cursor, plen) != {})\n'
               '\t\treturn false;'
               .format(self.enum.name))
