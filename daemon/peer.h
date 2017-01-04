@@ -240,7 +240,7 @@ struct peer_address {
 	struct netaddr addr;
 };
 
-void setup_listeners(struct lightningd_state *dstate, unsigned int portnum);
+void setup_listeners(struct lightningd_state *dstate);
 
 struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id);
 struct peer *find_peer_by_pkhash(struct lightningd_state *dstate, const u8 *pkhash);

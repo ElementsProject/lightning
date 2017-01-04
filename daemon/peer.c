@@ -3079,26 +3079,28 @@ fail:
 	return -1;
 }
 
-void setup_listeners(struct lightningd_state *dstate, unsigned int portnum)
+void setup_listeners(struct lightningd_state *dstate)
 {
 	struct sockaddr_in addr;
 	struct sockaddr_in6 addr6;
 	socklen_t len;
 	int fd1, fd2;
 
+	if (!dstate->portnum)
+		return;
+
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_addr.s_addr = INADDR_ANY;
-	addr.sin_port = htons(portnum);
+	addr.sin_port = htons(dstate->portnum);
 
 	memset(&addr6, 0, sizeof(addr6));
 	addr6.sin6_family = AF_INET6;
 	addr6.sin6_addr = in6addr_any;
-	addr6.sin6_port = htons(portnum);
+	addr6.sin6_port = htons(dstate->portnum);
 
 	/* IPv6, since on Linux that (usually) binds to IPv4 too. */
-	fd1 = make_listen_fd(dstate, AF_INET6, portnum ? &addr6 : NULL,
-			     sizeof(addr6));
+	fd1 = make_listen_fd(dstate, AF_INET6, &addr6, sizeof(addr6));
 	if (fd1 >= 0) {
 		struct sockaddr_in6 in6;
 
@@ -3110,17 +3112,16 @@ void setup_listeners(struct lightningd_state *dstate, unsigned int portnum)
 			close_noerr(fd1);
 		} else {
 			addr.sin_port = in6.sin6_port;
-			dstate->portnum = ntohs(addr.sin_port);
-			log_info(dstate->base_log,
-				 "Creating IPv6 listener on port %u",
-				 dstate->portnum);
+			assert(dstate->portnum == ntohs(addr.sin_port));
+			log_debug(dstate->base_log,
+				  "Creating IPv6 listener on port %u",
+				  dstate->portnum);
 			io_new_listener(dstate, fd1, peer_connected_in, dstate);
 		}
 	}
 
 	/* Just in case, aim for the same port... */
-	fd2 = make_listen_fd(dstate, AF_INET,
-			     addr.sin_port ? &addr : NULL, sizeof(addr));
+	fd2 = make_listen_fd(dstate, AF_INET, &addr, sizeof(addr));
 	if (fd2 >= 0) {
 		len = sizeof(addr);
 		if (getsockname(fd2, (void *)&addr, &len) != 0) {
@@ -3129,10 +3130,10 @@ void setup_listeners(struct lightningd_state *dstate, unsigned int portnum)
 				    strerror(errno));
 			close_noerr(fd2);
 		} else {
-			dstate->portnum = ntohs(addr.sin_port);
-			log_info(dstate->base_log,
-				 "Creating IPv4 listener on port %u",
-				 dstate->portnum);
+			assert(dstate->portnum == ntohs(addr.sin_port));
+			log_debug(dstate->base_log,
+				  "Creating IPv4 listener on port %u",
+				  dstate->portnum);
 			io_new_listener(dstate, fd2, peer_connected_in, dstate);
 		}
 	}

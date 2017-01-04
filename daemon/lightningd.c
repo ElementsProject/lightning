@@ -93,9 +93,8 @@ int main(int argc, char *argv[])
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(dstate, dstate->rpc_filename);
 
-	/* Set up connections from peers. */
-	if (dstate->portnum != 0)
-		setup_listeners(dstate, dstate->portnum);
+	/* Set up connections from peers (if dstate->portnum is set) */
+	setup_listeners(dstate);
 
 	/* set up IRC peer discovery */
 	if (dstate->config.use_irc)
