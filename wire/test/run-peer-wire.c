@@ -158,13 +158,13 @@ struct msg_commit_sig {
 struct msg_node_announcement {
 	struct signature signature;
 	u32 timestamp;
-	struct ipv6 ipv6;
-	u16 port;
 	struct pubkey node_id;
 	u8 rgb_color[3];
 	u8 alias[32];
 	u16 len;
 	u8 *features;
+	u16 alen;
+	u8 *addresses;
 };
 struct msg_open_channel {
 	struct channel_id temporary_channel_id;
@@ -348,12 +348,11 @@ static void *towire_struct_node_announcement(const tal_t *ctx,
 	return towire_node_announcement(ctx, 
 					&s->signature,
 					s->timestamp,
-					&s->ipv6,
-					s->port,
 					&s->node_id,
 					s->rgb_color,
 					s->alias,
-					s->len, s->features);
+					s->len, s->features,
+					s->alen, s->addresses);
 }
 
 static struct msg_node_announcement *fromwire_struct_node_announcement(const tal_t *ctx, const void *p, size_t *plen)
@@ -362,14 +361,13 @@ static struct msg_node_announcement *fromwire_struct_node_announcement(const tal
 	if (!fromwire_node_announcement(s, p, plen, 
 				       &s->signature,
 				       &s->timestamp,
-				       &s->ipv6,
-				       &s->port,
 				       &s->node_id,
 				       s->rgb_color,
 				       s->alias,
-				       &s->features))
+					&s->features, &s->addresses))
 		return tal_free(s);
 	s->len = tal_count(s->features);
+	s->alen = tal_count(s->addresses);
 	return s;
 }
 
@@ -816,7 +814,8 @@ static bool node_announcement_eq(const struct msg_node_announcement *a,
 				 const struct msg_node_announcement *b)
 {
 	return eq_with(a, b, alias)
-		&& eq_var(a, b, len, features);
+		&& eq_var(a, b, len, features)
+		&& eq_var(a, b, alen, addresses);
 }
 
 /* Try flipping each bit, try running short. */
@@ -1056,6 +1055,9 @@ int main(void)
 	na.len = 2;
 	na.features = tal_arr(ctx, u8, 2);
 	memset(na.features, 2, 2);
+	na.alen = 2;
+	na.addresses = tal_arr(ctx, u8, 2);
+	memset(na.addresses, 2, 2);
 
 	msg = towire_struct_node_announcement(ctx, &na);
 	len = tal_count(msg);

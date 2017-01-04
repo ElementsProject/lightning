@@ -9,6 +9,7 @@
 #include "utils.h"
 
 #include <arpa/inet.h>
+#include <ccan/endian/endian.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <secp256k1.h>
@@ -35,32 +36,104 @@ u8 ipv4prefix[] = {
 	0x00, 0x00, 0xFF, 0xFF
 };
 
-/* Read an IP from `srcip` and convert it into the dotted
- * notation. Handles both IPv4 and IPv6 addresses and converts
- * accordingly. We differentiate the two by using the RFC 4291
- * IPv4-mapped IPv6 format */
-static char* read_ip(const tal_t *ctx, const struct ipv6 *srcip)
-{
-	char tempaddr[INET6_ADDRSTRLEN];
+/* BOLT #7:
+ *
+ * The following `address descriptor` types are defined:
+ *
+ * 1. `0`: padding.  data = none (length 0).
+ * 1. `1`: IPv4. data = `[4:ipv4-addr][2:port]` (length 6)
+ * 2. `2`: IPv6. data = `[16:ipv6-addr][2:port]` (length 18)
+ */
 
-	if (memcmp(srcip, ipv4prefix, sizeof(ipv4prefix)) == 0) {
-		inet_ntop(AF_INET, srcip + 12, tempaddr, sizeof(tempaddr));
-	}else{
-		inet_ntop(AF_INET6, srcip, tempaddr, sizeof(tempaddr));
+/* FIXME: Don't just take first one, depends whether we have IPv6 ourselves */
+/* Returns false iff it was malformed */
+static bool read_ip(const tal_t *ctx, const u8 *addresses, char **hostname,
+		    int *port)
+{
+	size_t len = tal_count(addresses);
+	const u8 *p = addresses;
+	char tempaddr[INET6_ADDRSTRLEN];
+	be16 portnum;
+
+	*hostname = NULL;
+	while (len) {
+		u8 type = *p;
+		p++;
+		len--;
+
+		switch (type) {
+		case 0:
+			break;
+		case 1:
+			/* BOLT #7:
+			 *
+			 * The receiving node SHOULD fail the connection if
+			 * `addrlen` is insufficient to hold the address
+			 * descriptors of the known types.
+			 */
+			if (len < 6)
+				return false;
+			inet_ntop(AF_INET, p, tempaddr, sizeof(tempaddr));
+			memcpy(&portnum, p + 4, sizeof(portnum));
+			*hostname = tal_strdup(ctx, tempaddr);
+			return true;
+		case 2:
+			if (len < 18)
+				return false;
+			inet_ntop(AF_INET6, p, tempaddr, sizeof(tempaddr));
+			memcpy(&portnum, p + 16, sizeof(portnum));
+			*hostname = tal_strdup(ctx, tempaddr);
+			return true;
+		default:
+			/* BOLT #7:
+			 *
+			 * The receiving node SHOULD ignore the first `address
+			 * descriptor` which does not match the types defined
+			 * above.
+			 */
+			return true;
+		}
 	}
-	return tal_strdup(ctx, tempaddr);
+
+	/* Not a fatal error. */
+	return true;
 }
 
-/* Serialize the IP address in `srcip` into a 16 byte
- * representation. It handles both IPv6 and IPv4 addresses, prefixing
- * IPv4 addresses with the prefix described in RFC 4291. */
-static void write_ip(struct ipv6 *dstip, char *srcip)
+/* BOLT #7:
+ *
+ * The creating node SHOULD fill `addresses` with an address descriptor for
+ * each public network address which expects incoming connections, and MUST
+ * set `addrlen` to the number of bytes in `addresses`.  Non-zero typed
+ * address descriptors MUST be placed in ascending order; any number of
+ * zero-typed address descriptors MAY be placed anywhere, but SHOULD only be
+ * used for aligning fields following `addresses`.
+ *
+ * The creating node MUST NOT create a type 1 or type 2 address descriptor
+ * with `port` equal to zero, and SHOULD ensure `ipv4-addr` and `ipv6-addr`
+ * are routable addresses.  The creating node MUST NOT include more than one
+ * `address descriptor` of the same type.
+ */
+/* FIXME: handle case where we have both ipv6 and ipv4 addresses! */
+static u8 *write_ip(const tal_t *ctx, const char *srcip, int port)
 {
+	u8 *address;
+	be16 portnum = cpu_to_be16(port);
+
+	if (!port)
+		return tal_arr(ctx, u8, 0);
+
 	if (!strchr(srcip, ':')) {
-		memcpy(dstip, ipv4prefix, sizeof(ipv4prefix));
-		inet_pton(AF_INET, srcip, dstip);
+		address = tal_arr(ctx, u8, 7);
+		address[0] = 1;
+		inet_pton(AF_INET, srcip, address+1);
+		memcpy(address + 5, &portnum, sizeof(portnum));
+		return address;
 	} else {
-		inet_pton(AF_INET6, srcip, dstip);
+		address = tal_arr(ctx, u8, 18);
+		address[0] = 2;
+		inet_pton(AF_INET6, srcip, address+1);
+		memcpy(address + 17, &portnum, sizeof(portnum));
+		return address;
 	}
 }
 
@@ -276,18 +349,17 @@ void handle_node_announcement(
 	struct node *node;
 	struct signature signature;
 	u32 timestamp;
-	struct ipv6 ipv6;
-	u16 port;
 	struct pubkey node_id;
 	u8 rgb_color[3];
 	u8 alias[32];
-	u8 *features;
+	u8 *features, *addresses;
 	const tal_t *tmpctx = tal_tmpctx(peer);
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
 	if (!fromwire_node_announcement(tmpctx, serialized, NULL,
-					&signature, &timestamp, &ipv6, &port,
-					&node_id, rgb_color, alias, &features)) {
+					&signature, &timestamp,
+					&node_id, rgb_color, alias, &features,
+					&addresses)) {
 		tal_free(tmpctx);
 		return;
 	}
@@ -320,8 +392,11 @@ void handle_node_announcement(
 
 	node->last_timestamp = timestamp;
 	node->hostname = tal_free(node->hostname);
-	node->hostname = read_ip(node, &ipv6);
-	node->port = port;
+	if (!read_ip(node, addresses, &node->hostname, &node->port)) {
+		/* FIXME: SHOULD fail connection here. */
+		tal_free(serialized);
+		return;
+	}
 	memcpy(node->rgb_color, rgb_color, 3);
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
@@ -379,11 +454,11 @@ static void broadcast_node_announcement(struct lightningd_state *dstate)
 {
 	u8 *serialized;
 	struct signature signature;
-	struct ipv6 ipv6;
 	static const u8 rgb_color[3];
 	static const u8 alias[32];
 	u32 timestamp = time_now().ts.tv_sec;
 	const tal_t *tmpctx = tal_tmpctx(dstate);
+	u8 *address;
 
 	/* Are we listening for incoming connections at all? */
 	if (!dstate->external_ip || !dstate->portnum) {
@@ -394,19 +469,19 @@ static void broadcast_node_announcement(struct lightningd_state *dstate)
 	/* Avoid triggering memcheck */
 	memset(&signature, 0, sizeof(signature));
 
-	write_ip(&ipv6, dstate->external_ip);
+	address = write_ip(tmpctx, dstate->external_ip, dstate->portnum);
 	serialized = towire_node_announcement(tmpctx, &signature,
 					      timestamp,
-					      &ipv6, dstate->portnum,
 					      &dstate->id, rgb_color, alias,
-					      0, NULL);
+					      0, NULL,
+					      tal_count(address), address);
 	privkey_sign(dstate, serialized + 66, tal_count(serialized) - 66,
 		     &signature);
 	serialized = towire_node_announcement(tmpctx, &signature,
 					      timestamp,
-					      &ipv6, dstate->portnum,
 					      &dstate->id, rgb_color, alias,
-					      0, NULL);
+					      0, NULL,
+					      tal_count(address), address);
 	broadcast(dstate, WIRE_NODE_ANNOUNCEMENT, serialized, NULL);
 	tal_free(tmpctx);
 }

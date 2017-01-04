@@ -41,7 +41,7 @@ struct node_connection {
 struct node {
 	struct pubkey id;
 
-	/* IP/Hostname and port of this node */
+	/* IP/Hostname and port of this node (may be NULL) */
 	char *hostname;
 	int port;
 
