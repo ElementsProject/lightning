@@ -287,6 +287,7 @@ if options.output_header:
 else:
     print('#include <{}>\n'
           '#include <ccan/mem/mem.h>\n'
+          '#include <ccan/tal/str/str.h>\n'
           ''.format(args[0]))
 
 # Maps message names to messages
@@ -325,6 +326,17 @@ if options.output_header:
             print('\t/*{} */'.format(c))
         print('\t{} = {},'.format(m.enum.name, m.enum.value))
     print('};')
+    print('const char *{}_name(int e);'.format(args[1]))
+else:
+    print('const char *{}_name(int e)'.format(args[1]))
+    print('{{\n'
+          '\tswitch ((enum {})e) {{'.format(args[1]));
+    for m in messages:
+        print('\tcase {0}: return "{0}";'.format(m.enum.name))
+    print('\t}\n'
+          '\treturn tal_fmt(NULL, "**INVALID** %i", e);\n'
+          '}\n'
+          '')
 
 for m in messages:
     m.print_fromwire(options.output_header)
