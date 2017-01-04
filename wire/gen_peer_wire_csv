@@ -99,6 +99,8 @@ channel_announcement,264,node-id-1,33
 channel_announcement,297,node-id-2,33
 channel_announcement,330,bitcoin-key-1,33
 channel_announcement,363,bitcoin-key-2,33
+channel_announcement,396,len,2
+channel_announcement,398,features,len
 node_announcement,257
 node_announcement,0,signature,64
 node_announcement,64,timestamp,4
@@ -106,8 +108,9 @@ node_announcement,68,ipv6,16
 node_announcement,84,port,2
 node_announcement,86,node-id,33
 node_announcement,119,rgb-color,3
-node_announcement,122,pad,2
-node_announcement,124,alias,32
+node_announcement,122,alias,32
+node_announcement,154,len,2
+node_announcement,156,features,len
 channel_update,258
 channel_update,0,signature,64
 channel_update,64,channel-id,8

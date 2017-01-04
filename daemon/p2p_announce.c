@@ -147,19 +147,22 @@ void handle_channel_announcement(
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
 	const tal_t *tmpctx = tal_tmpctx(peer);
+	u8 *features;
 
 	serialized = tal_dup_arr(tmpctx, u8, announce, len, 0);
-	if (!fromwire_channel_announcement(serialized, NULL,
+	if (!fromwire_channel_announcement(tmpctx, serialized, NULL,
 					   &node_signature_1, &node_signature_2,
 					   &channel_id,
 					   &bitcoin_signature_1,
 					   &bitcoin_signature_2,
 					   &node_id_1, &node_id_2,
-					   &bitcoin_key_1, &bitcoin_key_2)) {
+					   &bitcoin_key_1, &bitcoin_key_2,
+					   &features)) {
 		tal_free(tmpctx);
 		return;
 	}
 
+	// FIXME: Check features!
 	//FIXME(cdecker) Check signatures, when the spec is settled
 	//FIXME(cdecker) Check chain topology for the anchor TX
 
@@ -278,16 +281,18 @@ void handle_node_announcement(
 	struct pubkey node_id;
 	u8 rgb_color[3];
 	u8 alias[32];
+	u8 *features;
 	const tal_t *tmpctx = tal_tmpctx(peer);
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
-	if (!fromwire_node_announcement(serialized, NULL,
+	if (!fromwire_node_announcement(tmpctx, serialized, NULL,
 					&signature, &timestamp, &ipv6, &port,
-					&node_id, rgb_color, alias)) {
+					&node_id, rgb_color, alias, &features)) {
 		tal_free(tmpctx);
 		return;
 	}
 
+	// FIXME: Check features!
 	log_debug_struct(peer->log,
 			 "Received node_announcement for node %s",
 			 struct pubkey, &node_id);
@@ -393,13 +398,15 @@ static void broadcast_node_announcement(struct lightningd_state *dstate)
 	serialized = towire_node_announcement(tmpctx, &signature,
 					      timestamp,
 					      &ipv6, dstate->portnum,
-					      &dstate->id, rgb_color, alias);
+					      &dstate->id, rgb_color, alias,
+					      0, NULL);
 	privkey_sign(dstate, serialized + 66, tal_count(serialized) - 66,
 		     &signature);
 	serialized = towire_node_announcement(tmpctx, &signature,
 					      timestamp,
 					      &ipv6, dstate->portnum,
-					      &dstate->id, rgb_color, alias);
+					      &dstate->id, rgb_color, alias,
+					      0, NULL);
 	broadcast(dstate, WIRE_NODE_ANNOUNCEMENT, serialized, NULL);
 	tal_free(tmpctx);
 }
@@ -458,7 +465,8 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 						 node_id[0],
 						 node_id[1],
 						 bitcoin_key[0],
-						 bitcoin_key[1]);
+						 bitcoin_key[1],
+						 0, NULL);
 	privkey_sign(dstate, serialized + 128, tal_count(serialized) - 128, my_node_signature);
 
 	serialized = towire_channel_announcement(tmpctx, &node_signature[0],
@@ -469,7 +477,8 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 						 node_id[0],
 						 node_id[1],
 						 bitcoin_key[0],
-						 bitcoin_key[1]);
+						 bitcoin_key[1],
+						 0, NULL);
 	broadcast(dstate, WIRE_CHANNEL_ANNOUNCEMENT, serialized, NULL);
 	tal_free(tmpctx);
 }
