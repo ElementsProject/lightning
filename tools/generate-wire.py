@@ -59,6 +59,9 @@ class Field(object):
         if message == 'node_announcement' and fieldname == 'ipv6':
             return ('struct ipv6',16)
 
+        if message == 'node_announcement' and fieldname == 'alias':
+            return ('u8',1)
+
         if fieldname.endswith('features'):
             return ('u8',1)
 
