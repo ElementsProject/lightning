@@ -447,8 +447,10 @@ static void opt_parse_from_config(struct lightningd_state *dstate)
 	tal_free(contents);
 }
 
-void handle_opts(struct lightningd_state *dstate, int argc, char *argv[])
+bool handle_opts(struct lightningd_state *dstate, int argc, char *argv[])
 {
+	bool newdir = false;
+
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
@@ -482,6 +484,7 @@ void handle_opts(struct lightningd_state *dstate, int argc, char *argv[])
 		if (chdir(dstate->config_dir) != 0)
 			fatal("Could not change directory %s: %s",
 			      dstate->config_dir, strerror(errno));
+		newdir = true;
 	}
 
 	/* Now look for config file */
@@ -492,4 +495,5 @@ void handle_opts(struct lightningd_state *dstate, int argc, char *argv[])
 		errx(1, "no arguments accepted");
 
 	check_config(dstate);
+	return newdir;
 }
