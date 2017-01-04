@@ -9,8 +9,9 @@ import re
 Enumtype = namedtuple('Enumtype', ['name', 'value'])
 
 class Field(object):
-    def __init__(self,message,name,size):
+    def __init__(self,message,name,size,comments):
         self.message = message
+        self.comments = comments
         self.name = name.replace('-', '_')
         self.is_len_var = False
         (self.typename, self.basesize) = Field._guess_type(message,self.name,size)
@@ -105,9 +106,10 @@ class Field(object):
         raise ValueError('Unknown size {} for {}'.format(sizestr,fieldname))
 
 class Message(object):
-    def __init__(self,name,enum):
+    def __init__(self,name,enum,comments):
         self.name = name
         self.enum = enum
+        self.comments = comments
         self.fields = []
         self.has_variable_fields = False
 
@@ -177,6 +179,9 @@ class Message(object):
             if f.typename.startswith('struct '):
                 basetype=f.typename[7:]
 
+            for c in f.comments:
+                print('\t/*{} */'.format(c))
+
             if f.is_padding():
                 print('\tfromwire_pad(&cursor, plen, {});'
                       .format(f.num_elems))
@@ -238,6 +243,9 @@ class Message(object):
             if f.typename.startswith('struct '):
                 basetype=f.typename[7:]
 
+            for c in f.comments:
+                print('\t/*{} */'.format(c))
+
             if f.is_padding():
                 print('\ttowire_pad(&p, {});'
                       .format(f.num_elems))
@@ -280,24 +288,37 @@ else:
 
 # Maps message names to messages
 messages = { }
+comments = []
 
 # Read csv lines.  Single comma is the message values, more is offset/len.
 for line in fileinput.input(args[2:]):
-    parts = line.rstrip().split(',')
+    by_comments = line.rstrip().split('#')
+
+    # Emit a comment if they included one
+    if by_comments[1:]:
+        comments.append(' '.join(by_comments[1:]))
+
+    parts = by_comments[0].split(',')
+    if parts == ['']:
+        continue
 
     if len(parts) == 2:
         # eg commit_sig,132
-        messages[parts[0]] = Message(parts[0],Enumtype("WIRE_" + parts[0].upper(), int(parts[1])))
+        messages[parts[0]] = Message(parts[0],Enumtype("WIRE_" + parts[0].upper(), int(parts[1])),comments)
+        comments=[]
     else:
         # eg commit_sig,0,channel-id,8
         if not parts[0] in messages:
-            messages[parts[0]] = Message(parts[0],None)
-        messages[parts[0]].addField(Field(parts[0], parts[2], parts[3]))
+            messages[parts[0]] = Message(parts[0],None,[])
+        messages[parts[0]].addField(Field(parts[0], parts[2], parts[3], comments))
+        comments=[]
 
 if options.output_header:
     # Dump out enum, sorted by value order.
     print('enum {} {{'.format(args[1]))
     for m in sorted([x for x in messages.values() if x.enum is not None],key=lambda x:x.enum.value):
+        for c in m.comments:
+            print('\t/*{} */'.format(c))
         print('\t{} = {},'.format(m.enum.name, m.enum.value))
     print('};')
 
