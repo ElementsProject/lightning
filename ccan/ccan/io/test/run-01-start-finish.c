@@ -6,11 +6,7 @@
 #include <sys/wait.h>
 #include <stdio.h>
 
-#ifdef DEBUG_CONN
-#define PORT "64001"
-#else
 #define PORT "65001"
-#endif
 static int expected_fd;
 
 static void finish_ok(struct io_conn *conn, int *state)
@@ -23,9 +19,6 @@ static void finish_ok(struct io_conn *conn, int *state)
 
 static struct io_plan *init_conn(struct io_conn *conn, int *state)
 {
-#ifdef DEBUG_CONN
-	io_set_debug(conn, true);
-#endif
 	ok1(*state == 0);
 	(*state)++;
 	expected_fd = io_conn_fd(conn);

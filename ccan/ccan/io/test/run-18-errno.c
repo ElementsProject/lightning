@@ -6,11 +6,7 @@
 #include <sys/wait.h>
 #include <stdio.h>
 
-#ifdef DEBUG_CONN
-#define PORT "64018"
-#else
 #define PORT "65018"
-#endif
 
 static void finish_100(struct io_conn *conn, int *state)
 {
@@ -29,13 +25,10 @@ static void finish_EBADF(struct io_conn *conn, int *state)
 
 static struct io_plan *init_conn(struct io_conn *conn, int *state)
 {
-#ifdef DEBUG_CONN
-	io_set_debug(conn, true);
-#endif
 	if (*state == 0) {
 		(*state)++;
-		errno = 100;
 		io_set_finish(conn, finish_100, state);
+		errno = 100;
 		return io_close(conn);
 	} else {
 		ok1(*state == 2);

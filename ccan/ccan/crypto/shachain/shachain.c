@@ -5,8 +5,6 @@
 #include <string.h>
 #include <assert.h>
 
-#define INDEX_BITS ((sizeof(shachain_index_t)) * CHAR_BIT)
-
 static void change_bit(unsigned char *arr, size_t index)
 {
 	arr[index / CHAR_BIT] ^= (1 << (index % CHAR_BIT));
@@ -15,11 +13,11 @@ static void change_bit(unsigned char *arr, size_t index)
 static unsigned int count_trailing_zeroes(shachain_index_t index)
 {
 #if HAVE_BUILTIN_CTZLL
-	return index ? (unsigned int)__builtin_ctzll(index) : INDEX_BITS;
+	return index ? (unsigned int)__builtin_ctzll(index) : SHACHAIN_BITS;
 #else
 	unsigned int i;
 
-	for (i = 0; i < INDEX_BITS; i++) {
+	for (i = 0; i < SHACHAIN_BITS; i++) {
 		if (index & (1ULL << i))
 			break;
 	}
@@ -81,7 +79,8 @@ bool shachain_add_hash(struct shachain *chain,
 
 	/* You have to insert them in order! */
 	assert(index == chain->min_index - 1 ||
-	       (index == (shachain_index_t)(-1ULL) && chain->num_valid == 0));
+	       (index == (shachain_index_t)(UINT64_MAX >> (64 - SHACHAIN_BITS))
+		&& chain->num_valid == 0));
 
 	pos = count_trailing_zeroes(index);
 

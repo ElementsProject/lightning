@@ -9,11 +9,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#ifdef DEBUG_CONN
-#define PORT "64006"
-#else
 #define PORT "65006"
-#endif
 
 static struct io_conn *idler;
 

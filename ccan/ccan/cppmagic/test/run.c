@@ -15,7 +15,7 @@ static inline void check1(const char *orig, const char *expand,
 #define CHECK1(orig, match) \
 	check1(#orig, CPPMAGIC_STRINGIFY(orig), match)
 
-#define TESTRECURSE()	R CPPMAGIC_DEFER1(_TESTRECURSE)()()
+#define TESTRECURSE()	R CPPMAGIC_DEFER1(_TESTRECURSE) ()()
 #define _TESTRECURSE()	TESTRECURSE
 
 #define TESTMAP1(x)	<<x>>

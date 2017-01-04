@@ -31,9 +31,7 @@ enum io_plan_status {
 	/* Waiting for io_wake */
 	IO_WAITING,
 	/* Always do this. */
-	IO_ALWAYS,
-	/* Closing (both plans will be the same). */
-	IO_CLOSING
+	IO_ALWAYS
 };
 
 /**
@@ -59,12 +57,9 @@ struct io_plan {
 /* One connection per client. */
 struct io_conn {
 	struct fd fd;
-	bool debug;
-	/* For duplex to save. */
-	bool debug_saved;
 
-	/* always and closing lists. */
-	struct list_node always, closing;
+	/* always list. */
+	struct list_node always;
 
 	void (*finish)(struct io_conn *, void *arg);
 	void *finish_arg;
@@ -78,7 +73,6 @@ bool add_listener(struct io_listener *l);
 bool add_conn(struct io_conn *c);
 bool add_duplex(struct io_conn *c);
 void del_listener(struct io_listener *l);
-void backend_new_closing(struct io_conn *conn);
 void backend_new_always(struct io_conn *conn);
 void backend_new_plan(struct io_conn *conn);
 void remove_from_always(struct io_conn *conn);

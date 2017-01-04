@@ -28,7 +28,7 @@ struct timeabs time_now(void)
 struct timemono time_mono(void)
 {
 	struct timemono ret;
-#ifdef TIME_HAVE_MONOTONIC
+#if TIME_HAVE_MONOTONIC
 	clock_gettime(CLOCK_MONOTONIC, &ret.ts);
 #else /* Best we can do */
 	ret.ts = time_now().ts;

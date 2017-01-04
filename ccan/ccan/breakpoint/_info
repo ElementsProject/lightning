@@ -1,0 +1,34 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * breakpoint - break if the program is run under gdb.
+ *
+ * This code allows you to insert breakpoints within a program.  These will
+ * do nothing unless your program is run under GDB.
+ *
+ * License: CC0 (Public domain)
+ *
+ * Example:
+ *	#include <ccan/breakpoint/breakpoint.h>
+ *
+ *	int main(void)
+ *	{
+ *		breakpoint();
+ *		return 0;
+ *	}
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/compiler\n");
+		return 0;
+	}
+
+	return 1;
+}

@@ -8,11 +8,7 @@
 #include <sys/wait.h>
 #include <stdio.h>
 
-#ifdef DEBUG_CONN
-#define PORT "64014"
-#else
 #define PORT "65014"
-#endif
 
 struct data {
 	struct io_listener *l;
@@ -47,9 +43,6 @@ static struct io_plan *make_duplex(struct io_conn *conn, struct data *d)
 
 static struct io_plan *init_conn(struct io_conn *conn, struct data *d)
 {
-#ifdef DEBUG_CONN
-	io_set_debug(conn, true);
-#endif
 	ok1(d->state == 0);
 	d->state++;
 

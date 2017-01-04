@@ -71,6 +71,8 @@ struct timemono {
  */
 #if HAVE_CLOCK_GETTIME && defined(CLOCK_MONOTONIC)
 #define TIME_HAVE_MONOTONIC 1
+#else
+#define TIME_HAVE_MONOTONIC 0
 #endif
 
 struct timespec time_check_(struct timespec in, const char *abortstr);

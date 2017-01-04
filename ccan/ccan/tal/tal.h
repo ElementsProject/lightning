@@ -56,7 +56,8 @@ typedef void tal_t;
  * children (recursively) before finally freeing the memory.  It returns
  * NULL, for convenience.
  *
- * Note: errno is preserved by this call.
+ * Note: errno is preserved by this call, and also saved and restored
+ * for any destructors or notifiers.
  *
  * Example:
  *	p = tal_free(p);
@@ -168,6 +169,53 @@ void *tal_free(const tal_t *p);
 #define tal_del_destructor(ptr, function)				      \
 	tal_del_destructor_((ptr), typesafe_cb(void, void *, (function), (ptr)))
 
+/**
+ * tal_add_destructor2 - add a 2-arg callback function when context is destroyed.
+ * @ptr: The tal allocated object.
+ * @function: the function to call before it's freed.
+ * @arg: the extra argument to the function.
+ *
+ * Sometimes an extra argument is required for a destructor; this
+ * saves the extra argument internally to avoid the caller having to
+ * do an extra allocation.
+ *
+ * Note that this can only fail if your allocfn fails and your errorfn returns.
+ */
+#define tal_add_destructor2(ptr, function, arg)				\
+	tal_add_destructor2_((ptr),					\
+			     typesafe_cb_cast(void (*)(tal_t *, void *), \
+					      void (*)(__typeof__(ptr), \
+						       __typeof__(arg)), \
+					      (function)),		\
+			     (arg))
+
+/**
+ * tal_del_destructor - remove a destructor callback function.
+ * @ptr: The tal allocated object.
+ * @function: the function to call before it's freed.
+ *
+ * If @function has not been successfully added as a destructor, this returns
+ * false.
+ */
+#define tal_del_destructor(ptr, function)				      \
+	tal_del_destructor_((ptr), typesafe_cb(void, void *, (function), (ptr)))
+
+/**
+ * tal_del_destructor2 - remove 2-arg callback function.
+ * @ptr: The tal allocated object.
+ * @function: the function to call before it's freed.
+ * @arg: the extra argument to the function.
+ *
+ * If @function has not been successfully added as a destructor with
+ * @arg, this returns false.
+ */
+#define tal_del_destructor2(ptr, function, arg)				\
+	tal_del_destructor2_((ptr),					\
+			     typesafe_cb_cast(void (*)(tal_t *, void *), \
+					      void (*)(__typeof__(ptr), \
+						       __typeof__(arg)), \
+					      (function)),		\
+			     (arg))
 enum tal_notify_type {
 	TAL_NOTIFY_FREE = 1,
 	TAL_NOTIFY_STEAL = 2,
@@ -194,6 +242,7 @@ enum tal_notify_type {
  * TAL_NOTIFY_FREE is called when @ptr is freed, either directly or
  * because an ancestor is freed: @info is the argument to tal_free().
  * It is exactly equivalent to a destructor, with more information.
+ * errno is set to the value it was at the call of tal_free().
  *
  * TAL_NOTIFY_STEAL is called when @ptr's parent changes: @info is the
  * new parent.
@@ -232,7 +281,8 @@ enum tal_notify_type {
 	tal_del_notifier_((ptr),					\
 			  typesafe_cb_postargs(void, void *, (callback), \
 					       (ptr),			\
-					       enum tal_notify_type, void *))
+					       enum tal_notify_type, void *), \
+			  false, NULL)
 
 /**
  * tal_set_name - attach a name to a tal pointer.
@@ -447,12 +497,17 @@ bool tal_resize_(tal_t **ctxp, size_t size, size_t count, bool clear);
 bool tal_expand_(tal_t **ctxp, const void *src, size_t size, size_t count);
 
 bool tal_add_destructor_(const tal_t *ctx, void (*destroy)(void *me));
+bool tal_add_destructor2_(const tal_t *ctx, void (*destroy)(void *me, void *arg),
+			  void *arg);
 bool tal_del_destructor_(const tal_t *ctx, void (*destroy)(void *me));
+bool tal_del_destructor2_(const tal_t *ctx, void (*destroy)(void *me, void *arg),
+			  void *arg);
 
 bool tal_add_notifier_(const tal_t *ctx, enum tal_notify_type types,
 		       void (*notify)(tal_t *ctx, enum tal_notify_type,
 				      void *info));
 bool tal_del_notifier_(const tal_t *ctx,
 		       void (*notify)(tal_t *ctx, enum tal_notify_type,
-				      void *info));
+				      void *info),
+		       bool match_extra_arg, void *arg);
 #endif /* CCAN_TAL_H */

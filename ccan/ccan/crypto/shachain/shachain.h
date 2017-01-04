@@ -11,6 +11,10 @@
 #define shachain_index_t uint64_t
 #endif
 
+#ifndef SHACHAIN_BITS
+#define SHACHAIN_BITS (sizeof(shachain_index_t) * 8)
+#endif
+
 /**
  * shachain_from_seed - Generate an unpredictable SHA from a seed value.
  * @seed: (secret) seed value to use
@@ -56,7 +60,7 @@ struct shachain {
 	struct {
 		shachain_index_t index;
 		struct sha256 hash;
-	} known[sizeof(shachain_index_t) * 8 + 1];
+	} known[SHACHAIN_BITS + 1];
 };
 
 /**

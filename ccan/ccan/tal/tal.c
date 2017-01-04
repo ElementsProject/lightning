@@ -14,6 +14,7 @@
 //#define TAL_DEBUG 1
 
 #define NOTIFY_IS_DESTRUCTOR 512
+#define NOTIFY_EXTRA_ARG 1024
 
 /* 32-bit type field, first byte 0 in either endianness. */
 enum prop_type {
@@ -56,8 +57,17 @@ struct notifier {
 	union {
 		void (*notifyfn)(tal_t *, enum tal_notify_type, void *);
 		void (*destroy)(tal_t *); /* If NOTIFY_IS_DESTRUCTOR set */
+		void (*destroy2)(tal_t *, void *); /* If NOTIFY_EXTRA_ARG */
 	} u;
 };
+
+/* Extra arg */
+struct notifier_extra_arg {
+	struct notifier n;
+	void *arg;
+};
+
+#define EXTRA_ARG(n) (((struct notifier_extra_arg *)(n))->arg)
 
 static struct {
 	struct tal_hdr hdr;
@@ -203,7 +213,8 @@ static struct tal_hdr *debug_tal(struct tal_hdr *tal)
 #endif
 
 static void notify(const struct tal_hdr *ctx,
-		   enum tal_notify_type type, const void *info)
+		   enum tal_notify_type type, const void *info,
+		   int saved_errno)
 {
         const struct prop_hdr *p;
 
@@ -216,9 +227,14 @@ static void notify(const struct tal_hdr *ctx,
 			continue;
 		n = (struct notifier *)p;
 		if (n->types & type) {
-			if (n->types & NOTIFY_IS_DESTRUCTOR)
-				n->u.destroy(from_tal_hdr(ctx));
-			else
+			errno = saved_errno;
+			if (n->types & NOTIFY_IS_DESTRUCTOR) {
+				if (n->types & NOTIFY_EXTRA_ARG)
+					n->u.destroy2(from_tal_hdr(ctx),
+						      EXTRA_ARG(n));
+				else
+					n->u.destroy(from_tal_hdr(ctx));
+			} else
 				n->u.notifyfn(from_tal_hdr(ctx), type,
 					      (void *)info);
 		}
@@ -274,13 +290,22 @@ static struct notifier *add_notifier_property(struct tal_hdr *t,
 					      enum tal_notify_type types,
 					      void (*fn)(void *,
 							 enum tal_notify_type,
-							 void *))
+							 void *),
+					      void *extra_arg)
 {
-	struct notifier *prop = allocate(sizeof(*prop));
+	struct notifier *prop;
+
+	if (types & NOTIFY_EXTRA_ARG)
+		prop = allocate(sizeof(struct notifier_extra_arg));
+	else
+		prop = allocate(sizeof(struct notifier));
+
 	if (prop) {
 		init_property(&prop->hdr, t, NOTIFIER);
 		prop->types = types;
 		prop->u.notifyfn = fn;
+		if (types & NOTIFY_EXTRA_ARG)
+			EXTRA_ARG(prop) = extra_arg;
 	}
 	return prop;
 }
@@ -288,24 +313,33 @@ static struct notifier *add_notifier_property(struct tal_hdr *t,
 static enum tal_notify_type del_notifier_property(struct tal_hdr *t,
 						  void (*fn)(tal_t *,
 							     enum tal_notify_type,
-							     void *))
+							     void *),
+						  bool match_extra_arg,
+						  void *extra_arg)
 {
         struct prop_hdr **p;
 
         for (p = (struct prop_hdr **)&t->prop; *p; p = &(*p)->next) {
 		struct notifier *n;
+		enum tal_notify_type types;
 
                 if (is_literal(*p))
 			break;
                 if ((*p)->type != NOTIFIER)
 			continue;
 		n = (struct notifier *)*p;
-		if (n->u.notifyfn == fn) {
-			enum tal_notify_type types = n->types;
-			*p = (*p)->next;
-			freefn(n);
-			return types & ~NOTIFY_IS_DESTRUCTOR;
-		}
+		if (n->u.notifyfn != fn)
+			continue;
+
+		types = n->types;
+		if ((types & NOTIFY_EXTRA_ARG)
+		    && match_extra_arg
+		    && extra_arg != EXTRA_ARG(n))
+			continue;
+
+		*p = (*p)->next;
+		freefn(n);
+		return types & ~(NOTIFY_IS_DESTRUCTOR|NOTIFY_EXTRA_ARG);
         }
         return 0;
 }
@@ -348,7 +382,7 @@ static bool add_child(struct tal_hdr *parent, struct tal_hdr *child)
 	return true;
 }
 
-static void del_tree(struct tal_hdr *t, const tal_t *orig)
+static void del_tree(struct tal_hdr *t, const tal_t *orig, int saved_errno)
 {
 	struct prop_hdr **prop, *p, *next;
 
@@ -359,7 +393,7 @@ static void del_tree(struct tal_hdr *t, const tal_t *orig)
         set_destroying_bit(&t->parent_child);
 
 	/* Call free notifiers. */
-	notify(t, TAL_NOTIFY_FREE, (tal_t *)orig);
+	notify(t, TAL_NOTIFY_FREE, (tal_t *)orig, saved_errno);
 
 	/* Now free children and groups. */
 	prop = find_property_ptr(t, CHILDREN);
@@ -369,7 +403,7 @@ static void del_tree(struct tal_hdr *t, const tal_t *orig)
 
 		while ((i = list_top(&c->children, struct tal_hdr, list))) {
 			list_del(&i->list);
-			del_tree(i, orig);
+			del_tree(i, orig, saved_errno);
 		}
 	}
 
@@ -426,7 +460,7 @@ void *tal_alloc_(const tal_t *ctx, size_t size,
 	}
 	debug_tal(parent);
 	if (notifiers)
-		notify(parent, TAL_NOTIFY_ADD_CHILD, from_tal_hdr(child));
+		notify(parent, TAL_NOTIFY_ADD_CHILD, from_tal_hdr(child), 0);
 	return from_tal_hdr(debug_tal(child));
 }
 
@@ -466,9 +500,9 @@ void *tal_free(const tal_t *ctx)
 		t = debug_tal(to_tal_hdr(ctx));
 		if (notifiers)
 			notify(ignore_destroying_bit(t->parent_child)->parent,
-			       TAL_NOTIFY_DEL_CHILD, ctx);
+			       TAL_NOTIFY_DEL_CHILD, ctx, saved_errno);
 		list_del(&t->list);
-		del_tree(t, ctx);
+		del_tree(t, ctx, saved_errno);
 		errno = saved_errno;
 	}
 	return NULL;
@@ -495,7 +529,7 @@ void *tal_steal_(const tal_t *new_parent, const tal_t *ctx)
 		}
 		debug_tal(newpar);
 		if (notifiers)
-			notify(t, TAL_NOTIFY_STEAL, new_parent);
+			notify(t, TAL_NOTIFY_STEAL, new_parent, 0);
         }
         return (void *)ctx;
 }
@@ -504,9 +538,19 @@ bool tal_add_destructor_(const tal_t *ctx, void (*destroy)(void *me))
 {
 	tal_t *t = debug_tal(to_tal_hdr(ctx));
 	return add_notifier_property(t, TAL_NOTIFY_FREE|NOTIFY_IS_DESTRUCTOR,
-				     (void *)destroy);
+				     (void *)destroy, NULL);
 }
 
+bool tal_add_destructor2_(const tal_t *ctx, void (*destroy)(void *me, void *arg),
+			  void *arg)
+{
+	tal_t *t = debug_tal(to_tal_hdr(ctx));
+	return add_notifier_property(t, TAL_NOTIFY_FREE|NOTIFY_IS_DESTRUCTOR
+				     |NOTIFY_EXTRA_ARG,
+				     (void *)destroy, arg);
+}
+
+/* We could support notifiers with an extra arg, but we didn't add to API */
 bool tal_add_notifier_(const tal_t *ctx, enum tal_notify_type types,
 		       void (*callback)(tal_t *, enum tal_notify_type, void *))
 {
@@ -521,12 +565,12 @@ bool tal_add_notifier_(const tal_t *ctx, enum tal_notify_type types,
 			  | TAL_NOTIFY_DEL_NOTIFIER)) == 0);
 
 	/* Don't call notifier about itself: set types after! */
-        n = add_notifier_property(t, 0, callback);
+        n = add_notifier_property(t, 0, callback, NULL);
 	if (unlikely(!n))
 		return false;
 
 	if (notifiers)
-		notify(t, TAL_NOTIFY_ADD_NOTIFIER, callback);
+		notify(t, TAL_NOTIFY_ADD_NOTIFIER, callback, 0);
 
 	n->types = types;
 	if (types != TAL_NOTIFY_FREE)
@@ -535,14 +579,15 @@ bool tal_add_notifier_(const tal_t *ctx, enum tal_notify_type types,
 }
 
 bool tal_del_notifier_(const tal_t *ctx,
-		       void (*callback)(tal_t *, enum tal_notify_type, void *))
+		       void (*callback)(tal_t *, enum tal_notify_type, void *),
+		       bool match_extra_arg, void *extra_arg)
 {
 	struct tal_hdr *t = debug_tal(to_tal_hdr(ctx));
 	enum tal_notify_type types;
 
-        types = del_notifier_property(t, callback);
+        types = del_notifier_property(t, callback, match_extra_arg, extra_arg);
 	if (types) {
-		notify(t, TAL_NOTIFY_DEL_NOTIFIER, callback);
+		notify(t, TAL_NOTIFY_DEL_NOTIFIER, callback, 0);
 		if (types != TAL_NOTIFY_FREE)
 			notifiers--;
 		return true;
@@ -552,7 +597,13 @@ bool tal_del_notifier_(const tal_t *ctx,
 
 bool tal_del_destructor_(const tal_t *ctx, void (*destroy)(void *me))
 {
-	return tal_del_notifier_(ctx, (void *)destroy);
+	return tal_del_notifier_(ctx, (void *)destroy, false, NULL);
+}
+
+bool tal_del_destructor2_(const tal_t *ctx, void (*destroy)(void *me, void *arg),
+			  void *arg)
+{
+	return tal_del_notifier_(ctx, (void *)destroy, true, arg);
 }
 
 bool tal_set_name_(tal_t *ctx, const char *name, bool literal)
@@ -582,7 +633,7 @@ bool tal_set_name_(tal_t *ctx, const char *name, bool literal)
 
 	debug_tal(t);
 	if (notifiers)
-		notify(t, TAL_NOTIFY_RENAME, name);
+		notify(t, TAL_NOTIFY_RENAME, name, 0);
 	return true;
 }
 
@@ -720,10 +771,10 @@ bool tal_resize_(tal_t **ctxp, size_t size, size_t count, bool clear)
 		}
 		*ctxp = from_tal_hdr(debug_tal(t));
 		if (notifiers)
-			notify(t, TAL_NOTIFY_MOVE, from_tal_hdr(old_t));
+			notify(t, TAL_NOTIFY_MOVE, from_tal_hdr(old_t), 0);
 	}
 	if (notifiers)
-		notify(t, TAL_NOTIFY_RESIZE, (void *)size);
+		notify(t, TAL_NOTIFY_RESIZE, (void *)size, 0);
 
 	return true;
 }

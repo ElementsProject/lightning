@@ -53,16 +53,22 @@ CORE_SRC :=					\
 CORE_OBJS := $(CORE_SRC:.c=.o)
 
 CCAN_OBJS :=					\
+	ccan-asort.o				\
+	ccan-autodata.o				\
+	ccan-breakpoint.o			\
+	ccan-crypto-hmac.o			\
+	ccan-crypto-hkdf.o			\
 	ccan-crypto-ripemd160.o			\
 	ccan-crypto-sha256.o			\
 	ccan-crypto-shachain.o			\
-	ccan-asort.o				\
 	ccan-crypto-siphash24.o			\
 	ccan-err.o				\
+	ccan-fdpass.o				\
 	ccan-htable.o				\
 	ccan-ilog.o				\
 	ccan-io-io.o				\
 	ccan-io-poll.o				\
+	ccan-io-fdpass.o			\
 	ccan-isaac.o				\
 	ccan-isaac64.o				\
 	ccan-list.o				\
@@ -89,6 +95,8 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/alignof/alignof.h		\
 	$(CCANDIR)/ccan/array_size/array_size.h		\
 	$(CCANDIR)/ccan/asort/asort.h			\
+	$(CCANDIR)/ccan/autodata/autodata.h		\
+	$(CCANDIR)/ccan/breakpoint/breakpoint.h		\
 	$(CCANDIR)/ccan/build_assert/build_assert.h	\
 	$(CCANDIR)/ccan/cast/cast.h			\
 	$(CCANDIR)/ccan/cdump/cdump.h			\
@@ -96,16 +104,20 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/compiler/compiler.h		\
 	$(CCANDIR)/ccan/container_of/container_of.h	\
 	$(CCANDIR)/ccan/cppmagic/cppmagic.h		\
+	$(CCANDIR)/ccan/crypto/hkdf_sha256/hkdf_sha256.h \
+	$(CCANDIR)/ccan/crypto/hmac_sha256/hmac_sha256.h \
 	$(CCANDIR)/ccan/crypto/ripemd160/ripemd160.h	\
 	$(CCANDIR)/ccan/crypto/sha256/sha256.h		\
 	$(CCANDIR)/ccan/crypto/shachain/shachain.h	\
 	$(CCANDIR)/ccan/crypto/siphash24/siphash24.h	\
 	$(CCANDIR)/ccan/endian/endian.h			\
 	$(CCANDIR)/ccan/err/err.h			\
+	$(CCANDIR)/ccan/fdpass/fdpass.h			\
 	$(CCANDIR)/ccan/htable/htable.h			\
 	$(CCANDIR)/ccan/htable/htable_type.h		\
 	$(CCANDIR)/ccan/ilog/ilog.h			\
 	$(CCANDIR)/ccan/io/backend.h			\
+	$(CCANDIR)/ccan/io/fdpass/fdpass.h		\
 	$(CCANDIR)/ccan/io/io.h				\
 	$(CCANDIR)/ccan/io/io_plan.h			\
 	$(CCANDIR)/ccan/isaac/isaac.h			\
@@ -118,6 +130,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/opt/private.h			\
 	$(CCANDIR)/ccan/order/order.h			\
 	$(CCANDIR)/ccan/pipecmd/pipecmd.h		\
+	$(CCANDIR)/ccan/ptr_valid/ptr_valid.h		\
 	$(CCANDIR)/ccan/ptrint/ptrint.h			\
 	$(CCANDIR)/ccan/read_write_all/read_write_all.h	\
 	$(CCANDIR)/ccan/short_types/short_types.h	\
@@ -337,6 +350,8 @@ include daemon/Makefile
 unittest/%: %
 	$(VALGRIND) $(VALGRIND_TEST_ARGS) $*
 
+ccan-breakpoint.o: $(CCANDIR)/ccan/breakpoint/breakpoint.c
+	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-tal.o: $(CCANDIR)/ccan/tal/tal.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-tal-str.o: $(CCANDIR)/ccan/tal/str/str.c
@@ -350,6 +365,8 @@ ccan-take.o: $(CCANDIR)/ccan/take/take.c
 ccan-list.o: $(CCANDIR)/ccan/list/list.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-asort.o: $(CCANDIR)/ccan/asort/asort.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-autodata.o: $(CCANDIR)/ccan/autodata/autodata.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-read_write_all.o: $(CCANDIR)/ccan/read_write_all/read_write_all.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -368,6 +385,10 @@ ccan-err.o: $(CCANDIR)/ccan/err/err.c
 ccan-noerr.o: $(CCANDIR)/ccan/noerr/noerr.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-str-hex.o: $(CCANDIR)/ccan/str/hex/hex.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-crypto-hmac.o: $(CCANDIR)/ccan/crypto/hmac_sha256/hmac_sha256.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-crypto-hkdf.o: $(CCANDIR)/ccan/crypto/hkdf_sha256/hkdf_sha256.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-crypto-shachain.o: $(CCANDIR)/ccan/crypto/shachain/shachain.c
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -397,7 +418,11 @@ ccan-io-io.o: $(CCANDIR)/ccan/io/io.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-io-poll.o: $(CCANDIR)/ccan/io/poll.c
 	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-io-fdpass.o: $(CCANDIR)/ccan/io/fdpass/fdpass.c
+	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-pipecmd.o: $(CCANDIR)/ccan/pipecmd/pipecmd.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-mem.o: $(CCANDIR)/ccan/mem/mem.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-fdpass.o: $(CCANDIR)/ccan/fdpass/fdpass.c
 	$(CC) $(CFLAGS) -c -o $@ $<

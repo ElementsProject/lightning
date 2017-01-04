@@ -95,23 +95,23 @@ static void del_fd(struct fd *fd)
 	close(fd->fd);
 }
 
+static void destroy_listener(struct io_listener *l)
+{
+	close(l->fd.fd);
+	del_fd(&l->fd);
+}
+
 bool add_listener(struct io_listener *l)
 {
 	if (!add_fd(&l->fd, POLLIN))
 		return false;
+	tal_add_destructor(l, destroy_listener);
 	return true;
 }
 
 void remove_from_always(struct io_conn *conn)
 {
 	list_del_init(&conn->always);
-}
-
-void backend_new_closing(struct io_conn *conn)
-{
-	/* In case it's on always list, remove it. */
-	list_del_init(&conn->always);
-	list_add_tail(&closing, &conn->closing);
 }
 
 void backend_new_always(struct io_conn *conn)
@@ -164,25 +164,28 @@ void backend_wake(const void *wait)
 	}
 }
 
-bool add_conn(struct io_conn *c)
+static void destroy_conn(struct io_conn *conn)
 {
-	return add_fd(&c->fd, 0);
-}
+	int saved_errno = errno;
 
-static void del_conn(struct io_conn *conn)
-{
+	close(conn->fd.fd);
 	del_fd(&conn->fd);
+	/* In case it's on always list, remove it. */
+	list_del_init(&conn->always);
+
+	/* errno saved/restored by tal_free itself. */
 	if (conn->finish) {
-		/* Saved by io_close */
-		errno = conn->plan[IO_IN].arg.u1.s;
+		errno = saved_errno;
 		conn->finish(conn, conn->finish_arg);
 	}
-	tal_free(conn);
 }
 
-void del_listener(struct io_listener *l)
+bool add_conn(struct io_conn *c)
 {
-	del_fd(&l->fd);
+	if (!add_fd(&c->fd, 0))
+		return false;
+	tal_add_destructor(c, destroy_conn);
+	return true;
 }
 
 static void accept_conn(struct io_listener *l)
@@ -194,22 +197,6 @@ static void accept_conn(struct io_listener *l)
 		return;
 
 	io_new_conn(l->ctx, fd, l->init, l->arg);
-}
-
-/* It's OK to miss some, as long as we make progress. */
-static bool close_conns(void)
-{
-	bool ret = false;
-	struct io_conn *conn;
-
-	while ((conn = list_pop(&closing, struct io_conn, closing)) != NULL) {
-		assert(conn->plan[IO_IN].status == IO_CLOSING);
-		assert(conn->plan[IO_OUT].status == IO_CLOSING);
-
-		del_conn(conn);
-		ret = true;
-	}
-	return ret;
 }
 
 static bool handle_always(void)
@@ -243,11 +230,6 @@ void *io_loop(struct timers *timers, struct timer **expired)
 
 	while (!io_loop_return) {
 		int i, r, ms_timeout = -1;
-
-		if (close_conns()) {
-			/* Could have started/finished more. */
-			continue;
-		}
 
 		if (handle_always()) {
 			/* Could have started/finished more. */
@@ -308,8 +290,6 @@ void *io_loop(struct timers *timers, struct timer **expired)
 			}
 		}
 	}
-
-	close_conns();
 
 	ret = io_loop_return;
 	io_loop_return = NULL;
