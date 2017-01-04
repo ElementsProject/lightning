@@ -23,7 +23,7 @@
 
 #define MAX_PKT_LEN (1024 * 1024)
 
-/* BOLT#1:
+/* FIXME-OLD#1:
    `length` is a 4-byte little-endian field indicating the size of the unencrypted body.
  */
 
@@ -70,7 +70,7 @@ struct enckey {
 };
 
 
-/* BOLT #1:
+/* FIXME-OLD #1:
  * * sending-key: SHA256(shared-secret || sending-node-session-pubkey)
  * * receiving-key: SHA256(shared-secret || receiving-node-session-pubkey)
  */
@@ -100,7 +100,7 @@ struct dir_state {
 static void setup_crypto(struct dir_state *dir,
 			 u8 shared_secret[32], u8 serial_pubkey[33])
 {
-	/* BOLT #1: Nonces...MUST begin at 0 */
+	/* FIXME-OLD #1: Nonces...MUST begin at 0 */
 	dir->nonce = 0;
 
 	dir->enckey = enckey_from_secret(shared_secret, serial_pubkey);
@@ -134,7 +134,7 @@ static void proto_tal_free(void *allocator_data, void *pointer)
 
 static void le64_nonce(unsigned char *npub, u64 nonce)
 {
-	/* BOLT #1: Nonces are 64-bit little-endian numbers */
+	/* FIXME-OLD #1: Nonces are 64-bit little-endian numbers */
 	le64 le_nonce = cpu_to_le64(nonce);
 	memcpy(npub, &le_nonce, sizeof(le_nonce));
 	BUILD_ASSERT(crypto_aead_chacha20poly1305_NPUBBYTES == sizeof(le_nonce));
@@ -278,7 +278,7 @@ static bool decrypt_header(struct log *log, struct io_data *iod,
 	log_debug(log, "Decrypted header len %u",
 		  le32_to_cpu(iod->hdr_in.length));
 
-	/* BOLT #1: `length` MUST NOT exceed 1MB (1048576 bytes). */
+	/* FIXME-OLD #1: `length` MUST NOT exceed 1MB (1048576 bytes). */
 	if (le32_to_cpu(iod->hdr_in.length) > MAX_PKT_LEN) {
 		log_unusual(log,
 			    "Packet overlength: %"PRIu64,
@@ -381,7 +381,7 @@ static bool check_proof(struct key_negotiate *neg, struct log *log,
 	if (!auth)
 		return false;
 
-	/* BOLT #1:
+	/* FIXME-OLD #1:
 	 *
 	 * The receiving node MUST check that:
 	 *
@@ -397,7 +397,7 @@ static bool check_proof(struct key_negotiate *neg, struct log *log,
 		return false;
 	}
 
-	/* BOLT #1:
+	/* FIXME-OLD #1:
 	 *
 	 * 2. `session_sig` is a valid secp256k1 ECDSA signature encoded as
 	 *     a 32-byte big endian R value, followed by a 32-byte big
@@ -409,7 +409,7 @@ static bool check_proof(struct key_negotiate *neg, struct log *log,
 	}
 
 
-	/* BOLT #1:
+	/* FIXME-OLD #1:
 	 *
 	 * 3. `session_sig` is the signature of the SHA256 of SHA256 of the
 	 *     its own sessionpubkey, using the secret key corresponding to
@@ -519,7 +519,7 @@ static struct io_plan *keys_exchanged(struct io_conn *conn,
 	setup_crypto(&neg->iod->in, shared_secret, neg->their_sessionpubkey);
 	setup_crypto(&neg->iod->out, shared_secret, neg->our_sessionpubkey);
 
-	/* BOLT #1:
+	/* FIXME-OLD #1:
 	 *
 	 * `session_sig` is the signature of the SHA256 of SHA256 of the its
 	 * own sessionpubkey, using the secret key corresponding to the
@@ -540,7 +540,7 @@ static struct io_plan *discard_extra(struct io_conn *conn,
 {
 	size_t len = le32_to_cpu(neg->keylen);
 
-	/* BOLT#1: Additional fields MAY be added, and MUST be
+	/* FIXME-OLD#1: Additional fields MAY be added, and MUST be
 	 * included in the `length` field.  These MUST be ignored by
 	 * implementations which do not understand them. */
 	if (len > sizeof(neg->their_sessionpubkey)) {
@@ -560,7 +560,7 @@ static struct io_plan *discard_extra(struct io_conn *conn,
 static struct io_plan *session_key_receive(struct io_conn *conn,
 					   struct key_negotiate *neg)
 {
-	/* BOLT#1: The `length` field is the length after the field
+	/* FIXME-OLD#1: The `length` field is the length after the field
 	   itself, and MUST be 33 or greater. */
 	if (le32_to_cpu(neg->keylen) < sizeof(neg->their_sessionpubkey)) {
 		log_unusual(neg->log, "short session key length %u",
@@ -568,7 +568,7 @@ static struct io_plan *session_key_receive(struct io_conn *conn,
 		return io_close(conn);
 	}
 
-	/* BOLT#1: `length` MUST NOT exceed 1MB (1048576 bytes). */
+	/* FIXME-OLD#1: `length` MUST NOT exceed 1MB (1048576 bytes). */
 	if (le32_to_cpu(neg->keylen) > 1048576) {
 		log_unusual(neg->log,
 			    "Oversize session key length %u",
@@ -623,7 +623,7 @@ struct io_plan *peer_crypto_setup_(struct io_conn *conn,
 	secp256k1_pubkey sessionkey;
 	struct key_negotiate *neg;
 
-	/* BOLT #1:
+	/* FIXME-OLD #1:
 	 *
 	 * The 4-byte length for each message is encrypted separately
 	 * (resulting in a 20 byte header when the authentication tag

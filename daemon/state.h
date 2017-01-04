@@ -60,7 +60,7 @@ static inline bool state_can_commit(enum state s)
 	return s == STATE_NORMAL || s == STATE_SHUTDOWN;
 }
 
-/* BOLT #2:
+/* FIXME-OLD #2:
  *
  * A node MUST NOT send a `update_add_htlc` after a `close_shutdown`
  */

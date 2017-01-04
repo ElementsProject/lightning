@@ -245,7 +245,7 @@ Pkt *pkt_init(struct peer *peer, u64 ack)
 	Init *i = tal(peer, Init);
 	init__init(i);
 	i->ack = ack;
-	/* BOLT #2:
+	/* FIXME-OLD #2:
 	 *
 	 * A node SHOULD set the `features` field of the `init`
 	 * message to a bitset representing features it supports.
@@ -394,7 +394,7 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt, struct htlc **h)
 	struct sha256 rhash;
 	struct abs_locktime expiry;
 
-	/* BOLT #2:
+	/* FIXME-OLD #2:
 	 *
 	 * `amount_msat` MUST BE greater than 0.
 	 */
@@ -408,7 +408,7 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt, struct htlc **h)
 	if (abs_locktime_is_seconds(&expiry))
 		return pkt_err(peer, "HTLC expiry in seconds not supported!");
 
-	/* BOLT #2:
+	/* FIXME-OLD #2:
 	 *
 	 * A node MUST NOT add a HTLC if it would result in it
 	 * offering more than 300 HTLCs in the remote commitment transaction.
@@ -416,7 +416,7 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt, struct htlc **h)
 	if (peer->remote.staging_cstate->side[REMOTE].num_htlcs == 300)
 		return pkt_err(peer, "Too many HTLCs");
 
-	/* BOLT #2:
+	/* FIXME-OLD #2:
 	 *
 	 * A node MUST set `id` to a unique identifier for this HTLC
 	 * amongst all past or future `update_add_htlc` messages.
@@ -427,7 +427,7 @@ Pkt *accept_pkt_htlc_add(struct peer *peer, const Pkt *pkt, struct htlc **h)
 	if (htlc_get(&peer->htlcs, u->id, REMOTE))
 		return pkt_err(peer, "HTLC id %"PRIu64" clashes for you", u->id);
 
-	/* BOLT #2:
+	/* FIXME-OLD #2:
 	 *
 	 * ...and the receiving node MUST add the HTLC addition to the
 	 * unacked changeset for its local commitment. */
@@ -443,7 +443,7 @@ static Pkt *find_commited_htlc(struct peer *peer, uint64_t id,
 {
 	*local_htlc = htlc_get(&peer->htlcs, id, LOCAL);
 
-	/* BOLT #2:
+	/* FIXME-OLD #2:
 	 *
 	 * A node MUST check that `id` corresponds to an HTLC in its
 	 * current commitment transaction, and MUST fail the
@@ -534,7 +534,7 @@ Pkt *accept_pkt_revocation(struct peer *peer, const Pkt *pkt)
 	assert(peer->their_prev_revocation_hash);
 	proto_to_sha256(r->revocation_preimage, &preimage);
 
-	/* BOLT #2:
+	/* FIXME-OLD #2:
 	 *
 	 * The receiver of `update_revocation` MUST check that the
 	 * SHA256 hash of `revocation_preimage` matches the previous commitment
@@ -571,7 +571,7 @@ Pkt *accept_pkt_close_shutdown(struct peer *peer, const Pkt *pkt)
 {
 	const CloseShutdown *c = pkt->close_shutdown;
 
-	/* BOLT #2:
+	/* FIXME-OLD #2:
 	 *
 	 * 1. `OP_DUP` `OP_HASH160` `20` 20-bytes `OP_EQUALVERIFY` `OP_CHECKSIG`
 	 *  (pay to pubkey hash), OR

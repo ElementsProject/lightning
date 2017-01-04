@@ -12,7 +12,7 @@
 
 uint64_t fee_by_feerate(size_t txsize, uint64_t fee_rate)
 {
-	/* BOLT #2:
+	/* FIXME-OLD #2:
 	 *
 	 * The fee for a transaction MUST be calculated by multiplying this
 	 * bytecount by the fee rate, dividing by 1000 and truncating
@@ -21,7 +21,7 @@ uint64_t fee_by_feerate(size_t txsize, uint64_t fee_rate)
 	return txsize * fee_rate / 2000 * 2;
 }
 
-/* BOLT #2:
+/* FIXME-OLD #2:
  *
  * A node MUST use the formula 338 + 32 bytes for every non-dust HTLC
  * as the bytecount for calculating commitment transaction fees.  Note
@@ -55,7 +55,7 @@ static uint64_t pay_fee(struct channel_oneside *side, uint64_t fee_msat)
 	}
 }
 
-/* Charge the fee as per BOLT #2 */
+/* Charge the fee as per FIXME-OLD #2 */
 static void recalculate_fees(struct channel_oneside *a,
 			     struct channel_oneside *b,
 			     uint64_t fee_msat)
@@ -67,7 +67,7 @@ static void recalculate_fees(struct channel_oneside *a,
 	b->pay_msat += b->fee_msat;
 	a->fee_msat = b->fee_msat = 0;
 
-	/* BOLT #2:
+	/* FIXME-OLD #2:
 	 *
 	 * 1. If each nodes can afford half the fee from their
 	 *    to-`final_key` output, reduce the two to-`final_key`

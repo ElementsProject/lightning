@@ -225,7 +225,7 @@ static const struct config testnet_config = {
 	.anchor_confirms_max = 10,
 
 	/* At some point, you've got to let it go... */
-	/* BOLT #onchain:
+	/* FIXME-OLD #onchain:
 	 *
 	 * Outputs... are considered *irrevocably resolved* once they
 	 * are included in a block at least 100 deep on the most-work
@@ -292,7 +292,7 @@ static const struct config mainnet_config = {
 	.anchor_confirms_max = 10,
 
 	/* At some point, you've got to let it go... */
-	/* BOLT #onchain:
+	/* FIXME-OLD #onchain:
 	 *
 	 * Outputs... are considered *irrevocably resolved* once they
 	 * are included in a block at least 100 deep on the most-work
@@ -359,7 +359,7 @@ static void check_config(struct lightningd_state *dstate)
 	if (dstate->config.anchor_confirms == 0)
 		fatal("anchor-confirms must be greater than zero");
 
-	/* BOLT #2:
+	/* FIXME-OLD #2:
 	 *
 	 * a node MUST estimate the deadline for successful redemption
 	 * for each HTLC it offers.  A node MUST NOT offer a HTLC

@@ -638,7 +638,7 @@ static void send_commit(struct peer *peer)
 		{ SENT_REMOVE_HTLC, SENT_REMOVE_COMMIT}
 	};
 
-	/* BOLT #2:
+	/* FIXME-OLD #2:
 	 *
 	 * An implementation MAY choose not to send an `update_commit`
 	 * until it receives the `update_revocation` response to the
@@ -647,14 +647,14 @@ static void send_commit(struct peer *peer)
 	if (peer->remote->prev && !peer->remote->prev->revoked)
 		errx(1, "%s: commit: must wait for previous commit", peer->name);
 
-	/* BOLT #2:
+	/* FIXME-OLD #2:
 	 *
 	 * ...a sending node MUST apply all remote acked and unacked
 	 * changes except unacked fee changes to the remote commitment
 	 * before generating `sig`.
 	 */
 	if (!change_htlcs(peer, changes, true)) {
-		/* BOLT #2:
+		/* FIXME-OLD #2:
 		 *
 		 * A node MUST NOT send an `update_commit` message which does
 		 * not include any updates.
@@ -708,7 +708,7 @@ static void receive_revoke(struct peer *peer, u32 number)
 	db_recv_remote_revoke(&peer->db, ci);
 }
 
-/* BOLT #2:
+/* FIXME-OLD #2:
  *
  * the receiving node MUST add the HTLC addition to the unacked
  * changeset for its local commitment.
@@ -721,7 +721,7 @@ static void receive_offer(struct peer *peer, unsigned int htlc)
 	record_recv(peer, "add_htlc %u", h->id);
 }
 
-/* BOLT #2:
+/* FIXME-OLD #2:
  *
  * the receiving node MUST add the HTLC fulfill/fail to the unacked
  * changeset for its local commitment.
@@ -738,7 +738,7 @@ static void receive_remove(struct peer *peer, unsigned int htlc)
 	record_recv(peer, "fulfill_htlc %u", h->id);
 }
 
-/* BOLT #2:
+/* FIXME-OLD #2:
  *
  * the receiving node MUST add the fee change to the unacked changeset
  * for its local commitment.
@@ -792,7 +792,7 @@ static void receive_commit(struct peer *peer, const struct signature *sig)
 
 	record_recv(peer, "update_commit");
 
-	/* BOLT #2:
+	/* FIXME-OLD #2:
 	 *
 	 * A node MUST NOT send an `update_commit` message which does
 	 * not include any updates.
