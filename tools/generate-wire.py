@@ -251,8 +251,9 @@ class Message(object):
                 print('\ttowire_{}(&p, {});'
                       .format(basetype, f.name))
 
+        # Make sure we haven't encoded any uninitialzied fields!
         print('\n'
-              '\treturn p;\n'
+              '\treturn memcheck(p, tal_count(p));\n'
               '}\n')
    
 parser = OptionParser()
@@ -274,6 +275,7 @@ if options.output_header:
           ''.format(idem))
 else:
     print('#include <{}>\n'
+          '#include <ccan/mem/mem.h>\n'
           ''.format(args[0]))
 
 # Maps message names to messages
