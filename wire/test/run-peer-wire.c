@@ -186,7 +186,8 @@ struct msg_open_channel {
 struct msg_update_fail_htlc {
 	struct channel_id channel_id;
 	u64 id;
-	u8 reason[154];
+	u16 len;
+	u8 *reason;
 };
 struct msg_channel_announcement {
 	struct signature node_signature_1;
@@ -433,6 +434,7 @@ static void *towire_struct_update_fail_htlc(const tal_t *ctx,
 	return towire_update_fail_htlc(ctx, 
 				       &s->channel_id,
 				       s->id,
+				       s->len,
 				       s->reason);
 }
 
@@ -440,12 +442,14 @@ static struct msg_update_fail_htlc *fromwire_struct_update_fail_htlc(const tal_t
 {
 	struct msg_update_fail_htlc *s = tal(ctx, struct msg_update_fail_htlc);
 
-	if (fromwire_update_fail_htlc(p, plen, 
+	if (!fromwire_update_fail_htlc(ctx, p, plen, 
 				      &s->channel_id,
 				      &s->id,
-				      s->reason))
-		return s;
-	return tal_free(s);
+				      &s->reason))
+		return tal_free(s);
+	s->len = tal_count(s->reason);
+	return s;
+
 }
 
 static void *towire_struct_update_fulfill_htlc(const tal_t *ctx,
@@ -712,7 +716,8 @@ static bool funding_locked_eq(const struct msg_funding_locked *a,
 static bool update_fail_htlc_eq(const struct msg_update_fail_htlc *a,
 				const struct msg_update_fail_htlc *b)
 {
-	return eq_with(a, b, reason);
+	return eq_with(a, b, id)
+		&& eq_var(a, b, len, reason);
 }
 
 static bool commit_sig_eq(const struct msg_commit_sig *a,
@@ -887,6 +892,9 @@ int main(void)
 	test_corruption(&fl, fl2, funding_locked);
 	
 	memset(&ufh, 2, sizeof(ufh));
+ 	ufh.len = 2;
+ 	ufh.reason = tal_arr(ctx, u8, 2);
+ 	memset(ufh.reason, 2, 2);
 	
 	msg = towire_struct_update_fail_htlc(ctx, &ufh);
 	len = tal_count(msg);
