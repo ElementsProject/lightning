@@ -1,7 +1,7 @@
 #! /usr/bin/python3
 # Read from stdin, spit out C header or body.
 
-from optparse import OptionParser
+import argparse
 from collections import namedtuple
 import fileinput
 import re
@@ -322,18 +322,15 @@ class Message(object):
               '\treturn memcheck(p, tal_count(p));\n'
               '}\n')
    
-parser = OptionParser()
-parser.add_option("--header",
-                  action="store_true", dest="output_header", default=False,
-                  help="Create wire header")
+parser = argparse.ArgumentParser(description='Generate C from from CSV')
+parser.add_argument('--header', action='store_true', help="Create wire header")
+parser.add_argument('headerfilename', help='The filename of the header')
+parser.add_argument('enumname', help='The name of the enum to produce')
+parser.add_argument('files', nargs='*', help='Files to read in (or stdin)')
+options = parser.parse_args()
 
-(options, args) = parser.parse_args()
-
-if len(args) != 2:
-    parser.error("Expect headerfilename and enumname")
-
-if options.output_header:
-    idem = re.sub(r'[^A-Z]+', '_', args[0].upper())
+if options.header:
+    idem = re.sub(r'[^A-Z]+', '_', options.headerfilename.upper())
     print('#ifndef LIGHTNING_{0}\n'
           '#define LIGHTNING_{0}\n'
           '#include <ccan/tal/tal.h>\n'
@@ -342,7 +339,7 @@ else:
     print('#include <{}>\n'
           '#include <ccan/mem/mem.h>\n'
           '#include <ccan/tal/str/str.h>\n'
-          ''.format(args[0]))
+          ''.format(options.headerfilename))
 
 # Maps message names to messages
 messages = []
@@ -350,7 +347,7 @@ comments = []
 includes = []
 
 # Read csv lines.  Single comma is the message values, more is offset/len.
-for line in fileinput.input(args[2:]):
+for line in fileinput.input(options.files):
     # #include gets inserted into header
     if line.startswith('#include '):
         includes.append(line)
@@ -383,24 +380,24 @@ for line in fileinput.input(args[2:]):
                 break
         comments=[]
 
-if options.output_header:
+if options.header:
     for i in includes:
         print(i, end='')
 
     print('')
 
     # Dump out enum, sorted by value order.
-    print('enum {} {{'.format(args[1]))
+    print('enum {} {{'.format(options.enumname))
     for m in messages:
         for c in m.comments:
             print('\t/*{} */'.format(c))
         print('\t{} = {},'.format(m.enum.name, m.enum.value))
     print('};')
-    print('const char *{}_name(int e);'.format(args[1]))
+    print('const char *{}_name(int e);'.format(options.enumname))
 else:
-    print('const char *{}_name(int e)'.format(args[1]))
+    print('const char *{}_name(int e)'.format(options.enumname))
     print('{{\n'
-          '\tswitch ((enum {})e) {{'.format(args[1]));
+          '\tswitch ((enum {})e) {{'.format(options.enumname));
     for m in messages:
         print('\tcase {0}: return "{0}";'.format(m.enum.name))
     print('\t}\n'
@@ -409,10 +406,10 @@ else:
           '')
 
 for m in messages:
-    m.print_fromwire(options.output_header)
+    m.print_fromwire(options.header)
 
 for m in messages:
-    m.print_towire(options.output_header)
+    m.print_towire(options.header)
     
-if options.output_header:
+if options.header:
     print('#endif /* LIGHTNING_{} */\n'.format(idem))
