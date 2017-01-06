@@ -16,8 +16,9 @@ WIRE_ONION_OBJS := $(WIRE_GEN_ONION_SRC:.c=.o)
 
 # They may not have the bolts.
 BOLT_EXTRACT=$(BOLTDIR)/tools/extract-formats.py
+# FIXME: Re-enable --check-alignment!
 wire/gen_peer_wire_csv: FORCE
-	@set -e; if [ -f $(BOLT_EXTRACT) ]; then for f in $(BOLTDIR)/0[127]*.md $(BOLT_EXTRACT); do if [ $$f -nt $@ -o ! -f $@ ]; then $(BOLT_EXTRACT) --message-fields --message-types --check-alignment $(BOLTDIR)/0[127]*.md > $@; break; fi; done; fi
+	@set -e; if [ -f $(BOLT_EXTRACT) ]; then for f in $(BOLTDIR)/0[127]*.md $(BOLT_EXTRACT); do if [ $$f -nt $@ -o ! -f $@ ]; then $(BOLT_EXTRACT) --message-fields --message-types $(BOLTDIR)/0[127]*.md > $@; break; fi; done; fi
 
 wire/gen_onion_wire_csv: FORCE
 	@set -e; if [ -f $(BOLT_EXTRACT) ]; then for f in $(BOLTDIR)/04*.md $(BOLT_EXTRACT); do if [ $$f -nt $@ -o ! -f $@ ]; then echo '#include <wire/onion_defs.h>' > $@ && $(BOLT_EXTRACT) --message-fields --message-types --check-alignment $(BOLTDIR)/04*.md >> $@; break; fi; done; fi

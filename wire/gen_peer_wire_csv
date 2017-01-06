@@ -63,7 +63,7 @@ update_add_htlc,128
 update_add_htlc,0,channel-id,8
 update_add_htlc,8,id,8
 update_add_htlc,16,amount-msat,4
-update_add_htlc,20,expiry,4
+update_add_htlc,20,cltv-expiry,4
 update_add_htlc,24,payment-hash,32
 update_add_htlc,56,onion-routing-packet,1254
 update_fulfill_htlc,130
@@ -73,7 +73,13 @@ update_fulfill_htlc,16,payment-preimage,32
 update_fail_htlc,131
 update_fail_htlc,0,channel-id,8
 update_fail_htlc,8,id,8
-update_fail_htlc,16,reason,154
+update_fail_htlc,16,len,2
+update_fail_htlc,18,reason,len
+update_fail_malformed_htlc,135
+update_fail_malformed_htlc,0,channel-id,8
+update_fail_malformed_htlc,8,id,8
+update_fail_malformed_htlc,16,failure-code,4
+update_fail_malformed_htlc,20,sha256-of-onion,32
 commit_sig,132
 commit_sig,0,channel-id,8
 commit_sig,8,signature,64
@@ -116,7 +122,7 @@ channel_update,0,signature,64
 channel_update,64,channel-id,8
 channel_update,72,timestamp,4
 channel_update,76,flags,2
-channel_update,78,expiry,2
+channel_update,78,cltv-expiry-delta,2
 channel_update,80,htlc-minimum-msat,4
 channel_update,84,fee-base-msat,4
 channel_update,88,fee-proportional-millionths,4
