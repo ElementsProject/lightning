@@ -111,7 +111,7 @@ daemon/gen_state_names.h: daemon/state_types.h ccan/ccan/cdump/tools/cdump-enums
 daemon/gen_pkt_names.h: lightning.pb-c.h ccan/ccan/cdump/tools/cdump-enumstr
 	(echo 'enum PktCase {'; grep '^  PKT__' lightning.pb-c.h; echo '};') | 	ccan/ccan/cdump/tools/cdump-enumstr - | sed 's/enum PktCase/Pkt__PktCase/' > $@
 
-$(DAEMON_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_CLI_OBJS): $(DAEMON_HEADERS) $(DAEMON_JSMN_HEADERS) $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS) $(DAEMON_GEN_HEADERS) $(CCAN_HEADERS)
+$(DAEMON_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_CLI_OBJS): $(DAEMON_HEADERS) $(DAEMON_JSMN_HEADERS) $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS) $(DAEMON_GEN_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(WIRE_GEN_HEADERS)
 $(DAEMON_JSMN_OBJS): $(DAEMON_JSMN_HEADERS)
 
 check-source: $(DAEMON_SRC:%=check-src-include-order/%)
