@@ -19,6 +19,10 @@ VALGRIND=valgrind -q --error-exitcode=7
 VALGRIND_TEST_ARGS = --track-origins=yes --leak-check=full --show-reachable=yes
 endif
 
+ifeq ($(COVERAGE),1)
+COVFLAGS = --coverage
+endif
+
 # This is where we add new features as bitcoin adds them.
 FEATURES :=
 
@@ -194,9 +198,9 @@ PROGRAMS := $(TEST_PROGRAMS)
 
 CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition
 CDEBUGFLAGS := -g -fstack-protector
-CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) -I secp256k1/include/ -I . $(FEATURES)
+CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) -I secp256k1/include/ -I . $(FEATURES) $(COVFLAGS)
 
-LDLIBS := -lprotobuf-c -lgmp -lsodium -lsqlite3
+LDLIBS := -lprotobuf-c -lgmp -lsodium -lsqlite3 $(COVFLAGS)
 $(PROGRAMS): CFLAGS+=-I.
 
 default: $(PROGRAMS) $(MANPAGES) daemon-all
