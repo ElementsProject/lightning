@@ -365,7 +365,7 @@ for line in fileinput.input(options.files):
 
     if len(parts) == 2:
         # eg commit_sig,132
-        messages.append(Message(parts[0],Enumtype("WIRE_" + parts[0].upper(), int(parts[1],0)),comments))
+        messages.append(Message(parts[0],Enumtype("WIRE_" + parts[0].upper(), parts[1]), comments))
         comments=[]
     else:
         # eg commit_sig,0,channel-id,8 OR
