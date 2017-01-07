@@ -244,6 +244,9 @@ protocol-diagrams: $(patsubst %.script, doc/protocol-%.svg, $(notdir $(wildcard 
 
 check: test-protocol
 
+test: daemon/lightningd
+	PYTHONPATH=contrib/pylightning pytest
+
 # Keep includes in alpha order.
 check-src-include-order/%: %
 	@if [ "$$(grep '^#include' < $<)" != "$$(grep '^#include' < $< | LC_ALL=C sort)" ]; then echo "$<:1: includes out of order"; grep '^#include' < $<; echo VERSUS; grep '^#include' < $< | LC_ALL=C sort; exit 1; fi
