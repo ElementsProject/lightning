@@ -271,6 +271,13 @@ check-source: check-makefile check-source-bolt check-whitespace	\
 
 full-check: check $(TEST_PROGRAMS) check-source
 
+coverage/coverage.info: check $(TEST_PROGRAMS)
+	mkdir coverage || true
+	lcov --capture --directory . --output-file coverage/coverage.info
+
+coverage: coverage/coverage.info
+	genhtml coverage/coverage.info --output-directory coverage
+
 # Ignore test/ directories.
 TAGS: FORCE
 	$(RM) TAGS; find * -name test -type d -prune -o -name '*.[ch]' -print | xargs etags --append
@@ -360,6 +367,8 @@ clean: daemon-clean wire-clean
 	$(RM) ccan/config.h gen_*.h
 	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
+	find . -name '*gcda' -delete
+	find . -name '*gcno' -delete
 
 include daemon/Makefile
 
