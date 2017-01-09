@@ -1,5 +1,9 @@
 #! /usr/bin/make
 
+LANG=C
+LC_ALL=C
+LC_CTYPE=C
+
 # Designed to be run one level up
 daemon-wrongdir:
 	$(MAKE) -C .. daemon-all
@@ -81,8 +85,8 @@ DAEMON_HEADERS :=				\
 	daemon/log.h				\
 	daemon/names.h				\
 	daemon/netaddr.h			\
-	daemon/options.h			\
 	daemon/opt_time.h			\
+	daemon/options.h			\
 	daemon/output_to_htlc.h			\
 	daemon/p2p_announce.h			\
 	daemon/packets.h			\
@@ -119,7 +123,10 @@ check-source: $(DAEMON_LIB_SRC:%=check-src-include-order/%)
 check-source: $(DAEMON_CLI_SRC:%=check-src-include-order/%)
 check-source: $(DAEMON_HEADERS:%=check-hdr-include-order/%)
 check-daemon-makefile:
-	@if [ "`ls daemon/*.h | grep -v daemon/gen | tr '\012' ' '`" != "`echo $(DAEMON_HEADERS) ''`" ]; then echo DAEMON_HEADERS incorrect; exit 1; fi
+	echo $(DAEMON_HEADERS) | tr ' ' '\012' > /tmp/daemon-headers-makefile
+	ls daemon/*.h | grep -v daemon/gen > /tmp/daemon-headers-file
+	@if [ "`diff -w /tmp/daemon-headers-makefile /tmp/daemon-headers-file`" != "" ]; then echo DAEMON_HEADERS incorrect; diff -w --context=2 /tmp/daemon-headers-makefile /tmp/daemon-headers-file; exit 1; fi
+	rm /tmp/daemon-headers-makefile /tmp/daemon-headers-file
 
 check-source-bolt: $(DAEMON_SRC:%=bolt-check/%) $(DAEMON_HEADERS:%=bolt-check/%)
 
