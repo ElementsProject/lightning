@@ -21,6 +21,7 @@ if [ -n "$MANUALCOMMIT" ]; then
 fi
 
 start_lightningd 2
+fund_lightningd
 
 # Check IDs match logs
 [ `$LCLI1 getlog | sed -n 's/.*"ID: \([0-9a-f]*\)".*/\1/p'` = $ID1 ]

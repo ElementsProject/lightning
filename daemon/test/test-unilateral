@@ -9,6 +9,7 @@ cd `git rev-parse --show-toplevel`/daemon/test
 parse_cmdline 2 "$@"
 setup_lightning 2
 start_lightningd 2
+fund_lightningd
 
 lcli1 connect localhost $PORT2 $FUND_INPUT_TX &
 

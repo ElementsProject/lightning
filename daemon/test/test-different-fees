@@ -16,6 +16,7 @@ FEE_RATE2=$(($DEFAULT_FEE_RATE2 * 5))
 echo "default-fee-rate=$DEFAULT_FEE_RATE2" >> $DIR2/config
 
 start_lightningd 2
+fund_lightningd
 
 lcli1 connect localhost $PORT2 $FUND_INPUT_TX &
 
