@@ -94,7 +94,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 }
 
 static const char *daemons[] = {
-	"lightningd"
+	"lightningd",
+	"lightningd_hsm"
 };
 
 /* Check we can run them, and check their versions */

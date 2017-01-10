@@ -4,7 +4,7 @@
 lightningd-wrongdir:
 	$(MAKE) -C .. lightningd-all
 
-lightningd-all: lightningd/lightningd
+lightningd-all: lightningd/lightningd lightningd/lightningd_hsm
 
 default: lightningd-all
 
@@ -39,6 +39,8 @@ LIGHTNINGD_HEADERS := lightningd/lightningd.h	\
 	lightningd/subdaemon.h
 
 $(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_JSMN_HEADERS) $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS) $(CCAN_HEADERS) $(DAEMON_HEADERS) $(LIBBASE58_HEADERS)
+
+include lightningd/hsm/Makefile
 
 check-source: $(LIGHTNINGD_SRC:%=check-src-include-order/%)
 check-source: $(LIGHTNINGD_LIB_SRC:%=check-src-include-order/%)

@@ -1,0 +1,11 @@
+# These are fatal.
+hsmstatus_init_failed,0x8000
+hsmstatus_writemsg_failed,0x8001
+hsmstatus_bad_request,0x8002
+hsmstatus_fd_failed,0x8003
+
+# Clients should not give a bad request but not the HSM's decision to crash.
+hsmstatus_client_bad_request,1
+hsmstatus_client_bad_request,0,unique-id,8
+hsmstatus_client_bad_request,8,len,2
+hsmstatus_client_bad_request,10,msg,len,u8
