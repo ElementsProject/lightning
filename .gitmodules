@@ -4,3 +4,6 @@
 [submodule "bitcoin/libbase58"]
 	path = bitcoin/libbase58
 	url = https://github.com/bitcoin/libbase58.git
+[submodule "libsodium"]
+	path = libsodium
+	url = https://github.com/jedisct1/libsodium.git
