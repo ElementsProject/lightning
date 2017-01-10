@@ -15,6 +15,7 @@ LIGHTNINGD_OLD_SRC :=				\
 	daemon/json.c				\
 	daemon/jsonrpc.c			\
 	daemon/log.c				\
+	daemon/netaddr.c			\
 	daemon/options.c			\
 	daemon/opt_time.c			\
 	daemon/pseudorand.c			\

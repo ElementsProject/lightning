@@ -32,9 +32,11 @@ static void peer_bad_message(struct subdaemon *gossip, const u8 *msg)
 	if (!peer)
 		fatal("Gossip gave bad peerid %"PRIu64, unique_id);
 
-	log_info(gossip->log, "Peer %s gave bad msg %s",
-		 type_to_string(msg, struct pubkey, peer->id),
-		 tal_hex(msg, msg));
+	log_debug(gossip->log, "Peer %s gave bad msg %s",
+		  type_to_string(msg, struct pubkey, peer->id),
+		  tal_hex(msg, msg));
+	peer_set_condition(peer, "Bad message %s during gossip phase",
+			   gossip_status_wire_type_name(fromwire_peektype(msg)));
 	tal_free(peer);
 }
 
@@ -54,9 +56,11 @@ static void peer_nongossip(struct subdaemon *gossip, const u8 *msg, int fd)
 	if (!peer)
 		fatal("Gossip gave bad peerid %"PRIu64, unique_id);
 
-	log_info(gossip->log, "Peer %s said %s",
-		 type_to_string(msg, struct pubkey, peer->id),
-		 gossip_status_wire_type_name(fromwire_peektype(inner)));
+	log_debug(gossip->log, "Peer %s said %s",
+		  type_to_string(msg, struct pubkey, peer->id),
+		  gossip_status_wire_type_name(fromwire_peektype(inner)));
+	peer_set_condition(peer, "Gossip ended up receipt of %s",
+			 gossip_status_wire_type_name(fromwire_peektype(inner)));
 
 	/* FIXME: create new daemon to handle peer. */
 }
@@ -74,8 +78,8 @@ static void peer_ready(struct subdaemon *gossip, const u8 *msg)
 	if (!peer)
 		fatal("Gossip gave bad peerid %"PRIu64, unique_id);
 
-	log_info_struct(gossip->log, "Peer %s ready for channel open",
-			struct pubkey, peer->id);
+	log_debug_struct(gossip->log, "Peer %s ready for channel open",
+			 struct pubkey, peer->id);
 
 	if (peer->connect_cmd) {
 		struct json_result *response;
@@ -87,6 +91,8 @@ static void peer_ready(struct subdaemon *gossip, const u8 *msg)
 		command_success(peer->connect_cmd, response);
 		peer->connect_cmd = NULL;
 	}
+
+	peer_set_condition(peer, "Exchanging gossip");
 }
 
 static enum subdaemon_status gossip_status(struct subdaemon *gossip,

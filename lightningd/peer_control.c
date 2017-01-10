@@ -24,21 +24,46 @@ static void destroy_peer(struct peer *peer)
 	if (peer->fd >= 0)
 		close(peer->fd);
 	if (peer->connect_cmd)
-		/* FIXME: Better diagnostics */
-		command_fail(peer->connect_cmd, "Connect failed");
+		command_fail(peer->connect_cmd, "Failed after %s",
+			     peer->condition);
 }
 
-static struct peer *new_peer(const tal_t *ctx, struct lightningd *ld, int fd,
+void peer_set_condition(struct peer *peer, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	tal_free(peer->condition);
+	peer->condition = tal_vfmt(peer, fmt, ap);
+	va_end(ap);
+}
+
+static struct peer *new_peer(struct lightningd *ld,
+			     struct io_conn *conn,
+			     const char *in_or_out,
 			     struct command *cmd)
 {
 	static u64 id_counter;
-	struct peer *peer = tal(ctx, struct peer);
+	struct peer *peer = tal(ld, struct peer);
+	const char *netname;
+
 	peer->ld = ld;
 	peer->unique_id = id_counter++;
 	peer->owner = NULL;
 	peer->id = NULL;
-	peer->fd = fd;
+	peer->fd = io_conn_fd(conn);
 	peer->connect_cmd = cmd;
+
+	/* FIXME: Don't assume protocol here! */
+	if (!netaddr_from_fd(peer->fd, SOCK_STREAM, IPPROTO_TCP,
+			     &peer->netaddr)) {
+		log_unusual(ld->log, "Failed to get netaddr for outgoing: %s",
+			    strerror(errno));
+		return tal_free(peer);
+	}
+	netname = netaddr_name(peer, &peer->netaddr);
+	peer->condition = tal_fmt(peer, "%s %s", in_or_out, netname);
+	tal_free(netname);
 	list_add_tail(&ld->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
 	return peer;
@@ -82,6 +107,7 @@ static void handshake_succeeded(struct subdaemon *hs, const u8 *msg,
 
 	peer->owner = peer->ld->gossip;
 	tal_steal(peer->owner, peer);
+	peer_set_condition(peer, "Beginning gossip");
 
 	/* Tell gossip to handle it now. */
 	msg = towire_gossipctl_new_peer(msg, peer->unique_id, cs);
@@ -119,6 +145,7 @@ static void peer_got_hsmfd(struct subdaemon *hsm, const u8 *msg,
 	if (!peer->owner) {
 		log_unusual(peer->ld->log, "Could not subdaemon handshake: %s",
 			    strerror(errno));
+		peer_set_condition(peer, "Failed to subdaemon handshake");
 		goto error;
 	}
 
@@ -126,11 +153,14 @@ static void peer_got_hsmfd(struct subdaemon *hsm, const u8 *msg,
 	 * when it does. */
 	tal_steal(peer->owner, peer);
 
-	if (peer->id)
+	if (peer->id) {
 		req = towire_handshake_initiator_req(peer, &peer->ld->dstate.id,
 						     peer->id);
-	else
+		peer_set_condition(peer, "Starting handshake as initiator");
+	} else {
 		req = towire_handshake_responder_req(peer, &peer->ld->dstate.id);
+		peer_set_condition(peer, "Starting handshake as responder");
+	}
 
 	/* Now hand peer fd to the handshake daemon, it hand back on success */
 	subdaemon_req(peer->owner, take(req),
@@ -148,7 +178,10 @@ error:
 /* FIXME: timeout handshake if taking too long? */
 static struct io_plan *peer_in(struct io_conn *conn, struct lightningd *ld)
 {
-	struct peer *peer = new_peer(ld, ld, io_conn_fd(conn), NULL);
+	struct peer *peer = new_peer(ld, conn, "Incoming from", NULL);
+
+	if (!peer)
+		return io_close(conn);
 
 	/* Get HSM fd for this peer. */
 	subdaemon_req(ld->hsm,
@@ -273,7 +306,10 @@ static struct io_plan *peer_out(struct io_conn *conn,
 				struct json_connecting *jc)
 {
 	struct lightningd *ld = ld_from_dstate(jc->cmd->dstate);
-	struct peer *peer = new_peer(ld, ld, io_conn_fd(conn), jc->cmd);
+	struct peer *peer = new_peer(ld, conn, "Outgoing to", jc->cmd);
+
+	if (!peer)
+		return io_close(conn);
 
 	/* We already know ID we're trying to reach. */
 	peer->id = tal_dup(peer, struct pubkey, &jc->id);
