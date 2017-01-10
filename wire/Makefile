@@ -51,9 +51,14 @@ check-whitespace: $(WIRE_SRC:%=check-whitespace/%) $(WIRE_HEADERS:%=check-whites
 
 clean: wire-clean
 
-wire-all: wire/gen_peer_wire.o wire/gen_onion_wire.o wire/fromwire.o wire/towire.o
+maintainer-clean: wire-maintainer-clean
+
+wire-maintainer-clean:
+	$(RM) wire/gen_*_csv
+
+wire-all: $(WIRE_OBJS) $(WIRE_ONION_OBJS)
 
 wire-clean:
-	$(RM) $(WIRE_OBJS) $(WIRE_GEN_SRC) $(WIRE_GEN_HEADERS) towire.c fromwire.c
+	$(RM) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(WIRE_GEN_SRC) $(WIRE_GEN_HEADERS)
 
 include wire/test/Makefile
