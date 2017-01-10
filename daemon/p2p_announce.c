@@ -473,15 +473,15 @@ static void broadcast_node_announcement(struct lightningd_state *dstate)
 	serialized = towire_node_announcement(tmpctx, &signature,
 					      timestamp,
 					      &dstate->id, rgb_color, alias,
-					      0, NULL,
-					      tal_count(address), address);
+					      NULL,
+					      address);
 	privkey_sign(dstate, serialized + 66, tal_count(serialized) - 66,
 		     &signature);
 	serialized = towire_node_announcement(tmpctx, &signature,
 					      timestamp,
 					      &dstate->id, rgb_color, alias,
-					      0, NULL,
-					      tal_count(address), address);
+					      NULL,
+					      address);
 	broadcast(dstate, WIRE_NODE_ANNOUNCEMENT, serialized, NULL);
 	tal_free(tmpctx);
 }
@@ -541,7 +541,7 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 						 node_id[1],
 						 bitcoin_key[0],
 						 bitcoin_key[1],
-						 0, NULL);
+						 NULL);
 	privkey_sign(dstate, serialized + 128, tal_count(serialized) - 128, my_node_signature);
 
 	serialized = towire_channel_announcement(tmpctx, &node_signature[0],
@@ -553,7 +553,7 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 						 node_id[1],
 						 bitcoin_key[0],
 						 bitcoin_key[1],
-						 0, NULL);
+						 NULL);
 	broadcast(dstate, WIRE_CHANNEL_ANNOUNCEMENT, serialized, NULL);
 	tal_free(tmpctx);
 }

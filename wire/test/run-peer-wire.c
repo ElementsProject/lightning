@@ -65,8 +65,8 @@ static void set_pubkey(struct pubkey *key)
 		(char *)(p2) + upto_field((p1), field),			\
 		sizeof((p1)->field)) == 0)
 
-#define eq_var(p1, p2, lenfield, field)			\
-	(memcmp((p1)->field, (p2)->field, (p1)->lenfield * sizeof(*(p1)->field)) == 0)
+#define eq_var(p1, p2, field)			\
+	(tal_count((p1)->field) == tal_count((p2)->field) && memcmp((p1)->field, (p2)->field, tal_count((p1)->field) * sizeof(*(p1)->field)) == 0)
 
 static inline bool eq_skip_(const void *p1, const void *p2,
 			    size_t off, size_t skip, size_t total)
@@ -81,7 +81,6 @@ static inline bool eq_skip_(const void *p1, const void *p2,
 /* Convenience structs for everyone! */
 struct msg_error {
 	struct channel_id channel_id;
-	u16 len;
 	u8 *data;
 };
 struct msg_closing_signed {
@@ -117,7 +116,6 @@ struct msg_update_fulfill_htlc {
 };
 struct msg_shutdown {
 	struct channel_id channel_id;
-	u16 len;
 	u8 *scriptpubkey;
 };
 struct msg_funding_signed {
@@ -129,7 +127,6 @@ struct msg_revoke_and_ack {
 	struct sha256 per_commitment_secret;
 	struct pubkey next_per_commitment_point;
 	u8 padding[1];
-	u16 num_htlc_timeouts;
 	struct signature *htlc_timeout_signature;
 };
 struct msg_channel_update {
@@ -152,7 +149,6 @@ struct msg_funding_locked {
 struct msg_commit_sig {
 	struct channel_id channel_id;
 	struct signature signature;
-	u16 num_htlcs;
 	struct signature *htlc_signature;
 };
 struct msg_node_announcement {
@@ -161,9 +157,7 @@ struct msg_node_announcement {
 	struct pubkey node_id;
 	u8 rgb_color[3];
 	u8 alias[32];
-	u16 len;
 	u8 *features;
-	u16 alen;
 	u8 *addresses;
 };
 struct msg_open_channel {
@@ -186,7 +180,6 @@ struct msg_open_channel {
 struct msg_update_fail_htlc {
 	struct channel_id channel_id;
 	u64 id;
-	u16 len;
 	u8 *reason;
 };
 struct msg_channel_announcement {
@@ -199,13 +192,10 @@ struct msg_channel_announcement {
 	struct pubkey node_id_2;
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
-	u16 len;
 	u8 *features;
 };
 struct msg_init {
-	u16 gflen;
 	u8 *globalfeatures;
-	u16 lflen;
 	u8 *localfeatures;
 };
 struct msg_update_add_htlc {
@@ -234,7 +224,6 @@ static void *towire_struct_channel_announcement(const tal_t *ctx,
 					   &s->node_id_2,
 					   &s->bitcoin_key_1,
 					   &s->bitcoin_key_2,
-					   s->len,
 					   s->features);
 }
 
@@ -253,7 +242,6 @@ static struct msg_channel_announcement *fromwire_struct_channel_announcement(con
 					  &s->bitcoin_key_2,
 					  &s->features))
 		return tal_free(s);
-	s->len = tal_count(s->features);
 	return s;
 }
 
@@ -352,8 +340,8 @@ static void *towire_struct_node_announcement(const tal_t *ctx,
 					&s->node_id,
 					s->rgb_color,
 					s->alias,
-					s->len, s->features,
-					s->alen, s->addresses);
+					s->features,
+					s->addresses);
 }
 
 static struct msg_node_announcement *fromwire_struct_node_announcement(const tal_t *ctx, const void *p, size_t *plen)
@@ -367,8 +355,6 @@ static struct msg_node_announcement *fromwire_struct_node_announcement(const tal
 				       s->alias,
 					&s->features, &s->addresses))
 		return tal_free(s);
-	s->len = tal_count(s->features);
-	s->alen = tal_count(s->addresses);
 	return s;
 }
 
@@ -434,7 +420,6 @@ static void *towire_struct_update_fail_htlc(const tal_t *ctx,
 	return towire_update_fail_htlc(ctx, 
 				       &s->channel_id,
 				       s->id,
-				       s->len,
 				       s->reason);
 }
 
@@ -447,7 +432,6 @@ static struct msg_update_fail_htlc *fromwire_struct_update_fail_htlc(const tal_t
 				      &s->id,
 				      &s->reason))
 		return tal_free(s);
-	s->len = tal_count(s->reason);
 	return s;
 
 }
@@ -479,7 +463,6 @@ static void *towire_struct_commit_sig(const tal_t *ctx,
 	return towire_commit_sig(ctx, 
 				 &s->channel_id,
 				 &s->signature,
-				 s->num_htlcs,
 				 s->htlc_signature);
 }
 
@@ -492,7 +475,6 @@ static struct msg_commit_sig *fromwire_struct_commit_sig(const tal_t *ctx, const
 				&s->signature,
 				&s->htlc_signature))
 		return tal_free(s);
-	s->num_htlcs = tal_count(s->htlc_signature);
 	return s;
 }
 
@@ -504,7 +486,6 @@ static void *towire_struct_revoke_and_ack(const tal_t *ctx,
 				     &s->channel_id,
 				     &s->per_commitment_secret,
 				     &s->next_per_commitment_point,
-				     s->num_htlc_timeouts,
 				     s->htlc_timeout_signature);
 }
 
@@ -519,7 +500,6 @@ static struct msg_revoke_and_ack *fromwire_struct_revoke_and_ack(const tal_t *ct
 				    &s->next_per_commitment_point,
 				    &s->htlc_timeout_signature))
 		return tal_free(s);
-	s->num_htlc_timeouts = tal_count(s->htlc_timeout_signature);
 	return s;
 	
 }
@@ -569,7 +549,6 @@ static void *towire_struct_shutdown(const tal_t *ctx,
 {
 	return towire_shutdown(ctx, 
 			       &s->channel_id,
-			       s->len,
 			       s->scriptpubkey);
 }
 
@@ -581,7 +560,6 @@ static struct msg_shutdown *fromwire_struct_shutdown(const tal_t *ctx, const voi
 			      &s->channel_id,
 			      &s->scriptpubkey))
 		return tal_free(s);
-	s->len = tal_count(s->scriptpubkey);
 	return s;
 }
 
@@ -613,7 +591,6 @@ static void *towire_struct_error(const tal_t *ctx,
 {
 	return towire_error(ctx, 
 			    &s->channel_id,
-			    s->len,
 			    s->data);
 }
 
@@ -625,7 +602,6 @@ static struct msg_error *fromwire_struct_error(const tal_t *ctx, const void *p, 
 			   &s->channel_id,
 			    &s->data))
 		return tal_free(s);
-	s->len = tal_count(s->data);
 	return s;
 }
 
@@ -680,9 +656,7 @@ static void *towire_struct_init(const tal_t *ctx,
 					  const struct msg_init *s)
 {
 	return towire_init(ctx,
-			   s->gflen,
 			   s->globalfeatures,
-			   s->lflen,
 			   s->localfeatures);
 }
 
@@ -695,16 +669,14 @@ static struct msg_init *fromwire_struct_init(const tal_t *ctx, const void *p, si
 			  &s->localfeatures))
 		return tal_free(s);
 
-	s->gflen = tal_count(s->globalfeatures);
-	s->lflen = tal_count(s->localfeatures);
 	return s;
 }
 
 static bool channel_announcement_eq(const struct msg_channel_announcement *a,
 				    const struct msg_channel_announcement *b)
 {
-	return eq_upto(a, b, len)
-		&& eq_var(a, b, len, features);
+	return eq_upto(a, b, features)
+		&& eq_var(a, b, features);
 }
 
 static bool funding_locked_eq(const struct msg_funding_locked *a,
@@ -717,14 +689,14 @@ static bool update_fail_htlc_eq(const struct msg_update_fail_htlc *a,
 				const struct msg_update_fail_htlc *b)
 {
 	return eq_with(a, b, id)
-		&& eq_var(a, b, len, reason);
+		&& eq_var(a, b, reason);
 }
 
 static bool commit_sig_eq(const struct msg_commit_sig *a,
 			  const struct msg_commit_sig *b)
 {
-	return eq_with(a, b, num_htlcs)
-		&& eq_var(a, b, num_htlcs, htlc_signature);
+	return eq_upto(a, b, htlc_signature)
+		&& eq_var(a, b, htlc_signature);
 }
 
 static bool funding_signed_eq(const struct msg_funding_signed *a,
@@ -748,17 +720,15 @@ static bool update_fulfill_htlc_eq(const struct msg_update_fulfill_htlc *a,
 static bool error_eq(const struct msg_error *a,
 		     const struct msg_error *b)
 {
-	return eq_with(a, b, len)
-		&& eq_var(a, b, len, data);
+	return eq_upto(a, b, data)
+		&& eq_var(a, b, data);
 }
 
 static bool init_eq(const struct msg_init *a,
 		    const struct msg_init *b)
 {
-	return eq_field(a, b, gflen)
-		&& eq_var(a, b, gflen, globalfeatures)
-		&& eq_field(a, b, lflen)
-		&& eq_var(a, b, lflen, localfeatures);
+	return eq_var(a, b, globalfeatures)
+		&& eq_var(a, b, localfeatures);
 }
 
 static bool update_fee_eq(const struct msg_update_fee *a,
@@ -770,8 +740,8 @@ static bool update_fee_eq(const struct msg_update_fee *a,
 static bool shutdown_eq(const struct msg_shutdown *a,
 			const struct msg_shutdown *b)
 {
-	return eq_with(a, b, len)
-		&& eq_var(a, b, len, scriptpubkey);
+	return eq_upto(a, b, scriptpubkey)
+		&& eq_var(a, b, scriptpubkey);
 }
 
 static bool funding_created_eq(const struct msg_funding_created *a,
@@ -785,8 +755,7 @@ static bool revoke_and_ack_eq(const struct msg_revoke_and_ack *a,
 			      const struct msg_revoke_and_ack *b)
 {
 	return eq_with(a, b, padding)
-		&& eq_field(a, b, num_htlc_timeouts)
-		&& eq_var(a, b, num_htlc_timeouts, htlc_timeout_signature);
+		&& eq_var(a, b, htlc_timeout_signature);
 }
 
 static bool open_channel_eq(const struct msg_open_channel *a,
@@ -819,8 +788,8 @@ static bool node_announcement_eq(const struct msg_node_announcement *a,
 				 const struct msg_node_announcement *b)
 {
 	return eq_with(a, b, alias)
-		&& eq_var(a, b, len, features)
-		&& eq_var(a, b, alen, addresses);
+		&& eq_var(a, b, features)
+		&& eq_var(a, b, addresses);
 }
 
 /* Try flipping each bit, try running short. */
@@ -870,7 +839,6 @@ int main(void)
 	set_pubkey(&ca.node_id_2);
 	set_pubkey(&ca.bitcoin_key_1);
 	set_pubkey(&ca.bitcoin_key_2);
- 	ca.len = 2;
  	ca.features = tal_arr(ctx, u8, 2);
  	memset(ca.features, 2, 2);
 	
@@ -892,7 +860,6 @@ int main(void)
 	test_corruption(&fl, fl2, funding_locked);
 	
 	memset(&ufh, 2, sizeof(ufh));
- 	ufh.len = 2;
  	ufh.reason = tal_arr(ctx, u8, 2);
  	memset(ufh.reason, 2, 2);
 	
@@ -904,7 +871,6 @@ int main(void)
 	test_corruption(&ufh, ufh2, update_fail_htlc);
 
 	memset(&cs, 2, sizeof(cs));
-	cs.num_htlcs = 2;
 	cs.htlc_signature = tal_arr(ctx, struct signature, 2);
 	memset(cs.htlc_signature, 2, sizeof(struct signature)*2);
 	
@@ -943,7 +909,6 @@ int main(void)
 	test_corruption(&uflh, uflh2, update_fulfill_htlc);
 
 	memset(&e, 2, sizeof(e));
-	e.len = 2;
 	e.data = tal_arr(ctx, u8, 2);
 	memset(e.data, 2, 2);
 	
@@ -955,10 +920,8 @@ int main(void)
 	test_corruption(&e, e2, error);
 
 	memset(&init, 2, sizeof(init));
-	init.gflen = 2;
 	init.globalfeatures = tal_arr(ctx, u8, 2);
 	memset(init.globalfeatures, 2, 2);
-	init.lflen = 2;
 	init.localfeatures = tal_arr(ctx, u8, 2);
 	memset(init.localfeatures, 2, 2);
 
@@ -979,7 +942,6 @@ int main(void)
 	test_corruption(&uf, uf2, update_fee);
 
 	memset(&shutdown, 2, sizeof(shutdown));
-	shutdown.len = 2;
 	shutdown.scriptpubkey = tal_arr(ctx, u8, 2);
 	memset(shutdown.scriptpubkey, 2, 2);
 	
@@ -1001,7 +963,6 @@ int main(void)
 
 	memset(&raa, 2, sizeof(raa));
 	set_pubkey(&raa.next_per_commitment_point);
-	raa.num_htlc_timeouts = 2;
 	raa.htlc_timeout_signature = tal_arr(ctx, struct signature, 2);
 	memset(raa.htlc_timeout_signature, 2, sizeof(struct signature) * 2);
 	
@@ -1060,10 +1021,8 @@ int main(void)
 
 	memset(&na, 2, sizeof(na));
 	set_pubkey(&na.node_id);
-	na.len = 2;
 	na.features = tal_arr(ctx, u8, 2);
 	memset(na.features, 2, 2);
-	na.alen = 2;
 	na.addresses = tal_arr(ctx, u8, 2);
 	memset(na.addresses, 2, 2);
 

@@ -174,6 +174,7 @@ class Message(object):
                     raise ValueError('Field {} has non-simple length variable {}'
                                      .format(field.name, field.lenvar))
                 f.is_len_var = True;
+                f.lenvar_for = field
                 return
         raise ValueError('Field {} unknown length variable {}'
                          .format(field.name, field.lenvar))
@@ -277,7 +278,7 @@ class Message(object):
               .format(self.name), end='')
 
         for f in self.fields:
-            if f.is_padding():
+            if f.is_padding() or f.is_len_var:
                 continue
             if f.is_array():
                 print(', const {} {}[{}]'.format(f.fieldtype.name, f.name, f.num_elems), end='')
@@ -291,8 +292,13 @@ class Message(object):
             return
 
         print(')\n'
-              '{{\n'
-              '\tu8 *p = tal_arr(ctx, u8, 0);\n'
+              '{\n')
+        for f in self.fields:
+            if f.is_len_var:
+                print('\t{0} {1} = {2} ? tal_count({2}) : 0;'
+                      .format(f.fieldtype.name, f.name, f.lenvar_for.name));
+
+        print('\tu8 *p = tal_arr(ctx, u8, 0);\n'
               ''
               '\ttowire_u16(&p, {});'.format(self.enum.name))
 
