@@ -345,6 +345,7 @@ else:
     print('#include <{}>\n'
           '#include <ccan/mem/mem.h>\n'
           '#include <ccan/tal/str/str.h>\n'
+          '#include <stdio.h>\n'
           ''.format(options.headerfilename))
 
 # Maps message names to messages
@@ -403,11 +404,15 @@ if options.header:
 else:
     print('const char *{}_name(int e)'.format(options.enumname))
     print('{{\n'
+          '\tstatic char invalidbuf[sizeof("INVALID ") + STR_MAX_CHARS(e)];\n'
+          '\n'
           '\tswitch ((enum {})e) {{'.format(options.enumname));
     for m in messages:
         print('\tcase {0}: return "{0}";'.format(m.enum.name))
     print('\t}\n'
-          '\treturn tal_fmt(NULL, "**INVALID** %i", e);\n'
+          '\n'
+          '\tsprintf(invalidbuf, "INVALID %i", e);\n'
+          '\treturn invalidbuf;\n'
           '}\n'
           '')
 
