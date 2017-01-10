@@ -4,7 +4,7 @@
 lightningd-wrongdir:
 	$(MAKE) -C .. lightningd-all
 
-lightningd-all: lightningd/lightningd lightningd/lightningd_hsm lightningd/lightningd_handshake
+lightningd-all: lightningd/lightningd lightningd/lightningd_hsm lightningd/lightningd_handshake lightningd/lightningd_gossip
 
 default: lightningd-all
 
@@ -51,6 +51,7 @@ $(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_JS
 
 include lightningd/hsm/Makefile
 include lightningd/handshake/Makefile
+include lightningd/gossip/Makefile
 
 check-source: $(LIGHTNINGD_SRC:%=check-src-include-order/%)
 check-source: $(LIGHTNINGD_LIB_SRC:%=check-src-include-order/%)

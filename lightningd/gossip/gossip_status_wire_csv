@@ -1,0 +1,33 @@
+#include <lightningd/cryptomsg.h>
+
+# These are fatal.
+gossipstatus_init_failed,0x8000
+gossipstatus_bad_new_peer_request,0x8001
+gossipstatus_bad_release_request,0x8002
+gossipstatus_bad_request,0x8003
+gossipstatus_fdpass_failed,0x8004
+
+# Peers can give a bad message, we close their fd, but no harm done.
+gossipstatus_peer_bad_msg,100
+gossipstatus_peer_bad_msg,0,unique_id,8
+gossipstatus_peer_bad_msg,8,len,2
+gossipstatus_peer_bad_msg,10,err,len,u8
+
+# This is where we save a peer's features.
+#gossipstatus_peer_features,1
+#gossipstatus_peer_features,0,unique_id,8
+#gossipstatus_peer_features,8,gflen,2
+#gossipstatus_peer_features,10,globalfeatures,gflen
+#gossipstatus_peer_features,10+gflen,lflen,2
+#gossipstatus_peer_features,12+gflen,localfeatures,lflen
+
+# Peer init handshake complete (now you can release_peer if you want)
+gossipstatus_peer_ready,2
+gossipstatus_peer_ready,0,unique_id,8
+
+# Peer can send non-gossip packet (usually an open_channel) (followed by fd)
+gossipstatus_peer_nongossip,3
+gossipstatus_peer_nongossip,0,unique_id,8
+gossipstatus_peer_nongossip,10,crypto_state,144,struct crypto_state
+gossipstatus_peer_nongossip,154,len,2
+gossipstatus_peer_nongossip,156,msg,len,u8
