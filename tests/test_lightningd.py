@@ -1,6 +1,7 @@
 from binascii import hexlify, unhexlify
 from hashlib import sha256
 from utils import BitcoinD, LightningD, LightningRpc, LightningNode
+from concurrent import futures
 
 import logging
 import os
@@ -92,6 +93,12 @@ def l5(request, bitcoind):
     yield l
     l.daemon.stop()
 
+@pytest.fixture(scope="function")
+def executor():
+    ex = futures.ThreadPoolExecutor(max_workers=5)
+    yield ex
+    ex.shutdown(wait=False)
+    
 def test_connect(bitcoind, l1, l2):
     l1.connect(l2, 0.01)
 
@@ -143,12 +150,14 @@ def test_routing_gossip(l1, l2, l3, l4, l5):
     while time.time() - start_time < len(nodes) * 30:
         if sum([c['active'] for c in l1.rpc.getchannels()]) == 2*(len(nodes)-1):
             break
-        time.sleep(0.5)
+        time.sleep(1)
+        l1.bitcoin.rpc.getinfo()
 
     while time.time() - start_time < len(nodes) * 30:
         if sum([c['active'] for c in l5.rpc.getchannels()]) == 2*(len(nodes)-1):
             break
-        time.sleep(0.5)
+        time.sleep(1)
+        l1.bitcoin.rpc.getinfo()
 
     # Quick check that things are reasonable
     assert sum([len(l.rpc.getchannels()) for l in nodes]) == 5*2*(len(nodes) - 1)
@@ -165,3 +174,41 @@ def test_routing_gossip(l1, l2, l3, l4, l5):
             seen.append((c['from'],c['to']))
         assert set(seen) == set(comb)
 
+def test_awaitpayment(bitcoind, executor, l1, l2):
+    l1.connect(l2, 0.01)
+
+    label = "awaitpayment-test"
+    amount = 1000
+
+    try:
+        l2.rpc.awaitpayment(label)
+        pytest.fail("`awaitpayment` succeeds on unknown invoice.")
+    except ValueError as ve:
+        # This is expected, the label does not exist
+        pass
+    
+    invoice = l2.rpc.invoice(amount, label)
+    
+    try:
+        f = executor.submit(l2.rpc.awaitpayment, label)
+        f.result(timeout=1)
+    except ValueError as exc:
+        # Should not happen, we registered the invoice...
+        pytest.fail("Failing `awaitpayment` despite previous `invoice` call.")
+    except Exception as exc:
+        # This is ok, it's just the timeout triggering
+        pass
+    else:
+        pytest.fail("`awaitpayment` succeeded despite not paying the invoice.")
+
+    route = l1.rpc.getroute(l2.info['id'], amount, 1)
+    receipt = l1.rpc.sendpay(route, invoice['rhash'])
+
+    # Now the future should return
+    payment = f.result(timeout=1)
+    assert payment['rhash'] == invoice['rhash']
+    assert payment['msatoshi'] == amount
+
+    # And checking again should return immediately
+    payment2 = executor.submit(l2.rpc.awaitpayment, label).result(timeout=1)
+    assert payment == payment2
