@@ -4,7 +4,7 @@
 lightningd-wrongdir:
 	$(MAKE) -C .. lightningd-all
 
-lightningd-all: lightningd/lightningd lightningd/lightningd_hsm
+lightningd-all: lightningd/lightningd lightningd/lightningd_hsm lightningd/lightningd_handshake
 
 default: lightningd-all
 
@@ -46,6 +46,7 @@ LIGHTNINGD_HEADERS :=				\
 $(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_JSMN_HEADERS) $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS) $(CCAN_HEADERS) $(DAEMON_HEADERS) $(LIGHTNINGD_HSM_CONTROL_HEADERS) $(LIBBASE58_HEADERS)
 
 include lightningd/hsm/Makefile
+include lightningd/handshake/Makefile
 
 check-source: $(LIGHTNINGD_SRC:%=check-src-include-order/%)
 check-source: $(LIGHTNINGD_LIB_SRC:%=check-src-include-order/%)
