@@ -19,6 +19,9 @@
 struct peer {
 	struct lightningd *ld;
 
+	/* Unique ID (works before we know their pubkey) */
+	u64 unique_id;
+
 	/* Inside ld->peers. */
 	struct list_node list;
 
@@ -44,14 +47,26 @@ static void destroy_peer(struct peer *peer)
 
 static struct peer *new_peer(const tal_t *ctx, struct lightningd *ld, int fd)
 {
+	static u64 id_counter;
 	struct peer *peer = tal(ctx, struct peer);
 	peer->ld = ld;
+	peer->unique_id = id_counter++;
 	peer->owner = NULL;
 	peer->id = NULL;
 	peer->fd = fd;
 	list_add_tail(&ld->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
 	return peer;
+}
+
+struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id)
+{
+	struct peer *p;
+
+	list_for_each(&ld->peers, p, list)
+		if (p->unique_id == unique_id)
+			return p;
+	return NULL;
 }
 
 static void handshake_succeeded(struct subdaemon *hs, const u8 *msg,
@@ -145,8 +160,8 @@ static struct io_plan *peer_in(struct io_conn *conn, struct lightningd *ld)
 	struct peer *peer = new_peer(ld, ld, io_conn_fd(conn));
 
 	/* Get HSM fd for this peer. */
-	/* FIXME: We use pointer as ID. */
-	subdaemon_req(ld->hsm, take(towire_hsmctl_hsmfd_ecdh(ld, (u64)peer)),
+	subdaemon_req(ld->hsm,
+		      take(towire_hsmctl_hsmfd_ecdh(ld, peer->unique_id)),
 		      -1, &peer->hsmfd, peer_got_hsmfd, peer);
 
 	/* We don't need conn, we'll pass fd to handshaked. */
@@ -273,8 +288,8 @@ static struct io_plan *peer_out(struct io_conn *conn,
 	peer->id = tal_dup(peer, struct pubkey, &jc->id);
 
 	/* Get HSM fd for this peer. */
-	/* FIXME: We use pointer as ID. */
-	subdaemon_req(ld->hsm, take(towire_hsmctl_hsmfd_ecdh(ld, (u64)peer)),
+	subdaemon_req(ld->hsm,
+		      take(towire_hsmctl_hsmfd_ecdh(ld, peer->unique_id)),
 		      -1, &peer->hsmfd, peer_got_hsmfd, peer);
 
 	/* We don't need conn, we'll pass fd to handshaked. */
