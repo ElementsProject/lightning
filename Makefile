@@ -193,6 +193,8 @@ CORE_HEADERS := irc.h				\
 GEN_HEADERS := 	gen_version.h			\
 	lightning.pb-c.h
 
+LIBSODIUM_HEADERS := libsodium/src/libsodium/include/sodium.h
+
 CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
 WIRE_GEN := tools/generate-wire.py
@@ -209,9 +211,9 @@ PROGRAMS := $(TEST_PROGRAMS)
 
 CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition
 CDEBUGFLAGS := -g -fstack-protector
-CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) -I secp256k1/include/ -I . $(FEATURES) $(COVFLAGS)
+CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) -I secp256k1/include/ -I libsodium/src/libsodium/include/ -I . $(FEATURES) $(COVFLAGS)
 
-LDLIBS := -lprotobuf-c -lgmp -lsodium -lsqlite3 $(COVFLAGS)
+LDLIBS := -lprotobuf-c -lgmp -lsqlite3 $(COVFLAGS)
 $(PROGRAMS): CFLAGS+=-I.
 
 default: $(PROGRAMS) $(MANPAGES) daemon-all
@@ -230,7 +232,7 @@ $(MANPAGES): doc/%: doc/%.txt
 $(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
 
 # Except for CCAN, everything depends on bitcoin/ and core headers.
-$(HELPER_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(CORE_PROTOBUF_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS) $(LIBBASE58_HEADERS)
+$(HELPER_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(CORE_PROTOBUF_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS) $(LIBBASE58_HEADERS) $(LIBSODIUM_HEADERS)
 
 test-protocol: test/test_protocol
 	set -e; TMP=`mktemp`; for f in test/commits/*.script; do if ! $(VALGRIND) test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
@@ -308,10 +310,21 @@ secp256k1/libsecp256k1.la:
 	cd secp256k1 && ./autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-shared=no --enable-tests=no --enable-experimental=yes --enable-module-ecdh=yes --libdir=`pwd`/..
 	$(MAKE) -C secp256k1 install-exec
 
+# We build libsodium, since Ubuntu xenial has one too old.
+libsodium.a: libsodium/src/libsodium/libsodium.la
+
+libsodium/src/libsodium/include/sodium.h:
+	git submodule update libsodium
+	[ -f $@ ] || git submodule update --init libsodium
+
+libsodium/src/libsodium/libsodium.la: libsodium/src/libsodium/include/sodium.h
+	cd libsodium && ./autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-shared=no --enable-tests=no --libdir=`pwd`/..
+	$(MAKE) -C libsodium install-exec
+
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	@if $(CHANGED_FROM_GIT); then echo $(PROTOCC) lightning.proto --c_out=.; $(PROTOCC) lightning.proto --c_out=.; else touch $@; fi
 
-$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) utils.o version.o libsecp256k1.a
+$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) utils.o version.o libsecp256k1.a libsodium.a
 
 ccan/config.h: ccan/tools/configurator/configurator
 	if $< > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
@@ -366,6 +379,7 @@ update-secp256k1:
 distclean: clean
 	$(MAKE) -C secp256k1/ distclean || true
 	$(RM) libsecp256k1.a secp256k1/libsecp256k1.la
+	$(RM) libsodium.a libsodium/libsodium.la
 
 maintainer-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'
@@ -377,6 +391,7 @@ maintainer-clean: distclean
 clean: daemon-clean wire-clean
 	$(MAKE) -C secp256k1/ clean || true
 	$(RM) libsecp256k1.{a,la}
+	$(RM) libsodium.{a,la}
 	$(RM) $(PROGRAMS)
 	$(RM) bitcoin/*.o *.o $(PROGRAMS:=.o) $(CCAN_OBJS)
 	$(RM) ccan/config.h gen_*.h

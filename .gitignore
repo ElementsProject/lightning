@@ -9,6 +9,8 @@ ccan/tools/configurator/configurator
 ccan/ccan/cdump/tools/cdump-enumstr
 libsecp256k1.a
 libsecp256k1.la
+libsodium.a
+libsodium.la
 gen_*
 daemon/lightning-cli
 check-bolt

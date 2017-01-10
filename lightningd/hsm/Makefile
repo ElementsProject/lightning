@@ -37,7 +37,7 @@ $(LIGHTNINGD_HSM_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS): $(CCAN_HEADERS) $(CORE_HEA
 
 lightningd/hsm-all: lightningd/lightningd_hsm $(LIGHTNINGD_HSM_CLIENT_OBJS)
 
-lightningd/lightningd_hsm: $(LIGHTNINGD_HSM_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a
+lightningd/lightningd_hsm: $(LIGHTNINGD_HSM_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 lightningd/hsm/gen_hsm_client_wire.h: $(WIRE_GEN) lightningd/hsm/hsm_client_wire_csv
