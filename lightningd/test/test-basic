@@ -1,0 +1,22 @@
+#! /bin/sh -e
+
+# Wherever we are, we want to be in daemon/test dir.
+cd `git rev-parse --show-toplevel`/daemon/test
+
+. scripts/vars.sh
+. scripts/helpers.sh
+
+parse_cmdline 2 "$@"
+setup_lightning 2
+
+start_lightningd 2 lightningd/lightningd
+
+# FIXME: Try to connect.
+# lcli1 connect localhost $PORT2 $ID2
+
+# FIXME: Check status.
+
+lcli1 stop
+lcli2 stop
+
+all_ok
