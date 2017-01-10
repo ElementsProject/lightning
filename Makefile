@@ -244,8 +244,8 @@ protocol-diagrams: $(patsubst %.script, doc/protocol-%.svg, $(notdir $(wildcard 
 
 check: test-protocol
 
-test: daemon/lightningd
-	PYTHONPATH=contrib/pylightning pytest
+pytest: daemon/lightningd
+	PYTHONPATH=contrib/pylightning python3 tests/ut.py
 
 # Keep includes in alpha order.
 check-src-include-order/%: %
@@ -291,7 +291,7 @@ check-source: check-makefile check-source-bolt check-whitespace	\
 
 full-check: check $(TEST_PROGRAMS) check-source
 
-coverage/coverage.info: check $(TEST_PROGRAMS)
+coverage/coverage.info: check $(TEST_PROGRAMS) pytest
 	mkdir coverage || true
 	lcov --capture --directory . --output-file coverage/coverage.info
 
