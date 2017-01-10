@@ -350,3 +350,52 @@ static const struct json_command waitinvoice_command = {
 	"Returns {label}, {rhash} and {msatoshi} on success. "
 };
 AUTODATA(json_command, &waitinvoice_command);
+
+
+/* Wait for an incoming payment matching the `label` in the JSON
+ * command.  This will either return immediately if the payment has
+ * already been received or it may add the `cmd` to the list of
+ * waiters, if the payment is still pending.
+ */
+static void json_awaitpayment(struct command *cmd,
+			      const char *buffer, const jsmntok_t *params)
+{
+	struct invoice *i;
+	jsmntok_t *labeltok;
+	const char *label = NULL;
+	struct invoice_waiter *w;
+	struct invoices *invs = cmd->dstate->invoices;
+
+	if (!json_get_params(buffer, params, "label", &labeltok, NULL)) {
+		command_fail(cmd, "Missing {label}");
+		return;
+	}
+
+	/* Search in paid invoices, if found return immediately */
+	label = tal_strndup(cmd, buffer + labeltok->start, labeltok->end - labeltok->start);
+	i = find_invoice_by_label(&invs->paid, label);
+	if (i) {
+		tell_waiter(cmd, i);
+		return;
+	}
+
+	/* No luck in paid ones? Now try the unpaid ones. */
+	i = find_invoice_by_label(&invs->unpaid, label);
+	if (!i) {
+		command_fail(cmd, "Label not found");
+		return;
+	}
+
+	/* There is an unpaid one matching, let's wait... */
+	w = tal(cmd, struct invoice_waiter);
+	w->cmd = cmd;
+	list_add_tail(&invs->invoice_waiters, &w->list);
+}
+
+static const struct json_command awaitpayment_command = {
+	"awaitpayment",
+	json_awaitpayment,
+	"Wait for an incoming payment matching the invoice with {label}",
+	"Returns {label}, {rhash} and {msatoshi} on success"
+};
+AUTODATA(json_command, &awaitpayment_command);
