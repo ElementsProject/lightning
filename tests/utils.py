@@ -36,6 +36,7 @@ class TailableProc(object):
         self.logs = []
         self.logs_cond = threading.Condition(threading.Lock())
         self.thread = threading.Thread(target=self.tail)
+        self.thread.daemon = True
         self.cmd_line = None
         self.running = False
         self.proc = None
@@ -56,7 +57,7 @@ class TailableProc(object):
                 break
             with self.logs_cond:
                 self.logs.append(str(line.rstrip()))
-                logging.debug("%s: '%s'", self.prefix, line.rstrip())
+                logging.debug("%s: %s", self.prefix, line.decode().rstrip())
                 self.logs_cond.notifyAll()
         self.running = False
     
@@ -64,6 +65,7 @@ class TailableProc(object):
         """ Look for `regex` in the logs.
         """
         logging.debug("Waiting for '%s' in the logs", regex)
+        ex = re.compile(regex)
         start_time = time.time()
         pos = max(len(self.logs) - offset, 0)
         while True:
@@ -78,7 +80,7 @@ class TailableProc(object):
                     self.logs_cond.wait(1)
                     continue
 
-                if re.search(regex, self.logs[pos]):
+                if ex.search(self.logs[pos]):
                     logging.debug("Found '%s' in logs", regex)
                     return self.logs[pos]
                 pos += 1
@@ -103,13 +105,13 @@ class BitcoinD(TailableProc):
             '-server',
             '-regtest',
             '-debug',
+            '-logtimestamps',
             '-nolisten',
         ]
         BITCOIND_CONFIG['rpcport'] = rpcport
         write_config(os.path.join(bitcoin_dir, 'bitcoin.conf'), BITCOIND_CONFIG)
         write_config(os.path.join(regtestdir, 'bitcoin.conf'), BITCOIND_CONFIG)
-        
-        self.rpc = AuthServiceProxy("http://rpcuser:rpcpass@127.0.0.1:{}".format(rpcport))
+        self.rpc = AuthServiceProxy("http://rpcuser:rpcpass@127.0.0.1:{}".format(self.rpcport))
 
     def start(self):
         TailableProc.start(self)
