@@ -28,7 +28,7 @@ LIGHTNINGD_HANDSHAKE_SRC_NOGEN := $(filter-out lightningd/handshake/gen_%, $(LIG
 # Add to headers which any object might need.
 LIGHTNINGD_HEADERS += $(LIGHTNINGD_HANDSHAKE_HEADERS)
 
-$(LIGHTNINGD_HANDSHAKE_OBJS): $(CCAN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS) $(WIRE_HEADERS) $(BITCOIN_HEADERS) $(LIGHTNINGD_HANDSHAKE_HEADERS) $(LIGHTNINGD_HSM_CLIENT_HEADERS) $(LIBBASE58_HEADERS) $(LIGHTNINGD_HEADERS) $(LIBSODIUM_HEADERS)
+$(LIGHTNINGD_HANDSHAKE_OBJS): $(LIGHTNINGD_HEADERS)
 
 lightningd/handshake/gen_handshake_control_wire.h: $(WIRE_GEN) lightningd/handshake/handshake_control_wire_csv
 	$(WIRE_GEN) --header $@ handshake_control_wire_type < lightningd/handshake/handshake_control_wire_csv > $@
