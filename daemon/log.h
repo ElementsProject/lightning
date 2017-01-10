@@ -23,7 +23,7 @@ enum log_level {
 };
 
 /* We have a single record. */
-struct log_record *new_log_record(struct lightningd_state *dstate,
+struct log_record *new_log_record(const tal_t *ctx,
 				  size_t max_mem,
 				  enum log_level printlevel);
 

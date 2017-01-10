@@ -29,7 +29,6 @@ struct log_entry {
 struct log_record {
 	size_t mem_used;
 	size_t max_mem;
-	struct lightningd_state *dstate;
 	void (*print)(const char *prefix,
 		      enum log_level level,
 		      bool continued,
@@ -93,17 +92,16 @@ static size_t prune_log(struct log_record *log)
 	return deleted;
 }
 
-struct log_record *new_log_record(struct lightningd_state *dstate,
+struct log_record *new_log_record(const tal_t *ctx,
 				  size_t max_mem,
 				  enum log_level printlevel)
 {
-	struct log_record *lr = tal(dstate, struct log_record);
+	struct log_record *lr = tal(ctx, struct log_record);
 
 	/* Give a reasonable size for memory limit! */
 	assert(max_mem > sizeof(struct log) * 2);
 	lr->mem_used = 0;
 	lr->max_mem = max_mem;
-	lr->dstate = dstate;
 	lr->print = log_default_print;
 	lr->print_level = printlevel;
 	lr->init_time = time_now();
