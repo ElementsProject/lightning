@@ -2969,7 +2969,7 @@ static struct io_plan *peer_connected_out(struct io_conn *conn,
 	struct log *l;
 	struct netaddr addr;
 
-	l = new_log(conn, dstate->log_record, "OUT-%s:%s:",
+	l = new_log(conn, dstate->log_book, "OUT-%s:%s:",
 		    connect->name, connect->port);
 
 	if (!netaddr_from_fd(io_conn_fd(conn), SOCK_STREAM, IPPROTO_TCP, &addr)) {
@@ -3029,7 +3029,7 @@ static struct io_plan *peer_connected_in(struct io_conn *conn,
 	if (!netaddr_from_fd(io_conn_fd(conn), SOCK_STREAM, IPPROTO_TCP, &addr))
 		return false;
 	name = netaddr_name(conn, &addr);
-	l = new_log(conn, dstate->log_record, "IN-%s:", name);
+	l = new_log(conn, dstate->log_book, "IN-%s:", name);
 
 	log_debug(l, "Connected in");
 

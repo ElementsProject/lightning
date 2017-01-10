@@ -966,7 +966,7 @@ static void db_load_peers(struct lightningd_state *dstate)
 			      sqlite3_column_str(stmt, 1));
 		pubkey_from_sql(stmt, 0, &id);
 		idstr = pubkey_to_hexstr(dstate, &id);
-		l = new_log(dstate, dstate->log_record, "%s:", idstr);
+		l = new_log(dstate, dstate->log_book, "%s:", idstr);
 		tal_free(idstr);
 		peer = new_peer(dstate, l, state, sqlite3_column_int(stmt, 2));
 		peer->htlc_id_counter = 0;

@@ -26,7 +26,7 @@ struct log_entry {
 	char *log;
 };
 
-struct log_record {
+struct log_book {
 	size_t mem_used;
 	size_t max_mem;
 	void (*print)(const char *prefix,
@@ -41,7 +41,7 @@ struct log_record {
 };
 
 struct log {
-	struct log_record *lr;
+	struct log_book *lr;
 	const char *prefix;
 };
 
@@ -65,7 +65,7 @@ static size_t log_bufsize(const struct log_entry *e)
 		return strlen(e->log) + 1;
 }
 
-static size_t prune_log(struct log_record *log)
+static size_t prune_log(struct log_book *log)
 {
 	struct log_entry *i, *next, *tail;
 	size_t skipped = 0, deleted = 0;
@@ -92,11 +92,11 @@ static size_t prune_log(struct log_record *log)
 	return deleted;
 }
 
-struct log_record *new_log_record(const tal_t *ctx,
-				  size_t max_mem,
-				  enum log_level printlevel)
+struct log_book *new_log_book(const tal_t *ctx,
+			      size_t max_mem,
+			      enum log_level printlevel)
 {
-	struct log_record *lr = tal(ctx, struct log_record);
+	struct log_book *lr = tal(ctx, struct log_book);
 
 	/* Give a reasonable size for memory limit! */
 	assert(max_mem > sizeof(struct log) * 2);
@@ -112,7 +112,7 @@ struct log_record *new_log_record(const tal_t *ctx,
 
 /* With different entry points */
 struct log *PRINTF_FMT(3,4)
-new_log(const tal_t *ctx, struct log_record *record, const char *fmt, ...)
+new_log(const tal_t *ctx, struct log_book *record, const char *fmt, ...)
 {
 	struct log *log = tal(ctx, struct log);
 	va_list ap;
@@ -126,7 +126,7 @@ new_log(const tal_t *ctx, struct log_record *record, const char *fmt, ...)
 	return log;
 }
 
-void set_log_level(struct log_record *lr, enum log_level level)
+void set_log_level(struct log_book *lr, enum log_level level)
 {
 	lr->print_level = level;
 }
@@ -137,7 +137,7 @@ void set_log_prefix(struct log *log, const char *prefix)
 	log->prefix = tal_strdup(log->lr, prefix);
 }
 
-void set_log_outfn_(struct log_record *lr,
+void set_log_outfn_(struct log_book *lr,
 		    void (*print)(const char *prefix,
 				  enum log_level level,
 				  bool continued,
@@ -153,17 +153,17 @@ const char *log_prefix(const struct log *log)
 	return log->prefix;
 }
 
-size_t log_max_mem(const struct log_record *lr)
+size_t log_max_mem(const struct log_book *lr)
 {
 	return lr->max_mem;
 }
 
-size_t log_used(const struct log_record *lr)
+size_t log_used(const struct log_book *lr)
 {
 	return lr->mem_used;
 }
 
-const struct timeabs *log_init_time(const struct log_record *lr)
+const struct timeabs *log_init_time(const struct log_book *lr)
 {
 	return &lr->init_time;
 }
@@ -311,7 +311,7 @@ void log_blob_(struct log *log, int level, const char *fmt,
 	tal_free(hex);
 }
 
-void log_each_line_(const struct log_record *lr,
+void log_each_line_(const struct log_book *lr,
 		    void (*func)(unsigned int skipped,
 				 struct timerel time,
 				 enum log_level level,
@@ -494,7 +494,7 @@ void crashlog_activate(struct log *log)
 	sigaction(SIGBUS, &sa, NULL);
 }
 
-void log_dump_to_file(int fd, const struct log_record *lr)
+void log_dump_to_file(int fd, const struct log_book *lr)
 {
 	const struct log_entry *i;
 	char buf[100];

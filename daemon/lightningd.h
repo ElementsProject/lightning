@@ -72,7 +72,7 @@ struct config {
 /* Here's where the global variables hide! */
 struct lightningd_state {
 	/* Where all our logging goes. */
-	struct log_record *log_record;
+	struct log_book *log_book;
 	struct log *base_log;
 	FILE *logf;
 

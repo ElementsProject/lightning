@@ -136,7 +136,7 @@ static void json_getlog(struct command *cmd,
 			const char *buffer, const jsmntok_t *params)
 {
 	struct log_info info;
-	struct log_record *lr = cmd->dstate->log_record;
+	struct log_book *lr = cmd->dstate->log_book;
 	jsmntok_t *level;
 
 	json_get_params(buffer, params, "?level", &level, NULL);
@@ -576,7 +576,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	jcon->buffer = tal_arr(jcon, char, 64);
 	jcon->stop = false;
 	jcon->current = NULL;
-	jcon->log = new_log(jcon, dstate->log_record, "%sjcon fd %i:",
+	jcon->log = new_log(jcon, dstate->log_book, "%sjcon fd %i:",
 			    log_prefix(dstate->base_log), io_conn_fd(conn));
 	list_head_init(&jcon->output);
 

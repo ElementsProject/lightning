@@ -32,8 +32,8 @@ static struct lightningd_state *lightningd_state(void)
 {
 	struct lightningd_state *dstate = tal(NULL, struct lightningd_state);
 
-	dstate->log_record = new_log_record(dstate, 20*1024*1024, LOG_INFORM);
-	dstate->base_log = new_log(dstate, dstate->log_record,
+	dstate->log_book = new_log_book(dstate, 20*1024*1024, LOG_INFORM);
+	dstate->base_log = new_log(dstate, dstate->log_book,
 				   "lightningd(%u):", (int)getpid());
 
 	list_head_init(&dstate->peers);
