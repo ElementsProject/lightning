@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_LIGHTNINGD_H
 #define LIGHTNING_LIGHTNINGD_LIGHTNINGD_H
 #include "config.h"
+#include <ccan/container_of/container_of.h>
 #include <daemon/lightningd.h>
 
 /* BOLT #1:
@@ -27,4 +28,11 @@ struct lightningd {
 	/* All peers we're tracking. */
 	struct list_head peers;
 };
+
+/* FIXME */
+static inline struct lightningd *
+ld_from_dstate(const struct lightningd_state *dstate)
+{
+	return container_of(dstate, struct lightningd, dstate);
+}
 #endif /* LIGHTNING_LIGHTNINGD_LIGHTNINGD_H */

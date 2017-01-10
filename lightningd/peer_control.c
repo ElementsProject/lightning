@@ -4,6 +4,9 @@
 #include <ccan/io/io.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/take/take.h>
+#include <ccan/tal/str/str.h>
+#include <daemon/dns.h>
+#include <daemon/jsonrpc.h>
 #include <daemon/log.h>
 #include <errno.h>
 #include <lightningd/handshake/gen_handshake_control_wire.h>
@@ -51,25 +54,29 @@ static struct peer *new_peer(const tal_t *ctx, struct lightningd *ld, int fd)
 	return peer;
 }
 
-static void handshake_responder_succeeded(struct subdaemon *hs, const u8 *msg,
-					  struct peer *peer)
+static void handshake_succeeded(struct subdaemon *hs, const u8 *msg,
+				struct peer *peer)
 {
 	struct crypto_state *cs;
-	struct pubkey id;
 
-	if (!fromwire_handshake_responder_resp(msg, msg, NULL, &id, &cs)) {
-		log_broken(hs->log, "Malformed responder resp: %s",
-			   tal_hex(peer, msg));
-		tal_free(peer);
-		return;
+	if (!peer->id) {
+		struct pubkey id;
+
+		if (!fromwire_handshake_responder_resp(msg, msg, NULL, &id, &cs))
+			goto err;
+		peer->id = tal_dup(peer, struct pubkey, &id);
+		log_info_struct(hs->log, "Peer in from %s",
+				struct pubkey, peer->id);
+	} else {
+		if (!fromwire_handshake_initiator_resp(msg, msg, NULL, &cs))
+			goto err;
+		log_info_struct(hs->log, "Peer out to %s",
+				struct pubkey, peer->id);
 	}
 
 	/* FIXME: Look for peer duplicates! */
 
 	/* Peer is now a full-fledged citizen. */
-	peer->id = tal_dup(peer, struct pubkey, &id);
-
-	log_info_struct(hs->log, "Peer in from %s", struct pubkey, peer->id);
 
 	/* Tell handshaked to exit. */
 	subdaemon_req(peer->owner, take(towire_handshake_exit_req(msg)),
@@ -77,11 +84,19 @@ static void handshake_responder_succeeded(struct subdaemon *hs, const u8 *msg,
 
 	/* FIXME: start lightningd_connect */
 	peer->owner = NULL;
+	return;
+
+err:
+	log_broken(hs->log, "Malformed resp: %s", tal_hex(peer, msg));
+	close(peer->fd);
+	tal_free(peer);
 }
 
 static void peer_got_hsmfd(struct subdaemon *hsm, const u8 *msg,
 			   struct peer *peer)
 {
+	const u8 *req;
+
 	if (!fromwire_hsmctl_hsmfd_ecdh_response(msg, NULL)) {
 		log_unusual(peer->ld->log, "Malformed hsmfd response: %s",
 			    tal_hex(peer, msg));
@@ -105,12 +120,16 @@ static void peer_got_hsmfd(struct subdaemon *hsm, const u8 *msg,
 	 * when it does. */
 	tal_steal(peer->owner, peer);
 
+	if (peer->id)
+		req = towire_handshake_initiator_req(peer, &peer->ld->dstate.id,
+						     peer->id);
+	else
+		req = towire_handshake_responder_req(peer, &peer->ld->dstate.id);
+
 	/* Now hand peer fd to the handshake daemon, it hand back on success */
-	subdaemon_req(peer->owner,
-		      take(towire_handshake_responder_req(peer,
-							  &peer->ld->dstate.id)),
+	subdaemon_req(peer->owner, take(req),
 		      peer->fd, &peer->fd,
-		      handshake_responder_succeeded, peer);
+		      handshake_succeeded, peer);
 
 	/* Peer struct longer owns fd. */
 	peer->fd = -1;
@@ -234,3 +253,86 @@ void setup_listeners(struct lightningd *ld)
 		fatal("Could not bind to a network address on port %u",
 		      ld->dstate.portnum);
 }
+
+struct json_connecting {
+	/* This owns us, so we're freed after command_fail or command_success */
+	struct command *cmd;
+	const char *name, *port;
+	struct pubkey id;
+};
+
+/* FIXME: timeout handshake if taking too long? */
+static struct io_plan *peer_out(struct io_conn *conn,
+				struct lightningd_state *dstate,
+				struct json_connecting *jc)
+{
+	struct lightningd *ld = ld_from_dstate(jc->cmd->dstate);
+	struct peer *peer = new_peer(ld, ld, io_conn_fd(conn));
+
+	/* We already know ID we're trying to reach. */
+	peer->id = tal_dup(peer, struct pubkey, &jc->id);
+
+	/* Get HSM fd for this peer. */
+	/* FIXME: We use pointer as ID. */
+	subdaemon_req(ld->hsm, take(towire_hsmctl_hsmfd_ecdh(ld, (u64)peer)),
+		      -1, &peer->hsmfd, peer_got_hsmfd, peer);
+
+	/* We don't need conn, we'll pass fd to handshaked. */
+	return io_close_taken_fd(conn);
+}
+
+static void connect_failed(struct lightningd_state *dstate,
+			   struct json_connecting *connect)
+{
+	/* FIXME: Better diagnostics! */
+	command_fail(connect->cmd, "Failed to connect to peer %s:%s",
+		     connect->name, connect->port);
+}
+
+static void json_connect(struct command *cmd,
+			 const char *buffer, const jsmntok_t *params)
+{
+	struct json_connecting *connect;
+	jsmntok_t *host, *port, *idtok;
+	const tal_t *tmpctx = tal_tmpctx(cmd);
+
+	if (!json_get_params(buffer, params,
+			     "host", &host,
+			     "port", &port,
+			     "id", &idtok,
+			     NULL)) {
+		command_fail(cmd, "Need host, port and id to connect");
+		return;
+	}
+
+	connect = tal(cmd, struct json_connecting);
+	connect->cmd = cmd;
+	connect->name = tal_strndup(connect, buffer + host->start,
+				    host->end - host->start);
+	connect->port = tal_strndup(connect, buffer + port->start,
+				    port->end - port->start);
+
+	if (!pubkey_from_hexstr(buffer + idtok->start,
+				idtok->end - idtok->start, &connect->id)) {
+		command_fail(cmd, "id %.*s not valid",
+			     idtok->end - idtok->start,
+			     buffer + idtok->start);
+		return;
+	}
+
+	if (!dns_resolve_and_connect(cmd->dstate, connect->name, connect->port,
+				     peer_out, connect_failed, connect)) {
+		command_fail(cmd, "DNS failed");
+		return;
+	}
+
+	tal_free(tmpctx);
+}
+
+static const struct json_command connect_command = {
+	"connect",
+	json_connect,
+	"Connect to a {host} at {port} expecting node {id}",
+	"Returns the {id} on success (once channel established)"
+};
+AUTODATA(json_command, &connect_command);

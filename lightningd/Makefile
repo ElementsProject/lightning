@@ -10,6 +10,8 @@ default: lightningd-all
 
 LIGHTNINGD_OLD_SRC :=				\
 	daemon/configdir.c			\
+	daemon/dns.c				\
+	daemon/netaddr.c			\
 	daemon/json.c				\
 	daemon/jsonrpc.c			\
 	daemon/log.c				\
