@@ -2,6 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_CRYPTOMSG_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <ccan/tal/tal.h>
 
 struct io_conn;
 struct peer;
@@ -28,5 +29,9 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 				   const u8 *msg,
 				   struct io_plan *(*next)(struct io_conn *,
 							   struct peer *));
+
+void towire_crypto_state(u8 **pptr, const struct crypto_state *cs);
+struct crypto_state *fromwire_crypto_state(const tal_t *ctx,
+					   const u8 **ptr, size_t *max);
 
 #endif /* LIGHTNING_LIGHTNINGD_CRYPTOMSG_H */

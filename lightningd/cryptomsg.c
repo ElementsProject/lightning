@@ -9,6 +9,7 @@
 #include <sodium/crypto_aead_chacha20poly1305.h>
 #include <status.h>
 #include <utils.h>
+#include <wire/wire.h>
 #include <wire/wire_io.h>
 
 struct crypto_state {
@@ -318,5 +319,33 @@ struct crypto_state *crypto_state(struct peer *peer,
 	cs->peer = peer;
 	cs->out = cs->in = NULL;
 
+	return cs;
+}
+
+void towire_crypto_state(u8 **ptr, const struct crypto_state *cs)
+{
+	towire_u64(ptr, cs->rn);
+	towire_u64(ptr, cs->sn);
+	towire_sha256(ptr, &cs->sk);
+	towire_sha256(ptr, &cs->rk);
+	towire_sha256(ptr, &cs->s_ck);
+	towire_sha256(ptr, &cs->r_ck);
+}
+
+struct crypto_state *fromwire_crypto_state(const tal_t *ctx,
+					   const u8 **ptr, size_t *max)
+{
+	struct crypto_state *cs = tal(ctx, struct crypto_state);
+
+	cs->rn = fromwire_u64(ptr, max);
+	cs->sn = fromwire_u64(ptr, max);
+	fromwire_sha256(ptr, max, &cs->sk);
+	fromwire_sha256(ptr, max, &cs->rk);
+	fromwire_sha256(ptr, max, &cs->s_ck);
+	fromwire_sha256(ptr, max, &cs->r_ck);
+	cs->peer = (struct peer *)ctx;
+
+	if (!*ptr)
+		return tal_free(cs);
 	return cs;
 }
