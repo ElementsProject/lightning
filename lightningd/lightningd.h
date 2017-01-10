@@ -20,5 +20,8 @@ struct lightningd {
 
 	/* Log for general stuff. */
 	struct log *log;
+
+	/* Bearer of all my secrets. */
+	struct subdaemon *hsm;
 };
 #endif /* LIGHTNING_LIGHTNINGD_LIGHTNINGD_H */

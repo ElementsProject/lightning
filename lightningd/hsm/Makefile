@@ -12,8 +12,10 @@ LIGHTNINGD_HSM_CLIENT_SRC := lightningd/hsm/client.c lightningd/hsm/gen_hsm_clie
 LIGHTNINGD_HSM_CLIENT_OBJS := $(LIGHTNINGD_HSM_CLIENT_SRC:.c=.o)
 
 # Control daemon uses this:
-LIGHTNINGD_HSM_CONTROL_HEADERS := lightningd/hsm/gen_hsm_control_wire.h
-LIGHTNINGD_HSM_CONTROL_SRC := lightningd/hsm/gen_hsm_control_wire.c
+LIGHTNINGD_HSM_CONTROL_HEADERS := lightningd/hsm/gen_hsm_control_wire.h \
+	lightningd/hsm/gen_hsm_status_wire.h
+LIGHTNINGD_HSM_CONTROL_SRC := lightningd/hsm/gen_hsm_control_wire.c \
+	lightningd/hsm/gen_hsm_status_wire.c
 LIGHTNINGD_HSM_CONTROL_OBJS := $(LIGHTNINGD_HSM_CONTROL_SRC:.c=.o)
 
 # lightningd/hsm needs these:

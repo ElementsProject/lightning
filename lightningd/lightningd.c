@@ -1,6 +1,9 @@
+#include "hsm_control.h"
 #include "lightningd.h"
+#include "subdaemon.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
+#include <ccan/io/io.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/grab_file/grab_file.h>
@@ -11,6 +14,7 @@
 #include <daemon/log.h>
 #include <daemon/options.h>
 #include <daemon/routing.h>
+#include <daemon/timeout.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <utils.h>
@@ -137,6 +141,7 @@ static const char *find_my_path(const tal_t *ctx, const char *argv0)
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld = new_lightningd(NULL);
+	bool newdir;
 
 	err_set_progname(argv[0]);
 
@@ -147,7 +152,7 @@ int main(int argc, char *argv[])
 	ld->daemon_dir = find_my_path(ld, argv[0]);
 
 	/* Handle options and config; move to .lightningd */
-	handle_opts(&ld->dstate, argc, argv);
+	newdir = handle_opts(&ld->dstate, argc, argv);
 
 	/* Activate crash log now we're in the right place. */
 	crashlog_activate(ld->log);
@@ -161,9 +166,10 @@ int main(int argc, char *argv[])
 	/* Mark ourselves live. */
 	log_info(ld->log, "Hello world from %s!", version());
 
-#if 0
 	/* Set up HSM. */
-	hsm_init(dstate, &dstate->id);
+	hsm_init(ld, newdir);
+
+#if 0
 
 	/* Initialize block topology. */
 	setup_topology(dstate);
@@ -176,19 +182,19 @@ int main(int argc, char *argv[])
 
 	/* Ready for connections from peers. */
 	setup_listeners(dstate);
+#endif
 
 	for (;;) {
 		struct timer *expired;
-		void *v = io_loop(&dstate->timers, &expired);
+		void *v = io_loop(&ld->dstate.timers, &expired);
 
 		/* We use io_break(dstate) to shut down. */
-		if (v == dstate)
+		if (v == ld)
 			break;
 
 		if (expired)
-			timer_expired(dstate, expired);
+			timer_expired(&ld->dstate, expired);
 	}
-#endif
 
 	tal_free(ld);
 	opt_free_table();
