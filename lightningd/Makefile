@@ -43,7 +43,8 @@ LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o)
 LIGHTNINGD_JSMN_OBJS := daemon/jsmn.o
 LIGHTNINGD_JSMN_HEADERS := daemon/jsmn/jsmn.h
 
-LIGHTNINGD_HEADERS :=				\
+# We accumulate all lightningd/ headers in here
+LIGHTNINGD_HEADERS =				\
 	lightningd/gossip_control.h		\
 	lightningd/hsm_control.h		\
 	lightningd/lightningd.h			\
