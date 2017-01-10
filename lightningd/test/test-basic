@@ -11,8 +11,12 @@ setup_lightning 2
 
 start_lightningd 2 lightningd/lightningd
 
-# FIXME: Try to connect.
-# lcli1 connect localhost $PORT2 $ID2
+if lcli1 connect localhost $PORT2 $ID1; then
+    echo Connected OK with wrong ID? >&2
+    exit 1
+fi
+
+lcli1 connect localhost $PORT2 $ID2
 
 # FIXME: Check status.
 

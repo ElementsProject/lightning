@@ -4,6 +4,7 @@
 #include "subdaemon.h"
 #include <ccan/err/err.h>
 #include <ccan/take/take.h>
+#include <daemon/jsonrpc.h>
 #include <daemon/log.h>
 #include <inttypes.h>
 #include <lightningd/gossip/gen_gossip_control_wire.h>
@@ -76,7 +77,16 @@ static void peer_ready(struct subdaemon *gossip, const u8 *msg)
 	log_info_struct(gossip->log, "Peer %s ready for channel open",
 			struct pubkey, peer->id);
 
-	/* FIXME: finish json connect cmd if any. */
+	if (peer->connect_cmd) {
+		struct json_result *response;
+		response = new_json_result(peer->connect_cmd);
+
+		json_object_start(response, NULL);
+		json_add_pubkey(response, "id", peer->id);
+		json_object_end(response);
+		command_success(peer->connect_cmd, response);
+		peer->connect_cmd = NULL;
+	}
 }
 
 static enum subdaemon_status gossip_status(struct subdaemon *gossip,

@@ -23,6 +23,9 @@ struct peer {
 
 	/* HSM connection for this peer. */
 	int hsmfd;
+
+	/* Json command which made us connect (if any) */
+	struct command *connect_cmd;
 };
 
 struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id);

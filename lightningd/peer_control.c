@@ -23,9 +23,13 @@ static void destroy_peer(struct peer *peer)
 	list_del_from(&peer->ld->peers, &peer->list);
 	if (peer->fd >= 0)
 		close(peer->fd);
+	if (peer->connect_cmd)
+		/* FIXME: Better diagnostics */
+		command_fail(peer->connect_cmd, "Connect failed");
 }
 
-static struct peer *new_peer(const tal_t *ctx, struct lightningd *ld, int fd)
+static struct peer *new_peer(const tal_t *ctx, struct lightningd *ld, int fd,
+			     struct command *cmd)
 {
 	static u64 id_counter;
 	struct peer *peer = tal(ctx, struct peer);
@@ -34,6 +38,7 @@ static struct peer *new_peer(const tal_t *ctx, struct lightningd *ld, int fd)
 	peer->owner = NULL;
 	peer->id = NULL;
 	peer->fd = fd;
+	peer->connect_cmd = cmd;
 	list_add_tail(&ld->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
 	return peer;
@@ -143,7 +148,7 @@ error:
 /* FIXME: timeout handshake if taking too long? */
 static struct io_plan *peer_in(struct io_conn *conn, struct lightningd *ld)
 {
-	struct peer *peer = new_peer(ld, ld, io_conn_fd(conn));
+	struct peer *peer = new_peer(ld, ld, io_conn_fd(conn), NULL);
 
 	/* Get HSM fd for this peer. */
 	subdaemon_req(ld->hsm,
@@ -268,7 +273,7 @@ static struct io_plan *peer_out(struct io_conn *conn,
 				struct json_connecting *jc)
 {
 	struct lightningd *ld = ld_from_dstate(jc->cmd->dstate);
-	struct peer *peer = new_peer(ld, ld, io_conn_fd(conn));
+	struct peer *peer = new_peer(ld, ld, io_conn_fd(conn), jc->cmd);
 
 	/* We already know ID we're trying to reach. */
 	peer->id = tal_dup(peer, struct pubkey, &jc->id);
