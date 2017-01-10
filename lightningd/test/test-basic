@@ -18,7 +18,17 @@ fi
 
 lcli1 connect localhost $PORT2 $ID2
 
-# FIXME: Check status.
+# Should now be exchanging gossip
+lcli1 getpeers | $FGREP '"condition" : "Exchanging gossip"'
+
+# It should have gone through these steps
+lcli1 getpeers info | $FGREP "Starting handshake as initiator"
+lcli1 getpeers info | $FGREP "Beginning gossip"
+lcli1 getpeers info | $FGREP "Exchanging gossip"
+
+# Both should still be owned by gossip
+lcli1 getpeers | $FGREP '"owner" : "lightningd_gossip"'
+lcli2 getpeers | $FGREP '"owner" : "lightningd_gossip"'
 
 lcli1 stop
 lcli2 stop

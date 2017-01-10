@@ -384,3 +384,83 @@ static const struct json_command connect_command = {
 	"Returns the {id} on success (once channel established)"
 };
 AUTODATA(json_command, &connect_command);
+
+struct log_info {
+	enum log_level level;
+	struct json_result *response;
+};
+
+/* FIXME: Share this with jsonrpc.c's code! */
+static void log_to_json(unsigned int skipped,
+			struct timerel diff,
+			enum log_level level,
+			const char *prefix,
+			const char *log,
+			struct log_info *info)
+{
+	if (level < info->level)
+		return;
+
+	if (level != LOG_IO)
+		json_add_string(info->response, NULL, log);
+}
+
+static void json_getpeers(struct command *cmd,
+			  const char *buffer, const jsmntok_t *params)
+{
+	struct lightningd *ld = ld_from_dstate(cmd->dstate);
+	struct peer *p;
+	struct json_result *response = new_json_result(cmd);
+	jsmntok_t *leveltok;
+	struct log_info info;
+
+	json_get_params(buffer, params, "?level", &leveltok, NULL);
+
+	if (!leveltok)
+		;
+	else if (json_tok_streq(buffer, leveltok, "debug"))
+		info.level = LOG_DBG;
+	else if (json_tok_streq(buffer, leveltok, "info"))
+		info.level = LOG_INFORM;
+	else if (json_tok_streq(buffer, leveltok, "unusual"))
+		info.level = LOG_UNUSUAL;
+	else if (json_tok_streq(buffer, leveltok, "broken"))
+		info.level = LOG_BROKEN;
+	else {
+		command_fail(cmd, "Invalid level param");
+		return;
+	}
+
+	json_object_start(response, NULL);
+	json_array_start(response, "peers");
+	list_for_each(&ld->peers, p, list) {
+		json_object_start(response, NULL);
+		json_add_u64(response, "unique_id", p->unique_id);
+		json_add_string(response, "condition", p->condition);
+		json_add_string(response, "netaddr",
+				netaddr_name(response, &p->netaddr));
+		if (p->id)
+			json_add_pubkey(response, "peerid", p->id);
+		if (p->owner)
+			json_add_string(response, "owner", p->owner->name);
+
+		if (leveltok) {
+			info.response = response;
+			json_array_start(response, "log");
+			log_each_line(p->log_book, log_to_json, &info);
+			json_array_end(response);
+		}
+		json_object_end(response);
+	}
+	json_array_end(response);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+static const struct json_command getpeers_command = {
+	"getpeers",
+	json_getpeers,
+	"List the current peers, if {level} is set, include {log}s",
+	"Returns a 'peers' array"
+};
+AUTODATA(json_command, &getpeers_command);
