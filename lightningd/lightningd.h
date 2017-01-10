@@ -23,5 +23,8 @@ struct lightningd {
 
 	/* Bearer of all my secrets. */
 	struct subdaemon *hsm;
+
+	/* All peers we're tracking. */
+	struct list_head peers;
 };
 #endif /* LIGHTNING_LIGHTNINGD_LIGHTNINGD_H */

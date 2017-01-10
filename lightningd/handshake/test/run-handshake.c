@@ -67,13 +67,6 @@ bool hsm_do_ecdh(struct sha256 *ss, const struct pubkey *point)
 			      privkey.secret) == 1;
 }
 
-char *type_to_string_(const tal_t *ctx,  const char *typename,
-		      union printable_types u)
-{
-	assert(streq(typename, "struct pubkey"));
-	return pubkey_to_hexstr(ctx, u.pubkey);
-}
-
 int main(void)
 {
 	int fds1[2], fds2[2];

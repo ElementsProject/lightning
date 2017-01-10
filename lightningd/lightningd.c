@@ -1,9 +1,12 @@
 #include "hsm_control.h"
 #include "lightningd.h"
+#include "peer_control.h"
 #include "subdaemon.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
+#include <ccan/io/fdpass/fdpass.h>
 #include <ccan/io/io.h>
+#include <ccan/noerr/noerr.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/grab_file/grab_file.h>
@@ -66,6 +69,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 {
 	struct lightningd *ld = tal(ctx, struct lightningd);
 
+	list_head_init(&ld->peers);
 	ld->dstate.log_book = new_log_book(&ld->dstate, 20*1024*1024,LOG_INFORM);
 	ld->log = ld->dstate.base_log = new_log(&ld->dstate,
 						ld->dstate.log_book,
@@ -170,6 +174,9 @@ int main(int argc, char *argv[])
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(&ld->dstate, ld->dstate.rpc_filename);
 
+	/* Ready for connections from peers. */
+	setup_listeners(ld);
+
 #if 0
 	/* Initialize block topology. */
 	setup_topology(dstate);
@@ -177,8 +184,6 @@ int main(int argc, char *argv[])
 	/* Load peers from database. */
 	db_load_peers(dstate);
 
-	/* Ready for connections from peers. */
-	setup_listeners(dstate);
 #endif
 
 	for (;;) {
