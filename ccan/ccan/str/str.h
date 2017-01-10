@@ -94,7 +94,7 @@ size_t strcount(const char *haystack, const char *needle);
 #if HAVE_TYPEOF
 /* Only a simple type can have 0 assigned, so test that. */
 #define STR_MAX_CHARS_TCHECK_(type_or_expr)		\
-	({ typeof(type_or_expr) x = 0; (void)x; 0; })
+	(sizeof(({ typeof(type_or_expr) x = 0; x; }))*0)
 #else
 #define STR_MAX_CHARS_TCHECK_(type_or_expr) 0
 #endif

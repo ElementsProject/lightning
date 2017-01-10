@@ -421,6 +421,14 @@ struct io_plan *io_close_cb(struct io_conn *conn, void *next_arg)
 	return io_close(conn);
 }
 
+struct io_plan *io_close_taken_fd(struct io_conn *conn)
+{
+	set_blocking(conn->fd.fd, true);
+
+	cleanup_conn_without_close(conn);
+	return io_close(conn);
+}
+
 /* Exit the loop, returning this (non-NULL) arg. */
 void io_break(const void *ret)
 {

@@ -86,13 +86,6 @@ static void del_fd(struct fd *fd)
 	}
 	num_fds--;
 	fd->backend_info = -1;
-
-	/* Closing a local socket doesn't wake poll() because other end
-	 * has them open.  See 2.6.  When should I use shutdown()?
-	 * in http://www.faqs.org/faqs/unix-faq/socket/ */
-	shutdown(fd->fd, SHUT_RDWR);
-
-	close(fd->fd);
 }
 
 static void destroy_listener(struct io_listener *l)
@@ -164,11 +157,12 @@ void backend_wake(const void *wait)
 	}
 }
 
-static void destroy_conn(struct io_conn *conn)
+static void destroy_conn(struct io_conn *conn, bool close_fd)
 {
 	int saved_errno = errno;
 
-	close(conn->fd.fd);
+	if (close_fd)
+		close(conn->fd.fd);
 	del_fd(&conn->fd);
 	/* In case it's on always list, remove it. */
 	list_del_init(&conn->always);
@@ -180,12 +174,23 @@ static void destroy_conn(struct io_conn *conn)
 	}
 }
 
+static void destroy_conn_close_fd(struct io_conn *conn)
+{
+	destroy_conn(conn, true);
+}
+
 bool add_conn(struct io_conn *c)
 {
 	if (!add_fd(&c->fd, 0))
 		return false;
-	tal_add_destructor(c, destroy_conn);
+	tal_add_destructor(c, destroy_conn_close_fd);
 	return true;
+}
+
+void cleanup_conn_without_close(struct io_conn *conn)
+{
+	tal_del_destructor(conn, destroy_conn_close_fd);
+	destroy_conn(conn, false);
 }
 
 static void accept_conn(struct io_listener *l)
@@ -276,9 +281,14 @@ void *io_loop(struct timers *timers, struct timer **expired)
 				break;
 
 			if (fds[i]->listener) {
+				struct io_listener *l = (void *)fds[i];
 				if (events & POLLIN) {
-					accept_conn((void *)c);
+					accept_conn(l);
 					r--;
+				} else if (events & (POLLHUP|POLLNVAL|POLLERR)) {
+					r--;
+					errno = EBADF;
+					io_close_listener(l);
 				}
 			} else if (events & (POLLIN|POLLOUT)) {
 				r--;

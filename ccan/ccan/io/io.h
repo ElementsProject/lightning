@@ -109,7 +109,8 @@ void io_set_finish_(struct io_conn *conn,
  * @arg: the argument to @init.
  *
  * When @fd becomes readable, we accept(), create a new connection,
- * (tal'ocated off @ctx) and pass that to init().
+ * (tal'ocated off @ctx) and pass that to init().  Note that if there is
+ * an error on this file descriptor, it will be freed.
  *
  * Returns NULL on error (and sets errno).
  *
@@ -595,14 +596,16 @@ struct io_plan *io_never(struct io_conn *conn, void *unused);
 /* FIXME: io_recvfrom/io_sendto */
 
 /**
- * io_close - plan to close a connection.
+ * io_close - close a connection.
  * @conn: the connection to close.
  *
- * On return to io_loop, the connection will be closed.  It doesn't have
- * to be the current connection and it doesn't need to be idle.  No more
- * IO or callbacks will occur.
+ * The connection is immediately freed: it doesn't have to be the
+ * current connection and it doesn't need to be idle.  No more IO or
+ * callbacks will occur, but if a function was added by io_set_finish()
+ * it will be called with the current errno preserved.
  *
- * You can close a connection twice without harmful effects.
+ * This is equivalent to tal_free(io_conn), except it returns an io_plan
+ * for use in an io callback.
  *
  * Example:
  * static struct io_plan *close_on_timeout(struct io_conn *conn, const char *msg)
@@ -617,13 +620,33 @@ struct io_plan *io_close(struct io_conn *conn);
  * io_close_cb - helper callback to close a connection.
  * @conn: the connection.
  *
- * This schedules a connection to be closed; designed to be used as
- * a callback function.
+ * This is closes a connection; designed to be used as a callback
+ * function.
  *
  * Example:
  *	#define close_on_timeout io_close_cb
  */
 struct io_plan *io_close_cb(struct io_conn *, void *unused);
+
+/**
+ * io_close_taken_fd - close a connection, but remove the filedescriptor first.
+ * @conn: the connection to take the file descriptor from and close.
+ *
+ * io_close closes the file descriptor underlying the io_conn; this version does
+ * not.  Presumably you have used io_conn_fd() on it beforehand and will take
+ * care of the fd yourself.
+ *
+ * Note that this also turns off O_NONBLOCK on the fd.
+ *
+ * Example:
+ * static struct io_plan *steal_fd(struct io_conn *conn, int *fd)
+ * {
+ *	*fd = io_conn_fd(conn);
+ *	printf("stealing fd %i and closing\n", *fd);
+ *	return io_close_taken_fd(conn);
+ * }
+ */
+struct io_plan *io_close_taken_fd(struct io_conn *conn);
 
 /**
  * io_loop - process fds until all closed on io_break.
@@ -643,7 +666,10 @@ void *io_loop(struct timers *timers, struct timer **expired);
  * io_conn_fd - get the fd from a connection.
  * @conn: the connection.
  *
- * Sometimes useful, eg for getsockname().
+ * Sometimes useful, eg for getsockname().  Note that the fd is O_NONBLOCK.
+ *
+ * See Also:
+ *	io_close_taken_fd
  */
 int io_conn_fd(const struct io_conn *conn);
 
