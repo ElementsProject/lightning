@@ -1,5 +1,6 @@
 import io
 import json
+import logging
 import socket
 import sys
 import threading
@@ -18,7 +19,7 @@ class LightningRpc(object):
     def _writeobj(self, obj):
         s = json.dumps(obj)
         self.socket.sendall(bytearray(s, 'UTF-8'))
-        
+
     def _readobj(self):
         while True:
             try:
@@ -36,12 +37,14 @@ class LightningRpc(object):
                 pass
 
     def _call(self, method, args):
+        logging.debug("Calling %s with arguments %r", method, args)
         self._writeobj({
             "method": method,
             "params": args,
             "id": 0
         })
         resp = self._readobj()
+        logging.debug("Received response for %s call: %r", method, resp)
         if 'error' in resp:
             raise ValueError("RPC call failed: {}".format(resp['error']))
         elif 'result' not in resp:
@@ -68,6 +71,15 @@ class LightningRpc(object):
 
     def invoice(self, amount, label):
         return self._call("invoice", [amount, label])
+
+    def waitinvoice(self, label=None):
+        args = []
+        if label is not None:
+            args.append(label)
+        return self._call("waitinvoice", args)
+
+    def awaitpayment(self, label):
+        return self._call("awaitpayment", [label])
 
     def sendpay(self, route, paymenthash):
         return self._call("sendpay", [route, paymenthash])
@@ -112,7 +124,7 @@ if __name__ == "__main__":
     l5.connect_rpc()
 
     import random
-    
+
     info5 = l5.getinfo()
     print(info5)
     invoice = l5.invoice(100, "lbl{}".format(random.random()))
@@ -120,6 +132,3 @@ if __name__ == "__main__":
     route = l1.getroute(info5['id'], 100, 1)
     print(route)
     print(l1.sendpay(route, invoice['rhash']))
-    
-    
-    
