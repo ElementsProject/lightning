@@ -151,16 +151,33 @@ fail:
 
 static struct io_plan *status_read(struct io_conn *conn, struct subdaemon *sd);
 
+static struct io_plan *status_process_fd(struct io_conn *conn,
+					 struct subdaemon *sd)
+{
+	const tal_t *tmpctx = tal_tmpctx(sd);
+
+	/* Ensure we free it iff callback doesn't tal_steal it. */
+	tal_steal(tmpctx, sd->status_in);
+	sd->statuscb(sd, sd->status_in, sd->status_fd_in);
+	tal_free(tmpctx);
+	sd->status_in = NULL;
+	return status_read(conn, sd);
+}
+
 static struct io_plan *status_process(struct io_conn *conn, struct subdaemon *sd)
 {
 	int type = fromwire_peektype(sd->status_in);
 	const char *str;
 	int str_len;
+	const tal_t *tmpctx = tal_tmpctx(sd);
 
 	if (type == -1) {
 		log_unusual(sd->log, "ERROR: Invalid status output");
 		return io_close(conn);
 	}
+
+	/* If not stolen, we'll free this below. */
+	tal_steal(tmpctx, sd->status_in);
 
 	/* If it's a string. */
 	str_len = tal_count(sd->status_in) - sizeof(be16);
@@ -173,12 +190,26 @@ static struct io_plan *status_process(struct io_conn *conn, struct subdaemon *sd
 			    sd->statusname(type), str_len, str);
 	else {
 		log_info(sd->log, "UPDATE %s", sd->statusname(type));
-		tal_free(sd->last_status);
-		/* Keep last status around. */
-		sd->last_status = tal_steal(sd, sd->status_in);
-		sd->status_in = NULL;
+		if (sd->statuscb) {
+			enum subdaemon_status s = sd->statuscb(sd,
+							       sd->status_in,
+							       -1);
+			switch (s) {
+			case STATUS_NEED_FD:
+				tal_steal(sd, sd->status_in);
+				tal_free(tmpctx);
+				return io_recv_fd(conn, &sd->status_fd_in,
+						  status_process_fd, sd);
+			case STATUS_COMPLETE:
+				break;
+			default:
+				fatal("Unknown statuscb return for %s:%s: %u",
+				      sd->name, sd->statusname(type), s);
+			}
+		}
 	}
-	sd->status_in = tal_free(sd->status_in);
+	sd->status_in = NULL;
+	tal_free(tmpctx);
 	return status_read(conn, sd);
 }
 
@@ -214,6 +245,8 @@ struct subdaemon *new_subdaemon(const tal_t *ctx,
 				const char *name,
 				const char *(*statusname)(int status),
 				const char *(*reqname)(int req),
+				enum subdaemon_status (*statuscb)
+				(struct subdaemon *, const u8 *, int fd),
 				void (*finished)(struct subdaemon *, int),
 				...)
 {
@@ -235,7 +268,7 @@ struct subdaemon *new_subdaemon(const tal_t *ctx,
 	sd->name = name;
 	sd->finished = finished;
 	sd->statusname = statusname;
-	sd->last_status = NULL;
+	sd->statuscb = statuscb;
 	list_head_init(&sd->reqs);
 	tal_add_destructor(sd, destroy_subdaemon);
 

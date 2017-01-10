@@ -8,6 +8,11 @@
 
 struct io_conn;
 
+enum subdaemon_status {
+	STATUS_NEED_FD,
+	STATUS_COMPLETE
+};
+
 /* One of our subdaemons. */
 struct subdaemon {
 	/* Name, like John, or "lightningd_hsm" */
@@ -24,15 +29,15 @@ struct subdaemon {
 	/* For logging */
 	struct log *log;
 
+	/* Callback when status comes in. */
+	enum subdaemon_status (*statuscb)(struct subdaemon *, const u8 *, int);
 	const char *(*statusname)(int status);
 	const char *(*reqname)(int req);
 	void (*finished)(struct subdaemon *sd, int status);
 
 	/* Buffer for input. */
 	u8 *status_in;
-
-	/* Status handler puts last status msg here. */
-	u8 *last_status;
+	int status_fd_in;
 
 	/* Requests queue up here. */
 	struct list_head reqs;
@@ -45,16 +50,21 @@ struct subdaemon {
  * @name: basename of daemon
  * @statusname: function to get name from status messages
  * @reqname: function to get name from request messages, or NULL if no requests.
+ * @statuscb: function to call when status message received (or NULL)
  * @finished: function to call when it's finished (with exit status).
  * @...: the fds to hand as fd 3, 4... terminated with -1.
  *
- * You should free it from finished().
+ * @statuscb is called with fd == -1 when a status message is
+ * received; if it returns STATUS_NEED_FD, we read an fd from the
+ * daemon and call it again with that as the third arg.
  */
 struct subdaemon *new_subdaemon(const tal_t *ctx,
 				struct lightningd *ld,
 				const char *name,
 				const char *(*statusname)(int status),
 				const char *(*reqname)(int req),
+				enum subdaemon_status (*statuscb)
+				(struct subdaemon *, const u8 *, int fd),
 				void (*finished)(struct subdaemon *, int), ...);
 
 /**

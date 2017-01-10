@@ -16,28 +16,6 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 
-struct peer {
-	struct lightningd *ld;
-
-	/* Unique ID (works before we know their pubkey) */
-	u64 unique_id;
-
-	/* Inside ld->peers. */
-	struct list_node list;
-
-	/* What stage is this in? */
-	struct subdaemon *owner;
-
-	/* ID of peer (NULL before initial handshake). */
-	struct pubkey *id;
-
-	/* Our fd to the peer. */
-	int fd;
-
-	/* HSM connection for this peer. */
-	int hsmfd;
-};
-
 static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->ld->peers, &peer->list);
@@ -123,7 +101,7 @@ static void peer_got_hsmfd(struct subdaemon *hsm, const u8 *msg,
 				    "lightningd_handshake",
 				    handshake_status_wire_type_name,
 				    handshake_control_wire_type_name,
-				    NULL,
+				    NULL, NULL,
 				    peer->hsmfd, -1);
 	if (!peer->owner) {
 		log_unusual(peer->ld->log, "Could not subdaemon handshake: %s",
