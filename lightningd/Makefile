@@ -11,6 +11,7 @@ default: lightningd-all
 LIGHTNINGD_OLD_SRC :=				\
 	daemon/configdir.c			\
 	daemon/json.c				\
+	daemon/jsonrpc.c			\
 	daemon/log.c				\
 	daemon/options.c			\
 	daemon/opt_time.c			\

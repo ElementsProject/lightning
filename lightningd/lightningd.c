@@ -36,25 +36,22 @@ struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id)
 	FIXME_IMPLEMENT();
 }
 
-struct json_result *null_response(const tal_t *ctx)
-{
-	FIXME_IMPLEMENT();
-}
-
-void command_success(struct command *cmd, struct json_result *result)
-{
-	FIXME_IMPLEMENT();
-}
-
-void command_fail(struct command *cmd, const char *fmt, ...)
-{
-	FIXME_IMPLEMENT();
-}
-
 size_t get_tx_depth(struct lightningd_state *dstate,
 		    const struct sha256_double *txid)
 {
 	FIXME_IMPLEMENT();
+}
+
+void debug_dump_peers(struct lightningd_state *dstate);
+void debug_dump_peers(struct lightningd_state *dstate)
+{
+	FIXME_IMPLEMENT();
+}
+
+u32 get_block_height(struct lightningd_state *dstate)
+{
+	/* FIXME_IMPLEMENT(); */
+	return 0;
 }
 
  #include <daemon/packets.h>
@@ -169,16 +166,15 @@ int main(int argc, char *argv[])
 	/* Set up HSM. */
 	hsm_init(ld, newdir);
 
-#if 0
+	/* Create RPC socket (if any) */
+	setup_jsonrpc(&ld->dstate, ld->dstate.rpc_filename);
 
+#if 0
 	/* Initialize block topology. */
 	setup_topology(dstate);
 
 	/* Load peers from database. */
 	db_load_peers(dstate);
-
-	/* Create RPC socket (if any) */
-	setup_jsonrpc(dstate, dstate->rpc_filename);
 
 	/* Ready for connections from peers. */
 	setup_listeners(dstate);
