@@ -324,7 +324,7 @@ void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx,
 
 	otx->peer = peer;
 	bitcoin_txid(tx, &otx->txid);
-	otx->hextx = tal_hexstr(otx, rawtx, tal_count(rawtx));
+	otx->hextx = tal_hex(otx, rawtx);
 	otx->failed = failed;
 	tal_free(rawtx);
 

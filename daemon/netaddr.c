@@ -61,7 +61,7 @@ char *netaddr_to_hex(const tal_t *ctx, const struct netaddr *a)
 	assert(a->addrlen <= sizeof(a->saddr));
 	push(&a->saddr, a->addrlen, &blob);
 
-	hex = tal_hexstr(ctx, blob, tal_count(blob));
+	hex = tal_hex(ctx, blob);
 	tal_free(blob);
 	return hex;
 }

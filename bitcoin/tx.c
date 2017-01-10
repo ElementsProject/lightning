@@ -497,7 +497,7 @@ bool bitcoin_txid_to_hex(const struct sha256_double *txid,
 static char *fmt_bitcoin_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
 {
 	u8 *lin = linearize_tx(ctx, tx);
-	char *s = tal_hexstr(ctx, lin, tal_count(lin));
+	char *s = tal_hex(ctx, lin);
 	tal_free(lin);
 	return s;
 }

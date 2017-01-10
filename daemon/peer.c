@@ -5156,8 +5156,7 @@ static void json_signcommit(struct command *cmd,
 		= tal_free(peer->local.commit->tx->input[0].witness);
 
 	json_object_start(response, NULL);
-	json_add_string(response, "tx",
-			tal_hexstr(cmd, linear, tal_count(linear)));
+	json_add_string(response, "tx", tal_hex(cmd, linear));
 	json_object_end(response);
 	command_success(cmd, response);
 }

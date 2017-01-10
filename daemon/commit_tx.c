@@ -211,8 +211,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 			log_add_struct(peer->log, " rhash %s", struct sha256,
 				       &h->rhash);
 			log_debug(peer->log, "Script: %s",
-				  tal_hexstr(tmpctx,
-					     wscript, tal_count(wscript)));
+				  tal_hex(tmpctx, wscript));
 		} else
 			log_debug(peer->log, "DOES NOT pay %"PRIu64" to htlc %"PRIu64,
 				  h->msatoshi / 1000, h->id);
