@@ -9,6 +9,7 @@
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <lightningd/gossip/gen_gossip_control_wire.h>
 #include <lightningd/gossip/gen_gossip_status_wire.h>
 #include <lightningd/handshake/gen_handshake_control_wire.h>
@@ -36,6 +37,7 @@ void peer_set_condition(struct peer *peer, const char *fmt, ...)
 	tal_free(peer->condition);
 	peer->condition = tal_vfmt(peer, fmt, ap);
 	va_end(ap);
+	log_info(peer->log, "condition: %s", peer->condition);
 }
 
 static struct peer *new_peer(struct lightningd *ld,
@@ -53,6 +55,10 @@ static struct peer *new_peer(struct lightningd *ld,
 	peer->id = NULL;
 	peer->fd = io_conn_fd(conn);
 	peer->connect_cmd = cmd;
+	/* Max 128k per peer. */
+	peer->log_book = new_log_book(peer, 128*1024, LOG_UNUSUAL);
+	peer->log = new_log(peer, peer->log_book,
+			    "peer %"PRIu64":", peer->unique_id);
 
 	/* FIXME: Don't assume protocol here! */
 	if (!netaddr_from_fd(peer->fd, SOCK_STREAM, IPPROTO_TCP,

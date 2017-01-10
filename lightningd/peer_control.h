@@ -20,6 +20,10 @@ struct peer {
 	/* What's happening (doubles as error return for connect_cmd) */
 	const char *condition;
 
+	/* History */
+	struct log_book *log_book;
+	struct log *log;
+
 	/* ID of peer (NULL before initial handshake). */
 	struct pubkey *id;
 
