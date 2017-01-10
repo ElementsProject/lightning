@@ -1,5 +1,6 @@
 #include "status.h"
 #include "utils.h"
+#include "wire/wire.h"
 #include "wire/wire_sync.h"
 #include <assert.h>
 #include <ccan/breakpoint/breakpoint.h>
@@ -19,12 +20,26 @@ void status_setup(int fd)
 	trc = tal_tmpctx(NULL);
 }
 
+static bool too_large(size_t len, int type)
+{
+	if (len > 65535) {
+		status_trace("About to truncate msg %i from %zu bytes",
+			     type, len);
+		return true;
+	}
+	return false;
+}
+
 void status_send(const u8 *p)
 {
+	const u8 *msg = p;
 	assert(status_fd >= 0);
 
-	if (!wire_sync_write(status_fd, p))
-		err(1, "Writing out status len %zu", tal_count(p));
+	if (too_large(tal_count(p), fromwire_peektype(p)))
+		msg = tal_dup_arr(p, u8, p, 65535, 0);
+
+	if (!wire_sync_write(status_fd, msg))
+		err(1, "Writing out status len %zu", tal_count(msg));
 	tal_free(p);
 }
 
@@ -41,6 +56,9 @@ void status_send_fd(int fd)
 static void status_send_with_hdr(u16 type, const void *p, size_t len)
 {
 	be16 be_type, be_len;
+
+	if (too_large(len + sizeof(be_type), type))
+		len = 65535 - sizeof(be_type);
 
 	be_type = cpu_to_be16(type);
 	be_len = cpu_to_be16(len + sizeof(be_type));
