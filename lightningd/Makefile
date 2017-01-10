@@ -58,3 +58,4 @@ clean: lightningd-clean
 lightningd-clean:
 	$(RM) $(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_JSMN_OBJS) 
 
+include lightningd/test/Makefile

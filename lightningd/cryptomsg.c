@@ -259,6 +259,13 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 							cs->sk.u.u8);
 	assert(ret == 0);
 	assert(clen == sizeof(l) + 16);
+#ifdef SUPERVERBOSE
+	status_trace("# encrypt l: cleartext=0x%s, AD=NULL, sn=0x%s, sk=0x%s => 0x%s",
+		     tal_hexstr(trc, &l, sizeof(l)),
+		     tal_hexstr(trc, npub, sizeof(npub)),
+		     tal_hexstr(trc, &cs->sk, sizeof(cs->sk)),
+		     tal_hexstr(trc, cs->out, clen));
+#endif
 
 	/* BOLT #8:
 	 *
@@ -277,6 +284,13 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 							cs->sk.u.u8);
 	assert(ret == 0);
 	assert(clen == mlen + 16);
+#ifdef SUPERVERBOSE
+	status_trace("# encrypt m: cleartext=0x%s, AD=NULL, sn=0x%s, sk=0x%s => 0x%s",
+		     tal_hexstr(trc, msg, mlen),
+		     tal_hexstr(trc, npub, sizeof(npub)),
+		     tal_hexstr(trc, &cs->sk, sizeof(cs->sk)),
+		     tal_hexstr(trc, cs->out + 18, clen));
+#endif
 
 	maybe_rotate_key(&cs->sn, &cs->sk, &cs->s_ck);
 
