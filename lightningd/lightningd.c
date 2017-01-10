@@ -1,3 +1,4 @@
+#include "gossip_control.h"
 #include "hsm_control.h"
 #include "lightningd.h"
 #include "peer_control.h"
@@ -171,6 +172,9 @@ int main(int argc, char *argv[])
 
 	/* Set up HSM. */
 	hsm_init(ld, newdir);
+
+	/* Set up gossip daemon. */
+	gossip_init(ld);
 
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(&ld->dstate, ld->dstate.rpc_filename);

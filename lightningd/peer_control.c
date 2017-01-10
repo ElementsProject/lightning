@@ -9,6 +9,8 @@
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
 #include <errno.h>
+#include <lightningd/gossip/gen_gossip_control_wire.h>
+#include <lightningd/gossip/gen_gossip_status_wire.h>
 #include <lightningd/handshake/gen_handshake_control_wire.h>
 #include <lightningd/handshake/gen_handshake_status_wire.h>
 #include <lightningd/hsm/gen_hsm_control_wire.h>
@@ -69,14 +71,20 @@ static void handshake_succeeded(struct subdaemon *hs, const u8 *msg,
 
 	/* FIXME: Look for peer duplicates! */
 
-	/* Peer is now a full-fledged citizen. */
-
 	/* Tell handshaked to exit. */
 	subdaemon_req(peer->owner, take(towire_handshake_exit_req(msg)),
 		      -1, NULL, NULL, NULL);
 
-	/* FIXME: start lightningd_connect */
-	peer->owner = NULL;
+	peer->owner = peer->ld->gossip;
+	tal_steal(peer->owner, peer);
+
+	/* Tell gossip to handle it now. */
+	msg = towire_gossipctl_new_peer(msg, peer->unique_id, cs);
+	subdaemon_req(peer->ld->gossip, msg, peer->fd, &peer->fd, NULL, NULL);
+
+	/* Peer struct longer owns fd. */
+	peer->fd = -1;
+
 	return;
 
 err:
