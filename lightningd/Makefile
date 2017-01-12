@@ -57,16 +57,16 @@ LIGHTNINGD_HEADERS =				\
 	$(GEN_HEADERS)				\
 	$(CCAN_HEADERS)				\
 	$(DAEMON_HEADERS)			\
-	$(LIGHTNINGD_HSM_CONTROL_HEADERS)	\
-	$(LIGHTNINGD_HANDSHAKE_CONTROL_HEADERS)	\
 	$(LIBBASE58_HEADERS)			\
 	$(LIBSODIUM_HEADERS)
 
-$(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS): $(LIGHTNINGD_HEADERS) 
-
+# These included makefiles add their headers to the LIGHTNINGD_HEADERS
+# variable so the include must preceed any actual use of the variable.
 include lightningd/hsm/Makefile
 include lightningd/handshake/Makefile
 include lightningd/gossip/Makefile
+
+$(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS): $(LIGHTNINGD_HEADERS)
 
 check-source: $(LIGHTNINGD_SRC:%=check-src-include-order/%)
 check-source: $(LIGHTNINGD_LIB_SRC:%=check-src-include-order/%)
