@@ -4730,10 +4730,7 @@ static void json_newhtlc(struct command *cmd,
 	hoppayloads = tal_arrz(cmd, struct hoppayload, 1);
 	memcpy(&path[0], peer->id, sizeof(struct pubkey));
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
-	packet = create_onionpacket(
-		cmd,
-		path,
-		hoppayloads, sessionkey, (u8*)"", 0);
+	packet = create_onionpacket(cmd, path, hoppayloads, sessionkey);
 	onion = serialize_onionpacket(cmd, packet);
 
 	log_debug(peer->log, "JSON command to add new HTLC");

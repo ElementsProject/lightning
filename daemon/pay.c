@@ -442,9 +442,7 @@ static void json_sendpay(struct command *cmd,
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
 
 	/* Onion will carry us from first peer onwards. */
-	packet = create_onionpacket(
-		cmd, ids, hoppayloads,
-		sessionkey, (u8*)"", 0);
+	packet = create_onionpacket(cmd, ids, hoppayloads, sessionkey);
 	onion = serialize_onionpacket(cmd, packet);
 
 	if (pc)
