@@ -16,6 +16,8 @@ int main(int argc, char **argv)
 {
 	bool generate = false, decode = false;
 	const tal_t *ctx = talz(NULL, tal_t);
+	u8 assocdata[32];
+	memset(assocdata, 'B', sizeof(assocdata));
 
 	secp256k1_ctx = secp256k1_context_create(
 		SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
@@ -56,7 +58,9 @@ int main(int argc, char **argv)
 		struct onionpacket *res = create_onionpacket(ctx,
 							     path,
 							     hoppayloads,
-							     sessionkey);
+							     sessionkey,
+							     assocdata,
+							     sizeof(assocdata));
 
 		u8 *serialized = serialize_onionpacket(ctx, res);
 		if (!serialized)
@@ -87,7 +91,8 @@ int main(int argc, char **argv)
 		if (!msg)
 			errx(1, "Error parsing message.");
 
-		step = process_onionpacket(ctx, msg, &seckey);
+		step = process_onionpacket(ctx, msg, &seckey, assocdata,
+					   sizeof(assocdata));
 
 		if (!step->next)
 			errx(1, "Error processing message.");

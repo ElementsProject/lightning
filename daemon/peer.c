@@ -887,7 +887,8 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 	packet = parse_onionpacket(peer,
 				   htlc->routing, tal_count(htlc->routing));
 	if (packet)
-		step = process_onionpacket(packet, packet, &pk);
+		step = process_onionpacket(packet, packet, &pk, htlc->rhash.u.u8,
+					   sizeof(htlc->rhash));
 
 	if (!step) {
 		log_unusual(peer->log, "Bad onion, failing HTLC %"PRIu64,
@@ -4730,7 +4731,8 @@ static void json_newhtlc(struct command *cmd,
 	hoppayloads = tal_arrz(cmd, struct hoppayload, 1);
 	memcpy(&path[0], peer->id, sizeof(struct pubkey));
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
-	packet = create_onionpacket(cmd, path, hoppayloads, sessionkey);
+	packet = create_onionpacket(cmd, path, hoppayloads, sessionkey,
+				    rhash.u.u8, sizeof(rhash));
 	onion = serialize_onionpacket(cmd, packet);
 
 	log_debug(peer->log, "JSON command to add new HTLC");

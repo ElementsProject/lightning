@@ -159,13 +159,18 @@ static bool compute_hmac(
 	return true;
 }
 
-static void compute_packet_hmac(const struct onionpacket *packet, u8 *mukey, u8 *hmac)
+static void compute_packet_hmac(const struct onionpacket *packet,
+				const u8 *assocdata, const size_t assocdatalen,
+				u8 *mukey, u8 *hmac)
 {
-	u8 mactemp[ROUTING_INFO_SIZE + TOTAL_HOP_PAYLOAD_SIZE];
+	u8 mactemp[ROUTING_INFO_SIZE + TOTAL_HOP_PAYLOAD_SIZE + assocdatalen];
 	u8 mac[32];
+	int pos = 0;
 
-	memcpy(mactemp, packet->routinginfo, ROUTING_INFO_SIZE);
-	memcpy(mactemp + ROUTING_INFO_SIZE, packet->hoppayloads, TOTAL_HOP_PAYLOAD_SIZE);
+	write_buffer(mactemp, packet->routinginfo, ROUTING_INFO_SIZE, &pos);
+	write_buffer(mactemp, packet->hoppayloads, TOTAL_HOP_PAYLOAD_SIZE, &pos);
+	write_buffer(mactemp, assocdata, assocdatalen, &pos);
+
 	compute_hmac(mac, mactemp, sizeof(mactemp), mukey, KEY_LEN);
 	memcpy(hmac, mac, 20);
 }
@@ -340,7 +345,9 @@ struct onionpacket *create_onionpacket(
 	const tal_t *ctx,
 	struct pubkey *path,
 	struct hoppayload hoppayloads[],
-	const u8 *sessionkey
+	const u8 *sessionkey,
+	const u8 *assocdata,
+	const size_t assocdatalen
 	)
 {
 	struct onionpacket *packet = talz(ctx, struct onionpacket);
@@ -394,7 +401,8 @@ struct onionpacket *create_onionpacket(
 			memcpy(packet->hoppayloads + len, hopfiller, sizeof(hopfiller));
 		}
 
-		compute_packet_hmac(packet, keys.mu, nexthmac);
+		compute_packet_hmac(packet, assocdata, assocdatalen, keys.mu,
+				    nexthmac);
 		pubkey_hash160(nextaddr, &path[i]);
 	}
 	memcpy(packet->mac, nexthmac, sizeof(nexthmac));
@@ -409,7 +417,9 @@ struct onionpacket *create_onionpacket(
 struct route_step *process_onionpacket(
 	const tal_t *ctx,
 	const struct onionpacket *msg,
-	struct privkey *hop_privkey
+	struct privkey *hop_privkey,
+	const u8 *assocdata,
+	const size_t assocdatalen
 	)
 {
 	struct route_step *step = talz(ctx, struct route_step);
@@ -427,7 +437,7 @@ struct route_step *process_onionpacket(
 	create_shared_secret(secret, &msg->ephemeralkey, hop_privkey->secret);
 	generate_key_set(secret, &keys);
 
-	compute_packet_hmac(msg, keys.mu, hmac);
+	compute_packet_hmac(msg, assocdata, assocdatalen, keys.mu, hmac);
 
 	if (memcmp(msg->mac, hmac, sizeof(hmac)) != 0) {
 		warnx("Computed MAC does not match expected MAC, the message was modified.");
