@@ -8,6 +8,8 @@
 
 #include <err.h>
 
+#include <secp256k1_ecdh.h>
+
 #include <sodium/crypto_auth_hmacsha256.h>
 #include <sodium/crypto_stream_chacha20.h>
 
@@ -258,22 +260,9 @@ static bool create_shared_secret(
 	const secp256k1_pubkey *pubkey,
 	const u8 *sessionkey)
 {
-	/* Need to copy since tweak is in-place */
-	secp256k1_pubkey pkcopy;
-	u8 ecres[33];
 
-	pkcopy = *pubkey;
-
-	if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx, &pkcopy, sessionkey) != 1)
+	if (secp256k1_ecdh(secp256k1_ctx, secret, pubkey, sessionkey) != 1)
 		return false;
-
-	/* Serialize and strip first byte, this gives us the X coordinate */
-	size_t outputlen = 33;
-	secp256k1_ec_pubkey_serialize(secp256k1_ctx, ecres, &outputlen,
-				      &pkcopy, SECP256K1_EC_COMPRESSED);
-	struct sha256 h;
-	sha256(&h, ecres, sizeof(ecres));
-	memcpy(secret, &h, sizeof(h));
 	return true;
 }
 
