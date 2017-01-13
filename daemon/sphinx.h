@@ -57,12 +57,16 @@ struct route_step {
  *    HOP_PAYLOAD_SIZE bytes)
  * @num_hops: path length in nodes
  * @sessionkey: 20 byte random session key to derive secrets from
+ * @assocdata: associated data to commit to in HMACs
+ * @assocdatalen: length of the assocdata
  */
 struct onionpacket *create_onionpacket(
 	const tal_t * ctx,
 	struct pubkey path[],
 	struct hoppayload hoppayloads[],
-	const u8 * sessionkey
+	const u8 * sessionkey,
+	const u8 *assocdata,
+	const size_t assocdatalen
 	);
 
 /**
@@ -73,11 +77,15 @@ struct onionpacket *create_onionpacket(
  * @packet: incoming packet being processed
  * @hop_privkey: the processing node's private key to decrypt the packet
  * @hoppayload: the per-hop payload destined for the processing node.
+ * @assocdata: associated data to commit to in HMACs
+ * @assocdatalen: length of the assocdata
  */
 struct route_step *process_onionpacket(
 	const tal_t * ctx,
 	const struct onionpacket *packet,
-	struct privkey *hop_privkey
+	struct privkey *hop_privkey,
+	const u8 *assocdata,
+	const size_t assocdatalen
 	);
 
 /**
