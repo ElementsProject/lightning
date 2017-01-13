@@ -272,7 +272,7 @@ static bool create_shared_secret(
 	secp256k1_ec_pubkey_serialize(secp256k1_ctx, ecres, &outputlen,
 				      &pkcopy, SECP256K1_EC_COMPRESSED);
 	struct sha256 h;
-	sha256(&h, ecres + 1, sizeof(ecres) - 1);
+	sha256(&h, ecres, sizeof(ecres));
 	memcpy(secret, &h, sizeof(h));
 	return true;
 }
@@ -361,7 +361,7 @@ static struct hop_params *generate_hop_params(
 			secp256k1_ctx, der, &outputlen, &temp,
 			SECP256K1_EC_COMPRESSED);
 		struct sha256 h;
-		sha256(&h, der + 1, sizeof(der) - 1);
+		sha256(&h, der, sizeof(der));
 		memcpy(&params[i].secret, &h, sizeof(h));
 
 		compute_blinding_factor(
