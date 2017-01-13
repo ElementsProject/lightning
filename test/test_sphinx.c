@@ -54,11 +54,9 @@ int main(int argc, char **argv)
 			memset(&hoppayloads[i], 'A', sizeof(hoppayloads[i]));
 
 		struct onionpacket *res = create_onionpacket(ctx,
-				   path,
-				   hoppayloads,
-				   sessionkey,
-				   (u8*)"testing",
-				   7);
+							     path,
+							     hoppayloads,
+							     sessionkey);
 
 		u8 *serialized = serialize_onionpacket(ctx, res);
 		if (!serialized)

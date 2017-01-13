@@ -70,7 +70,6 @@ u8 *serialize_onionpacket(
 	write_buffer(dst, m->mac, sizeof(m->mac), &p);
 	write_buffer(dst, m->routinginfo, ROUTING_INFO_SIZE, &p);
 	write_buffer(dst, m->hoppayloads, TOTAL_HOP_PAYLOAD_SIZE, &p);
-	write_buffer(dst, m->payload, MESSAGE_SIZE, &p);
 	return dst;
 }
 
@@ -102,7 +101,6 @@ struct onionpacket *parse_onionpacket(
 	read_buffer(&m->mac, src, 20, &p);
 	read_buffer(&m->routinginfo, src, ROUTING_INFO_SIZE, &p);
 	read_buffer(&m->hoppayloads, src, TOTAL_HOP_PAYLOAD_SIZE, &p);
-	read_buffer(m->payload, src, MESSAGE_SIZE, &p);
 	return m;
 }
 
@@ -136,27 +134,6 @@ static void xorbytes(uint8_t *d, const uint8_t *a, const uint8_t *b, size_t len)
 }
 
 /*
- * Encrypt a message `m` of length `mlen` with key `key` and store the
- * ciphertext in `c`. `c` must be pre-allocated to at least `mlen` bytes.
- */
-static void stream_encrypt(void *c, const void *m, const size_t mlen, const u8 *key)
-{
-	u8 nonce[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-
-	memcheck(c, mlen);
-	crypto_stream_chacha20_xor(c, m, mlen, nonce, key);
-}
-
-/*
- * Decrypt a ciphertext `c` of length `clen` with key `key` and store the
- * cleartext in `m`. `m` must be pre-allocated to at least `clen` bytes.
- */
-static void stream_decrypt(void *m, const void *c, const size_t clen, const u8 *key)
-{
-	stream_encrypt(m, c, clen, key);
-}
-
-/*
  * Generate a pseudo-random byte stream of length `dstlen` from key `k` and
  * store it in `dst`. `dst must be at least `dstlen` bytes long.
  */
@@ -184,12 +161,11 @@ static bool compute_hmac(
 
 static void compute_packet_hmac(const struct onionpacket *packet, u8 *mukey, u8 *hmac)
 {
-	u8 mactemp[ROUTING_INFO_SIZE + TOTAL_HOP_PAYLOAD_SIZE + MESSAGE_SIZE];
+	u8 mactemp[ROUTING_INFO_SIZE + TOTAL_HOP_PAYLOAD_SIZE];
 	u8 mac[32];
 
 	memcpy(mactemp, packet->routinginfo, ROUTING_INFO_SIZE);
 	memcpy(mactemp + ROUTING_INFO_SIZE, packet->hoppayloads, TOTAL_HOP_PAYLOAD_SIZE);
-	memcpy(mactemp + ROUTING_INFO_SIZE + TOTAL_HOP_PAYLOAD_SIZE, packet->payload, sizeof(packet->payload));
 	compute_hmac(mac, mactemp, sizeof(mactemp), mukey, KEY_LEN);
 	memcpy(hmac, mac, 20);
 }
@@ -364,9 +340,7 @@ struct onionpacket *create_onionpacket(
 	const tal_t *ctx,
 	struct pubkey *path,
 	struct hoppayload hoppayloads[],
-	const u8 *sessionkey,
-	const u8 *message,
-	const size_t messagelen
+	const u8 *sessionkey
 	)
 {
 	struct onionpacket *packet = talz(ctx, struct onionpacket);
@@ -381,15 +355,6 @@ struct onionpacket *create_onionpacket(
 
 	for (i = 0; i < num_hops; i++)
 		serialize_hoppayload(binhoppayloads[i], &hoppayloads[i]);
-
-	if (MESSAGE_SIZE > messagelen) {
-		memset(&packet->hoppayloads, 0, TOTAL_HOP_PAYLOAD_SIZE);
-#if MESSAGE_SIZE != 0  /* Suppress GCC warning about 0-length memset */
-		memset(&packet->payload, 0xFF, MESSAGE_SIZE);
-#endif
-		memcpy(&packet->payload, message, messagelen);
-		packet->payload[messagelen] = 0x7f;
-	}
 
 	if (!params)
 		return NULL;
@@ -428,9 +393,6 @@ struct onionpacket *create_onionpacket(
 			len = (NUM_MAX_HOPS - num_hops + 1) * HOP_PAYLOAD_SIZE;
 			memcpy(packet->hoppayloads + len, hopfiller, sizeof(hopfiller));
 		}
-
-		/* Obfuscate end-to-end payload */
-		stream_encrypt(packet->payload, packet->payload, sizeof(packet->payload), keys.pi);
 
 		compute_packet_hmac(packet, keys.mu, nexthmac);
 		pubkey_hash160(nextaddr, &path[i]);
@@ -497,7 +459,6 @@ struct route_step *process_onionpacket(
 	       paddedheader + SECURITY_PARAMETER,
 	       SECURITY_PARAMETER);
 
-	stream_decrypt(step->next->payload, msg->payload, sizeof(msg->payload), keys.pi);
 	memcpy(&step->next->routinginfo, paddedheader + 2 * SECURITY_PARAMETER, ROUTING_INFO_SIZE);
 
 	if (memeqzero(step->next->mac, sizeof(step->next->mac))) {
