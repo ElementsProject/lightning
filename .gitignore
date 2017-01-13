@@ -4,6 +4,8 @@
 *.tx
 *.txid
 *.pb
+*.gcda
+*.gcno
 TAGS
 ccan/tools/configurator/configurator
 ccan/ccan/cdump/tools/cdump-enumstr
@@ -16,3 +18,14 @@ daemon/lightning-cli
 check-bolt
 coverage
 ccan/config.h
+
+# Ignore some generated binaries
+lightningd/lightningd_gossip
+lightningd/lightningd_handshake
+lightningd/test/run-cryptomsg
+wire/test/run-peer-wire
+bitcoin/test/run-tx-encode
+daemon/test/run-maxfee
+test/test_proto
+test/test_sphinx
+test/test_irc
