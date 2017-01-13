@@ -43,22 +43,33 @@ LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o)
 LIGHTNINGD_JSMN_OBJS := daemon/jsmn.o
 LIGHTNINGD_JSMN_HEADERS := daemon/jsmn/jsmn.h
 
-# We accumulate all lightningd/ headers in here
-LIGHTNINGD_HEADERS =				\
+# We accumulate all lightningd/ headers in these three:
+LIGHTNINGD_HEADERS_NOGEN =			\
 	lightningd/gossip_control.h		\
 	lightningd/hsm_control.h		\
 	lightningd/lightningd.h			\
 	lightningd/peer_control.h		\
 	lightningd/subdaemon.h			\
-	$(WIRE_HEADERS) $(WIRE_GEN_HEADERS)	\
-	$(LIGHTNINGD_JSMN_HEADERS)		\
+	$(LIGHTNINGD_LIB_HEADERS)		\
+	$(WIRE_HEADERS)				\
 	$(BITCOIN_HEADERS)			\
 	$(CORE_HEADERS)				\
-	$(GEN_HEADERS)				\
+	$(DAEMON_HEADERS)
+
+# Generated headers
+LIGHTNINGD_HEADERS_GEN =			\
+	$(WIRE_GEN_HEADERS)			\
+	$(GEN_HEADERS)
+
+# Headers we don't directly own (ie. don't check them)
+LIGHTNINGD_EXTERNAL_HEADERS =			\
+	$(LIGHTNINGD_JSMN_HEADERS)		\
 	$(CCAN_HEADERS)				\
-	$(DAEMON_HEADERS)			\
 	$(LIBBASE58_HEADERS)			\
 	$(LIBSODIUM_HEADERS)
+
+# All together in one convenient var
+LIGHTNINGD_HEADERS = $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) $(LIGHTNINGD_EXTERNAL_HEADERS)
 
 # These included makefiles add their headers to the LIGHTNINGD_HEADERS
 # variable so the include must preceed any actual use of the variable.
@@ -66,18 +77,19 @@ include lightningd/hsm/Makefile
 include lightningd/handshake/Makefile
 include lightningd/gossip/Makefile
 
-$(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS): $(LIGHTNINGD_HEADERS)
+$(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS): $(LIGHTNINGD_HEADERS) 
 
 check-source: $(LIGHTNINGD_SRC:%=check-src-include-order/%)
 check-source: $(LIGHTNINGD_LIB_SRC:%=check-src-include-order/%)
 check-source: $(LIGHTNINGD_CLI_SRC:%=check-src-include-order/%)
-check-source: $(LIGHTNINGD_HEADERS:%=check-hdr-include-order/%)
-check-source-bolt: $(LIGHTNINGD_SRC:%=bolt-check/%) $(LIGHTNINGD_HEADERS:%=bolt-check/%)
+check-source: $(LIGHTNINGD_HEADERS_NOGEN:%=check-hdr-include-order/%)
+check-source-bolt: $(LIGHTNINGD_SRC:%=bolt-check/%) $(LIGHTNINGD_HEADERS_NOGEN:%=bolt-check/%)
 
-check-whitespace: $(LIGHTNINGD_SRC:%=check-whitespace/%) $(LIGHTNINGD_HEADERS:%=check-whitespace/%) $(LIGHTNINGD_LIB_SRC:%=check-whitespace/%) $(LIGHTNINGD_LIB_HEADERS:%=check-whitespace/%)
+check-whitespace: $(LIGHTNINGD_SRC:%=check-whitespace/%) $(LIGHTNINGD_HEADERS_NOGEN:%=check-whitespace/%) $(LIGHTNINGD_LIB_SRC:%=check-whitespace/%) $(LIGHTNINGD_LIB_HEADERS:%=check-whitespace/%)
 
+check-makefile: check-lightningd-makefile
 check-lightningd-makefile:
-	@if [ "`ls lightningd/*.h | grep -v lightningd/gen | tr '\012' ' '`" != "`echo $(LIGHTNINGD_HEADERS) ''`" ]; then echo LIGHTNINGD_HEADERS incorrect; exit 1; fi
+	@for f in lightningd/*.h lightningd/*/*.h; do if ! echo $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) "" | grep -q "$$f "; then echo $$f not mentioned in LIGHTNINGD_HEADERS_NOGEN or LIGHTNINGD_HEADERS_GEN >&2; exit 1; fi; done
 
 lightningd/lightningd: $(LIGHTNINGD_OBJS) $(LIGHTNINGD_OLD_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_JSMN_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) $(LIGHTNINGD_HSM_CONTROL_OBJS) $(LIGHTNINGD_HANDSHAKE_CONTROL_OBJS) $(LIGHTNINGD_GOSSIP_CONTROL_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a
 

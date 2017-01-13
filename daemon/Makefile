@@ -123,10 +123,10 @@ check-source: $(DAEMON_LIB_SRC:%=check-src-include-order/%)
 check-source: $(DAEMON_CLI_SRC:%=check-src-include-order/%)
 check-source: $(DAEMON_HEADERS:%=check-hdr-include-order/%)
 check-daemon-makefile:
-	echo $(DAEMON_HEADERS) | tr ' ' '\012' > /tmp/daemon-headers-makefile
-	ls daemon/*.h | grep -v daemon/gen > /tmp/daemon-headers-file
+	@echo $(DAEMON_HEADERS) | tr ' ' '\012' > /tmp/daemon-headers-makefile
+	@ls daemon/*.h | grep -v daemon/gen > /tmp/daemon-headers-file
 	@if [ "`diff -w /tmp/daemon-headers-makefile /tmp/daemon-headers-file`" != "" ]; then echo DAEMON_HEADERS incorrect; diff -w --context=2 /tmp/daemon-headers-makefile /tmp/daemon-headers-file; exit 1; fi
-	rm /tmp/daemon-headers-makefile /tmp/daemon-headers-file
+	@rm /tmp/daemon-headers-makefile /tmp/daemon-headers-file
 
 check-source-bolt: $(DAEMON_SRC:%=bolt-check/%) $(DAEMON_HEADERS:%=bolt-check/%)
 
