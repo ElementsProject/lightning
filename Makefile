@@ -244,6 +244,9 @@ protocol-diagrams: $(patsubst %.script, doc/protocol-%.svg, $(notdir $(wildcard 
 
 check: test-protocol
 
+pytest: daemon/lightningd
+	PYTHONPATH=contrib/pylightning python3 tests/test_lightningd.py
+
 # Keep includes in alpha order.
 check-src-include-order/%: %
 	@if [ "$$(grep '^#include' < $<)" != "$$(grep '^#include' < $< | LC_ALL=C sort)" ]; then echo "$<:1: includes out of order"; grep '^#include' < $<; echo VERSUS; grep '^#include' < $< | LC_ALL=C sort; exit 1; fi
@@ -286,9 +289,9 @@ check-source: check-makefile check-source-bolt check-whitespace	\
 	$(CORE_TX_HEADERS:%=check-hdr-include-order/%)		\
 	$(BITCOIN_HEADERS:%=check-hdr-include-order/%)
 
-full-check: check $(TEST_PROGRAMS) check-source
+full-check: check pytest $(TEST_PROGRAMS) check-source
 
-coverage/coverage.info: check $(TEST_PROGRAMS)
+coverage/coverage.info: check $(TEST_PROGRAMS) pytest
 	mkdir coverage || true
 	lcov --capture --directory . --output-file coverage/coverage.info
 
