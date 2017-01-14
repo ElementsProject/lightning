@@ -24,7 +24,7 @@ def variants(args):
         func.variants_args = args
         return func
     return variants_decorator
-    
+
 def setupBitcoind():
     global bitcoind
     bitcoind = BitcoinD(rpcport=28332)
@@ -36,7 +36,7 @@ def setupBitcoind():
         bitcoind.rpc.generate(432 - info['blocks'])
     elif info['balance'] < 1:
         logging.debug("Insufficient balance, generating 1 block")
-        bitcoind.rpc.generate(1)    
+        bitcoind.rpc.generate(1)
 
 
 def tearDownBitcoind():
@@ -47,13 +47,13 @@ def tearDownBitcoind():
         bitcoind.proc.kill()
     bitcoind.proc.wait()
 
-    
+
 def setUpModule():
     setupBitcoind()
 
 def tearDownModule():
     tearDownBitcoind()
-    
+
 
 class NodeFactory(object):
     def __init__(self, func):
@@ -68,7 +68,7 @@ class NodeFactory(object):
         lightning_dir = os.path.join(TEST_DIR,
                                      str(self.func),
                                      "lightning-{}/".format(node_id))
-        
+
         l = LightningNode(
             LightningD(lightning_dir, bitcoind.bitcoin_dir, port=16330+node_id),
             LightningRpc(os.path.join(lightning_dir, "lightning-rpc").format(node_id)),
@@ -82,7 +82,7 @@ class NodeFactory(object):
                 '--error-exitcode=7',
                 '--log-file={}/valgrind-errors'.format(l.daemon.lightning_dir)
             ] + l.daemon.cmd_line
-            
+
         l.daemon.start()
         l.rpc.connect_rpc()
         # Cache `getinfo`, we'll be using it a lot
@@ -105,11 +105,10 @@ class LightningBaseTestCase(unittest.TestCase):
         unittest.TestCase.__init__(self, testname)
         self.variant = variant
         self.testname = testname
-    
+
     def setUp(self):
         self.node_factory = NodeFactory(self)
         self.executor = futures.ThreadPoolExecutor(max_workers=5)
-
 
     def tearDown(self):
         self.node_factory.killall()
@@ -135,7 +134,7 @@ class LightningDTests(LightningBaseTestCase):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node()
         bitcoind = l1.bitcoin
-        
+
         capacity = 0.01 * 10**8 * 10**3
         htlc_amount = 10000
         l1.connect(l2, 0.01)
@@ -166,6 +165,8 @@ class LightningDTests(LightningBaseTestCase):
         l1.connect(l2, 0.01)
         l2.connect(l3, 0.01)
 
+        time.sleep(3)
+        
         # Manually add channel l2 -> l3 to l1 so that it can compute the route
         l1.rpc.dev_add_route(l2.info['id'], l3.info['id'], 1, 1, 6, 6)
 
@@ -176,11 +177,12 @@ class LightningDTests(LightningBaseTestCase):
         l3.daemon.wait_for_log("STATE_NORMAL_COMMITTING => STATE_NORMAL")
         l1.daemon.wait_for_log("STATE_NORMAL_COMMITTING => STATE_NORMAL")
 
+    @unittest.skip('Too damn long')
     def test_routing_gossip(self):
         nodes = [self.node_factory.get_node() for _ in range(5)]
         l1 = nodes[0]
         l5 = nodes[4]
-        
+
         for i in range(len(nodes)-1):
             nodes[i].connect(nodes[i+1], 0.01)
         start_time = time.time()
