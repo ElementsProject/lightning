@@ -443,7 +443,7 @@ static void json_sendpay(struct command *cmd,
 
 	/* Onion will carry us from first peer onwards. */
 	packet = create_onionpacket(cmd, ids, hoppayloads, sessionkey,
-				    pc->rhash.u.u8, sizeof(struct sha256));
+				    rhash.u.u8, sizeof(struct sha256));
 	onion = serialize_onionpacket(cmd, packet);
 
 	if (pc)
