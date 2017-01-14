@@ -109,7 +109,7 @@ class LightningBaseTestCase(unittest.TestCase):
 
     def setUp(self):
         self.executor = futures.ThreadPoolExecutor(max_workers=5)
-        self.node_factory = NodeFactory(self, executor)
+        self.node_factory = NodeFactory(self, self.executor)
 
     def tearDown(self):
         self.node_factory.killall()
