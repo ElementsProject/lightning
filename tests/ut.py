@@ -74,6 +74,7 @@ class NodeFactory(object):
             LightningD(lightning_dir, bitcoind.bitcoin_dir, port=16330+node_id),
             LightningRpc(os.path.join(lightning_dir, "lightning-rpc").format(node_id)),
             bitcoind,
+            self.executor
         )
         self.nodes.append(l)
         if VALGRIND:
