@@ -56,10 +56,11 @@ def tearDownModule():
 
 
 class NodeFactory(object):
-    def __init__(self, func):
+    def __init__(self, func, executor):
         self.func = func
         self.next_id = 1
         self.nodes = []
+        self.executor = executor
 
     def get_node(self):
         node_id = self.next_id
@@ -107,8 +108,8 @@ class LightningBaseTestCase(unittest.TestCase):
         self.testname = testname
 
     def setUp(self):
-        self.node_factory = NodeFactory(self)
         self.executor = futures.ThreadPoolExecutor(max_workers=5)
+        self.node_factory = NodeFactory(self, executor)
 
     def tearDown(self):
         self.node_factory.killall()

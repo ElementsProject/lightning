@@ -149,26 +149,35 @@ class LightningD(TailableProc):
         logging.info("LightningD stopped")
 
 class LightningNode(object):
-    def __init__(self, daemon, rpc, btc):
+    def __init__(self, daemon, rpc, btc, executor):
         self.rpc = rpc
         self.daemon = daemon
         self.bitcoin = btc
+        self.executor = executor
 
-    def connect(self, remote_node, capacity):
+    def connect(self, remote_node, capacity, async=False):
         # Collect necessary information
         addr = self.rpc.newaddr()['address']
         txid = self.bitcoin.rpc.sendtoaddress(addr, capacity)
         tx = self.bitcoin.rpc.gettransaction(txid)
 
-        # Now actually connect
-        self.rpc.connect('127.0.0.1', remote_node.daemon.port, tx['hex'], async=True)
+        def wait_connected():
+            # Issue async connect command
+            fut = self.rpc.connect('127.0.0.1', remote_node.daemon.port, tx['hex'], async=True)
 
-        # TODO(cdecker) Monitor the mempool to see if its time to generate yet.
-        time.sleep(5)
+            # TODO(cdecker) Monitor the mempool to see if its time to generate yet.
+            time.sleep(5)
         
-        # The sleep should have given bitcoind time to add the tx to its mempool
-        self.bitcoin.rpc.generate(1)
+            # The sleep should have given bitcoind time to add the tx to its mempool
+            self.bitcoin.rpc.generate(1)
 
-        # Now wait for confirmation
-        self.daemon.wait_for_log("STATE_NORMAL")
-        remote_node.daemon.wait_for_log("STATE_NORMAL")
+            #fut.result(timeout=5)
+
+            # Now wait for confirmation
+            self.daemon.wait_for_log("STATE_NORMAL")
+            remote_node.daemon.wait_for_log("STATE_NORMAL")
+
+        if async:
+            return self.executor.submit(wait_connected)
+        else:
+            return wait_connected()
