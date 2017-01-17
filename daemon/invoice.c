@@ -301,7 +301,7 @@ static const struct json_command delinvoice_command = {
 };
 AUTODATA(json_command, &delinvoice_command);
 
-static void json_waitinvoice(struct command *cmd,
+static void json_waitanyinvoice(struct command *cmd,
 			    const char *buffer, const jsmntok_t *params)
 {
 	struct invoice *i;
@@ -343,13 +343,13 @@ static void json_waitinvoice(struct command *cmd,
 	list_add_tail(&invs->invoice_waiters, &w->list);
 }
 
-static const struct json_command waitinvoice_command = {
-	"waitinvoice",
-	json_waitinvoice,
+static const struct json_command waitanyinvoice_command = {
+	"waitanyinvoice",
+	json_waitanyinvoice,
 	"Wait for the next invoice to be paid, after {label} (if supplied)))",
 	"Returns {label}, {rhash} and {msatoshi} on success. "
 };
-AUTODATA(json_command, &waitinvoice_command);
+AUTODATA(json_command, &waitanyinvoice_command);
 
 
 /* Wait for an incoming payment matching the `label` in the JSON
@@ -357,7 +357,7 @@ AUTODATA(json_command, &waitinvoice_command);
  * already been received or it may add the `cmd` to the list of
  * waiters, if the payment is still pending.
  */
-static void json_awaitpayment(struct command *cmd,
+static void json_waitinvoice(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
 	struct invoice *i;
@@ -392,10 +392,10 @@ static void json_awaitpayment(struct command *cmd,
 	list_add_tail(&invs->invoice_waiters, &w->list);
 }
 
-static const struct json_command awaitpayment_command = {
-	"awaitpayment",
-	json_awaitpayment,
+static const struct json_command waitinvoice_command = {
+	"waitinvoice",
+	json_waitinvoice,
 	"Wait for an incoming payment matching the invoice with {label}",
 	"Returns {label}, {rhash} and {msatoshi} on success"
 };
-AUTODATA(json_command, &awaitpayment_command);
+AUTODATA(json_command, &waitinvoice_command);
