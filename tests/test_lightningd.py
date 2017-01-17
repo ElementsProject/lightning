@@ -1,7 +1,7 @@
 from binascii import hexlify, unhexlify
 from concurrent import futures
 from hashlib import sha256
-from utils import BitcoinD, LightningD, LightningRpc, LightningNode
+from lightning import LightningRpc, LegacyLightningRpc
 
 import logging
 import os
@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 import unittest
+import utils
 
 bitcoind = None
 TEST_DIR = tempfile.mkdtemp(prefix='lightning-')
@@ -21,7 +22,7 @@ logging.info("Tests running in '%s'", TEST_DIR)
 
 def setupBitcoind():
     global bitcoind
-    bitcoind = BitcoinD(rpcport=28332)
+    bitcoind = utils.BitcoinD(rpcport=28332)
     bitcoind.start()
     info = bitcoind.rpc.getinfo()
     # Make sure we have segwit and some funds
@@ -59,7 +60,7 @@ class NodeFactory(object):
         self.nodes = []
         self.executor = executor
 
-    def get_node(self):
+    def get_node(self, legacy=True):
         node_id = self.next_id
         self.next_id += 1
 
@@ -67,9 +68,15 @@ class NodeFactory(object):
             TEST_DIR, self.func._testMethodName, "lightning-{}/".format(node_id))
 
         socket_path = os.path.join(lightning_dir, "lightning-rpc").format(node_id)
-        daemon = LightningD(lightning_dir, bitcoind.bitcoin_dir, port=16330+node_id)
-        rpc = LightningRpc(socket_path, self.executor)
-        node = LightningNode(daemon, rpc, bitcoind, self.executor)
+        port = 16330+node_id
+        if legacy:
+            daemon = utils.LegacyLightningD(lightning_dir, bitcoind.bitcoin_dir, port=port)
+            rpc = LegacyLightningRpc(socket_path, self.executor)
+        else:
+            daemon = utils.LightningD(lightning_dir, bitcoind.bitcoin_dir, port=port)
+            rpc = LightningRpc(socket_path, self.executor)
+
+        node = utils.LightningNode(daemon, rpc, bitcoind, self.executor)
         self.nodes.append(node)
         if VALGRIND:
             node.daemon.cmd_line = [
@@ -80,7 +87,6 @@ class NodeFactory(object):
             ] + node.daemon.cmd_line
 
         node.daemon.start()
-        node.rpc.connect_rpc()
         # Cache `getinfo`, we'll be using it a lot
         node.info = node.rpc.getinfo()
         return node
@@ -90,8 +96,7 @@ class NodeFactory(object):
             n.daemon.stop()
 
 
-class LightningDTests(unittest.TestCase):
-
+class BaseLightningDTests(unittest.TestCase):
     def setUp(self):
         # Most of the executor threads will be waiting for IO, so
         # let's have a few of them
@@ -102,6 +107,23 @@ class LightningDTests(unittest.TestCase):
         self.node_factory.killall()
         self.executor.shutdown(wait=False)
         # TODO(cdecker) Check that valgrind didn't find any errors
+
+
+class LightningDTests(BaseLightningDTests):
+    def test_connect(self):
+        l1 = self.node_factory.get_node(legacy=False)
+        l2 = self.node_factory.get_node(legacy=False)
+        ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+
+        assert ret['id'] == l2.info['id']
+
+        p1 = l1.rpc.getpeer(l2.info['id'])
+        p2 = l2.rpc.getpeer(l1.info['id'])
+
+        assert p1['condition'] == 'Exchanging gossip'
+        assert p2['condition'] == 'Exchanging gossip'
+
+class LegacyLightningDTests(BaseLightningDTests):
 
     def test_connect(self):
         l1 = self.node_factory.get_node()

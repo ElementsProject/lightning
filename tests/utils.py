@@ -160,7 +160,7 @@ class LightningD(TailableProc):
         self.lightning_dir = lightning_dir
         self.port = port
         self.cmd_line = [
-            'daemon/lightningd',
+            'lightningd/lightningd',
             '--bitcoin-datadir={}'.format(bitcoin_dir),
             '--lightning-dir={}'.format(lightning_dir),
             '--port={}'.format(port),
@@ -176,12 +176,23 @@ class LightningD(TailableProc):
 
     def start(self):
         TailableProc.start(self)
-        self.wait_for_log("Hello world!")
+        self.wait_for_log("Creating IPv6 listener on port")
         logging.info("LightningD started")
 
     def stop(self):
         TailableProc.stop(self)
         logging.info("LightningD stopped")
+
+class LegacyLightningD(LightningD):
+    def __init__(self, *args, **kwargs):
+        LightningD.__init__(self, *args, **kwargs)
+        self.cmd_line[0] = 'daemon/lightningd'
+
+    def start(self):
+        TailableProc.start(self)
+        self.wait_for_log("Hello world!")
+        logging.info("LightningD started")
+
 
 class LightningNode(object):
     def __init__(self, daemon, rpc, btc, executor):
