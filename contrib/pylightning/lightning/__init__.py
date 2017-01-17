@@ -1,1 +1,1 @@
-from .lightning import LightningRpc
+from .lightning import LightningRpc, LegacyLightningRpc
