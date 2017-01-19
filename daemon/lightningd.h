@@ -127,8 +127,8 @@ struct lightningd_state {
 	/* Maintained by invoices.c */
 	struct invoices *invoices;
 
-	/* All known nodes. */
-	struct node_map *nodes;
+	/* Routing information */
+	struct routing_state *rstate;
 
 	/* For testing: don't fail if we can't route. */
 	bool dev_never_routefail;

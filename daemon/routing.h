@@ -72,10 +72,20 @@ struct node {
 
 struct lightningd_state;
 
-struct node *new_node(struct lightningd_state *dstate,
+struct routing_state {
+	/* All known nodes. */
+	struct node_map *nodes;
+
+	struct log *base_log;
+};
+
+//FIXME(cdecker) The log will have to be replaced for the new subdaemon, keeping for now to keep changes small.
+struct routing_state *new_routing_state(const tal_t *ctx, struct log *base_log);
+
+struct node *new_node(struct routing_state *rstate,
 		      const struct pubkey *id);
 
-struct node *get_node(struct lightningd_state *dstate,
+struct node *get_node(struct routing_state *rstate,
 		      const struct pubkey *id);
 
 /* msatoshi must be possible (< 21 million BTC), ie < 2^60.
@@ -83,13 +93,13 @@ struct node *get_node(struct lightningd_state *dstate,
 s64 connection_fee(const struct node_connection *c, u64 msatoshi);
 
 /* Updates existing node, or creates a new one as required. */
-struct node *add_node(struct lightningd_state *dstate,
+struct node *add_node(struct routing_state *rstate,
 		      const struct pubkey *pk,
 		      char *hostname,
 		      int port);
 
 /* Updates existing connection, or creates new one as required. */
-struct node_connection *add_connection(struct lightningd_state *dstate,
+struct node_connection *add_connection(struct routing_state *rstate,
 				       const struct pubkey *from,
 				       const struct pubkey *to,
 				       u32 base_fee, s32 proportional_fee,
@@ -99,7 +109,7 @@ struct node_connection *add_connection(struct lightningd_state *dstate,
  * yet. Used by channel_announcements before the channel_update comes
  * in. */
 
-struct node_connection *half_add_connection(struct lightningd_state *dstate,
+struct node_connection *half_add_connection(struct routing_state *rstate,
 					    const struct pubkey *from,
 					    const struct pubkey *to,
 					    const struct channel_id *chanid,
@@ -107,32 +117,34 @@ struct node_connection *half_add_connection(struct lightningd_state *dstate,
 
 /* Get an existing connection between `from` and `to`, NULL if no such
  * connection exists. */
-struct node_connection *get_connection(struct lightningd_state *dstate,
+struct node_connection *get_connection(struct routing_state *rstate,
 				       const struct pubkey *from,
 				       const struct pubkey *to);
 
 /* Given a channel_id, retrieve the matching connection, or NULL if it is
  * unknown. */
-struct node_connection *get_connection_by_cid(const struct lightningd_state *dstate,
+struct node_connection *get_connection_by_cid(const struct routing_state *rstate,
 					      const struct channel_id *chanid,
 					      const u8 direction);
 
-void remove_connection(struct lightningd_state *dstate,
+void remove_connection(struct routing_state *rstate,
 		       const struct pubkey *src, const struct pubkey *dst);
 
-struct peer *find_route(const tal_t *ctx,
-			struct lightningd_state *dstate,
+struct pubkey *find_route(const tal_t *ctx,
+			struct routing_state *rstate,
+			const struct pubkey *from,
 			const struct pubkey *to,
 			u64 msatoshi,
 			double riskfactor,
 			s64 *fee,
 			struct node_connection ***route);
 
-struct node_map *empty_node_map(struct lightningd_state *dstate);
+struct node_map *empty_node_map(const tal_t *ctx);
 
 char *opt_add_route(const char *arg, struct lightningd_state *dstate);
 
 /* Dump all known channels and nodes to the peer. Used when a new connection was established. */
+//FIXME(cdecker) Not used in the gossip subdaemon, remove once old daemon is retired
 void sync_routing_table(struct lightningd_state *dstate, struct peer *peer);
 
 #endif /* LIGHTNING_DAEMON_ROUTING_H */

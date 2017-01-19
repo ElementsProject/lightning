@@ -84,7 +84,7 @@ static void check_routing_failure(struct lightningd_state *dstate,
 	/* Don't remove route if it's last node (obviously) */
 	for (i = 0; i+1 < tal_count(pc->ids); i++) {
 		if (structeq(&pc->ids[i], &id)) {
-			remove_connection(dstate, &pc->ids[i], &pc->ids[i+1]);
+			remove_connection(dstate->rstate, &pc->ids[i], &pc->ids[i+1]);
 			return;
 		}
 	}
@@ -200,6 +200,7 @@ static void json_getroute(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
 	struct pubkey id;
+	struct pubkey *first;
 	jsmntok_t *idtok, *msatoshitok, *riskfactortok;
 	struct json_result *response;
 	int i;
@@ -240,9 +241,11 @@ static void json_getroute(struct command *cmd,
 		return;
 	}
 
-	peer = find_route(cmd, cmd->dstate, &id, msatoshi, riskfactor,
-			  &fee, &route);
-	if (!peer) {
+	first = find_route(cmd, cmd->dstate->rstate, &cmd->dstate->id, &id, msatoshi,
+			  riskfactor, &fee, &route);
+	if (first)
+		peer = find_peer(cmd->dstate, first);
+	if (!first || !peer) {
 		command_fail(cmd, "no route found");
 		return;
 	}

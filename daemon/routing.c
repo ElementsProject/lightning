@@ -15,6 +15,15 @@
 /* 365.25 * 24 * 60 / 10 */
 #define BLOCKS_PER_YEAR 52596
 
+struct routing_state *new_routing_state(const tal_t *ctx, struct log *base_log)
+{
+	struct routing_state *rstate = tal(ctx, struct routing_state);
+	rstate->base_log = base_log;
+	rstate->nodes = empty_node_map(rstate);
+	return rstate;
+}
+
+
 static const secp256k1_pubkey *keyof_node(const struct node *n)
 {
 	return &n->id.pubkey;
@@ -32,17 +41,17 @@ static bool node_eq(const struct node *n, const secp256k1_pubkey *key)
 
 HTABLE_DEFINE_TYPE(struct node, keyof_node, hash_key, node_eq, node_map);
 
-struct node_map *empty_node_map(struct lightningd_state *dstate)
+struct node_map *empty_node_map(const tal_t *ctx)
 {
-	struct node_map *map = tal(dstate, struct node_map);
+	struct node_map *map = tal(ctx, struct node_map);
 	node_map_init(map);
 	return map;
 }
 
-struct node *get_node(struct lightningd_state *dstate,
+struct node *get_node(struct routing_state *rstate,
 		      const struct pubkey *id)
 {
-	return node_map_get(dstate->nodes, &id->pubkey);
+	return node_map_get(rstate->nodes, &id->pubkey);
 }
 
 static void destroy_node(struct node *node)
@@ -54,14 +63,14 @@ static void destroy_node(struct node *node)
 		tal_free(node->out[0]);
 }
 
-struct node *new_node(struct lightningd_state *dstate,
+struct node *new_node(struct routing_state *rstate,
 		      const struct pubkey *id)
 {
 	struct node *n;
 
-	assert(!get_node(dstate, id));
+	assert(!get_node(rstate, id));
 
-	n = tal(dstate, struct node);
+	n = tal(rstate, struct node);
 	n->id = *id;
 	n->in = tal_arr(n, struct node_connection *, 0);
 	n->out = tal_arr(n, struct node_connection *, 0);
@@ -69,25 +78,25 @@ struct node *new_node(struct lightningd_state *dstate,
 	n->alias = NULL;
 	n->hostname = NULL;
 	n->node_announcement = NULL;
-	node_map_add(dstate->nodes, n);
+	node_map_add(rstate->nodes, n);
 	tal_add_destructor(n, destroy_node);
 
 	return n;
 }
 
 struct node *add_node(
-	struct lightningd_state *dstate,
+	struct routing_state *rstate,
 	const struct pubkey *pk,
 	char *hostname,
 	int port)
 {
-	struct node *n = get_node(dstate, pk);
+	struct node *n = get_node(rstate, pk);
 	if (!n) {
-		n = new_node(dstate, pk);
-		log_debug_struct(dstate->base_log, "Creating new node %s",
+		n = new_node(rstate, pk);
+		log_debug_struct(rstate->base_log, "Creating new node %s",
 				 struct pubkey, pk);
 	} else {
-		log_debug_struct(dstate->base_log, "Update existing node %s",
+		log_debug_struct(rstate->base_log, "Update existing node %s",
 				 struct pubkey, pk);
 	}
 	n->hostname = tal_steal(n, hostname);
@@ -119,14 +128,14 @@ static void destroy_connection(struct node_connection *nc)
 		fatal("Connection not found in array?!");
 }
 
-struct node_connection * get_connection(struct lightningd_state *dstate,
+struct node_connection * get_connection(struct routing_state *rstate,
 					const struct pubkey *from_id,
 					const struct pubkey *to_id)
 {
 	int i, n;
 	struct node *from, *to;
-	from = get_node(dstate, from_id);
-	to = get_node(dstate, to_id);
+	from = get_node(rstate, from_id);
+	to = get_node(rstate, to_id);
 	if (!from || ! to)
 		return NULL;
 
@@ -138,13 +147,13 @@ struct node_connection * get_connection(struct lightningd_state *dstate,
 	return NULL;
 }
 
-struct node_connection *get_connection_by_cid(const struct lightningd_state *dstate,
+struct node_connection *get_connection_by_cid(const struct routing_state *rstate,
 					      const struct channel_id *chanid,
 					      const u8 direction)
 {
 	struct node *n;
 	int i, num_conn;
-	struct node_map *nodes = dstate->nodes;
+	struct node_map *nodes = rstate->nodes;
 	struct node_connection *c;
 	struct node_map_iter it;
 
@@ -162,7 +171,7 @@ struct node_connection *get_connection_by_cid(const struct lightningd_state *dst
 }
 
 static struct node_connection *
-get_or_make_connection(struct lightningd_state *dstate,
+get_or_make_connection(struct routing_state *rstate,
 		       const struct pubkey *from_id,
 		       const struct pubkey *to_id)
 {
@@ -170,35 +179,35 @@ get_or_make_connection(struct lightningd_state *dstate,
 	struct node *from, *to;
 	struct node_connection *nc;
 
-	from = get_node(dstate, from_id);
+	from = get_node(rstate, from_id);
 	if (!from)
-		from = new_node(dstate, from_id);
-	to = get_node(dstate, to_id);
+		from = new_node(rstate, from_id);
+	to = get_node(rstate, to_id);
 	if (!to)
-		to = new_node(dstate, to_id);
+		to = new_node(rstate, to_id);
 
 	n = tal_count(to->in);
 	for (i = 0; i < n; i++) {
 		if (to->in[i]->src == from) {
-			log_debug_struct(dstate->base_log,
+			log_debug_struct(rstate->base_log,
 					 "Updating existing route from %s",
 					 struct pubkey, &from->id);
-			log_add_struct(dstate->base_log, " to %s",
+			log_add_struct(rstate->base_log, " to %s",
 				       struct pubkey, &to->id);
 			return to->in[i];
 		}
 	}
 
-	log_debug_struct(dstate->base_log, "Creating new route from %s",
+	log_debug_struct(rstate->base_log, "Creating new route from %s",
 			 struct pubkey, &from->id);
-	log_add_struct(dstate->base_log, " to %s", struct pubkey, &to->id);
+	log_add_struct(rstate->base_log, " to %s", struct pubkey, &to->id);
 
-	nc = tal(dstate, struct node_connection);
+	nc = tal(rstate, struct node_connection);
 	nc->src = from;
 	nc->dst = to;
 	nc->channel_announcement = NULL;
 	nc->channel_update = NULL;
-	log_add(dstate->base_log, " = %p (%p->%p)", nc, from, to);
+	log_add(rstate->base_log, " = %p (%p->%p)", nc, from, to);
 
 	/* Hook it into in/out arrays. */
 	i = tal_count(to->in);
@@ -212,7 +221,7 @@ get_or_make_connection(struct lightningd_state *dstate,
 	return nc;
 }
 
-struct node_connection *half_add_connection(struct lightningd_state *dstate,
+struct node_connection *half_add_connection(struct routing_state *rstate,
 					    const struct pubkey *from,
 					    const struct pubkey *to,
 					    const struct channel_id *chanid,
@@ -220,7 +229,7 @@ struct node_connection *half_add_connection(struct lightningd_state *dstate,
 	)
 {
 	struct node_connection *nc;
-	nc = get_or_make_connection(dstate, from, to);
+	nc = get_or_make_connection(rstate, from, to);
 	memcpy(&nc->channel_id, chanid, sizeof(nc->channel_id));
 	nc->active = false;
 	nc->last_timestamp = 0;
@@ -235,13 +244,13 @@ struct node_connection *half_add_connection(struct lightningd_state *dstate,
 
 
 /* Updates existing route if required. */
-struct node_connection *add_connection(struct lightningd_state *dstate,
+struct node_connection *add_connection(struct routing_state *rstate,
 				       const struct pubkey *from,
 				       const struct pubkey *to,
 				       u32 base_fee, s32 proportional_fee,
 				       u32 delay, u32 min_blocks)
 {
-	struct node_connection *c = get_or_make_connection(dstate, from, to);
+	struct node_connection *c = get_or_make_connection(rstate, from, to);
 	c->base_fee = base_fee;
 	c->proportional_fee = proportional_fee;
 	c->delay = delay;
@@ -253,20 +262,20 @@ struct node_connection *add_connection(struct lightningd_state *dstate,
 	return c;
 }
 
-void remove_connection(struct lightningd_state *dstate,
+void remove_connection(struct routing_state *rstate,
 		       const struct pubkey *src, const struct pubkey *dst)
 {
 	struct node *from, *to;
 	size_t i, num_edges;
 
-	log_debug_struct(dstate->base_log, "Removing route from %s",
+	log_debug_struct(rstate->base_log, "Removing route from %s",
 			 struct pubkey, src);
-	log_add_struct(dstate->base_log, " to %s", struct pubkey, dst);
+	log_add_struct(rstate->base_log, " to %s", struct pubkey, dst);
 
-	from = get_node(dstate, src);
-	to = get_node(dstate, dst);
+	from = get_node(rstate, src);
+	to = get_node(rstate, dst);
 	if (!from || !to) {
-		log_debug(dstate->base_log, "Not found: src=%p dst=%p",
+		log_debug(rstate->base_log, "Not found: src=%p dst=%p",
 			  from, to);
 		return;
 	}
@@ -277,13 +286,13 @@ void remove_connection(struct lightningd_state *dstate,
 		if (from->out[i]->dst != to)
 			continue;
 
-		log_add(dstate->base_log, " Matched route %zu of %zu",
+		log_add(rstate->base_log, " Matched route %zu of %zu",
 			i, num_edges);
 		/* Destructor makes it delete itself */
 		tal_free(from->out[i]);
 		return;
 	}
-	log_add(dstate->base_log, " None of %zu routes matched", num_edges);
+	log_add(rstate->base_log, " None of %zu routes matched", num_edges);
 }
 
 /* Too big to reach, but don't overflow if added. */
@@ -347,8 +356,9 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
 	}
 }
 
-struct peer *find_route(const tal_t *ctx,
-			struct lightningd_state *dstate,
+struct pubkey *find_route(const tal_t *ctx,
+			struct routing_state *rstate,
+			const struct pubkey *from,
 			const struct pubkey *to,
 			u64 msatoshi,
 			double riskfactor,
@@ -357,26 +367,26 @@ struct peer *find_route(const tal_t *ctx,
 {
 	struct node *n, *src, *dst;
 	struct node_map_iter it;
-	struct peer *first;
+	struct pubkey *first;
 	int runs, i, best;
 
 	/* Note: we map backwards, since we know the amount of satoshi we want
 	 * at the end, and need to derive how much we need to send. */
-	dst = get_node(dstate, &dstate->id);
-	src = get_node(dstate, to);
+	dst = get_node(rstate, from);
+	src = get_node(rstate, to);
 
 	if (!src) {
-		log_info_struct(dstate->base_log, "find_route: cannot find %s",
+		log_info_struct(rstate->base_log, "find_route: cannot find %s",
 				struct pubkey, to);
 		return NULL;
 	} else if (dst == src) {
-		log_info_struct(dstate->base_log, "find_route: this is %s, refusing to create empty route",
+		log_info_struct(rstate->base_log, "find_route: this is %s, refusing to create empty route",
 				struct pubkey, to);
 		return NULL;
 	}
 
 	/* Reset all the information. */
-	clear_bfg(dstate->nodes);
+	clear_bfg(rstate->nodes);
 
 	/* Bellman-Ford-Gibson: like Bellman-Ford, but keep values for
 	 * every path length. */
@@ -384,23 +394,23 @@ struct peer *find_route(const tal_t *ctx,
 	src->bfg[0].risk = 0;
 
 	for (runs = 0; runs < ROUTING_MAX_HOPS; runs++) {
-		log_debug(dstate->base_log, "Run %i", runs);
+		log_debug(rstate->base_log, "Run %i", runs);
 		/* Run through every edge. */
-		for (n = node_map_first(dstate->nodes, &it);
+		for (n = node_map_first(rstate->nodes, &it);
 		     n;
-		     n = node_map_next(dstate->nodes, &it)) {
+		     n = node_map_next(rstate->nodes, &it)) {
 			size_t num_edges = tal_count(n->in);
 			for (i = 0; i < num_edges; i++) {
 				if (!n->in[i]->active)
 					continue;
 				bfg_one_edge(n, i, riskfactor);
-				log_debug(dstate->base_log, "We seek %p->%p, this is %p -> %p",
+				log_debug(rstate->base_log, "We seek %p->%p, this is %p -> %p",
 					  dst, src, n->in[i]->src, n->in[i]->dst);
-				log_debug_struct(dstate->base_log,
+				log_debug_struct(rstate->base_log,
 						 "Checking from %s",
 						 struct pubkey,
 						 &n->in[i]->src->id);
-				log_add_struct(dstate->base_log,
+				log_add_struct(rstate->base_log,
 					       " to %s",
 					       struct pubkey,
 					       &n->in[i]->dst->id);
@@ -416,7 +426,7 @@ struct peer *find_route(const tal_t *ctx,
 
 	/* No route? */
 	if (dst->bfg[best].total >= INFINITE) {
-		log_info_struct(dstate->base_log, "find_route: No route to %s",
+		log_info_struct(rstate->base_log, "find_route: No route to %s",
 				struct pubkey, to);
 		return NULL;
 	}
@@ -427,13 +437,7 @@ struct peer *find_route(const tal_t *ctx,
 	dst = dst->bfg[best].prev->dst;
 	best--;
 
-	/* We should only add routes if we have a peer. */
-	first = find_peer(dstate, &dst->id);
-	if (!first) {
-		log_broken_struct(dstate->base_log, "No peer %s?",
-				  struct pubkey, &(*route)[0]->src->id);
-		return NULL;
-	}
+	first = &dst->id;
 
 	*fee = dst->bfg[best].total - msatoshi;
 	*route = tal_arr(ctx, struct node_connection *, best);
@@ -445,20 +449,20 @@ struct peer *find_route(const tal_t *ctx,
 	assert(n == src);
 
 	msatoshi += *fee;
-	log_info(dstate->base_log, "find_route:");
-	log_add_struct(dstate->base_log, "via %s", struct pubkey, first->id);
+	log_info(rstate->base_log, "find_route:");
+	log_add_struct(rstate->base_log, "via %s", struct pubkey, first);
 	/* If there are intermidiaries, dump them, and total fees. */
 	if (best != 0) {
 		for (i = 0; i < best; i++) {
-			log_add_struct(dstate->base_log, " %s",
+			log_add_struct(rstate->base_log, " %s",
 				       struct pubkey, &(*route)[i]->dst->id);
-			log_add(dstate->base_log, "(%i+%i=%"PRIu64")",
+			log_add(rstate->base_log, "(%i+%i=%"PRIu64")",
 				(*route)[i]->base_fee,
 				(*route)[i]->proportional_fee,
 				connection_fee((*route)[i], msatoshi));
 			msatoshi -= connection_fee((*route)[i], msatoshi);
 		}
-		log_add(dstate->base_log, "=%"PRIi64"(%+"PRIi64")",
+		log_add(rstate->base_log, "=%"PRIi64"(%+"PRIi64")",
 			(*route)[best-1]->dst->bfg[best-1].total, *fee);
 	}
 	return first;
@@ -502,7 +506,7 @@ char *opt_add_route(const char *arg, struct lightningd_state *dstate)
 	if (*arg)
 		return "Data after minblocks";
 
-	add_connection(dstate, &src, &dst, base, var, delay, minblocks);
+	add_connection(dstate->rstate, &src, &dst, base, var, delay, minblocks);
 	return NULL;
 }
 
@@ -550,7 +554,7 @@ static void json_add_route(struct command *cmd,
 		return;
 	}
 
-	add_connection(cmd->dstate, &src, &dst, base, var, delay, minblocks);
+	add_connection(cmd->dstate->rstate, &src, &dst, base, var, delay, minblocks);
 	command_success(cmd, null_response(cmd));
 }
 
@@ -560,7 +564,7 @@ void sync_routing_table(struct lightningd_state *dstate, struct peer *peer)
 	struct node_map_iter it;
 	int i;
 	struct node_connection *nc;
-	for (n = node_map_first(dstate->nodes, &it); n; n = node_map_next(dstate->nodes, &it)) {
+	for (n = node_map_first(dstate->rstate->nodes, &it); n; n = node_map_next(dstate->rstate->nodes, &it)) {
 		size_t num_edges = tal_count(n->out);
 		for (i = 0; i < num_edges; i++) {
 			nc = n->out[i];
@@ -588,7 +592,7 @@ static void json_getchannels(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 	struct node_map_iter it;
 	struct node *n;
-	struct node_map *nodes = cmd->dstate->nodes;
+	struct node_map *nodes = cmd->dstate->rstate->nodes;
 	struct node_connection *c;
 	int num_conn, i;
 
@@ -660,7 +664,7 @@ static void json_getnodes(struct command *cmd,
 	struct node *n;
 	struct node_map_iter i;
 
-	n = node_map_first(cmd->dstate->nodes, &i);
+	n = node_map_first(cmd->dstate->rstate->nodes, &i);
 
 	json_object_start(response, NULL);
 	json_array_start(response, "nodes");
@@ -675,7 +679,7 @@ static void json_getnodes(struct command *cmd,
 			json_add_string(response, "hostname", n->hostname);
 
 		json_object_end(response);
-		n = node_map_next(cmd->dstate->nodes, &i);
+		n = node_map_next(cmd->dstate->rstate->nodes, &i);
 	}
 
 	json_array_end(response);
