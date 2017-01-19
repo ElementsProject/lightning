@@ -910,7 +910,7 @@ static void restore_peer_local_visible_state(struct peer *peer)
 				 &peer->local.next_revocation_hash);
 
 	if (state_is_normal(peer->state))
-		peer->nc = add_connection(peer->dstate,
+		peer->nc = add_connection(peer->dstate->rstate,
 					  &peer->dstate->id, peer->id,
 					  peer->dstate->config.fee_base,
 					  peer->dstate->config.fee_per_satoshi,

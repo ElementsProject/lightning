@@ -178,18 +178,18 @@ static bool add_channel_direction(struct lightningd_state *dstate,
 				  const struct channel_id *channel_id,
 				  const u8 *announcement)
 {
-	struct node_connection *c = get_connection(dstate, from, to);
+	struct node_connection *c = get_connection(dstate->rstate, from, to);
 	if (c){
 		/* Do not clobber connections added otherwise */
 		memcpy(&c->channel_id, channel_id, sizeof(c->channel_id));
 		c->flags = direction;
 		printf("Found node_connection via get_connection");
 		return false;
-	}else if(get_connection_by_cid(dstate, channel_id, direction)) {
+	}else if(get_connection_by_cid(dstate->rstate, channel_id, direction)) {
 		return false;
 	}
 
-	c = half_add_connection(dstate, from, to, channel_id, direction);
+	c = half_add_connection(dstate->rstate, from, to, channel_id, direction);
 
 	/* Remember the announcement so we can forward it to new peers */
 	tal_free(c->channel_announcement);
@@ -292,7 +292,7 @@ void handle_channel_update(struct peer *peer, const u8 *update, size_t len)
 		  flags & 0x01
 		);
 
-	c = get_connection_by_cid(peer->dstate, &channel_id, flags & 0x1);
+	c = get_connection_by_cid(peer->dstate->rstate, &channel_id, flags & 0x1);
 
 	if (!c) {
 		log_debug(peer->log, "Ignoring update for unknown channel %d:%d:%d",
@@ -370,7 +370,7 @@ void handle_node_announcement(
 		tal_free(tmpctx);
 		return;
 	}
-	node = get_node(peer->dstate, &node_id);
+	node = get_node(peer->dstate->rstate, &node_id);
 
 	if (!node) {
 		log_debug(peer->dstate->base_log,

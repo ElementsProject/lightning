@@ -296,7 +296,7 @@ static void peer_open_complete(struct peer *peer, const char *problem)
 		log_debug(peer->log, "peer open complete");
 		assert(!peer->nc);
 		/* We're connected, so record it. */
-		peer->nc = add_connection(peer->dstate,
+		peer->nc = add_connection(peer->dstate->rstate,
 					  &peer->dstate->id, peer->id,
 					  peer->dstate->config.fee_base,
 					  peer->dstate->config.fee_per_satoshi,

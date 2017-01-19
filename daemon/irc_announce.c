@@ -165,7 +165,7 @@ static void handle_channel_announcement(
 	 * that the endpoints match.
 	 */
 
-	add_connection(istate->dstate, pk1, pk2, atoi(splits[6]),
+	add_connection(istate->dstate->rstate, pk1, pk2, atoi(splits[6]),
 		       atoi(splits[7]), atoi(splits[8]), 6);
 }
 
@@ -189,7 +189,7 @@ static void handle_node_announcement(
 			splits[1]);
 	}
 
-	struct node *node = add_node(istate->dstate, pk, hostname, port);
+	struct node *node = add_node(istate->dstate->rstate, pk, hostname, port);
 	if (splits[4] != NULL){
 		tal_free(node->alias);
 		node->alias = tal_hexdata(node, splits[4], strlen(splits[4]));
@@ -231,7 +231,7 @@ static void handle_irc_command(struct ircstate *istate, const struct irccommand 
 		log_debug(dstate->base_log, "Detected my own IP as %s", dstate->external_ip);
 
 		// Add our node to the node_map for completeness
-		add_node(istate->dstate, &dstate->id,
+		add_node(istate->dstate->rstate, &dstate->id,
 			 dstate->external_ip, dstate->portnum);
 	} else if (streq(cmd->command, "JOIN")) {
 		unsigned int delay;

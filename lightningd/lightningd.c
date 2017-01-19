@@ -90,7 +90,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dstate.dev_never_routefail = false;
 	ld->dstate.dev_no_broadcast = false;
 	ld->dstate.bitcoin_req_running = false;
-	ld->dstate.nodes = empty_node_map(&ld->dstate);
 	ld->dstate.reexec = NULL;
 	ld->dstate.external_ip = NULL;
 	ld->dstate.announce = NULL;
