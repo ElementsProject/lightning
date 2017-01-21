@@ -3,12 +3,10 @@
 #include "log.h"
 #include "overflows.h"
 #include "packets.h"
-#include "peer.h"
 #include "pseudorand.h"
 #include "routing.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/siphash24/siphash24.h>
-#include <ccan/htable/htable_type.h>
 #include <ccan/structeq/structeq.h>
 #include <inttypes.h>
 
@@ -24,22 +22,20 @@ struct routing_state *new_routing_state(const tal_t *ctx, struct log *base_log)
 }
 
 
-static const secp256k1_pubkey *keyof_node(const struct node *n)
+const secp256k1_pubkey *node_map_keyof_node(const struct node *n)
 {
 	return &n->id.pubkey;
 }
 
-static size_t hash_key(const secp256k1_pubkey *key)
+size_t node_map_hash_key(const secp256k1_pubkey *key)
 {
 	return siphash24(siphash_seed(), key, sizeof(*key));
 }
 
-static bool node_eq(const struct node *n, const secp256k1_pubkey *key)
+bool node_map_node_eq(const struct node *n, const secp256k1_pubkey *key)
 {
 	return structeq(&n->id.pubkey, key);
 }
-
-HTABLE_DEFINE_TYPE(struct node, keyof_node, hash_key, node_eq, node_map);
 
 struct node_map *empty_node_map(const tal_t *ctx)
 {
