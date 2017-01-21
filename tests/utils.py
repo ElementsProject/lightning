@@ -1,4 +1,4 @@
-from bitcoinrpc.authproxy import AuthServiceProxy
+from bitcoin.rpc import RawProxy as BitcoinProxy
 from lightning import LightningRpc
 
 import logging
@@ -108,17 +108,6 @@ class TailableProc(object):
                 pos += 1
 
 
-class ThreadSafeAuthServiceProxy(AuthServiceProxy):
-    """Thread-safe variant of the AuthServiceProxy.
-    """
-
-    lock = threading.RLock()
-    
-    def __call__(self, *args):
-        with ThreadSafeAuthServiceProxy.lock:
-            AuthServiceProxy.__call__(self, *args)
-
-
 class BitcoinD(TailableProc):
 
     def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=18332):
@@ -145,7 +134,7 @@ class BitcoinD(TailableProc):
         BITCOIND_CONFIG['rpcport'] = rpcport
         write_config(os.path.join(bitcoin_dir, 'bitcoin.conf'), BITCOIND_CONFIG)
         write_config(os.path.join(regtestdir, 'bitcoin.conf'), BITCOIND_CONFIG)
-        self.rpc = ThreadSafeAuthServiceProxy(
+        self.rpc = BitcoinProxy(
             "http://rpcuser:rpcpass@127.0.0.1:{}".format(self.rpcport))
 
     def start(self):

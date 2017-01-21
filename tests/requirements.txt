@@ -1,1 +1,1 @@
-python-bitcoinrpc==1.0
+python-bitcoinlib==0.7.0
