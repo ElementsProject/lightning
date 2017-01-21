@@ -702,6 +702,28 @@ static bool open_theiranchor_pkt_in(struct peer *peer, const Pkt *pkt)
 	return true;
 }
 
+/* Dump all known channels and nodes to the peer. Used when a new
+ * connection was established. */
+static void sync_routing_table(struct lightningd_state *dstate, struct peer *peer)
+{
+	struct node *n;
+	struct node_map_iter it;
+	int i;
+	struct node_connection *nc;
+	for (n = node_map_first(dstate->rstate->nodes, &it); n; n = node_map_next(dstate->rstate->nodes, &it)) {
+		size_t num_edges = tal_count(n->out);
+		for (i = 0; i < num_edges; i++) {
+			nc = n->out[i];
+			if (nc->channel_announcement)
+				queue_pkt_nested(peer, WIRE_CHANNEL_ANNOUNCEMENT, nc->channel_announcement);
+			if (nc->channel_update)
+				queue_pkt_nested(peer, WIRE_CHANNEL_UPDATE, nc->channel_update);
+		}
+		if (n->node_announcement && num_edges > 0)
+			queue_pkt_nested(peer, WIRE_NODE_ANNOUNCEMENT, n->node_announcement);
+	}
+}
+
 static bool open_wait_pkt_in(struct peer *peer, const Pkt *pkt)
 {
 	Pkt *err;

@@ -149,8 +149,4 @@ struct node_map *empty_node_map(const tal_t *ctx);
 
 char *opt_add_route(const char *arg, struct lightningd_state *dstate);
 
-/* Dump all known channels and nodes to the peer. Used when a new connection was established. */
-//FIXME(cdecker) Not used in the gossip subdaemon, remove once old daemon is retired
-void sync_routing_table(struct lightningd_state *dstate, struct peer *peer);
-
 #endif /* LIGHTNING_DAEMON_ROUTING_H */
