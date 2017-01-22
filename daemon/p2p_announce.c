@@ -171,33 +171,6 @@ static void queue_broadcast(struct lightningd_state *dstate,
 	list_add_tail(&dstate->broadcast_queue, &msg->list);
 }
 
-static bool add_channel_direction(struct lightningd_state *dstate,
-				  const struct pubkey *from,
-				  const struct pubkey *to,
-				  const int direction,
-				  const struct channel_id *channel_id,
-				  const u8 *announcement)
-{
-	struct node_connection *c = get_connection(dstate->rstate, from, to);
-	if (c){
-		/* Do not clobber connections added otherwise */
-		memcpy(&c->channel_id, channel_id, sizeof(c->channel_id));
-		c->flags = direction;
-		printf("Found node_connection via get_connection");
-		return false;
-	}else if(get_connection_by_cid(dstate->rstate, channel_id, direction)) {
-		return false;
-	}
-
-	c = half_add_connection(dstate->rstate, from, to, channel_id, direction);
-
-	/* Remember the announcement so we can forward it to new peers */
-	tal_free(c->channel_announcement);
-	c->channel_announcement = tal_dup_arr(c, u8, announcement,
-					      tal_count(announcement), 0);
-	return true;
-}
-
 void handle_channel_announcement(
 	struct peer *peer,
 	const u8 *announce, size_t len)
@@ -240,10 +213,10 @@ void handle_channel_announcement(
 		  channel_id.outnum
 		);
 
-	forward |= add_channel_direction(peer->dstate, &node_id_1,
+	forward |= add_channel_direction(peer->dstate->rstate, &node_id_1,
 					 &node_id_2, 0, &channel_id,
 					 serialized);
-	forward |= add_channel_direction(peer->dstate, &node_id_2,
+	forward |= add_channel_direction(peer->dstate->rstate, &node_id_2,
 					 &node_id_1, 1, &channel_id,
 					 serialized);
 	if (!forward){

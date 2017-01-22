@@ -670,3 +670,29 @@ static const struct json_command getnodes_command = {
 	"Returns a 'nodes' array"
 };
 AUTODATA(json_command, &getnodes_command);
+
+bool add_channel_direction(struct routing_state *rstate,
+			   const struct pubkey *from,
+			   const struct pubkey *to,
+			   const int direction,
+			   const struct channel_id *channel_id,
+			   const u8 *announcement)
+{
+	struct node_connection *c = get_connection(rstate, from, to);
+	if (c){
+		/* Do not clobber connections added otherwise */
+		memcpy(&c->channel_id, channel_id, sizeof(c->channel_id));
+		c->flags = direction;
+		return false;
+	}else if(get_connection_by_cid(rstate, channel_id, direction)) {
+		return false;
+	}
+
+	c = half_add_connection(rstate, from, to, channel_id, direction);
+
+	/* Remember the announcement so we can forward it to new peers */
+	tal_free(c->channel_announcement);
+	c->channel_announcement = tal_dup_arr(c, u8, announcement,
+					      tal_count(announcement), 0);
+	return true;
+}
