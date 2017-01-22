@@ -30,12 +30,6 @@ struct queued_message {
 	struct list_node list;
 };
 
-u8 ipv4prefix[] = {
-	0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0xFF, 0xFF
-};
-
 /* BOLT #7:
  *
  * The following `address descriptor` types are defined:
