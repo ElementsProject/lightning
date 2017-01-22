@@ -1,6 +1,8 @@
 #ifndef LIGHTNING_DAEMON_P2P_ANNOUNCE_H
 #define LIGHTNING_DAEMON_P2P_ANNOUNCE_H
 #include "config.h"
+#include "daemon/lightningd.h"
+#include "daemon/routing.h"
 #include "lightningd.h"
 #include "wire/gen_peer_wire.h"
 

@@ -149,4 +149,11 @@ struct node_map *empty_node_map(const tal_t *ctx);
 
 char *opt_add_route(const char *arg, struct lightningd_state *dstate);
 
+bool add_channel_direction(struct routing_state *rstate,
+			   const struct pubkey *from,
+			   const struct pubkey *to,
+			   const int direction,
+			   const struct channel_id *channel_id,
+			   const u8 *announcement);
+
 #endif /* LIGHTNING_DAEMON_ROUTING_H */
