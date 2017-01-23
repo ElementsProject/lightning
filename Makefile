@@ -199,14 +199,6 @@ CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
 WIRE_GEN := tools/generate-wire.py
 
-MANPAGES := doc/lightning-cli.1 \
-	doc/lightning-delinvoice.7 \
-	doc/lightning-getroute.7 \
-	doc/lightning-invoice.7 \
-	doc/lightning-listinvoice.7 \
-	doc/lightning-sendpay.7 \
-	doc/lightning-waitanyinvoice.7
-
 PROGRAMS := $(TEST_PROGRAMS)
 
 CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition
@@ -216,17 +208,15 @@ CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) -I secp256k1/include/ -I li
 LDLIBS := -lprotobuf-c -lgmp -lsqlite3 $(COVFLAGS)
 $(PROGRAMS): CFLAGS+=-I.
 
-default: $(PROGRAMS) $(MANPAGES) daemon-all
+default: $(PROGRAMS) doc-all daemon-all
 
+include doc/Makefile
 include bitcoin/Makefile
 include wire/Makefile
 include lightningd/Makefile
 
 # Git doesn't maintain timestamps, so we only regen if git says we should.
 CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o x"`git diff $<`" != x"" ]
-
-$(MANPAGES): doc/%: doc/%.txt
-	@if $(CHANGED_FROM_GIT); then echo a2x --format=manpage $<; a2x --format=manpage $<; else touch $@; fi
 
 # Everything depends on the CCAN headers.
 $(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
@@ -236,11 +226,6 @@ $(HELPER_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(CORE_PROTOBUF_OBJS) $(BITCOIN_OBJS
 
 test-protocol: test/test_protocol
 	set -e; TMP=`mktemp`; for f in test/commits/*.script; do if ! $(VALGRIND) test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
-
-doc/protocol-%.svg: test/test_protocol
-	test/test_protocol --svg < test/commits/$*.script > $@
-
-protocol-diagrams: $(patsubst %.script, doc/protocol-%.svg, $(notdir $(wildcard test/commits/*.script)))
 
 check: test-protocol
 
@@ -329,29 +314,6 @@ $(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_
 ccan/config.h: ccan/tools/configurator/configurator
 	if $< > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
 
-doc/deployable-lightning.pdf: doc/deployable-lightning.lyx doc/bitcoin.bib
-	lyx -E pdf $@ $<
-
-doc/deployable-lightning.tex: doc/deployable-lightning.lyx
-	lyx -E latex $@ $<
-
-state-diagrams: doc/normal-states.svg doc/simplified-states.svg doc/error-states.svg doc/full-states.svg
-
-%.svg: %.dot
-	dot -Tsvg $< > $@ || (rm -f $@; false)
-
-doc/simplified-states.dot: test/test_state_coverage
-	test/test_state_coverage --dot --dot-simplify > $@
-
-doc/normal-states.dot: test/test_state_coverage
-	test/test_state_coverage --dot > $@
-
-doc/error-states.dot: test/test_state_coverage
-	test/test_state_coverage --dot-all --dot-include-errors > $@
-
-doc/full-states.dot: test/test_state_coverage
-	test/test_state_coverage --dot-all --dot-include-errors --dot-include-nops > $@
-
 gen_version.h: FORCE
 	@(echo "#define VERSION \"`git describe --always --dirty`\"" && echo "#define VERSION_NAME \"$(NAME)\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
 	@if cmp $@.new $@ >/dev/null 2>&2; then rm -f $@.new; else mv $@.new $@; echo Version updated; fi
@@ -385,8 +347,6 @@ maintainer-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'
 	@echo 'deletes files that may need special tools to rebuild.'
 	$(RM) lightning.pb-c.c lightning.pb-c.h
-	$(RM) doc/deployable-lightning.pdf
-	$(RM) $(MANPAGES)
 
 clean: daemon-clean wire-clean
 	$(MAKE) -C secp256k1/ clean || true
@@ -396,7 +356,6 @@ clean: daemon-clean wire-clean
 	$(RM) bitcoin/*.o *.o $(PROGRAMS:=.o) $(CCAN_OBJS)
 	$(RM) ccan/config.h gen_*.h
 	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
-	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 	find . -name '*gcda' -delete
 	find . -name '*gcno' -delete
 
