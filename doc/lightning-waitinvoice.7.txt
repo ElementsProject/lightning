@@ -1,0 +1,34 @@
+LIGHTNING-WAITINVOICE(7)
+========================
+:doctype: manpage
+
+NAME
+----
+lightning-waitinvoice - Protocol for waiting for specific payment.
+
+SYNOPSIS
+--------
+*waitinvoice* 'label'
+
+DESCRIPTION
+-----------
+The *waitinvoice* RPC command waits until a specific invoice is paid, then
+returns that single entry as per *listinvoice*.
+
+RETURN VALUE
+------------
+On success, the 'rhash', 'label', and 'msatoshi' will be returned.
+
+//FIXME:Enumerate errors
+
+AUTHOR
+------
+Christian Decker <decker.christian@gmail.com> is mainly responsible.
+
+SEE ALSO
+--------
+lightning-waitanyinvoice(7), lightning-listinvoice(7), lightning-delinvoice(7), lightning-invoice(7)
+
+RESOURCES
+---------
+Main web site: https://github.com/ElementsProject/lightning

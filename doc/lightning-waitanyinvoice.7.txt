@@ -32,7 +32,7 @@ Rusty Russell <rusty@rustcorp.com.au> is mainly responsible.
 
 SEE ALSO
 --------
-lightning-listinvoice(7), lightning-delinvoice(7), lightning-invoice(7).
+lighting-waitinvoice(7), lightning-listinvoice(7), lightning-delinvoice(7), lightning-invoice(7).
 
 RESOURCES
 ---------
