@@ -5,9 +5,12 @@
 #include "packets.h"
 #include "pseudorand.h"
 #include "routing.h"
+#include <arpa/inet.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/siphash24/siphash24.h>
+#include <ccan/endian/endian.h>
 #include <ccan/structeq/structeq.h>
+#include <ccan/tal/str/str.h>
 #include <inttypes.h>
 
 /* 365.25 * 24 * 60 / 10 */
@@ -695,4 +698,105 @@ bool add_channel_direction(struct routing_state *rstate,
 	c->channel_announcement = tal_dup_arr(c, u8, announcement,
 					      tal_count(announcement), 0);
 	return true;
+}
+
+/* BOLT #7:
+ *
+ * The following `address descriptor` types are defined:
+ *
+ * 1. `0`: padding.  data = none (length 0).
+ * 1. `1`: IPv4. data = `[4:ipv4-addr][2:port]` (length 6)
+ * 2. `2`: IPv6. data = `[16:ipv6-addr][2:port]` (length 18)
+ */
+
+/* FIXME: Don't just take first one, depends whether we have IPv6 ourselves */
+/* Returns false iff it was malformed */
+bool read_ip(const tal_t *ctx, const u8 *addresses, char **hostname,
+		    int *port)
+{
+	size_t len = tal_count(addresses);
+	const u8 *p = addresses;
+	char tempaddr[INET6_ADDRSTRLEN];
+	be16 portnum;
+
+	*hostname = NULL;
+	while (len) {
+		u8 type = *p;
+		p++;
+		len--;
+
+		switch (type) {
+		case 0:
+			break;
+		case 1:
+			/* BOLT #7:
+			 *
+			 * The receiving node SHOULD fail the connection if
+			 * `addrlen` is insufficient to hold the address
+			 * descriptors of the known types.
+			 */
+			if (len < 6)
+				return false;
+			inet_ntop(AF_INET, p, tempaddr, sizeof(tempaddr));
+			memcpy(&portnum, p + 4, sizeof(portnum));
+			*hostname = tal_strdup(ctx, tempaddr);
+			return true;
+		case 2:
+			if (len < 18)
+				return false;
+			inet_ntop(AF_INET6, p, tempaddr, sizeof(tempaddr));
+			memcpy(&portnum, p + 16, sizeof(portnum));
+			*hostname = tal_strdup(ctx, tempaddr);
+			return true;
+		default:
+			/* BOLT #7:
+			 *
+			 * The receiving node SHOULD ignore the first `address
+			 * descriptor` which does not match the types defined
+			 * above.
+			 */
+			return true;
+		}
+	}
+
+	/* Not a fatal error. */
+	return true;
+}
+
+/* BOLT #7:
+ *
+ * The creating node SHOULD fill `addresses` with an address descriptor for
+ * each public network address which expects incoming connections, and MUST
+ * set `addrlen` to the number of bytes in `addresses`.  Non-zero typed
+ * address descriptors MUST be placed in ascending order; any number of
+ * zero-typed address descriptors MAY be placed anywhere, but SHOULD only be
+ * used for aligning fields following `addresses`.
+ *
+ * The creating node MUST NOT create a type 1 or type 2 address descriptor
+ * with `port` equal to zero, and SHOULD ensure `ipv4-addr` and `ipv6-addr`
+ * are routable addresses.  The creating node MUST NOT include more than one
+ * `address descriptor` of the same type.
+ */
+/* FIXME: handle case where we have both ipv6 and ipv4 addresses! */
+u8 *write_ip(const tal_t *ctx, const char *srcip, int port)
+{
+	u8 *address;
+	be16 portnum = cpu_to_be16(port);
+
+	if (!port)
+		return tal_arr(ctx, u8, 0);
+
+	if (!strchr(srcip, ':')) {
+		address = tal_arr(ctx, u8, 7);
+		address[0] = 1;
+		inet_pton(AF_INET, srcip, address+1);
+		memcpy(address + 5, &portnum, sizeof(portnum));
+		return address;
+	} else {
+		address = tal_arr(ctx, u8, 18);
+		address[0] = 2;
+		inet_pton(AF_INET6, srcip, address+1);
+		memcpy(address + 17, &portnum, sizeof(portnum));
+		return address;
+	}
 }
