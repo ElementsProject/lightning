@@ -156,4 +156,7 @@ bool add_channel_direction(struct routing_state *rstate,
 			   const struct channel_id *channel_id,
 			   const u8 *announcement);
 
+bool read_ip(const tal_t *ctx, const u8 *addresses, char **hostname, int *port);
+u8 *write_ip(const tal_t *ctx, const char *srcip, int port);
+
 #endif /* LIGHTNING_DAEMON_ROUTING_H */
