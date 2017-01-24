@@ -52,7 +52,7 @@ struct commit_info {
 	/* Channel state for this tx. */
 	struct channel_state *cstate;
 	/* Other side's signature for last commit tx (if known) */
-	struct bitcoin_signature *sig;
+	secp256k1_ecdsa_signature *sig;
 	/* Order which commit was sent (theirs) / revocation was sent (ours) */
 	s64 order;
 };
@@ -151,7 +151,7 @@ struct peer {
 
 	struct {
 		/* Their signature for our current commit sig. */
-		struct bitcoin_signature theirsig;
+		secp256k1_ecdsa_signature theirsig;
 		/* The watch we have on a live commit tx. */
 		struct txwatch *watch;
 	} cur_commit;
@@ -164,7 +164,7 @@ struct peer {
 		/* Our last suggested closing fee. */
 		u64 our_fee;
 		/* If they've offered a signature, these are set: */
-		struct bitcoin_signature *their_sig;
+		secp256k1_ecdsa_signature *their_sig;
 		/* If their_sig is non-NULL, this is the fee. */
 		u64 their_fee;
 		/* scriptPubKey we/they want for closing. */

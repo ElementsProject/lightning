@@ -115,13 +115,13 @@ static u8 *stack_key(const tal_t *ctx, const struct pubkey *key)
 }
 
 /* Bitcoin wants DER encoding. */
-static u8 *stack_sig(const tal_t *ctx, const struct bitcoin_signature *sig)
+static u8 *stack_sig(const tal_t *ctx, const secp256k1_ecdsa_signature *sig)
 {
 	u8 der[73];
-	size_t len = signature_to_der(der, &sig->sig);
+	size_t len = signature_to_der(der, sig);
 
 	/* Append sighash type */
-	der[len++] = sig->stype;
+	der[len++] = SIGHASH_ALL;
 	return tal_dup_arr(ctx, u8, der, len, 0);
 }
 
@@ -213,7 +213,7 @@ u8 *bitcoin_redeem_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 /* Create an input which spends the p2sh-p2wpkh. */
 void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 				 struct bitcoin_tx_input *input,
-				 const struct bitcoin_signature *sig,
+				 const secp256k1_ecdsa_signature *sig,
 				 const struct pubkey *key)
 {
 	u8 *redeemscript = bitcoin_redeem_p2wpkh(ctx, key);
@@ -261,8 +261,8 @@ u8 *scriptpubkey_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 
 /* Create a witness which spends the 2of2. */
 u8 **bitcoin_witness_2of2(const tal_t *ctx,
-			  const struct bitcoin_signature *sig1,
-			  const struct bitcoin_signature *sig2,
+			  const secp256k1_ecdsa_signature *sig1,
+			  const secp256k1_ecdsa_signature *sig2,
 			  const struct pubkey *key1,
 			  const struct pubkey *key2)
 {
@@ -513,7 +513,7 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 
 u8 **bitcoin_witness_secret(const tal_t *ctx,
 			    const void *secret, size_t secret_len,
-			    const struct bitcoin_signature *sig,
+			    const secp256k1_ecdsa_signature *sig,
 			    const u8 *witnessscript)
 {
 	u8 **witness = tal_arr(ctx, u8 *, 3);
@@ -528,7 +528,7 @@ u8 **bitcoin_witness_secret(const tal_t *ctx,
 
 u8 **bitcoin_witness_htlc(const tal_t *ctx,
 			  const void *htlc_or_revocation_preimage,
-			  const struct bitcoin_signature *sig,
+			  const secp256k1_ecdsa_signature *sig,
 			  const u8 *witnessscript)
 {
 	static const struct sha256 no_preimage;

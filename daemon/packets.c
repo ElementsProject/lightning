@@ -111,7 +111,7 @@ void queue_pkt_open_commit_sig(struct peer *peer)
 
 	open_commit_sig__init(s);
 
-	s->sig = signature_to_proto(s, &peer->remote.commit->sig->sig);
+	s->sig = signature_to_proto(s, peer->remote.commit->sig);
 
 	queue_pkt(peer, PKT__PKT_OPEN_COMMIT_SIG, s);
 }
@@ -183,14 +183,14 @@ void queue_pkt_feechange(struct peer *peer, u64 feerate)
 }
 
 /* OK, we're sending a signature for their pending changes. */
-void queue_pkt_commit(struct peer *peer, const struct bitcoin_signature *sig)
+void queue_pkt_commit(struct peer *peer, const secp256k1_ecdsa_signature *sig)
 {
 	UpdateCommit *u = tal(peer, UpdateCommit);
 
 	/* Now send message */
 	update_commit__init(u);
 	if (sig)
-		u->sig = signature_to_proto(u, &sig->sig);
+		u->sig = signature_to_proto(u, sig);
 	else
 		u->sig = NULL;
 
@@ -368,14 +368,12 @@ Pkt *accept_pkt_anchor(struct peer *peer, const Pkt *pkt)
 }
 
 Pkt *accept_pkt_open_commit_sig(struct peer *peer, const Pkt *pkt,
-				struct bitcoin_signature *sig)
+				secp256k1_ecdsa_signature *sig)
 {
 	const OpenCommitSig *s = pkt->open_commit_sig;
 
-	if (!proto_to_signature(s->sig, &sig->sig))
+	if (!proto_to_signature(s->sig, sig))
 		return pkt_err(peer, "Malformed signature");
-
-	sig->stype = SIGHASH_ALL;
 	return NULL;
 }
 
@@ -507,7 +505,7 @@ Pkt *accept_pkt_update_fee(struct peer *peer, const Pkt *pkt, u64 *feerate)
 }
 
 Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt,
-		       struct bitcoin_signature *sig)
+		       secp256k1_ecdsa_signature *sig)
 {
 	const UpdateCommit *c = pkt->update_commit;
 
@@ -520,8 +518,7 @@ Pkt *accept_pkt_commit(struct peer *peer, const Pkt *pkt,
 	if (!sig && !c->sig)
 		return NULL;
 
-	sig->stype = SIGHASH_ALL;
-	if (!proto_to_signature(c->sig, &sig->sig))
+	if (!proto_to_signature(c->sig, sig))
 		return pkt_err(peer, "Malformed signature");
 	return NULL;
 }

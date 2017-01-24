@@ -104,7 +104,7 @@ static void sha256_tx_one_input(struct bitcoin_tx *tx,
 	tx->input[input_num].script_length = script_len;
 	tx->input[input_num].script = cast_const(u8 *, script);
 
-	sha256_tx_for_sig(hash, tx, input_num, SIGHASH_ALL, witness_script);
+	sha256_tx_for_sig(hash, tx, input_num, witness_script);
 
 	/* Reset it for next time. */
 	tx->input[input_num].script_length = 0;
@@ -143,7 +143,7 @@ bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
 		  const u8 *redeemscript, size_t redeemscript_len,
 		  const u8 *witness_script,
 		  const struct pubkey *key,
-		  const struct bitcoin_signature *sig)
+		  const secp256k1_ecdsa_signature *sig)
 {
 	struct sha256_double hash;
 	bool ret;
@@ -153,11 +153,7 @@ bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
 	sha256_tx_one_input(tx, input_num, redeemscript, redeemscript_len,
 			    witness_script, &hash);
 
-	/* We only use SIGHASH_ALL for the moment. */
-	if (sig->stype != SIGHASH_ALL)
-		return false;
-
-	ret = check_signed_hash(&hash, &sig->sig, key);
+	ret = check_signed_hash(&hash, sig, key);
 	if (!ret)
 		dump_tx("Sig failed", tx, input_num,
 			redeemscript, redeemscript_len, key, &hash);

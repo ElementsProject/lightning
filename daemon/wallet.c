@@ -67,7 +67,7 @@ bool wallet_add_signed_input(struct lightningd_state *dstate,
 			     unsigned int input_num)
 {
 	u8 *redeemscript;
-	struct bitcoin_signature sig;
+	secp256k1_ecdsa_signature sig;
 	struct wallet *w = find_by_pubkey(dstate, walletkey);
 
 	assert(input_num < tx->input_count);
@@ -76,13 +76,12 @@ bool wallet_add_signed_input(struct lightningd_state *dstate,
 
 	redeemscript = bitcoin_redeem_p2wpkh(tx, &w->pubkey);
 
-	sig.stype = SIGHASH_ALL;
 	sign_tx_input(tx, input_num,
 		      redeemscript, tal_count(redeemscript),
 		      p2wpkh_scriptcode(redeemscript, &w->pubkey),
 		      &w->privkey,
 		      &w->pubkey,
-		      &sig.sig);
+		      &sig);
 
 	bitcoin_witness_p2sh_p2wpkh(tx->input,
 				    &tx->input[input_num],

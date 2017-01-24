@@ -160,28 +160,26 @@ static void sha256_from_sql(sqlite3_stmt *stmt, int idx, struct sha256 *sha)
 }
 
 static void sig_from_sql(sqlite3_stmt *stmt, int idx,
-			 struct bitcoin_signature *sig)
+			 secp256k1_ecdsa_signature *sig)
 {
 	u8 compact[64];
 
 	from_sql_blob(stmt, idx, compact, sizeof(compact));
-	if (secp256k1_ecdsa_signature_parse_compact(secp256k1_ctx, &sig->sig,
+	if (secp256k1_ecdsa_signature_parse_compact(secp256k1_ctx, sig,
 						    compact) != 1)
 		fatal("db:bad signature blob");
-	sig->stype = SIGHASH_ALL;
 }
 
 static char *sig_to_sql(const tal_t *ctx,
-			const struct bitcoin_signature *sig)
+			const secp256k1_ecdsa_signature *sig)
 {
 	u8 compact[64];
 
 	if (!sig)
 		return sql_hex_or_null(ctx, NULL, 0);
 
-	assert(sig->stype == SIGHASH_ALL);
 	secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx, compact,
-						    &sig->sig);
+						    sig);
 	return sql_hex_or_null(ctx, compact, sizeof(compact));
 }
 
@@ -470,7 +468,7 @@ static void load_peer_commit_info(struct peer *peer)
 		if (sqlite3_column_type(stmt, 5) == SQLITE_NULL)
 			ci->sig = NULL;
 		else {
-			ci->sig = tal(ci, struct bitcoin_signature);
+			ci->sig = tal(ci, secp256k1_ecdsa_signature);
 			sig_from_sql(stmt, 5, ci->sig);
 		}
 
@@ -878,7 +876,7 @@ static void load_peer_closing(struct peer *peer)
 			peer->closing.their_sig = NULL;
 		else {
 			peer->closing.their_sig = tal(peer,
-						      struct bitcoin_signature);
+						      secp256k1_ecdsa_signature);
 			sig_from_sql(stmt, 3, peer->closing.their_sig);
 		}
 		peer->closing.our_script = tal_sql_blob(peer, stmt, 4);

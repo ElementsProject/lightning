@@ -222,14 +222,11 @@ static void hash_for_segwit(struct sha256_ctx *ctx,
 }
 
 void sha256_tx_for_sig(struct sha256_double *h, const struct bitcoin_tx *tx,
-		       unsigned int input_num, enum sighash_type stype,
+		       unsigned int input_num,
 		       const u8 *witness_script)
 {
 	size_t i;
 	struct sha256_ctx ctx = SHA256_INIT;
-
-	/* We only support this. */
-	assert(stype == SIGHASH_ALL);
 
 	/* Caller should zero-out other scripts for signing! */
 	assert(input_num < tx->input_count);
@@ -245,7 +242,7 @@ void sha256_tx_for_sig(struct sha256_double *h, const struct bitcoin_tx *tx,
 		push_tx(tx, push_sha, &ctx, false);
 	}
 
-	sha256_le32(&ctx, stype);
+	sha256_le32(&ctx, SIGHASH_ALL);
 	sha256_double_done(&ctx, h);
 }
 

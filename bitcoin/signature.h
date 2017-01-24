@@ -5,19 +5,18 @@
 #include <secp256k1.h>
 #include <stdbool.h>
 
+struct sha256_double;
+struct bitcoin_tx;
+struct pubkey;
+struct privkey;
+struct bitcoin_tx_output;
+
 enum sighash_type {
     SIGHASH_ALL = 1,
     SIGHASH_NONE = 2,
     SIGHASH_SINGLE = 3,
     SIGHASH_ANYONECANPAY = 0x80
 };
-
-struct sha256_double;
-struct bitcoin_tx;
-struct pubkey;
-struct privkey;
-struct bitcoin_tx_output;
-struct bitcoin_signature;
 
 void sign_hash(const struct privkey *p,
 	       const struct sha256_double *h,
@@ -40,7 +39,7 @@ bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
 		  const u8 *redeemscript, size_t redeemscript_len,
 		  const u8 *witness,
 		  const struct pubkey *key,
-		  const struct bitcoin_signature *sig);
+		  const secp256k1_ecdsa_signature *sig);
 
 /* Signature must have low S value. */
 bool sig_valid(const secp256k1_ecdsa_signature *sig);

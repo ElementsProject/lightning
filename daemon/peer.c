@@ -80,12 +80,11 @@ static const struct bitcoin_tx *mk_bitcoin_close(const tal_t *ctx,
 						 struct peer *peer)
 {
 	struct bitcoin_tx *close_tx;
-	struct bitcoin_signature our_close_sig;
+	secp256k1_ecdsa_signature our_close_sig;
 
 	close_tx = peer_create_close_tx(ctx, peer, peer->closing.their_fee);
 
-	our_close_sig.stype = SIGHASH_ALL;
-	peer_sign_mutual_close(peer, close_tx, &our_close_sig.sig);
+	peer_sign_mutual_close(peer, close_tx, &our_close_sig);
 
 	close_tx->input[0].witness
 		= bitcoin_witness_2of2(close_tx->input,
@@ -102,7 +101,7 @@ static const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 {
 	u8 *witnessscript;
 	const struct bitcoin_tx *commit = peer->local.commit->tx;
-	struct bitcoin_signature sig;
+	secp256k1_ecdsa_signature sig;
 	struct bitcoin_tx *tx;
 	unsigned int p2wsh_out;
 	uint64_t fee;
@@ -142,8 +141,7 @@ static const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 
 	tx->output[0].amount = commit->output[p2wsh_out].amount - fee;
 
-	sig.stype = SIGHASH_ALL;
-	peer_sign_spend(peer, tx, witnessscript, &sig.sig);
+	peer_sign_spend(peer, tx, witnessscript, &sig);
 
 	tx->input[0].witness = bitcoin_witness_secret(tx,
 						      NULL, 0, &sig,
@@ -155,14 +153,13 @@ static const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 /* Sign and local commit tx */
 static void sign_commit_tx(struct peer *peer)
 {
-	struct bitcoin_signature sig;
+	secp256k1_ecdsa_signature sig;
 
 	/* Can't be signed already, and can't have scriptsig! */
 	assert(peer->local.commit->tx->input[0].script_length == 0);
 	assert(!peer->local.commit->tx->input[0].witness);
 
-	sig.stype = SIGHASH_ALL;
-	peer_sign_ourcommit(peer, peer->local.commit->tx, &sig.sig);
+	peer_sign_ourcommit(peer, peer->local.commit->tx, &sig);
 
 	peer->local.commit->tx->input[0].witness
 		= bitcoin_witness_2of2(peer->local.commit->tx->input,
@@ -623,7 +620,7 @@ static bool open_ouranchor_pkt_in(struct peer *peer, const Pkt *pkt)
 		return peer_received_unexpected_pkt(peer, pkt, __func__);
 
 	peer->local.commit->sig = tal(peer->local.commit,
-				      struct bitcoin_signature);
+				      secp256k1_ecdsa_signature);
 	err = accept_pkt_open_commit_sig(peer, pkt,
 					 peer->local.commit->sig);
 	if (!err &&
@@ -684,10 +681,9 @@ static bool open_theiranchor_pkt_in(struct peer *peer, const Pkt *pkt)
 		       struct pubkey, &peer->local.commitkey);
 
 	peer->remote.commit->sig = tal(peer->remote.commit,
-				       struct bitcoin_signature);
-	peer->remote.commit->sig->stype = SIGHASH_ALL;
+				       secp256k1_ecdsa_signature);
 	peer_sign_theircommit(peer, peer->remote.commit->tx,
-			      &peer->remote.commit->sig->sig);
+			      peer->remote.commit->sig);
 
 	peer->remote.commit->order = peer->order_counter++;
 	db_start_transaction(peer);
@@ -1187,7 +1183,7 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 {
 	const CloseSignature *c = pkt->close_signature;
 	struct bitcoin_tx *close_tx;
-	struct bitcoin_signature theirsig;
+	secp256k1_ecdsa_signature theirsig;
 
 	assert(peer->state == STATE_MUTUAL_CLOSING);
 
@@ -1234,8 +1230,7 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 	 * The receiver MUST check `sig` is valid for the close
 	 * transaction with the given `close_fee`, and MUST fail the
 	 * connection if it is not. */
-	theirsig.stype = SIGHASH_ALL;
-	if (!proto_to_signature(c->sig, &theirsig.sig))
+	if (!proto_to_signature(c->sig, &theirsig))
 		return peer_comms_err(peer,
 				      pkt_err(peer, "Invalid signature format"));
 
@@ -1249,7 +1244,7 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 
 	tal_free(peer->closing.their_sig);
 	peer->closing.their_sig = tal_dup(peer,
-					  struct bitcoin_signature, &theirsig);
+					  secp256k1_ecdsa_signature, &theirsig);
 	peer->closing.their_fee = c->close_fee;
 	peer->closing.sigs_in++;
 
@@ -1381,7 +1376,7 @@ static Pkt *handle_pkt_commit(struct peer *peer, const Pkt *pkt)
 	 * changes to the remote commitment before generating `sig`.
 	 */
 	if (!to_them_only)
-		ci->sig = tal(ci, struct bitcoin_signature);
+		ci->sig = tal(ci, secp256k1_ecdsa_signature);
 
 	err = accept_pkt_commit(peer, pkt, ci->sig);
 	if (err)
@@ -1779,9 +1774,8 @@ static bool do_commit(struct peer *peer, struct command *jsoncmd)
 		log_add_struct(peer->log, " (txid %s)",
 			       struct sha256_double, &ci->txid);
 
-		ci->sig = tal(ci, struct bitcoin_signature);
-		ci->sig->stype = SIGHASH_ALL;
-		peer_sign_theircommit(peer, ci->tx, &ci->sig->sig);
+		ci->sig = tal(ci, secp256k1_ecdsa_signature);
+		peer_sign_theircommit(peer, ci->tx, ci->sig);
 	}
 
 	/* Switch to the new commitment. */
@@ -1953,7 +1947,7 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 	struct bitcoin_tx *tx = bitcoin_tx(peer, 1, 1);
 	const struct htlc *htlc = peer->onchain.htlcs[out_num];
 	const u8 *wscript = peer->onchain.wscripts[out_num];
-	struct bitcoin_signature sig;
+	secp256k1_ecdsa_signature sig;
 	u64 fee, satoshis;
 
 	assert(htlc->r);
@@ -1987,8 +1981,7 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 
 	tx->output[0].amount = satoshis - fee;
 
-	sig.stype = SIGHASH_ALL;
-	peer_sign_htlc_fulfill(peer, tx, wscript, &sig.sig);
+	peer_sign_htlc_fulfill(peer, tx, wscript, &sig);
 
 	tx->input[0].witness = bitcoin_witness_htlc(tx,
 						    htlc->r, &sig, wscript);
@@ -3514,7 +3507,7 @@ static const struct bitcoin_tx *htlc_timeout_tx(const struct peer *peer,
 	const struct htlc *htlc = peer->onchain.htlcs[out_num];
 	const u8 *wscript = peer->onchain.wscripts[out_num];
 	struct bitcoin_tx *tx = bitcoin_tx(peer, 1, 1);
-	struct bitcoin_signature sig;
+	secp256k1_ecdsa_signature sig;
 	u64 fee, satoshis;
 
 	/* We must set locktime so HTLC expiry can OP_CHECKLOCKTIMEVERIFY */
@@ -3548,8 +3541,7 @@ static const struct bitcoin_tx *htlc_timeout_tx(const struct peer *peer,
 
 	tx->output[0].amount = satoshis - fee;
 
-	sig.stype = SIGHASH_ALL;
-	peer_sign_htlc_refund(peer, tx, wscript, &sig.sig);
+	peer_sign_htlc_refund(peer, tx, wscript, &sig);
 
 	tx->input[0].witness = bitcoin_witness_htlc(tx,
 						    NULL, &sig, wscript);
@@ -4112,16 +4104,15 @@ static void resolve_their_steal(struct peer *peer,
 	/* Now, we can sign them all (they're all of same form). */
 	n = 0;
 	for (i = 0; i < tx->output_count; i++) {
-		struct bitcoin_signature sig;
+		secp256k1_ecdsa_signature sig;
 
 		/* Don't bother stealing the output already to us. */
 		if (i == peer->onchain.to_us_idx)
 			continue;
 
-		sig.stype = SIGHASH_ALL;
 		peer_sign_steal_input(peer, steal_tx, n,
 				      peer->onchain.wscripts[i],
-				      &sig.sig);
+				      &sig);
 
 		steal_tx->input[n].witness
 			= bitcoin_witness_secret(steal_tx,
