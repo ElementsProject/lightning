@@ -1,4 +1,4 @@
-from bitcoinrpc.authproxy import AuthServiceProxy
+from bitcoin.rpc import RawProxy as BitcoinProxy
 from lightning import LightningRpc
 
 import logging
@@ -108,17 +108,6 @@ class TailableProc(object):
                 pos += 1
 
 
-class ThreadSafeAuthServiceProxy(AuthServiceProxy):
-    """Thread-safe variant of the AuthServiceProxy.
-    """
-
-    lock = threading.RLock()
-    
-    def __call__(self, *args):
-        with ThreadSafeAuthServiceProxy.lock:
-            AuthServiceProxy.__call__(self, *args)
-
-
 class BitcoinD(TailableProc):
 
     def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=18332):
@@ -145,7 +134,7 @@ class BitcoinD(TailableProc):
         BITCOIND_CONFIG['rpcport'] = rpcport
         write_config(os.path.join(bitcoin_dir, 'bitcoin.conf'), BITCOIND_CONFIG)
         write_config(os.path.join(regtestdir, 'bitcoin.conf'), BITCOIND_CONFIG)
-        self.rpc = ThreadSafeAuthServiceProxy(
+        self.rpc = BitcoinProxy(
             "http://rpcuser:rpcpass@127.0.0.1:{}".format(self.rpcport))
 
     def start(self):
@@ -160,7 +149,7 @@ class LightningD(TailableProc):
         self.lightning_dir = lightning_dir
         self.port = port
         self.cmd_line = [
-            'daemon/lightningd',
+            'lightningd/lightningd',
             '--bitcoin-datadir={}'.format(bitcoin_dir),
             '--lightning-dir={}'.format(lightning_dir),
             '--port={}'.format(port),
@@ -176,12 +165,23 @@ class LightningD(TailableProc):
 
     def start(self):
         TailableProc.start(self)
-        self.wait_for_log("Hello world!")
+        self.wait_for_log("Creating IPv6 listener on port")
         logging.info("LightningD started")
 
     def stop(self):
         TailableProc.stop(self)
         logging.info("LightningD stopped")
+
+class LegacyLightningD(LightningD):
+    def __init__(self, *args, **kwargs):
+        LightningD.__init__(self, *args, **kwargs)
+        self.cmd_line[0] = 'daemon/lightningd'
+
+    def start(self):
+        TailableProc.start(self)
+        self.wait_for_log("Hello world!")
+        logging.info("LightningD started")
+
 
 class LightningNode(object):
     def __init__(self, daemon, rpc, btc, executor):

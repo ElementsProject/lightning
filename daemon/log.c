@@ -421,6 +421,7 @@ static void log_to_file(const char *prefix,
 	} else {
 		fprintf(logf, "%s \t%s\n", prefix, str);
 	}
+	fflush(logf);
 }
 
 static char *arg_log_to_file(const char *arg, struct log *log)

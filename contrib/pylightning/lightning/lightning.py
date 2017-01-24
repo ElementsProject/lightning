@@ -7,27 +7,11 @@ import socket
 import sys
 import threading
 
-class LightningRpc(object):
-    """RPC client for the `lightningd` daemon.
-
-    This RPC client connects to the `lightningd` daemon through a unix
-    domain socket and passes calls through. Since some of the calls
-    are blocking, the corresponding python methods include an `async`
-    keyword argument. If `async` is set to true then the method
-    returns a future immediately, instead of blocking indefinitely.
-
-    This implementation is thread safe in that it locks the socket
-    between calls, but it does not (yet) support concurrent calls.
-    """
+class UnixDomainSocketRpc(object):
     def __init__(self, socket_path, executor=None):
         self.socket_path = socket_path
-        self.socket = None
-        self.buff = b''
         self.decoder = json.JSONDecoder()
         self.executor = executor
-
-    def connect_rpc(self):
-        pass
 
     def _writeobj(self, sock, obj):
         s = json.dumps(obj)
@@ -66,6 +50,58 @@ class LightningRpc(object):
             raise ValueError("Malformed response, 'result' missing.")
         return resp['result']
 
+
+class LightningRpc(UnixDomainSocketRpc):
+    """RPC client for the `lightningd` daemon.
+
+    This RPC client connects to the `lightningd` daemon through a unix
+    domain socket and passes calls through. Since some of the calls
+    are blocking, the corresponding python methods include an `async`
+    keyword argument. If `async` is set to true then the method
+    returns a future immediately, instead of blocking indefinitely.
+
+    This implementation is thread safe in that it locks the socket
+    between calls, but it does not (yet) support concurrent calls.
+    """
+    def connect(self, hostname, port, remote_id):
+        return self._call("connect", [hostname, port, remote_id])
+
+    def getpeers(self):
+        return self._call("getpeers", [])
+
+    def getpeer(self, peer_id):
+        """Get info about a specific peer.
+        """
+        peers = self.getpeers()['peers']
+        for p in peers:
+            if p['peerid'] == peer_id:
+                return p
+        return None
+
+    def stop(self):
+        return self._call("stop", [])
+
+    def getlog(self, level=None):
+        args = []
+        if level is not None:
+            args.append(level)
+        return self._call("getlog", args)
+
+    def getinfo(self):
+        return self._call("getinfo", [])
+
+    def dev_add_route(self, src, dst, base, var, delay, minblocks):
+        """Add route from {src} to {dst}, {base} rate in msatoshi, {var} rate in msatoshi, {delay} blocks delay and {minblocks} minimum timeout
+        """
+        return self._call("dev-add-route", [src, dst, base, var, delay, minblocks])
+
+    def getchannels(self):
+        return self._call("getchannels", [])
+
+    def getnodes(self):
+        return self._call("getnodes", [])
+
+class LegacyLightningRpc(UnixDomainSocketRpc):
     def getchannels(self):
         """List all known channels.
         """
