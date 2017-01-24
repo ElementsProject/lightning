@@ -48,7 +48,7 @@ void peer_sign_theircommit(const struct peer *peer,
 {
 	/* Commit tx only has one input: that of the anchor. */
 	sign_tx_input(commit, 0,
-		      NULL, 0,
+		      NULL,
 		      peer->anchor.witnessscript,
 		      &peer->secrets->commit,
 		      &peer->local.commitkey,
@@ -61,7 +61,7 @@ void peer_sign_ourcommit(const struct peer *peer,
 {
 	/* Commit tx only has one input: that of the anchor. */
 	sign_tx_input(commit, 0,
-		      NULL, 0,
+		      NULL,
 		      peer->anchor.witnessscript,
 		      &peer->secrets->commit,
 		      &peer->local.commitkey,
@@ -75,7 +75,7 @@ void peer_sign_spend(const struct peer *peer,
 {
 	/* Spend tx only has one input: that of the commit tx. */
 	sign_tx_input(spend, 0,
-		      NULL, 0,
+		      NULL,
 		      commit_witnessscript,
 		      &peer->secrets->final,
 		      &peer->local.finalkey,
@@ -89,7 +89,7 @@ void peer_sign_htlc_refund(const struct peer *peer,
 {
 	/* Spend tx only has one input: that of the commit tx. */
 	sign_tx_input(spend, 0,
-		      NULL, 0,
+		      NULL,
 		      htlc_witnessscript,
 		      &peer->secrets->final,
 		      &peer->local.finalkey,
@@ -103,7 +103,7 @@ void peer_sign_htlc_fulfill(const struct peer *peer,
 {
 	/* Spend tx only has one input: that of the commit tx. */
 	sign_tx_input(spend, 0,
-		      NULL, 0,
+		      NULL,
 		      htlc_witnessscript,
 		      &peer->secrets->final,
 		      &peer->local.finalkey,
@@ -115,7 +115,7 @@ void peer_sign_mutual_close(const struct peer *peer,
 			    secp256k1_ecdsa_signature *sig)
 {
 	sign_tx_input(close, 0,
-		      NULL, 0,
+		      NULL,
 		      peer->anchor.witnessscript,
 		      &peer->secrets->commit,
 		      &peer->local.commitkey,
@@ -130,7 +130,7 @@ void peer_sign_steal_input(const struct peer *peer,
 {
 	/* Spend tx only has one input: that of the commit tx. */
 	sign_tx_input(spend, i,
-		      NULL, 0,
+		      NULL,
 		      witnessscript,
 		      &peer->secrets->final,
 		      &peer->local.finalkey,

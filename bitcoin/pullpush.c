@@ -26,12 +26,12 @@ void push_le64(u64 v,
 	push(&l, sizeof(l), pushp);
 }
 
-void push_varint_blob(const void *blob, varint_t len,
+void push_varint_blob(const tal_t *blob,
 		      void (*push)(const void *, size_t, void *),
 		      void *pushp)
 {
-	push_varint(len, push, pushp);
-	push(blob, len, pushp);
+	push_varint(tal_len(blob), push, pushp);
+	push(blob, tal_len(blob), pushp);
 }
 
 void push(const void *data, size_t len, void *pptr_)

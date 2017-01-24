@@ -26,29 +26,29 @@
 
 static void dump_tx(const char *msg,
 		    const struct bitcoin_tx *tx, size_t inputnum,
-		    const u8 *script, size_t script_len,
+		    const u8 *script,
 		    const struct pubkey *key,
 		    const struct sha256_double *h)
 {
 	size_t i, j;
 	warnx("%s tx version %u locktime %#x:",
 	      msg, tx->version, tx->lock_time);
-	for (i = 0; i < tx->input_count; i++) {
+	for (i = 0; i < tal_count(tx->input); i++) {
 		warnx("input[%zu].txid = "SHA_FMT, i,
 		      SHA_VALS(tx->input[i].txid.sha.u.u8));
 		warnx("input[%zu].index = %u", i, tx->input[i].index);
 	}
-	for (i = 0; i < tx->output_count; i++) {
+	for (i = 0; i < tal_count(tx->output); i++) {
 		warnx("output[%zu].amount = %llu",
 		      i, (long long)tx->output[i].amount);
-		warnx("output[%zu].script = %llu",
-		      i, (long long)tx->output[i].script_length);
-		for (j = 0; j < tx->output[i].script_length; j++)
+		warnx("output[%zu].script = %zu",
+		      i, tal_len(tx->output[i].script));
+		for (j = 0; j < tal_len(tx->output[i].script); j++)
 			fprintf(stderr, "%02x", tx->output[i].script[j]);
 		fprintf(stderr, "\n");
 	}
-	warnx("input[%zu].script = %zu", inputnum, script_len);
-	for (i = 0; i < script_len; i++)
+	warnx("input[%zu].script = %zu", inputnum, tal_len(script));
+	for (i = 0; i < tal_len(script); i++)
 		fprintf(stderr, "%02x", script[i]);
 	if (key) {
 		fprintf(stderr, "\nPubkey: ");
@@ -66,7 +66,7 @@ static void dump_tx(const char *msg,
 #else
 static void dump_tx(const char *msg,
 		    const struct bitcoin_tx *tx, size_t inputnum,
-		    const u8 *script, size_t script_len,
+		    const u8 *script,
 		    const struct pubkey *key,
 		    const struct sha256_double *h)
 {
@@ -89,41 +89,38 @@ void sign_hash(const struct privkey *privkey,
 /* Only does SIGHASH_ALL */
 static void sha256_tx_one_input(struct bitcoin_tx *tx,
 				size_t input_num,
-				const u8 *script, size_t script_len,
+				const u8 *script,
 				const u8 *witness_script,
 				struct sha256_double *hash)
 {
 	size_t i;
 
-	assert(input_num < tx->input_count);
+	assert(input_num < tal_count(tx->input));
 
 	/* You must have all inputs zeroed to start. */
-	for (i = 0; i < tx->input_count; i++)
-		assert(tx->input[i].script_length == 0);
+	for (i = 0; i < tal_count(tx->input); i++)
+		assert(!tx->input[i].script);
 
-	tx->input[input_num].script_length = script_len;
 	tx->input[input_num].script = cast_const(u8 *, script);
 
 	sha256_tx_for_sig(hash, tx, input_num, witness_script);
 
 	/* Reset it for next time. */
-	tx->input[input_num].script_length = 0;
 	tx->input[input_num].script = NULL;
 }
 
 /* Only does SIGHASH_ALL */
 void sign_tx_input(struct bitcoin_tx *tx,
 		   unsigned int in,
-		   const u8 *subscript, size_t subscript_len,
+		   const u8 *subscript,
 		   const u8 *witness_script,
 		   const struct privkey *privkey, const struct pubkey *key,
 		   secp256k1_ecdsa_signature *sig)
 {
 	struct sha256_double hash;
 
-	sha256_tx_one_input(tx, in, subscript, subscript_len, witness_script,
-			    &hash);
-	dump_tx("Signing", tx, in, subscript, subscript_len, key, &hash);
+	sha256_tx_one_input(tx, in, subscript, witness_script, &hash);
+	dump_tx("Signing", tx, in, subscript, key, &hash);
 	sign_hash(privkey, &hash, sig);
 }
 
@@ -140,7 +137,7 @@ bool check_signed_hash(const struct sha256_double *hash,
 }
 
 bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
-		  const u8 *redeemscript, size_t redeemscript_len,
+		  const u8 *redeemscript,
 		  const u8 *witness_script,
 		  const struct pubkey *key,
 		  const secp256k1_ecdsa_signature *sig)
@@ -148,15 +145,13 @@ bool check_tx_sig(struct bitcoin_tx *tx, size_t input_num,
 	struct sha256_double hash;
 	bool ret;
 
-	assert(input_num < tx->input_count);
+	assert(input_num < tal_count(tx->input));
 
-	sha256_tx_one_input(tx, input_num, redeemscript, redeemscript_len,
-			    witness_script, &hash);
+	sha256_tx_one_input(tx, input_num, redeemscript, witness_script, &hash);
 
 	ret = check_signed_hash(&hash, sig, key);
 	if (!ret)
-		dump_tx("Sig failed", tx, input_num,
-			redeemscript, redeemscript_len, key, &hash);
+		dump_tx("Sig failed", tx, input_num, redeemscript, key, &hash);
 	return ret;
 }
 

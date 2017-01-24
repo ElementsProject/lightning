@@ -18,7 +18,7 @@ static void push_tx_input(const struct bitcoin_tx_input *input,
 {
 	push(&input->txid, sizeof(input->txid), pushp);
 	push_le32(input->index, push, pushp);
-	push_varint_blob(input->script, input->script_length, push, pushp);
+	push_varint_blob(input->script, push, pushp);
 	push_le32(input->sequence_number, push, pushp);
 }
 
@@ -26,7 +26,7 @@ static void push_tx_output(const struct bitcoin_tx_output *output,
 			  void (*push)(const void *, size_t, void *), void *pushp)
 {
 	push_le64(output->amount, push, pushp);
-	push_varint_blob(output->script, output->script_length, push, pushp);
+	push_varint_blob(output->script, push, pushp);
 }
 
 /* BIP 141:
@@ -35,7 +35,7 @@ static void push_tx_output(const struct bitcoin_tx_output *output,
 static void push_witness(const u8 *witness,
 			void (*push)(const void *, size_t, void *), void *pushp)
 {
-	push_varint_blob(witness, tal_count(witness), push, pushp);
+	push_varint_blob(witness, push, pushp);
 }
 
 /* BIP144:
@@ -44,7 +44,7 @@ static bool uses_witness(const struct bitcoin_tx *tx)
 {
 	size_t i;
 
-	for (i = 0; i < tx->input_count; i++) {
+	for (i = 0; i < tal_count(tx->input); i++) {
 		if (tx->input[i].witness)
 			return true;
 	}
@@ -59,7 +59,7 @@ static void push_witnesses(const struct bitcoin_tx *tx,
 			  void (*push)(const void *, size_t, void *), void *pushp)
 {
 	size_t i;
-	for (i = 0; i < tx->input_count; i++) {
+	for (i = 0; i < tal_count(tx->input); i++) {
 		size_t j, elements;
 
 		/* Not every input needs a witness. */
@@ -106,12 +106,12 @@ static void push_tx(const struct bitcoin_tx *tx,
 		push(&flag, 1, pushp);
 	}
 
-	push_varint(tx->input_count, push, pushp);
-	for (i = 0; i < tx->input_count; i++)
+	push_varint(tal_count(tx->input), push, pushp);
+	for (i = 0; i < tal_count(tx->input); i++)
 		push_tx_input(&tx->input[i], push, pushp);
 
-	push_varint(tx->output_count, push, pushp);
-	for (i = 0; i < tx->output_count; i++)
+	push_varint(tal_count(tx->output), push, pushp);
+	for (i = 0; i < tal_count(tx->output); i++)
 		push_tx_output(&tx->output[i], push, pushp);
 
 	if (flag & SEGREGATED_WITNESS_FLAG)
@@ -135,7 +135,7 @@ static void hash_prevouts(struct sha256_double *h, const struct bitcoin_tx *tx)
 	 * double SHA256 of the serialization of all input
 	 * outpoints */
 	sha256_init(&ctx);
-	for (i = 0; i < tx->input_count; i++) {
+	for (i = 0; i < tal_count(tx->input); i++) {
 		push_sha(&tx->input[i].txid, sizeof(tx->input[i].txid), &ctx);
 		push_le32(tx->input[i].index, push_sha, &ctx);
 	}
@@ -151,7 +151,7 @@ static void hash_sequence(struct sha256_double *h, const struct bitcoin_tx *tx)
 	 * is set, hashSequence is the double SHA256 of the serialization
 	 * of nSequence of all inputs */
 	sha256_init(&ctx);
-	for (i = 0; i < tx->input_count; i++)
+	for (i = 0; i < tal_count(tx->input); i++)
 		push_le32(tx->input[i].sequence_number, push_sha, &ctx);
 
 	sha256_double_done(&ctx, h);
@@ -167,11 +167,9 @@ static void hash_outputs(struct sha256_double *h, const struct bitcoin_tx *tx)
 	size_t i;
 
 	sha256_init(&ctx);
-	for (i = 0; i < tx->output_count; i++) {
+	for (i = 0; i < tal_count(tx->output); i++) {
 		push_le64(tx->output[i].amount, push_sha, &ctx);
-		push_varint_blob(tx->output[i].script,
-				tx->output[i].script_length,
-				push_sha, &ctx);
+		push_varint_blob(tx->output[i].script, push_sha, &ctx);
 	}
 
 	sha256_double_done(&ctx, h);
@@ -205,7 +203,7 @@ static void hash_for_segwit(struct sha256_ctx *ctx,
 	push_le32(tx->input[input_num].index, push_sha, ctx);
 
 	/*     5. scriptCode of the input (varInt for the length + script) */
-	push_varint_blob(witness_script, tal_count(witness_script), push_sha, ctx);
+	push_varint_blob(witness_script, push_sha, ctx);
 
 	/*     6. value of the output spent by this input (8-byte little end) */
 	push_le64(*tx->input[input_num].amount, push_sha, ctx);
@@ -229,10 +227,10 @@ void sha256_tx_for_sig(struct sha256_double *h, const struct bitcoin_tx *tx,
 	struct sha256_ctx ctx = SHA256_INIT;
 
 	/* Caller should zero-out other scripts for signing! */
-	assert(input_num < tx->input_count);
-	for (i = 0; i < tx->input_count; i++)
+	assert(input_num < tal_count(tx->input));
+	for (i = 0; i < tal_count(tx->input); i++)
 		if (i != input_num)
-			assert(tx->input[i].script_length == 0);
+			assert(!tx->input[i].script);
 
 	if (witness_script) {
 		/* BIP143 hashing if OP_CHECKSIG is inside witness. */
@@ -293,11 +291,9 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx, varint_t input_count,
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 	size_t i;
 
-	tx->output_count = output_count;
 	tx->output = tal_arrz(tx, struct bitcoin_tx_output, output_count);
-	tx->input_count = input_count;
 	tx->input = tal_arrz(tx, struct bitcoin_tx_input, input_count);
-	for (i = 0; i < tx->input_count; i++) {
+	for (i = 0; i < tal_count(tx->input); i++) {
 		/* We assume NULL is a zero bitmap */
 		assert(tx->input[i].script == NULL);
 		tx->input[i].sequence_number = 0xFFFFFFFF;
@@ -341,9 +337,8 @@ static void pull_input(const tal_t *ctx, const u8 **cursor, size_t *max,
 {
 	pull_sha256_double(cursor, max, &input->txid);
 	input->index = pull_le32(cursor, max);
-	input->script_length = pull_length(cursor, max);
-	input->script = tal_arr(ctx, u8, input->script_length);
-	pull(cursor, max, input->script, input->script_length);
+	input->script = tal_arr(ctx, u8, pull_length(cursor, max));
+	pull(cursor, max, input->script, tal_len(input->script));
 	input->sequence_number = pull_le32(cursor, max);
 }
 
@@ -351,9 +346,8 @@ static void pull_output(const tal_t *ctx, const u8 **cursor, size_t *max,
 			struct bitcoin_tx_output *output)
 {
 	output->amount = pull_value(cursor, max);
-	output->script_length = pull_length(cursor, max);
-	output->script = tal_arr(ctx, u8, output->script_length);
-	pull(cursor, max, output->script, output->script_length);
+	output->script = tal_arr(ctx, u8, pull_length(cursor, max));
+	pull(cursor, max, output->script, tal_len(output->script));
 }
 
 static u8 *pull_witness_item(const tal_t *ctx, const u8 **cursor, size_t *max)
@@ -389,32 +383,33 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 {
 	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
 	size_t i;
+	u64 count;
 	u8 flag = 0;
 
 	tx->version = pull_le32(cursor, max);
-	tx->input_count = pull_length(cursor, max);
+	count = pull_length(cursor, max);
 	/* BIP 144 marker is 0 (impossible to have tx with 0 inputs) */
-	if (tx->input_count == 0) {
+	if (count == 0) {
 		pull(cursor, max, &flag, 1);
 		if (flag != SEGREGATED_WITNESS_FLAG)
 			return tal_free(tx);
-		tx->input_count = pull_length(cursor, max);
+		count = pull_length(cursor, max);
 	}
 
-	tx->input = tal_arr(tx, struct bitcoin_tx_input, tx->input_count);
-	for (i = 0; i < tx->input_count; i++)
+	tx->input = tal_arr(tx, struct bitcoin_tx_input, count);
+	for (i = 0; i < tal_count(tx->input); i++)
 		pull_input(tx, cursor, max, tx->input + i);
 
-	tx->output_count = pull_length(cursor, max);
-	tx->output = tal_arr(tx, struct bitcoin_tx_output, tx->output_count);
-	for (i = 0; i < tx->output_count; i++)
+	count = pull_length(cursor, max);
+	tx->output = tal_arr(tx, struct bitcoin_tx_output, count);
+	for (i = 0; i < tal_count(tx->output); i++)
 		pull_output(tx, cursor, max, tx->output + i);
 
 	if (flag & SEGREGATED_WITNESS_FLAG) {
-		for (i = 0; i < tx->input_count; i++)
+		for (i = 0; i < tal_count(tx->input); i++)
 			pull_witness(tx->input, i, cursor, max);
 	} else {
-		for (i = 0; i < tx->input_count; i++)
+		for (i = 0; i < tal_count(tx->input); i++)
 			tx->input[i].witness = NULL;
 	}
 	tx->lock_time = pull_le32(cursor, max);

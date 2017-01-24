@@ -26,14 +26,12 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	tx->output[0].amount = to_us;
 	tx->output[0].script = tal_dup_arr(tx, u8,
 					   our_script, tal_count(our_script), 0);
-	tx->output[0].script_length = tal_count(tx->output[0].script);
 
 	/* Other output is to them. */
 	tx->output[1].amount = to_them;
 	tx->output[1].script = tal_dup_arr(tx, u8,
 					   their_script, tal_count(their_script),
 					   0);
-	tx->output[1].script_length = tal_count(tx->output[1].script);
 
 	assert(tx->output[0].amount + tx->output[1].amount <= anchor_satoshis);
 

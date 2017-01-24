@@ -90,18 +90,18 @@ u8 **bitcoin_witness_htlc(const tal_t *ctx,
 			  const u8 *witnessscript);
 
 /* Is this a pay to pubkeu hash? */
-bool is_p2pkh(const u8 *script, size_t script_len);
+bool is_p2pkh(const u8 *script);
 
 /* Is this a pay to script hash? */
-bool is_p2sh(const u8 *script, size_t script_len);
+bool is_p2sh(const u8 *script);
 
 /* Is this (version 0) pay to witness script hash? */
-bool is_p2wsh(const u8 *script, size_t script_len);
+bool is_p2wsh(const u8 *script);
 
 /* Is this (version 0) pay to witness pubkey hash? */
-bool is_p2wpkh(const u8 *script, size_t script_len);
+bool is_p2wpkh(const u8 *script);
 
 /* Are these two scripts equal? */
-bool scripteq(const u8 *s1, size_t s1len, const u8 *s2, size_t s2len);
+bool scripteq(const tal_t *s1, const tal_t *s2);
 
 #endif /* LIGHTNING_BITCOIN_SCRIPT_H */

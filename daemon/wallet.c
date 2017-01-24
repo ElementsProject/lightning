@@ -70,14 +70,14 @@ bool wallet_add_signed_input(struct lightningd_state *dstate,
 	secp256k1_ecdsa_signature sig;
 	struct wallet *w = find_by_pubkey(dstate, walletkey);
 
-	assert(input_num < tx->input_count);
+	assert(input_num < tal_count(tx->input));
 	if (!w)
 		return false;
 
 	redeemscript = bitcoin_redeem_p2wpkh(tx, &w->pubkey);
 
 	sign_tx_input(tx, input_num,
-		      redeemscript, tal_count(redeemscript),
+		      redeemscript,
 		      p2wpkh_scriptcode(redeemscript, &w->pubkey),
 		      &w->privkey,
 		      &w->pubkey,
@@ -98,7 +98,7 @@ bool wallet_can_spend(struct lightningd_state *dstate,
 	struct ripemd160 h;
 	struct wallet *w;
 
-	if (!is_p2sh(output->script, output->script_length))
+	if (!is_p2sh(output->script))
 		return NULL;
 
 	memcpy(&h, output->script + 2, 20);

@@ -222,7 +222,6 @@ void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 	 * or validation fails. */
 	input->script = tal_arr(ctx, u8, 0);
 	add_push_bytes(&input->script, redeemscript, tal_count(redeemscript));
-	input->script_length = tal_count(input->script);
 	tal_free(redeemscript);
 
 	/* BIP141: The witness must consist of exactly 2 items (≤ 520
@@ -423,8 +422,10 @@ u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key)
 	return script;
 }
 
-bool is_p2pkh(const u8 *script, size_t script_len)
+bool is_p2pkh(const u8 *script)
 {
+	size_t script_len = tal_len(script);
+
 	if (script_len != 25)
 		return false;
 	if (script[0] != OP_DUP)
@@ -440,8 +441,10 @@ bool is_p2pkh(const u8 *script, size_t script_len)
 	return true;
 }
 
-bool is_p2sh(const u8 *script, size_t script_len)
+bool is_p2sh(const u8 *script)
 {
+	size_t script_len = tal_len(script);
+
 	if (script_len != 23)
 		return false;
 	if (script[0] != OP_HASH160)
@@ -453,8 +456,10 @@ bool is_p2sh(const u8 *script, size_t script_len)
 	return true;
 }
 
-bool is_p2wsh(const u8 *script, size_t script_len)
+bool is_p2wsh(const u8 *script)
 {
+	size_t script_len = tal_len(script);
+
 	if (script_len != 1 + 1 + sizeof(struct sha256))
 		return false;
 	if (script[0] != OP_0)
@@ -464,8 +469,10 @@ bool is_p2wsh(const u8 *script, size_t script_len)
 	return true;
 }
 
-bool is_p2wpkh(const u8 *script, size_t script_len)
+bool is_p2wpkh(const u8 *script)
 {
+	size_t script_len = tal_len(script);
+
 	if (script_len != 1 + 1 + sizeof(struct ripemd160))
 		return false;
 	if (script[0] != OP_0)
@@ -542,12 +549,12 @@ u8 **bitcoin_witness_htlc(const tal_t *ctx,
 				      32, sig, witnessscript);
 }
 
-bool scripteq(const u8 *s1, size_t s1len, const u8 *s2, size_t s2len)
+bool scripteq(const tal_t *s1, const tal_t *s2)
 {
-	memcheck(s1, s1len);
-	memcheck(s2, s2len);
+	memcheck(s1, tal_len(s1));
+	memcheck(s2, tal_len(s2));
 
-	if (s1len != s2len)
+	if (tal_len(s1) != tal_len(s2))
 		return false;
-	return memcmp(s1, s2, s1len) == 0;
+	return memcmp(s1, s2, tal_len(s1)) == 0;
 }

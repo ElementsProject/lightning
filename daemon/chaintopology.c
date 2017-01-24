@@ -162,7 +162,7 @@ static void connect_block(struct lightningd_state *dstate,
 		size_t j;
 
 		/* Tell them if it spends a txo we care about. */
-		for (j = 0; j < tx->input_count; j++) {
+		for (j = 0; j < tal_count(tx->input); j++) {
 			struct txwatch_output out;
 			struct txowatch *txo;
 			out.txid = tx->input[j].txid;

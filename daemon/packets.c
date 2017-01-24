@@ -568,6 +568,10 @@ Pkt *accept_pkt_close_shutdown(struct peer *peer, const Pkt *pkt)
 {
 	const CloseShutdown *c = pkt->close_shutdown;
 
+	peer->closing.their_script = tal_dup_arr(peer, u8,
+						 c->scriptpubkey.data,
+						 c->scriptpubkey.len, 0);
+
 	/* FIXME-OLD #2:
 	 *
 	 * 1. `OP_DUP` `OP_HASH160` `20` 20-bytes `OP_EQUALVERIFY` `OP_CHECKSIG`
@@ -579,17 +583,15 @@ Pkt *accept_pkt_close_shutdown(struct peer *peer, const Pkt *pkt)
 	 * A node receiving `close_shutdown` SHOULD fail the connection
 	 * `script_pubkey` is not one of those forms.
 	 */
-	if (!is_p2pkh(c->scriptpubkey.data, c->scriptpubkey.len)
-	    && !is_p2sh(c->scriptpubkey.data, c->scriptpubkey.len)
-	    && !is_p2wpkh(c->scriptpubkey.data, c->scriptpubkey.len)
-	    && !is_p2wsh(c->scriptpubkey.data, c->scriptpubkey.len)) {
+	if (!is_p2pkh(peer->closing.their_script)
+	    && !is_p2sh(peer->closing.their_script)
+	    && !is_p2wpkh(peer->closing.their_script)
+	    && !is_p2wsh(peer->closing.their_script)) {
 		log_broken_blob(peer->log, "Bad script_pubkey %s",
-				c->scriptpubkey.data, c->scriptpubkey.len);
+				peer->closing.their_script,
+				tal_count(peer->closing.their_script));
 		return pkt_err(peer, "Bad script_pubkey");
 	}
 
-	peer->closing.their_script = tal_dup_arr(peer, u8,
-						 c->scriptpubkey.data,
-						 c->scriptpubkey.len, 0);
 	return NULL;
 }

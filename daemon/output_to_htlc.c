@@ -49,11 +49,11 @@ struct htlc_output_map *get_htlc_output_map(const tal_t *ctx,
 }
 
 static struct wscript_by_wpkh *get_wpkh(struct htlc_output_map *omap,
-					const u8 *script, size_t script_len)
+					const u8 *script)
 {
 	size_t i;
 
-	if (!is_p2wsh(script, script_len))
+	if (!is_p2wsh(script))
 		return NULL;
 
 	for (i = 0; i < tal_count(omap->wpkh); i++) {
@@ -66,10 +66,10 @@ static struct wscript_by_wpkh *get_wpkh(struct htlc_output_map *omap,
 
 /* Which wscript does this pay to? */
 struct htlc *txout_get_htlc(struct htlc_output_map *omap,
-			    const u8 *script, size_t script_len,
+			    const u8 *script,
 			    const u8 **wscript)
 {
-	struct wscript_by_wpkh *wpkh = get_wpkh(omap, script, script_len);
+	struct wscript_by_wpkh *wpkh = get_wpkh(omap, script);
 
 	if (wpkh) {
 		*wscript = wpkh->wscript;

@@ -9,15 +9,12 @@ static u32 find_output(const struct bitcoin_tx *tx, const u8 *scriptpubkey)
 {
 	u32 i;
 
-	for (i = 0; i < tx->output_count; i++) {
-		if (scripteq(tx->output[i].script,
-			     tx->output[i].script_length,
-			     scriptpubkey,
-			     tal_count(scriptpubkey)))
+	for (i = 0; i < tal_count(tx->output); i++) {
+		if (scripteq(tx->output[i].script, scriptpubkey))
 			break;
 	}
 	/* FIXME: Return failure! */
-	if (i == tx->output_count)
+	if (i == tal_count(tx->output))
 		errx(1, "No matching output in tx");
 	return i;
 }

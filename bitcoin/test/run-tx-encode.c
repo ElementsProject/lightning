@@ -35,8 +35,8 @@ int main(void)
 	 *	   http://n.bitcoin.ninja/checktx
 	 * With much thanks!
 	 */
-	assert(tx->input_count == 1);
-	assert(tx->output_count == 1);
+	assert(tal_count(tx->input) == 1);
+	assert(tal_count(tx->output) == 1);
 
 	reverse_bytes(tx->input[0].txid.sha.u.u8, sizeof(tx->input[0].txid));
 	hexeq(&tx->input[0].txid, sizeof(tx->input[0].txid),
@@ -45,7 +45,7 @@ int main(void)
 
 	/* This is a p2sh-p2wpkh: */
 	/* ScriptSig is push of "version 0 + hash of pubkey" */
-	hexeq(tx->input[0].script, tx->input[0].script_length,
+	hexeq(tx->input[0].script, tal_len(tx->input[0].script),
 	      "16" "00" "144aa38e396e1394fb45cbf83f48d1464fbc9f498f");
 
 	/* Witness with 2 items */

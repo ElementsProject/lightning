@@ -2,12 +2,13 @@
 #define LIGHTNING_BITCOIN_PULLPUSH_H
 #include "config.h"
 #include "bitcoin/varint.h"
+#include <ccan/tal/tal.h>
 
 void push_varint(varint_t v,
 		 void (*push)(const void *, size_t, void *), void *pushp);
 void push_le32(u32 v, void (*push)(const void *, size_t, void *), void *pushp);
 void push_le64(u64 v, void (*push)(const void *, size_t, void *), void *pushp);
-void push_varint_blob(const void *blob, varint_t len,
+void push_varint_blob(const tal_t *blob,
 		      void (*push)(const void *, size_t, void *),
 		      void *pushp);
 

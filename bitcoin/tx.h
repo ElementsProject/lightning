@@ -9,24 +9,19 @@
 
 struct bitcoin_tx {
 	u32 version;
-	varint_t input_count;
 	struct bitcoin_tx_input *input;
-
-	varint_t output_count;
 	struct bitcoin_tx_output *output;
 	u32 lock_time;
 };
 
 struct bitcoin_tx_output {
 	u64 amount;
-	varint_t script_length;
 	u8 *script;
 };
 
 struct bitcoin_tx_input {
 	struct sha256_double txid;
 	u32 index; /* output number referred to by above */
-	varint_t script_length;
 	u8 *script;
 	u32 sequence_number;
 

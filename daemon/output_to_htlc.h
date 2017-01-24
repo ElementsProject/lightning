@@ -15,7 +15,6 @@ struct htlc_output_map *get_htlc_output_map(const tal_t *ctx,
 
 /* If this scriptPubkey pays to a HTLC, get the full wscript */
 struct htlc *txout_get_htlc(struct htlc_output_map *omap,
-			    const u8 *script, size_t script_len,
-			    const u8 **wscript);
+			    const u8 *script, const u8 **wscript);
 
 #endif /* LIGHTNING_DAEMON_OUTPUT_TO_HTLC_H */
