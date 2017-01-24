@@ -73,7 +73,7 @@ class NodeFactory(object):
         self.nodes.append(node)
         if VALGRIND:
             node.daemon.cmd_line = [
-                '/usr/bin/valgrind',
+                'valgrind',
                 '-q',
                 '--error-exitcode=7',
                 '--log-file={}/valgrind-errors'.format(node.daemon.lightning_dir)

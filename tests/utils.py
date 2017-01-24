@@ -133,7 +133,7 @@ class BitcoinD(TailableProc):
             os.makedirs(regtestdir)
 
         self.cmd_line = [
-            '/usr/bin/bitcoind',
+            'bitcoind',
             '-datadir={}'.format(bitcoin_dir),
             '-printtoconsole',
             '-server',
