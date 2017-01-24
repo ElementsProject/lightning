@@ -62,6 +62,18 @@ char *pubkey_to_hexstr(const tal_t *ctx, const struct pubkey *key)
 	return tal_hexstr(ctx, der, sizeof(der));
 }
 
+char *secp256k1_pubkey_to_hexstr(const tal_t *ctx, const secp256k1_pubkey *key)
+{
+	unsigned char der[PUBKEY_DER_LEN];
+	size_t outlen = sizeof(der);
+	if (!secp256k1_ec_pubkey_serialize(secp256k1_ctx, der, &outlen, key,
+					   SECP256K1_EC_COMPRESSED))
+		abort();
+	assert(outlen == sizeof(der));
+	return tal_hexstr(ctx, der, sizeof(der));
+}
+REGISTER_TYPE_TO_STRING(secp256k1_pubkey, secp256k1_pubkey_to_hexstr);
+
 bool pubkey_eq(const struct pubkey *a, const struct pubkey *b)
 {
 	return structeq(&a->pubkey, &b->pubkey);

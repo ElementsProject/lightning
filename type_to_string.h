@@ -3,6 +3,7 @@
 #include "config.h"
 #include "utils.h"
 #include <ccan/autodata/autodata.h>
+#include <secp256k1.h>
 
 /* This must match the type_to_string_ cases. */
 union printable_types {
@@ -17,6 +18,7 @@ union printable_types {
 	const struct channel_state *channel_state;
 	const struct channel_oneside *channel_oneside;
 	const struct netaddr *netaddr;
+	const secp256k1_pubkey *secp256k1_pubkey;
 	const char *charp_;
 };
 

@@ -20,6 +20,9 @@ bool pubkey_from_hexstr(const char *derstr, size_t derlen, struct pubkey *key);
 /* Convert from hex string of DER (scriptPubKey from validateaddress) */
 char *pubkey_to_hexstr(const tal_t *ctx, const struct pubkey *key);
 
+/* Convenience wrapper for a raw secp256k1_pubkey */
+char *secp256k1_pubkey_to_hexstr(const tal_t *ctx, const secp256k1_pubkey *key);
+
 /* Pubkey from privkey */
 bool pubkey_from_privkey(const struct privkey *privkey,
 			 struct pubkey *key);
