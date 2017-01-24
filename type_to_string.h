@@ -19,6 +19,7 @@ union printable_types {
 	const struct channel_oneside *channel_oneside;
 	const struct netaddr *netaddr;
 	const secp256k1_pubkey *secp256k1_pubkey;
+	const struct channel_id *channel_id;
 	const char *charp_;
 };
 

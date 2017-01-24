@@ -3,6 +3,8 @@
 #include <bitcoin/pubkey.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
+#include <ccan/tal/str/str.h>
+#include <type_to_string.h>
 
 /* Sets *cursor to NULL and returns NULL when extraction fails. */
 static const void *fail_pull(const u8 **cursor, size_t *max)
@@ -153,3 +155,9 @@ void fromwire_signature_array(const u8 **cursor, size_t *max,
 	for (i = 0; i < num; i++)
 		fromwire_signature(cursor, max, arr + i);
 }
+
+static char *fmt_channel_id(const tal_t *ctx, const struct channel_id *id)
+{
+	return tal_fmt(ctx, "%u/%u/%u", id->blocknum, id->txnum, id->outnum);
+}
+REGISTER_TYPE_TO_STRING(channel_id, fmt_channel_id);
