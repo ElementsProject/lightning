@@ -81,6 +81,7 @@ CCAN_OBJS :=					\
 	ccan-htable.o				\
 	ccan-ilog.o				\
 	ccan-io-io.o				\
+	ccan-intmap.o				\
 	ccan-io-poll.o				\
 	ccan-io-fdpass.o			\
 	ccan-isaac.o				\
@@ -130,6 +131,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/htable/htable.h			\
 	$(CCANDIR)/ccan/htable/htable_type.h		\
 	$(CCANDIR)/ccan/ilog/ilog.h			\
+	$(CCANDIR)/ccan/intmap/intmap.h			\
 	$(CCANDIR)/ccan/io/backend.h			\
 	$(CCANDIR)/ccan/io/fdpass/fdpass.h		\
 	$(CCANDIR)/ccan/io/io.h				\
@@ -437,6 +439,8 @@ ccan-crypto-siphash24.o: $(CCANDIR)/ccan/crypto/siphash24/siphash24.c
 ccan-htable.o: $(CCANDIR)/ccan/htable/htable.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-ilog.o: $(CCANDIR)/ccan/ilog/ilog.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+ccan-intmap.o: $(CCANDIR)/ccan/intmap/intmap.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-isaac.o: $(CCANDIR)/ccan/isaac/isaac.c
 	$(CC) $(CFLAGS) -c -o $@ $<
