@@ -304,18 +304,18 @@ const char *tal_name(const tal_t *ptr);
 
 /**
  * tal_count - get the count of objects in a tal_arr.
- * @ptr: The tal allocated object array.
+ * @ptr: The tal allocated object array (or NULL)
  *
- * Returns 0 if @ptr has no length property, but be aware that that is
- * also a valid size!
+ * Returns 0 if @ptr has no length property or is NULL, but be aware
+ * that that is also a valid size!
  */
 #define tal_count(p) (tal_len(p) / sizeof(*p))
 
 /**
  * tal_len - get the count of bytes in a tal_arr.
- * @ptr: The tal allocated object array.
+ * @ptr: The tal allocated object array (or NULL)
  *
- * Returns 0 if @ptr has no length property, but be aware that that is
+ * Returns 0 if @ptr has no length property or NULL, but be aware that that is
  * also a valid size!
  */
 size_t tal_len(const tal_t *ptr);

@@ -654,6 +654,9 @@ size_t tal_len(const tal_t *ptr)
 {
 	struct length *l;
 
+	if (!ptr)
+		return 0;
+
 	l = find_property(debug_tal(to_tal_hdr(ptr)), LENGTH);
 	if (!l)
 		return 0;
