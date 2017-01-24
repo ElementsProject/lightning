@@ -100,15 +100,15 @@ void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)
 		fail_pull(cursor, max);
 }
 
-void fromwire_signature(const u8 **cursor, size_t *max, struct signature *sig)
+void fromwire_secp256k1_ecdsa_signature(const u8 **cursor,
+				size_t *max, secp256k1_ecdsa_signature *sig)
 {
 	u8 compact[64];
 
 	if (!fromwire(cursor, max, compact, sizeof(compact)))
 		return;
 
-	if (secp256k1_ecdsa_signature_parse_compact(secp256k1_ctx,
-						    &sig->sig, compact)
+	if (secp256k1_ecdsa_signature_parse_compact(secp256k1_ctx, sig, compact)
 	    != 1)
 		fail_pull(cursor, max);
 }
@@ -147,13 +147,13 @@ void fromwire_pad(const u8 **cursor, size_t *max, size_t num)
 	fromwire(cursor, max, NULL, num);
 }
 
-void fromwire_signature_array(const u8 **cursor, size_t *max,
-			      struct signature *arr, size_t num)
+void fromwire_secp256k1_ecdsa_signature_array(const u8 **cursor, size_t *max,
+			      secp256k1_ecdsa_signature *arr, size_t num)
 {
 	size_t i;
 
 	for (i = 0; i < num; i++)
-		fromwire_signature(cursor, max, arr + i);
+		fromwire_secp256k1_ecdsa_signature(cursor, max, arr + i);
 }
 
 static char *fmt_channel_id(const tal_t *ctx, const struct channel_id *id)

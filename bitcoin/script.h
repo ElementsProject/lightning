@@ -15,7 +15,7 @@ struct abs_locktime;
 
 /* A bitcoin signature includes one byte for the type. */
 struct bitcoin_signature {
-	struct signature sig;
+	secp256k1_ecdsa_signature sig;
 	enum sighash_type stype;
 };
 

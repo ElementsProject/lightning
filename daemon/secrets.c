@@ -27,7 +27,7 @@ struct secret {
 };
 
 void privkey_sign(struct lightningd_state *dstate, const void *src, size_t len,
-		  struct signature *sig)
+		  secp256k1_ecdsa_signature *sig)
 {
 	struct sha256_double h;
 
@@ -44,7 +44,7 @@ struct peer_secrets {
 
 void peer_sign_theircommit(const struct peer *peer,
 			   struct bitcoin_tx *commit,
-			   struct signature *sig)
+			   secp256k1_ecdsa_signature *sig)
 {
 	/* Commit tx only has one input: that of the anchor. */
 	sign_tx_input(commit, 0,
@@ -57,7 +57,7 @@ void peer_sign_theircommit(const struct peer *peer,
 
 void peer_sign_ourcommit(const struct peer *peer,
 			 struct bitcoin_tx *commit,
-			 struct signature *sig)
+			 secp256k1_ecdsa_signature *sig)
 {
 	/* Commit tx only has one input: that of the anchor. */
 	sign_tx_input(commit, 0,
@@ -71,7 +71,7 @@ void peer_sign_ourcommit(const struct peer *peer,
 void peer_sign_spend(const struct peer *peer,
 		     struct bitcoin_tx *spend,
 		     const u8 *commit_witnessscript,
-		     struct signature *sig)
+		     secp256k1_ecdsa_signature *sig)
 {
 	/* Spend tx only has one input: that of the commit tx. */
 	sign_tx_input(spend, 0,
@@ -85,7 +85,7 @@ void peer_sign_spend(const struct peer *peer,
 void peer_sign_htlc_refund(const struct peer *peer,
 			   struct bitcoin_tx *spend,
 			   const u8 *htlc_witnessscript,
-			   struct signature *sig)
+			   secp256k1_ecdsa_signature *sig)
 {
 	/* Spend tx only has one input: that of the commit tx. */
 	sign_tx_input(spend, 0,
@@ -99,7 +99,7 @@ void peer_sign_htlc_refund(const struct peer *peer,
 void peer_sign_htlc_fulfill(const struct peer *peer,
 			    struct bitcoin_tx *spend,
 			    const u8 *htlc_witnessscript,
-			    struct signature *sig)
+			    secp256k1_ecdsa_signature *sig)
 {
 	/* Spend tx only has one input: that of the commit tx. */
 	sign_tx_input(spend, 0,
@@ -112,7 +112,7 @@ void peer_sign_htlc_fulfill(const struct peer *peer,
 
 void peer_sign_mutual_close(const struct peer *peer,
 			    struct bitcoin_tx *close,
-			    struct signature *sig)
+			    secp256k1_ecdsa_signature *sig)
 {
 	sign_tx_input(close, 0,
 		      NULL, 0,
@@ -126,7 +126,7 @@ void peer_sign_steal_input(const struct peer *peer,
 			   struct bitcoin_tx *spend,
 			   size_t i,
 			   const u8 *witnessscript,
-			   struct signature *sig)
+			   secp256k1_ecdsa_signature *sig)
 {
 	/* Spend tx only has one input: that of the commit tx. */
 	sign_tx_input(spend, i,

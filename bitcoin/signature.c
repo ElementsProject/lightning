@@ -75,12 +75,12 @@ static void dump_tx(const char *msg,
 
 void sign_hash(const struct privkey *privkey,
 	       const struct sha256_double *h,
-	       struct signature *s)
+	       secp256k1_ecdsa_signature *s)
 {
 	bool ok;
 
 	ok = secp256k1_ecdsa_sign(secp256k1_ctx,
-				  &s->sig,
+				  s,
 				  h->sha.u.u8,
 				  privkey->secret, NULL, NULL);
 	assert(ok);
@@ -117,7 +117,7 @@ void sign_tx_input(struct bitcoin_tx *tx,
 		   const u8 *subscript, size_t subscript_len,
 		   const u8 *witness_script,
 		   const struct privkey *privkey, const struct pubkey *key,
-		   struct signature *sig)
+		   secp256k1_ecdsa_signature *sig)
 {
 	struct sha256_double hash;
 
@@ -128,13 +128,13 @@ void sign_tx_input(struct bitcoin_tx *tx,
 }
 
 bool check_signed_hash(const struct sha256_double *hash,
-		       const struct signature *signature,
+		       const secp256k1_ecdsa_signature *signature,
 		       const struct pubkey *key)
 {
 	int ret;
 
 	ret = secp256k1_ecdsa_verify(secp256k1_ctx,
-				     &signature->sig,
+				     signature,
 				     hash->sha.u.u8, &key->pubkey);
 	return ret == 1;
 }
@@ -236,31 +236,30 @@ static bool IsValidSignatureEncoding(const unsigned char sig[], size_t len)
     return true;
 }
 
-size_t signature_to_der(u8 der[72], const struct signature *sig)
+size_t signature_to_der(u8 der[72], const secp256k1_ecdsa_signature *sig)
 {
 	size_t len = 72;
 
 	secp256k1_ecdsa_signature_serialize_der(secp256k1_ctx,
-						der, &len, &sig->sig);
+						der, &len, sig);
 
 	/* IsValidSignatureEncoding() expect extra byte for sighash */
 	assert(IsValidSignatureEncoding(der, len + 1));
 	return len;
 }
 
-bool signature_from_der(const u8 *der, size_t len, struct signature *sig)
+bool signature_from_der(const u8 *der, size_t len, secp256k1_ecdsa_signature *sig)
 {
 	return secp256k1_ecdsa_signature_parse_der(secp256k1_ctx,
-						   &sig->sig, der, len);
+						   sig, der, len);
 }
 
 /* Signature must have low S value. */
-bool sig_valid(const struct signature *sig)
+bool sig_valid(const secp256k1_ecdsa_signature *sig)
 {
 	secp256k1_ecdsa_signature tmp;
 
-	if (secp256k1_ecdsa_signature_normalize(secp256k1_ctx,
-						&tmp, &sig->sig) == 0)
+	if (secp256k1_ecdsa_signature_normalize(secp256k1_ctx, &tmp, sig) == 0)
 		return true;
 	return false;
 }

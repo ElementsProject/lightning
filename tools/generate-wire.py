@@ -25,7 +25,7 @@ class FieldType(object):
             return 8
         elif typename == 'struct ipv6':
             return 16
-        elif typename == 'struct signature':
+        elif typename == 'secp256k1_ecdsa_signature':
             return 64
         elif typename == 'struct pubkey':
             return 33
@@ -120,7 +120,7 @@ class Field(object):
     
         # We translate signatures and pubkeys.
         if 'signature' in fieldname:
-            return FieldType('struct signature')
+            return FieldType('secp256k1_ecdsa_signature')
 
         # We whitelist specific things here, otherwise we'd treat everything
         # as a u8 array.

@@ -6,7 +6,7 @@
 #include "utils.h"
 #include <ccan/crypto/sha256/sha256.h>
 
-Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
+Signature *signature_to_proto(const tal_t *ctx, const secp256k1_ecdsa_signature *sig)
 {
 	u8 compact[64];
 	Signature *pb = tal(ctx, Signature);
@@ -15,7 +15,7 @@ Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
 	assert(sig_valid(sig));
 
 	secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx,
-						    compact, &sig->sig);
+						    compact, sig);
 
 	/* Kill me now... */
 	memcpy(&pb->r1, compact, 8);
@@ -30,8 +30,7 @@ Signature *signature_to_proto(const tal_t *ctx, const struct signature *sig)
 	return pb;
 }
 
-bool proto_to_signature(const Signature *pb,
-			struct signature *sig)
+bool proto_to_signature(const Signature *pb, secp256k1_ecdsa_signature *sig)
 {
 	u8 compact[64];
 
@@ -46,7 +45,7 @@ bool proto_to_signature(const Signature *pb,
 	memcpy(compact + 56, &pb->s4, 8);
 
 	if (secp256k1_ecdsa_signature_parse_compact(secp256k1_ctx,
-						    &sig->sig, compact)
+						    sig, compact)
 	    != 1)
 		return false;
 

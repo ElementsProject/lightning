@@ -204,11 +204,11 @@ void handle_channel_announcement(
 {
 	u8 *serialized;
 	bool forward = false;
-	struct signature node_signature_1;
-	struct signature node_signature_2;
+	secp256k1_ecdsa_signature node_signature_1;
+	secp256k1_ecdsa_signature node_signature_2;
 	struct channel_id channel_id;
-	struct signature bitcoin_signature_1;
-	struct signature bitcoin_signature_2;
+	secp256k1_ecdsa_signature bitcoin_signature_1;
+	secp256k1_ecdsa_signature bitcoin_signature_2;
 	struct pubkey node_id_1;
 	struct pubkey node_id_2;
 	struct pubkey bitcoin_key_1;
@@ -265,7 +265,7 @@ void handle_channel_update(struct peer *peer, const u8 *update, size_t len)
 {
 	u8 *serialized;
 	struct node_connection *c;
-	struct signature signature;
+	secp256k1_ecdsa_signature signature;
 	struct channel_id channel_id;
 	u32 timestamp;
 	u16 flags;
@@ -341,7 +341,7 @@ void handle_node_announcement(
 	u8 *serialized;
 	struct sha256_double hash;
 	struct node *node;
-	struct signature signature;
+	secp256k1_ecdsa_signature signature;
 	u32 timestamp;
 	struct pubkey node_id;
 	u8 rgb_color[3];
@@ -409,7 +409,7 @@ static void broadcast_channel_update(struct lightningd_state *dstate, struct pee
 {
 	struct txlocator *loc;
 	u8 *serialized;
-	struct signature signature;
+	secp256k1_ecdsa_signature signature;
 	struct channel_id channel_id;
 	u32 timestamp = time_now().ts.tv_sec;
 	const tal_t *tmpctx = tal_tmpctx(dstate);
@@ -447,7 +447,7 @@ static void broadcast_channel_update(struct lightningd_state *dstate, struct pee
 static void broadcast_node_announcement(struct lightningd_state *dstate)
 {
 	u8 *serialized;
-	struct signature signature;
+	secp256k1_ecdsa_signature signature;
 	static const u8 rgb_color[3];
 	static const u8 alias[32];
 	u32 timestamp = time_now().ts.tv_sec;
@@ -484,12 +484,12 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 {
 	struct txlocator *loc;
 	struct channel_id channel_id;
-	struct signature node_signature[2];
-	struct signature bitcoin_signature[2];
+	secp256k1_ecdsa_signature node_signature[2];
+	secp256k1_ecdsa_signature bitcoin_signature[2];
 	const struct pubkey *node_id[2];
 	const struct pubkey *bitcoin_key[2];
-	struct signature *my_node_signature;
-	struct signature *my_bitcoin_signature;
+	secp256k1_ecdsa_signature *my_node_signature;
+	secp256k1_ecdsa_signature *my_bitcoin_signature;
 	u8 *serialized;
 	const tal_t *tmpctx = tal_tmpctx(dstate);
 

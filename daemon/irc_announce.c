@@ -18,7 +18,7 @@ static void sign_privmsg(struct ircstate *state, struct privmsg *msg)
 {
 	int siglen;
 	u8 der[72];
-	struct signature sig;
+	secp256k1_ecdsa_signature sig;
 	privkey_sign(state->dstate, msg->msg, strlen(msg->msg), &sig);
 	siglen = signature_to_der(der, &sig);
 	msg->msg = tal_fmt(msg, "%s %s", tal_hexstr(msg, der, siglen), msg->msg);
@@ -114,7 +114,7 @@ static bool verify_signed_privmsg(
 	const struct pubkey *pk,
 	const struct privmsg *msg)
 {
-	struct signature sig;
+	secp256k1_ecdsa_signature sig;
 	struct sha256_double hash;
 	const char *m = msg->msg + 1;
 	int siglen = strchr(m, ' ') - m;

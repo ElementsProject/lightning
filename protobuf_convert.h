@@ -7,11 +7,10 @@
 #include <stdbool.h>
 
 /* Convert to-from protobuf to internal representation. */
-struct signature;
 Signature *signature_to_proto(const tal_t *ctx,
-			      const struct signature *sig);
+			      const secp256k1_ecdsa_signature *sig);
 bool proto_to_signature(const Signature *pb,
-			struct signature *sig);
+			secp256k1_ecdsa_signature *sig);
 
 /* Convert to-from protobuf to internal representation. */
 struct pubkey;

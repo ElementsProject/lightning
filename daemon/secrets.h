@@ -4,47 +4,47 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <secp256k1.h>
 
 struct peer;
 struct lightningd_state;
-struct signature;
 struct sha256;
 
 void privkey_sign(struct lightningd_state *dstate, const void *src, size_t len,
-		  struct signature *sig);
+		  secp256k1_ecdsa_signature *sig);
 
 void peer_sign_theircommit(const struct peer *peer,
 			   struct bitcoin_tx *commit,
-			   struct signature *sig);
+			   secp256k1_ecdsa_signature *sig);
 
 void peer_sign_ourcommit(const struct peer *peer,
 			 struct bitcoin_tx *commit,
-			 struct signature *sig);
+			 secp256k1_ecdsa_signature *sig);
 
 void peer_sign_spend(const struct peer *peer,
 		     struct bitcoin_tx *spend,
 		     const u8 *commit_witnessscript,
-		     struct signature *sig);
+		     secp256k1_ecdsa_signature *sig);
 
 void peer_sign_htlc_refund(const struct peer *peer,
 			   struct bitcoin_tx *spend,
 			   const u8 *htlc_witnessscript,
-			   struct signature *sig);
+			   secp256k1_ecdsa_signature *sig);
 
 void peer_sign_htlc_fulfill(const struct peer *peer,
 			    struct bitcoin_tx *spend,
 			    const u8 *htlc_witnessscript,
-			    struct signature *sig);
+			    secp256k1_ecdsa_signature *sig);
 
 void peer_sign_mutual_close(const struct peer *peer,
 			    struct bitcoin_tx *close,
-			    struct signature *sig);
+			    secp256k1_ecdsa_signature *sig);
 
 void peer_sign_steal_input(const struct peer *peer,
 			   struct bitcoin_tx *spend,
 			   size_t i,
 			   const u8 *witnessscript,
-			   struct signature *sig);
+			   secp256k1_ecdsa_signature *sig);
 
 const char *peer_secrets_for_db(const tal_t *ctx, struct peer *peer);
 

@@ -52,12 +52,13 @@ void towire_pubkey(u8 **pptr, const struct pubkey *pubkey)
 	towire(pptr, output, outputlen);
 }
 
-void towire_signature(u8 **pptr, const struct signature *sig)
+void towire_secp256k1_ecdsa_signature(u8 **pptr,
+				      const secp256k1_ecdsa_signature *sig)
 {
 	u8 compact[64];
 
 	secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx,
-						    compact, &sig->sig);
+						    compact, sig);
 	towire(pptr, compact, sizeof(compact));
 }
 
@@ -95,10 +96,11 @@ void towire_pad(u8 **pptr, size_t num)
 	memset(*pptr + oldsize, 0, num);
 }
 
-void towire_signature_array(u8 **pptr, const struct signature *arr, size_t num)
+void towire_secp256k1_ecdsa_signature_array(u8 **pptr,
+			    const secp256k1_ecdsa_signature *arr, size_t num)
 {
 	size_t i;
 
 	for (i = 0; i < num; i++)
-		towire_signature(pptr, arr+i);
+		towire_secp256k1_ecdsa_signature(pptr, arr+i);
 }

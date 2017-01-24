@@ -165,7 +165,7 @@ static void sig_from_sql(sqlite3_stmt *stmt, int idx,
 	u8 compact[64];
 
 	from_sql_blob(stmt, idx, compact, sizeof(compact));
-	if (secp256k1_ecdsa_signature_parse_compact(secp256k1_ctx, &sig->sig.sig,
+	if (secp256k1_ecdsa_signature_parse_compact(secp256k1_ctx, &sig->sig,
 						    compact) != 1)
 		fatal("db:bad signature blob");
 	sig->stype = SIGHASH_ALL;
@@ -181,7 +181,7 @@ static char *sig_to_sql(const tal_t *ctx,
 
 	assert(sig->stype == SIGHASH_ALL);
 	secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx, compact,
-						    &sig->sig.sig);
+						    &sig->sig);
 	return sql_hex_or_null(ctx, compact, sizeof(compact));
 }
 

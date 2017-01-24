@@ -277,7 +277,7 @@ void queue_pkt_close_signature(struct peer *peer)
 {
 	CloseSignature *c = tal(peer, CloseSignature);
 	struct bitcoin_tx *close_tx;
-	struct signature our_close_sig;
+	secp256k1_ecdsa_signature our_close_sig;
 
 	close_signature__init(c);
 	close_tx = peer_create_close_tx(c, peer, peer->closing.our_fee);

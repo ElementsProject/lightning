@@ -86,13 +86,13 @@ struct msg_error {
 struct msg_closing_signed {
 	struct channel_id channel_id;
 	u64 fee_satoshis;
-	struct signature signature;
+	secp256k1_ecdsa_signature signature;
 };
 struct msg_funding_created {
 	struct channel_id temporary_channel_id;
 	struct sha256 txid;
 	u8 output_index;
-	struct signature signature;
+	secp256k1_ecdsa_signature signature;
 };
 struct msg_accept_channel {
 	struct channel_id temporary_channel_id;
@@ -120,17 +120,17 @@ struct msg_shutdown {
 };
 struct msg_funding_signed {
 	struct channel_id temporary_channel_id;
-	struct signature signature;
+	secp256k1_ecdsa_signature signature;
 };
 struct msg_revoke_and_ack {
 	struct channel_id channel_id;
 	struct sha256 per_commitment_secret;
 	struct pubkey next_per_commitment_point;
 	u8 padding[1];
-	struct signature *htlc_timeout_signature;
+	secp256k1_ecdsa_signature *htlc_timeout_signature;
 };
 struct msg_channel_update {
-	struct signature signature;
+	secp256k1_ecdsa_signature signature;
 	struct channel_id channel_id;
 	u32 timestamp;
 	u16 flags;
@@ -142,17 +142,17 @@ struct msg_channel_update {
 struct msg_funding_locked {
 	struct channel_id temporary_channel_id;
 	struct channel_id channel_id;
-	struct signature announcement_node_signature;
-	struct signature announcement_bitcoin_signature;
+	secp256k1_ecdsa_signature announcement_node_signature;
+	secp256k1_ecdsa_signature announcement_bitcoin_signature;
 	struct pubkey next_per_commitment_point;
 };
 struct msg_commit_sig {
 	struct channel_id channel_id;
-	struct signature signature;
-	struct signature *htlc_signature;
+	secp256k1_ecdsa_signature signature;
+	secp256k1_ecdsa_signature *htlc_signature;
 };
 struct msg_node_announcement {
-	struct signature signature;
+	secp256k1_ecdsa_signature signature;
 	u32 timestamp;
 	struct pubkey node_id;
 	u8 rgb_color[3];
@@ -183,11 +183,11 @@ struct msg_update_fail_htlc {
 	u8 *reason;
 };
 struct msg_channel_announcement {
-	struct signature node_signature_1;
-	struct signature node_signature_2;
+	secp256k1_ecdsa_signature node_signature_1;
+	secp256k1_ecdsa_signature node_signature_2;
 	struct channel_id channel_id;
-	struct signature bitcoin_signature_1;
-	struct signature bitcoin_signature_2;
+	secp256k1_ecdsa_signature bitcoin_signature_1;
+	secp256k1_ecdsa_signature bitcoin_signature_2;
 	struct pubkey node_id_1;
 	struct pubkey node_id_2;
 	struct pubkey bitcoin_key_1;
@@ -871,8 +871,8 @@ int main(void)
 	test_corruption(&ufh, ufh2, update_fail_htlc);
 
 	memset(&cs, 2, sizeof(cs));
-	cs.htlc_signature = tal_arr(ctx, struct signature, 2);
-	memset(cs.htlc_signature, 2, sizeof(struct signature)*2);
+	cs.htlc_signature = tal_arr(ctx, secp256k1_ecdsa_signature, 2);
+	memset(cs.htlc_signature, 2, sizeof(secp256k1_ecdsa_signature)*2);
 	
 	msg = towire_struct_commit_sig(ctx, &cs);
 	len = tal_count(msg);
@@ -963,8 +963,8 @@ int main(void)
 
 	memset(&raa, 2, sizeof(raa));
 	set_pubkey(&raa.next_per_commitment_point);
-	raa.htlc_timeout_signature = tal_arr(ctx, struct signature, 2);
-	memset(raa.htlc_timeout_signature, 2, sizeof(struct signature) * 2);
+	raa.htlc_timeout_signature = tal_arr(ctx, secp256k1_ecdsa_signature, 2);
+	memset(raa.htlc_timeout_signature, 2, sizeof(secp256k1_ecdsa_signature) * 2);
 	
 	msg = towire_struct_revoke_and_ack(ctx, &raa);
 	len = tal_count(msg);
