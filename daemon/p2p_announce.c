@@ -1,3 +1,4 @@
+#include "daemon/broadcast.h"
 #include "daemon/chaintopology.h"
 #include "daemon/log.h"
 #include "daemon/p2p_announce.h"
@@ -11,62 +12,6 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <secp256k1.h>
-
-struct queued_message {
-	int type;
-
-	/* Unique tag specifying the msg origin */
-	void *tag;
-
-	/* Timestamp for `channel_update`s and `node_announcement`s, 0
-	 * for `channel_announcement`s */
-	u32 timestamp;
-
-	/* Serialized payload */
-	u8 *payload;
-
-	struct list_node list;
-};
-
-static void broadcast(struct lightningd_state *dstate,
-		      int type, u8 *pkt,
-		      struct peer *origin)
-{
-	struct peer *p;
-	list_for_each(&dstate->peers, p, list) {
-		if (state_is_normal(p->state) && origin != p)
-			queue_pkt_nested(p, type, pkt);
-	}
-}
-
-static void queue_broadcast(struct lightningd_state *dstate,
-			    const int type,
-			    const u32 timestamp,
-			    const u8 *tag,
-			    const u8 *payload)
-{
-	struct queued_message *el, *msg;
-	list_for_each(&dstate->broadcast_queue, el, list) {
-		if (el->type == type &&
-		    tal_count(tag) == tal_count(el->tag) &&
-		    memcmp(el->tag, tag, tal_count(tag)) == 0 &&
-		    el->timestamp < timestamp){
-			/* Found a replacement */
-			el->payload = tal_free(el->payload);
-			el->payload = tal_dup_arr(el, u8, payload, tal_count(payload), 0);
-			el->timestamp = timestamp;
-			return;
-		}
-	}
-
-	/* No match found, add a new message to the queue */
-	msg = tal(dstate, struct queued_message);
-	msg->type = type;
-	msg->timestamp = timestamp;
-	msg->tag = tal_dup_arr(msg, u8, tag, tal_count(tag), 0);
-	msg->payload = tal_dup_arr(msg, u8, payload, tal_count(payload), 0);
-	list_add_tail(&dstate->broadcast_queue, &msg->list);
-}
 
 void handle_channel_announcement(
 	struct peer *peer,
@@ -124,8 +69,7 @@ void handle_channel_announcement(
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_channel_id(&tag, &channel_id);
-	queue_broadcast(peer->dstate, WIRE_CHANNEL_ANNOUNCEMENT,
-			0, /* `channel_announcement`s do not have a timestamp */
+	queue_broadcast(peer->dstate->rstate->broadcasts, WIRE_CHANNEL_ANNOUNCEMENT,
 			tag, serialized);
 
 	tal_free(tmpctx);
@@ -194,9 +138,8 @@ void handle_channel_update(struct peer *peer, const u8 *update, size_t len)
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_channel_id(&tag, &channel_id);
-	queue_broadcast(peer->dstate,
+	queue_broadcast(peer->dstate->rstate->broadcasts,
 			WIRE_CHANNEL_UPDATE,
-			timestamp,
 			tag,
 			serialized);
 
@@ -265,9 +208,8 @@ void handle_node_announcement(
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_pubkey(&tag, &node_id);
-	queue_broadcast(peer->dstate,
+	queue_broadcast(peer->dstate->rstate->broadcasts,
 			WIRE_NODE_ANNOUNCEMENT,
-			timestamp,
 			tag,
 			serialized);
 	tal_free(node->node_announcement);
@@ -309,8 +251,9 @@ static void broadcast_channel_update(struct lightningd_state *dstate, struct pee
 					   1,
 					   dstate->config.fee_base,
 					   dstate->config.fee_per_satoshi);
-
-	broadcast(dstate, WIRE_CHANNEL_UPDATE, serialized, NULL);
+	u8 *tag = tal_arr(tmpctx, u8, 0);
+	towire_channel_id(&tag, &channel_id);
+	queue_broadcast(dstate->rstate->broadcasts, WIRE_CHANNEL_UPDATE, tag, serialized);
 	tal_free(tmpctx);
 }
 
@@ -346,7 +289,10 @@ static void broadcast_node_announcement(struct lightningd_state *dstate)
 					      &dstate->id, rgb_color, alias,
 					      NULL,
 					      address);
-	broadcast(dstate, WIRE_NODE_ANNOUNCEMENT, serialized, NULL);
+	u8 *tag = tal_arr(tmpctx, u8, 0);
+	towire_pubkey(&tag, &dstate->id);
+	queue_broadcast(dstate->rstate->broadcasts, WIRE_NODE_ANNOUNCEMENT, tag,
+			serialized);
 	tal_free(tmpctx);
 }
 
@@ -422,7 +368,10 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 						 bitcoin_key[0],
 						 bitcoin_key[1],
 						 NULL);
-	broadcast(dstate, WIRE_CHANNEL_ANNOUNCEMENT, serialized, NULL);
+	u8 *tag = tal_arr(tmpctx, u8, 0);
+	towire_channel_id(&tag, &channel_id);
+	queue_broadcast(dstate->rstate->broadcasts, WIRE_CHANNEL_ANNOUNCEMENT,
+			tag, serialized);
 	tal_free(tmpctx);
 }
 
@@ -456,11 +405,19 @@ void announce_channel(struct lightningd_state *dstate, struct peer *peer)
 
 static void process_broadcast_queue(struct lightningd_state *dstate)
 {
+	struct peer *p;
+	struct queued_message *msg;
 	new_reltimer(dstate, dstate, time_from_sec(30), process_broadcast_queue, dstate);
-	struct queued_message *el;
-	while ((el = list_pop(&dstate->broadcast_queue, struct queued_message, list)) != NULL) {
-		broadcast(dstate, el->type, el->payload, NULL);
-		tal_free(el);
+	list_for_each(&dstate->peers, p, list) {
+		if (!state_is_normal(p->state))
+			continue;
+		msg = next_broadcast_message(dstate->rstate->broadcasts,
+					     &p->broadcast_index);
+		while (msg != NULL) {
+			queue_pkt_nested(p, msg->type, msg->payload);
+			msg = next_broadcast_message(dstate->rstate->broadcasts,
+						     &p->broadcast_index);
+		}
 	}
 }
 

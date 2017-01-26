@@ -21,6 +21,7 @@ struct routing_state *new_routing_state(const tal_t *ctx, struct log *base_log)
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->base_log = base_log;
 	rstate->nodes = empty_node_map(rstate);
+	rstate->broadcasts = new_broadcast_state(rstate);
 	return rstate;
 }
 

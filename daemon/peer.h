@@ -231,6 +231,9 @@ struct peer {
 
 	/* this is where we will store their revocation preimages*/
 	struct shachain their_preimages;
+
+	/* High water mark for the staggered broadcast */
+	u64 broadcast_index;
 };
 
 /* Mapping for id -> network address. */
