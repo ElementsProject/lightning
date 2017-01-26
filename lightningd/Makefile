@@ -9,6 +9,7 @@ lightningd-all: lightningd/lightningd lightningd/lightningd_hsm lightningd/light
 default: lightningd-all
 
 LIGHTNINGD_OLD_SRC :=				\
+	daemon/broadcast.c			\
 	daemon/configdir.c			\
 	daemon/dns.c				\
 	daemon/netaddr.c			\

@@ -2,6 +2,7 @@
 #define LIGHTNING_DAEMON_ROUTING_H
 #include "config.h"
 #include "bitcoin/pubkey.h"
+#include "daemon/broadcast.h"
 #include "wire/wire.h"
 #include <ccan/htable/htable_type.h>
 
@@ -83,6 +84,8 @@ struct routing_state {
 	struct node_map *nodes;
 
 	struct log *base_log;
+
+	struct broadcast_state *broadcasts;
 };
 
 //FIXME(cdecker) The log will have to be replaced for the new subdaemon, keeping for now to keep changes small.

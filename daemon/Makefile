@@ -19,6 +19,7 @@ DAEMON_LIB_OBJS := $(DAEMON_LIB_SRC:.c=.o)
 
 DAEMON_SRC :=					\
 	daemon/bitcoind.c			\
+	daemon/broadcast.c			\
 	daemon/chaintopology.c			\
 	daemon/channel.c			\
 	daemon/commit_tx.c			\
@@ -66,6 +67,7 @@ DAEMON_GEN_HEADERS :=				\
 
 DAEMON_HEADERS :=				\
 	daemon/bitcoind.h			\
+	daemon/broadcast.h			\
 	daemon/chaintopology.h			\
 	daemon/channel.h			\
 	daemon/commit_tx.h			\

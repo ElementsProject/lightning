@@ -2772,6 +2772,7 @@ struct peer *new_peer(struct lightningd_state *dstate,
 	peer->fake_close = false;
 	peer->output_enabled = true;
 	peer->local.offer_anchor = offer_anchor;
+	peer->broadcast_index = 0;
 	if (!blocks_to_rel_locktime(dstate->config.locktime_blocks,
 				    &peer->local.locktime))
 		fatal("Could not convert locktime_blocks");
