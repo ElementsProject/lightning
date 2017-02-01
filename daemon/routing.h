@@ -162,4 +162,9 @@ bool add_channel_direction(struct routing_state *rstate,
 bool read_ip(const tal_t *ctx, const u8 *addresses, char **hostname, int *port);
 u8 *write_ip(const tal_t *ctx, const char *srcip, int port);
 
+/* Handlers for incoming messages */
+void handle_channel_announcement(struct routing_state *rstate, const u8 *announce, size_t len);
+void handle_channel_update(struct routing_state *rstate, const u8 *update, size_t len);
+void handle_node_announcement(struct routing_state *rstate, const u8 *node, size_t len);
+
 #endif /* LIGHTNING_DAEMON_ROUTING_H */
