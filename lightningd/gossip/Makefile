@@ -13,9 +13,15 @@ LIGHTNINGD_GOSSIP_CONTROL_SRC := lightningd/gossip/gen_gossip_control_wire.c \
 	lightningd/gossip/gen_gossip_status_wire.c
 LIGHTNINGD_GOSSIP_CONTROL_OBJS := $(LIGHTNINGD_GOSSIP_CONTROL_SRC:.c=.o)
 
+# These should eventually be migrated to the lightningd directory, after
+# deprecating the legacy daemons
+LIGHTNINGD_GOSSIP_LEGACY_HEADERS := daemon/routing.h daemon/broadcast.h \
+	daemon/log.h daemon/pseudorand.h
+
 # lightningd/gossip needs these:
 LIGHTNINGD_GOSSIP_HEADERS := lightningd/gossip/gen_gossip_control_wire.h \
-	lightningd/gossip/gen_gossip_status_wire.h
+	lightningd/gossip/gen_gossip_status_wire.h \
+	$(LIGHTNINGD_GOSSIP_LEGACY_HEADERS)
 LIGHTNINGD_GOSSIP_SRC := lightningd/gossip/gossip.c	\
 	$(LIGHTNINGD_GOSSIP_HEADERS:.h=.c)
 LIGHTNINGD_GOSSIP_OBJS := $(LIGHTNINGD_GOSSIP_SRC:.c=.o)

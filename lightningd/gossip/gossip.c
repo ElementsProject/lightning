@@ -9,6 +9,8 @@
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
+#include <daemon/broadcast.h>
+#include <daemon/routing.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -29,6 +31,9 @@
 struct daemon {
 	struct list_head peers;
 	u8 *msg_in;
+
+	/* Routing information */
+	struct routing_state *rstate;
 };
 
 struct peer {
@@ -41,11 +46,15 @@ struct peer {
 
 	/* File descriptor corresponding to conn. */
 	int fd;
+
 	/* Our connection (and owner) */
 	struct io_conn *conn;
 
 	/* If this is non-NULL, it means we failed. */
 	const char *error;
+
+	/* High water mark for the staggered broadcast */
+	u64 broadcast_index;
 };
 
 static void destroy_peer(struct peer *peer)
@@ -83,9 +92,15 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		return io_close(conn);
 
 	case WIRE_CHANNEL_ANNOUNCEMENT:
+		handle_channel_announcement(peer->daemon->rstate, msg, tal_count(msg));
+		return peer_read_message(conn, peer->cs, peer_msgin);
+
 	case WIRE_NODE_ANNOUNCEMENT:
+		handle_node_announcement(peer->daemon->rstate, msg, tal_count(msg));
+		return peer_read_message(conn, peer->cs, peer_msgin);
+
 	case WIRE_CHANNEL_UPDATE:
-		/* FIXME: Handle gossip! */
+		handle_channel_update(peer->daemon->rstate, msg, tal_count(msg));
 		return peer_read_message(conn, peer->cs, peer_msgin);
 
 	case WIRE_INIT:
@@ -128,10 +143,33 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	return io_close(conn);
 }
 
+/* Gets called by the outgoing IO loop when woken up. Sends messages
+ * to the peer if there are any queued. Also checks if we have any
+ * queued gossip messages and processes them. */
+static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer);
+
+/* Loop through the backlog of channel_{announcements,updates} and
+ * node_announcements, writing out one on each iteration. Once we are
+ * through wait for the broadcast interval and start again. */
 static struct io_plan *peer_dump_gossip(struct io_conn *conn, struct peer *peer)
 {
-	/* FIXME: Dump gossip here, then when done... */
-	return peer_read_message(conn, peer->cs, peer_msgin);
+	struct queued_message *next;
+	next = next_broadcast_message(
+		peer->daemon->rstate->broadcasts, &peer->broadcast_index);
+
+	if (!next) {
+		//FIXME(cdecker) Add wakeup timer once timers are refactored.
+		return io_out_wait(conn, peer, pkt_out, peer);
+	} else {
+		return peer_write_message(conn, peer->cs, next->payload, peer_dump_gossip);
+	}
+}
+
+static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
+{
+	//FIXME(cdecker) Add logic to enable sending of non-broadcast messages
+	/* Send any queued up messages */
+	return peer_dump_gossip(conn, peer);
 }
 
 static bool has_even_bit(const u8 *bitmap)
@@ -182,7 +220,11 @@ static struct io_plan *peer_parse_init(struct io_conn *conn,
 	 */
 	status_send(towire_gossipstatus_peer_ready(msg, peer->unique_id));
 
-	return peer_dump_gossip(conn, peer);
+	/* Need to go duplex here, otherwise backpressure would mean
+	 * we both wait indefinitely */
+	return io_duplex(conn,
+			 peer_read_message(conn, peer->cs, peer_msgin),
+			 peer_dump_gossip(conn, peer));
 }
 
 static struct io_plan *peer_init_sent(struct io_conn *conn, struct peer *peer)
@@ -308,6 +350,7 @@ int main(int argc, char *argv[])
 	}
 
 	daemon = tal(NULL, struct daemon);
+	daemon->rstate = new_routing_state(daemon, NULL);
 	list_head_init(&daemon->peers);
 	daemon->msg_in = NULL;
 
