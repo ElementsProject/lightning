@@ -131,7 +131,7 @@ static bool verify_signed_privmsg(
 	return check_signed_hash(&hash, &sig, pk);
 }
 
-static void handle_channel_announcement(
+static void handle_irc_channel_announcement(
 	struct ircstate *istate,
 	const struct privmsg *msg,
 	char **splits)
@@ -169,7 +169,7 @@ static void handle_channel_announcement(
 		       atoi(splits[7]), atoi(splits[8]), 6);
 }
 
-static void handle_node_announcement(
+static void handle_irc_node_announcement(
 	struct ircstate *istate,
 	const struct privmsg *msg,
 	char **splits)
@@ -215,9 +215,9 @@ static void handle_irc_privmsg(struct ircstate *istate, const struct privmsg *ms
 	char *type = splits[1];
 
 	if (splitcount == 10 && streq(type, "CHAN"))
-		handle_channel_announcement(istate, msg, splits + 1);
+		handle_irc_channel_announcement(istate, msg, splits + 1);
 	else if (splitcount >= 5 && streq(type, "NODE"))
-		handle_node_announcement(istate, msg, splits + 1);
+		handle_irc_node_announcement(istate, msg, splits + 1);
 }
 
 static void handle_irc_command(struct ircstate *istate, const struct irccommand *cmd)
