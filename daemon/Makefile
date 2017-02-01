@@ -43,6 +43,7 @@ DAEMON_SRC :=					\
 	daemon/pay.c				\
 	daemon/peer.c				\
 	daemon/routing.c			\
+	daemon/routingrpc.c			\
 	daemon/secrets.c			\
 	daemon/sphinx.c				\
 	daemon/timeout.c			\
