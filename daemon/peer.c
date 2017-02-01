@@ -1880,13 +1880,13 @@ static bool nested_pkt_in(struct peer *peer, const u32 type,
 {
 	switch (type) {
 	case WIRE_CHANNEL_ANNOUNCEMENT:
-		handle_channel_announcement(peer, innerpkt, innerpktlen);
+		handle_channel_announcement(peer->dstate->rstate, innerpkt, innerpktlen);
 		break;
 	case WIRE_CHANNEL_UPDATE:
-		handle_channel_update(peer, innerpkt, innerpktlen);
+		handle_channel_update(peer->dstate->rstate, innerpkt, innerpktlen);
 		break;
 	case WIRE_NODE_ANNOUNCEMENT:
-		handle_node_announcement(peer, innerpkt, innerpktlen);
+		handle_node_announcement(peer->dstate->rstate, innerpkt, innerpktlen);
 		break;
 	default:
 		/* BOLT01: Unknown even typed packets MUST kill the

@@ -14,7 +14,7 @@
 #include <secp256k1.h>
 
 void handle_channel_announcement(
-	struct peer *peer,
+	struct routing_state *rstate,
 	const u8 *announce, size_t len)
 {
 	u8 *serialized;
@@ -28,7 +28,7 @@ void handle_channel_announcement(
 	struct pubkey node_id_2;
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
-	const tal_t *tmpctx = tal_tmpctx(peer);
+	const tal_t *tmpctx = tal_tmpctx(rstate);
 	u8 *features;
 
 	serialized = tal_dup_arr(tmpctx, u8, announce, len, 0);
@@ -48,34 +48,34 @@ void handle_channel_announcement(
 	//FIXME(cdecker) Check signatures, when the spec is settled
 	//FIXME(cdecker) Check chain topology for the anchor TX
 
-	log_debug(peer->log,
+	log_debug(rstate->base_log,
 		  "Received channel_announcement for channel %d:%d:%d",
 		  channel_id.blocknum,
 		  channel_id.txnum,
 		  channel_id.outnum
 		);
 
-	forward |= add_channel_direction(peer->dstate->rstate, &node_id_1,
+	forward |= add_channel_direction(rstate, &node_id_1,
 					 &node_id_2, 0, &channel_id,
 					 serialized);
-	forward |= add_channel_direction(peer->dstate->rstate, &node_id_2,
+	forward |= add_channel_direction(rstate, &node_id_2,
 					 &node_id_1, 1, &channel_id,
 					 serialized);
 	if (!forward){
-		log_debug(peer->log, "Not forwarding channel_announcement");
+		log_debug(rstate->base_log, "Not forwarding channel_announcement");
 		tal_free(tmpctx);
 		return;
 	}
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_channel_id(&tag, &channel_id);
-	queue_broadcast(peer->dstate->rstate->broadcasts, WIRE_CHANNEL_ANNOUNCEMENT,
+	queue_broadcast(rstate->broadcasts, WIRE_CHANNEL_ANNOUNCEMENT,
 			tag, serialized);
 
 	tal_free(tmpctx);
 }
 
-void handle_channel_update(struct peer *peer, const u8 *update, size_t len)
+void handle_channel_update(struct routing_state *rstate, const u8 *update, size_t len)
 {
 	u8 *serialized;
 	struct node_connection *c;
@@ -87,7 +87,7 @@ void handle_channel_update(struct peer *peer, const u8 *update, size_t len)
 	u32 htlc_minimum_msat;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
-	const tal_t *tmpctx = tal_tmpctx(peer);
+	const tal_t *tmpctx = tal_tmpctx(rstate);
 
 	serialized = tal_dup_arr(tmpctx, u8, update, len, 0);
 	if (!fromwire_channel_update(serialized, NULL, &signature, &channel_id,
@@ -99,17 +99,17 @@ void handle_channel_update(struct peer *peer, const u8 *update, size_t len)
 	}
 
 
-	log_debug(peer->log, "Received channel_update for channel %d:%d:%d(%d)",
+	log_debug(rstate->base_log, "Received channel_update for channel %d:%d:%d(%d)",
 		  channel_id.blocknum,
 		  channel_id.txnum,
 		  channel_id.outnum,
 		  flags & 0x01
 		);
 
-	c = get_connection_by_cid(peer->dstate->rstate, &channel_id, flags & 0x1);
+	c = get_connection_by_cid(rstate, &channel_id, flags & 0x1);
 
 	if (!c) {
-		log_debug(peer->log, "Ignoring update for unknown channel %d:%d:%d",
+		log_debug(rstate->base_log, "Ignoring update for unknown channel %d:%d:%d",
 			  channel_id.blocknum,
 			  channel_id.txnum,
 			  channel_id.outnum
@@ -117,7 +117,7 @@ void handle_channel_update(struct peer *peer, const u8 *update, size_t len)
 		tal_free(tmpctx);
 		return;
 	} else if (c->last_timestamp >= timestamp) {
-		log_debug(peer->log, "Ignoring outdated update.");
+		log_debug(rstate->base_log, "Ignoring outdated update.");
 		tal_free(tmpctx);
 		return;
 	}
@@ -129,7 +129,7 @@ void handle_channel_update(struct peer *peer, const u8 *update, size_t len)
 	c->base_fee = fee_base_msat;
 	c->proportional_fee = fee_proportional_millionths;
 	c->active = true;
-	log_debug(peer->log, "Channel %d:%d:%d(%d) was updated.",
+	log_debug(rstate->base_log, "Channel %d:%d:%d(%d) was updated.",
 		  channel_id.blocknum,
 		  channel_id.txnum,
 		  channel_id.outnum,
@@ -138,7 +138,7 @@ void handle_channel_update(struct peer *peer, const u8 *update, size_t len)
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_channel_id(&tag, &channel_id);
-	queue_broadcast(peer->dstate->rstate->broadcasts,
+	queue_broadcast(rstate->broadcasts,
 			WIRE_CHANNEL_UPDATE,
 			tag,
 			serialized);
@@ -149,7 +149,7 @@ void handle_channel_update(struct peer *peer, const u8 *update, size_t len)
 }
 
 void handle_node_announcement(
-	struct peer *peer, const u8 *node_ann, size_t len)
+	struct routing_state *rstate, const u8 *node_ann, size_t len)
 {
 	u8 *serialized;
 	struct sha256_double hash;
@@ -160,7 +160,7 @@ void handle_node_announcement(
 	u8 rgb_color[3];
 	u8 alias[32];
 	u8 *features, *addresses;
-	const tal_t *tmpctx = tal_tmpctx(peer);
+	const tal_t *tmpctx = tal_tmpctx(rstate);
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
 	if (!fromwire_node_announcement(tmpctx, serialized, NULL,
@@ -172,26 +172,26 @@ void handle_node_announcement(
 	}
 
 	// FIXME: Check features!
-	log_debug_struct(peer->log,
+	log_debug_struct(rstate->base_log,
 			 "Received node_announcement for node %s",
 			 struct pubkey, &node_id);
 
 	sha256_double(&hash, serialized + 66, tal_count(serialized) - 66);
 	if (!check_signed_hash(&hash, &signature, &node_id)) {
-		log_debug(peer->dstate->base_log,
+		log_debug(rstate->base_log,
 			  "Ignoring node announcement, signature verification failed.");
 		tal_free(tmpctx);
 		return;
 	}
-	node = get_node(peer->dstate->rstate, &node_id);
+	node = get_node(rstate, &node_id);
 
 	if (!node) {
-		log_debug(peer->dstate->base_log,
+		log_debug(rstate->base_log,
 			  "Node not found, was the node_announcement preceeded by at least channel_announcement?");
 		tal_free(tmpctx);
 		return;
 	} else if (node->last_timestamp >= timestamp) {
-		log_debug(peer->dstate->base_log,
+		log_debug(rstate->base_log,
 			  "Ignoring node announcement, it's outdated.");
 		tal_free(tmpctx);
 		return;
@@ -208,7 +208,7 @@ void handle_node_announcement(
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_pubkey(&tag, &node_id);
-	queue_broadcast(peer->dstate->rstate->broadcasts,
+	queue_broadcast(rstate->broadcasts,
 			WIRE_NODE_ANNOUNCEMENT,
 			tag,
 			serialized);
