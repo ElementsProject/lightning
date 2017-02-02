@@ -24,7 +24,7 @@
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 
-/* Stdout == status, stdin == requests, 3 == client */
+/* Stdout == status, stdin == requests, 3 == hsmfd */
 #define STATUS_FD STDOUT_FILENO
 #define REQ_FD STDIN_FILENO
 
@@ -965,12 +965,12 @@ static void responder(int fd,
 }
 
 #ifndef TESTING
-/* We expect hsmfd as fd 4, then a request then the clientfd */
+/* We expect hsmfd as fd 3, then a request then the clientfd */
 int main(int argc, char *argv[])
 {
 	u8 *msg;
 	struct pubkey my_id, their_id;
-	int hsmfd = 4, clientfd;
+	int hsmfd = 3, clientfd;
 	struct secret ck, rk, sk;
 	struct crypto_state *cs;
 

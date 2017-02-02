@@ -77,7 +77,7 @@ static int subdaemon(const char *dir, const char *name,
 		goto close_execfail_fail;
 
 	if (childpid == 0) {
-		int fdnum = 4;
+		int fdnum = 3;
 
 		if (reqfd)
 			close(childreq[0]);
