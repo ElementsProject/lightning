@@ -1,7 +1,4 @@
-# FIXME: check doesn't cover lightningd-blackbox-tests, since they
-# can't run in parallel with daemon blackbox tests.
-
-check: lightningd/tests #lightningd-blackbox-tests
+check: lightningd/tests
 
 # Note that these actually #include everything they need, except ccan/ and bitcoin/.
 # That allows for unit testing of statics, and special effects.
