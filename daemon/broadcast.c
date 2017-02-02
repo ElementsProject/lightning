@@ -26,9 +26,21 @@ void queue_broadcast(struct broadcast_state *bstate,
 		     const u8 *tag,
 		     const u8 *payload)
 {
-	struct queued_message *msg = new_queued_message(bstate, type, tag, payload);
+	struct queued_message *msg;
+	u64 index = 0;
+	/* Remove any tag&type collisions */
+	while (true) {
+		msg = next_broadcast_message(bstate, &index);
+		if (msg == NULL)
+			break;
+		else if (msg->type == type && memcmp(msg->tag, tag, tal_count(tag)) == 0) {
+			uintmap_del(&bstate->broadcasts, index);
+			tal_free(msg);
+		}
+	}
 
-	/*FIXME(cdecker) Walk through old messages and purge collisions */
+	/* Now add the message to the queue */
+	msg = new_queued_message(bstate, type, tag, payload);
 	uintmap_add(&bstate->broadcasts, bstate->next_index, msg);
 	bstate->next_index += 1;
 }
