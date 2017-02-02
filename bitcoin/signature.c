@@ -4,6 +4,7 @@
 #include "shadouble.h"
 #include "signature.h"
 #include "tx.h"
+#include "type_to_string.h"
 #include "utils.h"
 #include <assert.h>
 #include <ccan/cast/cast.h>
@@ -254,3 +255,13 @@ bool sig_valid(const secp256k1_ecdsa_signature *sig)
 		return true;
 	return false;
 }
+
+static char *signature_to_hexstr(const tal_t *ctx,
+				 const secp256k1_ecdsa_signature *sig)
+{
+	u8 der[72];
+	size_t len = signature_to_der(der, sig);
+
+	return tal_hexstr(ctx, der, len);
+}
+REGISTER_TYPE_TO_STRING(secp256k1_ecdsa_signature, signature_to_hexstr);
