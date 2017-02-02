@@ -185,9 +185,9 @@ struct msg_update_fail_htlc {
 struct msg_channel_announcement {
 	secp256k1_ecdsa_signature node_signature_1;
 	secp256k1_ecdsa_signature node_signature_2;
-	struct channel_id channel_id;
 	secp256k1_ecdsa_signature bitcoin_signature_1;
 	secp256k1_ecdsa_signature bitcoin_signature_2;
+	struct channel_id channel_id;
 	struct pubkey node_id_1;
 	struct pubkey node_id_2;
 	struct pubkey bitcoin_key_1;
@@ -217,9 +217,9 @@ static void *towire_struct_channel_announcement(const tal_t *ctx,
 	return towire_channel_announcement(ctx, 
 					   &s->node_signature_1,
 					   &s->node_signature_2,
-					   &s->channel_id,
 					   &s->bitcoin_signature_1,
 					   &s->bitcoin_signature_2,
+					   &s->channel_id,
 					   &s->node_id_1,
 					   &s->node_id_2,
 					   &s->bitcoin_key_1,
@@ -233,9 +233,9 @@ static struct msg_channel_announcement *fromwire_struct_channel_announcement(con
 	if (!fromwire_channel_announcement(s, p, plen, 
 					  &s->node_signature_1,
 					  &s->node_signature_2,
-					  &s->channel_id,
 					  &s->bitcoin_signature_1,
 					  &s->bitcoin_signature_2,
+					  &s->channel_id,
 					  &s->node_id_1,
 					  &s->node_id_2,
 					  &s->bitcoin_key_1,

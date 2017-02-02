@@ -78,8 +78,8 @@ update_fail_htlc,18,reason,len
 update_fail_malformed_htlc,135
 update_fail_malformed_htlc,0,channel-id,8
 update_fail_malformed_htlc,8,id,8
-update_fail_malformed_htlc,16,failure-code,4
-update_fail_malformed_htlc,20,sha256-of-onion,32
+update_fail_malformed_htlc,16,sha256-of-onion,32
+update_fail_malformed_htlc,48,failure-code,2
 commit_sig,132
 commit_sig,0,channel-id,8
 commit_sig,8,signature,64
@@ -98,9 +98,9 @@ update_fee,8,feerate-per-kw,4
 channel_announcement,256
 channel_announcement,0,node-signature-1,64
 channel_announcement,64,node-signature-2,64
-channel_announcement,128,channel-id,8
-channel_announcement,136,bitcoin-signature-1,64
-channel_announcement,200,bitcoin-signature-2,64
+channel_announcement,128,bitcoin-signature-1,64
+channel_announcement,192,bitcoin-signature-2,64
+channel_announcement,256,channel-id,8
 channel_announcement,264,node-id-1,33
 channel_announcement,297,node-id-2,33
 channel_announcement,330,bitcoin-key-1,33

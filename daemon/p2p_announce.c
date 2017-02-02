@@ -219,9 +219,9 @@ void handle_channel_announcement(
 	serialized = tal_dup_arr(tmpctx, u8, announce, len, 0);
 	if (!fromwire_channel_announcement(tmpctx, serialized, NULL,
 					   &node_signature_1, &node_signature_2,
-					   &channel_id,
 					   &bitcoin_signature_1,
 					   &bitcoin_signature_2,
+					   &channel_id,
 					   &node_id_1, &node_id_2,
 					   &bitcoin_key_1, &bitcoin_key_2,
 					   &features)) {
@@ -525,24 +525,28 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 	towire_pubkey(&serialized, &dstate->id);
 	privkey_sign(dstate, serialized, tal_count(serialized), my_bitcoin_signature);
 
-	/* Sign the entire packet with `node_id`, proves integrity and origin */
+	/* BOLT #7:
+	 *
+	 * The creating node MUST compute the double-SHA256 hash `h` of the
+	 * message, starting at offset 256, up to the end of the message.
+	 */
 	serialized = towire_channel_announcement(tmpctx, &node_signature[0],
 						 &node_signature[1],
-						 &channel_id,
 						 &bitcoin_signature[0],
 						 &bitcoin_signature[1],
+						 &channel_id,
 						 node_id[0],
 						 node_id[1],
 						 bitcoin_key[0],
 						 bitcoin_key[1],
 						 NULL);
-	privkey_sign(dstate, serialized + 128, tal_count(serialized) - 128, my_node_signature);
+	privkey_sign(dstate, serialized + 256, tal_count(serialized) - 256, my_node_signature);
 
 	serialized = towire_channel_announcement(tmpctx, &node_signature[0],
 						 &node_signature[1],
-						 &channel_id,
 						 &bitcoin_signature[0],
 						 &bitcoin_signature[1],
+						 &channel_id,
 						 node_id[0],
 						 node_id[1],
 						 bitcoin_key[0],
