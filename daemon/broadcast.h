@@ -15,15 +15,8 @@ struct queued_message {
 	/* Unique tag specifying the msg origin */
 	void *tag;
 
-	/* Timestamp for `channel_update`s and `node_announcement`s, 0
-	 * for `channel_announcement`s */
-	/*u32 timestamp;*/
-
 	/* Serialized payload */
 	u8 *payload;
-
-        //FIXME(cdecker) Remove after migrating to intmap
-	struct list_node list;
 };
 
 struct broadcast_state {
