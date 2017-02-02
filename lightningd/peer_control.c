@@ -147,13 +147,16 @@ static void peer_got_hsmfd(struct subdaemon *hsm, const u8 *msg,
 				    handshake_status_wire_type_name,
 				    handshake_control_wire_type_name,
 				    NULL, NULL,
-				    peer->hsmfd, -1);
+				    peer->hsmfd, peer->fd, -1);
 	if (!peer->owner) {
 		log_unusual(peer->ld->log, "Could not subdaemon handshake: %s",
 			    strerror(errno));
 		peer_set_condition(peer, "Failed to subdaemon handshake");
 		goto error;
 	}
+
+	/* Peer struct longer owns fd. */
+	peer->fd = -1;
 
 	/* Now handshake owns peer: until it succeeds, peer vanishes
 	 * when it does. */
@@ -168,13 +171,10 @@ static void peer_got_hsmfd(struct subdaemon *hsm, const u8 *msg,
 		peer_set_condition(peer, "Starting handshake as responder");
 	}
 
-	/* Now hand peer fd to the handshake daemon, it hand back on success */
-	subdaemon_req(peer->owner, take(req),
-		      peer->fd, &peer->fd,
+	/* Now hand peer request to the handshake daemon: hands it
+	 * back on success */
+	subdaemon_req(peer->owner, take(req), -1, &peer->fd,
 		      handshake_succeeded, peer);
-
-	/* Peer struct longer owns fd. */
-	peer->fd = -1;
 	return;
 
 error:

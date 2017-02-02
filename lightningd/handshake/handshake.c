@@ -965,12 +965,12 @@ static void responder(int fd,
 }
 
 #ifndef TESTING
-/* We expect hsmfd as fd 3, then a request then the clientfd */
+/* We expect hsmfd as fd 3, clientfd as 4 */
 int main(int argc, char *argv[])
 {
 	u8 *msg;
 	struct pubkey my_id, their_id;
-	int hsmfd = 3, clientfd;
+	int hsmfd = 3, clientfd = 4;
 	struct secret ck, rk, sk;
 	struct crypto_state *cs;
 
@@ -989,7 +989,6 @@ int main(int argc, char *argv[])
 	msg = wire_sync_read(NULL, REQ_FD);
 	if (!msg)
 		status_failed(WIRE_BAD_COMMAND, "%s", strerror(errno));
-	clientfd = fdpass_recv(REQ_FD);
 	if (clientfd < 0)
 		status_failed(WIRE_BAD_FDPASS, "%s", strerror(errno));
 
