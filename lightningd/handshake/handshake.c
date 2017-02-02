@@ -400,7 +400,7 @@ static void act_one_responder(struct handshake *h, int fd, struct pubkey *re)
 	 *   * Read _exactly_ `50-bytes` from the network buffer.
 	 *
 	 *   * Parse out the read message (`m`) into `v = m[0]`, `re =
-	 *     m[1:34]` and `c = m[43:]`
+	 *     m[1:33]` and `c = m[34:]`
 	 *     * where `m[0]` is the _first_ byte of `m`, `m[1:33]` are the
 	 *       next `33` bytes of `m` and `m[34:]` is the last 16 bytes of
 	 *       `m`
@@ -611,8 +611,8 @@ static void act_two_initiator(struct handshake *h, int fd, struct pubkey *re)
 	 *
 	 *   * Read _exactly_ `50-bytes` from the network buffer.
 	 *
-	 *   * Parse out the read message (`m`) into `v = m[0]`, `re = m[1:34]`
-	 *     and `c = m[43:]`
+	 *   * Parse out the read message (`m`) into `v = m[0]`, `re = m[1:33]`
+	 *     and `c = m[34:]`
 	 *     * where `m[0]` is the _first_ byte of `m`, `m[1:33]` are the
 	 *       next `33` bytes of `m` and `m[34:]` is the last 16 bytes of
 	 *       `m`
@@ -821,7 +821,7 @@ static void act_three_responder(struct handshake *h, int fd,
 
 	/* BOLT #8:
 	 *
-	 *   * Parse out the read message (`m`) into `v = m[0]`, `c = m[1:50]` and `t = m[50:]`
+	 *   * Parse out the read message (`m`) into `v = m[0]`, `c = m[1:49]` and `t = m[50:]`
 	 */
 
 	/* BOLT #8:
