@@ -15,7 +15,7 @@ message sha256_hash {
   required fixed64 d = 4;
 }
 
-message rval {
+message preimage {
   required fixed64 a = 1;
   required fixed64 b = 2;
   required fixed64 c = 3;
@@ -164,8 +164,8 @@ message update_add_htlc {
 message update_fulfill_htlc {
   // Which HTLC
   required uint64 id = 1;
-  // HTLC R value.
-  required rval r = 2;
+  // HTLC payment_preimage.
+  required preimage r = 2;
 }
 
 // This is encrypted in fail_reason.

@@ -575,7 +575,7 @@ static void load_peer_htlcs(struct peer *peer)
 				     hstate);
 
 		if (sqlite3_column_type(stmt, 6) != SQLITE_NULL) {
-			htlc->r = tal(htlc, struct rval);
+			htlc->r = tal(htlc, struct preimage);
 			from_sql_blob(stmt, 6, htlc->r, sizeof(*htlc->r));
 		}
 		if (sqlite3_column_type(stmt, 10) != SQLITE_NULL) {
@@ -1048,7 +1048,7 @@ static void db_load_pay(struct lightningd_state *dstate)
 		struct pubkey *peer_id;
 		u64 htlc_id, msatoshi;
 		struct pubkey *ids;
-		struct rval *r;
+		struct preimage *r;
 		void *fail;
 
 		if (err != SQLITE_ROW)
@@ -1074,7 +1074,7 @@ static void db_load_pay(struct lightningd_state *dstate)
 		if (sqlite3_column_type(stmt, 5) == SQLITE_NULL)
 			r = NULL;
 		else {
-			r = tal(ctx, struct rval);
+			r = tal(ctx, struct preimage);
 			from_sql_blob(stmt, 5, r, sizeof(*r));
 		}
 		fail = tal_sql_blob(ctx, stmt, 6);
@@ -1113,7 +1113,7 @@ static void db_load_invoice(struct lightningd_state *dstate)
 		      sqlite3_errstr(err), sqlite3_errmsg(dstate->db->sql));
 
 	while ((err = sqlite3_step(stmt)) != SQLITE_DONE) {
-		struct rval r;
+		struct preimage r;
 		u64 msatoshi, paid_num;
 		const char *label;
 
@@ -1928,7 +1928,7 @@ void db_complete_pay_command(struct lightningd_state *dstate,
 bool db_new_invoice(struct lightningd_state *dstate,
 		    u64 msatoshi,
 		    const char *label,
-		    const struct rval *r)
+		    const struct preimage *r)
 {
 	const tal_t *ctx = tal_tmpctx(dstate);
 	bool ok;

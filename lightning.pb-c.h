@@ -16,7 +16,7 @@ PROTOBUF_C__BEGIN_DECLS
 
 
 typedef struct _Sha256Hash Sha256Hash;
-typedef struct _Rval Rval;
+typedef struct _Preimage Preimage;
 typedef struct _Signature Signature;
 typedef struct _Locktime Locktime;
 typedef struct _BitcoinPubkey BitcoinPubkey;
@@ -77,7 +77,7 @@ struct  _Sha256Hash
     , 0, 0, 0, 0 }
 
 
-struct  _Rval
+struct  _Preimage
 {
   ProtobufCMessage base;
   uint64_t a;
@@ -85,8 +85,8 @@ struct  _Rval
   uint64_t c;
   uint64_t d;
 };
-#define RVAL__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&rval__descriptor) \
+#define PREIMAGE__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&preimage__descriptor) \
     , 0, 0, 0, 0 }
 
 
@@ -401,9 +401,9 @@ struct  _UpdateFulfillHtlc
    */
   uint64_t id;
   /*
-   * HTLC R value.
+   * HTLC payment_preimage.
    */
-  Rval *r;
+  Preimage *r;
 };
 #define UPDATE_FULFILL_HTLC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&update_fulfill_htlc__descriptor) \
@@ -649,24 +649,24 @@ Sha256Hash *
 void   sha256_hash__free_unpacked
                      (Sha256Hash *message,
                       ProtobufCAllocator *allocator);
-/* Rval methods */
-void   rval__init
-                     (Rval         *message);
-size_t rval__get_packed_size
-                     (const Rval   *message);
-size_t rval__pack
-                     (const Rval   *message,
+/* Preimage methods */
+void   preimage__init
+                     (Preimage         *message);
+size_t preimage__get_packed_size
+                     (const Preimage   *message);
+size_t preimage__pack
+                     (const Preimage   *message,
                       uint8_t             *out);
-size_t rval__pack_to_buffer
-                     (const Rval   *message,
+size_t preimage__pack_to_buffer
+                     (const Preimage   *message,
                       ProtobufCBuffer     *buffer);
-Rval *
-       rval__unpack
+Preimage *
+       preimage__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   rval__free_unpacked
-                     (Rval *message,
+void   preimage__free_unpacked
+                     (Preimage *message,
                       ProtobufCAllocator *allocator);
 /* Signature methods */
 void   signature__init
@@ -1167,8 +1167,8 @@ void   pkt__free_unpacked
 typedef void (*Sha256Hash_Closure)
                  (const Sha256Hash *message,
                   void *closure_data);
-typedef void (*Rval_Closure)
-                 (const Rval *message,
+typedef void (*Preimage_Closure)
+                 (const Preimage *message,
                   void *closure_data);
 typedef void (*Signature_Closure)
                  (const Signature *message,
@@ -1255,7 +1255,7 @@ typedef void (*Pkt_Closure)
 /* --- descriptors --- */
 
 extern const ProtobufCMessageDescriptor sha256_hash__descriptor;
-extern const ProtobufCMessageDescriptor rval__descriptor;
+extern const ProtobufCMessageDescriptor preimage__descriptor;
 extern const ProtobufCMessageDescriptor signature__descriptor;
 extern const ProtobufCMessageDescriptor locktime__descriptor;
 extern const ProtobufCMessageDescriptor bitcoin_pubkey__descriptor;

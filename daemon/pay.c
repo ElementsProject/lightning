@@ -8,6 +8,7 @@
 #include "peer.h"
 #include "routing.h"
 #include "sphinx.h"
+#include <bitcoin/preimage.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
 #include <inttypes.h>
@@ -22,10 +23,10 @@ struct pay_command {
 	/* Set if this is in progress. */
 	struct htlc *htlc;
 	/* Preimage if this succeeded. */
-	const struct rval *rval;
+	const struct preimage *rval;
 	struct command *cmd;
 };
-static void json_pay_success(struct command *cmd, const struct rval *rval)
+static void json_pay_success(struct command *cmd, const struct preimage *rval)
 {
 	struct json_result *response;
 
@@ -106,7 +107,7 @@ void complete_pay_command(struct lightningd_state *dstate,
 			db_complete_pay_command(dstate, htlc);
 
 			if (htlc->r)
-				i->rval = tal_dup(i, struct rval, htlc->r);
+				i->rval = tal_dup(i, struct preimage, htlc->r);
 			else {
 				f = failinfo_unwrap(i->cmd, htlc->fail,
 						    tal_count(htlc->fail));
@@ -162,7 +163,7 @@ bool pay_add(struct lightningd_state *dstate,
 	     const struct pubkey *ids,
 	     struct htlc *htlc,
 	     const u8 *fail UNNEEDED,
-	     const struct rval *r)
+	     const struct preimage *r)
 {
 	struct pay_command *pc;
 
@@ -175,7 +176,7 @@ bool pay_add(struct lightningd_state *dstate,
 	pc->ids = tal_dup_arr(pc, struct pubkey, ids, tal_count(ids), 0);
 	pc->htlc = htlc;
 	if (r)
-		pc->rval = tal_dup(pc, struct rval, r);
+		pc->rval = tal_dup(pc, struct preimage, r);
 	else
 		pc->rval = NULL;
 	pc->cmd = NULL;

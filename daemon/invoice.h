@@ -1,7 +1,7 @@
 #ifndef LIGHTNING_DAEMON_INVOICE_H
 #define LIGHTNING_DAEMON_INVOICE_H
 #include "config.h"
-#include "protobuf_convert.h"
+#include <bitcoin/preimage.h>
 
 struct invoices;
 struct lightningd_state;
@@ -10,7 +10,7 @@ struct invoice {
 	struct list_node list;
 	const char *label;
 	u64 msatoshi;
-	struct rval r;
+	struct preimage r;
 	struct sha256 rhash;
 	u64 paid_num;
 };
@@ -19,7 +19,7 @@ struct invoice {
 
 /* From database */
 void invoice_add(struct invoices *i,
-		 const struct rval *r,
+		 const struct preimage *r,
 		 u64 msatoshi,
 		 const char *label,
 		 u64 complete);

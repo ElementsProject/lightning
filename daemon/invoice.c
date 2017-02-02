@@ -57,7 +57,7 @@ static struct invoice *find_invoice_by_label(const struct list_head *list,
 }
 
 void invoice_add(struct invoices *invs,
-		 const struct rval *r,
+		 const struct preimage *r,
 		 u64 msatoshi,
 		 const char *label,
 		 u64 paid_num)

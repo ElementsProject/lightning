@@ -14,7 +14,7 @@ union printable_types {
 	const struct abs_locktime *abs_locktime;
 	const struct bitcoin_tx *bitcoin_tx;
 	const struct htlc *htlc;
-	const struct rval *rval;
+	const struct preimage *preimage;
 	const struct channel_state *channel_state;
 	const struct channel_oneside *channel_oneside;
 	const struct netaddr *netaddr;

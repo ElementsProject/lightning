@@ -50,47 +50,47 @@ void   sha256_hash__free_unpacked
   assert(message->base.descriptor == &sha256_hash__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   rval__init
-                     (Rval         *message)
+void   preimage__init
+                     (Preimage         *message)
 {
-  static Rval init_value = RVAL__INIT;
+  static Preimage init_value = PREIMAGE__INIT;
   *message = init_value;
 }
-size_t rval__get_packed_size
-                     (const Rval *message)
+size_t preimage__get_packed_size
+                     (const Preimage *message)
 {
-  assert(message->base.descriptor == &rval__descriptor);
+  assert(message->base.descriptor == &preimage__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t rval__pack
-                     (const Rval *message,
+size_t preimage__pack
+                     (const Preimage *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &rval__descriptor);
+  assert(message->base.descriptor == &preimage__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t rval__pack_to_buffer
-                     (const Rval *message,
+size_t preimage__pack_to_buffer
+                     (const Preimage *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &rval__descriptor);
+  assert(message->base.descriptor == &preimage__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Rval *
-       rval__unpack
+Preimage *
+       preimage__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Rval *)
-     protobuf_c_message_unpack (&rval__descriptor,
+  return (Preimage *)
+     protobuf_c_message_unpack (&preimage__descriptor,
                                 allocator, len, data);
 }
-void   rval__free_unpacked
-                     (Rval *message,
+void   preimage__free_unpacked
+                     (Preimage *message,
                       ProtobufCAllocator *allocator)
 {
-  assert(message->base.descriptor == &rval__descriptor);
+  assert(message->base.descriptor == &preimage__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
 void   signature__init
@@ -1288,7 +1288,7 @@ const ProtobufCMessageDescriptor sha256_hash__descriptor =
   (ProtobufCMessageInit) sha256_hash__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor rval__field_descriptors[4] =
+static const ProtobufCFieldDescriptor preimage__field_descriptors[4] =
 {
   {
     "a",
@@ -1296,7 +1296,7 @@ static const ProtobufCFieldDescriptor rval__field_descriptors[4] =
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_FIXED64,
     0,   /* quantifier_offset */
-    offsetof(Rval, a),
+    offsetof(Preimage, a),
     NULL,
     NULL,
     0,             /* flags */
@@ -1308,7 +1308,7 @@ static const ProtobufCFieldDescriptor rval__field_descriptors[4] =
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_FIXED64,
     0,   /* quantifier_offset */
-    offsetof(Rval, b),
+    offsetof(Preimage, b),
     NULL,
     NULL,
     0,             /* flags */
@@ -1320,7 +1320,7 @@ static const ProtobufCFieldDescriptor rval__field_descriptors[4] =
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_FIXED64,
     0,   /* quantifier_offset */
-    offsetof(Rval, c),
+    offsetof(Preimage, c),
     NULL,
     NULL,
     0,             /* flags */
@@ -1332,37 +1332,37 @@ static const ProtobufCFieldDescriptor rval__field_descriptors[4] =
     PROTOBUF_C_LABEL_REQUIRED,
     PROTOBUF_C_TYPE_FIXED64,
     0,   /* quantifier_offset */
-    offsetof(Rval, d),
+    offsetof(Preimage, d),
     NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned rval__field_indices_by_name[] = {
+static const unsigned preimage__field_indices_by_name[] = {
   0,   /* field[0] = a */
   1,   /* field[1] = b */
   2,   /* field[2] = c */
   3,   /* field[3] = d */
 };
-static const ProtobufCIntRange rval__number_ranges[1 + 1] =
+static const ProtobufCIntRange preimage__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 4 }
 };
-const ProtobufCMessageDescriptor rval__descriptor =
+const ProtobufCMessageDescriptor preimage__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "rval",
-  "Rval",
-  "Rval",
+  "preimage",
+  "Preimage",
+  "Preimage",
   "",
-  sizeof(Rval),
+  sizeof(Preimage),
   4,
-  rval__field_descriptors,
-  rval__field_indices_by_name,
-  1,  rval__number_ranges,
-  (ProtobufCMessageInit) rval__init,
+  preimage__field_descriptors,
+  preimage__field_indices_by_name,
+  1,  preimage__number_ranges,
+  (ProtobufCMessageInit) preimage__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
 static const ProtobufCFieldDescriptor signature__field_descriptors[8] =
@@ -2288,7 +2288,7 @@ static const ProtobufCFieldDescriptor update_fulfill_htlc__field_descriptors[2] 
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
     offsetof(UpdateFulfillHtlc, r),
-    &rval__descriptor,
+    &preimage__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */

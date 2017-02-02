@@ -31,7 +31,7 @@ bool db_replace_pay_command(struct lightningd_state *dstate,
 bool db_new_invoice(struct lightningd_state *dstate,
 		    u64 msatoshi,
 		    const char *label,
-		    const struct rval *r);
+		    const struct preimage *r);
 
 bool db_remove_invoice(struct lightningd_state *dstate,
 		       const char *label);

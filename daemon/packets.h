@@ -3,10 +3,11 @@
 #include "config.h"
 #include "lightning.pb-c.h"
 
-struct peer;
-struct htlc;
-struct sha256;
 struct commit_info;
+struct htlc;
+struct peer;
+struct preimage;
+struct sha256;
 
 /* Send various kinds of packets */
 void queue_pkt_open(struct peer *peer, bool offer_anchor);
@@ -48,7 +49,7 @@ Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt, struct htlc **h,
 			  u8 **fail);
 
 Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt, struct htlc **h,
-			     struct rval *r);
+			     struct preimage *r);
 
 Pkt *accept_pkt_update_fee(struct peer *peer, const Pkt *pkt, u64 *feerate);
 

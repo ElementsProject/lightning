@@ -766,11 +766,11 @@ static bool open_wait_pkt_in(struct peer *peer, const Pkt *pkt)
 }
 
 static void set_htlc_rval(struct peer *peer,
-			  struct htlc *htlc, const struct rval *rval)
+			  struct htlc *htlc, const struct preimage *rval)
 {
 	assert(!htlc->r);
 	assert(!htlc->fail);
-	htlc->r = tal_dup(htlc, struct rval, rval);
+	htlc->r = tal_dup(htlc, struct preimage, rval);
 	db_htlc_fulfilled(peer, htlc);
 }
 
@@ -1509,7 +1509,7 @@ static Pkt *handle_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt)
 {
 	struct htlc *htlc;
 	Pkt *err;
-	struct rval r;
+	struct preimage r;
 
 	err = accept_pkt_htlc_fulfill(peer, pkt, &htlc, &r);
 	if (err)
@@ -3745,7 +3745,7 @@ static enum watch_result our_htlc_spent(struct peer *peer,
 					struct htlc *h)
 {
 	struct sha256 sha;
-	struct rval preimage;
+	struct preimage preimage;
 
 	/* FIXME-OLD #onchain:
 	 *
@@ -3776,7 +3776,7 @@ static enum watch_result our_htlc_spent(struct peer *peer,
 
 	log_unusual(peer->log, "Peer redeemed HTLC %"PRIu64" on-chain",
 		    h->id);
-	log_add_struct(peer->log, " using rvalue %s", struct rval, &preimage);
+	log_add_struct(peer->log, " using rvalue %s", struct preimage, &preimage);
 
 	set_htlc_rval(peer, h, &preimage);
 	our_htlc_fulfilled(peer, h);
@@ -4748,7 +4748,7 @@ static void json_fulfillhtlc(struct command *cmd,
 	u64 id;
 	struct htlc *htlc;
 	struct sha256 rhash;
-	struct rval r;
+	struct preimage r;
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,

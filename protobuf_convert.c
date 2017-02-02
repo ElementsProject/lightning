@@ -1,4 +1,5 @@
 #include "bitcoin/locktime.h"
+#include "bitcoin/preimage.h"
 #include "bitcoin/pubkey.h"
 #include "bitcoin/signature.h"
 #include "protobuf_convert.h"
@@ -92,10 +93,10 @@ void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash)
 	memcpy(hash->u.u8 + 24, &pb->d, 8);
 }
 
-Rval *rval_to_proto(const tal_t *ctx, const struct rval *r)
+Preimage *preimage_to_proto(const tal_t *ctx, const struct preimage *r)
 {
-	Rval *pb = tal(ctx, Rval);
-	rval__init(pb);
+	Preimage *pb = tal(ctx, Preimage);
+	preimage__init(pb);
 
 	/* Kill me now... */
 	memcpy(&pb->a, r->r, 8);
@@ -105,7 +106,7 @@ Rval *rval_to_proto(const tal_t *ctx, const struct rval *r)
 	return pb;
 }
 
-void proto_to_rval(const Rval *pb, struct rval *r)
+void proto_to_preimage(const Preimage *pb, struct preimage *r)
 {
 	/* Kill me again. */
 	memcpy(r->r, &pb->a, 8);
@@ -202,5 +203,4 @@ void steal_from_prototal(const tal_t *ctx, struct ProtobufCAllocator *prototal,
 	tal_steal(pb, prototal->allocator_data);
 	tal_free(prototal);
 }
-
-REGISTER_TYPE_TO_HEXSTR(rval);
+REGISTER_TYPE_TO_HEXSTR(preimage);

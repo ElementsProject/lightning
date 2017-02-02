@@ -1,3 +1,4 @@
+#include "bitcoin/preimage.h"
 #include "bitcoin/script.h"
 #include "bitcoin/tx.h"
 #include "chaintopology.h"
@@ -151,7 +152,7 @@ void queue_pkt_htlc_fulfill(struct peer *peer, struct htlc *htlc)
 
 	update_fulfill_htlc__init(f);
 	f->id = htlc->id;
-	f->r = rval_to_proto(f, htlc->r);
+	f->r = preimage_to_proto(f, htlc->r);
 
 	queue_pkt(peer, PKT__PKT_UPDATE_FULFILL_HTLC, f);
 }
@@ -476,7 +477,7 @@ Pkt *accept_pkt_htlc_fail(struct peer *peer, const Pkt *pkt, struct htlc **h,
 }
 
 Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt, struct htlc **h,
-			     struct rval *r)
+			     struct preimage *r)
 {
 	const UpdateFulfillHtlc *f = pkt->update_fulfill_htlc;
 	struct sha256 rhash;
@@ -487,7 +488,7 @@ Pkt *accept_pkt_htlc_fulfill(struct peer *peer, const Pkt *pkt, struct htlc **h,
 		return err;
 
 	/* Now, it must solve the HTLC rhash puzzle. */
-	proto_to_rval(f->r, r);
+	proto_to_preimage(f->r, r);
 	sha256(&rhash, r, sizeof(*r));
 
 	if (!structeq(&rhash, &(*h)->rhash))

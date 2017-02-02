@@ -4,6 +4,7 @@
 #include "peer.h"
 #include "type_to_string.h"
   #include "gen_htlc_state_names.h"
+#include <bitcoin/preimage.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <inttypes.h>

@@ -23,11 +23,9 @@ struct sha256;
 Sha256Hash *sha256_to_proto(const tal_t *ctx, const struct sha256 *hash);
 void proto_to_sha256(const Sha256Hash *pb, struct sha256 *hash);
 
-struct rval {
-	u8 r[32];
-};
-Rval *rval_to_proto(const tal_t *ctx, const struct rval *r);
-void proto_to_rval(const Rval *pb, struct rval *r);
+struct preimage;
+Preimage *preimage_to_proto(const tal_t *ctx, const struct preimage *r);
+void proto_to_preimage(const Preimage *pb, struct preimage *r);
 
 struct rel_locktime;
 struct abs_locktime;
