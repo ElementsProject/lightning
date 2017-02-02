@@ -28,6 +28,7 @@ DAEMON_SRC :=					\
 	daemon/failure.c			\
 	daemon/feechange.c			\
 	daemon/htlc.c				\
+	daemon/htlc_state.c			\
 	daemon/invoice.c			\
 	daemon/irc_announce.c			\
 	daemon/jsonrpc.c			\

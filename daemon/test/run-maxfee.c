@@ -1,5 +1,6 @@
 #include "daemon/channel.c"
 #include "daemon/htlc.c"
+#include "daemon/htlc_state.c"
 #include <assert.h>
 #include <stdio.h>
 
