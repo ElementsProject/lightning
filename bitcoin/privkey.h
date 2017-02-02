@@ -7,5 +7,4 @@
 struct privkey {
 	u8 secret[32];
 };
-
 #endif /* LIGHTNING_BITCOIN_PRIVKEY_H */
