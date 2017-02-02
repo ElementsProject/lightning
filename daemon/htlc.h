@@ -2,7 +2,6 @@
 #define LIGHTNING_DAEMON_HTLC_H
 #include "config.h"
 #include "bitcoin/locktime.h"
-#include "channel.h"
 #include "htlc_state.h"
 #include "pseudorand.h"
 #include <assert.h>
@@ -10,6 +9,13 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/str/str.h>
+
+enum side {
+	LOCAL,
+	REMOTE,
+	NUM_SIDES
+};
 
 /* What are we doing: adding or removing? */
 #define HTLC_ADDING			0x400
@@ -142,5 +148,24 @@ static inline bool htlc_is_dead(const struct htlc *htlc)
 {
 	return htlc->state == RCVD_REMOVE_ACK_REVOCATION
 		|| htlc->state == SENT_REMOVE_ACK_REVOCATION;
+}
+
+
+static inline const char *side_to_str(enum side side)
+{
+	switch (side) {
+	case LOCAL: return "LOCAL";
+	case REMOTE: return "REMOTE";
+	case NUM_SIDES: break;
+	}
+	abort();
+}
+
+static inline enum side str_to_side(const char *str)
+{
+	if (streq(str, "LOCAL"))
+		return LOCAL;
+	assert(streq(str, "REMOTE"));
+	return REMOTE;
 }
 #endif /* LIGHTNING_DAEMON_HTLC_H */

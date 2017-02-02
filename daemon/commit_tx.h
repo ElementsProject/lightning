@@ -2,6 +2,7 @@
 #define LIGHTNING_COMMIT_TX_H
 #include "config.h"
 #include "htlc.h"
+#include <ccan/tal/tal.h>
 
 struct channel_state;
 struct sha256;

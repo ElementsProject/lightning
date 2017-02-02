@@ -2,18 +2,11 @@
 #define LIGHTNING_DAEMON_CHANNEL_H
 #include "config.h"
 #include "bitcoin/locktime.h"
+#include "daemon/htlc.h"
 #include <assert.h>
 #include <ccan/crypto/sha256/sha256.h>
-#include <ccan/str/str.h>
 #include <ccan/tal/tal.h>
 #include <stdbool.h>
-
-struct htlc;
-
-enum side {
-	LOCAL,
-	REMOTE
-};
 
 struct channel_oneside {
 	/* Payment and fee is in millisatoshi. */
@@ -144,21 +137,4 @@ void force_add_htlc(struct channel_state *cstate, const struct htlc *htlc);
 void force_fail_htlc(struct channel_state *cstate, const struct htlc *htlc);
 void force_fulfill_htlc(struct channel_state *cstate, const struct htlc *htlc);
 bool balance_after_force(struct channel_state *cstate);
-
-static inline const char *side_to_str(enum side side)
-{
-	switch (side) {
-	case LOCAL: return "LOCAL";
-	case REMOTE: return "REMOTE";
-	}
-	abort();
-}
-
-static inline enum side str_to_side(const char *str)
-{
-	if (streq(str, "LOCAL"))
-		return LOCAL;
-	assert(streq(str, "REMOTE"));
-	return REMOTE;
-}
 #endif /* LIGHTNING_DAEMON_CHANNEL_H */
