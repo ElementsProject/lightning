@@ -85,16 +85,19 @@ static void add_number(u8 **script, u32 num)
 	else if (num <= 16)
 		add_op(script, 0x50 + num);
 	else {
-		le32 n = cpu_to_le32(num);
+		le64 n = cpu_to_le64(num);
 
-		if (num <= 0x000000FF)
+		/* Beware: encoding is signed! */
+		if (num <= 0x0000007F)
 			add_push_bytes(script, &n, 1);
-		else if (num <= 0x0000FFFF)
+		else if (num <= 0x00007FFF)
 			add_push_bytes(script, &n, 2);
-		else if (num <= 0x00FFFFFF)
+		else if (num <= 0x007FFFFF)
 			add_push_bytes(script, &n, 3);
-		else
+		else if (num <= 0x7FFFFFFF)
 			add_push_bytes(script, &n, 4);
+		else
+			add_push_bytes(script, &n, 5);
 	}
 }
 
