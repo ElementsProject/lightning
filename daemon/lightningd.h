@@ -144,8 +144,5 @@ struct lightningd_state {
 
 	/* Announce timer. */
 	struct oneshot *announce;
-
-	/* Outgoing messages queued for the staggered broadcast */
-	struct list_head broadcast_queue;
 };
 #endif /* LIGHTNING_DAEMON_LIGHTNING_H */
