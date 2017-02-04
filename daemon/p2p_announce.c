@@ -176,7 +176,7 @@ static void announce(struct lightningd_state *dstate)
 	struct peer *p;
 	int nchan = 0;
 
-	new_reltimer(dstate, dstate, time_from_sec(5*60*60), announce, dstate);
+	new_reltimer(&dstate->timers, dstate, time_from_sec(5*60*60), announce, dstate);
 
 	list_for_each(&dstate->peers, p, list) {
 		if (state_is_normal(p->state)) {
@@ -203,7 +203,7 @@ static void process_broadcast_queue(struct lightningd_state *dstate)
 {
 	struct peer *p;
 	struct queued_message *msg;
-	new_reltimer(dstate, dstate, time_from_sec(30), process_broadcast_queue, dstate);
+	new_reltimer(&dstate->timers, dstate, time_from_sec(30), process_broadcast_queue, dstate);
 	list_for_each(&dstate->peers, p, list) {
 		if (!state_is_normal(p->state))
 			continue;
@@ -219,6 +219,6 @@ static void process_broadcast_queue(struct lightningd_state *dstate)
 
 void setup_p2p_announce(struct lightningd_state *dstate)
 {
-	new_reltimer(dstate, dstate, time_from_sec(5*60*60), announce, dstate);
-	new_reltimer(dstate, dstate, time_from_sec(30), process_broadcast_queue, dstate);
+	new_reltimer(&dstate->timers, dstate, time_from_sec(5*60*60), announce, dstate);
+	new_reltimer(&dstate->timers, dstate, time_from_sec(30), process_broadcast_queue, dstate);
 }

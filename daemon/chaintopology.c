@@ -80,7 +80,7 @@ static void next_topology_timer(struct lightningd_state *dstate)
 		dstate->topology->startup = false;
 		io_break(dstate);
 	}
-	new_reltimer(dstate, dstate, dstate->config.poll_time,
+	new_reltimer(&dstate->timers, dstate, dstate->config.poll_time,
 		     start_poll_chaintip, dstate);
 }
 

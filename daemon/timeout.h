@@ -8,15 +8,15 @@
 #include <ccan/typesafe_cb/typesafe_cb.h>
 
 /* tal_free this to disable timer. */
-struct oneshot *new_reltimer_(struct lightningd_state *dstate,
+struct oneshot *new_reltimer_(struct timers *timers,
 			      const tal_t *ctx,
 			      struct timerel expire,
 			      void (*cb)(void *), void *arg);
 
-#define new_reltimer(dstate, ctx, relexpire, func, arg)		\
-	new_reltimer_((dstate), (ctx), (relexpire),			\
+#define new_reltimer(timers, ctx, relexpire, func, arg)		\
+	new_reltimer_((timers), (ctx), (relexpire),			\
 		      typesafe_cb(void, void *, (func), (arg)), (arg))
 
-void timer_expired(struct lightningd_state *dstate, struct timer *timer);
+void timer_expired(tal_t *ctx, struct timer *timer);
 
 #endif /* LIGHTNING_DAEMON_TIMEOUT_H */

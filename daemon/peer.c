@@ -259,7 +259,7 @@ static void remote_changes_pending(struct peer *peer)
 {
 	if (!peer->commit_timer) {
 		log_debug(peer->log, "remote_changes_pending: adding timer");
-		peer->commit_timer = new_reltimer(peer->dstate, peer,
+		peer->commit_timer = new_reltimer(&peer->dstate->timers, peer,
 						  peer->dstate->config.commit_time,
 						  try_commit, peer);
 	} else
@@ -4415,7 +4415,7 @@ static void reconnect_failed(struct io_conn *conn, struct peer *peer)
 	}
 
 	log_debug(peer->log, "Setting timer to re-connect");
-	new_reltimer(peer->dstate, peer, time_from_sec(15), try_reconnect, peer);
+	new_reltimer(&peer->dstate->timers, peer, time_from_sec(15), try_reconnect, peer);
 }
 
 static struct io_plan *init_conn(struct io_conn *conn, struct peer *peer)

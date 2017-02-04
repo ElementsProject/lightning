@@ -3,7 +3,7 @@
 #include "utils.h"
 
 struct oneshot {
-	struct lightningd_state *dstate;
+	struct timers *timers;
 	struct timer timer;
 	void (*cb)(void *);
 	void *arg;
@@ -11,10 +11,10 @@ struct oneshot {
 
 static void remove_timer(struct oneshot *t)
 {
-	timer_del(&t->dstate->timers, &t->timer);
+	timer_del(t->timers, &t->timer);
 }
 
-struct oneshot *new_reltimer_(struct lightningd_state *dstate,
+struct oneshot *new_reltimer_(struct timers *timers,
 			      const tal_t *ctx,
 			      struct timerel relexpiry,
 			      void (*cb)(void *), void *arg)
@@ -23,18 +23,18 @@ struct oneshot *new_reltimer_(struct lightningd_state *dstate,
 
 	t->cb = cb;
 	t->arg = arg;
-	t->dstate = dstate;
+	t->timers = timers;
 	timer_init(&t->timer);
-	timer_addrel(&dstate->timers, &t->timer, relexpiry);
+	timer_addrel(timers, &t->timer, relexpiry);
 	tal_add_destructor(t, remove_timer);
 
 	return t;
 }
 
-void timer_expired(struct lightningd_state *dstate, struct timer *timer)
+void timer_expired(tal_t *ctx, struct timer *timer)
 {
 	struct oneshot *t = container_of(timer, struct oneshot, timer);
-	const tal_t *tmpctx = tal_tmpctx(dstate);
+	const tal_t *tmpctx = tal_tmpctx(ctx);
 
 	/* If it doesn't free itself, freeing tmpctx will do it */
 	tal_steal(tmpctx, t);

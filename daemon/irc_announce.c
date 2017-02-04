@@ -95,7 +95,7 @@ static void announce(struct ircstate *state)
 
 	/* By default we announce every 6 hours, otherwise when someone joins */
 	log_debug(state->log, "Setting long announce time: 6 hours");
-	state->dstate->announce = new_reltimer(state->dstate, state,
+	state->dstate->announce = new_reltimer(&state->dstate->timers, state,
 					       time_from_sec(3600 * 6),
 					       announce, state);
 }
@@ -105,7 +105,8 @@ static void handle_irc_disconnect(struct ircstate *state)
 {
 	/* Stop announcing. */
 	state->dstate->announce = tal_free(state->dstate->announce);
-	new_reltimer(state->dstate, state, state->reconnect_timeout, irc_connect, state);
+	new_reltimer(&state->dstate->timers, state, state->reconnect_timeout,
+		     irc_connect, state);
 }
 
 /* Verify a signed privmsg */
@@ -243,7 +244,7 @@ static void handle_irc_command(struct ircstate *istate, const struct irccommand 
 		delay = pseudorand(60000000);
 		log_debug(istate->log, "Setting new announce time %u sec",
 			  delay / 1000000);
-		dstate->announce = new_reltimer(dstate, istate,
+		dstate->announce = new_reltimer(&dstate->timers, istate,
 						time_from_usec(delay),
 						announce, istate);
 	}
