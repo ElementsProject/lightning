@@ -11,6 +11,7 @@
 #include <ccan/tal/str/str.h>
 #include <daemon/broadcast.h>
 #include <daemon/routing.h>
+#include <daemon/timeout.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -35,6 +36,8 @@ struct daemon {
 
 	/* Routing information */
 	struct routing_state *rstate;
+
+	struct timers timers;
 };
 
 struct peer {
@@ -355,13 +358,24 @@ int main(int argc, char *argv[])
 	daemon = tal(NULL, struct daemon);
 	daemon->rstate = new_routing_state(daemon, NULL);
 	list_head_init(&daemon->peers);
+	timers_init(&daemon->timers, time_mono());
 	daemon->msg_in = NULL;
 
 	/* Stdout == status, stdin == requests */
 	status_setup(STDOUT_FILENO);
 
 	io_new_conn(NULL, STDIN_FILENO, next_req_in, daemon);
-	io_loop(NULL, NULL);
+
+	for (;;) {
+		struct timer *expired = NULL;
+		io_loop(&daemon->timers, &expired);
+
+		if (!expired) {
+			break;
+		} else {
+			timer_expired(daemon, expired);
+		}
+	}
 
 	tal_free(daemon);
 	return 0;
