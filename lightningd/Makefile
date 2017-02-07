@@ -27,7 +27,8 @@ LIGHTNINGD_OLD_OBJS := $(LIGHTNINGD_OLD_SRC:.c=.o)
 LIGHTNINGD_OLD_HEADERS := $(LIGHTNINGD_OLD_SRC:.c=.h)
 
 LIGHTNINGD_LIB_SRC :=				\
-	lightningd/cryptomsg.c
+	lightningd/cryptomsg.c			\
+	lightningd/key_derive.c
 
 LIGHTNINGD_LIB_OBJS := $(LIGHTNINGD_LIB_SRC:.c=.o)
 LIGHTNINGD_LIB_HEADERS := $(LIGHTNINGD_LIB_SRC:.c=.h)
