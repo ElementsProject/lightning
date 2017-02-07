@@ -29,6 +29,7 @@ LIGHTNINGD_OLD_HEADERS := $(LIGHTNINGD_OLD_SRC:.c=.h)
 LIGHTNINGD_LIB_SRC :=				\
 	lightningd/channel_config.c		\
 	lightningd/cryptomsg.c			\
+	lightningd/funding_tx.c			\
 	lightningd/key_derive.c
 
 LIGHTNINGD_LIB_OBJS := $(LIGHTNINGD_LIB_SRC:.c=.o)
