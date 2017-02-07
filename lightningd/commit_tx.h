@@ -37,5 +37,6 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     u64 local_pay_msat,
 			     u64 remote_pay_msat,
 			     const struct htlc **htlcs,
+			     const struct htlc ***htlcmap,
 			     u64 commit_number_obscurer);
 #endif /* LIGHTNING_LIGHTNINGD_COMMIT_TX_H */

@@ -35,6 +35,6 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 
 	assert(tx->output[0].amount + tx->output[1].amount <= anchor_satoshis);
 
-	permute_outputs(tx->output, 2);
+	permute_outputs(tx->output, 2, NULL);
 	return tx;
 }

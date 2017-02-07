@@ -218,7 +218,7 @@ struct bitcoin_tx *create_commit_tx(const tal_t *ctx,
 	assert(total <= peer->anchor.satoshis);
 
 	tal_resize(&tx->output, output_count);
-	permute_outputs(tx->output, tal_count(tx->output));
+	permute_outputs(tx->output, tal_count(tx->output), NULL);
 	tal_free(tmpctx);
 	return tx;
 }

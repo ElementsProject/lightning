@@ -154,6 +154,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     u64 local_pay_msat,
 			     u64 remote_pay_msat,
 			     const struct htlc **htlcs,
+			     const struct htlc ***htlcmap,
 			     u64 obscured_commitment_number)
 {
 	const tal_t *tmpctx = tal_tmpctx(ctx);
@@ -199,6 +200,9 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	/* Worst-case sizing: both to-local and to-remote outputs. */
 	tx = bitcoin_tx(ctx, 1, tal_count(offered) + tal_count(received) + 2);
 
+	/* We keep track of which outputs have which HTLCs */
+	*htlcmap = tal_arr(tx, const struct htlc *, tal_count(tx->output));
+
 	/* BOLT #3:
 	 *
 	 * 3. For every offered HTLC, if it is not trimmed, add an [offered
@@ -211,6 +215,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 							 &offered[i]->rhash);
 		tx->output[n].amount = offered[i]->msatoshi / 1000;
 		tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
+		(*htlcmap)[n] = offered[i];
 		SUPERVERBOSE("# HTLC offered amount %"PRIu64" wscript %s\n",
 			     tx->output[n].amount,
 			     tal_hex(tmpctx, wscript));
@@ -228,6 +233,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 							   &received[i]->rhash);
 		tx->output[n].amount = received[i]->msatoshi / 1000;
 		tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
+		(*htlcmap)[n] = received[i];
 		SUPERVERBOSE("# HTLC received amount %"PRIu64" wscript %s\n",
 			     tx->output[n].amount,
 			     tal_hex(tmpctx, wscript));
@@ -246,6 +252,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 						       local_delayedkey);
 		tx->output[n].amount = local_pay_msat / 1000;
 		tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
+		(*htlcmap)[n] = NULL;
 		SUPERVERBOSE("# to-local amount %"PRIu64" wscript %s\n",
 			     tx->output[n].amount,
 			     tal_hex(tmpctx, wscript));
@@ -268,6 +275,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 */
 		tx->output[n].amount = remote_pay_msat / 1000;
 		tx->output[n].script = scriptpubkey_p2wpkh(tx, remotekey);
+		(*htlcmap)[n] = NULL;
 		SUPERVERBOSE("# to-remote amount %"PRIu64" P2WPKH(%s)\n",
 			     tx->output[n].amount,
 			     type_to_string(tmpctx, struct pubkey, remotekey));
@@ -276,13 +284,14 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	assert(n <= tal_count(tx->output));
 	tal_resize(&tx->output, n);
+	tal_resize(htlcmap, n);
 
 	/* BOLT #3:
 	 *
 	 * 7. Sort the outputs into [BIP 69
 	 *    order](#transaction-input-and-output-ordering)
 	 */
-	permute_outputs(tx->output, tal_count(tx->output));
+	permute_outputs(tx->output, tal_count(tx->output), *htlcmap);
 
 	/* BOLT #3:
 	 *
