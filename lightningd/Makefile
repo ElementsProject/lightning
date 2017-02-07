@@ -36,6 +36,7 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/commit_tx.c			\
 	lightningd/cryptomsg.c			\
 	lightningd/funding_tx.c			\
+	lightningd/htlc_tx.c			\
 	lightningd/key_derive.c
 
 LIGHTNINGD_LIB_OBJS := $(LIGHTNINGD_LIB_SRC:.c=.o)
