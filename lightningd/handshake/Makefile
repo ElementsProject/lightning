@@ -44,7 +44,7 @@ lightningd/handshake/gen_handshake_status_wire.c: $(WIRE_GEN) lightningd/handsha
 
 LIGHTNINGD_HANDSHAKE_OBJS := $(LIGHTNINGD_HANDSHAKE_SRC:.c=.o) $(LIGHTNINGD_HANDSHAKE_GEN_SRC:.c=.o)
 
-lightningd/lightningd_handshake: $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_HANDSHAKE_OBJS) $(CORE_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a
+lightningd/lightningd_handshake: $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_HANDSHAKE_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 check-source: $(LIGHTNINGD_HANDSHAKE_SRC_NOGEN:%=check-src-include-order/%)
