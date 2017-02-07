@@ -33,6 +33,13 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 /* Create an output script using p2sh for this redeem script. */
 u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript);
 
+/* Create an output script using p2pkh */
+u8 *scriptpubkey_p2pkh(const tal_t *ctx, const struct pubkey *pubkey);
+
+/* Create an input script which spends p2pkh */
+u8 *bitcoin_redeem_p2pkh(const tal_t *ctx, const struct pubkey *pubkey,
+			 const secp256k1_ecdsa_signature *sig);
+
 /* Create the redeemscript for a P2SH + P2WPKH. */
 u8 *bitcoin_redeem_p2wpkh(const tal_t *ctx,
 			  const struct pubkey *key);

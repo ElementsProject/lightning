@@ -1,3 +1,4 @@
+#include "address.h"
 #include "locktime.h"
 #include "pubkey.h"
 #include "script.h"
@@ -109,6 +110,16 @@ static void add_push_key(u8 **scriptp, const struct pubkey *key)
 	add_push_bytes(scriptp, der, sizeof(der));
 }
 
+static void add_push_sig(u8 **scriptp, const secp256k1_ecdsa_signature *sig)
+{
+	u8 der[73];
+	size_t len = signature_to_der(der, sig);
+
+	/* Append sighash type */
+	der[len++] = SIGHASH_ALL;
+	add_push_bytes(scriptp, der, len);
+}
+
 static u8 *stack_key(const tal_t *ctx, const struct pubkey *key)
 {
 	u8 der[PUBKEY_DER_LEN];
@@ -194,6 +205,35 @@ u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript)
 	hash160(&redeemhash, redeemscript, tal_count(redeemscript));
 	add_push_bytes(&script, redeemhash.u.u8, sizeof(redeemhash.u.u8));
 	add_op(&script, OP_EQUAL);
+	return script;
+}
+
+/* Create an output script using p2pkh */
+u8 *scriptpubkey_p2pkh(const tal_t *ctx, const struct pubkey *pubkey)
+{
+	struct bitcoin_address addr;
+	u8 der[PUBKEY_DER_LEN];
+	u8 *script = tal_arr(ctx, u8, 0);
+
+	pubkey_to_der(der, pubkey);
+	hash160(&addr.addr, der, sizeof(der));
+	add_op(&script, OP_DUP);
+	add_op(&script, OP_HASH160);
+	add_push_bytes(&script, &addr.addr, sizeof(addr.addr));
+	add_op(&script, OP_EQUALVERIFY);
+	add_op(&script, OP_CHECKSIG);
+	return script;
+}
+
+/* Create an input script which spends p2pkh */
+u8 *bitcoin_redeem_p2pkh(const tal_t *ctx, const struct pubkey *pubkey,
+			 const secp256k1_ecdsa_signature *sig)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+
+	add_push_sig(&script, sig);
+	add_push_key(&script, pubkey);
+
 	return script;
 }
 
