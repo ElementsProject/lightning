@@ -118,6 +118,7 @@ char *key_to_base58(const tal_t *ctx, bool test_net, const struct privkey *key)
 	/* Mark this as a compressed key. */
 	buf[32] = 1;
 
+	b58_sha256_impl = my_sha256;
 	b58check_enc(out, &outlen, version, buf, sizeof(buf));
 	return tal_strdup(ctx, out);
 }
@@ -128,6 +129,8 @@ bool key_from_base58(const char *base58, size_t base58_len,
 	// 1 byte version, 32 byte private key, 1 byte compressed, 4 byte checksum
 	u8 keybuf[1 + 32 + 1 + 4];
 	size_t keybuflen = sizeof(keybuf);
+
+	b58_sha256_impl = my_sha256;
 
 	b58tobin(keybuf, &keybuflen, base58, base58_len);
 	if (b58check(keybuf, sizeof(keybuf), base58, base58_len) < 0)
