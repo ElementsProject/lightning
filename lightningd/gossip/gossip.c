@@ -112,6 +112,7 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
 	case WIRE_FUNDING_LOCKED:
+	case WIRE_ANNOUNCEMENT_SIGNATURES:
 	case WIRE_UPDATE_FEE:
 	case WIRE_SHUTDOWN:
 	case WIRE_CLOSING_SIGNED:

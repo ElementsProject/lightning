@@ -48,9 +48,7 @@ funding_signed,8,signature,64
 funding_locked,36
 funding_locked,0,temporary-channel-id,8
 funding_locked,8,channel-id,8
-funding_locked,16,announcement-node-signature,64
-funding_locked,80,announcement-bitcoin-signature,64
-funding_locked,144,next-per-commitment-point,33
+funding_locked,16,next-per-commitment-point,33
 shutdown,38
 shutdown,0,channel-id,8
 shutdown,8,len,2
@@ -95,6 +93,10 @@ revoke_and_ack,76,htlc-timeout-signature,num-htlc-timeouts*64
 update_fee,134
 update_fee,0,channel-id,8
 update_fee,8,feerate-per-kw,4
+announcement_signatures,259
+announcement_signatures,0,channel-id,8
+announcement_signatures,8,node-signature,64
+announcement_signatures,72,bitcoin-signature,64
 channel_announcement,256
 channel_announcement,0,node-signature-1,64
 channel_announcement,64,node-signature-2,64

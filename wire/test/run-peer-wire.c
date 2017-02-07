@@ -142,9 +142,12 @@ struct msg_channel_update {
 struct msg_funding_locked {
 	struct channel_id temporary_channel_id;
 	struct channel_id channel_id;
+	struct pubkey next_per_commitment_point;
+};
+struct msg_announcement_signatures {
+	struct channel_id channel_id;
 	secp256k1_ecdsa_signature announcement_node_signature;
 	secp256k1_ecdsa_signature announcement_bitcoin_signature;
-	struct pubkey next_per_commitment_point;
 };
 struct msg_commit_sig {
 	struct channel_id channel_id;
@@ -395,8 +398,6 @@ static void *towire_struct_funding_locked(const tal_t *ctx,
 	return towire_funding_locked(ctx, 
 				     &s->temporary_channel_id,
 				     &s->channel_id,
-				     &s->announcement_node_signature,
-				     &s->announcement_bitcoin_signature,
 				     &s->next_per_commitment_point);
 }
 
@@ -407,9 +408,28 @@ static struct msg_funding_locked *fromwire_struct_funding_locked(const tal_t *ct
 	if (fromwire_funding_locked(p, plen, 
 				    &s->temporary_channel_id,
 				    &s->channel_id,
-				    &s->announcement_node_signature,
-				    &s->announcement_bitcoin_signature,
 				    &s->next_per_commitment_point))
+		return s;
+	return tal_free(s);
+}
+
+static void *towire_struct_announcement_signatures(const tal_t *ctx,
+						const struct msg_announcement_signatures *s)
+{
+	return towire_announcement_signatures(ctx, 
+				     &s->channel_id,
+				     &s->announcement_node_signature,
+				     &s->announcement_bitcoin_signature);
+}
+
+static struct msg_announcement_signatures *fromwire_struct_announcement_signatures(const tal_t *ctx, const void *p, size_t *plen)
+{
+	struct msg_announcement_signatures *s = tal(ctx, struct msg_announcement_signatures);
+
+	if (fromwire_announcement_signatures(p, plen, 
+				    &s->channel_id,
+				    &s->announcement_node_signature,
+				    &s->announcement_bitcoin_signature))
 		return s;
 	return tal_free(s);
 }
@@ -685,6 +705,12 @@ static bool funding_locked_eq(const struct msg_funding_locked *a,
 	return structeq(a, b);
 }
 
+static bool announcement_signatures_eq(const struct msg_announcement_signatures *a,
+			      const struct msg_announcement_signatures *b)
+{
+	return structeq(a, b);
+}
+
 static bool update_fail_htlc_eq(const struct msg_update_fail_htlc *a,
 				const struct msg_update_fail_htlc *b)
 {
@@ -811,6 +837,7 @@ int main(void)
 {
 	struct msg_channel_announcement ca, *ca2;
 	struct msg_funding_locked fl, *fl2;
+	struct msg_announcement_signatures as, *as2;
 	struct msg_update_fail_htlc ufh, *ufh2;
 	struct msg_commit_sig cs, *cs2;
 	struct msg_funding_signed fs, *fs2;
@@ -858,6 +885,15 @@ int main(void)
 	assert(len == 0);
 	assert(funding_locked_eq(&fl, fl2));
 	test_corruption(&fl, fl2, funding_locked);
+
+	memset(&as, 2, sizeof(as));
+	
+	msg = towire_struct_announcement_signatures(ctx, &as);
+	len = tal_count(msg);
+	as2 = fromwire_struct_announcement_signatures(ctx, msg, &len);
+	assert(len == 0);
+	assert(announcement_signatures_eq(&as, as2));
+	test_corruption(&as, as2, announcement_signatures);
 	
 	memset(&ufh, 2, sizeof(ufh));
  	ufh.reason = tal_arr(ctx, u8, 2);
