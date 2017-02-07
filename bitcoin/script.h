@@ -129,7 +129,13 @@ u8 **bitcoin_htlc_receive_spend_preimage(const tal_t *ctx,
 				const struct preimage *preimage,
 				const u8 *wscript);
 
-/* Is this a pay to pubkeu hash? */
+/* BOLT #3 HTLC-success/HTLC-timeout output */
+u8 *bitcoin_wscript_htlc_tx(const tal_t *ctx,
+			    u16 to_self_delay,
+			    const struct pubkey *revocation_pubkey,
+			    const struct pubkey *local_delayedkey);
+
+/* Is this a pay to pubkey hash? */
 bool is_p2pkh(const u8 *script);
 
 /* Is this a pay to script hash? */

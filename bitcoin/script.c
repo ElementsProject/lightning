@@ -814,6 +814,41 @@ u8 **bitcoin_htlc_receive_spend_preimage(const tal_t *ctx,
 	return witness;
 }
 
+u8 *bitcoin_wscript_htlc_tx(const tal_t *ctx,
+			    u16 to_self_delay,
+			    const struct pubkey *revocation_pubkey,
+			    const struct pubkey *local_delayedkey)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+
+	/* BOLT #3:
+	 *
+	 * The witness script for the output is:
+	 *
+	 *     OP_IF
+	 *         # Penalty transaction
+	 *         <revocation-pubkey>
+	 *     OP_ELSE
+	 *         `to-self-delay`
+	 *         OP_CSV
+	 *         OP_DROP
+	 *         <local-delayedkey>
+	 *     OP_ENDIF
+	 *     OP_CHECKSIG
+	 */
+	add_op(&script, OP_IF);
+	add_push_key(&script, revocation_pubkey);
+	add_op(&script, OP_ELSE);
+	add_number(&script, to_self_delay);
+	add_op(&script, OP_CHECKSEQUENCEVERIFY);
+	add_op(&script, OP_DROP);
+	add_push_key(&script, local_delayedkey);
+	add_op(&script, OP_ENDIF);
+	add_op(&script, OP_CHECKSIG);
+
+	return script;
+}
+
 bool scripteq(const tal_t *s1, const tal_t *s2)
 {
 	memcheck(s1, tal_len(s1));
