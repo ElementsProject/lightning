@@ -8,6 +8,7 @@
 
 struct bitcoin_address;
 struct bitcoin_tx_input;
+struct preimage;
 struct pubkey;
 struct sha256;
 struct rel_locktime;
@@ -95,6 +96,38 @@ u8 **bitcoin_witness_htlc(const tal_t *ctx,
 			  const void *htlc_or_revocation_preimage,
 			  const secp256k1_ecdsa_signature *sig,
 			  const u8 *witnessscript);
+
+/* BOLT #3 to-local output */
+u8 *bitcoin_wscript_to_local(const tal_t *ctx,
+			     u16 to_self_delay,
+			     const struct pubkey *revocation_pubkey,
+			     const struct pubkey *local_delayedkey);
+u8 **bitcoin_to_local_spend_delayedkey(const tal_t *ctx,
+			const secp256k1_ecdsa_signature *local_delayedsig,
+			const u8 *wscript);
+u8 **bitcoin_to_local_spend_revocation(const tal_t *ctx,
+		const secp256k1_ecdsa_signature *revocation_sig,
+		const u8 *wscript);
+
+/* BOLT #3 offered/accepted HTLC outputs */
+u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
+			       const struct pubkey *localkey,
+			       const struct pubkey *remotekey,
+			       const struct sha256 *payment_hash);
+u8 **bitcoin_htlc_offer_spend_timeout(const tal_t *ctx,
+				      const secp256k1_ecdsa_signature *localsig,
+				      const secp256k1_ecdsa_signature *remotesig,
+				      const u8 *wscript);
+u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
+				 const struct abs_locktime *htlc_abstimeout,
+				 const struct pubkey *localkey,
+				 const struct pubkey *remotekey,
+				 const struct sha256 *payment_hash);
+u8 **bitcoin_htlc_receive_spend_preimage(const tal_t *ctx,
+				const secp256k1_ecdsa_signature *localsig,
+				const secp256k1_ecdsa_signature *remotesig,
+				const struct preimage *preimage,
+				const u8 *wscript);
 
 /* Is this a pay to pubkeu hash? */
 bool is_p2pkh(const u8 *script);

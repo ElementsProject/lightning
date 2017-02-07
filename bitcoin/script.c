@@ -1,5 +1,6 @@
 #include "address.h"
 #include "locktime.h"
+#include "preimage.h"
 #include "pubkey.h"
 #include "script.h"
 #include "signature.h"
@@ -137,6 +138,11 @@ static u8 *stack_sig(const tal_t *ctx, const secp256k1_ecdsa_signature *sig)
 	/* Append sighash type */
 	der[len++] = SIGHASH_ALL;
 	return tal_dup_arr(ctx, u8, der, len, 0);
+}
+
+static u8 *stack_preimage(const tal_t *ctx, const struct preimage *preimage)
+{
+	return tal_dup_arr(ctx, u8, preimage->r, sizeof(preimage->r), 0);
 }
 
 /* Bitcoin script stack values are a special, special snowflake.
@@ -590,6 +596,222 @@ u8 **bitcoin_witness_htlc(const tal_t *ctx,
 	return bitcoin_witness_secret(ctx,
 				      htlc_or_revocation_preimage,
 				      32, sig, witnessscript);
+}
+
+/* BOLT #3:
+ *
+ * This output sends funds back to the owner of this commitment transaction,
+ * thus must be timelocked using `OP_CSV`. It can be claimed, without delay,
+ * by the other party if they know the revocation key. The output is a version
+ * 0 P2WSH, with a witness script:
+ *
+ *     OP_IF
+ *         # Penalty transaction
+ *         <revocation-pubkey>
+ *     OP_ELSE
+ *         `to-self-delay`
+ *         OP_CSV
+ *         OP_DROP
+ *         <local-delayedkey>
+ *     OP_ENDIF
+ *     OP_CHECKSIG
+ */
+u8 *bitcoin_wscript_to_local(const tal_t *ctx, u16 to_self_delay,
+			     const struct pubkey *revocation_pubkey,
+			     const struct pubkey *local_delayedkey)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+	add_op(&script, OP_IF);
+	add_push_key(&script, revocation_pubkey);
+	add_op(&script, OP_ELSE);
+	add_number(&script, to_self_delay);
+	add_op(&script, OP_CHECKSEQUENCEVERIFY);
+	add_op(&script, OP_DROP);
+	add_push_key(&script, local_delayedkey);
+	add_op(&script, OP_ENDIF);
+	add_op(&script, OP_CHECKSIG);
+	return script;
+}
+
+u8 **bitcoin_to_local_spend_delayedkey(const tal_t *ctx,
+		const secp256k1_ecdsa_signature *local_delayedsig,
+		const u8 *wscript)
+{
+	/* BOLT #3:
+	 *
+	 * It is spent by a transaction with `nSequence` field set to
+	 * `to-self-delay` (which can only be valid after that duration has
+	 * passed), and witness:
+	 *
+	 * 	<local-delayedsig> 0
+	 */
+	u8 **witness = tal_arr(ctx, u8 *, 3);
+
+	witness[0] = stack_sig(witness, local_delayedsig);
+	witness[1] = stack_number(witness, 0);
+	witness[2] = tal_dup_arr(witness, u8, wscript, tal_len(wscript), 0);
+	return witness;
+}
+
+u8 **bitcoin_to_local_spend_revocation(const tal_t *ctx,
+		const secp256k1_ecdsa_signature *revocation_sig,
+		const u8 *wscript)
+{
+	/* BOLT #3:
+	 *
+	 * If a revoked commitment transaction is published, the other party
+	 * can spend this output immediately with the following witness:
+	 *
+	 *    <revocation-sig> 1
+	 */
+	u8 **witness = tal_arr(ctx, u8 *, 3);
+
+	witness[0] = stack_sig(witness, revocation_sig);
+	witness[1] = stack_number(witness, 1);
+	witness[2] = tal_dup_arr(witness, u8, wscript, tal_len(wscript), 0);
+
+	return witness;
+}
+
+/* BOLT #3:
+ *
+ * This output sends funds to a HTLC-timeout transaction after the
+ * HTLC timeout, or to the remote peer on successful payment preimage.
+ * The output is a P2WSH, with a witness script:
+ *
+ *    <remotekey> OP_SWAP
+ *        OP_SIZE 32 OP_EQUAL
+ *    OP_NOTIF
+ *        # To me via HTLC-timeout transaction (timelocked).
+ *        OP_DROP 2 OP_SWAP <localkey> 2 OP_CHECKMULTISIG
+ *    OP_ELSE
+ *        # To you with preimage.
+ *        OP_HASH160 <ripemd-of-payment-hash> OP_EQUALVERIFY
+ *        OP_CHECKSIG
+ *    OP_ENDIF
+ */
+u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
+			       const struct pubkey *localkey,
+			       const struct pubkey *remotekey,
+			       const struct sha256 *payment_hash)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+	struct ripemd160 ripemd;
+
+	add_push_key(&script, remotekey);
+	add_op(&script, OP_SWAP);
+	add_op(&script, OP_SIZE);
+	add_number(&script, 32);
+	add_op(&script, OP_EQUAL);
+	add_op(&script, OP_NOTIF);
+	add_op(&script, OP_DROP);
+	add_number(&script, 2);
+	add_op(&script, OP_SWAP);
+	add_push_key(&script, localkey);
+	add_number(&script, 2);
+	add_op(&script, OP_CHECKMULTISIG);
+	add_op(&script, OP_ELSE);
+	add_op(&script, OP_HASH160);
+	ripemd160(&ripemd, payment_hash->u.u8, sizeof(payment_hash->u));
+	add_push_bytes(&script, ripemd.u.u8, sizeof(ripemd.u.u8));
+	add_op(&script, OP_EQUALVERIFY);
+	add_op(&script, OP_CHECKSIG);
+	add_op(&script, OP_ENDIF);
+
+	return script;
+}
+
+/* BOLT #3:
+ *
+ * This output sends funds to the remote peer after the HTLC timeout,
+ * or to an HTLC-success transaction with a successful payment
+ * preimage. The output is a P2WSH, with a witness script:
+ *
+ *    <remotekey> OP_SWAP
+ *        OP_SIZE 32 OP_EQUAL
+ *    OP_IF
+ *        # To me via HTLC-success transaction.
+ *        OP_HASH160 <ripemd-of-payment-hash> OP_EQUALVERIFY
+ *        2 OP_SWAP <localkey> 2 OP_CHECKMULTISIG
+ *    OP_ELSE
+ *        # To you after timeout.
+ *        OP_DROP <locktime> OP_CHECKLOCKTIMEVERIFY OP_DROP
+ *        OP_CHECKSIG
+ *    OP_ENDIF
+ */
+u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
+				 const struct abs_locktime *htlc_abstimeout,
+				 const struct pubkey *localkey,
+				 const struct pubkey *remotekey,
+				 const struct sha256 *payment_hash)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+	struct ripemd160 ripemd;
+
+	add_push_key(&script, remotekey);
+	add_op(&script, OP_SWAP);
+	add_op(&script, OP_SIZE);
+	add_number(&script, 32);
+	add_op(&script, OP_EQUAL);
+	add_op(&script, OP_IF);
+	add_op(&script, OP_HASH160);
+	ripemd160(&ripemd, payment_hash->u.u8, sizeof(payment_hash->u));
+	add_push_bytes(&script, ripemd.u.u8, sizeof(ripemd.u.u8));
+	add_op(&script, OP_EQUALVERIFY);
+	add_number(&script, 2);
+	add_op(&script, OP_SWAP);
+	add_push_key(&script, localkey);
+	add_number(&script, 2);
+	add_op(&script, OP_CHECKMULTISIG);
+	add_op(&script, OP_ELSE);
+	add_op(&script, OP_DROP);
+	add_number(&script, htlc_abstimeout->locktime);
+	add_op(&script, OP_CHECKLOCKTIMEVERIFY);
+	add_op(&script, OP_DROP);
+	add_op(&script, OP_CHECKSIG);
+	add_op(&script, OP_ENDIF);
+
+	return script;
+}
+
+/* BOLT #3:
+ *
+ * ## HTLC-Timeout and HTLC-Success Transactions
+ *
+ *...
+ *   * `txin[0]` witness stack: `0 <remotesig> <localsig>  <payment-preimage>` for HTLC-Success, `0 <remotesig> <localsig> 0` for HTLC-Timeout.
+ */
+u8 **bitcoin_htlc_offer_spend_timeout(const tal_t *ctx,
+			      const secp256k1_ecdsa_signature *localsig,
+			      const secp256k1_ecdsa_signature *remotesig,
+			      const u8 *wscript)
+{
+	u8 **witness = tal_arr(ctx, u8 *, 5);
+
+	witness[0] = stack_number(witness, 0);
+	witness[1] = stack_sig(witness, remotesig);
+	witness[2] = stack_sig(witness, localsig);
+	witness[3] = stack_number(witness, 0);
+	witness[4] = tal_dup_arr(witness, u8, wscript, tal_len(wscript), 0);
+
+	return witness;
+}
+
+u8 **bitcoin_htlc_receive_spend_preimage(const tal_t *ctx,
+				const secp256k1_ecdsa_signature *localsig,
+				const secp256k1_ecdsa_signature *remotesig,
+				const struct preimage *preimage,
+				const u8 *wscript)
+{
+	u8 **witness = tal_arr(ctx, u8 *, 5);
+
+	witness[0] = stack_number(witness, 0);
+	witness[1] = stack_sig(witness, remotesig);
+	witness[2] = stack_sig(witness, localsig);
+	witness[3] = stack_preimage(witness, preimage);
+	witness[4] = tal_dup_arr(witness, u8, wscript, tal_len(wscript), 0);
+
+	return witness;
 }
 
 bool scripteq(const tal_t *s1, const tal_t *s2)
