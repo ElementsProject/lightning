@@ -139,7 +139,8 @@ class BitcoinD(TailableProc):
 
     def start(self):
         TailableProc.start(self)
-        self.wait_for_log("dnsseed thread exit", timeout=10)
+        self.wait_for_log("Done loading", timeout=10)
+
         logging.info("BitcoinD started")
 
 
