@@ -60,6 +60,8 @@ struct peer {
 	/* High water mark for the staggered broadcast */
 	u64 broadcast_index;
 	u8 **msg_out;
+	/* Is it time to continue the staggered broadcast? */
+	bool gossip_sync;
 };
 
 static void destroy_peer(struct peer *peer)
@@ -158,11 +160,12 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer);
 
 /* Wake up the outgoing direction of the connection and write any
  * queued messages. Needed since the `io_wake` method signature does
- * not allow us to specify it as the callback for `new_reltimer`.
+ * not allow us to specify it as the callback for `new_reltimer`, but
+ * it allows us to set an additional flag for the routing dump..
  */
 static void wake_pkt_out(struct peer *peer)
 {
-	/*  */
+	peer->gossip_sync = true;
 	io_wake(peer);
 }
 
@@ -196,8 +199,13 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 		return peer_write_message(conn, peer->cs, out, pkt_out);
 	}
 
-	/* Send any queued up broadcast messages */
-	return peer_dump_gossip(conn, peer);
+	if (peer->gossip_sync){
+		/* Send any queued up broadcast messages */
+		peer->gossip_sync = false;
+		return peer_dump_gossip(conn, peer);
+	} else {
+		return io_out_wait(conn, peer, pkt_out, peer);
+	}
 }
 
 static bool has_even_bit(const u8 *bitmap)
