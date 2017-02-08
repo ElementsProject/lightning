@@ -120,6 +120,9 @@ class LightningDTests(BaseLightningDTests):
         p1 = l1.rpc.getpeer(l2.info['id'])
         p2 = l2.rpc.getpeer(l1.info['id'])
 
+        l1.daemon.wait_for_log('WIRE_GOSSIPSTATUS_PEER_READY')
+        l2.daemon.wait_for_log('WIRE_GOSSIPSTATUS_PEER_READY')
+
         assert p1['condition'] == 'Exchanging gossip'
         assert p2['condition'] == 'Exchanging gossip'
 
