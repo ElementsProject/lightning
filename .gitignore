@@ -23,6 +23,9 @@ ccan/config.h
 lightningd/lightningd_gossip
 lightningd/lightningd_handshake
 lightningd/test/run-cryptomsg
+lightningd/test/run-commit_tx
+lightningd/test/run-funding_tx
+lightningd/test/run-key_derive
 wire/test/run-peer-wire
 bitcoin/test/run-tx-encode
 daemon/test/run-maxfee
