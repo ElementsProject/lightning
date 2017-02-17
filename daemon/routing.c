@@ -576,6 +576,7 @@ bool read_ip(const tal_t *ctx, const u8 *addresses, char **hostname,
 			inet_ntop(AF_INET, p, tempaddr, sizeof(tempaddr));
 			memcpy(&portnum, p + 4, sizeof(portnum));
 			*hostname = tal_strdup(ctx, tempaddr);
+			*port = be16_to_cpu(portnum);
 			return true;
 		case 2:
 			if (len < 18)
@@ -583,6 +584,7 @@ bool read_ip(const tal_t *ctx, const u8 *addresses, char **hostname,
 			inet_ntop(AF_INET6, p, tempaddr, sizeof(tempaddr));
 			memcpy(&portnum, p + 16, sizeof(portnum));
 			*hostname = tal_strdup(ctx, tempaddr);
+			*port = be16_to_cpu(portnum);
 			return true;
 		default:
 			/* BOLT #7:
