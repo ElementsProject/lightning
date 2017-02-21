@@ -26,15 +26,10 @@ LIBBASE58_SRC := bitcoin/libbase58/base58.c
 # Can't be inside submodule, as that makes git think it's dirty.
 LIBBASE58_OBJS := bitcoin/libbase58.o
 
-# Git submodules are seriously broken.
-bitcoin/libbase58/libbase58.h:
+# Wildcards here are magic.  See http://stackoverflow.com/questions/2973445/gnu-makefile-rule-generating-a-few-targets-from-a-single-source-file
+bitcoin/libbase58/libbase58.% bitcoin/libbase58/base58.%:
 	git submodule update bitcoin/libbase58/
 	[ -f $@ ] || git submodule update --init bitcoin/libbase58/
-
-# If we tell Make that the above builds both, it runs it twice in
-# parallel.  So we lie :(
-bitcoin/libbase58/base58.c: bitcoin/libbase58/libbase58.h
-	[ -f $@ ]
 
 bitcoin/libbase58.o: bitcoin/libbase58/base58.c
 	$(COMPILE.c) $(OUTPUT_OPTION) $<
