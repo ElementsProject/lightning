@@ -1,5 +1,7 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
+#include <bitcoin/script.h>
+#include <bitcoin/tx.h>
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/container_of/container_of.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
@@ -8,6 +10,7 @@
 #include <ccan/io/fdpass/fdpass.h>
 #include <ccan/io/io.h>
 #include <ccan/noerr/noerr.h>
+#include <ccan/ptrint/ptrint.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -16,6 +19,7 @@
 #include <lightningd/hsm/gen_hsm_client_wire.h>
 #include <lightningd/hsm/gen_hsm_control_wire.h>
 #include <lightningd/hsm/gen_hsm_status_wire.h>
+#include <permute_tx.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/randombytes.h>
 #include <status.h>
@@ -198,7 +202,7 @@ static void populate_secretstuff(void)
 			      "Can't derive private bip32 key");
 }
 
-static inline void bitcoin_pubkey(struct pubkey *pubkey, u32 index)
+static void bitcoin_pubkey(struct pubkey *pubkey, u32 index)
 {
 	struct ext_key ext;
 
@@ -217,9 +221,9 @@ static inline void bitcoin_pubkey(struct pubkey *pubkey, u32 index)
 			      "Parse of BIP32 child %u pubkey failed", index);
 }
 
-static inline void bitcoin_keypair(struct privkey *privkey,
-				   struct pubkey *pubkey,
-				   u32 index)
+static void bitcoin_keypair(struct privkey *privkey,
+			    struct pubkey *pubkey,
+			    u32 index)
 {
 	struct ext_key ext;
 
@@ -340,6 +344,82 @@ static u8 *pass_hsmfd_ecdh(struct io_conn *conn,
 	return towire_hsmctl_hsmfd_fd_response(control);
 }
 
+/* Note that it's the main daemon that asks for the funding signature so it
+ * can broadcast it. */
+static u8 *sign_funding_tx(const tal_t *ctx, const u8 *data)
+{
+	const tal_t *tmpctx = tal_tmpctx(ctx);
+	u64 satoshi_out, change_out;
+	u32 change_keyindex;
+	struct privkey local_privkey;
+	struct pubkey local_pubkey, remote_pubkey;
+	struct utxo *inputs;
+	struct bitcoin_tx *tx;
+	u8 *wscript, *msg_out;
+	secp256k1_ecdsa_signature *sig;
+	const void **inmap;
+	size_t i;
+
+	/* FIXME: Check fee is "reasonable" */
+	if (!fromwire_hsmctl_sign_funding(tmpctx, data, NULL,
+					  &satoshi_out, &change_out,
+					  &change_keyindex, &local_privkey,
+					  &local_pubkey, &inputs))
+		status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "Bad SIGN_FUNDING");
+
+	if (!secp256k1_ec_pubkey_create(secp256k1_ctx,
+					&local_pubkey.pubkey,
+					local_privkey.secret))
+		status_failed(WIRE_HSMSTATUS_BAD_REQUEST,
+			      "Bad SIGN_FUNDING privkey");
+
+	tx = bitcoin_tx(tmpctx, tal_count(inputs), 1 + !!change_out);
+	inmap = tal_arr(tmpctx, const void *, tal_count(inputs));
+	for (i = 0; i < tal_count(inputs); i++) {
+		tx->input[i].txid = inputs[i].txid;
+		tx->input[i].index = inputs[i].outnum;
+		tx->input[i].amount = tal_dup(tx->input, u64, &inputs[i].amount);
+		inmap[i] = int2ptr(i);
+	}
+	tx->output[0].amount = satoshi_out;
+	wscript = bitcoin_redeem_2of2(tx, &local_pubkey, &remote_pubkey);
+	tx->output[0].script = scriptpubkey_p2wsh(tx, wscript);
+	if (change_out) {
+		struct pubkey changekey;
+		bitcoin_pubkey(&changekey, change_keyindex);
+
+		tx->output[1].amount = change_out;
+		tx->output[1].script = scriptpubkey_p2wpkh(tx, &changekey);
+	}
+
+	/* Now permute. */
+	permute_outputs(tx->output, tal_count(tx->output), NULL);
+	permute_inputs(tx->input, tal_count(tx->input), inmap);
+
+	/* Now generate signatures. */
+	sig = tal_arr(tmpctx, secp256k1_ecdsa_signature, tal_count(inputs));
+	for (i = 0; i < tal_count(inputs); i++) {
+		struct pubkey inkey;
+		struct privkey inprivkey;
+		const struct utxo *in = &inputs[ptr2int(inmap[i])];
+		u8 *subscript;
+
+		bitcoin_keypair(&inprivkey, &inkey, in->keyindex);
+		if (in->is_p2sh)
+			subscript = bitcoin_redeem_p2wpkh(tmpctx, &inkey);
+		else
+			subscript = NULL;
+		wscript = p2wpkh_scriptcode(tmpctx, &inkey);
+
+		sign_tx_input(tx, i, subscript, wscript,
+			      &inprivkey, &inkey, &sig[i]);
+	}
+
+	msg_out = towire_hsmctl_sign_funding_response(ctx, sig);
+	tal_free(tmpctx);
+	return msg_out;
+}
+
 static struct io_plan *control_received_req(struct io_conn *conn,
 					    struct conn_info *control)
 {
@@ -359,9 +439,13 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 		control->out = pass_hsmfd_ecdh(conn, control, control->in,
 					       &control->out_fd);
 		goto send_out;
+	case WIRE_HSMCTL_SIGN_FUNDING:
+		control->out = sign_funding_tx(control, control->in);
+		goto send_out;
 
 	case WIRE_HSMCTL_INIT_RESPONSE:
 	case WIRE_HSMCTL_HSMFD_FD_RESPONSE:
+	case WIRE_HSMCTL_SIGN_FUNDING_RESPONSE:
 		break;
 	}
 

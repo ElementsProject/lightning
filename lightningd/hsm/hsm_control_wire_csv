@@ -11,5 +11,21 @@ hsmctl_init_response,35,bip32_seed,bip32_len*1,u8
 hsmctl_hsmfd_ecdh,3
 hsmctl_hsmfd_ecdh,0,unique_id,8
 
+# Return signature for a funding tx.
+#include <lightningd/utxo.h>
+# FIXME: This should also take their commit sig & details, to verify.
+hsmctl_sign_funding,4
+hsmctl_sign_funding,0,satoshi_out,8
+hsmctl_sign_funding,8,change_out,8
+hsmctl_sign_funding,16,change_keyindex,4
+hsmctl_sign_funding,20,our_privkey,32,struct privkey
+hsmctl_sign_funding,52,their_pubkey,33
+hsmctl_sign_funding,85,num_inputs,2
+hsmctl_sign_funding,87,inputs,num_inputs*49,struct utxo
+
+hsmctl_sign_funding_response,104
+hsmctl_sign_funding_response,0,num_sigs,2
+hsmctl_sign_funding_response,0,sig,num_sigs*64,secp256k1_ecdsa_signature
+
 # No message, just an fd.
 hsmctl_hsmfd_fd_response,103
