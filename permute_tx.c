@@ -34,42 +34,51 @@ static size_t find_best_in(struct bitcoin_tx_input *inputs, size_t num)
 }
 
 static void swap_inputs(struct bitcoin_tx_input *inputs,
+			const void **map,
 			size_t i1, size_t i2)
 {
 	struct bitcoin_tx_input tmpinput;
+	const void *tmp;
 
 	tmpinput = inputs[i1];
 	inputs[i1] = inputs[i2];
 	inputs[i2] = tmpinput;
+
+	if (map) {
+		tmp = map[i1];
+		map[i1] = map[i2];
+		map[i2] = tmp;
+	}
 }
 
-void permute_inputs(struct bitcoin_tx_input *inputs, size_t num_inputs)
+void permute_inputs(struct bitcoin_tx_input *inputs, size_t num_inputs,
+		    const void **map)
 {
 	size_t i;
 
 	/* Now do a dumb sort (num_inputs is small). */
 	for (i = 0; i < num_inputs; i++) {
 		/* Swap best into first place. */
-		swap_inputs(inputs,
+		swap_inputs(inputs, map,
 			    i, i + find_best_in(inputs + i, num_inputs - i));
 	}
 }
 
 static void swap_outputs(struct bitcoin_tx_output *outputs,
-			 const struct htlc **htlcmap,
+			 const void **map,
 			 size_t i1, size_t i2)
 {
 	struct bitcoin_tx_output tmpoutput;
-	const struct htlc *tmphtlc;
+	const void *tmp;
 
 	tmpoutput = outputs[i1];
 	outputs[i1] = outputs[i2];
 	outputs[i2] = tmpoutput;
 
-	if (htlcmap) {
-		tmphtlc = htlcmap[i1];
-		htlcmap[i1] = htlcmap[i2];
-		htlcmap[i2] = tmphtlc;
+	if (map) {
+		tmp = map[i1];
+		map[i1] = map[i2];
+		map[i2] = tmp;
 	}
 }
 
@@ -106,16 +115,15 @@ static size_t find_best_out(struct bitcoin_tx_output *outputs, size_t num)
 	return best;
 }
 
-void permute_outputs(struct bitcoin_tx_output *outputs,
-		     size_t num_outputs,
-		     const struct htlc **htlcmap)
+void permute_outputs(struct bitcoin_tx_output *outputs, size_t num_outputs,
+		     const void **map)
 {
 	size_t i;
 
 	/* Now do a dumb sort (num_outputs is small). */
 	for (i = 0; i < num_outputs; i++) {
 		/* Swap best into first place. */
-		swap_outputs(outputs, htlcmap,
+		swap_outputs(outputs, map,
 			     i, i + find_best_out(outputs + i, num_outputs - i));
 	}
 }
