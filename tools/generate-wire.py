@@ -54,7 +54,6 @@ class Field(object):
         self.comments = comments
         self.name = name.replace('-', '_')
         self.is_len_var = False
-        self.is_unknown = False
         self.lenvar = None
 
         # Size could be a literal number (eg. 33), or a field (eg 'len'), or
@@ -78,7 +77,6 @@ class Field(object):
 
         # Unknown types are assumed to have base_size: div by 0 if that's unknown.
         if self.fieldtype.tsize == 0:
-            self.is_unknown = True
             self.fieldtype.tsize = base_size
 
         if base_size % self.fieldtype.tsize != 0:
@@ -185,8 +183,6 @@ class Message(object):
         if field.is_variable_size():
             self.checkLenField(field)
             self.has_variable_fields = True
-        elif field.is_unknown:
-            self.has_variable_fields = True
         self.fields.append(field)
 
     def print_fromwire(self,is_header):
@@ -205,7 +201,7 @@ class Message(object):
                 continue
             if f.is_array():
                 print(', {} {}[{}]'.format(f.fieldtype.name, f.name, f.num_elems), end='')
-            elif f.is_variable_size() or f.is_unknown:
+            elif f.is_variable_size():
                 print(', {} **{}'.format(f.fieldtype.name, f.name), end='')
             else:
                 print(', {} *{}'.format(f.fieldtype.name, f.name), end='')
@@ -240,14 +236,7 @@ class Message(object):
             for c in f.comments:
                 print('\t/*{} */'.format(c))
 
-            if f.is_unknown:
-                if f.is_variable_size():
-                    print('\t*{} = fromwire_{}_array(ctx, &cursor, plen, {});'
-                      .format(f.name, basetype, f.lenvar))
-                else:
-                    print('\t*{} = fromwire_{}(ctx, &cursor, plen);'
-                          .format(f.name, basetype))
-            elif f.is_padding():
+            if f.is_padding():
                 print('\tfromwire_pad(&cursor, plen, {});'
                       .format(f.num_elems))
             elif f.is_array():

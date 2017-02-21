@@ -41,6 +41,6 @@ struct channel_config {
 };
 
 void towire_channel_config(u8 **pptr, const struct channel_config *config);
-struct channel_config *fromwire_channel_config(const tal_t *ctx,
-					       const u8 **ptr, size_t *max);
+void fromwire_channel_config(const u8 **ptr, size_t *max,
+			     struct channel_config *config);
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_CONFIG_H */

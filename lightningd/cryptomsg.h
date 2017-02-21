@@ -1,12 +1,29 @@
 #ifndef LIGHTNING_LIGHTNINGD_CRYPTOMSG_H
 #define LIGHTNING_LIGHTNINGD_CRYPTOMSG_H
 #include "config.h"
+#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
 struct io_conn;
 struct peer;
-struct sha256;
+
+struct crypto_state {
+	/* Received and sent nonces. */
+	u64 rn, sn;
+	/* Sending and receiving keys. */
+	struct sha256 sk, rk;
+	/* Chaining key for re-keying */
+	struct sha256 s_ck, r_ck;
+
+	/* Peer who owns us: peer->crypto_state == this */
+	struct peer *peer;
+
+	/* Output and input buffers. */
+	u8 *out, *in;
+	struct io_plan *(*next_in)(struct io_conn *, struct peer *, u8 *);
+	struct io_plan *(*next_out)(struct io_conn *, struct peer *);
+};
 
 /* Initializes peer->crypto_state */
 struct crypto_state *crypto_state(struct peer *peer,
@@ -31,7 +48,5 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 							   struct peer *));
 
 void towire_crypto_state(u8 **pptr, const struct crypto_state *cs);
-struct crypto_state *fromwire_crypto_state(const tal_t *ctx,
-					   const u8 **ptr, size_t *max);
-
+void fromwire_crypto_state(const u8 **ptr, size_t *max, struct crypto_state *cs);
 #endif /* LIGHTNING_LIGHTNINGD_CRYPTOMSG_H */

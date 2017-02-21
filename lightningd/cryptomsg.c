@@ -12,23 +12,6 @@
 #include <wire/wire.h>
 #include <wire/wire_io.h>
 
-struct crypto_state {
-	/* Received and sent nonces. */
-	u64 rn, sn;
-	/* Sending and receiving keys. */
-	struct sha256 sk, rk;
-	/* Chaining key for re-keying */
-	struct sha256 s_ck, r_ck;
-
-	/* Peer who owns us: peer->crypto_state == this */
-	struct peer *peer;
-
-	/* Output and input buffers. */
-	u8 *out, *in;
-	struct io_plan *(*next_in)(struct io_conn *, struct peer *, u8 *);
-	struct io_plan *(*next_out)(struct io_conn *, struct peer *);
-};
-
 static void hkdf_two_keys(struct sha256 *out1, struct sha256 *out2,
 			  const struct sha256 *in1,
 			  const struct sha256 *in2)
@@ -332,20 +315,12 @@ void towire_crypto_state(u8 **ptr, const struct crypto_state *cs)
 	towire_sha256(ptr, &cs->r_ck);
 }
 
-struct crypto_state *fromwire_crypto_state(const tal_t *ctx,
-					   const u8 **ptr, size_t *max)
+void fromwire_crypto_state(const u8 **ptr, size_t *max, struct crypto_state *cs)
 {
-	struct crypto_state *cs = tal(ctx, struct crypto_state);
-
 	cs->rn = fromwire_u64(ptr, max);
 	cs->sn = fromwire_u64(ptr, max);
 	fromwire_sha256(ptr, max, &cs->sk);
 	fromwire_sha256(ptr, max, &cs->rk);
 	fromwire_sha256(ptr, max, &cs->s_ck);
 	fromwire_sha256(ptr, max, &cs->r_ck);
-	cs->peer = (struct peer *)ctx;
-
-	if (!*ptr)
-		return tal_free(cs);
-	return cs;
 }

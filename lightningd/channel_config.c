@@ -12,11 +12,9 @@ void towire_channel_config(u8 **pptr, const struct channel_config *config)
 	towire_u16(pptr, config->max_accepted_htlcs);
 }
 
-struct channel_config *fromwire_channel_config(const tal_t *ctx,
-				       const u8 **ptr, size_t *max)
+void fromwire_channel_config(const u8 **ptr, size_t *max,
+			     struct channel_config *config)
 {
-	struct channel_config *config = tal(ctx, struct channel_config);
-
 	config->dust_limit_satoshis = fromwire_u64(ptr, max);
 	config->max_htlc_value_in_flight_msat = fromwire_u64(ptr, max);
 	config->channel_reserve_satoshis = fromwire_u64(ptr, max);
@@ -24,8 +22,4 @@ struct channel_config *fromwire_channel_config(const tal_t *ctx,
 	config->htlc_minimum_msat = fromwire_u32(ptr, max);
 	config->to_self_delay = fromwire_u16(ptr, max);
 	config->max_accepted_htlcs = fromwire_u16(ptr, max);
-
-	if (!*ptr)
-		return tal_free(config);
-	return config;
 }

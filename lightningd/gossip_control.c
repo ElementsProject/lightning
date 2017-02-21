@@ -7,6 +7,7 @@
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
 #include <inttypes.h>
+#include <lightningd/cryptomsg.h>
 #include <lightningd/gossip/gen_gossip_control_wire.h>
 #include <lightningd/gossip/gen_gossip_status_wire.h>
 
@@ -45,16 +46,17 @@ static void peer_nongossip(struct subdaemon *gossip, const u8 *msg, int fd)
 	u64 unique_id;
 	struct peer *peer;
 	u8 *inner;
-	struct crypto_state *cs;
+	struct crypto_state *cs = tal(msg, struct crypto_state);
 
 	if (!fromwire_gossipstatus_peer_nongossip(msg, msg, NULL,
-						  &unique_id, &cs, &inner))
+						  &unique_id, cs, &inner))
 		fatal("Gossip gave bad PEER_NONGOSSIP message %s",
 		      tal_hex(msg, msg));
 
 	peer = peer_by_unique_id(gossip->ld, unique_id);
 	if (!peer)
 		fatal("Gossip gave bad peerid %"PRIu64, unique_id);
+	cs->peer = peer;
 
 	log_debug(gossip->log, "Peer %s said %s",
 		  type_to_string(msg, struct pubkey, peer->id),

@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <lightningd/cryptomsg.h>
 #include <lightningd/gossip/gen_gossip_control_wire.h>
 #include <lightningd/gossip/gen_gossip_status_wire.h>
 #include <secp256k1_ecdh.h>
@@ -69,9 +70,10 @@ static void destroy_peer(struct peer *peer)
 static struct peer *setup_new_peer(struct daemon *daemon, const u8 *msg)
 {
 	struct peer *peer = tal(daemon, struct peer);
-	if (!fromwire_gossipctl_new_peer(peer, msg, NULL,
-					 &peer->unique_id, &peer->cs))
+	peer->cs = tal(peer, struct crypto_state);
+	if (!fromwire_gossipctl_new_peer(msg, NULL, &peer->unique_id, peer->cs))
 		return tal_free(peer);
+	peer->cs->peer = peer;
 	peer->daemon = daemon;
 	peer->error = NULL;
 	list_add_tail(&daemon->peers, &peer->list);
