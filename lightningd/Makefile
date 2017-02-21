@@ -27,11 +27,13 @@ LIGHTNINGD_OLD_OBJS := $(LIGHTNINGD_OLD_SRC:.c=.o)
 LIGHTNINGD_OLD_HEADERS := $(LIGHTNINGD_OLD_SRC:.c=.h)
 
 LIGHTNINGD_OLD_LIB_SRC :=			\
-	daemon/htlc_state.c
+	daemon/htlc_state.c			\
+	daemon/pseudorand.c
 LIGHTNINGD_OLD_LIB_OBJS := $(LIGHTNINGD_OLD_LIB_SRC:.c=.o)
 LIGHTNINGD_OLD_LIB_HEADERS := $(LIGHTNINGD_OLD_LIB_SRC:.c=.h)
 
 LIGHTNINGD_LIB_SRC :=				\
+	lightningd/channel.c			\
 	lightningd/channel_config.c		\
 	lightningd/commit_tx.c			\
 	lightningd/cryptomsg.c			\
