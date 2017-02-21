@@ -1,0 +1,1 @@
+Stolen from 3b025127cbf11912f8b95e7ff3c905d74e8433ce, with hmac_256 -> hmac_256_internal to avoid name clash

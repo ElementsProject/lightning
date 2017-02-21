@@ -5,7 +5,7 @@ struct sha256;
 struct sha512;
 
 /**
- * hmac_sha256 - Compute an HMAC using SHA-256
+ * hmac_sha256_internal - Compute an HMAC using SHA-256
  *
  * @sha: Destination for the resulting HMAC.
  * @key: The key for the hash
@@ -13,7 +13,7 @@ struct sha512;
  * @msg: The message to hash
  * @msg_len: The length of @msg in bytes.
  */
-void hmac_sha256(struct sha256 *sha,
+void hmac_sha256_internal(struct sha256 *sha,
                  const unsigned char *key, size_t key_len,
                  const unsigned char *msg, size_t msg_len);
 

@@ -8,7 +8,7 @@
 #define SHA_T sha256
 #define SHA_CTX_MEMBER u32
 #define SHA_PRE(name) sha256 ## name
-#define HMAC_FUNCTION hmac_sha256
+#define HMAC_FUNCTION hmac_sha256_internal
 #define WALLY_HMAC_FUNCTION wally_hmac_sha256
 #include "hmac.inl"
 
