@@ -254,7 +254,7 @@ static u8 *pass_hsmfd_ecdh(struct io_conn *conn,
 	io_new_conn(control, fds[0], ecdh_client, c);
 
 	*fd_to_pass = fds[1];
-	return towire_hsmctl_hsmfd_ecdh_response(control);
+	return towire_hsmctl_hsmfd_fd_response(control);
 }
 
 static struct io_plan *control_received_req(struct io_conn *conn,
@@ -281,7 +281,7 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 		return io_never(conn, control);
 
 	case WIRE_HSMCTL_INIT_RESPONSE:
-	case WIRE_HSMCTL_HSMFD_ECDH_RESPONSE:
+	case WIRE_HSMCTL_HSMFD_FD_RESPONSE:
 		break;
 	}
 

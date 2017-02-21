@@ -136,7 +136,7 @@ static void peer_got_hsmfd(struct subdaemon *hsm, const u8 *msg,
 {
 	const u8 *req;
 
-	if (!fromwire_hsmctl_hsmfd_ecdh_response(msg, NULL)) {
+	if (!fromwire_hsmctl_hsmfd_fd_response(msg, NULL)) {
 		log_unusual(peer->ld->log, "Malformed hsmfd response: %s",
 			    tal_hex(peer, msg));
 		goto error;
