@@ -135,14 +135,25 @@ static u8 *handle_ecdh(struct client *c, const void *data)
 static u8 *init_response(struct conn_info *control)
 {
 	struct pubkey node_id;
+	u8 *serialized_extkey = tal_arr(control, u8, BIP32_SERIALIZED_LEN), *msg;
+
 	node_key(NULL, &node_id);
-	return towire_hsmctl_init_response(control, &node_id);
+	if (bip32_key_serialize(&secretstuff.bip32, BIP32_FLAG_KEY_PUBLIC,
+				serialized_extkey, tal_len(serialized_extkey))
+	    != WALLY_OK)
+		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+			      "Can't serialize bip32 public key");
+
+	msg = towire_hsmctl_init_response(control, &node_id, serialized_extkey);
+	tal_free(serialized_extkey);
+	return msg;
 }
 
 static void populate_secretstuff(void)
 {
 	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
 	u32 salt = 0;
+	struct ext_key master_extkey, child_extkey;
 
 	/* Fill in the BIP32 tree for bitcoin addresses. */
 	do {
@@ -154,7 +165,79 @@ static void populate_secretstuff(void)
 		salt++;
 	} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
 				     BIP32_VER_TEST_PRIVATE,
-				     0, &secretstuff.bip32) != WALLY_OK);
+				     0, &master_extkey) != WALLY_OK);
+
+	/* BIP 32:
+	 *
+	 * The default wallet layout
+	 *
+	 * An HDW is organized as several 'accounts'. Accounts are numbered,
+	 * the default account ("") being number 0. Clients are not required
+	 * to support more than one account - if not, they only use the
+	 * default account.
+	 *
+	 * Each account is composed of two keypair chains: an internal and an
+	 * external one. The external keychain is used to generate new public
+	 * addresses, while the internal keychain is used for all other
+	 * operations (change addresses, generation addresses, ..., anything
+	 * that doesn't need to be communicated). Clients that do not support
+	 * separate keychains for these should use the external one for
+	 * everything.
+	 *
+	 *  - m/iH/0/k corresponds to the k'th keypair of the external chain of account number i of the HDW derived from master m.
+	 */
+	/* Hence child 0, then child 0 again to get extkey to derive from. */
+	if (bip32_key_from_parent(&master_extkey, 0, BIP32_FLAG_KEY_PRIVATE,
+				  &child_extkey) != WALLY_OK)
+		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+			      "Can't derive child bip32 key");
+
+	if (bip32_key_from_parent(&child_extkey, 0, BIP32_FLAG_KEY_PRIVATE,
+				  &secretstuff.bip32) != WALLY_OK)
+		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+			      "Can't derive private bip32 key");
+}
+
+static inline void bitcoin_pubkey(struct pubkey *pubkey, u32 index)
+{
+	struct ext_key ext;
+
+	if (index >= BIP32_INITIAL_HARDENED_CHILD)
+		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+			      "Index %u too great", index);
+
+	if (bip32_key_from_parent(&secretstuff.bip32, index,
+				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK)
+		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+			      "BIP32 of %u failed", index);
+
+	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey->pubkey,
+				       ext.pub_key, sizeof(ext.pub_key)))
+		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+			      "Parse of BIP32 child %u pubkey failed", index);
+}
+
+static inline void bitcoin_keypair(struct privkey *privkey,
+				   struct pubkey *pubkey,
+				   u32 index)
+{
+	struct ext_key ext;
+
+	if (index >= BIP32_INITIAL_HARDENED_CHILD)
+		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+			      "Index %u too great", index);
+
+	if (bip32_key_from_parent(&secretstuff.bip32, index,
+				  BIP32_FLAG_KEY_PRIVATE, &ext) != WALLY_OK)
+		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+			      "BIP32 of %u failed", index);
+
+	/* libwally says: The private key with prefix byte 0 */
+	memcpy(privkey->secret, ext.priv_key+1, 32);
+	if (!secp256k1_ec_pubkey_create(secp256k1_ctx, &pubkey->pubkey,
+					privkey->secret))
+		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+			      "BIP32 pubkey %u create failed", index);
 }
 
 static u8 *create_new_hsm(struct conn_info *control)

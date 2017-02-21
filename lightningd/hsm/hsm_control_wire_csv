@@ -4,6 +4,8 @@ hsmctl_init_load,2
 
 hsmctl_init_response,100
 hsmctl_init_response,0,node_id,33
+hsmctl_init_response,33,bip32_len,2
+hsmctl_init_response,35,bip32_seed,bip32_len*1,u8
 
 # ECDH returns an fd.
 hsmctl_hsmfd_ecdh,3

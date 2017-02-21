@@ -9,14 +9,23 @@
 #include <inttypes.h>
 #include <lightningd/hsm/gen_hsm_control_wire.h>
 #include <lightningd/hsm/gen_hsm_status_wire.h>
+#include <wally_bip32.h>
 
 static void hsm_init_done(struct subdaemon *hsm, const u8 *msg,
 			  struct lightningd *ld)
 {
-	if (!fromwire_hsmctl_init_response(msg, NULL, &ld->dstate.id))
+	u8 *serialized_extkey;
+
+	if (!fromwire_hsmctl_init_response(hsm, msg, NULL, &ld->dstate.id,
+					   &serialized_extkey))
 		errx(1, "HSM did not give init response");
 
 	log_info_struct(ld->log, "Our ID: %s", struct pubkey, &ld->dstate.id);
+	ld->bip32_base = tal(ld, struct ext_key);
+	if (bip32_key_unserialize(serialized_extkey, tal_len(serialized_extkey),
+				  ld->bip32_base) != WALLY_OK)
+		errx(1, "HSM did not give unserializable BIP32 extkey");
+
 	io_break(ld->hsm);
 }
 
@@ -57,6 +66,7 @@ static enum subdaemon_status hsm_status(struct subdaemon *hsm, const u8 *msg,
 	case WIRE_HSMSTATUS_WRITEMSG_FAILED:
 	case WIRE_HSMSTATUS_BAD_REQUEST:
 	case WIRE_HSMSTATUS_FD_FAILED:
+	case WIRE_HSMSTATUS_KEY_FAILED:
 		break;
 	}
 	return STATUS_COMPLETE;
