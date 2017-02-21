@@ -1,6 +1,7 @@
 #include "utils.h"
 #include "wire.h"
 #include <bitcoin/pubkey.h>
+#include <bitcoin/shadouble.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
@@ -100,6 +101,11 @@ void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)
 		fail_pull(cursor, max);
 }
 
+void fromwire_privkey(const u8 **cursor, size_t *max, struct privkey *privkey)
+{
+	fromwire(cursor, max, privkey->secret, sizeof(privkey->secret));
+}
+
 void fromwire_secp256k1_ecdsa_signature(const u8 **cursor,
 				size_t *max, secp256k1_ecdsa_signature *sig)
 {
@@ -132,6 +138,12 @@ void fromwire_sha256(const u8 **cursor, size_t *max, struct sha256 *sha256)
 	fromwire(cursor, max, sha256, sizeof(*sha256));
 }
 
+void fromwire_sha256_double(const u8 **cursor, size_t *max,
+			    struct sha256_double *sha256d)
+{
+	fromwire_sha256(cursor, max, &sha256d->sha);
+}
+
 void fromwire_ipv6(const u8 **cursor, size_t *max, struct ipv6 *ipv6)
 {
 	fromwire(cursor, max, ipv6, sizeof(*ipv6));
@@ -140,6 +152,30 @@ void fromwire_ipv6(const u8 **cursor, size_t *max, struct ipv6 *ipv6)
 void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num)
 {
 	fromwire(cursor, max, arr, num);
+}
+
+void fromwire_u32_array(const u8 **cursor, size_t *max, u32 *arr, size_t num)
+{
+	size_t i;
+
+	for (i = 0; i < num; i++)
+		arr[i] = fromwire_u32(cursor, max);
+}
+
+void fromwire_u64_array(const u8 **cursor, size_t *max, u64 *arr, size_t num)
+{
+	size_t i;
+
+	for (i = 0; i < num; i++)
+		arr[i] = fromwire_u64(cursor, max);
+}
+
+void fromwire_bool_array(const u8 **cursor, size_t *max, bool *arr, size_t num)
+{
+	size_t i;
+
+	for (i = 0; i < num; i++)
+		arr[i] = fromwire_bool(cursor, max);
 }
 
 void fromwire_pad(const u8 **cursor, size_t *max, size_t num)
@@ -156,6 +192,14 @@ void fromwire_secp256k1_ecdsa_signature_array(const u8 **cursor, size_t *max,
 		fromwire_secp256k1_ecdsa_signature(cursor, max, arr + i);
 }
 
+void fromwire_sha256_double_array(const u8 **cursor, size_t *max,
+				  struct sha256_double *arr, size_t num)
+{
+	size_t i;
+
+	for (i = 0; i < num; i++)
+		fromwire_sha256_double(cursor, max, arr + i);
+}
 static char *fmt_channel_id(const tal_t *ctx, const struct channel_id *id)
 {
 	return tal_fmt(ctx, "%u/%u/%u", id->blocknum, id->txnum, id->outnum);

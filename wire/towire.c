@@ -1,5 +1,6 @@
 #include "utils.h"
 #include "wire.h"
+#include <bitcoin/shadouble.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/tal.h>
@@ -52,6 +53,11 @@ void towire_pubkey(u8 **pptr, const struct pubkey *pubkey)
 	towire(pptr, output, outputlen);
 }
 
+void towire_privkey(u8 **pptr, const struct privkey *privkey)
+{
+	towire(pptr, privkey->secret, sizeof(privkey->secret));
+}
+
 void towire_secp256k1_ecdsa_signature(u8 **pptr,
 				      const secp256k1_ecdsa_signature *sig)
 {
@@ -77,6 +83,11 @@ void towire_sha256(u8 **pptr, const struct sha256 *sha256)
 	towire(pptr, sha256, sizeof(*sha256));
 }
 
+void towire_sha256_double(u8 **pptr, const struct sha256_double *sha256d)
+{
+	towire_sha256(pptr, &sha256d->sha);
+}
+
 void towire_ipv6(u8 **pptr, const struct ipv6 *ipv6)
 {
 	towire(pptr, ipv6, sizeof(*ipv6));
@@ -85,6 +96,30 @@ void towire_ipv6(u8 **pptr, const struct ipv6 *ipv6)
 void towire_u8_array(u8 **pptr, const u8 *arr, size_t num)
 {
 	towire(pptr, arr, num);
+}
+
+void towire_u32_array(u8 **pptr, const u32 *arr, size_t num)
+{
+	size_t i;
+
+	for (i = 0; i < num; i++)
+		towire_u32(pptr, arr[i]);
+}
+
+void towire_u64_array(u8 **pptr, const u64 *arr, size_t num)
+{
+	size_t i;
+
+	for (i = 0; i < num; i++)
+		towire_u64(pptr, arr[i]);
+}
+
+void towire_bool_array(u8 **pptr, const bool *arr, size_t num)
+{
+	size_t i;
+
+	for (i = 0; i < num; i++)
+		towire_bool(pptr, arr[i]);
 }
 
 void towire_pad(u8 **pptr, size_t num)
@@ -103,4 +138,13 @@ void towire_secp256k1_ecdsa_signature_array(u8 **pptr,
 
 	for (i = 0; i < num; i++)
 		towire_secp256k1_ecdsa_signature(pptr, arr+i);
+}
+
+void towire_sha256_double_array(u8 **pptr,
+				const struct sha256_double *arr, size_t num)
+{
+	size_t i;
+
+	for (i = 0; i < num; i++)
+		towire_sha256_double(pptr, arr+i);
 }
