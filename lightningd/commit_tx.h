@@ -20,8 +20,28 @@ u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint,
 u64 htlc_success_fee(u64 feerate_per_kw);
 u64 htlc_timeout_fee(u64 feerate_per_kw);
 
-/* Create commitment tx to spend the funding tx output; doesn't fill in
- * input scriptsig. */
+/**
+ * commit_tx: create (unsigned) commitment tx to spend the funding tx output
+ * @ctx: context to allocate transaction and @htlc_map from.
+ * @funding_txid, @funding_out, @funding_satoshis: funding outpoint.
+ * @funder: is the LOCAL or REMOTE paying the fee?
+ * @revocation_pubkey: revocation pubkey for this @side
+ * @self_delayedey: pubkey for delayed payments to this @side
+ * @selfkey: pubkey for HTLC payments to this @side
+ * @otherkey: pubkey for direct and HTLC payments to other side @side
+ * @feerate_per_kw: feerate to use
+ * @dust_limit_satoshis: dust limit below which to trim outputs.
+ * @self_pay_msat: amount to pay directly to self
+ * @other_pay_msat: amount to pay directly to the other side
+ * @htlcs: tal_arr of htlcs committed by transaction (some may be trimmed)
+ * @htlc_map: outputed map of outnum->HTLC (NULL for direct outputs).
+ * @obscured_commitment_number: number to encode in commitment transaction
+ * @side: side to generate commitment transaction for.
+ *
+ * We need to be able to generate the remote side's tx to create signatures,
+ * but the BOLT is expressed in terms of generating our local commitment
+ * transaction, so we carefully use the terms "self" and "other" here.
+ */
 struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     const struct sha256_double *funding_txid,
 			     unsigned int funding_txout,
@@ -29,14 +49,15 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     enum side funder,
 			     u16 to_self_delay,
 			     const struct pubkey *revocation_pubkey,
-			     const struct pubkey *local_delayedkey,
-			     const struct pubkey *localkey,
-			     const struct pubkey *remotekey,
+			     const struct pubkey *self_delayedkey,
+			     const struct pubkey *selfkey,
+			     const struct pubkey *otherkey,
 			     u64 feerate_per_kw,
 			     u64 dust_limit_satoshis,
-			     u64 local_pay_msat,
-			     u64 remote_pay_msat,
+			     u64 self_pay_msat,
+			     u64 other_pay_msat,
 			     const struct htlc **htlcs,
 			     const struct htlc ***htlcmap,
-			     u64 commit_number_obscurer);
+			     u64 obscured_commitment_number,
+			     enum side side);
 #endif /* LIGHTNING_LIGHTNINGD_COMMIT_TX_H */

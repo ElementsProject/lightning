@@ -33,15 +33,15 @@ u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint,
 	return be64_to_cpu(obscurer);
 }
 
-static void subtract_fee(enum side funder,
-			 u64 base_fee_msat, u64 *local_msat, u64 *remote_msat)
+static void subtract_fee(enum side funder, enum side side,
+			 u64 base_fee_msat, u64 *self_msat, u64 *other_msat)
 {
 	u64 *funder_msat;
 
-	if (funder == LOCAL)
-		funder_msat = local_msat;
+	if (funder == side)
+		funder_msat = self_msat;
 	else
-		funder_msat = remote_msat;
+		funder_msat = other_msat;
 
 	if (*funder_msat >= base_fee_msat)
 		*funder_msat -= base_fee_msat;
@@ -97,7 +97,7 @@ static const struct htlc **untrimmed(const tal_t *ctx,
 	 */
 	arr = tal_arr(ctx, const struct htlc *, tal_count(htlcs));
 	for (i = n = 0; i < tal_count(htlcs); i++) {
-		if  (htlc_owner(htlcs[i]) != side)
+		if (htlc_owner(htlcs[i]) != side)
 			continue;
 		if (htlcs[i]->msatoshi / 1000 < dust_limit_satoshis + htlc_fee)
 			continue;
@@ -146,16 +146,17 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     enum side funder,
 			     u16 to_self_delay,
 			     const struct pubkey *revocation_pubkey,
-			     const struct pubkey *local_delayedkey,
-			     const struct pubkey *localkey,
-			     const struct pubkey *remotekey,
+			     const struct pubkey *self_delayedkey,
+			     const struct pubkey *selfkey,
+			     const struct pubkey *otherkey,
 			     u64 feerate_per_kw,
 			     u64 dust_limit_satoshis,
-			     u64 local_pay_msat,
-			     u64 remote_pay_msat,
+			     u64 self_pay_msat,
+			     u64 other_pay_msat,
 			     const struct htlc **htlcs,
 			     const struct htlc ***htlcmap,
-			     u64 obscured_commitment_number)
+			     u64 obscured_commitment_number,
+			     enum side side)
 {
 	const tal_t *tmpctx = tal_tmpctx(ctx);
 	const struct htlc **offered, **received;
@@ -163,17 +164,17 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	struct bitcoin_tx *tx;
 	size_t i, n;
 
-	assert(local_pay_msat + remote_pay_msat <= funding_satoshis * 1000);
+	assert(self_pay_msat + other_pay_msat <= funding_satoshis * 1000);
 
 	/* BOLT #3:
 	 *
 	 * 1. Calculate which committed HTLCs need to be trimmed (see
 	 * [Trimmed Outputs](#trimmed-outputs)).
 	 */
-	offered = untrimmed(tmpctx, htlcs, LOCAL,
+	offered = untrimmed(tmpctx, htlcs, side,
 			    htlc_timeout_fee(feerate_per_kw),
 			    dust_limit_satoshis);
-	received = untrimmed(tmpctx, htlcs, REMOTE,
+	received = untrimmed(tmpctx, htlcs, !side,
 			     htlc_success_fee(feerate_per_kw),
 			     dust_limit_satoshis);
 
@@ -195,7 +196,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 * 3. Subtract this base fee from the funder (either `to-local` or
 	 * `to-remote`), with a floor of zero (see [Fee Payment](#fee-payment)).
 	 */
-	subtract_fee(funder, base_fee_msat, &local_pay_msat, &remote_pay_msat);
+	subtract_fee(funder, side, base_fee_msat,
+		     &self_pay_msat, &other_pay_msat);
 
 	/* Worst-case sizing: both to-local and to-remote outputs. */
 	tx = bitcoin_tx(ctx, 1, tal_count(offered) + tal_count(received) + 2);
@@ -211,7 +213,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	n = 0;
 	for (i = 0; i < tal_count(offered); i++, n++) {
 		u8 *wscript = bitcoin_wscript_htlc_offer(tmpctx,
-							 localkey, remotekey,
+							 selfkey, otherkey,
 							 &offered[i]->rhash);
 		tx->output[n].amount = offered[i]->msatoshi / 1000;
 		tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
@@ -229,7 +231,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	for (i = 0; i < tal_count(received); i++, n++) {
 		u8 *wscript = bitcoin_wscript_htlc_receive(tmpctx,
 							   &received[i]->expiry,
-							   localkey, remotekey,
+							   selfkey, otherkey,
 							   &received[i]->rhash);
 		tx->output[n].amount = received[i]->msatoshi / 1000;
 		tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
@@ -245,12 +247,12 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *    `dust-limit-satoshis`, add a [To-Local
 	 *    Output](#to-local-output).
 	 */
-	if (local_pay_msat / 1000 >= dust_limit_satoshis) {
+	if (self_pay_msat / 1000 >= dust_limit_satoshis) {
 		u8 *wscript = bitcoin_wscript_to_local(tmpctx,
 						       to_self_delay,
 						       revocation_pubkey,
-						       local_delayedkey);
-		tx->output[n].amount = local_pay_msat / 1000;
+						       self_delayedkey);
+		tx->output[n].amount = self_pay_msat / 1000;
 		tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
 		(*htlcmap)[n] = NULL;
 		SUPERVERBOSE("# to-local amount %"PRIu64" wscript %s\n",
@@ -265,7 +267,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *    `dust-limit-satoshis`, add a [To-Remote
 	 *    Output](#to-remote-output).
 	 */
-	if (remote_pay_msat / 1000 >= dust_limit_satoshis) {
+	if (other_pay_msat / 1000 >= dust_limit_satoshis) {
 		/* BOLT #3:
 		 *
 		 * #### To-Remote Output
@@ -273,12 +275,12 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 * This output sends funds to the other peer, thus is a simple
 		 * P2WPKH to `remotekey`.
 		 */
-		tx->output[n].amount = remote_pay_msat / 1000;
-		tx->output[n].script = scriptpubkey_p2wpkh(tx, remotekey);
+		tx->output[n].amount = other_pay_msat / 1000;
+		tx->output[n].script = scriptpubkey_p2wpkh(tx, otherkey);
 		(*htlcmap)[n] = NULL;
 		SUPERVERBOSE("# to-remote amount %"PRIu64" P2WPKH(%s)\n",
 			     tx->output[n].amount,
-			     type_to_string(tmpctx, struct pubkey, remotekey));
+			     type_to_string(tmpctx, struct pubkey, otherkey));
 		n++;
 	}
 
