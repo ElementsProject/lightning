@@ -39,7 +39,8 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/cryptomsg.c			\
 	lightningd/funding_tx.c			\
 	lightningd/htlc_tx.c			\
-	lightningd/key_derive.c
+	lightningd/key_derive.c			\
+	lightningd/utxo.c
 
 LIGHTNINGD_LIB_OBJS := $(LIGHTNINGD_LIB_SRC:.c=.o)
 LIGHTNINGD_LIB_HEADERS := $(LIGHTNINGD_LIB_SRC:.c=.h)
