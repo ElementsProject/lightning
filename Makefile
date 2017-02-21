@@ -197,6 +197,11 @@ GEN_HEADERS := 	gen_version.h			\
 	lightning.pb-c.h
 
 LIBSODIUM_HEADERS := libsodium/src/libsodium/include/sodium.h
+LIBWALLY_HEADERS := libwally-core/include/wally_bip32.h		\
+			libwally-core/include/wally_core.h	\
+			libwally-core/include/wally_crypto.h
+LIBSECP_HEADERS := libwally-core/src/secp256k1/include/secp256k1_ecdh.h		\
+		libwally-core/src/secp256k1/include/secp256k1.h
 
 CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
@@ -206,7 +211,7 @@ PROGRAMS := $(TEST_PROGRAMS)
 
 CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition
 CDEBUGFLAGS := -g -fstack-protector
-CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) -I secp256k1/include/ -I libsodium/src/libsodium/include/ -I . $(FEATURES) $(COVFLAGS)
+CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) -I libwally-core/src/secp256k1/include/ -I libwally-core/include/ -I libsodium/src/libsodium/include/ -I . $(FEATURES) $(COVFLAGS)
 
 LDLIBS := -lprotobuf-c -lgmp -lsqlite3 $(COVFLAGS)
 $(PROGRAMS): CFLAGS+=-I.
@@ -225,7 +230,7 @@ CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o
 $(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
 
 # Except for CCAN, everything depends on bitcoin/ and core headers.
-$(HELPER_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(CORE_PROTOBUF_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS) $(LIBBASE58_HEADERS) $(LIBSODIUM_HEADERS)
+$(HELPER_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(CORE_PROTOBUF_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS) $(LIBBASE58_HEADERS) $(LIBSODIUM_HEADERS) $(LIBWALLY_HEADERS)
 
 test-protocol: test/test_protocol
 	set -e; TMP=`mktemp`; for f in test/commits/*.script; do if ! $(VALGRIND) test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
@@ -297,14 +302,6 @@ FORCE::
 
 ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDUMP_OBJS) $(CCAN_OBJS)
 
-# We build a static libsecpk1, since we need ecdh
-# (and it's not API stable yet!).
-libsecp256k1.a: secp256k1/libsecp256k1.la
-
-secp256k1/libsecp256k1.la:
-	cd secp256k1 && ./autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-shared=no --enable-tests=no --enable-experimental=yes --enable-module-ecdh=yes --libdir=`pwd`/..
-	$(MAKE) -C secp256k1 install-exec
-
 # We build libsodium, since Ubuntu xenial has one too old.
 libsodium.a: libsodium/src/libsodium/libsodium.la
 
@@ -316,10 +313,18 @@ libsodium/src/libsodium/libsodium.la: libsodium/src/libsodium/include/sodium.h
 	cd libsodium && ./autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-shared=no --enable-tests=no --libdir=`pwd`/..
 	$(MAKE) -C libsodium install-exec
 
+# libsecp included in libwally.
+# Wildcards here are magic.  See http://stackoverflow.com/questions/2973445/gnu-makefile-rule-generating-a-few-targets-from-a-single-source-file
+libsecp256k1.% libwallycore.%: libwally-core/src/secp256k1/libsecp256k1.la libwally-core/src/libwallycore.la
+	$(MAKE) -C libwally-core install-exec
+
+libwally-core/src/libwallycore.% libwally-core/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
+	cd libwally-core && ./tools/autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-shared=no --libdir=`pwd`/.. && $(MAKE)
+
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	@if $(CHANGED_FROM_GIT); then echo $(PROTOCC) lightning.proto --c_out=.; $(PROTOCC) lightning.proto --c_out=.; else touch $@; fi
 
-$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) utils.o version.o libsecp256k1.a libsodium.a
+$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) utils.o version.o libwallycore.a libsecp256k1.a libsodium.a
 
 ccan/config.h: ccan/tools/configurator/configurator
 	if $< > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
@@ -352,6 +357,7 @@ distclean: clean
 	$(MAKE) -C secp256k1/ distclean || true
 	$(RM) libsecp256k1.a secp256k1/libsecp256k1.la
 	$(RM) libsodium.a libsodium/libsodium.la
+	cd libwally-core && tools/cleanup.sh
 
 maintainer-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'

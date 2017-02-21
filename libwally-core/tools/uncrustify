@@ -1,0 +1,8 @@
+#!/bin/sh
+# Use uncrustify to reformat the source
+if test -z "$1"; then
+    files=`ls src/*.c src/*.h src/ctest/*.c include/*.h | grep -v src/config.h`
+else
+    files="$*"
+fi
+uncrustify --replace --no-backup -c tools/uncrustify.cfg $files

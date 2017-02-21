@@ -1,0 +1,65 @@
+# Support functions for the SWIG python wrapper
+
+def _wrap_bin(fn, length, resize=False):
+    """ Wrap functions that take an output buffer to create/return it """
+    def wrapped(*args):
+        #assert type(args[0]) is not unicode
+        buf = bytearray(length(*args) if callable(length) else length)
+        ret = fn(*list(args)+[buf])
+        if resize:
+            return buf[0:ret] # Truncate buf to bytes written
+        return (ret, buf) if ret is not None else buf
+    return wrapped
+
+_unwrapped_hex_to_bytes = hex_to_bytes
+def hex_to_bytes(hex_str):
+    hex_str = hex_str.encode('ascii')
+    buf = bytearray(len(hex_str) / 2)
+    _unwrapped_hex_to_bytes(bytes(hex_str), buf)
+    return buf
+
+sha256 = _wrap_bin(sha256, SHA256_LEN)
+sha256d = _wrap_bin(sha256d, SHA256_LEN)
+sha512 = _wrap_bin(sha512, SHA512_LEN)
+hash160 = _wrap_bin(hash160, HASH160_LEN)
+hmac_sha256 = _wrap_bin(hmac_sha256, HMAC_SHA256_LEN)
+hmac_sha512 = _wrap_bin(hmac_sha512, HMAC_SHA512_LEN)
+
+bip32_key_serialize = _wrap_bin(bip32_key_serialize, BIP32_SERIALIZED_LEN)
+bip32_key_get_chain_code = _wrap_bin(bip32_key_get_chain_code, 32)
+bip32_key_get_priv_key = _wrap_bin(bip32_key_get_priv_key, 32)
+bip32_key_get_pub_key = _wrap_bin(bip32_key_get_pub_key, 33)
+bip32_key_get_parent160 = _wrap_bin(bip32_key_get_parent160, HASH160_LEN)
+bip32_key_get_hash160 = _wrap_bin(bip32_key_get_hash160, HASH160_LEN)
+
+bip38_raw_from_private_key = _wrap_bin(bip38_raw_from_private_key, BIP38_SERIALIZED_LEN)
+bip38_raw_to_private_key = _wrap_bin(bip38_raw_to_private_key, 32);
+bip38_to_private_key = _wrap_bin(bip38_raw_to_private_key, 32);
+bip39_mnemonic_to_seed512 = _wrap_bin(bip39_mnemonic_to_seed, BIP39_SEED_LEN_512)
+
+pbkdf2_hmac_sha256 = _wrap_bin(pbkdf2_hmac_sha256, PBKDF2_HMAC_SHA256_LEN)
+pbkdf2_hmac_sha512 = _wrap_bin(pbkdf2_hmac_sha512, PBKDF2_HMAC_SHA512_LEN)
+
+ec_public_key_decompress = _wrap_bin(ec_public_key_decompress, EC_PUBLIC_KEY_UNCOMPRESSED_LEN)
+ec_public_key_from_private_key = _wrap_bin(ec_public_key_from_private_key, EC_PUBLIC_KEY_LEN)
+ec_sig_from_bytes = _wrap_bin(ec_sig_from_bytes, EC_SIGNATURE_LEN)
+ec_sig_from_der = _wrap_bin(ec_sig_from_der, EC_SIGNATURE_LEN)
+ec_sig_normalize = _wrap_bin(ec_sig_normalize, EC_SIGNATURE_LEN)
+ec_sig_to_der = _wrap_bin(ec_sig_to_der, EC_SIGNATURE_DER_MAX_LEN, resize=True)
+
+def base58check_from_bytes(buf):
+    return base58_from_bytes(buf, BASE58_FLAG_CHECKSUM)
+
+def _base58_len_fn(base58, flags):
+    return len(base58) + (4 if (flags & BASE58_FLAG_CHECKSUM) else 0)
+base58_to_bytes = _wrap_bin(base58_to_bytes, _base58_len_fn, resize=True)
+
+def base58check_to_bytes(base58):
+    return base58_to_bytes(base58, BASE58_FLAG_CHECKSUM)
+
+def _format_bitcoin_message_len_fn(msg, flags):
+    if flags & BITCOIN_MESSAGE_FLAG_HASH:
+        return SHA256_LEN
+    msg_len = len(msg)
+    return 25 + msg_len + (1 if msg_len < 253 else 3)
+format_bitcoin_message = _wrap_bin(format_bitcoin_message, _format_bitcoin_message_len_fn, resize=True)
