@@ -229,7 +229,9 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 	 *
 	 *   * Encrypt `l` using `ChaChaPoly-1305`, `sn`, and `sk` to obtain `lc`
 	 *     (`18-bytes`)
-	 *     * The nonce `sn` is encoded as a 96-bit big-endian number.
+	 *     * The nonce `sn` is encoded as a 96-bit little-endian number.
+	 *      As our decoded nonces a 64-bit, we encode the 96-bit nonce as
+	 *      follows: 32-bits of leading zeroes followed by a 64-bit value.
 	 * 	* The nonce `sn` MUST be incremented after this step.
 	 *     * A zero-length byte slice is to be passed as the AD
 	 */
