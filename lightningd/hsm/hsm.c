@@ -25,10 +25,14 @@
 #include <unistd.h>
 #include <utils.h>
 #include <version.h>
+#include <wally_bip32.h>
 #include <wire/wire_io.h>
 
 /* Nobody will ever find it here! */
-static struct privkey hsm_secret;
+static struct {
+	struct privkey hsm_secret;
+	struct ext_key bip32;
+} secretstuff;
 
 struct conn_info {
 	struct io_plan *(*received_req)(struct io_conn *, struct conn_info *);
@@ -57,7 +61,8 @@ static void node_key(struct privkey *node_secret, struct pubkey *node_id)
 	do {
 		hkdf_sha256(node_secret, sizeof(*node_secret),
 			    &salt, sizeof(salt),
-			    &hsm_secret, sizeof(hsm_secret),
+			    &secretstuff.hsm_secret,
+			    sizeof(secretstuff.hsm_secret),
 			    "nodeid", 6);
 		salt++;
 	} while (!secp256k1_ec_pubkey_create(secp256k1_ctx, &node_id->pubkey,
@@ -134,6 +139,24 @@ static u8 *init_response(struct conn_info *control)
 	return towire_hsmctl_init_response(control, &node_id);
 }
 
+static void populate_secretstuff(void)
+{
+	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
+	u32 salt = 0;
+
+	/* Fill in the BIP32 tree for bitcoin addresses. */
+	do {
+		hkdf_sha256(bip32_seed, sizeof(bip32_seed),
+			    &salt, sizeof(salt),
+			    &secretstuff.hsm_secret,
+			    sizeof(secretstuff.hsm_secret),
+			    "bip32 seed", strlen("bip32 seed"));
+		salt++;
+	} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
+				     BIP32_VER_TEST_PRIVATE,
+				     0, &secretstuff.bip32) != WALLY_OK);
+}
+
 static u8 *create_new_hsm(struct conn_info *control)
 {
 	int fd = open("hsm_secret", O_CREAT|O_EXCL|O_WRONLY, 0400);
@@ -141,8 +164,8 @@ static u8 *create_new_hsm(struct conn_info *control)
 		status_failed(WIRE_HSMSTATUS_INIT_FAILED,
 			      "creating: %s", strerror(errno));
 
-	randombytes_buf(&hsm_secret, sizeof(hsm_secret));
-	if (!write_all(fd, &hsm_secret, sizeof(hsm_secret))) {
+	randombytes_buf(&secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret));
+	if (!write_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret))) {
 		unlink_noerr("hsm_secret");
 		status_failed(WIRE_HSMSTATUS_INIT_FAILED,
 			      "writing: %s", strerror(errno));
@@ -165,6 +188,8 @@ static u8 *create_new_hsm(struct conn_info *control)
 	}
 	close(fd);
 
+	populate_secretstuff();
+
 	return init_response(control);
 }
 
@@ -174,10 +199,12 @@ static u8 *load_hsm(struct conn_info *control)
 	if (fd < 0)
 		status_failed(WIRE_HSMSTATUS_INIT_FAILED,
 			      "opening: %s", strerror(errno));
-	if (!read_all(fd, &hsm_secret, sizeof(hsm_secret)))
+	if (!read_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret)))
 		status_failed(WIRE_HSMSTATUS_INIT_FAILED,
 			      "reading: %s", strerror(errno));
 	close(fd);
+
+	populate_secretstuff();
 
 	return init_response(control);
 }
