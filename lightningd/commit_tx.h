@@ -21,6 +21,23 @@ u64 htlc_success_fee(u64 feerate_per_kw);
 u64 htlc_timeout_fee(u64 feerate_per_kw);
 
 /**
+ * commit_tx_num_untrimmed: how many of these htlc outputs will commit tx have?
+ * @htlcs: tal_arr of HTLCs
+ * @feerate_per_kw: feerate to use
+ * @dust_limit_satoshis: dust limit below which to trim outputs.
+ * @side: from which side's point of view
+ *
+ * We need @side because HTLC fees are different for offered and
+ * received HTLCs.
+ */
+size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
+			       u64 feerate_per_kw, u64 dust_limit_satoshis,
+			       enum side side);
+
+/* Helper to calculate the base fee if we add this extra htlc */
+u64 commit_tx_base_fee(u64 feerate_per_kw, size_t num_untrimmed_htlcs);
+
+/**
  * commit_tx: create (unsigned) commitment tx to spend the funding tx output
  * @ctx: context to allocate transaction and @htlc_map from.
  * @funding_txid, @funding_out, @funding_satoshis: funding outpoint.
