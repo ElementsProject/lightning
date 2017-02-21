@@ -30,6 +30,14 @@ lcli1 getpeers info | $FGREP "Exchanging gossip"
 lcli1 getpeers | $FGREP '"owner" : "lightningd_gossip"'
 lcli2 getpeers | $FGREP '"owner" : "lightningd_gossip"'
 
+# Add some funds.
+set -x
+NEWADDR=`lcli1 newaddr | get_field address`
+FUND_INPUT_TXID=`$CLI sendtoaddress $NEWADDR 0.10000002`
+FUND_INPUT_TX=`$CLI getrawtransaction $FUND_INPUT_TXID`
+
+lcli1 addfunds $FUND_INPUT_TX | $FGREP '"satoshis" : 10000002'
+
 lcli1 stop
 lcli2 stop
 

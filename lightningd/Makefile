@@ -47,6 +47,7 @@ LIGHTNINGD_LIB_OBJS := $(LIGHTNINGD_LIB_SRC:.c=.o)
 LIGHTNINGD_LIB_HEADERS := $(LIGHTNINGD_LIB_SRC:.c=.h)
 
 LIGHTNINGD_SRC :=				\
+	lightningd/build_utxos.c		\
 	lightningd/gossip_control.c		\
 	lightningd/hsm_control.c		\
 	lightningd/lightningd.c			\
@@ -60,6 +61,7 @@ LIGHTNINGD_JSMN_HEADERS := daemon/jsmn/jsmn.h
 
 # We accumulate all lightningd/ headers in these three:
 LIGHTNINGD_HEADERS_NOGEN =			\
+	lightningd/build_utxos.h		\
 	lightningd/gossip_control.h		\
 	lightningd/hsm_control.h		\
 	lightningd/lightningd.h			\

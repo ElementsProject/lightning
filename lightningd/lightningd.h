@@ -31,8 +31,12 @@ struct lightningd {
 	/* All peers we're tracking. */
 	struct list_head peers;
 
-	/* Public base for bip32 keys. */
+	/* Public base for bip32 keys, and max we've ever used. */
 	struct ext_key *bip32_base;
+	u32 bip32_max_index;
+
+	/* UTXOs we have available to spend. */
+	struct list_head utxos;
 };
 
 /* FIXME */

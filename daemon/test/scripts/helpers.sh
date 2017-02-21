@@ -309,6 +309,12 @@ all_ok()
 }
 
 # If result is in quotes, those are stripped.  Spaces in quotes not handled
+get_field()
+{
+    tr -s '\012\011" ' ' ' | sed 's/.* '$1' : \([^, }]*\).*/\1/'
+}    
+
+# If result is in quotes, those are stripped.  Spaces in quotes not handled
 get_info_field()
 {
     $1 getinfo | tr -s '\012\011" ' ' ' | sed 's/.* '$2' : \([^, }]*\).*/\1/'

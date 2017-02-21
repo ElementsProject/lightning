@@ -71,6 +71,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	struct lightningd *ld = tal(ctx, struct lightningd);
 
 	list_head_init(&ld->peers);
+	ld->bip32_max_index = 0;
+	list_head_init(&ld->utxos);
 	ld->dstate.log_book = new_log_book(&ld->dstate, 20*1024*1024,LOG_INFORM);
 	ld->log = ld->dstate.base_log = new_log(&ld->dstate,
 						ld->dstate.log_book,

@@ -45,7 +45,7 @@ struct secrets {
 };
 
 struct state {
-	struct crypto_state *cs;
+	struct crypto_state cs;
 	struct pubkey next_per_commit[NUM_SIDES];
 
 	/* Funding and feerate: set by opening peer. */
@@ -59,7 +59,7 @@ struct state {
 
 	/* Our shaseed for generating per-commitment-secrets. */
 	struct sha256 shaseed;
-	struct channel_config *localconf, *remoteconf, *minconf, *maxconf;
+	struct channel_config localconf, *remoteconf, minconf, maxconf;
 
 	struct channel *channel;
 };
@@ -242,25 +242,25 @@ static void open_channel(struct state *state, const struct points *ours)
 
 	msg = towire_open_channel(state, &tmpid,
 				  state->funding_satoshis, state->push_msat,
-				  state->localconf->dust_limit_satoshis,
-				  state->localconf->max_htlc_value_in_flight_msat,
-				  state->localconf->channel_reserve_satoshis,
-				  state->localconf->htlc_minimum_msat,
+				  state->localconf.dust_limit_satoshis,
+				  state->localconf.max_htlc_value_in_flight_msat,
+				  state->localconf.channel_reserve_satoshis,
+				  state->localconf.htlc_minimum_msat,
 				  state->feerate_per_kw,
-				  state->localconf->to_self_delay,
-				  state->localconf->max_accepted_htlcs,
+				  state->localconf.to_self_delay,
+				  state->localconf.max_accepted_htlcs,
 				  &ours->funding_pubkey,
 				  &ours->revocation_basepoint,
 				  &ours->payment_basepoint,
 				  &ours->delayed_payment_basepoint,
 				  &state->next_per_commit[LOCAL]);
-	if (!sync_crypto_write(state->cs, PEER_FD, msg))
+	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
 		status_failed(WIRE_OPENING_PEER_WRITE_FAILED,
 			      "Writing open_channel");
 
 	state->remoteconf = tal(state, struct channel_config);
 
-	msg = sync_crypto_read(state, state->cs, PEER_FD);
+	msg = sync_crypto_read(state, &state->cs, PEER_FD);
 	if (!msg)
 		status_failed(WIRE_OPENING_PEER_READ_FAILED,
 			      "Reading accept_channel");
@@ -301,7 +301,7 @@ static void open_channel(struct state *state, const struct points *ours)
 			      type_to_string(msg, struct channel_id, &tmpid2));
 
 	check_config_bounds(state->remoteconf,
-			    state->minconf, state->maxconf);
+			    &state->minconf, &state->maxconf);
 
 	/* Now, ask master create a transaction to pay those two addresses. */
 	msg = towire_opening_open_resp(state, &ours->funding_pubkey,
@@ -321,7 +321,7 @@ static void open_channel(struct state *state, const struct points *ours)
 				      state->funding_satoshis,
 				      state->push_msat,
 				      state->feerate_per_kw,
-				      state->localconf,
+				      &state->localconf,
 				      state->remoteconf,
 				      &ours->revocation_basepoint,
 				      &theirs.revocation_basepoint,
@@ -352,7 +352,7 @@ static void open_channel(struct state *state, const struct points *ours)
 				     &state->funding_txid.sha,
 				     state->funding_txout,
 				     &sig);
-	if (!sync_crypto_write(state->cs, PEER_FD, msg))
+	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
 		status_failed(WIRE_OPENING_PEER_WRITE_FAILED,
 			      "Writing funding_created");
 
@@ -364,7 +364,7 @@ static void open_channel(struct state *state, const struct points *ours)
 	 * commitment transaction, so they can broadcast it knowing they can
 	 * redeem their funds if they need to.
 	 */
-	msg = sync_crypto_read(state, state->cs, PEER_FD);
+	msg = sync_crypto_read(state, &state->cs, PEER_FD);
 	if (!msg)
 		status_failed(WIRE_OPENING_PEER_READ_FAILED,
 			      "Reading funding_signed");
@@ -403,7 +403,7 @@ static void open_channel(struct state *state, const struct points *ours)
 	msg = towire_opening_open_funding_resp(state,
 					       state->remoteconf,
 					       &sig,
-					       state->cs,
+					       &state->cs,
 					       &theirs.revocation_basepoint,
 					       &theirs.payment_basepoint,
 					       &theirs.delayed_payment_basepoint,
@@ -471,28 +471,28 @@ static void recv_channel(struct state *state, const struct points *ours,
 			      state->push_msat, state->funding_satoshis);
 
 	check_config_bounds(state->remoteconf,
-			    state->minconf, state->maxconf);
+			    &state->minconf, &state->maxconf);
 
 	msg = towire_accept_channel(state, &tmpid,
-				    state->localconf->dust_limit_satoshis,
+				    state->localconf.dust_limit_satoshis,
 				    state->localconf
-				      ->max_htlc_value_in_flight_msat,
-				    state->localconf->channel_reserve_satoshis,
-				    state->localconf->htlc_minimum_msat,
+				      .max_htlc_value_in_flight_msat,
+				    state->localconf.channel_reserve_satoshis,
+				    state->localconf.htlc_minimum_msat,
 				    state->feerate_per_kw,
-				    state->localconf->to_self_delay,
-				    state->localconf->max_accepted_htlcs,
+				    state->localconf.to_self_delay,
+				    state->localconf.max_accepted_htlcs,
 				    &ours->funding_pubkey,
 				    &ours->revocation_basepoint,
 				    &ours->payment_basepoint,
 				    &ours->delayed_payment_basepoint,
 				    &state->next_per_commit[REMOTE]);
 
-	if (!sync_crypto_write(state->cs, PEER_FD, msg))
+	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
 		status_failed(WIRE_OPENING_PEER_WRITE_FAILED,
 			      "Writing accept_channel");
 
-	msg = sync_crypto_read(state, state->cs, PEER_FD);
+	msg = sync_crypto_read(state, &state->cs, PEER_FD);
 	if (!msg)
 		status_failed(WIRE_OPENING_PEER_READ_FAILED,
 			      "Reading funding_created");
@@ -520,7 +520,7 @@ static void recv_channel(struct state *state, const struct points *ours,
 				      state->funding_satoshis,
 				      state->push_msat,
 				      state->feerate_per_kw,
-				      state->localconf,
+				      &state->localconf,
 				      state->remoteconf,
 				      &ours->revocation_basepoint,
 				      &theirs.revocation_basepoint,
@@ -565,7 +565,7 @@ static void recv_channel(struct state *state, const struct points *ours,
 				 tx);
 
 	msg = towire_funding_signed(state, &tmpid, &sig);
-	if (!sync_crypto_write(state->cs, PEER_FD, msg))
+	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
 		status_failed(WIRE_OPENING_PEER_WRITE_FAILED,
 			      "Writing funding_signed");
 
@@ -574,7 +574,7 @@ static void recv_channel(struct state *state, const struct points *ours,
 					 state->funding_txout,
 					 state->remoteconf,
 					 &theirsig,
-					 state->cs,
+					 &state->cs,
 					 &theirs.funding_pubkey,
 					 &theirs.revocation_basepoint,
 					 &theirs.payment_basepoint,
@@ -609,12 +609,11 @@ int main(int argc, char *argv[])
 	if (!msg)
 		status_failed(WIRE_BAD_COMMAND, "%s", strerror(errno));
 
-	state->cs = tal(state, struct crypto_state);
 	if (!fromwire_opening_init(msg, NULL,
 				   &state->localconf,
 				   &state->minconf,
 				   &state->maxconf,
-				   state->cs,
+				   &state->cs,
 				   &seed))
 		status_failed(WIRE_BAD_COMMAND, "%s", strerror(errno));
 	tal_free(msg);

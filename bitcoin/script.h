@@ -78,6 +78,9 @@ u8 *scriptpubkey_p2wsh(const tal_t *ctx, const u8 *witnessscript);
 /* Create an output script for a 20-byte witness program. */
 u8 *scriptpubkey_p2wpkh(const tal_t *ctx, const struct pubkey *key);
 
+/* Same as above, but compressed key is already DER-encoded. */
+u8 *scriptpubkey_p2wpkh_derkey(const tal_t *ctx, const u8 der[33]);
+
 /* Create a witness which spends the 2of2. */
 u8 **bitcoin_witness_2of2(const tal_t *ctx,
 			  const secp256k1_ecdsa_signature *sig1,

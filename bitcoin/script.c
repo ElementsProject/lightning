@@ -322,6 +322,17 @@ u8 *scriptpubkey_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 	return script;
 }
 
+u8 *scriptpubkey_p2wpkh_derkey(const tal_t *ctx, const u8 der[33])
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+	struct ripemd160 h;
+
+	add_op(&script, OP_0);
+	hash160(&h, der, PUBKEY_DER_LEN);
+	add_push_bytes(&script, &h, sizeof(h));
+	return script;
+}
+
 /* Create a witness which spends the 2of2. */
 u8 **bitcoin_witness_2of2(const tal_t *ctx,
 			  const secp256k1_ecdsa_signature *sig1,
