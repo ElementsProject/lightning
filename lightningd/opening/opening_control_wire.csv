@@ -1,0 +1,58 @@
+#include <lightningd/cryptomsg.h>
+#include <lightningd/channel_config.h>
+opening_init,0
+# What configuration we'll offer
+opening_init,0,our_config,36,struct channel_config
+# Minimum/maximum configuration values we'll accept
+opening_init,36,min_config,36,struct channel_config
+opening_init,72,max_config,36,struct channel_config
+opening_init,108,crypto_state,144,struct crypto_state
+# Seed to generate all the keys from
+opening_init,252,seed,32
+
+# This means we offer the open.
+opening_open,1
+opening_open,0,funding_satoshis,8
+opening_open,8,push_msat,8
+opening_open,16,feerate_per_kw,4
+
+# Response asks for txid of funding transaction.
+opening_open_resp,101
+opening_open_resp,0,local_fundingkey,33
+opening_open_resp,0,remote_fundingkey,33
+
+# Now we give the funding txid and outnum.
+opening_open_funding,2
+opening_open_funding,0,txid,32,struct sha256_double
+opening_open_funding,32,txout,1,u8
+
+# This gives their sig, means we can broadcast tx: we're done.
+opening_open_funding_resp,102
+opening_open_funding_resp,0,their_config,36,struct channel_config
+opening_open_funding_resp,36,first_commit_sig,64,secp256k1_ecdsa_signature
+opening_open_funding_resp,100,crypto_state,144,struct crypto_state
+opening_open_funding_resp,244,revocation_basepoint,33
+opening_open_funding_resp,277,payment_basepoint,33
+opening_open_funding_resp,310,delayed_payment_basepoint,33
+opening_open_funding_resp,343,their_per_commit_point,33
+
+# This means they offer the open (contains their offer packet)
+opening_accept,3
+opening_accept,0,len,2
+opening_accept,2,msg,len,u8
+
+# This gives the txid of their funding tx: we're done.
+opening_accept_resp,103
+opening_accept_resp,0,funding_txid,32,struct sha256_double
+opening_accept_resp,32,funding_txout,1,u8
+opening_accept_resp,33,their_config,36,struct channel_config
+opening_accept_resp,69,first_commit_sig,64,secp256k1_ecdsa_signature
+opening_accept_resp,133,crypto_state,144,struct crypto_state
+opening_accept_resp,277,remote_fundingkey,33
+opening_accept_resp,310,revocation_basepoint,33
+opening_accept_resp,343,payment_basepoint,33
+opening_accept_resp,376,delayed_payment_basepoint,33
+opening_accept_resp,409,their_per_commit_point,33
+
+# You're OK to exit.
+opening_exit_req,99

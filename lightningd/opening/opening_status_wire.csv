@@ -1,0 +1,20 @@
+# Shouldn't happen
+bad_command,0x8000
+# Also shouldn't happen
+opening_key_derivation_failed,0x8001
+# Also shouldn't happen
+opening_bad_param,0x8002
+# Also shouldn't happen
+opening_hsm_failed,0x8003
+
+# These are due to peer.
+opening_peer_write_failed,0x8010
+opening_peer_read_failed,0x8011
+opening_peer_bad_funding,0x8012
+opening_peer_bad_config,0x8013
+opening_peer_bad_initial_message,0x8014
+
+opening_watch_funding_req,1
+opening_watch_funding_req,0,txid,32,struct sha256_double
+opening_watch_funding_resp,101
+opening_watch_funding_resp,0,channel_id,8,struct channel_id
