@@ -23,7 +23,7 @@ int main(void)
 {
 	struct privkey base_secret, per_commitment_secret, privkey;
 	struct pubkey base_point, per_commitment_point, pubkey, pubkey2;
-	
+
 	tmpctx = tal_tmpctx(NULL);
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);

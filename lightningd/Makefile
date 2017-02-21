@@ -96,7 +96,7 @@ check-source: $(LIGHTNINGD_SRC:%=check-src-include-order/%)
 check-source: $(LIGHTNINGD_LIB_SRC:%=check-src-include-order/%)
 check-source: $(LIGHTNINGD_CLI_SRC:%=check-src-include-order/%)
 check-source: $(LIGHTNINGD_HEADERS_NOGEN:%=check-hdr-include-order/%)
-check-source-bolt: $(LIGHTNINGD_SRC:%=bolt-check/%) $(LIGHTNINGD_HEADERS_NOGEN:%=bolt-check/%)
+check-source-bolt: $(LIGHTNINGD_SRC:%=bolt-check/%) $(LIGHTNINGD_LIB_SRC:%=bolt-check/%) $(LIGHTNINGD_HEADERS_NOGEN:%=bolt-check/%)
 
 check-whitespace: $(LIGHTNINGD_SRC:%=check-whitespace/%) $(LIGHTNINGD_HEADERS_NOGEN:%=check-whitespace/%) $(LIGHTNINGD_LIB_SRC:%=check-whitespace/%) $(LIGHTNINGD_LIB_HEADERS:%=check-whitespace/%)
 

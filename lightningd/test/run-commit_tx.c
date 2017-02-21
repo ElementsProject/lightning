@@ -109,11 +109,10 @@ static const struct htlc **setup_htlcs(const tal_t *ctx)
 			htlc->msatoshi = 4000000;
 			break;
 		}
-		
-			
+
 		if (i == 0 || i == 1 || i == 4) {
 			/* direction: remote->local */
-			
+
 		} else {
 			/* direction: local->remote */
 			htlc->state = SENT_ADD_ACK_REVOCATION;
@@ -372,7 +371,7 @@ int main(void)
 	/* BOLT #3:
 	 *
 	 * # Appendix C: Commitment and HTLC Transaction Test Vectors
-	 * 
+	 *
 	 * In the following:
 	 * - we consider *local* transactions, which implies that all payments
          *    to *local* are delayed
@@ -383,11 +382,11 @@ int main(void)
 	 *
 	 * - transaction signatures are all deterministic, using
          *    RFC6979 (using HMAC-SHA256)
-	 * 
+	 *
 	 * We start by defining common basic parameters for each test vector:
 	 * the HTLCs are not used for the first "simple commitment tx with no
 	 * HTLCs" test.
-	 * 
+	 *
 	 *     funding_tx_id: 8984484a580b825b9972d7adb15050b3ab624ccd731946b3eeddb92f4e7ef6be
 	 *     funding_output_index: 0
 	 *     funding_amount_satoshi: 10000000
@@ -412,7 +411,7 @@ int main(void)
 	 * it's not required for this test.  They're included here for
 	 * completeness and in case someone wants to reproduce the test
 	 * vectors themselves:
-         * 
+         *
          * INTERNAL: remote_funding_privkey: 1552dfba4f6cf29a62a0af13c8d6981d36d0ef8d61ba10fb0fe90da7634d7e130101
          * INTERNAL: local_payment_basepoint_secret: 111111111111111111111111111111111111111111111111111111111111111101
          * INTERNAL: local_revocation_basepoint_secret: 222222222222222222222222222222222222222222222222222222222222222201
@@ -533,7 +532,7 @@ int main(void)
 		abort();
 	printf("local_funding_pubkey: %s\n",
 	       type_to_string(tmpctx, struct pubkey, &local_funding_pubkey));
-	
+
 	if (!pubkey_from_privkey(&x_remote_funding_privkey, &remote_funding_pubkey))
 		abort();
 	printf("remote_funding_pubkey: %s\n",
@@ -818,8 +817,8 @@ int main(void)
 		       feerate_per_kw,
 		       htlc_map);
 		break;
-	} 
-	
+	}
+
 	/* No memory leaks please */
 	secp256k1_context_destroy(secp256k1_ctx);
 	tal_free(tmpctx);

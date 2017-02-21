@@ -35,3 +35,4 @@ lightningd-test-shutdown-2: lightningd-test-2-basic\ --reconnect
 lightningd-blackbox-tests: lightningd-test-shutdown-0 #lightningd-test-shutdown-1 lightningd-test-shutdown-2
 
 check-source-bolt: $(LIGHTNINGD_TEST_SRC:%=bolt-check/%)
+check-whitespace: $(LIGHTNINGD_TEST_SRC:%=check-whitespace/%)

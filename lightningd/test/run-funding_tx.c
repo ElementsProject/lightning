@@ -53,7 +53,6 @@ int main(void)
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
-	
 	/* BOLT #3:
 	 *
 	 * Block 1 coinbase transaction: 01000000010000000000000000000000000000000000000000000000000000000000000000ffffffff03510101ffffffff0100f2052a010000001976a9143ca33c2e4446f4a305f23c80df8ad1afdcf652f988ac00000000
@@ -77,7 +76,7 @@ int main(void)
 	/* BOLT #3:
 	 *
 	 * The funding transaction is paid to the following keys:
-	 * 
+	 *
 	 *     local_funding_pubkey: 023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb
 	 *     remote_funding_pubkey: 030e9f7b623d2ccc7c9bd44d66d5ce21ce504c0acf6385a132cec6d3c39fa711c1
 	 */
