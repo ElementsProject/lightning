@@ -241,8 +241,12 @@ class Message(object):
                 print('\t/*{} */'.format(c))
 
             if f.is_unknown:
-                print('\t*{} = fromwire_{}(ctx, &cursor, plen);'
-                      .format(f.name, basetype))
+                if f.is_variable_size():
+                    print('\t*{} = fromwire_{}_array(ctx, &cursor, plen, {});'
+                      .format(f.name, basetype, f.lenvar))
+                else:
+                    print('\t*{} = fromwire_{}(ctx, &cursor, plen);'
+                          .format(f.name, basetype))
             elif f.is_padding():
                 print('\tfromwire_pad(&cursor, plen, {});'
                       .format(f.num_elems))
