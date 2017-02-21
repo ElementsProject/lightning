@@ -276,9 +276,6 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 		control->out = pass_hsmfd_ecdh(conn, control, control->in,
 					       &control->out_fd);
 		goto send_out;
-	case WIRE_HSMCTL_SHUTDOWN:
-		io_break(control);
-		return io_never(conn, control);
 
 	case WIRE_HSMCTL_INIT_RESPONSE:
 	case WIRE_HSMCTL_HSMFD_FD_RESPONSE:
@@ -301,6 +298,12 @@ static struct io_plan *control_init(struct io_conn *conn,
 	return recv_req(conn, control);
 }
 
+/* Exit when control fd closes. */
+static void control_finish(struct io_conn *conn, struct conn_info *control)
+{
+	io_break(control);
+}
+
 #ifndef TESTING
 int main(int argc, char *argv[])
 {
@@ -321,7 +324,9 @@ int main(int argc, char *argv[])
 	/* Stdout == status, stdin == requests */
 	status_setup(STDOUT_FILENO);
 
-	io_new_conn(control, STDIN_FILENO, control_init, control);
+	io_set_finish(io_new_conn(control, STDIN_FILENO, control_init, control),
+		      control_finish, control);
+
 	io_loop(NULL, NULL);
 
 	tal_free(control);

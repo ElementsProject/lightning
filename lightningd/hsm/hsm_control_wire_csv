@@ -11,6 +11,3 @@ hsmctl_hsmfd_ecdh,0,unique_id,8
 
 # No message, just an fd.
 hsmctl_hsmfd_fd_response,103
-
-# Shutdown just results in an exit.
-hsmctl_shutdown,4
