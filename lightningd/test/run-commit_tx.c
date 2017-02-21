@@ -10,6 +10,7 @@ static bool print_superverbose;
 #include <bitcoin/preimage.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/str/hex/hex.h>
 #include <type_to_string.h>
 
@@ -317,22 +318,14 @@ static u64 increase(u64 feerate_per_kw)
 #else
 static u64 increase(u64 feerate_per_kw)
 {
-	switch (feerate_per_kw) {
-	case 0:
-		return 679;
-	case 679:
-		return 2169;
-	case 2169:
-		return 2295;
-	case 2295:
-		return 3873;
-	case 3873:
-		return 5150;
-	case 5150:
-		return 9651181;
-	default:
-		abort();
-	}
+	const u64 rates[] = { 0, 677, 2162, 2292, 3867, 5134, 9651181 };
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(rates); i++)
+		if (rates[i] == feerate_per_kw)
+			return rates[i+1];
+
+	abort();
 }
 #endif
 
@@ -715,7 +708,7 @@ int main(void)
 		       &x_remote_secretkey,
 		       &remotekey,
 		       &local_revocation_key,
-		       feerate_per_kw,
+		       feerate_per_kw-1,
 		       htlc_map);
 
 		printf("\n"

@@ -55,10 +55,10 @@ u64 htlc_timeout_fee(u64 feerate_per_kw)
 	 *
 	 * The fee for an HTLC-timeout transaction MUST BE calculated to match:
 	 *
-	 * 1. Multiply `feerate-per-kw` by 634 and divide by 1000 (rounding
+	 * 1. Multiply `feerate-per-kw` by 635 and divide by 1000 (rounding
 	 *    down).
 	 */
-	return feerate_per_kw * 634 / 1000;
+	return feerate_per_kw * 635 / 1000;
 }
 
 u64 htlc_success_fee(u64 feerate_per_kw)
@@ -67,10 +67,10 @@ u64 htlc_success_fee(u64 feerate_per_kw)
 	 *
 	 * The fee for an HTLC-success transaction MUST BE calculated to match:
 	 *
-	 * 1. Multiply `feerate-per-kw` by 671 and divide by 1000 (rounding
+	 * 1. Multiply `feerate-per-kw` by 673 and divide by 1000 (rounding
 	 *    down).
 	 */
-	return feerate_per_kw * 671 / 1000;
+	return feerate_per_kw * 673 / 1000;
 }
 
 static const struct htlc **untrimmed(const tal_t *ctx,
