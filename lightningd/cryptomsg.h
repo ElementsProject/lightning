@@ -49,4 +49,12 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 
 void towire_crypto_state(u8 **pptr, const struct crypto_state *cs);
 void fromwire_crypto_state(const u8 **ptr, size_t *max, struct crypto_state *cs);
+ 
+/* Low-level functions for sync comms. */
+u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
+			  struct crypto_state *cs,
+			  const u8 *msg);
+bool cryptomsg_decrypt_header(struct crypto_state *cs, u8 *hdr, u16 *lenp);
+u8 *cryptomsg_decrypt_body(const tal_t *ctx,
+			   struct crypto_state *cs, const u8 *in);
 #endif /* LIGHTNING_LIGHTNINGD_CRYPTOMSG_H */

@@ -37,6 +37,7 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/channel_config.c		\
 	lightningd/commit_tx.c			\
 	lightningd/cryptomsg.c			\
+	lightningd/crypto_sync.c		\
 	lightningd/funding_tx.c			\
 	lightningd/htlc_tx.c			\
 	lightningd/key_derive.c			\
