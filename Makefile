@@ -304,14 +304,14 @@ ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDU
 
 # We build libsodium, since Ubuntu xenial has one too old.
 libsodium.a: libsodium/src/libsodium/libsodium.la
+	$(MAKE) -C libsodium install-exec
 
 libsodium/src/libsodium/include/sodium.h:
 	git submodule update libsodium
 	[ -f $@ ] || git submodule update --init libsodium
 
 libsodium/src/libsodium/libsodium.la: libsodium/src/libsodium/include/sodium.h
-	cd libsodium && ./autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-shared=no --enable-tests=no --libdir=`pwd`/..
-	$(MAKE) -C libsodium install-exec
+	cd libsodium && ./autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-shared=no --enable-tests=no --libdir=`pwd`/.. && $(MAKE)
 
 # libsecp included in libwally.
 # Wildcards here are magic.  See http://stackoverflow.com/questions/2973445/gnu-makefile-rule-generating-a-few-targets-from-a-single-source-file
