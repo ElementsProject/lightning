@@ -154,8 +154,8 @@ static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 						 &htlc->rhash);
 	tx->output[n].amount = htlc->msatoshi / 1000;
 	tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
-	SUPERVERBOSE("# HTLC offered amount %"PRIu64" wscript %s\n",
-		     tx->output[n].amount, tal_hex(wscript, wscript));
+	SUPERVERBOSE("# HTLC %"PRIu64" offered amount %"PRIu64" wscript %s\n",
+		     htlc->id, tx->output[n].amount, tal_hex(wscript, wscript));
 	tal_free(wscript);
 }
 
@@ -170,9 +170,8 @@ static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 						   &htlc->rhash);
 	tx->output[n].amount = htlc->msatoshi / 1000;
 	tx->output[n].script = scriptpubkey_p2wsh(tx->output, wscript);
-	SUPERVERBOSE("# HTLC received amount %"PRIu64" wscript %s\n",
-		     tx->output[n].amount,
-		     tal_hex(wscript, wscript));
+	SUPERVERBOSE("# HTLC %"PRIu64" received amount %"PRIu64" wscript %s\n",
+		     htlc->id, tx->output[n].amount, tal_hex(wscript, wscript));
 	tal_free(wscript);
 }
 
