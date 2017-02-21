@@ -345,7 +345,7 @@ int main(void)
 	/* x_ prefix means internal vars we used to derive spec */
 	struct privkey local_funding_privkey, x_remote_funding_privkey;
 	struct privkey x_local_payment_basepoint_secret, x_remote_payment_basepoint_secret;
-	struct privkey x_local_per_commitment_secret, x_remote_per_commitment_secret;
+	struct privkey x_local_per_commitment_secret;
 	struct privkey x_local_delayed_payment_basepoint_secret;
 	struct privkey x_local_revocation_basepoint_secret;
 	struct privkey local_secretkey, x_remote_secretkey;
@@ -354,8 +354,7 @@ int main(void)
 	struct pubkey local_payment_basepoint, remote_payment_basepoint;
 	struct pubkey x_local_delayed_payment_basepoint;
 	struct pubkey x_local_revocation_basepoint;
-	struct pubkey x_local_per_commitment_point,
-		x_remote_per_commitment_point;
+	struct pubkey x_local_per_commitment_point;
 	struct pubkey localkey, remotekey, tmpkey;
 	struct pubkey local_delayedkey;
 	struct pubkey local_revocation_key;
@@ -418,13 +417,11 @@ int main(void)
          * INTERNAL: local_delayed_payment_basepoint_secret: 333333333333333333333333333333333333333333333333333333333333333301
          * INTERNAL: remote_payment_basepoint_secret: 444444444444444444444444444444444444444444444444444444444444444401
          * x_local_per_commitment_secret: 1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a0908070605040302010001
-         * INTERNAL: remote_per_commit_secret: 444444444444444444444444444444444444444444444444444444444444444401
          * # From local_revocation_basepoint_secret
          * INTERNAL: local_revocation_basepoint: 02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27
          * # From local_delayed_payment_basepoint_secret
          * INTERNAL: local_delayed_payment_basepoint: 023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1
          * INTERNAL: local_per_commitment_point: 025f7117a78150fe2ef97db7cfc83bd57b2e2c0d0dd25eaf467a4a1c2a45ce1486
-         * INTERNAL: remote_per_commitment_point: 022c76692fd70814a8d1ed9dedc833318afaaed8188db4d14727e2e99bc619d325
          * INTERNAL: remote_secretkey: 839ad0480cde69fc721fb8e919dcf20bc4f2b3374c7b27ff37f200ddfa7b0edb01
          * # From local_delayed_payment_basepoint_secret, local_per_commitment_point and local_delayed_payment_basepoint
          * INTERNAL: local_delayed_secretkey: adf3464ce9c2f230fd2582fda4c6965e4993ca5524e8c9580e3df0cf226981ad01
@@ -454,10 +451,6 @@ int main(void)
 	SUPERVERBOSE("x_local_per_commitment_secret: %s\n",
 		     type_to_string(tmpctx, struct privkey,
 				    &x_local_per_commitment_secret));
-	x_remote_per_commitment_secret = privkey_from_hex("0x0f0e0d0c0b0a090807060504030201001f1e1d1c1b1a19181716151413121110");
-	SUPERVERBOSE("INTERNAL: remote_per_commit_secret: %s\n",
-		     type_to_string(tmpctx, struct privkey,
-				    &x_remote_payment_basepoint_secret));
 
 	if (!pubkey_from_privkey(&x_local_revocation_basepoint_secret,
 				 &x_local_revocation_basepoint))
@@ -482,13 +475,6 @@ int main(void)
 		     type_to_string(tmpctx, struct pubkey,
 				    &x_local_per_commitment_point));
 
-	if (!pubkey_from_privkey(&x_remote_per_commitment_secret,
-				 &x_remote_per_commitment_point))
-		abort();
-	SUPERVERBOSE("INTERNAL: remote_per_commitment_point: %s\n",
-		     type_to_string(tmpctx, struct pubkey,
-				    &x_remote_per_commitment_point));
-
 	if (!pubkey_from_privkey(&x_local_payment_basepoint_secret,
 				 &local_payment_basepoint))
 		abort();
@@ -499,7 +485,7 @@ int main(void)
 
 	if (!derive_simple_privkey(&x_remote_payment_basepoint_secret,
 				   &remote_payment_basepoint,
-				   &x_remote_per_commitment_point,
+				   &x_local_per_commitment_point,
 				   &x_remote_secretkey))
 		abort();
 	SUPERVERBOSE("INTERNAL: remote_secretkey: %s\n",
@@ -557,7 +543,7 @@ int main(void)
 	       type_to_string(tmpctx, struct pubkey, &localkey));
 
 	if (!derive_simple_key(&remote_payment_basepoint,
-			       &x_remote_per_commitment_point,
+			       &x_local_per_commitment_point,
 			       &remotekey))
 		abort();
 	printf("remotekey: %s\n",
