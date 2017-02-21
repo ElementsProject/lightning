@@ -128,7 +128,7 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 	 */
 	return htlc_tx(ctx, commit_txid, commit_output_number, offered_htlc,
 		       to_self_delay, revocation_pubkey, local_delayedkey,
-		       htlc_success_fee(feerate_per_kw),
+		       htlc_timeout_fee(feerate_per_kw),
 		       offered_htlc->expiry.locktime);
 }
 
