@@ -85,6 +85,11 @@ u8 **bitcoin_witness_2of2(const tal_t *ctx,
 			  const struct pubkey *key1,
 			  const struct pubkey *key2);
 
+/* Create a witness which spends a p2wpkh. */
+u8 **bitcoin_witness_p2wpkh(const tal_t *ctx,
+			    const secp256k1_ecdsa_signature *sig,
+			    const struct pubkey *key);
+
 /* Create a witness which spends a "secret_or_delay" scriptpubkey */
 u8 **bitcoin_witness_secret(const tal_t *ctx,
 			    const void *secret, size_t secret_len,
