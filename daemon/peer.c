@@ -1856,10 +1856,9 @@ static bool peer_start_shutdown(struct peer *peer)
 
 	queue_pkt_close_shutdown(peer);
 
-	if (peer->state == STATE_NORMAL_COMMITTING)
+	if (peer->state == STATE_NORMAL_COMMITTING) {
 		newstate = STATE_SHUTDOWN_COMMITTING;
-	else {
-		assert(peer->state == STATE_NORMAL);
+	} else {
 		newstate = STATE_SHUTDOWN;
 	}
 	set_peer_state(peer, newstate, __func__, true);
