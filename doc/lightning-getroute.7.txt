@@ -9,7 +9,7 @@ lightning-getroute - Protocol for routing a payment.
 
 SYNOPSIS
 --------
-*getroute* 'msatoshi' 'id' 'riskfactor'
+*getroute* 'id' 'msatoshi' 'riskfactor'
 
 DESCRIPTION
 -----------
