@@ -546,11 +546,19 @@ static bool bitcoin_create_anchor(struct peer *peer)
 	return true;
 }
 
+static void send_ping(struct peer *peer)
+{
+	printf("SENDING PING");
+	new_reltimer(&peer->dstate->timers, peer, time_from_sec(1), send_ping, peer);
+	queue_pkt_ping(peer);
+}
+
 static bool open_pkt_in(struct peer *peer, const Pkt *pkt)
 {
 	Pkt *err;
 	struct commit_info *ci;
 
+	send_ping(peer);
 	assert(peer->state == STATE_OPEN_WAIT_FOR_OPENPKT);
 
 	if (pkt->pkt_case != PKT__PKT_OPEN)
@@ -577,7 +585,6 @@ static bool open_pkt_in(struct peer *peer, const Pkt *pkt)
 		= bitcoin_redeem_2of2(peer,
 				      &peer->local.commitkey,
 				      &peer->remote.commitkey);
-
 	if (peer->local.offer_anchor) {
 		if (!bitcoin_create_anchor(peer)) {
 			db_abort_transaction(peer);
@@ -657,6 +664,8 @@ static bool open_ouranchor_pkt_in(struct peer *peer, const Pkt *pkt)
 
 	broadcast_tx(peer->dstate->topology,
 		     peer, peer->anchor.tx, funding_tx_failed);
+	send_ping(peer);
+
 	peer_watch_anchor(peer, peer->local.mindepth);
 	return true;
 }
@@ -2226,7 +2235,9 @@ static void clear_output_queue(struct peer *peer)
 	tal_resize(&peer->outpkt, 0);
 }
 
-static struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
+
+
+struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer)
 {
 	bool keep_going = true;
 

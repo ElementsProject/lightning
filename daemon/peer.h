@@ -19,6 +19,9 @@
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/list/list.h>
 #include <ccan/time/time.h>
+#include <ccan/io/io.h>
+
+struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer);
 
 struct log;
 struct lightningd_state;

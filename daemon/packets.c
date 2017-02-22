@@ -73,6 +73,13 @@ static void queue_pkt(struct peer *peer, Pkt__PktCase type, const void *msg)
 	queue_raw_pkt(peer, make_pkt(peer, type, msg));
 }
 
+void queue_pkt_ping(struct peer *peer)
+{
+	PingPkt *ping = tal(peer, PingPkt);
+	ping_pkt__init(ping);
+	queue_pkt(peer, PKT__PKT_PING, ping);
+}
+
 void queue_pkt_open(struct peer *peer, bool offer_anchor)
 {
 	OpenChannel *o = tal(peer, OpenChannel);
