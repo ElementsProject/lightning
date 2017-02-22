@@ -42,6 +42,7 @@ typedef struct _CloseShutdown CloseShutdown;
 typedef struct _CloseSignature CloseSignature;
 typedef struct _Error Error;
 typedef struct _NestedPkt NestedPkt;
+typedef struct _PingPkt PingPkt;
 typedef struct _Pkt Pkt;
 
 
@@ -561,6 +562,15 @@ struct  _NestedPkt
     , 0, {0,NULL} }
 
 
+struct  _PingPkt
+{
+  ProtobufCMessage base;
+};
+#define PING_PKT__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&ping_pkt__descriptor) \
+     }
+
+
 typedef enum {
   PKT__PKT__NOT_SET = 0,
   PKT__PKT_AUTH = 50,
@@ -578,6 +588,7 @@ typedef enum {
   PKT__PKT_CLOSE_SHUTDOWN = 30,
   PKT__PKT_CLOSE_SIGNATURE = 31,
   PKT__PKT_ERROR = 40,
+  PKT__PKT_PING = 41,
   PKT__PKT_NESTED = 128,
 } Pkt__PktCase;
 
@@ -619,6 +630,7 @@ struct  _Pkt
      * Unexpected issue.
      */
     Error *error;
+    PingPkt *ping;
     /*
      * Shim to upgrade to new packet format
      */
@@ -1143,6 +1155,25 @@ NestedPkt *
 void   nested_pkt__free_unpacked
                      (NestedPkt *message,
                       ProtobufCAllocator *allocator);
+/* PingPkt methods */
+void   ping_pkt__init
+                     (PingPkt         *message);
+size_t ping_pkt__get_packed_size
+                     (const PingPkt   *message);
+size_t ping_pkt__pack
+                     (const PingPkt   *message,
+                      uint8_t             *out);
+size_t ping_pkt__pack_to_buffer
+                     (const PingPkt   *message,
+                      ProtobufCBuffer     *buffer);
+PingPkt *
+       ping_pkt__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   ping_pkt__free_unpacked
+                     (PingPkt *message,
+                      ProtobufCAllocator *allocator);
 /* Pkt methods */
 void   pkt__init
                      (Pkt         *message);
@@ -1245,6 +1276,9 @@ typedef void (*Error_Closure)
 typedef void (*NestedPkt_Closure)
                  (const NestedPkt *message,
                   void *closure_data);
+typedef void (*PingPkt_Closure)
+                 (const PingPkt *message,
+                  void *closure_data);
 typedef void (*Pkt_Closure)
                  (const Pkt *message,
                   void *closure_data);
@@ -1282,6 +1316,7 @@ extern const ProtobufCMessageDescriptor close_shutdown__descriptor;
 extern const ProtobufCMessageDescriptor close_signature__descriptor;
 extern const ProtobufCMessageDescriptor error__descriptor;
 extern const ProtobufCMessageDescriptor nested_pkt__descriptor;
+extern const ProtobufCMessageDescriptor ping_pkt__descriptor;
 extern const ProtobufCMessageDescriptor pkt__descriptor;
 
 PROTOBUF_C__END_DECLS

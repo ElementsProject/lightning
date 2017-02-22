@@ -229,6 +229,9 @@ message nested_pkt {
   required bytes inner_pkt = 2;
 }
 
+message ping_pkt {
+}
+
 // This is the union which defines all of them
 message pkt {
   oneof pkt {
@@ -255,6 +258,7 @@ message pkt {
 
     // Unexpected issue.
     error error = 40;
+    ping_pkt ping = 41;
 
     // Shim to upgrade to new packet format
     nested_pkt nested = 128;

@@ -1168,6 +1168,49 @@ void   nested_pkt__free_unpacked
   assert(message->base.descriptor == &nested_pkt__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   ping_pkt__init
+                     (PingPkt         *message)
+{
+  static PingPkt init_value = PING_PKT__INIT;
+  *message = init_value;
+}
+size_t ping_pkt__get_packed_size
+                     (const PingPkt *message)
+{
+  assert(message->base.descriptor == &ping_pkt__descriptor);
+  return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
+}
+size_t ping_pkt__pack
+                     (const PingPkt *message,
+                      uint8_t       *out)
+{
+  assert(message->base.descriptor == &ping_pkt__descriptor);
+  return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
+}
+size_t ping_pkt__pack_to_buffer
+                     (const PingPkt *message,
+                      ProtobufCBuffer *buffer)
+{
+  assert(message->base.descriptor == &ping_pkt__descriptor);
+  return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
+}
+PingPkt *
+       ping_pkt__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data)
+{
+  return (PingPkt *)
+     protobuf_c_message_unpack (&ping_pkt__descriptor,
+                                allocator, len, data);
+}
+void   ping_pkt__free_unpacked
+                     (PingPkt *message,
+                      ProtobufCAllocator *allocator)
+{
+  assert(message->base.descriptor == &ping_pkt__descriptor);
+  protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
+}
 void   pkt__init
                      (Pkt         *message)
 {
@@ -2776,7 +2819,25 @@ const ProtobufCMessageDescriptor nested_pkt__descriptor =
   (ProtobufCMessageInit) nested_pkt__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor pkt__field_descriptors[16] =
+#define ping_pkt__field_descriptors NULL
+#define ping_pkt__field_indices_by_name NULL
+#define ping_pkt__number_ranges NULL
+const ProtobufCMessageDescriptor ping_pkt__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "ping_pkt",
+  "PingPkt",
+  "PingPkt",
+  "",
+  sizeof(PingPkt),
+  0,
+  ping_pkt__field_descriptors,
+  ping_pkt__field_indices_by_name,
+  0,  ping_pkt__number_ranges,
+  (ProtobufCMessageInit) ping_pkt__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor pkt__field_descriptors[17] =
 {
   {
     "update_add_htlc",
@@ -2935,6 +2996,18 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[16] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
+    "ping",
+    41,
+    PROTOBUF_C_LABEL_OPTIONAL,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Pkt, pkt_case),
+    offsetof(Pkt, ping),
+    &ping_pkt__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
     "auth",
     50,
     PROTOBUF_C_LABEL_OPTIONAL,
@@ -2972,16 +3045,17 @@ static const ProtobufCFieldDescriptor pkt__field_descriptors[16] =
   },
 };
 static const unsigned pkt__field_indices_by_name[] = {
-  13,   /* field[13] = auth */
+  14,   /* field[14] = auth */
   10,   /* field[10] = close_shutdown */
   11,   /* field[11] = close_signature */
   12,   /* field[12] = error */
-  14,   /* field[14] = init */
-  15,   /* field[15] = nested */
+  15,   /* field[15] = init */
+  16,   /* field[16] = nested */
   6,   /* field[6] = open */
   7,   /* field[7] = open_anchor */
   8,   /* field[8] = open_commit_sig */
   9,   /* field[9] = open_complete */
+  13,   /* field[13] = ping */
   0,   /* field[0] = update_add_htlc */
   4,   /* field[4] = update_commit */
   2,   /* field[2] = update_fail_htlc */
@@ -2995,9 +3069,9 @@ static const ProtobufCIntRange pkt__number_ranges[6 + 1] =
   { 20, 6 },
   { 30, 10 },
   { 40, 12 },
-  { 50, 13 },
-  { 128, 15 },
-  { 0, 16 }
+  { 50, 14 },
+  { 128, 16 },
+  { 0, 17 }
 };
 const ProtobufCMessageDescriptor pkt__descriptor =
 {
@@ -3007,7 +3081,7 @@ const ProtobufCMessageDescriptor pkt__descriptor =
   "Pkt",
   "",
   sizeof(Pkt),
-  16,
+  17,
   pkt__field_descriptors,
   pkt__field_indices_by_name,
   6,  pkt__number_ranges,
