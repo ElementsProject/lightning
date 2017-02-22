@@ -537,7 +537,6 @@ static bool bitcoin_create_anchor(struct peer *peer)
 
 static void send_ping(struct peer *peer)
 {
-	printf("SENDING PING");
 	new_reltimer(&peer->dstate->timers, peer, time_from_sec(1), send_ping, peer);
 	queue_pkt_ping(peer);
 }
