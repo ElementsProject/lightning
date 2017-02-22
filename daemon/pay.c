@@ -217,7 +217,7 @@ static void json_getroute(struct command *cmd,
 			     "msatoshi", &msatoshitok,
 			     "riskfactor", &riskfactortok,
 			     NULL)) {
-		command_fail(cmd, "Need id and msatoshi");
+		command_fail(cmd, "Need id, msatoshi and riskfactor");
 		return;
 	}
 
