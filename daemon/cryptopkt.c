@@ -263,6 +263,11 @@ static struct io_plan *recv_body(struct io_conn *conn, struct peer *peer)
 	if (!peer->inpkt)
 		return io_close(conn);
 
+	if (peer->inpkt->pkt_case == PKT__PKT_PING) {
+		peer->inpkt = tal_free(peer->inpkt);
+		return peer_read_packet(conn, peer, pkt_in);
+	}
+
 	return iod->cb(conn, peer);
 }
 
