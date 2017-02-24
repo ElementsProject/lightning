@@ -358,7 +358,6 @@ static u8 *sign_funding_tx(const tal_t *ctx, const u8 *data)
 	const tal_t *tmpctx = tal_tmpctx(ctx);
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
-	struct privkey local_privkey;
 	struct pubkey local_pubkey, remote_pubkey;
 	struct utxo *inputs;
 	struct bitcoin_tx *tx;
@@ -370,15 +369,9 @@ static u8 *sign_funding_tx(const tal_t *ctx, const u8 *data)
 	/* FIXME: Check fee is "reasonable" */
 	if (!fromwire_hsmctl_sign_funding(tmpctx, data, NULL,
 					  &satoshi_out, &change_out,
-					  &change_keyindex, &local_privkey,
+					  &change_keyindex, &local_pubkey,
 					  &local_pubkey, &inputs))
 		status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "Bad SIGN_FUNDING");
-
-	if (!secp256k1_ec_pubkey_create(secp256k1_ctx,
-					&local_pubkey.pubkey,
-					local_privkey.secret))
-		status_failed(WIRE_HSMSTATUS_BAD_REQUEST,
-			      "Bad SIGN_FUNDING privkey");
 
 	tx = bitcoin_tx(tmpctx, tal_count(inputs), 1 + !!change_out);
 	inmap = tal_arr(tmpctx, const void *, tal_count(inputs));
