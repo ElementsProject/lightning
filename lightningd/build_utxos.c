@@ -188,6 +188,19 @@ static void unreserve_utxo(struct lightningd *ld, const struct utxo *unres)
 	abort();
 }
 
+static void destroy_utxos(struct utxo *utxos, struct lightningd *ld)
+{
+	size_t i;
+
+	for (i = 0; i < tal_count(utxos); i++)
+		unreserve_utxo(ld, &utxos[i]);
+}
+
+void confirm_utxos(struct lightningd *ld, struct utxo *utxos)
+{
+	tal_del_destructor2(utxos, destroy_utxos, ld);
+}
+
 struct utxo *build_utxos(const tal_t *ctx,
 			 struct lightningd *ld, u64 satoshi_out,
 			 u32 feerate_per_kw, u64 dust_limit,
@@ -198,6 +211,8 @@ struct utxo *build_utxos(const tal_t *ctx,
 	struct tracked_utxo *utxo;
 	/* We assume two outputs for the weight. */
 	u64 satoshi_in = 0, weight = (4 + (8 + 22) * 2 + 4) * 4;
+
+	tal_add_destructor2(utxos, destroy_utxos, ld);
 
 	list_for_each(&ld->utxos, utxo, list) {
 		u64 fee;
@@ -229,10 +244,6 @@ struct utxo *build_utxos(const tal_t *ctx,
 		}
 		i++;
 	}
-
-	/* Failed, unmark them all. */
-	for (i = 0; i < tal_count(utxos); i++)
-		unreserve_utxo(ld, &utxos[i]);
 
 	return tal_free(utxos);
 }

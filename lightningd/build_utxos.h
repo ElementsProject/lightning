@@ -11,4 +11,6 @@ struct utxo *build_utxos(const tal_t *ctx,
 			 u32 feerate_per_kw, u64 dust_limit,
 			 u64 *change_amount, u32 *change_keyindex);
 
+/* Once we've spent them, mark them confirmed. */
+void confirm_utxos(struct lightningd *ld, struct utxo *utxos);
 #endif /* LIGHTNING_LIGHTNINGD_BUILD_UTXOS_H */
