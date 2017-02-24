@@ -32,6 +32,7 @@ LIGHTNINGD_OLD_LIB_SRC :=			\
 LIGHTNINGD_OLD_LIB_OBJS := $(LIGHTNINGD_OLD_LIB_SRC:.c=.o)
 LIGHTNINGD_OLD_LIB_HEADERS := $(LIGHTNINGD_OLD_LIB_SRC:.c=.h)
 
+# FIXME: put in a library so we don't link all of them.
 LIGHTNINGD_LIB_SRC :=				\
 	lightningd/channel.c			\
 	lightningd/channel_config.c		\
@@ -41,6 +42,7 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/funding_tx.c			\
 	lightningd/htlc_tx.c			\
 	lightningd/key_derive.c			\
+	lightningd/peer_failed.c			\
 	lightningd/utxo.c
 
 LIGHTNINGD_LIB_OBJS := $(LIGHTNINGD_LIB_SRC:.c=.o)
