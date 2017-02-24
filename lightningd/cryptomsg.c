@@ -142,7 +142,7 @@ static struct io_plan *peer_decrypt_body(struct io_conn *conn,
 	return plan;
 }
 
-bool cryptomsg_decrypt_header(struct crypto_state *cs, u8 *hdr, u16 *lenp)
+bool cryptomsg_decrypt_header(struct crypto_state *cs, u8 hdr[18], u16 *lenp)
 {
 	unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
 	unsigned long long mlen;
@@ -162,9 +162,7 @@ bool cryptomsg_decrypt_header(struct crypto_state *cs, u8 *hdr, u16 *lenp)
 	 */
 	if (crypto_aead_chacha20poly1305_ietf_decrypt((unsigned char *)&len,
 						      &mlen, NULL,
-						      memcheck(hdr,
-							       tal_count(hdr)),
-						      tal_count(hdr),
+						      memcheck(hdr, 18), 18,
 						      NULL, 0,
 						      npub, cs->rk.u.u8) != 0) {
 		/* FIXME: Report error! */

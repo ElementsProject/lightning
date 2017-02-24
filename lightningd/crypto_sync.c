@@ -8,7 +8,7 @@ bool sync_crypto_write(struct crypto_state *cs, int fd, const void *msg)
 	u8 *enc = cryptomsg_encrypt_msg(msg, cs, msg);
 	bool ret;
 
-	ret = wire_sync_write(fd, enc);
+	ret = write_all(fd, enc, tal_len(enc));
 	tal_free(enc);
 	return ret;
 }
@@ -24,8 +24,8 @@ u8 *sync_crypto_read(const tal_t *ctx, struct crypto_state *cs, int fd)
 	if (!cryptomsg_decrypt_header(cs, hdr, &len))
 		return NULL;
 
-	enc = tal_arr(ctx, u8, len);
-	if (!read_all(fd, enc, len))
+	enc = tal_arr(ctx, u8, len + 16);
+	if (!read_all(fd, enc, tal_len(enc)))
 		return tal_free(enc);
 
 	dec = cryptomsg_decrypt_body(ctx, cs, enc);
