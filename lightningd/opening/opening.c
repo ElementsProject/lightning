@@ -1,5 +1,4 @@
 /* FIXME: Handle incoming gossip messages! */
-/* FIXME: send peer PKT_ERR when failing! */
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <ccan/breakpoint/breakpoint.h>
@@ -15,6 +14,7 @@
 #include <lightningd/key_derive.h>
 #include <lightningd/opening/gen_opening_control_wire.h>
 #include <lightningd/opening/gen_opening_status_wire.h>
+#include <lightningd/peer_failed.h>
 #include <secp256k1.h>
 #include <signal.h>
 #include <status.h>
@@ -123,7 +123,7 @@ static void derive_our_basepoints(const struct sha256 *seed,
 /* Yes, this multi-evaluates, and isn't do-while wrapped. */
 #define test_config_inrange(conf, min, max, field, fmt)			\
 	if ((conf)->field < (min)->field || (conf)->field > (max)->field) \
-		status_failed(WIRE_OPENING_PEER_BAD_CONFIG,		\
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_CONFIG, \
 			      #field " %"fmt" too large (%"fmt"-%"fmt")", \
 			      (conf)->field, (min)->field, (max)->field)
 
@@ -134,7 +134,8 @@ static void derive_our_basepoints(const struct sha256 *seed,
 #define test_config_inrange_u16(conf, min, max, field)	\
 	test_config_inrange(conf, min, max, field, "u")
 
-static void check_config_bounds(const struct channel_config *remoteconf,
+static void check_config_bounds(struct state *state,
+				const struct channel_config *remoteconf,
 				const struct channel_config *minc,
 				const struct channel_config *maxc)
 {
@@ -144,7 +145,7 @@ static void check_config_bounds(const struct channel_config *remoteconf,
 	 * 511.
 	 */
 	if (maxc->max_accepted_htlcs > 511)
-		status_failed(WIRE_OPENING_BAD_PARAM,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
 			      "max->max_accepted_htlcs %u too large",
 			      maxc->max_accepted_htlcs);
 
@@ -227,7 +228,7 @@ static void open_channel(struct state *state, const struct points *ours)
 	 *
 	 * The sender MUST set `funding-satoshis` to less than 2^24 satoshi. */
 	if (state->funding_satoshis >= 1 << 24)
-		status_failed(WIRE_OPENING_BAD_PARAM,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
 			      "funding_satoshis must be < 2^24");
 
 	/* BOLT #2:
@@ -236,7 +237,7 @@ static void open_channel(struct state *state, const struct points *ours)
 	 * `funding-satoshis`.
 	 */
 	if (state->push_msat > 1000 * state->funding_satoshis)
-		status_failed(WIRE_OPENING_BAD_PARAM,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
 			      "push-msat must be < %"PRIu64,
 			      1000 * state->funding_satoshis);
 
@@ -255,14 +256,14 @@ static void open_channel(struct state *state, const struct points *ours)
 				  &ours->delayed_payment_basepoint,
 				  &state->next_per_commit[LOCAL]);
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
-		status_failed(WIRE_OPENING_PEER_WRITE_FAILED,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
 			      "Writing open_channel");
 
 	state->remoteconf = tal(state, struct channel_config);
 
 	msg = sync_crypto_read(state, &state->cs, PEER_FD);
 	if (!msg)
-		status_failed(WIRE_OPENING_PEER_READ_FAILED,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Reading accept_channel");
 
 	/* BOLT #2:
@@ -287,7 +288,7 @@ static void open_channel(struct state *state, const struct points *ours)
 				     &theirs.payment_basepoint,
 				     &theirs.delayed_payment_basepoint,
 				     &state->next_per_commit[REMOTE]))
-		status_failed(WIRE_OPENING_PEER_READ_FAILED,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Parsing accept_channel %s", tal_hex(msg, msg));
 
 	/* BOLT #2:
@@ -295,12 +296,12 @@ static void open_channel(struct state *state, const struct points *ours)
 	 * The `temporary-channel-id` MUST be the same as the
 	 * `temporary-channel-id` in the `open_channel` message. */
 	if (!structeq(&tmpid, &tmpid2))
-		status_failed(WIRE_OPENING_PEER_READ_FAILED,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "accept_channel ids don't match: sent %s got %s",
 			      type_to_string(msg, struct channel_id, &tmpid),
 			      type_to_string(msg, struct channel_id, &tmpid2));
 
-	check_config_bounds(state->remoteconf,
+	check_config_bounds(state, state->remoteconf,
 			    &state->minconf, &state->maxconf);
 
 	/* Now, ask master create a transaction to pay those two addresses. */
@@ -313,7 +314,7 @@ static void open_channel(struct state *state, const struct points *ours)
 	if (!fromwire_opening_open_funding(msg, NULL,
 					   &state->funding_txid,
 					   &state->funding_txout))
-		status_failed(WIRE_BAD_COMMAND, "reading opening_open_funding");
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_BAD_COMMAND, "reading opening_open_funding");
 
 	state->channel = new_channel(state,
 				      &state->funding_txid,
@@ -331,7 +332,7 @@ static void open_channel(struct state *state, const struct points *ours)
 				      &theirs.delayed_payment_basepoint,
 				      LOCAL);
 	if (!state->channel)
-		status_failed(WIRE_OPENING_BAD_PARAM,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
 			      "could not create channel with given config");
 
 	/* BOLT #2:
@@ -353,7 +354,7 @@ static void open_channel(struct state *state, const struct points *ours)
 				     state->funding_txout,
 				     &sig);
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
-		status_failed(WIRE_OPENING_PEER_WRITE_FAILED,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
 			      "Writing funding_created");
 
 	/* BOLT #2:
@@ -366,14 +367,14 @@ static void open_channel(struct state *state, const struct points *ours)
 	 */
 	msg = sync_crypto_read(state, &state->cs, PEER_FD);
 	if (!msg)
-		status_failed(WIRE_OPENING_PEER_READ_FAILED,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Reading funding_signed");
 
 	if (!fromwire_funding_signed(msg, NULL, &tmpid2, &sig))
-		status_failed(WIRE_OPENING_PEER_READ_FAILED,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Parsing funding_signed");
 	if (!structeq(&tmpid, &tmpid2))
-		status_failed(WIRE_OPENING_PEER_READ_FAILED,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "funding_signed ids don't match: sent %s got %s",
 			      type_to_string(msg, struct channel_id, &tmpid),
 			      type_to_string(msg, struct channel_id, &tmpid2));
@@ -387,7 +388,7 @@ static void open_channel(struct state *state, const struct points *ours)
 
 	if (!check_commit_sig(state, &ours->funding_pubkey,
 			      &theirs.funding_pubkey, tx, &sig))
-		status_failed(WIRE_OPENING_PEER_READ_FAILED,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Bad signature %s on tx %s using key %s",
 			      type_to_string(trc, secp256k1_ecdsa_signature,
 					     &sig),
@@ -446,7 +447,7 @@ static void recv_channel(struct state *state, const struct points *ours,
 				   &theirs.payment_basepoint,
 				   &theirs.delayed_payment_basepoint,
 				   &state->next_per_commit[REMOTE]))
-		status_failed(WIRE_OPENING_PEER_BAD_INITIAL_MESSAGE,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_INITIAL_MESSAGE,
 			      "Parsing open_channel %s",
 			      tal_hex(peer_msg, peer_msg));
 
@@ -455,7 +456,7 @@ static void recv_channel(struct state *state, const struct points *ours,
 	 * The receiving node ... MUST fail the channel if `funding-satoshis`
 	 * is greater than or equal to 2^24 */
 	if (state->funding_satoshis >= 1 << 24)
-		status_failed(WIRE_OPENING_PEER_BAD_FUNDING,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_FUNDING,
 			      "funding_satoshis %"PRIu64" too large",
 			      state->funding_satoshis);
 
@@ -465,12 +466,12 @@ static void recv_channel(struct state *state, const struct points *ours,
 	 * greater than `funding-satoshis` * 1000.
 	 */
 	if (state->push_msat > state->funding_satoshis * 1000)
-		status_failed(WIRE_OPENING_PEER_BAD_FUNDING,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_FUNDING,
 			      "push_msat %"PRIu64
 			      " too large for funding_satoshis %"PRIu64,
 			      state->push_msat, state->funding_satoshis);
 
-	check_config_bounds(state->remoteconf,
+	check_config_bounds(state, state->remoteconf,
 			    &state->minconf, &state->maxconf);
 
 	msg = towire_accept_channel(state, &tmpid,
@@ -489,19 +490,19 @@ static void recv_channel(struct state *state, const struct points *ours,
 				    &state->next_per_commit[REMOTE]);
 
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
-		status_failed(WIRE_OPENING_PEER_WRITE_FAILED,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
 			      "Writing accept_channel");
 
 	msg = sync_crypto_read(state, &state->cs, PEER_FD);
 	if (!msg)
-		status_failed(WIRE_OPENING_PEER_READ_FAILED,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Reading funding_created");
 
 	if (!fromwire_funding_created(msg, NULL, &tmpid2,
 				      &state->funding_txid.sha,
 				      &state->funding_txout,
 				      &theirsig))
-		status_failed(WIRE_OPENING_PEER_READ_FAILED,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Parsing funding_created");
 
 	/* BOLT #2:
@@ -509,7 +510,7 @@ static void recv_channel(struct state *state, const struct points *ours,
 	 * The sender MUST set `temporary-channel-id` the same as the
 	 * `temporary-channel-id` in the `open_channel` message. */
 	if (!structeq(&tmpid, &tmpid2))
-		status_failed(WIRE_OPENING_PEER_READ_FAILED,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "funding_created ids don't match: sent %s got %s",
 			      type_to_string(msg, struct channel_id, &tmpid),
 			      type_to_string(msg, struct channel_id, &tmpid2));
@@ -530,7 +531,7 @@ static void recv_channel(struct state *state, const struct points *ours,
 				      &theirs.delayed_payment_basepoint,
 				      REMOTE);
 	if (!state->channel)
-		status_failed(WIRE_OPENING_BAD_PARAM,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
 			      "could not create channel with given config");
 
 	/* BOLT #2:
@@ -542,7 +543,7 @@ static void recv_channel(struct state *state, const struct points *ours,
 
 	if (!check_commit_sig(state, &ours->funding_pubkey,
 			      &theirs.funding_pubkey, tx, &theirsig))
-		status_failed(WIRE_OPENING_PEER_READ_FAILED,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Bad signature %s on tx %s using key %s",
 			      type_to_string(trc, secp256k1_ecdsa_signature,
 					     &sig),
@@ -566,7 +567,7 @@ static void recv_channel(struct state *state, const struct points *ours,
 
 	msg = towire_funding_signed(state, &tmpid, &sig);
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
-		status_failed(WIRE_OPENING_PEER_WRITE_FAILED,
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
 			      "Writing funding_signed");
 
 	msg = towire_opening_accept_resp(state,
