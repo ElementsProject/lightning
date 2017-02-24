@@ -2,7 +2,6 @@
 #include "type_to_string.h"
 #include <assert.h>
 #include <bitcoin/privkey.h>
-#include <ccan/breakpoint/breakpoint.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/endian/endian.h>
@@ -11,6 +10,7 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/short_types/short_types.h>
 #include <errno.h>
+#include <lightningd/debug.h>
 #include <lightningd/handshake/gen_handshake_control_wire.h>
 #include <lightningd/handshake/gen_handshake_status_wire.h>
 #include <lightningd/hsm/client.h>
@@ -979,7 +979,7 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
-	breakpoint();
+	subdaemon_debug(argc, argv);
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 	status_setup(STATUS_FD);

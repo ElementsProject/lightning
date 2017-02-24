@@ -90,4 +90,7 @@ void subdaemon_req_(struct subdaemon *sd,
 		    int fd_out, int *fd_in,
 		    void (*reqcb)(struct subdaemon *, const u8 *, void *),
 		    void *reqcb_data);
+
+char *opt_subdaemon_debug(const char *optarg, struct lightningd *ld);
+
 #endif /* LIGHTNING_LIGHTNINGD_SUBDAEMON_H */

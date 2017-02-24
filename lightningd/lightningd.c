@@ -74,6 +74,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	list_head_init(&ld->peers);
 	ld->peer_counter = 0;
 	ld->bip32_max_index = 0;
+	ld->dev_debug_subdaemon = NULL;
 	list_head_init(&ld->utxos);
 	ld->dstate.log_book = new_log_book(&ld->dstate, 20*1024*1024,LOG_INFORM);
 	ld->log = ld->dstate.base_log = new_log(&ld->dstate,
@@ -175,8 +176,11 @@ int main(int argc, char *argv[])
 	/* Figure out where we are first. */
 	ld->daemon_dir = find_my_path(ld, argv[0]);
 
-	/* Handle options and config; move to .lightningd */
 	register_opts(&ld->dstate);
+	opt_register_arg("--dev-debugger=<subdaemon>", opt_subdaemon_debug, NULL,
+			 ld, "Wait for gdb attach at start of <subdaemon>");
+
+	/* Handle options and config; move to .lightningd */
 	newdir = handle_opts(&ld->dstate, argc, argv);
 
 	/* Activate crash log now we're in the right place. */

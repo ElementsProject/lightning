@@ -46,7 +46,7 @@ static bool move_fd(int from, int to)
 }
 
 /* We use sockets, not pipes, because fds are bidir. */
-static int subdaemon(const char *dir, const char *name,
+static int subdaemon(const char *dir, const char *name, bool debug,
 		     int *statusfd, int *reqfd, va_list ap)
 {
 	int childreq[2], childstatus[2], execfail[2];
@@ -79,6 +79,7 @@ static int subdaemon(const char *dir, const char *name,
 	if (childpid == 0) {
 		int fdnum = 3;
 		long max;
+		const char *debug_arg = NULL;
 
 		if (reqfd)
 			close(childreq[0]);
@@ -109,7 +110,10 @@ static int subdaemon(const char *dir, const char *name,
 		max = sysconf(_SC_OPEN_MAX);
 		for (fd = fdnum; fd < max; fd++)
 			close(fd);
-		execl(path_join(NULL, dir, name), name, NULL);
+
+		if (debug)
+			debug_arg = "--debugger";
+		execl(path_join(NULL, dir, name), name, debug_arg, NULL);
 
 	child_errno_fail:
 		err = errno;
@@ -259,9 +263,11 @@ struct subdaemon *new_subdaemon(const tal_t *ctx,
 	va_list ap;
 	struct subdaemon *sd = tal(ctx, struct subdaemon);
 	int req_fd, status_fd;
+	bool debug;
 
+	debug = ld->dev_debug_subdaemon && strends(name,ld->dev_debug_subdaemon);
 	va_start(ap, finished);
-	sd->pid = subdaemon(ld->daemon_dir, name, &status_fd,
+	sd->pid = subdaemon(ld->daemon_dir, name, debug, &status_fd,
 			    reqname ? &req_fd : NULL, ap);
 	va_end(ap);
 	if (sd->pid == (pid_t)-1) {
@@ -382,4 +388,10 @@ void subdaemon_req_(struct subdaemon *sd,
 	sr->req_data = reqcb_data;
 	list_add_tail(&sd->reqs, &sr->list);
 	io_wake(sd);
+}
+
+char *opt_subdaemon_debug(const char *optarg, struct lightningd *ld)
+{
+	ld->dev_debug_subdaemon = optarg;
+	return NULL;
 }

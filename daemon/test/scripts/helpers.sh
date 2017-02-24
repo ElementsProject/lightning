@@ -46,6 +46,12 @@ parse_cmdline()
 		    exit 1
 		fi
 		;;
+	    x"--gdb1="*)
+		DAEMON1_EXTRA=--dev-debugger=${1#--gdb1=}
+		;;
+	    x"--gdb2="*)
+		DAEMON2_EXTRA=--dev-debugger=${1#--gdb2=}
+		;;
 	    x"--reconnect")
 		RECONNECT=reconnect
 		;;
@@ -122,21 +128,21 @@ EOF
     [ $NUM_LIGHTNINGD = 2 ] || echo port=`findport 4010 $VARIANT` >> $DIR3/config
 }
 
-# Use DIR REDIR REDIRERR GDBFLAG BINARY
+# Use DIR REDIR REDIRERR GDBFLAG BINARY EXTRAARGS
 start_one_lightningd()
 {
     # Need absolute path for re-exec testing.
     local CMD
     CMD="$(readlink -f `pwd`/../../$5) --lightning-dir=$1"
     if [ -n "$4" ]; then
-	echo Press return once you run: gdb --args $CMD >&2
+	echo Press return once you run: gdb --args $CMD $6 >&2
 
 	read REPLY
     else
 	CMD="$PREFIX $CMD"
-	$CMD > $2 2> $3 &
+	$CMD $6 > $2 2> $3 &
     fi
-    echo $CMD
+    echo $CMD $6
 }
 
 start_lightningd()
@@ -153,8 +159,8 @@ start_lightningd()
 	SHUTDOWN_BITCOIN=/bin/true
     fi
 
-    LIGHTNINGD1=`start_one_lightningd $DIR1 $REDIR1 $REDIRERR1 "$GDB1" $BINARY`
-    LIGHTNINGD2=`start_one_lightningd $DIR2 $REDIR2 $REDIRERR2 "$GDB2" $BINARY`
+    LIGHTNINGD1=`start_one_lightningd $DIR1 $REDIR1 $REDIRERR1 "$GDB1" $BINARY $DAEMON1_EXTRA`
+    LIGHTNINGD2=`start_one_lightningd $DIR2 $REDIR2 $REDIRERR2 "$GDB2" $BINARY $DAEMON2_EXTRA`
     [ $NUM_LIGHTNINGD = 2 ] || LIGHTNINGD3=`start_one_lightningd $DIR3 $REDIR3 $REDIRERR3 "$GDB3" $BINARY`
 
     if ! check "$LCLI1 getlog 2>/dev/null | $FGREP Hello"; then

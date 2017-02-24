@@ -11,6 +11,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/commit_tx.h>
 #include <lightningd/crypto_sync.h>
+#include <lightningd/debug.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/opening/gen_opening_control_wire.h>
 #include <lightningd/opening/gen_opening_status_wire.h>
@@ -683,7 +684,7 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
-	breakpoint();
+	subdaemon_debug(argc, argv);
 
 	/* We handle write returning errors! */
 	signal(SIGCHLD, SIG_IGN);

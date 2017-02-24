@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <lightningd/cryptomsg.h>
+#include <lightningd/debug.h>
 #include <lightningd/gossip/gen_gossip_control_wire.h>
 #include <lightningd/gossip/gen_gossip_status_wire.h>
 #include <secp256k1_ecdh.h>
@@ -381,7 +382,7 @@ int main(int argc, char *argv[])
 {
 	struct daemon *daemon;
 
-	breakpoint();
+	subdaemon_debug(argc, argv);
 
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
