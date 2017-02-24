@@ -1,4 +1,3 @@
-#include <ccan/breakpoint/breakpoint.h>
 #include <ccan/container_of/container_of.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/endian/endian.h>

@@ -5,6 +5,8 @@
 #include <daemon/netaddr.h>
 #include <stdbool.h>
 
+struct crypto_state;
+
 struct peer {
 	struct lightningd *ld;
 
@@ -41,6 +43,10 @@ struct peer {
 };
 
 struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id);
+struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id);
+
+void peer_accept_open(struct peer *peer,
+		      const struct crypto_state *cs, const u8 *msg);
 
 PRINTF_FMT(2,3) void peer_set_condition(struct peer *peer, const char *fmt, ...);
 void setup_listeners(struct lightningd *ld);

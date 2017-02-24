@@ -107,7 +107,8 @@ static const char *daemons[] = {
 	"lightningd",
 	"lightningd_hsm",
 	"lightningd_handshake",
-	"lightningd_gossip"
+	"lightningd_gossip",
+	"lightningd_opening"
 };
 
 /* Check we can run them, and check their versions */

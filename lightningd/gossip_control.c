@@ -69,7 +69,7 @@ static void peer_nongossip(struct subdaemon *gossip, const u8 *msg, int fd)
 	peer_set_condition(peer, "Gossip ended up receipt of %s",
 			   wire_type_name(fromwire_peektype(inner)));
 
-	/* FIXME: create new daemon to handle peer. */
+	peer_accept_open(peer, &cs, inner);
 }
 
 static void peer_ready(struct subdaemon *gossip, const u8 *msg)
