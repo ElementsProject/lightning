@@ -139,7 +139,13 @@ static u8 *handle_ecdh(struct client *c, const void *data)
 static u8 *init_response(struct conn_info *control)
 {
 	struct pubkey node_id;
+	struct privkey peer_seed;
 	u8 *serialized_extkey = tal_arr(control, u8, BIP32_SERIALIZED_LEN), *msg;
+
+	hkdf_sha256(&peer_seed, sizeof(peer_seed), NULL, 0,
+		    &secretstuff.hsm_secret,
+		    sizeof(secretstuff.hsm_secret),
+		    "peer seed", strlen("peer seed"));
 
 	node_key(NULL, &node_id);
 	if (bip32_key_serialize(&secretstuff.bip32, BIP32_FLAG_KEY_PUBLIC,
@@ -148,7 +154,8 @@ static u8 *init_response(struct conn_info *control)
 		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
 			      "Can't serialize bip32 public key");
 
-	msg = towire_hsmctl_init_response(control, &node_id, serialized_extkey);
+	msg = towire_hsmctl_init_response(control, &node_id, &peer_seed,
+					  serialized_extkey);
 	tal_free(serialized_extkey);
 	return msg;
 }

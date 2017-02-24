@@ -17,6 +17,7 @@ static void hsm_init_done(struct subdaemon *hsm, const u8 *msg,
 	u8 *serialized_extkey;
 
 	if (!fromwire_hsmctl_init_response(hsm, msg, NULL, &ld->dstate.id,
+					   &ld->peer_seed,
 					   &serialized_extkey))
 		errx(1, "HSM did not give init response");
 

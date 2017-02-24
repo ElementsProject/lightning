@@ -4,6 +4,7 @@
 #include "peer_control.h"
 #include "subdaemon.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/err/err.h>
 #include <ccan/io/fdpass/fdpass.h>
 #include <ccan/io/io.h>
@@ -71,6 +72,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	struct lightningd *ld = tal(ctx, struct lightningd);
 
 	list_head_init(&ld->peers);
+	ld->peer_counter = 0;
 	ld->bip32_max_index = 0;
 	list_head_init(&ld->utxos);
 	ld->dstate.log_book = new_log_book(&ld->dstate, 20*1024*1024,LOG_INFORM);
@@ -141,6 +143,23 @@ static const char *find_my_path(const tal_t *ctx, const char *argv0)
 		errx(1, "I cannot find myself at %s based on my name %s",
 		     me, argv0);
 	return path_dirname(ctx, take(me));
+}
+
+void derive_peer_seed(struct lightningd *ld, struct privkey *peer_seed,
+		      const struct pubkey *peer_id)
+{
+	be64 counter = cpu_to_be64(ld->peer_counter);
+	u8 input[PUBKEY_DER_LEN + sizeof(counter)];
+
+	pubkey_to_der(input, peer_id);
+	memcpy(input + PUBKEY_DER_LEN, &counter, sizeof(counter));
+
+	hkdf_sha256(peer_seed, sizeof(*peer_seed),
+		    input, sizeof(input),
+		    &ld->peer_seed, sizeof(ld->peer_seed),
+		    "per-ppeer seed", strlen("per-peer seed"));
+	/* FIXME: This must be saved in db. */
+	ld->peer_counter++;
 }
 
 int main(int argc, char *argv[])

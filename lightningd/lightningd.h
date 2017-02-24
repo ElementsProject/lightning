@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_LIGHTNINGD_H
 #define LIGHTNING_LIGHTNINGD_LIGHTNINGD_H
 #include "config.h"
+#include <bitcoin/privkey.h>
 #include <ccan/container_of/container_of.h>
 #include <daemon/lightningd.h>
 
@@ -30,6 +31,10 @@ struct lightningd {
 
 	/* All peers we're tracking. */
 	struct list_head peers;
+	/* FIXME: This should stay in HSM */
+	struct privkey peer_seed;
+	/* Used to give a unique seed to every peer. */
+	u64 peer_counter;
 
 	/* Public base for bip32 keys, and max we've ever used. */
 	struct ext_key *bip32_base;
@@ -38,6 +43,9 @@ struct lightningd {
 	/* UTXOs we have available to spend. */
 	struct list_head utxos;
 };
+
+void derive_peer_seed(struct lightningd *ld, struct privkey *peer_seed,
+		      const struct pubkey *peer_id);
 
 /* FIXME */
 static inline struct lightningd *
