@@ -1,20 +1,21 @@
 #include <lightningd/cryptomsg.h>
 #include <lightningd/channel_config.h>
 opening_init,0
-# What configuration we'll offer
+# Base configuration we'll offer (channel reserve will vary with amount)
 opening_init,0,our_config,36,struct channel_config
 # Minimum/maximum configuration values we'll accept
-opening_init,36,min_config,36,struct channel_config
-opening_init,72,max_config,36,struct channel_config
-opening_init,108,crypto_state,144,struct crypto_state
+opening_init,36,max_to_self_delay,4
+opening_init,40,min_effective_htlc_capacity_msat,8
+opening_init,48,crypto_state,144,struct crypto_state
 # Seed to generate all the keys from
-opening_init,252,seed,32,struct privkey
+opening_init,196,seed,32,struct privkey
 
 # This means we offer the open.
 opening_open,1
 opening_open,0,funding_satoshis,8
 opening_open,8,push_msat,8
 opening_open,16,feerate_per_kw,4
+opening_open,20,max_minimum_depth,4
 
 # Response asks for txid of funding transaction.
 opening_open_resp,101
@@ -38,8 +39,10 @@ opening_open_funding_resp,343,their_per_commit_point,33
 
 # This means they offer the open (contains their offer packet)
 opening_accept,3
-opening_accept,0,len,2
-opening_accept,2,msg,len,u8
+opening_accept,0,min_feerate,4
+opening_accept,4,max_feerate,4
+opening_accept,8,len,2
+opening_accept,10,msg,len,u8
 
 # This gives the txid of their funding tx: we're done.
 opening_accept_resp,103

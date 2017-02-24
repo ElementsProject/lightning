@@ -59,7 +59,11 @@ struct state {
 
 	/* Our shaseed for generating per-commitment-secrets. */
 	struct sha256 shaseed;
-	struct channel_config localconf, *remoteconf, minconf, maxconf;
+	struct channel_config localconf, *remoteconf;
+
+	/* Limits on what remote config we accept */
+	u32 max_to_self_delay;
+	u64 min_effective_htlc_capacity_msat;
 
 	struct channel *channel;
 };
@@ -120,55 +124,94 @@ static void derive_our_basepoints(const struct privkey *seed,
 					     &per_commit_secret));
 }
 
-/* Yes, this multi-evaluates, and isn't do-while wrapped. */
-#define test_config_inrange(conf, min, max, field, fmt)			\
-	if ((conf)->field < (min)->field || (conf)->field > (max)->field) \
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_CONFIG, \
-			      #field " %"fmt" too large (%"fmt"-%"fmt")", \
-			      (conf)->field, (min)->field, (max)->field)
-
-#define test_config_inrange_u64(conf, min, max, field)	\
-	test_config_inrange(conf, min, max, field, PRIu64)
-#define test_config_inrange_u32(conf, min, max, field)	\
-	test_config_inrange(conf, min, max, field, "u")
-#define test_config_inrange_u16(conf, min, max, field)	\
-	test_config_inrange(conf, min, max, field, "u")
-
 static void check_config_bounds(struct state *state,
-				const struct channel_config *remoteconf,
-				const struct channel_config *minc,
-				const struct channel_config *maxc)
+				const struct channel_config *remoteconf)
 {
-	/* BOLT #2:
-	 *
-	 * It MUST fail the channel if `max-accepted-htlcs` is greater than
-	 * 511.
-	 */
-	if (maxc->max_accepted_htlcs > 511)
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
-			      "max->max_accepted_htlcs %u too large",
-			      maxc->max_accepted_htlcs);
+	u64 capacity_msat;
+	u64 reserve_msat;
 
 	/* BOLT #2:
 	 *
 	 * The receiving node MUST fail the channel if `to-self-delay` is
-	 * unreasonably large.  The receiver MAY fail the channel if
-	 * `funding-satoshis` is too small....  The receiving node MAY fail
-	 * the channel if it considers `htlc-minimum-msat` too large,
+	 * unreasonably large.
+	 */
+	if (remoteconf->to_self_delay > state->max_to_self_delay)
+		peer_failed(PEER_FD, &state->cs, NULL,
+			    WIRE_OPENING_PEER_BAD_CONFIG,
+			    "to_self_delay %u larger than %u",
+			    remoteconf->to_self_delay, state->max_to_self_delay);
+
+	/* BOLT #2:
+	 *
+	 * The receiver MAY fail the channel if `funding-satoshis` is too
+	 * small, and MUST fail the channel if `push-msat` is greater than
+	 * `funding-amount` * 1000.  The receiving node MAY fail the channel
+	 * if it considers `htlc-minimum-msat` too large,
 	 * `max-htlc-value-in-flight` too small, `channel-reserve-satoshis`
 	 * too large, or `max-accepted-htlcs` too small.
-	 *
-	 * The receiver MUST fail the channel if it considers `feerate-per-kw`
-	 * too small for timely processing, or unreasonably large.
 	 */
-	/* We simply compare every field, and let the master daemon sort out
-	   the bounds. */
-	test_config_inrange_u64(remoteconf, minc, maxc, dust_limit_satoshis);
-	test_config_inrange_u64(remoteconf, minc, maxc, channel_reserve_satoshis);
-	test_config_inrange_u32(remoteconf, minc, maxc, minimum_depth);
-	test_config_inrange_u32(remoteconf, minc, maxc, htlc_minimum_msat);
-	test_config_inrange_u16(remoteconf, minc, maxc, to_self_delay);
-	test_config_inrange_u16(remoteconf, minc, maxc, max_accepted_htlcs);
+	/* We accumulate this into an effective bandwidth minimum. */
+
+	/* Overflow check before capacity calc. */
+	if (remoteconf->channel_reserve_satoshis > state->funding_satoshis)
+		peer_failed(PEER_FD, &state->cs, NULL,
+			    WIRE_OPENING_PEER_BAD_CONFIG,
+			    "Invalid channel_reserve_satoshis %"PRIu64
+			    " for funding_satoshis %"PRIu64,
+			    remoteconf->channel_reserve_satoshis,
+			    state->funding_satoshis);
+
+	/* Consider highest reserve. */
+	reserve_msat = remoteconf->channel_reserve_satoshis * 1000;
+	if (state->localconf.channel_reserve_satoshis * 1000 > reserve_msat)
+		reserve_msat = state->localconf.channel_reserve_satoshis * 1000;
+
+	capacity_msat = state->funding_satoshis * 1000 - reserve_msat;
+
+	if (remoteconf->max_htlc_value_in_flight_msat < capacity_msat)
+		capacity_msat = remoteconf->max_htlc_value_in_flight_msat;
+
+	if (remoteconf->htlc_minimum_msat * (u64)1000 > capacity_msat)
+		peer_failed(PEER_FD, &state->cs, NULL,
+			    WIRE_OPENING_PEER_BAD_CONFIG,
+			    "Invalid htlc_minimum_msat %u"
+			    " for funding_satoshis %"PRIu64
+			    " capacity_msat %"PRIu64,
+			    remoteconf->htlc_minimum_msat,
+			    state->funding_satoshis,
+			    capacity_msat);
+
+	if (capacity_msat < state->min_effective_htlc_capacity_msat)
+		peer_failed(PEER_FD, &state->cs, NULL,
+			    WIRE_OPENING_PEER_BAD_CONFIG,
+			    "Channel capacity with funding %"PRIu64" msat,"
+			    " reserves %"PRIu64"/%"PRIu64" msat,"
+			    " max_htlc_value_in_flight_msat %"PRIu64
+			    " is %"PRIu64" msat, which is below %"PRIu64" msat",
+			    state->funding_satoshis * 1000,
+			    remoteconf->channel_reserve_satoshis * 1000,
+			    state->localconf.channel_reserve_satoshis * 1000,
+			    remoteconf->max_htlc_value_in_flight_msat,
+			    capacity_msat,
+			    state->min_effective_htlc_capacity_msat);
+
+	/* We don't worry about how many HTLCs they accept, as long as > 0! */
+	if (remoteconf->max_accepted_htlcs == 0)
+		peer_failed(PEER_FD, &state->cs, NULL,
+			    WIRE_OPENING_PEER_BAD_CONFIG,
+			    "max_accepted_htlcs %u invalid",
+			    remoteconf->max_accepted_htlcs);
+
+	/* BOLT #2:
+	 *
+	 * It MUST fail the channel if `max-accepted-htlcs` is greater
+	 * than 511.
+	 */
+	if (remoteconf->max_accepted_htlcs > 511)
+		peer_failed(PEER_FD, &state->cs, NULL,
+			    WIRE_OPENING_PEER_BAD_CONFIG,
+			    "max_accepted_htlcs %u too large",
+			    remoteconf->max_accepted_htlcs);
 }
 
 static bool check_commit_sig(const struct state *state,
@@ -207,13 +250,23 @@ sign_remote_commit(const struct state *state,
 	return sig;
 }
 
-static void open_channel(struct state *state, const struct points *ours)
+/* We always set channel_reserve_satoshis to 1%, rounded up. */
+static void set_reserve(u64 *reserve, u64 funding)
+{
+	*reserve = (funding + 99) / 100;
+}
+
+static void open_channel(struct state *state, const struct points *ours,
+			 u32 max_minimum_depth)
 {
 	struct channel_id tmpid, tmpid2;
 	u8 *msg;
 	struct bitcoin_tx *tx;
 	struct points theirs;
 	secp256k1_ecdsa_signature sig;
+
+	set_reserve(&state->localconf.channel_reserve_satoshis,
+		    state->funding_satoshis);
 
 	/* BOLT #2:
 	 *
@@ -279,8 +332,8 @@ static void open_channel(struct state *state, const struct points *ours)
 					->max_htlc_value_in_flight_msat,
 				     &state->remoteconf
 					->channel_reserve_satoshis,
+				     &state->remoteconf->minimum_depth,
 				     &state->remoteconf->htlc_minimum_msat,
-				     &state->feerate_per_kw,
 				     &state->remoteconf->to_self_delay,
 				     &state->remoteconf->max_accepted_htlcs,
 				     &theirs.funding_pubkey,
@@ -301,8 +354,19 @@ static void open_channel(struct state *state, const struct points *ours)
 			      type_to_string(msg, struct channel_id, &tmpid),
 			      type_to_string(msg, struct channel_id, &tmpid2));
 
-	check_config_bounds(state, state->remoteconf,
-			    &state->minconf, &state->maxconf);
+	/* BOLT #2:
+	 *
+	 * The receiver MAY reject the `minimum-depth` if it considers it
+	 * unreasonably large.
+	 *
+	 * Other fields have the same requirements as their counterparts in
+	 * `open_channel`.
+	 */
+	if (state->remoteconf->minimum_depth > max_minimum_depth)
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
+			    "minimum_depth %u larger than %u",
+			    state->remoteconf->minimum_depth, max_minimum_depth);
+	check_config_bounds(state, state->remoteconf);
 
 	/* Now, ask master create a transaction to pay those two addresses. */
 	msg = towire_opening_open_resp(state, &ours->funding_pubkey,
@@ -419,7 +483,7 @@ static void open_channel(struct state *state, const struct points *ours)
 /* This is handed the message the peer sent which caused gossip to stop:
  * it should be an open_channel */
 static void recv_channel(struct state *state, const struct points *ours,
-			 const u8 *peer_msg)
+			 u32 min_feerate, u32 max_feerate, const u8 *peer_msg)
 {
 	struct channel_id tmpid, tmpid2;
 	struct points theirs;
@@ -474,16 +538,32 @@ static void recv_channel(struct state *state, const struct points *ours,
 			      " too large for funding_satoshis %"PRIu64,
 			      state->push_msat, state->funding_satoshis);
 
-	check_config_bounds(state, state->remoteconf,
-			    &state->minconf, &state->maxconf);
+	/* BOLT #3:
+	 *
+	 * The receiver MUST fail the channel if it considers `feerate-per-kw`
+	 * too small for timely processing, or unreasonably large.
+	 */
+	if (state->feerate_per_kw < min_feerate)
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_FUNDING,
+			    "feerate_per_kw %u below minimum %u",
+			    state->feerate_per_kw, min_feerate);
+
+	if (state->feerate_per_kw > max_feerate)
+		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_FUNDING,
+			    "feerate_per_kw %u above maximum %u",
+			    state->feerate_per_kw, max_feerate);
+
+	set_reserve(&state->localconf.channel_reserve_satoshis,
+		    state->funding_satoshis);
+	check_config_bounds(state, state->remoteconf);
 
 	msg = towire_accept_channel(state, &tmpid,
 				    state->localconf.dust_limit_satoshis,
 				    state->localconf
 				      .max_htlc_value_in_flight_msat,
 				    state->localconf.channel_reserve_satoshis,
+				    state->localconf.minimum_depth,
 				    state->localconf.htlc_minimum_msat,
-				    state->feerate_per_kw,
 				    state->localconf.to_self_delay,
 				    state->localconf.max_accepted_htlcs,
 				    &ours->funding_pubkey,
@@ -595,6 +675,8 @@ int main(int argc, char *argv[])
 	struct state *state = tal(NULL, struct state);
 	struct privkey seed;
 	struct points our_points;
+	u32 max_minimum_depth;
+	u32 min_feerate, max_feerate;
 
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
@@ -615,8 +697,8 @@ int main(int argc, char *argv[])
 
 	if (!fromwire_opening_init(msg, NULL,
 				   &state->localconf,
-				   &state->minconf,
-				   &state->maxconf,
+				   &state->max_to_self_delay,
+				   &state->min_effective_htlc_capacity_msat,
 				   &state->cs,
 				   &seed))
 		status_failed(WIRE_OPENING_BAD_COMMAND, "%s", strerror(errno));
@@ -630,10 +712,12 @@ int main(int argc, char *argv[])
 	if (fromwire_opening_open(msg, NULL,
 				  &state->funding_satoshis,
 				  &state->push_msat,
-				  &state->feerate_per_kw))
-		open_channel(state, &our_points);
-	else if (fromwire_opening_accept(state, msg, NULL, &peer_msg))
-		recv_channel(state, &our_points, peer_msg);
+				  &state->feerate_per_kw, &max_minimum_depth))
+		open_channel(state, &our_points, max_minimum_depth);
+	else if (fromwire_opening_accept(state, msg, NULL, &min_feerate,
+					 &max_feerate, &peer_msg))
+		recv_channel(state, &our_points, min_feerate, max_feerate,
+			     peer_msg);
 
 	/* Hand back the fd. */
 	fdpass_send(REQ_FD, PEER_FD);
