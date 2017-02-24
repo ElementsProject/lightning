@@ -13,8 +13,3 @@ opening_peer_read_failed,0x8011
 opening_peer_bad_funding,0x8012
 opening_peer_bad_config,0x8013
 opening_peer_bad_initial_message,0x8014
-
-opening_watch_funding_req,1
-opening_watch_funding_req,0,txid,32,struct sha256_double
-opening_watch_funding_resp,101
-opening_watch_funding_resp,0,channel_id,8,struct channel_id
