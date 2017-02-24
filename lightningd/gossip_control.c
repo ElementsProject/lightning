@@ -46,17 +46,16 @@ static void peer_nongossip(struct subdaemon *gossip, const u8 *msg, int fd)
 	u64 unique_id;
 	struct peer *peer;
 	u8 *inner;
-	struct crypto_state *cs = tal(msg, struct crypto_state);
+	struct crypto_state cs;
 
 	if (!fromwire_gossipstatus_peer_nongossip(msg, msg, NULL,
-						  &unique_id, cs, &inner))
+						  &unique_id, &cs, &inner))
 		fatal("Gossip gave bad PEER_NONGOSSIP message %s",
 		      tal_hex(msg, msg));
 
 	peer = peer_by_unique_id(gossip->ld, unique_id);
 	if (!peer)
 		fatal("Gossip gave bad peerid %"PRIu64, unique_id);
-	cs->peer = peer;
 
 	log_debug(gossip->log, "Peer %s said %s",
 		  type_to_string(msg, struct pubkey, peer->id),

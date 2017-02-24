@@ -972,7 +972,7 @@ int main(int argc, char *argv[])
 	struct pubkey my_id, their_id;
 	int hsmfd = 3, clientfd = 4;
 	struct secret ck, rk, sk;
-	struct crypto_state *cs;
+	struct crypto_state cs;
 
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
@@ -994,17 +994,23 @@ int main(int argc, char *argv[])
 
 	if (fromwire_handshake_responder_req(msg, NULL, &my_id)) {
 		responder(clientfd, &my_id, &their_id, &ck, &sk, &rk);
-		cs = crypto_state(NULL, &sk.s, &rk.s, &ck.s, &ck.s, 0, 0);
+		cs.rn = cs.sn = 0;
+		cs.sk = sk.s;
+		cs.rk = rk.s;
+		cs.r_ck = cs.s_ck = ck.s;
 		wire_sync_write(REQ_FD,
 				towire_handshake_responder_resp(msg,
 								&their_id,
-								cs));
+								&cs));
 	} else if (fromwire_handshake_initiator_req(msg, NULL, &my_id,
 						    &their_id)) {
 		initiator(clientfd, &my_id, &their_id, &ck, &sk, &rk);
-		cs = crypto_state(NULL, &sk.s, &rk.s, &ck.s, &ck.s, 0, 0);
+		cs.rn = cs.sn = 0;
+		cs.sk = sk.s;
+		cs.rk = rk.s;
+		cs.r_ck = cs.s_ck = ck.s;
 		wire_sync_write(REQ_FD,
-				towire_handshake_initiator_resp(msg, cs));
+				towire_handshake_initiator_resp(msg, &cs));
 	} else
 		status_failed(WIRE_HANDSHAKE_BAD_COMMAND, "%i", fromwire_peektype(msg));
 

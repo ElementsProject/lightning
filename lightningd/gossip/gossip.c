@@ -46,7 +46,7 @@ struct peer {
 	struct list_node list;
 
 	u64 unique_id;
-	struct crypto_state *cs;
+	struct peer_crypto_state pcs;
 
 	/* File descriptor corresponding to conn. */
 	int fd;
@@ -76,10 +76,11 @@ static void destroy_peer(struct peer *peer)
 static struct peer *setup_new_peer(struct daemon *daemon, const u8 *msg)
 {
 	struct peer *peer = tal(daemon, struct peer);
-	peer->cs = tal(peer, struct crypto_state);
-	if (!fromwire_gossipctl_new_peer(msg, NULL, &peer->unique_id, peer->cs))
+
+	init_peer_crypto_state(peer, &peer->pcs);
+	if (!fromwire_gossipctl_new_peer(msg, NULL, &peer->unique_id,
+					 &peer->pcs.cs))
 		return tal_free(peer);
-	peer->cs->peer = peer;
 	peer->daemon = daemon;
 	peer->error = NULL;
 	peer->msg_out = tal_arr(peer, u8*, 0);
@@ -102,15 +103,15 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 		handle_channel_announcement(peer->daemon->rstate, msg, tal_count(msg));
-		return peer_read_message(conn, peer->cs, peer_msgin);
+		return peer_read_message(conn, &peer->pcs, peer_msgin);
 
 	case WIRE_NODE_ANNOUNCEMENT:
 		handle_node_announcement(peer->daemon->rstate, msg, tal_count(msg));
-		return peer_read_message(conn, peer->cs, peer_msgin);
+		return peer_read_message(conn, &peer->pcs, peer_msgin);
 
 	case WIRE_CHANNEL_UPDATE:
 		handle_channel_update(peer->daemon->rstate, msg, tal_count(msg));
-		return peer_read_message(conn, peer->cs, peer_msgin);
+		return peer_read_message(conn, &peer->pcs, peer_msgin);
 
 	case WIRE_INIT:
 		peer->error = "Duplicate INIT message received";
@@ -133,7 +134,7 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	case WIRE_REVOKE_AND_ACK:
 		/* Not our place to handle this, so we punt */
 		s = towire_gossipstatus_peer_nongossip(msg, peer->unique_id,
-						       peer->cs, msg);
+						       &peer->pcs.cs, msg);
 		status_send(s);
 		status_send_fd(io_conn_fd(conn));
 		return io_close(conn);
@@ -147,7 +148,7 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	if (t & 1) {
 		status_trace("Peer %"PRIu64" sent unknown packet %u, ignoring",
 			     peer->unique_id, t);
-		return peer_read_message(conn, peer->cs, peer_msgin);
+		return peer_read_message(conn, &peer->pcs, peer_msgin);
 	}
 	peer->error = tal_fmt(peer, "Unknown packet %u", t);
 	return io_close(conn);
@@ -183,7 +184,8 @@ static struct io_plan *peer_dump_gossip(struct io_conn *conn, struct peer *peer)
 		/* Going to wake up in pkt_out since we mix time based and message based wakeups */
 		return io_out_wait(conn, peer, pkt_out, peer);
 	} else {
-		return peer_write_message(conn, peer->cs, next->payload, peer_dump_gossip);
+		return peer_write_message(conn, &peer->pcs, next->payload,
+					  peer_dump_gossip);
 	}
 }
 
@@ -196,7 +198,7 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 		out = peer->msg_out[0];
 		memmove(peer->msg_out, peer->msg_out + 1, (sizeof(*peer->msg_out)*(n-1)));
 		tal_resize(&peer->msg_out, n-1);
-		return peer_write_message(conn, peer->cs, out, pkt_out);
+		return peer_write_message(conn, &peer->pcs, out, pkt_out);
 	}
 
 	if (peer->gossip_sync){
@@ -259,13 +261,13 @@ static struct io_plan *peer_parse_init(struct io_conn *conn,
 	/* Need to go duplex here, otherwise backpressure would mean
 	 * we both wait indefinitely */
 	return io_duplex(conn,
-			 peer_read_message(conn, peer->cs, peer_msgin),
+			 peer_read_message(conn, &peer->pcs, peer_msgin),
 			 peer_dump_gossip(conn, peer));
 }
 
 static struct io_plan *peer_init_sent(struct io_conn *conn, struct peer *peer)
 {
-	return peer_read_message(conn, peer->cs, peer_parse_init);
+	return peer_read_message(conn, &peer->pcs, peer_parse_init);
 }
 
 static struct io_plan *peer_send_init(struct io_conn *conn, struct peer *peer)
@@ -278,7 +280,8 @@ static struct io_plan *peer_send_init(struct io_conn *conn, struct peer *peer)
 	 * SHOULD set feature bits corresponding to features it optionally
 	 * supports.
 	 */
-	return peer_write_message(conn, peer->cs, towire_init(peer, NULL, NULL),
+	return peer_write_message(conn, &peer->pcs,
+				  towire_init(peer, NULL, NULL),
 				  peer_init_sent);
 }
 
@@ -337,7 +340,7 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 
 			out = towire_gossipctl_release_peer_response(msg,
 								     unique_id,
-								     peer->cs);
+								     &peer->pcs.cs);
 			return io_write_wire(conn, out, release_peer_fd, peer);
 		}
 	}

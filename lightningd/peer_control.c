@@ -88,23 +88,22 @@ struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id)
 static void handshake_succeeded(struct subdaemon *hs, const u8 *msg,
 				struct peer *peer)
 {
-	struct crypto_state *cs = tal(peer, struct crypto_state);
+	struct crypto_state cs;
 
 	if (!peer->id) {
 		struct pubkey id;
 
-		if (!fromwire_handshake_responder_resp(msg, NULL, &id, cs))
+		if (!fromwire_handshake_responder_resp(msg, NULL, &id, &cs))
 			goto err;
 		peer->id = tal_dup(peer, struct pubkey, &id);
 		log_info_struct(hs->log, "Peer in from %s",
 				struct pubkey, peer->id);
 	} else {
-		if (!fromwire_handshake_initiator_resp(msg, NULL, cs))
+		if (!fromwire_handshake_initiator_resp(msg, NULL, &cs))
 			goto err;
 		log_info_struct(hs->log, "Peer out to %s",
 				struct pubkey, peer->id);
 	}
-	cs->peer = peer;
 
 	/* FIXME: Look for peer duplicates! */
 
@@ -117,7 +116,7 @@ static void handshake_succeeded(struct subdaemon *hs, const u8 *msg,
 	peer_set_condition(peer, "Beginning gossip");
 
 	/* Tell gossip to handle it now. */
-	msg = towire_gossipctl_new_peer(msg, peer->unique_id, cs);
+	msg = towire_gossipctl_new_peer(msg, peer->unique_id, &cs);
 	subdaemon_req(peer->ld->gossip, msg, peer->fd, &peer->fd, NULL, NULL);
 
 	/* Peer struct longer owns fd. */

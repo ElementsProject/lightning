@@ -15,6 +15,10 @@ struct crypto_state {
 	struct sha256 sk, rk;
 	/* Chaining key for re-keying */
 	struct sha256 s_ck, r_ck;
+};
+
+struct peer_crypto_state {
+	struct crypto_state cs;
 
 	/* Peer who owns us: peer->crypto_state == this */
 	struct peer *peer;
@@ -25,24 +29,19 @@ struct crypto_state {
 	struct io_plan *(*next_out)(struct io_conn *, struct peer *);
 };
 
-/* Initializes peer->crypto_state */
-struct crypto_state *crypto_state(struct peer *peer,
-				  const struct sha256 *sk,
-				  const struct sha256 *rk,
-				  const struct sha256 *rck,
-				  const struct sha256 *sck,
-				  u64 rn, u64 sn);
+/* Initializes peer->cs (still need to read in cs->cs) */
+void init_peer_crypto_state(struct peer *peer, struct peer_crypto_state *pcs);
 
 /* Get decrypted message */
 struct io_plan *peer_read_message(struct io_conn *conn,
-				  struct crypto_state *cs,
+				  struct peer_crypto_state *cs,
 				  struct io_plan *(*next)(struct io_conn *,
 							  struct peer *,
 							  u8 *msg));
 
 /* Sends and frees message */
 struct io_plan *peer_write_message(struct io_conn *conn,
-				   struct crypto_state *cs,
+				   struct peer_crypto_state *cs,
 				   const u8 *msg,
 				   struct io_plan *(*next)(struct io_conn *,
 							   struct peer *));

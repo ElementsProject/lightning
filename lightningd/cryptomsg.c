@@ -122,22 +122,22 @@ u8 *cryptomsg_decrypt_body(const tal_t *ctx,
 }
 
 static struct io_plan *peer_decrypt_body(struct io_conn *conn,
-					 struct crypto_state *cs)
+					 struct peer_crypto_state *pcs)
 {
 	struct io_plan *plan;
 	u8 *in, *decrypted;
 
-	decrypted = cryptomsg_decrypt_body(cs->in, cs, cs->in);
+	decrypted = cryptomsg_decrypt_body(pcs->in, &pcs->cs, pcs->in);
 	if (!decrypted)
 		return io_close(conn);
 
 	/* Steal cs->in: we free it after, and decrypted too unless
 	 * they steal but be careful not to touch anything after
 	 * next_in (could free itself) */
-	in = tal_steal(NULL, cs->in);
-	cs->in = NULL;
+	in = tal_steal(NULL, pcs->in);
+	pcs->in = NULL;
 
-	plan = cs->next_in(conn, cs->peer, decrypted);
+	plan = pcs->next_in(conn, pcs->peer, decrypted);
 	tal_free(in);
 	return plan;
 }
@@ -174,31 +174,32 @@ bool cryptomsg_decrypt_header(struct crypto_state *cs, u8 hdr[18], u16 *lenp)
 }
 
 static struct io_plan *peer_decrypt_header(struct io_conn *conn,
-					   struct crypto_state *cs)
+					   struct peer_crypto_state *pcs)
 {
 	u16 len;
 
-	if (!cryptomsg_decrypt_header(cs, cs->in, &len))
+	if (!cryptomsg_decrypt_header(&pcs->cs, pcs->in, &len))
 		return io_close(conn);
 
-	tal_free(cs->in);
+	tal_free(pcs->in);
 
 	/* BOLT #8:
 	 *
 	 * * Read _exactly_ `l+16` bytes from the network buffer, let
 	 *   the bytes be known as `c`.
 	 */
-	cs->in = tal_arr(cs, u8, (u32)len + 16);
-	return io_read(conn, cs->in, tal_count(cs->in), peer_decrypt_body, cs);
+	pcs->in = tal_arr(conn, u8, (u32)len + 16);
+	return io_read(conn, pcs->in, tal_count(pcs->in), peer_decrypt_body,
+		       pcs);
 }
 
 struct io_plan *peer_read_message(struct io_conn *conn,
-				  struct crypto_state *cs,
+				  struct peer_crypto_state *pcs,
 				  struct io_plan *(*next)(struct io_conn *,
 							  struct peer *,
 							  u8 *msg))
 {
-	assert(!cs->in);
+	assert(!pcs->in);
 	/* BOLT #8:
 	 *
 	 * ### Decrypting Messages
@@ -208,16 +209,16 @@ struct io_plan *peer_read_message(struct io_conn *conn,
 	 *
 	 *  * Read _exactly_ `18-bytes` from the network buffer.
 	 */
-	cs->in = tal_arr(cs, u8, 18);
-	cs->next_in = next;
-	return io_read(conn, cs->in, 18, peer_decrypt_header, cs);
+	pcs->in = tal_arr(conn, u8, 18);
+	pcs->next_in = next;
+	return io_read(conn, pcs->in, 18, peer_decrypt_header, pcs);
 }
 
 static struct io_plan *peer_write_done(struct io_conn *conn,
-				       struct crypto_state *cs)
+				       struct peer_crypto_state *pcs)
 {
-	cs->out = tal_free(cs->out);
-	return cs->next_out(conn, cs->peer);
+	pcs->out = tal_free(pcs->out);
+	return pcs->next_out(conn, pcs->peer);
 }
 
 u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
@@ -230,7 +231,7 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 	int ret;
 	u8 *out;
 
-	out = tal_arr(cs, u8, sizeof(l) + 16 + mlen + 16);
+	out = tal_arr(ctx, u8, sizeof(l) + 16 + mlen + 16);
 
 	/* BOLT #8:
 	 *
@@ -304,41 +305,27 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 }
 
 struct io_plan *peer_write_message(struct io_conn *conn,
-				   struct crypto_state *cs,
+				   struct peer_crypto_state *pcs,
 				   const u8 *msg,
 				   struct io_plan *(*next)(struct io_conn *,
 							   struct peer *))
 {
-	assert(!cs->out);
+	assert(!pcs->out);
 
-	cs->out = cryptomsg_encrypt_msg(cs, cs, msg);
-	cs->next_out = next;
+	pcs->out = cryptomsg_encrypt_msg(conn, &pcs->cs, msg);
+	pcs->next_out = next;
 
 	/* BOLT #8:
 	 *   * Send `lc || c` over the network buffer.
 	 */
-	return io_write(conn, cs->out, tal_count(cs->out), peer_write_done, cs);
+	return io_write(conn, pcs->out, tal_count(pcs->out),
+			peer_write_done, pcs);
 }
 
-struct crypto_state *crypto_state(struct peer *peer,
-				  const struct sha256 *sk,
-				  const struct sha256 *rk,
-				  const struct sha256 *rck,
-				  const struct sha256 *sck,
-				  u64 rn, u64 sn)
+void init_peer_crypto_state(struct peer *peer, struct peer_crypto_state *pcs)
 {
-	struct crypto_state *cs = tal(peer, struct crypto_state);
-
-	cs->rn = rn;
-	cs->sn = sn;
-	cs->sk = *sk;
-	cs->rk = *rk;
-	cs->s_ck = *sck;
-	cs->r_ck = *rck;
-	cs->peer = peer;
-	cs->out = cs->in = NULL;
-
-	return cs;
+	pcs->peer = peer;
+	pcs->out = pcs->in = NULL;
 }
 
 void towire_crypto_state(u8 **ptr, const struct crypto_state *cs)

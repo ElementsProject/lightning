@@ -67,7 +67,7 @@ static struct sha256 sha256_from_hex(const char *hex)
 int main(void)
 {
 	tal_t *tmpctx = tal_tmpctx(NULL);
-	struct crypto_state *cs_out, *cs_in;
+	struct peer_crypto_state cs_out, cs_in;
 	struct sha256 sk, rk, ck;
 	const void *msg = tal_dup_arr(tmpctx, char, "hello", 5, 0);
 	size_t i;
@@ -89,13 +89,17 @@ int main(void)
 	sk = sha256_from_hex("0x969ab31b4d288cedf6218839b27a3e2140827047f2c0f01bf5c04435d43511a9");
 	rk = sha256_from_hex("0xbb9020b8965f4df047e07f955f3c4b88418984aadc5cdb35096b9ea8fa5c3442");
 
-	cs_out = crypto_state(tmpctx, &sk, &rk, &ck, &ck, 0, 0);
-	cs_in = crypto_state(tmpctx, &rk, &sk, &ck, &ck, 0, 0);
+	cs_out.cs.sn = cs_out.cs.rn = cs_in.cs.sn = cs_in.cs.rn = 0;
+	cs_out.cs.sk = cs_in.cs.rk = sk;
+	cs_out.cs.rk = cs_in.cs.sk = rk;
+	cs_out.cs.s_ck = cs_out.cs.r_ck = cs_in.cs.s_ck = cs_in.cs.r_ck = ck;
+	init_peer_crypto_state(tmpctx, &cs_in);
+	init_peer_crypto_state(tmpctx, &cs_out);
 
 	for (i = 0; i < 1002; i++) {
 		write_buf = tal_arr(tmpctx, char, 0);
 
-		peer_write_message(NULL, cs_out, msg, check_msg_write);
+		peer_write_message(NULL, &cs_out, msg, check_msg_write);
 		if ((i % 500) < 2)
 			status_trace("output %zu: 0x%s", i,
 				     tal_hex(tmpctx, write_buf));
@@ -104,7 +108,7 @@ int main(void)
 		read_buf_len = tal_count(read_buf);
 		write_buf = tal_arr(tmpctx, char, 0);
 
-		peer_read_message(NULL, cs_in, check_msg_read);
+		peer_read_message(NULL, &cs_in, check_msg_read);
 		assert(read_buf_len == 0);
 	}
 	tal_free(tmpctx);
