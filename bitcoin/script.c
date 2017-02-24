@@ -214,21 +214,26 @@ u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript)
 	return script;
 }
 
+u8 *scriptpubkey_p2addr(const tal_t *ctx, const struct bitcoin_address *addr)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+	add_op(&script, OP_DUP);
+	add_op(&script, OP_HASH160);
+	add_push_bytes(&script, &addr->addr, sizeof(addr->addr));
+	add_op(&script, OP_EQUALVERIFY);
+	add_op(&script, OP_CHECKSIG);
+	return script;
+}
+
 /* Create an output script using p2pkh */
 u8 *scriptpubkey_p2pkh(const tal_t *ctx, const struct pubkey *pubkey)
 {
 	struct bitcoin_address addr;
 	u8 der[PUBKEY_DER_LEN];
-	u8 *script = tal_arr(ctx, u8, 0);
 
 	pubkey_to_der(der, pubkey);
 	hash160(&addr.addr, der, sizeof(der));
-	add_op(&script, OP_DUP);
-	add_op(&script, OP_HASH160);
-	add_push_bytes(&script, &addr.addr, sizeof(addr.addr));
-	add_op(&script, OP_EQUALVERIFY);
-	add_op(&script, OP_CHECKSIG);
-	return script;
+	return scriptpubkey_p2addr(ctx, &addr);
 }
 
 /* Create an input script which spends p2pkh */

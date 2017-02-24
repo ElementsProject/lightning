@@ -41,6 +41,9 @@ u8 *scriptpubkey_p2pkh(const tal_t *ctx, const struct pubkey *pubkey);
 u8 *bitcoin_redeem_p2pkh(const tal_t *ctx, const struct pubkey *pubkey,
 			 const secp256k1_ecdsa_signature *sig);
 
+/* Create an input script which spends p2pkh, starting from a bitcoin address */
+u8 *scriptpubkey_p2addr(const tal_t *ctx, const struct bitcoin_address *addr);
+
 /* Create the redeemscript for a P2SH + P2WPKH. */
 u8 *bitcoin_redeem_p2wpkh(const tal_t *ctx,
 			  const struct pubkey *key);
