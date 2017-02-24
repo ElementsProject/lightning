@@ -10,6 +10,7 @@
 #include <lightningd/cryptomsg.h>
 #include <lightningd/gossip/gen_gossip_control_wire.h>
 #include <lightningd/gossip/gen_gossip_status_wire.h>
+#include <wire/gen_peer_wire.h>
 
 static void gossip_finished(struct subdaemon *gossip, int status)
 {
@@ -57,11 +58,16 @@ static void peer_nongossip(struct subdaemon *gossip, const u8 *msg, int fd)
 	if (!peer)
 		fatal("Gossip gave bad peerid %"PRIu64, unique_id);
 
-	log_debug(gossip->log, "Peer %s said %s",
-		  type_to_string(msg, struct pubkey, peer->id),
-		  gossip_status_wire_type_name(fromwire_peektype(inner)));
+	if (peer->owner != gossip)
+		fatal("Gossip gave bad peerid %"PRIu64" (owner %s)",
+		      unique_id, peer->owner ? peer->owner->name : "(none)");
+
+	/* It returned the fd. */
+	assert(peer->fd == -1);
+	peer->fd = fd;
+
 	peer_set_condition(peer, "Gossip ended up receipt of %s",
-			 gossip_status_wire_type_name(fromwire_peektype(inner)));
+			   wire_type_name(fromwire_peektype(inner)));
 
 	/* FIXME: create new daemon to handle peer. */
 }
