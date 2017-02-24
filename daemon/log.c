@@ -127,6 +127,11 @@ new_log(const tal_t *ctx, struct log_book *record, const char *fmt, ...)
 	return log;
 }
 
+enum log_level get_log_level(struct log_book *lr)
+{
+	return lr->print_level;
+}
+
 void set_log_level(struct log_book *lr, enum log_level level)
 {
 	lr->print_level = level;

@@ -56,7 +56,8 @@ static struct peer *new_peer(struct lightningd *ld,
 	peer->fd = io_conn_fd(conn);
 	peer->connect_cmd = cmd;
 	/* Max 128k per peer. */
-	peer->log_book = new_log_book(peer, 128*1024, LOG_UNUSUAL);
+	peer->log_book = new_log_book(peer, 128*1024,
+				      get_log_level(ld->dstate.log_book));
 	peer->log = new_log(peer, peer->log_book,
 			    "peer %"PRIu64":", peer->unique_id);
 
