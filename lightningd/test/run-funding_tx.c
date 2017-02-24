@@ -39,16 +39,16 @@ int main(void)
 {
 	tal_t *tmpctx = tal_tmpctx(NULL);
 	struct bitcoin_tx *input, *funding;
-	struct sha256_double txid;
 	u64 feerate_per_kw;
 	struct pubkey local_funding_pubkey, remote_funding_pubkey;
 	struct privkey input_privkey;
 	struct pubkey inputkey;
 	bool testnet;
-	unsigned int input_txout;
-	u64 input_satoshis;
+	struct utxo *utxo = tal_arr(tmpctx, struct utxo, 1);
 	u64 funding_satoshis;
-	int funding_outnum;
+	u32 funding_outnum;
+	u8 *subscript;
+	secp256k1_ecdsa_signature sig;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
@@ -89,32 +89,37 @@ int main(void)
 				&remote_funding_pubkey))
 		abort();
 
-	bitcoin_txid(input, &txid);
-	input_txout = 0;
-	input_satoshis = 5000000000;
+	bitcoin_txid(input, &utxo->txid);
+	utxo->outnum = 0;
+	utxo->amount = 5000000000;
 	funding_satoshis = 10000000;
 	feerate_per_kw = 15000;
 
-	printf("input[0] txid: %s\n", tal_hexstr(tmpctx, &txid, sizeof(txid)));
-	printf("input[0] input: %u\n", input_txout);
-	printf("input[0] satoshis: %"PRIu64"\n", input_satoshis);
+	printf("input[0] txid: %s\n",
+	       tal_hexstr(tmpctx, &utxo->txid, sizeof(utxo->txid)));
+	printf("input[0] input: %u\n", utxo->outnum);
+	printf("input[0] satoshis: %"PRIu64"\n", utxo->amount);
 	printf("funding satoshis: %"PRIu64"\n", funding_satoshis);
 
-	funding = funding_tx(tmpctx, &txid, input_txout, input_satoshis,
+	funding = funding_tx(tmpctx, &funding_outnum, utxo,
 			     funding_satoshis,
 			     &local_funding_pubkey,
 			     &remote_funding_pubkey,
 			     &inputkey,
 			     feerate_per_kw,
 			     0);
-	funding_outnum = (funding->output[0].amount == funding_satoshis ? 0 : 1);
 	printf("# feerate_per_kw: %"PRIu64"\n", feerate_per_kw);
 	printf("change satoshis: %"PRIu64"\n",
 	       funding->output[!funding_outnum].amount);
 
 	printf("funding output: %u\n", funding_outnum);
 
-	sign_funding_tx(funding, &inputkey, &input_privkey);
+	subscript = scriptpubkey_p2pkh(funding, &inputkey);
+	sign_tx_input(funding, 0, subscript, NULL, &input_privkey, &inputkey,
+		      &sig);
+
+	funding->input[0].script = bitcoin_redeem_p2pkh(funding, &inputkey,
+							&sig);
 	printf("funding tx: %s\n",
 	       tal_hex(tmpctx, linearize_tx(tmpctx, funding)));
 
