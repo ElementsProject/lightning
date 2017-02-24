@@ -64,7 +64,7 @@ struct state {
 	struct channel *channel;
 };
 
-static void derive_our_basepoints(const struct sha256 *seed,
+static void derive_our_basepoints(const struct privkey *seed,
 				  struct points *points,
 				  struct secrets *secrets,
 				  struct sha256 *shaseed,
@@ -76,7 +76,7 @@ static void derive_our_basepoints(const struct sha256 *seed,
 		struct sha256 shaseed;
 	} keys;
 
-	hkdf_sha256(&keys, sizeof(keys), NULL, 0, seed, sizeof(seed),
+	hkdf_sha256(&keys, sizeof(keys), NULL, 0, seed, sizeof(*seed),
 		    "c-lightning", strlen("c-lightning"));
 
 	secrets->funding_privkey = keys.f;
@@ -90,7 +90,7 @@ static void derive_our_basepoints(const struct sha256 *seed,
 	    || !pubkey_from_privkey(&keys.d, &points->delayed_payment_basepoint))
 		status_failed(WIRE_OPENING_KEY_DERIVATION_FAILED,
 			      "seed = %s",
-			      type_to_string(trc, struct sha256, seed));
+			      type_to_string(trc, struct privkey, seed));
 
 	/* BOLT #3:
 	 *
@@ -593,7 +593,7 @@ int main(int argc, char *argv[])
 {
 	u8 *msg, *peer_msg;
 	struct state *state = tal(NULL, struct state);
-	struct sha256 seed;
+	struct privkey seed;
 	struct points our_points;
 
 	if (argc == 2 && streq(argv[1], "--version")) {

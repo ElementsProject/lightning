@@ -8,7 +8,7 @@ opening_init,36,min_config,36,struct channel_config
 opening_init,72,max_config,36,struct channel_config
 opening_init,108,crypto_state,144,struct crypto_state
 # Seed to generate all the keys from
-opening_init,252,seed,32
+opening_init,252,seed,32,struct privkey
 
 # This means we offer the open.
 opening_open,1
