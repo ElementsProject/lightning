@@ -51,7 +51,7 @@ u64 commit_tx_base_fee(u64 feerate_per_kw, size_t num_untrimmed_htlcs);
  * @self_pay_msat: amount to pay directly to self
  * @other_pay_msat: amount to pay directly to the other side
  * @htlcs: tal_arr of htlcs committed by transaction (some may be trimmed)
- * @htlc_map: outputed map of outnum->HTLC (NULL for direct outputs).
+ * @htlc_map: outputed map of outnum->HTLC (NULL for direct outputs), or NULL.
  * @obscured_commitment_number: number to encode in commitment transaction
  * @side: side to generate commitment transaction for.
  *
