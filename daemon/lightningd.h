@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_DAEMON_LIGHTNING_H
 #define LIGHTNING_DAEMON_LIGHTNING_H
 #include "config.h"
+#include "bitcoin/address.h"
 #include "bitcoin/pubkey.h"
 #include "watch.h"
 #include <ccan/list/list.h>
@@ -58,6 +59,9 @@ struct config {
 
 	/* Whether to ignore database version. */
 	bool db_version_ignore;
+
+	/* Address to send the funds on channel close to */
+	struct bitcoin_address finaladdress;
 };
 
 /* Here's where the global variables hide! */

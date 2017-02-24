@@ -1,3 +1,4 @@
+#include "bitcoin/base58.h"
 #include "daemon/bitcoind.h"
 #include "daemon/chaintopology.h"
 #include "daemon/configdir.h"
@@ -135,6 +136,17 @@ static char *opt_set_regtest(struct bitcoind *bitcoind)
 	return NULL;
 }
 
+static char *opt_set_addr(const char *arg, struct bitcoin_address *addr)
+{
+	bool testnet = true;
+	bitcoin_from_base58(&testnet, addr, arg, strlen(arg));
+	return NULL;
+}
+
+static void opt_show_addr(char buf[OPT_SHOW_LEN], const struct bitcoin_address *addr)
+{
+}
+
 static void config_register_opts(struct lightningd_state *dstate)
 {
 	opt_register_noarg("--bitcoind-regtest", opt_set_regtest,
@@ -188,6 +200,9 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--commit-time", opt_set_time, opt_show_time,
 			 &dstate->config.commit_time,
 			 "Time after changes before sending out COMMIT");
+	opt_register_arg("--payout-address", opt_set_addr, opt_show_addr,
+			 &dstate->config.finaladdress,
+			 "The address to send funds from closed channels to");
 	opt_register_arg("--fee-base", opt_set_u32, opt_show_u32,
 			 &dstate->config.fee_base,
 			 "Millisatoshi minimum to charge for HTLC");
@@ -371,6 +386,7 @@ static void setup_default_config(struct lightningd_state *dstate)
 		dstate->config = testnet_config;
 	else
 		dstate->config = mainnet_config;
+	memset(&dstate->config.finaladdress, 0, sizeof(dstate->config.finaladdress));
 }
 
 
