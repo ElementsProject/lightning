@@ -447,10 +447,8 @@ static void opt_parse_from_config(struct lightningd_state *dstate)
 	tal_free(contents);
 }
 
-bool handle_opts(struct lightningd_state *dstate, int argc, char *argv[])
+void register_opts(struct lightningd_state *dstate)
 {
-	bool newdir = false;
-
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 
 	opt_register_early_noarg("--help|-h", opt_usage_and_exit,
@@ -469,6 +467,11 @@ bool handle_opts(struct lightningd_state *dstate, int argc, char *argv[])
 				&dstate->config_dir, &dstate->rpc_filename);
 	config_register_opts(dstate);
 	dev_register_opts(dstate);
+}
+
+bool handle_opts(struct lightningd_state *dstate, int argc, char *argv[])
+{
+	bool newdir = false;
 
 	/* Get any configdir/testnet options first. */
 	opt_early_parse(argc, argv, opt_log_stderr_exit);

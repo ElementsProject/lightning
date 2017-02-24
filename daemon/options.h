@@ -5,6 +5,9 @@
 
 struct lightningd_state;
 
+/* You can register additional options *after* this if you want. */
+void register_opts(struct lightningd_state *dstate);
+
 /* After this, we're in the .lightning dir, config file parsed.
  * If we just created the dir, returns true.
  */

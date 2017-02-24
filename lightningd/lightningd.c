@@ -176,6 +176,7 @@ int main(int argc, char *argv[])
 	ld->daemon_dir = find_my_path(ld, argv[0]);
 
 	/* Handle options and config; move to .lightningd */
+	register_opts(&ld->dstate);
 	newdir = handle_opts(&ld->dstate, argc, argv);
 
 	/* Activate crash log now we're in the right place. */

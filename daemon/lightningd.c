@@ -71,6 +71,7 @@ int main(int argc, char *argv[])
 						 | SECP256K1_CONTEXT_SIGN);
 
 	/* Handle options and config; move to .lightningd */
+	register_opts(dstate);
 	handle_opts(dstate, argc, argv);
 
 	/* Activate crash log now we're in the right place. */
