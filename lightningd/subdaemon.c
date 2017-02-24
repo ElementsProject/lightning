@@ -45,6 +45,19 @@ static bool move_fd(int from, int to)
 	return true;
 }
 
+/* FIXME: Expose the ccan/io version? */
+static void set_blocking(int fd, bool block)
+{
+	int flags = fcntl(fd, F_GETFL);
+
+	if (block)
+		flags &= ~O_NONBLOCK;
+	else
+		flags |= O_NONBLOCK;
+
+	fcntl(fd, F_SETFL, flags);
+}
+
 /* We use sockets, not pipes, because fds are bidir. */
 static int subdaemon(const char *dir, const char *name, bool debug,
 		     int *statusfd, int *reqfd, va_list ap)
@@ -165,6 +178,9 @@ static struct io_plan *status_process_fd(struct io_conn *conn,
 					 struct subdaemon *sd)
 {
 	const tal_t *tmpctx = tal_tmpctx(sd);
+
+	/* Don't trust subdaemon to set it blocking. */
+	set_blocking(sd->status_fd_in, true);
 
 	/* Ensure we free it iff callback doesn't tal_steal it. */
 	tal_steal(tmpctx, sd->status_in);
@@ -303,6 +319,11 @@ static struct io_plan *req_finished_reply(struct io_conn *conn,
 					  struct subdaemon_req *sr)
 {
 	struct subdaemon *sd = sr->sd;
+
+	/* Don't trust subdaemon to set it blocking. */
+	if (sr->fd_in)
+		set_blocking(*sr->fd_in, true);
+
 	sr->req(sd, sr->req_in, sr->req_data);
 	tal_free(sr);
 	return req_next(conn, sd);
@@ -317,8 +338,9 @@ static struct io_plan *req_process_replymsg(struct io_conn *conn,
 		log_unusual(sr->sd->log, "ERROR: Invalid request output");
 		return io_close(conn);
 	}
-	log_debug(sr->sd->log, "Received req response %s len %zu",
-		  sr->sd->reqname(type), tal_count(sr->req_in));
+	log_debug(sr->sd->log, "Received req response %s len %zu%s",
+		  sr->sd->reqname(type), tal_count(sr->req_in),
+		  sr->fd_in ? " (now getting fd)" : "");
 
 	/* If we're supposed to recv an fd, do it now. */
 	if (sr->fd_in)
