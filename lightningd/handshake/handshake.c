@@ -988,9 +988,9 @@ int main(int argc, char *argv[])
 
 	msg = wire_sync_read(NULL, REQ_FD);
 	if (!msg)
-		status_failed(WIRE_BAD_COMMAND, "%s", strerror(errno));
+		status_failed(WIRE_HANDSHAKE_BAD_COMMAND, "%s", strerror(errno));
 	if (clientfd < 0)
-		status_failed(WIRE_BAD_FDPASS, "%s", strerror(errno));
+		status_failed(WIRE_HANDSHAKE_BAD_FDPASS, "%s", strerror(errno));
 
 	if (fromwire_handshake_responder_req(msg, NULL, &my_id)) {
 		responder(clientfd, &my_id, &their_id, &ck, &sk, &rk);
@@ -1006,7 +1006,7 @@ int main(int argc, char *argv[])
 		wire_sync_write(REQ_FD,
 				towire_handshake_initiator_resp(msg, cs));
 	} else
-		status_failed(WIRE_BAD_COMMAND, "%i", fromwire_peektype(msg));
+		status_failed(WIRE_HANDSHAKE_BAD_COMMAND, "%i", fromwire_peektype(msg));
 
 	/* Hand back the fd. */
 	fdpass_send(REQ_FD, clientfd);
@@ -1014,9 +1014,9 @@ int main(int argc, char *argv[])
 	/* Wait for exit command (avoid status close being read before reqfd) */
 	msg = wire_sync_read(msg, REQ_FD);
 	if (!msg)
-		status_failed(WIRE_BAD_COMMAND, "%s", strerror(errno));
+		status_failed(WIRE_HANDSHAKE_BAD_COMMAND, "%s", strerror(errno));
 	if (!fromwire_handshake_exit_req(msg, NULL))
-		status_failed(WIRE_BAD_COMMAND, "Expected exit req not %i",
+		status_failed(WIRE_HANDSHAKE_BAD_COMMAND, "Expected exit req not %i",
 			      fromwire_peektype(msg));
 	tal_free(msg);
 	return 0;

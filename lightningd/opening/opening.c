@@ -314,7 +314,10 @@ static void open_channel(struct state *state, const struct points *ours)
 	if (!fromwire_opening_open_funding(msg, NULL,
 					   &state->funding_txid,
 					   &state->funding_txout))
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_BAD_COMMAND, "reading opening_open_funding");
+		peer_failed(PEER_FD, &state->cs, NULL,
+			    WIRE_OPENING_PEER_READ_FAILED,
+			    "Expected valid opening_open_funding: %s",
+			    tal_hex(trc, msg));
 
 	state->channel = new_channel(state,
 				      &state->funding_txid,
@@ -608,7 +611,7 @@ int main(int argc, char *argv[])
 
 	msg = wire_sync_read(state, REQ_FD);
 	if (!msg)
-		status_failed(WIRE_BAD_COMMAND, "%s", strerror(errno));
+		status_failed(WIRE_OPENING_BAD_COMMAND, "%s", strerror(errno));
 
 	if (!fromwire_opening_init(msg, NULL,
 				   &state->localconf,
@@ -616,7 +619,7 @@ int main(int argc, char *argv[])
 				   &state->maxconf,
 				   &state->cs,
 				   &seed))
-		status_failed(WIRE_BAD_COMMAND, "%s", strerror(errno));
+		status_failed(WIRE_OPENING_BAD_COMMAND, "%s", strerror(errno));
 	tal_free(msg);
 
 	/* We derive everything from the one secret seed. */
@@ -638,9 +641,9 @@ int main(int argc, char *argv[])
 	/* Wait for exit command (avoid state close being read before reqfd) */
 	msg = wire_sync_read(state, REQ_FD);
 	if (!msg)
-		status_failed(WIRE_BAD_COMMAND, "%s", strerror(errno));
+		status_failed(WIRE_OPENING_BAD_COMMAND, "%s", strerror(errno));
 	if (!fromwire_opening_exit_req(msg, NULL))
-		status_failed(WIRE_BAD_COMMAND, "Expected exit req not %i",
+		status_failed(WIRE_OPENING_BAD_COMMAND, "Expected exit req not %i",
 			      fromwire_peektype(msg));
 	tal_free(state);
 	return 0;

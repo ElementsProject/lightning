@@ -1,5 +1,5 @@
 # Shouldn't happen
-bad_command,0x8000
+opening_bad_command,0x8000
 # Also shouldn't happen
 opening_key_derivation_failed,0x8001
 # Also shouldn't happen

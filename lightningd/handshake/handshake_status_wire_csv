@@ -1,5 +1,5 @@
-bad_command,0x8000
-bad_fdpass,0x8001
+handshake_bad_command,0x8000
+handshake_bad_fdpass,0x8001
 initr_act1_bad_ecdh_for_ss,0x8011
 initr_act1_write_failed,0x8012
 initr_act2_read_failed,0x8013
