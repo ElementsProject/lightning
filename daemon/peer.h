@@ -17,9 +17,9 @@
 #include "wire/gen_peer_wire.h"
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/crypto/shachain/shachain.h>
+#include <ccan/io/io.h>
 #include <ccan/list/list.h>
 #include <ccan/time/time.h>
-#include <ccan/io/io.h>
 
 struct io_plan *pkt_in(struct io_conn *conn, struct peer *peer);
 
