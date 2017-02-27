@@ -24,6 +24,8 @@ ccan/config.h
 # Ignore some generated binaries
 lightningd/lightningd_gossip
 lightningd/lightningd_handshake
+lightningd/lightningd_opening
+lightningd/test/run-channel
 lightningd/test/run-cryptomsg
 lightningd/test/run-commit_tx
 lightningd/test/run-funding_tx
