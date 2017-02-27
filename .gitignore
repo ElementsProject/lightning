@@ -13,8 +13,8 @@ libsecp256k1.a
 libsecp256k1.la
 libsodium.a
 libsodium.la
-libwally-core.a
-libwally-core.la
+libwallycore.a
+libwallycore.la
 gen_*
 daemon/lightning-cli
 check-bolt
