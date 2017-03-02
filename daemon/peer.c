@@ -130,7 +130,7 @@ static const struct bitcoin_tx *bitcoin_spend_ours(struct peer *peer)
 	 * use 176 from an example run. */
 	assert(measure_tx_cost(tx) == 83 * 4);
 
-	fee = fee_by_feerate(83 + 176 / 4, get_feerate(peer->dstate));
+	fee = fee_by_feerate(83 + 176 / 4, get_feerate(peer->dstate->topology));
 
 	/* FIXME: Fail gracefully in these cases (not worth collecting) */
 	if (fee > commit->output[p2wsh_out].amount
@@ -391,7 +391,7 @@ static void peer_calculate_close_fee(struct peer *peer)
 	uint64_t maxfee;
 
 	peer->closing.our_fee
-		= fee_by_feerate(txsize, get_feerate(peer->dstate));
+		= fee_by_feerate(txsize, get_feerate(peer->dstate->topology));
 
 	/* FIXME-OLD #2:
 	 * The sender MUST set `close_fee` lower than or equal to the
@@ -1991,7 +1991,7 @@ static const struct bitcoin_tx *htlc_fulfill_tx(const struct peer *peer,
 
 	/* Witness length can vary, due to DER encoding of sigs, but we
 	 * use 539 from an example run. */
-	fee = fee_by_feerate(83 + 539 / 4, get_feerate(peer->dstate));
+	fee = fee_by_feerate(83 + 539 / 4, get_feerate(peer->dstate->topology));
 
 	/* FIXME: Fail gracefully in these cases (not worth collecting) */
 	if (fee > satoshis || is_dust(satoshis - fee))
@@ -2459,7 +2459,7 @@ static void retransmit_pkts(struct peer *peer, s64 ack)
 
 static u64 desired_commit_feerate(struct lightningd_state *dstate)
 {
-	return get_feerate(dstate) * dstate->config.commitment_fee_percent / 100;
+	return get_feerate(dstate->topology) * dstate->config.commitment_fee_percent / 100;
 }
 
 static bool want_feechange(const struct peer *peer)
@@ -3219,7 +3219,7 @@ static void json_connect(struct command *cmd,
 	connect->input->in_amount = tx->output[output].amount;
 
 	/* FIXME: This is normal case, not exact. */
-	fee = fee_by_feerate(94 + 1+73 + 1+33 + 1, get_feerate(cmd->dstate));
+	fee = fee_by_feerate(94 + 1+73 + 1+33 + 1, get_feerate(cmd->dstate->topology));
 	if (fee >= connect->input->in_amount) {
 		command_fail(cmd, "Amount %"PRIu64" below fee %"PRIu64,
 			     connect->input->in_amount, fee);
@@ -3393,10 +3393,10 @@ static enum watch_result anchor_depthchange(struct peer *peer,
 	/* FIXME: BOLT should say what to do if it can't!  We drop conn. */
 	if (!state_is_onchain(peer->state) && !state_is_error(peer->state)
 	    && peer->dstate->config.commitment_fee_min_percent != 0
-	    && peer->local.commit->cstate->fee_rate < get_feerate(peer->dstate)) {
+	    && peer->local.commit->cstate->fee_rate < get_feerate(peer->dstate->topology)) {
 		log_broken(peer->log, "fee rate %"PRIu64" lower than %"PRIu64,
 			   peer->local.commit->cstate->fee_rate,
-			   get_feerate(peer->dstate));
+			   get_feerate(peer->dstate->topology));
 		peer_fail(peer, __func__);
 	}
 
@@ -3551,7 +3551,7 @@ static const struct bitcoin_tx *htlc_timeout_tx(const struct peer *peer,
 
 	/* Witness length can vary, due to DER encoding of sigs, but we
 	 * use 539 from an example run. */
-	fee = fee_by_feerate(83 + 539 / 4, get_feerate(peer->dstate));
+	fee = fee_by_feerate(83 + 539 / 4, get_feerate(peer->dstate->topology));
 
 	/* FIXME: Fail gracefully in these cases (not worth collecting) */
 	if (fee > satoshis || is_dust(satoshis - fee))
@@ -4113,7 +4113,7 @@ static void resolve_their_steal(struct peer *peer,
 	}
 	assert(n == tal_count(steal_tx->input));
 
-	fee = get_feerate(peer->dstate)
+	fee = get_feerate(peer->dstate->topology)
 		* (measure_tx_cost(steal_tx) + wsize) / 1000;
 
 	if (fee > input_total || is_dust(input_total - fee)) {
@@ -5087,7 +5087,7 @@ static void json_feerate(struct command *cmd,
 		return;
 	}
 	log_debug(cmd->jcon->log, "Fee rate changed to %"PRIu64, feerate);
-	cmd->dstate->config.default_fee_rate = feerate;
+	cmd->dstate->topology->default_fee_rate = feerate;
 
 	command_success(cmd, null_response(cmd));
 }

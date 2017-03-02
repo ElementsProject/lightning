@@ -37,12 +37,6 @@ struct config {
 	/* Percent of fee rate we'll use. */
 	u32 commitment_fee_percent;
 
-	/* Force a partiular fee rate regardless of estimatefee (satoshis/kb) */
-	u64 override_fee_rate;
-
-	/* What fee we use if estimatefee fails (satoshis/kb) */
-	u64 default_fee_rate;
-
 	/* Minimum/maximum time for an expiring HTLC (blocks). */
 	u32 min_htlc_expiry, max_htlc_expiry;
 

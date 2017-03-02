@@ -26,6 +26,8 @@ struct outgoing_tx {
 	const char *hextx;
 	struct sha256_double txid;
 	void (*failed)(struct peer *peer, int exitstatus, const char *err);
+	/* FIXME: Remove this. */
+	struct topology *topo;
 };
 
 struct block {
@@ -54,6 +56,9 @@ struct block {
 
 	/* Full copy of txs (trimmed to txs list in connect_block) */
 	struct bitcoin_tx **full_txs;
+
+	/* FIXME: Remove this. */
+	struct topology *topo;
 };
 
 /* Hash blocks by sha */
@@ -83,6 +88,9 @@ struct topology {
 	u64 feerate;
 	bool startup;
 
+	/* Where to log things. */
+	struct log *log;
+
 	/* How far back (in blocks) to go. */
 	unsigned int first_blocknum;
 
@@ -97,6 +105,12 @@ struct topology {
 
 	/* Bitcoin transctions we're broadcasting */
 	struct list_head outgoing_txs;
+
+	/* Force a partiular fee rate regardless of estimatefee (satoshis/kb) */
+	u64 override_fee_rate;
+
+	/* What fee we use if estimatefee fails (satoshis/kb) */
+	u64 default_fee_rate;
 
 	/* Transactions/txos we are watching. */
 	struct txwatch_hash txwatches;
@@ -132,7 +146,7 @@ u32 get_tip_mediantime(const struct topology *topo);
 u32 get_block_height(const struct topology *topo);
 
 /* Get fee rate. */
-u64 get_feerate(struct lightningd_state *dstate);
+u64 get_feerate(const struct topology *topo);
 
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * If failed is non-NULL, call that and don't rebroadcast. */
@@ -142,7 +156,7 @@ void broadcast_tx(struct topology *topo,
 				 int exitstatus,
 				 const char *err));
 
-struct topology *new_topology(const tal_t *ctx);
+struct topology *new_topology(const tal_t *ctx, struct log *log);
 void setup_topology(struct topology *topology, struct bitcoind *bitcoind,
 		    struct timers *timers,
 		    struct timerel poll_time, u32 first_peer_block);

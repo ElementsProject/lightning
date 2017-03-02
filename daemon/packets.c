@@ -304,7 +304,7 @@ Pkt *accept_pkt_open(struct peer *peer, const Pkt *pkt,
 {
 	struct rel_locktime locktime;
 	const OpenChannel *o = pkt->open;
-	u64 feerate = get_feerate(peer->dstate);
+	u64 feerate = get_feerate(peer->dstate->topology);
 
 	if (!proto_to_rel_locktime(o->delay, &locktime))
 		return pkt_err(peer, "Invalid delay");

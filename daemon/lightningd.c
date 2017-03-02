@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
-	dstate->topology = new_topology(dstate);
+	dstate->topology = new_topology(dstate, dstate->base_log);
 	dstate->bitcoind = new_bitcoind(dstate, dstate->base_log);
 
 	/* Handle options and config; move to .lightningd */

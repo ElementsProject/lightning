@@ -237,15 +237,12 @@ static void broadcast_done(struct bitcoind *bitcoind,
 			   int exitstatus, const char *msg,
 			   struct outgoing_tx *otx)
 {
-	struct lightningd_state *dstate = tal_parent(bitcoind);
-	struct topology *topo = dstate->topology;
-
 	if (otx->failed && exitstatus != 0) {
 		otx->failed(otx->peer, exitstatus, msg);
 		tal_free(otx);
 	} else {
 		/* For continual rebroadcasting */
-		list_add_tail(&topo->outgoing_txs, &otx->list);
+		list_add_tail(&otx->topo->outgoing_txs, &otx->list);
 		tal_add_destructor(otx, destroy_outgoing_tx);
 	}
 }
@@ -262,9 +259,10 @@ void broadcast_tx(struct topology *topo,
 	bitcoin_txid(tx, &otx->txid);
 	otx->hextx = tal_hex(otx, rawtx);
 	otx->failed = failed;
+	otx->topo = topo;
 	tal_free(rawtx);
 
-	log_add_struct(topo->bitcoind->log,
+	log_add_struct(topo->log,
 		       " (tx %s)", struct sha256_double, &otx->txid);
 
 	if (topo->dev_no_broadcast)
@@ -291,11 +289,12 @@ static void free_blocks(struct topology *topo, struct block *b)
 	}
 }
 
-static void update_fee(struct bitcoind *bitcoind, u64 rate, u64 *feerate)
+static void update_fee(struct bitcoind *bitcoind, u64 rate,
+		       struct topology *topo)
 {
-	log_debug(bitcoind->log, "Feerate %"PRIu64" -> %"PRIu64,
-		  rate, *feerate);
-	*feerate = rate;
+	log_debug(topo->log, "Feerate %"PRIu64" (was %"PRIu64")",
+		  rate, topo->feerate);
+	topo->feerate = rate;
 }
 
 /* B is the new chain (linked by ->next); update topology */
@@ -321,7 +320,7 @@ static void topology_changed(struct topology *topo,
 	rebroadcast_txs(topo, NULL);
 
 	/* Once per new block head, update fee estimate. */
-	bitcoind_estimate_fee(topo->bitcoind, update_fee, &topo->feerate);
+	bitcoind_estimate_fee(topo->bitcoind, update_fee, topo);
 }
 
 static struct block *new_block(struct topology *topo,
@@ -331,10 +330,11 @@ static struct block *new_block(struct topology *topo,
 	struct block *b = tal(topo, struct block);
 
 	sha256_double(&b->blkid, &blk->hdr, sizeof(blk->hdr));
-	log_debug_struct(topo->bitcoind->log, "Adding block %s",
+	log_debug_struct(topo->log, "Adding block %s",
 			 struct sha256_double, &b->blkid);
 	assert(!block_map_get(&topo->block_map, &b->blkid));
 	b->next = next;
+	b->topo = topo;
 
 	/* We fill these out in topology_changed */
 	b->height = -1;
@@ -350,12 +350,23 @@ static struct block *new_block(struct topology *topo,
 	return b;
 }
 
-static void gather_blocks(struct bitcoind *bitcoind,
-			  struct bitcoin_block *blk,
-			  struct block *next)
+static void add_block(struct bitcoind *bitcoind,
+		      struct topology *topo,
+		      struct bitcoin_block *blk,
+		      struct block *next);
+
+static void gather_previous_blocks(struct bitcoind *bitcoind,
+				   struct bitcoin_block *blk,
+				   struct block *next)
 {
-	struct lightningd_state *dstate = tal_parent(bitcoind);
-	struct topology *topo = dstate->topology;
+	add_block(bitcoind, next->topo, blk, next);
+}
+
+static void add_block(struct bitcoind *bitcoind,
+		      struct topology *topo,
+		      struct bitcoin_block *blk,
+		      struct block *next)
+{
 	struct block *b, *prev;
 
 	b = new_block(topo, blk, next);
@@ -363,8 +374,8 @@ static void gather_blocks(struct bitcoind *bitcoind,
 	/* Recurse if we need prev. */
 	prev = block_map_get(&topo->block_map, &blk->hdr.prev_hash);
 	if (!prev) {
-		bitcoind_getrawblock(dstate->bitcoind, &blk->hdr.prev_hash,
-				     gather_blocks, b);
+		bitcoind_getrawblock(bitcoind, &blk->hdr.prev_hash,
+				     gather_previous_blocks, b);
 		return;
 	}
 
@@ -373,14 +384,20 @@ static void gather_blocks(struct bitcoind *bitcoind,
 	next_topology_timer(topo);
 }
 
+static void rawblock_tip(struct bitcoind *bitcoind,
+			 struct bitcoin_block *blk,
+			 struct topology *topo)
+{
+	add_block(bitcoind, topo, blk, NULL);
+}
+
 static void check_chaintip(struct bitcoind *bitcoind,
 			   const struct sha256_double *tipid,
 			   struct topology *topo)
 {
 	/* 0 is the main tip. */
 	if (!structeq(tipid, &topo->tip->blkid))
-		bitcoind_getrawblock(bitcoind, tipid, gather_blocks,
-				     (struct block *)NULL);
+		bitcoind_getrawblock(bitcoind, tipid, rawblock_tip, topo);
 	else
 		/* Next! */
 		next_topology_timer(topo);
@@ -389,7 +406,7 @@ static void check_chaintip(struct bitcoind *bitcoind,
 static void start_poll_chaintip(struct topology *topo)
 {
 	if (!list_empty(&topo->bitcoind->pending)) {
-		log_unusual(topo->bitcoind->log,
+		log_unusual(topo->log,
 			    "Delaying start poll: commands in progress");
 		next_topology_timer(topo);
 	} else
@@ -453,19 +470,17 @@ u32 get_block_height(const struct topology *topo)
 	return topo->tip->height;
 }
 
-u64 get_feerate(struct lightningd_state *dstate)
+u64 get_feerate(const struct topology *topo)
 {
-	if (dstate->config.override_fee_rate) {
-		log_debug(dstate->base_log,
-			"Forcing fee rate, ignoring estimate");
-		return dstate->config.override_fee_rate;
+	if (topo->override_fee_rate) {
+		log_debug(topo->log, "Forcing fee rate, ignoring estimate");
+		return topo->override_fee_rate;
 	}
-	else if (dstate->topology->feerate == 0) {
-		log_info(dstate->base_log,
-			 "No fee estimate: using default fee rate");
-		return dstate->config.default_fee_rate;
+	else if (topo->feerate == 0) {
+		log_info(topo->log, "No fee estimate: using default fee rate");
+		return topo->default_fee_rate;
 	}
-	return dstate->topology->feerate;
+	return topo->feerate;
 }
 
 struct txlocator *locate_tx(const void *ctx, const struct topology *topo,
@@ -528,7 +543,7 @@ static void destroy_outgoing_txs(struct topology *topo)
 		tal_free(otx);
 }
 
-struct topology *new_topology(const tal_t *ctx)
+struct topology *new_topology(const tal_t *ctx, struct log *log)
 {
 	struct topology *topo = tal(ctx, struct topology);
 
@@ -536,6 +551,9 @@ struct topology *new_topology(const tal_t *ctx)
 	list_head_init(&topo->outgoing_txs);
 	txwatch_hash_init(&topo->txwatches);
 	txowatch_hash_init(&topo->txowatches);
+	topo->log = log;
+	topo->default_fee_rate = 40000;
+	topo->override_fee_rate = 0;
 	topo->dev_no_broadcast = false;
 
 	return topo;
