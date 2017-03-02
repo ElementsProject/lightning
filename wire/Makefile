@@ -59,6 +59,6 @@ wire-maintainer-clean:
 wire-all: $(WIRE_OBJS) $(WIRE_ONION_OBJS)
 
 wire-clean:
-	$(RM) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(WIRE_GEN_SRC) $(WIRE_GEN_HEADERS)
+	$(RM) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(WIRE_GEN_SRC) $(WIRE_GEN_ONION_SRC) $(WIRE_GEN_HEADERS)
 
 include wire/test/Makefile

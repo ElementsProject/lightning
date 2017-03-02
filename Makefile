@@ -356,8 +356,9 @@ update-secp256k1:
 distclean: clean
 	$(MAKE) -C secp256k1/ distclean || true
 	$(RM) libsecp256k1.a secp256k1/libsecp256k1.la
-	$(RM) libsodium.a libsodium/libsodium.la
+	$(RM) libsodium.a libsodium.la libsodium/libsodium.la
 	$(RM) libwallycore.a libwallycore.la
+	$(RM) libwally-core/src/secp256k1/libsecp256k1.la libwally-core/src/libwallycore.la
 	cd libwally-core && tools/cleanup.sh
 
 maintainer-clean: distclean
