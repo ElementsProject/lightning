@@ -7,11 +7,13 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/time/time.h>
+#include <daemon/jsmn/jsmn.h>
 #include <daemon/watch.h>
 #include <stddef.h>
 
 struct bitcoin_tx;
 struct bitcoind;
+struct command;
 struct lightningd_state;
 struct peer;
 struct sha256_double;
@@ -99,6 +101,9 @@ struct topology {
 	/* Transactions/txos we are watching. */
 	struct txwatch_hash txwatches;
 	struct txowatch_hash txowatches;
+
+	/* Suppress broadcast (for testing) */
+	bool dev_no_broadcast;
 };
 
 /* Information relevant to locating a TX in a blockchain. */
@@ -145,5 +150,9 @@ void setup_topology(struct topology *topology, struct bitcoind *bitcoind,
 struct txlocator *locate_tx(const void *ctx, const struct topology *topo, const struct sha256_double *txid);
 
 void notify_new_block(struct topology *topo, unsigned int height);
+
+void json_dev_broadcast(struct command *cmd,
+			struct topology *topo,
+			const char *buffer, const jsmntok_t *params);
 
 #endif /* LIGHTNING_DAEMON_CRYPTOPKT_H */

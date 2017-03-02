@@ -1,4 +1,5 @@
 #include "daemon/bitcoind.h"
+#include "daemon/chaintopology.h"
 #include "daemon/configdir.h"
 #include "daemon/lightningd.h"
 #include "daemon/log.h"
@@ -211,7 +212,7 @@ static void dev_register_opts(struct lightningd_state *dstate)
 	opt_register_noarg("--dev-no-routefail", opt_set_bool,
 			   &dstate->dev_never_routefail, opt_hidden);
 	opt_register_noarg("--dev-no-broadcast", opt_set_bool,
-			   &dstate->dev_no_broadcast, opt_hidden);
+			   &dstate->topology->dev_no_broadcast, opt_hidden);
 }
 
 static const struct config testnet_config = {

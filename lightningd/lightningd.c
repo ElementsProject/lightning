@@ -91,7 +91,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	list_head_init(&ld->dstate.wallet);
 	list_head_init(&ld->dstate.addresses);
 	ld->dstate.dev_never_routefail = false;
-	ld->dstate.dev_no_broadcast = false;
 	ld->dstate.reexec = NULL;
 	ld->dstate.external_ip = NULL;
 	ld->dstate.announce = NULL;

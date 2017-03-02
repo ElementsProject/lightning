@@ -44,7 +44,6 @@ static struct lightningd_state *lightningd_state(void)
 	list_head_init(&dstate->wallet);
 	list_head_init(&dstate->addresses);
 	dstate->dev_never_routefail = false;
-	dstate->dev_no_broadcast = false;
 	dstate->rstate = new_routing_state(dstate, dstate->base_log);
 	dstate->reexec = NULL;
 	dstate->external_ip = NULL;
@@ -52,6 +51,21 @@ static struct lightningd_state *lightningd_state(void)
 	dstate->invoices = invoices_init(dstate);
 	return dstate;
 }
+
+static void json_lightningd_dev_broadcast(struct command *cmd,
+					  const char *buffer,
+					  const jsmntok_t *params)
+{
+	json_dev_broadcast(cmd, cmd->dstate->topology, buffer, params);
+}
+
+static const struct json_command dev_broadcast_command = {
+	"dev-broadcast",
+	json_lightningd_dev_broadcast,
+	"Pretend we broadcast txs, but don't send to bitcoind",
+	"Returns an empty result on success (waits for flush if enabled)"
+};
+AUTODATA(json_command, &dev_broadcast_command);
 
 int main(int argc, char *argv[])
 {

@@ -125,9 +125,6 @@ struct lightningd_state {
 	/* For testing: don't fail if we can't route. */
 	bool dev_never_routefail;
 
-	/* For testing: don't broadcast txs (but pretend it worked)(. */
-	bool dev_no_broadcast;
-
 	/* Re-exec hack for testing. */
 	char **reexec;
 

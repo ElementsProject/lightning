@@ -206,7 +206,7 @@ static void rebroadcast_txs(struct topology *topo, struct command *cmd)
 	struct txs_to_broadcast *txs;
 	struct outgoing_tx *otx;
 
-	if (cmd->dstate->dev_no_broadcast)
+	if (topo->dev_no_broadcast)
 		return;
 
 	txs = tal(topo, struct txs_to_broadcast);
@@ -267,7 +267,7 @@ void broadcast_tx(struct topology *topo,
 	log_add_struct(topo->bitcoind->log,
 		       " (tx %s)", struct sha256_double, &otx->txid);
 
-	if (peer->dstate->dev_no_broadcast)
+	if (topo->dev_no_broadcast)
 		broadcast_done(topo->bitcoind, 0, "dev_no_broadcast", otx);
 	else
 		bitcoind_sendrawtx(peer, topo->bitcoind, otx->hextx,
@@ -488,8 +488,9 @@ struct txlocator *locate_tx(const void *ctx, const struct topology *topo,
 	return tal_free(loc);
 }
 
-static void json_dev_broadcast(struct command *cmd,
-			       const char *buffer, const jsmntok_t *params)
+void json_dev_broadcast(struct command *cmd,
+			struct topology *topo,
+			const char *buffer, const jsmntok_t *params)
 {
 	jsmntok_t *enabletok;
 	bool enable;
@@ -508,7 +509,7 @@ static void json_dev_broadcast(struct command *cmd,
 
 	log_debug(cmd->dstate->base_log, "dev-broadcast: broadcast %s",
 		  enable ? "enabled" : "disabled");
-	cmd->dstate->dev_no_broadcast = !enable;
+	cmd->dstate->topology->dev_no_broadcast = !enable;
 
 	/* If enabling, flush and wait. */
 	if (enable)
@@ -516,14 +517,6 @@ static void json_dev_broadcast(struct command *cmd,
 	else
 		command_success(cmd, null_response(cmd));
 }
-
-static const struct json_command dev_broadcast_command = {
-	"dev-broadcast",
-	json_dev_broadcast,
-	"Pretend we broadcast txs, but don't send to bitcoind",
-	"Returns an empty result on success (waits for flush if enabled)"
-};
-AUTODATA(json_command, &dev_broadcast_command);
 
 /* On shutdown, peers get deleted last.  That frees from our list, so
  * do it now instead. */
@@ -543,6 +536,7 @@ struct topology *new_topology(const tal_t *ctx)
 	list_head_init(&topo->outgoing_txs);
 	txwatch_hash_init(&topo->txwatches);
 	txowatch_hash_init(&topo->txowatches);
+	topo->dev_no_broadcast = false;
 
 	return topo;
 }
