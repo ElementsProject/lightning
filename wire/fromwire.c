@@ -122,15 +122,21 @@ void fromwire_secp256k1_ecdsa_signature(const u8 **cursor,
 void fromwire_channel_id(const u8 **cursor, size_t *max,
 			 struct channel_id *channel_id)
 {
+	fromwire(cursor, max, channel_id, sizeof(*channel_id));
+}
+
+void fromwire_short_channel_id(const u8 **cursor, size_t *max,
+			       struct short_channel_id *short_channel_id)
+{
 	be32 txnum = 0;
 	u8 outnum;
 
-	channel_id->blocknum = fromwire_u32(cursor, max);
+	short_channel_id->blocknum = fromwire_u32(cursor, max);
 	/* Pulling 3 bytes off wire is tricky; they're big-endian. */
 	fromwire(cursor, max, (char *)&txnum + 1, 3);
-	channel_id->txnum = be32_to_cpu(txnum);
+	short_channel_id->txnum = be32_to_cpu(txnum);
 	fromwire(cursor, max, &outnum, 1);
-	channel_id->outnum = outnum;
+	short_channel_id->outnum = outnum;
 }
 
 void fromwire_sha256(const u8 **cursor, size_t *max, struct sha256 *sha256)
@@ -200,8 +206,11 @@ void fromwire_sha256_double_array(const u8 **cursor, size_t *max,
 	for (i = 0; i < num; i++)
 		fromwire_sha256_double(cursor, max, arr + i);
 }
-static char *fmt_channel_id(const tal_t *ctx, const struct channel_id *id)
+
+static char *fmt_short_channel_id(const tal_t *ctx,
+				  const struct short_channel_id *id)
 {
 	return tal_fmt(ctx, "%u/%u/%u", id->blocknum, id->txnum, id->outnum);
 }
-REGISTER_TYPE_TO_STRING(channel_id, fmt_channel_id);
+REGISTER_TYPE_TO_STRING(short_channel_id, fmt_short_channel_id);
+REGISTER_TYPE_TO_HEXSTR(channel_id);

@@ -267,7 +267,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	 *
 	 * 1. type: 128 (`update_add_htlc`)
 	 * 2. data:
-	 *    * [8:channel-id]
+	 *    * [32:channel-id]
 	 *    * [8:id]
 	 *    * [4:amount-msat]
 	 *    * [4:cltv-expiry]

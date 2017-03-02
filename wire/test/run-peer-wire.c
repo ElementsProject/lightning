@@ -91,7 +91,7 @@ struct msg_closing_signed {
 struct msg_funding_created {
 	struct channel_id temporary_channel_id;
 	struct sha256 txid;
-	u8 output_index;
+	u16 output_index;
 	secp256k1_ecdsa_signature signature;
 };
 struct msg_accept_channel {
@@ -131,7 +131,7 @@ struct msg_revoke_and_ack {
 };
 struct msg_channel_update {
 	secp256k1_ecdsa_signature signature;
-	struct channel_id channel_id;
+	struct short_channel_id short_channel_id;
 	u32 timestamp;
 	u16 flags;
 	u16 expiry;
@@ -140,12 +140,12 @@ struct msg_channel_update {
 	u32 fee_proportional_millionths;
 };
 struct msg_funding_locked {
-	struct channel_id temporary_channel_id;
 	struct channel_id channel_id;
 	struct pubkey next_per_commitment_point;
 };
 struct msg_announcement_signatures {
 	struct channel_id channel_id;
+	struct short_channel_id short_channel_id;
 	secp256k1_ecdsa_signature announcement_node_signature;
 	secp256k1_ecdsa_signature announcement_bitcoin_signature;
 };
@@ -190,7 +190,7 @@ struct msg_channel_announcement {
 	secp256k1_ecdsa_signature node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1;
 	secp256k1_ecdsa_signature bitcoin_signature_2;
-	struct channel_id channel_id;
+	struct short_channel_id short_channel_id;
 	struct pubkey node_id_1;
 	struct pubkey node_id_2;
 	struct pubkey bitcoin_key_1;
@@ -222,7 +222,7 @@ static void *towire_struct_channel_announcement(const tal_t *ctx,
 					   &s->node_signature_2,
 					   &s->bitcoin_signature_1,
 					   &s->bitcoin_signature_2,
-					   &s->channel_id,
+					   &s->short_channel_id,
 					   &s->node_id_1,
 					   &s->node_id_2,
 					   &s->bitcoin_key_1,
@@ -238,7 +238,7 @@ static struct msg_channel_announcement *fromwire_struct_channel_announcement(con
 					  &s->node_signature_2,
 					  &s->bitcoin_signature_1,
 					  &s->bitcoin_signature_2,
-					  &s->channel_id,
+					  &s->short_channel_id,
 					  &s->node_id_1,
 					  &s->node_id_2,
 					  &s->bitcoin_key_1,
@@ -366,7 +366,7 @@ static void *towire_struct_channel_update(const tal_t *ctx,
 {
 	return towire_channel_update(ctx, 
 				     &s->signature,
-				     &s->channel_id,
+				     &s->short_channel_id,
 				     s->timestamp,
 				     s->flags,
 				     s->expiry,
@@ -381,7 +381,7 @@ static struct msg_channel_update *fromwire_struct_channel_update(const tal_t *ct
 
 	if (fromwire_channel_update(p, plen, 
 				    &s->signature,
-				    &s->channel_id,
+				    &s->short_channel_id,
 				    &s->timestamp,
 				    &s->flags,
 				    &s->expiry,
@@ -396,7 +396,6 @@ static void *towire_struct_funding_locked(const tal_t *ctx,
 						const struct msg_funding_locked *s)
 {
 	return towire_funding_locked(ctx, 
-				     &s->temporary_channel_id,
 				     &s->channel_id,
 				     &s->next_per_commitment_point);
 }
@@ -406,7 +405,6 @@ static struct msg_funding_locked *fromwire_struct_funding_locked(const tal_t *ct
 	struct msg_funding_locked *s = tal(ctx, struct msg_funding_locked);
 
 	if (fromwire_funding_locked(p, plen, 
-				    &s->temporary_channel_id,
 				    &s->channel_id,
 				    &s->next_per_commitment_point))
 		return s;
@@ -418,6 +416,7 @@ static void *towire_struct_announcement_signatures(const tal_t *ctx,
 {
 	return towire_announcement_signatures(ctx, 
 				     &s->channel_id,
+				     &s->short_channel_id,
 				     &s->announcement_node_signature,
 				     &s->announcement_bitcoin_signature);
 }
@@ -428,6 +427,7 @@ static struct msg_announcement_signatures *fromwire_struct_announcement_signatur
 
 	if (fromwire_announcement_signatures(p, plen, 
 				    &s->channel_id,
+				    &s->short_channel_id,
 				    &s->announcement_node_signature,
 				    &s->announcement_bitcoin_signature))
 		return s;

@@ -8,7 +8,7 @@
  *
  * 1. type: 32 (`open_channel`)
  * 2. data:
- *    * [8:temporary-channel-id]
+ *    * [32:temporary-channel-id]
  *    * [8:funding-satoshis]
  *    * [8:push-msat]
  *    * [8:dust-limit-satoshis]
@@ -21,7 +21,7 @@
  *...
  * 1. type: 33 (`accept_channel`)
  * 2. data:
- *    * [8:temporary-channel-id]
+ *    * [32:temporary-channel-id]
  *    * [8:dust-limit-satoshis]
  *    * [8:max-htlc-value-in-flight-msat]
  *    * [8:channel-reserve-satoshis]

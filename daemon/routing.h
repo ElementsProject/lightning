@@ -29,7 +29,7 @@ struct node_connection {
 	u32 htlc_minimum_msat;
 
 	/* The channel ID, as determined by the anchor transaction */
-	struct channel_id channel_id;
+	struct short_channel_id short_channel_id;
 
 	/* Flags as specified by the `channel_update`s, among other
 	 * things indicated direction wrt the `channel_id` */
@@ -121,7 +121,7 @@ struct node_connection *add_connection(struct routing_state *rstate,
 struct node_connection *half_add_connection(struct routing_state *rstate,
 					    const struct pubkey *from,
 					    const struct pubkey *to,
-					    const struct channel_id *chanid,
+					    const struct short_channel_id *schanid,
 					    const u16 flags);
 
 /* Get an existing connection between `from` and `to`, NULL if no such
@@ -130,10 +130,10 @@ struct node_connection *get_connection(struct routing_state *rstate,
 				       const struct pubkey *from,
 				       const struct pubkey *to);
 
-/* Given a channel_id, retrieve the matching connection, or NULL if it is
+/* Given a short_channel_id, retrieve the matching connection, or NULL if it is
  * unknown. */
-struct node_connection *get_connection_by_cid(const struct routing_state *rstate,
-					      const struct channel_id *chanid,
+struct node_connection *get_connection_by_scid(const struct routing_state *rstate,
+					       const struct short_channel_id *schanid,
 					      const u8 direction);
 
 void remove_connection(struct routing_state *rstate,
@@ -156,7 +156,7 @@ bool add_channel_direction(struct routing_state *rstate,
 			   const struct pubkey *from,
 			   const struct pubkey *to,
 			   const int direction,
-			   const struct channel_id *channel_id,
+			   const struct short_channel_id *short_channel_id,
 			   const u8 *announcement);
 
 bool read_ip(const tal_t *ctx, const u8 *addresses, char **hostname, int *port);

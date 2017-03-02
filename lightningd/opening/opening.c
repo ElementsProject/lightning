@@ -2,6 +2,7 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <ccan/breakpoint/breakpoint.h>
+#include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/fdpass/fdpass.h>
@@ -53,7 +54,7 @@ struct state {
 	u64 funding_satoshis, push_msat;
 	u32 feerate_per_kw;
 	struct sha256_double funding_txid;
-	u8 funding_txout;
+	u16 funding_txout;
 
 	/* Secret keys and basepoint secrets. */
 	struct secrets our_secrets;
@@ -257,10 +258,39 @@ static void set_reserve(u64 *reserve, u64 funding)
 	*reserve = (funding + 99) / 100;
 }
 
+/* BOLT #2:
+ *
+ * This message introduces the `channel-id` which identifies , which is
+ * derived from the funding transaction by combining the `funding-txid` and
+ * the `funding-output-index` using big-endian exclusive-OR
+ * (ie. `funding-output-index` alters the last two bytes).
+ */
+static void derive_channel_id(struct channel_id *channel_id,
+			      struct sha256_double *txid, u16 txout)
+{
+	BUILD_ASSERT(sizeof(*channel_id) == sizeof(*txid));
+	memcpy(channel_id, txid, sizeof(*channel_id));
+	channel_id->id[sizeof(*channel_id)-2] ^= txout >> 8;
+	channel_id->id[sizeof(*channel_id)-1] ^= txout;
+}
+
+/* BOLT #2:
+ *
+ * A sending node MUST ensure `temporary-channel-id` is unique from any other
+ * channel id with the same peer.
+ */
+static void temporary_channel_id(struct channel_id *channel_id)
+{
+	size_t i;
+
+	for (i = 0; i < sizeof(*channel_id); i++)
+		channel_id->id[i] = pseudorand(256);
+}
+
 static u8 *open_channel(struct state *state, const struct points *ours,
 			u32 max_minimum_depth)
 {
-	struct channel_id tmpid, tmpid2;
+	struct channel_id channel_id, id_in;
 	u8 *msg;
 	struct bitcoin_tx *tx;
 	struct points theirs;
@@ -269,14 +299,7 @@ static u8 *open_channel(struct state *state, const struct points *ours,
 	set_reserve(&state->localconf.channel_reserve_satoshis,
 		    state->funding_satoshis);
 
-	/* BOLT #2:
-	 *
-	 * A sending node MUST set the most significant bit in
-	 * `temporary-channel-id`, and MUST ensure it is unique from any other
-	 * channel id with the same peer.
-	 */
-	/* We don't support more than one channel, so this is easy. */
-	memset(&tmpid, 0xFF, sizeof(tmpid));
+	temporary_channel_id(&channel_id);
 
 	/* BOLT #2:
 	 *
@@ -295,7 +318,7 @@ static u8 *open_channel(struct state *state, const struct points *ours,
 			      "push-msat must be < %"PRIu64,
 			      1000 * state->funding_satoshis);
 
-	msg = towire_open_channel(state, &tmpid,
+	msg = towire_open_channel(state, &channel_id,
 				  state->funding_satoshis, state->push_msat,
 				  state->localconf.dust_limit_satoshis,
 				  state->localconf.max_htlc_value_in_flight_msat,
@@ -327,7 +350,7 @@ static u8 *open_channel(struct state *state, const struct points *ours,
 	 * `delayed-payment-basepoint` are not valid DER-encoded compressed
 	 * secp256k1 pubkeys.
 	 */
-	if (!fromwire_accept_channel(msg, NULL, &tmpid2,
+	if (!fromwire_accept_channel(msg, NULL, &id_in,
 				     &state->remoteconf->dust_limit_satoshis,
 				     &state->remoteconf
 					->max_htlc_value_in_flight_msat,
@@ -349,11 +372,11 @@ static u8 *open_channel(struct state *state, const struct points *ours,
 	 *
 	 * The `temporary-channel-id` MUST be the same as the
 	 * `temporary-channel-id` in the `open_channel` message. */
-	if (!structeq(&tmpid, &tmpid2))
+	if (!structeq(&id_in, &channel_id))
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "accept_channel ids don't match: sent %s got %s",
-			      type_to_string(msg, struct channel_id, &tmpid),
-			      type_to_string(msg, struct channel_id, &tmpid2));
+			      type_to_string(msg, struct channel_id, &id_in),
+			      type_to_string(msg, struct channel_id, &channel_id));
 
 	/* BOLT #2:
 	 *
@@ -421,7 +444,7 @@ static u8 *open_channel(struct state *state, const struct points *ours,
 		     type_to_string(trc, struct bitcoin_tx, tx),
 		     type_to_string(trc, struct pubkey, &ours->funding_pubkey));
 
-	msg = towire_funding_created(state, &tmpid,
+	msg = towire_funding_created(state, &channel_id,
 				     &state->funding_txid.sha,
 				     state->funding_txout,
 				     &sig);
@@ -442,15 +465,27 @@ static u8 *open_channel(struct state *state, const struct points *ours,
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Reading funding_signed");
 
-	if (!fromwire_funding_signed(msg, NULL, &tmpid2, &sig))
+	if (!fromwire_funding_signed(msg, NULL, &id_in, &sig))
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			    "Parsing funding_signed (%s)",
 			    wire_type_name(fromwire_peektype(msg)));
-	if (!structeq(&tmpid, &tmpid2))
+
+	/* BOLT #2:
+	 *
+	 * This message introduces the `channel-id` which identifies , which
+	 * is derived from the funding transaction by combining the
+	 * `funding-txid` and the `funding-output-index` using big-endian
+	 * exclusive-OR (ie. `funding-output-index` alters the last two
+	 * bytes).
+	 */
+	derive_channel_id(&channel_id,
+			  &state->funding_txid, state->funding_txout);
+
+	if (!structeq(&id_in, &channel_id))
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
-			      "funding_signed ids don't match: sent %s got %s",
-			      type_to_string(msg, struct channel_id, &tmpid),
-			      type_to_string(msg, struct channel_id, &tmpid2));
+			      "funding_signed ids don't match: expceted %s got %s",
+			      type_to_string(msg, struct channel_id, &channel_id),
+			      type_to_string(msg, struct channel_id, &id_in));
 
 	/* BOLT #2:
 	 *
@@ -489,7 +524,7 @@ static u8 *open_channel(struct state *state, const struct points *ours,
 static u8 *recv_channel(struct state *state, const struct points *ours,
 			u32 min_feerate, u32 max_feerate, const u8 *peer_msg)
 {
-	struct channel_id tmpid, tmpid2;
+	struct channel_id id_in, channel_id;
 	struct points theirs;
 	secp256k1_ecdsa_signature theirsig, sig;
 	struct bitcoin_tx *tx;
@@ -504,7 +539,7 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 	 * `delayed-payment-basepoint` are not valid DER-encoded compressed
 	 * secp256k1 pubkeys.
 	 */
-	if (!fromwire_open_channel(peer_msg, NULL, &tmpid,
+	if (!fromwire_open_channel(peer_msg, NULL, &channel_id,
 				   &state->funding_satoshis, &state->push_msat,
 				   &state->remoteconf->dust_limit_satoshis,
 				   &state->remoteconf->max_htlc_value_in_flight_msat,
@@ -561,7 +596,7 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 		    state->funding_satoshis);
 	check_config_bounds(state, state->remoteconf);
 
-	msg = towire_accept_channel(state, &tmpid,
+	msg = towire_accept_channel(state, &channel_id,
 				    state->localconf.dust_limit_satoshis,
 				    state->localconf
 				      .max_htlc_value_in_flight_msat,
@@ -585,7 +620,7 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Reading funding_created");
 
-	if (!fromwire_funding_created(msg, NULL, &tmpid2,
+	if (!fromwire_funding_created(msg, NULL, &id_in,
 				      &state->funding_txid.sha,
 				      &state->funding_txout,
 				      &theirsig))
@@ -596,11 +631,11 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 	 *
 	 * The sender MUST set `temporary-channel-id` the same as the
 	 * `temporary-channel-id` in the `open_channel` message. */
-	if (!structeq(&tmpid, &tmpid2))
+	if (!structeq(&id_in, &channel_id))
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
-			      "funding_created ids don't match: sent %s got %s",
-			      type_to_string(msg, struct channel_id, &tmpid),
-			      type_to_string(msg, struct channel_id, &tmpid2));
+			    "funding_created ids don't match: sent %s got %s",
+			    type_to_string(msg, struct channel_id, &channel_id),
+			    type_to_string(msg, struct channel_id, &id_in));
 
 	state->channel = new_channel(state,
 				      &state->funding_txid,
@@ -640,6 +675,17 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 
 	/* BOLT #2:
 	 *
+	 * This message introduces the `channel-id` which identifies , which
+	 * is derived from the funding transaction by combining the
+	 * `funding-txid` and the `funding-output-index` using big-endian
+	 * exclusive-OR (ie. `funding-output-index` alters the last two
+	 * bytes).
+	 */
+	derive_channel_id(&channel_id,
+			  &state->funding_txid, state->funding_txout);
+
+	/* BOLT #2:
+	 *
 	 * ### The `funding_signed` message
 	 *
 	 * This message gives the funder the signature they need for the first
@@ -652,7 +698,7 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 				 &ours->funding_pubkey, &theirs.funding_pubkey,
 				 tx);
 
-	msg = towire_funding_signed(state, &tmpid, &sig);
+	msg = towire_funding_signed(state, &channel_id, &sig);
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
 			      "Writing funding_signed");

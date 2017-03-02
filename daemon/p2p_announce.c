@@ -19,19 +19,19 @@ static void broadcast_channel_update(struct lightningd_state *dstate, struct pee
 	struct txlocator *loc;
 	u8 *serialized;
 	secp256k1_ecdsa_signature signature;
-	struct channel_id channel_id;
+	struct short_channel_id short_channel_id;
 	u32 timestamp = time_now().ts.tv_sec;
 	const tal_t *tmpctx = tal_tmpctx(dstate);
 
 	loc = locate_tx(tmpctx, dstate->topology, &peer->anchor.txid);
-	channel_id.blocknum = loc->blkheight;
-	channel_id.txnum = loc->index;
-	channel_id.outnum = peer->anchor.index;
+	short_channel_id.blocknum = loc->blkheight;
+	short_channel_id.txnum = loc->index;
+	short_channel_id.outnum = peer->anchor.index;
 
 	/* Avoid triggering memcheck */
 	memset(&signature, 0, sizeof(signature));
 
-	serialized = towire_channel_update(tmpctx, &signature, &channel_id,
+	serialized = towire_channel_update(tmpctx, &signature, &short_channel_id,
 					   timestamp,
 					   pubkey_cmp(&dstate->id, peer->id) > 0,
 					   dstate->config.min_htlc_expiry,
@@ -41,7 +41,7 @@ static void broadcast_channel_update(struct lightningd_state *dstate, struct pee
 					   dstate->config.fee_per_satoshi);
 	privkey_sign(dstate, serialized + 66, tal_count(serialized) - 66,
 		     &signature);
-	serialized = towire_channel_update(tmpctx, &signature, &channel_id,
+	serialized = towire_channel_update(tmpctx, &signature, &short_channel_id,
 					   timestamp,
 					   pubkey_cmp(&dstate->id, peer->id) > 0,
 					   dstate->config.min_htlc_expiry,
@@ -49,7 +49,7 @@ static void broadcast_channel_update(struct lightningd_state *dstate, struct pee
 					   dstate->config.fee_base,
 					   dstate->config.fee_per_satoshi);
 	u8 *tag = tal_arr(tmpctx, u8, 0);
-	towire_channel_id(&tag, &channel_id);
+	towire_short_channel_id(&tag, &short_channel_id);
 	queue_broadcast(dstate->rstate->broadcasts, WIRE_CHANNEL_UPDATE, tag, serialized);
 	tal_free(tmpctx);
 }
@@ -96,7 +96,7 @@ static void broadcast_node_announcement(struct lightningd_state *dstate)
 static void broadcast_channel_announcement(struct lightningd_state *dstate, struct peer *peer)
 {
 	struct txlocator *loc;
-	struct channel_id channel_id;
+	struct short_channel_id short_channel_id;
 	secp256k1_ecdsa_signature node_signature[2];
 	secp256k1_ecdsa_signature bitcoin_signature[2];
 	const struct pubkey *node_id[2];
@@ -108,9 +108,9 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 
 	loc = locate_tx(tmpctx, dstate->topology, &peer->anchor.txid);
 
-	channel_id.blocknum = loc->blkheight;
-	channel_id.txnum = loc->index;
-	channel_id.outnum = peer->anchor.index;
+	short_channel_id.blocknum = loc->blkheight;
+	short_channel_id.txnum = loc->index;
+	short_channel_id.outnum = peer->anchor.index;
 
 	/* Set all sigs to zero */
 	memset(node_signature, 0, sizeof(node_signature));
@@ -147,7 +147,7 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 						 &node_signature[1],
 						 &bitcoin_signature[0],
 						 &bitcoin_signature[1],
-						 &channel_id,
+						 &short_channel_id,
 						 node_id[0],
 						 node_id[1],
 						 bitcoin_key[0],
@@ -159,14 +159,14 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 						 &node_signature[1],
 						 &bitcoin_signature[0],
 						 &bitcoin_signature[1],
-						 &channel_id,
+						 &short_channel_id,
 						 node_id[0],
 						 node_id[1],
 						 bitcoin_key[0],
 						 bitcoin_key[1],
 						 NULL);
 	u8 *tag = tal_arr(tmpctx, u8, 0);
-	towire_channel_id(&tag, &channel_id);
+	towire_short_channel_id(&tag, &short_channel_id);
 	queue_broadcast(dstate->rstate->broadcasts, WIRE_CHANNEL_ANNOUNCEMENT,
 			tag, serialized);
 	tal_free(tmpctx);

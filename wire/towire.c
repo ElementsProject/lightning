@@ -70,10 +70,16 @@ void towire_secp256k1_ecdsa_signature(u8 **pptr,
 
 void towire_channel_id(u8 **pptr, const struct channel_id *channel_id)
 {
-	be32 txnum = cpu_to_be32(channel_id->txnum);
-	u8 outnum = channel_id->outnum;
+	towire(pptr, channel_id, sizeof(*channel_id));
+}
 
-	towire_u32(pptr, channel_id->blocknum);
+void towire_short_channel_id(u8 **pptr,
+			     const struct short_channel_id *short_channel_id)
+{
+	be32 txnum = cpu_to_be32(short_channel_id->txnum);
+	u8 outnum = short_channel_id->outnum;
+
+	towire_u32(pptr, short_channel_id->blocknum);
 	towire(pptr, (char *)&txnum + 1, 3);
 	towire(pptr, &outnum, 1);
 }

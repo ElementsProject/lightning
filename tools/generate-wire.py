@@ -21,8 +21,10 @@ class FieldType(object):
     def _typesize(typename):
         if typename == 'pad':
             return 1
-        elif typename == 'struct channel_id':
+        elif typename == 'struct short_channel_id':
             return 8
+        elif typename == 'struct channel_id':
+            return 32
         elif typename == 'struct ipv6':
             return 16
         elif typename == 'secp256k1_ecdsa_signature':
@@ -103,6 +105,9 @@ class Field(object):
     def _guess_type(message, fieldname, base_size):
         if fieldname.startswith('pad'):
             return FieldType('pad')
+
+        if fieldname.endswith('short_channel_id'):
+            return FieldType('struct short_channel_id')
 
         if fieldname.endswith('channel_id'):
             return FieldType('struct channel_id')

@@ -147,8 +147,8 @@ struct node_connection * get_connection(struct routing_state *rstate,
 	return NULL;
 }
 
-struct node_connection *get_connection_by_cid(const struct routing_state *rstate,
-					      const struct channel_id *chanid,
+struct node_connection *get_connection_by_scid(const struct routing_state *rstate,
+					      const struct short_channel_id *schanid,
 					      const u8 direction)
 {
 	struct node *n;
@@ -162,7 +162,7 @@ struct node_connection *get_connection_by_cid(const struct routing_state *rstate
 	        num_conn = tal_count(n->out);
 		for (i = 0; i < num_conn; i++){
 			c = n->out[i];
-			if (structeq(&c->channel_id, chanid) &&
+			if (structeq(&c->short_channel_id, schanid) &&
 			    (c->flags&0x1) == direction)
 			    return c;
 		}
@@ -224,13 +224,13 @@ get_or_make_connection(struct routing_state *rstate,
 struct node_connection *half_add_connection(struct routing_state *rstate,
 					    const struct pubkey *from,
 					    const struct pubkey *to,
-					    const struct channel_id *chanid,
+					    const struct short_channel_id *schanid,
 					    const u16 flags
 	)
 {
 	struct node_connection *nc;
 	nc = get_or_make_connection(rstate, from, to);
-	memcpy(&nc->channel_id, chanid, sizeof(nc->channel_id));
+	nc->short_channel_id = *schanid;
 	nc->active = false;
 	nc->last_timestamp = 0;
 	nc->flags = flags;
@@ -257,7 +257,7 @@ struct node_connection *add_connection(struct routing_state *rstate,
 	c->min_blocks = min_blocks;
 	c->active = true;
 	c->last_timestamp = 0;
-	memset(&c->channel_id, 0, sizeof(c->channel_id));
+	memset(&c->short_channel_id, 0, sizeof(c->short_channel_id));
 	c->flags = pubkey_cmp(from, to) > 0;
 	return c;
 }
@@ -514,20 +514,21 @@ bool add_channel_direction(struct routing_state *rstate,
 			   const struct pubkey *from,
 			   const struct pubkey *to,
 			   const int direction,
-			   const struct channel_id *channel_id,
+			   const struct short_channel_id *short_channel_id,
 			   const u8 *announcement)
 {
 	struct node_connection *c = get_connection(rstate, from, to);
 	if (c){
 		/* Do not clobber connections added otherwise */
-		memcpy(&c->channel_id, channel_id, sizeof(c->channel_id));
+		memcpy(&c->short_channel_id, short_channel_id,
+		       sizeof(c->short_channel_id));
 		c->flags = direction;
 		return false;
-	}else if(get_connection_by_cid(rstate, channel_id, direction)) {
+	}else if(get_connection_by_scid(rstate, short_channel_id, direction)) {
 		return false;
 	}
 
-	c = half_add_connection(rstate, from, to, channel_id, direction);
+	c = half_add_connection(rstate, from, to, short_channel_id, direction);
 
 	/* Remember the announcement so we can forward it to new peers */
 	tal_free(c->channel_announcement);
@@ -647,7 +648,7 @@ void handle_channel_announcement(
 	bool forward = false;
 	secp256k1_ecdsa_signature node_signature_1;
 	secp256k1_ecdsa_signature node_signature_2;
-	struct channel_id channel_id;
+	struct short_channel_id short_channel_id;
 	secp256k1_ecdsa_signature bitcoin_signature_1;
 	secp256k1_ecdsa_signature bitcoin_signature_2;
 	struct pubkey node_id_1;
@@ -662,7 +663,7 @@ void handle_channel_announcement(
 					   &node_signature_1, &node_signature_2,
 					   &bitcoin_signature_1,
 					   &bitcoin_signature_2,
-					   &channel_id,
+					   &short_channel_id,
 					   &node_id_1, &node_id_2,
 					   &bitcoin_key_1, &bitcoin_key_2,
 					   &features)) {
@@ -676,16 +677,16 @@ void handle_channel_announcement(
 
 	log_debug(rstate->base_log,
 		  "Received channel_announcement for channel %d:%d:%d",
-		  channel_id.blocknum,
-		  channel_id.txnum,
-		  channel_id.outnum
+		  short_channel_id.blocknum,
+		  short_channel_id.txnum,
+		  short_channel_id.outnum
 		);
 
 	forward |= add_channel_direction(rstate, &node_id_1,
-					 &node_id_2, 0, &channel_id,
+					 &node_id_2, 0, &short_channel_id,
 					 serialized);
 	forward |= add_channel_direction(rstate, &node_id_2,
-					 &node_id_1, 1, &channel_id,
+					 &node_id_1, 1, &short_channel_id,
 					 serialized);
 	if (!forward){
 		log_debug(rstate->base_log, "Not forwarding channel_announcement");
@@ -694,7 +695,7 @@ void handle_channel_announcement(
 	}
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
-	towire_channel_id(&tag, &channel_id);
+	towire_short_channel_id(&tag, &short_channel_id);
 	queue_broadcast(rstate->broadcasts, WIRE_CHANNEL_ANNOUNCEMENT,
 			tag, serialized);
 
@@ -706,7 +707,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 	u8 *serialized;
 	struct node_connection *c;
 	secp256k1_ecdsa_signature signature;
-	struct channel_id channel_id;
+	struct short_channel_id short_channel_id;
 	u32 timestamp;
 	u16 flags;
 	u16 expiry;
@@ -716,7 +717,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 
 	serialized = tal_dup_arr(tmpctx, u8, update, len, 0);
-	if (!fromwire_channel_update(serialized, NULL, &signature, &channel_id,
+	if (!fromwire_channel_update(serialized, NULL, &signature, &short_channel_id,
 				     &timestamp, &flags, &expiry,
 				     &htlc_minimum_msat, &fee_base_msat,
 				     &fee_proportional_millionths)) {
@@ -726,19 +727,19 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 
 
 	log_debug(rstate->base_log, "Received channel_update for channel %d:%d:%d(%d)",
-		  channel_id.blocknum,
-		  channel_id.txnum,
-		  channel_id.outnum,
+		  short_channel_id.blocknum,
+		  short_channel_id.txnum,
+		  short_channel_id.outnum,
 		  flags & 0x01
 		);
 
-	c = get_connection_by_cid(rstate, &channel_id, flags & 0x1);
+	c = get_connection_by_scid(rstate, &short_channel_id, flags & 0x1);
 
 	if (!c) {
 		log_debug(rstate->base_log, "Ignoring update for unknown channel %d:%d:%d",
-			  channel_id.blocknum,
-			  channel_id.txnum,
-			  channel_id.outnum
+			  short_channel_id.blocknum,
+			  short_channel_id.txnum,
+			  short_channel_id.outnum
 			);
 		tal_free(tmpctx);
 		return;
@@ -756,14 +757,14 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 	c->proportional_fee = fee_proportional_millionths;
 	c->active = true;
 	log_debug(rstate->base_log, "Channel %d:%d:%d(%d) was updated.",
-		  channel_id.blocknum,
-		  channel_id.txnum,
-		  channel_id.outnum,
+		  short_channel_id.blocknum,
+		  short_channel_id.txnum,
+		  short_channel_id.outnum,
 		  flags
 		);
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
-	towire_channel_id(&tag, &channel_id);
+	towire_short_channel_id(&tag, &short_channel_id);
 	queue_broadcast(rstate->broadcasts,
 			WIRE_CHANNEL_UPDATE,
 			tag,

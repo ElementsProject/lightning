@@ -119,7 +119,7 @@ static void hkdf_two_keys(struct secret *out1, struct secret *out2,
 {
 	/* BOLT #8:
 	 *
-	 *   * `HKDF(salt,ikm)`: a function is defined in [5](#reference-5),
+	 *   * `HKDF(salt,ikm)`: a function is defined in [3](#reference-3),
 	 *      evaluated with a zero-length `info` field.
 	 *      * All invocations of the `HKDF` implicitly return `64-bytes`
 	 *        of cryptographic randomness using the extract-and-expand

@@ -19,12 +19,11 @@ void peer_failed(int peer_fd, struct crypto_state *cs,
 
 	/* BOLT #1:
 	 *
-	 * A node sending `error` MUST fail the channel referred to by the
-	 * `channel-id`, or if `channel-id` is `0xFFFFFFFFFFFFFFFF` it MUST
-	 * fail all channels and MUST close the connection.
+	 * The channel is referred to by `channel-id` unless `channel-id` is
+	 * zero (ie. all bytes zero), in which case it refers to all channels.
 	 */
 	if (!channel_id) {
-		memset(&all_channels, 0xFF, sizeof(all_channels));
+		memset(&all_channels, 0, sizeof(all_channels));
 		channel_id = &all_channels;
 	}
 
