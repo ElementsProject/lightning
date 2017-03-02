@@ -27,7 +27,7 @@ struct outgoing_tx {
 	struct sha256_double txid;
 	void (*failed)(struct peer *peer, int exitstatus, const char *err);
 	/* FIXME: Remove this. */
-	struct topology *topo;
+	struct chain_topology *topo;
 };
 
 struct block {
@@ -58,7 +58,7 @@ struct block {
 	struct bitcoin_tx **full_txs;
 
 	/* FIXME: Remove this. */
-	struct topology *topo;
+	struct chain_topology *topo;
 };
 
 /* Hash blocks by sha */
@@ -81,7 +81,7 @@ static inline bool block_eq(const struct block *b, const struct sha256_double *k
 }
 HTABLE_DEFINE_TYPE(struct block, keyof_block_map, hash_sha, block_eq, block_map);
 
-struct topology {
+struct chain_topology {
 	struct block *root;
 	struct block *tip;
 	struct block_map block_map;
@@ -132,41 +132,41 @@ struct txlocator {
 
 /* This is the number of blocks which would have to be mined to invalidate
  * the tx. */
-size_t get_tx_depth(const struct topology *topo,
+size_t get_tx_depth(const struct chain_topology *topo,
 		    const struct sha256_double *txid);
 
 /* Get the mediantime of the block including this tx (must be one!) */
-u32 get_tx_mediantime(const struct topology *topo,
+u32 get_tx_mediantime(const struct chain_topology *topo,
 		      const struct sha256_double *txid);
 
 /* Get mediantime of the tip; if more than one, pick greatest time. */
-u32 get_tip_mediantime(const struct topology *topo);
+u32 get_tip_mediantime(const struct chain_topology *topo);
 
 /* Get highest block number. */
-u32 get_block_height(const struct topology *topo);
+u32 get_block_height(const struct chain_topology *topo);
 
 /* Get fee rate. */
-u64 get_feerate(const struct topology *topo);
+u64 get_feerate(const struct chain_topology *topo);
 
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * If failed is non-NULL, call that and don't rebroadcast. */
-void broadcast_tx(struct topology *topo,
+void broadcast_tx(struct chain_topology *topo,
 		  struct peer *peer, const struct bitcoin_tx *tx,
 		  void (*failed)(struct peer *peer,
 				 int exitstatus,
 				 const char *err));
 
-struct topology *new_topology(const tal_t *ctx, struct log *log);
-void setup_topology(struct topology *topology, struct bitcoind *bitcoind,
+struct chain_topology *new_topology(const tal_t *ctx, struct log *log);
+void setup_topology(struct chain_topology *topology, struct bitcoind *bitcoind,
 		    struct timers *timers,
 		    struct timerel poll_time, u32 first_peer_block);
 
-struct txlocator *locate_tx(const void *ctx, const struct topology *topo, const struct sha256_double *txid);
+struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo, const struct sha256_double *txid);
 
-void notify_new_block(struct topology *topo, unsigned int height);
+void notify_new_block(struct chain_topology *topo, unsigned int height);
 
 void json_dev_broadcast(struct command *cmd,
-			struct topology *topo,
+			struct chain_topology *topo,
 			const char *buffer, const jsmntok_t *params);
 
 #endif /* LIGHTNING_DAEMON_CRYPTOPKT_H */

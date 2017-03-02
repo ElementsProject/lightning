@@ -87,7 +87,7 @@ struct lightningd_state {
 	struct timers timers;
 
 	/* Cached block topology. */
-	struct topology *topology;
+	struct chain_topology *topology;
 
 	/* Our peers. */
 	struct list_head peers;

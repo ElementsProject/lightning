@@ -16,9 +16,9 @@
 #include <ccan/tal/str/str.h>
 #include <inttypes.h>
 
-static void start_poll_chaintip(struct topology *topo);
+static void start_poll_chaintip(struct chain_topology *topo);
 
-static void next_topology_timer(struct topology *topo)
+static void next_topology_timer(struct chain_topology *topo)
 {
 	if (topo->startup) {
 		topo->startup = false;
@@ -38,7 +38,7 @@ static int cmp_times(const u32 *a, const u32 *b, void *unused)
 }
 
 /* Mediantime is median of this and previous 10 blocks. */
-static u32 get_mediantime(const struct topology *topo, const struct block *b)
+static u32 get_mediantime(const struct chain_topology *topo, const struct block *b)
 {
 	unsigned int i;
 	u32 times[11];
@@ -64,7 +64,7 @@ static void add_tx_to_block(struct block *b, const struct sha256_double *txid, c
 	b->txnums[n] = txnum;
 }
 
-static bool we_broadcast(const struct topology *topo,
+static bool we_broadcast(const struct chain_topology *topo,
 			 const struct sha256_double *txid)
 {
 	const struct outgoing_tx *otx;
@@ -77,7 +77,7 @@ static bool we_broadcast(const struct topology *topo,
 }
 
 /* Fills in prev, height, mediantime. */
-static void connect_block(struct topology *topo,
+static void connect_block(struct chain_topology *topo,
 			  struct block *prev,
 			  struct block *b)
 {
@@ -136,7 +136,7 @@ static bool tx_in_block(const struct block *b,
 }
 
 /* FIXME: Use hash table. */
-static struct block *block_for_tx(const struct topology *topo,
+static struct block *block_for_tx(const struct chain_topology *topo,
 				  const struct sha256_double *txid)
 {
 	struct block *b;
@@ -148,7 +148,7 @@ static struct block *block_for_tx(const struct topology *topo,
 	return NULL;
 }
 
-size_t get_tx_depth(const struct topology *topo,
+size_t get_tx_depth(const struct chain_topology *topo,
 		    const struct sha256_double *txid)
 {
 	const struct block *b;
@@ -199,7 +199,7 @@ static void broadcast_remainder(struct bitcoind *bitcoind,
 
 /* FIXME: This is dumb.  We can group txs and avoid bothering bitcoind
  * if any one tx is in the main chain. */
-static void rebroadcast_txs(struct topology *topo, struct command *cmd)
+static void rebroadcast_txs(struct chain_topology *topo, struct command *cmd)
 {
 	/* Copy txs now (peers may go away, and they own txs). */
 	size_t num_txs = 0;
@@ -247,7 +247,7 @@ static void broadcast_done(struct bitcoind *bitcoind,
 	}
 }
 
-void broadcast_tx(struct topology *topo,
+void broadcast_tx(struct chain_topology *topo,
 		  struct peer *peer, const struct bitcoin_tx *tx,
 		  void (*failed)(struct peer *peer,
 				 int exitstatus, const char *err))
@@ -272,7 +272,7 @@ void broadcast_tx(struct topology *topo,
 				   broadcast_done, otx);
 }
 
-static void free_blocks(struct topology *topo, struct block *b)
+static void free_blocks(struct chain_topology *topo, struct block *b)
 {
 	struct block *next;
 
@@ -290,7 +290,7 @@ static void free_blocks(struct topology *topo, struct block *b)
 }
 
 static void update_fee(struct bitcoind *bitcoind, u64 rate,
-		       struct topology *topo)
+		       struct chain_topology *topo)
 {
 	log_debug(topo->log, "Feerate %"PRIu64" (was %"PRIu64")",
 		  rate, topo->feerate);
@@ -298,7 +298,7 @@ static void update_fee(struct bitcoind *bitcoind, u64 rate,
 }
 
 /* B is the new chain (linked by ->next); update topology */
-static void topology_changed(struct topology *topo,
+static void topology_changed(struct chain_topology *topo,
 			     struct block *prev,
 			     struct block *b)
 {
@@ -323,7 +323,7 @@ static void topology_changed(struct topology *topo,
 	bitcoind_estimate_fee(topo->bitcoind, update_fee, topo);
 }
 
-static struct block *new_block(struct topology *topo,
+static struct block *new_block(struct chain_topology *topo,
 			       struct bitcoin_block *blk,
 			       struct block *next)
 {
@@ -351,7 +351,7 @@ static struct block *new_block(struct topology *topo,
 }
 
 static void add_block(struct bitcoind *bitcoind,
-		      struct topology *topo,
+		      struct chain_topology *topo,
 		      struct bitcoin_block *blk,
 		      struct block *next);
 
@@ -363,7 +363,7 @@ static void gather_previous_blocks(struct bitcoind *bitcoind,
 }
 
 static void add_block(struct bitcoind *bitcoind,
-		      struct topology *topo,
+		      struct chain_topology *topo,
 		      struct bitcoin_block *blk,
 		      struct block *next)
 {
@@ -386,14 +386,14 @@ static void add_block(struct bitcoind *bitcoind,
 
 static void rawblock_tip(struct bitcoind *bitcoind,
 			 struct bitcoin_block *blk,
-			 struct topology *topo)
+			 struct chain_topology *topo)
 {
 	add_block(bitcoind, topo, blk, NULL);
 }
 
 static void check_chaintip(struct bitcoind *bitcoind,
 			   const struct sha256_double *tipid,
-			   struct topology *topo)
+			   struct chain_topology *topo)
 {
 	/* 0 is the main tip. */
 	if (!structeq(tipid, &topo->tip->blkid))
@@ -403,7 +403,7 @@ static void check_chaintip(struct bitcoind *bitcoind,
 		next_topology_timer(topo);
 }
 
-static void start_poll_chaintip(struct topology *topo)
+static void start_poll_chaintip(struct chain_topology *topo)
 {
 	if (!list_empty(&topo->bitcoind->pending)) {
 		log_unusual(topo->log,
@@ -415,7 +415,7 @@ static void start_poll_chaintip(struct topology *topo)
 
 static void init_topo(struct bitcoind *bitcoind,
 		      struct bitcoin_block *blk,
-		      struct topology *topo)
+		      struct chain_topology *topo)
 {
 	topo->root = new_block(topo, blk, NULL);
 	topo->root->height = topo->first_blocknum;
@@ -428,13 +428,13 @@ static void init_topo(struct bitcoind *bitcoind,
 
 static void get_init_block(struct bitcoind *bitcoind,
 			   const struct sha256_double *blkid,
-			   struct topology *topo)
+			   struct chain_topology *topo)
 {
 	bitcoind_getrawblock(bitcoind, blkid, init_topo, topo);
 }
 
 static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
-			       struct topology *topo)
+			       struct chain_topology *topo)
 {
 	/* Start back before any reasonable forks. */
 	if (blockcount < 100)
@@ -447,7 +447,7 @@ static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 			      get_init_block, topo);
 }
 
-u32 get_tx_mediantime(const struct topology *topo,
+u32 get_tx_mediantime(const struct chain_topology *topo,
 		      const struct sha256_double *txid)
 {
 	struct block *b;
@@ -460,17 +460,17 @@ u32 get_tx_mediantime(const struct topology *topo,
 	      tal_hexstr(topo, txid, sizeof(*txid)));
 }
 
-u32 get_tip_mediantime(const struct topology *topo)
+u32 get_tip_mediantime(const struct chain_topology *topo)
 {
 	return topo->tip->mediantime;
 }
 
-u32 get_block_height(const struct topology *topo)
+u32 get_block_height(const struct chain_topology *topo)
 {
 	return topo->tip->height;
 }
 
-u64 get_feerate(const struct topology *topo)
+u64 get_feerate(const struct chain_topology *topo)
 {
 	if (topo->override_fee_rate) {
 		log_debug(topo->log, "Forcing fee rate, ignoring estimate");
@@ -483,7 +483,7 @@ u64 get_feerate(const struct topology *topo)
 	return topo->feerate;
 }
 
-struct txlocator *locate_tx(const void *ctx, const struct topology *topo,
+struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo,
 			    const struct sha256_double *txid)
 {
 	struct block *block = block_for_tx(topo, txid);
@@ -504,7 +504,7 @@ struct txlocator *locate_tx(const void *ctx, const struct topology *topo,
 }
 
 void json_dev_broadcast(struct command *cmd,
-			struct topology *topo,
+			struct chain_topology *topo,
 			const char *buffer, const jsmntok_t *params)
 {
 	jsmntok_t *enabletok;
@@ -535,7 +535,7 @@ void json_dev_broadcast(struct command *cmd,
 
 /* On shutdown, peers get deleted last.  That frees from our list, so
  * do it now instead. */
-static void destroy_outgoing_txs(struct topology *topo)
+static void destroy_outgoing_txs(struct chain_topology *topo)
 {
 	struct outgoing_tx *otx;
 
@@ -543,9 +543,9 @@ static void destroy_outgoing_txs(struct topology *topo)
 		tal_free(otx);
 }
 
-struct topology *new_topology(const tal_t *ctx, struct log *log)
+struct chain_topology *new_topology(const tal_t *ctx, struct log *log)
 {
-	struct topology *topo = tal(ctx, struct topology);
+	struct chain_topology *topo = tal(ctx, struct chain_topology);
 
 	block_map_init(&topo->block_map);
 	list_head_init(&topo->outgoing_txs);
@@ -559,7 +559,7 @@ struct topology *new_topology(const tal_t *ctx, struct log *log)
 	return topo;
 }
 
-void setup_topology(struct topology *topo, struct bitcoind *bitcoind,
+void setup_topology(struct chain_topology *topo, struct bitcoind *bitcoind,
 		    struct timers *timers,
 		    struct timerel poll_time, u32 first_peer_block)
 {

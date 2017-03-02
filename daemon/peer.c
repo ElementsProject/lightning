@@ -3403,7 +3403,7 @@ static enum watch_result anchor_depthchange(struct peer *peer,
 	return KEEP_WATCHING;
 }
 
-void notify_new_block(struct topology *topo, unsigned int height)
+void notify_new_block(struct chain_topology *topo, unsigned int height)
 {
 	struct lightningd_state *dstate = tal_parent(topo);
 	/* This is where we check for anchor timeouts. */
@@ -3880,7 +3880,7 @@ static void resolve_their_htlc(struct peer *peer, unsigned int out_num)
 static void resolve_our_unilateral(struct peer *peer)
 {
 	unsigned int i;
-	struct topology *topo = peer->dstate->topology;
+	struct chain_topology *topo = peer->dstate->topology;
 	const struct bitcoin_tx *tx = peer->onchain.tx;
 
 	/* This only works because we always watch for a long time before
@@ -4315,7 +4315,7 @@ unknown_spend:
 
 void peer_watch_anchor(struct peer *peer, int depth)
 {
-	struct topology *topo = peer->dstate->topology;
+	struct chain_topology *topo = peer->dstate->topology;
 
 	log_debug_struct(peer->log, "watching for anchor %s",
 			 struct sha256_double, &peer->anchor.txid);

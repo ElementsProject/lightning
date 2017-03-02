@@ -86,7 +86,7 @@ static void destroy_txwatch(struct txwatch *w)
 }
 
 struct txwatch *watch_txid_(const tal_t *ctx,
-			    struct topology *topo,
+			    struct chain_topology *topo,
 			    struct peer *peer,
 			    const struct sha256_double *txid,
 			    enum watch_result (*cb)(struct peer *peer,
@@ -111,14 +111,14 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 	return w;
 }
 
-bool watching_txid(const struct topology *topo,
+bool watching_txid(const struct chain_topology *topo,
 		   const struct sha256_double *txid)
 {
 	return txwatch_hash_get(&topo->txwatches, txid) != NULL;
 }
 
 struct txwatch *watch_tx_(const tal_t *ctx,
-			  struct topology *topo,
+			  struct chain_topology *topo,
 			  struct peer *peer,
 			  const struct bitcoin_tx *tx,
 			  enum watch_result (*cb)(struct peer *peer,
@@ -134,7 +134,7 @@ struct txwatch *watch_tx_(const tal_t *ctx,
 }
 
 struct txowatch *watch_txo_(const tal_t *ctx,
-			    struct topology *topo,
+			    struct chain_topology *topo,
 			    struct peer *peer,
 			    const struct sha256_double *txid,
 			    unsigned int output,
@@ -159,7 +159,7 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 	return w;
 }
 
-void txwatch_fire(struct topology *topo,
+void txwatch_fire(struct chain_topology *topo,
 		  const struct sha256_double *txid,
 		  unsigned int depth)
 {
@@ -186,7 +186,7 @@ void txwatch_fire(struct topology *topo,
 	}
 }
 
-void txowatch_fire(struct topology *topo,
+void txowatch_fire(struct chain_topology *topo,
 		   const struct txowatch *txow,
 		   const struct bitcoin_tx *tx,
 		   size_t input_num)
@@ -216,7 +216,7 @@ void txowatch_fire(struct topology *topo,
 	fatal("txowatch callback %p returned %i\n", txow->cb, r);
 }
 
-void watch_topology_changed(struct topology *topo)
+void watch_topology_changed(struct chain_topology *topo)
 {
 	struct txwatch_hash_iter i;
 	struct txwatch *w;

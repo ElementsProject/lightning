@@ -23,7 +23,7 @@ struct txwatch_output {
 
 /* Watching an output */
 struct txowatch {
-	struct topology *topo;
+	struct chain_topology *topo;
 
 	/* Peer who owns us. */
 	struct peer *peer;
@@ -48,7 +48,7 @@ HTABLE_DEFINE_TYPE(struct txowatch, txowatch_keyof, txo_hash, txowatch_eq,
 		   txowatch_hash);
 
 struct txwatch {
-	struct topology *topo;
+	struct chain_topology *topo;
 
 	/* Peer who owns us. */
 	struct peer *peer;
@@ -72,7 +72,7 @@ HTABLE_DEFINE_TYPE(struct txwatch, txwatch_keyof, txid_hash, txwatch_eq,
 
 
 struct txwatch *watch_txid_(const tal_t *ctx,
-			    struct topology *topo,
+			    struct chain_topology *topo,
 			    struct peer *peer,
 			    const struct sha256_double *txid,
 			    enum watch_result (*cb)(struct peer *peer,
@@ -91,7 +91,7 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 		    (cbdata))
 
 struct txwatch *watch_tx_(const tal_t *ctx,
-			  struct topology *topo,
+			  struct chain_topology *topo,
 			  struct peer *peer,
 			  const struct bitcoin_tx *tx,
 			  enum watch_result (*cb)(struct peer *peer,
@@ -110,7 +110,7 @@ struct txwatch *watch_tx_(const tal_t *ctx,
 		  (cbdata))
 
 struct txowatch *watch_txo_(const tal_t *ctx,
-			    struct topology *topo,
+			    struct chain_topology *topo,
 			    struct peer *peer,
 			    const struct sha256_double *txid,
 			    unsigned int output,
@@ -129,16 +129,16 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 				      size_t),				\
 		  (cbdata))
 
-void txwatch_fire(struct topology *topo,
+void txwatch_fire(struct chain_topology *topo,
 		  const struct sha256_double *txid,
 		  unsigned int depth);
 
-void txowatch_fire(struct topology *topo,
+void txowatch_fire(struct chain_topology *topo,
 		   const struct txowatch *txow,
 		   const struct bitcoin_tx *tx, size_t input_num);
 
-bool watching_txid(const struct topology *topo,
+bool watching_txid(const struct chain_topology *topo,
 		   const struct sha256_double *txid);
 
-void watch_topology_changed(struct topology *topo);
+void watch_topology_changed(struct chain_topology *topo);
 #endif /* LIGHTNING_DAEMON_WATCH_H */
