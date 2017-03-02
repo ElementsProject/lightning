@@ -2496,6 +2496,10 @@ static struct io_plan *init_pkt_in(struct io_conn *conn, struct peer *peer)
 		goto fail;
 	}
 
+	/* We might have had an onchain event while handshaking! */
+	if (!state_can_io(peer->state))
+		goto fail;
+
 	if (peer->inpkt->init->has_features) {
 		size_t i;
 
