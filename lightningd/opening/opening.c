@@ -522,7 +522,7 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 			      "Parsing open_channel %s",
 			      tal_hex(peer_msg, peer_msg));
 
-	/* BOLT #2:
+	/* BOLT #2 FIXME:
 	 *
 	 * The receiving node ... MUST fail the channel if `funding-satoshis`
 	 * is greater than or equal to 2^24 */
@@ -534,7 +534,7 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 	/* BOLT #2:
 	 *
 	 * The receiving node ... MUST fail the channel if `push-msat` is
-	 * greater than `funding-satoshis` * 1000.
+	 * greater than `funding-amount` * 1000.
 	 */
 	if (state->push_msat > state->funding_satoshis * 1000)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_FUNDING,
@@ -542,7 +542,7 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 			      " too large for funding_satoshis %"PRIu64,
 			      state->push_msat, state->funding_satoshis);
 
-	/* BOLT #3:
+	/* BOLT #2:
 	 *
 	 * The receiver MUST fail the channel if it considers `feerate-per-kw`
 	 * too small for timely processing, or unreasonably large.

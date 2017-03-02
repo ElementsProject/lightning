@@ -358,6 +358,22 @@ static u64 increase(u64 feerate_per_kw)
 #else
 static u64 increase(u64 feerate_per_kw)
 {
+	/* BOLT #3:
+	 *
+	 *     local_feerate_per_kw: 0
+	 *     ...
+	 *     local_feerate_per_kw: 677
+	 *     ...
+	 *     local_feerate_per_kw: 2162
+	 *     ...
+	 *     local_feerate_per_kw: 2292
+	 *     ...
+	 *     local_feerate_per_kw: 3867
+	 *     ...
+	 *     local_feerate_per_kw: 5134
+	 *     ...
+	 *     local_feerate_per_kw: 9651181
+	 */
 	const u64 rates[] = { 0, 677, 2162, 2292, 3867, 5134, 9651181 };
 	size_t i;
 
@@ -875,6 +891,15 @@ int main(void)
 			feerate_per_kw++;
 			continue;
 		}
+
+		/* BOLT #3:
+		 *
+		 *    name: commitment tx with fee greater than funder amount
+		 *    to_local_msat: 6988000000
+		 *    to_remote_msat: 3000000000
+		 *    local_feerate_per_kw: 9651936
+		 */
+		assert(feerate_per_kw == 9651936);
 
 		printf("\n"
 		       "name: commitment tx with fee greater than funder amount\n"

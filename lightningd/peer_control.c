@@ -627,7 +627,7 @@ static void channel_config(struct lightningd *ld,
 	ours->dust_limit_satoshis = 546;
 	ours->max_htlc_value_in_flight_msat = UINT64_MAX;
 
-	/* BOLT #3:
+	/* BOLT #2:
 	 *
 	 * The sender SHOULD set `minimum-depth` to an amount where
 	 * the sender considers reorganizations to be low risk.
@@ -637,7 +637,7 @@ static void channel_config(struct lightningd *ld,
 	/* Don't care */
 	ours->htlc_minimum_msat = 0;
 
-	/* BOLT #3:
+	/* BOLT #2:
 	 *
 	 * The sender SHOULD set `to-self-delay` sufficient to ensure
 	 * the sender can irreversibly spend a commitment transaction
