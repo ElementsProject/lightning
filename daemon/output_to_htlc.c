@@ -1,6 +1,7 @@
 #include "commit_tx.h"
 #include "output_to_htlc.h"
 #include "peer.h"
+#include "peer_internal.h"
 
 /* FIXME: Array makes this O(n^2).  Use a hash table. */
 struct wscript_by_wpkh {

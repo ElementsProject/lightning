@@ -96,6 +96,7 @@ DAEMON_HEADERS :=				\
 	daemon/packets.h			\
 	daemon/pay.h				\
 	daemon/peer.h				\
+	daemon/peer_internal.h			\
 	daemon/pseudorand.h			\
 	daemon/routing.h			\
 	daemon/secrets.h			\

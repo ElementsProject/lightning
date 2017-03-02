@@ -167,7 +167,7 @@ void txwatch_fire(struct chain_topology *topo,
 
 	if (txw && depth != txw->depth) {
 		enum watch_result r;
-		log_debug(txw->peer->log,
+		peer_debug(txw->peer,
 			  "Got depth change %u for %02x%02x%02x...\n",
 			  txw->depth,
 			  txw->txid.sha.u.u8[0],
@@ -195,7 +195,7 @@ void txowatch_fire(struct chain_topology *topo,
 	enum watch_result r;
 
 	bitcoin_txid(tx, &txid);
-	log_debug(txow->peer->log,
+	peer_debug(txow->peer,
 		  "Got UTXO spend for %02x%02x%02x:%u: %02x%02x%02x%02x...\n",
 		  txow->out.txid.sha.u.u8[0],
 		  txow->out.txid.sha.u.u8[1],

@@ -5,6 +5,7 @@
 #include "daemon/lightningd.h"
 #include "daemon/log.h"
 #include "daemon/peer.h"
+#include "daemon/peer_internal.h"
 #include "daemon/routing.h"
 #include "daemon/secrets.h"
 #include "daemon/timeout.h"

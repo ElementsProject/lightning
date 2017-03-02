@@ -10,6 +10,7 @@
 #include "log.h"
 #include "overflows.h"
 #include "peer.h"
+#include "peer_internal.h"
 #include "permute_tx.h"
 #include "remove_dust.h"
 #include "utils.h"

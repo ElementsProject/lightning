@@ -6,6 +6,7 @@
 #include "log.h"
 #include "pay.h"
 #include "peer.h"
+#include "peer_internal.h"
 #include "routing.h"
 #include "sphinx.h"
 #include <bitcoin/preimage.h>

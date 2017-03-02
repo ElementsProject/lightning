@@ -10,6 +10,7 @@
 #include "names.h"
 #include "netaddr.h"
 #include "pay.h"
+#include "peer_internal.h"
 #include "routing.h"
 #include "secrets.h"
 #include "utils.h"

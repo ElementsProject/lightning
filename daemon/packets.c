@@ -11,6 +11,7 @@
 #include "names.h"
 #include "packets.h"
 #include "peer.h"
+#include "peer_internal.h"
 #include "protobuf_convert.h"
 #include "secrets.h"
 #include "state.h"

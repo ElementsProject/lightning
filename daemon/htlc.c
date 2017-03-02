@@ -2,6 +2,7 @@
 #include "htlc.h"
 #include "log.h"
 #include "peer.h"
+#include "peer_internal.h"
 #include "type_to_string.h"
 #include <bitcoin/preimage.h>
 #include <ccan/tal/str/str.h>
@@ -12,7 +13,7 @@ void htlc_changestate(struct htlc *h,
 		      enum htlc_state newstate,
 		      bool db_commit)
 {
-	log_debug(h->peer->log, "htlc %"PRIu64": %s->%s", h->id,
+	peer_debug(h->peer, "htlc %"PRIu64": %s->%s", h->id,
 		  htlc_state_name(h->state), htlc_state_name(newstate));
 	assert(h->state == oldstate);
 

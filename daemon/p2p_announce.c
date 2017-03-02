@@ -4,6 +4,7 @@
 #include "daemon/p2p_announce.h"
 #include "daemon/packets.h"
 #include "daemon/peer.h"
+#include "daemon/peer_internal.h"
 #include "daemon/routing.h"
 #include "daemon/secrets.h"
 #include "daemon/timeout.h"

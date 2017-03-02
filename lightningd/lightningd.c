@@ -42,6 +42,12 @@ struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id)
 	FIXME_IMPLEMENT();
 }
 
+void peer_debug(struct peer *peer, const char *fmt, ...);
+void peer_debug(struct peer *peer, const char *fmt, ...)
+{
+	FIXME_IMPLEMENT();
+}
+
 size_t get_tx_depth(const struct chain_topology *topo,
 		    const struct sha256_double *txid)
 {

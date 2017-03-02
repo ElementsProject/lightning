@@ -17,6 +17,7 @@
 #include "packets.h"
 #include "pay.h"
 #include "peer.h"
+#include "peer_internal.h"
 #include "permute_tx.h"
 #include "protobuf_convert.h"
 #include "pseudorand.h"
@@ -63,6 +64,15 @@ static bool command_htlc_set_fail(struct peer *peer, struct htlc *htlc,
 static bool command_htlc_fail(struct peer *peer, struct htlc *htlc);
 static bool command_htlc_fulfill(struct peer *peer, struct htlc *htlc);
 static void try_commit(struct peer *peer);
+
+void peer_debug(struct peer *peer, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	logv(peer->log, LOG_DBG, fmt, ap);
+	va_end(ap);
+}
 
 void peer_add_their_commit(struct peer *peer,
 			   const struct sha256_double *txid, u64 commit_num)

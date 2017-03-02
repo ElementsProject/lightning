@@ -4,6 +4,7 @@
 #include "lightningd.h"
 #include "log.h"
 #include "peer.h"
+#include "peer_internal.h"
 #include "secrets.h"
 #include "utils.h"
 #include <ccan/crypto/sha256/sha256.h>

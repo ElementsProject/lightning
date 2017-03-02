@@ -6,6 +6,7 @@
 #include "log.h"
 #include "names.h"
 #include "peer.h"
+#include "peer_internal.h"
 #include "protobuf_convert.h"
 #include "secrets.h"
 #include "utils.h"

@@ -2,6 +2,7 @@
 #include "feechange.h"
 #include "log.h"
 #include "peer.h"
+#include "peer_internal.h"
 #include <ccan/array_size/array_size.h>
 #include <inttypes.h>
   #include "gen_feechange_state_names.h"
@@ -109,7 +110,7 @@ void feechange_changestate(struct peer *peer,
 			   enum feechange_state newstate,
 			   bool db_commit)
 {
-	log_debug(peer->log, "feechange: %s->%s",
+	peer_debug(peer, "feechange: %s->%s",
 		  feechange_state_name(f->state),
 		  feechange_state_name(newstate));
 	assert(f->state == oldstate);
