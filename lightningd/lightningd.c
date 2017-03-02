@@ -13,6 +13,7 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
+#include <daemon/bitcoind.h>
 #include <daemon/chaintopology.h>
 #include <daemon/invoice.h>
 #include <daemon/jsonrpc.h>
@@ -89,12 +90,10 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	timers_init(&ld->dstate.timers, time_mono());
 	txwatch_hash_init(&ld->dstate.txwatches);
 	txowatch_hash_init(&ld->dstate.txowatches);
-	list_head_init(&ld->dstate.bitcoin_req);
 	list_head_init(&ld->dstate.wallet);
 	list_head_init(&ld->dstate.addresses);
 	ld->dstate.dev_never_routefail = false;
 	ld->dstate.dev_no_broadcast = false;
-	ld->dstate.bitcoin_req_running = false;
 	ld->dstate.reexec = NULL;
 	ld->dstate.external_ip = NULL;
 	ld->dstate.announce = NULL;
@@ -170,6 +169,7 @@ int main(int argc, char *argv[])
 	bool newdir;
 
 	err_set_progname(argv[0]);
+	ld->dstate.bitcoind = new_bitcoind(ld, ld->log);
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);

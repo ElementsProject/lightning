@@ -1,7 +1,9 @@
 #ifndef LIGHTNING_DAEMON_BITCOIND_H
 #define LIGHTNING_DAEMON_BITCOIND_H
 #include "config.h"
+#include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/tal/tal.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <stdbool.h>
 
@@ -11,91 +13,114 @@ struct ripemd160;
 struct bitcoin_tx;
 struct peer;
 struct bitcoin_block;
-/* -datadir arg for bitcoin-cli. */
-extern char *bitcoin_datadir;
 
-void bitcoind_estimate_fee_(struct lightningd_state *dstate,
-			    void (*cb)(struct lightningd_state *dstate,
+enum bitcoind_mode {
+	BITCOIND_MAINNET = 1,
+	BITCOIND_TESTNET,
+	BITCOIND_REGTEST
+};
+
+struct bitcoind {
+	/* What mode are we in. */
+	enum bitcoind_mode testmode;
+
+	/* -datadir arg for bitcoin-cli. */
+	char *datadir;
+
+	/* Where to do logging. */
+	struct log *log;
+
+	/* Are we currently running a bitcoind request (it's ratelimited) */
+	bool req_running;
+
+	/* Pending requests. */
+	struct list_head pending;
+};
+
+struct bitcoind *new_bitcoind(const tal_t *ctx, struct log *log);
+
+void bitcoind_estimate_fee_(struct bitcoind *bitcoind,
+			    void (*cb)(struct bitcoind *bitcoind,
 				       u64, void *),
 			    void *arg);
 
-#define bitcoind_estimate_fee(dstate, cb, arg)				\
-	bitcoind_estimate_fee_((dstate),				\
-			       typesafe_cb_preargs(void, void *, \
+#define bitcoind_estimate_fee(bitcoind_, cb, arg)			\
+	bitcoind_estimate_fee_((bitcoind_),				\
+			       typesafe_cb_preargs(void, void *,	\
 						   (cb), (arg),		\
-						   struct lightningd_state *, \
+						   struct bitcoind *,	\
 						   u64),		\
 			       (arg))
 
 void bitcoind_sendrawtx_(struct peer *peer,
-			 struct lightningd_state *dstate,
+			 struct bitcoind *bitcoind,
 			 const char *hextx,
-			 void (*cb)(struct lightningd_state *dstate,
+			 void (*cb)(struct bitcoind *bitcoind,
 				    int exitstatus, const char *msg, void *),
 			 void *arg);
 
-#define bitcoind_sendrawtx(peer_, dstate, hextx, cb, arg)		\
-	bitcoind_sendrawtx_((peer_), (dstate), (hextx),			\
+#define bitcoind_sendrawtx(peer_, bitcoind_, hextx, cb, arg)		\
+	bitcoind_sendrawtx_((peer_), (bitcoind_), (hextx),		\
 			    typesafe_cb_preargs(void, void *,		\
 						(cb), (arg),		\
-						struct lightningd_state *, \
+						struct bitcoind *,	\
 						int, const char *),	\
 			    (arg))
 
-void bitcoind_get_chaintip_(struct lightningd_state *dstate,
-			     void (*cb)(struct lightningd_state *dstate,
-					const struct sha256_double *tipid,
-					void *arg),
-			     void *arg);
+void bitcoind_get_chaintip_(struct bitcoind *bitcoind,
+			    void (*cb)(struct bitcoind *bitcoind,
+				       const struct sha256_double *tipid,
+				       void *arg),
+			    void *arg);
 
-#define bitcoind_get_chaintip(dstate, cb, arg)				\
-	bitcoind_get_chaintip_((dstate),				\
+#define bitcoind_get_chaintip(bitcoind_, cb, arg)			\
+	bitcoind_get_chaintip_((bitcoind_),				\
 			       typesafe_cb_preargs(void, void *,	\
 						   (cb), (arg),		\
-						   struct lightningd_state *, \
+						   struct bitcoind *,	\
 						   const struct sha256_double *), \
 			       (arg))
 
-void bitcoind_getblockcount_(struct lightningd_state *dstate,
-			     void (*cb)(struct lightningd_state *dstate,
+void bitcoind_getblockcount_(struct bitcoind *bitcoind,
+			     void (*cb)(struct bitcoind *bitcoind,
 					u32 blockcount,
 					void *arg),
 			     void *arg);
 
-#define bitcoind_getblockcount(dstate, cb, arg)		\
-	bitcoind_getblockcount_((dstate),				\
+#define bitcoind_getblockcount(bitcoind_, cb, arg)			\
+	bitcoind_getblockcount_((bitcoind_),				\
 				typesafe_cb_preargs(void, void *,	\
 						    (cb), (arg),	\
-						    struct lightningd_state *, \
+						    struct bitcoind *,	\
 						    u32 blockcount),	\
 				(arg))
 
-void bitcoind_getblockhash_(struct lightningd_state *dstate,
+void bitcoind_getblockhash_(struct bitcoind *bitcoind,
 			    u32 height,
-			    void (*cb)(struct lightningd_state *dstate,
+			    void (*cb)(struct bitcoind *bitcoind,
 				       const struct sha256_double *blkid,
 				       void *arg),
 			    void *arg);
-#define bitcoind_getblockhash(dstate, height, cb, arg)			\
-	bitcoind_getblockhash_((dstate),				\
+#define bitcoind_getblockhash(bitcoind_, height, cb, arg)		\
+	bitcoind_getblockhash_((bitcoind_),				\
 			       (height),				\
 			       typesafe_cb_preargs(void, void *,	\
 						   (cb), (arg),		\
-						   struct lightningd_state *, \
+						   struct bitcoind *,	\
 						   const struct sha256_double *), \
 			       (arg))
 
-void bitcoind_getrawblock_(struct lightningd_state *dstate,
+void bitcoind_getrawblock_(struct bitcoind *bitcoind,
 			   const struct sha256_double *blockid,
-			   void (*cb)(struct lightningd_state *dstate,
+			   void (*cb)(struct bitcoind *bitcoind,
 				      struct bitcoin_block *blk,
 				      void *arg),
 			   void *arg);
-#define bitcoind_getrawblock(dstate, blkid, cb, arg)			\
-	bitcoind_getrawblock_((dstate), (blkid),			\
+#define bitcoind_getrawblock(bitcoind_, blkid, cb, arg)			\
+	bitcoind_getrawblock_((bitcoind_), (blkid),			\
 			      typesafe_cb_preargs(void, void *,		\
 						  (cb), (arg),		\
-						  struct lightningd_state *, \
+						  struct bitcoind *,	\
 						  struct bitcoin_block *), \
 			      (arg))
 #endif /* LIGHTNING_DAEMON_BITCOIND_H */

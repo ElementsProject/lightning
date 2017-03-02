@@ -128,10 +128,16 @@ static void opt_show_u16(char buf[OPT_SHOW_LEN], const u16 *u)
 	snprintf(buf, OPT_SHOW_LEN, "%u", *u);
 }
 
+static char *opt_set_regtest(struct bitcoind *bitcoind)
+{
+	bitcoind->testmode = BITCOIND_REGTEST;
+	return NULL;
+}
+
 static void config_register_opts(struct lightningd_state *dstate)
 {
-	opt_register_noarg("--bitcoind-regtest", opt_set_bool,
-			   &dstate->config.regtest,
+	opt_register_noarg("--bitcoind-regtest", opt_set_regtest,
+			   dstate->bitcoind,
 			   "Bitcoind is in regtest mode");
 	opt_register_arg("--locktime-blocks", opt_set_u32, opt_show_u32,
 			 &dstate->config.locktime_blocks,
@@ -458,7 +464,7 @@ void register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--port", opt_set_u16, opt_show_u16, &dstate->portnum,
 			 "Port to bind to (0 means don't listen)");
 	opt_register_arg("--bitcoin-datadir", opt_set_charp, NULL,
-			 &bitcoin_datadir,
+			 &dstate->bitcoind->datadir,
 			 "-datadir arg for bitcoin-cli");
 	opt_register_logging(dstate->base_log);
 	opt_register_version();

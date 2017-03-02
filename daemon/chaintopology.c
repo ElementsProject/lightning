@@ -233,10 +233,12 @@ struct txs_to_broadcast {
 };
 
 /* We just sent the last entry in txs[].  Shrink and send the next last. */
-static void broadcast_remainder(struct lightningd_state *dstate,
+static void broadcast_remainder(struct bitcoind *bitcoind,
 				int exitstatus, const char *msg,
 				struct txs_to_broadcast *txs)
 {
+	struct lightningd_state *dstate = tal_parent(bitcoind);
+
 	/* These are expected. */
 	if (strstr(msg, "txn-mempool-conflict")
 	    || strstr(msg, "transaction already in block chain"))
@@ -256,7 +258,7 @@ static void broadcast_remainder(struct lightningd_state *dstate,
 	}
 
 	/* Broadcast next one. */
-	bitcoind_sendrawtx(NULL, dstate, txs->txs[txs->cursor],
+	bitcoind_sendrawtx(NULL, bitcoind, txs->txs[txs->cursor],
 			   broadcast_remainder, txs);
 }
 
@@ -293,7 +295,7 @@ static void rebroadcast_txs(struct lightningd_state *dstate,
 
 	/* Let this do the dirty work. */
 	txs->cursor = (size_t)-1;
-	broadcast_remainder(dstate, 0, "", txs);
+	broadcast_remainder(dstate->bitcoind, 0, "", txs);
 }
 
 static void destroy_outgoing_tx(struct outgoing_tx *otx)
@@ -301,7 +303,7 @@ static void destroy_outgoing_tx(struct outgoing_tx *otx)
 	list_del_from(&otx->peer->outgoing_txs, &otx->list);
 }
 
-static void broadcast_done(struct lightningd_state *dstate,
+static void broadcast_done(struct bitcoind *bitcoind,
 			   int exitstatus, const char *msg,
 			   struct outgoing_tx *otx)
 {
@@ -331,9 +333,10 @@ void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx,
 	log_add_struct(peer->log, " (tx %s)", struct sha256_double, &otx->txid);
 
 	if (peer->dstate->dev_no_broadcast)
-		broadcast_done(peer->dstate, 0, "dev_no_broadcast", otx);
+		broadcast_done(peer->dstate->bitcoind,
+			       0, "dev_no_broadcast", otx);
 	else
-		bitcoind_sendrawtx(peer, peer->dstate, otx->hextx,
+		bitcoind_sendrawtx(peer, peer->dstate->bitcoind, otx->hextx,
 				   broadcast_done, otx);
 }
 
@@ -354,9 +357,9 @@ static void free_blocks(struct lightningd_state *dstate, struct block *b)
 	}
 }
 
-static void update_fee(struct lightningd_state *dstate, u64 rate, u64 *feerate)
+static void update_fee(struct bitcoind *bitcoind, u64 rate, u64 *feerate)
 {
-	log_debug(dstate->base_log, "Feerate %"PRIu64" -> %"PRIu64,
+	log_debug(bitcoind->log, "Feerate %"PRIu64" -> %"PRIu64,
 		  rate, *feerate);
 	*feerate = rate;
 }
@@ -384,7 +387,8 @@ static void topology_changed(struct lightningd_state *dstate,
 	rebroadcast_txs(dstate, NULL);
 
 	/* Once per new block head, update fee estimate. */
-	bitcoind_estimate_fee(dstate, update_fee, &dstate->topology->feerate);
+	bitcoind_estimate_fee(dstate->bitcoind,
+			      update_fee, &dstate->topology->feerate);
 }
 
 static struct block *new_block(struct lightningd_state *dstate,
@@ -414,10 +418,11 @@ static struct block *new_block(struct lightningd_state *dstate,
 	return b;
 }
 
-static void gather_blocks(struct lightningd_state *dstate,
+static void gather_blocks(struct bitcoind *bitcoind,
 			  struct bitcoin_block *blk,
 			  struct block *next)
 {
+	struct lightningd_state *dstate = tal_parent(bitcoind);
 	struct topology *topo = dstate->topology;
 	struct block *b, *prev;
 
@@ -426,7 +431,7 @@ static void gather_blocks(struct lightningd_state *dstate,
 	/* Recurse if we need prev. */
 	prev = block_map_get(&topo->block_map, &blk->hdr.prev_hash);
 	if (!prev) {
-		bitcoind_getrawblock(dstate, &blk->hdr.prev_hash,
+		bitcoind_getrawblock(dstate->bitcoind, &blk->hdr.prev_hash,
 				     gather_blocks, b);
 		return;
 	}
@@ -436,15 +441,16 @@ static void gather_blocks(struct lightningd_state *dstate,
 	next_topology_timer(dstate);
 }
 
-static void check_chaintip(struct lightningd_state *dstate,
+static void check_chaintip(struct bitcoind *bitcoind,
 			   const struct sha256_double *tipid,
 			   void *arg)
 {
+	struct lightningd_state *dstate = tal_parent(bitcoind);
 	struct topology *topo = dstate->topology;
 
 	/* 0 is the main tip. */
 	if (!structeq(tipid, &topo->tip->blkid))
-		bitcoind_getrawblock(dstate, tipid, gather_blocks,
+		bitcoind_getrawblock(dstate->bitcoind, tipid, gather_blocks,
 				     (struct block *)NULL);
 	else
 		/* Next! */
@@ -453,18 +459,19 @@ static void check_chaintip(struct lightningd_state *dstate,
 
 static void start_poll_chaintip(struct lightningd_state *dstate)
 {
-	if (!list_empty(&dstate->bitcoin_req)) {
+	if (!list_empty(&dstate->bitcoind->pending)) {
 		log_unusual(dstate->base_log,
 			    "Delaying start poll: commands in progress");
 		next_topology_timer(dstate);
 	} else
-		bitcoind_get_chaintip(dstate, check_chaintip, NULL);
+		bitcoind_get_chaintip(dstate->bitcoind, check_chaintip, NULL);
 }
 
-static void init_topo(struct lightningd_state *dstate,
+static void init_topo(struct bitcoind *bitcoind,
 		      struct bitcoin_block *blk,
 		      ptrint_t *p)
 {
+	struct lightningd_state *dstate = tal_parent(bitcoind);
 	struct topology *topo = dstate->topology;
 
 	topo->root = new_block(dstate, blk, NULL);
@@ -473,19 +480,20 @@ static void init_topo(struct lightningd_state *dstate,
 	topo->tip = topo->root;
 
 	/* Now grab chaintip immediately. */
-	bitcoind_get_chaintip(dstate, check_chaintip, NULL);
+	bitcoind_get_chaintip(dstate->bitcoind, check_chaintip, NULL);
 }
 
-static void get_init_block(struct lightningd_state *dstate,
+static void get_init_block(struct bitcoind *bitcoind,
 			   const struct sha256_double *blkid,
 			   ptrint_t *blknum)
 {
-	bitcoind_getrawblock(dstate, blkid, init_topo, blknum);
+	bitcoind_getrawblock(bitcoind, blkid, init_topo, blknum);
 }
 
-static void get_init_blockhash(struct lightningd_state *dstate, u32 blockcount,
+static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 			       void *unused)
 {
+	struct lightningd_state *dstate = tal_parent(bitcoind);
 	u32 start;
 	struct peer *peer;
 
@@ -502,7 +510,7 @@ static void get_init_blockhash(struct lightningd_state *dstate, u32 blockcount,
 	}
 
 	/* Start topology from 100 blocks back. */
-	bitcoind_getblockhash(dstate, start, get_init_block, int2ptr(start));
+	bitcoind_getblockhash(bitcoind, start, get_init_block, int2ptr(start));
 }
 
 u32 get_tx_mediantime(struct lightningd_state *dstate,
@@ -607,7 +615,7 @@ void setup_topology(struct lightningd_state *dstate)
 
 	dstate->topology->startup = true;
 	dstate->topology->feerate = 0;
-	bitcoind_getblockcount(dstate, get_init_blockhash, NULL);
+	bitcoind_getblockcount(dstate->bitcoind, get_init_blockhash, NULL);
 
 	/* Once it gets topology, it calls io_break() and we return. */
 	io_loop(NULL, NULL);

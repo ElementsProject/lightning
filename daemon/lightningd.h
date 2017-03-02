@@ -10,9 +10,6 @@
 
 /* Various adjustable things. */
 struct config {
-	/* Are we on regtest? */
-	bool regtest;
-
 	/* How long do we want them to lock up their funds? (blocks) */
 	u32 locktime_blocks;
 
@@ -117,9 +114,8 @@ struct lightningd_state {
 	struct txwatch_hash txwatches;
 	struct txowatch_hash txowatches;
 
-	/* Outstanding bitcoind requests. */
-	struct list_head bitcoin_req;
-	bool bitcoin_req_running;
+	/* Our tame bitcoind. */
+	struct bitcoind *bitcoind;
 
 	/* Wallet addresses we maintain. */
 	struct list_head wallet;

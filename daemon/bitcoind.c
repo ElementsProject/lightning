@@ -24,19 +24,26 @@
 
 char *bitcoin_datadir;
 
-static char **gather_args(struct lightningd_state *dstate,
+static char **gather_args(struct bitcoind *bitcoind,
 			  const tal_t *ctx, const char *cmd, va_list ap)
 {
 	size_t n = 0;
 	char **args = tal_arr(ctx, char *, 3);
 
 	args[n++] = BITCOIN_CLI;
-	if (dstate->config.regtest)
+	switch (bitcoind->testmode) {
+	case BITCOIND_REGTEST:
 		args[n++] = "-regtest=1";
-	else
-		args[n++] = tal_fmt(args, "-testnet=%u", dstate->testnet);
-	if (bitcoin_datadir) {
-		args[n++] = tal_fmt(args, "-datadir=%s", bitcoin_datadir);
+		break;
+	case BITCOIND_TESTNET:
+		args[n++] = "-testnet=1";
+		break;
+	case BITCOIND_MAINNET:
+		args[n++] = "-testnet=0";
+		break;
+	}
+	if (bitcoind->datadir) {
+		args[n++] = tal_fmt(args, "-datadir=%s", bitcoind->datadir);
 		tal_resize(&args, n + 1);
 	}
 	args[n++] = cast_const(char *, cmd);
@@ -52,7 +59,7 @@ static char **gather_args(struct lightningd_state *dstate,
 
 struct bitcoin_cli {
 	struct list_node list;
-	struct lightningd_state *dstate;
+	struct bitcoind *bitcoind;
 	int fd;
 	int *exitstatus;
 	pid_t pid;
@@ -83,7 +90,7 @@ static struct io_plan *output_init(struct io_conn *conn, struct bitcoin_cli *bcl
 	return read_more(conn, bcli);
 }
 
-static void next_bcli(struct lightningd_state *dstate);
+static void next_bcli(struct bitcoind *bitcoind);
 
 /* For printing: simple string of args. */
 static char *bcli_args(struct bitcoin_cli *bcli)
@@ -101,7 +108,7 @@ static char *bcli_args(struct bitcoin_cli *bcli)
 static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 {
 	int ret, status;
-	struct lightningd_state *dstate = bcli->dstate;
+	struct bitcoind *bitcoind = bcli->bitcoind;
 
 	/* FIXME: If we waited for SIGCHILD, this could never hang! */
 	ret = waitpid(bcli->pid, &status, 0);
@@ -124,33 +131,33 @@ static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 	} else
 		*bcli->exitstatus = WEXITSTATUS(status);
 
-	log_debug(dstate->base_log, "reaped %u: %s", ret, bcli_args(bcli));
-	dstate->bitcoin_req_running = false;
+	log_debug(bitcoind->log, "reaped %u: %s", ret, bcli_args(bcli));
+	bitcoind->req_running = false;
 	bcli->process(bcli);
 
-	next_bcli(dstate);
+	next_bcli(bitcoind);
 }
 
-static void next_bcli(struct lightningd_state *dstate)
+static void next_bcli(struct bitcoind *bitcoind)
 {
 	struct bitcoin_cli *bcli;
 	struct io_conn *conn;
 
-	if (dstate->bitcoin_req_running)
+	if (bitcoind->req_running)
 		return;
 
-	bcli = list_pop(&dstate->bitcoin_req, struct bitcoin_cli, list);
+	bcli = list_pop(&bitcoind->pending, struct bitcoin_cli, list);
 	if (!bcli)
 		return;
 
-	log_debug(bcli->dstate->base_log, "starting: %s", bcli_args(bcli));
+	log_debug(bcli->bitcoind->log, "starting: %s", bcli_args(bcli));
 
 	bcli->pid = pipecmdarr(&bcli->fd, NULL, &bcli->fd, bcli->args);
 	if (bcli->pid < 0)
 		fatal("%s exec failed: %s", bcli->args[0], strerror(errno));
 
-	dstate->bitcoin_req_running = true;
-	conn = io_new_conn(dstate, bcli->fd, output_init, bcli);
+	bitcoind->req_running = true;
+	conn = io_new_conn(bitcoind, bcli->fd, output_init, bcli);
 	tal_steal(conn, bcli);
 	io_set_finish(conn, bcli_finished, bcli);
 }
@@ -175,7 +182,7 @@ static void remove_stopper(struct bitcoin_cli *bcli)
 
 /* If ctx is non-NULL, and is freed before we return, we don't call process() */
 static void
-start_bitcoin_cli(struct lightningd_state *dstate,
+start_bitcoin_cli(struct bitcoind *bitcoind,
 		  const tal_t *ctx,
 		  void (*process)(struct bitcoin_cli *),
 		  bool nonzero_exit_ok,
@@ -183,9 +190,9 @@ start_bitcoin_cli(struct lightningd_state *dstate,
 		  char *cmd, ...)
 {
 	va_list ap;
-	struct bitcoin_cli *bcli = tal(dstate, struct bitcoin_cli);
+	struct bitcoin_cli *bcli = tal(bitcoind, struct bitcoin_cli);
 
-	bcli->dstate = dstate;
+	bcli->bitcoind = bitcoind;
 	bcli->process = process;
 	bcli->cb = cb;
 	bcli->cb_arg = cb_arg;
@@ -203,11 +210,11 @@ start_bitcoin_cli(struct lightningd_state *dstate,
 	else
 		bcli->exitstatus = NULL;
 	va_start(ap, cmd);
-	bcli->args = gather_args(dstate, bcli, cmd, ap);
+	bcli->args = gather_args(bitcoind, bcli, cmd, ap);
 	va_end(ap);
 
-	list_add_tail(&dstate->bitcoin_req, &bcli->list);
-	next_bcli(dstate);
+	list_add_tail(&bitcoind->pending, &bcli->list);
+	next_bcli(bitcoind);
 }
 
 static void process_estimatefee_6(struct bitcoin_cli *bcli)
@@ -215,7 +222,7 @@ static void process_estimatefee_6(struct bitcoin_cli *bcli)
 	double fee;
 	char *p, *end;
 	u64 fee_rate;
-	void (*cb)(struct lightningd_state *, u64, void *) = bcli->cb;
+	void (*cb)(struct bitcoind *, u64, void *) = bcli->cb;
 
 	p = tal_strndup(bcli, bcli->output, bcli->output_bytes);
 	fee = strtod(p, &end);
@@ -224,7 +231,7 @@ static void process_estimatefee_6(struct bitcoin_cli *bcli)
 		      bcli_args(bcli), p);
 
 	if (fee < 0) {
-		log_unusual(bcli->dstate->base_log,
+		log_unusual(bcli->bitcoind->log,
 			    "Unable to estimate fee");
 		fee_rate = 0;
 	} else {
@@ -233,7 +240,7 @@ static void process_estimatefee_6(struct bitcoin_cli *bcli)
 		fee_rate = fee * 100000000;
 	}
 
-	cb(bcli->dstate, fee_rate, bcli->cb_arg);
+	cb(bcli->bitcoind, fee_rate, bcli->cb_arg);
 }
 
 static void process_estimatefee_2(struct bitcoin_cli *bcli)
@@ -241,7 +248,7 @@ static void process_estimatefee_2(struct bitcoin_cli *bcli)
 	double fee;
 	char *p, *end;
 	u64 fee_rate;
-	void (*cb)(struct lightningd_state *, u64, void *) = bcli->cb;
+	void (*cb)(struct bitcoind *, u64, void *) = bcli->cb;
 
 	p = tal_strndup(bcli, bcli->output, bcli->output_bytes);
 	fee = strtod(p, &end);
@@ -251,45 +258,45 @@ static void process_estimatefee_2(struct bitcoin_cli *bcli)
 
 	/* Don't know at 2?  Try 6... */
 	if (fee < 0) {
-		start_bitcoin_cli(bcli->dstate, NULL, process_estimatefee_6,
+		start_bitcoin_cli(bcli->bitcoind, NULL, process_estimatefee_6,
 				  false, bcli->cb, bcli->cb_arg,
 				  "estimatefee", "6", NULL);
 		return;
 	}
 	fee_rate = fee * 100000000;
-	cb(bcli->dstate, fee_rate, bcli->cb_arg);
+	cb(bcli->bitcoind, fee_rate, bcli->cb_arg);
 }
 
-void bitcoind_estimate_fee_(struct lightningd_state *dstate,
-			    void (*cb)(struct lightningd_state *dstate,
+void bitcoind_estimate_fee_(struct bitcoind *bitcoind,
+			    void (*cb)(struct bitcoind *bitcoind,
 				       u64, void *),
 			    void *arg)
 {
-	start_bitcoin_cli(dstate, NULL, process_estimatefee_2, false, cb, arg,
+	start_bitcoin_cli(bitcoind, NULL, process_estimatefee_2, false, cb, arg,
 			  "estimatefee", "2", NULL);
 }
 
 static void process_sendrawtx(struct bitcoin_cli *bcli)
 {
-	void (*cb)(struct lightningd_state *dstate,
+	void (*cb)(struct bitcoind *bitcoind,
 		   int, const char *msg, void *) = bcli->cb;
 	const char *msg = tal_strndup(bcli, (char *)bcli->output,
 				      bcli->output_bytes);
 
-	log_debug(bcli->dstate->base_log, "sendrawtx exit %u, gave %s",
+	log_debug(bcli->bitcoind->log, "sendrawtx exit %u, gave %s",
 		  *bcli->exitstatus, msg);
 
-	cb(bcli->dstate, *bcli->exitstatus, msg, bcli->cb_arg);
+	cb(bcli->bitcoind, *bcli->exitstatus, msg, bcli->cb_arg);
 }
 
 void bitcoind_sendrawtx_(struct peer *peer,
-			 struct lightningd_state *dstate,
+			 struct bitcoind *bitcoind,
 			 const char *hextx,
-			 void (*cb)(struct lightningd_state *dstate,
+			 void (*cb)(struct bitcoind *bitcoind,
 				    int exitstatus, const char *msg, void *),
 			 void *arg)
 {
-	start_bitcoin_cli(dstate, NULL, process_sendrawtx, true, cb, arg,
+	start_bitcoin_cli(bitcoind, NULL, process_sendrawtx, true, cb, arg,
 			  "sendrawtransaction", hextx, NULL);
 }
 
@@ -299,11 +306,11 @@ static void process_chaintips(struct bitcoin_cli *bcli)
 	bool valid;
 	size_t i;
 	struct sha256_double tip;
-	void (*cb)(struct lightningd_state *dstate,
+	void (*cb)(struct bitcoind *bitcoind,
 		   struct sha256_double *tipid,
 		   void *arg) = bcli->cb;
 
-	log_debug(bcli->dstate->base_log, "Got getchaintips result");
+	log_debug(bcli->bitcoind->log, "Got getchaintips result");
 
 	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
 	if (!tokens)
@@ -323,7 +330,7 @@ static void process_chaintips(struct bitcoin_cli *bcli)
 		const jsmntok_t *hash = json_get_member(bcli->output, t, "hash");
 
 		if (!json_tok_streq(bcli->output, status, "active")) {
-			log_debug(bcli->dstate->base_log,
+			log_debug(bcli->bitcoind->log,
 				  "Ignoring chaintip %.*s status %.*s",
 				  hash->end - hash->start,
 				  bcli->output + hash->start,
@@ -332,7 +339,7 @@ static void process_chaintips(struct bitcoin_cli *bcli)
 			continue;
 		}
 		if (valid) {
-			log_unusual(bcli->dstate->base_log,
+			log_unusual(bcli->bitcoind->log,
 				    "%s: Two active chaintips? %.*s",
 				    bcli_args(bcli),
 				    (int)bcli->output_bytes, bcli->output);
@@ -350,37 +357,23 @@ static void process_chaintips(struct bitcoin_cli *bcli)
 		fatal("%s: gave no active chaintips (%.*s)?",
 		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
 
-	cb(bcli->dstate, &tip, bcli->cb_arg);
+	cb(bcli->bitcoind, &tip, bcli->cb_arg);
 }
 
-void bitcoind_get_chaintip_(struct lightningd_state *dstate,
-			    void (*cb)(struct lightningd_state *dstate,
+void bitcoind_get_chaintip_(struct bitcoind *bitcoind,
+			    void (*cb)(struct bitcoind *bitcoind,
 				       const struct sha256_double *tipid,
 				       void *arg),
 			    void *arg)
 {
-	start_bitcoin_cli(dstate, NULL, process_chaintips, false, cb, arg,
+	start_bitcoin_cli(bitcoind, NULL, process_chaintips, false, cb, arg,
 			  "getchaintips", NULL);
 }
-
-struct normalizing {
-	u32 mediantime;
-	struct sha256_double prevblk, blkid;
-	struct sha256_double *txids;
-	size_t i;
-	void (*cb)(struct lightningd_state *dstate,
-		   struct sha256_double *blkid,
-		   struct sha256_double *prevblock,
-		   struct sha256_double *txids,
-		   u32 mediantime,
-		   void *arg);
-	void *cb_arg;
-};
 
 static void process_rawblock(struct bitcoin_cli *bcli)
 {
 	struct bitcoin_block *blk;
-	void (*cb)(struct lightningd_state *dstate,
+	void (*cb)(struct bitcoind *bitcoind,
 		   struct bitcoin_block *blk,
 		   void *arg) = bcli->cb;
 
@@ -391,12 +384,12 @@ static void process_rawblock(struct bitcoin_cli *bcli)
 		      bcli_args(bcli),
 		      (int)bcli->output_bytes, (char *)bcli->output);
 
-	cb(bcli->dstate, blk, bcli->cb_arg);
+	cb(bcli->bitcoind, blk, bcli->cb_arg);
 }
 
-void bitcoind_getrawblock_(struct lightningd_state *dstate,
+void bitcoind_getrawblock_(struct bitcoind *bitcoind,
 			   const struct sha256_double *blockid,
-			   void (*cb)(struct lightningd_state *dstate,
+			   void (*cb)(struct bitcoind *bitcoind,
 				      struct bitcoin_block *blk,
 				      void *arg),
 			   void *arg)
@@ -404,7 +397,7 @@ void bitcoind_getrawblock_(struct lightningd_state *dstate,
 	char hex[hex_str_size(sizeof(*blockid))];
 
 	bitcoin_blkid_to_hex(blockid, hex, sizeof(hex));
-	start_bitcoin_cli(dstate, NULL, process_rawblock, false, cb, arg,
+	start_bitcoin_cli(bitcoind, NULL, process_rawblock, false, cb, arg,
 			  "getblock", hex, "false", NULL);
 }
 
@@ -412,7 +405,7 @@ static void process_getblockcount(struct bitcoin_cli *bcli)
 {
 	u32 blockcount;
 	char *p, *end;
-	void (*cb)(struct lightningd_state *dstate,
+	void (*cb)(struct bitcoind *bitcoind,
 		   u32 blockcount,
 		   void *arg) = bcli->cb;
 
@@ -422,23 +415,23 @@ static void process_getblockcount(struct bitcoin_cli *bcli)
 		fatal("%s: gave non-numeric blockcount %s",
 		      bcli_args(bcli), p);
 
-	cb(bcli->dstate, blockcount, bcli->cb_arg);
+	cb(bcli->bitcoind, blockcount, bcli->cb_arg);
 }
 
-void bitcoind_getblockcount_(struct lightningd_state *dstate,
-			      void (*cb)(struct lightningd_state *dstate,
+void bitcoind_getblockcount_(struct bitcoind *bitcoind,
+			      void (*cb)(struct bitcoind *bitcoind,
 					 u32 blockcount,
 					 void *arg),
 			      void *arg)
 {
-	start_bitcoin_cli(dstate, NULL, process_getblockcount, false, cb, arg,
+	start_bitcoin_cli(bitcoind, NULL, process_getblockcount, false, cb, arg,
 			  "getblockcount", NULL);
 }
 
 static void process_getblockhash(struct bitcoin_cli *bcli)
 {
 	struct sha256_double blkid;
-	void (*cb)(struct lightningd_state *dstate,
+	void (*cb)(struct bitcoind *bitcoind,
 		   const struct sha256_double *blkid,
 		   void *arg) = bcli->cb;
 
@@ -449,12 +442,12 @@ static void process_getblockhash(struct bitcoin_cli *bcli)
 		      bcli_args(bcli), (int)bcli->output_bytes, bcli->output);
 	}
 
-	cb(bcli->dstate, &blkid, bcli->cb_arg);
+	cb(bcli->bitcoind, &blkid, bcli->cb_arg);
 }
 
-void bitcoind_getblockhash_(struct lightningd_state *dstate,
+void bitcoind_getblockhash_(struct bitcoind *bitcoind,
 			    u32 height,
-			    void (*cb)(struct lightningd_state *dstate,
+			    void (*cb)(struct bitcoind *bitcoind,
 				       const struct sha256_double *blkid,
 				       void *arg),
 			    void *arg)
@@ -462,6 +455,19 @@ void bitcoind_getblockhash_(struct lightningd_state *dstate,
 	char str[STR_MAX_CHARS(height)];
 	sprintf(str, "%u", height);
 
-	start_bitcoin_cli(dstate, NULL, process_getblockhash, false, cb, arg,
+	start_bitcoin_cli(bitcoind, NULL, process_getblockhash, false, cb, arg,
 			  "getblockhash", str, NULL);
+}
+
+struct bitcoind *new_bitcoind(const tal_t *ctx, struct log *log)
+{
+	struct bitcoind *bitcoind = tal(ctx, struct bitcoind);
+
+	bitcoind->testmode = BITCOIND_TESTNET;
+	bitcoind->datadir = NULL;
+	bitcoind->log = log;
+	bitcoind->req_running = false;
+	list_head_init(&bitcoind->pending);
+
+	return bitcoind;
 }

@@ -43,12 +43,10 @@ static struct lightningd_state *lightningd_state(void)
 	timers_init(&dstate->timers, time_mono());
 	txwatch_hash_init(&dstate->txwatches);
 	txowatch_hash_init(&dstate->txowatches);
-	list_head_init(&dstate->bitcoin_req);
 	list_head_init(&dstate->wallet);
 	list_head_init(&dstate->addresses);
 	dstate->dev_never_routefail = false;
 	dstate->dev_no_broadcast = false;
-	dstate->bitcoin_req_running = false;
 	dstate->rstate = new_routing_state(dstate, dstate->base_log);
 	dstate->reexec = NULL;
 	dstate->external_ip = NULL;
@@ -69,6 +67,8 @@ int main(int argc, char *argv[])
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
+
+	dstate->bitcoind = new_bitcoind(dstate, dstate->base_log);
 
 	/* Handle options and config; move to .lightningd */
 	register_opts(dstate);
