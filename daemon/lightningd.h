@@ -110,10 +110,6 @@ struct lightningd_state {
 	/* This is us. */
 	struct pubkey id;
 
-	/* Transactions/txos we are watching. */
-	struct txwatch_hash txwatches;
-	struct txowatch_hash txowatches;
-
 	/* Our tame bitcoind. */
 	struct bitcoind *bitcoind;
 

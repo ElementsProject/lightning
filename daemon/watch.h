@@ -23,6 +23,8 @@ struct txwatch_output {
 
 /* Watching an output */
 struct txowatch {
+	struct topology *topo;
+
 	/* Peer who owns us. */
 	struct peer *peer;
 
@@ -46,7 +48,7 @@ HTABLE_DEFINE_TYPE(struct txowatch, txowatch_keyof, txo_hash, txowatch_eq,
 		   txowatch_hash);
 
 struct txwatch {
-	struct lightningd_state *dstate;
+	struct topology *topo;
 
 	/* Peer who owns us. */
 	struct peer *peer;
@@ -70,6 +72,7 @@ HTABLE_DEFINE_TYPE(struct txwatch, txwatch_keyof, txid_hash, txwatch_eq,
 
 
 struct txwatch *watch_txid_(const tal_t *ctx,
+			    struct topology *topo,
 			    struct peer *peer,
 			    const struct sha256_double *txid,
 			    enum watch_result (*cb)(struct peer *peer,
@@ -78,8 +81,8 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 						    void *),
 			    void *cbdata);
 
-#define watch_txid(ctx, peer, txid, cb, cbdata)				\
-	watch_txid_((ctx), (peer), (txid),				\
+#define watch_txid(ctx, topo, peer, txid, cb, cbdata)			\
+	watch_txid_((ctx), (topo), (peer), (txid),			\
 		    typesafe_cb_preargs(enum watch_result, void *,	\
 					(cb), (cbdata),			\
 					struct peer *,			\
@@ -88,6 +91,7 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 		    (cbdata))
 
 struct txwatch *watch_tx_(const tal_t *ctx,
+			  struct topology *topo,
 			  struct peer *peer,
 			  const struct bitcoin_tx *tx,
 			  enum watch_result (*cb)(struct peer *peer,
@@ -96,8 +100,8 @@ struct txwatch *watch_tx_(const tal_t *ctx,
 						  void *),
 			  void *cbdata);
 
-#define watch_tx(ctx, peer, tx, cb, cbdata)				\
-	watch_tx_((ctx), (peer), (tx),					\
+#define watch_tx(ctx, topo, peer, tx, cb, cbdata)			\
+	watch_tx_((ctx), (topo), (peer), (tx),				\
 		  typesafe_cb_preargs(enum watch_result, void *,	\
 				      (cb), (cbdata),			\
 				      struct peer *,			\
@@ -106,6 +110,7 @@ struct txwatch *watch_tx_(const tal_t *ctx,
 		  (cbdata))
 
 struct txowatch *watch_txo_(const tal_t *ctx,
+			    struct topology *topo,
 			    struct peer *peer,
 			    const struct sha256_double *txid,
 			    unsigned int output,
@@ -115,8 +120,8 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 						    void *),
 			    void *cbdata);
 
-#define watch_txo(ctx, peer, txid, outnum, cb, cbdata)			\
-	watch_txo_((ctx), (peer), (txid), (outnum),			\
+#define watch_txo(ctx, topo, peer, txid, outnum, cb, cbdata)		\
+	watch_txo_((ctx), (topo), (peer), (txid), (outnum),		\
 		   typesafe_cb_preargs(enum watch_result, void *,	\
 				      (cb), (cbdata),			\
 				      struct peer *,			\
@@ -124,16 +129,16 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 				      size_t),				\
 		  (cbdata))
 
-void txwatch_fire(struct lightningd_state *dstate,
+void txwatch_fire(struct topology *topo,
 		  const struct sha256_double *txid,
 		  unsigned int depth);
 
-void txowatch_fire(struct lightningd_state *dstate,
+void txowatch_fire(struct topology *topo,
 		   const struct txowatch *txow,
 		   const struct bitcoin_tx *tx, size_t input_num);
 
-bool watching_txid(struct lightningd_state *dstate,
+bool watching_txid(const struct topology *topo,
 		   const struct sha256_double *txid);
 
-void watch_topology_changed(struct lightningd_state *dstate);
+void watch_topology_changed(struct topology *topo);
 #endif /* LIGHTNING_DAEMON_WATCH_H */

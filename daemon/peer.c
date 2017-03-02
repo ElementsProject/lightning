@@ -3659,6 +3659,7 @@ static enum watch_result our_htlc_depth(struct peer *peer,
 	if (!peer->onchain.resolved[out_num]) {
 		peer->onchain.resolved[out_num]	= htlc_timeout_tx(peer, out_num);
 		watch_tx(peer->onchain.resolved[out_num],
+			 peer->dstate->topology,
 			 peer,
 			 peer->onchain.resolved[out_num],
 			 our_htlc_timeout_depth, h);
@@ -3832,10 +3833,13 @@ static void resolve_our_htlc(struct peer *peer,
 	 * (the node pays back to itself) or redemption transaction (the other
 	 * node provides the redemption preimage).
 	 */
-	watch_txo(peer->onchain.tx, peer, &peer->onchain.txid, out_num,
+	watch_txo(peer->onchain.tx,
+		  peer->dstate->topology,
+		  peer, &peer->onchain.txid, out_num,
 		  our_htlc_spent, peer->onchain.htlcs[out_num]);
-	watch_txid(peer->onchain.tx, peer,
-		   &peer->onchain.txid, cb, int2ptr(out_num));
+	watch_txid(peer->onchain.tx,
+		   peer->dstate->topology,
+		   peer, &peer->onchain.txid, cb, int2ptr(out_num));
 }
 
 static void resolve_their_htlc(struct peer *peer, unsigned int out_num)
@@ -3855,7 +3859,9 @@ static void resolve_their_htlc(struct peer *peer, unsigned int out_num)
 		 * Otherwise, if the output HTLC has expired, it is considered
 		 * *irrevocably resolved*.
 		 */
-		watch_tx(peer->onchain.tx, peer, peer->onchain.tx,
+		watch_tx(peer->onchain.tx,
+			 peer->dstate->topology,
+			 peer, peer->onchain.tx,
 			 their_htlc_depth, int2ptr(out_num));
 	}
 }
@@ -3867,12 +3873,13 @@ static void resolve_their_htlc(struct peer *peer, unsigned int out_num)
 static void resolve_our_unilateral(struct peer *peer)
 {
 	unsigned int i;
+	struct topology *topo = peer->dstate->topology;
 	const struct bitcoin_tx *tx = peer->onchain.tx;
 
 	/* This only works because we always watch for a long time before
 	 * freeing peer, by which time this has resolved.  We could create
 	 * resolved[] entries for these uncommitted HTLCs, too. */
-	watch_tx(tx, peer, tx, our_unilateral_depth, NULL);
+	watch_tx(tx, topo, peer, tx, our_unilateral_depth, NULL);
 
 	for (i = 0; i < tal_count(tx->output); i++) {
 		/* FIXME-OLD #onchain:
@@ -3884,7 +3891,8 @@ static void resolve_our_unilateral(struct peer *peer)
 		 *    spending the output.
 		 */
 		if (i == peer->onchain.to_us_idx)
-			watch_tx(tx, peer, tx, our_main_output_depth, NULL);
+			watch_tx(tx, topo,
+				 peer, tx, our_main_output_depth, NULL);
 
 		/* FIXME-OLD #onchain:
 		 *
@@ -4278,7 +4286,8 @@ static enum watch_result anchor_spent(struct peer *peer,
 	assert(!state_can_io(peer->state));
 
 	assert(peer->onchain.resolved != NULL);
-	watch_tx(tx, peer, tx, check_for_resolution, NULL);
+	watch_tx(tx, peer->dstate->topology,
+		 peer, tx, check_for_resolution, NULL);
 
 	return KEEP_WATCHING;
 
@@ -4299,13 +4308,16 @@ unknown_spend:
 
 void peer_watch_anchor(struct peer *peer, int depth)
 {
+	struct topology *topo = peer->dstate->topology;
+
 	log_debug_struct(peer->log, "watching for anchor %s",
 			 struct sha256_double, &peer->anchor.txid);
 	log_add(peer->log, " to hit depth %i", depth);
 
 	peer->anchor.ok_depth = depth;
-	watch_txid(peer, peer, &peer->anchor.txid, anchor_depthchange, NULL);
-	watch_txo(peer, peer, &peer->anchor.txid, 0, anchor_spent, NULL);
+	watch_txid(peer, topo, peer,
+		   &peer->anchor.txid, anchor_depthchange, NULL);
+	watch_txo(peer, topo, peer, &peer->anchor.txid, 0, anchor_spent, NULL);
 }
 
 struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,

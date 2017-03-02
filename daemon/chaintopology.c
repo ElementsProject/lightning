@@ -16,65 +16,6 @@
 #include <ccan/tal/str/str.h>
 #include <inttypes.h>
 
-struct block {
-	int height;
-
-	/* Actual header. */
-	struct bitcoin_block_hdr hdr;
-
-	/* Previous block (if any). */
-	struct block *prev;
-
-	/* Next block (if any). */
-	struct block *next;
-
-	/* Key for hash table */
-	struct sha256_double blkid;
-
-	/* 0 if not enough predecessors. */
-	u32 mediantime;
-
-	/* Transactions in this block we care about */
-	struct sha256_double *txids;
-
-	/* And their associated index in the block */
-	u32 *txnums;
-
-	/* Full copy of txs (trimmed to txs list in connect_block) */
-	struct bitcoin_tx **full_txs;
-};
-
-/* Hash blocks by sha */
-static const struct sha256_double *keyof_block_map(const struct block *b)
-{
-	return &b->blkid;
-}
-
-static size_t hash_sha(const struct sha256_double *key)
-{
-	size_t ret;
-
-	memcpy(&ret, key, sizeof(ret));
-	return ret;
-}
-
-static bool block_eq(const struct block *b, const struct sha256_double *key)
-{
-	return structeq(&b->blkid, key);
-}
-HTABLE_DEFINE_TYPE(struct block, keyof_block_map, hash_sha, block_eq, block_map);
-
-struct topology {
-	struct block *root;
-	struct block *tip;
-	struct block_map block_map;
-	u64 feerate;
-	bool startup;
-
-	/* Bitcoin transctions we're broadcasting */
-	struct list_head outgoing_txs;
-};
-
 static void start_poll_chaintip(struct lightningd_state *dstate);
 
 static void next_topology_timer(struct lightningd_state *dstate)
@@ -168,14 +109,14 @@ static void connect_block(struct lightningd_state *dstate,
 			out.txid = tx->input[j].txid;
 			out.index = tx->input[j].index;
 
-			txo = txowatch_hash_get(&dstate->txowatches, &out);
+			txo = txowatch_hash_get(&topo->txowatches, &out);
 			if (txo)
-				txowatch_fire(dstate, txo, tx, j);
+				txowatch_fire(topo, txo, tx, j);
 		}
 
 		/* We did spends first, in case that tells us to watch tx. */
 		bitcoin_txid(tx, &txid);
-		if (watching_txid(dstate, &txid) || we_broadcast(dstate, &txid))
+		if (watching_txid(topo, &txid) || we_broadcast(dstate, &txid))
 			add_tx_to_block(b, &txid, i);
 	}
 	b->full_txs = tal_free(b->full_txs);
@@ -340,7 +281,7 @@ void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx,
 				   broadcast_done, otx);
 }
 
-static void free_blocks(struct lightningd_state *dstate, struct block *b)
+static void free_blocks(struct topology *topo, struct block *b)
 {
 	struct block *next;
 
@@ -349,7 +290,7 @@ static void free_blocks(struct lightningd_state *dstate, struct block *b)
 
 		/* Notify that txs are kicked out. */
 		for (i = 0; i < n; i++)
-			txwatch_fire(dstate, &b->txids[i], 0);
+			txwatch_fire(topo, &b->txids[i], 0);
 
 		next = b->next;
 		tal_free(b);
@@ -371,7 +312,7 @@ static void topology_changed(struct lightningd_state *dstate,
 {
 	/* Eliminate any old chain. */
 	if (prev->next)
-		free_blocks(dstate, prev->next);
+		free_blocks(dstate->topology, prev->next);
 
 	prev->next = b;
 	do {
@@ -381,7 +322,7 @@ static void topology_changed(struct lightningd_state *dstate,
 	} while (b);
 
 	/* Tell watch code to re-evaluate all txs. */
-	watch_topology_changed(dstate);
+	watch_topology_changed(dstate->topology);
 
 	/* Maybe need to rebroadcast. */
 	rebroadcast_txs(dstate, NULL);
@@ -618,19 +559,27 @@ static void destroy_outgoing_txs(struct topology *topo)
 		tal_free(otx);
 }
 
-void setup_topology(struct lightningd_state *dstate)
+struct topology *new_topology(const tal_t *ctx)
 {
-	dstate->topology = tal(dstate, struct topology);
-	block_map_init(&dstate->topology->block_map);
-	list_head_init(&dstate->topology->outgoing_txs);
+	struct topology *topo = tal(ctx, struct topology);
 
-	dstate->topology->startup = true;
-	dstate->topology->feerate = 0;
-	bitcoind_getblockcount(dstate->bitcoind, get_init_blockhash, NULL);
+	block_map_init(&topo->block_map);
+	list_head_init(&topo->outgoing_txs);
+	txwatch_hash_init(&topo->txwatches);
+	txowatch_hash_init(&topo->txowatches);
 
-	tal_add_destructor(dstate->topology, destroy_outgoing_txs);
+	return topo;
+}
+
+void setup_topology(struct topology *topo, struct bitcoind *bitcoind)
+{
+	topo->startup = true;
+	topo->feerate = 0;
+	bitcoind_getblockcount(bitcoind, get_init_blockhash, NULL);
+
+	tal_add_destructor(topo, destroy_outgoing_txs);
 
 	/* Once it gets topology, it calls io_break() and we return. */
 	io_loop(NULL, NULL);
-	assert(!dstate->topology->startup);
+	assert(!topo->startup);
 }

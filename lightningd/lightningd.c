@@ -88,8 +88,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dstate.portnum = DEFAULT_PORT;
 	ld->dstate.testnet = true;
 	timers_init(&ld->dstate.timers, time_mono());
-	txwatch_hash_init(&ld->dstate.txwatches);
-	txowatch_hash_init(&ld->dstate.txowatches);
 	list_head_init(&ld->dstate.wallet);
 	list_head_init(&ld->dstate.addresses);
 	ld->dstate.dev_never_routefail = false;

@@ -41,8 +41,6 @@ static struct lightningd_state *lightningd_state(void)
 	dstate->portnum = 0;
 	dstate->testnet = true;
 	timers_init(&dstate->timers, time_mono());
-	txwatch_hash_init(&dstate->txwatches);
-	txowatch_hash_init(&dstate->txowatches);
 	list_head_init(&dstate->wallet);
 	list_head_init(&dstate->addresses);
 	dstate->dev_never_routefail = false;
@@ -69,6 +67,7 @@ int main(int argc, char *argv[])
 						 | SECP256K1_CONTEXT_SIGN);
 
 	dstate->bitcoind = new_bitcoind(dstate, dstate->base_log);
+	dstate->topology = new_topology(dstate);
 
 	/* Handle options and config; move to .lightningd */
 	register_opts(dstate);
@@ -88,7 +87,7 @@ int main(int argc, char *argv[])
 	db_init(dstate);
 
 	/* Initialize block topology. */
-	setup_topology(dstate);
+	setup_topology(dstate->topology, dstate->bitcoind);
 
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(dstate, dstate->rpc_filename);
