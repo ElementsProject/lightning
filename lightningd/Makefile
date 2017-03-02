@@ -4,7 +4,7 @@
 lightningd-wrongdir:
 	$(MAKE) -C .. lightningd-all
 
-lightningd-all: lightningd/lightningd lightningd/lightningd_hsm lightningd/lightningd_handshake lightningd/lightningd_gossip
+lightningd-all: lightningd/lightningd lightningd/lightningd_hsm lightningd/lightningd_handshake lightningd/lightningd_gossip lightningd/lightningd_opening
 
 default: lightningd-all
 
