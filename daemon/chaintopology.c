@@ -70,6 +70,9 @@ struct topology {
 	struct block_map block_map;
 	u64 feerate;
 	bool startup;
+
+	/* Bitcoin transctions we're broadcasting */
+	struct list_head outgoing_txs;
 };
 
 static void start_poll_chaintip(struct lightningd_state *dstate);
@@ -123,15 +126,12 @@ static void add_tx_to_block(struct block *b, const struct sha256_double *txid, c
 static bool we_broadcast(struct lightningd_state *dstate,
 			 const struct sha256_double *txid)
 {
-	struct peer *peer;
+	struct topology *topo = dstate->topology;
+	struct outgoing_tx *otx;
 
-	list_for_each(&dstate->peers, peer, list) {
-		struct outgoing_tx *otx;
-
-		list_for_each(&peer->outgoing_txs, otx, list) {
-			if (structeq(&otx->txid, txid))
-				return true;
-		}
+	list_for_each(&topo->outgoing_txs, otx, list) {
+		if (structeq(&otx->txid, txid))
+			return true;
 	}
 	return false;
 }
@@ -270,7 +270,8 @@ static void rebroadcast_txs(struct lightningd_state *dstate,
 	/* Copy txs now (peers may go away, and they own txs). */
 	size_t num_txs = 0;
 	struct txs_to_broadcast *txs;
-	struct peer *peer;
+	struct topology *topo = dstate->topology;
+	struct outgoing_tx *otx;
 
 	if (dstate->dev_no_broadcast)
 		return;
@@ -280,17 +281,13 @@ static void rebroadcast_txs(struct lightningd_state *dstate,
 
 	/* Put any txs we want to broadcast in ->txs. */
 	txs->txs = tal_arr(txs, const char *, 0);
-	list_for_each(&dstate->peers, peer, list) {
-		struct outgoing_tx *otx;
+	list_for_each(&topo->outgoing_txs, otx, list) {
+		if (block_for_tx(dstate, &otx->txid))
+			continue;
 
-		list_for_each(&peer->outgoing_txs, otx, list) {
-			if (block_for_tx(dstate, &otx->txid))
-				continue;
-
-			tal_resize(&txs->txs, num_txs+1);
-			txs->txs[num_txs] = tal_strdup(txs, otx->hextx);
-			num_txs++;
-		}
+		tal_resize(&txs->txs, num_txs+1);
+		txs->txs[num_txs] = tal_strdup(txs, otx->hextx);
+		num_txs++;
 	}
 
 	/* Let this do the dirty work. */
@@ -300,19 +297,22 @@ static void rebroadcast_txs(struct lightningd_state *dstate,
 
 static void destroy_outgoing_tx(struct outgoing_tx *otx)
 {
-	list_del_from(&otx->peer->outgoing_txs, &otx->list);
+	list_del(&otx->list);
 }
 
 static void broadcast_done(struct bitcoind *bitcoind,
 			   int exitstatus, const char *msg,
 			   struct outgoing_tx *otx)
 {
+	struct lightningd_state *dstate = tal_parent(bitcoind);
+	struct topology *topo = dstate->topology;
+
 	if (otx->failed && exitstatus != 0) {
 		otx->failed(otx->peer, exitstatus, msg);
 		tal_free(otx);
 	} else {
 		/* For continual rebroadcasting */
-		list_add_tail(&otx->peer->outgoing_txs, &otx->list);
+		list_add_tail(&topo->outgoing_txs, &otx->list);
 		tal_add_destructor(otx, destroy_outgoing_tx);
 	}
 }
@@ -608,14 +608,27 @@ static const struct json_command dev_broadcast_command = {
 };
 AUTODATA(json_command, &dev_broadcast_command);
 
+/* On shutdown, peers get deleted last.  That frees from our list, so
+ * do it now instead. */
+static void destroy_outgoing_txs(struct topology *topo)
+{
+	struct outgoing_tx *otx;
+
+	while ((otx = list_pop(&topo->outgoing_txs, struct outgoing_tx, list)))
+		tal_free(otx);
+}
+
 void setup_topology(struct lightningd_state *dstate)
 {
 	dstate->topology = tal(dstate, struct topology);
 	block_map_init(&dstate->topology->block_map);
+	list_head_init(&dstate->topology->outgoing_txs);
 
 	dstate->topology->startup = true;
 	dstate->topology->feerate = 0;
 	bitcoind_getblockcount(dstate->bitcoind, get_init_blockhash, NULL);
+
+	tal_add_destructor(dstate->topology, destroy_outgoing_txs);
 
 	/* Once it gets topology, it calls io_break() and we return. */
 	io_loop(NULL, NULL);

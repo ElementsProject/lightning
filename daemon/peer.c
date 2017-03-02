@@ -2752,7 +2752,6 @@ struct peer *new_peer(struct lightningd_state *dstate,
 	peer->outpkt = tal_arr(peer, Pkt *, 0);
 	peer->open_jsoncmd = NULL;
 	peer->commit_jsoncmd = NULL;
-	list_head_init(&peer->outgoing_txs);
 	list_head_init(&peer->their_commits);
 	peer->anchor.ok_depth = -1;
 	peer->order_counter = 0;

@@ -1,6 +1,8 @@
 #ifndef LIGHTNING_DAEMON_CHAINTOPOLOGY_H
 #define LIGHTNING_DAEMON_CHAINTOPOLOGY_H
 #include "config.h"
+#include <bitcoin/shadouble.h>
+#include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
 #include <stddef.h>
 
@@ -9,6 +11,15 @@ struct lightningd_state;
 struct peer;
 struct sha256_double;
 struct txwatch;
+
+/* Off topology->outgoing_txs */
+struct outgoing_tx {
+	struct list_node list;
+	struct peer *peer;
+	const char *hextx;
+	struct sha256_double txid;
+	void (*failed)(struct peer *peer, int exitstatus, const char *err);
+};
 
 /* Information relevant to locating a TX in a blockchain. */
 struct txlocator {

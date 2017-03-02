@@ -77,15 +77,6 @@ struct peer_visible_state {
 	struct channel_state *staging_cstate;
 };
 
-/* Off peer->outgoing_txs */
-struct outgoing_tx {
-	struct list_node list;
-	struct peer *peer;
-	const char *hextx;
-	struct sha256_double txid;
-	void (*failed)(struct peer *peer, int exitstatus, const char *err);
-};
-
 struct peer {
 	/* dstate->peers list */
 	struct list_node list;
@@ -206,9 +197,6 @@ struct peer {
 
 	/* Things we're watching for (see watches.c) */
 	struct list_head watches;
-
-	/* Bitcoin transctions we're broadcasting (see chaintopology.c) */
-	struct list_head outgoing_txs;
 
 	/* Timeout for collecting changes before sending commit. */
 	struct oneshot *commit_timer;
