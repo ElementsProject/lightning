@@ -16,16 +16,16 @@
 #include <ccan/tal/str/str.h>
 #include <inttypes.h>
 
-static void start_poll_chaintip(struct lightningd_state *dstate);
+static void start_poll_chaintip(struct topology *topo);
 
-static void next_topology_timer(struct lightningd_state *dstate)
+static void next_topology_timer(struct topology *topo)
 {
-	if (dstate->topology->startup) {
-		dstate->topology->startup = false;
-		io_break(dstate);
+	if (topo->startup) {
+		topo->startup = false;
+		io_break(topo);
 	}
-	new_reltimer(&dstate->timers, dstate, dstate->config.poll_time,
-		     start_poll_chaintip, dstate);
+	new_reltimer(topo->timers, topo, topo->poll_time,
+		     start_poll_chaintip, topo);
 }
 
 static int cmp_times(const u32 *a, const u32 *b, void *unused)
@@ -64,11 +64,10 @@ static void add_tx_to_block(struct block *b, const struct sha256_double *txid, c
 	b->txnums[n] = txnum;
 }
 
-static bool we_broadcast(struct lightningd_state *dstate,
+static bool we_broadcast(const struct topology *topo,
 			 const struct sha256_double *txid)
 {
-	struct topology *topo = dstate->topology;
-	struct outgoing_tx *otx;
+	const struct outgoing_tx *otx;
 
 	list_for_each(&topo->outgoing_txs, otx, list) {
 		if (structeq(&otx->txid, txid))
@@ -78,11 +77,10 @@ static bool we_broadcast(struct lightningd_state *dstate,
 }
 
 /* Fills in prev, height, mediantime. */
-static void connect_block(struct lightningd_state *dstate,
+static void connect_block(struct topology *topo,
 			  struct block *prev,
 			  struct block *b)
 {
-	struct topology *topo = dstate->topology;
 	size_t i;
 
 	assert(b->height == -1);
@@ -116,13 +114,13 @@ static void connect_block(struct lightningd_state *dstate,
 
 		/* We did spends first, in case that tells us to watch tx. */
 		bitcoin_txid(tx, &txid);
-		if (watching_txid(topo, &txid) || we_broadcast(dstate, &txid))
+		if (watching_txid(topo, &txid) || we_broadcast(topo, &txid))
 			add_tx_to_block(b, &txid, i);
 	}
 	b->full_txs = tal_free(b->full_txs);
 
 	/* Tell peers about new block. */
-	peers_new_block(dstate, b->height);
+	notify_new_block(topo, b->height);
 }
 
 static bool tx_in_block(const struct block *b,
@@ -138,10 +136,9 @@ static bool tx_in_block(const struct block *b,
 }
 
 /* FIXME: Use hash table. */
-static struct block *block_for_tx(struct lightningd_state *dstate,
+static struct block *block_for_tx(const struct topology *topo,
 				  const struct sha256_double *txid)
 {
-	struct topology *topo = dstate->topology;
 	struct block *b;
 
 	for (b = topo->tip; b; b = b->prev) {
@@ -151,13 +148,12 @@ static struct block *block_for_tx(struct lightningd_state *dstate,
 	return NULL;
 }
 
-size_t get_tx_depth(struct lightningd_state *dstate,
+size_t get_tx_depth(const struct topology *topo,
 		    const struct sha256_double *txid)
 {
-	struct topology *topo = dstate->topology;
 	const struct block *b;
 
-	b = block_for_tx(dstate, txid);
+	b = block_for_tx(topo, txid);
 	if (!b)
 		return 0;
 	return topo->tip->height - b->height + 1;
@@ -178,16 +174,14 @@ static void broadcast_remainder(struct bitcoind *bitcoind,
 				int exitstatus, const char *msg,
 				struct txs_to_broadcast *txs)
 {
-	struct lightningd_state *dstate = tal_parent(bitcoind);
-
 	/* These are expected. */
 	if (strstr(msg, "txn-mempool-conflict")
 	    || strstr(msg, "transaction already in block chain"))
-		log_debug(dstate->base_log,
+		log_debug(bitcoind->log,
 			  "Expected error broadcasting tx %s: %s",
 			  txs->txs[txs->cursor], msg);
 	else if (exitstatus)
-		log_unusual(dstate->base_log, "Broadcasting tx %s: %i %s",
+		log_unusual(bitcoind->log, "Broadcasting tx %s: %i %s",
 			    txs->txs[txs->cursor], exitstatus, msg);
 
 	txs->cursor++;
@@ -205,25 +199,23 @@ static void broadcast_remainder(struct bitcoind *bitcoind,
 
 /* FIXME: This is dumb.  We can group txs and avoid bothering bitcoind
  * if any one tx is in the main chain. */
-static void rebroadcast_txs(struct lightningd_state *dstate,
-			    struct command *cmd)
+static void rebroadcast_txs(struct topology *topo, struct command *cmd)
 {
 	/* Copy txs now (peers may go away, and they own txs). */
 	size_t num_txs = 0;
 	struct txs_to_broadcast *txs;
-	struct topology *topo = dstate->topology;
 	struct outgoing_tx *otx;
 
-	if (dstate->dev_no_broadcast)
+	if (cmd->dstate->dev_no_broadcast)
 		return;
 
-	txs = tal(dstate, struct txs_to_broadcast);
+	txs = tal(topo, struct txs_to_broadcast);
 	txs->cmd = cmd;
 
 	/* Put any txs we want to broadcast in ->txs. */
 	txs->txs = tal_arr(txs, const char *, 0);
 	list_for_each(&topo->outgoing_txs, otx, list) {
-		if (block_for_tx(dstate, &otx->txid))
+		if (block_for_tx(topo, &otx->txid))
 			continue;
 
 		tal_resize(&txs->txs, num_txs+1);
@@ -233,7 +225,7 @@ static void rebroadcast_txs(struct lightningd_state *dstate,
 
 	/* Let this do the dirty work. */
 	txs->cursor = (size_t)-1;
-	broadcast_remainder(dstate->bitcoind, 0, "", txs);
+	broadcast_remainder(topo->bitcoind, 0, "", txs);
 }
 
 static void destroy_outgoing_tx(struct outgoing_tx *otx)
@@ -258,7 +250,8 @@ static void broadcast_done(struct bitcoind *bitcoind,
 	}
 }
 
-void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx,
+void broadcast_tx(struct topology *topo,
+		  struct peer *peer, const struct bitcoin_tx *tx,
 		  void (*failed)(struct peer *peer,
 				 int exitstatus, const char *err))
 {
@@ -271,13 +264,13 @@ void broadcast_tx(struct peer *peer, const struct bitcoin_tx *tx,
 	otx->failed = failed;
 	tal_free(rawtx);
 
-	log_add_struct(peer->log, " (tx %s)", struct sha256_double, &otx->txid);
+	log_add_struct(topo->bitcoind->log,
+		       " (tx %s)", struct sha256_double, &otx->txid);
 
 	if (peer->dstate->dev_no_broadcast)
-		broadcast_done(peer->dstate->bitcoind,
-			       0, "dev_no_broadcast", otx);
+		broadcast_done(topo->bitcoind, 0, "dev_no_broadcast", otx);
 	else
-		bitcoind_sendrawtx(peer, peer->dstate->bitcoind, otx->hextx,
+		bitcoind_sendrawtx(peer, topo->bitcoind, otx->hextx,
 				   broadcast_done, otx);
 }
 
@@ -306,41 +299,39 @@ static void update_fee(struct bitcoind *bitcoind, u64 rate, u64 *feerate)
 }
 
 /* B is the new chain (linked by ->next); update topology */
-static void topology_changed(struct lightningd_state *dstate,
+static void topology_changed(struct topology *topo,
 			     struct block *prev,
 			     struct block *b)
 {
 	/* Eliminate any old chain. */
 	if (prev->next)
-		free_blocks(dstate->topology, prev->next);
+		free_blocks(topo, prev->next);
 
 	prev->next = b;
 	do {
-		connect_block(dstate, prev, b);
-		dstate->topology->tip = prev = b;
+		connect_block(topo, prev, b);
+		topo->tip = prev = b;
 		b = b->next;
 	} while (b);
 
 	/* Tell watch code to re-evaluate all txs. */
-	watch_topology_changed(dstate->topology);
+	watch_topology_changed(topo);
 
 	/* Maybe need to rebroadcast. */
-	rebroadcast_txs(dstate, NULL);
+	rebroadcast_txs(topo, NULL);
 
 	/* Once per new block head, update fee estimate. */
-	bitcoind_estimate_fee(dstate->bitcoind,
-			      update_fee, &dstate->topology->feerate);
+	bitcoind_estimate_fee(topo->bitcoind, update_fee, &topo->feerate);
 }
 
-static struct block *new_block(struct lightningd_state *dstate,
+static struct block *new_block(struct topology *topo,
 			       struct bitcoin_block *blk,
 			       struct block *next)
 {
-	struct topology *topo = dstate->topology;
 	struct block *b = tal(topo, struct block);
 
 	sha256_double(&b->blkid, &blk->hdr, sizeof(blk->hdr));
-	log_debug_struct(dstate->base_log, "Adding block %s",
+	log_debug_struct(topo->bitcoind->log, "Adding block %s",
 			 struct sha256_double, &b->blkid);
 	assert(!block_map_get(&topo->block_map, &b->blkid));
 	b->next = next;
@@ -367,7 +358,7 @@ static void gather_blocks(struct bitcoind *bitcoind,
 	struct topology *topo = dstate->topology;
 	struct block *b, *prev;
 
-	b = new_block(dstate, blk, next);
+	b = new_block(topo, blk, next);
 
 	/* Recurse if we need prev. */
 	prev = block_map_get(&topo->block_map, &blk->hdr.prev_hash);
@@ -378,103 +369,88 @@ static void gather_blocks(struct bitcoind *bitcoind,
 	}
 
 	/* All done. */
-	topology_changed(dstate, prev, b);
-	next_topology_timer(dstate);
+	topology_changed(topo, prev, b);
+	next_topology_timer(topo);
 }
 
 static void check_chaintip(struct bitcoind *bitcoind,
 			   const struct sha256_double *tipid,
-			   void *arg)
+			   struct topology *topo)
 {
-	struct lightningd_state *dstate = tal_parent(bitcoind);
-	struct topology *topo = dstate->topology;
-
 	/* 0 is the main tip. */
 	if (!structeq(tipid, &topo->tip->blkid))
-		bitcoind_getrawblock(dstate->bitcoind, tipid, gather_blocks,
+		bitcoind_getrawblock(bitcoind, tipid, gather_blocks,
 				     (struct block *)NULL);
 	else
 		/* Next! */
-		next_topology_timer(dstate);
+		next_topology_timer(topo);
 }
 
-static void start_poll_chaintip(struct lightningd_state *dstate)
+static void start_poll_chaintip(struct topology *topo)
 {
-	if (!list_empty(&dstate->bitcoind->pending)) {
-		log_unusual(dstate->base_log,
+	if (!list_empty(&topo->bitcoind->pending)) {
+		log_unusual(topo->bitcoind->log,
 			    "Delaying start poll: commands in progress");
-		next_topology_timer(dstate);
+		next_topology_timer(topo);
 	} else
-		bitcoind_get_chaintip(dstate->bitcoind, check_chaintip, NULL);
+		bitcoind_get_chaintip(topo->bitcoind, check_chaintip, topo);
 }
 
 static void init_topo(struct bitcoind *bitcoind,
 		      struct bitcoin_block *blk,
-		      ptrint_t *p)
+		      struct topology *topo)
 {
-	struct lightningd_state *dstate = tal_parent(bitcoind);
-	struct topology *topo = dstate->topology;
-
-	topo->root = new_block(dstate, blk, NULL);
-	topo->root->height = ptr2int(p);
+	topo->root = new_block(topo, blk, NULL);
+	topo->root->height = topo->first_blocknum;
 	block_map_add(&topo->block_map, topo->root);
 	topo->tip = topo->root;
 
 	/* Now grab chaintip immediately. */
-	bitcoind_get_chaintip(dstate->bitcoind, check_chaintip, NULL);
+	bitcoind_get_chaintip(bitcoind, check_chaintip, topo);
 }
 
 static void get_init_block(struct bitcoind *bitcoind,
 			   const struct sha256_double *blkid,
-			   ptrint_t *blknum)
+			   struct topology *topo)
 {
-	bitcoind_getrawblock(bitcoind, blkid, init_topo, blknum);
+	bitcoind_getrawblock(bitcoind, blkid, init_topo, topo);
 }
 
 static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
-			       void *unused)
+			       struct topology *topo)
 {
-	struct lightningd_state *dstate = tal_parent(bitcoind);
-	u32 start;
-	struct peer *peer;
-
 	/* Start back before any reasonable forks. */
-	if (blockcount < dstate->config.forever_confirms)
-		start = 0;
-	else
-		start = blockcount - dstate->config.forever_confirms;
-
-	/* If loaded from database, go back to earliest possible peer anchor. */
-	list_for_each(&dstate->peers, peer, list) {
-		if (peer->anchor.min_depth && peer->anchor.min_depth < start)
-			start = peer->anchor.min_depth;
-	}
+	if (blockcount < 100)
+		topo->first_blocknum = 0;
+	else if (!topo->first_blocknum || blockcount - 100 < topo->first_blocknum)
+		topo->first_blocknum = blockcount - 100;
 
 	/* Start topology from 100 blocks back. */
-	bitcoind_getblockhash(bitcoind, start, get_init_block, int2ptr(start));
+	bitcoind_getblockhash(bitcoind, topo->first_blocknum,
+			      get_init_block, topo);
 }
 
-u32 get_tx_mediantime(struct lightningd_state *dstate,
+u32 get_tx_mediantime(const struct topology *topo,
 		      const struct sha256_double *txid)
 {
 	struct block *b;
 
-	b = block_for_tx(dstate, txid);
+	b = block_for_tx(topo, txid);
 	if (b)
 		return b->mediantime;
 
 	fatal("Tx %s not found for get_tx_mediantime",
-	      tal_hexstr(dstate, txid, sizeof(*txid)));
+	      tal_hexstr(topo, txid, sizeof(*txid)));
 }
 
-u32 get_tip_mediantime(struct lightningd_state *dstate)
+u32 get_tip_mediantime(const struct topology *topo)
 {
-	return dstate->topology->tip->mediantime;
+	return topo->tip->mediantime;
 }
 
-u32 get_block_height(struct lightningd_state *dstate)
+u32 get_block_height(const struct topology *topo)
 {
-	return dstate->topology->tip->height;
+	return topo->tip->height;
 }
 
 u64 get_feerate(struct lightningd_state *dstate)
@@ -492,10 +468,10 @@ u64 get_feerate(struct lightningd_state *dstate)
 	return dstate->topology->feerate;
 }
 
-struct txlocator *locate_tx(const void *ctx, struct lightningd_state *dstate,
+struct txlocator *locate_tx(const void *ctx, const struct topology *topo,
 			    const struct sha256_double *txid)
 {
-	struct block *block = block_for_tx(dstate, txid);
+	struct block *block = block_for_tx(topo, txid);
 	if (block == NULL) {
 		return NULL;
 	}
@@ -536,7 +512,7 @@ static void json_dev_broadcast(struct command *cmd,
 
 	/* If enabling, flush and wait. */
 	if (enable)
-		rebroadcast_txs(cmd->dstate, cmd);
+		rebroadcast_txs(cmd->dstate->topology, cmd);
 	else
 		command_success(cmd, null_response(cmd));
 }
@@ -571,11 +547,18 @@ struct topology *new_topology(const tal_t *ctx)
 	return topo;
 }
 
-void setup_topology(struct topology *topo, struct bitcoind *bitcoind)
+void setup_topology(struct topology *topo, struct bitcoind *bitcoind,
+		    struct timers *timers,
+		    struct timerel poll_time, u32 first_peer_block)
 {
 	topo->startup = true;
 	topo->feerate = 0;
-	bitcoind_getblockcount(bitcoind, get_init_blockhash, NULL);
+	topo->timers = timers;
+	topo->bitcoind = bitcoind;
+	topo->poll_time = poll_time;
+	topo->first_blocknum = first_peer_block;
+
+	bitcoind_getblockcount(bitcoind, get_init_blockhash, topo);
 
 	tal_add_destructor(topo, destroy_outgoing_txs);
 

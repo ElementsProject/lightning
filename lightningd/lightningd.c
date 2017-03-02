@@ -42,7 +42,7 @@ struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id)
 	FIXME_IMPLEMENT();
 }
 
-size_t get_tx_depth(struct lightningd_state *dstate,
+size_t get_tx_depth(const struct topology *topo,
 		    const struct sha256_double *txid)
 {
 	FIXME_IMPLEMENT();
@@ -54,7 +54,7 @@ void debug_dump_peers(struct lightningd_state *dstate)
 	FIXME_IMPLEMENT();
 }
 
-u32 get_block_height(struct lightningd_state *dstate)
+u32 get_block_height(const struct topology *topo)
 {
 	/* FIXME_IMPLEMENT(); */
 	return 0;

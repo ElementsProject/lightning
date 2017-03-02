@@ -28,7 +28,7 @@ static bool announce_channel(const tal_t *ctx, struct ircstate *state, struct pe
 {
 	char txid[65];
 	struct privmsg *msg = talz(ctx, struct privmsg);
-	struct txlocator *loc = locate_tx(ctx, state->dstate, &p->anchor.txid);
+	struct txlocator *loc = locate_tx(ctx, state->dstate->topology, &p->anchor.txid);
 
 	if (loc == NULL)
 		return false;

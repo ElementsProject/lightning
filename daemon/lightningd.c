@@ -66,8 +66,8 @@ int main(int argc, char *argv[])
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
-	dstate->bitcoind = new_bitcoind(dstate, dstate->base_log);
 	dstate->topology = new_topology(dstate);
+	dstate->bitcoind = new_bitcoind(dstate, dstate->base_log);
 
 	/* Handle options and config; move to .lightningd */
 	register_opts(dstate);
@@ -87,7 +87,9 @@ int main(int argc, char *argv[])
 	db_init(dstate);
 
 	/* Initialize block topology. */
-	setup_topology(dstate->topology, dstate->bitcoind);
+	setup_topology(dstate->topology, dstate->bitcoind, &dstate->timers,
+		       dstate->config.poll_time,
+		       get_peer_min_block(dstate));
 
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(dstate, dstate->rpc_filename);

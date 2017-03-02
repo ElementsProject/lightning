@@ -22,7 +22,7 @@ static void broadcast_channel_update(struct lightningd_state *dstate, struct pee
 	u32 timestamp = time_now().ts.tv_sec;
 	const tal_t *tmpctx = tal_tmpctx(dstate);
 
-	loc = locate_tx(tmpctx, dstate, &peer->anchor.txid);
+	loc = locate_tx(tmpctx, dstate->topology, &peer->anchor.txid);
 	channel_id.blocknum = loc->blkheight;
 	channel_id.txnum = loc->index;
 	channel_id.outnum = peer->anchor.index;
@@ -105,7 +105,7 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 	u8 *serialized;
 	const tal_t *tmpctx = tal_tmpctx(dstate);
 
-	loc = locate_tx(tmpctx, dstate, &peer->anchor.txid);
+	loc = locate_tx(tmpctx, dstate->topology, &peer->anchor.txid);
 
 	channel_id.blocknum = loc->blkheight;
 	channel_id.txnum = loc->index;

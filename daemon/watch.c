@@ -221,7 +221,6 @@ void watch_topology_changed(struct topology *topo)
 	struct txwatch_hash_iter i;
 	struct txwatch *w;
 	bool needs_rerun;
-	struct lightningd_state *dstate = tal_parent(topo);
 
 again:
 	/* Iterating a htable during deletes is safe, but might skip entries. */
@@ -231,7 +230,7 @@ again:
 	     w = txwatch_hash_next(&topo->txwatches, &i)) {
 		size_t depth;
 
-		depth = get_tx_depth(dstate, &w->txid);
+		depth = get_tx_depth(topo, &w->txid);
 		if (depth != w->depth) {
 			enum watch_result r;
 			w->depth = depth;

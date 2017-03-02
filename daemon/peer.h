@@ -270,8 +270,6 @@ const char *command_htlc_add(struct peer *peer, u64 msatoshi,
 			     enum fail_error *error_code,
 			     struct htlc **htlc);
 
-void peers_new_block(struct lightningd_state *dstate, unsigned int height);
-
 /* Peer has an issue, breakdown and fail. */
 void peer_fail(struct peer *peer, const char *caller);
 
@@ -279,6 +277,8 @@ void peer_watch_anchor(struct peer *peer, int depth);
 
 struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
 					struct peer *peer, u64 fee);
+
+u32 get_peer_min_block(struct lightningd_state *dstate);
 
 void debug_dump_peers(struct lightningd_state *dstate);
 

@@ -347,14 +347,15 @@ static void peer_breakdown(struct peer *peer)
 	if (peer->closing.their_sig) {
 		const struct bitcoin_tx *close = mk_bitcoin_close(peer, peer);
 		log_unusual(peer->log, "Peer breakdown: sending close tx");
-		broadcast_tx(peer, close, NULL);
+		broadcast_tx(peer->dstate->topology, peer, close, NULL);
 		tal_free(close);
 	/* If we have a signed commit tx (maybe not if we just offered
 	 * anchor, or they supplied anchor, or no outputs to us). */
 	} else if (peer->local.commit && peer->local.commit->sig) {
 		log_unusual(peer->log, "Peer breakdown: sending commit tx");
 		sign_commit_tx(peer);
-		broadcast_tx(peer, peer->local.commit->tx, NULL);
+		broadcast_tx(peer->dstate->topology, peer,
+			     peer->local.commit->tx, NULL);
 	} else {
 		log_info(peer->log, "Peer breakdown: nothing to do");
 		/* We close immediately. */
@@ -644,7 +645,8 @@ static bool open_ouranchor_pkt_in(struct peer *peer, const Pkt *pkt)
 	if (db_commit_transaction(peer) != NULL)
 		return peer_database_err(peer);
 
-	broadcast_tx(peer, peer->anchor.tx, funding_tx_failed);
+	broadcast_tx(peer->dstate->topology,
+		     peer, peer->anchor.tx, funding_tx_failed);
 	peer_watch_anchor(peer, peer->local.mindepth);
 	return true;
 }
@@ -878,7 +880,7 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 	}
 
 	if (abs_locktime_to_blocks(&htlc->expiry) <=
-	    get_block_height(peer->dstate) + peer->dstate->config.min_htlc_expiry) {
+	    get_block_height(peer->dstate->topology) + peer->dstate->config.min_htlc_expiry) {
 		log_unusual(peer->log, "HTLC %"PRIu64" expires too soon:"
 			    " block %u",
 			    htlc->id, abs_locktime_to_blocks(&htlc->expiry));
@@ -888,7 +890,7 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 	}
 
 	if (abs_locktime_to_blocks(&htlc->expiry) >
-	    get_block_height(peer->dstate) + peer->dstate->config.max_htlc_expiry) {
+	    get_block_height(peer->dstate->topology) + peer->dstate->config.max_htlc_expiry) {
 		log_unusual(peer->log, "HTLC %"PRIu64" expires too far:"
 			    " block %u",
 			    htlc->id, abs_locktime_to_blocks(&htlc->expiry));
@@ -1313,7 +1315,7 @@ static bool closing_pkt_in(struct peer *peer, const Pkt *pkt)
 		 * SHOULD sign and broadcast the final closing transaction.
 		 */
 		close = mk_bitcoin_close(peer, peer);
-		broadcast_tx(peer, close, NULL);
+		broadcast_tx(peer->dstate->topology, peer, close, NULL);
 		tal_free(close);
 		return false;
 	}
@@ -2058,7 +2060,8 @@ static bool fulfill_onchain(struct peer *peer, struct htlc *htlc)
 				return false;
 			peer->onchain.resolved[i]
 				= htlc_fulfill_tx(peer, i);
-			broadcast_tx(peer, peer->onchain.resolved[i], NULL);
+			broadcast_tx(peer->dstate->topology,
+				     peer, peer->onchain.resolved[i], NULL);
 			return true;
 		}
 	}
@@ -2106,14 +2109,14 @@ const char *command_htlc_add(struct peer *peer, u64 msatoshi,
 		return "bad expiry";
 	}
 
-	if (expiry < get_block_height(peer->dstate) + peer->dstate->config.min_htlc_expiry) {
+	if (expiry < get_block_height(peer->dstate->topology) + peer->dstate->config.min_htlc_expiry) {
 		log_unusual(peer->log, "add_htlc: fail: expiry %u is too soon",
 			    expiry);
 		*error_code = BAD_REQUEST_400;
 		return "expiry too soon";
 	}
 
-	if (expiry > get_block_height(peer->dstate) + peer->dstate->config.max_htlc_expiry) {
+	if (expiry > get_block_height(peer->dstate->topology) + peer->dstate->config.max_htlc_expiry) {
 		log_unusual(peer->log, "add_htlc: fail: expiry %u is too far",
 			    expiry);
 		*error_code = BAD_REQUEST_400;
@@ -2842,7 +2845,7 @@ static bool peer_first_connected(struct peer *peer,
 	peer->conn = conn;
 	io_set_finish(conn, peer_disconnect, peer);
 
-	peer->anchor.min_depth = get_block_height(peer->dstate);
+	peer->anchor.min_depth = get_block_height(peer->dstate->topology);
 
 	/* FIXME: Attach IO logging for this peer. */
 	if (!netaddr_from_fd(io_conn_fd(conn), addr_type, addr_protocol, &addr))
@@ -3249,7 +3252,7 @@ AUTODATA(json_command, &connect_command);
 /* Have any of our HTLCs passed their deadline? */
 static bool any_deadline_past(struct peer *peer)
 {
-	u32 height = get_block_height(peer->dstate);
+	u32 height = get_block_height(peer->dstate->topology);
 	struct htlc_map_iter it;
 	struct htlc *h;
 
@@ -3272,7 +3275,7 @@ static bool any_deadline_past(struct peer *peer)
 
 static void check_htlc_expiry(struct peer *peer)
 {
-	u32 height = get_block_height(peer->dstate);
+	u32 height = get_block_height(peer->dstate->topology);
 	struct htlc_map_iter it;
 	struct htlc *h;
 
@@ -3400,8 +3403,9 @@ static enum watch_result anchor_depthchange(struct peer *peer,
 	return KEEP_WATCHING;
 }
 
-void peers_new_block(struct lightningd_state *dstate, unsigned int height)
+void notify_new_block(struct topology *topo, unsigned int height)
 {
+	struct lightningd_state *dstate = tal_parent(topo);
 	/* This is where we check for anchor timeouts. */
 	struct peer *peer;
 
@@ -3632,7 +3636,7 @@ static enum watch_result our_htlc_depth(struct peer *peer,
 	if (depth == 0)
 		return KEEP_WATCHING;
 
-	height = get_block_height(peer->dstate);
+	height = get_block_height(peer->dstate->topology);
 
 	/* FIXME-OLD #onchain:
 	 *
@@ -3663,7 +3667,8 @@ static enum watch_result our_htlc_depth(struct peer *peer,
 			 peer,
 			 peer->onchain.resolved[out_num],
 			 our_htlc_timeout_depth, h);
-		broadcast_tx(peer, peer->onchain.resolved[out_num], NULL);
+		broadcast_tx(peer->dstate->topology,
+			     peer, peer->onchain.resolved[out_num], NULL);
 	}
 	return DELETE_WATCH;
 }
@@ -3696,7 +3701,7 @@ static enum watch_result their_htlc_depth(struct peer *peer,
 	if (depth == 0)
 		return KEEP_WATCHING;
 
-	height = get_block_height(peer->dstate);
+	height = get_block_height(peer->dstate->topology);
 
 	/* FIXME-OLD #onchain:
 	 *
@@ -3732,7 +3737,8 @@ static enum watch_result our_main_output_depth(struct peer *peer,
 	 */
 	peer->onchain.resolved[peer->onchain.to_us_idx]
 		= bitcoin_spend_ours(peer);
-	broadcast_tx(peer, peer->onchain.resolved[peer->onchain.to_us_idx],
+	broadcast_tx(peer->dstate->topology,
+		     peer, peer->onchain.resolved[peer->onchain.to_us_idx],
 		     NULL);
 	return DELETE_WATCH;
 }
@@ -3852,7 +3858,8 @@ static void resolve_their_htlc(struct peer *peer, unsigned int out_num)
 	 */
 	if (peer->onchain.htlcs[out_num]->r) {
 		peer->onchain.resolved[out_num]	= htlc_fulfill_tx(peer, out_num);
-		broadcast_tx(peer, peer->onchain.resolved[out_num], NULL);
+		broadcast_tx(peer->dstate->topology,
+			     peer, peer->onchain.resolved[out_num], NULL);
 	} else {
 		/* FIXME-OLD #onchain:
 		 *
@@ -4012,7 +4019,7 @@ static enum watch_result check_for_resolution(struct peer *peer,
 		struct sha256_double txid;
 
 		bitcoin_txid(peer->onchain.resolved[i], &txid);
-		if (get_tx_depth(peer->dstate, &txid) < forever)
+		if (get_tx_depth(peer->dstate->topology, &txid) < forever)
 			return KEEP_WATCHING;
 	}
 
@@ -4146,7 +4153,7 @@ static void resolve_their_steal(struct peer *peer,
 	}
 	assert(n == tal_count(steal_tx->input));
 
-	broadcast_tx(peer, steal_tx, NULL);
+	broadcast_tx(peer->dstate->topology, peer, steal_tx, NULL);
 }
 
 static struct sha256 *get_rhash(struct peer *peer, u64 commit_num,
@@ -4485,6 +4492,22 @@ void reconnect_peers(struct lightningd_state *dstate)
 		try_reconnect(peer);
 }
 
+/* Return earliest block we're interested in, or 0 for none. */
+u32 get_peer_min_block(struct lightningd_state *dstate)
+{
+	u32 min_block = 0;
+	struct peer *peer;
+
+	/* If loaded from database, go back to earliest possible peer anchor. */
+	list_for_each(&dstate->peers, peer, list) {
+		if (!peer->anchor.min_depth)
+			continue;
+		if (min_block == 0 || peer->anchor.min_depth < min_block)
+			min_block = peer->anchor.min_depth;
+	}
+	return min_block;
+}
+
 /* We may have gone down before broadcasting the anchor.  Try again. */
 void rebroadcast_anchors(struct lightningd_state *dstate)
 {
@@ -4498,7 +4521,8 @@ void rebroadcast_anchors(struct lightningd_state *dstate)
 		if (!bitcoin_create_anchor(peer))
 			peer_fail(peer, __func__);
 		else
-			broadcast_tx(peer, peer->anchor.tx, NULL);
+			broadcast_tx(peer->dstate->topology,
+				     peer, peer->anchor.tx, NULL);
 	}
 }
 

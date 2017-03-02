@@ -462,7 +462,8 @@ static void json_sendpay(struct command *cmd,
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	err = command_htlc_add(peer, amount,
-			       delay + get_block_height(cmd->dstate) + 1,
+			       delay + get_block_height(cmd->dstate->topology)
+			       + 1,
 			       &rhash, NULL,
 			       onion, &error_code, &pc->htlc);
 	if (err) {
