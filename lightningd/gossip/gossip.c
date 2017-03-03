@@ -17,6 +17,7 @@
 #include <inttypes.h>
 #include <lightningd/cryptomsg.h>
 #include <lightningd/debug.h>
+#include <lightningd/gen_common_wire.h>
 #include <lightningd/gossip/gen_gossip_control_wire.h>
 #include <lightningd/gossip/gen_gossip_status_wire.h>
 #include <secp256k1_ecdh.h>
@@ -352,26 +353,42 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 		      "Unknown peer %"PRIu64, unique_id);
 }
 
+/**
+ * recv_req - Handle incoming requests or messages from the main daemon
+ * @conn: connection to the main daemon.
+ * @daemon: originating daemon of the request, wraps the incoming message.
+ */
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon *daemon)
 {
-	enum gossip_control_wire_type t = fromwire_peektype(daemon->msg_in);
+	int type = fromwire_peektype(daemon->msg_in);
 
-	status_trace("req: type %s len %zu",
-		     gossip_control_wire_type_name(t),
-		     tal_count(daemon->msg_in));
+	if ((type & 0x4000) != 0) {
+		/* Handle common messages if we have the common flag set. */
+		enum common_wire_type ct = type;
+		switch (ct) {
+		case WIRE_FORWARD_GOSSIP_MSG:
+			return next_req_in(conn, daemon);
+		}
+	} else {
+		/* Ok, this must be a message that only we can handle */
+		enum gossip_control_wire_type t = type;
 
-	switch (t) {
-	case WIRE_GOSSIPCTL_NEW_PEER:
-		return new_peer(conn, daemon, daemon->msg_in);
-	case WIRE_GOSSIPCTL_RELEASE_PEER:
-		return release_peer(conn, daemon, daemon->msg_in);
+		status_trace("req: type %s len %zu",
+			     gossip_control_wire_type_name(t),
+			     tal_count(daemon->msg_in));
 
-	case WIRE_GOSSIPCTL_RELEASE_PEER_RESPONSE:
-		break;
+		switch (t) {
+		case WIRE_GOSSIPCTL_NEW_PEER:
+			return new_peer(conn, daemon, daemon->msg_in);
+		case WIRE_GOSSIPCTL_RELEASE_PEER:
+			return release_peer(conn, daemon, daemon->msg_in);
+
+		case WIRE_GOSSIPCTL_RELEASE_PEER_RESPONSE:
+			break;
+		}
 	}
-
 	/* Control shouldn't give bad requests. */
-	status_failed(WIRE_GOSSIPSTATUS_BAD_REQUEST, "%i", t);
+	status_failed(WIRE_GOSSIPSTATUS_BAD_REQUEST, "%i", type);
 }
 
 static struct io_plan *next_req_in(struct io_conn *conn, struct daemon *daemon)
