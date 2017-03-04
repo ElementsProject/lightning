@@ -91,6 +91,25 @@ static struct peer *setup_new_peer(struct daemon *daemon, const u8 *msg)
 	return peer;
 }
 
+/**
+ * handle_gossip_message - Verify gossip message and apply to local routing state
+ * @rstate: Routing state to apply to
+ * @msg: talloc'd and unparsed gossip message
+ */
+static void handle_gossip_message(struct routing_state *rstate, const u8 *msg)
+{
+	int t = fromwire_peektype(msg);
+	if (t == WIRE_CHANNEL_ANNOUNCEMENT) {
+		handle_channel_announcement(rstate, msg, tal_count(msg));
+	} else if (t == WIRE_NODE_ANNOUNCEMENT) {
+		handle_node_announcement(rstate, msg, tal_count(msg));
+	} else if (t == WIRE_CHANNEL_UPDATE) {
+		handle_channel_update(rstate, msg, tal_count(msg));
+	} else {
+		status_failed(WIRE_GOSSIPSTATUS_BAD_FORWARD,
+			      "%s", tal_hex(trc, msg));
+	}
+}
 static struct io_plan *peer_msgin(struct io_conn *conn,
 				  struct peer *peer, u8 *msg)
 {
@@ -104,15 +123,9 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		return io_close(conn);
 
 	case WIRE_CHANNEL_ANNOUNCEMENT:
-		handle_channel_announcement(peer->daemon->rstate, msg, tal_count(msg));
-		return peer_read_message(conn, &peer->pcs, peer_msgin);
-
 	case WIRE_NODE_ANNOUNCEMENT:
-		handle_node_announcement(peer->daemon->rstate, msg, tal_count(msg));
-		return peer_read_message(conn, &peer->pcs, peer_msgin);
-
 	case WIRE_CHANNEL_UPDATE:
-		handle_channel_update(peer->daemon->rstate, msg, tal_count(msg));
+		handle_gossip_message(peer->daemon->rstate, msg);
 		return peer_read_message(conn, &peer->pcs, peer_msgin);
 
 	case WIRE_INIT:
@@ -367,6 +380,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon *daemon)
 		enum common_wire_type ct = type;
 		switch (ct) {
 		case WIRE_FORWARD_GOSSIP_MSG:
+			handle_gossip_message(daemon->rstate, daemon->msg_in);
 			return next_req_in(conn, daemon);
 		}
 	} else {
