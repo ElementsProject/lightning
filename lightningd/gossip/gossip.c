@@ -367,6 +367,32 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 }
 
 /**
+ * handle_forwarded_gossip_msg - Unpack forwarded message and inject into
+ * handlers.
+ * @rstate: routing state to apply changes to
+ * @msg: message that wraps the internal gossip message (`tal_count` used to get
+ * length)
+ *
+ * Will terminate the daemon if either the unwrapping fails, or the
+ * wrapped message is not a gossip message.
+ */
+static void handle_forwarded_gossip_msg(struct routing_state *rstate, u8 *msg)
+{
+	u8 *gossipmsg;
+	size_t mlen = tal_count(msg);
+	bool ok;
+
+	ok = fromwire_forward_gossip_msg(msg, msg, &mlen, &gossipmsg);
+	if (!ok) {
+		status_failed(WIRE_GOSSIPSTATUS_BAD_FORWARD,
+			      "Discarding incorrect gossip message");
+	} else {
+		status_trace("Handling gossip message forwarded by main-daemon.");
+		handle_gossip_message(rstate, gossipmsg);
+	}
+}
+
+/**
  * recv_req - Handle incoming requests or messages from the main daemon
  * @conn: connection to the main daemon.
  * @daemon: originating daemon of the request, wraps the incoming message.
@@ -380,7 +406,8 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon *daemon)
 		enum common_wire_type ct = type;
 		switch (ct) {
 		case WIRE_FORWARD_GOSSIP_MSG:
-			handle_gossip_message(daemon->rstate, daemon->msg_in);
+			handle_forwarded_gossip_msg(daemon->rstate,
+						    daemon->msg_in);
 			return next_req_in(conn, daemon);
 		}
 	} else {
