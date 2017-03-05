@@ -214,6 +214,7 @@ static struct io_plan *status_process(struct io_conn *conn, struct subdaemon *sd
 	if (type == STATUS_TRACE)
 		log_debug(sd->log, "TRACE: %.*s", str_len, str);
 	else if (type == WIRE_FORWARD_GOSSIP_MSG){
+		log_info(sd->log, "Forwarding %s", common_wire_type_name(type));
 		subdaemon_send_msg(sd->ld->gossip, take(sd->status_in));
 	} else if (type & STATUS_FAIL)
 		log_unusual(sd->log, "FAILURE %s: %.*s",
