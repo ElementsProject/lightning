@@ -121,7 +121,6 @@ static inline u16 to_self_delay(const struct channel *channel, enum side side)
  * @funding_txid: The commitment transaction id.
  * @funding_txout: The commitment transaction output number.
  * @funding_satoshis: The commitment transaction amount.
- * @funding_satoshis: The commitment transaction amount.
  * @push_msat: The amount the initator gives to the other side.
  * @feerate_per_kw: feerate per kiloweight (satoshis)
  * @local: local channel configuration
