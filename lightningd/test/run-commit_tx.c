@@ -370,19 +370,19 @@ static u64 increase(u64 feerate_per_kw)
 	 *
 	 *     local_feerate_per_kw: 0
 	 *     ...
-	 *     local_feerate_per_kw: 677
+	 *     local_feerate_per_kw: 648
 	 *     ...
-	 *     local_feerate_per_kw: 2162
+	 *     local_feerate_per_kw: 2070
 	 *     ...
-	 *     local_feerate_per_kw: 2292
+	 *     local_feerate_per_kw: 2195
 	 *     ...
-	 *     local_feerate_per_kw: 3867
+	 *     local_feerate_per_kw: 3703
 	 *     ...
-	 *     local_feerate_per_kw: 5134
+	 *     local_feerate_per_kw: 4915
 	 *     ...
 	 *     local_feerate_per_kw: 9651181
 	 */
-	const u64 rates[] = { 0, 677, 2162, 2292, 3867, 5134, 9651181 };
+	const u64 rates[] = { 0, 648, 2070, 2195, 3703, 4915, 9651181 };
 	size_t i;
 
 	for (i = 0; i < ARRAY_SIZE(rates); i++)
@@ -499,7 +499,7 @@ int main(void)
          * # From local_delayed_payment_basepoint_secret
          * INTERNAL: local_delayed_payment_basepoint: 023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1
          * INTERNAL: local_per_commitment_point: 025f7117a78150fe2ef97db7cfc83bd57b2e2c0d0dd25eaf467a4a1c2a45ce1486
-         * INTERNAL: remote_secretkey: 839ad0480cde69fc721fb8e919dcf20bc4f2b3374c7b27ff37f200ddfa7b0edb01
+         * INTERNAL: remote_secretkey: 8deba327a7cc6d638ab0eb025770400a6184afcba6713c210d8d10e199ff2fda01
          * # From local_delayed_payment_basepoint_secret, local_per_commitment_point and local_delayed_payment_basepoint
          * INTERNAL: local_delayed_secretkey: adf3464ce9c2f230fd2582fda4c6965e4993ca5524e8c9580e3df0cf226981ad01
 	 */
