@@ -365,7 +365,7 @@ static u8 *sign_funding_tx(const tal_t *ctx, const u8 *data)
 	struct bitcoin_tx *tx;
 	u8 *wscript, *msg_out;
 	secp256k1_ecdsa_signature *sig;
-	u32 outnum;
+	u16 outnum;
 	size_t i;
 	struct pubkey changekey;
 

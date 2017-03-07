@@ -562,7 +562,7 @@ static void opening_gen_funding(struct subdaemon *opening, const u8 *resp,
 {
 	u8 *msg;
 	struct sha256_double txid;
-	u32 outnum;
+	u16 outnum;
 	struct pubkey changekey;
 
 	peer_set_condition(fc->peer, "Created funding transaction for channel");

@@ -33,7 +33,7 @@ struct utxo;
  * a special case because of the P2SH inputs.
  */
 struct bitcoin_tx *funding_tx(const tal_t *ctx,
-			      u32 *outnum,
+			      u16 *outnum,
 			      const struct utxo **utxomap,
 			      u64 funding_satoshis,
 			      const struct pubkey *local_fundingkey,

@@ -49,7 +49,7 @@ int main(void)
 	struct utxo utxo;
 	const struct utxo **utxomap = tal_arr(tmpctx, const struct utxo *, 1);
 	u64 funding_satoshis;
-	u32 funding_outnum;
+	u16 funding_outnum;
 	u8 *subscript;
 	secp256k1_ecdsa_signature sig;
 
