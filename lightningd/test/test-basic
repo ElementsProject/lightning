@@ -47,6 +47,9 @@ $CLI generate 10
 check "lcli1 getpeers info | $FGREP 'Funding tx reached depth'"
 check "lcli2 getpeers info | $FGREP 'Funding tx reached depth'"
 
+check "lcli1 getpeers | tr -s '\012\011\" ' ' ' | $FGREP 'condition : Normal operation'"
+check "lcli2 getpeers | tr -s '\012\011\" ' ' ' | $FGREP 'condition : Normal operation'"
+
 lcli1 stop
 lcli2 stop
 

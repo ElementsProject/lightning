@@ -1,0 +1,24 @@
+#include <lightningd/cryptomsg.h>
+#include <lightningd/channel_config.h>
+
+# Begin!  You're still waiting for the tx to be buried though.
+channel_init,1
+channel_init,0,funding_txid,32,struct sha256_double
+channel_init,32,funding_txout,2
+channel_init,34,our_config,36,struct channel_config
+channel_init,70,their_config,36,struct channel_config
+channel_init,106,first_commit_sig,64,secp256k1_ecdsa_signature
+channel_init,166,crypto_state,144,struct crypto_state
+channel_init,310,remote_fundingkey,33
+channel_init,343,revocation_basepoint,33
+channel_init,376,payment_basepoint,33
+channel_init,409,delayed_payment_basepoint,33
+channel_init,442,their_per_commit_point,33
+channel_init,475,am_funder,1,bool
+channel_init,476,feerate,4
+channel_init,480,funding_satoshi,8
+channel_init,488,push_msat,8
+channel_init,496,seed,32,struct privkey
+
+# Tx is deep enough, go!
+channel_funding_locked,2

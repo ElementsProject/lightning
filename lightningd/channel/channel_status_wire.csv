@@ -1,0 +1,14 @@
+# Shouldn't happen
+channel_bad_command,0x8000
+# Also shouldn't happen
+channel_hsm_failed,0x8001
+
+# These are due to peer.
+channel_peer_write_failed,0x8010
+channel_peer_read_failed,0x8011
+channel_peer_bad_message,0x8012
+
+# Received funding_locked
+channel_received_funding_locked,1
+# Received and sent fundin_locked
+channel_normal_operation,2
