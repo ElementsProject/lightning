@@ -33,7 +33,7 @@ bool restore_wallet_address(struct lightningd_state *dstate,
 	if (!pubkey_from_privkey(&w->privkey, &w->pubkey))
 		return false;
 
-	redeemscript = bitcoin_redeem_p2wpkh(w, &w->pubkey);
+	redeemscript = bitcoin_redeem_p2sh_p2wpkh(w, &w->pubkey);
 	sha256(&h, redeemscript, tal_count(redeemscript));
 	ripemd160(&w->p2sh, h.u.u8, sizeof(h));
 
@@ -74,7 +74,7 @@ bool wallet_add_signed_input(struct lightningd_state *dstate,
 	if (!w)
 		return false;
 
-	redeemscript = bitcoin_redeem_p2wpkh(tx, &w->pubkey);
+	redeemscript = bitcoin_redeem_p2sh_p2wpkh(tx, &w->pubkey);
 
 	sign_tx_input(tx, input_num,
 		      redeemscript,
@@ -120,7 +120,7 @@ static void json_newaddr(struct command *cmd,
 	struct sha256 h;
 
 	new_keypair(&w->privkey, &w->pubkey);
-	redeemscript = bitcoin_redeem_p2wpkh(cmd, &w->pubkey);
+	redeemscript = bitcoin_redeem_p2sh_p2wpkh(cmd, &w->pubkey);
 	sha256(&h, redeemscript, tal_count(redeemscript));
 	ripemd160(&w->p2sh, h.u.u8, sizeof(h));
 

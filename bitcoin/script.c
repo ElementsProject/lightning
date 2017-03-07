@@ -244,7 +244,7 @@ u8 *bitcoin_redeem_p2pkh(const tal_t *ctx, const struct pubkey *pubkey,
 }
 
 /* Create the redeemscript for a P2SH + P2WPKH (for signing tx) */
-u8 *bitcoin_redeem_p2wpkh(const tal_t *ctx, const struct pubkey *key)
+u8 *bitcoin_redeem_p2sh_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 {
 	struct ripemd160 keyhash;
 	u8 der[PUBKEY_DER_LEN];
@@ -261,7 +261,7 @@ u8 *bitcoin_redeem_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 
 u8 *bitcoin_scriptsig_p2sh_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 {
-	u8 *redeemscript = bitcoin_redeem_p2wpkh(ctx, key), *script;
+	u8 *redeemscript = bitcoin_redeem_p2sh_p2wpkh(ctx, key), *script;
 
 	/* BIP141: The scriptSig must be exactly a push of the BIP16
 	 * redeemScript or validation fails. */
@@ -277,7 +277,7 @@ void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 				 const secp256k1_ecdsa_signature *sig,
 				 const struct pubkey *key)
 {
-	u8 *redeemscript = bitcoin_redeem_p2wpkh(ctx, key);
+	u8 *redeemscript = bitcoin_redeem_p2sh_p2wpkh(ctx, key);
 
 	/* BIP141: The scriptSig must be exactly a push of the BIP16 redeemScript
 	 * or validation fails. */
@@ -285,12 +285,7 @@ void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 	add_push_bytes(&input->script, redeemscript, tal_count(redeemscript));
 	tal_free(redeemscript);
 
-	/* BIP141: The witness must consist of exactly 2 items (≤ 520
-	 * bytes each). The first one a signature, and the second one
-	 * a public key. */
-	input->witness = tal_arr(ctx, u8 *, 2);
-	input->witness[0] = stack_sig(input->witness, sig);
-	input->witness[1] = stack_key(input->witness, key);
+	input->witness = bitcoin_witness_p2wpkh(ctx, sig, key);
 }
 
 u8 **bitcoin_witness_p2wpkh(const tal_t *ctx,

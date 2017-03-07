@@ -399,7 +399,7 @@ static u8 *sign_funding_tx(const tal_t *ctx, const u8 *data)
 
 		bitcoin_keypair(&inprivkey, &inkey, in->keyindex);
 		if (in->is_p2sh)
-			subscript = bitcoin_redeem_p2wpkh(tmpctx, &inkey);
+			subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
 		else
 			subscript = NULL;
 		wscript = p2wpkh_scriptcode(tmpctx, &inkey);

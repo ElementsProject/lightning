@@ -42,10 +42,9 @@ u8 *bitcoin_redeem_p2pkh(const tal_t *ctx, const struct pubkey *pubkey,
 			 const secp256k1_ecdsa_signature *sig);
 
 /* Create the redeemscript for a P2SH + P2WPKH. */
-u8 *bitcoin_redeem_p2wpkh(const tal_t *ctx,
-			  const struct pubkey *key);
+u8 *bitcoin_redeem_p2sh_p2wpkh(const tal_t *ctx, const struct pubkey *key);
 
-/* Create a witness which spends the 2of2. */
+/* Create a witness which spends the P2SH + P2WPKH. */
 void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 				 struct bitcoin_tx_input *input,
 				 const secp256k1_ecdsa_signature *sig,

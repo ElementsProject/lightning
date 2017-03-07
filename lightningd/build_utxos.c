@@ -44,7 +44,7 @@ static void json_newaddr(struct command *cmd,
 		return;
 	}
 
-	redeemscript = bitcoin_redeem_p2wpkh(cmd, &pubkey);
+	redeemscript = bitcoin_redeem_p2sh_p2wpkh(cmd, &pubkey);
 	sha256(&h, redeemscript, tal_count(redeemscript));
 	ripemd160(&p2sh, h.u.u8, sizeof(h));
 
