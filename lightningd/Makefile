@@ -11,6 +11,7 @@ default: lightningd-all
 LIGHTNINGD_OLD_SRC :=				\
 	daemon/bitcoind.c			\
 	daemon/broadcast.c			\
+	daemon/chaintopology.c			\
 	daemon/configdir.c			\
 	daemon/dns.c				\
 	daemon/netaddr.c			\

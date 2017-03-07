@@ -40,6 +40,12 @@ struct lightningd {
 	struct ext_key *bip32_base;
 	u32 bip32_max_index;
 
+	/* Our bitcoind context. */
+	struct bitcoind *bitcoind;
+
+	/* Our chain topology. */
+	struct chain_topology *topology;
+
 	/* If we want to debug a subdaemon. */
 	const char *dev_debug_subdaemon;
 

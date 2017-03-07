@@ -48,23 +48,18 @@ void peer_debug(struct peer *peer, const char *fmt, ...)
 	FIXME_IMPLEMENT();
 }
 
-size_t get_tx_depth(const struct chain_topology *topo,
-		    const struct sha256_double *txid)
-{
-	FIXME_IMPLEMENT();
-}
-
 void debug_dump_peers(struct lightningd_state *dstate);
 void debug_dump_peers(struct lightningd_state *dstate)
 {
 	FIXME_IMPLEMENT();
 }
 
-u32 get_block_height(const struct chain_topology *topo)
+void notify_new_block(struct chain_topology *topo, u32 height);
+void notify_new_block(struct chain_topology *topo, u32 height)
 {
-	/* FIXME_IMPLEMENT(); */
-	return 0;
+	/* FIXME */
 }
+
 
  #include <daemon/packets.h>
 void queue_pkt_nested(struct peer *peer,
@@ -100,6 +95,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dstate.reexec = NULL;
 	ld->dstate.external_ip = NULL;
 	ld->dstate.announce = NULL;
+	ld->topology = ld->dstate.topology = new_topology(ld, ld->log);
+	ld->bitcoind = ld->dstate.bitcoind = new_bitcoind(ld, ld->log);
 
 	ld->dstate.invoices = invoices_init(&ld->dstate);
 	return ld;
@@ -172,7 +169,6 @@ int main(int argc, char *argv[])
 	bool newdir;
 
 	err_set_progname(argv[0]);
-	ld->dstate.bitcoind = new_bitcoind(ld, ld->log);
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
@@ -205,6 +201,12 @@ int main(int argc, char *argv[])
 	/* Set up gossip daemon. */
 	gossip_init(ld);
 
+	/* Initialize block topology. */
+	setup_topology(ld->topology, ld->bitcoind, &ld->dstate.timers,
+		       ld->dstate.config.poll_time,
+		       /* FIXME: Load from peers. */
+		       0);
+
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(&ld->dstate, ld->dstate.rpc_filename);
 
@@ -212,9 +214,6 @@ int main(int argc, char *argv[])
 	setup_listeners(ld);
 
 #if 0
-	/* Initialize block topology. */
-	setup_topology(dstate);
-
 	/* Load peers from database. */
 	db_load_peers(dstate);
 
