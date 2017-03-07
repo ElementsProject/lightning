@@ -231,6 +231,23 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	subtract_fee(funder, side, base_fee_msat,
 		     &self_pay_msat, &other_pay_msat);
 
+#ifdef PRINT_ACTUAL_FEE
+	{
+		u64 satoshis_out = 0;
+		for (i = n = 0; i < tal_count(htlcs); i++) {
+			if (!trim(htlcs[i], feerate_per_kw, dust_limit_satoshis,
+				  side))
+				satoshis_out += htlcs[i]->msatoshi / 1000;
+		}
+		if (self_pay_msat / 1000 >= dust_limit_satoshis)
+			satoshis_out += self_pay_msat / 1000;
+		if (other_pay_msat / 1000 >= dust_limit_satoshis)
+			satoshis_out += other_pay_msat / 1000;
+		SUPERVERBOSE("# actual commitment transaction fee = %"PRIu64"\n",
+			     funding_satoshis - satoshis_out);
+	}
+#endif
+
 	/* Worst-case sizing: both to-local and to-remote outputs. */
 	tx = bitcoin_tx(ctx, 1, untrimmed + 2);
 

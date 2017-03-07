@@ -5,6 +5,7 @@
 static bool print_superverbose;
 #define SUPERVERBOSE(...)					\
 	do { if (print_superverbose) printf(__VA_ARGS__); } while(0)
+#define PRINT_ACTUAL_FEE
 #include "../commit_tx.c"
 #include "../htlc_tx.c"
 #include <bitcoin/preimage.h>
@@ -14,6 +15,9 @@ static bool print_superverbose;
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
 #include <type_to_string.h>
+
+/* Turn this on to brute-force fee values */
+/*#define DEBUG */
 
 static struct sha256 sha256_from_hex(const char *hex)
 {
