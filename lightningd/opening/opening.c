@@ -656,6 +656,20 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
 			      "could not create channel with given config");
 
+	/* Now, ask master to watch. */
+	status_trace("asking master to watch funding %s",
+		     type_to_string(trc, struct sha256_double, &state->funding_txid));
+	msg = towire_opening_accept_resp(state, &state->funding_txid);
+	wire_sync_write(REQ_FD, msg);
+
+	msg = wire_sync_read(state, REQ_FD);
+	if (!fromwire_opening_accept_finish(msg, NULL))
+		status_failed(WIRE_OPENING_BAD_PARAM,
+			      "Expected valid opening_accept_finish: %s",
+			      tal_hex(trc, msg));
+
+	status_trace("master said to finish");
+
 	/* BOLT #2:
 	 *
 	 * The recipient MUST fail the channel if `signature` is incorrect.
@@ -703,17 +717,16 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
 			      "Writing funding_signed");
 
-	return towire_opening_accept_resp(state,
-					  &state->funding_txid,
-					  state->funding_txout,
-					  state->remoteconf,
-					  &theirsig,
-					  &state->cs,
-					  &theirs.funding_pubkey,
-					  &theirs.revocation_basepoint,
-					  &theirs.payment_basepoint,
-					  &theirs.delayed_payment_basepoint,
-					  &state->next_per_commit[REMOTE]);
+	return towire_opening_accept_finish_resp(state,
+						 state->funding_txout,
+						 state->remoteconf,
+						 &theirsig,
+						 &state->cs,
+						 &theirs.funding_pubkey,
+						 &theirs.revocation_basepoint,
+						 &theirs.payment_basepoint,
+						 &theirs.delayed_payment_basepoint,
+						 &state->next_per_commit[REMOTE]);
 }
 
 #ifndef TESTING

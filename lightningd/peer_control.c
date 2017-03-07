@@ -531,13 +531,15 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 					  const struct sha256_double *txid,
 					  void *unused)
 {
+	const char *txidstr = type_to_string(peer, struct sha256_double, txid);
+
+	log_debug(peer->log, "Funding tx %s depth %u of %u",
+		  txidstr, depth, peer->ld->dstate.config.anchor_confirms);
 	if (depth >= peer->ld->dstate.config.anchor_confirms) {
 		peer_set_condition(peer, "Funding tx reached depth %u", depth);
 		/* FIXME!  Start channel proper... */
 		return DELETE_WATCH;
 	}
-	log_debug(peer->log, "Funding tx depth %u of %u", depth,
-		  peer->ld->dstate.config.anchor_confirms);
 	return KEEP_WATCHING;
 }
 
@@ -642,10 +644,10 @@ static void opening_gen_funding(struct subdaemon *opening, const u8 *resp,
 		      opening_release_tx, fc);
 }
 
-static void opening_accept_response(struct subdaemon *opening, const u8 *resp,
-				    struct peer *peer)
+static void opening_accept_finish_response(struct subdaemon *opening,
+					   const u8 *resp,
+					   struct peer *peer)
 {
-	struct sha256_double funding_txid;
 	u16 funding_txout;
 	struct channel_config their_config;
 	secp256k1_ecdsa_signature first_commit_sig;
@@ -654,23 +656,47 @@ static void opening_accept_response(struct subdaemon *opening, const u8 *resp,
 		payment_basepoint, delayed_payment_basepoint,
 		their_per_commit_point;
 
-	log_debug(peer->log, "Got opening_accept_response");
-	if (!fromwire_opening_accept_resp(resp, NULL,
-					  &funding_txid, &funding_txout,
-					  &their_config, &first_commit_sig,
-					  &crypto_state, &remote_fundingkey,
-					  &revocation_basepoint,
-					  &payment_basepoint,
-					  &delayed_payment_basepoint,
-					  &their_per_commit_point)) {
-		log_broken(peer->log, "bad OPENING_ACCEPT_RESP %s",
+	log_debug(peer->log, "Got opening_accept_finish_response");
+	if (!fromwire_opening_accept_finish_resp(resp, NULL,
+						 &funding_txout,
+						 &their_config,
+						 &first_commit_sig,
+						 &crypto_state,
+						 &remote_fundingkey,
+						 &revocation_basepoint,
+						 &payment_basepoint,
+						 &delayed_payment_basepoint,
+						 &their_per_commit_point)) {
+		log_broken(peer->log, "bad OPENING_ACCEPT_FINISH_RESP %s",
 			   tal_hex(resp, resp));
 		tal_free(peer);
+		return;
 	}
 
 	/* FIXME: Start normal channel daemon... */
+}
+
+static void opening_accept_response(struct subdaemon *opening, const u8 *resp,
+				    struct peer *peer)
+{
+	struct sha256_double funding_txid;
+
+	if (!fromwire_opening_accept_resp(resp, NULL, &funding_txid)) {
+		log_broken(peer->log, "bad OPENING_ACCEPT_RESP %s",
+			   tal_hex(resp, resp));
+		tal_free(peer);
+		return;
+	}
+
+	log_debug(peer->log, "Watching funding tx %s",
+		     type_to_string(resp, struct sha256_double, &funding_txid));
 	watch_txid(peer, peer->ld->topology, peer, &funding_txid,
 		   funding_depth_cb, NULL);
+
+	/* Tell it we're watching. */
+	subdaemon_req(peer->owner, towire_opening_accept_finish(resp),
+		      -1, NULL,
+		      opening_accept_finish_response, peer);
 }
 
 static void channel_config(struct lightningd *ld,

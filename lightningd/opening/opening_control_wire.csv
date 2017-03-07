@@ -44,18 +44,23 @@ opening_accept,4,max_feerate,4
 opening_accept,8,len,2
 opening_accept,10,msg,len,u8
 
-# This gives the txid of their funding tx: we're done.
+# This gives the txid of their funding tx to watch.
 opening_accept_resp,103
 opening_accept_resp,0,funding_txid,32,struct sha256_double
-opening_accept_resp,32,funding_txout,2,u16
-opening_accept_resp,33,their_config,36,struct channel_config
-opening_accept_resp,69,first_commit_sig,64,secp256k1_ecdsa_signature
-opening_accept_resp,133,crypto_state,144,struct crypto_state
-opening_accept_resp,277,remote_fundingkey,33
-opening_accept_resp,310,revocation_basepoint,33
-opening_accept_resp,343,payment_basepoint,33
-opening_accept_resp,376,delayed_payment_basepoint,33
-opening_accept_resp,409,their_per_commit_point,33
+
+# Acknowledge watch is in place, now can send sig.
+opening_accept_finish,4
+
+opening_accept_finish_resp,104
+opening_accept_finish_resp,32,funding_txout,2,u16
+opening_accept_finish_resp,0,their_config,36,struct channel_config
+opening_accept_finish_resp,36,first_commit_sig,64,secp256k1_ecdsa_signature
+opening_accept_finish_resp,100,crypto_state,144,struct crypto_state
+opening_accept_finish_resp,244,remote_fundingkey,33
+opening_accept_finish_resp,277,revocation_basepoint,33
+opening_accept_finish_resp,310,payment_basepoint,33
+opening_accept_finish_resp,343,delayed_payment_basepoint,33
+opening_accept_finish_resp,377,their_per_commit_point,33
 
 # You're OK to exit.
 opening_exit_req,99
