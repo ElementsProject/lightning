@@ -36,22 +36,6 @@ static void destroy_peer(struct peer *peer)
 			     peer->condition);
 }
 
-static void bitcoin_pubkey(struct lightningd *ld,
-			   struct pubkey *pubkey, u32 index)
-{
-	struct ext_key ext;
-
-	assert(index < BIP32_INITIAL_HARDENED_CHILD);
-	assert(index < ld->bip32_max_index);
-	if (bip32_key_from_parent(ld->bip32_base, index,
-				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK)
-		fatal("BIP32 of %u failed", index);
-
-	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey->pubkey,
-				       ext.pub_key, sizeof(ext.pub_key)))
-		fatal("Parse of BIP32 child %u pubkey failed", index);
-}
-
 void peer_set_condition(struct peer *peer, const char *fmt, ...)
 {
 	va_list ap;
@@ -591,8 +575,10 @@ static void opening_gen_funding(struct subdaemon *opening, const u8 *resp,
 		return;
 	}
 
-	if (fc->change)
-		bitcoin_pubkey(fc->peer->ld, &changekey, fc->change_keyindex);
+	if (fc->change
+	    && !bip32_pubkey(fc->peer->ld->bip32_base,
+			     &changekey, fc->change_keyindex))
+		fatal("Error deriving change key %u", fc->change_keyindex);
 
 	fc->funding_tx = funding_tx(fc, &outnum, fc->utxomap, fc->satoshi,
 				    &fc->local_fundingkey,

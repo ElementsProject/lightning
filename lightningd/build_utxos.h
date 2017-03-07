@@ -13,4 +13,9 @@ const struct utxo **build_utxos(const tal_t *ctx,
 
 /* Once we've spent them, mark them confirmed. */
 void confirm_utxos(struct lightningd *ld, const struct utxo **utxos);
+
+struct ext_key;
+bool bip32_pubkey(const struct ext_key *bip32_base,
+		  struct pubkey *pubkey, u32 index);
+
 #endif /* LIGHTNING_LIGHTNINGD_BUILD_UTXOS_H */

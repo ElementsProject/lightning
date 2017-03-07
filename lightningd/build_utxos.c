@@ -246,3 +246,20 @@ const struct utxo **build_utxos(const tal_t *ctx,
 
 	return tal_free(utxos);
 }
+
+bool bip32_pubkey(const struct ext_key *bip32_base,
+		  struct pubkey *pubkey, u32 index)
+{
+	struct ext_key ext;
+
+	assert(index < BIP32_INITIAL_HARDENED_CHILD);
+	if (bip32_key_from_parent(bip32_base, index,
+				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK)
+		return false;
+
+	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey->pubkey,
+				       ext.pub_key, sizeof(ext.pub_key)))
+		return false;
+	return true;
+}
+
