@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <lightningd/funding_tx.h>
 #include <lightningd/hsm/client.h>
 #include <lightningd/hsm/gen_hsm_client_wire.h>
 #include <lightningd/hsm/gen_hsm_control_wire.h>
@@ -360,11 +361,13 @@ static u8 *sign_funding_tx(const tal_t *ctx, const u8 *data)
 	u32 change_keyindex;
 	struct pubkey local_pubkey, remote_pubkey;
 	struct utxo *inputs;
+	const struct utxo **utxomap;
 	struct bitcoin_tx *tx;
 	u8 *wscript, *msg_out;
 	secp256k1_ecdsa_signature *sig;
-	const void **inmap;
+	u32 outnum;
 	size_t i;
+	struct pubkey changekey;
 
 	/* FIXME: Check fee is "reasonable" */
 	if (!fromwire_hsmctl_sign_funding(tmpctx, data, NULL,
@@ -373,35 +376,24 @@ static u8 *sign_funding_tx(const tal_t *ctx, const u8 *data)
 					  &remote_pubkey, &inputs))
 		status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "Bad SIGN_FUNDING");
 
-	tx = bitcoin_tx(tmpctx, tal_count(inputs), 1 + !!change_out);
-	inmap = tal_arr(tmpctx, const void *, tal_count(inputs));
-	for (i = 0; i < tal_count(inputs); i++) {
-		tx->input[i].txid = inputs[i].txid;
-		tx->input[i].index = inputs[i].outnum;
-		tx->input[i].amount = tal_dup(tx->input, u64, &inputs[i].amount);
-		inmap[i] = int2ptr(i);
-	}
-	tx->output[0].amount = satoshi_out;
-	wscript = bitcoin_redeem_2of2(tx, &local_pubkey, &remote_pubkey);
-	tx->output[0].script = scriptpubkey_p2wsh(tx, wscript);
-	if (change_out) {
-		struct pubkey changekey;
+	/* FIXME: unmarshall gives array, not array of pointers. */
+	utxomap = tal_arr(tmpctx, const struct utxo *, tal_count(inputs));
+	for (i = 0; i < tal_count(inputs); i++)
+		utxomap[i] = &inputs[i];
+
+	if (change_out)
 		bitcoin_pubkey(&changekey, change_keyindex);
 
-		tx->output[1].amount = change_out;
-		tx->output[1].script = scriptpubkey_p2wpkh(tx, &changekey);
-	}
-
-	/* Now permute. */
-	permute_outputs(tx->output, tal_count(tx->output), NULL);
-	permute_inputs(tx->input, tal_count(tx->input), inmap);
+	tx = funding_tx(tmpctx, &outnum, utxomap,
+			satoshi_out, &local_pubkey, &remote_pubkey,
+			change_out, &changekey);
 
 	/* Now generate signatures. */
 	sig = tal_arr(tmpctx, secp256k1_ecdsa_signature, tal_count(inputs));
 	for (i = 0; i < tal_count(inputs); i++) {
 		struct pubkey inkey;
 		struct privkey inprivkey;
-		const struct utxo *in = &inputs[ptr2int(inmap[i])];
+		const struct utxo *in = utxomap[i];
 		u8 *subscript;
 
 		bitcoin_keypair(&inprivkey, &inkey, in->keyindex);
