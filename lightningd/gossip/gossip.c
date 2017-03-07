@@ -226,7 +226,6 @@ static struct io_plan *peer_dump_gossip(struct io_conn *conn, struct peer *peer)
 		struct io_plan *ret;
 		ret = peer_write_message(conn, &peer->pcs, next->payload,
 					 peer_dump_gossip);
-		tal_free(next);
 		return ret;
 	}
 }
