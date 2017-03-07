@@ -51,6 +51,9 @@ void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 				 const secp256k1_ecdsa_signature *sig,
 				 const struct pubkey *key);
 
+/* Create scriptsig for p2sh-p2wpkh */
+u8 *bitcoin_scriptsig_p2sh_p2wpkh(const tal_t *ctx, const struct pubkey *key);
+
 /* Create scriptcode (fake witness, basically) for P2WPKH */
 u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key);
 

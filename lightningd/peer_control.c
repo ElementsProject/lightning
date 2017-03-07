@@ -18,12 +18,12 @@
 #include <lightningd/handshake/gen_handshake_control_wire.h>
 #include <lightningd/handshake/gen_handshake_status_wire.h>
 #include <lightningd/hsm/gen_hsm_control_wire.h>
+#include <lightningd/key_derive.h>
 #include <lightningd/opening/gen_opening_control_wire.h>
 #include <lightningd/opening/gen_opening_status_wire.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <wally_bip32.h>
 #include <wire/gen_peer_wire.h>
 
 static void destroy_peer(struct peer *peer)
@@ -583,7 +583,8 @@ static void opening_gen_funding(struct subdaemon *opening, const u8 *resp,
 	fc->funding_tx = funding_tx(fc, &outnum, fc->utxomap, fc->satoshi,
 				    &fc->local_fundingkey,
 				    &fc->remote_fundingkey,
-				    fc->change, &changekey);
+				    fc->change, &changekey,
+				    fc->peer->ld->bip32_base);
 	bitcoin_txid(fc->funding_tx, &txid);
 
 	msg = towire_opening_open_funding(fc, &txid, outnum);

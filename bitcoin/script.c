@@ -259,6 +259,18 @@ u8 *bitcoin_redeem_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 	return script;
 }
 
+u8 *bitcoin_scriptsig_p2sh_p2wpkh(const tal_t *ctx, const struct pubkey *key)
+{
+	u8 *redeemscript = bitcoin_redeem_p2wpkh(ctx, key), *script;
+
+	/* BIP141: The scriptSig must be exactly a push of the BIP16
+	 * redeemScript or validation fails. */
+	script = tal_arr(ctx, u8, 0);
+	add_push_bytes(&script, redeemscript, tal_count(redeemscript));
+	tal_free(redeemscript);
+	return script;
+}
+
 /* Create an input which spends the p2sh-p2wpkh. */
 void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 				 struct bitcoin_tx_input *input,

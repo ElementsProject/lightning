@@ -8,6 +8,8 @@
 #include <utils.h>
 #define SUPERVERBOSE printf
   #include "../funding_tx.c"
+#undef SUPERVERBOSE
+  #include "../key_derive.c"
 
 #if 0
 static struct sha256 sha256_from_hex(const char *hex)
@@ -93,6 +95,7 @@ int main(void)
 	bitcoin_txid(input, &utxo.txid);
 	utxo.outnum = 0;
 	utxo.amount = 5000000000;
+	utxo.is_p2sh = false;
 	funding_satoshis = 10000000;
 	fee = 13920;
 
@@ -108,7 +111,7 @@ int main(void)
 			     &local_funding_pubkey,
 			     &remote_funding_pubkey,
 			     utxo.amount - fee - funding_satoshis,
-			     &inputkey);
+			     &inputkey, NULL);
 	printf("# fee: %"PRIu64"\n", fee);
 	printf("change satoshis: %"PRIu64"\n",
 	       funding->output[!funding_outnum].amount);

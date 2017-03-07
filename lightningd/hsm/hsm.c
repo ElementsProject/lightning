@@ -386,7 +386,8 @@ static u8 *sign_funding_tx(const tal_t *ctx, const u8 *data)
 
 	tx = funding_tx(tmpctx, &outnum, utxomap,
 			satoshi_out, &local_pubkey, &remote_pubkey,
-			change_out, &changekey);
+			change_out, &changekey,
+			NULL);
 
 	/* Now generate signatures. */
 	sig = tal_arr(tmpctx, secp256k1_ecdsa_signature, tal_count(inputs));

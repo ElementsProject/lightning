@@ -3,6 +3,7 @@
 #include <ccan/crypto/sha256/sha256.h>
 #include <lightningd/key_derive.h>
 #include <utils.h>
+#include <wally_bip32.h>
 
 /* BOLT #3:
  *
@@ -234,5 +235,24 @@ bool derive_revocation_privkey(const struct privkey *base_secret,
 #ifdef SUPERVERBOSE
 	printf("# => 0x%s\n", tal_hexstr(tmpctx, key, sizeof(*key)));
 #endif
+	return true;
+}
+
+
+bool bip32_pubkey(const struct ext_key *bip32_base,
+		  struct pubkey *pubkey, u32 index)
+{
+	struct ext_key ext;
+
+	if (index >= BIP32_INITIAL_HARDENED_CHILD)
+		return false;
+
+	if (bip32_key_from_parent(bip32_base, index,
+				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK)
+		return false;
+
+	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey->pubkey,
+				       ext.pub_key, sizeof(ext.pub_key)))
+		return false;
 	return true;
 }
