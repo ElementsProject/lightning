@@ -77,7 +77,7 @@ void hsm_init(struct lightningd *ld, bool newdir)
 {
 	bool create;
 
-	ld->hsm = new_subdaemon(ld, ld, "lightningd_hsm",
+	ld->hsm = new_subdaemon(ld, ld, "lightningd_hsm", NULL,
 				hsm_status_wire_type_name,
 				hsm_control_wire_type_name,
 				hsm_status, hsm_finished, -1);

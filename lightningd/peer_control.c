@@ -162,8 +162,8 @@ static void peer_got_handshake_hsmfd(struct subdaemon *hsm, const u8 *msg,
 	}
 
 	/* Give handshake daemon the hsm fd. */
-	peer->owner = new_subdaemon(peer, peer->ld,
-				    "lightningd_handshake",
+	peer->owner = new_subdaemon(peer->ld, peer->ld,
+				    "lightningd_handshake", peer,
 				    handshake_status_wire_type_name,
 				    handshake_control_wire_type_name,
 				    NULL, NULL,
@@ -177,10 +177,6 @@ static void peer_got_handshake_hsmfd(struct subdaemon *hsm, const u8 *msg,
 
 	/* Peer struct longer owns fd. */
 	peer->fd = -1;
-
-	/* Now handshake owns peer: until it succeeds, peer vanishes
-	 * when it does. */
-	tal_steal(peer->owner, peer);
 
 	if (peer->id) {
 		req = towire_handshake_initiator_req(peer, &peer->ld->dstate.id,
@@ -767,8 +763,8 @@ void peer_accept_open(struct peer *peer,
 	}
 
 	peer_set_condition(peer, "Starting opening daemon");
-	peer->owner = new_subdaemon(peer, ld,
-				    "lightningd_opening",
+	peer->owner = new_subdaemon(ld, ld,
+				    "lightningd_opening", peer,
 				    opening_status_wire_type_name,
 				    opening_control_wire_type_name,
 				    NULL, NULL,
@@ -780,7 +776,6 @@ void peer_accept_open(struct peer *peer,
 		tal_free(peer);
 		return;
 	}
-	tal_steal(peer->owner, peer);
 	/* We handed off peer fd */
 	peer->fd = -1;
 
@@ -831,8 +826,8 @@ static void gossip_peer_released(struct subdaemon *gossip,
 		      id, fc->peer->unique_id);
 
 	peer_set_condition(fc->peer, "Starting opening daemon");
-	fc->peer->owner = new_subdaemon(fc->peer, ld,
-					"lightningd_opening",
+	fc->peer->owner = new_subdaemon(fc->peer->ld, ld,
+					"lightningd_opening", fc->peer,
 					opening_status_wire_type_name,
 					opening_control_wire_type_name,
 					NULL, NULL,
@@ -841,14 +836,11 @@ static void gossip_peer_released(struct subdaemon *gossip,
 		log_unusual(ld->log, "Could not subdaemon opening: %s",
 			    strerror(errno));
 		peer_set_condition(fc->peer, "Failed to subdaemon opening");
-		tal_free(fc);
+		tal_free(fc->peer);
 		return;
 	}
 	/* They took our fd. */
 	fc->peer->fd = -1;
-
-	/* fc only lasts as long as this daemon does, for now. */
-	tal_steal(fc->peer->owner, fc);
 
 	channel_config(ld, &ours,
 		       &max_to_self_delay, &max_minimum_depth,

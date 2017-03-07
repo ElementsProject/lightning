@@ -269,6 +269,7 @@ static void destroy_subdaemon(struct subdaemon *sd)
 struct subdaemon *new_subdaemon(const tal_t *ctx,
 				struct lightningd *ld,
 				const char *name,
+				struct peer *peer,
 				const char *(*statusname)(int status),
 				const char *(*reqname)(int req),
 				enum subdaemon_status (*statuscb)
@@ -312,6 +313,7 @@ struct subdaemon *new_subdaemon(const tal_t *ctx,
 	log_info(sd->log, "pid %u, statusfd %i, reqfd %i",
 		 sd->pid, status_fd, req_fd);
 
+	sd->peer = tal_steal(sd, peer);
 	return sd;
 }
 

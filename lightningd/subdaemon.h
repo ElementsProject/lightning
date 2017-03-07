@@ -26,6 +26,9 @@ struct subdaemon {
 	/* Connection for requests if any (write, then read) */
 	struct io_conn *req_conn;
 
+	/* If we are associated with a single peer, this points to it. */
+	struct peer *peer;
+
 	/* For logging */
 	struct log *log;
 
@@ -48,6 +51,7 @@ struct subdaemon {
  * @ctx: context to allocate from
  * @ld: global state
  * @name: basename of daemon
+ * @peer: peer to take ownership of if non-NULL;
  * @statusname: function to get name from status messages
  * @reqname: function to get name from request messages, or NULL if no requests.
  * @statuscb: function to call when status message received (or NULL)
@@ -57,10 +61,13 @@ struct subdaemon {
  * @statuscb is called with fd == -1 when a status message is
  * received; if it returns STATUS_NEED_FD, we read an fd from the
  * daemon and call it again with that as the third arg.
+ *
+ * If this succeeds subdaemon owns @peer.
  */
 struct subdaemon *new_subdaemon(const tal_t *ctx,
 				struct lightningd *ld,
 				const char *name,
+				struct peer *peer,
 				const char *(*statusname)(int status),
 				const char *(*reqname)(int req),
 				enum subdaemon_status (*statuscb)

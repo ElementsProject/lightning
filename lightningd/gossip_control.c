@@ -132,7 +132,7 @@ static enum subdaemon_status gossip_status(struct subdaemon *gossip,
 
 void gossip_init(struct lightningd *ld)
 {
-	ld->gossip = new_subdaemon(ld, ld, "lightningd_gossip",
+	ld->gossip = new_subdaemon(ld, ld, "lightningd_gossip", NULL,
 				   gossip_status_wire_type_name,
 				   gossip_control_wire_type_name,
 				   gossip_status, gossip_finished, -1);
