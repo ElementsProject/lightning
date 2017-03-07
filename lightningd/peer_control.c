@@ -1,11 +1,13 @@
 #include "lightningd.h"
 #include "peer_control.h"
 #include "subdaemon.h"
+#include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/io/io.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
+#include <daemon/chaintopology.h>
 #include <daemon/dns.h>
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
@@ -515,14 +517,44 @@ static void fail_fundchannel_command(struct funding_channel *fc)
 	command_fail(fc->cmd, "Peer died");
 }
 
+static void funding_broadcast_failed(struct peer *peer,
+				     int exitstatus, const char *err)
+{
+	log_unusual(peer->log, "Funding broadcast exited with %i: %s",
+		    exitstatus, err);
+	/* FIXME: send PKT_ERR to peer if this happens. */
+	tal_free(peer);
+}
+
+static enum watch_result funding_depth_cb(struct peer *peer,
+					  unsigned int depth,
+					  const struct sha256_double *txid,
+					  void *unused)
+{
+	if (depth >= peer->ld->dstate.config.anchor_confirms) {
+		peer_set_condition(peer, "Funding tx reached depth %u", depth);
+		/* FIXME!  Start channel proper... */
+		return DELETE_WATCH;
+	}
+	log_debug(peer->log, "Funding tx depth %u of %u", depth,
+		  peer->ld->dstate.config.anchor_confirms);
+	return KEEP_WATCHING;
+}
+
 static void opening_got_hsm_funding_sig(struct subdaemon *hsm, const u8 *resp,
 					struct funding_channel *fc)
 {
 	secp256k1_ecdsa_signature *sigs;
+	struct bitcoin_tx *tx = fc->funding_tx;
+	size_t i;
 
 	if (!fromwire_hsmctl_sign_funding_response(fc, resp, NULL, &sigs))
 		fatal("HSM gave bad sign_funding_response %s",
 		      tal_hex(fc, resp));
+
+	if (tal_count(sigs) != tal_count(tx->input))
+		fatal("HSM gave %zu sigs, needed %zu",
+		      tal_count(sigs), tal_count(tx->input));
 
 	peer_set_condition(fc->peer, "Waiting for our funding tx");
 	/* FIXME: Defer until after funding locked. */
@@ -530,7 +562,25 @@ static void opening_got_hsm_funding_sig(struct subdaemon *hsm, const u8 *resp,
 	command_success(fc->cmd, null_response(fc->cmd));
 	fc->cmd = NULL;
 
-	/* FIXME: broadcast tx... */
+	/* Create input parts from signatures. */
+	for (i = 0; i < tal_count(tx->input); i++) {
+		struct pubkey key;
+
+		if (!bip32_pubkey(fc->peer->ld->bip32_base,
+				  &key, fc->utxomap[i]->keyindex))
+			fatal("Cannot generate BIP32 key for UTXO %u",
+			      fc->utxomap[i]->keyindex);
+
+		/* P2SH inputs have same witness. */
+		tx->input[i].witness
+			= bitcoin_witness_p2wpkh(tx, &sigs[i], &key);
+	}
+
+	/* Send it out and watch for confirms. */
+	broadcast_tx(hsm->ld->topology, fc->peer, tx, funding_broadcast_failed);
+	watch_tx(fc->peer, fc->peer->ld->topology, fc->peer, tx,
+		 funding_depth_cb, NULL);
+	tal_free(fc);
 }
 
 static void opening_release_tx(struct subdaemon *opening, const u8 *resp,
@@ -595,8 +645,32 @@ static void opening_gen_funding(struct subdaemon *opening, const u8 *resp,
 static void opening_accept_response(struct subdaemon *opening, const u8 *resp,
 				    struct peer *peer)
 {
-	peer_set_condition(peer, "Waiting for their commitment tx");
-	/* FIXME... */
+	struct sha256_double funding_txid;
+	u16 funding_txout;
+	struct channel_config their_config;
+	secp256k1_ecdsa_signature first_commit_sig;
+	struct crypto_state crypto_state;
+	struct pubkey remote_fundingkey, revocation_basepoint,
+		payment_basepoint, delayed_payment_basepoint,
+		their_per_commit_point;
+
+	log_debug(peer->log, "Got opening_accept_response");
+	if (!fromwire_opening_accept_resp(resp, NULL,
+					  &funding_txid, &funding_txout,
+					  &their_config, &first_commit_sig,
+					  &crypto_state, &remote_fundingkey,
+					  &revocation_basepoint,
+					  &payment_basepoint,
+					  &delayed_payment_basepoint,
+					  &their_per_commit_point)) {
+		log_broken(peer->log, "bad OPENING_ACCEPT_RESP %s",
+			   tal_hex(resp, resp));
+		tal_free(peer);
+	}
+
+	/* FIXME: Start normal channel daemon... */
+	watch_txid(peer, peer->ld->topology, peer, &funding_txid,
+		   funding_depth_cb, NULL);
 }
 
 static void channel_config(struct lightningd *ld,
@@ -704,7 +778,7 @@ void peer_accept_open(struct peer *peer,
 		tal_free(peer);
 		return;
 	}
-	subdaemon_req(peer->owner, take(msg), -1, &peer->fd,
+	subdaemon_req(peer->owner, take(msg), -1, NULL,
 		      opening_accept_response, peer);
 }
 

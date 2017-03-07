@@ -40,6 +40,13 @@ lcli1 addfunds $FUND_INPUT_TX | $FGREP '"satoshis" : 10000002'
 # Now fund a channel.
 lcli1 fundchannel $ID2 100000
 
+# Now wait for it to reach depth
+lcli1 getpeers info | $FGREP "Waiting for our funding tx"
+
+$CLI generate 10
+check "lcli1 getpeers info | $FGREP 'Funding tx reached depth'"
+check "lcli2 getpeers info | $FGREP 'Funding tx reached depth'"
+
 lcli1 stop
 lcli2 stop
 
