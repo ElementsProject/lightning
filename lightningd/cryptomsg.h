@@ -39,7 +39,7 @@ struct io_plan *peer_read_message(struct io_conn *conn,
 							  struct peer *,
 							  u8 *msg));
 
-/* Sends and frees message */
+/* Sends message: frees if taken(msg). */
 struct io_plan *peer_write_message(struct io_conn *conn,
 				   struct peer_crypto_state *cs,
 				   const u8 *msg,

@@ -7,6 +7,7 @@
 #include <ccan/list/list.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
+#include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <daemon/broadcast.h>
 #include <daemon/routing.h>
@@ -184,8 +185,11 @@ static struct io_plan *peer_dump_gossip(struct io_conn *conn, struct peer *peer)
 		/* Going to wake up in pkt_out since we mix time based and message based wakeups */
 		return io_out_wait(conn, peer, pkt_out, peer);
 	} else {
-		return peer_write_message(conn, &peer->pcs, next->payload,
-					  peer_dump_gossip);
+		struct io_plan *ret;
+		ret = peer_write_message(conn, &peer->pcs, next->payload,
+					 peer_dump_gossip);
+		tal_free(next);
+		return ret;
 	}
 }
 
@@ -198,7 +202,7 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 		out = peer->msg_out[0];
 		memmove(peer->msg_out, peer->msg_out + 1, (sizeof(*peer->msg_out)*(n-1)));
 		tal_resize(&peer->msg_out, n-1);
-		return peer_write_message(conn, &peer->pcs, out, pkt_out);
+		return peer_write_message(conn, &peer->pcs, take(out), pkt_out);
 	}
 
 	if (peer->gossip_sync){
@@ -281,7 +285,7 @@ static struct io_plan *peer_send_init(struct io_conn *conn, struct peer *peer)
 	 * supports.
 	 */
 	return peer_write_message(conn, &peer->pcs,
-				  towire_init(peer, NULL, NULL),
+				  take(towire_init(peer, NULL, NULL)),
 				  peer_init_sent);
 }
 

@@ -5,6 +5,7 @@
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/take/take.h>
 #include <lightningd/cryptomsg.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 #include <status.h>
@@ -313,6 +314,8 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 	assert(!pcs->out);
 
 	pcs->out = cryptomsg_encrypt_msg(conn, &pcs->cs, msg);
+	if (taken(msg))
+		tal_free(msg);
 	pcs->next_out = next;
 
 	/* BOLT #8:
