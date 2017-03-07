@@ -233,15 +233,29 @@ static void destroy_outgoing_tx(struct outgoing_tx *otx)
 	list_del(&otx->list);
 }
 
+static void clear_otx_peer(struct peer *peer, struct outgoing_tx *otx)
+{
+	assert(otx->peer == peer);
+	otx->peer = NULL;
+}
+
 static void broadcast_done(struct bitcoind *bitcoind,
 			   int exitstatus, const char *msg,
 			   struct outgoing_tx *otx)
 {
+	/* Peer gone?  Stop. */
+	if (!otx->peer) {
+		tal_free(otx);
+		return;
+	}
+
 	if (otx->failed && exitstatus != 0) {
 		otx->failed(otx->peer, exitstatus, msg);
 		tal_free(otx);
 	} else {
-		/* For continual rebroadcasting */
+		/* For continual rebroadcasting, until peer freed. */
+		tal_steal(otx->peer, otx);
+		tal_del_destructor2(otx->peer, clear_otx_peer, otx);
 		list_add_tail(&otx->topo->outgoing_txs, &otx->list);
 		tal_add_destructor(otx, destroy_outgoing_tx);
 	}
@@ -252,7 +266,8 @@ void broadcast_tx(struct chain_topology *topo,
 		  void (*failed)(struct peer *peer,
 				 int exitstatus, const char *err))
 {
-	struct outgoing_tx *otx = tal(peer, struct outgoing_tx);
+	/* Peer might vanish: topo owns it to start with. */
+	struct outgoing_tx *otx = tal(topo, struct outgoing_tx);
 	const u8 *rawtx = linearize_tx(otx, tx);
 
 	otx->peer = peer;
@@ -261,6 +276,7 @@ void broadcast_tx(struct chain_topology *topo,
 	otx->failed = failed;
 	otx->topo = topo;
 	tal_free(rawtx);
+	tal_add_destructor2(peer, clear_otx_peer, otx);
 
 	log_add_struct(topo->log,
 		       " (tx %s)", struct sha256_double, &otx->txid);
