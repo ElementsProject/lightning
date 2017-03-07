@@ -175,39 +175,35 @@ static void unreserve_utxo(struct lightningd *ld, const struct utxo *unres)
 	struct tracked_utxo *utxo;
 
 	list_for_each(&ld->utxos, utxo, list) {
-		if (unres->outnum != utxo->utxo.outnum
-		    || !structeq(&unres->txid, &utxo->utxo.txid))
+		if (unres != &utxo->utxo)
 			continue;
 		assert(utxo->reserved);
-		assert(unres->amount == utxo->utxo.amount);
-		assert(unres->keyindex == utxo->utxo.keyindex);
-		assert(unres->is_p2sh == utxo->utxo.is_p2sh);
 		utxo->reserved = false;
 		return;
 	}
 	abort();
 }
 
-static void destroy_utxos(struct utxo *utxos, struct lightningd *ld)
+static void destroy_utxos(const struct utxo **utxos, struct lightningd *ld)
 {
 	size_t i;
 
 	for (i = 0; i < tal_count(utxos); i++)
-		unreserve_utxo(ld, &utxos[i]);
+		unreserve_utxo(ld, utxos[i]);
 }
 
-void confirm_utxos(struct lightningd *ld, struct utxo *utxos)
+void confirm_utxos(struct lightningd *ld, const struct utxo **utxos)
 {
 	tal_del_destructor2(utxos, destroy_utxos, ld);
 }
 
-struct utxo *build_utxos(const tal_t *ctx,
-			 struct lightningd *ld, u64 satoshi_out,
-			 u32 feerate_per_kw, u64 dust_limit,
-			 u64 *change_amount, u32 *change_keyindex)
+const struct utxo **build_utxos(const tal_t *ctx,
+				struct lightningd *ld, u64 satoshi_out,
+				u32 feerate_per_kw, u64 dust_limit,
+				u64 *change_satoshis, u32 *change_keyindex)
 {
 	size_t i = 0;
-	struct utxo *utxos = tal_arr(ctx, struct utxo, 0);
+	const struct utxo **utxos = tal_arr(ctx, const struct utxo *, 0);
 	struct tracked_utxo *utxo;
 	/* We assume two outputs for the weight. */
 	u64 satoshi_in = 0, weight = (4 + (8 + 22) * 2 + 4) * 4;
@@ -221,23 +217,26 @@ struct utxo *build_utxos(const tal_t *ctx,
 			continue;
 
 		tal_resize(&utxos, i+1);
-		utxos[i] = utxo->utxo;
+		utxos[i] = &utxo->utxo;
 		utxo->reserved = true;
 
 		/* Add this input's weight. */
 		weight += (32 + 4 + 4) * 4;
-		if (utxos[i].is_p2sh)
+		if (utxos[i]->is_p2sh)
 			weight += 22 * 4;
-
-		satoshi_in += utxos[i].amount;
+		/* Account for witness (1 byte count + sig + key */
+		weight += 1 + (1 + 73 + 1 + 33);
 
 		fee = weight * feerate_per_kw / 1000;
+		satoshi_in += utxos[i]->amount;
+
 		if (satoshi_in >= fee + satoshi_out) {
 			/* We simply eliminate change if it's dust. */
-			*change_amount = satoshi_in - (fee + satoshi_out);
-			if (*change_amount < dust_limit)
-				*change_amount = 0;
-			else
+			*change_satoshis = satoshi_in - (fee + satoshi_out);
+			if (*change_satoshis < dust_limit) {
+				*change_satoshis = 0;
+				*change_keyindex = 0;
+			} else
 				*change_keyindex = ld->bip32_max_index++;
 
 			return utxos;

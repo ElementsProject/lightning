@@ -516,7 +516,7 @@ struct funding_channel {
 	struct peer *peer;
 	struct command *cmd;
 	u64 satoshi;
-	struct utxo *utxos;
+	const struct utxo **utxomap;
 	u64 change;
 	u32 change_keyindex;
 	struct crypto_state *cs;
@@ -553,15 +553,22 @@ static void opening_release_tx(struct subdaemon *opening, const u8 *resp,
 			       struct funding_channel *fc)
 {
 	u8 *msg;
+	size_t i;
+	/* FIXME: marshal code wants array, not array of pointers. */
+	struct utxo *utxos = tal_arr(fc, struct utxo, tal_count(fc->utxomap));
 
 	peer_set_condition(fc->peer, "Getting HSM to sign funding tx");
 
 	/* Get HSM to sign the funding tx. */
+	for (i = 0; i < tal_count(fc->utxomap); i++)
+		utxos[i] = *fc->utxomap[i];
+
 	msg = towire_hsmctl_sign_funding(fc, fc->satoshi, fc->change,
 					 fc->change_keyindex,
 					 &fc->local_fundingkey,
 					 &fc->remote_fundingkey,
-					 fc->utxos);
+					 utxos);
+	tal_free(utxos);
 	subdaemon_req(fc->peer->ld->hsm, take(msg), -1, NULL,
 		      opening_got_hsm_funding_sig, fc);
 }
@@ -584,14 +591,13 @@ static void opening_gen_funding(struct subdaemon *opening, const u8 *resp,
 		return;
 	}
 
-	bitcoin_pubkey(fc->peer->ld, &changekey, fc->change_keyindex);
+	if (fc->change)
+		bitcoin_pubkey(fc->peer->ld, &changekey, fc->change_keyindex);
 
-	/* FIXME: Real feerate! */
-	/* FIXME: Real dust limit! */
-	fc->funding_tx = funding_tx(fc, &outnum, fc->utxos, fc->satoshi,
+	fc->funding_tx = funding_tx(fc, &outnum, fc->utxomap, fc->satoshi,
 				    &fc->local_fundingkey,
 				    &fc->remote_fundingkey,
-				    &changekey, 15000, 546);
+				    fc->change, &changekey);
 	bitcoin_txid(fc->funding_tx, &txid);
 
 	msg = towire_opening_open_funding(fc, &txid, outnum);
@@ -809,9 +815,9 @@ static void json_fund_channel(struct command *cmd,
 
 	/* Try to do this now, so we know if insufficient funds. */
 	/* FIXME: Feerate & dustlimit */
-	fc->utxos = build_utxos(fc, ld, fc->satoshi, 15000, 600,
-				&fc->change, &fc->change_keyindex);
-	if (!fc->utxos) {
+	fc->utxomap = build_utxos(fc, ld, fc->satoshi, 15000, 600,
+				  &fc->change, &fc->change_keyindex);
+	if (!fc->utxomap) {
 		command_fail(cmd, "Cannot afford funding transaction");
 		return;
 	}

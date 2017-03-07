@@ -39,12 +39,13 @@ int main(void)
 {
 	tal_t *tmpctx = tal_tmpctx(NULL);
 	struct bitcoin_tx *input, *funding;
-	u64 feerate_per_kw;
+	u64 fee;
 	struct pubkey local_funding_pubkey, remote_funding_pubkey;
 	struct privkey input_privkey;
 	struct pubkey inputkey;
 	bool testnet;
-	struct utxo *utxo = tal_arr(tmpctx, struct utxo, 1);
+	struct utxo utxo;
+	const struct utxo **utxomap = tal_arr(tmpctx, const struct utxo *, 1);
 	u64 funding_satoshis;
 	u32 funding_outnum;
 	u8 *subscript;
@@ -89,26 +90,26 @@ int main(void)
 				&remote_funding_pubkey))
 		abort();
 
-	bitcoin_txid(input, &utxo->txid);
-	utxo->outnum = 0;
-	utxo->amount = 5000000000;
+	bitcoin_txid(input, &utxo.txid);
+	utxo.outnum = 0;
+	utxo.amount = 5000000000;
 	funding_satoshis = 10000000;
-	feerate_per_kw = 15000;
+	fee = 13920;
 
 	printf("input[0] txid: %s\n",
-	       tal_hexstr(tmpctx, &utxo->txid, sizeof(utxo->txid)));
-	printf("input[0] input: %u\n", utxo->outnum);
-	printf("input[0] satoshis: %"PRIu64"\n", utxo->amount);
+	       tal_hexstr(tmpctx, &utxo.txid, sizeof(utxo.txid)));
+	printf("input[0] input: %u\n", utxo.outnum);
+	printf("input[0] satoshis: %"PRIu64"\n", utxo.amount);
 	printf("funding satoshis: %"PRIu64"\n", funding_satoshis);
 
-	funding = funding_tx(tmpctx, &funding_outnum, utxo,
+	utxomap[0] = &utxo;
+	funding = funding_tx(tmpctx, &funding_outnum, utxomap,
 			     funding_satoshis,
 			     &local_funding_pubkey,
 			     &remote_funding_pubkey,
-			     &inputkey,
-			     feerate_per_kw,
-			     0);
-	printf("# feerate_per_kw: %"PRIu64"\n", feerate_per_kw);
+			     utxo.amount - fee - funding_satoshis,
+			     &inputkey);
+	printf("# fee: %"PRIu64"\n", fee);
 	printf("change satoshis: %"PRIu64"\n",
 	       funding->output[!funding_outnum].amount);
 
