@@ -92,6 +92,16 @@ static struct peer *setup_new_peer(struct daemon *daemon, const u8 *msg)
 	return peer;
 }
 
+static struct peer *find_peer(struct daemon *daemon, const u64 id)
+{
+	struct peer *peer;
+	list_for_each(&daemon->peers, peer, list) {
+		if (id == peer->unique_id)
+			return peer;
+	}
+	return NULL;
+}
+
 /**
  * handle_gossip_message - Verify gossip message and apply to local routing state
  * @rstate: Routing state to apply to
@@ -168,6 +178,19 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	}
 	peer->error = tal_fmt(peer, "Unknown packet %u", t);
 	return io_close(conn);
+}
+
+/**
+ * queue_pkt - Enqueue outgoing message to be sent by the write loop.
+ * @peer: the message's destination
+ * @msg: the serialized message to be sent (length determined by `tal_count`)
+ */
+static void queue_pkt(struct peer *peer, u8 *msg)
+{
+	int pos = tal_count(peer->msg_out);
+	tal_resize(peer->msg_out, pos + 1);
+	peer->msg_out[pos] = tal_dup_arr(peer, u8, msg, tal_count(msg), 0);
+	io_wake(peer);
 }
 
 /* Gets called by the outgoing IO loop when woken up. Sends messages
