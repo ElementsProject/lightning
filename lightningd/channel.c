@@ -108,12 +108,8 @@ struct channel *new_channel(const tal_t *ctx,
 			    u32 feerate_per_kw,
 			    const struct channel_config *local,
 			    const struct channel_config *remote,
-			    const struct pubkey *local_revocation_basepoint,
-			    const struct pubkey *remote_revocation_basepoint,
-			    const struct pubkey *local_payment_basepoint,
-			    const struct pubkey *remote_payment_basepoint,
-			    const struct pubkey *local_delayed_payment_basepoint,
-			    const struct pubkey *remote_delayed_payment_basepoint,
+			    const struct basepoints *local_basepoints,
+			    const struct basepoints *remote_basepoints,
 			    enum side funder)
 {
 	struct channel *channel = tal(ctx, struct channel);
@@ -147,18 +143,12 @@ struct channel *new_channel(const tal_t *ctx,
 		= channel->view[REMOTE].commitment_number
 		= 0;
 
-	channel->revocation_basepoint[LOCAL] = *local_revocation_basepoint;
-	channel->revocation_basepoint[REMOTE] = *remote_revocation_basepoint;
-	channel->payment_basepoint[LOCAL] = *local_payment_basepoint;
-	channel->payment_basepoint[REMOTE] = *remote_payment_basepoint;
-	channel->delayed_payment_basepoint[LOCAL]
-		= *local_delayed_payment_basepoint;
-	channel->delayed_payment_basepoint[REMOTE]
-		= *remote_delayed_payment_basepoint;
+	channel->basepoints[LOCAL] = *local_basepoints;
+	channel->basepoints[REMOTE] = *remote_basepoints;
 
 	channel->commitment_number_obscurer
-		= commit_number_obscurer(&channel->payment_basepoint[funder],
-					 &channel->payment_basepoint[!funder]);
+		= commit_number_obscurer(&channel->basepoints[funder].payment,
+					 &channel->basepoints[!funder].payment);
 
 	tal_add_destructor(channel, destroy_htlc_map);
 	return channel;
@@ -180,22 +170,22 @@ struct bitcoin_tx *channel_tx(const tal_t *ctx,
 	/* Revocation payment key for @side */
 	struct pubkey side_revocation_key;
 
-	if (!derive_simple_key(&channel->payment_basepoint[side],
+	if (!derive_simple_key(&channel->basepoints[side].payment,
 			       per_commitment_point,
 			       &side_payment_key))
 		return NULL;
 
-	if (!derive_simple_key(&channel->payment_basepoint[!side],
+	if (!derive_simple_key(&channel->basepoints[!side].payment,
 			       per_commitment_point,
 			       &other_payment_key))
 		return NULL;
 
-	if (!derive_simple_key(&channel->delayed_payment_basepoint[side],
+	if (!derive_simple_key(&channel->basepoints[side].delayed_payment,
 			       per_commitment_point,
 			       &side_delayed_payment_key))
 		return NULL;
 
-	if (!derive_revocation_key(&channel->revocation_basepoint[side],
+	if (!derive_revocation_key(&channel->basepoints[side].revocation,
 				   per_commitment_point,
 				   &side_revocation_key))
 		return NULL;

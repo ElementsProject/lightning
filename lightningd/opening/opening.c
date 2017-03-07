@@ -3,8 +3,6 @@
 #include <bitcoin/script.h>
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/build_assert/build_assert.h>
-#include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
-#include <ccan/crypto/shachain/shachain.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/structeq/structeq.h>
 #include <errno.h>
@@ -13,6 +11,7 @@
 #include <lightningd/commit_tx.h>
 #include <lightningd/crypto_sync.h>
 #include <lightningd/debug.h>
+#include <lightningd/derive_basepoints.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/opening/gen_opening_control_wire.h>
 #include <lightningd/opening/gen_opening_status_wire.h>
@@ -31,20 +30,6 @@
 #define STATUS_FD STDOUT_FILENO
 #define REQ_FD STDIN_FILENO
 #define PEER_FD 3
-
-struct points {
-	struct pubkey funding_pubkey;
-	struct pubkey revocation_basepoint;
-	struct pubkey payment_basepoint;
-	struct pubkey delayed_payment_basepoint;
-};
-
-struct secrets {
-	struct privkey funding_privkey;
-	struct privkey revocation_basepoint_secret;
-	struct privkey payment_basepoint_secret;
-	struct privkey delayed_payment_basepoint_secret;
-};
 
 struct state {
 	struct crypto_state cs;
@@ -69,62 +54,6 @@ struct state {
 
 	struct channel *channel;
 };
-
-static void derive_our_basepoints(const struct privkey *seed,
-				  struct points *points,
-				  struct secrets *secrets,
-				  struct sha256 *shaseed,
-				  struct pubkey *first_per_commit)
-{
-	struct sha256 per_commit_secret;
-	struct keys {
-		struct privkey f, r, p, d;
-		struct sha256 shaseed;
-	} keys;
-
-	hkdf_sha256(&keys, sizeof(keys), NULL, 0, seed, sizeof(*seed),
-		    "c-lightning", strlen("c-lightning"));
-
-	secrets->funding_privkey = keys.f;
-	secrets->revocation_basepoint_secret = keys.r;
-	secrets->payment_basepoint_secret = keys.p;
-	secrets->delayed_payment_basepoint_secret = keys.d;
-
-	if (!pubkey_from_privkey(&keys.f, &points->funding_pubkey)
-	    || !pubkey_from_privkey(&keys.r, &points->revocation_basepoint)
-	    || !pubkey_from_privkey(&keys.p, &points->payment_basepoint)
-	    || !pubkey_from_privkey(&keys.d, &points->delayed_payment_basepoint))
-		status_failed(WIRE_OPENING_KEY_DERIVATION_FAILED,
-			      "seed = %s",
-			      type_to_string(trc, struct privkey, seed));
-
-	/* BOLT #3:
-	 *
-	 * A node MUST select an unguessable 256-bit seed for each connection,
-	 * and MUST NOT reveal the seed.
-	 */
-	*shaseed = keys.shaseed;
-
-	/* BOLT #3:
-	 *
-	 * the first secret used MUST be index 281474976710655, and then the
-	 * index decremented. */
-	shachain_from_seed(shaseed, 281474976710655ULL, &per_commit_secret);
-
-	/* BOLT #3:
-	 *
-	 * The `per-commitment-point` is generated using EC multiplication:
-	 *
-	 * 	per-commitment-point = per-commitment-secret * G
-	 */
-	if (secp256k1_ec_pubkey_create(secp256k1_ctx,
-				       &first_per_commit->pubkey,
-				       per_commit_secret.u.u8) != 1)
-		status_failed(WIRE_OPENING_KEY_DERIVATION_FAILED,
-			      "first_per_commit create failed, secret = %s",
-			      type_to_string(trc, struct sha256,
-					     &per_commit_secret));
-}
 
 static void check_config_bounds(struct state *state,
 				const struct channel_config *remoteconf)
@@ -287,13 +216,16 @@ static void temporary_channel_id(struct channel_id *channel_id)
 		channel_id->id[i] = pseudorand(256);
 }
 
-static u8 *open_channel(struct state *state, const struct points *ours,
+static u8 *open_channel(struct state *state,
+			const struct pubkey *our_funding_pubkey,
+			const struct basepoints *ours,
 			u32 max_minimum_depth)
 {
 	struct channel_id channel_id, id_in;
 	u8 *msg;
 	struct bitcoin_tx *tx;
-	struct points theirs;
+	struct basepoints theirs;
+	struct pubkey their_funding_pubkey;
 	secp256k1_ecdsa_signature sig;
 
 	set_reserve(&state->localconf.channel_reserve_satoshis,
@@ -327,10 +259,10 @@ static u8 *open_channel(struct state *state, const struct points *ours,
 				  state->feerate_per_kw,
 				  state->localconf.to_self_delay,
 				  state->localconf.max_accepted_htlcs,
-				  &ours->funding_pubkey,
-				  &ours->revocation_basepoint,
-				  &ours->payment_basepoint,
-				  &ours->delayed_payment_basepoint,
+				  our_funding_pubkey,
+				  &ours->revocation,
+				  &ours->payment,
+				  &ours->delayed_payment,
 				  &state->next_per_commit[LOCAL]);
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
@@ -360,10 +292,10 @@ static u8 *open_channel(struct state *state, const struct points *ours,
 				     &state->remoteconf->htlc_minimum_msat,
 				     &state->remoteconf->to_self_delay,
 				     &state->remoteconf->max_accepted_htlcs,
-				     &theirs.funding_pubkey,
-				     &theirs.revocation_basepoint,
-				     &theirs.payment_basepoint,
-				     &theirs.delayed_payment_basepoint,
+				     &their_funding_pubkey,
+				     &theirs.revocation,
+				     &theirs.payment,
+				     &theirs.delayed_payment,
 				     &state->next_per_commit[REMOTE]))
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Parsing accept_channel %s", tal_hex(msg, msg));
@@ -393,8 +325,8 @@ static u8 *open_channel(struct state *state, const struct points *ours,
 	check_config_bounds(state, state->remoteconf);
 
 	/* Now, ask master create a transaction to pay those two addresses. */
-	msg = towire_opening_open_resp(state, &ours->funding_pubkey,
-				       &theirs.funding_pubkey);
+	msg = towire_opening_open_resp(state, our_funding_pubkey,
+				       &their_funding_pubkey);
 	wire_sync_write(REQ_FD, msg);
 
 	/* Expect funding tx. */
@@ -408,20 +340,15 @@ static u8 *open_channel(struct state *state, const struct points *ours,
 			    tal_hex(trc, msg));
 
 	state->channel = new_channel(state,
-				      &state->funding_txid,
-				      state->funding_txout,
-				      state->funding_satoshis,
-				      state->push_msat,
-				      state->feerate_per_kw,
-				      &state->localconf,
-				      state->remoteconf,
-				      &ours->revocation_basepoint,
-				      &theirs.revocation_basepoint,
-				      &ours->payment_basepoint,
-				      &theirs.payment_basepoint,
-				      &ours->delayed_payment_basepoint,
-				      &theirs.delayed_payment_basepoint,
-				      LOCAL);
+				     &state->funding_txid,
+				     state->funding_txout,
+				     state->funding_satoshis,
+				     state->push_msat,
+				     state->feerate_per_kw,
+				     &state->localconf,
+				     state->remoteconf,
+				     ours, &theirs,
+				     LOCAL);
 	if (!state->channel)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
 			      "could not create channel with given config");
@@ -437,12 +364,12 @@ static u8 *open_channel(struct state *state, const struct points *ours,
 	tx = channel_tx(state, state->channel,
 			&state->next_per_commit[REMOTE], NULL, REMOTE);
 	sig = sign_remote_commit(state,
-				 &ours->funding_pubkey, &theirs.funding_pubkey,
+				 our_funding_pubkey, &their_funding_pubkey,
 				 tx);
 	status_trace("signature %s on tx %s using key %s",
 		     type_to_string(trc, secp256k1_ecdsa_signature, &sig),
 		     type_to_string(trc, struct bitcoin_tx, tx),
-		     type_to_string(trc, struct pubkey, &ours->funding_pubkey));
+		     type_to_string(trc, struct pubkey, our_funding_pubkey));
 
 	msg = towire_funding_created(state, &channel_id,
 				     &state->funding_txid.sha,
@@ -494,15 +421,15 @@ static u8 *open_channel(struct state *state, const struct points *ours,
 	tx = channel_tx(state, state->channel,
 		       &state->next_per_commit[LOCAL], NULL, LOCAL);
 
-	if (!check_commit_sig(state, &ours->funding_pubkey,
-			      &theirs.funding_pubkey, tx, &sig))
+	if (!check_commit_sig(state, our_funding_pubkey,
+			      &their_funding_pubkey, tx, &sig))
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Bad signature %s on tx %s using key %s",
 			      type_to_string(trc, secp256k1_ecdsa_signature,
 					     &sig),
 			      type_to_string(trc, struct bitcoin_tx, tx),
 			      type_to_string(trc, struct pubkey,
-					     &theirs.funding_pubkey));
+					     &their_funding_pubkey));
 
 	/* BOLT #2:
 	 *
@@ -513,19 +440,22 @@ static u8 *open_channel(struct state *state, const struct points *ours,
 						state->remoteconf,
 						&sig,
 						&state->cs,
-						&theirs.revocation_basepoint,
-						&theirs.payment_basepoint,
-						&theirs.delayed_payment_basepoint,
+						&theirs.revocation,
+						&theirs.payment,
+						&theirs.delayed_payment,
 						&state->next_per_commit[REMOTE]);
 }
 
 /* This is handed the message the peer sent which caused gossip to stop:
  * it should be an open_channel */
-static u8 *recv_channel(struct state *state, const struct points *ours,
+static u8 *recv_channel(struct state *state,
+			const struct pubkey *our_funding_pubkey,
+			const struct basepoints *ours,
 			u32 min_feerate, u32 max_feerate, const u8 *peer_msg)
 {
 	struct channel_id id_in, channel_id;
-	struct points theirs;
+	struct basepoints theirs;
+	struct pubkey their_funding_pubkey;
 	secp256k1_ecdsa_signature theirsig, sig;
 	struct bitcoin_tx *tx;
 	u8 *msg;
@@ -548,10 +478,10 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 				   &state->feerate_per_kw,
 				   &state->remoteconf->to_self_delay,
 				   &state->remoteconf->max_accepted_htlcs,
-				   &theirs.funding_pubkey,
-				   &theirs.revocation_basepoint,
-				   &theirs.payment_basepoint,
-				   &theirs.delayed_payment_basepoint,
+				   &their_funding_pubkey,
+				   &theirs.revocation,
+				   &theirs.payment,
+				   &theirs.delayed_payment,
 				   &state->next_per_commit[REMOTE]))
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_INITIAL_MESSAGE,
 			      "Parsing open_channel %s",
@@ -605,10 +535,10 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 				    state->localconf.htlc_minimum_msat,
 				    state->localconf.to_self_delay,
 				    state->localconf.max_accepted_htlcs,
-				    &ours->funding_pubkey,
-				    &ours->revocation_basepoint,
-				    &ours->payment_basepoint,
-				    &ours->delayed_payment_basepoint,
+				    our_funding_pubkey,
+				    &ours->revocation,
+				    &ours->payment,
+				    &ours->delayed_payment,
 				    &state->next_per_commit[LOCAL]);
 
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
@@ -638,20 +568,15 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 			    type_to_string(msg, struct channel_id, &id_in));
 
 	state->channel = new_channel(state,
-				      &state->funding_txid,
-				      state->funding_txout,
-				      state->funding_satoshis,
-				      state->push_msat,
-				      state->feerate_per_kw,
-				      &state->localconf,
-				      state->remoteconf,
-				      &ours->revocation_basepoint,
-				      &theirs.revocation_basepoint,
-				      &ours->payment_basepoint,
-				      &theirs.payment_basepoint,
-				      &ours->delayed_payment_basepoint,
-				      &theirs.delayed_payment_basepoint,
-				      REMOTE);
+				     &state->funding_txid,
+				     state->funding_txout,
+				     state->funding_satoshis,
+				     state->push_msat,
+				     state->feerate_per_kw,
+				     &state->localconf,
+				     state->remoteconf,
+				     ours, &theirs,
+				     REMOTE);
 	if (!state->channel)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
 			      "could not create channel with given config");
@@ -677,15 +602,15 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 	tx = channel_tx(state, state->channel,
 			&state->next_per_commit[LOCAL], NULL, LOCAL);
 
-	if (!check_commit_sig(state, &ours->funding_pubkey,
-			      &theirs.funding_pubkey, tx, &theirsig))
+	if (!check_commit_sig(state, our_funding_pubkey,
+			      &their_funding_pubkey, tx, &theirsig))
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Bad signature %s on tx %s using key %s",
 			      type_to_string(trc, secp256k1_ecdsa_signature,
 					     &theirsig),
 			      type_to_string(trc, struct bitcoin_tx, tx),
 			      type_to_string(trc, struct pubkey,
-					     &theirs.funding_pubkey));
+					     &their_funding_pubkey));
 
 	/* BOLT #2:
 	 *
@@ -709,7 +634,7 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 	tx = channel_tx(state, state->channel,
 			&state->next_per_commit[REMOTE], NULL, REMOTE);
 	sig = sign_remote_commit(state,
-				 &ours->funding_pubkey, &theirs.funding_pubkey,
+				 our_funding_pubkey, &their_funding_pubkey,
 				 tx);
 
 	msg = towire_funding_signed(state, &channel_id, &sig);
@@ -722,10 +647,10 @@ static u8 *recv_channel(struct state *state, const struct points *ours,
 						 state->remoteconf,
 						 &theirsig,
 						 &state->cs,
-						 &theirs.funding_pubkey,
-						 &theirs.revocation_basepoint,
-						 &theirs.payment_basepoint,
-						 &theirs.delayed_payment_basepoint,
+						 &their_funding_pubkey,
+						 &theirs.revocation,
+						 &theirs.payment,
+						 &theirs.delayed_payment,
 						 &state->next_per_commit[REMOTE]);
 }
 
@@ -735,7 +660,8 @@ int main(int argc, char *argv[])
 	u8 *msg, *peer_msg;
 	struct state *state = tal(NULL, struct state);
 	struct privkey seed;
-	struct points our_points;
+	struct basepoints our_points;
+	struct pubkey our_funding_pubkey;
 	u32 max_minimum_depth;
 	u32 min_feerate, max_feerate;
 
@@ -766,19 +692,25 @@ int main(int argc, char *argv[])
 	tal_free(msg);
 
 	/* We derive everything from the one secret seed. */
-	derive_our_basepoints(&seed, &our_points, &state->our_secrets,
-			      &state->shaseed, &state->next_per_commit[LOCAL]);
+	if (!derive_basepoints(&seed, &our_funding_pubkey,
+			       &our_points, &state->our_secrets,
+			       &state->shaseed, &state->next_per_commit[LOCAL],
+			       0))
+		status_failed(WIRE_OPENING_KEY_DERIVATION_FAILED,
+			      "Secret derivation failed, secret = %s",
+			      type_to_string(trc, struct privkey, &seed));
 
 	msg = wire_sync_read(state, REQ_FD);
 	if (fromwire_opening_open(msg, NULL,
 				  &state->funding_satoshis,
 				  &state->push_msat,
 				  &state->feerate_per_kw, &max_minimum_depth))
-		msg = open_channel(state, &our_points, max_minimum_depth);
+		msg = open_channel(state, &our_funding_pubkey, &our_points,
+				   max_minimum_depth);
 	else if (fromwire_opening_accept(state, msg, NULL, &min_feerate,
 					 &max_feerate, &peer_msg))
-		msg = recv_channel(state, &our_points, min_feerate, max_feerate,
-				   peer_msg);
+		msg = recv_channel(state, &our_funding_pubkey, &our_points,
+				   min_feerate, max_feerate, peer_msg);
 
 	/* Write message and hand back the fd. */
 	wire_sync_write(REQ_FD, msg);

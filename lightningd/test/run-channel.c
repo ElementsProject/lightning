@@ -264,9 +264,8 @@ int main(void)
 	struct pubkey localkey, remotekey;
 	struct pubkey local_delayedkey;
 	struct pubkey local_revocation_key;
-	struct pubkey local_revocation_basepoint, local_delayed_payment_basepoint,
-		local_payment_basepoint, remote_payment_basepoint,
-		local_per_commitment_point;
+	struct pubkey local_per_commitment_point;
+	struct basepoints localbase, remotebase;
 	struct pubkey *unknown = tal(tmpctx, struct pubkey);
 	struct bitcoin_tx *raw_tx, *tx;
 	struct channel_config *local_config = tal(tmpctx, struct channel_config);
@@ -330,8 +329,8 @@ int main(void)
 	 * # From local_delayed_payment_basepoint_secret
 	 * INTERNAL: local_delayed_payment_basepoint: 023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1
 	*/
-	local_revocation_basepoint = pubkey_from_hex("02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27");
-	local_delayed_payment_basepoint = pubkey_from_hex("023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1");
+	localbase.revocation = pubkey_from_hex("02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27");
+	localbase.delayed_payment = pubkey_from_hex("023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1");
 
 	/* BOLT #3:
 	 *
@@ -339,8 +338,12 @@ int main(void)
 	 * remote_payment_basepoint: 032c0b7cf95324a07d05398b240174dc0c2be444d96b159aa6c7f7b1e668680991
 	 * # obscured commitment transaction number = 0x2bb038521914 ^ 42
 	 */
-	local_payment_basepoint = pubkey_from_hex("034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa");
-	remote_payment_basepoint = pubkey_from_hex("032c0b7cf95324a07d05398b240174dc0c2be444d96b159aa6c7f7b1e668680991");
+	localbase.payment = pubkey_from_hex("034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa");
+	remotebase.payment = pubkey_from_hex("032c0b7cf95324a07d05398b240174dc0c2be444d96b159aa6c7f7b1e668680991");
+
+	/* We put unknown in for some things; valgrind will warn if used. */
+	remotebase.revocation = *unknown;
+	remotebase.delayed_payment = *unknown;
 
 	/* BOLT #3:
 	 *
@@ -350,7 +353,6 @@ int main(void)
 	 *    feerate_per_kw: 15000
 	 */
 
-	/* We put unknown in for some things; valgrind will warn if used. */
 	to_local_msat = 7000000000;
 	to_remote_msat = 3000000000;
 	feerate_per_kw = 15000;
@@ -359,12 +361,7 @@ int main(void)
 			       feerate_per_kw,
 			       local_config,
 			       remote_config,
-			       &local_revocation_basepoint,
-			       unknown,
-			       &local_payment_basepoint,
-			       &remote_payment_basepoint,
-			       &local_delayed_payment_basepoint,
-			       unknown,
+			       &localbase, &remotebase,
 			       LOCAL);
 
 	rchannel = new_channel(tmpctx, &funding_txid, funding_output_index,
@@ -372,12 +369,7 @@ int main(void)
 			       feerate_per_kw,
 			       remote_config,
 			       local_config,
-			       unknown,
-			       &local_revocation_basepoint,
-			       &remote_payment_basepoint,
-			       &local_payment_basepoint,
-			       unknown,
-			       &local_delayed_payment_basepoint,
+			       &remotebase, &localbase,
 			       REMOTE);
 	/* BOLT #3:
 	 *

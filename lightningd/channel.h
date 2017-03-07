@@ -7,6 +7,7 @@
 #include <ccan/tal/tal.h>
 #include <daemon/htlc.h>
 #include <lightningd/channel_config.h>
+#include <lightningd/derive_basepoints.h>
 #include <stdbool.h>
 
 struct signature;
@@ -38,9 +39,7 @@ struct channel {
 	const struct channel_config *config[NUM_SIDES];
 
 	/* Basepoints for deriving keys. */
-	struct pubkey revocation_basepoint[NUM_SIDES];
-	struct pubkey payment_basepoint[NUM_SIDES];
-	struct pubkey delayed_payment_basepoint[NUM_SIDES];
+	struct basepoints basepoints[NUM_SIDES];
 
 	/* Mask for obscuring the encoding of the commitment number. */
 	u64 commitment_number_obscurer;
@@ -125,12 +124,8 @@ static inline u16 to_self_delay(const struct channel *channel, enum side side)
  * @feerate_per_kw: feerate per kiloweight (satoshis)
  * @local: local channel configuration
  * @remote: remote channel configuration
- * @local_revocation_basepoint: local basepoint for revocations.
- * @remote_revocation_basepoint: remote basepoint for revocations.
- * @local_payment_basepoint: local basepoint for payments.
- * @remote_payment_basepoint: remote basepoint for payments.
- * @local_delayed_payment_basepoint: local basepoint for delayed payments.
- * @remote_delayed_payment_basepoint: remote basepoint for delayed payments.
+ * @local_basepoints: local basepoints.
+ * @remote_basepoints: remote basepoints.
  * @funder: which side initiated it.
  *
  * Returns state, or NULL if malformed.
@@ -143,12 +138,8 @@ struct channel *new_channel(const tal_t *ctx,
 			    u32 feerate_per_kw,
 			    const struct channel_config *local,
 			    const struct channel_config *remote,
-			    const struct pubkey *local_revocation_basepoint,
-			    const struct pubkey *remote_revocation_basepoint,
-			    const struct pubkey *local_payment_basepoint,
-			    const struct pubkey *remote_payment_basepoint,
-			    const struct pubkey *local_delayed_payment_basepoint,
-			    const struct pubkey *remote_delayed_payment_basepoint,
+			    const struct basepoints *local_basepoints,
+			    const struct basepoints *remote_basepoints,
 			    enum side funder);
 /**
  * channel_tx: Get the current commitment transaction for the channel.
