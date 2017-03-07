@@ -858,8 +858,12 @@ static void channel_config(struct lightningd *ld,
 	 */
 	 ours->to_self_delay = ld->dstate.config.locktime_blocks;
 
-	 /* Don't care. */
-	 ours->max_accepted_htlcs = 511;
+	 /* BOLT #2:
+	  *
+	  * It MUST fail the channel if `max-accepted-htlcs` is greater than
+	  * 483.
+	  */
+	 ours->max_accepted_htlcs = 483;
 
 	 /* This is filled in by lightningd_opening, for consistency. */
 	 ours->channel_reserve_satoshis = 0;

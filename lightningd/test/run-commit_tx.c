@@ -653,7 +653,7 @@ int main(void)
 	 *    name: simple commitment tx with no HTLCs
 	 *    to_local_msat: 7000000000
 	 *    to_remote_msat: 3000000000
-	 *    feerate_per_kw: 15000
+	 *    local_feerate_per_kw: 15000
 	 */
 	to_local_msat = 7000000000;
 	to_remote_msat = 3000000000;
@@ -662,7 +662,7 @@ int main(void)
 	       "name: simple commitment tx with no HTLCs\n"
 	       "to_local_msat: %"PRIu64"\n"
 	       "to_remote_msat: %"PRIu64"\n"
-	       "feerate_per_kw: %"PRIu64"\n",
+	       "local_feerate_per_kw: %"PRIu64"\n",
 	       to_local_msat, to_remote_msat, feerate_per_kw);
 
 	print_superverbose = true;

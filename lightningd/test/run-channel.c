@@ -40,25 +40,25 @@ static struct sha256_double txid_from_hex(const char *hex)
  *
  *     local_feerate_per_kw: 0
  *     ...
- *     local_feerate_per_kw: 676
+ *     local_feerate_per_kw: 647
  *     ...
- *     local_feerate_per_kw: 677
+ *     local_feerate_per_kw: 648
  *     ...
- *     local_feerate_per_kw: 2161
+ *     local_feerate_per_kw: 2069
  *     ...
- *     local_feerate_per_kw: 2162
+ *     local_feerate_per_kw: 2070
  *     ...
- *     local_feerate_per_kw: 2291
+ *     local_feerate_per_kw: 2194
  *     ...
- *     local_feerate_per_kw: 2292
+ *     local_feerate_per_kw: 2195
  *     ...
- *     local_feerate_per_kw: 3866
+ *     local_feerate_per_kw: 3702
  *     ...
- *     local_feerate_per_kw: 3867
+ *     local_feerate_per_kw: 3703
  *     ...
- *     local_feerate_per_kw: 5133
+ *     local_feerate_per_kw: 4914
  *     ...
- *     local_feerate_per_kw: 5134
+ *     local_feerate_per_kw: 4915
  *     ...
  *     local_feerate_per_kw: 9651180
  *     ...
@@ -67,19 +67,12 @@ static struct sha256_double txid_from_hex(const char *hex)
  *     local_feerate_per_kw: 9651936
  */
 static u64 feerates[] = {
-	0,
-	676,
-	677,
-	2161,
-	2162,
-	2291,
-	2292,
-	3866,
-	3867,
-	5133,
-	5134,
-	9651180,
-	9651181,
+	647, 648,
+	2069, 2070,
+	2194, 2195,
+	3702, 3703,
+	4914, 4915,
+	9651180, 9651181,
 	9651936
 };
 
@@ -350,7 +343,7 @@ int main(void)
 	 *    name: simple commitment tx with no HTLCs
 	 *    to_local_msat: 7000000000
 	 *    to_remote_msat: 3000000000
-	 *    feerate_per_kw: 15000
+	 *    local_feerate_per_kw: 15000
 	 */
 
 	to_local_msat = 7000000000;
