@@ -15,6 +15,8 @@
 #include <inttypes.h>
 #include <lightningd/build_utxos.h>
 #include <lightningd/channel.h>
+#include <lightningd/channel/gen_channel_control_wire.h>
+#include <lightningd/channel/gen_channel_status_wire.h>
 #include <lightningd/funding_tx.h>
 #include <lightningd/gossip/gen_gossip_control_wire.h>
 #include <lightningd/gossip/gen_gossip_status_wire.h>
@@ -535,12 +537,22 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 
 	log_debug(peer->log, "Funding tx %s depth %u of %u",
 		  txidstr, depth, peer->our_config.minimum_depth);
-	if (depth >= peer->our_config.minimum_depth) {
-		peer_set_condition(peer, "Funding tx reached depth %u", depth);
-		/* FIXME!  Start channel proper... */
-		return DELETE_WATCH;
+
+	if (depth < peer->our_config.minimum_depth)
+		return KEEP_WATCHING;
+
+	/* In theory, it could have been buried before we got back
+	 * from accepting openingd: just wait for next one. */
+	if (!peer->owner || !streq(peer->owner->name, "lightningd_channel")) {
+		log_unusual(peer->log, "Funding tx confirmed, but peer %s",
+			    peer->owner ? peer->owner->name : "unowned");
+		return KEEP_WATCHING;
 	}
-	return KEEP_WATCHING;
+
+	peer_set_condition(peer, "Funding tx reached depth %u", depth);
+	subdaemon_req(peer->owner, take(towire_channel_funding_locked(peer)),
+		      -1, NULL, NULL, NULL);
+	return DELETE_WATCH;
 }
 
 static void opening_got_hsm_funding_sig(struct subdaemon *hsm, const u8 *resp,
@@ -585,14 +597,112 @@ static void opening_got_hsm_funding_sig(struct subdaemon *hsm, const u8 *resp,
 	tal_free(fc);
 }
 
+static enum subdaemon_status update_channel_status(struct subdaemon *sd,
+						   const u8 *msg,
+						   int unused)
+{
+	enum channel_status_wire_type t = fromwire_peektype(msg);
+
+	switch (t) {
+	case WIRE_CHANNEL_RECEIVED_FUNDING_LOCKED:
+		peer_set_condition(sd->peer, "Received funding locked");
+		break;
+	case WIRE_CHANNEL_NORMAL_OPERATION:
+		peer_set_condition(sd->peer, "Normal operation");
+		break;
+	/* We never see fatal ones. */
+	case WIRE_CHANNEL_BAD_COMMAND:
+	case WIRE_CHANNEL_HSM_FAILED:
+	case WIRE_CHANNEL_PEER_WRITE_FAILED:
+	case WIRE_CHANNEL_PEER_READ_FAILED:
+	case WIRE_CHANNEL_PEER_BAD_MESSAGE:
+		break;
+	}
+
+	return STATUS_COMPLETE;
+}
+
+/* opening is done, start lightningd_channel for peer. */
+static void peer_start_channeld(struct peer *peer, bool am_funder,
+				const struct channel_config *their_config,
+				const struct crypto_state *crypto_state,
+				const secp256k1_ecdsa_signature *commit_sig,
+				const struct pubkey *remote_fundingkey,
+				const struct basepoints *theirbase,
+				const struct pubkey *their_per_commit_point)
+{
+	u8 *msg;
+
+	/* Tell opening daemon to exit. */
+	subdaemon_req(peer->owner, take(towire_opening_exit_req(peer)),
+		      -1, NULL, NULL, NULL);
+
+	/* Normal channel daemon. */
+	peer->owner = new_subdaemon(peer->ld, peer->ld,
+				    "lightningd_channel", peer,
+				    channel_status_wire_type_name,
+				    channel_control_wire_type_name,
+				    update_channel_status, NULL,
+				    peer->fd, -1);
+	if (!peer->owner) {
+		log_unusual(peer->log, "Could not subdaemon channel: %s",
+			    strerror(errno));
+		peer_set_condition(peer, "Failed to subdaemon channel");
+		tal_free(peer);
+		return;
+	}
+	peer->fd = -1;
+
+	peer_set_condition(peer, "Waiting for funding confirmations");
+	msg = towire_channel_init(peer,
+				  peer->funding_txid,
+				  peer->funding_outnum,
+				  &peer->our_config,
+				  their_config,
+				  commit_sig,
+				  crypto_state,
+				  remote_fundingkey,
+				  &theirbase->revocation,
+				  &theirbase->payment,
+				  &theirbase->delayed_payment,
+				  their_per_commit_point,
+				  am_funder,
+				  /* FIXME: real feerate! */
+				  15000,
+				  peer->funding_satoshi,
+				  peer->push_msat,
+				  peer->seed);
+
+	/* We don't expect a response: we are triggered by funding_depth_cb. */
+	subdaemon_req(peer->owner, take(msg), -1, NULL, NULL, NULL);
+}
+
 static void opening_release_tx(struct subdaemon *opening, const u8 *resp,
 			       struct funding_channel *fc)
 {
 	u8 *msg;
 	size_t i;
+	struct channel_config their_config;
+	struct crypto_state crypto_state;
+	secp256k1_ecdsa_signature commit_sig;
+	struct pubkey their_per_commit_point;
+	struct basepoints theirbase;
 	/* FIXME: marshal code wants array, not array of pointers. */
 	struct utxo *utxos = tal_arr(fc, struct utxo, tal_count(fc->utxomap));
 
+	if (!fromwire_opening_open_funding_resp(resp, NULL,
+						&their_config,
+						&commit_sig,
+						&crypto_state,
+						&theirbase.revocation,
+						&theirbase.payment,
+						&theirbase.delayed_payment,
+						&their_per_commit_point)) {
+		log_broken(fc->peer->log, "bad OPENING_OPEN_FUNDING_RESP %s",
+			   tal_hex(resp, resp));
+		tal_free(fc->peer);
+		return;
+	}
 	peer_set_condition(fc->peer, "Getting HSM to sign funding tx");
 
 	/* Get HSM to sign the funding tx. */
@@ -607,6 +717,12 @@ static void opening_release_tx(struct subdaemon *opening, const u8 *resp,
 	tal_free(utxos);
 	subdaemon_req(fc->peer->ld->hsm, take(msg), -1, NULL,
 		      opening_got_hsm_funding_sig, fc);
+
+	/* Start normal channel daemon. */
+	peer_start_channeld(fc->peer, true,
+			    &their_config, &crypto_state, &commit_sig,
+			    &fc->remote_fundingkey, &theirbase,
+			    &their_per_commit_point);
 }
 
 static void opening_gen_funding(struct subdaemon *opening, const u8 *resp,
@@ -621,7 +737,7 @@ static void opening_gen_funding(struct subdaemon *opening, const u8 *resp,
 					&fc->remote_fundingkey)) {
 		log_broken(fc->peer->log, "Bad opening_open_resp %s",
 			   tal_hex(fc, resp));
-		tal_free(fc);
+		tal_free(fc->peer);
 		return;
 	}
 
@@ -674,7 +790,10 @@ static void opening_accept_finish_response(struct subdaemon *opening,
 		return;
 	}
 
-	/* FIXME: Start normal channel daemon... */
+	/* On to normal operation! */
+	peer_start_channeld(peer, false, &their_config, &crypto_state,
+			    &first_commit_sig, &remote_fundingkey, &theirbase,
+			    &their_per_commit_point);
 }
 
 static void opening_accept_response(struct subdaemon *opening, const u8 *resp,
@@ -696,7 +815,7 @@ static void opening_accept_response(struct subdaemon *opening, const u8 *resp,
 
 	/* Tell it we're watching. */
 	subdaemon_req(peer->owner, towire_opening_accept_finish(resp),
-		      -1, NULL,
+		      -1, &peer->fd,
 		      opening_accept_finish_response, peer);
 }
 
