@@ -227,7 +227,8 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			wscript[i] = bitcoin_wscript_htlc_offer(tmpctx,
 								localkey,
 								remotekey,
-								&htlc->rhash);
+								&htlc->rhash,
+								local_revocation_key);
 		} else {
 			htlc_tx[i] = htlc_success_tx(htlc_tx, &txid, i,
 						     htlc, to_self_delay,
@@ -238,7 +239,8 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 								  &htlc->expiry,
 								  localkey,
 								  remotekey,
-								  &htlc->rhash);
+								  &htlc->rhash,
+								  local_revocation_key);
 		}
 		sign_tx_input(htlc_tx[i], 0,
 			      NULL,
@@ -271,13 +273,15 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			htlc_timeout_tx_add_witness(htlc_tx[i],
 						    localkey, remotekey,
 						    &htlc->rhash,
+						    local_revocation_key,
 						    &localsig, &remotesig[i]);
 		} else {
 			htlc_success_tx_add_witness(htlc_tx[i],
 						    &htlc->expiry,
 						    localkey, remotekey,
 						    &localsig, &remotesig[i],
-						    htlc->r);
+						    htlc->r,
+						    local_revocation_key);
 		}
 		printf("output htlc_%s_tx %"PRIu64": %s\n",
 		       htlc_owner(htlc) == LOCAL ? "timeout" : "success",

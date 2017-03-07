@@ -123,7 +123,8 @@ u8 **bitcoin_to_local_spend_revocation(const tal_t *ctx,
 u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
 			       const struct pubkey *localkey,
 			       const struct pubkey *remotekey,
-			       const struct sha256 *payment_hash);
+			       const struct sha256 *payment_hash,
+			       const struct pubkey *revocationkey);
 u8 **bitcoin_htlc_offer_spend_timeout(const tal_t *ctx,
 				      const secp256k1_ecdsa_signature *localsig,
 				      const secp256k1_ecdsa_signature *remotesig,
@@ -132,7 +133,8 @@ u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
 				 const struct abs_locktime *htlc_abstimeout,
 				 const struct pubkey *localkey,
 				 const struct pubkey *remotekey,
-				 const struct sha256 *payment_hash);
+				 const struct sha256 *payment_hash,
+				 const struct pubkey *revocationkey);
 u8 **bitcoin_htlc_receive_spend_preimage(const tal_t *ctx,
 				const secp256k1_ecdsa_signature *localsig,
 				const secp256k1_ecdsa_signature *remotesig,

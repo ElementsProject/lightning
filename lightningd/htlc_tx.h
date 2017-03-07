@@ -25,7 +25,8 @@ void htlc_success_tx_add_witness(struct bitcoin_tx *htlc_success,
 				 const struct pubkey *remotekey,
 				 const secp256k1_ecdsa_signature *localsig,
 				 const secp256k1_ecdsa_signature *remotesig,
-				 const struct preimage *payment_preimage);
+				 const struct preimage *payment_preimage,
+				 const struct pubkey *revocationkey);
 
 /* Create HTLC-timeout tx to spend an offered HTLC commitment tx
  * output; doesn't fill in input witness. */
@@ -43,6 +44,7 @@ void htlc_timeout_tx_add_witness(struct bitcoin_tx *htlc_timeout,
 				 const struct pubkey *localkey,
 				 const struct pubkey *remotekey,
 				 const struct sha256 *payment_hash,
+				 const struct pubkey *revocationkey,
 				 const secp256k1_ecdsa_signature *localsig,
 				 const secp256k1_ecdsa_signature *remotesig);
 

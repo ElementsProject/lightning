@@ -136,9 +136,9 @@ static void check_config_bounds(struct state *state,
 	/* BOLT #2:
 	 *
 	 * It MUST fail the channel if `max-accepted-htlcs` is greater
-	 * than 511.
+	 * than 483.
 	 */
-	if (remoteconf->max_accepted_htlcs > 511)
+	if (remoteconf->max_accepted_htlcs > 483)
 		peer_failed(PEER_FD, &state->cs, NULL,
 			    WIRE_OPENING_PEER_BAD_CONFIG,
 			    "max_accepted_htlcs %u too large",

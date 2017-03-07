@@ -55,10 +55,10 @@ u64 htlc_timeout_fee(u64 feerate_per_kw)
 	 *
 	 * The fee for an HTLC-timeout transaction MUST BE calculated to match:
 	 *
-	 * 1. Multiply `feerate-per-kw` by 635 and divide by 1000 (rounding
+	 * 1. Multiply `feerate-per-kw` by 663 and divide by 1000 (rounding
 	 *    down).
 	 */
-	return feerate_per_kw * 635 / 1000;
+	return feerate_per_kw * 663 / 1000;
 }
 
 u64 htlc_success_fee(u64 feerate_per_kw)
@@ -67,10 +67,10 @@ u64 htlc_success_fee(u64 feerate_per_kw)
 	 *
 	 * The fee for an HTLC-success transaction MUST BE calculated to match:
 	 *
-	 * 1. Multiply `feerate-per-kw` by 673 and divide by 1000 (rounding
+	 * 1. Multiply `feerate-per-kw` by 703 and divide by 1000 (rounding
 	 *    down).
 	 */
-	return feerate_per_kw * 673 / 1000;
+	return feerate_per_kw * 703 / 1000;
 }
 
 static bool trim(const struct htlc *htlc,
@@ -147,11 +147,13 @@ u64 commit_tx_base_fee(u64 feerate_per_kw, size_t num_untrimmed_htlcs)
 static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 				 const struct htlc *htlc,
 				 const struct pubkey *selfkey,
-				 const struct pubkey *otherkey)
+				 const struct pubkey *otherkey,
+				 const struct pubkey *revocationkey)
 {
 	u8 *wscript = bitcoin_wscript_htlc_offer(tx,
 						 selfkey, otherkey,
-						 &htlc->rhash);
+						 &htlc->rhash,
+						 revocationkey);
 	tx->output[n].amount = htlc->msatoshi / 1000;
 	tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
 	SUPERVERBOSE("# HTLC %"PRIu64" offered amount %"PRIu64" wscript %s\n",
@@ -162,12 +164,13 @@ static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 				  const struct htlc *htlc,
 				  const struct pubkey *selfkey,
-				  const struct pubkey *otherkey)
+				  const struct pubkey *otherkey,
+				  const struct pubkey *revocationkey)
 {
 	u8 *wscript = bitcoin_wscript_htlc_receive(tx,
 						   &htlc->expiry,
 						   selfkey, otherkey,
-						   &htlc->rhash);
+						   &htlc->rhash, revocationkey);
 	tx->output[n].amount = htlc->msatoshi / 1000;
 	tx->output[n].script = scriptpubkey_p2wsh(tx->output, wscript);
 	SUPERVERBOSE("# HTLC %"PRIu64" received amount %"PRIu64" wscript %s\n",
@@ -250,7 +253,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			continue;
 		if (trim(htlcs[i], feerate_per_kw, dust_limit_satoshis, side))
 			continue;
-		add_offered_htlc_out(tx, n, htlcs[i], selfkey, otherkey);
+		add_offered_htlc_out(tx, n, htlcs[i], selfkey, otherkey,
+				     revocation_pubkey);
 		if (htlcmap)
 			(*htlcmap)[n++] = htlcs[i];
 	}
@@ -265,7 +269,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			continue;
 		if (trim(htlcs[i], feerate_per_kw, dust_limit_satoshis, side))
 			continue;
-		add_received_htlc_out(tx, n, htlcs[i],selfkey, otherkey);
+		add_received_htlc_out(tx, n, htlcs[i],selfkey, otherkey,
+				      revocation_pubkey);
 		if (htlcmap)
 			(*htlcmap)[n++] = htlcs[i];
 	}

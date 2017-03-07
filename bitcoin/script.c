@@ -705,29 +705,45 @@ u8 **bitcoin_to_local_spend_revocation(const tal_t *ctx,
 
 /* BOLT #3:
  *
- * This output sends funds to a HTLC-timeout transaction after the
- * HTLC timeout, or to the remote peer on successful payment preimage.
- * The output is a P2WSH, with a witness script:
+ * #### Offered HTLC Outputs
  *
- *    <remotekey> OP_SWAP
- *        OP_SIZE 32 OP_EQUAL
- *    OP_NOTIF
- *        # To me via HTLC-timeout transaction (timelocked).
- *        OP_DROP 2 OP_SWAP <localkey> 2 OP_CHECKMULTISIG
- *    OP_ELSE
- *        # To you with preimage.
- *        OP_HASH160 <ripemd-of-payment-hash> OP_EQUALVERIFY
- *        OP_CHECKSIG
- *    OP_ENDIF
+ * This output sends funds to a HTLC-timeout transaction after the HTLC
+ * timeout, or to the remote peer using the payment preimage or the revocation
+ * key.  The output is a P2WSH, with a witness script:
+ *
+ *     # To you with revocation key
+ *     OP_DUP OP_HASH160 <revocationkey-hash> OP_EQUAL
+ *     OP_IF
+ *         OP_CHECKSIG
+ *     OP_ELSE
+ *         <remotekey> OP_SWAP OP_SIZE 32 OP_EQUAL
+ *         OP_NOTIF
+ *             # To me via HTLC-timeout transaction (timelocked).
+ *             OP_DROP 2 OP_SWAP <localkey> 2 OP_CHECKMULTISIG
+ *         OP_ELSE
+ *             # To you with preimage.
+ *             OP_HASH160 <ripemd-of-payment-hash> OP_EQUALVERIFY
+ *             OP_CHECKSIG
+ *         OP_ENDIF
+ *     OP_ENDIF
  */
 u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
 			       const struct pubkey *localkey,
 			       const struct pubkey *remotekey,
-			       const struct sha256 *payment_hash)
+			       const struct sha256 *payment_hash,
+			       const struct pubkey *revocationkey)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 	struct ripemd160 ripemd;
 
+	add_op(&script, OP_DUP);
+	add_op(&script, OP_HASH160);
+	hash160_key(&ripemd, revocationkey);
+	add_push_bytes(&script, &ripemd, sizeof(ripemd));
+	add_op(&script, OP_EQUAL);
+	add_op(&script, OP_IF);
+	add_op(&script, OP_CHECKSIG);
+	add_op(&script, OP_ELSE);
 	add_push_key(&script, remotekey);
 	add_op(&script, OP_SWAP);
 	add_op(&script, OP_SIZE);
@@ -747,37 +763,55 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
 	add_op(&script, OP_EQUALVERIFY);
 	add_op(&script, OP_CHECKSIG);
 	add_op(&script, OP_ENDIF);
+	add_op(&script, OP_ENDIF);
 
 	return script;
 }
 
 /* BOLT #3:
  *
- * This output sends funds to the remote peer after the HTLC timeout,
- * or to an HTLC-success transaction with a successful payment
- * preimage. The output is a P2WSH, with a witness script:
+ * #### Received HTLC Outputs
  *
- *    <remotekey> OP_SWAP
- *        OP_SIZE 32 OP_EQUAL
- *    OP_IF
- *        # To me via HTLC-success transaction.
- *        OP_HASH160 <ripemd-of-payment-hash> OP_EQUALVERIFY
- *        2 OP_SWAP <localkey> 2 OP_CHECKMULTISIG
- *    OP_ELSE
- *        # To you after timeout.
- *        OP_DROP <locktime> OP_CHECKLOCKTIMEVERIFY OP_DROP
- *        OP_CHECKSIG
- *    OP_ENDIF
+ * This output sends funds to the remote peer after the HTLC timeout or using
+ * the revocation key, or to an HTLC-success transaction with a successful
+ * payment preimage. The output is a P2WSH, with a witness script:
+ *
+ *     # To you with revocation key
+ *     OP_DUP OP_HASH160 <revocationkey-hash> OP_EQUAL
+ *     OP_IF
+ *         OP_CHECKSIG
+ *     OP_ELSE
+ *         <remotekey> OP_SWAP
+ *             OP_SIZE 32 OP_EQUAL
+ *         OP_IF
+ *             # To me via HTLC-success transaction.
+ *             OP_HASH160 <ripemd-of-payment-hash> OP_EQUALVERIFY
+ *             2 OP_SWAP <localkey> 2 OP_CHECKMULTISIG
+ *         OP_ELSE
+ *             # To you after timeout.
+ *             OP_DROP <locktime> OP_CHECKLOCKTIMEVERIFY OP_DROP
+ *             OP_CHECKSIG
+ *         OP_ENDIF
+ *     OP_ENDIF
  */
 u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
 				 const struct abs_locktime *htlc_abstimeout,
 				 const struct pubkey *localkey,
 				 const struct pubkey *remotekey,
-				 const struct sha256 *payment_hash)
+				 const struct sha256 *payment_hash,
+				 const struct pubkey *revocationkey)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 	struct ripemd160 ripemd;
 
+	add_op(&script, OP_DUP);
+	add_op(&script, OP_HASH160);
+	hash160_key(&ripemd, revocationkey);
+	add_push_bytes(&script, &ripemd, sizeof(ripemd));
+	add_op(&script, OP_EQUAL);
+	add_op(&script, OP_IF);
+	add_op(&script, OP_CHECKSIG);
+	add_op(&script, OP_ELSE);
 	add_push_key(&script, remotekey);
 	add_op(&script, OP_SWAP);
 	add_op(&script, OP_SIZE);
@@ -799,6 +833,7 @@ u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
 	add_op(&script, OP_CHECKLOCKTIMEVERIFY);
 	add_op(&script, OP_DROP);
 	add_op(&script, OP_CHECKSIG);
+	add_op(&script, OP_ENDIF);
 	add_op(&script, OP_ENDIF);
 
 	return script;
