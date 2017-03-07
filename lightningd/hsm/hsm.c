@@ -370,7 +370,7 @@ static u8 *sign_funding_tx(const tal_t *ctx, const u8 *data)
 	if (!fromwire_hsmctl_sign_funding(tmpctx, data, NULL,
 					  &satoshi_out, &change_out,
 					  &change_keyindex, &local_pubkey,
-					  &local_pubkey, &inputs))
+					  &remote_pubkey, &inputs))
 		status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "Bad SIGN_FUNDING");
 
 	tx = bitcoin_tx(tmpctx, tal_count(inputs), 1 + !!change_out);
