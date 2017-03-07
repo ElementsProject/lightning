@@ -417,6 +417,39 @@ static void handle_forwarded_gossip_msg(struct routing_state *rstate, u8 *msg)
 }
 
 /**
+ * handle_forwarded_msg - We received a message destined for a peer
+ * that we own, forward it accordingly.
+ *
+ * @daemon: context of this daemon
+ * @msg: serialized message
+ */
+static void handle_forwarded_msg(struct daemon *daemon, const u8 *msg)
+{
+	u64 destination;
+	u8 *forwarded;
+	struct peer *peer;
+	size_t msglen = tal_count(msg);
+	tal_t *ctx = tal_tmpctx(NULL);
+
+	if (fromwire_forward_peer_msg(ctx, msg, &msglen, &destination,
+				      &forwarded)) {
+		status_failed(WIRE_GOSSIPSTATUS_BAD_FORWARD,
+			      "Unable to parse forwarded_peer_msg");
+	}
+
+	peer = find_peer(daemon, destination);
+
+	if (!peer) {
+		status_trace("Unable to forward message for peer %" PRIu64
+			     ": peer not found. Dropping message.",
+			     destination);
+	} else {
+		queue_pkt(peer, forwarded);
+	}
+	tal_free(ctx);
+}
+
+/**
  * recv_req - Handle incoming requests or messages from the main daemon
  * @conn: connection to the main daemon.
  * @daemon: originating daemon of the request, wraps the incoming message.
@@ -429,6 +462,8 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon *daemon)
 		/* Handle common messages if we have the common flag set. */
 		enum common_wire_type ct = type;
 		switch (ct) {
+		case WIRE_FORWARD_PEER_MSG:
+			handle_forwarded_msg(daemon, daemon->msg_in);
 		case WIRE_FORWARD_GOSSIP_MSG:
 			handle_forwarded_gossip_msg(daemon->rstate,
 						    daemon->msg_in);

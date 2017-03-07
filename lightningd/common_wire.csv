@@ -5,6 +5,7 @@
 
 # The sending daemon received a message it doesn't know how to handle,
 # forward it to the correct daemon.
+forward_gossip_msg,0x7000
 forward_gossip_msg,0,msglen,2,u16
 forward_gossip_msg,2,msg,msglen,u8
 
