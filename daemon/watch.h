@@ -81,8 +81,8 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 						    void *),
 			    void *cbdata);
 
-#define watch_txid(ctx, topo, peer, txid, cb, cbdata)			\
-	watch_txid_((ctx), (topo), (peer), (txid),			\
+#define watch_txid(ctx, topo, peer_, txid, cb, cbdata)			\
+	watch_txid_((ctx), (topo), (peer_), (txid),			\
 		    typesafe_cb_preargs(enum watch_result, void *,	\
 					(cb), (cbdata),			\
 					struct peer *,			\
@@ -100,8 +100,8 @@ struct txwatch *watch_tx_(const tal_t *ctx,
 						  void *),
 			  void *cbdata);
 
-#define watch_tx(ctx, topo, peer, tx, cb, cbdata)			\
-	watch_tx_((ctx), (topo), (peer), (tx),				\
+#define watch_tx(ctx, topo, peer_, tx, cb, cbdata)			\
+	watch_tx_((ctx), (topo), (peer_), (tx),				\
 		  typesafe_cb_preargs(enum watch_result, void *,	\
 				      (cb), (cbdata),			\
 				      struct peer *,			\
@@ -120,8 +120,8 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 						    void *),
 			    void *cbdata);
 
-#define watch_txo(ctx, topo, peer, txid, outnum, cb, cbdata)		\
-	watch_txo_((ctx), (topo), (peer), (txid), (outnum),		\
+#define watch_txo(ctx, topo, peer_, txid, outnum, cb, cbdata)		\
+	watch_txo_((ctx), (topo), (peer_), (txid), (outnum),		\
 		   typesafe_cb_preargs(enum watch_result, void *,	\
 				      (cb), (cbdata),			\
 				      struct peer *,			\
