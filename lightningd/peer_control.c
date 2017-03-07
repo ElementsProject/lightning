@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/build_utxos.h>
+#include <lightningd/channel.h>
 #include <lightningd/funding_tx.h>
 #include <lightningd/gossip/gen_gossip_control_wire.h>
 #include <lightningd/gossip/gen_gossip_status_wire.h>
@@ -64,6 +65,9 @@ static struct peer *new_peer(struct lightningd *ld,
 	peer->id = NULL;
 	peer->fd = io_conn_fd(conn);
 	peer->connect_cmd = cmd;
+	peer->funding_txid = NULL;
+	peer->seed = NULL;
+
 	/* Max 128k per peer. */
 	peer->log_book = new_log_book(peer, 128*1024,
 				      get_log_level(ld->dstate.log_book));
@@ -530,8 +534,8 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 	const char *txidstr = type_to_string(peer, struct sha256_double, txid);
 
 	log_debug(peer->log, "Funding tx %s depth %u of %u",
-		  txidstr, depth, peer->ld->dstate.config.anchor_confirms);
-	if (depth >= peer->ld->dstate.config.anchor_confirms) {
+		  txidstr, depth, peer->our_config.minimum_depth);
+	if (depth >= peer->our_config.minimum_depth) {
 		peer_set_condition(peer, "Funding tx reached depth %u", depth);
 		/* FIXME!  Start channel proper... */
 		return DELETE_WATCH;
@@ -609,8 +613,6 @@ static void opening_gen_funding(struct subdaemon *opening, const u8 *resp,
 				struct funding_channel *fc)
 {
 	u8 *msg;
-	struct sha256_double txid;
-	u16 outnum;
 	struct pubkey changekey;
 
 	peer_set_condition(fc->peer, "Created funding transaction for channel");
@@ -628,14 +630,17 @@ static void opening_gen_funding(struct subdaemon *opening, const u8 *resp,
 			     &changekey, fc->change_keyindex))
 		fatal("Error deriving change key %u", fc->change_keyindex);
 
-	fc->funding_tx = funding_tx(fc, &outnum, fc->utxomap, fc->satoshi,
+	fc->funding_tx = funding_tx(fc, &fc->peer->funding_outnum,
+				    fc->utxomap, fc->satoshi,
 				    &fc->local_fundingkey,
 				    &fc->remote_fundingkey,
 				    fc->change, &changekey,
 				    fc->peer->ld->bip32_base);
-	bitcoin_txid(fc->funding_tx, &txid);
+	fc->peer->funding_txid = tal(fc->peer, struct sha256_double);
+	bitcoin_txid(fc->funding_tx, fc->peer->funding_txid);
 
-	msg = towire_opening_open_funding(fc, &txid, outnum);
+	msg = towire_opening_open_funding(fc, fc->peer->funding_txid,
+					  fc->peer->funding_outnum);
 	subdaemon_req(fc->peer->owner, take(msg), -1, &fc->peer->fd,
 		      opening_release_tx, fc);
 }
@@ -644,25 +649,25 @@ static void opening_accept_finish_response(struct subdaemon *opening,
 					   const u8 *resp,
 					   struct peer *peer)
 {
-	u16 funding_txout;
 	struct channel_config their_config;
 	secp256k1_ecdsa_signature first_commit_sig;
 	struct crypto_state crypto_state;
-	struct pubkey remote_fundingkey, revocation_basepoint,
-		payment_basepoint, delayed_payment_basepoint,
-		their_per_commit_point;
+	struct basepoints theirbase;
+	struct pubkey remote_fundingkey, their_per_commit_point;
 
 	log_debug(peer->log, "Got opening_accept_finish_response");
 	if (!fromwire_opening_accept_finish_resp(resp, NULL,
-						 &funding_txout,
+						 &peer->funding_outnum,
 						 &their_config,
 						 &first_commit_sig,
 						 &crypto_state,
 						 &remote_fundingkey,
-						 &revocation_basepoint,
-						 &payment_basepoint,
-						 &delayed_payment_basepoint,
-						 &their_per_commit_point)) {
+						 &theirbase.revocation,
+						 &theirbase.payment,
+						 &theirbase.delayed_payment,
+						 &their_per_commit_point,
+						 &peer->funding_satoshi,
+						 &peer->push_msat)) {
 		log_broken(peer->log, "bad OPENING_ACCEPT_FINISH_RESP %s",
 			   tal_hex(resp, resp));
 		tal_free(peer);
@@ -675,9 +680,8 @@ static void opening_accept_finish_response(struct subdaemon *opening,
 static void opening_accept_response(struct subdaemon *opening, const u8 *resp,
 				    struct peer *peer)
 {
-	struct sha256_double funding_txid;
-
-	if (!fromwire_opening_accept_resp(resp, NULL, &funding_txid)) {
+	peer->funding_txid = tal(peer, struct sha256_double);
+	if (!fromwire_opening_accept_resp(resp, NULL, peer->funding_txid)) {
 		log_broken(peer->log, "bad OPENING_ACCEPT_RESP %s",
 			   tal_hex(resp, resp));
 		tal_free(peer);
@@ -685,8 +689,9 @@ static void opening_accept_response(struct subdaemon *opening, const u8 *resp,
 	}
 
 	log_debug(peer->log, "Watching funding tx %s",
-		     type_to_string(resp, struct sha256_double, &funding_txid));
-	watch_txid(peer, peer->ld->topology, peer, &funding_txid,
+		     type_to_string(resp, struct sha256_double,
+				    peer->funding_txid));
+	watch_txid(peer, peer->ld->topology, peer, peer->funding_txid,
 		   funding_depth_cb, NULL);
 
 	/* Tell it we're watching. */
@@ -746,8 +751,6 @@ void peer_accept_open(struct peer *peer,
 		      const struct crypto_state *cs, const u8 *from_peer)
 {
 	struct lightningd *ld = peer->ld;
-	struct privkey seed;
-	struct channel_config ours;
 	u32 max_to_self_delay, max_minimum_depth;
 	u64 min_effective_htlc_capacity_msat;
 	u8 *msg;
@@ -779,15 +782,16 @@ void peer_accept_open(struct peer *peer,
 	/* We handed off peer fd */
 	peer->fd = -1;
 
-	channel_config(ld, &ours,
+	channel_config(ld, &peer->our_config,
 		       &max_to_self_delay, &max_minimum_depth,
 		       &min_effective_htlc_capacity_msat);
 
-	derive_peer_seed(ld, &seed, peer->id);
-	msg = towire_opening_init(peer, &ours,
+	peer->seed = tal(peer, struct privkey);
+	derive_peer_seed(ld, peer->seed, peer->id);
+	msg = towire_opening_init(peer, &peer->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
-				  cs, &seed);
+				  cs, peer->seed);
 
 	subdaemon_req(peer->owner, take(msg), -1, NULL, NULL, NULL);
 	/* FIXME: Real feerates! */
@@ -809,8 +813,6 @@ static void gossip_peer_released(struct subdaemon *gossip,
 				 struct funding_channel *fc)
 {
 	struct lightningd *ld = fc->peer->ld;
-	struct privkey seed;
-	struct channel_config ours;
 	u32 max_to_self_delay, max_minimum_depth;
 	u64 min_effective_htlc_capacity_msat;
 	u64 id;
@@ -842,20 +844,26 @@ static void gossip_peer_released(struct subdaemon *gossip,
 	/* They took our fd. */
 	fc->peer->fd = -1;
 
-	channel_config(ld, &ours,
+	channel_config(ld, &fc->peer->our_config,
 		       &max_to_self_delay, &max_minimum_depth,
 		       &min_effective_htlc_capacity_msat);
 
-	derive_peer_seed(ld, &seed, fc->peer->id);
-	msg = towire_opening_init(fc, &ours,
+	fc->peer->seed = tal(fc->peer, struct privkey);
+	derive_peer_seed(ld, fc->peer->seed, fc->peer->id);
+	msg = towire_opening_init(fc, &fc->peer->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
-				  fc->cs, &seed);
+				  fc->cs, fc->peer->seed);
+
+	fc->peer->funding_satoshi = fc->satoshi;
+	/* FIXME: Support push_msat? */
+	fc->peer->push_msat = 0;
 
 	subdaemon_req(fc->peer->owner, take(msg), -1, NULL, NULL, NULL);
-	/* FIXME: Support push_msat? */
 	/* FIXME: Real feerate! */
-	msg = towire_opening_open(fc, fc->satoshi, 0, 15000, max_minimum_depth);
+	msg = towire_opening_open(fc, fc->peer->funding_satoshi,
+				  fc->peer->push_msat,
+				  15000, max_minimum_depth);
 	subdaemon_req(fc->peer->owner, take(msg), -1, NULL,
 		      opening_gen_funding, fc);
 }

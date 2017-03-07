@@ -651,7 +651,9 @@ static u8 *recv_channel(struct state *state,
 						 &theirs.revocation,
 						 &theirs.payment,
 						 &theirs.delayed_payment,
-						 &state->next_per_commit[REMOTE]);
+						 &state->next_per_commit[REMOTE],
+						 state->funding_satoshis,
+						 state->push_msat);
 }
 
 #ifndef TESTING

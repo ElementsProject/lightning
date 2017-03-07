@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/compiler/compiler.h>
 #include <daemon/netaddr.h>
+#include <lightningd/channel_config.h>
 #include <stdbool.h>
 
 struct crypto_state;
@@ -40,6 +41,17 @@ struct peer {
 
 	/* Json command which made us connect (if any) */
 	struct command *connect_cmd;
+
+	/* Our channel config. */
+	struct channel_config our_config;
+
+	/* Funding txid and amounts (once known) */
+	struct sha256_double *funding_txid;
+	u16 funding_outnum;
+	u64 funding_satoshi, push_msat;
+
+	/* Secret seed (FIXME: Move to hsm!) */
+	struct privkey *seed;
 };
 
 struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id);

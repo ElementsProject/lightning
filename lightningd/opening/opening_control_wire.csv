@@ -61,6 +61,8 @@ opening_accept_finish_resp,277,revocation_basepoint,33
 opening_accept_finish_resp,310,payment_basepoint,33
 opening_accept_finish_resp,343,delayed_payment_basepoint,33
 opening_accept_finish_resp,377,their_per_commit_point,33
+opening_accept_finish_resp,410,funding_satoshis,8
+opening_accept_finish_resp,418,push_msat,8
 
 # You're OK to exit.
 opening_exit_req,99
