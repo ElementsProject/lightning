@@ -6,6 +6,7 @@ gossipstatus_bad_new_peer_request,0x8001
 gossipstatus_bad_release_request,0x8002
 gossipstatus_bad_request,0x8003
 gossipstatus_fdpass_failed,0x8004
+gossipstatus_bad_forward,0x8005
 
 # Peers can give a bad message, we close their fd, but no harm done.
 gossipstatus_peer_bad_msg,100

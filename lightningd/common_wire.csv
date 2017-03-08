@@ -1,0 +1,18 @@
+# Define some messages that any subdaemon may be sending to the main daemon
+# The message types need to be disjoint from any message types defined in the
+# per-daemon status files, by convention these are all in the 0x7000 - 0x7FFF
+# range.
+
+# The sending daemon received a message it doesn't know how to handle,
+# forward it to the correct daemon.
+forward_gossip_msg,0x7000
+forward_gossip_msg,0,msglen,2,u16
+forward_gossip_msg,2,msg,msglen,u8
+
+# Some daemon that is attempting to send a message to a peer that it
+# isn't the owner of, so it must be bounced up to the main daemon and
+# then back down to the owner.
+forward_peer_msg,0x7001
+forward_peer_msg,0,unique_id,8,u64
+forward_peer_msg,8,msglen,2,u16
+forward_peer_msg,10,msg,msglen,u8

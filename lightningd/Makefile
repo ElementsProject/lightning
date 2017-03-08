@@ -46,7 +46,7 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/funding_tx.c			\
 	lightningd/htlc_tx.c			\
 	lightningd/key_derive.c			\
-	lightningd/peer_failed.c			\
+	lightningd/peer_failed.c		\
 	lightningd/utxo.c
 
 LIGHTNINGD_LIB_OBJS := $(LIGHTNINGD_LIB_SRC:.c=.o)
@@ -65,7 +65,7 @@ LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o)
 LIGHTNINGD_JSMN_OBJS := daemon/jsmn.o
 LIGHTNINGD_JSMN_HEADERS := daemon/jsmn/jsmn.h
 
-# We accumulate all lightningd/ headers in these three:
+# We accumulate all lightningd/ headers in these four:
 LIGHTNINGD_HEADERS_NOGEN =			\
 	lightningd/build_utxos.h		\
 	lightningd/gossip_control.h		\
@@ -84,7 +84,8 @@ LIGHTNINGD_HEADERS_NOGEN =			\
 # Generated headers
 LIGHTNINGD_HEADERS_GEN =			\
 	$(WIRE_GEN_HEADERS)			\
-	$(GEN_HEADERS)
+	$(GEN_HEADERS)				\
+	lightningd/gen_common_wire.h
 
 # Headers we don't directly own (ie. don't check them)
 LIGHTNINGD_EXTERNAL_HEADERS =			\
@@ -96,6 +97,16 @@ LIGHTNINGD_EXTERNAL_HEADERS =			\
 # All together in one convenient var
 LIGHTNINGD_HEADERS = $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) $(LIGHTNINGD_EXTERNAL_HEADERS)
 
+LIGHTNINGD_COMMON_SRC := lightningd/gen_common_wire.c
+LIGHTNINGD_COMMON_HEADERS := $(LIGHTNINGD_COMMON_SRC:.c=.h)
+LIGHTNINGD_COMMON_OBJS := $(LIGHTNINGD_COMMON_SRC:.c=.o)
+
+lightningd/gen_common_wire.h: $(WIRE_GEN) lightningd/common_wire.csv
+	$(WIRE_GEN) --header $@ common_wire_type < lightningd/common_wire.csv > $@
+
+lightningd/gen_common_wire.c: $(WIRE_GEN) lightningd/common_wire.csv
+	$(WIRE_GEN) ${@:.c=.h} common_wire_type < lightningd/common_wire.csv > $@
+
 # These included makefiles add their headers to the LIGHTNINGD_HEADERS
 # variable so the include must preceed any actual use of the variable.
 include lightningd/channel/Makefile
@@ -104,7 +115,7 @@ include lightningd/handshake/Makefile
 include lightningd/gossip/Makefile
 include lightningd/opening/Makefile
 
-$(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS): $(LIGHTNINGD_HEADERS) 
+$(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS): $(LIGHTNINGD_HEADERS)
 
 check-source: $(LIGHTNINGD_SRC:%=check-src-include-order/%)
 check-source: $(LIGHTNINGD_LIB_SRC:%=check-src-include-order/%)
@@ -118,7 +129,7 @@ check-makefile: check-lightningd-makefile
 check-lightningd-makefile:
 	@for f in lightningd/*.h lightningd/*/*.h; do if ! echo $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) "" | grep -q "$$f "; then echo $$f not mentioned in LIGHTNINGD_HEADERS_NOGEN or LIGHTNINGD_HEADERS_GEN >&2; exit 1; fi; done
 
-lightningd/lightningd: $(LIGHTNINGD_OBJS) $(LIGHTNINGD_OLD_OBJS) $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_JSMN_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) $(LIGHTNINGD_HSM_CONTROL_OBJS) $(LIGHTNINGD_HANDSHAKE_CONTROL_OBJS) $(LIGHTNINGD_GOSSIP_CONTROL_OBJS) $(LIBBASE58_OBJS) $(LIGHTNINGD_OPENING_CONTROL_OBJS) $(LIGHTNINGD_CHANNEL_CONTROL_OBJS) libsecp256k1.a libsodium.a libwallycore.a
+lightningd/lightningd: $(LIGHTNINGD_OBJS) $(LIGHTNINGD_OLD_OBJS) $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_JSMN_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) $(LIGHTNINGD_HSM_CONTROL_OBJS) $(LIGHTNINGD_HANDSHAKE_CONTROL_OBJS) $(LIGHTNINGD_GOSSIP_CONTROL_OBJS) $(LIBBASE58_OBJS) $(LIGHTNINGD_OPENING_CONTROL_OBJS) $(LIGHTNINGD_CHANNEL_CONTROL_OBJS) $(LIGHTNINGD_COMMON_OBJS) libsecp256k1.a libsodium.a libwallycore.a
 
 clean: lightningd-clean
 

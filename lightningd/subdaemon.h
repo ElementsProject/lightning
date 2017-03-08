@@ -92,6 +92,15 @@ struct subdaemon *new_subdaemon(const tal_t *ctx,
 					   struct subdaemon *,		\
 					   const u8 *),			\
 		       (reqcb_data))
+
+/**
+ * subdaemon_send_msg - Simply send a message to the subdaemon
+ * @sd: subdaemon to send the message to
+ * @msg: message to send to the subdaemon
+ */
+#define subdaemon_send_msg(sd, msg) \
+	subdaemon_req(sd, msg, -1, NULL, NULL, NULL)
+
 void subdaemon_req_(struct subdaemon *sd,
 		    const u8 *msg_out,
 		    int fd_out, int *fd_in,

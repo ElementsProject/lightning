@@ -15,6 +15,7 @@
 #include <lightningd/cryptomsg.h>
 #include <lightningd/debug.h>
 #include <lightningd/derive_basepoints.h>
+#include <lightningd/gen_common_wire.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/peer_failed.h>
 #include <secp256k1.h>
@@ -97,8 +98,12 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 	status_trace("Received %s from peer",
 		     wire_type_name(fromwire_peektype(msg)));
 
-	if (fromwire_funding_locked(msg, NULL, &chanid,
-				    &peer->next_per_commit[REMOTE])) {
+	enum wire_type t = fromwire_peektype(msg);
+	u8 *wrapped;
+	switch (t) {
+	case WIRE_FUNDING_LOCKED:
+		fromwire_funding_locked(msg, NULL, &chanid,
+					&peer->next_per_commit[REMOTE]);
 		if (!structeq(&chanid, &peer->channel_id))
 			status_failed(WIRE_CHANNEL_PEER_BAD_MESSAGE,
 				      "Wrong channel id in %s",
@@ -111,6 +116,20 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 
 		if (peer->funding_locked[LOCAL])
 			status_send(towire_channel_normal_operation(peer));
+		break;
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+	case WIRE_CHANNEL_UPDATE:
+	case WIRE_NODE_ANNOUNCEMENT:
+		wrapped = towire_forward_gossip_msg(msg, msg);
+		status_send(wrapped);
+		break;
+	case WIRE_INIT:
+	case WIRE_ERROR:
+	case WIRE_OPEN_CHANNEL:
+	case WIRE_ACCEPT_CHANNEL:
+	default:
+		status_trace("Unexpected message %s from peer, ignoring", wire_type_name(t));
+		break;
 	}
 	/* FIXME: Process gossip. */
 
@@ -119,6 +138,7 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 
 static struct io_plan *req_in(struct io_conn *conn, struct peer *peer)
 {
+	int type = fromwire_peektype(peer->req_in);
 	if (fromwire_channel_funding_locked(peer->req_in, NULL)) {
 		u8 *msg = towire_funding_locked(peer,
 						&peer->channel_id,
@@ -128,6 +148,12 @@ static struct io_plan *req_in(struct io_conn *conn, struct peer *peer)
 
 		if (peer->funding_locked[REMOTE])
 			status_send(towire_channel_normal_operation(peer));
+	} else if (type == WIRE_FORWARD_PEER_MSG) {
+		u8 *msg;
+		u64 peer_id;
+		fromwire_forward_peer_msg(peer, peer->req_in, NULL, &peer_id, &msg);
+		status_trace("Sending forwarded message to peer");
+		queue_pkt(peer, msg);
 	} else
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s", strerror(errno));
 
