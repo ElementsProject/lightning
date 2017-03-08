@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <lightningd/gen_common_wire.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/peer_control.h>
 #include <lightningd/subdaemon.h>
 #include <status.h>
 #include <stdarg.h>
@@ -192,6 +193,27 @@ static struct io_plan *status_process_fd(struct io_conn *conn,
 	return status_read(conn, sd);
 }
 
+/**
+ * forward_peer_msg - Got a forward request from a subdaemon, find owner and forward.
+ */
+static void forward_peer_msg(struct subdaemon *sd, u8 *msg)
+{
+	u64 peer_id;
+	u8 *wrapped;
+	struct peer *peer;
+	size_t msglen = tal_count(msg);
+	fromwire_forward_peer_msg(msg, msg, &msglen, &peer_id, &wrapped);
+	peer = find_peer_by_unique_id(sd->ld, peer_id);
+	if (!peer) {
+		log_unusual(sd->log, "Unable to locate peer with ID %lu, "
+				     "dropping forwarded message",
+			    peer_id);
+		return;
+	} else {
+		subdaemon_send_msg(peer->owner, take(msg));
+	}
+}
+
 static struct io_plan *status_process(struct io_conn *conn, struct subdaemon *sd)
 {
 	int type = fromwire_peektype(sd->status_in);
@@ -213,7 +235,11 @@ static struct io_plan *status_process(struct io_conn *conn, struct subdaemon *sd
 
 	if (type == STATUS_TRACE)
 		log_debug(sd->log, "TRACE: %.*s", str_len, str);
-	else if (type == WIRE_FORWARD_GOSSIP_MSG){
+	else if (type == WIRE_FORWARD_PEER_MSG){
+		log_info(sd->log, "Got a message to forward to peer");
+		forward_peer_msg(sd, sd->status_in);
+
+	} else if (type == WIRE_FORWARD_GOSSIP_MSG){
 		log_info(sd->log, "Forwarding %s", common_wire_type_name(type));
 		subdaemon_send_msg(sd->ld->gossip, take(sd->status_in));
 	} else if (type & STATUS_FAIL)

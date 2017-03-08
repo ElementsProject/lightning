@@ -62,4 +62,6 @@ ld_from_dstate(const struct lightningd_state *dstate)
 {
 	return container_of(dstate, struct lightningd, dstate);
 }
+
+struct peer *find_peer_by_unique_id(struct lightningd *ld, u64 unique_id);
 #endif /* LIGHTNING_LIGHTNINGD_LIGHTNINGD_H */
