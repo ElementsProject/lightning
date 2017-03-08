@@ -126,6 +126,7 @@ static void handle_gossip_message(struct routing_state *rstate, const u8 *msg)
 			      "%s", tal_hex(trc, msg));
 	}
 }
+
 static struct io_plan *peer_msgin(struct io_conn *conn,
 				  struct peer *peer, u8 *msg)
 {
@@ -256,8 +257,8 @@ static void peer_dump_gossip_nonlocal(struct peer *peer)
 	next = next_broadcast_message(peer->daemon->rstate->broadcasts,
 				      &peer->broadcast_index);
 	while (next) {
-		// status_send(towire_forward_peer_msg(
-		//    peer, peer->unique_id, next->payload));
+		status_send(towire_forward_peer_msg(peer, peer->unique_id,
+						    next->payload));
 		next = next_broadcast_message(peer->daemon->rstate->broadcasts,
 					      &peer->broadcast_index);
 	}
