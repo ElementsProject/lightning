@@ -65,6 +65,10 @@ struct peer {
 	u8 **msg_out;
 	/* Is it time to continue the staggered broadcast? */
 	bool gossip_sync;
+
+	/* Are we the owner of the peer, or is it attached to some
+	 * other daemon? */
+	bool local;
 };
 
 static void destroy_peer(struct peer *peer)
@@ -85,6 +89,7 @@ static struct peer *setup_new_peer(struct daemon *daemon, const u8 *msg)
 					 &peer->pcs.cs))
 		return tal_free(peer);
 	peer->daemon = daemon;
+	peer->local = true;
 	peer->error = NULL;
 	peer->msg_out = tal_arr(peer, u8*, 0);
 	list_add_tail(&daemon->peers, &peer->list);
@@ -163,6 +168,7 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 						       &peer->pcs.cs, msg);
 		status_send(s);
 		status_send_fd(io_conn_fd(conn));
+		peer->local = false;
 		return io_close(conn);
 	}
 
@@ -198,6 +204,14 @@ static void queue_pkt(struct peer *peer, u8 *msg)
  * queued gossip messages and processes them. */
 static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer);
 
+/**
+ * peer_dump_gossip_nonlocal - Regularly forward broadcasts to a nonlocal peer
+ * If we are non-local then we just pipe all messages
+ * to the main-daemon synchronously, no need to use
+ * non-blocking IO
+ */
+static void peer_dump_gossip_nonlocal(struct peer *peer);
+
 /* Wake up the outgoing direction of the connection and write any
  * queued messages. Needed since the `io_wake` method signature does
  * not allow us to specify it as the callback for `new_reltimer`, but
@@ -206,7 +220,11 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer);
 static void wake_pkt_out(struct peer *peer)
 {
 	peer->gossip_sync = true;
-	io_wake(peer);
+	if (peer->local) {
+		io_wake(peer);
+	} else {
+		peer_dump_gossip_nonlocal(peer);
+	}
 }
 
 /* Loop through the backlog of channel_{announcements,updates} and
@@ -215,12 +233,14 @@ static void wake_pkt_out(struct peer *peer)
 static struct io_plan *peer_dump_gossip(struct io_conn *conn, struct peer *peer)
 {
 	struct queued_message *next;
-	next = next_broadcast_message(
-		peer->daemon->rstate->broadcasts, &peer->broadcast_index);
+	next = next_broadcast_message(peer->daemon->rstate->broadcasts,
+				      &peer->broadcast_index);
 
 	if (!next) {
-		new_reltimer(&peer->daemon->timers, peer, time_from_sec(30), wake_pkt_out, peer);
-		/* Going to wake up in pkt_out since we mix time based and message based wakeups */
+		new_reltimer(&peer->daemon->timers, peer, time_from_sec(30),
+			     wake_pkt_out, peer);
+		/* Going to wake up in pkt_out since we mix time based and
+		 * message based wakeups */
 		return io_out_wait(conn, peer, pkt_out, peer);
 	} else {
 		struct io_plan *ret;
@@ -228,6 +248,21 @@ static struct io_plan *peer_dump_gossip(struct io_conn *conn, struct peer *peer)
 					 peer_dump_gossip);
 		return ret;
 	}
+}
+
+static void peer_dump_gossip_nonlocal(struct peer *peer)
+{
+	struct queued_message *next;
+	next = next_broadcast_message(peer->daemon->rstate->broadcasts,
+				      &peer->broadcast_index);
+	while (next) {
+		// status_send(towire_forward_peer_msg(
+		//    peer, peer->unique_id, next->payload));
+		next = next_broadcast_message(peer->daemon->rstate->broadcasts,
+					      &peer->broadcast_index);
+	}
+	new_reltimer(&peer->daemon->timers, peer, time_from_sec(30),
+		     wake_pkt_out, peer);
 }
 
 static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
@@ -239,7 +274,9 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer)
 		out = peer->msg_out[0];
 		memmove(peer->msg_out, peer->msg_out + 1, (sizeof(*peer->msg_out)*(n-1)));
 		tal_resize(&peer->msg_out, n-1);
-		return peer_write_message(conn, &peer->pcs, take(out), pkt_out);
+		if (peer->local) {
+			return peer_write_message(conn, &peer->pcs, take(out), pkt_out);
+		}
 	}
 
 	if (peer->gossip_sync){
@@ -334,9 +371,7 @@ static struct io_plan *new_peer_got_fd(struct io_conn *conn, struct peer *peer)
 	if (!peer->conn) {
 		peer->error = "Could not create connection";
 		tal_free(peer);
-	} else
-		/* Free peer if conn closed. */
-		tal_steal(peer->conn, peer);
+	}
 
 	return next_req_in(conn, peer->daemon);
 }
@@ -354,10 +389,10 @@ static struct io_plan *new_peer(struct io_conn *conn, struct daemon *daemon,
 static struct io_plan *release_peer_fd(struct io_conn *conn, struct peer *peer)
 {
 	int fd = peer->fd;
-	struct daemon *daemon = peer->daemon;
+	/* Simply indicate that this peer is no longer local */
+	peer->local = false;
 
-	tal_free(peer);
-	return io_send_fd(conn, fd, next_req_in, daemon);
+	return io_send_fd(conn, fd, next_req_in, peer->daemon);
 }
 
 static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
