@@ -42,6 +42,16 @@ struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id)
 	FIXME_IMPLEMENT();
 }
 
+struct peer *find_peer_by_unique_id(struct lightningd *ld, u64 unique_id)
+{
+	struct peer *peer;
+	list_for_each(&ld->peers, peer, list) {
+		if (peer->unique_id == unique_id)
+			return peer;
+	}
+	return NULL;
+}
+
 void peer_debug(struct peer *peer, const char *fmt, ...);
 void peer_debug(struct peer *peer, const char *fmt, ...)
 {

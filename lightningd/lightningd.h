@@ -55,7 +55,7 @@ struct lightningd {
 
 void derive_peer_seed(struct lightningd *ld, struct privkey *peer_seed,
 		      const struct pubkey *peer_id);
-
+struct peer *find_peer_by_unique_id(struct lightningd *ld, u64 unique_id);
 /* FIXME */
 static inline struct lightningd *
 ld_from_dstate(const struct lightningd_state *dstate)
