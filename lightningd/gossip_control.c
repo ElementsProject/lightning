@@ -71,7 +71,7 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg, int fd)
 	peer_accept_open(peer, &cs, inner);
 }
 
-static void peer_ready(struct subd *gossip, const u8 *msg)
+static void peer_ready(struct subd *gossip, const u8 *msg, int fd)
 {
 	u64 unique_id;
 	struct peer *peer;
@@ -97,6 +97,8 @@ static void peer_ready(struct subd *gossip, const u8 *msg)
 		command_success(peer->connect_cmd, response);
 		peer->connect_cmd = NULL;
 	}
+
+	peer->gossip_client_fd = fd;
 
 	peer_set_condition(peer, "Exchanging gossip");
 }
@@ -128,7 +130,10 @@ static enum subd_msg_ret gossip_msg(struct subd *gossip,
 		peer_nongossip(gossip, msg, fd);
 		break;
 	case WIRE_GOSSIPSTATUS_PEER_READY:
-		peer_ready(gossip, msg);
+		if (fd == -1) {
+			return SUBD_NEED_FD;
+		}
+		peer_ready(gossip, msg, fd);
 		break;
 	}
 	return SUBD_COMPLETE;

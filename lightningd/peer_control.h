@@ -52,6 +52,9 @@ struct peer {
 
 	/* Secret seed (FIXME: Move to hsm!) */
 	struct privkey *seed;
+
+	/* Gossip client fd, forwarded to the respective owner */
+	int gossip_client_fd;
 };
 
 struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id);
