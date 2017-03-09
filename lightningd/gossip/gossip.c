@@ -297,10 +297,7 @@ static struct io_plan *new_peer_got_fd(struct io_conn *conn, struct peer *peer)
 	if (!peer->conn) {
 		peer->error = "Could not create connection";
 		tal_free(peer);
-	} else
-		/* Free peer if conn closed. */
-		tal_steal(peer->conn, peer);
-
+	}
 	return next_req_in(conn, peer->daemon);
 }
 
@@ -316,11 +313,7 @@ static struct io_plan *new_peer(struct io_conn *conn, struct daemon *daemon,
 
 static struct io_plan *release_peer_fd(struct io_conn *conn, struct peer *peer)
 {
-	int fd = peer->fd;
-	struct daemon *daemon = peer->daemon;
-
-	tal_free(peer);
-	return io_send_fd(conn, fd, next_req_in, daemon);
+	return io_send_fd(conn, peer->fd, next_req_in, peer->daemon);
 }
 
 static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
