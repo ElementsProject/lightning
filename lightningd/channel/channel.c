@@ -51,6 +51,8 @@ struct peer {
 
 	u8 *req_in;
 	const u8 **peer_out;
+
+	int gossip_client_fd;
 };
 
 static void msg_enqueue(const u8 ***q, const u8 *add)
@@ -199,6 +201,11 @@ int main(int argc, char *argv[])
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s",
 			      tal_hex(msg, msg));
 	tal_free(msg);
+	peer->gossip_client_fd = fdpass_recv(REQ_FD);
+	if (peer->gossip_client_fd == -1)
+		status_failed(
+		    WIRE_CHANNEL_BAD_COMMAND,
+		    "Did not receive a valid client socket to gossipd");
 
 	/* We derive everything from the one secret seed. */
 	derive_basepoints(&seed, &funding_pubkey[LOCAL], &points[LOCAL],

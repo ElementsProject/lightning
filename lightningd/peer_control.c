@@ -669,6 +669,7 @@ static void peer_start_channeld(struct peer *peer, bool am_funder,
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(peer->owner, take(msg));
+	subd_send_fd(peer->owner, peer->gossip_client_fd);
 }
 
 static bool opening_release_tx(struct subd *opening, const u8 *resp,
