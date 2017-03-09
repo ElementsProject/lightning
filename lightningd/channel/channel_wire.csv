@@ -16,7 +16,8 @@ channel_normal_operation,1001
 #include <lightningd/cryptomsg.h>
 #include <lightningd/channel_config.h>
 
-# Begin!  You're still waiting for the tx to be buried though.
+# Begin!  You're still waiting for the tx to be buried though (passes
+# gossipd-client fd)
 channel_init,1
 channel_init,0,funding_txid,32,struct sha256_double
 channel_init,32,funding_txout,2
