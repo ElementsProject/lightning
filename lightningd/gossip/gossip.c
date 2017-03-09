@@ -10,6 +10,7 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <daemon/broadcast.h>
+#include <daemon/log.h>
 #include <daemon/routing.h>
 #include <daemon/timeout.h>
 #include <errno.h>
@@ -425,6 +426,8 @@ static struct io_plan *next_req_in(struct io_conn *conn, struct daemon *daemon)
 int main(int argc, char *argv[])
 {
 	struct daemon *daemon;
+	struct log_book *log_book;
+	struct log *base_log;
 
 	subdaemon_debug(argc, argv);
 
@@ -434,7 +437,10 @@ int main(int argc, char *argv[])
 	}
 
 	daemon = tal(NULL, struct daemon);
-	daemon->rstate = new_routing_state(daemon, NULL);
+	log_book = new_log_book(daemon, 2 * 1024 * 1024, LOG_INFORM);
+	base_log =
+	    new_log(daemon, log_book, "lightningd_gossip(%u):", (int)getpid());
+	daemon->rstate = new_routing_state(daemon, base_log);
 	list_head_init(&daemon->peers);
 	timers_init(&daemon->timers, time_mono());
 	daemon->msg_in = NULL;
