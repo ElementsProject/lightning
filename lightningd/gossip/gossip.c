@@ -177,19 +177,20 @@ static void wake_pkt_out(struct peer *peer)
 static struct io_plan *peer_dump_gossip(struct io_conn *conn, struct peer *peer)
 {
 	struct queued_message *next;
-	next = next_broadcast_message(
-		peer->daemon->rstate->broadcasts, &peer->broadcast_index);
+	next = next_broadcast_message(peer->daemon->rstate->broadcasts,
+				      &peer->broadcast_index);
 
 	if (!next) {
-		new_reltimer(&peer->daemon->timers, peer, time_from_sec(30), wake_pkt_out, peer);
-		/* Going to wake up in pkt_out since we mix time based and message based wakeups */
+		new_reltimer(&peer->daemon->timers, peer, time_from_sec(30),
+			     wake_pkt_out, peer);
+		/* Going to wake up in pkt_out since we mix time based and
+		 * message based wakeups */
 		return io_out_wait(conn, peer, pkt_out, peer);
 	} else {
-		struct io_plan *ret;
-		ret = peer_write_message(conn, &peer->pcs, next->payload,
-					 peer_dump_gossip);
-		tal_free(next);
-		return ret;
+		/* Do not free the message after send, queue_broadcast takes
+		 * care of that */
+		return peer_write_message(conn, &peer->pcs, next->payload,
+					  peer_dump_gossip);
 	}
 }
 
