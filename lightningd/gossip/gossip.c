@@ -436,6 +436,9 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
+	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY |
+						 SECP256K1_CONTEXT_SIGN);
+
 	daemon = tal(NULL, struct daemon);
 	log_book = new_log_book(daemon, 2 * 1024 * 1024, LOG_INFORM);
 	base_log =
