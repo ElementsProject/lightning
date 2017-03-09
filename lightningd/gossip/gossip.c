@@ -65,6 +65,8 @@ struct peer {
 
 	/* The peer owner will use this to talk to gossipd */
 	int proxy_fd;
+	struct io_conn *proxy_conn;
+	u8 *proxy_in;
 };
 
 static void destroy_peer(struct peer *peer)
@@ -230,6 +232,23 @@ static bool has_even_bit(const u8 *bitmap)
 	return false;
 }
 
+static struct io_plan *recv_client_req(struct io_conn *conn, struct peer *peer);
+static struct io_plan *client_req_in(struct io_conn *conn, struct peer *peer)
+{
+	/* Handle incoming requests */
+	return recv_client_req(conn, peer);
+}
+
+static struct io_plan *recv_client_req(struct io_conn *conn, struct peer *peer)
+{
+	return io_read_wire(conn, peer, &peer->proxy_in, client_req_in, peer);
+}
+
+static struct io_plan *peer_proxy_init(struct io_conn *conn, struct peer *peer)
+{
+	return recv_client_req(conn, peer);
+}
+
 static int peer_create_gossip_client(struct peer *peer)
 {
 	int fds[2];
@@ -237,6 +256,7 @@ static int peer_create_gossip_client(struct peer *peer)
 		return -1;
 	}
 	peer->proxy_fd = fds[0];
+	peer->proxy_conn = io_new_conn(peer, fds[0], peer_proxy_init, peer);
 	return fds[1];
 }
 
