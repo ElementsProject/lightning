@@ -62,6 +62,9 @@ struct peer {
 	u8 **msg_out;
 	/* Is it time to continue the staggered broadcast? */
 	bool gossip_sync;
+
+	/* The peer owner will use this to talk to gossipd */
+	int proxy_fd;
 };
 
 static void destroy_peer(struct peer *peer)
@@ -227,10 +230,21 @@ static bool has_even_bit(const u8 *bitmap)
 	return false;
 }
 
+static int peer_create_gossip_client(struct peer *peer)
+{
+	int fds[2];
+	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+		return -1;
+	}
+	peer->proxy_fd = fds[0];
+	return fds[1];
+}
+
 static struct io_plan *peer_parse_init(struct io_conn *conn,
 				       struct peer *peer, u8 *msg)
 {
 	u8 *gfeatures, *lfeatures;
+	int client_fd;
 
 	if (!fromwire_init(msg, msg, NULL, &gfeatures, &lfeatures)) {
 		peer->error = tal_fmt(msg, "Bad init: %s", tal_hex(msg, msg));
@@ -255,12 +269,19 @@ static struct io_plan *peer_parse_init(struct io_conn *conn,
 		return io_close(conn);
 	}
 
+	client_fd = peer_create_gossip_client(peer);
+	if (client_fd == -1) {
+		peer->error = tal_fmt(msg, "Internal error");
+		return io_close(conn);
+	}
+
 	/* BOLT #1:
 	 *
 	 * Each node MUST wait to receive `init` before sending any other
 	 * messages.
 	 */
 	status_send(towire_gossipstatus_peer_ready(msg, peer->unique_id));
+	status_send_fd(client_fd);
 
 	/* Need to go duplex here, otherwise backpressure would mean
 	 * we both wait indefinitely */
