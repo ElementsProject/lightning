@@ -17,7 +17,7 @@ struct io_plan *io_read_wire_(struct io_conn *conn,
 					  (next), (arg), struct io_conn *), \
 		      (arg))
 
-/* Write message from data (tal_count(data) gives length). */
+/* Write message from data (tal_count(data) gives length).  data can be take() */
 struct io_plan *io_write_wire_(struct io_conn *conn,
 			       const u8 *data,
 			       struct io_plan *(*next)(struct io_conn *, void *),

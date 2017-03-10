@@ -3,6 +3,8 @@
  #include <unistd.h>
 #include <ccan/io/io_plan.h>
 #include <ccan/short_types/short_types.h>
+#include <ccan/take/take.h>
+#include <ccan/tal/tal.h>
 #include <wire/wire_io.h>
 
 /*
@@ -90,27 +92,32 @@ static int do_write_wire_header(int fd, struct io_plan_arg *arg)
 
 	/* Both bytes written?  Set up for normal write of data. */
 	if (arg->u2.s == INSIDE_HEADER_BIT + HEADER_LEN)
-		arg->u2.s = be16_to_cpu(hdr);
+		arg->u2.s = 0;
 
-	return arg->u2.s == 0;
+	return 0;
 }
 
 static int do_write_wire(int fd, struct io_plan_arg *arg)
 {
 	ssize_t ret;
+	size_t totlen = tal_len(arg->u1.cp);
 
 	/* Still writing header? */
 	if (arg->u2.s & INSIDE_HEADER_BIT)
 		return do_write_wire_header(fd, arg);
 
 	/* Normal write */
-	ret = write(fd, arg->u1.cp, arg->u2.s);
-	if (ret <= 0)
+	ret = write(fd, arg->u1.cp + arg->u2.s, totlen - arg->u2.s);
+	if (ret < 0)
 		return -1;
 
-	arg->u1.cp += ret;
-	arg->u2.s -= ret;
-	return arg->u2.s == 0;
+	arg->u2.s += ret;
+	if (arg->u2.s != totlen)
+		return 0;
+
+	if (taken(arg->u1.cp))
+		tal_free(arg->u1.cp);
+	return 1;
 }
 
 /* Write message from data (tal_count(data) gives length). */
