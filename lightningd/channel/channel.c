@@ -8,8 +8,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/channel.h>
-#include <lightningd/channel/gen_channel_control_wire.h>
-#include <lightningd/channel/gen_channel_status_wire.h>
+#include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/commit_tx.h>
 #include <lightningd/crypto_sync.h>
 #include <lightningd/cryptomsg.h>
@@ -28,8 +27,7 @@
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
-/* Stdout == status, stdin == requests, 3 == peer */
-#define STATUS_FD STDOUT_FILENO
+/* stdin == requests, 3 == peer */
 #define REQ_FD STDIN_FILENO
 #define PEER_FD 3
 
@@ -176,7 +174,7 @@ int main(int argc, char *argv[])
 	signal(SIGCHLD, SIG_IGN);
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
-	status_setup(STATUS_FD);
+	status_setup(REQ_FD);
 	peer->peer_out = tal_arr(peer, const u8 *, 0);
 	init_peer_crypto_state(peer, &peer->pcs);
 	peer->funding_locked[LOCAL] = peer->funding_locked[REMOTE] = false;

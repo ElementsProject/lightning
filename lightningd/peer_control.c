@@ -16,8 +16,7 @@
 #include <inttypes.h>
 #include <lightningd/build_utxos.h>
 #include <lightningd/channel.h>
-#include <lightningd/channel/gen_channel_control_wire.h>
-#include <lightningd/channel/gen_channel_status_wire.h>
+#include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/funding_tx.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/handshake/gen_handshake_wire.h>
@@ -550,8 +549,9 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 	}
 
 	peer_set_condition(peer, "Funding tx reached depth %u", depth);
-	subdaemon_req(peer->owner, take(towire_channel_funding_locked(peer)),
-		      -1, NULL, NULL, NULL);
+	/* FIXME: subdaemon */
+	subd_send_msg((struct subd *)peer->owner,
+		      take(towire_channel_funding_locked(peer)));
 	return DELETE_WATCH;
 }
 
@@ -598,11 +598,11 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 	return true;
 }
 
-static enum subdaemon_status update_channel_status(struct subdaemon *sd,
-						   const u8 *msg,
-						   int unused)
+static enum subd_msg_ret update_channel_status(struct subd *sd,
+					       const u8 *msg,
+					       int unused)
 {
-	enum channel_status_wire_type t = fromwire_peektype(msg);
+	enum channel_wire_type t = fromwire_peektype(msg);
 
 	switch (t) {
 	case WIRE_CHANNEL_RECEIVED_FUNDING_LOCKED:
@@ -617,10 +617,13 @@ static enum subdaemon_status update_channel_status(struct subdaemon *sd,
 	case WIRE_CHANNEL_PEER_WRITE_FAILED:
 	case WIRE_CHANNEL_PEER_READ_FAILED:
 	case WIRE_CHANNEL_PEER_BAD_MESSAGE:
+	/* And we never get these from channeld. */
+	case WIRE_CHANNEL_INIT:
+	case WIRE_CHANNEL_FUNDING_LOCKED:
 		break;
 	}
 
-	return STATUS_COMPLETE;
+	return SUBD_COMPLETE;
 }
 
 /* opening is done, start lightningd_channel for peer. */
@@ -635,10 +638,9 @@ static void peer_start_channeld(struct peer *peer, bool am_funder,
 	u8 *msg;
 
 	/* Normal channel daemon. */
-	peer->owner = new_subdaemon(peer->ld, peer->ld,
+	peer->owner = (struct subdaemon *)new_subd(peer->ld, peer->ld,
 				    "lightningd_channel", peer,
-				    channel_status_wire_type_name,
-				    channel_control_wire_type_name,
+				    channel_wire_type_name,
 				    update_channel_status, NULL,
 				    peer->fd, -1);
 	if (!peer->owner) {
@@ -671,7 +673,8 @@ static void peer_start_channeld(struct peer *peer, bool am_funder,
 				  peer->seed);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
-	subdaemon_req(peer->owner, take(msg), -1, NULL, NULL, NULL);
+	/* FIXME: subdaemon */
+	subd_send_msg((struct subd *)peer->owner, take(msg));
 }
 
 static bool opening_release_tx(struct subd *opening, const u8 *resp,

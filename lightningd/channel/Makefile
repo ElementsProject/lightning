@@ -10,8 +10,7 @@ lightningd/channel-all: lightningd/lightningd_channel
 
 # lightningd/channel needs these:
 LIGHTNINGD_CHANNEL_HEADERS_GEN :=			\
-	lightningd/channel/gen_channel_control_wire.h	\
-	lightningd/channel/gen_channel_status_wire.h
+	lightningd/channel/gen_channel_wire.h
 
 LIGHTNINGD_CHANNEL_HEADERS_NOGEN :=
 
@@ -36,17 +35,11 @@ LIGHTNINGD_HEADERS_NOGEN += $(LIGHTNINGD_CHANNEL_HEADERS_NOGEN)
 
 $(LIGHTNINGD_CHANNEL_OBJS): $(LIGHTNINGD_HEADERS)
 
-lightningd/channel/gen_channel_control_wire.h: $(WIRE_GEN) lightningd/channel/channel_control_wire.csv
-	$(WIRE_GEN) --header $@ channel_control_wire_type < lightningd/channel/channel_control_wire.csv > $@
+lightningd/channel/gen_channel_wire.h: $(WIRE_GEN) lightningd/channel/channel_wire.csv
+	$(WIRE_GEN) --header $@ channel_wire_type < lightningd/channel/channel_wire.csv > $@
 
-lightningd/channel/gen_channel_control_wire.c: $(WIRE_GEN) lightningd/channel/channel_control_wire.csv
-	$(WIRE_GEN) ${@:.c=.h} channel_control_wire_type < lightningd/channel/channel_control_wire.csv > $@
-
-lightningd/channel/gen_channel_status_wire.h: $(WIRE_GEN) lightningd/channel/channel_status_wire.csv
-	$(WIRE_GEN) --header $@ channel_status_wire_type < lightningd/channel/channel_status_wire.csv > $@
-
-lightningd/channel/gen_channel_status_wire.c: $(WIRE_GEN) lightningd/channel/channel_status_wire.csv
-	$(WIRE_GEN) ${@:.c=.h} channel_status_wire_type < lightningd/channel/channel_status_wire.csv > $@
+lightningd/channel/gen_channel_wire.c: $(WIRE_GEN) lightningd/channel/channel_wire.csv
+	$(WIRE_GEN) ${@:.c=.h} channel_wire_type < lightningd/channel/channel_wire.csv > $@
 
 LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o) $(LIGHTNINGD_CHANNEL_GEN_SRC:.c=.o)
 
