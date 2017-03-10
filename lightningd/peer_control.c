@@ -19,8 +19,7 @@
 #include <lightningd/channel/gen_channel_control_wire.h>
 #include <lightningd/channel/gen_channel_status_wire.h>
 #include <lightningd/funding_tx.h>
-#include <lightningd/gossip/gen_gossip_control_wire.h>
-#include <lightningd/gossip/gen_gossip_status_wire.h>
+#include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/handshake/gen_handshake_control_wire.h>
 #include <lightningd/handshake/gen_handshake_status_wire.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
@@ -138,13 +137,15 @@ static void handshake_succeeded(struct subdaemon *hs, const u8 *msg,
 	subdaemon_req(peer->owner, take(towire_handshake_exit_req(msg)),
 		      -1, NULL, NULL, NULL);
 
-	peer->owner = peer->ld->gossip;
+	/* FIXME! */
+	peer->owner = (struct subdaemon *)peer->ld->gossip;
 	tal_steal(peer->owner, peer);
 	peer_set_condition(peer, "Beginning gossip");
 
 	/* Tell gossip to handle it now. */
 	msg = towire_gossipctl_new_peer(msg, peer->unique_id, &cs);
-	subdaemon_req(peer->ld->gossip, msg, peer->fd, &peer->fd, NULL, NULL);
+	subd_send_msg(peer->ld->gossip, msg);
+	subd_send_fd(peer->ld->gossip, peer->fd);
 
 	/* Peer struct longer owns fd. */
 	peer->fd = -1;
@@ -934,7 +935,7 @@ void peer_accept_open(struct peer *peer,
 }
 
 /* Peer has been released from gossip.  Start opening. */
-static void gossip_peer_released(struct subdaemon *gossip,
+static bool gossip_peer_released(struct subd *gossip,
 				 const u8 *resp,
 				 struct funding_channel *fc)
 {
@@ -945,8 +946,8 @@ static void gossip_peer_released(struct subdaemon *gossip,
 	u8 *msg;
 
 	fc->cs = tal(fc, struct crypto_state);
-	if (!fromwire_gossipctl_release_peer_response(resp, NULL, &id, fc->cs))
-		fatal("Gossup daemon gave invalid response %s",
+	if (!fromwire_gossipctl_release_peer_reply(resp, NULL, &id, fc->cs))
+		fatal("Gossup daemon gave invalid reply %s",
 		      tal_hex(gossip, resp));
 
 	if (id != fc->peer->unique_id)
@@ -965,7 +966,7 @@ static void gossip_peer_released(struct subdaemon *gossip,
 			    strerror(errno));
 		peer_set_condition(fc->peer, "Failed to subdaemon opening");
 		tal_free(fc->peer);
-		return;
+		return true;
 	}
 	/* They took our fd. */
 	fc->peer->fd = -1;
@@ -992,6 +993,7 @@ static void gossip_peer_released(struct subdaemon *gossip,
 				  15000, max_minimum_depth);
 	subdaemon_req(fc->peer->owner, take(msg), -1, NULL,
 		      opening_gen_funding, fc);
+	return true;
 }
 
 static void json_fund_channel(struct command *cmd,
@@ -1016,7 +1018,8 @@ static void json_fund_channel(struct command *cmd,
 		command_fail(cmd, "Could not find peer with that peerid");
 		return;
 	}
-	if (fc->peer->owner != ld->gossip) {
+	/* FIXME! */
+	if (fc->peer->owner != (struct subdaemon *)ld->gossip) {
 		command_fail(cmd, "Peer not ready for connection");
 		return;
 	}
@@ -1040,8 +1043,8 @@ static void json_fund_channel(struct command *cmd,
 	/* Tie this fc lifetime (and hence utxo release) to the peer */
 	tal_steal(fc->peer, fc);
 	tal_add_destructor(fc, fail_fundchannel_command);
-	subdaemon_req(ld->gossip, msg, -1, &fc->peer->fd,
-		      gossip_peer_released, fc);
+	subd_req(ld->gossip, msg, -1, &fc->peer->fd,
+		 gossip_peer_released, fc);
 }
 
 static const struct json_command fund_channel_command = {

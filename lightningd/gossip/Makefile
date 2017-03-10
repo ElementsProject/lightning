@@ -7,10 +7,8 @@ lightningd/gossip-wrongdir:
 default: lightningd/gossip-all
 
 # Control daemon uses this:
-LIGHTNINGD_GOSSIP_CONTROL_HEADERS := lightningd/gossip/gen_gossip_control_wire.h \
-	lightningd/gossip/gen_gossip_status_wire.h
-LIGHTNINGD_GOSSIP_CONTROL_SRC := lightningd/gossip/gen_gossip_control_wire.c \
-	lightningd/gossip/gen_gossip_status_wire.c
+LIGHTNINGD_GOSSIP_CONTROL_HEADERS := lightningd/gossip/gen_gossip_wire.h
+LIGHTNINGD_GOSSIP_CONTROL_SRC := lightningd/gossip/gen_gossip_wire.c
 LIGHTNINGD_GOSSIP_CONTROL_OBJS := $(LIGHTNINGD_GOSSIP_CONTROL_SRC:.c=.o)
 
 # These should eventually be migrated to the lightningd directory, after
@@ -19,8 +17,7 @@ LIGHTNINGD_GOSSIP_LEGACY_HEADERS := daemon/routing.h daemon/broadcast.h \
 	daemon/log.h daemon/pseudorand.h daemon/timeout.h
 
 # lightningd/gossip needs these:
-LIGHTNINGD_GOSSIP_HEADERS := lightningd/gossip/gen_gossip_control_wire.h \
-	lightningd/gossip/gen_gossip_status_wire.h \
+LIGHTNINGD_GOSSIP_HEADERS := lightningd/gossip/gen_gossip_wire.h \
 	$(LIGHTNINGD_GOSSIP_LEGACY_HEADERS)
 LIGHTNINGD_GOSSIP_SRC := lightningd/gossip/gossip.c	\
 	$(LIGHTNINGD_GOSSIP_HEADERS:.h=.c)
@@ -42,17 +39,11 @@ lightningd/gossip-all: lightningd/lightningd_gossip $(LIGHTNINGD_GOSSIP_CLIENT_O
 lightningd/lightningd_gossip: $(LIGHTNINGD_GOSSIP_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-lightningd/gossip/gen_gossip_control_wire.h: $(WIRE_GEN) lightningd/gossip/gossip_control_wire_csv
-	$(WIRE_GEN) --header $@ gossip_control_wire_type < lightningd/gossip/gossip_control_wire_csv > $@
+lightningd/gossip/gen_gossip_wire.h: $(WIRE_GEN) lightningd/gossip/gossip_wire.csv
+	$(WIRE_GEN) --header $@ gossip_wire_type < lightningd/gossip/gossip_wire.csv > $@
 
-lightningd/gossip/gen_gossip_control_wire.c: $(WIRE_GEN) lightningd/gossip/gossip_control_wire_csv
-	$(WIRE_GEN) ${@:.c=.h} gossip_control_wire_type < lightningd/gossip/gossip_control_wire_csv > $@
-
-lightningd/gossip/gen_gossip_status_wire.h: $(WIRE_GEN) lightningd/gossip/gossip_status_wire_csv
-	$(WIRE_GEN) --header $@ gossip_status_wire_type < lightningd/gossip/gossip_status_wire_csv > $@
-
-lightningd/gossip/gen_gossip_status_wire.c: $(WIRE_GEN) lightningd/gossip/gossip_status_wire_csv
-	$(WIRE_GEN) ${@:.c=.h} gossip_status_wire_type < lightningd/gossip/gossip_status_wire_csv > $@
+lightningd/gossip/gen_gossip_wire.c: $(WIRE_GEN) lightningd/gossip/gossip_wire.csv
+	$(WIRE_GEN) ${@:.c=.h} gossip_wire_type < lightningd/gossip/gossip_wire.csv > $@
 
 check-source: $(LIGHTNINGD_GOSSIP_ALLSRC_NOGEN:%=check-src-include-order/%) $(LIGHTNINGD_GOSSIP_ALLHEADERS_NOGEN:%=check-hdr-include-order/%)
 check-source-bolt: $(LIGHTNINGD_GOSSIP_SRC:%=bolt-check/%) $(LIGHTNINGD_GOSSIP_HEADERS:%=bolt-check/%)

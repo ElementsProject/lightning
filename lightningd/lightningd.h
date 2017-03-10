@@ -27,7 +27,7 @@ struct lightningd {
 	struct subd *hsm;
 
 	/* Daemon looking after peers during init / before channel. */
-	struct subdaemon *gossip;
+	struct subd *gossip;
 
 	/* All peers we're tracking. */
 	struct list_head peers;

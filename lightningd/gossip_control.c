@@ -1,6 +1,7 @@
 #include "gossip_control.h"
 #include "lightningd.h"
 #include "peer_control.h"
+#include "subd.h"
 #include "subdaemon.h"
 #include <ccan/err/err.h>
 #include <ccan/take/take.h>
@@ -8,11 +9,10 @@
 #include <daemon/log.h>
 #include <inttypes.h>
 #include <lightningd/cryptomsg.h>
-#include <lightningd/gossip/gen_gossip_control_wire.h>
-#include <lightningd/gossip/gen_gossip_status_wire.h>
+#include <lightningd/gossip/gen_gossip_wire.h>
 #include <wire/gen_peer_wire.h>
 
-static void gossip_finished(struct subdaemon *gossip, int status)
+static void gossip_finished(struct subd *gossip, int status)
 {
 	if (WIFEXITED(status))
 		errx(1, "Gossip failed (exit status %i), exiting.",
@@ -20,7 +20,7 @@ static void gossip_finished(struct subdaemon *gossip, int status)
 	errx(1, "Gossip failed (signal %u), exiting.", WTERMSIG(status));
 }
 
-static void peer_bad_message(struct subdaemon *gossip, const u8 *msg)
+static void peer_bad_message(struct subd *gossip, const u8 *msg)
 {
 	u64 unique_id;
 	struct peer *peer;
@@ -38,11 +38,11 @@ static void peer_bad_message(struct subdaemon *gossip, const u8 *msg)
 		  type_to_string(msg, struct pubkey, peer->id),
 		  tal_hex(msg, msg));
 	peer_set_condition(peer, "Bad message %s during gossip phase",
-			   gossip_status_wire_type_name(fromwire_peektype(msg)));
+			   gossip_wire_type_name(fromwire_peektype(msg)));
 	tal_free(peer);
 }
 
-static void peer_nongossip(struct subdaemon *gossip, const u8 *msg, int fd)
+static void peer_nongossip(struct subd *gossip, const u8 *msg, int fd)
 {
 	u64 unique_id;
 	struct peer *peer;
@@ -58,7 +58,8 @@ static void peer_nongossip(struct subdaemon *gossip, const u8 *msg, int fd)
 	if (!peer)
 		fatal("Gossip gave bad peerid %"PRIu64, unique_id);
 
-	if (peer->owner != gossip)
+	/* FIXME! */
+	if (peer->owner != (struct subdaemon *)gossip)
 		fatal("Gossip gave bad peerid %"PRIu64" (owner %s)",
 		      unique_id, peer->owner ? peer->owner->name : "(none)");
 
@@ -72,7 +73,7 @@ static void peer_nongossip(struct subdaemon *gossip, const u8 *msg, int fd)
 	peer_accept_open(peer, &cs, inner);
 }
 
-static void peer_ready(struct subdaemon *gossip, const u8 *msg)
+static void peer_ready(struct subd *gossip, const u8 *msg)
 {
 	u64 unique_id;
 	struct peer *peer;
@@ -102,10 +103,10 @@ static void peer_ready(struct subdaemon *gossip, const u8 *msg)
 	peer_set_condition(peer, "Exchanging gossip");
 }
 
-static enum subdaemon_status gossip_status(struct subdaemon *gossip,
-					   const u8 *msg, int fd)
+static enum subd_msg_ret gossip_msg(struct subd *gossip,
+				    const u8 *msg, int fd)
 {
-	enum gossip_status_wire_type t = fromwire_peektype(msg);
+	enum gossip_wire_type t = fromwire_peektype(msg);
 
 	switch (t) {
 	/* We don't get told about fatal errors. */
@@ -114,28 +115,32 @@ static enum subdaemon_status gossip_status(struct subdaemon *gossip,
 	case WIRE_GOSSIPSTATUS_BAD_REQUEST:
 	case WIRE_GOSSIPSTATUS_FDPASS_FAILED:
 	case WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST:
+	/* These are messages we send, not them. */
+	case WIRE_GOSSIPCTL_NEW_PEER:
+	case WIRE_GOSSIPCTL_RELEASE_PEER:
+	/* This is a reply, so never gets through to here. */
+	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 		break;
 	case WIRE_GOSSIPSTATUS_PEER_BAD_MSG:
 		peer_bad_message(gossip, msg);
 		break;
 	case WIRE_GOSSIPSTATUS_PEER_NONGOSSIP:
 		if (fd == -1)
-			return STATUS_NEED_FD;
+			return SUBD_NEED_FD;
 		peer_nongossip(gossip, msg, fd);
 		break;
 	case WIRE_GOSSIPSTATUS_PEER_READY:
 		peer_ready(gossip, msg);
 		break;
 	}
-	return STATUS_COMPLETE;
+	return SUBD_COMPLETE;
 }
 
 void gossip_init(struct lightningd *ld)
 {
-	ld->gossip = new_subdaemon(ld, ld, "lightningd_gossip", NULL,
-				   gossip_status_wire_type_name,
-				   gossip_control_wire_type_name,
-				   gossip_status, gossip_finished, -1);
+	ld->gossip = new_subd(ld, ld, "lightningd_gossip", NULL,
+			      gossip_wire_type_name,
+			      gossip_msg, gossip_finished, -1);
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
 }

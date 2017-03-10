@@ -17,8 +17,7 @@
 #include <inttypes.h>
 #include <lightningd/cryptomsg.h>
 #include <lightningd/debug.h>
-#include <lightningd/gossip/gen_gossip_control_wire.h>
-#include <lightningd/gossip/gen_gossip_status_wire.h>
+#include <lightningd/gossip/gen_gossip_wire.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/randombytes.h>
 #include <status.h>
@@ -343,9 +342,9 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 			tal_steal(daemon, peer);
 			io_close_taken_fd(peer->conn);
 
-			out = towire_gossipctl_release_peer_response(msg,
-								     unique_id,
-								     &peer->pcs.cs);
+			out = towire_gossipctl_release_peer_reply(msg,
+								  unique_id,
+								  &peer->pcs.cs);
 			return io_write_wire(conn, out, release_peer_fd, peer);
 		}
 	}
@@ -355,11 +354,10 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon *daemon)
 {
-	enum gossip_control_wire_type t = fromwire_peektype(daemon->msg_in);
+	enum gossip_wire_type t = fromwire_peektype(daemon->msg_in);
 
 	status_trace("req: type %s len %zu",
-		     gossip_control_wire_type_name(t),
-		     tal_count(daemon->msg_in));
+		     gossip_wire_type_name(t), tal_count(daemon->msg_in));
 
 	switch (t) {
 	case WIRE_GOSSIPCTL_NEW_PEER:
@@ -367,7 +365,15 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon *daemon)
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 		return release_peer(conn, daemon, daemon->msg_in);
 
-	case WIRE_GOSSIPCTL_RELEASE_PEER_RESPONSE:
+	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
+	case WIRE_GOSSIPSTATUS_INIT_FAILED:
+	case WIRE_GOSSIPSTATUS_BAD_NEW_PEER_REQUEST:
+	case WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST:
+	case WIRE_GOSSIPSTATUS_BAD_REQUEST:
+	case WIRE_GOSSIPSTATUS_FDPASS_FAILED:
+	case WIRE_GOSSIPSTATUS_PEER_BAD_MSG:
+	case WIRE_GOSSIPSTATUS_PEER_READY:
+	case WIRE_GOSSIPSTATUS_PEER_NONGOSSIP:
 		break;
 	}
 
@@ -399,9 +405,8 @@ int main(int argc, char *argv[])
 	timers_init(&daemon->timers, time_mono());
 	daemon->msg_in = NULL;
 
-	/* Stdout == status, stdin == requests */
-	status_setup(STDOUT_FILENO);
-
+	/* stdin == control */
+	status_setup(STDIN_FILENO);
 	io_new_conn(NULL, STDIN_FILENO, next_req_in, daemon);
 
 	for (;;) {
