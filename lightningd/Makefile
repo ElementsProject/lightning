@@ -46,7 +46,8 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/funding_tx.c			\
 	lightningd/htlc_tx.c			\
 	lightningd/key_derive.c			\
-	lightningd/peer_failed.c			\
+	lightningd/msg_queue.c			\
+	lightningd/peer_failed.c		\
 	lightningd/utxo.c
 
 LIGHTNINGD_LIB_OBJS := $(LIGHTNINGD_LIB_SRC:.c=.o)
