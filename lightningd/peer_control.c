@@ -1,5 +1,6 @@
 #include "lightningd.h"
 #include "peer_control.h"
+#include "subd.h"
 #include "subdaemon.h"
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
@@ -22,7 +23,7 @@
 #include <lightningd/gossip/gen_gossip_status_wire.h>
 #include <lightningd/handshake/gen_handshake_control_wire.h>
 #include <lightningd/handshake/gen_handshake_status_wire.h>
-#include <lightningd/hsm/gen_hsm_control_wire.h>
+#include <lightningd/hsm/gen_hsm_wire.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/opening/gen_opening_control_wire.h>
 #include <lightningd/opening/gen_opening_status_wire.h>
@@ -156,12 +157,12 @@ err:
 	tal_free(peer);
 }
 
-static void peer_got_handshake_hsmfd(struct subdaemon *hsm, const u8 *msg,
+static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 				     struct peer *peer)
 {
 	const u8 *req;
 
-	if (!fromwire_hsmctl_hsmfd_fd_response(msg, NULL)) {
+	if (!fromwire_hsmctl_hsmfd_ecdh_fd_reply(msg, NULL)) {
 		log_unusual(peer->ld->log, "Malformed hsmfd response: %s",
 			    tal_hex(peer, msg));
 		goto error;
@@ -197,10 +198,11 @@ static void peer_got_handshake_hsmfd(struct subdaemon *hsm, const u8 *msg,
 	 * back on success */
 	subdaemon_req(peer->owner, take(req), -1, &peer->fd,
 		      handshake_succeeded, peer);
-	return;
+	return true;
 
 error:
 	tal_free(peer);
+	return true;
 }
 
 /* FIXME: timeout handshake if taking too long? */
@@ -212,9 +214,9 @@ static struct io_plan *peer_in(struct io_conn *conn, struct lightningd *ld)
 		return io_close(conn);
 
 	/* Get HSM fd for this peer. */
-	subdaemon_req(ld->hsm,
-		      take(towire_hsmctl_hsmfd_ecdh(ld, peer->unique_id)),
-		      -1, &peer->hsmfd, peer_got_handshake_hsmfd, peer);
+	subd_req(ld->hsm,
+		 take(towire_hsmctl_hsmfd_ecdh(ld, peer->unique_id)),
+		 -1, &peer->hsmfd, peer_got_handshake_hsmfd, peer);
 
 	/* We don't need conn, we'll pass fd to handshaked. */
 	return io_close_taken_fd(conn);
@@ -343,9 +345,9 @@ static struct io_plan *peer_out(struct io_conn *conn,
 	peer->id = tal_dup(peer, struct pubkey, &jc->id);
 
 	/* Get HSM fd for this peer. */
-	subdaemon_req(ld->hsm,
-		      take(towire_hsmctl_hsmfd_ecdh(ld, peer->unique_id)),
-		      -1, &peer->hsmfd, peer_got_handshake_hsmfd, peer);
+	subd_req(ld->hsm,
+		 take(towire_hsmctl_hsmfd_ecdh(ld, peer->unique_id)),
+		 -1, &peer->hsmfd, peer_got_handshake_hsmfd, peer);
 
 	/* We don't need conn, we'll pass fd to handshaked. */
 	return io_close_taken_fd(conn);
@@ -555,15 +557,15 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 	return DELETE_WATCH;
 }
 
-static void opening_got_hsm_funding_sig(struct subdaemon *hsm, const u8 *resp,
+static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 					struct funding_channel *fc)
 {
 	secp256k1_ecdsa_signature *sigs;
 	struct bitcoin_tx *tx = fc->funding_tx;
 	size_t i;
 
-	if (!fromwire_hsmctl_sign_funding_response(fc, resp, NULL, &sigs))
-		fatal("HSM gave bad sign_funding_response %s",
+	if (!fromwire_hsmctl_sign_funding_reply(fc, resp, NULL, &sigs))
+		fatal("HSM gave bad sign_funding_reply %s",
 		      tal_hex(fc, resp));
 
 	if (tal_count(sigs) != tal_count(tx->input))
@@ -595,6 +597,7 @@ static void opening_got_hsm_funding_sig(struct subdaemon *hsm, const u8 *resp,
 	watch_tx(fc->peer, fc->peer->ld->topology, fc->peer, tx,
 		 funding_depth_cb, NULL);
 	tal_free(fc);
+	return true;
 }
 
 static enum subdaemon_status update_channel_status(struct subdaemon *sd,
@@ -715,8 +718,8 @@ static void opening_release_tx(struct subdaemon *opening, const u8 *resp,
 					 &fc->remote_fundingkey,
 					 utxos);
 	tal_free(utxos);
-	subdaemon_req(fc->peer->ld->hsm, take(msg), -1, NULL,
-		      opening_got_hsm_funding_sig, fc);
+	subd_req(fc->peer->ld->hsm, take(msg), -1, NULL,
+		 opening_got_hsm_funding_sig, fc);
 
 	/* Start normal channel daemon. */
 	peer_start_channeld(fc->peer, true,

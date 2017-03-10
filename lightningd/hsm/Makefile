@@ -12,16 +12,13 @@ LIGHTNINGD_HSM_CLIENT_SRC := lightningd/hsm/client.c lightningd/hsm/gen_hsm_clie
 LIGHTNINGD_HSM_CLIENT_OBJS := $(LIGHTNINGD_HSM_CLIENT_SRC:.c=.o)
 
 # Control daemon uses this:
-LIGHTNINGD_HSM_CONTROL_HEADERS := lightningd/hsm/gen_hsm_control_wire.h \
-	lightningd/hsm/gen_hsm_status_wire.h
-LIGHTNINGD_HSM_CONTROL_SRC := lightningd/hsm/gen_hsm_control_wire.c \
-	lightningd/hsm/gen_hsm_status_wire.c
+LIGHTNINGD_HSM_CONTROL_HEADERS := lightningd/hsm/gen_hsm_wire.h
+LIGHTNINGD_HSM_CONTROL_SRC := lightningd/hsm/gen_hsm_wire.c
 LIGHTNINGD_HSM_CONTROL_OBJS := $(LIGHTNINGD_HSM_CONTROL_SRC:.c=.o)
 
 # lightningd/hsm needs these:
 LIGHTNINGD_HSM_HEADERS := lightningd/hsm/gen_hsm_client_wire.h	\
-	lightningd/hsm/gen_hsm_control_wire.h			\
-	lightningd/hsm/gen_hsm_status_wire.h
+	lightningd/hsm/gen_hsm_wire.h
 LIGHTNINGD_HSM_SRC := lightningd/hsm/hsm.c	\
 	$(LIGHTNINGD_HSM_HEADERS:.h=.c)
 LIGHTNINGD_HSM_OBJS := $(LIGHTNINGD_HSM_SRC:.c=.o)
@@ -50,17 +47,11 @@ lightningd/hsm/gen_hsm_client_wire.h: $(WIRE_GEN) lightningd/hsm/hsm_client_wire
 lightningd/hsm/gen_hsm_client_wire.c: $(WIRE_GEN) lightningd/hsm/hsm_client_wire_csv
 	$(WIRE_GEN) ${@:.c=.h} hsm_client_wire_type< lightningd/hsm/hsm_client_wire_csv > $@
 
-lightningd/hsm/gen_hsm_control_wire.h: $(WIRE_GEN) lightningd/hsm/hsm_control_wire_csv
-	$(WIRE_GEN) --header $@ hsm_control_wire_type < lightningd/hsm/hsm_control_wire_csv > $@
+lightningd/hsm/gen_hsm_wire.h: $(WIRE_GEN) lightningd/hsm/hsm_wire.csv
+	$(WIRE_GEN) --header $@ hsm_wire_type < lightningd/hsm/hsm_wire.csv > $@
 
-lightningd/hsm/gen_hsm_control_wire.c: $(WIRE_GEN) lightningd/hsm/hsm_control_wire_csv
-	$(WIRE_GEN) ${@:.c=.h} hsm_control_wire_type < lightningd/hsm/hsm_control_wire_csv > $@
-
-lightningd/hsm/gen_hsm_status_wire.h: $(WIRE_GEN) lightningd/hsm/hsm_status_wire_csv
-	$(WIRE_GEN) --header $@ hsm_status_wire_type < lightningd/hsm/hsm_status_wire_csv > $@
-
-lightningd/hsm/gen_hsm_status_wire.c: $(WIRE_GEN) lightningd/hsm/hsm_status_wire_csv
-	$(WIRE_GEN) ${@:.c=.h} hsm_status_wire_type < lightningd/hsm/hsm_status_wire_csv > $@
+lightningd/hsm/gen_hsm_wire.c: $(WIRE_GEN) lightningd/hsm/hsm_wire.csv
+	$(WIRE_GEN) ${@:.c=.h} hsm_wire_type < lightningd/hsm/hsm_wire.csv > $@
 
 check-source: $(LIGHTNINGD_HSM_ALLSRC_NOGEN:%=check-src-include-order/%) $(LIGHTNINGD_HSM_ALLHEADERS_NOGEN:%=check-hdr-include-order/%)
 check-source-bolt: $(LIGHTNINGD_HSM_SRC:%=bolt-check/%) $(LIGHTNINGD_HSM_HEADERS:%=bolt-check/%)

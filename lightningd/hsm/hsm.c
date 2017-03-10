@@ -18,8 +18,7 @@
 #include <lightningd/funding_tx.h>
 #include <lightningd/hsm/client.h>
 #include <lightningd/hsm/gen_hsm_client_wire.h>
-#include <lightningd/hsm/gen_hsm_control_wire.h>
-#include <lightningd/hsm/gen_hsm_status_wire.h>
+#include <lightningd/hsm/gen_hsm_wire.h>
 #include <permute_tx.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/randombytes.h>
@@ -155,8 +154,8 @@ static u8 *init_response(struct conn_info *control)
 		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
 			      "Can't serialize bip32 public key");
 
-	msg = towire_hsmctl_init_response(control, &node_id, &peer_seed,
-					  serialized_extkey);
+	msg = towire_hsmctl_init_reply(control, &node_id, &peer_seed,
+				       serialized_extkey);
 	tal_free(serialized_extkey);
 	return msg;
 }
@@ -252,7 +251,7 @@ static void bitcoin_keypair(struct privkey *privkey,
 			      "BIP32 pubkey %u create failed", index);
 }
 
-static u8 *create_new_hsm(struct conn_info *control)
+static void create_new_hsm(struct conn_info *control)
 {
 	int fd = open("hsm_secret", O_CREAT|O_EXCL|O_WRONLY, 0400);
 	if (fd < 0)
@@ -284,11 +283,9 @@ static u8 *create_new_hsm(struct conn_info *control)
 	close(fd);
 
 	populate_secretstuff();
-
-	return init_response(control);
 }
 
-static u8 *load_hsm(struct conn_info *control)
+static void load_hsm(struct conn_info *control)
 {
 	int fd = open("hsm_secret", O_RDONLY);
 	if (fd < 0)
@@ -300,6 +297,19 @@ static u8 *load_hsm(struct conn_info *control)
 	close(fd);
 
 	populate_secretstuff();
+}
+
+static u8 *init_hsm(struct conn_info *control, const u8 *msg)
+{
+	bool new;
+
+	if (!fromwire_hsmctl_init(msg, NULL, &new))
+		status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "hsmctl_init: %s",
+			      tal_hex(msg, msg));
+	if (new)
+		create_new_hsm(control);
+	else
+		load_hsm(control);
 
 	return init_response(control);
 }
@@ -349,7 +359,7 @@ static u8 *pass_hsmfd_ecdh(struct io_conn *conn,
 	io_new_conn(control, fds[0], ecdh_client, c);
 
 	*fd_to_pass = fds[1];
-	return towire_hsmctl_hsmfd_fd_response(control);
+	return towire_hsmctl_hsmfd_ecdh_fd_reply(control);
 }
 
 /* Note that it's the main daemon that asks for the funding signature so it
@@ -408,7 +418,7 @@ static u8 *sign_funding_tx(const tal_t *ctx, const u8 *data)
 			      &inprivkey, &inkey, &sig[i]);
 	}
 
-	msg_out = towire_hsmctl_sign_funding_response(ctx, sig);
+	msg_out = towire_hsmctl_sign_funding_reply(ctx, sig);
 	tal_free(tmpctx);
 	return msg_out;
 }
@@ -416,17 +426,14 @@ static u8 *sign_funding_tx(const tal_t *ctx, const u8 *data)
 static struct io_plan *control_received_req(struct io_conn *conn,
 					    struct conn_info *control)
 {
-	enum hsm_control_wire_type t = fromwire_peektype(control->in);
+	enum hsm_wire_type t = fromwire_peektype(control->in);
 
 	status_trace("Control: type %s len %zu",
-		     hsm_control_wire_type_name(t), tal_count(control->in));
+		     hsm_wire_type_name(t), tal_count(control->in));
 
 	switch (t) {
-	case WIRE_HSMCTL_INIT_NEW:
-		control->out = create_new_hsm(control);
-		goto send_out;
-	case WIRE_HSMCTL_INIT_LOAD:
-		control->out = load_hsm(control);
+	case WIRE_HSMCTL_INIT:
+		control->out = init_hsm(control, control->in);
 		goto send_out;
 	case WIRE_HSMCTL_HSMFD_ECDH:
 		control->out = pass_hsmfd_ecdh(conn, control, control->in,
@@ -436,9 +443,15 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 		control->out = sign_funding_tx(control, control->in);
 		goto send_out;
 
-	case WIRE_HSMCTL_INIT_RESPONSE:
-	case WIRE_HSMCTL_HSMFD_FD_RESPONSE:
-	case WIRE_HSMCTL_SIGN_FUNDING_RESPONSE:
+	case WIRE_HSMCTL_INIT_REPLY:
+	case WIRE_HSMCTL_HSMFD_ECDH_FD_REPLY:
+	case WIRE_HSMCTL_SIGN_FUNDING_REPLY:
+	case WIRE_HSMSTATUS_INIT_FAILED:
+	case WIRE_HSMSTATUS_WRITEMSG_FAILED:
+	case WIRE_HSMSTATUS_BAD_REQUEST:
+	case WIRE_HSMSTATUS_FD_FAILED:
+	case WIRE_HSMSTATUS_KEY_FAILED:
+	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 		break;
 	}
 
@@ -458,16 +471,11 @@ static struct io_plan *control_init(struct io_conn *conn,
 	return recv_req(conn, control);
 }
 
-/* Exit when control fd closes. */
-static void control_finish(struct io_conn *conn, struct conn_info *control)
-{
-	io_break(control);
-}
-
 #ifndef TESTING
 int main(int argc, char *argv[])
 {
 	struct conn_info *control;
+	struct io_conn *conn;
 
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
@@ -481,15 +489,13 @@ int main(int argc, char *argv[])
 	control = tal(NULL, struct conn_info);
 	conn_info_init(control, control_received_req);
 
-	/* Stdout == status, stdin == requests */
-	status_setup(STDOUT_FILENO);
+	status_setup(STDIN_FILENO);
 
-	io_set_finish(io_new_conn(control, STDIN_FILENO, control_init, control),
-		      control_finish, control);
+	conn = io_new_conn(NULL, STDIN_FILENO, control_init, control);
+	/* When conn closes, everything is freed. */
+	tal_steal(conn, control);
 
 	io_loop(NULL, NULL);
-
-	tal_free(control);
 	return 0;
 }
 #endif

@@ -1,25 +1,24 @@
 #include "hsm_control.h"
 #include "lightningd.h"
 #include "peer_control.h"
-#include "subdaemon.h"
+#include "subd.h"
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/take/take.h>
 #include <daemon/log.h>
 #include <inttypes.h>
-#include <lightningd/hsm/gen_hsm_control_wire.h>
-#include <lightningd/hsm/gen_hsm_status_wire.h>
+#include <lightningd/hsm/gen_hsm_wire.h>
 #include <wally_bip32.h>
 
-static void hsm_init_done(struct subdaemon *hsm, const u8 *msg,
+static bool hsm_init_done(struct subd *hsm, const u8 *msg,
 			  struct lightningd *ld)
 {
 	u8 *serialized_extkey;
 
-	if (!fromwire_hsmctl_init_response(hsm, msg, NULL, &ld->dstate.id,
-					   &ld->peer_seed,
-					   &serialized_extkey))
-		errx(1, "HSM did not give init response");
+	if (!fromwire_hsmctl_init_reply(hsm, msg, NULL, &ld->dstate.id,
+					&ld->peer_seed,
+					&serialized_extkey))
+		errx(1, "HSM did not give init reply");
 
 	log_info_struct(ld->log, "Our ID: %s", struct pubkey, &ld->dstate.id);
 	ld->bip32_base = tal(ld, struct ext_key);
@@ -28,9 +27,10 @@ static void hsm_init_done(struct subdaemon *hsm, const u8 *msg,
 		errx(1, "HSM did not give unserializable BIP32 extkey");
 
 	io_break(ld->hsm);
+	return true;
 }
 
-static void hsm_finished(struct subdaemon *hsm, int status)
+static void hsm_finished(struct subd *hsm, int status)
 {
 	if (WIFEXITED(status))
 		errx(1, "HSM failed (exit status %i), exiting.",
@@ -38,10 +38,9 @@ static void hsm_finished(struct subdaemon *hsm, int status)
 	errx(1, "HSM failed (signal %u), exiting.", WTERMSIG(status));
 }
 
-static enum subdaemon_status hsm_status(struct subdaemon *hsm, const u8 *msg,
-					int fd)
+static enum subd_msg_ret hsm_msg(struct subd *hsm, const u8 *msg, int fd)
 {
-	enum hsm_status_wire_type t = fromwire_peektype(msg);
+	enum hsm_wire_type t = fromwire_peektype(msg);
 	u8 *badmsg;
 	struct peer *peer;
 	u64 id;
@@ -68,33 +67,38 @@ static enum subdaemon_status hsm_status(struct subdaemon *hsm, const u8 *msg,
 	case WIRE_HSMSTATUS_BAD_REQUEST:
 	case WIRE_HSMSTATUS_FD_FAILED:
 	case WIRE_HSMSTATUS_KEY_FAILED:
-		break;
+
+	/* HSM doesn't send these */
+	case WIRE_HSMCTL_INIT:
+	case WIRE_HSMCTL_HSMFD_ECDH:
+	case WIRE_HSMCTL_SIGN_FUNDING:
+
+	/* Replies should be paired to individual requests. */
+	case WIRE_HSMCTL_INIT_REPLY:
+	case WIRE_HSMCTL_HSMFD_ECDH_FD_REPLY:
+	case WIRE_HSMCTL_SIGN_FUNDING_REPLY:
+		errx(1, "HSM gave invalid message %s", hsm_wire_type_name(t));
 	}
-	return STATUS_COMPLETE;
+	return SUBD_COMPLETE;
 }
 
 void hsm_init(struct lightningd *ld, bool newdir)
 {
 	bool create;
 
-	ld->hsm = new_subdaemon(ld, ld, "lightningd_hsm", NULL,
-				hsm_status_wire_type_name,
-				hsm_control_wire_type_name,
-				hsm_status, hsm_finished, -1);
+	ld->hsm = new_subd(ld, ld, "lightningd_hsm", NULL,
+			   hsm_wire_type_name,
+			   hsm_msg, hsm_finished, -1);
 	if (!ld->hsm)
-		err(1, "Could not subdaemon hsm");
+		err(1, "Could not subd hsm");
 
 	if (newdir)
 		create = true;
 	else
 		create = (access("hsm_secret", F_OK) != 0);
 
-	if (create)
-		subdaemon_req(ld->hsm, take(towire_hsmctl_init_new(ld->hsm)),
-			      -1, NULL, hsm_init_done, ld);
-	else
-		subdaemon_req(ld->hsm, take(towire_hsmctl_init_load(ld->hsm)),
-			      -1, NULL, hsm_init_done, ld);
+	subd_req(ld->hsm, take(towire_hsmctl_init(ld->hsm, create)),
+		 -1, NULL, hsm_init_done, ld);
 
 	if (io_loop(NULL, NULL) != ld->hsm)
 		errx(1, "Unexpected io exit during HSM startup");
