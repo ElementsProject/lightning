@@ -13,8 +13,7 @@
 #include <lightningd/debug.h>
 #include <lightningd/derive_basepoints.h>
 #include <lightningd/key_derive.h>
-#include <lightningd/opening/gen_opening_control_wire.h>
-#include <lightningd/opening/gen_opening_status_wire.h>
+#include <lightningd/opening/gen_opening_wire.h>
 #include <lightningd/peer_failed.h>
 #include <secp256k1.h>
 #include <signal.h>
@@ -26,8 +25,7 @@
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 
-/* Stdout == status, stdin == requests, 3 == peer */
-#define STATUS_FD STDOUT_FILENO
+/* stdin == requests, 3 == peer */
 #define REQ_FD STDIN_FILENO
 #define PEER_FD 3
 
@@ -325,8 +323,8 @@ static u8 *open_channel(struct state *state,
 	check_config_bounds(state, state->remoteconf);
 
 	/* Now, ask master create a transaction to pay those two addresses. */
-	msg = towire_opening_open_resp(state, our_funding_pubkey,
-				       &their_funding_pubkey);
+	msg = towire_opening_open_reply(state, our_funding_pubkey,
+					&their_funding_pubkey);
 	wire_sync_write(REQ_FD, msg);
 
 	/* Expect funding tx. */
@@ -436,14 +434,14 @@ static u8 *open_channel(struct state *state,
 	 * Once the channel funder receives the `funding_signed` message, they
 	 * must broadcast the funding transaction to the Bitcoin network.
 	 */
-	return towire_opening_open_funding_resp(state,
-						state->remoteconf,
-						&sig,
-						&state->cs,
-						&theirs.revocation,
-						&theirs.payment,
-						&theirs.delayed_payment,
-						&state->next_per_commit[REMOTE]);
+	return towire_opening_open_funding_reply(state,
+						 state->remoteconf,
+						 &sig,
+						 &state->cs,
+						 &theirs.revocation,
+						 &theirs.payment,
+						 &theirs.delayed_payment,
+						 &state->next_per_commit[REMOTE]);
 }
 
 /* This is handed the message the peer sent which caused gossip to stop:
@@ -584,7 +582,7 @@ static u8 *recv_channel(struct state *state,
 	/* Now, ask master to watch. */
 	status_trace("asking master to watch funding %s",
 		     type_to_string(trc, struct sha256_double, &state->funding_txid));
-	msg = towire_opening_accept_resp(state, &state->funding_txid);
+	msg = towire_opening_accept_reply(state, &state->funding_txid);
 	wire_sync_write(REQ_FD, msg);
 
 	msg = wire_sync_read(state, REQ_FD);
@@ -642,18 +640,18 @@ static u8 *recv_channel(struct state *state,
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
 			      "Writing funding_signed");
 
-	return towire_opening_accept_finish_resp(state,
-						 state->funding_txout,
-						 state->remoteconf,
-						 &theirsig,
-						 &state->cs,
-						 &their_funding_pubkey,
-						 &theirs.revocation,
-						 &theirs.payment,
-						 &theirs.delayed_payment,
-						 &state->next_per_commit[REMOTE],
-						 state->funding_satoshis,
-						 state->push_msat);
+	return towire_opening_accept_finish_reply(state,
+						  state->funding_txout,
+						  state->remoteconf,
+						  &theirsig,
+						  &state->cs,
+						  &their_funding_pubkey,
+						  &theirs.revocation,
+						  &theirs.payment,
+						  &theirs.delayed_payment,
+						  &state->next_per_commit[REMOTE],
+						  state->funding_satoshis,
+						  state->push_msat);
 }
 
 #ifndef TESTING
@@ -678,7 +676,7 @@ int main(int argc, char *argv[])
 	signal(SIGCHLD, SIG_IGN);
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
-	status_setup(STATUS_FD);
+	status_setup(REQ_FD);
 
 	msg = wire_sync_read(state, REQ_FD);
 	if (!msg)
@@ -718,15 +716,7 @@ int main(int argc, char *argv[])
 	wire_sync_write(REQ_FD, msg);
 	fdpass_send(REQ_FD, PEER_FD);
 	status_trace("Sent %s with fd",
-		     opening_control_wire_type_name(fromwire_peektype(msg)));
-
-	/* Wait for exit command (avoid state close being read before reqfd) */
-	msg = wire_sync_read(state, REQ_FD);
-	if (!msg)
-		status_failed(WIRE_OPENING_BAD_COMMAND, "%s", strerror(errno));
-	if (!fromwire_opening_exit_req(msg, NULL))
-		status_failed(WIRE_OPENING_BAD_COMMAND, "Expected exit req not %i",
-			      fromwire_peektype(msg));
+		     opening_wire_type_name(fromwire_peektype(msg)));
 	tal_free(state);
 	return 0;
 }

@@ -10,8 +10,7 @@ lightningd/opening-all: lightningd/lightningd_opening
 
 # lightningd/opening needs these:
 LIGHTNINGD_OPENING_HEADERS_GEN :=			\
-	lightningd/opening/gen_opening_control_wire.h	\
-	lightningd/opening/gen_opening_status_wire.h
+	lightningd/opening/gen_opening_wire.h
 
 LIGHTNINGD_OPENING_HEADERS_NOGEN :=
 
@@ -36,17 +35,11 @@ LIGHTNINGD_HEADERS_NOGEN += $(LIGHTNINGD_OPENING_HEADERS_NOGEN)
 
 $(LIGHTNINGD_OPENING_OBJS): $(LIGHTNINGD_HEADERS)
 
-lightningd/opening/gen_opening_control_wire.h: $(WIRE_GEN) lightningd/opening/opening_control_wire.csv
-	$(WIRE_GEN) --header $@ opening_control_wire_type < lightningd/opening/opening_control_wire.csv > $@
+lightningd/opening/gen_opening_wire.h: $(WIRE_GEN) lightningd/opening/opening_wire.csv
+	$(WIRE_GEN) --header $@ opening_wire_type < lightningd/opening/opening_wire.csv > $@
 
-lightningd/opening/gen_opening_control_wire.c: $(WIRE_GEN) lightningd/opening/opening_control_wire.csv
-	$(WIRE_GEN) ${@:.c=.h} opening_control_wire_type < lightningd/opening/opening_control_wire.csv > $@
-
-lightningd/opening/gen_opening_status_wire.h: $(WIRE_GEN) lightningd/opening/opening_status_wire.csv
-	$(WIRE_GEN) --header $@ opening_status_wire_type < lightningd/opening/opening_status_wire.csv > $@
-
-lightningd/opening/gen_opening_status_wire.c: $(WIRE_GEN) lightningd/opening/opening_status_wire.csv
-	$(WIRE_GEN) ${@:.c=.h} opening_status_wire_type < lightningd/opening/opening_status_wire.csv > $@
+lightningd/opening/gen_opening_wire.c: $(WIRE_GEN) lightningd/opening/opening_wire.csv
+	$(WIRE_GEN) ${@:.c=.h} opening_wire_type < lightningd/opening/opening_wire.csv > $@
 
 LIGHTNINGD_OPENING_OBJS := $(LIGHTNINGD_OPENING_SRC:.c=.o) $(LIGHTNINGD_OPENING_GEN_SRC:.c=.o)
 
