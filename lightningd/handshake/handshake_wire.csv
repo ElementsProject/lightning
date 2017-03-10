@@ -1,5 +1,5 @@
+#include <lightningd/cryptomsg.h>
 handshake_bad_command,0x8000
-handshake_bad_fdpass,0x8001
 initr_act1_bad_ecdh_for_ss,0x8011
 initr_act1_write_failed,0x8012
 initr_act2_read_failed,0x8013
@@ -22,10 +22,26 @@ respr_act3_bad_ciphertext,0x8023
 respr_act3_bad_pubkey,0x8024
 respr_act3_bad_ecdh_for_ss,0x8025
 respr_act3_bad_tag,0x8026
-initr_act_one,1
-initr_act_two,2
-initr_act_three,3
-respr_act_one,4
-respr_act_two,5
-respr_act_three,6
+
+# FIXME: This is probably too finegrained.
+initr_act_one,1001
+initr_act_two,1002
+initr_act_three,1003
+respr_act_one,1011
+respr_act_two,1012
+respr_act_three,1013
 success,0
+
+handshake_responder,1
+handshake_responder,1,my_id,33
+handshake_responder_reply,101
+handshake_responder_reply,0,initiator_id,33
+handshake_responder_reply,33,cs,144,struct crypto_state
+
+handshake_initiator,2
+handshake_initiator,0,my_id,33
+handshake_initiator,33,responder_id,33
+
+handshake_initiator_reply,102
+handshake_initiator_reply,0,cs,144,struct crypto_state
+

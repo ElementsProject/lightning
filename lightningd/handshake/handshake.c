@@ -11,8 +11,7 @@
 #include <ccan/short_types/short_types.h>
 #include <errno.h>
 #include <lightningd/debug.h>
-#include <lightningd/handshake/gen_handshake_control_wire.h>
-#include <lightningd/handshake/gen_handshake_status_wire.h>
+#include <lightningd/handshake/gen_handshake_wire.h>
 #include <lightningd/hsm/client.h>
 #include <secp256k1.h>
 #include <secp256k1_ecdh.h>
@@ -24,8 +23,6 @@
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 
-/* Stdout == status, stdin == requests, 3 == hsmfd */
-#define STATUS_FD STDOUT_FILENO
 #define REQ_FD STDIN_FILENO
 
 /* Representing chacha keys and ecdh results we derive them from;
@@ -982,48 +979,40 @@ int main(int argc, char *argv[])
 	subdaemon_debug(argc, argv);
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
-	status_setup(STATUS_FD);
+	status_setup(REQ_FD);
 
 	hsm_setup(hsmfd);
 
 	msg = wire_sync_read(NULL, REQ_FD);
 	if (!msg)
 		status_failed(WIRE_HANDSHAKE_BAD_COMMAND, "%s", strerror(errno));
-	if (clientfd < 0)
-		status_failed(WIRE_HANDSHAKE_BAD_FDPASS, "%s", strerror(errno));
 
-	if (fromwire_handshake_responder_req(msg, NULL, &my_id)) {
+	if (fromwire_handshake_responder(msg, NULL, &my_id)) {
 		responder(clientfd, &my_id, &their_id, &ck, &sk, &rk);
 		cs.rn = cs.sn = 0;
 		cs.sk = sk.s;
 		cs.rk = rk.s;
 		cs.r_ck = cs.s_ck = ck.s;
 		wire_sync_write(REQ_FD,
-				towire_handshake_responder_resp(msg,
-								&their_id,
-								&cs));
-	} else if (fromwire_handshake_initiator_req(msg, NULL, &my_id,
-						    &their_id)) {
+				towire_handshake_responder_reply(msg,
+								 &their_id,
+								 &cs));
+	} else if (fromwire_handshake_initiator(msg, NULL, &my_id,
+						&their_id)) {
 		initiator(clientfd, &my_id, &their_id, &ck, &sk, &rk);
 		cs.rn = cs.sn = 0;
 		cs.sk = sk.s;
 		cs.rk = rk.s;
 		cs.r_ck = cs.s_ck = ck.s;
 		wire_sync_write(REQ_FD,
-				towire_handshake_initiator_resp(msg, &cs));
+				towire_handshake_initiator_reply(msg, &cs));
 	} else
-		status_failed(WIRE_HANDSHAKE_BAD_COMMAND, "%i", fromwire_peektype(msg));
+		status_failed(WIRE_HANDSHAKE_BAD_COMMAND, "%i",
+			      fromwire_peektype(msg));
 
 	/* Hand back the fd. */
 	fdpass_send(REQ_FD, clientfd);
 
-	/* Wait for exit command (avoid status close being read before reqfd) */
-	msg = wire_sync_read(msg, REQ_FD);
-	if (!msg)
-		status_failed(WIRE_HANDSHAKE_BAD_COMMAND, "%s", strerror(errno));
-	if (!fromwire_handshake_exit_req(msg, NULL))
-		status_failed(WIRE_HANDSHAKE_BAD_COMMAND, "Expected exit req not %i",
-			      fromwire_peektype(msg));
 	tal_free(msg);
 	return 0;
 }

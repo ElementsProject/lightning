@@ -20,8 +20,7 @@
 #include <lightningd/channel/gen_channel_status_wire.h>
 #include <lightningd/funding_tx.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
-#include <lightningd/handshake/gen_handshake_control_wire.h>
-#include <lightningd/handshake/gen_handshake_status_wire.h>
+#include <lightningd/handshake/gen_handshake_wire.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/opening/gen_opening_control_wire.h>
@@ -111,7 +110,7 @@ struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id)
 	return NULL;
 }
 
-static void handshake_succeeded(struct subdaemon *hs, const u8 *msg,
+static bool handshake_succeeded(struct subd *hs, const u8 *msg,
 				struct peer *peer)
 {
 	struct crypto_state cs;
@@ -119,13 +118,13 @@ static void handshake_succeeded(struct subdaemon *hs, const u8 *msg,
 	if (!peer->id) {
 		struct pubkey id;
 
-		if (!fromwire_handshake_responder_resp(msg, NULL, &id, &cs))
+		if (!fromwire_handshake_responder_reply(msg, NULL, &id, &cs))
 			goto err;
 		peer->id = tal_dup(peer, struct pubkey, &id);
 		log_info_struct(hs->log, "Peer in from %s",
 				struct pubkey, peer->id);
 	} else {
-		if (!fromwire_handshake_initiator_resp(msg, NULL, &cs))
+		if (!fromwire_handshake_initiator_reply(msg, NULL, &cs))
 			goto err;
 		log_info_struct(hs->log, "Peer out to %s",
 				struct pubkey, peer->id);
@@ -133,29 +132,27 @@ static void handshake_succeeded(struct subdaemon *hs, const u8 *msg,
 
 	/* FIXME: Look for peer duplicates! */
 
-	/* Tell handshaked to exit. */
-	subdaemon_req(peer->owner, take(towire_handshake_exit_req(msg)),
-		      -1, NULL, NULL, NULL);
-
 	/* FIXME! */
 	peer->owner = (struct subdaemon *)peer->ld->gossip;
 	tal_steal(peer->owner, peer);
 	peer_set_condition(peer, "Beginning gossip");
 
 	/* Tell gossip to handle it now. */
-	msg = towire_gossipctl_new_peer(msg, peer->unique_id, &cs);
-	subd_send_msg(peer->ld->gossip, msg);
+	msg = towire_gossipctl_new_peer(peer, peer->unique_id, &cs);
+	subd_send_msg(peer->ld->gossip, take(msg));
 	subd_send_fd(peer->ld->gossip, peer->fd);
 
 	/* Peer struct longer owns fd. */
 	peer->fd = -1;
 
-	return;
+	/* Tell handshaked to exit. */
+	return false;
 
 err:
 	log_broken(hs->log, "Malformed resp: %s", tal_hex(peer, msg));
 	close(peer->fd);
 	tal_free(peer);
+	return false;
 }
 
 static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
@@ -170,10 +167,10 @@ static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 	}
 
 	/* Give handshake daemon the hsm fd. */
-	peer->owner = new_subdaemon(peer->ld, peer->ld,
+	/* FIXME! */
+	peer->owner = (struct subdaemon *)new_subd(peer->ld, peer->ld,
 				    "lightningd_handshake", peer,
-				    handshake_status_wire_type_name,
-				    handshake_control_wire_type_name,
+				    handshake_wire_type_name,
 				    NULL, NULL,
 				    peer->hsmfd, peer->fd, -1);
 	if (!peer->owner) {
@@ -187,18 +184,19 @@ static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 	peer->fd = -1;
 
 	if (peer->id) {
-		req = towire_handshake_initiator_req(peer, &peer->ld->dstate.id,
-						     peer->id);
+		req = towire_handshake_initiator(peer, &peer->ld->dstate.id,
+						 peer->id);
 		peer_set_condition(peer, "Starting handshake as initiator");
 	} else {
-		req = towire_handshake_responder_req(peer, &peer->ld->dstate.id);
+		req = towire_handshake_responder(peer, &peer->ld->dstate.id);
 		peer_set_condition(peer, "Starting handshake as responder");
 	}
 
 	/* Now hand peer request to the handshake daemon: hands it
 	 * back on success */
-	subdaemon_req(peer->owner, take(req), -1, &peer->fd,
-		      handshake_succeeded, peer);
+	/* FIXME! subdaemon */
+	subd_req((struct subd *)peer->owner, take(req), -1, &peer->fd,
+		 handshake_succeeded, peer);
 	return true;
 
 error:
