@@ -3,7 +3,6 @@
 #include "lightningd.h"
 #include "peer_control.h"
 #include "subd.h"
-#include "subdaemon.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/err/err.h>

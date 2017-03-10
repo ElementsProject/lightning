@@ -18,7 +18,7 @@ struct peer {
 	struct list_node list;
 
 	/* What stage is this in?  NULL during first creation. */
-	struct subdaemon *owner;
+	struct subd *owner;
 
 	/* What's happening (doubles as error return for connect_cmd) */
 	const char *condition;

@@ -2,7 +2,6 @@
 #include "lightningd.h"
 #include "peer_control.h"
 #include "subd.h"
-#include "subdaemon.h"
 #include <ccan/err/err.h>
 #include <ccan/take/take.h>
 #include <daemon/jsonrpc.h>
@@ -58,8 +57,7 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg, int fd)
 	if (!peer)
 		fatal("Gossip gave bad peerid %"PRIu64, unique_id);
 
-	/* FIXME! */
-	if (peer->owner != (struct subdaemon *)gossip)
+	if (peer->owner != gossip)
 		fatal("Gossip gave bad peerid %"PRIu64" (owner %s)",
 		      unique_id, peer->owner ? peer->owner->name : "(none)");
 

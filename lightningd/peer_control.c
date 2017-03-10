@@ -1,7 +1,6 @@
 #include "lightningd.h"
 #include "peer_control.h"
 #include "subd.h"
-#include "subdaemon.h"
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/io/io.h>
@@ -130,8 +129,7 @@ static bool handshake_succeeded(struct subd *hs, const u8 *msg,
 
 	/* FIXME: Look for peer duplicates! */
 
-	/* FIXME! */
-	peer->owner = (struct subdaemon *)peer->ld->gossip;
+	peer->owner = peer->ld->gossip;
 	tal_steal(peer->owner, peer);
 	peer_set_condition(peer, "Beginning gossip");
 
@@ -166,11 +164,11 @@ static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 
 	/* Give handshake daemon the hsm fd. */
 	/* FIXME! */
-	peer->owner = (struct subdaemon *)new_subd(peer->ld, peer->ld,
-				    "lightningd_handshake", peer,
-				    handshake_wire_type_name,
-				    NULL, NULL,
-				    peer->hsmfd, peer->fd, -1);
+	peer->owner = new_subd(peer->ld, peer->ld,
+			       "lightningd_handshake", peer,
+			       handshake_wire_type_name,
+			       NULL, NULL,
+			       peer->hsmfd, peer->fd, -1);
 	if (!peer->owner) {
 		log_unusual(peer->ld->log, "Could not subdaemon handshake: %s",
 			    strerror(errno));
@@ -192,8 +190,7 @@ static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 
 	/* Now hand peer request to the handshake daemon: hands it
 	 * back on success */
-	/* FIXME! subdaemon */
-	subd_req((struct subd *)peer->owner, take(req), -1, &peer->fd,
+	subd_req(peer->owner, take(req), -1, &peer->fd,
 		 handshake_succeeded, peer);
 	return true;
 
@@ -549,9 +546,7 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 	}
 
 	peer_set_condition(peer, "Funding tx reached depth %u", depth);
-	/* FIXME: subdaemon */
-	subd_send_msg((struct subd *)peer->owner,
-		      take(towire_channel_funding_locked(peer)));
+	subd_send_msg(peer->owner, take(towire_channel_funding_locked(peer)));
 	return DELETE_WATCH;
 }
 
@@ -638,11 +633,11 @@ static void peer_start_channeld(struct peer *peer, bool am_funder,
 	u8 *msg;
 
 	/* Normal channel daemon. */
-	peer->owner = (struct subdaemon *)new_subd(peer->ld, peer->ld,
-				    "lightningd_channel", peer,
-				    channel_wire_type_name,
-				    update_channel_status, NULL,
-				    peer->fd, -1);
+	peer->owner = new_subd(peer->ld, peer->ld,
+			       "lightningd_channel", peer,
+			       channel_wire_type_name,
+			       update_channel_status, NULL,
+			       peer->fd, -1);
 	if (!peer->owner) {
 		log_unusual(peer->log, "Could not subdaemon channel: %s",
 			    strerror(errno));
@@ -673,8 +668,7 @@ static void peer_start_channeld(struct peer *peer, bool am_funder,
 				  peer->seed);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
-	/* FIXME: subdaemon */
-	subd_send_msg((struct subd *)peer->owner, take(msg));
+	subd_send_msg(peer->owner, take(msg));
 }
 
 static bool opening_release_tx(struct subd *opening, const u8 *resp,
@@ -760,8 +754,7 @@ static bool opening_gen_funding(struct subd *opening, const u8 *reply,
 
 	msg = towire_opening_open_funding(fc, fc->peer->funding_txid,
 					  fc->peer->funding_outnum);
-	/* FIXME: subdaemon */
-	subd_req((struct subd *)fc->peer->owner, take(msg), -1, &fc->peer->fd,
+	subd_req(fc->peer->owner, take(msg), -1, &fc->peer->fd,
 		 opening_release_tx, fc);
 	return true;
 }
@@ -884,7 +877,6 @@ void peer_accept_open(struct peer *peer,
 	u32 max_to_self_delay, max_minimum_depth;
 	u64 min_effective_htlc_capacity_msat;
 	u8 *msg;
-	struct subd *opening;
 
 	/* Note: gossipd handles unknown packets, so we don't have to worry
 	 * about ignoring odd ones here. */
@@ -897,12 +889,10 @@ void peer_accept_open(struct peer *peer,
 	}
 
 	peer_set_condition(peer, "Starting opening daemon");
-	opening = new_subd(ld, ld, "lightningd_opening", peer,
-			   opening_wire_type_name,
-			   NULL, NULL,
-			   peer->fd, -1);
-
-	peer->owner = (struct subdaemon *)opening;
+	peer->owner = new_subd(ld, ld, "lightningd_opening", peer,
+			       opening_wire_type_name,
+			       NULL, NULL,
+			       peer->fd, -1);
 	if (!peer->owner) {
 		log_unusual(ld->log, "Could not subdaemon opening: %s",
 			    strerror(errno));
@@ -924,8 +914,7 @@ void peer_accept_open(struct peer *peer,
 				  min_effective_htlc_capacity_msat,
 				  cs, peer->seed);
 
-	subd_send_msg(opening, take(msg));
-	/* FIXME: Real feerates! */
+	subd_send_msg(peer->owner, take(msg));
 	msg = towire_opening_accept(peer, 7500, 150000, from_peer);
 
 	/* Careful here!  Their message could push us overlength! */
@@ -934,7 +923,7 @@ void peer_accept_open(struct peer *peer,
 		tal_free(peer);
 		return;
 	}
-	subd_req(opening, take(msg), -1, NULL, opening_accept_reply, peer);
+	subd_req(peer->owner, take(msg), -1, NULL, opening_accept_reply, peer);
 }
 
 /* Peer has been released from gossip.  Start opening. */
@@ -971,7 +960,7 @@ static bool gossip_peer_released(struct subd *gossip,
 		tal_free(fc->peer);
 		return true;
 	}
-	fc->peer->owner = (struct subdaemon *)opening;
+	fc->peer->owner = opening;
 
 	/* They took our fd. */
 	fc->peer->fd = -1;
@@ -1022,8 +1011,7 @@ static void json_fund_channel(struct command *cmd,
 		command_fail(cmd, "Could not find peer with that peerid");
 		return;
 	}
-	/* FIXME! */
-	if (fc->peer->owner != (struct subdaemon *)ld->gossip) {
+	if (fc->peer->owner != ld->gossip) {
 		command_fail(cmd, "Peer not ready for connection");
 		return;
 	}
