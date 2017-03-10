@@ -59,6 +59,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/hsm_control.c		\
 	lightningd/lightningd.c			\
 	lightningd/peer_control.c		\
+	lightningd/subd.c			\
 	lightningd/subdaemon.c
 
 LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o)
@@ -73,6 +74,7 @@ LIGHTNINGD_HEADERS_NOGEN =			\
 	lightningd/hsm_control.h		\
 	lightningd/lightningd.h			\
 	lightningd/peer_control.h		\
+	lightningd/subd.h			\
 	lightningd/subdaemon.h			\
 	$(LIGHTNINGD_OLD_LIB_HEADERS)		\
 	$(LIGHTNINGD_LIB_HEADERS)		\

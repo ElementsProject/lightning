@@ -2,6 +2,7 @@
 #include "hsm_control.h"
 #include "lightningd.h"
 #include "peer_control.h"
+#include "subd.h"
 #include "subdaemon.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
@@ -177,7 +178,7 @@ int main(int argc, char *argv[])
 	ld->daemon_dir = find_my_path(ld, argv[0]);
 
 	register_opts(&ld->dstate);
-	opt_register_arg("--dev-debugger=<subdaemon>", opt_subdaemon_debug, NULL,
+	opt_register_arg("--dev-debugger=<subdaemon>", opt_subd_debug, NULL,
 			 ld, "Wait for gdb attach at start of <subdaemon>");
 
 	/* Handle options and config; move to .lightningd */

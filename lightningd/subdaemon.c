@@ -413,9 +413,3 @@ void subdaemon_req_(struct subdaemon *sd,
 	list_add_tail(&sd->reqs, &sr->list);
 	io_wake(sd);
 }
-
-char *opt_subdaemon_debug(const char *optarg, struct lightningd *ld)
-{
-	ld->dev_debug_subdaemon = optarg;
-	return NULL;
-}
