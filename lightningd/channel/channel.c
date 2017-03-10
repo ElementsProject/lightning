@@ -1,5 +1,6 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
+#include <ccan/container_of/container_of.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/fdpass/fdpass.h>
@@ -10,6 +11,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/commit_tx.h>
+#include <lightningd/connection.h>
 #include <lightningd/crypto_sync.h>
 #include <lightningd/cryptomsg.h>
 #include <lightningd/debug.h>
@@ -53,6 +55,7 @@ struct peer {
 	const u8 **peer_out;
 
 	int gossip_client_fd;
+	struct daemon_conn gossip_client;
 };
 
 static void msg_enqueue(const u8 ***q, const u8 *add)
@@ -79,6 +82,20 @@ static void queue_pkt(struct peer *peer, const u8 *msg)
 {
 	msg_enqueue(&peer->peer_out, msg);
 	io_wake(peer);
+}
+
+static struct io_plan *gossip_client_recv(struct io_conn *conn,
+					  struct daemon_conn *dc)
+{
+	u8 *msg = dc->msg_in;
+	struct peer *peer = container_of(dc, struct peer, gossip_client);
+	u16 type = fromwire_peektype(msg);
+
+	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
+	    type == WIRE_NODE_ANNOUNCEMENT)
+		queue_pkt(peer, msg);
+
+	return daemon_conn_read_next(conn, dc);
 }
 
 static struct io_plan *peer_out(struct io_conn *conn, struct peer *peer)
@@ -202,6 +219,10 @@ int main(int argc, char *argv[])
 			      tal_hex(msg, msg));
 	tal_free(msg);
 	peer->gossip_client_fd = fdpass_recv(REQ_FD);
+
+	daemon_conn_init(peer, &peer->gossip_client, peer->gossip_client_fd,
+			 gossip_client_recv);
+
 	if (peer->gossip_client_fd == -1)
 		status_failed(
 		    WIRE_CHANNEL_BAD_COMMAND,
