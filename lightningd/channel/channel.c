@@ -93,7 +93,7 @@ static struct io_plan *gossip_client_recv(struct io_conn *conn,
 
 	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
 	    type == WIRE_NODE_ANNOUNCEMENT)
-		queue_pkt(peer, msg);
+		queue_pkt(peer, tal_dup_arr(dc->ctx, u8, msg, tal_len(msg), 0));
 
 	return daemon_conn_read_next(conn, dc);
 }
@@ -110,9 +110,10 @@ static struct io_plan *peer_out(struct io_conn *conn, struct peer *peer)
 static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 {
 	struct channel_id chanid;
+	int type = fromwire_peektype(msg);
 
-	status_trace("Received %s from peer",
-		     wire_type_name(fromwire_peektype(msg)));
+	status_trace("Received %s from peer", wire_type_name(type));
+
 
 	if (fromwire_funding_locked(msg, NULL, &chanid,
 				    &peer->next_per_commit[REMOTE])) {
@@ -129,7 +130,11 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 		if (peer->funding_locked[LOCAL])
 			status_send(towire_channel_normal_operation(peer));
 	}
-	/* FIXME: Process gossip. */
+
+	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
+	    type == WIRE_NODE_ANNOUNCEMENT) {
+		daemon_conn_send(&peer->gossip_client, msg);
+	}
 
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
