@@ -74,6 +74,8 @@ struct peer {
 	bool local;
 };
 
+static void wake_pkt_out(struct peer *peer);
+
 static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->daemon->peers, &peer->list);
@@ -98,7 +100,26 @@ static struct peer *setup_new_peer(struct daemon *daemon, const u8 *msg)
 	peer->proxy_msg_out = tal_arr(peer, u8*, 0);
 	list_add_tail(&daemon->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
+	wake_pkt_out(peer);
 	return peer;
+}
+
+static void handle_gossip_msg(struct routing_state *rstate, u8 *msg)
+{
+	int t = fromwire_peektype(msg);
+	switch(t) {
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+		handle_channel_announcement(rstate, msg, tal_count(msg));
+		break;
+
+	case WIRE_NODE_ANNOUNCEMENT:
+		handle_node_announcement(rstate, msg, tal_count(msg));
+		break;
+
+	case WIRE_CHANNEL_UPDATE:
+		handle_channel_update(rstate, msg, tal_count(msg));
+		break;
+	}
 }
 
 static struct io_plan *peer_msgin(struct io_conn *conn,
@@ -114,15 +135,9 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		return io_close(conn);
 
 	case WIRE_CHANNEL_ANNOUNCEMENT:
-		handle_channel_announcement(peer->daemon->rstate, msg, tal_count(msg));
-		return peer_read_message(conn, &peer->pcs, peer_msgin);
-
 	case WIRE_NODE_ANNOUNCEMENT:
-		handle_node_announcement(peer->daemon->rstate, msg, tal_count(msg));
-		return peer_read_message(conn, &peer->pcs, peer_msgin);
-
 	case WIRE_CHANNEL_UPDATE:
-		handle_channel_update(peer->daemon->rstate, msg, tal_count(msg));
+		handle_gossip_msg(peer->daemon->rstate, msg);
 		return peer_read_message(conn, &peer->pcs, peer_msgin);
 
 	case WIRE_INIT:
@@ -180,6 +195,8 @@ static struct io_plan *pkt_out(struct io_conn *conn, struct peer *peer);
 static void wake_pkt_out(struct peer *peer)
 {
 	peer->gossip_sync = true;
+	new_reltimer(&peer->daemon->timers, peer, time_from_sec(30),
+		     wake_pkt_out, peer);
 	io_wake(peer);
 }
 
@@ -193,8 +210,6 @@ static struct io_plan *peer_dump_gossip(struct io_conn *conn, struct peer *peer)
 				      &peer->broadcast_index);
 
 	if (!next) {
-		new_reltimer(&peer->daemon->timers, peer, time_from_sec(30),
-			     wake_pkt_out, peer);
 		/* Going to wake up in pkt_out since we mix time based and
 		 * message based wakeups */
 		return io_out_wait(conn, peer, pkt_out, peer);
@@ -263,8 +278,6 @@ static struct io_plan *client_dump_gossip(struct io_conn *conn, struct peer *pee
 				      &peer->broadcast_index);
 
 	if (!next) {
-		new_reltimer(&peer->daemon->timers, peer, time_from_sec(30),
-			     wake_pkt_out, peer);
 		return io_out_wait(conn, peer, client_pkt_out, peer);
 	} else {
 		return io_write_wire(conn, next->payload, client_dump_gossip, peer);
@@ -284,8 +297,6 @@ static struct io_plan *client_pkt_out(struct io_conn *conn, struct peer *peer)
 
 	if (peer->local) {
 		/* Not our turn, the local loop is taking care of broadcasts */
-		new_reltimer(&peer->daemon->timers, peer, time_from_sec(30),
-			     wake_pkt_out, peer);
 		/* Going to wake up in pkt_out since we mix time based and
 		 * message based wakeups */
 		return io_out_wait(conn, peer, client_pkt_out, peer);
