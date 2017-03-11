@@ -35,6 +35,8 @@ channel_init,476,feerate,4
 channel_init,480,funding_satoshi,8
 channel_init,488,push_msat,8
 channel_init,496,seed,32,struct privkey
+channel_init,529,local_node_id,33,struct pubkey
+channel_init,562,remote_node_id,33,struct pubkey
 
 # Tx is deep enough, go!
 channel_funding_locked,2

@@ -665,7 +665,9 @@ static void peer_start_channeld(struct peer *peer, bool am_funder,
 				  15000,
 				  peer->funding_satoshi,
 				  peer->push_msat,
-				  peer->seed);
+				  peer->seed,
+				  &peer->ld->dstate.id,
+				  peer->id);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(peer->owner, take(msg));
