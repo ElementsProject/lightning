@@ -22,6 +22,7 @@ coverage
 ccan/config.h
 
 # Ignore some generated binaries
+lightningd/lightningd_channel
 lightningd/lightningd_gossip
 lightningd/lightningd_handshake
 lightningd/lightningd_opening
