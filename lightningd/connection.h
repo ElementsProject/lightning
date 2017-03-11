@@ -20,7 +20,13 @@ struct daemon_conn {
 	struct io_conn *conn;
 
 	/* Callback for incoming messages */
-	struct io_plan *(*daemon_conn_recv)(struct io_conn *conn, struct daemon_conn *);
+	struct io_plan *(*daemon_conn_recv)(struct io_conn *conn,
+					    struct daemon_conn *);
+
+	/* Called whenever we've cleared the msg_out queue. Used to
+	 * inject things into the write loop */
+	struct io_plan *(*msg_queue_cleared_cb)(struct io_conn *conn,
+						struct daemon_conn *);
 };
 
 /**
@@ -32,12 +38,21 @@ struct daemon_conn {
  * @daemon_conn_recv: callback function to be called upon receiving a message
  */
 void daemon_conn_init(tal_t *ctx, struct daemon_conn *dc, int fd,
-		      struct io_plan *(*daemon_conn_recv)(struct io_conn *,
-							  struct daemon_conn *));
+		      struct io_plan *(*daemon_conn_recv)(
+			  struct io_conn *, struct daemon_conn *));
 /**
  * daemon_conn_send - Enqueue an outgoing message to be sent
  */
 void daemon_conn_send(struct daemon_conn *dc, u8 *msg);
+
+/**
+ * daemon_conn_write_next - Continue writing from the msg-queue
+ *
+ * Exposed here so that, if `msg_queue_cleared_cb` is used to break
+ * out of the write-loop, we can get back in.
+ */
+struct io_plan *daemon_conn_write_next(struct io_conn *conn,
+				       struct daemon_conn *dc);
 
 /**
  * daemon_conn_read_next - Read the next message
