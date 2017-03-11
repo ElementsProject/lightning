@@ -530,6 +530,12 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 					  void *unused)
 {
 	const char *txidstr = type_to_string(peer, struct sha256_double, txid);
+	struct txlocator *loc = locate_tx(peer, peer->ld->topology, txid);
+	struct short_channel_id scid;
+	scid.blocknum = loc->blkheight;
+	scid.txnum = loc->index;
+	scid.outnum = peer->funding_outnum;
+	loc = tal_free(loc);
 
 	log_debug(peer->log, "Funding tx %s depth %u of %u",
 		  txidstr, depth, peer->our_config.minimum_depth);
@@ -546,7 +552,7 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 	}
 
 	peer_set_condition(peer, "Funding tx reached depth %u", depth);
-	subd_send_msg(peer->owner, take(towire_channel_funding_locked(peer)));
+	subd_send_msg(peer->owner, take(towire_channel_funding_locked(peer, &scid)));
 	return DELETE_WATCH;
 }
 
