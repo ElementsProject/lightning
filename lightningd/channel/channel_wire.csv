@@ -40,3 +40,4 @@ channel_init,562,remote_node_id,33,struct pubkey
 
 # Tx is deep enough, go!
 channel_funding_locked,2
+channel_funding_locked,0,short_channel_id,8,struct short_channel_id

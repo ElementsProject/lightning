@@ -6,6 +6,8 @@
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/io/io.h>
 #include <ccan/structeq/structeq.h>
+#include <ccan/take/take.h>
+#include <ccan/time/time.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/channel.h>
@@ -59,7 +61,12 @@ struct peer {
 
 	int gossip_client_fd;
 	struct daemon_conn gossip_client;
+
+	/* Announcement related information */
 	struct pubkey node_ids[NUM_SIDES];
+	struct short_channel_id short_channel_ids[NUM_SIDES];
+	secp256k1_ecdsa_signature announcement_node_sigs[NUM_SIDES];
+	secp256k1_ecdsa_signature announcement_bitcoin_sigs[NUM_SIDES];
 };
 
 static void queue_pkt(struct peer *peer, const u8 *msg)
@@ -82,6 +89,69 @@ static struct io_plan *gossip_client_recv(struct io_conn *conn,
 	return daemon_conn_read_next(conn, dc);
 }
 
+static void send_announcement_signatures(struct peer *peer)
+{
+	tal_t *tmpctx = tal_tmpctx(peer);
+	u8 *msg;
+	// TODO(cdecker) Use the HSM to generate this signature
+	secp256k1_ecdsa_signature *sig =
+	    talz(tmpctx, secp256k1_ecdsa_signature);
+
+	msg = towire_announcement_signatures(tmpctx, &peer->channel_id,
+					     &peer->short_channel_ids[LOCAL],
+					     sig, sig);
+	queue_pkt(peer, take(msg));
+	tal_free(tmpctx);
+}
+
+static void announce_channel(struct peer *peer)
+{
+	tal_t *tmpctx = tal_tmpctx(peer);
+	u8 local_der[33], remote_der[33];
+	int first, second;
+	u32 timestamp = time_now().ts.tv_sec;
+	u8 *cannounce, *cupdate, *features = tal_arr(peer, u8, 0);
+	u16 flags;
+
+	/* Find out in which order we have to list the endpoints */
+	pubkey_to_der(local_der, &peer->node_ids[LOCAL]);
+	pubkey_to_der(remote_der, &peer->node_ids[REMOTE]);
+	if (memcmp(local_der, remote_der, sizeof(local_der)) < 0) {
+		first = LOCAL;
+		second = REMOTE;
+	} else {
+		first = REMOTE;
+		second = LOCAL;
+	}
+
+	/* Now that we have a working channel, tell the world. */
+	cannounce = towire_channel_announcement(
+	    tmpctx, &peer->announcement_node_sigs[first],
+	    &peer->announcement_node_sigs[second],
+	    &peer->announcement_bitcoin_sigs[first],
+	    &peer->announcement_bitcoin_sigs[second],
+	    &peer->short_channel_ids[LOCAL], &peer->node_ids[first],
+	    &peer->node_ids[second], &peer->funding_pubkey[first],
+	    &peer->funding_pubkey[second], features);
+
+	// TODO(cdecker) Create a real signature for this update
+	secp256k1_ecdsa_signature *sig =
+	    talz(tmpctx, secp256k1_ecdsa_signature);
+
+	flags = first == LOCAL;
+	cupdate = towire_channel_update(
+	    tmpctx, sig, &peer->short_channel_ids[LOCAL], timestamp, flags, 36,
+	    1, 10, peer->channel->view[LOCAL].feerate_per_kw);
+
+	queue_pkt(peer, cannounce);
+	queue_pkt(peer, cupdate);
+
+	daemon_conn_send(&peer->gossip_client, take(cannounce));
+	daemon_conn_send(&peer->gossip_client, take(cupdate));
+
+	tal_free(tmpctx);
+}
+
 static struct io_plan *peer_out(struct io_conn *conn, struct peer *peer)
 {
 	const u8 *out = msg_dequeue(&peer->peer_out);
@@ -96,9 +166,6 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 	struct channel_id chanid;
 	int type = fromwire_peektype(msg);
 
-	status_trace("Received %s from peer", wire_type_name(type));
-
-
 	if (fromwire_funding_locked(msg, NULL, &chanid,
 				    &peer->next_per_commit[REMOTE])) {
 		if (!structeq(&chanid, &peer->channel_id))
@@ -111,12 +178,30 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 		peer->funding_locked[REMOTE] = true;
 		status_send(towire_channel_received_funding_locked(peer));
 
-		if (peer->funding_locked[LOCAL])
+		if (peer->funding_locked[LOCAL]) {
 			status_send(towire_channel_normal_operation(peer));
-	}
+		}
+	} else if (type == WIRE_ANNOUNCEMENT_SIGNATURES) {
+		fromwire_announcement_signatures(
+		    msg, NULL, &chanid, &peer->short_channel_ids[REMOTE],
+		    &peer->announcement_node_sigs[REMOTE],
+		    &peer->announcement_bitcoin_sigs[REMOTE]);
 
-	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
-	    type == WIRE_NODE_ANNOUNCEMENT) {
+		/* Make sure we agree on the channel ids */
+		if (!structeq(&chanid, &peer->channel_id)) {
+			status_failed(
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "Wrong channel_id or short_channel_id in %s or %s",
+			    tal_hexstr(trc, &chanid, sizeof(struct channel_id)),
+			    tal_hexstr(trc, &peer->short_channel_ids[REMOTE],
+				       sizeof(struct short_channel_id)));
+		}
+		if (peer->funding_locked[LOCAL]) {
+			announce_channel(peer);
+		}
+	} else if (type == WIRE_CHANNEL_ANNOUNCEMENT ||
+		   type == WIRE_CHANNEL_UPDATE ||
+		   type == WIRE_NODE_ANNOUNCEMENT) {
 		daemon_conn_send(&peer->gossip_client, msg);
 	}
 
@@ -125,15 +210,18 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 
 static struct io_plan *req_in(struct io_conn *conn, struct peer *peer)
 {
-	if (fromwire_channel_funding_locked(peer->req_in, NULL)) {
-		u8 *msg = towire_funding_locked(peer,
-						&peer->channel_id,
+	if (fromwire_channel_funding_locked(peer->req_in, NULL,
+					    &peer->short_channel_ids[LOCAL])) {
+		u8 *msg = towire_funding_locked(peer, &peer->channel_id,
 						&peer->next_per_commit[LOCAL]);
 		queue_pkt(peer, msg);
 		peer->funding_locked[LOCAL] = true;
+		send_announcement_signatures(peer);
 
-		if (peer->funding_locked[REMOTE])
+		if (peer->funding_locked[REMOTE]) {
+			announce_channel(peer);
 			status_send(towire_channel_normal_operation(peer));
+		}
 	} else
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s", strerror(errno));
 
