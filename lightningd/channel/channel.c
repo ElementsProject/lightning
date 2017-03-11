@@ -39,6 +39,7 @@ struct peer {
 	struct channel_config conf[NUM_SIDES];
 	struct pubkey next_per_commit[NUM_SIDES];
 	bool funding_locked[NUM_SIDES];
+	struct pubkey funding_pubkey[NUM_SIDES];
 
 	/* Their sig for current commit. */
 	secp256k1_ecdsa_signature their_commit_sig;
@@ -58,6 +59,7 @@ struct peer {
 
 	int gossip_client_fd;
 	struct daemon_conn gossip_client;
+	struct pubkey node_ids[NUM_SIDES];
 };
 
 static void queue_pkt(struct peer *peer, const u8 *msg)
@@ -162,7 +164,6 @@ int main(int argc, char *argv[])
 	struct peer *peer = tal(NULL, struct peer);
 	struct privkey seed;
 	struct basepoints points[NUM_SIDES];
-	struct pubkey funding_pubkey[NUM_SIDES];
 	u32 feerate;
 	u64 funding_satoshi, push_msat;
 	u16 funding_txout;
@@ -194,14 +195,16 @@ int main(int argc, char *argv[])
 				   &peer->conf[LOCAL], &peer->conf[REMOTE],
 				   &peer->their_commit_sig,
 				   &peer->pcs.cs,
-				   &funding_pubkey[REMOTE],
+				   &peer->funding_pubkey[REMOTE],
 				   &points[REMOTE].revocation,
 				   &points[REMOTE].payment,
 				   &points[REMOTE].delayed_payment,
 				   &peer->next_per_commit[REMOTE],
 				   &am_funder,
 				   &feerate, &funding_satoshi, &push_msat,
-				   &seed))
+				   &seed,
+				   &peer->node_ids[LOCAL],
+				   &peer->node_ids[REMOTE]))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s",
 			      tal_hex(msg, msg));
 	tal_free(msg);
@@ -216,7 +219,7 @@ int main(int argc, char *argv[])
 		    "Did not receive a valid client socket to gossipd");
 
 	/* We derive everything from the one secret seed. */
-	derive_basepoints(&seed, &funding_pubkey[LOCAL], &points[LOCAL],
+	derive_basepoints(&seed, &peer->funding_pubkey[LOCAL], &points[LOCAL],
 			  &peer->our_secrets, &peer->shaseed,
 			  &peer->next_per_commit[LOCAL], 1);
 
