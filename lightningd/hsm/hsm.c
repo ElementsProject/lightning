@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <lightningd/funding_tx.h>
+#include <lightningd/gen_subd_wire.h>
 #include <lightningd/hsm/client.h>
 #include <lightningd/hsm/gen_hsm_client_wire.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
@@ -426,21 +427,26 @@ static u8 *sign_funding_tx(const tal_t *ctx, const u8 *data)
 static struct io_plan *control_received_req(struct io_conn *conn,
 					    struct conn_info *control)
 {
-	enum hsm_wire_type t = fromwire_peektype(control->in);
+	u32 request_id;
+	u8 *req;
+	u8 *reply;
+	fromwire_subd_request(control->in, control->in, NULL, &request_id, &req);
+
+	enum hsm_wire_type t = fromwire_peektype(req);
 
 	status_trace("Control: type %s len %zu",
-		     hsm_wire_type_name(t), tal_count(control->in));
+		     hsm_wire_type_name(t), tal_count(req));
 
 	switch (t) {
 	case WIRE_HSMCTL_INIT:
-		control->out = init_hsm(control, control->in);
+		control->out = init_hsm(control, req);
 		goto send_out;
 	case WIRE_HSMCTL_HSMFD_ECDH:
-		control->out = pass_hsmfd_ecdh(conn, control, control->in,
+		control->out = pass_hsmfd_ecdh(conn, control, req,
 					       &control->out_fd);
 		goto send_out;
 	case WIRE_HSMCTL_SIGN_FUNDING:
-		control->out = sign_funding_tx(control, control->in);
+		control->out = sign_funding_tx(control, req);
 		goto send_out;
 
 	case WIRE_HSMCTL_INIT_REPLY:
@@ -459,10 +465,16 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 	status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "%i", t);
 
 send_out:
-	if (control->out)
+	if (control->out) {
+		/* Wrap in a reply message so that subd can associate
+		 * it with the request */
+		reply = towire_subd_reply(control, request_id, 1, control->out);
+		tal_free(control->out);
+		control->out = reply;
 		return io_write_wire(conn, control->out, sent_resp, control);
-	else
+	} else {
 		return sent_resp(conn, control);
+	}
 }
 
 static struct io_plan *control_init(struct io_conn *conn,

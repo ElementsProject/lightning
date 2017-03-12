@@ -17,7 +17,9 @@
 #include <inttypes.h>
 #include <lightningd/cryptomsg.h>
 #include <lightningd/debug.h>
+#include <lightningd/gen_subd_wire.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
+#include <lightningd/subd.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/randombytes.h>
 #include <status.h>
@@ -324,7 +326,7 @@ static struct io_plan *release_peer_fd(struct io_conn *conn, struct peer *peer)
 }
 
 static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
-				    const u8 *msg)
+				    const u8 *msg, u32 request_id)
 {
 	u64 unique_id;
 	struct peer *peer;
@@ -342,9 +344,10 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 			tal_steal(daemon, peer);
 			io_close_taken_fd(peer->conn);
 
-			out = towire_gossipctl_release_peer_reply(msg,
-								  unique_id,
-								  &peer->pcs.cs);
+			out = towire_subd_reply(
+			    msg, request_id, SUBD_FINAL_REPLY,
+			    towire_gossipctl_release_peer_reply(msg, unique_id,
+								&peer->pcs.cs));
 			return io_write_wire(conn, out, release_peer_fd, peer);
 		}
 	}
@@ -354,16 +357,29 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon *daemon)
 {
-	enum gossip_wire_type t = fromwire_peektype(daemon->msg_in);
+	enum gossip_wire_type t;
+	u8 *msg = daemon->msg_in;
+	u32 request_id;
+	u8 *req;
+	/* Outer type is either a subd type or a gossip type */
+	int outer_type = fromwire_peektype(msg);
 
+	if (outer_type == WIRE_SUBD_REQUEST) {
+		/* Unwrap the message from its request frame */
+		fromwire_subd_request(msg, msg, NULL, &request_id, &req);
+		t = fromwire_peektype(req);
+		status_trace("Received request %d (%s) from main daemon.", request_id, gossip_wire_type_name(t));
+	} else {
+		t = fromwire_peektype(daemon->msg_in);
+	}
 	status_trace("req: type %s len %zu",
 		     gossip_wire_type_name(t), tal_count(daemon->msg_in));
 
 	switch (t) {
 	case WIRE_GOSSIPCTL_NEW_PEER:
-		return new_peer(conn, daemon, daemon->msg_in);
+		return new_peer(conn, daemon, msg);
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
-		return release_peer(conn, daemon, daemon->msg_in);
+		return release_peer(conn, daemon, req, request_id);
 
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIPSTATUS_INIT_FAILED:
@@ -374,6 +390,8 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon *daemon)
 	case WIRE_GOSSIPSTATUS_PEER_BAD_MSG:
 	case WIRE_GOSSIPSTATUS_PEER_READY:
 	case WIRE_GOSSIPSTATUS_PEER_NONGOSSIP:
+	case WIRE_GOSSIP_GETNODES_REQ:
+	case WIRE_GOSSIP_GETNODES_REPLY:
 		break;
 	}
 

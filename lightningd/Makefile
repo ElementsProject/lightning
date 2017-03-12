@@ -48,6 +48,7 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/key_derive.c			\
 	lightningd/msg_queue.c			\
 	lightningd/peer_failed.c		\
+	lightningd/gen_subd_wire.c		\
 	lightningd/utxo.c
 
 LIGHTNINGD_LIB_OBJS := $(LIGHTNINGD_LIB_SRC:.c=.o)
@@ -65,6 +66,13 @@ LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o)
 
 LIGHTNINGD_JSMN_OBJS := daemon/jsmn.o
 LIGHTNINGD_JSMN_HEADERS := daemon/jsmn/jsmn.h
+
+lightningd/gen_subd_wire.h: $(WIRE_GEN) lightningd/subd_wire.csv
+	$(WIRE_GEN) --header $@ subd_wire_type < lightningd/subd_wire.csv > $@
+
+lightningd/gen_subd_wire.c: $(WIRE_GEN) lightningd/subd_wire.csv
+	$(WIRE_GEN) ${@:.c=.h} subd_wire_type < lightningd/subd_wire.csv > $@
+LIGHTNINGD_HEADERS_GEN += lightningd/gen_subd_wire.h
 
 # We accumulate all lightningd/ headers in these three:
 LIGHTNINGD_HEADERS_NOGEN =			\
@@ -85,7 +93,8 @@ LIGHTNINGD_HEADERS_NOGEN =			\
 # Generated headers
 LIGHTNINGD_HEADERS_GEN =			\
 	$(WIRE_GEN_HEADERS)			\
-	$(GEN_HEADERS)
+	$(GEN_HEADERS)				\
+	lightningd/gen_subd_wire.h
 
 # Headers we don't directly own (ie. don't check them)
 LIGHTNINGD_EXTERNAL_HEADERS =			\

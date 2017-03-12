@@ -6,6 +6,7 @@
 #include <daemon/log.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <lightningd/gen_subd_wire.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/subd.h>
 #include <status.h>
@@ -47,6 +48,7 @@ struct subd_req {
 	bool (*replycb)(struct subd *, const u8 *msg_in, void *reply_data);
 	void *replycb_data;
 	int *fd_in;
+	u32 request_id;
 };
 
 static void free_subd_req(struct subd_req *sr)
@@ -54,17 +56,21 @@ static void free_subd_req(struct subd_req *sr)
 	list_del(&sr->list);
 }
 
-static void add_req(struct subd *sd, int type,
+static struct subd_req *add_req(struct subd *sd, int type,
 		    bool (*replycb)(struct subd *, const u8 *, void *),
 		    void *replycb_data,
 		    int *reply_fd_in)
 {
 	struct subd_req *sr = tal(sd, struct subd_req);
+	static u32 request_num = 0;
 
 	sr->reply_type = type + SUBD_REPLY_OFFSET;
 	sr->replycb = replycb;
 	sr->replycb_data = replycb_data;
 	sr->fd_in = reply_fd_in;
+	sr->request_id = request_num;
+	request_num++;
+
 	if (sr->fd_in)
 		*sr->fd_in = -1;
 	assert(strends(sd->msgname(sr->reply_type), "_REPLY"));
@@ -72,15 +78,16 @@ static void add_req(struct subd *sd, int type,
 	/* Keep in FIFO order: we sent in order, so replies will be too. */
 	list_add_tail(&sd->reqs, &sr->list);
 	tal_add_destructor(sr, free_subd_req);
+	return sr;
 }
 
 /* Caller must free. */
-static struct subd_req *get_req(struct subd *sd, int reply_type)
+static struct subd_req *get_req_by_id(struct subd *sd, u32 request_id)
 {
 	struct subd_req *sr;
 
 	list_for_each(&sd->reqs, sr, list) {
-		if (sr->reply_type == reply_type)
+		if (sr->request_id == request_id)
 			return sr;
 	}
 	return NULL;
@@ -180,7 +187,7 @@ fail:
 static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd);
 
 static struct io_plan *sd_msg_reply(struct io_conn *conn, struct subd *sd,
-				    struct subd_req *sr)
+				    struct subd_req *sr, u8 flags)
 {
 	int type = fromwire_peektype(sd->msg_in);
 	bool keep_open;
@@ -196,7 +203,10 @@ static struct io_plan *sd_msg_reply(struct io_conn *conn, struct subd *sd,
 	/* If not stolen, we'll free this below. */
 	tal_steal(sr, sd->msg_in);
 	keep_open = sr->replycb(sd, sd->msg_in, sr->replycb_data);
-	tal_free(sr);
+
+	/* If this was the last reply in the stream discard the stored request. */
+	if (flags & SUBD_FINAL_REPLY)
+		tal_free(sr);
 
 	if (!keep_open)
 		return io_close(conn);
@@ -211,21 +221,36 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	int str_len;
 	const tal_t *tmpctx;
 	struct subd_req *sr;
+	u32 request_id;
+	u8 *reply;
+	u8 reply_flags;
 
 	if (type == -1) {
 		log_unusual(sd->log, "ERROR: Invalid msg output");
 		return io_close(conn);
 	}
 
-	/* First, check for replies. */
-	sr = get_req(sd, type);
-	if (sr) {
-		/* If we need fd, read it and call us again. */
-		if (sr->fd_in && *sr->fd_in == -1)
-			return io_recv_fd(conn, sr->fd_in, sd_msg_read, sd);
-		return sd_msg_reply(conn, sd, sr);
-	}
+	if (type == WIRE_SUBD_REPLY) {
+		/* Unwrap to get to the reply metadata */
+		fromwire_subd_reply(sd, sd->msg_in, NULL, &request_id, &reply_flags, &reply);
+		sr = get_req_by_id(sd, request_id);
 
+		/* If we need fd, read it and call us again. */
+		if (sr->fd_in && *sr->fd_in == -1) {
+			/* Don't leave junk around, we'll reparse it
+			 * on the next pass */
+			tal_free(reply);
+			return io_recv_fd(conn, sr->fd_in, sd_msg_read, sd);
+		}
+
+		/* No need to keep the wrapped message around, and
+		 * callees expect the sd to hold a pointer to the
+		 * message. */
+		tal_free(sd->msg_in);
+		sd->msg_in = reply;
+
+		return sd_msg_reply(conn, sd, sr, reply_flags);
+	}
 	/* If not stolen, we'll free this below. */
 	tmpctx = tal_tmpctx(sd);
 	tal_steal(tmpctx, sd->msg_in);
@@ -391,11 +416,14 @@ void subd_req_(struct subd *sd,
 	       bool (*replycb)(struct subd *, const u8 *, void *),
 	       void *replycb_data)
 {
-	subd_send_msg(sd, msg_out);
+	/* Wrap the message in a request so we can keep track of it */
+	struct subd_req *sr = add_req(sd, fromwire_peektype(msg_out), replycb, replycb_data, fd_in);
+	u8 *request = towire_subd_request(sr, sr->request_id, msg_out);
+
+	subd_send_msg(sd, request);
 	if (fd_out >= 0)
 		subd_send_fd(sd, fd_out);
 
-	add_req(sd, fromwire_peektype(msg_out), replycb, replycb_data, fd_in);
 }
 
 char *opt_subd_debug(const char *optarg, struct lightningd *ld)
