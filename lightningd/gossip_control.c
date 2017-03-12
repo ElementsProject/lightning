@@ -8,7 +8,9 @@
 #include <daemon/log.h>
 #include <inttypes.h>
 #include <lightningd/cryptomsg.h>
+#include <lightningd/gen_subd_wire.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
+#include <lightningd/subd.h>
 #include <wire/gen_peer_wire.h>
 
 static void gossip_finished(struct subd *gossip, int status)
@@ -104,7 +106,20 @@ static void peer_ready(struct subd *gossip, const u8 *msg)
 static enum subd_msg_ret gossip_msg(struct subd *gossip,
 				    const u8 *msg, int fd)
 {
-	enum gossip_wire_type t = fromwire_peektype(msg);
+	enum gossip_wire_type t;
+	u32 request_id;
+	u8 *req;
+	u8 flags;
+	/* Outer type is either a subd type or a gossip type */
+	int outer_type = fromwire_peektype(msg);
+
+	if (outer_type == WIRE_SUBD_REPLY) {
+		/* Unwrap the message from its request frame */
+		fromwire_subd_reply(msg, msg, NULL, &request_id, &flags, &req);
+		t = fromwire_peektype(req);
+	} else {
+		t = fromwire_peektype(msg);
+	}
 
 	switch (t) {
 	/* We don't get told about fatal errors. */
