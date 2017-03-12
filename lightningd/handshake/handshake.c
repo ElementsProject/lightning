@@ -13,6 +13,8 @@
 #include <lightningd/debug.h>
 #include <lightningd/handshake/gen_handshake_wire.h>
 #include <lightningd/hsm/client.h>
+#include <lightningd/gen_subd_wire.h>
+#include <lightningd/subd.h>
 #include <secp256k1.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
@@ -970,6 +972,8 @@ int main(int argc, char *argv[])
 	int hsmfd = 3, clientfd = 4;
 	struct secret ck, rk, sk;
 	struct crypto_state cs;
+	u8 *req;
+	u32 request_id;
 
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
@@ -987,28 +991,31 @@ int main(int argc, char *argv[])
 	if (!msg)
 		status_failed(WIRE_HANDSHAKE_BAD_COMMAND, "%s", strerror(errno));
 
-	if (fromwire_handshake_responder(msg, NULL, &my_id)) {
+	/* Unwrap the subd request */
+	fromwire_subd_request(msg, msg, NULL, &request_id, &req);
+	if (fromwire_handshake_responder(req, NULL, &my_id)) {
 		responder(clientfd, &my_id, &their_id, &ck, &sk, &rk);
 		cs.rn = cs.sn = 0;
 		cs.sk = sk.s;
 		cs.rk = rk.s;
 		cs.r_ck = cs.s_ck = ck.s;
-		wire_sync_write(REQ_FD,
-				towire_handshake_responder_reply(msg,
-								 &their_id,
-								 &cs));
-	} else if (fromwire_handshake_initiator(msg, NULL, &my_id,
-						&their_id)) {
+		wire_sync_write(
+		    REQ_FD, towire_subd_reply(req, request_id, SUBD_FINAL_REPLY,
+					      towire_handshake_responder_reply(
+						  req, &their_id, &cs)));
+	} else if (fromwire_handshake_initiator(req, NULL, &my_id, &their_id)) {
 		initiator(clientfd, &my_id, &their_id, &ck, &sk, &rk);
 		cs.rn = cs.sn = 0;
 		cs.sk = sk.s;
 		cs.rk = rk.s;
 		cs.r_ck = cs.s_ck = ck.s;
-		wire_sync_write(REQ_FD,
-				towire_handshake_initiator_reply(msg, &cs));
+		wire_sync_write(
+		    REQ_FD, towire_subd_reply(
+				req, request_id, SUBD_FINAL_REPLY,
+				towire_handshake_initiator_reply(req, &cs)));
 	} else
 		status_failed(WIRE_HANDSHAKE_BAD_COMMAND, "%i",
-			      fromwire_peektype(msg));
+			      fromwire_peektype(req));
 
 	/* Hand back the fd. */
 	fdpass_send(REQ_FD, clientfd);
