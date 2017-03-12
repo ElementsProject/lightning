@@ -11,11 +11,15 @@ struct io_conn;
 
 enum subd_msg_ret {
 	SUBD_NEED_FD,
-	SUBD_COMPLETE
+	SUBD_COMPLETE,
+	SUBD_CONTINUED
 };
 
 /* By convention, replies are requests + 100 */
 #define SUBD_REPLY_OFFSET 100
+
+/* Is this the last reply in the stream of replies? */
+#define SUBD_FINAL_REPLY 1
 
 /* One of our subds. */
 struct subd {

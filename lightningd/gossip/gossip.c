@@ -374,6 +374,8 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon *daemon)
 	case WIRE_GOSSIPSTATUS_PEER_BAD_MSG:
 	case WIRE_GOSSIPSTATUS_PEER_READY:
 	case WIRE_GOSSIPSTATUS_PEER_NONGOSSIP:
+	case WIRE_GOSSIP_GETNODES_REQ:
+	case WIRE_GOSSIP_GETNODES_REPLY:
 		break;
 	}
 

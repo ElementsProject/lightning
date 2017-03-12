@@ -116,8 +116,10 @@ static enum subd_msg_ret gossip_msg(struct subd *gossip,
 	/* These are messages we send, not them. */
 	case WIRE_GOSSIPCTL_NEW_PEER:
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
+	case WIRE_GOSSIP_GETNODES_REQ:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
+	case WIRE_GOSSIP_GETNODES_REPLY:
 		break;
 	case WIRE_GOSSIPSTATUS_PEER_BAD_MSG:
 		peer_bad_message(gossip, msg);
