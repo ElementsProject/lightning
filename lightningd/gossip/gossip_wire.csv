@@ -52,3 +52,15 @@ gossip_getnodes_req,5
 gossip_getnodes_reply,105
 gossip_getnodes_reply,0,msglen,2,u16
 gossip_getnodes_reply,2,msg,msglen,u8
+
+
+subd_request,0x4000
+subd_request,0,request_id,4,u32
+subd_request,4,reqlen,2,u16
+subd_request,6,req,reqlen,u8
+
+subd_reply,0x4001
+subd_reply,0,request_id,4,u32
+subd_reply,4,flags,1,u8
+subd_reply,5,replen,2,u16
+subd_reply,7,rep,replen,u8

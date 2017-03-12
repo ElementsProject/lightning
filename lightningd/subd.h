@@ -52,6 +52,7 @@ struct subd {
 
 	/* Callbacks for replies. */
 	struct list_head reqs;
+	u32 request_num;
 };
 
 /**

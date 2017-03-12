@@ -354,6 +354,7 @@ struct subd *new_subd(const tal_t *ctx,
 	sd->fd_in = -1;
 	msg_queue_init(&sd->outq, sd);
 	sd->fd_to_close = -1;
+	sd->request_num = 0;
 	tal_add_destructor(sd, destroy_subd);
 	list_head_init(&sd->reqs);
 
