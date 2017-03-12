@@ -118,8 +118,10 @@ static enum subd_msg_ret gossip_msg(struct subd *gossip,
 	/* These are messages we send, not them. */
 	case WIRE_GOSSIPCTL_NEW_PEER:
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
+	case WIRE_GOSSIP_GETNODES_REQ:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
+	case WIRE_GOSSIP_GETNODES_REPLY:
 		break;
 	case WIRE_GOSSIPSTATUS_PEER_BAD_MSG:
 		peer_bad_message(gossip, msg);
@@ -147,3 +149,15 @@ void gossip_init(struct lightningd *ld)
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
 }
+static void json_getnodes(struct command *cmd,
+			      const char *buffer, const jsmntok_t *params)
+{
+}
+
+static const struct json_command getnodes_command = {
+	"getnodes",
+	json_getnodes,
+	"Retrieve all nodes in our local network view",
+	"Returns a list of all nodes that we know about"
+};
+AUTODATA(json_command, &getnodes_command);
