@@ -20,6 +20,7 @@
 #include <lightningd/cryptomsg.h>
 #include <lightningd/debug.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
+#include <lightningd/gossip_msg.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/randombytes.h>
 #include <status.h>
@@ -438,6 +439,27 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 		      "Unknown peer %"PRIu64, unique_id);
 }
 
+static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon)
+{
+	tal_t *tmpctx = tal_tmpctx(daemon);
+	u8 *out, *reply = tal_arr(tmpctx, u8, 0);
+	struct node *n;
+	struct node_map_iter i;
+
+	n = node_map_first(daemon->rstate->nodes, &i);
+	while (n != NULL) {
+		struct gossip_getnodes_entry entry;
+		entry.nodeid = n->id;
+		entry.hostname = n->hostname;
+		entry.port = n->port;
+		towire_gossip_getnodes_entry(&reply, &entry);
+		n = node_map_next(daemon->rstate->nodes, &i);
+	}
+	out = towire_gossip_getnodes_reply(daemon, reply);
+	tal_free(tmpctx);
+	return io_write_wire(conn, take(out), next_req_in, daemon);
+}
+
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon *daemon)
 {
 	enum gossip_wire_type t = fromwire_peektype(daemon->msg_in);
@@ -451,7 +473,11 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon *daemon)
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 		return release_peer(conn, daemon, daemon->msg_in);
 
+	case WIRE_GOSSIP_GETNODES_REQUEST:
+		return getnodes(conn, daemon);
+
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
+	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIPSTATUS_INIT_FAILED:
 	case WIRE_GOSSIPSTATUS_BAD_NEW_PEER_REQUEST:
 	case WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST:

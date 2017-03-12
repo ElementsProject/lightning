@@ -46,3 +46,10 @@ gossipstatus_peer_nongossip,0,unique_id,8
 gossipstatus_peer_nongossip,10,crypto_state,144,struct crypto_state
 gossipstatus_peer_nongossip,154,len,2
 gossipstatus_peer_nongossip,156,msg,len,u8
+
+# Pass JSON-RPC getnodes call through
+gossip_getnodes_request,5
+
+gossip_getnodes_reply,105
+gossip_getnodes_reply,0,replen,2,u16
+gossip_getnodes_reply,2,reply,replen,u8
