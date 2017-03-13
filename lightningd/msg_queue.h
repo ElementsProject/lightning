@@ -7,6 +7,7 @@
 
 struct msg_queue {
 	const u8 **q;
+	const tal_t *ctx;
 };
 
 void msg_queue_init(struct msg_queue *q, const tal_t *ctx);

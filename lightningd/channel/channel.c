@@ -17,6 +17,7 @@
 #include <lightningd/debug.h>
 #include <lightningd/derive_basepoints.h>
 #include <lightningd/key_derive.h>
+#include <lightningd/msg_queue.h>
 #include <lightningd/peer_failed.h>
 #include <secp256k1.h>
 #include <signal.h>
@@ -52,31 +53,12 @@ struct peer {
 	struct channel *channel;
 
 	u8 *req_in;
-	const u8 **peer_out;
+
+	struct msg_queue peer_out;
 
 	int gossip_client_fd;
 	struct daemon_conn gossip_client;
 };
-
-static void msg_enqueue(const u8 ***q, const u8 *add)
-{
-	size_t n = tal_count(*q);
-	tal_resize(q, n+1);
-	(*q)[n] = add;
-}
-
-static const u8 *msg_dequeue(const u8 ***q)
-{
-	size_t n = tal_count(*q);
-	const u8 *msg;
-
-	if (!n)
-		return NULL;
-	msg = (*q)[0];
-	memmove(*q, *q + 1, sizeof(**q) * (n-1));
-	tal_resize(q, n-1);
-	return msg;
-}
 
 static void queue_pkt(struct peer *peer, const u8 *msg)
 {
@@ -199,7 +181,7 @@ int main(int argc, char *argv[])
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 	status_setup(REQ_FD);
-	peer->peer_out = tal_arr(peer, const u8 *, 0);
+	msg_queue_init(&peer->peer_out, peer);
 	init_peer_crypto_state(peer, &peer->pcs);
 	peer->funding_locked[LOCAL] = peer->funding_locked[REMOTE] = false;
 

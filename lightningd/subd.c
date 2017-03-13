@@ -373,7 +373,7 @@ void subd_send_msg(struct subd *sd, const u8 *msg_out)
 	assert(fromwire_peektype(msg_out) != STATUS_TRACE);
 	if (!taken(msg_out))
 		msg_out = tal_dup_arr(sd, u8, msg_out, tal_len(msg_out), 0);
-	msg_enqueue(&sd->outq, msg_out);
+	msg_enqueue(&sd->outq, take(msg_out));
 }
 
 void subd_send_fd(struct subd *sd, int fd)
@@ -382,7 +382,7 @@ void subd_send_fd(struct subd *sd, int fd)
 	u8 *fdmsg = tal_arr(sd, u8, 0);
 	towire_u16(&fdmsg, STATUS_TRACE);
 	towire_u32(&fdmsg, fd);
-	msg_enqueue(&sd->outq, fdmsg);
+	msg_enqueue(&sd->outq, take(fdmsg));
 }
 
 void subd_req_(struct subd *sd,

@@ -4,6 +4,7 @@
 #include "config.h"
 #include <ccan/io/io.h>
 #include <ccan/short_types/short_types.h>
+#include <lightningd/msg_queue.h>
 
 struct daemon_conn {
 	/* Context to tallocate all things from, possibly the
@@ -13,8 +14,8 @@ struct daemon_conn {
 	/* Last message we received */
 	u8 *msg_in;
 
-	/* Array of queued outgoing messages */
-	u8 **msg_out;
+	/* Queue of outgoing messages */
+	struct msg_queue out;
 
 	int conn_fd;
 	struct io_conn *conn;
