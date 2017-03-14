@@ -371,9 +371,7 @@ void subd_send_msg(struct subd *sd, const u8 *msg_out)
 {
 	/* We overload STATUS_TRACE for outgoing to mean "send an fd" */
 	assert(fromwire_peektype(msg_out) != STATUS_TRACE);
-	if (!taken(msg_out))
-		msg_out = tal_dup_arr(sd, u8, msg_out, tal_len(msg_out), 0);
-	msg_enqueue(&sd->outq, take(msg_out));
+	msg_enqueue(&sd->outq, msg_out);
 }
 
 void subd_send_fd(struct subd *sd, int fd)
@@ -391,11 +389,14 @@ void subd_req_(struct subd *sd,
 	       bool (*replycb)(struct subd *, const u8 *, void *),
 	       void *replycb_data)
 {
+	/* Grab type now in case msg_out is taken() */
+	int type = fromwire_peektype(msg_out);
+
 	subd_send_msg(sd, msg_out);
 	if (fd_out >= 0)
 		subd_send_fd(sd, fd_out);
 
-	add_req(sd, fromwire_peektype(msg_out), replycb, replycb_data, fd_in);
+	add_req(sd, type, replycb, replycb_data, fd_in);
 }
 
 char *opt_subd_debug(const char *optarg, struct lightningd *ld)
