@@ -221,8 +221,73 @@ static const struct json_command getnodes_command = {
     "Returns a list of all nodes that we know about"};
 AUTODATA(json_command, &getnodes_command);
 
+static bool json_getroute_reply(struct subd *gossip, const u8 *reply, const int *fds,
+				struct command *cmd)
+{
+	struct json_result *response;
+	struct route_hop *hops;
+	size_t i;
+
+	fromwire_gossip_getroute_reply(reply, reply, NULL, &hops);
+
+	if (tal_count(hops) == 0) {
+		command_fail(cmd, "Could not find a route");
+		return true;
+	}
+
+	response = new_json_result(cmd);
+	json_object_start(response, NULL);
+	json_array_start(response, "route");
+	for (i=0; i<tal_count(hops); i++) {
+		json_object_start(response, NULL);
+		json_add_pubkey(response, "id", &hops[i].nodeid);
+		json_add_u64(response, "msatoshi", hops[i].amount);
+		json_add_num(response, "delay", hops[i].delay);
+		json_object_end(response);
+	}
+	json_array_end(response);
+	json_object_end(response);
+	command_success(cmd, response);
+	return true;
+}
+
 static void json_getroute(struct command *cmd, const char *buffer, const jsmntok_t *params)
 {
+	struct pubkey id;
+	jsmntok_t *idtok, *msatoshitok, *riskfactortok;
+	u64 msatoshi;
+	double riskfactor;
+	struct lightningd *ld = ld_from_dstate(cmd->dstate);
+	if (!json_get_params(buffer, params,
+			     "id", &idtok,
+			     "msatoshi", &msatoshitok,
+			     "riskfactor", &riskfactortok,
+			     NULL)) {
+		command_fail(cmd, "Need id, msatoshi and riskfactor");
+		return;
+	}
+
+	if (!pubkey_from_hexstr(buffer + idtok->start,
+				idtok->end - idtok->start, &id)) {
+		command_fail(cmd, "Invalid id");
+		return;
+	}
+
+	if (!json_tok_u64(buffer, msatoshitok, &msatoshi)) {
+		command_fail(cmd, "'%.*s' is not a valid number",
+			     (int)(msatoshitok->end - msatoshitok->start),
+			     buffer + msatoshitok->start);
+		return;
+	}
+
+	if (!json_tok_double(buffer, riskfactortok, &riskfactor)) {
+		command_fail(cmd, "'%.*s' is not a valid double",
+			     (int)(riskfactortok->end - riskfactortok->start),
+			     buffer + riskfactortok->start);
+		return;
+	}
+	u8 *req = towire_gossip_getroute_request(cmd, &cmd->dstate->id, &id, msatoshi, riskfactor*1000);
+	subd_req(ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 }
 
 static const struct json_command getroute_command = {
