@@ -142,9 +142,11 @@ static size_t gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPCTL_NEW_PEER:
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 	case WIRE_GOSSIP_GETNODES_REQUEST:
+	case WIRE_GOSSIP_GETROUTE_REQUEST:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
+	case WIRE_GOSSIP_GETROUTE_REPLY:
 		break;
 	case WIRE_GOSSIPSTATUS_PEER_BAD_MSG:
 		peer_bad_message(gossip, msg);
@@ -218,3 +220,14 @@ static const struct json_command getnodes_command = {
     "getnodes", json_getnodes, "Retrieve all nodes in our local network view",
     "Returns a list of all nodes that we know about"};
 AUTODATA(json_command, &getnodes_command);
+
+static void json_getroute(struct command *cmd, const char *buffer, const jsmntok_t *params)
+{
+}
+
+static const struct json_command getroute_command = {
+	"getroute", json_getroute,
+	"Return route to {id} for {msatoshi}, using {riskfactor}",
+	"Returns a {route} array of {id} {msatoshi} {delay}: msatoshi and delay (in blocks) is cumulative."
+};
+AUTODATA(json_command, &getroute_command);
