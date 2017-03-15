@@ -201,17 +201,11 @@ static void json_getroute(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
 	struct pubkey id;
-	struct pubkey *first;
 	jsmntok_t *idtok, *msatoshitok, *riskfactortok;
 	struct json_result *response;
-	int i;
+	size_t i;
 	u64 msatoshi;
-	s64 fee;
 	double riskfactor;
-	struct node_connection **route;
-	struct peer *peer;
-	u64 *amounts, total_amount;
-	unsigned int total_delay, *delays;
 
 	if (!json_get_params(buffer, params,
 			     "id", &idtok,
@@ -242,45 +236,19 @@ static void json_getroute(struct command *cmd,
 		return;
 	}
 
-	first = find_route(cmd, cmd->dstate->rstate, &cmd->dstate->id, &id, msatoshi,
-			  riskfactor, &fee, &route);
-	if (first)
-		peer = find_peer(cmd->dstate, first);
-	if (!first || !peer) {
+	struct route_hop *hops = get_route(cmd, cmd->dstate->rstate, &cmd->dstate->id, &id, msatoshi, riskfactor);
+
+	if (!hops) {
 		command_fail(cmd, "no route found");
 		return;
 	}
 
-	/* Fees, delays need to be calculated backwards along route. */
-	amounts = tal_arr(cmd, u64, tal_count(route)+1);
-	delays = tal_arr(cmd, unsigned int, tal_count(route)+1);
-	total_amount = msatoshi;
-
-	total_delay = 0;
-	for (i = tal_count(route) - 1; i >= 0; i--) {
-		amounts[i+1] = total_amount;
-		total_amount += connection_fee(route[i], total_amount);
-
-		total_delay += route[i]->delay;
-		if (total_delay < route[i]->min_blocks)
-			total_delay = route[i]->min_blocks;
-		delays[i+1] = total_delay;
-	}
-	/* We don't charge ourselves any fees. */
-	amounts[0] = total_amount;
-	/* We do require delay though. */
-	total_delay += peer->nc->delay;
-	if (total_delay < peer->nc->min_blocks)
-		total_delay = peer->nc->min_blocks;
-	delays[0] = total_delay;
-
 	response = new_json_result(cmd);
 	json_object_start(response, NULL);
 	json_array_start(response, "route");
-	json_add_route(response, peer->id, amounts[0], delays[0]);
-	for (i = 0; i < tal_count(route); i++)
+	for (i = 0; i < tal_count(hops); i++)
 		json_add_route(response,
-			       &route[i]->dst->id, amounts[i+1], delays[i+1]);
+			       &hops[i].nodeid, hops[i].amount, hops[i].delay);
 	json_array_end(response);
 	json_object_end(response);
 	command_success(cmd, response);

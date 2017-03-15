@@ -356,18 +356,14 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
 	}
 }
 
-struct pubkey *find_route(const tal_t *ctx,
-			struct routing_state *rstate,
-			const struct pubkey *from,
-			const struct pubkey *to,
-			u64 msatoshi,
-			double riskfactor,
-			s64 *fee,
-			struct node_connection ***route)
+struct node_connection *
+find_route(const tal_t *ctx, struct routing_state *rstate,
+	   const struct pubkey *from, const struct pubkey *to, u64 msatoshi,
+	   double riskfactor, s64 *fee, struct node_connection ***route)
 {
 	struct node *n, *src, *dst;
 	struct node_map_iter it;
-	struct pubkey *first;
+	struct node_connection *first_conn;
 	int runs, i, best;
 
 	/* Note: we map backwards, since we know the amount of satoshi we want
@@ -434,10 +430,9 @@ struct pubkey *find_route(const tal_t *ctx,
 	/* Save route from *next* hop (we return first hop as peer).
 	 * Note that we take our own fees into account for routing, even
 	 * though we don't pay them: it presumably effects preference. */
+	first_conn = dst->bfg[best].prev;
 	dst = dst->bfg[best].prev->dst;
 	best--;
-
-	first = &dst->id;
 
 	*fee = dst->bfg[best].total - msatoshi;
 	*route = tal_arr(ctx, struct node_connection *, best);
@@ -450,7 +445,7 @@ struct pubkey *find_route(const tal_t *ctx,
 
 	msatoshi += *fee;
 	log_info(rstate->base_log, "find_route:");
-	log_add_struct(rstate->base_log, "via %s", struct pubkey, first);
+	log_add_struct(rstate->base_log, "via %s", struct pubkey, &first_conn->dst->id);
 	/* If there are intermidiaries, dump them, and total fees. */
 	if (best != 0) {
 		for (i = 0; i < best; i++) {
@@ -465,7 +460,7 @@ struct pubkey *find_route(const tal_t *ctx,
 		log_add(rstate->base_log, "=%"PRIi64"(%+"PRIi64")",
 			(*route)[best-1]->dst->bfg[best-1].total, *fee);
 	}
-	return first;
+	return first_conn;
 }
 
 static bool get_slash_u32(const char **arg, u32 *v)
@@ -842,4 +837,49 @@ void handle_node_announcement(
 	tal_free(node->node_announcement);
 	node->node_announcement = tal_steal(node, serialized);
 	tal_free(tmpctx);
+}
+
+struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
+			    const struct pubkey *source,
+			    const struct pubkey *destination,
+			    const u32 msatoshi, double riskfactor)
+{
+	struct node_connection **route;
+	u64 total_amount;
+	unsigned int total_delay;
+	s64 fee;
+	struct route_hop *hops;
+	int i;
+	struct node_connection *first_conn;
+
+	first_conn = find_route(ctx, rstate, source, destination, msatoshi,
+				riskfactor, &fee, &route);
+
+	if (!first_conn) {
+		return NULL;
+	}
+
+	/* Fees, delays need to be calculated backwards along route. */
+	hops = tal_arr(ctx, struct route_hop, tal_count(route) + 1);
+	total_amount = msatoshi;
+	total_delay = 0;
+
+	for (i = tal_count(route) - 1; i >= 0; i--) {
+		hops[i + 1].nodeid = route[i]->dst->id;
+		hops[i + 1].amount = total_amount;
+		total_amount += connection_fee(route[i], total_amount);
+
+		total_delay += route[i]->delay;
+		if (total_delay < route[i]->min_blocks)
+			total_delay = route[i]->min_blocks;
+		hops[i + 1].delay = total_delay;
+	}
+	/* Backfill the first hop manually */
+	hops[0].nodeid = first_conn->dst->id;
+	/* We don't charge ourselves any fees. */
+	hops[0].amount = total_amount;
+	/* We do require delay though. */
+	total_delay += first_conn->delay;
+	hops[0].delay = total_delay;
+	return hops;
 }
