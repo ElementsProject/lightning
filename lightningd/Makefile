@@ -45,6 +45,7 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/debug.c			\
 	lightningd/derive_basepoints.c		\
 	lightningd/funding_tx.c			\
+	lightningd/gossip_msg.c			\
 	lightningd/htlc_tx.c			\
 	lightningd/key_derive.c			\
 	lightningd/msg_queue.c			\
