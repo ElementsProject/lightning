@@ -451,6 +451,12 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 		      "Unknown peer %"PRIu64, unique_id);
 }
 
+static struct io_plan *getroute(struct io_conn *conn, struct daemon *daemon, u8 *msg)
+{
+	return next_req_in(conn, daemon);
+}
+
+
 static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon)
 {
 	tal_t *tmpctx = tal_tmpctx(daemon);
@@ -493,8 +499,12 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GETNODES_REQUEST:
 		return getnodes(conn, daemon);
 
+	case WIRE_GOSSIP_GETROUTE_REQUEST:
+		return getroute(conn, daemon, daemon->msg_in);
+
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
+	case WIRE_GOSSIP_GETROUTE_REPLY:
 	case WIRE_GOSSIPSTATUS_INIT_FAILED:
 	case WIRE_GOSSIPSTATUS_BAD_NEW_PEER_REQUEST:
 	case WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST:
