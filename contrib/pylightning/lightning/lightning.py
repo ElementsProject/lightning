@@ -101,6 +101,16 @@ class LightningRpc(UnixDomainSocketRpc):
     def getnodes(self):
         return self._call("getnodes", [])
 
+    def newaddr(self):
+        return self._call("newaddr", [])['address']
+
+    def addfunds(self, tx):
+        return self._call("addfunds", [tx])
+
+    def fundchannel(self, node_id, capacity):
+        return self._call("fundchannel", [node_id, capacity])
+
+
 class LegacyLightningRpc(UnixDomainSocketRpc):
     def getchannels(self):
         """List all known channels.
