@@ -88,6 +88,12 @@ struct routing_state {
 	struct broadcast_state *broadcasts;
 };
 
+struct route_hop {
+	struct pubkey nodeid;
+	u32 amount;
+	u32 delay;
+};
+
 //FIXME(cdecker) The log will have to be replaced for the new subdaemon, keeping for now to keep changes small.
 struct routing_state *new_routing_state(const tal_t *ctx, struct log *base_log);
 
@@ -139,14 +145,10 @@ struct node_connection *get_connection_by_scid(const struct routing_state *rstat
 void remove_connection(struct routing_state *rstate,
 		       const struct pubkey *src, const struct pubkey *dst);
 
-struct pubkey *find_route(const tal_t *ctx,
-			struct routing_state *rstate,
-			const struct pubkey *from,
-			const struct pubkey *to,
-			u64 msatoshi,
-			double riskfactor,
-			s64 *fee,
-			struct node_connection ***route);
+struct node_connection *
+find_route(const tal_t *ctx, struct routing_state *rstate,
+	   const struct pubkey *from, const struct pubkey *to, u64 msatoshi,
+	   double riskfactor, s64 *fee, struct node_connection ***route);
 
 struct node_map *empty_node_map(const tal_t *ctx);
 
@@ -166,5 +168,11 @@ u8 *write_ip(const tal_t *ctx, const char *srcip, int port);
 void handle_channel_announcement(struct routing_state *rstate, const u8 *announce, size_t len);
 void handle_channel_update(struct routing_state *rstate, const u8 *update, size_t len);
 void handle_node_announcement(struct routing_state *rstate, const u8 *node, size_t len);
+
+/* Compute a route to a destination, for a given amount and riskfactor. */
+struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
+			    const struct pubkey *source,
+			    const struct pubkey *destination,
+			    const u32 msatoshi, double riskfactor);
 
 #endif /* LIGHTNING_DAEMON_ROUTING_H */
