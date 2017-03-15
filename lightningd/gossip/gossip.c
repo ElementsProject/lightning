@@ -451,11 +451,30 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 		      "Unknown peer %"PRIu64, unique_id);
 }
 
-static struct io_plan *getroute(struct io_conn *conn, struct daemon *daemon, u8 *msg)
+static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
+				    u8 *msg)
 {
-	return next_req_in(conn, daemon);
-}
+	tal_t *tmpctx = tal_tmpctx(msg);
+	struct pubkey source, destination;
+	u32 msatoshi;
+	u16 riskfactor;
+	u8 *out;
+	struct route_hop *hops;
 
+	fromwire_gossip_getroute_request(msg, NULL, &source, &destination,
+					 &msatoshi, &riskfactor);
+	status_trace("Trying to find a route from %s to %s for %d msatoshi",
+		     pubkey_to_hexstr(tmpctx, &source),
+		     pubkey_to_hexstr(tmpctx, &destination), msatoshi);
+
+	hops = get_route(tmpctx, daemon->rstate, &source, &destination,
+			 msatoshi, 1);
+
+	out = towire_gossip_getroute_reply(msg, hops);
+	tal_free(tmpctx);
+	daemon_conn_send(&daemon->master, out);
+	return daemon_conn_read_next(conn, &daemon->master);
+}
 
 static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon)
 {
@@ -500,7 +519,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		return getnodes(conn, daemon);
 
 	case WIRE_GOSSIP_GETROUTE_REQUEST:
-		return getroute(conn, daemon, daemon->msg_in);
+		return getroute_req(conn, daemon, daemon->master.msg_in);
 
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
