@@ -442,20 +442,23 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon)
 {
 	tal_t *tmpctx = tal_tmpctx(daemon);
-	u8 *out, *reply = tal_arr(tmpctx, u8, 0);
+	u8 *out;
 	struct node *n;
 	struct node_map_iter i;
+	struct gossip_getnodes_entry *nodes;
+	size_t node_count = 0;
 
+	nodes = tal_arr(tmpctx, struct gossip_getnodes_entry, node_count);
 	n = node_map_first(daemon->rstate->nodes, &i);
 	while (n != NULL) {
-		struct gossip_getnodes_entry entry;
-		entry.nodeid = n->id;
-		entry.hostname = n->hostname;
-		entry.port = n->port;
-		towire_gossip_getnodes_entry(&reply, &entry);
+		tal_resize(&nodes, node_count + 1);
+		nodes[node_count].nodeid = n->id;
+		nodes[node_count].hostname = n->hostname;
+		nodes[node_count].port = n->port;
+		node_count++;
 		n = node_map_next(daemon->rstate->nodes, &i);
 	}
-	out = towire_gossip_getnodes_reply(daemon, reply);
+	out = towire_gossip_getnodes_reply(daemon, nodes);
 	tal_free(tmpctx);
 	return io_write_wire(conn, take(out), next_req_in, daemon);
 }

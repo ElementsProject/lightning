@@ -50,6 +50,7 @@ gossipstatus_peer_nongossip,156,msg,len*u8
 # Pass JSON-RPC getnodes call through
 gossip_getnodes_request,5
 
+#include <lightningd/gossip_msg.h>
 gossip_getnodes_reply,105
-gossip_getnodes_reply,0,replen,u16
-gossip_getnodes_reply,2,reply,replen*u8
+gossip_getnodes_reply,0,num_nodes,u16
+gossip_getnodes_reply,2,nodes,num_nodes*struct gossip_getnodes_entry

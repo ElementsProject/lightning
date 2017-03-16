@@ -154,35 +154,32 @@ void gossip_init(struct lightningd *ld)
 static bool json_getnodes_reply(struct subd *gossip, const u8 *reply,
 				struct command *cmd)
 {
-	u8 *inner;
-	const u8 *cursor;
-	size_t max;
-
+	struct gossip_getnodes_entry *nodes;
 	struct json_result *response = new_json_result(cmd);
-	fromwire_gossip_getnodes_reply(reply, reply, NULL, &inner);
-	max = tal_len(inner);
-	cursor = inner;
+	size_t i;
+
+	if (!fromwire_gossip_getnodes_reply(reply, reply, NULL, &nodes)) {
+		command_fail(cmd, "Malformed gossip_getnodes response");
+		return true;
+	}
+
 	json_object_start(response, NULL);
 	json_array_start(response, "nodes");
 
-	while (max > 0) {
-		struct gossip_getnodes_entry *entry = tal(reply, struct gossip_getnodes_entry);
-		fromwire_gossip_getnodes_entry(&cursor, &max, entry);
+	for (i = 0; i < tal_count(nodes); i++) {
 		json_object_start(response, NULL);
-		json_add_pubkey(response, "nodeid", &entry->nodeid);
-		if (tal_len(entry->hostname) > 0) {
-			json_add_string(response, "hostname", entry->hostname);
+		json_add_pubkey(response, "nodeid", &nodes[i].nodeid);
+		if (tal_len(nodes[i].hostname) > 0) {
+			json_add_string(response, "hostname", nodes[i].hostname);
 		} else {
 			json_add_null(response, "hostname");
 		}
-		json_add_num(response, "port", entry->port);
+		json_add_num(response, "port", nodes[i].port);
 		json_object_end(response);
-		tal_free(entry);
 	}
 	json_array_end(response);
 	json_object_end(response);
 	command_success(cmd, response);
-	tal_free(reply);
 	return true;
 }
 
