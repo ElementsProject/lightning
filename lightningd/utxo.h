@@ -16,9 +16,4 @@ struct utxo {
 
 void towire_utxo(u8 **pptr, const struct utxo *utxo);
 void fromwire_utxo(const u8 **ptr, size_t *max, struct utxo *utxo);
-
-void fromwire_utxo_array(const u8 **ptr, size_t *max,
-			 struct utxo *utxo, size_t num);
-
-void towire_utxo_array(u8 **pptr, const struct utxo *utxo, size_t num);
 #endif /* LIGHTNING_LIGHTNINGD_UTXO_H */

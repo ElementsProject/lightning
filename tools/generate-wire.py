@@ -31,6 +31,10 @@ class FieldType(object):
     def is_assignable(self):
         return self.name in ['u8', 'u16', 'u32', 'u64', 'bool']
 
+    # We only accelerate the u8 case: it's common and trivial.
+    def has_array_helper(self):
+        return self.name in ['u8']
+
     # Returns base size
     @staticmethod
     def _typesize(typename):
@@ -127,6 +131,9 @@ class Field(object):
             return False
         return self.fieldtype.is_assignable()
 
+    def has_array_helper(self):
+        return self.fieldtype.has_array_helper()
+    
     # Returns FieldType
     @staticmethod
     def _guess_type(message, fieldname, base_size):
@@ -209,6 +216,20 @@ class Message(object):
             self.has_variable_fields = True
         self.fields.append(field)
 
+    def print_fromwire_array(self, subcalls, basetype, f, name, num_elems):
+        if f.has_array_helper():
+            subcalls.append('\tfromwire_{}_array(&cursor, plen, {}, {});'
+                            .format(basetype, name, num_elems))
+        else:
+            subcalls.append('\tfor (size_t i = 0; i < {}; i++)'
+                            .format(num_elems))
+            if f.is_assignable():
+                subcalls.append('\t\t{}[i] = fromwire_{}(&cursor, plen);'
+                                .format(name, basetype))
+            else:
+                subcalls.append('\t\tfromwire_{}(&cursor, plen, {} + i);'
+                                .format(basetype, name))
+
     def print_fromwire(self,is_header):
         ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''
 
@@ -240,15 +261,15 @@ class Message(object):
                 subcalls.append('\tfromwire_pad(&cursor, plen, {});'
                                 .format(f.num_elems))
             elif f.is_array():
-                subcalls.append("\t//1th case {name}".format(name=f.name))
-                subcalls.append('\tfromwire_{}_array(&cursor, plen, {}, {});'
-                                .format(basetype, f.name, f.num_elems))
+                self.print_fromwire_array(subcalls, basetype, f, f.name,
+                                          f.num_elems)
             elif f.is_variable_size():
                 subcalls.append("\t//2th case {name}".format(name=f.name))
                 subcalls.append('\t*{} = tal_arr(ctx, {}, {});'
                                 .format(f.name, f.fieldtype.name, f.lenvar))
-                subcalls.append('\tfromwire_{}_array(&cursor, plen, *{}, {});'
-                                .format(basetype, f.name, f.lenvar))
+
+                self.print_fromwire_array(subcalls, basetype, f, '*'+f.name,
+                                          f.lenvar)
             elif f.is_assignable():
                 subcalls.append("\t//3th case {name}".format(name=f.name))
                 if f.is_len_var:
@@ -270,6 +291,15 @@ class Message(object):
             enum=self.enum,
             subcalls='\n'.join(subcalls)
         )
+
+    def print_towire_array(self, subcalls, basetype, f, num_elems):
+        if f.has_array_helper():
+            subcalls.append('\ttowire_{}_array(&p, {}, {});'
+                            .format(basetype, f.name, num_elems))
+        else:
+            subcalls.append('\tfor (size_t i = 0; i < {}; i++)\n'
+                            '\t\ttowire_{}(&p, {} + i);'
+                            .format(num_elems, basetype, f.name))
 
     def print_towire(self,is_header):
         template = towire_header_templ if is_header else towire_impl_templ
@@ -304,11 +334,9 @@ class Message(object):
                 subcalls.append('\ttowire_pad(&p, {});'
                       .format(f.num_elems))
             elif f.is_array():
-                subcalls.append('\ttowire_{}_array(&p, {}, {});'
-                      .format(basetype, f.name, f.num_elems))
+                self.print_towire_array(subcalls, basetype, f, f.num_elems)
             elif f.is_variable_size():
-                subcalls.append('\ttowire_{}_array(&p, {}, {});'
-                      .format(basetype, f.name, f.lenvar))
+                self.print_towire_array(subcalls, basetype, f, f.lenvar)
             else:
                 subcalls.append('\ttowire_{}(&p, {});'
                       .format(basetype, f.name))

@@ -104,30 +104,6 @@ void towire_u8_array(u8 **pptr, const u8 *arr, size_t num)
 	towire(pptr, arr, num);
 }
 
-void towire_u32_array(u8 **pptr, const u32 *arr, size_t num)
-{
-	size_t i;
-
-	for (i = 0; i < num; i++)
-		towire_u32(pptr, arr[i]);
-}
-
-void towire_u64_array(u8 **pptr, const u64 *arr, size_t num)
-{
-	size_t i;
-
-	for (i = 0; i < num; i++)
-		towire_u64(pptr, arr[i]);
-}
-
-void towire_bool_array(u8 **pptr, const bool *arr, size_t num)
-{
-	size_t i;
-
-	for (i = 0; i < num; i++)
-		towire_bool(pptr, arr[i]);
-}
-
 void towire_pad(u8 **pptr, size_t num)
 {
 	/* Simply insert zeros. */
@@ -135,22 +111,4 @@ void towire_pad(u8 **pptr, size_t num)
 
 	tal_resize(pptr, oldsize + num);
 	memset(*pptr + oldsize, 0, num);
-}
-
-void towire_secp256k1_ecdsa_signature_array(u8 **pptr,
-			    const secp256k1_ecdsa_signature *arr, size_t num)
-{
-	size_t i;
-
-	for (i = 0; i < num; i++)
-		towire_secp256k1_ecdsa_signature(pptr, arr+i);
-}
-
-void towire_sha256_double_array(u8 **pptr,
-				const struct sha256_double *arr, size_t num)
-{
-	size_t i;
-
-	for (i = 0; i < num; i++)
-		towire_sha256_double(pptr, arr+i);
 }
