@@ -46,7 +46,7 @@ void daemon_conn_init(tal_t *ctx, struct daemon_conn *dc, int fd,
 	io_new_conn(ctx, fd, daemon_conn_start, dc);
 }
 
-void daemon_conn_send(struct daemon_conn *dc, u8 *msg)
+void daemon_conn_send(struct daemon_conn *dc, const u8 *msg)
 {
 	msg_enqueue(&dc->out, msg);
 	io_wake(dc);
