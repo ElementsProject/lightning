@@ -20,7 +20,8 @@ struct io_plan *daemon_conn_write_next(struct io_conn *conn,
 	} else if (dc->msg_queue_cleared_cb) {
 		return dc->msg_queue_cleared_cb(conn, dc);
 	} else {
-		return io_out_wait(conn, dc, daemon_conn_write_next, dc);
+		return msg_queue_wait(conn, &dc->out,
+				      daemon_conn_write_next, dc);
 	}
 }
 
@@ -49,5 +50,4 @@ void daemon_conn_init(tal_t *ctx, struct daemon_conn *dc, int fd,
 void daemon_conn_send(struct daemon_conn *dc, const u8 *msg)
 {
 	msg_enqueue(&dc->out, msg);
-	io_wake(dc);
 }

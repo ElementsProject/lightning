@@ -198,7 +198,7 @@ static void wake_pkt_out(struct peer *peer)
 	/* Notify the peer-write loop */
 	io_wake(peer);
 	/* Notify the daemon_conn-write loop */
-	io_wake(&peer->owner_conn);
+	io_wake(&peer->owner_conn.out);
 }
 
 /* Loop through the backlog of channel_{announcements,updates} and
