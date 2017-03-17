@@ -36,12 +36,12 @@ handshake_responder,1
 handshake_responder,1,my_id,33
 handshake_responder_reply,101
 handshake_responder_reply,0,initiator_id,33
-handshake_responder_reply,33,cs,144,struct crypto_state
+handshake_responder_reply,33,cs,struct crypto_state
 
 handshake_initiator,2
 handshake_initiator,0,my_id,33
 handshake_initiator,33,responder_id,33
 
 handshake_initiator_reply,102
-handshake_initiator_reply,0,cs,144,struct crypto_state
+handshake_initiator_reply,0,cs,struct crypto_state
 

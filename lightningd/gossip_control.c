@@ -9,6 +9,7 @@
 #include <inttypes.h>
 #include <lightningd/cryptomsg.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
+#include <lightningd/gossip_msg.h>
 #include <wire/gen_peer_wire.h>
 
 static void gossip_finished(struct subd *gossip, int status)
@@ -118,8 +119,10 @@ static enum subd_msg_ret gossip_msg(struct subd *gossip,
 	/* These are messages we send, not them. */
 	case WIRE_GOSSIPCTL_NEW_PEER:
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
+	case WIRE_GOSSIP_GETNODES_REQUEST:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
+	case WIRE_GOSSIP_GETNODES_REPLY:
 		break;
 	case WIRE_GOSSIPSTATUS_PEER_BAD_MSG:
 		peer_bad_message(gossip, msg);
@@ -147,3 +150,48 @@ void gossip_init(struct lightningd *ld)
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
 }
+
+static bool json_getnodes_reply(struct subd *gossip, const u8 *reply,
+				struct command *cmd)
+{
+	struct gossip_getnodes_entry *nodes;
+	struct json_result *response = new_json_result(cmd);
+	size_t i;
+
+	if (!fromwire_gossip_getnodes_reply(reply, reply, NULL, &nodes)) {
+		command_fail(cmd, "Malformed gossip_getnodes response");
+		return true;
+	}
+
+	json_object_start(response, NULL);
+	json_array_start(response, "nodes");
+
+	for (i = 0; i < tal_count(nodes); i++) {
+		json_object_start(response, NULL);
+		json_add_pubkey(response, "nodeid", &nodes[i].nodeid);
+		if (tal_len(nodes[i].hostname) > 0) {
+			json_add_string(response, "hostname", nodes[i].hostname);
+		} else {
+			json_add_null(response, "hostname");
+		}
+		json_add_num(response, "port", nodes[i].port);
+		json_object_end(response);
+	}
+	json_array_end(response);
+	json_object_end(response);
+	command_success(cmd, response);
+	return true;
+}
+
+static void json_getnodes(struct command *cmd, const char *buffer,
+			  const jsmntok_t *params)
+{
+	struct lightningd *ld = ld_from_dstate(cmd->dstate);
+	u8 *req = towire_gossip_getnodes_request(cmd);
+	subd_req(ld->gossip, req, -1, NULL, json_getnodes_reply, cmd);
+}
+
+static const struct json_command getnodes_command = {
+    "getnodes", json_getnodes, "Retrieve all nodes in our local network view",
+    "Returns a list of all nodes that we know about"};
+AUTODATA(json_command, &getnodes_command);

@@ -31,6 +31,10 @@ class FieldType(object):
     def is_assignable(self):
         return self.name in ['u8', 'u16', 'u32', 'u64', 'bool']
 
+    # We only accelerate the u8 case: it's common and trivial.
+    def has_array_helper(self):
+        return self.name in ['u8']
+
     # Returns base size
     @staticmethod
     def _typesize(typename):
@@ -77,40 +81,48 @@ sizetypemap = {
     1: FieldType('u8')
 }
 
+# It would be nicer if we had put '*1' in spec and disallowed bare lenvar.
+# In practice we only recognize raw lenvar when it's the previous field.
+
+# size := baresize | arraysize
+# baresize := simplesize | lenvar
+# simplesize := number | type
+# arraysize := lenvar '*' simplesize
 class Field(object):
-    def __init__(self, message, name, size, comments, typename=None):
+    def __init__(self, message, name, size, comments, prevname):
         self.message = message
         self.comments = comments
         self.name = name.replace('-', '_')
         self.is_len_var = False
         self.lenvar = None
+        self.num_elems = 1
 
-        # Size could be a literal number (eg. 33), or a field (eg 'len'), or
-        # a multiplier of a field (eg. num-htlc-timeouts*64).
-        try:
-            base_size = int(size)
-        except ValueError:
-            # If it's a multiplicitive expression, must end in basesize.
-            if '*' in size:
-                base_size = int(size.split('*')[1])
-                self.lenvar = size.split('*')[0]
-            else:
-                base_size = 0
-                self.lenvar = size
-            self.lenvar = self.lenvar.replace('-','_')
-
-        if typename is None:
-            self.fieldtype = Field._guess_type(message,self.name,base_size)
+        # If it's an arraysize, swallow prefix.
+        if '*' in size:
+            self.lenvar = size.split('*')[0].replace('-','_')
+            size = size.split('*')[1]
         else:
-            self.fieldtype = FieldType(typename)
+            if size == prevname:
+                # Raw length field, implies u8.
+                self.lenvar = size.replace('-','_')
+                size = 'u8'
 
-        # Unknown types are assumed to have base_size: div by 0 if that's unknown.
-        if self.fieldtype.tsize == 0:
-            self.fieldtype.tsize = base_size
+        try:
+            # Just a number?  Guess based on size.
+            base_size = int(size)
+            self.fieldtype = Field._guess_type(message,self.name,base_size)
+            # There are some arrays which we have to guess, based on sizes.
+            if base_size % self.fieldtype.tsize != 0:
+                raise ValueError('Invalid size {} for {}.{} not a multiple of {}'
+                                 .format(base_size,
+                                         self.message,
+                                         self.name,
+                                         self.fieldtype.tsize))
+            self.num_elems = int(base_size / self.fieldtype.tsize)
 
-        if base_size % self.fieldtype.tsize != 0:
-            raise ValueError('Invalid size {} for {}.{} not a multiple of {}'.format(base_size,self.message,self.name,self.fieldtype.tsize))
-        self.num_elems = int(base_size / self.fieldtype.tsize)
+        except ValueError:
+            # Not a number; must be a type.
+            self.fieldtype = FieldType(size)
 
     def is_padding(self):
         return self.name.startswith('pad')
@@ -127,6 +139,9 @@ class Field(object):
             return False
         return self.fieldtype.is_assignable()
 
+    def has_array_helper(self):
+        return self.fieldtype.has_array_helper()
+    
     # Returns FieldType
     @staticmethod
     def _guess_type(message, fieldname, base_size):
@@ -209,6 +224,20 @@ class Message(object):
             self.has_variable_fields = True
         self.fields.append(field)
 
+    def print_fromwire_array(self, subcalls, basetype, f, name, num_elems):
+        if f.has_array_helper():
+            subcalls.append('\tfromwire_{}_array(&cursor, plen, {}, {});'
+                            .format(basetype, name, num_elems))
+        else:
+            subcalls.append('\tfor (size_t i = 0; i < {}; i++)'
+                            .format(num_elems))
+            if f.is_assignable():
+                subcalls.append('\t\t{}[i] = fromwire_{}(&cursor, plen);'
+                                .format(name, basetype))
+            else:
+                subcalls.append('\t\tfromwire_{}(&cursor, plen, {} + i);'
+                                .format(basetype, name))
+
     def print_fromwire(self,is_header):
         ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''
 
@@ -240,15 +269,15 @@ class Message(object):
                 subcalls.append('\tfromwire_pad(&cursor, plen, {});'
                                 .format(f.num_elems))
             elif f.is_array():
-                subcalls.append("\t//1th case {name}".format(name=f.name))
-                subcalls.append('\tfromwire_{}_array(&cursor, plen, {}, {});'
-                                .format(basetype, f.name, f.num_elems))
+                self.print_fromwire_array(subcalls, basetype, f, f.name,
+                                          f.num_elems)
             elif f.is_variable_size():
                 subcalls.append("\t//2th case {name}".format(name=f.name))
                 subcalls.append('\t*{} = tal_arr(ctx, {}, {});'
                                 .format(f.name, f.fieldtype.name, f.lenvar))
-                subcalls.append('\tfromwire_{}_array(&cursor, plen, *{}, {});'
-                                .format(basetype, f.name, f.lenvar))
+
+                self.print_fromwire_array(subcalls, basetype, f, '*'+f.name,
+                                          f.lenvar)
             elif f.is_assignable():
                 subcalls.append("\t//3th case {name}".format(name=f.name))
                 if f.is_len_var:
@@ -270,6 +299,15 @@ class Message(object):
             enum=self.enum,
             subcalls='\n'.join(subcalls)
         )
+
+    def print_towire_array(self, subcalls, basetype, f, num_elems):
+        if f.has_array_helper():
+            subcalls.append('\ttowire_{}_array(&p, {}, {});'
+                            .format(basetype, f.name, num_elems))
+        else:
+            subcalls.append('\tfor (size_t i = 0; i < {}; i++)\n'
+                            '\t\ttowire_{}(&p, {} + i);'
+                            .format(num_elems, basetype, f.name))
 
     def print_towire(self,is_header):
         template = towire_header_templ if is_header else towire_impl_templ
@@ -304,11 +342,9 @@ class Message(object):
                 subcalls.append('\ttowire_pad(&p, {});'
                       .format(f.num_elems))
             elif f.is_array():
-                subcalls.append('\ttowire_{}_array(&p, {}, {});'
-                      .format(basetype, f.name, f.num_elems))
+                self.print_towire_array(subcalls, basetype, f, f.num_elems)
             elif f.is_variable_size():
-                subcalls.append('\ttowire_{}_array(&p, {}, {});'
-                      .format(basetype, f.name, f.lenvar))
+                self.print_towire_array(subcalls, basetype, f, f.lenvar)
             else:
                 subcalls.append('\ttowire_{}(&p, {});'
                       .format(basetype, f.name))
@@ -332,6 +368,7 @@ options = parser.parse_args()
 messages = []
 comments = []
 includes = []
+prevfield = None
 
 # Read csv lines.  Single comma is the message values, more is offset/len.
 for line in fileinput.input(options.files):
@@ -354,18 +391,19 @@ for line in fileinput.input(options.files):
         # eg commit_sig,132
         messages.append(Message(parts[0],Enumtype("WIRE_" + parts[0].upper(), parts[1]), comments))
         comments=[]
-    else:
+        prevfield = None
+    elif len(parts) == 4:
         # eg commit_sig,0,channel-id,8 OR
-        #    commit_sig,0,channel-id,8,u64
+        #    commit_sig,0,channel-id,u64
         for m in messages:
             if m.name == parts[0]:
-                if len(parts) == 4:
-                    m.addField(Field(parts[0], parts[2], parts[3], comments))
-                else:
-                    m.addField(Field(parts[0], parts[2], parts[3], comments,
-                                     parts[4]))
+                m.addField(Field(parts[0], parts[2], parts[3], comments, prevfield))
+                prevfield = parts[2]
                 break
         comments=[]
+    else:
+        raise ValueError('Line {} malformed'.format(line.rstrip()))
+        
 
 header_template = """#ifndef LIGHTNING_{idem}
 #define LIGHTNING_{idem}

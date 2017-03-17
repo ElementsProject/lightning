@@ -160,51 +160,9 @@ void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num)
 	fromwire(cursor, max, arr, num);
 }
 
-void fromwire_u32_array(const u8 **cursor, size_t *max, u32 *arr, size_t num)
-{
-	size_t i;
-
-	for (i = 0; i < num; i++)
-		arr[i] = fromwire_u32(cursor, max);
-}
-
-void fromwire_u64_array(const u8 **cursor, size_t *max, u64 *arr, size_t num)
-{
-	size_t i;
-
-	for (i = 0; i < num; i++)
-		arr[i] = fromwire_u64(cursor, max);
-}
-
-void fromwire_bool_array(const u8 **cursor, size_t *max, bool *arr, size_t num)
-{
-	size_t i;
-
-	for (i = 0; i < num; i++)
-		arr[i] = fromwire_bool(cursor, max);
-}
-
 void fromwire_pad(const u8 **cursor, size_t *max, size_t num)
 {
 	fromwire(cursor, max, NULL, num);
-}
-
-void fromwire_secp256k1_ecdsa_signature_array(const u8 **cursor, size_t *max,
-			      secp256k1_ecdsa_signature *arr, size_t num)
-{
-	size_t i;
-
-	for (i = 0; i < num; i++)
-		fromwire_secp256k1_ecdsa_signature(cursor, max, arr + i);
-}
-
-void fromwire_sha256_double_array(const u8 **cursor, size_t *max,
-				  struct sha256_double *arr, size_t num)
-{
-	size_t i;
-
-	for (i = 0; i < num; i++)
-		fromwire_sha256_double(cursor, max, arr + i);
 }
 
 static char *fmt_short_channel_id(const tal_t *ctx,

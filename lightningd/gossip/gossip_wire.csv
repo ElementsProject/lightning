@@ -9,7 +9,7 @@ gossipstatus_fdpass_failed,0x8004
 gossipstatus_peer_bad_msg,1000
 gossipstatus_peer_bad_msg,0,unique_id,8
 gossipstatus_peer_bad_msg,8,len,2
-gossipstatus_peer_bad_msg,10,err,len,u8
+gossipstatus_peer_bad_msg,10,err,len*u8
 
 #include <lightningd/cryptomsg.h>
 
@@ -17,7 +17,7 @@ gossipstatus_peer_bad_msg,10,err,len,u8
 # (if it is to move onto a channel, we get a status msg).
 gossipctl_new_peer,1
 gossipctl_new_peer,0,unique_id,8
-gossipctl_new_peer,8,crypto_state,144,struct crypto_state
+gossipctl_new_peer,8,crypto_state,struct crypto_state
 
 # Tell it to release a peer which has initialized.
 gossipctl_release_peer,2
@@ -26,7 +26,7 @@ gossipctl_release_peer,0,unique_id,8
 # This releases the peer and returns the cryptostate (followed by fd)
 gossipctl_release_peer_reply,102
 gossipctl_release_peer_reply,0,unique_id,8
-gossipctl_release_peer_reply,8,crypto_state,144,struct crypto_state
+gossipctl_release_peer_reply,8,crypto_state,struct crypto_state
 
 # This is where we save a peer's features.
 #gossipstatus_peer_features,1
@@ -43,6 +43,14 @@ gossipstatus_peer_ready,0,unique_id,8
 # Peer can send non-gossip packet (usually an open_channel) (followed by fd)
 gossipstatus_peer_nongossip,4
 gossipstatus_peer_nongossip,0,unique_id,8
-gossipstatus_peer_nongossip,10,crypto_state,144,struct crypto_state
+gossipstatus_peer_nongossip,10,crypto_state,struct crypto_state
 gossipstatus_peer_nongossip,154,len,2
-gossipstatus_peer_nongossip,156,msg,len,u8
+gossipstatus_peer_nongossip,156,msg,len*u8
+
+# Pass JSON-RPC getnodes call through
+gossip_getnodes_request,5
+
+#include <lightningd/gossip_msg.h>
+gossip_getnodes_reply,105
+gossip_getnodes_reply,0,num_nodes,u16
+gossip_getnodes_reply,2,nodes,num_nodes*struct gossip_getnodes_entry
