@@ -44,7 +44,7 @@ void daemon_conn_init(tal_t *ctx, struct daemon_conn *dc, int fd,
 /**
  * daemon_conn_send - Enqueue an outgoing message to be sent
  */
-void daemon_conn_send(struct daemon_conn *dc, u8 *msg);
+void daemon_conn_send(struct daemon_conn *dc, const u8 *msg);
 
 /**
  * daemon_conn_write_next - Continue writing from the msg-queue
