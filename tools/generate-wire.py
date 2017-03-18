@@ -23,6 +23,11 @@ type2size = {
     'bool': 1
 }
 
+# These struct array helpers require a context to allocate from.
+varlen_structs = [
+    'gossip_getnodes_entry',
+]
+
 class FieldType(object):
     def __init__(self,name):
         self.name = name
@@ -235,8 +240,9 @@ class Message(object):
                 subcalls.append('\t\t{}[i] = fromwire_{}(&cursor, plen);'
                                 .format(name, basetype))
             else:
-                subcalls.append('\t\tfromwire_{}(&cursor, plen, {} + i);'
-                                .format(basetype, name))
+                ctx = "ctx, " if basetype in varlen_structs else ""
+                subcalls.append('\t\tfromwire_{}({}&cursor, plen, {} + i);'
+                                .format(basetype, ctx, name))
 
     def print_fromwire(self,is_header):
         ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''

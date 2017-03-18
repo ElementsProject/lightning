@@ -1,12 +1,12 @@
 #include <lightningd/gossip_msg.h>
 #include <wire/wire.h>
 
-void fromwire_gossip_getnodes_entry(const u8 **pptr, size_t *max, struct gossip_getnodes_entry *entry)
+void fromwire_gossip_getnodes_entry(const tal_t *ctx, const u8 **pptr, size_t *max, struct gossip_getnodes_entry *entry)
 {
 	u8 hostnamelen;
 	fromwire_pubkey(pptr, max, &entry->nodeid);
 	hostnamelen = fromwire_u8(pptr, max);
-	entry->hostname = tal_arr(entry, char, hostnamelen);
+	entry->hostname = tal_arr(ctx, char, hostnamelen);
 	fromwire_u8_array(pptr, max, (u8*)entry->hostname, hostnamelen);
 	entry->port = fromwire_u16(pptr, max);
 }
