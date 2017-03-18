@@ -529,7 +529,9 @@ int main(int argc, char *argv[])
 						 SECP256K1_CONTEXT_SIGN);
 
 	daemon = tal(NULL, struct daemon);
-	log_book = new_log_book(daemon, 2 * 1024 * 1024, LOG_INFORM);
+	/* Do not log absolutely anything, stdout is now a socket
+	 * connected to some other daemon. */
+	log_book = new_log_book(daemon, 2 * 1024 * 1024, LOG_BROKEN + 1);
 	base_log =
 	    new_log(daemon, log_book, "lightningd_gossip(%u):", (int)getpid());
 	daemon->rstate = new_routing_state(daemon, base_log);
