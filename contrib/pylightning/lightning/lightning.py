@@ -21,7 +21,10 @@ class UnixDomainSocketRpc(object):
         buff = b''
         while True:
             try:
-                buff += sock.recv(1024)
+                b = sock.recv(1024)
+                buff += b
+                if len(b) == 0:
+                    return {'error': 'Connection to RPC server lost.'}
                 # Convert late to UTF-8 so glyphs split across recvs do not
                 # impact us
                 objs, _ = self.decoder.raw_decode(buff.decode("UTF-8"))
