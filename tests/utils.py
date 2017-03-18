@@ -198,7 +198,10 @@ class LightningNode(object):
         tx = self.bitcoin.rpc.gettransaction(txid)
 
         def call_connect():
-            self.rpc.connect('127.0.0.1', remote_node.daemon.port, tx['hex'], async=False)
+            try:
+                self.rpc.connect('127.0.0.1', remote_node.daemon.port, tx['hex'], async=False)
+            except:
+                pass
         t = threading.Thread(target=call_connect)
         t.daemon = True
         t.start()
