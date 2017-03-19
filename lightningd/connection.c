@@ -1,4 +1,5 @@
 #include "connection.h"
+#include <ccan/io/fdpass/fdpass.h>
 #include <ccan/take/take.h>
 #include <wire/wire_io.h>
 
@@ -15,6 +16,10 @@ struct io_plan *daemon_conn_write_next(struct io_conn *conn,
 {
 	const u8 *msg = msg_dequeue(&dc->out);
 	if (msg) {
+		int fd = msg_is_fd(msg);
+		if (fd >= 0)
+			return io_send_fd(conn, fd, true,
+					  daemon_conn_write_next, dc);
 		return io_write_wire(conn, take(msg), daemon_conn_write_next,
 				     dc);
 	} else if (dc->msg_queue_cleared_cb) {
@@ -50,4 +55,9 @@ void daemon_conn_init(tal_t *ctx, struct daemon_conn *dc, int fd,
 void daemon_conn_send(struct daemon_conn *dc, const u8 *msg)
 {
 	msg_enqueue(&dc->out, msg);
+}
+
+void daemon_conn_send_fd(struct daemon_conn *dc, int fd)
+{
+	msg_enqueue_fd(&dc->out, fd);
 }
