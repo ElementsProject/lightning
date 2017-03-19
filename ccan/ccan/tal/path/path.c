@@ -1,7 +1,6 @@
 /* Licensed under BSD-MIT - see LICENSE file for details */
 #include <ccan/tal/path/path.h>
 #include <ccan/str/str.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <sys/types.h>
 #include <sys/stat.h>

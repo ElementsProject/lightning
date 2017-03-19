@@ -674,6 +674,24 @@ void *io_loop(struct timers *timers, struct timer **expired);
 int io_conn_fd(const struct io_conn *conn);
 
 /**
+ * io_flush_sync - (synchronously) complete any outstanding output.
+ * @conn: the connection.
+ *
+ * This is generally used as an emergency escape, for example when we
+ * want to write an error message on a socket before terminating, but it may
+ * be in the middle of existing I/O.  We don't want to service any other
+ * IO, either.
+ *
+ * This returns true if all pending output is complete, false on error.
+ * The next callback is not called on the conn, but will be as soon as
+ * io_loop() is called.
+ *
+ * See Also:
+ *	io_close_taken_fd
+ */
+bool io_flush_sync(struct io_conn *conn);
+
+/**
  * io_time_override - override the normal call for time.
  * @nowfn: the function to call.
  *

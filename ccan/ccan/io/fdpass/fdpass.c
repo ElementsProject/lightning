@@ -12,17 +12,21 @@ static int do_fd_send(int fd, struct io_plan_arg *arg)
 			return 0;
 		return -1;
 	}
+	if (arg->u2.s)
+		close(arg->u1.s);
 	return 1;
 }
 
 struct io_plan *io_send_fd_(struct io_conn *conn,
 			    int fd,
+			    bool fdclose,
 			    struct io_plan *(*next)(struct io_conn *, void *),
 			    void *next_arg)
 {
 	struct io_plan_arg *arg = io_plan_arg(conn, IO_OUT);
 
 	arg->u1.s = fd;
+	arg->u2.s = fdclose;
 
 	return io_set_plan(conn, IO_OUT, do_fd_send, next, next_arg);
 }

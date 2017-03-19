@@ -293,11 +293,6 @@ static struct io_plan *msg_send_next(struct io_conn *conn, struct subd *sd)
 {
 	const u8 *msg = msg_dequeue(&sd->outq);
 
-	if (sd->fd_to_close != -1) {
-		close(sd->fd_to_close);
-		sd->fd_to_close = -1;
-	}
-
 	/* Nothing to do?  Wait for msg_enqueue. */
 	if (!msg)
 		return msg_queue_wait(conn, &sd->outq, msg_send_next, sd);
@@ -306,9 +301,9 @@ static struct io_plan *msg_send_next(struct io_conn *conn, struct subd *sd)
 	if (fromwire_peektype(msg) == STATUS_TRACE) {
 		const u8 *p = msg + sizeof(be16);
 		size_t len = tal_count(msg) - sizeof(be16);
-		sd->fd_to_close = fromwire_u32(&p, &len);
+		int fd = fromwire_u32(&p, &len);
 		tal_free(msg);
-		return io_send_fd(conn, sd->fd_to_close, msg_send_next, sd);
+		return io_send_fd(conn, fd, true, msg_send_next, sd);
 	}
 	return io_write_wire(conn, take(msg), msg_send_next, sd);
 }
@@ -353,7 +348,6 @@ struct subd *new_subd(const tal_t *ctx,
 	sd->msgcb = msgcb;
 	sd->fd_in = -1;
 	msg_queue_init(&sd->outq, sd);
-	sd->fd_to_close = -1;
 	tal_add_destructor(sd, destroy_subd);
 	list_head_init(&sd->reqs);
 

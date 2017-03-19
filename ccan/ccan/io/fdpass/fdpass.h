@@ -7,6 +7,7 @@
  * io_send_fd - output plan to send a file descriptor
  * @conn: the connection that plan is for.
  * @fd: the file descriptor to pass.
+ * @fdclose: true to close fd after successful sending.
  * @next: function to call output is done.
  * @arg: @next argument
  *
@@ -22,17 +23,17 @@
  * Example:
  * static struct io_plan *fd_to_conn(struct io_conn *conn, int fd)
  * {
- *	// Write fd, then close.
- *	return io_send_fd(conn, fd, io_close_cb, NULL);
+ *	// Write fd, then close conn.
+ *	return io_send_fd(conn, fd, false, io_close_cb, NULL);
  * }
  */
-#define io_send_fd(conn, fd, next, arg)					\
-	io_send_fd_((conn), (fd),					\
+#define io_send_fd(conn, fd, fdclose, next, arg)			\
+	io_send_fd_((conn), (fd), (fdclose),				\
 		    typesafe_cb_preargs(struct io_plan *, void *,	\
 					(next), (arg), struct io_conn *), \
 		    (arg))
 struct io_plan *io_send_fd_(struct io_conn *conn,
-			    int fd,
+			    int fd, bool fdclose,
 			    struct io_plan *(*next)(struct io_conn *, void *),
 			    void *arg);
 

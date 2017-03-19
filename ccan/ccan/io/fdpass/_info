@@ -58,7 +58,7 @@
  *
  *	static struct io_plan *send_stdin(struct io_conn *conn, void *unused)
  *	{
- *		return io_send_fd(conn, STDIN_FILENO, io_close_cb, NULL);
+ *		return io_send_fd(conn, STDIN_FILENO, false, io_close_cb, NULL);
  *	}
  *
  *	static void parent(int sockfd)

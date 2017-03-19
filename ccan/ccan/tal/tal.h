@@ -6,6 +6,7 @@
 #include <ccan/likely/likely.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <ccan/str/str.h>
+#include <ccan/take/take.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdarg.h>
@@ -351,7 +352,7 @@ tal_t *tal_parent(const tal_t *ctx);
  * @type: the type (should match type of @p!)
  * @p: the object to copy (or reparented if take())
  */
-#define tal_dup(ctx, type, p)			\
+#define tal_dup(ctx, type, p)					\
 	((type *)tal_dup_((ctx), tal_typechk_(p, type *),	\
 			  sizeof(type), 1, 0,			\
 			  false, TAL_LABEL(type, "")))
@@ -487,14 +488,14 @@ void *tal_alloc_(const tal_t *ctx, size_t bytes, bool clear,
 void *tal_alloc_arr_(const tal_t *ctx, size_t bytes, size_t count, bool clear,
 		     bool add_length, const char *label);
 
-void *tal_dup_(const tal_t *ctx, const void *p, size_t size,
+void *tal_dup_(const tal_t *ctx, const void *p TAKES, size_t size,
 	       size_t n, size_t extra, bool add_length,
 	       const char *label);
 
 tal_t *tal_steal_(const tal_t *new_parent, const tal_t *t);
 
 bool tal_resize_(tal_t **ctxp, size_t size, size_t count, bool clear);
-bool tal_expand_(tal_t **ctxp, const void *src, size_t size, size_t count);
+bool tal_expand_(tal_t **ctxp, const void *src TAKES, size_t size, size_t count);
 
 bool tal_add_destructor_(const tal_t *ctx, void (*destroy)(void *me));
 bool tal_add_destructor2_(const tal_t *ctx, void (*destroy)(void *me, void *arg),

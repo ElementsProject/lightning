@@ -70,4 +70,4 @@ static inline size_t hex_data_size(size_t strlen)
 {
 	return strlen / 2;
 }
-#endif /* PETTYCOIN_HEX_H */
+#endif /* CCAN_HEX_H */

@@ -47,9 +47,6 @@ struct subd {
 	/* Messages queue up here. */
 	struct msg_queue outq;
 
-	/* FD to close (used when we just sent it). */
-	int fd_to_close;
-
 	/* Callbacks for replies. */
 	struct list_head reqs;
 };
