@@ -42,7 +42,30 @@ static void peer_bad_message(struct subd *gossip, const u8 *msg)
 	tal_free(peer);
 }
 
-static void peer_nongossip(struct subd *gossip, const u8 *msg, int fd)
+static void peer_failed(struct subd *gossip, const u8 *msg)
+{
+	u64 unique_id;
+	struct peer *peer;
+	u8 *err;
+
+	if (!fromwire_gossipstatus_peer_failed(msg, msg, NULL,
+					       &unique_id, &err))
+		fatal("Gossip gave bad PEER_FAILED message %s",
+		      tal_hex(msg, msg));
+
+	peer = peer_by_unique_id(gossip->ld, unique_id);
+	if (!peer)
+		fatal("Gossip gave bad peerid %"PRIu64, unique_id);
+
+	log_unusual(gossip->log, "Peer %s failed: %.*s",
+		    type_to_string(msg, struct pubkey, peer->id),
+		    (int)tal_len(err), (const char *)err);
+	peer_set_condition(peer, "Error during gossip phase");
+	tal_free(peer);
+}
+
+static void peer_nongossip(struct subd *gossip, const u8 *msg,
+			   int peer_fd, int gossip_fd)
 {
 	u64 unique_id;
 	struct peer *peer;
@@ -64,7 +87,8 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg, int fd)
 
 	/* It returned the fd. */
 	assert(peer->fd == -1);
-	peer->fd = fd;
+	peer->fd = peer_fd;
+	peer->gossip_client_fd = gossip_fd;
 
 	peer_set_condition(peer, "Gossip ended up receipt of %s",
 			   wire_type_name(fromwire_peektype(inner)));
@@ -72,7 +96,7 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg, int fd)
 	peer_accept_open(peer, &cs, inner);
 }
 
-static void peer_ready(struct subd *gossip, const u8 *msg, int fd)
+static void peer_ready(struct subd *gossip, const u8 *msg)
 {
 	u64 unique_id;
 	struct peer *peer;
@@ -85,8 +109,9 @@ static void peer_ready(struct subd *gossip, const u8 *msg, int fd)
 	if (!peer)
 		fatal("Gossip gave bad peerid %"PRIu64, unique_id);
 
-	log_debug_struct(gossip->log, "Peer %s ready for channel open",
-			 struct pubkey, peer->id);
+	log_debug(gossip->log, "Peer %s (%"PRIu64") ready for channel open",
+		  type_to_string(msg, struct pubkey, peer->id),
+		  unique_id);
 
 	if (peer->connect_cmd) {
 		struct json_result *response;
@@ -98,8 +123,6 @@ static void peer_ready(struct subd *gossip, const u8 *msg, int fd)
 		command_success(peer->connect_cmd, response);
 		peer->connect_cmd = NULL;
 	}
-
-	peer->gossip_client_fd = fd;
 
 	peer_set_condition(peer, "Exchanging gossip");
 }
@@ -126,15 +149,16 @@ static size_t gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPSTATUS_PEER_BAD_MSG:
 		peer_bad_message(gossip, msg);
 		break;
+	case WIRE_GOSSIPSTATUS_PEER_FAILED:
+		peer_failed(gossip, msg);
+		break;
 	case WIRE_GOSSIPSTATUS_PEER_NONGOSSIP:
-		if (tal_count(fds) != 1)
-			return 1;
-		peer_nongossip(gossip, msg, fds[0]);
+		if (tal_count(fds) != 2)
+			return 2;
+		peer_nongossip(gossip, msg, fds[0], fds[1]);
 		break;
 	case WIRE_GOSSIPSTATUS_PEER_READY:
-		if (tal_count(fds) != 1)
-			return 1;
-		peer_ready(gossip, msg, fds[0]);
+		peer_ready(gossip, msg);
 		break;
 	}
 	return 0;
