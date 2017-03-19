@@ -9,11 +9,6 @@
 
 struct io_conn;
 
-enum subd_msg_ret {
-	SUBD_NEED_FD,
-	SUBD_COMPLETE
-};
-
 /* By convention, replies are requests + 100 */
 #define SUBD_REPLY_OFFSET 100
 
@@ -35,14 +30,16 @@ struct subd {
 	struct log *log;
 
 	/* Callback when non-reply message comes in. */
-	enum subd_msg_ret (*msgcb)(struct subd *, const u8 *, int);
+	size_t (*msgcb)(struct subd *, const u8 *, const int *);
 	const char *(*msgname)(int msgtype);
 	void (*finished)(struct subd *sd, int status);
 
 	/* Buffer for input. */
 	u8 *msg_in;
-	/* While we're reading an fd in. */
-	int fd_in;
+
+	/* While we're reading fds in. */
+	size_t num_fds_in_read;
+	int *fds_in;
 
 	/* Messages queue up here. */
 	struct msg_queue outq;
@@ -62,9 +59,8 @@ struct subd {
  * @finished: function to call when it's finished (with exit status).
  * @...: the fds to hand as fd 3, 4... terminated with -1.
  *
- * @msgcb is called with fd == -1 when a message is received; if it
- * returns SUBD_NEED_FD, we read an fd from the daemon and call it
- * again with that as the third arg.
+ * @msgcb gets called with @fds set to NULL: if it returns a positive number,
+ * that many @fds are received before calling again.
  *
  * If this succeeds subd owns @peer.
  */
@@ -73,8 +69,7 @@ struct subd *new_subd(const tal_t *ctx,
 		      const char *name,
 		      struct peer *peer,
 		      const char *(*msgname)(int msgtype),
-		      enum subd_msg_ret (*msgcb)
-		      (struct subd *, const u8 *, int fd),
+		      size_t (*msgcb)(struct subd *, const u8 *, const int *fds),
 		      void (*finished)(struct subd *, int), ...);
 
 /**
