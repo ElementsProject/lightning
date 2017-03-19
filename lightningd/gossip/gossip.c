@@ -35,7 +35,9 @@
 
 struct daemon {
 	struct list_head peers;
-	u8 *msg_in;
+
+	/* Connection to main daemon. */
+	struct daemon_conn master;
 
 	/* Routing information */
 	struct routing_state *rstate;
@@ -352,8 +354,10 @@ static struct io_plan *peer_parse_init(struct io_conn *conn,
 	 * Each node MUST wait to receive `init` before sending any other
 	 * messages.
 	 */
-	status_send(towire_gossipstatus_peer_ready(msg, peer->unique_id));
-	status_send_fd(client_fd);
+	daemon_conn_send(&peer->daemon->master,
+			 take(towire_gossipstatus_peer_ready(msg,
+							     peer->unique_id)));
+	daemon_conn_send_fd(&peer->daemon->master, client_fd);
 
 	/* Need to go duplex here, otherwise backpressure would mean
 	 * we both wait indefinitely */
@@ -382,8 +386,6 @@ static struct io_plan *peer_send_init(struct io_conn *conn, struct peer *peer)
 				  peer_init_sent);
 }
 
-static struct io_plan *next_req_in(struct io_conn *conn, struct daemon *daemon);
-
 static struct io_plan *new_peer_got_fd(struct io_conn *conn, struct peer *peer)
 {
 	peer->conn = io_new_conn(conn, peer->fd, peer_send_init, peer);
@@ -391,7 +393,7 @@ static struct io_plan *new_peer_got_fd(struct io_conn *conn, struct peer *peer)
 		peer->error = "Could not create connection";
 		tal_free(peer);
 	}
-	return next_req_in(conn, peer->daemon);
+	return daemon_conn_read_next(conn,&peer->daemon->master);
 }
 
 static struct io_plan *new_peer(struct io_conn *conn, struct daemon *daemon,
@@ -402,15 +404,6 @@ static struct io_plan *new_peer(struct io_conn *conn, struct daemon *daemon,
 		status_failed(WIRE_GOSSIPSTATUS_BAD_NEW_PEER_REQUEST,
 			      "%s", tal_hex(trc, msg));
 	return io_recv_fd(conn, &peer->fd, new_peer_got_fd, peer);
-}
-
-static struct io_plan *release_peer_fd(struct io_conn *conn, struct peer *peer)
-{
-	int fd = peer->fd;
-
-	/* This will be closed after sending. */
-	peer->fd = -1;
-	return io_send_fd(conn, fd, true, next_req_in, peer->daemon);
 }
 
 static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
@@ -436,7 +429,10 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 								  unique_id,
 								  &peer->pcs.cs);
 			peer->local = false;
-			return io_write_wire(conn, out, release_peer_fd, peer);
+			daemon_conn_send(&daemon->master, take(out));
+			daemon_conn_send_fd(&daemon->master, peer->fd);
+			peer->fd = -1;
+			return daemon_conn_read_next(conn, &daemon->master);
 		}
 	}
 	status_failed(WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST,
@@ -463,22 +459,24 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon)
 		n = node_map_next(daemon->rstate->nodes, &i);
 	}
 	out = towire_gossip_getnodes_reply(daemon, nodes);
+	daemon_conn_send(&daemon->master, take(out));
 	tal_free(tmpctx);
-	return io_write_wire(conn, take(out), next_req_in, daemon);
+	return daemon_conn_read_next(conn, &daemon->master);
 }
 
-static struct io_plan *recv_req(struct io_conn *conn, struct daemon *daemon)
+static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
-	enum gossip_wire_type t = fromwire_peektype(daemon->msg_in);
+	struct daemon *daemon = container_of(master, struct daemon, master);
+	enum gossip_wire_type t = fromwire_peektype(master->msg_in);
 
 	status_trace("req: type %s len %zu",
-		     gossip_wire_type_name(t), tal_count(daemon->msg_in));
+		     gossip_wire_type_name(t), tal_count(master->msg_in));
 
 	switch (t) {
 	case WIRE_GOSSIPCTL_NEW_PEER:
-		return new_peer(conn, daemon, daemon->msg_in);
+		return new_peer(conn, daemon, master->msg_in);
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
-		return release_peer(conn, daemon, daemon->msg_in);
+		return release_peer(conn, daemon, master->msg_in);
 
 	case WIRE_GOSSIP_GETNODES_REQUEST:
 		return getnodes(conn, daemon);
@@ -498,12 +496,6 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon *daemon)
 
 	/* Control shouldn't give bad requests. */
 	status_failed(WIRE_GOSSIPSTATUS_BAD_REQUEST, "%i", t);
-}
-
-static struct io_plan *next_req_in(struct io_conn *conn, struct daemon *daemon)
-{
-	daemon->msg_in = tal_free(daemon->msg_in);
-	return io_read_wire(conn, daemon, &daemon->msg_in, recv_req, daemon);
 }
 
 #ifndef TESTING
@@ -530,12 +522,10 @@ int main(int argc, char *argv[])
 	daemon->rstate = new_routing_state(daemon, base_log);
 	list_head_init(&daemon->peers);
 	timers_init(&daemon->timers, time_mono());
-	daemon->msg_in = NULL;
 
 	/* stdin == control */
 	status_setup(STDIN_FILENO);
-	io_new_conn(NULL, STDIN_FILENO, next_req_in, daemon);
-
+	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req);
 	for (;;) {
 		struct timer *expired = NULL;
 		io_loop(&daemon->timers, &expired);
