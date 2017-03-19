@@ -1,7 +1,9 @@
 #include "connection.h"
+#include <ccan/fdpass/fdpass.h>
 #include <ccan/io/fdpass/fdpass.h>
 #include <ccan/take/take.h>
 #include <wire/wire_io.h>
+#include <wire/wire_sync.h>
 
 struct io_plan *daemon_conn_read_next(struct io_conn *conn,
 				      struct daemon_conn *dc)
@@ -28,6 +30,26 @@ struct io_plan *daemon_conn_write_next(struct io_conn *conn,
 		return msg_queue_wait(conn, &dc->out,
 				      daemon_conn_write_next, dc);
 	}
+}
+
+bool daemon_conn_sync_flush(struct daemon_conn *dc)
+{
+	const u8 *msg;
+
+	/* Flush any current packet. */
+	if (!io_flush_sync(dc->conn))
+		return false;
+
+	/* Flush existing messages. */
+	while ((msg = msg_dequeue(&dc->out)) != NULL) {
+		int fd = msg_is_fd(msg);
+		if (fd >= 0) {
+			if (!fdpass_send(io_conn_fd(dc->conn), fd))
+				return false;
+		} else if (!wire_sync_write(io_conn_fd(dc->conn), msg))
+			return false;
+	}
+	return true;
 }
 
 static struct io_plan *daemon_conn_start(struct io_conn *conn,

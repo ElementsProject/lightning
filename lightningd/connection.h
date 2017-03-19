@@ -66,4 +66,8 @@ struct io_plan *daemon_conn_write_next(struct io_conn *conn,
 struct io_plan *daemon_conn_read_next(struct io_conn *conn,
 				      struct daemon_conn *dc);
 
+/**
+ * daemon_conn_sync_flush - Flush connection by sending all messages now..
+ */
+bool daemon_conn_sync_flush(struct daemon_conn *dc);
 #endif /* LIGHTNING_LIGHTNINGD_CONNECTION_H */

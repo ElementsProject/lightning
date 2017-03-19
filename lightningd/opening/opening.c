@@ -676,7 +676,7 @@ int main(int argc, char *argv[])
 	signal(SIGCHLD, SIG_IGN);
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
-	status_setup(REQ_FD);
+	status_setup_sync(REQ_FD);
 
 	msg = wire_sync_read(state, REQ_FD);
 	if (!msg)
