@@ -10,7 +10,7 @@
 #include <lightningd/hsm/gen_hsm_wire.h>
 #include <wally_bip32.h>
 
-static bool hsm_init_done(struct subd *hsm, const u8 *msg,
+static bool hsm_init_done(struct subd *hsm, const u8 *msg, const int *fds,
 			  struct lightningd *ld)
 {
 	u8 *serialized_extkey;
@@ -98,7 +98,7 @@ void hsm_init(struct lightningd *ld, bool newdir)
 		create = (access("hsm_secret", F_OK) != 0);
 
 	subd_req(ld->hsm, take(towire_hsmctl_init(ld->hsm, create)),
-		 -1, NULL, hsm_init_done, ld);
+		 -1, 0, hsm_init_done, ld);
 
 	if (io_loop(NULL, NULL) != ld->hsm)
 		errx(1, "Unexpected io exit during HSM startup");

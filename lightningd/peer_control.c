@@ -107,11 +107,13 @@ struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id)
 	return NULL;
 }
 
-static bool handshake_succeeded(struct subd *hs, const u8 *msg,
+static bool handshake_succeeded(struct subd *hs, const u8 *msg, const int *fds,
 				struct peer *peer)
 {
 	struct crypto_state cs;
 
+	assert(tal_count(fds) == 1);
+	peer->fd = fds[0];
 	if (!peer->id) {
 		struct pubkey id;
 
@@ -152,10 +154,12 @@ err:
 }
 
 static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
+				     const int *fds,
 				     struct peer *peer)
 {
 	const u8 *req;
 
+	assert(tal_count(fds) == 1);
 	if (!fromwire_hsmctl_hsmfd_ecdh_fd_reply(msg, NULL)) {
 		log_unusual(peer->ld->log, "Malformed hsmfd response: %s",
 			    tal_hex(peer, msg));
@@ -168,7 +172,7 @@ static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 			       "lightningd_handshake", peer,
 			       handshake_wire_type_name,
 			       NULL, NULL,
-			       peer->hsmfd, peer->fd, -1);
+			       fds[0], peer->fd, -1);
 	if (!peer->owner) {
 		log_unusual(peer->ld->log, "Could not subdaemon handshake: %s",
 			    strerror(errno));
@@ -190,11 +194,11 @@ static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 
 	/* Now hand peer request to the handshake daemon: hands it
 	 * back on success */
-	subd_req(peer->owner, take(req), -1, &peer->fd,
-		 handshake_succeeded, peer);
+	subd_req(peer->owner, take(req), -1, 1, handshake_succeeded, peer);
 	return true;
 
 error:
+	close(fds[0]);
 	tal_free(peer);
 	return true;
 }
@@ -210,7 +214,7 @@ static struct io_plan *peer_in(struct io_conn *conn, struct lightningd *ld)
 	/* Get HSM fd for this peer. */
 	subd_req(ld->hsm,
 		 take(towire_hsmctl_hsmfd_ecdh(ld, peer->unique_id)),
-		 -1, &peer->hsmfd, peer_got_handshake_hsmfd, peer);
+		 -1, 1, peer_got_handshake_hsmfd, peer);
 
 	/* We don't need conn, we'll pass fd to handshaked. */
 	return io_close_taken_fd(conn);
@@ -341,7 +345,7 @@ static struct io_plan *peer_out(struct io_conn *conn,
 	/* Get HSM fd for this peer. */
 	subd_req(ld->hsm,
 		 take(towire_hsmctl_hsmfd_ecdh(ld, peer->unique_id)),
-		 -1, &peer->hsmfd, peer_got_handshake_hsmfd, peer);
+		 -1, 1, peer_got_handshake_hsmfd, peer);
 
 	/* We don't need conn, we'll pass fd to handshaked. */
 	return io_close_taken_fd(conn);
@@ -557,6 +561,7 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 }
 
 static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
+					const int *fds,
 					struct funding_channel *fc)
 {
 	secp256k1_ecdsa_signature *sigs;
@@ -681,6 +686,7 @@ static void peer_start_channeld(struct peer *peer, bool am_funder,
 }
 
 static bool opening_release_tx(struct subd *opening, const u8 *resp,
+			       const int *fds,
 			       struct funding_channel *fc)
 {
 	u8 *msg;
@@ -692,6 +698,9 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 	struct basepoints theirbase;
 	/* FIXME: marshal code wants array, not array of pointers. */
 	struct utxo *utxos = tal_arr(fc, struct utxo, tal_count(fc->utxomap));
+
+	assert(tal_count(fds) == 1);
+	fc->peer->fd = fds[0];
 
 	if (!fromwire_opening_open_funding_reply(resp, NULL,
 						 &their_config,
@@ -718,7 +727,7 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 					 &fc->remote_fundingkey,
 					 utxos);
 	tal_free(utxos);
-	subd_req(fc->peer->ld->hsm, take(msg), -1, NULL,
+	subd_req(fc->peer->ld->hsm, take(msg), -1, 0,
 		 opening_got_hsm_funding_sig, fc);
 
 	/* Start normal channel daemon. */
@@ -732,7 +741,7 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 }
 
 static bool opening_gen_funding(struct subd *opening, const u8 *reply,
-				struct funding_channel *fc)
+				const int *fds, struct funding_channel *fc)
 {
 	u8 *msg;
 	struct pubkey changekey;
@@ -763,13 +772,13 @@ static bool opening_gen_funding(struct subd *opening, const u8 *reply,
 
 	msg = towire_opening_open_funding(fc, fc->peer->funding_txid,
 					  fc->peer->funding_outnum);
-	subd_req(fc->peer->owner, take(msg), -1, &fc->peer->fd,
-		 opening_release_tx, fc);
+	subd_req(fc->peer->owner, take(msg), -1, 1, opening_release_tx, fc);
 	return true;
 }
 
 static bool opening_accept_finish_response(struct subd *opening,
 					   const u8 *reply,
+					   const int *fds,
 					   struct peer *peer)
 {
 	struct channel_config their_config;
@@ -779,6 +788,9 @@ static bool opening_accept_finish_response(struct subd *opening,
 	struct pubkey remote_fundingkey, their_per_commit_point;
 
 	log_debug(peer->log, "Got opening_accept_finish_response");
+	assert(tal_count(fds) == 1);
+	peer->fd = fds[0];
+
 	if (!fromwire_opening_accept_finish_reply(reply, NULL,
 						  &peer->funding_outnum,
 						  &their_config,
@@ -806,6 +818,7 @@ static bool opening_accept_finish_response(struct subd *opening,
 }
 
 static bool opening_accept_reply(struct subd *opening, const u8 *reply,
+				 const int *fds,
 				 struct peer *peer)
 {
 	peer->funding_txid = tal(peer, struct sha256_double);
@@ -823,7 +836,7 @@ static bool opening_accept_reply(struct subd *opening, const u8 *reply,
 
 	/* Tell it we're watching. */
 	subd_req(opening, towire_opening_accept_finish(reply),
-		 -1, &peer->fd,
+		 -1, 1,
 		 opening_accept_finish_response, peer);
 	return true;
 }
@@ -932,12 +945,13 @@ void peer_accept_open(struct peer *peer,
 		tal_free(peer);
 		return;
 	}
-	subd_req(peer->owner, take(msg), -1, NULL, opening_accept_reply, peer);
+	subd_req(peer->owner, take(msg), -1, 0, opening_accept_reply, peer);
 }
 
 /* Peer has been released from gossip.  Start opening. */
 static bool gossip_peer_released(struct subd *gossip,
 				 const u8 *resp,
+				 const int *fds,
 				 struct funding_channel *fc)
 {
 	struct lightningd *ld = fc->peer->ld;
@@ -946,6 +960,9 @@ static bool gossip_peer_released(struct subd *gossip,
 	u64 id;
 	u8 *msg;
 	struct subd *opening;
+
+	assert(tal_count(fds) == 1);
+	fc->peer->fd = fds[0];
 
 	fc->cs = tal(fc, struct crypto_state);
 	if (!fromwire_gossipctl_release_peer_reply(resp, NULL, &id, fc->cs))
@@ -994,7 +1011,7 @@ static bool gossip_peer_released(struct subd *gossip,
 	msg = towire_opening_open(fc, fc->peer->funding_satoshi,
 				  fc->peer->push_msat,
 				  15000, max_minimum_depth);
-	subd_req(opening, take(msg), -1, NULL, opening_gen_funding, fc);
+	subd_req(opening, take(msg), -1, 0, opening_gen_funding, fc);
 	return true;
 }
 
@@ -1044,8 +1061,7 @@ static void json_fund_channel(struct command *cmd,
 	/* Tie this fc lifetime (and hence utxo release) to the peer */
 	tal_steal(fc->peer, fc);
 	tal_add_destructor(fc, fail_fundchannel_command);
-	subd_req(ld->gossip, msg, -1, &fc->peer->fd,
-		 gossip_peer_released, fc);
+	subd_req(ld->gossip, msg, -1, 1, gossip_peer_released, fc);
 }
 
 static const struct json_command fund_channel_command = {

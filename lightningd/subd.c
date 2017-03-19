@@ -44,9 +44,11 @@ struct subd_req {
 
 	/* Callback for a reply. */
 	int reply_type;
-	bool (*replycb)(struct subd *, const u8 *msg_in, void *reply_data);
+	bool (*replycb)(struct subd *, const u8 *, const int *, void *);
 	void *replycb_data;
-	int *fd_in;
+
+	size_t num_fds_read;
+	int *fds_in;
 };
 
 static void free_subd_req(struct subd_req *sr)
@@ -54,19 +56,18 @@ static void free_subd_req(struct subd_req *sr)
 	list_del(&sr->list);
 }
 
-static void add_req(struct subd *sd, int type,
-		    bool (*replycb)(struct subd *, const u8 *, void *),
-		    void *replycb_data,
-		    int *reply_fd_in)
+static void add_req(struct subd *sd, int type, size_t num_fds_in,
+		    bool (*replycb)(struct subd *, const u8 *, const int *,
+				    void *),
+		    void *replycb_data)
 {
 	struct subd_req *sr = tal(sd, struct subd_req);
 
 	sr->reply_type = type + SUBD_REPLY_OFFSET;
 	sr->replycb = replycb;
 	sr->replycb_data = replycb_data;
-	sr->fd_in = reply_fd_in;
-	if (sr->fd_in)
-		*sr->fd_in = -1;
+	sr->fds_in = num_fds_in ? tal_arr(sr, int, num_fds_in) : NULL;
+	sr->num_fds_read = 0;
 	assert(strends(sd->msgname(sr->reply_type), "_REPLY"));
 
 	/* Keep in FIFO order: we sent in order, so replies will be too. */
@@ -184,18 +185,18 @@ static struct io_plan *sd_msg_reply(struct io_conn *conn, struct subd *sd,
 {
 	int type = fromwire_peektype(sd->msg_in);
 	bool keep_open;
+	size_t i;
 
-	if (sr->fd_in) {
-		/* Don't trust subd to set it blocking. */
-		set_blocking(*sr->fd_in, true);
-		log_info(sd->log, "REPLY %s with fd %i", sd->msgname(type),
-			 *sr->fd_in);
-	} else
-		log_info(sd->log, "REPLY %s", sd->msgname(type));
+	log_info(sd->log, "REPLY %s with %zu fds",
+		 sd->msgname(type), tal_count(sr->fds_in));
+
+	/* Don't trust subd to set it blocking. */
+	for (i = 0; i < tal_count(sr->fds_in); i++)
+		set_blocking(sr->fds_in[i], true);
 
 	/* If not stolen, we'll free this below. */
 	tal_steal(sr, sd->msg_in);
-	keep_open = sr->replycb(sd, sd->msg_in, sr->replycb_data);
+	keep_open = sr->replycb(sd, sd->msg_in, sr->fds_in, sr->replycb_data);
 	tal_free(sr);
 
 	if (!keep_open)
@@ -220,9 +221,11 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	/* First, check for replies. */
 	sr = get_req(sd, type);
 	if (sr) {
-		/* If we need fd, read it and call us again. */
-		if (sr->fd_in && *sr->fd_in == -1)
-			return io_recv_fd(conn, sr->fd_in, sd_msg_read, sd);
+		/* If we need (another) fd, read it and call us again. */
+		if (sr->num_fds_read < tal_count(sr->fds_in)) {
+			return io_recv_fd(conn, &sr->fds_in[sr->num_fds_read++],
+					  sd_msg_read, sd);
+		}
 		return sd_msg_reply(conn, sd, sr);
 	}
 
@@ -371,8 +374,8 @@ void subd_send_fd(struct subd *sd, int fd)
 
 void subd_req_(struct subd *sd,
 	       const u8 *msg_out,
-	       int fd_out, int *fd_in,
-	       bool (*replycb)(struct subd *, const u8 *, void *),
+	       int fd_out, size_t num_fds_in,
+	       bool (*replycb)(struct subd *, const u8 *, const int *, void *),
 	       void *replycb_data)
 {
 	/* Grab type now in case msg_out is taken() */
@@ -382,7 +385,7 @@ void subd_req_(struct subd *sd,
 	if (fd_out >= 0)
 		subd_send_fd(sd, fd_out);
 
-	add_req(sd, type, replycb, replycb_data, fd_in);
+	add_req(sd, type, num_fds_in, replycb, replycb_data);
 }
 
 char *opt_subd_debug(const char *optarg, struct lightningd *ld)
