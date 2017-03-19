@@ -32,9 +32,10 @@
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
-/* stdin == requests, 3 == peer */
+/* stdin == requests, 3 == peer, 4 = gossip */
 #define REQ_FD STDIN_FILENO
 #define PEER_FD 3
+#define GOSSIP_FD 4
 
 struct peer {
 	struct peer_crypto_state pcs;
@@ -59,7 +60,6 @@ struct peer {
 
 	struct msg_queue peer_out;
 
-	int gossip_client_fd;
 	struct daemon_conn gossip_client;
 
 	/* Announcement related information */
@@ -271,6 +271,10 @@ int main(int argc, char *argv[])
 						 | SECP256K1_CONTEXT_SIGN);
 	status_setup(REQ_FD);
 	msg_queue_init(&peer->peer_out, peer);
+
+	daemon_conn_init(peer, &peer->gossip_client, GOSSIP_FD,
+			 gossip_client_recv);
+
 	init_peer_crypto_state(peer, &peer->pcs);
 	peer->funding_locked[LOCAL] = peer->funding_locked[REMOTE] = false;
 
@@ -296,15 +300,6 @@ int main(int argc, char *argv[])
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s",
 			      tal_hex(msg, msg));
 	tal_free(msg);
-	peer->gossip_client_fd = fdpass_recv(REQ_FD);
-
-	daemon_conn_init(peer, &peer->gossip_client, peer->gossip_client_fd,
-			 gossip_client_recv);
-
-	if (peer->gossip_client_fd == -1)
-		status_failed(
-		    WIRE_CHANNEL_BAD_COMMAND,
-		    "Did not receive a valid client socket to gossipd");
 
 	/* We derive everything from the one secret seed. */
 	derive_basepoints(&seed, &peer->funding_pubkey[LOCAL], &points[LOCAL],
