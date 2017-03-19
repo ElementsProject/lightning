@@ -80,10 +80,12 @@ static void wake_pkt_out(struct peer *peer);
 static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->daemon->peers, &peer->list);
-	if (peer->error)
-		status_send(towire_gossipstatus_peer_bad_msg(peer,
-							     peer->unique_id,
-							     (u8 *)peer->error));
+	if (peer->error) {
+		u8 *msg = towire_gossipstatus_peer_bad_msg(peer,
+							   peer->unique_id,
+							   (u8 *)peer->error);
+		daemon_conn_send(&peer->daemon->master, take(msg));
+	}
 }
 
 static struct peer *setup_new_peer(struct daemon *daemon, const u8 *msg)
@@ -163,9 +165,9 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		s = towire_gossipstatus_peer_nongossip(msg, peer->unique_id,
 						       &peer->pcs.cs, msg);
 		peer->local = false;
-		status_send(s);
-		status_send_fd(io_conn_fd(conn));
-		return io_close(conn);
+		daemon_conn_send(&peer->daemon->master, take(s));
+		daemon_conn_send_fd(&peer->daemon->master, io_conn_fd(conn));
+		return io_close_taken_fd(conn);
 	}
 
 	/* BOLT #1:
