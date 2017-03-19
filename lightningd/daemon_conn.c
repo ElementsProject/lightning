@@ -18,7 +18,7 @@ struct io_plan *daemon_conn_write_next(struct io_conn *conn,
 {
 	const u8 *msg = msg_dequeue(&dc->out);
 	if (msg) {
-		int fd = msg_is_fd(msg);
+		int fd = msg_extract_fd(msg);
 		if (fd >= 0)
 			return io_send_fd(conn, fd, true,
 					  daemon_conn_write_next, dc);
@@ -42,7 +42,7 @@ bool daemon_conn_sync_flush(struct daemon_conn *dc)
 
 	/* Flush existing messages. */
 	while ((msg = msg_dequeue(&dc->out)) != NULL) {
-		int fd = msg_is_fd(msg);
+		int fd = msg_extract_fd(msg);
 		if (fd >= 0) {
 			if (!fdpass_send(io_conn_fd(dc->conn), fd))
 				return false;
