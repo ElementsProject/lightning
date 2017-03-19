@@ -56,11 +56,10 @@ struct peer {
 	struct channel_id channel_id;
 	struct channel *channel;
 
-	u8 *req_in;
-
 	struct msg_queue peer_out;
 
 	struct daemon_conn gossip_client;
+	struct daemon_conn master;
 
 	/* Announcement related information */
 	struct pubkey node_ids[NUM_SIDES];
@@ -176,10 +175,12 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 			status_failed(WIRE_CHANNEL_PEER_BAD_MESSAGE,
 				      "Funding locked twice");
 		peer->funding_locked[REMOTE] = true;
-		status_send(towire_channel_received_funding_locked(peer));
+		daemon_conn_send(&peer->master,
+			 take(towire_channel_received_funding_locked(peer)));
 
 		if (peer->funding_locked[LOCAL]) {
-			status_send(towire_channel_normal_operation(peer));
+			daemon_conn_send(&peer->master,
+				 take(towire_channel_normal_operation(peer)));
 		}
 	} else if (type == WIRE_ANNOUNCEMENT_SIGNATURES) {
 		fromwire_announcement_signatures(
@@ -208,30 +209,6 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
-static struct io_plan *req_in(struct io_conn *conn, struct peer *peer)
-{
-	if (fromwire_channel_funding_locked(peer->req_in, NULL,
-					    &peer->short_channel_ids[LOCAL])) {
-		u8 *msg = towire_funding_locked(peer, &peer->channel_id,
-						&peer->next_per_commit[LOCAL]);
-		queue_pkt(peer, msg);
-		peer->funding_locked[LOCAL] = true;
-		send_announcement_signatures(peer);
-
-		if (peer->funding_locked[REMOTE]) {
-			announce_channel(peer);
-			status_send(towire_channel_normal_operation(peer));
-		}
-	} else
-		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s", strerror(errno));
-
-	return io_read_wire(conn, peer, &peer->req_in, req_in, peer);
-}
-
-static struct io_plan *setup_req_in(struct io_conn *conn, struct peer *peer)
-{
-	return io_read_wire(conn, peer, &peer->req_in, req_in, peer);
-}
 
 static struct io_plan *setup_peer_conn(struct io_conn *conn, struct peer *peer)
 {
@@ -245,11 +222,8 @@ static void peer_conn_broken(struct io_conn *conn, struct peer *peer)
 		      "peer connection broken: %s", strerror(errno));
 }
 
-#ifndef TESTING
-int main(int argc, char *argv[])
+static void init_channel(struct peer *peer, const u8 *msg)
 {
-	u8 *msg;
-	struct peer *peer = tal(NULL, struct peer);
 	struct privkey seed;
 	struct basepoints points[NUM_SIDES];
 	u32 feerate;
@@ -257,30 +231,6 @@ int main(int argc, char *argv[])
 	u16 funding_txout;
 	struct sha256_double funding_txid;
 	bool am_funder;
-
-	if (argc == 2 && streq(argv[1], "--version")) {
-		printf("%s\n", version());
-		exit(0);
-	}
-
-	subdaemon_debug(argc, argv);
-
-	/* We handle write returning errors! */
-	signal(SIGCHLD, SIG_IGN);
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
-	status_setup(REQ_FD);
-	msg_queue_init(&peer->peer_out, peer);
-
-	daemon_conn_init(peer, &peer->gossip_client, GOSSIP_FD,
-			 gossip_client_recv);
-
-	init_peer_crypto_state(peer, &peer->pcs);
-	peer->funding_locked[LOCAL] = peer->funding_locked[REMOTE] = false;
-
-	msg = wire_sync_read(peer, REQ_FD);
-	if (!msg)
-		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s", strerror(errno));
 
 	if (!fromwire_channel_init(msg, NULL,
 				   &funding_txid, &funding_txout,
@@ -299,7 +249,6 @@ int main(int argc, char *argv[])
 				   &peer->node_ids[REMOTE]))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s",
 			      tal_hex(msg, msg));
-	tal_free(msg);
 
 	/* We derive everything from the one secret seed. */
 	derive_basepoints(&seed, &peer->funding_pubkey[LOCAL], &points[LOCAL],
@@ -315,7 +264,62 @@ int main(int argc, char *argv[])
 	/* OK, now we can process peer messages. */
 	io_set_finish(io_new_conn(peer, PEER_FD, setup_peer_conn, peer),
 		      peer_conn_broken, peer);
-	io_new_conn(peer, REQ_FD, setup_req_in, peer);
+}
+
+static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
+{
+	struct peer *peer = container_of(master, struct peer, master);
+
+	if (!peer->channel)
+		init_channel(peer, master->msg_in);
+	else if (fromwire_channel_funding_locked(master->msg_in, NULL,
+						 &peer->short_channel_ids[LOCAL])) {
+		u8 *msg = towire_funding_locked(peer,
+						&peer->channel_id,
+						&peer->next_per_commit[LOCAL]);
+		queue_pkt(peer, msg);
+		peer->funding_locked[LOCAL] = true;
+		send_announcement_signatures(peer);
+
+		if (peer->funding_locked[REMOTE]) {
+			announce_channel(peer);
+			daemon_conn_send(master,
+				 take(towire_channel_normal_operation(peer)));
+		}
+	} else
+		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s", strerror(errno));
+
+	return daemon_conn_read_next(conn, master);
+}
+
+#ifndef TESTING
+int main(int argc, char *argv[])
+{
+	struct peer *peer = tal(NULL, struct peer);
+
+	if (argc == 2 && streq(argv[1], "--version")) {
+		printf("%s\n", version());
+		exit(0);
+	}
+
+	subdaemon_debug(argc, argv);
+
+	/* We handle write returning errors! */
+	signal(SIGCHLD, SIG_IGN);
+	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
+						 | SECP256K1_CONTEXT_SIGN);
+
+	daemon_conn_init(peer, &peer->master, REQ_FD, req_in);
+	peer->channel = NULL;
+
+	status_setup(REQ_FD);
+	msg_queue_init(&peer->peer_out, peer);
+
+	daemon_conn_init(peer, &peer->gossip_client, GOSSIP_FD,
+			 gossip_client_recv);
+
+	init_peer_crypto_state(peer, &peer->pcs);
+	peer->funding_locked[LOCAL] = peer->funding_locked[REMOTE] = false;
 
 	/* We don't expect to exit here. */
 	io_loop(NULL, NULL);
