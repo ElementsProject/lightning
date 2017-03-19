@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_STATUS_H
-#define LIGHTNING_STATUS_H
+#ifndef LIGHTNING_LIGHTNINGD_STATUS_H
+#define LIGHTNING_LIGHTNINGD_STATUS_H
 #include "config.h"
 #include <ccan/compiler/compiler.h>
 #include <ccan/short_types/short_types.h>
@@ -26,4 +26,4 @@ void status_trace(const char *fmt, ...) PRINTF_FMT(1,2);
 /* Send a failure status code with printf-style msg, and exit. */
 void status_failed(u16 code, const char *fmt, ...) PRINTF_FMT(2,3) NORETURN;
 
-#endif /* LIGHTNING_STATUS_H */
+#endif /* LIGHTNING_LIGHTNINGD_STATUS_H */

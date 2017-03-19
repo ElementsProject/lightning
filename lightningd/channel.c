@@ -11,7 +11,7 @@
 #include <inttypes.h>
 #include <lightningd/channel_config.h>
 #include <lightningd/key_derive.h>
-#include <status.h>
+#include <lightningd/status.h>
 #include <string.h>
 
 static void htlc_arr_append(const struct htlc ***arr, const struct htlc *htlc)

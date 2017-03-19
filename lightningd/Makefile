@@ -50,6 +50,7 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/key_derive.c			\
 	lightningd/msg_queue.c			\
 	lightningd/peer_failed.c		\
+	lightningd/status.c			\
 	lightningd/utxo.c
 
 LIGHTNINGD_LIB_OBJS := $(LIGHTNINGD_LIB_SRC:.c=.o)

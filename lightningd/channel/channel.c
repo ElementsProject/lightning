@@ -21,9 +21,9 @@
 #include <lightningd/key_derive.h>
 #include <lightningd/msg_queue.h>
 #include <lightningd/peer_failed.h>
+#include <lightningd/status.h>
 #include <secp256k1.h>
 #include <signal.h>
-#include <status.h>
 #include <stdio.h>
 #include <type_to_string.h>
 #include <version.h>

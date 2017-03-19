@@ -1,4 +1,3 @@
-#include "status.h"
 #include "type_to_string.h"
 #include <assert.h>
 #include <bitcoin/privkey.h>
@@ -13,6 +12,7 @@
 #include <lightningd/debug.h>
 #include <lightningd/handshake/gen_handshake_wire.h>
 #include <lightningd/hsm/client.h>
+#include <lightningd/status.h>
 #include <secp256k1.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>

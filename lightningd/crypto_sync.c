@@ -3,7 +3,7 @@
 #include <inttypes.h>
 #include <lightningd/crypto_sync.h>
 #include <lightningd/cryptomsg.h>
-#include <status.h>
+#include <lightningd/status.h>
 #include <utils.h>
 #include <wire/wire_sync.h>
 
