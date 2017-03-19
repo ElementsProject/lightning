@@ -106,6 +106,47 @@ static struct peer *setup_new_peer(struct daemon *daemon, const u8 *msg)
 	return peer;
 }
 
+static struct io_plan *owner_msg_in(struct io_conn *conn,
+				    struct daemon_conn *dc);
+static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn,
+					    struct daemon_conn *dc);
+
+/* When a peer is to be owned by another daemon, we create a socket
+ * pair to send/receive gossip from it */
+static void send_peer_with_fds(struct peer *peer, const u8 *msg)
+{
+	int fds[2];
+	u8 *out;
+
+	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+		out = towire_gossipstatus_peer_failed(msg,
+				peer->unique_id,
+				(u8 *)tal_fmt(msg,
+					      "Failed to create socketpair: %s",
+					      strerror(errno)));
+		daemon_conn_send(&peer->daemon->master, take(out));
+
+		/* FIXME: Send error to peer? */
+		/* Peer will be freed when caller closes conn. */
+		return;
+	}
+
+	/* Now we talk to socket to get to peer's owner daemon. */
+	peer->local = false;
+	daemon_conn_init(peer, &peer->owner_conn, fds[0], owner_msg_in);
+	peer->owner_conn.msg_queue_cleared_cb = nonlocal_dump_gossip;
+
+	/* Peer stays around, even though we're going to free conn. */
+	tal_steal(peer->daemon, peer);
+
+	daemon_conn_send(&peer->daemon->master, msg);
+	daemon_conn_send_fd(&peer->daemon->master, peer->fd);
+	daemon_conn_send_fd(&peer->daemon->master, fds[1]);
+
+	/* Don't get confused: we can't use this any more. */
+	peer->fd = -1;
+}
+
 static void handle_gossip_msg(struct routing_state *rstate, u8 *msg)
 {
 	int t = fromwire_peektype(msg);
@@ -164,9 +205,7 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		/* Not our place to handle this, so we punt */
 		s = towire_gossipstatus_peer_nongossip(msg, peer->unique_id,
 						       &peer->pcs.cs, msg);
-		peer->local = false;
-		daemon_conn_send(&peer->daemon->master, take(s));
-		daemon_conn_send_fd(&peer->daemon->master, io_conn_fd(conn));
+		send_peer_with_fds(peer, take(s));
 		return io_close_taken_fd(conn);
 	}
 
@@ -304,22 +343,10 @@ static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn, struct daemon_
 	}
 }
 
-static int peer_create_owner_conn(struct peer *peer)
-{
-	int fds[2];
-	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
-		return -1;
-	}
-	daemon_conn_init(peer, &peer->owner_conn, fds[0], owner_msg_in);
-	peer->owner_conn.msg_queue_cleared_cb = nonlocal_dump_gossip;
-	return fds[1];
-}
-
 static struct io_plan *peer_parse_init(struct io_conn *conn,
 				       struct peer *peer, u8 *msg)
 {
 	u8 *gfeatures, *lfeatures;
-	int client_fd;
 
 	if (!fromwire_init(msg, msg, NULL, &gfeatures, &lfeatures)) {
 		peer->error = tal_fmt(msg, "Bad init: %s", tal_hex(msg, msg));
@@ -344,13 +371,6 @@ static struct io_plan *peer_parse_init(struct io_conn *conn,
 		return io_close(conn);
 	}
 
-	client_fd = peer_create_owner_conn(peer);
-
-	if (client_fd == -1) {
-		peer->error = tal_fmt(msg, "Internal error");
-		return io_close(conn);
-	}
-
 	/* BOLT #1:
 	 *
 	 * Each node MUST wait to receive `init` before sending any other
@@ -359,7 +379,6 @@ static struct io_plan *peer_parse_init(struct io_conn *conn,
 	daemon_conn_send(&peer->daemon->master,
 			 take(towire_gossipstatus_peer_ready(msg,
 							     peer->unique_id)));
-	daemon_conn_send_fd(&peer->daemon->master, client_fd);
 
 	/* Need to go duplex here, otherwise backpressure would mean
 	 * we both wait indefinitely */
@@ -420,20 +439,11 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 
 	list_for_each(&daemon->peers, peer, list) {
 		if (peer->unique_id == unique_id) {
-			u8 *out;
-
-			/* Don't talk to this peer any more. */
-			peer->fd = io_conn_fd(peer->conn);
-			tal_steal(daemon, peer);
+			send_peer_with_fds(peer,
+			   take(towire_gossipctl_release_peer_reply(msg,
+								unique_id,
+								&peer->pcs.cs)));
 			io_close_taken_fd(peer->conn);
-
-			out = towire_gossipctl_release_peer_reply(msg,
-								  unique_id,
-								  &peer->pcs.cs);
-			peer->local = false;
-			daemon_conn_send(&daemon->master, take(out));
-			daemon_conn_send_fd(&daemon->master, peer->fd);
-			peer->fd = -1;
 			return daemon_conn_read_next(conn, &daemon->master);
 		}
 	}
@@ -491,6 +501,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIPSTATUS_BAD_REQUEST:
 	case WIRE_GOSSIPSTATUS_FDPASS_FAILED:
 	case WIRE_GOSSIPSTATUS_PEER_BAD_MSG:
+	case WIRE_GOSSIPSTATUS_PEER_FAILED:
 	case WIRE_GOSSIPSTATUS_PEER_READY:
 	case WIRE_GOSSIPSTATUS_PEER_NONGOSSIP:
 		break;

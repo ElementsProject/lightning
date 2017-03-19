@@ -961,8 +961,9 @@ static bool gossip_peer_released(struct subd *gossip,
 	u8 *msg;
 	struct subd *opening;
 
-	assert(tal_count(fds) == 1);
+	assert(tal_count(fds) == 2);
 	fc->peer->fd = fds[0];
+	fc->peer->gossip_client_fd = fds[1];
 
 	fc->cs = tal(fc, struct crypto_state);
 	if (!fromwire_gossipctl_release_peer_reply(resp, NULL, &id, fc->cs))
@@ -1061,7 +1062,7 @@ static void json_fund_channel(struct command *cmd,
 	/* Tie this fc lifetime (and hence utxo release) to the peer */
 	tal_steal(fc->peer, fc);
 	tal_add_destructor(fc, fail_fundchannel_command);
-	subd_req(ld->gossip, msg, -1, 1, gossip_peer_released, fc);
+	subd_req(ld->gossip, msg, -1, 2, gossip_peer_released, fc);
 }
 
 static const struct json_command fund_channel_command = {

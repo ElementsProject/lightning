@@ -11,6 +11,12 @@ gossipstatus_peer_bad_msg,0,unique_id,8
 gossipstatus_peer_bad_msg,8,len,2
 gossipstatus_peer_bad_msg,10,err,len*u8
 
+# Misc problems like opening control fd.
+gossipstatus_peer_failed,1001
+gossipstatus_peer_failed,0,unique_id,8
+gossipstatus_peer_failed,8,len,2
+gossipstatus_peer_failed,10,err,len*u8
+
 #include <lightningd/cryptomsg.h>
 
 # These take an fd, but have no response
@@ -23,7 +29,7 @@ gossipctl_new_peer,8,crypto_state,struct crypto_state
 gossipctl_release_peer,2
 gossipctl_release_peer,0,unique_id,8
 
-# This releases the peer and returns the cryptostate (followed by fd)
+# This releases the peer and returns the cryptostate (followed two fds: peer and gossip)
 gossipctl_release_peer_reply,102
 gossipctl_release_peer_reply,0,unique_id,8
 gossipctl_release_peer_reply,8,crypto_state,struct crypto_state
@@ -40,7 +46,7 @@ gossipctl_release_peer_reply,8,crypto_state,struct crypto_state
 gossipstatus_peer_ready,3
 gossipstatus_peer_ready,0,unique_id,8
 
-# Peer can send non-gossip packet (usually an open_channel) (followed by fd)
+# Peer can send non-gossip packet (usually an open_channel) (followed two fds: peer and gossip)
 gossipstatus_peer_nongossip,4
 gossipstatus_peer_nongossip,0,unique_id,8
 gossipstatus_peer_nongossip,10,crypto_state,struct crypto_state
