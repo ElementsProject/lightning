@@ -12,9 +12,11 @@
 #include <ccan/noerr/noerr.h>
 #include <ccan/ptrint/ptrint.h>
 #include <ccan/read_write_all/read_write_all.h>
+#include <ccan/take/take.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <lightningd/connection.h>
 #include <lightningd/funding_tx.h>
 #include <lightningd/hsm/client.h>
 #include <lightningd/hsm/gen_hsm_client_wire.h>
@@ -38,17 +40,11 @@ static struct {
 	struct ext_key bip32;
 } secretstuff;
 
-struct conn_info {
-	struct io_plan *(*received_req)(struct io_conn *, struct conn_info *);
-	u8 *in;
-	u8 *out;
-	int out_fd;
-};
-
 struct client {
-	struct conn_info ci;
+	struct daemon_conn dc;
+
 	u64 id;
-	u8 *(*handle)(struct client *c, const tal_t *data);
+	struct io_plan *(*handle)(struct io_conn *, struct daemon_conn *);
 };
 
 static void node_key(struct privkey *node_secret, struct pubkey *node_id)
@@ -73,74 +69,56 @@ static void node_key(struct privkey *node_secret, struct pubkey *node_id)
 					     node_secret->secret));
 }
 
-static void conn_info_init(struct conn_info *ci,
-			   struct io_plan *(*received_req)(struct io_conn *conn,
-							   struct conn_info *ci))
-{
-	ci->received_req = received_req;
-	ci->in = ci->out = NULL;
-	ci->out_fd = -1;
-}
-
-static struct io_plan *sent_resp(struct io_conn *conn, struct conn_info *ci);
-
-/* Client operations */
-static struct io_plan *client_received_req(struct io_conn *conn,
-					   struct conn_info *ci)
-{
-	struct client *c = container_of(ci, struct client, ci);
-
-	status_trace("Client %"PRIu64": type %s len %zu",
-		     c->id,
-		     hsm_client_wire_type_name(fromwire_peektype(ci->in)),
-		     tal_count(ci->in));
-
-	ci->out = c->handle(c, ci->in);
-	if (!ci->out) {
-		status_send(towire_hsmstatus_client_bad_request(c, c->id,
-								ci->in));
-		return io_close(conn);
-	}
-	ci->in = tal_free(ci->in);
-	return io_write_wire(conn, ci->out, sent_resp, ci);
-}
-
 static struct client *new_client(const tal_t *ctx,
 				 u64 id,
-				 u8 *(*handle)(struct client *c,
-					       const tal_t *data))
+				 struct io_plan *(*handle)(struct io_conn *,
+							   struct daemon_conn *),
+				 int fd)
 {
 	struct client *c = tal(ctx, struct client);
 	c->id = id;
 	c->handle = handle;
-	conn_info_init(&c->ci, client_received_req);
+	daemon_conn_init(c, &c->dc, fd, handle);
 
+	/* Free client when connection freed. */
+	tal_steal(c->dc.conn, c);
 	return c;
 }
 
-static u8 *handle_ecdh(struct client *c, const void *data)
+static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 {
+	struct client *c = container_of(dc, struct client, dc);
 	struct privkey privkey;
 	struct pubkey point;
 	struct sha256 ss;
 
-	if (!fromwire_hsm_ecdh_req(data, NULL, &point))
-		return NULL;
+	if (!fromwire_hsm_ecdh_req(dc->msg_in, NULL, &point)) {
+		status_send(towire_hsmstatus_client_bad_request(c,
+								c->id,
+								dc->msg_in));
+		return io_close(conn);
+	}
 
 	node_key(&privkey, NULL);
 	if (secp256k1_ecdh(secp256k1_ctx, ss.u.u8, &point.pubkey,
-			   privkey.secret) != 1)
-		return NULL;
+			   privkey.secret) != 1) {
+		status_trace("secp256k1_ecdh fail for client %"PRIu64, c->id);
+		status_send(towire_hsmstatus_client_bad_request(c,
+								c->id,
+								dc->msg_in));
+		return io_close(conn);
+	}
 
-	return towire_hsm_ecdh_resp(c, &ss);
+	daemon_conn_send(dc, take(towire_hsm_ecdh_resp(c, &ss)));
+	return daemon_conn_read_next(conn, dc);
 }
 
 /* Control messages */
-static u8 *init_response(struct conn_info *control)
+static void send_init_response(struct daemon_conn *master)
 {
 	struct pubkey node_id;
 	struct privkey peer_seed;
-	u8 *serialized_extkey = tal_arr(control, u8, BIP32_SERIALIZED_LEN), *msg;
+	u8 *serialized_extkey = tal_arr(master, u8, BIP32_SERIALIZED_LEN), *msg;
 
 	hkdf_sha256(&peer_seed, sizeof(peer_seed), NULL, 0,
 		    &secretstuff.hsm_secret,
@@ -154,10 +132,10 @@ static u8 *init_response(struct conn_info *control)
 		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
 			      "Can't serialize bip32 public key");
 
-	msg = towire_hsmctl_init_reply(control, &node_id, &peer_seed,
+	msg = towire_hsmctl_init_reply(master, &node_id, &peer_seed,
 				       serialized_extkey);
 	tal_free(serialized_extkey);
-	return msg;
+	daemon_conn_send(master, take(msg));
 }
 
 static void populate_secretstuff(void)
@@ -251,7 +229,7 @@ static void bitcoin_keypair(struct privkey *privkey,
 			      "BIP32 pubkey %u create failed", index);
 }
 
-static void create_new_hsm(struct conn_info *control)
+static void create_new_hsm(struct daemon_conn *master)
 {
 	int fd = open("hsm_secret", O_CREAT|O_EXCL|O_WRONLY, 0400);
 	if (fd < 0)
@@ -285,7 +263,7 @@ static void create_new_hsm(struct conn_info *control)
 	populate_secretstuff();
 }
 
-static void load_hsm(struct conn_info *control)
+static void load_hsm(struct daemon_conn *master)
 {
 	int fd = open("hsm_secret", O_RDONLY);
 	if (fd < 0)
@@ -299,7 +277,7 @@ static void load_hsm(struct conn_info *control)
 	populate_secretstuff();
 }
 
-static u8 *init_hsm(struct conn_info *control, const u8 *msg)
+static void init_hsm(struct daemon_conn *master, const u8 *msg)
 {
 	bool new;
 
@@ -307,78 +285,50 @@ static u8 *init_hsm(struct conn_info *control, const u8 *msg)
 		status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "hsmctl_init: %s",
 			      tal_hex(msg, msg));
 	if (new)
-		create_new_hsm(control);
+		create_new_hsm(master);
 	else
-		load_hsm(control);
+		load_hsm(master);
 
-	return init_response(control);
+	send_init_response(master);
 }
 
-static struct io_plan *recv_req(struct io_conn *conn, struct conn_info *ci)
-{
-	return io_read_wire(conn, ci, &ci->in, ci->received_req, ci);
-}
-
-static struct io_plan *sent_resp(struct io_conn *conn, struct conn_info *ci)
-{
-	ci->out = tal_free(ci->out);
-	if (ci->out_fd != -1) {
-		int fd = ci->out_fd;
-		ci->out_fd = -1;
-		/* Close after sending */
-		return io_send_fd(conn, fd, true, recv_req, ci);
-	}
-	return recv_req(conn, ci);
-}
-
-static struct io_plan *ecdh_client(struct io_conn *conn, struct client *c)
-{
-	tal_steal(conn, c);
-	return recv_req(conn, &c->ci);
-}
-
-static u8 *pass_hsmfd_ecdh(struct io_conn *conn,
-			   struct conn_info *control,
-			   const tal_t *data,
-			   int *fd_to_pass)
+static void pass_hsmfd_ecdh(struct daemon_conn *master, const u8 *msg)
 {
 	int fds[2];
 	u64 id;
-	struct client *c;
 
-	if (!fromwire_hsmctl_hsmfd_ecdh(data, NULL, &id))
+	if (!fromwire_hsmctl_hsmfd_ecdh(msg, NULL, &id))
 		status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "bad HSMFD_ECDH");
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
 		status_failed(WIRE_HSMSTATUS_FD_FAILED,
 			      "creating fds: %s", strerror(errno));
 
-	c = new_client(control, id, handle_ecdh);
-	io_new_conn(control, fds[0], ecdh_client, c);
-
-	*fd_to_pass = fds[1];
-	return towire_hsmctl_hsmfd_ecdh_fd_reply(control);
+	new_client(master, id, handle_ecdh, fds[0]);
+	daemon_conn_send(master,
+			 take(towire_hsmctl_hsmfd_ecdh_fd_reply(master)));
+	daemon_conn_send_fd(master, fds[1]);
 }
 
 /* Note that it's the main daemon that asks for the funding signature so it
  * can broadcast it. */
-static u8 *sign_funding_tx(const tal_t *ctx, const u8 *data)
+static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 {
-	const tal_t *tmpctx = tal_tmpctx(ctx);
+	const tal_t *tmpctx = tal_tmpctx(master);
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
 	struct pubkey local_pubkey, remote_pubkey;
 	struct utxo *inputs;
 	const struct utxo **utxomap;
 	struct bitcoin_tx *tx;
-	u8 *wscript, *msg_out;
+	u8 *wscript;
 	secp256k1_ecdsa_signature *sig;
 	u16 outnum;
 	size_t i;
 	struct pubkey changekey;
 
 	/* FIXME: Check fee is "reasonable" */
-	if (!fromwire_hsmctl_sign_funding(tmpctx, data, NULL,
+	if (!fromwire_hsmctl_sign_funding(tmpctx, msg, NULL,
 					  &satoshi_out, &change_out,
 					  &change_keyindex, &local_pubkey,
 					  &remote_pubkey, &inputs))
@@ -416,30 +366,29 @@ static u8 *sign_funding_tx(const tal_t *ctx, const u8 *data)
 			      &inprivkey, &inkey, &sig[i]);
 	}
 
-	msg_out = towire_hsmctl_sign_funding_reply(ctx, sig);
+	daemon_conn_send(master,
+			 take(towire_hsmctl_sign_funding_reply(tmpctx, sig)));
 	tal_free(tmpctx);
-	return msg_out;
 }
 
 static struct io_plan *control_received_req(struct io_conn *conn,
-					    struct conn_info *control)
+					    struct daemon_conn *master)
 {
-	enum hsm_wire_type t = fromwire_peektype(control->in);
+	enum hsm_wire_type t = fromwire_peektype(master->msg_in);
 
 	status_trace("Control: type %s len %zu",
-		     hsm_wire_type_name(t), tal_count(control->in));
+		     hsm_wire_type_name(t), tal_count(master->msg_in));
 
 	switch (t) {
 	case WIRE_HSMCTL_INIT:
-		control->out = init_hsm(control, control->in);
-		goto send_out;
+		init_hsm(master, master->msg_in);
+		return daemon_conn_read_next(conn, master);
 	case WIRE_HSMCTL_HSMFD_ECDH:
-		control->out = pass_hsmfd_ecdh(conn, control, control->in,
-					       &control->out_fd);
-		goto send_out;
+		pass_hsmfd_ecdh(master, master->msg_in);
+		return daemon_conn_read_next(conn, master);
 	case WIRE_HSMCTL_SIGN_FUNDING:
-		control->out = sign_funding_tx(control, control->in);
-		goto send_out;
+		sign_funding_tx(master, master->msg_in);
+		return daemon_conn_read_next(conn, master);
 
 	case WIRE_HSMCTL_INIT_REPLY:
 	case WIRE_HSMCTL_HSMFD_ECDH_FD_REPLY:
@@ -455,25 +404,12 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 
 	/* Control shouldn't give bad requests. */
 	status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "%i", t);
-
-send_out:
-	if (control->out)
-		return io_write_wire(conn, control->out, sent_resp, control);
-	else
-		return sent_resp(conn, control);
-}
-
-static struct io_plan *control_init(struct io_conn *conn,
-				    struct conn_info *control)
-{
-	return recv_req(conn, control);
 }
 
 #ifndef TESTING
 int main(int argc, char *argv[])
 {
-	struct conn_info *control;
-	struct io_conn *conn;
+	struct daemon_conn *master;
 
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
@@ -484,15 +420,12 @@ int main(int argc, char *argv[])
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
-	control = tal(NULL, struct conn_info);
-	conn_info_init(control, control_received_req);
-
+	master = tal(NULL, struct daemon_conn);
+	daemon_conn_init(master, master, STDIN_FILENO, control_received_req);
 	status_setup(STDIN_FILENO);
 
-	conn = io_new_conn(NULL, STDIN_FILENO, control_init, control);
 	/* When conn closes, everything is freed. */
-	tal_steal(conn, control);
-
+	tal_steal(master->conn, master);
 	io_loop(NULL, NULL);
 	return 0;
 }
