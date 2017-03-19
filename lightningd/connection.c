@@ -69,7 +69,6 @@ void daemon_conn_init(tal_t *ctx, struct daemon_conn *dc, int fd,
 	dc->ctx = ctx;
 	dc->msg_in = NULL;
 	msg_queue_init(&dc->out, dc->ctx);
-	dc->conn_fd = fd;
 	dc->msg_queue_cleared_cb = NULL;
 	io_new_conn(ctx, fd, daemon_conn_start, dc);
 }
