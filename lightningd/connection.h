@@ -47,6 +47,11 @@ void daemon_conn_init(tal_t *ctx, struct daemon_conn *dc, int fd,
 void daemon_conn_send(struct daemon_conn *dc, const u8 *msg);
 
 /**
+ * daemon_conn_send_fd - Enqueue a file descriptor to be sent (closed after)
+ */
+void daemon_conn_send_fd(struct daemon_conn *dc, int fd);
+
+/**
  * daemon_conn_write_next - Continue writing from the msg-queue
  *
  * Exposed here so that, if `msg_queue_cleared_cb` is used to break
