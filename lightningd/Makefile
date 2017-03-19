@@ -39,10 +39,10 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/channel.c			\
 	lightningd/channel_config.c		\
 	lightningd/commit_tx.c			\
-	lightningd/connection.c			\
 	lightningd/cryptomsg.c			\
 	lightningd/crypto_sync.c		\
 	lightningd/debug.c			\
+	lightningd/daemon_conn.c		\
 	lightningd/derive_basepoints.c		\
 	lightningd/funding_tx.c			\
 	lightningd/gossip_msg.c			\

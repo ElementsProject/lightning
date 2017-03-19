@@ -16,8 +16,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
-#include <lightningd/connection.h>
 #include <lightningd/cryptomsg.h>
+#include <lightningd/daemon_conn.h>
 #include <lightningd/debug.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/gossip_msg.h>

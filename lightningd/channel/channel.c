@@ -13,9 +13,9 @@
 #include <lightningd/channel.h>
 #include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/commit_tx.h>
-#include <lightningd/connection.h>
 #include <lightningd/crypto_sync.h>
 #include <lightningd/cryptomsg.h>
+#include <lightningd/daemon_conn.h>
 #include <lightningd/debug.h>
 #include <lightningd/derive_basepoints.h>
 #include <lightningd/key_derive.h>
