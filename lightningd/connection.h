@@ -17,7 +17,7 @@ struct daemon_conn {
 	/* Queue of outgoing messages */
 	struct msg_queue out;
 
-	int conn_fd;
+	/* Underlying connection */
 	struct io_conn *conn;
 
 	/* Callback for incoming messages */
