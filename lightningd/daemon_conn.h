@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_CONNECTION_H
-#define LIGHTNING_LIGHTNINGD_CONNECTION_H
+#ifndef LIGHTNING_LIGHTNINGD_DAEMON_CONN_H
+#define LIGHTNING_LIGHTNINGD_DAEMON_CONN_H
 
 #include "config.h"
 #include <ccan/io/io.h>
@@ -70,4 +70,4 @@ struct io_plan *daemon_conn_read_next(struct io_conn *conn,
  * daemon_conn_sync_flush - Flush connection by sending all messages now..
  */
 bool daemon_conn_sync_flush(struct daemon_conn *dc);
-#endif /* LIGHTNING_LIGHTNINGD_CONNECTION_H */
+#endif /* LIGHTNING_LIGHTNINGD_DAEMON_CONN_H */
