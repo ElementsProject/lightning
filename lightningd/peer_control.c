@@ -648,7 +648,7 @@ static void peer_start_channeld(struct peer *peer, bool am_funder,
 			       "lightningd_channel", peer,
 			       channel_wire_type_name,
 			       update_channel_status, NULL,
-			       peer->fd, -1);
+			       peer->fd, peer->gossip_client_fd, -1);
 	if (!peer->owner) {
 		log_unusual(peer->log, "Could not subdaemon channel: %s",
 			    strerror(errno));
@@ -682,7 +682,6 @@ static void peer_start_channeld(struct peer *peer, bool am_funder,
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(peer->owner, take(msg));
-	subd_send_fd(peer->owner, peer->gossip_client_fd);
 }
 
 static bool opening_release_tx(struct subd *opening, const u8 *resp,
