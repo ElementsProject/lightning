@@ -58,24 +58,17 @@ void status_send_sync(const u8 *p)
 
 static void status_send_with_hdr(u16 type, const void *p, size_t len)
 {
-	be16 be_type, be_len;
-
-	if (too_large(len + sizeof(be_type), type))
-		len = 65535 - sizeof(be_type);
-
-	be_type = cpu_to_be16(type);
-	be_len = cpu_to_be16(len + sizeof(be_type));
-	assert(be16_to_cpu(be_len) == len + sizeof(be_type));
+	u8 *msg = tal_arr(NULL, u8, 0);
+	towire_u16(&msg, type);
+	towire(&msg, p, len);
+	if (too_large(tal_len(msg), type))
+		tal_resize(&msg, 65535);
 
 	if (status_fd >= 0) {
-		if (!write_all(status_fd, &be_len, sizeof(be_len))
-		    || !write_all(status_fd, &be_type, sizeof(be_type))
-		    || !write_all(status_fd, p, len))
+		if (!wire_sync_write(status_fd, msg))
 			err(1, "Writing out status %u len %zu", type, len);
+		tal_free(msg);
 	} else {
-		u8 *msg = tal_arr(NULL, u8, sizeof(be_type) + len);
-		memcpy(msg, &be_type, sizeof(be_type));
-		memcpy(msg + sizeof(be_type), p, len);
 		daemon_conn_send(status_conn, take(msg));
 	}
 }
