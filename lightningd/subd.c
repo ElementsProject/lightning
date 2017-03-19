@@ -292,16 +292,14 @@ static void destroy_subd(struct subd *sd)
 static struct io_plan *msg_send_next(struct io_conn *conn, struct subd *sd)
 {
 	const u8 *msg = msg_dequeue(&sd->outq);
+	int fd;
 
 	/* Nothing to do?  Wait for msg_enqueue. */
 	if (!msg)
 		return msg_queue_wait(conn, &sd->outq, msg_send_next, sd);
 
-	/* We overload STATUS_TRACE for outgoing to mean "send an fd" */
-	if (fromwire_peektype(msg) == STATUS_TRACE) {
-		const u8 *p = msg + sizeof(be16);
-		size_t len = tal_count(msg) - sizeof(be16);
-		int fd = fromwire_u32(&p, &len);
+	fd = msg_is_fd(msg);
+	if (fd >= 0) {
 		tal_free(msg);
 		return io_send_fd(conn, fd, true, msg_send_next, sd);
 	}
@@ -363,18 +361,12 @@ struct subd *new_subd(const tal_t *ctx,
 
 void subd_send_msg(struct subd *sd, const u8 *msg_out)
 {
-	/* We overload STATUS_TRACE for outgoing to mean "send an fd" */
-	assert(fromwire_peektype(msg_out) != STATUS_TRACE);
 	msg_enqueue(&sd->outq, msg_out);
 }
 
 void subd_send_fd(struct subd *sd, int fd)
 {
-	/* We overload STATUS_TRACE for outgoing to mean "send an fd" */
-	u8 *fdmsg = tal_arr(sd, u8, 0);
-	towire_u16(&fdmsg, STATUS_TRACE);
-	towire_u32(&fdmsg, fd);
-	msg_enqueue(&sd->outq, take(fdmsg));
+	msg_enqueue_fd(&sd->outq, fd);
 }
 
 void subd_req_(struct subd *sd,
