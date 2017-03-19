@@ -604,9 +604,9 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 	return true;
 }
 
-static enum subd_msg_ret update_channel_status(struct subd *sd,
-					       const u8 *msg,
-					       int unused)
+static size_t update_channel_status(struct subd *sd,
+				    const u8 *msg,
+				    const int *unused)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);
 
@@ -629,7 +629,7 @@ static enum subd_msg_ret update_channel_status(struct subd *sd,
 		break;
 	}
 
-	return SUBD_COMPLETE;
+	return 0;
 }
 
 /* opening is done, start lightningd_channel for peer. */

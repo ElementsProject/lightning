@@ -104,8 +104,7 @@ static void peer_ready(struct subd *gossip, const u8 *msg, int fd)
 	peer_set_condition(peer, "Exchanging gossip");
 }
 
-static enum subd_msg_ret gossip_msg(struct subd *gossip,
-				    const u8 *msg, int fd)
+static size_t gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 {
 	enum gossip_wire_type t = fromwire_peektype(msg);
 
@@ -128,18 +127,17 @@ static enum subd_msg_ret gossip_msg(struct subd *gossip,
 		peer_bad_message(gossip, msg);
 		break;
 	case WIRE_GOSSIPSTATUS_PEER_NONGOSSIP:
-		if (fd == -1)
-			return SUBD_NEED_FD;
-		peer_nongossip(gossip, msg, fd);
+		if (tal_count(fds) != 1)
+			return 1;
+		peer_nongossip(gossip, msg, fds[0]);
 		break;
 	case WIRE_GOSSIPSTATUS_PEER_READY:
-		if (fd == -1) {
-			return SUBD_NEED_FD;
-		}
-		peer_ready(gossip, msg, fd);
+		if (tal_count(fds) != 1)
+			return 1;
+		peer_ready(gossip, msg, fds[0]);
 		break;
 	}
-	return SUBD_COMPLETE;
+	return 0;
 }
 
 void gossip_init(struct lightningd *ld)

@@ -38,7 +38,7 @@ static void hsm_finished(struct subd *hsm, int status)
 	errx(1, "HSM failed (signal %u), exiting.", WTERMSIG(status));
 }
 
-static enum subd_msg_ret hsm_msg(struct subd *hsm, const u8 *msg, int fd)
+static size_t hsm_msg(struct subd *hsm, const u8 *msg, const int *fds)
 {
 	enum hsm_wire_type t = fromwire_peektype(msg);
 	u8 *badmsg;
@@ -79,7 +79,7 @@ static enum subd_msg_ret hsm_msg(struct subd *hsm, const u8 *msg, int fd)
 	case WIRE_HSMCTL_SIGN_FUNDING_REPLY:
 		errx(1, "HSM gave invalid message %s", hsm_wire_type_name(t));
 	}
-	return SUBD_COMPLETE;
+	return 0;
 }
 
 void hsm_init(struct lightningd *ld, bool newdir)
