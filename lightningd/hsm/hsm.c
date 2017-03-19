@@ -42,6 +42,7 @@ static struct {
 
 struct client {
 	struct daemon_conn dc;
+	struct daemon_conn *master;
 
 	u64 id;
 	struct io_plan *(*handle)(struct io_conn *, struct daemon_conn *);
@@ -69,15 +70,16 @@ static void node_key(struct privkey *node_secret, struct pubkey *node_id)
 					     node_secret->secret));
 }
 
-static struct client *new_client(const tal_t *ctx,
+static struct client *new_client(struct daemon_conn *master,
 				 u64 id,
 				 struct io_plan *(*handle)(struct io_conn *,
 							   struct daemon_conn *),
 				 int fd)
 {
-	struct client *c = tal(ctx, struct client);
+	struct client *c = tal(master, struct client);
 	c->id = id;
 	c->handle = handle;
+	c->master = master;
 	daemon_conn_init(c, &c->dc, fd, handle);
 
 	/* Free client when connection freed. */
@@ -93,9 +95,10 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 	struct sha256 ss;
 
 	if (!fromwire_hsm_ecdh_req(dc->msg_in, NULL, &point)) {
-		status_send(towire_hsmstatus_client_bad_request(c,
+		daemon_conn_send(c->master,
+				 take(towire_hsmstatus_client_bad_request(c,
 								c->id,
-								dc->msg_in));
+								dc->msg_in)));
 		return io_close(conn);
 	}
 
@@ -103,9 +106,10 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 	if (secp256k1_ecdh(secp256k1_ctx, ss.u.u8, &point.pubkey,
 			   privkey.secret) != 1) {
 		status_trace("secp256k1_ecdh fail for client %"PRIu64, c->id);
-		status_send(towire_hsmstatus_client_bad_request(c,
+		daemon_conn_send(c->master,
+				 take(towire_hsmstatus_client_bad_request(c,
 								c->id,
-								dc->msg_in));
+								dc->msg_in)));
 		return io_close(conn);
 	}
 
