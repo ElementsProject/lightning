@@ -152,6 +152,7 @@ void gossip_init(struct lightningd *ld)
 }
 
 static bool json_getnodes_reply(struct subd *gossip, const u8 *reply,
+				const int *fds,
 				struct command *cmd)
 {
 	struct gossip_getnodes_entry *nodes;
@@ -188,7 +189,7 @@ static void json_getnodes(struct command *cmd, const char *buffer,
 {
 	struct lightningd *ld = ld_from_dstate(cmd->dstate);
 	u8 *req = towire_gossip_getnodes_request(cmd);
-	subd_req(ld->gossip, req, -1, NULL, json_getnodes_reply, cmd);
+	subd_req(ld->gossip, req, -1, 0, json_getnodes_reply, cmd);
 }
 
 static const struct json_command getnodes_command = {

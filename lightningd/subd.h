@@ -96,24 +96,24 @@ void subd_send_fd(struct subd *sd, int fd);
  * @sd: subdaemon to request
  * @msg_out: request message (can be take)
  * @fd_out: if >=0 fd to pass at the end of the message (closed after)
- * @fd_in: if not NULL, where to put fd read in at end of reply.
+ * @num_fds_in: how many fds to read in to hand to @replycb.
  * @replycb: callback when reply comes in, returns false to shutdown daemon.
  * @replycb_data: final arg to hand to @replycb
  *
  * @replycb cannot free @sd, so it returns false to remove it.
  */
-#define subd_req(sd, msg_out, fd_out, fd_in, replycb, replycb_data)	\
-	subd_req_((sd), (msg_out), (fd_out), (fd_in),			\
-		       typesafe_cb_preargs(bool, void *,		\
-					   (replycb), (replycb_data),	\
-					   struct subd *,		\
-					   const u8 *),			\
+#define subd_req(sd, msg_out, fd_out, num_fds_in, replycb, replycb_data) \
+	subd_req_((sd), (msg_out), (fd_out), (num_fds_in),		\
+		  typesafe_cb_preargs(bool, void *,			\
+				      (replycb), (replycb_data),	\
+				      struct subd *,			\
+				      const u8 *, const int *),		\
 		       (replycb_data))
 void subd_req_(struct subd *sd,
-		    const u8 *msg_out,
-		    int fd_out, int *fd_in,
-		    bool (*replycb)(struct subd *, const u8 *, void *),
-		    void *replycb_data);
+	       const u8 *msg_out,
+	       int fd_out, size_t num_fds_in,
+	       bool (*replycb)(struct subd *, const u8 *, const int *, void *),
+	       void *replycb_data);
 
 char *opt_subd_debug(const char *optarg, struct lightningd *ld);
 

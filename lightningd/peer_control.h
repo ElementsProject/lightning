@@ -36,9 +36,6 @@ struct peer {
 	/* Where we connected to, or it connected from. */
 	struct netaddr netaddr;
 
-	/* HSM connection for this peer. */
-	int hsmfd;
-
 	/* Json command which made us connect (if any) */
 	struct command *connect_cmd;
 
