@@ -319,17 +319,15 @@ static struct io_plan *recv_req(struct io_conn *conn, struct conn_info *ci)
 	return io_read_wire(conn, ci, &ci->in, ci->received_req, ci);
 }
 
-static struct io_plan *sent_out_fd(struct io_conn *conn, struct conn_info *ci)
-{
-	ci->out_fd = -1;
-	return recv_req(conn, ci);
-}
-
 static struct io_plan *sent_resp(struct io_conn *conn, struct conn_info *ci)
 {
 	ci->out = tal_free(ci->out);
-	if (ci->out_fd != -1)
-		return io_send_fd(conn, ci->out_fd, sent_out_fd, ci);
+	if (ci->out_fd != -1) {
+		int fd = ci->out_fd;
+		ci->out_fd = -1;
+		/* Close after sending */
+		return io_send_fd(conn, fd, true, recv_req, ci);
+	}
 	return recv_req(conn, ci);
 }
 

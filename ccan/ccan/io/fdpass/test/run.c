@@ -28,7 +28,7 @@ static struct io_plan *try_writing(struct io_conn *conn, int *pfd)
 
 static struct io_plan *send_fd(struct io_conn *conn, int *pfd)
 {
-	return io_send_fd(conn, pfd[0], try_writing, pfd);
+	return io_send_fd(conn, pfd[0], true, try_writing, pfd);
 }
 
 int main(void)

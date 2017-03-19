@@ -406,7 +406,11 @@ static struct io_plan *new_peer(struct io_conn *conn, struct daemon *daemon,
 
 static struct io_plan *release_peer_fd(struct io_conn *conn, struct peer *peer)
 {
-	return io_send_fd(conn, peer->fd, next_req_in, peer->daemon);
+	int fd = peer->fd;
+
+	/* This will be closed after sending. */
+	peer->fd = -1;
+	return io_send_fd(conn, fd, true, next_req_in, peer->daemon);
 }
 
 static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,

@@ -18,7 +18,7 @@
  *	#include <string.h>
  *
  *	// Dumb basename program and driver.
- *	static char *base(const char *file)
+ *	static char *base(const char *file TAKES)
  *	{
  *		const char *p = strrchr(file, '/');
  *		if (!p) 
@@ -53,6 +53,7 @@ int main(int argc, char *argv[])
 
 	if (strcmp(argv[1], "depends") == 0) {
 		printf("ccan/likely\n");
+		printf("ccan/str\n");
 		return 0;
 	}
 

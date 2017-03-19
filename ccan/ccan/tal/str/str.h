@@ -14,7 +14,7 @@
  * @ctx: NULL, or tal allocated object to be parent.
  * @p: the string to copy (can be take()).
  */
-char *tal_strdup(const tal_t *ctx, const char *p);
+char *tal_strdup(const tal_t *ctx, const char *p TAKES);
 
 /**
  * tal_strndup - duplicate a limited amount of a string.
@@ -24,14 +24,14 @@ char *tal_strdup(const tal_t *ctx, const char *p);
  *
  * Always gives a nul-terminated string, with strlen() <= @n.
  */
-char *tal_strndup(const tal_t *ctx, const char *p, size_t n);
+char *tal_strndup(const tal_t *ctx, const char *p TAKES, size_t n);
 
 /**
  * tal_fmt - allocate a formatted string
  * @ctx: NULL, or tal allocated object to be parent.
  * @fmt: the printf-style format (can be take()).
  */
-char *tal_fmt(const tal_t *ctx, const char *fmt, ...) PRINTF_FMT(2,3);
+char *tal_fmt(const tal_t *ctx, const char *fmt TAKES, ...) PRINTF_FMT(2,3);
 
 /**
  * tal_vfmt - allocate a formatted string (va_list version)
@@ -39,7 +39,7 @@ char *tal_fmt(const tal_t *ctx, const char *fmt, ...) PRINTF_FMT(2,3);
  * @fmt: the printf-style format (can be take()).
  * @va: the va_list containing the format args.
  */
-char *tal_vfmt(const tal_t *ctx, const char *fmt, va_list ap)
+char *tal_vfmt(const tal_t *ctx, const char *fmt TAKES, va_list ap)
 	PRINTF_FMT(2,0);
 
 /**
@@ -49,7 +49,7 @@ char *tal_vfmt(const tal_t *ctx, const char *fmt, va_list ap)
  *
  * Returns false on allocation failure.
  */
-bool tal_append_fmt(char **baseptr, const char *fmt, ...) PRINTF_FMT(2,3);
+bool tal_append_fmt(char **baseptr, const char *fmt TAKES, ...) PRINTF_FMT(2,3);
 
 /**
  * tal_append_vfmt - append a formatted string to a talloc string (va_list)
@@ -59,7 +59,7 @@ bool tal_append_fmt(char **baseptr, const char *fmt, ...) PRINTF_FMT(2,3);
  *
  * Returns false on allocation failure.
  */
-bool tal_append_vfmt(char **baseptr, const char *fmt, va_list ap);
+bool tal_append_vfmt(char **baseptr, const char *fmt TAKES, va_list ap);
 
 /**
  * tal_strcat - join two strings together
@@ -67,7 +67,7 @@ bool tal_append_vfmt(char **baseptr, const char *fmt, va_list ap);
  * @s1: the first string (can be take()).
  * @s2: the second string (can be take()).
  */
-char *tal_strcat(const tal_t *ctx, const char *s1, const char *s2);
+char *tal_strcat(const tal_t *ctx, const char *s1 TAKES, const char *s2 TAKES);
 
 enum strsplit {
 	STR_EMPTY_OK,
@@ -110,7 +110,9 @@ enum strsplit {
  *	}
  */
 char **tal_strsplit(const tal_t *ctx,
-		    const char *string, const char *delims, enum strsplit flag);
+		    const char *string TAKES,
+		    const char *delims TAKES,
+		    enum strsplit flag);
 
 enum strjoin {
 	STR_TRAIL,
@@ -140,7 +142,9 @@ enum strjoin {
  *		return ret;
  *	}
  */
-char *tal_strjoin(const void *ctx, char *strings[], const char *delim,
+char *tal_strjoin(const void *ctx,
+		  char *strings[] TAKES,
+		  const char *delim TAKES,
 		  enum strjoin flags);
 
 /**
@@ -183,5 +187,6 @@ char *tal_strjoin(const void *ctx, char *strings[], const char *delim,
  *		return 0;
  *	}
  */
-bool tal_strreg(const void *ctx, const char *string, const char *regex, ...);
+bool tal_strreg(const void *ctx, const char *string TAKES,
+		const char *regex TAKES, ...);
 #endif /* CCAN_STR_TAL_H */

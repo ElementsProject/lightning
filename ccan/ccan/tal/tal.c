@@ -2,7 +2,6 @@
 #include <ccan/tal/tal.h>
 #include <ccan/compiler/compiler.h>
 #include <ccan/list/list.h>
-#include <ccan/take/take.h>
 #include <ccan/alignof/alignof.h>
 #include <assert.h>
 #include <stdio.h>

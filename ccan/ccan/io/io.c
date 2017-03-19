@@ -483,3 +483,37 @@ struct io_plan *io_set_plan(struct io_conn *conn, enum io_direction dir,
 
 	return plan;
 }
+
+bool io_flush_sync(struct io_conn *conn)
+{
+	struct io_plan *plan = &conn->plan[IO_OUT];
+	bool ok;
+
+	/* Not writing?  Nothing to do. */
+	if (plan->status != IO_POLLING)
+		return true;
+
+	/* Synchronous please. */
+	set_blocking(io_conn_fd(conn), true);
+
+again:
+	switch (plan->io(conn->fd.fd, &plan->arg)) {
+	case -1:
+		ok = false;
+		break;
+	/* Incomplete, try again. */
+	case 0:
+		goto again;
+	case 1:
+		ok = true;
+		/* In case they come back. */
+		set_always(conn, IO_OUT, plan->next, plan->next_arg);
+		break;
+	default:
+		/* IO should only return -1, 0 or 1 */
+		abort();
+	}
+
+	set_blocking(io_conn_fd(conn), false);
+	return ok;
+}

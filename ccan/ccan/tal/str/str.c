@@ -11,7 +11,6 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <ccan/str/str.h>
-#include <ccan/take/take.h>
 
 char *tal_strdup(const tal_t *ctx, const char *p)
 {

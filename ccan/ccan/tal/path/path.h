@@ -20,7 +20,7 @@ char *path_cwd(const tal_t *ctx);
  * Returns NULL and sets errno on error, otherwise returns nul-terminated
  * link contents.
  */
-char *path_readlink(const tal_t *ctx, const char *link);
+char *path_readlink(const tal_t *ctx, const char *link TAKES);
 
 /**
  * path_canon - return the canonical absolute pathname.
@@ -31,7 +31,7 @@ char *path_readlink(const tal_t *ctx, const char *link);
  * path with no symbolic links and no extra separators (ie. as per
  * realpath).
  */
-char *path_canon(const tal_t *ctx, const char *a);
+char *path_canon(const tal_t *ctx, const char *a TAKES);
 
 /**
  * path_simplify - remove double-/, ./ and some ../, plus trailing /.
@@ -42,7 +42,7 @@ char *path_canon(const tal_t *ctx, const char *a);
  * terms or remove symlinks, but it does neaten it by removing extraneous
  * parts.
  */
-char *path_simplify(const tal_t *ctx, const char *a);
+char *path_simplify(const tal_t *ctx, const char *a TAKES);
 
 /**
  * path_join - attach one path to another.
@@ -53,14 +53,14 @@ char *path_simplify(const tal_t *ctx, const char *a);
  * If @a is an absolute path, return a copy of it.  Otherwise, attach
  * @a to @base.
  */
-char *path_join(const tal_t *ctx, const char *base, const char *a);
+char *path_join(const tal_t *ctx, const char *base TAKES, const char *a TAKES);
 
 /**
  * path_pushd - save old dir and change to a new one.
  * @ctx: the context to tal the result from
  * @dir: the directory to return to (can be take())
  */
-struct path_pushd *path_pushd(const tal_t *ctx, const char *dir);
+struct path_pushd *path_pushd(const tal_t *ctx, const char *dir TAKES);
 
 /**
  * path_popd - return to old, path_pushd dir.
@@ -83,7 +83,8 @@ bool path_popd(struct path_pushd *olddir);
  *	char *path = path_rel(NULL, "/tmp", "/");
  *	assert(strcmp(path, "..") == 0);
  */
-char *path_rel(const tal_t *ctx, const char *fromdir, const char *to);
+char *path_rel(const tal_t *ctx,
+	       const char *fromdir TAKES, const char *to TAKES);
 
 /**
  * path_basename - get trailing filename part of path
@@ -102,7 +103,7 @@ char *path_rel(const tal_t *ctx, const char *fromdir, const char *to);
  * See Also:
  *	path_dirname()
  */
-char *path_basename(const tal_t *ctx, const char *path);
+char *path_basename(const tal_t *ctx, const char *path TAKES);
 
 /**
  * path_dirname - get the directory part of path
@@ -114,7 +115,7 @@ char *path_basename(const tal_t *ctx, const char *path);
  * See Also:
  *	path_basename()
  */
-char *path_dirname(const tal_t *ctx, const char *path);
+char *path_dirname(const tal_t *ctx, const char *path TAKES);
 
 /**
  * path_is_abs - is a path absolute?
@@ -149,7 +150,7 @@ bool path_is_dir(const char *path);
  * See Also:
  *	strjoin()
  */
-char **path_split(const tal_t *ctx, const char *path);
+char **path_split(const tal_t *ctx, const char *path TAKES);
 
 /**
  * path_ext_off - get offset of the extension within a pathname.

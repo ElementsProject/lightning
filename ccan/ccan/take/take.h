@@ -3,6 +3,24 @@
 #define CCAN_TAKE_H
 #include "config.h"
 #include <stdbool.h>
+#include <ccan/str/str.h>
+
+#ifdef CCAN_TAKE_DEBUG
+#define TAKE_LABEL(p) __FILE__ ":" stringify(__LINE__) ":" stringify(p)
+#else
+#define TAKE_LABEL(p) NULL
+#endif
+
+/**
+ * TAKES - annotate a formal parameter as being take()-able
+ *
+ * This doesn't do anything, but useful for documentation.
+ *
+ * Example:
+ *	void print_string(const char *str TAKES);
+ *	
+ */
+#define TAKES
 
 /**
  * take - record a pointer to be consumed by the function its handed to.
@@ -12,7 +30,7 @@
  * which is extremely useful for chaining functions.  It works on
  * NULL, for pass-through error handling.
  */
-#define take(p) (take_typeof(p) take_((p)))
+#define take(p) (take_typeof(p) take_((p), TAKE_LABEL(p)))
 
 /**
  * taken - check (and un-take) a pointer was passed with take()
@@ -24,7 +42,7 @@
  *
  * Example:
  *	// Silly routine to add 1
- *	static int *add_one(const int *num)
+ *	static int *add_one(const int *num TAKES)
  *	{
  *		int *ret;
  *		if (taken(num))
@@ -60,7 +78,9 @@ bool is_taken(const void *p);
 /**
  * taken_any - are there any taken pointers?
  *
- * Mainly useful for debugging take() leaks.
+ * Mainly useful for debugging take() leaks.  With CCAN_TAKE_DEBUG, returns
+ * the label where the pointer was passed to take(), otherwise returns
+ * a static char buffer with the pointer value in it.  NULL if none are taken.
  *
  * Example:
  *	static void cleanup(void)
@@ -68,7 +88,7 @@ bool is_taken(const void *p);
  *		assert(!taken_any());
  *	}
  */
-bool taken_any(void);
+const char *taken_any(void);
 
 /**
  * take_cleanup - remove all taken pointers from list.
@@ -112,5 +132,5 @@ void take_allocfail(void (*fn)(const void *p));
 #define take_typeof(ptr)
 #endif
 
-void *take_(const void *p);
+void *take_(const void *p, const char *label);
 #endif /* CCAN_TAKE_H */
