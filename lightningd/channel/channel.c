@@ -312,7 +312,7 @@ int main(int argc, char *argv[])
 	daemon_conn_init(peer, &peer->master, REQ_FD, req_in);
 	peer->channel = NULL;
 
-	status_setup(REQ_FD);
+	status_setup_async(&peer->master);
 	msg_queue_init(&peer->peer_out, peer);
 
 	daemon_conn_init(peer, &peer->gossip_client, GOSSIP_FD,

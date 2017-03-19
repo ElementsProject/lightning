@@ -426,7 +426,7 @@ int main(int argc, char *argv[])
 
 	master = tal(NULL, struct daemon_conn);
 	daemon_conn_init(master, master, STDIN_FILENO, control_received_req);
-	status_setup(STDIN_FILENO);
+	status_setup_async(master);
 
 	/* When conn closes, everything is freed. */
 	tal_steal(master->conn, master);

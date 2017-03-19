@@ -537,8 +537,8 @@ int main(int argc, char *argv[])
 	timers_init(&daemon->timers, time_mono());
 
 	/* stdin == control */
-	status_setup(STDIN_FILENO);
 	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req);
+	status_setup_async(&daemon->master);
 	for (;;) {
 		struct timer *expired = NULL;
 		io_loop(&daemon->timers, &expired);
