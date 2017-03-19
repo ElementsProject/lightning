@@ -47,7 +47,7 @@ const u8 *msg_dequeue(struct msg_queue *q)
 	return msg;
 }
 
-int msg_is_fd(const u8 *msg)
+int msg_extract_fd(const u8 *msg)
 {
 	const u8 *p = msg + sizeof(u16);
 	size_t len = tal_count(msg) - sizeof(u16);

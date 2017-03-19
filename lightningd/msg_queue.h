@@ -25,7 +25,7 @@ void msg_enqueue_fd(struct msg_queue *q, int fd);
 const u8 *msg_dequeue(struct msg_queue *q);
 
 /* Returns -1 if not an fd: close after sending. */
-int msg_is_fd(const u8 *msg);
+int msg_extract_fd(const u8 *msg);
 
 #define msg_queue_wait(conn, q, next, arg) \
 	io_out_wait((conn), (q), (next), (arg))

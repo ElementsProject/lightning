@@ -309,7 +309,7 @@ static struct io_plan *msg_send_next(struct io_conn *conn, struct subd *sd)
 	if (!msg)
 		return msg_queue_wait(conn, &sd->outq, msg_send_next, sd);
 
-	fd = msg_is_fd(msg);
+	fd = msg_extract_fd(msg);
 	if (fd >= 0) {
 		tal_free(msg);
 		return io_send_fd(conn, fd, true, msg_send_next, sd);
