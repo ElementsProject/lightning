@@ -21,9 +21,9 @@
 #include <lightningd/debug.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/gossip_msg.h>
+#include <lightningd/status.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/randombytes.h>
-#include <status.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>

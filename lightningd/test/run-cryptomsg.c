@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
-#include <status.h>
+#include <lightningd/status.h>
 #include <stdio.h>
 #include <wire/wire_io.h>
 

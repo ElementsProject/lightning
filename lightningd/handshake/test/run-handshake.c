@@ -7,7 +7,7 @@
 #include <ccan/err/err.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/structeq/structeq.h>
-#include "status.h"
+#include <lightningd/status.h>
 
 /* Since we use pipes, we need different fds for read and write. */
 static int read_fd, write_fd;

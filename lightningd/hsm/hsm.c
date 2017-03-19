@@ -19,10 +19,10 @@
 #include <lightningd/hsm/client.h>
 #include <lightningd/hsm/gen_hsm_client_wire.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
+#include <lightningd/status.h>
 #include <permute_tx.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/randombytes.h>
-#include <status.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>

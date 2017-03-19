@@ -7,8 +7,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/status.h>
 #include <lightningd/subd.h>
-#include <status.h>
 #include <stdarg.h>
 #include <sys/socket.h>
 #include <sys/stat.h>

@@ -2,7 +2,7 @@
 #include <fcntl.h>
 #include <lightningd/crypto_sync.h>
 #include <lightningd/peer_failed.h>
-#include <status.h>
+#include <lightningd/status.h>
 #include <stdarg.h>
 #include <unistd.h>
 #include <wire/gen_peer_wire.h>

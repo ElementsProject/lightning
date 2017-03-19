@@ -1,4 +1,4 @@
- #include <status.h>
+ #include <lightningd/status.h>
  #include <stdio.h>
 #define status_trace(fmt , ...) \
 	printf(fmt "\n" , ## __VA_ARGS__)
