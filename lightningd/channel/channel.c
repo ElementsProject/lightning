@@ -68,12 +68,6 @@ struct peer {
 	secp256k1_ecdsa_signature announcement_bitcoin_sigs[NUM_SIDES];
 };
 
-static void queue_pkt(struct peer *peer, const u8 *msg)
-{
-	msg_enqueue(&peer->peer_out, msg);
-	io_wake(peer);
-}
-
 static struct io_plan *gossip_client_recv(struct io_conn *conn,
 					  struct daemon_conn *dc)
 {
@@ -83,7 +77,7 @@ static struct io_plan *gossip_client_recv(struct io_conn *conn,
 
 	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
 	    type == WIRE_NODE_ANNOUNCEMENT)
-		queue_pkt(peer, tal_dup_arr(dc->ctx, u8, msg, tal_len(msg), 0));
+		msg_enqueue(&peer->peer_out, msg);
 
 	return daemon_conn_read_next(conn, dc);
 }
@@ -99,7 +93,7 @@ static void send_announcement_signatures(struct peer *peer)
 	msg = towire_announcement_signatures(tmpctx, &peer->channel_id,
 					     &peer->short_channel_ids[LOCAL],
 					     sig, sig);
-	queue_pkt(peer, take(msg));
+	msg_enqueue(&peer->peer_out, take(msg));
 	tal_free(tmpctx);
 }
 
@@ -142,8 +136,8 @@ static void announce_channel(struct peer *peer)
 	    tmpctx, sig, &peer->short_channel_ids[LOCAL], timestamp, flags, 36,
 	    1, 10, peer->channel->view[LOCAL].feerate_per_kw);
 
-	queue_pkt(peer, cannounce);
-	queue_pkt(peer, cupdate);
+	msg_enqueue(&peer->peer_out, cannounce);
+	msg_enqueue(&peer->peer_out, cupdate);
 
 	daemon_conn_send(&peer->gossip_client, take(cannounce));
 	daemon_conn_send(&peer->gossip_client, take(cupdate));
@@ -155,7 +149,7 @@ static struct io_plan *peer_out(struct io_conn *conn, struct peer *peer)
 {
 	const u8 *out = msg_dequeue(&peer->peer_out);
 	if (!out)
-		return io_out_wait(conn, peer, peer_out, peer);
+		return msg_queue_wait(conn, &peer->peer_out, peer_out, peer);
 
 	return peer_write_message(conn, &peer->pcs, out, peer_out);
 }
@@ -277,7 +271,7 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 		u8 *msg = towire_funding_locked(peer,
 						&peer->channel_id,
 						&peer->next_per_commit[LOCAL]);
-		queue_pkt(peer, msg);
+		msg_enqueue(&peer->peer_out, take(msg));
 		peer->funding_locked[LOCAL] = true;
 		send_announcement_signatures(peer);
 
