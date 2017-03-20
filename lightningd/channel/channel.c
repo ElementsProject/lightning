@@ -203,7 +203,6 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
-
 static struct io_plan *setup_peer_conn(struct io_conn *conn, struct peer *peer)
 {
 	return io_duplex(conn, peer_read_message(conn, &peer->pcs, peer_in),
@@ -273,13 +272,15 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 						&peer->next_per_commit[LOCAL]);
 		msg_enqueue(&peer->peer_out, take(msg));
 		peer->funding_locked[LOCAL] = true;
-		send_announcement_signatures(peer);
 
 		if (peer->funding_locked[REMOTE]) {
 			announce_channel(peer);
 			daemon_conn_send(master,
 				 take(towire_channel_normal_operation(peer)));
 		}
+	} else if(fromwire_channel_funding_announce_depth(master->msg_in, NULL)) {
+		status_trace("Exchanging announcement signatures.");
+		send_announcement_signatures(peer);
 	} else
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s", strerror(errno));
 

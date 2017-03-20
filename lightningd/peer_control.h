@@ -6,6 +6,8 @@
 #include <lightningd/channel_config.h>
 #include <stdbool.h>
 
+#define ANNOUNCE_MIN_DEPTH 6
+
 struct crypto_state;
 
 struct peer {
@@ -52,6 +54,7 @@ struct peer {
 
 	/* Gossip client fd, forwarded to the respective owner */
 	int gossip_client_fd;
+	bool locked;
 };
 
 struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id);

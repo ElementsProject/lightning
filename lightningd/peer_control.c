@@ -65,6 +65,7 @@ static struct peer *new_peer(struct lightningd *ld,
 	peer->connect_cmd = cmd;
 	peer->funding_txid = NULL;
 	peer->seed = NULL;
+	peer->locked = false;
 
 	/* Max 128k per peer. */
 	peer->log_book = new_log_book(peer, 128*1024,
@@ -555,8 +556,19 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 		return KEEP_WATCHING;
 	}
 
-	peer_set_condition(peer, "Funding tx reached depth %u", depth);
-	subd_send_msg(peer->owner, take(towire_channel_funding_locked(peer, &scid)));
+	/* Make sure we notify `channeld` just once. */
+	if (!peer->locked) {
+		peer_set_condition(peer, "Funding tx reached depth %u", depth);
+		subd_send_msg(peer->owner, take(towire_channel_funding_locked(peer, &scid)));
+		peer->locked = true;
+	}
+
+	/* With the above this is max(funding_depth, 6) before
+	 * announcing the channel */
+	if (depth < ANNOUNCE_MIN_DEPTH) {
+		return KEEP_WATCHING;
+	}
+	subd_send_msg(peer->owner, take(towire_channel_funding_announce_depth(peer)));
 	return DELETE_WATCH;
 }
 
@@ -626,6 +638,7 @@ static size_t update_channel_status(struct subd *sd,
 	/* And we never get these from channeld. */
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_FUNDING_LOCKED:
+	case WIRE_CHANNEL_FUNDING_ANNOUNCE_DEPTH:
 		break;
 	}
 

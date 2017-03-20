@@ -41,3 +41,6 @@ channel_init,562,remote_node_id,struct pubkey
 # Tx is deep enough, go!
 channel_funding_locked,2
 channel_funding_locked,0,short_channel_id,struct short_channel_id
+
+# Tell the channel that we may announce the channel's existence
+channel_funding_announce_depth,3
