@@ -750,7 +750,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 	c->htlc_minimum_msat = htlc_minimum_msat;
 	c->base_fee = fee_base_msat;
 	c->proportional_fee = fee_proportional_millionths;
-	c->active = true;
+	c->active = (flags & ROUTING_FLAGS_DISABLED) == 0;
 	log_debug(rstate->base_log, "Channel %d:%d:%d(%d) was updated.",
 		  short_channel_id.blocknum,
 		  short_channel_id.txnum,
