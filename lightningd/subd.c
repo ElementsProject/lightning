@@ -129,7 +129,6 @@ static int subd(const char *dir, const char *name, bool debug,
 				goto child_errno_fail;
 			fdnum++;
 		}
-		close(STDOUT_FILENO);
 
 		/* Make (fairly!) sure all other fds are closed. */
 		max = sysconf(_SC_OPEN_MAX);
