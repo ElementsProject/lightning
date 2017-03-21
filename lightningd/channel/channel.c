@@ -97,19 +97,46 @@ static void send_announcement_signatures(struct peer *peer)
 	tal_free(tmpctx);
 }
 
-static void announce_channel(struct peer *peer)
+/* The direction bit is 0 if our local node-id is lexicographically
+ * smaller than the remote node-id. */
+static int get_direction_bit(struct peer *peer)
 {
-	tal_t *tmpctx = tal_tmpctx(peer);
 	u8 local_der[33], remote_der[33];
-	int first, second;
-	u32 timestamp = time_now().ts.tv_sec;
-	u8 *cannounce, *cupdate, *features = tal_arr(peer, u8, 0);
-	u16 flags;
-
 	/* Find out in which order we have to list the endpoints */
 	pubkey_to_der(local_der, &peer->node_ids[LOCAL]);
 	pubkey_to_der(remote_der, &peer->node_ids[REMOTE]);
-	if (memcmp(local_der, remote_der, sizeof(local_der)) < 0) {
+	return memcmp(local_der, remote_der, sizeof(local_der)) < 0;
+}
+
+static void send_channel_update(struct peer *peer, bool disabled)
+{
+	tal_t *tmpctx = tal_tmpctx(peer);
+	u32 timestamp = time_now().ts.tv_sec;
+	u16 flags;
+	u8 *cupdate;
+	// TODO(cdecker) Create a real signature for this update
+	secp256k1_ecdsa_signature *sig =
+	    talz(tmpctx, secp256k1_ecdsa_signature);
+
+	flags = get_direction_bit(peer) | (disabled << 1);
+	cupdate = towire_channel_update(
+	    tmpctx, sig, &peer->short_channel_ids[LOCAL], timestamp, flags, 36,
+	    1, 10, peer->channel->view[LOCAL].feerate_per_kw);
+
+	daemon_conn_send(&peer->gossip_client, take(cupdate));
+
+	msg_enqueue(&peer->peer_out, cupdate);
+	tal_free(tmpctx);
+}
+
+/* Now that we have a working channel, tell the world. */
+static void send_channel_announcement(struct peer *peer)
+{
+	tal_t *tmpctx = tal_tmpctx(peer);
+	int first, second;
+	u8 *cannounce, *features = tal_arr(peer, u8, 0);
+
+	if (get_direction_bit(peer) == 1) {
 		first = LOCAL;
 		second = REMOTE;
 	} else {
@@ -117,7 +144,6 @@ static void announce_channel(struct peer *peer)
 		second = LOCAL;
 	}
 
-	/* Now that we have a working channel, tell the world. */
 	cannounce = towire_channel_announcement(
 	    tmpctx, &peer->announcement_node_sigs[first],
 	    &peer->announcement_node_sigs[second],
@@ -127,21 +153,8 @@ static void announce_channel(struct peer *peer)
 	    &peer->node_ids[second], &peer->funding_pubkey[first],
 	    &peer->funding_pubkey[second], features);
 
-	// TODO(cdecker) Create a real signature for this update
-	secp256k1_ecdsa_signature *sig =
-	    talz(tmpctx, secp256k1_ecdsa_signature);
-
-	flags = first == LOCAL;
-	cupdate = towire_channel_update(
-	    tmpctx, sig, &peer->short_channel_ids[LOCAL], timestamp, flags, 36,
-	    1, 10, peer->channel->view[LOCAL].feerate_per_kw);
-
 	msg_enqueue(&peer->peer_out, cannounce);
-	msg_enqueue(&peer->peer_out, cupdate);
-
 	daemon_conn_send(&peer->gossip_client, take(cannounce));
-	daemon_conn_send(&peer->gossip_client, take(cupdate));
-
 	tal_free(tmpctx);
 }
 
@@ -192,7 +205,8 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 				       sizeof(struct short_channel_id)));
 		}
 		if (peer->funding_locked[LOCAL]) {
-			announce_channel(peer);
+			send_channel_announcement(peer);
+			send_channel_update(peer, false);
 		}
 	} else if (type == WIRE_CHANNEL_ANNOUNCEMENT ||
 		   type == WIRE_CHANNEL_UPDATE ||
@@ -211,6 +225,9 @@ static struct io_plan *setup_peer_conn(struct io_conn *conn, struct peer *peer)
 
 static void peer_conn_broken(struct io_conn *conn, struct peer *peer)
 {
+	send_channel_update(peer, true);
+	/* Make sure gossipd actually gets this message before dying */
+	daemon_conn_sync_flush(&peer->gossip_client);
 	status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
 		      "peer connection broken: %s", strerror(errno));
 }
@@ -274,7 +291,8 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 		peer->funding_locked[LOCAL] = true;
 
 		if (peer->funding_locked[REMOTE]) {
-			announce_channel(peer);
+			send_channel_announcement(peer);
+			send_channel_update(peer, false);
 			daemon_conn_send(master,
 				 take(towire_channel_normal_operation(peer)));
 		}

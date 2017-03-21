@@ -7,6 +7,7 @@
 #include <ccan/htable/htable_type.h>
 
 #define ROUTING_MAX_HOPS 20
+#define ROUTING_FLAGS_DISABLED 2
 
 struct node_connection {
 	struct node *src, *dst;
