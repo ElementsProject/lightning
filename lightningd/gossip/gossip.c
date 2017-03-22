@@ -476,6 +476,40 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daemon,
+				    u8 *msg)
+{
+	tal_t *tmpctx = tal_tmpctx(daemon);
+	u8 *out;
+	size_t j, num_chans = 0;
+	struct gossip_getchannels_entry *entries;
+	struct node *n;
+	struct node_map_iter i;
+
+	entries = tal_arr(tmpctx, struct gossip_getchannels_entry, num_chans);
+	n = node_map_first(daemon->rstate->nodes, &i);
+	while (n != NULL) {
+		for (j=0; j<tal_count(n->out); j++){
+			tal_resize(&entries, num_chans + 1);
+			entries[num_chans].source = n->out[j]->src->id;
+			entries[num_chans].destination = n->out[j]->dst->id;
+			entries[num_chans].active = n->out[j]->active;
+			entries[num_chans].delay = n->out[j]->delay;
+			entries[num_chans].fee_per_kw = n->out[j]->proportional_fee;
+			entries[num_chans].last_update_timestamp = n->out[j]->last_timestamp;
+			entries[num_chans].flags = n->out[j]->flags;
+			entries[num_chans].short_channel_id = n->out[j]->short_channel_id;
+			num_chans++;
+		}
+		n = node_map_next(daemon->rstate->nodes, &i);
+	}
+
+	out = towire_gossip_getchannels_reply(daemon, entries);
+	daemon_conn_send(&daemon->master, take(out));
+	tal_free(tmpctx);
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon)
 {
 	tal_t *tmpctx = tal_tmpctx(daemon);
@@ -521,9 +555,13 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GETROUTE_REQUEST:
 		return getroute_req(conn, daemon, daemon->master.msg_in);
 
+	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
+		return getchannels_req(conn, daemon, daemon->master.msg_in);
+
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
+	case WIRE_GOSSIP_GETCHANNELS_REPLY:
 	case WIRE_GOSSIPSTATUS_INIT_FAILED:
 	case WIRE_GOSSIPSTATUS_BAD_NEW_PEER_REQUEST:
 	case WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST:

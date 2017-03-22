@@ -4,6 +4,7 @@
 #include "subd.h"
 #include <ccan/err/err.h>
 #include <ccan/take/take.h>
+#include <ccan/tal/str/str.h>
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
 #include <inttypes.h>
@@ -143,10 +144,12 @@ static size_t gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 	case WIRE_GOSSIP_GETNODES_REQUEST:
 	case WIRE_GOSSIP_GETROUTE_REQUEST:
+	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
+	case WIRE_GOSSIP_GETCHANNELS_REPLY:
 		break;
 	case WIRE_GOSSIPSTATUS_PEER_BAD_MSG:
 		peer_bad_message(gossip, msg);
@@ -296,3 +299,56 @@ static const struct json_command getroute_command = {
 	"Returns a {route} array of {id} {msatoshi} {delay}: msatoshi and delay (in blocks) is cumulative."
 };
 AUTODATA(json_command, &getroute_command);
+
+/* Called upon receiving a getchannels_reply from `gossipd` */
+static bool json_getchannels_reply(struct subd *gossip, const u8 *reply,
+				   const int *fds, struct command *cmd)
+{
+	size_t i;
+	struct gossip_getchannels_entry *entries;
+	struct json_result *response = new_json_result(cmd);
+	struct short_channel_id *scid;
+
+	if (!fromwire_gossip_getchannels_reply(reply, reply, NULL, &entries)) {
+		command_fail(cmd, "Invalid reply from gossipd");
+		return true;
+	}
+
+	json_object_start(response, NULL);
+	json_array_start(response, "channels");
+	for (i = 0; i < tal_count(entries); i++) {
+		scid = &entries[i].short_channel_id;
+		json_object_start(response, NULL);
+		json_add_pubkey(response, "source", &entries[i].source);
+		json_add_pubkey(response, "destination",
+				&entries[i].destination);
+		json_add_bool(response, "active", entries[i].active);
+		json_add_num(response, "fee_per_kw", entries[i].fee_per_kw);
+		json_add_num(response, "last_update",
+			     entries[i].last_update_timestamp);
+		json_add_num(response, "flags", entries[i].flags);
+		json_add_num(response, "delay", entries[i].delay);
+		json_add_string(response, "short_id",
+				tal_fmt(reply, "%d:%d:%d/%d", scid->blocknum,
+					scid->txnum, scid->outnum,
+					entries[i].flags & 0x1));
+		json_object_end(response);
+	}
+	json_array_end(response);
+	json_object_end(response);
+	command_success(cmd, response);
+	return true;
+}
+
+static void json_getchannels(struct command *cmd, const char *buffer,
+			     const jsmntok_t *params)
+{
+	struct lightningd *ld = ld_from_dstate(cmd->dstate);
+	u8 *req = towire_gossip_getchannels_request(cmd);
+	subd_req(ld->gossip, req, -1, 0, json_getchannels_reply, cmd);
+}
+
+static const struct json_command getchannels_command = {
+    "getchannels", json_getchannels, "List all known channels.",
+    "Returns a 'channels' array with all known channels including their fees."};
+AUTODATA(json_command, &getchannels_command);
