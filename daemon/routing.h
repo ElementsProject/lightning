@@ -158,7 +158,6 @@ char *opt_add_route(const char *arg, struct lightningd_state *dstate);
 bool add_channel_direction(struct routing_state *rstate,
 			   const struct pubkey *from,
 			   const struct pubkey *to,
-			   const int direction,
 			   const struct short_channel_id *short_channel_id,
 			   const u8 *announcement);
 
@@ -175,5 +174,9 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 			    const struct pubkey *source,
 			    const struct pubkey *destination,
 			    const u32 msatoshi, double riskfactor);
+
+/* Utility function that, given a source and a destination, gives us
+ * the direction bit the matching channel should get */
+#define get_channel_direction(from, to) (pubkey_cmp(from, to) > 0)
 
 #endif /* LIGHTNING_DAEMON_ROUTING_H */

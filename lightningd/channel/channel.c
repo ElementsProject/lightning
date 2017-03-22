@@ -8,6 +8,7 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/take/take.h>
 #include <ccan/time/time.h>
+#include <daemon/routing.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/channel.h>
@@ -66,6 +67,9 @@ struct peer {
 	struct short_channel_id short_channel_ids[NUM_SIDES];
 	secp256k1_ecdsa_signature announcement_node_sigs[NUM_SIDES];
 	secp256k1_ecdsa_signature announcement_bitcoin_sigs[NUM_SIDES];
+
+	/* Which direction of the channel do we control? */
+	u16 channel_direction;
 };
 
 static struct io_plan *gossip_client_recv(struct io_conn *conn,
@@ -97,17 +101,6 @@ static void send_announcement_signatures(struct peer *peer)
 	tal_free(tmpctx);
 }
 
-/* The direction bit is 0 if our local node-id is lexicographically
- * smaller than the remote node-id. */
-static int get_direction_bit(struct peer *peer)
-{
-	u8 local_der[33], remote_der[33];
-	/* Find out in which order we have to list the endpoints */
-	pubkey_to_der(local_der, &peer->node_ids[LOCAL]);
-	pubkey_to_der(remote_der, &peer->node_ids[REMOTE]);
-	return memcmp(local_der, remote_der, sizeof(local_der)) < 0;
-}
-
 static void send_channel_update(struct peer *peer, bool disabled)
 {
 	tal_t *tmpctx = tal_tmpctx(peer);
@@ -118,7 +111,7 @@ static void send_channel_update(struct peer *peer, bool disabled)
 	secp256k1_ecdsa_signature *sig =
 	    talz(tmpctx, secp256k1_ecdsa_signature);
 
-	flags = get_direction_bit(peer) | (disabled << 1);
+	flags = peer->channel_direction | (disabled << 1);
 	cupdate = towire_channel_update(
 	    tmpctx, sig, &peer->short_channel_ids[LOCAL], timestamp, flags, 36,
 	    1, 10, peer->channel->view[LOCAL].feerate_per_kw);
@@ -136,7 +129,7 @@ static void send_channel_announcement(struct peer *peer)
 	int first, second;
 	u8 *cannounce, *features = tal_arr(peer, u8, 0);
 
-	if (get_direction_bit(peer) == 1) {
+	if (peer->channel_direction == 0) {
 		first = LOCAL;
 		second = REMOTE;
 	} else {
@@ -270,6 +263,9 @@ static void init_channel(struct peer *peer, const u8 *msg)
 				    &peer->conf[LOCAL], &peer->conf[REMOTE],
 				    &points[LOCAL], &points[REMOTE],
 				    am_funder ? LOCAL : REMOTE);
+
+	peer->channel_direction = get_channel_direction(
+	    &peer->node_ids[LOCAL], &peer->node_ids[REMOTE]);
 
 	/* OK, now we can process peer messages. */
 	io_set_finish(io_new_conn(peer, PEER_FD, setup_peer_conn, peer),

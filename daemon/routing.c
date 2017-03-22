@@ -258,7 +258,7 @@ struct node_connection *add_connection(struct routing_state *rstate,
 	c->active = true;
 	c->last_timestamp = 0;
 	memset(&c->short_channel_id, 0, sizeof(c->short_channel_id));
-	c->flags = pubkey_cmp(from, to) > 0;
+	c->flags = get_channel_direction(from, to);
 	return c;
 }
 
@@ -508,11 +508,11 @@ char *opt_add_route(const char *arg, struct lightningd_state *dstate)
 bool add_channel_direction(struct routing_state *rstate,
 			   const struct pubkey *from,
 			   const struct pubkey *to,
-			   const int direction,
 			   const struct short_channel_id *short_channel_id,
 			   const u8 *announcement)
 {
 	struct node_connection *c = get_connection(rstate, from, to);
+	u16 direction = get_channel_direction(from, to);
 	if (c){
 		/* Do not clobber connections added otherwise */
 		memcpy(&c->short_channel_id, short_channel_id,
@@ -677,13 +677,11 @@ void handle_channel_announcement(
 		  short_channel_id.outnum
 		);
 
-	forward |= add_channel_direction(rstate, &node_id_1,
-					 &node_id_2, 0, &short_channel_id,
-					 serialized);
-	forward |= add_channel_direction(rstate, &node_id_2,
-					 &node_id_1, 1, &short_channel_id,
-					 serialized);
-	if (!forward){
+	forward |= add_channel_direction(rstate, &node_id_1, &node_id_2,
+					 &short_channel_id, serialized);
+	forward |= add_channel_direction(rstate, &node_id_2, &node_id_1,
+					 &short_channel_id, serialized);
+	if (!forward) {
 		log_debug(rstate->base_log, "Not forwarding channel_announcement");
 		tal_free(tmpctx);
 		return;
