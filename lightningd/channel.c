@@ -185,7 +185,7 @@ struct bitcoin_tx *channel_tx(const tal_t *ctx,
 			       &side_delayed_payment_key))
 		return NULL;
 
-	if (!derive_revocation_key(&channel->basepoints[side].revocation,
+	if (!derive_revocation_key(&channel->basepoints[!side].revocation,
 				   per_commitment_point,
 				   &side_revocation_key))
 		return NULL;
