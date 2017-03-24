@@ -192,7 +192,7 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			 const struct pubkey *local_delayedkey,
 			 const struct privkey *x_remote_secretkey,
 			 const struct pubkey *remotekey,
-			 const struct pubkey *local_revocation_key,
+			 const struct pubkey *remote_revocation_key,
 			 u64 feerate_per_kw)
 {
 	tal_t *tmpctx = tal_tmpctx(NULL);
@@ -225,18 +225,18 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 		if (htlc_owner(htlc) == LOCAL) {
 			htlc_tx[i] = htlc_timeout_tx(htlc_tx, &txid, i,
 						     htlc, to_self_delay,
-						     local_revocation_key,
+						     remote_revocation_key,
 						     local_delayedkey,
 						     feerate_per_kw);
 			wscript[i] = bitcoin_wscript_htlc_offer(tmpctx,
 								localkey,
 								remotekey,
 								&htlc->rhash,
-								local_revocation_key);
+								remote_revocation_key);
 		} else {
 			htlc_tx[i] = htlc_success_tx(htlc_tx, &txid, i,
 						     htlc, to_self_delay,
-						     local_revocation_key,
+						     remote_revocation_key,
 						     local_delayedkey,
 						     feerate_per_kw);
 			wscript[i] = bitcoin_wscript_htlc_receive(tmpctx,
@@ -244,7 +244,7 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 								  localkey,
 								  remotekey,
 								  &htlc->rhash,
-								  local_revocation_key);
+								  remote_revocation_key);
 		}
 		sign_tx_input(htlc_tx[i], 0,
 			      NULL,
@@ -277,7 +277,7 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			htlc_timeout_tx_add_witness(htlc_tx[i],
 						    localkey, remotekey,
 						    &htlc->rhash,
-						    local_revocation_key,
+						    remote_revocation_key,
 						    &localsig, &remotesig[i]);
 		} else {
 			htlc_success_tx_add_witness(htlc_tx[i],
@@ -285,7 +285,7 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 						    localkey, remotekey,
 						    &localsig, &remotesig[i],
 						    htlc->r,
-						    local_revocation_key);
+						    remote_revocation_key);
 		}
 		printf("output htlc_%s_tx %"PRIu64": %s\n",
 		       htlc_owner(htlc) == LOCAL ? "timeout" : "success",
@@ -307,7 +307,7 @@ static void report(struct bitcoin_tx *tx,
 		   const struct pubkey *local_delayedkey,
 		   const struct privkey *x_remote_secretkey,
 		   const struct pubkey *remotekey,
-		   const struct pubkey *local_revocation_key,
+		   const struct pubkey *remote_revocation_key,
 		   u64 feerate_per_kw,
 		   const struct htlc **htlc_map)
 {
@@ -341,7 +341,7 @@ static void report(struct bitcoin_tx *tx,
 		     local_delayedkey,
 		     x_remote_secretkey,
 		     remotekey,
-		     local_revocation_key,
+		     remote_revocation_key,
 		     feerate_per_kw);
 	tal_free(tmpctx);
 }
@@ -423,17 +423,17 @@ int main(void)
 	struct privkey x_local_payment_basepoint_secret, x_remote_payment_basepoint_secret;
 	struct privkey x_local_per_commitment_secret;
 	struct privkey x_local_delayed_payment_basepoint_secret;
-	struct privkey x_local_revocation_basepoint_secret;
+	struct privkey x_remote_revocation_basepoint_secret;
 	struct privkey local_secretkey, x_remote_secretkey;
 	struct privkey x_local_delayed_secretkey;
 	struct pubkey local_funding_pubkey, remote_funding_pubkey;
 	struct pubkey local_payment_basepoint, remote_payment_basepoint;
 	struct pubkey x_local_delayed_payment_basepoint;
-	struct pubkey x_local_revocation_basepoint;
+	struct pubkey x_remote_revocation_basepoint;
 	struct pubkey x_local_per_commitment_point;
 	struct pubkey localkey, remotekey, tmpkey;
 	struct pubkey local_delayedkey;
-	struct pubkey local_revocation_key;
+	struct pubkey remote_revocation_key;
 	struct bitcoin_tx *tx, *tx2;
 	u8 *wscript;
 	unsigned int funding_output_index;
@@ -490,12 +490,12 @@ int main(void)
          *
          * INTERNAL: remote_funding_privkey: 1552dfba4f6cf29a62a0af13c8d6981d36d0ef8d61ba10fb0fe90da7634d7e130101
          * INTERNAL: local_payment_basepoint_secret: 111111111111111111111111111111111111111111111111111111111111111101
-         * INTERNAL: local_revocation_basepoint_secret: 222222222222222222222222222222222222222222222222222222222222222201
+         * INTERNAL: remote_revocation_basepoint_secret: 222222222222222222222222222222222222222222222222222222222222222201
          * INTERNAL: local_delayed_payment_basepoint_secret: 333333333333333333333333333333333333333333333333333333333333333301
          * INTERNAL: remote_payment_basepoint_secret: 444444444444444444444444444444444444444444444444444444444444444401
          * x_local_per_commitment_secret: 1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a0908070605040302010001
-         * # From local_revocation_basepoint_secret
-         * INTERNAL: local_revocation_basepoint: 02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27
+         * # From remote_revocation_basepoint_secret
+         * INTERNAL: remote_revocation_basepoint: 02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27
          * # From local_delayed_payment_basepoint_secret
          * INTERNAL: local_delayed_payment_basepoint: 023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1
          * INTERNAL: local_per_commitment_point: 025f7117a78150fe2ef97db7cfc83bd57b2e2c0d0dd25eaf467a4a1c2a45ce1486
@@ -512,10 +512,10 @@ int main(void)
 	SUPERVERBOSE("INTERNAL: local_payment_basepoint_secret: %s\n",
 		     type_to_string(tmpctx, struct privkey,
 				    &x_local_payment_basepoint_secret));
-	x_local_revocation_basepoint_secret = privkey_from_hex("2222222222222222222222222222222222222222222222222222222222222222");
-	SUPERVERBOSE("INTERNAL: local_revocation_basepoint_secret: %s\n",
+	x_remote_revocation_basepoint_secret = privkey_from_hex("2222222222222222222222222222222222222222222222222222222222222222");
+	SUPERVERBOSE("INTERNAL: remote_revocation_basepoint_secret: %s\n",
 		     type_to_string(tmpctx, struct privkey,
-				    &x_local_revocation_basepoint_secret));
+				    &x_remote_revocation_basepoint_secret));
 	x_local_delayed_payment_basepoint_secret = privkey_from_hex("3333333333333333333333333333333333333333333333333333333333333333");
 	SUPERVERBOSE("INTERNAL: local_delayed_payment_basepoint_secret: %s\n",
 		     type_to_string(tmpctx, struct privkey,
@@ -529,13 +529,13 @@ int main(void)
 		     type_to_string(tmpctx, struct privkey,
 				    &x_local_per_commitment_secret));
 
-	if (!pubkey_from_privkey(&x_local_revocation_basepoint_secret,
-				 &x_local_revocation_basepoint))
+	if (!pubkey_from_privkey(&x_remote_revocation_basepoint_secret,
+				 &x_remote_revocation_basepoint))
 		abort();
-	SUPERVERBOSE("# From local_revocation_basepoint_secret\n"
-		     "INTERNAL: local_revocation_basepoint: %s\n",
+	SUPERVERBOSE("# From remote_revocation_basepoint_secret\n"
+		     "INTERNAL: remote_revocation_basepoint: %s\n",
 		     type_to_string(tmpctx, struct pubkey,
-				    &x_local_revocation_basepoint));
+				    &x_remote_revocation_basepoint));
 
 	if (!pubkey_from_privkey(&x_local_delayed_payment_basepoint_secret,
 				 &x_local_delayed_payment_basepoint))
@@ -637,12 +637,12 @@ int main(void)
 	printf("local_delayedkey: %s\n",
 	       type_to_string(tmpctx, struct pubkey, &local_delayedkey));
 
-	if (!derive_revocation_key(&x_local_revocation_basepoint,
+	if (!derive_revocation_key(&x_remote_revocation_basepoint,
 				   &x_local_per_commitment_point,
-				   &local_revocation_key))
+				   &remote_revocation_key))
 		abort();
-	printf("local_revocation_key: %s\n",
-	       type_to_string(tmpctx, struct pubkey, &local_revocation_key));
+	printf("remote_revocation_key: %s\n",
+	       type_to_string(tmpctx, struct pubkey, &remote_revocation_key));
 
 	wscript = bitcoin_redeem_2of2(tmpctx, &local_funding_pubkey,
 				      &remote_funding_pubkey);
@@ -669,7 +669,7 @@ int main(void)
 	tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 		       funding_amount_satoshi,
 		       LOCAL, to_self_delay,
-		       &local_revocation_key,
+		       &remote_revocation_key,
 		       &local_delayedkey,
 		       &localkey,
 		       &remotekey,
@@ -683,7 +683,7 @@ int main(void)
 	tx2 = commit_tx(tmpctx, &funding_txid, funding_output_index,
 			funding_amount_satoshi,
 			REMOTE, to_self_delay,
-			&local_revocation_key,
+			&remote_revocation_key,
 			&local_delayedkey,
 			&localkey,
 			&remotekey,
@@ -702,7 +702,7 @@ int main(void)
 	       &local_delayedkey,
 	       &x_remote_secretkey,
 	       &remotekey,
-	       &local_revocation_key,
+	       &remote_revocation_key,
 	       feerate_per_kw,
 	       htlc_map);
 
@@ -727,7 +727,7 @@ int main(void)
 	tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 		       funding_amount_satoshi,
 		       LOCAL, to_self_delay,
-		       &local_revocation_key,
+		       &remote_revocation_key,
 		       &local_delayedkey,
 		       &localkey,
 		       &remotekey,
@@ -741,7 +741,7 @@ int main(void)
 	tx2 = commit_tx(tmpctx, &funding_txid, funding_output_index,
 			funding_amount_satoshi,
 			REMOTE, to_self_delay,
-			&local_revocation_key,
+			&remote_revocation_key,
 			&local_delayedkey,
 			&localkey,
 			&remotekey,
@@ -761,7 +761,7 @@ int main(void)
 	       &local_delayedkey,
 	       &x_remote_secretkey,
 	       &remotekey,
-	       &local_revocation_key,
+	       &remote_revocation_key,
 	       feerate_per_kw,
 	       htlc_map);
 
@@ -773,7 +773,7 @@ int main(void)
 		newtx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 				  funding_amount_satoshi,
 				  LOCAL, to_self_delay,
-				  &local_revocation_key,
+				  &remote_revocation_key,
 				  &local_delayedkey,
 				  &localkey,
 				  &remotekey,
@@ -788,7 +788,7 @@ int main(void)
 		tx2 = commit_tx(tmpctx, &funding_txid, funding_output_index,
 				funding_amount_satoshi,
 				REMOTE, to_self_delay,
-				&local_revocation_key,
+				&remote_revocation_key,
 				&local_delayedkey,
 				&localkey,
 				&remotekey,
@@ -822,7 +822,7 @@ int main(void)
 		tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 			       funding_amount_satoshi,
 			       LOCAL, to_self_delay,
-			       &local_revocation_key,
+			       &remote_revocation_key,
 			       &local_delayedkey,
 			       &localkey,
 			       &remotekey,
@@ -842,7 +842,7 @@ int main(void)
 		       &local_delayedkey,
 		       &x_remote_secretkey,
 		       &remotekey,
-		       &local_revocation_key,
+		       &remote_revocation_key,
 		       feerate_per_kw-1,
 		       htlc_map);
 
@@ -859,7 +859,7 @@ int main(void)
 		newtx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 				  funding_amount_satoshi,
 				  LOCAL, to_self_delay,
-				  &local_revocation_key,
+				  &remote_revocation_key,
 				  &local_delayedkey,
 				  &localkey,
 				  &remotekey,
@@ -879,7 +879,7 @@ int main(void)
 		       &local_delayedkey,
 		       &x_remote_secretkey,
 		       &remotekey,
-		       &local_revocation_key,
+		       &remote_revocation_key,
 		       feerate_per_kw,
 		       htlc_map);
 
@@ -918,7 +918,7 @@ int main(void)
 		tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 			       funding_amount_satoshi,
 			       LOCAL, to_self_delay,
-			       &local_revocation_key,
+			       &remote_revocation_key,
 			       &local_delayedkey,
 			       &localkey,
 			       &remotekey,
@@ -938,7 +938,7 @@ int main(void)
 		       &local_delayedkey,
 		       &x_remote_secretkey,
 		       &remotekey,
-		       &local_revocation_key,
+		       &remote_revocation_key,
 		       feerate_per_kw,
 		       htlc_map);
 		break;

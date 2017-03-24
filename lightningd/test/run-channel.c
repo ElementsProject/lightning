@@ -317,12 +317,12 @@ int main(void)
 
 	/* BOLT #3:
 	 *
-	 * # From local_revocation_basepoint_secret
-	 * INTERNAL: local_revocation_basepoint: 02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27
+	 * # From remote_revocation_basepoint_secret
+	 * INTERNAL: remote_revocation_basepoint: 02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27
 	 * # From local_delayed_payment_basepoint_secret
 	 * INTERNAL: local_delayed_payment_basepoint: 023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1
 	*/
-	localbase.revocation = pubkey_from_hex("02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27");
+	remotebase.revocation = pubkey_from_hex("02466d7fcae563e5cb09a0d1870bb580344804617879a14949cf22285f1bae3f27");
 	localbase.delayed_payment = pubkey_from_hex("023c72addb4fdf09af94f0c94d7fe92a386a7e70cf8a1d85916386bb2535c7b1b1");
 
 	/* BOLT #3:
@@ -335,7 +335,7 @@ int main(void)
 	remotebase.payment = pubkey_from_hex("032c0b7cf95324a07d05398b240174dc0c2be444d96b159aa6c7f7b1e668680991");
 
 	/* We put unknown in for some things; valgrind will warn if used. */
-	remotebase.revocation = *unknown;
+	localbase.revocation = *unknown;
 	remotebase.delayed_payment = *unknown;
 
 	/* BOLT #3:
