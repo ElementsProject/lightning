@@ -112,7 +112,7 @@ struct msg_accept_channel {
 struct msg_update_fulfill_htlc {
 	struct channel_id channel_id;
 	u64 id;
-	struct sha256 payment_preimage;
+	struct preimage payment_preimage;
 };
 struct msg_shutdown {
 	struct channel_id channel_id;
