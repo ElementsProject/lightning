@@ -1,5 +1,6 @@
 #include "utils.h"
 #include "wire.h"
+#include <bitcoin/preimage.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/shadouble.h>
 #include <ccan/endian/endian.h>
@@ -148,6 +149,11 @@ void fromwire_sha256_double(const u8 **cursor, size_t *max,
 			    struct sha256_double *sha256d)
 {
 	fromwire_sha256(cursor, max, &sha256d->sha);
+}
+
+void fromwire_preimage(const u8 **cursor, size_t *max, struct preimage *preimage)
+{
+	fromwire(cursor, max, preimage, sizeof(*preimage));
 }
 
 void fromwire_ipv6(const u8 **cursor, size_t *max, struct ipv6 *ipv6)

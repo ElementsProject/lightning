@@ -20,6 +20,7 @@ struct channel_id {
 struct ipv6 {
 	u8 addr[16];
 };
+struct preimage;
 
 /* Read the type; returns -1 if not long enough.  cursor is a tal ptr. */
 int fromwire_peektype(const u8 *cursor);
@@ -34,6 +35,7 @@ void towire_short_channel_id(u8 **pptr,
 			     const struct short_channel_id *short_channel_id);
 void towire_sha256(u8 **pptr, const struct sha256 *sha256);
 void towire_sha256_double(u8 **pptr, const struct sha256_double *sha256d);
+void towire_preimage(u8 **pptr, const struct preimage *preimage);
 void towire_ipv6(u8 **pptr, const struct ipv6 *ipv6);
 void towire_u8(u8 **pptr, u8 v);
 void towire_u16(u8 **pptr, u16 v);
@@ -61,6 +63,7 @@ void fromwire_short_channel_id(const u8 **cursor, size_t *max,
 void fromwire_sha256(const u8 **cursor, size_t *max, struct sha256 *sha256);
 void fromwire_sha256_double(const u8 **cursor, size_t *max,
 			    struct sha256_double *sha256d);
+void fromwire_preimage(const u8 **cursor, size_t *max, struct preimage *preimage);
 void fromwire_ipv6(const u8 **cursor, size_t *max, struct ipv6 *ipv6);
 void fromwire_pad(const u8 **cursor, size_t *max, size_t num);
 
