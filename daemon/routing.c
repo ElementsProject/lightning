@@ -758,6 +758,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_short_channel_id(&tag, &short_channel_id);
+	towire_u16(&tag, flags & 0x1);
 	queue_broadcast(rstate->broadcasts,
 			WIRE_CHANNEL_UPDATE,
 			tag,
