@@ -86,9 +86,6 @@ revoke_and_ack,133
 revoke_and_ack,0,channel-id,32
 revoke_and_ack,32,per-commitment-secret,32
 revoke_and_ack,64,next-per-commitment-point,33
-revoke_and_ack,97,padding,1
-revoke_and_ack,98,num-htlc-timeouts,2
-revoke_and_ack,100,htlc-timeout-signature,num-htlc-timeouts*64
 update_fee,134
 update_fee,0,channel-id,32
 update_fee,32,feerate-per-kw,4

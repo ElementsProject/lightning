@@ -126,8 +126,6 @@ struct msg_revoke_and_ack {
 	struct channel_id channel_id;
 	struct sha256 per_commitment_secret;
 	struct pubkey next_per_commitment_point;
-	u8 padding[1];
-	secp256k1_ecdsa_signature *htlc_timeout_signature;
 };
 struct msg_channel_update {
 	secp256k1_ecdsa_signature signature;
@@ -501,24 +499,20 @@ static struct msg_commit_sig *fromwire_struct_commit_sig(const tal_t *ctx, const
 static void *towire_struct_revoke_and_ack(const tal_t *ctx,
 				      const struct msg_revoke_and_ack *s)
 {
-	towire_pad_arr = s->padding;
 	return towire_revoke_and_ack(ctx, 
 				     &s->channel_id,
 				     &s->per_commitment_secret,
-				     &s->next_per_commitment_point,
-				     s->htlc_timeout_signature);
+				     &s->next_per_commitment_point);
 }
 
 static struct msg_revoke_and_ack *fromwire_struct_revoke_and_ack(const tal_t *ctx, const void *p, size_t *plen)
 {
 	struct msg_revoke_and_ack *s = tal(ctx, struct msg_revoke_and_ack);
 
-	fromwire_pad_arr = s->padding;
-	if (!fromwire_revoke_and_ack(s, p, plen, 
-				    &s->channel_id,
-				    &s->per_commitment_secret,
-				    &s->next_per_commitment_point,
-				    &s->htlc_timeout_signature))
+	if (!fromwire_revoke_and_ack(p, plen, 
+				     &s->channel_id,
+				     &s->per_commitment_secret,
+				     &s->next_per_commitment_point))
 		return tal_free(s);
 	return s;
 	
@@ -780,8 +774,7 @@ static bool funding_created_eq(const struct msg_funding_created *a,
 static bool revoke_and_ack_eq(const struct msg_revoke_and_ack *a,
 			      const struct msg_revoke_and_ack *b)
 {
-	return eq_with(a, b, padding)
-		&& eq_var(a, b, htlc_timeout_signature);
+	return structeq(a, b);
 }
 
 static bool open_channel_eq(const struct msg_open_channel *a,
@@ -999,8 +992,6 @@ int main(void)
 
 	memset(&raa, 2, sizeof(raa));
 	set_pubkey(&raa.next_per_commitment_point);
-	raa.htlc_timeout_signature = tal_arr(ctx, secp256k1_ecdsa_signature, 2);
-	memset(raa.htlc_timeout_signature, 2, sizeof(secp256k1_ecdsa_signature) * 2);
 	
 	msg = towire_struct_revoke_and_ack(ctx, &raa);
 	len = tal_count(msg);
