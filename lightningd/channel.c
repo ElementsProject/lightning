@@ -322,7 +322,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	 *
 	 * A receiving node SHOULD fail the channel if a sending node ... or
 	 * adds more than its `max-htlc-value-in-flight-msat` worth of offered
-	 * HTLCs to its local commitment transaction. */
+	 * HTLCs to its local commitment transaction */
 	if (msat_in_htlcs > max_htlc_value_in_flight_msat(channel, recipient)) {
 		e = CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
 		goto out;

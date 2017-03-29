@@ -1,4 +1,5 @@
 /* FIXME: Handle incoming gossip messages! */
+#include <bitcoin/block.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <ccan/breakpoint/breakpoint.h>
@@ -248,7 +249,7 @@ static u8 *open_channel(struct state *state,
 			      "push-msat must be < %"PRIu64,
 			      1000 * state->funding_satoshis);
 
-	msg = towire_open_channel(state, &channel_id,
+	msg = towire_open_channel(state, &genesis_blockhash.sha, &channel_id,
 				  state->funding_satoshis, state->push_msat,
 				  state->localconf.dust_limit_satoshis,
 				  state->localconf.max_htlc_value_in_flight_msat,
@@ -456,6 +457,7 @@ static u8 *recv_channel(struct state *state,
 	struct pubkey their_funding_pubkey;
 	secp256k1_ecdsa_signature theirsig, sig;
 	struct bitcoin_tx *tx;
+	struct sha256_double chain_hash;
 	u8 *msg;
 
 	state->remoteconf = tal(state, struct channel_config);
@@ -467,7 +469,7 @@ static u8 *recv_channel(struct state *state,
 	 * `delayed-payment-basepoint` are not valid DER-encoded compressed
 	 * secp256k1 pubkeys.
 	 */
-	if (!fromwire_open_channel(peer_msg, NULL, &channel_id,
+	if (!fromwire_open_channel(peer_msg, NULL, &chain_hash.sha, &channel_id,
 				   &state->funding_satoshis, &state->push_msat,
 				   &state->remoteconf->dust_limit_satoshis,
 				   &state->remoteconf->max_htlc_value_in_flight_msat,
@@ -484,6 +486,20 @@ static u8 *recv_channel(struct state *state,
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_INITIAL_MESSAGE,
 			      "Parsing open_channel %s",
 			      tal_hex(peer_msg, peer_msg));
+
+	/* BOLT #2:
+	 *
+	 * The receiving MUST reject the channel if the `chain-hash` value
+	 * within the `open_channel` message is set to a hash of a chain
+	 * unknown to the receiver.
+	 */
+	if (!structeq(&chain_hash, &genesis_blockhash)) {
+		peer_failed(PEER_FD, &state->cs, NULL,
+			    WIRE_OPENING_PEER_BAD_INITIAL_MESSAGE,
+			    "Unknown chain-hash %s",
+			    type_to_string(peer_msg, struct sha256_double,
+					   &chain_hash));
+	}
 
 	/* BOLT #2 FIXME:
 	 *

@@ -8,6 +8,7 @@
  *
  * 1. type: 32 (`open_channel`)
  * 2. data:
+ *    * [32:chain-hash]
  *    * [32:temporary-channel-id]
  *    * [8:funding-satoshis]
  *    * [8:push-msat]

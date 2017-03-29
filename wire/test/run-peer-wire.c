@@ -162,6 +162,7 @@ struct msg_node_announcement {
 	u8 *addresses;
 };
 struct msg_open_channel {
+	struct sha256 chain_hash;
 	struct channel_id temporary_channel_id;
 	u64 funding_satoshis;
 	u64 push_msat;
@@ -250,6 +251,7 @@ static void *towire_struct_open_channel(const tal_t *ctx,
 						const struct msg_open_channel *s)
 {
 	return towire_open_channel(ctx, 
+				   &s->chain_hash,
 				   &s->temporary_channel_id,
 				   s->funding_satoshis,
 				   s->push_msat,
@@ -271,7 +273,8 @@ static struct msg_open_channel *fromwire_struct_open_channel(const tal_t *ctx, c
 {
 	struct msg_open_channel *s = tal(ctx, struct msg_open_channel);
 
-	if (fromwire_open_channel(p, plen, 
+	if (fromwire_open_channel(p, plen,
+				  &s->chain_hash,
 				  &s->temporary_channel_id,
 				  &s->funding_satoshis,
 				  &s->push_msat,
