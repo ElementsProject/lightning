@@ -22,6 +22,8 @@ struct bitcoin_block {
 	struct bitcoin_tx **tx;
 };
 
+const struct sha256_double genesis_blockhash;
+
 struct bitcoin_block *bitcoin_block_from_hex(const tal_t *ctx,
 					     const char *hex, size_t hexlen);
 
