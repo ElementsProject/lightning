@@ -23,6 +23,7 @@ LIGHTNINGD_OLD_SRC :=				\
 	daemon/opt_time.c			\
 	daemon/pseudorand.c			\
 	daemon/routing.c			\
+	daemon/sphinx.c				\
 	daemon/timeout.c			\
 	daemon/watch.c
 LIGHTNINGD_OLD_OBJS := $(LIGHTNINGD_OLD_SRC:.c=.o)
