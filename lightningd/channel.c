@@ -227,7 +227,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      enum side sender,
 				      u64 id,
 				      u64 msatoshi,
-				      u32 expiry,
+				      u32 cltv_expiry,
 				      const struct sha256 *payment_hash,
 				      const u8 routing[1254])
 {
@@ -248,7 +248,12 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 		htlc->state = RCVD_ADD_HTLC;
 	htlc->id = id;
 	htlc->msatoshi = msatoshi;
-	if (!blocks_to_abs_locktime(expiry, &htlc->expiry))
+	/* BOLT #2:
+	 *
+	 * A receiving node SHOULD fail the channel if a sending node... sets
+	 * `cltv-expiry` to greater or equal to 500000000.
+	 */
+	if (!blocks_to_abs_locktime(cltv_expiry, &htlc->expiry))
 		return CHANNEL_ERR_INVALID_EXPIRY;
 	htlc->rhash = *payment_hash;
 	htlc->r = NULL;
