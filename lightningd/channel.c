@@ -3,6 +3,8 @@
 #include "type_to_string.h"
 #include <assert.h>
 #include <bitcoin/preimage.h>
+#include <bitcoin/script.h>
+#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <ccan/structeq/structeq.h>
@@ -10,6 +12,7 @@
 #include <daemon/htlc.h>
 #include <inttypes.h>
 #include <lightningd/channel_config.h>
+#include <lightningd/htlc_tx.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/status.h>
 #include <string.h>
@@ -110,6 +113,8 @@ struct channel *new_channel(const tal_t *ctx,
 			    const struct channel_config *remote,
 			    const struct basepoints *local_basepoints,
 			    const struct basepoints *remote_basepoints,
+			    const struct pubkey *local_funding_pubkey,
+			    const struct pubkey *remote_funding_pubkey,
 			    enum side funder)
 {
 	struct channel *channel = tal(ctx, struct channel);
@@ -126,6 +131,8 @@ struct channel *new_channel(const tal_t *ctx,
 	channel->funder = funder;
 	channel->config[LOCAL] = local;
 	channel->config[REMOTE] = remote;
+	channel->funding_pubkey[LOCAL] = *local_funding_pubkey;
+	channel->funding_pubkey[REMOTE] = *remote_funding_pubkey;
 	htlc_map_init(&channel->htlcs);
 
 	channel->view[LOCAL].feerate_per_kw
@@ -154,14 +161,78 @@ struct channel *new_channel(const tal_t *ctx,
 	return channel;
 }
 
-/* FIXME: We could cache this. */
-struct bitcoin_tx *channel_tx(const tal_t *ctx,
-			      const struct channel *channel,
-			      const struct pubkey *per_commitment_point,
-			      const struct htlc ***htlcmap,
-			      enum side side)
+static void add_htlcs(struct bitcoin_tx ***txs,
+		      const u8 ***wscripts,
+		      const struct htlc **htlcmap,
+		      const struct channel *channel,
+		      const struct pubkey *side_payment_key,
+		      const struct pubkey *other_payment_key,
+		      const struct pubkey *side_revocation_key,
+		      const struct pubkey *side_delayed_payment_key,
+		      enum side side)
 {
-	struct bitcoin_tx *tx;
+	size_t i, n;
+	struct sha256_double txid;
+	u32 feerate_per_kw = channel->view[side].feerate_per_kw;
+
+	/* Get txid of commitment transaction */
+	bitcoin_txid((*txs)[0], &txid);
+
+	for (i = 0; i < tal_count(htlcmap); i++) {
+		const struct htlc *htlc = htlcmap[i];
+		struct bitcoin_tx *tx;
+		u8 *wscript;
+
+		if (!htlc)
+			continue;
+
+		if (htlc_owner(htlc) == side) {
+			tx = htlc_timeout_tx(*txs, &txid, i,
+					     htlc,
+					     to_self_delay(channel, side),
+					     side_revocation_key,
+					     side_delayed_payment_key,
+					     feerate_per_kw);
+			wscript	= bitcoin_wscript_htlc_offer(*wscripts,
+							     side_payment_key,
+							     other_payment_key,
+							     &htlc->rhash,
+							     side_revocation_key);
+		} else {
+			tx = htlc_success_tx(*txs, &txid, i,
+					     htlc,
+					     to_self_delay(channel, side),
+					     side_revocation_key,
+					     side_delayed_payment_key,
+					     feerate_per_kw);
+			wscript	= bitcoin_wscript_htlc_receive(*wscripts,
+							       &htlc->expiry,
+							       side_payment_key,
+							       other_payment_key,
+							       &htlc->rhash,
+							       side_revocation_key);
+		}
+
+		/* Append to array. */
+		n = tal_count(*txs);
+		assert(n == tal_count(*wscripts));
+
+		tal_resize(wscripts, n+1);
+		tal_resize(txs, n+1);
+		(*wscripts)[n] = wscript;
+		(*txs)[n] = tx;
+	}
+}
+
+/* FIXME: We could cache these. */
+struct bitcoin_tx **channel_txs(const tal_t *ctx,
+				const struct htlc ***htlcmap,
+				const u8 ***wscripts,
+				const struct channel *channel,
+				const struct pubkey *per_commitment_point,
+				enum side side)
+{
+	struct bitcoin_tx **txs;
 	const struct htlc **committed;
 	/* Payment keys for @side and !@side */
 	struct pubkey side_payment_key, other_payment_key;
@@ -193,7 +264,12 @@ struct bitcoin_tx *channel_tx(const tal_t *ctx,
 	/* Figure out what @side will already be committed to. */
 	gather_htlcs(ctx, channel, side, &committed, NULL, NULL);
 
-	tx = commit_tx(ctx, &channel->funding_txid,
+	/* NULL map only allowed at beginning, when we know no HTLCs */
+	if (!htlcmap)
+		assert(tal_count(committed) == 0);
+
+	txs = tal_arr(ctx, struct bitcoin_tx *, 1);
+	txs[0] = commit_tx(ctx, &channel->funding_txid,
 		       channel->funding_txout,
 		       channel->funding_msat / 1000,
 		       channel->funder,
@@ -212,8 +288,19 @@ struct bitcoin_tx *channel_tx(const tal_t *ctx,
 		       ^ channel->commitment_number_obscurer,
 		       side);
 
+	*wscripts = tal_arr(ctx, const u8 *, 1);
+	(*wscripts)[0] = bitcoin_redeem_2of2(*wscripts,
+					     &channel->funding_pubkey[side],
+					     &channel->funding_pubkey[!side]);
+
+	if (htlcmap)
+		add_htlcs(&txs, wscripts, *htlcmap, channel,
+			  &side_payment_key, &other_payment_key,
+			  &side_revocation_key, &side_delayed_payment_key,
+			  side);
+
 	tal_free(committed);
-	return tx;
+	return txs;
 }
 
 struct channel *copy_channel(const tal_t *ctx, const struct channel *old)
