@@ -144,42 +144,6 @@ static void check_config_bounds(struct state *state,
 			    remoteconf->max_accepted_htlcs);
 }
 
-static bool check_commit_sig(const struct state *state,
-			     const struct pubkey *our_funding_key,
-			     const struct pubkey *their_funding_key,
-			     struct bitcoin_tx *tx,
-			     const secp256k1_ecdsa_signature *remotesig)
-{
-	u8 *wscript;
-	bool ret;
-
-	wscript = bitcoin_redeem_2of2(state,
-				      our_funding_key, their_funding_key);
-
-	ret = check_tx_sig(tx, 0, NULL, wscript, their_funding_key, remotesig);
-	tal_free(wscript);
-	return ret;
-}
-
-static secp256k1_ecdsa_signature
-sign_remote_commit(const struct state *state,
-		   const struct pubkey *our_funding_key,
-		   const struct pubkey *their_funding_key,
-		   struct bitcoin_tx *tx)
-{
-	u8 *wscript;
-	secp256k1_ecdsa_signature sig;
-
-	wscript = bitcoin_redeem_2of2(state,
-				      our_funding_key, their_funding_key);
-
-	/* Commit tx only has one input: funding tx. */
-	sign_tx_input(tx, 0, NULL, wscript, &state->our_secrets.funding_privkey,
-		      our_funding_key, &sig);
-	tal_free(wscript);
-	return sig;
-}
-
 /* We always set channel_reserve_satoshis to 1%, rounded up. */
 static void set_reserve(u64 *reserve, u64 funding)
 {
@@ -220,12 +184,14 @@ static u8 *open_channel(struct state *state,
 			const struct basepoints *ours,
 			u32 max_minimum_depth)
 {
+	const tal_t *tmpctx = tal_tmpctx(state);
 	struct channel_id channel_id, id_in;
 	u8 *msg;
-	struct bitcoin_tx *tx;
+	struct bitcoin_tx **txs;
 	struct basepoints theirs;
 	struct pubkey their_funding_pubkey;
 	secp256k1_ecdsa_signature sig;
+	const u8 **wscripts;
 
 	set_reserve(&state->localconf.channel_reserve_satoshis,
 		    state->funding_satoshis);
@@ -249,7 +215,7 @@ static u8 *open_channel(struct state *state,
 			      "push-msat must be < %"PRIu64,
 			      1000 * state->funding_satoshis);
 
-	msg = towire_open_channel(state, &genesis_blockhash.sha, &channel_id,
+	msg = towire_open_channel(tmpctx, &genesis_blockhash.sha, &channel_id,
 				  state->funding_satoshis, state->push_msat,
 				  state->localconf.dust_limit_satoshis,
 				  state->localconf.max_htlc_value_in_flight_msat,
@@ -269,7 +235,7 @@ static u8 *open_channel(struct state *state,
 
 	state->remoteconf = tal(state, struct channel_config);
 
-	msg = sync_crypto_read(state, &state->cs, PEER_FD);
+	msg = sync_crypto_read(tmpctx, &state->cs, PEER_FD);
 	if (!msg)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Reading accept_channel");
@@ -324,12 +290,12 @@ static u8 *open_channel(struct state *state,
 	check_config_bounds(state, state->remoteconf);
 
 	/* Now, ask master create a transaction to pay those two addresses. */
-	msg = towire_opening_open_reply(state, our_funding_pubkey,
+	msg = towire_opening_open_reply(tmpctx, our_funding_pubkey,
 					&their_funding_pubkey);
 	wire_sync_write(REQ_FD, msg);
 
 	/* Expect funding tx. */
-	msg = wire_sync_read(state, REQ_FD);
+	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_opening_open_funding(msg, NULL,
 					   &state->funding_txid,
 					   &state->funding_txout))
@@ -347,6 +313,8 @@ static u8 *open_channel(struct state *state,
 				     &state->localconf,
 				     state->remoteconf,
 				     ours, &theirs,
+				     our_funding_pubkey,
+				     &their_funding_pubkey,
 				     LOCAL);
 	if (!state->channel)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
@@ -360,17 +328,18 @@ static u8 *open_channel(struct state *state,
 	 * for the initial commitment transactions.  After receiving the
 	 * peer's signature, it will broadcast the funding transaction.
 	 */
-	tx = channel_tx(state, state->channel,
-			&state->next_per_commit[REMOTE], NULL, REMOTE);
-	sig = sign_remote_commit(state,
-				 our_funding_pubkey, &their_funding_pubkey,
-				 tx);
+	txs = channel_txs(tmpctx, NULL, &wscripts, state->channel,
+			  &state->next_per_commit[REMOTE], REMOTE);
+
+	sign_tx_input(txs[0], 0, NULL, wscripts[0],
+		      &state->our_secrets.funding_privkey,
+		      our_funding_pubkey, &sig);
 	status_trace("signature %s on tx %s using key %s",
 		     type_to_string(trc, secp256k1_ecdsa_signature, &sig),
-		     type_to_string(trc, struct bitcoin_tx, tx),
+		     type_to_string(trc, struct bitcoin_tx, txs[0]),
 		     type_to_string(trc, struct pubkey, our_funding_pubkey));
 
-	msg = towire_funding_created(state, &channel_id,
+	msg = towire_funding_created(tmpctx, &channel_id,
 				     &state->funding_txid.sha,
 				     state->funding_txout,
 				     &sig);
@@ -386,7 +355,7 @@ static u8 *open_channel(struct state *state,
 	 * commitment transaction, so they can broadcast it knowing they can
 	 * redeem their funds if they need to.
 	 */
-	msg = sync_crypto_read(state, &state->cs, PEER_FD);
+	msg = sync_crypto_read(tmpctx, &state->cs, PEER_FD);
 	if (!msg)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Reading funding_signed");
@@ -417,18 +386,21 @@ static u8 *open_channel(struct state *state,
 	 *
 	 * The recipient MUST fail the channel if `signature` is incorrect.
 	 */
-	tx = channel_tx(state, state->channel,
-		       &state->next_per_commit[LOCAL], NULL, LOCAL);
+	txs = channel_txs(tmpctx, NULL, &wscripts, state->channel,
+			  &state->next_per_commit[LOCAL], LOCAL);
 
-	if (!check_commit_sig(state, our_funding_pubkey,
-			      &their_funding_pubkey, tx, &sig))
+	if (!check_tx_sig(txs[0], 0, NULL, wscripts[0], &their_funding_pubkey,
+			  &sig)) {
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Bad signature %s on tx %s using key %s",
 			      type_to_string(trc, secp256k1_ecdsa_signature,
 					     &sig),
-			      type_to_string(trc, struct bitcoin_tx, tx),
+			      type_to_string(trc, struct bitcoin_tx, txs[0]),
 			      type_to_string(trc, struct pubkey,
 					     &their_funding_pubkey));
+	}
+
+	tal_free(tmpctx);
 
 	/* BOLT #2:
 	 *
@@ -456,9 +428,10 @@ static u8 *recv_channel(struct state *state,
 	struct basepoints theirs;
 	struct pubkey their_funding_pubkey;
 	secp256k1_ecdsa_signature theirsig, sig;
-	struct bitcoin_tx *tx;
+	struct bitcoin_tx **txs;
 	struct sha256_double chain_hash;
 	u8 *msg;
+	const u8 **wscripts;
 
 	state->remoteconf = tal(state, struct channel_config);
 
@@ -590,6 +563,8 @@ static u8 *recv_channel(struct state *state,
 				     &state->localconf,
 				     state->remoteconf,
 				     ours, &theirs,
+				     our_funding_pubkey,
+				     &their_funding_pubkey,
 				     REMOTE);
 	if (!state->channel)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
@@ -613,18 +588,19 @@ static u8 *recv_channel(struct state *state,
 	 *
 	 * The recipient MUST fail the channel if `signature` is incorrect.
 	 */
-	tx = channel_tx(state, state->channel,
-			&state->next_per_commit[LOCAL], NULL, LOCAL);
+	txs = channel_txs(state, NULL, &wscripts, state->channel,
+			  &state->next_per_commit[LOCAL], LOCAL);
 
-	if (!check_commit_sig(state, our_funding_pubkey,
-			      &their_funding_pubkey, tx, &theirsig))
+	if (!check_tx_sig(txs[0], 0, NULL, wscripts[0], &their_funding_pubkey,
+			  &theirsig)) {
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Bad signature %s on tx %s using key %s",
 			      type_to_string(trc, secp256k1_ecdsa_signature,
 					     &theirsig),
-			      type_to_string(trc, struct bitcoin_tx, tx),
+			      type_to_string(trc, struct bitcoin_tx, txs[0]),
 			      type_to_string(trc, struct pubkey,
 					     &their_funding_pubkey));
+	}
 
 	/* BOLT #2:
 	 *
@@ -645,11 +621,11 @@ static u8 *recv_channel(struct state *state,
 	 * commitment transaction, so they can broadcast it knowing they can
 	 * redeem their funds if they need to.
 	 */
-	tx = channel_tx(state, state->channel,
-			&state->next_per_commit[REMOTE], NULL, REMOTE);
-	sig = sign_remote_commit(state,
-				 our_funding_pubkey, &their_funding_pubkey,
-				 tx);
+	txs = channel_txs(state, NULL, &wscripts, state->channel,
+			  &state->next_per_commit[REMOTE], REMOTE);
+	sign_tx_input(txs[0], 0, NULL, wscripts[0],
+		      &state->our_secrets.funding_privkey,
+		      our_funding_pubkey, &sig);
 
 	msg = towire_funding_signed(state, &channel_id, &sig);
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))

@@ -29,6 +29,9 @@ struct channel {
 	struct sha256_double funding_txid;
 	unsigned int funding_txout;
 
+	/* Keys used to spend funding tx. */
+	struct pubkey funding_pubkey[NUM_SIDES];
+
 	/* Millisatoshis in from commitment tx */
 	u64 funding_msat;
 
@@ -126,6 +129,8 @@ static inline u16 to_self_delay(const struct channel *channel, enum side side)
  * @remote: remote channel configuration
  * @local_basepoints: local basepoints.
  * @remote_basepoints: remote basepoints.
+ * @local_fundingkey: local funding key
+ * @remote_fundingkey: remote funding key
  * @funder: which side initiated it.
  *
  * Returns state, or NULL if malformed.
@@ -140,24 +145,30 @@ struct channel *new_channel(const tal_t *ctx,
 			    const struct channel_config *remote,
 			    const struct basepoints *local_basepoints,
 			    const struct basepoints *remote_basepoints,
+			    const struct pubkey *local_funding_pubkey,
+			    const struct pubkey *remote_funding_pubkey,
 			    enum side funder);
+
 /**
- * channel_tx: Get the current commitment transaction for the channel.
+ * channel_txs: Get the current commitment and htlc txs for the channel.
  * @ctx: tal context to allocate return value from.
  * @channel: The channel to evaluate
- * @per_commitment_point: Per-commitment point to determine keys
  * @htlc_map: Pointer to htlcs for each tx output (allocated off @ctx) or NULL.
+ * @wscripts: Pointer to array of wscript for each tx returned (alloced off @ctx)
+ * @per_commitment_point: Per-commitment point to determine keys
  * @side: which side to get the commitment transaction for
  *
  * Returns the unsigned commitment transaction for the committed state
- * for @side and fills in @htlc_map (if not NULL), or NULL on key
- * derivation failure.
+ * for @side, followed by the htlc transactions in output order, and
+ * fills in @htlc_map (if not NULL), or NULL on key derivation
+ * failure.
  */
-struct bitcoin_tx *channel_tx(const tal_t *ctx,
-			      const struct channel *channel,
-			      const struct pubkey *per_commitment_point,
-			      const struct htlc ***htlcmap,
-			      enum side side);
+struct bitcoin_tx **channel_txs(const tal_t *ctx,
+				const struct htlc ***htlcmap,
+				const u8 ***wscripts,
+				const struct channel *channel,
+				const struct pubkey *per_commitment_point,
+				enum side side);
 
 /**
  * actual_feerate: what is the actual feerate for the local side.

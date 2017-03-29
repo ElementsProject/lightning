@@ -43,7 +43,6 @@ struct peer {
 	struct channel_config conf[NUM_SIDES];
 	struct pubkey next_per_commit[NUM_SIDES];
 	bool funding_locked[NUM_SIDES];
-	struct pubkey funding_pubkey[NUM_SIDES];
 
 	/* Their sig for current commit. */
 	secp256k1_ecdsa_signature their_commit_sig;
@@ -143,8 +142,8 @@ static void send_channel_announcement(struct peer *peer)
 	    &peer->announcement_bitcoin_sigs[first],
 	    &peer->announcement_bitcoin_sigs[second],
 	    &peer->short_channel_ids[LOCAL], &peer->node_ids[first],
-	    &peer->node_ids[second], &peer->funding_pubkey[first],
-	    &peer->funding_pubkey[second], features);
+	    &peer->node_ids[second], &peer->channel->funding_pubkey[first],
+	    &peer->channel->funding_pubkey[second], features);
 
 	msg_enqueue(&peer->peer_out, cannounce);
 	daemon_conn_send(&peer->gossip_client, take(cannounce));
@@ -232,6 +231,7 @@ static void init_channel(struct peer *peer, const u8 *msg)
 	u32 feerate;
 	u64 funding_satoshi, push_msat;
 	u16 funding_txout;
+	struct pubkey funding_pubkey[NUM_SIDES];
 	struct sha256_double funding_txid;
 	bool am_funder;
 
@@ -240,7 +240,7 @@ static void init_channel(struct peer *peer, const u8 *msg)
 				   &peer->conf[LOCAL], &peer->conf[REMOTE],
 				   &peer->their_commit_sig,
 				   &peer->pcs.cs,
-				   &peer->funding_pubkey[REMOTE],
+				   &funding_pubkey[REMOTE],
 				   &points[REMOTE].revocation,
 				   &points[REMOTE].payment,
 				   &points[REMOTE].delayed_payment,
@@ -254,7 +254,7 @@ static void init_channel(struct peer *peer, const u8 *msg)
 			      tal_hex(msg, msg));
 
 	/* We derive everything from the one secret seed. */
-	derive_basepoints(&seed, &peer->funding_pubkey[LOCAL], &points[LOCAL],
+	derive_basepoints(&seed, &funding_pubkey[LOCAL], &points[LOCAL],
 			  &peer->our_secrets, &peer->shaseed,
 			  &peer->next_per_commit[LOCAL], 1);
 
@@ -262,6 +262,8 @@ static void init_channel(struct peer *peer, const u8 *msg)
 				    funding_satoshi, push_msat, feerate,
 				    &peer->conf[LOCAL], &peer->conf[REMOTE],
 				    &points[LOCAL], &points[REMOTE],
+				    &funding_pubkey[LOCAL],
+				    &funding_pubkey[REMOTE],
 				    am_funder ? LOCAL : REMOTE);
 
 	peer->channel_direction = get_channel_direction(
