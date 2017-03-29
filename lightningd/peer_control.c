@@ -629,6 +629,14 @@ static size_t update_channel_status(struct subd *sd,
 	case WIRE_CHANNEL_NORMAL_OPERATION:
 		peer_set_condition(sd->peer, "Normal operation");
 		break;
+	case WIRE_CHANNEL_ACCEPTED_HTLC:
+	case WIRE_CHANNEL_FULFILLED_HTLC:
+	case WIRE_CHANNEL_FAILED_HTLC:
+	case WIRE_CHANNEL_MALFORMED_HTLC:
+		/* FIXME: Forward. */
+		abort();
+		break;
+
 	/* We never see fatal ones. */
 	case WIRE_CHANNEL_BAD_COMMAND:
 	case WIRE_CHANNEL_HSM_FAILED:
@@ -639,6 +647,11 @@ static size_t update_channel_status(struct subd *sd,
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_FUNDING_LOCKED:
 	case WIRE_CHANNEL_FUNDING_ANNOUNCE_DEPTH:
+	case WIRE_CHANNEL_OFFER_HTLC:
+	case WIRE_CHANNEL_FULFILL_HTLC:
+	case WIRE_CHANNEL_FAIL_HTLC:
+	/* Replies go to requests. */
+	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
 		break;
 	}
 

@@ -7,6 +7,7 @@
 #include <ccan/io/io.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/take/take.h>
+#include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <daemon/routing.h>
 #include <errno.h>
@@ -28,6 +29,7 @@
 #include <stdio.h>
 #include <type_to_string.h>
 #include <version.h>
+#include <wire/gen_onion_wire.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire.h>
 #include <wire/wire_io.h>
@@ -52,6 +54,13 @@ struct peer {
 
 	/* Our shaseed for generating per-commitment-secrets. */
 	struct sha256 shaseed;
+
+	/* BOLT #2:
+	 *
+	 * A sending node MUST set `id` to 0 for the first HTLC it offers, and
+	 * increase the value by 1 for each successive offer.
+	 */
+	u64 htlc_id;
 
 	struct channel_id channel_id;
 	struct channel *channel;
@@ -274,32 +283,219 @@ static void init_channel(struct peer *peer, const u8 *msg)
 		      peer_conn_broken, peer);
 }
 
+static void handle_funding_locked(struct peer *peer, const u8 *msg)
+{
+	if (!fromwire_channel_funding_locked(msg, NULL,
+					     &peer->short_channel_ids[LOCAL]))
+		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s", tal_hex(msg, msg));
+
+	msg = towire_funding_locked(peer,
+				    &peer->channel_id,
+				    &peer->next_per_commit[LOCAL]);
+	msg_enqueue(&peer->peer_out, take(msg));
+	peer->funding_locked[LOCAL] = true;
+
+	if (peer->funding_locked[REMOTE]) {
+		send_channel_announcement(peer);
+		send_channel_update(peer, false);
+		daemon_conn_send(&peer->master,
+				 take(towire_channel_normal_operation(peer)));
+	}
+}
+
+static void handle_funding_announce_depth(struct peer *peer, const u8 *msg)
+{
+	status_trace("Exchanging announcement signatures.");
+	send_announcement_signatures(peer);
+}
+
+static void start_commit_timer(struct peer *peer)
+{
+	/* FIXME! */
+}
+
+static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
+{
+	u8 *msg;
+	u32 amount_msat, cltv_expiry;
+	struct sha256 payment_hash;
+	u8 onion_routing_packet[1254];
+	enum onion_type failcode;
+	/* Subtle: must be tal_arr since we marshal using tal_len() */
+	const char *failmsg;
+
+	if (!peer->funding_locked[LOCAL] || !peer->funding_locked[REMOTE])
+		status_failed(WIRE_CHANNEL_BAD_COMMAND, "funding not locked");
+
+	if (!fromwire_channel_offer_htlc(inmsg, NULL, &amount_msat,
+					 &cltv_expiry, &payment_hash,
+					 onion_routing_packet))
+		status_failed(WIRE_CHANNEL_BAD_COMMAND,
+			      "bad offer_htlc message %s",
+			      tal_hex(inmsg, inmsg));
+
+	switch (channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
+				 amount_msat, cltv_expiry, &payment_hash,
+				 onion_routing_packet)) {
+	case CHANNEL_ERR_ADD_OK:
+		/* Tell the peer. */
+		msg = towire_update_add_htlc(peer, &peer->channel_id,
+					     peer->htlc_id, amount_msat,
+					     cltv_expiry, &payment_hash,
+					     onion_routing_packet);
+		msg_enqueue(&peer->peer_out, take(msg));
+		peer->funding_locked[LOCAL] = true;
+		start_commit_timer(peer);
+		/* Tell the master. */
+		msg = towire_channel_offer_htlc_reply(inmsg, peer->htlc_id,
+						      0, NULL);
+		daemon_conn_send(&peer->master, take(msg));
+		peer->htlc_id++;
+		return;
+	case CHANNEL_ERR_INVALID_EXPIRY:
+		failcode = WIRE_INCORRECT_CLTV_EXPIRY;
+		failmsg = tal_fmt(inmsg, "Invalid cltv_expiry %u", cltv_expiry);
+		goto failed;
+	case CHANNEL_ERR_DUPLICATE:
+	case CHANNEL_ERR_DUPLICATE_ID_DIFFERENT:
+		status_failed(WIRE_CHANNEL_BAD_COMMAND,
+			      "Duplicate HTLC %"PRIu64, peer->htlc_id);
+
+	/* FIXME: Fuzz the boundaries a bit to avoid probing? */
+	case CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED:
+		/* FIXME: We should advertise this? */
+		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
+		failmsg = tal_fmt(inmsg, "Maximum value exceeded");
+		goto failed;
+	case CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED:
+		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
+		failmsg = tal_fmt(inmsg, "Capacity exceeded");
+		goto failed;
+	case CHANNEL_ERR_HTLC_BELOW_MINIMUM:
+		failcode = WIRE_AMOUNT_BELOW_MINIMUM;
+		failmsg = tal_fmt(inmsg, "HTLC too small (%u minimum)",
+				  htlc_minimum_msat(peer->channel, REMOTE));
+		goto failed;
+	case CHANNEL_ERR_TOO_MANY_HTLCS:
+		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
+		failmsg = tal_fmt(inmsg, "Too many HTLCs");
+		goto failed;
+	}
+	/* Shouldn't return anything else! */
+	abort();
+
+failed:
+	msg = towire_channel_offer_htlc_reply(inmsg, 0, failcode, (u8*)failmsg);
+	daemon_conn_send(&peer->master, take(msg));
+}
+
+static void handle_preimage(struct peer *peer, const u8 *inmsg)
+{
+	u8 *msg;
+	u64 id;
+	struct preimage preimage;
+
+	if (!fromwire_channel_fulfill_htlc(inmsg, NULL, &id, &preimage))
+		status_failed(WIRE_CHANNEL_BAD_COMMAND,
+			      "Invalid channel_fulfill_htlc");
+
+	switch (channel_fulfill_htlc(peer->channel, REMOTE, id, &preimage)) {
+	case CHANNEL_ERR_REMOVE_OK:
+		msg = towire_update_fulfill_htlc(peer, &peer->channel_id,
+						 id, &preimage);
+		msg_enqueue(&peer->peer_out, take(msg));
+		start_commit_timer(peer);
+		return;
+	/* These shouldn't happen, because any offered HTLC (which would give
+	 * us the preimage) should have timed out long before.  If we
+	 * were to get preimages from other sources, this could happen. */
+	case CHANNEL_ERR_NO_SUCH_ID:
+	case CHANNEL_ERR_ALREADY_FULFILLED:
+	case CHANNEL_ERR_HTLC_UNCOMMITTED:
+	case CHANNEL_ERR_HTLC_NOT_IRREVOCABLE:
+	case CHANNEL_ERR_BAD_PREIMAGE:
+		status_failed(WIRE_CHANNEL_BAD_COMMAND,
+			      "HTLC %"PRIu64" preimage failed", id);
+	}
+	abort();
+}
+
+static void handle_fail(struct peer *peer, const u8 *inmsg)
+{
+	u8 *msg;
+	u64 id;
+	u8 *errpkt;
+
+	if (!fromwire_channel_fail_htlc(inmsg, inmsg, NULL, &id, &errpkt))
+		status_failed(WIRE_CHANNEL_BAD_COMMAND,
+			      "Invalid channel_fail_htlc");
+
+	switch (channel_fail_htlc(peer->channel, REMOTE, id)) {
+	case CHANNEL_ERR_REMOVE_OK:
+		msg = towire_update_fail_htlc(peer, &peer->channel_id,
+					      id, errpkt);
+		msg_enqueue(&peer->peer_out, take(msg));
+		start_commit_timer(peer);
+		return;
+	/* These shouldn't happen, because any offered HTLC (which would give
+	 * us the preimage) should have timed out long before.  If we
+	 * were to get preimages from other sources, this could happen. */
+	case CHANNEL_ERR_NO_SUCH_ID:
+	case CHANNEL_ERR_ALREADY_FULFILLED:
+	case CHANNEL_ERR_HTLC_UNCOMMITTED:
+	case CHANNEL_ERR_HTLC_NOT_IRREVOCABLE:
+	case CHANNEL_ERR_BAD_PREIMAGE:
+		status_failed(WIRE_CHANNEL_BAD_COMMAND,
+			      "HTLC %"PRIu64" preimage failed", id);
+	}
+	abort();
+}
+
 static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct peer *peer = container_of(master, struct peer, master);
 
 	if (!peer->channel)
 		init_channel(peer, master->msg_in);
-	else if (fromwire_channel_funding_locked(master->msg_in, NULL,
-						 &peer->short_channel_ids[LOCAL])) {
-		u8 *msg = towire_funding_locked(peer,
-						&peer->channel_id,
-						&peer->next_per_commit[LOCAL]);
-		msg_enqueue(&peer->peer_out, take(msg));
-		peer->funding_locked[LOCAL] = true;
+	else {
+		enum channel_wire_type t = fromwire_peektype(master->msg_in);
 
-		if (peer->funding_locked[REMOTE]) {
-			send_channel_announcement(peer);
-			send_channel_update(peer, false);
-			daemon_conn_send(master,
-				 take(towire_channel_normal_operation(peer)));
+		switch (t) {
+		case WIRE_CHANNEL_FUNDING_LOCKED:
+			handle_funding_locked(peer, master->msg_in);
+			goto out;
+		case WIRE_CHANNEL_FUNDING_ANNOUNCE_DEPTH:
+			handle_funding_announce_depth(peer, master->msg_in);
+			goto out;
+		case WIRE_CHANNEL_OFFER_HTLC:
+			handle_offer_htlc(peer, master->msg_in);
+			goto out;
+		case WIRE_CHANNEL_FULFILL_HTLC:
+			handle_preimage(peer, master->msg_in);
+			goto out;
+		case WIRE_CHANNEL_FAIL_HTLC:
+			handle_fail(peer, master->msg_in);
+			goto out;
+
+		case WIRE_CHANNEL_BAD_COMMAND:
+		case WIRE_CHANNEL_HSM_FAILED:
+		case WIRE_CHANNEL_PEER_WRITE_FAILED:
+		case WIRE_CHANNEL_PEER_READ_FAILED:
+		case WIRE_CHANNEL_RECEIVED_FUNDING_LOCKED:
+		case WIRE_CHANNEL_NORMAL_OPERATION:
+		case WIRE_CHANNEL_INIT:
+		case WIRE_CHANNEL_OFFER_HTLC_REPLY:
+		case WIRE_CHANNEL_ACCEPTED_HTLC:
+		case WIRE_CHANNEL_FULFILLED_HTLC:
+		case WIRE_CHANNEL_FAILED_HTLC:
+		case WIRE_CHANNEL_MALFORMED_HTLC:
+		case WIRE_CHANNEL_PEER_BAD_MESSAGE:
+			break;
 		}
-	} else if(fromwire_channel_funding_announce_depth(master->msg_in, NULL)) {
-		status_trace("Exchanging announcement signatures.");
-		send_announcement_signatures(peer);
-	} else
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s", strerror(errno));
+	}
 
+out:
 	return daemon_conn_read_next(conn, master);
 }
 
@@ -322,6 +518,7 @@ int main(int argc, char *argv[])
 
 	daemon_conn_init(peer, &peer->master, REQ_FD, req_in);
 	peer->channel = NULL;
+	peer->htlc_id = 0;
 
 	status_setup_async(&peer->master);
 	msg_queue_init(&peer->peer_out, peer);
