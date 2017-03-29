@@ -454,6 +454,43 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 	return CHANNEL_ERR_REMOVE_OK;
 }
 
+enum channel_remove_err channel_fail_htlc(struct channel *channel,
+					  enum side sender, u64 id)
+{
+	struct htlc *htlc;
+
+	/* Fail is done by !creator of HTLC */
+	htlc = channel_get_htlc(channel, !sender, id);
+	if (!htlc)
+		return CHANNEL_ERR_NO_SUCH_ID;
+
+	/* BOLT #2:
+	 *
+	 * A receiving node MUST check that `id` corresponds to an HTLC in its
+	 * current commitment transaction, and MUST fail the channel if it
+	 * does not.
+	 */
+	if (!htlc_has(htlc, HTLC_FLAG(!htlc_owner(htlc), HTLC_F_COMMITTED))) {
+		status_trace("channel_fail_htlc: %"PRIu64" in state %s",
+			     htlc->id, htlc_state_name(htlc->state));
+		return CHANNEL_ERR_HTLC_UNCOMMITTED;
+	}
+
+	/* FIXME: Technically, they can fail this before we're committed to
+	 * it.  This implies a non-linear state machine. */
+	if (htlc->state == SENT_ADD_ACK_REVOCATION)
+		htlc->state = RCVD_REMOVE_HTLC;
+	else if (htlc->state == RCVD_ADD_ACK_REVOCATION)
+		htlc->state = SENT_REMOVE_HTLC;
+	else {
+		status_trace("channel_fail_htlc: %"PRIu64" in state %s",
+			     htlc->id, htlc_state_name(htlc->state));
+		return CHANNEL_ERR_HTLC_NOT_IRREVOCABLE;
+	}
+
+	return CHANNEL_ERR_REMOVE_OK;
+}
+
 static void htlc_incstate(struct channel *channel,
 			  struct htlc *htlc,
 			  enum side sidechanged)
