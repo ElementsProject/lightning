@@ -88,13 +88,14 @@ sizetypemap = {
     1: FieldType('u8')
 }
 
-# It would be nicer if we had put '*1' in spec and disallowed bare lenvar.
-# In practice we only recognize raw lenvar when it's the previous field.
+# It would be nicer if we had put '*u8' in spec and disallowed bare lenvar.
+# In practice we only recognize lenvar when it's the previous field.
 
 # size := baresize | arraysize
 # baresize := simplesize | lenvar
 # simplesize := number | type
-# arraysize := lenvar '*' simplesize
+# arraysize := length '*' type
+# length := lenvar | number
 class Field(object):
     def __init__(self, message, name, size, comments, prevname):
         self.message = message
@@ -106,7 +107,11 @@ class Field(object):
 
         # If it's an arraysize, swallow prefix.
         if '*' in size:
-            self.lenvar = size.split('*')[0].replace('-','_')
+            number = size.split('*')[0]
+            if number == prevname:
+                self.lenvar = number.replace('-','_');
+            else:
+                self.num_elems = int(number)
             size = size.split('*')[1]
         else:
             if size == prevname:
