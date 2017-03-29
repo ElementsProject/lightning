@@ -44,3 +44,60 @@ channel_funding_locked,0,short_channel_id,struct short_channel_id
 
 # Tell the channel that we may announce the channel's existence
 channel_funding_announce_depth,3
+
+# Tell channel to offer this htlc
+channel_offer_htlc,4
+channel_offer_htlc,0,amount_msat,4
+channel_offer_htlc,0,cltv_expiry,4
+channel_offer_htlc,0,payment_hash,32
+channel_offer_htlc,0,onion_routing_packet,1254*u8
+
+# Reply; synchronous since IDs have to increment.
+channel_offer_htlc_reply,104
+channel_offer_htlc_reply,0,id,8
+# Zero failure code means success.
+channel_offer_htlc_reply,0,failure_code,2
+channel_offer_htlc_reply,0,failurestrlen,2
+channel_offer_htlc_reply,0,failurestr,failurestrlen*u8
+
+# Main daemon found out the preimage for an htlc
+#include <bitcoin/preimage.h>
+channel_fulfill_htlc,5
+channel_fulfill_htlc,0,id,8
+channel_fulfill_htlc,0,payment_preimage,struct preimage
+
+# Main daemon says HTLC failed
+channel_fail_htlc,6
+channel_fail_htlc,0,id,8
+channel_fail_htlc,0,len,2
+channel_fail_htlc,0,error_pkt,len*u8
+
+# Peer and I are irrevocably committed to this HTLC.
+channel_accepted_htlc,7
+channel_accepted_htlc,0,id,8
+channel_accepted_htlc,0,amount_msat,4
+channel_accepted_htlc,0,cltv_expiry,4
+channel_accepted_htlc,0,payment_hash,32
+channel_accepted_htlc,0,next_onion,1254*u8
+channel_accepted_htlc,0,forward,bool
+channel_accepted_htlc,0,amt_to_forward,u64
+channel_accepted_htlc,0,outgoing_cltv_value,u32
+
+# FIXME: Add code to commit current channel state!
+
+# The HTLC preimage was given.
+channel_fulfilled_htlc,8
+channel_fulfilled_htlc,0,id,8
+channel_fulfilled_htlc,0,payment_preimage,struct preimage
+
+# This HTLC failed
+channel_failed_htlc,9
+channel_failed_htlc,0,id,8
+channel_failed_htlc,0,len,2
+channel_failed_htlc,0,reason,len*u8
+
+# This HTLC was returned malformed
+channel_malformed_htlc,10
+channel_malformed_htlc,0,id,8
+channel_malformed_htlc,0,sha256_of_onion,32
+channel_malformed_htlc,0,failure_code,2
