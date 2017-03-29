@@ -200,7 +200,7 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	case WIRE_UPDATE_FULFILL_HTLC:
 	case WIRE_UPDATE_FAIL_HTLC:
 	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
-	case WIRE_COMMIT_SIG:
+	case WIRE_COMMITMENT_SIGNED:
 	case WIRE_REVOKE_AND_ACK:
 		/* Not our place to handle this, so we punt */
 		s = towire_gossipstatus_peer_nongossip(msg, peer->unique_id,

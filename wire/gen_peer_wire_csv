@@ -77,11 +77,11 @@ update_fail_malformed_htlc,0,channel-id,32
 update_fail_malformed_htlc,32,id,8
 update_fail_malformed_htlc,40,sha256-of-onion,32
 update_fail_malformed_htlc,72,failure-code,2
-commit_sig,132
-commit_sig,0,channel-id,32
-commit_sig,32,signature,64
-commit_sig,96,num-htlcs,2
-commit_sig,98,htlc-signature,num-htlcs*64
+commitment_signed,132
+commitment_signed,0,channel-id,32
+commitment_signed,32,signature,64
+commitment_signed,96,num-htlcs,2
+commitment_signed,98,htlc-signature,num-htlcs*64
 revoke_and_ack,133
 revoke_and_ack,0,channel-id,32
 revoke_and_ack,32,per-commitment-secret,32
