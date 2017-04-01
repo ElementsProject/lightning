@@ -24,6 +24,7 @@
 #include <lightningd/hsm/gen_hsm_wire.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/opening/gen_opening_wire.h>
+#include <lightningd/pay.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -783,6 +784,8 @@ static int peer_fulfilled_htlc(struct peer *peer, const u8 *msg)
 
 	/* FIXME: Forward! */
 	assert(!hend->other_end);
+
+	payment_succeeded(peer->ld, hend, &preimage);
 	tal_free(hend);
 
 	return 0;
@@ -809,7 +812,7 @@ static int peer_failed_htlc(struct peer *peer, const u8 *msg)
 		return -1;
 	}
 
-	/* FIXME: Decrypt reason. */
+	/* FIXME: Decrypt reason, determine sender! */
 	failcode = fromwire_peektype(reason);
 
 	log_info(peer->log, "htlc %"PRIu64" failed with code 0x%04x (%s)",
@@ -817,6 +820,8 @@ static int peer_failed_htlc(struct peer *peer, const u8 *msg)
 
 	/* FIXME: Forward! */
 	assert(!hend->other_end);
+
+	payment_failed(peer->ld, hend, NULL, failcode);
 	tal_free(hend);
 
 	return 0;

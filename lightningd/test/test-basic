@@ -81,6 +81,42 @@ check "lcli1 getpeers | get_field msatoshi_to_us | $FGREP -w 900000000"
 [ `lcli2 getpeers | get_field msatoshi_to_them` = 900000000 ]
 [ `lcli2 getpeers | get_field msatoshi_to_us` = 100000000 ]
 
+RHASH=`lcli2 invoice 200000000 testpayment2 | get_field rhash`
+[ `lcli2 listinvoice testpayment2 | get_field complete` = false ]
+
+# Not enough delay.
+if lcli1 sendpay '[ { "msatoshi" : 200000000, "id" : "'$ID2'", "delay" : 3 } ]' $RHASH; then
+    echo Infufficient delay succeeded? >&2
+fi
+
+# Insufficient funds.
+if lcli1 sendpay '[ { "msatoshi" : 199999999, "id" : "'$ID2'", "delay" : 5 } ]' $RHASH; then
+    echo Infufficient funds succeeded? >&2
+fi
+
+# Bad ID.
+if lcli1 sendpay '[ { "msatoshi" : 200000000,, "id" : "'$ID2'", "delay" : 5 } ]' 00000000000000000000000000000000; then
+    echo Bad ID succeeded? >&2
+fi
+
+# This works
+lcli1 sendpay '[ { "msatoshi" : 200000000, "id" : "'$ID2'", "delay" : 5 } ]' $RHASH
+[ `lcli2 listinvoice testpayment2 | get_field complete` = true ]
+
+# This will "succeed", but won't actually send anything (duplicate)
+if lcli1 getlog debug | $FGREP 'json_sendpay: found previous... succeeded'; then
+    echo Already had found previous? >&2
+    exit 1
+fi
+lcli1 sendpay '[ { "msatoshi" : 200000000, "id" : "'$ID2'", "delay" : 5 } ]' $RHASH
+lcli1 getlog debug | $FGREP 'json_sendpay: found previous... succeeded'
+
+# FIXME: test paying via another node, should fail to pay twice.
+
+# Overpay.
+RHASH=`lcli2 invoice 200000000 testpayment3 | get_field rhash`
+lcli1 sendpay '[ { "msatoshi" : 200000001, "id" : "'$ID2'", "delay" : 5 } ]' $RHASH
+
 lcli1 stop
 lcli2 stop
 

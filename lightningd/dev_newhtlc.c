@@ -17,6 +17,9 @@ static bool offer_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 	/* We hack this in, since we don't have a real pay_command here. */
 	struct command *cmd = (void *)hend->pay_command;
 
+	/* This suppresses normal callback when it's actually paid! */
+	hend->pay_command = NULL;
+
 	if (!fromwire_channel_offer_htlc_reply(msg, msg, NULL,
 					       &hend->htlc_id,
 					       &failcode, &failstr)) {
