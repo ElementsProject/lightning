@@ -275,6 +275,13 @@ static void send_commit(struct peer *peer)
 	/* Timer has expired. */
 	peer->commit_timer = NULL;
 
+	/* FIXME: Document this requirement in BOLT 2! */
+	/* We can't send two commits in a row. */
+	if (channel_awaiting_revoke_and_ack(peer->channel)) {
+		tal_free(tmpctx);
+		return;
+	}
+
 	/* BOLT #2:
 	 *
 	 * A node MUST NOT send a `commitment_signed` message which does not

@@ -733,6 +733,28 @@ bool channel_sending_revoke_and_ack(struct channel *channel)
 	return change & HTLC_REMOTE_F_PENDING;
 }
 
+/* FIXME: Trivial to optimize: set flag on channel_sending_commit,
+ * clear in channel_rcvd_revoke_and_ack. */
+bool channel_awaiting_revoke_and_ack(const struct channel *channel)
+{
+	const enum htlc_state states[] = { SENT_ADD_COMMIT,
+					   SENT_REMOVE_ACK_COMMIT,
+					   SENT_ADD_ACK_COMMIT,
+					   SENT_REMOVE_COMMIT };
+	struct htlc_map_iter it;
+	struct htlc *h;
+	size_t i;
+
+	for (h = htlc_map_first(&channel->htlcs, &it);
+	     h;
+	     h = htlc_map_next(&channel->htlcs, &it)) {
+		for (i = 0; i < ARRAY_SIZE(states); i++)
+			if (h->state == states[i])
+				return true;
+	}
+	return false;
+}
+
 static char *fmt_channel_view(const tal_t *ctx, const struct channel_view *view)
 {
 	return tal_fmt(ctx, "{ feerate_per_kw=%"PRIu64","
