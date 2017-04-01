@@ -14,7 +14,7 @@ LIGHTNINGD_OLD_SRC :=				\
 	daemon/chaintopology.c			\
 	daemon/configdir.c			\
 	daemon/dns.c				\
-	daemon/netaddr.c			\
+	daemon/invoice.c			\
 	daemon/json.c				\
 	daemon/jsonrpc.c			\
 	daemon/log.c				\

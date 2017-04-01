@@ -29,5 +29,5 @@ void resolve_invoice(struct lightningd_state *dstate, struct invoice *invoice);
 struct invoice *find_unpaid(struct invoices *i,
 			    const struct sha256 *rhash);
 
-struct invoices *invoices_init(struct lightningd_state *dstate);
+struct invoices *invoices_init(const tal_t *ctx);
 #endif /* LIGHTNING_DAEMON_INVOICE_H */
