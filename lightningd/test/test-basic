@@ -50,6 +50,11 @@ check "lcli2 getpeers info | $FGREP 'Funding tx reached depth'"
 check "lcli1 getpeers | tr -s '\012\011\" ' ' ' | $FGREP 'condition : Normal operation'"
 check "lcli2 getpeers | tr -s '\012\011\" ' ' ' | $FGREP 'condition : Normal operation'"
 
+SECRET=1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd
+RHASH=`lcli1 dev-rhash $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
+
+lcli1 dev-newhtlc $ID2 100000 $(( $(blockheight) + 10 )) $RHASH
+
 lcli1 stop
 lcli2 stop
 

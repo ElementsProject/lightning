@@ -488,9 +488,9 @@ static const struct json_command getpeers_command = {
 };
 AUTODATA(json_command, &getpeers_command);
 
-static struct peer *find_peer_json(struct lightningd *ld,
-				   const char *buffer,
-				   jsmntok_t *peeridtok)
+struct peer *peer_from_json(struct lightningd *ld,
+			    const char *buffer,
+			    jsmntok_t *peeridtok)
 {
 	struct pubkey peerid;
 
@@ -1058,7 +1058,7 @@ static void json_fund_channel(struct command *cmd,
 	}
 
 	fc->cmd = cmd;
-	fc->peer = find_peer_json(ld, buffer, peertok);
+	fc->peer = peer_from_json(ld, buffer, peertok);
 	if (!fc->peer) {
 		command_fail(cmd, "Could not find peer with that peerid");
 		return;

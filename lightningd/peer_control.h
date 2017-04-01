@@ -2,6 +2,8 @@
 #define LIGHTNING_LIGHTNINGD_PEER_CONTROL_H
 #include "config.h"
 #include <ccan/compiler/compiler.h>
+#include <ccan/list/list.h>
+#include <daemon/json.h>
 #include <daemon/netaddr.h>
 #include <lightningd/channel_config.h>
 #include <stdbool.h>
@@ -59,6 +61,9 @@ struct peer {
 
 struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id);
 struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id);
+struct peer *peer_from_json(struct lightningd *ld,
+			    const char *buffer,
+			    jsmntok_t *peeridtok);
 
 void peer_accept_open(struct peer *peer,
 		      const struct crypto_state *cs, const u8 *msg);

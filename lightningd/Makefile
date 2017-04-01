@@ -59,6 +59,7 @@ LIGHTNINGD_LIB_HEADERS := $(LIGHTNINGD_LIB_SRC:.c=.h)
 
 LIGHTNINGD_SRC :=				\
 	lightningd/build_utxos.c		\
+	lightningd/dev_newhtlc.c		\
 	lightningd/gossip_control.c		\
 	lightningd/hsm_control.c		\
 	lightningd/lightningd.c			\
