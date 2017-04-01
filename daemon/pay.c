@@ -340,11 +340,12 @@ static void json_sendpay(struct command *cmd,
 			/* What that hop will forward */
 			tal_resize(&hoppayloads, n_hops);
 			memset(&hoppayloads[n_hops-1], 0, sizeof(struct hoppayload));
-			if (!json_tok_u64(buffer, amttok, &hoppayloads[n_hops-1].amount)) {
+			if (!json_tok_u64(buffer, amttok, &hoppayloads[n_hops-1].amt_to_forward)) {
 				command_fail(cmd, "route %zu invalid msatoshi", n_hops);
 				return;
 			}
-			lastamount = hoppayloads[n_hops-1].amount;
+			/* FIXME: Populate outgoing_cltv_value */
+			lastamount = hoppayloads[n_hops-1].amt_to_forward;
 		}
 
 		tal_resize(&ids, n_hops+1);

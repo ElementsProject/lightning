@@ -35,10 +35,20 @@ enum route_next_case {
 	ONION_FORWARD = 1,
 };
 
+/* BOLT #4:
+ *
+ * The format of the per-hop-payload for a version 0 packet is as follows:
+```
++----------------+--------------------------+-------------------------------+--------------------------------------------+
+| realm (1 byte) | amt_to_forward (8 bytes) | outgoing_cltv_value (4 bytes) | unused_with_v0_version_on_header (7 bytes) |
++----------------+--------------------------+-------------------------------+--------------------------------------------+
+```
+*/
 struct hoppayload {
 	u8 realm;
-	u64 amount;
-	u8 remainder[11];
+	u64 amt_to_forward;
+	u32 outgoing_cltv_value;
+	u8 unused_with_v0_version_on_header[7];
 };
 
 struct route_step {
