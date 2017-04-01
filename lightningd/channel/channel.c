@@ -280,7 +280,7 @@ static void send_commit(struct peer *peer)
 	 * A node MUST NOT send a `commitment_signed` message which does not
 	 * include any updates.
 	 */
-	if (!channel_sent_commit(peer->channel)) {
+	if (!channel_sending_commit(peer->channel)) {
 		tal_free(tmpctx);
 		return;
 	}

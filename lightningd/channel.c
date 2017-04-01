@@ -635,7 +635,8 @@ static void check_lockedin(const struct htlc *h,
 }
 
 /* FIXME: Commit to storage when this happens. */
-static bool change_htlcs(struct channel *channel,
+/* Returns flags which were changed. */
+static int change_htlcs(struct channel *channel,
 			 enum side sidechanged,
 			 const enum htlc_state *htlc_states,
 			 size_t n_hstates,
@@ -646,7 +647,7 @@ static bool change_htlcs(struct channel *channel,
 {
 	struct htlc_map_iter it;
 	struct htlc *h;
-	bool changed = false;
+	int cflags = 0;
 	size_t i;
 
 	for (h = htlc_map_first(&channel->htlcs, &it);
@@ -660,23 +661,26 @@ static bool change_htlcs(struct channel *channel,
 					       theirslocked,
 					       theirsfulfilled,
 					       cbarg);
-				changed = true;
+				cflags |= (htlc_state_flags(htlc_states[i])
+					   ^ htlc_state_flags(h->state));
 			}
 		}
 	}
-	return changed;
+	return cflags;
 }
 
 /* FIXME: Handle fee changes too. */
-bool channel_sent_commit(struct channel *channel)
+bool channel_sending_commit(struct channel *channel)
 {
+	int change;
 	const enum htlc_state states[] = { SENT_ADD_HTLC,
 					   SENT_REMOVE_REVOCATION,
 					   SENT_ADD_REVOCATION,
 					   SENT_REMOVE_HTLC };
-	status_trace("sent commit");
-	return change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states),
-			    NULL, NULL, NULL, NULL);
+	status_trace("Trying commit");
+	change = change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states),
+			      NULL, NULL, NULL, NULL);
+	return change & HTLC_REMOTE_F_COMMITTED;
 }
 
 bool channel_rcvd_revoke_and_ack_(struct channel *channel,
@@ -686,14 +690,16 @@ bool channel_rcvd_revoke_and_ack_(struct channel *channel,
 						       void *cbarg),
 				  void *cbarg)
 {
+	int change;
 	const enum htlc_state states[] = { SENT_ADD_COMMIT,
 					   SENT_REMOVE_ACK_COMMIT,
 					   SENT_ADD_ACK_COMMIT,
 					   SENT_REMOVE_COMMIT };
 
-	status_trace("received revoke_and_ack");
-	return change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
-			    oursfail, theirslocked, NULL, cbarg);
+	status_trace("Received revoke_and_ack");
+	change = change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
+			      oursfail, theirslocked, NULL, cbarg);
+	return change & HTLC_LOCAL_F_COMMITTED;
 }
 
 /* FIXME: We can actually merge these two... */
@@ -702,25 +708,29 @@ bool channel_rcvd_commit_(struct channel *channel,
 						  void *cbarg),
 			  void *cbarg)
 {
+	int change;
 	const enum htlc_state states[] = { RCVD_ADD_REVOCATION,
 					   RCVD_REMOVE_HTLC,
 					   RCVD_ADD_HTLC,
 					   RCVD_REMOVE_REVOCATION };
 
-	status_trace("received commit");
-	return change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
-			    NULL, NULL, theirsfulfilled, cbarg);
+	status_trace("Received commit");
+	change = change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
+			      NULL, NULL, theirsfulfilled, cbarg);
+	return change & HTLC_LOCAL_F_COMMITTED;
 }
 
-bool channel_sent_revoke_and_ack(struct channel *channel)
+bool channel_sending_revoke_and_ack(struct channel *channel)
 {
+	int change;
 	const enum htlc_state states[] = { RCVD_ADD_ACK_COMMIT,
 					   RCVD_REMOVE_COMMIT,
 					   RCVD_ADD_COMMIT,
 					   RCVD_REMOVE_ACK_COMMIT };
-	status_trace("sent revoke_and_ack");
-	return change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states),
-			    NULL, NULL, NULL, NULL);
+	status_trace("Sending revoke_and_ack");
+	change = change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states),
+			      NULL, NULL, NULL, NULL);
+	return change & HTLC_REMOTE_F_PENDING;
 }
 
 static char *fmt_channel_view(const tal_t *ctx, const struct channel_view *view)
