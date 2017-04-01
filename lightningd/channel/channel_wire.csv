@@ -2,6 +2,7 @@
 channel_bad_command,0x8000
 # Also shouldn't happen
 channel_hsm_failed,0x8001
+channel_crypto_failed,0x8002
 
 # These are due to peer.
 channel_peer_write_failed,0x8010
@@ -37,6 +38,7 @@ channel_init,488,push_msat,8
 channel_init,496,seed,struct privkey
 channel_init,529,local_node_id,struct pubkey
 channel_init,562,remote_node_id,struct pubkey
+channel_init,595,commit_msec,4
 
 # Tx is deep enough, go!
 channel_funding_locked,2
