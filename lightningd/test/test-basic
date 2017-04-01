@@ -63,6 +63,7 @@ check "lcli1 getlog debug | $FGREP 'Sending commit_sig with 0 htlc sigs'"
 
 check "lcli2 getlog debug | $FGREP 'their htlc 0 locked'"
 check "lcli2 getpeers info | $FGREP 'failed htlc 0 code 0x400f'"
+check "lcli1 getpeers info | $FGREP 'htlc 0 failed with code 0x400f'"
 
 # This one isn't dust.
 RHASH=`lcli2 invoice 100000000 testpayment1 | get_field rhash`
