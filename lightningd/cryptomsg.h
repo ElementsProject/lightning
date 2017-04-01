@@ -32,7 +32,7 @@ struct peer_crypto_state {
 /* Initializes peer->cs (still need to read in cs->cs) */
 void init_peer_crypto_state(struct peer *peer, struct peer_crypto_state *pcs);
 
-/* Get decrypted message */
+/* Get decrypted message: ignores unknown odd messages. */
 struct io_plan *peer_read_message(struct io_conn *conn,
 				  struct peer_crypto_state *cs,
 				  struct io_plan *(*next)(struct io_conn *,
@@ -49,7 +49,7 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 void towire_crypto_state(u8 **pptr, const struct crypto_state *cs);
 void fromwire_crypto_state(const u8 **ptr, size_t *max, struct crypto_state *cs);
 
-/* Low-level functions for sync comms. */
+/* Low-level functions for sync comms: doesn't discard unknowns! */
 u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 			  struct crypto_state *cs,
 			  const u8 *msg);
