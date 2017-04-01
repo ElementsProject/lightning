@@ -26,9 +26,11 @@ LIBBASE58_SRC := bitcoin/libbase58/base58.c
 # Can't be inside submodule, as that makes git think it's dirty.
 LIBBASE58_OBJS := bitcoin/libbase58.o
 
-# Wildcards here are magic.  See http://stackoverflow.com/questions/2973445/gnu-makefile-rule-generating-a-few-targets-from-a-single-source-file
-bitcoin/libbase58/libbase58.% bitcoin/libbase58/base58.%:
-	git submodule update bitcoin/libbase58/
+# Wildcards trick from http://stackoverflow.com/questions/2973445/gnu-makefile-rule-generating-a-few-targets-from-a-single-source-file doesn't work with no dependency, so instead make one depend on the other:
+$(LIBBASE58_SRC): $(LIBBASE58_HEADERS)
+
+$(LIBBASE58_HEADERS):
+	git submodule update bitcoin/libbase58/ || true
 	[ -f $@ ] || git submodule update --init bitcoin/libbase58/
 
 bitcoin/libbase58.o: bitcoin/libbase58/base58.c
