@@ -70,12 +70,24 @@ struct onionpacket *create_onionpacket(
 	);
 
 /**
+ * onion_shared_secret - calculate ECDH shared secret between nodes.
+ *
+ * @secret: the shared secret (32 bytes long)
+ * @pubkey: the public key of the other node
+ * @privkey: the private key of this node (32 bytes long)
+ */
+bool onion_shared_secret(
+	u8 *secret,
+	const struct onionpacket *packet,
+	const struct privkey *privkey);
+
+/**
  * process_onionpacket - process an incoming packet by stripping one
  * onion layer and return the packet for the next hop.
  *
  * @ctx: tal context to allocate from
  * @packet: incoming packet being processed
- * @hop_privkey: the processing node's private key to decrypt the packet
+ * @shared_secret: the result of onion_shared_secret.
  * @hoppayload: the per-hop payload destined for the processing node.
  * @assocdata: associated data to commit to in HMACs
  * @assocdatalen: length of the assocdata
@@ -83,7 +95,7 @@ struct onionpacket *create_onionpacket(
 struct route_step *process_onionpacket(
 	const tal_t * ctx,
 	const struct onionpacket *packet,
-	struct privkey *hop_privkey,
+	const u8 *shared_secret,
 	const u8 *assocdata,
 	const size_t assocdatalen
 	);

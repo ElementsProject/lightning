@@ -247,6 +247,15 @@ static bool create_shared_secret(
 	return true;
 }
 
+bool onion_shared_secret(
+	u8 *secret,
+	const struct onionpacket *packet,
+	const struct privkey *privkey)
+{
+	return create_shared_secret(secret, &packet->ephemeralkey,
+				    privkey->secret);
+}
+
 void pubkey_hash160(
 	u8 *dst,
 	const struct pubkey *pubkey)
@@ -267,7 +276,8 @@ void pubkey_hash160(
 	memcpy(dst, r.u.u8, sizeof(r));
 }
 
-static void generate_key_set(u8 secret[SHARED_SECRET_SIZE], struct keyset *keys)
+static void generate_key_set(const u8 secret[SHARED_SECRET_SIZE],
+			     struct keyset *keys)
 {
 	generate_key(keys->rho, "rho", 3, secret);
 	generate_key(keys->pi, "pi", 2, secret);
@@ -417,13 +427,12 @@ struct onionpacket *create_onionpacket(
 struct route_step *process_onionpacket(
 	const tal_t *ctx,
 	const struct onionpacket *msg,
-	struct privkey *hop_privkey,
+	const u8 *shared_secret,
 	const u8 *assocdata,
 	const size_t assocdatalen
 	)
 {
 	struct route_step *step = talz(ctx, struct route_step);
-	u8 secret[SHARED_SECRET_SIZE];
 	u8 hmac[20];
 	struct keyset keys;
 	u8 paddedhoppayloads[TOTAL_HOP_PAYLOAD_SIZE + HOP_PAYLOAD_SIZE];
@@ -434,8 +443,7 @@ struct route_step *process_onionpacket(
 
 	step->next = talz(step, struct onionpacket);
 	step->next->version = msg->version;
-	create_shared_secret(secret, &msg->ephemeralkey, hop_privkey->secret);
-	generate_key_set(secret, &keys);
+	generate_key_set(shared_secret, &keys);
 
 	compute_packet_hmac(msg, assocdata, assocdatalen, keys.mu, hmac);
 
@@ -461,7 +469,7 @@ struct route_step *process_onionpacket(
 	memcpy(&step->next->hoppayloads, paddedhoppayloads + HOP_PAYLOAD_SIZE,
 	       TOTAL_HOP_PAYLOAD_SIZE);
 
-	compute_blinding_factor(&msg->ephemeralkey, secret, blind);
+	compute_blinding_factor(&msg->ephemeralkey, shared_secret, blind);
 	if (!blind_group_element(&step->next->ephemeralkey, &msg->ephemeralkey, blind))
 		return tal_free(step);
 	memcpy(&step->next->nexthop, paddedheader, SECURITY_PARAMETER);
