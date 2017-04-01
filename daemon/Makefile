@@ -123,6 +123,8 @@ daemon/gen_pkt_names.h: lightning.pb-c.h ccan/ccan/cdump/tools/cdump-enumstr
 $(DAEMON_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_CLI_OBJS): $(DAEMON_HEADERS) $(DAEMON_JSMN_HEADERS) $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CORE_TX_HEADERS) $(GEN_HEADERS) $(DAEMON_GEN_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(WIRE_GEN_HEADERS) $(LIBSODIUM_HEADERS) $(LIBBASE58_HEADERS)
 $(DAEMON_JSMN_OBJS): $(DAEMON_JSMN_HEADERS)
 
+$(DAEMON_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_CLI_OBJS): CFLAGS += -USHACHAIN_BITS
+
 check-source: $(DAEMON_SRC:%=check-src-include-order/%)
 check-source: $(DAEMON_LIB_SRC:%=check-src-include-order/%)
 check-source: $(DAEMON_CLI_SRC:%=check-src-include-order/%)
@@ -150,7 +152,11 @@ daemon/jsmn/jsmn.c: daemon/jsmn/jsmn.h
 daemon/jsmn.o: daemon/jsmn/jsmn.c
 	$(COMPILE.c) -DJSMN_STRICT=1 $(OUTPUT_OPTION) $<
 
-daemon/lightningd: $(DAEMON_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_JSMN_OBJS) $(CORE_OBJS)  $(CORE_TX_OBJS) $(CORE_PROTOBUF_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) libsecp256k1.a libsodium.a
+# We need a 64-bit shachain (default)
+daemon/shachain-64.o: $(CCANDIR)/ccan/crypto/shachain/shachain.c $(CCAN_HEADERS)
+	$(CC) $(CFLAGS) -USHACHAIN_BITS -c -o $@ $<
+
+daemon/lightningd: $(DAEMON_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_JSMN_OBJS) $(CORE_OBJS)  $(CORE_TX_OBJS) $(CORE_PROTOBUF_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) daemon/shachain-64.o libsecp256k1.a libsodium.a
 
 daemon/lightning-cli: $(DAEMON_CLI_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_JSMN_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) libsecp256k1.a libsodium.a
 
