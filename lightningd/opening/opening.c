@@ -692,6 +692,9 @@ int main(int argc, char *argv[])
 			      "Secret derivation failed, secret = %s",
 			      type_to_string(trc, struct privkey, &seed));
 
+	status_trace("First per_commit_point = %s",
+		     type_to_string(trc, struct pubkey,
+				    &state->next_per_commit[LOCAL]));
 	msg = wire_sync_read(state, REQ_FD);
 	if (fromwire_opening_open(msg, NULL,
 				  &state->funding_satoshis,
