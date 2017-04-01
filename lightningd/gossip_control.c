@@ -128,7 +128,7 @@ static void peer_ready(struct subd *gossip, const u8 *msg)
 	peer_set_condition(peer, "Exchanging gossip");
 }
 
-static size_t gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
+static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 {
 	enum gossip_wire_type t = fromwire_peektype(msg);
 

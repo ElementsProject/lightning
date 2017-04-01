@@ -38,7 +38,7 @@ static void hsm_finished(struct subd *hsm, int status)
 	errx(1, "HSM failed (signal %u), exiting.", WTERMSIG(status));
 }
 
-static size_t hsm_msg(struct subd *hsm, const u8 *msg, const int *fds)
+static int hsm_msg(struct subd *hsm, const u8 *msg, const int *fds)
 {
 	enum hsm_wire_type t = fromwire_peektype(msg);
 	u8 *badmsg;
