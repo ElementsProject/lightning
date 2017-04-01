@@ -110,8 +110,12 @@ static struct hoppayload *parse_hoppayload(const tal_t *ctx, u8 *src)
 	struct hoppayload *result = talz(ctx, struct hoppayload);
 
 	read_buffer(&result->realm, src, sizeof(result->realm), &p);
-	read_buffer(&result->amount, src, sizeof(result->amount), &p);
-	read_buffer(&result->remainder, src, sizeof(result->remainder), &p);
+	read_buffer(&result->amt_to_forward,
+		    src, sizeof(result->amt_to_forward), &p);
+	read_buffer(&result->outgoing_cltv_value,
+		    src, sizeof(result->outgoing_cltv_value), &p);
+	read_buffer(&result->unused_with_v0_version_on_header,
+		    src, sizeof(result->unused_with_v0_version_on_header), &p);
 	return result;
 }
 
@@ -120,8 +124,11 @@ static void serialize_hoppayload(u8 *dst, struct hoppayload *hp)
 	int p = 0;
 
 	write_buffer(dst, &hp->realm, sizeof(hp->realm), &p);
-	write_buffer(dst, &hp->amount, sizeof(hp->amount), &p);
-	write_buffer(dst, &hp->remainder, sizeof(hp->remainder), &p);
+	write_buffer(dst, &hp->amt_to_forward, sizeof(hp->amt_to_forward), &p);
+	write_buffer(dst, &hp->outgoing_cltv_value,
+		     sizeof(hp->outgoing_cltv_value), &p);
+	write_buffer(dst, &hp->unused_with_v0_version_on_header,
+		     sizeof(hp->unused_with_v0_version_on_header), &p);
 }
 
 

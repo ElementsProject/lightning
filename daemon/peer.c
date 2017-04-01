@@ -971,7 +971,7 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 		goto free_packet;
 
 	case ONION_FORWARD:
-		route_htlc_onwards(peer, htlc, step->hoppayload->amount, step->next->nexthop,
+		route_htlc_onwards(peer, htlc, step->hoppayload->amt_to_forward, step->next->nexthop,
 				   serialize_onionpacket(step, step->next), only_dest);
 		goto free_packet;
 	default:
