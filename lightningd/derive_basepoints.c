@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/crypto/shachain/shachain.h>
@@ -44,6 +45,40 @@ bool derive_basepoints(const struct privkey *seed,
 	 * the first secret used MUST be index 281474976710655, and then the
 	 * index decremented. */
 	shachain_from_seed(shaseed, 281474976710655ULL - per_commit_index,
+			   &per_commit_secret);
+
+	/* BOLT #3:
+	 *
+	 * The `per-commitment-point` is generated using EC multiplication:
+	 *
+	 * 	per-commitment-point = per-commitment-secret * G
+	 */
+	if (secp256k1_ec_pubkey_create(secp256k1_ctx,
+				       &per_commit_point->pubkey,
+				       per_commit_secret.u.u8) != 1)
+		return false;
+
+	return true;
+}
+
+bool next_per_commit_point(const struct sha256 *shaseed,
+			   struct sha256 *old_commit_secret,
+			   struct pubkey *per_commit_point,
+			   u64 per_commit_index)
+{
+	struct sha256 per_commit_secret;
+
+
+	/* Get old secret. */
+	if (per_commit_index > 0)
+		shachain_from_seed(shaseed, 281474976710655ULL
+				   - (per_commit_index - 1),
+				   old_commit_secret);
+	else
+		assert(old_commit_secret == NULL);
+
+	/* Derive new per-commitment-point. */
+	shachain_from_seed(shaseed, 281474976710655ULL - (per_commit_index + 1),
 			   &per_commit_secret);
 
 	/* BOLT #3:

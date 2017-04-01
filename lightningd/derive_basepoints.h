@@ -27,4 +27,10 @@ bool derive_basepoints(const struct privkey *seed,
 		       struct pubkey *per_commit_point,
 		       u64 per_commit_index);
 
+/* Give up secret for index-1, and generate per-commitment point for N+1. */
+bool next_per_commit_point(const struct sha256 *shaseed,
+			   struct sha256 *old_commit_secret,
+			   struct pubkey *per_commit_point,
+			   u64 per_commit_index);
+
 #endif /* LIGHTNING_LIGHTNINGD_DERIVE_BASEPOINTS_H */
