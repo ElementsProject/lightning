@@ -261,19 +261,19 @@ enum channel_remove_err {
 /**
  * channel_fail_htlc: remove an HTLC, funds to the side which offered it.
  * @channel: The channel state
- * @sender: the side fulfilling the HTLC (opposite to side which sent it)
+ * @owner: the side who offered the HTLC (opposite to that failing it)
  * @id: unique HTLC id.
  *
  * This will remove the htlc and credit the value of the HTLC (back)
  * to its offerer.
  */
 enum channel_remove_err channel_fail_htlc(struct channel *channel,
-					  enum side sender, u64 id);
+					  enum side owner, u64 id);
 
 /**
  * channel_fulfill_htlc: remove an HTLC, funds to side which accepted it.
  * @channel: The channel state
- * @sender: the side fulfilling the HTLC (opposite to side which sent it)
+ * @owner: the side who offered the HTLC (opposite to that fulfilling it)
  * @id: unique HTLC id.
  *
  * If the htlc exists, is not already fulfilled, the preimage is correct and
@@ -282,7 +282,7 @@ enum channel_remove_err channel_fail_htlc(struct channel *channel,
  * and return CHANNEL_ERR_FULFILL_OK.  Otherwise, it will return another error.
  */
 enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
-					     enum side sender,
+					     enum side owner,
 					     u64 id,
 					     const struct preimage *preimage);
 

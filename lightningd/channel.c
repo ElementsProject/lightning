@@ -481,15 +481,14 @@ struct htlc *channel_get_htlc(struct channel *channel, enum side sender, u64 id)
 }
 
 enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
-					      enum side sender,
+					      enum side owner,
 					      u64 id,
 					      const struct preimage *preimage)
 {
 	struct sha256 hash;
 	struct htlc *htlc;
 
-	/* Fulfill is done by !creator of HTLC */
-	htlc = channel_get_htlc(channel, !sender, id);
+	htlc = channel_get_htlc(channel, owner, id);
 	if (!htlc)
 		return CHANNEL_ERR_NO_SUCH_ID;
 
@@ -541,12 +540,11 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 }
 
 enum channel_remove_err channel_fail_htlc(struct channel *channel,
-					  enum side sender, u64 id)
+					  enum side owner, u64 id)
 {
 	struct htlc *htlc;
 
-	/* Fail is done by !creator of HTLC */
-	htlc = channel_get_htlc(channel, !sender, id);
+	htlc = channel_get_htlc(channel, owner, id);
 	if (!htlc)
 		return CHANNEL_ERR_NO_SUCH_ID;
 
