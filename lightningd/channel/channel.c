@@ -722,6 +722,44 @@ static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
 	abort();
 }
 
+static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
+{
+	struct channel_id channel_id;
+	u64 id;
+	enum channel_remove_err e;
+	u8 *reason;
+
+	if (!fromwire_update_fail_htlc(msg, msg, NULL,
+				       &channel_id, &id, &reason)) {
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "Bad update_fulfill_htlc %s", tal_hex(msg, msg));
+	}
+
+	e = channel_fail_htlc(peer->channel, LOCAL, id);
+	switch (e) {
+	case CHANNEL_ERR_REMOVE_OK:
+		msg = towire_channel_failed_htlc(msg, id, reason);
+		daemon_conn_send(&peer->master, take(msg));
+		start_commit_timer(peer);
+		return;
+	case CHANNEL_ERR_NO_SUCH_ID:
+	case CHANNEL_ERR_ALREADY_FULFILLED:
+	case CHANNEL_ERR_HTLC_UNCOMMITTED:
+	case CHANNEL_ERR_HTLC_NOT_IRREVOCABLE:
+	case CHANNEL_ERR_BAD_PREIMAGE:
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "Bad update_fail_htlc: failed to remove %"
+			    PRIu64 " error %u", id, e);
+	}
+	abort();
+}
+
 static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
@@ -767,6 +805,9 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 	case WIRE_UPDATE_FULFILL_HTLC:
 		handle_peer_fulfill_htlc(peer, msg);
 		goto done;
+	case WIRE_UPDATE_FAIL_HTLC:
+		handle_peer_fail_htlc(peer, msg);
+		goto done;
 	case WIRE_INIT:
 	case WIRE_ERROR:
 	case WIRE_OPEN_CHANNEL:
@@ -777,7 +818,6 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 
 	case WIRE_SHUTDOWN:
 	case WIRE_CLOSING_SIGNED:
-	case WIRE_UPDATE_FAIL_HTLC:
 	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
 	case WIRE_UPDATE_FEE:
 		peer_failed(io_conn_fd(peer->peer_conn),
@@ -1011,12 +1051,14 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 	u8 *msg;
 	u64 id;
 	u8 *errpkt;
+	enum channel_remove_err e;
 
 	if (!fromwire_channel_fail_htlc(inmsg, inmsg, NULL, &id, &errpkt))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND,
 			      "Invalid channel_fail_htlc");
 
-	switch (channel_fail_htlc(peer->channel, REMOTE, id)) {
+	e = channel_fail_htlc(peer->channel, REMOTE, id);
+	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
 		msg = towire_update_fail_htlc(peer, &peer->channel_id,
 					      id, errpkt);
@@ -1032,7 +1074,7 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 	case CHANNEL_ERR_HTLC_NOT_IRREVOCABLE:
 	case CHANNEL_ERR_BAD_PREIMAGE:
 		status_failed(WIRE_CHANNEL_BAD_COMMAND,
-			      "HTLC %"PRIu64" preimage failed", id);
+			      "HTLC %"PRIu64" removal failed: %i", id, e);
 	}
 	abort();
 }
@@ -1080,7 +1122,8 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 		case WIRE_CHANNEL_PEER_BAD_MESSAGE:
 			break;
 		}
-		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s", strerror(errno));
+		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%u %s", t,
+			      channel_wire_type_name(t));
 	}
 
 out:

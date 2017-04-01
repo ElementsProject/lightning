@@ -635,11 +635,24 @@ struct decoding_htlc {
 	u8 shared_secret[32];
 };
 
-static void fail_htlc(struct peer *peer, u64 htlc_id, enum onion_type failcode)
+static void fail_htlc(struct peer *peer, u64 htlc_id, const u8 *msg)
 {
-	log_broken(peer->log, "failed htlc %"PRIu64" code 0x%04x",
-		   htlc_id, failcode);
-	/* FIXME: implement */
+	enum onion_type failcode = fromwire_peektype(msg);
+
+	log_broken(peer->log, "failed htlc %"PRIu64" code 0x%04x (%s)",
+		   htlc_id, failcode, onion_type_name(failcode));
+
+	/* We don't do BADONION here */
+	assert(!(failcode & BADONION));
+	if (failcode & UPDATE) {
+		/* FIXME: Ask gossip daemon for channel_update. */
+	}
+
+	/* FIXME: encrypt msg! */
+	subd_send_msg(peer->owner,
+		      take(towire_channel_fail_htlc(peer, htlc_id, msg)));
+	if (taken(msg))
+		tal_free(msg);
 }
 
 static void handle_localpay(struct htlc_end *hend,
@@ -651,7 +664,8 @@ static void handle_localpay(struct htlc_end *hend,
 					      payment_hash);
 
 	if (!invoice) {
-		fail_htlc(hend->peer, hend->htlc_id, WIRE_UNKNOWN_PAYMENT_HASH);
+		fail_htlc(hend->peer, hend->htlc_id,
+			  take(towire_unknown_payment_hash(hend)));
 		tal_free(hend);
 		return;
 	}
@@ -666,11 +680,11 @@ static void handle_localpay(struct htlc_end *hend,
 	 */
 	if (hend->msatoshis < invoice->msatoshi) {
 		fail_htlc(hend->peer, hend->htlc_id,
-			  WIRE_INCORRECT_PAYMENT_AMOUNT);
+			  take(towire_incorrect_payment_amount(hend)));
 		return;
 	} else if (hend->msatoshis > invoice->msatoshi * 2) {
 		fail_htlc(hend->peer, hend->htlc_id,
-			  WIRE_INCORRECT_PAYMENT_AMOUNT);
+			  take(towire_incorrect_payment_amount(hend)));
 		return;
 	}
 
@@ -685,7 +699,8 @@ static void handle_localpay(struct htlc_end *hend,
 			  cltv_expiry,
 			  get_block_height(hend->peer->ld->topology),
 			  hend->peer->ld->dstate.config.deadline_blocks);
-		fail_htlc(hend->peer, hend->htlc_id, WIRE_FINAL_EXPIRY_TOO_SOON);
+		fail_htlc(hend->peer, hend->htlc_id,
+			  take(towire_final_expiry_too_soon(hend)));
 		tal_free(hend);
 		return;
 	}
@@ -773,6 +788,40 @@ static int peer_fulfilled_htlc(struct peer *peer, const u8 *msg)
 	return 0;
 }
 
+static int peer_failed_htlc(struct peer *peer, const u8 *msg)
+{
+	u64 id;
+	u8 *reason;
+	struct htlc_end *hend;
+	enum onion_type failcode;
+
+	if (!fromwire_channel_failed_htlc(msg, msg, NULL, &id, &reason)) {
+		log_broken(peer->log, "bad fromwire_channel_failed_htlc %s",
+			   tal_hex(peer, msg));
+		return -1;
+	}
+
+	hend = find_htlc_end(&peer->ld->htlc_ends, peer, id, HTLC_DST);
+	if (!hend) {
+		log_broken(peer->log,
+			   "channel_failed_htlc unknown htlc %"PRIu64,
+			   id);
+		return -1;
+	}
+
+	/* FIXME: Decrypt reason. */
+	failcode = fromwire_peektype(reason);
+
+	log_info(peer->log, "htlc %"PRIu64" failed with code 0x%04x (%s)",
+		 id, failcode, onion_type_name(failcode));
+
+	/* FIXME: Forward! */
+	assert(!hend->other_end);
+	tal_free(hend);
+
+	return 0;
+}
+
 static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);
@@ -789,6 +838,7 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 	case WIRE_CHANNEL_FULFILLED_HTLC:
 		return peer_fulfilled_htlc(sd->peer, msg);
 	case WIRE_CHANNEL_FAILED_HTLC:
+		return peer_failed_htlc(sd->peer, msg);
 	case WIRE_CHANNEL_MALFORMED_HTLC:
 		/* FIXME: Forward. */
 		abort();
