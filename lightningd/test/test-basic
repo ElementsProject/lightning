@@ -74,11 +74,11 @@ check "lcli1 getlog debug | $FGREP 'Sending commit_sig with 1 htlc sigs'"
 check "lcli2 getlog debug | $FGREP 'Resolving invoice '\'testpayment1\'' with HTLC 1'"
 [ `lcli2 listinvoice testpayment1 | get_field complete` = true ]
 
-#check "lcli1 getpeers | get_field msatoshi_to_us | $FGREP -w 900000000"
-#[ `lcli1 getpeers | get_field msatoshi_to_us` = 900000000 ]
-#[ `lcli1 getpeers | get_field msatoshi_to_them` = 100000000 ]
-#[ `lcli2 getpeers | get_field msatoshi_to_them` = 900000000 ]
-#[ `lcli2 getpeers | get_field msatoshi_to_us` = 100000000 ]
+check "lcli1 getpeers | get_field msatoshi_to_us | $FGREP -w 900000000"
+[ `lcli1 getpeers | get_field msatoshi_to_us` = 900000000 ]
+[ `lcli1 getpeers | get_field msatoshi_to_them` = 100000000 ]
+[ `lcli2 getpeers | get_field msatoshi_to_them` = 900000000 ]
+[ `lcli2 getpeers | get_field msatoshi_to_us` = 100000000 ]
 
 lcli1 stop
 lcli2 stop
