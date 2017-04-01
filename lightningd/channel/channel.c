@@ -700,7 +700,8 @@ static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
 	e = channel_fulfill_htlc(peer->channel, LOCAL, id, &preimage);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
-		/* FIXME: tell master about HTLC preimage */
+		msg = towire_channel_fulfilled_htlc(msg, id, &preimage);
+		daemon_conn_send(&peer->master, take(msg));
 		start_commit_timer(peer);
 		return;
 	/* These shouldn't happen, because any offered HTLC (which would give

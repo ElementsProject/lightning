@@ -742,6 +742,37 @@ static int peer_accepted_htlc(struct peer *peer, const u8 *msg)
 	return 0;
 }
 
+static int peer_fulfilled_htlc(struct peer *peer, const u8 *msg)
+{
+	u64 id;
+	struct preimage preimage;
+	struct htlc_end *hend;
+
+	if (!fromwire_channel_fulfilled_htlc(msg, NULL, &id, &preimage)) {
+		log_broken(peer->log, "bad fromwire_channel_fulfilled_htlc %s",
+			   tal_hex(peer, msg));
+		return -1;
+	}
+
+	hend = find_htlc_end(&peer->ld->htlc_ends, peer, id, HTLC_DST);
+	if (!hend) {
+		log_broken(peer->log,
+			   "channel_fulfilled_htlc unknown htlc %"PRIu64,
+			   id);
+		return -1;
+	}
+
+	/* They fulfilled our HTLC.  Credit them, forward as required. */
+	peer->balance[REMOTE] += hend->msatoshis;
+	peer->balance[LOCAL] -= hend->msatoshis;
+
+	/* FIXME: Forward! */
+	assert(!hend->other_end);
+	tal_free(hend);
+
+	return 0;
+}
+
 static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);
@@ -756,6 +787,7 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 	case WIRE_CHANNEL_ACCEPTED_HTLC:
 		return peer_accepted_htlc(sd->peer, msg);
 	case WIRE_CHANNEL_FULFILLED_HTLC:
+		return peer_fulfilled_htlc(sd->peer, msg);
 	case WIRE_CHANNEL_FAILED_HTLC:
 	case WIRE_CHANNEL_MALFORMED_HTLC:
 		/* FIXME: Forward. */
