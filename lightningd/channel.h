@@ -5,12 +5,12 @@
 #include <bitcoin/shadouble.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <ccan/typesafe_cb/typesafe_cb.h>
 #include <daemon/htlc.h>
 #include <lightningd/channel_config.h>
 #include <lightningd/derive_basepoints.h>
 #include <stdbool.h>
 
-struct peer;
 struct signature;
 
 /* View from each side */
@@ -331,34 +331,54 @@ bool channel_sent_commit(struct channel *channel);
 /**
  * channel_rcvd_revoke_and_ack: accept ack on remote committed changes.
  * @channel: the channel
- * @peer: argument to pass through to @ourhtlcfail  & @theirhtlclocked
  * @oursfail: callback for any unfilfilled htlcs which are now fully removed.
  * @theirslocked: callback for any new htlcs which are now fully committed.
+ * @cbarg: argument to pass through to @ourhtlcfail  & @theirhtlclocked
  *
  * This is where we commit to pending changes we've added; returns true if
  * anything changed.
  */
-bool channel_rcvd_revoke_and_ack(struct channel *channel,
-				 struct peer *peer,
-				 void (*oursfail)(struct peer *peer,
-						  const struct htlc *htlc),
-				 void (*theirslocked)(struct peer *peer,
-						      const struct htlc *htlc));
+#define channel_rcvd_revoke_and_ack(channel, oursfail, theirslocked, cbarg) \
+	channel_rcvd_revoke_and_ack_((channel),				\
+				     typesafe_cb_preargs(void, void *,	\
+							 (oursfail),	\
+							 (cbarg),	\
+							 const struct htlc *), \
+				     typesafe_cb_preargs(void, void *,	\
+							 (theirslocked), \
+							 (cbarg),	\
+							 const struct htlc *), \
+				     (cbarg))
+
+bool channel_rcvd_revoke_and_ack_(struct channel *channel,
+				  void (*oursfail)(const struct htlc *htlc,
+						   void *cbarg),
+				  void (*theirslocked)(const struct htlc *htlc,
+						       void *cbarg),
+				  void *cbarg);
 
 /**
  * channel_rcvd_commit: commit all local outstanding changes.
  * @channel: the channel
- * @peer: argument to pass through to @theirsfulfilled
  * @theirsfulfilled: they are irrevocably committed to removal of htlc.
+ * @cbarg: argument to pass through to @theirsfulfilled
  *
  * This is where we commit to pending changes we've added; returns true if
  * anything changed.  @theirsfulfilled is called for any HTLC we fulfilled
  * which they are irrevocably committed to, and is in our current commitment.
  */
-bool channel_rcvd_commit(struct channel *channel,
-			 struct peer *peer,
-			 void (*theirsfulfilled)(struct peer *peer,
-						 const struct htlc *htlc));
+#define channel_rcvd_commit(channel, theirsfulfilled, cbarg)		\
+	channel_rcvd_commit_((channel),					\
+			     typesafe_cb_preargs(void, void *,		\
+						 (theirsfulfilled),	\
+						 (cbarg),		\
+						 const struct htlc *),	\
+			     (cbarg))
+
+bool channel_rcvd_commit_(struct channel *channel,
+			  void (*theirsfulfilled)(const struct htlc *htlc,
+						  void *cbarg),
+			  void *cbarg);
 
 /**
  * channel_sent_revoke_and_ack: sent ack on local committed changes.

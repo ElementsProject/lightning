@@ -620,21 +620,18 @@ static void htlc_incstate(struct channel *channel,
 }
 
 static void check_lockedin(const struct htlc *h,
-			   struct peer *peer,
-			   void (*oursfail)(struct peer *peer,
-					    const struct htlc *htlc),
-			   void (*theirslocked)(struct peer *peer,
-						const struct htlc *htlc),
-			   void (*theirsfulfilled)(struct peer *peer,
-						   const struct htlc *htlc))
+			   void (*oursfail)(const struct htlc *, void *),
+			   void (*theirslocked)(const struct htlc *, void *),
+			   void (*theirsfulfilled)(const struct htlc *, void *),
+			   void *cbarg)
 {
 	/* If it was fulfilled, we handled it immediately. */
 	if (h->state == RCVD_REMOVE_ACK_REVOCATION && !h->r)
-		oursfail(peer, h);
+		oursfail(h, cbarg);
 	else if (h->state == RCVD_ADD_ACK_REVOCATION)
-		theirslocked(peer, h);
+		theirslocked(h, cbarg);
 	else if (h->state == RCVD_REMOVE_ACK_COMMIT && h->r)
-		theirsfulfilled(peer, h);
+		theirsfulfilled(h, cbarg);
 }
 
 /* FIXME: Commit to storage when this happens. */
@@ -642,13 +639,10 @@ static bool change_htlcs(struct channel *channel,
 			 enum side sidechanged,
 			 const enum htlc_state *htlc_states,
 			 size_t n_hstates,
-			 struct peer *peer,
-			 void (*oursfail)(struct peer *peer,
-					  const struct htlc *htlc),
-			 void (*theirslocked)(struct peer *peer,
-					      const struct htlc *htlc),
-			 void (*theirsfulfilled)(struct peer *peer,
-						 const struct htlc *htlc))
+			 void (*oursfail)(const struct htlc *, void *),
+			 void (*theirslocked)(const struct htlc *, void *),
+			 void (*theirsfulfilled)(const struct htlc *, void *),
+			 void *cbarg)
 {
 	struct htlc_map_iter it;
 	struct htlc *h;
@@ -661,10 +655,11 @@ static bool change_htlcs(struct channel *channel,
 		for (i = 0; i < n_hstates; i++) {
 			if (h->state == htlc_states[i]) {
 				htlc_incstate(channel, h, sidechanged);
-				check_lockedin(h, peer,
+				check_lockedin(h,
 					       oursfail,
 					       theirslocked,
-					       theirsfulfilled);
+					       theirsfulfilled,
+					       cbarg);
 				changed = true;
 			}
 		}
@@ -684,12 +679,12 @@ bool channel_sent_commit(struct channel *channel)
 			    NULL, NULL, NULL, NULL);
 }
 
-bool channel_rcvd_revoke_and_ack(struct channel *channel,
-				 struct peer *peer,
-				 void (*oursfail)(struct peer *peer,
-						  const struct htlc *htlc),
-				 void (*theirslocked)(struct peer *peer,
-						      const struct htlc *htlc))
+bool channel_rcvd_revoke_and_ack_(struct channel *channel,
+				  void (*oursfail)(const struct htlc *htlc,
+						   void *cbarg),
+				  void (*theirslocked)(const struct htlc *htlc,
+						       void *cbarg),
+				  void *cbarg)
 {
 	const enum htlc_state states[] = { SENT_ADD_COMMIT,
 					   SENT_REMOVE_ACK_COMMIT,
@@ -698,14 +693,14 @@ bool channel_rcvd_revoke_and_ack(struct channel *channel,
 
 	status_trace("received revoke_and_ack");
 	return change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
-			    peer, oursfail, theirslocked, NULL);
+			    oursfail, theirslocked, NULL, cbarg);
 }
 
 /* FIXME: We can actually merge these two... */
-bool channel_rcvd_commit(struct channel *channel,
-			 struct peer *peer,
-			 void (*theirsfulfilled)(struct peer *peer,
-						 const struct htlc *htlc))
+bool channel_rcvd_commit_(struct channel *channel,
+			  void (*theirsfulfilled)(const struct htlc *htlc,
+						  void *cbarg),
+			  void *cbarg)
 {
 	const enum htlc_state states[] = { RCVD_ADD_REVOCATION,
 					   RCVD_REMOVE_HTLC,
@@ -714,7 +709,7 @@ bool channel_rcvd_commit(struct channel *channel,
 
 	status_trace("received commit");
 	return change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
-			    peer, NULL, NULL, theirsfulfilled);
+			    NULL, NULL, theirsfulfilled, cbarg);
 }
 
 bool channel_sent_revoke_and_ack(struct channel *channel)
