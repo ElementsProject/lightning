@@ -78,9 +78,9 @@ void invoice_add(struct invoices *invs,
 		list_add(&invs->unpaid, &invoice->list);
 }
 
-struct invoices *invoices_init(struct lightningd_state *dstate)
+struct invoices *invoices_init(const tal_t *ctx)
 {
-	struct invoices *invs = tal(dstate, struct invoices);
+	struct invoices *invs = tal(ctx, struct invoices);
 
 	list_head_init(&invs->unpaid);
 	list_head_init(&invs->paid);

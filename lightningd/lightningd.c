@@ -30,12 +30,6 @@ char *bitcoin_datadir;
 
 #define FIXME_IMPLEMENT() errx(1, "FIXME: Implement %s", __func__)
 
-/* FIXME: Implement */
-struct invoices *invoices_init(struct lightningd_state *dstate)
-{
-	return NULL;
-}
-
 struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id);
 struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id)
 {
@@ -70,6 +64,34 @@ void notify_new_block(struct chain_topology *topo, u32 height)
 	/* FIXME */
 }
 
+void db_resolve_invoice(struct lightningd_state *dstate,
+			const char *label, u64 paid_num);
+void db_resolve_invoice(struct lightningd_state *dstate,
+			const char *label, u64 paid_num)
+{
+	/* FIXME */
+}
+
+bool db_new_invoice(struct lightningd_state *dstate,
+		    u64 msatoshi,
+		    const char *label,
+		    const struct preimage *r);
+bool db_new_invoice(struct lightningd_state *dstate,
+		    u64 msatoshi,
+		    const char *label,
+		    const struct preimage *r)
+{
+	/* FIXME */
+	return true;
+}
+
+bool db_remove_invoice(struct lightningd_state *dstate, const char *label);
+bool db_remove_invoice(struct lightningd_state *dstate,
+		       const char *label)
+{
+	/* FIXME */
+	return true;
+}
 
  #include <daemon/packets.h>
 void queue_pkt_nested(struct peer *peer,
@@ -108,6 +130,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->topology = ld->dstate.topology = new_topology(ld, ld->log);
 	ld->bitcoind = ld->dstate.bitcoind = new_bitcoind(ld, ld->log);
 
+	/* FIXME: Move into invoice daemon. */
 	ld->dstate.invoices = invoices_init(&ld->dstate);
 	return ld;
 }
