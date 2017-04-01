@@ -376,6 +376,11 @@ static void start_commit_timer(struct peer *peer)
 					  send_commit, peer);
 }
 
+static void theirs_fulfilled(const struct htlc *htlc, struct peer *peer)
+{
+	/* FIXME: Tell master, so it can disarm timer. */
+}
+
 static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 {
 	tal_t *tmpctx = tal_tmpctx(peer);
@@ -388,8 +393,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	const u8 **wscripts;
 	size_t i;
 
-	/* FIXME: Handle theirsfulfilled! */
-	if (!channel_rcvd_commit(peer->channel, NULL, peer)) {
+	if (!channel_rcvd_commit(peer->channel, theirs_fulfilled, peer)) {
 		/* BOLT #2:
 		 *
 		 * A node MUST NOT send a `commitment_signed` message which
@@ -677,6 +681,46 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	start_commit_timer(peer);
 }
 
+static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
+{
+	struct channel_id channel_id;
+	u64 id;
+	struct preimage preimage;
+	enum channel_remove_err e;
+
+	if (!fromwire_update_fulfill_htlc(msg, NULL, &channel_id,
+					  &id, &preimage)) {
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "Bad update_fulfill_htlc %s", tal_hex(msg, msg));
+	}
+
+	e = channel_fulfill_htlc(peer->channel, LOCAL, id, &preimage);
+	switch (e) {
+	case CHANNEL_ERR_REMOVE_OK:
+		/* FIXME: tell master about HTLC preimage */
+		start_commit_timer(peer);
+		return;
+	/* These shouldn't happen, because any offered HTLC (which would give
+	 * us the preimage) should have timed out long before.  If we
+	 * were to get preimages from other sources, this could happen. */
+	case CHANNEL_ERR_NO_SUCH_ID:
+	case CHANNEL_ERR_ALREADY_FULFILLED:
+	case CHANNEL_ERR_HTLC_UNCOMMITTED:
+	case CHANNEL_ERR_HTLC_NOT_IRREVOCABLE:
+	case CHANNEL_ERR_BAD_PREIMAGE:
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "Bad update_fulfill_htlc: failed to fulfill %"
+			    PRIu64 " error %u", id, e);
+	}
+	abort();
+}
+
 static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
@@ -719,6 +763,9 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 	case WIRE_REVOKE_AND_ACK:
 		handle_peer_revoke_and_ack(peer, msg);
 		goto done;
+	case WIRE_UPDATE_FULFILL_HTLC:
+		handle_peer_fulfill_htlc(peer, msg);
+		goto done;
 	case WIRE_INIT:
 	case WIRE_ERROR:
 	case WIRE_OPEN_CHANNEL:
@@ -729,7 +776,6 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 
 	case WIRE_SHUTDOWN:
 	case WIRE_CLOSING_SIGNED:
-	case WIRE_UPDATE_FULFILL_HTLC:
 	case WIRE_UPDATE_FAIL_HTLC:
 	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
 	case WIRE_UPDATE_FEE:
