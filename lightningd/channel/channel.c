@@ -5,11 +5,13 @@
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/io/io.h>
+#include <ccan/mem/mem.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <daemon/routing.h>
+#include <daemon/sphinx.h>
 #include <daemon/timeout.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -21,6 +23,7 @@
 #include <lightningd/daemon_conn.h>
 #include <lightningd/debug.h>
 #include <lightningd/derive_basepoints.h>
+#include <lightningd/hsm/gen_hsm_client_wire.h>
 #include <lightningd/htlc_tx.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/msg_queue.h>
@@ -37,10 +40,11 @@
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
-/* stdin == requests, 3 == peer, 4 = gossip */
+/* stdin == requests, 3 == peer, 4 = gossip, 5 = HSM */
 #define REQ_FD STDIN_FILENO
 #define PEER_FD 3
 #define GOSSIP_FD 4
+#define HSM_FD 5
 
 struct peer {
 	struct peer_crypto_state pcs;
@@ -514,7 +518,89 @@ static void our_htlc_failed(const struct htlc *htlc, struct peer *peer)
 
 static void their_htlc_locked(const struct htlc *htlc, struct peer *peer)
 {
-	status_trace("FIXME: their htlc %"PRIu64" locked", htlc->id);
+	tal_t *tmpctx = tal_tmpctx(peer);
+	u8 *msg;
+	struct onionpacket *op;
+	struct route_step *rs;
+	struct sha256 ss, bad_onion_sha;
+	enum onion_type failcode;
+	enum channel_remove_err rerr;
+	struct pubkey ephemeral;
+
+	status_trace("their htlc %"PRIu64" locked", htlc->id);
+
+	/* We unwrap the onion now. */
+	/* FIXME: We could do this earlier and call HSM async, for speed. */
+	op = parse_onionpacket(tmpctx, htlc->routing, TOTAL_PACKET_SIZE);
+	if (!op) {
+		/* FIXME: could be bad version, bad key. */
+		failcode = WIRE_INVALID_ONION_VERSION;
+		goto bad_onion;
+	}
+
+	/* Because wire takes struct pubkey. */
+	ephemeral.pubkey = op->ephemeralkey;
+	msg = towire_hsm_ecdh_req(tmpctx, &ephemeral);
+	if (!wire_sync_write(HSM_FD, msg))
+		status_failed(WIRE_CHANNEL_HSM_FAILED, "Writing ecdh req");
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!msg || !fromwire_hsm_ecdh_resp(msg, NULL, &ss))
+		status_failed(WIRE_CHANNEL_HSM_FAILED, "Reading ecdh response");
+
+	if (memeqzero(&ss, sizeof(ss))) {
+		failcode = WIRE_INVALID_ONION_KEY;
+		goto bad_onion;
+	}
+
+	rs = process_onionpacket(tmpctx, op, ss.u.u8, htlc->rhash.u.u8,
+				 sizeof(htlc->rhash));
+	if (!rs) {
+		failcode = WIRE_INVALID_ONION_HMAC;
+		goto bad_onion;
+	}
+
+	/* Unknown realm isn't a bad onion, it's a normal failure. */
+	/* FIXME: Push complete hoppayload up and have master parse? */
+	if (rs->hoppayload->realm != 0) {
+		failcode = WIRE_INVALID_REALM;
+		msg = towire_update_fail_htlc(tmpctx, &peer->channel_id,
+					      htlc->id, NULL);
+		msg_enqueue(&peer->peer_out, take(msg));
+		goto remove_htlc;
+	}
+
+	/* Tell master to deal with it. */
+	msg = towire_channel_accepted_htlc(tmpctx, htlc->id, htlc->msatoshi,
+					   abs_locktime_to_blocks(&htlc->expiry),
+					   &htlc->rhash,
+					   serialize_onionpacket(tmpctx,
+								 rs->next),
+					   rs->nextcase == ONION_FORWARD,
+					   rs->hoppayload->amt_to_forward,
+					   rs->hoppayload->outgoing_cltv_value);
+	daemon_conn_send(&peer->master, take(msg));
+	tal_free(tmpctx);
+	return;
+
+bad_onion:
+	sha256(&bad_onion_sha, htlc->routing, TOTAL_PACKET_SIZE);
+	msg = towire_update_fail_malformed_htlc(tmpctx, &peer->channel_id,
+						htlc->id, &bad_onion_sha,
+						failcode);
+	msg_enqueue(&peer->peer_out, take(msg));
+
+remove_htlc:
+	status_trace("htlc %"PRIu64" %s", htlc->id, onion_type_name(failcode));
+	rerr = channel_fail_htlc(peer->channel, REMOTE, htlc->id);
+	if (rerr != CHANNEL_ERR_REMOVE_OK)
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_INTERNAL_ERROR,
+			    "Could not fail malformed htlc %"PRIu64": %u",
+			    htlc->id, rerr);
+	start_commit_timer(peer);
+	tal_free(tmpctx);
 }
 
 static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
@@ -772,7 +858,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	u8 *msg;
 	u32 amount_msat, cltv_expiry;
 	struct sha256 payment_hash;
-	u8 onion_routing_packet[1254];
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
 	enum onion_type failcode;
 	/* Subtle: must be tal_arr since we marshal using tal_len() */
 	const char *failmsg;
@@ -933,6 +1019,7 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 		case WIRE_CHANNEL_BAD_COMMAND:
 		case WIRE_CHANNEL_HSM_FAILED:
 		case WIRE_CHANNEL_CRYPTO_FAILED:
+		case WIRE_CHANNEL_INTERNAL_ERROR:
 		case WIRE_CHANNEL_PEER_WRITE_FAILED:
 		case WIRE_CHANNEL_PEER_READ_FAILED:
 		case WIRE_CHANNEL_RECEIVED_FUNDING_LOCKED:
