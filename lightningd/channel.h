@@ -10,6 +10,7 @@
 #include <lightningd/derive_basepoints.h>
 #include <stdbool.h>
 
+struct peer;
 struct signature;
 
 /* View from each side */
@@ -330,18 +331,34 @@ bool channel_sent_commit(struct channel *channel);
 /**
  * channel_rcvd_revoke_and_ack: accept ack on remote committed changes.
  * @channel: the channel
+ * @peer: argument to pass through to @ourhtlcfail  & @theirhtlclocked
+ * @oursfail: callback for any unfilfilled htlcs which are now fully removed.
+ * @theirslocked: callback for any new htlcs which are now fully committed.
  *
  * This is where we commit to pending changes we've added; returns true if
- * anything changed. */
-bool channel_rcvd_revoke_and_ack(struct channel *channel);
+ * anything changed.
+ */
+bool channel_rcvd_revoke_and_ack(struct channel *channel,
+				 struct peer *peer,
+				 void (*oursfail)(struct peer *peer,
+						  const struct htlc *htlc),
+				 void (*theirslocked)(struct peer *peer,
+						      const struct htlc *htlc));
 
 /**
  * channel_rcvd_commit: commit all local outstanding changes.
  * @channel: the channel
+ * @peer: argument to pass through to @theirsfulfilled
+ * @theirsfulfilled: they are irrevocably committed to removal of htlc.
  *
  * This is where we commit to pending changes we've added; returns true if
- * anything changed. */
-bool channel_rcvd_commit(struct channel *channel);
+ * anything changed.  @theirsfulfilled is called for any HTLC we fulfilled
+ * which they are irrevocably committed to, and is in our current commitment.
+ */
+bool channel_rcvd_commit(struct channel *channel,
+			 struct peer *peer,
+			 void (*theirsfulfilled)(struct peer *peer,
+						 const struct htlc *htlc));
 
 /**
  * channel_sent_revoke_and_ack: sent ack on local committed changes.
