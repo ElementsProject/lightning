@@ -369,7 +369,8 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	const u8 **wscripts;
 	size_t i;
 
-	if (!channel_rcvd_commit(peer->channel)) {
+	/* FIXME: Handle theirsfulfilled! */
+	if (!channel_rcvd_commit(peer->channel, peer, NULL)) {
 		/* BOLT #2:
 		 *
 		 * A node MUST NOT send a `commitment_signed` message which
