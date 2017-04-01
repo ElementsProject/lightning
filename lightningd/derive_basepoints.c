@@ -40,11 +40,7 @@ bool derive_basepoints(const struct privkey *seed,
 	 */
 	*shaseed = keys.shaseed;
 
-	/* BOLT #3:
-	 *
-	 * the first secret used MUST be index 281474976710655, and then the
-	 * index decremented. */
-	shachain_from_seed(shaseed, 281474976710655ULL - per_commit_index,
+	shachain_from_seed(shaseed, shachain_index(per_commit_index),
 			   &per_commit_secret);
 
 	/* BOLT #3:
@@ -71,14 +67,13 @@ bool next_per_commit_point(const struct sha256 *shaseed,
 
 	/* Get old secret. */
 	if (per_commit_index > 0)
-		shachain_from_seed(shaseed, 281474976710655ULL
-				   - (per_commit_index - 1),
+		shachain_from_seed(shaseed, shachain_index(per_commit_index - 1),
 				   old_commit_secret);
 	else
 		assert(old_commit_secret == NULL);
 
 	/* Derive new per-commitment-point. */
-	shachain_from_seed(shaseed, 281474976710655ULL - (per_commit_index + 1),
+	shachain_from_seed(shaseed, shachain_index(per_commit_index + 1),
 			   &per_commit_secret);
 
 	/* BOLT #3:
