@@ -42,8 +42,8 @@ wire/gen_onion_wire.h: $(WIRE_GEN) wire/gen_onion_wire_csv
 wire/gen_onion_wire.c: $(WIRE_GEN) wire/gen_onion_wire_csv
 	$(WIRE_GEN) ${@:.c=.h} onion_type < wire/gen_onion_wire_csv > $@
 
-wire/gen_peer_wire.o: wire/gen_peer_wire.h
-wire/gen_onion_wire.o: wire/gen_onion_wire.h
+wire/gen_peer_wire.o: wire/gen_peer_wire.h $(CCAN_HEADERS)
+wire/gen_onion_wire.o: wire/gen_onion_wire.h $(CCAN_HEADERS)
 
 check-source: $(WIRE_SRC:%=check-src-include-order/%) $(WIRE_HEADERS:%=check-hdr-include-order/%)
 
