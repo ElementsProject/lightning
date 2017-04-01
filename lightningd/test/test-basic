@@ -42,6 +42,10 @@ lcli1 fundchannel $ID2 1000000
 
 # Now wait for it to reach depth
 lcli1 getpeers info | $FGREP "Waiting for our funding tx"
+[ `lcli1 getpeers | get_field msatoshi_to_us` = 1000000000 ]
+[ `lcli1 getpeers | get_field msatoshi_to_them` = 0 ]
+[ `lcli2 getpeers | get_field msatoshi_to_them` = 1000000000 ]
+[ `lcli2 getpeers | get_field msatoshi_to_us` = 0 ]
 
 $CLI generate 10
 check "lcli1 getpeers info | $FGREP 'Funding tx reached depth'"

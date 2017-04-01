@@ -51,6 +51,9 @@ struct peer {
 	u16 funding_outnum;
 	u64 funding_satoshi, push_msat;
 
+	/* Channel balance (LOCAL and REMOTE); if we have one. */
+	u64 *balance;
+
 	/* Secret seed (FIXME: Move to hsm!) */
 	struct privkey *seed;
 

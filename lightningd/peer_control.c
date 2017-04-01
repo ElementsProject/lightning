@@ -69,6 +69,7 @@ static struct peer *new_peer(struct lightningd *ld,
 	peer->funding_txid = NULL;
 	peer->seed = NULL;
 	peer->locked = false;
+	peer->balance = NULL;
 
 	/* Max 128k per peer. */
 	peer->log_book = new_log_book(peer, 128*1024,
@@ -469,7 +470,12 @@ static void json_getpeers(struct command *cmd,
 			json_add_pubkey(response, "peerid", p->id);
 		if (p->owner)
 			json_add_string(response, "owner", p->owner->name);
-
+		if (p->balance) {
+			json_add_u64(response, "msatoshi_to_us",
+				     p->balance[LOCAL]);
+			json_add_u64(response, "msatoshi_to_them",
+				     p->balance[REMOTE]);
+		}
 		if (leveltok) {
 			info.response = response;
 			json_array_start(response, "log");
@@ -793,7 +799,7 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 }
 
 /* opening is done, start lightningd_channel for peer. */
-static void peer_start_channeld(struct peer *peer, bool am_funder,
+static void peer_start_channeld(struct peer *peer, enum side funder,
 				const struct channel_config *their_config,
 				const struct crypto_state *crypto_state,
 				const secp256k1_ecdsa_signature *commit_sig,
@@ -809,6 +815,11 @@ static void peer_start_channeld(struct peer *peer, bool am_funder,
 
 	peer_set_condition(peer, "Waiting for HSM file descriptor");
 
+	/* Now we can consider balance set. */
+	peer->balance = tal_arr(peer, u64, NUM_SIDES);
+	peer->balance[funder] = peer->funding_satoshi * 1000 - peer->push_msat;
+	peer->balance[!funder] = peer->push_msat;
+
 	cds->peer = peer;
 	/* Prepare init message now while we have access to all the data. */
 	cds->initmsg = towire_channel_init(cds,
@@ -823,7 +834,7 @@ static void peer_start_channeld(struct peer *peer, bool am_funder,
 					   &theirbase->payment,
 					   &theirbase->delayed_payment,
 					   their_per_commit_point,
-					   am_funder,
+					   funder == LOCAL,
 					   /* FIXME: real feerate! */
 					   15000,
 					   peer->funding_satoshi,
@@ -886,7 +897,7 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 		 opening_got_hsm_funding_sig, fc);
 
 	/* Start normal channel daemon. */
-	peer_start_channeld(fc->peer, true,
+	peer_start_channeld(fc->peer, LOCAL,
 			    &their_config, &crypto_state, &commit_sig,
 			    &fc->remote_fundingkey, &theirbase,
 			    &their_per_commit_point);
@@ -964,7 +975,7 @@ static bool opening_accept_finish_response(struct subd *opening,
 	}
 
 	/* On to normal operation! */
-	peer_start_channeld(peer, false, &their_config, &crypto_state,
+	peer_start_channeld(peer, REMOTE, &their_config, &crypto_state,
 			    &first_commit_sig, &remote_fundingkey, &theirbase,
 			    &their_per_commit_point);
 
