@@ -640,6 +640,7 @@ static size_t update_channel_status(struct subd *sd,
 	/* We never see fatal ones. */
 	case WIRE_CHANNEL_BAD_COMMAND:
 	case WIRE_CHANNEL_HSM_FAILED:
+	case WIRE_CHANNEL_CRYPTO_FAILED:
 	case WIRE_CHANNEL_PEER_WRITE_FAILED:
 	case WIRE_CHANNEL_PEER_READ_FAILED:
 	case WIRE_CHANNEL_PEER_BAD_MESSAGE:
@@ -704,7 +705,9 @@ static void peer_start_channeld(struct peer *peer, bool am_funder,
 				  peer->push_msat,
 				  peer->seed,
 				  &peer->ld->dstate.id,
-				  peer->id);
+				  peer->id,
+				  time_to_msec(peer->ld->dstate.config
+					       .commit_time));
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(peer->owner, take(msg));

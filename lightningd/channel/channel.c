@@ -10,6 +10,7 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <daemon/routing.h>
+#include <daemon/timeout.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/channel.h>
@@ -20,6 +21,7 @@
 #include <lightningd/daemon_conn.h>
 #include <lightningd/debug.h>
 #include <lightningd/derive_basepoints.h>
+#include <lightningd/htlc_tx.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/msg_queue.h>
 #include <lightningd/peer_failed.h>
@@ -70,6 +72,10 @@ struct peer {
 
 	struct daemon_conn gossip_client;
 	struct daemon_conn master;
+
+	struct timers timers;
+	struct oneshot *commit_timer;
+	u32 commit_msec;
 
 	/* Announcement related information */
 	struct pubkey node_ids[NUM_SIDES];
@@ -254,6 +260,208 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 			    "Bad peer_add_htlc: %u", add_err);
 }
 
+static void send_commit(struct peer *peer)
+{
+	tal_t *tmpctx = tal_tmpctx(peer);
+	u8 *msg;
+	secp256k1_ecdsa_signature commit_sig, *htlc_sigs;
+	size_t i;
+	struct bitcoin_tx **txs;
+	const u8 **wscripts;
+	const struct htlc **htlc_map;
+	struct pubkey localkey;
+	struct privkey local_secretkey;
+
+	/* Timer has expired. */
+	peer->commit_timer = NULL;
+
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT send a `commitment_signed` message which does not
+	 * include any updates.
+	 */
+	if (!channel_sent_commit(peer->channel)) {
+		tal_free(tmpctx);
+		return;
+	}
+
+	if (!derive_simple_privkey(&peer->our_secrets.payment_basepoint_secret,
+				   &peer->channel->basepoints[LOCAL].payment,
+				   &peer->next_per_commit[REMOTE],
+				   &local_secretkey))
+		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
+			      "Deriving local_secretkey");
+
+	if (!derive_simple_key(&peer->channel->basepoints[LOCAL].payment,
+			       &peer->next_per_commit[REMOTE],
+			       &localkey))
+		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
+			      "Deriving localkey");
+
+	txs = channel_txs(tmpctx, &htlc_map, &wscripts, peer->channel,
+			  &peer->next_per_commit[REMOTE], REMOTE);
+
+	sign_tx_input(txs[0], 0, NULL,
+		      wscripts[0],
+		      &peer->our_secrets.funding_privkey,
+		      &peer->channel->funding_pubkey[LOCAL],
+		      &commit_sig);
+
+	status_trace("Creating commit_sig signature %s for tx %s wscript %s key %s",
+		     type_to_string(trc, secp256k1_ecdsa_signature,
+				    &commit_sig),
+		     type_to_string(trc, struct bitcoin_tx, txs[0]),
+		     tal_hex(trc, wscripts[0]),
+		     type_to_string(trc, struct pubkey,
+				    &peer->channel->funding_pubkey[LOCAL]));
+
+	/* BOLT #2:
+	 *
+	 * A node MUST include one `htlc-signature` for every HTLC transaction
+	 * corresponding to BIP69 lexicographic ordering of the commitment
+	 * transaction.
+	 */
+	htlc_sigs = tal_arr(tmpctx, secp256k1_ecdsa_signature,
+			    tal_count(txs) - 1);
+
+	for (i = 0; i < tal_count(htlc_sigs); i++) {
+		sign_tx_input(txs[1 + i], 0,
+			      NULL,
+			      wscripts[1 + i],
+			      &local_secretkey, &localkey,
+			      &htlc_sigs[i]);
+		status_trace("Creating HTLC signature %s for tx %s wscript %s key %s",
+			     type_to_string(trc, secp256k1_ecdsa_signature,
+					    &htlc_sigs[i]),
+			     type_to_string(trc, struct bitcoin_tx, txs[1+i]),
+			     tal_hex(trc, wscripts[1+i]),
+			     type_to_string(trc, struct pubkey, &localkey));
+		assert(check_tx_sig(txs[1+i], 0, NULL, wscripts[1+i],
+				    &localkey, &htlc_sigs[i]));
+	}
+	status_trace("Sending commit_sig with %zu htlc sigs",
+		     tal_count(htlc_sigs));
+	msg = towire_commitment_signed(tmpctx, &peer->channel_id,
+				       &commit_sig, htlc_sigs);
+	msg_enqueue(&peer->peer_out, take(msg));
+	tal_free(tmpctx);
+}
+
+static void start_commit_timer(struct peer *peer)
+{
+	/* Already armed? */
+	if (peer->commit_timer)
+		return;
+
+	peer->commit_timer = new_reltimer(&peer->timers, peer,
+					  time_from_msec(peer->commit_msec),
+					  send_commit, peer);
+}
+
+static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
+{
+	tal_t *tmpctx = tal_tmpctx(peer);
+	struct channel_id channel_id;
+	secp256k1_ecdsa_signature commit_sig, *htlc_sigs;
+	struct pubkey remotekey;
+	struct bitcoin_tx **txs;
+	const struct htlc **htlc_map;
+	const u8 **wscripts;
+	size_t i;
+
+	if (!channel_rcvd_commit(peer->channel)) {
+		/* BOLT #2:
+		 *
+		 * A node MUST NOT send a `commitment_signed` message which
+		 * does not include any updates.
+		 */
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "commit_sig with no changes");
+	}
+
+	if (!fromwire_commitment_signed(tmpctx, msg, NULL,
+					&channel_id, &commit_sig, &htlc_sigs))
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "Bad commit_sig %s", tal_hex(msg, msg));
+
+	txs = channel_txs(tmpctx, &htlc_map, &wscripts, peer->channel,
+			  &peer->next_per_commit[LOCAL], LOCAL);
+
+	if (!derive_simple_key(&peer->channel->basepoints[REMOTE].payment,
+			       &peer->next_per_commit[LOCAL],
+			       &remotekey))
+		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
+			      "Deriving remotekey");
+
+	/* BOLT #2:
+	 *
+	 * A receiving node MUST fail the channel if `signature` is not valid
+	 * for its local commitment transaction once all pending updates are
+	 * applied.
+	 */
+	if (!check_tx_sig(txs[0], 0, NULL, wscripts[0],
+			  &peer->channel->funding_pubkey[REMOTE], &commit_sig))
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "Bad commit_sig signature %s for tx %s wscript %s key %s",
+			    type_to_string(msg, secp256k1_ecdsa_signature,
+					   &commit_sig),
+			    type_to_string(msg, struct bitcoin_tx, txs[0]),
+			    tal_hex(msg, wscripts[0]),
+			    type_to_string(msg, struct pubkey,
+					   &peer->channel->funding_pubkey
+					   [REMOTE]));
+
+	/* BOLT #2:
+	 *
+	 * A receiving node MUST fail the channel if `num-htlcs` is not equal
+	 * to the number of HTLC outputs in the local commitment transaction
+	 * once all pending updates are applied.
+	 */
+	if (tal_count(htlc_sigs) != tal_count(txs) - 1)
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "Expected %zu htlc sigs, not %zu",
+			    tal_count(txs) - 1, tal_count(htlc_sigs));
+
+	/* BOLT #2:
+	 *
+	 * A receiving node MUST fail
+	 * the channel if any `htlc-signature` is not valid for the
+	 * corresponding HTLC transaction.
+	 */
+	for (i = 0; i < tal_count(htlc_sigs); i++) {
+		if (!check_tx_sig(txs[1+i], 0, NULL, wscripts[1+i],
+				  &remotekey, &htlc_sigs[i]))
+			peer_failed(io_conn_fd(peer->peer_conn),
+				    &peer->pcs.cs,
+				    &peer->channel_id,
+				    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+				    "Bad commit_sig signature %s for htlc %s wscript %s key %s",
+				    type_to_string(msg, secp256k1_ecdsa_signature, &htlc_sigs[i]),
+				    type_to_string(msg, struct bitcoin_tx, txs[1+i]),
+				    tal_hex(msg, wscripts[1+i]),
+				    type_to_string(msg, struct pubkey, &remotekey));
+	}
+
+	status_trace("Received commit_sig with %zu htlc sigs",
+		     tal_count(htlc_sigs));
+
+	/* This may have triggered changes, so restart timer. */
+	start_commit_timer(peer);
+	tal_free(tmpctx);
+}
+
 static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
@@ -287,11 +495,12 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 		/* Forward to gossip daemon */
 		daemon_conn_send(&peer->gossip_client, msg);
 		goto done;
-
 	case WIRE_UPDATE_ADD_HTLC:
 		handle_peer_add_htlc(peer, msg);
 		goto done;
-
+	case WIRE_COMMITMENT_SIGNED:
+		handle_peer_commit_sig(peer, msg);
+		goto done;
 	case WIRE_INIT:
 	case WIRE_ERROR:
 	case WIRE_OPEN_CHANNEL:
@@ -305,7 +514,6 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 	case WIRE_UPDATE_FULFILL_HTLC:
 	case WIRE_UPDATE_FAIL_HTLC:
 	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
-	case WIRE_COMMITMENT_SIGNED:
 	case WIRE_REVOKE_AND_ACK:
 	case WIRE_UPDATE_FEE:
 		peer_failed(io_conn_fd(peer->peer_conn),
@@ -368,7 +576,8 @@ static void init_channel(struct peer *peer, const u8 *msg)
 				   &feerate, &funding_satoshi, &push_msat,
 				   &seed,
 				   &peer->node_ids[LOCAL],
-				   &peer->node_ids[REMOTE]))
+				   &peer->node_ids[REMOTE],
+				   &peer->commit_msec))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s",
 			      tal_hex(msg, msg));
 
@@ -417,11 +626,6 @@ static void handle_funding_announce_depth(struct peer *peer, const u8 *msg)
 {
 	status_trace("Exchanging announcement signatures.");
 	send_announcement_signatures(peer);
-}
-
-static void start_commit_timer(struct peer *peer)
-{
-	/* FIXME! */
 }
 
 static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
@@ -589,6 +793,7 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 
 		case WIRE_CHANNEL_BAD_COMMAND:
 		case WIRE_CHANNEL_HSM_FAILED:
+		case WIRE_CHANNEL_CRYPTO_FAILED:
 		case WIRE_CHANNEL_PEER_WRITE_FAILED:
 		case WIRE_CHANNEL_PEER_READ_FAILED:
 		case WIRE_CHANNEL_RECEIVED_FUNDING_LOCKED:
@@ -629,6 +834,8 @@ int main(int argc, char *argv[])
 	daemon_conn_init(peer, &peer->master, REQ_FD, req_in);
 	peer->channel = NULL;
 	peer->htlc_id = 0;
+	timers_init(&peer->timers, time_mono());
+	peer->commit_timer = NULL;
 
 	status_setup_async(&peer->master);
 	msg_queue_init(&peer->peer_out, peer);
@@ -639,8 +846,15 @@ int main(int argc, char *argv[])
 	init_peer_crypto_state(peer, &peer->pcs);
 	peer->funding_locked[LOCAL] = peer->funding_locked[REMOTE] = false;
 
-	/* We don't expect to exit here. */
-	io_loop(NULL, NULL);
+	for (;;) {
+		struct timer *expired = NULL;
+		io_loop(&peer->timers, &expired);
+
+		if (!expired)
+			break;
+		timer_expired(peer, expired);
+	}
+
 	tal_free(peer);
 	return 0;
 }
