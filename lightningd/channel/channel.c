@@ -45,7 +45,8 @@
 struct peer {
 	struct peer_crypto_state pcs;
 	struct channel_config conf[NUM_SIDES];
-	struct pubkey next_per_commit[NUM_SIDES];
+	struct pubkey old_per_commit[NUM_SIDES];
+	struct pubkey current_per_commit[NUM_SIDES];
 	bool funding_locked[NUM_SIDES];
 
 	/* Their sig for current commit. */
@@ -180,7 +181,7 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 	struct channel_id chanid;
 
 	if (!fromwire_funding_locked(msg, NULL, &chanid,
-				     &peer->next_per_commit[REMOTE]))
+				     &peer->current_per_commit[REMOTE]))
 		status_failed(WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			      "Bad funding_locked %s", tal_hex(msg, msg));
 
@@ -294,19 +295,19 @@ static void send_commit(struct peer *peer)
 
 	if (!derive_simple_privkey(&peer->our_secrets.payment_basepoint_secret,
 				   &peer->channel->basepoints[LOCAL].payment,
-				   &peer->next_per_commit[REMOTE],
+				   &peer->current_per_commit[REMOTE],
 				   &local_secretkey))
 		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
 			      "Deriving local_secretkey");
 
 	if (!derive_simple_key(&peer->channel->basepoints[LOCAL].payment,
-			       &peer->next_per_commit[REMOTE],
+			       &peer->current_per_commit[REMOTE],
 			       &localkey))
 		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
 			      "Deriving localkey");
 
 	txs = channel_txs(tmpctx, &htlc_map, &wscripts, peer->channel,
-			  &peer->next_per_commit[REMOTE], REMOTE);
+			  &peer->current_per_commit[REMOTE], REMOTE);
 
 	sign_tx_input(txs[0], 0, NULL,
 		      wscripts[0],
@@ -399,10 +400,10 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 			    "Bad commit_sig %s", tal_hex(msg, msg));
 
 	txs = channel_txs(tmpctx, &htlc_map, &wscripts, peer->channel,
-			  &peer->next_per_commit[LOCAL], LOCAL);
+			  &peer->current_per_commit[LOCAL], LOCAL);
 
 	if (!derive_simple_key(&peer->channel->basepoints[REMOTE].payment,
-			       &peer->next_per_commit[LOCAL],
+			       &peer->current_per_commit[LOCAL],
 			       &remotekey))
 		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
 			      "Deriving remotekey");
@@ -579,7 +580,7 @@ static void init_channel(struct peer *peer, const u8 *msg)
 				   &points[REMOTE].revocation,
 				   &points[REMOTE].payment,
 				   &points[REMOTE].delayed_payment,
-				   &peer->next_per_commit[REMOTE],
+				   &peer->old_per_commit[REMOTE],
 				   &am_funder,
 				   &feerate, &funding_satoshi, &push_msat,
 				   &seed,
@@ -592,7 +593,7 @@ static void init_channel(struct peer *peer, const u8 *msg)
 	/* We derive everything from the one secret seed. */
 	derive_basepoints(&seed, &funding_pubkey[LOCAL], &points[LOCAL],
 			  &peer->our_secrets, &peer->shaseed,
-			  &peer->next_per_commit[LOCAL], 1);
+			  &peer->old_per_commit[LOCAL], 0);
 
 	peer->channel = new_channel(peer, &funding_txid, funding_txout,
 				    funding_satoshi, push_msat, feerate,
@@ -616,9 +617,13 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 					     &peer->short_channel_ids[LOCAL]))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s", tal_hex(msg, msg));
 
+	next_per_commit_point(&peer->shaseed, NULL,
+			      &peer->current_per_commit[LOCAL],
+			      0);
+
 	msg = towire_funding_locked(peer,
 				    &peer->channel_id,
-				    &peer->next_per_commit[LOCAL]);
+				    &peer->current_per_commit[LOCAL]);
 	msg_enqueue(&peer->peer_out, take(msg));
 	peer->funding_locked[LOCAL] = true;
 
