@@ -64,6 +64,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/htlc_end.c			\
 	lightningd/hsm_control.c		\
 	lightningd/lightningd.c			\
+	lightningd/pay.c			\
 	lightningd/peer_control.c		\
 	lightningd/subd.c
 
