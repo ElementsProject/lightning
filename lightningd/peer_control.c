@@ -657,6 +657,38 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 	return 0;
 }
 
+struct channeld_start {
+	struct peer *peer;
+	const u8 *initmsg;
+};
+
+/* We've got fd from HSM for channeld */
+static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
+				      const int *fds,
+				      struct channeld_start *cds)
+{
+	cds->peer->owner = new_subd(cds->peer->ld, cds->peer->ld,
+				    "lightningd_channel", cds->peer,
+				    channel_wire_type_name,
+				    channel_msg, NULL,
+				    cds->peer->fd,
+				    cds->peer->gossip_client_fd, fds[0], -1);
+	if (!cds->peer->owner) {
+		log_unusual(cds->peer->log, "Could not subdaemon channel: %s",
+			    strerror(errno));
+		peer_set_condition(cds->peer, "Failed to subdaemon channel");
+		tal_free(cds->peer);
+		return true;
+	}
+	cds->peer->fd = -1;
+
+	peer_set_condition(cds->peer, "Waiting for funding confirmations");
+	/* We don't expect a response: we are triggered by funding_depth_cb. */
+	subd_send_msg(cds->peer->owner, take(cds->initmsg));
+	tal_free(cds);
+	return true;
+}
+
 /* opening is done, start lightningd_channel for peer. */
 static void peer_start_channeld(struct peer *peer, bool am_funder,
 				const struct channel_config *their_config,
@@ -666,49 +698,43 @@ static void peer_start_channeld(struct peer *peer, bool am_funder,
 				const struct basepoints *theirbase,
 				const struct pubkey *their_per_commit_point)
 {
-	u8 *msg;
+	struct channeld_start *cds = tal(peer, struct channeld_start);
 
-	/* Normal channel daemon. */
-	peer->owner = new_subd(peer->ld, peer->ld,
-			       "lightningd_channel", peer,
-			       channel_wire_type_name,
-			       channel_msg, NULL,
-			       peer->fd, peer->gossip_client_fd, -1);
-	if (!peer->owner) {
-		log_unusual(peer->log, "Could not subdaemon channel: %s",
-			    strerror(errno));
-		peer_set_condition(peer, "Failed to subdaemon channel");
-		tal_free(peer);
-		return;
-	}
-	peer->fd = -1;
+	/* Unowned: back to being owned by main daemon. */
+	peer->owner = NULL;
+	tal_steal(peer->ld, peer);
 
-	peer_set_condition(peer, "Waiting for funding confirmations");
-	msg = towire_channel_init(peer,
-				  peer->funding_txid,
-				  peer->funding_outnum,
-				  &peer->our_config,
-				  their_config,
-				  commit_sig,
-				  crypto_state,
-				  remote_fundingkey,
-				  &theirbase->revocation,
-				  &theirbase->payment,
-				  &theirbase->delayed_payment,
-				  their_per_commit_point,
-				  am_funder,
-				  /* FIXME: real feerate! */
-				  15000,
-				  peer->funding_satoshi,
-				  peer->push_msat,
-				  peer->seed,
-				  &peer->ld->dstate.id,
-				  peer->id,
-				  time_to_msec(peer->ld->dstate.config
-					       .commit_time));
+	peer_set_condition(peer, "Waiting for HSM file descriptor");
 
-	/* We don't expect a response: we are triggered by funding_depth_cb. */
-	subd_send_msg(peer->owner, take(msg));
+	cds->peer = peer;
+	/* Prepare init message now while we have access to all the data. */
+	cds->initmsg = towire_channel_init(cds,
+					   peer->funding_txid,
+					   peer->funding_outnum,
+					   &peer->our_config,
+					   their_config,
+					   commit_sig,
+					   crypto_state,
+					   remote_fundingkey,
+					   &theirbase->revocation,
+					   &theirbase->payment,
+					   &theirbase->delayed_payment,
+					   their_per_commit_point,
+					   am_funder,
+					   /* FIXME: real feerate! */
+					   15000,
+					   peer->funding_satoshi,
+					   peer->push_msat,
+					   peer->seed,
+					   &peer->ld->dstate.id,
+					   peer->id,
+					   time_to_msec(peer->ld->dstate.config
+							.commit_time));
+
+	/* Get fd from hsm. */
+	subd_req(peer->ld->hsm,
+		 take(towire_hsmctl_hsmfd_ecdh(peer, peer->unique_id)), -1, 1,
+		 peer_start_channeld_hsmfd, cds);
 }
 
 static bool opening_release_tx(struct subd *opening, const u8 *resp,
