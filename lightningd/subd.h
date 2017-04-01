@@ -89,6 +89,7 @@ void subd_send_fd(struct subd *sd, int fd);
 
 /**
  * subd_req - queue a request to the subdaemon.
+ * @ctx: lifetime for the callback: if this is freed, don't call replycb.
  * @sd: subdaemon to request
  * @msg_out: request message (can be take)
  * @fd_out: if >=0 fd to pass at the end of the message (closed after)
@@ -98,14 +99,15 @@ void subd_send_fd(struct subd *sd, int fd);
  *
  * @replycb cannot free @sd, so it returns false to remove it.
  */
-#define subd_req(sd, msg_out, fd_out, num_fds_in, replycb, replycb_data) \
-	subd_req_((sd), (msg_out), (fd_out), (num_fds_in),		\
+#define subd_req(ctx, sd, msg_out, fd_out, num_fds_in, replycb, replycb_data) \
+	subd_req_((ctx), (sd), (msg_out), (fd_out), (num_fds_in),	\
 		  typesafe_cb_preargs(bool, void *,			\
 				      (replycb), (replycb_data),	\
 				      struct subd *,			\
 				      const u8 *, const int *),		\
 		       (replycb_data))
-void subd_req_(struct subd *sd,
+void subd_req_(const tal_t *ctx,
+	       struct subd *sd,
 	       const u8 *msg_out,
 	       int fd_out, size_t num_fds_in,
 	       bool (*replycb)(struct subd *, const u8 *, const int *, void *),

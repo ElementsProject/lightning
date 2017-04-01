@@ -115,7 +115,7 @@ static void json_dev_newhtlc(struct command *cmd,
 
 	/* FIXME: If subdaemon dies? */
 	msg = towire_channel_offer_htlc(cmd, msatoshi, expiry, &rhash, onion);
-	subd_req(peer->owner, take(msg), -1, 0, offer_htlc_reply, cmd);
+	subd_req(peer, peer->owner, take(msg), -1, 0, offer_htlc_reply, cmd);
 }
 
 static const struct json_command dev_newhtlc_command = {
