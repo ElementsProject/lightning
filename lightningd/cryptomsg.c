@@ -10,6 +10,7 @@
 #include <lightningd/status.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 #include <utils.h>
+#include <wire/peer_wire.h>
 #include <wire/wire.h>
 #include <wire/wire_io.h>
 
@@ -131,6 +132,16 @@ static struct io_plan *peer_decrypt_body(struct io_conn *conn,
 	decrypted = cryptomsg_decrypt_body(pcs->in, &pcs->cs, pcs->in);
 	if (!decrypted)
 		return io_close(conn);
+
+	/* BOLT #1:
+	 *
+	 * A node MUST ignore a received message of unknown type, if that type
+	 * is odd.
+	 */
+	if (unlikely(unknown_msg_discardable(decrypted))) {
+		pcs->in = tal_free(pcs->in);
+		return peer_read_message(conn, pcs, pcs->next_in);
+	}
 
 	/* Steal cs->in: we free it after, and decrypted too unless
 	 * they steal but be careful not to touch anything after

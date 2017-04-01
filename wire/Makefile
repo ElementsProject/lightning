@@ -4,7 +4,8 @@
 wire-wrongdir:
 	$(MAKE) -C .. wire-all
 
-WIRE_HEADERS := wire/wire.h			\
+WIRE_HEADERS := wire/peer_wire.h		\
+		wire/wire.h			\
 		wire/wire_sync.h		\
 		wire/wire_io.h
 WIRE_GEN_HEADERS := wire/gen_peer_wire.h wire/gen_onion_wire.h
@@ -13,6 +14,7 @@ WIRE_GEN_ONION_SRC := wire/gen_onion_wire.c
 WIRE_SRC := wire/wire_sync.c			\
 		wire/wire_io.c			\
 		wire/fromwire.c			\
+		wire/peer_wire.c		\
 		wire/towire.c
 
 WIRE_OBJS := $(WIRE_SRC:.c=.o) $(WIRE_GEN_SRC:.c=.o)
