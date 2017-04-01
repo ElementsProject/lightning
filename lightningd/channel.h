@@ -321,12 +321,12 @@ void adjust_fee(struct channel *channel, u64 feerate_per_kw, enum side side);
 bool force_fee(struct channel *channel, u64 fee);
 
 /**
- * channel_sent_commit: commit all remote outstanding changes.
+ * channel_sending_commit: commit all remote outstanding changes.
  * @channel: the channel
  *
  * This is where we commit to pending changes we've added; returns true if
- * anything changed. */
-bool channel_sent_commit(struct channel *channel);
+ * anything changed for the remote side (if not, don't send!) */
+bool channel_sending_commit(struct channel *channel);
 
 /**
  * channel_rcvd_revoke_and_ack: accept ack on remote committed changes.
@@ -336,7 +336,7 @@ bool channel_sent_commit(struct channel *channel);
  * @cbarg: argument to pass through to @ourhtlcfail  & @theirhtlclocked
  *
  * This is where we commit to pending changes we've added; returns true if
- * anything changed.
+ * anything changed for our local commitment (ie. we have pending changes).
  */
 #define channel_rcvd_revoke_and_ack(channel, oursfail, theirslocked, cbarg) \
 	channel_rcvd_revoke_and_ack_((channel),				\
@@ -364,8 +364,9 @@ bool channel_rcvd_revoke_and_ack_(struct channel *channel,
  * @cbarg: argument to pass through to @theirsfulfilled
  *
  * This is where we commit to pending changes we've added; returns true if
- * anything changed.  @theirsfulfilled is called for any HTLC we fulfilled
- * which they are irrevocably committed to, and is in our current commitment.
+ * anything changed for our local commitment (ie. we had pending changes).
+ * @theirsfulfilled is called for any HTLC we fulfilled which they are
+ * irrevocably committed to, and is in our current commitment.
  */
 #define channel_rcvd_commit(channel, theirsfulfilled, cbarg)		\
 	channel_rcvd_commit_((channel),					\
@@ -381,11 +382,11 @@ bool channel_rcvd_commit_(struct channel *channel,
 			  void *cbarg);
 
 /**
- * channel_sent_revoke_and_ack: sent ack on local committed changes.
+ * channel_sending_revoke_and_ack: sending ack on local committed changes.
  * @channel: the channel
  *
- * This is where we commit to pending changes we've added; returns true if
- * anything changed. */
-bool channel_sent_revoke_and_ack(struct channel *channel);
+ * This is where we commit to pending changes we've added. Returns true if
+ * anything changed for the remote commitment (ie. send a new commit).*/
+bool channel_sending_revoke_and_ack(struct channel *channel);
 
 #endif /* LIGHTNING_DAEMON_CHANNEL_H */
