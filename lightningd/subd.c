@@ -262,7 +262,9 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 		log_info(sd->log, "UPDATE %s", sd->msgname(type));
 
 		if (sd->msgcb) {
-			size_t i = sd->msgcb(sd, sd->msg_in, sd->fds_in);
+			int i = sd->msgcb(sd, sd->msg_in, sd->fds_in);
+			if (i < 0)
+				return io_close(conn);
 			if (i != 0) {
 				/* Don't ask for fds twice! */
 				assert(!sd->fds_in);
@@ -328,8 +330,8 @@ struct subd *new_subd(const tal_t *ctx,
 				const char *name,
 				struct peer *peer,
 				const char *(*msgname)(int msgtype),
-				size_t (*msgcb)(struct subd *, const u8 *,
-						const int *fds),
+				int (*msgcb)(struct subd *, const u8 *,
+					     const int *fds),
 				void (*finished)(struct subd *, int),
 				...)
 {

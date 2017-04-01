@@ -616,9 +616,7 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 	return true;
 }
 
-static size_t update_channel_status(struct subd *sd,
-				    const u8 *msg,
-				    const int *unused)
+static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);
 
@@ -674,7 +672,7 @@ static void peer_start_channeld(struct peer *peer, bool am_funder,
 	peer->owner = new_subd(peer->ld, peer->ld,
 			       "lightningd_channel", peer,
 			       channel_wire_type_name,
-			       update_channel_status, NULL,
+			       channel_msg, NULL,
 			       peer->fd, peer->gossip_client_fd, -1);
 	if (!peer->owner) {
 		log_unusual(peer->log, "Could not subdaemon channel: %s",

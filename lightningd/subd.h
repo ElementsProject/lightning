@@ -30,7 +30,7 @@ struct subd {
 	struct log *log;
 
 	/* Callback when non-reply message comes in. */
-	size_t (*msgcb)(struct subd *, const u8 *, const int *);
+	int (*msgcb)(struct subd *, const u8 *, const int *);
 	const char *(*msgname)(int msgtype);
 	void (*finished)(struct subd *sd, int status);
 
@@ -60,7 +60,8 @@ struct subd {
  * @...: the fds to hand as fd 3, 4... terminated with -1.
  *
  * @msgcb gets called with @fds set to NULL: if it returns a positive number,
- * that many @fds are received before calling again.
+ * that many @fds are received before calling again.  If it returns -1, the
+ * subdaemon is shutdown.
  *
  * If this succeeds subd owns @peer.
  */
@@ -69,7 +70,7 @@ struct subd *new_subd(const tal_t *ctx,
 		      const char *name,
 		      struct peer *peer,
 		      const char *(*msgname)(int msgtype),
-		      size_t (*msgcb)(struct subd *, const u8 *, const int *fds),
+		      int (*msgcb)(struct subd *, const u8 *, const int *fds),
 		      void (*finished)(struct subd *, int), ...);
 
 /**
