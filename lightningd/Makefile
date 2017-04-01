@@ -61,6 +61,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/build_utxos.c		\
 	lightningd/dev_newhtlc.c		\
 	lightningd/gossip_control.c		\
+	lightningd/htlc_end.c			\
 	lightningd/hsm_control.c		\
 	lightningd/lightningd.c			\
 	lightningd/peer_control.c		\
@@ -76,6 +77,7 @@ LIGHTNINGD_HEADERS_NOGEN =			\
 	lightningd/build_utxos.h		\
 	lightningd/gossip_control.h		\
 	lightningd/hsm_control.h		\
+	lightningd/htlc_end.h			\
 	lightningd/lightningd.h			\
 	lightningd/peer_control.h		\
 	lightningd/subd.h			\

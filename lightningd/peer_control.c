@@ -642,18 +642,17 @@ static void fail_htlc(struct peer *peer, u64 htlc_id, enum onion_type failcode)
 	/* FIXME: implement */
 }
 
-static void handle_localpay(struct peer *peer,
-			    u64 htlc_id,
-			    u32 amount_msat,
+static void handle_localpay(struct htlc_end *hend,
 			    u32 cltv_expiry,
 			    const struct sha256 *payment_hash)
 {
 	u8 *msg;
-	struct invoice *invoice = find_unpaid(peer->ld->dstate.invoices,
+	struct invoice *invoice = find_unpaid(hend->peer->ld->dstate.invoices,
 					      payment_hash);
 
 	if (!invoice) {
-		fail_htlc(peer, htlc_id, WIRE_UNKNOWN_PAYMENT_HASH);
+		fail_htlc(hend->peer, hend->htlc_id, WIRE_UNKNOWN_PAYMENT_HASH);
+		tal_free(hend);
 		return;
 	}
 
@@ -665,11 +664,13 @@ static void handle_localpay(struct peer *peer,
 	 *
 	 * 1. type: PERM|16 (`incorrect_payment_amount`)
 	 */
-	if (amount_msat < invoice->msatoshi) {
-		fail_htlc(peer, htlc_id, WIRE_INCORRECT_PAYMENT_AMOUNT);
+	if (hend->msatoshis < invoice->msatoshi) {
+		fail_htlc(hend->peer, hend->htlc_id,
+			  WIRE_INCORRECT_PAYMENT_AMOUNT);
 		return;
-	} else if (amount_msat > invoice->msatoshi * 2) {
-		fail_htlc(peer, htlc_id, WIRE_INCORRECT_PAYMENT_AMOUNT);
+	} else if (hend->msatoshis > invoice->msatoshi * 2) {
+		fail_htlc(hend->peer, hend->htlc_id,
+			  WIRE_INCORRECT_PAYMENT_AMOUNT);
 		return;
 	}
 
@@ -677,24 +678,32 @@ static void handle_localpay(struct peer *peer,
 	 *
 	 * If the `cltv-expiry` is too low, the final node MUST fail the HTLC:
 	 */
-	if (get_block_height(peer->ld->topology)
-	    + peer->ld->dstate.config.deadline_blocks >= cltv_expiry) {
-		log_debug(peer->log, "Expiry cltv %u too close to current %u + deadline %u",
-			  cltv_expiry, get_block_height(peer->ld->topology),
-			  peer->ld->dstate.config.deadline_blocks);
-		fail_htlc(peer, htlc_id, WIRE_FINAL_EXPIRY_TOO_SOON);
+	if (get_block_height(hend->peer->ld->topology)
+	    + hend->peer->ld->dstate.config.deadline_blocks >= cltv_expiry) {
+		log_debug(hend->peer->log,
+			  "Expiry cltv %u too close to current %u + deadline %u",
+			  cltv_expiry,
+			  get_block_height(hend->peer->ld->topology),
+			  hend->peer->ld->dstate.config.deadline_blocks);
+		fail_htlc(hend->peer, hend->htlc_id, WIRE_FINAL_EXPIRY_TOO_SOON);
+		tal_free(hend);
 		return;
 	}
 
 	/* FIXME: fail the peer if it doesn't tell us that htlc fulfill is
 	 * committed before deadline.
 	 */
-	log_info(peer->ld->log, "Resolving invoice '%s' with HTLC %"PRIu64,
-		 invoice->label, htlc_id);
+	connect_htlc_end(&hend->peer->ld->htlc_ends, hend);
 
-	msg = towire_channel_fulfill_htlc(peer, htlc_id, &invoice->r);
-	subd_send_msg(peer->owner, take(msg));
-	resolve_invoice(&peer->ld->dstate, invoice);
+	log_info(hend->peer->ld->log, "Resolving invoice '%s' with HTLC %"PRIu64,
+		 invoice->label, hend->htlc_id);
+
+	hend->peer->balance[LOCAL] += hend->msatoshis;
+	hend->peer->balance[REMOTE] -= hend->msatoshis;
+
+	msg = towire_channel_fulfill_htlc(hend->peer, hend->htlc_id, &invoice->r);
+	subd_send_msg(hend->peer->owner, take(msg));
+	resolve_invoice(&hend->peer->ld->dstate, invoice);
 }
 
 static int peer_accepted_htlc(struct peer *peer, const u8 *msg)
@@ -706,6 +715,7 @@ static int peer_accepted_htlc(struct peer *peer, const u8 *msg)
 	bool forward;
 	u64 amt_to_forward;
 	u32 outgoing_cltv_value;
+	struct htlc_end *hend;
 
 	if (!fromwire_channel_accepted_htlc(msg, NULL, &id, &amount_msat,
 					    &cltv_expiry, &payment_hash,
@@ -717,11 +727,18 @@ static int peer_accepted_htlc(struct peer *peer, const u8 *msg)
 		return -1;
 	}
 
+	hend = tal(peer, struct htlc_end);
+	hend->which_end = HTLC_SRC;
+	hend->peer = peer;
+	hend->htlc_id = id;
+	hend->other_end = NULL;
+	hend->pay_command = NULL;
+	hend->msatoshis = amount_msat;
+
 	if (forward)
 		log_broken(peer->log, "FIXME: Implement forwarding!");
 	else
-		handle_localpay(peer, id,
-				amount_msat, cltv_expiry, &payment_hash);
+		handle_localpay(hend, cltv_expiry, &payment_hash);
 	return 0;
 }
 
