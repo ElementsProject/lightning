@@ -9,8 +9,10 @@
 #include <ccan/tal/str/str.h>
 #include <daemon/chaintopology.h>
 #include <daemon/dns.h>
+#include <daemon/invoice.h>
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
+#include <daemon/sphinx.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/build_utxos.h>
@@ -25,6 +27,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <wire/gen_onion_wire.h>
 #include <wire/gen_peer_wire.h>
 
 static void destroy_peer(struct peer *peer)
@@ -616,6 +619,104 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 	return true;
 }
 
+struct decoding_htlc {
+	struct peer *peer;
+	u64 id;
+	u32 amount_msat;
+	u32 cltv_expiry;
+	struct sha256 payment_hash;
+	u8 onion[1254];
+	u8 shared_secret[32];
+};
+
+static void fail_htlc(struct peer *peer, u64 htlc_id, enum onion_type failcode)
+{
+	log_broken(peer->log, "failed htlc %"PRIu64" code 0x%04x",
+		   htlc_id, failcode);
+	/* FIXME: implement */
+}
+
+static void handle_localpay(struct peer *peer,
+			    u64 htlc_id,
+			    u32 amount_msat,
+			    u32 cltv_expiry,
+			    const struct sha256 *payment_hash)
+{
+	struct invoice *invoice = find_unpaid(peer->ld->dstate.invoices,
+					      payment_hash);
+
+	if (!invoice) {
+		fail_htlc(peer, htlc_id, WIRE_UNKNOWN_PAYMENT_HASH);
+		return;
+	}
+
+	/* BOLT #4:
+	 *
+	 * If the amount paid is less than the amount expected, the final node
+	 * MUST fail the HTLC.  If the amount paid is more than the amount
+	 * expected, the final node SHOULD fail the HTLC:
+	 *
+	 * 1. type: PERM|16 (`incorrect_payment_amount`)
+	 */
+	if (amount_msat < invoice->msatoshi) {
+		fail_htlc(peer, htlc_id, WIRE_INCORRECT_PAYMENT_AMOUNT);
+		return;
+	} else if (amount_msat > invoice->msatoshi * 2) {
+		fail_htlc(peer, htlc_id, WIRE_INCORRECT_PAYMENT_AMOUNT);
+		return;
+	}
+
+	/* BOLT #4:
+	 *
+	 * If the `cltv-expiry` is too low, the final node MUST fail the HTLC:
+	 */
+	if (get_block_height(peer->ld->topology)
+	    + peer->ld->dstate.config.deadline_blocks >= cltv_expiry) {
+		log_debug(peer->log, "Expiry cltv %u too close to current %u + deadline %u",
+			  cltv_expiry, get_block_height(peer->ld->topology),
+			  peer->ld->dstate.config.deadline_blocks);
+		fail_htlc(peer, htlc_id, WIRE_FINAL_EXPIRY_TOO_SOON);
+		return;
+	}
+
+	/* FIXME: fail the peer if it doesn't tell us that htlc fulfill is
+	 * committed before deadline.
+	 */
+	log_info(peer->ld->log, "Resolving invoice '%s' with HTLC %"PRIu64,
+		 invoice->label, htlc_id);
+
+	/* FIXME: msg = towire_channel_fulfill_htlc(htlc->id, &invoice->r); */
+	resolve_invoice(&peer->ld->dstate, invoice);
+}
+
+static int peer_accepted_htlc(struct peer *peer, const u8 *msg)
+{
+	u64 id;
+	u32 cltv_expiry, amount_msat;
+	struct sha256 payment_hash;
+	u8 next_onion[TOTAL_PACKET_SIZE];
+	bool forward;
+	u64 amt_to_forward;
+	u32 outgoing_cltv_value;
+
+	if (!fromwire_channel_accepted_htlc(msg, NULL, &id, &amount_msat,
+					    &cltv_expiry, &payment_hash,
+					    next_onion, &forward,
+					    &amt_to_forward,
+					    &outgoing_cltv_value)) {
+		log_broken(peer->log, "bad fromwire_channel_accepted_htlc %s",
+			   tal_hex(peer, msg));
+		return -1;
+	}
+
+	if (forward)
+		log_broken(peer->log, "FIXME: Implement forwarding!");
+	else
+		handle_localpay(peer, id,
+				amount_msat, cltv_expiry, &payment_hash);
+	return 0;
+}
+
 static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);
@@ -628,6 +729,7 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 		peer_set_condition(sd->peer, "Normal operation");
 		break;
 	case WIRE_CHANNEL_ACCEPTED_HTLC:
+		return peer_accepted_htlc(sd->peer, msg);
 	case WIRE_CHANNEL_FULFILLED_HTLC:
 	case WIRE_CHANNEL_FAILED_HTLC:
 	case WIRE_CHANNEL_MALFORMED_HTLC:
@@ -639,6 +741,7 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 	case WIRE_CHANNEL_BAD_COMMAND:
 	case WIRE_CHANNEL_HSM_FAILED:
 	case WIRE_CHANNEL_CRYPTO_FAILED:
+	case WIRE_CHANNEL_INTERNAL_ERROR:
 	case WIRE_CHANNEL_PEER_WRITE_FAILED:
 	case WIRE_CHANNEL_PEER_READ_FAILED:
 	case WIRE_CHANNEL_PEER_BAD_MESSAGE:

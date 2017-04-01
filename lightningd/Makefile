@@ -23,7 +23,6 @@ LIGHTNINGD_OLD_SRC :=				\
 	daemon/opt_time.c			\
 	daemon/pseudorand.c			\
 	daemon/routing.c			\
-	daemon/sphinx.c				\
 	daemon/watch.c
 LIGHTNINGD_OLD_OBJS := $(LIGHTNINGD_OLD_SRC:.c=.o)
 LIGHTNINGD_OLD_HEADERS := $(LIGHTNINGD_OLD_SRC:.c=.h)
@@ -31,6 +30,7 @@ LIGHTNINGD_OLD_HEADERS := $(LIGHTNINGD_OLD_SRC:.c=.h)
 LIGHTNINGD_OLD_LIB_SRC :=			\
 	daemon/htlc_state.c			\
 	daemon/pseudorand.c			\
+	daemon/sphinx.c				\
 	daemon/timeout.c
 LIGHTNINGD_OLD_LIB_OBJS := $(LIGHTNINGD_OLD_LIB_SRC:.c=.o)
 LIGHTNINGD_OLD_LIB_HEADERS := $(LIGHTNINGD_OLD_LIB_SRC:.c=.h)
@@ -104,11 +104,11 @@ LIGHTNINGD_HEADERS = $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) $(LIG
 
 # These included makefiles add their headers to the LIGHTNINGD_HEADERS
 # variable so the include must preceed any actual use of the variable.
-include lightningd/channel/Makefile
 include lightningd/hsm/Makefile
 include lightningd/handshake/Makefile
 include lightningd/gossip/Makefile
 include lightningd/opening/Makefile
+include lightningd/channel/Makefile
 
 $(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS): $(LIGHTNINGD_HEADERS) 
 

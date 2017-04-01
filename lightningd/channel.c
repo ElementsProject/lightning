@@ -455,7 +455,6 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	assert(balance_msat >= 0);
 	for (i = 0; i < tal_count(adding); i++)
 		balance_msat += balance_adding_htlc(adding[i], sender);
-	assert(balance_msat >= 0);
 
 	/* This is a little subtle:
 	 *
