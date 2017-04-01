@@ -648,6 +648,7 @@ static void handle_localpay(struct peer *peer,
 			    u32 cltv_expiry,
 			    const struct sha256 *payment_hash)
 {
+	u8 *msg;
 	struct invoice *invoice = find_unpaid(peer->ld->dstate.invoices,
 					      payment_hash);
 
@@ -691,7 +692,8 @@ static void handle_localpay(struct peer *peer,
 	log_info(peer->ld->log, "Resolving invoice '%s' with HTLC %"PRIu64,
 		 invoice->label, htlc_id);
 
-	/* FIXME: msg = towire_channel_fulfill_htlc(htlc->id, &invoice->r); */
+	msg = towire_channel_fulfill_htlc(peer, htlc_id, &invoice->r);
+	subd_send_msg(peer->owner, take(msg));
 	resolve_invoice(&peer->ld->dstate, invoice);
 }
 
