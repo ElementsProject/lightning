@@ -14,7 +14,7 @@ LIGHTNINGD_GOSSIP_CONTROL_OBJS := $(LIGHTNINGD_GOSSIP_CONTROL_SRC:.c=.o)
 # These should eventually be migrated to the lightningd directory, after
 # deprecating the legacy daemons
 LIGHTNINGD_GOSSIP_LEGACY_HEADERS := daemon/routing.h daemon/broadcast.h \
-	daemon/log.h daemon/pseudorand.h daemon/timeout.h
+	daemon/log.h
 
 # lightningd/gossip needs these:
 LIGHTNINGD_GOSSIP_HEADERS := lightningd/gossip/gen_gossip_wire.h \
