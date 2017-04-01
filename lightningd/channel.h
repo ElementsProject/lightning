@@ -389,4 +389,11 @@ bool channel_rcvd_commit_(struct channel *channel,
  * anything changed for the remote commitment (ie. send a new commit).*/
 bool channel_sending_revoke_and_ack(struct channel *channel);
 
+/**
+ * channel_awaiting_revoke_and_ack: are we waiting for revoke_and_ack?
+ * @channel: the channel
+ *
+ * If true, we can't send a new commit message.
+ */
+bool channel_awaiting_revoke_and_ack(const struct channel *channel);
 #endif /* LIGHTNING_DAEMON_CHANNEL_H */
