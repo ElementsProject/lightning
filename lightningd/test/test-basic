@@ -55,6 +55,9 @@ RHASH=`lcli1 dev-rhash $SECRET | sed 's/.*"\([0-9a-f]*\)".*/\1/'`
 
 lcli1 dev-newhtlc $ID2 100000 $(( $(blockheight) + 10 )) $RHASH
 
+sleep 1
+check "lcli2 getpeers | tr -s '\012\011\" ' ' ' | $FGREP 'condition : Normal operation'"
+
 lcli1 stop
 lcli2 stop
 
