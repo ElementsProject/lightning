@@ -195,7 +195,7 @@ static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 
 	/* Now hand peer request to the handshake daemon: hands it
 	 * back on success */
-	subd_req(peer->owner, take(req), -1, 1, handshake_succeeded, peer);
+	subd_req(peer, peer->owner, take(req), -1, 1, handshake_succeeded, peer);
 	return true;
 
 error:
@@ -213,7 +213,7 @@ static struct io_plan *peer_in(struct io_conn *conn, struct lightningd *ld)
 		return io_close(conn);
 
 	/* Get HSM fd for this peer. */
-	subd_req(ld->hsm,
+	subd_req(peer, ld->hsm,
 		 take(towire_hsmctl_hsmfd_ecdh(ld, peer->unique_id)),
 		 -1, 1, peer_got_handshake_hsmfd, peer);
 
@@ -344,7 +344,7 @@ static struct io_plan *peer_out(struct io_conn *conn,
 	peer->id = tal_dup(peer, struct pubkey, &jc->id);
 
 	/* Get HSM fd for this peer. */
-	subd_req(ld->hsm,
+	subd_req(peer, ld->hsm,
 		 take(towire_hsmctl_hsmfd_ecdh(ld, peer->unique_id)),
 		 -1, 1, peer_got_handshake_hsmfd, peer);
 
@@ -732,7 +732,7 @@ static void peer_start_channeld(struct peer *peer, bool am_funder,
 							.commit_time));
 
 	/* Get fd from hsm. */
-	subd_req(peer->ld->hsm,
+	subd_req(peer, peer->ld->hsm,
 		 take(towire_hsmctl_hsmfd_ecdh(peer, peer->unique_id)), -1, 1,
 		 peer_start_channeld_hsmfd, cds);
 }
@@ -779,7 +779,7 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 					 &fc->remote_fundingkey,
 					 utxos);
 	tal_free(utxos);
-	subd_req(fc->peer->ld->hsm, take(msg), -1, 0,
+	subd_req(fc, fc->peer->ld->hsm, take(msg), -1, 0,
 		 opening_got_hsm_funding_sig, fc);
 
 	/* Start normal channel daemon. */
@@ -824,7 +824,7 @@ static bool opening_gen_funding(struct subd *opening, const u8 *reply,
 
 	msg = towire_opening_open_funding(fc, fc->peer->funding_txid,
 					  fc->peer->funding_outnum);
-	subd_req(fc->peer->owner, take(msg), -1, 1, opening_release_tx, fc);
+	subd_req(fc, fc->peer->owner, take(msg), -1, 1, opening_release_tx, fc);
 	return true;
 }
 
@@ -887,7 +887,7 @@ static bool opening_accept_reply(struct subd *opening, const u8 *reply,
 		   funding_depth_cb, NULL);
 
 	/* Tell it we're watching. */
-	subd_req(opening, towire_opening_accept_finish(reply),
+	subd_req(peer, opening, towire_opening_accept_finish(reply),
 		 -1, 1,
 		 opening_accept_finish_response, peer);
 	return true;
@@ -997,7 +997,7 @@ void peer_accept_open(struct peer *peer,
 		tal_free(peer);
 		return;
 	}
-	subd_req(peer->owner, take(msg), -1, 0, opening_accept_reply, peer);
+	subd_req(peer, peer->owner, take(msg), -1, 0, opening_accept_reply, peer);
 }
 
 /* Peer has been released from gossip.  Start opening. */
@@ -1064,7 +1064,7 @@ static bool gossip_peer_released(struct subd *gossip,
 	msg = towire_opening_open(fc, fc->peer->funding_satoshi,
 				  fc->peer->push_msat,
 				  15000, max_minimum_depth);
-	subd_req(opening, take(msg), -1, 0, opening_gen_funding, fc);
+	subd_req(fc, opening, take(msg), -1, 0, opening_gen_funding, fc);
 	return true;
 }
 
@@ -1114,7 +1114,7 @@ static void json_fund_channel(struct command *cmd,
 	/* Tie this fc lifetime (and hence utxo release) to the peer */
 	tal_steal(fc->peer, fc);
 	tal_add_destructor(fc, fail_fundchannel_command);
-	subd_req(ld->gossip, msg, -1, 2, gossip_peer_released, fc);
+	subd_req(fc, ld->gossip, msg, -1, 2, gossip_peer_released, fc);
 }
 
 static const struct json_command fund_channel_command = {

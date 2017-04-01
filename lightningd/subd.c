@@ -48,14 +48,38 @@ struct subd_req {
 	void *replycb_data;
 
 	size_t num_reply_fds;
+	/* If non-NULL, this is here to disable replycb */
+	void *disabler;
 };
 
 static void free_subd_req(struct subd_req *sr)
 {
 	list_del(&sr->list);
+	/* Don't disable once we're freed! */
+	if (sr->disabler)
+		tal_free(sr->disabler);
 }
 
-static void add_req(struct subd *sd, int type, size_t num_fds_in,
+/* Called when the callback is disabled because caller was freed. */
+static bool ignore_reply(struct subd *sd, const u8 *msg, const int *fds,
+			 void *arg)
+{
+	size_t i;
+
+	log_debug(sd->log, "IGNORING REPLY");
+	for (i = 0; i < tal_count(fds); i++)
+		close(fds[i]);
+	return true;
+}
+
+static void disable_cb(void *disabler, struct subd_req *sr)
+{
+	sr->replycb = ignore_reply;
+	sr->disabler = NULL;
+}
+
+static void add_req(const tal_t *ctx,
+		    struct subd *sd, int type, size_t num_fds_in,
 		    bool (*replycb)(struct subd *, const u8 *, const int *,
 				    void *),
 		    void *replycb_data)
@@ -66,6 +90,15 @@ static void add_req(struct subd *sd, int type, size_t num_fds_in,
 	sr->replycb = replycb;
 	sr->replycb_data = replycb_data;
 	sr->num_reply_fds = num_fds_in;
+
+	/* We don't allocate sr off ctx, because we still have to handle the
+	 * case where ctx is freed between request and reply.  Hence this
+	 * trick. */
+	if (ctx) {
+		sr->disabler = tal(ctx, char);
+		tal_add_destructor2(sr->disabler, disable_cb, sr);
+	} else
+		sr->disabler = NULL;
 	assert(strends(sd->msgname(sr->reply_type), "_REPLY"));
 
 	/* Keep in FIFO order: we sent in order, so replies will be too. */
@@ -381,7 +414,8 @@ void subd_send_fd(struct subd *sd, int fd)
 	msg_enqueue_fd(&sd->outq, fd);
 }
 
-void subd_req_(struct subd *sd,
+void subd_req_(const tal_t *ctx,
+	       struct subd *sd,
 	       const u8 *msg_out,
 	       int fd_out, size_t num_fds_in,
 	       bool (*replycb)(struct subd *, const u8 *, const int *, void *),
@@ -394,7 +428,7 @@ void subd_req_(struct subd *sd,
 	if (fd_out >= 0)
 		subd_send_fd(sd, fd_out);
 
-	add_req(sd, type, num_fds_in, replycb, replycb_data);
+	add_req(ctx, sd, type, num_fds_in, replycb, replycb_data);
 }
 
 char *opt_subd_debug(const char *optarg, struct lightningd *ld)

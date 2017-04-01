@@ -97,7 +97,7 @@ void hsm_init(struct lightningd *ld, bool newdir)
 	else
 		create = (access("hsm_secret", F_OK) != 0);
 
-	subd_req(ld->hsm, take(towire_hsmctl_init(ld->hsm, create)),
+	subd_req(ld->hsm, ld->hsm, take(towire_hsmctl_init(ld->hsm, create)),
 		 -1, 0, hsm_init_done, ld);
 
 	if (io_loop(NULL, NULL) != ld->hsm)
