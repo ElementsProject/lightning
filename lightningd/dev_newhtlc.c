@@ -3,20 +3,23 @@
 #include <daemon/log.h>
 #include <daemon/sphinx.h>
 #include <lightningd/channel/gen_channel_wire.h>
+#include <lightningd/htlc_end.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <utils.h>
 
 static bool offer_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
-			     struct command *cmd)
+			     struct htlc_end *hend)
 {
-	u64 htlc_id;
 	u16 failcode;
 	u8 *failstr;
+	/* We hack this in, since we don't have a real pay_command here. */
+	struct command *cmd = (void *)hend->pay_command;
 
 	if (!fromwire_channel_offer_htlc_reply(msg, msg, NULL,
-					       &htlc_id, &failcode, &failstr)) {
+					       &hend->htlc_id,
+					       &failcode, &failstr)) {
 		command_fail(cmd, "Invalid reply from daemon: %s",
 			     tal_hex(msg, msg));
 		return true;
@@ -28,8 +31,12 @@ static bool offer_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 	} else {
 		struct json_result *response = new_json_result(cmd);
 
+		/* Peer owns it now (we're about to free cmd) */
+		tal_steal(hend->peer, hend);
+		connect_htlc_end(&subd->ld->htlc_ends, hend);
+
 		json_object_start(response, NULL);
-		json_add_u64(response, "id", htlc_id);
+		json_add_u64(response, "id", hend->htlc_id);
 		json_object_end(response);
 		command_success(cmd, response);
 	}
@@ -50,6 +57,7 @@ static void json_dev_newhtlc(struct command *cmd,
 	u8 sessionkey[32];
 	struct onionpacket *packet;
 	u8 *onion;
+	struct htlc_end *hend;
 	struct pubkey *path = tal_arrz(cmd, struct pubkey, 1);
 
 	if (!json_get_params(buffer, params,
@@ -113,9 +121,16 @@ static void json_dev_newhtlc(struct command *cmd,
 
 	log_debug(peer->log, "JSON command to add new HTLC");
 
+	hend = tal(cmd, struct htlc_end);
+	hend->which_end = HTLC_DST;
+	hend->peer = peer;
+	hend->msatoshis = msatoshi;
+	hend->other_end = NULL;
+	hend->pay_command = (void *)cmd;
+
 	/* FIXME: If subdaemon dies? */
 	msg = towire_channel_offer_htlc(cmd, msatoshi, expiry, &rhash, onion);
-	subd_req(peer, peer->owner, take(msg), -1, 0, offer_htlc_reply, cmd);
+	subd_req(hend, peer->owner, take(msg), -1, 0, offer_htlc_reply, hend);
 }
 
 static const struct json_command dev_newhtlc_command = {
