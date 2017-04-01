@@ -78,6 +78,7 @@ int main(int argc, char **argv)
 		u8 serialized[TOTAL_PACKET_SIZE];
 		char hextemp[2 * sizeof(serialized) + 1];
 		memset(hextemp, 0, sizeof(hextemp));
+		u8 shared_secret[32];
 
 		if (argc != 2)
 			opt_usage_exit_fail("Expect a privkey with --decode");
@@ -91,7 +92,10 @@ int main(int argc, char **argv)
 		if (!msg)
 			errx(1, "Error parsing message.");
 
-		step = process_onionpacket(ctx, msg, &seckey, assocdata,
+		if (!onion_shared_secret(shared_secret, msg, &seckey))
+			errx(1, "Error creating shared secret.");
+		
+		step = process_onionpacket(ctx, msg, shared_secret, assocdata,
 					   sizeof(assocdata));
 
 		if (!step->next)
