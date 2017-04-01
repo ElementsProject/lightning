@@ -66,6 +66,7 @@ struct peer {
 	struct channel *channel;
 
 	struct msg_queue peer_out;
+	struct io_conn *peer_conn;
 
 	struct daemon_conn gossip_client;
 	struct daemon_conn master;
@@ -168,53 +169,162 @@ static struct io_plan *peer_out(struct io_conn *conn, struct peer *peer)
 	return peer_write_message(conn, &peer->pcs, out, peer_out);
 }
 
-static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
+static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 {
 	struct channel_id chanid;
-	int type = fromwire_peektype(msg);
 
-	if (fromwire_funding_locked(msg, NULL, &chanid,
-				    &peer->next_per_commit[REMOTE])) {
-		if (!structeq(&chanid, &peer->channel_id))
-			status_failed(WIRE_CHANNEL_PEER_BAD_MESSAGE,
-				      "Wrong channel id in %s",
-				      tal_hex(trc, msg));
-		if (peer->funding_locked[REMOTE])
-			status_failed(WIRE_CHANNEL_PEER_BAD_MESSAGE,
-				      "Funding locked twice");
-		peer->funding_locked[REMOTE] = true;
-		daemon_conn_send(&peer->master,
+	if (!fromwire_funding_locked(msg, NULL, &chanid,
+				     &peer->next_per_commit[REMOTE]))
+		status_failed(WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			      "Bad funding_locked %s", tal_hex(msg, msg));
+
+	if (!structeq(&chanid, &peer->channel_id))
+		status_failed(WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			      "Wrong channel id in %s", tal_hex(trc, msg));
+	if (peer->funding_locked[REMOTE])
+		status_failed(WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			      "Funding locked twice");
+
+	peer->funding_locked[REMOTE] = true;
+	daemon_conn_send(&peer->master,
 			 take(towire_channel_received_funding_locked(peer)));
 
-		if (peer->funding_locked[LOCAL]) {
-			daemon_conn_send(&peer->master,
+	if (peer->funding_locked[LOCAL]) {
+		daemon_conn_send(&peer->master,
 				 take(towire_channel_normal_operation(peer)));
-		}
-	} else if (type == WIRE_ANNOUNCEMENT_SIGNATURES) {
-		fromwire_announcement_signatures(
-		    msg, NULL, &chanid, &peer->short_channel_ids[REMOTE],
-		    &peer->announcement_node_sigs[REMOTE],
-		    &peer->announcement_bitcoin_sigs[REMOTE]);
+	}
+}
 
-		/* Make sure we agree on the channel ids */
-		if (!structeq(&chanid, &peer->channel_id)) {
-			status_failed(
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
-			    "Wrong channel_id or short_channel_id in %s or %s",
-			    tal_hexstr(trc, &chanid, sizeof(struct channel_id)),
-			    tal_hexstr(trc, &peer->short_channel_ids[REMOTE],
-				       sizeof(struct short_channel_id)));
-		}
-		if (peer->funding_locked[LOCAL]) {
-			send_channel_announcement(peer);
-			send_channel_update(peer, false);
-		}
-	} else if (type == WIRE_CHANNEL_ANNOUNCEMENT ||
-		   type == WIRE_CHANNEL_UPDATE ||
-		   type == WIRE_NODE_ANNOUNCEMENT) {
-		daemon_conn_send(&peer->gossip_client, msg);
+static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg)
+{
+	struct channel_id chanid;
+
+	if (!fromwire_announcement_signatures(msg, NULL,
+					      &chanid,
+					      &peer->short_channel_ids[REMOTE],
+					      &peer->announcement_node_sigs[REMOTE],
+					      &peer->announcement_bitcoin_sigs[REMOTE]))
+		status_failed(WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			      "Bad announcement_signatures %s",
+			      tal_hex(msg, msg));
+
+	/* Make sure we agree on the channel ids */
+	/* FIXME: Check short_channel_id */
+	if (!structeq(&chanid, &peer->channel_id)) {
+		status_failed(WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			      "Wrong channel_id or short_channel_id in %s or %s",
+			      tal_hexstr(trc, &chanid, sizeof(struct channel_id)),
+			      tal_hexstr(trc, &peer->short_channel_ids[REMOTE],
+					 sizeof(struct short_channel_id)));
 	}
 
+	if (peer->funding_locked[LOCAL]) {
+		send_channel_announcement(peer);
+		send_channel_update(peer, false);
+	}
+}
+
+static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
+{
+	struct channel_id channel_id;
+	u64 id;
+	u32 amount_msat;
+	u32 cltv_expiry;
+	struct sha256 payment_hash;
+	u8 onion_routing_packet[1254];
+	enum channel_add_err add_err;
+
+	if (!fromwire_update_add_htlc(msg, NULL, &channel_id, &id, &amount_msat,
+				      &cltv_expiry, &payment_hash,
+				      onion_routing_packet))
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "Bad peer_add_htlc %s", tal_hex(msg, msg));
+
+	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount_msat,
+				   cltv_expiry, &payment_hash,
+				   onion_routing_packet);
+	if (add_err != CHANNEL_ERR_ADD_OK)
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "Bad peer_add_htlc: %u", add_err);
+}
+
+static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
+{
+	enum wire_type type = fromwire_peektype(msg);
+
+	/* Must get funding_locked before almost anything. */
+	if (!peer->funding_locked[REMOTE]) {
+		/* We can get gossup before funging, too */
+		if (type != WIRE_FUNDING_LOCKED
+		    && type != WIRE_CHANNEL_ANNOUNCEMENT
+		    && type != WIRE_CHANNEL_UPDATE
+		    && type != WIRE_NODE_ANNOUNCEMENT) {
+			peer_failed(io_conn_fd(peer->peer_conn),
+				    &peer->pcs.cs,
+				    &peer->channel_id,
+				    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+				    "%s (%u) before funding locked",
+				    wire_type_name(type), type);
+		}
+	}
+
+	switch (type) {
+	case WIRE_FUNDING_LOCKED:
+		handle_peer_funding_locked(peer, msg);
+		goto done;
+	case WIRE_ANNOUNCEMENT_SIGNATURES:
+		handle_peer_announcement_signatures(peer, msg);
+		goto done;
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+	case WIRE_CHANNEL_UPDATE:
+	case WIRE_NODE_ANNOUNCEMENT:
+		/* Forward to gossip daemon */
+		daemon_conn_send(&peer->gossip_client, msg);
+		goto done;
+
+	case WIRE_UPDATE_ADD_HTLC:
+		handle_peer_add_htlc(peer, msg);
+		goto done;
+
+	case WIRE_INIT:
+	case WIRE_ERROR:
+	case WIRE_OPEN_CHANNEL:
+	case WIRE_ACCEPT_CHANNEL:
+	case WIRE_FUNDING_CREATED:
+	case WIRE_FUNDING_SIGNED:
+		goto badmessage;
+
+	case WIRE_SHUTDOWN:
+	case WIRE_CLOSING_SIGNED:
+	case WIRE_UPDATE_FULFILL_HTLC:
+	case WIRE_UPDATE_FAIL_HTLC:
+	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+	case WIRE_COMMITMENT_SIGNED:
+	case WIRE_REVOKE_AND_ACK:
+	case WIRE_UPDATE_FEE:
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "Unimplemented message %u (%s)",
+			    type, wire_type_name(type));
+	}
+
+badmessage:
+	peer_failed(io_conn_fd(peer->peer_conn),
+		    &peer->pcs.cs,
+		    &peer->channel_id,
+		    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+		    "Peer sent unknown message %u (%s)",
+		    type, wire_type_name(type));
+
+done:
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
@@ -279,8 +389,8 @@ static void init_channel(struct peer *peer, const u8 *msg)
 	    &peer->node_ids[LOCAL], &peer->node_ids[REMOTE]);
 
 	/* OK, now we can process peer messages. */
-	io_set_finish(io_new_conn(peer, PEER_FD, setup_peer_conn, peer),
-		      peer_conn_broken, peer);
+	peer->peer_conn = io_new_conn(peer, PEER_FD, setup_peer_conn, peer);
+	io_set_finish(peer->peer_conn, peer_conn_broken, peer);
 }
 
 static void handle_funding_locked(struct peer *peer, const u8 *msg)
