@@ -22,7 +22,7 @@ struct htlc_end *find_htlc_end(const struct htlc_end_map *map,
 			       enum htlc_end_type which_end)
 {
 	const struct htlc_end key = { which_end, (struct peer *)peer, htlc_id,
-				      NULL };
+				      0, NULL, NULL };
 
 	return htlc_end_map_get(map, &key);
 }
