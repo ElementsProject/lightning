@@ -635,6 +635,19 @@ u8 *write_ip(const tal_t *ctx, const char *srcip, int port)
 	}
 }
 
+/* Verify the signature of a channel_update message */
+static bool check_channel_update(const struct pubkey *node_key,
+				 const secp256k1_ecdsa_signature *node_sig,
+				 const u8 *update)
+{
+	/* 2 byte msg type + 64 byte signatures */
+	int offset = 66;
+	struct sha256_double hash;
+	sha256_double(&hash, update + offset, tal_len(update) - offset);
+
+	return check_signed_hash(&hash, node_sig, node_key);
+}
+
 static bool check_channel_announcement(
     const struct pubkey *node1_key, const struct pubkey *node2_key,
     const struct pubkey *bitcoin1_key, const struct pubkey *bitcoin2_key,
@@ -768,6 +781,10 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 		return;
 	} else if (c->last_timestamp >= timestamp) {
 		log_debug(rstate->base_log, "Ignoring outdated update.");
+		tal_free(tmpctx);
+		return;
+	} else if (!check_channel_update(&c->src->id, &signature, serialized)) {
+		log_debug(rstate->base_log, "Signature verification failed.");
 		tal_free(tmpctx);
 		return;
 	}
