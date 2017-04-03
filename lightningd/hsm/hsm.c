@@ -117,6 +117,46 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 	return daemon_conn_read_next(conn, dc);
 }
 
+static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
+						struct daemon_conn *dc)
+{
+	tal_t *ctx = tal_tmpctx(conn);
+	/* First 2 + 256 byte are the signatures and msg type, skip them */
+	size_t offset = 258;
+	struct privkey node_pkey;
+	secp256k1_ecdsa_signature node_sig;
+	struct sha256_double hash;
+	u8 *reply;
+	u8 *ca;
+	struct pubkey bitcoin_id;
+
+	if (!fromwire_hsm_cannouncement_sig_req(ctx, dc->msg_in, NULL,
+						&bitcoin_id, &ca)) {
+		status_trace("Failed to parse cannouncement_sig_req: %s",
+			     tal_hex(trc, dc->msg_in));
+		return io_close(conn);
+	}
+
+	if (tal_len(ca) < offset) {
+		status_trace("bad cannounce length %zu", tal_len(ca));
+		return io_close(conn);
+	}
+
+	/* TODO(cdecker) Check that this is actually a valid
+	 * channel_announcement */
+	node_key(&node_pkey, NULL);
+	sha256_double(&hash, ca + offset, tal_len(ca) - offset);
+
+	sign_hash(&node_pkey, &hash, &node_sig);
+
+	reply = towire_hsm_cannouncement_sig_reply(ca, &node_sig);
+	daemon_conn_send(dc, take(reply));
+
+	tal_free(ctx);
+	return daemon_conn_read_next(conn, dc);
+}
+
+
 static struct io_plan *handle_channeld(struct io_conn *conn,
 				       struct daemon_conn *dc)
 {
@@ -126,8 +166,11 @@ static struct io_plan *handle_channeld(struct io_conn *conn,
 	switch (t) {
 	case WIRE_HSM_ECDH_REQ:
 		return handle_ecdh(conn, dc);
+	case WIRE_HSM_CANNOUNCEMENT_SIG_REQ:
+		return handle_cannouncement_sig(conn, dc);
 
 	case WIRE_HSM_ECDH_RESP:
+	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
 		break;
 	}
 
