@@ -145,9 +145,11 @@ static void send_announcement_signatures(struct peer *peer)
 			      "HSM returned an invalid signature");
 	}
 
-	/* FIXME: Calculate bitcoin sig. */
-	memset(&peer->announcement_bitcoin_sigs[LOCAL], 0,
-	       sizeof(peer->announcement_bitcoin_sigs[LOCAL]));
+	/* TODO(cdecker) Move this to the HSM once we store the
+	 * funding_privkey there */
+	sign_hash(&peer->our_secrets.funding_privkey, &hash,
+		  &peer->announcement_bitcoin_sigs[LOCAL]);
+
 	msg = towire_announcement_signatures(
 	    tmpctx, &peer->channel_id, &peer->short_channel_ids[LOCAL],
 	    &peer->announcement_node_sigs[LOCAL],
