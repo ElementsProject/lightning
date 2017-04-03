@@ -96,6 +96,8 @@ struct peer {
 	u16 channel_direction;
 };
 
+static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
+
 static struct io_plan *gossip_client_recv(struct io_conn *conn,
 					  struct daemon_conn *dc)
 {
@@ -112,15 +114,44 @@ static struct io_plan *gossip_client_recv(struct io_conn *conn,
 
 static void send_announcement_signatures(struct peer *peer)
 {
-	tal_t *tmpctx = tal_tmpctx(peer);
+	/* First 2 + 256 byte are the signatures and msg type, skip them */
+	size_t offset = 258;
+	const tal_t *tmpctx = tal_tmpctx(peer);
+	struct sha256_double hash;
 	u8 *msg;
-	// TODO(cdecker) Use the HSM to generate this signature
-	secp256k1_ecdsa_signature *sig =
-	    talz(tmpctx, secp256k1_ecdsa_signature);
+	u8 *ca = create_channel_announcement(tmpctx, peer);
+	u8 *req = towire_hsm_cannouncement_sig_req(tmpctx,
+						   &peer->channel->funding_pubkey[LOCAL],
+						   ca);
 
-	msg = towire_announcement_signatures(tmpctx, &peer->channel_id,
-					     &peer->short_channel_ids[LOCAL],
-					     sig, sig);
+	if (!wire_sync_write(HSM_FD, req))
+		status_failed(WIRE_CHANNEL_HSM_FAILED,
+			      "Writing cannouncement_sig_req");
+
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!msg || !fromwire_hsm_cannouncement_sig_reply(msg, NULL,
+					  &peer->announcement_node_sigs[LOCAL]))
+		status_failed(WIRE_CHANNEL_HSM_FAILED,
+			      "Reading cannouncement_sig_resp");
+
+	/* Double-check that HSM gave a valid signature. */
+	sha256_double(&hash, ca + offset, tal_len(ca) - offset);
+	if (!check_signed_hash(&hash, &peer->announcement_node_sigs[LOCAL],
+			       &peer->node_ids[LOCAL])) {
+		/* It's ok to fail here, the channel announcement is
+		 * unique, unlike the channel update which may have
+		 * been replaced in the meantime. */
+		status_failed(WIRE_CHANNEL_HSM_FAILED,
+			      "HSM returned an invalid signature");
+	}
+
+	/* FIXME: Calculate bitcoin sig. */
+	memset(&peer->announcement_bitcoin_sigs[LOCAL], 0,
+	       sizeof(peer->announcement_bitcoin_sigs[LOCAL]));
+	msg = towire_announcement_signatures(
+	    tmpctx, &peer->channel_id, &peer->short_channel_ids[LOCAL],
+	    &peer->announcement_node_sigs[LOCAL],
+	    &peer->announcement_bitcoin_sigs[LOCAL]);
 	msg_enqueue(&peer->peer_out, take(msg));
 	tal_free(tmpctx);
 }
@@ -146,12 +177,13 @@ static void send_channel_update(struct peer *peer, bool disabled)
 	tal_free(tmpctx);
 }
 
-/* Now that we have a working channel, tell the world. */
-static void send_channel_announcement(struct peer *peer)
+/* Tentatively create a channel_announcement, possibly with invalid
+ * signatures. The signatures need to be collected first, by asking
+ * the HSM and by exchanging announcement_signature messages. */
+static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer)
 {
-	tal_t *tmpctx = tal_tmpctx(peer);
 	int first, second;
-	u8 *cannounce, *features = tal_arr(peer, u8, 0);
+	u8 *cannounce, *features = tal_arr(ctx, u8, 0);
 
 	if (peer->channel_direction == 0) {
 		first = LOCAL;
@@ -162,17 +194,24 @@ static void send_channel_announcement(struct peer *peer)
 	}
 
 	cannounce = towire_channel_announcement(
-	    tmpctx, &peer->announcement_node_sigs[first],
+	    ctx, &peer->announcement_node_sigs[first],
 	    &peer->announcement_node_sigs[second],
 	    &peer->announcement_bitcoin_sigs[first],
 	    &peer->announcement_bitcoin_sigs[second],
 	    &peer->short_channel_ids[LOCAL], &peer->node_ids[first],
 	    &peer->node_ids[second], &peer->channel->funding_pubkey[first],
 	    &peer->channel->funding_pubkey[second], features);
+	tal_free(features);
+	return cannounce;
+}
 
-	msg_enqueue(&peer->peer_out, cannounce);
-	daemon_conn_send(&peer->gossip_client, take(cannounce));
-	tal_free(tmpctx);
+static void send_channel_announcement(struct peer *peer)
+{
+	u8 *msg = create_channel_announcement(peer, peer);
+	/* Makes a copy */
+	msg_enqueue(&peer->peer_out, msg);
+	/* Takes ownership */
+	daemon_conn_send(&peer->gossip_client, take(msg));
 }
 
 static struct io_plan *peer_out(struct io_conn *conn, struct peer *peer)
