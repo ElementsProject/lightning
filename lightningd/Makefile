@@ -80,6 +80,7 @@ LIGHTNINGD_HEADERS_NOGEN =			\
 	lightningd/hsm_control.h		\
 	lightningd/htlc_end.h			\
 	lightningd/lightningd.h			\
+	lightningd/pay.h			\
 	lightningd/peer_control.h		\
 	lightningd/subd.h			\
 	$(LIGHTNINGD_OLD_LIB_HEADERS)		\
