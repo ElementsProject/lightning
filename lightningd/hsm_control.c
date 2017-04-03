@@ -71,10 +71,12 @@ static int hsm_msg(struct subd *hsm, const u8 *msg, const int *fds)
 	/* HSM doesn't send these */
 	case WIRE_HSMCTL_INIT:
 	case WIRE_HSMCTL_HSMFD_ECDH:
+	case WIRE_HSMCTL_HSMFD_CHANNELD:
 	case WIRE_HSMCTL_SIGN_FUNDING:
 
 	/* Replies should be paired to individual requests. */
 	case WIRE_HSMCTL_INIT_REPLY:
+	case WIRE_HSMCTL_HSMFD_CHANNELD_REPLY:
 	case WIRE_HSMCTL_HSMFD_ECDH_FD_REPLY:
 	case WIRE_HSMCTL_SIGN_FUNDING_REPLY:
 		errx(1, "HSM gave invalid message %s", hsm_wire_type_name(t));

@@ -44,4 +44,9 @@ hsmctl_sign_funding_reply,104
 hsmctl_sign_funding_reply,0,num_sigs,2
 hsmctl_sign_funding_reply,0,sig,num_sigs*secp256k1_ecdsa_signature
 
+# Request a client socket for a `channeld`, allows signing announcements 
+hsmctl_hsmfd_channeld,5
+hsmctl_hsmfd_channeld,0,unique_id,8
 
+# Empty reply, just an fd
+hsmctl_hsmfd_channeld_reply,105

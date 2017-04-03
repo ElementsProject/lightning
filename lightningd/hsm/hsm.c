@@ -117,6 +117,27 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 	return daemon_conn_read_next(conn, dc);
 }
 
+static struct io_plan *handle_channeld(struct io_conn *conn,
+				       struct daemon_conn *dc)
+{
+	struct client *c = container_of(dc, struct client, dc);
+	enum hsm_client_wire_type t = fromwire_peektype(dc->msg_in);
+
+	switch (t) {
+	case WIRE_HSM_ECDH_REQ:
+		return handle_ecdh(conn, dc);
+
+	case WIRE_HSM_ECDH_RESP:
+		break;
+	}
+
+	daemon_conn_send(c->master,
+			 take(towire_hsmstatus_client_bad_request(c,
+								  c->id,
+								  dc->msg_in)));
+	return io_close(conn);
+}
+
 /* Control messages */
 static void send_init_response(struct daemon_conn *master)
 {
@@ -314,6 +335,25 @@ static void pass_hsmfd_ecdh(struct daemon_conn *master, const u8 *msg)
 	daemon_conn_send_fd(master, fds[1]);
 }
 
+/* Reply to an incoming request for an HSMFD for a channeld. */
+static void pass_hsmfd_channeld(struct daemon_conn *master, const u8 *msg)
+{
+	int fds[2];
+	u64 id;
+
+	if (!fromwire_hsmctl_hsmfd_channeld(msg, NULL, &id))
+		status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "bad HSMFD_CHANNELD");
+
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
+		status_failed(WIRE_HSMSTATUS_FD_FAILED,
+			      "creating fds: %s", strerror(errno));
+
+	new_client(master, id, handle_channeld, fds[0]);
+	daemon_conn_send(master,
+			 take(towire_hsmctl_hsmfd_channeld_reply(master)));
+	daemon_conn_send_fd(master, fds[1]);
+}
+
 /* Note that it's the main daemon that asks for the funding signature so it
  * can broadcast it. */
 static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
@@ -390,12 +430,16 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 	case WIRE_HSMCTL_HSMFD_ECDH:
 		pass_hsmfd_ecdh(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
+	case WIRE_HSMCTL_HSMFD_CHANNELD:
+		pass_hsmfd_channeld(master, master->msg_in);
+		return daemon_conn_read_next(conn, master);
 	case WIRE_HSMCTL_SIGN_FUNDING:
 		sign_funding_tx(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
 
 	case WIRE_HSMCTL_INIT_REPLY:
 	case WIRE_HSMCTL_HSMFD_ECDH_FD_REPLY:
+	case WIRE_HSMCTL_HSMFD_CHANNELD_REPLY:
 	case WIRE_HSMCTL_SIGN_FUNDING_REPLY:
 	case WIRE_HSMSTATUS_INIT_FAILED:
 	case WIRE_HSMSTATUS_WRITEMSG_FAILED:
