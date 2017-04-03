@@ -32,6 +32,7 @@
 #include <utils.h>
 #include <version.h>
 #include <wally_bip32.h>
+#include <wire/gen_peer_wire.h>
 #include <wire/wire_io.h>
 
 /* Nobody will ever find it here! */
@@ -156,6 +157,53 @@ static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
 	return daemon_conn_read_next(conn, dc);
 }
 
+static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
+						 struct daemon_conn *dc)
+{
+	tal_t *tmpctx = tal_tmpctx(conn);
+	/* 2 bytes msg type + 64 bytes signature */
+	size_t offset = 66;
+	struct privkey node_pkey;
+	struct sha256_double hash;
+	secp256k1_ecdsa_signature sig;
+	struct short_channel_id scid;
+	u32 timestamp, htlc_minimum_msat, fee_base_msat, fee_proportional_mill;
+	u16 flags, cltv_expiry_delta;
+	u8 *cu;
+
+	if (!fromwire_hsm_cupdate_sig_req(tmpctx, dc->msg_in, NULL, &cu)) {
+		status_trace("Failed to parse %s: %s",
+			     hsm_client_wire_type_name(fromwire_peektype(dc->msg_in)),
+			     tal_hex(trc, dc->msg_in));
+		return io_close(conn);
+	}
+
+	if (!fromwire_channel_update(cu, NULL, &sig, &scid, &timestamp, &flags,
+				     &cltv_expiry_delta, &htlc_minimum_msat,
+				     &fee_base_msat, &fee_proportional_mill)) {
+		status_trace("Failed to parse inner channel_update: %s",
+			     tal_hex(trc, dc->msg_in));
+		return io_close(conn);
+	}
+	if (tal_len(cu) < offset) {
+		status_trace("inner channel_update too short: %s",
+			     tal_hex(trc, dc->msg_in));
+		return io_close(conn);
+	}
+
+	node_key(&node_pkey, NULL);
+	sha256_double(&hash, cu + offset, tal_len(cu) - offset);
+
+	sign_hash(&node_pkey, &hash, &sig);
+
+	cu = towire_channel_update(tmpctx, &sig, &scid, timestamp, flags,
+				   cltv_expiry_delta, htlc_minimum_msat,
+				   fee_base_msat, fee_proportional_mill);
+
+	daemon_conn_send(dc, take(towire_hsm_cupdate_sig_reply(tmpctx, cu)));
+	tal_free(tmpctx);
+	return daemon_conn_read_next(conn, dc);
+}
 
 static struct io_plan *handle_channeld(struct io_conn *conn,
 				       struct daemon_conn *dc)
@@ -168,9 +216,12 @@ static struct io_plan *handle_channeld(struct io_conn *conn,
 		return handle_ecdh(conn, dc);
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REQ:
 		return handle_cannouncement_sig(conn, dc);
+	case WIRE_HSM_CUPDATE_SIG_REQ:
+		return handle_channel_update_sig(conn, dc);
 
 	case WIRE_HSM_ECDH_RESP:
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
+	case WIRE_HSM_CUPDATE_SIG_REPLY:
 		break;
 	}
 
