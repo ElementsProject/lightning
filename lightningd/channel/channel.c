@@ -163,8 +163,9 @@ static void send_channel_update(struct peer *peer, bool disabled)
 	tal_t *tmpctx = tal_tmpctx(peer);
 	u32 timestamp = time_now().ts.tv_sec;
 	u16 flags;
-	u8 *cupdate;
-	// TODO(cdecker) Create a real signature for this update
+	u8 *cupdate, *msg;
+
+	/* Set the signature to empty so that valgrind doesn't complain */
 	secp256k1_ecdsa_signature *sig =
 	    talz(tmpctx, secp256k1_ecdsa_signature);
 
@@ -173,8 +174,18 @@ static void send_channel_update(struct peer *peer, bool disabled)
 	    tmpctx, sig, &peer->short_channel_ids[LOCAL], timestamp, flags, 36,
 	    1, 10, peer->channel->view[LOCAL].feerate_per_kw);
 
-	daemon_conn_send(&peer->gossip_client, take(cupdate));
+	msg = towire_hsm_cupdate_sig_req(tmpctx, cupdate);
 
+	if (!wire_sync_write(HSM_FD, msg))
+		status_failed(WIRE_CHANNEL_HSM_FAILED,
+			      "Writing cupdate_sig_req");
+
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!msg || !fromwire_hsm_cupdate_sig_reply(tmpctx, msg, NULL, &cupdate))
+		status_failed(WIRE_CHANNEL_HSM_FAILED,
+			      "Reading cupdate_sig_req");
+
+	daemon_conn_send(&peer->gossip_client, cupdate);
 	msg_enqueue(&peer->peer_out, cupdate);
 	tal_free(tmpctx);
 }
