@@ -91,6 +91,7 @@ struct peer {
 	struct short_channel_id short_channel_ids[NUM_SIDES];
 	secp256k1_ecdsa_signature announcement_node_sigs[NUM_SIDES];
 	secp256k1_ecdsa_signature announcement_bitcoin_sigs[NUM_SIDES];
+	bool have_sigs[NUM_SIDES];
 
 	/* Which direction of the channel do we control? */
 	u16 channel_direction;
@@ -149,6 +150,8 @@ static void send_announcement_signatures(struct peer *peer)
 	 * funding_privkey there */
 	sign_hash(&peer->our_secrets.funding_privkey, &hash,
 		  &peer->announcement_bitcoin_sigs[LOCAL]);
+
+	peer->have_sigs[LOCAL] = true;
 
 	msg = towire_announcement_signatures(
 	    tmpctx, &peer->channel_id, &peer->short_channel_ids[LOCAL],
@@ -285,7 +288,10 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 					 sizeof(struct short_channel_id)));
 	}
 
-	if (peer->funding_locked[LOCAL]) {
+	peer->have_sigs[REMOTE] = true;
+
+	/* We have the remote sigs, do we have the local ones as well? */
+	if (peer->funding_locked[LOCAL] && peer->have_sigs[LOCAL]) {
 		send_channel_announcement(peer);
 		send_channel_update(peer, false);
 	}
@@ -979,8 +985,6 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 	peer->funding_locked[LOCAL] = true;
 
 	if (peer->funding_locked[REMOTE]) {
-		send_channel_announcement(peer);
-		send_channel_update(peer, false);
 		daemon_conn_send(&peer->master,
 				 take(towire_channel_normal_operation(peer)));
 	}
@@ -990,6 +994,13 @@ static void handle_funding_announce_depth(struct peer *peer, const u8 *msg)
 {
 	status_trace("Exchanging announcement signatures.");
 	send_announcement_signatures(peer);
+
+	/* Only send the announcement and update if the other end gave
+	 * us its sig */
+	if (peer->have_sigs[REMOTE]) {
+		send_channel_announcement(peer);
+		send_channel_update(peer, false);
+	}
 }
 
 static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
@@ -1205,6 +1216,7 @@ int main(int argc, char *argv[])
 	timers_init(&peer->timers, time_mono());
 	peer->commit_timer = NULL;
 	peer->commit_index[LOCAL] = peer->commit_index[REMOTE] = 0;
+	peer->have_sigs[LOCAL] = peer->have_sigs[REMOTE] = false;
 	shachain_init(&peer->their_shachain);
 
 	status_setup_async(&peer->master);
