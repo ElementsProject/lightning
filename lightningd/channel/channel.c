@@ -236,6 +236,7 @@ static struct io_plan *peer_out(struct io_conn *conn, struct peer *peer)
 	if (!out)
 		return msg_queue_wait(conn, &peer->peer_out, peer_out, peer);
 
+	status_trace("peer_out %s", wire_type_name(fromwire_peektype(out)));
 	return peer_write_message(conn, &peer->pcs, out, peer_out);
 }
 
@@ -821,6 +822,7 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
+	status_trace("peer_in %s", wire_type_name(type));
 
 	/* Must get funding_locked before almost anything. */
 	if (!peer->funding_locked[REMOTE]) {
