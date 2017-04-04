@@ -1,0 +1,7 @@
+language: c
+dist: trusty
+sudo: true
+
+# Trusty (aka 14.04) is way way too old, so run in docker...
+script:
+  - tools/travis.sh
