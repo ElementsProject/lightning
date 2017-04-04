@@ -6,7 +6,11 @@ You will need several development libraries:
 * protobuf-c: version 1.1.0 or above.
 * libsqlite3: for database support.
 * libgmp: for secp256k1
-* asciidoc: for formatting the man page (if you change them)
+
+For actually doing development and running the tests, you will also need:
+* pip3: to install python-bitcoinlib
+* asciidoc: for formatting the man pages (if you change them)
+* valgrind: for extra debugging checks
 
 You will also need a version of bitcoind with segregated witness support,
 such as the 0.13 or above.
@@ -16,7 +20,12 @@ To Build on Ubuntu 16.04
 
 Get dependencies:
 ```
-sudo apt-get install autoconf libtool libprotobuf-c-dev libsqlite3-dev libgmp-dev libsqlite3-dev asciidoc
+sudo apt-get install autoconf libtool libprotobuf-c-dev libsqlite3-dev libgmp-dev libsqlite3-dev
+```
+
+For development or running tests, get additional dependencies:
+```
+sudo apt-get asciidoc valgrind pip3 && pip3 install python-bitcoinlib
 ```
 
 Clone lightning:
