@@ -149,10 +149,18 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Normal operation')
         l2.daemon.wait_for_log('Normal operation')
 
-        time.sleep(1)
+        l1.daemon.wait_for_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
+        l1.daemon.wait_for_log('peer_in WIRE_ANNOUNCEMENT_SIGNATURES')
+
+        l1.daemon.wait_for_log('peer_out WIRE_CHANNEL_ANNOUNCEMENT')
+        l1.daemon.wait_for_log('peer_in WIRE_CHANNEL_ANNOUNCEMENT')
 
         nodes = l1.rpc.getnodes()['nodes']
         assert set([n['nodeid'] for n in nodes]) == set([l1.info['id'], l2.info['id']])
+
+        channels = l1.rpc.getchannels()['channels']
+        assert len(channels) == 2
+        assert [c['active'] for c in channels] == [True, True]
 
 class LegacyLightningDTests(BaseLightningDTests):
 
