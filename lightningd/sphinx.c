@@ -328,9 +328,35 @@ static struct hop_params *generate_hop_params(
 	return params;
 }
 
+static void serialize_hop_data(tal_t *ctx, u8 *dst, const struct hop_data *data)
+{
+	u8 *buf = tal_arr(ctx, u8, 0);
+	towire_u8(&buf, data->realm);
+	towire_short_channel_id(&buf, &data->channel_id);
+	towire_u32(&buf, data->amt_forward);
+	towire_u32(&buf, data->outgoing_cltv);
+	towire_pad(&buf, 16);
+	towire(&buf, data->hmac, SECURITY_PARAMETER);
+	memcpy(dst, buf, tal_len(buf));
+	tal_free(buf);
+}
+
+static void deserialize_hop_data(struct hop_data *data, const u8 *src)
+{
+	const u8 *cursor = src;
+	size_t max = HOP_DATA_SIZE;
+	data->realm = fromwire_u8(&cursor, &max);
+	fromwire_short_channel_id(&cursor, &max, &data->channel_id);
+	data->amt_forward = fromwire_u32(&cursor, &max);
+	data->outgoing_cltv = fromwire_u32(&cursor, &max);
+	fromwire_pad(&cursor, &max, 16);
+	fromwire(&cursor, &max, &data->hmac, SECURITY_PARAMETER);
+}
+
 struct onionpacket *create_onionpacket(
 	const tal_t *ctx,
 	struct pubkey *path,
+	struct hop_data hops_data[],
 	const u8 *sessionkey,
 	const u8 *assocdata,
 	const size_t assocdatalen
@@ -338,7 +364,7 @@ struct onionpacket *create_onionpacket(
 {
 	struct onionpacket *packet = talz(ctx, struct onionpacket);
 	int i, num_hops = tal_count(path);
-	u8 filler[2 * (num_hops - 1) * SECURITY_PARAMETER];
+	u8 filler[(num_hops - 1) * HOP_DATA_SIZE];
 	struct keyset keys;
 	u8 nextaddr[20], nexthmac[SECURITY_PARAMETER];
 	u8 stream[ROUTING_INFO_SIZE];
@@ -351,22 +377,22 @@ struct onionpacket *create_onionpacket(
 	memset(nexthmac, 0, 20);
 	memset(packet->routinginfo, 0, ROUTING_INFO_SIZE);
 
-	generate_header_padding(filler, sizeof(filler), 2 * SECURITY_PARAMETER,
+	generate_header_padding(filler, sizeof(filler), HOP_DATA_SIZE,
 				"rho", 3, num_hops, params);
 
 	for (i = num_hops - 1; i >= 0; i--) {
+		memcpy(hops_data[i].hmac, nexthmac, SECURITY_PARAMETER);
 		generate_key_set(params[i].secret, &keys);
 		generate_cipher_stream(stream, keys.rho, ROUTING_INFO_SIZE);
 
 		/* Rightshift mix-header by 2*SECURITY_PARAMETER */
-		memmove(packet->routinginfo + 2 * SECURITY_PARAMETER, packet->routinginfo,
-			ROUTING_INFO_SIZE - 2 * SECURITY_PARAMETER);
-		memcpy(packet->routinginfo, nextaddr, SECURITY_PARAMETER);
-		memcpy(packet->routinginfo + SECURITY_PARAMETER, nexthmac, SECURITY_PARAMETER);
+		memmove(packet->routinginfo + HOP_DATA_SIZE, packet->routinginfo,
+			ROUTING_INFO_SIZE - HOP_DATA_SIZE);
+		serialize_hop_data(packet, packet->routinginfo, &hops_data[i]);
 		xorbytes(packet->routinginfo, packet->routinginfo, stream, ROUTING_INFO_SIZE);
 
 		if (i == num_hops - 1) {
-			size_t len = (NUM_MAX_HOPS - num_hops + 1) * 2 * SECURITY_PARAMETER;
+			size_t len = (NUM_MAX_HOPS - num_hops + 1) * HOP_DATA_SIZE;
 			memcpy(packet->routinginfo + len, filler, sizeof(filler));
 		}
 
@@ -396,7 +422,7 @@ struct route_step *process_onionpacket(
 	struct keyset keys;
 	u8 blind[BLINDING_FACTOR_SIZE];
 	u8 stream[NUM_STREAM_BYTES];
-	u8 paddedheader[ROUTING_INFO_SIZE + 2 * SECURITY_PARAMETER];
+	u8 paddedheader[ROUTING_INFO_SIZE + HOP_DATA_SIZE];
 
 	step->next = talz(step, struct onionpacket);
 	step->next->version = msg->version;
@@ -419,12 +445,12 @@ struct route_step *process_onionpacket(
 	compute_blinding_factor(&msg->ephemeralkey, shared_secret, blind);
 	if (!blind_group_element(&step->next->ephemeralkey, &msg->ephemeralkey, blind))
 		return tal_free(step);
-	memcpy(&step->next->nexthop, paddedheader, SECURITY_PARAMETER);
-	memcpy(&step->next->mac,
-	       paddedheader + SECURITY_PARAMETER,
-	       SECURITY_PARAMETER);
 
-	memcpy(&step->next->routinginfo, paddedheader + 2 * SECURITY_PARAMETER, ROUTING_INFO_SIZE);
+	deserialize_hop_data(&step->hop_data, paddedheader);
+
+        memcpy(&step->next->mac, step->hop_data.hmac, SECURITY_PARAMETER);
+
+	memcpy(&step->next->routinginfo, paddedheader + HOP_DATA_SIZE, ROUTING_INFO_SIZE);
 
 	if (memeqzero(step->next->mac, sizeof(step->next->mac))) {
 		step->nextcase = ONION_END;

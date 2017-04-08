@@ -9,11 +9,12 @@
 #include <ccan/tal/tal.h>
 #include <secp256k1.h>
 #include <sodium/randombytes.h>
+#include <wire/wire.h>
 
 #define SECURITY_PARAMETER 20
 #define NUM_MAX_HOPS 20
-#define HOP_DATA_SIZE 40
-#define ROUTING_INFO_SIZE (HOP_DATA_SIZE * SECURITY_PARAMETER)
+#define HOP_DATA_SIZE 53
+#define ROUTING_INFO_SIZE (HOP_DATA_SIZE * NUM_MAX_HOPS)
 #define TOTAL_PACKET_SIZE (1 + 33 + SECURITY_PARAMETER + ROUTING_INFO_SIZE)
 
 struct onionpacket {
@@ -34,23 +35,35 @@ enum route_next_case {
 
 /* BOLT #4:
  *
- * The format of the per-hop-payload for a version 0 packet is as follows:
+ * The hops_data field is a structure that holds obfuscated versions of the next hop's address, transfer information and the associated HMAC. It is 1060 bytes long, and has the following structure:
+
 ```
-+----------------+--------------------------+-------------------------------+--------------------------------------------+
-| realm (1 byte) | amt_to_forward (8 bytes) | outgoing_cltv_value (4 bytes) | unused_with_v0_version_on_header (7 bytes) |
-+----------------+--------------------------+-------------------------------+--------------------------------------------+
++-----------+-------------+----------+-----------+-------------+----------+-----------+
+| n_1 realm | n_1 per-hop | n_1 HMAC | n_2 realm | n_2 per-hop | n_2 HMAC | ...filler |
++-----------+-------------+----------+----------+--------------+----------+------------+
+```
+
+The realm byte determines the format of the per-hop; so far only realm 0 is defined, and for that, the per-hop format is:
+
+```
++----------------------+--------------------------+-------------------------------+--------------------+
+| channel_id (8 bytes) | amt_to_forward (4 bytes) | outgoing_cltv_value (4 bytes) | padding (16 bytes) |
++----------------------+--------------------------+-------------------------------+--------------------+
 ```
 */
-struct hoppayload {
+struct hop_data {
 	u8 realm;
-	u64 amt_to_forward;
-	u32 outgoing_cltv_value;
-	u8 unused_with_v0_version_on_header[7];
+	struct short_channel_id channel_id;
+	u32 amt_forward;
+	u32 outgoing_cltv;
+	/* Padding omitted, will be zeroed */
+	u8 hmac[SECURITY_PARAMETER];
 };
 
 struct route_step {
 	enum route_next_case nextcase;
 	struct onionpacket *next;
+	struct hop_data hop_data;
 };
 
 /**
@@ -69,6 +82,7 @@ struct route_step {
 struct onionpacket *create_onionpacket(
 	const tal_t * ctx,
 	struct pubkey path[],
+	struct hop_data hops_data[],
 	const u8 * sessionkey,
 	const u8 *assocdata,
 	const size_t assocdatalen

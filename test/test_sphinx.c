@@ -42,6 +42,7 @@ int main(int argc, char **argv)
 		struct pubkey *path = tal_arr(ctx, struct pubkey, num_hops);
 		u8 privkeys[argc - 1][32];
 		u8 sessionkey[32];
+		struct hop_data hops_data[num_hops];
 
 		memset(&sessionkey, 'A', sizeof(sessionkey));
 
@@ -52,9 +53,13 @@ int main(int argc, char **argv)
 				return 1;
 		}
 
+		for (i=0; i<num_hops; i++) {
+			memset(&hops_data[i], 'A', sizeof(hops_data[i]));
+		}
 
 		struct onionpacket *res = create_onionpacket(ctx,
 							     path,
+							     hops_data,
 							     sessionkey,
 							     assocdata,
 							     sizeof(assocdata));
