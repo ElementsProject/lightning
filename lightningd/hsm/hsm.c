@@ -32,6 +32,7 @@
 #include <utils.h>
 #include <version.h>
 #include <wally_bip32.h>
+#include <wire/gen_peer_wire.h>
 #include <wire/wire_io.h>
 
 /* Nobody will ever find it here! */
@@ -115,6 +116,120 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 
 	daemon_conn_send(dc, take(towire_hsm_ecdh_resp(c, &ss)));
 	return daemon_conn_read_next(conn, dc);
+}
+
+static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
+						struct daemon_conn *dc)
+{
+	tal_t *ctx = tal_tmpctx(conn);
+	/* First 2 + 256 byte are the signatures and msg type, skip them */
+	size_t offset = 258;
+	struct privkey node_pkey;
+	secp256k1_ecdsa_signature node_sig;
+	struct sha256_double hash;
+	u8 *reply;
+	u8 *ca;
+	struct pubkey bitcoin_id;
+
+	if (!fromwire_hsm_cannouncement_sig_req(ctx, dc->msg_in, NULL,
+						&bitcoin_id, &ca)) {
+		status_trace("Failed to parse cannouncement_sig_req: %s",
+			     tal_hex(trc, dc->msg_in));
+		return io_close(conn);
+	}
+
+	if (tal_len(ca) < offset) {
+		status_trace("bad cannounce length %zu", tal_len(ca));
+		return io_close(conn);
+	}
+
+	/* TODO(cdecker) Check that this is actually a valid
+	 * channel_announcement */
+	node_key(&node_pkey, NULL);
+	sha256_double(&hash, ca + offset, tal_len(ca) - offset);
+
+	sign_hash(&node_pkey, &hash, &node_sig);
+
+	reply = towire_hsm_cannouncement_sig_reply(ca, &node_sig);
+	daemon_conn_send(dc, take(reply));
+
+	tal_free(ctx);
+	return daemon_conn_read_next(conn, dc);
+}
+
+static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
+						 struct daemon_conn *dc)
+{
+	tal_t *tmpctx = tal_tmpctx(conn);
+	/* 2 bytes msg type + 64 bytes signature */
+	size_t offset = 66;
+	struct privkey node_pkey;
+	struct sha256_double hash;
+	secp256k1_ecdsa_signature sig;
+	struct short_channel_id scid;
+	u32 timestamp, htlc_minimum_msat, fee_base_msat, fee_proportional_mill;
+	u16 flags, cltv_expiry_delta;
+	u8 *cu;
+
+	if (!fromwire_hsm_cupdate_sig_req(tmpctx, dc->msg_in, NULL, &cu)) {
+		status_trace("Failed to parse %s: %s",
+			     hsm_client_wire_type_name(fromwire_peektype(dc->msg_in)),
+			     tal_hex(trc, dc->msg_in));
+		return io_close(conn);
+	}
+
+	if (!fromwire_channel_update(cu, NULL, &sig, &scid, &timestamp, &flags,
+				     &cltv_expiry_delta, &htlc_minimum_msat,
+				     &fee_base_msat, &fee_proportional_mill)) {
+		status_trace("Failed to parse inner channel_update: %s",
+			     tal_hex(trc, dc->msg_in));
+		return io_close(conn);
+	}
+	if (tal_len(cu) < offset) {
+		status_trace("inner channel_update too short: %s",
+			     tal_hex(trc, dc->msg_in));
+		return io_close(conn);
+	}
+
+	node_key(&node_pkey, NULL);
+	sha256_double(&hash, cu + offset, tal_len(cu) - offset);
+
+	sign_hash(&node_pkey, &hash, &sig);
+
+	cu = towire_channel_update(tmpctx, &sig, &scid, timestamp, flags,
+				   cltv_expiry_delta, htlc_minimum_msat,
+				   fee_base_msat, fee_proportional_mill);
+
+	daemon_conn_send(dc, take(towire_hsm_cupdate_sig_reply(tmpctx, cu)));
+	tal_free(tmpctx);
+	return daemon_conn_read_next(conn, dc);
+}
+
+static struct io_plan *handle_channeld(struct io_conn *conn,
+				       struct daemon_conn *dc)
+{
+	struct client *c = container_of(dc, struct client, dc);
+	enum hsm_client_wire_type t = fromwire_peektype(dc->msg_in);
+
+	switch (t) {
+	case WIRE_HSM_ECDH_REQ:
+		return handle_ecdh(conn, dc);
+	case WIRE_HSM_CANNOUNCEMENT_SIG_REQ:
+		return handle_cannouncement_sig(conn, dc);
+	case WIRE_HSM_CUPDATE_SIG_REQ:
+		return handle_channel_update_sig(conn, dc);
+
+	case WIRE_HSM_ECDH_RESP:
+	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
+	case WIRE_HSM_CUPDATE_SIG_REPLY:
+		break;
+	}
+
+	daemon_conn_send(c->master,
+			 take(towire_hsmstatus_client_bad_request(c,
+								  c->id,
+								  dc->msg_in)));
+	return io_close(conn);
 }
 
 /* Control messages */
@@ -314,6 +429,25 @@ static void pass_hsmfd_ecdh(struct daemon_conn *master, const u8 *msg)
 	daemon_conn_send_fd(master, fds[1]);
 }
 
+/* Reply to an incoming request for an HSMFD for a channeld. */
+static void pass_hsmfd_channeld(struct daemon_conn *master, const u8 *msg)
+{
+	int fds[2];
+	u64 id;
+
+	if (!fromwire_hsmctl_hsmfd_channeld(msg, NULL, &id))
+		status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "bad HSMFD_CHANNELD");
+
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
+		status_failed(WIRE_HSMSTATUS_FD_FAILED,
+			      "creating fds: %s", strerror(errno));
+
+	new_client(master, id, handle_channeld, fds[0]);
+	daemon_conn_send(master,
+			 take(towire_hsmctl_hsmfd_channeld_reply(master)));
+	daemon_conn_send_fd(master, fds[1]);
+}
+
 /* Note that it's the main daemon that asks for the funding signature so it
  * can broadcast it. */
 static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
@@ -390,12 +524,16 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 	case WIRE_HSMCTL_HSMFD_ECDH:
 		pass_hsmfd_ecdh(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
+	case WIRE_HSMCTL_HSMFD_CHANNELD:
+		pass_hsmfd_channeld(master, master->msg_in);
+		return daemon_conn_read_next(conn, master);
 	case WIRE_HSMCTL_SIGN_FUNDING:
 		sign_funding_tx(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
 
 	case WIRE_HSMCTL_INIT_REPLY:
 	case WIRE_HSMCTL_HSMFD_ECDH_FD_REPLY:
+	case WIRE_HSMCTL_HSMFD_CHANNELD_REPLY:
 	case WIRE_HSMCTL_SIGN_FUNDING_REPLY:
 	case WIRE_HSMSTATUS_INIT_FAILED:
 	case WIRE_HSMSTATUS_WRITEMSG_FAILED:

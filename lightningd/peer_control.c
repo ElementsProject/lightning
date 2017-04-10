@@ -953,8 +953,8 @@ static void peer_start_channeld(struct peer *peer, enum side funder,
 
 	/* Get fd from hsm. */
 	subd_req(peer, peer->ld->hsm,
-		 take(towire_hsmctl_hsmfd_ecdh(peer, peer->unique_id)), -1, 1,
-		 peer_start_channeld_hsmfd, cds);
+		 take(towire_hsmctl_hsmfd_channeld(peer, peer->unique_id)),
+		 -1, 1, peer_start_channeld_hsmfd, cds);
 }
 
 static bool opening_release_tx(struct subd *opening, const u8 *resp,

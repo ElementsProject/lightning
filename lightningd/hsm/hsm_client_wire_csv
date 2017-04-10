@@ -3,3 +3,19 @@ hsm_ecdh_req,1
 hsm_ecdh_req,0,point,33
 hsm_ecdh_resp,100
 hsm_ecdh_resp,0,ss,32
+
+hsm_cannouncement_sig_req,2
+hsm_cannouncement_sig_req,0,bitcoin_id,struct pubkey
+hsm_cannouncement_sig_req,33,calen,u16
+hsm_cannouncement_sig_req,35,ca,calen
+
+hsm_cannouncement_sig_reply,102
+hsm_cannouncement_sig_reply,0,node_signature,64
+
+hsm_cupdate_sig_req,3
+hsm_cupdate_sig_req,0,culen,u16
+hsm_cupdate_sig_req,2,cu,culen
+
+hsm_cupdate_sig_reply,103
+hsm_cupdate_sig_reply,0,culen,u16
+hsm_cupdate_sig_reply,2,cu,culen

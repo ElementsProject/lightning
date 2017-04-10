@@ -635,6 +635,39 @@ u8 *write_ip(const tal_t *ctx, const char *srcip, int port)
 	}
 }
 
+/* Verify the signature of a channel_update message */
+static bool check_channel_update(const struct pubkey *node_key,
+				 const secp256k1_ecdsa_signature *node_sig,
+				 const u8 *update)
+{
+	/* 2 byte msg type + 64 byte signatures */
+	int offset = 66;
+	struct sha256_double hash;
+	sha256_double(&hash, update + offset, tal_len(update) - offset);
+
+	return check_signed_hash(&hash, node_sig, node_key);
+}
+
+static bool check_channel_announcement(
+    const struct pubkey *node1_key, const struct pubkey *node2_key,
+    const struct pubkey *bitcoin1_key, const struct pubkey *bitcoin2_key,
+    const secp256k1_ecdsa_signature *node1_sig,
+    const secp256k1_ecdsa_signature *node2_sig,
+    const secp256k1_ecdsa_signature *bitcoin1_sig,
+    const secp256k1_ecdsa_signature *bitcoin2_sig, const u8 *announcement)
+{
+	/* 2 byte msg type + 256 byte signatures */
+	int offset = 258;
+	struct sha256_double hash;
+	sha256_double(&hash, announcement + offset,
+		      tal_len(announcement) - offset);
+
+	return check_signed_hash(&hash, node1_sig, node1_key) &&
+	       check_signed_hash(&hash, node2_sig, node2_key) &&
+	       check_signed_hash(&hash, bitcoin1_sig, bitcoin1_key) &&
+	       check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key);
+}
+
 void handle_channel_announcement(
 	struct routing_state *rstate,
 	const u8 *announce, size_t len)
@@ -667,7 +700,6 @@ void handle_channel_announcement(
 	}
 
 	// FIXME: Check features!
-	//FIXME(cdecker) Check signatures, when the spec is settled
 	//FIXME(cdecker) Check chain topology for the anchor TX
 
 	log_debug(rstate->base_log,
@@ -676,6 +708,17 @@ void handle_channel_announcement(
 		  short_channel_id.txnum,
 		  short_channel_id.outnum
 		);
+
+	if (!check_channel_announcement(&node_id_1, &node_id_2, &bitcoin_key_1,
+					&bitcoin_key_2, &node_signature_1,
+					&node_signature_2, &bitcoin_signature_1,
+					&bitcoin_signature_2, serialized)) {
+		log_debug(
+		    rstate->base_log,
+		    "Signature verification of channel announcement failed");
+		tal_free(tmpctx);
+		return;
+	}
 
 	forward |= add_channel_direction(rstate, &node_id_1, &node_id_2,
 					 &short_channel_id, serialized);
@@ -738,6 +781,10 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 		return;
 	} else if (c->last_timestamp >= timestamp) {
 		log_debug(rstate->base_log, "Ignoring outdated update.");
+		tal_free(tmpctx);
+		return;
+	} else if (!check_channel_update(&c->src->id, &signature, serialized)) {
+		log_debug(rstate->base_log, "Signature verification failed.");
 		tal_free(tmpctx);
 		return;
 	}
