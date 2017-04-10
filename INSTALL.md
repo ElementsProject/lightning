@@ -25,7 +25,7 @@ sudo apt-get install autoconf libtool libprotobuf-c-dev libsqlite3-dev libgmp-de
 
 For development or running tests, get additional dependencies:
 ```
-sudo apt-get asciidoc valgrind pip3 && pip3 install python-bitcoinlib
+sudo apt-get install asciidoc valgrind pip3 && pip3 install python-bitcoinlib
 ```
 
 Clone lightning:
