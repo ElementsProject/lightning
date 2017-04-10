@@ -368,14 +368,13 @@ struct onionpacket *create_onionpacket(
 	int i, num_hops = tal_count(path);
 	u8 filler[(num_hops - 1) * HOP_DATA_SIZE];
 	struct keyset keys;
-	u8 nextaddr[20], nexthmac[SECURITY_PARAMETER];
+	u8 nexthmac[SECURITY_PARAMETER];
 	u8 stream[ROUTING_INFO_SIZE];
 	struct hop_params *params = generate_hop_params(ctx, sessionkey, path);
 
 	if (!params)
 		return NULL;
 	packet->version = 1;
-	memset(nextaddr, 0, 20);
 	memset(nexthmac, 0, 20);
 	memset(packet->routinginfo, 0, ROUTING_INFO_SIZE);
 
@@ -400,7 +399,6 @@ struct onionpacket *create_onionpacket(
 
 		compute_packet_hmac(packet, assocdata, assocdatalen, keys.mu,
 				    nexthmac);
-		pubkey_hash160(nextaddr, &path[i]);
 	}
 	memcpy(packet->mac, nexthmac, sizeof(nexthmac));
 	memcpy(&packet->ephemeralkey, &params[0].ephemeralkey, sizeof(secp256k1_pubkey));

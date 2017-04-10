@@ -20,7 +20,6 @@
 struct onionpacket {
 	/* Cleartext information */
 	u8 version;
-	u8 nexthop[20];
 	u8 mac[20];
 	secp256k1_pubkey ephemeralkey;
 
