@@ -16,7 +16,7 @@ PREFIX=$EATMYDATA
 
 # Always use valgrind if available (unless NO_VALGRIND=1 set)
 if which valgrind >/dev/null; then :; else NO_VALGRIND=1; fi
-[ -n "$NO_VALGRIND" ] || PREFIX="$EATMYDATA valgrind -q --error-exitcode=7"
+[ -n "$NO_VALGRIND" ] || PREFIX="$EATMYDATA valgrind -q $VG_TRACE_CHILDREN --trace-children-skip=*bitcoin-cli* --error-exitcode=7"
 
 # We inject 0.01 bitcoin, but then fees (estimatefee fails and we use a
 # fee rate as per the default).
