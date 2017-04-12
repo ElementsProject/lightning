@@ -77,3 +77,13 @@ gossip_getchannels_request,7
 gossip_getchannels_reply,107
 gossip_getchannels_reply,0,num_channels,u16
 gossip_getchannels_reply,2,nodes,num_channels*struct gossip_getchannels_entry
+
+# Ping/pong test.
+gossip_ping,8
+gossip_ping,0,unique_id,u64
+gossip_ping,0,num_pong_bytes,u16
+gossip_ping,0,len,u16
+
+gossip_ping_reply,108
+gossip_ping_reply,0,totlen,u16
+
