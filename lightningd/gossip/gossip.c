@@ -21,6 +21,7 @@
 #include <lightningd/debug.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/gossip_msg.h>
+#include <lightningd/ping.h>
 #include <lightningd/status.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/randombytes.h>
@@ -168,6 +169,20 @@ static void handle_gossip_msg(struct routing_state *rstate, u8 *msg)
 	}
 }
 
+static bool handle_ping(struct peer *peer, u8 *ping)
+{
+	u8 *pong;
+
+	if (!check_ping_make_pong(peer, ping, &pong)) {
+		peer->error = "Bad ping";
+		return false;
+	}
+
+	if (pong)
+		msg_enqueue(&peer->peer_out, take(pong));
+	return true;
+}
+
 static struct io_plan *peer_msgin(struct io_conn *conn,
 				  struct peer *peer, u8 *msg)
 {
@@ -188,6 +203,21 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 
 	case WIRE_INIT:
 		peer->error = "Duplicate INIT message received";
+		return io_close(conn);
+
+	case WIRE_PING:
+		if (!handle_ping(peer, msg))
+			return io_close(conn);
+		return peer_read_message(conn, &peer->pcs, peer_msgin);
+
+	case WIRE_PONG:
+		/* BOLT #1:
+		 *
+		 * A node receiving a `pong` message MAY fail the channels if
+		 * `byteslen` does not correspond to any `ping`
+		 * `num_pong_bytes` value it has sent.
+		 */
+		peer->error = "Unexpected pong received";
 		return io_close(conn);
 
 	case WIRE_OPEN_CHANNEL:
