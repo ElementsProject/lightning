@@ -608,6 +608,10 @@ int main(int argc, char *argv[])
 	/* stdin == control */
 	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req);
 	status_setup_async(&daemon->master);
+
+	/* When conn closes, everything is freed. */
+	tal_steal(daemon->master.conn, daemon);
+
 	for (;;) {
 		struct timer *expired = NULL;
 		io_loop(&daemon->timers, &expired);
@@ -618,8 +622,6 @@ int main(int argc, char *argv[])
 			timer_expired(daemon, expired);
 		}
 	}
-
-	tal_free(daemon);
 	return 0;
 }
 #endif
