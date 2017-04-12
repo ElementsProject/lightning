@@ -20,6 +20,25 @@ start_lightningd 2 lightningd/lightningd
 
 lcli1 connect localhost $PORT2 $ID2
 
+# Gossipd pings.
+# 0-byte pong gives just type + length field.
+[ `lcli1 dev-ping $ID2 0 0 | get_field totlen` = 4 ]
+
+# 1000-byte ping, 0-byte pong.
+[ `lcli1 dev-ping $ID2 1000 0 | get_field totlen` = 4 ]
+
+# 1000 byte pong.
+[ `lcli1 dev-ping $ID2 1000 1000 | get_field totlen` = 1004 ]
+
+# Maximum length pong.
+[ `lcli1 dev-ping $ID2 1000 65531 | get_field totlen` = 65535 ]
+
+# Overlength -> no reply.
+[ `lcli1 dev-ping $ID2 1000 65532 | get_field totlen` = 0 ]
+[ `lcli1 dev-ping $ID2 1000 65533 | get_field totlen` = 0 ]
+[ `lcli1 dev-ping $ID2 1000 65534 | get_field totlen` = 0 ]
+[ `lcli1 dev-ping $ID2 1000 65535 | get_field totlen` = 0 ]
+
 add_funds lcli1 0.2
 
 # Now fund the channels

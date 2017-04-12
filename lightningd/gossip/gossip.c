@@ -75,6 +75,9 @@ struct peer {
 	/* The peer owner will use this to talk to gossipd */
 	struct daemon_conn owner_conn;
 
+	/* How many pongs are we expecting? */
+	size_t num_pings_outstanding;
+
 	/* Are we the owner of the peer? */
 	bool local;
 };
@@ -103,6 +106,7 @@ static struct peer *setup_new_peer(struct daemon *daemon, const u8 *msg)
 	peer->daemon = daemon;
 	peer->error = NULL;
 	peer->local = true;
+	peer->num_pings_outstanding = 0;
 	msg_queue_init(&peer->peer_out, peer);
 	list_add_tail(&daemon->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
@@ -183,6 +187,27 @@ static bool handle_ping(struct peer *peer, u8 *ping)
 	return true;
 }
 
+static bool handle_pong(struct peer *peer, const u8 *pong)
+{
+	u8 *ignored;
+
+	status_trace("Got pong!");
+	if (!fromwire_pong(pong, pong, NULL, &ignored)) {
+		peer->error = "pad pong";
+		return false;
+	}
+
+	if (!peer->num_pings_outstanding) {
+		peer->error = "unexpected pong";
+		return false;
+	}
+
+	peer->num_pings_outstanding--;
+	daemon_conn_send(&peer->daemon->master,
+			 take(towire_gossip_ping_reply(pong, tal_len(pong))));
+	return true;
+}
+
 static struct io_plan *peer_msgin(struct io_conn *conn,
 				  struct peer *peer, u8 *msg)
 {
@@ -211,14 +236,9 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		return peer_read_message(conn, &peer->pcs, peer_msgin);
 
 	case WIRE_PONG:
-		/* BOLT #1:
-		 *
-		 * A node receiving a `pong` message MAY fail the channels if
-		 * `byteslen` does not correspond to any `ping`
-		 * `num_pong_bytes` value it has sent.
-		 */
-		peer->error = "Unexpected pong received";
-		return io_close(conn);
+		if (!handle_pong(peer, msg))
+			return io_close(conn);
+		return peer_read_message(conn, &peer->pcs, peer_msgin);
 
 	case WIRE_OPEN_CHANNEL:
 	case WIRE_ACCEPT_CHANNEL:
@@ -438,6 +458,16 @@ static struct io_plan *new_peer(struct io_conn *conn, struct daemon *daemon,
 	return io_recv_fd(conn, &peer->fd, new_peer_got_fd, peer);
 }
 
+static struct peer *find_peer(struct daemon *daemon, u64 unique_id)
+{
+	struct peer *peer;
+
+	list_for_each(&daemon->peers, peer, list)
+		if (peer->unique_id == unique_id)
+			return peer;
+	return NULL;
+}
+
 static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 				    const u8 *msg)
 {
@@ -448,18 +478,17 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 		status_failed(WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST,
 			      "%s", tal_hex(trc, msg));
 
-	list_for_each(&daemon->peers, peer, list) {
-		if (peer->unique_id == unique_id) {
-			send_peer_with_fds(peer,
+	peer = find_peer(daemon, unique_id);
+	if (!peer)
+		status_failed(WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST,
+			      "Unknown peer %"PRIu64, unique_id);
+
+	send_peer_with_fds(peer,
 			   take(towire_gossipctl_release_peer_reply(msg,
 								unique_id,
 								&peer->pcs.cs)));
-			io_close_taken_fd(peer->conn);
-			return daemon_conn_read_next(conn, &daemon->master);
-		}
-	}
-	status_failed(WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST,
-		      "Unknown peer %"PRIu64, unique_id);
+	io_close_taken_fd(peer->conn);
+	return daemon_conn_read_next(conn, &daemon->master);
 }
 
 static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
@@ -546,6 +575,45 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon)
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
+				const u8 *msg)
+{
+	u64 unique_id;
+	u16 num_pong_bytes, len;
+	struct peer *peer;
+	u8 *ping;
+
+	if (!fromwire_gossip_ping(msg, NULL, &unique_id, &num_pong_bytes, &len))
+		status_failed(WIRE_GOSSIPSTATUS_BAD_REQUEST,
+			      "%s", tal_hex(trc, msg));
+
+	peer = find_peer(daemon, unique_id);
+	if (!peer)
+		status_failed(WIRE_GOSSIPSTATUS_BAD_REQUEST,
+			      "Unknown peer %"PRIu64, unique_id);
+
+	ping = make_ping(peer, num_pong_bytes, len);
+	if (tal_len(ping) > 65535)
+		status_failed(WIRE_GOSSIPSTATUS_BAD_REQUEST, "Oversize ping");
+
+	msg_enqueue(&peer->peer_out, take(ping));
+	status_trace("sending ping expecting %sresponse",
+		     num_pong_bytes >= 65532 ? "no " : "");
+
+	/* BOLT #1:
+	 *
+	 * if `num_pong_bytes` is less than 65532 it MUST respond by sending a
+	 * `pong` message with `byteslen` equal to `num_pong_bytes`, otherwise
+	 * it MUST ignore the `ping`.
+	 */
+	if (num_pong_bytes >= 65532)
+		daemon_conn_send(&daemon->master,
+				 take(towire_gossip_ping_reply(peer, 0)));
+	else
+		peer->num_pings_outstanding++;
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct daemon *daemon = container_of(master, struct daemon, master);
@@ -569,10 +637,14 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
 		return getchannels_req(conn, daemon, daemon->master.msg_in);
 
+	case WIRE_GOSSIP_PING:
+		return ping_req(conn, daemon, daemon->master.msg_in);
+
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:
+	case WIRE_GOSSIP_PING_REPLY:
 	case WIRE_GOSSIPSTATUS_INIT_FAILED:
 	case WIRE_GOSSIPSTATUS_BAD_NEW_PEER_REQUEST:
 	case WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST:
