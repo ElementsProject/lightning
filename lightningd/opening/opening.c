@@ -3,7 +3,6 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <ccan/breakpoint/breakpoint.h>
-#include <ccan/build_assert/build_assert.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/structeq/structeq.h>
 #include <errno.h>
@@ -148,22 +147,6 @@ static void check_config_bounds(struct state *state,
 static void set_reserve(u64 *reserve, u64 funding)
 {
 	*reserve = (funding + 99) / 100;
-}
-
-/* BOLT #2:
- *
- * This message introduces the `channel-id` which identifies , which is
- * derived from the funding transaction by combining the `funding-txid` and
- * the `funding-output-index` using big-endian exclusive-OR
- * (ie. `funding-output-index` alters the last two bytes).
- */
-static void derive_channel_id(struct channel_id *channel_id,
-			      struct sha256_double *txid, u16 txout)
-{
-	BUILD_ASSERT(sizeof(*channel_id) == sizeof(*txid));
-	memcpy(channel_id, txid, sizeof(*channel_id));
-	channel_id->id[sizeof(*channel_id)-2] ^= txout >> 8;
-	channel_id->id[sizeof(*channel_id)-1] ^= txout;
 }
 
 /* BOLT #2:

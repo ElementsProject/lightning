@@ -3,6 +3,7 @@
 #include <bitcoin/preimage.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/shadouble.h>
+#include <ccan/build_assert/build_assert.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
@@ -178,3 +179,20 @@ static char *fmt_short_channel_id(const tal_t *ctx,
 }
 REGISTER_TYPE_TO_STRING(short_channel_id, fmt_short_channel_id);
 REGISTER_TYPE_TO_HEXSTR(channel_id);
+
+/* BOLT #2:
+ *
+ * This message introduces the `channel-id` which identifies , which is
+ * derived from the funding transaction by combining the `funding-txid` and
+ * the `funding-output-index` using big-endian exclusive-OR
+ * (ie. `funding-output-index` alters the last two bytes).
+ */
+void derive_channel_id(struct channel_id *channel_id,
+		       struct sha256_double *txid, u16 txout)
+{
+	BUILD_ASSERT(sizeof(*channel_id) == sizeof(*txid));
+	memcpy(channel_id, txid, sizeof(*channel_id));
+	channel_id->id[sizeof(*channel_id)-2] ^= txout >> 8;
+	channel_id->id[sizeof(*channel_id)-1] ^= txout;
+}
+
