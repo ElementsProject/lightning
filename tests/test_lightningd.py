@@ -133,7 +133,7 @@ class LightningDTests(BaseLightningDTests):
 
         assert ret['id'] == l2.info['id']
 
-        addr = l1.rpc.newaddr()
+        addr = l1.rpc.newaddr()['address']
 
         txid = l1.bitcoin.rpc.sendtoaddress(addr, 0.02)
         tx = l1.bitcoin.rpc.getrawtransaction(txid)
