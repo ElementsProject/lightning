@@ -1202,6 +1202,7 @@ out:
 int main(int argc, char *argv[])
 {
 	struct peer *peer = tal(NULL, struct peer);
+	int i;
 
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
@@ -1222,6 +1223,16 @@ int main(int argc, char *argv[])
 	peer->commit_timer = NULL;
 	peer->commit_index[LOCAL] = peer->commit_index[REMOTE] = 0;
 	peer->have_sigs[LOCAL] = peer->have_sigs[REMOTE] = false;
+
+	/* We send these to HSM to get real signatures; don't have valgrind
+	 * complain. */
+	for (i = 0; i < NUM_SIDES; i++) {
+		memset(&peer->announcement_node_sigs[i], 0,
+		       sizeof(peer->announcement_node_sigs[i]));
+		memset(&peer->announcement_bitcoin_sigs[i], 0,
+		       sizeof(peer->announcement_bitcoin_sigs[i]));
+	}
+
 	shachain_init(&peer->their_shachain);
 
 	status_setup_async(&peer->master);
