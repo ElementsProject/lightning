@@ -51,6 +51,7 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/key_derive.c			\
 	lightningd/msg_queue.c			\
 	lightningd/peer_failed.c		\
+	lightningd/ping.c			\
 	lightningd/status.c			\
 	lightningd/utxo.c
 

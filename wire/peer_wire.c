@@ -23,6 +23,8 @@ static bool unknown_type(enum wire_type t)
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_NODE_ANNOUNCEMENT:
 	case WIRE_CHANNEL_UPDATE:
+	case WIRE_PING:
+	case WIRE_PONG:
 		return false;
 	}
 	return true;

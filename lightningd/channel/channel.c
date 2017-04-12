@@ -28,6 +28,7 @@
 #include <lightningd/key_derive.h>
 #include <lightningd/msg_queue.h>
 #include <lightningd/peer_failed.h>
+#include <lightningd/ping.h>
 #include <lightningd/status.h>
 #include <secp256k1.h>
 #include <signal.h>
@@ -819,6 +820,20 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 	abort();
 }
 
+static void handle_ping(struct peer *peer, const u8 *msg)
+{
+	u8 *pong;
+
+	if (!check_ping_make_pong(peer, msg, &pong))
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "Bad ping");
+	if (pong)
+		msg_enqueue(&peer->peer_out, take(pong));
+}
+
 static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
@@ -868,6 +883,12 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 	case WIRE_UPDATE_FAIL_HTLC:
 		handle_peer_fail_htlc(peer, msg);
 		goto done;
+	case WIRE_PING:
+		handle_ping(peer, msg);
+		goto done;
+
+	/* We don't send pings, so don't expect pongs. */
+	case WIRE_PONG:
 	case WIRE_INIT:
 	case WIRE_ERROR:
 	case WIRE_OPEN_CHANNEL:
