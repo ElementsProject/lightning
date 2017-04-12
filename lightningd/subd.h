@@ -113,6 +113,16 @@ void subd_req_(const tal_t *ctx,
 	       bool (*replycb)(struct subd *, const u8 *, const int *, void *),
 	       void *replycb_data);
 
+/**
+ * subd_shutdown - try to politely shut down a subdaemon.
+ * @subd: subd to shutdown.
+ * @seconds: maximum seconds to wait for it to exit.
+ *
+ * This closes the fd to the subdaemon, and gives it a little while to exit.
+ * The @finished callback will never be called.
+ */
+void subd_shutdown(struct subd *subd, unsigned int seconds);
+
 char *opt_subd_debug(const char *optarg, struct lightningd *ld);
 
 #endif /* LIGHTNING_LIGHTNINGD_SUBD_H */
