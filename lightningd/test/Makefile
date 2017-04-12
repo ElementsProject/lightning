@@ -18,7 +18,7 @@ lightningd/tests: $(LIGHTNINGD_TEST_PROGRAMS:%=unittest/%)
 lightningd-test-0-basic: lightningd-test-setup-0
 
 lightningd-test-0-%:
-	NO_VALGRIND=$(NO_VALGRIND) VARIANT=0 lightningd/test/test-$*
+	NO_VALGRIND=$(NO_VALGRIND) VG_TRACE_CHILDREN="--trace-children=yes" VARIANT=0 lightningd/test/test-$*
 
 # We shutdown first in case something is left over.
 lightningd-test-setup-%: lightningd-all daemon/lightning-cli
