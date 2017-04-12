@@ -35,7 +35,6 @@ struct channel_config {
 	u64 dust_limit_satoshis;
 	u64 max_htlc_value_in_flight_msat;
 	u64 channel_reserve_satoshis;
-	u32 minimum_depth;
 	u32 htlc_minimum_msat;
 	u16 to_self_delay;
 	u16 max_accepted_htlcs;

@@ -49,9 +49,11 @@ opening_open_funding_reply,244,revocation_basepoint,33
 opening_open_funding_reply,277,payment_basepoint,33
 opening_open_funding_reply,310,delayed_payment_basepoint,33
 opening_open_funding_reply,343,their_per_commit_point,33
+opening_open_funding_reply,376,minimum_depth,4
 
 # This means they offer the open (contains their offer packet)
 opening_accept,3
+opening_accept,0,minimum_depth,4
 opening_accept,0,min_feerate,4
 opening_accept,4,max_feerate,4
 opening_accept,8,len,2
