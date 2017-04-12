@@ -46,6 +46,9 @@ struct peer {
 	/* Our channel config. */
 	struct channel_config our_config;
 
+	/* Minimum funding depth (specified by us if they fund). */
+	u32 minimum_depth;
+
 	/* Funding txid and amounts (once known) */
 	struct sha256_double *funding_txid;
 	u16 funding_outnum;

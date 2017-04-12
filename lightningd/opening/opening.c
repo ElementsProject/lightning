@@ -174,6 +174,7 @@ static u8 *open_channel(struct state *state,
 	struct basepoints theirs;
 	struct pubkey their_funding_pubkey;
 	secp256k1_ecdsa_signature sig;
+	u32 minimum_depth;
 	const u8 **wscripts;
 
 	set_reserve(&state->localconf.channel_reserve_satoshis,
@@ -236,7 +237,7 @@ static u8 *open_channel(struct state *state,
 					->max_htlc_value_in_flight_msat,
 				     &state->remoteconf
 					->channel_reserve_satoshis,
-				     &state->remoteconf->minimum_depth,
+				     &minimum_depth,
 				     &state->remoteconf->htlc_minimum_msat,
 				     &state->remoteconf->to_self_delay,
 				     &state->remoteconf->max_accepted_htlcs,
@@ -266,10 +267,10 @@ static u8 *open_channel(struct state *state,
 	 * Other fields have the same requirements as their counterparts in
 	 * `open_channel`.
 	 */
-	if (state->remoteconf->minimum_depth > max_minimum_depth)
+	if (minimum_depth > max_minimum_depth)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
 			    "minimum_depth %u larger than %u",
-			    state->remoteconf->minimum_depth, max_minimum_depth);
+			    minimum_depth, max_minimum_depth);
 	check_config_bounds(state, state->remoteconf);
 
 	/* Now, ask master create a transaction to pay those two addresses. */
@@ -397,7 +398,8 @@ static u8 *open_channel(struct state *state,
 						 &theirs.revocation,
 						 &theirs.payment,
 						 &theirs.delayed_payment,
-						 &state->next_per_commit[REMOTE]);
+						 &state->next_per_commit[REMOTE],
+						 minimum_depth);
 }
 
 /* This is handed the message the peer sent which caused gossip to stop:
@@ -405,6 +407,7 @@ static u8 *open_channel(struct state *state,
 static u8 *recv_channel(struct state *state,
 			const struct pubkey *our_funding_pubkey,
 			const struct basepoints *ours,
+			u32 minimum_depth,
 			u32 min_feerate, u32 max_feerate, const u8 *peer_msg)
 {
 	struct channel_id id_in, channel_id;
@@ -501,7 +504,7 @@ static u8 *recv_channel(struct state *state,
 				    state->localconf
 				      .max_htlc_value_in_flight_msat,
 				    state->localconf.channel_reserve_satoshis,
-				    state->localconf.minimum_depth,
+				    minimum_depth,
 				    state->localconf.htlc_minimum_msat,
 				    state->localconf.to_self_delay,
 				    state->localconf.max_accepted_htlcs,
@@ -637,7 +640,7 @@ int main(int argc, char *argv[])
 	struct privkey seed;
 	struct basepoints our_points;
 	struct pubkey our_funding_pubkey;
-	u32 max_minimum_depth;
+	u32 minimum_depth, max_minimum_depth;
 	u32 min_feerate, max_feerate;
 
 	if (argc == 2 && streq(argv[1], "--version")) {
@@ -685,10 +688,11 @@ int main(int argc, char *argv[])
 				  &state->feerate_per_kw, &max_minimum_depth))
 		msg = open_channel(state, &our_funding_pubkey, &our_points,
 				   max_minimum_depth);
-	else if (fromwire_opening_accept(state, msg, NULL, &min_feerate,
-					 &max_feerate, &peer_msg))
+	else if (fromwire_opening_accept(state, msg, NULL, &minimum_depth,
+					 &min_feerate, &max_feerate, &peer_msg))
 		msg = recv_channel(state, &our_funding_pubkey, &our_points,
-				   min_feerate, max_feerate, peer_msg);
+				   minimum_depth, min_feerate, max_feerate,
+				   peer_msg);
 
 	/* Write message and hand back the fd. */
 	wire_sync_write(REQ_FD, msg);

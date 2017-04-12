@@ -553,9 +553,9 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 	loc = tal_free(loc);
 
 	log_debug(peer->log, "Funding tx %s depth %u of %u",
-		  txidstr, depth, peer->our_config.minimum_depth);
+		  txidstr, depth, peer->minimum_depth);
 
-	if (depth < peer->our_config.minimum_depth)
+	if (depth < peer->minimum_depth)
 		return KEEP_WATCHING;
 
 	/* In theory, it could have been buried before we got back
@@ -981,7 +981,8 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 						 &theirbase.revocation,
 						 &theirbase.payment,
 						 &theirbase.delayed_payment,
-						 &their_per_commit_point)) {
+						 &their_per_commit_point,
+						 &fc->peer->minimum_depth)) {
 		log_broken(fc->peer->log, "bad OPENING_OPEN_FUNDING_REPLY %s",
 			   tal_hex(resp, resp));
 		tal_free(fc->peer);
@@ -1134,13 +1135,6 @@ static void channel_config(struct lightningd *ld,
 	ours->dust_limit_satoshis = 546;
 	ours->max_htlc_value_in_flight_msat = UINT64_MAX;
 
-	/* BOLT #2:
-	 *
-	 * The sender SHOULD set `minimum-depth` to an amount where
-	 * the sender considers reorganizations to be low risk.
-	 */
-	ours->minimum_depth = ld->dstate.config.anchor_confirms;
-
 	/* Don't care */
 	ours->htlc_minimum_msat = 0;
 
@@ -1197,6 +1191,13 @@ void peer_accept_open(struct peer *peer,
 	/* We handed off peer fd */
 	peer->fd = -1;
 
+	/* BOLT #2:
+	 *
+	 * The sender SHOULD set `minimum-depth` to an amount where
+	 * the sender considers reorganizations to be low risk.
+	 */
+	peer->minimum_depth = ld->dstate.config.anchor_confirms;
+
 	channel_config(ld, &peer->our_config,
 		       &max_to_self_delay, &max_minimum_depth,
 		       &min_effective_htlc_capacity_msat);
@@ -1209,7 +1210,8 @@ void peer_accept_open(struct peer *peer,
 				  cs, peer->seed);
 
 	subd_send_msg(peer->owner, take(msg));
-	msg = towire_opening_accept(peer, 7500, 150000, from_peer);
+	msg = towire_opening_accept(peer, peer->minimum_depth,
+				    7500, 150000, from_peer);
 
 	/* Careful here!  Their message could push us overlength! */
 	if (tal_len(msg) >= 65536) {
