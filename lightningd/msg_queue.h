@@ -15,11 +15,14 @@ struct msg_queue {
 
 void msg_queue_init(struct msg_queue *q, const tal_t *ctx);
 
-/* If add is taken(), freed after sending. */
+/* If add is taken(), freed after sending.  msg_wake() implied. */
 void msg_enqueue(struct msg_queue *q, const u8 *add);
 
-/* Fd is closed after sending. */
+/* Fd is closed after sending.  msg_wake() implied. */
 void msg_enqueue_fd(struct msg_queue *q, int fd);
+
+/* Explicitly wake up a msg_queue_wait */
+void msg_wake(const struct msg_queue *q);
 
 /* Returns NULL if nothing to do. */
 const u8 *msg_dequeue(struct msg_queue *q);

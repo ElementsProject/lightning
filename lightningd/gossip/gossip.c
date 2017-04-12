@@ -237,9 +237,9 @@ static void wake_pkt_out(struct peer *peer)
 	new_reltimer(&peer->daemon->timers, peer, time_from_sec(30),
 		     wake_pkt_out, peer);
 	/* Notify the peer-write loop */
-	io_wake(&peer->peer_out);
+	msg_wake(&peer->peer_out);
 	/* Notify the daemon_conn-write loop */
-	io_wake(&peer->owner_conn.out);
+	msg_wake(&peer->owner_conn.out);
 }
 
 static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer)

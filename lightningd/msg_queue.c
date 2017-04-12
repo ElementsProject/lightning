@@ -57,3 +57,8 @@ int msg_extract_fd(const u8 *msg)
 
 	return fromwire_u32(&p, &len);
 }
+
+void msg_wake(const struct msg_queue *q)
+{
+	io_wake(q);
+}
