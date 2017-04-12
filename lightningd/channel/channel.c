@@ -945,6 +945,9 @@ static void init_channel(struct peer *peer, const u8 *msg)
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s",
 			      tal_hex(msg, msg));
 
+	/* channel_id is set from funding txout */
+	derive_channel_id(&peer->channel_id, &funding_txid, funding_txout);
+
 	/* We derive everything from the one secret seed. */
 	derive_basepoints(&seed, &funding_pubkey[LOCAL], &points[LOCAL],
 			  &peer->our_secrets, &peer->shaseed,

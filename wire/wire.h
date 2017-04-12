@@ -22,6 +22,9 @@ struct ipv6 {
 };
 struct preimage;
 
+void derive_channel_id(struct channel_id *channel_id,
+		       struct sha256_double *txid, u16 txout);
+
 /* Read the type; returns -1 if not long enough.  cursor is a tal ptr. */
 int fromwire_peektype(const u8 *cursor);
 
