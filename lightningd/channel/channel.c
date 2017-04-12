@@ -87,6 +87,9 @@ struct peer {
 	struct oneshot *commit_timer;
 	u32 commit_msec;
 
+	/* Don't accept a pong we didn't ping for. */
+	size_t num_pings_outstanding;
+
 	/* Announcement related information */
 	struct pubkey node_ids[NUM_SIDES];
 	struct short_channel_id short_channel_ids[NUM_SIDES];
@@ -830,8 +833,29 @@ static void handle_ping(struct peer *peer, const u8 *msg)
 			    &peer->channel_id,
 			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad ping");
+
+	status_trace("Got ping, sending %s", pong ?
+		     wire_type_name(fromwire_peektype(pong))
+		     : "nothing");
+
 	if (pong)
 		msg_enqueue(&peer->peer_out, take(pong));
+}
+
+static void handle_pong(struct peer *peer, const u8 *pong)
+{
+	u8 *ignored;
+
+	status_trace("Got pong!");
+	if (!fromwire_pong(pong, pong, NULL, &ignored))
+		status_failed(WIRE_CHANNEL_PEER_READ_FAILED, "Bad pong");
+
+	if (!peer->num_pings_outstanding)
+		status_failed(WIRE_CHANNEL_PEER_READ_FAILED, "Unexpected pong");
+
+	peer->num_pings_outstanding--;
+	daemon_conn_send(&peer->master,
+			 take(towire_channel_ping_reply(pong, tal_len(pong))));
 }
 
 static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
@@ -886,9 +910,10 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 	case WIRE_PING:
 		handle_ping(peer, msg);
 		goto done;
-
-	/* We don't send pings, so don't expect pongs. */
 	case WIRE_PONG:
+		handle_pong(peer, msg);
+		goto done;
+
 	case WIRE_INIT:
 	case WIRE_ERROR:
 	case WIRE_OPEN_CHANNEL:
@@ -1168,6 +1193,36 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 	abort();
 }
 
+static void handle_ping_cmd(struct peer *peer, const u8 *inmsg)
+{
+	u16 num_pong_bytes, ping_len;
+	u8 *ping;
+
+	if (!fromwire_channel_ping(inmsg, NULL, &num_pong_bytes, &ping_len))
+		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Bad channel_ping");
+
+	ping = make_ping(peer, num_pong_bytes, ping_len);
+	if (tal_len(ping) > 65535)
+		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Oversize channel_ping");
+
+	msg_enqueue(&peer->peer_out, take(ping));
+
+	status_trace("sending ping expecting %sresponse",
+		     num_pong_bytes >= 65532 ? "no " : "");
+
+	/* BOLT #1:
+	 *
+	 * if `num_pong_bytes` is less than 65532 it MUST respond by sending a
+	 * `pong` message with `byteslen` equal to `num_pong_bytes`, otherwise
+	 * it MUST ignore the `ping`.
+	 */
+	if (num_pong_bytes >= 65532)
+		daemon_conn_send(&peer->master,
+				 take(towire_channel_ping_reply(peer, 0)));
+	else
+		peer->num_pings_outstanding++;
+}
+
 static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct peer *peer = container_of(master, struct peer, master);
@@ -1193,6 +1248,9 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 		case WIRE_CHANNEL_FAIL_HTLC:
 			handle_fail(peer, master->msg_in);
 			goto out;
+		case WIRE_CHANNEL_PING:
+			handle_ping_cmd(peer, master->msg_in);
+			goto out;
 
 		case WIRE_CHANNEL_BAD_COMMAND:
 		case WIRE_CHANNEL_HSM_FAILED:
@@ -1208,6 +1266,7 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 		case WIRE_CHANNEL_FULFILLED_HTLC:
 		case WIRE_CHANNEL_FAILED_HTLC:
 		case WIRE_CHANNEL_MALFORMED_HTLC:
+		case WIRE_CHANNEL_PING_REPLY:
 		case WIRE_CHANNEL_PEER_BAD_MESSAGE:
 			break;
 		}
@@ -1240,6 +1299,7 @@ int main(int argc, char *argv[])
 	daemon_conn_init(peer, &peer->master, REQ_FD, req_in);
 	peer->channel = NULL;
 	peer->htlc_id = 0;
+	peer->num_pings_outstanding = 0;
 	timers_init(&peer->timers, time_mono());
 	peer->commit_timer = NULL;
 	peer->commit_index[LOCAL] = peer->commit_index[REMOTE] = 0;
