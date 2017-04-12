@@ -197,6 +197,20 @@ void derive_peer_seed(struct lightningd *ld, struct privkey *peer_seed,
 	ld->peer_counter++;
 }
 
+static void shutdown_subdaemons(struct lightningd *ld)
+{
+	struct peer *p;
+
+	/* Let everyone shutdown cleanly. */
+	subd_shutdown(ld->hsm, 10);
+	subd_shutdown(ld->gossip, 10);
+
+	/* Duplicates are OK: no need to check here. */
+	list_for_each(&ld->peers, p, list)
+		if (p->owner)
+			subd_shutdown(p->owner, 0);
+}
+
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld = new_lightningd(NULL);
@@ -250,7 +264,6 @@ int main(int argc, char *argv[])
 #if 0
 	/* Load peers from database. */
 	db_load_peers(dstate);
-
 #endif
 
 	for (;;) {
@@ -264,6 +277,8 @@ int main(int argc, char *argv[])
 		if (expired)
 			timer_expired(&ld->dstate, expired);
 	}
+
+	shutdown_subdaemons(ld);
 
 	tal_free(ld);
 	opt_free_table();

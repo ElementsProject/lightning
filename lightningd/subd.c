@@ -431,6 +431,32 @@ void subd_req_(const tal_t *ctx,
 	add_req(ctx, sd, type, num_fds_in, replycb, replycb_data);
 }
 
+void subd_shutdown(struct subd *sd, unsigned int seconds)
+{
+	/* Idempotent. */
+	if (!sd->conn)
+		return;
+
+	log_debug(sd->log, "Shutting down");
+
+	/* No finished callback any more. */
+	sd->finished = NULL;
+	/* Don't free sd when we close connection manually. */
+	tal_steal(sd->ld, sd);
+	/* Close connection: should begin shutdown now. */
+	sd->conn = tal_free(sd->conn);
+
+	/* Do we actually want to wait? */
+	while (seconds) {
+		if (waitpid(sd->pid, NULL, WNOHANG) > 0) {
+			tal_del_destructor(sd, destroy_subd);
+			return;
+		}
+		sleep(1);
+		seconds--;
+	}
+}
+
 char *opt_subd_debug(const char *optarg, struct lightningd *ld)
 {
 	ld->dev_debug_subdaemon = optarg;
