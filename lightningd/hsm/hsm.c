@@ -83,6 +83,8 @@ static struct client *new_client(struct daemon_conn *master,
 	c->master = master;
 	daemon_conn_init(c, &c->dc, fd, handle);
 
+	/* Free the connection if we exit everything. */
+	tal_steal(master, c->dc.conn);
 	/* Free client when connection freed. */
 	tal_steal(c->dc.conn, c);
 	return c;
