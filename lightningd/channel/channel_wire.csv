@@ -104,3 +104,12 @@ channel_malformed_htlc,10
 channel_malformed_htlc,0,id,8
 channel_malformed_htlc,0,sha256_of_onion,32
 channel_malformed_htlc,0,failure_code,2
+
+# Ping/pong test.
+channel_ping,11
+channel_ping,0,num_pong_bytes,u16
+channel_ping,0,len,u16
+
+channel_ping_reply,111
+channel_ping_reply,0,totlen,u16
+

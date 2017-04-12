@@ -33,7 +33,9 @@ bool check_ping_make_pong(const tal_t *ctx, const u8 *ping, u8 **pong)
 		ignored = tal_arrz(ctx, u8, num_pong_bytes);
 		*pong = towire_pong(ctx, ignored);
 		tal_free(ignored);
-	}
+	} else
+		*pong = NULL;
+
 	return true;
 }
 
