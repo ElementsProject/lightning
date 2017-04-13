@@ -52,13 +52,9 @@ int main(int argc, char **argv)
 				return 1;
 		}
 
-		struct hoppayload *hoppayloads = tal_arr(ctx, struct hoppayload, num_hops);
-		for (i=0; i<num_hops; i++)
-			memset(&hoppayloads[i], 'A', sizeof(hoppayloads[i]));
 
 		struct onionpacket *res = create_onionpacket(ctx,
 							     path,
-							     hoppayloads,
 							     sessionkey,
 							     assocdata,
 							     sizeof(assocdata));

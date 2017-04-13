@@ -12,11 +12,9 @@
 
 #define SECURITY_PARAMETER 20
 #define NUM_MAX_HOPS 20
-#define HOP_PAYLOAD_SIZE 20
-#define TOTAL_HOP_PAYLOAD_SIZE (NUM_MAX_HOPS * HOP_PAYLOAD_SIZE)
-#define ROUTING_INFO_SIZE (2 * NUM_MAX_HOPS * SECURITY_PARAMETER)
-#define TOTAL_PACKET_SIZE (1 + 33 + SECURITY_PARAMETER + ROUTING_INFO_SIZE + \
-			   TOTAL_HOP_PAYLOAD_SIZE)
+#define HOP_DATA_SIZE 40
+#define ROUTING_INFO_SIZE (HOP_DATA_SIZE * SECURITY_PARAMETER)
+#define TOTAL_PACKET_SIZE (1 + 33 + SECURITY_PARAMETER + ROUTING_INFO_SIZE)
 
 struct onionpacket {
 	/* Cleartext information */
@@ -27,7 +25,6 @@ struct onionpacket {
 
 	/* Encrypted information */
 	u8 routinginfo[ROUTING_INFO_SIZE];
-	u8 hoppayloads[TOTAL_HOP_PAYLOAD_SIZE];
 };
 
 enum route_next_case {
@@ -54,7 +51,6 @@ struct hoppayload {
 struct route_step {
 	enum route_next_case nextcase;
 	struct onionpacket *next;
-	struct hoppayload *hoppayload;
 };
 
 /**
@@ -73,7 +69,6 @@ struct route_step {
 struct onionpacket *create_onionpacket(
 	const tal_t * ctx,
 	struct pubkey path[],
-	struct hoppayload hoppayloads[],
 	const u8 * sessionkey,
 	const u8 *assocdata,
 	const size_t assocdatalen
