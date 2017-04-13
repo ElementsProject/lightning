@@ -1,11 +1,11 @@
 #include <ccan/str/hex/hex.h>
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
-#include <daemon/sphinx.h>
 #include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/sphinx.h>
 #include <lightningd/subd.h>
 #include <utils.h>
 
@@ -56,7 +56,6 @@ static void json_dev_newhtlc(struct command *cmd,
 	unsigned int expiry;
 	u64 msatoshi;
 	struct sha256 rhash;
-	struct hoppayload *hoppayloads;
 	u8 sessionkey[32];
 	struct onionpacket *packet;
 	u8 *onion;
@@ -115,10 +114,9 @@ static void json_dev_newhtlc(struct command *cmd,
 	}
 
 	tal_arr(cmd, struct pubkey, 1);
-	hoppayloads = tal_arrz(cmd, struct hoppayload, 1);
 	path[0] = *peer->id;
-	randombytes_buf(&sessionkey, sizeof(sessionkey));
-	packet = create_onionpacket(cmd, path, hoppayloads, sessionkey,
+	randombytes_buf(sessionkey, 32);
+	packet = create_onionpacket(cmd, path, sessionkey,
 				    rhash.u.u8, sizeof(rhash));
 	onion = serialize_onionpacket(cmd, packet);
 
