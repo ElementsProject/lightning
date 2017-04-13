@@ -1,4 +1,4 @@
-#include "sphinx.h"
+#include "lightningd/sphinx.h"
 #include "utils.h"
 #include <assert.h>
 
@@ -99,7 +99,7 @@ struct onionpacket *parse_onionpacket(
 		return tal_free(m);
 
 	read_buffer(&m->routinginfo, src, ROUTING_INFO_SIZE, &p);
-	read_buffer(&m->mac, src, 20, &p);
+	read_buffer(&m->mac, src, SECURITY_PARAMETER, &p);
 	return m;
 }
 
@@ -149,7 +149,7 @@ static void compute_packet_hmac(const struct onionpacket *packet,
 	write_buffer(mactemp, assocdata, assocdatalen, &pos);
 
 	compute_hmac(mac, mactemp, sizeof(mactemp), mukey, KEY_LEN);
-	memcpy(hmac, mac, 20);
+	memcpy(hmac, mac, SECURITY_PARAMETER);
 }
 
 static bool generate_key(void *k, const char *t, u8 tlen, const u8 *s)
@@ -373,7 +373,7 @@ struct onionpacket *create_onionpacket(
 	if (!params)
 		return NULL;
 	packet->version = 1;
-	memset(nexthmac, 0, 20);
+	memset(nexthmac, 0, SECURITY_PARAMETER);
 	memset(packet->routinginfo, 0, ROUTING_INFO_SIZE);
 
 	generate_header_padding(filler, sizeof(filler), HOP_DATA_SIZE,
@@ -416,7 +416,7 @@ struct route_step *process_onionpacket(
 	)
 {
 	struct route_step *step = talz(ctx, struct route_step);
-	u8 hmac[20];
+	u8 hmac[SECURITY_PARAMETER];
 	struct keyset keys;
 	u8 blind[BLINDING_FACTOR_SIZE];
 	u8 stream[NUM_STREAM_BYTES];
