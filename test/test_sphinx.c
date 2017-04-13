@@ -9,8 +9,9 @@
 #include <assert.h>
 #include <unistd.h>
 
-#include "daemon/sphinx.h"
-#include "daemon/sphinx.c"
+#include "lightningd/sphinx.h"
+
+secp256k1_context *secp256k1_ctx;
 
 int main(int argc, char **argv)
 {
