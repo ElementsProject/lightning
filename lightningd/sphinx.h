@@ -121,7 +121,7 @@ u8 *serialize_onionpacket(
 	const struct onionpacket *packet);
 
 /**
- * parese_onionpacket - Parse an onionpacket from a buffer.
+ * parse_onionpacket - Parse an onionpacket from a buffer.
  *
  * @ctx: tal context to allocate from
  * @src: buffer to read the packet from
@@ -136,5 +136,42 @@ struct onionpacket *parse_onionpacket(
 void pubkey_hash160(
 	u8 *dst,
 	const struct pubkey *pubkey);
+
+struct onionreply {
+	/* Node index in the path that is replying */
+	int origin_index;
+	u8 *msg;
+};
+
+/**
+ * create_onionreply - Format a failure message so we can return it
+ *
+ * @ctx: tal context to allocate from
+ * @shared_secret: The shared secret used in the forward direction, used for the
+ *     HMAC
+ * @failure_msg: message (must support tal_len)
+ */
+u8 *create_onionreply(tal_t *ctx, const u8 *shared_secret, const u8 *failure_msg);
+
+/**
+ * wrap_onionreply - Add another encryption layer to the reply.
+ *
+ * @ctx: tal context to allocate from
+ * @shared_secret: the shared secret associated with the HTLC, used for the
+ *     encryption.
+ * @reply: the reply to wrap
+ */
+u8 *wrap_onionreply(tal_t *ctx, const u8 *shared_secret, const u8 *reply);
+
+/**
+ * unwrap_onionreply - Remove layers, check integrity and parse reply
+ *
+ * @ctx: tal context to allocate from
+ * @shared_secrets: shared secrets from the forward path
+ * @numhops: path length and number of shared_secrets provided
+ * @reply: the incoming reply
+ */
+struct onionreply *unwrap_onionreply(tal_t *ctx, u8 **shared_secrets,
+				     const int numhops, const u8 *reply);
 
 #endif /* LIGHTNING_DAEMON_SPHINX_H */
