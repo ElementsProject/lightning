@@ -11,16 +11,17 @@
 #include <sodium/randombytes.h>
 #include <wire/wire.h>
 
-#define SECURITY_PARAMETER 20
+#define SECURITY_PARAMETER 32
 #define NUM_MAX_HOPS 20
-#define HOP_DATA_SIZE 53
+#define PAYLOAD_SIZE 32
+#define HOP_DATA_SIZE (1 + SECURITY_PARAMETER + PAYLOAD_SIZE)
 #define ROUTING_INFO_SIZE (HOP_DATA_SIZE * NUM_MAX_HOPS)
 #define TOTAL_PACKET_SIZE (1 + 33 + SECURITY_PARAMETER + ROUTING_INFO_SIZE)
 
 struct onionpacket {
 	/* Cleartext information */
 	u8 version;
-	u8 mac[20];
+	u8 mac[SECURITY_PARAMETER];
 	secp256k1_pubkey ephemeralkey;
 
 	/* Encrypted information */
@@ -74,7 +75,7 @@ struct route_step {
  * @hoppayloads: payloads destined for individual hosts (limited to
  *    HOP_PAYLOAD_SIZE bytes)
  * @num_hops: path length in nodes
- * @sessionkey: 20 byte random session key to derive secrets from
+ * @sessionkey: 32 byte random session key to derive secrets from
  * @assocdata: associated data to commit to in HMACs
  * @assocdatalen: length of the assocdata
  */
