@@ -68,8 +68,8 @@ u8 *serialize_onionpacket(
 
 	write_buffer(dst, &m->version, 1, &p);
 	write_buffer(dst, der, outputlen, &p);
-	write_buffer(dst, m->mac, sizeof(m->mac), &p);
 	write_buffer(dst, m->routinginfo, ROUTING_INFO_SIZE, &p);
+	write_buffer(dst, m->mac, sizeof(m->mac), &p);
 	return dst;
 }
 
@@ -98,8 +98,8 @@ struct onionpacket *parse_onionpacket(
 	if (secp256k1_ec_pubkey_parse(secp256k1_ctx, &m->ephemeralkey, rawEphemeralkey, 33) != 1)
 		return tal_free(m);
 
-	read_buffer(&m->mac, src, 20, &p);
 	read_buffer(&m->routinginfo, src, ROUTING_INFO_SIZE, &p);
+	read_buffer(&m->mac, src, 20, &p);
 	return m;
 }
 
