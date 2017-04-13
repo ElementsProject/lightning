@@ -323,7 +323,7 @@ libwally-core/src/libwallycore.% libwally-core/src/secp256k1/libsecp256k1.%: $(L
 lightning.pb-c.c lightning.pb-c.h: lightning.proto
 	@if $(CHANGED_FROM_GIT); then echo $(PROTOCC) lightning.proto --c_out=.; $(PROTOCC) lightning.proto --c_out=.; else touch $@; fi
 
-$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) utils.o version.o libwallycore.a libsecp256k1.a libsodium.a
+$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) lightningd/sphinx.o utils.o version.o libwallycore.a libsecp256k1.a libsodium.a
 
 ccan/config.h: ccan/tools/configurator/configurator
 	if $< > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
@@ -392,6 +392,8 @@ update-mocks/%: %
           fi; \
 	  tail -n +$$END $< >> $$BASE.new; mv $$BASE.new $<; \
 	fi
+
+test/test_sphinx: libsodium.a
 
 unittest/%: %
 	$(VALGRIND) $(VALGRIND_TEST_ARGS) $*
