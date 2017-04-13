@@ -12,11 +12,13 @@
 
 #include <sodium/crypto_auth_hmacsha256.h>
 #include <sodium/crypto_stream_chacha20.h>
+#include <wire/wire.h>
 
 #define BLINDING_FACTOR_SIZE 32
 #define SHARED_SECRET_SIZE 32
 #define NUM_STREAM_BYTES ((2 * NUM_MAX_HOPS + 2) * SECURITY_PARAMETER)
 #define KEY_LEN 32
+#define ONION_REPLY_SIZE 128
 
 struct hop_params {
 	u8 secret[SHARED_SECRET_SIZE];
@@ -493,4 +495,92 @@ struct route_step *process_onionpacket(
 	}
 
 	return step;
+}
+
+u8 *create_onionreply(tal_t *ctx, const u8 *shared_secret,
+		      const u8 *failure_msg)
+{
+	size_t msglen = tal_len(failure_msg);
+	size_t padlen = ONION_REPLY_SIZE - msglen;
+	u8 *reply = tal_arr(ctx, u8, 0), *payload = tal_arr(ctx, u8, 0);
+	u8 key[KEY_LEN];
+	u8 hmac[20];
+
+	towire_u16(&payload, msglen);
+	towire(&payload, failure_msg, msglen);
+	towire_u16(&payload, padlen);
+	towire_pad(&payload, padlen);
+	assert(tal_len(payload) == ONION_REPLY_SIZE + 4);
+
+	generate_key(key, "um", 2, shared_secret);
+
+	compute_hmac(hmac, payload, tal_len(payload), key, KEY_LEN);
+	towire(&reply, hmac, sizeof(hmac));
+	towire(&reply, payload, tal_len(payload));
+	tal_free(payload);
+
+	return reply;
+}
+
+u8 *wrap_onionreply(tal_t *ctx, const u8 *shared_secret, const u8 *reply)
+{
+	u8 key[KEY_LEN];
+	size_t streamlen = tal_len(reply);
+	u8 stream[streamlen];
+	u8 *result = tal_arr(ctx, u8, streamlen);
+	generate_key(key, "ammag", 5, shared_secret);
+	generate_cipher_stream(stream, key, streamlen);
+	xorbytes(result, stream, reply, streamlen);
+	return result;
+}
+
+struct onionreply *unwrap_onionreply(tal_t *ctx, u8 **shared_secrets,
+				     const int numhops, const u8 *reply)
+{
+	tal_t *tmpctx = tal_tmpctx(ctx);
+	struct onionreply *oreply = tal(tmpctx, struct onionreply);
+	u8 *msg = tal_arr(oreply, u8, tal_len(reply));
+	u8 key[KEY_LEN], hmac[20];
+	const u8 *cursor;
+	size_t max;
+	u16 msglen;
+
+	memcpy(msg, reply, tal_len(reply));
+	oreply->origin_index = -1;
+
+	for (int i = 0; i < numhops; i++) {
+		/* Since the encryption is just XORing with the cipher
+		 * stream encryption is identical to decryption */
+		msg = wrap_onionreply(tmpctx, shared_secrets[i], msg);
+
+		/* Check if the HMAC matches, this means that this is
+		 * the origin */
+		generate_key(key, "um", 2, shared_secrets[i]);
+		compute_hmac(hmac, msg + sizeof(hmac),
+			     tal_len(msg) - sizeof(hmac), key, KEY_LEN);
+		if (memcmp(hmac, msg, sizeof(hmac)) == 0) {
+			oreply->origin_index = i;
+			break;
+		}
+	}
+	if (oreply->origin_index == -1) {
+		goto fail;
+	}
+
+	cursor = msg + sizeof(hmac);
+	max = tal_len(msg) - sizeof(hmac);
+	msglen = fromwire_u16(&cursor, &max);
+
+	if (msglen > ONION_REPLY_SIZE) {
+		goto fail;
+	}
+
+	oreply->msg = tal_arr(oreply, u8, msglen);
+	fromwire(&cursor, &max, oreply->msg, msglen);
+
+	tal_steal(ctx, oreply);
+	tal_free(tmpctx);
+	return oreply;
+fail:
+	return tal_free(tmpctx);
 }
