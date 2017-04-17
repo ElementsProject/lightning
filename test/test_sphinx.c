@@ -142,8 +142,12 @@ int main(int argc, char **argv)
 				return 1;
 		}
 
-		for (i=0; i<num_hops; i++) {
-			memset(&hops_data[i], 'A', sizeof(hops_data[i]));
+		for (i = 0; i < num_hops; i++) {
+			hops_data[i].realm = 0x00;
+			memset(&hops_data[i].channel_id, i,
+			       sizeof(hops_data[i].channel_id));
+			hops_data[i].amt_forward = i;
+			hops_data[i].outgoing_cltv = i;
 		}
 
 		struct onionpacket *res = create_onionpacket(ctx,
