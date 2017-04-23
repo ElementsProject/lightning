@@ -443,6 +443,9 @@ static struct io_plan *recv_body_negotiate(struct io_conn *conn,
 	if (!check_proof(neg, neg->log, pkt, neg->expected_id, &id))
 		return io_close(conn);
 
+	/* Steal so that the callback may not accidentally free it for us */
+	tal_steal(NULL, neg);
+
 	plan = neg->cb(conn, neg->dstate, neg->iod, neg->log, &id, neg->arg);
 	tal_free(neg);
 	return plan;
