@@ -140,6 +140,7 @@ static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPSTATUS_FDPASS_FAILED:
 	case WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST:
 	/* These are messages we send, not them. */
+	case WIRE_GOSSIPCTL_INIT:
 	case WIRE_GOSSIPCTL_NEW_PEER:
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 	case WIRE_GOSSIP_GETNODES_REQUEST:
@@ -171,13 +172,21 @@ static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	return 0;
 }
 
+/* Create the `gossipd` subdaemon and send the initialization
+ * message */
 void gossip_init(struct lightningd *ld)
 {
+	tal_t *tmpctx = tal_tmpctx(ld);
+	u8 *init;
 	ld->gossip = new_subd(ld, ld, "lightningd_gossip", NULL,
 			      gossip_wire_type_name,
 			      gossip_msg, gossip_finished, -1);
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
+
+	init = towire_gossipctl_init(tmpctx, ld->broadcast_interval);
+	subd_send_msg(ld->gossip, init);
+	tal_free(tmpctx);
 }
 
 static bool json_getnodes_reply(struct subd *gossip, const u8 *reply,
