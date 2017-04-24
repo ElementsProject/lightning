@@ -78,6 +78,8 @@ class NodeFactory(object):
             rpc = LegacyLightningRpc(socket_path, self.executor)
         else:
             daemon = utils.LightningD(lightning_dir, bitcoind.bitcoin_dir, port=port)
+            # TODO(cdecker) Move into LIGHTNINGD_CONFIG once legacy daemon was removed
+            daemon.cmd_line.append("--dev-broadcast-interval=1000")
             rpc = LightningRpc(socket_path, self.executor)
 
         node = utils.LightningNode(daemon, rpc, bitcoind, self.executor)
@@ -298,6 +300,46 @@ class LightningDTests(BaseLightningDTests):
 
         # channeld pinging
         self.ping_tests(l1, l2)
+
+    def test_routing_gossip(self):
+        nodes = [self.node_factory.get_node(legacy=False) for _ in range(5)]
+        l1 = nodes[0]
+        l5 = nodes[4]
+
+        for i in range(len(nodes)-1):
+            src, dst = nodes[i], nodes[i+1]
+            src.rpc.connect('localhost', dst.info['port'], dst.info['id'])
+            src.openchannel(dst, 20000)
+
+        def settle_gossip(n):
+            """Wait for gossip to settle at the node
+            """
+            expected_connections = 2*(len(nodes) - 1)
+            start_time = time.time()
+            # Wait at most 10 seconds, broadcast interval is 1 second
+            while time.time() - start_time < 10:
+                channels = n.rpc.getchannels()['channels']
+                if len(channels) == expected_connections:
+                    break
+                else:
+                    time.sleep(0.1)
+
+        for n in nodes:
+            settle_gossip(n)
+
+        # Deep check that all channels are in there
+        comb = []
+        for i in range(len(nodes) - 1):
+            comb.append((nodes[i].info['id'], nodes[i+1].info['id']))
+            comb.append((nodes[i+1].info['id'], nodes[i].info['id']))
+
+        for n in nodes:
+            seen = []
+            channels = n.rpc.getchannels()['channels']
+            for c in channels:
+                seen.append((c['source'],c['destination']))
+            assert set(seen) == set(comb)
+
 
 class LegacyLightningDTests(BaseLightningDTests):
 
