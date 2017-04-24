@@ -44,6 +44,8 @@ struct daemon {
 	struct routing_state *rstate;
 
 	struct timers timers;
+
+	u32 broadcast_interval;
 };
 
 struct peer {
@@ -284,7 +286,8 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 static void wake_pkt_out(struct peer *peer)
 {
 	peer->gossip_sync = true;
-	new_reltimer(&peer->daemon->timers, peer, time_from_sec(30),
+	new_reltimer(&peer->daemon->timers, peer,
+		     time_from_msec(peer->daemon->broadcast_interval),
 		     wake_pkt_out, peer);
 	/* Notify the peer-write loop */
 	msg_wake(&peer->peer_out);
@@ -614,6 +617,19 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+/* Parse an incoming gossip init message and assign config variables
+ * to the daemon.
+ */
+static struct io_plan *gossip_init(struct daemon_conn *master,
+				   struct daemon *daemon, u8 *msg)
+{
+	if (!fromwire_gossipctl_init(msg, NULL, &daemon->broadcast_interval)) {
+		status_failed(WIRE_GOSSIPSTATUS_INIT_FAILED,
+			      "Unable to parse init message");
+	}
+	return daemon_conn_read_next(master->conn, master);
+}
+
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct daemon *daemon = container_of(master, struct daemon, master);
@@ -623,6 +639,9 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		     gossip_wire_type_name(t), tal_count(master->msg_in));
 
 	switch (t) {
+	case WIRE_GOSSIPCTL_INIT:
+		return gossip_init(master, daemon, master->msg_in);
+
 	case WIRE_GOSSIPCTL_NEW_PEER:
 		return new_peer(conn, daemon, master->msg_in);
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
@@ -687,6 +706,7 @@ int main(int argc, char *argv[])
 	daemon->rstate = new_routing_state(daemon, base_log);
 	list_head_init(&daemon->peers);
 	timers_init(&daemon->timers, time_mono());
+	daemon->broadcast_interval = 30000;
 
 	/* stdin == control */
 	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req);

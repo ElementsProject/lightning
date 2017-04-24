@@ -55,6 +55,8 @@ struct lightningd {
 
 	/* HTLCs in flight. */
 	struct htlc_end_map htlc_ends;
+
+	u32 broadcast_interval;
 };
 
 void derive_peer_seed(struct lightningd *ld, struct privkey *peer_seed,

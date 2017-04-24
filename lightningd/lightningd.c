@@ -228,6 +228,15 @@ int main(int argc, char *argv[])
 	opt_register_arg("--dev-debugger=<subdaemon>", opt_subd_debug, NULL,
 			 ld, "Wait for gdb attach at start of <subdaemon>");
 
+	opt_register_arg("--dev-broadcast-interval=<ms>", opt_set_uintval,
+			 opt_show_uintval, &ld->broadcast_interval,
+			 "Milliseconds between gossip broadcasts in "
+			 "milliseconds (default: 30000)");
+
+	/* FIXME: move to option initialization once we drop the
+	 * legacy daemon */
+	ld->broadcast_interval = 30000;
+
 	/* Handle options and config; move to .lightningd */
 	newdir = handle_opts(&ld->dstate, argc, argv);
 
