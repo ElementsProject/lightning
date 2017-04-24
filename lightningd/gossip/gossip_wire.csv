@@ -19,6 +19,10 @@ gossipstatus_peer_failed,10,err,len*u8
 
 #include <lightningd/cryptomsg.h>
 
+# Initialize the gossip daemon
+gossipctl_init,0
+gossipctl_init,0,broadcast_interval,4
+
 # These take an fd, but have no response
 # (if it is to move onto a channel, we get a status msg).
 gossipctl_new_peer,1
