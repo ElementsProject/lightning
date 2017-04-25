@@ -4453,7 +4453,8 @@ static void reconnect_failed(struct io_conn *conn, struct peer *peer)
 	}
 
 	log_debug(peer->log, "Setting timer to re-connect");
-	new_reltimer(&peer->dstate->timers, peer, time_from_sec(15), try_reconnect, peer);
+	new_reltimer(&peer->dstate->timers, peer, peer->dstate->config.poll_time,
+		     try_reconnect, peer);
 }
 
 static struct io_plan *init_conn(struct io_conn *conn, struct peer *peer)
