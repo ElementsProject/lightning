@@ -255,6 +255,7 @@ static void json_sendpay(struct command *cmd,
 	/* Add payload for final hop */
 	tal_resize(&hoppayloads, n_hops);
 	memset(&hoppayloads[n_hops-1], 0, sizeof(struct hoppayload));
+	hoppayloads[n_hops-1].outgoing_cltv_value = base_expiry + delay;
 
 	pc = find_pay_command(ld, &rhash);
 	if (pc) {
