@@ -285,7 +285,7 @@ check-source: check-makefile check-source-bolt check-whitespace	\
 	$(CORE_TX_HEADERS:%=check-hdr-include-order/%)		\
 	$(BITCOIN_HEADERS:%=check-hdr-include-order/%)
 
-full-check: check pytest $(TEST_PROGRAMS) check-source
+full-check: check $(TEST_PROGRAMS) check-source
 
 coverage/coverage.info: check $(TEST_PROGRAMS) pytest
 	mkdir coverage || true
