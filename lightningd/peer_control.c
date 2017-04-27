@@ -12,7 +12,6 @@
 #include <daemon/invoice.h>
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
-#include <daemon/sphinx.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/build_utxos.h>
@@ -25,6 +24,7 @@
 #include <lightningd/key_derive.h>
 #include <lightningd/opening/gen_opening_wire.h>
 #include <lightningd/pay.h>
+#include <lightningd/sphinx.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -632,7 +632,7 @@ struct decoding_htlc {
 	u32 amount_msat;
 	u32 cltv_expiry;
 	struct sha256 payment_hash;
-	u8 onion[1254];
+	u8 onion[TOTAL_PACKET_SIZE];
 	u8 shared_secret[32];
 };
 

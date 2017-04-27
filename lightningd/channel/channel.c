@@ -11,7 +11,6 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <daemon/routing.h>
-#include <daemon/sphinx.h>
 #include <daemon/timeout.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -29,6 +28,7 @@
 #include <lightningd/msg_queue.h>
 #include <lightningd/peer_failed.h>
 #include <lightningd/ping.h>
+#include <lightningd/sphinx.h>
 #include <lightningd/status.h>
 #include <secp256k1.h>
 #include <signal.h>
@@ -309,7 +309,7 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 	u32 amount_msat;
 	u32 cltv_expiry;
 	struct sha256 payment_hash;
-	u8 onion_routing_packet[1254];
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
 	enum channel_add_err add_err;
 
 	if (!fromwire_update_add_htlc(msg, NULL, &channel_id, &id, &amount_msat,
@@ -628,7 +628,7 @@ static void their_htlc_locked(const struct htlc *htlc, struct peer *peer)
 
 	/* Unknown realm isn't a bad onion, it's a normal failure. */
 	/* FIXME: Push complete hoppayload up and have master parse? */
-	if (rs->hoppayload->realm != 0) {
+	if (rs->hop_data.realm != 0) {
 		failcode = WIRE_INVALID_REALM;
 		msg = towire_update_fail_htlc(tmpctx, &peer->channel_id,
 					      htlc->id, NULL);
@@ -643,8 +643,8 @@ static void their_htlc_locked(const struct htlc *htlc, struct peer *peer)
 					   serialize_onionpacket(tmpctx,
 								 rs->next),
 					   rs->nextcase == ONION_FORWARD,
-					   rs->hoppayload->amt_to_forward,
-					   rs->hoppayload->outgoing_cltv_value);
+					   rs->hop_data.amt_forward,
+					   rs->hop_data.outgoing_cltv);
 	daemon_conn_send(&peer->master, take(msg));
 	tal_free(tmpctx);
 	return;

@@ -9,6 +9,7 @@
 #include <daemon/htlc.h>
 #include <lightningd/channel_config.h>
 #include <lightningd/derive_basepoints.h>
+#include <lightningd/sphinx.h>
 #include <stdbool.h>
 
 struct signature;
@@ -233,7 +234,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      u64 msatoshi,
 				      u32 cltv_expiry,
 				      const struct sha256 *payment_hash,
-				      const u8 routing[1254]);
+				      const u8 routing[TOTAL_PACKET_SIZE]);
 
 /**
  * channel_get_htlc: find an HTLC

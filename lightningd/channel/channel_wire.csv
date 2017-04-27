@@ -53,7 +53,7 @@ channel_offer_htlc,4
 channel_offer_htlc,0,amount_msat,4
 channel_offer_htlc,0,cltv_expiry,4
 channel_offer_htlc,0,payment_hash,32
-channel_offer_htlc,0,onion_routing_packet,1254*u8
+channel_offer_htlc,0,onion_routing_packet,1366*u8
 
 # Reply; synchronous since IDs have to increment.
 channel_offer_htlc_reply,104
@@ -81,7 +81,7 @@ channel_accepted_htlc,0,id,8
 channel_accepted_htlc,0,amount_msat,4
 channel_accepted_htlc,0,cltv_expiry,4
 channel_accepted_htlc,0,payment_hash,32
-channel_accepted_htlc,0,next_onion,1254*u8
+channel_accepted_htlc,0,next_onion,1366*u8
 channel_accepted_htlc,0,forward,bool
 channel_accepted_htlc,0,amt_to_forward,u64
 channel_accepted_htlc,0,outgoing_cltv_value,u32

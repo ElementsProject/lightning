@@ -60,6 +60,7 @@ static void json_dev_newhtlc(struct command *cmd,
 	struct onionpacket *packet;
 	u8 *onion;
 	struct htlc_end *hend;
+	struct hop_data *hops_data;
 	struct pubkey *path = tal_arrz(cmd, struct pubkey, 1);
 
 	if (!json_get_params(buffer, params,
@@ -113,10 +114,10 @@ static void json_dev_newhtlc(struct command *cmd,
 		return;
 	}
 
-	tal_arr(cmd, struct pubkey, 1);
+	hops_data = tal_arrz(cmd, struct hop_data, 1);
 	path[0] = *peer->id;
 	randombytes_buf(sessionkey, 32);
-	packet = create_onionpacket(cmd, path, sessionkey,
+	packet = create_onionpacket(cmd, path, hops_data, sessionkey,
 				    rhash.u.u8, sizeof(rhash));
 	onion = serialize_onionpacket(cmd, packet);
 

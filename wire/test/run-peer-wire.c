@@ -12,6 +12,7 @@ void fromwire_pad_orig(const u8 **cursor, size_t *max, size_t num);
 
 #include <ccan/structeq/structeq.h>
 #include <assert.h>
+#include <lightningd/sphinx.h>
 #include <stdio.h>
 
 secp256k1_context *secp256k1_ctx;
@@ -206,7 +207,7 @@ struct msg_update_add_htlc {
 	u32 amount_msat;
 	u32 expiry;
 	struct sha256 payment_hash;
-	u8 onion_routing_packet[1254];
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
 };
 struct msg_update_fee {
 	struct channel_id channel_id;

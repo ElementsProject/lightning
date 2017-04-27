@@ -5,11 +5,11 @@
 #include <daemon/chaintopology.h>
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
-#include <daemon/sphinx.h>
 #include <inttypes.h>
 #include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/sphinx.h>
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 
@@ -151,7 +151,7 @@ static void json_sendpay(struct command *cmd,
 	struct pay_command *pc;
 	const u8 *onion;
 	u8 sessionkey[32];
-	struct hoppayload *hoppayloads;
+	struct hop_data *hoppayloads;
 	u64 amount, lastamount;
 	struct onionpacket *packet;
 	u8 *msg;
@@ -186,7 +186,7 @@ static void json_sendpay(struct command *cmd,
 	end = json_next(routetok);
 	n_hops = 0;
 	ids = tal_arr(cmd, struct pubkey, n_hops);
-	hoppayloads = tal_arr(cmd, struct hoppayload, 0);
+	hoppayloads = tal_arr(cmd, struct hop_data, 0);
 	for (t = routetok + 1; t < end; t = json_next(t)) {
 		const jsmntok_t *amttok, *idtok, *delaytok;
 
@@ -216,12 +216,12 @@ static void json_sendpay(struct command *cmd,
 		} else{
 			/* What that hop will forward */
 			tal_resize(&hoppayloads, n_hops);
-			memset(&hoppayloads[n_hops-1], 0, sizeof(struct hoppayload));
-			if (!json_tok_u64(buffer, amttok, &hoppayloads[n_hops-1].amt_to_forward)) {
+			memset(&hoppayloads[n_hops-1], 0, sizeof(struct hop_data));
+			if (!json_tok_u64(buffer, amttok, &lastamount)) {
 				command_fail(cmd, "route %zu invalid msatoshi", n_hops);
 				return;
 			}
-			lastamount = hoppayloads[n_hops-1].amt_to_forward;
+			hoppayloads[n_hops-1].amt_forward = lastamount;
 		}
 
 		tal_resize(&ids, n_hops+1);
@@ -239,7 +239,7 @@ static void json_sendpay(struct command *cmd,
 		if (n_hops == 0)
 			first_delay = delay;
 		else
-			hoppayloads[n_hops-1].outgoing_cltv_value
+			hoppayloads[n_hops-1].outgoing_cltv
 				= base_expiry + delay;
 		n_hops++;
 	}
@@ -251,7 +251,7 @@ static void json_sendpay(struct command *cmd,
 
 	/* Add payload for final hop */
 	tal_resize(&hoppayloads, n_hops);
-	memset(&hoppayloads[n_hops-1], 0, sizeof(struct hoppayload));
+	memset(&hoppayloads[n_hops-1], 0, sizeof(struct hop_data));
 
 	pc = find_pay_command(ld, &rhash);
 	if (pc) {
