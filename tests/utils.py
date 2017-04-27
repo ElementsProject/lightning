@@ -225,7 +225,7 @@ class LightningNode(object):
             return wait_connected()
 
     def openchannel(self, remote_node, capacity):
-        addr = self.rpc.newaddr()
+        addr = self.rpc.newaddr()['address']
         txid = self.bitcoin.rpc.sendtoaddress(addr, capacity / 10**6)
         tx = self.bitcoin.rpc.getrawtransaction(txid)
         self.rpc.addfunds(tx)

@@ -164,6 +164,26 @@ class LightningDTests(BaseLightningDTests):
         assert len(channels) == 2
         assert [c['active'] for c in channels] == [True, True]
 
+    def test_direct_payment(self):
+        l1 = self.node_factory.get_node(legacy=False)
+        l2 = self.node_factory.get_node(legacy=False)
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.openchannel(l2, 20000)
+        l1.bitcoin.rpc.generate(6)
+        time.sleep(5)
+        htlc_amount = 1000
+
+        invoice = l2.rpc.invoice(htlc_amount, "i1")
+        rhash = invoice['rhash']
+        assert len(rhash) == 64
+
+        route = l1.rpc.getroute(l2.info['id'], htlc_amount, 1)['route']
+        assert len(route) == 1
+        assert route[0] == {'msatoshi': htlc_amount, 'id': l2.info['id'], 'delay': 36}
+
+        receipt = l1.rpc.sendpay(route, invoice['rhash'])
+        assert sha256(unhexlify(receipt['preimage'])).hexdigest() == rhash
+
     def test_routing_gossip(self):
         nodes = [self.node_factory.get_node(legacy=False) for _ in range(5)]
         l1 = nodes[0]
