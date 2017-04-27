@@ -182,7 +182,7 @@ REGISTER_TYPE_TO_HEXSTR(channel_id);
 
 /* BOLT #2:
  *
- * This message introduces the `channel-id` which identifies , which is
+ * This message introduces the `channel-id` to identify the channel, which is
  * derived from the funding transaction by combining the `funding-txid` and
  * the `funding-output-index` using big-endian exclusive-OR
  * (ie. `funding-output-index` alters the last two bytes).

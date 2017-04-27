@@ -351,7 +351,7 @@ static u8 *open_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * This message introduces the `channel-id` which identifies , which
+	 * This message introduces the `channel-id` to identify the channel, which
 	 * is derived from the funding transaction by combining the
 	 * `funding-txid` and the `funding-output-index` using big-endian
 	 * exclusive-OR (ie. `funding-output-index` alters the last two
@@ -590,8 +590,8 @@ static u8 *recv_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * This message introduces the `channel-id` which identifies , which
-	 * is derived from the funding transaction by combining the
+	 * This message introduces the `channel-id` to identify the channel,
+	 * which is derived from the funding transaction by combining the
 	 * `funding-txid` and the `funding-output-index` using big-endian
 	 * exclusive-OR (ie. `funding-output-index` alters the last two
 	 * bytes).
