@@ -656,19 +656,104 @@ static void fail_htlc(struct peer *peer, u64 htlc_id, const u8 *msg)
 		tal_free(msg);
 }
 
+/* BOLT #4:
+ *
+ * * `amt_to_forward` - The amount in milli-satoshi to forward to the next
+ *    (outgoing) hop specified within the routing information.
+ *
+ *    This value MUST factor in the computed fee for this particular hop. When
+ *    processing an incoming Sphinx packet along with the HTLC message it's
+ *    encapsulated within, if the following inequality doesn't hold, then the
+ *    HTLC should be rejected as it indicates a prior node in the path has
+ *    deviated from the specified paramters:
+ *
+ *       incoming_htlc_amt - fee >= amt_to_forward
+ *
+ *    Where `fee` is calculated according to the receving node's advertised fee
+ *    schema as described in [BOLT 7](https://github.com/lightningnetwork/lightning-rfc/blob/master/07-routing-gossip.md#htlc-fees), or 0 if this node is the
+ *    final hop.
+ */
+static bool check_amount(struct htlc_end *hend,
+			 u64 amt_to_forward, u64 amt_in_htlc, u64 fee)
+{
+	if (amt_in_htlc - fee >= amt_to_forward)
+		return true;
+	log_debug(hend->peer->ld->log, "HTLC %"PRIu64" incorrect amount:"
+		  " %"PRIu64" in, %"PRIu64" out, fee reqd %"PRIu64,
+		  hend->htlc_id, amt_in_htlc, amt_to_forward, fee);
+	return false;
+}
+
+/* BOLT #4:
+ *
+ *  * `outgoing_cltv_value` - The CLTV value that the _outgoing_ HTLC carrying
+ *     the packet should have.
+ *
+ *        cltv-expiry - cltv-expiry-delta = outgoing_cltv_value
+ *
+ *     Inclusion of this field allows a node to both authenticate the information
+ *     specified by the original sender and the paramaters of the HTLC forwarded,
+ *	 and ensure the original sender is using the current `cltv-expiry-delta`  value.
+ *     If there is no next hop, `cltv-expiry-delta` is zero.
+ *     If the values don't correspond, then the HTLC should be failed+rejected as
+ *     this indicates the incoming node has tampered with the intended HTLC
+ *     values, or the origin has an obsolete `cltv-expiry-delta` value.
+ *     The node MUST be consistent in responding to an unexpected
+ *     `outgoing_cltv_value` whether it is the final hop or not, to avoid
+ *     leaking that information.
+ */
+static bool check_ctlv(struct htlc_end *hend,
+		       u32 ctlv_expiry, u32 outgoing_cltv_value, u32 delta)
+{
+	if (ctlv_expiry - delta == outgoing_cltv_value)
+		return true;
+	log_debug(hend->peer->ld->log, "HTLC %"PRIu64" incorrect CLTV:"
+		  " %u in, %u out, delta reqd %u",
+		  hend->htlc_id, ctlv_expiry, outgoing_cltv_value, delta);
+	return false;
+}
+
 static void handle_localpay(struct htlc_end *hend,
 			    u32 cltv_expiry,
-			    const struct sha256 *payment_hash)
+			    const struct sha256 *payment_hash,
+			    u64 amt_to_forward,
+			    u32 outgoing_cltv_value)
 {
-	u8 *msg;
-	struct invoice *invoice = find_unpaid(hend->peer->ld->dstate.invoices,
-					      payment_hash);
+	u8 *msg, *err;
+	struct invoice *invoice;
 
+	/* BOLT #4:
+	 *
+	 * If the `amt_to_forward` does not match the `incoming_htlc_amt` of
+	 * the HTLC at the final hop:
+	 *
+	 * 1. type: 19 (`final_incorrect_htlc_amount`)
+	 * 2. data:
+	 *    * [4:incoming-htlc-amt]
+	 */
+	if (!check_amount(hend, amt_to_forward, hend->msatoshis, 0)) {
+		err = towire_final_incorrect_htlc_amount(hend, hend->msatoshis);
+		goto fail;
+	}
+
+	/* BOLT #4:
+	 *
+	 * If the `outgoing_cltv_value` does not match the `ctlv-expiry` of
+	 * the HTLC at the final hop:
+	 *
+	 * 1. type: 18 (`final_incorrect_cltv_expiry`)
+	 * 2. data:
+	 *   * [4:cltv-expiry]
+	 */
+	if (!check_ctlv(hend, cltv_expiry, outgoing_cltv_value, 0)) {
+		err = towire_final_incorrect_cltv_expiry(hend, cltv_expiry);
+		goto fail;
+	}
+
+	invoice = find_unpaid(hend->peer->ld->dstate.invoices, payment_hash);
 	if (!invoice) {
-		fail_htlc(hend->peer, hend->htlc_id,
-			  take(towire_unknown_payment_hash(hend)));
-		tal_free(hend);
-		return;
+		err = towire_unknown_payment_hash(hend);
+		goto fail;
 	}
 
 	/* BOLT #4:
@@ -682,13 +767,11 @@ static void handle_localpay(struct htlc_end *hend,
 	 * 1. type: PERM|16 (`incorrect_payment_amount`)
 	 */
 	if (hend->msatoshis < invoice->msatoshi) {
-		fail_htlc(hend->peer, hend->htlc_id,
-			  take(towire_incorrect_payment_amount(hend)));
-		return;
+		err = towire_incorrect_payment_amount(hend);
+		goto fail;
 	} else if (hend->msatoshis > invoice->msatoshi * 2) {
-		fail_htlc(hend->peer, hend->htlc_id,
-			  take(towire_incorrect_payment_amount(hend)));
-		return;
+		err = towire_incorrect_payment_amount(hend);
+		goto fail;
 	}
 
 	/* BOLT #4:
@@ -702,10 +785,8 @@ static void handle_localpay(struct htlc_end *hend,
 			  cltv_expiry,
 			  get_block_height(hend->peer->ld->topology),
 			  hend->peer->ld->dstate.config.deadline_blocks);
-		fail_htlc(hend->peer, hend->htlc_id,
-			  take(towire_final_expiry_too_soon(hend)));
-		tal_free(hend);
-		return;
+		err = towire_final_expiry_too_soon(hend);
+		goto fail;
 	}
 
 	/* FIXME: fail the peer if it doesn't tell us that htlc fulfill is
@@ -722,6 +803,22 @@ static void handle_localpay(struct htlc_end *hend,
 	msg = towire_channel_fulfill_htlc(hend->peer, hend->htlc_id, &invoice->r);
 	subd_send_msg(hend->peer->owner, take(msg));
 	resolve_invoice(&hend->peer->ld->dstate, invoice);
+	return;
+
+fail:
+	fail_htlc(hend->peer, hend->htlc_id, take(err));
+	tal_free(hend);
+}
+
+static void forward_htlc(struct htlc_end *hend,
+			 u32 cltv_expiry,
+			 const struct sha256 *payment_hash,
+			 u64 amt_to_forward,
+			 u32 outgoing_cltv_value,
+			 const u8 next_hop[20],
+			 const u8 next_onion[TOTAL_PACKET_SIZE])
+{
+	log_broken(hend->peer->log, "FIXME: Implement forwarding!");
 }
 
 static int peer_accepted_htlc(struct peer *peer, const u8 *msg)
@@ -730,6 +827,7 @@ static int peer_accepted_htlc(struct peer *peer, const u8 *msg)
 	u32 cltv_expiry, amount_msat;
 	struct sha256 payment_hash;
 	u8 next_onion[TOTAL_PACKET_SIZE];
+	u8 next_hop[20];
 	bool forward;
 	u64 amt_to_forward;
 	u32 outgoing_cltv_value;
@@ -754,9 +852,12 @@ static int peer_accepted_htlc(struct peer *peer, const u8 *msg)
 	hend->msatoshis = amount_msat;
 
 	if (forward)
-		log_broken(peer->log, "FIXME: Implement forwarding!");
+		forward_htlc(hend, cltv_expiry, &payment_hash,
+			     amt_to_forward, outgoing_cltv_value,
+			     next_hop, next_onion);
 	else
-		handle_localpay(hend, cltv_expiry, &payment_hash);
+		handle_localpay(hend, cltv_expiry, &payment_hash,
+				amt_to_forward, outgoing_cltv_value);
 	return 0;
 }
 

@@ -116,6 +116,8 @@ static void json_dev_newhtlc(struct command *cmd,
 
 	tal_arr(cmd, struct pubkey, 1);
 	hoppayloads = tal_arrz(cmd, struct hoppayload, 1);
+	hoppayloads[0].amt_to_forward = msatoshi;
+	hoppayloads[0].outgoing_cltv_value = expiry;
 	path[0] = *peer->id;
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
 	packet = create_onionpacket(cmd, path, hoppayloads, sessionkey,

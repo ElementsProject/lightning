@@ -31,3 +31,7 @@ expiry_too_soon,2,channel_update,len
 unknown_payment_hash,PERM|15
 incorrect_payment_amount,PERM|16
 final_expiry_too_soon,17
+final_incorrect_cltv_expiry,18
+final_incorrect_cltv_expiry,0,cltv-expiry,4
+final_incorrect_htlc_amount,19
+final_incorrect_htlc_amount,0,incoming-htlc-amt,4
