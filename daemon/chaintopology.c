@@ -549,6 +549,27 @@ void json_dev_broadcast(struct command *cmd,
 		command_success(cmd, null_response(cmd));
 }
 
+static void json_dev_blockheight(struct command *cmd,
+				 const char *buffer, const jsmntok_t *params)
+{
+	struct chain_topology *topo = cmd->dstate->topology;
+	struct json_result *response;
+
+	response = new_json_result(cmd);
+	json_object_start(response, NULL);
+	json_add_num(response, "blockheight", get_block_height(topo));
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+static const struct json_command dev_blockheight = {
+	"dev-blockheight",
+	json_dev_blockheight,
+	"Find out what block height we have",
+	"Returns { blockheight: u32 } on success"
+};
+AUTODATA(json_command, &dev_blockheight);
+
 /* On shutdown, peers get deleted last.  That frees from our list, so
  * do it now instead. */
 static void destroy_outgoing_txs(struct chain_topology *topo)

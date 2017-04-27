@@ -37,6 +37,19 @@ def setupBitcoind():
         logging.debug("Insufficient balance, generating 1 block")
         bitcoind.rpc.generate(1)
 
+def sync_blockheight(*args):
+    while True:
+        target = bitcoind.rpc.getblockcount()
+        all_up_to_date = True
+        for l in args:
+            if l.rpc.dev_blockheight()['blockheight'] != target:
+                all_up_to_date = False
+
+        if all_up_to_date:
+            return
+
+        # Sleep before spinning.
+        time.sleep(0.1)
 
 def tearDownBitcoind():
     global bitcoind
