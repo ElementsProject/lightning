@@ -108,6 +108,31 @@ class TailableProc(object):
                 pos += 1
 
 
+class SimpleBitcoinProxy:
+    """Wrapper for BitcoinProxy to reconnect.
+
+    Long wait times between calls to the Bitcoin RPC could result in
+    `bitcoind` closing the connection, so here we just create
+    throwaway connections. This is easier than to reach into the RPC
+    library to close, reopen and reauth upon failure.
+    """
+    def __init__(self, url):
+        self.url = url
+
+    def __getattr__(self, name):
+        if name.startswith('__') and name.endswith('__'):
+            # Python internal stuff
+            raise AttributeError
+
+        # Create a callable to do the actual call
+        f = lambda *args: BitcoinProxy(self.url)._call(name, *args)
+
+        # Make debuggers show <function bitcoin.rpc.name> rather than <function
+        # bitcoin.rpc.<lambda>>
+        f.__name__ = name
+        return f
+
+
 class BitcoinD(TailableProc):
 
     def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=18332):
@@ -134,7 +159,7 @@ class BitcoinD(TailableProc):
         BITCOIND_CONFIG['rpcport'] = rpcport
         write_config(os.path.join(bitcoin_dir, 'bitcoin.conf'), BITCOIND_CONFIG)
         write_config(os.path.join(regtestdir, 'bitcoin.conf'), BITCOIND_CONFIG)
-        self.rpc = BitcoinProxy(
+        self.rpc = SimpleBitcoinProxy(
             "http://rpcuser:rpcpass@127.0.0.1:{}".format(self.rpcport))
 
     def start(self):
