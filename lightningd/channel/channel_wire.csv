@@ -85,6 +85,7 @@ channel_accepted_htlc,0,next_onion,1254*u8
 channel_accepted_htlc,0,forward,bool
 channel_accepted_htlc,0,amt_to_forward,u64
 channel_accepted_htlc,0,outgoing_cltv_value,u32
+channel_accepted_htlc,0,nexthop,20*u8
 
 # FIXME: Add code to commit current channel state!
 

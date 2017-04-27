@@ -353,6 +353,47 @@ class LightningDTests(BaseLightningDTests):
                 seen.append((c['source'],c['destination']))
             assert set(seen) == set(comb)
 
+    def test_forward(self):
+        # Connect 1 -> 2 -> 3.
+        l1,l2 = self.connect()
+        l3 = self.node_factory.get_node(legacy=False)
+        ret = l2.rpc.connect('localhost', l3.info['port'], l3.info['id'])
+
+        assert ret['id'] == l3.info['id']
+
+        l3.daemon.wait_for_log('WIRE_GOSSIPSTATUS_PEER_READY')
+        self.fund_channel(l1, l2, 10**6)
+        self.fund_channel(l2, l3, 10**6)
+
+        # If they're at different block heights we can get spurious errors.
+        sync_blockheight(l1, l2, l3)
+
+        rhash = l3.rpc.invoice(100000000, 'testpayment1')['rhash']
+        assert l3.rpc.listinvoice('testpayment1')[0]['complete'] == False
+
+        # Fee for node2 is 10 millionths, plus 1.
+        amt = 100000000
+        fee = amt * 10 // 1000000 + 1
+
+        # Unknown other peer
+        route = [ { 'msatoshi' : amt + fee, 'id' : l2.info['id'], 'delay' : 10},
+                  { 'msatoshi' : amt, 'id' : '031a8dc444e41bb989653a4501e11175a488a57439b0c4947704fd6e3de5dca607', 'delay' : 5} ]
+        self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
+
+        # Delay too short (we always add one internally anyway, so subtract 2 here).
+        route = [ { 'msatoshi' : amt + fee, 'id' : l2.info['id'], 'delay' : 8},
+                  { 'msatoshi' : amt, 'id' : l3.info['id'], 'delay' : 5} ]
+        self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
+
+        # Final delay too short
+        route = [ { 'msatoshi' : amt + fee, 'id' : l2.info['id'], 'delay' : 8},
+                  { 'msatoshi' : amt, 'id' : l3.info['id'], 'delay' : 3} ]
+        self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
+        
+        # This one works
+        route = [ { 'msatoshi' : amt + fee, 'id' : l2.info['id'], 'delay' : 10},
+                  { 'msatoshi' : amt, 'id' : l3.info['id'], 'delay' : 5} ]
+        l1.rpc.sendpay(to_json(route), rhash)
 
 class LegacyLightningDTests(BaseLightningDTests):
 

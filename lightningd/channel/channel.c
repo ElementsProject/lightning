@@ -644,7 +644,8 @@ static void their_htlc_locked(const struct htlc *htlc, struct peer *peer)
 								 rs->next),
 					   rs->nextcase == ONION_FORWARD,
 					   rs->hoppayload->amt_to_forward,
-					   rs->hoppayload->outgoing_cltv_value);
+					   rs->hoppayload->outgoing_cltv_value,
+					   rs->next->nexthop);
 	daemon_conn_send(&peer->master, take(msg));
 	tal_free(tmpctx);
 	return;
@@ -1060,6 +1061,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	u32 amount_msat, cltv_expiry;
 	struct sha256 payment_hash;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+	enum channel_add_err e;
 	enum onion_type failcode;
 	/* Subtle: must be tal_arr since we marshal using tal_len() */
 	const char *failmsg;
@@ -1074,9 +1076,12 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 			      "bad offer_htlc message %s",
 			      tal_hex(inmsg, inmsg));
 
-	switch (channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
-				 amount_msat, cltv_expiry, &payment_hash,
-				 onion_routing_packet)) {
+	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
+			     amount_msat, cltv_expiry, &payment_hash,
+			     onion_routing_packet);
+	status_trace("Adding HTLC %"PRIu64" gave %i", peer->htlc_id, e);
+
+	switch (e) {
 	case CHANNEL_ERR_ADD_OK:
 		/* Tell the peer. */
 		msg = towire_update_add_htlc(peer, &peer->channel_id,

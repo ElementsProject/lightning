@@ -41,18 +41,20 @@ static void json_pay_success(struct command *cmd, const struct preimage *rval)
 	command_success(cmd, response);
 }
 
-static void json_pay_failed(struct command *cmd,
+static void json_pay_failed(struct pay_command *pc,
 			    const struct pubkey *sender,
 			    enum onion_type failure_code,
 			    const char *details)
 {
 	/* Can be NULL if JSON RPC goes away. */
-	if (!cmd)
+	if (!pc->cmd)
 		return;
 
 	/* FIXME: Report sender! */
-	command_fail(cmd, "failed: %s (%s)",
+	command_fail(pc->cmd, "failed: %s (%s)",
 		     onion_type_name(failure_code), details);
+
+	pc->out = NULL;
 }
 
 void payment_succeeded(struct lightningd *ld, struct htlc_end *dst,
@@ -83,9 +85,8 @@ void payment_failed(struct lightningd *ld, struct htlc_end *dst,
 
 	/* FIXME: check for routing failure / perm fail. */
 	/* check_for_routing_failure(i, sender, failure_code); */
-	json_pay_failed(dst->pay_command->cmd, sender, failure_code,
+	json_pay_failed(dst->pay_command, sender, failure_code,
 			"reply from remote");
-	dst->pay_command->out = NULL;
 }
 
 static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
@@ -97,14 +98,17 @@ static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 	if (!fromwire_channel_offer_htlc_reply(msg, msg, NULL,
 					       &pc->out->htlc_id,
 					       &failcode, &failstr)) {
-		json_pay_failed(pc->cmd, &subd->ld->dstate.id, -1,
+		json_pay_failed(pc, &subd->ld->dstate.id, -1,
 				"daemon bad response");
 		return false;
 	}
 
 	if (failcode != 0) {
-		json_pay_failed(pc->cmd, &subd->ld->dstate.id, failcode,
-				"from local daemon");
+		/* Make sure we have a nul-terminated string. */
+		char *str = (char *)tal_dup_arr(msg, u8,
+						failstr, tal_len(failstr), 1);
+		str[tal_len(failstr)] = 0;
+		json_pay_failed(pc, &subd->ld->dstate.id, failcode, str);
 		return true;
 	}
 
