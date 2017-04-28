@@ -316,7 +316,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      u64 msatoshi,
 				      u32 cltv_expiry,
 				      const struct sha256 *payment_hash,
-				      const u8 routing[1254])
+				      const u8 routing[TOTAL_PACKET_SIZE])
 {
 	const tal_t *tmpctx = tal_tmpctx(channel);
 	struct htlc *htlc, *old;
@@ -354,9 +354,9 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	 *    * [4:amount-msat]
 	 *    * [4:cltv-expiry]
 	 *    * [32:payment-hash]
-	 *    * [1254:onion-routing-packet]
+	 *    * [1366:onion-routing-packet]
 	 */
-	htlc->routing = tal_dup_arr(htlc, u8, routing, 1254, 0);
+	htlc->routing = tal_dup_arr(htlc, u8, routing, TOTAL_PACKET_SIZE, 0);
 
 	/* FIXME: check expiry etc. against config. */
 	/* FIXME: set deadline */

@@ -12,6 +12,7 @@
 #include <bitcoin/pubkey.h>
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
+#include <lightningd/sphinx.h>
 #include <type_to_string.h>
 
 static struct sha256 sha256_from_hex(const char *hex)
@@ -112,7 +113,7 @@ static const struct htlc **include_htlcs(struct channel *channel, enum side side
 {
 	int i;
 	const struct htlc **htlcs = tal_arr(channel, const struct htlc *, 5);
-	u8 *dummy_routing = tal_arr(htlcs, u8, 1254);
+	u8 *dummy_routing = tal_arr(htlcs, u8, TOTAL_PACKET_SIZE);
 	bool ret;
 
 	for (i = 0; i < 5; i++) {
@@ -236,7 +237,7 @@ static void send_and_fulfill_htlc(struct channel *channel,
 {
 	struct preimage r;
 	struct sha256 rhash;
-	u8 *dummy_routing = tal_arr(channel, u8, 1254);
+	u8 *dummy_routing = tal_arr(channel, u8, TOTAL_PACKET_SIZE);
 	bool ret;
 
 	memset(&r, 0, sizeof(r));

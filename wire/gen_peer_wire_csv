@@ -70,7 +70,7 @@ update_add_htlc,32,id,8
 update_add_htlc,40,amount-msat,4
 update_add_htlc,44,cltv-expiry,4
 update_add_htlc,48,payment-hash,32
-update_add_htlc,80,onion-routing-packet,1254
+update_add_htlc,80,onion-routing-packet,1366
 update_fulfill_htlc,130
 update_fulfill_htlc,0,channel-id,32
 update_fulfill_htlc,32,id,8
