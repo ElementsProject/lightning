@@ -1,11 +1,11 @@
 #include <ccan/str/hex/hex.h>
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
-#include <daemon/sphinx.h>
 #include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/sphinx.h>
 #include <lightningd/subd.h>
 #include <utils.h>
 
@@ -56,7 +56,7 @@ static void json_dev_newhtlc(struct command *cmd,
 	unsigned int expiry;
 	u64 msatoshi;
 	struct sha256 rhash;
-	struct hoppayload *hoppayloads;
+	struct hop_data *hopsdata;
 	u8 sessionkey[32];
 	struct onionpacket *packet;
 	u8 *onion;
@@ -115,13 +115,18 @@ static void json_dev_newhtlc(struct command *cmd,
 	}
 
 	tal_arr(cmd, struct pubkey, 1);
-	hoppayloads = tal_arrz(cmd, struct hoppayload, 1);
-	hoppayloads[0].amt_to_forward = msatoshi;
-	hoppayloads[0].outgoing_cltv_value = expiry;
+	hopsdata = tal_arr(cmd, struct hop_data, 1);
+	hopsdata[0].realm = 0;
+	hopsdata[0].amt_forward = msatoshi;
+	hopsdata[0].outgoing_cltv = expiry;
+
+	/* This is the last hop so set an empty channel_id */
+	memset(&hopsdata[0].channel_id, 0, sizeof(hopsdata[0].channel_id));
+
 	path[0] = *peer->id;
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
-	packet = create_onionpacket(cmd, path, hoppayloads, sessionkey,
-				    rhash.u.u8, sizeof(rhash));
+	packet = create_onionpacket(cmd, path, hopsdata, sessionkey, rhash.u.u8,
+				    sizeof(rhash));
 	onion = serialize_onionpacket(cmd, packet);
 
 	log_debug(peer->log, "JSON command to add new HTLC");
