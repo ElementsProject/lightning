@@ -3,6 +3,8 @@ from concurrent import futures
 from hashlib import sha256
 from lightning import LightningRpc, LegacyLightningRpc
 
+import copy
+import json
 import logging
 import os
 import sys
@@ -19,6 +21,8 @@ if os.getenv("TEST_DEBUG", None) != None:
     logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 logging.info("Tests running in '%s'", TEST_DIR)
 
+def to_json(arg):
+    return json.loads(json.dumps(arg))
 
 def setupBitcoind():
     global bitcoind
@@ -138,11 +142,111 @@ class LightningDTests(BaseLightningDTests):
     def test_connect(self):
         l1,l2 = self.connect()
 
-        p1 = l1.rpc.getpeer(l2.info['id'])
-        p2 = l2.rpc.getpeer(l1.info['id'])
+        p1 = l1.rpc.getpeer(l2.info['id'], 'info')
+        p2 = l2.rpc.getpeer(l1.info['id'], 'info')
 
         assert p1['condition'] == 'Exchanging gossip'
         assert p2['condition'] == 'Exchanging gossip'
+
+        # It should have gone through these steps
+        assert 'condition: Starting handshake as initiator' in p1['log']
+        assert 'condition: Beginning gossip' in p1['log']
+        assert 'condition: Exchanging gossip' in p1['log']
+
+        # Both should still be owned by gossip
+        assert p1['owner'] == 'lightningd_gossip'
+        assert p2['owner'] == 'lightningd_gossip'
+
+    def test_htlc(self):
+        l1,l2 = self.connect()
+
+        self.fund_channel(l1, l2, 10**6)
+        l1.daemon.wait_for_log('condition: Funding tx reached depth 6')
+        l2.daemon.wait_for_log('condition: Funding tx reached depth 6')
+
+        secret = '1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd'
+        rhash = l1.rpc.dev_rhash(secret)['rhash']
+
+        # This is actually dust, and uncalled for.
+        l1.rpc.dev_newhtlc(l2.info['id'], 100000, l1.bitcoin.rpc.getblockcount() + 10, rhash)
+        l1.daemon.wait_for_log('Sending commit_sig with 0 htlc sigs')
+        l2.daemon.wait_for_log('their htlc 0 locked')
+        l2.daemon.wait_for_log('failed htlc 0 code 0x400f')
+        l1.daemon.wait_for_log('htlc 0 failed with code 0x400f')
+
+        # Set up invoice (non-dust, just to test), and pay it.
+        # This one isn't dust.
+        rhash = l2.rpc.invoice(100000000, 'testpayment1')['rhash']
+        assert l2.rpc.listinvoice('testpayment1')[0]['complete'] == False
+
+        l1.rpc.dev_newhtlc(l2.info['id'], 100000000, l1.bitcoin.rpc.getblockcount() + 10, rhash)
+        l1.daemon.wait_for_log('Sending commit_sig with 1 htlc sigs')
+        l2.daemon.wait_for_log('their htlc 1 locked')
+        l2.daemon.wait_for_log("Resolving invoice 'testpayment1' with HTLC 1")
+        assert l2.rpc.listinvoice('testpayment1')[0]['complete'] == True
+        l1.daemon.wait_for_log('Payment succeeded on HTLC 1')
+
+        # Balances should have changed.
+        p1 = l1.rpc.getpeer(l2.info['id'])
+        p2 = l2.rpc.getpeer(l1.info['id'])
+        assert p1['msatoshi_to_us'] == 900000000
+        assert p1['msatoshi_to_them'] == 100000000
+        assert p2['msatoshi_to_us'] == 100000000
+        assert p2['msatoshi_to_them'] == 900000000
+        
+    def test_sendpay(self):
+        l1,l2 = self.connect()
+
+        self.fund_channel(l1, l2, 10**6)
+
+        amt = 200000000
+        rhash = l2.rpc.invoice(amt, 'testpayment2')['rhash']
+        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
+
+        routestep = { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5}
+
+        # Insufficient funds.
+        rs = copy.deepcopy(routestep)
+        rs['msatoshi'] = rs['msatoshi'] - 1
+        self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
+        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
+
+        # Gross overpayment (more than factor of 2)
+        rs = copy.deepcopy(routestep)
+        rs['msatoshi'] = rs['msatoshi'] * 2 + 1
+        self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
+        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
+        
+        # Insufficient delay.
+        rs = copy.deepcopy(routestep)
+        rs['delay'] = rs['delay'] - 2
+        self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
+        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
+
+        # Bad ID.
+        rs = copy.deepcopy(routestep)
+        rs['id'] = '00000000000000000000000000000000'
+        self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
+        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
+
+        # This works.
+        l1.rpc.sendpay(to_json([routestep]), rhash)
+        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
+        
+        # Repeat will "succeed", but won't actually send anything (duplicate)
+        assert not l1.daemon.is_in_log('... succeeded')
+        l1.rpc.sendpay(to_json([routestep]), rhash)
+        l1.daemon.wait_for_log('... succeeded')
+        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
+
+        # Overpaying by "only" a factor of 2 succeeds.
+        rhash = l2.rpc.invoice(amt, 'testpayment3')['rhash']
+        assert l2.rpc.listinvoice('testpayment3')[0]['complete'] == False
+        routestep = { 'msatoshi' : amt * 2, 'id' : l2.info['id'], 'delay' : 5}
+        l1.rpc.sendpay(to_json([routestep]), rhash)
+        assert l2.rpc.listinvoice('testpayment3')[0]['complete'] == True
+
+        # FIXME: test paying via another node, should fail to pay twice.
 
     def test_gossip_jsonrpc(self):
         l1,l2 = self.connect()

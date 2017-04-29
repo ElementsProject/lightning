@@ -234,10 +234,7 @@ $(HELPER_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(CORE_PROTOBUF_OBJS) $(BITCOIN_OBJS
 test-protocol: test/test_protocol
 	set -e; TMP=`mktemp`; for f in test/commits/*.script; do if ! $(VALGRIND) test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
 
-# FIXME: check doesn't depend on lightningd-blackbox-tests, since they
-# can't run in parallel with daemon blackbox tests.
 check: test-protocol
-	$(MAKE) lightningd-blackbox-tests
 	$(MAKE) pytest
 
 pytest: daemon/lightningd daemon/lightning-cli lightningd-all

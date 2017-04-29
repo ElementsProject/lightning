@@ -74,7 +74,19 @@ class TailableProc(object):
                 logging.debug("%s: %s", self.prefix, line.decode().rstrip())
                 self.logs_cond.notifyAll()
         self.running = False
-    
+
+    def is_in_log(self, regex):
+        """Look for `regex` in the logs."""
+
+        ex = re.compile(regex)
+        for l in self.logs:
+            if ex.search(l):
+                logging.debug("Found '%s' in logs", regex)
+                return True
+
+        logging.debug("Did not find '%s' in logs", regex)
+        return False
+
     def wait_for_log(self, regex, offset=1000, timeout=60):
         """Look for `regex` in the logs.
 
