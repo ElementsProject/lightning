@@ -218,7 +218,12 @@ class LightningDTests(BaseLightningDTests):
         rhash = l2.rpc.invoice(amt, 'testpayment2')['rhash']
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
 
-        routestep = { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5}
+        routestep = {
+            'msatoshi' : amt,
+            'id' : l2.info['id'],
+            'delay' : 5,
+            'channel': '1:1:1'
+        }
 
         # Insufficient funds.
         rs = copy.deepcopy(routestep)
@@ -257,7 +262,7 @@ class LightningDTests(BaseLightningDTests):
         # Overpaying by "only" a factor of 2 succeeds.
         rhash = l2.rpc.invoice(amt, 'testpayment3')['rhash']
         assert l2.rpc.listinvoice('testpayment3')[0]['complete'] == False
-        routestep = { 'msatoshi' : amt * 2, 'id' : l2.info['id'], 'delay' : 5}
+        routestep = { 'msatoshi' : amt * 2, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'}
         l1.rpc.sendpay(to_json([routestep]), rhash)
         assert l2.rpc.listinvoice('testpayment3')[0]['complete'] == True
 

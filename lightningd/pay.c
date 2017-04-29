@@ -193,9 +193,14 @@ static void json_sendpay(struct command *cmd,
 	end = json_next(routetok);
 	n_hops = 0;
 	ids = tal_arr(cmd, struct pubkey, n_hops);
-	hoppayloads = tal_arr(cmd, struct hoppayload, 0);
+
+	/* Switching to hop_data in the next commit, and it causes a
+	 * double free in peer_control otherwise */
+	hoppayloads = tal_arr(NULL, struct hoppayload, 0);
 	for (t = routetok + 1; t < end; t = json_next(t)) {
-		const jsmntok_t *amttok, *idtok, *delaytok;
+		const jsmntok_t *amttok, *idtok, *delaytok, *chantok;
+		/* Will populate into hop_data in the next commit */
+		struct short_channel_id scid;
 
 		if (t->type != JSMN_OBJECT) {
 			command_fail(cmd, "route %zu '%.*s' is not an object",
@@ -207,8 +212,9 @@ static void json_sendpay(struct command *cmd,
 		amttok = json_get_member(buffer, t, "msatoshi");
 		idtok = json_get_member(buffer, t, "id");
 		delaytok = json_get_member(buffer, t, "delay");
-		if (!amttok || !idtok || !delaytok) {
-			command_fail(cmd, "route %zu needs msatoshi/id/delay",
+		chantok = json_get_member(buffer, t, "channel");
+		if (!amttok || !idtok || !delaytok || !chantok) {
+			command_fail(cmd, "route %zu needs msatoshi/id/channel/delay",
 				     n_hops);
 			return;
 		}
@@ -233,6 +239,12 @@ static void json_sendpay(struct command *cmd,
 
 		tal_resize(&ids, n_hops+1);
 		memset(&ids[n_hops], 0, sizeof(ids[n_hops]));
+		if (!short_channel_id_from_str(buffer + chantok->start,
+					chantok->end - chantok->start,
+					&scid)) {
+			command_fail(cmd, "route %zu invalid id", n_hops);
+			return;
+		}
 		if (!pubkey_from_hexstr(buffer + idtok->start,
 					idtok->end - idtok->start,
 					&ids[n_hops])) {
