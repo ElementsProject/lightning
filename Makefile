@@ -240,7 +240,7 @@ check: test-protocol
 	$(MAKE) lightningd-blackbox-tests
 	$(MAKE) pytest
 
-pytest: daemon/lightningd
+pytest: daemon/lightningd daemon/lightning-cli lightningd-all
 	PYTHONPATH=contrib/pylightning python3 tests/test_lightningd.py
 
 # Keep includes in alpha order.
