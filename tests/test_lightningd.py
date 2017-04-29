@@ -110,44 +110,44 @@ class BaseLightningDTests(unittest.TestCase):
 
 
 class LightningDTests(BaseLightningDTests):
-    def test_connect(self):
+    def connect(self):
         l1 = self.node_factory.get_node(legacy=False)
         l2 = self.node_factory.get_node(legacy=False)
         ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
 
         assert ret['id'] == l2.info['id']
 
-        p1 = l1.rpc.getpeer(l2.info['id'])
-        p2 = l2.rpc.getpeer(l1.info['id'])
-
         l1.daemon.wait_for_log('WIRE_GOSSIPSTATUS_PEER_READY')
         l2.daemon.wait_for_log('WIRE_GOSSIPSTATUS_PEER_READY')
+        return l1,l2
+
+    def fund_channel(self,l1,l2,amount):
+        addr = l1.rpc.newaddr()['address']
+
+        txid = l1.bitcoin.rpc.sendtoaddress(addr, amount / 10**8 + 0.01)
+        tx = l1.bitcoin.rpc.getrawtransaction(txid)
+
+        l1.rpc.addfunds(tx)
+        l1.rpc.fundchannel(l2.info['id'], amount)
+
+        l1.bitcoin.rpc.generate(6)
+
+        l1.daemon.wait_for_log('Normal operation')
+        l2.daemon.wait_for_log('Normal operation')
+
+    def test_connect(self):
+        l1,l2 = self.connect()
+
+        p1 = l1.rpc.getpeer(l2.info['id'])
+        p2 = l2.rpc.getpeer(l1.info['id'])
 
         assert p1['condition'] == 'Exchanging gossip'
         assert p2['condition'] == 'Exchanging gossip'
 
     def test_gossip_jsonrpc(self):
-        l1 = self.node_factory.get_node(legacy=False)
-        l2 = self.node_factory.get_node(legacy=False)
-        ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1,l2 = self.connect()
 
-        assert ret['id'] == l2.info['id']
-
-        addr = l1.rpc.newaddr()['address']
-
-        txid = l1.bitcoin.rpc.sendtoaddress(addr, 0.02)
-        tx = l1.bitcoin.rpc.getrawtransaction(txid)
-
-        l1.rpc.addfunds(tx)
-        l1.rpc.fundchannel(l2.info['id'], 10**5)
-
-        l1.daemon.wait_for_log('WIRE_HSMCTL_SIGN_FUNDING_REPLY')
-
-        time.sleep(1)
-        l1.bitcoin.rpc.generate(6)
-
-        l1.daemon.wait_for_log('Normal operation')
-        l2.daemon.wait_for_log('Normal operation')
+        self.fund_channel(l1,l2,10**5)
 
         l1.daemon.wait_for_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
         l1.daemon.wait_for_log('peer_in WIRE_ANNOUNCEMENT_SIGNATURES')
@@ -185,27 +185,12 @@ class LightningDTests(BaseLightningDTests):
             assert ret['totlen'] == 0
 
     def test_ping(self):
-        l1 = self.node_factory.get_node(legacy=False)
-        l2 = self.node_factory.get_node(legacy=False)
-        ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
-
-        assert ret['id'] == l2.info['id']
+        l1,l2 = self.connect()
 
         # Test gossip pinging.
         self.ping_tests(l1, l2)
 
-        # Now fund the channels
-        addr = l1.rpc.newaddr()['address']
-
-        txid = l1.bitcoin.rpc.sendtoaddress(addr, 0.02)
-        tx = l1.bitcoin.rpc.getrawtransaction(txid)
-
-        l1.rpc.addfunds(tx)
-        l1.rpc.fundchannel(l2.info['id'], 10**5)
-        l1.bitcoin.rpc.generate(6)
-
-        l1.daemon.wait_for_log('Normal operation')
-        l2.daemon.wait_for_log('Normal operation')
+        self.fund_channel(l1, l2, 10**5)
 
         # channeld pinging
         self.ping_tests(l1, l2)
