@@ -5,11 +5,11 @@
 #include <daemon/chaintopology.h>
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
-#include <daemon/sphinx.h>
 #include <inttypes.h>
 #include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/sphinx.h>
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 
@@ -158,7 +158,7 @@ static void json_sendpay(struct command *cmd,
 	struct pay_command *pc;
 	const u8 *onion;
 	u8 sessionkey[32];
-	struct hoppayload *hoppayloads;
+	struct hop_data *hop_data;
 	u64 amount, lastamount;
 	struct onionpacket *packet;
 	u8 *msg;
@@ -196,10 +196,9 @@ static void json_sendpay(struct command *cmd,
 
 	/* Switching to hop_data in the next commit, and it causes a
 	 * double free in peer_control otherwise */
-	hoppayloads = tal_arr(NULL, struct hoppayload, 0);
+	hop_data = tal_arr(NULL, struct hop_data, 0);
 	for (t = routetok + 1; t < end; t = json_next(t)) {
 		const jsmntok_t *amttok, *idtok, *delaytok, *chantok;
-		/* Will populate into hop_data in the next commit */
 		struct short_channel_id scid;
 
 		if (t->type != JSMN_OBJECT) {
@@ -222,23 +221,23 @@ static void json_sendpay(struct command *cmd,
 		if (n_hops == 0) {
 			/* What we will send */
 			if (!json_tok_u64(buffer, amttok, &amount)) {
-				command_fail(cmd, "route %zu invalid msatoshi", n_hops);
+				command_fail(cmd, "route %zu invalid msatoshi",
+					     n_hops);
 				return;
 			}
 			lastamount = amount;
-		} else{
+		} else {
 			/* What that hop will forward */
-			tal_resize(&hoppayloads, n_hops);
-			memset(&hoppayloads[n_hops-1], 0, sizeof(struct hoppayload));
-			if (!json_tok_u64(buffer, amttok, &hoppayloads[n_hops-1].amt_to_forward)) {
-				command_fail(cmd, "route %zu invalid msatoshi", n_hops);
+			tal_resize(&hop_data, n_hops);
+			if (!json_tok_u64(buffer, amttok, &lastamount)) {
+				command_fail(cmd, "route %zu invalid msatoshi",
+					     n_hops);
 				return;
 			}
-			lastamount = hoppayloads[n_hops-1].amt_to_forward;
+			hop_data[n_hops - 1].amt_forward = lastamount;
 		}
 
 		tal_resize(&ids, n_hops+1);
-		memset(&ids[n_hops], 0, sizeof(ids[n_hops]));
 		if (!short_channel_id_from_str(buffer + chantok->start,
 					chantok->end - chantok->start,
 					&scid)) {
@@ -257,9 +256,11 @@ static void json_sendpay(struct command *cmd,
 		}
 		if (n_hops == 0)
 			first_delay = delay;
-		else
-			hoppayloads[n_hops-1].outgoing_cltv_value
+		else {
+			hop_data[n_hops-1].outgoing_cltv
 				= base_expiry + delay;
+			hop_data[n_hops-1].channel_id = scid;
+		}
 		n_hops++;
 	}
 
@@ -269,9 +270,11 @@ static void json_sendpay(struct command *cmd,
 	}
 
 	/* Add payload for final hop */
-	tal_resize(&hoppayloads, n_hops);
-	memset(&hoppayloads[n_hops-1], 0, sizeof(struct hoppayload));
-	hoppayloads[n_hops-1].outgoing_cltv_value = base_expiry + delay;
+	tal_resize(&hop_data, n_hops);
+	/* Memset here since we need it in the onion creation but will
+	 * shave it off immediately again */
+	memset(&hop_data[n_hops-1], 0, sizeof(struct hop_data));
+	hop_data[n_hops-1].outgoing_cltv = base_expiry + delay;
 
 	pc = find_pay_command(ld, &rhash);
 	if (pc) {
@@ -327,7 +330,7 @@ static void json_sendpay(struct command *cmd,
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
 
 	/* Onion will carry us from first peer onwards. */
-	packet = create_onionpacket(cmd, ids, hoppayloads, sessionkey,
+	packet = create_onionpacket(cmd, ids, hop_data, sessionkey,
 				    rhash.u.u8, sizeof(struct sha256));
 	onion = serialize_onionpacket(cmd, packet);
 
