@@ -4,6 +4,7 @@ sudo: true
 
 # Trusty (aka 14.04) is way way too old, so run in docker...
 script:
+  - docker pull cdecker/lightning-ci > /dev/null
   - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci make -j3
   - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci make check
   - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci make check-source
