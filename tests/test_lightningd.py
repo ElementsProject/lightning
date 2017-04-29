@@ -162,6 +162,54 @@ class LightningDTests(BaseLightningDTests):
         assert len(channels) == 2
         assert [c['active'] for c in channels] == [True, True]
 
+    def ping_tests(self, l1, l2):
+        # 0-byte pong gives just type + length field.
+        ret = l1.rpc.dev_ping(l2.info['id'], 0, 0)
+        assert ret['totlen'] == 4
+
+        # 1000-byte ping, 0-byte pong.
+        ret = l1.rpc.dev_ping(l2.info['id'], 1000, 0)
+        assert ret['totlen'] == 4
+
+        # 1000 byte pong.
+        ret = l1.rpc.dev_ping(l2.info['id'], 1000, 1000)
+        assert ret['totlen'] == 1004
+
+        # Maximum length pong.
+        ret = l1.rpc.dev_ping(l2.info['id'], 1000, 65531)
+        assert ret['totlen'] == 65535
+
+        # Overlength -> no reply.
+        for s in range(65532, 65536):
+            ret = l1.rpc.dev_ping(l2.info['id'], 1000, s)
+            assert ret['totlen'] == 0
+
+    def test_ping(self):
+        l1 = self.node_factory.get_node(legacy=False)
+        l2 = self.node_factory.get_node(legacy=False)
+        ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+
+        assert ret['id'] == l2.info['id']
+
+        # Test gossip pinging.
+        self.ping_tests(l1, l2)
+
+        # Now fund the channels
+        addr = l1.rpc.newaddr()['address']
+
+        txid = l1.bitcoin.rpc.sendtoaddress(addr, 0.02)
+        tx = l1.bitcoin.rpc.getrawtransaction(txid)
+
+        l1.rpc.addfunds(tx)
+        l1.rpc.fundchannel(l2.info['id'], 10**5)
+        l1.bitcoin.rpc.generate(6)
+
+        l1.daemon.wait_for_log('Normal operation')
+        l2.daemon.wait_for_log('Normal operation')
+
+        # channeld pinging
+        self.ping_tests(l1, l2)
+
 class LegacyLightningDTests(BaseLightningDTests):
 
     def test_connect(self):
