@@ -3,6 +3,7 @@
 #include "config.h"
 #include <bitcoin/pubkey.h>
 #include <ccan/tal/tal.h>
+#include <daemon/routing.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -105,6 +106,11 @@ void json_add_hex(struct json_result *result, const char *fieldname,
 void json_add_pubkey(struct json_result *response,
 		     const char *fieldname,
 		     const struct pubkey *key);
+
+/* '"fieldname" : "1234/5/6"' */
+void json_add_short_channel_id(struct json_result *response,
+			       const char *fieldname,
+			       const struct short_channel_id *id);
 
 void json_add_object(struct json_result *result, ...);
 

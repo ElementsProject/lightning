@@ -911,6 +911,7 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 	total_delay = 0;
 
 	for (i = tal_count(route) - 1; i >= 0; i--) {
+		hops[i + 1].channel_id = route[i]->short_channel_id;
 		hops[i + 1].nodeid = route[i]->dst->id;
 		hops[i + 1].amount = total_amount;
 		total_amount += connection_fee(route[i], total_amount);
@@ -921,6 +922,7 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 		hops[i + 1].delay = total_delay;
 	}
 	/* Backfill the first hop manually */
+	hops[0].channel_id = first_conn->short_channel_id;
 	hops[0].nodeid = first_conn->dst->id;
 	/* We don't charge ourselves any fees. */
 	hops[0].amount = total_amount;

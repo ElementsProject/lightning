@@ -252,9 +252,11 @@ static bool json_getroute_reply(struct subd *gossip, const u8 *reply, const int 
 	response = new_json_result(cmd);
 	json_object_start(response, NULL);
 	json_array_start(response, "route");
-	for (i=0; i<tal_count(hops); i++) {
+	for (i = 0; i < tal_count(hops); i++) {
 		json_object_start(response, NULL);
 		json_add_pubkey(response, "id", &hops[i].nodeid);
+		json_add_short_channel_id(response, "channel",
+					  &hops[i].channel_id);
 		json_add_u64(response, "msatoshi", hops[i].amount);
 		json_add_num(response, "delay", hops[i].delay);
 		json_object_end(response);

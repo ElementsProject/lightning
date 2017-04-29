@@ -29,12 +29,14 @@ void towire_gossip_getnodes_entry(u8 **pptr, const struct gossip_getnodes_entry 
 void fromwire_route_hop(const u8 **pptr, size_t *max, struct route_hop *entry)
 {
 	fromwire_pubkey(pptr, max, &entry->nodeid);
+	fromwire_short_channel_id(pptr, max, &entry->channel_id);
 	entry->amount = fromwire_u32(pptr, max);
 	entry->delay = fromwire_u32(pptr, max);
 }
 void towire_route_hop(u8 **pptr, const struct route_hop *entry)
 {
 	towire_pubkey(pptr, &entry->nodeid);
+	towire_short_channel_id(pptr, &entry->channel_id);
 	towire_u32(pptr, entry->amount);
 	towire_u32(pptr, entry->delay);
 }

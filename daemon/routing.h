@@ -90,6 +90,7 @@ struct routing_state {
 };
 
 struct route_hop {
+	struct short_channel_id channel_id;
 	struct pubkey nodeid;
 	u32 amount;
 	u32 delay;

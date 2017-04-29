@@ -445,6 +445,14 @@ void json_add_pubkey(struct json_result *response,
 	json_add_hex(response, fieldname, der, sizeof(der));
 }
 
+void json_add_short_channel_id(struct json_result *response,
+			       const char *fieldname,
+			       const struct short_channel_id *id)
+{
+	char *str = tal_fmt(response, "%d:%d:%d", id->blocknum, id->txnum, id->outnum);
+	json_add_string(response, fieldname, str);
+}
+
 void json_add_object(struct json_result *result, ...)
 {
 	va_list ap;
