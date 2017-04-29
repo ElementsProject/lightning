@@ -78,10 +78,13 @@ class LightningRpc(UnixDomainSocketRpc):
     between calls, but it does not (yet) support concurrent calls.
     """
 
-    def getpeer(self, peer_id):
-        """Get info about a specific peer.
+    def getpeer(self, peer_id, log_level=None):
+        """Get info about a specific peer, optionally with its log.
         """
-        peers = self.getpeers()['peers']
+        if log_level:
+            peers = self.getpeers(log_level)['peers']
+        else:
+            peers = self.getpeers()['peers']
         for p in peers:
             if p['peerid'] == peer_id:
                 return p
