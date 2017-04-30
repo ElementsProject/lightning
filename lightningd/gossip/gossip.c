@@ -633,6 +633,34 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	return daemon_conn_read_next(master->conn, master);
 }
 
+static struct io_plan *resolve_channel_req(struct io_conn *conn,
+					   struct daemon *daemon, const u8 *msg)
+{
+	struct short_channel_id scid;
+	struct node_connection *nc;
+	u8 *reply;
+	struct pubkey *nullkey = talz(msg, struct pubkey);
+	if (!fromwire_gossip_resolve_channel_request(msg, NULL, &scid)) {
+		status_trace("Unable to parse resolver request");
+		reply = towire_gossip_resolve_channel_reply(msg, 1, nullkey,
+							    nullkey);
+	} else {
+		status_trace("Attempting to resolce channel %d/%d/%d",
+			     scid.blocknum, scid.txnum, scid.outnum);
+
+		nc = get_connection_by_scid(daemon->rstate, &scid, 0);
+		if (!nc) {
+			reply = towire_gossip_resolve_channel_reply(
+			    msg, 2, nullkey, nullkey);
+		} else {
+			reply = towire_gossip_resolve_channel_reply(
+			    msg, 0, &nc->src->id, &nc->dst->id);
+		}
+	}
+	daemon_conn_send(&daemon->master, reply);
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct daemon *daemon = container_of(master, struct daemon, master);
@@ -662,11 +690,15 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_PING:
 		return ping_req(conn, daemon, daemon->master.msg_in);
 
+	case WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST:
+		return resolve_channel_req(conn, daemon, daemon->master.msg_in);
+
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:
 	case WIRE_GOSSIP_PING_REPLY:
+	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
 	case WIRE_GOSSIPSTATUS_INIT_FAILED:
 	case WIRE_GOSSIPSTATUS_BAD_NEW_PEER_REQUEST:
 	case WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST:

@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/htable/htable_type.h>
 #include <ccan/short_types/short_types.h>
+#include <lightningd/sphinx.h>
 
 /* A HTLC has a source and destination: if other is NULL, it's this node.
  *
@@ -14,11 +15,19 @@ struct htlc_end {
 	enum htlc_end_type which_end;
 	struct peer *peer;
 	u64 htlc_id;
-	u64 msatoshis;
+	u32 msatoshis;
 
 	struct htlc_end *other_end;
 	/* If this is driven by a command. */
 	struct pay_command *pay_command;
+
+	/* Temporary information, while we resolve the next hop */
+	u8 next_onion[TOTAL_PACKET_SIZE];
+	struct short_channel_id next_channel;
+	u64 amt_to_forward;
+	u32 outgoing_cltv_value;
+	u32 cltv_expiry;
+	struct sha256 payment_hash;
 };
 
 static inline const struct htlc_end *keyof_htlc_end(const struct htlc_end *e)

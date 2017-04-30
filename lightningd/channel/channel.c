@@ -636,7 +636,6 @@ static void their_htlc_locked(const struct htlc *htlc, struct peer *peer)
 		goto remove_htlc;
 	}
 
-	u8 dummy_next_hop[20]; memset(dummy_next_hop, 0, 20);
 	/* Tell master to deal with it. */
 	msg = towire_channel_accepted_htlc(tmpctx, htlc->id, htlc->msatoshi,
 					   abs_locktime_to_blocks(&htlc->expiry),
@@ -646,7 +645,7 @@ static void their_htlc_locked(const struct htlc *htlc, struct peer *peer)
 					   rs->nextcase == ONION_FORWARD,
 					   rs->hop_data.amt_forward,
 					   rs->hop_data.outgoing_cltv,
-					   dummy_next_hop);
+					   &rs->hop_data.channel_id);
 	daemon_conn_send(&peer->master, take(msg));
 	tal_free(tmpctx);
 	return;

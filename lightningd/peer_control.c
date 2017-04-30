@@ -875,14 +875,11 @@ fail:
 	tal_free(hend);
 }
 
-static struct peer *peer_by_pkhash(struct lightningd *ld, const u8 pkhash[20])
+static struct peer *peer_by_pubkey(struct lightningd *ld, const struct pubkey *id)
 {
 	struct peer *peer;
-	u8 addr[20];
-
 	list_for_each(&ld->peers, peer, list) {
-		pubkey_hash160(addr, peer->id);
-		if (memcmp(addr, pkhash, sizeof(addr)) == 0)
+		if (pubkey_cmp(id, peer->id) == 0)
 			return peer;
 	}
 	return NULL;
@@ -945,13 +942,13 @@ static void forward_htlc(struct htlc_end *hend,
 			 const struct sha256 *payment_hash,
 			 u64 amt_to_forward,
 			 u32 outgoing_cltv_value,
-			 const u8 next_hop[20],
+			 const struct pubkey *next_hop,
 			 const u8 next_onion[TOTAL_PACKET_SIZE])
 {
 	u8 *err, *msg;
 	u64 fee;
 	struct lightningd *ld = hend->peer->ld;
-	struct peer *next = peer_by_pkhash(ld, next_hop);
+	struct peer *next = peer_by_pubkey(ld, next_hop);
 
 	if (!next) {
 		err = towire_unknown_next_peer(hend);
@@ -1035,44 +1032,63 @@ fail:
 	tal_free(hend);
 }
 
+/* We received a resolver reply, which gives us the node_ids of the
+ * channel we want to forward over */
+static bool channel_resolve_reply(struct subd *gossip, const u8 *msg,
+				  const int *fds, struct htlc_end *hend)
+{
+	struct pubkey node_id_1, node_id_2, peer_id;
+	u8 error;
+	fromwire_gossip_resolve_channel_reply(msg, NULL, &error, &node_id_1,
+					      &node_id_2);
+
+	/* Get the other peer matching the id that is not us */
+	if (pubkey_cmp(&node_id_1, &gossip->ld->dstate.id) == 0) {
+		peer_id = node_id_2;
+	} else {
+		peer_id = node_id_1;
+	}
+
+	forward_htlc(hend, hend->cltv_expiry, &hend->payment_hash,
+		     hend->amt_to_forward, hend->outgoing_cltv_value, &peer_id,
+		     hend->next_onion);
+	/* FIXME(cdecker) Cleanup things we stuffed into hend before (maybe?) */
+	return true;
+}
+
 static int peer_accepted_htlc(struct peer *peer, const u8 *msg)
 {
-	u64 id;
-	u32 cltv_expiry, amount_msat;
-	struct sha256 payment_hash;
-	u8 next_onion[TOTAL_PACKET_SIZE];
-	u8 next_hop[20];
 	bool forward;
-	u64 amt_to_forward;
-	u32 outgoing_cltv_value;
 	struct htlc_end *hend;
+	u8 *req;
 
-	if (!fromwire_channel_accepted_htlc(msg, NULL, &id, &amount_msat,
-					    &cltv_expiry, &payment_hash,
-					    next_onion, &forward,
-					    &amt_to_forward,
-					    &outgoing_cltv_value,
-					    next_hop)) {
+	hend = tal(msg, struct htlc_end);
+	if (!fromwire_channel_accepted_htlc(msg, NULL,
+					    &hend->htlc_id, &hend->msatoshis,
+					    &hend->cltv_expiry, &hend->payment_hash,
+					    hend->next_onion, &forward,
+					    &hend->amt_to_forward,
+					    &hend->outgoing_cltv_value,
+					    &hend->next_channel)) {
 		log_broken(peer->log, "bad fromwire_channel_accepted_htlc %s",
 			   tal_hex(peer, msg));
 		return -1;
 	}
 
-	hend = tal(peer, struct htlc_end);
+	tal_steal(peer, hend);
 	hend->which_end = HTLC_SRC;
 	hend->peer = peer;
-	hend->htlc_id = id;
 	hend->other_end = NULL;
 	hend->pay_command = NULL;
-	hend->msatoshis = amount_msat;
 
-	if (forward)
-		forward_htlc(hend, cltv_expiry, &payment_hash,
-			     amt_to_forward, outgoing_cltv_value,
-			     next_hop, next_onion);
-	else
-		handle_localpay(hend, cltv_expiry, &payment_hash,
-				amt_to_forward, outgoing_cltv_value);
+	if (forward) {
+		req = towire_gossip_resolve_channel_request(msg, &hend->next_channel);
+		log_broken(peer->log, "Asking gossip to resolve channel %d/%d/%d", hend->next_channel.blocknum, hend->next_channel.txnum, hend->next_channel.outnum);
+		subd_req(hend, peer->ld->gossip, req, -1, 0, channel_resolve_reply, hend);
+		/* FIXME(cdecker) Stuff all this info into hend */
+	} else
+		handle_localpay(hend, hend->cltv_expiry, &hend->payment_hash,
+				hend->amt_to_forward, hend->outgoing_cltv_value);
 	return 0;
 }
 

@@ -147,12 +147,14 @@ static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GETROUTE_REQUEST:
 	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
 	case WIRE_GOSSIP_PING:
+	case WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:
 	case WIRE_GOSSIP_PING_REPLY:
+	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
 		break;
 	case WIRE_GOSSIPSTATUS_PEER_BAD_MSG:
 		peer_bad_message(gossip, msg);
