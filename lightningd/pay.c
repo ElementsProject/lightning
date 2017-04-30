@@ -151,7 +151,7 @@ static void json_sendpay(struct command *cmd,
 	struct pubkey *ids;
 	jsmntok_t *routetok, *rhashtok;
 	const jsmntok_t *t, *end;
-	unsigned int delay, first_delay, base_expiry;
+	unsigned int delay, base_expiry;
 	size_t n_hops;
 	struct sha256 rhash;
 	struct peer *peer;
@@ -159,6 +159,7 @@ static void json_sendpay(struct command *cmd,
 	const u8 *onion;
 	u8 sessionkey[32];
 	struct hop_data *hop_data;
+	struct hop_data first_hop_data;
 	u64 amount, lastamount;
 	struct onionpacket *packet;
 	u8 *msg;
@@ -194,12 +195,9 @@ static void json_sendpay(struct command *cmd,
 	n_hops = 0;
 	ids = tal_arr(cmd, struct pubkey, n_hops);
 
-	/* Switching to hop_data in the next commit, and it causes a
-	 * double free in peer_control otherwise */
-	hop_data = tal_arr(NULL, struct hop_data, 0);
+	hop_data = tal_arr(cmd, struct hop_data, n_hops);
 	for (t = routetok + 1; t < end; t = json_next(t)) {
 		const jsmntok_t *amttok, *idtok, *delaytok, *chantok;
-		struct short_channel_id scid;
 
 		if (t->type != JSMN_OBJECT) {
 			command_fail(cmd, "route %zu '%.*s' is not an object",
@@ -218,29 +216,20 @@ static void json_sendpay(struct command *cmd,
 			return;
 		}
 
-		if (n_hops == 0) {
-			/* What we will send */
-			if (!json_tok_u64(buffer, amttok, &amount)) {
-				command_fail(cmd, "route %zu invalid msatoshi",
-					     n_hops);
-				return;
-			}
-			lastamount = amount;
-		} else {
-			/* What that hop will forward */
-			tal_resize(&hop_data, n_hops);
-			if (!json_tok_u64(buffer, amttok, &lastamount)) {
-				command_fail(cmd, "route %zu invalid msatoshi",
-					     n_hops);
-				return;
-			}
-			hop_data[n_hops - 1].amt_forward = lastamount;
-		}
-
+		tal_resize(&hop_data, n_hops + 1);
 		tal_resize(&ids, n_hops+1);
+		hop_data[n_hops].realm = 0;
+		/* What that hop will forward */
+		if (!json_tok_u64(buffer, amttok, &amount)) {
+			command_fail(cmd, "route %zu invalid msatoshi",
+				     n_hops);
+			return;
+		}
+		hop_data[n_hops].amt_forward = amount;
+
 		if (!short_channel_id_from_str(buffer + chantok->start,
-					chantok->end - chantok->start,
-					&scid)) {
+					       chantok->end - chantok->start,
+					       &hop_data[n_hops].channel_id)) {
 			command_fail(cmd, "route %zu invalid id", n_hops);
 			return;
 		}
@@ -254,13 +243,7 @@ static void json_sendpay(struct command *cmd,
 			command_fail(cmd, "route %zu invalid delay", n_hops);
 			return;
 		}
-		if (n_hops == 0)
-			first_delay = delay;
-		else {
-			hop_data[n_hops-1].outgoing_cltv
-				= base_expiry + delay;
-			hop_data[n_hops-1].channel_id = scid;
-		}
+		hop_data[n_hops].outgoing_cltv = base_expiry + delay;
 		n_hops++;
 	}
 
@@ -269,12 +252,20 @@ static void json_sendpay(struct command *cmd,
 		return;
 	}
 
-	/* Add payload for final hop */
-	tal_resize(&hop_data, n_hops);
-	/* Memset here since we need it in the onion creation but will
-	 * shave it off immediately again */
-	memset(&hop_data[n_hops-1], 0, sizeof(struct hop_data));
+	/* Store some info we'll need for our own HTLC */
+	amount = hop_data[0].amt_forward;
+	lastamount = hop_data[n_hops-1].amt_forward;
+	first_hop_data = hop_data[0];
+
+	/* Shift the hop_data down by one, so each hop gets its
+	 * instructions, not how we got there */
+	for (size_t i=0; i < n_hops - 1; i++) {
+		hop_data[i] = hop_data[i+1];
+	}
+	/* And finally set the final hop to the special values in
+	 * BOLT04 */
 	hop_data[n_hops-1].outgoing_cltv = base_expiry + delay;
+	memset(&hop_data[n_hops-1].channel_id, 0, sizeof(struct short_channel_id));
 
 	pc = find_pay_command(ld, &rhash);
 	if (pc) {
@@ -357,7 +348,7 @@ static void json_sendpay(struct command *cmd,
 	log_info(ld->log, "Sending %"PRIu64" over %zu hops to deliver %"PRIu64,
 		 amount, n_hops, lastamount);
 	msg = towire_channel_offer_htlc(pc, amount,
-					base_expiry + first_delay,
+					first_hop_data.outgoing_cltv,
 					&pc->rhash, onion);
 	subd_req(pc, peer->owner, take(msg), -1, 0, rcvd_htlc_reply, pc);
 
