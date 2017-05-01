@@ -107,6 +107,7 @@ static struct peer *setup_new_peer(struct daemon *daemon, const u8 *msg)
 	peer->error = NULL;
 	peer->local = true;
 	peer->num_pings_outstanding = 0;
+	peer->broadcast_index = 0;
 	msg_queue_init(&peer->peer_out, peer);
 	list_add_tail(&daemon->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
@@ -362,13 +363,15 @@ static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn, struct daemon_
 
 	/* Make sure we are not connected directly */
 	if (peer->local)
-		return io_out_wait(conn, peer, daemon_conn_write_next, dc);
+		return msg_queue_wait(conn, &peer->owner_conn.out,
+				      daemon_conn_write_next, dc);
 
 	next = next_broadcast_message(peer->daemon->rstate->broadcasts,
 				      &peer->broadcast_index);
 
 	if (!next) {
-		return io_out_wait(conn, peer, daemon_conn_write_next, dc);
+		return msg_queue_wait(conn, &peer->owner_conn.out,
+				      daemon_conn_write_next, dc);
 	} else {
 		return io_write_wire(conn, next->payload, nonlocal_dump_gossip, dc);
 	}
