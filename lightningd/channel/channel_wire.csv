@@ -33,13 +33,15 @@ channel_init,376,payment_basepoint,33
 channel_init,409,delayed_payment_basepoint,33
 channel_init,442,their_per_commit_point,33
 channel_init,475,am_funder,bool
-channel_init,476,feerate,4
-channel_init,480,funding_satoshi,8
-channel_init,488,push_msat,8
-channel_init,496,seed,struct privkey
-channel_init,529,local_node_id,struct pubkey
-channel_init,562,remote_node_id,struct pubkey
-channel_init,595,commit_msec,4
+channel_init,476,fee_base,4
+channel_init,480,fee_proportional,4
+channel_init,484,funding_satoshi,8
+channel_init,492,push_msat,8
+channel_init,500,seed,struct privkey
+channel_init,533,local_node_id,struct pubkey
+channel_init,566,remote_node_id,struct pubkey
+channel_init,599,commit_msec,4
+channel_init,603,cltv_delta,u16
 
 # Tx is deep enough, go!
 channel_funding_locked,2

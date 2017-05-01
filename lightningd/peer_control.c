@@ -1252,7 +1252,7 @@ static void peer_start_channeld(struct peer *peer, enum side funder,
 				const struct pubkey *their_per_commit_point)
 {
 	struct channeld_start *cds = tal(peer, struct channeld_start);
-
+	struct config *cfg = &peer->ld->dstate.config;
 	/* Unowned: back to being owned by main daemon. */
 	peer->owner = NULL;
 	tal_steal(peer->ld, peer);
@@ -1279,15 +1279,16 @@ static void peer_start_channeld(struct peer *peer, enum side funder,
 					   &theirbase->delayed_payment,
 					   their_per_commit_point,
 					   funder == LOCAL,
-					   /* FIXME: real feerate! */
-					   15000,
+					   cfg->fee_base,
+					   cfg->fee_per_satoshi,
 					   peer->funding_satoshi,
 					   peer->push_msat,
 					   peer->seed,
 					   &peer->ld->dstate.id,
 					   peer->id,
-					   time_to_msec(peer->ld->dstate.config
-							.commit_time));
+					   time_to_msec(cfg->commit_time),
+					   cfg->deadline_blocks
+		);
 
 	/* Get fd from hsm. */
 	subd_req(peer, peer->ld->hsm,

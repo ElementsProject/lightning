@@ -99,6 +99,11 @@ struct peer {
 
 	/* Which direction of the channel do we control? */
 	u16 channel_direction;
+
+	/* CLTV delta to announce to peers */
+	u16 cltv_delta;
+	u32 fee_base;
+	u32 fee_per_satoshi;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -178,8 +183,9 @@ static void send_channel_update(struct peer *peer, bool disabled)
 
 	flags = peer->channel_direction | (disabled << 1);
 	cupdate = towire_channel_update(
-	    tmpctx, sig, &peer->short_channel_ids[LOCAL], timestamp, flags, 36,
-	    1, 10, peer->channel->view[LOCAL].feerate_per_kw);
+	    tmpctx, sig, &peer->short_channel_ids[LOCAL], timestamp, flags,
+	    peer->cltv_delta, peer->fee_base, peer->fee_per_satoshi,
+	    peer->channel->view[LOCAL].feerate_per_kw);
 
 	msg = towire_hsm_cupdate_sig_req(tmpctx, cupdate);
 
@@ -966,7 +972,6 @@ static void init_channel(struct peer *peer, const u8 *msg)
 {
 	struct privkey seed;
 	struct basepoints points[NUM_SIDES];
-	u32 feerate;
 	u64 funding_satoshi, push_msat;
 	u16 funding_txout;
 	struct pubkey funding_pubkey[NUM_SIDES];
@@ -984,11 +989,14 @@ static void init_channel(struct peer *peer, const u8 *msg)
 				   &points[REMOTE].delayed_payment,
 				   &peer->old_per_commit[REMOTE],
 				   &am_funder,
-				   &feerate, &funding_satoshi, &push_msat,
+				   &peer->fee_base,
+				   &peer->fee_per_satoshi,
+				   &funding_satoshi, &push_msat,
 				   &seed,
 				   &peer->node_ids[LOCAL],
 				   &peer->node_ids[REMOTE],
-				   &peer->commit_msec))
+				   &peer->commit_msec,
+				   &peer->cltv_delta))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s",
 			      tal_hex(msg, msg));
 
@@ -1005,7 +1013,7 @@ static void init_channel(struct peer *peer, const u8 *msg)
 				    &peer->old_per_commit[LOCAL]));
 
 	peer->channel = new_channel(peer, &funding_txid, funding_txout,
-				    funding_satoshi, push_msat, feerate,
+				    funding_satoshi, push_msat, peer->fee_base,
 				    &peer->conf[LOCAL], &peer->conf[REMOTE],
 				    &points[LOCAL], &points[REMOTE],
 				    &funding_pubkey[LOCAL],
