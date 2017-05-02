@@ -15,9 +15,12 @@ import utils
 
 bitcoind = None
 TEST_DIR = tempfile.mkdtemp(prefix='lightning-')
-VALGRIND = os.getenv("NOVALGRIND", None) == None
+VALGRIND = os.getenv("NOVALGRIND", "0") == "0"
+TEST_DEBUG = os.getenv("TEST_DEBUG", "0") == "1"
 
-if os.getenv("TEST_DEBUG", None) != None:
+print("Testing results are in {}".format(TEST_DIR))
+
+if TEST_DEBUG:
     logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 logging.info("Tests running in '%s'", TEST_DIR)
 
