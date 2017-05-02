@@ -358,7 +358,6 @@ class LightningDTests(BaseLightningDTests):
                 seen.append((c['source'],c['destination']))
             assert set(seen) == set(comb)
 
-    @unittest.skip('Temporarily broken')
     def test_forward(self):
         # Connect 1 -> 2 -> 3.
         l1,l2 = self.connect()
@@ -374,6 +373,11 @@ class LightningDTests(BaseLightningDTests):
         # If they're at different block heights we can get spurious errors.
         sync_blockheight(l1, l2, l3)
 
+        chanid1 = l1.rpc.getpeer(l2.info['id'])['channel']
+        chanid2 = l2.rpc.getpeer(l3.info['id'])['channel']
+        assert l2.rpc.getpeer(l1.info['id'])['channel'] == chanid1
+        assert l3.rpc.getpeer(l2.info['id'])['channel'] == chanid2
+
         rhash = l3.rpc.invoice(100000000, 'testpayment1')['rhash']
         assert l3.rpc.listinvoice('testpayment1')[0]['complete'] == False
 
@@ -381,24 +385,32 @@ class LightningDTests(BaseLightningDTests):
         amt = 100000000
         fee = amt * 10 // 1000000 + 1
 
+        baseroute = [ { 'msatoshi' : amt + fee,
+                        'id' : l2.info['id'],
+                        'delay' : 10,
+                        'channel' : chanid1 },
+                      { 'msatoshi' : amt,
+                        'id' : l3.info['id'],
+                        'delay' : 5,
+                        'channel' : chanid2 } ]
+
         # Unknown other peer
-        route = [ { 'msatoshi' : amt + fee, 'id' : l2.info['id'], 'delay' : 10},
-                  { 'msatoshi' : amt, 'id' : '031a8dc444e41bb989653a4501e11175a488a57439b0c4947704fd6e3de5dca607', 'delay' : 5} ]
+        route = copy.deepcopy(baseroute)
+        route[1]['id'] = '031a8dc444e41bb989653a4501e11175a488a57439b0c4947704fd6e3de5dca607'
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
 
         # Delay too short (we always add one internally anyway, so subtract 2 here).
-        route = [ { 'msatoshi' : amt + fee, 'id' : l2.info['id'], 'delay' : 8},
-                  { 'msatoshi' : amt, 'id' : l3.info['id'], 'delay' : 5} ]
+        route = copy.deepcopy(baseroute)
+        route[0]['delay'] = 8
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
 
         # Final delay too short
-        route = [ { 'msatoshi' : amt + fee, 'id' : l2.info['id'], 'delay' : 8},
-                  { 'msatoshi' : amt, 'id' : l3.info['id'], 'delay' : 3} ]
+        route = copy.deepcopy(baseroute)
+        route[1]['delay'] = 3
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
         
         # This one works
-        route = [ { 'msatoshi' : amt + fee, 'id' : l2.info['id'], 'delay' : 10},
-                  { 'msatoshi' : amt, 'id' : l3.info['id'], 'delay' : 5} ]
+        route = copy.deepcopy(baseroute)
         l1.rpc.sendpay(to_json(route), rhash)
 
 class LegacyLightningDTests(BaseLightningDTests):
