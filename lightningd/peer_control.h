@@ -46,6 +46,9 @@ struct peer {
 	/* Our channel config. */
 	struct channel_config our_config;
 
+	/* Channel if locked. */
+	struct short_channel_id *scid;
+
 	/* Minimum funding depth (specified by us if they fund). */
 	u32 minimum_depth;
 
@@ -62,7 +65,6 @@ struct peer {
 
 	/* Gossip client fd, forwarded to the respective owner */
 	int gossip_client_fd;
-	bool locked;
 };
 
 struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id);
