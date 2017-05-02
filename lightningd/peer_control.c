@@ -645,9 +645,6 @@ static void fail_htlc(struct peer *peer, u64 htlc_id, const u8 *msg)
 	log_broken(peer->log, "failed htlc %"PRIu64" code 0x%04x (%s)",
 		   htlc_id, failcode, onion_type_name(failcode));
 
-	/* We don't do BADONION here */
-	assert(!(failcode & BADONION));
-
 	/* FIXME: encrypt msg! */
 	subd_send_msg(peer->owner,
 		      take(towire_channel_fail_htlc(peer, htlc_id, msg)));
@@ -1163,6 +1160,57 @@ static int peer_failed_htlc(struct peer *peer, const u8 *msg)
 	return 0;
 }
 
+/* FIXME: Encrypt! */
+static u8 *malformed_msg(const tal_t *ctx, enum onion_type type,
+			 const struct sha256 *sha256_of_onion)
+{
+	/* FIXME: check the reported SHA matches what we sent! */
+	switch (type) {
+	case WIRE_INVALID_ONION_VERSION:
+		return towire_invalid_onion_version(ctx, sha256_of_onion);
+	case WIRE_INVALID_ONION_HMAC:
+		return towire_invalid_onion_hmac(ctx, sha256_of_onion);
+	case WIRE_INVALID_ONION_KEY:
+		return towire_invalid_onion_key(ctx, sha256_of_onion);
+	default:
+		/* FIXME */
+		return towire_temporary_channel_failure(ctx);
+	}
+}
+
+static int peer_failed_malformed_htlc(struct peer *peer, const u8 *msg)
+{
+	u64 id;
+	struct htlc_end *hend;
+	struct sha256 sha256_of_onion;
+	u16 failcode;
+
+	if (!fromwire_channel_malformed_htlc(msg, NULL, &id,
+					     &sha256_of_onion, &failcode)) {
+		log_broken(peer->log, "bad fromwire_channel_malformed_htlc %s",
+			   tal_hex(peer, msg));
+		return -1;
+	}
+
+	hend = find_htlc_end(&peer->ld->htlc_ends, peer, id, HTLC_DST);
+	if (!hend) {
+		log_broken(peer->log,
+			   "channel_malformed_htlc unknown htlc %"PRIu64,
+			   id);
+		return -1;
+	}
+
+	if (hend->other_end) {
+		fail_htlc(hend->other_end->peer, hend->other_end->htlc_id,
+			  malformed_msg(msg, failcode, &sha256_of_onion));
+	} else {
+		payment_failed(peer->ld, hend, NULL, failcode);
+	}
+	tal_free(hend);
+
+	return 0;
+}
+
 static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);
@@ -1181,9 +1229,7 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 	case WIRE_CHANNEL_FAILED_HTLC:
 		return peer_failed_htlc(sd->peer, msg);
 	case WIRE_CHANNEL_MALFORMED_HTLC:
-		/* FIXME: Forward. */
-		abort();
-		break;
+		return peer_failed_malformed_htlc(sd->peer, msg);
 
 	/* We never see fatal ones. */
 	case WIRE_CHANNEL_BAD_COMMAND:

@@ -830,6 +830,47 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 	abort();
 }
 
+static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
+{
+	struct channel_id channel_id;
+	u64 id;
+	enum channel_remove_err e;
+	struct sha256 sha256_of_onion;
+	u16 failcode;
+
+	if (!fromwire_update_fail_malformed_htlc(msg, NULL, &channel_id, &id,
+						 &sha256_of_onion, &failcode)) {
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "Bad update_fail_malformed_htlc %s",
+			    tal_hex(msg, msg));
+	}
+
+	e = channel_fail_htlc(peer->channel, LOCAL, id);
+	switch (e) {
+	case CHANNEL_ERR_REMOVE_OK:
+		msg = towire_channel_malformed_htlc(msg, id, &sha256_of_onion,
+						    failcode);
+		daemon_conn_send(&peer->master, take(msg));
+		start_commit_timer(peer);
+		return;
+	case CHANNEL_ERR_NO_SUCH_ID:
+	case CHANNEL_ERR_ALREADY_FULFILLED:
+	case CHANNEL_ERR_HTLC_UNCOMMITTED:
+	case CHANNEL_ERR_HTLC_NOT_IRREVOCABLE:
+	case CHANNEL_ERR_BAD_PREIMAGE:
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "Bad update_fail_malformed_htlc: failed to remove %"
+			    PRIu64 " error %u", id, e);
+	}
+	abort();
+}
+
 static void handle_ping(struct peer *peer, const u8 *msg)
 {
 	u8 *pong;
@@ -914,6 +955,9 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 	case WIRE_UPDATE_FAIL_HTLC:
 		handle_peer_fail_htlc(peer, msg);
 		goto done;
+	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+		handle_peer_fail_malformed_htlc(peer, msg);
+		goto done;
 	case WIRE_PING:
 		handle_ping(peer, msg);
 		goto done;
@@ -931,7 +975,6 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 
 	case WIRE_SHUTDOWN:
 	case WIRE_CLOSING_SIGNED:
-	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
 	case WIRE_UPDATE_FEE:
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
