@@ -48,7 +48,7 @@ struct peer {
 
 	/* Channel if locked. */
 	struct short_channel_id *scid;
-	
+
 	/* Minimum funding depth (specified by us if they fund). */
 	u32 minimum_depth;
 
