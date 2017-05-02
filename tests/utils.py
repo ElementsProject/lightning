@@ -38,7 +38,7 @@ class TailableProc(object):
     tail the processes and react to their output.
     """
 
-    def __init__(self):
+    def __init__(self, outputDir=None):
         self.logs = []
         self.logs_cond = threading.Condition(threading.RLock())
         self.thread = threading.Thread(target=self.tail)
@@ -46,6 +46,7 @@ class TailableProc(object):
         self.cmd_line = None
         self.running = False
         self.proc = None
+        self.outputDir = outputDir
         
     def start(self):
         """Start the underlying process and start monitoring it.
@@ -58,6 +59,11 @@ class TailableProc(object):
     def stop(self):
         self.proc.terminate()
         self.proc.kill()
+        if self.outputDir:
+            logpath = os.path.join(self.outputDir, 'log')
+            with open(logpath, 'w') as f:
+                for l in self.logs:
+                    f.write(l + '\n')
 
     def tail(self):
         """Tail the stdout of the process and remember it.
@@ -148,7 +154,7 @@ class SimpleBitcoinProxy:
 class BitcoinD(TailableProc):
 
     def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=18332):
-        TailableProc.__init__(self)
+        TailableProc.__init__(self, bitcoin_dir)
         
         self.bitcoin_dir = bitcoin_dir
         self.rpcport = rpcport
@@ -183,7 +189,7 @@ class BitcoinD(TailableProc):
 
 class LightningD(TailableProc):
     def __init__(self, lightning_dir, bitcoin_dir, port=9735):
-        TailableProc.__init__(self)
+        TailableProc.__init__(self, lightning_dir)
         self.lightning_dir = lightning_dir
         self.port = port
         self.cmd_line = [
