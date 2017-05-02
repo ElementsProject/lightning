@@ -1088,7 +1088,8 @@ static int peer_accepted_htlc(struct peer *peer, const u8 *msg)
 					    hend->next_onion, &forward,
 					    &hend->amt_to_forward,
 					    &hend->outgoing_cltv_value,
-					    &hend->next_channel)) {
+					    &hend->next_channel,
+					    &hend->shared_secret)) {
 		log_broken(peer->log, "bad fromwire_channel_accepted_htlc %s",
 			   tal_hex(peer, msg));
 		return -1;

@@ -88,6 +88,7 @@ channel_accepted_htlc,0,forward,bool
 channel_accepted_htlc,0,amt_to_forward,u64
 channel_accepted_htlc,0,outgoing_cltv_value,u32
 channel_accepted_htlc,0,next_channel,struct short_channel_id
+channel_accepted_htlc,0,shared_secret,32
 
 # FIXME: Add code to commit current channel state!
 
