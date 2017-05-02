@@ -20,12 +20,12 @@ To Build on Ubuntu 16.04
 
 Get dependencies:
 ```
-sudo apt-get install autoconf libtool libprotobuf-c-dev libsqlite3-dev libgmp-dev libsqlite3-dev
+sudo apt-get install -y autoconf libtool libprotobuf-c-dev libsqlite3-dev libgmp-dev libsqlite3-dev
 ```
 
 For development or running tests, get additional dependencies:
 ```
-sudo apt-get install asciidoc valgrind pip3 && pip3 install python-bitcoinlib
+sudo apt-get install -y asciidoc valgrind python3-pip && pip3 install python-bitcoinlib
 ```
 
 Clone lightning:
