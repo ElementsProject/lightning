@@ -66,12 +66,12 @@ static struct peer *new_peer(struct lightningd *ld,
 	peer->ld = ld;
 	peer->unique_id = id_counter++;
 	peer->owner = NULL;
+	peer->scid = NULL;
 	peer->id = NULL;
 	peer->fd = io_conn_fd(conn);
 	peer->connect_cmd = cmd;
 	peer->funding_txid = NULL;
 	peer->seed = NULL;
-	peer->locked = false;
 	peer->balance = NULL;
 
 	/* Max 128k per peer. */
@@ -473,6 +473,8 @@ static void json_getpeers(struct command *cmd,
 			json_add_pubkey(response, "peerid", p->id);
 		if (p->owner)
 			json_add_string(response, "owner", p->owner->name);
+		if (p->scid)
+			json_add_short_channel_id(response, "channel", p->scid);
 		if (p->balance) {
 			json_add_u64(response, "msatoshi_to_us",
 				     p->balance[LOCAL]);
@@ -547,12 +549,6 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 					  void *unused)
 {
 	const char *txidstr = type_to_string(peer, struct sha256_double, txid);
-	struct txlocator *loc = locate_tx(peer, peer->ld->topology, txid);
-	struct short_channel_id scid;
-	scid.blocknum = loc->blkheight;
-	scid.txnum = loc->index;
-	scid.outnum = peer->funding_outnum;
-	loc = tal_free(loc);
 
 	log_debug(peer->log, "Funding tx %s depth %u of %u",
 		  txidstr, depth, peer->minimum_depth);
@@ -569,10 +565,19 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 	}
 
 	/* Make sure we notify `channeld` just once. */
-	if (!peer->locked) {
+	if (!peer->scid) {
+		struct txlocator *loc
+			= locate_tx(peer, peer->ld->topology, txid);
+
+		peer->scid = tal(peer, struct short_channel_id);
+		peer->scid->blocknum = loc->blkheight;
+		peer->scid->txnum = loc->index;
+		peer->scid->outnum = peer->funding_outnum;
+		tal_free(loc);
+
 		peer_set_condition(peer, "Funding tx reached depth %u", depth);
-		subd_send_msg(peer->owner, take(towire_channel_funding_locked(peer, &scid)));
-		peer->locked = true;
+		subd_send_msg(peer->owner,
+			      take(towire_channel_funding_locked(peer, peer->scid)));
 	}
 
 	/* With the above this is max(funding_depth, 6) before

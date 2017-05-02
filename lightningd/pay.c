@@ -307,7 +307,7 @@ static void json_sendpay(struct command *cmd,
 		return;
 	}
 
-	if (!peer->locked) {
+	if (!peer->scid) {
 		command_fail(cmd, "first peer channel not locked");
 		return;
 	}
