@@ -28,6 +28,7 @@ struct htlc_end {
 	u32 outgoing_cltv_value;
 	u32 cltv_expiry;
 	struct sha256 payment_hash;
+	struct sha256 shared_secret;
 };
 
 static inline const struct htlc_end *keyof_htlc_end(const struct htlc_end *e)

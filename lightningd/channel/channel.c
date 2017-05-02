@@ -651,7 +651,8 @@ static void their_htlc_locked(const struct htlc *htlc, struct peer *peer)
 					   rs->nextcase == ONION_FORWARD,
 					   rs->hop_data.amt_forward,
 					   rs->hop_data.outgoing_cltv,
-					   &rs->hop_data.channel_id);
+					   &rs->hop_data.channel_id,
+					   &ss);
 	daemon_conn_send(&peer->master, take(msg));
 	tal_free(tmpctx);
 	return;
