@@ -181,8 +181,8 @@ class LightningDTests(BaseLightningDTests):
         l1,l2 = self.connect()
 
         self.fund_channel(l1, l2, 10**6)
-        l1.daemon.wait_for_log('condition: Funding tx reached depth 6')
-        l2.daemon.wait_for_log('condition: Funding tx reached depth 6')
+        l1.daemon.wait_for_log('Normal operation')
+        l2.daemon.wait_for_log('Normal operation')
 
         secret = '1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd'
         rhash = l1.rpc.dev_rhash(secret)['rhash']
@@ -218,6 +218,8 @@ class LightningDTests(BaseLightningDTests):
         l1,l2 = self.connect()
 
         self.fund_channel(l1, l2, 10**6)
+
+        time.sleep(5)
 
         amt = 200000000
         rhash = l2.rpc.invoice(amt, 'testpayment2')['rhash']
@@ -286,6 +288,9 @@ class LightningDTests(BaseLightningDTests):
 
         nodes = l1.rpc.getnodes()['nodes']
         assert set([n['nodeid'] for n in nodes]) == set([l1.info['id'], l2.info['id']])
+
+        l1.daemon.wait_for_log('peer_in WIRE_CHANNEL_UPDATE')
+        l2.daemon.wait_for_log('peer_in WIRE_CHANNEL_UPDATE')
 
         channels = l1.rpc.getchannels()['channels']
         assert len(channels) == 2
@@ -474,42 +479,6 @@ class LegacyLightningDTests(BaseLightningDTests):
         nodes[-1].daemon.wait_for_log("STATE_NORMAL_COMMITTING => STATE_NORMAL")
         nodes[0].daemon.wait_for_log("STATE_NORMAL_COMMITTING => STATE_NORMAL")
 
-    @unittest.skip('Too damn long')
-    def test_routing_gossip(self):
-        nodes = [self.node_factory.get_node() for _ in range(20)]
-        l1 = nodes[0]
-        l5 = nodes[4]
-
-        for i in range(len(nodes)-1):
-            nodes[i].connect(nodes[i+1], 0.01)
-        start_time = time.time()
-
-        while time.time() - start_time < len(nodes) * 30:
-            if sum([c['active'] for c in l1.rpc.getchannels()]) == 2*(len(nodes)-1):
-                break
-            time.sleep(1)
-            l1.bitcoin.rpc.getinfo()
-
-        while time.time() - start_time < len(nodes) * 30:
-            if sum([c['active'] for c in l5.rpc.getchannels()]) == 2*(len(nodes)-1):
-                break
-            time.sleep(1)
-            l1.bitcoin.rpc.getinfo()
-
-        # Quick check that things are reasonable
-        assert sum([len(l.rpc.getchannels()) for l in nodes]) == 5*2*(len(nodes) - 1)
-
-        # Deep check that all channels are in there
-        comb = []
-        for i in range(len(nodes) - 1):
-            comb.append((nodes[i].info['id'], nodes[i+1].info['id']))
-            comb.append((nodes[i+1].info['id'], nodes[i].info['id']))
-
-        for n in nodes:
-            seen = []
-            for c in n.rpc.getchannels():
-                seen.append((c['from'],c['to']))
-            assert set(seen) == set(comb)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
