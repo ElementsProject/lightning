@@ -60,9 +60,10 @@ class TailableProc(object):
         self.proc.terminate()
         self.proc.kill()
         if self.outputDir:
-            f=open(os.path.join(self.outputDir, 'log'), 'w')
-            for l in self.logs:
-                f.write(l + '\n')
+            logpath = os.path.join(self.outputDir, 'log')
+            with open(logpath, 'w') as f:
+                for l in self.logs:
+                    f.write(l + '\n')
 
     def tail(self):
         """Tail the stdout of the process and remember it.
