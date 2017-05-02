@@ -6,5 +6,5 @@ sudo: true
 script:
   - docker pull cdecker/lightning-ci > /dev/null
   - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci make -j3
-  - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci make check
+  - docker run --rm=true -e NOVALGRIND=${NOVALGRIND:-0} -e TEST_DEBUG=${TEST_DEBUG:-0} -e NO_VALGRIND=${NOVALGRIND:-0} -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci make check
   - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci make check-source
