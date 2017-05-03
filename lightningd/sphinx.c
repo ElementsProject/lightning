@@ -16,6 +16,7 @@
 
 #define BLINDING_FACTOR_SIZE 32
 #define SHARED_SECRET_SIZE 32
+#define HMAC_SIZE 32
 
 #define NUM_STREAM_BYTES ((NUM_MAX_HOPS + 1) * HOP_DATA_SIZE)
 #define KEY_LEN 32
@@ -468,7 +469,7 @@ u8 *create_onionreply(tal_t *ctx, const u8 *shared_secret,
 	size_t padlen = ONION_REPLY_SIZE - msglen;
 	u8 *reply = tal_arr(ctx, u8, 0), *payload = tal_arr(ctx, u8, 0);
 	u8 key[KEY_LEN];
-	u8 hmac[20];
+	u8 hmac[HMAC_SIZE];
 
 	towire_u16(&payload, msglen);
 	towire(&payload, failure_msg, msglen);
@@ -504,7 +505,7 @@ struct onionreply *unwrap_onionreply(tal_t *ctx, u8 **shared_secrets,
 	tal_t *tmpctx = tal_tmpctx(ctx);
 	struct onionreply *oreply = tal(tmpctx, struct onionreply);
 	u8 *msg = tal_arr(oreply, u8, tal_len(reply));
-	u8 key[KEY_LEN], hmac[20];
+	u8 key[KEY_LEN], hmac[HMAC_SIZE];
 	const u8 *cursor;
 	size_t max;
 	u16 msglen;
