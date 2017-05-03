@@ -373,6 +373,7 @@ struct onionpacket *create_onionpacket(
 	u8 nexthmac[SECURITY_PARAMETER];
 	u8 stream[ROUTING_INFO_SIZE];
 	struct hop_params *params = generate_hop_params(ctx, sessionkey, path);
+	struct sha256 *secrets = tal_arr(ctx, struct sha256, num_hops);
 
 	if (!params)
 		return NULL;
@@ -405,10 +406,11 @@ struct onionpacket *create_onionpacket(
 	memcpy(packet->mac, nexthmac, sizeof(nexthmac));
 	memcpy(&packet->ephemeralkey, &params[0].ephemeralkey, sizeof(secp256k1_pubkey));
 
-	*path_secrets = tal_arr(ctx, struct sha256, num_hops);
 	for (i=0; i<num_hops; i++) {
-		create_shared_secret((*path_secrets)[i].u.u8, &path[i].pubkey, sessionkey);
+		memcpy(&secrets[i], params[i].secret, SHARED_SECRET_SIZE);
 	}
+
+	*path_secrets = secrets;
 	return packet;
 }
 
@@ -515,6 +517,10 @@ struct onionreply *unwrap_onionreply(const tal_t *ctx, u8 **shared_secrets,
 	const u8 *cursor;
 	size_t max;
 	u16 msglen;
+
+	if (tal_len(reply) != ONION_REPLY_SIZE + sizeof(hmac) + 4) {
+		goto fail;
+	}
 
 	memcpy(msg, reply, tal_len(reply));
 	oreply->origin_index = -1;

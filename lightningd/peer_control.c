@@ -644,18 +644,24 @@ struct decoding_htlc {
 	u8 shared_secret[32];
 };
 
-static void fail_htlc(struct peer *peer, u64 htlc_id, const u8 *msg)
+static void fail_htlc(struct peer *peer, struct htlc_end *hend, const u8 *msg)
 {
-	enum onion_type failcode = fromwire_peektype(msg);
-
-	log_broken(peer->log, "failed htlc %"PRIu64" code 0x%04x (%s)",
-		   htlc_id, failcode, onion_type_name(failcode));
-
-	/* FIXME: encrypt msg! */
+	u8 *reply = wrap_onionreply(hend, hend->shared_secret.u.u8, msg);
 	subd_send_msg(peer->owner,
-		      take(towire_channel_fail_htlc(peer, htlc_id, msg)));
+		      take(towire_channel_fail_htlc(peer, hend->htlc_id, reply)));
 	if (taken(msg))
 		tal_free(msg);
+}
+
+static void fail_local_htlc(struct peer *peer, struct htlc_end *hend, const u8 *msg)
+{
+	u8 *reply;
+	enum onion_type failcode = fromwire_peektype(msg);
+	log_broken(peer->log, "failed htlc %"PRIu64" code 0x%04x (%s)",
+		   hend->htlc_id, failcode, onion_type_name(failcode));
+
+	reply = create_onionreply(hend, hend->shared_secret.u.u8, msg);
+	fail_htlc(peer, hend, reply);
 }
 
 static u8 *make_failmsg(const tal_t *ctx, const struct htlc_end *hend,
@@ -874,7 +880,7 @@ static void handle_localpay(struct htlc_end *hend,
 	return;
 
 fail:
-	fail_htlc(hend->peer, hend->htlc_id, take(err));
+	fail_local_htlc(hend->peer, hend, take(err));
 	tal_free(hend);
 }
 
@@ -1031,7 +1037,7 @@ static void forward_htlc(struct htlc_end *hend,
 	return;
 
 fail:
-	fail_htlc(hend->peer, hend->htlc_id, take(err));
+	fail_local_htlc(hend->peer, hend, take(err));
 	tal_free(hend);
 }
 
@@ -1050,7 +1056,7 @@ static bool channel_resolve_reply(struct subd *gossip, const u8 *msg,
 	}
 
 	if (tal_count(nodes) == 0) {
-		fail_htlc(hend->peer, hend->htlc_id,
+		fail_htlc(hend->peer, hend,
 			  take(towire_unknown_next_peer(hend)));
 		tal_free(hend);
 		return true;
@@ -1151,6 +1157,7 @@ static int peer_failed_htlc(struct peer *peer, const u8 *msg)
 	u8 *reason;
 	struct htlc_end *hend;
 	enum onion_type failcode;
+	struct onionreply *reply;
 
 	if (!fromwire_channel_failed_htlc(msg, msg, NULL, &id, &reason)) {
 		log_broken(peer->log, "bad fromwire_channel_failed_htlc %s",
@@ -1166,16 +1173,21 @@ static int peer_failed_htlc(struct peer *peer, const u8 *msg)
 		return -1;
 	}
 
-	failcode = fromwire_peektype(reason);
-
-	log_info(peer->log, "htlc %"PRIu64" failed with code 0x%04x (%s)",
-		 id, failcode, onion_type_name(failcode));
-
 	if (hend->other_end) {
-		fail_htlc(hend->other_end->peer, hend->other_end->htlc_id,
+		fail_htlc(hend->other_end->peer, hend->other_end,
 			  reason);
 	} else {
-		/* FIXME: Decrypt reason, determine sender! */
+		size_t numhops = tal_count(hend->path_secrets);
+		u8 **shared_secrets = tal_arr(hend, u8*, numhops);
+		for (size_t i=0; i<numhops; i++) {
+			shared_secrets[i] = tal_arr(hend, u8, 32);
+			memcpy(shared_secrets[i], hend->path_secrets[i].u.u8, 32);
+		}
+		reply = unwrap_onionreply(msg, shared_secrets, numhops, reason);
+		failcode = fromwire_peektype(reply->msg);
+		log_info(peer->log, "htlc %"PRIu64" failed with code 0x%04x (%s)",
+			 id, failcode, onion_type_name(failcode));
+
 		payment_failed(peer->ld, hend, NULL, failcode);
 	}
 	tal_free(hend);
@@ -1224,7 +1236,10 @@ static int peer_failed_malformed_htlc(struct peer *peer, const u8 *msg)
 	}
 
 	if (hend->other_end) {
-		fail_htlc(hend->other_end->peer, hend->other_end->htlc_id,
+		/* Not really a local failure, but since the failing
+		 * peer could not derive its shared secret it cannot
+		 * create a valid HMAC, so we do it on his behalf */
+		fail_local_htlc(hend->other_end->peer, hend->other_end,
 			  malformed_msg(msg, failcode, &sha256_of_onion));
 	} else {
 		payment_failed(peer->ld, hend, NULL, failcode);
