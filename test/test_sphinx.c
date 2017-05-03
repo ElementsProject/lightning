@@ -39,47 +39,55 @@ static void run_unit_tests(void)
 	    tal_hexdata(tmpctx, secrets[4], 64),
 	};
 
+	int replylen = 164 * 2;
+
 	u8 *intermediates[] = {
-	    tal_hexdata(tmpctx, "500d8596f76d3045bfdbf99914b98519fe76ea139a47d1"
-				"ab34da8730a01515e63a04819d896f45610741c83ad40b"
+	    tal_hexdata(tmpctx, "500d8596f76d3045bfdbf99914b98519fe76ea130dc223"
+				"38c473ab68d74378b13a06a19f891145610741c83ad40b"
 				"7712aefaddec8c6baf7325d92ea4ca4d1df8bce517f7e5"
 				"4554608bf2bd8071a4f52a7a2f7ffbb1413edad81eeea5"
 				"785aa9d990f2865dc23b4bc3c301a94eec4eabebca66be"
 				"5cf638f693ec256aec514620cc28ee4a94bd9565bc4d49"
-				"62b9d3641d4278fb319ed2b84de5",
-			304),
-	    tal_hexdata(tmpctx, "669478a3ddf9ba4049df8fa51f73ac712b9c20389b5fb1"
-				"85663f16115045868ab7dd8db956128dae8857add94e67"
+				"62b9d3641d4278fb319ed2b84de5b665f307a2db0f7fbb"
+				"757366",
+			replylen),
+	    tal_hexdata(tmpctx, "669478a3ddf9ba4049df8fa51f73ac712b9c20380cda43"
+				"1696963a492713ebddb7dfadbb566c8dae8857add94e67"
 				"02fb4c3a4de22e2e669e1ed926b04447fc73034bb730f4"
 				"932acd62727b75348a648a1128744657ca6a4e713b9b64"
 				"6c3ca66cac02cdab44dd3439890ef3aaf61708714f7375"
 				"349b8da541b2548d452d84de7084bb95b3ac2345201d62"
-				"4d31f4d52078aa0fa05a88b4e202",
-			304),
-	    tal_hexdata(tmpctx, "6984b0ccd86f37995857363df13670acd064bfd132c517"
-				"b23a7dfb4470e7d16aff98e25d41d3dfb7466e74f81b3e"
+				"4d31f4d52078aa0fa05a88b4e20202bd2b86ac5b52919e"
+				"a305a8",
+			replylen),
+	    tal_hexdata(tmpctx, "6984b0ccd86f37995857363df13670acd064bfd1a540e5"
+				"21cad4d71c07b1bc3dff9ac25f41addfb7466e74f81b3e"
 				"545563cdd8f5524dae873de61d7bdfccd496af2584930d"
 				"2b566b4f8d3881f8c043df92224f38cf094cfc09d92655"
 				"989531524593ec6d6caec1863bdfaa79229b5020acc034"
 				"cd6deeea1021c50586947b9b8e6faa83b81fbfa6133c0a"
-				"f5d6b07c017f7158fa94f0d206ba",
-			304),
-	    tal_hexdata(tmpctx, "08cd44478211b8a4370ab1368b5ffe8c9c92fb8398715f"
-				"fdcba31d358e842c21a0839ab361940011585323930fa5"
+				"f5d6b07c017f7158fa94f0d206baf12dda6b68f785b773"
+				"b360fd",
+			replylen),
+	    tal_hexdata(tmpctx, "08cd44478211b8a4370ab1368b5ffe8c9c92fb830ff4ad"
+				"6e3b0a316df9d24176a081bab161ea0011585323930fa5"
 				"b9fae0c85770a2279ff59ec427ad1bbff9001c0cd14970"
 				"04bd2a0f68b50704cf6d6a4bf3c8b6a0833399a24b3456"
 				"961ba00736785112594f65b6b2d44d9f5ea4e49b5e1ec2"
 				"af978cbe31c67114440ac51a62081df0ed46d4a3df295d"
-				"a0b0fe25c0115019f03f15ec86fa",
-			304),
-	    tal_hexdata(tmpctx, "69b1e5a3e05a7b5478e6529cd1749fdd8c66da6ffa31d2"
-				"eb0f2dbbf4394713c6a8c9b16ab5f12fd45edd73c1b0c8"
+				"a0b0fe25c0115019f03f15ec86fabb4c852f83449e812f"
+				"141a93",
+
+			replylen),
+	    tal_hexdata(tmpctx, "69b1e5a3e05a7b5478e6529cd1749fdd8c66da6f6db420"
+				"78ff8497ac4e117e91a8cb9168b58f2fd45edd73c1b0c8"
 				"b33002df376801ff58aaa94000bf8a86f92620f343baef"
 				"38a580102395ae3abf9128d1047a0736ff9b83d456740e"
 				"bbb4aeb3aa9737f18fb4afb4aa074fb26c4d702f429688"
 				"88550a3bded8c05247e045b866baef0499f079fdaeef65"
-				"38f31d44deafffdfd3afa2fb4ca9",
-			304),
+				"38f31d44deafffdfd3afa2fb4ca9082b8f1c465371a989"
+				"4dd8c2",
+			replylen),
 	};
 
 	reply = create_onionreply(tmpctx, ss[4], raw);
