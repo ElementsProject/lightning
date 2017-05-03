@@ -28,7 +28,14 @@ struct htlc_end {
 	u32 outgoing_cltv_value;
 	u32 cltv_expiry;
 	struct sha256 payment_hash;
+
+	/* If we are forwarding, remember the shared secret for an
+	 * eventual reply */
 	struct sha256 shared_secret;
+
+	/* If we are the origin, remember all shared secrets, so we
+	 * can unwrap an eventual reply */
+	struct sha256 *path_secrets;
 };
 
 static inline const struct htlc_end *keyof_htlc_end(const struct htlc_end *e)

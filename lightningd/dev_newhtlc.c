@@ -62,6 +62,7 @@ static void json_dev_newhtlc(struct command *cmd,
 	u8 *onion;
 	struct htlc_end *hend;
 	struct pubkey *path = tal_arrz(cmd, struct pubkey, 1);
+	struct sha256 *shared_secrets;
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,
@@ -126,7 +127,7 @@ static void json_dev_newhtlc(struct command *cmd,
 	path[0] = *peer->id;
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
 	packet = create_onionpacket(cmd, path, hopsdata, sessionkey, rhash.u.u8,
-				    sizeof(rhash));
+				    sizeof(rhash), &shared_secrets);
 	onion = serialize_onionpacket(cmd, packet);
 
 	log_debug(peer->log, "JSON command to add new HTLC");
@@ -137,6 +138,7 @@ static void json_dev_newhtlc(struct command *cmd,
 	hend->msatoshis = msatoshi;
 	hend->other_end = NULL;
 	hend->pay_command = (void *)cmd;
+	hend->path_secrets = tal_steal(hend, shared_secrets);
 
 	/* FIXME: If subdaemon dies? */
 	msg = towire_channel_offer_htlc(cmd, msatoshi, expiry, &rhash, onion);

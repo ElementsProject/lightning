@@ -163,6 +163,7 @@ static void json_sendpay(struct command *cmd,
 	u64 amount, lastamount;
 	struct onionpacket *packet;
 	u8 *msg;
+	struct sha256 *path_secrets;
 
 	if (!json_get_params(buffer, params,
 			     "route", &routetok,
@@ -321,8 +322,8 @@ static void json_sendpay(struct command *cmd,
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
 
 	/* Onion will carry us from first peer onwards. */
-	packet = create_onionpacket(cmd, ids, hop_data, sessionkey,
-				    rhash.u.u8, sizeof(struct sha256));
+	packet = create_onionpacket(cmd, ids, hop_data, sessionkey, rhash.u.u8,
+				    sizeof(struct sha256), &path_secrets);
 	onion = serialize_onionpacket(cmd, packet);
 
 	if (pc)
@@ -344,6 +345,7 @@ static void json_sendpay(struct command *cmd,
 	pc->out->msatoshis = amount;
 	pc->out->other_end = NULL;
 	pc->out->pay_command = pc;
+	pc->out->path_secrets = tal_steal(pc->out, path_secrets);
 
 	log_info(ld->log, "Sending %"PRIu64" over %zu hops to deliver %"PRIu64,
 		 amount, n_hops, lastamount);
