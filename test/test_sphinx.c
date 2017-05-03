@@ -132,7 +132,8 @@ int main(int argc, char **argv)
 		u8 privkeys[argc - 1][32];
 		u8 sessionkey[32];
 		struct hop_data hops_data[num_hops];
-
+		struct sha256 *shared_secrets;
+		
 		memset(&sessionkey, 'A', sizeof(sessionkey));
 
 		int i;
@@ -155,7 +156,8 @@ int main(int argc, char **argv)
 							     hops_data,
 							     sessionkey,
 							     assocdata,
-							     sizeof(assocdata));
+							     sizeof(assocdata),
+							     &shared_secrets);
 
 		u8 *serialized = serialize_onionpacket(ctx, res);
 		if (!serialized)

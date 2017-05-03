@@ -361,7 +361,8 @@ struct onionpacket *create_onionpacket(
 	struct hop_data hops_data[],
 	const u8 *sessionkey,
 	const u8 *assocdata,
-	const size_t assocdatalen
+	const size_t assocdatalen,
+	struct sha256 **path_secrets
 	)
 {
 	struct onionpacket *packet = talz(ctx, struct onionpacket);
@@ -402,6 +403,11 @@ struct onionpacket *create_onionpacket(
 	}
 	memcpy(packet->mac, nexthmac, sizeof(nexthmac));
 	memcpy(&packet->ephemeralkey, &params[0].ephemeralkey, sizeof(secp256k1_pubkey));
+
+	*path_secrets = tal_arr(ctx, struct sha256, num_hops);
+	for (i=0; i<num_hops; i++) {
+		create_shared_secret((*path_secrets)[i].u.u8, &path[i].pubkey, sessionkey);
+	}
 	return packet;
 }
 
@@ -461,7 +467,7 @@ struct route_step *process_onionpacket(
 	return step;
 }
 
-u8 *create_onionreply(tal_t *ctx, const u8 *shared_secret,
+u8 *create_onionreply(const tal_t *ctx, const u8 *shared_secret,
 		      const u8 *failure_msg)
 {
 	size_t msglen = tal_len(failure_msg);
@@ -486,7 +492,7 @@ u8 *create_onionreply(tal_t *ctx, const u8 *shared_secret,
 	return reply;
 }
 
-u8 *wrap_onionreply(tal_t *ctx, const u8 *shared_secret, const u8 *reply)
+u8 *wrap_onionreply(const tal_t *ctx, const u8 *shared_secret, const u8 *reply)
 {
 	u8 key[KEY_LEN];
 	size_t streamlen = tal_len(reply);
@@ -498,7 +504,7 @@ u8 *wrap_onionreply(tal_t *ctx, const u8 *shared_secret, const u8 *reply)
 	return result;
 }
 
-struct onionreply *unwrap_onionreply(tal_t *ctx, u8 **shared_secrets,
+struct onionreply *unwrap_onionreply(const tal_t *ctx, u8 **shared_secrets,
 				     const int numhops, const u8 *reply)
 {
 	tal_t *tmpctx = tal_tmpctx(ctx);
