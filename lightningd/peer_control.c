@@ -646,7 +646,7 @@ struct decoding_htlc {
 
 static void fail_htlc(struct peer *peer, struct htlc_end *hend, const u8 *msg)
 {
-	u8 *reply = wrap_onionreply(hend, hend->shared_secret.u.u8, msg);
+	u8 *reply = wrap_onionreply(hend, hend->shared_secret->u.u8, msg);
 	subd_send_msg(peer->owner,
 		      take(towire_channel_fail_htlc(peer, hend->htlc_id, reply)));
 	if (taken(msg))
@@ -660,7 +660,7 @@ static void fail_local_htlc(struct peer *peer, struct htlc_end *hend, const u8 *
 	log_broken(peer->log, "failed htlc %"PRIu64" code 0x%04x (%s)",
 		   hend->htlc_id, failcode, onion_type_name(failcode));
 
-	reply = create_onionreply(hend, hend->shared_secret.u.u8, msg);
+	reply = create_onionreply(hend, hend->shared_secret->u.u8, msg);
 	fail_htlc(peer, hend, reply);
 }
 
@@ -1088,6 +1088,7 @@ static int peer_accepted_htlc(struct peer *peer, const u8 *msg)
 	u8 *req;
 
 	hend = tal(msg, struct htlc_end);
+	hend->shared_secret = tal(hend, struct sha256);
 	if (!fromwire_channel_accepted_htlc(msg, NULL,
 					    &hend->htlc_id, &hend->msatoshis,
 					    &hend->cltv_expiry, &hend->payment_hash,
@@ -1095,7 +1096,7 @@ static int peer_accepted_htlc(struct peer *peer, const u8 *msg)
 					    &hend->amt_to_forward,
 					    &hend->outgoing_cltv_value,
 					    &hend->next_channel,
-					    &hend->shared_secret)) {
+					    hend->shared_secret)) {
 		log_broken(peer->log, "bad fromwire_channel_accepted_htlc %s",
 			   tal_hex(peer, msg));
 		return -1;
