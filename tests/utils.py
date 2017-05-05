@@ -108,9 +108,15 @@ class TailableProc(object):
         ex = re.compile(regex)
         start_time = time.time()
         pos = max(len(self.logs) - offset, 0)
+        initial_pos = len(self.logs)
         while True:
-            
             if time.time() > start_time + timeout:
+                print("Can't find {} in logs".format(regex))
+                with self.logs_cond:
+                    for i in range(initial_pos, len(self.logs)):
+                        print("  " + self.logs[i])
+                if self.is_in_log(regex):
+                    print("(Was previously in logs!")
                 raise TimeoutError('Unable to find "{}" in logs.'.format(regex))
             elif not self.running:
                 raise ValueError('Process died while waiting for logs')
