@@ -31,7 +31,7 @@ struct htlc_end {
 
 	/* If we are forwarding, remember the shared secret for an
 	 * eventual reply */
-	struct sha256 shared_secret;
+	struct sha256 *shared_secret;
 
 	/* If we are the origin, remember all shared secrets, so we
 	 * can unwrap an eventual reply */
