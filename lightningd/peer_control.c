@@ -606,10 +606,6 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 		      tal_count(sigs), tal_count(tx->input));
 
 	peer_set_condition(fc->peer, "Waiting for our funding tx");
-	/* FIXME: Defer until after funding locked. */
-	tal_del_destructor(fc, fail_fundchannel_command);
-	command_success(fc->cmd, null_response(fc->cmd));
-	fc->cmd = NULL;
 
 	/* Create input parts from signatures. */
 	for (i = 0; i < tal_count(tx->input); i++) {
@@ -629,6 +625,11 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 	broadcast_tx(hsm->ld->topology, fc->peer, tx, funding_broadcast_failed);
 	watch_tx(fc->peer, fc->peer->ld->topology, fc->peer, tx,
 		 funding_depth_cb, NULL);
+
+	/* We could defer until after funding locked, but makes testing
+	 * harder. */
+	tal_del_destructor(fc, fail_fundchannel_command);
+	command_success(fc->cmd, null_response(fc->cmd));
 	tal_free(fc);
 	return true;
 }

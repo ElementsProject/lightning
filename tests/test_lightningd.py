@@ -148,6 +148,8 @@ class LightningDTests(BaseLightningDTests):
 
         l1.rpc.addfunds(tx)
         l1.rpc.fundchannel(l2.info['id'], amount)
+        # Technically, this is async to fundchannel.
+        l1.daemon.wait_for_log('sendrawtx exit 0')
 
         l1.bitcoin.rpc.generate(6)
 
