@@ -48,9 +48,13 @@ void towire_pubkey(u8 **pptr, const struct pubkey *pubkey)
 	u8 output[PUBKEY_DER_LEN];
 	size_t outputlen = sizeof(output);
 
-	secp256k1_ec_pubkey_serialize(secp256k1_ctx, output, &outputlen,
-				      &pubkey->pubkey,
-				      SECP256K1_EC_COMPRESSED);
+	if (pubkey)
+		secp256k1_ec_pubkey_serialize(secp256k1_ctx, output, &outputlen,
+					      &pubkey->pubkey,
+					      SECP256K1_EC_COMPRESSED);
+	else
+		memset(output, 0, sizeof(output));
+
 	towire(pptr, output, outputlen);
 }
 

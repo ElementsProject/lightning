@@ -1039,20 +1039,36 @@ fail:
 static bool channel_resolve_reply(struct subd *gossip, const u8 *msg,
 				  const int *fds, struct htlc_end *hend)
 {
-	struct pubkey node_id_1, node_id_2, peer_id;
-	u8 error;
-	fromwire_gossip_resolve_channel_reply(msg, NULL, &error, &node_id_1,
-					      &node_id_2);
+	struct pubkey *nodes, *peer_id;
+
+	if (!fromwire_gossip_resolve_channel_reply(msg, msg, NULL, &nodes)) {
+		log_broken(gossip->log,
+			   "bad fromwire_gossip_resolve_channel_reply %s",
+			   tal_hex(msg, msg));
+		return false;
+	}
+
+	if (tal_count(nodes) == 0) {
+		fail_htlc(hend->peer, hend->htlc_id,
+			  take(towire_unknown_next_peer(hend)));
+		tal_free(hend);
+		return true;
+	} else if (tal_count(nodes) != 2) {
+		log_broken(gossip->log,
+			   "fromwire_gossip_resolve_channel_reply has %zu nodes",
+			   tal_count(nodes));
+		return false;
+	}
 
 	/* Get the other peer matching the id that is not us */
-	if (pubkey_cmp(&node_id_1, &gossip->ld->dstate.id) == 0) {
-		peer_id = node_id_2;
+	if (pubkey_cmp(&nodes[0], &gossip->ld->dstate.id) == 0) {
+		peer_id = &nodes[1];
 	} else {
-		peer_id = node_id_1;
+		peer_id = &nodes[0];
 	}
 
 	forward_htlc(hend, hend->cltv_expiry, &hend->payment_hash,
-		     hend->amt_to_forward, hend->outgoing_cltv_value, &peer_id,
+		     hend->amt_to_forward, hend->outgoing_cltv_value, peer_id,
 		     hend->next_onion);
 	/* FIXME(cdecker) Cleanup things we stuffed into hend before (maybe?) */
 	return true;

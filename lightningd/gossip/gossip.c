@@ -638,26 +638,25 @@ static struct io_plan *resolve_channel_req(struct io_conn *conn,
 {
 	struct short_channel_id scid;
 	struct node_connection *nc;
-	u8 *reply;
-	struct pubkey *nullkey = talz(msg, struct pubkey);
-	if (!fromwire_gossip_resolve_channel_request(msg, NULL, &scid)) {
-		status_trace("Unable to parse resolver request");
-		reply = towire_gossip_resolve_channel_reply(msg, 1, nullkey,
-							    nullkey);
-	} else {
-		status_trace("Attempting to resolce channel %d/%d/%d",
-			     scid.blocknum, scid.txnum, scid.outnum);
+	struct pubkey *keys;
 
-		nc = get_connection_by_scid(daemon->rstate, &scid, 0);
-		if (!nc) {
-			reply = towire_gossip_resolve_channel_reply(
-			    msg, 2, nullkey, nullkey);
-		} else {
-			reply = towire_gossip_resolve_channel_reply(
-			    msg, 0, &nc->src->id, &nc->dst->id);
-		}
+	if (!fromwire_gossip_resolve_channel_request(msg, NULL, &scid))
+		status_failed(WIRE_GOSSIPSTATUS_BAD_REQUEST,
+			      "Unable to parse resolver request");
+
+	status_trace("Attempting to resolve channel %s",
+		     type_to_string(trc, struct short_channel_id, &scid));
+
+	nc = get_connection_by_scid(daemon->rstate, &scid, 0);
+	if (!nc) {
+		keys = NULL;
+	} else {
+		keys = tal_arr(msg, struct pubkey, 2);
+		keys[0] = nc->src->id;
+		keys[1] = nc->dst->id;
 	}
-	daemon_conn_send(&daemon->master, reply);
+	daemon_conn_send(&daemon->master,
+			 take(towire_gossip_resolve_channel_reply(msg, keys)));
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 

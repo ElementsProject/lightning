@@ -96,6 +96,5 @@ gossip_resolve_channel_request,9
 gossip_resolve_channel_request,0,channel_id,struct short_channel_id
 
 gossip_resolve_channel_reply,109
-gossip_resolve_channel_reply,0,error,u8
-gossip_resolve_channel_reply,1,node_id_1,struct pubkey
-gossip_resolve_channel_reply,34,node_id_2,struct pubkey
+gossip_resolve_channel_reply,0,num_keys,u16
+gossip_resolve_channel_reply,0,keys,num_keys*struct pubkey
