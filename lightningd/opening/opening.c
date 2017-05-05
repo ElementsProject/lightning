@@ -15,6 +15,7 @@
 #include <lightningd/key_derive.h>
 #include <lightningd/opening/gen_opening_wire.h>
 #include <lightningd/peer_failed.h>
+#include <lightningd/ping.h>
 #include <lightningd/status.h>
 #include <secp256k1.h>
 #include <signal.h>
@@ -22,6 +23,7 @@
 #include <type_to_string.h>
 #include <version.h>
 #include <wire/gen_peer_wire.h>
+#include <wire/peer_wire.h>
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 
@@ -162,6 +164,33 @@ static void temporary_channel_id(struct channel_id *channel_id)
 		channel_id->id[i] = pseudorand(256);
 }
 
+/* We have to handle random gossip message and pings. */
+static u8 *read_next_peer_msg(struct state *state, const tal_t *ctx)
+{
+	for (;;) {
+		u8 *msg = sync_crypto_read(ctx, &state->cs, PEER_FD);
+		if (!msg)
+			return NULL;
+
+		if (fromwire_peektype(msg) == WIRE_PING) {
+			u8 *pong;
+			if (!check_ping_make_pong(ctx, msg, &pong)) {
+				status_trace("Bad ping message");
+				return tal_free(msg);
+			}
+			if (pong && !sync_crypto_write(&state->cs, PEER_FD,
+						       pong))
+				peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
+					    "Sending pong");
+			tal_free(pong);
+		} else if (gossip_msg(msg)) {
+			/* FIXME: Send to gossip daemon! */
+		} else {
+			return msg;
+		}
+	}
+}
+
 static u8 *open_channel(struct state *state,
 			const struct pubkey *our_funding_pubkey,
 			const struct basepoints *ours,
@@ -219,7 +248,7 @@ static u8 *open_channel(struct state *state,
 
 	state->remoteconf = tal(state, struct channel_config);
 
-	msg = sync_crypto_read(tmpctx, &state->cs, PEER_FD);
+	msg = read_next_peer_msg(state, tmpctx);
 	if (!msg)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Reading accept_channel");
@@ -339,7 +368,7 @@ static u8 *open_channel(struct state *state,
 	 * commitment transaction, so they can broadcast it knowing they can
 	 * redeem their funds if they need to.
 	 */
-	msg = sync_crypto_read(tmpctx, &state->cs, PEER_FD);
+	msg = read_next_peer_msg(state, tmpctx);
 	if (!msg)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Reading funding_signed");
@@ -518,7 +547,7 @@ static u8 *recv_channel(struct state *state,
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
 			      "Writing accept_channel");
 
-	msg = sync_crypto_read(state, &state->cs, PEER_FD);
+	msg = read_next_peer_msg(state, state);
 	if (!msg)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Reading funding_created");

@@ -16,5 +16,7 @@
 bool unknown_msg(const u8 *cursor);
 /* Return true if it's an unknown ODD message.  cursor is a tal ptr. */
 bool unknown_msg_discardable(const u8 *cursor);
+/* Return true if it's a gossip message. */
+bool gossip_msg(u8 *cursor);
 
 #endif /* LIGHTNING_WIRE_PEER_WIRE_H */
