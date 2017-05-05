@@ -104,6 +104,8 @@ class NodeFactory(object):
             node.daemon.cmd_line = [
                 'valgrind',
                 '-q',
+                '--trace-children=yes',
+                '--trace-children-skip=*bitcoin-cli*',
                 '--error-exitcode=7',
                 '--log-file={}/valgrind-errors'.format(node.daemon.lightning_dir)
             ] + node.daemon.cmd_line
