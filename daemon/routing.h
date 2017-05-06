@@ -87,6 +87,8 @@ struct routing_state {
 	struct log *base_log;
 
 	struct broadcast_state *broadcasts;
+
+	bool check_sigs;
 };
 
 struct route_hop {

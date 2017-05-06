@@ -22,6 +22,7 @@ struct routing_state *new_routing_state(const tal_t *ctx, struct log *base_log)
 	rstate->base_log = base_log;
 	rstate->nodes = empty_node_map(rstate);
 	rstate->broadcasts = new_broadcast_state(rstate);
+	rstate->check_sigs = true;
 	return rstate;
 }
 
@@ -727,8 +728,7 @@ void handle_channel_announcement(
 		  short_channel_id.txnum,
 		  short_channel_id.outnum
 		);
-
-	if (!check_channel_announcement(&node_id_1, &node_id_2, &bitcoin_key_1,
+	if (rstate->check_sigs && !check_channel_announcement(&node_id_1, &node_id_2, &bitcoin_key_1,
 					&bitcoin_key_2, &node_signature_1,
 					&node_signature_2, &bitcoin_signature_1,
 					&bitcoin_signature_2, serialized)) {
@@ -802,7 +802,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 		log_debug(rstate->base_log, "Ignoring outdated update.");
 		tal_free(tmpctx);
 		return;
-	} else if (!check_channel_update(&c->src->id, &signature, serialized)) {
+	} else if (rstate->check_sigs && !check_channel_update(&c->src->id, &signature, serialized)) {
 		log_debug(rstate->base_log, "Signature verification failed.");
 		tal_free(tmpctx);
 		return;

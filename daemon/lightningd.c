@@ -45,6 +45,7 @@ static struct lightningd_state *lightningd_state(void)
 	list_head_init(&dstate->addresses);
 	dstate->dev_never_routefail = false;
 	dstate->rstate = new_routing_state(dstate, dstate->base_log);
+	dstate->rstate->check_sigs = false;
 	dstate->reexec = NULL;
 	dstate->external_ip = NULL;
 	dstate->announce = NULL;
