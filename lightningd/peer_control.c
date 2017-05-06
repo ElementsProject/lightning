@@ -1249,6 +1249,67 @@ static int peer_failed_malformed_htlc(struct peer *peer, const u8 *msg)
 	return 0;
 }
 
+/* Create a node_announcement with the given signature. It may be NULL
+ * in the case we need to create a provisional announcement for the
+ * HSM to sign. */
+static u8 *create_node_announcement(const tal_t *ctx, struct lightningd *ld,
+				    secp256k1_ecdsa_signature *sig)
+{
+	u32 timestamp = time_now().ts.tv_sec;
+	u8 rgb[3] = {0x77, 0x88, 0x99};
+	u8 alias[32];
+	u8 *features = NULL;
+	u8 *addresses = NULL;
+	u8 *announcement;
+	if (!sig) {
+		sig = tal(ctx, secp256k1_ecdsa_signature);
+		memset(sig, 0, sizeof(*sig));
+	}
+	memset(alias, 0, sizeof(alias));
+	announcement =
+	    towire_node_announcement(ctx, sig, timestamp, &ld->dstate.id, rgb,
+				     alias, features, addresses);
+	return announcement;
+}
+
+/* We got the signature for out provisional node_announcement back
+ * from the HSM, create the real announcement and forward it to
+ * gossipd so it can take care of forwarding it. */
+static bool send_node_announcement_got_sig(struct subd *hsm, const u8 *msg,
+					   const int *fds,
+					   struct lightningd *ld)
+{
+	tal_t *tmpctx = tal_tmpctx(hsm);
+	secp256k1_ecdsa_signature sig;
+	u8 *announcement, *wrappedmsg;
+	if (!fromwire_hsmctl_node_announcement_sig_reply(msg, NULL, &sig)) {
+		log_debug(ld->log,
+			  "HSM returned an invalid node_announcement sig");
+		return false;
+	}
+	announcement = create_node_announcement(tmpctx, ld, &sig);
+	wrappedmsg = towire_gossip_forwarded_msg(tmpctx, announcement);
+	subd_send_msg(ld->gossip, take(wrappedmsg));
+	tal_free(tmpctx);
+	return true;
+}
+
+/* We were informed by channeld that it announced the channel and sent
+ * an update, so we can now start sending a node_announcement. The
+ * first step is to build the provisional announcement and ask the HSM
+ * to sign it. */
+static void peer_channel_announced(struct peer *peer, const u8 *msg)
+{
+	struct lightningd *ld = peer->ld;
+	tal_t *tmpctx = tal_tmpctx(ld);
+	u8 *req;
+	req = towire_hsmctl_node_announcement_sig_req(
+		tmpctx, create_node_announcement(tmpctx, ld, NULL));
+	subd_req(ld, ld->hsm, take(req), -1, 0,
+		 send_node_announcement_got_sig, ld);
+	tal_free(tmpctx);
+}
+
 static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);
@@ -1268,6 +1329,9 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 		return peer_failed_htlc(sd->peer, msg);
 	case WIRE_CHANNEL_MALFORMED_HTLC:
 		return peer_failed_malformed_htlc(sd->peer, msg);
+	case WIRE_CHANNEL_ANNOUNCED:
+		peer_channel_announced(sd->peer, msg);
+		break;
 
 	/* We never see fatal ones. */
 	case WIRE_CHANNEL_BAD_COMMAND:

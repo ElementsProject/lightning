@@ -117,3 +117,5 @@ channel_ping,0,len,u16
 channel_ping_reply,111
 channel_ping_reply,0,totlen,u16
 
+# Channeld tells the master that the channel has been announced
+channel_announced,12

@@ -305,6 +305,9 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 	if (peer->funding_locked[LOCAL] && peer->have_sigs[LOCAL]) {
 		send_channel_announcement(peer);
 		send_channel_update(peer, false);
+		/* Tell the master that we just announced the channel,
+		 * so it may announce the node */
+		daemon_conn_send(&peer->master, take(towire_channel_announced(msg)));
 	}
 }
 
@@ -1105,6 +1108,9 @@ static void handle_funding_announce_depth(struct peer *peer, const u8 *msg)
 	if (peer->have_sigs[REMOTE]) {
 		send_channel_announcement(peer);
 		send_channel_update(peer, false);
+		/* Tell the master that we just announced the channel,
+		 * so it may announce the node */
+		daemon_conn_send(&peer->master, take(towire_channel_announced(msg)));
 	}
 }
 
@@ -1326,6 +1332,7 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 		case WIRE_CHANNEL_MALFORMED_HTLC:
 		case WIRE_CHANNEL_PING_REPLY:
 		case WIRE_CHANNEL_PEER_BAD_MESSAGE:
+		case WIRE_CHANNEL_ANNOUNCED:
 			break;
 		}
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%u %s", t,
