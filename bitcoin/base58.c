@@ -114,7 +114,7 @@ char *key_to_base58(const tal_t *ctx, bool test_net, const struct privkey *key)
 	u8 version = test_net ? 239 : 128;
 	size_t outlen = sizeof(out);
 
-	memcpy(buf, key->secret, sizeof(key->secret));
+	memcpy(buf, key->secret.data, sizeof(key->secret.data));
 	/* Mark this as a compressed key. */
 	buf[32] = 1;
 
@@ -148,9 +148,9 @@ bool key_from_base58(const char *base58, size_t base58_len,
 		return false;
 
 	/* Copy out secret. */
-	memcpy(priv->secret, keybuf + 1, sizeof(priv->secret));
+	memcpy(priv->secret.data, keybuf + 1, sizeof(priv->secret.data));
 
-	if (!secp256k1_ec_seckey_verify(secp256k1_ctx, priv->secret))
+	if (!secp256k1_ec_seckey_verify(secp256k1_ctx, priv->secret.data))
 		return false;
 
 	/* Get public key, too. */

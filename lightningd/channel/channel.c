@@ -595,7 +595,8 @@ static void their_htlc_locked(const struct htlc *htlc, struct peer *peer)
 	u8 *msg;
 	struct onionpacket *op;
 	struct route_step *rs;
-	struct sha256 ss, bad_onion_sha;
+	struct sha256 bad_onion_sha;
+	struct secret ss;
 	enum onion_type failcode;
 	enum channel_remove_err rerr;
 	struct pubkey ephemeral;
@@ -625,7 +626,7 @@ static void their_htlc_locked(const struct htlc *htlc, struct peer *peer)
 		goto bad_onion;
 	}
 
-	rs = process_onionpacket(tmpctx, op, ss.u.u8, htlc->rhash.u.u8,
+	rs = process_onionpacket(tmpctx, op, ss.data, htlc->rhash.u.u8,
 				 sizeof(htlc->rhash));
 	if (!rs) {
 		failcode = WIRE_INVALID_ONION_HMAC;

@@ -233,7 +233,7 @@ bool onion_shared_secret(
 	const struct privkey *privkey)
 {
 	return create_shared_secret(secret, &packet->ephemeralkey,
-				    privkey->secret);
+				    privkey->secret.data);
 }
 
 void pubkey_hash160(
@@ -363,7 +363,7 @@ struct onionpacket *create_onionpacket(
 	const u8 *sessionkey,
 	const u8 *assocdata,
 	const size_t assocdatalen,
-	struct sha256 **path_secrets
+	struct secret **path_secrets
 	)
 {
 	struct onionpacket *packet = talz(ctx, struct onionpacket);
@@ -373,7 +373,7 @@ struct onionpacket *create_onionpacket(
 	u8 nexthmac[SECURITY_PARAMETER];
 	u8 stream[ROUTING_INFO_SIZE];
 	struct hop_params *params = generate_hop_params(ctx, sessionkey, path);
-	struct sha256 *secrets = tal_arr(ctx, struct sha256, num_hops);
+	struct secret *secrets = tal_arr(ctx, struct secret, num_hops);
 
 	if (!params)
 		return NULL;
@@ -470,7 +470,7 @@ struct route_step *process_onionpacket(
 	return step;
 }
 
-u8 *create_onionreply(const tal_t *ctx, const u8 *shared_secret,
+u8 *create_onionreply(const tal_t *ctx, const struct secret *shared_secret,
 		      const u8 *failure_msg)
 {
 	size_t msglen = tal_len(failure_msg);
@@ -485,7 +485,7 @@ u8 *create_onionreply(const tal_t *ctx, const u8 *shared_secret,
 	towire_pad(&payload, padlen);
 	assert(tal_len(payload) == ONION_REPLY_SIZE + 4);
 
-	generate_key(key, "um", 2, shared_secret);
+	generate_key(key, "um", 2, shared_secret->data);
 
 	compute_hmac(hmac, payload, tal_len(payload), key, KEY_LEN);
 	towire(&reply, hmac, sizeof(hmac));
@@ -495,19 +495,21 @@ u8 *create_onionreply(const tal_t *ctx, const u8 *shared_secret,
 	return reply;
 }
 
-u8 *wrap_onionreply(const tal_t *ctx, const u8 *shared_secret, const u8 *reply)
+u8 *wrap_onionreply(const tal_t *ctx,
+		    const struct secret *shared_secret, const u8 *reply)
 {
 	u8 key[KEY_LEN];
 	size_t streamlen = tal_len(reply);
 	u8 stream[streamlen];
 	u8 *result = tal_arr(ctx, u8, streamlen);
-	generate_key(key, "ammag", 5, shared_secret);
+	generate_key(key, "ammag", 5, shared_secret->data);
 	generate_cipher_stream(stream, key, streamlen);
 	xorbytes(result, stream, reply, streamlen);
 	return result;
 }
 
-struct onionreply *unwrap_onionreply(const tal_t *ctx, u8 **shared_secrets,
+struct onionreply *unwrap_onionreply(const tal_t *ctx,
+				     const struct secret *shared_secrets,
 				     const int numhops, const u8 *reply)
 {
 	tal_t *tmpctx = tal_tmpctx(ctx);
@@ -528,11 +530,11 @@ struct onionreply *unwrap_onionreply(const tal_t *ctx, u8 **shared_secrets,
 	for (int i = 0; i < numhops; i++) {
 		/* Since the encryption is just XORing with the cipher
 		 * stream encryption is identical to decryption */
-		msg = wrap_onionreply(tmpctx, shared_secrets[i], msg);
+		msg = wrap_onionreply(tmpctx, &shared_secrets[i], msg);
 
 		/* Check if the HMAC matches, this means that this is
 		 * the origin */
-		generate_key(key, "um", 2, shared_secrets[i]);
+		generate_key(key, "um", 2, shared_secrets[i].data);
 		compute_hmac(hmac, msg + sizeof(hmac),
 			     tal_len(msg) - sizeof(hmac), key, KEY_LEN);
 		if (memcmp(hmac, msg, sizeof(hmac)) == 0) {

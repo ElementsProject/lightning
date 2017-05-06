@@ -260,7 +260,7 @@ bool onion_shared_secret(
 	const struct privkey *privkey)
 {
 	return create_shared_secret(secret, &packet->ephemeralkey,
-				    privkey->secret);
+				    privkey->secret.data);
 }
 
 void pubkey_hash160(

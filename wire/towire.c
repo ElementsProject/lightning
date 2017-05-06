@@ -58,9 +58,14 @@ void towire_pubkey(u8 **pptr, const struct pubkey *pubkey)
 	towire(pptr, output, outputlen);
 }
 
+void towire_secret(u8 **pptr, const struct secret *secret)
+{
+	towire(pptr, secret->data, sizeof(secret->data));
+}
+
 void towire_privkey(u8 **pptr, const struct privkey *privkey)
 {
-	towire(pptr, privkey->secret, sizeof(privkey->secret));
+	towire_secret(pptr, &privkey->secret);
 }
 
 void towire_secp256k1_ecdsa_signature(u8 **pptr,

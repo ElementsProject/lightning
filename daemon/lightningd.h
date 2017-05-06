@@ -99,7 +99,7 @@ struct lightningd_state {
 	struct list_head pay_commands;
 
 	/* Our private key */
-	struct secret *secret;
+	struct privkey *privkey;
 
 	/* This is us. */
 	struct pubkey id;

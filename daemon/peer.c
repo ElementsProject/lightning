@@ -878,7 +878,6 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 			     struct peer *only_dest)
 {
 	struct invoice *invoice;
-	struct privkey pk;
 	struct onionpacket *packet;
 	struct route_step *step = NULL;
 
@@ -909,15 +908,13 @@ static void their_htlc_added(struct peer *peer, struct htlc *htlc,
 		return;
 	}
 
-	//FIXME: dirty trick to retrieve unexported state
-	memcpy(&pk, peer->dstate->secret, sizeof(pk));
-
 	packet = parse_onionpacket(peer,
 				   htlc->routing, tal_count(htlc->routing));
 	if (packet) {
 		u8 shared_secret[32];
 
-		if (onion_shared_secret(shared_secret, packet, &pk))
+		if (onion_shared_secret(shared_secret, packet,
+					peer->dstate->privkey))
 			step = process_onionpacket(packet, packet,
 						   shared_secret,
 						   htlc->rhash.u.u8,

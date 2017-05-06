@@ -17,7 +17,7 @@ hsmctl_init,0,new,bool
 
 hsmctl_init_reply,101
 hsmctl_init_reply,0,node_id,33
-hsmctl_init_reply,33,peer_seed,struct privkey
+hsmctl_init_reply,33,peer_seed,struct secret
 hsmctl_init_reply,65,bip32_len,2
 hsmctl_init_reply,67,bip32_seed,bip32_len*u8
 

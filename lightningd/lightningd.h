@@ -33,7 +33,7 @@ struct lightningd {
 	/* All peers we're tracking. */
 	struct list_head peers;
 	/* FIXME: This should stay in HSM */
-	struct privkey peer_seed;
+	struct secret peer_seed;
 	/* Used to give a unique seed to every peer. */
 	u64 peer_counter;
 

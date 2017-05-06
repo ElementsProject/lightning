@@ -163,7 +163,7 @@ static void json_sendpay(struct command *cmd,
 	u64 amount, lastamount;
 	struct onionpacket *packet;
 	u8 *msg;
-	struct sha256 *path_secrets;
+	struct secret *path_secrets;
 
 	if (!json_get_params(buffer, params,
 			     "route", &routetok,

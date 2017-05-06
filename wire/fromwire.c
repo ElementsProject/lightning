@@ -106,9 +106,14 @@ void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)
 		fail_pull(cursor, max);
 }
 
+void fromwire_secret(const u8 **cursor, size_t *max, struct secret *secret)
+{
+	fromwire(cursor, max, secret->data, sizeof(secret->data));
+}
+
 void fromwire_privkey(const u8 **cursor, size_t *max, struct privkey *privkey)
 {
-	fromwire(cursor, max, privkey->secret, sizeof(privkey->secret));
+	fromwire_secret(cursor, max, &privkey->secret);
 }
 
 void fromwire_secp256k1_ecdsa_signature(const u8 **cursor,

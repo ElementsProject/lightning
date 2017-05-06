@@ -14,9 +14,9 @@
 #include <wire/wire.h>
 #include <wire/wire_io.h>
 
-static void hkdf_two_keys(struct sha256 *out1, struct sha256 *out2,
-			  const struct sha256 *in1,
-			  const struct sha256 *in2)
+static void hkdf_two_keys(struct secret *out1, struct secret *out2,
+			  const struct secret *in1,
+			  const struct secret *in2)
 {
 	/* BOLT #8:
 	 *
@@ -26,7 +26,7 @@ static void hkdf_two_keys(struct sha256 *out1, struct sha256 *out2,
 	 *        of cryptographic randomness using the extract-and-expand
 	 *        component of the `HKDF`.
 	 */
-	struct sha256 okm[2];
+	struct secret okm[2];
 
 	BUILD_ASSERT(sizeof(okm) == 64);
 	hkdf_sha256(okm, sizeof(okm), in1, sizeof(*in1), in2, sizeof(*in2),
@@ -35,9 +35,9 @@ static void hkdf_two_keys(struct sha256 *out1, struct sha256 *out2,
 	*out2 = okm[1];
 }
 
-static void maybe_rotate_key(u64 *n, struct sha256 *k, struct sha256 *ck)
+static void maybe_rotate_key(u64 *n, struct secret *k, struct secret *ck)
 {
-	struct sha256 new_k, new_ck;
+	struct secret new_k, new_ck;
 
 	/* BOLT #8:
 	 *
@@ -113,7 +113,7 @@ u8 *cryptomsg_decrypt_body(const tal_t *ctx,
 						      memcheck(in, inlen),
 						      inlen,
 						      NULL, 0,
-						      npub, cs->rk.u.u8) != 0) {
+						      npub, cs->rk.data) != 0) {
 		/* FIXME: Report error! */
 		return tal_free(decrypted);
 	}
@@ -176,7 +176,7 @@ bool cryptomsg_decrypt_header(struct crypto_state *cs, u8 hdr[18], u16 *lenp)
 						      &mlen, NULL,
 						      memcheck(hdr, 18), 18,
 						      NULL, 0,
-						      npub, cs->rk.u.u8) != 0) {
+						      npub, cs->rk.data) != 0) {
 		/* FIXME: Report error! */
 		return false;
 	}
@@ -275,7 +275,7 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 							sizeof(l),
 							NULL, 0,
 							NULL, npub,
-							cs->sk.u.u8);
+							cs->sk.data);
 	assert(ret == 0);
 	assert(clen == sizeof(l) + 16);
 #ifdef SUPERVERBOSE
@@ -300,7 +300,7 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 							mlen,
 							NULL, 0,
 							NULL, npub,
-							cs->sk.u.u8);
+							cs->sk.data);
 	assert(ret == 0);
 	assert(clen == mlen + 16);
 #ifdef SUPERVERBOSE
@@ -346,18 +346,18 @@ void towire_crypto_state(u8 **ptr, const struct crypto_state *cs)
 {
 	towire_u64(ptr, cs->rn);
 	towire_u64(ptr, cs->sn);
-	towire_sha256(ptr, &cs->sk);
-	towire_sha256(ptr, &cs->rk);
-	towire_sha256(ptr, &cs->s_ck);
-	towire_sha256(ptr, &cs->r_ck);
+	towire_secret(ptr, &cs->sk);
+	towire_secret(ptr, &cs->rk);
+	towire_secret(ptr, &cs->s_ck);
+	towire_secret(ptr, &cs->r_ck);
 }
 
 void fromwire_crypto_state(const u8 **ptr, size_t *max, struct crypto_state *cs)
 {
 	cs->rn = fromwire_u64(ptr, max);
 	cs->sn = fromwire_u64(ptr, max);
-	fromwire_sha256(ptr, max, &cs->sk);
-	fromwire_sha256(ptr, max, &cs->rk);
-	fromwire_sha256(ptr, max, &cs->s_ck);
-	fromwire_sha256(ptr, max, &cs->r_ck);
+	fromwire_secret(ptr, max, &cs->sk);
+	fromwire_secret(ptr, max, &cs->rk);
+	fromwire_secret(ptr, max, &cs->s_ck);
+	fromwire_secret(ptr, max, &cs->r_ck);
 }

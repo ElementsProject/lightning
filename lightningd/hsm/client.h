@@ -7,11 +7,11 @@
 #include <stdbool.h>
 
 struct pubkey;
-struct sha256;
+struct secret;
 
 /* Setup communication to the HSM */
 void hsm_setup(int fd);
 
 /* Do ECDH using this node id secret. */
-bool hsm_do_ecdh(struct sha256 *ss, const struct pubkey *point);
+bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point);
 #endif /* LIGHTNING_LIGHTNINGD_HSM_H */

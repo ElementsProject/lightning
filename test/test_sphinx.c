@@ -14,6 +14,14 @@
 
 secp256k1_context *secp256k1_ctx;
 
+static struct secret secret_from_hex(const char *hex)
+{
+	struct secret s;
+	if (!hex_decode(hex, strlen(hex), &s, sizeof(s)))
+		abort();
+	return s;
+}
+
 /* Create an onionreply with the test vector parameters and check that
  * we match the test vectors and that we can also unwrap it. */
 static void run_unit_tests(void)
@@ -31,12 +39,12 @@ static void run_unit_tests(void)
 	    "21e13c2d7cfe7e18836df50872466117a295783ab8aab0e7ecc8c725503ad02d",
 	    "b5756b9b542727dbafc6765a49488b023a725d631af688fc031217e90770c328",
 	};
-	u8 *ss[] = {
-	    tal_hexdata(tmpctx, secrets[0], 64),
-	    tal_hexdata(tmpctx, secrets[1], 64),
-	    tal_hexdata(tmpctx, secrets[2], 64),
-	    tal_hexdata(tmpctx, secrets[3], 64),
-	    tal_hexdata(tmpctx, secrets[4], 64),
+	struct secret ss[] = {
+		secret_from_hex(secrets[0]),
+		secret_from_hex(secrets[1]),
+		secret_from_hex(secrets[2]),
+		secret_from_hex(secrets[3]),
+		secret_from_hex(secrets[4])
 	};
 
 	int replylen = 164 * 2;
@@ -90,10 +98,10 @@ static void run_unit_tests(void)
 			replylen),
 	};
 
-	reply = create_onionreply(tmpctx, ss[4], raw);
+	reply = create_onionreply(tmpctx, &ss[4], raw);
 	for (int i = 4; i >= 0; i--) {
 		printf("input_packet %s\n", tal_hex(tmpctx, reply));
-		reply = wrap_onionreply(tmpctx, ss[i], reply);
+		reply = wrap_onionreply(tmpctx, &ss[i], reply);
 		printf("obfuscated_packet %s\n", tal_hex(tmpctx, reply));
 		assert(memcmp(reply, intermediates[i], tal_len(reply)) == 0);
 	}
@@ -140,7 +148,7 @@ int main(int argc, char **argv)
 		u8 privkeys[argc - 1][32];
 		u8 sessionkey[32];
 		struct hop_data hops_data[num_hops];
-		struct sha256 *shared_secrets;
+		struct secret *shared_secrets;
 		
 		memset(&sessionkey, 'A', sizeof(sessionkey));
 

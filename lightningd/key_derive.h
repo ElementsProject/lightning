@@ -3,13 +3,14 @@
 #include "config.h"
 
 struct pubkey;
+struct secret;
 
 /* For `localkey`, `remotekey`, `local-delayedkey` and `remote-delayedkey` */
 bool derive_simple_key(const struct pubkey *basepoint,
 		       const struct pubkey *per_commitment_point,
 		       struct pubkey *key);
 
-bool derive_simple_privkey(const struct privkey *base_secret,
+bool derive_simple_privkey(const struct secret *base_secret,
 			   const struct pubkey *basepoint,
 			   const struct pubkey *per_commitment_point,
 			   struct privkey *key);
@@ -19,8 +20,8 @@ bool derive_revocation_key(const struct pubkey *basepoint,
 			   const struct pubkey *per_commitment_point,
 			   struct pubkey *key);
 
-bool derive_revocation_privkey(const struct privkey *base_secret,
-			       const struct privkey *per_commitment_secret,
+bool derive_revocation_privkey(const struct secret *base_secret,
+			       const struct secret *per_commitment_secret,
 			       const struct pubkey *basepoint,
 			       const struct pubkey *per_commitment_point,
 			       struct privkey *key);

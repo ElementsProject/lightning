@@ -58,7 +58,7 @@ bool derive_simple_key(const struct pubkey *basepoint,
  *
  *     secretkey = basepoint-secret + SHA256(per-commitment-point || basepoint)
  */
-bool derive_simple_privkey(const struct privkey *base_secret,
+bool derive_simple_privkey(const struct secret *base_secret,
 			const struct pubkey *basepoint,
 			const struct pubkey *per_commitment_point,
 			struct privkey *key)
@@ -77,8 +77,8 @@ bool derive_simple_privkey(const struct privkey *base_secret,
 	printf("# = 0x%s\n", tal_hexstr(tmpctx, &sha, sizeof(sha)));
 #endif
 
-	*key = *base_secret;
-	if (secp256k1_ec_privkey_tweak_add(secp256k1_ctx, key->secret,
+	key->secret = *base_secret;
+	if (secp256k1_ec_privkey_tweak_add(secp256k1_ctx, key->secret.data,
 					   sha.u.u8) != 1)
 		return false;
 #ifdef SUPERVERBOSE
@@ -175,15 +175,15 @@ bool derive_revocation_key(const struct pubkey *basepoint,
  *
  *     revocationsecretkey = revocation-basepoint-secret * SHA256(revocation-basepoint || per-commitment-point) + per-commitment-secret*SHA256(per-commitment-point || revocation-basepoint)
  */
-bool derive_revocation_privkey(const struct privkey *base_secret,
-			       const struct privkey *per_commitment_secret,
+bool derive_revocation_privkey(const struct secret *base_secret,
+			       const struct secret *per_commitment_secret,
 			       const struct pubkey *basepoint,
 			       const struct pubkey *per_commitment_point,
 			       struct privkey *key)
 {
 	struct sha256 sha;
 	unsigned char der_keys[PUBKEY_DER_LEN * 2];
-	struct privkey part2;
+	struct secret part2;
 
 	pubkey_to_der(der_keys, basepoint);
 	pubkey_to_der(der_keys + PUBKEY_DER_LEN, per_commitment_point);
@@ -196,8 +196,9 @@ bool derive_revocation_privkey(const struct privkey *base_secret,
 	printf("# = 0x%s\n", tal_hexstr(tmpctx, sha.u.u8, sizeof(sha.u.u8))),
 #endif
 
-	*key = *base_secret;
-	if (secp256k1_ec_privkey_tweak_mul(secp256k1_ctx, key->secret, sha.u.u8)
+	key->secret = *base_secret;
+	if (secp256k1_ec_privkey_tweak_mul(secp256k1_ctx, key->secret.data,
+					   sha.u.u8)
 	    != 1)
 		return false;
 #ifdef SUPERVERBOSE
@@ -218,7 +219,7 @@ bool derive_revocation_privkey(const struct privkey *base_secret,
 #endif
 
 	part2 = *per_commitment_secret;
-	if (secp256k1_ec_privkey_tweak_mul(secp256k1_ctx, part2.secret,
+	if (secp256k1_ec_privkey_tweak_mul(secp256k1_ctx, part2.data,
 					   sha.u.u8) != 1)
 		return false;
 #ifdef SUPERVERBOSE
@@ -228,8 +229,8 @@ bool derive_revocation_privkey(const struct privkey *base_secret,
 		printf("# = 0x%s\n", tal_hexstr(tmpctx, &part2, sizeof(part2)));
 #endif
 
-	if (secp256k1_ec_privkey_tweak_add(secp256k1_ctx, key->secret,
-					   part2.secret) != 1)
+	if (secp256k1_ec_privkey_tweak_add(secp256k1_ctx, key->secret.data,
+					   part2.data) != 1)
 		return false;
 
 #ifdef SUPERVERBOSE

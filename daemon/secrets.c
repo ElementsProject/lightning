@@ -22,18 +22,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-struct secret {
-	/* Secret ID of our node; public is dstate->id. */
-	struct privkey privkey;
-};
-
 void privkey_sign(struct lightningd_state *dstate, const void *src, size_t len,
 		  secp256k1_ecdsa_signature *sig)
 {
 	struct sha256_double h;
 
 	sha256_double(&h, memcheck(src, len), len);
-	sign_hash(&dstate->secret->privkey, &h, sig);
+	sign_hash(dstate->privkey, &h, sig);
 }
 
 struct peer_secrets {
@@ -142,7 +137,8 @@ static void new_keypair(struct lightningd_state *dstate,
 			struct privkey *privkey, struct pubkey *pubkey)
 {
 	do {
-		randombytes_buf(privkey->secret, sizeof(privkey->secret));
+		randombytes_buf(privkey->secret.data,
+				sizeof(privkey->secret.data));
 	} while (!pubkey_from_privkey(privkey, pubkey));
 }
 
@@ -215,7 +211,7 @@ void secrets_init(struct lightningd_state *dstate)
 {
 	int fd;
 
-	dstate->secret = tal(dstate, struct secret);
+	dstate->privkey = tal(dstate, struct privkey);
 
 	fd = open("privkey", O_RDONLY);
 	if (fd < 0) {
@@ -223,14 +219,14 @@ void secrets_init(struct lightningd_state *dstate)
 			fatal("Failed to open privkey: %s", strerror(errno));
 
 		log_unusual(dstate->base_log, "Creating privkey file");
-		new_keypair(dstate, &dstate->secret->privkey, &dstate->id);
+		new_keypair(dstate, dstate->privkey, &dstate->id);
 
 		fd = open("privkey", O_CREAT|O_EXCL|O_WRONLY, 0400);
 		if (fd < 0)
 		 	fatal("Failed to create privkey file: %s",
 			      strerror(errno));
-		if (!write_all(fd, dstate->secret->privkey.secret,
-			       sizeof(dstate->secret->privkey.secret))) {
+		if (!write_all(fd, &dstate->privkey->secret,
+			       sizeof(dstate->privkey->secret))) {
 			unlink_noerr("privkey");
 		 	fatal("Failed to write to privkey file: %s",
 			      strerror(errno));
@@ -244,11 +240,11 @@ void secrets_init(struct lightningd_state *dstate)
 		if (fd < 0)
 			fatal("Failed to reopen privkey: %s", strerror(errno));
 	}
-	if (!read_all(fd, dstate->secret->privkey.secret,
-		      sizeof(dstate->secret->privkey.secret)))
+	if (!read_all(fd, &dstate->privkey->secret,
+		      sizeof(dstate->privkey->secret)))
 		fatal("Failed to read privkey: %s", strerror(errno));
 	close(fd);
-	if (!pubkey_from_privkey(&dstate->secret->privkey, &dstate->id))
+	if (!pubkey_from_privkey(dstate->privkey, &dstate->id))
 		fatal("Invalid privkey");
 
 	log_info_struct(dstate->base_log, "ID: %s", struct pubkey, &dstate->id);

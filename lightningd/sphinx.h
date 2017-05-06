@@ -87,7 +87,7 @@ struct onionpacket *create_onionpacket(
 	const u8 * sessionkey,
 	const u8 *assocdata,
 	const size_t assocdatalen,
-	struct sha256 **path_secrets
+	struct secret **path_secrets
 	);
 
 /**
@@ -162,7 +162,8 @@ struct onionreply {
  *     HMAC
  * @failure_msg: message (must support tal_len)
  */
-u8 *create_onionreply(const tal_t *ctx, const u8 *shared_secret, const u8 *failure_msg);
+u8 *create_onionreply(const tal_t *ctx, const struct secret *shared_secret,
+		      const u8 *failure_msg);
 
 /**
  * wrap_onionreply - Add another encryption layer to the reply.
@@ -172,7 +173,8 @@ u8 *create_onionreply(const tal_t *ctx, const u8 *shared_secret, const u8 *failu
  *     encryption.
  * @reply: the reply to wrap
  */
-u8 *wrap_onionreply(const tal_t *ctx, const u8 *shared_secret, const u8 *reply);
+u8 *wrap_onionreply(const tal_t *ctx, const struct secret *shared_secret,
+		    const u8 *reply);
 
 /**
  * unwrap_onionreply - Remove layers, check integrity and parse reply
@@ -182,7 +184,8 @@ u8 *wrap_onionreply(const tal_t *ctx, const u8 *shared_secret, const u8 *reply);
  * @numhops: path length and number of shared_secrets provided
  * @reply: the incoming reply
  */
-struct onionreply *unwrap_onionreply(const tal_t *ctx, u8 **shared_secrets,
+struct onionreply *unwrap_onionreply(const tal_t *ctx,
+				     const struct secret *shared_secrets,
 				     const int numhops, const u8 *reply);
 
 #endif /* LIGHTNING_DAEMON_SPHINX_H */
