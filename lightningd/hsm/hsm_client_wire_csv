@@ -1,8 +1,8 @@
 # Give me ECDH(node-id-secret,point)
 hsm_ecdh_req,1
-hsm_ecdh_req,0,point,33
+hsm_ecdh_req,0,point,struct pubkey
 hsm_ecdh_resp,100
-hsm_ecdh_resp,0,ss,32
+hsm_ecdh_resp,0,ss,struct secret
 
 hsm_cannouncement_sig_req,2
 hsm_cannouncement_sig_req,0,bitcoin_id,struct pubkey

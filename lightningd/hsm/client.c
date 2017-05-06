@@ -9,7 +9,7 @@ void hsm_setup(int fd)
 	hsm_fd = fd;
 }
 
-bool hsm_do_ecdh(struct sha256 *ss, const struct pubkey *point)
+bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point)
 {
 	u8 *req = towire_hsm_ecdh_req(NULL, point), *resp;
 	size_t len;

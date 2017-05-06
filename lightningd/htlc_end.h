@@ -31,11 +31,11 @@ struct htlc_end {
 
 	/* If we are forwarding, remember the shared secret for an
 	 * eventual reply */
-	struct sha256 *shared_secret;
+	struct secret *shared_secret;
 
 	/* If we are the origin, remember all shared secrets, so we
 	 * can unwrap an eventual reply */
-	struct sha256 *path_secrets;
+	struct secret *path_secrets;
 };
 
 static inline const struct htlc_end *keyof_htlc_end(const struct htlc_end *e)

@@ -23,9 +23,9 @@ bool derive_basepoints(const struct privkey *seed,
 		    "c-lightning", strlen("c-lightning"));
 
 	secrets->funding_privkey = keys.f;
-	secrets->revocation_basepoint_secret = keys.r;
-	secrets->payment_basepoint_secret = keys.p;
-	secrets->delayed_payment_basepoint_secret = keys.d;
+	secrets->revocation_basepoint_secret = keys.r.secret;
+	secrets->payment_basepoint_secret = keys.p.secret;
+	secrets->delayed_payment_basepoint_secret = keys.d.secret;
 
 	if (!pubkey_from_privkey(&keys.f, funding_pubkey)
 	    || !pubkey_from_privkey(&keys.r, &basepoints->revocation)

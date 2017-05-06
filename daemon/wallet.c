@@ -45,7 +45,8 @@ bool restore_wallet_address(struct lightningd_state *dstate,
 static void new_keypair(struct privkey *privkey, struct pubkey *pubkey)
 {
 	do {
-		randombytes_buf(privkey->secret, sizeof(privkey->secret));
+		randombytes_buf(privkey->secret.data,
+				sizeof(privkey->secret.data));
 	} while (!pubkey_from_privkey(privkey, pubkey));
 }
 

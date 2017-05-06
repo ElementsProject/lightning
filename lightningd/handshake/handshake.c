@@ -25,12 +25,6 @@
 
 #define REQ_FD STDIN_FILENO
 
-/* Representing chacha keys and ecdh results we derive them from;
- * even though it's not really an SHA */
-struct secret {
-	struct sha256 s;
-};
-
 /* BOLT #8:
  *
  *  * `generateKey()`
@@ -51,9 +45,9 @@ static struct keypair generate_key(void)
 	struct keypair k;
 
 	do {
-		randombytes_buf(k.priv.secret, sizeof(k.priv.secret));
+		randombytes_buf(k.priv.secret.data, sizeof(k.priv.secret.data));
 	} while (!secp256k1_ec_pubkey_create(secp256k1_ctx,
-					     &k.pub.pubkey, k.priv.secret));
+					     &k.pub.pubkey, k.priv.secret.data));
 	return k;
 }
 
@@ -181,7 +175,7 @@ static void encrypt_ad(const struct secret *k, u64 nonce,
 						   memcheck(plaintext, plaintext_len),
 						   plaintext_len,
 						   additional_data, additional_data_len,
-							NULL, npub, k->s.u.u8);
+							NULL, npub, k->data);
 	assert(ret == 0);
 	assert(clen == plaintext_len + crypto_aead_chacha20poly1305_ietf_ABYTES);
 }
@@ -213,7 +207,7 @@ static bool decrypt(const struct secret *k, u64 nonce,
 						 memcheck(ciphertext, ciphertext_len),
 						 ciphertext_len,
 						 additional_data, additional_data_len,
-						 npub, k->s.u.u8) != 0)
+						 npub, k->data) != 0)
 		return false;
 
 	assert(mlen == ciphertext_len - crypto_aead_chacha20poly1305_ietf_ABYTES);
@@ -337,10 +331,10 @@ static void act_one_initiator(struct handshake *h, int fd,
 	 *     * The initiator performs a `ECDH` between its newly generated
 	 *       ephemeral key with the remote node's static public key.
 	 */
-	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.s.u.u8,
-			    &their_id->pubkey, h->e.priv.secret))
+	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data,
+			    &their_id->pubkey, h->e.priv.secret.data))
 		status_failed(WIRE_INITR_ACT1_BAD_ECDH_FOR_SS, "%s", "");
-	status_trace("# ss=0x%s", tal_hexstr(trc, &h->ss.s, sizeof(h->ss.s)));
+	status_trace("# ss=0x%s", tal_hexstr(trc, h->ss.data, sizeof(h->ss.data)));
 
 	/* BOLT #8:
 	 *
@@ -442,7 +436,7 @@ static void act_one_responder(struct handshake *h, int fd, struct pubkey *re)
 	 *     * The responder performs an `ECDH` between its static public
 	 *       key and the initiator's ephemeral public key.
 	 */
-	if (!hsm_do_ecdh(&h->ss.s, re))
+	if (!hsm_do_ecdh(&h->ss, re))
 		status_failed(WIRE_RESPR_ACT1_BAD_HSM_ECDH,
 			      "re=%s",
 			      type_to_string(trc, struct pubkey, re));
@@ -547,12 +541,12 @@ static void act_two_responder(struct handshake *h, int fd,
 	 *      * where `re` is the ephemeral key of the initiator which was
 	 *        received during `ActOne`.
 	 */
-	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.s.u.u8, &re->pubkey,
-			    h->e.priv.secret))
+	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data, &re->pubkey,
+			    h->e.priv.secret.data))
 		status_failed(WIRE_RESPR_ACT2_BAD_ECDH_FOR_SS, "re=%s e.priv=%s",
 			      type_to_string(trc, struct pubkey, re),
 			      tal_hexstr(trc, &h->e.priv, sizeof(h->e.priv)));
-	status_trace("# ss=0x%s", tal_hexstr(trc, &h->ss.s, sizeof(h->ss.s)));
+	status_trace("# ss=0x%s", tal_hexstr(trc, &h->ss, sizeof(h->ss)));
 
 	/* BOLT #8:
 	 *
@@ -652,8 +646,8 @@ static void act_two_initiator(struct handshake *h, int fd, struct pubkey *re)
 	 *
 	 *   * `ss = ECDH(re, e.priv)`
 	 */
-	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.s.u.u8, &re->pubkey,
-			    h->e.priv.secret))
+	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data, &re->pubkey,
+			    h->e.priv.secret.data))
 		status_failed(WIRE_INITR_ACT2_BAD_ECDH_FOR_SS, "re=%s e.priv=%s",
 			      type_to_string(trc, struct pubkey, re),
 			      tal_hexstr(trc, &h->e.priv, sizeof(h->e.priv)));
@@ -757,7 +751,7 @@ static void act_three_initiator(struct handshake *h, int fd,
 	 *     * where `re` is the ephemeral public key of the responder.
 	 *
 	 */
-	if (!hsm_do_ecdh(&h->ss.s, re))
+	if (!hsm_do_ecdh(&h->ss, re))
 		status_failed(WIRE_INITR_ACT3_BAD_HSM_ECDH,
 			      "re=%s",
 			      type_to_string(trc, struct pubkey, re));
@@ -862,8 +856,8 @@ static void act_three_responder(struct handshake *h, int fd,
 	 *   * `ss = ECDH(rs, e.priv)`
 	 *      * where `e` is the responder's original ephemeral key
 	 */
-	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.s.u.u8, &their_id->pubkey,
-			    h->e.priv.secret))
+	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data, &their_id->pubkey,
+			    h->e.priv.secret.data))
 		status_failed(WIRE_RESPR_ACT3_BAD_ECDH_FOR_SS, "rs=%s e.priv=%s",
 			      type_to_string(trc, struct pubkey, their_id),
 			      tal_hexstr(trc, &h->e.priv, sizeof(h->e.priv)));
@@ -990,9 +984,9 @@ int main(int argc, char *argv[])
 	if (fromwire_handshake_responder(msg, NULL, &my_id)) {
 		responder(clientfd, &my_id, &their_id, &ck, &sk, &rk);
 		cs.rn = cs.sn = 0;
-		cs.sk = sk.s;
-		cs.rk = rk.s;
-		cs.r_ck = cs.s_ck = ck.s;
+		cs.sk = sk;
+		cs.rk = rk;
+		cs.r_ck = cs.s_ck = ck;
 		wire_sync_write(REQ_FD,
 				towire_handshake_responder_reply(msg,
 								 &their_id,
@@ -1001,9 +995,9 @@ int main(int argc, char *argv[])
 						&their_id)) {
 		initiator(clientfd, &my_id, &their_id, &ck, &sk, &rk);
 		cs.rn = cs.sn = 0;
-		cs.sk = sk.s;
-		cs.rk = rk.s;
-		cs.r_ck = cs.s_ck = ck.s;
+		cs.sk = sk;
+		cs.rk = rk;
+		cs.r_ck = cs.s_ck = ck;
 		wire_sync_write(REQ_FD,
 				towire_handshake_initiator_reply(msg, &cs));
 	} else

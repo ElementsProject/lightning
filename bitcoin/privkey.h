@@ -3,8 +3,13 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 
+/* General 256-bit secret, which must be private.  Used in various places. */
+struct secret {
+	u8 data[32];
+};
+
 /* This is a private key.  Keep it secret. */
 struct privkey {
-	u8 secret[32];
+	struct secret secret;
 };
 #endif /* LIGHTNING_BITCOIN_PRIVKEY_H */

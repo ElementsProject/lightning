@@ -34,7 +34,7 @@ bool pubkey_from_privkey(const struct privkey *privkey,
 			 struct pubkey *key)
 {
 	if (!secp256k1_ec_pubkey_create(secp256k1_ctx,
-					&key->pubkey, privkey->secret))
+					&key->pubkey, privkey->secret.data))
 		return false;
 	return true;
 }
@@ -98,3 +98,4 @@ static char *privkey_to_hexstr(const tal_t *ctx, const struct privkey *secret)
 	return str;
 }
 REGISTER_TYPE_TO_STRING(privkey, privkey_to_hexstr);
+REGISTER_TYPE_TO_HEXSTR(secret);

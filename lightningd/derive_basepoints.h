@@ -14,9 +14,9 @@ struct basepoints {
 
 struct secrets {
 	struct privkey funding_privkey;
-	struct privkey revocation_basepoint_secret;
-	struct privkey payment_basepoint_secret;
-	struct privkey delayed_payment_basepoint_secret;
+	struct secret revocation_basepoint_secret;
+	struct secret payment_basepoint_secret;
+	struct secret delayed_payment_basepoint_secret;
 };
 
 bool derive_basepoints(const struct privkey *seed,

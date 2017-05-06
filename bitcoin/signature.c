@@ -83,7 +83,7 @@ void sign_hash(const struct privkey *privkey,
 	ok = secp256k1_ecdsa_sign(secp256k1_ctx,
 				  s,
 				  h->sha.u.u8,
-				  privkey->secret, NULL, NULL);
+				  privkey->secret.data, NULL, NULL);
 	assert(ok);
 }
 

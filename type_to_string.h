@@ -21,6 +21,7 @@ union printable_types {
 	const secp256k1_pubkey *secp256k1_pubkey;
 	const struct channel_id *channel_id;
 	const struct short_channel_id *short_channel_id;
+	const struct secret *secret;
 	const struct privkey *privkey;
 	const secp256k1_ecdsa_signature *secp256k1_ecdsa_signature;
 	const struct channel *channel;

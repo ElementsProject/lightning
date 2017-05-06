@@ -1,7 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_CRYPTOMSG_H
 #define LIGHTNING_LIGHTNINGD_CRYPTOMSG_H
 #include "config.h"
-#include <ccan/crypto/sha256/sha256.h>
+#include <bitcoin/privkey.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
@@ -12,9 +12,9 @@ struct crypto_state {
 	/* Received and sent nonces. */
 	u64 rn, sn;
 	/* Sending and receiving keys. */
-	struct sha256 sk, rk;
+	struct secret sk, rk;
 	/* Chaining key for re-keying */
-	struct sha256 s_ck, r_ck;
+	struct secret s_ck, r_ck;
 };
 
 struct peer_crypto_state {

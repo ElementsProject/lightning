@@ -59,20 +59,20 @@ static struct io_plan *check_msg_read(struct io_conn *conn, struct peer *peer,
 	return NULL;
 }
 
-static struct sha256 sha256_from_hex(const char *hex)
+static struct secret secret_from_hex(const char *hex)
 {
-	struct sha256 sha256;
+	struct secret secret;
 	hex += 2;
-	if (!hex_decode(hex, strlen(hex), &sha256, sizeof(sha256)))
+	if (!hex_decode(hex, strlen(hex), &secret, sizeof(secret)))
 		abort();
-	return sha256;
+	return secret;
 }
 
 int main(void)
 {
 	tal_t *tmpctx = tal_tmpctx(NULL);
 	struct peer_crypto_state cs_out, cs_in;
-	struct sha256 sk, rk, ck;
+	struct secret sk, rk, ck;
 	const void *msg = tal_dup_arr(tmpctx, char, "hello", 5, 0);
 	size_t i;
 
@@ -89,9 +89,9 @@ int main(void)
 	 * # HKDF(0x919219dbb2920afa8db80f9a51787a840bcf111ed8d588caf9ab4be716e42b01,zero)
 	 * output: sk,rk=0x969ab31b4d288cedf6218839b27a3e2140827047f2c0f01bf5c04435d43511a9,0xbb9020b8965f4df047e07f955f3c4b88418984aadc5cdb35096b9ea8fa5c3442
 	 */
-	ck = sha256_from_hex("0x919219dbb2920afa8db80f9a51787a840bcf111ed8d588caf9ab4be716e42b01");
-	sk = sha256_from_hex("0x969ab31b4d288cedf6218839b27a3e2140827047f2c0f01bf5c04435d43511a9");
-	rk = sha256_from_hex("0xbb9020b8965f4df047e07f955f3c4b88418984aadc5cdb35096b9ea8fa5c3442");
+	ck = secret_from_hex("0x919219dbb2920afa8db80f9a51787a840bcf111ed8d588caf9ab4be716e42b01");
+	sk = secret_from_hex("0x969ab31b4d288cedf6218839b27a3e2140827047f2c0f01bf5c04435d43511a9");
+	rk = secret_from_hex("0xbb9020b8965f4df047e07f955f3c4b88418984aadc5cdb35096b9ea8fa5c3442");
 
 	cs_out.cs.sn = cs_out.cs.rn = cs_in.cs.sn = cs_in.cs.rn = 0;
 	cs_out.cs.sk = cs_in.cs.rk = sk;

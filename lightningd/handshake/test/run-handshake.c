@@ -61,10 +61,10 @@ void hsm_setup(int fd)
 {
 }
 
-bool hsm_do_ecdh(struct sha256 *ss, const struct pubkey *point)
+bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point)
 {
-	return secp256k1_ecdh(secp256k1_ctx, ss->u.u8, &point->pubkey,
-			      privkey.secret) == 1;
+	return secp256k1_ecdh(secp256k1_ctx, ss->data, &point->pubkey,
+			      privkey.secret.data) == 1;
 }
 
 int main(void)
@@ -80,11 +80,11 @@ int main(void)
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
-	memset(responder_privkey.secret, 0x21,
-	       sizeof(responder_privkey.secret));
+	memset(responder_privkey.secret.data, 0x21,
+	       sizeof(responder_privkey.secret.data));
 	if (!secp256k1_ec_pubkey_create(secp256k1_ctx,
 					&responder_id.pubkey,
-					responder_privkey.secret))
+					responder_privkey.secret.data))
 		errx(1, "Keygen failed");
 
 	if (pipe(fds1) != 0 || pipe(fds2) != 0)
@@ -104,7 +104,7 @@ int main(void)
 		privkey = responder_privkey;
 		status_prefix = "RESPR";
 		status_trace("ls.priv: 0x%s",
-			     tal_hexstr(trc, responder_privkey.secret,
+			     tal_hexstr(trc, &responder_privkey,
 					sizeof(responder_privkey)));
 		status_trace("ls.pub: 0x%s",
 			     type_to_string(trc, struct pubkey, &responder_id));
@@ -125,19 +125,19 @@ int main(void)
 		close(fds2[1]);
 		close(fds1[0]);
 
-		memset(initiator_privkey.secret, 0x11,
-		       sizeof(initiator_privkey.secret));
+		memset(initiator_privkey.secret.data, 0x11,
+		       sizeof(initiator_privkey.secret.data));
 		memset(e_priv, 0x12, sizeof(e_priv));
 		if (!secp256k1_ec_pubkey_create(secp256k1_ctx,
 						&initiator_id.pubkey,
-						initiator_privkey.secret))
+						initiator_privkey.secret.data))
 			errx(1, "Initiator keygen failed");
 		privkey = initiator_privkey;
 		status_prefix = "INITR";
 		status_trace("rs.pub: 0x%s",
 			     type_to_string(trc, struct pubkey, &responder_id));
 		status_trace("ls.priv: 0x%s",
-			     tal_hexstr(trc, initiator_privkey.secret,
+			     tal_hexstr(trc, &initiator_privkey,
 					sizeof(initiator_privkey)));
 		status_trace("ls.pub: 0x%s",
 			     type_to_string(trc, struct pubkey, &initiator_id));

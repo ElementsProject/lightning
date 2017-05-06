@@ -37,7 +37,7 @@
 
 /* Nobody will ever find it here! */
 static struct {
-	struct privkey hsm_secret;
+	struct secret hsm_secret;
 	struct ext_key bip32;
 } secretstuff;
 
@@ -49,26 +49,26 @@ struct client {
 	struct io_plan *(*handle)(struct io_conn *, struct daemon_conn *);
 };
 
-static void node_key(struct privkey *node_secret, struct pubkey *node_id)
+static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 {
 	u32 salt = 0;
 	struct privkey unused_s;
 	struct pubkey unused_k;
 
-	if (node_secret == NULL)
-		node_secret = &unused_s;
+	if (node_privkey == NULL)
+		node_privkey = &unused_s;
 	else if (node_id == NULL)
 		node_id = &unused_k;
 
 	do {
-		hkdf_sha256(node_secret, sizeof(*node_secret),
+		hkdf_sha256(node_privkey, sizeof(*node_privkey),
 			    &salt, sizeof(salt),
 			    &secretstuff.hsm_secret,
 			    sizeof(secretstuff.hsm_secret),
 			    "nodeid", 6);
 		salt++;
 	} while (!secp256k1_ec_pubkey_create(secp256k1_ctx, &node_id->pubkey,
-					     node_secret->secret));
+					     node_privkey->secret.data));
 }
 
 static struct client *new_client(struct daemon_conn *master,
@@ -95,7 +95,7 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 	struct client *c = container_of(dc, struct client, dc);
 	struct privkey privkey;
 	struct pubkey point;
-	struct sha256 ss;
+	struct secret ss;
 
 	if (!fromwire_hsm_ecdh_req(dc->msg_in, NULL, &point)) {
 		daemon_conn_send(c->master,
@@ -106,8 +106,8 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 	}
 
 	node_key(&privkey, NULL);
-	if (secp256k1_ecdh(secp256k1_ctx, ss.u.u8, &point.pubkey,
-			   privkey.secret) != 1) {
+	if (secp256k1_ecdh(secp256k1_ctx, ss.data, &point.pubkey,
+			   privkey.secret.data) != 1) {
 		status_trace("secp256k1_ecdh fail for client %"PRIu64, c->id);
 		daemon_conn_send(c->master,
 				 take(towire_hsmstatus_client_bad_request(c,
@@ -238,7 +238,7 @@ static struct io_plan *handle_channeld(struct io_conn *conn,
 static void send_init_response(struct daemon_conn *master)
 {
 	struct pubkey node_id;
-	struct privkey peer_seed;
+	struct secret peer_seed;
 	u8 *serialized_extkey = tal_arr(master, u8, BIP32_SERIALIZED_LEN), *msg;
 
 	hkdf_sha256(&peer_seed, sizeof(peer_seed), NULL, 0,
@@ -343,9 +343,9 @@ static void bitcoin_keypair(struct privkey *privkey,
 			      "BIP32 of %u failed", index);
 
 	/* libwally says: The private key with prefix byte 0 */
-	memcpy(privkey->secret, ext.priv_key+1, 32);
+	memcpy(privkey->secret.data, ext.priv_key+1, 32);
 	if (!secp256k1_ec_pubkey_create(secp256k1_ctx, &pubkey->pubkey,
-					privkey->secret))
+					privkey->secret.data))
 		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
 			      "BIP32 pubkey %u create failed", index);
 }

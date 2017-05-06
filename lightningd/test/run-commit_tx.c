@@ -41,9 +41,9 @@ static struct sha256_double txid_from_hex(const char *hex)
 	return sha256;
 }
 
-static struct privkey privkey_from_hex(const char *hex)
+static struct secret secret_from_hex(const char *hex)
 {
-	struct privkey pk;
+	struct secret s;
 	size_t len;
 	if (strstarts(hex, "0x"))
 		hex += 2;
@@ -56,9 +56,17 @@ static struct privkey privkey_from_hex(const char *hex)
 	 */
 	if (len == 66 && strends(hex, "01"))
 		len -= 2;
-	if (!hex_decode(hex, len, &pk, sizeof(pk)))
+	if (!hex_decode(hex, len, &s, sizeof(s)))
 		abort();
-	return pk;
+	return s;
+}
+
+static bool pubkey_from_secret(const struct secret *secret,
+			       struct pubkey *key)
+{
+	return secp256k1_ec_pubkey_create(secp256k1_ctx,
+					  &key->pubkey,
+					  secret->data);
 }
 
 static void tx_must_be_eq(const struct bitcoin_tx *a,
@@ -420,10 +428,10 @@ int main(void)
 	u16 to_self_delay;
 	/* x_ prefix means internal vars we used to derive spec */
 	struct privkey local_funding_privkey, x_remote_funding_privkey;
-	struct privkey x_local_payment_basepoint_secret, x_remote_payment_basepoint_secret;
-	struct privkey x_local_per_commitment_secret;
-	struct privkey x_local_delayed_payment_basepoint_secret;
-	struct privkey x_remote_revocation_basepoint_secret;
+	struct secret x_local_payment_basepoint_secret, x_remote_payment_basepoint_secret;
+	struct secret x_local_per_commitment_secret;
+	struct secret x_local_delayed_payment_basepoint_secret;
+	struct secret x_remote_revocation_basepoint_secret;
 	struct privkey local_secretkey, x_remote_secretkey;
 	struct privkey x_local_delayed_secretkey;
 	struct pubkey local_funding_pubkey, remote_funding_pubkey;
@@ -503,61 +511,61 @@ int main(void)
          * # From local_delayed_payment_basepoint_secret, local_per_commitment_point and local_delayed_payment_basepoint
          * INTERNAL: local_delayed_secretkey: adf3464ce9c2f230fd2582fda4c6965e4993ca5524e8c9580e3df0cf226981ad01
 	 */
-	local_funding_privkey = privkey_from_hex("30ff4956bbdd3222d44cc5e8a1261dab1e07957bdac5ae88fe3261ef321f374901");
-	x_remote_funding_privkey = privkey_from_hex("1552dfba4f6cf29a62a0af13c8d6981d36d0ef8d61ba10fb0fe90da7634d7e1301");
+	local_funding_privkey.secret = secret_from_hex("30ff4956bbdd3222d44cc5e8a1261dab1e07957bdac5ae88fe3261ef321f374901");
+	x_remote_funding_privkey.secret = secret_from_hex("1552dfba4f6cf29a62a0af13c8d6981d36d0ef8d61ba10fb0fe90da7634d7e1301");
 	SUPERVERBOSE("INTERNAL: remote_funding_privkey: %s01\n",
 		     type_to_string(tmpctx, struct privkey,
 				    &x_remote_funding_privkey));
-	x_local_payment_basepoint_secret = privkey_from_hex("1111111111111111111111111111111111111111111111111111111111111111");
+	x_local_payment_basepoint_secret = secret_from_hex("1111111111111111111111111111111111111111111111111111111111111111");
 	SUPERVERBOSE("INTERNAL: local_payment_basepoint_secret: %s\n",
-		     type_to_string(tmpctx, struct privkey,
+		     type_to_string(tmpctx, struct secret,
 				    &x_local_payment_basepoint_secret));
-	x_remote_revocation_basepoint_secret = privkey_from_hex("2222222222222222222222222222222222222222222222222222222222222222");
+	x_remote_revocation_basepoint_secret = secret_from_hex("2222222222222222222222222222222222222222222222222222222222222222");
 	SUPERVERBOSE("INTERNAL: remote_revocation_basepoint_secret: %s\n",
-		     type_to_string(tmpctx, struct privkey,
+		     type_to_string(tmpctx, struct secret,
 				    &x_remote_revocation_basepoint_secret));
-	x_local_delayed_payment_basepoint_secret = privkey_from_hex("3333333333333333333333333333333333333333333333333333333333333333");
+	x_local_delayed_payment_basepoint_secret = secret_from_hex("3333333333333333333333333333333333333333333333333333333333333333");
 	SUPERVERBOSE("INTERNAL: local_delayed_payment_basepoint_secret: %s\n",
-		     type_to_string(tmpctx, struct privkey,
+		     type_to_string(tmpctx, struct secret,
 				    &x_local_delayed_payment_basepoint_secret));
-	x_remote_payment_basepoint_secret = privkey_from_hex("4444444444444444444444444444444444444444444444444444444444444444");
+	x_remote_payment_basepoint_secret = secret_from_hex("4444444444444444444444444444444444444444444444444444444444444444");
 	SUPERVERBOSE("INTERNAL: remote_payment_basepoint_secret: %s\n",
-		     type_to_string(tmpctx, struct privkey,
+		     type_to_string(tmpctx, struct secret,
 				    &x_remote_payment_basepoint_secret));
-	x_local_per_commitment_secret = privkey_from_hex("0x1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100");
+	x_local_per_commitment_secret = secret_from_hex("0x1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100");
 	SUPERVERBOSE("x_local_per_commitment_secret: %s\n",
-		     type_to_string(tmpctx, struct privkey,
+		     type_to_string(tmpctx, struct secret,
 				    &x_local_per_commitment_secret));
 
-	if (!pubkey_from_privkey(&x_remote_revocation_basepoint_secret,
-				 &x_remote_revocation_basepoint))
-		abort();
+	if (!pubkey_from_secret(&x_remote_revocation_basepoint_secret,
+				&x_remote_revocation_basepoint))
+ 		abort();
 	SUPERVERBOSE("# From remote_revocation_basepoint_secret\n"
 		     "INTERNAL: remote_revocation_basepoint: %s\n",
 		     type_to_string(tmpctx, struct pubkey,
 				    &x_remote_revocation_basepoint));
 
-	if (!pubkey_from_privkey(&x_local_delayed_payment_basepoint_secret,
-				 &x_local_delayed_payment_basepoint))
+	if (!pubkey_from_secret(&x_local_delayed_payment_basepoint_secret,
+				&x_local_delayed_payment_basepoint))
 		abort();
 	SUPERVERBOSE("# From local_delayed_payment_basepoint_secret\n"
 		     "INTERNAL: local_delayed_payment_basepoint: %s\n",
 		     type_to_string(tmpctx, struct pubkey,
 				    &x_local_delayed_payment_basepoint));
 
-	if (!pubkey_from_privkey(&x_local_per_commitment_secret,
-				 &x_local_per_commitment_point))
+	if (!pubkey_from_secret(&x_local_per_commitment_secret,
+				&x_local_per_commitment_point))
 		abort();
 	SUPERVERBOSE("INTERNAL: local_per_commitment_point: %s\n",
 		     type_to_string(tmpctx, struct pubkey,
 				    &x_local_per_commitment_point));
 
-	if (!pubkey_from_privkey(&x_local_payment_basepoint_secret,
-				 &local_payment_basepoint))
+	if (!pubkey_from_secret(&x_local_payment_basepoint_secret,
+				&local_payment_basepoint))
 		abort();
 
-	if (!pubkey_from_privkey(&x_remote_payment_basepoint_secret,
-				 &remote_payment_basepoint))
+	if (!pubkey_from_secret(&x_remote_payment_basepoint_secret,
+				&remote_payment_basepoint))
 		abort();
 
 	if (!derive_simple_privkey(&x_remote_payment_basepoint_secret,

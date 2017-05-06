@@ -62,7 +62,7 @@ static void json_dev_newhtlc(struct command *cmd,
 	u8 *onion;
 	struct htlc_end *hend;
 	struct pubkey *path = tal_arrz(cmd, struct pubkey, 1);
-	struct sha256 *shared_secrets;
+	struct secret *shared_secrets;
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,

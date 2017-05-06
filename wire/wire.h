@@ -31,6 +31,7 @@ int fromwire_peektype(const u8 *cursor);
 void towire(u8 **pptr, const void *data, size_t len);
 void towire_pubkey(u8 **pptr, const struct pubkey *pubkey);
 void towire_privkey(u8 **pptr, const struct privkey *privkey);
+void towire_secret(u8 **pptr, const struct secret *secret);
 void towire_secp256k1_ecdsa_signature(u8 **pptr,
 			      const secp256k1_ecdsa_signature *signature);
 void towire_channel_id(u8 **pptr, const struct channel_id *channel_id);
@@ -55,6 +56,7 @@ u16 fromwire_u16(const u8 **cursor, size_t *max);
 u32 fromwire_u32(const u8 **cursor, size_t *max);
 u64 fromwire_u64(const u8 **cursor, size_t *max);
 bool fromwire_bool(const u8 **cursor, size_t *max);
+void fromwire_secret(const u8 **cursor, size_t *max, struct secret *secret);
 void fromwire_privkey(const u8 **cursor, size_t *max, struct privkey *privkey);
 void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey);
 void fromwire_secp256k1_ecdsa_signature(const u8 **cursor, size_t *max,

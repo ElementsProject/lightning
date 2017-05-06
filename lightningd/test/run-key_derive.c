@@ -10,35 +10,40 @@ static void *tmpctx;
 #include <stdio.h>
 #include <type_to_string.h>
 
-static struct privkey privkey_from_hex(const char *hex)
+static struct secret secret_from_hex(const char *hex)
 {
-	struct privkey privkey;
+	struct secret s;
 	hex += 2;
-	if (!hex_decode(hex, strlen(hex), &privkey, sizeof(privkey)))
+	if (!hex_decode(hex, strlen(hex), &s, sizeof(s)))
 		abort();
-	return privkey;
+	return s;
 }
 
 int main(void)
 {
-	struct privkey base_secret, per_commitment_secret, privkey;
+	struct privkey privkey;
+	struct secret base_secret, per_commitment_secret;
 	struct pubkey base_point, per_commitment_point, pubkey, pubkey2;
 
 	tmpctx = tal_tmpctx(NULL);
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
-	base_secret = privkey_from_hex("0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f");
-	per_commitment_secret = privkey_from_hex("0x1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100");
+	base_secret = secret_from_hex("0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f");
+	per_commitment_secret = secret_from_hex("0x1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020100");
 
 	printf("base_secret: 0x%s\n",
 	       tal_hexstr(tmpctx, &base_secret, sizeof(base_secret)));
 	printf("per_commitment_secret: 0x%s\n",
 	       tal_hexstr(tmpctx, &per_commitment_secret,
 			  sizeof(per_commitment_secret)));
-	if (!pubkey_from_privkey(&per_commitment_secret, &per_commitment_point))
+	if (!secp256k1_ec_pubkey_create(secp256k1_ctx,
+					&per_commitment_point.pubkey,
+					per_commitment_secret.data))
 		abort();
-	if (!pubkey_from_privkey(&base_secret, &base_point))
+	if (!secp256k1_ec_pubkey_create(secp256k1_ctx,
+					&base_point.pubkey,
+					base_secret.data))
 		abort();
 	printf("base_point: 0x%s\n",
 	       type_to_string(tmpctx, struct pubkey, &base_point));
