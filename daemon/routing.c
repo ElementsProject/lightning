@@ -78,6 +78,7 @@ struct node *new_node(struct routing_state *rstate,
 	n->alias = NULL;
 	n->hostname = NULL;
 	n->node_announcement = NULL;
+	n->last_timestamp = 0;
 	node_map_add(rstate->nodes, n);
 	tal_add_destructor(n, destroy_node);
 

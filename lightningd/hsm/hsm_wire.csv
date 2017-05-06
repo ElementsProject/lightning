@@ -50,3 +50,11 @@ hsmctl_hsmfd_channeld,0,unique_id,8
 
 # Empty reply, just an fd
 hsmctl_hsmfd_channeld_reply,105
+
+# Master asks the HSM to sign a node_announcement
+hsmctl_node_announcement_sig_req,6
+hsmctl_node_announcement_sig_req,0,annlen,2
+hsmctl_node_announcement_sig_req,2,announcement,annlen*u8
+
+hsmctl_node_announcement_sig_reply,106
+hsmctl_node_announcement_sig_reply,0,signature,secp256k1_ecdsa_signature

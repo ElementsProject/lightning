@@ -511,6 +511,37 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	tal_free(tmpctx);
 }
 
+static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
+{
+	/* 2 bytes msg type + 64 bytes signature */
+	size_t offset = 66;
+	struct sha256_double hash;
+	struct privkey node_pkey;
+	secp256k1_ecdsa_signature sig;
+	u8 *reply;
+	u8 *ann;
+
+	if (!fromwire_hsmctl_node_announcement_sig_req(msg, msg, NULL, &ann)) {
+		status_trace("Failed to parse node_announcement_sig_req: %s",
+			     tal_hex(trc, msg));
+		return;
+	}
+
+	if (tal_len(ann) < offset) {
+		status_trace("Node announcement too short: %s", tal_hex(trc, msg));
+		return;
+	}
+
+	/* FIXME(cdecker) Check the node announcement's content */
+	node_key(&node_pkey, NULL);
+	sha256_double(&hash, ann + offset, tal_len(ann) - offset);
+
+	sign_hash(&node_pkey, &hash, &sig);
+
+	reply = towire_hsmctl_node_announcement_sig_reply(msg, &sig);
+	daemon_conn_send(master, take(reply));
+}
+
 static struct io_plan *control_received_req(struct io_conn *conn,
 					    struct daemon_conn *master)
 {
@@ -533,6 +564,10 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 		sign_funding_tx(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
 
+	case WIRE_HSMCTL_NODE_ANNOUNCEMENT_SIG_REQ:
+		sign_node_announcement(master, master->msg_in);
+		return daemon_conn_read_next(conn, master);
+
 	case WIRE_HSMCTL_INIT_REPLY:
 	case WIRE_HSMCTL_HSMFD_ECDH_FD_REPLY:
 	case WIRE_HSMCTL_HSMFD_CHANNELD_REPLY:
@@ -543,6 +578,7 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 	case WIRE_HSMSTATUS_FD_FAILED:
 	case WIRE_HSMSTATUS_KEY_FAILED:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
+	case WIRE_HSMCTL_NODE_ANNOUNCEMENT_SIG_REPLY:
 		break;
 	}
 

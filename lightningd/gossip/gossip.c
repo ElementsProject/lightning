@@ -660,6 +660,15 @@ static struct io_plan *resolve_channel_req(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static void handle_forwarded_msg(struct io_conn *conn, struct daemon *daemon, const u8 *msg)
+{
+	u8 *payload;
+	if (!fromwire_gossip_forwarded_msg(msg, msg, NULL, &payload)) {
+		status_trace("Malformed forwarded message: %s", tal_hex(trc, msg));
+		return;
+	}
+	handle_gossip_msg(daemon->rstate, payload);
+}
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct daemon *daemon = container_of(master, struct daemon, master);
@@ -692,6 +701,9 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST:
 		return resolve_channel_req(conn, daemon, daemon->master.msg_in);
 
+	case WIRE_GOSSIP_FORWARDED_MSG:
+		handle_forwarded_msg(conn, daemon, daemon->master.msg_in);
+		return daemon_conn_read_next(conn, &daemon->master);
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:

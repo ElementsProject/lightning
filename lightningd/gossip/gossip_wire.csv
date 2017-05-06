@@ -98,3 +98,9 @@ gossip_resolve_channel_request,0,channel_id,struct short_channel_id
 gossip_resolve_channel_reply,109
 gossip_resolve_channel_reply,0,num_keys,u16
 gossip_resolve_channel_reply,0,keys,num_keys*struct pubkey
+
+# The main daemon forward some gossip message to gossipd, allows injecting
+# arbitrary gossip messages.
+gossip_forwarded_msg,10
+gossip_forwarded_msg,0,msglen,2
+gossip_forwarded_msg,2,msg,msglen
