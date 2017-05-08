@@ -112,6 +112,10 @@ void json_add_short_channel_id(struct json_result *response,
 			       const char *fieldname,
 			       const struct short_channel_id *id);
 
+/* JSON serialize a network address for a node */
+void json_add_address(struct json_result *response, const char *fieldname,
+		      const struct ipaddr *addr);
+
 void json_add_object(struct json_result *result, ...);
 
 const char *json_result_string(const struct json_result *result);

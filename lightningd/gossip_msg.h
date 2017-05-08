@@ -6,6 +6,7 @@
 
 struct gossip_getnodes_entry {
 	struct pubkey nodeid;
+	struct ipaddr *addresses;
 	char *hostname;
 	u16 port;
 };

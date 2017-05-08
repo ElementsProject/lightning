@@ -1,5 +1,6 @@
 /* JSON core and helpers */
 #include "json.h"
+#include <arpa/inet.h>
 #include <assert.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/str/hex/hex.h>
@@ -451,6 +452,25 @@ void json_add_short_channel_id(struct json_result *response,
 {
 	char *str = tal_fmt(response, "%d:%d:%d", id->blocknum, id->txnum, id->outnum);
 	json_add_string(response, fieldname, str);
+}
+
+void json_add_address(struct json_result *response, const char *fieldname,
+		      const struct ipaddr *addr)
+{
+	json_object_start(response, fieldname);
+	char *addrstr = tal_arr(response, char, INET6_ADDRSTRLEN);
+	if (addr->type == ADDR_TYPE_IPV4) {
+		inet_ntop(AF_INET, addr->addr, addrstr, INET_ADDRSTRLEN);
+		json_add_string(response, "type", "ipv4");
+		json_add_string(response, "address", addrstr);
+		json_add_num(response, "port", addr->port);
+	} else if (addr->type == ADDR_TYPE_IPV6) {
+		inet_ntop(AF_INET6, addr->addr, addrstr, INET6_ADDRSTRLEN);
+		json_add_string(response, "type", "ipv6");
+		json_add_string(response, "address", addrstr);
+		json_add_num(response, "port", addr->port);
+	}
+	json_object_end(response);
 }
 
 void json_add_object(struct json_result *result, ...)

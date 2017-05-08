@@ -198,7 +198,7 @@ static bool json_getnodes_reply(struct subd *gossip, const u8 *reply,
 {
 	struct gossip_getnodes_entry *nodes;
 	struct json_result *response = new_json_result(cmd);
-	size_t i;
+	size_t i, j;
 
 	if (!fromwire_gossip_getnodes_reply(reply, reply, NULL, &nodes)) {
 		command_fail(cmd, "Malformed gossip_getnodes response");
@@ -211,12 +211,11 @@ static bool json_getnodes_reply(struct subd *gossip, const u8 *reply,
 	for (i = 0; i < tal_count(nodes); i++) {
 		json_object_start(response, NULL);
 		json_add_pubkey(response, "nodeid", &nodes[i].nodeid);
-		if (tal_len(nodes[i].hostname) > 0) {
-			json_add_string(response, "hostname", nodes[i].hostname);
-		} else {
-			json_add_null(response, "hostname");
+		json_array_start(response, "addresses");
+		for (j=0; j<tal_count(nodes[i].addresses); j++) {
+			json_add_address(response, NULL, &nodes[i].addresses[j]);
 		}
-		json_add_num(response, "port", nodes[i].port);
+		json_array_end(response);
 		json_object_end(response);
 	}
 	json_array_end(response);
