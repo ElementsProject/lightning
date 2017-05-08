@@ -165,9 +165,27 @@ void fromwire_preimage(const u8 **cursor, size_t *max, struct preimage *preimage
 	fromwire(cursor, max, preimage, sizeof(*preimage));
 }
 
-void fromwire_ipv6(const u8 **cursor, size_t *max, struct ipv6 *ipv6)
+void fromwire_ipaddr(const u8 **cursor, size_t *max, struct ipaddr *addr)
 {
-	fromwire(cursor, max, ipv6, sizeof(*ipv6));
+	/* Skip any eventual padding */
+	while (**cursor == 0) {
+		*cursor += 1;
+	}
+
+	addr->type = **cursor;
+	switch (addr->type) {
+	case 1:
+		addr->addrlen = 4;
+		break;
+	case 2:
+		addr->addrlen = 16;
+		break;
+	default:
+		fail_pull(cursor, max);
+		return;
+	}
+	fromwire(cursor, max, addr->addr, addr->addrlen);
+	addr->port = fromwire_u16(cursor, max);
 }
 
 void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num)

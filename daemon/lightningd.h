@@ -7,6 +7,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/timer/timer.h>
 #include <stdio.h>
+#include <wire/wire.h>
 
 /* Various adjustable things. */
 struct config {
@@ -58,6 +59,9 @@ struct config {
 
 	/* Whether to ignore database version. */
 	bool db_version_ignore;
+
+	/* IPv4 or IPv6 address to announce to the network */
+	struct ipaddr ipaddr;
 };
 
 /* Here's where the global variables hide! */

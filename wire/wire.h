@@ -17,9 +17,26 @@ struct short_channel_id {
 struct channel_id {
 	u8 id[32];
 };
-struct ipv6 {
-	u8 addr[16];
+
+/* Address types as defined in the lightning specification. Does not
+ * match AF_INET and AF_INET6 so we just define our
+ * own. ADDR_TYPE_PADDING is also used to signal in the config whether
+ * an address is defined at all. */
+enum wire_addr_type {
+	ADDR_TYPE_PADDING = 0,
+	ADDR_TYPE_IPV4 = 1,
+	ADDR_TYPE_IPV6 = 2,
 };
+
+/* FIXME(cdecker) Extend this once we have defined how TOR addresses
+ * should look like */
+struct ipaddr {
+	enum wire_addr_type type;
+	u8 addrlen;
+	u8 addr[16];
+	u16 port;
+};
+
 struct preimage;
 
 void derive_channel_id(struct channel_id *channel_id,
@@ -40,7 +57,7 @@ void towire_short_channel_id(u8 **pptr,
 void towire_sha256(u8 **pptr, const struct sha256 *sha256);
 void towire_sha256_double(u8 **pptr, const struct sha256_double *sha256d);
 void towire_preimage(u8 **pptr, const struct preimage *preimage);
-void towire_ipv6(u8 **pptr, const struct ipv6 *ipv6);
+void towire_ipaddr(u8 **pptr, const struct ipaddr *addr);
 void towire_u8(u8 **pptr, u8 v);
 void towire_u16(u8 **pptr, u16 v);
 void towire_u32(u8 **pptr, u32 v);
@@ -69,7 +86,7 @@ void fromwire_sha256(const u8 **cursor, size_t *max, struct sha256 *sha256);
 void fromwire_sha256_double(const u8 **cursor, size_t *max,
 			    struct sha256_double *sha256d);
 void fromwire_preimage(const u8 **cursor, size_t *max, struct preimage *preimage);
-void fromwire_ipv6(const u8 **cursor, size_t *max, struct ipv6 *ipv6);
+void fromwire_ipaddr(const u8 **cursor, size_t *max, struct ipaddr *addr);
 void fromwire_pad(const u8 **cursor, size_t *max, size_t num);
 
 void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num);
