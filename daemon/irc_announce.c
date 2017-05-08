@@ -177,9 +177,7 @@ static void handle_irc_node_announcement(
 	char **splits)
 {
 	struct pubkey *pk = talz(msg, struct pubkey);
-	char *hostname = tal_strdup(msg, splits[2]);
-	int port = atoi(splits[3]);
-	if (!pubkey_from_hexstr(splits[1], strlen(splits[1]), pk) || port < 1)
+	if (!pubkey_from_hexstr(splits[1], strlen(splits[1]), pk))
 		return;
 
 	if (!verify_signed_privmsg(istate, pk, msg)) {
@@ -191,7 +189,7 @@ static void handle_irc_node_announcement(
 			splits[1]);
 	}
 
-	struct node *node = add_node(istate->dstate->rstate, pk, hostname, port);
+	struct node *node = add_node(istate->dstate->rstate, pk);
 	if (splits[4] != NULL){
 		tal_free(node->alias);
 		node->alias = tal_hexdata(node, splits[4], strlen(splits[4]));
@@ -233,8 +231,7 @@ static void handle_irc_command(struct ircstate *istate, const struct irccommand 
 		log_debug(dstate->base_log, "Detected my own IP as %s", dstate->external_ip);
 
 		// Add our node to the node_map for completeness
-		add_node(istate->dstate->rstate, &dstate->id,
-			 dstate->external_ip, dstate->portnum);
+		add_node(istate->dstate->rstate, &dstate->id);
 	} else if (streq(cmd->command, "JOIN")) {
 		unsigned int delay;
 

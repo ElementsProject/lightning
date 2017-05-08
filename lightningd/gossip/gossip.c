@@ -570,8 +570,6 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon)
 	while (n != NULL) {
 		tal_resize(&nodes, node_count + 1);
 		nodes[node_count].nodeid = n->id;
-		nodes[node_count].hostname = n->hostname;
-		nodes[node_count].port = n->port;
 		nodes[node_count].addresses = n->addresses;
 		node_count++;
 		n = node_map_next(daemon->rstate->nodes, &i);
