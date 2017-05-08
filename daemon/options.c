@@ -7,6 +7,7 @@
 #include "daemon/options.h"
 #include "daemon/routing.h"
 #include "version.h"
+#include <arpa/inet.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/short_types/short_types.h>
@@ -20,6 +21,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <wire/wire.h>
 
 /* Tal wrappers for opt. */
 static void *opt_allocfn(size_t size)
@@ -107,6 +109,26 @@ static char *opt_set_s32(const char *arg, s32 *u)
 	if (errno || *u != l)
 		return tal_fmt(NULL, "'%s' is out of range", arg);
 	return NULL;
+}
+
+static char *opt_set_ipaddr(const char *arg, struct ipaddr *addr)
+{
+	struct in6_addr v6;
+	struct in_addr v4;
+	char *err = NULL;
+	memset(&addr->addr, 0, sizeof(addr->addr));
+	if (inet_pton(AF_INET, arg, &v4) == 1) {
+		addr->type = ADDR_TYPE_IPV4;
+		addr->addrlen = 4;
+		memcpy(&addr->addr, &v4, addr->addrlen);
+	} else if (inet_pton(AF_INET6, arg, &v6) == 1) {
+		addr->type = ADDR_TYPE_IPV6;
+		addr->addrlen = 16;
+		memcpy(&addr->addr, &v6, addr->addrlen);
+	} else {
+		err = tal_fmt(NULL, "Unable to parse IP address '%s'", arg);
+	}
+	return err;
 }
 
 static void opt_show_u64(char buf[OPT_SHOW_LEN], const u64 *u)
@@ -205,6 +227,10 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_noarg("--ignore-dbversion", opt_set_bool,
 			   &dstate->config.db_version_ignore,
 			   "Continue despite invalid database version (DANGEROUS!)");
+
+	opt_register_arg("--ipaddr", opt_set_ipaddr, NULL,
+			   &dstate->config.ipaddr,
+			   "Set the IP address (v4 or v6) to announce to the network for incoming connections");
 }
 
 static void dev_register_opts(struct lightningd_state *dstate)
@@ -273,6 +299,9 @@ static const struct config testnet_config = {
 
 	/* Don't ignore database version */
 	.db_version_ignore = false,
+
+	/* Do not advertise any IP */
+	.ipaddr.type = 0,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -334,6 +363,9 @@ static const struct config mainnet_config = {
 
 	/* Don't ignore database version */
 	.db_version_ignore = false,
+
+	/* Do not advertise any IP */
+	.ipaddr.type = 0,
 };
 
 static void check_config(struct lightningd_state *dstate)
@@ -488,6 +520,7 @@ bool handle_opts(struct lightningd_state *dstate, int argc, char *argv[])
 	/* Now look for config file */
 	opt_parse_from_config(dstate);
 
+	dstate->config.ipaddr.port = dstate->portnum;
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc != 1)
 		errx(1, "no arguments accepted");

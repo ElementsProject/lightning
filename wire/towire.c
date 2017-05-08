@@ -109,9 +109,11 @@ void towire_preimage(u8 **pptr, const struct preimage *preimage)
 	towire(pptr, preimage, sizeof(*preimage));
 }
 
-void towire_ipv6(u8 **pptr, const struct ipv6 *ipv6)
+void towire_ipaddr(u8 **pptr, const struct ipaddr *addr)
 {
-	towire(pptr, ipv6, sizeof(*ipv6));
+	towire_u8(pptr, addr->type);
+	towire(pptr, addr->addr, addr->addrlen);
+	towire_u16(pptr, addr->port);
 }
 
 void towire_u8_array(u8 **pptr, const u8 *arr, size_t num)
