@@ -173,6 +173,7 @@ void fromwire_ipaddr(const u8 **cursor, size_t *max, struct ipaddr *addr)
 	}
 
 	addr->type = **cursor;
+	*cursor += 1;
 	switch (addr->type) {
 	case 1:
 		addr->addrlen = 4;

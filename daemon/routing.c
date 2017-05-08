@@ -79,6 +79,7 @@ struct node *new_node(struct routing_state *rstate,
 	n->hostname = NULL;
 	n->node_announcement = NULL;
 	n->last_timestamp = 0;
+	n->addresses = tal_arr(n, struct ipaddr, 0);
 	node_map_add(rstate->nodes, n);
 	tal_add_destructor(n, destroy_node);
 
@@ -836,6 +837,25 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 	tal_free(tmpctx);
 }
 
+static struct ipaddr *read_addresses(const tal_t *ctx, u8 *ser)
+{
+	const u8 *cursor = ser;
+	size_t max = tal_len(ser);
+	struct ipaddr *ipaddrs = tal_arr(ctx, struct ipaddr, 0);
+	int numaddrs = 0;
+	while (cursor < ser + max) {
+		numaddrs += 1;
+		tal_resize(&ipaddrs, numaddrs);
+		fromwire_ipaddr(&cursor, &max, &ipaddrs[numaddrs-1]);
+		if (cursor == NULL) {
+			/* Parsing address failed */
+			tal_free(ipaddrs);
+			return NULL;
+		}
+	}
+	return ipaddrs;
+}
+
 void handle_node_announcement(
 	struct routing_state *rstate, const u8 *node_ann, size_t len)
 {
@@ -849,6 +869,7 @@ void handle_node_announcement(
 	u8 alias[32];
 	u8 *features, *addresses;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
+	struct ipaddr *ipaddrs;
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
 	if (!fromwire_node_announcement(tmpctx, serialized, NULL,
@@ -885,13 +906,24 @@ void handle_node_announcement(
 		return;
 	}
 
+	ipaddrs = read_addresses(tmpctx, addresses);
+	if (!ipaddrs) {
+		log_debug(rstate->base_log, "Unable to parse addresses.");
+		tal_free(serialized);
+		return;
+	}
+	tal_free(node->addresses);
+	node->addresses = tal_steal(node, ipaddrs);
+
 	node->last_timestamp = timestamp;
 	node->hostname = tal_free(node->hostname);
+
 	if (!read_ip(node, addresses, &node->hostname, &node->port)) {
 		/* FIXME: SHOULD fail connection here. */
 		tal_free(serialized);
 		return;
 	}
+
 	memcpy(node->rgb_color, rgb_color, 3);
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
