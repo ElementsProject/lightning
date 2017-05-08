@@ -24,7 +24,7 @@ Steps:
 1.  [Install and compile](INSTALL.md) the requirements.
 2.  Make sure bitcoind is running in testnet mode, and has the latest
     blocks.
-3.  Get some test bitcoins, such as from [TPs' testnet faucet](http://tpfaucet.appspot.com/).
+3.  Get some test bitcoins, such as from [TPs' testnet faucet](http://tpfaucet.appspot.com/) or [Kiwi's testnet faucet](https://testnet.manu.backend.hamburg/faucet).
 3.  If you want others to connect to your lightningd, create $HOME/.lightning/config and put `port=8334` in it (or any other port).
 4.  Run `daemon/lightningd`.
 6.  Run `daemon/lightning-cli getinfo` to check it's working.
