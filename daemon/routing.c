@@ -74,9 +74,7 @@ struct node *new_node(struct routing_state *rstate,
 	n->id = *id;
 	n->in = tal_arr(n, struct node_connection *, 0);
 	n->out = tal_arr(n, struct node_connection *, 0);
-	n->port = 0;
 	n->alias = NULL;
-	n->hostname = NULL;
 	n->node_announcement = NULL;
 	n->last_timestamp = 0;
 	n->addresses = tal_arr(n, struct ipaddr, 0);
@@ -88,9 +86,7 @@ struct node *new_node(struct routing_state *rstate,
 
 struct node *add_node(
 	struct routing_state *rstate,
-	const struct pubkey *pk,
-	char *hostname,
-	int port)
+	const struct pubkey *pk)
 {
 	struct node *n = get_node(rstate, pk);
 	if (!n) {
@@ -101,8 +97,6 @@ struct node *add_node(
 		log_debug_struct(rstate->base_log, "Update existing node %s",
 				 struct pubkey, pk);
 	}
-	n->hostname = tal_steal(n, hostname);
-	n->port = port;
 	return n;
 }
 
@@ -916,13 +910,6 @@ void handle_node_announcement(
 	node->addresses = tal_steal(node, ipaddrs);
 
 	node->last_timestamp = timestamp;
-	node->hostname = tal_free(node->hostname);
-
-	if (!read_ip(node, addresses, &node->hostname, &node->port)) {
-		/* FIXME: SHOULD fail connection here. */
-		tal_free(serialized);
-		return;
-	}
 
 	memcpy(node->rgb_color, rgb_color, 3);
 

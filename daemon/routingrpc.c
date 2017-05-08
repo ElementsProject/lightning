@@ -136,6 +136,7 @@ static void json_getnodes(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 	struct node *n;
 	struct node_map_iter i;
+	size_t j;
 
 	n = node_map_first(cmd->dstate->rstate->nodes, &i);
 
@@ -145,12 +146,11 @@ static void json_getnodes(struct command *cmd,
 	while (n != NULL) {
 		json_object_start(response, NULL);
 		json_add_pubkey(response, "nodeid", &n->id);
-		json_add_num(response, "port", n->port);
-		if (!n->port)
-			json_add_null(response, "hostname");
-		else
-			json_add_string(response, "hostname", n->hostname);
-
+		json_array_start(response, "addresses");
+		for (j=0; j<tal_count(n->addresses); j++) {
+			json_add_address(response, NULL, &n->addresses[j]);
+		}
+		json_array_end(response);
 		json_object_end(response);
 		n = node_map_next(cmd->dstate->rstate->nodes, &i);
 	}

@@ -46,8 +46,6 @@ struct node {
 
 	/* IP/Hostname and port of this node (may be NULL) */
 	struct ipaddr *addresses;
-	char *hostname;
-	int port;
 
 	u32 last_timestamp;
 
@@ -112,9 +110,7 @@ s64 connection_fee(const struct node_connection *c, u64 msatoshi);
 
 /* Updates existing node, or creates a new one as required. */
 struct node *add_node(struct routing_state *rstate,
-		      const struct pubkey *pk,
-		      char *hostname,
-		      int port);
+		      const struct pubkey *pk);
 
 /* Updates existing connection, or creates new one as required. */
 struct node_connection *add_connection(struct routing_state *rstate,

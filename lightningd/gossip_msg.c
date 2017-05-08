@@ -3,7 +3,6 @@
 
 void fromwire_gossip_getnodes_entry(const tal_t *ctx, const u8 **pptr, size_t *max, struct gossip_getnodes_entry *entry)
 {
-	u8 hostnamelen;
 	u8 numaddresses, i;
 	fromwire_pubkey(pptr, max, &entry->nodeid);
 	numaddresses = fromwire_u8(pptr, max);
@@ -12,15 +11,9 @@ void fromwire_gossip_getnodes_entry(const tal_t *ctx, const u8 **pptr, size_t *m
 	for (i=0; i<numaddresses; i++) {
 		fromwire_ipaddr(pptr, max, entry->addresses);
 	}
-
-	hostnamelen = fromwire_u8(pptr, max);
-	entry->hostname = tal_arr(ctx, char, hostnamelen);
-	fromwire_u8_array(pptr, max, (u8*)entry->hostname, hostnamelen);
-	entry->port = fromwire_u16(pptr, max);
 }
 void towire_gossip_getnodes_entry(u8 **pptr, const struct gossip_getnodes_entry *entry)
 {
-	u8 hostnamelen;
 	u8 i, numaddresses = tal_count(entry->addresses);
 	towire_pubkey(pptr, &entry->nodeid);
 	towire_u8(pptr, numaddresses);
@@ -28,17 +21,6 @@ void towire_gossip_getnodes_entry(u8 **pptr, const struct gossip_getnodes_entry 
 	for (i=0; i<numaddresses; i++) {
 		towire_ipaddr(pptr, &entry->addresses[i]);
 	}
-
-	if (entry->hostname) {
-		hostnamelen = strlen(entry->hostname);
-		towire_u8(pptr, hostnamelen);
-		towire_u8_array(pptr, (u8*)entry->hostname, hostnamelen);
-	}else {
-		/* If we don't have a hostname just write an empty string */
-		hostnamelen = 0;
-		towire_u8(pptr, hostnamelen);
-	}
-	towire_u16(pptr, entry->port);
 }
 
 void fromwire_route_hop(const u8 **pptr, size_t *max, struct route_hop *entry)
