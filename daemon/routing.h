@@ -45,6 +45,7 @@ struct node {
 	struct pubkey id;
 
 	/* IP/Hostname and port of this node (may be NULL) */
+	struct ipaddr *addresses;
 	char *hostname;
 	int port;
 

@@ -1259,11 +1259,14 @@ static u8 *create_node_announcement(const tal_t *ctx, struct lightningd *ld,
 	u8 rgb[3] = {0x77, 0x88, 0x99};
 	u8 alias[32];
 	u8 *features = NULL;
-	u8 *addresses = NULL;
+	u8 *addresses = tal_arr(ctx, u8, 0);
 	u8 *announcement;
 	if (!sig) {
 		sig = tal(ctx, secp256k1_ecdsa_signature);
 		memset(sig, 0, sizeof(*sig));
+	}
+	if (ld->dstate.config.ipaddr.type != ADDR_TYPE_PADDING) {
+		towire_ipaddr(&addresses, &ld->dstate.config.ipaddr);
 	}
 	memset(alias, 0, sizeof(alias));
 	announcement =
