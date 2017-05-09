@@ -127,11 +127,30 @@ class BaseLightningDTests(unittest.TestCase):
         self.executor = futures.ThreadPoolExecutor(max_workers=20)
         self.node_factory = NodeFactory(self, self.executor)
 
+    def getValgrindErrors(self, node):
+        error_file = '{}valgrind-errors'.format(node.daemon.lightning_dir)
+        with open(error_file, 'r') as f:
+            errors = f.read().strip()
+        return errors, error_file
+
+    def printValgrindErrors(self, node):
+        errors, fname = self.getValgrindErrors(node)
+        if errors:
+            print("-"*31, "Valgrind errors", "-"*32)
+            print("Valgrind error file:", fname)
+            print(errors)
+            print("-"*80)
+        return 1 if errors else 0
+
     def tearDown(self):
         self.node_factory.killall()
         self.executor.shutdown(wait=False)
-        # TODO(cdecker) Check that valgrind didn't find any errors
-
+        err_count = 0
+        for node in self.node_factory.nodes:
+            err_count += self.printValgrindErrors(node)
+        if err_count:
+            raise ValueError(
+                "{} nodes reported valgrind errors".format(err_count))
 
 class LightningDTests(BaseLightningDTests):
     def connect(self):
