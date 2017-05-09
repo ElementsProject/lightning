@@ -20,7 +20,7 @@ To Build on Ubuntu 16.04
 
 Get dependencies:
 ```
-sudo apt-get install -y autoconf libtool libprotobuf-c-dev libgmp-dev libsqlite3-dev
+sudo apt-get install -y autoconf build-essential git libtool libprotobuf-c-dev libgmp-dev libsqlite3-dev python3
 ```
 
 For development or running tests, get additional dependencies:
