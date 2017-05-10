@@ -169,11 +169,11 @@ void fromwire_ipaddr(const u8 **cursor, size_t *max, struct ipaddr *addr)
 {
 	/* Skip any eventual padding */
 	while (**cursor == 0) {
-		*cursor += 1;
+		(*cursor)++;
 	}
 
 	addr->type = **cursor;
-	*cursor += 1;
+	(*cursor)++;
 	switch (addr->type) {
 	case 1:
 		addr->addrlen = 4;

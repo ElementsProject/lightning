@@ -838,13 +838,12 @@ static struct ipaddr *read_addresses(const tal_t *ctx, u8 *ser)
 	struct ipaddr *ipaddrs = tal_arr(ctx, struct ipaddr, 0);
 	int numaddrs = 0;
 	while (cursor < ser + max) {
-		numaddrs += 1;
+		numaddrs++;
 		tal_resize(&ipaddrs, numaddrs);
 		fromwire_ipaddr(&cursor, &max, &ipaddrs[numaddrs-1]);
 		if (cursor == NULL) {
 			/* Parsing address failed */
-			tal_free(ipaddrs);
-			return NULL;
+			return tal_free(ipaddrs);
 		}
 	}
 	return ipaddrs;
