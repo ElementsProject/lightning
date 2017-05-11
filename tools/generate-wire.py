@@ -100,7 +100,7 @@ class Field(object):
     def __init__(self, message, name, size, comments, prevname):
         self.message = message
         self.comments = comments
-        self.name = name.replace('-', '_')
+        self.name = name
         self.is_len_var = False
         self.lenvar = None
         self.num_elems = 1
@@ -109,14 +109,14 @@ class Field(object):
         if '*' in size:
             number = size.split('*')[0]
             if number == prevname:
-                self.lenvar = number.replace('-','_');
+                self.lenvar = number
             else:
                 self.num_elems = int(number)
             size = size.split('*')[1]
         else:
             if size == prevname:
                 # Raw length field, implies u8.
-                self.lenvar = size.replace('-','_')
+                self.lenvar = size
                 size = 'u8'
 
         try:

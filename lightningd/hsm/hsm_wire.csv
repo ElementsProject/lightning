@@ -7,7 +7,7 @@ hsmstatus_key_failed,0x8004
 
 # Clients should not give a bad request but not the HSM's decision to crash.
 hsmstatus_client_bad_request,1000
-hsmstatus_client_bad_request,0,unique-id,8
+hsmstatus_client_bad_request,0,unique_id,8
 hsmstatus_client_bad_request,8,len,2
 hsmstatus_client_bad_request,10,msg,len*u8
 
