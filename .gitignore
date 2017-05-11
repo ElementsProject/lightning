@@ -20,12 +20,9 @@ daemon/lightning-cli
 check-bolt
 coverage
 ccan/config.h
+__pycache__
 
 # Ignore some generated binaries
-lightningd/lightningd_channel
-lightningd/lightningd_gossip
-lightningd/lightningd_handshake
-lightningd/lightningd_opening
 lightningd/test/run-channel
 lightningd/test/run-cryptomsg
 lightningd/test/run-commit_tx
@@ -34,6 +31,6 @@ lightningd/test/run-key_derive
 wire/test/run-peer-wire
 bitcoin/test/run-tx-encode
 daemon/test/run-maxfee
-test/test_proto
+test/test_protocol
 test/test_sphinx
 test/test_irc
