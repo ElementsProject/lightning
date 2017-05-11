@@ -10,6 +10,8 @@ invalid_onion_hmac,0,sha256-of-onion,32
 invalid_onion_key,BADONION|PERM|6
 invalid_onion_key,0,sha256-of-onion,32
 temporary_channel_failure,7
+temporary_channel_failure,0,len,2
+temporary_channel_failure,2,channel_update,len
 permanent_channel_failure,PERM|8
 required_channel_feature_missing,PERM|9
 unknown_next_peer,PERM|10

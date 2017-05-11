@@ -693,7 +693,7 @@ static u8 *make_failmsg(const tal_t *ctx, const struct htlc_end *hend,
 	case WIRE_INVALID_ONION_KEY:
 		return towire_invalid_onion_key(ctx, onion_sha);
 	case WIRE_TEMPORARY_CHANNEL_FAILURE:
-		return towire_temporary_channel_failure(ctx);
+		return towire_temporary_channel_failure(ctx, channel_update);
 	case WIRE_PERMANENT_CHANNEL_FAILURE:
 		return towire_permanent_channel_failure(ctx);
 	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
@@ -901,7 +901,10 @@ static struct peer *peer_by_pubkey(struct lightningd *ld, const struct pubkey *i
  */
 static void hend_subd_died(struct htlc_end *hend)
 {
-	u8 *failmsg = towire_temporary_channel_failure(hend->other_end);
+	/* FIXME: Ask gossip daemon for channel_update. */
+	u8 *channel_update = NULL;
+	u8 *failmsg = towire_temporary_channel_failure(hend->other_end,
+						       channel_update);
 	u8 *msg = towire_channel_fail_htlc(hend->other_end,
 					   hend->other_end->htlc_id,
 					   failmsg);
@@ -1199,6 +1202,8 @@ static int peer_failed_htlc(struct peer *peer, const u8 *msg)
 static u8 *malformed_msg(const tal_t *ctx, enum onion_type type,
 			 const struct sha256 *sha256_of_onion)
 {
+	u8 *channel_update;
+
 	/* FIXME: check the reported SHA matches what we sent! */
 	switch (type) {
 	case WIRE_INVALID_ONION_VERSION:
@@ -1208,8 +1213,9 @@ static u8 *malformed_msg(const tal_t *ctx, enum onion_type type,
 	case WIRE_INVALID_ONION_KEY:
 		return towire_invalid_onion_key(ctx, sha256_of_onion);
 	default:
-		/* FIXME */
-		return towire_temporary_channel_failure(ctx);
+		/* FIXME: Ask gossip daemon for channel_update. */
+		channel_update = NULL;
+		return towire_temporary_channel_failure(ctx, channel_update);
 	}
 }
 
