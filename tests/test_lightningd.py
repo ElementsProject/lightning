@@ -128,8 +128,6 @@ class BaseLightningDTests(unittest.TestCase):
         self.node_factory = NodeFactory(self, self.executor)
 
     def getValgrindErrors(self, node):
-        if not VALGRIND:
-            return None, None
         error_file = '{}valgrind-errors'.format(node.daemon.lightning_dir)
         with open(error_file, 'r') as f:
             errors = f.read().strip()
@@ -147,12 +145,15 @@ class BaseLightningDTests(unittest.TestCase):
     def tearDown(self):
         self.node_factory.killall()
         self.executor.shutdown(wait=False)
-        err_count = 0
-        for node in self.node_factory.nodes:
-            err_count += self.printValgrindErrors(node)
-        if err_count:
-            raise ValueError(
-                "{} nodes reported valgrind errors".format(err_count))
+
+        # Do not check for valgrind error files if it is disabled
+        if VALGRIND:
+            err_count = 0
+            for node in self.node_factory.nodes:
+                err_count += self.printValgrindErrors(node)
+            if err_count:
+                raise ValueError(
+                    "{} nodes reported valgrind errors".format(err_count))
 
 class LightningDTests(BaseLightningDTests):
     def connect(self):
