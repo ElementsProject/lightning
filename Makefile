@@ -220,6 +220,7 @@ default: $(PROGRAMS) doc-all daemon-all
 include doc/Makefile
 include bitcoin/Makefile
 include wire/Makefile
+include wallet/Makefile
 include lightningd/Makefile
 
 # Git doesn't maintain timestamps, so we only regen if git says we should.
