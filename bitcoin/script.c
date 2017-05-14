@@ -170,16 +170,6 @@ static u8 *stack_number(const tal_t *ctx, unsigned int num)
 	return tal_dup_arr(ctx, u8, &val, 1, 0);
 }
 
-/* Is a < b? (If equal we don't care) */
-static bool key_less(const struct pubkey *a, const struct pubkey *b)
-{
-	u8 a_der[PUBKEY_DER_LEN], b_der[PUBKEY_DER_LEN];
-	pubkey_to_der(a_der, a);
-	pubkey_to_der(b_der, b);
-
-	return memcmp(a_der, b_der, sizeof(a_der)) < 0;
-}
-
 /* tal_count() gives the length of the script. */
 u8 *bitcoin_redeem_2of2(const tal_t *ctx,
 			const struct pubkey *key1,
@@ -187,7 +177,7 @@ u8 *bitcoin_redeem_2of2(const tal_t *ctx,
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 	add_number(&script, 2);
-	if (key_less(key1, key2)) {
+	if (pubkey_cmp(key1, key2) < 0) {
 		add_push_key(&script, key1);
 		add_push_key(&script, key2);
 	} else {
@@ -354,7 +344,7 @@ u8 **bitcoin_witness_2of2(const tal_t *ctx,
 	witness[0] = stack_number(witness, 0);
 
 	/* sig order should match key order. */
-	if (key_less(key1, key2)) {
+	if (pubkey_cmp(key1, key2) < 0) {
 		witness[1] = stack_sig(witness, sig1);
 		witness[2] = stack_sig(witness, sig2);
 	} else {
