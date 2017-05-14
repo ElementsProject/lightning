@@ -447,7 +447,8 @@ static struct io_plan *recv_body_negotiate(struct io_conn *conn,
 	tal_steal(NULL, neg);
 
 	plan = neg->cb(conn, neg->dstate, neg->iod, neg->log, &id, neg->arg);
-	tal_free(neg);
+	if (plan)
+	tal_free(neg); /* If cb failed, neg is freed already */
 	return plan;
 }
 
