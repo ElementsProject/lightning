@@ -131,7 +131,6 @@ static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 	} else
 		*bcli->exitstatus = WEXITSTATUS(status);
 
-	log_debug(bitcoind->log, "reaped %u: %s", ret, bcli_args(bcli));
 	bitcoind->req_running = false;
 	bcli->process(bcli);
 
@@ -149,8 +148,6 @@ static void next_bcli(struct bitcoind *bitcoind)
 	bcli = list_pop(&bitcoind->pending, struct bitcoin_cli, list);
 	if (!bcli)
 		return;
-
-	log_debug(bcli->bitcoind->log, "starting: %s", bcli_args(bcli));
 
 	bcli->pid = pipecmdarr(&bcli->fd, NULL, &bcli->fd, bcli->args);
 	if (bcli->pid < 0)
@@ -296,6 +293,7 @@ void bitcoind_sendrawtx_(struct peer *peer,
 				    int exitstatus, const char *msg, void *),
 			 void *arg)
 {
+	log_debug(bitcoind->log, "sendrawtransaction: %s", hextx);
 	start_bitcoin_cli(bitcoind, NULL, process_sendrawtx, true, cb, arg,
 			  "sendrawtransaction", hextx, NULL);
 }
@@ -309,8 +307,6 @@ static void process_chaintips(struct bitcoin_cli *bcli)
 	void (*cb)(struct bitcoind *bitcoind,
 		   struct sha256_double *tipid,
 		   void *arg) = bcli->cb;
-
-	log_debug(bcli->bitcoind->log, "Got getchaintips result");
 
 	tokens = json_parse_input(bcli->output, bcli->output_bytes, &valid);
 	if (!tokens)
