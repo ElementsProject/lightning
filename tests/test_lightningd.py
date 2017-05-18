@@ -128,6 +128,8 @@ class BaseLightningDTests(unittest.TestCase):
         self.node_factory = NodeFactory(self, self.executor)
 
     def getValgrindErrors(self, node):
+        if not VALGRIND:
+            return None, None
         error_file = '{}valgrind-errors'.format(node.daemon.lightning_dir)
         with open(error_file, 'r') as f:
             errors = f.read().strip()
