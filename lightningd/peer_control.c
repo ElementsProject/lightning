@@ -1187,10 +1187,15 @@ static int peer_failed_htlc(struct peer *peer, const u8 *msg)
 			shared_secrets[i] = hend->path_secrets[i];
 		}
 		reply = unwrap_onionreply(msg, shared_secrets, numhops, reason);
-		failcode = fromwire_peektype(reply->msg);
-		log_info(peer->log, "htlc %"PRIu64" failed with code 0x%04x (%s)",
-			 id, failcode, onion_type_name(failcode));
-
+		if (!reply) {
+			log_info(peer->log, "htlc %"PRIu64" failed with bad reply (%s)",
+				 id, tal_hex(msg, msg));
+			failcode = WIRE_PERMANENT_NODE_FAILURE;
+		} else {
+			failcode = fromwire_peektype(reply->msg);
+			log_info(peer->log, "htlc %"PRIu64" failed with code 0x%04x (%s)",
+				 id, failcode, onion_type_name(failcode));
+		}
 		payment_failed(peer->ld, hend, NULL, failcode);
 	}
 	tal_free(hend);
