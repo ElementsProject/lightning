@@ -87,11 +87,11 @@ void towire_short_channel_id(u8 **pptr,
 			     const struct short_channel_id *short_channel_id)
 {
 	be32 txnum = cpu_to_be32(short_channel_id->txnum);
-	u8 outnum = short_channel_id->outnum;
+	be32 blocknum = cpu_to_be32(short_channel_id->blocknum);
 
-	towire_u32(pptr, short_channel_id->blocknum);
+	towire(pptr, (char *)&blocknum + 1, 3);
 	towire(pptr, (char *)&txnum + 1, 3);
-	towire(pptr, &outnum, 1);
+	towire_u16(pptr, short_channel_id->outnum);
 }
 
 void towire_sha256(u8 **pptr, const struct sha256 *sha256)
