@@ -1,6 +1,7 @@
 #include <ccan/endian/endian.h>
 /* FIXME: io_plan needs size_t */
  #include <unistd.h>
+#include <ccan/mem/mem.h>
 #include <ccan/io/io_plan.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/take/take.h>
@@ -115,8 +116,7 @@ static int do_write_wire(int fd, struct io_plan_arg *arg)
 	if (arg->u2.s != totlen)
 		return 0;
 
-	if (taken(arg->u1.cp))
-		tal_free(arg->u1.cp);
+	tal_free(arg->u1.cp);
 	return 1;
 }
 
@@ -128,7 +128,8 @@ struct io_plan *io_write_wire_(struct io_conn *conn,
 {
 	struct io_plan_arg *arg = io_plan_arg(conn, IO_OUT);
 
-	arg->u1.const_vp = data;
+	arg->u1.const_vp = tal_dup_arr(conn, u8, memcheck(data, tal_len(data)),
+				       tal_len(data), 0);
 
 	/* We use u2 to store the length we've written. */
 	arg->u2.s = INSIDE_HEADER_BIT;
