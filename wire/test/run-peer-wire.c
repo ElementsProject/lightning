@@ -7,6 +7,7 @@ void fromwire_pad_orig(const u8 **cursor, size_t *max, size_t num);
 #define fromwire_pad fromwire_pad_orig
 #include "../towire.c"
 #include "../fromwire.c"
+#include "../peer_wire.c"
 #undef towire_pad
 #undef fromwire_pad
 
@@ -130,13 +131,13 @@ struct msg_revoke_and_ack {
 };
 struct msg_channel_update {
 	secp256k1_ecdsa_signature signature;
-	struct short_channel_id short_channel_id;
 	u32 timestamp;
 	u16 flags;
 	u16 expiry;
 	u32 htlc_minimum_msat;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
+	struct short_channel_id short_channel_id;
 };
 struct msg_funding_locked {
 	struct channel_id channel_id;
@@ -144,9 +145,9 @@ struct msg_funding_locked {
 };
 struct msg_announcement_signatures {
 	struct channel_id channel_id;
-	struct short_channel_id short_channel_id;
 	secp256k1_ecdsa_signature announcement_node_signature;
 	secp256k1_ecdsa_signature announcement_bitcoin_signature;
+	struct short_channel_id short_channel_id;
 };
 struct msg_commitment_signed {
 	struct channel_id channel_id;
@@ -190,11 +191,11 @@ struct msg_channel_announcement {
 	secp256k1_ecdsa_signature node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1;
 	secp256k1_ecdsa_signature bitcoin_signature_2;
-	struct short_channel_id short_channel_id;
 	struct pubkey node_id_1;
 	struct pubkey node_id_2;
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
+	struct short_channel_id short_channel_id;
 	u8 *features;
 };
 struct msg_init {
@@ -693,7 +694,8 @@ static struct msg_init *fromwire_struct_init(const tal_t *ctx, const void *p, si
 static bool channel_announcement_eq(const struct msg_channel_announcement *a,
 				    const struct msg_channel_announcement *b)
 {
-	return eq_upto(a, b, features)
+	return eq_upto(a, b, short_channel_id) &&
+		short_channel_id_eq(&a->short_channel_id, &b->short_channel_id)
 		&& eq_var(a, b, features);
 }
 
@@ -706,7 +708,8 @@ static bool funding_locked_eq(const struct msg_funding_locked *a,
 static bool announcement_signatures_eq(const struct msg_announcement_signatures *a,
 			      const struct msg_announcement_signatures *b)
 {
-	return structeq(a, b);
+	return eq_upto(a, b, short_channel_id) &&
+		short_channel_id_eq(&a->short_channel_id, &b->short_channel_id);
 }
 
 static bool update_fail_htlc_eq(const struct msg_update_fail_htlc *a,
@@ -791,7 +794,8 @@ static bool open_channel_eq(const struct msg_open_channel *a,
 static bool channel_update_eq(const struct msg_channel_update *a,
 			      const struct msg_channel_update *b)
 {
-	return structeq(a, b);
+	return eq_upto(a, b, short_channel_id) &&
+		short_channel_id_eq(&a->short_channel_id, &b->short_channel_id);
 }
 
 static bool accept_channel_eq(const struct msg_accept_channel *a,
