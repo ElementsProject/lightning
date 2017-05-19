@@ -158,7 +158,7 @@ struct node_connection *get_connection_by_scid(const struct routing_state *rstat
 	        num_conn = tal_count(n->out);
 		for (i = 0; i < num_conn; i++){
 			c = n->out[i];
-			if (structeq(&c->short_channel_id, schanid) &&
+			if (short_channel_id_eq(&c->short_channel_id, schanid) &&
 			    (c->flags&0x1) == direction)
 			    return c;
 		}
