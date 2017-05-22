@@ -393,6 +393,7 @@ struct subd *new_subd(const tal_t *ctx,
 	msg_queue_init(&sd->outq, sd);
 	tal_add_destructor(sd, destroy_subd);
 	list_head_init(&sd->reqs);
+	sd->peer = peer;
 
 	/* conn actually owns daemon: we die when it does. */
 	sd->conn = io_new_conn(ctx, msg_fd, msg_setup, sd);
@@ -400,7 +401,6 @@ struct subd *new_subd(const tal_t *ctx,
 
 	log_info(sd->log, "pid %u, msgfd %i", sd->pid, msg_fd);
 
-	sd->peer = tal_steal(sd, peer);
 	return sd;
 }
 
