@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/compiler/compiler.h>
 #include <ccan/list/list.h>
+#include <daemon/htlc.h>
 #include <daemon/json.h>
 #include <daemon/netaddr.h>
 #include <lightningd/channel_config.h>
@@ -17,6 +18,9 @@ struct peer {
 
 	/* Unique ID (works before we know their pubkey) */
 	u64 unique_id;
+
+	/* Which side offered channel? */
+	enum side funder;
 
 	/* Inside ld->peers. */
 	struct list_node list;
