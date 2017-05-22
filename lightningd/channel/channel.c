@@ -267,8 +267,6 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 			      "Funding locked twice");
 
 	peer->funding_locked[REMOTE] = true;
-	daemon_conn_send(&peer->master,
-			 take(towire_channel_received_funding_locked(peer)));
 
 	if (peer->funding_locked[LOCAL]) {
 		daemon_conn_send(&peer->master,
@@ -1322,7 +1320,6 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 		case WIRE_CHANNEL_INTERNAL_ERROR:
 		case WIRE_CHANNEL_PEER_WRITE_FAILED:
 		case WIRE_CHANNEL_PEER_READ_FAILED:
-		case WIRE_CHANNEL_RECEIVED_FUNDING_LOCKED:
 		case WIRE_CHANNEL_NORMAL_OPERATION:
 		case WIRE_CHANNEL_INIT:
 		case WIRE_CHANNEL_OFFER_HTLC_REPLY:

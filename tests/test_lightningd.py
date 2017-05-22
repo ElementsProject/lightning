@@ -180,8 +180,8 @@ class LightningDTests(BaseLightningDTests):
 
         l1.bitcoin.rpc.generate(6)
 
-        l1.daemon.wait_for_log('-> NORMAL')
-        l2.daemon.wait_for_log('-> NORMAL')
+        l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
+        l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
 
     def test_connect(self):
         l1,l2 = self.connect()
@@ -189,11 +189,11 @@ class LightningDTests(BaseLightningDTests):
         p1 = l1.rpc.getpeer(l2.info['id'], 'info')
         p2 = l2.rpc.getpeer(l1.info['id'], 'info')
 
-        assert p1['state'] == 'GOSSIPING'
-        assert p2['state'] == 'GOSSIPING'
+        assert p1['state'] == 'GOSSIPD'
+        assert p2['state'] == 'GOSSIPD'
 
         # It should have gone through these steps
-        assert 'state: INITIALIZING -> GOSSIPING' in p1['log']
+        assert 'state: UNINITIALIZED -> GOSSIPD' in p1['log']
 
         # Both should still be owned by gossip
         assert p1['owner'] == 'lightningd_gossip'
@@ -203,8 +203,8 @@ class LightningDTests(BaseLightningDTests):
         l1,l2 = self.connect()
 
         self.fund_channel(l1, l2, 10**6)
-        l1.daemon.wait_for_log('-> NORMAL')
-        l2.daemon.wait_for_log('-> NORMAL')
+        l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
+        l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
 
         secret = '1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd'
         rhash = l1.rpc.dev_rhash(secret)['rhash']

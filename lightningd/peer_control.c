@@ -68,10 +68,15 @@ void peer_fail(struct peer *peer, const char *fmt, ...)
 		peer_reconnect(peer);
 }
 
-void peer_set_condition(struct peer *peer, enum peer_state state)
+void peer_set_condition(struct peer *peer, enum peer_state old_state,
+			enum peer_state state)
 {
 	log_info(peer->log, "state: %s -> %s",
 		 peer_state_name(peer->state), peer_state_name(state));
+	if (peer->state != old_state)
+		fatal("peer state %s should be %s",
+		      peer_state_name(peer->state), peer_state_name(old_state));
+
 	peer->state = state;
 }
 
@@ -92,7 +97,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->funding_txid = NULL;
 	peer->seed = NULL;
 	peer->balance = NULL;
-	peer->state = INITIALIZING;
+	peer->state = UNINITIALIZED;
 
 	idname = type_to_string(peer, struct pubkey, id);
 
@@ -118,7 +123,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	/* Let gossip handle it from here. */
 	peer->owner = peer->ld->gossip;
 	tal_steal(peer->owner, peer);
-	peer_set_condition(peer, GOSSIPING);
+	peer_set_condition(peer, UNINITIALIZED, GOSSIPD);
 
 	msg = towire_gossipctl_new_peer(peer, peer->unique_id, cs);
 	subd_send_msg(peer->ld->gossip, take(msg));
@@ -427,6 +432,9 @@ struct funding_channel {
 
 	struct pubkey local_fundingkey, remote_fundingkey;
 	struct bitcoin_tx *funding_tx;
+
+	/* We prepare this when channeld exits, and hold until HSM replies. */
+	u8 *channel_init_msg;
 };
 
 static void fail_fundchannel_command(struct funding_channel *fc)
@@ -476,7 +484,6 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 		peer->scid->outnum = peer->funding_outnum;
 		tal_free(loc);
 
-		peer_set_condition(peer, OPENING_SENT_LOCKED);
 		subd_send_msg(peer->owner,
 			      take(towire_channel_funding_locked(peer, peer->scid)));
 	}
@@ -489,6 +496,9 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 	subd_send_msg(peer->owner, take(towire_channel_funding_announce_depth(peer)));
 	return DELETE_WATCH;
 }
+
+/* FIXME: Reshuffle. */
+static void peer_start_channeld(struct peer *peer, const u8 *initmsg);
 
 static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 					const int *fds,
@@ -506,8 +516,6 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 		fatal("HSM gave %zu sigs, needed %zu",
 		      tal_count(sigs), tal_count(tx->input));
 
-	peer_set_condition(fc->peer, OPENING_AWAITING_LOCKIN);
-
 	/* Create input parts from signatures. */
 	for (i = 0; i < tal_count(tx->input); i++) {
 		struct pubkey key;
@@ -522,6 +530,9 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 			= bitcoin_witness_p2wpkh(tx, &sigs[i], &key);
 	}
 
+	peer_set_condition(fc->peer,
+			   GETTING_SIG_FROM_HSM, OPENINGD_AWAITING_LOCKIN);
+
 	/* Send it out and watch for confirms. */
 	broadcast_tx(hsm->ld->topology, fc->peer, tx, funding_broadcast_failed);
 	watch_tx(fc->peer, fc->peer->ld->topology, fc->peer, tx,
@@ -531,6 +542,10 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 	 * harder. */
 	tal_del_destructor(fc, fail_fundchannel_command);
 	command_success(fc->cmd, null_response(fc->cmd));
+
+	/* Start normal channel daemon. */
+	peer_start_channeld(fc->peer, fc->channel_init_msg);
+
 	tal_free(fc);
 	return true;
 }
@@ -1229,11 +1244,9 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 	enum channel_wire_type t = fromwire_peektype(msg);
 
 	switch (t) {
-	case WIRE_CHANNEL_RECEIVED_FUNDING_LOCKED:
-		peer_set_condition(sd->peer, OPENING_RCVD_LOCKED);
-		break;
 	case WIRE_CHANNEL_NORMAL_OPERATION:
-		peer_set_condition(sd->peer, NORMAL);
+		peer_set_condition(sd->peer,
+				   CHANNELD_AWAITING_LOCKIN, CHANNELD_NORMAL);
 		break;
 	case WIRE_CHANNEL_ACCEPTED_HTLC:
 		return peer_accepted_htlc(sd->peer, msg);
@@ -1298,23 +1311,21 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 	cds->peer->fd = -1;
 
 	log_debug(cds->peer->log, "Waiting for funding confirmations");
+	peer_set_condition(cds->peer, GETTING_HSMFD, CHANNELD_AWAITING_LOCKIN);
+
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(cds->peer->owner, take(cds->initmsg));
 	tal_free(cds);
 	return true;
 }
 
-/* opening is done, start lightningd_channel for peer. */
-static void peer_start_channeld(struct peer *peer,
-				const struct channel_config *their_config,
-				const struct crypto_state *crypto_state,
-				const secp256k1_ecdsa_signature *commit_sig,
-				const struct pubkey *remote_fundingkey,
-				const struct basepoints *theirbase,
-				const struct pubkey *their_per_commit_point)
+/* opening is done, start lightningd_channel for peer.
+ * Steals initmsg: caller prepares it because it has the information to
+ * construct it.
+ */
+static void peer_start_channeld(struct peer *peer, const u8 *initmsg)
 {
 	struct channeld_start *cds = tal(peer, struct channeld_start);
-	struct config *cfg = &peer->ld->dstate.config;
 	/* Unowned: back to being owned by main daemon. */
 	peer->owner = NULL;
 	tal_steal(peer->ld, peer);
@@ -1327,30 +1338,8 @@ static void peer_start_channeld(struct peer *peer,
 	peer->balance[!peer->funder] = peer->push_msat;
 
 	cds->peer = peer;
-	/* Prepare init message now while we have access to all the data. */
-	cds->initmsg = towire_channel_init(cds,
-					   peer->funding_txid,
-					   peer->funding_outnum,
-					   &peer->our_config,
-					   their_config,
-					   commit_sig,
-					   crypto_state,
-					   remote_fundingkey,
-					   &theirbase->revocation,
-					   &theirbase->payment,
-					   &theirbase->delayed_payment,
-					   their_per_commit_point,
-					   peer->funder == LOCAL,
-					   cfg->fee_base,
-					   cfg->fee_per_satoshi,
-					   peer->funding_satoshi,
-					   peer->push_msat,
-					   peer->seed,
-					   &peer->ld->dstate.id,
-					   peer->id,
-					   time_to_msec(cfg->commit_time),
-					   cfg->deadline_blocks
-		);
+	cds->initmsg = tal_steal(cds, initmsg);
+	peer_set_condition(peer, OPENINGD_AWAITING_LOCKIN, GETTING_HSMFD);
 
 	/* Get fd from hsm. */
 	subd_req(peer, peer->ld->hsm,
@@ -1369,6 +1358,7 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 	secp256k1_ecdsa_signature commit_sig;
 	struct pubkey their_per_commit_point;
 	struct basepoints theirbase;
+	struct config *cfg = &fc->peer->ld->dstate.config;
 	/* FIXME: marshal code wants array, not array of pointers. */
 	struct utxo *utxos = tal_arr(fc, struct utxo, tal_count(fc->utxomap));
 
@@ -1401,14 +1391,35 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 					 &fc->remote_fundingkey,
 					 utxos);
 	tal_free(utxos);
+
+	/* Prepare this while we have the information. */
+	fc->channel_init_msg = towire_channel_init(fc,
+						   fc->peer->funding_txid,
+						   fc->peer->funding_outnum,
+						   &fc->peer->our_config,
+						   &their_config,
+						   &commit_sig,
+						   &crypto_state,
+						   &fc->remote_fundingkey,
+						   &theirbase.revocation,
+						   &theirbase.payment,
+						   &theirbase.delayed_payment,
+						   &their_per_commit_point,
+						   fc->peer->funder == LOCAL,
+						   cfg->fee_base,
+						   cfg->fee_per_satoshi,
+						   fc->peer->funding_satoshi,
+						   fc->peer->push_msat,
+						   fc->peer->seed,
+						   &fc->peer->ld->dstate.id,
+						   fc->peer->id,
+						   time_to_msec(cfg->commit_time),
+						   cfg->deadline_blocks);
+
+	fc->peer->owner = NULL;
+	peer_set_condition(fc->peer, OPENINGD, GETTING_SIG_FROM_HSM);
 	subd_req(fc, fc->peer->ld->hsm, take(msg), -1, 0,
 		 opening_got_hsm_funding_sig, fc);
-
-	/* Start normal channel daemon. */
-	peer_start_channeld(fc->peer,
-			    &their_config, &crypto_state, &commit_sig,
-			    &fc->remote_fundingkey, &theirbase,
-			    &their_per_commit_point);
 
 	/* Tell opening daemon to exit. */
 	return false;
@@ -1460,6 +1471,8 @@ static bool opening_accept_finish_response(struct subd *opening,
 	struct crypto_state crypto_state;
 	struct basepoints theirbase;
 	struct pubkey remote_fundingkey, their_per_commit_point;
+	struct config *cfg = &peer->ld->dstate.config;
+	u8 *initmsg;
 
 	log_debug(peer->log, "Got opening_accept_finish_response");
 	assert(tal_count(fds) == 1);
@@ -1482,12 +1495,32 @@ static bool opening_accept_finish_response(struct subd *opening,
 		return false;
 	}
 
-	peer_set_condition(peer, OPENING_AWAITING_LOCKIN);
+	initmsg = towire_channel_init(peer,
+				      peer->funding_txid,
+				      peer->funding_outnum,
+				      &peer->our_config,
+				      &their_config,
+				      &first_commit_sig,
+				      &crypto_state,
+				      &remote_fundingkey,
+				      &theirbase.revocation,
+				      &theirbase.payment,
+				      &theirbase.delayed_payment,
+				      &their_per_commit_point,
+				      peer->funder == LOCAL,
+				      cfg->fee_base,
+				      cfg->fee_per_satoshi,
+				      peer->funding_satoshi,
+				      peer->push_msat,
+				      peer->seed,
+				      &peer->ld->dstate.id,
+				      peer->id,
+				      time_to_msec(cfg->commit_time),
+				      cfg->deadline_blocks);
 
 	/* On to normal operation! */
-	peer_start_channeld(peer, &their_config, &crypto_state,
-			    &first_commit_sig, &remote_fundingkey, &theirbase,
-			    &their_per_commit_point);
+	peer->owner = NULL;
+	peer_start_channeld(peer, initmsg);
 
 	/* Tell opening daemon to exit. */
 	return false;
@@ -1509,6 +1542,9 @@ static bool opening_accept_reply(struct subd *opening, const u8 *reply,
 				    peer->funding_txid));
 	watch_txid(peer, peer->ld->topology, peer, peer->funding_txid,
 		   funding_depth_cb, NULL);
+
+	/* It's about to send out funding_signed, so set this now. */
+	peer_set_condition(peer, OPENINGD, OPENINGD_AWAITING_LOCKIN);
 
 	/* Tell it we're watching. */
 	subd_req(peer, opening, towire_opening_accept_finish(reply),
@@ -1579,7 +1615,7 @@ void peer_accept_open(struct peer *peer,
 		return;
 	}
 
-	peer_set_condition(peer, OPENING_NOT_LOCKED);
+	peer_set_condition(peer, GOSSIPD, OPENINGD);
 	peer->owner = new_subd(ld, ld, "lightningd_opening", peer,
 			       opening_wire_type_name,
 			       NULL, peer_owner_finished,
@@ -1651,7 +1687,7 @@ static bool gossip_peer_released(struct subd *gossip,
 		fatal("Gossup daemon release gave %"PRIu64" not %"PRIu64,
 		      id, fc->peer->unique_id);
 
-	peer_set_condition(fc->peer, OPENING_NOT_LOCKED);
+	peer_set_condition(fc->peer, GOSSIPD, OPENINGD);
 	opening = new_subd(fc->peer->ld, ld,
 			   "lightningd_opening", fc->peer,
 			   opening_wire_type_name,
