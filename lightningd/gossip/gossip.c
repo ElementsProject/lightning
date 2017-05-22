@@ -229,10 +229,6 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		handle_gossip_msg(peer->daemon->rstate, msg);
 		return peer_read_message(conn, &peer->pcs, peer_msgin);
 
-	case WIRE_INIT:
-		peer->error = "Duplicate INIT message received";
-		return io_close(conn);
-
 	case WIRE_PING:
 		if (!handle_ping(peer, msg))
 			return io_close(conn);
@@ -258,6 +254,7 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
 	case WIRE_COMMITMENT_SIGNED:
 	case WIRE_REVOKE_AND_ACK:
+	case WIRE_INIT:
 		/* Not our place to handle this, so we punt */
 		s = towire_gossipstatus_peer_nongossip(msg, peer->unique_id,
 						       &peer->pcs.cs, msg);
@@ -322,19 +319,6 @@ static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer)
 	return msg_queue_wait(conn, &peer->peer_out, peer_pkt_out, peer);
 }
 
-static bool has_even_bit(const u8 *bitmap)
-{
-	size_t len = tal_count(bitmap);
-
-	while (len) {
-		if (*bitmap & 0xAA)
-			return true;
-		len--;
-		bitmap++;
-	}
-	return false;
-}
-
 /**
  * owner_msg_in - Called by the `peer->owner_conn` upon receiving a
  * message
@@ -380,43 +364,8 @@ static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn, struct daemon_
 	}
 }
 
-static struct io_plan *peer_parse_init(struct io_conn *conn,
-				       struct peer *peer, u8 *msg)
+static struct io_plan *peer_start_gossip(struct io_conn *conn, struct peer *peer)
 {
-	u8 *gfeatures, *lfeatures;
-
-	if (!fromwire_init(msg, msg, NULL, &gfeatures, &lfeatures)) {
-		peer->error = tal_fmt(msg, "Bad init: %s", tal_hex(msg, msg));
-		return io_close(conn);
-	}
-
-	/* BOLT #1:
-	 *
-	 * The receiving node MUST fail the channels if it receives a
-	 * `globalfeatures` or `localfeatures` with an even bit set which it
-	 * does not understand.
-	 */
-	if (has_even_bit(gfeatures)) {
-		peer->error = tal_fmt(msg, "Bad globalfeatures: %s",
-				      tal_hex(msg, gfeatures));
-		return io_close(conn);
-	}
-
-	if (has_even_bit(lfeatures)) {
-		peer->error = tal_fmt(msg, "Bad localfeatures: %s",
-				      tal_hex(msg, lfeatures));
-		return io_close(conn);
-	}
-
-	/* BOLT #1:
-	 *
-	 * Each node MUST wait to receive `init` before sending any other
-	 * messages.
-	 */
-	daemon_conn_send(&peer->daemon->master,
-			 take(towire_gossipstatus_peer_ready(msg,
-							     peer->unique_id)));
-
 	/* Need to go duplex here, otherwise backpressure would mean
 	 * we both wait indefinitely */
 	return io_duplex(conn,
@@ -424,29 +373,9 @@ static struct io_plan *peer_parse_init(struct io_conn *conn,
 			 peer_pkt_out(conn, peer));
 }
 
-static struct io_plan *peer_init_sent(struct io_conn *conn, struct peer *peer)
-{
-	return peer_read_message(conn, &peer->pcs, peer_parse_init);
-}
-
-static struct io_plan *peer_send_init(struct io_conn *conn, struct peer *peer)
-{
-	/* BOLT #1:
-	 *
-	 * The sending node SHOULD use the minimum lengths required to
-	 * represent the feature fields.  The sending node MUST set feature
-	 * bits corresponding to features it requires the peer to support, and
-	 * SHOULD set feature bits corresponding to features it optionally
-	 * supports.
-	 */
-	return peer_write_message(conn, &peer->pcs,
-				  take(towire_init(peer, NULL, NULL)),
-				  peer_init_sent);
-}
-
 static struct io_plan *new_peer_got_fd(struct io_conn *conn, struct peer *peer)
 {
-	peer->conn = io_new_conn(conn, peer->fd, peer_send_init, peer);
+	peer->conn = io_new_conn(conn, peer->fd, peer_start_gossip, peer);
 	if (!peer->conn) {
 		peer->error = "Could not create connection";
 		tal_free(peer);
@@ -716,7 +645,6 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIPSTATUS_FDPASS_FAILED:
 	case WIRE_GOSSIPSTATUS_PEER_BAD_MSG:
 	case WIRE_GOSSIPSTATUS_PEER_FAILED:
-	case WIRE_GOSSIPSTATUS_PEER_READY:
 	case WIRE_GOSSIPSTATUS_PEER_NONGOSSIP:
 		break;
 	}

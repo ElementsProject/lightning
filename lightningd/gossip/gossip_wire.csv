@@ -46,10 +46,6 @@ gossipctl_release_peer_reply,8,crypto_state,struct crypto_state
 #gossipstatus_peer_features,10+gflen,lflen,2
 #gossipstatus_peer_features,12+gflen,localfeatures,lflen
 
-# Peer init handshake complete (now you can release_peer if you want)
-gossipstatus_peer_ready,3
-gossipstatus_peer_ready,0,unique_id,8
-
 # Peer can send non-gossip packet (usually an open_channel) (followed two fds: peer and gossip)
 gossipstatus_peer_nongossip,4
 gossipstatus_peer_nongossip,0,unique_id,8

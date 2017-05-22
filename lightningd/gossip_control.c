@@ -95,26 +95,6 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 	peer_accept_open(peer, &cs, inner);
 }
 
-static void peer_ready(struct subd *gossip, const u8 *msg)
-{
-	u64 unique_id;
-	struct peer *peer;
-
-	if (!fromwire_gossipstatus_peer_ready(msg, NULL, &unique_id))
-		fatal("Gossip gave bad PEER_READY message %s",
-		      tal_hex(msg, msg));
-
-	peer = peer_by_unique_id(gossip->ld, unique_id);
-	if (!peer)
-		fatal("Gossip gave bad peerid %"PRIu64, unique_id);
-
-	log_debug(gossip->log, "Peer %s (%"PRIu64") ready for channel open",
-		  type_to_string(msg, struct pubkey, peer->id),
-		  unique_id);
-
-	peer_set_condition(peer, GOSSIPING);
-}
-
 static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 {
 	enum gossip_wire_type t = fromwire_peektype(msg);
@@ -154,9 +134,6 @@ static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 		if (tal_count(fds) != 2)
 			return 2;
 		peer_nongossip(gossip, msg, fds[0], fds[1]);
-		break;
-	case WIRE_GOSSIPSTATUS_PEER_READY:
-		peer_ready(gossip, msg);
 		break;
 	}
 	return 0;

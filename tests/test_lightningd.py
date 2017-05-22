@@ -163,8 +163,8 @@ class LightningDTests(BaseLightningDTests):
 
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('WIRE_GOSSIPSTATUS_PEER_READY')
-        l2.daemon.wait_for_log('WIRE_GOSSIPSTATUS_PEER_READY')
+        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_NEW_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_NEW_PEER')
         return l1,l2
 
     def fund_channel(self,l1,l2,amount):
@@ -398,7 +398,7 @@ class LightningDTests(BaseLightningDTests):
 
         assert ret['id'] == l3.info['id']
 
-        l3.daemon.wait_for_log('WIRE_GOSSIPSTATUS_PEER_READY')
+        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_NEW_PEER')
         self.fund_channel(l1, l2, 10**6)
         self.fund_channel(l2, l3, 10**6)
 
