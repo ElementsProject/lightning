@@ -169,6 +169,17 @@ err:
 	return false;
 }
 
+/* When a per-peer subdaemon exits, see if we need to do anything. */
+static void peer_owner_finished(struct subd *subd, int status)
+{
+	/* If peer has moved on, do nothing. */
+	if (subd->peer->owner != subd)
+		return;
+
+	subd->peer->owner = NULL;
+	peer_fail(subd->peer, "Owning subdaemon %s died", subd->name);
+}
+
 static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 				     const int *fds,
 				     struct peer *peer)
@@ -183,11 +194,10 @@ static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 	}
 
 	/* Give handshake daemon the hsm fd. */
-	/* FIXME! */
 	peer->owner = new_subd(peer->ld, peer->ld,
 			       "lightningd_handshake", peer,
 			       handshake_wire_type_name,
-			       NULL, NULL,
+			       NULL, peer_owner_finished,
 			       fds[0], peer->fd, -1);
 	if (!peer->owner) {
 		peer_fail(peer, "Could not subdaemon handshake: %s",
@@ -1389,7 +1399,8 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 	cds->peer->owner = new_subd(cds->peer->ld, cds->peer->ld,
 				    "lightningd_channel", cds->peer,
 				    channel_wire_type_name,
-				    channel_msg, NULL,
+				    channel_msg,
+				    peer_owner_finished,
 				    cds->peer->fd,
 				    cds->peer->gossip_client_fd, fds[0], -1);
 	if (!cds->peer->owner) {
@@ -1585,6 +1596,8 @@ static bool opening_accept_finish_response(struct subd *opening,
 		return false;
 	}
 
+	peer_set_condition(peer, OPENING_AWAITING_LOCKIN);
+
 	/* On to normal operation! */
 	peer_start_channeld(peer, &their_config, &crypto_state,
 			    &first_commit_sig, &remote_fundingkey, &theirbase,
@@ -1605,7 +1618,6 @@ static bool opening_accept_reply(struct subd *opening, const u8 *reply,
 		return false;
 	}
 
-	peer_set_condition(peer, OPENING_AWAITING_LOCKIN);
 	log_debug(peer->log, "Watching funding tx %s",
 		     type_to_string(reply, struct sha256_double,
 				    peer->funding_txid));
@@ -1684,7 +1696,7 @@ void peer_accept_open(struct peer *peer,
 	peer_set_condition(peer, OPENING_NOT_LOCKED);
 	peer->owner = new_subd(ld, ld, "lightningd_opening", peer,
 			       opening_wire_type_name,
-			       NULL, NULL,
+			       NULL, peer_owner_finished,
 			       peer->fd, -1);
 	if (!peer->owner) {
 		peer_fail(peer, "Failed to subdaemon opening: %s",
@@ -1757,7 +1769,7 @@ static bool gossip_peer_released(struct subd *gossip,
 	opening = new_subd(fc->peer->ld, ld,
 			   "lightningd_opening", fc->peer,
 			   opening_wire_type_name,
-			   NULL, NULL,
+			   NULL, peer_owner_finished,
 			   fc->peer->fd, -1);
 	if (!opening) {
 		peer_fail(fc->peer, "Failed to subdaemon opening: %s",

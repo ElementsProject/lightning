@@ -53,7 +53,7 @@ struct subd {
  * @ctx: context to allocate from
  * @ld: global state
  * @name: basename of daemon
- * @peer: peer to take ownership of if non-NULL
+ * @peer: peer to associate (if any).
  * @msgname: function to get name from messages
  * @msgcb: function to call when non-fatal message received (or NULL)
  * @finished: function to call when it's finished (with exit status).
@@ -62,8 +62,6 @@ struct subd {
  * @msgcb gets called with @fds set to NULL: if it returns a positive number,
  * that many @fds are received before calling again.  If it returns -1, the
  * subdaemon is shutdown.
- *
- * If this succeeds subd owns @peer.
  */
 struct subd *new_subd(const tal_t *ctx,
 		      struct lightningd *ld,
