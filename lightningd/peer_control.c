@@ -1414,7 +1414,7 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 }
 
 /* opening is done, start lightningd_channel for peer. */
-static void peer_start_channeld(struct peer *peer, enum side funder,
+static void peer_start_channeld(struct peer *peer,
 				const struct channel_config *their_config,
 				const struct crypto_state *crypto_state,
 				const secp256k1_ecdsa_signature *commit_sig,
@@ -1432,8 +1432,8 @@ static void peer_start_channeld(struct peer *peer, enum side funder,
 
 	/* Now we can consider balance set. */
 	peer->balance = tal_arr(peer, u64, NUM_SIDES);
-	peer->balance[funder] = peer->funding_satoshi * 1000 - peer->push_msat;
-	peer->balance[!funder] = peer->push_msat;
+	peer->balance[peer->funder] = peer->funding_satoshi * 1000 - peer->push_msat;
+	peer->balance[!peer->funder] = peer->push_msat;
 
 	cds->peer = peer;
 	/* Prepare init message now while we have access to all the data. */
@@ -1449,7 +1449,7 @@ static void peer_start_channeld(struct peer *peer, enum side funder,
 					   &theirbase->payment,
 					   &theirbase->delayed_payment,
 					   their_per_commit_point,
-					   funder == LOCAL,
+					   peer->funder == LOCAL,
 					   cfg->fee_base,
 					   cfg->fee_per_satoshi,
 					   peer->funding_satoshi,
@@ -1514,7 +1514,7 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 		 opening_got_hsm_funding_sig, fc);
 
 	/* Start normal channel daemon. */
-	peer_start_channeld(fc->peer, LOCAL,
+	peer_start_channeld(fc->peer,
 			    &their_config, &crypto_state, &commit_sig,
 			    &fc->remote_fundingkey, &theirbase,
 			    &their_per_commit_point);
@@ -1592,7 +1592,7 @@ static bool opening_accept_finish_response(struct subd *opening,
 	}
 
 	/* On to normal operation! */
-	peer_start_channeld(peer, REMOTE, &their_config, &crypto_state,
+	peer_start_channeld(peer, &their_config, &crypto_state,
 			    &first_commit_sig, &remote_fundingkey, &theirbase,
 			    &their_per_commit_point);
 
@@ -1699,6 +1699,9 @@ void peer_accept_open(struct peer *peer,
 	/* We handed off peer fd */
 	peer->fd = -1;
 
+	/* They will open channel. */
+	peer->funder = REMOTE;
+
 	/* BOLT #2:
 	 *
 	 * The sender SHOULD set `minimum-depth` to an amount where
@@ -1771,6 +1774,8 @@ static bool gossip_peer_released(struct subd *gossip,
 	/* They took our fd. */
 	fc->peer->fd = -1;
 
+	/* We will fund channel */
+	fc->peer->funder = LOCAL;
 	channel_config(ld, &fc->peer->our_config,
 		       &max_to_self_delay, &max_minimum_depth,
 		       &min_effective_htlc_capacity_msat);
