@@ -66,6 +66,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/htlc_end.c			\
 	lightningd/hsm_control.c		\
 	lightningd/lightningd.c			\
+	lightningd/new_connection.c		\
 	lightningd/pay.c			\
 	lightningd/peer_control.c		\
 	lightningd/subd.c
@@ -82,6 +83,7 @@ LIGHTNINGD_HEADERS_NOGEN =			\
 	lightningd/hsm_control.h		\
 	lightningd/htlc_end.h			\
 	lightningd/lightningd.h			\
+	lightningd/new_connection.h		\
 	lightningd/pay.h			\
 	lightningd/peer_control.h		\
 	lightningd/peer_state.h			\
