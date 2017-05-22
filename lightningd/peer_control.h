@@ -71,30 +71,39 @@ struct peer {
 
 static inline bool peer_can_add_htlc(const struct peer *peer)
 {
-	return peer->state == NORMAL;
+	return peer->state == CHANNELD_NORMAL;
 }
 
 static inline bool peer_can_remove_htlc(const struct peer *peer)
 {
-	return peer->state == NORMAL
-		|| peer->state == SHUTDOWN_SENT
-		|| peer->state == SHUTDOWN_RCVD
-		|| peer->state == ONCHAIN_THEIR_UNILATERAL
-		|| peer->state == ONCHAIN_OUR_UNILATERAL;
+	return peer->state == CHANNELD_NORMAL
+		|| peer->state == SHUTDOWND_SENT
+		|| peer->state == SHUTDOWND_RCVD
+		|| peer->state == ONCHAIND_THEIR_UNILATERAL
+		|| peer->state == ONCHAIND_OUR_UNILATERAL;
 }
 
 static inline bool peer_on_chain(const struct peer *peer)
 {
-	return peer->state == ONCHAIN_CHEATED
-		|| peer->state == ONCHAIN_THEIR_UNILATERAL
-		|| peer->state == ONCHAIN_OUR_UNILATERAL
-		|| peer->state == ONCHAIN_MUTUAL;
+	return peer->state == ONCHAIND_CHEATED
+		|| peer->state == ONCHAIND_THEIR_UNILATERAL
+		|| peer->state == ONCHAIND_OUR_UNILATERAL
+		|| peer->state == ONCHAIND_MUTUAL;
 }
 
-/* Do we need to remember anything about this peer? */
+/* BOLT #2:
+ *
+ * On disconnection, the funder MUST remember the channel for
+ * reconnection if it has broadcast the funding transaction, otherwise it
+ * MUST NOT.
+ *
+ * On disconnection, the non-funding node MUST remember the channel for
+ * reconnection if it has sent the `funding_signed` message, otherwise
+ * it MUST NOT.
+ */
 static inline bool peer_persists(const struct peer *peer)
 {
-	return peer->state > OPENING_NOT_LOCKED;
+	return peer->state >= CHANNELD_AWAITING_LOCKIN;
 }
 
 struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id);
@@ -113,6 +122,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 PRINTF_FMT(2,3) void peer_fail(struct peer *peer, const char *fmt, ...);
 
 const char *peer_state_name(enum peer_state state);
-void peer_set_condition(struct peer *peer, enum peer_state state);
+void peer_set_condition(struct peer *peer, enum peer_state oldstate,
+			enum peer_state state);
 void setup_listeners(struct lightningd *ld);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */

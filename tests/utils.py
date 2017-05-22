@@ -265,8 +265,8 @@ class LightningNode(object):
             #fut.result(timeout=5)
 
             # Now wait for confirmation
-            self.daemon.wait_for_log("STATE_NORMAL")
-            remote_node.daemon.wait_for_log("STATE_NORMAL")
+            self.daemon.wait_for_log("-> CHANNELD_NORMAL|STATE_NORMAL")
+            remote_node.daemon.wait_for_log("-> CHANNELD_NORMAL|STATE_NORMAL")
 
         if async:
             return self.executor.submit(wait_connected)
@@ -282,5 +282,5 @@ class LightningNode(object):
         self.daemon.wait_for_log('sendrawtx exit 0, gave')
         time.sleep(1)
         self.bitcoin.rpc.generate(6)
-        self.daemon.wait_for_log('-> NORMAL')
+        self.daemon.wait_for_log('-> CHANNELD_NORMAL|STATE_NORMAL')
 
