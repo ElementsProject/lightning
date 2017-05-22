@@ -44,16 +44,31 @@ static void destroy_peer(struct peer *peer)
 			     peer_state_name(peer->state));
 }
 
+static void peer_reconnect(struct peer *peer)
+{
+	/* FIXME: Set timer, etc. */
+}
+
 void peer_fail(struct peer *peer, const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	log_unusual(peer->log, "Peer has failed: ");
+	log_info(peer->log, "Peer failure: ");
 	logv(peer->log, -1, fmt, ap);
 	va_end(ap);
 
-	tal_free(peer);
+	/* If we haven't reached awaiting locked, we don't need to reconnect */
+	if (!peer_persists(peer)) {
+		log_info(peer->log, "Only reached state %s: forgetting",
+			 peer_state_name(peer->state));
+		tal_free(peer);
+		return;
+	}
+
+	/* Reconnect unless we've dropped to chain. */
+	if (!peer_on_chain(peer))
+		peer_reconnect(peer);
 }
 
 void peer_set_condition(struct peer *peer, enum peer_state state)

@@ -450,6 +450,7 @@ void opt_register_logging(struct log *log)
 
 static struct log *crashlog;
 
+/* FIXME: Dump peer logs! */
 static void log_crash(int sig)
 {
 	const char *logfile = NULL;
