@@ -180,8 +180,8 @@ class LightningDTests(BaseLightningDTests):
 
         l1.bitcoin.rpc.generate(6)
 
-        l1.daemon.wait_for_log('Normal operation')
-        l2.daemon.wait_for_log('Normal operation')
+        l1.daemon.wait_for_log('-> NORMAL')
+        l2.daemon.wait_for_log('-> NORMAL')
 
     def test_connect(self):
         l1,l2 = self.connect()
@@ -189,13 +189,13 @@ class LightningDTests(BaseLightningDTests):
         p1 = l1.rpc.getpeer(l2.info['id'], 'info')
         p2 = l2.rpc.getpeer(l1.info['id'], 'info')
 
-        assert p1['condition'] == 'Exchanging gossip'
-        assert p2['condition'] == 'Exchanging gossip'
+        assert p1['state'] == 'GOSSIPING'
+        assert p2['state'] == 'GOSSIPING'
 
         # It should have gone through these steps
-        assert 'condition: Starting handshake as initiator' in p1['log']
-        assert 'condition: Beginning gossip' in p1['log']
-        assert 'condition: Exchanging gossip' in p1['log']
+        print(p1['log'])
+        assert 'state: HANDSHAKING -> INITIALIZING' in p1['log']
+        assert 'state: INITIALIZING -> GOSSIPING' in p1['log']
 
         # Both should still be owned by gossip
         assert p1['owner'] == 'lightningd_gossip'
@@ -205,8 +205,8 @@ class LightningDTests(BaseLightningDTests):
         l1,l2 = self.connect()
 
         self.fund_channel(l1, l2, 10**6)
-        l1.daemon.wait_for_log('Normal operation')
-        l2.daemon.wait_for_log('Normal operation')
+        l1.daemon.wait_for_log('-> NORMAL')
+        l2.daemon.wait_for_log('-> NORMAL')
 
         secret = '1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd'
         rhash = l1.rpc.dev_rhash(secret)['rhash']
