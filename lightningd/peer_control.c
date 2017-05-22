@@ -43,6 +43,18 @@ static void destroy_peer(struct peer *peer)
 			     peer->condition);
 }
 
+void peer_fail(struct peer *peer, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	log_unusual(peer->log, "Peer has failed: ");
+	logv(peer->log, -1, fmt, ap);
+	va_end(ap);
+
+	tal_free(peer);
+}
+
 void peer_set_condition(struct peer *peer, const char *fmt, ...)
 {
 	va_list ap;
@@ -169,8 +181,8 @@ static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 
 	assert(tal_count(fds) == 1);
 	if (!fromwire_hsmctl_hsmfd_ecdh_fd_reply(msg, NULL)) {
-		log_unusual(peer->ld->log, "Malformed hsmfd response: %s",
-			    tal_hex(peer, msg));
+		peer_fail(peer, "Malformed hsmfd response: %s",
+			  tal_hex(peer, msg));
 		goto error;
 	}
 
@@ -182,9 +194,8 @@ static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 			       NULL, NULL,
 			       fds[0], peer->fd, -1);
 	if (!peer->owner) {
-		log_unusual(peer->ld->log, "Could not subdaemon handshake: %s",
-			    strerror(errno));
-		peer_set_condition(peer, "Failed to subdaemon handshake");
+		peer_fail(peer, "Could not subdaemon handshake: %s",
+			  strerror(errno));
 		goto error;
 	}
 
@@ -207,7 +218,6 @@ static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 
 error:
 	close(fds[0]);
-	tal_free(peer);
 	return true;
 }
 
@@ -1391,8 +1401,7 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 	if (!cds->peer->owner) {
 		log_unusual(cds->peer->log, "Could not subdaemon channel: %s",
 			    strerror(errno));
-		peer_set_condition(cds->peer, "Failed to subdaemon channel");
-		tal_free(cds->peer);
+		peer_fail(cds->peer, "Failed to subdaemon channel");
 		return true;
 	}
 	cds->peer->fd = -1;
@@ -1672,8 +1681,8 @@ void peer_accept_open(struct peer *peer,
 	if (fromwire_peektype(from_peer) != WIRE_OPEN_CHANNEL) {
 		log_unusual(peer->log, "Strange message to exit gossip: %u",
 			    fromwire_peektype(from_peer));
-		peer_set_condition(peer, "Bad message during gossiping");
-		tal_free(peer);
+		peer_fail(peer, "Bad message during gossiping: %s",
+			  tal_hex(peer, from_peer));
 		return;
 	}
 
@@ -1683,10 +1692,8 @@ void peer_accept_open(struct peer *peer,
 			       NULL, NULL,
 			       peer->fd, -1);
 	if (!peer->owner) {
-		log_unusual(ld->log, "Could not subdaemon opening: %s",
-			    strerror(errno));
-		peer_set_condition(peer, "Failed to subdaemon opening");
-		tal_free(peer);
+		peer_fail(peer, "Failed to subdaemon opening: %s",
+			  strerror(errno));
 		return;
 	}
 	/* We handed off peer fd */
@@ -1716,8 +1723,7 @@ void peer_accept_open(struct peer *peer,
 
 	/* Careful here!  Their message could push us overlength! */
 	if (tal_len(msg) >= 65536) {
-		peer_set_condition(peer, "Unacceptably long open_channel");
-		tal_free(peer);
+		peer_fail(peer, "Unacceptably long open_channel");
 		return;
 	}
 	subd_req(peer, peer->owner, take(msg), -1, 0, opening_accept_reply, peer);
@@ -1756,10 +1762,8 @@ static bool gossip_peer_released(struct subd *gossip,
 			   NULL, NULL,
 			   fc->peer->fd, -1);
 	if (!opening) {
-		log_unusual(ld->log, "Could not subdaemon opening: %s",
-			    strerror(errno));
-		peer_set_condition(fc->peer, "Failed to subdaemon opening");
-		tal_free(fc->peer);
+		peer_fail(fc->peer, "Failed to subdaemon opening: %s",
+			  strerror(errno));
 		return true;
 	}
 	fc->peer->owner = opening;
