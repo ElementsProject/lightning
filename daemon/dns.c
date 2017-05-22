@@ -18,6 +18,7 @@
 struct dns_async {
 	struct lightningd_state *dstate;
 	struct io_plan *(*init)(struct io_conn *, struct lightningd_state *,
+				const struct netaddr *,
 				void *);
 	void (*fail)(struct lightningd_state *, void *arg);
 	const char *name;
@@ -76,7 +77,7 @@ static struct io_plan *connected(struct io_conn *conn, struct dns_async *d)
 	/* No longer need to try more connections via connect_failed. */
 	io_set_finish(conn, NULL, NULL);
 
-	plan = d->init(conn, d->dstate, d->arg);
+	plan = d->init(conn, d->dstate, &d->addresses[-1], d->arg);
 	tal_free(d);
 
 	return plan;
@@ -178,6 +179,7 @@ struct dns_async *dns_resolve_and_connect_(struct lightningd_state *dstate,
 		  const char *name, const char *port,
 		  struct io_plan *(*init)(struct io_conn *,
 					  struct lightningd_state *,
+					  const struct netaddr *,
 					  void *arg),
 		  void (*fail)(struct lightningd_state *, void *arg),
 		  void *arg)
