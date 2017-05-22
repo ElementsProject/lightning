@@ -9,6 +9,7 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/short_types/short_types.h>
 #include <errno.h>
+#include <lightningd/crypto_sync.h>
 #include <lightningd/debug.h>
 #include <lightningd/handshake/gen_handshake_wire.h>
 #include <lightningd/hsm/client.h>
@@ -20,6 +21,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <version.h>
+#include <wire/peer_wire.h>
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 
@@ -956,6 +958,36 @@ static void responder(int fd,
 }
 
 #ifndef TESTING
+static void exchange_init(int fd, struct crypto_state *cs,
+			  u8 **gfeatures, u8 **lfeatures)
+{
+	/* BOLT #1:
+	 *
+	 * The sending node SHOULD use the minimum lengths required to
+	 * represent the feature fields.  The sending node MUST set feature
+	 * bits corresponding to features it requires the peer to support, and
+	 * SHOULD set feature bits corresponding to features it optionally
+	 * supports.
+	 */
+	u8 *msg = towire_init(NULL, NULL, NULL);
+
+	if (!sync_crypto_write(cs, fd, msg))
+		status_failed(WIRE_INITMSG_WRITE_FAILED, "%s", strerror(errno));
+
+	/* BOLT #1:
+	 *
+	 * Each node MUST wait to receive `init` before sending any other
+	 * messages.
+	 */
+	msg = sync_crypto_read(NULL, cs, fd);
+	if (!msg)
+		status_failed(WIRE_INITMSG_READ_FAILED, "%s", strerror(errno));
+
+	if (!fromwire_init(msg, msg, NULL, gfeatures, lfeatures))
+		status_failed(WIRE_INITMSG_READ_FAILED, "bad init: %s",
+			      tal_hex(msg, msg));
+}
+
 /* We expect hsmfd as fd 3, clientfd as 4 */
 int main(int argc, char *argv[])
 {
@@ -964,6 +996,7 @@ int main(int argc, char *argv[])
 	int hsmfd = 3, clientfd = 4;
 	struct secret ck, rk, sk;
 	struct crypto_state cs;
+	u8 *gfeatures, *lfeatures;
 
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
@@ -983,14 +1016,18 @@ int main(int argc, char *argv[])
 
 	if (fromwire_handshake_responder(msg, NULL, &my_id)) {
 		responder(clientfd, &my_id, &their_id, &ck, &sk, &rk);
+
 		cs.rn = cs.sn = 0;
 		cs.sk = sk;
 		cs.rk = rk;
 		cs.r_ck = cs.s_ck = ck;
+		exchange_init(clientfd, &cs, &gfeatures, &lfeatures);
 		wire_sync_write(REQ_FD,
 				towire_handshake_responder_reply(msg,
 								 &their_id,
-								 &cs));
+								 &cs,
+								 gfeatures,
+								 lfeatures));
 	} else if (fromwire_handshake_initiator(msg, NULL, &my_id,
 						&their_id)) {
 		initiator(clientfd, &my_id, &their_id, &ck, &sk, &rk);
@@ -998,8 +1035,11 @@ int main(int argc, char *argv[])
 		cs.sk = sk;
 		cs.rk = rk;
 		cs.r_ck = cs.s_ck = ck;
+		exchange_init(clientfd, &cs, &gfeatures, &lfeatures);
 		wire_sync_write(REQ_FD,
-				towire_handshake_initiator_reply(msg, &cs));
+				towire_handshake_initiator_reply(msg, &cs,
+								 gfeatures,
+								 lfeatures));
 	} else
 		status_failed(WIRE_HANDSHAKE_BAD_COMMAND, "%i",
 			      fromwire_peektype(msg));

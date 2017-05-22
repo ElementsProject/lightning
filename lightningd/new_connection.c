@@ -1,3 +1,4 @@
+#include <ccan/tal/str/str.h>
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
 #include <errno.h>
@@ -37,6 +38,25 @@ static void connection_destroy(struct connection *c)
 		command_fail(c->cmd, "Failed to connect to peer");
 }
 
+static void
+PRINTF_FMT(3,4) connection_failed(struct connection *c, struct log *log,
+				  const char *fmt, ...)
+{
+	const char *msg;
+	va_list ap;
+
+	va_start(ap, fmt);
+	msg = tal_vfmt(c, fmt, ap);
+	va_end(ap);
+	log_info(log, "%s", msg);
+	if (c->cmd) {
+		command_fail(c->cmd, "%s", msg);
+		/* Don't fail in destructor, too. */
+		c->cmd = NULL;
+	}
+	tal_free(c);
+}
+
 struct connection *new_connection(const tal_t *ctx,
 				  struct lightningd *ld,
 				  struct command *cmd,
@@ -58,12 +78,26 @@ struct connection *new_connection(const tal_t *ctx,
 	return c;
 }
 
+static bool has_even_bit(const u8 *bitmap)
+{
+	size_t len = tal_count(bitmap);
+
+	while (len) {
+		if (*bitmap & 0xAA)
+			return true;
+		len--;
+		bitmap++;
+	}
+	return false;
+}
+
 static bool handshake_succeeded(struct subd *handshaked,
 				const u8 *msg, const int *fds,
 				struct connection *c)
 {
 	struct crypto_state cs;
 	struct pubkey *id;
+	u8 *globalfeatures, *localfeatures;
 
 	assert(tal_count(fds) == 1);
 
@@ -71,16 +105,42 @@ static bool handshake_succeeded(struct subd *handshaked,
 
 	if (!c->known_id) {
 		id = tal(msg, struct pubkey);
-		if (!fromwire_handshake_responder_reply(msg, NULL, id, &cs))
+		if (!fromwire_handshake_responder_reply(c, msg, NULL, id, &cs,
+							&globalfeatures,
+							&localfeatures))
 			goto err;
 		log_info_struct(handshaked->log, "Peer in from %s",
 				struct pubkey, id);
 	} else {
 		id = c->known_id;
-		if (!fromwire_handshake_initiator_reply(msg, NULL, &cs))
+		if (!fromwire_handshake_initiator_reply(c, msg, NULL, &cs,
+							&globalfeatures,
+							&localfeatures))
 			goto err;
 		log_info_struct(handshaked->log, "Peer out to %s",
 				struct pubkey, id);
+	}
+
+	/* BOLT #1:
+	 *
+	 * The receiving node MUST fail the channels if it receives a
+	 * `globalfeatures` or `localfeatures` with an even bit set which it
+	 * does not understand.
+	 */
+	if (has_even_bit(globalfeatures)) {
+		connection_failed(c, handshaked->log,
+				  "peer %s: bad globalfeatures: %s",
+				  type_to_string(c, struct pubkey, id),
+				  tal_hex(msg, globalfeatures));
+		return true;
+	}
+
+	if (has_even_bit(localfeatures)) {
+		connection_failed(c, handshaked->log,
+				  "peer %s: bad localfeatures: %s",
+				  type_to_string(c, struct pubkey, id),
+				  tal_hex(msg, localfeatures));
+		return true;
 	}
 
 	if (c->cmd) {

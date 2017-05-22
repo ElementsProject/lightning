@@ -22,6 +22,8 @@ respr_act3_bad_ciphertext,0x8023
 respr_act3_bad_pubkey,0x8024
 respr_act3_bad_ecdh_for_ss,0x8025
 respr_act3_bad_tag,0x8026
+initmsg_write_failed,0x8030
+initmsg_read_failed,0x8031
 
 # FIXME: This is probably too finegrained.
 initr_act_one,1001
@@ -37,6 +39,10 @@ handshake_responder,1,my_id,33
 handshake_responder_reply,101
 handshake_responder_reply,0,initiator_id,33
 handshake_responder_reply,33,cs,struct crypto_state
+handshake_responder_reply,0,gflen,2
+handshake_responder_reply,0,globalfeatures,gflen
+handshake_responder_reply,0,lflen,2
+handshake_responder_reply,0,localfeatures,lflen
 
 handshake_initiator,2
 handshake_initiator,0,my_id,33
@@ -44,4 +50,7 @@ handshake_initiator,33,responder_id,33
 
 handshake_initiator_reply,102
 handshake_initiator_reply,0,cs,struct crypto_state
-
+handshake_initiator_reply,0,gflen,2
+handshake_initiator_reply,0,globalfeatures,gflen
+handshake_initiator_reply,0,lflen,2
+handshake_initiator_reply,0,localfeatures,lflen
