@@ -282,5 +282,5 @@ class LightningNode(object):
         self.daemon.wait_for_log('sendrawtx exit 0, gave')
         time.sleep(1)
         self.bitcoin.rpc.generate(6)
-        self.daemon.wait_for_log('Normal operation')
+        self.daemon.wait_for_log('-> NORMAL')
 

@@ -7,6 +7,7 @@
 #include <daemon/json.h>
 #include <daemon/netaddr.h>
 #include <lightningd/channel_config.h>
+#include <lightningd/peer_state.h>
 #include <stdbool.h>
 
 #define ANNOUNCE_MIN_DEPTH 6
@@ -19,6 +20,9 @@ struct peer {
 	/* Unique ID (works before we know their pubkey) */
 	u64 unique_id;
 
+ 	/* What's happening. */
+ 	enum peer_state state;
+
 	/* Which side offered channel? */
 	enum side funder;
 
@@ -27,9 +31,6 @@ struct peer {
 
 	/* What stage is this in?  NULL during first creation. */
 	struct subd *owner;
-
-	/* What's happening (doubles as error return for connect_cmd) */
-	const char *condition;
 
 	/* History */
 	struct log_book *log_book;
@@ -71,6 +72,34 @@ struct peer {
 	int gossip_client_fd;
 };
 
+static inline bool peer_can_add_htlc(const struct peer *peer)
+{
+	return peer->state == NORMAL;
+}
+
+static inline bool peer_can_remove_htlc(const struct peer *peer)
+{
+	return peer->state == NORMAL
+		|| peer->state == SHUTDOWN_SENT
+		|| peer->state == SHUTDOWN_RCVD
+		|| peer->state == ONCHAIN_THEIR_UNILATERAL
+		|| peer->state == ONCHAIN_OUR_UNILATERAL;
+}
+
+static inline bool peer_on_chain(const struct peer *peer)
+{
+	return peer->state == ONCHAIN_CHEATED
+		|| peer->state == ONCHAIN_THEIR_UNILATERAL
+		|| peer->state == ONCHAIN_OUR_UNILATERAL
+		|| peer->state == ONCHAIN_MUTUAL;
+}
+
+/* Do we need to remember anything about this peer? */
+static inline bool peer_persists(const struct peer *peer)
+{
+	return peer->state > OPENING_NOT_LOCKED;
+}
+
 struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id);
 struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id);
 struct peer *peer_from_json(struct lightningd *ld,
@@ -83,6 +112,7 @@ void peer_accept_open(struct peer *peer,
 /* Peer has failed. */
 PRINTF_FMT(2,3) void peer_fail(struct peer *peer, const char *fmt, ...);
 
-PRINTF_FMT(2,3) void peer_set_condition(struct peer *peer, const char *fmt, ...);
+const char *peer_state_name(enum peer_state state);
+void peer_set_condition(struct peer *peer, enum peer_state state);
 void setup_listeners(struct lightningd *ld);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */

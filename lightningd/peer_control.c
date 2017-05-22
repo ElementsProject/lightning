@@ -19,6 +19,7 @@
 #include <lightningd/channel.h>
 #include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/funding_tx.h>
+#include <lightningd/gen_peer_state_names.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/handshake/gen_handshake_wire.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
@@ -39,8 +40,8 @@ static void destroy_peer(struct peer *peer)
 	if (peer->fd >= 0)
 		close(peer->fd);
 	if (peer->connect_cmd)
-		command_fail(peer->connect_cmd, "Failed after %s",
-			     peer->condition);
+		command_fail(peer->connect_cmd, "Failed in state %s",
+			     peer_state_name(peer->state));
 }
 
 void peer_fail(struct peer *peer, const char *fmt, ...)
@@ -55,20 +56,15 @@ void peer_fail(struct peer *peer, const char *fmt, ...)
 	tal_free(peer);
 }
 
-void peer_set_condition(struct peer *peer, const char *fmt, ...)
+void peer_set_condition(struct peer *peer, enum peer_state state)
 {
-	va_list ap;
-
-	va_start(ap, fmt);
-	tal_free(peer->condition);
-	peer->condition = tal_vfmt(peer, fmt, ap);
-	va_end(ap);
-	log_info(peer->log, "condition: %s", peer->condition);
+	log_info(peer->log, "state: %s -> %s",
+		 peer_state_name(peer->state), peer_state_name(state));
+	peer->state = state;
 }
 
 static struct peer *new_peer(struct lightningd *ld,
 			     struct io_conn *conn,
-			     const char *in_or_out,
 			     struct command *cmd)
 {
 	static u64 id_counter;
@@ -85,6 +81,7 @@ static struct peer *new_peer(struct lightningd *ld,
 	peer->funding_txid = NULL;
 	peer->seed = NULL;
 	peer->balance = NULL;
+	peer->state = HANDSHAKING;
 
 	/* Max 128k per peer. */
 	peer->log_book = new_log_book(peer, 128*1024,
@@ -100,7 +97,6 @@ static struct peer *new_peer(struct lightningd *ld,
 		return tal_free(peer);
 	}
 	netname = netaddr_name(peer, &peer->netaddr);
-	peer->condition = tal_fmt(peer, "%s %s", in_or_out, netname);
 	tal_free(netname);
 	list_add_tail(&ld->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
@@ -153,7 +149,7 @@ static bool handshake_succeeded(struct subd *hs, const u8 *msg, const int *fds,
 
 	peer->owner = peer->ld->gossip;
 	tal_steal(peer->owner, peer);
-	peer_set_condition(peer, "Beginning gossip");
+	peer_set_condition(peer, INITIALIZING);
 
 	/* Tell gossip to handle it now. */
 	msg = towire_gossipctl_new_peer(peer, peer->unique_id, &cs);
@@ -205,11 +201,10 @@ static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 	if (peer->id) {
 		req = towire_handshake_initiator(peer, &peer->ld->dstate.id,
 						 peer->id);
-		peer_set_condition(peer, "Starting handshake as initiator");
 	} else {
 		req = towire_handshake_responder(peer, &peer->ld->dstate.id);
-		peer_set_condition(peer, "Starting handshake as responder");
 	}
+	peer_set_condition(peer, HANDSHAKING);
 
 	/* Now hand peer request to the handshake daemon: hands it
 	 * back on success */
@@ -224,7 +219,7 @@ error:
 /* FIXME: timeout handshake if taking too long? */
 static struct io_plan *peer_in(struct io_conn *conn, struct lightningd *ld)
 {
-	struct peer *peer = new_peer(ld, conn, "Incoming from", NULL);
+	struct peer *peer = new_peer(ld, conn, NULL);
 
 	if (!peer)
 		return io_close(conn);
@@ -352,7 +347,7 @@ static struct io_plan *peer_out(struct io_conn *conn,
 				struct json_connecting *jc)
 {
 	struct lightningd *ld = ld_from_dstate(jc->cmd->dstate);
-	struct peer *peer = new_peer(ld, conn, "Outgoing to", jc->cmd);
+	struct peer *peer = new_peer(ld, conn, jc->cmd);
 
 	if (!peer)
 		return io_close(conn);
@@ -476,7 +471,7 @@ static void json_getpeers(struct command *cmd,
 	list_for_each(&ld->peers, p, list) {
 		json_object_start(response, NULL);
 		json_add_u64(response, "unique_id", p->unique_id);
-		json_add_string(response, "condition", p->condition);
+		json_add_string(response, "state", peer_state_name(p->state));
 		json_add_string(response, "netaddr",
 				netaddr_name(response, &p->netaddr));
 		if (p->id)
@@ -585,7 +580,7 @@ static enum watch_result funding_depth_cb(struct peer *peer,
 		peer->scid->outnum = peer->funding_outnum;
 		tal_free(loc);
 
-		peer_set_condition(peer, "Funding tx reached depth %u", depth);
+		peer_set_condition(peer, OPENING_SENT_LOCKED);
 		subd_send_msg(peer->owner,
 			      take(towire_channel_funding_locked(peer, peer->scid)));
 	}
@@ -615,7 +610,7 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 		fatal("HSM gave %zu sigs, needed %zu",
 		      tal_count(sigs), tal_count(tx->input));
 
-	peer_set_condition(fc->peer, "Waiting for our funding tx");
+	peer_set_condition(fc->peer, OPENING_AWAITING_LOCKIN);
 
 	/* Create input parts from signatures. */
 	for (i = 0; i < tal_count(tx->input); i++) {
@@ -976,10 +971,9 @@ static void forward_htlc(struct htlc_end *hend,
 		err = towire_unknown_next_peer(hend);
 		goto fail;
 	}
-	/* FIXME: These checks are horrible, use a peer flag to say it's
-	 * ready to forward! */
-	if (!next->owner || !streq(next->owner->name, "lightningd_channel")
-	    || !streq(next->condition, "Normal operation")) {
+
+	if (!peer_can_add_htlc(next)) {
+		log_info(next->log, "Attempt to forward HTLC but not ready");
 		err = towire_unknown_next_peer(hend);
 		goto fail;
 	}
@@ -1340,10 +1334,10 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 
 	switch (t) {
 	case WIRE_CHANNEL_RECEIVED_FUNDING_LOCKED:
-		peer_set_condition(sd->peer, "Received funding locked");
+		peer_set_condition(sd->peer, OPENING_RCVD_LOCKED);
 		break;
 	case WIRE_CHANNEL_NORMAL_OPERATION:
-		peer_set_condition(sd->peer, "Normal operation");
+		peer_set_condition(sd->peer, NORMAL);
 		break;
 	case WIRE_CHANNEL_ACCEPTED_HTLC:
 		return peer_accepted_htlc(sd->peer, msg);
@@ -1406,7 +1400,7 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 	}
 	cds->peer->fd = -1;
 
-	peer_set_condition(cds->peer, "Waiting for funding confirmations");
+	log_debug(cds->peer->log, "Waiting for funding confirmations");
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(cds->peer->owner, take(cds->initmsg));
 	tal_free(cds);
@@ -1428,7 +1422,7 @@ static void peer_start_channeld(struct peer *peer,
 	peer->owner = NULL;
 	tal_steal(peer->ld, peer);
 
-	peer_set_condition(peer, "Waiting for HSM file descriptor");
+	log_debug(peer->log, "Waiting for HSM file descriptor");
 
 	/* Now we can consider balance set. */
 	peer->balance = tal_arr(peer, u64, NUM_SIDES);
@@ -1498,7 +1492,7 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 		tal_free(fc->peer);
 		return false;
 	}
-	peer_set_condition(fc->peer, "Getting HSM to sign funding tx");
+	log_debug(fc->peer->log, "Getting HSM to sign funding tx");
 
 	/* Get HSM to sign the funding tx. */
 	for (i = 0; i < tal_count(fc->utxomap); i++)
@@ -1529,7 +1523,7 @@ static bool opening_gen_funding(struct subd *opening, const u8 *reply,
 	u8 *msg;
 	struct pubkey changekey;
 
-	peer_set_condition(fc->peer, "Created funding transaction for channel");
+	log_debug(fc->peer->log, "Created funding transaction for channel");
 	if (!fromwire_opening_open_reply(reply, NULL,
 					 &fc->local_fundingkey,
 					 &fc->remote_fundingkey)) {
@@ -1611,6 +1605,7 @@ static bool opening_accept_reply(struct subd *opening, const u8 *reply,
 		return false;
 	}
 
+	peer_set_condition(peer, OPENING_AWAITING_LOCKIN);
 	log_debug(peer->log, "Watching funding tx %s",
 		     type_to_string(reply, struct sha256_double,
 				    peer->funding_txid));
@@ -1686,7 +1681,7 @@ void peer_accept_open(struct peer *peer,
 		return;
 	}
 
-	peer_set_condition(peer, "Starting opening daemon");
+	peer_set_condition(peer, OPENING_NOT_LOCKED);
 	peer->owner = new_subd(ld, ld, "lightningd_opening", peer,
 			       opening_wire_type_name,
 			       NULL, NULL,
@@ -1758,7 +1753,7 @@ static bool gossip_peer_released(struct subd *gossip,
 		fatal("Gossup daemon release gave %"PRIu64" not %"PRIu64,
 		      id, fc->peer->unique_id);
 
-	peer_set_condition(fc->peer, "Starting opening daemon");
+	peer_set_condition(fc->peer, OPENING_NOT_LOCKED);
 	opening = new_subd(fc->peer->ld, ld,
 			   "lightningd_opening", fc->peer,
 			   opening_wire_type_name,
@@ -1856,3 +1851,13 @@ static const struct json_command fund_channel_command = {
 	"Returns once channel established"
 };
 AUTODATA(json_command, &fund_channel_command);
+
+const char *peer_state_name(enum peer_state state)
+{
+	size_t i;
+
+	for (i = 0; enum_peer_state_names[i].name; i++)
+		if (enum_peer_state_names[i].v == state)
+			return enum_peer_state_names[i].name;
+	return "unknown";
+}

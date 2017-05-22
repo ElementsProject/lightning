@@ -84,6 +84,7 @@ LIGHTNINGD_HEADERS_NOGEN =			\
 	lightningd/lightningd.h			\
 	lightningd/pay.h			\
 	lightningd/peer_control.h		\
+	lightningd/peer_state.h			\
 	lightningd/subd.h			\
 	$(LIGHTNINGD_OLD_LIB_HEADERS)		\
 	$(LIGHTNINGD_LIB_HEADERS)		\
@@ -95,6 +96,7 @@ LIGHTNINGD_HEADERS_NOGEN =			\
 
 # Generated headers
 LIGHTNINGD_HEADERS_GEN =			\
+	lightningd/gen_peer_state_names.h	\
 	$(WIRE_GEN_HEADERS)			\
 	$(GEN_HEADERS)
 
@@ -117,6 +119,9 @@ include lightningd/opening/Makefile
 include lightningd/channel/Makefile
 
 $(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS): $(LIGHTNINGD_HEADERS) 
+
+lightningd/gen_peer_state_names.h: lightningd/peer_state.h ccan/ccan/cdump/tools/cdump-enumstr
+	ccan/ccan/cdump/tools/cdump-enumstr lightningd/peer_state.h > $@
 
 check-source: $(LIGHTNINGD_SRC:%=check-src-include-order/%)
 check-source: $(LIGHTNINGD_LIB_SRC:%=check-src-include-order/%)

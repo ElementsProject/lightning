@@ -89,8 +89,8 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 	peer->fd = peer_fd;
 	peer->gossip_client_fd = gossip_fd;
 
-	peer_set_condition(peer, "Gossip ended up receipt of %s",
-			   wire_type_name(fromwire_peektype(inner)));
+	log_info(peer->log, "Gossip ended up receipt of %s",
+		 wire_type_name(fromwire_peektype(inner)));
 
 	peer_accept_open(peer, &cs, inner);
 }
@@ -123,7 +123,7 @@ static void peer_ready(struct subd *gossip, const u8 *msg)
 		peer->connect_cmd = NULL;
 	}
 
-	peer_set_condition(peer, "Exchanging gossip");
+	peer_set_condition(peer, GOSSIPING);
 }
 
 static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)

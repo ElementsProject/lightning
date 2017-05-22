@@ -88,8 +88,9 @@ static void json_dev_newhtlc(struct command *cmd,
 		return;
 	}
 
-	if (!streq(peer->condition, "Normal operation")) {
-		command_fail(cmd, "Peer in condition %s", peer->condition);
+	if (!peer_can_add_htlc(peer)) {
+		command_fail(cmd, "Peer in state %s",
+			     peer_state_name(peer->state));
 		return;
 	}
 
