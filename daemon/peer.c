@@ -2996,20 +2996,15 @@ static struct io_plan *crypto_on_out(struct io_conn *conn,
 
 static struct io_plan *peer_connected_out(struct io_conn *conn,
 					  struct lightningd_state *dstate,
+					  const struct netaddr *netaddr,
 					  struct json_connecting *connect)
 {
 	struct log *l;
-	struct netaddr addr;
 
 	l = new_log(conn, dstate->log_book, "OUT-%s:%s:",
 		    connect->name, connect->port);
 
-	if (!netaddr_from_fd(io_conn_fd(conn), SOCK_STREAM, IPPROTO_TCP, &addr)) {
-		log_unusual(l, "Failed to get netaddr: %s", strerror(errno));
-		return io_close(conn);
-	}
-
-	log_debug_struct(l, "Connected out to %s", struct netaddr, &addr);
+	log_debug_struct(l, "Connected out to %s", struct netaddr, netaddr);
 	return peer_crypto_setup(conn, dstate, NULL, l, crypto_on_out, connect);
 }
 

@@ -7,7 +7,7 @@ void (*irc_command_cb)(struct ircstate *, const struct irccommand *) = NULL;
 void (*irc_connect_cb)(struct ircstate *) = NULL;
 void (*irc_disconnect_cb)(struct ircstate *) = NULL;
 
-static struct io_plan *irc_connected(struct io_conn *conn, struct lightningd_state *dstate, struct ircstate *state);
+static struct io_plan *irc_connected(struct io_conn *conn, struct lightningd_state *dstate, const struct netaddr *netaddr, struct ircstate *state);
 static void irc_disconnected(struct io_conn *conn, struct ircstate *state);
 
 bool irc_send_msg(struct ircstate *state, struct privmsg *m)
@@ -167,7 +167,7 @@ void irc_connect(struct ircstate *state)
 	dns_resolve_and_connect(state->dstate, state->server, "6667", irc_connected, irc_failed, state);
 }
 
-static struct io_plan *irc_connected(struct io_conn *conn, struct lightningd_state *dstate, struct ircstate *state)
+static struct io_plan *irc_connected(struct io_conn *conn, struct lightningd_state *dstate, const struct netaddr *netaddr, struct ircstate *state)
 {
 	io_set_finish(conn, irc_disconnected, state);
 	state->conn = conn;

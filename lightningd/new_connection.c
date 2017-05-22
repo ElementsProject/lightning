@@ -14,6 +14,9 @@ struct connection {
 	/* Lightning daemon, for when we're handed through callbacks. */
 	struct lightningd *ld;
 
+	/* Where we connected to/from. */
+	struct netaddr netaddr;
+
 	/* Unique identifier for handshaked. */
 	u64 unique_id;
 
@@ -166,8 +169,10 @@ static struct io_plan *hsm_then_handshake(struct io_conn *conn,
 
 struct io_plan *connection_out(struct io_conn *conn,
 			       struct lightningd_state *dstate,
+			       const struct netaddr *netaddr,
 			       struct connection *c)
 {
+	c->netaddr = *netaddr;
 	return hsm_then_handshake(conn, ld_from_dstate(dstate), c);
 }
 
@@ -175,5 +180,11 @@ struct io_plan *connection_in(struct io_conn *conn, struct lightningd *ld)
 {
 	struct connection *c = new_connection(ld, ld, NULL, NULL);
 
+	/* FIXME: Don't assume TCP here. */
+	if (!netaddr_from_fd(io_conn_fd(conn), SOCK_STREAM, IPPROTO_TCP,
+			     &c->netaddr)) {
+		log_unusual(ld->log, "Could not get address of incoming fd");
+		return io_close(conn);
+	}
 	return hsm_then_handshake(conn, ld, c);
 }
