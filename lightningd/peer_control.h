@@ -76,6 +76,9 @@ struct peer *peer_from_json(struct lightningd *ld,
 void peer_accept_open(struct peer *peer,
 		      const struct crypto_state *cs, const u8 *msg);
 
+/* Peer has failed. */
+PRINTF_FMT(2,3) void peer_fail(struct peer *peer, const char *fmt, ...);
+
 PRINTF_FMT(2,3) void peer_set_condition(struct peer *peer, const char *fmt, ...);
 void setup_listeners(struct lightningd *ld);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */
