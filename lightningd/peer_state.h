@@ -4,7 +4,6 @@
 
 enum peer_state {
 	/* Not important: we can forget about peers in these states. */
-	HANDSHAKING,
 	INITIALIZING,
 	GOSSIPING,
 

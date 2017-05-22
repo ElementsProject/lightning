@@ -21,9 +21,9 @@
 #include <lightningd/funding_tx.h>
 #include <lightningd/gen_peer_state_names.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
-#include <lightningd/handshake/gen_handshake_wire.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
 #include <lightningd/key_derive.h>
+#include <lightningd/new_connection.h>
 #include <lightningd/opening/gen_opening_wire.h>
 #include <lightningd/pay.h>
 #include <lightningd/sphinx.h>
@@ -39,9 +39,6 @@ static void destroy_peer(struct peer *peer)
 	list_del_from(&peer->ld->peers, &peer->list);
 	if (peer->fd >= 0)
 		close(peer->fd);
-	if (peer->connect_cmd)
-		command_fail(peer->connect_cmd, "Failed in state %s",
-			     peer_state_name(peer->state));
 }
 
 static void peer_reconnect(struct peer *peer)
@@ -78,44 +75,57 @@ void peer_set_condition(struct peer *peer, enum peer_state state)
 	peer->state = state;
 }
 
-static struct peer *new_peer(struct lightningd *ld,
-			     struct io_conn *conn,
-			     struct command *cmd)
+void add_peer(struct lightningd *ld, u64 unique_id,
+	      int fd, const struct pubkey *id,
+	      const struct crypto_state *cs)
 {
-	static u64 id_counter;
 	struct peer *peer = tal(ld, struct peer);
-	const char *netname;
+	const char *netname, *idname;
+	u8 *msg;
 
 	peer->ld = ld;
-	peer->unique_id = id_counter++;
+	peer->unique_id = unique_id;
 	peer->owner = NULL;
 	peer->scid = NULL;
-	peer->id = NULL;
-	peer->fd = io_conn_fd(conn);
-	peer->connect_cmd = cmd;
+	peer->id = tal_dup(peer, struct pubkey, id);
+	peer->fd = fd;
 	peer->funding_txid = NULL;
 	peer->seed = NULL;
 	peer->balance = NULL;
-	peer->state = HANDSHAKING;
+	peer->state = INITIALIZING;
+
+	idname = type_to_string(peer, struct pubkey, id);
 
 	/* Max 128k per peer. */
 	peer->log_book = new_log_book(peer, 128*1024,
 				      get_log_level(ld->dstate.log_book));
-	peer->log = new_log(peer, peer->log_book,
-			    "peer %"PRIu64":", peer->unique_id);
+	peer->log = new_log(peer, peer->log_book, "peer %s:", idname);
 
 	/* FIXME: Don't assume protocol here! */
 	if (!netaddr_from_fd(peer->fd, SOCK_STREAM, IPPROTO_TCP,
 			     &peer->netaddr)) {
 		log_unusual(ld->log, "Failed to get netaddr for outgoing: %s",
 			    strerror(errno));
-		return tal_free(peer);
+		tal_free(peer);
+		return;
 	}
-	netname = netaddr_name(peer, &peer->netaddr);
-	tal_free(netname);
+	netname = netaddr_name(idname, &peer->netaddr);
+	log_info(peer->log, "Connected from %s", netname);
+	tal_free(idname);
 	list_add_tail(&ld->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
-	return peer;
+
+	/* Let gossip handle it from here. */
+	peer->owner = peer->ld->gossip;
+	tal_steal(peer->owner, peer);
+	peer_set_condition(peer, GOSSIPING);
+
+	msg = towire_gossipctl_new_peer(peer, peer->unique_id, cs);
+	subd_send_msg(peer->ld->gossip, take(msg));
+	subd_send_fd(peer->ld->gossip, peer->fd);
+
+	/* Peer struct longer owns fd. */
+	peer->fd = -1;
 }
 
 struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id)
@@ -138,52 +148,6 @@ struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id)
 	return NULL;
 }
 
-static bool handshake_succeeded(struct subd *hs, const u8 *msg, const int *fds,
-				struct peer *peer)
-{
-	struct crypto_state cs;
-
-	assert(tal_count(fds) == 1);
-	peer->fd = fds[0];
-	if (!peer->id) {
-		struct pubkey id;
-
-		if (!fromwire_handshake_responder_reply(msg, NULL, &id, &cs))
-			goto err;
-		peer->id = tal_dup(peer, struct pubkey, &id);
-		log_info_struct(hs->log, "Peer in from %s",
-				struct pubkey, peer->id);
-	} else {
-		if (!fromwire_handshake_initiator_reply(msg, NULL, &cs))
-			goto err;
-		log_info_struct(hs->log, "Peer out to %s",
-				struct pubkey, peer->id);
-	}
-
-	/* FIXME: Look for peer duplicates! */
-
-	peer->owner = peer->ld->gossip;
-	tal_steal(peer->owner, peer);
-	peer_set_condition(peer, INITIALIZING);
-
-	/* Tell gossip to handle it now. */
-	msg = towire_gossipctl_new_peer(peer, peer->unique_id, &cs);
-	subd_send_msg(peer->ld->gossip, take(msg));
-	subd_send_fd(peer->ld->gossip, peer->fd);
-
-	/* Peer struct longer owns fd. */
-	peer->fd = -1;
-
-	/* Tell handshaked to exit. */
-	return false;
-
-err:
-	log_broken(hs->log, "Malformed resp: %s", tal_hex(peer, msg));
-	close(peer->fd);
-	tal_free(peer);
-	return false;
-}
-
 /* When a per-peer subdaemon exits, see if we need to do anything. */
 static void peer_owner_finished(struct subd *subd, int status)
 {
@@ -193,69 +157,6 @@ static void peer_owner_finished(struct subd *subd, int status)
 
 	subd->peer->owner = NULL;
 	peer_fail(subd->peer, "Owning subdaemon %s died", subd->name);
-}
-
-static bool peer_got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
-				     const int *fds,
-				     struct peer *peer)
-{
-	const u8 *req;
-
-	assert(tal_count(fds) == 1);
-	if (!fromwire_hsmctl_hsmfd_ecdh_fd_reply(msg, NULL)) {
-		peer_fail(peer, "Malformed hsmfd response: %s",
-			  tal_hex(peer, msg));
-		goto error;
-	}
-
-	/* Give handshake daemon the hsm fd. */
-	peer->owner = new_subd(peer->ld, peer->ld,
-			       "lightningd_handshake", peer,
-			       handshake_wire_type_name,
-			       NULL, peer_owner_finished,
-			       fds[0], peer->fd, -1);
-	if (!peer->owner) {
-		peer_fail(peer, "Could not subdaemon handshake: %s",
-			  strerror(errno));
-		goto error;
-	}
-
-	/* Peer struct longer owns fd. */
-	peer->fd = -1;
-
-	if (peer->id) {
-		req = towire_handshake_initiator(peer, &peer->ld->dstate.id,
-						 peer->id);
-	} else {
-		req = towire_handshake_responder(peer, &peer->ld->dstate.id);
-	}
-	peer_set_condition(peer, HANDSHAKING);
-
-	/* Now hand peer request to the handshake daemon: hands it
-	 * back on success */
-	subd_req(peer, peer->owner, take(req), -1, 1, handshake_succeeded, peer);
-	return true;
-
-error:
-	close(fds[0]);
-	return true;
-}
-
-/* FIXME: timeout handshake if taking too long? */
-static struct io_plan *peer_in(struct io_conn *conn, struct lightningd *ld)
-{
-	struct peer *peer = new_peer(ld, conn, NULL);
-
-	if (!peer)
-		return io_close(conn);
-
-	/* Get HSM fd for this peer. */
-	subd_req(peer, ld->hsm,
-		 take(towire_hsmctl_hsmfd_ecdh(ld, peer->unique_id)),
-		 -1, 1, peer_got_handshake_hsmfd, peer);
-
-	/* We don't need conn, we'll pass fd to handshaked. */
-	return io_close_taken_fd(conn);
 }
 
 static int make_listen_fd(struct lightningd *ld,
@@ -333,7 +234,7 @@ void setup_listeners(struct lightningd *ld)
 			assert(ld->dstate.portnum == ntohs(addr.sin_port));
 			log_debug(ld->log, "Creating IPv6 listener on port %u",
 				  ld->dstate.portnum);
-			io_new_listener(ld, fd1, peer_in, ld);
+			io_new_listener(ld, fd1, connection_in, ld);
 		}
 	}
 
@@ -350,7 +251,7 @@ void setup_listeners(struct lightningd *ld)
 			assert(ld->dstate.portnum == ntohs(addr.sin_port));
 			log_debug(ld->log, "Creating IPv4 listener on port %u",
 				  ld->dstate.portnum);
-			io_new_listener(ld, fd2, peer_in, ld);
+			io_new_listener(ld, fd2, connection_in, ld);
 		}
 	}
 
@@ -359,77 +260,47 @@ void setup_listeners(struct lightningd *ld)
 		      ld->dstate.portnum);
 }
 
-struct json_connecting {
-	/* This owns us, so we're freed after command_fail or command_success */
-	struct command *cmd;
-	const char *name, *port;
-	struct pubkey id;
-};
-
-/* FIXME: timeout handshake if taking too long? */
-static struct io_plan *peer_out(struct io_conn *conn,
-				struct lightningd_state *dstate,
-				struct json_connecting *jc)
-{
-	struct lightningd *ld = ld_from_dstate(jc->cmd->dstate);
-	struct peer *peer = new_peer(ld, conn, jc->cmd);
-
-	if (!peer)
-		return io_close(conn);
-
-	/* We already know ID we're trying to reach. */
-	peer->id = tal_dup(peer, struct pubkey, &jc->id);
-
-	/* Get HSM fd for this peer. */
-	subd_req(peer, ld->hsm,
-		 take(towire_hsmctl_hsmfd_ecdh(ld, peer->unique_id)),
-		 -1, 1, peer_got_handshake_hsmfd, peer);
-
-	/* We don't need conn, we'll pass fd to handshaked. */
-	return io_close_taken_fd(conn);
-}
-
 static void connect_failed(struct lightningd_state *dstate,
-			   struct json_connecting *connect)
+			   struct connection *c)
 {
-	/* FIXME: Better diagnostics! */
-	command_fail(connect->cmd, "Failed to connect to peer %s:%s",
-		     connect->name, connect->port);
+	tal_free(c);
 }
 
 static void json_connect(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	struct json_connecting *connect;
-	jsmntok_t *host, *port, *idtok;
+	struct lightningd *ld = ld_from_dstate(cmd->dstate);
+	struct connection *c;
+	jsmntok_t *host, *porttok, *idtok;
 	const tal_t *tmpctx = tal_tmpctx(cmd);
+	struct pubkey id;
+	char *name, *port;
 
 	if (!json_get_params(buffer, params,
 			     "host", &host,
-			     "port", &port,
+			     "port", &porttok,
 			     "id", &idtok,
 			     NULL)) {
 		command_fail(cmd, "Need host, port and id to connect");
 		return;
 	}
 
-	connect = tal(cmd, struct json_connecting);
-	connect->cmd = cmd;
-	connect->name = tal_strndup(connect, buffer + host->start,
-				    host->end - host->start);
-	connect->port = tal_strndup(connect, buffer + port->start,
-				    port->end - port->start);
-
 	if (!pubkey_from_hexstr(buffer + idtok->start,
-				idtok->end - idtok->start, &connect->id)) {
+				idtok->end - idtok->start, &id)) {
 		command_fail(cmd, "id %.*s not valid",
 			     idtok->end - idtok->start,
 			     buffer + idtok->start);
 		return;
 	}
 
-	if (!dns_resolve_and_connect(cmd->dstate, connect->name, connect->port,
-				     peer_out, connect_failed, connect)) {
+	c = new_connection(cmd, ld, cmd, &id);
+	name = tal_strndup(tmpctx,
+			   buffer + host->start, host->end - host->start);
+	port = tal_strndup(tmpctx,
+			   buffer + porttok->start,
+			   porttok->end - porttok->start);
+	if (!dns_resolve_and_connect(cmd->dstate, name, port,
+				     connection_out, connect_failed, c)) {
 		command_fail(cmd, "DNS failed");
 		return;
 	}

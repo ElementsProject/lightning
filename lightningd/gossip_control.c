@@ -112,17 +112,6 @@ static void peer_ready(struct subd *gossip, const u8 *msg)
 		  type_to_string(msg, struct pubkey, peer->id),
 		  unique_id);
 
-	if (peer->connect_cmd) {
-		struct json_result *response;
-		response = new_json_result(peer->connect_cmd);
-
-		json_object_start(response, NULL);
-		json_add_pubkey(response, "id", peer->id);
-		json_object_end(response);
-		command_success(peer->connect_cmd, response);
-		peer->connect_cmd = NULL;
-	}
-
 	peer_set_condition(peer, GOSSIPING);
 }
 

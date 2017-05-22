@@ -193,8 +193,6 @@ class LightningDTests(BaseLightningDTests):
         assert p2['state'] == 'GOSSIPING'
 
         # It should have gone through these steps
-        print(p1['log'])
-        assert 'state: HANDSHAKING -> INITIALIZING' in p1['log']
         assert 'state: INITIALIZING -> GOSSIPING' in p1['log']
 
         # Both should still be owned by gossip

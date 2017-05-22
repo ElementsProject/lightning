@@ -45,9 +45,6 @@ struct peer {
 	/* Where we connected to, or it connected from. */
 	struct netaddr netaddr;
 
-	/* Json command which made us connect (if any) */
-	struct command *connect_cmd;
-
 	/* Our channel config. */
 	struct channel_config our_config;
 
@@ -109,6 +106,9 @@ struct peer *peer_from_json(struct lightningd *ld,
 void peer_accept_open(struct peer *peer,
 		      const struct crypto_state *cs, const u8 *msg);
 
+void add_peer(struct lightningd *ld, u64 unique_id,
+	      int fd, const struct pubkey *id,
+	      const struct crypto_state *cs);
 /* Peer has failed. */
 PRINTF_FMT(2,3) void peer_fail(struct peer *peer, const char *fmt, ...);
 
