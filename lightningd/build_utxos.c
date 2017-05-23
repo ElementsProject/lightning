@@ -145,6 +145,11 @@ static void json_addfunds(struct command *cmd,
 		bitcoin_txid(tx, &utxo->utxo.txid);
 		utxo->utxo.outnum = output;
 		utxo->reserved = false;
+		if (!wallet_add_utxo(ld->wallet, &utxo->utxo, p2sh_wpkh)) {
+			command_fail(cmd, "Could add outputs to wallet");
+			tal_free(utxo);
+			return;
+		}
 		list_add_tail(&ld->utxos, &utxo->list);
 		total_satoshi += utxo->utxo.amount;
 		num_utxos++;
