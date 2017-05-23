@@ -248,3 +248,8 @@ struct io_plan *connection_in(struct io_conn *conn, struct lightningd *ld)
 	}
 	return hsm_then_handshake(conn, ld, c);
 }
+
+const struct pubkey *connection_known_id(const struct connection *c)
+{
+	return c->known_id;
+}

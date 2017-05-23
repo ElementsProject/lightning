@@ -22,4 +22,5 @@ struct io_plan *connection_out(struct io_conn *conn,
 
 struct io_plan *connection_in(struct io_conn *conn, struct lightningd *ld);
 
+const struct pubkey *connection_known_id(const struct connection *c);
 #endif /* LIGHTNING_LIGHTNINGD_NEW_CONNECTION_H */
