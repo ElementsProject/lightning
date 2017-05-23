@@ -1388,8 +1388,9 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 	struct pubkey changekey;
 	struct pubkey remote_fundingkey, local_fundingkey;
 
-	assert(tal_count(fds) == 1);
+	assert(tal_count(fds) == 2);
 	fc->peer->fd = fds[0];
+	fc->peer->gossip_client_fd = fds[1];
 	fc->peer->cs = tal(fc->peer, struct crypto_state);
 
 	if (!fromwire_opening_funder_reply(resp, NULL,
@@ -1496,8 +1497,9 @@ static bool opening_fundee_finished(struct subd *opening,
 	u8 *initmsg;
 
 	log_debug(peer->log, "Got opening_fundee_finish_response");
-	assert(tal_count(fds) == 1);
+	assert(tal_count(fds) == 2);
 	peer->fd = fds[0];
+	peer->gossip_client_fd = fds[1];
 	peer->cs = tal(peer, struct crypto_state);
 
 	peer->funding_txid = tal(peer, struct sha256_double);
@@ -1629,14 +1631,15 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer)
 	peer->owner = new_subd(ld, ld, "lightningd_opening", peer,
 			       opening_wire_type_name,
 			       NULL, peer_owner_finished,
-			       peer->fd, -1);
+			       peer->fd, peer->gossip_client_fd, -1);
 	if (!peer->owner) {
 		peer_fail(peer, "Failed to subdaemon opening: %s",
 			  strerror(errno));
 		return;
 	}
-	/* We handed off peer fd */
+	/* We handed off peer fd and gossip fd */
 	peer->fd = -1;
+	peer->gossip_client_fd = -1;
 
 	/* They will open channel. */
 	peer->funder = REMOTE;
@@ -1669,7 +1672,7 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer)
 		peer_fail(peer, "Unacceptably long open_channel");
 		return;
 	}
-	subd_req(peer, peer->owner, take(msg), -1, 1,
+	subd_req(peer, peer->owner, take(msg), -1, 2,
 		 opening_fundee_finished, peer);
 }
 
@@ -1706,7 +1709,7 @@ static bool gossip_peer_released(struct subd *gossip,
 			   "lightningd_opening", fc->peer,
 			   opening_wire_type_name,
 			   NULL, peer_owner_finished,
-			   fc->peer->fd, -1);
+			   fc->peer->fd, fc->peer->gossip_client_fd, -1);
 	if (!opening) {
 		peer_fail(fc->peer, "Failed to subdaemon opening: %s",
 			  strerror(errno));
@@ -1714,8 +1717,9 @@ static bool gossip_peer_released(struct subd *gossip,
 	}
 	fc->peer->owner = opening;
 
-	/* They took our fd. */
+	/* They took our fds. */
 	fc->peer->fd = -1;
+	fc->peer->gossip_client_fd = -1;
 
 	/* We will fund channel */
 	fc->peer->funder = LOCAL;
@@ -1747,7 +1751,7 @@ static bool gossip_peer_released(struct subd *gossip,
 				    15000, max_minimum_depth,
 				    fc->change, fc->change_keyindex,
 				    utxos, bip32_base);
-	subd_req(fc, opening, take(msg), -1, 1, opening_funder_finished, fc);
+	subd_req(fc, opening, take(msg), -1, 2, opening_funder_finished, fc);
 	return true;
 }
 
