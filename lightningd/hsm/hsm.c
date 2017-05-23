@@ -16,6 +16,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <lightningd/build_utxos.h>
 #include <lightningd/daemon_conn.h>
 #include <lightningd/funding_tx.h>
 #include <lightningd/hsm/client.h>
@@ -474,10 +475,7 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 					  &remote_pubkey, &inputs))
 		status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "Bad SIGN_FUNDING");
 
-	/* FIXME: unmarshall gives array, not array of pointers. */
-	utxomap = tal_arr(tmpctx, const struct utxo *, tal_count(inputs));
-	for (i = 0; i < tal_count(inputs); i++)
-		utxomap[i] = &inputs[i];
+	utxomap = to_utxoptr_arr(tmpctx, inputs);
 
 	if (change_out)
 		bitcoin_pubkey(&changekey, change_keyindex);
