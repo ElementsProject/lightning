@@ -1390,15 +1390,15 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 	fc->peer->fd = fds[0];
 	fc->peer->cs = tal(fc->peer, struct crypto_state);
 
-	if (!fromwire_opening_open_funding_reply(resp, NULL,
-						 &their_config,
-						 &commit_sig,
-						 fc->peer->cs,
-						 &theirbase.revocation,
-						 &theirbase.payment,
-						 &theirbase.delayed_payment,
-						 &their_per_commit_point,
-						 &fc->peer->minimum_depth)) {
+	if (!fromwire_opening_funder_funding_reply(resp, NULL,
+						   &their_config,
+						   &commit_sig,
+						   fc->peer->cs,
+						   &theirbase.revocation,
+						   &theirbase.payment,
+						   &theirbase.delayed_payment,
+						   &their_per_commit_point,
+						   &fc->peer->minimum_depth)) {
 		log_broken(fc->peer->log, "bad OPENING_OPEN_FUNDING_REPLY %s",
 			   tal_hex(resp, resp));
 		tal_free(fc->peer);
@@ -1457,9 +1457,9 @@ static bool opening_gen_funding(struct subd *opening, const u8 *reply,
 	struct pubkey changekey;
 
 	log_debug(fc->peer->log, "Created funding transaction for channel");
-	if (!fromwire_opening_open_reply(reply, NULL,
-					 &fc->local_fundingkey,
-					 &fc->remote_fundingkey)) {
+	if (!fromwire_opening_funder_reply(reply, NULL,
+					   &fc->local_fundingkey,
+					   &fc->remote_fundingkey)) {
 		log_broken(fc->peer->log, "Bad opening_open_reply %s",
 			   tal_hex(fc, reply));
 		/* Free openingd and peer */
@@ -1480,13 +1480,13 @@ static bool opening_gen_funding(struct subd *opening, const u8 *reply,
 	fc->peer->funding_txid = tal(fc->peer, struct sha256_double);
 	bitcoin_txid(fc->funding_tx, fc->peer->funding_txid);
 
-	msg = towire_opening_open_funding(fc, fc->peer->funding_txid,
-					  fc->peer->funding_outnum);
+	msg = towire_opening_funder_funding(fc, fc->peer->funding_txid,
+					    fc->peer->funding_outnum);
 	subd_req(fc, fc->peer->owner, take(msg), -1, 1, opening_release_tx, fc);
 	return true;
 }
 
-static bool opening_accept_finish_response(struct subd *opening,
+static bool opening_fundee_finish_response(struct subd *opening,
 					   const u8 *reply,
 					   const int *fds,
 					   struct peer *peer)
@@ -1498,12 +1498,12 @@ static bool opening_accept_finish_response(struct subd *opening,
 	struct config *cfg = &peer->ld->dstate.config;
 	u8 *initmsg;
 
-	log_debug(peer->log, "Got opening_accept_finish_response");
+	log_debug(peer->log, "Got opening_fundee_finish_response");
 	assert(tal_count(fds) == 1);
 	peer->fd = fds[0];
 	peer->cs = tal(peer, struct crypto_state);
 
-	if (!fromwire_opening_accept_finish_reply(reply, NULL,
+	if (!fromwire_opening_fundee_finish_reply(reply, NULL,
 						  &peer->funding_outnum,
 						  &their_config,
 						  &first_commit_sig,
@@ -1515,7 +1515,7 @@ static bool opening_accept_finish_response(struct subd *opening,
 						  &their_per_commit_point,
 						  &peer->funding_satoshi,
 						  &peer->push_msat)) {
-		log_broken(peer->log, "bad OPENING_ACCEPT_FINISH_REPLY %s",
+		log_broken(peer->log, "bad OPENING_FUNDEE_FINISH_REPLY %s",
 			   tal_hex(reply, reply));
 		return false;
 	}
@@ -1551,13 +1551,13 @@ static bool opening_accept_finish_response(struct subd *opening,
 	return false;
 }
 
-static bool opening_accept_reply(struct subd *opening, const u8 *reply,
+static bool opening_fundee_reply(struct subd *opening, const u8 *reply,
 				 const int *fds,
 				 struct peer *peer)
 {
 	peer->funding_txid = tal(peer, struct sha256_double);
-	if (!fromwire_opening_accept_reply(reply, NULL, peer->funding_txid)) {
-		log_broken(peer->log, "bad OPENING_ACCEPT_REPLY %s",
+	if (!fromwire_opening_fundee_reply(reply, NULL, peer->funding_txid)) {
+		log_broken(peer->log, "bad OPENING_FUNDEE_REPLY %s",
 			   tal_hex(reply, reply));
 		return false;
 	}
@@ -1572,9 +1572,9 @@ static bool opening_accept_reply(struct subd *opening, const u8 *reply,
 	peer_set_condition(peer, OPENINGD, OPENINGD_AWAITING_LOCKIN);
 
 	/* Tell it we're watching. */
-	subd_req(peer, opening, towire_opening_accept_finish(reply),
+	subd_req(peer, opening, towire_opening_fundee_finish(reply),
 		 -1, 1,
-		 opening_accept_finish_response, peer);
+		 opening_fundee_finish_response, peer);
 	return true;
 }
 
@@ -1622,7 +1622,7 @@ static void channel_config(struct lightningd *ld,
 };
 
 /* Peer has spontaneously exited from gossip due to msg */
-void peer_accept_open(struct peer *peer, const u8 *from_peer)
+void peer_fundee_open(struct peer *peer, const u8 *from_peer)
 {
 	struct lightningd *ld = peer->ld;
 	u32 max_to_self_delay, max_minimum_depth;
@@ -1675,7 +1675,7 @@ void peer_accept_open(struct peer *peer, const u8 *from_peer)
 	peer->cs = tal_free(peer->cs);
 
 	subd_send_msg(peer->owner, take(msg));
-	msg = towire_opening_accept(peer, peer->minimum_depth,
+	msg = towire_opening_fundee(peer, peer->minimum_depth,
 				    7500, 150000, from_peer);
 
 	/* Careful here!  Their message could push us overlength! */
@@ -1683,7 +1683,7 @@ void peer_accept_open(struct peer *peer, const u8 *from_peer)
 		peer_fail(peer, "Unacceptably long open_channel");
 		return;
 	}
-	subd_req(peer, peer->owner, take(msg), -1, 0, opening_accept_reply, peer);
+	subd_req(peer, peer->owner, take(msg), -1, 0, opening_fundee_reply, peer);
 }
 
 /* Peer has been released from gossip.  Start opening. */
@@ -1749,9 +1749,9 @@ static bool gossip_peer_released(struct subd *gossip,
 
 	subd_send_msg(opening, take(msg));
 	/* FIXME: Real feerate! */
-	msg = towire_opening_open(fc, fc->peer->funding_satoshi,
-				  fc->peer->push_msat,
-				  15000, max_minimum_depth);
+	msg = towire_opening_funder(fc, fc->peer->funding_satoshi,
+				    fc->peer->push_msat,
+				    15000, max_minimum_depth);
 	subd_req(fc, opening, take(msg), -1, 0, opening_gen_funding, fc);
 	return true;
 }

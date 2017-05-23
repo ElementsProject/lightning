@@ -95,7 +95,7 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 	log_info(peer->log, "Gossip ended up receipt of %s",
 		 wire_type_name(fromwire_peektype(inner)));
 
-	peer_accept_open(peer, inner);
+	peer_fundee_open(peer, inner);
 }
 
 static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)

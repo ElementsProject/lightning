@@ -118,7 +118,7 @@ struct peer *peer_from_json(struct lightningd *ld,
 			    const char *buffer,
 			    jsmntok_t *peeridtok);
 
-void peer_accept_open(struct peer *peer, const u8 *msg);
+void peer_fundee_open(struct peer *peer, const u8 *msg);
 
 void add_peer(struct lightningd *ld, u64 unique_id,
 	      int fd, const struct pubkey *id,
