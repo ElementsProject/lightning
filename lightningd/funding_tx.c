@@ -47,12 +47,11 @@ struct bitcoin_tx *funding_tx(const tal_t *ctx,
 	tx->output[0].script = scriptpubkey_p2wsh(tx, wscript);
 	tal_free(wscript);
 
-	tx->output[1].script = scriptpubkey_p2wpkh(tx, changekey);
-
 	if (change_satoshis != 0) {
 		const void *map[2];
 		map[0] = int2ptr(0);
 		map[1] = int2ptr(1);
+		tx->output[1].script = scriptpubkey_p2wpkh(tx, changekey);
 		tx->output[1].amount = change_satoshis;
 		permute_outputs(tx->output, tal_count(tx->output), map);
 		*outnum = (map[0] == int2ptr(0) ? 0 : 1);
