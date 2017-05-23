@@ -452,48 +452,71 @@ static void funding_broadcast_failed(struct peer *peer,
 	tal_free(peer);
 }
 
-static enum watch_result funding_depth_cb(struct peer *peer,
-					  unsigned int depth,
-					  const struct sha256_double *txid,
-					  void *unused)
+static enum watch_result funding_announce_cb(struct peer *peer,
+					     unsigned int depth,
+					     const struct sha256_double *txid,
+					     void *unused)
+{
+	if (depth < ANNOUNCE_MIN_DEPTH) {
+		return KEEP_WATCHING;
+	}
+	if (peer->state != CHANNELD_NORMAL || !peer->owner) {
+		return KEEP_WATCHING;
+	}
+	subd_send_msg(peer->owner,
+		      take(towire_channel_funding_announce_depth(peer)));
+	return DELETE_WATCH;
+}
+
+static enum watch_result funding_lockin_cb(struct peer *peer,
+					   unsigned int depth,
+					   const struct sha256_double *txid,
+					   void *unused)
 {
 	const char *txidstr = type_to_string(peer, struct sha256_double, txid);
+	struct txlocator *loc;
 
 	log_debug(peer->log, "Funding tx %s depth %u of %u",
 		  txidstr, depth, peer->minimum_depth);
+	tal_free(txidstr);
 
 	if (depth < peer->minimum_depth)
 		return KEEP_WATCHING;
 
 	/* In theory, it could have been buried before we got back
-	 * from accepting openingd: just wait for next one. */
-	if (!peer->owner || !streq(peer->owner->name, "lightningd_channel")) {
-		log_unusual(peer->log, "Funding tx confirmed, but peer %s",
+	 * from accepting openingd or disconnected: just wait for next one. */
+	if (!peer->owner || peer->state != CHANNELD_AWAITING_LOCKIN) {
+		log_unusual(peer->log,
+			    "Funding tx confirmed, but peer state %s %s",
+			    peer_state_name(peer->state),
 			    peer->owner ? peer->owner->name : "unowned");
 		return KEEP_WATCHING;
 	}
 
-	/* Make sure we notify `channeld` just once. */
-	if (!peer->scid) {
-		struct txlocator *loc
-			= locate_tx(peer, peer->ld->topology, txid);
+	loc = locate_tx(peer, peer->ld->topology, txid);
 
-		peer->scid = tal(peer, struct short_channel_id);
-		peer->scid->blocknum = loc->blkheight;
-		peer->scid->txnum = loc->index;
-		peer->scid->outnum = peer->funding_outnum;
-		tal_free(loc);
+	peer->scid = tal(peer, struct short_channel_id);
+	peer->scid->blocknum = loc->blkheight;
+	peer->scid->txnum = loc->index;
+	peer->scid->outnum = peer->funding_outnum;
+	tal_free(loc);
 
+	subd_send_msg(peer->owner,
+		      take(towire_channel_funding_locked(peer, peer->scid)));
+
+	/* BOLT #7:
+	 *
+	 * If sent, `announcement_signatures` messages MUST NOT be sent until
+	 * `funding_locked` has been sent, and the funding transaction is has
+	 * at least 6 confirmations.
+	 */
+	if (depth >= ANNOUNCE_MIN_DEPTH) {
 		subd_send_msg(peer->owner,
-			      take(towire_channel_funding_locked(peer, peer->scid)));
+			      take(towire_channel_funding_announce_depth(peer)));
+	} else {
+		watch_txid(peer, peer->ld->topology, peer, txid,
+			   funding_announce_cb, NULL);
 	}
-
-	/* With the above this is max(funding_depth, 6) before
-	 * announcing the channel */
-	if (depth < ANNOUNCE_MIN_DEPTH) {
-		return KEEP_WATCHING;
-	}
-	subd_send_msg(peer->owner, take(towire_channel_funding_announce_depth(peer)));
 	return DELETE_WATCH;
 }
 
@@ -536,7 +559,7 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 	/* Send it out and watch for confirms. */
 	broadcast_tx(hsm->ld->topology, fc->peer, tx, funding_broadcast_failed);
 	watch_tx(fc->peer, fc->peer->ld->topology, fc->peer, tx,
-		 funding_depth_cb, NULL);
+		 funding_lockin_cb, NULL);
 
 	/* We could defer until after funding locked, but makes testing
 	 * harder. */
@@ -1541,7 +1564,7 @@ static bool opening_accept_reply(struct subd *opening, const u8 *reply,
 		     type_to_string(reply, struct sha256_double,
 				    peer->funding_txid));
 	watch_txid(peer, peer->ld->topology, peer, peer->funding_txid,
-		   funding_depth_cb, NULL);
+		   funding_lockin_cb, NULL);
 
 	/* It's about to send out funding_signed, so set this now. */
 	peer_set_condition(peer, OPENINGD, OPENINGD_AWAITING_LOCKIN);
