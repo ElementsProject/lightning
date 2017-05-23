@@ -418,15 +418,27 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 			      "%s", tal_hex(trc, msg));
 
 	peer = find_peer(daemon, unique_id);
-	if (!peer)
-		status_failed(WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST,
-			      "Unknown peer %"PRIu64, unique_id);
+	if (!peer) {
+		/* This can happen with a reconnect vs connect race.
+		 * See gossip_peer_released in master daemon. */
+		struct crypto_state dummy;
 
-	send_peer_with_fds(peer,
-			   take(towire_gossipctl_release_peer_reply(msg,
+		status_trace("release_peer: Unknown peer %"PRIu64, unique_id);
+		memset(&dummy, 0, sizeof(dummy));
+		daemon_conn_send(&daemon->master,
+				 take(towire_gossipctl_release_peer_reply(msg,
+									  ~unique_id,
+									  &dummy)));
+		/* Needs two fds, send dummies. */
+		daemon_conn_send_fd(&daemon->master, dup(STDOUT_FILENO));
+		daemon_conn_send_fd(&daemon->master, dup(STDOUT_FILENO));
+	} else {
+		send_peer_with_fds(peer,
+				   take(towire_gossipctl_release_peer_reply(msg,
 								unique_id,
 								&peer->pcs.cs)));
-	io_close_taken_fd(peer->conn);
+		io_close_taken_fd(peer->conn);
+	}
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 

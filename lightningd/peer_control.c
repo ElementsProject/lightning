@@ -1846,9 +1846,15 @@ static bool gossip_peer_released(struct subd *gossip,
 		fatal("Gossup daemon gave invalid reply %s",
 		      tal_hex(gossip, resp));
 
-	if (id != fc->peer->unique_id)
-		fatal("Gossup daemon release gave %"PRIu64" not %"PRIu64,
-		      id, fc->peer->unique_id);
+	/* This is how gossipd handles a reconnect (gossipctl_fail_peer) racing
+	 * with us trying to connect. */
+	if (id != fc->peer->unique_id) {
+		tal_del_destructor(fc, fail_fundchannel_command);
+		command_fail(fc->cmd, "Peer reconnected, try again");
+		close(fds[0]);
+		close(fds[1]);
+		return true;
+	}
 
 	peer_set_condition(fc->peer, GOSSIPD, OPENINGD);
 	opening = new_subd(fc->peer->ld, ld,
