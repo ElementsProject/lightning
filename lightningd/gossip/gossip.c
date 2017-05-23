@@ -144,6 +144,7 @@ static void send_peer_with_fds(struct peer *peer, const u8 *msg)
 
 	/* Now we talk to socket to get to peer's owner daemon. */
 	peer->local = false;
+	/* FIXME: Forget peer if other end is closed. */
 	daemon_conn_init(peer, &peer->owner_conn, fds[0], owner_msg_in);
 	peer->owner_conn.msg_queue_cleared_cb = nonlocal_dump_gossip;
 

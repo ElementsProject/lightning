@@ -69,13 +69,23 @@ void peer_fail(struct peer *peer, const char *fmt, ...)
 	if (!peer_persists(peer)) {
 		log_info(peer->log, "Only reached state %s: forgetting",
 			 peer_state_name(peer->state));
-		tal_free(peer);
-		return;
+		goto dont_talk;
 	}
 
 	/* Reconnect unless we've dropped to chain. */
-	if (!peer_on_chain(peer))
+	if (!peer_on_chain(peer)) {
 		peer_reconnect(peer);
+		return;
+	}
+
+dont_talk:
+	/* In case we reconnected in the meantime. */
+	if (peer->fd != -1) {
+		/* FIXME: We should retransmit error if this happens. */
+		close(peer->fd);
+	}
+	tal_free(peer);
+	return;
 }
 
 void peer_set_condition(struct peer *peer, enum peer_state old_state,
@@ -90,14 +100,137 @@ void peer_set_condition(struct peer *peer, enum peer_state old_state,
 	peer->state = state;
 }
 
+static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
+				      const int *fds,
+				      struct peer *peer);
+
+/* Returns true if we consider this a reconnection. */
+static bool peer_reconnected(struct lightningd *ld,
+			     const struct pubkey *id,
+			     int fd,
+			     const struct crypto_state *cs)
+{
+	struct peer *peer = peer_by_id(ld, id);
+	if (!peer)
+		return false;
+
+	log_info(peer->log, "Peer has reconnected, state %s",
+		 peer_state_name(peer->state));
+
+	/* Always copy cryptostate; at worst we'll throw it away. */
+	tal_free(peer->cs);
+	peer->cs = tal_dup(peer, struct crypto_state, cs);
+
+	switch (peer->state) {
+	/* This can't happen. */
+	case UNINITIALIZED:
+		abort();
+
+	case GOSSIPD:
+		/* Tell gossipd to kick that one out, will call peer_fail */
+		subd_send_msg(peer->ld->gossip,
+			      take(towire_gossipctl_fail_peer(peer,
+							      peer->unique_id)));
+		tal_free(peer);
+		/* Continue with a new peer. */
+		return false;
+
+	case OPENINGD:
+		/* Kill off openingd, forget old peer. */
+		peer->owner->peer = NULL;
+		tal_free(peer->owner);
+		tal_free(peer);
+
+		/* A fresh start. */
+		return false;
+
+	case GETTING_SIG_FROM_HSM:
+		/* BOLT #2:
+		 *
+		 * On disconnection, the funder MUST remember the channel for
+		 * reconnection if it has broadcast the funding transaction,
+		 * otherwise it MUST NOT.
+		 */
+		/* Free peer, which will discard HSM response. */
+		tal_free(peer);
+
+		/* Start afresh */
+		return false;
+
+	case GETTING_HSMFD:
+		/* Simply substitute old fd for new one. */
+		assert(peer->fd != -1);
+		close(peer->fd);
+		peer->fd = fd;
+		return true;
+
+	case CHANNELD_AWAITING_LOCKIN:
+		/* Kill off current channeld, if any. */
+		if (peer->owner) {
+			peer->owner->peer = NULL;
+			peer->owner = tal_free(peer->owner);
+		}
+		assert(peer->fd == -1);
+		peer->fd = fd;
+
+		/* Start a new one: first get fresh hsm fd. */
+		peer_set_condition(peer, CHANNELD_AWAITING_LOCKIN,
+				   GETTING_HSMFD);
+
+		/* Get fd from hsm. */
+		subd_req(peer, peer->ld->hsm,
+			 take(towire_hsmctl_hsmfd_channeld(peer,
+							   peer->unique_id)),
+			 -1, 1, peer_start_channeld_hsmfd, peer);
+		return true;
+
+	case CHANNELD_NORMAL:
+		/* Kill off current channeld, if any */
+		if (peer->owner) {
+			peer->owner->peer = NULL;
+			peer->owner = tal_free(peer->owner);
+		}
+
+		assert(peer->fd == -1);
+		peer->fd = fd;
+
+		/* Start a new one: first get fresh hsm fd. */
+		peer_set_condition(peer, CHANNELD_NORMAL, GETTING_HSMFD);
+
+		/* FIXME: Needs to reload state! */
+		/* Get fd from hsm. */
+		subd_req(peer, peer->ld->hsm,
+			 take(towire_hsmctl_hsmfd_channeld(peer,
+							   peer->unique_id)),
+			 -1, 1, peer_start_channeld_hsmfd, peer);
+		return true;
+
+	case SHUTDOWND_SENT:
+	case SHUTDOWND_RCVD:
+	case CLOSINGD_SIGEXCHANGE:
+	case ONCHAIND_CHEATED:
+	case ONCHAIND_THEIR_UNILATERAL:
+	case ONCHAIND_OUR_UNILATERAL:
+	case ONCHAIND_MUTUAL:
+		; /* FIXME: Implement! */
+	}
+	abort();
+}
+
 void add_peer(struct lightningd *ld, u64 unique_id,
 	      int fd, const struct pubkey *id,
 	      const struct crypto_state *cs)
 {
-	struct peer *peer = tal(ld, struct peer);
+	struct peer *peer;
 	const char *netname, *idname;
 	u8 *msg;
 
+	/* It's a reconnect? */
+	if (peer_reconnected(ld, id, fd, cs))
+		return;
+
+	/* Fresh peer. */
+	peer = tal(ld, struct peer);
 	peer->ld = ld;
 	peer->unique_id = unique_id;
 	peer->owner = NULL;
