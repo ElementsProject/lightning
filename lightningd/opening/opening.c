@@ -461,7 +461,7 @@ static u8 *fundee_channel(struct state *state,
 	secp256k1_ecdsa_signature theirsig, sig;
 	struct bitcoin_tx **txs;
 	struct sha256_double chain_hash;
-	u8 *msg;
+	u8 *msg, *encmsg;
 	const u8 **wscripts;
 
 	state->remoteconf = tal(state, struct channel_config);
@@ -601,20 +601,6 @@ static u8 *fundee_channel(struct state *state,
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
 			      "could not create channel with given config");
 
-	/* Now, ask master to watch. */
-	status_trace("asking master to watch funding %s",
-		     type_to_string(trc, struct sha256_double, &state->funding_txid));
-	msg = towire_opening_fundee_reply(state, &state->funding_txid);
-	wire_sync_write(REQ_FD, msg);
-
-	msg = wire_sync_read(state, REQ_FD);
-	if (!fromwire_opening_fundee_finish(msg, NULL))
-		status_failed(WIRE_OPENING_BAD_PARAM,
-			      "Expected valid opening_fundee_finish: %s",
-			      tal_hex(trc, msg));
-
-	status_trace("master said to finish");
-
 	/* BOLT #2:
 	 *
 	 * The recipient MUST fail the channel if `signature` is incorrect.
@@ -658,23 +644,25 @@ static u8 *fundee_channel(struct state *state,
 		      &state->our_secrets.funding_privkey,
 		      our_funding_pubkey, &sig);
 
+	/* We don't send this ourselves: master does, because it needs to save
+	 * state to disk before doing so. */
 	msg = towire_funding_signed(state, &channel_id, &sig);
-	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
-			      "Writing funding_signed");
+	encmsg = cryptomsg_encrypt_msg(state, &state->cs, msg);
 
-	return towire_opening_fundee_finish_reply(state,
-						  state->funding_txout,
-						  state->remoteconf,
-						  &theirsig,
-						  &state->cs,
-						  &their_funding_pubkey,
-						  &theirs.revocation,
-						  &theirs.payment,
-						  &theirs.delayed_payment,
-						  &state->next_per_commit[REMOTE],
-						  state->funding_satoshis,
-						  state->push_msat);
+	return towire_opening_fundee_reply(state,
+					   state->remoteconf,
+					   &theirsig,
+					   &state->cs,
+					   &theirs.revocation,
+					   &theirs.payment,
+					   &theirs.delayed_payment,
+					   &state->next_per_commit[REMOTE],
+					   &their_funding_pubkey,
+					   &state->funding_txid,
+					   state->funding_txout,
+					   state->funding_satoshis,
+					   state->push_msat,
+					   encmsg);
 }
 
 #ifndef TESTING

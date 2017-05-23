@@ -109,7 +109,7 @@ static inline bool peer_on_chain(const struct peer *peer)
  */
 static inline bool peer_persists(const struct peer *peer)
 {
-	return peer->state >= CHANNELD_AWAITING_LOCKIN;
+	return peer->state > GETTING_SIG_FROM_HSM;
 }
 
 struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id);

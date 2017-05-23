@@ -58,22 +58,20 @@ opening_fundee,4,max_feerate,4
 opening_fundee,8,len,2
 opening_fundee,10,msg,len*u8
 
-# This gives the txid of their funding tx to watch.
+# This gives their txid and info, means we can send funding_signed: we're done.
 opening_fundee_reply,103
+opening_fundee_reply,0,their_config,struct channel_config
+opening_fundee_reply,36,first_commit_sig,secp256k1_ecdsa_signature
+opening_fundee_reply,100,crypto_state,struct crypto_state
+opening_fundee_reply,244,revocation_basepoint,33
+opening_fundee_reply,277,payment_basepoint,33
+opening_fundee_reply,310,delayed_payment_basepoint,33
+opening_fundee_reply,343,their_per_commit_point,33
+opening_fundee_reply,0,remote_fundingkey,33
 opening_fundee_reply,0,funding_txid,struct sha256_double
-
-# Acknowledge watch is in place, now can send sig.
-opening_fundee_finish,4
-
-opening_fundee_finish_reply,104
-opening_fundee_finish_reply,32,funding_txout,u16
-opening_fundee_finish_reply,0,their_config,struct channel_config
-opening_fundee_finish_reply,36,first_commit_sig,secp256k1_ecdsa_signature
-opening_fundee_finish_reply,100,crypto_state,struct crypto_state
-opening_fundee_finish_reply,244,remote_fundingkey,33
-opening_fundee_finish_reply,277,revocation_basepoint,33
-opening_fundee_finish_reply,310,payment_basepoint,33
-opening_fundee_finish_reply,343,delayed_payment_basepoint,33
-opening_fundee_finish_reply,377,their_per_commit_point,33
-opening_fundee_finish_reply,410,funding_satoshis,8
-opening_fundee_finish_reply,418,push_msat,8
+opening_fundee_reply,0,funding_txout,u16
+opening_fundee_reply,0,funding_satoshis,8
+opening_fundee_reply,0,push_msat,8
+# The (encrypted) funding signed message: send this and we're committed.
+opening_fundee_reply,0,msglen,u16
+opening_fundee_reply,0,funding_signed_msg,msglen*u8
