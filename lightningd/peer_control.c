@@ -1377,14 +1377,12 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 			       struct funding_channel *fc)
 {
 	u8 *msg;
-	size_t i;
 	struct channel_config their_config;
 	secp256k1_ecdsa_signature commit_sig;
 	struct pubkey their_per_commit_point;
 	struct basepoints theirbase;
 	struct config *cfg = &fc->peer->ld->dstate.config;
-	/* FIXME: marshal code wants array, not array of pointers. */
-	struct utxo *utxos = tal_arr(fc, struct utxo, tal_count(fc->utxomap));
+	struct utxo *utxos;
 
 	assert(tal_count(fds) == 1);
 	fc->peer->fd = fds[0];
@@ -1407,9 +1405,7 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 	log_debug(fc->peer->log, "Getting HSM to sign funding tx");
 
 	/* Get HSM to sign the funding tx. */
-	for (i = 0; i < tal_count(fc->utxomap); i++)
-		utxos[i] = *fc->utxomap[i];
-
+	utxos = from_utxoptr_arr(fc, fc->utxomap);
 	msg = towire_hsmctl_sign_funding(fc, fc->satoshi, fc->change,
 					 fc->change_keyindex,
 					 &fc->local_fundingkey,
