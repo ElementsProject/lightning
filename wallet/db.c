@@ -14,7 +14,7 @@ char *dbmigrations[] = {
     "CREATE TABLE version (version INTEGER)",
     "INSERT INTO version VALUES (1)",
     "CREATE TABLE outputs ( \
-       prev_out_tx BLOB,			 \
+       prev_out_tx CHAR(64),			 \
        prev_out_index INTEGER,			 \
        value INTEGER,				 \
        type INTEGER,				 \

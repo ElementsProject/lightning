@@ -5,6 +5,7 @@
 #include <ccan/container_of/container_of.h>
 #include <daemon/lightningd.h>
 #include <lightningd/htlc_end.h>
+#include <wallet/wallet.h>
 
 /* BOLT #1:
  *
@@ -60,6 +61,8 @@ struct lightningd {
 	struct htlc_end_map htlc_ends;
 
 	u32 broadcast_interval;
+
+	struct wallet *wallet;
 };
 
 void derive_peer_seed(struct lightningd *ld, struct privkey *peer_seed,
