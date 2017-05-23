@@ -29,27 +29,26 @@ opening_funder,0,funding_satoshis,8
 opening_funder,8,push_msat,8
 opening_funder,16,feerate_per_kw,4
 opening_funder,20,max_minimum_depth,4
-
-# Reply asks for txid of funding transaction.
-opening_funder_reply,101
-opening_funder_reply,0,local_fundingkey,33
-opening_funder_reply,0,remote_fundingkey,33
-
-# Now we give the funding txid and outnum.
-opening_funder_funding,2
-opening_funder_funding,0,txid,struct sha256_double
-opening_funder_funding,32,txout,u16
+opening_funder,24,change_satoshis,u64
+opening_funder,32,change_keyindex,u32
+#include <lightningd/utxo.h>
+opening_funder,0,num_inputs,u16
+opening_funder,0,inputs,num_inputs*struct utxo
+opening_funder,0,bip32_len,u16
+opening_funder,0,bip32_seed,bip32_len*u8
 
 # This gives their sig, means we can broadcast tx: we're done.
-opening_funder_funding_reply,102
-opening_funder_funding_reply,0,their_config,struct channel_config
-opening_funder_funding_reply,36,first_commit_sig,secp256k1_ecdsa_signature
-opening_funder_funding_reply,100,crypto_state,struct crypto_state
-opening_funder_funding_reply,244,revocation_basepoint,33
-opening_funder_funding_reply,277,payment_basepoint,33
-opening_funder_funding_reply,310,delayed_payment_basepoint,33
-opening_funder_funding_reply,343,their_per_commit_point,33
-opening_funder_funding_reply,376,minimum_depth,4
+opening_funder_reply,101
+opening_funder_reply,0,their_config,struct channel_config
+opening_funder_reply,36,first_commit_sig,secp256k1_ecdsa_signature
+opening_funder_reply,100,crypto_state,struct crypto_state
+opening_funder_reply,244,revocation_basepoint,33
+opening_funder_reply,277,payment_basepoint,33
+opening_funder_reply,310,delayed_payment_basepoint,33
+opening_funder_reply,343,their_per_commit_point,33
+opening_funder_reply,376,minimum_depth,4
+opening_funder_reply,0,remote_fundingkey,33
+opening_funder_reply,0,funding_txid,struct sha256_double
 
 # This means they offer the open (contains their offer packet)
 opening_fundee,3

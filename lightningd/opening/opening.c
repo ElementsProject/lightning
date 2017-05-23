@@ -12,6 +12,7 @@
 #include <lightningd/crypto_sync.h>
 #include <lightningd/debug.h>
 #include <lightningd/derive_basepoints.h>
+#include <lightningd/funding_tx.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/opening/gen_opening_wire.h>
 #include <lightningd/peer_failed.h>
@@ -22,6 +23,7 @@
 #include <stdio.h>
 #include <type_to_string.h>
 #include <version.h>
+#include <wally_bip32.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/peer_wire.h>
 #include <wire/wire.h>
@@ -194,17 +196,28 @@ static u8 *read_next_peer_msg(struct state *state, const tal_t *ctx)
 static u8 *funder_channel(struct state *state,
 			  const struct pubkey *our_funding_pubkey,
 			  const struct basepoints *ours,
-			  u32 max_minimum_depth)
+			  u32 max_minimum_depth,
+			  u64 change_satoshis, u32 change_keyindex,
+			  const struct utxo *utxos,
+			  const u8 *bip32_seed)
 {
 	const tal_t *tmpctx = tal_tmpctx(state);
 	struct channel_id channel_id, id_in;
 	u8 *msg;
 	struct bitcoin_tx **txs;
 	struct basepoints theirs;
-	struct pubkey their_funding_pubkey;
+	struct pubkey their_funding_pubkey, changekey;
 	secp256k1_ecdsa_signature sig;
 	u32 minimum_depth;
 	const u8 **wscripts;
+	struct bitcoin_tx *funding;
+	struct ext_key bip32_base;
+	const struct utxo **utxomap;
+
+	if (bip32_key_unserialize(bip32_seed, tal_len(bip32_seed), &bip32_base)
+	    != WALLY_OK)
+		status_failed(WIRE_OPENING_BAD_PARAM,
+			      "Bad BIP32 key %s", tal_hex(trc, bip32_seed));
 
 	set_reserve(&state->localconf.channel_reserve_satoshis,
 		    state->funding_satoshis);
@@ -302,20 +315,21 @@ static u8 *funder_channel(struct state *state,
 			    minimum_depth, max_minimum_depth);
 	check_config_bounds(state, state->remoteconf);
 
-	/* Now, ask master create a transaction to pay those two addresses. */
-	msg = towire_opening_funder_reply(tmpctx, our_funding_pubkey,
-					  &their_funding_pubkey);
-	wire_sync_write(REQ_FD, msg);
+	/* Now, ask create funding transaction to pay those two addresses. */
+	if (change_satoshis) {
+		if (!bip32_pubkey(&bip32_base, &changekey, change_keyindex))
+			status_failed(WIRE_OPENING_BAD_PARAM,
+				      "Bad change key %u", change_keyindex);
+	}
 
-	/* Expect funding tx. */
-	msg = wire_sync_read(tmpctx, REQ_FD);
-	if (!fromwire_opening_funder_funding(msg, NULL,
-					     &state->funding_txid,
-					     &state->funding_txout))
-		peer_failed(PEER_FD, &state->cs, NULL,
-			    WIRE_OPENING_PEER_READ_FAILED,
-			    "Expected valid opening_funder_funding: %s",
-			    tal_hex(trc, msg));
+	utxomap = to_utxoptr_arr(state, utxos);
+	funding = funding_tx(state, &state->funding_txout,
+			     utxomap, state->funding_satoshis,
+			     our_funding_pubkey,
+			     &their_funding_pubkey,
+			     change_satoshis, &changekey,
+			     &bip32_base);
+	bitcoin_txid(funding, &state->funding_txid);
 
 	state->channel = new_channel(state,
 				     &state->funding_txid,
@@ -420,15 +434,17 @@ static u8 *funder_channel(struct state *state,
 	 * Once the channel funder receives the `funding_signed` message, they
 	 * must broadcast the funding transaction to the Bitcoin network.
 	 */
-	return towire_opening_funder_funding_reply(state,
-						   state->remoteconf,
-						   &sig,
-						   &state->cs,
-						   &theirs.revocation,
-						   &theirs.payment,
-						   &theirs.delayed_payment,
-						   &state->next_per_commit[REMOTE],
-						   minimum_depth);
+	return towire_opening_funder_reply(state,
+					   state->remoteconf,
+					   &sig,
+					   &state->cs,
+					   &theirs.revocation,
+					   &theirs.payment,
+					   &theirs.delayed_payment,
+					   &state->next_per_commit[REMOTE],
+					   minimum_depth,
+					   &their_funding_pubkey,
+					   &state->funding_txid);
 }
 
 /* This is handed the message the peer sent which caused gossip to stop:
@@ -671,6 +687,10 @@ int main(int argc, char *argv[])
 	struct pubkey our_funding_pubkey;
 	u32 minimum_depth, max_minimum_depth;
 	u32 min_feerate, max_feerate;
+	u64 change_satoshis;
+	u32 change_keyindex;
+	struct utxo *utxos;
+	u8 *bip32_seed;
 
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
@@ -711,12 +731,15 @@ int main(int argc, char *argv[])
 		     type_to_string(trc, struct pubkey,
 				    &state->next_per_commit[LOCAL]));
 	msg = wire_sync_read(state, REQ_FD);
-	if (fromwire_opening_funder(msg, NULL,
+	if (fromwire_opening_funder(state, msg, NULL,
 				    &state->funding_satoshis,
 				    &state->push_msat,
-				    &state->feerate_per_kw, &max_minimum_depth))
+				    &state->feerate_per_kw, &max_minimum_depth,
+				    &change_satoshis, &change_keyindex,
+				    &utxos, &bip32_seed))
 		msg = funder_channel(state, &our_funding_pubkey, &our_points,
-				     max_minimum_depth);
+				     max_minimum_depth, change_satoshis,
+				     change_keyindex, utxos, bip32_seed);
 	else if (fromwire_opening_fundee(state, msg, NULL, &minimum_depth,
 					 &min_feerate, &max_feerate, &peer_msg))
 		msg = fundee_channel(state, &our_funding_pubkey, &our_points,
