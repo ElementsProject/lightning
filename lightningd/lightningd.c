@@ -254,6 +254,9 @@ int main(int argc, char *argv[])
 	/* Make sure we can reach other daemons, and versions match. */
 	test_daemons(ld);
 
+	/* Initialize wallet, now that we are in the correct directory */
+	ld->wallet = wallet_new(ld, ld->log);
+
 	/* Mark ourselves live. */
 	log_info(ld->log, "Hello world from %s!", version());
 

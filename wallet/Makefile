@@ -6,8 +6,9 @@ wallet-wrongdir:
 
 check: wallet/tests
 
-WALLET_LIB_SRC :=					\
-	wallet/db.c
+WALLET_LIB_SRC :=	\
+	wallet/db.c	\
+	wallet/wallet.c
 
 WALLET_LIB_OBJS := $(WALLET_LIB_SRC:.c=.o)
 WALLET_LIB_HEADERS := $(WALLET_LIB_SRC:.c=.h)
