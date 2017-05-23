@@ -1,4 +1,3 @@
-/* FIXME: Handle incoming gossip messages! */
 #include <bitcoin/block.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
@@ -29,9 +28,10 @@
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 
-/* stdin == requests, 3 == peer */
+/* stdin == requests, 3 == peer, 4 == gossip */
 #define REQ_FD STDIN_FILENO
 #define PEER_FD 3
+#define GOSSIP_FD 4
 
 struct state {
 	struct crypto_state cs;
@@ -186,7 +186,11 @@ static u8 *read_next_peer_msg(struct state *state, const tal_t *ctx)
 					    "Sending pong");
 			tal_free(pong);
 		} else if (gossip_msg(msg)) {
-			/* FIXME: Send to gossip daemon! */
+			/* We relay gossip to gossipd, but don't relay from */
+			if (!wire_sync_write(GOSSIP_FD, msg))
+				peer_failed(PEER_FD, &state->cs, NULL,
+					    WIRE_OPENING_PEER_WRITE_FAILED,
+					    "Relaying gossip message");
 		} else {
 			return msg;
 		}
@@ -734,10 +738,11 @@ int main(int argc, char *argv[])
 				   minimum_depth, min_feerate, max_feerate,
 				   peer_msg);
 
-	/* Write message and hand back the fd. */
+	/* Write message and hand back the peer fd ang gossip fd. */
 	wire_sync_write(REQ_FD, msg);
 	fdpass_send(REQ_FD, PEER_FD);
-	status_trace("Sent %s with fd",
+	fdpass_send(REQ_FD, GOSSIP_FD);
+	status_trace("Sent %s with 2 fds",
 		     opening_wire_type_name(fromwire_peektype(msg)));
 	tal_free(state);
 	return 0;
