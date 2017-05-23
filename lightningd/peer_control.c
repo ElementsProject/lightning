@@ -31,6 +31,7 @@
 #include <overflows.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <wally_bip32.h>
 #include <wire/gen_onion_wire.h>
 #include <wire/gen_peer_wire.h>
 
@@ -426,12 +427,13 @@ struct peer *peer_from_json(struct lightningd *ld,
 struct funding_channel {
 	struct peer *peer;
 	struct command *cmd;
-	u64 satoshi;
+
+	/* Details we sent to openingd to create funding. */
 	const struct utxo **utxomap;
 	u64 change;
 	u32 change_keyindex;
 
-	struct pubkey local_fundingkey, remote_fundingkey;
+	/* Funding tx once we're ready to sign and send. */
 	struct bitcoin_tx *funding_tx;
 
 	/* We prepare this when channeld exits, and hold until HSM replies. */
@@ -522,7 +524,8 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 }
 
 /* FIXME: Reshuffle. */
-static void peer_start_channeld(struct peer *peer, const u8 *initmsg);
+static void peer_start_channeld(struct peer *peer, const u8 *initmsg,
+				enum peer_state oldstate);
 
 static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 					const int *fds,
@@ -554,9 +557,6 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 			= bitcoin_witness_p2wpkh(tx, &sigs[i], &key);
 	}
 
-	peer_set_condition(fc->peer,
-			   GETTING_SIG_FROM_HSM, OPENINGD_AWAITING_LOCKIN);
-
 	/* Send it out and watch for confirms. */
 	broadcast_tx(hsm->ld->topology, fc->peer, tx, funding_broadcast_failed);
 	watch_tx(fc->peer, fc->peer->ld->topology, fc->peer, tx,
@@ -568,7 +568,7 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 	command_success(fc->cmd, null_response(fc->cmd));
 
 	/* Start normal channel daemon. */
-	peer_start_channeld(fc->peer, fc->channel_init_msg);
+	peer_start_channeld(fc->peer, fc->channel_init_msg, GETTING_SIG_FROM_HSM);
 
 	tal_free(fc);
 	return true;
@@ -1348,7 +1348,8 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
  * Steals initmsg: caller prepares it because it has the information to
  * construct it.
  */
-static void peer_start_channeld(struct peer *peer, const u8 *initmsg)
+static void peer_start_channeld(struct peer *peer, const u8 *initmsg,
+				enum peer_state oldstate)
 {
 	struct channeld_start *cds = tal(peer, struct channeld_start);
 	/* Unowned: back to being owned by main daemon. */
@@ -1364,7 +1365,7 @@ static void peer_start_channeld(struct peer *peer, const u8 *initmsg)
 
 	cds->peer = peer;
 	cds->initmsg = tal_steal(cds, initmsg);
-	peer_set_condition(peer, OPENINGD_AWAITING_LOCKIN, GETTING_HSMFD);
+	peer_set_condition(peer, oldstate, GETTING_HSMFD);
 
 	/* Get fd from hsm. */
 	subd_req(peer, peer->ld->hsm,
@@ -1372,9 +1373,9 @@ static void peer_start_channeld(struct peer *peer, const u8 *initmsg)
 		 -1, 1, peer_start_channeld_hsmfd, cds);
 }
 
-static bool opening_release_tx(struct subd *opening, const u8 *resp,
-			       const int *fds,
-			       struct funding_channel *fc)
+static bool opening_funder_finished(struct subd *opening, const u8 *resp,
+				    const int *fds,
+				    struct funding_channel *fc)
 {
 	u8 *msg;
 	struct channel_config their_config;
@@ -1383,33 +1384,68 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 	struct basepoints theirbase;
 	struct config *cfg = &fc->peer->ld->dstate.config;
 	struct utxo *utxos;
+	struct sha256_double funding_txid;
+	struct pubkey changekey;
+	struct pubkey remote_fundingkey, local_fundingkey;
 
 	assert(tal_count(fds) == 1);
 	fc->peer->fd = fds[0];
 	fc->peer->cs = tal(fc->peer, struct crypto_state);
 
-	if (!fromwire_opening_funder_funding_reply(resp, NULL,
-						   &their_config,
-						   &commit_sig,
-						   fc->peer->cs,
-						   &theirbase.revocation,
-						   &theirbase.payment,
-						   &theirbase.delayed_payment,
-						   &their_per_commit_point,
-						   &fc->peer->minimum_depth)) {
-		log_broken(fc->peer->log, "bad OPENING_OPEN_FUNDING_REPLY %s",
+	if (!fromwire_opening_funder_reply(resp, NULL,
+					   &their_config,
+					   &commit_sig,
+					   fc->peer->cs,
+					   &theirbase.revocation,
+					   &theirbase.payment,
+					   &theirbase.delayed_payment,
+					   &their_per_commit_point,
+					   &fc->peer->minimum_depth,
+					   &remote_fundingkey,
+					   &funding_txid)) {
+		log_broken(fc->peer->log, "bad OPENING_FUNDER_REPLY %s",
 			   tal_hex(resp, resp));
 		tal_free(fc->peer);
 		return false;
 	}
-	log_debug(fc->peer->log, "Getting HSM to sign funding tx");
+
+	/* Generate the funding tx. */
+	if (fc->change
+	    && !bip32_pubkey(fc->peer->ld->bip32_base,
+			     &changekey, fc->change_keyindex))
+		fatal("Error deriving change key %u", fc->change_keyindex);
+
+	derive_basepoints(fc->peer->seed, &local_fundingkey,
+			  NULL, NULL, NULL, NULL, 0);
+
+	fc->funding_tx = funding_tx(fc, &fc->peer->funding_outnum,
+				    fc->utxomap, fc->peer->funding_satoshi,
+				    &local_fundingkey,
+				    &remote_fundingkey,
+				    fc->change, &changekey,
+				    fc->peer->ld->bip32_base);
+	fc->peer->funding_txid = tal(fc->peer, struct sha256_double);
+	bitcoin_txid(fc->funding_tx, fc->peer->funding_txid);
+
+	if (!structeq(fc->peer->funding_txid, &funding_txid)) {
+		peer_fail(fc->peer, "Funding txid mismatch:"
+			  " satoshi %"PRIu64" change %"PRIu64" changeidx %u"
+			  " localkey %s remotekey %s",
+			  fc->peer->funding_satoshi,
+			  fc->change, fc->change_keyindex,
+			  type_to_string(fc, struct pubkey, &local_fundingkey),
+			  type_to_string(fc, struct pubkey, &remote_fundingkey));
+		return false;
+	}
 
 	/* Get HSM to sign the funding tx. */
+	log_debug(fc->peer->log, "Getting HSM to sign funding tx");
+
 	utxos = from_utxoptr_arr(fc, fc->utxomap);
-	msg = towire_hsmctl_sign_funding(fc, fc->satoshi, fc->change,
-					 fc->change_keyindex,
-					 &fc->local_fundingkey,
-					 &fc->remote_fundingkey,
+	msg = towire_hsmctl_sign_funding(fc, fc->peer->funding_satoshi,
+					 fc->change, fc->change_keyindex,
+					 &local_fundingkey,
+					 &remote_fundingkey,
 					 utxos);
 	tal_free(utxos);
 
@@ -1421,12 +1457,12 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 						   &their_config,
 						   &commit_sig,
 						   fc->peer->cs,
-						   &fc->remote_fundingkey,
+						   &remote_fundingkey,
 						   &theirbase.revocation,
 						   &theirbase.payment,
 						   &theirbase.delayed_payment,
 						   &their_per_commit_point,
-						   fc->peer->funder == LOCAL,
+						   true, /* we are funder */
 						   cfg->fee_base,
 						   cfg->fee_per_satoshi,
 						   fc->peer->funding_satoshi,
@@ -1444,42 +1480,6 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 
 	/* Tell opening daemon to exit. */
 	return false;
-}
-
-static bool opening_gen_funding(struct subd *opening, const u8 *reply,
-				const int *fds, struct funding_channel *fc)
-{
-	u8 *msg;
-	struct pubkey changekey;
-
-	log_debug(fc->peer->log, "Created funding transaction for channel");
-	if (!fromwire_opening_funder_reply(reply, NULL,
-					   &fc->local_fundingkey,
-					   &fc->remote_fundingkey)) {
-		log_broken(fc->peer->log, "Bad opening_open_reply %s",
-			   tal_hex(fc, reply));
-		/* Free openingd and peer */
-		return false;
-	}
-
-	if (fc->change
-	    && !bip32_pubkey(fc->peer->ld->bip32_base,
-			     &changekey, fc->change_keyindex))
-		fatal("Error deriving change key %u", fc->change_keyindex);
-
-	fc->funding_tx = funding_tx(fc, &fc->peer->funding_outnum,
-				    fc->utxomap, fc->satoshi,
-				    &fc->local_fundingkey,
-				    &fc->remote_fundingkey,
-				    fc->change, &changekey,
-				    fc->peer->ld->bip32_base);
-	fc->peer->funding_txid = tal(fc->peer, struct sha256_double);
-	bitcoin_txid(fc->funding_tx, fc->peer->funding_txid);
-
-	msg = towire_opening_funder_funding(fc, fc->peer->funding_txid,
-					    fc->peer->funding_outnum);
-	subd_req(fc, fc->peer->owner, take(msg), -1, 1, opening_release_tx, fc);
-	return true;
 }
 
 static bool opening_fundee_finish_response(struct subd *opening,
@@ -1541,7 +1541,7 @@ static bool opening_fundee_finish_response(struct subd *opening,
 
 	/* On to normal operation! */
 	peer->owner = NULL;
-	peer_start_channeld(peer, initmsg);
+	peer_start_channeld(peer, initmsg, OPENINGD_AWAITING_LOCKIN);
 
 	/* Tell opening daemon to exit. */
 	return false;
@@ -1694,6 +1694,8 @@ static bool gossip_peer_released(struct subd *gossip,
 	u64 id;
 	u8 *msg;
 	struct subd *opening;
+	struct utxo *utxos;
+	u8 *bip32_base;
 
 	assert(tal_count(fds) == 2);
 	fc->peer->fd = fds[0];
@@ -1737,18 +1739,24 @@ static bool gossip_peer_released(struct subd *gossip,
 				  min_effective_htlc_capacity_msat,
 				  fc->peer->cs, fc->peer->seed);
 
-	fc->peer->funding_satoshi = fc->satoshi;
-	/* FIXME: Support push_msat? */
-	fc->peer->push_msat = 0;
-
 	fc->peer->cs = tal_free(fc->peer->cs);
 
 	subd_send_msg(opening, take(msg));
+
+	utxos = from_utxoptr_arr(fc, fc->utxomap);
+	bip32_base = tal_arr(fc, u8, BIP32_SERIALIZED_LEN);
+	if (bip32_key_serialize(fc->peer->ld->bip32_base, BIP32_FLAG_KEY_PUBLIC,
+				bip32_base, tal_len(bip32_base))
+	    != WALLY_OK)
+		fatal("Can't serialize bip32 public key");
+
 	/* FIXME: Real feerate! */
 	msg = towire_opening_funder(fc, fc->peer->funding_satoshi,
 				    fc->peer->push_msat,
-				    15000, max_minimum_depth);
-	subd_req(fc, opening, take(msg), -1, 0, opening_gen_funding, fc);
+				    15000, max_minimum_depth,
+				    fc->change, fc->change_keyindex,
+				    utxos, bip32_base);
+	subd_req(fc, opening, take(msg), -1, 1, opening_funder_finished, fc);
 	return true;
 }
 
@@ -1779,14 +1787,17 @@ static void json_fund_channel(struct command *cmd,
 		return;
 	}
 
-	if (!json_tok_u64(buffer, satoshitok, &fc->satoshi)) {
+	if (!json_tok_u64(buffer, satoshitok, &fc->peer->funding_satoshi)) {
 		command_fail(cmd, "Invalid satoshis");
 		return;
 	}
 
+	/* FIXME: Support push_msat? */
+	fc->peer->push_msat = 0;
+
 	/* Try to do this now, so we know if insufficient funds. */
 	/* FIXME: Feerate & dustlimit */
-	fc->utxomap = build_utxos(fc, ld, fc->satoshi, 15000, 600,
+	fc->utxomap = build_utxos(fc, ld, fc->peer->funding_satoshi, 15000, 600,
 				  &fc->change, &fc->change_keyindex);
 	if (!fc->utxomap) {
 		command_fail(cmd, "Cannot afford funding transaction");
