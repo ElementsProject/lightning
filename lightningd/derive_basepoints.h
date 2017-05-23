@@ -19,6 +19,16 @@ struct secrets {
 	struct secret delayed_payment_basepoint_secret;
 };
 
+/**
+ * derive_basepoints - given a (per-peer) seed, get the basepoints
+ * @seed: (in) seed (derived by master daemon from counter and main seed)
+ * @funding_pubkey: (out) pubkey for funding tx output (if non-NULL)
+ * @basepoints: (out) basepoints for channel (if non-NULL)
+ * @secrets: (out) basepoints for channel (if non-NULL)
+ * @shaseed: (out) seed for shachain (if non-NULL)
+ * @per_commit_point: (out) per-commit-point for @per_commit_index (if non-NULL)
+ * @per_commit_index: (in) which @per_commit_point to set.
+ */
 bool derive_basepoints(const struct privkey *seed,
 		       struct pubkey *funding_pubkey,
 		       struct basepoints *basepoints,
