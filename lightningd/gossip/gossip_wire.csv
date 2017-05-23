@@ -2,8 +2,9 @@
 gossipstatus_init_failed,0x8000
 gossipstatus_bad_new_peer_request,0x8001
 gossipstatus_bad_release_request,0x8002
-gossipstatus_bad_request,0x8003
-gossipstatus_fdpass_failed,0x8004
+gossipstatus_bad_fail_request,0x8003
+gossipstatus_bad_request,0x8004
+gossipstatus_fdpass_failed,0x8005
 
 # Peers can give a bad message, we close their fd, but no harm done.
 gossipstatus_peer_bad_msg,1000
@@ -100,3 +101,7 @@ gossip_resolve_channel_reply,0,keys,num_keys*struct pubkey
 gossip_forwarded_msg,10
 gossip_forwarded_msg,0,msglen,2
 gossip_forwarded_msg,2,msg,msglen
+
+# If peer is still connected, fail it (master does this for reconnect)
+gossipctl_fail_peer,11
+gossipctl_fail_peer,0,unique_id,8
