@@ -22,25 +22,34 @@ bool derive_basepoints(const struct privkey *seed,
 	hkdf_sha256(&keys, sizeof(keys), NULL, 0, seed, sizeof(*seed),
 		    "c-lightning", strlen("c-lightning"));
 
-	secrets->funding_privkey = keys.f;
-	secrets->revocation_basepoint_secret = keys.r.secret;
-	secrets->payment_basepoint_secret = keys.p.secret;
-	secrets->delayed_payment_basepoint_secret = keys.d.secret;
+	if (secrets) {
+		secrets->funding_privkey = keys.f;
+		secrets->revocation_basepoint_secret = keys.r.secret;
+		secrets->payment_basepoint_secret = keys.p.secret;
+		secrets->delayed_payment_basepoint_secret = keys.d.secret;
+	}
 
-	if (!pubkey_from_privkey(&keys.f, funding_pubkey)
-	    || !pubkey_from_privkey(&keys.r, &basepoints->revocation)
-	    || !pubkey_from_privkey(&keys.p, &basepoints->payment)
-	    || !pubkey_from_privkey(&keys.d, &basepoints->delayed_payment))
-		return false;
+	if (funding_pubkey) {
+		if (!pubkey_from_privkey(&keys.f, funding_pubkey))
+			return false;
+	}
+
+	if (basepoints) {
+		if (!pubkey_from_privkey(&keys.r, &basepoints->revocation)
+		    || !pubkey_from_privkey(&keys.p, &basepoints->payment)
+		    || !pubkey_from_privkey(&keys.d, &basepoints->delayed_payment))
+			return false;
+	}
 
 	/* BOLT #3:
 	 *
 	 * A node MUST select an unguessable 256-bit seed for each connection,
 	 * and MUST NOT reveal the seed.
 	 */
-	*shaseed = keys.shaseed;
+	if (shaseed)
+		*shaseed = keys.shaseed;
 
-	shachain_from_seed(shaseed, shachain_index(per_commit_index),
+	shachain_from_seed(&keys.shaseed, shachain_index(per_commit_index),
 			   &per_commit_secret);
 
 	/* BOLT #3:
@@ -49,10 +58,12 @@ bool derive_basepoints(const struct privkey *seed,
 	 *
 	 * 	per-commitment-point = per-commitment-secret * G
 	 */
-	if (secp256k1_ec_pubkey_create(secp256k1_ctx,
-				       &per_commit_point->pubkey,
-				       per_commit_secret.u.u8) != 1)
-		return false;
+	if (per_commit_point) {
+		if (secp256k1_ec_pubkey_create(secp256k1_ctx,
+					       &per_commit_point->pubkey,
+					       per_commit_secret.u.u8) != 1)
+			return false;
+	}
 
 	return true;
 }
