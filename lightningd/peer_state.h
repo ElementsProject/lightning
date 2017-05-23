@@ -14,10 +14,6 @@ enum peer_state {
 	/* Getting signature from HSM for funding tx (funder only). */
 	GETTING_SIG_FROM_HSM,
 
-	/* Waiting for funding tx to lock in: either have broadcast, or
-	 * have sent `funding_signed`. */
-	OPENINGD_AWAITING_LOCKIN,
-
 	/* Getting HSM fd for channeld. */
 	GETTING_HSMFD,
 

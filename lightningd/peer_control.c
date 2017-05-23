@@ -1482,7 +1482,7 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 	return false;
 }
 
-static bool opening_fundee_finish_response(struct subd *opening,
+static bool opening_fundee_finished(struct subd *opening,
 					   const u8 *reply,
 					   const int *fds,
 					   struct peer *peer)
@@ -1492,6 +1492,7 @@ static bool opening_fundee_finish_response(struct subd *opening,
 	struct basepoints theirbase;
 	struct pubkey remote_fundingkey, their_per_commit_point;
 	struct config *cfg = &peer->ld->dstate.config;
+	u8 *funding_msg_enc;
 	u8 *initmsg;
 
 	log_debug(peer->log, "Got opening_fundee_finish_response");
@@ -1499,20 +1500,36 @@ static bool opening_fundee_finish_response(struct subd *opening,
 	peer->fd = fds[0];
 	peer->cs = tal(peer, struct crypto_state);
 
-	if (!fromwire_opening_fundee_finish_reply(reply, NULL,
-						  &peer->funding_outnum,
-						  &their_config,
-						  &first_commit_sig,
-						  peer->cs,
-						  &remote_fundingkey,
-						  &theirbase.revocation,
-						  &theirbase.payment,
-						  &theirbase.delayed_payment,
-						  &their_per_commit_point,
-						  &peer->funding_satoshi,
-						  &peer->push_msat)) {
-		log_broken(peer->log, "bad OPENING_FUNDEE_FINISH_REPLY %s",
+	peer->funding_txid = tal(peer, struct sha256_double);
+	if (!fromwire_opening_fundee_reply(reply, reply, NULL,
+					   &their_config,
+					   &first_commit_sig,
+					   peer->cs,
+					   &theirbase.revocation,
+					   &theirbase.payment,
+					   &theirbase.delayed_payment,
+					   &their_per_commit_point,
+					   &remote_fundingkey,
+					   peer->funding_txid,
+					   &peer->funding_outnum,
+					   &peer->funding_satoshi,
+					   &peer->push_msat,
+					   &funding_msg_enc)) {
+		log_broken(peer->log, "bad OPENING_FUNDEE_REPLY %s",
 			   tal_hex(reply, reply));
+		return false;
+	}
+
+	log_debug(peer->log, "Watching funding tx %s",
+		     type_to_string(reply, struct sha256_double,
+				    peer->funding_txid));
+	watch_txid(peer, peer->ld->topology, peer, peer->funding_txid,
+		   funding_lockin_cb, NULL);
+
+	/* FIXME: Remove synchronous write! */
+	if (write(peer->fd, funding_msg_enc, tal_len(funding_msg_enc))
+	    != tal_len(funding_msg_enc)) {
+		log_broken(peer->log, "Could not write funding_signed msg");
 		return false;
 	}
 
@@ -1541,37 +1558,10 @@ static bool opening_fundee_finish_response(struct subd *opening,
 
 	/* On to normal operation! */
 	peer->owner = NULL;
-	peer_start_channeld(peer, initmsg, OPENINGD_AWAITING_LOCKIN);
+	peer_start_channeld(peer, initmsg, OPENINGD);
 
 	/* Tell opening daemon to exit. */
 	return false;
-}
-
-static bool opening_fundee_reply(struct subd *opening, const u8 *reply,
-				 const int *fds,
-				 struct peer *peer)
-{
-	peer->funding_txid = tal(peer, struct sha256_double);
-	if (!fromwire_opening_fundee_reply(reply, NULL, peer->funding_txid)) {
-		log_broken(peer->log, "bad OPENING_FUNDEE_REPLY %s",
-			   tal_hex(reply, reply));
-		return false;
-	}
-
-	log_debug(peer->log, "Watching funding tx %s",
-		     type_to_string(reply, struct sha256_double,
-				    peer->funding_txid));
-	watch_txid(peer, peer->ld->topology, peer, peer->funding_txid,
-		   funding_lockin_cb, NULL);
-
-	/* It's about to send out funding_signed, so set this now. */
-	peer_set_condition(peer, OPENINGD, OPENINGD_AWAITING_LOCKIN);
-
-	/* Tell it we're watching. */
-	subd_req(peer, opening, towire_opening_fundee_finish(reply),
-		 -1, 1,
-		 opening_fundee_finish_response, peer);
-	return true;
 }
 
 static void channel_config(struct lightningd *ld,
@@ -1679,7 +1669,8 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer)
 		peer_fail(peer, "Unacceptably long open_channel");
 		return;
 	}
-	subd_req(peer, peer->owner, take(msg), -1, 0, opening_fundee_reply, peer);
+	subd_req(peer, peer->owner, take(msg), -1, 1,
+		 opening_fundee_finished, peer);
 }
 
 /* Peer has been released from gossip.  Start opening. */
