@@ -379,6 +379,9 @@ static struct io_plan *new_peer_got_fd(struct io_conn *conn, struct peer *peer)
 	if (!peer->conn) {
 		peer->error = "Could not create connection";
 		tal_free(peer);
+	} else {
+		/* If conn dies, we forget peer. */
+		tal_steal(peer->conn, peer);
 	}
 	return daemon_conn_read_next(conn,&peer->daemon->master);
 }
