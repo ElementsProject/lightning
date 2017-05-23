@@ -429,6 +429,30 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static struct io_plan *fail_peer(struct io_conn *conn, struct daemon *daemon,
+				 const u8 *msg)
+{
+	u64 unique_id;
+	struct peer *peer;
+
+	if (!fromwire_gossipctl_fail_peer(msg, NULL, &unique_id))
+		status_failed(WIRE_GOSSIPSTATUS_BAD_FAIL_REQUEST,
+			      "%s", tal_hex(trc, msg));
+
+	/* This may not find the peer, if we fail beforehand. */
+	peer = find_peer(daemon, unique_id);
+	if (!peer)
+		status_trace("Unknown fail_peer %"PRIu64, unique_id);
+	else {
+		assert(peer->local);
+		status_trace("fail_peer %"PRIu64, unique_id);
+		/* This owns the peer, so we can free it */
+		io_close(peer->conn);
+	}
+
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 				    u8 *msg)
 {
@@ -616,6 +640,8 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		return new_peer(conn, daemon, master->msg_in);
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 		return release_peer(conn, daemon, master->msg_in);
+	case WIRE_GOSSIPCTL_FAIL_PEER:
+		return fail_peer(conn, daemon, master->msg_in);
 
 	case WIRE_GOSSIP_GETNODES_REQUEST:
 		return getnodes(conn, daemon);
@@ -644,6 +670,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIPSTATUS_INIT_FAILED:
 	case WIRE_GOSSIPSTATUS_BAD_NEW_PEER_REQUEST:
 	case WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST:
+	case WIRE_GOSSIPSTATUS_BAD_FAIL_REQUEST:
 	case WIRE_GOSSIPSTATUS_BAD_REQUEST:
 	case WIRE_GOSSIPSTATUS_FDPASS_FAILED:
 	case WIRE_GOSSIPSTATUS_PEER_BAD_MSG:
