@@ -191,10 +191,10 @@ static u8 *read_next_peer_msg(struct state *state, const tal_t *ctx)
 	}
 }
 
-static u8 *open_channel(struct state *state,
-			const struct pubkey *our_funding_pubkey,
-			const struct basepoints *ours,
-			u32 max_minimum_depth)
+static u8 *funder_channel(struct state *state,
+			  const struct pubkey *our_funding_pubkey,
+			  const struct basepoints *ours,
+			  u32 max_minimum_depth)
 {
 	const tal_t *tmpctx = tal_tmpctx(state);
 	struct channel_id channel_id, id_in;
@@ -263,9 +263,9 @@ static u8 *open_channel(struct state *state,
 	if (!fromwire_accept_channel(msg, NULL, &id_in,
 				     &state->remoteconf->dust_limit_satoshis,
 				     &state->remoteconf
-					->max_htlc_value_in_flight_msat,
+				     ->max_htlc_value_in_flight_msat,
 				     &state->remoteconf
-					->channel_reserve_satoshis,
+				     ->channel_reserve_satoshis,
 				     &minimum_depth,
 				     &state->remoteconf->htlc_minimum_msat,
 				     &state->remoteconf->to_self_delay,
@@ -303,18 +303,18 @@ static u8 *open_channel(struct state *state,
 	check_config_bounds(state, state->remoteconf);
 
 	/* Now, ask master create a transaction to pay those two addresses. */
-	msg = towire_opening_open_reply(tmpctx, our_funding_pubkey,
-					&their_funding_pubkey);
+	msg = towire_opening_funder_reply(tmpctx, our_funding_pubkey,
+					  &their_funding_pubkey);
 	wire_sync_write(REQ_FD, msg);
 
 	/* Expect funding tx. */
 	msg = wire_sync_read(tmpctx, REQ_FD);
-	if (!fromwire_opening_open_funding(msg, NULL,
-					   &state->funding_txid,
-					   &state->funding_txout))
+	if (!fromwire_opening_funder_funding(msg, NULL,
+					     &state->funding_txid,
+					     &state->funding_txout))
 		peer_failed(PEER_FD, &state->cs, NULL,
 			    WIRE_OPENING_PEER_READ_FAILED,
-			    "Expected valid opening_open_funding: %s",
+			    "Expected valid opening_funder_funding: %s",
 			    tal_hex(trc, msg));
 
 	state->channel = new_channel(state,
@@ -420,24 +420,24 @@ static u8 *open_channel(struct state *state,
 	 * Once the channel funder receives the `funding_signed` message, they
 	 * must broadcast the funding transaction to the Bitcoin network.
 	 */
-	return towire_opening_open_funding_reply(state,
-						 state->remoteconf,
-						 &sig,
-						 &state->cs,
-						 &theirs.revocation,
-						 &theirs.payment,
-						 &theirs.delayed_payment,
-						 &state->next_per_commit[REMOTE],
-						 minimum_depth);
+	return towire_opening_funder_funding_reply(state,
+						   state->remoteconf,
+						   &sig,
+						   &state->cs,
+						   &theirs.revocation,
+						   &theirs.payment,
+						   &theirs.delayed_payment,
+						   &state->next_per_commit[REMOTE],
+						   minimum_depth);
 }
 
 /* This is handed the message the peer sent which caused gossip to stop:
  * it should be an open_channel */
-static u8 *recv_channel(struct state *state,
-			const struct pubkey *our_funding_pubkey,
-			const struct basepoints *ours,
-			u32 minimum_depth,
-			u32 min_feerate, u32 max_feerate, const u8 *peer_msg)
+static u8 *fundee_channel(struct state *state,
+			  const struct pubkey *our_funding_pubkey,
+			  const struct basepoints *ours,
+			  u32 minimum_depth,
+			  u32 min_feerate, u32 max_feerate, const u8 *peer_msg)
 {
 	struct channel_id id_in, channel_id;
 	struct basepoints theirs;
@@ -588,13 +588,13 @@ static u8 *recv_channel(struct state *state,
 	/* Now, ask master to watch. */
 	status_trace("asking master to watch funding %s",
 		     type_to_string(trc, struct sha256_double, &state->funding_txid));
-	msg = towire_opening_accept_reply(state, &state->funding_txid);
+	msg = towire_opening_fundee_reply(state, &state->funding_txid);
 	wire_sync_write(REQ_FD, msg);
 
 	msg = wire_sync_read(state, REQ_FD);
-	if (!fromwire_opening_accept_finish(msg, NULL))
+	if (!fromwire_opening_fundee_finish(msg, NULL))
 		status_failed(WIRE_OPENING_BAD_PARAM,
-			      "Expected valid opening_accept_finish: %s",
+			      "Expected valid opening_fundee_finish: %s",
 			      tal_hex(trc, msg));
 
 	status_trace("master said to finish");
@@ -647,7 +647,7 @@ static u8 *recv_channel(struct state *state,
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
 			      "Writing funding_signed");
 
-	return towire_opening_accept_finish_reply(state,
+	return towire_opening_fundee_finish_reply(state,
 						  state->funding_txout,
 						  state->remoteconf,
 						  &theirsig,
@@ -711,15 +711,15 @@ int main(int argc, char *argv[])
 		     type_to_string(trc, struct pubkey,
 				    &state->next_per_commit[LOCAL]));
 	msg = wire_sync_read(state, REQ_FD);
-	if (fromwire_opening_open(msg, NULL,
-				  &state->funding_satoshis,
-				  &state->push_msat,
-				  &state->feerate_per_kw, &max_minimum_depth))
-		msg = open_channel(state, &our_funding_pubkey, &our_points,
-				   max_minimum_depth);
-	else if (fromwire_opening_accept(state, msg, NULL, &minimum_depth,
+	if (fromwire_opening_funder(msg, NULL,
+				    &state->funding_satoshis,
+				    &state->push_msat,
+				    &state->feerate_per_kw, &max_minimum_depth))
+		msg = funder_channel(state, &our_funding_pubkey, &our_points,
+				     max_minimum_depth);
+	else if (fromwire_opening_fundee(state, msg, NULL, &minimum_depth,
 					 &min_feerate, &max_feerate, &peer_msg))
-		msg = recv_channel(state, &our_funding_pubkey, &our_points,
+		msg = fundee_channel(state, &our_funding_pubkey, &our_points,
 				   minimum_depth, min_feerate, max_feerate,
 				   peer_msg);
 

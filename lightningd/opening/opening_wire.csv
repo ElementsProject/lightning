@@ -24,57 +24,57 @@ opening_init,48,crypto_state,struct crypto_state
 opening_init,196,seed,struct privkey
 
 # This means we offer the open.
-opening_open,1
-opening_open,0,funding_satoshis,8
-opening_open,8,push_msat,8
-opening_open,16,feerate_per_kw,4
-opening_open,20,max_minimum_depth,4
+opening_funder,1
+opening_funder,0,funding_satoshis,8
+opening_funder,8,push_msat,8
+opening_funder,16,feerate_per_kw,4
+opening_funder,20,max_minimum_depth,4
 
 # Reply asks for txid of funding transaction.
-opening_open_reply,101
-opening_open_reply,0,local_fundingkey,33
-opening_open_reply,0,remote_fundingkey,33
+opening_funder_reply,101
+opening_funder_reply,0,local_fundingkey,33
+opening_funder_reply,0,remote_fundingkey,33
 
 # Now we give the funding txid and outnum.
-opening_open_funding,2
-opening_open_funding,0,txid,struct sha256_double
-opening_open_funding,32,txout,u16
+opening_funder_funding,2
+opening_funder_funding,0,txid,struct sha256_double
+opening_funder_funding,32,txout,u16
 
 # This gives their sig, means we can broadcast tx: we're done.
-opening_open_funding_reply,102
-opening_open_funding_reply,0,their_config,struct channel_config
-opening_open_funding_reply,36,first_commit_sig,secp256k1_ecdsa_signature
-opening_open_funding_reply,100,crypto_state,struct crypto_state
-opening_open_funding_reply,244,revocation_basepoint,33
-opening_open_funding_reply,277,payment_basepoint,33
-opening_open_funding_reply,310,delayed_payment_basepoint,33
-opening_open_funding_reply,343,their_per_commit_point,33
-opening_open_funding_reply,376,minimum_depth,4
+opening_funder_funding_reply,102
+opening_funder_funding_reply,0,their_config,struct channel_config
+opening_funder_funding_reply,36,first_commit_sig,secp256k1_ecdsa_signature
+opening_funder_funding_reply,100,crypto_state,struct crypto_state
+opening_funder_funding_reply,244,revocation_basepoint,33
+opening_funder_funding_reply,277,payment_basepoint,33
+opening_funder_funding_reply,310,delayed_payment_basepoint,33
+opening_funder_funding_reply,343,their_per_commit_point,33
+opening_funder_funding_reply,376,minimum_depth,4
 
 # This means they offer the open (contains their offer packet)
-opening_accept,3
-opening_accept,0,minimum_depth,4
-opening_accept,0,min_feerate,4
-opening_accept,4,max_feerate,4
-opening_accept,8,len,2
-opening_accept,10,msg,len*u8
+opening_fundee,3
+opening_fundee,0,minimum_depth,4
+opening_fundee,0,min_feerate,4
+opening_fundee,4,max_feerate,4
+opening_fundee,8,len,2
+opening_fundee,10,msg,len*u8
 
 # This gives the txid of their funding tx to watch.
-opening_accept_reply,103
-opening_accept_reply,0,funding_txid,struct sha256_double
+opening_fundee_reply,103
+opening_fundee_reply,0,funding_txid,struct sha256_double
 
 # Acknowledge watch is in place, now can send sig.
-opening_accept_finish,4
+opening_fundee_finish,4
 
-opening_accept_finish_reply,104
-opening_accept_finish_reply,32,funding_txout,u16
-opening_accept_finish_reply,0,their_config,struct channel_config
-opening_accept_finish_reply,36,first_commit_sig,secp256k1_ecdsa_signature
-opening_accept_finish_reply,100,crypto_state,struct crypto_state
-opening_accept_finish_reply,244,remote_fundingkey,33
-opening_accept_finish_reply,277,revocation_basepoint,33
-opening_accept_finish_reply,310,payment_basepoint,33
-opening_accept_finish_reply,343,delayed_payment_basepoint,33
-opening_accept_finish_reply,377,their_per_commit_point,33
-opening_accept_finish_reply,410,funding_satoshis,8
-opening_accept_finish_reply,418,push_msat,8
+opening_fundee_finish_reply,104
+opening_fundee_finish_reply,32,funding_txout,u16
+opening_fundee_finish_reply,0,their_config,struct channel_config
+opening_fundee_finish_reply,36,first_commit_sig,secp256k1_ecdsa_signature
+opening_fundee_finish_reply,100,crypto_state,struct crypto_state
+opening_fundee_finish_reply,244,remote_fundingkey,33
+opening_fundee_finish_reply,277,revocation_basepoint,33
+opening_fundee_finish_reply,310,payment_basepoint,33
+opening_fundee_finish_reply,343,delayed_payment_basepoint,33
+opening_fundee_finish_reply,377,their_per_commit_point,33
+opening_fundee_finish_reply,410,funding_satoshis,8
+opening_fundee_finish_reply,418,push_msat,8
