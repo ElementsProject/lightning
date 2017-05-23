@@ -13,6 +13,7 @@
 #include <daemon/invoice.h>
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
+#include <daemon/timeout.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/build_utxos.h>
@@ -50,9 +51,55 @@ static void destroy_peer(struct peer *peer)
 		close(peer->fd);
 }
 
+static struct peer *peer_by_pubkey(struct lightningd *ld, const struct pubkey *id)
+{
+	struct peer *peer;
+	list_for_each(&ld->peers, peer, list) {
+		if (pubkey_cmp(id, peer->id) == 0)
+			return peer;
+	}
+	return NULL;
+}
+
+/* Mutual recursion, sets timer. */
+static void peer_reconnect(struct peer *peer);
+
+static void reconnect_failed(struct lightningd_state *dstate,
+			     struct connection *c)
+{
+	/* Figure out what peer, set reconnect timer. */
+	struct lightningd *ld = ld_from_dstate(dstate);
+	struct peer *peer = peer_by_pubkey(ld, connection_known_id(c));
+
+	tal_free(c);
+	peer_reconnect(peer);
+}
+
+static void try_reconnect(struct peer *peer)
+{
+	struct connection *c;
+	struct netaddr *addrs;
+
+	/* We may already be reconnected (another incoming connection) */
+	if (peer->fd != -1) {
+		log_debug(peer->log, "try_reconnect: already reconnected");
+		return;
+	}
+
+	c = new_connection(peer, peer->ld, NULL, peer->id);
+
+	/* FIXME: Combine known address with gossip addresses and possibly
+	 * DNS seed addresses. */
+	addrs = tal_dup_arr(c, struct netaddr, &peer->netaddr, 1, 0);
+	multiaddress_connect(&peer->ld->dstate, addrs,
+			     connection_out, reconnect_failed, c);
+}
+
 static void peer_reconnect(struct peer *peer)
 {
-	/* FIXME: Set timer, etc. */
+	new_reltimer(&peer->ld->dstate.timers,
+		     peer, peer->ld->dstate.config.poll_time,
+		     try_reconnect, peer);
 }
 
 void peer_fail(struct peer *peer, const char *fmt, ...)
@@ -965,16 +1012,6 @@ static void handle_localpay(struct htlc_end *hend,
 fail:
 	fail_local_htlc(hend->peer, hend, take(err));
 	tal_free(hend);
-}
-
-static struct peer *peer_by_pubkey(struct lightningd *ld, const struct pubkey *id)
-{
-	struct peer *peer;
-	list_for_each(&ld->peers, peer, list) {
-		if (pubkey_cmp(id, peer->id) == 0)
-			return peer;
-	}
-	return NULL;
 }
 
 /*
