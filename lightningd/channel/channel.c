@@ -1043,7 +1043,7 @@ static void init_channel(struct peer *peer, const u8 *msg)
 				   &peer->node_ids[REMOTE],
 				   &peer->commit_msec,
 				   &peer->cltv_delta))
-		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s",
+		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Init: %s",
 			      tal_hex(msg, msg));
 
 	/* channel_id is set from funding txout */

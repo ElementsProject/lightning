@@ -35,6 +35,14 @@
 #include <wire/gen_onion_wire.h>
 #include <wire/gen_peer_wire.h>
 
+struct channel_info {
+	secp256k1_ecdsa_signature commit_sig;
+	struct channel_config their_config;
+	struct pubkey remote_fundingkey;
+	struct basepoints theirbase;
+	struct pubkey their_per_commit_point;
+};
+
 static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->ld->peers, &peer->list);
@@ -52,7 +60,8 @@ void peer_fail(struct peer *peer, const char *fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	log_info(peer->log, "Peer failure: ");
+	log_info(peer->log, "Peer failure in %s: ",
+		 peer_state_name(peer->state));
 	logv(peer->log, -1, fmt, ap);
 	va_end(ap);
 
@@ -100,6 +109,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->seed = NULL;
 	peer->balance = NULL;
 	peer->state = UNINITIALIZED;
+	peer->channel_info = NULL;
 
 	idname = type_to_string(peer, struct pubkey, id);
 
@@ -160,11 +170,15 @@ struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id)
 static void peer_owner_finished(struct subd *subd, int status)
 {
 	/* If peer has moved on, do nothing. */
-	if (subd->peer->owner != subd)
+	if (subd->peer->owner != subd) {
+		log_debug(subd->ld->log, "Subdaemon %s died (%i), peer moved",
+			  subd->name, status);
 		return;
+	}
 
 	subd->peer->owner = NULL;
-	peer_fail(subd->peer, "Owning subdaemon %s died", subd->name);
+	peer_fail(subd->peer, "Owning subdaemon %s died (%i)",
+		  subd->name, status);
 }
 
 static int make_listen_fd(struct lightningd *ld,
@@ -435,9 +449,6 @@ struct funding_channel {
 
 	/* Funding tx once we're ready to sign and send. */
 	struct bitcoin_tx *funding_tx;
-
-	/* We prepare this when channeld exits, and hold until HSM replies. */
-	u8 *channel_init_msg;
 };
 
 static void fail_fundchannel_command(struct funding_channel *fc)
@@ -524,8 +535,7 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 }
 
 /* FIXME: Reshuffle. */
-static void peer_start_channeld(struct peer *peer, const u8 *initmsg,
-				enum peer_state oldstate);
+static void peer_start_channeld(struct peer *peer, enum peer_state oldstate);
 
 static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 					const int *fds,
@@ -568,7 +578,7 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 	command_success(fc->cmd, null_response(fc->cmd));
 
 	/* Start normal channel daemon. */
-	peer_start_channeld(fc->peer, fc->channel_init_msg, GETTING_SIG_FROM_HSM);
+	peer_start_channeld(fc->peer, GETTING_SIG_FROM_HSM);
 
 	tal_free(fc);
 	return true;
@@ -1309,49 +1319,65 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 	return 0;
 }
 
-struct channeld_start {
-	struct peer *peer;
-	const u8 *initmsg;
-};
-
 /* We've got fd from HSM for channeld */
 static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 				      const int *fds,
-				      struct channeld_start *cds)
+				      struct peer *peer)
 {
-	cds->peer->owner = new_subd(cds->peer->ld, cds->peer->ld,
-				    "lightningd_channel", cds->peer,
-				    channel_wire_type_name,
-				    channel_msg,
-				    peer_owner_finished,
-				    cds->peer->fd,
-				    cds->peer->gossip_client_fd, fds[0], -1);
-	if (!cds->peer->owner) {
-		log_unusual(cds->peer->log, "Could not subdaemon channel: %s",
+	u8 *initmsg;
+	const struct config *cfg = &peer->ld->dstate.config;
+
+	peer->owner = new_subd(peer->ld, peer->ld,
+			       "lightningd_channel", peer,
+			       channel_wire_type_name,
+			       channel_msg,
+			       peer_owner_finished,
+			       peer->fd,
+			       peer->gossip_client_fd, fds[0], -1);
+	if (!peer->owner) {
+		log_unusual(peer->log, "Could not subdaemon channel: %s",
 			    strerror(errno));
-		peer_fail(cds->peer, "Failed to subdaemon channel");
+		peer_fail(peer, "Failed to subdaemon channel");
 		return true;
 	}
-	cds->peer->fd = -1;
-	cds->peer->cs = tal_free(cds->peer->cs);
 
-	log_debug(cds->peer->log, "Waiting for funding confirmations");
-	peer_set_condition(cds->peer, GETTING_HSMFD, CHANNELD_AWAITING_LOCKIN);
+	log_debug(peer->log, "Waiting for funding confirmations");
+	peer_set_condition(peer, GETTING_HSMFD, CHANNELD_AWAITING_LOCKIN);
+
+	initmsg = towire_channel_init(peer,
+				      peer->funding_txid,
+				      peer->funding_outnum,
+				      &peer->our_config,
+				      &peer->channel_info->their_config,
+				      &peer->channel_info->commit_sig,
+				      peer->cs,
+				      &peer->channel_info->remote_fundingkey,
+				      &peer->channel_info->theirbase.revocation,
+				      &peer->channel_info->theirbase.payment,
+				      &peer->channel_info->theirbase.delayed_payment,
+				      &peer->channel_info->their_per_commit_point,
+				      peer->funder == LOCAL,
+				      cfg->fee_base,
+				      cfg->fee_per_satoshi,
+				      peer->funding_satoshi,
+				      peer->push_msat,
+				      peer->seed,
+				      &peer->ld->dstate.id,
+				      peer->id,
+				      time_to_msec(cfg->commit_time),
+				      cfg->deadline_blocks);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
-	subd_send_msg(cds->peer->owner, take(cds->initmsg));
-	tal_free(cds);
+	subd_send_msg(peer->owner, take(initmsg));
+
+	peer->fd = -1;
+	peer->cs = tal_free(peer->cs);
 	return true;
 }
 
-/* opening is done, start lightningd_channel for peer.
- * Steals initmsg: caller prepares it because it has the information to
- * construct it.
- */
-static void peer_start_channeld(struct peer *peer, const u8 *initmsg,
-				enum peer_state oldstate)
+/* opening is done, start lightningd_channel for peer. */
+static void peer_start_channeld(struct peer *peer, enum peer_state oldstate)
 {
-	struct channeld_start *cds = tal(peer, struct channeld_start);
 	/* Unowned: back to being owned by main daemon. */
 	peer->owner = NULL;
 	tal_steal(peer->ld, peer);
@@ -1363,14 +1389,12 @@ static void peer_start_channeld(struct peer *peer, const u8 *initmsg,
 	peer->balance[peer->funder] = peer->funding_satoshi * 1000 - peer->push_msat;
 	peer->balance[!peer->funder] = peer->push_msat;
 
-	cds->peer = peer;
-	cds->initmsg = tal_steal(cds, initmsg);
 	peer_set_condition(peer, oldstate, GETTING_HSMFD);
 
 	/* Get fd from hsm. */
 	subd_req(peer, peer->ld->hsm,
 		 take(towire_hsmctl_hsmfd_channeld(peer, peer->unique_id)),
-		 -1, 1, peer_start_channeld_hsmfd, cds);
+		 -1, 1, peer_start_channeld_hsmfd, peer);
 }
 
 static bool opening_funder_finished(struct subd *opening, const u8 *resp,
@@ -1378,31 +1402,31 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 				    struct funding_channel *fc)
 {
 	u8 *msg;
-	struct channel_config their_config;
-	secp256k1_ecdsa_signature commit_sig;
-	struct pubkey their_per_commit_point;
-	struct basepoints theirbase;
-	struct config *cfg = &fc->peer->ld->dstate.config;
+	struct channel_info *channel_info;
 	struct utxo *utxos;
 	struct sha256_double funding_txid;
 	struct pubkey changekey;
-	struct pubkey remote_fundingkey, local_fundingkey;
+	struct pubkey local_fundingkey;
 
 	assert(tal_count(fds) == 2);
 	fc->peer->fd = fds[0];
 	fc->peer->gossip_client_fd = fds[1];
 	fc->peer->cs = tal(fc->peer, struct crypto_state);
 
+	/* At this point, we care about peer */
+	fc->peer->channel_info = channel_info
+		= tal(fc->peer, struct channel_info);
+
 	if (!fromwire_opening_funder_reply(resp, NULL,
-					   &their_config,
-					   &commit_sig,
+					   &channel_info->their_config,
+					   &channel_info->commit_sig,
 					   fc->peer->cs,
-					   &theirbase.revocation,
-					   &theirbase.payment,
-					   &theirbase.delayed_payment,
-					   &their_per_commit_point,
+					   &channel_info->theirbase.revocation,
+					   &channel_info->theirbase.payment,
+					   &channel_info->theirbase.delayed_payment,
+					   &channel_info->their_per_commit_point,
 					   &fc->peer->minimum_depth,
-					   &remote_fundingkey,
+					   &channel_info->remote_fundingkey,
 					   &funding_txid)) {
 		log_broken(fc->peer->log, "bad OPENING_FUNDER_REPLY %s",
 			   tal_hex(resp, resp));
@@ -1422,7 +1446,7 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 	fc->funding_tx = funding_tx(fc, &fc->peer->funding_outnum,
 				    fc->utxomap, fc->peer->funding_satoshi,
 				    &local_fundingkey,
-				    &remote_fundingkey,
+				    &channel_info->remote_fundingkey,
 				    fc->change, &changekey,
 				    fc->peer->ld->bip32_base);
 	fc->peer->funding_txid = tal(fc->peer, struct sha256_double);
@@ -1435,7 +1459,8 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 			  fc->peer->funding_satoshi,
 			  fc->change, fc->change_keyindex,
 			  type_to_string(fc, struct pubkey, &local_fundingkey),
-			  type_to_string(fc, struct pubkey, &remote_fundingkey));
+			  type_to_string(fc, struct pubkey,
+					 &channel_info->remote_fundingkey));
 		return false;
 	}
 
@@ -1446,33 +1471,9 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 	msg = towire_hsmctl_sign_funding(fc, fc->peer->funding_satoshi,
 					 fc->change, fc->change_keyindex,
 					 &local_fundingkey,
-					 &remote_fundingkey,
+					 &channel_info->remote_fundingkey,
 					 utxos);
 	tal_free(utxos);
-
-	/* Prepare this while we have the information. */
-	fc->channel_init_msg = towire_channel_init(fc,
-						   fc->peer->funding_txid,
-						   fc->peer->funding_outnum,
-						   &fc->peer->our_config,
-						   &their_config,
-						   &commit_sig,
-						   fc->peer->cs,
-						   &remote_fundingkey,
-						   &theirbase.revocation,
-						   &theirbase.payment,
-						   &theirbase.delayed_payment,
-						   &their_per_commit_point,
-						   true, /* we are funder */
-						   cfg->fee_base,
-						   cfg->fee_per_satoshi,
-						   fc->peer->funding_satoshi,
-						   fc->peer->push_msat,
-						   fc->peer->seed,
-						   &fc->peer->ld->dstate.id,
-						   fc->peer->id,
-						   time_to_msec(cfg->commit_time),
-						   cfg->deadline_blocks);
 
 	fc->peer->owner = NULL;
 	peer_set_condition(fc->peer, OPENINGD, GETTING_SIG_FROM_HSM);
@@ -1488,13 +1489,8 @@ static bool opening_fundee_finished(struct subd *opening,
 					   const int *fds,
 					   struct peer *peer)
 {
-	struct channel_config their_config;
-	secp256k1_ecdsa_signature first_commit_sig;
-	struct basepoints theirbase;
-	struct pubkey remote_fundingkey, their_per_commit_point;
-	struct config *cfg = &peer->ld->dstate.config;
 	u8 *funding_msg_enc;
-	u8 *initmsg;
+	struct channel_info *channel_info;
 
 	log_debug(peer->log, "Got opening_fundee_finish_response");
 	assert(tal_count(fds) == 2);
@@ -1502,16 +1498,19 @@ static bool opening_fundee_finished(struct subd *opening,
 	peer->gossip_client_fd = fds[1];
 	peer->cs = tal(peer, struct crypto_state);
 
+	/* At this point, we care about peer */
+	peer->channel_info = channel_info = tal(peer, struct channel_info);
+
 	peer->funding_txid = tal(peer, struct sha256_double);
 	if (!fromwire_opening_fundee_reply(reply, reply, NULL,
-					   &their_config,
-					   &first_commit_sig,
+					   &channel_info->their_config,
+					   &channel_info->commit_sig,
 					   peer->cs,
-					   &theirbase.revocation,
-					   &theirbase.payment,
-					   &theirbase.delayed_payment,
-					   &their_per_commit_point,
-					   &remote_fundingkey,
+					   &channel_info->theirbase.revocation,
+					   &channel_info->theirbase.payment,
+					   &channel_info->theirbase.delayed_payment,
+					   &channel_info->their_per_commit_point,
+					   &channel_info->remote_fundingkey,
 					   peer->funding_txid,
 					   &peer->funding_outnum,
 					   &peer->funding_satoshi,
@@ -1535,32 +1534,9 @@ static bool opening_fundee_finished(struct subd *opening,
 		return false;
 	}
 
-	initmsg = towire_channel_init(peer,
-				      peer->funding_txid,
-				      peer->funding_outnum,
-				      &peer->our_config,
-				      &their_config,
-				      &first_commit_sig,
-				      peer->cs,
-				      &remote_fundingkey,
-				      &theirbase.revocation,
-				      &theirbase.payment,
-				      &theirbase.delayed_payment,
-				      &their_per_commit_point,
-				      peer->funder == LOCAL,
-				      cfg->fee_base,
-				      cfg->fee_per_satoshi,
-				      peer->funding_satoshi,
-				      peer->push_msat,
-				      peer->seed,
-				      &peer->ld->dstate.id,
-				      peer->id,
-				      time_to_msec(cfg->commit_time),
-				      cfg->deadline_blocks);
-
 	/* On to normal operation! */
 	peer->owner = NULL;
-	peer_start_channeld(peer, initmsg, OPENINGD);
+	peer_start_channeld(peer, OPENINGD);
 
 	/* Tell opening daemon to exit. */
 	return false;

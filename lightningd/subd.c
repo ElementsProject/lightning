@@ -330,6 +330,7 @@ static void destroy_subd(struct subd *sd)
 		status = -1;
 		break;
 	}
+	log_debug(sd->log, "finishing: %p", sd->finished);
 	if (sd->finished)
 		sd->finished(sd, status);
 }
