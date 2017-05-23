@@ -152,7 +152,7 @@ void gossip_init(struct lightningd *ld)
 	u8 *init;
 	ld->gossip = new_subd(ld, ld, "lightningd_gossip", NULL,
 			      gossip_wire_type_name,
-			      gossip_msg, gossip_finished, -1);
+			      gossip_msg, gossip_finished, NULL);
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
 

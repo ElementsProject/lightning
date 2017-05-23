@@ -124,7 +124,7 @@ static int subd(const char *dir, const char *name, bool debug,
 {
 	int childmsg[2], execfail[2];
 	pid_t childpid;
-	int err, fd;
+	int err, *fd;
 
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, childmsg) != 0)
 		goto fail;
@@ -141,7 +141,7 @@ static int subd(const char *dir, const char *name, bool debug,
 		goto close_execfail_fail;
 
 	if (childpid == 0) {
-		int fdnum = 3;
+		int fdnum = 3, i;
 		long max;
 		const char *debug_arg = NULL;
 
@@ -155,18 +155,18 @@ static int subd(const char *dir, const char *name, bool debug,
 		}
 
 		/* Dup any extra fds up first. */
-		while ((fd = va_arg(ap, int)) != -1) {
+		while ((fd = va_arg(ap, int *)) != NULL) {
 			/* If this were stdin, dup2 closed! */
-			assert(fd != STDIN_FILENO);
-			if (!move_fd(fd, fdnum))
+			assert(*fd != STDIN_FILENO);
+			if (!move_fd(*fd, fdnum))
 				goto child_errno_fail;
 			fdnum++;
 		}
 
 		/* Make (fairly!) sure all other fds are closed. */
 		max = sysconf(_SC_OPEN_MAX);
-		for (fd = fdnum; fd < max; fd++)
-			close(fd);
+		for (i = fdnum; i < max; i++)
+			close(i);
 
 		if (debug)
 			debug_arg = "--debugger";
@@ -184,8 +184,12 @@ static int subd(const char *dir, const char *name, bool debug,
 	close(childmsg[1]);
 	close(execfail[1]);
 
-	while ((fd = va_arg(ap, int)) != -1)
-		close(fd);
+	while ((fd = va_arg(ap, int *)) != NULL) {
+		if (taken(fd)) {
+			close(*fd);
+			*fd = -1;
+		}
+	}
 
 	/* Child will close this without writing on successful exec. */
 	if (read(execfail[0], &err, sizeof(err)) == sizeof(err)) {
