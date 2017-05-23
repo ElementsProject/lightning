@@ -1502,8 +1502,9 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 			       channel_wire_type_name,
 			       channel_msg,
 			       peer_owner_finished,
-			       peer->fd,
-			       peer->gossip_client_fd, fds[0], -1);
+			       take(&peer->fd),
+			       take(&peer->gossip_client_fd),
+			       take(&fds[0]), NULL);
 	if (!peer->owner) {
 		log_unusual(peer->log, "Could not subdaemon channel: %s",
 			    strerror(errno));
@@ -1777,15 +1778,13 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer)
 	peer->owner = new_subd(ld, ld, "lightningd_opening", peer,
 			       opening_wire_type_name,
 			       NULL, peer_owner_finished,
-			       peer->fd, peer->gossip_client_fd, -1);
+			       take(&peer->fd), take(&peer->gossip_client_fd),
+			       NULL);
 	if (!peer->owner) {
 		peer_fail(peer, "Failed to subdaemon opening: %s",
 			  strerror(errno));
 		return;
 	}
-	/* We handed off peer fd and gossip fd */
-	peer->fd = -1;
-	peer->gossip_client_fd = -1;
 
 	/* They will open channel. */
 	peer->funder = REMOTE;
@@ -1861,17 +1860,14 @@ static bool gossip_peer_released(struct subd *gossip,
 			   "lightningd_opening", fc->peer,
 			   opening_wire_type_name,
 			   NULL, peer_owner_finished,
-			   fc->peer->fd, fc->peer->gossip_client_fd, -1);
+			   take(&fc->peer->fd),
+			   take(&fc->peer->gossip_client_fd), NULL);
 	if (!opening) {
 		peer_fail(fc->peer, "Failed to subdaemon opening: %s",
 			  strerror(errno));
 		return true;
 	}
 	fc->peer->owner = opening;
-
-	/* They took our fds. */
-	fc->peer->fd = -1;
-	fc->peer->gossip_client_fd = -1;
 
 	/* We will fund channel */
 	fc->peer->funder = LOCAL;

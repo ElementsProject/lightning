@@ -92,7 +92,7 @@ void hsm_init(struct lightningd *ld, bool newdir)
 
 	ld->hsm = new_subd(ld, ld, "lightningd_hsm", NULL,
 			   hsm_wire_type_name,
-			   hsm_msg, hsm_finished, -1);
+			   hsm_msg, hsm_finished, NULL);
 	if (!ld->hsm)
 		err(1, "Could not subd hsm");
 

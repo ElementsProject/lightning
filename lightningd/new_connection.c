@@ -181,7 +181,7 @@ static bool got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 			      "lightningd_handshake", NULL,
 			      handshake_wire_type_name,
 			      NULL, NULL,
-			      fds[0], c->fd, -1);
+			      take(&fds[0]), take(&c->fd), NULL);
 	if (!handshaked) {
 		log_unusual(ld->log, "Could not subdaemon handshake: %s",
 			    strerror(errno));
@@ -191,8 +191,6 @@ static bool got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 	/* If handshake daemon fails, we just drop connection. */
 	tal_steal(handshaked, c);
 
-	/* We no longer own fd (closed; handshaked has copy). */
-	c->fd = -1;
 	if (c->known_id) {
 		req = towire_handshake_initiator(c, &ld->dstate.id,
 						 c->known_id);
