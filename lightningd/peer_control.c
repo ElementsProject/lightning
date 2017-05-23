@@ -94,6 +94,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->scid = NULL;
 	peer->id = tal_dup(peer, struct pubkey, id);
 	peer->fd = fd;
+	peer->cs = tal_dup(peer, struct crypto_state, cs);
 	peer->funding_txid = NULL;
 	peer->seed = NULL;
 	peer->balance = NULL;
@@ -125,12 +126,13 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	tal_steal(peer->owner, peer);
 	peer_set_condition(peer, UNINITIALIZED, GOSSIPD);
 
-	msg = towire_gossipctl_new_peer(peer, peer->unique_id, cs);
+	msg = towire_gossipctl_new_peer(peer, peer->unique_id, peer->cs);
 	subd_send_msg(peer->ld->gossip, take(msg));
 	subd_send_fd(peer->ld->gossip, peer->fd);
 
 	/* Peer struct longer owns fd. */
 	peer->fd = -1;
+	peer->cs = tal_free(peer->cs);
 }
 
 struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id)
@@ -428,7 +430,6 @@ struct funding_channel {
 	const struct utxo **utxomap;
 	u64 change;
 	u32 change_keyindex;
-	struct crypto_state *cs;
 
 	struct pubkey local_fundingkey, remote_fundingkey;
 	struct bitcoin_tx *funding_tx;
@@ -1332,6 +1333,7 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 		return true;
 	}
 	cds->peer->fd = -1;
+	cds->peer->cs = tal_free(cds->peer->cs);
 
 	log_debug(cds->peer->log, "Waiting for funding confirmations");
 	peer_set_condition(cds->peer, GETTING_HSMFD, CHANNELD_AWAITING_LOCKIN);
@@ -1377,7 +1379,6 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 	u8 *msg;
 	size_t i;
 	struct channel_config their_config;
-	struct crypto_state crypto_state;
 	secp256k1_ecdsa_signature commit_sig;
 	struct pubkey their_per_commit_point;
 	struct basepoints theirbase;
@@ -1387,11 +1388,12 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 
 	assert(tal_count(fds) == 1);
 	fc->peer->fd = fds[0];
+	fc->peer->cs = tal(fc->peer, struct crypto_state);
 
 	if (!fromwire_opening_open_funding_reply(resp, NULL,
 						 &their_config,
 						 &commit_sig,
-						 &crypto_state,
+						 fc->peer->cs,
 						 &theirbase.revocation,
 						 &theirbase.payment,
 						 &theirbase.delayed_payment,
@@ -1422,7 +1424,7 @@ static bool opening_release_tx(struct subd *opening, const u8 *resp,
 						   &fc->peer->our_config,
 						   &their_config,
 						   &commit_sig,
-						   &crypto_state,
+						   fc->peer->cs,
 						   &fc->remote_fundingkey,
 						   &theirbase.revocation,
 						   &theirbase.payment,
@@ -1491,7 +1493,6 @@ static bool opening_accept_finish_response(struct subd *opening,
 {
 	struct channel_config their_config;
 	secp256k1_ecdsa_signature first_commit_sig;
-	struct crypto_state crypto_state;
 	struct basepoints theirbase;
 	struct pubkey remote_fundingkey, their_per_commit_point;
 	struct config *cfg = &peer->ld->dstate.config;
@@ -1500,12 +1501,13 @@ static bool opening_accept_finish_response(struct subd *opening,
 	log_debug(peer->log, "Got opening_accept_finish_response");
 	assert(tal_count(fds) == 1);
 	peer->fd = fds[0];
+	peer->cs = tal(peer, struct crypto_state);
 
 	if (!fromwire_opening_accept_finish_reply(reply, NULL,
 						  &peer->funding_outnum,
 						  &their_config,
 						  &first_commit_sig,
-						  &crypto_state,
+						  peer->cs,
 						  &remote_fundingkey,
 						  &theirbase.revocation,
 						  &theirbase.payment,
@@ -1524,7 +1526,7 @@ static bool opening_accept_finish_response(struct subd *opening,
 				      &peer->our_config,
 				      &their_config,
 				      &first_commit_sig,
-				      &crypto_state,
+				      peer->cs,
 				      &remote_fundingkey,
 				      &theirbase.revocation,
 				      &theirbase.payment,
@@ -1620,8 +1622,7 @@ static void channel_config(struct lightningd *ld,
 };
 
 /* Peer has spontaneously exited from gossip due to msg */
-void peer_accept_open(struct peer *peer,
-		      const struct crypto_state *cs, const u8 *from_peer)
+void peer_accept_open(struct peer *peer, const u8 *from_peer)
 {
 	struct lightningd *ld = peer->ld;
 	u32 max_to_self_delay, max_minimum_depth;
@@ -1670,7 +1671,8 @@ void peer_accept_open(struct peer *peer,
 	msg = towire_opening_init(peer, &peer->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
-				  cs, peer->seed);
+				  peer->cs, peer->seed);
+	peer->cs = tal_free(peer->cs);
 
 	subd_send_msg(peer->owner, take(msg));
 	msg = towire_opening_accept(peer, peer->minimum_depth,
@@ -1699,10 +1701,10 @@ static bool gossip_peer_released(struct subd *gossip,
 
 	assert(tal_count(fds) == 2);
 	fc->peer->fd = fds[0];
+	fc->peer->cs = tal(fc, struct crypto_state);
 	fc->peer->gossip_client_fd = fds[1];
 
-	fc->cs = tal(fc, struct crypto_state);
-	if (!fromwire_gossipctl_release_peer_reply(resp, NULL, &id, fc->cs))
+	if (!fromwire_gossipctl_release_peer_reply(resp, NULL, &id, fc->peer->cs))
 		fatal("Gossup daemon gave invalid reply %s",
 		      tal_hex(gossip, resp));
 
@@ -1737,11 +1739,13 @@ static bool gossip_peer_released(struct subd *gossip,
 	msg = towire_opening_init(fc, &fc->peer->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
-				  fc->cs, fc->peer->seed);
+				  fc->peer->cs, fc->peer->seed);
 
 	fc->peer->funding_satoshi = fc->satoshi;
 	/* FIXME: Support push_msat? */
 	fc->peer->push_msat = 0;
+
+	fc->peer->cs = tal_free(fc->peer->cs);
 
 	subd_send_msg(opening, take(msg));
 	/* FIXME: Real feerate! */
