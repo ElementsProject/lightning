@@ -42,6 +42,9 @@ struct peer {
 	/* Our fd to the peer (-1 when we don't have it). */
 	int fd;
 
+	/* Crypto state (NULL if it's in daemon) */
+	struct crypto_state *cs;
+
 	/* Where we connected to, or it connected from. */
 	struct netaddr netaddr;
 
@@ -61,6 +64,9 @@ struct peer {
 
 	/* Channel balance (LOCAL and REMOTE); if we have one. */
 	u64 *balance;
+
+	/* Keys for channel. */
+	struct channel_info *channel_info;
 
 	/* Secret seed (FIXME: Move to hsm!) */
 	struct privkey *seed;
@@ -112,8 +118,7 @@ struct peer *peer_from_json(struct lightningd *ld,
 			    const char *buffer,
 			    jsmntok_t *peeridtok);
 
-void peer_accept_open(struct peer *peer,
-		      const struct crypto_state *cs, const u8 *msg);
+void peer_accept_open(struct peer *peer, const u8 *msg);
 
 void add_peer(struct lightningd *ld, u64 unique_id,
 	      int fd, const struct pubkey *id,
