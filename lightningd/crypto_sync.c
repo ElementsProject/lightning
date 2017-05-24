@@ -3,19 +3,38 @@
 #include <inttypes.h>
 #include <lightningd/crypto_sync.h>
 #include <lightningd/cryptomsg.h>
+#include <lightningd/dev_disconnect.h>
 #include <lightningd/status.h>
 #include <utils.h>
+#include <wire/wire.h>
 #include <wire/wire_sync.h>
 
 bool sync_crypto_write(struct crypto_state *cs, int fd, const void *msg)
 {
 	u8 *enc = cryptomsg_encrypt_msg(msg, cs, msg);
 	bool ret;
+	bool post_sabotage = false;
 
 	status_trace("Writing crypto with sn=%"PRIu64" msg=%s",
 		     cs->sn-2, tal_hex(trc, msg));
+
+	switch (dev_disconnect(fromwire_peektype(msg))) {
+	case DEV_DISCONNECT_BEFORE:
+		dev_sabotage_fd(fd);
+		return false;
+	case DEV_DISCONNECT_DROPPKT:
+		enc = tal_free(enc); /* FALL THRU */
+	case DEV_DISCONNECT_AFTER:
+		post_sabotage = true;
+		break;
+	default:
+		break;
+	}
 	ret = write_all(fd, enc, tal_len(enc));
 	tal_free(enc);
+
+	if (post_sabotage)
+		dev_sabotage_fd(fd);
 	return ret;
 }
 

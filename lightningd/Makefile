@@ -44,6 +44,7 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/debug.c			\
 	lightningd/daemon_conn.c		\
 	lightningd/derive_basepoints.c		\
+	lightningd/dev_disconnect.c		\
 	lightningd/funding_tx.c			\
 	lightningd/gossip_msg.c			\
 	lightningd/htlc_tx.c			\

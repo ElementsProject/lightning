@@ -3,6 +3,7 @@
 #include <ccan/noerr/noerr.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/path/path.h>
+#include <ccan/tal/str/str.h>
 #include <daemon/log.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -120,7 +121,7 @@ static struct subd_req *get_req(struct subd *sd, int reply_type)
 
 /* We use sockets, not pipes, because fds are bidir. */
 static int subd(const char *dir, const char *name, bool debug,
-		     int *msgfd, va_list ap)
+		int *msgfd, int dev_disconnect_fd, va_list ap)
 {
 	int childmsg[2], execfail[2];
 	pid_t childpid;
@@ -143,7 +144,7 @@ static int subd(const char *dir, const char *name, bool debug,
 	if (childpid == 0) {
 		int fdnum = 3, i;
 		long max;
-		const char *debug_arg = NULL;
+		const char *debug_arg[2] = { NULL, NULL };
 
 		close(childmsg[0]);
 		close(execfail[0]);
@@ -152,6 +153,13 @@ static int subd(const char *dir, const char *name, bool debug,
 		if (childmsg[1] != STDIN_FILENO) {
 			if (!move_fd(childmsg[1], STDIN_FILENO))
 				goto child_errno_fail;
+		}
+
+		// Move dev_disconnect_fd out the way.
+		if (dev_disconnect_fd != -1) {
+			if (!move_fd(dev_disconnect_fd, 101))
+				goto child_errno_fail;
+			dev_disconnect_fd = 101;
 		}
 
 		/* Dup any extra fds up first. */
@@ -166,11 +174,14 @@ static int subd(const char *dir, const char *name, bool debug,
 		/* Make (fairly!) sure all other fds are closed. */
 		max = sysconf(_SC_OPEN_MAX);
 		for (i = fdnum; i < max; i++)
-			close(i);
+			if (i != dev_disconnect_fd)
+				close(i);
 
+		if (dev_disconnect_fd != -1)
+			debug_arg[0] = tal_fmt(NULL, "--dev-disconnect=%i", dev_disconnect_fd);
 		if (debug)
-			debug_arg = "--debugger";
-		execl(path_join(NULL, dir, name), name, debug_arg, NULL);
+			debug_arg[debug_arg[0] ? 1 : 0] = "--debugger";
+		execl(path_join(NULL, dir, name), name, debug_arg[0], debug_arg[1], NULL);
 
 	child_errno_fail:
 		err = errno;
@@ -381,7 +392,8 @@ struct subd *new_subd(const tal_t *ctx,
 	debug = ld->dev_debug_subdaemon
 		&& strends(name, ld->dev_debug_subdaemon);
 	va_start(ap, finished);
-	sd->pid = subd(ld->daemon_dir, name, debug, &msg_fd, ap);
+	sd->pid = subd(ld->daemon_dir, name, debug, &msg_fd,
+		       ld->dev_disconnect_fd, ap);
 	va_end(ap);
 	if (sd->pid == (pid_t)-1) {
 		log_unusual(ld->log, "subd %s failed: %s",
@@ -465,5 +477,14 @@ void subd_shutdown(struct subd *sd, unsigned int seconds)
 char *opt_subd_debug(const char *optarg, struct lightningd *ld)
 {
 	ld->dev_debug_subdaemon = optarg;
+	return NULL;
+}
+
+char *opt_subd_dev_disconnect(const char *optarg, struct lightningd *ld)
+{
+	ld->dev_disconnect_fd = open(optarg, O_RDONLY);
+	if (ld->dev_disconnect_fd < 0)
+		return tal_fmt(ld, "Could not open --dev-disconnect=%s: %s",
+			       optarg, strerror(errno));
 	return NULL;
 }

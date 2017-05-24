@@ -111,6 +111,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_debug_subdaemon = NULL;
 	list_head_init(&ld->utxos);
 	htlc_end_map_init(&ld->htlc_ends);
+	ld->dev_disconnect_fd = -1;
 	ld->dstate.log_book = new_log_book(&ld->dstate, 20*1024*1024,LOG_INFORM);
 	ld->log = ld->dstate.base_log = new_log(&ld->dstate,
 						ld->dstate.log_book,
@@ -232,6 +233,9 @@ int main(int argc, char *argv[])
 	opt_register_arg("--dev-broadcast-interval=<ms>", opt_set_uintval,
 			 opt_show_uintval, &ld->broadcast_interval,
 			 "Time between gossip broadcasts in milliseconds (default: 30000)");
+
+	opt_register_arg("--dev-disconnect=<filename>", opt_subd_dev_disconnect,
+			 NULL, ld, "File containing disconnection points");
 
 	/* FIXME: move to option initialization once we drop the
 	 * legacy daemon */

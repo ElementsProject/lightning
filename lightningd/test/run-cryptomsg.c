@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
+#include <lightningd/dev_disconnect.h>
 #include <lightningd/status.h>
 #include <stdio.h>
 #include <wire/peer_wire.h>
@@ -37,6 +38,16 @@ static void do_write(const void *buf, size_t len)
 
 #define status_trace(fmt, ...) \
 	printf(fmt "\n", __VA_ARGS__)
+
+void dev_sabotage_fd(int fd)
+{
+	abort();
+}
+
+char dev_disconnect(int pkt_type)
+{
+	return DEV_DISCONNECT_NORMAL;
+}
 
 /* We test what look like unknown messages. */
 #define unknown_msg_discardable(x) 0
