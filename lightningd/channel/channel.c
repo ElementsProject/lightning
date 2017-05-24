@@ -1007,9 +1007,13 @@ static struct io_plan *setup_peer_conn(struct io_conn *conn, struct peer *peer)
 
 static void peer_conn_broken(struct io_conn *conn, struct peer *peer)
 {
-	send_channel_update(peer, true);
-	/* Make sure gossipd actually gets this message before dying */
-	daemon_conn_sync_flush(&peer->gossip_client);
+	/* If we have signatures, send an update to say we're disabled. */
+	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE]) {
+		send_channel_update(peer, true);
+
+		/* Make sure gossipd actually gets this message before dying */
+		daemon_conn_sync_flush(&peer->gossip_client);
+	}
 	status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
 		      "peer connection broken: %s", strerror(errno));
 }
