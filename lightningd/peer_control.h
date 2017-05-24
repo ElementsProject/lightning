@@ -51,6 +51,9 @@ struct peer {
 	/* Our channel config. */
 	struct channel_config our_config;
 
+	/* funding_signed packet for fundee, waiting to send. */
+	const u8 *funding_signed;
+
 	/* Channel if locked. */
 	struct short_channel_id *scid;
 
