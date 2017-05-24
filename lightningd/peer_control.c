@@ -49,6 +49,8 @@ static void destroy_peer(struct peer *peer)
 	list_del_from(&peer->ld->peers, &peer->list);
 	if (peer->fd >= 0)
 		close(peer->fd);
+	if (peer->gossip_client_fd >= 0)
+		close(peer->gossip_client_fd);
 }
 
 static struct peer *peer_by_pubkey(struct lightningd *ld, const struct pubkey *id)
@@ -168,6 +170,9 @@ static bool peer_reconnected(struct lightningd *ld,
 	tal_free(peer->cs);
 	peer->cs = tal_dup(peer, struct crypto_state, cs);
 
+	/* FIXME: We should close peer->gossip_client_fd when we're not
+	 * connected, and get a new one from gossipd when we reconnect. */
+
 	switch (peer->state) {
 	/* This can't happen. */
 	case UNINITIALIZED:
@@ -284,6 +289,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->scid = NULL;
 	peer->id = tal_dup(peer, struct pubkey, id);
 	peer->fd = fd;
+	peer->gossip_client_fd = -1;
 	peer->cs = tal_dup(peer, struct crypto_state, cs);
 	peer->funding_txid = NULL;
 	peer->seed = NULL;
@@ -1503,7 +1509,7 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 			       channel_msg,
 			       peer_owner_finished,
 			       take(&peer->fd),
-			       take(&peer->gossip_client_fd),
+			       &peer->gossip_client_fd,
 			       take(&fds[0]), NULL);
 	if (!peer->owner) {
 		log_unusual(peer->log, "Could not subdaemon channel: %s",
@@ -1579,9 +1585,8 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 	struct pubkey changekey;
 	struct pubkey local_fundingkey;
 
-	assert(tal_count(fds) == 2);
+	assert(tal_count(fds) == 1);
 	fc->peer->fd = fds[0];
-	fc->peer->gossip_client_fd = fds[1];
 	fc->peer->cs = tal(fc->peer, struct crypto_state);
 
 	/* At this point, we care about peer */
@@ -1664,9 +1669,8 @@ static bool opening_fundee_finished(struct subd *opening,
 	struct channel_info *channel_info;
 
 	log_debug(peer->log, "Got opening_fundee_finish_response");
-	assert(tal_count(fds) == 2);
+	assert(tal_count(fds) == 1);
 	peer->fd = fds[0];
-	peer->gossip_client_fd = fds[1];
 	peer->cs = tal(peer, struct crypto_state);
 
 	/* At this point, we care about peer */
@@ -1778,7 +1782,7 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer)
 	peer->owner = new_subd(ld, ld, "lightningd_opening", peer,
 			       opening_wire_type_name,
 			       NULL, peer_owner_finished,
-			       take(&peer->fd), take(&peer->gossip_client_fd),
+			       take(&peer->fd), &peer->gossip_client_fd,
 			       NULL);
 	if (!peer->owner) {
 		peer_fail(peer, "Failed to subdaemon opening: %s",
@@ -1817,7 +1821,7 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer)
 		peer_fail(peer, "Unacceptably long open_channel");
 		return;
 	}
-	subd_req(peer, peer->owner, take(msg), -1, 2,
+	subd_req(peer, peer->owner, take(msg), -1, 1,
 		 opening_fundee_finished, peer);
 }
 
@@ -1861,7 +1865,7 @@ static bool gossip_peer_released(struct subd *gossip,
 			   opening_wire_type_name,
 			   NULL, peer_owner_finished,
 			   take(&fc->peer->fd),
-			   take(&fc->peer->gossip_client_fd), NULL);
+			   &fc->peer->gossip_client_fd, NULL);
 	if (!opening) {
 		peer_fail(fc->peer, "Failed to subdaemon opening: %s",
 			  strerror(errno));
@@ -1899,7 +1903,7 @@ static bool gossip_peer_released(struct subd *gossip,
 				    15000, max_minimum_depth,
 				    fc->change, fc->change_keyindex,
 				    utxos, bip32_base);
-	subd_req(fc, opening, take(msg), -1, 2, opening_funder_finished, fc);
+	subd_req(fc, opening, take(msg), -1, 1, opening_funder_finished, fc);
 	return true;
 }
 
