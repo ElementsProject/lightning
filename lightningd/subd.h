@@ -122,5 +122,5 @@ void subd_req_(const tal_t *ctx,
 void subd_shutdown(struct subd *subd, unsigned int seconds);
 
 char *opt_subd_debug(const char *optarg, struct lightningd *ld);
-
+char *opt_subd_dev_disconnect(const char *optarg, struct lightningd *ld);
 #endif /* LIGHTNING_LIGHTNINGD_SUBD_H */

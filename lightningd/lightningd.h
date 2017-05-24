@@ -50,6 +50,9 @@ struct lightningd {
 	/* If we want to debug a subdaemon. */
 	const char *dev_debug_subdaemon;
 
+	/* If we have a --dev-disconnect file */
+	int dev_disconnect_fd;
+
 	/* UTXOs we have available to spend. */
 	struct list_head utxos;
 

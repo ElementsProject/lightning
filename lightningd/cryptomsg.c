@@ -7,6 +7,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/take/take.h>
 #include <lightningd/cryptomsg.h>
+#include <lightningd/dev_disconnect.h>
 #include <lightningd/status.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 #include <utils.h>
@@ -316,12 +317,21 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 	return out;
 }
 
+static struct io_plan *peer_write_postclose(struct io_conn *conn,
+					    struct peer_crypto_state *pcs)
+{
+	pcs->out = tal_free(pcs->out);
+	dev_sabotage_fd(io_conn_fd(conn));
+	return pcs->next_out(conn, pcs->peer);
+}
+
 struct io_plan *peer_write_message(struct io_conn *conn,
 				   struct peer_crypto_state *pcs,
 				   const u8 *msg,
 				   struct io_plan *(*next)(struct io_conn *,
 							   struct peer *))
 {
+	struct io_plan *(*post)(struct io_conn *, struct peer_crypto_state *);
 	assert(!pcs->out);
 
 	pcs->out = cryptomsg_encrypt_msg(conn, &pcs->cs, msg);
@@ -329,11 +339,24 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 		tal_free(msg);
 	pcs->next_out = next;
 
+	post = peer_write_done;
+
+	switch (dev_disconnect(fromwire_peektype(msg))) {
+	case DEV_DISCONNECT_BEFORE:
+		return io_close(conn);
+	case DEV_DISCONNECT_DROPPKT:
+		pcs->out = NULL; /* FALL THRU */
+	case DEV_DISCONNECT_AFTER:
+		post = peer_write_postclose;
+		break;
+	default:
+		break;
+	}
+
 	/* BOLT #8:
 	 *   * Send `lc || c` over the network buffer.
 	 */
-	return io_write(conn, pcs->out, tal_count(pcs->out),
-			peer_write_done, pcs);
+	return io_write(conn, pcs->out, tal_count(pcs->out), post, pcs);
 }
 
 void init_peer_crypto_state(struct peer *peer, struct peer_crypto_state *pcs)
