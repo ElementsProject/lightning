@@ -465,7 +465,7 @@ static u8 *fundee_channel(struct state *state,
 	secp256k1_ecdsa_signature theirsig, sig;
 	struct bitcoin_tx **txs;
 	struct sha256_double chain_hash;
-	u8 *msg, *encmsg;
+	u8 *msg;
 	const u8 **wscripts;
 
 	state->remoteconf = tal(state, struct channel_config);
@@ -648,10 +648,9 @@ static u8 *fundee_channel(struct state *state,
 		      &state->our_secrets.funding_privkey,
 		      our_funding_pubkey, &sig);
 
-	/* We don't send this ourselves: master does, because it needs to save
-	 * state to disk before doing so. */
+	/* We don't send this ourselves: channeld does, because master needs
+	 * to save state to disk before doing so. */
 	msg = towire_funding_signed(state, &channel_id, &sig);
-	encmsg = cryptomsg_encrypt_msg(state, &state->cs, msg);
 
 	return towire_opening_fundee_reply(state,
 					   state->remoteconf,
@@ -666,7 +665,7 @@ static u8 *fundee_channel(struct state *state,
 					   state->funding_txout,
 					   state->funding_satoshis,
 					   state->push_msat,
-					   encmsg);
+					   msg);
 }
 
 #ifndef TESTING

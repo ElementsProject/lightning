@@ -1027,8 +1027,9 @@ static void init_channel(struct peer *peer, const u8 *msg)
 	struct pubkey funding_pubkey[NUM_SIDES];
 	struct sha256_double funding_txid;
 	bool am_funder;
+	u8 *funding_signed;
 
-	if (!fromwire_channel_init(msg, NULL,
+	if (!fromwire_channel_init(msg, msg, NULL,
 				   &funding_txid, &funding_txout,
 				   &peer->conf[LOCAL], &peer->conf[REMOTE],
 				   &peer->their_commit_sig,
@@ -1046,7 +1047,8 @@ static void init_channel(struct peer *peer, const u8 *msg)
 				   &peer->node_ids[LOCAL],
 				   &peer->node_ids[REMOTE],
 				   &peer->commit_msec,
-				   &peer->cltv_delta))
+				   &peer->cltv_delta,
+				   &funding_signed))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Init: %s",
 			      tal_hex(msg, msg));
 
@@ -1076,6 +1078,10 @@ static void init_channel(struct peer *peer, const u8 *msg)
 	/* OK, now we can process peer messages. */
 	peer->peer_conn = io_new_conn(peer, PEER_FD, setup_peer_conn, peer);
 	io_set_finish(peer->peer_conn, peer_conn_broken, peer);
+
+	/* If we have a funding_signed message, we send that immediately */
+	if (tal_len(funding_signed) != 0)
+		msg_enqueue(&peer->peer_out, take(funding_signed));
 }
 
 static void handle_funding_locked(struct peer *peer, const u8 *msg)

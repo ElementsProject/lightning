@@ -721,7 +721,8 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 }
 
 /* FIXME: Reshuffle. */
-static void peer_start_channeld(struct peer *peer, enum peer_state oldstate);
+static void peer_start_channeld(struct peer *peer, enum peer_state oldstate,
+				const u8 *funding_signed);
 
 static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 					const int *fds,
@@ -764,7 +765,7 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 	command_success(fc->cmd, null_response(fc->cmd));
 
 	/* Start normal channel daemon. */
-	peer_start_channeld(fc->peer, GETTING_SIG_FROM_HSM);
+	peer_start_channeld(fc->peer, GETTING_SIG_FROM_HSM, NULL);
 
 	tal_free(fc);
 	return true;
@@ -1542,7 +1543,11 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 				      &peer->ld->dstate.id,
 				      peer->id,
 				      time_to_msec(cfg->commit_time),
-				      cfg->deadline_blocks);
+				      cfg->deadline_blocks,
+				      peer->funding_signed);
+
+	/* Don't need this any more (we never re-transmit it) */
+	peer->funding_signed = tal_free(peer->funding_signed);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(peer->owner, take(initmsg));
@@ -1553,7 +1558,8 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 }
 
 /* opening is done, start lightningd_channel for peer. */
-static void peer_start_channeld(struct peer *peer, enum peer_state oldstate)
+static void peer_start_channeld(struct peer *peer, enum peer_state oldstate,
+				const u8 *funding_signed)
 {
 	/* Unowned: back to being owned by main daemon. */
 	peer->owner = NULL;
@@ -1567,6 +1573,9 @@ static void peer_start_channeld(struct peer *peer, enum peer_state oldstate)
 	peer->balance[!peer->funder] = peer->push_msat;
 
 	peer_set_condition(peer, oldstate, GETTING_HSMFD);
+
+	/* Save this for when we get HSM fd. */
+	peer->funding_signed = funding_signed;
 
 	/* Get fd from hsm. */
 	subd_req(peer, peer->ld->hsm,
@@ -1665,7 +1674,7 @@ static bool opening_fundee_finished(struct subd *opening,
 					   const int *fds,
 					   struct peer *peer)
 {
-	u8 *funding_msg_enc;
+	u8 *funding_signed;
 	struct channel_info *channel_info;
 
 	log_debug(peer->log, "Got opening_fundee_finish_response");
@@ -1677,7 +1686,7 @@ static bool opening_fundee_finished(struct subd *opening,
 	peer->channel_info = channel_info = tal(peer, struct channel_info);
 
 	peer->funding_txid = tal(peer, struct sha256_double);
-	if (!fromwire_opening_fundee_reply(reply, reply, NULL,
+	if (!fromwire_opening_fundee_reply(peer, reply, NULL,
 					   &channel_info->their_config,
 					   &channel_info->commit_sig,
 					   peer->cs,
@@ -1690,7 +1699,7 @@ static bool opening_fundee_finished(struct subd *opening,
 					   &peer->funding_outnum,
 					   &peer->funding_satoshi,
 					   &peer->push_msat,
-					   &funding_msg_enc)) {
+					   &funding_signed)) {
 		log_broken(peer->log, "bad OPENING_FUNDEE_REPLY %s",
 			   tal_hex(reply, reply));
 		return false;
@@ -1702,16 +1711,9 @@ static bool opening_fundee_finished(struct subd *opening,
 	watch_txid(peer, peer->ld->topology, peer, peer->funding_txid,
 		   funding_lockin_cb, NULL);
 
-	/* FIXME: Remove synchronous write! */
-	if (write(peer->fd, funding_msg_enc, tal_len(funding_msg_enc))
-	    != tal_len(funding_msg_enc)) {
-		log_broken(peer->log, "Could not write funding_signed msg");
-		return false;
-	}
-
 	/* On to normal operation! */
 	peer->owner = NULL;
-	peer_start_channeld(peer, OPENINGD);
+	peer_start_channeld(peer, OPENINGD, funding_signed);
 
 	/* Tell opening daemon to exit. */
 	return false;
