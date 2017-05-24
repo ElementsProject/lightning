@@ -738,11 +738,10 @@ int main(int argc, char *argv[])
 				   minimum_depth, min_feerate, max_feerate,
 				   peer_msg);
 
-	/* Write message and hand back the peer fd ang gossip fd. */
+	/* Write message and hand back the fd. */
 	wire_sync_write(REQ_FD, msg);
 	fdpass_send(REQ_FD, PEER_FD);
-	fdpass_send(REQ_FD, GOSSIP_FD);
-	status_trace("Sent %s with 2 fds",
+	status_trace("Sent %s with fd",
 		     opening_wire_type_name(fromwire_peektype(msg)));
 	tal_free(state);
 	return 0;
