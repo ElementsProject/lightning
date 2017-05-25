@@ -526,6 +526,37 @@ class LightningDTests(BaseLightningDTests):
         assert l1.rpc.getpeer(l2.info['id']) == None
         assert l2.rpc.getpeer(l1.info['id'])['peerid'] == l1.info['id']
 
+    def test_reconnect(self):
+        # This will fail *after* both sides consider channel opening.
+        disconnects = ['+WIRE_FUNDING_SIGNED']
+        l1 = self.node_factory.get_node(legacy=False)
+        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+
+        addr = l1.rpc.newaddr()['address']
+        txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
+        tx = l1.bitcoin.rpc.getrawtransaction(txid)
+        l1.rpc.addfunds(tx)
+
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.fundchannel(l2.info['id'], 20000)
+
+        # They haven't forgotten each other.
+        assert l1.rpc.getpeer(l2.info['id'])['peerid'] == l2.info['id']
+        assert l2.rpc.getpeer(l1.info['id'])['peerid'] == l1.info['id']
+
+        # Technically, this is async to fundchannel.
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+
+        # Wait for reconnect, then another ->LOCKIN transition.
+        l1.daemon.wait_for_log('Peer has reconnected, state CHANNELD_AWAITING_LOCKIN');
+        l1.daemon.wait_for_log('-> CHANNELD_AWAITING_LOCKIN', 100)
+        l2.daemon.wait_for_log('-> CHANNELD_AWAITING_LOCKIN', 100)
+
+        l1.bitcoin.rpc.generate(6)
+
+        l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
+        l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
+        
 class LegacyLightningDTests(BaseLightningDTests):
 
     def test_connect(self):
