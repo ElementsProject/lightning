@@ -80,7 +80,7 @@ class NodeFactory(object):
         self.nodes = []
         self.executor = executor
 
-    def get_node(self, legacy=True):
+    def get_node(self, legacy=True, disconnect=None):
         node_id = self.next_id
         self.next_id += 1
 
@@ -94,6 +94,12 @@ class NodeFactory(object):
             rpc = LegacyLightningRpc(socket_path, self.executor)
         else:
             daemon = utils.LightningD(lightning_dir, bitcoind.bitcoin_dir, port=port)
+            # If we have a disconnect string, dump it to a file for daemon.
+            if disconnect:
+                with open(os.path.join(lightning_dir, "dev_disconnect"), "w") as file:
+                    for d in disconnect:
+                        file.write(d + "\n")
+                daemon.cmd_line.append("--dev-disconnect=dev_disconnect")
             # TODO(cdecker) Move into LIGHTNINGD_CONFIG once legacy daemon was removed
             daemon.cmd_line.append("--dev-broadcast-interval=1000")
             rpc = LightningRpc(socket_path, self.executor)
@@ -444,6 +450,81 @@ class LightningDTests(BaseLightningDTests):
         # This one works
         route = copy.deepcopy(baseroute)
         l1.rpc.sendpay(to_json(route), rhash)
+
+    def test_disconnect(self):
+        # These should all make us fail.
+        disconnects = ['-WIRE_INIT',
+                       '@WIRE_INIT',
+                       '+WIRE_INIT']
+        l1 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        l2 = self.node_factory.get_node(legacy=False)
+        for d in disconnects:
+            self.assertRaises(ValueError, l1.rpc.connect,
+                              'localhost', l2.info['port'], l2.info['id'])
+            assert l1.rpc.getpeer(l2.info['id']) == None
+
+        # Now we should connect normally.
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.daemon.stop()
+
+        # Now error on funder side duringchannel open.
+        disconnects = ['-WIRE_OPEN_CHANNEL',
+                       '@WIRE_OPEN_CHANNEL',
+                       '+WIRE_OPEN_CHANNEL',
+                       '-WIRE_FUNDING_CREATED',
+                       '@WIRE_FUNDING_CREATED']
+        l1 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+
+        addr = l1.rpc.newaddr()['address']
+        txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
+        tx = l1.bitcoin.rpc.getrawtransaction(txid)
+        l1.rpc.addfunds(tx)
+
+        for d in disconnects:
+            l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+            self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
+            assert l1.rpc.getpeer(l2.info['id']) == None
+
+        l1.daemon.stop()
+        l2.daemon.stop()
+
+        # Now error on fundee side during channel open.
+        disconnects = ['-WIRE_ACCEPT_CHANNEL',
+                       '@WIRE_ACCEPT_CHANNEL',
+                       '+WIRE_ACCEPT_CHANNEL']
+        l1 = self.node_factory.get_node(legacy=False)
+        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+
+        addr = l1.rpc.newaddr()['address']
+        txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
+        tx = l1.bitcoin.rpc.getrawtransaction(txid)
+        l1.rpc.addfunds(tx)
+
+        for d in disconnects:
+            l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+            self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
+            assert l1.rpc.getpeer(l2.info['id']) == None
+
+        l1.daemon.stop()
+        l2.daemon.stop()
+
+        # Now, these are the corner cases.  Fundee sends funding_signed,
+        # but funder doesn't receive it.
+        disconnects = ['@WIRE_FUNDING_SIGNED']
+        l1 = self.node_factory.get_node(legacy=False)
+        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+
+        addr = l1.rpc.newaddr()['address']
+        txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
+        tx = l1.bitcoin.rpc.getrawtransaction(txid)
+        l1.rpc.addfunds(tx)
+
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
+
+        # Fundee remembers, funder doesn't.
+        assert l1.rpc.getpeer(l2.info['id']) == None
+        assert l2.rpc.getpeer(l1.info['id'])['peerid'] == l1.info['id']
 
 class LegacyLightningDTests(BaseLightningDTests):
 
