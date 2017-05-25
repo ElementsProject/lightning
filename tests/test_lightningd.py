@@ -96,9 +96,8 @@ class NodeFactory(object):
             daemon = utils.LightningD(lightning_dir, bitcoind.bitcoin_dir, port=port)
             # If we have a disconnect string, dump it to a file for daemon.
             if disconnect:
-                with open(os.path.join(lightning_dir, "dev_disconnect"), "w") as file:
-                    for d in disconnect:
-                        file.write(d + "\n")
+                with open(os.path.join(lightning_dir, "dev_disconnect"), "w") as f:
+                    f.write("\n".join(disconnect))
                 daemon.cmd_line.append("--dev-disconnect=dev_disconnect")
             # TODO(cdecker) Move into LIGHTNINGD_CONFIG once legacy daemon was removed
             daemon.cmd_line.append("--dev-broadcast-interval=1000")

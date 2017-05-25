@@ -57,7 +57,8 @@ struct subd {
  * @msgname: function to get name from messages
  * @msgcb: function to call when non-fatal message received (or NULL)
  * @finished: function to call when it's finished (with exit status).
- * @...: NULL-terminated list of pointers to  fds to hand as fd 3, 4... (can be take, if so, set to -1)
+ * @...: NULL-terminated list of pointers to  fds to hand as fd 3, 4...
+ *	(can be take, if so, set to -1)
  *
  * @msgcb gets called with @fds set to NULL: if it returns a positive number,
  * that many @fds are received before calling again.  If it returns -1, the
