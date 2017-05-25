@@ -35,22 +35,22 @@ respr_act_three,1013
 success,0
 
 handshake_responder,1
-handshake_responder,1,my_id,33
+handshake_responder,,my_id,33
 handshake_responder_reply,101
-handshake_responder_reply,0,initiator_id,33
-handshake_responder_reply,33,cs,struct crypto_state
-handshake_responder_reply,0,gflen,2
-handshake_responder_reply,0,globalfeatures,gflen
-handshake_responder_reply,0,lflen,2
-handshake_responder_reply,0,localfeatures,lflen
+handshake_responder_reply,,initiator_id,33
+handshake_responder_reply,,cs,struct crypto_state
+handshake_responder_reply,,gflen,2
+handshake_responder_reply,,globalfeatures,gflen
+handshake_responder_reply,,lflen,2
+handshake_responder_reply,,localfeatures,lflen
 
 handshake_initiator,2
-handshake_initiator,0,my_id,33
-handshake_initiator,33,responder_id,33
+handshake_initiator,,my_id,33
+handshake_initiator,,responder_id,33
 
 handshake_initiator_reply,102
-handshake_initiator_reply,0,cs,struct crypto_state
-handshake_initiator_reply,0,gflen,2
-handshake_initiator_reply,0,globalfeatures,gflen
-handshake_initiator_reply,0,lflen,2
-handshake_initiator_reply,0,localfeatures,lflen
+handshake_initiator_reply,,cs,struct crypto_state
+handshake_initiator_reply,,gflen,2
+handshake_initiator_reply,,globalfeatures,gflen
+handshake_initiator_reply,,lflen,2
+handshake_initiator_reply,,localfeatures,lflen
