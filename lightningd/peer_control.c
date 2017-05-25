@@ -36,6 +36,7 @@
 #include <wire/gen_onion_wire.h>
 #include <wire/gen_peer_wire.h>
 
+/* FIXME: Define serialization primitive for this? */
 struct channel_info {
 	secp256k1_ecdsa_signature commit_sig;
 	struct channel_config their_config;
