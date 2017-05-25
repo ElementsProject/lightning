@@ -7,23 +7,23 @@ hsmstatus_key_failed,0x8004
 
 # Clients should not give a bad request but not the HSM's decision to crash.
 hsmstatus_client_bad_request,1000
-hsmstatus_client_bad_request,0,unique_id,8
-hsmstatus_client_bad_request,8,len,2
-hsmstatus_client_bad_request,10,msg,len*u8
+hsmstatus_client_bad_request,,unique_id,8
+hsmstatus_client_bad_request,,len,2
+hsmstatus_client_bad_request,,msg,len*u8
 
 # Start the HSM.
 hsmctl_init,1
-hsmctl_init,0,new,bool
+hsmctl_init,,new,bool
 
 hsmctl_init_reply,101
-hsmctl_init_reply,0,node_id,33
-hsmctl_init_reply,33,peer_seed,struct secret
-hsmctl_init_reply,65,bip32_len,2
-hsmctl_init_reply,67,bip32_seed,bip32_len*u8
+hsmctl_init_reply,,node_id,33
+hsmctl_init_reply,,peer_seed,struct secret
+hsmctl_init_reply,,bip32_len,2
+hsmctl_init_reply,,bip32_seed,bip32_len*u8
 
 # ECDH returns an fd.
 hsmctl_hsmfd_ecdh,3
-hsmctl_hsmfd_ecdh,0,unique_id,8
+hsmctl_hsmfd_ecdh,,unique_id,8
 
 # No contents, just an fd.
 hsmctl_hsmfd_ecdh_fd_reply,103
@@ -32,29 +32,29 @@ hsmctl_hsmfd_ecdh_fd_reply,103
 #include <lightningd/utxo.h>
 # FIXME: This should also take their commit sig & details, to verify.
 hsmctl_sign_funding,4
-hsmctl_sign_funding,0,satoshi_out,8
-hsmctl_sign_funding,8,change_out,8
-hsmctl_sign_funding,16,change_keyindex,4
-hsmctl_sign_funding,20,our_pubkey,33
-hsmctl_sign_funding,52,their_pubkey,33
-hsmctl_sign_funding,85,num_inputs,2
-hsmctl_sign_funding,87,inputs,num_inputs*struct utxo
+hsmctl_sign_funding,,satoshi_out,8
+hsmctl_sign_funding,,change_out,8
+hsmctl_sign_funding,,change_keyindex,4
+hsmctl_sign_funding,,our_pubkey,33
+hsmctl_sign_funding,,their_pubkey,33
+hsmctl_sign_funding,,num_inputs,2
+hsmctl_sign_funding,,inputs,num_inputs*struct utxo
 
 hsmctl_sign_funding_reply,104
-hsmctl_sign_funding_reply,0,num_sigs,2
-hsmctl_sign_funding_reply,0,sig,num_sigs*secp256k1_ecdsa_signature
+hsmctl_sign_funding_reply,,num_sigs,2
+hsmctl_sign_funding_reply,,sig,num_sigs*secp256k1_ecdsa_signature
 
 # Request a client socket for a `channeld`, allows signing announcements 
 hsmctl_hsmfd_channeld,5
-hsmctl_hsmfd_channeld,0,unique_id,8
+hsmctl_hsmfd_channeld,,unique_id,8
 
 # Empty reply, just an fd
 hsmctl_hsmfd_channeld_reply,105
 
 # Master asks the HSM to sign a node_announcement
 hsmctl_node_announcement_sig_req,6
-hsmctl_node_announcement_sig_req,0,annlen,2
-hsmctl_node_announcement_sig_req,2,announcement,annlen*u8
+hsmctl_node_announcement_sig_req,,annlen,2
+hsmctl_node_announcement_sig_req,,announcement,annlen*u8
 
 hsmctl_node_announcement_sig_reply,106
-hsmctl_node_announcement_sig_reply,0,signature,secp256k1_ecdsa_signature
+hsmctl_node_announcement_sig_reply,,signature,secp256k1_ecdsa_signature

@@ -19,103 +19,103 @@ channel_normal_operation,1001
 # Begin!  You're still waiting for the tx to be buried though (passes
 # gossipd-client fd)
 channel_init,1
-channel_init,0,funding_txid,struct sha256_double
-channel_init,32,funding_txout,2
-channel_init,34,our_config,struct channel_config
-channel_init,70,their_config,struct channel_config
-channel_init,106,first_commit_sig,secp256k1_ecdsa_signature
-channel_init,166,crypto_state,struct crypto_state
-channel_init,310,remote_fundingkey,33
-channel_init,343,revocation_basepoint,33
-channel_init,376,payment_basepoint,33
-channel_init,409,delayed_payment_basepoint,33
-channel_init,442,their_per_commit_point,33
-channel_init,475,am_funder,bool
-channel_init,476,fee_base,4
-channel_init,480,fee_proportional,4
-channel_init,484,funding_satoshi,8
-channel_init,492,push_msat,8
-channel_init,500,seed,struct privkey
-channel_init,533,local_node_id,struct pubkey
-channel_init,566,remote_node_id,struct pubkey
-channel_init,599,commit_msec,4
-channel_init,603,cltv_delta,u16
-channel_init,605,init_peer_pkt_len,u16
-channel_init,607,init_peer_pkt,init_peer_pkt_len*u8
+channel_init,,funding_txid,struct sha256_double
+channel_init,,funding_txout,2
+channel_init,,our_config,struct channel_config
+channel_init,,their_config,struct channel_config
+channel_init,,first_commit_sig,secp256k1_ecdsa_signature
+channel_init,,crypto_state,struct crypto_state
+channel_init,,remote_fundingkey,33
+channel_init,,revocation_basepoint,33
+channel_init,,payment_basepoint,33
+channel_init,,delayed_payment_basepoint,33
+channel_init,,their_per_commit_point,33
+channel_init,,am_funder,bool
+channel_init,,fee_base,4
+channel_init,,fee_proportional,4
+channel_init,,funding_satoshi,8
+channel_init,,push_msat,8
+channel_init,,seed,struct privkey
+channel_init,,local_node_id,struct pubkey
+channel_init,,remote_node_id,struct pubkey
+channel_init,,commit_msec,4
+channel_init,,cltv_delta,u16
+channel_init,,init_peer_pkt_len,u16
+channel_init,,init_peer_pkt,init_peer_pkt_len*u8
 
 # Tx is deep enough, go!
 channel_funding_locked,2
-channel_funding_locked,0,short_channel_id,struct short_channel_id
+channel_funding_locked,,short_channel_id,struct short_channel_id
 
 # Tell the channel that we may announce the channel's existence
 channel_funding_announce_depth,3
 
 # Tell channel to offer this htlc
 channel_offer_htlc,4
-channel_offer_htlc,0,amount_msat,4
-channel_offer_htlc,0,cltv_expiry,4
-channel_offer_htlc,0,payment_hash,32
-channel_offer_htlc,0,onion_routing_packet,1366*u8
+channel_offer_htlc,,amount_msat,4
+channel_offer_htlc,,cltv_expiry,4
+channel_offer_htlc,,payment_hash,32
+channel_offer_htlc,,onion_routing_packet,1366*u8
 
 # Reply; synchronous since IDs have to increment.
 channel_offer_htlc_reply,104
-channel_offer_htlc_reply,0,id,8
+channel_offer_htlc_reply,,id,8
 # Zero failure code means success.
-channel_offer_htlc_reply,0,failure_code,2
-channel_offer_htlc_reply,0,failurestrlen,2
-channel_offer_htlc_reply,0,failurestr,failurestrlen*u8
+channel_offer_htlc_reply,,failure_code,2
+channel_offer_htlc_reply,,failurestrlen,2
+channel_offer_htlc_reply,,failurestr,failurestrlen*u8
 
 # Main daemon found out the preimage for an htlc
 #include <bitcoin/preimage.h>
 channel_fulfill_htlc,5
-channel_fulfill_htlc,0,id,8
-channel_fulfill_htlc,0,payment_preimage,struct preimage
+channel_fulfill_htlc,,id,8
+channel_fulfill_htlc,,payment_preimage,struct preimage
 
 # Main daemon says HTLC failed
 channel_fail_htlc,6
-channel_fail_htlc,0,id,8
-channel_fail_htlc,0,len,2
-channel_fail_htlc,0,error_pkt,len*u8
+channel_fail_htlc,,id,8
+channel_fail_htlc,,len,2
+channel_fail_htlc,,error_pkt,len*u8
 
 # Peer and I are irrevocably committed to this HTLC.
 channel_accepted_htlc,7
-channel_accepted_htlc,0,id,8
-channel_accepted_htlc,0,amount_msat,4
-channel_accepted_htlc,0,cltv_expiry,4
-channel_accepted_htlc,0,payment_hash,32
-channel_accepted_htlc,0,next_onion,1366*u8
-channel_accepted_htlc,0,forward,bool
-channel_accepted_htlc,0,amt_to_forward,u64
-channel_accepted_htlc,0,outgoing_cltv_value,u32
-channel_accepted_htlc,0,next_channel,struct short_channel_id
-channel_accepted_htlc,0,shared_secret,struct secret
+channel_accepted_htlc,,id,8
+channel_accepted_htlc,,amount_msat,4
+channel_accepted_htlc,,cltv_expiry,4
+channel_accepted_htlc,,payment_hash,32
+channel_accepted_htlc,,next_onion,1366*u8
+channel_accepted_htlc,,forward,bool
+channel_accepted_htlc,,amt_to_forward,u64
+channel_accepted_htlc,,outgoing_cltv_value,u32
+channel_accepted_htlc,,next_channel,struct short_channel_id
+channel_accepted_htlc,,shared_secret,struct secret
 
 # FIXME: Add code to commit current channel state!
 
 # The HTLC preimage was given.
 channel_fulfilled_htlc,8
-channel_fulfilled_htlc,0,id,8
-channel_fulfilled_htlc,0,payment_preimage,struct preimage
+channel_fulfilled_htlc,,id,8
+channel_fulfilled_htlc,,payment_preimage,struct preimage
 
 # This HTLC failed
 channel_failed_htlc,9
-channel_failed_htlc,0,id,8
-channel_failed_htlc,0,len,2
-channel_failed_htlc,0,reason,len*u8
+channel_failed_htlc,,id,8
+channel_failed_htlc,,len,2
+channel_failed_htlc,,reason,len*u8
 
 # This HTLC was returned malformed
 channel_malformed_htlc,10
-channel_malformed_htlc,0,id,8
-channel_malformed_htlc,0,sha256_of_onion,32
-channel_malformed_htlc,0,failure_code,2
+channel_malformed_htlc,,id,8
+channel_malformed_htlc,,sha256_of_onion,32
+channel_malformed_htlc,,failure_code,2
 
 # Ping/pong test.
 channel_ping,11
-channel_ping,0,num_pong_bytes,u16
-channel_ping,0,len,u16
+channel_ping,,num_pong_bytes,u16
+channel_ping,,len,u16
 
 channel_ping_reply,111
-channel_ping_reply,0,totlen,u16
+channel_ping_reply,,totlen,u16
 
 # Channeld tells the master that the channel has been announced
 channel_announced,12
