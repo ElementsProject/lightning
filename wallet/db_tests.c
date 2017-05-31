@@ -1,5 +1,7 @@
 #include "db.c"
 
+#include "wallet/test_utils.h"
+
 #include <stdio.h>
 #include <unistd.h>
 
@@ -20,24 +22,13 @@ static struct db *create_test_db(const char *testname)
 static bool test_empty_db_migrate(void)
 {
 	struct db *db = create_test_db(__func__);
-	if (!db)
-		goto fail;
-
-	if (db_get_version(db) != -1)
-		goto fail;
-
-	if (!db_migrate(db))
-		goto fail;
-
-	if (db_get_version(db) != db_migration_count())
-		goto fail;
+	CHECK(db);
+	CHECK(db_get_version(db) == -1);
+	CHECK(db_migrate(db));
+	CHECK(db_get_version(db) == db_migration_count());
 
 	tal_free(db);
 	return true;
-fail:
-	printf("Migration failed with error: %s\n", db->err);
-	tal_free(db);
-	return false;
 }
 
 int main(void)
