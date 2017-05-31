@@ -556,6 +556,21 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
         l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
         
+    def test_json_addfunds(self):
+        """ Attempt to add funds
+        """
+        sat = 10**6
+        l1 = self.node_factory.get_node(legacy=False)
+        addr = l1.rpc.newaddr()['address']
+        txid = l1.bitcoin.rpc.sendtoaddress(addr, 0.01)
+        tx = l1.bitcoin.rpc.getrawtransaction(txid)
+
+        # The first time should succeed
+        assert l1.rpc.addfunds(tx) == { "outputs" : 1, "satoshis" : sat }
+
+        # Second time should fail, we already have those funds
+        self.assertRaises(ValueError, l1.rpc.addfunds, tx)
+
 class LegacyLightningDTests(BaseLightningDTests):
 
     def test_connect(self):
