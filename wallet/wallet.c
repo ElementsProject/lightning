@@ -25,3 +25,27 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	tal_free(tmpctx);
 	return result;
 }
+
+bool wallet_update_output_status(struct wallet *w,
+				 const struct sha256_double *txid,
+				 const u32 outnum, enum output_status oldstatus,
+				 enum output_status newstatus)
+{
+	tal_t *tmpctx = tal_tmpctx(w);
+	char *hextxid = tal_hexstr(tmpctx, txid, sizeof(*txid));
+	if (oldstatus != output_state_any) {
+		db_exec(__func__, w->db,
+			"UPDATE outputs SET status=%d WHERE status=%d "
+			"AND prev_out_tx = '%s' AND prev_out_index = "
+			"%d;",
+			newstatus, oldstatus, hextxid, outnum);
+	} else {
+		db_exec(__func__, w->db,
+			"UPDATE outputs SET status=%d WHERE "
+			"AND prev_out_tx = '%s' AND prev_out_index = "
+			"%d;",
+			newstatus, hextxid, outnum);
+	}
+	tal_free(tmpctx);
+	return sqlite3_changes(w->db->sql) > 0;
+}
