@@ -87,14 +87,7 @@ static void db_clear_error(struct db *db)
 
 static void close_db(struct db *db) { sqlite3_close(db->sql); }
 
-/**
- * db_begin_transaction - Begin a transaction
- *
- * We do not support nesting multiple transactions, so make sure that
- * we are not in a transaction when calling this. Returns true if we
- * succeeded in starting a transaction.
- */
-static bool db_begin_transaction(struct db *db)
+bool db_begin_transaction(struct db *db)
 {
 	assert(!db->in_transaction);
 	/* Clear any errors from previous transactions and
@@ -104,13 +97,7 @@ static bool db_begin_transaction(struct db *db)
 	return db->in_transaction;
 }
 
-/**
- * db_commit_transaction - Commit a running transaction
- *
- * Requires that we are currently in a transaction. Returns whether
- * the commit was successful.
- */
-static bool db_commit_transaction(struct db *db)
+bool db_commit_transaction(struct db *db)
 {
 	assert(db->in_transaction);
 	bool ret = db_exec(__func__, db, "COMMIT;");
@@ -118,10 +105,7 @@ static bool db_commit_transaction(struct db *db)
 	return ret;
 }
 
-/**
- * db_rollback_transaction - Whoops... undo! undo!
- */
-static bool db_rollback_transaction(struct db *db)
+bool db_rollback_transaction(struct db *db)
 {
 	assert(db->in_transaction);
 	bool ret = db_exec(__func__, db, "ROLLBACK;");
