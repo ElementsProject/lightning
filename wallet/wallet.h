@@ -50,4 +50,19 @@ struct wallet *wallet_new(const tal_t *ctx, struct log *log);
 bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		     enum wallet_output_type type);
 
+/**
+ * wallet_update_output_status - Perform an output state transition
+ *
+ * Change the current status of an output we are tracking in the
+ * database. Returns true if the output exists with the @oldstatus and
+ * was successfully updated to @newstatus. May fail if either the
+ * output does not exist, or it does not have the expected
+ * @oldstatus. In case we don't care about the previous state use
+ * `output_state_any` as @oldstatus.
+ */
+bool wallet_update_output_status(struct wallet *w,
+				 const struct sha256_double *txid,
+				 const u32 outnum, enum output_status oldstatus,
+				 enum output_status newstatus);
+
 #endif /* WALLET_WALLET_H */

@@ -179,7 +179,12 @@ static void unreserve_utxo(struct lightningd *ld, const struct utxo *unres)
 {
 	struct tracked_utxo *utxo;
 
-	list_for_each(&ld->utxos, utxo, list) {
+	assert(wallet_update_output_status(ld->wallet, &unres->txid,
+					   unres->outnum, output_state_reserved,
+					   output_state_available));
+
+	list_for_each(&ld->utxos, utxo, list)
+	{
 		if (unres != &utxo->utxo)
 			continue;
 		assert(utxo->reserved);
@@ -224,6 +229,10 @@ const struct utxo **build_utxos(const tal_t *ctx,
 		tal_resize(&utxos, i+1);
 		utxos[i] = &utxo->utxo;
 		utxo->reserved = true;
+
+		assert(wallet_update_output_status(
+		    ld->wallet, &utxo->utxo.txid, utxo->utxo.outnum,
+		    output_state_available, output_state_reserved));
 
 		/* Add this input's weight. */
 		weight += (32 + 4 + 4) * 4;
