@@ -35,4 +35,26 @@ sqlite3_stmt *PRINTF_FMT(3, 4)
 bool PRINTF_FMT(3, 4)
 	db_exec(const char *caller, struct db *db, const char *fmt, ...);
 
+/**
+ * db_begin_transaction - Begin a transaction
+ *
+ * We do not support nesting multiple transactions, so make sure that
+ * we are not in a transaction when calling this. Returns true if we
+ * succeeded in starting a transaction.
+ */
+bool db_begin_transaction(struct db *db);
+
+/**
+ * db_commit_transaction - Commit a running transaction
+ *
+ * Requires that we are currently in a transaction. Returns whether
+ * the commit was successful.
+ */
+bool db_commit_transaction(struct db *db);
+
+/**
+ * db_rollback_transaction - Whoops... undo! undo!
+ */
+bool db_rollback_transaction(struct db *db);
+
 #endif /* WALLET_DB_H */
