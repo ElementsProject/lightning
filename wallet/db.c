@@ -2,8 +2,10 @@
 
 #include "daemon/log.h"
 #include "lightningd/lightningd.h"
+
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <inttypes.h>
 
 #define DB_FILE "lightningd.sqlite3"
 
@@ -229,4 +231,41 @@ struct db *db_setup(const tal_t *ctx)
 		return tal_free(db);
 	}
 	return db;
+}
+
+s64 db_get_intvar(struct db *db, char *varname, s64 defval)
+{
+	int err;
+	s64 res = defval;
+	const unsigned char *stringvar;
+	sqlite3_stmt *stmt =
+	    db_query(__func__, db,
+		     "SELECT val FROM vars WHERE name='%s' LIMIT 1", varname);
+
+	if (!stmt)
+		return defval;
+
+	err = sqlite3_step(stmt);
+	if (err == SQLITE_ROW) {
+		stringvar = sqlite3_column_text(stmt, 0);
+		res = atol((const char *)stringvar);
+	}
+	sqlite3_finalize(stmt);
+	return res;
+}
+
+bool db_set_intvar(struct db *db, char *varname, s64 val)
+{
+	/* Attempt to update */
+	db_exec(__func__, db,
+		"UPDATE vars SET val='%" PRId64 "' WHERE name='%s';", val,
+		varname);
+	if (sqlite3_changes(db->sql) > 0)
+		return true;
+	else
+		return db_exec(
+		    __func__, db,
+		    "INSERT INTO vars (name, val) VALUES ('%s', '%" PRId64
+		    "');",
+		    varname, val);
 }

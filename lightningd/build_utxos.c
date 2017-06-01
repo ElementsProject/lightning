@@ -49,6 +49,7 @@ static void json_newaddr(struct command *cmd,
 	ripemd160(&p2sh, h.u.u8, sizeof(h));
 
 	ld->bip32_max_index++;
+	db_set_intvar(ld->wallet->db, "bip32_max_index", ld->bip32_max_index);
 
 	json_object_start(response, NULL);
 	json_add_string(response, "address",
