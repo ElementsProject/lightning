@@ -187,6 +187,7 @@ void derive_peer_seed(struct lightningd *ld, struct privkey *peer_seed,
 {
 	be64 counter = cpu_to_be64(ld->peer_counter);
 	u8 input[PUBKEY_DER_LEN + sizeof(counter)];
+	char *info = "per-peer seed";
 
 	pubkey_to_der(input, peer_id);
 	memcpy(input + PUBKEY_DER_LEN, &counter, sizeof(counter));
@@ -194,7 +195,7 @@ void derive_peer_seed(struct lightningd *ld, struct privkey *peer_seed,
 	hkdf_sha256(peer_seed, sizeof(*peer_seed),
 		    input, sizeof(input),
 		    &ld->peer_seed, sizeof(ld->peer_seed),
-		    "per-ppeer seed", strlen("per-peer seed"));
+		    info, strlen(info));
 	/* FIXME: This must be saved in db. */
 	ld->peer_counter++;
 }
