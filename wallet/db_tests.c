@@ -31,11 +31,34 @@ static bool test_empty_db_migrate(void)
 	return true;
 }
 
+static bool test_vars(void)
+{
+	struct db *db = create_test_db(__func__);
+	char *varname = "testvar";
+	CHECK(db);
+	CHECK(db_migrate(db));
+
+	/* Check default behavior */
+	CHECK(db_get_intvar(db, varname, 42) == 42);
+
+	/* Check setting and getting */
+	CHECK(db_set_intvar(db, varname, 1));
+	CHECK(db_get_intvar(db, varname, 42) == 1);
+
+	/* Check updating */
+	CHECK(db_set_intvar(db, varname, 2));
+	CHECK(db_get_intvar(db, varname, 42) == 2);
+
+	tal_free(db);
+	return true;
+}
+
 int main(void)
 {
 	bool ok = true;
 
 	ok &= test_empty_db_migrate();
+	ok &= test_vars();
 
 	return !ok;
 }

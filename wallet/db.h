@@ -57,4 +57,20 @@ bool db_commit_transaction(struct db *db);
  */
 bool db_rollback_transaction(struct db *db);
 
+/**
+ * db_set_intvar - Set an integer variable in the database
+ *
+ * Utility function to store generic integer values in the
+ * database.
+ */
+bool db_set_intvar(struct db *db, char *varname, s64 val);
+
+/**
+ * db_get_intvar - Retrieve an integer variable from the database
+ *
+ * Either returns the value in the database, or @defval if
+ * the query failed or no such variable exists.
+ */
+s64 db_get_intvar(struct db *db, char *varname, s64 defval);
+
 #endif /* WALLET_DB_H */
