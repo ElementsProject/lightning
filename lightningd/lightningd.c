@@ -107,7 +107,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 
 	list_head_init(&ld->peers);
 	ld->peer_counter = 0;
-	ld->bip32_max_index = 0;
 	ld->dev_debug_subdaemon = NULL;
 	list_head_init(&ld->utxos);
 	htlc_end_map_init(&ld->htlc_ends);
@@ -256,8 +255,6 @@ int main(int argc, char *argv[])
 
 	/* Initialize wallet, now that we are in the correct directory */
 	ld->wallet = wallet_new(ld, ld->log);
-
-	ld->bip32_max_index = db_get_intvar(ld->wallet->db, "bip32_max_index", 0);
 
 	/* Mark ourselves live. */
 	log_info(ld->log, "Hello world from %s!", version());

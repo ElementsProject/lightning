@@ -40,7 +40,6 @@ struct lightningd {
 
 	/* Public base for bip32 keys, and max we've ever used. */
 	struct ext_key *bip32_base;
-	u32 bip32_max_index;
 
 	/* Our bitcoind context. */
 	struct bitcoind *bitcoind;
