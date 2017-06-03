@@ -26,13 +26,14 @@ static void json_newaddr(struct command *cmd,
 	struct ripemd160 p2sh;
 	struct pubkey pubkey;
 	u8 *redeemscript;
+	u64 bip32_max_index = db_get_intvar(ld->wallet->db, "bip32_max_index", 0);
 
-	if (ld->bip32_max_index == BIP32_INITIAL_HARDENED_CHILD) {
+	if (bip32_max_index == BIP32_INITIAL_HARDENED_CHILD) {
 		command_fail(cmd, "Keys exhausted ");
 		return;
 	}
 
-	if (bip32_key_from_parent(ld->bip32_base, ld->bip32_max_index,
+	if (bip32_key_from_parent(ld->bip32_base, bip32_max_index,
 				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
 		command_fail(cmd, "Keys generation failure");
 		return;
@@ -48,8 +49,7 @@ static void json_newaddr(struct command *cmd,
 	sha256(&h, redeemscript, tal_count(redeemscript));
 	ripemd160(&p2sh, h.u.u8, sizeof(h));
 
-	ld->bip32_max_index++;
-	db_set_intvar(ld->wallet->db, "bip32_max_index", ld->bip32_max_index);
+	db_set_intvar(ld->wallet->db, "bip32_max_index", bip32_max_index + 1);
 
 	json_object_start(response, NULL);
 	json_add_string(response, "address",
@@ -71,6 +71,7 @@ static bool can_spend(struct lightningd *ld, const u8 *script,
 		      u32 *index, bool *output_is_p2sh)
 {
 	struct ext_key ext;
+	u64 bip32_max_index = db_get_intvar(ld->wallet->db, "bip32_max_index", 0);
 	u32 i;
 
 	/* If not one of these, can't be for us. */
@@ -81,7 +82,7 @@ static bool can_spend(struct lightningd *ld, const u8 *script,
 	else
 		return false;
 
-	for (i = 0; i < ld->bip32_max_index; i++) {
+	for (i = 0; i < bip32_max_index; i++) {
 		u8 *s;
 
 		if (bip32_key_from_parent(ld->bip32_base, i,
@@ -218,6 +219,7 @@ const struct utxo **build_utxos(const tal_t *ctx,
 	struct tracked_utxo *utxo;
 	/* We assume two outputs for the weight. */
 	u64 satoshi_in = 0, weight = (4 + (8 + 22) * 2 + 4) * 4;
+	u64 bip32_max_index = db_get_intvar(ld->wallet->db, "bip32_max_index", 0);
 
 	tal_add_destructor2(utxos, destroy_utxos, ld);
 
@@ -251,8 +253,10 @@ const struct utxo **build_utxos(const tal_t *ctx,
 			if (*change_satoshis < dust_limit) {
 				*change_satoshis = 0;
 				*change_keyindex = 0;
-			} else
-				*change_keyindex = ld->bip32_max_index++;
+			} else {
+				*change_keyindex = bip32_max_index + 1;
+				db_set_intvar(ld->wallet->db, "bip32_max_index", *change_keyindex);
+			}
 
 			return utxos;
 		}
