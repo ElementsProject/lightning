@@ -12,6 +12,7 @@ struct utxo {
 	u64 amount;
 	u32 keyindex;
 	bool is_p2sh;
+	u8 status;
 };
 
 void towire_utxo(u8 **pptr, const struct utxo *utxo);
