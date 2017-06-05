@@ -612,16 +612,19 @@ static struct io_plan *resolve_channel_req(struct io_conn *conn,
 		status_failed(WIRE_GOSSIPSTATUS_BAD_REQUEST,
 			      "Unable to parse resolver request");
 
-	status_trace("Attempting to resolve channel %s",
-		     type_to_string(trc, struct short_channel_id, &scid));
-
 	nc = get_connection_by_scid(daemon->rstate, &scid, 0);
 	if (!nc) {
+		status_trace("Failed to resolve channel %s",
+			     type_to_string(trc, struct short_channel_id, &scid));
 		keys = NULL;
 	} else {
 		keys = tal_arr(msg, struct pubkey, 2);
 		keys[0] = nc->src->id;
 		keys[1] = nc->dst->id;
+		status_trace("Resolved channel %s %s<->%s",
+			     type_to_string(trc, struct short_channel_id, &scid),
+			     type_to_string(trc, struct pubkey, &keys[0]),
+			     type_to_string(trc, struct pubkey, &keys[1]));
 	}
 	daemon_conn_send(&daemon->master,
 			 take(towire_gossip_resolve_channel_reply(msg, keys)));

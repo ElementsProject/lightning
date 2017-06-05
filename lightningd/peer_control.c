@@ -662,6 +662,10 @@ static enum watch_result funding_announce_cb(struct peer *peer,
 		return KEEP_WATCHING;
 	}
 	if (peer->state != CHANNELD_NORMAL || !peer->owner) {
+		log_debug(peer->ld->log,
+			  "Funding tx announce ready, but peer state %s %s",
+			  peer_state_name(peer->state),
+			  peer->owner ? peer->owner->name : "unowned");
 		return KEEP_WATCHING;
 	}
 	subd_send_msg(peer->owner,
