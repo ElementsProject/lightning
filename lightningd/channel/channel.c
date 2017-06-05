@@ -118,6 +118,9 @@ static struct io_plan *gossip_client_recv(struct io_conn *conn,
 	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
 	    type == WIRE_NODE_ANNOUNCEMENT)
 		msg_enqueue(&peer->peer_out, msg);
+	else
+		status_failed(WIRE_CHANNEL_GOSSIP_BAD_MESSAGE,
+			      "Got bad message from gossipd: %d", type);
 
 	return daemon_conn_read_next(conn, dc);
 }
@@ -1327,6 +1330,7 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 		case WIRE_CHANNEL_BAD_COMMAND:
 		case WIRE_CHANNEL_HSM_FAILED:
 		case WIRE_CHANNEL_CRYPTO_FAILED:
+		case WIRE_CHANNEL_GOSSIP_BAD_MESSAGE:
 		case WIRE_CHANNEL_INTERNAL_ERROR:
 		case WIRE_CHANNEL_PEER_WRITE_FAILED:
 		case WIRE_CHANNEL_PEER_READ_FAILED:
