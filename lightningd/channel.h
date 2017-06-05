@@ -64,7 +64,7 @@ struct channel {
 
 /* BOLT #2:
  *
- * `dust-limit-satoshis` is the threshold below which output should be
+ * `dust_limit_satoshis` is the threshold below which output should be
  * generated for this node's commitment or HTLC transaction */
 static inline u64 dust_limit_satoshis(const struct channel *channel,
 				      enum side side)
@@ -73,7 +73,7 @@ static inline u64 dust_limit_satoshis(const struct channel *channel,
 }
 /* BOLT #2:
  *
- * `max-htlc-value-in-inflight-msat` is a cap on total value of
+ * `max_htlc_value_in_flight_msat` is a cap on total value of
  * outstanding HTLCs, which allows a node to limit its exposure to
  * HTLCs */
 static inline u64 max_htlc_value_in_flight_msat(const struct channel *channel,
@@ -83,7 +83,7 @@ static inline u64 max_htlc_value_in_flight_msat(const struct channel *channel,
 }
 /* BOLT #2:
  *
- * similarly `max-accepted-htlcs` limits the number of outstanding
+ * similarly `max_accepted_htlcs` limits the number of outstanding
  * HTLCs the other node can offer. */
 static inline u16 max_accepted_htlcs(const struct channel *channel,
 				     enum side recipient)
@@ -92,7 +92,7 @@ static inline u16 max_accepted_htlcs(const struct channel *channel,
 }
 /* BOLT #2:
  *
- * `channel-reserve-satoshis` is the minimum amount that the other
+ * `channel_reserve_satoshis` is the minimum amount that the other
  * node is to keep as a direct payment. */
 static inline u64 channel_reserve_msat(const struct channel *channel,
 				       enum side side)
@@ -101,7 +101,7 @@ static inline u64 channel_reserve_msat(const struct channel *channel,
 }
 /* BOLT #2:
  *
- * `htlc-minimum-msat` indicates the smallest value HTLC this node will accept.
+ * `htlc_minimum_msat` indicates the smallest value HTLC this node will accept.
  */
 static inline u32 htlc_minimum_msat(const struct channel *channel,
 				    enum side recipient)
@@ -110,7 +110,7 @@ static inline u32 htlc_minimum_msat(const struct channel *channel,
 }
 /* BOLT #2:
  *
- * `to-self-delay` is the number of blocks that the other nodes
+ * `to_self_delay` is the number of blocks that the other nodes
  * to-self outputs must be delayed, using `OP_CHECKSEQUENCEVERIFY`
  * delays */
 static inline u16 to_self_delay(const struct channel *channel, enum side side)

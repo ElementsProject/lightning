@@ -54,9 +54,9 @@ bool derive_basepoints(const struct privkey *seed,
 
 	/* BOLT #3:
 	 *
-	 * The `per-commitment-point` is generated using EC multiplication:
+	 * The `per_commitment_point` is generated using EC multiplication:
 	 *
-	 * 	per-commitment-point = per-commitment-secret * G
+	 * 	per_commitment_point = per_commitment_secret * G
 	 */
 	if (per_commit_point) {
 		if (secp256k1_ec_pubkey_create(secp256k1_ctx,
@@ -89,9 +89,9 @@ bool next_per_commit_point(const struct sha256 *shaseed,
 
 	/* BOLT #3:
 	 *
-	 * The `per-commitment-point` is generated using EC multiplication:
+	 * The `per_commitment_point` is generated using EC multiplication:
 	 *
-	 * 	per-commitment-point = per-commitment-secret * G
+	 * 	per_commitment_point = per_commitment_secret * G
 	 */
 	if (secp256k1_ec_pubkey_create(secp256k1_ctx,
 				       &per_commit_point->pubkey,

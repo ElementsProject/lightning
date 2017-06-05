@@ -716,7 +716,7 @@ int main(void)
 
 	/* BOLT #3:
 	 *
-	 *    name: commitment tx with all 5 htlcs untrimmed (minimum feerate)
+	 *    name: commitment tx with all 5 HTLCs untrimmed (minimum feerate)
 	 *    to_local_msat: 6988000000
 	 *    to_remote_msat: 3000000000
 	 *    local_feerate_per_kw: 0

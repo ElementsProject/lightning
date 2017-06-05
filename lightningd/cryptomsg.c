@@ -167,7 +167,7 @@ bool cryptomsg_decrypt_header(struct crypto_state *cs, u8 hdr[18], u16 *lenp)
 	 *
 	 *  * Let the encrypted length prefix be known as `lc`
 	 *
-	 *  * Decrypt `lc` using `ChaCha20-Poy1305`, `rn`, and `rk` to
+	 *  * Decrypt `lc` using `ChaCha20-Poly1305`, `rn`, and `rk` to
 	 *    obtain size of the encrypted packet `l`.
 	 *    * A zero-length byte slice is to be passed as the AD
 	 *	(associated data).

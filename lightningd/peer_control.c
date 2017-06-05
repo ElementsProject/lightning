@@ -875,11 +875,11 @@ static u8 *make_failmsg(const tal_t *ctx, const struct htlc_end *hend,
  *    processing an incoming Sphinx packet along with the HTLC message it's
  *    encapsulated within, if the following inequality doesn't hold, then the
  *    HTLC should be rejected as it indicates a prior node in the path has
- *    deviated from the specified paramters:
+ *    deviated from the specified parameters:
  *
  *       incoming_htlc_amt - fee >= amt_to_forward
  *
- *    Where `fee` is calculated according to the receving node's advertised fee
+ *    Where `fee` is calculated according to the receiving node's advertised fee
  *    schema as described in [BOLT 7](https://github.com/lightningnetwork/lightning-rfc/blob/master/07-routing-gossip.md#htlc-fees), or 0 if this node is the
  *    final hop.
  */
@@ -899,15 +899,15 @@ static bool check_amount(struct htlc_end *hend,
  *  * `outgoing_cltv_value` - The CLTV value that the _outgoing_ HTLC carrying
  *     the packet should have.
  *
- *        cltv-expiry - cltv-expiry-delta = outgoing_cltv_value
+ *        cltv_expiry - cltv_expiry_delta = outgoing_cltv_value
  *
  *     Inclusion of this field allows a node to both authenticate the information
- *     specified by the original sender and the paramaters of the HTLC forwarded,
- *	 and ensure the original sender is using the current `cltv-expiry-delta`  value.
- *     If there is no next hop, `cltv-expiry-delta` is zero.
+ *     specified by the original sender and the parameters of the HTLC forwarded,
+ *	 and ensure the original sender is using the current `cltv_expiry_delta`  value.
+ *     If there is no next hop, `cltv_expiry_delta` is zero.
  *     If the values don't correspond, then the HTLC should be failed+rejected as
  *     this indicates the incoming node has tampered with the intended HTLC
- *     values, or the origin has an obsolete `cltv-expiry-delta` value.
+ *     values, or the origin has an obsolete `cltv_expiry_delta` value.
  *     The node MUST be consistent in responding to an unexpected
  *     `outgoing_cltv_value` whether it is the final hop or not, to avoid
  *     leaking that information.
@@ -948,12 +948,12 @@ static void handle_localpay(struct htlc_end *hend,
 
 	/* BOLT #4:
 	 *
-	 * If the `amt_to_forward` does not match the `incoming_htlc_amt` of
+	 * If the `amt_to_forward` is higher than `incoming_htlc_amt` of
 	 * the HTLC at the final hop:
 	 *
 	 * 1. type: 19 (`final_incorrect_htlc_amount`)
 	 * 2. data:
-	 *    * [4:incoming-htlc-amt]
+	 *    * [`4`:`incoming_htlc_amt`]
 	 */
 	if (!check_amount(hend, amt_to_forward, hend->msatoshis, 0)) {
 		err = towire_final_incorrect_htlc_amount(hend, hend->msatoshis);
@@ -962,12 +962,12 @@ static void handle_localpay(struct htlc_end *hend,
 
 	/* BOLT #4:
 	 *
-	 * If the `outgoing_cltv_value` does not match the `ctlv-expiry` of
+	 * If the `outgoing_cltv_value` does not match the `ctlv_expiry` of
 	 * the HTLC at the final hop:
 	 *
 	 * 1. type: 18 (`final_incorrect_cltv_expiry`)
 	 * 2. data:
-	 *   * [4:cltv-expiry]
+	 *   * [`4`:`cltv_expiry`]
 	 */
 	if (!check_ctlv(hend, cltv_expiry, outgoing_cltv_value, 0)) {
 		err = towire_final_incorrect_cltv_expiry(hend, cltv_expiry);
@@ -1000,7 +1000,7 @@ static void handle_localpay(struct htlc_end *hend,
 
 	/* BOLT #4:
 	 *
-	 * If the `cltv-expiry` is too low, the final node MUST fail the HTLC:
+	 * If the `cltv_expiry` is too low, the final node MUST fail the HTLC:
 	 */
 	if (get_block_height(hend->peer->ld->topology)
 	    + hend->peer->ld->dstate.config.deadline_blocks >= cltv_expiry) {
@@ -1110,7 +1110,7 @@ static void forward_htlc(struct htlc_end *hend,
 	 * The node creating `channel_update` SHOULD accept HTLCs which pay a
 	 * fee equal or greater than:
 	 *
-	 *    fee-base-msat + htlc-amount-msat * fee-proportional-millionths / 1000000
+	 *    fee_base_msat + amount_msat * fee_proportional_millionths / 1000000
 	 */
 	if (mul_overflows_u64(amt_to_forward,
 			      ld->dstate.config.fee_per_satoshi)) {
@@ -1139,8 +1139,8 @@ static void forward_htlc(struct htlc_end *hend,
 	 * setting for the outgoing channel:
 	 * 1. type: UPDATE|14 (`expiry_too_soon`)
 	 * 2. data:
-	 *    * [2:len]
-	 *    * [len:channel_update]
+	 *    * [`2`:`len`]
+	 *    * [`len`:`channel_update`]
 	 */
 	if (get_block_height(next->ld->topology)
 	    + next->ld->dstate.config.deadline_blocks >= outgoing_cltv_value) {
@@ -1739,7 +1739,7 @@ static void channel_config(struct lightningd *ld,
 
 	/* BOLT #2:
 	 *
-	 * The sender SHOULD set `dust-limit-satoshis` to a sufficient
+	 * The sender SHOULD set `dust_limit_satoshis` to a sufficient
 	 * value to allow commitment transactions to propagate through
 	 * the Bitcoin network.
 	 */
@@ -1751,7 +1751,7 @@ static void channel_config(struct lightningd *ld,
 
 	/* BOLT #2:
 	 *
-	 * The sender SHOULD set `to-self-delay` sufficient to ensure
+	 * The sender SHOULD set `to_self_delay` sufficient to ensure
 	 * the sender can irreversibly spend a commitment transaction
 	 * output in case of misbehavior by the receiver.
 	 */
@@ -1759,7 +1759,7 @@ static void channel_config(struct lightningd *ld,
 
 	 /* BOLT #2:
 	  *
-	  * It MUST fail the channel if `max-accepted-htlcs` is greater than
+	  * It MUST fail the channel if `max_accepted_htlcs` is greater than
 	  * 483.
 	  */
 	 ours->max_accepted_htlcs = 483;
@@ -1803,8 +1803,9 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer)
 
 	/* BOLT #2:
 	 *
-	 * The sender SHOULD set `minimum-depth` to an amount where
-	 * the sender considers reorganizations to be low risk.
+	 * The sender SHOULD set `minimum_depth` to a number of blocks it
+	 * considers reasonable to avoid double-spending of the funding
+	 * transaction.
 	 */
 	peer->minimum_depth = ld->dstate.config.anchor_confirms;
 

@@ -627,12 +627,12 @@ u8 **bitcoin_witness_htlc(const tal_t *ctx,
  *
  *     OP_IF
  *         # Penalty transaction
- *         <revocation-pubkey>
+ *         <revocationkey>
  *     OP_ELSE
- *         `to-self-delay`
+ *         `to_self_delay`
  *         OP_CSV
  *         OP_DROP
- *         <local-delayedkey>
+ *         <local_delayedkey>
  *     OP_ENDIF
  *     OP_CHECKSIG
  */
@@ -660,10 +660,10 @@ u8 **bitcoin_to_local_spend_delayedkey(const tal_t *ctx,
 	/* BOLT #3:
 	 *
 	 * It is spent by a transaction with `nSequence` field set to
-	 * `to-self-delay` (which can only be valid after that duration has
+	 * `to_self_delay` (which can only be valid after that duration has
 	 * passed), and witness:
 	 *
-	 * 	<local-delayedsig> 0
+	 * 	<local_delayedsig> 0
 	 */
 	u8 **witness = tal_arr(ctx, u8 *, 3);
 
@@ -682,7 +682,7 @@ u8 **bitcoin_to_local_spend_revocation(const tal_t *ctx,
 	 * If a revoked commitment transaction is published, the other party
 	 * can spend this output immediately with the following witness:
 	 *
-	 *    <revocation-sig> 1
+	 *    <revocation_sig> 1
 	 */
 	u8 **witness = tal_arr(ctx, u8 *, 3);
 
@@ -702,7 +702,7 @@ u8 **bitcoin_to_local_spend_revocation(const tal_t *ctx,
  * key.  The output is a P2WSH, with a witness script:
  *
  *     # To you with revocation key
- *     OP_DUP OP_HASH160 <revocationkey-hash> OP_EQUAL
+ *     OP_DUP OP_HASH160 <RIPEMD160(revocationkey)> OP_EQUAL
  *     OP_IF
  *         OP_CHECKSIG
  *     OP_ELSE
@@ -712,7 +712,7 @@ u8 **bitcoin_to_local_spend_revocation(const tal_t *ctx,
  *             OP_DROP 2 OP_SWAP <localkey> 2 OP_CHECKMULTISIG
  *         OP_ELSE
  *             # To you with preimage.
- *             OP_HASH160 <ripemd-of-payment-hash> OP_EQUALVERIFY
+ *             OP_HASH160 <RIPEMD160(payment_hash)> OP_EQUALVERIFY
  *             OP_CHECKSIG
  *         OP_ENDIF
  *     OP_ENDIF
@@ -767,7 +767,7 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
  * payment preimage. The output is a P2WSH, with a witness script:
  *
  *     # To you with revocation key
- *     OP_DUP OP_HASH160 <revocationkey-hash> OP_EQUAL
+ *     OP_DUP OP_HASH160 <RIPEMD160(revocationkey)> OP_EQUAL
  *     OP_IF
  *         OP_CHECKSIG
  *     OP_ELSE
@@ -775,11 +775,11 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
  *             OP_SIZE 32 OP_EQUAL
  *         OP_IF
  *             # To me via HTLC-success transaction.
- *             OP_HASH160 <ripemd-of-payment-hash> OP_EQUALVERIFY
+ *             OP_HASH160 <RIPEMD160(payment_hash)> OP_EQUALVERIFY
  *             2 OP_SWAP <localkey> 2 OP_CHECKMULTISIG
  *         OP_ELSE
  *             # To you after timeout.
- *             OP_DROP <locktime> OP_CHECKLOCKTIMEVERIFY OP_DROP
+ *             OP_DROP <cltv_expiry> OP_CHECKLOCKTIMEVERIFY OP_DROP
  *             OP_CHECKSIG
  *         OP_ENDIF
  *     OP_ENDIF
@@ -834,7 +834,7 @@ u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
  * ## HTLC-Timeout and HTLC-Success Transactions
  *
  *...
- *   * `txin[0]` witness stack: `0 <remotesig> <localsig>  <payment-preimage>` for HTLC-Success, `0 <remotesig> <localsig> 0` for HTLC-Timeout.
+ *   * `txin[0]` witness stack: `0 <remotesig> <localsig>  <payment_preimage>` for HTLC-Success, `0 <remotesig> <localsig> 0` for HTLC-Timeout.
  */
 u8 **bitcoin_htlc_offer_spend_timeout(const tal_t *ctx,
 			      const secp256k1_ecdsa_signature *localsig,
@@ -882,12 +882,12 @@ u8 *bitcoin_wscript_htlc_tx(const tal_t *ctx,
 	 *
 	 *     OP_IF
 	 *         # Penalty transaction
-	 *         <revocation-pubkey>
+	 *         <revocationkey>
 	 *     OP_ELSE
-	 *         `to-self-delay`
+	 *         `to_self_delay`
 	 *         OP_CSV
 	 *         OP_DROP
-	 *         <local-delayedkey>
+	 *         <local_delayedkey>
 	 *     OP_ENDIF
 	 *     OP_CHECKSIG
 	 */

@@ -551,9 +551,9 @@ bool add_channel_direction(struct routing_state *rstate,
  *
  * The following `address descriptor` types are defined:
  *
- * 1. `0`: padding.  data = none (length 0).
- * 1. `1`: IPv4. data = `[4:ipv4-addr][2:port]` (length 6)
- * 2. `2`: IPv6. data = `[16:ipv6-addr][2:port]` (length 18)
+ * * `0`: padding.  data = none (length 0).
+ * * `1`: ipv4. data = `[4:ipv4_addr][2:port]` (length 6)
+ * * `2`: ipv6. data = `[16:ipv6_addr][2:port]` (length 18)
  */
 
 /* FIXME: Don't just take first one, depends whether we have IPv6 ourselves */
@@ -622,7 +622,7 @@ bool read_ip(const tal_t *ctx, const u8 *addresses, char **hostname,
  * used for aligning fields following `addresses`.
  *
  * The creating node MUST NOT create a type 1 or type 2 address descriptor
- * with `port` equal to zero, and SHOULD ensure `ipv4-addr` and `ipv6-addr`
+ * with `port` equal to zero, and SHOULD ensure `ipv4_addr` and `ipv6_addr`
  * are routable addresses.  The creating node MUST NOT include more than one
  * `address descriptor` of the same type.
  */

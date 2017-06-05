@@ -15,7 +15,7 @@
  * The 48-bit commitment transaction number is obscured by `XOR` with
  * the lower 48 bits of:
  *
- *     SHA256(payment-basepoint from open_channel || payment-basepoint from accept_channel)
+ *     SHA256(payment_basepoint from open_channel || payment_basepoint from accept_channel)
  */
 u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint,
 			   const struct pubkey *accepter_payment_basepoint)
@@ -55,7 +55,7 @@ u64 htlc_timeout_fee(u64 feerate_per_kw)
 	 *
 	 * The fee for an HTLC-timeout transaction MUST BE calculated to match:
 	 *
-	 * 1. Multiply `feerate-per-kw` by 663 and divide by 1000 (rounding
+	 * 1. Multiply `feerate_per_kw` by 663 and divide by 1000 (rounding
 	 *    down).
 	 */
 	return feerate_per_kw * 663 / 1000;
@@ -67,7 +67,7 @@ u64 htlc_success_fee(u64 feerate_per_kw)
 	 *
 	 * The fee for an HTLC-success transaction MUST BE calculated to match:
 	 *
-	 * 1. Multiply `feerate-per-kw` by 703 and divide by 1000 (rounding
+	 * 1. Multiply `feerate_per_kw` by 703 and divide by 1000 (rounding
 	 *    down).
 	 */
 	return feerate_per_kw * 703 / 1000;
@@ -82,7 +82,7 @@ static bool trim(const struct htlc *htlc,
 	/* BOLT #3:
 	 *
 	 * For every offered HTLC, if the HTLC amount minus the HTLC-timeout
-	 * fee would be less than `dust-limit-satoshis` set by the transaction
+	 * fee would be less than `dust_limit_satoshis` set by the transaction
 	 * owner, the commitment transaction MUST NOT contain that output,
 	 * otherwise it MUST be generated as specified in [Offered HTLC
 	 * Outputs](#offered-htlc-outputs).
@@ -92,7 +92,7 @@ static bool trim(const struct htlc *htlc,
 	/* BOLT #3:
 	 *
 	 * For every received HTLC, if the HTLC amount minus the HTLC-success
-	 * fee would be less than `dust-limit-satoshis` set by the transaction
+	 * fee would be less than `dust_limit_satoshis` set by the transaction
 	 * owner, the commitment transaction MUST NOT contain that output,
 	 * otherwise it MUST be generated as specified in [Received HTLC
 	 * Outputs](#received-htlc-outputs).
@@ -138,7 +138,7 @@ u64 commit_tx_base_fee(u64 feerate_per_kw, size_t num_untrimmed_htlcs)
 
 	/* BOLT #3:
 	 *
-	 * 3. Multiply `feerate-per-kw` by `weight`, divide by 1000
+	 * 3. Multiply `feerate_per_kw` by `weight`, divide by 1000
 	 *    (rounding down).
 	 */
 	return feerate_per_kw * weight / 1000;
@@ -225,8 +225,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	/* BOLT #3:
 	 *
-	 * 3. Subtract this base fee from the funder (either `to-local` or
-	 * `to-remote`), with a floor of zero (see [Fee Payment](#fee-payment)).
+	 * 3. Subtract this base fee from the funder (either `to_local` or
+	 * `to_remote`), with a floor of zero (see [Fee Payment](#fee-payment)).
 	 */
 	subtract_fee(funder, side, base_fee_msat,
 		     &self_pay_msat, &other_pay_msat);
@@ -294,8 +294,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	/* BOLT #3:
 	 *
-	 * 5. If the `to-local` amount is greater or equal to
-	 *    `dust-limit-satoshis`, add a [To-Local
+	 * 5. If the `to_local` amount is greater or equal to
+	 *    `dust_limit_satoshis`, add a [`to_local`
 	 *    Output](#to-local-output).
 	 */
 	if (self_pay_msat / 1000 >= dust_limit_satoshis) {
@@ -315,14 +315,14 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	/* BOLT #3:
 	 *
-	 * 6. If the `to-remote` amount is greater or equal to
-	 *    `dust-limit-satoshis`, add a [To-Remote
+	 * 6. If the `to_remote` amount is greater or equal to
+	 *    `dust_limit_satoshis`, add a [`to_remote`
 	 *    Output](#to-remote-output).
 	 */
 	if (other_pay_msat / 1000 >= dust_limit_satoshis) {
 		/* BOLT #3:
 		 *
-		 * #### To-Remote Output
+		 * #### `to_remote` Output
 		 *
 		 * This output sends funds to the other peer, thus is a simple
 		 * P2WPKH to `remotekey`.
