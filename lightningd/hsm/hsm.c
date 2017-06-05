@@ -170,7 +170,8 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 	struct sha256_double hash;
 	secp256k1_ecdsa_signature sig;
 	struct short_channel_id scid;
-	u32 timestamp, htlc_minimum_msat, fee_base_msat, fee_proportional_mill;
+	u32 timestamp, fee_base_msat, fee_proportional_mill;
+	u64 htlc_minimum_msat;
 	u16 flags, cltv_expiry_delta;
 	u8 *cu;
 

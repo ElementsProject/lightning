@@ -15,7 +15,7 @@
  *    * [`8`:`dust_limit_satoshis`]
  *    * [`8`:`max_htlc_value_in_flight_msat`]
  *    * [`8`:`channel_reserve_satoshis`]
- *    * [`4`:`htlc_minimum_msat`]
+ *    * [`8`:`htlc_minimum_msat`]
  *    * [`4`:`feerate_per_kw`]
  *    * [`2`:`to_self_delay`]
  *    * [`2`:`max_accepted_htlcs`]
@@ -26,8 +26,8 @@
  *    * [`8`:`dust_limit_satoshis`]
  *    * [`8`:`max_htlc_value_in_flight_msat`]
  *    * [`8`:`channel_reserve_satoshis`]
+ *    * [`8`:`htlc_minimum_msat`]
  *    * [`4`:`minimum_depth`]
- *    * [`4`:`htlc_minimum_msat`]
  *    * [`2`:`to_self_delay`]
  *    * [`2`:`max_accepted_htlcs`]
  */
@@ -35,7 +35,7 @@ struct channel_config {
 	u64 dust_limit_satoshis;
 	u64 max_htlc_value_in_flight_msat;
 	u64 channel_reserve_satoshis;
-	u32 htlc_minimum_msat;
+	u64 htlc_minimum_msat;
 	u16 to_self_delay;
 	u16 max_accepted_htlcs;
 };

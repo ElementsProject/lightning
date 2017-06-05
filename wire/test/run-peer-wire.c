@@ -101,8 +101,8 @@ struct msg_accept_channel {
 	u64 dust_limit_satoshis;
 	u64 max_htlc_value_in_flight_msat;
 	u64 channel_reserve_satoshis;
+	u64 htlc_minimum_msat;
 	u32 minimum_depth;
-	u32 htlc_minimum_msat;
 	u16 to_self_delay;
 	u16 max_accepted_htlcs;
 	struct pubkey funding_pubkey;
@@ -134,7 +134,7 @@ struct msg_channel_update {
 	u32 timestamp;
 	u16 flags;
 	u16 expiry;
-	u32 htlc_minimum_msat;
+	u64 htlc_minimum_msat;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
 	struct short_channel_id short_channel_id;
@@ -171,7 +171,7 @@ struct msg_open_channel {
 	u64 dust_limit_satoshis;
 	u64 max_htlc_value_in_flight_msat;
 	u64 channel_reserve_satoshis;
-	u32 htlc_minimum_msat;
+	u64 htlc_minimum_msat;
 	u32 feerate_per_kw;
 	u16 to_self_delay;
 	u16 max_accepted_htlcs;
@@ -205,7 +205,7 @@ struct msg_init {
 struct msg_update_add_htlc {
 	struct channel_id channel_id;
 	u64 id;
-	u32 amount_msat;
+	u64 amount_msat;
 	u32 expiry;
 	struct sha256 payment_hash;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
@@ -304,8 +304,8 @@ static void *towire_struct_accept_channel(const tal_t *ctx,
 				     s->dust_limit_satoshis,
 				     s->max_htlc_value_in_flight_msat,
 				     s->channel_reserve_satoshis,
-				     s->minimum_depth,
 				     s->htlc_minimum_msat,
+				     s->minimum_depth,
 				     s->to_self_delay,
 				     s->max_accepted_htlcs,
 				     &s->funding_pubkey,
@@ -324,8 +324,8 @@ static struct msg_accept_channel *fromwire_struct_accept_channel(const tal_t *ct
 				    &s->dust_limit_satoshis,
 				    &s->max_htlc_value_in_flight_msat,
 				    &s->channel_reserve_satoshis,
-				    &s->minimum_depth,
 				    &s->htlc_minimum_msat,
+				    &s->minimum_depth,
 				    &s->to_self_delay,
 				    &s->max_accepted_htlcs,
 				    &s->funding_pubkey,
@@ -631,8 +631,8 @@ static void *towire_struct_update_add_htlc(const tal_t *ctx,
 				      &s->channel_id,
 				      s->id,
 				      s->amount_msat,
-				      s->expiry,
 				      &s->payment_hash,
+				      s->expiry,
 				      s->onion_routing_packet);
 }
 
@@ -644,8 +644,8 @@ static struct msg_update_add_htlc *fromwire_struct_update_add_htlc(const tal_t *
 				     &s->channel_id,
 				     &s->id,
 				     &s->amount_msat,
-				     &s->expiry,
 				     &s->payment_hash,
+				     &s->expiry,
 				     s->onion_routing_packet))
 		return s;
 	return tal_free(s);

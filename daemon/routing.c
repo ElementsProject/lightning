@@ -762,7 +762,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 	u32 timestamp;
 	u16 flags;
 	u16 expiry;
-	u32 htlc_minimum_msat;
+	u64 htlc_minimum_msat;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
 	const tal_t *tmpctx = tal_tmpctx(rstate);

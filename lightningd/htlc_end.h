@@ -15,7 +15,7 @@ struct htlc_end {
 	enum htlc_end_type which_end;
 	struct peer *peer;
 	u64 htlc_id;
-	u32 msatoshis;
+	u64 msatoshis;
 
 	struct htlc_end *other_end;
 	/* If this is driven by a command. */

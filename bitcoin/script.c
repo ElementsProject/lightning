@@ -702,7 +702,7 @@ u8 **bitcoin_to_local_spend_revocation(const tal_t *ctx,
  * key.  The output is a P2WSH, with a witness script:
  *
  *     # To you with revocation key
- *     OP_DUP OP_HASH160 <RIPEMD160(revocationkey)> OP_EQUAL
+ *     OP_DUP OP_HASH160 <RIPEMD160(SHA256(revocationkey))> OP_EQUAL
  *     OP_IF
  *         OP_CHECKSIG
  *     OP_ELSE
@@ -767,7 +767,7 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
  * payment preimage. The output is a P2WSH, with a witness script:
  *
  *     # To you with revocation key
- *     OP_DUP OP_HASH160 <RIPEMD160(revocationkey)> OP_EQUAL
+ *     OP_DUP OP_HASH160 <RIPEMD160(SHA256(revocationkey))> OP_EQUAL
  *     OP_IF
  *         OP_CHECKSIG
  *     OP_ELSE

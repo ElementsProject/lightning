@@ -351,9 +351,9 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	 * 2. data:
 	 *    * [`32`:`channel_id`]
 	 *    * [`8`:`id`]
-	 *    * [`4`:`amount_msat`]
-	 *    * [`4`:`cltv_expiry`]
+	 *    * [`8`:`amount_msat`]
 	 *    * [`32`:`payment_hash`]
+	 *    * [`4`:`cltv_expiry`]
 	 *    * [`1366`:`onion_routing_packet`]
 	 */
 	htlc->routing = tal_dup_arr(htlc, u8, routing, TOTAL_PACKET_SIZE, 0);
@@ -388,6 +388,17 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	}
 	if (htlc->msatoshi < htlc_minimum_msat(channel, recipient)) {
 		e = CHANNEL_ERR_HTLC_BELOW_MINIMUM;
+		goto out;
+	}
+
+	/* BOLT #2:
+	 *
+	 * For channels with `chain_hash` identifying the Bitcoin blockchain,
+	 * the sending node MUST set the 4 most significant bytes of
+	 * `amount_msat` to zero.
+	 */
+	if (htlc->msatoshi & 0xFFFFFFFF00000000ULL) {
+		e = CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
 		goto out;
 	}
 

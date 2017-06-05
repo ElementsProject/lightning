@@ -123,9 +123,9 @@ static bool handshake_succeeded(struct subd *handshaked,
 
 	/* BOLT #1:
 	 *
-	 * The receiving node MUST fail the channels if it receives a
-	 * `globalfeatures` or `localfeatures` with an even bit set which it
-	 * does not understand.
+	 * For unknown feature bits which are non-zero, the receiver
+	 * MUST ignore the bit if the bit number is odd, and MUST fail
+	 * the connection if the bit number is even.
 	 */
 	if (has_even_bit(globalfeatures)) {
 		connection_failed(c, handshaked->log,
