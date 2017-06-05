@@ -35,22 +35,34 @@ enum route_next_case {
 
 /* BOLT #4:
  *
- * The hops_data field is a structure that holds obfuscated versions of the next hop's address, transfer information and the associated HMAC. It is 1060 bytes long, and has the following structure:
-
-```
-+-----------+-------------+----------+-----------+-------------+----------+-----------+
-| n_1 realm | n_1 per-hop | n_1 HMAC | n_2 realm | n_2 per-hop | n_2 HMAC | ...filler |
-+-----------+-------------+----------+----------+--------------+----------+------------+
-```
-
-The realm byte determines the format of the per-hop; so far only realm 0 is defined, and for that, the per-hop format is:
-
-```
-+----------------------+--------------------------+-------------------------------+--------------------+
-| channel_id (8 bytes) | amt_to_forward (4 bytes) | outgoing_cltv_value (4 bytes) | padding (16 bytes) |
-+----------------------+--------------------------+-------------------------------+--------------------+
-```
-*/
+ * The `hops_data` field is a structure that holds obfuscated versions of the
+ * next hop's address, transfer information and the associated HMAC. It is
+ * 1300 bytes long, and has the following structure:
+ *
+ * 1. type: `hops_data`
+ * 2. data:
+ *    * [`1`:`realm`]
+ *    * [`32`:`per_hop`]
+ *    * [`32`:`HMAC`]
+ *    * ...
+ *    * `filler`
+ *
+ * Where the `realm`, `HMAC` and `per_hop` (whose contents depend on `realm`)
+ * are repeated for each hop, and `filler` consists of obfuscated
+ * deterministically generated padding. For details about how the `filler` is
+ * generated please see below. In addition, `hops_data` is incrementally
+ * obfuscated at each hop.
+ *
+ * The `realm` byte determines the format of the `per_hop`; so far only
+ * `realm` 0 is defined, and for that, the `per_hop` format is:
+ *
+ * 1. type: `per_hop` (for `realm` 0)
+ * 2. data:
+ *    * [`8`:`channel_id`]
+ *    * [`4`:`amt_to_forward`]
+ *    * [`4`:`outgoing_cltv_value`]
+ *    * [`16`:`padding`]
+ */
 struct hop_data {
 	u8 realm;
 	struct short_channel_id channel_id;

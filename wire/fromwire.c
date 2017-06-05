@@ -209,10 +209,10 @@ REGISTER_TYPE_TO_HEXSTR(channel_id);
 
 /* BOLT #2:
  *
- * This message introduces the `channel-id` to identify the channel, which is
- * derived from the funding transaction by combining the `funding-txid` and
- * the `funding-output-index` using big-endian exclusive-OR
- * (ie. `funding-output-index` alters the last two bytes).
+ * This message introduces the `channel_id` to identify the channel, which is
+ * derived from the funding transaction by combining the `funding_txid` and
+ * the `funding_output_index` using big-endian exclusive-OR
+ * (ie. `funding_output_index` alters the last two bytes).
  */
 void derive_channel_id(struct channel_id *channel_id,
 		       struct sha256_double *txid, u16 txout)

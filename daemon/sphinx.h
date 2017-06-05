@@ -35,7 +35,7 @@ enum route_next_case {
 	ONION_FORWARD = 1,
 };
 
-/* BOLT #4:
+/* FIXME-OLD #4:
  *
  * The format of the per-hop-payload for a version 0 packet is as follows:
 ```

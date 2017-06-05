@@ -33,7 +33,7 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	assert(tx->version == 2);
 
 	/* BOLT #3:
-	 * * locktime: `0` for HTLC-Success, `htlc-timeout` for HTLC-Timeout.
+	 * * locktime: `0` for HTLC-Success, `cltv_expiry` for HTLC-Timeout.
 	 */
 	tx->lock_time = locktime;
 
@@ -81,7 +81,7 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx,
 				   u64 feerate_per_kw)
 {
 	/* BOLT #3:
-	 * * locktime: `0` for HTLC-Success, `htlc-timeout` for HTLC-Timeout.
+	 * * locktime: `0` for HTLC-Success, `cltv_expiry` for HTLC-Timeout.
 	 */
 	return htlc_tx(ctx, commit_txid, commit_output_number, received_htlc,
 		       to_self_delay, revocation_pubkey, local_delayedkey,
@@ -125,7 +125,7 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 				   u64 feerate_per_kw)
 {
 	/* BOLT #3:
-	 * * locktime: `0` for HTLC-Success, `htlc-timeout` for HTLC-Timeout.
+	 * * locktime: `0` for HTLC-Success, `cltv_expiry` for HTLC-Timeout.
 	 */
 	return htlc_tx(ctx, commit_txid, commit_output_number, offered_htlc,
 		       to_self_delay, revocation_pubkey, local_delayedkey,

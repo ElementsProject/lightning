@@ -338,7 +338,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	/* BOLT #2:
 	 *
 	 * A receiving node SHOULD fail the channel if a sending node... sets
-	 * `cltv-expiry` to greater or equal to 500000000.
+	 * `cltv_expiry` to greater or equal to 500000000.
 	 */
 	if (!blocks_to_abs_locktime(cltv_expiry, &htlc->expiry))
 		return CHANNEL_ERR_INVALID_EXPIRY;
@@ -349,12 +349,12 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	 *
 	 * 1. type: 128 (`update_add_htlc`)
 	 * 2. data:
-	 *    * [32:channel-id]
-	 *    * [8:id]
-	 *    * [4:amount-msat]
-	 *    * [4:cltv-expiry]
-	 *    * [32:payment-hash]
-	 *    * [1366:onion-routing-packet]
+	 *    * [`32`:`channel_id`]
+	 *    * [`8`:`id`]
+	 *    * [`4`:`amount_msat`]
+	 *    * [`4`:`cltv_expiry`]
+	 *    * [`32`:`payment_hash`]
+	 *    * [`1366`:`onion_routing_packet`]
 	 */
 	htlc->routing = tal_dup_arr(htlc, u8, routing, TOTAL_PACKET_SIZE, 0);
 
@@ -379,7 +379,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	/* BOLT #2:
 	 *
 	 * A receiving node SHOULD fail the channel if it receives an
-	 * `amount-sat` equal to zero, below its own `htlc-minimum-msat`,
+	 * `amount_msat` equal to zero, below its own `htlc_minimum_msat`,
 	 * or...
 	 */
 	if (htlc->msatoshi == 0) {
@@ -398,7 +398,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	/* BOLT #2:
 	 *
 	 * A receiving node SHOULD fail the channel if a sending node
-	 * adds more than its `max-accepted-htlcs` HTLCs to its local
+	 * adds more than its `max_accepted_htlcs` HTLCs to its local
 	 * commitment transaction */
 	if (tal_count(committed) - tal_count(removing) + tal_count(adding)
 	    > max_accepted_htlcs(channel, recipient)) {
@@ -413,7 +413,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	/* BOLT #2:
 	 *
 	 * A receiving node SHOULD fail the channel if a sending node ... or
-	 * adds more than its `max-htlc-value-in-flight-msat` worth of offered
+	 * adds more than its `max_htlc_value_in_flight_msat` worth of offered
 	 * HTLCs to its local commitment transaction */
 	if (msat_in_htlcs > max_htlc_value_in_flight_msat(channel, recipient)) {
 		e = CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
@@ -422,8 +422,8 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 
 	/* BOLT #2:
 	 *
-	 * or which the sending node cannot afford at the current `fee-rate`
-	 * while maintaining its channel reserve.
+	 * or which the sending node cannot afford at the current
+	 * `feerate_per_kw` while maintaining its channel reserve.
 	 */
 	if (channel->funder == htlc_owner(htlc)) {
 		u64 feerate = view->feerate_per_kw;
@@ -498,9 +498,9 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 	sha256(&hash, preimage, sizeof(*preimage));
 	/* BOLT #2:
 	 *
-	 * A receiving node MUST check that the `payment-preimage` value in
-	 * `update-fulfill_htlc` SHA256 hashes to the corresponding HTLC
-	 * `payment-hash`, and MUST fail the channel if it does not.
+	 * A receiving node MUST check that the `payment_preimage` value in
+	 * `update_fulfill_htlc` SHA256 hashes to the corresponding HTLC
+	 * `payment_hash`, and MUST fail the channel if it does not.
 	 */
 	if (!structeq(&hash, &htlc->rhash))
 		return CHANNEL_ERR_BAD_PREIMAGE;

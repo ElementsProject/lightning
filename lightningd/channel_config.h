@@ -8,28 +8,28 @@
  *
  * 1. type: 32 (`open_channel`)
  * 2. data:
- *    * [32:chain-hash]
- *    * [32:temporary-channel-id]
- *    * [8:funding-satoshis]
- *    * [8:push-msat]
- *    * [8:dust-limit-satoshis]
- *    * [8:max-htlc-value-in-flight-msat]
- *    * [8:channel-reserve-satoshis]
- *    * [4:htlc-minimum-msat]
- *    * [4:feerate-per-kw]
- *    * [2:to-self-delay]
- *    * [2:max-accepted-htlcs]
+ *    * [`32`:`chain_hash`]
+ *    * [`32`:`temporary_channel_id`]
+ *    * [`8`:`funding_satoshis`]
+ *    * [`8`:`push_msat`]
+ *    * [`8`:`dust_limit_satoshis`]
+ *    * [`8`:`max_htlc_value_in_flight_msat`]
+ *    * [`8`:`channel_reserve_satoshis`]
+ *    * [`4`:`htlc_minimum_msat`]
+ *    * [`4`:`feerate_per_kw`]
+ *    * [`2`:`to_self_delay`]
+ *    * [`2`:`max_accepted_htlcs`]
  *...
  * 1. type: 33 (`accept_channel`)
  * 2. data:
- *    * [32:temporary-channel-id]
- *    * [8:dust-limit-satoshis]
- *    * [8:max-htlc-value-in-flight-msat]
- *    * [8:channel-reserve-satoshis]
- *    * [4:minimum-depth]
- *    * [4:htlc-minimum-msat]
- *    * [2:to-self-delay]
- *    * [2:max-accepted-htlcs]
+ *    * [`32`:`temporary_channel_id`]
+ *    * [`8`:`dust_limit_satoshis`]
+ *    * [`8`:`max_htlc_value_in_flight_msat`]
+ *    * [`8`:`channel_reserve_satoshis`]
+ *    * [`4`:`minimum_depth`]
+ *    * [`4`:`htlc_minimum_msat`]
+ *    * [`2`:`to_self_delay`]
+ *    * [`2`:`max_accepted_htlcs`]
  */
 struct channel_config {
 	u64 dust_limit_satoshis;

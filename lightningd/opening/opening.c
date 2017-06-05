@@ -65,7 +65,7 @@ static void check_config_bounds(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiving node MUST fail the channel if `to-self-delay` is
+	 * The receiving node MUST fail the channel if `to_self_delay` is
 	 * unreasonably large.
 	 */
 	if (remoteconf->to_self_delay > state->max_to_self_delay)
@@ -76,12 +76,12 @@ static void check_config_bounds(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiver MAY fail the channel if `funding-satoshis` is too
-	 * small, and MUST fail the channel if `push-msat` is greater than
-	 * `funding-amount` * 1000.  The receiving node MAY fail the channel
-	 * if it considers `htlc-minimum-msat` too large,
-	 * `max-htlc-value-in-flight` too small, `channel-reserve-satoshis`
-	 * too large, or `max-accepted-htlcs` too small.
+	 * The receiver MAY fail the channel if `funding_satoshis` is too
+	 * small, and MUST fail the channel if `push_msat` is greater than
+	 * `funding_satoshis` * 1000.  The receiving node MAY fail the channel
+	 * if it considers `htlc_minimum_msat` too large,
+	 * `max_htlc_value_in_flight_msat` too small, `channel_reserve_satoshis`
+	 * too large, or `max_accepted_htlcs` too small.
 	 */
 	/* We accumulate this into an effective bandwidth minimum. */
 
@@ -137,7 +137,7 @@ static void check_config_bounds(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * It MUST fail the channel if `max-accepted-htlcs` is greater
+	 * It MUST fail the channel if `max_accepted_htlcs` is greater
 	 * than 483.
 	 */
 	if (remoteconf->max_accepted_htlcs > 483)
@@ -155,7 +155,7 @@ static void set_reserve(u64 *reserve, u64 funding)
 
 /* BOLT #2:
  *
- * A sending node MUST ensure `temporary-channel-id` is unique from any other
+ * A sending node MUST ensure `temporary_channel_id` is unique from any other
  * channel id with the same peer.
  */
 static void temporary_channel_id(struct channel_id *channel_id)
@@ -230,15 +230,15 @@ static u8 *funder_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The sender MUST set `funding-satoshis` to less than 2^24 satoshi. */
+	 * The sender MUST set `funding_satoshis` to less than 2^24 satoshi. */
 	if (state->funding_satoshis >= 1 << 24)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
 			      "funding_satoshis must be < 2^24");
 
 	/* BOLT #2:
 	 *
-	 * The sender MUST set `push-msat` to equal or less than to 1000 *
-	 * `funding-satoshis`.
+	 * The sender MUST set `push_msat` to equal or less than to 1000 *
+	 * `funding_satoshis`.
 	 */
 	if (state->push_msat > 1000 * state->funding_satoshis)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
@@ -272,9 +272,9 @@ static u8 *funder_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiver MUST fail the channel if `funding-pubkey`,
-	 * `revocation-basepoint`, `payment-basepoint` or
-	 * `delayed-payment-basepoint` are not valid DER-encoded compressed
+	 * The receiver MUST fail the channel if `funding_pubkey`,
+	 * `revocation_basepoint`, `payment_basepoint` or
+	 * `delayed_payment_basepoint` are not valid DER-encoded compressed
 	 * secp256k1 pubkeys.
 	 */
 	if (!fromwire_accept_channel(msg, NULL, &id_in,
@@ -297,8 +297,8 @@ static u8 *funder_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The `temporary-channel-id` MUST be the same as the
-	 * `temporary-channel-id` in the `open_channel` message. */
+	 * The `temporary_channel_id` MUST be the same as the
+	 * `temporary_channel_id` in the `open_channel` message. */
 	if (!structeq(&id_in, &channel_id))
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "accept_channel ids don't match: sent %s got %s",
@@ -307,7 +307,7 @@ static u8 *funder_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiver MAY reject the `minimum-depth` if it considers it
+	 * The receiver MAY reject the `minimum_depth` if it considers it
 	 * unreasonably large.
 	 *
 	 * Other fields have the same requirements as their counterparts in
@@ -398,10 +398,10 @@ static u8 *funder_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * This message introduces the `channel-id` to identify the channel, which
+	 * This message introduces the `channel_id` to identify the channel, which
 	 * is derived from the funding transaction by combining the
-	 * `funding-txid` and the `funding-output-index` using big-endian
-	 * exclusive-OR (ie. `funding-output-index` alters the last two
+	 * `funding_txid` and the `funding_output_index` using big-endian
+	 * exclusive-OR (ie. `funding_output_index` alters the last two
 	 * bytes).
 	 */
 	derive_channel_id(&channel_id,
@@ -472,9 +472,9 @@ static u8 *fundee_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiver MUST fail the channel if `funding-pubkey`,
-	 * `revocation-basepoint`, `payment-basepoint` or
-	 * `delayed-payment-basepoint` are not valid DER-encoded compressed
+	 * The receiver MUST fail the channel if `funding_pubkey`,
+	 * `revocation_basepoint`, `payment_basepoint` or
+	 * `delayed_payment_basepoint` are not valid DER-encoded compressed
 	 * secp256k1 pubkeys.
 	 */
 	if (!fromwire_open_channel(peer_msg, NULL, &chain_hash.sha, &channel_id,
@@ -497,7 +497,7 @@ static u8 *fundee_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiving MUST reject the channel if the `chain-hash` value
+	 * The receiving MUST reject the channel if the `chain_hash` value
 	 * within the `open_channel` message is set to a hash of a chain
 	 * unknown to the receiver.
 	 */
@@ -520,8 +520,8 @@ static u8 *fundee_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiving node ... MUST fail the channel if `push-msat` is
-	 * greater than `funding-amount` * 1000.
+	 * The receiving node ... MUST fail the channel if `push_msat` is
+	 * greater than `funding_satoshis` * 1000.
 	 */
 	if (state->push_msat > state->funding_satoshis * 1000)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_FUNDING,
@@ -531,7 +531,7 @@ static u8 *fundee_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiver MUST fail the channel if it considers `feerate-per-kw`
+	 * The receiver MUST fail the channel if it considers `feerate_per_kw`
 	 * too small for timely processing, or unreasonably large.
 	 */
 	if (state->feerate_per_kw < min_feerate)
@@ -581,8 +581,8 @@ static u8 *fundee_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The sender MUST set `temporary-channel-id` the same as the
-	 * `temporary-channel-id` in the `open_channel` message. */
+	 * The sender MUST set `temporary_channel_id` the same as the
+	 * `temporary_channel_id` in the `open_channel` message. */
 	if (!structeq(&id_in, &channel_id))
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			    "funding_created ids don't match: sent %s got %s",
@@ -625,10 +625,10 @@ static u8 *fundee_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * This message introduces the `channel-id` to identify the channel,
+	 * This message introduces the `channel_id` to identify the channel,
 	 * which is derived from the funding transaction by combining the
-	 * `funding-txid` and the `funding-output-index` using big-endian
-	 * exclusive-OR (ie. `funding-output-index` alters the last two
+	 * `funding_txid` and the `funding_output_index` using big-endian
+	 * exclusive-OR (ie. `funding_output_index` alters the last two
 	 * bytes).
 	 */
 	derive_channel_id(&channel_id,

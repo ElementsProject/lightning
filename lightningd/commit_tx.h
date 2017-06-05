@@ -10,7 +10,7 @@ struct sha256_double;
  *
  * This obscures the number of commitments made on the channel in the
  * case of unilateral close, yet still provides a useful index for
- * both nodes (who know the payment-basepoints) to quickly find a
+ * both nodes (who know the `payment_basepoint`s) to quickly find a
  * revoked commitment transaction.
  */
 u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint,

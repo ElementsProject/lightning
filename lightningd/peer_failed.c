@@ -19,7 +19,7 @@ void peer_failed(int peer_fd, struct crypto_state *cs,
 
 	/* BOLT #1:
 	 *
-	 * The channel is referred to by `channel-id` unless `channel-id` is
+	 * The channel is referred to by `channel_id` unless `channel_id` is
 	 * zero (ie. all bytes zero), in which case it refers to all channels.
 	 */
 	if (!channel_id) {

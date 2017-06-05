@@ -228,7 +228,7 @@ static struct handshake *new_handshake(const tal_t *ctx,
 	 *
 	 *  1. `h = SHA-256(protocolName)`
 	 *   *  where `protocolName = "Noise_XK_secp256k1_ChaChaPoly_SHA256"`
-	 *      encoded as an ascii string.
+	 *      encoded as an ASCII string.
 	 */
 	sha256(&handshake->h, "Noise_XK_secp256k1_ChaChaPoly_SHA256",
 	       strlen("Noise_XK_secp256k1_ChaChaPoly_SHA256"));
@@ -245,7 +245,7 @@ static struct handshake *new_handshake(const tal_t *ctx,
 	/* BOLT #8:
 	 *
 	 * 3. `h = SHA-256(h || prologue)`
-	 *    *  where `prologue` is the ascii string: `lightning`.
+	 *    *  where `prologue` is the ASCII string: `lightning`.
 	 */
 	sha_mix_in(&handshake->h, "lightning", strlen("lightning"));
 
