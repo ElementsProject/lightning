@@ -964,10 +964,11 @@ static void exchange_init(int fd, struct crypto_state *cs,
 	/* BOLT #1:
 	 *
 	 * The sending node SHOULD use the minimum lengths required to
-	 * represent the feature fields.  The sending node MUST set feature
-	 * bits corresponding to features it requires the peer to support, and
-	 * SHOULD set feature bits corresponding to features it optionally
-	 * supports.
+	 * represent the feature fields.
+	 *
+	 * The sender MUST set feature bits as defined in [BOLT
+	 * #9](09-features.md), and MUST set to zero any feature bits that are
+	 * not defined.
 	 */
 	u8 *msg = towire_init(NULL, NULL, NULL);
 

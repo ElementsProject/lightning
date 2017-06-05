@@ -836,6 +836,8 @@ static u8 *make_failmsg(const tal_t *ctx, const struct htlc_end *hend,
 		return towire_invalid_onion_key(ctx, onion_sha);
 	case WIRE_TEMPORARY_CHANNEL_FAILURE:
 		return towire_temporary_channel_failure(ctx, channel_update);
+	case WIRE_CHANNEL_DISABLED:
+		return towire_channel_disabled(ctx);
 	case WIRE_PERMANENT_CHANNEL_FAILURE:
 		return towire_permanent_channel_failure(ctx);
 	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:

@@ -316,14 +316,14 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 {
 	struct channel_id channel_id;
 	u64 id;
-	u32 amount_msat;
+	u64 amount_msat;
 	u32 cltv_expiry;
 	struct sha256 payment_hash;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
 	enum channel_add_err add_err;
 
 	if (!fromwire_update_add_htlc(msg, NULL, &channel_id, &id, &amount_msat,
-				      &cltv_expiry, &payment_hash,
+				      &payment_hash, &cltv_expiry,
 				      onion_routing_packet))
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
@@ -1128,7 +1128,8 @@ static void handle_funding_announce_depth(struct peer *peer, const u8 *msg)
 static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 {
 	u8 *msg;
-	u32 amount_msat, cltv_expiry;
+	u32 cltv_expiry;
+	u64 amount_msat;
 	struct sha256 payment_hash;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
 	enum channel_add_err e;
@@ -1156,7 +1157,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 		/* Tell the peer. */
 		msg = towire_update_add_htlc(peer, &peer->channel_id,
 					     peer->htlc_id, amount_msat,
-					     cltv_expiry, &payment_hash,
+					     &payment_hash, cltv_expiry,
 					     onion_routing_packet);
 		msg_enqueue(&peer->peer_out, take(msg));
 		peer->funding_locked[LOCAL] = true;

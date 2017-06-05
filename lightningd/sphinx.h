@@ -59,9 +59,9 @@ enum route_next_case {
  * 1. type: `per_hop` (for `realm` 0)
  * 2. data:
  *    * [`8`:`channel_id`]
- *    * [`4`:`amt_to_forward`]
+ *    * [`8`:`amt_to_forward`]
  *    * [`4`:`outgoing_cltv_value`]
- *    * [`16`:`padding`]
+ *    * [`12`:`padding`]
  */
 struct hop_data {
 	u8 realm;

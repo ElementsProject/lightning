@@ -107,7 +107,7 @@ static void check_config_bounds(struct state *state,
 	if (remoteconf->htlc_minimum_msat * (u64)1000 > capacity_msat)
 		peer_failed(PEER_FD, &state->cs, NULL,
 			    WIRE_OPENING_PEER_BAD_CONFIG,
-			    "Invalid htlc_minimum_msat %u"
+			    "Invalid htlc_minimum_msat %"PRIu64
 			    " for funding_satoshis %"PRIu64
 			    " capacity_msat %"PRIu64,
 			    remoteconf->htlc_minimum_msat,
@@ -283,8 +283,8 @@ static u8 *funder_channel(struct state *state,
 				     ->max_htlc_value_in_flight_msat,
 				     &state->remoteconf
 				     ->channel_reserve_satoshis,
-				     &minimum_depth,
 				     &state->remoteconf->htlc_minimum_msat,
+				     &minimum_depth,
 				     &state->remoteconf->to_self_delay,
 				     &state->remoteconf->max_accepted_htlcs,
 				     &their_funding_pubkey,
