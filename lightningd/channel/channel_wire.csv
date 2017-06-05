@@ -4,6 +4,7 @@ channel_bad_command,0x8000
 channel_hsm_failed,0x8001
 channel_crypto_failed,0x8002
 channel_internal_error,0x8003
+channel_gossip_bad_message,0x8004
 
 # These are due to peer.
 channel_peer_write_failed,0x8010
