@@ -7,15 +7,6 @@
 #include <utils.h>
 #include <wally_bip32.h>
 
-struct tracked_utxo {
-	struct list_node list;
-
-	/* Currently being used for a connection. */
-	bool reserved;
-
-	struct utxo utxo;
-};
-
 static void json_newaddr(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
@@ -133,27 +124,26 @@ static void json_addfunds(struct command *cmd,
 
 	/* Find an output we know how to spend. */
 	for (output = 0; output < tal_count(tx->output); output++) {
-		struct tracked_utxo *utxo;
+		struct utxo *utxo;
 		u32 index;
 		bool is_p2sh;
 
 		if (!can_spend(ld, tx->output[output].script, &index, &is_p2sh))
 			continue;
 
-		utxo = tal(ld, struct tracked_utxo);
-		utxo->utxo.keyindex = index;
-		utxo->utxo.is_p2sh = is_p2sh;
-		utxo->utxo.amount = tx->output[output].amount;
-		bitcoin_txid(tx, &utxo->utxo.txid);
-		utxo->utxo.outnum = output;
-		utxo->reserved = false;
-		if (!wallet_add_utxo(ld->wallet, &utxo->utxo, p2sh_wpkh)) {
+		utxo = tal(ld, struct utxo);
+		utxo->keyindex = index;
+		utxo->is_p2sh = is_p2sh;
+		utxo->amount = tx->output[output].amount;
+		utxo->status = output_state_available;
+		bitcoin_txid(tx, &utxo->txid);
+		utxo->outnum = output;
+		if (!wallet_add_utxo(ld->wallet, utxo, p2sh_wpkh)) {
 			command_fail(cmd, "Could add outputs to wallet");
 			tal_free(utxo);
 			return;
 		}
-		list_add_tail(&ld->utxos, &utxo->list);
-		total_satoshi += utxo->utxo.amount;
+		total_satoshi += utxo->amount;
 		num_utxos++;
 	}
 
@@ -179,21 +169,9 @@ AUTODATA(json_command, &addfunds_command);
 
 static void unreserve_utxo(struct lightningd *ld, const struct utxo *unres)
 {
-	struct tracked_utxo *utxo;
-
 	assert(wallet_update_output_status(ld->wallet, &unres->txid,
 					   unres->outnum, output_state_reserved,
 					   output_state_available));
-
-	list_for_each(&ld->utxos, utxo, list)
-	{
-		if (unres != &utxo->utxo)
-			continue;
-		assert(utxo->reserved);
-		utxo->reserved = false;
-		return;
-	}
-	abort();
 }
 
 static void destroy_utxos(const struct utxo **utxos, struct lightningd *ld)
@@ -215,26 +193,25 @@ const struct utxo **build_utxos(const tal_t *ctx,
 				u64 *change_satoshis, u32 *change_keyindex)
 {
 	size_t i = 0;
+	struct utxo **available;
 	const struct utxo **utxos = tal_arr(ctx, const struct utxo *, 0);
-	struct tracked_utxo *utxo;
 	/* We assume two outputs for the weight. */
 	u64 satoshi_in = 0, weight = (4 + (8 + 22) * 2 + 4) * 4;
 	u64 bip32_max_index = db_get_intvar(ld->wallet->db, "bip32_max_index", 0);
 
 	tal_add_destructor2(utxos, destroy_utxos, ld);
 
-	list_for_each(&ld->utxos, utxo, list) {
+	db_begin_transaction(ld->wallet->db);
+	available = wallet_get_utxos(utxos, ld->wallet, output_state_available);
+
+	for (i=0; i<tal_count(available); i++) {
 		u64 fee;
 
-		if (utxo->reserved)
-			continue;
-
 		tal_resize(&utxos, i+1);
-		utxos[i] = &utxo->utxo;
-		utxo->reserved = true;
+		utxos[i] = tal_steal(utxos, available[i]);
 
 		assert(wallet_update_output_status(
-		    ld->wallet, &utxo->utxo.txid, utxo->utxo.outnum,
+		    ld->wallet, &available[i]->txid, available[i]->outnum,
 		    output_state_available, output_state_reserved));
 
 		/* Add this input's weight. */
@@ -258,10 +235,12 @@ const struct utxo **build_utxos(const tal_t *ctx,
 				db_set_intvar(ld->wallet->db, "bip32_max_index", *change_keyindex);
 			}
 
+			db_commit_transaction(ld->wallet->db);
+			tal_free(available);
 			return utxos;
 		}
-		i++;
 	}
-
+	db_rollback_transaction(ld->wallet->db);
+	tal_free(available);
 	return tal_free(utxos);
 }

@@ -65,4 +65,13 @@ bool wallet_update_output_status(struct wallet *w,
 				 const u32 outnum, enum output_status oldstatus,
 				 enum output_status newstatus);
 
+/**
+ * wallet_get_utxos - Retrieve all utxos matching a given state
+ *
+ * Returns a `tal_arr` of `utxo` structs. Double indirection in order
+ * to be able to steal individual elements onto something else.
+ */
+struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w,
+			      const enum output_status state);
+
 #endif /* WALLET_WALLET_H */

@@ -53,9 +53,6 @@ struct lightningd {
 	/* If we have a --dev-disconnect file */
 	int dev_disconnect_fd;
 
-	/* UTXOs we have available to spend. */
-	struct list_head utxos;
-
 	/* HTLCs in flight. */
 	struct htlc_end_map htlc_ends;
 
