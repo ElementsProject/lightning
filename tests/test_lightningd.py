@@ -183,7 +183,7 @@ class LightningDTests(BaseLightningDTests):
         # Technically, this is async to fundchannel.
         l1.daemon.wait_for_log('sendrawtx exit 0')
 
-        l1.bitcoin.rpc.generate(6)
+        l1.bitcoin.rpc.generate(1)
 
         l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
         l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
@@ -307,6 +307,10 @@ class LightningDTests(BaseLightningDTests):
 
         self.fund_channel(l1,l2,10**5)
 
+        # Shouldn't send announce signatures until 6 deep.
+        assert not l1.daemon.is_in_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
+
+        l1.bitcoin.rpc.generate(5)
         l1.daemon.wait_for_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
         l1.daemon.wait_for_log('peer_in WIRE_ANNOUNCEMENT_SIGNATURES')
 
@@ -366,6 +370,9 @@ class LightningDTests(BaseLightningDTests):
             src.rpc.connect('localhost', dst.info['port'], dst.info['id'])
             src.openchannel(dst, 20000)
 
+        # Allow announce messages.
+        l1.bitcoin.rpc.generate(5)
+
         def settle_gossip(n):
             """Wait for gossip to settle at the node
             """
@@ -407,6 +414,9 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 10**6)
         self.fund_channel(l2, l3, 10**6)
 
+        # Allow announce messages.
+        l1.bitcoin.rpc.generate(5)
+        
         # If they're at different block heights we can get spurious errors.
         sync_blockheight(l1, l2, l3)
 
