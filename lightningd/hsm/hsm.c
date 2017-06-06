@@ -82,7 +82,7 @@ static struct client *new_client(struct daemon_conn *master,
 	c->id = id;
 	c->handle = handle;
 	c->master = master;
-	daemon_conn_init(c, &c->dc, fd, handle);
+	daemon_conn_init(c, &c->dc, fd, handle, NULL);
 
 	/* Free the connection if we exit everything. */
 	tal_steal(master, c->dc.conn);
@@ -586,6 +586,12 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 }
 
 #ifndef TESTING
+static void master_gone(struct io_conn *unused, struct daemon_conn *dc)
+{
+	/* Can't tell master, it's gone. */
+	exit(2);
+}
+
 int main(int argc, char *argv[])
 {
 	struct daemon_conn *master;
@@ -600,7 +606,8 @@ int main(int argc, char *argv[])
 						 | SECP256K1_CONTEXT_SIGN);
 
 	master = tal(NULL, struct daemon_conn);
-	daemon_conn_init(master, master, STDIN_FILENO, control_received_req);
+	daemon_conn_init(master, master, STDIN_FILENO, control_received_req,
+			 master_gone);
 	status_setup_async(master);
 
 	/* When conn closes, everything is freed. */
