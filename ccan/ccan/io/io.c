@@ -392,12 +392,25 @@ void io_ready(struct io_conn *conn, int pollflags)
 
 void io_do_always(struct io_conn *conn)
 {
+	/* There's a corner case where the in next_plan wakes up the
+	 * out, placing it in IO_ALWAYS and we end up processing it immediately,
+	 * only to leave it in the always list.
+	 *
+	 * Yet we can't just process one, in case they are both supposed
+	 * to be done, so grab state beforehand.
+	 */
+	bool always_out = (conn->plan[IO_OUT].status == IO_ALWAYS);
+
 	if (conn->plan[IO_IN].status == IO_ALWAYS)
 		if (!next_plan(conn, &conn->plan[IO_IN]))
 			return;
 
-	if (conn->plan[IO_OUT].status == IO_ALWAYS)
+	if (always_out) {
+		/* You can't *unalways* a conn (except by freeing, in which
+		 * case next_plan() returned false */
+		assert(conn->plan[IO_OUT].status == IO_ALWAYS);
 		next_plan(conn, &conn->plan[IO_OUT]);
+	}
 }
 
 void io_do_wakeup(struct io_conn *conn, enum io_direction dir)
