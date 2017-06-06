@@ -243,8 +243,8 @@ class Message(object):
         else:
             subcalls.append('\tfor (size_t i = 0; i < {}; i++)'
                             .format(num_elems))
-            if f.is_assignable():
-                subcalls.append('\t\t{}[i] = fromwire_{}(&cursor, plen);'
+            if f.fieldtype.is_assignable():
+                subcalls.append('\t\t({})[i] = fromwire_{}(&cursor, plen);'
                                 .format(name, basetype))
             else:
                 ctx = "ctx, " if basetype in varlen_structs else ""
@@ -319,8 +319,13 @@ class Message(object):
                             .format(basetype, f.name, num_elems))
         else:
             subcalls.append('\tfor (size_t i = 0; i < {}; i++)\n'
-                            '\t\ttowire_{}(&p, {} + i);'
-                            .format(num_elems, basetype, f.name))
+                            .format(num_elems))
+            if f.fieldtype.is_assignable():
+                subcalls.append('\t\ttowire_{}(&p, {}[i]);'
+                                .format(basetype, f.name))
+            else:
+                subcalls.append('\t\ttowire_{}(&p, {} + i);'
+                            .format(basetype, f.name))
 
     def print_towire(self,is_header):
         template = towire_header_templ if is_header else towire_impl_templ
