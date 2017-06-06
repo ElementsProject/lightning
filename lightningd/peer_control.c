@@ -270,6 +270,21 @@ static bool peer_reconnected(struct lightningd *ld,
 	abort();
 }
 
+/* We copy per-peer entries above --log-level into the main log. */
+static void copy_to_parent_log(const char *prefix,
+			       enum log_level level,
+			       bool continued,
+			       const char *str,
+			       struct peer *peer)
+{
+	const char *idstr = type_to_string(peer, struct pubkey, &peer->id);
+	if (continued)
+		log_add(peer->ld->log, "peer %s: ... %s", idstr, str);
+	else
+		log_(peer->ld->log, level, "peer %s: %s", idstr, str);
+	tal_free(idstr);
+}
+
 void add_peer(struct lightningd *ld, u64 unique_id,
 	      int fd, const struct pubkey *id,
 	      const struct crypto_state *cs)
@@ -304,6 +319,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->log_book = new_log_book(peer, 128*1024,
 				      get_log_level(ld->dstate.log_book));
 	peer->log = new_log(peer, peer->log_book, "peer %s:", idname);
+	set_log_outfn(peer->log_book, copy_to_parent_log, peer);
 
 	/* FIXME: Don't assume protocol here! */
 	if (!netaddr_from_fd(peer->fd, SOCK_STREAM, IPPROTO_TCP,
