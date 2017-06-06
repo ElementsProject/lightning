@@ -1356,6 +1356,18 @@ out:
 }
 
 #ifndef TESTING
+static void master_gone(struct io_conn *unused, struct daemon_conn *dc)
+{
+	/* Can't tell master, it's gone. */
+	exit(2);
+}
+
+static void gossip_gone(struct io_conn *unused, struct daemon_conn *dc)
+{
+	status_failed(WIRE_CHANNEL_GOSSIP_BAD_MESSAGE,
+		      "Gossip connection closed");
+}
+
 int main(int argc, char *argv[])
 {
 	struct peer *peer = tal(NULL, struct peer);
@@ -1373,7 +1385,7 @@ int main(int argc, char *argv[])
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
-	daemon_conn_init(peer, &peer->master, REQ_FD, req_in);
+	daemon_conn_init(peer, &peer->master, REQ_FD, req_in, master_gone);
 	peer->channel = NULL;
 	peer->htlc_id = 0;
 	peer->num_pings_outstanding = 0;
@@ -1397,7 +1409,7 @@ int main(int argc, char *argv[])
 	msg_queue_init(&peer->peer_out, peer);
 
 	daemon_conn_init(peer, &peer->gossip_client, GOSSIP_FD,
-			 gossip_client_recv);
+			 gossip_client_recv, gossip_gone);
 
 	init_peer_crypto_state(peer, &peer->pcs);
 	peer->funding_locked[LOCAL] = peer->funding_locked[REMOTE] = false;

@@ -62,15 +62,20 @@ static struct io_plan *daemon_conn_start(struct io_conn *conn,
 
 void daemon_conn_init(tal_t *ctx, struct daemon_conn *dc, int fd,
 		      struct io_plan *(*daemon_conn_recv)(struct io_conn *,
-							  struct daemon_conn *))
+							  struct daemon_conn *),
+		      void (*finish)(struct io_conn *, struct daemon_conn *dc))
 {
+	struct io_conn *conn;
+
 	dc->daemon_conn_recv = daemon_conn_recv;
 
 	dc->ctx = ctx;
 	dc->msg_in = NULL;
 	msg_queue_init(&dc->out, dc->ctx);
 	dc->msg_queue_cleared_cb = NULL;
-	io_new_conn(ctx, fd, daemon_conn_start, dc);
+	conn = io_new_conn(ctx, fd, daemon_conn_start, dc);
+	if (finish)
+		io_set_finish(conn, finish, dc);
 }
 
 void daemon_conn_send(struct daemon_conn *dc, const u8 *msg)

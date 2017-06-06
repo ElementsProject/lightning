@@ -145,7 +145,7 @@ static void send_peer_with_fds(struct peer *peer, const u8 *msg)
 	/* Now we talk to socket to get to peer's owner daemon. */
 	peer->local = false;
 	/* FIXME: Forget peer if other end is closed. */
-	daemon_conn_init(peer, &peer->owner_conn, fds[0], owner_msg_in);
+	daemon_conn_init(peer, &peer->owner_conn, fds[0], owner_msg_in, NULL);
 	peer->owner_conn.msg_queue_cleared_cb = nonlocal_dump_gossip;
 
 	/* Peer stays around, even though we're going to free conn. */
@@ -700,6 +700,12 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 }
 
 #ifndef TESTING
+static void master_gone(struct io_conn *unused, struct daemon_conn *dc)
+{
+	/* Can't tell master, it's gone. */
+	exit(2);
+}
+
 int main(int argc, char *argv[])
 {
 	struct daemon *daemon;
@@ -728,7 +734,8 @@ int main(int argc, char *argv[])
 	daemon->broadcast_interval = 30000;
 
 	/* stdin == control */
-	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req);
+	daemon_conn_init(daemon, &daemon->master, STDIN_FILENO, recv_req,
+			 master_gone);
 	status_setup_async(&daemon->master);
 
 	/* When conn closes, everything is freed. */
