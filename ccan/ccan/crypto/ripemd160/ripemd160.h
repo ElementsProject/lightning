@@ -49,7 +49,7 @@ struct ripemd160_ctx {
 	uint32_t s[5];
 	uint64_t bytes;
 	union {
-		uint32_t u32[8];
+		uint32_t u32[16];
 		unsigned char u8[64];
 	} buf;
 #endif
