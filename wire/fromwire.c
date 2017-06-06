@@ -10,7 +10,7 @@
 #include <type_to_string.h>
 
 /* Sets *cursor to NULL and returns NULL when extraction fails. */
-static const void *fail_pull(const u8 **cursor, size_t *max)
+const void *fromwire_fail(const u8 **cursor, size_t *max)
 {
 	*cursor = NULL;
 	*max = 0;
@@ -25,7 +25,7 @@ const u8 *fromwire(const u8 **cursor, size_t *max, void *copy, size_t n)
 		/* Just make sure we don't leak uninitialized mem! */
 		if (copy)
 			memset(copy, 0, n);
-		return fail_pull(cursor, max);
+		return fromwire_fail(cursor, max);
 	}
 	*cursor += n;
 	*max -= n;
@@ -88,7 +88,7 @@ bool fromwire_bool(const u8 **cursor, size_t *max)
 	if (!fromwire(cursor, max, &ret, sizeof(ret)))
 		return false;
 	if (ret != 0 && ret != 1)
-		fail_pull(cursor, max);
+		fromwire_fail(cursor, max);
 	return ret;
 }
 
@@ -103,7 +103,7 @@ void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey)
 	 * See towire_gossip_resolve_channel_reply --RR */
 	if (!memeqzero(der, sizeof(der))
 	    && !pubkey_from_der(der, sizeof(der), pubkey))
-		fail_pull(cursor, max);
+		fromwire_fail(cursor, max);
 }
 
 void fromwire_secret(const u8 **cursor, size_t *max, struct secret *secret)
@@ -126,7 +126,7 @@ void fromwire_secp256k1_ecdsa_signature(const u8 **cursor,
 
 	if (secp256k1_ecdsa_signature_parse_compact(secp256k1_ctx, sig, compact)
 	    != 1)
-		fail_pull(cursor, max);
+		fromwire_fail(cursor, max);
 }
 
 void fromwire_channel_id(const u8 **cursor, size_t *max,
@@ -182,7 +182,7 @@ void fromwire_ipaddr(const u8 **cursor, size_t *max, struct ipaddr *addr)
 		addr->addrlen = 16;
 		break;
 	default:
-		fail_pull(cursor, max);
+		fromwire_fail(cursor, max);
 		return;
 	}
 	fromwire(cursor, max, addr->addr, addr->addrlen);
