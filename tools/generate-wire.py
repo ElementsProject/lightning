@@ -410,8 +410,12 @@ for line in fileinput.input(options.files):
         #    commit_sig,0,channel-id,u64
         for m in messages:
             if m.name == parts[0]:
-                m.addField(Field(parts[0], parts[2], parts[3], comments, prevfield))
-                prevfield = parts[2]
+                f = Field(parts[0], parts[2], parts[3], comments, prevfield)
+                m.addField(f)
+                # If it used prevfield as lenvar, keep that for next
+                # time (multiple fields can use the same lenvar).
+                if not f.lenvar:
+                    prevfield = parts[2]
                 break
         comments=[]
     else:
