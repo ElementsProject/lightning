@@ -55,9 +55,7 @@ static int hsm_msg(struct subd *hsm, const u8 *msg, const int *fds)
 		/* "Shouldn't happen" */
 		errx(1, "HSM says bad cmd from %"PRIu64" (%s): %s",
 		     id,
-		     peer ? (peer->id ? type_to_string(msg, struct pubkey,
-						       peer->id)
-			     : "pubkey not yet known")
+		     peer ? type_to_string(msg, struct pubkey, &peer->id)
 		     : "unknown peer",
 		     tal_hex(msg, badmsg));
 

@@ -58,7 +58,7 @@ static struct peer *peer_by_pubkey(struct lightningd *ld, const struct pubkey *i
 {
 	struct peer *peer;
 	list_for_each(&ld->peers, peer, list) {
-		if (pubkey_cmp(id, peer->id) == 0)
+		if (pubkey_cmp(id, &peer->id) == 0)
 			return peer;
 	}
 	return NULL;
@@ -89,7 +89,7 @@ static void try_reconnect(struct peer *peer)
 		return;
 	}
 
-	c = new_connection(peer, peer->ld, NULL, peer->id);
+	c = new_connection(peer, peer->ld, NULL, &peer->id);
 
 	/* FIXME: Combine known address with gossip addresses and possibly
 	 * DNS seed addresses. */
@@ -288,7 +288,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->unique_id = unique_id;
 	peer->owner = NULL;
 	peer->scid = NULL;
-	peer->id = tal_dup(peer, struct pubkey, id);
+	peer->id = *id;
 	peer->fd = fd;
 	peer->gossip_client_fd = -1;
 	peer->cs = tal_dup(peer, struct crypto_state, cs);
@@ -348,7 +348,7 @@ struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id)
 	struct peer *p;
 
 	list_for_each(&ld->peers, p, list)
-		if (pubkey_eq(p->id, id))
+		if (pubkey_eq(&p->id, id))
 			return p;
 	return NULL;
 }
@@ -579,8 +579,7 @@ static void json_getpeers(struct command *cmd,
 		json_add_string(response, "state", peer_state_name(p->state));
 		json_add_string(response, "netaddr",
 				netaddr_name(response, &p->netaddr));
-		if (p->id)
-			json_add_pubkey(response, "peerid", p->id);
+		json_add_pubkey(response, "peerid", &p->id);
 		if (p->owner)
 			json_add_string(response, "owner", p->owner->name);
 		if (p->scid)
@@ -1549,7 +1548,7 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 				      peer->push_msat,
 				      peer->seed,
 				      &peer->ld->dstate.id,
-				      peer->id,
+				      &peer->id,
 				      time_to_msec(cfg->commit_time),
 				      cfg->deadline_blocks,
 				      peer->funding_signed);
@@ -1816,7 +1815,7 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer)
 		       &min_effective_htlc_capacity_msat);
 
 	peer->seed = tal(peer, struct privkey);
-	derive_peer_seed(ld, peer->seed, peer->id);
+	derive_peer_seed(ld, peer->seed, &peer->id);
 	msg = towire_opening_init(peer, &peer->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
@@ -1891,7 +1890,7 @@ static bool gossip_peer_released(struct subd *gossip,
 		       &min_effective_htlc_capacity_msat);
 
 	fc->peer->seed = tal(fc->peer, struct privkey);
-	derive_peer_seed(ld, fc->peer->seed, fc->peer->id);
+	derive_peer_seed(ld, fc->peer->seed, &fc->peer->id);
 	msg = towire_opening_init(fc, &fc->peer->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
