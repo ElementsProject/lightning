@@ -17,8 +17,11 @@ struct crypto_state;
 struct peer {
 	struct lightningd *ld;
 
-	/* Unique ID (works before we know their pubkey) */
+	/* Unique ID of connection (works even if we have multiple to same id) */
 	u64 unique_id;
+
+	/* ID of peer */
+	struct pubkey id;
 
  	/* What's happening. */
  	enum peer_state state;
@@ -35,9 +38,6 @@ struct peer {
 	/* History */
 	struct log_book *log_book;
 	struct log *log;
-
-	/* ID of peer (NULL before initial handshake). */
-	struct pubkey *id;
 
 	/* Our fd to the peer (-1 when we don't have it). */
 	int fd;

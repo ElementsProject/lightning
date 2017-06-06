@@ -125,7 +125,7 @@ static void json_dev_newhtlc(struct command *cmd,
 	/* This is the last hop so set an empty channel_id */
 	memset(&hopsdata[0].channel_id, 0, sizeof(hopsdata[0].channel_id));
 
-	path[0] = *peer->id;
+	path[0] = peer->id;
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
 	packet = create_onionpacket(cmd, path, hopsdata, sessionkey, rhash.u.u8,
 				    sizeof(rhash), &shared_secrets);
