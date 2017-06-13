@@ -31,6 +31,25 @@ static bool test_empty_db_migrate(void)
 	return true;
 }
 
+static bool test_primitives(void)
+{
+	struct db *db = create_test_db(__func__);
+	CHECK_MSG(db_begin_transaction(db), "Starting a new transaction");
+	CHECK(db->in_transaction);
+	CHECK_MSG(db_commit_transaction(db), "Committing a transaction");
+	CHECK(!db->in_transaction);
+	CHECK_MSG(db_begin_transaction(db), "Starting a transaction after commit");
+	CHECK(db_rollback_transaction(db));
+
+	CHECK_MSG(db_exec(__func__, db, "SELECT name FROM sqlite_master WHERE type='table';"), "Simple correct SQL command");
+	CHECK_MSG(!db_exec(__func__, db, "not a valid SQL statement"), "Failing SQL command");
+	CHECK(!db->in_transaction);
+	CHECK_MSG(db_begin_transaction(db), "Starting a transaction after a failed transaction");
+	tal_free(db);
+
+	return true;
+}
+
 static bool test_vars(void)
 {
 	struct db *db = create_test_db(__func__);
@@ -59,6 +78,7 @@ int main(void)
 
 	ok &= test_empty_db_migrate();
 	ok &= test_vars();
+	ok &= test_primitives();
 
 	return !ok;
 }

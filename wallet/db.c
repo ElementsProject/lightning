@@ -44,6 +44,7 @@ bool PRINTF_FMT(3, 4)
 
 	err = sqlite3_exec(db->sql, cmd, NULL, NULL, &errmsg);
 	if (err != SQLITE_OK) {
+		db->in_transaction = false;
 		tal_free(db->err);
 		db->err = tal_fmt(db, "%s:%s:%s:%s", caller,
 				  sqlite3_errstr(err), cmd, errmsg);
@@ -72,6 +73,7 @@ sqlite3_stmt *PRINTF_FMT(3, 4)
 
 	err = sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
 	if (err != SQLITE_OK) {
+		db->in_transaction = false;
 		db->err = tal_fmt(db, "%s:%s:%s:%s", caller,
 				  sqlite3_errstr(err), query, sqlite3_errmsg(db->sql));
 	}
