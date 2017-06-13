@@ -167,80 +167,33 @@ static const struct json_command addfunds_command = {
 };
 AUTODATA(json_command, &addfunds_command);
 
-static void unreserve_utxo(struct lightningd *ld, const struct utxo *unres)
-{
-	assert(wallet_update_output_status(ld->wallet, &unres->txid,
-					   unres->outnum, output_state_reserved,
-					   output_state_available));
-}
-
-static void destroy_utxos(const struct utxo **utxos, struct lightningd *ld)
-{
-	size_t i;
-
-	for (i = 0; i < tal_count(utxos); i++)
-		unreserve_utxo(ld, utxos[i]);
-}
-
-void confirm_utxos(struct lightningd *ld, const struct utxo **utxos)
-{
-	tal_del_destructor2(utxos, destroy_utxos, ld);
-}
-
 const struct utxo **build_utxos(const tal_t *ctx,
 				struct lightningd *ld, u64 satoshi_out,
 				u32 feerate_per_kw, u64 dust_limit,
 				u64 *change_satoshis, u32 *change_keyindex)
 {
-	size_t i = 0;
-	struct utxo **available;
-	const struct utxo **utxos = tal_arr(ctx, const struct utxo *, 0);
-	/* We assume two outputs for the weight. */
-	u64 satoshi_in = 0, weight = (4 + (8 + 22) * 2 + 4) * 4;
+	u64 satoshi_in = 0;
+	u64 fee_estimate = 0;
 	u64 bip32_max_index = db_get_intvar(ld->wallet->db, "bip32_max_index", 0);
+	const struct utxo **utxos =
+		wallet_select_coins(ctx, ld->wallet, satoshi_out, feerate_per_kw, &fee_estimate);
 
-	tal_add_destructor2(utxos, destroy_utxos, ld);
+	/* Oops, didn't have enough coins available */
+	if (!utxos)
+		return NULL;
 
-	db_begin_transaction(ld->wallet->db);
-	available = wallet_get_utxos(utxos, ld->wallet, output_state_available);
-
-	for (i=0; i<tal_count(available); i++) {
-		u64 fee;
-
-		tal_resize(&utxos, i+1);
-		utxos[i] = tal_steal(utxos, available[i]);
-
-		assert(wallet_update_output_status(
-		    ld->wallet, &available[i]->txid, available[i]->outnum,
-		    output_state_available, output_state_reserved));
-
-		/* Add this input's weight. */
-		weight += (32 + 4 + 4) * 4;
-		if (utxos[i]->is_p2sh)
-			weight += 22 * 4;
-		/* Account for witness (1 byte count + sig + key */
-		weight += 1 + (1 + 73 + 1 + 33);
-
-		fee = weight * feerate_per_kw / 1000;
+	/* How much are we actually claiming? */
+	for (size_t i=0; i<tal_count(utxos); i++)
 		satoshi_in += utxos[i]->amount;
 
-		if (satoshi_in >= fee + satoshi_out) {
-			/* We simply eliminate change if it's dust. */
-			*change_satoshis = satoshi_in - (fee + satoshi_out);
-			if (*change_satoshis < dust_limit) {
-				*change_satoshis = 0;
-				*change_keyindex = 0;
-			} else {
-				*change_keyindex = bip32_max_index + 1;
-				db_set_intvar(ld->wallet->db, "bip32_max_index", *change_keyindex);
-			}
-
-			db_commit_transaction(ld->wallet->db);
-			tal_free(available);
-			return utxos;
-		}
+	/* Do we need a change output? */
+	*change_satoshis = satoshi_in - (fee_estimate + satoshi_out);
+	if (*change_satoshis < dust_limit) {
+		*change_satoshis = 0;
+		*change_keyindex = 0;
+	} else {
+		*change_keyindex = bip32_max_index + 1;
+		db_set_intvar(ld->wallet->db, "bip32_max_index", *change_keyindex);
 	}
-	db_rollback_transaction(ld->wallet->db);
-	tal_free(available);
-	return tal_free(utxos);
+	return utxos;
 }
