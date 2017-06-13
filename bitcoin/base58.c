@@ -61,7 +61,7 @@ static bool from_base58(u8 *version,
 	int r = b58check(buf, sizeof(buf), base58, base58_len);
 	*version = buf[0];
 	memcpy(rmd, buf + 1, sizeof(*rmd));
-	return r > 0;
+	return r >= 0;
 }
 
 bool bitcoin_from_base58(bool *test_net,
