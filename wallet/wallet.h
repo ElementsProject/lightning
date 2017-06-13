@@ -74,4 +74,18 @@ bool wallet_update_output_status(struct wallet *w,
 struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w,
 			      const enum output_status state);
 
+const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
+					const u64 value,
+					const u32 feerate_per_kw,
+					u64 *fee_estimate);
+
+/**
+ * wallet_confirm_utxos - Once we've spent a set of utxos, mark them confirmed.
+ *
+ * May be called once the transaction spending these UTXOs has been
+ * broadcast. If something fails use `tal_free(utxos)` instead to undo
+ * the reservation.
+ */
+void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos);
+
 #endif /* WALLET_WALLET_H */

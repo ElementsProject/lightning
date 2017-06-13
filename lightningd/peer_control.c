@@ -850,6 +850,7 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 	/* Start normal channel daemon. */
 	peer_start_channeld(fc->peer, GETTING_SIG_FROM_HSM, NULL);
 
+	wallet_confirm_utxos(fc->peer->ld->wallet, fc->utxomap);
 	tal_free(fc);
 	return true;
 }

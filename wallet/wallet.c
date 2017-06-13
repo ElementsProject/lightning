@@ -92,3 +92,85 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 
 	return results;
 }
+
+/**
+ * unreserve_utxo - Mark a reserved UTXO as available again
+ */
+static void unreserve_utxo(struct wallet *w, const struct utxo *unres)
+{
+	if (!wallet_update_output_status(w, &unres->txid, unres->outnum,
+					 output_state_reserved,
+					 output_state_available)) {
+		fatal("Unable to unreserve output: %s", w->db->err);
+	}
+}
+
+/**
+ * destroy_utxos - Destructor for an array of pointers to utxo
+ */
+static void destroy_utxos(const struct utxo **utxos, struct wallet *w)
+{
+	for (size_t i = 0; i < tal_count(utxos); i++)
+		unreserve_utxo(w, utxos[i]);
+}
+
+void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
+{
+	tal_del_destructor2(utxos, destroy_utxos, w);
+	for (size_t i = 0; i < tal_count(utxos); i++) {
+		if (!wallet_update_output_status(
+			w, &utxos[i]->txid, utxos[i]->outnum,
+			output_state_reserved, output_state_spent)) {
+			fatal("Unable to mark output as spent: %s", w->db->err);
+		}
+	}
+}
+
+const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
+					const u64 value,
+					const u32 feerate_per_kw,
+					u64 *fee_estimate)
+{
+	size_t i = 0;
+	struct utxo **available;
+	const struct utxo **utxos = tal_arr(ctx, const struct utxo *, 0);
+
+	/* We assume two outputs for the weight. */
+	u64 satoshi_in = 0, weight = (4 + (8 + 22) * 2 + 4) * 4;
+	tal_add_destructor2(utxos, destroy_utxos, w);
+
+	db_begin_transaction(w->db);
+	available = wallet_get_utxos(ctx, w, output_state_available);
+
+	for (i = 0; i < tal_count(available); i++) {
+		tal_resize(&utxos, i + 1);
+		utxos[i] = tal_steal(utxos, available[i]);
+
+		if (!wallet_update_output_status(
+			w, &available[i]->txid, available[i]->outnum,
+			output_state_available, output_state_reserved))
+			fatal("Unable to reserve output: %s", w->db->err);
+
+		weight += (32 + 4 + 4) * 4;
+		if (utxos[i]->is_p2sh)
+			weight += 22 * 4;
+
+		/* Account for witness (1 byte count + sig + key */
+		weight += 1 + (1 + 73 + 1 + 33);
+		*fee_estimate = weight * feerate_per_kw / 1000;
+		satoshi_in += utxos[i]->amount;
+		if (satoshi_in >= *fee_estimate + value)
+			break;
+	}
+	tal_free(available);
+
+	if (satoshi_in < *fee_estimate + value) {
+		/* Could not collect enough inputs, cleanup and bail */
+		utxos = tal_free(utxos);
+		db_rollback_transaction(w->db);
+	} else {
+		/* Commit the db transaction to persist markings */
+		db_commit_transaction(w->db);
+	}
+	return utxos;
+}
