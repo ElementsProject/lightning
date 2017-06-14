@@ -53,12 +53,14 @@ static bool from_base58(u8 *version,
 			const char *base58, size_t base58_len)
 {
 	u8 buf[1 + sizeof(*rmd) + 4];
-
+	/* Avoid memcheck complaining if decoding resulted in a short value */
+	memset(buf, 0, sizeof(buf));
 	b58_sha256_impl = my_sha256;
 
 	size_t buflen = sizeof(buf);
 	b58tobin(buf, &buflen, base58, base58_len);
-	int r = b58check(buf, sizeof(buf), base58, base58_len);
+
+	int r = b58check(buf, buflen, base58, base58_len);
 	*version = buf[0];
 	memcpy(rmd, buf + 1, sizeof(*rmd));
 	return r >= 0;
