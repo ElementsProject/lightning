@@ -1,6 +1,8 @@
 #ifndef LIGHTNING_BITCOIN_PUBKEY_H
 #define LIGHTNING_BITCOIN_PUBKEY_H
 #include "config.h"
+#include <ccan/crypto/ripemd160/ripemd160.h>
+#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <secp256k1.h>
@@ -38,4 +40,9 @@ bool pubkey_eq(const struct pubkey *a, const struct pubkey *b);
 
 /* Compare the keys `a` and `b`. Return <0 if `a`<`b`, 0 if equal and >0 otherwise */
 int pubkey_cmp(const struct pubkey *a, const struct pubkey *b);
+
+/**
+ * pubkey_to_hash160 - Get the hash for p2pkh payments for a given pubkey
+ */
+void pubkey_to_hash160(const struct pubkey *pk, struct ripemd160 *hash);
 #endif /* LIGHTNING_PUBKEY_H */

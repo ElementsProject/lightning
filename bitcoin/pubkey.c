@@ -99,3 +99,13 @@ static char *privkey_to_hexstr(const tal_t *ctx, const struct privkey *secret)
 }
 REGISTER_TYPE_TO_STRING(privkey, privkey_to_hexstr);
 REGISTER_TYPE_TO_HEXSTR(secret);
+
+void pubkey_to_hash160(const struct pubkey *pk, struct ripemd160 *hash)
+{
+	u8 der[PUBKEY_DER_LEN];
+	struct sha256 h;
+
+	pubkey_to_der(der, pk);
+	sha256(&h, der, sizeof(der));
+	ripemd160(hash, h.u.u8, sizeof(h));
+}
