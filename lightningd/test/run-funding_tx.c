@@ -1,3 +1,4 @@
+#include <bitcoin/address.h>
 #include <bitcoin/base58.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
@@ -52,6 +53,7 @@ int main(void)
 	u16 funding_outnum;
 	u8 *subscript;
 	secp256k1_ecdsa_signature sig;
+	struct bitcoin_address addr;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
@@ -118,7 +120,8 @@ int main(void)
 
 	printf("funding output: %u\n", funding_outnum);
 
-	subscript = scriptpubkey_p2pkh(funding, &inputkey);
+	pubkey_to_hash160(&inputkey, &addr.addr);
+	subscript = scriptpubkey_p2pkh(funding, &addr);
 	sign_tx_input(funding, 0, subscript, NULL, &input_privkey, &inputkey,
 		      &sig);
 

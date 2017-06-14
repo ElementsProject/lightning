@@ -35,7 +35,7 @@ u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
 u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript);
 
 /* Create an output script using p2pkh */
-u8 *scriptpubkey_p2pkh(const tal_t *ctx, const struct pubkey *pubkey);
+u8 *scriptpubkey_p2pkh(const tal_t *ctx, const struct bitcoin_address *addr);
 
 /* Create an input script which spends p2pkh */
 u8 *bitcoin_redeem_p2pkh(const tal_t *ctx, const struct pubkey *pubkey,
