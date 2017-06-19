@@ -239,7 +239,7 @@ check: test-protocol
 	$(MAKE) pytest
 
 pytest: daemon/lightningd daemon/lightning-cli lightningd-all
-	PYTHONPATH=contrib/pylightning python3 tests/test_lightningd.py
+	PYTHONPATH=contrib/pylightning python3 tests/test_lightningd.py -f
 
 # Keep includes in alpha order.
 check-src-include-order/%: %
