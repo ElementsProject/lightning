@@ -297,6 +297,8 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->state = UNINITIALIZED;
 	peer->channel_info = NULL;
 	peer->next_per_commitment_point = NULL;
+	peer->num_commits_sent = peer->num_commits_received
+		= peer->num_revocations_received = 0;
 	shachain_init(&peer->their_shachain);
 
 	idname = type_to_string(peer, struct pubkey, id);
@@ -1065,6 +1067,11 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 		return false;
 	}
 
+	if (!peer_save_commitsig(fc->peer, 0)) {
+		peer_fail(fc->peer, "Saving commitsig failed");
+		return false;
+	}
+
 	/* Get HSM to sign the funding tx. */
 	log_debug(fc->peer->log, "Getting HSM to sign funding tx");
 
@@ -1120,6 +1127,9 @@ static bool opening_fundee_finished(struct subd *opening,
 			   tal_hex(reply, reply));
 		return false;
 	}
+
+	if (!peer_save_commitsig(peer, 0))
+		return false;
 
 	log_debug(peer->log, "Watching funding tx %s",
 		     type_to_string(reply, struct sha256_double,

@@ -64,6 +64,9 @@ struct peer {
 	/* Minimum funding depth (specified by us if they fund). */
 	u32 minimum_depth;
 
+	/* Tracking commitment transaction numbers. */
+	u64 num_commits_sent, num_commits_received, num_revocations_received;
+
 	/* Funding txid and amounts (once known) */
 	struct sha256_double *funding_txid;
 	u16 funding_outnum;
