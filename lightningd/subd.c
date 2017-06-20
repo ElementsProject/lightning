@@ -303,11 +303,12 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 
 	if (type == STATUS_TRACE)
 		log_debug(sd->log, "TRACE: %.*s", str_len, str);
-	else if (type & STATUS_FAIL)
-		log_unusual(sd->log, "FAILURE %s: %.*s",
-			    sd->msgname(type), str_len, str);
 	else {
-		log_info(sd->log, "UPDATE %s", sd->msgname(type));
+		if (type & STATUS_FAIL)
+			log_unusual(sd->log, "FAILURE %s: %.*s",
+				    sd->msgname(type), str_len, str);
+		else
+			log_info(sd->log, "UPDATE %s", sd->msgname(type));
 
 		if (sd->msgcb) {
 			int i = sd->msgcb(sd, sd->msg_in, sd->fds_in);
