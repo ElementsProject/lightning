@@ -2,6 +2,7 @@
 #include <ccan/err/err.h>
 #include <ccan/str/str.h>
 #include <lightningd/dev_disconnect.h>
+#include <lightningd/status.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -37,6 +38,7 @@ char dev_disconnect(int pkt_type)
 	assert(dev_disconnect_fd != -1);
 	lseek(dev_disconnect_fd, strlen(dev_disconnect_line)+1, SEEK_CUR);
 
+	status_trace("dev_disconnect: %s", dev_disconnect_line);
 	return dev_disconnect_line[0];
 }
 
