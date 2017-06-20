@@ -1118,11 +1118,46 @@ static void add_htlc(struct added_htlc **htlcs,
 	*h = state;
 }
 
+static void add_fulfill(u64 id, enum side side,
+			const struct preimage *payment_preimage,
+			struct fulfilled_htlc **fulfilled_htlcs,
+			enum side **fulfilled_sides)
+{
+	struct fulfilled_htlc *f;
+	enum side *s;
+
+	f = tal_arr_append(fulfilled_htlcs);
+	s = tal_arr_append(fulfilled_sides);
+	f->id = id;
+	f->payment_preimage = *payment_preimage;
+	*s = side;
+}
+
+static void add_fail(u64 id, enum side side,
+		     const u8 *failuremsg,
+		     struct failed_htlc **failed_htlcs,
+		     enum side **failed_sides)
+{
+	struct failed_htlc *f;
+	enum side *s;
+
+	f = tal_arr_append(failed_htlcs);
+	s = tal_arr_append(failed_sides);
+	f->id = id;
+	f->failreason = tal_dup_arr(*failed_htlcs, u8,
+				    failuremsg, tal_len(failuremsg), 0);
+	*s = side;
+}
+
 /* FIXME: Load direct from db. */
 void peer_htlcs(const tal_t *ctx,
 		const struct peer *peer,
 		struct added_htlc **htlcs,
-		enum htlc_state **htlc_states)
+		enum htlc_state **htlc_states,
+		struct fulfilled_htlc **fulfilled_htlcs,
+		enum side **fulfilled_sides,
+		struct failed_htlc **failed_htlcs,
+		enum side **failed_sides)
 {
 	struct htlc_in_map_iter ini;
 	struct htlc_out_map_iter outi;
@@ -1131,6 +1166,10 @@ void peer_htlcs(const tal_t *ctx,
 
 	*htlcs = tal_arr(ctx, struct added_htlc, 0);
 	*htlc_states = tal_arr(ctx, enum htlc_state, 0);
+	*fulfilled_htlcs = tal_arr(ctx, struct fulfilled_htlc, 0);
+	*fulfilled_sides = tal_arr(ctx, enum side, 0);
+	*failed_htlcs = tal_arr(ctx, struct failed_htlc, 0);
+	*failed_sides = tal_arr(ctx, enum side, 0);
 
 	for (hin = htlc_in_map_first(&peer->ld->htlcs_in, &ini);
 	     hin;
@@ -1142,6 +1181,13 @@ void peer_htlcs(const tal_t *ctx,
 			 hin->key.id, hin->msatoshi, &hin->payment_hash,
 			 hin->cltv_expiry, hin->onion_routing_packet,
 			 hin->hstate);
+
+		if (hin->failuremsg)
+			add_fail(hin->key.id, REMOTE, hin->failuremsg,
+				 failed_htlcs, failed_sides);
+		if (hin->preimage)
+			add_fulfill(hin->key.id, REMOTE, hin->preimage,
+				    fulfilled_htlcs, fulfilled_sides);
 	}
 
 	for (hout = htlc_out_map_first(&peer->ld->htlcs_out, &outi);
@@ -1154,5 +1200,12 @@ void peer_htlcs(const tal_t *ctx,
 			 hout->key.id, hout->msatoshi, &hout->payment_hash,
 			 hout->cltv_expiry, hout->onion_routing_packet,
 			 hout->hstate);
+
+		if (hout->failuremsg)
+			add_fail(hout->key.id, LOCAL, hout->failuremsg,
+				 failed_htlcs, failed_sides);
+		if (hout->preimage)
+			add_fulfill(hout->key.id, LOCAL, hout->preimage,
+				    fulfilled_htlcs, fulfilled_sides);
 	}
 }

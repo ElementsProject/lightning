@@ -1222,6 +1222,10 @@ static void init_channel(struct peer *peer)
 	struct sha256_double funding_txid;
 	bool am_funder, last_was_revoke;
 	enum htlc_state *hstates;
+	struct fulfilled_htlc *fulfilled;
+	enum side *fulfilled_sides;
+	struct failed_htlc *failed;
+	enum side *failed_sides;
 	struct changed_htlc *last_sent_commit;
 	struct added_htlc *htlcs;
 	u8 *funding_signed;
@@ -1256,6 +1260,10 @@ static void init_channel(struct peer *peer)
 				   &peer->htlc_id,
 				   &htlcs,
 				   &hstates,
+				   &fulfilled,
+				   &fulfilled_sides,
+				   &failed,
+				   &failed_sides,
 				   &funding_signed))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Init: %s",
 			      tal_hex(msg, msg));
@@ -1289,6 +1297,12 @@ static void init_channel(struct peer *peer)
 				    &funding_pubkey[LOCAL],
 				    &funding_pubkey[REMOTE],
 				    am_funder ? LOCAL : REMOTE);
+
+	if (!channel_force_htlcs(peer->channel, htlcs, hstates,
+				 fulfilled, fulfilled_sides,
+				 failed, failed_sides))
+		status_failed(WIRE_CHANNEL_BAD_COMMAND,
+			      "Could not restore HTLCs");
 
 	peer->channel_direction = get_channel_direction(
 	    &peer->node_ids[LOCAL], &peer->node_ids[REMOTE]);

@@ -17,7 +17,11 @@ struct channel_info {
 void peer_htlcs(const tal_t *ctx,
 		const struct peer *peer,
 		struct added_htlc **htlcs,
-		enum htlc_state **htlc_states);
+		enum htlc_state **htlc_states,
+		struct fulfilled_htlc **fulfilled_htlcs,
+		enum side **fulfilled_sides,
+		struct failed_htlc **failed_htlcs,
+		enum side **failed_sides);
 
 bool peer_save_commitsig_received(struct peer *peer, u64 commitnum);
 bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum);
