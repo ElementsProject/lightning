@@ -37,6 +37,11 @@ void towire_changed_htlc(u8 **pptr, const struct changed_htlc *changed)
 	towire_u64(pptr, changed->id);
 }
 
+void towire_side(u8 **pptr, const enum side *side)
+{
+	towire_u8(pptr, *side);
+}
+
 void fromwire_added_htlc(const u8 **cursor, size_t *max,
 			 struct added_htlc *added)
 {
@@ -83,3 +88,11 @@ void fromwire_changed_htlc(const u8 **cursor, size_t *max,
 	changed->id = fromwire_u64(cursor, max);
 }
 
+void fromwire_side(const u8 **cursor, size_t *max, enum side *side)
+{
+	*side = fromwire_u8(cursor, max);
+	if (*side >= NUM_SIDES) {
+		*side = NUM_SIDES;
+		fromwire_fail(cursor, max);
+	}
+}

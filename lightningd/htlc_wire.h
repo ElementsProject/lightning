@@ -3,7 +3,7 @@
 #include "config.h"
 #include <bitcoin/preimage.h>
 #include <ccan/short_types/short_types.h>
-#include <daemon/htlc_state.h>
+#include <daemon/htlc.h>
 #include <lightningd/sphinx.h>
 
 /* These are how we communicate about HTLC state to the master daemon */
@@ -30,12 +30,13 @@ struct changed_htlc {
 	u64 id;
 };
 
-
 void towire_added_htlc(u8 **pptr, const struct added_htlc *added);
 void towire_fulfilled_htlc(u8 **pptr, const struct fulfilled_htlc *fulfilled);
 void towire_failed_htlc(u8 **pptr, const struct failed_htlc *failed);
 void towire_changed_htlc(u8 **pptr, const struct changed_htlc *changed);
 void towire_htlc_state(u8 **pptr, const enum htlc_state *hstate);
+void towire_side(u8 **pptr, const enum side *side);
+
 void fromwire_added_htlc(const u8 **cursor, size_t *max,
 			 struct added_htlc *added);
 void fromwire_fulfilled_htlc(const u8 **cursor, size_t *max,
@@ -46,4 +47,5 @@ void fromwire_changed_htlc(const u8 **cursor, size_t *max,
 			   struct changed_htlc *changed);
 void fromwire_htlc_state(const u8 **cursor, size_t *max,
 			 enum htlc_state *hstate);
+void fromwire_side(const u8 **cursor, size_t *max, enum side *side);
 #endif /* LIGHTNING_LIGHTNINGD_HTLC_WIRE_H */
