@@ -47,6 +47,12 @@
 #define GOSSIP_FD 4
 #define HSM_FD 5
 
+struct commit_sigs {
+	struct peer *peer;
+	secp256k1_ecdsa_signature commit_sig;
+	secp256k1_ecdsa_signature *htlc_sigs;
+};
+
 struct peer {
 	struct peer_crypto_state pcs;
 	struct channel_config conf[NUM_SIDES];
@@ -106,6 +112,9 @@ struct peer {
 	u16 cltv_delta;
 	u32 fee_base;
 	u32 fee_per_satoshi;
+
+	/* We save calculated commit sigs while waiting for master approval */
+	struct commit_sigs *next_commit_sigs;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -385,7 +394,9 @@ static struct changed_htlc *changed_htlc_arr(const tal_t *ctx,
 
 static u8 *sending_commitsig_msg(const tal_t *ctx,
 				 u64 remote_commit_index,
-				 const struct htlc **changed_htlcs)
+				 const struct htlc **changed_htlcs,
+				 const secp256k1_ecdsa_signature *commit_sig,
+				 const secp256k1_ecdsa_signature *htlc_sigs)
 {
 	const tal_t *tmpctx = tal_tmpctx(ctx);
 	struct changed_htlc *changed;
@@ -395,7 +406,7 @@ static u8 *sending_commitsig_msg(const tal_t *ctx,
 	 * committed to. */
 	changed = changed_htlc_arr(tmpctx, changed_htlcs);
 	msg = towire_channel_sending_commitsig(ctx, remote_commit_index,
-					       changed);
+					       changed, commit_sig, htlc_sigs);
 	tal_free(tmpctx);
 	return msg;
 }
@@ -403,14 +414,46 @@ static u8 *sending_commitsig_msg(const tal_t *ctx,
 /* Master has acknowledged that we're sending commitment, so send it. */
 static void handle_sending_commitsig_reply(struct peer *peer, const u8 *msg)
 {
-	const tal_t *tmpctx = tal_tmpctx(peer);
-	secp256k1_ecdsa_signature commit_sig, *htlc_sigs;
+	status_trace("Sending commit_sig with %zu htlc sigs",
+		     tal_count(peer->next_commit_sigs->htlc_sigs));
+
+	msg = towire_commitment_signed(peer, &peer->channel_id,
+				       &peer->next_commit_sigs->commit_sig,
+				       peer->next_commit_sigs->htlc_sigs);
+	msg_enqueue(&peer->peer_out, take(msg));
+	peer->next_commit_sigs = tal_free(peer->next_commit_sigs);
+
+	/* Timer now considered expired, you can add a new one. */
+	peer->commit_timer = NULL;
+
+	/* FIXME: In case we had outstanding commits, restart timer */
+	start_commit_timer(peer);
+}
+
+/* This blocks other traffic from the master until we get reply. */
+static void master_sync_reply(struct peer *peer, const u8 *msg,
+			      enum channel_wire_type replytype,
+			      void (*handle)(struct peer *peer, const u8 *msg))
+{
+	assert(!peer->handle_master_reply);
+
+	peer->handle_master_reply = handle;
+	peer->master_reply_type = replytype;
+
+	daemon_conn_send(&peer->master, msg);
+}
+
+static struct commit_sigs *calc_commitsigs(const tal_t *ctx,
+					   const struct peer *peer)
+{
+	const tal_t *tmpctx = tal_tmpctx(ctx);
 	size_t i;
 	struct bitcoin_tx **txs;
 	const u8 **wscripts;
 	const struct htlc **htlc_map;
 	struct pubkey localkey;
 	struct privkey local_secretkey;
+	struct commit_sigs *commit_sigs = tal(ctx, struct commit_sigs);
 
 	if (!derive_simple_privkey(&peer->our_secrets.payment_basepoint_secret,
 				   &peer->channel->basepoints[LOCAL].payment,
@@ -432,11 +475,11 @@ static void handle_sending_commitsig_reply(struct peer *peer, const u8 *msg)
 		      wscripts[0],
 		      &peer->our_secrets.funding_privkey,
 		      &peer->channel->funding_pubkey[LOCAL],
-		      &commit_sig);
+		      &commit_sigs->commit_sig);
 
 	status_trace("Creating commit_sig signature %s for tx %s wscript %s key %s",
 		     type_to_string(trc, secp256k1_ecdsa_signature,
-				    &commit_sig),
+				    &commit_sigs->commit_sig),
 		     type_to_string(trc, struct bitcoin_tx, txs[0]),
 		     tal_hex(trc, wscripts[0]),
 		     type_to_string(trc, struct pubkey,
@@ -449,51 +492,27 @@ static void handle_sending_commitsig_reply(struct peer *peer, const u8 *msg)
 	 * corresponding to BIP69 lexicographic ordering of the commitment
 	 * transaction.
 	 */
-	htlc_sigs = tal_arr(tmpctx, secp256k1_ecdsa_signature,
-			    tal_count(txs) - 1);
+	commit_sigs->htlc_sigs = tal_arr(commit_sigs, secp256k1_ecdsa_signature,
+					 tal_count(txs) - 1);
 
-	for (i = 0; i < tal_count(htlc_sigs); i++) {
+	for (i = 0; i < tal_count(commit_sigs->htlc_sigs); i++) {
 		sign_tx_input(txs[1 + i], 0,
 			      NULL,
 			      wscripts[1 + i],
 			      &local_secretkey, &localkey,
-			      &htlc_sigs[i]);
+			      &commit_sigs->htlc_sigs[i]);
 		status_trace("Creating HTLC signature %s for tx %s wscript %s key %s",
 			     type_to_string(trc, secp256k1_ecdsa_signature,
-					    &htlc_sigs[i]),
+					    &commit_sigs->htlc_sigs[i]),
 			     type_to_string(trc, struct bitcoin_tx, txs[1+i]),
 			     tal_hex(trc, wscripts[1+i]),
 			     type_to_string(trc, struct pubkey, &localkey));
 		assert(check_tx_sig(txs[1+i], 0, NULL, wscripts[1+i],
-				    &localkey, &htlc_sigs[i]));
+				    &localkey, &commit_sigs->htlc_sigs[i]));
 	}
-	status_trace("Sending commit_sig with %zu htlc sigs",
-		     tal_count(htlc_sigs));
-
-	msg = towire_commitment_signed(tmpctx, &peer->channel_id,
-				       &commit_sig, htlc_sigs);
-	msg_enqueue(&peer->peer_out, take(msg));
-
-	/* Timer now considered expired, you can add a new one. */
-	peer->commit_timer = NULL;
-
-	/* FIXME: In case we had outstanding commits, restart timer */
-	start_commit_timer(peer);
 
 	tal_free(tmpctx);
-}
-
-/* This blocks other traffic from the master until we get reply. */
-static void master_sync_reply(struct peer *peer, const u8 *msg,
-			      enum channel_wire_type replytype,
-			      void (*handle)(struct peer *peer, const u8 *msg))
-{
-	assert(!peer->handle_master_reply);
-
-	peer->handle_master_reply = handle;
-	peer->master_reply_type = replytype;
-
-	daemon_conn_send(&peer->master, msg);
+	return commit_sigs;
 }
 
 static void send_commit(struct peer *peer)
@@ -529,10 +548,14 @@ static void send_commit(struct peer *peer)
 		return;
 	}
 
+	peer->next_commit_sigs = calc_commitsigs(peer, peer);
+
 	status_trace("Telling master we're about to commit...");
 	/* Tell master to save this next commit to database, then wait. */
 	msg = sending_commitsig_msg(tmpctx, peer->commit_index[REMOTE] + 1,
-				    changed_htlcs);
+				    changed_htlcs,
+				    &peer->next_commit_sigs->commit_sig,
+				    peer->next_commit_sigs->htlc_sigs);
 	master_sync_reply(peer, take(msg),
 			  WIRE_CHANNEL_SENDING_COMMITSIG_REPLY,
 			  handle_sending_commitsig_reply);
@@ -1492,6 +1515,8 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 		if (malformed) {
 			struct htlc *h;
 			struct sha256 sha256_of_onion;
+			status_trace("Failing %"PRIu64" with code %u",
+				     id, malformed);
 			h = channel_get_htlc(peer->channel, REMOTE, id);
 			sha256(&sha256_of_onion, h->routing,
 			       tal_len(h->routing));
@@ -1673,6 +1698,7 @@ int main(int argc, char *argv[])
 	peer->master_reply_type = 0;
 	msg_queue_init(&peer->master_deferred, peer);
 	msg_queue_init(&peer->peer_out, peer);
+	peer->next_commit_sigs = NULL;
 
 	/* We send these to HSM to get real signatures; don't have valgrind
 	 * complain. */
