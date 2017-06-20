@@ -1,3 +1,4 @@
+#include <bitcoin/address.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
@@ -23,6 +24,7 @@
 #include <lightningd/hsm/gen_hsm_client_wire.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
 #include <lightningd/status.h>
+#include <lightningd/withdraw_tx.h>
 #include <permute_tx.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/randombytes.h>
@@ -510,6 +512,64 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	tal_free(tmpctx);
 }
 
+/**
+ * sign_withdrawal_tx - Generate and sign a withdrawal transaction from the master
+ */
+static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
+{
+	const tal_t *tmpctx = tal_tmpctx(master);
+	u64 satoshi_out, change_out;
+	u32 change_keyindex;
+	struct bitcoin_address destination;
+	struct utxo *utxos;
+	secp256k1_ecdsa_signature *sigs;
+	u8 *wscript;
+	struct bitcoin_tx *tx;
+	struct ext_key ext;
+	struct pubkey changekey;
+
+	if (!fromwire_hsmctl_sign_withdrawal(tmpctx, msg, NULL, &satoshi_out,
+					     &change_out, &change_keyindex,
+					     destination.addr.u.u8, &utxos)) {
+		status_trace("Failed to parse sign_withdrawal: %s",
+			     tal_hex(trc, msg));
+		return;
+	}
+
+	if (bip32_key_from_parent(&secretstuff.bip32, change_keyindex,
+				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
+		status_trace("Failed to parse sign_withdrawal: %s",
+			     tal_hex(trc, msg));
+		return;
+	}
+
+	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
+	tx = withdraw_tx(
+		tmpctx, to_utxoptr_arr(tmpctx, utxos), &destination, satoshi_out,
+		&changekey, change_out, NULL);
+
+	/* Now generate signatures. */
+	sigs = tal_arr(tmpctx, secp256k1_ecdsa_signature, tal_count(utxos));
+	for (size_t i = 0; i < tal_count(utxos); i++) {
+		struct pubkey inkey;
+		struct privkey inprivkey;
+		const struct utxo *in = &utxos[i];
+		u8 *subscript;
+
+		bitcoin_keypair(&inprivkey, &inkey, in->keyindex);
+		/* We know these are p2sh since that's the only kind we handle */
+		subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
+		wscript = p2wpkh_scriptcode(tmpctx, &inkey);
+
+		sign_tx_input(tx, i, subscript, wscript,
+			      &inprivkey, &inkey, &sigs[i]);
+	}
+
+	daemon_conn_send(master,
+			 take(towire_hsmctl_sign_withdrawal_reply(tmpctx, sigs)));
+	tal_free(tmpctx);
+}
+
 static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 {
 	/* 2 bytes msg type + 64 bytes signature */
@@ -564,6 +624,7 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 		return daemon_conn_read_next(conn, master);
 
 	case WIRE_HSMCTL_SIGN_WITHDRAWAL:
+		sign_withdrawal_tx(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
 
 	case WIRE_HSMCTL_NODE_ANNOUNCEMENT_SIG_REQ:
