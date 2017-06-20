@@ -1,5 +1,6 @@
 from binascii import hexlify, unhexlify
 from concurrent import futures
+from decimal import Decimal
 from hashlib import sha256
 from lightning import LightningRpc, LegacyLightningRpc
 
@@ -8,6 +9,7 @@ import json
 import logging
 import os
 import sys
+import sqlite3
 import tempfile
 import time
 import unittest
@@ -567,8 +569,6 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
         
     def test_json_addfunds(self):
-        """ Attempt to add funds
-        """
         sat = 10**6
         l1 = self.node_factory.get_node(legacy=False)
         addr = l1.rpc.newaddr()['address']
@@ -580,6 +580,45 @@ class LightningDTests(BaseLightningDTests):
 
         # Second time should fail, we already have those funds
         self.assertRaises(ValueError, l1.rpc.addfunds, tx)
+
+    def test_withdraw(self):
+        amount = 1000000
+        l1 = self.node_factory.get_node(legacy=False)
+        addr = l1.rpc.newaddr()['address']
+
+
+        # Add some funds to withdraw later
+        for i in range(10):
+            txid = l1.bitcoin.rpc.sendtoaddress(addr, amount / 10**8 + 0.01)
+            tx = l1.bitcoin.rpc.getrawtransaction(txid)
+            l1.rpc.addfunds(tx)
+
+        # Reach around into the db to check that outputs were added
+        db = sqlite3.connect(os.path.join(l1.daemon.lightning_dir, "lightningd.sqlite3"))
+
+        c = db.cursor()
+        c.execute('SELECT COUNT(*) FROM outputs WHERE status=0')
+        assert(c.fetchone()[0] == 10)
+
+        waddr = l1.bitcoin.rpc.getnewaddress()
+        # Now attempt to withdraw some (making sure we collect multiple inputs)
+        self.assertRaises(ValueError, l1.rpc.withdraw, 'not an address', amount)
+        self.assertRaises(ValueError, l1.rpc.withdraw, waddr, 'not an amount')
+        self.assertRaises(ValueError, l1.rpc.withdraw, waddr, -amount)
+
+        out = l1.rpc.withdraw(waddr, 2*amount)
+
+        # Make sure bitcoind received the withdrawal
+        unspent = l1.bitcoin.rpc.listunspent(0)
+        withdrawal = [u for u in unspent if u['txid'] == out['txid']]
+        assert(len(withdrawal) == 1)
+
+        assert(withdrawal[0]['amount'] == Decimal('0.02'))
+
+        # Now make sure two of them were marked as spent
+        c = db.cursor()
+        c.execute('SELECT COUNT(*) FROM outputs WHERE status=2')
+        assert(c.fetchone()[0] == 2)
 
 class LegacyLightningDTests(BaseLightningDTests):
 
