@@ -42,6 +42,7 @@ void log_(struct log *log, enum log_level level, const char *fmt, ...)
 	PRINTF_FMT(3,4);
 void log_add(struct log *log, const char *fmt, ...) PRINTF_FMT(2,3);
 void logv(struct log *log, enum log_level level, const char *fmt, va_list ap);
+void logv_add(struct log *log, const char *fmt, va_list ap);
 
 void log_blob_(struct log *log, int level, const char *fmt,
 	       size_t len, ...)
