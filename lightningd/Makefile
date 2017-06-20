@@ -70,6 +70,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/new_connection.c		\
 	lightningd/pay.c			\
 	lightningd/peer_control.c		\
+	lightningd/peer_htlcs.c			\
 	lightningd/subd.c
 
 LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o)
@@ -87,6 +88,7 @@ LIGHTNINGD_HEADERS_NOGEN =			\
 	lightningd/new_connection.h		\
 	lightningd/pay.h			\
 	lightningd/peer_control.h		\
+	lightningd/peer_htlcs.h			\
 	lightningd/peer_state.h			\
 	lightningd/subd.h			\
 	$(LIGHTNINGD_OLD_LIB_HEADERS)		\

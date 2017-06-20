@@ -2,6 +2,9 @@
 #define LIGHTNING_DAEMON_INVOICE_H
 #include "config.h"
 #include <bitcoin/preimage.h>
+#include <ccan/crypto/sha256/sha256.h>
+#include <ccan/list/list.h>
+#include <ccan/tal/tal.h>
 
 struct invoices;
 struct lightningd_state;
