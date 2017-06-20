@@ -110,6 +110,11 @@ void peer_fail(struct peer *peer, const char *fmt, ...)
 		goto dont_talk;
 	}
 
+	/* FIXME: Implement reconnect here! */
+	if (peer->state == CHANNELD_NORMAL) {
+		fatal("Peer fail in CHANNELD_NORMAL");
+	}
+
 	/* Reconnect unless we've dropped to chain. */
 	if (!peer_on_chain(peer)) {
 		peer_reconnect(peer);
