@@ -421,7 +421,6 @@ int main(void)
 	lchannel = new_channel(tmpctx, &funding_txid, funding_output_index,
 			       funding_amount_satoshi, to_local_msat,
 			       feerate_per_kw,
-			       42, 0,
 			       local_config,
 			       remote_config,
 			       &localbase, &remotebase,
@@ -430,7 +429,6 @@ int main(void)
 	rchannel = new_channel(tmpctx, &funding_txid, funding_output_index,
 			       funding_amount_satoshi, to_remote_msat,
 			       feerate_per_kw,
-			       0, 42,
 			       remote_config,
 			       local_config,
 			       &remotebase, &localbase,
@@ -467,7 +465,7 @@ int main(void)
 			   NULL, &htlc_map, 0x2bb038521914 ^ 42, LOCAL);
 
 	txs = channel_txs(tmpctx, &htlc_map, &wscripts,
-			  lchannel, &local_per_commitment_point, LOCAL);
+			  lchannel, &local_per_commitment_point, 42, LOCAL);
 	assert(tal_count(txs) == 1);
 	assert(tal_count(htlc_map) == 2);
 	assert(tal_count(wscripts) == 1);
@@ -475,7 +473,7 @@ int main(void)
 	tx_must_be_eq(txs[0], raw_tx);
 
 	txs2 = channel_txs(tmpctx, &htlc_map, &wscripts,
-			   rchannel, &local_per_commitment_point, REMOTE);
+			   rchannel, &local_per_commitment_point, 42, REMOTE);
 	txs_must_be_eq(txs, txs2);
 
 	/* BOLT #3:
@@ -502,10 +500,10 @@ int main(void)
 	       == rchannel->view[LOCAL].owed_msat[LOCAL]);
 
 	txs = channel_txs(tmpctx, &htlc_map, &wscripts,
-			  lchannel, &local_per_commitment_point, LOCAL);
+			  lchannel, &local_per_commitment_point, 42, LOCAL);
 	assert(tal_count(txs) == 1);
 	txs2 = channel_txs(tmpctx, &htlc_map, &wscripts,
-			   rchannel, &local_per_commitment_point, REMOTE);
+			   rchannel, &local_per_commitment_point, 42, REMOTE);
 	txs_must_be_eq(txs, txs2);
 
 	/* FIXME: Adjust properly! */
@@ -520,10 +518,10 @@ int main(void)
 	       == rchannel->view[LOCAL].owed_msat[LOCAL]);
 
 	txs = channel_txs(tmpctx, &htlc_map, &wscripts,
-			  lchannel, &local_per_commitment_point, LOCAL);
+			  lchannel, &local_per_commitment_point, 42, LOCAL);
 	assert(tal_count(txs) == 6);
 	txs2 = channel_txs(tmpctx, &htlc_map, &wscripts,
-			   rchannel, &local_per_commitment_point, REMOTE);
+			   rchannel, &local_per_commitment_point, 42, REMOTE);
 	txs_must_be_eq(txs, txs2);
 
 	/* FIXME: Compare signatures! */
@@ -589,11 +587,13 @@ int main(void)
 				   0x2bb038521914 ^ 42, LOCAL);
 
 		txs = channel_txs(tmpctx, &htlc_map, &wscripts,
-				  lchannel, &local_per_commitment_point, LOCAL);
+				  lchannel, &local_per_commitment_point,
+				  42, LOCAL);
 		tx_must_be_eq(txs[0], raw_tx);
 
 		txs2 = channel_txs(tmpctx,  &htlc_map, &wscripts,
-				   rchannel, &local_per_commitment_point, REMOTE);
+				   rchannel, &local_per_commitment_point,
+				   42, REMOTE);
 		txs_must_be_eq(txs, txs2);
 	}
 

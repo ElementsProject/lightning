@@ -1064,8 +1064,7 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 			     &changekey, fc->change_keyindex))
 		fatal("Error deriving change key %u", fc->change_keyindex);
 
-	derive_basepoints(fc->peer->seed, &local_fundingkey,
-			  NULL, NULL, NULL, NULL, 0);
+	derive_basepoints(fc->peer->seed, &local_fundingkey, NULL, NULL, NULL);
 
 	fc->funding_tx = funding_tx(fc, &fc->peer->funding_outnum,
 				    fc->utxomap, fc->peer->funding_satoshi,

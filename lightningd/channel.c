@@ -141,8 +141,6 @@ struct channel *new_channel(const tal_t *ctx,
 			    u64 funding_satoshis,
 			    u64 local_msatoshi,
 			    u32 feerate_per_kw,
-			    u64 local_commit_index,
-			    u64 remote_commit_index,
 			    const struct channel_config *local,
 			    const struct channel_config *remote,
 			    const struct basepoints *local_basepoints,
@@ -179,9 +177,6 @@ struct channel *new_channel(const tal_t *ctx,
 	channel->view[REMOTE].owed_msat[REMOTE]
 		= channel->view[LOCAL].owed_msat[REMOTE]
 		= channel->funding_msat - local_msatoshi;
-
-	channel->view[LOCAL].commitment_number = local_commit_index;
-	channel->view[REMOTE].commitment_number = remote_commit_index;
 
 	channel->basepoints[LOCAL] = *local_basepoints;
 	channel->basepoints[REMOTE] = *remote_basepoints;
@@ -263,6 +258,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 				const u8 ***wscripts,
 				const struct channel *channel,
 				const struct pubkey *per_commitment_point,
+				u64 commitment_number,
 				enum side side)
 {
 	struct bitcoin_tx **txs;
@@ -317,8 +313,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 		       channel->view[side].owed_msat[!side],
 		       committed,
 		       htlcmap,
-		       channel->view[side].commitment_number
-		       ^ channel->commitment_number_obscurer,
+		       commitment_number ^ channel->commitment_number_obscurer,
 		       side);
 
 	*wscripts = tal_arr(ctx, const u8 *, 1);

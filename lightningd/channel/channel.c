@@ -56,10 +56,15 @@ struct commit_sigs {
 struct peer {
 	struct peer_crypto_state pcs;
 	struct channel_config conf[NUM_SIDES];
-	struct pubkey old_per_commit[NUM_SIDES];
-	struct pubkey current_per_commit[NUM_SIDES];
 	bool funding_locked[NUM_SIDES];
 	u64 commit_index[NUM_SIDES];
+
+	/* Remote's current per-commit point. */
+	struct pubkey remote_per_commit;
+
+	/* Remotes's last per-commitment point: we keep this to check
+	 * revoke_and_ack's `per_commitment_secret` is correct. */
+	struct pubkey old_remote_per_commit;
 
 	/* Their sig for current commit. */
 	secp256k1_ecdsa_signature their_commit_sig;
@@ -282,8 +287,9 @@ static struct io_plan *handle_peer_funding_locked(struct io_conn *conn,
 {
 	struct channel_id chanid;
 
+	peer->old_remote_per_commit = peer->remote_per_commit;
 	if (!fromwire_funding_locked(msg, NULL, &chanid,
-				     &peer->current_per_commit[REMOTE]))
+				     &peer->remote_per_commit))
 		status_failed(WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			      "Bad funding_locked %s", tal_hex(msg, msg));
 
@@ -297,7 +303,7 @@ static struct io_plan *handle_peer_funding_locked(struct io_conn *conn,
 	peer->funding_locked[REMOTE] = true;
 	daemon_conn_send(&peer->master,
 			 take(towire_channel_got_funding_locked(peer,
-					&peer->current_per_commit[REMOTE])));
+						&peer->remote_per_commit)));
 
 	if (peer->funding_locked[LOCAL]) {
 		daemon_conn_send(&peer->master,
@@ -457,19 +463,28 @@ static struct commit_sigs *calc_commitsigs(const tal_t *ctx,
 
 	if (!derive_simple_privkey(&peer->our_secrets.payment_basepoint_secret,
 				   &peer->channel->basepoints[LOCAL].payment,
-				   &peer->current_per_commit[REMOTE],
+				   &peer->remote_per_commit,
 				   &local_secretkey))
 		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
 			      "Deriving local_secretkey");
 
 	if (!derive_simple_key(&peer->channel->basepoints[LOCAL].payment,
-			       &peer->current_per_commit[REMOTE],
+			       &peer->remote_per_commit,
 			       &localkey))
 		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
 			      "Deriving localkey");
 
+	status_trace("Derived key %s from basepoint %s, point %s",
+		     type_to_string(trc, struct pubkey, &localkey),
+		     type_to_string(trc, struct pubkey,
+				    &peer->channel->basepoints[LOCAL].payment),
+		     type_to_string(trc, struct pubkey,
+				    &peer->remote_per_commit));
+
 	txs = channel_txs(tmpctx, &htlc_map, &wscripts, peer->channel,
-			  &peer->current_per_commit[REMOTE], REMOTE);
+			  &peer->remote_per_commit,
+			  peer->commit_index[REMOTE],
+			  REMOTE);
 
 	sign_tx_input(txs[0], 0, NULL,
 		      wscripts[0],
@@ -477,7 +492,8 @@ static struct commit_sigs *calc_commitsigs(const tal_t *ctx,
 		      &peer->channel->funding_pubkey[LOCAL],
 		      &commit_sigs->commit_sig);
 
-	status_trace("Creating commit_sig signature %s for tx %s wscript %s key %s",
+	status_trace("Creating commit_sig signature %"PRIu64" %s for tx %s wscript %s key %s",
+		     peer->commit_index[REMOTE],
 		     type_to_string(trc, secp256k1_ecdsa_signature,
 				    &commit_sigs->commit_sig),
 		     type_to_string(trc, struct bitcoin_tx, txs[0]),
@@ -552,7 +568,7 @@ static void send_commit(struct peer *peer)
 
 	status_trace("Telling master we're about to commit...");
 	/* Tell master to save this next commit to database, then wait. */
-	msg = sending_commitsig_msg(tmpctx, peer->commit_index[REMOTE] + 1,
+	msg = sending_commitsig_msg(tmpctx, peer->commit_index[REMOTE],
 				    changed_htlcs,
 				    &peer->next_commit_sigs->commit_sig,
 				    peer->next_commit_sigs->htlc_sigs);
@@ -578,26 +594,30 @@ static void start_commit_timer(struct peer *peer)
 /* We come back here once master has acked the commit_sig we received */
 static struct io_plan *send_revocation(struct io_conn *conn, struct peer *peer)
 {
-	struct pubkey oldpoint = peer->old_per_commit[LOCAL], test;
+	struct pubkey oldpoint, point;
 	struct sha256 old_commit_secret;
 	u8 *msg;
-
-	peer->old_per_commit[LOCAL] = peer->current_per_commit[LOCAL];
 
 	/* Get N-1th secret. */
 	per_commit_secret(&peer->shaseed, &old_commit_secret,
 			  peer->commit_index[LOCAL] - 1);
 
-	pubkey_from_privkey((struct privkey *)&old_commit_secret, &test);
-	if (!pubkey_eq(&test, &oldpoint))
+	/* Sanity check that it corresponds to the point we sent. */
+	pubkey_from_privkey((struct privkey *)&old_commit_secret, &point);
+	if (!per_commit_point(&peer->shaseed, &oldpoint,
+			      peer->commit_index[LOCAL]-1))
+		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
+			      "Invalid point %"PRIu64" for commit_point",
+			      peer->commit_index[LOCAL]-1);
+
+	if (!pubkey_eq(&point, &oldpoint))
 		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
 			      "Invalid secret %s for commit_point",
 			      tal_hexstr(trc, &old_commit_secret,
 					 sizeof(old_commit_secret)));
 
 	/* Send N+1th point. */
-	if (!per_commit_point(&peer->shaseed,
-			      &peer->current_per_commit[LOCAL],
+	if (!per_commit_point(&peer->shaseed, &point,
 			      ++peer->commit_index[LOCAL]))
 		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
 			      "Deriving next commit_point");
@@ -609,7 +629,7 @@ static struct io_plan *send_revocation(struct io_conn *conn, struct peer *peer)
 	}
 
 	msg = towire_revoke_and_ack(peer, &peer->channel_id, &old_commit_secret,
-				    &peer->current_per_commit[LOCAL]);
+				    &point);
 	msg_enqueue(&peer->peer_out, take(msg));
 
 	return peer_read_message(conn, &peer->pcs, peer_in);
@@ -727,7 +747,7 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 	const tal_t *tmpctx = tal_tmpctx(peer);
 	struct channel_id channel_id;
 	secp256k1_ecdsa_signature commit_sig, *htlc_sigs;
-	struct pubkey remotekey;
+	struct pubkey remotekey, point;
 	struct bitcoin_tx **txs;
 	const struct htlc **htlc_map, **changed_htlcs;
 	const u8 **wscripts;
@@ -755,15 +775,24 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad commit_sig %s", tal_hex(msg, msg));
 
+	if (!per_commit_point(&peer->shaseed, &point,
+			      peer->commit_index[LOCAL]))
+		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
+			      "Deriving per_commit_point for %"PRIu64,
+			      peer->commit_index[LOCAL]);
+
 	txs = channel_txs(tmpctx, &htlc_map, &wscripts, peer->channel,
-			  &peer->current_per_commit[LOCAL], LOCAL);
+			  &point, peer->commit_index[LOCAL], LOCAL);
 
 	if (!derive_simple_key(&peer->channel->basepoints[REMOTE].payment,
-			       &peer->current_per_commit[LOCAL],
-			       &remotekey))
+			       &point, &remotekey))
 		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
 			      "Deriving remotekey");
-
+	status_trace("Derived key %s from basepoint %s, point %s",
+		     type_to_string(trc, struct pubkey, &remotekey),
+		     type_to_string(trc, struct pubkey,
+				    &peer->channel->basepoints[REMOTE].payment),
+		     type_to_string(trc, struct pubkey, &point));
 	/* BOLT #2:
 	 *
 	 * A receiving node MUST fail the channel if `signature` is not valid
@@ -777,7 +806,8 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
-			    "Bad commit_sig signature %s for tx %s wscript %s key %s",
+			    "Bad commit_sig signature %"PRIu64" %s for tx %s wscript %s key %s",
+			    peer->commit_index[LOCAL],
 			    type_to_string(msg, secp256k1_ecdsa_signature,
 					   &commit_sig),
 			    type_to_string(msg, struct bitcoin_tx, txs[0]),
@@ -905,7 +935,7 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 			    "Bad privkey %s",
 			    type_to_string(msg, struct privkey, &privkey));
 	}
-	if (!pubkey_eq(&per_commit_point, &peer->old_per_commit[REMOTE])) {
+	if (!pubkey_eq(&per_commit_point, &peer->old_remote_per_commit)) {
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
@@ -913,7 +943,7 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 			    "Wrong privkey %s for %s",
 			    type_to_string(msg, struct privkey, &privkey),
 			    type_to_string(msg, struct pubkey,
-					   &peer->old_per_commit[REMOTE]));
+					   &peer->old_remote_per_commit));
 	}
 
 	/* We start timer even if this returns false: we might have delayed
@@ -924,7 +954,7 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 		status_trace("No commits outstanding after recv revoke_and_ack");
 
 	/* Tell master about things this locks in, wait for response */
-	msg = got_revoke_msg(msg, peer->commit_index[REMOTE],
+	msg = got_revoke_msg(msg, peer->commit_index[REMOTE] - 1,
 			     &old_commit_secret, &next_per_commit,
 			     changed_htlcs);
 	master_sync_reply(peer, take(msg),
@@ -932,8 +962,8 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 			  handle_reply_wake_peer);
 
 	peer->commit_index[REMOTE]++;
-	peer->old_per_commit[REMOTE] = peer->current_per_commit[REMOTE];
-	peer->current_per_commit[REMOTE] = next_per_commit;
+	peer->old_remote_per_commit = peer->remote_per_commit;
+	peer->remote_per_commit = next_per_commit;
 
 	/* And peer waits for reply. */
 	return io_wait(conn, peer, accepted_revocation, peer);
@@ -1270,7 +1300,7 @@ static void init_channel(struct peer *peer)
 				   &points[REMOTE].revocation,
 				   &points[REMOTE].payment,
 				   &points[REMOTE].delayed_payment,
-				   &peer->old_per_commit[REMOTE],
+				   &peer->remote_per_commit,
 				   &am_funder,
 				   &peer->fee_base,
 				   &peer->fee_per_satoshi,
@@ -1300,26 +1330,20 @@ static void init_channel(struct peer *peer)
 	assert(commits_sent > 0);
 	assert(commits_received > 0);
 
-	peer->commit_index[LOCAL] = commits_sent - 1;
-	peer->commit_index[REMOTE] = commits_received - 1;
+	peer->commit_index[LOCAL] = commits_sent;
+	peer->commit_index[REMOTE] = commits_received;
 
 	/* channel_id is set from funding txout */
 	derive_channel_id(&peer->channel_id, &funding_txid, funding_txout);
 
 	/* We derive everything from the one secret seed. */
 	derive_basepoints(&seed, &funding_pubkey[LOCAL], &points[LOCAL],
-			  &peer->our_secrets, &peer->shaseed,
-			  &peer->old_per_commit[LOCAL],
-			  peer->commit_index[LOCAL]);
-	status_trace("First per_commit_point = %s",
-		     type_to_string(trc, struct pubkey,
-				    &peer->old_per_commit[LOCAL]));
+			  &peer->our_secrets, &peer->shaseed);
 
 	peer->channel = new_channel(peer, &funding_txid, funding_txout,
 				    funding_satoshi,
 				    local_msatoshi,
 				    peer->fee_base,
-				    0, 0,
 				    &peer->conf[LOCAL], &peer->conf[REMOTE],
 				    &points[LOCAL], &points[REMOTE],
 				    &funding_pubkey[LOCAL],
@@ -1348,17 +1372,20 @@ static void init_channel(struct peer *peer)
 
 static void handle_funding_locked(struct peer *peer, const u8 *msg)
 {
+	struct pubkey next_per_commit_point;
+
 	if (!fromwire_channel_funding_locked(msg, NULL,
 					     &peer->short_channel_ids[LOCAL]))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s", tal_hex(msg, msg));
 
 	per_commit_point(&peer->shaseed,
-			 &peer->current_per_commit[LOCAL],
-			 ++peer->commit_index[LOCAL]);
+			 &next_per_commit_point, peer->commit_index[LOCAL]);
 
+	status_trace("funding_locked: sending commit index %"PRIu64": %s",
+		     peer->commit_index[LOCAL],
+		     type_to_string(trc, struct pubkey, &next_per_commit_point));
 	msg = towire_funding_locked(peer,
-				    &peer->channel_id,
-				    &peer->current_per_commit[LOCAL]);
+				    &peer->channel_id, &next_per_commit_point);
 	msg_enqueue(&peer->peer_out, take(msg));
 	peer->funding_locked[LOCAL] = true;
 
