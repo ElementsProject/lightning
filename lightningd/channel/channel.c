@@ -370,7 +370,7 @@ static void send_commit(struct peer *peer)
 	 * A node MUST NOT send a `commitment_signed` message which does not
 	 * include any updates.
 	 */
-	if (!channel_sending_commit(peer->channel)) {
+	if (!channel_sending_commit(peer->channel, NULL)) {
 		status_trace("Can't send commit: nothing to send");
 		tal_free(tmpctx);
 		return;
@@ -449,11 +449,6 @@ static void start_commit_timer(struct peer *peer)
 					  send_commit, peer);
 }
 
-static void theirs_fulfilled(const struct htlc *htlc, struct peer *peer)
-{
-	/* FIXME: Tell master, so it can disarm timer. */
-}
-
 static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 {
 	tal_t *tmpctx = tal_tmpctx(peer);
@@ -462,11 +457,12 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	secp256k1_ecdsa_signature commit_sig, *htlc_sigs;
 	struct pubkey remotekey;
 	struct bitcoin_tx **txs;
-	const struct htlc **htlc_map;
+	const struct htlc **htlc_map, **changed_htlcs;
 	const u8 **wscripts;
 	size_t i;
 
-	if (!channel_rcvd_commit(peer->channel, theirs_fulfilled, peer)) {
+	changed_htlcs = tal_arr(msg, const struct htlc *, 0);
+	if (!channel_rcvd_commit(peer->channel, &changed_htlcs)) {
 		/* BOLT #2:
 		 *
 		 * A node MUST NOT send a `commitment_signed` message which
@@ -478,6 +474,8 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "commit_sig with no changes");
 	}
+
+	/* FIXME: Tell master about HTLC changes. */
 
 	if (!fromwire_commitment_signed(tmpctx, msg, NULL,
 					&channel_id, &commit_sig, &htlc_sigs))
@@ -588,11 +586,6 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	tal_free(tmpctx);
 }
 
-static void our_htlc_failed(const struct htlc *htlc, struct peer *peer)
-{
-	status_trace("FIXME: our htlc %"PRIu64" failed", htlc->id);
-}
-
 static void their_htlc_locked(const struct htlc *htlc, struct peer *peer)
 {
 	tal_t *tmpctx = tal_tmpctx(peer);
@@ -689,6 +682,7 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	struct privkey privkey;
 	struct channel_id channel_id;
 	struct pubkey per_commit_point, next_per_commit;
+	const struct htlc **changed_htlcs = tal_arr(msg, const struct htlc *, 0);
 
 	if (!fromwire_revoke_and_ack(msg, NULL, &channel_id, &old_commit_secret,
 				     &next_per_commit)) {
@@ -747,12 +741,17 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 
 	/* We start timer even if this returns false: we might have delayed
 	 * commit because we were waiting for this! */
-	if (channel_rcvd_revoke_and_ack(peer->channel,
-					our_htlc_failed, their_htlc_locked,
-					peer))
+	if (channel_rcvd_revoke_and_ack(peer->channel, &changed_htlcs))
 		status_trace("Commits outstanding after recv revoke_and_ack");
 	else
 		status_trace("No commits outstanding after recv revoke_and_ack");
+
+	/* Tell master about locked-in htlcs. */
+	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
+		if (changed_htlcs[i]->state == RCVD_ADD_ACK_REVOCATION) {
+			their_htlc_locked(changed_htlcs[i], peer);
+		}
+	}
 
 	start_commit_timer(peer);
 }
