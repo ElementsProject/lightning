@@ -21,9 +21,6 @@ struct channel_view {
 	/* Current feerate in satoshis per 1000 weight. */
 	u64 feerate_per_kw;
 
-	/* What commitment number are we up to */
-	u64 commitment_number;
-
 	/* How much is owed to each side (includes pending changes) */
 	u64 owed_msat[NUM_SIDES];
 };
@@ -129,8 +126,6 @@ static inline u16 to_self_delay(const struct channel *channel, enum side side)
  * @funding_satoshis: The commitment transaction amount.
  * @local_msatoshi: The amount for the local side (remainder goes to remote)
  * @feerate_per_kw: feerate per kiloweight (satoshis)
- * @local_commit_index: local commitment number
- * @remote_commit_index: remote commitment number
  * @local: local channel configuration
  * @remote: remote channel configuration
  * @local_basepoints: local basepoints.
@@ -147,8 +142,6 @@ struct channel *new_channel(const tal_t *ctx,
 			    u64 funding_satoshis,
 			    u64 local_msatoshi,
 			    u32 feerate_per_kw,
-			    u64 local_commit_index,
-			    u64 remote_commit_index,
 			    const struct channel_config *local,
 			    const struct channel_config *remote,
 			    const struct basepoints *local_basepoints,
@@ -164,6 +157,7 @@ struct channel *new_channel(const tal_t *ctx,
  * @htlc_map: Pointer to htlcs for each tx output (allocated off @ctx) or NULL.
  * @wscripts: Pointer to array of wscript for each tx returned (alloced off @ctx)
  * @per_commitment_point: Per-commitment point to determine keys
+ * @commitment_number: The index of this commitment.
  * @side: which side to get the commitment transaction for
  *
  * Returns the unsigned commitment transaction for the committed state
@@ -176,6 +170,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 				const u8 ***wscripts,
 				const struct channel *channel,
 				const struct pubkey *per_commitment_point,
+				u64 commitment_number,
 				enum side side);
 
 /**

@@ -342,7 +342,6 @@ static u8 *funder_channel(struct state *state,
 				     state->funding_satoshis * 1000
 				     - state->push_msat,
 				     state->feerate_per_kw,
-				     0, 0,
 				     &state->localconf,
 				     state->remoteconf,
 				     ours, &theirs,
@@ -362,7 +361,7 @@ static u8 *funder_channel(struct state *state,
 	 * peer's signature, it will broadcast the funding transaction.
 	 */
 	txs = channel_txs(tmpctx, NULL, &wscripts, state->channel,
-			  &state->next_per_commit[REMOTE], REMOTE);
+			  &state->next_per_commit[REMOTE], 0, REMOTE);
 
 	sign_tx_input(txs[0], 0, NULL, wscripts[0],
 		      &state->our_secrets.funding_privkey,
@@ -420,7 +419,7 @@ static u8 *funder_channel(struct state *state,
 	 * The recipient MUST fail the channel if `signature` is incorrect.
 	 */
 	txs = channel_txs(tmpctx, NULL, &wscripts, state->channel,
-			  &state->next_per_commit[LOCAL], LOCAL);
+			  &state->next_per_commit[LOCAL], 0, LOCAL);
 
 	if (!check_tx_sig(txs[0], 0, NULL, wscripts[0], &their_funding_pubkey,
 			  &sig)) {
@@ -597,7 +596,6 @@ static u8 *fundee_channel(struct state *state,
 				     state->funding_satoshis,
 				     state->push_msat,
 				     state->feerate_per_kw,
-				     0, 0,
 				     &state->localconf,
 				     state->remoteconf,
 				     ours, &theirs,
@@ -613,7 +611,7 @@ static u8 *fundee_channel(struct state *state,
 	 * The recipient MUST fail the channel if `signature` is incorrect.
 	 */
 	txs = channel_txs(state, NULL, &wscripts, state->channel,
-			  &state->next_per_commit[LOCAL], LOCAL);
+			  &state->next_per_commit[LOCAL], 0, LOCAL);
 
 	if (!check_tx_sig(txs[0], 0, NULL, wscripts[0], &their_funding_pubkey,
 			  &theirsig)) {
@@ -646,7 +644,7 @@ static u8 *fundee_channel(struct state *state,
 	 * redeem their funds if they need to.
 	 */
 	txs = channel_txs(state, NULL, &wscripts, state->channel,
-			  &state->next_per_commit[REMOTE], REMOTE);
+			  &state->next_per_commit[REMOTE], 0, REMOTE);
 	sign_tx_input(txs[0], 0, NULL, wscripts[0],
 		      &state->our_secrets.funding_privkey,
 		      our_funding_pubkey, &sig);
@@ -715,10 +713,16 @@ int main(int argc, char *argv[])
 	/* We derive everything from the one secret seed. */
 	if (!derive_basepoints(&seed, &our_funding_pubkey,
 			       &our_points, &state->our_secrets,
-			       &state->shaseed, &state->next_per_commit[LOCAL],
-			       0))
+			       &state->shaseed))
 		status_failed(WIRE_OPENING_KEY_DERIVATION_FAILED,
 			      "Secret derivation failed, secret = %s",
+			      type_to_string(trc, struct privkey, &seed));
+
+	if (!per_commit_point(&state->shaseed, &state->next_per_commit[LOCAL],
+			      0))
+		status_failed(WIRE_OPENING_KEY_DERIVATION_FAILED,
+			      "First per_commitment_point derivation failed,"
+			      " secret = %s",
 			      type_to_string(trc, struct privkey, &seed));
 
 	status_trace("First per_commit_point = %s",
