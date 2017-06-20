@@ -101,11 +101,6 @@ void peer_fail(struct peer *peer, const char *fmt, ...)
 		goto dont_talk;
 	}
 
-	/* FIXME: Implement reconnect here! */
-	if (peer->state == CHANNELD_NORMAL) {
-		fatal("Peer fail in CHANNELD_NORMAL");
-	}
-
 	/* Reconnect unless we've dropped to chain. */
 	if (!peer_on_chain(peer)) {
 		peer_reconnect(peer);
@@ -154,6 +149,9 @@ static bool peer_reconnected(struct lightningd *ld,
 	/* Always copy cryptostate; at worst we'll throw it away. */
 	tal_free(peer->cs);
 	peer->cs = tal_dup(peer, struct crypto_state, cs);
+
+	/* We need this for init */
+	peer->reconnected = true;
 
 	/* FIXME: We should close peer->gossip_client_fd when we're not
 	 * connected, and get a new one from gossipd when we reconnect. */
@@ -289,6 +287,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->scid = NULL;
 	peer->id = *id;
 	peer->fd = fd;
+	peer->reconnected = false;
 	peer->gossip_client_fd = -1;
 	peer->cs = tal_dup(peer, struct crypto_state, cs);
 	peer->funding_txid = NULL;
@@ -686,6 +685,7 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 {
 	const char *txidstr = type_to_string(peer, struct sha256_double, txid);
 	struct txlocator *loc;
+	bool peer_ready;
 
 	log_debug(peer->log, "Funding tx %s depth %u of %u",
 		  txidstr, depth, peer->minimum_depth);
@@ -693,16 +693,6 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 
 	if (depth < peer->minimum_depth)
 		return KEEP_WATCHING;
-
-	/* In theory, it could have been buried before we got back
-	 * from accepting openingd or disconnected: just wait for next one. */
-	if (!peer->owner || peer->state != CHANNELD_AWAITING_LOCKIN) {
-		log_unusual(peer->log,
-			    "Funding tx confirmed, but peer state %s %s",
-			    peer_state_name(peer->state),
-			    peer->owner ? peer->owner->name : "unowned");
-		return KEEP_WATCHING;
-	}
 
 	loc = locate_tx(peer, peer->ld->topology, txid);
 
@@ -712,8 +702,19 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 	peer->scid->outnum = peer->funding_outnum;
 	tal_free(loc);
 
-	subd_send_msg(peer->owner,
-		      take(towire_channel_funding_locked(peer, peer->scid)));
+	/* In theory, it could have been buried before we got back
+	 * from accepting openingd or disconnected: just wait for next one. */
+	peer_ready = (peer->owner && peer->state == CHANNELD_AWAITING_LOCKIN);
+	if (!peer_ready) {
+		log_unusual(peer->log,
+			    "Funding tx confirmed, but peer state %s %s",
+			    peer_state_name(peer->state),
+			    peer->owner ? peer->owner->name : "unowned");
+	} else {
+		subd_send_msg(peer->owner,
+			      take(towire_channel_funding_locked(peer,
+								 peer->scid)));
+	}
 
 	/* BOLT #7:
 	 *
@@ -721,10 +722,11 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 	 * `funding_locked` has been sent, and the funding transaction is has
 	 * at least 6 confirmations.
 	 */
-	if (depth >= ANNOUNCE_MIN_DEPTH) {
+	if (depth >= ANNOUNCE_MIN_DEPTH && peer_ready) {
 		subd_send_msg(peer->owner,
 			      take(towire_channel_funding_announce_depth(peer)));
 	} else {
+		/* Worst case, we'll send next block. */
 		watch_txid(peer, peer->ld->topology, peer, txid,
 			   funding_announce_cb, NULL);
 	}
@@ -862,6 +864,7 @@ static int peer_got_funding_locked(struct peer *peer, const u8 *msg)
 		= tal_free(peer->next_per_commitment_point);
 	peer->next_per_commitment_point
 		= tal_dup(peer, struct pubkey, &next_per_commitment_point);
+	log_debug(peer->log, "Got funding_locked");
 	return 0;
 }
 
@@ -928,6 +931,7 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 	enum side *fulfilled_sides;
 	struct failed_htlc *failed_htlcs;
 	enum side *failed_sides;
+	struct short_channel_id funding_channel_id;
 
 	peer->owner = new_subd(peer->ld, peer->ld,
 			       "lightningd_channel", peer,
@@ -944,11 +948,19 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 		return true;
 	}
 
-	log_debug(peer->log, "Waiting for funding confirmations");
-	peer_set_condition(peer, GETTING_HSMFD, CHANNELD_AWAITING_LOCKIN);
-
 	peer_htlcs(resp, peer, &htlcs, &htlc_states, &fulfilled_htlcs,
 		   &fulfilled_sides, &failed_htlcs, &failed_sides);
+
+	if (peer->scid) {
+		funding_channel_id = *peer->scid;
+		log_debug(peer->log, "Got funding confirmations");
+		peer_set_condition(peer, GETTING_HSMFD, CHANNELD_NORMAL);
+	} else {
+		log_debug(peer->log, "Waiting for funding confirmations");
+		peer_set_condition(peer, GETTING_HSMFD,
+				   CHANNELD_AWAITING_LOCKIN);
+		memset(&funding_channel_id, 0, sizeof(funding_channel_id));
+	}
 
 	initmsg = towire_channel_init(peer,
 				      peer->funding_txid,
@@ -981,6 +993,10 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 				      htlcs, htlc_states,
 				      fulfilled_htlcs, fulfilled_sides,
 				      failed_htlcs, failed_sides,
+				      peer->scid != NULL,
+				      peer->next_per_commitment_point != NULL,
+				      &funding_channel_id,
+				      peer->reconnected,
 				      peer->funding_signed);
 
 	/* Don't need this any more (we never re-transmit it) */

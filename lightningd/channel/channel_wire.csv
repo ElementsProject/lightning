@@ -56,6 +56,10 @@ channel_init,,fulfilled_sides,num_fulfilled*enum side
 channel_init,,num_failed,u16
 channel_init,,failed,num_failed*struct failed_htlc
 channel_init,,failed_sides,num_failed*enum side
+channel_init,,local_funding_locked,bool
+channel_init,,remote_funding_locked,bool
+channel_init,,funding_short_id,struct short_channel_id
+channel_init,,reestablish,bool
 channel_init,,init_peer_pkt_len,u16
 channel_init,,init_peer_pkt,init_peer_pkt_len*u8
 

@@ -45,6 +45,8 @@ struct peer {
 
 	/* Our fd to the peer (-1 when we don't have it). */
 	int fd;
+	/* If we've disconnected, this is set. */
+	bool reconnected;
 
 	/* Crypto state (NULL if it's in daemon) */
 	struct crypto_state *cs;
