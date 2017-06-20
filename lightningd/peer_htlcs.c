@@ -806,10 +806,13 @@ int peer_sending_commitsig(struct peer *peer, const u8 *msg)
 	u64 commitnum;
 	struct changed_htlc *changed_htlcs;
 	size_t i;
+	secp256k1_ecdsa_signature commit_sig;
+	secp256k1_ecdsa_signature *htlc_sigs;
 
 	if (!fromwire_channel_sending_commitsig(msg, msg, NULL,
 						&commitnum,
-						&changed_htlcs)) {
+						&changed_htlcs,
+						&commit_sig, &htlc_sigs)) {
 		log_broken(peer->log, "bad channel_sending_commitsig %s",
 			   tal_hex(peer, msg));
 		return -1;
@@ -825,6 +828,8 @@ int peer_sending_commitsig(struct peer *peer, const u8 *msg)
 
 	if (!peer_save_commitsig_sent(peer, commitnum))
 		return -1;
+
+	/* FIXME: save commit_sig and htlc_sigs */
 
 	/* Last was commit. */
 	peer->last_was_revoke = false;

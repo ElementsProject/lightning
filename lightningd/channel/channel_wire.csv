@@ -117,6 +117,9 @@ channel_sending_commitsig,,commitnum,u64
 # SENT_ADD_COMMIT, SENT_REMOVE_ACK_COMMIT, SENT_ADD_ACK_COMMIT, SENT_REMOVE_COMMIT
 channel_sending_commitsig,,num_changed,u16
 channel_sending_commitsig,,changed,num_changed*struct changed_htlc
+channel_sending_commitsig,,commit_sig,secp256k1_ecdsa_signature
+channel_sending_commitsig,,num_htlc_sigs,u16
+channel_sending_commitsig,,htlc_sigs,num_htlc_sigs*secp256k1_ecdsa_signature
 
 # Wait for reply, to make sure it's on disk before we send commit.
 channel_sending_commitsig_reply,120
