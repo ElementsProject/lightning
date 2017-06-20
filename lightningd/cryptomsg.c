@@ -332,6 +332,7 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 							   struct peer *))
 {
 	struct io_plan *(*post)(struct io_conn *, struct peer_crypto_state *);
+	int type = fromwire_peektype(msg);
 	assert(!pcs->out);
 
 	pcs->out = cryptomsg_encrypt_msg(conn, &pcs->cs, msg);
@@ -341,7 +342,7 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 
 	post = peer_write_done;
 
-	switch (dev_disconnect(fromwire_peektype(msg))) {
+	switch (dev_disconnect(type)) {
 	case DEV_DISCONNECT_BEFORE:
 		return io_close(conn);
 	case DEV_DISCONNECT_DROPPKT:
