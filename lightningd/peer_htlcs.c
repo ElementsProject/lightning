@@ -340,28 +340,17 @@ static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 	}
 
 	if (failure_code) {
-		log_debug(hout->in->key.peer->owner->log,
-			  "HTLC failed from other daemon: %s (%.*s)",
-			  onion_type_name(failure_code),
-			  (int)tal_len(failurestr), (char *)failurestr);
-
 		fail_htlc(hout->in, failure_code);
 		return true;
 	}
 
-	/* BOLT #2:
-	 *
-	 * A sending node MUST set `id` to 0 for the first HTLC it offers, and
-	 * increase the value by 1 for each successive offer.
-	*/
-	if (hout->key.id != hout->key.peer->next_htlc_id) {
+	if (find_htlc_out(&subd->ld->htlcs_out, hout->key.peer, hout->key.id)) {
 		log_broken(subd->log, "Bad offer_htlc_reply HTLC id %"PRIu64
-			   " expected %"PRIu64,
-			   hout->key.id, hout->key.peer->next_htlc_id);
+			   " is a duplicate",
+			   hout->key.id);
 		tal_free(hout);
 		return false;
 	}
-	hout->key.peer->next_htlc_id++;
 
 	/* Add it to lookup table now we know id. */
 	connect_htlc_out(&subd->ld->htlcs_out, hout);
@@ -825,7 +814,7 @@ int peer_sending_commitsig(struct peer *peer, const u8 *msg)
 {
 	u64 commitnum;
 	struct changed_htlc *changed_htlcs;
-	size_t i;
+	size_t i, maxid = 0, num_local_added = 0;
 	secp256k1_ecdsa_signature commit_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
 
@@ -844,6 +833,27 @@ int peer_sending_commitsig(struct peer *peer, const u8 *msg)
 				   "channel_sending_commitsig: update failed");
 			return -1;
 		}
+
+		/* While we're here, sanity check added ones are in
+		 * ascending order. */
+		if (changed_htlcs[i].newstate == SENT_ADD_COMMIT) {
+			num_local_added++;
+			if (changed_htlcs[i].id > maxid)
+				maxid = changed_htlcs[i].id;
+		}
+	}
+
+	if (num_local_added != 0) {
+		if (maxid != peer->next_htlc_id + num_local_added - 1) {
+			log_broken(peer->log,
+				   "channel_sending_commitsig:"
+				   " Added %"PRIu64", maxid now %"PRIu64
+				   " from %"PRIu64,
+				   num_local_added, maxid, peer->next_htlc_id);
+			return -1;
+		}
+		/* FIXME: Save to db */
+		peer->next_htlc_id += num_local_added;
 	}
 
 	if (!peer_save_commitsig_sent(peer, commitnum))
