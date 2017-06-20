@@ -364,7 +364,8 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->channel_info = NULL;
 	peer->last_was_revoke = false;
 	peer->last_sent_commit = NULL;
-	peer->num_commits_sent = peer->num_commits_received
+	peer->commit_index[LOCAL]
+		= peer->commit_index[REMOTE]
 		= peer->num_revocations_received = 0;
 	peer->next_htlc_id = 0;
 	shachain_init(&peer->their_shachain);
@@ -1058,8 +1059,8 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 				      cfg->deadline_blocks,
 				      peer->last_was_revoke,
 				      peer->last_sent_commit,
-				      peer->num_commits_sent,
-				      peer->num_commits_received,
+				      peer->commit_index[LOCAL],
+				      peer->commit_index[REMOTE],
 				      peer->num_revocations_received,
 				      peer->next_htlc_id,
 				      htlcs, htlc_states,
@@ -1108,6 +1109,14 @@ static void peer_start_channeld(struct peer *peer, enum peer_state oldstate,
 	subd_req(peer, peer->ld->hsm,
 		 take(towire_hsmctl_hsmfd_channeld(peer, peer->unique_id)),
 		 -1, 1, peer_start_channeld_hsmfd, peer);
+}
+
+static bool peer_commit_initial(struct peer *peer)
+{
+	peer->commit_index[LOCAL] = peer->commit_index[REMOTE] = 1;
+
+	/* FIXME: Db channel_info, etc. */
+	return true;
 }
 
 static bool opening_funder_finished(struct subd *opening, const u8 *resp,
@@ -1181,10 +1190,8 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 		return false;
 	}
 
-	/* We should have sent and received the first commitsig */
-	if (!peer_save_commitsig_received(fc->peer, 0)
-	    || !peer_save_commitsig_sent(fc->peer, 0)) {
-		peer_internal_error(fc->peer, "Saving commitsig failed");
+	if (!peer_commit_initial(fc->peer)) {
+		peer_internal_error(fc->peer, "Initial peer to db failed");
 		return false;
 	}
 
@@ -1245,9 +1252,7 @@ static bool opening_fundee_finished(struct subd *opening,
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
-	/* We should have sent and received the first commitsig */
-	if (!peer_save_commitsig_received(peer, 0)
-	    || !peer_save_commitsig_sent(peer, 0))
+	if (!peer_commit_initial(peer))
 		return false;
 
 	log_debug(peer->log, "Watching funding tx %s",

@@ -24,9 +24,6 @@ void peer_htlcs(const tal_t *ctx,
 		struct failed_htlc **failed_htlcs,
 		enum side **failed_sides);
 
-bool peer_save_commitsig_received(struct peer *peer, u64 commitnum);
-bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum);
-
 int peer_sending_commitsig(struct peer *peer, const u8 *msg);
 int peer_got_commitsig(struct peer *peer, const u8 *msg);
 int peer_got_revoke(struct peer *peer, const u8 *msg);
