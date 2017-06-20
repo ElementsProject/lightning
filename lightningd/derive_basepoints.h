@@ -37,11 +37,25 @@ bool derive_basepoints(const struct privkey *seed,
 		       struct pubkey *per_commit_point,
 		       u64 per_commit_index);
 
-/* Give up secret for index-1, and generate per-commitment point for N+1. */
-bool next_per_commit_point(const struct sha256 *shaseed,
-			   struct sha256 *old_commit_secret,
-			   struct pubkey *per_commit_point,
-			   u64 per_commit_index);
+/**
+ * per_commit_secret - get a secret for this index.
+ * @shaseed: the sha256 seed
+ * @commit_secret: the returned per-commit secret.
+ * @per_commit_index: (in) which @commit_secret to return.
+ */
+void per_commit_secret(const struct sha256 *shaseed,
+		       struct sha256 *commit_secret,
+		       u64 per_commit_index);
+
+/**
+ * per_commit_point - get the per-commit-point for this index.
+ * @shaseed: the sha256 seed
+ * @commit_point: the returned per-commit point.
+ * @per_commit_index: (in) which @commit_point to return.
+ */
+bool per_commit_point(const struct sha256 *shaseed,
+		      struct pubkey *commit_point,
+		      u64 per_commit_index);
 
 /* BOLT #3:
  *
