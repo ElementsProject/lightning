@@ -29,6 +29,9 @@ struct htlc_end {
 	u32 cltv_expiry;
 	struct sha256 payment_hash;
 
+	/* If we failed HTLC, here's the message. */
+	const u8 *fail_msg;
+
 	/* If we are forwarding, remember the shared secret for an
 	 * eventual reply */
 	struct secret *shared_secret;
