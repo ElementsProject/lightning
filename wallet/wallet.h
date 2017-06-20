@@ -77,7 +77,8 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w,
 const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 					const u64 value,
 					const u32 feerate_per_kw,
-					u64 *fee_estimate);
+					u64 *fee_estimate,
+					u64 *change_satoshi);
 
 /**
  * wallet_confirm_utxos - Once we've spent a set of utxos, mark them confirmed.

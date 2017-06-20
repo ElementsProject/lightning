@@ -129,17 +129,20 @@ void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
 const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 					const u64 value,
 					const u32 feerate_per_kw,
-					u64 *fee_estimate)
+					u64 *fee_estimate, u64 *changesatoshi)
 {
 	size_t i = 0;
 	struct utxo **available;
 	const struct utxo **utxos = tal_arr(ctx, const struct utxo *, 0);
+	*fee_estimate = 0;
 
 	/* We assume two outputs for the weight. */
 	u64 satoshi_in = 0, weight = (4 + (8 + 22) * 2 + 4) * 4;
 	tal_add_destructor2(utxos, destroy_utxos, w);
 
-	db_begin_transaction(w->db);
+	if (!db_begin_transaction(w->db)) {
+		fatal("Unable to begin transaction: %s", w->db->err);
+	}
 	available = wallet_get_utxos(ctx, w, output_state_available);
 
 	for (i = 0; i < tal_count(available); i++) {
@@ -171,6 +174,8 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 	} else {
 		/* Commit the db transaction to persist markings */
 		db_commit_transaction(w->db);
+		*changesatoshi = satoshi_in - value - *fee_estimate;
+
 	}
 	return utxos;
 }

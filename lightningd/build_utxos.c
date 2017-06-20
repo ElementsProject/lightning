@@ -172,22 +172,17 @@ const struct utxo **build_utxos(const tal_t *ctx,
 				u32 feerate_per_kw, u64 dust_limit,
 				u64 *change_satoshis, u32 *change_keyindex)
 {
-	u64 satoshi_in = 0;
 	u64 fee_estimate = 0;
 	u64 bip32_max_index = db_get_intvar(ld->wallet->db, "bip32_max_index", 0);
 	const struct utxo **utxos =
-		wallet_select_coins(ctx, ld->wallet, satoshi_out, feerate_per_kw, &fee_estimate);
+	    wallet_select_coins(ctx, ld->wallet, satoshi_out, feerate_per_kw,
+				&fee_estimate, change_satoshis);
 
 	/* Oops, didn't have enough coins available */
 	if (!utxos)
 		return NULL;
 
-	/* How much are we actually claiming? */
-	for (size_t i=0; i<tal_count(utxos); i++)
-		satoshi_in += utxos[i]->amount;
-
 	/* Do we need a change output? */
-	*change_satoshis = satoshi_in - (fee_estimate + satoshi_out);
 	if (*change_satoshis < dust_limit) {
 		*change_satoshis = 0;
 		*change_keyindex = 0;
