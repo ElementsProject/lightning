@@ -59,12 +59,13 @@ static int hsm_msg(struct subd *hsm, const u8 *msg, const int *fds)
 		     : "unknown peer",
 		     tal_hex(msg, badmsg));
 
-	/* We don't get called for failed status. */
+	/* subd already logs fatal errors. */
 	case WIRE_HSMSTATUS_INIT_FAILED:
 	case WIRE_HSMSTATUS_WRITEMSG_FAILED:
 	case WIRE_HSMSTATUS_BAD_REQUEST:
 	case WIRE_HSMSTATUS_FD_FAILED:
 	case WIRE_HSMSTATUS_KEY_FAILED:
+		break;
 
 	/* HSM doesn't send these */
 	case WIRE_HSMCTL_INIT:

@@ -99,13 +99,14 @@ static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	enum gossip_wire_type t = fromwire_peektype(msg);
 
 	switch (t) {
-	/* We don't get told about fatal errors. */
+	/* subd already logs fatal errors. */
 	case WIRE_GOSSIPSTATUS_INIT_FAILED:
 	case WIRE_GOSSIPSTATUS_BAD_NEW_PEER_REQUEST:
 	case WIRE_GOSSIPSTATUS_BAD_REQUEST:
 	case WIRE_GOSSIPSTATUS_FDPASS_FAILED:
 	case WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST:
 	case WIRE_GOSSIPSTATUS_BAD_FAIL_REQUEST:
+		break;
 	/* These are messages we send, not them. */
 	case WIRE_GOSSIPCTL_INIT:
 	case WIRE_GOSSIPCTL_NEW_PEER:

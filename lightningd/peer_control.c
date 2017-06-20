@@ -940,6 +940,20 @@ static int peer_got_funding_locked(struct peer *peer, const u8 *msg)
 	return 0;
 }
 
+static int peer_got_bad_message(struct peer *peer, const u8 *msg)
+{
+	u8 *err;
+
+	/* Don't try to fail this (again!) when owner dies. */
+	peer->owner = NULL;
+	if (!fromwire_channel_peer_bad_message(peer, NULL, NULL, &err))
+		err = (u8 *)tal_strdup(peer, "Internal error after bad message");
+	peer_fail_permanent(peer, take(err));
+
+	/* Kill daemon (though it's dying anyway) */
+	return -1;
+}
+
 static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);
@@ -961,7 +975,7 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 	case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
 		return peer_got_funding_locked(sd->peer, msg);
 
-	/* We never see fatal ones. */
+	/* We let peer_owner_finished handle these as transient errors. */
 	case WIRE_CHANNEL_BAD_COMMAND:
 	case WIRE_CHANNEL_HSM_FAILED:
 	case WIRE_CHANNEL_CRYPTO_FAILED:
@@ -969,7 +983,12 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 	case WIRE_CHANNEL_INTERNAL_ERROR:
 	case WIRE_CHANNEL_PEER_WRITE_FAILED:
 	case WIRE_CHANNEL_PEER_READ_FAILED:
+		return -1;
+
+	/* This is a permanent error. */
 	case WIRE_CHANNEL_PEER_BAD_MESSAGE:
+		return peer_got_bad_message(sd->peer, msg);
+
 	/* And we never get these from channeld. */
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_FUNDING_LOCKED:
