@@ -1541,7 +1541,6 @@ static void init_channel(struct peer *peer)
 	struct basepoints points[NUM_SIDES];
 	u64 funding_satoshi;
 	u16 funding_txout;
-	u64 commits_sent, commits_received;
 	u64 local_msatoshi;
 	struct pubkey funding_pubkey[NUM_SIDES];
 	struct sha256_double funding_txid;
@@ -1580,8 +1579,8 @@ static void init_channel(struct peer *peer)
 				   &peer->cltv_delta,
 				   &peer->last_was_revoke,
 				   &peer->last_sent_commit,
-				   &commits_sent,
-				   &commits_received,
+				   &peer->commit_index[LOCAL],
+				   &peer->commit_index[REMOTE],
 				   &peer->revocations_received,
 				   &peer->htlc_id,
 				   &htlcs,
@@ -1598,13 +1597,22 @@ static void init_channel(struct peer *peer)
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Init: %s",
 			      tal_hex(msg, msg));
 
-	/* First commit is used for opening. */
-	assert(commits_sent > 0);
-	assert(commits_received > 0);
+	status_trace("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
+		     " commit_idx_local = %"PRIu64
+		     " commit_idx_remote = %"PRIu64
+		     " revocations_received = %"PRIu64,
+		     am_funder ? "LOCAL" : "REMOTE",
+		     type_to_string(trc, struct pubkey,
+				    &peer->remote_per_commit),
+		     type_to_string(trc, struct pubkey,
+				    &peer->old_remote_per_commit),
+		     peer->commit_index[LOCAL], peer->commit_index[REMOTE],
+		     peer->revocations_received);
 
-	/* If we've sent 1, we're on index 1. */
-	peer->commit_index[LOCAL] = commits_sent;
-	peer->commit_index[REMOTE] = commits_received;
+	/* First commit is used for opening: if we've sent 0, we're on
+	 * index 1. */
+	assert(peer->commit_index[LOCAL] > 0);
+	assert(peer->commit_index[REMOTE] > 0);
 
 	/* channel_id is set from funding txout */
 	derive_channel_id(&peer->channel_id, &funding_txid, funding_txout);

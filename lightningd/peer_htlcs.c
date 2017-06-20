@@ -816,6 +816,38 @@ static bool changed_htlc(struct peer *peer,
 		return update_in_htlc(peer, changed->id, changed->newstate);
 }
 
+static bool peer_save_commitsig_received(struct peer *peer, u64 commitnum)
+{
+	if (commitnum != peer->commit_index[LOCAL]) {
+		peer_internal_error(peer,
+			   "channel_got_commitsig: expected commitnum %"PRIu64
+			   " got %"PRIu64,
+			   peer->commit_index[LOCAL], commitnum);
+		return false;
+	}
+
+	peer->commit_index[LOCAL]++;
+
+	/* FIXME: Save to database, with sig and HTLCs. */
+	return true;
+}
+
+static bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum)
+{
+	if (commitnum != peer->commit_index[REMOTE]) {
+		peer_internal_error(peer,
+			   "channel_sent_commitsig: expected commitnum %"PRIu64
+			   " got %"PRIu64,
+			   peer->commit_index[REMOTE], commitnum);
+		return false;
+	}
+
+	peer->commit_index[REMOTE]++;
+
+	/* FIXME: Save to database, with sig and HTLCs. */
+	return true;
+}
+
 int peer_sending_commitsig(struct peer *peer, const u8 *msg)
 {
 	u64 commitnum;
@@ -864,8 +896,6 @@ int peer_sending_commitsig(struct peer *peer, const u8 *msg)
 
 	if (!peer_save_commitsig_sent(peer, commitnum))
 		return -1;
-
-	/* FIXME: save commit_sig and htlc_sigs */
 
 	/* Last was commit. */
 	peer->last_was_revoke = false;
@@ -940,40 +970,6 @@ static bool peer_sending_revocation(struct peer *peer,
 	}
 
 	peer->last_was_revoke = true;
-	return true;
-}
-
-/* Also used for opening's initial commitsig */
-bool peer_save_commitsig_received(struct peer *peer, u64 commitnum)
-{
-	if (commitnum != peer->num_commits_received) {
-		peer_internal_error(peer,
-			   "channel_got_commitsig: expected commitnum %"PRIu64
-			   " got %"PRIu64,
-			   peer->num_commits_received, commitnum);
-		return false;
-	}
-
-	peer->num_commits_received++;
-
-	/* FIXME: Save to database, with sig and HTLCs. */
-	return true;
-}
-
-/* Also used for opening's initial commitsig */
-bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum)
-{
-	if (commitnum != peer->num_commits_sent) {
-		peer_internal_error(peer,
-			   "channel_sent_commitsig: expected commitnum %"PRIu64
-			   " got %"PRIu64,
-			   peer->num_commits_sent, commitnum);
-		return false;
-	}
-
-	peer->num_commits_sent++;
-
-	/* FIXME: Save to database, with sig and HTLCs. */
 	return true;
 }
 
