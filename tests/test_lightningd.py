@@ -204,6 +204,18 @@ class LightningDTests(BaseLightningDTests):
         assert p1['owner'] == 'lightningd_gossip'
         assert p2['owner'] == 'lightningd_gossip'
 
+    def test_balance(self):
+        l1,l2 = self.connect()
+
+        self.fund_channel(l1, l2, 10**6)
+
+        p1 = l1.rpc.getpeer(l2.info['id'], 'info')
+        p2 = l2.rpc.getpeer(l1.info['id'], 'info')
+        assert p1['msatoshi_to_us'] == 10**6 * 1000
+        assert p1['msatoshi_total'] == 10**6 * 1000
+        assert p2['msatoshi_to_us'] == 0
+        assert p2['msatoshi_total'] == 10**6 * 1000
+
     def test_sendpay(self):
         l1,l2 = self.connect()
 
@@ -246,10 +258,27 @@ class LightningDTests(BaseLightningDTests):
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
 
+        # FIXME: test paying via another node, should fail to pay twice.
+        p1 = l1.rpc.getpeer(l2.info['id'], 'info')
+        p2 = l2.rpc.getpeer(l1.info['id'], 'info')
+        assert p1['msatoshi_to_us'] == 10**6 * 1000
+        assert p1['msatoshi_total'] == 10**6 * 1000
+        assert p2['msatoshi_to_us'] == 0
+        assert p2['msatoshi_total'] == 10**6 * 1000
+
         # This works.
         l1.rpc.sendpay(to_json([routestep]), rhash)
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
-        
+
+        # Balances should reflect it.
+        time.sleep(1)        
+        p1 = l1.rpc.getpeer(l2.info['id'], 'info')
+        p2 = l2.rpc.getpeer(l1.info['id'], 'info')
+        assert p1['msatoshi_to_us'] == 10**6 * 1000 - amt
+        assert p1['msatoshi_total'] == 10**6 * 1000
+        assert p2['msatoshi_to_us'] == amt
+        assert p2['msatoshi_total'] == 10**6 * 1000
+
         # Repeat will "succeed", but won't actually send anything (duplicate)
         assert not l1.daemon.is_in_log('... succeeded')
         l1.rpc.sendpay(to_json([routestep]), rhash)
@@ -263,7 +292,6 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.sendpay(to_json([routestep]), rhash)
         assert l2.rpc.listinvoice('testpayment3')[0]['complete'] == True
 
-        # FIXME: test paying via another node, should fail to pay twice.
 
     def test_gossip_jsonrpc(self):
         l1,l2 = self.connect()

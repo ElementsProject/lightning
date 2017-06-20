@@ -587,11 +587,11 @@ static void json_getpeers(struct command *cmd,
 		if (p->scid)
 			json_add_short_channel_id(response, "channel", p->scid);
 		if (p->balance) {
-			json_add_u64(response, "msatoshi_to_us",
-				     p->balance[LOCAL]);
-			json_add_u64(response, "msatoshi_to_them",
-				     p->balance[REMOTE]);
+			json_add_u64(response, "msatoshi_to_us", *p->balance);
+			json_add_u64(response, "msatoshi_total",
+				     p->funding_satoshi * 1000);
 		}
+
 		if (leveltok) {
 			info.response = response;
 			json_array_start(response, "log");
@@ -982,9 +982,11 @@ static void peer_start_channeld(struct peer *peer, enum peer_state oldstate,
 	log_debug(peer->log, "Waiting for HSM file descriptor");
 
 	/* Now we can consider balance set. */
-	peer->balance = tal_arr(peer, u64, NUM_SIDES);
-	peer->balance[peer->funder] = peer->funding_satoshi * 1000 - peer->push_msat;
-	peer->balance[!peer->funder] = peer->push_msat;
+	peer->balance = tal(peer, u64);
+	if (peer->funder == LOCAL)
+		*peer->balance = peer->funding_satoshi * 1000 - peer->push_msat;
+	else
+		*peer->balance = peer->push_msat;
 
 	peer_set_condition(peer, oldstate, GETTING_HSMFD);
 
