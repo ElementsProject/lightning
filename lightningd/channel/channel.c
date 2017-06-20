@@ -434,6 +434,8 @@ static void handle_sending_commitsig_reply(struct peer *peer, const u8 *msg)
 	status_trace("Sending commit_sig with %zu htlc sigs",
 		     tal_count(peer->next_commit_sigs->htlc_sigs));
 
+	peer->commit_index[REMOTE]++;
+
 	msg = towire_commitment_signed(peer, &peer->channel_id,
 				       &peer->next_commit_sigs->commit_sig,
 				       peer->next_commit_sigs->htlc_sigs);
@@ -977,14 +979,13 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 		status_trace("No commits outstanding after recv revoke_and_ack");
 
 	/* Tell master about things this locks in, wait for response */
-	msg = got_revoke_msg(msg, peer->commit_index[REMOTE] - 1,
+	msg = got_revoke_msg(msg, peer->commit_index[REMOTE] - 2,
 			     &old_commit_secret, &next_per_commit,
 			     changed_htlcs);
 	master_sync_reply(peer, take(msg),
 			  WIRE_CHANNEL_GOT_REVOKE_REPLY,
 			  handle_reply_wake_peer);
 
-	peer->commit_index[REMOTE]++;
 	peer->old_remote_per_commit = peer->remote_per_commit;
 	peer->remote_per_commit = next_per_commit;
 	status_trace("revoke_and_ack %s: remote_per_commit = %s, old_remote_per_commit = %s",
