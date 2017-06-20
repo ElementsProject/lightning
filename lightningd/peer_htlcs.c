@@ -31,20 +31,30 @@ static void save_htlc_stub(struct lightningd *ld,
 /* This obfuscates the message, whether local or forwarded. */
 static void relay_htlc_failmsg(struct htlc_in *hin)
 {
-	u8 *reply;
-
 	if (!hin->key.peer->owner)
 		return;
 
-	reply = wrap_onionreply(hin, &hin->shared_secret, hin->failuremsg);
-	subd_send_msg(hin->key.peer->owner,
-		      take(towire_channel_fail_htlc(hin, hin->key.id, reply)));
-	tal_free(reply);
+	if (hin->malformed) {
+		subd_send_msg(hin->key.peer->owner,
+			      take(towire_channel_fail_htlc(hin,
+							    hin->key.id,
+							    hin->malformed,
+							    NULL)));
+	} else {
+		u8 *reply;
+
+		reply = wrap_onionreply(hin, &hin->shared_secret,
+					hin->failuremsg);
+		subd_send_msg(hin->key.peer->owner,
+			      take(towire_channel_fail_htlc(hin, hin->key.id,
+							    0, reply)));
+		tal_free(reply);
+	}
 }
 
 static u8 *make_failmsg(const tal_t *ctx, const struct htlc_in *hin,
 			enum onion_type failcode,
-			const struct sha256 *onion_sha, const u8 *channel_update)
+			const u8 *channel_update)
 {
 	switch (failcode) {
 	case WIRE_INVALID_REALM:
@@ -55,12 +65,6 @@ static u8 *make_failmsg(const tal_t *ctx, const struct htlc_in *hin,
 		return towire_permanent_node_failure(ctx);
 	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
 		return towire_required_node_feature_missing(ctx);
-	case WIRE_INVALID_ONION_VERSION:
-		return towire_invalid_onion_version(ctx, onion_sha);
-	case WIRE_INVALID_ONION_HMAC:
-		return towire_invalid_onion_hmac(ctx, onion_sha);
-	case WIRE_INVALID_ONION_KEY:
-		return towire_invalid_onion_key(ctx, onion_sha);
 	case WIRE_TEMPORARY_CHANNEL_FAILURE:
 		return towire_temporary_channel_failure(ctx, channel_update);
 	case WIRE_CHANNEL_DISABLED:
@@ -91,26 +95,35 @@ static u8 *make_failmsg(const tal_t *ctx, const struct htlc_in *hin,
 		return towire_final_incorrect_cltv_expiry(ctx, 0);
 	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
 		return towire_final_incorrect_htlc_amount(ctx, hin->msatoshi);
+	case WIRE_INVALID_ONION_VERSION:
+	case WIRE_INVALID_ONION_HMAC:
+	case WIRE_INVALID_ONION_KEY:
+		log_broken(hin->key.peer->log, "Bad failmsg for %s",
+			   onion_type_name(failcode));
 	}
 	abort();
 }
 
-static void fail_htlc(struct htlc_in *hin, enum onion_type failcode,
-		      const struct sha256 *onion_sha)
+static void fail_htlc(struct htlc_in *hin, enum onion_type failcode)
 {
-	u8 *msg;
+	log_info(hin->key.peer->log, "failed htlc %"PRIu64" code 0x%04x (%s)",
+		 hin->key.id, failcode, onion_type_name(failcode));
 
-	log_broken(hin->key.peer->log, "failed htlc %"PRIu64" code 0x%04x (%s)",
-		   hin->key.id, failcode, onion_type_name(failcode));
+	if (failcode & BADONION)
+		hin->malformed = failcode;
+	else {
+		u8 *msg;
 
-	if (failcode & UPDATE) {
-		/* FIXME: Ask gossip daemon for channel_update. */
+		if (failcode & UPDATE) {
+			/* FIXME: Ask gossip daemon for channel_update. */
+		}
+
+		msg = make_failmsg(hin, hin, failcode, NULL);
+		hin->failuremsg = create_onionreply(hin, &hin->shared_secret,
+						    msg);
+		tal_free(msg);
 	}
-
-	msg = make_failmsg(hin, hin, failcode, onion_sha, NULL);
-	hin->failuremsg = create_onionreply(hin, &hin->shared_secret, msg);
-	tal_free(msg);
-
+	htlc_in_check(hin, __func__);
 	relay_htlc_failmsg(hin);
 }
 
@@ -269,7 +282,7 @@ static void handle_localpay(struct htlc_in *hin,
 	return;
 
 fail:
-	fail_htlc(hin, failcode, NULL);
+	fail_htlc(hin, failcode);
 }
 
 /*
@@ -283,7 +296,7 @@ static void hend_subd_died(struct htlc_out *hout)
 		  "Failing HTLC %"PRIu64" due to peer death",
 		  hout->in->key.id);
 
-	fail_htlc(hout->in, WIRE_TEMPORARY_CHANNEL_FAILURE, NULL);
+	fail_htlc(hout->in, WIRE_TEMPORARY_CHANNEL_FAILURE);
 }
 
 /* This is where channeld gives us the HTLC id, and also reports if it
@@ -309,7 +322,7 @@ static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 			  onion_type_name(failure_code),
 			  (int)tal_len(failurestr), (char *)failurestr);
 
-		fail_htlc(hout->in, failure_code, NULL);
+		fail_htlc(hout->in, failure_code);
 		return true;
 	}
 
@@ -427,7 +440,7 @@ static void forward_htlc(struct htlc_in *hin,
 	return;
 
 fail:
-	fail_htlc(hin, failcode, NULL);
+	fail_htlc(hin, failcode);
 }
 
 /* Temporary information, while we resolve the next hop */
@@ -454,7 +467,7 @@ static bool channel_resolve_reply(struct subd *gossip, const u8 *msg,
 	}
 
 	if (tal_count(nodes) == 0) {
-		fail_htlc(gr->hin, WIRE_UNKNOWN_NEXT_PEER, NULL);
+		fail_htlc(gr->hin, WIRE_UNKNOWN_NEXT_PEER);
 		return true;
 	} else if (tal_count(nodes) != 2) {
 		log_broken(gossip->log,
@@ -665,9 +678,13 @@ static bool peer_failed_our_htlc(struct peer *peer,
 	if (!htlc_out_update_state(peer, hout, RCVD_REMOVE_COMMIT))
 		return false;
 
-	log_debug(peer->log, "Our HTLC %"PRIu64" failed", failed->id);
-	hout->failuremsg = tal_dup_arr(hout, u8, failed->failreason,
-				       tal_len(failed->failreason), 0);
+	log_debug(peer->log, "Our HTLC %"PRIu64" failed (%u)", failed->id,
+		  failed->malformed);
+	if (failed->malformed)
+		hout->malformed = failed->malformed;
+	else
+		hout->failuremsg = tal_dup_arr(hout, u8, failed->failreason,
+					       tal_len(failed->failreason), 0);
 	htlc_out_check(hout, __func__);
 	return true;
 }
@@ -675,11 +692,13 @@ static bool peer_failed_our_htlc(struct peer *peer,
 static void remove_htlc_in(struct peer *peer, struct htlc_in *hin)
 {
 	htlc_in_check(hin, __func__);
-	assert(hin->failuremsg || hin->preimage);
+	assert(hin->failuremsg || hin->preimage || hin->malformed);
 
 	log_debug(peer->log, "Removing in HTLC %"PRIu64" state %s %s",
 		  hin->key.id, htlc_state_name(hin->hstate),
-		  hin->failuremsg ? "FAILED" : "FULFILLED");
+		  hin->failuremsg ? "FAILED"
+		  : hin->malformed ? "MALFORMED"
+		  : "FULFILLED");
 
 	/* If we fulfilled their HTLC, credit us. */
 	if (hin->preimage) {
@@ -695,18 +714,25 @@ static void remove_htlc_in(struct peer *peer, struct htlc_in *hin)
 static void remove_htlc_out(struct peer *peer, struct htlc_out *hout)
 {
 	htlc_out_check(hout, __func__);
-	assert(hout->failuremsg || hout->preimage);
+	assert(hout->failuremsg || hout->preimage || hout->malformed);
 	log_debug(peer->log, "Removing out HTLC %"PRIu64" state %s %s",
 		  hout->key.id, htlc_state_name(hout->hstate),
-		  hout->failuremsg ? "FAILED" : "FULFILLED");
+		  hout->failuremsg ? "FAILED"
+		  : hout->malformed ? "MALFORMED"
+		  : "FULFILLED");
 
 	/* If it's failed, now we can forward since it's completely locked-in */
-	if (hout->failuremsg) {
+	if (!hout->preimage) {
 		if (hout->in) {
-			hout->in->failuremsg
-				= tal_dup_arr(hout->in, u8,
-					      hout->failuremsg,
-					      tal_len(hout->failuremsg), 0);
+			if (hout->in->malformed)
+				hout->malformed = hout->in->malformed;
+			else {
+				hout->in->failuremsg
+					= tal_dup_arr(hout->in, u8,
+						      hout->failuremsg,
+						      tal_len(hout->failuremsg),
+						      0);
+			}
 			relay_htlc_failmsg(hout->in);
 		} else {
 			payment_failed(peer->ld, hout);
@@ -1072,16 +1098,13 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 
 	/* Now, any HTLCs we need to immediately fail? */
 	for (i = 0; i < tal_count(changed); i++) {
-		struct sha256 bad_onion_sha;
 		struct htlc_in *hin;
 
 		if (!failcodes[i])
 			continue;
 
 		hin = find_htlc_in(&peer->ld->htlcs_in, peer, changed[i].id);
-		sha256(&bad_onion_sha, hin->onion_routing_packet,
-		       sizeof(hin->onion_routing_packet));
-		fail_htlc(hin, failcodes[i], &bad_onion_sha);
+		fail_htlc(hin, failcodes[i]);
 	}
 	return 0;
 }

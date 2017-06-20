@@ -76,22 +76,26 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout)
 	enum onion_type failcode;
 	struct onionreply *reply;
 
-	reply = unwrap_onionreply(pc, pc->path_secrets,
-				  tal_count(pc->path_secrets),
-				  hout->failuremsg);
-	if (!reply) {
-		log_info(hout->key.peer->log,
-			 "htlc %"PRIu64" failed with bad reply (%s)",
-			 hout->key.id,
-			 tal_hex(pc, hout->failuremsg));
-		failcode = WIRE_PERMANENT_NODE_FAILURE;
-	} else {
-		failcode = fromwire_peektype(reply->msg);
-		log_info(hout->key.peer->log,
-			 "htlc %"PRIu64" failed from %ith node with code 0x%04x (%s)",
-			 hout->key.id,
-			 reply->origin_index,
-			 failcode, onion_type_name(failcode));
+	if (hout->malformed)
+		failcode = hout->malformed;
+	else {
+		reply = unwrap_onionreply(pc, pc->path_secrets,
+					  tal_count(pc->path_secrets),
+					  hout->failuremsg);
+		if (!reply) {
+			log_info(hout->key.peer->log,
+				 "htlc %"PRIu64" failed with bad reply (%s)",
+				 hout->key.id,
+				 tal_hex(pc, hout->failuremsg));
+			failcode = WIRE_PERMANENT_NODE_FAILURE;
+		} else {
+			failcode = fromwire_peektype(reply->msg);
+			log_info(hout->key.peer->log,
+				 "htlc %"PRIu64" failed from %ith node with code 0x%04x (%s)",
+				 hout->key.id,
+				 reply->origin_index,
+				 failcode, onion_type_name(failcode));
+		}
 	}
 
 	/* FIXME: save ids we can turn reply->origin_index into sender. */

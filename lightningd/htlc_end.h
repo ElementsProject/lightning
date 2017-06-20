@@ -5,6 +5,7 @@
 #include <ccan/short_types/short_types.h>
 #include <daemon/htlc_state.h>
 #include <lightningd/sphinx.h>
+#include <wire/gen_onion_wire.h>
 
 /* We look up HTLCs by peer & id */
 struct htlc_key {
@@ -27,8 +28,11 @@ struct htlc_in {
 	/* Shared secret for us to send any failure message. */
 	struct secret shared_secret;
 
-	/* If they failed HTLC, here's the message. */
+	/* If we failed HTLC, here's the message. */
 	const u8 *failuremsg;
+
+	/* If it was malformed, here's the error. */
+	enum onion_type malformed;
 
 	/* If they fulfilled, here's the preimage. */
 	struct preimage *preimage;
@@ -47,6 +51,9 @@ struct htlc_out {
 
 	/* If we failed HTLC, here's the message. */
 	const u8 *failuremsg;
+
+	/* If it was malformed, here's the error. */
+	enum onion_type malformed;
 
 	/* If we fulfilled, here's the preimage. */
 	struct preimage *preimage;
