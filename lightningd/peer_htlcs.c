@@ -313,6 +313,20 @@ static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 		return true;
 	}
 
+	/* BOLT #2:
+	 *
+	 * A sending node MUST set `id` to 0 for the first HTLC it offers, and
+	 * increase the value by 1 for each successive offer.
+	*/
+	if (hout->key.id != hout->key.peer->next_htlc_id) {
+		log_broken(subd->log, "Bad offer_htlc_reply HTLC id %"PRIu64
+			   " expected %"PRIu64,
+			   hout->key.id, hout->key.peer->next_htlc_id);
+		tal_free(hout);
+		return false;
+	}
+	hout->key.peer->next_htlc_id++;
+
 	/* Add it to lookup table now we know id. */
 	connect_htlc_out(&subd->ld->htlcs_out, hout);
 
@@ -775,14 +789,6 @@ int peer_sending_commitsig(struct peer *peer, const u8 *msg)
 		return -1;
 	}
 
-	if (commitnum != peer->num_commits_sent) {
-		log_broken(peer->log,
-			   "channel_sending_commitsig: expected commitnum %"
-			   PRIu64" got %"PRIu64,
-			   peer->num_commits_sent, commitnum);
-		return -1;
-	}
-
 	for (i = 0; i < tal_count(changed_htlcs); i++) {
 		if (!changed_htlc(peer, changed_htlcs + i)) {
 			log_broken(peer->log,
@@ -791,7 +797,8 @@ int peer_sending_commitsig(struct peer *peer, const u8 *msg)
 		}
 	}
 
-	peer->num_commits_sent++;
+	if (!peer_save_commitsig_sent(peer, commitnum))
+		return -1;
 
 	/* Last was commit. */
 	peer->last_was_revoke = false;
@@ -870,7 +877,7 @@ static bool peer_sending_revocation(struct peer *peer,
 }
 
 /* Also used for opening's initial commitsig */
-bool peer_save_commitsig(struct peer *peer, u64 commitnum)
+bool peer_save_commitsig_received(struct peer *peer, u64 commitnum)
 {
 	if (commitnum != peer->num_commits_received) {
 		log_broken(peer->log,
@@ -881,6 +888,23 @@ bool peer_save_commitsig(struct peer *peer, u64 commitnum)
 	}
 
 	peer->num_commits_received++;
+
+	/* FIXME: Save to database, with sig and HTLCs. */
+	return true;
+}
+
+/* Also used for opening's initial commitsig */
+bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum)
+{
+	if (commitnum != peer->num_commits_sent) {
+		log_broken(peer->log,
+			   "channel_sent_commitsig: expected commitnum %"PRIu64
+			   " got %"PRIu64,
+			   peer->num_commits_sent, commitnum);
+		return false;
+	}
+
+	peer->num_commits_sent++;
 
 	/* FIXME: Save to database, with sig and HTLCs. */
 	return true;
@@ -949,7 +973,8 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 		return -1;
 
 	peer->channel_info->commit_sig = commit_sig;
-	peer_save_commitsig(peer, commitnum);
+	if (!peer_save_commitsig_received(peer, commitnum))
+		return -1;
 
 	/* Tell it we've committed, and to go ahead with revoke. */
 	msg = towire_channel_got_commitsig_reply(msg);
@@ -1061,3 +1086,73 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 	return 0;
 }
 
+static void *tal_arr_append_(void **p, size_t size)
+{
+	size_t n = tal_len(*p) / size;
+	tal_resize_(p, size, n+1, false);
+	return (char *)(*p) + n * size;
+}
+#define tal_arr_append(p) tal_arr_append_((void **)(p), sizeof(**(p)))
+
+static void add_htlc(struct added_htlc **htlcs,
+		     enum htlc_state **htlc_states,
+		     u64 id,
+		     u64 amount_msat,
+		     const struct sha256 *payment_hash,
+		     u32 cltv_expiry,
+		     const u8 onion_routing_packet[TOTAL_PACKET_SIZE],
+		     enum htlc_state state)
+{
+	struct added_htlc *a;
+	enum htlc_state *h;
+
+	a = tal_arr_append(htlcs);
+	h = tal_arr_append(htlc_states);
+
+	a->id = id;
+	a->amount_msat = amount_msat;
+	a->payment_hash = *payment_hash;
+	a->cltv_expiry = cltv_expiry;
+	memcpy(a->onion_routing_packet, onion_routing_packet,
+	       sizeof(a->onion_routing_packet));
+	*h = state;
+}
+
+/* FIXME: Load direct from db. */
+void peer_htlcs(const tal_t *ctx,
+		const struct peer *peer,
+		struct added_htlc **htlcs,
+		enum htlc_state **htlc_states)
+{
+	struct htlc_in_map_iter ini;
+	struct htlc_out_map_iter outi;
+	struct htlc_in *hin;
+	struct htlc_out *hout;
+
+	*htlcs = tal_arr(ctx, struct added_htlc, 0);
+	*htlc_states = tal_arr(ctx, enum htlc_state, 0);
+
+	for (hin = htlc_in_map_first(&peer->ld->htlcs_in, &ini);
+	     hin;
+	     hin = htlc_in_map_next(&peer->ld->htlcs_in, &ini)) {
+		if (hin->key.peer != peer)
+			continue;
+
+		add_htlc(htlcs, htlc_states,
+			 hin->key.id, hin->msatoshi, &hin->payment_hash,
+			 hin->cltv_expiry, hin->onion_routing_packet,
+			 hin->hstate);
+	}
+
+	for (hout = htlc_out_map_first(&peer->ld->htlcs_out, &outi);
+	     hout;
+	     hout = htlc_out_map_next(&peer->ld->htlcs_out, &outi)) {
+		if (hout->key.peer != peer)
+			continue;
+
+		add_htlc(htlcs, htlc_states,
+			 hout->key.id, hout->msatoshi, &hout->payment_hash,
+			 hout->cltv_expiry, hout->onion_routing_packet,
+			 hout->hstate);
+	}
+}

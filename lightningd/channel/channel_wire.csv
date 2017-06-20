@@ -21,6 +21,7 @@ channel_normal_operation,1001
 channel_init,1
 channel_init,,funding_txid,struct sha256_double
 channel_init,,funding_txout,2
+channel_init,,funding_satoshi,8
 channel_init,,our_config,struct channel_config
 channel_init,,their_config,struct channel_config
 channel_init,,first_commit_sig,secp256k1_ecdsa_signature
@@ -33,8 +34,7 @@ channel_init,,their_per_commit_point,33
 channel_init,,am_funder,bool
 channel_init,,fee_base,4
 channel_init,,fee_proportional,4
-channel_init,,funding_satoshi,8
-channel_init,,push_msat,8
+channel_init,,local_msatoshi,8
 channel_init,,seed,struct privkey
 channel_init,,local_node_id,struct pubkey
 channel_init,,remote_node_id,struct pubkey
@@ -43,6 +43,13 @@ channel_init,,cltv_delta,u16
 channel_init,,last_was_revoke,bool
 channel_init,,num_last_sent_commit,u16
 channel_init,,last_sent_commit,num_last_sent_commit*struct changed_htlc
+channel_init,,commits_sent,u64
+channel_init,,commits_received,u64
+channel_init,,revocations_received,u64
+channel_init,,next_htlc_id,u64
+channel_init,,num_htlcs,u16
+channel_init,,htlcs,num_htlcs*struct added_htlc
+channel_init,,htlc_states,num_htlcs*enum htlc_state
 channel_init,,init_peer_pkt_len,u16
 channel_init,,init_peer_pkt,init_peer_pkt_len*u8
 

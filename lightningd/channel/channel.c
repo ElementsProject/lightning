@@ -530,8 +530,8 @@ static void send_commit(struct peer *peer)
 	}
 
 	status_trace("Telling master we're about to commit...");
-	/* Tell master to save to database, then wait for reply. */
-	msg = sending_commitsig_msg(tmpctx, peer->commit_index[REMOTE],
+	/* Tell master to save this next commit to database, then wait. */
+	msg = sending_commitsig_msg(tmpctx, peer->commit_index[REMOTE] + 1,
 				    changed_htlcs);
 	master_sync_reply(peer, take(msg),
 			  WIRE_CHANNEL_SENDING_COMMITSIG_REPLY,
@@ -1214,19 +1214,23 @@ static void init_channel(struct peer *peer)
 {
 	struct privkey seed;
 	struct basepoints points[NUM_SIDES];
-	u64 funding_satoshi, push_msat;
+	u64 funding_satoshi;
 	u16 funding_txout;
+	u64 commits_sent, commits_received, revocations_received;
 	u64 local_msatoshi;
 	struct pubkey funding_pubkey[NUM_SIDES];
 	struct sha256_double funding_txid;
 	bool am_funder, last_was_revoke;
+	enum htlc_state *hstates;
 	struct changed_htlc *last_sent_commit;
+	struct added_htlc *htlcs;
 	u8 *funding_signed;
 	u8 *msg;
 
 	msg = wire_sync_read(peer, REQ_FD);
 	if (!fromwire_channel_init(msg, msg, NULL,
 				   &funding_txid, &funding_txout,
+				   &funding_satoshi,
 				   &peer->conf[LOCAL], &peer->conf[REMOTE],
 				   &peer->their_commit_sig,
 				   &peer->pcs.cs,
@@ -1238,7 +1242,7 @@ static void init_channel(struct peer *peer)
 				   &am_funder,
 				   &peer->fee_base,
 				   &peer->fee_per_satoshi,
-				   &funding_satoshi, &push_msat,
+				   &local_msatoshi,
 				   &seed,
 				   &peer->node_ids[LOCAL],
 				   &peer->node_ids[REMOTE],
@@ -1246,9 +1250,22 @@ static void init_channel(struct peer *peer)
 				   &peer->cltv_delta,
 				   &last_was_revoke,
 				   &last_sent_commit,
+				   &commits_sent,
+				   &commits_received,
+				   &revocations_received,
+				   &peer->htlc_id,
+				   &htlcs,
+				   &hstates,
 				   &funding_signed))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Init: %s",
 			      tal_hex(msg, msg));
+
+	/* First commit is used for opening. */
+	assert(commits_sent > 0);
+	assert(commits_received > 0);
+
+	peer->commit_index[LOCAL] = commits_sent - 1;
+	peer->commit_index[REMOTE] = commits_received - 1;
 
 	/* channel_id is set from funding txout */
 	derive_channel_id(&peer->channel_id, &funding_txid, funding_txout);
@@ -1261,11 +1278,6 @@ static void init_channel(struct peer *peer)
 	status_trace("First per_commit_point = %s",
 		     type_to_string(trc, struct pubkey,
 				    &peer->old_per_commit[LOCAL]));
-
-	if (am_funder)
-		local_msatoshi = funding_satoshi * 1000 - push_msat;
-	else
-		local_msatoshi = push_msat;
 
 	peer->channel = new_channel(peer, &funding_txid, funding_txout,
 				    funding_satoshi,
@@ -1622,11 +1634,9 @@ int main(int argc, char *argv[])
 	daemon_conn_init(peer, &peer->master, REQ_FD, req_in, master_gone);
 	status_setup_async(&peer->master);
 
-	peer->htlc_id = 0;
 	peer->num_pings_outstanding = 0;
 	timers_init(&peer->timers, time_mono());
 	peer->commit_timer = NULL;
-	peer->commit_index[LOCAL] = peer->commit_index[REMOTE] = 0;
 	peer->have_sigs[LOCAL] = peer->have_sigs[REMOTE] = false;
 	peer->handle_master_reply = NULL;
 	peer->master_reply_type = 0;
