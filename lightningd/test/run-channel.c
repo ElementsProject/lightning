@@ -403,6 +403,8 @@ int main(void)
 
 	/* BOLT #3:
 	 *
+	 *    commitment_number: 42
+	 *...
 	 *    name: simple commitment tx with no HTLCs
 	 *    to_local_msat: 7000000000
 	 *    to_remote_msat: 3000000000
@@ -413,28 +415,23 @@ int main(void)
 	to_remote_msat = 3000000000;
 	feerate_per_kw = 15000;
 	lchannel = new_channel(tmpctx, &funding_txid, funding_output_index,
-			       funding_amount_satoshi, to_remote_msat,
+			       funding_amount_satoshi, to_local_msat,
 			       feerate_per_kw,
+			       42, 0,
 			       local_config,
 			       remote_config,
 			       &localbase, &remotebase,
 			       &local_funding_pubkey, &remote_funding_pubkey,
 			       LOCAL);
-
 	rchannel = new_channel(tmpctx, &funding_txid, funding_output_index,
 			       funding_amount_satoshi, to_remote_msat,
 			       feerate_per_kw,
+			       0, 42,
 			       remote_config,
 			       local_config,
 			       &remotebase, &localbase,
 			       &remote_funding_pubkey, &local_funding_pubkey,
 			       REMOTE);
-	/* BOLT #3:
-	 *
-	 *     commitment_number: 42
-	 */
-	lchannel->view[LOCAL].commitment_number
-		= rchannel->view[REMOTE].commitment_number = 42;
 
 	/* BOLT #3:
 	 *

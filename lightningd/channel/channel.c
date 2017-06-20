@@ -1216,6 +1216,7 @@ static void init_channel(struct peer *peer)
 	struct basepoints points[NUM_SIDES];
 	u64 funding_satoshi, push_msat;
 	u16 funding_txout;
+	u64 local_msatoshi;
 	struct pubkey funding_pubkey[NUM_SIDES];
 	struct sha256_double funding_txid;
 	bool am_funder;
@@ -1258,8 +1259,16 @@ static void init_channel(struct peer *peer)
 		     type_to_string(trc, struct pubkey,
 				    &peer->old_per_commit[LOCAL]));
 
+	if (am_funder)
+		local_msatoshi = funding_satoshi * 1000 - push_msat;
+	else
+		local_msatoshi = push_msat;
+
 	peer->channel = new_channel(peer, &funding_txid, funding_txout,
-				    funding_satoshi, push_msat, peer->fee_base,
+				    funding_satoshi,
+				    local_msatoshi,
+				    peer->fee_base,
+				    0, 0,
 				    &peer->conf[LOCAL], &peer->conf[REMOTE],
 				    &points[LOCAL], &points[REMOTE],
 				    &funding_pubkey[LOCAL],
