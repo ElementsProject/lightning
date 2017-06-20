@@ -1213,21 +1213,30 @@ static bool channel_resolve_reply(struct subd *gossip, const u8 *msg,
 
 static int peer_accepted_htlc(struct peer *peer, const u8 *msg)
 {
-	bool forward;
 	struct htlc_end *hend;
 	u8 *req;
+	u8 onion[TOTAL_PACKET_SIZE];
+	struct onionpacket *op;
+	struct route_step *rs;
+	struct sha256 bad_onion_sha;
 
 	hend = tal(msg, struct htlc_end);
 	hend->shared_secret = tal(hend, struct secret);
 	if (!fromwire_channel_accepted_htlc(msg, NULL,
 					    &hend->htlc_id, &hend->msatoshis,
-					    &hend->cltv_expiry, &hend->payment_hash,
-					    hend->next_onion, &forward,
-					    &hend->amt_to_forward,
-					    &hend->outgoing_cltv_value,
-					    &hend->next_channel,
-					    hend->shared_secret)) {
+					    &hend->cltv_expiry,
+					    &hend->payment_hash,
+					    hend->shared_secret,
+					    onion)) {
 		log_broken(peer->log, "bad fromwire_channel_accepted_htlc %s",
+			   tal_hex(peer, msg));
+		return -1;
+	}
+
+	/* channeld tests this, so we shouldn't see it! */
+	op = parse_onionpacket(msg, onion, TOTAL_PACKET_SIZE);
+	if (!op) {
+		log_broken(peer->log, "bad onion in fromwire_channel_accepted_htlc %s",
 			   tal_hex(peer, msg));
 		return -1;
 	}
@@ -1239,7 +1248,28 @@ static int peer_accepted_htlc(struct peer *peer, const u8 *msg)
 	hend->pay_command = NULL;
 	hend->fail_msg = NULL;
 
-	if (forward) {
+	/* If it's crap, not their fault, just fail it */
+	rs = process_onionpacket(msg, op, hend->shared_secret->data,
+				 hend->payment_hash.u.u8,
+				 sizeof(hend->payment_hash));
+	if (!rs) {
+		sha256(&bad_onion_sha, onion, sizeof(onion));
+		fail_htlc(hend, WIRE_INVALID_ONION_HMAC, &bad_onion_sha);
+		return 0;
+	}
+
+	/* Unknown realm isn't a bad onion, it's a normal failure. */
+	if (rs->hop_data.realm != 0) {
+		fail_htlc(hend, WIRE_INVALID_REALM, NULL);
+		return 0;
+	}
+
+	hend->amt_to_forward = rs->hop_data.amt_forward;
+	hend->outgoing_cltv_value = rs->hop_data.outgoing_cltv;
+	hend->next_channel = rs->hop_data.channel_id;
+
+	if (rs->nextcase == ONION_FORWARD) {
+		hend->next_onion = serialize_onionpacket(hend, rs->next);
 		req = towire_gossip_resolve_channel_request(msg, &hend->next_channel);
 		log_broken(peer->log, "Asking gossip to resolve channel %d/%d/%d", hend->next_channel.blocknum, hend->next_channel.txnum, hend->next_channel.outnum);
 		subd_req(hend, peer->ld->gossip, req, -1, 0, channel_resolve_reply, hend);
