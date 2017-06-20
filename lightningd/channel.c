@@ -627,31 +627,24 @@ static void htlc_incstate(struct channel *channel,
 	}
 }
 
-static void check_lockedin(const struct htlc *h,
-			   void (*oursfail)(const struct htlc *, void *),
-			   void (*theirslocked)(const struct htlc *, void *),
-			   void (*theirsfulfilled)(const struct htlc *, void *),
-			   void *cbarg)
+static void append_htlc(const struct htlc ***htlcs, const struct htlc *h)
 {
-	/* If it was fulfilled, we handled it immediately. */
-	if (h->state == RCVD_REMOVE_ACK_REVOCATION && !h->r)
-		oursfail(h, cbarg);
-	else if (h->state == RCVD_ADD_ACK_REVOCATION)
-		theirslocked(h, cbarg);
-	else if (h->state == RCVD_REMOVE_ACK_COMMIT && h->r)
-		theirsfulfilled(h, cbarg);
+	size_t n;
+
+	if (!htlcs)
+		return;
+
+	n = tal_count(*htlcs);
+	tal_resize(htlcs, n+1);
+	(*htlcs)[n] = h;
 }
 
-/* FIXME: Commit to storage when this happens. */
 /* Returns flags which were changed. */
 static int change_htlcs(struct channel *channel,
-			 enum side sidechanged,
-			 const enum htlc_state *htlc_states,
-			 size_t n_hstates,
-			 void (*oursfail)(const struct htlc *, void *),
-			 void (*theirslocked)(const struct htlc *, void *),
-			 void (*theirsfulfilled)(const struct htlc *, void *),
-			 void *cbarg)
+			enum side sidechanged,
+			const enum htlc_state *htlc_states,
+			size_t n_hstates,
+			const struct htlc ***htlcs)
 {
 	struct htlc_map_iter it;
 	struct htlc *h;
@@ -664,11 +657,7 @@ static int change_htlcs(struct channel *channel,
 		for (i = 0; i < n_hstates; i++) {
 			if (h->state == htlc_states[i]) {
 				htlc_incstate(channel, h, sidechanged);
-				check_lockedin(h,
-					       oursfail,
-					       theirslocked,
-					       theirsfulfilled,
-					       cbarg);
+				append_htlc(htlcs, h);
 				cflags |= (htlc_state_flags(htlc_states[i])
 					   ^ htlc_state_flags(h->state));
 			}
@@ -678,7 +667,8 @@ static int change_htlcs(struct channel *channel,
 }
 
 /* FIXME: Handle fee changes too. */
-bool channel_sending_commit(struct channel *channel)
+bool channel_sending_commit(struct channel *channel,
+			    const struct htlc ***htlcs)
 {
 	int change;
 	const enum htlc_state states[] = { SENT_ADD_HTLC,
@@ -687,16 +677,12 @@ bool channel_sending_commit(struct channel *channel)
 					   SENT_REMOVE_HTLC };
 	status_trace("Trying commit");
 	change = change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states),
-			      NULL, NULL, NULL, NULL);
+			      htlcs);
 	return change & HTLC_REMOTE_F_COMMITTED;
 }
 
-bool channel_rcvd_revoke_and_ack_(struct channel *channel,
-				  void (*oursfail)(const struct htlc *htlc,
-						   void *cbarg),
-				  void (*theirslocked)(const struct htlc *htlc,
-						       void *cbarg),
-				  void *cbarg)
+bool channel_rcvd_revoke_and_ack(struct channel *channel,
+				 const struct htlc ***htlcs)
 {
 	int change;
 	const enum htlc_state states[] = { SENT_ADD_COMMIT,
@@ -706,15 +692,12 @@ bool channel_rcvd_revoke_and_ack_(struct channel *channel,
 
 	status_trace("Received revoke_and_ack");
 	change = change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
-			      oursfail, theirslocked, NULL, cbarg);
+			      htlcs);
 	return change & HTLC_LOCAL_F_COMMITTED;
 }
 
 /* FIXME: We can actually merge these two... */
-bool channel_rcvd_commit_(struct channel *channel,
-			  void (*theirsfulfilled)(const struct htlc *htlc,
-						  void *cbarg),
-			  void *cbarg)
+bool channel_rcvd_commit(struct channel *channel, const struct htlc ***htlcs)
 {
 	int change;
 	const enum htlc_state states[] = { RCVD_ADD_REVOCATION,
@@ -723,8 +706,7 @@ bool channel_rcvd_commit_(struct channel *channel,
 					   RCVD_REMOVE_REVOCATION };
 
 	status_trace("Received commit");
-	change = change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
-			      NULL, NULL, theirsfulfilled, cbarg);
+	change = change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states), htlcs);
 	return change & HTLC_LOCAL_F_COMMITTED;
 }
 
@@ -736,8 +718,7 @@ bool channel_sending_revoke_and_ack(struct channel *channel)
 					   RCVD_ADD_COMMIT,
 					   RCVD_REMOVE_ACK_COMMIT };
 	status_trace("Sending revoke_and_ack");
-	change = change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states),
-			      NULL, NULL, NULL, NULL);
+	change = change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states), NULL);
 	return change & HTLC_REMOTE_F_PENDING;
 }
 

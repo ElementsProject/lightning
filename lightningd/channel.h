@@ -5,7 +5,6 @@
 #include <bitcoin/shadouble.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
 #include <daemon/htlc.h>
 #include <lightningd/channel_config.h>
 #include <lightningd/derive_basepoints.h>
@@ -324,63 +323,34 @@ bool force_fee(struct channel *channel, u64 fee);
 /**
  * channel_sending_commit: commit all remote outstanding changes.
  * @channel: the channel
+ * @htlcs: initially-empty tal_arr() for htlcs which changed state.
  *
  * This is where we commit to pending changes we've added; returns true if
  * anything changed for the remote side (if not, don't send!) */
-bool channel_sending_commit(struct channel *channel);
+bool channel_sending_commit(struct channel *channel,
+			    const struct htlc ***htlcs);
 
 /**
  * channel_rcvd_revoke_and_ack: accept ack on remote committed changes.
  * @channel: the channel
- * @oursfail: callback for any unfilfilled htlcs which are now fully removed.
- * @theirslocked: callback for any new htlcs which are now fully committed.
- * @cbarg: argument to pass through to @ourhtlcfail  & @theirhtlclocked
+ * @htlcs: initially-empty tal_arr() for htlcs which changed state.
  *
  * This is where we commit to pending changes we've added; returns true if
  * anything changed for our local commitment (ie. we have pending changes).
  */
-#define channel_rcvd_revoke_and_ack(channel, oursfail, theirslocked, cbarg) \
-	channel_rcvd_revoke_and_ack_((channel),				\
-				     typesafe_cb_preargs(void, void *,	\
-							 (oursfail),	\
-							 (cbarg),	\
-							 const struct htlc *), \
-				     typesafe_cb_preargs(void, void *,	\
-							 (theirslocked), \
-							 (cbarg),	\
-							 const struct htlc *), \
-				     (cbarg))
-
-bool channel_rcvd_revoke_and_ack_(struct channel *channel,
-				  void (*oursfail)(const struct htlc *htlc,
-						   void *cbarg),
-				  void (*theirslocked)(const struct htlc *htlc,
-						       void *cbarg),
-				  void *cbarg);
+bool channel_rcvd_revoke_and_ack(struct channel *channel,
+				 const struct htlc ***htlcs);
 
 /**
  * channel_rcvd_commit: commit all local outstanding changes.
  * @channel: the channel
- * @theirsfulfilled: they are irrevocably committed to removal of htlc.
- * @cbarg: argument to pass through to @theirsfulfilled
+ * @htlcs: initially-empty tal_arr() for htlcs which changed state.
  *
  * This is where we commit to pending changes we've added; returns true if
  * anything changed for our local commitment (ie. we had pending changes).
- * @theirsfulfilled is called for any HTLC we fulfilled which they are
- * irrevocably committed to, and is in our current commitment.
  */
-#define channel_rcvd_commit(channel, theirsfulfilled, cbarg)		\
-	channel_rcvd_commit_((channel),					\
-			     typesafe_cb_preargs(void, void *,		\
-						 (theirsfulfilled),	\
-						 (cbarg),		\
-						 const struct htlc *),	\
-			     (cbarg))
-
-bool channel_rcvd_commit_(struct channel *channel,
-			  void (*theirsfulfilled)(const struct htlc *htlc,
-						  void *cbarg),
-			  void *cbarg);
+bool channel_rcvd_commit(struct channel *channel,
+			 const struct htlc ***htlcs);
 
 /**
  * channel_sending_revoke_and_ack: sending ack on local committed changes.

@@ -82,10 +82,6 @@ static u64 feerates[] = {
 	9651936
 };
 
-static void do_nothing(const struct htlc *htlc, void *unused)
-{
-}
-
 /* BOLT #3:
  *
  *    htlc 0 direction: remote->local
@@ -113,6 +109,7 @@ static const struct htlc **include_htlcs(struct channel *channel, enum side side
 {
 	int i;
 	const struct htlc **htlcs = tal_arr(channel, const struct htlc *, 5);
+	const struct htlc **changed_htlcs;
 	u8 *dummy_routing = tal_arr(htlcs, u8, TOTAL_PACKET_SIZE);
 	bool ret;
 
@@ -155,17 +152,18 @@ static const struct htlc **include_htlcs(struct channel *channel, enum side side
 	tal_free(dummy_routing);
 
 	/* Now make HTLCs fully committed. */
-	ret = channel_sending_commit(channel);
+	changed_htlcs = tal_arr(htlcs, const struct htlc *, 0);
+	ret = channel_sending_commit(channel, &changed_htlcs);
 	assert(ret);
-	ret = channel_rcvd_revoke_and_ack(channel, NULL, NULL, NULL);
+	ret = channel_rcvd_revoke_and_ack(channel, &changed_htlcs);
 	assert(!ret);
-	ret = channel_rcvd_commit(channel, NULL, NULL);
+	ret = channel_rcvd_commit(channel, &changed_htlcs);
 	assert(ret);
 	ret = channel_sending_revoke_and_ack(channel);
 	assert(ret);
-	ret = channel_sending_commit(channel);
+	ret = channel_sending_commit(channel, &changed_htlcs);
 	assert(ret);
-	ret = channel_rcvd_revoke_and_ack(channel, NULL, do_nothing, NULL);
+	ret = channel_rcvd_revoke_and_ack(channel, &changed_htlcs);
 	assert(!ret);
 	return htlcs;
 }
@@ -239,6 +237,7 @@ static void send_and_fulfill_htlc(struct channel *channel,
 	struct sha256 rhash;
 	u8 *dummy_routing = tal_arr(channel, u8, TOTAL_PACKET_SIZE);
 	bool ret;
+	const struct htlc **changed_htlcs;
 
 	memset(&r, 0, sizeof(r));
 	sha256(&rhash, &r, sizeof(r));
@@ -246,45 +245,46 @@ static void send_and_fulfill_htlc(struct channel *channel,
 	assert(channel_add_htlc(channel, sender, 1337, msatoshi, 900, &rhash,
 				dummy_routing) == CHANNEL_ERR_ADD_OK);
 
+	changed_htlcs = tal_arr(channel, const struct htlc *, 0);
+
 	if (sender == LOCAL) {
 		/* Step through a complete cycle. */
-		ret = channel_sending_commit(channel);
+		ret = channel_sending_commit(channel, &changed_htlcs);
 		assert(ret);
-		ret = channel_rcvd_revoke_and_ack(channel, NULL, NULL, NULL);
+		ret = channel_rcvd_revoke_and_ack(channel, &changed_htlcs);
 		assert(!ret);
-		ret = channel_rcvd_commit(channel, NULL, NULL);
+		ret = channel_rcvd_commit(channel, &changed_htlcs);
 		assert(ret);
 		ret = channel_sending_revoke_and_ack(channel);
 		assert(!ret);
 		assert(channel_fulfill_htlc(channel, LOCAL, 1337, &r)
 		       == CHANNEL_ERR_REMOVE_OK);
-		ret = channel_rcvd_commit(channel, NULL, NULL);
+		ret = channel_rcvd_commit(channel, &changed_htlcs);
 		assert(ret);
 		ret = channel_sending_revoke_and_ack(channel);
 		assert(ret);
-		ret = channel_sending_commit(channel);
+		ret = channel_sending_commit(channel, &changed_htlcs);
 		assert(ret);
-		ret = channel_rcvd_revoke_and_ack(channel, NULL, NULL, NULL);
+		ret = channel_rcvd_revoke_and_ack(channel, &changed_htlcs);
 		assert(!ret);
 		assert(channel_get_htlc(channel, sender, 1337)->state
 		       == RCVD_REMOVE_ACK_REVOCATION);
 	} else {
-		ret = channel_rcvd_commit(channel, NULL, NULL);
+		ret = channel_rcvd_commit(channel, &changed_htlcs);
 		assert(ret);
 		ret = channel_sending_revoke_and_ack(channel);
 		assert(ret);
-		ret = channel_sending_commit(channel);
+		ret = channel_sending_commit(channel, &changed_htlcs);
 		assert(ret);
-		ret = channel_rcvd_revoke_and_ack(channel, NULL, do_nothing,
-						  NULL);
+		ret = channel_rcvd_revoke_and_ack(channel, &changed_htlcs);
 		assert(!ret);
 		assert(channel_fulfill_htlc(channel, REMOTE, 1337, &r)
 		       == CHANNEL_ERR_REMOVE_OK);
-		ret = channel_sending_commit(channel);
+		ret = channel_sending_commit(channel, &changed_htlcs);
 		assert(ret);
-		ret = channel_rcvd_revoke_and_ack(channel, NULL, NULL, NULL);
+		ret = channel_rcvd_revoke_and_ack(channel, &changed_htlcs);
 		assert(!ret);
-		ret = channel_rcvd_commit(channel, do_nothing, NULL);
+		ret = channel_rcvd_commit(channel, &changed_htlcs);
 		assert(ret);
 		ret = channel_sending_revoke_and_ack(channel);
 		assert(!ret);
