@@ -47,6 +47,7 @@ class TailableProc(object):
         self.running = False
         self.proc = None
         self.outputDir = outputDir
+        self.logsearch_start = 0
         
     def start(self):
         """Start the underlying process and start monitoring it.
@@ -93,21 +94,21 @@ class TailableProc(object):
         logging.debug("Did not find '%s' in logs", regex)
         return False
 
-    def wait_for_log(self, regex, offset=1000, timeout=60):
+    def wait_for_log(self, regex, timeout=60):
         """Look for `regex` in the logs.
 
         We tail the stdout of the process and look for `regex`,
-        starting from `offset` lines in the past. We fail if the
-        timeout is exceeded or if the underlying process exits before
-        the `regex` was found. The reason we start `offset` lines in
-        the past is so that we can issue a command and not miss its
-        effects.
+        starting from the previous waited-for log entry (if any).  We
+        fail if the timeout is exceeded or if the underlying process
+        exits before the `regex` was found. The reason we start
+        `offset` lines in the past is so that we can issue a command
+        and not miss its effects.
 
         """
         logging.debug("Waiting for '%s' in the logs", regex)
         ex = re.compile(regex)
         start_time = time.time()
-        pos = max(len(self.logs) - offset, 0)
+        pos = self.logsearch_start
         initial_pos = len(self.logs)
         while True:
             if time.time() > start_time + timeout:
@@ -128,6 +129,7 @@ class TailableProc(object):
 
                 if ex.search(self.logs[pos]):
                     logging.debug("Found '%s' in logs", regex)
+                    self.logsearch_start = pos+1
                     return self.logs[pos]
                 pos += 1
 
