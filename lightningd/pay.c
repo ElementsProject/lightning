@@ -315,7 +315,7 @@ static void json_sendpay(struct command *cmd,
 
 	if (!peer->owner || !streq(peer->owner->name, "lightningd_channel")) {
 		command_fail(cmd, "first peer in %s",
-			     peer->owner ? "limbo" : peer->owner->name);
+			     peer->owner ? peer->owner->name : "limbo");
 		return;
 	}
 
