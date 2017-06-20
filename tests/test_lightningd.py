@@ -616,15 +616,11 @@ class LegacyLightningDTests(BaseLightningDTests):
 
     def test_multihop_payment(self):
         nodes = [self.node_factory.get_node() for _ in range(5)]
-        conn_futures = [nodes[i].connect(nodes[i+1], 0.01, async=True) for i in range(len(nodes)-1)]
+        for i in range(len(nodes)-1):
+            nodes[i].connect(nodes[i+1], 0.01)
         
         htlc_amount = 10000
 
-        # Now wait for all of them
-        [f.result() for f in conn_futures]
-
-        time.sleep(1)
-        
         # Manually add channel l2 -> l3 to l1 so that it can compute the route
         for i in range(len(nodes)-1):
             nodes[0].rpc.dev_add_route(nodes[i].info['id'], nodes[i+1].info['id'], 1, 1, 6, 6)

@@ -240,11 +240,13 @@ class LightningNode(object):
         self.bitcoin = btc
         self.executor = executor
 
+    # Use batch if you're doing more than one async.
     def connect(self, remote_node, capacity, async=False):
         # Collect necessary information
         addr = self.rpc.newaddr()['address']
         txid = self.bitcoin.rpc.sendtoaddress(addr, capacity)
         tx = self.bitcoin.rpc.gettransaction(txid)
+        start_size = self.bitcoin.rpc.getmempoolinfo()['size']
 
         def call_connect():
             try:
@@ -256,10 +258,13 @@ class LightningNode(object):
         t.start()
         
         def wait_connected():
-            # TODO(cdecker) Monitor the mempool to see if its time to generate yet.
-            time.sleep(5)
-        
-            # The sleep should have given bitcoind time to add the tx to its mempool
+            # Up to 10 seconds to get tx into mempool.
+            start_time = time.time()
+            while self.bitcoin.rpc.getmempoolinfo()['size'] == start_size:
+                if time.time() > start_time + 10:
+                    raise TimeoutError('No new transactions in mempool')
+                time.sleep(0.1)
+
             self.bitcoin.rpc.generate(1)
 
             #fut.result(timeout=5)
