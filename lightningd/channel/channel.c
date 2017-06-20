@@ -286,6 +286,9 @@ static struct io_plan *handle_peer_funding_locked(struct io_conn *conn,
 			      "Funding locked twice");
 
 	peer->funding_locked[REMOTE] = true;
+	daemon_conn_send(&peer->master,
+			 take(towire_channel_got_funding_locked(peer,
+					&peer->current_per_commit[REMOTE])));
 
 	if (peer->funding_locked[LOCAL]) {
 		daemon_conn_send(&peer->master,
@@ -807,6 +810,7 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 
 static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
 			  const struct sha256 *per_commitment_secret,
+			  const struct pubkey *next_per_commit_point,
 			  const struct htlc **changed_htlcs)
 {
 	tal_t *tmpctx = tal_tmpctx(ctx);
@@ -826,7 +830,7 @@ static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
 	}
 
 	msg = towire_channel_got_revoke(ctx, revoke_num, per_commitment_secret,
-					changed);
+					next_per_commit_point, changed);
 	tal_free(tmpctx);
 	return msg;
 }
@@ -893,7 +897,8 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 
 	/* Tell master about things this locks in, wait for response */
 	msg = got_revoke_msg(msg, peer->commit_index[REMOTE],
-			     &old_commit_secret, changed_htlcs);
+			     &old_commit_secret, &next_per_commit,
+			     changed_htlcs);
 	master_sync_reply(peer, take(msg),
 			  WIRE_CHANNEL_GOT_REVOKE_REPLY,
 			  handle_reply_wake_peer);
@@ -1549,6 +1554,7 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 		case WIRE_CHANNEL_SENDING_COMMITSIG_REPLY:
 		case WIRE_CHANNEL_GOT_COMMITSIG_REPLY:
 		case WIRE_CHANNEL_GOT_REVOKE_REPLY:
+		case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
 			break;
 		}
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%u %s", t,

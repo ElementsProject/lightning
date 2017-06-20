@@ -17,8 +17,7 @@ channel_normal_operation,1001
 #include <lightningd/cryptomsg.h>
 #include <lightningd/channel_config.h>
 
-# Begin!  You're still waiting for the tx to be buried though (passes
-# gossipd-client fd)
+# Begin!  (passes gossipd-client fd)
 channel_init,1
 channel_init,,funding_txid,struct sha256_double
 channel_init,,funding_txout,2
@@ -89,6 +88,10 @@ channel_ping_reply,,totlen,u16
 # Channeld tells the master that the channel has been announced
 channel_announced,12
 
+# When we receive funding_locked.
+channel_got_funding_locked,19
+channel_got_funding_locked,,next_per_commit_point,struct pubkey
+
 # When we send a commitment_signed message, tell master.
 channel_sending_commitsig,20
 channel_sending_commitsig,,commitnum,u64
@@ -126,6 +129,7 @@ channel_got_commitsig_reply,121
 channel_got_revoke,22
 channel_got_revoke,,revokenum,u64
 channel_got_revoke,,per_commitment_secret,struct sha256
+channel_got_revoke,,next_per_commit_point,struct pubkey
 # RCVD_ADD_ACK_REVOCATION, RCVD_REMOVE_ACK_REVOCATION, RCVD_ADD_REVOCATION, RCVD_REMOVE_REVOCATION
 channel_got_revoke,,num_changed,u16
 channel_got_revoke,,changed,num_changed*struct changed_htlc

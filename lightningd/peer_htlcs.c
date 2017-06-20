@@ -908,6 +908,17 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 	return 0;
 }
 
+/* Shuffle them over, forgetting the ancient one. */
+static void update_per_commit_point(struct peer *peer,
+				    const struct pubkey *per_commitment_point)
+{
+	peer->channel_info->their_per_commit_point
+		= *peer->next_per_commitment_point;
+	tal_free(peer->next_per_commitment_point);
+	peer->next_per_commitment_point = tal_dup(peer, struct pubkey,
+						  per_commitment_point);
+}
+
 /* FIXME: add to ccan/shachain */
 static shachain_index_t shachain_next_index(const struct shachain *chain)
 {
@@ -921,12 +932,14 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 {
 	u64 revokenum, shachainidx;
 	struct sha256 per_commitment_secret;
+	struct pubkey next_per_commitment_point;
 	struct changed_htlc *changed;
 	enum onion_type *failcodes;
 	size_t i;
 
 	if (!fromwire_channel_got_revoke(msg, msg, NULL,
 					 &revokenum, &per_commitment_secret,
+					 &next_per_commitment_point,
 					 &changed)) {
 		log_broken(peer->log, "bad fromwire_channel_got_revoke %s",
 			   tal_hex(peer, msg));
@@ -985,7 +998,10 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 		return -1;
 	}
 
-	/* FIXME: Commit shachain to db */
+	/* FIXME: Check per_commitment_secret -> per_commit_point */
+	update_per_commit_point(peer, &next_per_commitment_point);
+
+	/* FIXME: Commit shachain and next_per_commit_point to db */
 
 	/* Tell it we've committed, and to go ahead with revoke. */
 	msg = towire_channel_got_revoke_reply(msg);
