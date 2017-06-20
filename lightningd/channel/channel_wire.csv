@@ -108,6 +108,7 @@ channel_got_commitsig,,htlc_signature,num_htlcs*secp256k1_ecdsa_signature
 # RCVD_ADD_COMMIT: we're now committed to their new offered HTLCs.
 channel_got_commitsig,,num_added,u16
 channel_got_commitsig,,added,num_added*struct added_htlc
+channel_got_commitsig,,shared_secret,num_added*struct secret
 # RCVD_REMOVE_COMMIT: we're now no longer committed to these HTLCs.
 channel_got_commitsig,,num_fulfilled,u16
 channel_got_commitsig,,fulfilled,num_fulfilled*struct fulfilled_htlc
@@ -125,11 +126,7 @@ channel_got_commitsig_reply,121
 channel_got_revoke,22
 channel_got_revoke,,revokenum,u64
 channel_got_revoke,,per_commitment_secret,struct sha256
-# RCVD_ADD_ACK_REVOCATION
-channel_got_revoke,,num_added,u16
-channel_got_revoke,,added_ids,num_added*u64
-channel_got_revoke,,shared_secret,num_added*struct secret
-# RCVD_REMOVE_ACK_REVOCATION, RCVD_ADD_REVOCATION, RCVD_REMOVE_REVOCATION
+# RCVD_ADD_ACK_REVOCATION, RCVD_REMOVE_ACK_REVOCATION, RCVD_ADD_REVOCATION, RCVD_REMOVE_REVOCATION
 channel_got_revoke,,num_changed,u16
 channel_got_revoke,,changed,num_changed*struct changed_htlc
 # Wait for reply, to make sure it's on disk before we continue

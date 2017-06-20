@@ -585,6 +585,36 @@ static struct io_plan *send_revocation(struct io_conn *conn, struct peer *peer)
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
+/* FIXME: We could do this earlier and call HSM async, for speed. */
+static void get_shared_secret(const struct htlc *htlc,
+			      struct secret *shared_secret)
+{
+	tal_t *tmpctx = tal_tmpctx(htlc);
+	struct pubkey ephemeral;
+	struct onionpacket *op;
+	u8 *msg;
+
+	/* We unwrap the onion now. */
+	op = parse_onionpacket(tmpctx, htlc->routing, TOTAL_PACKET_SIZE);
+	if (!op) {
+		/* Return an invalid shared secret. */
+		memset(shared_secret, 0, sizeof(*shared_secret));
+		tal_free(tmpctx);
+		return;
+	}
+
+	/* Because wire takes struct pubkey. */
+	ephemeral.pubkey = op->ephemeralkey;
+	msg = towire_hsm_ecdh_req(tmpctx, &ephemeral);
+	if (!wire_sync_write(HSM_FD, msg))
+		status_failed(WIRE_CHANNEL_HSM_FAILED, "Writing ecdh req");
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	/* Gives all-zero shares_secret if it was invalid. */
+	if (!msg || !fromwire_hsm_ecdh_resp(msg, NULL, shared_secret))
+		status_failed(WIRE_CHANNEL_HSM_FAILED, "Reading ecdh response");
+	tal_free(tmpctx);
+}
+
 static u8 *got_commitsig_msg(const tal_t *ctx,
 			     u64 local_commit_index,
 			     const secp256k1_ecdsa_signature *commit_sig,
@@ -596,10 +626,12 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 	struct fulfilled_htlc *fulfilled;
 	struct failed_htlc *failed;
 	struct added_htlc *added;
+	struct secret *shared_secret;
 	u8 *msg;
 
 	changed = tal_arr(tmpctx, struct changed_htlc, 0);
 	added = tal_arr(tmpctx, struct added_htlc, 0);
+	shared_secret = tal_arr(tmpctx, struct secret, 0);
 	failed = tal_arr(tmpctx, struct failed_htlc, 0);
 	fulfilled = tal_arr(tmpctx, struct fulfilled_htlc, 0);
 
@@ -607,6 +639,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 		const struct htlc *htlc = changed_htlcs[i];
 		if (htlc->state == RCVD_ADD_COMMIT) {
 			struct added_htlc *a = tal_arr_append(&added);
+			struct secret *s = tal_arr_append(&shared_secret);
 			a->id = htlc->id;
 			a->amount_msat = htlc->msatoshi;
 			a->payment_hash = htlc->rhash;
@@ -614,6 +647,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 			memcpy(a->onion_routing_packet,
 			       htlc->routing,
 			       sizeof(a->onion_routing_packet));
+			get_shared_secret(htlc, s);
 		} else if (htlc->state == RCVD_REMOVE_COMMIT) {
 			if (htlc->r) {
 				struct fulfilled_htlc *f;
@@ -642,6 +676,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 					   commit_sig,
 					   htlc_sigs,
 					   added,
+					   shared_secret,
 					   fulfilled,
 					   failed,
 					   changed);
@@ -770,68 +805,28 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 	return io_wait(conn, peer, send_revocation, peer);
 }
 
-static void add_htlc_with_ss(u64 **added_ids, struct secret **shared_secrets,
-			     const struct htlc *htlc)
-{
-	tal_t *tmpctx = tal_tmpctx(*added_ids);
-	struct pubkey ephemeral;
-	struct onionpacket *op;
-	u8 *msg;
-	struct secret *ss = tal_arr_append(shared_secrets);
-	u64 *id = tal_arr_append(added_ids);
-
-	*id = htlc->id;
-
-	/* We unwrap the onion now. */
-	/* FIXME: We could do this earlier and call HSM async, for speed. */
-	op = parse_onionpacket(tmpctx, htlc->routing, TOTAL_PACKET_SIZE);
-	if (!op) {
-		/* Return an invalid shared secret. */
-		memset(ss, 0, sizeof(*ss));
-		tal_free(tmpctx);
-		return;
-	}
-
-	/* Because wire takes struct pubkey. */
-	ephemeral.pubkey = op->ephemeralkey;
-	msg = towire_hsm_ecdh_req(tmpctx, &ephemeral);
-	if (!wire_sync_write(HSM_FD, msg))
-		status_failed(WIRE_CHANNEL_HSM_FAILED, "Writing ecdh req");
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	/* Gives all-zero shares_secret if it was invalid. */
-	if (!msg || !fromwire_hsm_ecdh_resp(msg, NULL, ss))
-		status_failed(WIRE_CHANNEL_HSM_FAILED, "Reading ecdh response");
-	tal_free(tmpctx);
-}
-
 static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
 			  const struct sha256 *per_commitment_secret,
 			  const struct htlc **changed_htlcs)
 {
 	tal_t *tmpctx = tal_tmpctx(ctx);
 	u8 *msg;
-	u64 *added_ids = tal_arr(tmpctx, u64, 0);
-	struct secret *shared_secrets = tal_arr(tmpctx, struct secret, 0);
 	struct changed_htlc *changed = tal_arr(tmpctx, struct changed_htlc, 0);
 
 	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
+		struct changed_htlc *c = tal_arr_append(&changed);
 		const struct htlc *htlc = changed_htlcs[i];
+
 		status_trace("HTLC %"PRIu64"[%s] => %s",
 			     htlc->id, side_to_str(htlc_owner(htlc)),
 			     htlc_state_name(htlc->state));
-		/* We've both committed to their htlc now. */
-		if (htlc->state == RCVD_ADD_ACK_REVOCATION) {
-			add_htlc_with_ss(&added_ids, &shared_secrets, htlc);
-		} else {
-			struct changed_htlc *c = tal_arr_append(&changed);
 
-			c->id = changed_htlcs[i]->id;
-			c->newstate = changed_htlcs[i]->state;
-		}
+		c->id = changed_htlcs[i]->id;
+		c->newstate = changed_htlcs[i]->state;
 	}
 
 	msg = towire_channel_got_revoke(ctx, revoke_num, per_commitment_secret,
-					added_ids, shared_secrets, changed);
+					changed);
 	tal_free(tmpctx);
 	return msg;
 }

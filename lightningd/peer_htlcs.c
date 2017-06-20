@@ -520,7 +520,6 @@ static bool htlc_out_update_state(struct peer *peer,
 /* Everyone is committed to this htlc of theirs */
 static bool peer_accepted_htlc(struct peer *peer,
 			       u64 id,
-			       const struct secret *shared_secret,
 			       enum onion_type *failcode)
 {
 	struct htlc_in *hin;
@@ -536,9 +535,6 @@ static bool peer_accepted_htlc(struct peer *peer,
 		return false;
 	}
 
-	/* We need to keep this to encrypt failure message replies anyway */
-	hin->shared_secret = *shared_secret;
-
 	if (!htlc_in_update_state(peer, hin, RCVD_ADD_ACK_REVOCATION))
 		return false;
 
@@ -546,7 +542,7 @@ static bool peer_accepted_htlc(struct peer *peer,
 	op = parse_onionpacket(tmpctx, hin->onion_routing_packet,
 			       sizeof(hin->onion_routing_packet));
 	if (!op) {
-		if (!memeqzero(shared_secret, sizeof(*shared_secret))) {
+		if (!memeqzero(&hin->shared_secret, sizeof(hin->shared_secret))){
 			log_broken(peer->log,
 				   "bad onion in got_revoke: %s",
 				   tal_hexstr(peer, hin->onion_routing_packet,
@@ -560,13 +556,13 @@ static bool peer_accepted_htlc(struct peer *peer,
 	}
 
 	/* Channeld sets this to zero if HSM won't ecdh it */
-	if (memeqzero(shared_secret, sizeof(*shared_secret))) {
+	if (memeqzero(&hin->shared_secret, sizeof(hin->shared_secret))) {
 		*failcode = WIRE_INVALID_ONION_KEY;
 		goto out;
 	}
 
 	/* If it's crap, not channeld's fault, just fail it */
-	rs = process_onionpacket(tmpctx, op, shared_secret->data,
+	rs = process_onionpacket(tmpctx, op, hin->shared_secret.data,
 				 hin->payment_hash.u.u8,
 				 sizeof(hin->payment_hash));
 	if (!rs) {
@@ -780,17 +776,17 @@ int peer_sending_commitsig(struct peer *peer, const u8 *msg)
 	return 0;
 }
 
-static void added_their_htlc(struct peer *peer, const struct added_htlc *added)
+static void added_their_htlc(struct peer *peer,
+			     const struct added_htlc *added,
+			     const struct secret *shared_secret)
 {
 	struct htlc_in *hin;
-	static struct secret dummy;
 
 	/* This stays around even if we fail it immediately: it *is*
 	 * part of the current commitment. */
 	hin = new_htlc_in(peer, peer, added->id, added->amount_msat,
 			  added->cltv_expiry, &added->payment_hash,
-			  /* FIXME: have user pass shared_secret now */
-			  &dummy, added->onion_routing_packet);
+			  shared_secret, added->onion_routing_packet);
 
 	/* FIXME: Save to db */
 
@@ -851,6 +847,7 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 	secp256k1_ecdsa_signature commit_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
 	struct added_htlc *added;
+	struct secret *shared_secrets;
 	struct fulfilled_htlc *fulfilled;
 	struct failed_htlc *failed;
 	struct changed_htlc *changed;
@@ -861,6 +858,7 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 					    &commit_sig,
 					    &htlc_sigs,
 					    &added,
+					    &shared_secrets,
 					    &fulfilled,
 					    &failed,
 					    &changed)) {
@@ -879,7 +877,7 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 
 	/* New HTLCs */
 	for (i = 0; i < tal_count(added); i++)
-		added_their_htlc(peer, &added[i]);
+		added_their_htlc(peer, &added[i], &shared_secrets[i]);
 
 	/* Save information now for fulfilled & failed HTLCs */
 	for (i = 0; i < tal_count(fulfilled); i++) {
@@ -923,15 +921,12 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 {
 	u64 revokenum, shachainidx;
 	struct sha256 per_commitment_secret;
-	u64 *added_ids;
-	struct secret *shared_secret;
 	struct changed_htlc *changed;
 	enum onion_type *failcodes;
 	size_t i;
 
 	if (!fromwire_channel_got_revoke(msg, msg, NULL,
 					 &revokenum, &per_commitment_secret,
-					 &added_ids, &shared_secret,
 					 &changed)) {
 		log_broken(peer->log, "bad fromwire_channel_got_revoke %s",
 			   tal_hex(peer, msg));
@@ -939,22 +934,23 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 	}
 
 	log_debug(peer->log,
-		  "got revoke %"PRIu64": %zu changed, %zu incoming locked in",
-		  revokenum,
-		  tal_count(changed), tal_count(added_ids));
+		  "got revoke %"PRIu64": %zu changed",
+		  revokenum, tal_count(changed));
 
 	/* Save any immediate failures for after we reply. */
-	failcodes = tal_arr(msg, enum onion_type, tal_count(added_ids));
-	for (i = 0; i < tal_count(added_ids); i++) {
-		if (!peer_accepted_htlc(peer, added_ids[i], &shared_secret[i],
-					&failcodes[i]))
-			return -1;
-	}
-
+	failcodes = tal_arrz(msg, enum onion_type, tal_count(changed));
 	for (i = 0; i < tal_count(changed); i++) {
-		if (!changed_htlc(peer, &changed[i])) {
-			log_broken(peer->log, "got_revoke: update failed");
-			return -1;
+		/* If we're doing final accept, we need to forward */
+		if (changed[i].newstate == RCVD_ADD_ACK_REVOCATION) {
+			if (!peer_accepted_htlc(peer, changed[i].id,
+						&failcodes[i]))
+				return -1;
+		} else {
+			if (!changed_htlc(peer, &changed[i])) {
+				log_broken(peer->log,
+					   "got_revoke: update failed");
+				return -1;
+			}
 		}
 	}
 
@@ -996,14 +992,14 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 	subd_send_msg(peer->owner, take(msg));
 
 	/* Now, any HTLCs we need to immediately fail? */
-	for (i = 0; i < tal_count(added_ids); i++) {
+	for (i = 0; i < tal_count(changed); i++) {
 		struct sha256 bad_onion_sha;
 		struct htlc_in *hin;
 
 		if (!failcodes[i])
 			continue;
 
-		hin = find_htlc_in(&peer->ld->htlcs_in, peer, added_ids[i]);
+		hin = find_htlc_in(&peer->ld->htlcs_in, peer, changed[i].id);
 		sha256(&bad_onion_sha, hin->onion_routing_packet,
 		       sizeof(hin->onion_routing_packet));
 		fail_htlc(hin, failcodes[i], &bad_onion_sha);
