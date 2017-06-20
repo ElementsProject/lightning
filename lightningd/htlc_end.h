@@ -6,69 +6,117 @@
 #include <daemon/htlc_state.h>
 #include <lightningd/sphinx.h>
 
-/* A HTLC has a source and destination: if other is NULL, it's this node.
- *
- * The main daemon simply shuffles them back and forth.
- */
-enum htlc_end_type { HTLC_SRC, HTLC_DST };
-
-struct htlc_end {
-	enum htlc_end_type which_end;
+/* We look up HTLCs by peer & id */
+struct htlc_key {
 	struct peer *peer;
-	u64 htlc_id;
-	u64 msatoshis;
+	u64 id;
+};
 
-	struct htlc_end *other_end;
-	/* If this is driven by a command. */
-	struct pay_command *pay_command;
-
-	/* FIXME: We really only need this in the database. */
-	enum htlc_state hstate;
-
-	/* Temporary information, while we resolve the next hop */
-	u8 *next_onion;
-	struct short_channel_id next_channel;
-	u64 amt_to_forward;
-	u32 outgoing_cltv_value;
+/* Incoming HTLC */
+struct htlc_in {
+	struct htlc_key key;
+	u64 msatoshi;
 	u32 cltv_expiry;
 	struct sha256 payment_hash;
 
+	enum htlc_state hstate;
+
+	/* Onion information */
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+
+	/* Shared secret for us to send any failure message. */
+	struct secret shared_secret;
+
 	/* If they failed HTLC, here's the message. */
-	const u8 *fail_msg;
+	const u8 *failuremsg;
 
-	/* If they succeeded, here's the preimage. */
-	struct sha256 *preimage;
-
-	/* If we are forwarding, remember the shared secret for an
-	 * eventual reply */
-	struct secret *shared_secret;
-
-	/* If we are the origin, remember all shared secrets, so we
-	 * can unwrap an eventual reply */
-	struct secret *path_secrets;
+	/* If they fulfilled, here's the preimage. */
+	struct preimage *preimage;
 };
 
-static inline const struct htlc_end *keyof_htlc_end(const struct htlc_end *e)
+struct htlc_out {
+	struct htlc_key key;
+	u64 msatoshi;
+	u32 cltv_expiry;
+	struct sha256 payment_hash;
+
+	enum htlc_state hstate;
+
+	/* Onion information */
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+
+	/* If we failed HTLC, here's the message. */
+	const u8 *failuremsg;
+
+	/* If we fulfilled, here's the preimage. */
+	struct preimage *preimage;
+
+	/* Where it's from, if not going to us. */
+	struct htlc_in *in;
+
+	/* Otherwise, payment command which created it. */
+	struct pay_command *pay_command;
+};
+
+static inline const struct htlc_key *keyof_htlc_in(const struct htlc_in *in)
 {
-	return e;
+	return &in->key;
 }
 
-size_t hash_htlc_end(const struct htlc_end *e);
-
-static inline bool htlc_end_eq(const struct htlc_end *a,
-			       const struct htlc_end *b)
+static inline const struct htlc_key *keyof_htlc_out(const struct htlc_out *out)
 {
-	return a->peer == b->peer
-		&& a->htlc_id == b->htlc_id
-		&& a->which_end == b->which_end;
+	return &out->key;
 }
-HTABLE_DEFINE_TYPE(struct htlc_end, keyof_htlc_end, hash_htlc_end, htlc_end_eq,
-		   htlc_end_map);
 
-struct htlc_end *find_htlc_end(const struct htlc_end_map *map,
+size_t hash_htlc_key(const struct htlc_key *htlc_key);
+
+static inline bool htlc_in_eq(const struct htlc_in *in, const struct htlc_key *k)
+{
+	return in->key.peer == k->peer && in->key.id == k->id;
+}
+
+static inline bool htlc_out_eq(const struct htlc_out *out,
+			       const struct htlc_key *k)
+{
+	return out->key.peer == k->peer && out->key.id == k->id;
+}
+
+
+HTABLE_DEFINE_TYPE(struct htlc_in, keyof_htlc_in, hash_htlc_key, htlc_in_eq,
+		   htlc_in_map);
+
+HTABLE_DEFINE_TYPE(struct htlc_out, keyof_htlc_out, hash_htlc_key, htlc_out_eq,
+		   htlc_out_map);
+
+struct htlc_in *find_htlc_in(const struct htlc_in_map *map,
+			     const struct peer *peer,
+			     u64 htlc_id);
+
+struct htlc_out *find_htlc_out(const struct htlc_out_map *map,
 			       const struct peer *peer,
-			       u64 htlc_id,
-			       enum htlc_end_type which_end);
+			       u64 htlc_id);
 
-void connect_htlc_end(struct htlc_end_map *map, struct htlc_end *hend);
+/* You still need to connect_htlc_in this! */
+struct htlc_in *new_htlc_in(const tal_t *ctx,
+			    struct peer *peer, u64 id,
+			    u64 msatoshi, u32 cltv_expiry,
+			    const struct sha256 *payment_hash,
+			    const struct secret *shared_secret,
+			    const u8 *onion_routing_packet);
+
+/* You need to set the ID, then connect_htlc_out this! */
+struct htlc_out *new_htlc_out(const tal_t *ctx,
+			      struct peer *peer,
+			      u64 msatoshi, u32 cltv_expiry,
+			      const struct sha256 *payment_hash,
+			      const u8 *onion_routing_packet,
+			      struct htlc_in *in,
+			      struct pay_command *pc);
+
+void connect_htlc_in(struct htlc_in_map *map, struct htlc_in *hin);
+void connect_htlc_out(struct htlc_out_map *map, struct htlc_out *hout);
+
+struct htlc_out *htlc_out_check(const struct htlc_out *hout,
+				const char *abortstr);
+struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr);
 #endif /* LIGHTNING_LIGHTNINGD_HTLC_END_H */

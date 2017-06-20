@@ -3,16 +3,14 @@
 #include "config.h"
 #include <wire/gen_onion_wire.h>
 
-struct htlc_end;
+struct htlc_out;
 struct lightningd;
 struct preimage;
 struct pubkey;
 
-void payment_succeeded(struct lightningd *ld, struct htlc_end *dst,
+void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 		       const struct preimage *rval);
 
-void payment_failed(struct lightningd *ld, struct htlc_end *dst,
-		    const struct pubkey *sender,
-		    enum onion_type failure_code);
+void payment_failed(struct lightningd *ld, const struct htlc_out *hout);
 
 #endif /* LIGHTNING_LIGHTNINGD_PAY_H */

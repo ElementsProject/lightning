@@ -108,7 +108,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	list_head_init(&ld->peers);
 	ld->peer_counter = 0;
 	ld->dev_debug_subdaemon = NULL;
-	htlc_end_map_init(&ld->htlc_ends);
+	htlc_in_map_init(&ld->htlcs_in);
+	htlc_out_map_init(&ld->htlcs_out);
 	ld->dev_disconnect_fd = -1;
 	ld->dstate.log_book = new_log_book(&ld->dstate, 20*1024*1024,LOG_INFORM);
 	ld->log = ld->dstate.base_log = new_log(&ld->dstate,
