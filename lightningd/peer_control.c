@@ -34,15 +34,6 @@
 #include <wire/gen_onion_wire.h>
 #include <wire/gen_peer_wire.h>
 
-/* FIXME: Define serialization primitive for this? */
-struct channel_info {
-	secp256k1_ecdsa_signature commit_sig;
-	struct channel_config their_config;
-	struct pubkey remote_fundingkey;
-	struct basepoints theirbase;
-	struct pubkey their_per_commit_point;
-};
-
 static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->ld->peers, &peer->list);
@@ -305,6 +296,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->balance = NULL;
 	peer->state = UNINITIALIZED;
 	peer->channel_info = NULL;
+	peer->next_per_commitment_point = NULL;
 	shachain_init(&peer->their_shachain);
 
 	idname = type_to_string(peer, struct pubkey, id);
@@ -849,6 +841,25 @@ static void peer_channel_announced(struct peer *peer, const u8 *msg)
 	tal_free(tmpctx);
 }
 
+static int peer_got_funding_locked(struct peer *peer, const u8 *msg)
+{
+	struct pubkey next_per_commitment_point;
+
+	if (!fromwire_channel_got_funding_locked(msg, NULL,
+						 &next_per_commitment_point)) {
+		log_broken(peer->log, "bad channel_got_funding_locked %s",
+			   tal_hex(peer, msg));
+		return -1;
+	}
+
+	/* In case of re-transmit. */
+	peer->next_per_commitment_point
+		= tal_free(peer->next_per_commitment_point);
+	peer->next_per_commitment_point
+		= tal_dup(peer, struct pubkey, &next_per_commitment_point);
+	return 0;
+}
+
 static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);
@@ -867,6 +878,8 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 	case WIRE_CHANNEL_ANNOUNCED:
 		peer_channel_announced(sd->peer, msg);
 		break;
+	case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
+		return peer_got_funding_locked(sd->peer, msg);
 
 	/* We never see fatal ones. */
 	case WIRE_CHANNEL_BAD_COMMAND:

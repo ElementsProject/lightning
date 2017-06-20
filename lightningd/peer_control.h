@@ -75,6 +75,9 @@ struct peer {
 	/* Keys for channel. */
 	struct channel_info *channel_info;
 
+	/* Their next per-commit point, if known. */
+	struct pubkey *next_per_commitment_point;
+
 	/* Secret seed (FIXME: Move to hsm!) */
 	struct privkey *seed;
 
