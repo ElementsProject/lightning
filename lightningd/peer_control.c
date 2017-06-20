@@ -301,6 +301,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->last_sent_commit = NULL;
 	peer->num_commits_sent = peer->num_commits_received
 		= peer->num_revocations_received = 0;
+	peer->next_htlc_id = 0;
 	shachain_init(&peer->their_shachain);
 
 	idname = type_to_string(peer, struct pubkey, id);
@@ -921,6 +922,8 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 {
 	u8 *initmsg;
 	const struct config *cfg = &peer->ld->dstate.config;
+	struct added_htlc *htlcs;
+	enum htlc_state *htlc_states;
 
 	peer->owner = new_subd(peer->ld, peer->ld,
 			       "lightningd_channel", peer,
@@ -940,9 +943,12 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 	log_debug(peer->log, "Waiting for funding confirmations");
 	peer_set_condition(peer, GETTING_HSMFD, CHANNELD_AWAITING_LOCKIN);
 
+	peer_htlcs(resp, peer, &htlcs, &htlc_states);
+
 	initmsg = towire_channel_init(peer,
 				      peer->funding_txid,
 				      peer->funding_outnum,
+				      peer->funding_satoshi,
 				      &peer->our_config,
 				      &peer->channel_info->their_config,
 				      &peer->channel_info->commit_sig,
@@ -955,8 +961,7 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 				      peer->funder == LOCAL,
 				      cfg->fee_base,
 				      cfg->fee_per_satoshi,
-				      peer->funding_satoshi,
-				      peer->push_msat,
+				      *peer->balance,
 				      peer->seed,
 				      &peer->ld->dstate.id,
 				      &peer->id,
@@ -964,6 +969,11 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 				      cfg->deadline_blocks,
 				      peer->last_was_revoke,
 				      peer->last_sent_commit,
+				      peer->num_commits_sent,
+				      peer->num_commits_received,
+				      peer->num_revocations_received,
+				      peer->next_htlc_id,
+				      htlcs, htlc_states,
 				      peer->funding_signed);
 
 	/* Don't need this any more (we never re-transmit it) */
@@ -1071,7 +1081,9 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 		return false;
 	}
 
-	if (!peer_save_commitsig(fc->peer, 0)) {
+	/* We should have sent and received the first commitsig */
+	if (!peer_save_commitsig_received(fc->peer, 0)
+	    || !peer_save_commitsig_sent(fc->peer, 0)) {
 		peer_fail(fc->peer, "Saving commitsig failed");
 		return false;
 	}
@@ -1132,7 +1144,9 @@ static bool opening_fundee_finished(struct subd *opening,
 		return false;
 	}
 
-	if (!peer_save_commitsig(peer, 0))
+	/* We should have sent and received the first commitsig */
+	if (!peer_save_commitsig_received(peer, 0)
+	    || !peer_save_commitsig_sent(peer, 0))
 		return false;
 
 	log_debug(peer->log, "Watching funding tx %s",
