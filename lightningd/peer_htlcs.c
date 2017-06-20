@@ -175,8 +175,8 @@ static void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 {
 	u8 *msg;
 
-	hin->key.peer->balance[LOCAL] += hin->msatoshi;
-	hin->key.peer->balance[REMOTE] -= hin->msatoshi;
+	hin->preimage = tal_dup(hin, struct preimage, preimage);
+	htlc_in_check(hin, __func__);
 
 	/* FIXME: fail the peer if it doesn't tell us that htlc fulfill is
 	 * committed before deadline.
@@ -628,10 +628,6 @@ static bool peer_fulfilled_our_htlc(struct peer *peer,
 
 	/* FIXME: Save to db */
 
-	/* They fulfilled our HTLC.  Credit them, forward immediately. */
-	peer->balance[REMOTE] += hout->msatoshi;
-	peer->balance[LOCAL] -= hout->msatoshi;
-
 	if (hout->in)
 		fulfill_htlc(hout->in, &fulfilled->payment_preimage);
 	else
@@ -665,16 +661,30 @@ static bool peer_failed_our_htlc(struct peer *peer,
 static void remove_htlc_in(struct peer *peer, struct htlc_in *hin)
 {
 	htlc_in_check(hin, __func__);
-	log_debug(peer->log, "Removing in HTLC %"PRIu64" state %s",
-		  hin->key.id, htlc_state_name(hin->hstate));
+	assert(hin->failuremsg || hin->preimage);
+
+	log_debug(peer->log, "Removing in HTLC %"PRIu64" state %s %s",
+		  hin->key.id, htlc_state_name(hin->hstate),
+		  hin->failuremsg ? "FAILED" : "FULFILLED");
+
+	/* If we fulfilled their HTLC, credit us. */
+	if (hin->preimage) {
+		log_debug(peer->log, "Balance %"PRIu64" -> %"PRIu64,
+			  *peer->balance,
+			  *peer->balance + hin->msatoshi);
+		*peer->balance += hin->msatoshi;
+	}
+
 	tal_free(hin);
 }
 
 static void remove_htlc_out(struct peer *peer, struct htlc_out *hout)
 {
 	htlc_out_check(hout, __func__);
-	log_debug(peer->log, "Removing out HTLC %"PRIu64" state %s",
-		  hout->key.id, htlc_state_name(hout->hstate));
+	assert(hout->failuremsg || hout->preimage);
+	log_debug(peer->log, "Removing out HTLC %"PRIu64" state %s %s",
+		  hout->key.id, htlc_state_name(hout->hstate),
+		  hout->failuremsg ? "FAILED" : "FULFILLED");
 
 	/* If it's failed, now we can forward since it's completely locked-in */
 	if (hout->failuremsg) {
@@ -687,6 +697,9 @@ static void remove_htlc_out(struct peer *peer, struct htlc_out *hout)
 		} else {
 			payment_failed(peer->ld, hout);
 		}
+	} else {
+		/* We paid for this HTLC, so deduct balance. */
+		*peer->balance -= hout->msatoshi;
 	}
 
 	tal_free(hout);

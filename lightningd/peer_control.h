@@ -69,7 +69,7 @@ struct peer {
 	u16 funding_outnum;
 	u64 funding_satoshi, push_msat;
 
-	/* Channel balance (LOCAL and REMOTE); if we have one. */
+	/* Amount going to us, not counting unfinished HTLCs; if we have one. */
 	u64 *balance;
 
 	/* Keys for channel. */
