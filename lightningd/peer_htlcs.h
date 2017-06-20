@@ -3,6 +3,7 @@
 #define LIGHTNING_LIGHTNINGD_PEER_HTLCS_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <lightningd/derive_basepoints.h>
 
 /* FIXME: Define serialization primitive for this? */
 struct channel_info {
@@ -30,4 +31,9 @@ int peer_sending_commitsig(struct peer *peer, const u8 *msg);
 int peer_got_commitsig(struct peer *peer, const u8 *msg);
 int peer_got_revoke(struct peer *peer, const u8 *msg);
 
+struct htlc_out *send_htlc_out(struct peer *out, u64 amount, u32 cltv,
+			       const struct sha256 *payment_hash,
+			       const u8 *onion_routing_packet,
+			       struct htlc_in *in,
+			       struct pay_command *pc);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_HTLCS_H */

@@ -11,6 +11,7 @@ struct pubkey;
 void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 		       const struct preimage *rval);
 
-void payment_failed(struct lightningd *ld, const struct htlc_out *hout);
+void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
+		    const char *localfail);
 
 #endif /* LIGHTNING_LIGHTNINGD_PAY_H */

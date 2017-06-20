@@ -52,7 +52,7 @@ static void relay_htlc_failmsg(struct htlc_in *hin)
 	}
 }
 
-static u8 *make_failmsg(const tal_t *ctx, const struct htlc_in *hin,
+static u8 *make_failmsg(const tal_t *ctx, u64 msatoshi,
 			enum onion_type failcode,
 			const u8 *channel_update)
 {
@@ -76,9 +76,9 @@ static u8 *make_failmsg(const tal_t *ctx, const struct htlc_in *hin,
 	case WIRE_UNKNOWN_NEXT_PEER:
 		return towire_unknown_next_peer(ctx);
 	case WIRE_AMOUNT_BELOW_MINIMUM:
-		return towire_amount_below_minimum(ctx, hin->msatoshi, channel_update);
+		return towire_amount_below_minimum(ctx, msatoshi, channel_update);
 	case WIRE_FEE_INSUFFICIENT:
-		return towire_fee_insufficient(ctx, hin->msatoshi, channel_update);
+		return towire_fee_insufficient(ctx, msatoshi, channel_update);
 	case WIRE_INCORRECT_CLTV_EXPIRY:
 		/* FIXME: ctlv! */
 		return towire_incorrect_cltv_expiry(ctx, 0, channel_update);
@@ -94,12 +94,11 @@ static u8 *make_failmsg(const tal_t *ctx, const struct htlc_in *hin,
 		/* FIXME: ctlv! */
 		return towire_final_incorrect_cltv_expiry(ctx, 0);
 	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
-		return towire_final_incorrect_htlc_amount(ctx, hin->msatoshi);
+		return towire_final_incorrect_htlc_amount(ctx, msatoshi);
 	case WIRE_INVALID_ONION_VERSION:
 	case WIRE_INVALID_ONION_HMAC:
 	case WIRE_INVALID_ONION_KEY:
-		log_broken(hin->key.peer->log, "Bad failmsg for %s",
-			   onion_type_name(failcode));
+		fatal("Bad failmsg for %s", onion_type_name(failcode));
 	}
 	abort();
 }
@@ -118,13 +117,34 @@ static void fail_htlc(struct htlc_in *hin, enum onion_type failcode)
 			/* FIXME: Ask gossip daemon for channel_update. */
 		}
 
-		msg = make_failmsg(hin, hin, failcode, NULL);
+		msg = make_failmsg(hin, hin->msatoshi, failcode, NULL);
 		hin->failuremsg = create_onionreply(hin, &hin->shared_secret,
 						    msg);
 		tal_free(msg);
 	}
 	htlc_in_check(hin, __func__);
 	relay_htlc_failmsg(hin);
+}
+
+/* localfail are for handing to the local payer if it's local. */
+static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
+{
+	htlc_out_check(hout, __func__);
+	assert(hout->malformed || hout->failuremsg);
+	if (hout->in) {
+		if (hout->in->malformed)
+			hout->malformed = hout->in->malformed;
+		else {
+			hout->in->failuremsg
+				= tal_dup_arr(hout->in, u8,
+					      hout->failuremsg,
+					      tal_len(hout->failuremsg),
+					      0);
+		}
+		relay_htlc_failmsg(hout->in);
+	} else {
+		payment_failed(hout->key.peer->ld, hout, localfail);
+	}
 }
 
 /* BOLT #4:
@@ -290,13 +310,16 @@ fail:
  *
  * We could queue this and wait for it to come back, but this is simple.
  */
-static void hend_subd_died(struct htlc_out *hout)
+static void hout_subd_died(struct htlc_out *hout)
 {
-	log_debug(hout->in->key.peer->owner->log,
+	log_debug(hout->key.peer->log,
 		  "Failing HTLC %"PRIu64" due to peer death",
-		  hout->in->key.id);
+		  hout->key.id);
 
-	fail_htlc(hout->in, WIRE_TEMPORARY_CHANNEL_FAILURE);
+	hout->failuremsg = make_failmsg(hout, hout->msatoshi,
+					WIRE_TEMPORARY_CHANNEL_FAILURE,
+					NULL);
+	fail_out_htlc(hout, "Outgoing subdaemon died");
 }
 
 /* This is where channeld gives us the HTLC id, and also reports if it
@@ -347,6 +370,26 @@ static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 	return true;
 }
 
+struct htlc_out *send_htlc_out(struct peer *out, u64 amount, u32 cltv,
+			       const struct sha256 *payment_hash,
+			       const u8 *onion_routing_packet,
+			       struct htlc_in *in,
+			       struct pay_command *pc)
+{
+	struct htlc_out *hout;
+	u8 *msg;
+
+	/* Make peer's daemon own it, catch if it dies. */
+	hout = new_htlc_out(out->owner, out, amount, cltv,
+			    payment_hash, onion_routing_packet, in, pc);
+	tal_add_destructor(hout, hout_subd_died);
+
+	msg = towire_channel_offer_htlc(out, amount, cltv, payment_hash,
+					onion_routing_packet);
+	subd_req(out->ld, out->owner, take(msg), -1, 0, rcvd_htlc_reply, hout);
+	return hout;
+}
+
 static void forward_htlc(struct htlc_in *hin,
 			 u32 cltv_expiry,
 			 const struct sha256 *payment_hash,
@@ -355,12 +398,10 @@ static void forward_htlc(struct htlc_in *hin,
 			 const struct pubkey *next_hop,
 			 const u8 next_onion[TOTAL_PACKET_SIZE])
 {
-	u8 *msg;
 	enum onion_type failcode;
 	u64 fee;
 	struct lightningd *ld = hin->key.peer->ld;
 	struct peer *next = peer_by_id(ld, next_hop);
-	struct htlc_out *out;
 
 	if (!next) {
 		failcode = WIRE_UNKNOWN_NEXT_PEER;
@@ -426,17 +467,9 @@ static void forward_htlc(struct htlc_in *hin,
 		goto fail;
 	}
 
-	/* Make sure daemon owns it, in case it fails. */
-	out = new_htlc_out(next->owner, next, amt_to_forward,
-			   outgoing_cltv_value, &hin->payment_hash,
-			   next_onion, hin, NULL);
-	tal_add_destructor(out, hend_subd_died);
-
-	msg = towire_channel_offer_htlc(next, amt_to_forward,
-					outgoing_cltv_value,
-					payment_hash, next_onion);
-	subd_req(next->owner, next->owner, take(msg), -1, 0,
-		 rcvd_htlc_reply, out);
+	send_htlc_out(next, amt_to_forward,
+		      outgoing_cltv_value, &hin->payment_hash,
+		      next_onion, hin, NULL);
 	return;
 
 fail:
@@ -723,20 +756,7 @@ static void remove_htlc_out(struct peer *peer, struct htlc_out *hout)
 
 	/* If it's failed, now we can forward since it's completely locked-in */
 	if (!hout->preimage) {
-		if (hout->in) {
-			if (hout->in->malformed)
-				hout->malformed = hout->in->malformed;
-			else {
-				hout->in->failuremsg
-					= tal_dup_arr(hout->in, u8,
-						      hout->failuremsg,
-						      tal_len(hout->failuremsg),
-						      0);
-			}
-			relay_htlc_failmsg(hout->in);
-		} else {
-			payment_failed(peer->ld, hout);
-		}
+		fail_out_htlc(hout, NULL);
 	} else {
 		/* We paid for this HTLC, so deduct balance. */
 		*peer->balance -= hout->msatoshi;
@@ -779,7 +799,7 @@ static bool update_out_htlc(struct peer *peer, u64 id, enum htlc_state newstate)
 
 	/* First transition into commitment; now it outlives peer. */
 	if (newstate == SENT_ADD_COMMIT) {
-		tal_del_destructor(hout, hend_subd_died);
+		tal_del_destructor(hout, hout_subd_died);
 		tal_steal(peer->ld, hout);
 
 		/* From now onwards, penalty tx might need this */

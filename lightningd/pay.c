@@ -9,6 +9,7 @@
 #include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/peer_htlcs.h>
 #include <lightningd/sphinx.h>
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
@@ -70,11 +71,22 @@ void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 	hout->pay_command->out = NULL;
 }
 
-void payment_failed(struct lightningd *ld, const struct htlc_out *hout)
+void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
+		    const char *localfail)
 {
 	struct pay_command *pc = hout->pay_command;
 	enum onion_type failcode;
 	struct onionreply *reply;
+
+	/* This gives more details than a generic failure message,
+	 * and also the failuremsg here is unencrypted */
+	if (localfail) {
+		size_t max = tal_len(hout->failuremsg);
+		const u8 *p = hout->failuremsg;
+		failcode = fromwire_u16(&p, &max);
+		json_pay_failed(pc, NULL, failcode, localfail);
+		return;
+	}
 
 	if (hout->malformed)
 		failcode = hout->malformed;
@@ -104,35 +116,6 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout)
 	/* check_for_routing_failure(i, sender, failure_code); */
 
 	json_pay_failed(pc, NULL, failcode, "reply from remote");
-}
-
-static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
-			    struct pay_command *pc)
-{
-	u16 failcode;
-	u8 *failstr;
-
-	if (!fromwire_channel_offer_htlc_reply(msg, msg, NULL,
-					       &pc->out->key.id,
-					       &failcode, &failstr)) {
-		json_pay_failed(pc, &subd->ld->dstate.id, -1,
-				"daemon bad response");
-		return false;
-	}
-
-	if (failcode != 0) {
-		/* Make sure we have a nul-terminated string. */
-		char *str = (char *)tal_dup_arr(msg, u8,
-						failstr, tal_len(failstr), 1);
-		str[tal_len(failstr)] = 0;
-		json_pay_failed(pc, &subd->ld->dstate.id, failcode, str);
-		return true;
-	}
-
-	/* HTLC endpoint now owned by lightningd. */
-	tal_steal(subd->ld, pc->out);
-	connect_htlc_out(&subd->ld->htlcs_out, pc->out);
-	return true;
 }
 
 /* When JSON RPC goes away, cmd is freed: detach from any running paycommand */
@@ -179,7 +162,6 @@ static void json_sendpay(struct command *cmd,
 	struct hop_data first_hop_data;
 	u64 amount, lastamount;
 	struct onionpacket *packet;
-	u8 *msg;
 	struct secret *path_secrets;
 
 	if (!json_get_params(buffer, params,
@@ -357,15 +339,10 @@ static void json_sendpay(struct command *cmd,
 	pc->msatoshi = lastamount;
 	pc->path_secrets = tal_steal(pc, path_secrets);
 
-	pc->out = new_htlc_out(pc, peer, amount, first_hop_data.outgoing_cltv,
-			       &rhash, onion, NULL, pc);
-
 	log_info(ld->log, "Sending %"PRIu64" over %zu hops to deliver %"PRIu64,
 		 amount, n_hops, lastamount);
-	msg = towire_channel_offer_htlc(pc, amount,
-					first_hop_data.outgoing_cltv,
-					&pc->rhash, onion);
-	subd_req(pc, peer->owner, take(msg), -1, 0, rcvd_htlc_reply, pc);
+	pc->out = send_htlc_out(peer, amount, first_hop_data.outgoing_cltv,
+				&rhash, onion, NULL, pc);
 
 	/* Wait until we get response. */
 	tal_add_destructor2(cmd, remove_cmd_from_pc, pc);
