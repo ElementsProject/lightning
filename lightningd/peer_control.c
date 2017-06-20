@@ -924,6 +924,10 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 	const struct config *cfg = &peer->ld->dstate.config;
 	struct added_htlc *htlcs;
 	enum htlc_state *htlc_states;
+	struct fulfilled_htlc *fulfilled_htlcs;
+	enum side *fulfilled_sides;
+	struct failed_htlc *failed_htlcs;
+	enum side *failed_sides;
 
 	peer->owner = new_subd(peer->ld, peer->ld,
 			       "lightningd_channel", peer,
@@ -943,7 +947,8 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 	log_debug(peer->log, "Waiting for funding confirmations");
 	peer_set_condition(peer, GETTING_HSMFD, CHANNELD_AWAITING_LOCKIN);
 
-	peer_htlcs(resp, peer, &htlcs, &htlc_states);
+	peer_htlcs(resp, peer, &htlcs, &htlc_states, &fulfilled_htlcs,
+		   &fulfilled_sides, &failed_htlcs, &failed_sides);
 
 	initmsg = towire_channel_init(peer,
 				      peer->funding_txid,
@@ -974,6 +979,8 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 				      peer->num_revocations_received,
 				      peer->next_htlc_id,
 				      htlcs, htlc_states,
+				      fulfilled_htlcs, fulfilled_sides,
+				      failed_htlcs, failed_sides,
 				      peer->funding_signed);
 
 	/* Don't need this any more (we never re-transmit it) */

@@ -50,6 +50,12 @@ channel_init,,next_htlc_id,u64
 channel_init,,num_htlcs,u16
 channel_init,,htlcs,num_htlcs*struct added_htlc
 channel_init,,htlc_states,num_htlcs*enum htlc_state
+channel_init,,num_fulfilled,u16
+channel_init,,fulfilled,num_fulfilled*struct fulfilled_htlc
+channel_init,,fulfilled_sides,num_fulfilled*enum side
+channel_init,,num_failed,u16
+channel_init,,failed,num_failed*struct failed_htlc
+channel_init,,failed_sides,num_failed*enum side
 channel_init,,init_peer_pkt_len,u16
 channel_init,,init_peer_pkt,init_peer_pkt_len*u8
 
