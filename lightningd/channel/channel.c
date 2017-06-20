@@ -1303,6 +1303,32 @@ static void resend_revoke(struct peer *peer)
 	msg_enqueue(&peer->peer_out, take(msg));
 }
 
+static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
+{
+	u8 *msg;
+	if (h->malformed) {
+		struct sha256 sha256_of_onion;
+		sha256(&sha256_of_onion, h->routing, tal_len(h->routing));
+
+		msg = towire_update_fail_malformed_htlc(peer, &peer->channel_id,
+							h->id, &sha256_of_onion,
+							h->malformed);
+	} else if (h->fail) {
+		msg = towire_update_fail_htlc(peer, &peer->channel_id, h->id,
+					      h->fail);
+	} else if (h->r) {
+		msg = towire_update_fulfill_htlc(peer, &peer->channel_id, h->id,
+						 h->r);
+	} else
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "HTLC %"PRIu64" state %s not failed/fulfilled",
+			    h->id, htlc_state_name(h->state));
+	msg_enqueue(&peer->peer_out, take(msg));
+}
+
 static void resend_commitment(struct peer *peer, const struct changed_htlc *last)
 {
 	size_t i;
@@ -1344,31 +1370,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 							 h->routing);
 			msg_enqueue(&peer->peer_out, take(msg));
 		} else if (h->state == SENT_REMOVE_COMMIT) {
-			u8 *msg;
-			if (h->malformed) {
-				struct sha256 sha256_of_onion;
-				sha256(&sha256_of_onion, h->routing,
-				       tal_len(h->routing));
-
-				msg = towire_update_fail_malformed_htlc
-					(peer, &peer->channel_id, h->id,
-					 &sha256_of_onion, h->malformed);
-			} else if (h->fail) {
-				msg = towire_update_fail_htlc
-					(peer, &peer->channel_id, h->id,
-					 h->fail);
-			} else if (h->r) {
-				msg = towire_update_fulfill_htlc
-					(peer, &peer->channel_id, h->id,
-					 h->r);
-			} else
-				peer_failed(io_conn_fd(peer->peer_conn),
-					    &peer->pcs.cs,
-					    &peer->channel_id,
-					    WIRE_CHANNEL_PEER_BAD_MESSAGE,
-					    "HTLC %"PRIu64" state %s not failed/fulfilled",
-					    h->id, htlc_state_name(h->state));
-			msg_enqueue(&peer->peer_out, take(msg));
+			send_fail_or_fulfill(peer, h);
 		}
 	}
 
@@ -1389,6 +1391,8 @@ static struct io_plan *handle_peer_reestablish(struct io_conn *conn,
 	u64 last_commitidx_sent, last_revokeidx_sent;
 	u64 commitments_received, revocations_received;
 	bool retransmit_revoke_and_ack;
+	struct htlc_map_iter it;
+	const struct htlc *htlc;
 
 	if (gossip_msg(msg)) {
 		/* Forward to gossip daemon */
@@ -1497,6 +1501,14 @@ static struct io_plan *handle_peer_reestablish(struct io_conn *conn,
 
 	/* Start commit timer: if we sent revoke we might need it. */
 	start_commit_timer(peer);
+
+	/* Now, re-send any that we're supposed to be failing. */
+	for (htlc = htlc_map_first(&peer->channel->htlcs, &it);
+	     htlc;
+	     htlc = htlc_map_next(&peer->channel->htlcs, &it)) {
+		if (htlc->state == SENT_REMOVE_HTLC)
+			send_fail_or_fulfill(peer, htlc);
+	}
 
 	/* Now into normal mode. */
 	return setup_peer_conn(conn, peer);
