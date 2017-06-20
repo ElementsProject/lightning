@@ -526,7 +526,7 @@ class LightningDTests(BaseLightningDTests):
         assert l1.rpc.getpeer(l2.info['id']) == None
         assert l2.rpc.getpeer(l1.info['id'])['peerid'] == l1.info['id']
 
-    def test_reconnect(self):
+    def test_reconnect_signed(self):
         # This will fail *after* both sides consider channel opening.
         disconnects = ['+WIRE_FUNDING_SIGNED']
         l1 = self.node_factory.get_node(legacy=False)
@@ -556,6 +556,17 @@ class LightningDTests(BaseLightningDTests):
 
         l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
         l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
+        
+    def test_reconnect_normal(self):
+        # Should reconnect fine even if locked message gets lost.
+        disconnects = ['-WIRE_FUNDING_LOCKED',
+                       '@WIRE_FUNDING_LOCKED',
+                       '+WIRE_FUNDING_LOCKED']
+        l1 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        l2 = self.node_factory.get_node(legacy=False)
+        ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+
+        self.fund_channel(l1, l2, 10**6)
         
     def test_json_addfunds(self):
         """ Attempt to add funds
