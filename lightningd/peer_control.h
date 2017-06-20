@@ -2,6 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_PEER_CONTROL_H
 #include "config.h"
 #include <ccan/compiler/compiler.h>
+#include <ccan/crypto/shachain/shachain.h>
 #include <ccan/list/list.h>
 #include <daemon/htlc.h>
 #include <daemon/json.h>
@@ -22,6 +23,9 @@ struct peer {
 
 	/* ID of peer */
 	struct pubkey id;
+
+	/* Their shachain. */
+	struct shachain their_shachain;
 
  	/* What's happening. */
  	enum peer_state state;

@@ -305,6 +305,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->balance = NULL;
 	peer->state = UNINITIALIZED;
 	peer->channel_info = NULL;
+	shachain_init(&peer->their_shachain);
 
 	idname = type_to_string(peer, struct pubkey, id);
 
