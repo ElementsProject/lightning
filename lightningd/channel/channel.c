@@ -1568,6 +1568,7 @@ static void init_channel(struct peer *peer)
 				   &points[REMOTE].payment,
 				   &points[REMOTE].delayed_payment,
 				   &peer->remote_per_commit,
+				   &peer->old_remote_per_commit,
 				   &am_funder,
 				   &peer->fee_base,
 				   &peer->fee_per_satoshi,

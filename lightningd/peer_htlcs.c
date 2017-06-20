@@ -1047,14 +1047,12 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 }
 
 /* Shuffle them over, forgetting the ancient one. */
-static void update_per_commit_point(struct peer *peer,
-				    const struct pubkey *per_commitment_point)
+void update_per_commit_point(struct peer *peer,
+			     const struct pubkey *per_commitment_point)
 {
-	peer->channel_info->their_per_commit_point
-		= *peer->next_per_commitment_point;
-	tal_free(peer->next_per_commitment_point);
-	peer->next_per_commitment_point = tal_dup(peer, struct pubkey,
-						  per_commitment_point);
+	struct channel_info *ci = peer->channel_info;
+	ci->old_remote_per_commit = ci->remote_per_commit;
+	ci->remote_per_commit = *per_commitment_point;
 }
 
 int peer_got_revoke(struct peer *peer, const u8 *msg)

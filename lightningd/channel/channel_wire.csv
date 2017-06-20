@@ -30,7 +30,8 @@ channel_init,,remote_fundingkey,33
 channel_init,,revocation_basepoint,33
 channel_init,,payment_basepoint,33
 channel_init,,delayed_payment_basepoint,33
-channel_init,,their_per_commit_point,33
+channel_init,,remote_per_commit,33
+channel_init,,old_remote_per_commit,33
 channel_init,,am_funder,bool
 channel_init,,fee_base,4
 channel_init,,fee_proportional,4
