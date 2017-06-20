@@ -30,10 +30,12 @@ struct changed_htlc {
 	u64 id;
 };
 
+
 void towire_added_htlc(u8 **pptr, const struct added_htlc *added);
 void towire_fulfilled_htlc(u8 **pptr, const struct fulfilled_htlc *fulfilled);
 void towire_failed_htlc(u8 **pptr, const struct failed_htlc *failed);
 void towire_changed_htlc(u8 **pptr, const struct changed_htlc *changed);
+void towire_htlc_state(u8 **pptr, const enum htlc_state *hstate);
 void fromwire_added_htlc(const u8 **cursor, size_t *max,
 			 struct added_htlc *added);
 void fromwire_fulfilled_htlc(const u8 **cursor, size_t *max,
@@ -42,5 +44,6 @@ void fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor, size_t *max,
 			  struct failed_htlc *failed);
 void fromwire_changed_htlc(const u8 **cursor, size_t *max,
 			   struct changed_htlc *changed);
-
+void fromwire_htlc_state(const u8 **cursor, size_t *max,
+			 enum htlc_state *hstate);
 #endif /* LIGHTNING_LIGHTNINGD_HTLC_WIRE_H */
