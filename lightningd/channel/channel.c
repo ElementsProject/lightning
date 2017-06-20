@@ -253,7 +253,11 @@ static struct io_plan *peer_out(struct io_conn *conn, struct peer *peer)
 	return peer_write_message(conn, &peer->pcs, out, peer_out);
 }
 
-static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
+static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg);
+
+static struct io_plan *handle_peer_funding_locked(struct io_conn *conn,
+						  struct peer *peer,
+						  const u8 *msg)
 {
 	struct channel_id chanid;
 
@@ -275,9 +279,13 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 		daemon_conn_send(&peer->master,
 				 take(towire_channel_normal_operation(peer)));
 	}
+
+	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
-static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg)
+static struct io_plan *handle_peer_announcement_signatures(struct io_conn *conn,
+							   struct peer *peer,
+							   const u8 *msg)
 {
 	struct channel_id chanid;
 
@@ -310,9 +318,12 @@ static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg
 		 * so it may announce the node */
 		daemon_conn_send(&peer->master, take(towire_channel_announced(msg)));
 	}
+
+	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
-static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
+static struct io_plan *handle_peer_add_htlc(struct io_conn *conn,
+					    struct peer *peer, const u8 *msg)
 {
 	struct channel_id channel_id;
 	u64 id;
@@ -340,6 +351,7 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 			    &peer->channel_id,
 			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad peer_add_htlc: %u", add_err);
+	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
 static void send_commit(struct peer *peer)
@@ -449,7 +461,8 @@ static void start_commit_timer(struct peer *peer)
 					  send_commit, peer);
 }
 
-static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
+static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
+					      struct peer *peer, const u8 *msg)
 {
 	tal_t *tmpctx = tal_tmpctx(peer);
 	struct sha256 old_commit_secret;
@@ -474,8 +487,6 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "commit_sig with no changes");
 	}
-
-	/* FIXME: Tell master about HTLC changes. */
 
 	if (!fromwire_commitment_signed(tmpctx, msg, NULL,
 					&channel_id, &commit_sig, &htlc_sigs))
@@ -584,6 +595,8 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 				    &peer->current_per_commit[LOCAL]);
 	msg_enqueue(&peer->peer_out, take(msg));
 	tal_free(tmpctx);
+
+	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
 static void their_htlc_locked(const struct htlc *htlc, struct peer *peer)
@@ -652,7 +665,9 @@ bad_onion:
 	tal_free(tmpctx);
 }
 
-static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
+static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
+						  struct peer *peer,
+						  const u8 *msg)
 {
 	struct sha256 old_commit_secret;
 	struct privkey privkey;
@@ -730,9 +745,11 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	}
 
 	start_commit_timer(peer);
+	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
-static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
+static struct io_plan *handle_peer_fulfill_htlc(struct io_conn *conn,
+						struct peer *peer, const u8 *msg)
 {
 	struct channel_id channel_id;
 	u64 id;
@@ -754,7 +771,7 @@ static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
 		msg = towire_channel_fulfilled_htlc(msg, id, &preimage);
 		daemon_conn_send(&peer->master, take(msg));
 		start_commit_timer(peer);
-		return;
+		return peer_read_message(conn, &peer->pcs, peer_in);
 	/* These shouldn't happen, because any offered HTLC (which would give
 	 * us the preimage) should have timed out long before.  If we
 	 * were to get preimages from other sources, this could happen. */
@@ -773,7 +790,8 @@ static void handle_peer_fulfill_htlc(struct peer *peer, const u8 *msg)
 	abort();
 }
 
-static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
+static struct io_plan *handle_peer_fail_htlc(struct io_conn *conn,
+					     struct peer *peer, const u8 *msg)
 {
 	struct channel_id channel_id;
 	u64 id;
@@ -795,7 +813,7 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 		msg = towire_channel_failed_htlc(msg, id, reason);
 		daemon_conn_send(&peer->master, take(msg));
 		start_commit_timer(peer);
-		return;
+		return peer_read_message(conn, &peer->pcs, peer_in);
 	case CHANNEL_ERR_NO_SUCH_ID:
 	case CHANNEL_ERR_ALREADY_FULFILLED:
 	case CHANNEL_ERR_HTLC_UNCOMMITTED:
@@ -811,7 +829,9 @@ static void handle_peer_fail_htlc(struct peer *peer, const u8 *msg)
 	abort();
 }
 
-static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
+static struct io_plan *handle_peer_fail_malformed_htlc(struct io_conn *conn,
+						       struct peer *peer,
+						       const u8 *msg)
 {
 	struct channel_id channel_id;
 	u64 id;
@@ -836,7 +856,7 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 						    failcode);
 		daemon_conn_send(&peer->master, take(msg));
 		start_commit_timer(peer);
-		return;
+		return peer_read_message(conn, &peer->pcs, peer_in);
 	case CHANNEL_ERR_NO_SUCH_ID:
 	case CHANNEL_ERR_ALREADY_FULFILLED:
 	case CHANNEL_ERR_HTLC_UNCOMMITTED:
@@ -852,7 +872,8 @@ static void handle_peer_fail_malformed_htlc(struct peer *peer, const u8 *msg)
 	abort();
 }
 
-static void handle_ping(struct peer *peer, const u8 *msg)
+static struct io_plan *handle_ping(struct io_conn *conn,
+				   struct peer *peer, const u8 *msg)
 {
 	u8 *pong;
 
@@ -869,9 +890,11 @@ static void handle_ping(struct peer *peer, const u8 *msg)
 
 	if (pong)
 		msg_enqueue(&peer->peer_out, take(pong));
+	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
-static void handle_pong(struct peer *peer, const u8 *pong)
+static struct io_plan *handle_pong(struct io_conn *conn,
+				   struct peer *peer, const u8 *pong)
 {
 	u8 *ignored;
 
@@ -885,6 +908,7 @@ static void handle_pong(struct peer *peer, const u8 *pong)
 	peer->num_pings_outstanding--;
 	daemon_conn_send(&peer->master,
 			 take(towire_channel_ping_reply(pong, tal_len(pong))));
+	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
 static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
@@ -894,7 +918,7 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 
 	/* Must get funding_locked before almost anything. */
 	if (!peer->funding_locked[REMOTE]) {
-		/* We can get gossup before funging, too */
+		/* We can get gossip before funding, too */
 		if (type != WIRE_FUNDING_LOCKED
 		    && type != WIRE_CHANNEL_ANNOUNCEMENT
 		    && type != WIRE_CHANNEL_UPDATE
@@ -910,41 +934,31 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 
 	switch (type) {
 	case WIRE_FUNDING_LOCKED:
-		handle_peer_funding_locked(peer, msg);
-		goto done;
+		return handle_peer_funding_locked(conn, peer, msg);
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
-		handle_peer_announcement_signatures(peer, msg);
-		goto done;
+		return handle_peer_announcement_signatures(conn, peer, msg);
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_CHANNEL_UPDATE:
 	case WIRE_NODE_ANNOUNCEMENT:
 		/* Forward to gossip daemon */
 		daemon_conn_send(&peer->gossip_client, msg);
-		goto done;
+		return peer_read_message(conn, &peer->pcs, peer_in);
 	case WIRE_UPDATE_ADD_HTLC:
-		handle_peer_add_htlc(peer, msg);
-		goto done;
+		return handle_peer_add_htlc(conn, peer, msg);
 	case WIRE_COMMITMENT_SIGNED:
-		handle_peer_commit_sig(peer, msg);
-		goto done;
+		return handle_peer_commit_sig(conn, peer, msg);
 	case WIRE_REVOKE_AND_ACK:
-		handle_peer_revoke_and_ack(peer, msg);
-		goto done;
+		return handle_peer_revoke_and_ack(conn, peer, msg);
 	case WIRE_UPDATE_FULFILL_HTLC:
-		handle_peer_fulfill_htlc(peer, msg);
-		goto done;
+		return handle_peer_fulfill_htlc(conn, peer, msg);
 	case WIRE_UPDATE_FAIL_HTLC:
-		handle_peer_fail_htlc(peer, msg);
-		goto done;
+		return handle_peer_fail_htlc(conn, peer, msg);
 	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
-		handle_peer_fail_malformed_htlc(peer, msg);
-		goto done;
+		return handle_peer_fail_malformed_htlc(conn, peer, msg);
 	case WIRE_PING:
-		handle_ping(peer, msg);
-		goto done;
+		return handle_ping(conn, peer, msg);
 	case WIRE_PONG:
-		handle_pong(peer, msg);
-		goto done;
+		return handle_pong(conn, peer, msg);
 
 	case WIRE_INIT:
 	case WIRE_ERROR:
@@ -973,9 +987,6 @@ badmessage:
 		    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 		    "Peer sent unknown message %u (%s)",
 		    type, wire_type_name(type));
-
-done:
-	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
 static struct io_plan *setup_peer_conn(struct io_conn *conn, struct peer *peer)
