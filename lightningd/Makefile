@@ -48,6 +48,7 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/funding_tx.c			\
 	lightningd/gossip_msg.c			\
 	lightningd/htlc_tx.c			\
+	lightningd/htlc_wire.c			\
 	lightningd/key_derive.c			\
 	lightningd/msg_queue.c			\
 	lightningd/peer_failed.c		\

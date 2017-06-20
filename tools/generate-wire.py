@@ -27,6 +27,7 @@ type2size = {
 # These struct array helpers require a context to allocate from.
 varlen_structs = [
     'gossip_getnodes_entry',
+    'failed_htlc',
 ]
 
 class FieldType(object):
