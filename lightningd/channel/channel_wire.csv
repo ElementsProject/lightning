@@ -40,6 +40,9 @@ channel_init,,local_node_id,struct pubkey
 channel_init,,remote_node_id,struct pubkey
 channel_init,,commit_msec,4
 channel_init,,cltv_delta,u16
+channel_init,,last_was_revoke,bool
+channel_init,,num_last_sent_commit,u16
+channel_init,,last_sent_commit,num_last_sent_commit*struct changed_htlc
 channel_init,,init_peer_pkt_len,u16
 channel_init,,init_peer_pkt,init_peer_pkt_len*u8
 
