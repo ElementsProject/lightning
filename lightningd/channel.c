@@ -373,6 +373,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	if (!blocks_to_abs_locktime(cltv_expiry, &htlc->expiry))
 		return CHANNEL_ERR_INVALID_EXPIRY;
 	htlc->rhash = *payment_hash;
+	htlc->fail = NULL;
 	htlc->r = NULL;
 
 	/* BOLT #2:

@@ -857,14 +857,12 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 		peer_set_condition(sd->peer,
 				   CHANNELD_AWAITING_LOCKIN, CHANNELD_NORMAL);
 		break;
-	case WIRE_CHANNEL_ACCEPTED_HTLC:
-		return peer_accepted_htlc(sd->peer, msg);
-	case WIRE_CHANNEL_FULFILLED_HTLC:
-		return peer_fulfilled_htlc(sd->peer, msg);
-	case WIRE_CHANNEL_FAILED_HTLC:
-		return peer_failed_htlc(sd->peer, msg);
-	case WIRE_CHANNEL_MALFORMED_HTLC:
-		return peer_failed_malformed_htlc(sd->peer, msg);
+	case WIRE_CHANNEL_SENDING_COMMITSIG:
+		return peer_sending_commitsig(sd->peer, msg);
+	case WIRE_CHANNEL_GOT_COMMITSIG:
+		return peer_got_commitsig(sd->peer, msg);
+	case WIRE_CHANNEL_GOT_REVOKE:
+		return peer_got_revoke(sd->peer, msg);
 	case WIRE_CHANNEL_ANNOUNCED:
 		peer_channel_announced(sd->peer, msg);
 		break;
@@ -886,6 +884,9 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 	case WIRE_CHANNEL_FULFILL_HTLC:
 	case WIRE_CHANNEL_FAIL_HTLC:
 	case WIRE_CHANNEL_PING:
+	case WIRE_CHANNEL_GOT_COMMITSIG_REPLY:
+	case WIRE_CHANNEL_GOT_REVOKE_REPLY:
+	case WIRE_CHANNEL_SENDING_COMMITSIG_REPLY:
 	/* Replies go to requests. */
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
 	case WIRE_CHANNEL_PING_REPLY:

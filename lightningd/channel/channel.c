@@ -113,6 +113,16 @@ struct peer {
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
+static void start_commit_timer(struct peer *peer);
+
+/* Returns a pointer to the new end */
+static void *tal_arr_append_(void **p, size_t size)
+{
+	size_t n = tal_len(*p) / size;
+	tal_resize_(p, size, n+1, false);
+	return (char *)(*p) + n * size;
+}
+#define tal_arr_append(p) tal_arr_append_((void **)(p), sizeof(**(p)))
 
 static struct io_plan *gossip_client_recv(struct io_conn *conn,
 					  struct daemon_conn *dc)
@@ -360,10 +370,41 @@ static struct io_plan *handle_peer_add_htlc(struct io_conn *conn,
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
-static void send_commit(struct peer *peer)
+static struct changed_htlc *changed_htlc_arr(const tal_t *ctx,
+					     const struct htlc **changed_htlcs)
 {
-	tal_t *tmpctx = tal_tmpctx(peer);
+	struct changed_htlc *changed;
+	size_t i;
+
+	changed = tal_arr(ctx, struct changed_htlc, tal_count(changed_htlcs));
+	for (i = 0; i < tal_count(changed_htlcs); i++) {
+		changed[i].id = changed_htlcs[i]->id;
+		changed[i].newstate = changed_htlcs[i]->state;
+	}
+	return changed;
+}
+
+static u8 *sending_commitsig_msg(const tal_t *ctx,
+				 u64 remote_commit_index,
+				 const struct htlc **changed_htlcs)
+{
+	const tal_t *tmpctx = tal_tmpctx(ctx);
+	struct changed_htlc *changed;
 	u8 *msg;
+
+	/* We tell master what (of our) HTLCs peer will now be
+	 * committed to. */
+	changed = changed_htlc_arr(tmpctx, changed_htlcs);
+	msg = towire_channel_sending_commitsig(ctx, remote_commit_index,
+					       changed);
+	tal_free(tmpctx);
+	return msg;
+}
+
+/* Master has acknowledged that we're sending commitment, so send it. */
+static void handle_sending_commitsig_reply(struct peer *peer, const u8 *msg)
+{
+	const tal_t *tmpctx = tal_tmpctx(peer);
 	secp256k1_ecdsa_signature commit_sig, *htlc_sigs;
 	size_t i;
 	struct bitcoin_tx **txs;
@@ -371,28 +412,6 @@ static void send_commit(struct peer *peer)
 	const struct htlc **htlc_map;
 	struct pubkey localkey;
 	struct privkey local_secretkey;
-
-	/* Timer has expired. */
-	peer->commit_timer = NULL;
-
-	/* FIXME: Document this requirement in BOLT 2! */
-	/* We can't send two commits in a row. */
-	if (channel_awaiting_revoke_and_ack(peer->channel)) {
-		status_trace("Can't send commit: waiting for revoke_and_ack");
-		tal_free(tmpctx);
-		return;
-	}
-
-	/* BOLT #2:
-	 *
-	 * A node MUST NOT send a `commitment_signed` message which does not
-	 * include any updates.
-	 */
-	if (!channel_sending_commit(peer->channel, NULL)) {
-		status_trace("Can't send commit: nothing to send");
-		tal_free(tmpctx);
-		return;
-	}
 
 	if (!derive_simple_privkey(&peer->our_secrets.payment_basepoint_secret,
 				   &peer->channel->basepoints[LOCAL].payment,
@@ -423,6 +442,7 @@ static void send_commit(struct peer *peer)
 		     tal_hex(trc, wscripts[0]),
 		     type_to_string(trc, struct pubkey,
 				    &peer->channel->funding_pubkey[LOCAL]));
+	dump_htlcs(peer->channel, "Sending commit_sig");
 
 	/* BOLT #2:
 	 *
@@ -450,28 +470,199 @@ static void send_commit(struct peer *peer)
 	}
 	status_trace("Sending commit_sig with %zu htlc sigs",
 		     tal_count(htlc_sigs));
+
 	msg = towire_commitment_signed(tmpctx, &peer->channel_id,
 				       &commit_sig, htlc_sigs);
 	msg_enqueue(&peer->peer_out, take(msg));
+
+	/* Timer now considered expired, you can add a new one. */
+	peer->commit_timer = NULL;
+
+	/* FIXME: In case we had outstanding commits, restart timer */
+	start_commit_timer(peer);
+
+	tal_free(tmpctx);
+}
+
+/* This blocks other traffic from the master until we get reply. */
+static void master_sync_reply(struct peer *peer, const u8 *msg,
+			      enum channel_wire_type replytype,
+			      void (*handle)(struct peer *peer, const u8 *msg))
+{
+	assert(!peer->handle_master_reply);
+
+	peer->handle_master_reply = handle;
+	peer->master_reply_type = replytype;
+
+	daemon_conn_send(&peer->master, msg);
+}
+
+static void send_commit(struct peer *peer)
+{
+	tal_t *tmpctx = tal_tmpctx(peer);
+	u8 *msg;
+	const struct htlc **changed_htlcs;
+
+	/* FIXME: Document this requirement in BOLT 2! */
+	/* We can't send two commits in a row. */
+	if (channel_awaiting_revoke_and_ack(peer->channel)
+	    || peer->handle_master_reply) {
+		status_trace("Can't send commit: waiting for revoke_and_ack %s",
+			     peer->handle_master_reply ? "processing" : "reply");
+		/* Mark this as done and try again. */
+		peer->commit_timer = NULL;
+		start_commit_timer(peer);
+		tal_free(tmpctx);
+		return;
+	}
+
+	/* BOLT #2:
+	 *
+	 * A node MUST NOT send a `commitment_signed` message which does not
+	 * include any updates.
+	 */
+	changed_htlcs = tal_arr(tmpctx, const struct htlc *, 0);
+	if (!channel_sending_commit(peer->channel, &changed_htlcs)) {
+		status_trace("Can't send commit: nothing to send");
+
+		peer->commit_timer = NULL;
+		tal_free(tmpctx);
+		return;
+	}
+
+	status_trace("Telling master we're about to commit...");
+	/* Tell master to save to database, then wait for reply. */
+	msg = sending_commitsig_msg(tmpctx, peer->commit_index[REMOTE],
+				    changed_htlcs);
+	master_sync_reply(peer, take(msg),
+			  WIRE_CHANNEL_SENDING_COMMITSIG_REPLY,
+			  handle_sending_commitsig_reply);
 	tal_free(tmpctx);
 }
 
 static void start_commit_timer(struct peer *peer)
 {
 	/* Already armed? */
-	if (peer->commit_timer)
+	if (peer->commit_timer) {
+		status_trace("Commit timer already running...");
 		return;
+	}
 
 	peer->commit_timer = new_reltimer(&peer->timers, peer,
 					  time_from_msec(peer->commit_msec),
 					  send_commit, peer);
 }
 
+/* We come back here once master has acked the commit_sig we received */
+static struct io_plan *send_revocation(struct io_conn *conn, struct peer *peer)
+{
+	struct pubkey oldpoint = peer->old_per_commit[LOCAL], test;
+	struct sha256 old_commit_secret;
+	u8 *msg;
+
+	peer->old_per_commit[LOCAL] = peer->current_per_commit[LOCAL];
+	if (!next_per_commit_point(&peer->shaseed, &old_commit_secret,
+				   &peer->current_per_commit[LOCAL],
+				   peer->commit_index[LOCAL]))
+		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
+			      "Deriving next commit_point");
+
+	pubkey_from_privkey((struct privkey *)&old_commit_secret, &test);
+	if (!pubkey_eq(&test, &oldpoint))
+		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
+			      "Invalid secret %s for commit_point",
+			      tal_hexstr(trc, &old_commit_secret,
+					 sizeof(old_commit_secret)));
+
+	peer->commit_index[LOCAL]++;
+
+	/* If this queues more changes on the other end, send commit. */
+	if (channel_sending_revoke_and_ack(peer->channel)) {
+		status_trace("revoke_and_ack made pending: commit timer");
+		start_commit_timer(peer);
+	}
+
+	msg = towire_revoke_and_ack(peer, &peer->channel_id, &old_commit_secret,
+				    &peer->current_per_commit[LOCAL]);
+	msg_enqueue(&peer->peer_out, take(msg));
+
+	return peer_read_message(conn, &peer->pcs, peer_in);
+}
+
+static u8 *got_commitsig_msg(const tal_t *ctx,
+			     u64 local_commit_index,
+			     const secp256k1_ecdsa_signature *commit_sig,
+			     const secp256k1_ecdsa_signature *htlc_sigs,
+			     const struct htlc **changed_htlcs)
+{
+	const tal_t *tmpctx = tal_tmpctx(ctx);
+	struct changed_htlc *changed;
+	struct fulfilled_htlc *fulfilled;
+	struct failed_htlc *failed;
+	struct added_htlc *added;
+	u8 *msg;
+
+	changed = tal_arr(tmpctx, struct changed_htlc, 0);
+	added = tal_arr(tmpctx, struct added_htlc, 0);
+	failed = tal_arr(tmpctx, struct failed_htlc, 0);
+	fulfilled = tal_arr(tmpctx, struct fulfilled_htlc, 0);
+
+	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
+		const struct htlc *htlc = changed_htlcs[i];
+		if (htlc->state == RCVD_ADD_COMMIT) {
+			struct added_htlc *a = tal_arr_append(&added);
+			a->id = htlc->id;
+			a->amount_msat = htlc->msatoshi;
+			a->payment_hash = htlc->rhash;
+			a->cltv_expiry = abs_locktime_to_blocks(&htlc->expiry);
+			memcpy(a->onion_routing_packet,
+			       htlc->routing,
+			       sizeof(a->onion_routing_packet));
+		} else if (htlc->state == RCVD_REMOVE_COMMIT) {
+			if (htlc->r) {
+				struct fulfilled_htlc *f;
+				assert(!htlc->fail);
+				f = tal_arr_append(&fulfilled);
+				f->id = htlc->id;
+				f->payment_preimage = *htlc->r;
+			} else {
+				struct failed_htlc *f;
+				assert(htlc->fail);
+				f = tal_arr_append(&failed);
+				f->id = htlc->id;
+				f->failreason = cast_const(u8 *, htlc->fail);
+			}
+		} else {
+			struct changed_htlc *c = tal_arr_append(&changed);
+			assert(htlc->state == RCVD_REMOVE_ACK_COMMIT
+			       || htlc->state == RCVD_ADD_ACK_COMMIT);
+
+			c->id = htlc->id;
+			c->newstate = htlc->state;
+		}
+	}
+
+	msg = towire_channel_got_commitsig(ctx, local_commit_index,
+					   commit_sig,
+					   htlc_sigs,
+					   added,
+					   fulfilled,
+					   failed,
+					   changed);
+	tal_free(tmpctx);
+	return msg;
+}
+
+/* Tell peer to continue now master has replied. */
+static void handle_reply_wake_peer(struct peer *peer, const u8 *msg)
+{
+	io_wake(peer);
+}
+
 static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 					      struct peer *peer, const u8 *msg)
 {
-	tal_t *tmpctx = tal_tmpctx(peer);
-	struct sha256 old_commit_secret;
+	const tal_t *tmpctx = tal_tmpctx(peer);
 	struct channel_id channel_id;
 	secp256k1_ecdsa_signature commit_sig, *htlc_sigs;
 	struct pubkey remotekey;
@@ -518,7 +709,8 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 	 * applied.
 	 */
 	if (!check_tx_sig(txs[0], 0, NULL, wscripts[0],
-			  &peer->channel->funding_pubkey[REMOTE], &commit_sig))
+			  &peer->channel->funding_pubkey[REMOTE], &commit_sig)) {
+		dump_htlcs(peer->channel, "receiving commit_sig");
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
@@ -531,6 +723,7 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 			    type_to_string(msg, struct pubkey,
 					   &peer->channel->funding_pubkey
 					   [REMOTE]));
+	}
 
 	/* BOLT #2:
 	 *
@@ -569,62 +762,38 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 	status_trace("Received commit_sig with %zu htlc sigs",
 		     tal_count(htlc_sigs));
 
-	struct pubkey oldpoint = peer->old_per_commit[LOCAL], test;
-	status_trace("Sending secret for point %"PRIu64" %s",
-		     peer->commit_index[LOCAL]-1,
-		     type_to_string(trc, struct pubkey,
-				    &peer->old_per_commit[LOCAL]));
+	/* Tell master daemon, then wait for ack. */
+	msg = got_commitsig_msg(tmpctx, peer->commit_index[LOCAL], &commit_sig,
+				htlc_sigs, changed_htlcs);
 
-	peer->old_per_commit[LOCAL] = peer->current_per_commit[LOCAL];
-	if (!next_per_commit_point(&peer->shaseed, &old_commit_secret,
-				   &peer->current_per_commit[LOCAL],
-				   peer->commit_index[LOCAL]))
-		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
-			      "Deriving next commit_point");
+	master_sync_reply(peer, take(msg),
+			  WIRE_CHANNEL_GOT_COMMITSIG_REPLY,
+			  handle_reply_wake_peer);
 
-	pubkey_from_privkey((struct privkey *)&old_commit_secret, &test);
-	if (!pubkey_eq(&test, &oldpoint))
-		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
-			      "Invalid secret %s for commit_point",
-			      tal_hexstr(msg, &old_commit_secret,
-					 sizeof(old_commit_secret)));
-
-	peer->commit_index[LOCAL]++;
-
-	/* If this queues more changes on the other end, send commit. */
-	if (channel_sending_revoke_and_ack(peer->channel)) {
-		status_trace("revoke_and_ack made pending: commit timer");
-		start_commit_timer(peer);
-	}
-
-	msg = towire_revoke_and_ack(msg, &channel_id, &old_commit_secret,
-				    &peer->current_per_commit[LOCAL]);
-	msg_enqueue(&peer->peer_out, take(msg));
-	tal_free(tmpctx);
-
-	return peer_read_message(conn, &peer->pcs, peer_in);
+	/* And peer waits for reply. */
+	return io_wait(conn, peer, send_revocation, peer);
 }
 
-static void their_htlc_locked(const struct htlc *htlc, struct peer *peer)
+static void add_htlc_with_ss(u64 **added_ids, struct secret **shared_secrets,
+			     const struct htlc *htlc)
 {
-	tal_t *tmpctx = tal_tmpctx(peer);
-	u8 *msg;
-	struct onionpacket *op;
-	struct sha256 bad_onion_sha;
-	struct secret ss;
-	enum onion_type failcode;
-	enum channel_remove_err rerr;
+	tal_t *tmpctx = tal_tmpctx(*added_ids);
 	struct pubkey ephemeral;
+	struct onionpacket *op;
+	u8 *msg;
+	struct secret *ss = tal_arr_append(shared_secrets);
+	u64 *id = tal_arr_append(added_ids);
 
-	status_trace("their htlc %"PRIu64" locked", htlc->id);
+	*id = htlc->id;
 
 	/* We unwrap the onion now. */
 	/* FIXME: We could do this earlier and call HSM async, for speed. */
 	op = parse_onionpacket(tmpctx, htlc->routing, TOTAL_PACKET_SIZE);
 	if (!op) {
-		/* FIXME: could be bad version, bad key. */
-		failcode = WIRE_INVALID_ONION_VERSION;
-		goto bad_onion;
+		/* Return an invalid shared secret. */
+		memset(ss, 0, sizeof(*ss));
+		tal_free(tmpctx);
+		return;
 	}
 
 	/* Because wire takes struct pubkey. */
@@ -633,42 +802,50 @@ static void their_htlc_locked(const struct htlc *htlc, struct peer *peer)
 	if (!wire_sync_write(HSM_FD, msg))
 		status_failed(WIRE_CHANNEL_HSM_FAILED, "Writing ecdh req");
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_ecdh_resp(msg, NULL, &ss))
+	/* Gives all-zero shares_secret if it was invalid. */
+	if (!msg || !fromwire_hsm_ecdh_resp(msg, NULL, ss))
 		status_failed(WIRE_CHANNEL_HSM_FAILED, "Reading ecdh response");
+	tal_free(tmpctx);
+}
 
-	if (memeqzero(&ss, sizeof(ss))) {
-		failcode = WIRE_INVALID_ONION_KEY;
-		goto bad_onion;
+static u8 *got_revoke_msg(const tal_t *ctx, u64 revoke_num,
+			  const struct sha256 *per_commitment_secret,
+			  const struct htlc **changed_htlcs)
+{
+	tal_t *tmpctx = tal_tmpctx(ctx);
+	u8 *msg;
+	u64 *added_ids = tal_arr(tmpctx, u64, 0);
+	struct secret *shared_secrets = tal_arr(tmpctx, struct secret, 0);
+	struct changed_htlc *changed = tal_arr(tmpctx, struct changed_htlc, 0);
+
+	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
+		const struct htlc *htlc = changed_htlcs[i];
+		status_trace("HTLC %"PRIu64"[%s] => %s",
+			     htlc->id, side_to_str(htlc_owner(htlc)),
+			     htlc_state_name(htlc->state));
+		/* We've both committed to their htlc now. */
+		if (htlc->state == RCVD_ADD_ACK_REVOCATION) {
+			add_htlc_with_ss(&added_ids, &shared_secrets, htlc);
+		} else {
+			struct changed_htlc *c = tal_arr_append(&changed);
+
+			c->id = changed_htlcs[i]->id;
+			c->newstate = changed_htlcs[i]->state;
+		}
 	}
 
-	/* Tell master to deal with it. */
-	msg = towire_channel_accepted_htlc(tmpctx, htlc->id, htlc->msatoshi,
-					   abs_locktime_to_blocks(&htlc->expiry),
-					   &htlc->rhash,
-					   &ss,
-					   htlc->routing);
-	daemon_conn_send(&peer->master, take(msg));
+	msg = towire_channel_got_revoke(ctx, revoke_num, per_commitment_secret,
+					added_ids, shared_secrets, changed);
 	tal_free(tmpctx);
-	return;
+	return msg;
+}
 
-bad_onion:
-	sha256(&bad_onion_sha, htlc->routing, TOTAL_PACKET_SIZE);
-	msg = towire_update_fail_malformed_htlc(tmpctx, &peer->channel_id,
-						htlc->id, &bad_onion_sha,
-						failcode);
-	msg_enqueue(&peer->peer_out, take(msg));
-
-	status_trace("htlc %"PRIu64" %s", htlc->id, onion_type_name(failcode));
-	rerr = channel_fail_htlc(peer->channel, REMOTE, htlc->id);
-	if (rerr != CHANNEL_ERR_REMOVE_OK)
-		peer_failed(io_conn_fd(peer->peer_conn),
-			    &peer->pcs.cs,
-			    &peer->channel_id,
-			    WIRE_CHANNEL_INTERNAL_ERROR,
-			    "Could not fail malformed htlc %"PRIu64": %u",
-			    htlc->id, rerr);
+/* We come back here once master has acked the revoke_and_ack we received */
+static struct io_plan *accepted_revocation(struct io_conn *conn,
+					   struct peer *peer)
+{
 	start_commit_timer(peer);
-	tal_free(tmpctx);
+	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
 static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
@@ -732,9 +909,6 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 			    peer->commit_index[REMOTE],
 			    type_to_string(msg, struct privkey, &privkey));
 	}
-	peer->commit_index[REMOTE]++;
-	peer->old_per_commit[REMOTE] = peer->current_per_commit[REMOTE];
-	peer->current_per_commit[REMOTE] = next_per_commit;
 
 	/* We start timer even if this returns false: we might have delayed
 	 * commit because we were waiting for this! */
@@ -743,15 +917,19 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 	else
 		status_trace("No commits outstanding after recv revoke_and_ack");
 
-	/* Tell master about locked-in htlcs. */
-	for (size_t i = 0; i < tal_count(changed_htlcs); i++) {
-		if (changed_htlcs[i]->state == RCVD_ADD_ACK_REVOCATION) {
-			their_htlc_locked(changed_htlcs[i], peer);
-		}
-	}
+	peer->commit_index[REMOTE]++;
+	peer->old_per_commit[REMOTE] = peer->current_per_commit[REMOTE];
+	peer->current_per_commit[REMOTE] = next_per_commit;
 
-	start_commit_timer(peer);
-	return peer_read_message(conn, &peer->pcs, peer_in);
+	/* Tell master about things this locks in, wait for response */
+	msg = got_revoke_msg(msg, peer->commit_index[REMOTE],
+			     &old_commit_secret, changed_htlcs);
+	master_sync_reply(peer, take(msg),
+			  WIRE_CHANNEL_GOT_REVOKE_REPLY,
+			  handle_reply_wake_peer);
+
+	/* And peer waits for reply. */
+	return io_wait(conn, peer, accepted_revocation, peer);
 }
 
 static struct io_plan *handle_peer_fulfill_htlc(struct io_conn *conn,
@@ -774,8 +952,7 @@ static struct io_plan *handle_peer_fulfill_htlc(struct io_conn *conn,
 	e = channel_fulfill_htlc(peer->channel, LOCAL, id, &preimage);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
-		msg = towire_channel_fulfilled_htlc(msg, id, &preimage);
-		daemon_conn_send(&peer->master, take(msg));
+		/* FIXME: We could send preimages to master immediately. */
 		start_commit_timer(peer);
 		return peer_read_message(conn, &peer->pcs, peer_in);
 	/* These shouldn't happen, because any offered HTLC (which would give
@@ -803,6 +980,7 @@ static struct io_plan *handle_peer_fail_htlc(struct io_conn *conn,
 	u64 id;
 	enum channel_remove_err e;
 	u8 *reason;
+	struct htlc *htlc;
 
 	if (!fromwire_update_fail_htlc(msg, msg, NULL,
 				       &channel_id, &id, &reason)) {
@@ -816,8 +994,9 @@ static struct io_plan *handle_peer_fail_htlc(struct io_conn *conn,
 	e = channel_fail_htlc(peer->channel, LOCAL, id);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
-		msg = towire_channel_failed_htlc(msg, id, reason);
-		daemon_conn_send(&peer->master, take(msg));
+		/* Save reason for when we tell master. */
+		htlc = channel_get_htlc(peer->channel, LOCAL, id);
+		htlc->fail = tal_steal(htlc, reason);
 		start_commit_timer(peer);
 		return peer_read_message(conn, &peer->pcs, peer_in);
 	case CHANNEL_ERR_NO_SUCH_ID:
@@ -843,10 +1022,13 @@ static struct io_plan *handle_peer_fail_malformed_htlc(struct io_conn *conn,
 	u64 id;
 	enum channel_remove_err e;
 	struct sha256 sha256_of_onion;
-	u16 failcode;
+	u16 failure_code;
+	struct htlc *htlc;
+	u8 *fail;
 
 	if (!fromwire_update_fail_malformed_htlc(msg, NULL, &channel_id, &id,
-						 &sha256_of_onion, &failcode)) {
+						 &sha256_of_onion,
+						 &failure_code)) {
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
@@ -855,12 +1037,46 @@ static struct io_plan *handle_peer_fail_malformed_htlc(struct io_conn *conn,
 			    tal_hex(msg, msg));
 	}
 
+	/* BOLT #2:
+	 *
+	 * A receiving node MUST fail the channel if the `BADONION` bit in
+	 * `failure_code` is not set for `update_fail_malformed_htlc`.
+	 */
+	if (!(failure_code & BADONION)) {
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
+			    "Bad update_fail_malformed_htlc failure code %u",
+			    failure_code);
+	}
+
 	e = channel_fail_htlc(peer->channel, LOCAL, id);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
-		msg = towire_channel_malformed_htlc(msg, id, &sha256_of_onion,
-						    failcode);
-		daemon_conn_send(&peer->master, take(msg));
+		htlc = channel_get_htlc(peer->channel, LOCAL, id);
+		/* FIXME: Do this! */
+		/* BOLT #2:
+		 *
+		 * A receiving node MAY check the `sha256_of_onion`
+		 * in `update_fail_malformed_htlc` and MAY retry or choose an
+		 * alternate error response if it does not match the onion it
+		 * sent.
+		 */
+
+		/* BOLT #2:
+		 *
+		 * Otherwise, a receiving node which has an outgoing HTLC
+		 * canceled by `update_fail_malformed_htlc` MUST return an
+		 * error in the `update_fail_htlc` sent to the link which
+		 * originally sent the HTLC using the `failure_code` given and
+		 * setting the data to `sha256_of_onion`.
+		 */
+		fail = tal_arr(htlc, u8, 0);
+		towire_u16(&fail, failure_code);
+		towire_sha256(&fail, &sha256_of_onion);
+		/* FIXME: Make htlc->fail a u8 *! */
+		htlc->fail = fail;
 		start_commit_timer(peer);
 		return peer_read_message(conn, &peer->pcs, peer_in);
 	case CHANNEL_ERR_NO_SUCH_ID:
@@ -1350,13 +1566,15 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 		case WIRE_CHANNEL_NORMAL_OPERATION:
 		case WIRE_CHANNEL_INIT:
 		case WIRE_CHANNEL_OFFER_HTLC_REPLY:
-		case WIRE_CHANNEL_ACCEPTED_HTLC:
-		case WIRE_CHANNEL_FULFILLED_HTLC:
-		case WIRE_CHANNEL_FAILED_HTLC:
-		case WIRE_CHANNEL_MALFORMED_HTLC:
 		case WIRE_CHANNEL_PING_REPLY:
 		case WIRE_CHANNEL_PEER_BAD_MESSAGE:
 		case WIRE_CHANNEL_ANNOUNCED:
+		case WIRE_CHANNEL_SENDING_COMMITSIG:
+		case WIRE_CHANNEL_GOT_COMMITSIG:
+		case WIRE_CHANNEL_GOT_REVOKE:
+		case WIRE_CHANNEL_SENDING_COMMITSIG_REPLY:
+		case WIRE_CHANNEL_GOT_COMMITSIG_REPLY:
+		case WIRE_CHANNEL_GOT_REVOKE_REPLY:
 			break;
 		}
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%u %s", t,
@@ -1418,6 +1636,7 @@ int main(int argc, char *argv[])
 	peer->commit_index[LOCAL] = peer->commit_index[REMOTE] = 0;
 	peer->have_sigs[LOCAL] = peer->have_sigs[REMOTE] = false;
 	peer->handle_master_reply = NULL;
+	peer->master_reply_type = 0;
 	msg_queue_init(&peer->master_deferred, peer);
 
 	/* We send these to HSM to get real signatures; don't have valgrind

@@ -219,7 +219,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Sending commit_sig with 0 htlc sigs')
         l2.daemon.wait_for_log('their htlc 0 locked')
         l2.daemon.wait_for_log('failed htlc 0 code 0x400f')
-        l1.daemon.wait_for_log('htlc 0 failed with code 0x400f')
+        l1.daemon.wait_for_log('htlc 0 failed from 0th node with code 0x400f')
 
         # Set up invoice (non-dust, just to test), and pay it.
         # This one isn't dust.
