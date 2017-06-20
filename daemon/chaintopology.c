@@ -193,7 +193,7 @@ static void broadcast_remainder(struct bitcoind *bitcoind,
 	}
 
 	/* Broadcast next one. */
-	bitcoind_sendrawtx(NULL, bitcoind, txs->txs[txs->cursor],
+	bitcoind_sendrawtx(bitcoind, txs->txs[txs->cursor],
 			   broadcast_remainder, txs);
 }
 
@@ -284,7 +284,7 @@ void broadcast_tx(struct chain_topology *topo,
 	if (topo->dev_no_broadcast)
 		broadcast_done(topo->bitcoind, 0, "dev_no_broadcast", otx);
 	else
-		bitcoind_sendrawtx(peer, topo->bitcoind, otx->hextx,
+		bitcoind_sendrawtx(topo->bitcoind, otx->hextx,
 				   broadcast_done, otx);
 }
 

@@ -52,15 +52,14 @@ void bitcoind_estimate_fee_(struct bitcoind *bitcoind,
 						   u64),		\
 			       (arg))
 
-void bitcoind_sendrawtx_(struct peer *peer,
-			 struct bitcoind *bitcoind,
+void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
 			 const char *hextx,
 			 void (*cb)(struct bitcoind *bitcoind,
 				    int exitstatus, const char *msg, void *),
 			 void *arg);
 
-#define bitcoind_sendrawtx(peer_, bitcoind_, hextx, cb, arg)		\
-	bitcoind_sendrawtx_((peer_), (bitcoind_), (hextx),		\
+#define bitcoind_sendrawtx(bitcoind_, hextx, cb, arg)			\
+	bitcoind_sendrawtx_((bitcoind_), (hextx),			\
 			    typesafe_cb_preargs(void, void *,		\
 						(cb), (arg),		\
 						struct bitcoind *,	\

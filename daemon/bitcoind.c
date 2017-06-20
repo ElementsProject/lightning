@@ -286,8 +286,7 @@ static void process_sendrawtx(struct bitcoin_cli *bcli)
 	cb(bcli->bitcoind, *bcli->exitstatus, msg, bcli->cb_arg);
 }
 
-void bitcoind_sendrawtx_(struct peer *peer,
-			 struct bitcoind *bitcoind,
+void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
 			 const char *hextx,
 			 void (*cb)(struct bitcoind *bitcoind,
 				    int exitstatus, const char *msg, void *),
