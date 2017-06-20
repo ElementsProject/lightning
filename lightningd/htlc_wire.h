@@ -5,6 +5,7 @@
 #include <ccan/short_types/short_types.h>
 #include <daemon/htlc.h>
 #include <lightningd/sphinx.h>
+#include <wire/gen_onion_wire.h>
 
 /* These are how we communicate about HTLC state to the master daemon */
 struct added_htlc {
@@ -22,6 +23,7 @@ struct fulfilled_htlc {
 
 struct failed_htlc {
 	u64 id;
+	enum onion_type malformed;
 	u8 *failreason;
 };
 

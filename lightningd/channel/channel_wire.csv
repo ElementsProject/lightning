@@ -90,6 +90,9 @@ channel_fulfill_htlc,,payment_preimage,struct preimage
 # Main daemon says HTLC failed
 channel_fail_htlc,6
 channel_fail_htlc,,id,8
+# If malformed is non-zero, it's a BADONION code
+channel_fail_htlc,,malformed,u16
+# Otherwise, error_pkt contains failreason.
 channel_fail_htlc,,len,2
 channel_fail_htlc,,error_pkt,len*u8
 

@@ -81,6 +81,8 @@ struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 			       htlc_state_name(hin->hstate));
 	else if (hin->failuremsg && hin->preimage)
 		return corrupt(hin, abortstr, "Both failed and succeeded");
+	else if (hin->failuremsg && hin->malformed)
+		return corrupt(hin, abortstr, "Both failed and malformed");
 
 	return cast_const(struct htlc_in *, hin);
 }
@@ -105,6 +107,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 
 	hin->hstate = RCVD_ADD_COMMIT;
 	hin->failuremsg = NULL;
+	hin->malformed = 0;
 	hin->preimage = NULL;
 
 	return htlc_in_check(hin, "new_htlc_in");
@@ -147,6 +150,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 
 	hout->hstate = SENT_ADD_HTLC;
 	hout->failuremsg = NULL;
+	hout->malformed = 0;
 	hout->preimage = NULL;
 
 	hout->in = in;

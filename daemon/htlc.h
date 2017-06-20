@@ -71,6 +71,8 @@ struct htlc {
 	/* Previous HTLC (if any) which made us offer this (LOCAL only) */
 	struct htlc *src;
 	const u8 *fail;
+	/* FIXME: actually an enum onion_type */
+	u8 malformed;
 };
 
 const char *htlc_state_name(enum htlc_state s);

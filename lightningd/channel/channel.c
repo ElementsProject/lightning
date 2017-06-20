@@ -663,6 +663,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 				assert(htlc->fail);
 				f = tal_arr_append(&failed);
 				f->id = htlc->id;
+				f->malformed = htlc->malformed;
 				f->failreason = cast_const(u8 *, htlc->fail);
 			}
 		} else {
@@ -1472,23 +1473,39 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 	u8 *msg;
 	u64 id;
 	u8 *errpkt;
+	u16 malformed;
 	enum channel_remove_err e;
 
-	if (!fromwire_channel_fail_htlc(inmsg, inmsg, NULL, &id, &errpkt))
+	if (!fromwire_channel_fail_htlc(inmsg, inmsg, NULL, &id, &malformed,
+					&errpkt))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND,
 			      "Invalid channel_fail_htlc");
+
+	if (malformed && !(malformed & BADONION))
+		status_failed(WIRE_CHANNEL_BAD_COMMAND,
+			      "Invalid channel_fail_htlc: bad malformed 0x%x",
+			      malformed);
 
 	e = channel_fail_htlc(peer->channel, REMOTE, id);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
-		msg = towire_update_fail_htlc(peer, &peer->channel_id,
-					      id, errpkt);
+		if (malformed) {
+			struct htlc *h;
+			struct sha256 sha256_of_onion;
+			h = channel_get_htlc(peer->channel, REMOTE, id);
+			sha256(&sha256_of_onion, h->routing,
+			       tal_len(h->routing));
+			msg = towire_update_fail_malformed_htlc(peer,
+							&peer->channel_id,
+							id, &sha256_of_onion,
+							malformed);
+		} else {
+			msg = towire_update_fail_htlc(peer, &peer->channel_id,
+						      id, errpkt);
+		}
 		msg_enqueue(&peer->peer_out, take(msg));
 		start_commit_timer(peer);
 		return;
-	/* These shouldn't happen, because any offered HTLC (which would give
-	 * us the preimage) should have timed out long before.  If we
-	 * were to get preimages from other sources, this could happen. */
 	case CHANNEL_ERR_NO_SUCH_ID:
 	case CHANNEL_ERR_ALREADY_FULFILLED:
 	case CHANNEL_ERR_HTLC_UNCOMMITTED:
