@@ -297,6 +297,8 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->state = UNINITIALIZED;
 	peer->channel_info = NULL;
 	peer->next_per_commitment_point = NULL;
+	peer->last_was_revoke = false;
+	peer->last_sent_commit = NULL;
 	peer->num_commits_sent = peer->num_commits_received
 		= peer->num_revocations_received = 0;
 	shachain_init(&peer->their_shachain);
@@ -960,6 +962,8 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 				      &peer->id,
 				      time_to_msec(cfg->commit_time),
 				      cfg->deadline_blocks,
+				      peer->last_was_revoke,
+				      peer->last_sent_commit,
 				      peer->funding_signed);
 
 	/* Don't need this any more (we never re-transmit it) */

@@ -1219,7 +1219,8 @@ static void init_channel(struct peer *peer)
 	u64 local_msatoshi;
 	struct pubkey funding_pubkey[NUM_SIDES];
 	struct sha256_double funding_txid;
-	bool am_funder;
+	bool am_funder, last_was_revoke;
+	struct changed_htlc *last_sent_commit;
 	u8 *funding_signed;
 	u8 *msg;
 
@@ -1243,6 +1244,8 @@ static void init_channel(struct peer *peer)
 				   &peer->node_ids[REMOTE],
 				   &peer->commit_msec,
 				   &peer->cltv_delta,
+				   &last_was_revoke,
+				   &last_sent_commit,
 				   &funding_signed))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Init: %s",
 			      tal_hex(msg, msg));

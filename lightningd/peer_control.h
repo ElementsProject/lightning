@@ -86,6 +86,10 @@ struct peer {
 
 	/* Gossip client fd, forwarded to the respective owner */
 	int gossip_client_fd;
+
+	/* Reestablishment stuff: last sent commit and revocation details. */
+	bool last_was_revoke;
+	struct changed_htlc *last_sent_commit;
 };
 
 static inline bool peer_can_add_htlc(const struct peer *peer)

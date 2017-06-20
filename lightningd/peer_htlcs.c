@@ -793,6 +793,11 @@ int peer_sending_commitsig(struct peer *peer, const u8 *msg)
 
 	peer->num_commits_sent++;
 
+	/* Last was commit. */
+	peer->last_was_revoke = false;
+	tal_free(peer->last_sent_commit);
+	peer->last_sent_commit = tal_steal(peer, changed_htlcs);
+
 	/* Tell it we've got it, and to go ahead with commitment_signed. */
 	subd_send_msg(peer->owner,
 		      take(towire_channel_sending_commitsig_reply(msg)));
@@ -860,6 +865,7 @@ static bool peer_sending_revocation(struct peer *peer,
 		}
 	}
 
+	peer->last_was_revoke = true;
 	return true;
 }
 
