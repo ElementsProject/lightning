@@ -20,10 +20,13 @@ struct pay_command {
 	u64 msatoshi;
 	const struct pubkey *ids;
 	/* Set if this is in progress. */
-	struct htlc_end *out;
+	struct htlc_out *out;
 	/* Preimage if this succeeded. */
 	const struct preimage *rval;
 	struct command *cmd;
+
+	/* Remember all shared secrets, so we can unwrap an eventual failure */
+	struct secret *path_secrets;
 };
 
 static void json_pay_success(struct command *cmd, const struct preimage *rval)
@@ -57,25 +60,46 @@ static void json_pay_failed(struct pay_command *pc,
 	pc->out = NULL;
 }
 
-void payment_succeeded(struct lightningd *ld, struct htlc_end *dst,
+void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 		       const struct preimage *rval)
 {
-	assert(!dst->pay_command->rval);
-	dst->pay_command->rval = tal_dup(dst->pay_command,
-					 struct preimage, rval);
-	json_pay_success(dst->pay_command->cmd, rval);
-	dst->pay_command->out = NULL;
+	assert(!hout->pay_command->rval);
+	hout->pay_command->rval = tal_dup(hout->pay_command,
+					  struct preimage, rval);
+	json_pay_success(hout->pay_command->cmd, rval);
+	hout->pay_command->out = NULL;
 }
 
-/* FIXME: sender is NULL for now: need crypto! */
-void payment_failed(struct lightningd *ld, struct htlc_end *dst,
-		    const struct pubkey *sender,
-		    enum onion_type failure_code)
+void payment_failed(struct lightningd *ld, const struct htlc_out *hout)
 {
+	struct pay_command *pc = hout->pay_command;
+	enum onion_type failcode;
+	struct onionreply *reply;
+
+	reply = unwrap_onionreply(pc, pc->path_secrets,
+				  tal_count(pc->path_secrets),
+				  hout->failuremsg);
+	if (!reply) {
+		log_info(hout->key.peer->log,
+			 "htlc %"PRIu64" failed with bad reply (%s)",
+			 hout->key.id,
+			 tal_hex(pc, hout->failuremsg));
+		failcode = WIRE_PERMANENT_NODE_FAILURE;
+	} else {
+		failcode = fromwire_peektype(reply->msg);
+		log_info(hout->key.peer->log,
+			 "htlc %"PRIu64" failed from %ith node with code 0x%04x (%s)",
+			 hout->key.id,
+			 reply->origin_index,
+			 failcode, onion_type_name(failcode));
+	}
+
+	/* FIXME: save ids we can turn reply->origin_index into sender. */
+
 	/* FIXME: check for routing failure / perm fail. */
 	/* check_for_routing_failure(i, sender, failure_code); */
-	json_pay_failed(dst->pay_command, sender, failure_code,
-			"reply from remote");
+
+	json_pay_failed(pc, NULL, failcode, "reply from remote");
 }
 
 static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
@@ -85,7 +109,7 @@ static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 	u8 *failstr;
 
 	if (!fromwire_channel_offer_htlc_reply(msg, msg, NULL,
-					       &pc->out->htlc_id,
+					       &pc->out->key.id,
 					       &failcode, &failstr)) {
 		json_pay_failed(pc, &subd->ld->dstate.id, -1,
 				"daemon bad response");
@@ -103,7 +127,7 @@ static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 
 	/* HTLC endpoint now owned by lightningd. */
 	tal_steal(subd->ld, pc->out);
-	connect_htlc_end(&subd->ld->htlc_ends, pc->out);
+	connect_htlc_out(&subd->ld->htlcs_out, pc->out);
 	return true;
 }
 
@@ -327,16 +351,10 @@ static void json_sendpay(struct command *cmd,
 	pc->rval = NULL;
 	pc->ids = tal_steal(pc, ids);
 	pc->msatoshi = lastamount;
+	pc->path_secrets = tal_steal(pc, path_secrets);
 
-	pc->out = tal(pc, struct htlc_end);
-	pc->out->which_end = HTLC_DST;
-	pc->out->hstate = SENT_ADD_HTLC;
-	pc->out->peer = peer;
-	pc->out->fail_msg = NULL;
-	pc->out->msatoshis = amount;
-	pc->out->other_end = NULL;
-	pc->out->pay_command = pc;
-	pc->out->path_secrets = tal_steal(pc->out, path_secrets);
+	pc->out = new_htlc_out(pc, peer, amount, first_hop_data.outgoing_cltv,
+			       &rhash, onion, NULL, pc);
 
 	log_info(ld->log, "Sending %"PRIu64" over %zu hops to deliver %"PRIu64,
 		 amount, n_hops, lastamount);

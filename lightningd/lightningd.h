@@ -54,7 +54,8 @@ struct lightningd {
 	int dev_disconnect_fd;
 
 	/* HTLCs in flight. */
-	struct htlc_end_map htlc_ends;
+	struct htlc_in_map htlcs_in;
+	struct htlc_out_map htlcs_out;
 
 	u32 broadcast_interval;
 
