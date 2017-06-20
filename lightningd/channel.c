@@ -13,6 +13,7 @@
 #include <inttypes.h>
 #include <lightningd/channel_config.h>
 #include <lightningd/htlc_tx.h>
+#include <lightningd/htlc_wire.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/status.h>
 #include <string.h>
@@ -341,13 +342,13 @@ struct channel *copy_channel(const tal_t *ctx, const struct channel *old)
 	return new;
 }
 
-enum channel_add_err channel_add_htlc(struct channel *channel,
-				      enum side sender,
-				      u64 id,
-				      u64 msatoshi,
-				      u32 cltv_expiry,
-				      const struct sha256 *payment_hash,
-				      const u8 routing[TOTAL_PACKET_SIZE])
+static enum channel_add_err add_htlc(struct channel *channel,
+				     enum side sender,
+				     u64 id, u64 msatoshi, u32 cltv_expiry,
+				     const struct sha256 *payment_hash,
+				     const u8 routing[TOTAL_PACKET_SIZE],
+				     struct htlc **htlcp,
+				     bool enforce_aggregate_limits)
 {
 	const tal_t *tmpctx = tal_tmpctx(channel);
 	struct htlc *htlc, *old;
@@ -360,38 +361,31 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 
 	htlc = tal(tmpctx, struct htlc);
 
+	/* FIXME: Don't need fields: peer, deadline, src. */
+
 	if (sender == LOCAL)
 		htlc->state = SENT_ADD_HTLC;
 	else
 		htlc->state = RCVD_ADD_HTLC;
+
 	htlc->id = id;
 	htlc->msatoshi = msatoshi;
+	/* FIXME: Change expiry to simple u32 */
+
 	/* BOLT #2:
 	 *
 	 * A receiving node SHOULD fail the channel if a sending node... sets
 	 * `cltv_expiry` to greater or equal to 500000000.
 	 */
-	if (!blocks_to_abs_locktime(cltv_expiry, &htlc->expiry))
-		return CHANNEL_ERR_INVALID_EXPIRY;
+	if (!blocks_to_abs_locktime(cltv_expiry, &htlc->expiry)) {
+		e = CHANNEL_ERR_INVALID_EXPIRY;
+		goto out;
+	}
+
 	htlc->rhash = *payment_hash;
 	htlc->fail = NULL;
 	htlc->r = NULL;
-
-	/* BOLT #2:
-	 *
-	 * 1. type: 128 (`update_add_htlc`)
-	 * 2. data:
-	 *    * [`32`:`channel_id`]
-	 *    * [`8`:`id`]
-	 *    * [`8`:`amount_msat`]
-	 *    * [`32`:`payment_hash`]
-	 *    * [`4`:`cltv_expiry`]
-	 *    * [`1366`:`onion_routing_packet`]
-	 */
 	htlc->routing = tal_dup_arr(htlc, u8, routing, TOTAL_PACKET_SIZE, 0);
-
-	/* FIXME: check expiry etc. against config. */
-	/* FIXME: set deadline */
 
 	old = htlc_get(&channel->htlcs, htlc->id, htlc_owner(htlc));
 	if (old) {
@@ -443,7 +437,8 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	 * A receiving node SHOULD fail the channel if a sending node
 	 * adds more than its `max_accepted_htlcs` HTLCs to its local
 	 * commitment transaction */
-	if (tal_count(committed) - tal_count(removing) + tal_count(adding)
+	if (enforce_aggregate_limits
+	    && tal_count(committed) - tal_count(removing) + tal_count(adding)
 	    > max_accepted_htlcs(channel, recipient)) {
 		e = CHANNEL_ERR_TOO_MANY_HTLCS;
 		goto out;
@@ -458,7 +453,8 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	 * A receiving node SHOULD fail the channel if a sending node ... or
 	 * adds more than its `max_htlc_value_in_flight_msat` worth of offered
 	 * HTLCs to its local commitment transaction */
-	if (msat_in_htlcs > max_htlc_value_in_flight_msat(channel, recipient)) {
+	if (enforce_aggregate_limits
+	    && msat_in_htlcs > max_htlc_value_in_flight_msat(channel, recipient)) {
 		e = CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
 		goto out;
 	}
@@ -505,7 +501,8 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	 * come back to the sender after revoke_and_ack.  So the check
 	 * here is that the balance to the sender doesn't go below the
 	 * sender's reserve. */
-	if (balance_msat - fee_msat < (s64)channel_reserve_msat(channel, sender)) {
+	if (enforce_aggregate_limits
+	    && balance_msat - fee_msat < (s64)channel_reserve_msat(channel, sender)) {
 		e = CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
 		goto out;
 	}
@@ -513,10 +510,25 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	dump_htlc(htlc, "NEW:");
 	htlc_map_add(&channel->htlcs, tal_steal(channel, htlc));
 	e = CHANNEL_ERR_ADD_OK;
+	if (htlcp)
+		*htlcp = htlc;
 
 out:
 	tal_free(tmpctx);
 	return e;
+}
+
+enum channel_add_err channel_add_htlc(struct channel *channel,
+				      enum side sender,
+				      u64 id,
+				      u64 msatoshi,
+				      u32 cltv_expiry,
+				      const struct sha256 *payment_hash,
+				      const u8 routing[TOTAL_PACKET_SIZE])
+{
+	/* FIXME: check expiry etc. against config. */
+	return add_htlc(channel, sender, id, msatoshi, cltv_expiry, payment_hash,
+			routing, NULL, true);
 }
 
 struct htlc *channel_get_htlc(struct channel *channel, enum side sender, u64 id)
@@ -781,6 +793,178 @@ bool channel_awaiting_revoke_and_ack(const struct channel *channel)
 				return true;
 	}
 	return false;
+}
+
+static bool adjust_balance(struct channel *channel, struct htlc *htlc)
+{
+	enum side side;
+
+	for (side = 0; side < NUM_SIDES; side++) {
+		/* Did it ever add it? */
+		if (!htlc_has(htlc, HTLC_FLAG(side, HTLC_F_WAS_COMMITTED)))
+			continue;
+
+		/* Add it. */
+		channel->view[side].owed_msat[LOCAL]
+			+= balance_adding_htlc(htlc, LOCAL);
+		channel->view[side].owed_msat[REMOTE]
+			+= balance_adding_htlc(htlc, REMOTE);
+
+		/* If it is no longer committed, remove it (depending
+		 * on fail || fulfill). */
+		if (htlc_has(htlc, HTLC_FLAG(side, HTLC_F_COMMITTED)))
+			continue;
+
+		if (!htlc->fail && !htlc->r) {
+			status_trace("%s HTLC %"PRIu64
+				     " %s neither fail nor fulfull?",
+				     htlc_state_owner(htlc->state) == LOCAL
+				     ? "out" : "in",
+				     htlc->id,
+				     htlc_state_name(htlc->state));
+			return false;
+		}
+		channel->view[side].owed_msat[LOCAL]
+			+= balance_removing_htlc(htlc, LOCAL);
+		channel->view[side].owed_msat[REMOTE]
+			+= balance_removing_htlc(htlc, REMOTE);
+	}
+	return true;
+}
+
+bool channel_force_htlcs(struct channel *channel,
+			 const struct added_htlc *htlcs,
+			 const enum htlc_state *hstates,
+			 const struct fulfilled_htlc *fulfilled,
+			 const enum side *fulfilled_sides,
+			 const struct failed_htlc *failed,
+			 const enum side *failed_sides)
+{
+	size_t i;
+
+	if (tal_count(hstates) != tal_count(htlcs)) {
+		status_trace("#hstates %zu != #htlcs %zu",
+			     tal_count(hstates), tal_count(htlcs));
+		return false;
+	}
+
+	if (tal_count(fulfilled) != tal_count(fulfilled_sides)) {
+		status_trace("#fulfilled sides %zu != #fulfilled %zu",
+			     tal_count(fulfilled_sides), tal_count(fulfilled));
+		return false;
+	}
+
+	if (tal_count(failed) != tal_count(failed_sides)) {
+		status_trace("#failed sides %zu != #failed %zu",
+			     tal_count(failed_sides), tal_count(failed));
+		return false;
+	}
+	for (i = 0; i < tal_count(htlcs); i++) {
+		enum channel_add_err e;
+		struct htlc *htlc;
+
+		status_trace("Restoring HTLC %zu/%zu:"
+			     " id=%"PRIu64" msat=%"PRIu64" ctlv=%u"
+			     " payment_hash=%s",
+			     i, tal_count(htlcs),
+			     htlcs[i].id, htlcs[i].amount_msat,
+			     htlcs[i].cltv_expiry,
+			     type_to_string(trc, struct sha256,
+					    &htlcs[i].payment_hash));
+
+		e = add_htlc(channel, htlc_state_owner(hstates[i]),
+			     htlcs[i].id, htlcs[i].amount_msat,
+			     htlcs[i].cltv_expiry,
+			     &htlcs[i].payment_hash,
+			     htlcs[i].onion_routing_packet, &htlc, false);
+		if (e != CHANNEL_ERR_ADD_OK) {
+			status_trace("%s HTLC %"PRIu64" failed error %u",
+				     htlc_state_owner(hstates[i]) == LOCAL
+				     ? "out" : "in", htlcs[i].id, e);
+			return false;
+		}
+
+		/* Override state. */
+		htlc->state = hstates[i];
+	}
+
+	for (i = 0; i < tal_count(fulfilled); i++) {
+		struct htlc *htlc = channel_get_htlc(channel,
+						     fulfilled_sides[i],
+						     fulfilled[i].id);
+		if (!htlc) {
+			status_trace("Fulfill %s HTLC %"PRIu64" not found",
+				     fulfilled_sides[i] == LOCAL ? "out" : "in",
+				     fulfilled[i].id);
+			return false;
+		}
+		if (htlc->r) {
+			status_trace("Fulfill %s HTLC %"PRIu64" already fulfilled",
+				     fulfilled_sides[i] == LOCAL ? "out" : "in",
+				     fulfilled[i].id);
+			return false;
+		}
+		if (htlc->fail) {
+			status_trace("Fulfill %s HTLC %"PRIu64" already failed",
+				     fulfilled_sides[i] == LOCAL ? "out" : "in",
+				     fulfilled[i].id);
+			return false;
+		}
+		if (!htlc_has(htlc, HTLC_REMOVING)) {
+			status_trace("Fulfill %s HTLC %"PRIu64" state %s",
+				     fulfilled_sides[i] == LOCAL ? "out" : "in",
+				     fulfilled[i].id,
+				     htlc_state_name(htlc->state));
+			return false;
+		}
+		htlc->r = tal_dup(htlc, struct preimage,
+				  &fulfilled[i].payment_preimage);
+	}
+
+	for (i = 0; i < tal_count(failed); i++) {
+		struct htlc *htlc;
+		htlc = channel_get_htlc(channel, failed_sides[i],
+					failed[i].id);
+		if (!htlc) {
+			status_trace("Fail %s HTLC %"PRIu64" not found",
+				     failed_sides[i] == LOCAL ? "out" : "in",
+				     failed[i].id);
+			return false;
+		}
+		if (htlc->r) {
+			status_trace("Fail %s HTLC %"PRIu64" already fulfilled",
+				     failed_sides[i] == LOCAL ? "out" : "in",
+				     failed[i].id);
+			return false;
+		}
+		if (htlc->fail) {
+			status_trace("Fail %s HTLC %"PRIu64" already failed",
+				     failed_sides[i] == LOCAL ? "out" : "in",
+				     failed[i].id);
+			return false;
+		}
+		if (!htlc_has(htlc, HTLC_REMOVING)) {
+			status_trace("Fail %s HTLC %"PRIu64" state %s",
+				     failed_sides[i] == LOCAL ? "out" : "in",
+				     fulfilled[i].id,
+				     htlc_state_name(htlc->state));
+			return false;
+		}
+		htlc->fail = tal_dup_arr(htlc, u8, failed[i].failreason,
+					 tal_len(failed[i].failreason), 0);
+	}
+
+	for (i = 0; i < tal_count(htlcs); i++) {
+		struct htlc *htlc;
+		htlc = channel_get_htlc(channel,
+					htlc_state_owner(hstates[i]),
+					htlcs[i].id);
+
+		if (!adjust_balance(channel, htlc))
+			return false;
+	}
+
+	return true;
 }
 
 static char *fmt_channel_view(const tal_t *ctx, const struct channel_view *view)

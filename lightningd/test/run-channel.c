@@ -15,6 +15,8 @@
 #include <lightningd/sphinx.h>
 #include <type_to_string.h>
 
+const void *trc;
+
 static struct sha256 sha256_from_hex(const char *hex)
 {
 	struct sha256 sha256;
@@ -318,6 +320,8 @@ int main(void)
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
+
+	trc = tmpctx;
 
 	/* BOLT #3:
 	 *
