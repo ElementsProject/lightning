@@ -24,6 +24,9 @@ struct peer {
 	/* ID of peer */
 	struct pubkey id;
 
+	/* Error message (iff in error state) */
+	u8 *error;
+
 	/* Their shachain. */
 	struct shachain their_shachain;
 
@@ -140,8 +143,13 @@ void peer_fundee_open(struct peer *peer, const u8 *msg);
 void add_peer(struct lightningd *ld, u64 unique_id,
 	      int fd, const struct pubkey *id,
 	      const struct crypto_state *cs);
-/* Peer has failed. */
-PRINTF_FMT(2,3) void peer_fail(struct peer *peer, const char *fmt, ...);
+
+/* Peer has failed, but try reconnected. */
+PRINTF_FMT(2,3) void peer_fail_transient(struct peer *peer, const char *fmt,...);
+/* Peer has failed, give up on it. */
+void peer_fail_permanent(struct peer *peer, const u8 *msg);
+/* Permanent error, but due to internal problems, not peer. */
+void peer_internal_error(struct peer *peer, const char *fmt, ...);
 
 const char *peer_state_name(enum peer_state state);
 void peer_set_condition(struct peer *peer, enum peer_state oldstate,

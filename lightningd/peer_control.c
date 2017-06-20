@@ -84,12 +84,58 @@ static void peer_reconnect(struct peer *peer)
 		     try_reconnect, peer);
 }
 
-void peer_fail(struct peer *peer, const char *fmt, ...)
+static void drop_to_chain(struct peer *peer)
+{
+	/* FIXME: Implement. */
+}
+
+void peer_fail_permanent(struct peer *peer, const u8 *msg)
+{
+	/* BOLT #1:
+	 *
+	 * The channel is referred to by `channel_id` unless `channel_id` is
+	 * zero (ie. all bytes zero), in which case it refers to all
+	 * channels. */
+	static const struct channel_id all_channels;
+
+	log_unusual(peer->log, "Peer permanent failure in %s: %.*s",
+		    peer_state_name(peer->state),
+		    (int)tal_len(msg), (char *)msg);
+	peer->error = towire_error(peer, &all_channels, msg);
+
+	/* In case we reconnected in the meantime. */
+	if (peer->fd != -1) {
+		/* FIXME: We should retransmit error if this happens. */
+		close(peer->fd);
+	}
+
+	if (peer_persists(peer))
+		drop_to_chain(peer);
+	else
+		tal_free(peer);
+	return;
+}
+
+void peer_internal_error(struct peer *peer, const char *fmt, ...)
 {
 	va_list ap;
 
 	va_start(ap, fmt);
-	log_info(peer->log, "Peer failure in %s: ",
+	log_broken(peer->log, "Peer internal error %s: ",
+		   peer_state_name(peer->state));
+	logv_add(peer->log, fmt, ap);
+	va_end(ap);
+
+	peer_fail_permanent(peer,
+			    take((u8 *)tal_strdup(peer, "Internal error")));
+}
+
+void peer_fail_transient(struct peer *peer, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	log_info(peer->log, "Peer transient failure in %s: ",
 		 peer_state_name(peer->state));
 	logv_add(peer->log, fmt, ap);
 	va_end(ap);
@@ -133,6 +179,15 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 				      const int *fds,
 				      struct peer *peer);
 
+/* Send (encrypted) error message, then close. */
+static struct io_plan *send_error(struct io_conn *conn, struct peer *peer)
+{
+	struct peer_crypto_state *pcs = tal(conn, struct peer_crypto_state);
+	init_peer_crypto_state(peer, pcs);
+	pcs->cs = *peer->cs;
+	return peer_write_message(conn, pcs, peer->error, (void *)io_close_cb);
+}
+
 /* Returns true if we consider this a reconnection. */
 static bool peer_reconnected(struct lightningd *ld,
 			     const struct pubkey *id,
@@ -149,6 +204,16 @@ static bool peer_reconnected(struct lightningd *ld,
 	/* Always copy cryptostate; at worst we'll throw it away. */
 	tal_free(peer->cs);
 	peer->cs = tal_dup(peer, struct crypto_state, cs);
+
+	/* BOLT #2:
+	 *
+	 * On reconnection, if a channel is in an error state, the node SHOULD
+	 * retransmit the error packet and ignore any other packets for that
+	 * channel, and the following requirements do not apply. */
+	if (peer->error) {
+		io_new_conn(peer, fd, send_error, peer);
+		return true;
+	}
 
 	/* We need this for init */
 	peer->reconnected = true;
@@ -282,6 +347,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	/* Fresh peer. */
 	peer = tal(ld, struct peer);
 	peer->ld = ld;
+	peer->error = NULL;
 	peer->unique_id = unique_id;
 	peer->owner = NULL;
 	peer->id = *id;
@@ -370,8 +436,11 @@ static void peer_owner_finished(struct subd *subd, int status)
 	}
 
 	subd->peer->owner = NULL;
-	peer_fail(subd->peer, "Owning subdaemon %s died (%i)",
-		  subd->name, status);
+
+	/* Don't do a transient error if it's already perm failed. */
+	if (!subd->peer->error)
+		peer_fail_transient(subd->peer, "Owning subdaemon %s died (%i)",
+				    subd->name, status);
 }
 
 static int make_listen_fd(struct lightningd *ld,
@@ -946,7 +1015,7 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 	if (!peer->owner) {
 		log_unusual(peer->log, "Could not subdaemon channel: %s",
 			    strerror(errno));
-		peer_fail(peer, "Failed to subdaemon channel");
+		peer_fail_transient(peer, "Failed to subdaemon channel");
 		return true;
 	}
 
@@ -1098,21 +1167,24 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 	bitcoin_txid(fc->funding_tx, fc->peer->funding_txid);
 
 	if (!structeq(fc->peer->funding_txid, &funding_txid)) {
-		peer_fail(fc->peer, "Funding txid mismatch:"
-			  " satoshi %"PRIu64" change %"PRIu64" changeidx %u"
-			  " localkey %s remotekey %s",
-			  fc->peer->funding_satoshi,
-			  fc->change, fc->change_keyindex,
-			  type_to_string(fc, struct pubkey, &local_fundingkey),
-			  type_to_string(fc, struct pubkey,
-					 &channel_info->remote_fundingkey));
+		peer_internal_error(fc->peer,
+				    "Funding txid mismatch:"
+				    " satoshi %"PRIu64" change %"PRIu64
+				    " changeidx %u"
+				    " localkey %s remotekey %s",
+				    fc->peer->funding_satoshi,
+				    fc->change, fc->change_keyindex,
+				    type_to_string(fc, struct pubkey,
+						   &local_fundingkey),
+				    type_to_string(fc, struct pubkey,
+						   &channel_info->remote_fundingkey));
 		return false;
 	}
 
 	/* We should have sent and received the first commitsig */
 	if (!peer_save_commitsig_received(fc->peer, 0)
 	    || !peer_save_commitsig_sent(fc->peer, 0)) {
-		peer_fail(fc->peer, "Saving commitsig failed");
+		peer_internal_error(fc->peer, "Saving commitsig failed");
 		return false;
 	}
 
@@ -1246,10 +1318,12 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer)
 	/* Note: gossipd handles unknown packets, so we don't have to worry
 	 * about ignoring odd ones here. */
 	if (fromwire_peektype(from_peer) != WIRE_OPEN_CHANNEL) {
+		char *msg = tal_fmt(peer, "Bad message %i (%s) before opening",
+				    fromwire_peektype(from_peer),
+				    wire_type_name(fromwire_peektype(from_peer)));
 		log_unusual(peer->log, "Strange message to exit gossip: %u",
 			    fromwire_peektype(from_peer));
-		peer_fail(peer, "Bad message during gossiping: %s",
-			  tal_hex(peer, from_peer));
+		peer_fail_permanent(peer, (u8 *)take(msg));
 		return;
 	}
 
@@ -1260,8 +1334,8 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer)
 			       take(&peer->fd), &peer->gossip_client_fd,
 			       NULL);
 	if (!peer->owner) {
-		peer_fail(peer, "Failed to subdaemon opening: %s",
-			  strerror(errno));
+		peer_fail_transient(peer, "Failed to subdaemon opening: %s",
+				    strerror(errno));
 		return;
 	}
 
@@ -1294,7 +1368,8 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer)
 
 	/* Careful here!  Their message could push us overlength! */
 	if (tal_len(msg) >= 65536) {
-		peer_fail(peer, "Unacceptably long open_channel");
+		char *err = tal_strdup(peer, "Unacceptably long open_channel");
+		peer_fail_permanent(peer, (u8 *)take(err));
 		return;
 	}
 	subd_req(peer, peer->owner, take(msg), -1, 1,
@@ -1343,8 +1418,8 @@ static bool gossip_peer_released(struct subd *gossip,
 			   take(&fc->peer->fd),
 			   &fc->peer->gossip_client_fd, NULL);
 	if (!opening) {
-		peer_fail(fc->peer, "Failed to subdaemon opening: %s",
-			  strerror(errno));
+		peer_fail_transient(fc->peer, "Failed to subdaemon opening: %s",
+				    strerror(errno));
 		return true;
 	}
 	fc->peer->owner = opening;
