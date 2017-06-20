@@ -54,16 +54,6 @@ static void destroy_peer(struct peer *peer)
 		close(peer->gossip_client_fd);
 }
 
-static struct peer *peer_by_pubkey(struct lightningd *ld, const struct pubkey *id)
-{
-	struct peer *peer;
-	list_for_each(&ld->peers, peer, list) {
-		if (pubkey_cmp(id, &peer->id) == 0)
-			return peer;
-	}
-	return NULL;
-}
-
 /* Mutual recursion, sets timer. */
 static void peer_reconnect(struct peer *peer);
 
@@ -72,7 +62,7 @@ static void reconnect_failed(struct lightningd_state *dstate,
 {
 	/* Figure out what peer, set reconnect timer. */
 	struct lightningd *ld = ld_from_dstate(dstate);
-	struct peer *peer = peer_by_pubkey(ld, connection_known_id(c));
+	struct peer *peer = peer_by_id(ld, connection_known_id(c));
 
 	tal_free(c);
 	peer_reconnect(peer);
@@ -1109,7 +1099,7 @@ static void forward_htlc(struct htlc_end *hend,
 	u8 *err, *msg;
 	u64 fee;
 	struct lightningd *ld = hend->peer->ld;
-	struct peer *next = peer_by_pubkey(ld, next_hop);
+	struct peer *next = peer_by_id(ld, next_hop);
 
 	if (!next) {
 		err = towire_unknown_next_peer(hend);
