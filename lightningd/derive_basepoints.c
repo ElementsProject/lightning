@@ -68,23 +68,22 @@ bool derive_basepoints(const struct privkey *seed,
 	return true;
 }
 
-bool next_per_commit_point(const struct sha256 *shaseed,
-			   struct sha256 *old_commit_secret,
-			   struct pubkey *per_commit_point,
-			   u64 per_commit_index)
+void per_commit_secret(const struct sha256 *shaseed,
+		       struct sha256 *commit_secret,
+		       u64 per_commit_index)
+{
+	shachain_from_seed(shaseed, shachain_index(per_commit_index),
+			   commit_secret);
+}
+
+bool per_commit_point(const struct sha256 *shaseed,
+		      struct pubkey *commit_point,
+		      u64 per_commit_index)
 {
 	struct sha256 per_commit_secret;
 
-
-	/* Get old secret. */
-	if (per_commit_index > 0)
-		shachain_from_seed(shaseed, shachain_index(per_commit_index - 1),
-				   old_commit_secret);
-	else
-		assert(old_commit_secret == NULL);
-
 	/* Derive new per-commitment-point. */
-	shachain_from_seed(shaseed, shachain_index(per_commit_index + 1),
+	shachain_from_seed(shaseed, shachain_index(per_commit_index),
 			   &per_commit_secret);
 
 	/* BOLT #3:
@@ -94,7 +93,7 @@ bool next_per_commit_point(const struct sha256 *shaseed,
 	 * 	per_commitment_point = per_commitment_secret * G
 	 */
 	if (secp256k1_ec_pubkey_create(secp256k1_ctx,
-				       &per_commit_point->pubkey,
+				       &commit_point->pubkey,
 				       per_commit_secret.u.u8) != 1)
 		return false;
 

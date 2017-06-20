@@ -583,11 +583,10 @@ static struct io_plan *send_revocation(struct io_conn *conn, struct peer *peer)
 	u8 *msg;
 
 	peer->old_per_commit[LOCAL] = peer->current_per_commit[LOCAL];
-	if (!next_per_commit_point(&peer->shaseed, &old_commit_secret,
-				   &peer->current_per_commit[LOCAL],
-				   peer->commit_index[LOCAL]))
-		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
-			      "Deriving next commit_point");
+
+	/* Get N-1th secret. */
+	per_commit_secret(&peer->shaseed, &old_commit_secret,
+			  peer->commit_index[LOCAL] - 1);
 
 	pubkey_from_privkey((struct privkey *)&old_commit_secret, &test);
 	if (!pubkey_eq(&test, &oldpoint))
@@ -596,7 +595,12 @@ static struct io_plan *send_revocation(struct io_conn *conn, struct peer *peer)
 			      tal_hexstr(trc, &old_commit_secret,
 					 sizeof(old_commit_secret)));
 
-	peer->commit_index[LOCAL]++;
+	/* Send N+1th point. */
+	if (!per_commit_point(&peer->shaseed,
+			      &peer->current_per_commit[LOCAL],
+			      ++peer->commit_index[LOCAL]))
+		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
+			      "Deriving next commit_point");
 
 	/* If this queues more changes on the other end, send commit. */
 	if (channel_sending_revoke_and_ack(peer->channel)) {
@@ -1348,9 +1352,9 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 					     &peer->short_channel_ids[LOCAL]))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s", tal_hex(msg, msg));
 
-	next_per_commit_point(&peer->shaseed, NULL,
-			      &peer->current_per_commit[LOCAL],
-			      peer->commit_index[LOCAL]++);
+	per_commit_point(&peer->shaseed,
+			 &peer->current_per_commit[LOCAL],
+			 ++peer->commit_index[LOCAL]);
 
 	msg = towire_funding_locked(peer,
 				    &peer->channel_id,
