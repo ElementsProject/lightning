@@ -568,11 +568,17 @@ class LightningDTests(BaseLightningDTests):
 
         self.fund_channel(l1, l2, 10**6)
 
-    def test_reconnect_add_htlc(self):
+    def test_reconnect_sender_add(self):
         # Fail after add is OK, will cause payment failure though.
         disconnects = ['-WIRE_UPDATE_ADD_HTLC',
                        '@WIRE_UPDATE_ADD_HTLC',
-                       '+WIRE_UPDATE_ADD_HTLC']
+                       '+WIRE_UPDATE_ADD_HTLC',
+                       '-WIRE_COMMITMENT_SIGNED',
+                       '@WIRE_COMMITMENT_SIGNED',
+                       '+WIRE_COMMITMENT_SIGNED',
+                       '-WIRE_REVOKE_AND_ACK',
+                       '@WIRE_REVOKE_AND_ACK',
+                       '+WIRE_REVOKE_AND_ACK']
         l1 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
         l2 = self.node_factory.get_node(legacy=False)
         ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
@@ -583,7 +589,6 @@ class LightningDTests(BaseLightningDTests):
         rhash = l2.rpc.invoice(amt, 'testpayment2')['rhash']
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
 
-        rhash = l2.rpc.invoice(amt, 'testpayment3')['rhash']
         route = [ { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'} ]
         # First time, it will fail because it doesn't send commit.
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
@@ -591,9 +596,60 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Already have funding locked in')
         # This will send commit, so will reconnect.
         l1.rpc.sendpay(to_json(route), rhash)
-        l1.daemon.wait_for_log('Already have funding locked in')
-        l1.daemon.wait_for_log('Already have funding locked in')
+        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
+        # Should have printed this for every reconnect.
+        for i in range(1,len(disconnects)):
+            l1.daemon.wait_for_log('Already have funding locked in')
 
+    def test_reconnect_receiver_add(self):
+        disconnects = ['-WIRE_COMMITMENT_SIGNED',
+                       '@WIRE_COMMITMENT_SIGNED',
+                       '+WIRE_COMMITMENT_SIGNED',
+                       '-WIRE_REVOKE_AND_ACK',
+                       '@WIRE_REVOKE_AND_ACK',
+                       '+WIRE_REVOKE_AND_ACK']
+        l1 = self.node_factory.get_node(legacy=False)
+        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+
+        self.fund_channel(l1, l2, 10**6)
+
+        amt = 200000000
+        rhash = l2.rpc.invoice(amt, 'testpayment2')['rhash']
+        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
+
+        route = [ { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'} ]
+        l1.rpc.sendpay(to_json(route), rhash)
+        for i in range(len(disconnects)):
+            l1.daemon.wait_for_log('Already have funding locked in')
+        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
+
+    def test_reconnect_receiver_fulfill(self):
+        disconnects = ['-WIRE_UPDATE_FULFILL_HTLC',
+                       '@WIRE_UPDATE_FULFILL_HTLC',
+                       '+WIRE_UPDATE_FULFILL_HTLC',
+                       '-WIRE_COMMITMENT_SIGNED',
+                       '@WIRE_COMMITMENT_SIGNED',
+                       '+WIRE_COMMITMENT_SIGNED',
+                       '-WIRE_REVOKE_AND_ACK',
+                       '@WIRE_REVOKE_AND_ACK',
+                       '+WIRE_REVOKE_AND_ACK']
+        l1 = self.node_factory.get_node(legacy=False)
+        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+
+        self.fund_channel(l1, l2, 10**6)
+
+        amt = 200000000
+        rhash = l2.rpc.invoice(amt, 'testpayment2')['rhash']
+        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
+
+        route = [ { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'} ]
+        l1.rpc.sendpay(to_json(route), rhash)
+        for i in range(len(disconnects)):
+            l1.daemon.wait_for_log('Already have funding locked in')
+        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
+        
     def test_json_addfunds(self):
         """ Attempt to add funds
         """
