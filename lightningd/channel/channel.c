@@ -1,5 +1,6 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
+#include <ccan/cast/cast.h>
 #include <ccan/container_of/container_of.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/crypto/shachain/shachain.h>
@@ -82,6 +83,11 @@ struct peer {
 
 	struct daemon_conn gossip_client;
 	struct daemon_conn master;
+
+	/* If we're waiting for a specific reply, defer other messages. */
+	enum channel_wire_type master_reply_type;
+	void (*handle_master_reply)(struct peer *peer, const u8 *msg);
+	struct msg_queue master_deferred;
 
 	struct timers timers;
 	struct oneshot *commit_timer;
@@ -1295,6 +1301,25 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 	else {
 		enum channel_wire_type t = fromwire_peektype(master->msg_in);
 
+		/* Waiting for something specific?  Defer others. */
+		if (peer->handle_master_reply) {
+			void (*handle)(struct peer *peer, const u8 *msg);
+
+			if (t != peer->master_reply_type) {
+				msg_enqueue(&peer->master_deferred,
+					    take(master->msg_in));
+				master->msg_in = NULL;
+				goto out_next;
+			}
+
+			/* Just in case it resets this. */
+			handle = peer->handle_master_reply;
+			peer->handle_master_reply = NULL;
+
+			handle(peer, master->msg_in);
+			goto out;
+		}
+
 		switch (t) {
 		case WIRE_CHANNEL_FUNDING_LOCKED:
 			handle_funding_locked(peer, master->msg_in);
@@ -1339,6 +1364,18 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 	}
 
 out:
+	/* In case we've now processed reply, process packet backlog. */
+	if (!peer->handle_master_reply) {
+		const u8 *msg = msg_dequeue(&peer->master_deferred);
+		if (msg) {
+			/* Free old packet exactly like daemon_conn_read_next */
+			master->msg_in = tal_free(master->msg_in);
+			master->msg_in = cast_const(u8 *, tal_steal(master,msg));
+			return req_in(conn, master);
+		}
+	}
+
+out_next:
 	return daemon_conn_read_next(conn, master);
 }
 
@@ -1380,6 +1417,8 @@ int main(int argc, char *argv[])
 	peer->commit_timer = NULL;
 	peer->commit_index[LOCAL] = peer->commit_index[REMOTE] = 0;
 	peer->have_sigs[LOCAL] = peer->have_sigs[REMOTE] = false;
+	peer->handle_master_reply = NULL;
+	msg_queue_init(&peer->master_deferred, peer);
 
 	/* We send these to HSM to get real signatures; don't have valgrind
 	 * complain. */
