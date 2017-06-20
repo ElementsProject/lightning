@@ -1209,7 +1209,8 @@ static void peer_conn_broken(struct io_conn *conn, struct peer *peer)
 		      "peer connection broken: %s", strerror(errno));
 }
 
-static void init_channel(struct peer *peer, const u8 *msg)
+/* We do this synchronously. */
+static void init_channel(struct peer *peer)
 {
 	struct privkey seed;
 	struct basepoints points[NUM_SIDES];
@@ -1219,7 +1220,9 @@ static void init_channel(struct peer *peer, const u8 *msg)
 	struct sha256_double funding_txid;
 	bool am_funder;
 	u8 *funding_signed;
+	u8 *msg;
 
+	msg = wire_sync_read(peer, REQ_FD);
 	if (!fromwire_channel_init(msg, msg, NULL,
 				   &funding_txid, &funding_txout,
 				   &peer->conf[LOCAL], &peer->conf[REMOTE],
@@ -1273,6 +1276,8 @@ static void init_channel(struct peer *peer, const u8 *msg)
 	/* If we have a funding_signed message, we send that immediately */
 	if (tal_len(funding_signed) != 0)
 		msg_enqueue(&peer->peer_out, take(funding_signed));
+
+	tal_free(msg);
 }
 
 static void handle_funding_locked(struct peer *peer, const u8 *msg)
@@ -1490,76 +1495,71 @@ static void handle_ping_cmd(struct peer *peer, const u8 *inmsg)
 static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct peer *peer = container_of(master, struct peer, master);
+	enum channel_wire_type t = fromwire_peektype(master->msg_in);
 
-	if (!peer->channel)
-		init_channel(peer, master->msg_in);
-	else {
-		enum channel_wire_type t = fromwire_peektype(master->msg_in);
+	/* Waiting for something specific?  Defer others. */
+	if (peer->handle_master_reply) {
+		void (*handle)(struct peer *peer, const u8 *msg);
 
-		/* Waiting for something specific?  Defer others. */
-		if (peer->handle_master_reply) {
-			void (*handle)(struct peer *peer, const u8 *msg);
-
-			if (t != peer->master_reply_type) {
-				msg_enqueue(&peer->master_deferred,
-					    take(master->msg_in));
-				master->msg_in = NULL;
-				goto out_next;
-			}
-
-			/* Just in case it resets this. */
-			handle = peer->handle_master_reply;
-			peer->handle_master_reply = NULL;
-
-			handle(peer, master->msg_in);
-			goto out;
+		if (t != peer->master_reply_type) {
+			msg_enqueue(&peer->master_deferred,
+				    take(master->msg_in));
+			master->msg_in = NULL;
+			goto out_next;
 		}
 
-		switch (t) {
-		case WIRE_CHANNEL_FUNDING_LOCKED:
-			handle_funding_locked(peer, master->msg_in);
-			goto out;
-		case WIRE_CHANNEL_FUNDING_ANNOUNCE_DEPTH:
-			handle_funding_announce_depth(peer, master->msg_in);
-			goto out;
-		case WIRE_CHANNEL_OFFER_HTLC:
-			handle_offer_htlc(peer, master->msg_in);
-			goto out;
-		case WIRE_CHANNEL_FULFILL_HTLC:
-			handle_preimage(peer, master->msg_in);
-			goto out;
-		case WIRE_CHANNEL_FAIL_HTLC:
-			handle_fail(peer, master->msg_in);
-			goto out;
-		case WIRE_CHANNEL_PING:
-			handle_ping_cmd(peer, master->msg_in);
-			goto out;
+		/* Just in case it resets this. */
+		handle = peer->handle_master_reply;
+		peer->handle_master_reply = NULL;
 
-		case WIRE_CHANNEL_BAD_COMMAND:
-		case WIRE_CHANNEL_HSM_FAILED:
-		case WIRE_CHANNEL_CRYPTO_FAILED:
-		case WIRE_CHANNEL_GOSSIP_BAD_MESSAGE:
-		case WIRE_CHANNEL_INTERNAL_ERROR:
-		case WIRE_CHANNEL_PEER_WRITE_FAILED:
-		case WIRE_CHANNEL_PEER_READ_FAILED:
-		case WIRE_CHANNEL_NORMAL_OPERATION:
-		case WIRE_CHANNEL_INIT:
-		case WIRE_CHANNEL_OFFER_HTLC_REPLY:
-		case WIRE_CHANNEL_PING_REPLY:
-		case WIRE_CHANNEL_PEER_BAD_MESSAGE:
-		case WIRE_CHANNEL_ANNOUNCED:
-		case WIRE_CHANNEL_SENDING_COMMITSIG:
-		case WIRE_CHANNEL_GOT_COMMITSIG:
-		case WIRE_CHANNEL_GOT_REVOKE:
-		case WIRE_CHANNEL_SENDING_COMMITSIG_REPLY:
-		case WIRE_CHANNEL_GOT_COMMITSIG_REPLY:
-		case WIRE_CHANNEL_GOT_REVOKE_REPLY:
-		case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
-			break;
-		}
-		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%u %s", t,
-			      channel_wire_type_name(t));
+		handle(peer, master->msg_in);
+		goto out;
 	}
+
+	switch (t) {
+	case WIRE_CHANNEL_FUNDING_LOCKED:
+		handle_funding_locked(peer, master->msg_in);
+		goto out;
+	case WIRE_CHANNEL_FUNDING_ANNOUNCE_DEPTH:
+		handle_funding_announce_depth(peer, master->msg_in);
+		goto out;
+	case WIRE_CHANNEL_OFFER_HTLC:
+		handle_offer_htlc(peer, master->msg_in);
+		goto out;
+	case WIRE_CHANNEL_FULFILL_HTLC:
+		handle_preimage(peer, master->msg_in);
+		goto out;
+	case WIRE_CHANNEL_FAIL_HTLC:
+		handle_fail(peer, master->msg_in);
+		goto out;
+	case WIRE_CHANNEL_PING:
+		handle_ping_cmd(peer, master->msg_in);
+		goto out;
+
+	case WIRE_CHANNEL_BAD_COMMAND:
+	case WIRE_CHANNEL_HSM_FAILED:
+	case WIRE_CHANNEL_CRYPTO_FAILED:
+	case WIRE_CHANNEL_GOSSIP_BAD_MESSAGE:
+	case WIRE_CHANNEL_INTERNAL_ERROR:
+	case WIRE_CHANNEL_PEER_WRITE_FAILED:
+	case WIRE_CHANNEL_PEER_READ_FAILED:
+	case WIRE_CHANNEL_NORMAL_OPERATION:
+	case WIRE_CHANNEL_INIT:
+	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
+	case WIRE_CHANNEL_PING_REPLY:
+	case WIRE_CHANNEL_PEER_BAD_MESSAGE:
+	case WIRE_CHANNEL_ANNOUNCED:
+	case WIRE_CHANNEL_SENDING_COMMITSIG:
+	case WIRE_CHANNEL_GOT_COMMITSIG:
+	case WIRE_CHANNEL_GOT_REVOKE:
+	case WIRE_CHANNEL_SENDING_COMMITSIG_REPLY:
+	case WIRE_CHANNEL_GOT_COMMITSIG_REPLY:
+	case WIRE_CHANNEL_GOT_REVOKE_REPLY:
+	case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
+		break;
+	}
+	status_failed(WIRE_CHANNEL_BAD_COMMAND, "%u %s", t,
+		      channel_wire_type_name(t));
 
 out:
 	/* In case we've now processed reply, process packet backlog. */
@@ -1608,7 +1608,8 @@ int main(int argc, char *argv[])
 						 | SECP256K1_CONTEXT_SIGN);
 
 	daemon_conn_init(peer, &peer->master, REQ_FD, req_in, master_gone);
-	peer->channel = NULL;
+	status_setup_async(&peer->master);
+
 	peer->htlc_id = 0;
 	peer->num_pings_outstanding = 0;
 	timers_init(&peer->timers, time_mono());
@@ -1618,6 +1619,7 @@ int main(int argc, char *argv[])
 	peer->handle_master_reply = NULL;
 	peer->master_reply_type = 0;
 	msg_queue_init(&peer->master_deferred, peer);
+	msg_queue_init(&peer->peer_out, peer);
 
 	/* We send these to HSM to get real signatures; don't have valgrind
 	 * complain. */
@@ -1628,14 +1630,14 @@ int main(int argc, char *argv[])
 		       sizeof(peer->announcement_bitcoin_sigs[i]));
 	}
 
-	status_setup_async(&peer->master);
-	msg_queue_init(&peer->peer_out, peer);
-
 	daemon_conn_init(peer, &peer->gossip_client, GOSSIP_FD,
 			 gossip_client_recv, gossip_gone);
 
 	init_peer_crypto_state(peer, &peer->pcs);
 	peer->funding_locked[LOCAL] = peer->funding_locked[REMOTE] = false;
+
+	/* Read init_channel message sync. */
+	init_channel(peer);
 
 	for (;;) {
 		struct timer *expired = NULL;
