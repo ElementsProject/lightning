@@ -367,4 +367,13 @@ bool channel_sending_revoke_and_ack(struct channel *channel);
  * If true, we can't send a new commit message.
  */
 bool channel_awaiting_revoke_and_ack(const struct channel *channel);
+
+/**
+ * dump_htlcs: debugging dump of all HTLCs
+ * @channel: the channel
+ * @prefix: the prefix to prepend to each line.
+ *
+ * Uses status_trace() on every HTLC.
+ */
+void dump_htlcs(const struct channel *channel, const char *prefix);
 #endif /* LIGHTNING_DAEMON_CHANNEL_H */

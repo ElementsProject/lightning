@@ -51,6 +51,36 @@ static s64 balance_removing_htlc(const struct htlc *htlc, enum side side)
 	return 0;
 }
 
+static void dump_htlc(const struct htlc *htlc, const char *prefix)
+{
+	enum htlc_state remote_state;
+
+	if (htlc->state <= RCVD_REMOVE_ACK_REVOCATION)
+		remote_state = htlc->state + 10;
+	else
+		remote_state = htlc->state - 10;
+
+	status_trace("%s: HTLC %s %"PRIu64" = %s/%s %s",
+		     prefix,
+		     htlc_owner(htlc) == LOCAL ? "LOCAL" : "REMOTE",
+		     htlc->id,
+		     htlc_state_name(htlc->state),
+		     htlc_state_name(remote_state),
+		     htlc->r ? "FULFILLED" : htlc->fail ? "FAILED" : "");
+}
+
+void dump_htlcs(const struct channel *channel, const char *prefix)
+{
+	struct htlc_map_iter it;
+	const struct htlc *htlc;
+
+	for (htlc = htlc_map_first(&channel->htlcs, &it);
+	     htlc;
+	     htlc = htlc_map_next(&channel->htlcs, &it)) {
+		dump_htlc(htlc, prefix);
+	}
+}
+
 /* Returns up to three arrays:
  * committed: HTLCs currently committed.
  * pending_removal: HTLCs pending removal (subset of committed)
@@ -478,6 +508,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 		goto out;
 	}
 
+	dump_htlc(htlc, "NEW:");
 	htlc_map_add(&channel->htlcs, tal_steal(channel, htlc));
 	e = CHANNEL_ERR_ADD_OK;
 
@@ -546,6 +577,7 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 			     htlc->id, htlc_state_name(htlc->state));
 		return CHANNEL_ERR_HTLC_NOT_IRREVOCABLE;
 	}
+	dump_htlc(htlc, "FULFILL:");
 
 	return CHANNEL_ERR_REMOVE_OK;
 }
@@ -582,6 +614,7 @@ enum channel_remove_err channel_fail_htlc(struct channel *channel,
 			     htlc->id, htlc_state_name(htlc->state));
 		return CHANNEL_ERR_HTLC_NOT_IRREVOCABLE;
 	}
+	dump_htlc(htlc, "FAIL:");
 
 	return CHANNEL_ERR_REMOVE_OK;
 }
@@ -644,7 +677,8 @@ static int change_htlcs(struct channel *channel,
 			enum side sidechanged,
 			const enum htlc_state *htlc_states,
 			size_t n_hstates,
-			const struct htlc ***htlcs)
+			const struct htlc ***htlcs,
+			const char *prefix)
 {
 	struct htlc_map_iter it;
 	struct htlc *h;
@@ -657,6 +691,7 @@ static int change_htlcs(struct channel *channel,
 		for (i = 0; i < n_hstates; i++) {
 			if (h->state == htlc_states[i]) {
 				htlc_incstate(channel, h, sidechanged);
+				dump_htlc(h, prefix);
 				append_htlc(htlcs, h);
 				cflags |= (htlc_state_flags(htlc_states[i])
 					   ^ htlc_state_flags(h->state));
@@ -677,7 +712,7 @@ bool channel_sending_commit(struct channel *channel,
 					   SENT_REMOVE_HTLC };
 	status_trace("Trying commit");
 	change = change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states),
-			      htlcs);
+			      htlcs, "sending_commit");
 	return change & HTLC_REMOTE_F_COMMITTED;
 }
 
@@ -692,7 +727,7 @@ bool channel_rcvd_revoke_and_ack(struct channel *channel,
 
 	status_trace("Received revoke_and_ack");
 	change = change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
-			      htlcs);
+			      htlcs, "rcvd_revoke_and_ack");
 	return change & HTLC_LOCAL_F_COMMITTED;
 }
 
@@ -706,7 +741,8 @@ bool channel_rcvd_commit(struct channel *channel, const struct htlc ***htlcs)
 					   RCVD_REMOVE_REVOCATION };
 
 	status_trace("Received commit");
-	change = change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states), htlcs);
+	change = change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states), htlcs,
+			      "rcvd_commit");
 	return change & HTLC_LOCAL_F_COMMITTED;
 }
 
@@ -718,7 +754,8 @@ bool channel_sending_revoke_and_ack(struct channel *channel)
 					   RCVD_ADD_COMMIT,
 					   RCVD_REMOVE_ACK_COMMIT };
 	status_trace("Sending revoke_and_ack");
-	change = change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states), NULL);
+	change = change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states), NULL,
+			      "sending_revoke_and_ack");
 	return change & HTLC_REMOTE_F_PENDING;
 }
 
