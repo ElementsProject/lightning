@@ -47,8 +47,8 @@ class FieldType(object):
     def _typesize(typename):
         if typename in type2size:
             return type2size[typename]
-        elif typename.startswith('struct '):
-            # We allow unknown structures, for extensiblity (can only happen
+        elif typename.startswith('struct ') or typename.startswith('enum '):
+            # We allow unknown structures/enums, for extensiblity (can only happen
             # if explicitly specified in csv)
             return 0
         else:
@@ -275,6 +275,8 @@ class Message(object):
             basetype=f.fieldtype.name
             if f.fieldtype.name.startswith('struct '):
                 basetype=f.fieldtype.name[7:]
+            elif f.fieldtype.name.startswith('enum '):
+                basetype=f.fieldtype.name[5:]
 
             for c in f.comments:
                 subcalls.append('\t/*{} */'.format(c))
@@ -353,6 +355,8 @@ class Message(object):
             basetype=f.fieldtype.name
             if basetype.startswith('struct '):
                 basetype=basetype[7:]
+            elif basetype.startswith('enum '):
+                basetype=basetype[5:]
 
             for c in f.comments:
                 subcalls.append('\t/*{} */'.format(c))
