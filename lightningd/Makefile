@@ -55,7 +55,8 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/ping.c			\
 	lightningd/sphinx.c			\
 	lightningd/status.c			\
-	lightningd/utxo.c
+	lightningd/utxo.c			\
+	lightningd/withdraw_tx.c
 
 LIGHTNINGD_LIB_OBJS := $(LIGHTNINGD_LIB_SRC:.c=.o)
 LIGHTNINGD_LIB_HEADERS := $(LIGHTNINGD_LIB_SRC:.c=.h)
