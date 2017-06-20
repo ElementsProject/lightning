@@ -97,6 +97,10 @@ revoke_and_ack,64,next_per_commitment_point,33
 update_fee,134
 update_fee,0,channel_id,32
 update_fee,32,feerate_per_kw,4
+channel_reestablish,136
+channel_reestablish,0,channel_id,32
+channel_reestablish,32,commitments_received,8
+channel_reestablish,40,revocations_received,8
 announcement_signatures,259
 announcement_signatures,0,channel_id,32
 announcement_signatures,32,short_channel_id,8

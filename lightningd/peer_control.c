@@ -192,7 +192,7 @@ static bool peer_reconnected(struct lightningd *ld,
 		 *
 		 * On disconnection, the funder MUST remember the channel for
 		 * reconnection if it has broadcast the funding transaction,
-		 * otherwise it MUST NOT.
+		 * otherwise it SHOULD NOT.
 		 */
 		/* Free peer, which will discard HSM response. */
 		tal_free(peer);
