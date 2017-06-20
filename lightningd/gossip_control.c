@@ -38,8 +38,7 @@ static void peer_bad_message(struct subd *gossip, const u8 *msg)
 	log_debug(gossip->log, "Peer %s gave bad msg %s",
 		  type_to_string(msg, struct pubkey, &peer->id),
 		  tal_hex(msg, msg));
-	peer_fail(peer, "Bad message %s during gossip phase",
-		  gossip_wire_type_name(fromwire_peektype(msg)));
+	peer_fail_permanent(peer, msg);
 }
 
 static void peer_failed(struct subd *gossip, const u8 *msg)
@@ -57,10 +56,7 @@ static void peer_failed(struct subd *gossip, const u8 *msg)
 	if (!peer)
 		fatal("Gossip gave bad peerid %"PRIu64, unique_id);
 
-	log_unusual(gossip->log, "Peer %s failed: %.*s",
-		    type_to_string(msg, struct pubkey, &peer->id),
-		    (int)tal_len(err), (const char *)err);
-	peer_fail(peer, "Error during gossip phase");
+	peer_fail_permanent(peer, msg);
 }
 
 static void peer_nongossip(struct subd *gossip, const u8 *msg,

@@ -1,5 +1,6 @@
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/mem/mem.h>
+#include <ccan/tal/str/str.h>
 #include <daemon/chaintopology.h>
 #include <daemon/invoice.h>
 #include <daemon/log.h>
@@ -334,7 +335,7 @@ static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 					       &hout->key.id,
 					       &failure_code,
 					       &failurestr)) {
-		log_broken(subd->log, "Bad channel_offer_htlc_reply");
+		peer_internal_error(subd->peer, "Bad channel_offer_htlc_reply");
 		tal_free(hout);
 		return false;
 	}
@@ -345,9 +346,10 @@ static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 	}
 
 	if (find_htlc_out(&subd->ld->htlcs_out, hout->key.peer, hout->key.id)) {
-		log_broken(subd->log, "Bad offer_htlc_reply HTLC id %"PRIu64
-			   " is a duplicate",
-			   hout->key.id);
+		peer_internal_error(subd->peer,
+				    "Bad offer_htlc_reply HTLC id %"PRIu64
+				    " is a duplicate",
+				    hout->key.id);
 		tal_free(hout);
 		return false;
 	}
@@ -530,10 +532,11 @@ static bool state_update_ok(struct peer *peer,
 		expected = SENT_REMOVE_COMMIT;
 
 	if (newstate != expected) {
-		log_broken(peer->log, "HTLC %s %"PRIu64" invalid update %s->%s",
-			   dir, htlc_id,
-			   htlc_state_name(oldstate),
-			   htlc_state_name(newstate));
+		peer_internal_error(peer,
+				    "HTLC %s %"PRIu64" invalid update %s->%s",
+				    dir, htlc_id,
+				    htlc_state_name(oldstate),
+				    htlc_state_name(newstate));
 		return false;
 	}
 
@@ -582,8 +585,8 @@ static bool peer_accepted_htlc(struct peer *peer,
 
 	hin = find_htlc_in(&peer->ld->htlcs_in, peer, id);
 	if (!hin) {
-		log_broken(peer->log,
-			   "peer_got_revoke unknown htlc %"PRIu64, id);
+		peer_internal_error(peer,
+				    "peer_got_revoke unknown htlc %"PRIu64, id);
 		return false;
 	}
 
@@ -595,7 +598,7 @@ static bool peer_accepted_htlc(struct peer *peer,
 			       sizeof(hin->onion_routing_packet));
 	if (!op) {
 		if (!memeqzero(&hin->shared_secret, sizeof(hin->shared_secret))){
-			log_broken(peer->log,
+			peer_internal_error(peer,
 				   "bad onion in got_revoke: %s",
 				   tal_hexstr(peer, hin->onion_routing_packet,
 					     sizeof(hin->onion_routing_packet)));
@@ -665,9 +668,9 @@ static bool peer_fulfilled_our_htlc(struct peer *peer,
 
 	hout = find_htlc_out(&peer->ld->htlcs_out, peer, fulfilled->id);
 	if (!hout) {
-		log_broken(peer->log,
-			   "fulfilled_our_htlc unknown htlc %"PRIu64,
-			   fulfilled->id);
+		peer_internal_error(peer,
+				    "fulfilled_our_htlc unknown htlc %"PRIu64,
+				    fulfilled->id);
 		return false;
 	}
 
@@ -694,9 +697,9 @@ static bool peer_failed_our_htlc(struct peer *peer,
 
 	hout = find_htlc_out(&peer->ld->htlcs_out, peer, failed->id);
 	if (!hout) {
-		log_broken(peer->log,
-			   "failed_our_htlc unknown htlc %"PRIu64,
-			   failed->id);
+		peer_internal_error(peer,
+				    "failed_our_htlc unknown htlc %"PRIu64,
+				    failed->id);
 		return false;
 	}
 
@@ -763,7 +766,7 @@ static bool update_in_htlc(struct peer *peer, u64 id, enum htlc_state newstate)
 
 	hin = find_htlc_in(&peer->ld->htlcs_in, peer, id);
 	if (!hin) {
-		log_broken(peer->log, "Can't find in HTLC %"PRIu64, id);
+		peer_internal_error(peer, "Can't find in HTLC %"PRIu64, id);
 		return false;
 	}
 
@@ -782,7 +785,7 @@ static bool update_out_htlc(struct peer *peer, u64 id, enum htlc_state newstate)
 
 	hout = find_htlc_out(&peer->ld->htlcs_out, peer, id);
 	if (!hout) {
-		log_broken(peer->log, "Can't find out HTLC %"PRIu64, id);
+		peer_internal_error(peer, "Can't find out HTLC %"PRIu64, id);
 		return false;
 	}
 
@@ -825,14 +828,14 @@ int peer_sending_commitsig(struct peer *peer, const u8 *msg)
 						&commitnum,
 						&changed_htlcs,
 						&commit_sig, &htlc_sigs)) {
-		log_broken(peer->log, "bad channel_sending_commitsig %s",
-			   tal_hex(peer, msg));
+		peer_internal_error(peer, "bad channel_sending_commitsig %s",
+				    tal_hex(peer, msg));
 		return -1;
 	}
 
 	for (i = 0; i < tal_count(changed_htlcs); i++) {
 		if (!changed_htlc(peer, changed_htlcs + i)) {
-			log_broken(peer->log,
+			peer_internal_error(peer,
 				   "channel_sending_commitsig: update failed");
 			return -1;
 		}
@@ -848,7 +851,7 @@ int peer_sending_commitsig(struct peer *peer, const u8 *msg)
 
 	if (num_local_added != 0) {
 		if (maxid != peer->next_htlc_id + num_local_added - 1) {
-			log_broken(peer->log,
+			peer_internal_error(peer,
 				   "channel_sending_commitsig:"
 				   " Added %"PRIu64", maxid now %"PRIu64
 				   " from %"PRIu64,
@@ -944,7 +947,7 @@ static bool peer_sending_revocation(struct peer *peer,
 bool peer_save_commitsig_received(struct peer *peer, u64 commitnum)
 {
 	if (commitnum != peer->num_commits_received) {
-		log_broken(peer->log,
+		peer_internal_error(peer,
 			   "channel_got_commitsig: expected commitnum %"PRIu64
 			   " got %"PRIu64,
 			   peer->num_commits_received, commitnum);
@@ -961,7 +964,7 @@ bool peer_save_commitsig_received(struct peer *peer, u64 commitnum)
 bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum)
 {
 	if (commitnum != peer->num_commits_sent) {
-		log_broken(peer->log,
+		peer_internal_error(peer,
 			   "channel_sent_commitsig: expected commitnum %"PRIu64
 			   " got %"PRIu64,
 			   peer->num_commits_sent, commitnum);
@@ -996,8 +999,9 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 					    &fulfilled,
 					    &failed,
 					    &changed)) {
-		log_broken(peer->log, "bad fromwire_channel_got_commitsig %s",
-			   tal_hex(peer, msg));
+		peer_internal_error(peer,
+				    "bad fromwire_channel_got_commitsig %s",
+				    tal_hex(peer, msg));
 		return -1;
 	}
 
@@ -1026,8 +1030,8 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 
 	for (i = 0; i < tal_count(changed); i++) {
 		if (!changed_htlc(peer, &changed[i])) {
-			log_broken(peer->log,
-				   "got_commitsig: update failed");
+			peer_internal_error(peer,
+					    "got_commitsig: update failed");
 			return -1;
 		}
 	}
@@ -1068,8 +1072,8 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 					 &revokenum, &per_commitment_secret,
 					 &next_per_commitment_point,
 					 &changed)) {
-		log_broken(peer->log, "bad fromwire_channel_got_revoke %s",
-			   tal_hex(peer, msg));
+		peer_internal_error(peer, "bad fromwire_channel_got_revoke %s",
+				    tal_hex(peer, msg));
 		return -1;
 	}
 
@@ -1087,23 +1091,23 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 				return -1;
 		} else {
 			if (!changed_htlc(peer, &changed[i])) {
-				log_broken(peer->log,
-					   "got_revoke: update failed");
+				peer_internal_error(peer,
+						    "got_revoke: update failed");
 				return -1;
 			}
 		}
 	}
 
 	if (revokenum >= (1ULL << 48)) {
-		log_broken(peer->log, "got_revoke: too many txs %"PRIu64,
-			   revokenum);
+		peer_internal_error(peer, "got_revoke: too many txs %"PRIu64,
+				    revokenum);
 		return -1;
 	}
 
 	if (revokenum != peer->num_revocations_received) {
-		log_broken(peer->log, "got_revoke: expected %"PRIu64
-			   " got %"PRIu64,
-			   peer->num_revocations_received, revokenum);
+		peer_internal_error(peer, "got_revoke: expected %"PRIu64
+				    " got %"PRIu64,
+				    peer->num_revocations_received, revokenum);
 		return -1;
 	}
 
@@ -1115,10 +1119,12 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 	if (!shachain_add_hash(&peer->their_shachain,
 			       shachain_index(revokenum),
 			       &per_commitment_secret)) {
-		peer_fail(peer, "Bad per_commitment_secret %s for %"PRIu64,
-			  type_to_string(msg, struct sha256,
-					 &per_commitment_secret),
-			  revokenum);
+		char *err = tal_fmt(peer,
+				    "Bad per_commitment_secret %s for %"PRIu64,
+				    type_to_string(msg, struct sha256,
+						   &per_commitment_secret),
+				    revokenum);
+		peer_fail_permanent(peer, take((u8 *)err));
 		return -1;
 	}
 
