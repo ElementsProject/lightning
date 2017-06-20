@@ -284,18 +284,18 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->ld = ld;
 	peer->unique_id = unique_id;
 	peer->owner = NULL;
-	peer->scid = NULL;
 	peer->id = *id;
 	peer->fd = fd;
 	peer->reconnected = false;
 	peer->gossip_client_fd = -1;
 	peer->cs = tal_dup(peer, struct crypto_state, cs);
 	peer->funding_txid = NULL;
+	peer->remote_funding_locked = false;
+	peer->scid = NULL;
 	peer->seed = NULL;
 	peer->balance = NULL;
 	peer->state = UNINITIALIZED;
 	peer->channel_info = NULL;
-	peer->next_per_commitment_point = NULL;
 	peer->last_was_revoke = false;
 	peer->last_sent_commit = NULL;
 	peer->num_commits_sent = peer->num_commits_received
@@ -859,12 +859,14 @@ static int peer_got_funding_locked(struct peer *peer, const u8 *msg)
 		return -1;
 	}
 
-	/* In case of re-transmit. */
-	peer->next_per_commitment_point
-		= tal_free(peer->next_per_commitment_point);
-	peer->next_per_commitment_point
-		= tal_dup(peer, struct pubkey, &next_per_commitment_point);
+	if (peer->remote_funding_locked) {
+		log_broken(peer->log, "channel_got_funding_locked twice");
+		return -1;
+	}
+	update_per_commit_point(peer, &next_per_commitment_point);
+
 	log_debug(peer->log, "Got funding_locked");
+	peer->remote_funding_locked = true;
 	return 0;
 }
 
@@ -953,7 +955,7 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 
 	if (peer->scid) {
 		funding_channel_id = *peer->scid;
-		log_debug(peer->log, "Got funding confirmations");
+		log_debug(peer->log, "Already have funding locked in");
 		peer_set_condition(peer, GETTING_HSMFD, CHANNELD_NORMAL);
 	} else {
 		log_debug(peer->log, "Waiting for funding confirmations");
@@ -974,7 +976,8 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 				      &peer->channel_info->theirbase.revocation,
 				      &peer->channel_info->theirbase.payment,
 				      &peer->channel_info->theirbase.delayed_payment,
-				      &peer->channel_info->their_per_commit_point,
+				      &peer->channel_info->remote_per_commit,
+				      &peer->channel_info->old_remote_per_commit,
 				      peer->funder == LOCAL,
 				      cfg->fee_base,
 				      cfg->fee_per_satoshi,
@@ -994,7 +997,7 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 				      fulfilled_htlcs, fulfilled_sides,
 				      failed_htlcs, failed_sides,
 				      peer->scid != NULL,
-				      peer->next_per_commitment_point != NULL,
+				      peer->remote_funding_locked,
 				      &funding_channel_id,
 				      peer->reconnected,
 				      peer->funding_signed);
@@ -1064,7 +1067,7 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 					   &channel_info->theirbase.revocation,
 					   &channel_info->theirbase.payment,
 					   &channel_info->theirbase.delayed_payment,
-					   &channel_info->their_per_commit_point,
+					   &channel_info->remote_per_commit,
 					   &fc->peer->minimum_depth,
 					   &channel_info->remote_fundingkey,
 					   &funding_txid)) {
@@ -1073,6 +1076,9 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 		tal_free(fc->peer);
 		return false;
 	}
+
+	/* old_remote_per_commit not valid yet, copy valid one. */
+	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
 	/* Generate the funding tx. */
 	if (fc->change
@@ -1145,7 +1151,6 @@ static bool opening_fundee_finished(struct subd *opening,
 
 	/* At this point, we care about peer */
 	peer->channel_info = channel_info = tal(peer, struct channel_info);
-
 	peer->funding_txid = tal(peer, struct sha256_double);
 	if (!fromwire_opening_fundee_reply(peer, reply, NULL,
 					   &channel_info->their_config,
@@ -1154,7 +1159,7 @@ static bool opening_fundee_finished(struct subd *opening,
 					   &channel_info->theirbase.revocation,
 					   &channel_info->theirbase.payment,
 					   &channel_info->theirbase.delayed_payment,
-					   &channel_info->their_per_commit_point,
+					   &channel_info->remote_per_commit,
 					   &channel_info->remote_fundingkey,
 					   peer->funding_txid,
 					   &peer->funding_outnum,
@@ -1165,6 +1170,8 @@ static bool opening_fundee_finished(struct subd *opening,
 			   tal_hex(reply, reply));
 		return false;
 	}
+	/* old_remote_per_commit not valid yet, copy valid one. */
+	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
 	/* We should have sent and received the first commitsig */
 	if (!peer_save_commitsig_received(peer, 0)

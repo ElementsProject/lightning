@@ -11,7 +11,7 @@ struct channel_info {
 	struct channel_config their_config;
 	struct pubkey remote_fundingkey;
 	struct basepoints theirbase;
-	struct pubkey their_per_commit_point;
+	struct pubkey remote_per_commit, old_remote_per_commit;
 };
 
 /* Get all HTLCs for a peer, to send in init message. */
@@ -30,6 +30,9 @@ bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum);
 int peer_sending_commitsig(struct peer *peer, const u8 *msg);
 int peer_got_commitsig(struct peer *peer, const u8 *msg);
 int peer_got_revoke(struct peer *peer, const u8 *msg);
+
+void update_per_commit_point(struct peer *peer,
+			     const struct pubkey *per_commitment_point);
 
 enum onion_type send_htlc_out(struct peer *out, u64 amount, u32 cltv,
 			      const struct sha256 *payment_hash,

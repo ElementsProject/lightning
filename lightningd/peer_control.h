@@ -60,9 +60,6 @@ struct peer {
 	/* funding_signed packet for fundee, waiting to send. */
 	const u8 *funding_signed;
 
-	/* Channel if locked. */
-	struct short_channel_id *scid;
-
 	/* Minimum funding depth (specified by us if they fund). */
 	u32 minimum_depth;
 
@@ -74,15 +71,15 @@ struct peer {
 	struct sha256_double *funding_txid;
 	u16 funding_outnum;
 	u64 funding_satoshi, push_msat;
+	bool remote_funding_locked;
+	/* Channel if locked locally. */
+	struct short_channel_id *scid;
 
 	/* Amount going to us, not counting unfinished HTLCs; if we have one. */
 	u64 *balance;
 
 	/* Keys for channel. */
 	struct channel_info *channel_info;
-
-	/* Their next per-commit point, if known. */
-	struct pubkey *next_per_commitment_point;
 
 	/* Secret seed (FIXME: Move to hsm!) */
 	struct privkey *seed;
