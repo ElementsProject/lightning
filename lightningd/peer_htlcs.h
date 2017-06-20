@@ -13,6 +13,8 @@ struct channel_info {
 	struct pubkey their_per_commit_point;
 };
 
+bool peer_save_commitsig(struct peer *peer, u64 commitnum);
+
 int peer_sending_commitsig(struct peer *peer, const u8 *msg);
 int peer_got_commitsig(struct peer *peer, const u8 *msg);
 int peer_got_revoke(struct peer *peer, const u8 *msg);
