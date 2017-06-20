@@ -563,6 +563,9 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 		sign_funding_tx(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
 
+	case WIRE_HSMCTL_SIGN_WITHDRAWAL:
+		return daemon_conn_read_next(conn, master);
+
 	case WIRE_HSMCTL_NODE_ANNOUNCEMENT_SIG_REQ:
 		sign_node_announcement(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
@@ -571,6 +574,7 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 	case WIRE_HSMCTL_HSMFD_ECDH_FD_REPLY:
 	case WIRE_HSMCTL_HSMFD_CHANNELD_REPLY:
 	case WIRE_HSMCTL_SIGN_FUNDING_REPLY:
+	case WIRE_HSMCTL_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSMSTATUS_INIT_FAILED:
 	case WIRE_HSMSTATUS_WRITEMSG_FAILED:
 	case WIRE_HSMSTATUS_BAD_REQUEST:

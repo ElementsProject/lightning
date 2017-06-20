@@ -58,3 +58,16 @@ hsmctl_node_announcement_sig_req,,announcement,annlen*u8
 
 hsmctl_node_announcement_sig_reply,106
 hsmctl_node_announcement_sig_reply,,signature,secp256k1_ecdsa_signature
+
+# Sign a withdrawal request
+hsmctl_sign_withdrawal,7
+hsmctl_sign_withdrawal,,satoshi_out,8
+hsmctl_sign_withdrawal,,change_out,8
+hsmctl_sign_withdrawal,,change_keyindex,4
+hsmctl_sign_withdrawal,,pkh,20*u8
+hsmctl_sign_withdrawal,,num_inputs,2
+hsmctl_sign_withdrawal,,inputs,num_inputs*struct utxo
+
+hsmctl_sign_withdrawal_reply,107
+hsmctl_sign_withdrawal_reply,,num_sigs,2
+hsmctl_sign_withdrawal_reply,,sig,num_sigs*secp256k1_ecdsa_signature
