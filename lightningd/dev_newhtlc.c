@@ -135,6 +135,7 @@ static void json_dev_newhtlc(struct command *cmd,
 
 	hend = tal(cmd, struct htlc_end);
 	hend->which_end = HTLC_DST;
+	hend->hstate = SENT_ADD_HTLC;
 	hend->peer = peer;
 	hend->msatoshis = msatoshi;
 	hend->other_end = NULL;

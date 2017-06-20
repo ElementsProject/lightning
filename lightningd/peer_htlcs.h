@@ -4,9 +4,8 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 
-int peer_accepted_htlc(struct peer *peer, const u8 *msg);
-int peer_fulfilled_htlc(struct peer *peer, const u8 *msg);
-int peer_failed_htlc(struct peer *peer, const u8 *msg);
-int peer_failed_malformed_htlc(struct peer *peer, const u8 *msg);
+int peer_sending_commitsig(struct peer *peer, const u8 *msg);
+int peer_got_commitsig(struct peer *peer, const u8 *msg);
+int peer_got_revoke(struct peer *peer, const u8 *msg);
 
 #endif /* LIGHTNING_LIGHTNINGD_PEER_HTLCS_H */

@@ -341,7 +341,9 @@ static void json_sendpay(struct command *cmd,
 
 	pc->out = tal(pc, struct htlc_end);
 	pc->out->which_end = HTLC_DST;
+	pc->out->hstate = SENT_ADD_HTLC;
 	pc->out->peer = peer;
+	pc->out->fail_msg = NULL;
 	pc->out->msatoshis = amount;
 	pc->out->other_end = NULL;
 	pc->out->pay_command = pc;

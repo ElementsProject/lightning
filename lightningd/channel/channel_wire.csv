@@ -78,35 +78,6 @@ channel_fail_htlc,,id,8
 channel_fail_htlc,,len,2
 channel_fail_htlc,,error_pkt,len*u8
 
-# Peer and I are irrevocably committed to this HTLC.
-# channelds get shared secret from HSM to save master daemon work.
-channel_accepted_htlc,7
-channel_accepted_htlc,,id,8
-channel_accepted_htlc,,amount_msat,8
-channel_accepted_htlc,,cltv_expiry,4
-channel_accepted_htlc,,payment_hash,32
-channel_accepted_htlc,,shared_secret,struct secret
-channel_accepted_htlc,,onion,1366*u8
-
-# FIXME: Add code to commit current channel state!
-
-# The HTLC preimage was given.
-channel_fulfilled_htlc,8
-channel_fulfilled_htlc,,id,8
-channel_fulfilled_htlc,,payment_preimage,struct preimage
-
-# This HTLC failed
-channel_failed_htlc,9
-channel_failed_htlc,,id,8
-channel_failed_htlc,,len,2
-channel_failed_htlc,,reason,len*u8
-
-# This HTLC was returned malformed
-channel_malformed_htlc,10
-channel_malformed_htlc,,id,8
-channel_malformed_htlc,,sha256_of_onion,32
-channel_malformed_htlc,,failure_code,2
-
 # Ping/pong test.
 channel_ping,11
 channel_ping,,num_pong_bytes,u16
@@ -117,3 +88,50 @@ channel_ping_reply,,totlen,u16
 
 # Channeld tells the master that the channel has been announced
 channel_announced,12
+
+# When we send a commitment_signed message, tell master.
+channel_sending_commitsig,20
+channel_sending_commitsig,,commitnum,u64
+# SENT_ADD_COMMIT, SENT_REMOVE_ACK_COMMIT, SENT_ADD_ACK_COMMIT, SENT_REMOVE_COMMIT
+channel_sending_commitsig,,num_changed,u16
+channel_sending_commitsig,,changed,num_changed*struct changed_htlc
+
+# Wait for reply, to make sure it's on disk before we send commit.
+channel_sending_commitsig_reply,120
+
+# When we have a commitment_signed message, tell master to remember.
+channel_got_commitsig,21
+channel_got_commitsig,,commitnum,u64
+channel_got_commitsig,,signature,secp256k1_ecdsa_signature
+channel_got_commitsig,,num_htlcs,u16
+channel_got_commitsig,,htlc_signature,num_htlcs*secp256k1_ecdsa_signature
+# RCVD_ADD_COMMIT: we're now committed to their new offered HTLCs.
+channel_got_commitsig,,num_added,u16
+channel_got_commitsig,,added,num_added*struct added_htlc
+# RCVD_REMOVE_COMMIT: we're now no longer committed to these HTLCs.
+channel_got_commitsig,,num_fulfilled,u16
+channel_got_commitsig,,fulfilled,num_fulfilled*struct fulfilled_htlc
+channel_got_commitsig,,num_failed,u16
+channel_got_commitsig,,failed,num_failed*struct failed_htlc
+# RCVD_ADD_ACK_COMMIT, RCVD_REMOVE_ACK_COMMIT
+channel_got_commitsig,,num_changed,u16
+channel_got_commitsig,,changed,num_changed*struct changed_htlc
+
+# Wait for reply, to make sure it's on disk before we send revocation.
+channel_got_commitsig_reply,121
+
+#include <lightningd/htlc_wire.h>
+
+channel_got_revoke,22
+channel_got_revoke,,revokenum,u64
+channel_got_revoke,,per_commitment_secret,struct sha256
+# RCVD_ADD_ACK_REVOCATION
+channel_got_revoke,,num_added,u16
+channel_got_revoke,,added_ids,num_added*u64
+channel_got_revoke,,shared_secret,num_added*struct secret
+# RCVD_REMOVE_ACK_REVOCATION, RCVD_ADD_REVOCATION, RCVD_REMOVE_REVOCATION
+channel_got_revoke,,num_changed,u16
+channel_got_revoke,,changed,num_changed*struct changed_htlc
+# Wait for reply, to make sure it's on disk before we continue
+# (eg. if we sent another commitment_signed, that would implicitly ack).
+channel_got_revoke_reply,122

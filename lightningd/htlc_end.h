@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/htable/htable_type.h>
 #include <ccan/short_types/short_types.h>
+#include <daemon/htlc_state.h>
 #include <lightningd/sphinx.h>
 
 /* A HTLC has a source and destination: if other is NULL, it's this node.
@@ -21,6 +22,9 @@ struct htlc_end {
 	/* If this is driven by a command. */
 	struct pay_command *pay_command;
 
+	/* FIXME: We really only need this in the database. */
+	enum htlc_state hstate;
+
 	/* Temporary information, while we resolve the next hop */
 	u8 *next_onion;
 	struct short_channel_id next_channel;
@@ -29,8 +33,11 @@ struct htlc_end {
 	u32 cltv_expiry;
 	struct sha256 payment_hash;
 
-	/* If we failed HTLC, here's the message. */
+	/* If they failed HTLC, here's the message. */
 	const u8 *fail_msg;
+
+	/* If they succeeded, here's the preimage. */
+	struct sha256 *preimage;
 
 	/* If we are forwarding, remember the shared secret for an
 	 * eventual reply */
