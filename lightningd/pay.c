@@ -163,6 +163,7 @@ static void json_sendpay(struct command *cmd,
 	u64 amount, lastamount;
 	struct onionpacket *packet;
 	struct secret *path_secrets;
+	enum onion_type failcode;
 
 	if (!json_get_params(buffer, params,
 			     "route", &routetok,
@@ -307,17 +308,6 @@ static void json_sendpay(struct command *cmd,
 		return;
 	}
 
-	if (!peer->scid) {
-		command_fail(cmd, "first peer channel not locked");
-		return;
-	}
-
-	if (!peer->owner || !streq(peer->owner->name, "lightningd_channel")) {
-		command_fail(cmd, "first peer in %s",
-			     peer->owner ? peer->owner->name : "limbo");
-		return;
-	}
-
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
 
 	/* Onion will carry us from first peer onwards. */
@@ -341,11 +331,17 @@ static void json_sendpay(struct command *cmd,
 
 	log_info(ld->log, "Sending %"PRIu64" over %zu hops to deliver %"PRIu64,
 		 amount, n_hops, lastamount);
-	pc->out = send_htlc_out(peer, amount, first_hop_data.outgoing_cltv,
-				&rhash, onion, NULL, pc);
 
 	/* Wait until we get response. */
 	tal_add_destructor2(cmd, remove_cmd_from_pc, pc);
+
+	failcode = send_htlc_out(peer, amount, first_hop_data.outgoing_cltv,
+				 &rhash, onion, NULL, pc, &pc->out);
+	if (failcode) {
+		command_fail(cmd, "first peer not ready: %s",
+			     onion_type_name(failcode));
+		return;
+	}
 }
 
 static const struct json_command sendpay_command = {

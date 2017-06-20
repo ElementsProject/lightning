@@ -359,14 +359,27 @@ static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 	return true;
 }
 
-struct htlc_out *send_htlc_out(struct peer *out, u64 amount, u32 cltv,
-			       const struct sha256 *payment_hash,
-			       const u8 *onion_routing_packet,
-			       struct htlc_in *in,
-			       struct pay_command *pc)
+enum onion_type send_htlc_out(struct peer *out, u64 amount, u32 cltv,
+			      const struct sha256 *payment_hash,
+			      const u8 *onion_routing_packet,
+			      struct htlc_in *in,
+			      struct pay_command *pc,
+			      struct htlc_out **houtp)
 {
 	struct htlc_out *hout;
 	u8 *msg;
+
+	if (!peer_can_add_htlc(out)) {
+		log_info(out->log, "Attempt to send HTLC but not ready (%s)",
+			 peer_state_name(out->state));
+		return WIRE_UNKNOWN_NEXT_PEER;
+	}
+
+	if (!out->owner) {
+		log_info(out->log, "Attempt to send HTLC but unowned (%s)",
+			peer_state_name(out->state));
+		return WIRE_TEMPORARY_CHANNEL_FAILURE;
+	}
 
 	/* Make peer's daemon own it, catch if it dies. */
 	hout = new_htlc_out(out->owner, out, amount, cltv,
@@ -376,7 +389,10 @@ struct htlc_out *send_htlc_out(struct peer *out, u64 amount, u32 cltv,
 	msg = towire_channel_offer_htlc(out, amount, cltv, payment_hash,
 					onion_routing_packet);
 	subd_req(out->ld, out->owner, take(msg), -1, 0, rcvd_htlc_reply, hout);
-	return hout;
+
+	if (houtp)
+		*houtp = hout;
+	return 0;
 }
 
 static void forward_htlc(struct htlc_in *hin,
@@ -394,20 +410,6 @@ static void forward_htlc(struct htlc_in *hin,
 
 	if (!next) {
 		failcode = WIRE_UNKNOWN_NEXT_PEER;
-		goto fail;
-	}
-
-	if (!peer_can_add_htlc(next)) {
-		log_info(next->log, "Attempt to forward HTLC but not ready (%s)",
-			 peer_state_name(next->state));
-		failcode = WIRE_UNKNOWN_NEXT_PEER;
-		goto fail;
-	}
-
-	if (!next->owner) {
-		log_info(next->log, "Attempt to forward HTLC but unowned (%s)",
-			peer_state_name(next->state));
-		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
 		goto fail;
 	}
 
@@ -456,10 +458,11 @@ static void forward_htlc(struct htlc_in *hin,
 		goto fail;
 	}
 
-	send_htlc_out(next, amt_to_forward,
-		      outgoing_cltv_value, &hin->payment_hash,
-		      next_onion, hin, NULL);
-	return;
+	failcode = send_htlc_out(next, amt_to_forward,
+				 outgoing_cltv_value, &hin->payment_hash,
+				 next_onion, hin, NULL, NULL);
+	if (!failcode)
+		return;
 
 fail:
 	fail_htlc(hin, failcode);
