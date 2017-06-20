@@ -26,9 +26,14 @@ void towire_failed_htlc(u8 **pptr, const struct failed_htlc *failed)
 	towire_u8_array(pptr, failed->failreason, tal_count(failed->failreason));
 }
 
+void towire_htlc_state(u8 **pptr, const enum htlc_state *hstate)
+{
+	towire_u8(pptr, *hstate);
+}
+
 void towire_changed_htlc(u8 **pptr, const struct changed_htlc *changed)
 {
-	towire_u8(pptr, changed->newstate);
+	towire_htlc_state(pptr, &changed->newstate);
 	towire_u64(pptr, changed->id);
 }
 
@@ -61,12 +66,20 @@ void fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor, size_t *max,
 	fromwire_u8_array(cursor, max, failed->failreason, failreason_len);
 }
 
+void fromwire_htlc_state(const u8 **cursor, size_t *max,
+			 enum htlc_state *hstate)
+{
+	*hstate = fromwire_u8(cursor, max);
+	if (*hstate >= HTLC_STATE_INVALID) {
+		*hstate = HTLC_STATE_INVALID;
+		fromwire_fail(cursor, max);
+	}
+}
+
 void fromwire_changed_htlc(const u8 **cursor, size_t *max,
 			   struct changed_htlc *changed)
 {
-	changed->newstate = fromwire_u8(cursor, max);
+	fromwire_htlc_state(cursor, max, &changed->newstate);
 	changed->id = fromwire_u64(cursor, max);
-
-	if (changed->newstate >= HTLC_STATE_INVALID)
-		fromwire_fail(cursor, max);
 }
+
