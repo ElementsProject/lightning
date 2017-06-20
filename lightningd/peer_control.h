@@ -104,11 +104,11 @@ static inline bool peer_on_chain(const struct peer *peer)
  *
  * On disconnection, the funder MUST remember the channel for
  * reconnection if it has broadcast the funding transaction, otherwise it
- * MUST NOT.
+ * SHOULD NOT.
  *
  * On disconnection, the non-funding node MUST remember the channel for
  * reconnection if it has sent the `funding_signed` message, otherwise
- * it MUST NOT.
+ * it SHOULD NOT.
  */
 static inline bool peer_persists(const struct peer *peer)
 {

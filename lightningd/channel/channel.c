@@ -977,6 +977,7 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 	case WIRE_ACCEPT_CHANNEL:
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
+	case WIRE_CHANNEL_REESTABLISH:
 		goto badmessage;
 
 	case WIRE_SHUTDOWN:

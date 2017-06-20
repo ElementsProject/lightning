@@ -241,6 +241,7 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 		return peer_read_message(conn, &peer->pcs, peer_msgin);
 
 	case WIRE_OPEN_CHANNEL:
+	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ACCEPT_CHANNEL:
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
