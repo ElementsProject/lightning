@@ -204,43 +204,6 @@ class LightningDTests(BaseLightningDTests):
         assert p1['owner'] == 'lightningd_gossip'
         assert p2['owner'] == 'lightningd_gossip'
 
-    def test_htlc(self):
-        l1,l2 = self.connect()
-
-        self.fund_channel(l1, l2, 10**6)
-        l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
-        l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
-
-        secret = '1de08917a61cb2b62ed5937d38577f6a7bfe59c176781c6d8128018e8b5ccdfd'
-        rhash = l1.rpc.dev_rhash(secret)['rhash']
-
-        # This is actually dust, and uncalled for.
-        l1.rpc.dev_newhtlc(l2.info['id'], 100000, l1.bitcoin.rpc.getblockcount() + 10, rhash)
-        l1.daemon.wait_for_log('Sending commit_sig with 0 htlc sigs')
-        l2.daemon.wait_for_log('their htlc 0 locked')
-        l2.daemon.wait_for_log('failed htlc 0 code 0x400f')
-        l1.daemon.wait_for_log('htlc 0 failed from 0th node with code 0x400f')
-
-        # Set up invoice (non-dust, just to test), and pay it.
-        # This one isn't dust.
-        rhash = l2.rpc.invoice(100000000, 'testpayment1')['rhash']
-        assert l2.rpc.listinvoice('testpayment1')[0]['complete'] == False
-
-        l1.rpc.dev_newhtlc(l2.info['id'], 100000000, l1.bitcoin.rpc.getblockcount() + 10, rhash)
-        l1.daemon.wait_for_log('Sending commit_sig with 1 htlc sigs')
-        l2.daemon.wait_for_log('their htlc 1 locked')
-        l2.daemon.wait_for_log("Resolving invoice 'testpayment1' with HTLC 1")
-        assert l2.rpc.listinvoice('testpayment1')[0]['complete'] == True
-        l1.daemon.wait_for_log('Payment succeeded on HTLC 1')
-
-        # Balances should have changed.
-        p1 = l1.rpc.getpeer(l2.info['id'])
-        p2 = l2.rpc.getpeer(l1.info['id'])
-        assert p1['msatoshi_to_us'] == 900000000
-        assert p1['msatoshi_to_them'] == 100000000
-        assert p2['msatoshi_to_us'] == 100000000
-        assert p2['msatoshi_to_them'] == 900000000
-
     def test_sendpay(self):
         l1,l2 = self.connect()
 

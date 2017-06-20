@@ -60,13 +60,6 @@ static void json_pay_failed(struct pay_command *pc,
 void payment_succeeded(struct lightningd *ld, struct htlc_end *dst,
 		       const struct preimage *rval)
 {
-	/* FIXME: dev_htlc will do this! */
-	if (!dst->pay_command) {
-		log_debug(ld->log, "Payment succeeded on HTLC %"PRIu64,
-			dst->htlc_id);
-		return;
-	}
-
 	assert(!dst->pay_command->rval);
 	dst->pay_command->rval = tal_dup(dst->pay_command,
 					 struct preimage, rval);
@@ -79,10 +72,6 @@ void payment_failed(struct lightningd *ld, struct htlc_end *dst,
 		    const struct pubkey *sender,
 		    enum onion_type failure_code)
 {
-	/* FIXME: dev_htlc will do this! */
-	if (!dst->pay_command)
-		return;
-
 	/* FIXME: check for routing failure / perm fail. */
 	/* check_for_routing_failure(i, sender, failure_code); */
 	json_pay_failed(dst->pay_command, sender, failure_code,
