@@ -137,8 +137,10 @@ struct channel *new_channel(const tal_t *ctx,
 			    const struct sha256_double *funding_txid,
 			    unsigned int funding_txout,
 			    u64 funding_satoshis,
-			    u64 push_msat,
+			    u64 local_msatoshi,
 			    u32 feerate_per_kw,
+			    u64 local_commit_index,
+			    u64 remote_commit_index,
 			    const struct channel_config *local,
 			    const struct channel_config *remote,
 			    const struct basepoints *local_basepoints,
@@ -155,7 +157,7 @@ struct channel *new_channel(const tal_t *ctx,
 		return tal_free(channel);
 
 	channel->funding_msat = funding_satoshis * 1000;
-	if (push_msat > channel->funding_msat)
+	if (local_msatoshi > channel->funding_msat)
 		return tal_free(channel);
 
 	channel->funder = funder;
@@ -169,16 +171,15 @@ struct channel *new_channel(const tal_t *ctx,
 		= channel->view[REMOTE].feerate_per_kw
 		= feerate_per_kw;
 
-	channel->view[funder].owed_msat[funder]
-		= channel->view[!funder].owed_msat[funder]
-		= channel->funding_msat - push_msat;
-	channel->view[funder].owed_msat[!funder]
-		= channel->view[!funder].owed_msat[!funder]
-		= push_msat;
+	channel->view[LOCAL].owed_msat[LOCAL]
+		= channel->view[REMOTE].owed_msat[LOCAL]
+		= local_msatoshi;
+	channel->view[REMOTE].owed_msat[REMOTE]
+		= channel->view[LOCAL].owed_msat[REMOTE]
+		= channel->funding_msat - local_msatoshi;
 
-	channel->view[LOCAL].commitment_number
-		= channel->view[REMOTE].commitment_number
-		= 0;
+	channel->view[LOCAL].commitment_number = local_commit_index;
+	channel->view[REMOTE].commitment_number = remote_commit_index;
 
 	channel->basepoints[LOCAL] = *local_basepoints;
 	channel->basepoints[REMOTE] = *remote_basepoints;

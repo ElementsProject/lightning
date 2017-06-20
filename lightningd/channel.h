@@ -124,8 +124,10 @@ static inline u16 to_self_delay(const struct channel *channel, enum side side)
  * @funding_txid: The commitment transaction id.
  * @funding_txout: The commitment transaction output number.
  * @funding_satoshis: The commitment transaction amount.
- * @push_msat: The amount the initator gives to the other side.
+ * @local_msatoshi: The amount for the local side (remainder goes to remote)
  * @feerate_per_kw: feerate per kiloweight (satoshis)
+ * @local_commit_index: local commitment number
+ * @remote_commit_index: remote commitment number
  * @local: local channel configuration
  * @remote: remote channel configuration
  * @local_basepoints: local basepoints.
@@ -140,8 +142,10 @@ struct channel *new_channel(const tal_t *ctx,
 			    const struct sha256_double *funding_txid,
 			    unsigned int funding_txout,
 			    u64 funding_satoshis,
-			    u64 push_msat,
+			    u64 local_msatoshi,
 			    u32 feerate_per_kw,
+			    u64 local_commit_index,
+			    u64 remote_commit_index,
 			    const struct channel_config *local,
 			    const struct channel_config *remote,
 			    const struct basepoints *local_basepoints,
