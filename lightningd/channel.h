@@ -12,6 +12,9 @@
 #include <stdbool.h>
 
 struct signature;
+struct added_htlc;
+struct failed_htlc;
+struct fulfilled_htlc;
 
 /* View from each side */
 struct channel_view {
@@ -371,6 +374,26 @@ bool channel_sending_revoke_and_ack(struct channel *channel);
  * If true, we can't send a new commit message.
  */
 bool channel_awaiting_revoke_and_ack(const struct channel *channel);
+
+/**
+ * channel_force_htlcs: force these htlcs into the (new) channel
+ * @channel: the channel
+ * @htlcs: the htlcs to add (tal_arr)
+ * @hstates: the states for the htlcs (tal_arr of same size)
+ * @fulfilled: htlcs of those which are fulfilled
+ * @fulfilled_sides: sides for ids in @fulfilled
+ * @failed: htlcs of those which are failed
+ * @failed_sides: sides for ids in @failed
+ *
+ * This is used for restoring a channel state.
+ */
+bool channel_force_htlcs(struct channel *channel,
+			 const struct added_htlc *htlcs,
+			 const enum htlc_state *hstates,
+			 const struct fulfilled_htlc *fulfilled,
+			 const enum side *fulfilled_sides,
+			 const struct failed_htlc *failed,
+			 const enum side *failed_sides);
 
 /**
  * dump_htlcs: debugging dump of all HTLCs
