@@ -235,7 +235,7 @@ void log_io(struct log *log, bool in, const void *data, size_t len)
 	errno = save_errno;
 }
 
-static void do_log_add(struct log *log, const char *fmt, va_list ap)
+void logv_add(struct log *log, const char *fmt, va_list ap)
 {
 	struct log_entry *l = list_tail(&log->lr->log, struct log_entry, list);
 	size_t oldlen = strlen(l->log);
@@ -266,7 +266,7 @@ void log_add(struct log *log, const char *fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	do_log_add(log, fmt, ap);
+	logv_add(log, fmt, ap);
 	va_end(ap);
 }
 

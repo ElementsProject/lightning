@@ -112,7 +112,7 @@ void peer_fail(struct peer *peer, const char *fmt, ...)
 	va_start(ap, fmt);
 	log_info(peer->log, "Peer failure in %s: ",
 		 peer_state_name(peer->state));
-	logv(peer->log, -1, fmt, ap);
+	logv_add(peer->log, fmt, ap);
 	va_end(ap);
 
 	/* If we haven't reached awaiting locked, we don't need to reconnect */
