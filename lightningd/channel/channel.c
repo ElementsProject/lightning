@@ -591,7 +591,6 @@ static void their_htlc_locked(const struct htlc *htlc, struct peer *peer)
 	tal_t *tmpctx = tal_tmpctx(peer);
 	u8 *msg;
 	struct onionpacket *op;
-	struct route_step *rs;
 	struct sha256 bad_onion_sha;
 	struct secret ss;
 	enum onion_type failcode;
@@ -623,34 +622,12 @@ static void their_htlc_locked(const struct htlc *htlc, struct peer *peer)
 		goto bad_onion;
 	}
 
-	rs = process_onionpacket(tmpctx, op, ss.data, htlc->rhash.u.u8,
-				 sizeof(htlc->rhash));
-	if (!rs) {
-		failcode = WIRE_INVALID_ONION_HMAC;
-		goto bad_onion;
-	}
-
-	/* Unknown realm isn't a bad onion, it's a normal failure. */
-	/* FIXME: Push complete hoppayload up and have master parse? */
-	if (rs->hop_data.realm != 0) {
-		failcode = WIRE_INVALID_REALM;
-		msg = towire_update_fail_htlc(tmpctx, &peer->channel_id,
-					      htlc->id, NULL);
-		msg_enqueue(&peer->peer_out, take(msg));
-		goto remove_htlc;
-	}
-
 	/* Tell master to deal with it. */
 	msg = towire_channel_accepted_htlc(tmpctx, htlc->id, htlc->msatoshi,
 					   abs_locktime_to_blocks(&htlc->expiry),
 					   &htlc->rhash,
-					   serialize_onionpacket(tmpctx,
-								 rs->next),
-					   rs->nextcase == ONION_FORWARD,
-					   rs->hop_data.amt_forward,
-					   rs->hop_data.outgoing_cltv,
-					   &rs->hop_data.channel_id,
-					   &ss);
+					   &ss,
+					   htlc->routing);
 	daemon_conn_send(&peer->master, take(msg));
 	tal_free(tmpctx);
 	return;
@@ -662,7 +639,6 @@ bad_onion:
 						failcode);
 	msg_enqueue(&peer->peer_out, take(msg));
 
-remove_htlc:
 	status_trace("htlc %"PRIu64" %s", htlc->id, onion_type_name(failcode));
 	rerr = channel_fail_htlc(peer->channel, REMOTE, htlc->id);
 	if (rerr != CHANNEL_ERR_REMOVE_OK)

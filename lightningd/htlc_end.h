@@ -22,7 +22,7 @@ struct htlc_end {
 	struct pay_command *pay_command;
 
 	/* Temporary information, while we resolve the next hop */
-	u8 next_onion[TOTAL_PACKET_SIZE];
+	u8 *next_onion;
 	struct short_channel_id next_channel;
 	u64 amt_to_forward;
 	u32 outgoing_cltv_value;

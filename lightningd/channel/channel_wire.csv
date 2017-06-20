@@ -79,17 +79,14 @@ channel_fail_htlc,,len,2
 channel_fail_htlc,,error_pkt,len*u8
 
 # Peer and I are irrevocably committed to this HTLC.
+# channelds get shared secret from HSM to save master daemon work.
 channel_accepted_htlc,7
 channel_accepted_htlc,,id,8
 channel_accepted_htlc,,amount_msat,8
 channel_accepted_htlc,,cltv_expiry,4
 channel_accepted_htlc,,payment_hash,32
-channel_accepted_htlc,,next_onion,1366*u8
-channel_accepted_htlc,,forward,bool
-channel_accepted_htlc,,amt_to_forward,u64
-channel_accepted_htlc,,outgoing_cltv_value,u32
-channel_accepted_htlc,,next_channel,struct short_channel_id
 channel_accepted_htlc,,shared_secret,struct secret
+channel_accepted_htlc,,onion,1366*u8
 
 # FIXME: Add code to commit current channel state!
 
