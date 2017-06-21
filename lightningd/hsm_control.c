@@ -26,6 +26,7 @@ static bool hsm_init_done(struct subd *hsm, const u8 *msg, const int *fds,
 				  ld->bip32_base) != WALLY_OK)
 		errx(1, "HSM did not give unserializable BIP32 extkey");
 
+	ld->wallet->bip32_base = ld->bip32_base;
 	io_break(ld->hsm);
 	return true;
 }
