@@ -7,55 +7,6 @@
 #include <utils.h>
 #include <wally_bip32.h>
 
-static void json_newaddr(struct command *cmd,
-			 const char *buffer, const jsmntok_t *params)
-{
-	struct json_result *response = new_json_result(cmd);
-	struct lightningd *ld = ld_from_dstate(cmd->dstate);
-	struct ext_key ext;
-	struct sha256 h;
-	struct ripemd160 p2sh;
-	struct pubkey pubkey;
-	u8 *redeemscript;
-	u64 bip32_max_index = db_get_intvar(ld->wallet->db, "bip32_max_index", 0);
-
-	if (bip32_max_index == BIP32_INITIAL_HARDENED_CHILD) {
-		command_fail(cmd, "Keys exhausted ");
-		return;
-	}
-
-	if (bip32_key_from_parent(ld->bip32_base, bip32_max_index,
-				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
-		command_fail(cmd, "Keys generation failure");
-		return;
-	}
-
-	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey.pubkey,
-				       ext.pub_key, sizeof(ext.pub_key))) {
-		command_fail(cmd, "Key parsing failure");
-		return;
-	}
-
-	redeemscript = bitcoin_redeem_p2sh_p2wpkh(cmd, &pubkey);
-	sha256(&h, redeemscript, tal_count(redeemscript));
-	ripemd160(&p2sh, h.u.u8, sizeof(h));
-
-	db_set_intvar(ld->wallet->db, "bip32_max_index", bip32_max_index + 1);
-
-	json_object_start(response, NULL);
-	json_add_string(response, "address",
-			p2sh_to_base58(cmd, cmd->dstate->testnet, &p2sh));
-	json_object_end(response);
-	command_success(cmd, response);
-}
-
-static const struct json_command newaddr_command = {
-	"newaddr",
-	json_newaddr,
-	"Get a new address to fund a channel",
-	"Returns {address} a p2sh address"
-};
-AUTODATA(json_command, &newaddr_command);
 
 /* FIXME: This is very slow with lots of inputs! */
 static bool can_spend(struct lightningd *ld, const u8 *script,
