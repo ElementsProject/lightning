@@ -1,5 +1,6 @@
 #include "wallet.h"
 
+#include <bitcoin/script.h>
 #include <ccan/str/hex/hex.h>
 
 struct wallet *wallet_new(const tal_t *ctx, struct log *log)
@@ -180,3 +181,43 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 	}
 	return utxos;
 }
+
+bool wallet_can_spend(struct wallet *w, const u8 *script,
+		      u32 *index, bool *output_is_p2sh)
+{
+	struct ext_key ext;
+	u64 bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
+	u32 i;
+
+	/* If not one of these, can't be for us. */
+	if (is_p2sh(script))
+		*output_is_p2sh = true;
+	else if (is_p2wpkh(script))
+		*output_is_p2sh = false;
+	else
+		return false;
+
+	for (i = 0; i < bip32_max_index; i++) {
+		u8 *s;
+
+		if (bip32_key_from_parent(w->bip32_base, i,
+					  BIP32_FLAG_KEY_PUBLIC, &ext)
+		    != WALLY_OK) {
+			abort();
+		}
+		s = scriptpubkey_p2wpkh_derkey(w, ext.pub_key);
+		if (*output_is_p2sh) {
+			u8 *p2sh = scriptpubkey_p2sh(w, s);
+			tal_free(s);
+			s = p2sh;
+		}
+		if (scripteq(s, script)) {
+			tal_free(s);
+			*index = i;
+			return true;
+		}
+		tal_free(s);
+	}
+	return false;
+}
+
