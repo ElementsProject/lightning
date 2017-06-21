@@ -91,4 +91,17 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
  */
 void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos);
 
+/**
+ * wallet_can_spend - Do we have the private key matching this scriptpubkey?
+ *
+ * FIXME: This is very slow with lots of inputs!
+ *
+ * @w: (in) allet holding the pubkeys to check against (privkeys are on HSM)
+ * @script: (in) the script to check
+ * @index: (out) the bip32 derivation index that matched the script
+ * @output_is_p2sh: (out) whether the script is a p2sh, or p2wpkh
+ */
+bool wallet_can_spend(struct wallet *w, const u8 *script,
+		      u32 *index, bool *output_is_p2sh);
+
 #endif /* WALLET_WALLET_H */
