@@ -5,10 +5,12 @@
 #include "db.h"
 #include <ccan/tal/tal.h>
 #include <lightningd/utxo.h>
+#include <wally_bip32.h>
 
 struct wallet {
 	struct db *db;
 	struct log *log;
+	struct ext_key *bip32_base;
 };
 
 /* Possible states for tracked outputs in the database. Not sure yet
