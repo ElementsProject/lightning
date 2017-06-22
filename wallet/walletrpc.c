@@ -24,6 +24,39 @@ struct withdrawal {
 };
 
 /**
+ * wallet_extract_owned_outputs - given a tx, extract all of our outputs
+ */
+static int wallet_extract_owned_outputs(struct wallet *w,
+					const struct bitcoin_tx *tx,
+					u64 *total_satoshi)
+{
+	int num_utxos = 0;
+	for (size_t output = 0; output < tal_count(tx->output); output++) {
+		struct utxo *utxo;
+		u32 index;
+		bool is_p2sh;
+
+		if (!wallet_can_spend(w, tx->output[output].script, &index, &is_p2sh))
+			continue;
+
+		utxo = tal(w, struct utxo);
+		utxo->keyindex = index;
+		utxo->is_p2sh = is_p2sh;
+		utxo->amount = tx->output[output].amount;
+		utxo->status = output_state_available;
+		bitcoin_txid(tx, &utxo->txid);
+		utxo->outnum = output;
+		if (!wallet_add_utxo(w, utxo, p2sh_wpkh)) {
+			tal_free(utxo);
+			return -1;
+		}
+		*total_satoshi += utxo->amount;
+		num_utxos++;
+	}
+	return num_utxos;
+}
+
+/**
  * wallet_withdrawal_broadcast - The tx has been broadcast (or it failed)
  *
  * This is the final step in the withdrawal. We either successfully
@@ -38,12 +71,22 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind,
 {
 	struct command *cmd = withdraw->cmd;
 	struct lightningd *ld = ld_from_dstate(withdraw->cmd->dstate);
+	struct bitcoin_tx *tx;
+	u64 change_satoshi = 0;
 
 	/* Massage output into shape so it doesn't kill the JSON serialization */
 	char *output = tal_strjoin(cmd, tal_strsplit(cmd, msg, "\n", STR_NO_EMPTY), " ", STR_NO_TRAIL);
 	if (exitstatus == 0) {
+		/* Mark used outputs as spent */
 		wallet_confirm_utxos(ld->wallet, withdraw->utxos);
-		/* TODO(cdecker) Add the change output to the database */
+
+		/* Parse the tx and extract the change output. We
+		 * generated the hex tx, so this should always work */
+		tx = bitcoin_tx_from_hex(withdraw, withdraw->hextx, strlen(withdraw->hextx));
+		assert(tx != NULL);
+		wallet_extract_owned_outputs(ld->wallet, tx, &change_satoshi);
+		assert(change_satoshi == withdraw->changesatoshi);
+
 		struct json_result *response = new_json_result(cmd);
 		json_object_start(response, NULL);
 		json_add_string(response, "tx", withdraw->hextx);
@@ -245,8 +288,8 @@ static void json_addfunds(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 	jsmntok_t *txtok;
 	struct bitcoin_tx *tx;
-	int output;
-	size_t txhexlen, num_utxos = 0;
+	size_t txhexlen;
+	int num_utxos = 0;
 	u64 total_satoshi = 0;
 
 	if (!json_get_params(buffer, params, "tx", &txtok, NULL)) {
@@ -264,31 +307,12 @@ static void json_addfunds(struct command *cmd,
 	}
 
 	/* Find an output we know how to spend. */
-	for (output = 0; output < tal_count(tx->output); output++) {
-		struct utxo *utxo;
-		u32 index;
-		bool is_p2sh;
-
-		if (!wallet_can_spend(ld->wallet, tx->output[output].script, &index, &is_p2sh))
-			continue;
-
-		utxo = tal(ld, struct utxo);
-		utxo->keyindex = index;
-		utxo->is_p2sh = is_p2sh;
-		utxo->amount = tx->output[output].amount;
-		utxo->status = output_state_available;
-		bitcoin_txid(tx, &utxo->txid);
-		utxo->outnum = output;
-		if (!wallet_add_utxo(ld->wallet, utxo, p2sh_wpkh)) {
-			command_fail(cmd, "Could add outputs to wallet");
-			tal_free(utxo);
-			return;
-		}
-		total_satoshi += utxo->amount;
-		num_utxos++;
-	}
-
-	if (!num_utxos) {
+	num_utxos =
+	    wallet_extract_owned_outputs(ld->wallet, tx, &total_satoshi);
+	if (num_utxos < 0) {
+		command_fail(cmd, "Could add outputs to wallet");
+		return;
+	} else if (!num_utxos) {
 		command_fail(cmd, "No usable outputs");
 		return;
 	}

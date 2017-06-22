@@ -197,7 +197,7 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 	else
 		return false;
 
-	for (i = 0; i < bip32_max_index; i++) {
+	for (i = 0; i <= bip32_max_index; i++) {
 		u8 *s;
 
 		if (bip32_key_from_parent(w->bip32_base, i,
