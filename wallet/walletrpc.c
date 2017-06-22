@@ -206,6 +206,10 @@ static void json_withdraw(struct command *cmd,
 		return;
 	}
 
+	/* FIXME(cdecker) Pull this from the daemon config */
+	if (withdraw->changesatoshi <= 546)
+		withdraw->changesatoshi = 0;
+
 	withdraw->change_key_index =
 	    db_get_intvar(ld->wallet->db, "bip32_max_index", 0) + 1;
 	db_set_intvar(ld->wallet->db, "bip32_max_index",
