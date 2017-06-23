@@ -65,9 +65,8 @@ static void status_send_with_hdr(u16 type, const void *p, size_t len)
 		tal_resize(&msg, 65535);
 
 	if (status_fd >= 0) {
-		if (!wire_sync_write(status_fd, msg))
+		if (!wire_sync_write(status_fd, take(msg)))
 			err(1, "Writing out status %u len %zu", type, len);
-		tal_free(msg);
 	} else {
 		daemon_conn_send(status_conn, take(msg));
 	}
