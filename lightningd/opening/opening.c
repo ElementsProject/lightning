@@ -187,7 +187,7 @@ static u8 *read_next_peer_msg(struct state *state, const tal_t *ctx)
 			tal_free(pong);
 		} else if (gossip_msg(msg)) {
 			/* We relay gossip to gossipd, but don't relay from */
-			if (!wire_sync_write(GOSSIP_FD, msg))
+			if (!wire_sync_write(GOSSIP_FD, take(msg)))
 				peer_failed(PEER_FD, &state->cs, NULL,
 					    WIRE_OPENING_PEER_WRITE_FAILED,
 					    "Relaying gossip message");

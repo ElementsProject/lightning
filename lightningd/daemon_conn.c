@@ -46,7 +46,7 @@ bool daemon_conn_sync_flush(struct daemon_conn *dc)
 		if (fd >= 0) {
 			if (!fdpass_send(io_conn_fd(dc->conn), fd))
 				return false;
-		} else if (!wire_sync_write(io_conn_fd(dc->conn), msg))
+		} else if (!wire_sync_write(io_conn_fd(dc->conn), take(msg)))
 			return false;
 	}
 	return true;
