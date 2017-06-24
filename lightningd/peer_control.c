@@ -841,42 +841,46 @@ static u8 *create_node_announcement(const tal_t *ctx, struct lightningd *ld,
 	return announcement;
 }
 
-/* We got the signature for out provisional node_announcement back
- * from the HSM, create the real announcement and forward it to
- * gossipd so it can take care of forwarding it. */
-static bool send_node_announcement_got_sig(struct subd *hsm, const u8 *msg,
-					   const int *fds,
-					   struct lightningd *ld)
-{
-	tal_t *tmpctx = tal_tmpctx(hsm);
-	secp256k1_ecdsa_signature sig;
-	u8 *announcement, *wrappedmsg;
-	if (!fromwire_hsmctl_node_announcement_sig_reply(msg, NULL, &sig)) {
-		log_debug(ld->log,
-			  "HSM returned an invalid node_announcement sig");
-		return false;
-	}
-	announcement = create_node_announcement(tmpctx, ld, &sig);
-	wrappedmsg = towire_gossip_forwarded_msg(tmpctx, announcement);
-	subd_send_msg(ld->gossip, take(wrappedmsg));
-	tal_free(tmpctx);
-	return true;
-}
-
 /* We were informed by channeld that it announced the channel and sent
  * an update, so we can now start sending a node_announcement. The
  * first step is to build the provisional announcement and ask the HSM
  * to sign it. */
-static void peer_channel_announced(struct peer *peer, const u8 *msg)
+static int peer_channel_announced(struct peer *peer, const u8 *msg)
 {
 	struct lightningd *ld = peer->ld;
-	tal_t *tmpctx = tal_tmpctx(ld);
-	u8 *req;
-	req = towire_hsmctl_node_announcement_sig_req(
+	tal_t *tmpctx = tal_tmpctx(peer);
+	secp256k1_ecdsa_signature sig;
+	u8 *announcement, *wrappedmsg;
+
+	if (!fromwire_channel_announced(msg, NULL)) {
+		peer_internal_error(peer, "bad fromwire_channel_announced %s",
+				    tal_hex(peer, msg));
+		return -1;
+	}
+
+	msg = towire_hsmctl_node_announcement_sig_req(
 		tmpctx, create_node_announcement(tmpctx, ld, NULL));
-	subd_req(ld, ld->hsm, take(req), -1, 0,
-		 send_node_announcement_got_sig, ld);
+
+	/* FIXME: don't use hsm->conn */
+	set_blocking(io_conn_fd(ld->hsm->conn), true);
+	if (!wire_sync_write(io_conn_fd(ld->hsm->conn), take(msg)))
+		fatal("Could not write to HSM: %s", strerror(errno));
+
+	msg = hsm_sync_read(tmpctx, ld);
+	set_blocking(io_conn_fd(ld->hsm->conn), false);
+
+	if (!fromwire_hsmctl_node_announcement_sig_reply(msg, NULL, &sig))
+		fatal("HSM returned an invalid node_announcement sig");
+
+	/* We got the signature for out provisional node_announcement back
+	 * from the HSM, create the real announcement and forward it to
+	 * gossipd so it can take care of forwarding it. */
+	announcement = create_node_announcement(tmpctx, ld, &sig);
+	wrappedmsg = towire_gossip_forwarded_msg(tmpctx, announcement);
+	subd_send_msg(ld->gossip, take(wrappedmsg));
 	tal_free(tmpctx);
+
+	return 0;
 }
 
 static int peer_got_funding_locked(struct peer *peer, const u8 *msg)
@@ -931,8 +935,7 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 	case WIRE_CHANNEL_GOT_REVOKE:
 		return peer_got_revoke(sd->peer, msg);
 	case WIRE_CHANNEL_ANNOUNCED:
-		peer_channel_announced(sd->peer, msg);
-		break;
+		return peer_channel_announced(sd->peer, msg);
 	case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
 		return peer_got_funding_locked(sd->peer, msg);
 
