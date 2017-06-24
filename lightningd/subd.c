@@ -126,12 +126,13 @@ static struct subd_req *get_req(struct subd *sd, int reply_type)
 }
 
 /* We use sockets, not pipes, because fds are bidir. */
-static int subd(const char *dir, const char *name, bool debug,
-		int *msgfd, int dev_disconnect_fd, va_list ap)
+static int subd(const char *dir, const char *name, const char *debug_subdaemon,
+		int *msgfd, int dev_disconnect_fd, va_list *ap)
 {
 	int childmsg[2], execfail[2];
 	pid_t childpid;
 	int err, *fd;
+	bool debug = debug_subdaemon && strends(name, debug_subdaemon);
 
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, childmsg) != 0)
 		goto fail;
@@ -169,12 +170,14 @@ static int subd(const char *dir, const char *name, bool debug,
 		}
 
 		/* Dup any extra fds up first. */
-		while ((fd = va_arg(ap, int *)) != NULL) {
-			/* If this were stdin, dup2 closed! */
-			assert(*fd != STDIN_FILENO);
-			if (!move_fd(*fd, fdnum))
-				goto child_errno_fail;
-			fdnum++;
+		if (ap) {
+			while ((fd = va_arg(*ap, int *)) != NULL) {
+				/* If this were stdin, dup2 closed! */
+				assert(*fd != STDIN_FILENO);
+				if (!move_fd(*fd, fdnum))
+					goto child_errno_fail;
+				fdnum++;
+			}
 		}
 
 		/* Make (fairly!) sure all other fds are closed. */
@@ -201,10 +204,12 @@ static int subd(const char *dir, const char *name, bool debug,
 	close(childmsg[1]);
 	close(execfail[1]);
 
-	while ((fd = va_arg(ap, int *)) != NULL) {
-		if (taken(fd)) {
-			close(*fd);
-			*fd = -1;
+	if (ap) {
+		while ((fd = va_arg(*ap, int *)) != NULL) {
+			if (taken(fd)) {
+				close(*fd);
+				*fd = -1;
+			}
 		}
 	}
 
@@ -227,6 +232,22 @@ close_msgfd_fail:
 	close_noerr(childmsg[1]);
 fail:
 	return -1;
+}
+
+int subd_raw(struct lightningd *ld, const char *name)
+{
+	pid_t pid;
+	int msg_fd;
+
+	pid = subd(ld->daemon_dir, name, ld->dev_debug_subdaemon,
+		   &msg_fd, ld->dev_disconnect_fd, NULL);
+	if (pid == (pid_t)-1) {
+		log_unusual(ld->log, "subd %s failed: %s",
+			    name, strerror(errno));
+		return -1;
+	}
+
+	return msg_fd;
 }
 
 static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd);
@@ -394,13 +415,10 @@ struct subd *new_subd(const tal_t *ctx,
 	va_list ap;
 	struct subd *sd = tal(ctx, struct subd);
 	int msg_fd;
-	bool debug;
 
-	debug = ld->dev_debug_subdaemon
-		&& strends(name, ld->dev_debug_subdaemon);
 	va_start(ap, finished);
-	sd->pid = subd(ld->daemon_dir, name, debug, &msg_fd,
-		       ld->dev_disconnect_fd, ap);
+	sd->pid = subd(ld->daemon_dir, name, ld->dev_debug_subdaemon,
+		       &msg_fd, ld->dev_disconnect_fd, &ap);
 	va_end(ap);
 	if (sd->pid == (pid_t)-1) {
 		log_unusual(ld->log, "subd %s failed: %s",
