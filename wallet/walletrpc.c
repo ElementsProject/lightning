@@ -5,14 +5,19 @@
 #include <daemon/bitcoind.h>
 #include <daemon/chaintopology.h>
 #include <daemon/jsonrpc.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/status.h>
 #include <lightningd/subd.h>
 #include <lightningd/utxo.h>
 #include <lightningd/withdraw_tx.h>
 #include <permute_tx.h>
+#include <unistd.h>
 #include <wally_bip32.h>
+#include <wire/wire_sync.h>
 
 struct withdrawal {
 	u64 amount, changesatoshi;
@@ -22,6 +27,34 @@ struct withdrawal {
 	struct command *cmd;
 	const char *hextx;
 };
+
+static void set_blocking(int fd, bool block)
+{
+	int flags = fcntl(fd, F_GETFL);
+
+	if (block)
+		flags &= ~O_NONBLOCK;
+	else
+		flags |= O_NONBLOCK;
+
+	fcntl(fd, F_SETFL, flags);
+}
+
+static u8 *hsm_sync_read(const tal_t *ctx, struct lightningd *ld)
+{
+	for (;;) {
+		u8 *msg = wire_sync_read(ctx, io_conn_fd(ld->hsm->conn));
+		if (!msg)
+			fatal("Could not write from HSM: %s", strerror(errno));
+		if (fromwire_peektype(msg) != STATUS_TRACE)
+			return msg;
+
+		log_debug(ld->hsm->log, "TRACE: %.*s",
+			  (int)(tal_len(msg) - sizeof(be16)),
+			  (char *)msg + sizeof(be16));
+		tal_free(msg);
+	}
+}
 
 /**
  * wallet_extract_owned_outputs - given a tx, extract all of our outputs
@@ -99,64 +132,6 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind,
 }
 
 /**
- * wallet_withdrawal_signed - The HSM has signed our withdrawal request
- *
- * This is the second step (2/3) of the withdrawal flow. The HSM has
- * returned the necessary signatures for the withdrawal transaction,
- * so now we can assemble the transaction and kick off the broadcast.
- */
-static bool wallet_withdrawal_signed(struct subd *hsm, const u8 *reply,
-				     const int *fds,
-				     struct withdrawal *withdraw)
-{
-	struct command *cmd = withdraw->cmd;
-	struct lightningd *ld = ld_from_dstate(cmd->dstate);
-	struct ext_key ext;
-	struct pubkey changekey;
-	secp256k1_ecdsa_signature *sigs;
-	struct bitcoin_tx *tx;
-
-	if (!fromwire_hsmctl_sign_withdrawal_reply(withdraw, reply, NULL, &sigs))
-		fatal("HSM gave bad sign_withdrawal_reply %s",
-		      tal_hex(withdraw, reply));
-
-	if (bip32_key_from_parent(ld->bip32_base, withdraw->change_key_index,
-                               BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
-             command_fail(cmd, "Changekey generation failure");
-             return true;
-	}
-
-	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
-	tx = withdraw_tx(withdraw, withdraw->utxos, &withdraw->destination,
-			 withdraw->amount, &changekey, withdraw->changesatoshi,
-			 ld->bip32_base);
-
-	if (tal_count(sigs) != tal_count(tx->input))
-		fatal("HSM gave %zu sigs, needed %zu",
-		      tal_count(sigs), tal_count(tx->input));
-
-	/* Create input parts from signatures. */
-	for (size_t i = 0; i < tal_count(tx->input); i++) {
-		struct pubkey key;
-
-		if (!bip32_pubkey(hsm->ld->bip32_base,
-				  &key, withdraw->utxos[i]->keyindex))
-			fatal("Cannot generate BIP32 key for UTXO %u",
-			      withdraw->utxos[i]->keyindex);
-
-		/* P2SH inputs have same witness. */
-		tx->input[i].witness
-			= bitcoin_witness_p2wpkh(tx, &sigs[i], &key);
-	}
-
-	/* Now broadcast the transaction */
-	withdraw->hextx = tal_hex(withdraw, linearize_tx(cmd, tx));
-	bitcoind_sendrawtx(ld->topology->bitcoind, withdraw->hextx,
-			   wallet_withdrawal_broadcast, withdraw);
-	return true;
-}
-
-/**
  * json_withdraw - Entrypoint for the withdrawal flow
  *
  * A user has requested a withdrawal over the JSON-RPC, parse the
@@ -175,6 +150,11 @@ static void json_withdraw(struct command *cmd,
 	//u64 dust_limit = 600;
 	u64 fee_estimate;
 	struct utxo *utxos;
+	struct ext_key ext;
+	struct pubkey changekey;
+	secp256k1_ecdsa_signature *sigs;
+	struct bitcoin_tx *tx;
+
 	if (!json_get_params(buffer, params,
 			     "destination", &desttok,
 			     "satoshi", &sattok,
@@ -222,9 +202,54 @@ static void json_withdraw(struct command *cmd,
 						withdraw->change_key_index,
 						withdraw->destination.addr.u.u8,
 						utxos);
-	subd_req(cmd, ld->hsm, take(msg), -1, 0, wallet_withdrawal_signed,
-		 withdraw);
 	tal_free(utxos);
+
+	/* FIXME: don't use hsm->conn */
+	set_blocking(io_conn_fd(ld->hsm->conn), true);
+	if (!wire_sync_write(io_conn_fd(ld->hsm->conn), take(msg)))
+		fatal("Could not write sign_withdrawal to HSM: %s",
+		      strerror(errno));
+
+	msg = hsm_sync_read(cmd, ld);
+	set_blocking(io_conn_fd(ld->hsm->conn), false);
+
+	if (!fromwire_hsmctl_sign_withdrawal_reply(withdraw, msg, NULL, &sigs))
+		fatal("HSM gave bad sign_withdrawal_reply %s",
+		      tal_hex(withdraw, msg));
+
+	if (bip32_key_from_parent(ld->bip32_base, withdraw->change_key_index,
+                               BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
+             command_fail(cmd, "Changekey generation failure");
+             return;
+	}
+
+	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
+	tx = withdraw_tx(withdraw, withdraw->utxos, &withdraw->destination,
+			 withdraw->amount, &changekey, withdraw->changesatoshi,
+			 ld->bip32_base);
+
+	if (tal_count(sigs) != tal_count(tx->input))
+		fatal("HSM gave %zu sigs, needed %zu",
+		      tal_count(sigs), tal_count(tx->input));
+
+	/* Create input parts from signatures. */
+	for (size_t i = 0; i < tal_count(tx->input); i++) {
+		struct pubkey key;
+
+		if (!bip32_pubkey(ld->bip32_base,
+				  &key, withdraw->utxos[i]->keyindex))
+			fatal("Cannot generate BIP32 key for UTXO %u",
+			      withdraw->utxos[i]->keyindex);
+
+		/* P2SH inputs have same witness. */
+		tx->input[i].witness
+			= bitcoin_witness_p2wpkh(tx, &sigs[i], &key);
+	}
+
+	/* Now broadcast the transaction */
+	withdraw->hextx = tal_hex(withdraw, linearize_tx(cmd, tx));
+	bitcoind_sendrawtx(ld->topology->bitcoind, withdraw->hextx,
+			   wallet_withdrawal_broadcast, withdraw);
 }
 
 static const struct json_command withdraw_command = {
