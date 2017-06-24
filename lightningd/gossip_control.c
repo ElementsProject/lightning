@@ -106,6 +106,7 @@ static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPCTL_NEW_PEER:
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 	case WIRE_GOSSIPCTL_FAIL_PEER:
+	case WIRE_GOSSIPCTL_GET_PEER_GOSSIPFD:
 	case WIRE_GOSSIP_GETNODES_REQUEST:
 	case WIRE_GOSSIP_GETROUTE_REQUEST:
 	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
@@ -115,6 +116,8 @@ static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
+	case WIRE_GOSSIPCTL_GET_PEER_GOSSIPFD_REPLY:
+	case WIRE_GOSSIPCTL_GET_PEER_GOSSIPFD_REPLYFAIL:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:

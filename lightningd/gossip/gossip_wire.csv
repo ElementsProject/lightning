@@ -107,3 +107,15 @@ gossip_forwarded_msg,,msg,msglen
 # If peer is still connected, fail it (master does this for reconnect)
 gossipctl_fail_peer,11
 gossipctl_fail_peer,,unique_id,8
+
+# Get a gossip fd for this peer (it has reconnected)
+gossipctl_get_peer_gossipfd,12
+gossipctl_get_peer_gossipfd,,unique_id,u64
+# Does it want a full dump of gossip?
+gossipctl_get_peer_gossipfd,,sync,bool
+
+# + fd.
+gossipctl_get_peer_gossipfd_reply,112
+
+# Failure (can't make new socket)
+gossipctl_get_peer_gossipfd_replyfail,212

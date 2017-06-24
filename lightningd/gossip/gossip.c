@@ -117,6 +117,28 @@ static struct peer *setup_new_peer(struct daemon *daemon, const u8 *msg)
 	return peer;
 }
 
+static struct peer *setup_new_remote_peer(struct daemon *daemon,
+					  u64 unique_id, bool sync)
+{
+	struct peer *peer = tal(daemon, struct peer);
+
+	peer->daemon = daemon;
+	peer->error = NULL;
+	peer->local = false;
+	peer->num_pings_outstanding = 0;
+	peer->fd = -1;
+	peer->unique_id = unique_id;
+	if (sync)
+		peer->broadcast_index = 0;
+	else
+		peer->broadcast_index = daemon->rstate->broadcasts->next_index;
+
+	msg_queue_init(&peer->peer_out, peer);
+	list_add_tail(&daemon->peers, &peer->list);
+	tal_add_destructor(peer, destroy_peer);
+	return peer;
+}
+
 static struct io_plan *owner_msg_in(struct io_conn *conn,
 				    struct daemon_conn *dc);
 static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn,
@@ -457,6 +479,47 @@ static struct io_plan *fail_peer(struct io_conn *conn, struct daemon *daemon,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static void forget_peer(struct io_conn *conn, struct daemon_conn *dc)
+{
+	/* Free peer. */
+	tal_free(dc->ctx);
+}
+
+static struct io_plan *new_peer_fd(struct io_conn *conn, struct daemon *daemon,
+				   const u8 *msg)
+{
+	int fds[2];
+	u8 *out;
+	u64 unique_id;
+	bool sync;
+	struct peer *peer;
+
+	if (!fromwire_gossipctl_get_peer_gossipfd(msg, NULL,
+						  &unique_id, &sync))
+		status_failed(WIRE_GOSSIPSTATUS_BAD_FAIL_REQUEST,
+			      "%s", tal_hex(trc, msg));
+
+	peer = setup_new_remote_peer(daemon, unique_id, sync);
+
+	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds) != 0) {
+		status_trace("Failed to create socketpair: %s",
+			     strerror(errno));
+		out = towire_gossipctl_get_peer_gossipfd_replyfail(msg);
+		daemon_conn_send(&peer->daemon->master, take(out));
+		return daemon_conn_read_next(conn, &daemon->master);
+	}
+
+	daemon_conn_init(peer, &peer->owner_conn, fds[0], owner_msg_in,
+			 forget_peer);
+	peer->owner_conn.msg_queue_cleared_cb = nonlocal_dump_gossip;
+
+	out = towire_gossipctl_get_peer_gossipfd_reply(msg);
+	daemon_conn_send(&peer->daemon->master, out);
+	daemon_conn_send_fd(&peer->daemon->master, fds[1]);
+
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 				    u8 *msg)
 {
@@ -649,6 +712,8 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		return release_peer(conn, daemon, master->msg_in);
 	case WIRE_GOSSIPCTL_FAIL_PEER:
 		return fail_peer(conn, daemon, master->msg_in);
+	case WIRE_GOSSIPCTL_GET_PEER_GOSSIPFD:
+		return new_peer_fd(conn, daemon, master->msg_in);
 
 	case WIRE_GOSSIP_GETNODES_REQUEST:
 		return getnodes(conn, daemon);
@@ -670,6 +735,8 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		return daemon_conn_read_next(conn, &daemon->master);
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
+	case WIRE_GOSSIPCTL_GET_PEER_GOSSIPFD_REPLY:
+	case WIRE_GOSSIPCTL_GET_PEER_GOSSIPFD_REPLYFAIL:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:
