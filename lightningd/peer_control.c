@@ -1071,7 +1071,7 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 	struct pubkey local_fundingkey;
 	struct crypto_state cs;
 
-	assert(tal_count(fds) == 1);
+	assert(tal_count(fds) == 2);
 
 	/* At this point, we care about peer */
 	fc->peer->channel_info = channel_info
@@ -1147,6 +1147,9 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 
 	fc->peer->owner = NULL;
 
+	close(peer->gossip_client_fd);
+	peer->gossip_client_fd = fds[1];
+
 	if (!wire_sync_write(fc->peer->ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
@@ -1167,7 +1170,7 @@ static bool opening_fundee_finished(struct subd *opening,
 	struct crypto_state cs;
 
 	log_debug(peer->log, "Got opening_fundee_finish_response");
-	assert(tal_count(fds) == 1);
+	assert(tal_count(fds) == 2);
 
 	/* At this point, we care about peer */
 	peer->channel_info = channel_info = tal(peer, struct channel_info);
@@ -1204,6 +1207,9 @@ static bool opening_fundee_finished(struct subd *opening,
 
 	/* Unowned. */
 	peer->owner = NULL;
+
+	close(peer->gossip_client_fd);
+	peer->gossip_client_fd = fds[1];
 
 	/* On to normal operation! */
 	peer_start_channeld(peer, OPENINGD, &cs, fds[0], funding_signed);
@@ -1321,7 +1327,7 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 		peer_fail_permanent(peer, (u8 *)take(err));
 		return;
 	}
-	subd_req(peer, peer->owner, take(msg), -1, 1,
+	subd_req(peer, peer->owner, take(msg), -1, 2,
 		 opening_fundee_finished, peer);
 }
 
@@ -1395,7 +1401,7 @@ static bool gossip_peer_released(struct subd *gossip,
 				    15000, max_minimum_depth,
 				    fc->change, fc->change_keyindex,
 				    utxos, bip32_base);
-	subd_req(fc, opening, take(msg), -1, 1, opening_funder_finished, fc);
+	subd_req(fc, opening, take(msg), -1, 2, opening_funder_finished, fc);
 	return true;
 }
 
