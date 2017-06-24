@@ -80,9 +80,6 @@ struct peer {
 	/* Secret seed (FIXME: Move to hsm!) */
 	struct privkey *seed;
 
-	/* Gossip client fd, forwarded to the respective owner */
-	int gossip_client_fd;
-
 	/* Reestablishment stuff: last sent commit and revocation details. */
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;
@@ -133,7 +130,7 @@ struct peer *peer_from_json(struct lightningd *ld,
 
 void peer_fundee_open(struct peer *peer, const u8 *msg,
 		      const struct crypto_state *cs,
-		      int peer_fd);
+		      int peer_fd, int gossip_fd);
 
 void add_peer(struct lightningd *ld, u64 unique_id,
 	      int fd, const struct pubkey *id,
