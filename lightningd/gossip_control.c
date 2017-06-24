@@ -83,15 +83,13 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 	/* It returned the fd. */
 	assert(peer->fd == -1);
 	peer->fd = peer_fd;
-	assert(peer->cs == NULL);
-	peer->cs = tal_dup(peer, struct crypto_state, &cs);
 
 	peer->gossip_client_fd = gossip_fd;
 
 	log_info(peer->log, "Gossip ended up receipt of %s",
 		 wire_type_name(fromwire_peektype(inner)));
 
-	peer_fundee_open(peer, inner);
+	peer_fundee_open(peer, inner, &cs);
 }
 
 static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
