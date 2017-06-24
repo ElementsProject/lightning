@@ -44,7 +44,7 @@ struct subd_req {
 	struct list_node list;
 
 	/* Callback for a reply. */
-	int reply_type;
+	int type;
 	bool (*replycb)(struct subd *, const u8 *, const int *, void *);
 	void *replycb_data;
 
@@ -87,7 +87,7 @@ static void add_req(const tal_t *ctx,
 {
 	struct subd_req *sr = tal(sd, struct subd_req);
 
-	sr->reply_type = type + SUBD_REPLY_OFFSET;
+	sr->type = type;
 	sr->replycb = replycb;
 	sr->replycb_data = replycb_data;
 	sr->num_reply_fds = num_fds_in;
@@ -100,7 +100,7 @@ static void add_req(const tal_t *ctx,
 		tal_add_destructor2(sr->disabler, disable_cb, sr);
 	} else
 		sr->disabler = NULL;
-	assert(strends(sd->msgname(sr->reply_type), "_REPLY"));
+	assert(strends(sd->msgname(sr->type + SUBD_REPLY_OFFSET), "_REPLY"));
 
 	/* Keep in FIFO order: we sent in order, so replies will be too. */
 	list_add_tail(&sd->reqs, &sr->list);
@@ -113,8 +113,14 @@ static struct subd_req *get_req(struct subd *sd, int reply_type)
 	struct subd_req *sr;
 
 	list_for_each(&sd->reqs, sr, list) {
-		if (sr->reply_type == reply_type)
+		if (sr->type + SUBD_REPLY_OFFSET == reply_type)
 			return sr;
+		/* If it's a fail, and that's a valid type. */
+		if (sr->type + SUBD_REPLYFAIL_OFFSET == reply_type
+		    && strends(sd->msgname(reply_type), "_REPLYFAIL")) {
+			sr->num_reply_fds = 0;
+			return sr;
+		}
 	}
 	return NULL;
 }

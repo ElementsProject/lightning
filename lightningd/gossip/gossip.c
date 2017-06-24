@@ -422,21 +422,11 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 	if (!peer) {
 		/* This can happen with a reconnect vs connect race.
 		 * See gossip_peer_released in master daemon. */
-		struct crypto_state dummy;
-
-		status_trace("release_peer: Unknown peer %"PRIu64, unique_id);
-		memset(&dummy, 0, sizeof(dummy));
 		daemon_conn_send(&daemon->master,
-				 take(towire_gossipctl_release_peer_reply(msg,
-									  ~unique_id,
-									  &dummy)));
-		/* Needs two fds, send dummies. */
-		daemon_conn_send_fd(&daemon->master, dup(STDOUT_FILENO));
-		daemon_conn_send_fd(&daemon->master, dup(STDOUT_FILENO));
+				 take(towire_gossipctl_release_peer_replyfail(msg)));
 	} else {
 		send_peer_with_fds(peer,
 				   take(towire_gossipctl_release_peer_reply(msg,
-								unique_id,
 								&peer->pcs.cs)));
 		io_close_taken_fd(peer->conn);
 	}
@@ -679,6 +669,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		handle_forwarded_msg(conn, daemon, daemon->master.msg_in);
 		return daemon_conn_read_next(conn, &daemon->master);
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
+	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:

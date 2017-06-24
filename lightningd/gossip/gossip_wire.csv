@@ -36,8 +36,10 @@ gossipctl_release_peer,,unique_id,8
 
 # This releases the peer and returns the cryptostate (followed two fds: peer and gossip)
 gossipctl_release_peer_reply,102
-gossipctl_release_peer_reply,,unique_id,8
 gossipctl_release_peer_reply,,crypto_state,struct crypto_state
+
+# This is if we couldn't find the peer.
+gossipctl_release_peer_replyfail,202
 
 # This is where we save a peer's features.
 #gossipstatus_peer_features,1

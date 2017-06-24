@@ -11,6 +11,8 @@ struct io_conn;
 
 /* By convention, replies are requests + 100 */
 #define SUBD_REPLY_OFFSET 100
+/* And reply failures are requests + 200 */
+#define SUBD_REPLYFAIL_OFFSET 200
 
 /* One of our subds. */
 struct subd {
@@ -92,11 +94,13 @@ void subd_send_fd(struct subd *sd, int fd);
  * @sd: subdaemon to request
  * @msg_out: request message (can be take)
  * @fd_out: if >=0 fd to pass at the end of the message (closed after)
- * @num_fds_in: how many fds to read in to hand to @replycb.
+ * @num_fds_in: how many fds to read in to hand to @replycb if it's a reply.
  * @replycb: callback when reply comes in, returns false to shutdown daemon.
  * @replycb_data: final arg to hand to @replycb
  *
  * @replycb cannot free @sd, so it returns false to remove it.
+ * Note that @replycb is called for replies of type @msg_out + SUBD_REPLY_OFFSET
+ * with @num_fds_in fds, or type @msg_out + SUBD_REPLYFAIL_OFFSET with no fds.
  */
 #define subd_req(ctx, sd, msg_out, fd_out, num_fds_in, replycb, replycb_data) \
 	subd_req_((ctx), (sd), (msg_out), (fd_out), (num_fds_in),	\
