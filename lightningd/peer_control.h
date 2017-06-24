@@ -46,8 +46,6 @@ struct peer {
 	struct log_book *log_book;
 	struct log *log;
 
-	/* Our fd to the peer (-1 when we don't have it). */
-	int fd;
 	/* If we've disconnected, this is set. */
 	bool reconnected;
 
@@ -134,7 +132,8 @@ struct peer *peer_from_json(struct lightningd *ld,
 			    jsmntok_t *peeridtok);
 
 void peer_fundee_open(struct peer *peer, const u8 *msg,
-		      const struct crypto_state *cs);
+		      const struct crypto_state *cs,
+		      int peer_fd);
 
 void add_peer(struct lightningd *ld, u64 unique_id,
 	      int fd, const struct pubkey *id,
