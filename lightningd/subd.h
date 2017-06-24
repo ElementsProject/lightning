@@ -75,6 +75,13 @@ struct subd *new_subd(const tal_t *ctx,
 		      void (*finished)(struct subd *, int), ...);
 
 /**
+ * subd_raw - raw interface to get a subdaemon on an fd (for HSM)
+ * @ld: global state
+ * @name: basename of daemon
+ */
+int subd_raw(struct lightningd *ld, const char *name);
+
+/**
  * subd_send_msg - queue a message to the subdaemon.
  * @sd: subdaemon to request
  * @msg_out: message (can be take)
@@ -82,7 +89,7 @@ struct subd *new_subd(const tal_t *ctx,
 void subd_send_msg(struct subd *sd, const u8 *msg_out);
 
 /**
- * subd_send_msg - queue a file descriptor to pass to the subdaemon.
+ * subd_send_fd - queue a file descriptor to pass to the subdaemon.
  * @sd: subdaemon to request
  * @fd: the file descriptor (closed after passing).
  */
