@@ -14,6 +14,7 @@
 #include <daemon/log.h>
 #include <daemon/timeout.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <lightningd/build_utxos.h>
 #include <lightningd/channel.h>
@@ -26,13 +27,28 @@
 #include <lightningd/new_connection.h>
 #include <lightningd/opening/gen_opening_wire.h>
 #include <lightningd/peer_htlcs.h>
+#include <lightningd/status.h>
 #include <netinet/in.h>
 #include <overflows.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
 #include <wally_bip32.h>
 #include <wire/gen_onion_wire.h>
 #include <wire/gen_peer_wire.h>
+#include <wire/wire_sync.h>
+
+static void set_blocking(int fd, bool block)
+{
+	int flags = fcntl(fd, F_GETFL);
+
+	if (block)
+		flags &= ~O_NONBLOCK;
+	else
+		flags |= O_NONBLOCK;
+
+	fcntl(fd, F_SETFL, flags);
+}
 
 static void destroy_peer(struct peer *peer)
 {
@@ -41,6 +57,22 @@ static void destroy_peer(struct peer *peer)
 		close(peer->fd);
 	if (peer->gossip_client_fd >= 0)
 		close(peer->gossip_client_fd);
+}
+
+static u8 *hsm_sync_read(const tal_t *ctx, struct lightningd *ld)
+{
+	for (;;) {
+		u8 *msg = wire_sync_read(ctx, io_conn_fd(ld->hsm->conn));
+		if (!msg)
+			fatal("Could not write from HSM: %s", strerror(errno));
+		if (fromwire_peektype(msg) != STATUS_TRACE)
+			return msg;
+
+		log_debug(ld->hsm->log, "TRACE: %.*s",
+			  (int)(tal_len(msg) - sizeof(be16)),
+			  (char *)msg + sizeof(be16));
+		tal_free(msg);
+	}
 }
 
 /* Mutual recursion, sets timer. */
@@ -242,19 +274,6 @@ static bool peer_reconnected(struct lightningd *ld,
 		tal_free(peer);
 
 		/* A fresh start. */
-		return false;
-
-	case GETTING_SIG_FROM_HSM:
-		/* BOLT #2:
-		 *
-		 * On disconnection, the funder MUST remember the channel for
-		 * reconnection if it has broadcast the funding transaction,
-		 * otherwise it SHOULD NOT.
-		 */
-		/* Free peer, which will discard HSM response. */
-		tal_free(peer);
-
-		/* Start afresh */
 		return false;
 
 	case GETTING_HSMFD:
@@ -804,12 +823,10 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 }
 
 /* FIXME: Reshuffle. */
-static void peer_start_channeld(struct peer *peer, enum peer_state oldstate,
-				const u8 *funding_signed);
+static void peer_start_channeld(struct peer *peer, const u8 *funding_signed);
 
-static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
-					const int *fds,
-					struct funding_channel *fc)
+static void opening_got_hsm_funding_sig(struct funding_channel *fc,
+					const u8 *resp)
 {
 	secp256k1_ecdsa_signature *sigs;
 	struct bitcoin_tx *tx = fc->funding_tx;
@@ -838,7 +855,7 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 	}
 
 	/* Send it out and watch for confirms. */
-	broadcast_tx(hsm->ld->topology, fc->peer, tx, funding_broadcast_failed);
+	broadcast_tx(fc->peer->ld->topology, fc->peer, tx, funding_broadcast_failed);
 	watch_tx(fc->peer, fc->peer->ld->topology, fc->peer, tx,
 		 funding_lockin_cb, NULL);
 
@@ -848,11 +865,10 @@ static bool opening_got_hsm_funding_sig(struct subd *hsm, const u8 *resp,
 	command_success(fc->cmd, null_response(fc->cmd));
 
 	/* Start normal channel daemon. */
-	peer_start_channeld(fc->peer, GETTING_SIG_FROM_HSM, NULL);
+	peer_start_channeld(fc->peer, NULL);
 
 	wallet_confirm_utxos(fc->peer->ld->wallet, fc->utxomap);
 	tal_free(fc);
-	return true;
 }
 
 /* Create a node_announcement with the given signature. It may be NULL
@@ -1104,8 +1120,7 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 }
 
 /* opening is done, start lightningd_channel for peer. */
-static void peer_start_channeld(struct peer *peer, enum peer_state oldstate,
-				const u8 *funding_signed)
+static void peer_start_channeld(struct peer *peer, const u8 *funding_signed)
 {
 	/* Unowned: back to being owned by main daemon. */
 	peer->owner = NULL;
@@ -1120,7 +1135,7 @@ static void peer_start_channeld(struct peer *peer, enum peer_state oldstate,
 	else
 		*peer->balance = peer->push_msat;
 
-	peer_set_condition(peer, oldstate, GETTING_HSMFD);
+	peer_set_condition(peer, OPENINGD, GETTING_HSMFD);
 
 	/* Save this for when we get HSM fd. */
 	peer->funding_signed = funding_signed;
@@ -1227,9 +1242,17 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 	tal_free(utxos);
 
 	fc->peer->owner = NULL;
-	peer_set_condition(fc->peer, OPENINGD, GETTING_SIG_FROM_HSM);
-	subd_req(fc, fc->peer->ld->hsm, take(msg), -1, 0,
-		 opening_got_hsm_funding_sig, fc);
+
+	/* FIXME: don't use hsm->conn */
+	set_blocking(io_conn_fd(fc->peer->ld->hsm->conn), true);
+	if (!wire_sync_write(io_conn_fd(fc->peer->ld->hsm->conn),
+			     take(msg)))
+		fatal("Could not write to HSM: %s", strerror(errno));
+
+	msg = hsm_sync_read(fc, fc->peer->ld);
+	set_blocking(io_conn_fd(fc->peer->ld->hsm->conn), false);
+
+	opening_got_hsm_funding_sig(fc, msg);
 
 	/* Tell opening daemon to exit. */
 	return false;
@@ -1282,8 +1305,7 @@ static bool opening_fundee_finished(struct subd *opening,
 		   funding_lockin_cb, NULL);
 
 	/* On to normal operation! */
-	peer->owner = NULL;
-	peer_start_channeld(peer, OPENINGD, funding_signed);
+	peer_start_channeld(peer, funding_signed);
 
 	/* Tell opening daemon to exit. */
 	return false;
