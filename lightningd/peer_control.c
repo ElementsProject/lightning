@@ -211,15 +211,14 @@ void peer_set_condition(struct peer *peer, enum peer_state old_state,
 /* FIXME: Reshuffle. */
 static bool peer_start_channeld(struct peer *peer,
 				enum peer_state old_state,
+				const struct crypto_state *cs,
 				const u8 *funding_signed);
 
 /* Send (encrypted) error message, then close. */
-static struct io_plan *send_error(struct io_conn *conn, struct peer *peer)
+static struct io_plan *send_error(struct io_conn *conn,
+				  struct peer_crypto_state *pcs)
 {
-	struct peer_crypto_state *pcs = tal(conn, struct peer_crypto_state);
-	init_peer_crypto_state(peer, pcs);
-	pcs->cs = *peer->cs;
-	return peer_write_message(conn, pcs, peer->error, (void *)io_close_cb);
+	return peer_write_message(conn, pcs, pcs->peer->error, (void *)io_close_cb);
 }
 
 /* Returns true if we consider this a reconnection. */
@@ -235,17 +234,16 @@ static bool peer_reconnected(struct lightningd *ld,
 	log_info(peer->log, "Peer has reconnected, state %s",
 		 peer_state_name(peer->state));
 
-	/* Always copy cryptostate; at worst we'll throw it away. */
-	tal_free(peer->cs);
-	peer->cs = tal_dup(peer, struct crypto_state, cs);
-
 	/* BOLT #2:
 	 *
 	 * On reconnection, if a channel is in an error state, the node SHOULD
 	 * retransmit the error packet and ignore any other packets for that
 	 * channel, and the following requirements do not apply. */
 	if (peer->error) {
-		io_new_conn(peer, fd, send_error, peer);
+		struct peer_crypto_state *pcs = tal(peer, struct peer_crypto_state);
+		init_peer_crypto_state(peer, pcs);
+		pcs->cs = *cs;
+		tal_steal(io_new_conn(peer, fd, send_error, pcs), pcs);
 		return true;
 	}
 
@@ -290,7 +288,7 @@ static bool peer_reconnected(struct lightningd *ld,
 		peer->fd = fd;
 
 		/* We never re-transmit funding_signed. */
-		peer_start_channeld(peer, peer->state, NULL);
+		peer_start_channeld(peer, peer->state, cs, NULL);
 		return true;
 
 	case SHUTDOWND_SENT:
@@ -342,7 +340,6 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->fd = fd;
 	peer->reconnected = false;
 	peer->gossip_client_fd = -1;
-	peer->cs = tal_dup(peer, struct crypto_state, cs);
 	peer->funding_txid = NULL;
 	peer->remote_funding_locked = false;
 	peer->scid = NULL;
@@ -385,13 +382,12 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	tal_steal(peer->owner, peer);
 	peer_set_condition(peer, UNINITIALIZED, GOSSIPD);
 
-	msg = towire_gossipctl_new_peer(peer, peer->unique_id, peer->cs);
+	msg = towire_gossipctl_new_peer(peer, peer->unique_id, cs);
 	subd_send_msg(peer->ld->gossip, take(msg));
 	subd_send_fd(peer->ld->gossip, peer->fd);
 
 	/* Peer struct longer owns fd. */
 	peer->fd = -1;
-	peer->cs = tal_free(peer->cs);
 }
 
 struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id)
@@ -792,7 +788,8 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 }
 
 static void opening_got_hsm_funding_sig(struct funding_channel *fc,
-					const u8 *resp)
+					const u8 *resp,
+					const struct crypto_state *cs)
 {
 	secp256k1_ecdsa_signature *sigs;
 	struct bitcoin_tx *tx = fc->funding_tx;
@@ -831,7 +828,7 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	command_success(fc->cmd, null_response(fc->cmd));
 
 	/* Start normal channel daemon. */
-	peer_start_channeld(fc->peer, OPENINGD, NULL);
+	peer_start_channeld(fc->peer, OPENINGD, cs, NULL);
 
 	wallet_confirm_utxos(fc->peer->ld->wallet, fc->utxomap);
 	tal_free(fc);
@@ -994,6 +991,7 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 
 static bool peer_start_channeld(struct peer *peer,
 				enum peer_state old_state,
+				const struct crypto_state *cs,
 				const u8 *funding_signed)
 {
 	const tal_t *tmpctx = tal_tmpctx(peer);
@@ -1066,7 +1064,7 @@ static bool peer_start_channeld(struct peer *peer,
 				      &peer->our_config,
 				      &peer->channel_info->their_config,
 				      &peer->channel_info->commit_sig,
-				      peer->cs,
+				      cs,
 				      &peer->channel_info->remote_fundingkey,
 				      &peer->channel_info->theirbase.revocation,
 				      &peer->channel_info->theirbase.payment,
@@ -1101,7 +1099,6 @@ static bool peer_start_channeld(struct peer *peer,
 	subd_send_msg(peer->owner, take(initmsg));
 
 	peer->fd = -1;
-	peer->cs = tal_free(peer->cs);
 	return true;
 }
 
@@ -1123,10 +1120,10 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 	struct sha256_double funding_txid;
 	struct pubkey changekey;
 	struct pubkey local_fundingkey;
+	struct crypto_state cs;
 
 	assert(tal_count(fds) == 1);
 	fc->peer->fd = fds[0];
-	fc->peer->cs = tal(fc->peer, struct crypto_state);
 
 	/* At this point, we care about peer */
 	fc->peer->channel_info = channel_info
@@ -1135,7 +1132,7 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 	if (!fromwire_opening_funder_reply(resp, NULL,
 					   &channel_info->their_config,
 					   &channel_info->commit_sig,
-					   fc->peer->cs,
+					   &cs,
 					   &channel_info->theirbase.revocation,
 					   &channel_info->theirbase.payment,
 					   &channel_info->theirbase.delayed_payment,
@@ -1211,7 +1208,7 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 	msg = hsm_sync_read(fc, fc->peer->ld);
 	set_blocking(io_conn_fd(fc->peer->ld->hsm->conn), false);
 
-	opening_got_hsm_funding_sig(fc, msg);
+	opening_got_hsm_funding_sig(fc, msg, &cs);
 
 	/* Tell opening daemon to exit. */
 	return false;
@@ -1224,11 +1221,11 @@ static bool opening_fundee_finished(struct subd *opening,
 {
 	u8 *funding_signed;
 	struct channel_info *channel_info;
+	struct crypto_state cs;
 
 	log_debug(peer->log, "Got opening_fundee_finish_response");
 	assert(tal_count(fds) == 1);
 	peer->fd = fds[0];
-	peer->cs = tal(peer, struct crypto_state);
 
 	/* At this point, we care about peer */
 	peer->channel_info = channel_info = tal(peer, struct channel_info);
@@ -1236,7 +1233,7 @@ static bool opening_fundee_finished(struct subd *opening,
 	if (!fromwire_opening_fundee_reply(peer, reply, NULL,
 					   &channel_info->their_config,
 					   &channel_info->commit_sig,
-					   peer->cs,
+					   &cs,
 					   &channel_info->theirbase.revocation,
 					   &channel_info->theirbase.payment,
 					   &channel_info->theirbase.delayed_payment,
@@ -1267,7 +1264,7 @@ static bool opening_fundee_finished(struct subd *opening,
 	peer->owner = NULL;
 
 	/* On to normal operation! */
-	peer_start_channeld(peer, OPENINGD, funding_signed);
+	peer_start_channeld(peer, OPENINGD, &cs, funding_signed);
 
 	/* Tell opening daemon to exit. */
 	return false;
@@ -1317,7 +1314,8 @@ static void channel_config(struct lightningd *ld,
 };
 
 /* Peer has spontaneously exited from gossip due to msg */
-void peer_fundee_open(struct peer *peer, const u8 *from_peer)
+void peer_fundee_open(struct peer *peer, const u8 *from_peer,
+		      const struct crypto_state *cs)
 {
 	struct lightningd *ld = peer->ld;
 	u32 max_to_self_delay, max_minimum_depth;
@@ -1368,8 +1366,7 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer)
 	msg = towire_opening_init(peer, &peer->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
-				  peer->cs, peer->seed);
-	peer->cs = tal_free(peer->cs);
+				  cs, peer->seed);
 
 	subd_send_msg(peer->owner, take(msg));
 	msg = towire_opening_fundee(peer, peer->minimum_depth,
@@ -1399,13 +1396,13 @@ static bool gossip_peer_released(struct subd *gossip,
 	struct subd *opening;
 	struct utxo *utxos;
 	u8 *bip32_base;
+	struct crypto_state cs;
 
 	assert(tal_count(fds) == 2);
 	fc->peer->fd = fds[0];
-	fc->peer->cs = tal(fc, struct crypto_state);
 	fc->peer->gossip_client_fd = fds[1];
 
-	if (!fromwire_gossipctl_release_peer_reply(resp, NULL, &id, fc->peer->cs))
+	if (!fromwire_gossipctl_release_peer_reply(resp, NULL, &id, &cs))
 		fatal("Gossup daemon gave invalid reply %s",
 		      tal_hex(gossip, resp));
 
@@ -1444,9 +1441,7 @@ static bool gossip_peer_released(struct subd *gossip,
 	msg = towire_opening_init(fc, &fc->peer->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
-				  fc->peer->cs, fc->peer->seed);
-
-	fc->peer->cs = tal_free(fc->peer->cs);
+				  &cs, fc->peer->seed);
 
 	subd_send_msg(opening, take(msg));
 

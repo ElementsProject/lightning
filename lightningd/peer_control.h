@@ -51,9 +51,6 @@ struct peer {
 	/* If we've disconnected, this is set. */
 	bool reconnected;
 
-	/* Crypto state (NULL if it's in daemon) */
-	struct crypto_state *cs;
-
 	/* Where we connected to, or it connected from. */
 	struct netaddr netaddr;
 
@@ -136,7 +133,8 @@ struct peer *peer_from_json(struct lightningd *ld,
 			    const char *buffer,
 			    jsmntok_t *peeridtok);
 
-void peer_fundee_open(struct peer *peer, const u8 *msg);
+void peer_fundee_open(struct peer *peer, const u8 *msg,
+		      const struct crypto_state *cs);
 
 void add_peer(struct lightningd *ld, u64 unique_id,
 	      int fd, const struct pubkey *id,
