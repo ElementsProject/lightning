@@ -204,7 +204,7 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	struct peer *p;
 
 	/* Let everyone shutdown cleanly. */
-	subd_shutdown(ld->hsm, 10);
+	close(ld->hsm_fd);
 	subd_shutdown(ld->gossip, 10);
 
 	/* Duplicates are OK: no need to check here. */

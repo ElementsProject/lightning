@@ -6,16 +6,51 @@
 #include <ccan/io/io.h>
 #include <ccan/take/take.h>
 #include <daemon/log.h>
+#include <errno.h>
 #include <inttypes.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
+#include <lightningd/status.h>
+#include <string.h>
 #include <wally_bip32.h>
+#include <wire/wire_sync.h>
 
-static bool hsm_init_done(struct subd *hsm, const u8 *msg, const int *fds,
-			  struct lightningd *ld)
+u8 *hsm_sync_read(const tal_t *ctx, struct lightningd *ld)
 {
-	u8 *serialized_extkey;
+	for (;;) {
+		u8 *msg = wire_sync_read(ctx, ld->hsm_fd);
+		if (!msg)
+			fatal("Could not write from HSM: %s", strerror(errno));
+		if (fromwire_peektype(msg) != STATUS_TRACE)
+			return msg;
 
-	if (!fromwire_hsmctl_init_reply(hsm, msg, NULL, &ld->dstate.id,
+		log_debug(ld->log, "HSM TRACE: %.*s",
+			  (int)(tal_len(msg) - sizeof(be16)),
+			  (char *)msg + sizeof(be16));
+		tal_free(msg);
+	}
+}
+
+void hsm_init(struct lightningd *ld, bool newdir)
+{
+	const tal_t *tmpctx = tal_tmpctx(ld);
+	u8 *msg, *serialized_extkey;
+	bool create;
+
+	ld->hsm_fd = subd_raw(ld, "lightningd_hsm");
+	if (ld->hsm_fd < 0)
+		err(1, "Could not subd hsm");
+
+	if (newdir)
+		create = true;
+	else
+		create = (access("hsm_secret", F_OK) != 0);
+
+	if (!wire_sync_write(ld->hsm_fd, towire_hsmctl_init(tmpctx, create)))
+		err(1, "Writing init msg to hsm");
+
+	msg = hsm_sync_read(tmpctx, ld);
+	if (!fromwire_hsmctl_init_reply(tmpctx, msg, NULL,
+					&ld->dstate.id,
 					&ld->peer_seed,
 					&serialized_extkey))
 		errx(1, "HSM did not give init reply");
@@ -25,88 +60,5 @@ static bool hsm_init_done(struct subd *hsm, const u8 *msg, const int *fds,
 	if (bip32_key_unserialize(serialized_extkey, tal_len(serialized_extkey),
 				  ld->bip32_base) != WALLY_OK)
 		errx(1, "HSM did not give unserializable BIP32 extkey");
-
 	ld->wallet->bip32_base = ld->bip32_base;
-	io_break(ld->hsm);
-	return true;
 }
-
-static void hsm_finished(struct subd *hsm, int status)
-{
-	if (WIFEXITED(status))
-		errx(1, "HSM failed (exit status %i), exiting.",
-		     WEXITSTATUS(status));
-	errx(1, "HSM failed (signal %u), exiting.", WTERMSIG(status));
-}
-
-static int hsm_msg(struct subd *hsm, const u8 *msg, const int *fds)
-{
-	enum hsm_wire_type t = fromwire_peektype(msg);
-	u8 *badmsg;
-	struct peer *peer;
-	u64 id;
-
-	switch (t) {
-	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
-		if (!fromwire_hsmstatus_client_bad_request(msg, msg, NULL,
-							   &id, &badmsg))
-			errx(1, "HSM bad status %s", tal_hex(msg, msg));
-		peer = peer_by_unique_id(hsm->ld, id);
-
-		/* "Shouldn't happen" */
-		errx(1, "HSM says bad cmd from %"PRIu64" (%s): %s",
-		     id,
-		     peer ? type_to_string(msg, struct pubkey, &peer->id)
-		     : "unknown peer",
-		     tal_hex(msg, badmsg));
-
-	/* subd already logs fatal errors. */
-	case WIRE_HSMSTATUS_INIT_FAILED:
-	case WIRE_HSMSTATUS_WRITEMSG_FAILED:
-	case WIRE_HSMSTATUS_BAD_REQUEST:
-	case WIRE_HSMSTATUS_FD_FAILED:
-	case WIRE_HSMSTATUS_KEY_FAILED:
-		break;
-
-	/* HSM doesn't send these */
-	case WIRE_HSMCTL_INIT:
-	case WIRE_HSMCTL_HSMFD_ECDH:
-	case WIRE_HSMCTL_HSMFD_CHANNELD:
-	case WIRE_HSMCTL_SIGN_FUNDING:
-	case WIRE_HSMCTL_SIGN_WITHDRAWAL:
-	case WIRE_HSMCTL_NODE_ANNOUNCEMENT_SIG_REQ:
-
-	/* Replies should be paired to individual requests. */
-	case WIRE_HSMCTL_INIT_REPLY:
-	case WIRE_HSMCTL_HSMFD_CHANNELD_REPLY:
-	case WIRE_HSMCTL_HSMFD_ECDH_FD_REPLY:
-	case WIRE_HSMCTL_SIGN_FUNDING_REPLY:
-	case WIRE_HSMCTL_SIGN_WITHDRAWAL_REPLY:
-	case WIRE_HSMCTL_NODE_ANNOUNCEMENT_SIG_REPLY:
-		errx(1, "HSM gave invalid message %s", hsm_wire_type_name(t));
-	}
-	return 0;
-}
-
-void hsm_init(struct lightningd *ld, bool newdir)
-{
-	bool create;
-
-	ld->hsm = new_subd(ld, ld, "lightningd_hsm", NULL,
-			   hsm_wire_type_name,
-			   hsm_msg, hsm_finished, NULL);
-	if (!ld->hsm)
-		err(1, "Could not subd hsm");
-
-	if (newdir)
-		create = true;
-	else
-		create = (access("hsm_secret", F_OK) != 0);
-
-	subd_req(ld->hsm, ld->hsm, take(towire_hsmctl_init(ld->hsm, create)),
-		 -1, 0, hsm_init_done, ld);
-
-	if (io_loop(NULL, NULL) != ld->hsm)
-		errx(1, "Unexpected io exit during HSM startup");
-}
-
