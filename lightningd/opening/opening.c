@@ -747,6 +747,7 @@ int main(int argc, char *argv[])
 	/* Write message and hand back the fd. */
 	wire_sync_write(REQ_FD, msg);
 	fdpass_send(REQ_FD, PEER_FD);
+	fdpass_send(REQ_FD, GOSSIP_FD);
 	status_trace("Sent %s with fd",
 		     opening_wire_type_name(fromwire_peektype(msg)));
 	tal_free(state);
