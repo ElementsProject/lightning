@@ -11,9 +11,6 @@ enum peer_state {
 	/* Negotiating channel opening: in opening daemon */
 	OPENINGD,
 
-	/* Getting HSM fd for channeld. */
-	GETTING_HSMFD,
-
 	/* In channeld, still waiting for lockin. */
 	CHANNELD_AWAITING_LOCKIN,
 

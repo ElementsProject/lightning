@@ -60,9 +60,6 @@ struct peer {
 	/* Our channel config. */
 	struct channel_config our_config;
 
-	/* funding_signed packet for fundee, waiting to send. */
-	const u8 *funding_signed;
-
 	/* Minimum funding depth (specified by us if they fund). */
 	u32 minimum_depth;
 

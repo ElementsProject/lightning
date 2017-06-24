@@ -4,6 +4,7 @@
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
+#include <ccan/fdpass/fdpass.h>
 #include <ccan/io/io.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/take/take.h>
@@ -207,9 +208,10 @@ void peer_set_condition(struct peer *peer, enum peer_state old_state,
 	peer->state = state;
 }
 
-static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
-				      const int *fds,
-				      struct peer *peer);
+/* FIXME: Reshuffle. */
+static bool peer_start_channeld(struct peer *peer,
+				enum peer_state old_state,
+				const u8 *funding_signed);
 
 /* Send (encrypted) error message, then close. */
 static struct io_plan *send_error(struct io_conn *conn, struct peer *peer)
@@ -276,33 +278,7 @@ static bool peer_reconnected(struct lightningd *ld,
 		/* A fresh start. */
 		return false;
 
-	case GETTING_HSMFD:
-		/* Simply substitute old fd for new one. */
-		assert(peer->fd != -1);
-		close(peer->fd);
-		peer->fd = fd;
-		return true;
-
 	case CHANNELD_AWAITING_LOCKIN:
-		/* Kill off current channeld, if any. */
-		if (peer->owner) {
-			peer->owner->peer = NULL;
-			peer->owner = tal_free(peer->owner);
-		}
-		assert(peer->fd == -1);
-		peer->fd = fd;
-
-		/* Start a new one: first get fresh hsm fd. */
-		peer_set_condition(peer, CHANNELD_AWAITING_LOCKIN,
-				   GETTING_HSMFD);
-
-		/* Get fd from hsm. */
-		subd_req(peer, peer->ld->hsm,
-			 take(towire_hsmctl_hsmfd_channeld(peer,
-							   peer->unique_id)),
-			 -1, 1, peer_start_channeld_hsmfd, peer);
-		return true;
-
 	case CHANNELD_NORMAL:
 		/* Kill off current channeld, if any */
 		if (peer->owner) {
@@ -313,15 +289,8 @@ static bool peer_reconnected(struct lightningd *ld,
 		assert(peer->fd == -1);
 		peer->fd = fd;
 
-		/* Start a new one: first get fresh hsm fd. */
-		peer_set_condition(peer, CHANNELD_NORMAL, GETTING_HSMFD);
-
-		/* FIXME: Needs to reload state! */
-		/* Get fd from hsm. */
-		subd_req(peer, peer->ld->hsm,
-			 take(towire_hsmctl_hsmfd_channeld(peer,
-							   peer->unique_id)),
-			 -1, 1, peer_start_channeld_hsmfd, peer);
+		/* We never re-transmit funding_signed. */
+		peer_start_channeld(peer, peer->state, NULL);
 		return true;
 
 	case SHUTDOWND_SENT:
@@ -822,9 +791,6 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 	return DELETE_WATCH;
 }
 
-/* FIXME: Reshuffle. */
-static void peer_start_channeld(struct peer *peer, const u8 *funding_signed);
-
 static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 					const u8 *resp)
 {
@@ -865,7 +831,7 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	command_success(fc->cmd, null_response(fc->cmd));
 
 	/* Start normal channel daemon. */
-	peer_start_channeld(fc->peer, NULL);
+	peer_start_channeld(fc->peer, OPENINGD, NULL);
 
 	wallet_confirm_utxos(fc->peer->ld->wallet, fc->utxomap);
 	tal_free(fc);
@@ -1026,12 +992,13 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 	return 0;
 }
 
-/* We've got fd from HSM for channeld */
-static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
-				      const int *fds,
-				      struct peer *peer)
+static bool peer_start_channeld(struct peer *peer,
+				enum peer_state old_state,
+				const u8 *funding_signed)
 {
-	u8 *initmsg;
+	const tal_t *tmpctx = tal_tmpctx(peer);
+	u8 *msg, *initmsg;
+	int hsmfd;
 	const struct config *cfg = &peer->ld->dstate.config;
 	struct added_htlc *htlcs;
 	enum htlc_state *htlc_states;
@@ -1041,6 +1008,29 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 	enum side *failed_sides;
 	struct short_channel_id funding_channel_id;
 
+	/* Now we can consider balance set. */
+	peer->balance = tal(peer, u64);
+	if (peer->funder == LOCAL)
+		*peer->balance = peer->funding_satoshi * 1000 - peer->push_msat;
+	else
+		*peer->balance = peer->push_msat;
+
+	/* FIXME: don't use hsm->conn */
+	set_blocking(io_conn_fd(peer->ld->hsm->conn), true);
+	msg = towire_hsmctl_hsmfd_channeld(tmpctx, peer->unique_id);
+
+	if (!wire_sync_write(io_conn_fd(peer->ld->hsm->conn), take(msg)))
+		fatal("Could not write to HSM: %s", strerror(errno));
+
+	msg = hsm_sync_read(tmpctx, peer->ld);
+	if (!fromwire_hsmctl_hsmfd_channeld_reply(msg, NULL))
+		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
+
+	hsmfd = fdpass_recv(io_conn_fd(peer->ld->hsm->conn));
+	if (hsmfd < 0)
+		fatal("Could not read fd from HSM: %s", strerror(errno));
+	set_blocking(io_conn_fd(peer->ld->hsm->conn), false);
+
 	peer->owner = new_subd(peer->ld, peer->ld,
 			       "lightningd_channel", peer,
 			       channel_wire_type_name,
@@ -1048,7 +1038,7 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 			       peer_owner_finished,
 			       take(&peer->fd),
 			       &peer->gossip_client_fd,
-			       take(&fds[0]), NULL);
+			       take(&hsmfd), NULL);
 	if (!peer->owner) {
 		log_unusual(peer->log, "Could not subdaemon channel: %s",
 			    strerror(errno));
@@ -1056,21 +1046,20 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 		return true;
 	}
 
-	peer_htlcs(resp, peer, &htlcs, &htlc_states, &fulfilled_htlcs,
+	peer_htlcs(tmpctx, peer, &htlcs, &htlc_states, &fulfilled_htlcs,
 		   &fulfilled_sides, &failed_htlcs, &failed_sides);
 
 	if (peer->scid) {
 		funding_channel_id = *peer->scid;
 		log_debug(peer->log, "Already have funding locked in");
-		peer_set_condition(peer, GETTING_HSMFD, CHANNELD_NORMAL);
+		peer_set_condition(peer, old_state, CHANNELD_NORMAL);
 	} else {
 		log_debug(peer->log, "Waiting for funding confirmations");
-		peer_set_condition(peer, GETTING_HSMFD,
-				   CHANNELD_AWAITING_LOCKIN);
+		peer_set_condition(peer, old_state, CHANNELD_AWAITING_LOCKIN);
 		memset(&funding_channel_id, 0, sizeof(funding_channel_id));
 	}
 
-	initmsg = towire_channel_init(peer,
+	initmsg = towire_channel_init(tmpctx,
 				      peer->funding_txid,
 				      peer->funding_outnum,
 				      peer->funding_satoshi,
@@ -1106,10 +1095,7 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 				      peer->remote_funding_locked,
 				      &funding_channel_id,
 				      peer->reconnected,
-				      peer->funding_signed);
-
-	/* Don't need this any more (we never re-transmit it) */
-	peer->funding_signed = tal_free(peer->funding_signed);
+				      funding_signed);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(peer->owner, take(initmsg));
@@ -1117,33 +1103,6 @@ static bool peer_start_channeld_hsmfd(struct subd *hsm, const u8 *resp,
 	peer->fd = -1;
 	peer->cs = tal_free(peer->cs);
 	return true;
-}
-
-/* opening is done, start lightningd_channel for peer. */
-static void peer_start_channeld(struct peer *peer, const u8 *funding_signed)
-{
-	/* Unowned: back to being owned by main daemon. */
-	peer->owner = NULL;
-	tal_steal(peer->ld, peer);
-
-	log_debug(peer->log, "Waiting for HSM file descriptor");
-
-	/* Now we can consider balance set. */
-	peer->balance = tal(peer, u64);
-	if (peer->funder == LOCAL)
-		*peer->balance = peer->funding_satoshi * 1000 - peer->push_msat;
-	else
-		*peer->balance = peer->push_msat;
-
-	peer_set_condition(peer, OPENINGD, GETTING_HSMFD);
-
-	/* Save this for when we get HSM fd. */
-	peer->funding_signed = funding_signed;
-
-	/* Get fd from hsm. */
-	subd_req(peer, peer->ld->hsm,
-		 take(towire_hsmctl_hsmfd_channeld(peer, peer->unique_id)),
-		 -1, 1, peer_start_channeld_hsmfd, peer);
 }
 
 static bool peer_commit_initial(struct peer *peer)
@@ -1304,8 +1263,11 @@ static bool opening_fundee_finished(struct subd *opening,
 	watch_txid(peer, peer->ld->topology, peer, peer->funding_txid,
 		   funding_lockin_cb, NULL);
 
+	/* Unowned. */
+	peer->owner = NULL;
+
 	/* On to normal operation! */
-	peer_start_channeld(peer, funding_signed);
+	peer_start_channeld(peer, OPENINGD, funding_signed);
 
 	/* Tell opening daemon to exit. */
 	return false;
