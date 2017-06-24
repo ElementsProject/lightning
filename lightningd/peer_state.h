@@ -11,9 +11,6 @@ enum peer_state {
 	/* Negotiating channel opening: in opening daemon */
 	OPENINGD,
 
-	/* Getting signature from HSM for funding tx (funder only). */
-	GETTING_SIG_FROM_HSM,
-
 	/* Getting HSM fd for channeld. */
 	GETTING_HSMFD,
 
