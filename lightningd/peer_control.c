@@ -43,8 +43,6 @@
 static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->ld->peers, &peer->list);
-	if (peer->gossip_client_fd >= 0)
-		close(peer->gossip_client_fd);
 }
 
 /* Mutual recursion, sets timer. */
@@ -173,7 +171,7 @@ void peer_set_condition(struct peer *peer, enum peer_state old_state,
 static bool peer_start_channeld(struct peer *peer,
 				enum peer_state old_state,
 				const struct crypto_state *cs,
-				int peer_fd,
+				int peer_fd, int gossip_fd,
 				const u8 *funding_signed);
 
 /* Send (encrypted) error message, then close. */
@@ -181,6 +179,87 @@ static struct io_plan *send_error(struct io_conn *conn,
 				  struct peer_crypto_state *pcs)
 {
 	return peer_write_message(conn, pcs, pcs->peer->error, (void *)io_close_cb);
+}
+
+struct getting_gossip_fd {
+	struct pubkey id;
+	int peer_fd;
+	struct crypto_state cs;
+};
+
+static bool get_peer_gossipfd_reply(struct subd *subd, const u8 *msg,
+				    const int *fds,
+				    struct getting_gossip_fd *ggf)
+{
+	struct peer *peer;
+
+	if (!fromwire_gossipctl_get_peer_gossipfd_reply(msg, NULL)) {
+		if (!fromwire_gossipctl_get_peer_gossipfd_replyfail(msg, NULL))
+			fatal("Gossipd gave bad get_peer_gossipfd reply %s",
+			      tal_hex(subd, msg));
+
+		log_unusual(subd->log, "Gossipd could not get fds for peer %s",
+			    type_to_string(ggf, struct pubkey, &ggf->id));
+
+		/* This is an internal error, but could be transient.
+		 * Hang up and let them retry. */
+		goto forget;
+	}
+
+	/* Make sure it still needs gossipfd! */
+	peer = peer_by_id(subd->ld, &ggf->id);
+	if (!peer) {
+		log_unusual(subd->log, "Gossipd gave fd, but peer %s gone",
+			    type_to_string(ggf, struct pubkey, &ggf->id));
+		goto close_gossipfd;
+	}
+
+	if (peer->state != CHANNELD_AWAITING_LOCKIN
+	    && peer->state != CHANNELD_NORMAL) {
+		log_unusual(subd->log, "Gossipd gave fd, but peer %s %s",
+			    type_to_string(ggf, struct pubkey, &ggf->id),
+			    peer_state_name(peer->state));
+		goto close_gossipfd;
+	}
+
+	/* Kill off current channeld, if any */
+	if (peer->owner) {
+		peer->owner->peer = NULL;
+		peer->owner = tal_free(peer->owner);
+	}
+
+	/* We never re-transmit funding_signed. */
+	peer_start_channeld(peer, peer->state, &ggf->cs, ggf->peer_fd, fds[0],
+			    NULL);
+	goto out;
+
+close_gossipfd:
+	close(fds[0]);
+
+forget:
+	close(ggf->peer_fd);
+out:
+	tal_free(ggf);
+	return true;
+}
+
+static void get_gossip_fd_for_reconnect(struct lightningd *ld,
+					const struct pubkey *id,
+					u64 unique_id,
+					int peer_fd,
+					const struct crypto_state *cs)
+{
+	struct getting_gossip_fd *ggf = tal(ld, struct getting_gossip_fd);
+	u8 *req;
+
+	ggf->peer_fd = peer_fd;
+	ggf->id = *id;
+	ggf->cs = *cs;
+	
+	/* FIXME: set sync to `initial_routing_sync` */
+	req = towire_gossipctl_get_peer_gossipfd(ggf, unique_id, true);
+	subd_req(ggf, ld->gossip, take(req), -1, 1,
+		 get_peer_gossipfd_reply, ggf);
 }
 
 /* Returns true if we consider this a reconnection. */
@@ -212,9 +291,6 @@ static bool peer_reconnected(struct lightningd *ld,
 	/* We need this for init */
 	peer->reconnected = true;
 
-	/* FIXME: We should close peer->gossip_client_fd when we're not
-	 * connected, and get a new one from gossipd when we reconnect. */
-
 	switch (peer->state) {
 	/* This can't happen. */
 	case UNINITIALIZED:
@@ -240,15 +316,8 @@ static bool peer_reconnected(struct lightningd *ld,
 
 	case CHANNELD_AWAITING_LOCKIN:
 	case CHANNELD_NORMAL:
-		/* Kill off current channeld, if any */
-		if (peer->owner) {
-			peer->owner->peer = NULL;
-			peer->owner = tal_free(peer->owner);
-		}
-
-		/* We never re-transmit funding_signed. */
-		peer_start_channeld(peer, peer->state, cs,
-				     fd, NULL);
+		/* We need the gossipfd now */
+		get_gossip_fd_for_reconnect(ld, id, peer->unique_id, fd, cs);
 		return true;
 
 	case SHUTDOWND_SENT:
@@ -297,7 +366,6 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->unique_id = unique_id;
 	peer->id = *id;
 	peer->reconnected = false;
-	peer->gossip_client_fd = -1;
 	peer->funding_txid = NULL;
 	peer->remote_funding_locked = false;
 	peer->scid = NULL;
@@ -741,7 +809,7 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 }
 
 static void opening_got_hsm_funding_sig(struct funding_channel *fc,
-					int fd,
+					int peer_fd, int gossip_fd,
 					const u8 *resp,
 					const struct crypto_state *cs)
 {
@@ -782,7 +850,7 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	command_success(fc->cmd, null_response(fc->cmd));
 
 	/* Start normal channel daemon. */
-	peer_start_channeld(fc->peer, OPENINGD, cs, fd, NULL);
+	peer_start_channeld(fc->peer, OPENINGD, cs, peer_fd, gossip_fd, NULL);
 
 	wallet_confirm_utxos(fc->peer->ld->wallet, fc->utxomap);
 	tal_free(fc);
@@ -945,7 +1013,7 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 static bool peer_start_channeld(struct peer *peer,
 				enum peer_state old_state,
 				const struct crypto_state *cs,
-				int fd,
+				int peer_fd, int gossip_fd,
 				const u8 *funding_signed)
 {
 	const tal_t *tmpctx = tal_tmpctx(peer);
@@ -984,8 +1052,8 @@ static bool peer_start_channeld(struct peer *peer,
 			       channel_wire_type_name,
 			       channel_msg,
 			       peer_owner_finished,
-			       take(&fd),
-			       &peer->gossip_client_fd,
+			       take(&peer_fd),
+			       take(&gossip_fd),
 			       take(&hsmfd), NULL);
 	if (!peer->owner) {
 		log_unusual(peer->log, "Could not subdaemon channel: %s",
@@ -1147,14 +1215,11 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 
 	fc->peer->owner = NULL;
 
-	close(peer->gossip_client_fd);
-	peer->gossip_client_fd = fds[1];
-
 	if (!wire_sync_write(fc->peer->ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = hsm_sync_read(fc, fc->peer->ld);
-	opening_got_hsm_funding_sig(fc, fds[0], msg, &cs);
+	opening_got_hsm_funding_sig(fc, fds[0], fds[1], msg, &cs);
 
 	/* Tell opening daemon to exit. */
 	return false;
@@ -1208,11 +1273,8 @@ static bool opening_fundee_finished(struct subd *opening,
 	/* Unowned. */
 	peer->owner = NULL;
 
-	close(peer->gossip_client_fd);
-	peer->gossip_client_fd = fds[1];
-
 	/* On to normal operation! */
-	peer_start_channeld(peer, OPENINGD, &cs, fds[0], funding_signed);
+	peer_start_channeld(peer, OPENINGD, &cs, fds[0], fds[1], funding_signed);
 
 	/* Tell opening daemon to exit. */
 	return false;
@@ -1264,7 +1326,7 @@ static void channel_config(struct lightningd *ld,
 /* Peer has spontaneously exited from gossip due to msg */
 void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 		      const struct crypto_state *cs,
-		      int peer_fd)
+		      int peer_fd, int gossip_fd)
 {
 	struct lightningd *ld = peer->ld;
 	u32 max_to_self_delay, max_minimum_depth;
@@ -1287,7 +1349,7 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 	peer->owner = new_subd(ld, ld, "lightningd_opening", peer,
 			       opening_wire_type_name,
 			       NULL, peer_owner_finished,
-			       take(&peer_fd), &peer->gossip_client_fd,
+			       take(&peer_fd), take(&gossip_fd),
 			       NULL);
 	if (!peer->owner) {
 		peer_fail_transient(peer, "Failed to subdaemon opening: %s",
@@ -1357,15 +1419,13 @@ static bool gossip_peer_released(struct subd *gossip,
 	}
 
 	assert(tal_count(fds) == 2);
-	fc->peer->gossip_client_fd = fds[1];
 
 	peer_set_condition(fc->peer, GOSSIPD, OPENINGD);
 	opening = new_subd(fc->peer->ld, ld,
 			   "lightningd_opening", fc->peer,
 			   opening_wire_type_name,
 			   NULL, peer_owner_finished,
-			   take(&fds[0]),
-			   &fc->peer->gossip_client_fd, NULL);
+			   take(&fds[0]), take(&fds[1]), NULL);
 	if (!opening) {
 		peer_fail_transient(fc->peer, "Failed to subdaemon opening: %s",
 				    strerror(errno));

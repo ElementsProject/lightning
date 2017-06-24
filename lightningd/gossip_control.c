@@ -80,12 +80,10 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 		fatal("Gossip gave bad peerid %"PRIu64" (owner %s)",
 		      unique_id, peer->owner ? peer->owner->name : "(none)");
 
-	peer->gossip_client_fd = gossip_fd;
-
 	log_info(peer->log, "Gossip ended up receipt of %s",
 		 wire_type_name(fromwire_peektype(inner)));
 
-	peer_fundee_open(peer, inner, &cs, peer_fd);
+	peer_fundee_open(peer, inner, &cs, peer_fd, gossip_fd);
 }
 
 static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
