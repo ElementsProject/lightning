@@ -1391,30 +1391,25 @@ static bool gossip_peer_released(struct subd *gossip,
 	struct lightningd *ld = fc->peer->ld;
 	u32 max_to_self_delay, max_minimum_depth;
 	u64 min_effective_htlc_capacity_msat;
-	u64 id;
 	u8 *msg;
 	struct subd *opening;
 	struct utxo *utxos;
 	u8 *bip32_base;
 	struct crypto_state cs;
 
+	if (!fromwire_gossipctl_release_peer_reply(resp, NULL, &cs)) {
+		if (!fromwire_gossipctl_release_peer_replyfail(resp, NULL)) {
+			fatal("Gossup daemon gave invalid reply %s",
+			      tal_hex(gossip, resp));
+		}
+		tal_del_destructor(fc, fail_fundchannel_command);
+		command_fail(fc->cmd, "Peer reconnected, try again");
+		return true;
+	}
+
 	assert(tal_count(fds) == 2);
 	fc->peer->fd = fds[0];
 	fc->peer->gossip_client_fd = fds[1];
-
-	if (!fromwire_gossipctl_release_peer_reply(resp, NULL, &id, &cs))
-		fatal("Gossup daemon gave invalid reply %s",
-		      tal_hex(gossip, resp));
-
-	/* This is how gossipd handles a reconnect (gossipctl_fail_peer) racing
-	 * with us trying to connect. */
-	if (id != fc->peer->unique_id) {
-		tal_del_destructor(fc, fail_fundchannel_command);
-		command_fail(fc->cmd, "Peer reconnected, try again");
-		close(fds[0]);
-		close(fds[1]);
-		return true;
-	}
 
 	peer_set_condition(fc->peer, GOSSIPD, OPENINGD);
 	opening = new_subd(fc->peer->ld, ld,
