@@ -1,14 +1,19 @@
+#include <ccan/fdpass/fdpass.h>
 #include <ccan/tal/str/str.h>
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <lightningd/cryptomsg.h>
 #include <lightningd/handshake/gen_handshake_wire.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/new_connection.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/status.h>
 #include <lightningd/subd.h>
+#include <unistd.h>
+#include <wire/wire_sync.h>
 
 /* Before we have identified the peer, we just have a connection object. */
 struct connection {
@@ -20,9 +25,6 @@ struct connection {
 
 	/* Unique identifier for handshaked. */
 	u64 unique_id;
-
-	/* Socket */
-	int fd;
 
 	/* Json command which made us connect (if any) */
 	struct command *cmd;
@@ -36,6 +38,35 @@ static void connection_destroy(struct connection *c)
 	/* FIXME: better diagnostics. */
 	if (c->cmd)
 		command_fail(c->cmd, "Failed to connect to peer");
+}
+
+static void set_blocking(int fd, bool block)
+{
+	int flags = fcntl(fd, F_GETFL);
+
+	if (block)
+		flags &= ~O_NONBLOCK;
+	else
+		flags |= O_NONBLOCK;
+
+	fcntl(fd, F_SETFL, flags);
+}
+
+
+static u8 *hsm_sync_read(const tal_t *ctx, struct lightningd *ld)
+{
+	for (;;) {
+		u8 *msg = wire_sync_read(ctx, io_conn_fd(ld->hsm->conn));
+		if (!msg)
+			fatal("Could not write from HSM: %s", strerror(errno));
+		if (fromwire_peektype(msg) != STATUS_TRACE)
+			return msg;
+
+		log_debug(ld->hsm->log, "TRACE: %.*s",
+			  (int)(tal_len(msg) - sizeof(be16)),
+			  (char *)msg + sizeof(be16));
+		tal_free(msg);
+	}
 }
 
 static void
@@ -72,7 +103,6 @@ struct connection *new_connection(const tal_t *ctx,
 		c->known_id = tal_dup(c, struct pubkey, known_id);
 	else
 		c->known_id = NULL;
-	c->fd = -1;
 	tal_add_destructor(c, connection_destroy);
 
 	return c;
@@ -164,24 +194,42 @@ err:
 	return false;
 }
 
-static bool got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
-				const int *fds,
-				struct connection *c)
+/* Same path for connecting in vs connecting out. */
+static struct io_plan *hsm_then_handshake(struct io_conn *conn,
+					  struct lightningd *ld,
+					  struct connection *c)
 {
-	struct lightningd *ld = hsm->ld;
-	const u8 *req;
+	const tal_t *tmpctx = tal_tmpctx(conn);
+	int connfd = io_conn_fd(conn), hsmfd;
 	struct subd *handshaked;
+	u8 *msg;
 
-	assert(tal_count(fds) == 1);
+	/* Get HSM fd for this peer. */
+	/* FIXME: don't use hsm->conn */
+	set_blocking(io_conn_fd(ld->hsm->conn), true);
+	msg = towire_hsmctl_hsmfd_ecdh(tmpctx, c->unique_id);
+
+	if (!wire_sync_write(io_conn_fd(ld->hsm->conn), msg))
+		fatal("Could not write to HSM: %s", strerror(errno));
+
+	msg = hsm_sync_read(tmpctx, ld);
 	if (!fromwire_hsmctl_hsmfd_ecdh_fd_reply(msg, NULL))
 		fatal("Malformed hsmfd response: %s", tal_hex(msg, msg));
+
+	hsmfd = fdpass_recv(io_conn_fd(ld->hsm->conn));
+	if (hsmfd < 0)
+		fatal("Could not read fd from HSM: %s", strerror(errno));
+	set_blocking(io_conn_fd(ld->hsm->conn), false);
+
+	/* Make sure connection fd is blocking */
+	set_blocking(connfd, true);
 
 	/* Give handshake daemon the hsm fd. */
 	handshaked = new_subd(ld, ld,
 			      "lightningd_handshake", NULL,
 			      handshake_wire_type_name,
 			      NULL, NULL,
-			      take(&fds[0]), take(&c->fd), NULL);
+			      take(&hsmfd), take(&connfd), NULL);
 	if (!handshaked) {
 		log_unusual(ld->log, "Could not subdaemon handshake: %s",
 			    strerror(errno));
@@ -192,37 +240,25 @@ static bool got_handshake_hsmfd(struct subd *hsm, const u8 *msg,
 	tal_steal(handshaked, c);
 
 	if (c->known_id) {
-		req = towire_handshake_initiator(c, &ld->dstate.id,
+		msg = towire_handshake_initiator(tmpctx, &ld->dstate.id,
 						 c->known_id);
 	} else {
-		req = towire_handshake_responder(c, &ld->dstate.id);
+		msg = towire_handshake_responder(tmpctx, &ld->dstate.id);
 	}
 
 	/* Now hand peer request to the handshake daemon: hands it
 	 * back on success */
-	subd_req(c, handshaked, take(req), -1, 1, handshake_succeeded, c);
-	return true;
+	subd_req(c, handshaked, take(msg), -1, 1, handshake_succeeded, c);
+
+	tal_free(tmpctx);
+
+	/* We don't need conn, we've passed fd to handshaked. */
+	return io_close_taken_fd(conn);
 
 error:
-	close(fds[0]);
-	return true;
-}
-
-/* Same path for connecting in vs connecting out. */
-static struct io_plan *hsm_then_handshake(struct io_conn *conn,
-					  struct lightningd *ld,
-					  struct connection *c)
-{
-
-	/* Get HSM fd for this peer. */
-	subd_req(c, ld->hsm,
-		 take(towire_hsmctl_hsmfd_ecdh(ld, c->unique_id)),
-		 -1, 1, got_handshake_hsmfd, c);
-
-	c->fd = io_conn_fd(conn);
-
-	/* We don't need conn, we'll pass fd to handshaked. */
-	return io_close_taken_fd(conn);
+	close(hsmfd);
+	tal_free(tmpctx);
+	return io_close(conn);
 }
 
 struct io_plan *connection_out(struct io_conn *conn,
