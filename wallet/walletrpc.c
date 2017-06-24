@@ -6,8 +6,8 @@
 #include <daemon/chaintopology.h>
 #include <daemon/jsonrpc.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/status.h>
@@ -15,7 +15,6 @@
 #include <lightningd/utxo.h>
 #include <lightningd/withdraw_tx.h>
 #include <permute_tx.h>
-#include <unistd.h>
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
 
@@ -27,34 +26,6 @@ struct withdrawal {
 	struct command *cmd;
 	const char *hextx;
 };
-
-static void set_blocking(int fd, bool block)
-{
-	int flags = fcntl(fd, F_GETFL);
-
-	if (block)
-		flags &= ~O_NONBLOCK;
-	else
-		flags |= O_NONBLOCK;
-
-	fcntl(fd, F_SETFL, flags);
-}
-
-static u8 *hsm_sync_read(const tal_t *ctx, struct lightningd *ld)
-{
-	for (;;) {
-		u8 *msg = wire_sync_read(ctx, io_conn_fd(ld->hsm->conn));
-		if (!msg)
-			fatal("Could not write from HSM: %s", strerror(errno));
-		if (fromwire_peektype(msg) != STATUS_TRACE)
-			return msg;
-
-		log_debug(ld->hsm->log, "TRACE: %.*s",
-			  (int)(tal_len(msg) - sizeof(be16)),
-			  (char *)msg + sizeof(be16));
-		tal_free(msg);
-	}
-}
 
 /**
  * wallet_extract_owned_outputs - given a tx, extract all of our outputs
@@ -204,14 +175,11 @@ static void json_withdraw(struct command *cmd,
 						utxos);
 	tal_free(utxos);
 
-	/* FIXME: don't use hsm->conn */
-	set_blocking(io_conn_fd(ld->hsm->conn), true);
-	if (!wire_sync_write(io_conn_fd(ld->hsm->conn), take(msg)))
+	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write sign_withdrawal to HSM: %s",
 		      strerror(errno));
 
 	msg = hsm_sync_read(cmd, ld);
-	set_blocking(io_conn_fd(ld->hsm->conn), false);
 
 	if (!fromwire_hsmctl_sign_withdrawal_reply(withdraw, msg, NULL, &sigs))
 		fatal("HSM gave bad sign_withdrawal_reply %s",

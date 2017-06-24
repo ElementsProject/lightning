@@ -26,7 +26,7 @@ struct lightningd {
 	struct log *log;
 
 	/* Bearer of all my secrets. */
-	struct subd *hsm;
+	int hsm_fd;
 
 	/* Daemon looking after peers during init / before channel. */
 	struct subd *gossip;

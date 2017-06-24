@@ -7,6 +7,7 @@
 #include <lightningd/cryptomsg.h>
 #include <lightningd/handshake/gen_handshake_wire.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/new_connection.h>
 #include <lightningd/peer_control.h>
@@ -50,23 +51,6 @@ static void set_blocking(int fd, bool block)
 		flags |= O_NONBLOCK;
 
 	fcntl(fd, F_SETFL, flags);
-}
-
-
-static u8 *hsm_sync_read(const tal_t *ctx, struct lightningd *ld)
-{
-	for (;;) {
-		u8 *msg = wire_sync_read(ctx, io_conn_fd(ld->hsm->conn));
-		if (!msg)
-			fatal("Could not write from HSM: %s", strerror(errno));
-		if (fromwire_peektype(msg) != STATUS_TRACE)
-			return msg;
-
-		log_debug(ld->hsm->log, "TRACE: %.*s",
-			  (int)(tal_len(msg) - sizeof(be16)),
-			  (char *)msg + sizeof(be16));
-		tal_free(msg);
-	}
 }
 
 static void
@@ -205,21 +189,17 @@ static struct io_plan *hsm_then_handshake(struct io_conn *conn,
 	u8 *msg;
 
 	/* Get HSM fd for this peer. */
-	/* FIXME: don't use hsm->conn */
-	set_blocking(io_conn_fd(ld->hsm->conn), true);
 	msg = towire_hsmctl_hsmfd_ecdh(tmpctx, c->unique_id);
-
-	if (!wire_sync_write(io_conn_fd(ld->hsm->conn), msg))
+	if (!wire_sync_write(ld->hsm_fd, msg))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = hsm_sync_read(tmpctx, ld);
 	if (!fromwire_hsmctl_hsmfd_ecdh_fd_reply(msg, NULL))
 		fatal("Malformed hsmfd response: %s", tal_hex(msg, msg));
 
-	hsmfd = fdpass_recv(io_conn_fd(ld->hsm->conn));
+	hsmfd = fdpass_recv(ld->hsm_fd);
 	if (hsmfd < 0)
 		fatal("Could not read fd from HSM: %s", strerror(errno));
-	set_blocking(io_conn_fd(ld->hsm->conn), false);
 
 	/* Make sure connection fd is blocking */
 	set_blocking(connfd, true);

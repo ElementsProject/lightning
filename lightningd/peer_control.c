@@ -24,6 +24,7 @@
 #include <lightningd/gen_peer_state_names.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/new_connection.h>
 #include <lightningd/opening/gen_opening_wire.h>
@@ -39,39 +40,11 @@
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_sync.h>
 
-static void set_blocking(int fd, bool block)
-{
-	int flags = fcntl(fd, F_GETFL);
-
-	if (block)
-		flags &= ~O_NONBLOCK;
-	else
-		flags |= O_NONBLOCK;
-
-	fcntl(fd, F_SETFL, flags);
-}
-
 static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->ld->peers, &peer->list);
 	if (peer->gossip_client_fd >= 0)
 		close(peer->gossip_client_fd);
-}
-
-static u8 *hsm_sync_read(const tal_t *ctx, struct lightningd *ld)
-{
-	for (;;) {
-		u8 *msg = wire_sync_read(ctx, io_conn_fd(ld->hsm->conn));
-		if (!msg)
-			fatal("Could not write from HSM: %s", strerror(errno));
-		if (fromwire_peektype(msg) != STATUS_TRACE)
-			return msg;
-
-		log_debug(ld->hsm->log, "TRACE: %.*s",
-			  (int)(tal_len(msg) - sizeof(be16)),
-			  (char *)msg + sizeof(be16));
-		tal_free(msg);
-	}
 }
 
 /* Mutual recursion, sets timer. */
@@ -861,14 +834,10 @@ static int peer_channel_announced(struct peer *peer, const u8 *msg)
 	msg = towire_hsmctl_node_announcement_sig_req(
 		tmpctx, create_node_announcement(tmpctx, ld, NULL));
 
-	/* FIXME: don't use hsm->conn */
-	set_blocking(io_conn_fd(ld->hsm->conn), true);
-	if (!wire_sync_write(io_conn_fd(ld->hsm->conn), take(msg)))
+	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = hsm_sync_read(tmpctx, ld);
-	set_blocking(io_conn_fd(ld->hsm->conn), false);
-
 	if (!fromwire_hsmctl_node_announcement_sig_reply(msg, NULL, &sig))
 		fatal("HSM returned an invalid node_announcement sig");
 
@@ -998,21 +967,17 @@ static bool peer_start_channeld(struct peer *peer,
 	else
 		*peer->balance = peer->push_msat;
 
-	/* FIXME: don't use hsm->conn */
-	set_blocking(io_conn_fd(peer->ld->hsm->conn), true);
 	msg = towire_hsmctl_hsmfd_channeld(tmpctx, peer->unique_id);
-
-	if (!wire_sync_write(io_conn_fd(peer->ld->hsm->conn), take(msg)))
+	if (!wire_sync_write(peer->ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = hsm_sync_read(tmpctx, peer->ld);
 	if (!fromwire_hsmctl_hsmfd_channeld_reply(msg, NULL))
 		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
 
-	hsmfd = fdpass_recv(io_conn_fd(peer->ld->hsm->conn));
+	hsmfd = fdpass_recv(peer->ld->hsm_fd);
 	if (hsmfd < 0)
 		fatal("Could not read fd from HSM: %s", strerror(errno));
-	set_blocking(io_conn_fd(peer->ld->hsm->conn), false);
 
 	peer->owner = new_subd(peer->ld, peer->ld,
 			       "lightningd_channel", peer,
@@ -1182,15 +1147,10 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 
 	fc->peer->owner = NULL;
 
-	/* FIXME: don't use hsm->conn */
-	set_blocking(io_conn_fd(fc->peer->ld->hsm->conn), true);
-	if (!wire_sync_write(io_conn_fd(fc->peer->ld->hsm->conn),
-			     take(msg)))
+	if (!wire_sync_write(fc->peer->ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = hsm_sync_read(fc, fc->peer->ld);
-	set_blocking(io_conn_fd(fc->peer->ld->hsm->conn), false);
-
 	opening_got_hsm_funding_sig(fc, fds[0], msg, &cs);
 
 	/* Tell opening daemon to exit. */
