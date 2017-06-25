@@ -2,6 +2,7 @@
 
 #include <bitcoin/script.h>
 #include <ccan/str/hex/hex.h>
+#include <lightningd/lightningd.h>
 
 struct wallet *wallet_new(const tal_t *ctx, struct log *log)
 {
@@ -221,3 +222,13 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 	return false;
 }
 
+s64 wallet_get_newindex(struct lightningd *ld)
+{
+	u64 newidx = db_get_intvar(ld->wallet->db, "bip32_max_index", 0) + 1;
+
+	if (newidx == BIP32_INITIAL_HARDENED_CHILD)
+		return -1;
+
+	db_set_intvar(ld->wallet->db, "bip32_max_index", newidx);
+	return newidx;
+}

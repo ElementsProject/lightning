@@ -161,10 +161,7 @@ static void json_withdraw(struct command *cmd,
 	if (withdraw->changesatoshi <= 546)
 		withdraw->changesatoshi = 0;
 
-	withdraw->change_key_index =
-	    db_get_intvar(ld->wallet->db, "bip32_max_index", 0) + 1;
-	db_set_intvar(ld->wallet->db, "bip32_max_index",
-		      withdraw->change_key_index);
+	withdraw->change_key_index = wallet_get_newindex(ld);
 
 	utxos = from_utxoptr_arr(withdraw, withdraw->utxos);
 	u8 *msg = towire_hsmctl_sign_withdrawal(cmd,
@@ -238,14 +235,15 @@ static void json_newaddr(struct command *cmd,
 	struct ripemd160 p2sh;
 	struct pubkey pubkey;
 	u8 *redeemscript;
-	u64 bip32_max_index = db_get_intvar(ld->wallet->db, "bip32_max_index", 0);
+	s64 keyidx;
 
-	if (bip32_max_index == BIP32_INITIAL_HARDENED_CHILD) {
+	keyidx = wallet_get_newindex(ld);
+	if (keyidx < 0) {
 		command_fail(cmd, "Keys exhausted ");
 		return;
 	}
 
-	if (bip32_key_from_parent(ld->bip32_base, bip32_max_index,
+	if (bip32_key_from_parent(ld->bip32_base, keyidx,
 				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
 		command_fail(cmd, "Keys generation failure");
 		return;
@@ -260,8 +258,6 @@ static void json_newaddr(struct command *cmd,
 	redeemscript = bitcoin_redeem_p2sh_p2wpkh(cmd, &pubkey);
 	sha256(&h, redeemscript, tal_count(redeemscript));
 	ripemd160(&p2sh, h.u.u8, sizeof(h));
-
-	db_set_intvar(ld->wallet->db, "bip32_max_index", bip32_max_index + 1);
 
 	json_object_start(response, NULL);
 	json_add_string(response, "address",
