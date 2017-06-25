@@ -7,6 +7,8 @@
 #include <lightningd/utxo.h>
 #include <wally_bip32.h>
 
+struct lightningd;
+
 struct wallet {
 	struct db *db;
 	struct log *log;
@@ -103,5 +105,13 @@ void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos);
  */
 bool wallet_can_spend(struct wallet *w, const u8 *script,
 		      u32 *index, bool *output_is_p2sh);
+
+/**
+ * wallet_get_newindex - get a new index from the wallet.
+ * @ld: (in) lightning daemon
+ *
+ * Returns -1 on error (key exhaustion).
+ */
+s64 wallet_get_newindex(struct lightningd *ld);
 
 #endif /* WALLET_WALLET_H */
