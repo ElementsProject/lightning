@@ -209,7 +209,7 @@ WIRE_GEN := tools/generate-wire.py
 PROGRAMS := $(TEST_PROGRAMS)
 
 CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition
-CDEBUGFLAGS := -g -fstack-protector
+CDEBUGFLAGS := -std=gnu11 -g -fstack-protector
 CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) -I libwally-core/src/secp256k1/include/ -I libwally-core/include/ -I libsodium/src/libsodium/include/ -I . $(FEATURES) $(COVFLAGS) -DSHACHAIN_BITS=48
 
 LDLIBS := -lprotobuf-c -lgmp -lsqlite3 $(COVFLAGS)
