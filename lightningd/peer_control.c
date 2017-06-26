@@ -164,6 +164,7 @@ void peer_set_condition(struct peer *peer, enum peer_state old_state,
 		fatal("peer state %s should be %s",
 		      peer_state_name(peer->state), peer_state_name(old_state));
 
+	/* FIXME: save to db */
 	peer->state = state;
 }
 
@@ -316,12 +317,11 @@ static bool peer_reconnected(struct lightningd *ld,
 
 	case CHANNELD_AWAITING_LOCKIN:
 	case CHANNELD_NORMAL:
+	case CHANNELD_SHUTTING_DOWN:
 		/* We need the gossipfd now */
 		get_gossip_fd_for_reconnect(ld, id, peer->unique_id, fd, cs);
 		return true;
 
-	case SHUTDOWND_SENT:
-	case SHUTDOWND_RCVD:
 	case CLOSINGD_SIGEXCHANGE:
 	case ONCHAIND_CHEATED:
 	case ONCHAIND_THEIR_UNILATERAL:
@@ -375,6 +375,8 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->channel_info = NULL;
 	peer->last_was_revoke = false;
 	peer->last_sent_commit = NULL;
+	peer->remote_shutdown_scriptpubkey = NULL;
+	peer->local_shutdown_idx = -1;
 	peer->commit_index[LOCAL]
 		= peer->commit_index[REMOTE]
 		= peer->num_revocations_received = 0;
@@ -942,6 +944,75 @@ static int peer_got_funding_locked(struct peer *peer, const u8 *msg)
 	return 0;
 }
 
+static u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
+{
+	struct pubkey shutdownkey;
+
+	if (!bip32_pubkey(ld->bip32_base, &shutdownkey, keyidx))
+		return NULL;
+
+	return scriptpubkey_p2wpkh(ctx, &shutdownkey);
+}
+
+static int peer_got_shutdown(struct peer *peer, const u8 *msg)
+{
+	u8 *scriptpubkey;
+
+	if (!fromwire_channel_got_shutdown(peer, msg, NULL, &scriptpubkey)) {
+		log_broken(peer->log, "bad channel_got_funding_locked %s",
+			   tal_hex(peer, msg));
+		return -1;
+	}
+
+	/* FIXME: Add to spec that we must allow repeated shutdown! */
+	peer->remote_shutdown_scriptpubkey
+		= tal_free(peer->remote_shutdown_scriptpubkey);
+	peer->remote_shutdown_scriptpubkey = scriptpubkey;
+	/* FIXME: Save to db */
+
+	if (peer->local_shutdown_idx == -1) {
+		u8 *scriptpubkey;
+
+		peer->local_shutdown_idx = wallet_get_newindex(peer->ld);
+		if (peer->local_shutdown_idx == -1) {
+			peer_internal_error(peer,
+					    "Can't get local shutdown index");
+			return -1;
+		}
+		/* FIXME: Save to db */
+
+		peer_set_condition(peer, CHANNELD_NORMAL, CHANNELD_SHUTTING_DOWN);
+
+		/* BOLT #2:
+		 *
+		 * A sending node MUST set `scriptpubkey` to one of the
+		 * following forms:
+		 *
+		 * ...3. `OP_0` `20` 20-bytes (version 0 pay to witness pubkey),
+		 */
+		scriptpubkey = p2wpkh_for_keyidx(msg, peer->ld,
+						 peer->local_shutdown_idx);
+		if (!scriptpubkey) {
+			peer_internal_error(peer,
+					    "Can't get shutdown script %"PRIu64,
+					    peer->local_shutdown_idx);
+			return -1;
+		}
+
+		/* BOLT #2:
+		 *
+		 * A receiving node MUST reply to a `shutdown` message with a
+		 * `shutdown` once there are no outstanding updates on the
+		 * peer, unless it has already sent a `shutdown`.
+		 */
+		subd_send_msg(peer->owner, 
+			      take(towire_channel_send_shutdown(peer,
+								scriptpubkey)));
+	}
+
+	return 0;
+}
+
 static int peer_got_bad_message(struct peer *peer, const u8 *msg)
 {
 	u8 *err;
@@ -975,6 +1046,8 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 		return peer_channel_announced(sd->peer, msg);
 	case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
 		return peer_got_funding_locked(sd->peer, msg);
+	case WIRE_CHANNEL_GOT_SHUTDOWN:
+		return peer_got_shutdown(sd->peer, msg);
 
 	/* We let peer_owner_finished handle these as transient errors. */
 	case WIRE_CHANNEL_BAD_COMMAND:
@@ -1001,6 +1074,7 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 	case WIRE_CHANNEL_GOT_COMMITSIG_REPLY:
 	case WIRE_CHANNEL_GOT_REVOKE_REPLY:
 	case WIRE_CHANNEL_SENDING_COMMITSIG_REPLY:
+	case WIRE_CHANNEL_SEND_SHUTDOWN:
 	/* Replies go to requests. */
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
 	case WIRE_CHANNEL_PING_REPLY:
@@ -1027,6 +1101,7 @@ static bool peer_start_channeld(struct peer *peer,
 	struct failed_htlc *failed_htlcs;
 	enum side *failed_sides;
 	struct short_channel_id funding_channel_id;
+	const u8 *shutdown_scriptpubkey;
 
 	/* Now we can consider balance set. */
 	peer->balance = tal(peer, u64);
@@ -1075,6 +1150,13 @@ static bool peer_start_channeld(struct peer *peer,
 		memset(&funding_channel_id, 0, sizeof(funding_channel_id));
 	}
 
+	if (peer->local_shutdown_idx != -1) {
+		shutdown_scriptpubkey
+			= p2wpkh_for_keyidx(tmpctx, peer->ld,
+					    peer->local_shutdown_idx);
+	} else
+		shutdown_scriptpubkey = NULL;
+
 	initmsg = towire_channel_init(tmpctx,
 				      peer->funding_txid,
 				      peer->funding_outnum,
@@ -1111,6 +1193,7 @@ static bool peer_start_channeld(struct peer *peer,
 				      peer->remote_funding_locked,
 				      &funding_channel_id,
 				      peer->reconnected,
+				      shutdown_scriptpubkey,
 				      funding_signed);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
@@ -1524,6 +1607,71 @@ static const struct json_command fund_channel_command = {
 	"Returns once channel established"
 };
 AUTODATA(json_command, &fund_channel_command);
+
+static void json_close(struct command *cmd,
+		       const char *buffer, const jsmntok_t *params)
+{
+	struct lightningd *ld = ld_from_dstate(cmd->dstate);
+	jsmntok_t *peertok;
+	struct peer *peer;
+
+	if (!json_get_params(buffer, params,
+			     "id", &peertok,
+			     NULL)) {
+		command_fail(cmd, "Need id");
+		return;
+	}
+
+	peer = peer_from_json(ld, buffer, peertok);
+	if (!peer) {
+		command_fail(cmd, "Could not find peer with that id");
+		return;
+	}
+
+	/* Easy case: peer can simply be forgotten. */
+	if (!peer_persists(peer)) {
+		peer_fail_permanent(peer, NULL);
+		command_success(cmd, null_response(cmd));
+		return;
+	}
+
+	/* Normal case. */
+	if (peer->state == CHANNELD_NORMAL) {
+		u8 *shutdown_scriptpubkey;
+
+		peer->local_shutdown_idx = wallet_get_newindex(peer->ld);
+		if (peer->local_shutdown_idx == -1) {
+			command_fail(cmd, "Failed to get new key for shutdown");
+			return;
+		}
+		shutdown_scriptpubkey = p2wpkh_for_keyidx(cmd, peer->ld,
+							  peer->local_shutdown_idx);
+		if (!shutdown_scriptpubkey) {
+			command_fail(cmd, "Failed to get script for shutdown");
+			return;
+		}
+
+		peer_set_condition(peer, CHANNELD_NORMAL, CHANNELD_SHUTTING_DOWN);
+
+		if (peer->owner)
+			subd_send_msg(peer->owner,
+				      take(towire_channel_send_shutdown(peer,
+						   shutdown_scriptpubkey)));
+
+		command_success(cmd, null_response(cmd));
+	} else
+		command_fail(cmd, "Peer is in state %s",
+			     peer_state_name(peer->state));
+}
+
+static const struct json_command close_command = {
+	"close",
+	json_close,
+	"Close the channel with peer {id}",
+	"Returns an empty result on success"
+};
+AUTODATA(json_command, &close_command);
+
 
 const char *peer_state_name(enum peer_state state)
 {

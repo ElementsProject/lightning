@@ -64,6 +64,8 @@ channel_init,,local_funding_locked,bool
 channel_init,,remote_funding_locked,bool
 channel_init,,funding_short_id,struct short_channel_id
 channel_init,,reestablish,bool
+channel_init,,shutdown_scriptpubkey_len,u16
+channel_init,,shutdown_scriptpubkey,shutdown_scriptpubkey_len*u8
 channel_init,,init_peer_pkt_len,u16
 channel_init,,init_peer_pkt,init_peer_pkt_len*u8
 
@@ -166,3 +168,13 @@ channel_got_revoke,,changed,num_changed*struct changed_htlc
 # Wait for reply, to make sure it's on disk before we continue
 # (eg. if we sent another commitment_signed, that would implicitly ack).
 channel_got_revoke_reply,122
+
+# Tell peer that channel is shutting down
+channel_send_shutdown,23
+channel_send_shutdown,,scriptpubkey_len,u16
+channel_send_shutdown,,scriptpubkey,scriptpubkey_len*u8
+
+# Peer told us that channel is shutting down
+channel_got_shutdown,24
+channel_got_shutdown,,scriptpubkey_len,u16
+channel_got_shutdown,,scriptpubkey,scriptpubkey_len*u8

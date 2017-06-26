@@ -122,6 +122,10 @@ struct peer {
 	/* We save calculated commit sigs while waiting for master approval */
 	struct commit_sigs *next_commit_sigs;
 
+	/* If master told us to shut down, this contains scriptpubkey until
+	 * we're ready to send it. */
+	u8 *unsent_shutdown_scriptpubkey;
+
 	/* Information used for reestablishment. */
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;
@@ -428,6 +432,26 @@ static u8 *sending_commitsig_msg(const tal_t *ctx,
 	return msg;
 }
 
+/* BOLT #2:
+ *
+ * A node MUST NOT send a `shutdown` if there are updates pending on
+ * the receiving node's commitment transaction.
+ */
+/* So we only call this after reestablish or immediately after sending commit */
+static void maybe_send_shutdown(struct peer *peer)
+{
+	u8 *msg;
+
+	if (!peer->unsent_shutdown_scriptpubkey)
+		return;
+
+	msg = towire_shutdown(peer, &peer->channel_id,
+			      peer->unsent_shutdown_scriptpubkey);
+	msg_enqueue(&peer->peer_out, take(msg));
+	peer->unsent_shutdown_scriptpubkey
+		= tal_free(peer->unsent_shutdown_scriptpubkey);
+}
+
 /* Master has acknowledged that we're sending commitment, so send it. */
 static void handle_sending_commitsig_reply(struct peer *peer, const u8 *msg)
 {
@@ -442,10 +466,10 @@ static void handle_sending_commitsig_reply(struct peer *peer, const u8 *msg)
 	msg_enqueue(&peer->peer_out, take(msg));
 	peer->next_commit_sigs = tal_free(peer->next_commit_sigs);
 
+	maybe_send_shutdown(peer);
+
 	/* Timer now considered expired, you can add a new one. */
 	peer->commit_timer = NULL;
-
-	/* FIXME: In case we had outstanding commits, restart timer */
 	start_commit_timer(peer);
 }
 
@@ -572,6 +596,9 @@ static void send_commit(struct peer *peer)
 	changed_htlcs = tal_arr(tmpctx, const struct htlc *, 0);
 	if (!channel_sending_commit(peer->channel, &changed_htlcs)) {
 		status_trace("Can't send commit: nothing to send");
+
+		/* Covers the case where we've just been told to shutdown. */
+		maybe_send_shutdown(peer);
 
 		peer->commit_timer = NULL;
 		tal_free(tmpctx);
@@ -1200,6 +1227,22 @@ static struct io_plan *handle_pong(struct io_conn *conn,
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
+static struct io_plan *handle_peer_shutdown(struct io_conn *conn,
+					    struct peer *peer,
+					    const u8 *shutdown)
+{
+	struct channel_id channel_id;
+	u8 *scriptpubkey;
+
+	if (!fromwire_shutdown(peer, shutdown, NULL, &channel_id, &scriptpubkey))
+		status_failed(WIRE_CHANNEL_PEER_READ_FAILED, "Bad shutdown");
+
+	/* Tell master, it will tell us what to send. */
+	daemon_conn_send(&peer->master,
+			 take(towire_channel_got_shutdown(peer, scriptpubkey)));
+	return peer_read_message(conn, &peer->pcs, peer_in);
+}
+
 static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
@@ -1248,6 +1291,8 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 		return handle_ping(conn, peer, msg);
 	case WIRE_PONG:
 		return handle_pong(conn, peer, msg);
+	case WIRE_SHUTDOWN:
+		return handle_peer_shutdown(conn, peer, msg);
 
 	case WIRE_INIT:
 	case WIRE_ERROR:
@@ -1258,7 +1303,6 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 	case WIRE_CHANNEL_REESTABLISH:
 		goto badmessage;
 
-	case WIRE_SHUTDOWN:
 	case WIRE_CLOSING_SIGNED:
 	case WIRE_UPDATE_FEE:
 		peer_failed(io_conn_fd(peer->peer_conn),
@@ -1499,6 +1543,13 @@ static struct io_plan *handle_peer_reestablish(struct io_conn *conn,
 	if (retransmit_revoke_and_ack && peer->last_was_revoke)
 		resend_revoke(peer);
 
+	/* BOLT #2:
+	 *
+	 * On reconnection if the node has sent a previous `shutdown` it MUST
+	 * retransmit it
+	 */
+	maybe_send_shutdown(peer);
+
 	/* Start commit timer: if we sent revoke we might need it. */
 	start_commit_timer(peer);
 
@@ -1606,6 +1657,7 @@ static void init_channel(struct peer *peer)
 				   &peer->funding_locked[REMOTE],
 				   &peer->short_channel_ids[LOCAL],
 				   &reconnected,
+				   &peer->unsent_shutdown_scriptpubkey,
 				   &funding_signed))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Init: %s",
 			      tal_hex(msg, msg));
@@ -1903,6 +1955,18 @@ static void handle_ping_cmd(struct peer *peer, const u8 *inmsg)
 		peer->num_pings_outstanding++;
 }
 
+static void handle_shutdown_cmd(struct peer *peer, const u8 *inmsg)
+{
+	u8 *scriptpubkey;
+
+	if (!fromwire_channel_send_shutdown(peer, inmsg, NULL, &scriptpubkey))
+		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Bad send_shutdown");
+
+	/* We can't send this until commit (if any) is done, so start timer<. */
+	peer->unsent_shutdown_scriptpubkey = scriptpubkey;
+	start_commit_timer(peer);
+}
+
 static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct peer *peer = container_of(master, struct peer, master);
@@ -1946,6 +2010,9 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 	case WIRE_CHANNEL_PING:
 		handle_ping_cmd(peer, master->msg_in);
 		goto out;
+	case WIRE_CHANNEL_SEND_SHUTDOWN:
+		handle_shutdown_cmd(peer, master->msg_in);
+		goto out;
 
 	case WIRE_CHANNEL_BAD_COMMAND:
 	case WIRE_CHANNEL_HSM_FAILED:
@@ -1967,6 +2034,7 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 	case WIRE_CHANNEL_GOT_COMMITSIG_REPLY:
 	case WIRE_CHANNEL_GOT_REVOKE_REPLY:
 	case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
+	case WIRE_CHANNEL_GOT_SHUTDOWN:
 		break;
 	}
 	status_failed(WIRE_CHANNEL_BAD_COMMAND, "%u %s", t,
@@ -2030,6 +2098,7 @@ int main(int argc, char *argv[])
 	msg_queue_init(&peer->master_deferred, peer);
 	msg_queue_init(&peer->peer_out, peer);
 	peer->next_commit_sigs = NULL;
+	peer->unsent_shutdown_scriptpubkey = NULL;
 
 	/* We send these to HSM to get real signatures; don't have valgrind
 	 * complain. */

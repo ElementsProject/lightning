@@ -18,9 +18,7 @@ enum peer_state {
 	CHANNELD_NORMAL,
 
 	/* We are closing, pending HTLC resolution. */
-	SHUTDOWND_SENT,
-	/* Both are closing, pending HTLC resolution. */
-	SHUTDOWND_RCVD,
+	CHANNELD_SHUTTING_DOWN,
 
 	/* Exchanging signatures on closing tx. */
 	CLOSINGD_SIGEXCHANGE,
