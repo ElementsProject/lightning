@@ -294,6 +294,29 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.sendpay(to_json([routestep]), rhash)
         assert l2.rpc.listinvoice('testpayment3')[0]['complete'] == True
 
+    def test_closing(self):
+        l1,l2 = self.connect()
+
+        self.fund_channel(l1, l2, 10**6)
+        amt = 200000000
+        rhash = l2.rpc.invoice(amt, 'testpayment2')['rhash']
+        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
+
+        routestep = {
+            'msatoshi' : amt,
+            'id' : l2.info['id'],
+            'delay' : 5,
+            'channel': '1:1:1'
+        }
+
+        # This works.
+        l1.rpc.sendpay(to_json([routestep]), rhash)
+        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
+
+        # This should return, then close.
+        l1.rpc.close(l2.info['id']);
+        l1.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
+        l2.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
 
     def test_gossip_jsonrpc(self):
         l1,l2 = self.connect()

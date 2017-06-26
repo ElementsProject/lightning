@@ -80,6 +80,11 @@ struct peer {
 	/* Secret seed (FIXME: Move to hsm!) */
 	struct privkey *seed;
 
+	/* Their scriptpubkey if they sent shutdown. */
+	u8 *remote_shutdown_scriptpubkey;
+	/* Our key for shutdown (-1 if not chosen yet) */
+	s64 local_shutdown_idx;
+	
 	/* Reestablishment stuff: last sent commit and revocation details. */
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;
@@ -93,8 +98,7 @@ static inline bool peer_can_add_htlc(const struct peer *peer)
 static inline bool peer_can_remove_htlc(const struct peer *peer)
 {
 	return peer->state == CHANNELD_NORMAL
-		|| peer->state == SHUTDOWND_SENT
-		|| peer->state == SHUTDOWND_RCVD
+		|| peer->state == CHANNELD_SHUTTING_DOWN
 		|| peer->state == ONCHAIND_THEIR_UNILATERAL
 		|| peer->state == ONCHAIND_OUR_UNILATERAL;
 }
