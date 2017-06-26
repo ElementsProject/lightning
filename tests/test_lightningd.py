@@ -611,19 +611,31 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 10**6)
 
         amt = 200000000
-        rhash = l2.rpc.invoice(amt, 'testpayment2')['rhash']
-        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
+        rhash = l2.rpc.invoice(amt, 'testpayment')['rhash']
+        assert l2.rpc.listinvoice('testpayment')[0]['complete'] == False
 
         route = [ { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'} ]
         # First time, it will fail because it doesn't send commit.
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
         # Wait for reconnection.
         l1.daemon.wait_for_log('Already have funding locked in')
-        # This will send commit, so will reconnect.
+
+        # These are *racy* whether they succeeds or not: does the commit timer
+        # fire before it tries reading and notices fd is closed?
+        for i in range(1,3):
+            try:
+                l1.rpc.sendpay(to_json(route), rhash)
+                assert l2.rpc.listinvoice('testpayment')[0]['complete'] == True
+                rhash = l2.rpc.invoice(amt, 'testpayment' + str(i))['rhash']
+            except:
+                pass
+            # Wait for reconnection.
+            l1.daemon.wait_for_log('Already have funding locked in')
+
+        # This will send commit, so will reconnect as required.
         l1.rpc.sendpay(to_json(route), rhash)
-        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
         # Should have printed this for every reconnect.
-        for i in range(1,len(disconnects)):
+        for i in range(3,len(disconnects)):
             l1.daemon.wait_for_log('Already have funding locked in')
 
     def test_reconnect_receiver_add(self):
