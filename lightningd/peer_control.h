@@ -84,7 +84,7 @@ struct peer {
 	u8 *remote_shutdown_scriptpubkey;
 	/* Our key for shutdown (-1 if not chosen yet) */
 	s64 local_shutdown_idx;
-	
+
 	/* Reestablishment stuff: last sent commit and revocation details. */
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;

@@ -256,7 +256,7 @@ static void get_gossip_fd_for_reconnect(struct lightningd *ld,
 	ggf->peer_fd = peer_fd;
 	ggf->id = *id;
 	ggf->cs = *cs;
-	
+
 	/* FIXME: set sync to `initial_routing_sync` */
 	req = towire_gossipctl_get_peer_gossipfd(ggf, unique_id, true);
 	subd_req(ggf, ld->gossip, take(req), -1, 1,
@@ -1005,7 +1005,7 @@ static int peer_got_shutdown(struct peer *peer, const u8 *msg)
 		 * `shutdown` once there are no outstanding updates on the
 		 * peer, unless it has already sent a `shutdown`.
 		 */
-		subd_send_msg(peer->owner, 
+		subd_send_msg(peer->owner,
 			      take(towire_channel_send_shutdown(peer,
 								scriptpubkey)));
 	}
