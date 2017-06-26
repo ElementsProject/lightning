@@ -1495,7 +1495,7 @@ static bool gossip_peer_released(struct subd *gossip,
 
 	if (!fromwire_gossipctl_release_peer_reply(resp, NULL, &cs)) {
 		if (!fromwire_gossipctl_release_peer_replyfail(resp, NULL)) {
-			fatal("Gossup daemon gave invalid reply %s",
+			fatal("Gossip daemon gave invalid reply %s",
 			      tal_hex(gossip, resp));
 		}
 		tal_del_destructor(fc, fail_fundchannel_command);
