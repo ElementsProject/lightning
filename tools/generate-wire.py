@@ -346,7 +346,7 @@ class Message(object):
         field_decls = []
         for f in self.fields:
             if f.is_len_var:
-                field_decls.append('\t{0} {1} = {2} ? tal_count({2}) : 0;'.format(
+                field_decls.append('\t{0} {1} = tal_count({2});'.format(
                     f.fieldtype.name, f.name, f.lenvar_for.name
                 ));
 
