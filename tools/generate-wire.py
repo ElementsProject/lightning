@@ -289,8 +289,8 @@ class Message(object):
                                           f.num_elems)
             elif f.is_variable_size():
                 subcalls.append("\t//2th case {name}".format(name=f.name))
-                subcalls.append('\t*{} = tal_arr(ctx, {}, {});'
-                                .format(f.name, f.fieldtype.name, f.lenvar))
+                subcalls.append('\t*{} = {} ? tal_arr(ctx, {}, {}) : NULL;'
+                                .format(f.name, f.lenvar, f.fieldtype.name, f.lenvar))
 
                 self.print_fromwire_array(subcalls, basetype, f, '*'+f.name,
                                           f.lenvar)
