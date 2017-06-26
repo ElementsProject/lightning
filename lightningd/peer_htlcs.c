@@ -600,6 +600,15 @@ static bool peer_accepted_htlc(struct peer *peer,
 	if (!htlc_in_update_state(peer, hin, RCVD_ADD_ACK_REVOCATION))
 		return false;
 
+	/* BOLT #2:
+	 *
+	 * A sending node SHOULD fail to route any HTLC added after it
+	 * sent `shutdown`. */
+	if (peer->state == CHANNELD_SHUTTING_DOWN) {
+		*failcode = WIRE_PERMANENT_CHANNEL_FAILURE;
+		goto out;
+	}
+
 	/* channeld tests this, so it should have set ss to zeroes. */
 	op = parse_onionpacket(tmpctx, hin->onion_routing_packet,
 			       sizeof(hin->onion_routing_packet));
