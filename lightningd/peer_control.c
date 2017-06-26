@@ -1134,6 +1134,7 @@ static bool peer_start_channeld(struct peer *peer,
 		log_unusual(peer->log, "Could not subdaemon channel: %s",
 			    strerror(errno));
 		peer_fail_transient(peer, "Failed to subdaemon channel");
+		tal_free(tmpctx);
 		return true;
 	}
 
@@ -1199,6 +1200,7 @@ static bool peer_start_channeld(struct peer *peer,
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(peer->owner, take(initmsg));
 
+	tal_free(tmpctx);
 	return true;
 }
 
