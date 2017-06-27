@@ -50,7 +50,7 @@ char dev_disconnect(int pkt_type)
 }
 
 /* We test what look like unknown messages. */
-#define unknown_msg_discardable(x) 0
+#define is_unknown_msg_discardable(x) 0
 
 #include "../cryptomsg.c"
 

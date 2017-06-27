@@ -31,7 +31,7 @@ static bool unknown_type(enum wire_type t)
 	return true;
 }
 
-bool gossip_msg(u8 *cursor)
+bool is_gossip_msg(const u8 *cursor)
 {
 	switch (fromwire_peektype(cursor)) {
 	case WIRE_CHANNEL_ANNOUNCEMENT:
@@ -62,13 +62,13 @@ bool gossip_msg(u8 *cursor)
 }
 
 /* Return true if it's an unknown message.  cursor is a tal ptr. */
-bool unknown_msg(const u8 *cursor)
+bool is_unknown_msg(const u8 *cursor)
 {
 	return unknown_type(fromwire_peektype(cursor));
 }
 
 /* Return true if it's an unknown ODD message.  cursor is a tal ptr. */
-bool unknown_msg_discardable(const u8 *cursor)
+bool is_unknown_msg_discardable(const u8 *cursor)
 {
 	enum wire_type t = fromwire_peektype(cursor);
 	return unknown_type(t) && (t & 1);

@@ -1438,7 +1438,7 @@ static struct io_plan *handle_peer_reestablish(struct io_conn *conn,
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
 
-	if (gossip_msg(msg)) {
+	if (is_gossip_msg(msg)) {
 		/* Forward to gossip daemon */
 		daemon_conn_send(&peer->gossip_client, msg);
 		return peer_read_message(conn, &peer->pcs,

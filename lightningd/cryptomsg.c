@@ -139,7 +139,7 @@ static struct io_plan *peer_decrypt_body(struct io_conn *conn,
 	 * A node MUST ignore a received message of unknown type, if that type
 	 * is odd.
 	 */
-	if (unlikely(unknown_msg_discardable(decrypted))) {
+	if (unlikely(is_unknown_msg_discardable(decrypted))) {
 		pcs->in = tal_free(pcs->in);
 		return peer_read_message(conn, pcs, pcs->next_in);
 	}
