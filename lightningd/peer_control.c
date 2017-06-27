@@ -970,7 +970,7 @@ static int peer_got_shutdown(struct peer *peer, const u8 *msg)
 	u8 *scriptpubkey;
 
 	if (!fromwire_channel_got_shutdown(peer, msg, NULL, &scriptpubkey)) {
-		log_broken(peer->log, "bad channel_got_funding_locked %s",
+		log_broken(peer->log, "bad channel_got_shutdown %s",
 			   tal_hex(peer, msg));
 		return -1;
 	}
@@ -979,6 +979,27 @@ static int peer_got_shutdown(struct peer *peer, const u8 *msg)
 	peer->remote_shutdown_scriptpubkey
 		= tal_free(peer->remote_shutdown_scriptpubkey);
 	peer->remote_shutdown_scriptpubkey = scriptpubkey;
+
+	/* BOLT #2:
+	 *
+	 * A sending node MUST set `scriptpubkey` to one of the following forms:
+	 *
+	 * 1. `OP_DUP` `OP_HASH160` `20` 20-bytes `OP_EQUALVERIFY` `OP_CHECKSIG`
+	 *   (pay to pubkey hash), OR
+	 * 2. `OP_HASH160` `20` 20-bytes `OP_EQUAL` (pay to script hash), OR
+	 * 3. `OP_0` `20` 20-bytes (version 0 pay to witness pubkey), OR
+	 * 4. `OP_0` `32` 32-bytes (version 0 pay to witness script hash)
+	 *
+	 * A receiving node SHOULD fail the connection if the `scriptpubkey`
+	 * is not one of those forms. */
+	if (!is_p2pkh(scriptpubkey) && !is_p2sh(scriptpubkey)
+	    && !is_p2wpkh(scriptpubkey) && !is_p2wsh(scriptpubkey)) {
+		u8 *msg = (u8 *)tal_fmt(peer, "Bad shutdown scriptpubkey %s",
+					tal_hex(peer, scriptpubkey));
+		peer_fail_permanent(peer, take(msg));
+		return -1;
+	}
+
 	/* FIXME: Save to db */
 
 	if (peer->local_shutdown_idx == -1) {
