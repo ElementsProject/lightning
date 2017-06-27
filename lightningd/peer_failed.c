@@ -36,7 +36,7 @@ void peer_failed(int peer_fd, struct crypto_state *cs,
 
 	/* This is only best-effort; don't block. */
 	fcntl(peer_fd, F_SETFL, fcntl(peer_fd, F_GETFL) | O_NONBLOCK);
-	sync_crypto_write(cs, peer_fd, msg);
+	sync_crypto_write(cs, peer_fd, take(msg));
 
 	status_failed(error_code, "%s", errmsg);
 }
