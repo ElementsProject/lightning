@@ -202,6 +202,7 @@ static u8 *funder_channel(struct state *state,
 			  const struct basepoints *ours,
 			  u32 max_minimum_depth,
 			  u64 change_satoshis, u32 change_keyindex,
+			  u8 channel_flags,
 			  const struct utxo *utxos,
 			  const u8 *bip32_seed)
 {
@@ -258,7 +259,8 @@ static u8 *funder_channel(struct state *state,
 				  &ours->revocation,
 				  &ours->payment,
 				  &ours->delayed_payment,
-				  &state->next_per_commit[LOCAL]);
+				  &state->next_per_commit[LOCAL],
+				  channel_flags);
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
 			      "Writing open_channel");
@@ -468,6 +470,7 @@ static u8 *fundee_channel(struct state *state,
 	struct sha256_double chain_hash;
 	u8 *msg;
 	const u8 **wscripts;
+	u8 channel_flags;
 
 	state->remoteconf = tal(state, struct channel_config);
 
@@ -491,7 +494,8 @@ static u8 *fundee_channel(struct state *state,
 				   &theirs.revocation,
 				   &theirs.payment,
 				   &theirs.delayed_payment,
-				   &state->next_per_commit[REMOTE]))
+				   &state->next_per_commit[REMOTE],
+				   &channel_flags))
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_INITIAL_MESSAGE,
 			      "Parsing open_channel %s",
 			      tal_hex(peer_msg, peer_msg));
@@ -666,6 +670,7 @@ static u8 *fundee_channel(struct state *state,
 					   state->funding_txout,
 					   state->funding_satoshis,
 					   state->push_msat,
+					   channel_flags,
 					   msg);
 }
 
@@ -681,6 +686,7 @@ int main(int argc, char *argv[])
 	u32 min_feerate, max_feerate;
 	u64 change_satoshis;
 	u32 change_keyindex;
+	u8 channel_flags;
 	struct utxo *utxos;
 	u8 *bip32_seed;
 
@@ -734,10 +740,11 @@ int main(int argc, char *argv[])
 				    &state->push_msat,
 				    &state->feerate_per_kw, &max_minimum_depth,
 				    &change_satoshis, &change_keyindex,
-				    &utxos, &bip32_seed))
+				    &channel_flags, &utxos, &bip32_seed))
 		msg = funder_channel(state, &our_funding_pubkey, &our_points,
 				     max_minimum_depth, change_satoshis,
-				     change_keyindex, utxos, bip32_seed);
+				     change_keyindex, channel_flags,
+				     utxos, bip32_seed);
 	else if (fromwire_opening_fundee(state, msg, NULL, &minimum_depth,
 					 &min_feerate, &max_feerate, &peer_msg))
 		msg = fundee_channel(state, &our_funding_pubkey, &our_points,

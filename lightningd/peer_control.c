@@ -37,7 +37,7 @@
 #include <unistd.h>
 #include <wally_bip32.h>
 #include <wire/gen_onion_wire.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
 static void destroy_peer(struct peer *peer)
@@ -795,6 +795,15 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 
 	/* BOLT #7:
 	 *
+	 * If the `open_channel` message had the `announce_channel` bit set,
+	 * then both nodes must send the `announcement_signatures` message,
+	 * otherwise they MUST NOT.
+	 */
+	if (!(peer->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
+		return DELETE_WATCH;
+
+	/* BOLT #7:
+	 *
 	 * If sent, `announcement_signatures` messages MUST NOT be sent until
 	 * `funding_locked` has been sent, and the funding transaction is has
 	 * at least 6 confirmations.
@@ -1338,6 +1347,7 @@ static bool opening_fundee_finished(struct subd *opening,
 					   &peer->funding_outnum,
 					   &peer->funding_satoshi,
 					   &peer->push_msat,
+					   &peer->channel_flags,
 					   &funding_signed)) {
 		log_broken(peer->log, "bad OPENING_FUNDEE_REPLY %s",
 			   tal_hex(reply, reply));
@@ -1524,6 +1534,8 @@ static bool gossip_peer_released(struct subd *gossip,
 		       &max_to_self_delay, &max_minimum_depth,
 		       &min_effective_htlc_capacity_msat);
 
+	fc->peer->channel_flags = OUR_CHANNEL_FLAGS;
+
 	fc->peer->seed = tal(fc->peer, struct privkey);
 	derive_peer_seed(ld, fc->peer->seed, &fc->peer->id);
 	msg = towire_opening_init(fc, &fc->peer->our_config,
@@ -1545,6 +1557,7 @@ static bool gossip_peer_released(struct subd *gossip,
 				    fc->peer->push_msat,
 				    15000, max_minimum_depth,
 				    fc->change, fc->change_keyindex,
+				    fc->peer->channel_flags,
 				    utxos, bip32_base);
 	subd_req(fc, opening, take(msg), -1, 2, opening_funder_finished, fc);
 	return true;

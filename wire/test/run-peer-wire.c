@@ -180,6 +180,7 @@ struct msg_open_channel {
 	struct pubkey payment_basepoint;
 	struct pubkey delayed_payment_basepoint;
 	struct pubkey first_per_commitment_point;
+	u8 channel_flags;
 };
 struct msg_update_fail_htlc {
 	struct channel_id channel_id;
@@ -268,7 +269,8 @@ static void *towire_struct_open_channel(const tal_t *ctx,
 				   &s->revocation_basepoint,
 				   &s->payment_basepoint,
 				   &s->delayed_payment_basepoint,
-				   &s->first_per_commitment_point);
+				   &s->first_per_commitment_point,
+				   s->channel_flags);
 }
 
 static struct msg_open_channel *fromwire_struct_open_channel(const tal_t *ctx, const void *p, size_t *plen)
@@ -291,7 +293,8 @@ static struct msg_open_channel *fromwire_struct_open_channel(const tal_t *ctx, c
 				  &s->revocation_basepoint,
 				  &s->payment_basepoint,
 				  &s->delayed_payment_basepoint,
-				  &s->first_per_commitment_point))
+				  &s->first_per_commitment_point,
+				  &s->channel_flags))
 		return s;
 	return tal_free(s);
 }
@@ -788,7 +791,7 @@ static bool open_channel_eq(const struct msg_open_channel *a,
 			    const struct msg_open_channel *b)
 {
 	return eq_with(a, b, max_accepted_htlcs)
-		&& eq_between(a, b, funding_pubkey, first_per_commitment_point);
+		&& eq_between(a, b, funding_pubkey, channel_flags);
 }
 
 static bool channel_update_eq(const struct msg_channel_update *a,

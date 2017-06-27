@@ -31,6 +31,7 @@ opening_funder,,feerate_per_kw,4
 opening_funder,,max_minimum_depth,4
 opening_funder,,change_satoshis,u64
 opening_funder,,change_keyindex,u32
+opening_funder,,channel_flags,u8
 #include <lightningd/utxo.h>
 opening_funder,,num_inputs,u16
 opening_funder,,inputs,num_inputs*struct utxo
@@ -72,6 +73,7 @@ opening_fundee_reply,,funding_txid,struct sha256_double
 opening_fundee_reply,,funding_txout,u16
 opening_fundee_reply,,funding_satoshis,8
 opening_fundee_reply,,push_msat,8
+opening_fundee_reply,,channel_flags,u8
 # The (encrypted) funding signed message: send this and we're committed.
 opening_fundee_reply,,msglen,u16
 opening_fundee_reply,,funding_signed_msg,msglen*u8
