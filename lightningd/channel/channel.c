@@ -1427,9 +1427,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	tal_free(commit_sigs);
 }
 
-static struct io_plan *handle_peer_reestablish(struct io_conn *conn,
-					       struct peer *peer,
-					       u8 *msg)
+static void peer_reconnect(struct peer *peer)
 {
 	struct channel_id channel_id;
 	u64 last_commitidx_sent, last_revokeidx_sent;
@@ -1437,12 +1435,39 @@ static struct io_plan *handle_peer_reestablish(struct io_conn *conn,
 	bool retransmit_revoke_and_ack;
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
+	u8 *msg;
+
+	/* BOLT #2:
+	 *
+	 * On reconnection, a node MUST transmit `channel_reestablish` for
+	 * each channel, and MUST wait for to receive the other node's
+	 * `channel_reestablish` message before sending any other messages for
+	 * that channel.
+	 *
+	 * The sending node MUST set `commitments_received` to the commitment
+	 * number of the last `commitment_signed` it received, and MUST set
+	 * `revocations_received` to one greater than the commitment number of
+	 * the last `revoke_and_ack` message received, or 0 if none have been
+	 * received.
+	 */
+	/* Note: if we're working on commit #7, we've seen commitsig for #6 */
+	msg = towire_channel_reestablish(peer, &peer->channel_id,
+					 peer->commit_index[LOCAL] - 1,
+					 peer->revocations_received);
+	if (!sync_crypto_write(&peer->pcs.cs, PEER_FD, take(msg)))
+		status_failed(WIRE_CHANNEL_PEER_WRITE_FAILED,
+			      "Failed writing reestablish: %s", strerror(errno));
+
+again:
+	msg = sync_crypto_read(peer, &peer->pcs.cs, PEER_FD);
+	if (!msg)
+		status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
+			      "Failed reading reestablish: %s", strerror(errno));
 
 	if (is_gossip_msg(msg)) {
 		/* Forward to gossip daemon */
 		daemon_conn_send(&peer->gossip_client, msg);
-		return peer_read_message(conn, &peer->pcs,
-					 handle_peer_reestablish);
+		goto again;
 	}
 
 	if (!fromwire_channel_reestablish(msg, NULL, &channel_id,
@@ -1531,7 +1556,7 @@ static struct io_plan *handle_peer_reestablish(struct io_conn *conn,
 
 		resend_commitment(peer, peer->last_sent_commit);
 	} else if (commitments_received != last_commitidx_sent)
-		peer_failed(io_conn_fd(conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
@@ -1560,42 +1585,6 @@ static struct io_plan *handle_peer_reestablish(struct io_conn *conn,
 		if (htlc->state == SENT_REMOVE_HTLC)
 			send_fail_or_fulfill(peer, htlc);
 	}
-
-	/* Now into normal mode. */
-	return setup_peer_conn(conn, peer);
-}
-
-
-static struct io_plan *peer_read_reestablish(struct io_conn *conn,
-					   struct peer *peer)
-{
-	return peer_read_message(conn, &peer->pcs, handle_peer_reestablish);
-}
-
-static struct io_plan *peer_write_reestablish(struct io_conn *conn,
-					      struct peer *peer)
-{
-	u8 *msg;
-
-	/* BOLT #2:
-	 *
-	 * On reconnection, a node MUST transmit `channel_reestablish` for
-	 * each channel, and MUST wait for to receive the other node's
-	 * `channel_reestablish` message before sending any other messages for
-	 * that channel.
-	 *
-	 * The sending node MUST set `commitments_received` to the commitment
-	 * number of the last `commitment_signed` it received, and MUST set
-	 * `revocations_received` to one greater than the commitment number of
-	 * the last `revoke_and_ack` message received, or 0 if none have been
-	 * received.
-	 */
-	/* Note: if we're working on commit #7, we've seen commitsig for #6 */
-	msg = towire_channel_reestablish(peer, &peer->channel_id,
-					 peer->commit_index[LOCAL] - 1,
-					 peer->revocations_received);
-	return peer_write_message(conn, &peer->pcs, take(msg),
-				  peer_read_reestablish);
 }
 
 /* We do this synchronously. */
@@ -1706,17 +1695,14 @@ static void init_channel(struct peer *peer)
 	    &peer->node_ids[LOCAL], &peer->node_ids[REMOTE]);
 
 	/* OK, now we can process peer messages. */
-	if (reconnected) {
-		peer->peer_conn = io_new_conn(peer, PEER_FD,
-					      peer_write_reestablish, peer);
-	} else {
-		peer->peer_conn = io_new_conn(peer, PEER_FD, setup_peer_conn,
-					      peer);
-	}
+	if (reconnected)
+		peer_reconnect(peer);
+
+	peer->peer_conn = io_new_conn(peer, PEER_FD, setup_peer_conn, peer);
 	io_set_finish(peer->peer_conn, peer_conn_broken, peer);
 
-	/* If we have a funding_signed message, we send that immediately */
-	if (tal_len(funding_signed) != 0)
+	/* If we have a funding_signed message, send that immediately */
+	if (funding_signed)
 		msg_enqueue(&peer->peer_out, take(funding_signed));
 
 	tal_free(msg);
