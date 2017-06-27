@@ -1381,9 +1381,9 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 
 	/* BOLT #2:
 	 *
-	 * If `commitments_received` is one less than the commitment number of
-	 * the last `commitment_signed` message the receiving node has sent,
-	 * it MUST reuse the same commitment number for its next
+	 * If `next_local_commitment_number` is equal to the commitment number
+	 * of the last `commitment_signed` message the receiving node has
+	 * sent, it MUST reuse the same commitment number for its next
 	 * `commitment_signed`
 	 */
 	/* In our case, we consider ourselves already committed to this, so
@@ -1430,8 +1430,8 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 static void peer_reconnect(struct peer *peer)
 {
 	struct channel_id channel_id;
-	u64 last_commitidx_sent, last_revokeidx_sent;
-	u64 commitments_received, revocations_received;
+	/* Note: BOLT #2 uses these names, which are sender-relative! */
+	u64 next_local_commitment_number, next_remote_revocation_number;
 	bool retransmit_revoke_and_ack;
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
@@ -1444,15 +1444,16 @@ static void peer_reconnect(struct peer *peer)
 	 * `channel_reestablish` message before sending any other messages for
 	 * that channel.
 	 *
-	 * The sending node MUST set `commitments_received` to the commitment
-	 * number of the last `commitment_signed` it received, and MUST set
-	 * `revocations_received` to one greater than the commitment number of
-	 * the last `revoke_and_ack` message received, or 0 if none have been
-	 * received.
+	 * The sending node MUST set `next_local_commitment_number` to the
+	 * commitment number of the next `commitment_signed` it expects to
+	 * receive, and MUST set `next_remote_revocation_number` to the
+	 * commitment number of the next `revoke_and_ack` message it expects
+	 * to receive.
 	 */
-	/* Note: if we're working on commit #7, we've seen commitsig for #6 */
+	/* Note: our commit_index is the current one we're working on, ie.
+	 * the next one we expect a sig for. */
 	msg = towire_channel_reestablish(peer, &peer->channel_id,
-					 peer->commit_index[LOCAL] - 1,
+					 peer->commit_index[LOCAL],
 					 peer->revocations_received);
 	if (!sync_crypto_write(&peer->pcs.cs, PEER_FD, take(msg)))
 		status_failed(WIRE_CHANNEL_PEER_WRITE_FAILED,
@@ -1471,13 +1472,17 @@ again:
 	}
 
 	if (!fromwire_channel_reestablish(msg, NULL, &channel_id,
-					  &commitments_received,
-					  &revocations_received)) {
+					  &next_local_commitment_number,
+					  &next_remote_revocation_number)) {
 		status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
 			      "bad reestablish msg: %s %s",
 			      wire_type_name(fromwire_peektype(msg)),
 			      tal_hex(msg, msg));
 	}
+
+	status_trace("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,
+		     next_local_commitment_number,
+		     next_remote_revocation_number);
 
 	/* BOLT #2:
 	 *
@@ -1497,38 +1502,35 @@ again:
 		msg_enqueue(&peer->peer_out, take(msg));
 	}
 
-	/* If we're working on commit #1 now, we sent #0. */
-	last_commitidx_sent = peer->commit_index[REMOTE] - 1;
-	assert(peer->commit_index[REMOTE] > 0);
-
-	/* Can be -1, but in that case nothing to re-transmit. */
-	last_revokeidx_sent = peer->commit_index[LOCAL] - 2;
-	assert(peer->commit_index[LOCAL] > 0);
+	/* Note: commit_index is the index of the current commit we're working
+	 * on, but BOLT #2 refers to the *last* commit index, so we -1 where
+	 * required. */
 
 	/* BOLT #2:
 	 *
-	 * If `revocations_received` is equal to the commitment number of the
-	 * last `revoke_and_ack` the receiving node has sent, it MUST re-send
-	 * the final `revoke_and_ack`, otherwise if `revocations_received` is
-	 * not equal to one greater than the commitment number of the last
-	 * `revoke_and_ack`, the receiving node has sent, it SHOULD fail the
-	 * channel.
+	 * If `next_remote_revocation_number` is equal to the commitment
+	 * number of the last `revoke_and_ack` the receiving node has sent, it
+	 * MUST re-send the `revoke_and_ack`, otherwise if
+	 * `next_remote_revocation_number` is not equal to one greater than
+	 * the commitment number of the last `revoke_and_ack` the receiving
+	 * node has sent (or equal to zero if none have been sent), it SHOULD
+	 * fail the channel.
 	 */
-	/* If we're working on commit #2 now, we've send a revocation for commit
-	 * #0, but beware commit #1 case, where no revoke has been sent! */
-	if (revocations_received == last_revokeidx_sent) {
-		if (last_revokeidx_sent == (u64)-1) {
+	if (next_remote_revocation_number == peer->commit_index[LOCAL] - 2) {
+		/* Don't try to retransmit revocation index -1! */
+		if (peer->commit_index[LOCAL] < 2) {
 			status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
-				      "bad reestablish revocations_received: %"
+				      "bad reestablish revocation_number: %"
 				      PRIu64,
-				      revocations_received);
+				      next_remote_revocation_number);
 		}
 		retransmit_revoke_and_ack = true;
-	} else if (revocations_received != last_revokeidx_sent + 1) {
+	} else if (next_remote_revocation_number != peer->commit_index[LOCAL] - 1) {
 		status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
-			      "bad reestablish revocations_received: %"PRIu64
+			      "bad reestablish revocation_number: %"PRIu64
 			      " vs %"PRIu64,
-			      revocations_received, last_revokeidx_sent);
+			      next_remote_revocation_number,
+			      peer->commit_index[LOCAL]);
 	} else
 		retransmit_revoke_and_ack = false;
 
@@ -1539,30 +1541,36 @@ again:
 
 	/* BOLT #2:
 	 *
-	 * If `commitments_received` is one less than the commitment number of
-	 * the last `commitment_signed` message the receiving node has sent,
-	 * it MUST reuse the same commitment number for its next
-	 * `commitment_signed`, otherwise if `commitments_received` is not
-	 * equal to the commitment number of the last `commitment_signed`
-	 * message the receiving node has sent, it SHOULD fail the channel.
+	 * If `next_local_commitment_number` is equal to the commitment number
+	 * of the last `commitment_signed` message the receiving node has
+	 * sent, it MUST reuse the same commitment number for its next
+	 * `commitment_signed`
 	 */
-	if (commitments_received == last_commitidx_sent - 1) {
+	if (next_local_commitment_number == peer->commit_index[REMOTE] - 1) {
 		/* We completed opening, we don't re-transmit that one! */
-		if (last_commitidx_sent == 0)
+		if (next_local_commitment_number == 0)
 			status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
-				      "bad reestablish commitments_received: %"
+				      "bad reestablish commitment_number: %"
 				      PRIu64,
-				      commitments_received);
+				      next_local_commitment_number);
 
 		resend_commitment(peer, peer->last_sent_commit);
-	} else if (commitments_received != last_commitidx_sent)
+
+	/* BOLT #2:
+	 *
+	 * ... otherwise if `next_local_commitment_number` is not one greater
+	 * than the commitment number of the last `commitment_signed` message
+	 * the receiving node has sent, it SHOULD fail the channel.
+	 */
+	} else if (next_local_commitment_number != peer->commit_index[REMOTE])
 		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
-			    "Peer sent invalid commitments_received %"PRIu64
+			    "bad reestablish commitment_number: %"PRIu64
 			    " vs %"PRIu64,
-			    commitments_received, last_commitidx_sent);
+			    next_local_commitment_number,
+			    peer->commit_index[REMOTE]);
 
 	/* This covers the case where we sent revoke after commit. */
 	if (retransmit_revoke_and_ack && peer->last_was_revoke)
