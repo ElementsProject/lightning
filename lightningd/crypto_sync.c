@@ -9,16 +9,14 @@
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 
-bool sync_crypto_write(struct crypto_state *cs, int fd, const void *msg)
+bool sync_crypto_write(struct crypto_state *cs, int fd, const void *msg TAKES)
 {
-	u8 *enc = cryptomsg_encrypt_msg(msg, cs, msg);
+	int type = fromwire_peektype(msg);
+	u8 *enc = cryptomsg_encrypt_msg(NULL, cs, msg);
 	bool ret;
 	bool post_sabotage = false;
 
-	status_trace("Writing crypto with sn=%"PRIu64" msg=%s",
-		     cs->sn-2, tal_hex(trc, msg));
-
-	switch (dev_disconnect(fromwire_peektype(msg))) {
+	switch (dev_disconnect(type)) {
 	case DEV_DISCONNECT_BEFORE:
 		dev_sabotage_fd(fd);
 		return false;

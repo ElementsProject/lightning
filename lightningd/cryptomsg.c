@@ -236,7 +236,7 @@ static struct io_plan *peer_write_done(struct io_conn *conn,
 
 u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 			  struct crypto_state *cs,
-			  const u8 *msg)
+			  const u8 *msg TAKES)
 {
 	unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
 	unsigned long long clen, mlen = tal_count(msg);
@@ -314,6 +314,8 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 
 	maybe_rotate_key(&cs->sn, &cs->sk, &cs->s_ck);
 
+	if (taken(msg))
+		tal_free(msg);
 	return out;
 }
 
@@ -336,8 +338,6 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 	assert(!pcs->out);
 
 	pcs->out = cryptomsg_encrypt_msg(conn, &pcs->cs, msg);
-	if (taken(msg))
-		tal_free(msg);
 	pcs->next_out = next;
 
 	post = peer_write_done;

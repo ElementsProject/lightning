@@ -181,10 +181,10 @@ static u8 *read_next_peer_msg(struct state *state, const tal_t *ctx)
 				return tal_free(msg);
 			}
 			if (pong && !sync_crypto_write(&state->cs, PEER_FD,
-						       pong))
-				peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
+						       take(pong)))
+				peer_failed(PEER_FD, &state->cs, NULL,
+					    WIRE_OPENING_PEER_WRITE_FAILED,
 					    "Sending pong");
-			tal_free(pong);
 		} else if (is_gossip_msg(msg)) {
 			/* We relay gossip to gossipd, but don't relay from */
 			if (!wire_sync_write(GOSSIP_FD, take(msg)))
@@ -568,7 +568,7 @@ static u8 *fundee_channel(struct state *state,
 				    &ours->delayed_payment,
 				    &state->next_per_commit[LOCAL]);
 
-	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
+	if (!sync_crypto_write(&state->cs, PEER_FD, take(msg)))
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
 			      "Writing accept_channel");
 
