@@ -13,11 +13,11 @@
  */
 
 /* Return true if it's an unknown message.  cursor is a tal ptr. */
-bool unknown_msg(const u8 *cursor);
+bool is_unknown_msg(const u8 *cursor);
 /* Return true if it's an unknown ODD message.  cursor is a tal ptr. */
-bool unknown_msg_discardable(const u8 *cursor);
+bool is_unknown_msg_discardable(const u8 *cursor);
 /* Return true if it's a gossip message. */
-bool gossip_msg(u8 *cursor);
+bool is_gossip_msg(const u8 *cursor);
 
 /* Compare two short_channel_ids and return true if they are the equal */
 bool short_channel_id_eq(const struct short_channel_id *a,
