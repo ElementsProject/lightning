@@ -377,8 +377,8 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->last_sent_commit = NULL;
 	peer->remote_shutdown_scriptpubkey = NULL;
 	peer->local_shutdown_idx = -1;
-	peer->commit_index[LOCAL]
-		= peer->commit_index[REMOTE]
+	peer->next_index[LOCAL]
+		= peer->next_index[REMOTE]
 		= peer->num_revocations_received = 0;
 	peer->next_htlc_id = 0;
 	shachain_init(&peer->their_shachain);
@@ -1192,8 +1192,8 @@ static bool peer_start_channeld(struct peer *peer,
 				      cfg->deadline_blocks,
 				      peer->last_was_revoke,
 				      peer->last_sent_commit,
-				      peer->commit_index[LOCAL],
-				      peer->commit_index[REMOTE],
+				      peer->next_index[LOCAL],
+				      peer->next_index[REMOTE],
 				      peer->num_revocations_received,
 				      peer->next_htlc_id,
 				      htlcs, htlc_states,
@@ -1215,7 +1215,7 @@ static bool peer_start_channeld(struct peer *peer,
 
 static bool peer_commit_initial(struct peer *peer)
 {
-	peer->commit_index[LOCAL] = peer->commit_index[REMOTE] = 1;
+	peer->next_index[LOCAL] = peer->next_index[REMOTE] = 1;
 
 	/* FIXME: Db channel_info, etc. */
 	return true;

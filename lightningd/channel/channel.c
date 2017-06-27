@@ -58,7 +58,7 @@ struct peer {
 	struct peer_crypto_state pcs;
 	struct channel_config conf[NUM_SIDES];
 	bool funding_locked[NUM_SIDES];
-	u64 commit_index[NUM_SIDES];
+	u64 next_index[NUM_SIDES];
 
 	/* Remote's current per-commit point. */
 	struct pubkey remote_per_commit;
@@ -458,7 +458,7 @@ static void handle_sending_commitsig_reply(struct peer *peer, const u8 *msg)
 	status_trace("Sending commit_sig with %zu htlc sigs",
 		     tal_count(peer->next_commit_sigs->htlc_sigs));
 
-	peer->commit_index[REMOTE]++;
+	peer->next_index[REMOTE]++;
 
 	msg = towire_commitment_signed(peer, &peer->channel_id,
 				       &peer->next_commit_sigs->commit_sig,
@@ -606,11 +606,11 @@ static void send_commit(struct peer *peer)
 	}
 
 	peer->next_commit_sigs = calc_commitsigs(peer, peer,
-						 peer->commit_index[REMOTE]);
+						 peer->next_index[REMOTE]);
 
 	status_trace("Telling master we're about to commit...");
 	/* Tell master to save this next commit to database, then wait. */
-	msg = sending_commitsig_msg(tmpctx, peer->commit_index[REMOTE],
+	msg = sending_commitsig_msg(tmpctx, peer->next_index[REMOTE],
 				    changed_htlcs,
 				    &peer->next_commit_sigs->commit_sig,
 				    peer->next_commit_sigs->htlc_sigs);
@@ -671,10 +671,10 @@ static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index)
 static struct io_plan *send_revocation(struct io_conn *conn, struct peer *peer)
 {
 	/* Revoke previous commit. */
-	u8 *msg = make_revocation_msg(peer, peer->commit_index[LOCAL]-1);
+	u8 *msg = make_revocation_msg(peer, peer->next_index[LOCAL]-1);
 
 	/* From now on we apply changes to the next commitment */
-	peer->commit_index[LOCAL]++;
+	peer->next_index[LOCAL]++;
 
 	/* If this queues more changes on the other end, send commit. */
 	if (channel_sending_revoke_and_ack(peer->channel)) {
@@ -828,13 +828,13 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 			    "Bad commit_sig %s", tal_hex(msg, msg));
 
 	if (!per_commit_point(&peer->shaseed, &point,
-			      peer->commit_index[LOCAL]))
+			      peer->next_index[LOCAL]))
 		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
 			      "Deriving per_commit_point for %"PRIu64,
-			      peer->commit_index[LOCAL]);
+			      peer->next_index[LOCAL]);
 
 	txs = channel_txs(tmpctx, &htlc_map, &wscripts, peer->channel,
-			  &point, peer->commit_index[LOCAL], LOCAL);
+			  &point, peer->next_index[LOCAL], LOCAL);
 
 	if (!derive_simple_key(&peer->channel->basepoints[REMOTE].payment,
 			       &point, &remotekey))
@@ -859,7 +859,7 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 			    &peer->channel_id,
 			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad commit_sig signature %"PRIu64" %s for tx %s wscript %s key %s",
-			    peer->commit_index[LOCAL],
+			    peer->next_index[LOCAL],
 			    type_to_string(msg, secp256k1_ecdsa_signature,
 					   &commit_sig),
 			    type_to_string(msg, struct bitcoin_tx, txs[0]),
@@ -907,7 +907,7 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 		     tal_count(htlc_sigs));
 
 	/* Tell master daemon, then wait for ack. */
-	msg = got_commitsig_msg(tmpctx, peer->commit_index[LOCAL], &commit_sig,
+	msg = got_commitsig_msg(tmpctx, peer->next_index[LOCAL], &commit_sig,
 				htlc_sigs, changed_htlcs);
 
 	master_sync_reply(peer, take(msg),
@@ -994,7 +994,7 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Wrong privkey %s for %"PRIu64" %s",
 			    type_to_string(msg, struct privkey, &privkey),
-			    peer->commit_index[LOCAL]-2,
+			    peer->next_index[LOCAL]-2,
 			    type_to_string(msg, struct pubkey,
 					   &peer->old_remote_per_commit));
 	}
@@ -1007,7 +1007,7 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 		status_trace("No commits outstanding after recv revoke_and_ack");
 
 	/* Tell master about things this locks in, wait for response */
-	msg = got_revoke_msg(msg, peer->commit_index[REMOTE] - 2,
+	msg = got_revoke_msg(msg, peer->next_index[REMOTE] - 2,
 			     &old_commit_secret, &next_per_commit,
 			     changed_htlcs);
 	master_sync_reply(peer, take(msg),
@@ -1344,8 +1344,8 @@ static void peer_conn_broken(struct io_conn *conn, struct peer *peer)
 
 static void resend_revoke(struct peer *peer)
 {
-	/* Current commit is peer->commit_index[LOCAL]-1, revoke prior */
-	u8 *msg = make_revocation_msg(peer, peer->commit_index[LOCAL]-2);
+	/* Current commit is peer->next_index[LOCAL]-1, revoke prior */
+	u8 *msg = make_revocation_msg(peer, peer->next_index[LOCAL]-2);
 	msg_enqueue(&peer->peer_out, take(msg));
 }
 
@@ -1421,7 +1421,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	}
 
 	/* Re-send the commitment_signed itself. */
-	commit_sigs = calc_commitsigs(peer, peer, peer->commit_index[REMOTE]-1);
+	commit_sigs = calc_commitsigs(peer, peer, peer->next_index[REMOTE]-1);
 	msg = towire_commitment_signed(peer, &peer->channel_id,
 				       &commit_sigs->commit_sig,
 				       commit_sigs->htlc_sigs);
@@ -1452,10 +1452,8 @@ static void peer_reconnect(struct peer *peer)
 	 * commitment number of the next `revoke_and_ack` message it expects
 	 * to receive.
 	 */
-	/* Note: our commit_index is the current one we're working on, ie.
-	 * the next one we expect a sig for. */
 	msg = towire_channel_reestablish(peer, &peer->channel_id,
-					 peer->commit_index[LOCAL],
+					 peer->next_index[LOCAL],
 					 peer->revocations_received);
 	if (!sync_crypto_write(&peer->pcs.cs, PEER_FD, take(msg)))
 		status_failed(WIRE_CHANNEL_PEER_WRITE_FAILED,
@@ -1504,7 +1502,7 @@ again:
 		msg_enqueue(&peer->peer_out, take(msg));
 	}
 
-	/* Note: commit_index is the index of the current commit we're working
+	/* Note: next_index is the index of the current commit we're working
 	 * on, but BOLT #2 refers to the *last* commit index, so we -1 where
 	 * required. */
 
@@ -1518,21 +1516,21 @@ again:
 	 * node has sent (or equal to zero if none have been sent), it SHOULD
 	 * fail the channel.
 	 */
-	if (next_remote_revocation_number == peer->commit_index[LOCAL] - 2) {
+	if (next_remote_revocation_number == peer->next_index[LOCAL] - 2) {
 		/* Don't try to retransmit revocation index -1! */
-		if (peer->commit_index[LOCAL] < 2) {
+		if (peer->next_index[LOCAL] < 2) {
 			status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
 				      "bad reestablish revocation_number: %"
 				      PRIu64,
 				      next_remote_revocation_number);
 		}
 		retransmit_revoke_and_ack = true;
-	} else if (next_remote_revocation_number != peer->commit_index[LOCAL] - 1) {
+	} else if (next_remote_revocation_number != peer->next_index[LOCAL] - 1) {
 		status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
 			      "bad reestablish revocation_number: %"PRIu64
 			      " vs %"PRIu64,
 			      next_remote_revocation_number,
-			      peer->commit_index[LOCAL]);
+			      peer->next_index[LOCAL]);
 	} else
 		retransmit_revoke_and_ack = false;
 
@@ -1548,7 +1546,7 @@ again:
 	 * sent, it MUST reuse the same commitment number for its next
 	 * `commitment_signed`
 	 */
-	if (next_local_commitment_number == peer->commit_index[REMOTE] - 1) {
+	if (next_local_commitment_number == peer->next_index[REMOTE] - 1) {
 		/* We completed opening, we don't re-transmit that one! */
 		if (next_local_commitment_number == 0)
 			status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
@@ -1564,7 +1562,7 @@ again:
 	 * than the commitment number of the last `commitment_signed` message
 	 * the receiving node has sent, it SHOULD fail the channel.
 	 */
-	} else if (next_local_commitment_number != peer->commit_index[REMOTE])
+	} else if (next_local_commitment_number != peer->next_index[REMOTE])
 		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
@@ -1572,7 +1570,7 @@ again:
 			    "bad reestablish commitment_number: %"PRIu64
 			    " vs %"PRIu64,
 			    next_local_commitment_number,
-			    peer->commit_index[REMOTE]);
+			    peer->next_index[REMOTE]);
 
 	/* This covers the case where we sent revoke after commit. */
 	if (retransmit_revoke_and_ack && peer->last_was_revoke)
@@ -1642,8 +1640,8 @@ static void init_channel(struct peer *peer)
 				   &peer->cltv_delta,
 				   &peer->last_was_revoke,
 				   &peer->last_sent_commit,
-				   &peer->commit_index[LOCAL],
-				   &peer->commit_index[REMOTE],
+				   &peer->next_index[LOCAL],
+				   &peer->next_index[REMOTE],
 				   &peer->revocations_received,
 				   &peer->htlc_id,
 				   &htlcs,
@@ -1662,21 +1660,21 @@ static void init_channel(struct peer *peer)
 			      tal_hex(msg, msg));
 
 	status_trace("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
-		     " commit_idx_local = %"PRIu64
-		     " commit_idx_remote = %"PRIu64
+		     " next_idx_local = %"PRIu64
+		     " next_idx_remote = %"PRIu64
 		     " revocations_received = %"PRIu64,
 		     am_funder ? "LOCAL" : "REMOTE",
 		     type_to_string(trc, struct pubkey,
 				    &peer->remote_per_commit),
 		     type_to_string(trc, struct pubkey,
 				    &peer->old_remote_per_commit),
-		     peer->commit_index[LOCAL], peer->commit_index[REMOTE],
+		     peer->next_index[LOCAL], peer->next_index[REMOTE],
 		     peer->revocations_received);
 
 	/* First commit is used for opening: if we've sent 0, we're on
 	 * index 1. */
-	assert(peer->commit_index[LOCAL] > 0);
-	assert(peer->commit_index[REMOTE] > 0);
+	assert(peer->next_index[LOCAL] > 0);
+	assert(peer->next_index[REMOTE] > 0);
 
 	/* channel_id is set from funding txout */
 	derive_channel_id(&peer->channel_id, &funding_txid, funding_txout);
@@ -1727,10 +1725,10 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s", tal_hex(msg, msg));
 
 	per_commit_point(&peer->shaseed,
-			 &next_per_commit_point, peer->commit_index[LOCAL]);
+			 &next_per_commit_point, peer->next_index[LOCAL]);
 
 	status_trace("funding_locked: sending commit index %"PRIu64": %s",
-		     peer->commit_index[LOCAL],
+		     peer->next_index[LOCAL],
 		     type_to_string(trc, struct pubkey, &next_per_commit_point));
 	msg = towire_funding_locked(peer,
 				    &peer->channel_id, &next_per_commit_point);
