@@ -100,8 +100,8 @@ update_fee,0,channel_id,32
 update_fee,32,feerate_per_kw,4
 channel_reestablish,136
 channel_reestablish,0,channel_id,32
-channel_reestablish,32,commitments_received,8
-channel_reestablish,40,revocations_received,8
+channel_reestablish,32,next_local_commitment_number,8
+channel_reestablish,40,next_remote_revocation_number,8
 announcement_signatures,259
 announcement_signatures,0,channel_id,32
 announcement_signatures,32,short_channel_id,8
