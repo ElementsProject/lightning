@@ -106,6 +106,8 @@ void peer_fail_permanent(struct peer *peer, const u8 *msg)
 		    (int)tal_len(msg), (char *)msg);
 	peer->error = towire_error(peer, &all_channels, msg);
 	peer->owner = NULL;
+	if (taken(msg))
+		tal_free(msg);
 
 	if (peer_persists(peer))
 		drop_to_chain(peer);

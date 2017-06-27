@@ -150,7 +150,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 /* Peer has failed, but try reconnected. */
 PRINTF_FMT(2,3) void peer_fail_transient(struct peer *peer, const char *fmt,...);
 /* Peer has failed, give up on it. */
-void peer_fail_permanent(struct peer *peer, const u8 *msg);
+void peer_fail_permanent(struct peer *peer, const u8 *msg TAKES);
 /* Permanent error, but due to internal problems, not peer. */
 void peer_internal_error(struct peer *peer, const char *fmt, ...);
 
