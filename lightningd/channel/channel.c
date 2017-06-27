@@ -633,23 +633,23 @@ static void start_commit_timer(struct peer *peer)
 					  send_commit, peer);
 }
 
-static u8 *make_revocation_msg(const struct peer *peer, u64 commit_index)
+static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index)
 {
 	struct pubkey oldpoint, point;
 	struct sha256 old_commit_secret;
 
-	/* Get N-1th secret. */
-	per_commit_secret(&peer->shaseed, &old_commit_secret, commit_index-1);
+	/* Get secret. */
+	per_commit_secret(&peer->shaseed, &old_commit_secret, revoke_index);
 
 	/* Sanity check that it corresponds to the point we sent. */
 	pubkey_from_privkey((struct privkey *)&old_commit_secret, &point);
-	if (!per_commit_point(&peer->shaseed, &oldpoint, commit_index-1))
+	if (!per_commit_point(&peer->shaseed, &oldpoint, revoke_index))
 		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
 			      "Invalid point %"PRIu64" for commit_point",
-			      commit_index-1);
+			      revoke_index);
 
 	status_trace("Sending revocation #%"PRIu64" for %s",
-		     commit_index-1,
+		     revoke_index,
 		     type_to_string(trc, struct pubkey, &oldpoint));
 
 	if (!pubkey_eq(&point, &oldpoint))
@@ -658,8 +658,8 @@ static u8 *make_revocation_msg(const struct peer *peer, u64 commit_index)
 			      tal_hexstr(trc, &old_commit_secret,
 					 sizeof(old_commit_secret)));
 
-	/* Send N+1th point. */
-	if (!per_commit_point(&peer->shaseed, &point, commit_index+1))
+	/* We're revoking N-1th commit, sending N+1th point. */
+	if (!per_commit_point(&peer->shaseed, &point, revoke_index+2))
 		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
 			      "Deriving next commit_point");
 
@@ -670,9 +670,10 @@ static u8 *make_revocation_msg(const struct peer *peer, u64 commit_index)
 /* We come back here once master has acked the commit_sig we received */
 static struct io_plan *send_revocation(struct io_conn *conn, struct peer *peer)
 {
-	u8 *msg = make_revocation_msg(peer, peer->commit_index[LOCAL]);
+	/* Revoke previous commit. */
+	u8 *msg = make_revocation_msg(peer, peer->commit_index[LOCAL]-1);
 
-	/* From now on we apply to the next commitment */
+	/* From now on we apply changes to the next commitment */
 	peer->commit_index[LOCAL]++;
 
 	/* If this queues more changes on the other end, send commit. */
@@ -1343,7 +1344,8 @@ static void peer_conn_broken(struct io_conn *conn, struct peer *peer)
 
 static void resend_revoke(struct peer *peer)
 {
-	u8 *msg = make_revocation_msg(peer, peer->commit_index[LOCAL]-1);
+	/* Current commit is peer->commit_index[LOCAL]-1, revoke prior */
+	u8 *msg = make_revocation_msg(peer, peer->commit_index[LOCAL]-2);
 	msg_enqueue(&peer->peer_out, take(msg));
 }
 
