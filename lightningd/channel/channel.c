@@ -1486,11 +1486,13 @@ again:
 
 	/* BOLT #2:
 	 *
-	 * On reconnection, a node MUST retransmit `funding_locked` unless it
-	 * has received an `update_` or `revoke_and_ack` for that channel,
-	 * otherwise it MAY retransmit `funding_locked`.
+	 * If `next_local_commitment_number` is 1 in both the
+	 * `channel_reestablish` it sent and received, then the node MUST
+	 * retransmit `funding_locked`, otherwise it MUST NOT.
 	 */
-	if (peer->funding_locked[LOCAL]) {
+	if (peer->funding_locked[LOCAL]
+	    && peer->next_index[LOCAL] == 1
+	    && next_local_commitment_number == 1) {
 		u8 *msg;
 		struct pubkey next_per_commit_point;
 
