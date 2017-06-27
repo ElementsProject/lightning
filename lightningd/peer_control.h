@@ -10,6 +10,7 @@
 #include <lightningd/channel_config.h>
 #include <lightningd/peer_state.h>
 #include <stdbool.h>
+#include <wire/peer_wire.h>
 
 #define ANNOUNCE_MIN_DEPTH 6
 
@@ -45,6 +46,9 @@ struct peer {
 	/* History */
 	struct log_book *log_book;
 	struct log *log;
+
+	/* Channel flags from opening message. */
+	u8 channel_flags;
 
 	/* If we've disconnected, this is set. */
 	bool reconnected;
@@ -139,6 +143,9 @@ void peer_fundee_open(struct peer *peer, const u8 *msg,
 void add_peer(struct lightningd *ld, u64 unique_id,
 	      int fd, const struct pubkey *id,
 	      const struct crypto_state *cs);
+
+/* Could be configurable. */
+#define OUR_CHANNEL_FLAGS CHANNEL_FLAGS_ANNOUNCE_CHANNEL
 
 /* Peer has failed, but try reconnected. */
 PRINTF_FMT(2,3) void peer_fail_transient(struct peer *peer, const char *fmt,...);

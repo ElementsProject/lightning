@@ -31,6 +31,7 @@ open_channel,153,revocation_basepoint,33
 open_channel,186,payment_basepoint,33
 open_channel,219,delayed_payment_basepoint,33
 open_channel,252,first_per_commitment_point,33
+open_channel,285,channel_flags,1
 accept_channel,33
 accept_channel,0,temporary_channel_id,32
 accept_channel,32,dust_limit_satoshis,8
