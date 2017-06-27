@@ -834,15 +834,15 @@ static bool changed_htlc(struct peer *peer,
 
 static bool peer_save_commitsig_received(struct peer *peer, u64 commitnum)
 {
-	if (commitnum != peer->commit_index[LOCAL]) {
+	if (commitnum != peer->next_index[LOCAL]) {
 		peer_internal_error(peer,
 			   "channel_got_commitsig: expected commitnum %"PRIu64
 			   " got %"PRIu64,
-			   peer->commit_index[LOCAL], commitnum);
+			   peer->next_index[LOCAL], commitnum);
 		return false;
 	}
 
-	peer->commit_index[LOCAL]++;
+	peer->next_index[LOCAL]++;
 
 	/* FIXME: Save to database, with sig and HTLCs. */
 	return true;
@@ -850,15 +850,15 @@ static bool peer_save_commitsig_received(struct peer *peer, u64 commitnum)
 
 static bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum)
 {
-	if (commitnum != peer->commit_index[REMOTE]) {
+	if (commitnum != peer->next_index[REMOTE]) {
 		peer_internal_error(peer,
 			   "channel_sent_commitsig: expected commitnum %"PRIu64
 			   " got %"PRIu64,
-			   peer->commit_index[REMOTE], commitnum);
+			   peer->next_index[REMOTE], commitnum);
 		return false;
 	}
 
-	peer->commit_index[REMOTE]++;
+	peer->next_index[REMOTE]++;
 
 	/* FIXME: Save to database, with sig and HTLCs. */
 	return true;

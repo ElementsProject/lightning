@@ -63,7 +63,7 @@ struct peer {
 	u32 minimum_depth;
 
 	/* Tracking commitment transaction numbers. */
-	u64 commit_index[NUM_SIDES];
+	u64 next_index[NUM_SIDES];
 	u64 num_revocations_received;
 	u64 next_htlc_id;
 

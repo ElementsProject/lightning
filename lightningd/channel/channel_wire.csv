@@ -47,8 +47,8 @@ channel_init,,cltv_delta,u16
 channel_init,,last_was_revoke,bool
 channel_init,,num_last_sent_commit,u16
 channel_init,,last_sent_commit,num_last_sent_commit*struct changed_htlc
-channel_init,,commit_index_local,u64
-channel_init,,commit_index_remote,u64
+channel_init,,next_index_local,u64
+channel_init,,next_index_remote,u64
 channel_init,,revocations_received,u64
 channel_init,,next_htlc_id,u64
 channel_init,,num_htlcs,u16
