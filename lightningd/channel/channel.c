@@ -224,8 +224,7 @@ static void send_channel_update(struct peer *peer, bool disabled)
 	flags = peer->channel_direction | (disabled << 1);
 	cupdate = towire_channel_update(
 	    tmpctx, sig, &peer->short_channel_ids[LOCAL], timestamp, flags,
-	    peer->cltv_delta, peer->fee_base, peer->fee_per_satoshi,
-	    peer->channel->view[LOCAL].feerate_per_kw);
+	    peer->cltv_delta, 1, peer->fee_base, peer->fee_per_satoshi);
 
 	msg = towire_hsm_cupdate_sig_req(tmpctx, cupdate);
 
