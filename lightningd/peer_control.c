@@ -1273,7 +1273,8 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 					   &channel_info->remote_per_commit,
 					   &fc->peer->minimum_depth,
 					   &channel_info->remote_fundingkey,
-					   &funding_txid)) {
+					   &funding_txid,
+					   &channel_info->feerate_per_kw)) {
 		log_broken(fc->peer->log, "bad OPENING_FUNDER_REPLY %s",
 			   tal_hex(resp, resp));
 		tal_free(fc->peer);
@@ -1372,6 +1373,7 @@ static bool opening_fundee_finished(struct subd *opening,
 					   &peer->funding_satoshi,
 					   &peer->push_msat,
 					   &peer->channel_flags,
+					   &channel_info->feerate_per_kw,
 					   &funding_signed)) {
 		log_broken(peer->log, "bad OPENING_FUNDEE_REPLY %s",
 			   tal_hex(reply, reply));
@@ -1499,6 +1501,7 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 				  cs, peer->seed);
 
 	subd_send_msg(peer->owner, take(msg));
+	/* FIXME: Expose the min_feerate_per_kw and max_feerate_per_kw in the config */
 	msg = towire_opening_fundee(peer, peer->minimum_depth,
 				    7500, 150000, from_peer);
 

@@ -50,6 +50,7 @@ opening_funder_reply,,their_per_commit_point,33
 opening_funder_reply,,minimum_depth,4
 opening_funder_reply,,remote_fundingkey,33
 opening_funder_reply,,funding_txid,struct sha256_double
+opening_funder_reply,,feerate_per_kw,4
 
 # This means they offer the open (contains their offer packet)
 opening_fundee,3
@@ -74,6 +75,7 @@ opening_fundee_reply,,funding_txout,u16
 opening_fundee_reply,,funding_satoshis,8
 opening_fundee_reply,,push_msat,8
 opening_fundee_reply,,channel_flags,u8
+opening_fundee_reply,,feerate_per_kw,4
 # The (encrypted) funding signed message: send this and we're committed.
 opening_fundee_reply,,msglen,u16
 opening_fundee_reply,,funding_signed_msg,msglen*u8
