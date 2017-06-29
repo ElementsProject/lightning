@@ -66,6 +66,7 @@ channel_init,,funding_short_id,struct short_channel_id
 channel_init,,reestablish,bool
 channel_init,,shutdown_scriptpubkey_len,u16
 channel_init,,shutdown_scriptpubkey,shutdown_scriptpubkey_len*u8
+channel_init,,flags,u8
 channel_init,,init_peer_pkt_len,u16
 channel_init,,init_peer_pkt,init_peer_pkt_len*u8
 

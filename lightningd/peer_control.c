@@ -1227,6 +1227,7 @@ static bool peer_start_channeld(struct peer *peer,
 				      &funding_channel_id,
 				      peer->reconnected,
 				      shutdown_scriptpubkey,
+				      peer->channel_flags,
 				      funding_signed);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
