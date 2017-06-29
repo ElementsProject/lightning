@@ -2,6 +2,10 @@ language: c
 dist: trusty
 sudo: true
 
+env:
+  - NOVALGRIND=1 NO_VALGRIND=0
+  - NOVALGRIND=0 NO_VALGRIND=1
+
 # Trusty (aka 14.04) is way way too old, so run in docker...
 script:
   - docker pull cdecker/lightning-ci > /dev/null
