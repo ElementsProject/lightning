@@ -12,6 +12,7 @@ struct channel_info {
 	struct pubkey remote_fundingkey;
 	struct basepoints theirbase;
 	struct pubkey remote_per_commit, old_remote_per_commit;
+	u32 feerate_per_kw;
 };
 
 /* Get all HTLCs for a peer, to send in init message. */
