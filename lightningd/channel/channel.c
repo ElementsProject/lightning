@@ -130,6 +130,7 @@ struct peer {
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;
 	u64 revocations_received;
+	u8 channel_flags;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -1657,6 +1658,7 @@ static void init_channel(struct peer *peer)
 				   &peer->short_channel_ids[LOCAL],
 				   &reconnected,
 				   &peer->unsent_shutdown_scriptpubkey,
+				   &peer->channel_flags,
 				   &funding_signed))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Init: %s",
 			      tal_hex(msg, msg));
@@ -1745,8 +1747,10 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 
 static void handle_funding_announce_depth(struct peer *peer, const u8 *msg)
 {
-	status_trace("Exchanging announcement signatures.");
-	send_announcement_signatures(peer);
+	if (peer->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL) {
+		status_trace("Exchanging announcement signatures.");
+		send_announcement_signatures(peer);
+	}
 
 	/* Only send the announcement and update if the other end gave
 	 * us its sig */
