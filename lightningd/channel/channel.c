@@ -1617,12 +1617,14 @@ static void init_channel(struct peer *peer)
 	bool reconnected;
 	u8 *funding_signed;
 	u8 *msg;
+	u32 feerate_per_kw;
 
 	msg = wire_sync_read(peer, REQ_FD);
 	if (!fromwire_channel_init(peer, msg, NULL,
 				   &funding_txid, &funding_txout,
 				   &funding_satoshi,
 				   &peer->conf[LOCAL], &peer->conf[REMOTE],
+				   &feerate_per_kw,
 				   &peer->their_commit_sig,
 				   &peer->pcs.cs,
 				   &funding_pubkey[REMOTE],
@@ -1689,7 +1691,7 @@ static void init_channel(struct peer *peer)
 	peer->channel = new_channel(peer, &funding_txid, funding_txout,
 				    funding_satoshi,
 				    local_msatoshi,
-				    peer->fee_base,
+				    feerate_per_kw,
 				    &peer->conf[LOCAL], &peer->conf[REMOTE],
 				    &points[LOCAL], &points[REMOTE],
 				    &funding_pubkey[LOCAL],
