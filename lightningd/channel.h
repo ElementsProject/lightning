@@ -125,7 +125,8 @@ static inline u16 to_self_delay(const struct channel *channel, enum side side)
  * @funding_txout: The commitment transaction output number.
  * @funding_satoshis: The commitment transaction amount.
  * @local_msatoshi: The amount for the local side (remainder goes to remote)
- * @feerate_per_kw: feerate per kiloweight (satoshis) for the settlement transaction
+ * @feerate_per_kw: feerate per kiloweight (satoshis) for the commitment
+ *   transaction and HTLCS
  * @local: local channel configuration
  * @remote: remote channel configuration
  * @local_basepoints: local basepoints.

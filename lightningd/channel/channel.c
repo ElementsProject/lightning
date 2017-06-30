@@ -222,6 +222,7 @@ static void send_channel_update(struct peer *peer, bool disabled)
 	    talz(tmpctx, secp256k1_ecdsa_signature);
 
 	flags = peer->channel_direction | (disabled << 1);
+	/* FIXME: Add configuration option to specify `htlc_minimum_msat` */
 	cupdate = towire_channel_update(
 	    tmpctx, sig, &peer->short_channel_ids[LOCAL], timestamp, flags,
 	    peer->cltv_delta, 1, peer->fee_base, peer->fee_per_satoshi);
