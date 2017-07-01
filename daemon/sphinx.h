@@ -133,8 +133,4 @@ struct onionpacket *parse_onionpacket(
 	const size_t srclen
 	);
 
-void pubkey_hash160(
-	u8 *dst,
-	const struct pubkey *pubkey);
-
 #endif /* LIGHTNING_DAEMON_SPHINX_H */
