@@ -94,31 +94,30 @@ class TailableProc(object):
         logging.debug("Did not find '%s' in logs", regex)
         return False
 
-    def wait_for_log(self, regex, timeout=60):
-        """Look for `regex` in the logs.
+    def wait_for_logs(self, regexs, timeout=60):
+        """Look for `regexs` in the logs.
 
-        We tail the stdout of the process and look for `regex`,
-        starting from the previous waited-for log entry (if any).  We
+        We tail the stdout of the process and look for each regex in `regexs`,
+        starting from last of the previous waited-for log entries (if any).  We
         fail if the timeout is exceeded or if the underlying process
-        exits before the `regex` was found. The reason we start
-        `offset` lines in the past is so that we can issue a command
-        and not miss its effects.
+        exits before all the `regexs` were found.
 
         """
-        logging.debug("Waiting for '%s' in the logs", regex)
-        ex = re.compile(regex)
+        logging.debug("Waiting for {} in the logs".format(regexs))
+        exs = {re.compile(r) for r in regexs}
         start_time = time.time()
         pos = self.logsearch_start
         initial_pos = len(self.logs)
         while True:
             if time.time() > start_time + timeout:
-                print("Can't find {} in logs".format(regex))
+                print("Can't find {} in logs".format(exs))
                 with self.logs_cond:
                     for i in range(initial_pos, len(self.logs)):
                         print("  " + self.logs[i])
-                if self.is_in_log(regex):
-                    print("(Was previously in logs!")
-                raise TimeoutError('Unable to find "{}" in logs.'.format(regex))
+                for r in exs:
+                    if self.is_in_log(r):
+                        print("({} was previously in logs!)".format(r))
+                raise TimeoutError('Unable to find "{}" in logs.'.format(exs))
             elif not self.running:
                 raise ValueError('Process died while waiting for logs')
 
@@ -127,12 +126,21 @@ class TailableProc(object):
                     self.logs_cond.wait(1)
                     continue
 
-                if ex.search(self.logs[pos]):
-                    logging.debug("Found '%s' in logs", regex)
+                for r in exs.copy():
+                    if r.search(self.logs[pos]):
+                        logging.debug("Found '%s' in logs", r)
+                        exs.remove(r)
                     self.logsearch_start = pos+1
+                if len(exs) == 0:
                     return self.logs[pos]
                 pos += 1
 
+    def wait_for_log(self, regex, timeout=60):
+        """Look for `regex` in the logs.
+
+        Convenience wrapper for the common case of only seeking a single entry.
+        """
+        return self.wait_for_logs([regex], timeout)
 
 class SimpleBitcoinProxy:
     """Wrapper for BitcoinProxy to reconnect.
