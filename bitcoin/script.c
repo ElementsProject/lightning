@@ -47,13 +47,6 @@ static void hash160(struct ripemd160 *redeemhash, const void *mem, size_t len)
 	ripemd160(redeemhash, h.u.u8, sizeof(h));
 }
 
-static void hash160_key(struct ripemd160 *khash, const struct pubkey *key)
-{
-	u8 der[PUBKEY_DER_LEN];
-	pubkey_to_der(der, key);
-	hash160(khash, der, sizeof(der));
-}
-
 static void add(u8 **scriptp, const void *mem, size_t len)
 {
 	size_t oldlen = tal_count(*scriptp);
@@ -245,7 +238,7 @@ u8 *bitcoin_redeem_p2sh_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 	/* BIP141: BIP16 redeemScript pushed in the scriptSig is exactly a
 	 * push of a version byte plus a push of a witness program. */
 	add_number(&script, 0);
-	hash160_key(&keyhash, key);
+	pubkey_to_hash160(key, &keyhash);
 	add_push_bytes(&script, &keyhash, sizeof(keyhash));
 	return script;
 }
@@ -313,7 +306,7 @@ u8 *scriptpubkey_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 	u8 *script = tal_arr(ctx, u8, 0);
 
 	add_op(&script, OP_0);
-	hash160_key(&h, key);
+	pubkey_to_hash160(key, &h);
 	add_push_bytes(&script, &h, sizeof(h));
 	return script;
 }
@@ -470,8 +463,8 @@ u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key)
 {
 	struct ripemd160 pkhash;
 	u8 *script = tal_arr(ctx, u8, 0);
+	pubkey_to_hash160(key, &pkhash);
 
-	hash160_key(&pkhash, key);
 	/* BIP143:
 	 *
 	 * For P2WPKH witness program, the scriptCode is
@@ -726,7 +719,7 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
 
 	add_op(&script, OP_DUP);
 	add_op(&script, OP_HASH160);
-	hash160_key(&ripemd, revocationkey);
+	pubkey_to_hash160(revocationkey, &ripemd);
 	add_push_bytes(&script, &ripemd, sizeof(ripemd));
 	add_op(&script, OP_EQUAL);
 	add_op(&script, OP_IF);
@@ -794,7 +787,7 @@ u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
 
 	add_op(&script, OP_DUP);
 	add_op(&script, OP_HASH160);
-	hash160_key(&ripemd, revocationkey);
+	pubkey_to_hash160(revocationkey, &ripemd);
 	add_push_bytes(&script, &ripemd, sizeof(ripemd));
 	add_op(&script, OP_EQUAL);
 	add_op(&script, OP_IF);

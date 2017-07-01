@@ -156,10 +156,6 @@ struct onionpacket *parse_onionpacket(
 	const size_t srclen
 	);
 
-void pubkey_hash160(
-	u8 *dst,
-	const struct pubkey *pubkey);
-
 struct onionreply {
 	/* Node index in the path that is replying */
 	int origin_index;

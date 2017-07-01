@@ -236,26 +236,6 @@ bool onion_shared_secret(
 				    privkey->secret.data);
 }
 
-void pubkey_hash160(
-	u8 *dst,
-	const struct pubkey *pubkey)
-{
-	struct ripemd160 r;
-	struct sha256 h;
-	u8 der[33];
-	size_t outputlen = 33;
-
-	secp256k1_ec_pubkey_serialize(secp256k1_ctx,
-				      der,
-				      &outputlen,
-				      &pubkey->pubkey,
-				      SECP256K1_EC_COMPRESSED);
-	sha256(&h, der, sizeof(der));
-	ripemd160(&r, h.u.u8, sizeof(h));
-
-	memcpy(dst, r.u.u8, sizeof(r));
-}
-
 static void generate_key_set(const u8 secret[SHARED_SECRET_SIZE],
 			     struct keyset *keys)
 {

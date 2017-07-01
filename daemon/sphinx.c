@@ -2,6 +2,8 @@
 #include "utils.h"
 #include <assert.h>
 
+#include <bitcoin/address.h>
+
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/mem/mem.h>
@@ -263,26 +265,6 @@ bool onion_shared_secret(
 				    privkey->secret.data);
 }
 
-void pubkey_hash160(
-	u8 *dst,
-	const struct pubkey *pubkey)
-{
-	struct ripemd160 r;
-	struct sha256 h;
-	u8 der[33];
-	size_t outputlen = 33;
-
-	secp256k1_ec_pubkey_serialize(secp256k1_ctx,
-				      der,
-				      &outputlen,
-				      &pubkey->pubkey,
-				      SECP256K1_EC_COMPRESSED);
-	sha256(&h, der, sizeof(der));
-	ripemd160(&r, h.u.u8, sizeof(h));
-
-	memcpy(dst, r.u.u8, sizeof(r));
-}
-
 static void generate_key_set(const u8 secret[SHARED_SECRET_SIZE],
 			     struct keyset *keys)
 {
@@ -372,7 +354,8 @@ struct onionpacket *create_onionpacket(
 	u8 filler[2 * (num_hops - 1) * SECURITY_PARAMETER];
 	u8 hopfiller[(num_hops - 1) * HOP_PAYLOAD_SIZE];
 	struct keyset keys;
-	u8 nextaddr[20], nexthmac[SECURITY_PARAMETER];
+	struct bitcoin_address nextaddr;
+	u8 nexthmac[SECURITY_PARAMETER];
 	u8 stream[ROUTING_INFO_SIZE], hopstream[TOTAL_HOP_PAYLOAD_SIZE];
 	struct hop_params *params = generate_hop_params(ctx, sessionkey, path);
 	u8 binhoppayloads[tal_count(path)][HOP_PAYLOAD_SIZE];
@@ -383,7 +366,7 @@ struct onionpacket *create_onionpacket(
 	if (!params)
 		return NULL;
 	packet->version = 1;
-	memset(nextaddr, 0, 20);
+	memset(&nextaddr, 0, 20);
 	memset(nexthmac, 0, 20);
 	memset(packet->routinginfo, 0, ROUTING_INFO_SIZE);
 
@@ -399,7 +382,7 @@ struct onionpacket *create_onionpacket(
 		/* Rightshift mix-header by 2*SECURITY_PARAMETER */
 		memmove(packet->routinginfo + 2 * SECURITY_PARAMETER, packet->routinginfo,
 			ROUTING_INFO_SIZE - 2 * SECURITY_PARAMETER);
-		memcpy(packet->routinginfo, nextaddr, SECURITY_PARAMETER);
+		memcpy(packet->routinginfo, &nextaddr, SECURITY_PARAMETER);
 		memcpy(packet->routinginfo + SECURITY_PARAMETER, nexthmac, SECURITY_PARAMETER);
 		xorbytes(packet->routinginfo, packet->routinginfo, stream, ROUTING_INFO_SIZE);
 
@@ -420,7 +403,7 @@ struct onionpacket *create_onionpacket(
 
 		compute_packet_hmac(packet, assocdata, assocdatalen, keys.mu,
 				    nexthmac);
-		pubkey_hash160(nextaddr, &path[i]);
+		pubkey_to_hash160(&path[i], &nextaddr.addr);
 	}
 	memcpy(packet->mac, nexthmac, sizeof(nexthmac));
 	memcpy(&packet->ephemeralkey, &params[0].ephemeralkey, sizeof(secp256k1_pubkey));
