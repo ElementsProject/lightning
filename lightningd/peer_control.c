@@ -172,7 +172,6 @@ void peer_set_condition(struct peer *peer, enum peer_state old_state,
 
 /* FIXME: Reshuffle. */
 static bool peer_start_channeld(struct peer *peer,
-				enum peer_state old_state,
 				const struct crypto_state *cs,
 				int peer_fd, int gossip_fd,
 				const u8 *funding_signed);
@@ -232,8 +231,7 @@ static bool get_peer_gossipfd_reply(struct subd *subd, const u8 *msg,
 	}
 
 	/* We never re-transmit funding_signed. */
-	peer_start_channeld(peer, peer->state, &ggf->cs, ggf->peer_fd, fds[0],
-			    NULL);
+	peer_start_channeld(peer, &ggf->cs, ggf->peer_fd, fds[0], NULL);
 	goto out;
 
 close_gossipfd:
@@ -863,7 +861,8 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	command_success(fc->cmd, null_response(fc->cmd));
 
 	/* Start normal channel daemon. */
-	peer_start_channeld(fc->peer, OPENINGD, cs, peer_fd, gossip_fd, NULL);
+	peer_start_channeld(fc->peer, cs, peer_fd, gossip_fd, NULL);
+	peer_set_condition(fc->peer, OPENINGD, CHANNELD_AWAITING_LOCKIN);
 
 	wallet_confirm_utxos(fc->peer->ld->wallet, fc->utxomap);
 	tal_free(fc);
@@ -1117,7 +1116,6 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 }
 
 static bool peer_start_channeld(struct peer *peer,
-				enum peer_state old_state,
 				const struct crypto_state *cs,
 				int peer_fd, int gossip_fd,
 				const u8 *funding_signed)
@@ -1176,10 +1174,8 @@ static bool peer_start_channeld(struct peer *peer,
 	if (peer->scid) {
 		funding_channel_id = *peer->scid;
 		log_debug(peer->log, "Already have funding locked in");
-		peer_set_condition(peer, old_state, CHANNELD_NORMAL);
 	} else {
 		log_debug(peer->log, "Waiting for funding confirmations");
-		peer_set_condition(peer, old_state, CHANNELD_AWAITING_LOCKIN);
 		memset(&funding_channel_id, 0, sizeof(funding_channel_id));
 	}
 
@@ -1396,7 +1392,8 @@ static bool opening_fundee_finished(struct subd *opening,
 	peer->owner = NULL;
 
 	/* On to normal operation! */
-	peer_start_channeld(peer, OPENINGD, &cs, fds[0], fds[1], funding_signed);
+	peer_start_channeld(peer, &cs, fds[0], fds[1], funding_signed);
+	peer_set_condition(peer, OPENINGD, CHANNELD_AWAITING_LOCKIN);
 
 	/* Tell opening daemon to exit. */
 	return false;
