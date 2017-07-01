@@ -203,11 +203,11 @@ struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id)
 struct peer *find_peer_by_pkhash(struct lightningd_state *dstate, const u8 *pkhash)
 {
 	struct peer *peer;
-	u8 addr[20];
+	struct ripemd160 addr;
 
 	list_for_each(&dstate->peers, peer, list) {
-		pubkey_hash160(addr, peer->id);
-		if (memcmp(addr, pkhash, sizeof(addr)) == 0)
+		pubkey_to_hash160(peer->id, &addr);
+		if (memcmp(&addr, pkhash, sizeof(addr)) == 0)
 			return peer;
 	}
 	return NULL;
