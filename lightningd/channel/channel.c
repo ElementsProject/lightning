@@ -1934,6 +1934,12 @@ out_next:
 	return daemon_conn_read_next(conn, master);
 }
 
+static void master_gone(struct io_conn *unused, struct daemon_conn *dc)
+{
+	/* Can't tell master, it's gone. */
+	exit(2);
+}
+
 /* We do this synchronously. */
 static void init_channel(struct peer *peer)
 {
@@ -2001,6 +2007,10 @@ static void init_channel(struct peer *peer)
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Init: %s",
 			      tal_hex(msg, msg));
 
+	/* After this we'll be async, so set up now. */
+	daemon_conn_init(peer, &peer->master, REQ_FD, req_in, master_gone);
+	status_setup_async(&peer->master);
+
 	status_trace("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
 		     " next_idx_local = %"PRIu64
 		     " next_idx_remote = %"PRIu64
@@ -2059,12 +2069,6 @@ static void init_channel(struct peer *peer)
 }
 
 #ifndef TESTING
-static void master_gone(struct io_conn *unused, struct daemon_conn *dc)
-{
-	/* Can't tell master, it's gone. */
-	exit(2);
-}
-
 static void gossip_gone(struct io_conn *unused, struct daemon_conn *dc)
 {
 	status_failed(WIRE_CHANNEL_GOSSIP_BAD_MESSAGE,
@@ -2087,9 +2091,6 @@ int main(int argc, char *argv[])
 	signal(SIGCHLD, SIG_IGN);
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
-
-	daemon_conn_init(peer, &peer->master, REQ_FD, req_in, master_gone);
-	status_setup_async(&peer->master);
 
 	peer->num_pings_outstanding = 0;
 	timers_init(&peer->timers, time_mono());
