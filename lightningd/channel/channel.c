@@ -1598,130 +1598,6 @@ again:
 	}
 }
 
-/* We do this synchronously. */
-static void init_channel(struct peer *peer)
-{
-	struct privkey seed;
-	struct basepoints points[NUM_SIDES];
-	u64 funding_satoshi;
-	u16 funding_txout;
-	u64 local_msatoshi;
-	struct pubkey funding_pubkey[NUM_SIDES];
-	struct sha256_double funding_txid;
-	bool am_funder;
-	enum htlc_state *hstates;
-	struct fulfilled_htlc *fulfilled;
-	enum side *fulfilled_sides;
-	struct failed_htlc *failed;
-	enum side *failed_sides;
-	struct added_htlc *htlcs;
-	bool reconnected;
-	u8 *funding_signed;
-	u8 *msg;
-	u32 feerate_per_kw;
-
-	msg = wire_sync_read(peer, REQ_FD);
-	if (!fromwire_channel_init(peer, msg, NULL,
-				   &funding_txid, &funding_txout,
-				   &funding_satoshi,
-				   &peer->conf[LOCAL], &peer->conf[REMOTE],
-				   &feerate_per_kw,
-				   &peer->their_commit_sig,
-				   &peer->pcs.cs,
-				   &funding_pubkey[REMOTE],
-				   &points[REMOTE].revocation,
-				   &points[REMOTE].payment,
-				   &points[REMOTE].delayed_payment,
-				   &peer->remote_per_commit,
-				   &peer->old_remote_per_commit,
-				   &am_funder,
-				   &peer->fee_base,
-				   &peer->fee_per_satoshi,
-				   &local_msatoshi,
-				   &seed,
-				   &peer->node_ids[LOCAL],
-				   &peer->node_ids[REMOTE],
-				   &peer->commit_msec,
-				   &peer->cltv_delta,
-				   &peer->last_was_revoke,
-				   &peer->last_sent_commit,
-				   &peer->next_index[LOCAL],
-				   &peer->next_index[REMOTE],
-				   &peer->revocations_received,
-				   &peer->htlc_id,
-				   &htlcs,
-				   &hstates,
-				   &fulfilled,
-				   &fulfilled_sides,
-				   &failed,
-				   &failed_sides,
-				   &peer->funding_locked[LOCAL],
-				   &peer->funding_locked[REMOTE],
-				   &peer->short_channel_ids[LOCAL],
-				   &reconnected,
-				   &peer->unsent_shutdown_scriptpubkey,
-				   &peer->channel_flags,
-				   &funding_signed))
-		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Init: %s",
-			      tal_hex(msg, msg));
-
-	status_trace("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
-		     " next_idx_local = %"PRIu64
-		     " next_idx_remote = %"PRIu64
-		     " revocations_received = %"PRIu64,
-		     am_funder ? "LOCAL" : "REMOTE",
-		     type_to_string(trc, struct pubkey,
-				    &peer->remote_per_commit),
-		     type_to_string(trc, struct pubkey,
-				    &peer->old_remote_per_commit),
-		     peer->next_index[LOCAL], peer->next_index[REMOTE],
-		     peer->revocations_received);
-
-	/* First commit is used for opening: if we've sent 0, we're on
-	 * index 1. */
-	assert(peer->next_index[LOCAL] > 0);
-	assert(peer->next_index[REMOTE] > 0);
-
-	/* channel_id is set from funding txout */
-	derive_channel_id(&peer->channel_id, &funding_txid, funding_txout);
-
-	/* We derive everything from the one secret seed. */
-	derive_basepoints(&seed, &funding_pubkey[LOCAL], &points[LOCAL],
-			  &peer->our_secrets, &peer->shaseed);
-
-	peer->channel = new_channel(peer, &funding_txid, funding_txout,
-				    funding_satoshi,
-				    local_msatoshi,
-				    feerate_per_kw,
-				    &peer->conf[LOCAL], &peer->conf[REMOTE],
-				    &points[LOCAL], &points[REMOTE],
-				    &funding_pubkey[LOCAL],
-				    &funding_pubkey[REMOTE],
-				    am_funder ? LOCAL : REMOTE);
-
-	if (!channel_force_htlcs(peer->channel, htlcs, hstates,
-				 fulfilled, fulfilled_sides,
-				 failed, failed_sides))
-		status_failed(WIRE_CHANNEL_BAD_COMMAND,
-			      "Could not restore HTLCs");
-
-	peer->channel_direction = get_channel_direction(
-	    &peer->node_ids[LOCAL], &peer->node_ids[REMOTE]);
-
-	/* OK, now we can process peer messages. */
-	if (reconnected)
-		peer_reconnect(peer);
-
-	peer->peer_conn = io_new_conn(peer, PEER_FD, setup_peer_conn, peer);
-	io_set_finish(peer->peer_conn, peer_conn_broken, peer);
-
-	/* If we have a funding_signed message, send that immediately */
-	if (funding_signed)
-		msg_enqueue(&peer->peer_out, take(funding_signed));
-
-	tal_free(msg);
-}
-
 static void handle_funding_locked(struct peer *peer, const u8 *msg)
 {
 	struct pubkey next_per_commit_point;
@@ -2056,6 +1932,130 @@ out:
 
 out_next:
 	return daemon_conn_read_next(conn, master);
+}
+
+/* We do this synchronously. */
+static void init_channel(struct peer *peer)
+{
+	struct privkey seed;
+	struct basepoints points[NUM_SIDES];
+	u64 funding_satoshi;
+	u16 funding_txout;
+	u64 local_msatoshi;
+	struct pubkey funding_pubkey[NUM_SIDES];
+	struct sha256_double funding_txid;
+	bool am_funder;
+	enum htlc_state *hstates;
+	struct fulfilled_htlc *fulfilled;
+	enum side *fulfilled_sides;
+	struct failed_htlc *failed;
+	enum side *failed_sides;
+	struct added_htlc *htlcs;
+	bool reconnected;
+	u8 *funding_signed;
+	u8 *msg;
+	u32 feerate_per_kw;
+
+	msg = wire_sync_read(peer, REQ_FD);
+	if (!fromwire_channel_init(peer, msg, NULL,
+				   &funding_txid, &funding_txout,
+				   &funding_satoshi,
+				   &peer->conf[LOCAL], &peer->conf[REMOTE],
+				   &feerate_per_kw,
+				   &peer->their_commit_sig,
+				   &peer->pcs.cs,
+				   &funding_pubkey[REMOTE],
+				   &points[REMOTE].revocation,
+				   &points[REMOTE].payment,
+				   &points[REMOTE].delayed_payment,
+				   &peer->remote_per_commit,
+				   &peer->old_remote_per_commit,
+				   &am_funder,
+				   &peer->fee_base,
+				   &peer->fee_per_satoshi,
+				   &local_msatoshi,
+				   &seed,
+				   &peer->node_ids[LOCAL],
+				   &peer->node_ids[REMOTE],
+				   &peer->commit_msec,
+				   &peer->cltv_delta,
+				   &peer->last_was_revoke,
+				   &peer->last_sent_commit,
+				   &peer->next_index[LOCAL],
+				   &peer->next_index[REMOTE],
+				   &peer->revocations_received,
+				   &peer->htlc_id,
+				   &htlcs,
+				   &hstates,
+				   &fulfilled,
+				   &fulfilled_sides,
+				   &failed,
+				   &failed_sides,
+				   &peer->funding_locked[LOCAL],
+				   &peer->funding_locked[REMOTE],
+				   &peer->short_channel_ids[LOCAL],
+				   &reconnected,
+				   &peer->unsent_shutdown_scriptpubkey,
+				   &peer->channel_flags,
+				   &funding_signed))
+		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Init: %s",
+			      tal_hex(msg, msg));
+
+	status_trace("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
+		     " next_idx_local = %"PRIu64
+		     " next_idx_remote = %"PRIu64
+		     " revocations_received = %"PRIu64,
+		     am_funder ? "LOCAL" : "REMOTE",
+		     type_to_string(trc, struct pubkey,
+				    &peer->remote_per_commit),
+		     type_to_string(trc, struct pubkey,
+				    &peer->old_remote_per_commit),
+		     peer->next_index[LOCAL], peer->next_index[REMOTE],
+		     peer->revocations_received);
+
+	/* First commit is used for opening: if we've sent 0, we're on
+	 * index 1. */
+	assert(peer->next_index[LOCAL] > 0);
+	assert(peer->next_index[REMOTE] > 0);
+
+	/* channel_id is set from funding txout */
+	derive_channel_id(&peer->channel_id, &funding_txid, funding_txout);
+
+	/* We derive everything from the one secret seed. */
+	derive_basepoints(&seed, &funding_pubkey[LOCAL], &points[LOCAL],
+			  &peer->our_secrets, &peer->shaseed);
+
+	peer->channel = new_channel(peer, &funding_txid, funding_txout,
+				    funding_satoshi,
+				    local_msatoshi,
+				    feerate_per_kw,
+				    &peer->conf[LOCAL], &peer->conf[REMOTE],
+				    &points[LOCAL], &points[REMOTE],
+				    &funding_pubkey[LOCAL],
+				    &funding_pubkey[REMOTE],
+				    am_funder ? LOCAL : REMOTE);
+
+	if (!channel_force_htlcs(peer->channel, htlcs, hstates,
+				 fulfilled, fulfilled_sides,
+				 failed, failed_sides))
+		status_failed(WIRE_CHANNEL_BAD_COMMAND,
+			      "Could not restore HTLCs");
+
+	peer->channel_direction = get_channel_direction(
+	    &peer->node_ids[LOCAL], &peer->node_ids[REMOTE]);
+
+	/* OK, now we can process peer messages. */
+	if (reconnected)
+		peer_reconnect(peer);
+
+	peer->peer_conn = io_new_conn(peer, PEER_FD, setup_peer_conn, peer);
+	io_set_finish(peer->peer_conn, peer_conn_broken, peer);
+
+	/* If we have a funding_signed message, send that immediately */
+	if (funding_signed)
+		msg_enqueue(&peer->peer_out, take(funding_signed));
+
+	tal_free(msg);
 }
 
 #ifndef TESTING
