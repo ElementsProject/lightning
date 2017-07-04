@@ -15,5 +15,6 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 				   const struct sha256_double *anchor_txid,
 				   unsigned int anchor_index,
 				   u64 anchor_satoshis,
-				   uint64_t to_us, uint64_t to_them);
+				   uint64_t to_us, uint64_t to_them,
+				   uint64_t dust_limit);
 #endif
