@@ -50,9 +50,6 @@ struct peer {
 	/* Channel flags from opening message. */
 	u8 channel_flags;
 
-	/* If we've disconnected, this is set. */
-	bool reconnected;
-
 	/* Where we connected to, or it connected from. */
 	struct netaddr netaddr;
 
