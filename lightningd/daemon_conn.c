@@ -35,21 +35,30 @@ struct io_plan *daemon_conn_write_next(struct io_conn *conn,
 bool daemon_conn_sync_flush(struct daemon_conn *dc)
 {
 	const u8 *msg;
+	int daemon_fd;
 
 	/* Flush any current packet. */
 	if (!io_flush_sync(dc->conn))
+		return false;
+
+	/* Make fd blocking for the duration */
+	daemon_fd = io_conn_fd(dc->conn);
+	if (!io_fd_block(daemon_fd, true))
 		return false;
 
 	/* Flush existing messages. */
 	while ((msg = msg_dequeue(&dc->out)) != NULL) {
 		int fd = msg_extract_fd(msg);
 		if (fd >= 0) {
-			if (!fdpass_send(io_conn_fd(dc->conn), fd))
-				return false;
-		} else if (!wire_sync_write(io_conn_fd(dc->conn), take(msg)))
-			return false;
+			if (!fdpass_send(daemon_fd, fd))
+				break;
+		} else if (!wire_sync_write(daemon_fd, take(msg)))
+			break;
 	}
-	return true;
+	io_fd_block(daemon_fd, false);
+
+	/* Success iff we flushed them all. */
+	return msg == NULL;
 }
 
 static struct io_plan *daemon_conn_start(struct io_conn *conn,

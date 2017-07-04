@@ -41,18 +41,6 @@ static void connection_destroy(struct connection *c)
 		command_fail(c->cmd, "Failed to connect to peer");
 }
 
-static void set_blocking(int fd, bool block)
-{
-	int flags = fcntl(fd, F_GETFL);
-
-	if (block)
-		flags &= ~O_NONBLOCK;
-	else
-		flags |= O_NONBLOCK;
-
-	fcntl(fd, F_SETFL, flags);
-}
-
 static void
 PRINTF_FMT(3,4) connection_failed(struct connection *c, struct log *log,
 				  const char *fmt, ...)
@@ -202,7 +190,7 @@ static struct io_plan *hsm_then_handshake(struct io_conn *conn,
 		fatal("Could not read fd from HSM: %s", strerror(errno));
 
 	/* Make sure connection fd is blocking */
-	set_blocking(connfd, true);
+	io_fd_block(connfd, true);
 
 	/* Give handshake daemon the hsm fd. */
 	handshaked = new_subd(ld, ld,
