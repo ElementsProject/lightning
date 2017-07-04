@@ -323,6 +323,11 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
         l2.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
 
+        # And should put closing into mempool.
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+        assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
+        
     def test_gossip_jsonrpc(self):
         l1,l2 = self.connect()
 
