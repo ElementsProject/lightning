@@ -44,6 +44,15 @@ def setupBitcoind():
         logging.debug("Insufficient balance, generating 1 block")
         bitcoind.rpc.generate(1)
 
+
+def wait_for(success, timeout=30):
+    start_time = time.time()
+    while not success() and time.time() < start_time + timeout:
+        pass
+    if time.time() > start_time + timeout:
+        raise ValueError("Error waiting for {}", success)
+
+
 def sync_blockheight(*args):
     while True:
         target = bitcoind.rpc.getblockcount()
@@ -392,6 +401,24 @@ class LightningDTests(BaseLightningDTests):
 
         # channeld pinging
         self.ping_tests(l1, l2)
+
+    def test_routing_gossip_reconnect(self):
+        # Connect two peers, reconnect and then see if we resume the
+        # gossip.
+        disconnects = ['-WIRE_CHANNEL_ANNOUNCEMENT']
+        l1 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        l2 = self.node_factory.get_node(legacy=False)
+        l3 = self.node_factory.get_node(legacy=False)
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.openchannel(l2, 20000)
+
+        # Now open new channels and everybody should sync
+        l2.rpc.connect('localhost', l3.info['port'], l3.info['id'])
+        l2.openchannel(l3, 20000)
+
+        # Settle the gossip
+        for n in [l1, l2, l3]:
+            wait_for(lambda: len(n.rpc.getchannels()['channels']) == 4)
 
     def test_routing_gossip(self):
         nodes = [self.node_factory.get_node(legacy=False) for _ in range(5)]
