@@ -53,19 +53,10 @@ def wait_for(success, timeout=30):
         raise ValueError("Error waiting for {}", success)
 
 
-def sync_blockheight(*args):
-    while True:
-        target = bitcoind.rpc.getblockcount()
-        all_up_to_date = True
-        for l in args:
-            if l.rpc.dev_blockheight()['blockheight'] != target:
-                all_up_to_date = False
-
-        if all_up_to_date:
-            return
-
-        # Sleep before spinning.
-        time.sleep(0.1)
+def sync_blockheight(nodes):
+    target = bitcoind.rpc.getblockcount()
+    for n in nodes:
+        wait_for(lambda: n.rpc.getinfo()['blockheight'] == target)
 
 def tearDownBitcoind():
     global bitcoind
@@ -478,7 +469,7 @@ class LightningDTests(BaseLightningDTests):
         l1.bitcoin.rpc.generate(5)
         
         # If they're at different block heights we can get spurious errors.
-        sync_blockheight(l1, l2, l3)
+        sync_blockheight([l1, l2, l3])
 
         chanid1 = l1.rpc.getpeer(l2.info['id'])['channel']
         chanid2 = l2.rpc.getpeer(l3.info['id'])['channel']
@@ -879,6 +870,8 @@ class LegacyLightningDTests(BaseLightningDTests):
         for i in range(len(nodes)-1):
             nodes[0].rpc.dev_add_route(nodes[i].info['id'], nodes[i+1].info['id'], 1, 1, 6, 6)
         #l1.rpc.dev_add_route(l2.info['id'], l3.info['id'], 1, 1, 6, 6)
+
+        sync_blockheight(nodes)
 
         invoice = nodes[-1].rpc.invoice(htlc_amount, "multihop_payment")
         route = nodes[0].rpc.getroute(nodes[-1].info['id'], htlc_amount, 1)
