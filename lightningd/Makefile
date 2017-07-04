@@ -124,6 +124,7 @@ include lightningd/handshake/Makefile
 include lightningd/gossip/Makefile
 include lightningd/opening/Makefile
 include lightningd/channel/Makefile
+include lightningd/closing/Makefile
 
 $(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS): $(LIGHTNINGD_HEADERS) 
 

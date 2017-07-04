@@ -1,0 +1,54 @@
+# Shouldn't happen
+closing_bad_command,0x8000
+# Also shouldn't happen
+closing_gossip_failed,0x8001
+closing_internal_error,0x8003
+
+# These are due to peer.
+closing_peer_write_failed,0x8010
+closing_peer_read_failed,0x8011
+closing_peer_bad_message,0x8012
+closing_peer_bad_message,,len,u16
+closing_peer_bad_message,,msg,len*u8
+closing_negotiation_error,0x8013
+closing_negotiation_error,,len,u16
+closing_negotiation_error,,msg,len*u8
+
+#include <lightningd/cryptomsg.h>
+#include <lightningd/htlc_wire.h>
+# Begin!  (passes peer fd, gossipd-client fd)
+closing_init,1
+closing_init,,crypto_state,struct crypto_state
+closing_init,,seed,struct privkey
+closing_init,,funding_txid,struct sha256_double
+closing_init,,funding_txout,u16
+closing_init,,funding_satoshi,u64
+closing_init,,remote_fundingkey,struct pubkey
+closing_init,,funder,enum side
+closing_init,,local_msatoshi,u64
+closing_init,,remote_msatoshi,u64
+closing_init,,our_dust_limit,u64
+closing_init,,min_fee_satoshi,u64
+closing_init,,max_fee_satoshi,u64
+closing_init,,initial_fee_satoshi,u64
+closing_init,,local_scriptpubkey_len,u16
+closing_init,,local_scriptpubkey,local_scriptpubkey_len*u8
+closing_init,,remote_scriptpubkey_len,u16
+closing_init,,remote_scriptpubkey,remote_scriptpubkey_len*u8
+
+# We received an offer, save signature.
+closing_received_signature,2
+closing_received_signature,,fee_satoshi,u64
+closing_received_signature,,signature,secp256k1_ecdsa_signature
+
+closing_received_signature_reply,102
+
+# We sent an offer, save it in case we crash.
+closing_offered_signature,3
+closing_offered_signature,,fee_satoshi,u64
+closing_offered_signature,,signature,secp256k1_ecdsa_signature
+
+closing_offered_signature_reply,103
+
+# Negotiations complete, we're exiting.
+closing_complete,4
