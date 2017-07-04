@@ -190,6 +190,19 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
         l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
 
+    def pay(self,lsrc,ldst,amt,label):
+        rhash = ldst.rpc.invoice(amt, label)['rhash']
+        assert ldst.rpc.listinvoice(label)[0]['complete'] == False
+
+        routestep = {
+            'msatoshi' : amt,
+            'id' : ldst.info['id'],
+            'delay' : 5,
+            'channel': '1:1:1'
+        }
+        lsrc.rpc.sendpay(to_json([routestep]), rhash)
+        assert ldst.rpc.listinvoice(label)[0]['complete'] == True
+
     def test_connect(self):
         l1,l2 = self.connect()
 
@@ -298,20 +311,9 @@ class LightningDTests(BaseLightningDTests):
         l1,l2 = self.connect()
 
         self.fund_channel(l1, l2, 10**6)
-        amt = 200000000
-        rhash = l2.rpc.invoice(amt, 'testpayment2')['rhash']
-        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
+        self.pay(l1,l2,200000000,'testpayment2')
 
-        routestep = {
-            'msatoshi' : amt,
-            'id' : l2.info['id'],
-            'delay' : 5,
-            'channel': '1:1:1'
-        }
-
-        # This works.
-        l1.rpc.sendpay(to_json([routestep]), rhash)
-        assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
+        assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
 
         # This should return, then close.
         l1.rpc.close(l2.info['id']);
