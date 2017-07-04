@@ -1950,7 +1950,7 @@ static void init_channel(struct peer *peer)
 	u64 local_msatoshi;
 	struct pubkey funding_pubkey[NUM_SIDES];
 	struct sha256_double funding_txid;
-	bool am_funder;
+	enum side funder;
 	enum htlc_state *hstates;
 	struct fulfilled_htlc *fulfilled;
 	enum side *fulfilled_sides;
@@ -1976,7 +1976,7 @@ static void init_channel(struct peer *peer)
 				   &points[REMOTE].delayed_payment,
 				   &peer->remote_per_commit,
 				   &peer->old_remote_per_commit,
-				   &am_funder,
+				   &funder,
 				   &peer->fee_base,
 				   &peer->fee_per_satoshi,
 				   &local_msatoshi,
@@ -2015,7 +2015,7 @@ static void init_channel(struct peer *peer)
 		     " next_idx_local = %"PRIu64
 		     " next_idx_remote = %"PRIu64
 		     " revocations_received = %"PRIu64,
-		     am_funder ? "LOCAL" : "REMOTE",
+		     side_to_str(funder),
 		     type_to_string(trc, struct pubkey,
 				    &peer->remote_per_commit),
 		     type_to_string(trc, struct pubkey,
@@ -2043,7 +2043,7 @@ static void init_channel(struct peer *peer)
 				    &points[LOCAL], &points[REMOTE],
 				    &funding_pubkey[LOCAL],
 				    &funding_pubkey[REMOTE],
-				    am_funder ? LOCAL : REMOTE);
+				    funder);
 
 	if (!channel_force_htlcs(peer->channel, htlcs, hstates,
 				 fulfilled, fulfilled_sides,
