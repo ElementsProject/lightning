@@ -66,7 +66,7 @@ static void create_clients(struct sockaddr_un *addr, int waitfd)
 		if (connect(sock[i], (void *)addr, sizeof(*addr)) != 0)
 			err(1, "connecting socket");
 		/* Make nonblocking. */
-		fcntl(sock[i], F_SETFD, fcntl(sock[i], F_GETFD)|O_NONBLOCK);
+		io_fd_block(sock[i], false);
 		done[i] = 0;
 	}
 

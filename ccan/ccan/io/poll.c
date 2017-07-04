@@ -17,11 +17,19 @@ static struct fd **fds = NULL;
 static LIST_HEAD(closing);
 static LIST_HEAD(always);
 static struct timemono (*nowfn)(void) = time_mono;
+static int (*pollfn)(struct pollfd *fds, nfds_t nfds, int timeout) = poll;
 
 struct timemono (*io_time_override(struct timemono (*now)(void)))(void)
 {
 	struct timemono (*old)(void) = nowfn;
 	nowfn = now;
+	return old;
+}
+
+int (*io_poll_override(int (*poll)(struct pollfd *fds, nfds_t nfds, int timeout)))(struct pollfd *, nfds_t, int)
+{
+	int (*old)(struct pollfd *fds, nfds_t nfds, int timeout) = pollfn;
+	pollfn = poll;
 	return old;
 }
 
@@ -269,7 +277,7 @@ void *io_loop(struct timers *timers, struct timer **expired)
 			}
 		}
 
-		r = poll(pollfds, num_fds, ms_timeout);
+		r = pollfn(pollfds, num_fds, ms_timeout);
 		if (r < 0)
 			break;
 

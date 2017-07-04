@@ -72,16 +72,19 @@ static bool next_plan(struct io_conn *conn, struct io_plan *plan)
 	return true;
 }
 
-static void set_blocking(int fd, bool block)
+bool io_fd_block(int fd, bool block)
 {
 	int flags = fcntl(fd, F_GETFL);
+
+	if (flags == -1)
+		return false;
 
 	if (block)
 		flags &= ~O_NONBLOCK;
 	else
 		flags |= O_NONBLOCK;
 
-	fcntl(fd, F_SETFL, flags);
+	return fcntl(fd, F_SETFL, flags) != -1;
 }
 
 struct io_conn *io_new_conn_(const tal_t *ctx, int fd,
@@ -103,7 +106,7 @@ struct io_conn *io_new_conn_(const tal_t *ctx, int fd,
 		return tal_free(conn);
 
 	/* Keep our I/O async. */
-	set_blocking(fd, false);
+	io_fd_block(fd, false);
 
 	/* We start with out doing nothing, and in doing our init. */
 	conn->plan[IO_OUT].status = IO_UNSET;
@@ -436,7 +439,7 @@ struct io_plan *io_close_cb(struct io_conn *conn, void *next_arg)
 
 struct io_plan *io_close_taken_fd(struct io_conn *conn)
 {
-	set_blocking(conn->fd.fd, true);
+	io_fd_block(conn->fd.fd, true);
 
 	cleanup_conn_without_close(conn);
 	return io_close(conn);
@@ -507,7 +510,7 @@ bool io_flush_sync(struct io_conn *conn)
 		return true;
 
 	/* Synchronous please. */
-	set_blocking(io_conn_fd(conn), true);
+	io_fd_block(io_conn_fd(conn), true);
 
 again:
 	switch (plan->io(conn->fd.fd, &plan->arg)) {
@@ -527,6 +530,6 @@ again:
 		abort();
 	}
 
-	set_blocking(io_conn_fd(conn), false);
+	io_fd_block(io_conn_fd(conn), false);
 	return ok;
 }
