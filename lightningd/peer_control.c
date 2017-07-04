@@ -1058,7 +1058,38 @@ static int peer_got_bad_message(struct peer *peer, const u8 *msg)
 	return -1;
 }
 
-static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
+static int peer_start_closing(struct peer *peer, const u8 *msg, const int *fds)
+{
+	struct crypto_state cs;
+
+	/* We expect 2 fds. */
+	if (!fds)
+		return 2;
+
+	if (!fromwire_channel_shutdown_complete(msg, NULL, &cs)) {
+		peer_internal_error(peer, "bad shutdown_complete: %s",
+				    tal_hex(peer, msg));
+		return -1;
+	}
+
+	if (peer->local_shutdown_idx == -1
+	    || !peer->remote_shutdown_scriptpubkey) {
+		peer_internal_error(peer,
+				    "Can't start closing: local %s remote %s",
+				    peer->local_shutdown_idx == -1
+				    ? "not shutdown" : "shutdown",
+				    peer->remote_shutdown_scriptpubkey
+				    ? "shutdown" : "not shutdown");
+		return -1;
+	}
+
+	/* FIXME: Start closingd. */
+	peer->owner = NULL;
+	peer_set_condition(peer, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
+	return -1;
+}
+
+static int channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);
 
@@ -1079,6 +1110,8 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *unused)
 		return peer_got_funding_locked(sd->peer, msg);
 	case WIRE_CHANNEL_GOT_SHUTDOWN:
 		return peer_got_shutdown(sd->peer, msg);
+	case WIRE_CHANNEL_SHUTDOWN_COMPLETE:
+		return peer_start_closing(sd->peer, msg, fds);
 
 	/* We let peer_owner_finished handle these as transient errors. */
 	case WIRE_CHANNEL_BAD_COMMAND:
@@ -1224,6 +1257,7 @@ static bool peer_start_channeld(struct peer *peer,
 				      &funding_channel_id,
 				      peer->reconnected,
 				      shutdown_scriptpubkey,
+				      peer->remote_shutdown_scriptpubkey != NULL,
 				      peer->channel_flags,
 				      funding_signed);
 

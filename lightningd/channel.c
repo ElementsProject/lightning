@@ -792,6 +792,21 @@ bool channel_awaiting_revoke_and_ack(const struct channel *channel)
 	return false;
 }
 
+bool channel_has_htlcs(const struct channel *channel)
+{
+	struct htlc_map_iter it;
+	const struct htlc *htlc;
+
+	for (htlc = htlc_map_first(&channel->htlcs, &it);
+	     htlc;
+	     htlc = htlc_map_next(&channel->htlcs, &it)) {
+		/* FIXME: Clean these out! */
+		if (!htlc_is_dead(htlc))
+			return true;
+	}
+	return false;
+}
+
 static bool adjust_balance(struct channel *channel, struct htlc *htlc)
 {
 	enum side side;
