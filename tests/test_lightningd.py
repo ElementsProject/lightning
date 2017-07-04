@@ -318,6 +318,9 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
         l2.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
 
+        l1.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
+        l2.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
+
     def test_gossip_jsonrpc(self):
         l1,l2 = self.connect()
 

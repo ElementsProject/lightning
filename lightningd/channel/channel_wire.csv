@@ -67,6 +67,7 @@ channel_init,,funding_short_id,struct short_channel_id
 channel_init,,reestablish,bool
 channel_init,,shutdown_scriptpubkey_len,u16
 channel_init,,shutdown_scriptpubkey,shutdown_scriptpubkey_len*u8
+channel_init,,remote_shutdown_received,bool
 channel_init,,flags,u8
 channel_init,,init_peer_pkt_len,u16
 channel_init,,init_peer_pkt,init_peer_pkt_len*u8
@@ -180,3 +181,7 @@ channel_send_shutdown,,scriptpubkey,scriptpubkey_len*u8
 channel_got_shutdown,24
 channel_got_shutdown,,scriptpubkey_len,u16
 channel_got_shutdown,,scriptpubkey,scriptpubkey_len*u8
+
+# Shutdown is complete, ready for closing negotiation. + peer_fd & gossip_fd.
+channel_shutdown_complete,25
+channel_shutdown_complete,,crypto_state,struct crypto_state

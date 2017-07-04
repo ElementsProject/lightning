@@ -125,6 +125,7 @@ struct peer {
 	/* If master told us to shut down, this contains scriptpubkey until
 	 * we're ready to send it. */
 	u8 *unsent_shutdown_scriptpubkey;
+	bool shutdown_sent[NUM_SIDES];
 
 	/* Information used for reestablishment. */
 	bool last_was_revoke;
@@ -433,6 +434,13 @@ static u8 *sending_commitsig_msg(const tal_t *ctx,
 	return msg;
 }
 
+static bool shutdown_complete(const struct peer *peer)
+{
+	return peer->shutdown_sent[LOCAL]
+		&& peer->shutdown_sent[REMOTE]
+		&& !channel_has_htlcs(peer->channel);
+}
+
 /* BOLT #2:
  *
  * A node MUST NOT send a `shutdown` if there are updates pending on
@@ -451,6 +459,7 @@ static void maybe_send_shutdown(struct peer *peer)
 	msg_enqueue(&peer->peer_out, take(msg));
 	peer->unsent_shutdown_scriptpubkey
 		= tal_free(peer->unsent_shutdown_scriptpubkey);
+	peer->shutdown_sent[LOCAL] = true;
 }
 
 /* Master has acknowledged that we're sending commitment, so send it. */
@@ -472,6 +481,9 @@ static void handle_sending_commitsig_reply(struct peer *peer, const u8 *msg)
 	/* Timer now considered expired, you can add a new one. */
 	peer->commit_timer = NULL;
 	start_commit_timer(peer);
+
+	if (shutdown_complete(peer))
+		io_break(peer);
 }
 
 /* This blocks other traffic from the master until we get reply. */
@@ -600,6 +612,9 @@ static void send_commit(struct peer *peer)
 
 		/* Covers the case where we've just been told to shutdown. */
 		maybe_send_shutdown(peer);
+
+		if (shutdown_complete(peer))
+			io_break(peer);
 
 		peer->commit_timer = NULL;
 		tal_free(tmpctx);
@@ -951,6 +966,11 @@ static struct io_plan *accepted_revocation(struct io_conn *conn,
 					   struct peer *peer)
 {
 	start_commit_timer(peer);
+
+	/* We might now have an empty HTLC. */
+	if (shutdown_complete(peer))
+		io_break(peer);
+
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
@@ -1239,9 +1259,14 @@ static struct io_plan *handle_peer_shutdown(struct io_conn *conn,
 	if (!fromwire_shutdown(peer, shutdown, NULL, &channel_id, &scriptpubkey))
 		status_failed(WIRE_CHANNEL_PEER_READ_FAILED, "Bad shutdown");
 
-	/* Tell master, it will tell us what to send. */
+	/* Tell master, it will tell us what to send (if any). */
 	daemon_conn_send(&peer->master,
 			 take(towire_channel_got_shutdown(peer, scriptpubkey)));
+
+	peer->shutdown_sent[REMOTE] = true;
+	if (shutdown_complete(peer))
+		io_break(peer);
+
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
@@ -1586,6 +1611,10 @@ again:
 	 */
 	maybe_send_shutdown(peer);
 
+	/* Corner case: we didn't send shutdown before because update_add_htlc
+	 * pending, but now they're cleared by restart, and we're actually
+	 * complete.  In that case, their `shutdown` will trigger us. */
+
 	/* Start commit timer: if we sent revoke we might need it. */
 	start_commit_timer(peer);
 
@@ -1913,6 +1942,7 @@ static struct io_plan *req_in(struct io_conn *conn, struct daemon_conn *master)
 	case WIRE_CHANNEL_GOT_REVOKE_REPLY:
 	case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
 	case WIRE_CHANNEL_GOT_SHUTDOWN:
+	case WIRE_CHANNEL_SHUTDOWN_COMPLETE:
 		break;
 	}
 	status_failed(WIRE_CHANNEL_BAD_COMMAND, "%u %s", t,
@@ -2002,6 +2032,7 @@ static void init_channel(struct peer *peer)
 				   &peer->short_channel_ids[LOCAL],
 				   &reconnected,
 				   &peer->unsent_shutdown_scriptpubkey,
+				   &peer->shutdown_sent[REMOTE],
 				   &peer->channel_flags,
 				   &funding_signed))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Init: %s",
@@ -2075,6 +2106,34 @@ static void gossip_gone(struct io_conn *unused, struct daemon_conn *dc)
 		      "Gossip connection closed");
 }
 
+static void send_shutdown_complete(struct peer *peer)
+{
+	const u8 *msg;
+
+	/* Push out any outstanding messages to peer. */
+	if (!io_flush_sync(peer->peer_conn))
+		status_failed(WIRE_CHANNEL_PEER_WRITE_FAILED, "Syncing conn");
+
+	/* Set FD blocking to flush it */
+	io_fd_block(PEER_FD, true);
+
+	while ((msg = msg_dequeue(&peer->peer_out)) != NULL) {
+		if (!sync_crypto_write(&peer->pcs.cs, PEER_FD, take(msg)))
+			status_failed(WIRE_CHANNEL_PEER_WRITE_FAILED,
+				      "Flushing msgs");
+	}
+
+	/* Now we can tell master shutdown is complete. */
+	daemon_conn_send(&peer->master,
+			 take(towire_channel_shutdown_complete(peer,
+							       &peer->pcs.cs)));
+	daemon_conn_send_fd(&peer->master, PEER_FD);
+	daemon_conn_send_fd(&peer->master, GOSSIP_FD);
+
+	if (!daemon_conn_sync_flush(&peer->master))
+		status_failed(WIRE_CHANNEL_INTERNAL_ERROR, "Flushing master");
+}
+
 int main(int argc, char *argv[])
 {
 	struct peer *peer = tal(NULL, struct peer);
@@ -2101,7 +2160,7 @@ int main(int argc, char *argv[])
 	msg_queue_init(&peer->master_deferred, peer);
 	msg_queue_init(&peer->peer_out, peer);
 	peer->next_commit_sigs = NULL;
-	peer->unsent_shutdown_scriptpubkey = NULL;
+	peer->shutdown_sent[LOCAL] = false;
 
 	/* We send these to HSM to get real signatures; don't have valgrind
 	 * complain. */
@@ -2116,7 +2175,6 @@ int main(int argc, char *argv[])
 			 gossip_client_recv, gossip_gone);
 
 	init_peer_crypto_state(peer, &peer->pcs);
-	peer->funding_locked[LOCAL] = peer->funding_locked[REMOTE] = false;
 
 	/* Read init_channel message sync. */
 	init_channel(peer);
@@ -2130,7 +2188,10 @@ int main(int argc, char *argv[])
 		timer_expired(peer, expired);
 	}
 
-	tal_free(peer);
+	/* We only exit when shutdown is complete. */
+	assert(shutdown_complete(peer));
+	send_shutdown_complete(peer);
+
 	return 0;
 }
 #endif /* TESTING */
