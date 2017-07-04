@@ -9,6 +9,7 @@
 #include <ccan/noerr/noerr.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
+#include <close_tx.h>
 #include <daemon/chaintopology.h>
 #include <daemon/dns.h>
 #include <daemon/jsonrpc.h>
@@ -20,6 +21,8 @@
 #include <lightningd/build_utxos.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel/gen_channel_wire.h>
+#include <lightningd/closing/gen_closing_wire.h>
+#include <lightningd/commit_tx.h>
 #include <lightningd/funding_tx.h>
 #include <lightningd/gen_peer_state_names.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
@@ -382,6 +385,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 		= peer->num_revocations_received = 0;
 	peer->next_htlc_id = 0;
 	shachain_init(&peer->their_shachain);
+	peer->closing_sig_sent = peer->closing_sig_received = NULL;
 
 	idname = type_to_string(peer, struct pubkey, id);
 
@@ -1044,7 +1048,7 @@ static int peer_got_shutdown(struct peer *peer, const u8 *msg)
 	return 0;
 }
 
-static int peer_got_bad_message(struct peer *peer, const u8 *msg)
+static int channeld_got_bad_message(struct peer *peer, const u8 *msg)
 {
 	u8 *err;
 
@@ -1058,9 +1062,197 @@ static int peer_got_bad_message(struct peer *peer, const u8 *msg)
 	return -1;
 }
 
+static int closingd_got_bad_message(struct peer *peer, const u8 *msg)
+{
+	u8 *err;
+
+	/* Don't try to fail this (again!) when owner dies. */
+	peer->owner = NULL;
+	if (!fromwire_closing_peer_bad_message(peer, NULL, NULL, &err))
+		err = (u8 *)tal_strdup(peer, "Internal error after bad message");
+	peer_fail_permanent(peer, take(err));
+
+	/* Kill daemon (though it's dying anyway) */
+	return -1;
+}
+
+static int closingd_got_negotiation_error(struct peer *peer, const u8 *msg)
+{
+	u8 *err;
+
+	if (!fromwire_closing_negotiation_error(peer, NULL, NULL, &err))
+		peer_internal_error(peer, "Bad closing_negotiation %s",
+				    tal_hex(peer, msg));
+	else
+		peer_internal_error(peer, "%s", err);
+
+	/* Kill daemon (though it's dying anyway) */
+	return -1;
+}
+
+static int peer_received_closing_signature(struct peer *peer, const u8 *msg)
+{
+	u64 fee_satoshi;
+	secp256k1_ecdsa_signature sig;
+
+	if (!fromwire_closing_received_signature(msg, NULL,
+						 &fee_satoshi, &sig)) {
+		peer_internal_error(peer, "Bad closing_received_signature %s",
+				    tal_hex(peer, msg));
+		return -1;
+	}
+
+	/* FIXME: Make sure offer is in useful range! */
+	/* FIXME: Make sure signature is correct! */
+	/* FIXME: save to db. */
+
+	peer->closing_fee_received = fee_satoshi;
+	tal_free(peer->closing_sig_received);
+	peer->closing_sig_received
+		= tal_dup(peer, secp256k1_ecdsa_signature, &sig);
+
+	/* OK, you can continue now. */
+	subd_send_msg(peer->owner,
+		      take(towire_closing_received_signature_reply(peer)));
+	return 0;
+}
+
+static int peer_offered_closing_signature(struct peer *peer, const u8 *msg)
+{
+	u64 fee_satoshi;
+	secp256k1_ecdsa_signature sig;
+
+	if (!fromwire_closing_offered_signature(msg, NULL, &fee_satoshi, &sig)) {
+		peer_internal_error(peer, "Bad closing_offered_signature %s",
+				    tal_hex(peer, msg));
+		return -1;
+	}
+
+	/* FIXME: Make sure offer is in useful range! */
+	/* FIXME: Make sure signature is correct! */
+	/* FIXME: save to db. */
+
+	peer->closing_fee_sent = fee_satoshi;
+	tal_free(peer->closing_sig_sent);
+	peer->closing_sig_sent
+		= tal_dup(peer, secp256k1_ecdsa_signature, &sig);
+
+	/* OK, you can continue now. */
+	subd_send_msg(peer->owner,
+		      take(towire_closing_offered_signature_reply(peer)));
+	return 0;
+}
+
+static int peer_closing_complete(struct peer *peer, const u8 *msg)
+{
+	struct bitcoin_tx *tx;
+	u8 *local_scriptpubkey;
+	u64 out_amounts[NUM_SIDES];
+	struct pubkey local_funding_pubkey;
+
+	if (!fromwire_closing_complete(msg, NULL)) {
+		peer_internal_error(peer, "Bad closing_complete %s",
+				    tal_hex(peer, msg));
+		return -1;
+	}
+
+	if (!peer->closing_sig_sent) {
+		peer_internal_error(peer,
+				    "closing_complete without receiving sig!");
+		return -1;
+	}
+
+	if (!peer->closing_sig_received) {
+		peer_internal_error(peer,
+				    "closing_complete without sending sig!");
+		return -1;
+	}
+
+	local_scriptpubkey = p2wpkh_for_keyidx(msg, peer->ld,
+					       peer->local_shutdown_idx);
+	if (!local_scriptpubkey) {
+		peer_internal_error(peer,
+				   "Can't generate local shutdown scriptpubkey");
+		return -1;
+	}
+
+	/* BOLT #3:
+	 *
+	 * The amounts for each output MUST BE rounded down to whole satoshis.
+	 */
+	out_amounts[LOCAL] = *peer->balance / 1000;
+	out_amounts[REMOTE] = peer->funding_satoshi - *peer->balance / 1000;
+	out_amounts[peer->funder] -= peer->closing_fee_received;
+
+	derive_basepoints(peer->seed, &local_funding_pubkey, NULL, NULL, NULL);
+
+	tx = create_close_tx(msg, local_scriptpubkey,
+			     peer->remote_shutdown_scriptpubkey,
+			     peer->funding_txid,
+			     peer->funding_outnum,
+			     peer->funding_satoshi,
+			     out_amounts[LOCAL],
+			     out_amounts[REMOTE],
+			     peer->our_config.dust_limit_satoshis);
+
+	tx->input[0].witness
+		= bitcoin_witness_2of2(tx->input,
+				       peer->closing_sig_received,
+				       peer->closing_sig_sent,
+				       &peer->channel_info->remote_fundingkey,
+				       &local_funding_pubkey);
+
+	/* Keep broadcasting until we say stop (can fail due to dup,
+	 * if they beat us to the broadcast). */
+	broadcast_tx(peer->ld->topology, peer, tx, NULL);
+
+	/* FIXME: Set state. */
+	return -1;
+}
+
+static int closing_msg(struct subd *sd, const u8 *msg, const int *fds)
+{
+	enum closing_wire_type t = fromwire_peektype(msg);
+
+	switch (t) {
+	/* We let peer_owner_finished handle these as transient errors. */
+	case WIRE_CLOSING_BAD_COMMAND:
+	case WIRE_CLOSING_GOSSIP_FAILED:
+	case WIRE_CLOSING_INTERNAL_ERROR:
+	case WIRE_CLOSING_PEER_READ_FAILED:
+	case WIRE_CLOSING_PEER_WRITE_FAILED:
+		return -1;
+
+	/* These are permanent errors. */
+	case WIRE_CLOSING_PEER_BAD_MESSAGE:
+		return closingd_got_bad_message(sd->peer, msg);
+	case WIRE_CLOSING_NEGOTIATION_ERROR:
+		return closingd_got_negotiation_error(sd->peer, msg);
+
+	case WIRE_CLOSING_RECEIVED_SIGNATURE:
+		return peer_received_closing_signature(sd->peer, msg);
+
+	case WIRE_CLOSING_OFFERED_SIGNATURE:
+		return peer_offered_closing_signature(sd->peer, msg);
+
+	case WIRE_CLOSING_COMPLETE:
+		return peer_closing_complete(sd->peer, msg);
+
+	/* We send these, not receive them */
+	case WIRE_CLOSING_INIT:
+	case WIRE_CLOSING_RECEIVED_SIGNATURE_REPLY:
+	case WIRE_CLOSING_OFFERED_SIGNATURE_REPLY:
+		break;
+	}
+
+	return 0;
+}
+
 static int peer_start_closing(struct peer *peer, const u8 *msg, const int *fds)
 {
 	struct crypto_state cs;
+	u8 *initmsg, *local_scriptpubkey;
+	u64 minfee, maxfee, startfee;
 
 	/* We expect 2 fds. */
 	if (!fds)
@@ -1083,9 +1275,63 @@ static int peer_start_closing(struct peer *peer, const u8 *msg, const int *fds)
 		return -1;
 	}
 
-	/* FIXME: Start closingd. */
-	peer->owner = NULL;
+	peer->owner = new_subd(peer->ld, peer->ld,
+			       "lightningd_closing", peer,
+			       closing_wire_type_name,
+			       closing_msg,
+			       peer_owner_finished,
+			       take(&fds[0]),
+			       take(&fds[1]), NULL);
+	if (!peer->owner) {
+		log_unusual(peer->log, "Could not subdaemon closing: %s",
+			    strerror(errno));
+		peer_fail_transient(peer, "Failed to subdaemon closing");
+		return -1;
+	}
+
 	peer_set_condition(peer, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
+
+	local_scriptpubkey = p2wpkh_for_keyidx(msg, peer->ld,
+					       peer->local_shutdown_idx);
+	if (!local_scriptpubkey) {
+		peer_internal_error(peer,
+				    "Can't generate local shutdown scriptpubkey");
+		return -1;
+	}
+
+	/* FIXME: Real fees! */
+	maxfee = commit_tx_base_fee(get_feerate(peer->ld->topology), 0);
+	minfee = maxfee / 2;
+	if (peer->closing_sig_sent)
+		startfee = peer->closing_fee_sent;
+	else
+		startfee = (maxfee + minfee)/2;
+
+	/* BOLT #3:
+	 *
+	 * The amounts for each output MUST BE rounded down to whole satoshis.
+	 */
+	initmsg = towire_closing_init(peer,
+				      &cs,
+				      peer->seed,
+				      peer->funding_txid,
+				      peer->funding_outnum,
+				      peer->funding_satoshi,
+				      &peer->channel_info->remote_fundingkey,
+				      peer->funder,
+				      *peer->balance / 1000,
+				      peer->funding_satoshi
+				      - *peer->balance / 1000,
+				      peer->our_config.dust_limit_satoshis,
+				      minfee, maxfee, startfee,
+				      local_scriptpubkey,
+				      peer->remote_shutdown_scriptpubkey);
+
+	/* We don't expect a response: it will give us feedback on
+	 * signatures sent and received, then closing_complete. */
+	subd_send_msg(peer->owner, take(initmsg));
+
+	/* Close the channeld */
 	return -1;
 }
 
@@ -1125,7 +1371,7 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 
 	/* This is a permanent error. */
 	case WIRE_CHANNEL_PEER_BAD_MESSAGE:
-		return peer_got_bad_message(sd->peer, msg);
+		return channeld_got_bad_message(sd->peer, msg);
 
 	/* And we never get these from channeld. */
 	case WIRE_CHANNEL_INIT:
