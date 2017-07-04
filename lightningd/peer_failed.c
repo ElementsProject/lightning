@@ -1,3 +1,4 @@
+#include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
 #include <fcntl.h>
 #include <lightningd/crypto_sync.h>
@@ -35,7 +36,7 @@ void peer_failed(int peer_fd, struct crypto_state *cs,
 	msg = towire_error(errmsg, channel_id, (const u8 *)errmsg);
 
 	/* This is only best-effort; don't block. */
-	fcntl(peer_fd, F_SETFL, fcntl(peer_fd, F_GETFL) | O_NONBLOCK);
+	io_fd_block(peer_fd, false);
 	sync_crypto_write(cs, peer_fd, take(msg));
 
 	status_failed(error_code, "%s", errmsg);

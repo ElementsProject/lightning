@@ -27,19 +27,6 @@ static bool move_fd(int from, int to)
 	return true;
 }
 
-/* FIXME: Expose the ccan/io version? */
-static void set_blocking(int fd, bool block)
-{
-	int flags = fcntl(fd, F_GETFL);
-
-	if (block)
-		flags &= ~O_NONBLOCK;
-	else
-		flags |= O_NONBLOCK;
-
-	fcntl(fd, F_SETFL, flags);
-}
-
 struct subd_req {
 	struct list_node list;
 
@@ -281,7 +268,7 @@ static struct io_plan *read_fds(struct io_conn *conn, struct subd *sd)
 
 		/* Don't trust subd to set it blocking. */
 		for (i = 0; i < tal_count(sd->fds_in); i++)
-			set_blocking(sd->fds_in[i], true);
+			io_fd_block(sd->fds_in[i], true);
 		return sd_msg_read(conn, sd);
 	}
 	return io_recv_fd(conn, &sd->fds_in[sd->num_fds_in_read++],
