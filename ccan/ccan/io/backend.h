@@ -2,7 +2,6 @@
 #ifndef CCAN_IO_BACKEND_H
 #define CCAN_IO_BACKEND_H
 #include <stdbool.h>
-#include <poll.h>
 #include "io_plan.h"
 #include <ccan/list/list.h>
 

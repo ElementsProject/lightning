@@ -4,6 +4,7 @@
 #include <ccan/tal/tal.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <stdbool.h>
+#include <poll.h>
 #include <unistd.h>
 
 struct timers;
@@ -692,6 +693,16 @@ int io_conn_fd(const struct io_conn *conn);
 bool io_flush_sync(struct io_conn *conn);
 
 /**
+ * io_fd_block - helper to set an fd blocking/nonblocking.
+ * @fd: the file descriptor
+ * @block: true to set blocking, false to set non-blocking.
+ *
+ * Generally only fails is @fd isn't a valid file descriptor, otherwise
+ * returns true.
+ */
+bool io_fd_block(int fd, bool block);
+
+/**
  * io_time_override - override the normal call for time.
  * @nowfn: the function to call.
  *
@@ -700,5 +711,15 @@ bool io_flush_sync(struct io_conn *conn);
  * one.
  */
 struct timemono (*io_time_override(struct timemono (*now)(void)))(void);
+
+/**
+ * io_poll_override - override the normal call for poll.
+ * @pollfn: the function to call.
+ *
+ * io usually uses poll() internally, but this forces it to use your
+ * function (eg. for debugging, suppressing fds, or polling on others unknown
+ * to ccan/io).  Returns the old one.
+ */
+int (*io_poll_override(int (*poll)(struct pollfd *fds, nfds_t nfds, int timeout)))(struct pollfd *, nfds_t, int);
 
 #endif /* CCAN_IO_H */
