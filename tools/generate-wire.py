@@ -36,7 +36,7 @@ class FieldType(object):
         self.tsize = FieldType._typesize(name)
 
     def is_assignable(self):
-        return self.name in ['u8', 'u16', 'u32', 'u64', 'bool']
+        return self.name in ['u8', 'u16', 'u32', 'u64', 'bool'] or self.name.startswith('enum ')
 
     # We only accelerate the u8 case: it's common and trivial.
     def has_array_helper(self):
