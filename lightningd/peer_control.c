@@ -177,7 +177,8 @@ void peer_set_condition(struct peer *peer, enum peer_state old_state,
 static bool peer_start_channeld(struct peer *peer,
 				const struct crypto_state *cs,
 				int peer_fd, int gossip_fd,
-				const u8 *funding_signed);
+				const u8 *funding_signed,
+				bool reconnected);
 
 /* Send (encrypted) error message, then close. */
 static struct io_plan *send_error(struct io_conn *conn,
@@ -234,7 +235,7 @@ static bool get_peer_gossipfd_reply(struct subd *subd, const u8 *msg,
 	}
 
 	/* We never re-transmit funding_signed. */
-	peer_start_channeld(peer, &ggf->cs, ggf->peer_fd, fds[0], NULL);
+	peer_start_channeld(peer, &ggf->cs, ggf->peer_fd, fds[0], NULL, true);
 	goto out;
 
 close_gossipfd:
@@ -291,9 +292,6 @@ static bool peer_reconnected(struct lightningd *ld,
 		tal_steal(io_new_conn(peer, fd, send_error, pcs), pcs);
 		return true;
 	}
-
-	/* We need this for init */
-	peer->reconnected = true;
 
 	switch (peer->state) {
 	/* This can't happen. */
@@ -368,7 +366,6 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->error = NULL;
 	peer->unique_id = unique_id;
 	peer->id = *id;
-	peer->reconnected = false;
 	peer->funding_txid = NULL;
 	peer->remote_funding_locked = false;
 	peer->scid = NULL;
@@ -865,7 +862,7 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	command_success(fc->cmd, null_response(fc->cmd));
 
 	/* Start normal channel daemon. */
-	peer_start_channeld(fc->peer, cs, peer_fd, gossip_fd, NULL);
+	peer_start_channeld(fc->peer, cs, peer_fd, gossip_fd, NULL, false);
 	peer_set_condition(fc->peer, OPENINGD, CHANNELD_AWAITING_LOCKIN);
 
 	wallet_confirm_utxos(fc->peer->ld->wallet, fc->utxomap);
@@ -1397,7 +1394,8 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 static bool peer_start_channeld(struct peer *peer,
 				const struct crypto_state *cs,
 				int peer_fd, int gossip_fd,
-				const u8 *funding_signed)
+				const u8 *funding_signed,
+				bool reconnected)
 {
 	const tal_t *tmpctx = tal_tmpctx(peer);
 	u8 *msg, *initmsg;
@@ -1501,7 +1499,7 @@ static bool peer_start_channeld(struct peer *peer,
 				      peer->scid != NULL,
 				      peer->remote_funding_locked,
 				      &funding_channel_id,
-				      peer->reconnected,
+				      reconnected,
 				      shutdown_scriptpubkey,
 				      peer->remote_shutdown_scriptpubkey != NULL,
 				      peer->channel_flags,
@@ -1672,7 +1670,7 @@ static bool opening_fundee_finished(struct subd *opening,
 	peer->owner = NULL;
 
 	/* On to normal operation! */
-	peer_start_channeld(peer, &cs, fds[0], fds[1], funding_signed);
+	peer_start_channeld(peer, &cs, fds[0], fds[1], funding_signed, false);
 	peer_set_condition(peer, OPENINGD, CHANNELD_AWAITING_LOCKIN);
 
 	/* Tell opening daemon to exit. */
