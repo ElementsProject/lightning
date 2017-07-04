@@ -32,7 +32,8 @@ TEST_PROGRAMS :=				\
 
 BITCOIN_SRC :=					\
 	bitcoin/base58.c			\
-	bitcoin/block.c			\
+	bitcoin/block.c				\
+	bitcoin/chainparams.c			\
 	bitcoin/locktime.c			\
 	bitcoin/pubkey.c			\
 	bitcoin/pullpush.c			\
@@ -168,6 +169,7 @@ CCAN_HEADERS :=						\
 BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/base58.h			\
 	bitcoin/block.h				\
+	bitcoin/chainparams.h			\
 	bitcoin/locktime.h			\
 	bitcoin/preimage.h			\
 	bitcoin/privkey.h			\
