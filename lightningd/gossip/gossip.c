@@ -136,6 +136,7 @@ static struct peer *setup_new_remote_peer(struct daemon *daemon,
 	msg_queue_init(&peer->peer_out, peer);
 	list_add_tail(&daemon->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
+	wake_pkt_out(peer);
 	return peer;
 }
 
