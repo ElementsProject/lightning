@@ -696,6 +696,58 @@ class LightningDTests(BaseLightningDTests):
         for i in range(len(disconnects)):
             l1.daemon.wait_for_log('Already have funding locked in')
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
+
+    def test_shutdown_reconnect(self):
+        disconnects = ['-WIRE_SHUTDOWN',
+                       '@WIRE_SHUTDOWN',
+                       '+WIRE_SHUTDOWN']
+        l1 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        l2 = self.node_factory.get_node(legacy=False)
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+
+        self.fund_channel(l1, l2, 10**6)
+        self.pay(l1,l2,200000000,'testpayment2')
+
+        assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
+
+        # This should return, then close.
+        l1.rpc.close(l2.info['id']);
+        l1.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
+        l2.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
+
+        l1.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
+        l2.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
+
+        # And should put closing into mempool.
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+        assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
+
+    def test_closing_negotiation_reconnect(self):
+        disconnects = ['-WIRE_CLOSING_SIGNED',
+                       '@WIRE_CLOSING_SIGNED',
+                       '+WIRE_CLOSING_SIGNED']
+        l1 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        l2 = self.node_factory.get_node(legacy=False)
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+
+        self.fund_channel(l1, l2, 10**6)
+        self.pay(l1,l2,200000000,'testpayment2')
+
+        assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
+
+        # This should return, then close.
+        l1.rpc.close(l2.info['id']);
+        l1.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
+        l2.daemon.wait_for_log('-> CHANNELD_SHUTTING_DOWN')
+
+        l1.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
+        l2.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
+
+        # And should put closing into mempool.
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+        assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
         
     def test_json_addfunds(self):
         sat = 10**6
