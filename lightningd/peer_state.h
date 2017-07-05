@@ -23,6 +23,9 @@ enum peer_state {
 	/* Exchanging signatures on closing tx. */
 	CLOSINGD_SIGEXCHANGE,
 
+	/* Waiting for onchain event. */
+	CLOSINGD_COMPLETE,
+
 	/* Various onchain states. */
 	ONCHAIND_CHEATED,
 	ONCHAIND_THEIR_UNILATERAL,
