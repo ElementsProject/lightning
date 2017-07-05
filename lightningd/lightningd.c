@@ -139,9 +139,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 
 static const char *daemons[] = {
 	"lightningd",
-	"lightningd_hsm",
-	"lightningd_handshake",
+	"lightningd_channel",
+	"lightningd_closing",
 	"lightningd_gossip",
+	"lightningd_handshake",
+	"lightningd_hsm",
 	"lightningd_opening"
 };
 
