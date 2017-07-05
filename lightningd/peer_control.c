@@ -299,7 +299,8 @@ static bool get_peer_gossipfd_closingd_reply(struct subd *subd, const u8 *msg,
 		goto close_gossipfd;
 	}
 
-	if (peer->state != CLOSINGD_SIGEXCHANGE) {
+	if (peer->state != CLOSINGD_SIGEXCHANGE
+	    && peer->state != CLOSINGD_COMPLETE) {
 		log_unusual(subd->log, "Gossipd gave fd, but peer %s %s",
 			    type_to_string(ggf, struct pubkey, &ggf->id),
 			    peer_state_name(peer->state));
@@ -401,6 +402,7 @@ static bool peer_reconnected(struct lightningd *ld,
 		return true;
 
 	case CLOSINGD_SIGEXCHANGE:
+	case CLOSINGD_COMPLETE:
 		/* We need the gossipfd now */
 		get_gossip_fd_for_closingd_reconnect(ld, id, peer->unique_id, fd, cs);
 		return true;
@@ -1181,6 +1183,18 @@ static int peer_received_closing_signature(struct peer *peer, const u8 *msg)
 		return -1;
 	}
 
+	/* If we were only doing this to retransmit, we should only send one. */
+	if (peer->state == CLOSINGD_COMPLETE) {
+		if (fee_satoshi != peer->closing_fee_sent) {
+			peer_internal_error(peer,
+					    "CLOSINGD_COMPLETE:"
+					    " Bad offer %"PRIu64
+					    " not %"PRIu64,
+					    fee_satoshi, peer->closing_fee_sent);
+			return -1;
+		}
+	}
+
 	/* FIXME: Make sure offer is in useful range! */
 	/* FIXME: Make sure signature is correct! */
 	/* FIXME: save to db. */
@@ -1207,14 +1221,21 @@ static int peer_offered_closing_signature(struct peer *peer, const u8 *msg)
 		return -1;
 	}
 
-	/* FIXME: Make sure offer is in useful range! */
-	/* FIXME: Make sure signature is correct! */
-	/* FIXME: save to db. */
+	/* If we were only doing this to retransmit, we ignore its offer. */
+	if (peer->state == CLOSINGD_COMPLETE) {
+		log_debug(peer->log,
+			  "CLOSINGD_COMPLETE: Ignoring their offer %"PRIu64,
+			  fee_satoshi);
+	} else {
+		/* FIXME: Make sure offer is in useful range! */
+		/* FIXME: Make sure signature is correct! */
+		/* FIXME: save to db. */
 
-	peer->closing_fee_sent = fee_satoshi;
-	tal_free(peer->closing_sig_sent);
-	peer->closing_sig_sent
-		= tal_dup(peer, secp256k1_ecdsa_signature, &sig);
+		peer->closing_fee_sent = fee_satoshi;
+		tal_free(peer->closing_sig_sent);
+		peer->closing_sig_sent
+			= tal_dup(peer, secp256k1_ecdsa_signature, &sig);
+	}
 
 	/* OK, you can continue now. */
 	subd_send_msg(peer->owner,
@@ -1285,7 +1306,7 @@ static int peer_closing_complete(struct peer *peer, const u8 *msg)
 	 * if they beat us to the broadcast). */
 	broadcast_tx(peer->ld->topology, peer, tx, NULL);
 
-	/* FIXME: Set state. */
+	peer_set_condition(peer, CLOSINGD_SIGEXCHANGE, CLOSINGD_COMPLETE);
 	return -1;
 }
 

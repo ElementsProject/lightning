@@ -718,11 +718,12 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
         l2.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
 
-        # And should put closing into mempool.
-        l1.daemon.wait_for_log('sendrawtx exit 0')
-        l2.daemon.wait_for_log('sendrawtx exit 0')
+        # And should put closing into mempool (happens async, so
+        # CLOSINGD_COMPLETE may come first).
+        l1.daemon.wait_for_logs(['sendrawtx exit 0', '-> CLOSINGD_COMPLETE'])
+        l2.daemon.wait_for_logs(['sendrawtx exit 0', '-> CLOSINGD_COMPLETE'])
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
-
+        
     def test_closing_negotiation_reconnect(self):
         disconnects = ['-WIRE_CLOSING_SIGNED',
                        '@WIRE_CLOSING_SIGNED',
@@ -744,11 +745,12 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
         l2.daemon.wait_for_log('-> CLOSINGD_SIGEXCHANGE')
 
-        # And should put closing into mempool.
-        l1.daemon.wait_for_log('sendrawtx exit 0')
-        l2.daemon.wait_for_log('sendrawtx exit 0')
+        # And should put closing into mempool (happens async, so
+        # CLOSINGD_COMPLETE may come first).
+        l1.daemon.wait_for_logs(['sendrawtx exit 0', '-> CLOSINGD_COMPLETE'])
+        l2.daemon.wait_for_logs(['sendrawtx exit 0', '-> CLOSINGD_COMPLETE'])
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
-        
+
     def test_json_addfunds(self):
         sat = 10**6
         l1 = self.node_factory.get_node(legacy=False)
