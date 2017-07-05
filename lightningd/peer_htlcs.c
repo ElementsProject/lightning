@@ -747,9 +747,9 @@ static void remove_htlc_in(struct peer *peer, struct htlc_in *hin)
 	/* If we fulfilled their HTLC, credit us. */
 	if (hin->preimage) {
 		log_debug(peer->log, "Balance %"PRIu64" -> %"PRIu64,
-			  *peer->balance,
-			  *peer->balance + hin->msatoshi);
-		*peer->balance += hin->msatoshi;
+			  *peer->our_msatoshi,
+			  *peer->our_msatoshi + hin->msatoshi);
+		*peer->our_msatoshi += hin->msatoshi;
 	}
 
 	tal_free(hin);
@@ -770,7 +770,10 @@ static void remove_htlc_out(struct peer *peer, struct htlc_out *hout)
 		fail_out_htlc(hout, NULL);
 	} else {
 		/* We paid for this HTLC, so deduct balance. */
-		*peer->balance -= hout->msatoshi;
+		log_debug(peer->log, "Balance %"PRIu64" -> %"PRIu64,
+			  *peer->our_msatoshi,
+			  *peer->our_msatoshi - hout->msatoshi);
+		*peer->our_msatoshi -= hout->msatoshi;
 	}
 
 	tal_free(hout);
