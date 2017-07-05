@@ -372,7 +372,7 @@ bool channel_sending_revoke_and_ack(struct channel *channel);
 bool channel_awaiting_revoke_and_ack(const struct channel *channel);
 
 /**
- * channel_has_htlcs: are there any HTLCs at all in channel?
+ * channel_has_htlcs: are there any (live) HTLCs at all in channel?
  * @channel: the channel
  */
 bool channel_has_htlcs(const struct channel *channel);

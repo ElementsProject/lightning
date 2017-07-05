@@ -4365,7 +4365,9 @@ struct bitcoin_tx *peer_create_close_tx(const tal_t *ctx,
 			       peer->anchor.index,
 			       peer->anchor.satoshis,
 			       cstate.side[LOCAL].pay_msat / 1000,
-			       cstate.side[REMOTE].pay_msat / 1000, 0);
+			       cstate.side[REMOTE].pay_msat / 1000,
+			       /* FIXME: Real dust limit! */
+			       0);
 }
 
 /* Sets up the initial cstate and commit tx for both nodes: false if

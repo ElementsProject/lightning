@@ -191,6 +191,20 @@ static struct io_plan *send_error(struct io_conn *conn,
 	return peer_write_message(conn, pcs, pcs->peer->error, (void *)io_close_cb);
 }
 
+/* FIXME:
+ *
+ * This is a lot of code duplication!  We should turn gossipd into welcomed(?):
+ *
+ * 1. gossipd listens to the socket for new connections, and also
+ *   handles outgoing, absorbing handshaked.
+ *
+ * 2. gossipd thus knows who we're trying to connect to, and knows to
+ *   return them immediately.
+ *
+ * That unifies the paths nicely and removes all this code.  When
+ * gossipd hands a connection to us, it gives us the gossip fd for
+ * that peer, and it's all good.
+ */
 struct getting_gossip_fd {
 	struct pubkey id;
 	int peer_fd;
@@ -1281,7 +1295,8 @@ static int peer_closing_complete(struct peer *peer, const u8 *msg)
 	 * The amounts for each output MUST BE rounded down to whole satoshis.
 	 */
 	out_amounts[LOCAL] = *peer->our_msatoshi / 1000;
-	out_amounts[REMOTE] = peer->funding_satoshi - *peer->our_msatoshi / 1000;
+	out_amounts[REMOTE] = peer->funding_satoshi
+		- (*peer->our_msatoshi / 1000);
 	out_amounts[peer->funder] -= peer->closing_fee_received;
 
 	derive_basepoints(peer->seed, &local_funding_pubkey, NULL, NULL, NULL);
