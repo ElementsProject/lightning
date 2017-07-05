@@ -4,7 +4,9 @@
 lightningd-wrongdir:
 	$(MAKE) -C .. lightningd-all
 
-lightningd-all: lightningd/lightningd lightningd/lightningd_hsm lightningd/lightningd_handshake lightningd/lightningd_gossip lightningd/lightningd_opening lightningd/lightningd_channel
+LIGHTNINGD_BINS := lightningd/lightningd lightningd/lightningd_hsm lightningd/lightningd_handshake lightningd/lightningd_gossip lightningd/lightningd_opening lightningd/lightningd_channel lightningd/lightningd_closing
+
+lightningd-all: $(LIGHTNINGD_BINS)
 
 default: lightningd-all
 
@@ -148,6 +150,6 @@ lightningd/lightningd: $(LIGHTNINGD_OBJS) $(LIGHTNINGD_OLD_OBJS) $(LIGHTNINGD_OL
 clean: lightningd-clean
 
 lightningd-clean:
-	$(RM) $(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_JSMN_OBJS) 
+	$(RM) $(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_JSMN_OBJS) $(LIGHTNINGD_BINS)
 
 include lightningd/test/Makefile
