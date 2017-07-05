@@ -451,7 +451,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->remote_funding_locked = false;
 	peer->scid = NULL;
 	peer->seed = NULL;
-	peer->balance = NULL;
+	peer->our_msatoshi = NULL;
 	peer->state = UNINITIALIZED;
 	peer->channel_info = NULL;
 	peer->last_was_revoke = false;
@@ -749,8 +749,9 @@ static void json_getpeers(struct command *cmd,
 			json_add_string(response, "owner", p->owner->name);
 		if (p->scid)
 			json_add_short_channel_id(response, "channel", p->scid);
-		if (p->balance) {
-			json_add_u64(response, "msatoshi_to_us", *p->balance);
+		if (p->our_msatoshi) {
+			json_add_u64(response, "msatoshi_to_us",
+				     *p->our_msatoshi);
 			json_add_u64(response, "msatoshi_total",
 				     p->funding_satoshi * 1000);
 		}
@@ -1258,8 +1259,8 @@ static int peer_closing_complete(struct peer *peer, const u8 *msg)
 	 *
 	 * The amounts for each output MUST BE rounded down to whole satoshis.
 	 */
-	out_amounts[LOCAL] = *peer->balance / 1000;
-	out_amounts[REMOTE] = peer->funding_satoshi - *peer->balance / 1000;
+	out_amounts[LOCAL] = *peer->our_msatoshi / 1000;
+	out_amounts[REMOTE] = peer->funding_satoshi - *peer->our_msatoshi / 1000;
 	out_amounts[peer->funder] -= peer->closing_fee_received;
 
 	derive_basepoints(peer->seed, &local_funding_pubkey, NULL, NULL, NULL);
@@ -1391,9 +1392,9 @@ static void peer_start_closingd(struct peer *peer,
 				      peer->funding_satoshi,
 				      &peer->channel_info->remote_fundingkey,
 				      peer->funder,
-				      *peer->balance / 1000,
+				      *peer->our_msatoshi / 1000,
 				      peer->funding_satoshi
-				      - *peer->balance / 1000,
+				      - *peer->our_msatoshi / 1000,
 				      peer->our_config.dust_limit_satoshis,
 				      minfee, maxfee, startfee,
 				      local_scriptpubkey,
@@ -1510,11 +1511,12 @@ static bool peer_start_channeld(struct peer *peer,
 	const u8 *shutdown_scriptpubkey;
 
 	/* Now we can consider balance set. */
-	peer->balance = tal(peer, u64);
+	peer->our_msatoshi = tal(peer, u64);
 	if (peer->funder == LOCAL)
-		*peer->balance = peer->funding_satoshi * 1000 - peer->push_msat;
+		*peer->our_msatoshi
+			= peer->funding_satoshi * 1000 - peer->push_msat;
 	else
-		*peer->balance = peer->push_msat;
+		*peer->our_msatoshi = peer->push_msat;
 
 	msg = towire_hsmctl_hsmfd_channeld(tmpctx, peer->unique_id);
 	if (!wire_sync_write(peer->ld->hsm_fd, take(msg)))
@@ -1580,7 +1582,7 @@ static bool peer_start_channeld(struct peer *peer,
 				      peer->funder,
 				      cfg->fee_base,
 				      cfg->fee_per_satoshi,
-				      *peer->balance,
+				      *peer->our_msatoshi,
 				      peer->seed,
 				      &peer->ld->dstate.id,
 				      &peer->id,

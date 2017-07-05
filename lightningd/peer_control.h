@@ -73,7 +73,7 @@ struct peer {
 	struct short_channel_id *scid;
 
 	/* Amount going to us, not counting unfinished HTLCs; if we have one. */
-	u64 *balance;
+	u64 *our_msatoshi;
 
 	/* Keys for channel. */
 	struct channel_info *channel_info;
