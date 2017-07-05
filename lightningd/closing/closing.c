@@ -63,6 +63,74 @@ static u64 one_towards(u64 target, u64 value)
 	return value;
 }
 
+static void do_reconnect(struct crypto_state *cs,
+			 const struct channel_id *channel_id,
+			 const u64 next_index[NUM_SIDES],
+			 u64 revocations_received)
+{
+	u8 *msg;
+	struct channel_id their_channel_id;
+	const tal_t *tmpctx = tal_tmpctx(NULL);
+	u64 next_local_commitment_number, next_remote_revocation_number;
+
+	/* BOLT #2:
+	 *
+	 * On reconnection, a node MUST transmit `channel_reestablish` for
+	 * each channel, and MUST wait for to receive the other node's
+	 * `channel_reestablish` message before sending any other messages for
+	 * that channel.  The sending node MUST set
+	 * `next_local_commitment_number` to the commitment number of the next
+	 * `commitment_signed` it expects to receive, and MUST set
+	 * `next_remote_revocation_number` to the commitment number of the
+	 * next `revoke_and_ack` message it expects to receive.
+	 */
+	msg = towire_channel_reestablish(tmpctx, channel_id,
+					 next_index[LOCAL],
+					 revocations_received);
+	if (!sync_crypto_write(cs, PEER_FD, take(msg)))
+		status_failed(WIRE_CLOSING_PEER_WRITE_FAILED,
+			      "Failed writing reestablish: %s", strerror(errno));
+
+again:
+	msg = sync_crypto_read(tmpctx, cs, PEER_FD);
+	if (!msg)
+		status_failed(WIRE_CLOSING_PEER_READ_FAILED,
+			      "Failed reading reestablish: %s", strerror(errno));
+
+	if (is_gossip_msg(msg)) {
+		if (!wire_sync_write(GOSSIP_FD, take(msg)))
+			status_failed(WIRE_CLOSING_GOSSIP_FAILED,
+				      "Writing gossip");
+		goto again;
+	}
+
+	if (!fromwire_channel_reestablish(msg, NULL, &their_channel_id,
+					  &next_local_commitment_number,
+					  &next_remote_revocation_number)) {
+		status_failed(WIRE_CLOSING_PEER_READ_FAILED,
+			      "bad reestablish msg: %s %s",
+			      wire_type_name(fromwire_peektype(msg)),
+			      tal_hex(tmpctx, msg));
+	}
+	status_trace("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,
+		     next_local_commitment_number,
+		     next_remote_revocation_number);
+
+	/* FIXME: Spec says to re-xmit funding_locked here if we haven't
+	 * done any updates. */
+
+	/* BOLT #2:
+	 *
+	 * On reconnection if the node has sent a previous `closing_signed` it
+	 * MUST then retransmit the last `closing_signed`
+	 */
+
+	/* Since we always transmit closing_signed immediately, if
+	 * we're reconnecting we consider ourselves to have transmitted once,
+	 * and we'll immediately do the retransmit now anyway. */
+	tal_free(tmpctx);
+}
+
 int main(int argc, char *argv[])
 {
 	struct crypto_state cs;
@@ -81,6 +149,8 @@ int main(int argc, char *argv[])
 	struct channel_id channel_id;
 	struct secrets secrets;
 	secp256k1_ecdsa_signature sig;
+	bool reconnected;
+	u64 next_index[NUM_SIDES], revocations_received;
 
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
@@ -107,7 +177,11 @@ int main(int argc, char *argv[])
 				   &our_dust_limit,
 				   &minfee, &maxfee, &sent_fee,
 				   &scriptpubkey[LOCAL],
-				   &scriptpubkey[REMOTE])) {
+				   &scriptpubkey[REMOTE],
+				   &reconnected,
+				   &next_index[LOCAL],
+				   &next_index[REMOTE],
+				   &revocations_received)) {
 		status_failed(WIRE_CLOSING_PEER_BAD_MESSAGE,
 			      "Bad init message %s", tal_hex(ctx, msg));
 	}
@@ -118,6 +192,9 @@ int main(int argc, char *argv[])
 	funding_wscript = bitcoin_redeem_2of2(ctx,
 					      &funding_pubkey[LOCAL],
 					      &funding_pubkey[REMOTE]);
+
+	if (reconnected)
+		do_reconnect(&cs, &channel_id, next_index, revocations_received);
 
 	/* BOLT #2:
 	 *
@@ -208,6 +285,16 @@ int main(int argc, char *argv[])
 		/* This should only happen if we've made no commitments, but
 		 * we don't have to check that: it's their problem. */
 		if (fromwire_peektype(msg) == WIRE_FUNDING_LOCKED) {
+			tal_free(msg);
+			goto again;
+		}
+
+		/* BOLT #2:
+		 *
+		 * ...if the node has sent a previous `shutdown` it MUST
+		 * retransmit it.
+		 */
+		if (fromwire_peektype(msg) == WIRE_SHUTDOWN) {
 			tal_free(msg);
 			goto again;
 		}
