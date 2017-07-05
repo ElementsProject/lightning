@@ -179,6 +179,10 @@ static bool peer_start_channeld(struct peer *peer,
 				int peer_fd, int gossip_fd,
 				const u8 *funding_signed,
 				bool reconnected);
+static void peer_start_closingd(struct peer *peer,
+				struct crypto_state *cs,
+				int peer_fd, int gossip_fd,
+				bool reconnected);
 
 /* Send (encrypted) error message, then close. */
 static struct io_plan *send_error(struct io_conn *conn,
@@ -193,9 +197,9 @@ struct getting_gossip_fd {
 	struct crypto_state cs;
 };
 
-static bool get_peer_gossipfd_reply(struct subd *subd, const u8 *msg,
-				    const int *fds,
-				    struct getting_gossip_fd *ggf)
+static bool get_peer_gossipfd_channeld_reply(struct subd *subd, const u8 *msg,
+					     const int *fds,
+					     struct getting_gossip_fd *ggf)
 {
 	struct peer *peer;
 
@@ -221,7 +225,8 @@ static bool get_peer_gossipfd_reply(struct subd *subd, const u8 *msg,
 	}
 
 	if (peer->state != CHANNELD_AWAITING_LOCKIN
-	    && peer->state != CHANNELD_NORMAL) {
+	    && peer->state != CHANNELD_NORMAL
+	    && peer->state != CHANNELD_SHUTTING_DOWN) {
 		log_unusual(subd->log, "Gossipd gave fd, but peer %s %s",
 			    type_to_string(ggf, struct pubkey, &ggf->id),
 			    peer_state_name(peer->state));
@@ -248,11 +253,11 @@ out:
 	return true;
 }
 
-static void get_gossip_fd_for_reconnect(struct lightningd *ld,
-					const struct pubkey *id,
-					u64 unique_id,
-					int peer_fd,
-					const struct crypto_state *cs)
+static void get_gossip_fd_for_channeld_reconnect(struct lightningd *ld,
+						 const struct pubkey *id,
+						 u64 unique_id,
+						 int peer_fd,
+						 const struct crypto_state *cs)
 {
 	struct getting_gossip_fd *ggf = tal(ld, struct getting_gossip_fd);
 	u8 *req;
@@ -264,8 +269,80 @@ static void get_gossip_fd_for_reconnect(struct lightningd *ld,
 	/* FIXME: set sync to `initial_routing_sync` */
 	req = towire_gossipctl_get_peer_gossipfd(ggf, unique_id, true);
 	subd_req(ggf, ld->gossip, take(req), -1, 1,
-		 get_peer_gossipfd_reply, ggf);
+		 get_peer_gossipfd_channeld_reply, ggf);
 }
+
+static bool get_peer_gossipfd_closingd_reply(struct subd *subd, const u8 *msg,
+					     const int *fds,
+					     struct getting_gossip_fd *ggf)
+{
+	struct peer *peer;
+
+	if (!fromwire_gossipctl_get_peer_gossipfd_reply(msg, NULL)) {
+		if (!fromwire_gossipctl_get_peer_gossipfd_replyfail(msg, NULL))
+			fatal("Gossipd gave bad get_peer_gossipfd reply %s",
+			      tal_hex(subd, msg));
+
+		log_unusual(subd->log, "Gossipd could not get fds for peer %s",
+			    type_to_string(ggf, struct pubkey, &ggf->id));
+
+		/* This is an internal error, but could be transient.
+		 * Hang up and let them retry. */
+		goto forget;
+	}
+
+	/* Make sure it still needs gossipfd! */
+	peer = peer_by_id(subd->ld, &ggf->id);
+	if (!peer) {
+		log_unusual(subd->log, "Gossipd gave fd, but peer %s gone",
+			    type_to_string(ggf, struct pubkey, &ggf->id));
+		goto close_gossipfd;
+	}
+
+	if (peer->state != CLOSINGD_SIGEXCHANGE) {
+		log_unusual(subd->log, "Gossipd gave fd, but peer %s %s",
+			    type_to_string(ggf, struct pubkey, &ggf->id),
+			    peer_state_name(peer->state));
+		goto close_gossipfd;
+	}
+
+	/* Kill off current closingd, if any */
+	if (peer->owner) {
+		peer->owner->peer = NULL;
+		peer->owner = tal_free(peer->owner);
+	}
+
+	peer_start_closingd(peer, &ggf->cs, ggf->peer_fd, fds[0], true);
+	goto out;
+
+close_gossipfd:
+	close(fds[0]);
+
+forget:
+	close(ggf->peer_fd);
+out:
+	tal_free(ggf);
+	return true;
+}
+static void get_gossip_fd_for_closingd_reconnect(struct lightningd *ld,
+						 const struct pubkey *id,
+						 u64 unique_id,
+						 int peer_fd,
+						 const struct crypto_state *cs)
+{
+	struct getting_gossip_fd *ggf = tal(ld, struct getting_gossip_fd);
+	u8 *req;
+
+	ggf->peer_fd = peer_fd;
+	ggf->id = *id;
+	ggf->cs = *cs;
+
+	/* FIXME: set sync to `initial_routing_sync` */
+	req = towire_gossipctl_get_peer_gossipfd(ggf, unique_id, true);
+	subd_req(ggf, ld->gossip, take(req), -1, 1,
+		 get_peer_gossipfd_closingd_reply, ggf);
+}
+
 
 /* Returns true if we consider this a reconnection. */
 static bool peer_reconnected(struct lightningd *ld,
@@ -320,10 +397,14 @@ static bool peer_reconnected(struct lightningd *ld,
 	case CHANNELD_NORMAL:
 	case CHANNELD_SHUTTING_DOWN:
 		/* We need the gossipfd now */
-		get_gossip_fd_for_reconnect(ld, id, peer->unique_id, fd, cs);
+		get_gossip_fd_for_channeld_reconnect(ld, id, peer->unique_id, fd, cs);
 		return true;
 
 	case CLOSINGD_SIGEXCHANGE:
+		/* We need the gossipfd now */
+		get_gossip_fd_for_closingd_reconnect(ld, id, peer->unique_id, fd, cs);
+		return true;
+
 	case ONCHAIND_CHEATED:
 	case ONCHAIND_THEIR_UNILATERAL:
 	case ONCHAIND_OUR_UNILATERAL:
@@ -1245,21 +1326,14 @@ static int closing_msg(struct subd *sd, const u8 *msg, const int *fds)
 	return 0;
 }
 
-static int peer_start_closing(struct peer *peer, const u8 *msg, const int *fds)
+static void peer_start_closingd(struct peer *peer,
+				struct crypto_state *cs,
+				int peer_fd, int gossip_fd,
+				bool reconnected)
 {
-	struct crypto_state cs;
+	const tal_t *tmpctx = tal_tmpctx(peer);
 	u8 *initmsg, *local_scriptpubkey;
 	u64 minfee, maxfee, startfee;
-
-	/* We expect 2 fds. */
-	if (!fds)
-		return 2;
-
-	if (!fromwire_channel_shutdown_complete(msg, NULL, &cs)) {
-		peer_internal_error(peer, "bad shutdown_complete: %s",
-				    tal_hex(peer, msg));
-		return -1;
-	}
 
 	if (peer->local_shutdown_idx == -1
 	    || !peer->remote_shutdown_scriptpubkey) {
@@ -1269,7 +1343,8 @@ static int peer_start_closing(struct peer *peer, const u8 *msg, const int *fds)
 				    ? "not shutdown" : "shutdown",
 				    peer->remote_shutdown_scriptpubkey
 				    ? "shutdown" : "not shutdown");
-		return -1;
+		tal_free(tmpctx);
+		return;
 	}
 
 	peer->owner = new_subd(peer->ld, peer->ld,
@@ -1277,23 +1352,23 @@ static int peer_start_closing(struct peer *peer, const u8 *msg, const int *fds)
 			       closing_wire_type_name,
 			       closing_msg,
 			       peer_owner_finished,
-			       take(&fds[0]),
-			       take(&fds[1]), NULL);
+			       take(&peer_fd),
+			       take(&gossip_fd), NULL);
 	if (!peer->owner) {
 		log_unusual(peer->log, "Could not subdaemon closing: %s",
 			    strerror(errno));
 		peer_fail_transient(peer, "Failed to subdaemon closing");
-		return -1;
+		tal_free(tmpctx);
+		return;
 	}
 
-	peer_set_condition(peer, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
-
-	local_scriptpubkey = p2wpkh_for_keyidx(msg, peer->ld,
+	local_scriptpubkey = p2wpkh_for_keyidx(tmpctx, peer->ld,
 					       peer->local_shutdown_idx);
 	if (!local_scriptpubkey) {
 		peer_internal_error(peer,
 				    "Can't generate local shutdown scriptpubkey");
-		return -1;
+		tal_free(tmpctx);
+		return;
 	}
 
 	/* FIXME: Real fees! */
@@ -1308,8 +1383,8 @@ static int peer_start_closing(struct peer *peer, const u8 *msg, const int *fds)
 	 *
 	 * The amounts for each output MUST BE rounded down to whole satoshis.
 	 */
-	initmsg = towire_closing_init(peer,
-				      &cs,
+	initmsg = towire_closing_init(tmpctx,
+				      cs,
 				      peer->seed,
 				      peer->funding_txid,
 				      peer->funding_outnum,
@@ -1322,11 +1397,35 @@ static int peer_start_closing(struct peer *peer, const u8 *msg, const int *fds)
 				      peer->our_config.dust_limit_satoshis,
 				      minfee, maxfee, startfee,
 				      local_scriptpubkey,
-				      peer->remote_shutdown_scriptpubkey);
+				      peer->remote_shutdown_scriptpubkey,
+				      reconnected,
+				      peer->next_index[LOCAL],
+				      peer->next_index[REMOTE],
+				      peer->num_revocations_received);
 
 	/* We don't expect a response: it will give us feedback on
 	 * signatures sent and received, then closing_complete. */
 	subd_send_msg(peer->owner, take(initmsg));
+	tal_free(tmpctx);
+}
+
+static int peer_start_closingd_after_shutdown(struct peer *peer, const u8 *msg,
+					      const int *fds)
+{
+	struct crypto_state cs;
+
+	/* We expect 2 fds. */
+	if (!fds)
+		return 2;
+
+	if (!fromwire_channel_shutdown_complete(msg, NULL, &cs)) {
+		peer_internal_error(peer, "bad shutdown_complete: %s",
+				    tal_hex(peer, msg));
+		return -1;
+	}
+
+	peer_start_closingd(peer, &cs, fds[0], fds[1], false);
+	peer_set_condition(peer, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
 
 	/* Close the channeld */
 	return -1;
@@ -1354,7 +1453,7 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_GOT_SHUTDOWN:
 		return peer_got_shutdown(sd->peer, msg);
 	case WIRE_CHANNEL_SHUTDOWN_COMPLETE:
-		return peer_start_closing(sd->peer, msg, fds);
+		return peer_start_closingd_after_shutdown(sd->peer, msg, fds);
 
 	/* We let peer_owner_finished handle these as transient errors. */
 	case WIRE_CHANNEL_BAD_COMMAND:
