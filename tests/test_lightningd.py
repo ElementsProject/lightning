@@ -8,8 +8,10 @@ import copy
 import json
 import logging
 import os
-import sys
+import random
 import sqlite3
+import string
+import sys
 import tempfile
 import time
 import unittest
@@ -174,7 +176,7 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('WIRE_GOSSIPCTL_NEW_PEER')
         return l1,l2
 
-    def fund_channel(self,l1,l2,amount):
+    def fund_channel(self, l1, l2, amount):
         addr = l1.rpc.newaddr()['address']
 
         txid = l1.bitcoin.rpc.sendtoaddress(addr, amount / 10**8 + 0.01)
@@ -190,7 +192,10 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
         l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
 
-    def pay(self,lsrc,ldst,amt,label):
+    def pay(self, lsrc, ldst, amt, label=None):
+        if not label:
+            label = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
+
         rhash = ldst.rpc.invoice(amt, label)['rhash']
         assert ldst.rpc.listinvoice(label)[0]['complete'] == False
 
@@ -311,7 +316,7 @@ class LightningDTests(BaseLightningDTests):
         l1,l2 = self.connect()
 
         self.fund_channel(l1, l2, 10**6)
-        self.pay(l1,l2,200000000,'testpayment2')
+        self.pay(l1,l2,200000000)
 
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
 
@@ -706,7 +711,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
 
         self.fund_channel(l1, l2, 10**6)
-        self.pay(l1,l2,200000000,'testpayment2')
+        self.pay(l1,l2,200000000)
 
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
 
@@ -733,7 +738,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
 
         self.fund_channel(l1, l2, 10**6)
-        self.pay(l1,l2,200000000,'testpayment2')
+        self.pay(l1,l2,200000000)
 
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
 
