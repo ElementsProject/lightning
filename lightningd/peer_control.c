@@ -1276,6 +1276,10 @@ static int peer_closing_complete(struct peer *peer, const u8 *msg)
 		return -1;
 	}
 
+	/* Retransmission only, ignore closing. */
+	if (peer->state == CLOSINGD_COMPLETE)
+		return -1;
+
 	if (!peer->closing_sig_received) {
 		peer_internal_error(peer,
 				    "closing_complete without sending sig!");
