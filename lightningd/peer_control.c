@@ -1551,12 +1551,16 @@ static bool peer_start_channeld(struct peer *peer,
 	const u8 *shutdown_scriptpubkey;
 
 	/* Now we can consider balance set. */
-	peer->our_msatoshi = tal(peer, u64);
-	if (peer->funder == LOCAL)
-		*peer->our_msatoshi
-			= peer->funding_satoshi * 1000 - peer->push_msat;
-	else
-		*peer->our_msatoshi = peer->push_msat;
+	if (!reconnected) {
+		assert(!peer->our_msatoshi);
+		peer->our_msatoshi = tal(peer, u64);
+		if (peer->funder == LOCAL)
+			*peer->our_msatoshi
+				= peer->funding_satoshi * 1000 - peer->push_msat;
+		else
+			*peer->our_msatoshi = peer->push_msat;
+	} else
+		assert(peer->our_msatoshi);
 
 	msg = towire_hsmctl_hsmfd_channeld(tmpctx, peer->unique_id);
 	if (!wire_sync_write(peer->ld->hsm_fd, take(msg)))
