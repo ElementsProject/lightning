@@ -14,6 +14,8 @@ opening_peer_bad_initial_message,0x8014
 #include <lightningd/cryptomsg.h>
 #include <lightningd/channel_config.h>
 opening_init,0
+# Which network are we configured for (as index into the chainparams)?
+opening_init,,network_index,4
 # Base configuration we'll offer (channel reserve will vary with amount)
 opening_init,,our_config,struct channel_config
 # Minimum/maximum configuration values we'll accept

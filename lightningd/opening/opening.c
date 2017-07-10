@@ -691,6 +691,7 @@ int main(int argc, char *argv[])
 	u8 channel_flags;
 	struct utxo *utxos;
 	u8 *bip32_seed;
+	u32 network_index;
 
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
@@ -710,6 +711,7 @@ int main(int argc, char *argv[])
 		status_failed(WIRE_OPENING_BAD_COMMAND, "%s", strerror(errno));
 
 	if (!fromwire_opening_init(msg, NULL,
+				   &network_index,
 				   &state->localconf,
 				   &state->max_to_self_delay,
 				   &state->min_effective_htlc_capacity_msat,
