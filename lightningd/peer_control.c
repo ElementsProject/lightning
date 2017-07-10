@@ -1493,7 +1493,8 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 
 	peer->seed = tal(peer, struct privkey);
 	derive_peer_seed(ld, peer->seed, &peer->id);
-	msg = towire_opening_init(peer, &peer->our_config,
+	msg = towire_opening_init(peer, ld->chainparams->index,
+				  &peer->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
 				  cs, peer->seed);
@@ -1563,7 +1564,8 @@ static bool gossip_peer_released(struct subd *gossip,
 
 	fc->peer->seed = tal(fc->peer, struct privkey);
 	derive_peer_seed(ld, fc->peer->seed, &fc->peer->id);
-	msg = towire_opening_init(fc, &fc->peer->our_config,
+	msg = towire_opening_init(fc, ld->chainparams->index,
+				  &fc->peer->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
 				  &cs, fc->peer->seed);
