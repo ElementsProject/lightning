@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_LIGHTNINGD_H
 #define LIGHTNING_LIGHTNINGD_LIGHTNINGD_H
 #include "config.h"
+#include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
 #include <ccan/container_of/container_of.h>
 #include <daemon/lightningd.h>
@@ -60,6 +61,8 @@ struct lightningd {
 	u32 broadcast_interval;
 
 	struct wallet *wallet;
+
+	const struct chainparams *chainparams;
 };
 
 void derive_peer_seed(struct lightningd *ld, struct privkey *peer_seed,

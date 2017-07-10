@@ -1,3 +1,4 @@
+#include "bitcoin/chainparams.h"
 #include "daemon/bitcoind.h"
 #include "daemon/chaintopology.h"
 #include "daemon/configdir.h"
@@ -6,6 +7,7 @@
 #include "daemon/opt_time.h"
 #include "daemon/options.h"
 #include "daemon/routing.h"
+#include "lightningd/lightningd.h"
 #include "version.h"
 #include <arpa/inet.h>
 #include <ccan/err/err.h>
@@ -157,6 +159,14 @@ static char *opt_set_regtest(struct bitcoind *bitcoind)
 	return NULL;
 }
 
+static char *opt_set_network(const char *arg, struct lightningd *ld)
+{
+	ld->chainparams = chainparams_for_network(arg);
+	if (!ld->chainparams)
+		return tal_fmt(NULL, "Unknown network name '%s'", arg);
+	return NULL;
+}
+
 static void config_register_opts(struct lightningd_state *dstate)
 {
 	opt_register_noarg("--bitcoind-regtest", opt_set_regtest,
@@ -231,6 +241,10 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--ipaddr", opt_set_ipaddr, NULL,
 			   &dstate->config.ipaddr,
 			   "Set the IP address (v4 or v6) to announce to the network for incoming connections");
+
+	opt_register_arg(
+	    "--network", opt_set_network, NULL, ld_from_dstate(dstate),
+	    "Select the network parameters (bitcoin, testnet, regtest, or litecoin, default: testnet)");
 }
 
 static void dev_register_opts(struct lightningd_state *dstate)
