@@ -130,7 +130,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dstate.announce = NULL;
 	ld->topology = ld->dstate.topology = new_topology(ld, ld->log);
 	ld->bitcoind = ld->dstate.bitcoind = new_bitcoind(ld, ld->log);
-	ld->bitcoind->testmode = ld->dstate.testnet?BITCOIND_TESTNET:BITCOIND_MAINNET;
+	ld->chainparams = chainparams_for_network("testnet");
 
 	/* FIXME: Move into invoice daemon. */
 	ld->dstate.invoices = invoices_init(&ld->dstate);

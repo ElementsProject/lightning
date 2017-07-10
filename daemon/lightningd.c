@@ -13,6 +13,7 @@
 #include "secrets.h"
 #include "timeout.h"
 #include "utils.h"
+#include <bitcoin/chainparams.h>
 #include <ccan/container_of/container_of.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
@@ -82,6 +83,7 @@ int main(int argc, char *argv[])
 
 	dstate->topology = new_topology(dstate, dstate->base_log);
 	dstate->bitcoind = new_bitcoind(dstate, dstate->base_log);
+	dstate->bitcoind->chainparams = chainparams_for_network("regtest");
 
 	/* Handle options and config; move to .lightningd */
 	register_opts(dstate);

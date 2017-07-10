@@ -112,7 +112,6 @@ setup_lightning()
     cat > $DIR1/config <<EOF
 disable-irc
 log-level=debug
-bitcoind-regtest
 bitcoind-poll=5s
 deadline-blocks=5
 min-htlc-expiry=6

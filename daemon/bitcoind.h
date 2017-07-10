@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_DAEMON_BITCOIND_H
 #define LIGHTNING_DAEMON_BITCOIND_H
 #include "config.h"
+#include <bitcoin/chainparams.h>
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
@@ -21,9 +22,6 @@ enum bitcoind_mode {
 };
 
 struct bitcoind {
-	/* What mode are we in. */
-	enum bitcoind_mode testmode;
-
 	/* -datadir arg for bitcoin-cli. */
 	char *datadir;
 
@@ -35,6 +33,9 @@ struct bitcoind {
 
 	/* Pending requests. */
 	struct list_head pending;
+
+	/* What network are we on? */
+	const struct chainparams *chainparams;
 };
 
 struct bitcoind *new_bitcoind(const tal_t *ctx, struct log *log);

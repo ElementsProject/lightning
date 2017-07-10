@@ -214,7 +214,6 @@ class LightningD(TailableProc):
             '--lightning-dir={}'.format(lightning_dir),
             '--port={}'.format(port),
             '--disable-irc',
-            '--bitcoind-regtest',
         ]
 
         self.cmd_line += ["--{}={}".format(k, v) for k, v in LIGHTNINGD_CONFIG.items()]

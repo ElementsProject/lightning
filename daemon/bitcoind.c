@@ -30,18 +30,9 @@ static char **gather_args(struct bitcoind *bitcoind,
 	size_t n = 0;
 	char **args = tal_arr(ctx, char *, 3);
 
-	args[n++] = BITCOIN_CLI;
-	switch (bitcoind->testmode) {
-	case BITCOIND_REGTEST:
-		args[n++] = "-regtest=1";
-		break;
-	case BITCOIND_TESTNET:
-		args[n++] = "-testnet=1";
-		break;
-	case BITCOIND_MAINNET:
-		args[n++] = "-testnet=0";
-		break;
-	}
+	args[n++] = bitcoind->chainparams->cli;
+	args[n++] = bitcoind->chainparams->cli_args;
+
 	if (bitcoind->datadir) {
 		args[n++] = tal_fmt(args, "-datadir=%s", bitcoind->datadir);
 		tal_resize(&args, n + 1);
@@ -458,7 +449,8 @@ struct bitcoind *new_bitcoind(const tal_t *ctx, struct log *log)
 {
 	struct bitcoind *bitcoind = tal(ctx, struct bitcoind);
 
-	bitcoind->testmode = BITCOIND_TESTNET;
+	/* Use testnet by default, change later if we want another network */
+	bitcoind->chainparams = chainparams_for_network("testnet");
 	bitcoind->datadir = NULL;
 	bitcoind->log = log;
 	bitcoind->req_running = false;
