@@ -103,8 +103,6 @@ class NodeFactory(object):
                 with open(os.path.join(lightning_dir, "dev_disconnect"), "w") as f:
                     f.write("\n".join(disconnect))
                 daemon.cmd_line.append("--dev-disconnect=dev_disconnect")
-            # TODO(cdecker) Move into LIGHTNINGD_CONFIG once legacy daemon was removed
-            daemon.cmd_line.append("--dev-broadcast-interval=1000")
             rpc = LightningRpc(socket_path, self.executor)
 
         node = utils.LightningNode(daemon, rpc, bitcoind, self.executor)

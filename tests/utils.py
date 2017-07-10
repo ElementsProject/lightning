@@ -214,6 +214,8 @@ class LightningD(TailableProc):
             '--lightning-dir={}'.format(lightning_dir),
             '--port={}'.format(port),
             '--disable-irc',
+            '--network=regtest',
+            '--dev-broadcast-interval=1000',
         ]
 
         self.cmd_line += ["--{}={}".format(k, v) for k, v in LIGHTNINGD_CONFIG.items()]
@@ -235,6 +237,8 @@ class LegacyLightningD(LightningD):
     def __init__(self, *args, **kwargs):
         LightningD.__init__(self, *args, **kwargs)
         self.cmd_line[0] = 'daemon/lightningd'
+        # Filter out non-legacy options
+        self.cmd_line = [c for c in self.cmd_line if '--network' not in c and '--dev-broadcast-interval' not in c]
 
     def start(self):
         TailableProc.start(self)
