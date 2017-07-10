@@ -153,25 +153,18 @@ static void opt_show_u16(char buf[OPT_SHOW_LEN], const u16 *u)
 	snprintf(buf, OPT_SHOW_LEN, "%u", *u);
 }
 
-static char *opt_set_regtest(struct bitcoind *bitcoind)
-{
-	bitcoind->testmode = BITCOIND_REGTEST;
-	return NULL;
-}
-
 static char *opt_set_network(const char *arg, struct lightningd *ld)
 {
 	ld->chainparams = chainparams_for_network(arg);
 	if (!ld->chainparams)
 		return tal_fmt(NULL, "Unknown network name '%s'", arg);
+	ld->dstate.testnet = ld->chainparams->testnet;
+	ld->bitcoind->chainparams = ld->chainparams;
 	return NULL;
 }
 
 static void config_register_opts(struct lightningd_state *dstate)
 {
-	opt_register_noarg("--bitcoind-regtest", opt_set_regtest,
-			   dstate->bitcoind,
-			   "Bitcoind is in regtest mode");
 	opt_register_arg("--locktime-blocks", opt_set_u32, opt_show_u32,
 			 &dstate->config.locktime_blocks,
 			 "Blocks before peer can unilaterally spend funds");
