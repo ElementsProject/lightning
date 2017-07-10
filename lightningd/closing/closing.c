@@ -41,6 +41,9 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 			      fee, satoshi_out[LOCAL],
 			      satoshi_out[REMOTE]);
 
+	status_trace("Making close tx at = %"PRIu64"/%"PRIu64" fee %"PRIu64,
+		     satoshi_out[LOCAL], satoshi_out[REMOTE], fee);
+
 	tx = create_close_tx(ctx, scriptpubkey[LOCAL], scriptpubkey[REMOTE],
 			     funding_txid,
 			     funding_txout,
@@ -50,7 +53,17 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 			     dust_limit);
 	if (!tx)
 		status_failed(WIRE_CLOSING_NEGOTIATION_ERROR,
-			      "Both outputs below dust limit");
+			      "Both outputs below dust limit:"
+			      " funding = %"PRIu64
+			      " fee = %"PRIu64
+			      " dust_limit = %"PRIu64
+			      " LOCAL = %"PRIu64
+			      " REMOTE = %"PRIu64,
+			      funding_satoshi,
+			      fee,
+			      dust_limit,
+			      satoshi_out[LOCAL],
+			      satoshi_out[REMOTE]);
 	return tx;
 }
 
@@ -185,6 +198,10 @@ int main(int argc, char *argv[])
 		status_failed(WIRE_CLOSING_PEER_BAD_MESSAGE,
 			      "Bad init message %s", tal_hex(ctx, msg));
 	}
+	status_trace("satoshi_out = %"PRIu64"/%"PRIu64,
+		     satoshi_out[LOCAL], satoshi_out[REMOTE]);
+	status_trace("dustlimit = %"PRIu64, our_dust_limit);
+	status_trace("fee = %"PRIu64, sent_fee);
 	derive_channel_id(&channel_id, &funding_txid, funding_txout);
 	derive_basepoints(&seed, &funding_pubkey[LOCAL], NULL,
 			  &secrets, NULL);
@@ -225,9 +242,6 @@ int main(int argc, char *argv[])
 			      funding_txout,
 			      funding_satoshi,
 			      satoshi_out, funder, sent_fee, our_dust_limit);
-		if (!tx)
-			status_failed(WIRE_CLOSING_NEGOTIATION_ERROR,
-				      "Both outputs below dust limit");
 
 		/* BOLT #2:
 		 *
