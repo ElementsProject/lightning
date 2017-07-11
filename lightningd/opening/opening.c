@@ -1,4 +1,5 @@
 #include <bitcoin/block.h>
+#include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <ccan/breakpoint/breakpoint.h>
@@ -55,6 +56,8 @@ struct state {
 	u64 min_effective_htlc_capacity_msat;
 
 	struct channel *channel;
+
+	const struct chainparams *chainparams;
 };
 
 static void check_config_bounds(struct state *state,
@@ -246,7 +249,9 @@ static u8 *funder_channel(struct state *state,
 			      "push-msat must be < %"PRIu64,
 			      1000 * state->funding_satoshis);
 
-	msg = towire_open_channel(tmpctx, &genesis_blockhash.sha, &channel_id,
+	msg = towire_open_channel(tmpctx,
+				  &state->chainparams->genesis_blockhash.sha,
+				  &channel_id,
 				  state->funding_satoshis, state->push_msat,
 				  state->localconf.dust_limit_satoshis,
 				  state->localconf.max_htlc_value_in_flight_msat,
@@ -507,7 +512,7 @@ static u8 *fundee_channel(struct state *state,
 	 * within the `open_channel` message is set to a hash of a chain
 	 * unknown to the receiver.
 	 */
-	if (!structeq(&chain_hash, &genesis_blockhash)) {
+	if (!structeq(&chain_hash, &state->chainparams->genesis_blockhash)) {
 		peer_failed(PEER_FD, &state->cs, NULL,
 			    WIRE_OPENING_PEER_BAD_INITIAL_MESSAGE,
 			    "Unknown chain-hash %s",
@@ -719,6 +724,8 @@ int main(int argc, char *argv[])
 				   &seed))
 		status_failed(WIRE_OPENING_BAD_COMMAND, "%s", strerror(errno));
 	tal_free(msg);
+
+	state->chainparams = chainparams_by_index(network_index);
 
 	/* We derive everything from the one secret seed. */
 	if (!derive_basepoints(&seed, &our_funding_pubkey,
