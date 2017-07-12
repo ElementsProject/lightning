@@ -163,6 +163,15 @@ static char *opt_set_network(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
+/* FIXME: Uncomment once legacy daemon has been removed */
+/*
+static void opt_show_network(char buf[OPT_SHOW_LEN],
+			     const struct lightningd *ld)
+{
+	snprintf(buf, OPT_SHOW_LEN, "%s", ld->chainparams->network_name);
+}
+*/
+
 static void config_register_opts(struct lightningd_state *dstate)
 {
 	opt_register_arg("--locktime-blocks", opt_set_u32, opt_show_u32,
@@ -235,9 +244,11 @@ static void config_register_opts(struct lightningd_state *dstate)
 			   &dstate->config.ipaddr,
 			   "Set the IP address (v4 or v6) to announce to the network for incoming connections");
 
-	opt_register_arg(
-	    "--network", opt_set_network, NULL, ld_from_dstate(dstate),
-	    "Select the network parameters (bitcoin, testnet, regtest, or litecoin, default: testnet)");
+	/* FIXME: Register opt_show_network with the option */
+	opt_register_arg("--network", opt_set_network, NULL,
+			 ld_from_dstate(dstate),
+			 "Select the network parameters (bitcoin, testnet, "
+			 "regtest, or litecoin)");
 }
 
 static void dev_register_opts(struct lightningd_state *dstate)

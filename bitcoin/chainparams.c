@@ -1,9 +1,9 @@
 #include "chainparams.h"
+#include <ccan/array_size/array_size.h>
+#include <ccan/str/str.h>
 #include <string.h>
 
-#define CHAINPARAMS_NETWORK_COUNT 4
-
-const struct chainparams networks[CHAINPARAMS_NETWORK_COUNT] = {
+const struct chainparams networks[] = {
     {.index = 0,
      .network_name = "bitcoin",
      .genesis_blockhash = {{.u.u8 = {0x00, 0x00, 0x00, 0x00, 0x00, 0x19, 0xd6,
@@ -55,8 +55,8 @@ const struct chainparams networks[CHAINPARAMS_NETWORK_COUNT] = {
 
 const struct chainparams *chainparams_for_network(const char *network_name)
 {
-	for (int i = 0; i < CHAINPARAMS_NETWORK_COUNT; i++) {
-		if (strcmp(network_name, networks[i].network_name) == 0) {
+	for (size_t i = 0; i < ARRAY_SIZE(networks); i++) {
+		if (streq(network_name, networks[i].network_name)) {
 			return &networks[i];
 		}
 	}
@@ -65,7 +65,7 @@ const struct chainparams *chainparams_for_network(const char *network_name)
 
 const struct chainparams *chainparams_by_index(const int index)
 {
-	if (index >= CHAINPARAMS_NETWORK_COUNT || index < 0) {
+	if (index >= ARRAY_SIZE(networks) || index < 0) {
 		return NULL;
 	} else {
 		return &networks[index];
