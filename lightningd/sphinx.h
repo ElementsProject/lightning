@@ -66,7 +66,7 @@ enum route_next_case {
 struct hop_data {
 	u8 realm;
 	struct short_channel_id channel_id;
-	u32 amt_forward;
+	u64 amt_forward;
 	u32 outgoing_cltv;
 	/* Padding omitted, will be zeroed */
 	u8 hmac[SECURITY_PARAMETER];
