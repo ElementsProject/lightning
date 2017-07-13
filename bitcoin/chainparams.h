@@ -11,8 +11,8 @@ struct chainparams {
 	const char *network_name;
 	const struct sha256_double genesis_blockhash;
 	const int rpc_port;
-	char *cli;
-	char *cli_args;
+	const char *cli;
+	const char *cli_args;
 	const u64 dust_limit;
 
 	/* Whether this is a test network or not */
