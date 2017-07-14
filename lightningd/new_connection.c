@@ -1,4 +1,5 @@
 #include <ccan/fdpass/fdpass.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
@@ -15,6 +16,9 @@
 #include <lightningd/subd.h>
 #include <unistd.h>
 #include <wire/wire_sync.h>
+
+const u8 supported_local_features[] = {0x03};
+const u8 supported_global_features[] = {0x00};
 
 /* Before we have identified the peer, we just have a connection object. */
 struct connection {
@@ -80,15 +84,35 @@ struct connection *new_connection(const tal_t *ctx,
 	return c;
 }
 
-static bool has_even_bit(const u8 *bitmap)
+/**
+ * requires_unsupported_features - Check if we support what's being asked
+ *
+ * Given the features vector that the remote connection is expecting
+ * from us, we check to see if we support all even bit features, i.e.,
+ * the required features. We do so by subtracting our own features in
+ * the provided positions and see if even bits remain.
+ *
+ * @bitmap: the features bitmap the peer is asking for
+ * @supportmap: what do we support
+ * @smlen: how long is our supportmap
+ */
+static bool requires_unsupported_features(const u8 *bitmap,
+					  const u8 *supportmap,
+					  size_t smlen)
 {
 	size_t len = tal_count(bitmap);
+	u8 support;
+	for (size_t i=0; i<len; i++) {
+		/* Find matching bitmap byte in supportmap, 0x00 if none */
+		if (len > smlen) {
+			support = 0x00;
+		} else {
+			support = supportmap[smlen-1];
+		}
 
-	while (len) {
-		if (*bitmap & 0xAA)
+		/* Cancel out supported bits, check for even bits */
+		if ((~support & bitmap[i]) & 0xAA)
 			return true;
-		len--;
-		bitmap++;
 	}
 	return false;
 }
@@ -129,7 +153,9 @@ static bool handshake_succeeded(struct subd *handshaked,
 	 * MUST ignore the bit if the bit number is odd, and MUST fail
 	 * the connection if the bit number is even.
 	 */
-	if (has_even_bit(globalfeatures)) {
+	if (requires_unsupported_features(
+		globalfeatures, supported_global_features,
+		ARRAY_SIZE(supported_global_features))) {
 		connection_failed(c, handshaked->log,
 				  "peer %s: bad globalfeatures: %s",
 				  type_to_string(c, struct pubkey, id),
@@ -137,7 +163,9 @@ static bool handshake_succeeded(struct subd *handshaked,
 		return true;
 	}
 
-	if (has_even_bit(localfeatures)) {
+	if (requires_unsupported_features(
+		localfeatures, supported_local_features,
+		ARRAY_SIZE(supported_local_features))) {
 		connection_failed(c, handshaked->log,
 				  "peer %s: bad localfeatures: %s",
 				  type_to_string(c, struct pubkey, id),
