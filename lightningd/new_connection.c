@@ -1,5 +1,5 @@
-#include <ccan/fdpass/fdpass.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/fdpass/fdpass.h>
 #include <ccan/tal/str/str.h>
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
