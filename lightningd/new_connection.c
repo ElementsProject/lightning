@@ -111,7 +111,7 @@ static bool requires_unsupported_features(const u8 *bitmap,
 		}
 
 		/* Cancel out supported bits, check for even bits */
-		if ((~support & bitmap[i]) & 0xAA)
+		if ((~support & bitmap[i]) & 0x55)
 			return true;
 	}
 	return false;
