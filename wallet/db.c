@@ -25,6 +25,17 @@ char *dbmigrations[] = {
        PRIMARY KEY (prev_out_tx, prev_out_index) \
     );",
     "CREATE TABLE vars (name VARCHAR(32), val VARCHAR(255), PRIMARY KEY (name));",
+    "CREATE TABLE shachains (                    \
+       id INTEGER,				 \
+       min_index INTEGER,			 \
+       num_valid INTEGER,			 \
+       PRIMARY KEY (id));",
+    "CREATE TABLE shachain_known (               \
+       shachain_id INTEGER,			 \
+       pos INTEGER,				 \
+       idx INTEGER,				 \
+       hash BLOB,				 \
+       PRIMARY KEY (shachain_id, pos));",
     NULL,
 };
 
