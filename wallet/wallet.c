@@ -344,3 +344,17 @@ bool wallet_shachain_load(struct wallet *wallet, u64 id,
 	return true;
 }
 
+/**
+ * wallet_shachain_delete - Drop the shachain from the database
+ *
+ * Deletes the shachain from the database, including dependent
+ * shachain_known items.
+ */
+/* TOOD(cdecker) Uncomment once we have implemented channel delete
+static bool wallet_shachain_delete(struct wallet *w,
+				   struct wallet_shachain *chain)
+{
+	return db_exec(__func__, w->db,
+		       "DELETE FROM shachains WHERE id=%" PRIu64, chain->id);
+}
+*/
