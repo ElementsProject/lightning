@@ -2,7 +2,10 @@
 
 #include <bitcoin/script.h>
 #include <ccan/str/hex/hex.h>
+#include <inttypes.h>
 #include <lightningd/lightningd.h>
+
+#define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
 
 struct wallet *wallet_new(const tal_t *ctx, struct log *log)
 {
@@ -232,3 +235,112 @@ s64 wallet_get_newindex(struct lightningd *ld)
 	db_set_intvar(ld->wallet->db, "bip32_max_index", newidx);
 	return newidx;
 }
+
+bool wallet_shachain_init(struct wallet *wallet, struct wallet_shachain *chain)
+{
+	/* Create shachain */
+	shachain_init(&chain->chain);
+	if (!db_exec(__func__, wallet->db,
+		     "INSERT INTO shachains (min_index, num_valid) VALUES (0,0);")) {
+		return false;
+	}
+	chain->id = sqlite3_last_insert_rowid(wallet->db->sql);
+	return true;
+}
+
+/* TODO(cdecker) Stolen from shachain, move to some appropriate location */
+static unsigned int count_trailing_zeroes(shachain_index_t index)
+{
+#if HAVE_BUILTIN_CTZLL
+	return index ? (unsigned int)__builtin_ctzll(index) : SHACHAIN_BITS;
+#else
+	unsigned int i;
+
+	for (i = 0; i < SHACHAIN_BITS; i++) {
+		if (index & (1ULL << i))
+			break;
+	}
+	return i;
+#endif
+}
+
+bool wallet_shachain_add_hash(struct wallet *wallet,
+			      struct wallet_shachain *chain,
+			      shachain_index_t index,
+			      const struct sha256 *hash)
+{
+	tal_t *tmpctx = tal_tmpctx(wallet);
+	bool ok = true;
+	u32 pos = count_trailing_zeroes(index);
+	assert(index < SQLITE_MAX_UINT);
+	char *hexhash = tal_hexstr(tmpctx, hash, sizeof(struct sha256));
+	if (!shachain_add_hash(&chain->chain, index, hash)) {
+		tal_free(tmpctx);
+		return false;
+	}
+
+	db_begin_transaction(wallet->db);
+
+	ok &= db_exec(__func__, wallet->db,
+		      "UPDATE shachains SET num_valid=%d, min_index=%" PRIu64
+		      " WHERE id=%" PRIu64,
+		      chain->chain.num_valid, index, chain->id);
+
+	ok &= db_exec(__func__, wallet->db,
+		      "REPLACE INTO shachain_known "
+		      "(shachain_id, pos, idx, hash) VALUES "
+		      "(%" PRIu64 ", %d, %" PRIu64 ", '%s');",
+		      chain->id, pos, index, hexhash);
+
+	if (ok)
+		ok &= db_commit_transaction(wallet->db);
+	else
+		db_rollback_transaction(wallet->db);
+	tal_free(tmpctx);
+	return ok;
+}
+
+bool wallet_shachain_load(struct wallet *wallet, u64 id,
+			  struct wallet_shachain *chain)
+{
+	int err;
+	sqlite3_stmt *stmt;
+	chain->id = id;
+	shachain_init(&chain->chain);
+
+	/* Load shachain metadata */
+	stmt = db_query(
+	    __func__, wallet->db,
+	    "SELECT min_index, num_valid FROM shachains WHERE id=%" PRIu64, id);
+	if (!stmt)
+		return false;
+	err = sqlite3_step(stmt);
+	if (err != SQLITE_ROW) {
+		sqlite3_finalize(stmt);
+		return false;
+	}
+
+	chain->chain.min_index = sqlite3_column_int64(stmt, 0);
+	chain->chain.num_valid = sqlite3_column_int64(stmt, 1);
+	sqlite3_finalize(stmt);
+
+	/* Load shachain known entries */
+	stmt = db_query(
+	    __func__, wallet->db,
+	    "SELECT idx, hash, pos FROM shachain_known WHERE shachain_id=%" PRIu64,
+	    id);
+
+	if (!stmt)
+		return false;
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		int pos = sqlite3_column_int(stmt, 2);
+		chain->chain.known[pos].index = sqlite3_column_int64(stmt, 0);
+		hex_decode(
+		    sqlite3_column_blob(stmt, 1), sqlite3_column_bytes(stmt, 1),
+		    &chain->chain.known[pos].hash, sizeof(struct sha256));
+	}
+	sqlite3_finalize(stmt);
+
+	return true;
+}
+
