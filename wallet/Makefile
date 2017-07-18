@@ -22,7 +22,7 @@ WALLET_TEST_PROGRAMS := $(WALLET_TEST_OBJS:.o=)
 
 $(WALLET_TEST_OBJS): $(WALLET_LIB_OBJS)
 
-$(WALLET_TEST_PROGRAMS): $(BITCOIN_OBJS) $(CCAN_OBJS)  $(LIBBASE58_OBJS) daemon/log.o type_to_string.o daemon/pseudorand.o utils.o libwallycore.a libsecp256k1.a libsodium.a
+$(WALLET_TEST_PROGRAMS): $(BITCOIN_OBJS) $(CCAN_OBJS) $(LIBBASE58_OBJS) daemon/log.o type_to_string.o daemon/pseudorand.o ccan-crypto-shachain-48.o utils.o libwallycore.a libsecp256k1.a libsodium.a
 
 $(WALLET_TEST_OBJS): $(CCAN_HEADERS)
 wallet/tests: $(WALLET_TEST_PROGRAMS:%=unittest/%)
