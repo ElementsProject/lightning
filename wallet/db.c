@@ -30,11 +30,11 @@ char *dbmigrations[] = {
        min_index INTEGER,			 \
        num_valid INTEGER,			 \
        PRIMARY KEY (id));",
-    "CREATE TABLE shachain_known (               \
-       shachain_id INTEGER,			 \
-       pos INTEGER,				 \
-       idx INTEGER,				 \
-       hash BLOB,				 \
+    "CREATE TABLE shachain_known (                                      \
+       shachain_id INTEGER REFERENCES shachains(id) ON DELETE CASCADE,	\
+       pos INTEGER,							\
+       idx INTEGER,							\
+       hash BLOB,							\
        PRIMARY KEY (shachain_id, pos));",
     NULL,
 };
@@ -155,6 +155,10 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	tal_add_destructor(db, close_db);
 	db->in_transaction = false;
 	db->err = NULL;
+	if (!db_exec(__func__, db, "PRAGMA foreign_keys = ON;")) {
+		fatal("Could not enable foreignkeys on database: %s", db->err);
+	}
+
 	return db;
 }
 
