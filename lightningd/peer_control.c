@@ -478,7 +478,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 		= peer->next_index[REMOTE]
 		= peer->num_revocations_received = 0;
 	peer->next_htlc_id = 0;
-	shachain_init(&peer->their_shachain);
+	wallet_shachain_init(ld->wallet, &peer->their_shachain);
 	peer->closing_sig_received = NULL;
 
 	idname = type_to_string(peer, struct pubkey, id);
