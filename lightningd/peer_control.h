@@ -10,6 +10,7 @@
 #include <lightningd/channel_config.h>
 #include <lightningd/peer_state.h>
 #include <stdbool.h>
+#include <wallet/wallet.h>
 #include <wire/peer_wire.h>
 
 #define ANNOUNCE_MIN_DEPTH 6
@@ -29,7 +30,7 @@ struct peer {
 	u8 *error;
 
 	/* Their shachain. */
-	struct shachain their_shachain;
+	struct wallet_shachain their_shachain;
 
  	/* What's happening. */
  	enum peer_state state;
