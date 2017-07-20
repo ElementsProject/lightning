@@ -34,3 +34,4 @@ daemon/test/run-maxfee
 test/test_protocol
 test/test_sphinx
 test/test_irc
+lightningd/lightningd_closing
