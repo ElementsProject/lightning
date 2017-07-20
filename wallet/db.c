@@ -36,6 +36,49 @@ char *dbmigrations[] = {
        idx INTEGER,							\
        hash BLOB,							\
        PRIMARY KEY (shachain_id, pos));",
+    "CREATE TABLE channels ("
+    "  id INTEGER," /* unique_id */
+    "  peer_id INTEGER REFERENCES peers(id) ON DELETE CASCADE,"
+    "  short_channel_id BLOB,"
+    "  channel_config_local INTEGER,"
+    "  channel_config_remote INTEGER,"
+    "  state INTEGER,"
+    "  funder INTEGER,"
+    "  channel_flags INTEGER,"
+    "  minimum_depth INTEGER,"
+    "  next_index_local INTEGER,"
+    "  next_index_remote INTEGER,"
+    "  num_revocations_received INTEGER,"
+    "  next_htlc_id INTEGER, "
+    "  funding_tx_id BLOB,"
+    "  funding_tx_outnum INTEGER,"
+    "  funding_satoshi INTEGER,"
+    "  funding_locked_remote INTEGER,"
+    "  push_msatoshi INTEGER,"
+    "  msatoshi_local INTEGER," /* our_msatoshi */
+    /* START channel_info */
+    "  commit_sig_remote BLOB,"
+    "  fundingkey_remote BLOB,"
+    "  revocation_basepoint_remote BLOB,"
+    "  payment_basepoint_remote BLOB,"
+    "  delayed_payment_basepoint_remote BLOB,"
+    "  per_commit_remote BLOB,"
+    "  old_per_commit_remote BLOB,"
+    "  feerate_per_kw INTEGER,"
+    /* END channel_info */
+    "  shachain_remote_id INTEGER,"
+    "  shutdown_scriptpubkey_remote BLOB,"
+    "  shutdown_keyidx_local INTEGER,"
+    "  last_sent_commit_state INTEGER,"
+    "  last_sent_commit_id INTEGER,"
+    "  PRIMARY KEY (id)"
+    ");",
+    "CREATE TABLE peers ("
+    "  id INTEGER,"
+    "  node_id BLOB," /* pubkey */
+    "  address TEXT,"
+    "  PRIMARY KEY (id)"
+    ");",
     NULL,
 };
 
