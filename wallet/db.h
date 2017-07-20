@@ -73,4 +73,10 @@ bool db_set_intvar(struct db *db, char *varname, s64 val);
  */
 s64 db_get_intvar(struct db *db, char *varname, s64 defval);
 
+/**
+ * sqlite3_column_hexval - Helper to populate a binary field from a hex value
+ */
+bool sqlite3_column_hexval(sqlite3_stmt *s, int col, void *dest,
+			   size_t destlen);
+
 #endif /* WALLET_DB_H */
