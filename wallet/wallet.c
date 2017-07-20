@@ -335,9 +335,8 @@ bool wallet_shachain_load(struct wallet *wallet, u64 id,
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
 		int pos = sqlite3_column_int(stmt, 2);
 		chain->chain.known[pos].index = sqlite3_column_int64(stmt, 0);
-		hex_decode(
-		    sqlite3_column_blob(stmt, 1), sqlite3_column_bytes(stmt, 1),
-		    &chain->chain.known[pos].hash, sizeof(struct sha256));
+		sqlite3_column_hexval(stmt, 1, &chain->chain.known[pos].hash,
+				      sizeof(struct sha256));
 	}
 	sqlite3_finalize(stmt);
 
