@@ -177,10 +177,4 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
  * the direction bit the matching channel should get */
 #define get_channel_direction(from, to) (pubkey_cmp(from, to) > 0)
 
-bool short_channel_id_from_str(const char *str, size_t strlen,
-			       struct short_channel_id *dst);
-
-bool short_channel_id_eq(const struct short_channel_id *a,
-			 const struct short_channel_id *b);
-
 #endif /* LIGHTNING_DAEMON_ROUTING_H */

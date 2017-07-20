@@ -4,21 +4,12 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/shadouble.h>
+#include <bitcoin/short_channel_id.h>
 #include <bitcoin/signature.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/short_types/short_types.h>
 #include <stdlib.h>
 
-/* Short Channel ID is composed of 3 bytes for the block height, 3
- * bytes of tx index in block and 2 bytes of output index. The
- * bitfield is mainly for unit tests where it is nice to be able to
- * just memset them and not have to take care about the extra byte for
- * u32 */
-struct short_channel_id {
-	u32 blocknum : 24;
-	u32 txnum : 24;
-	u16 outnum;
-};
 struct channel_id {
 	u8 id[32];
 };

@@ -73,10 +73,3 @@ bool is_unknown_msg_discardable(const u8 *cursor)
 	enum wire_type t = fromwire_peektype(cursor);
 	return unknown_type(t) && (t & 1);
 }
-
-bool short_channel_id_eq(const struct short_channel_id *a,
-			 const struct short_channel_id *b)
-{
-	return a->blocknum == b->blocknum && a->txnum == b->txnum &&
-	       a->outnum == b->outnum;
-}
