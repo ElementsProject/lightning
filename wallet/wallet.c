@@ -4,6 +4,8 @@
 #include <ccan/str/hex/hex.h>
 #include <inttypes.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/peer_control.h>
+#include <lightningd/peer_htlcs.h>
 
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
 
@@ -341,6 +343,200 @@ bool wallet_shachain_load(struct wallet *wallet, u64 id,
 	sqlite3_finalize(stmt);
 
 	return true;
+}
+
+static bool sqlite3_column_short_channel_id(sqlite3_stmt *stmt, int col,
+					    struct short_channel_id *dest)
+{
+	const char *source = sqlite3_column_blob(stmt, col);
+	size_t sourcelen = sqlite3_column_bytes(stmt, col);
+	return short_channel_id_from_str(source, sourcelen, dest);
+}
+
+static bool sqlite3_column_sig(sqlite3_stmt *stmt, int col, secp256k1_ecdsa_signature *sig)
+{
+	u8 buf[64];
+	if (!sqlite3_column_hexval(stmt, col, buf, sizeof(buf)))
+		return false;
+	return secp256k1_ecdsa_signature_parse_compact(secp256k1_ctx, sig, buf) == 1;
+}
+
+static bool sqlite3_column_pubkey(sqlite3_stmt *stmt, int col,  struct pubkey *dest)
+{
+	u8 buf[PUBKEY_DER_LEN];
+	if (!sqlite3_column_hexval(stmt, col, buf, sizeof(buf)))
+		return false;
+	return pubkey_from_der(buf, sizeof(buf), dest);
+}
+
+static u8 *sqlite3_column_varhexblob(tal_t *ctx, sqlite3_stmt *stmt, int col)
+{
+	const u8 *source = sqlite3_column_blob(stmt, col);
+	size_t sourcelen = sqlite3_column_bytes(stmt, col);
+	return tal_hexdata(ctx, source, sourcelen);
+}
+
+static bool wallet_peer_load(struct wallet *w, const u64 id, struct peer *peer)
+{
+	bool ok = true;
+	sqlite3_stmt *stmt = db_query(__func__, w->db, "SELECT id, node_id FROM peers WHERE id=%"PRIu64";", id);
+	if (!stmt || sqlite3_step(stmt) != SQLITE_ROW) {
+		sqlite3_finalize(stmt);
+		return false;
+	}
+	peer->unique_id = sqlite3_column_int64(stmt, 0);
+	ok &= sqlite3_column_pubkey(stmt, 1, &peer->id);
+	sqlite3_finalize(stmt);
+	return ok;
+}
+
+/**
+ * wallet_stmt2channel - Helper to populate a wallet_channel from a sqlite3_stmt
+ *
+ * Returns true on success.
+ */
+static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
+				struct wallet_channel *chan)
+{
+	bool ok = true;
+	int col = 0;
+	struct channel_info *channel_info;
+	struct sha256_double temphash;
+	struct short_channel_id scid;
+
+	if (!chan->peer) {
+		chan->peer = talz(chan, struct peer);
+	}
+	chan->peer->unique_id = sqlite3_column_int64(stmt, col++);
+	chan->peer_id = sqlite3_column_int64(stmt, col++);
+	wallet_peer_load(w, chan->peer_id, chan->peer);
+
+	if (sqlite3_column_short_channel_id(stmt, col++, &scid)) {
+		chan->peer->scid = tal(chan->peer, struct short_channel_id);
+		*chan->peer->scid = scid;
+	} else {
+		chan->peer->scid = NULL;
+	}
+
+	/* TODO(cdecker) Load channel configs into chan */
+	col += 2;
+
+	chan->peer->state = sqlite3_column_int(stmt, col++);
+	chan->peer->funder = sqlite3_column_int(stmt, col++);
+	chan->peer->channel_flags = sqlite3_column_int(stmt, col++);
+	chan->peer->minimum_depth = sqlite3_column_int(stmt, col++);
+	chan->peer->next_index[LOCAL] = sqlite3_column_int64(stmt, col++);
+	chan->peer->next_index[REMOTE] = sqlite3_column_int64(stmt, col++);
+	chan->peer->num_revocations_received =
+	    sqlite3_column_int64(stmt, col++);
+	chan->peer->next_htlc_id = sqlite3_column_int64(stmt, col++);
+
+	if (sqlite3_column_hexval(stmt, col++, &temphash, sizeof(temphash))) {
+		chan->peer->funding_txid = tal(chan->peer, struct sha256_double);
+		*chan->peer->funding_txid = temphash;
+	} else {
+		chan->peer->funding_txid = NULL;
+	}
+
+	chan->peer->funding_outnum = sqlite3_column_int(stmt, col++);
+	chan->peer->funding_satoshi = sqlite3_column_int64(stmt, col++);
+	chan->peer->remote_funding_locked =
+	    sqlite3_column_int(stmt, col++) != 0;
+	chan->peer->push_msat = sqlite3_column_int64(stmt, col++);
+
+	if (sqlite3_column_type(stmt, col) != SQLITE_NULL) {
+		chan->peer->our_msatoshi = tal(chan->peer, u64);
+		*chan->peer->our_msatoshi = sqlite3_column_int64(stmt, col);
+	}else {
+		chan->peer->our_msatoshi = tal_free(chan->peer->our_msatoshi);
+	}
+	col++;
+
+	/* See if we have a valid commit_sig indicating the presence
+	 * of channel_info */
+	if (sqlite3_column_type(stmt, col) != SQLITE_NULL) {
+		/* OK, so we have a valid sig, instantiate and/or fill
+		 * in channel_info */
+		if (!chan->peer->channel_info)
+			chan->peer->channel_info = tal(chan->peer, struct channel_info);
+		channel_info = chan->peer->channel_info;
+
+		/* Populate channel_info */
+		ok &= sqlite3_column_sig(stmt, col++, &chan->peer->channel_info->commit_sig);
+		ok &= sqlite3_column_pubkey(stmt, col++, &chan->peer->channel_info->remote_fundingkey);
+		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->theirbase.revocation);
+		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->theirbase.payment);
+		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->theirbase.delayed_payment);
+		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->remote_per_commit);
+		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->old_remote_per_commit);
+		channel_info->feerate_per_kw = sqlite3_column_int64(stmt, col++);
+	} else {
+		/* No channel_info, skip positions in the result */
+		col += 8;
+	}
+
+	/* Load shachain */
+	u64 shachain_id = sqlite3_column_int64(stmt, col++);
+	ok &= wallet_shachain_load(w, shachain_id, &chan->peer->their_shachain);
+
+	/* Do we have a non-null remote_shutdown_scriptpubkey? */
+	if (sqlite3_column_type(stmt, col) != SQLITE_NULL) {
+		chan->peer->remote_shutdown_scriptpubkey = sqlite3_column_varhexblob(chan->peer, stmt, col++);
+		chan->peer->local_shutdown_idx = sqlite3_column_int64(stmt, col++);
+	} else {
+		chan->peer->remote_shutdown_scriptpubkey = tal_free(chan->peer->remote_shutdown_scriptpubkey);
+		chan->peer->local_shutdown_idx = 0;
+		col += 2;
+	}
+
+	/* Do we have a last_sent_commit, if yes, populate */
+	if (sqlite3_column_type(stmt, col) != SQLITE_NULL) {
+		if (!chan->peer->last_sent_commit) {
+			chan->peer->last_sent_commit = tal(chan->peer, struct changed_htlc);
+		}
+		chan->peer->last_sent_commit->newstate = sqlite3_column_int64(stmt, col++);
+		chan->peer->last_sent_commit->id = sqlite3_column_int64(stmt, col++);
+	} else {
+		chan->peer->last_sent_commit = tal_free(chan->peer->last_sent_commit);
+		col += 2;
+	}
+	assert(col == 32);
+
+	return ok;
+}
+
+bool wallet_channel_load(struct wallet *w, const u64 id,
+			 struct wallet_channel *chan)
+{
+	bool ok;
+	/* The explicit query that matches the columns and their order in
+	 * wallet_stmt2channel. */
+	const char *channel_query =
+	    "SELECT id, peer_id, short_channel_id, channel_config_local, "
+	    "channel_config_remote, state, funder, channel_flags, "
+	    "minimum_depth, "
+	    "next_index_local, next_index_remote, num_revocations_received, "
+	    "next_htlc_id, funding_tx_id, funding_tx_outnum, funding_satoshi, "
+	    "funding_locked_remote, push_msatoshi, msatoshi_local, "
+	    "commit_sig_remote, "
+	    "fundingkey_remote, revocation_basepoint_remote, "
+	    "payment_basepoint_remote, "
+	    "delayed_payment_basepoint_remote, per_commit_remote, "
+	    "old_per_commit_remote, feerate_per_kw, shachain_remote_id, "
+	    "shutdown_scriptpubkey_remote, shutdown_keyidx_local, "
+	    "last_sent_commit_state, last_sent_commit_id FROM channels WHERE "
+	    "id=%" PRIu64 ";";
+
+	sqlite3_stmt *stmt = db_query(__func__, w->db, channel_query, id);
+	if (!stmt || sqlite3_step(stmt) != SQLITE_ROW) {
+		sqlite3_finalize(stmt);
+		return false;
+	}
+	ok = wallet_stmt2channel(w, stmt, chan);
+	chan->id = id;
+
+	sqlite3_finalize(stmt);
+	return ok;
 }
 
 /**

@@ -47,6 +47,14 @@ struct wallet_shachain {
 	struct shachain chain;
 };
 
+/* A database backed peer struct. Like wallet_shachain, it is writethrough. */
+/* TODO(cdecker) Separate peer from channel */
+struct wallet_channel {
+	u64 id;
+	u64 peer_id;
+	struct peer *peer;
+};
+
 /**
  * wallet_new - Constructor for a new sqlite3 based wallet
  *
@@ -154,4 +162,6 @@ static inline bool wallet_shachain_get_hash(struct wallet *w,
 bool wallet_shachain_load(struct wallet *wallet, u64 id,
 			  struct wallet_shachain *chain);
 
+bool wallet_channel_load(struct wallet *w, const u64 id,
+			 struct wallet_channel *chan);
 #endif /* WALLET_WALLET_H */
