@@ -1281,7 +1281,8 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 		if (type != WIRE_FUNDING_LOCKED
 		    && type != WIRE_CHANNEL_ANNOUNCEMENT
 		    && type != WIRE_CHANNEL_UPDATE
-		    && type != WIRE_NODE_ANNOUNCEMENT) {
+		    && type != WIRE_NODE_ANNOUNCEMENT
+		    && type != WIRE_PING) {
 			peer_failed(io_conn_fd(peer->peer_conn),
 				    &peer->pcs.cs,
 				    &peer->channel_id,
