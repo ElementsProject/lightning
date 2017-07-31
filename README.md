@@ -58,7 +58,7 @@ First you need to transfer some funds to `lightningd` so that it can open a chan
 
 ```
 # Returns an address <address>
-daemon/lightgning-cli newaddr 
+daemon/lightning-cli newaddr 
 
 # Returns a transaction id <txid>
 bitcoin-cli -testnet sendtoaddress <address> <amount>
