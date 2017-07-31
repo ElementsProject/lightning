@@ -479,7 +479,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 		= peer->num_revocations_received = 0;
 	peer->next_htlc_id = 0;
 	shachain_init(&peer->their_shachain);
-	peer->closing_sig_sent = peer->closing_sig_received = NULL;
+	peer->closing_sig_received = NULL;
 
 	idname = type_to_string(peer, struct pubkey, id);
 
@@ -1185,6 +1185,32 @@ static int closingd_got_negotiation_error(struct peer *peer, const u8 *msg)
 	return -1;
 }
 
+static bool better_closing_fee(struct peer *peer, u64 fee_satoshi)
+{
+	/* FIXME: Use estimatefee 24 or something? */
+	u64 min_feerate = get_feerate(peer->ld->topology) / 2;
+	/* FIXME: Real fee, using real tx, and estimatefee 6 */
+	u64 ideal_fee = commit_tx_base_fee(get_feerate(peer->ld->topology), 0);
+	s64 old_diff, new_diff;
+
+	/* FIXME: Use real tx here! (+ 74 for sig). */
+	if (fee_satoshi < commit_tx_base_fee(min_feerate, 0))
+		return false;
+
+	/* FIXME: Derive old fee from last tx, which would work even
+	 * for the case where we're using the final commitment tx. */
+	if (!peer->closing_sig_received)
+		return true;
+
+	/* FIXME: Real fee, using real tx, and estimatefee 6 */
+
+	/* We prefer fee which is closest to our ideal. */
+	old_diff = imaxabs((s64)ideal_fee - (s64)peer->closing_fee_received);
+	new_diff = imaxabs((s64)ideal_fee - (s64)fee_satoshi);
+
+	return (new_diff < old_diff);
+}
+
 static int peer_received_closing_signature(struct peer *peer, const u8 *msg)
 {
 	u64 fee_satoshi;
@@ -1197,26 +1223,16 @@ static int peer_received_closing_signature(struct peer *peer, const u8 *msg)
 		return -1;
 	}
 
-	/* If we were only doing this to retransmit, we should only send one. */
-	if (peer->state == CLOSINGD_COMPLETE) {
-		if (fee_satoshi != peer->closing_fee_sent) {
-			peer_internal_error(peer,
-					    "CLOSINGD_COMPLETE:"
-					    " Bad offer %"PRIu64
-					    " not %"PRIu64,
-					    fee_satoshi, peer->closing_fee_sent);
-			return -1;
-		}
-	}
-
-	/* FIXME: Make sure offer is in useful range! */
 	/* FIXME: Make sure signature is correct! */
-	/* FIXME: save to db. */
 
-	peer->closing_fee_received = fee_satoshi;
-	tal_free(peer->closing_sig_received);
-	peer->closing_sig_received
-		= tal_dup(peer, secp256k1_ecdsa_signature, &sig);
+	if (better_closing_fee(peer, fee_satoshi)) {
+		/* FIXME: save to db. */
+
+		peer->closing_fee_received = fee_satoshi;
+		tal_free(peer->closing_sig_received);
+		peer->closing_sig_received
+			= tal_dup(peer, secp256k1_ecdsa_signature, &sig);
+	}
 
 	/* OK, you can continue now. */
 	subd_send_msg(peer->owner,
@@ -1224,55 +1240,18 @@ static int peer_received_closing_signature(struct peer *peer, const u8 *msg)
 	return 0;
 }
 
-static int peer_offered_closing_signature(struct peer *peer, const u8 *msg)
-{
-	u64 fee_satoshi;
-	secp256k1_ecdsa_signature sig;
-
-	if (!fromwire_closing_offered_signature(msg, NULL, &fee_satoshi, &sig)) {
-		peer_internal_error(peer, "Bad closing_offered_signature %s",
-				    tal_hex(peer, msg));
-		return -1;
-	}
-
-	/* If we were only doing this to retransmit, we ignore its offer. */
-	if (peer->state == CLOSINGD_COMPLETE) {
-		log_debug(peer->log,
-			  "CLOSINGD_COMPLETE: Ignoring their offer %"PRIu64,
-			  fee_satoshi);
-	} else {
-		/* FIXME: Make sure offer is in useful range! */
-		/* FIXME: Make sure signature is correct! */
-		/* FIXME: save to db. */
-
-		peer->closing_fee_sent = fee_satoshi;
-		tal_free(peer->closing_sig_sent);
-		peer->closing_sig_sent
-			= tal_dup(peer, secp256k1_ecdsa_signature, &sig);
-	}
-
-	/* OK, you can continue now. */
-	subd_send_msg(peer->owner,
-		      take(towire_closing_offered_signature_reply(peer)));
-	return 0;
-}
-
 static int peer_closing_complete(struct peer *peer, const u8 *msg)
 {
 	struct bitcoin_tx *tx;
-	u8 *local_scriptpubkey;
+	u8 *local_scriptpubkey, *funding_wscript;
 	u64 out_amounts[NUM_SIDES];
 	struct pubkey local_funding_pubkey;
+	struct secrets secrets;
+	secp256k1_ecdsa_signature sig;
 
 	if (!fromwire_closing_complete(msg, NULL)) {
 		peer_internal_error(peer, "Bad closing_complete %s",
 				    tal_hex(peer, msg));
-		return -1;
-	}
-
-	if (!peer->closing_sig_sent) {
-		peer_internal_error(peer,
-				    "closing_complete without receiving sig!");
 		return -1;
 	}
 
@@ -1303,7 +1282,8 @@ static int peer_closing_complete(struct peer *peer, const u8 *msg)
 		- (*peer->our_msatoshi / 1000);
 	out_amounts[peer->funder] -= peer->closing_fee_received;
 
-	derive_basepoints(peer->seed, &local_funding_pubkey, NULL, NULL, NULL);
+	derive_basepoints(peer->seed, &local_funding_pubkey, NULL, &secrets,
+			  NULL);
 
 	tx = create_close_tx(msg, local_scriptpubkey,
 			     peer->remote_shutdown_scriptpubkey,
@@ -1314,10 +1294,18 @@ static int peer_closing_complete(struct peer *peer, const u8 *msg)
 			     out_amounts[REMOTE],
 			     peer->our_config.dust_limit_satoshis);
 
+	funding_wscript = bitcoin_redeem_2of2(msg,
+					      &local_funding_pubkey,
+					      &peer->channel_info->remote_fundingkey);
+	sign_tx_input(tx, 0, NULL, funding_wscript,
+		      &secrets.funding_privkey,
+		      &local_funding_pubkey,
+		      &sig);
+
 	tx->input[0].witness
 		= bitcoin_witness_2of2(tx->input,
 				       peer->closing_sig_received,
-				       peer->closing_sig_sent,
+				       &sig,
 				       &peer->channel_info->remote_fundingkey,
 				       &local_funding_pubkey);
 
@@ -1351,16 +1339,12 @@ static int closing_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CLOSING_RECEIVED_SIGNATURE:
 		return peer_received_closing_signature(sd->peer, msg);
 
-	case WIRE_CLOSING_OFFERED_SIGNATURE:
-		return peer_offered_closing_signature(sd->peer, msg);
-
 	case WIRE_CLOSING_COMPLETE:
 		return peer_closing_complete(sd->peer, msg);
 
 	/* We send these, not receive them */
 	case WIRE_CLOSING_INIT:
 	case WIRE_CLOSING_RECEIVED_SIGNATURE_REPLY:
-	case WIRE_CLOSING_OFFERED_SIGNATURE_REPLY:
 		break;
 	}
 
@@ -1412,13 +1396,10 @@ static void peer_start_closingd(struct peer *peer,
 		return;
 	}
 
-	/* FIXME: Real fees! */
 	maxfee = commit_tx_base_fee(get_feerate(peer->ld->topology), 0);
+	/* FIXME: Real fees! */
 	minfee = maxfee / 2;
-	if (peer->closing_sig_sent)
-		startfee = peer->closing_fee_sent;
-	else
-		startfee = (maxfee + minfee)/2;
+	startfee = (maxfee + minfee)/2;
 
 	/* BOLT #3:
 	 *

@@ -254,17 +254,6 @@ int main(int argc, char *argv[])
 			      &funding_pubkey[LOCAL],
 			      &sig);
 
-		/* Tell master we're making an offer, wait for db commit. */
-		msg = towire_closing_offered_signature(tmpctx, sent_fee, &sig);
-		if (!wire_sync_write(REQ_FD, msg))
-			status_failed(WIRE_CLOSING_INTERNAL_ERROR,
-				      "Writing offer to master failed: %s",
-				      strerror(errno));
-		msg = wire_sync_read(tmpctx, REQ_FD);
-		if (!fromwire_closing_offered_signature_reply(msg, NULL))
-			status_failed(WIRE_CLOSING_INTERNAL_ERROR,
-				      "Reading offer reply from master failed");
-
 		status_trace("sending fee offer %"PRIu64, sent_fee);
 
 		/* Now send closing offer */
@@ -370,13 +359,21 @@ int main(int argc, char *argv[])
 
 		status_trace("Received fee offer %"PRIu64, received_fee);
 
+		/* BOLT #2:
+		 *
+		 * Otherwise, the recipient MUST fail the connection if
+		 * `fee_satoshis` is greater than the base fee of the final
+		 * commitment transaction as calculated in [BOLT #3] */
+		if (received_fee > maxfee)
+			status_failed(WIRE_CLOSING_PEER_BAD_MESSAGE,
+				      "Bad closing_signed fee %"PRIu64
+				      " > %"PRIu64,
+				      received_fee, maxfee);
+
 		/* Is fee reasonable?  Tell master. */
 		if (received_fee < minfee) {
 			status_trace("Fee too low, below %"PRIu64, minfee);
 			limit_fee = minfee;
-		} else if (received_fee > maxfee) {
-			status_trace("Fee too high, above %"PRIu64, maxfee);
-			limit_fee = maxfee;
 		} else {
 			status_trace("Fee accepted.");
 			msg = towire_closing_received_signature(tmpctx,
@@ -402,8 +399,12 @@ int main(int argc, char *argv[])
 		if (received_fee == sent_fee)
 			break;
 
-		/* Check that they moved in right direction.  Not really
-		 * a requirement that we check, but good to catch their bugs. */
+		/* BOLT #2:
+		 *
+		 * the recipient SHOULD fail the connection if `fee_satoshis`
+		 * is not strictly between its last-sent `fee_satoshis` and
+		 * its previously-received `fee_satoshis`, unless it has
+		 * reconnected since then. */
 		if (last_received_fee != -1) {
 			bool previous_dir = sent_fee < last_received_fee;
 			bool dir = received_fee < last_received_fee;

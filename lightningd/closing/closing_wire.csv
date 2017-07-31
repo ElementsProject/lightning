@@ -47,12 +47,5 @@ closing_received_signature,,signature,secp256k1_ecdsa_signature
 
 closing_received_signature_reply,102
 
-# We sent an offer, save it in case we crash.
-closing_offered_signature,3
-closing_offered_signature,,fee_satoshi,u64
-closing_offered_signature,,signature,secp256k1_ecdsa_signature
-
-closing_offered_signature_reply,103
-
 # Negotiations complete, we're exiting.
 closing_complete,4
