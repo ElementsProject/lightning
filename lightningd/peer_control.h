@@ -87,8 +87,8 @@ struct peer {
 	s64 local_shutdown_idx;
 
 	/* Closing stuff. */
-	u64 closing_fee_received, closing_fee_sent;
-	secp256k1_ecdsa_signature *closing_sig_sent, *closing_sig_received;
+	u64 closing_fee_received;
+	secp256k1_ecdsa_signature *closing_sig_received;
 
 	/* Reestablishment stuff: last sent commit and revocation details. */
 	bool last_was_revoke;
