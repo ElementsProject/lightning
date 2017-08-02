@@ -99,7 +99,6 @@ bool PRINTF_FMT(3, 4)
 
 	err = sqlite3_exec(db->sql, cmd, NULL, NULL, &errmsg);
 	if (err != SQLITE_OK) {
-		db->in_transaction = false;
 		tal_free(db->err);
 		db->err = tal_fmt(db, "%s:%s:%s:%s", caller,
 				  sqlite3_errstr(err), cmd, errmsg);
