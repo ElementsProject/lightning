@@ -192,12 +192,12 @@ struct msg_channel_announcement {
 	secp256k1_ecdsa_signature node_signature_2;
 	secp256k1_ecdsa_signature bitcoin_signature_1;
 	secp256k1_ecdsa_signature bitcoin_signature_2;
+	u8 *features;
+	struct short_channel_id short_channel_id;
 	struct pubkey node_id_1;
 	struct pubkey node_id_2;
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
-	struct short_channel_id short_channel_id;
-	u8 *features;
 };
 struct msg_init {
 	u8 *globalfeatures;
@@ -224,12 +224,12 @@ static void *towire_struct_channel_announcement(const tal_t *ctx,
 					   &s->node_signature_2,
 					   &s->bitcoin_signature_1,
 					   &s->bitcoin_signature_2,
+					   s->features,
 					   &s->short_channel_id,
 					   &s->node_id_1,
 					   &s->node_id_2,
 					   &s->bitcoin_key_1,
-					   &s->bitcoin_key_2,
-					   s->features);
+					   &s->bitcoin_key_2);
 }
 
 static struct msg_channel_announcement *fromwire_struct_channel_announcement(const tal_t *ctx, const void *p, size_t *plen)
@@ -240,12 +240,12 @@ static struct msg_channel_announcement *fromwire_struct_channel_announcement(con
 					  &s->node_signature_2,
 					  &s->bitcoin_signature_1,
 					  &s->bitcoin_signature_2,
+					  &s->features,
 					  &s->short_channel_id,
 					  &s->node_id_1,
 					  &s->node_id_2,
 					  &s->bitcoin_key_1,
-					  &s->bitcoin_key_2,
-					  &s->features))
+					  &s->bitcoin_key_2))
 		return tal_free(s);
 	return s;
 }
@@ -345,24 +345,25 @@ static void *towire_struct_node_announcement(const tal_t *ctx,
 {
 	return towire_node_announcement(ctx, 
 					&s->signature,
+					s->features,
 					s->timestamp,
 					&s->node_id,
 					s->rgb_color,
 					s->alias,
-					s->features,
 					s->addresses);
 }
 
 static struct msg_node_announcement *fromwire_struct_node_announcement(const tal_t *ctx, const void *p, size_t *plen)
 {
 	struct msg_node_announcement *s = tal(ctx, struct msg_node_announcement);
-	if (!fromwire_node_announcement(s, p, plen, 
+	if (!fromwire_node_announcement(s, p, plen,
 				       &s->signature,
+					&s->features,
 				       &s->timestamp,
 				       &s->node_id,
 				       s->rgb_color,
 				       s->alias,
-					&s->features, &s->addresses))
+					&s->addresses))
 		return tal_free(s);
 	return s;
 }
@@ -697,9 +698,10 @@ static struct msg_init *fromwire_struct_init(const tal_t *ctx, const void *p, si
 static bool channel_announcement_eq(const struct msg_channel_announcement *a,
 				    const struct msg_channel_announcement *b)
 {
-	return eq_upto(a, b, short_channel_id) &&
-		short_channel_id_eq(&a->short_channel_id, &b->short_channel_id)
-		&& eq_var(a, b, features);
+	return eq_upto(a, b, features)
+		&& eq_var(a, b, features)
+		&& short_channel_id_eq(&a->short_channel_id, &b->short_channel_id)
+		&& eq_between(a, b, node_id_1, bitcoin_key_2);
 }
 
 static bool funding_locked_eq(const struct msg_funding_locked *a,

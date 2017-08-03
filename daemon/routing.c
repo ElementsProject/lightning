@@ -706,10 +706,10 @@ void handle_channel_announcement(
 					   &node_signature_1, &node_signature_2,
 					   &bitcoin_signature_1,
 					   &bitcoin_signature_2,
+					   &features,
 					   &short_channel_id,
 					   &node_id_1, &node_id_2,
-					   &bitcoin_key_1, &bitcoin_key_2,
-					   &features)) {
+					   &bitcoin_key_1, &bitcoin_key_2)) {
 		tal_free(tmpctx);
 		return;
 	}
@@ -866,8 +866,8 @@ void handle_node_announcement(
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
 	if (!fromwire_node_announcement(tmpctx, serialized, NULL,
-					&signature, &timestamp,
-					&node_id, rgb_color, alias, &features,
+					&signature, &features, &timestamp,
+					&node_id, rgb_color, alias,
 					&addresses)) {
 		tal_free(tmpctx);
 		return;

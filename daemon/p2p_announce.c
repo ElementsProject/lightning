@@ -75,16 +75,16 @@ static void broadcast_node_announcement(struct lightningd_state *dstate)
 
 	address = write_ip(tmpctx, dstate->external_ip, dstate->portnum);
 	serialized = towire_node_announcement(tmpctx, &signature,
+					      NULL,
 					      timestamp,
 					      &dstate->id, rgb_color, alias,
-					      NULL,
 					      address);
 	privkey_sign(dstate, serialized + 66, tal_count(serialized) - 66,
 		     &signature);
 	serialized = towire_node_announcement(tmpctx, &signature,
+					      NULL,
 					      timestamp,
 					      &dstate->id, rgb_color, alias,
-					      NULL,
 					      address);
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_pubkey(&tag, &dstate->id);
@@ -147,24 +147,24 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 						 &node_signature[1],
 						 &bitcoin_signature[0],
 						 &bitcoin_signature[1],
+						 NULL,
 						 &short_channel_id,
 						 node_id[0],
 						 node_id[1],
 						 bitcoin_key[0],
-						 bitcoin_key[1],
-						 NULL);
+						 bitcoin_key[1]);
 	privkey_sign(dstate, serialized + 256, tal_count(serialized) - 256, my_node_signature);
 
 	serialized = towire_channel_announcement(tmpctx, &node_signature[0],
 						 &node_signature[1],
 						 &bitcoin_signature[0],
 						 &bitcoin_signature[1],
+						 NULL,
 						 &short_channel_id,
 						 node_id[0],
 						 node_id[1],
 						 bitcoin_key[0],
-						 bitcoin_key[1],
-						 NULL);
+						 bitcoin_key[1]);
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_short_channel_id(&tag, &short_channel_id);
 	queue_broadcast(dstate->rstate->broadcasts, WIRE_CHANNEL_ANNOUNCEMENT,

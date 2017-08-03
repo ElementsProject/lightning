@@ -265,9 +265,10 @@ static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer)
 	    &peer->announcement_node_sigs[second],
 	    &peer->announcement_bitcoin_sigs[first],
 	    &peer->announcement_bitcoin_sigs[second],
+	    features,
 	    &peer->short_channel_ids[LOCAL], &peer->node_ids[first],
 	    &peer->node_ids[second], &peer->channel->funding_pubkey[first],
-	    &peer->channel->funding_pubkey[second], features);
+	    &peer->channel->funding_pubkey[second]);
 	tal_free(features);
 	return cannounce;
 }
