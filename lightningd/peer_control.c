@@ -988,8 +988,8 @@ static u8 *create_node_announcement(const tal_t *ctx, struct lightningd *ld,
 	}
 	memset(alias, 0, sizeof(alias));
 	announcement =
-	    towire_node_announcement(ctx, sig, timestamp, &ld->dstate.id, rgb,
-				     alias, features, addresses);
+	    towire_node_announcement(ctx, sig, features, timestamp,
+				     &ld->dstate.id, rgb, alias, addresses);
 	return announcement;
 }
 
