@@ -2,6 +2,7 @@
 
 #include <bitcoin/script.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/tal/str/str.h>
 #include <inttypes.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_control.h>
@@ -539,6 +540,133 @@ bool wallet_channel_load(struct wallet *w, const u64 id,
 	return ok;
 }
 
+static char* db_serialize_signature(const tal_t *ctx, secp256k1_ecdsa_signature* sig)
+{
+	u8 buf[64];
+	if (secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx, buf, sig) != 1)
+		return "null";
+	return tal_fmt(ctx, "'%s'", tal_hexstr(ctx, buf, sizeof(buf)));
+}
+
+static char* db_serialize_pubkey(const tal_t *ctx, struct pubkey *pk)
+{
+	u8 *der;
+	if (!pk)
+		return "NULL";
+	der = tal_arr(ctx, u8, PUBKEY_DER_LEN);
+	pubkey_to_der(der, pk);
+	return tal_hex(ctx, der);
+}
+
+bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
+	bool ok = true;
+	struct peer *p = chan->peer;
+	tal_t *tmpctx = tal_tmpctx(w);
+
+	if (chan->peer_id == 0) {
+		/* Need to store the peer first */
+		ok &= db_exec(__func__, w->db,
+			      "INSERT INTO peers (node_id) VALUES ('%s');",
+			      db_serialize_pubkey(tmpctx, &chan->peer->id));
+		chan->peer_id = sqlite3_last_insert_rowid(w->db->sql);
+	}
+
+	db_begin_transaction(w->db);
+
+	/* Insert a stub, that we can update, unifies INSERT and UPDATE paths */
+	if (chan->id == 0) {
+		ok &= db_exec(__func__, w->db, "INSERT INTO channels (peer_id) VALUES (%"PRIu64");", chan->peer_id);
+		chan->id = sqlite3_last_insert_rowid(w->db->sql);
+	}
+
+	/* Need to initialize the shachain first so we get an id */
+	if (p->their_shachain.id == 0) {
+		ok &= wallet_shachain_init(w, &p->their_shachain);
+	}
+
+	/* Now do the real update */
+	ok &= db_exec(__func__, w->db, "UPDATE channels SET"
+		      "  shachain_remote_id=%"PRIu64","
+		      "  short_channel_id=%s,"
+		      "  state=%d,"
+		      "  funder=%d,"
+		      "  channel_flags=%d,"
+		      "  minimum_depth=%d,"
+		      "  next_index_local=%"PRIu64","
+		      "  next_index_remote=%"PRIu64","
+		      "  num_revocations_received=%"PRIu64","
+		      "  next_htlc_id=%"PRIu64","
+		      "  funding_tx_id=%s,"
+		      "  funding_tx_outnum=%d,"
+		      "  funding_satoshi=%"PRIu64","
+		      "  funding_locked_remote=%d,"
+		      "  push_msatoshi=%"PRIu64","
+		      "  msatoshi_local=%s,"
+		      "  shutdown_scriptpubkey_remote='%s',"
+		      "  shutdown_keyidx_local=%"PRIu64""
+		      " WHERE id=%"PRIu64,
+		      p->their_shachain.id,
+		      p->scid?tal_fmt(tmpctx,"'%s'", short_channel_id_to_str(tmpctx, p->scid)):"null",
+		      p->state,
+		      p->funder,
+		      p->channel_flags,
+		      p->minimum_depth,
+		      p->next_index[LOCAL],
+		      p->next_index[REMOTE],
+		      p->num_revocations_received,
+		      p->next_htlc_id,
+		      p->funding_txid?tal_fmt(tmpctx, "'%s'", tal_hexstr(tmpctx, p->funding_txid, sizeof(struct sha256_double))):"null",
+		      p->funding_outnum,
+		      p->funding_satoshi,
+		      p->remote_funding_locked,
+		      p->push_msat,
+		      p->our_msatoshi?tal_fmt(tmpctx, "%"PRIu64, *p->our_msatoshi):"NULL",
+		      p->remote_shutdown_scriptpubkey?tal_hex(tmpctx, p->remote_shutdown_scriptpubkey):"",
+		      p->local_shutdown_idx,
+		      chan->id);
+
+	if (chan->peer->channel_info) {
+		ok &= db_exec(__func__, w->db,
+			      "UPDATE channels SET"
+			      "  commit_sig_remote=%s,"
+			      "  fundingkey_remote='%s',"
+			      "  revocation_basepoint_remote='%s',"
+			      "  payment_basepoint_remote='%s',"
+			      "  delayed_payment_basepoint_remote='%s',"
+			      "  per_commit_remote='%s',"
+			      "  old_per_commit_remote='%s',"
+			      "  feerate_per_kw=%d"
+			      " WHERE id=%"PRIu64,
+			      db_serialize_signature(tmpctx, &p->channel_info->commit_sig),
+			      db_serialize_pubkey(tmpctx, &p->channel_info->remote_fundingkey),
+			      db_serialize_pubkey(tmpctx, &p->channel_info->theirbase.revocation),
+			      db_serialize_pubkey(tmpctx, &p->channel_info->theirbase.payment),
+			      db_serialize_pubkey(tmpctx, &p->channel_info->theirbase.delayed_payment),
+			      db_serialize_pubkey(tmpctx, &p->channel_info->remote_per_commit),
+			      db_serialize_pubkey(tmpctx, &p->channel_info->old_remote_per_commit),
+			      p->channel_info->feerate_per_kw,
+			      chan->id);
+	}
+
+	/* If we have a last_sent_commit, store it */
+	if (chan->peer->last_sent_commit) {
+		ok &= db_exec(__func__, w->db,
+			      "UPDATE channels SET"
+			      "  last_sent_commit_state=%d,"
+			      "  last_sent_commit_id=%"PRIu64
+			      " WHERE id=%"PRIu64,
+			      p->last_sent_commit->newstate,
+			      p->last_sent_commit->id,
+			      chan->id);
+	}
+
+	if (ok)
+		ok &= db_commit_transaction(w->db);
+	else
+		db_rollback_transaction(w->db);
+	tal_free(tmpctx);
+      	return ok;
+}
 /**
  * wallet_shachain_delete - Drop the shachain from the database
  *
