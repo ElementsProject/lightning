@@ -164,4 +164,13 @@ bool wallet_shachain_load(struct wallet *wallet, u64 id,
 
 bool wallet_channel_load(struct wallet *w, const u64 id,
 			 struct wallet_channel *chan);
+
+/**
+ * wallet_channel_save -- Upsert the channel into the database
+ *
+ * @wallet: the wallet to save into
+ * @chan: the instance to store (not const so we can update the unique_id upon
+ *   insert)
+ */
+bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan);
 #endif /* WALLET_WALLET_H */
