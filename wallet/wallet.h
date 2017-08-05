@@ -5,6 +5,7 @@
 #include "db.h"
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/tal/tal.h>
+#include <lightningd/channel_config.h>
 #include <lightningd/utxo.h>
 #include <wally_bip32.h>
 
@@ -173,4 +174,15 @@ bool wallet_channel_load(struct wallet *w, const u64 id,
  *   insert)
  */
 bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan);
+
+/**
+ * wallet_channel_config_save -- Upsert a channel_config into the database
+ */
+bool wallet_channel_config_save(struct wallet *w, struct channel_config *cc);
+
+/**
+ * wallet_channel_config_load -- Load channel_config from database into cc
+ */
+bool wallet_channel_config_load(struct wallet *w, const u64 id,
+				struct channel_config *cc);
 #endif /* WALLET_WALLET_H */

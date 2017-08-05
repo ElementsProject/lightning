@@ -558,6 +558,58 @@ static char* db_serialize_pubkey(const tal_t *ctx, struct pubkey *pk)
 	return tal_hex(ctx, der);
 }
 
+bool wallet_channel_config_save(struct wallet *w, struct channel_config *cc)
+{
+	bool ok = true;
+	/* Is this an update? If not insert a stub first */
+	if (!cc->id) {
+		ok &= db_exec(__func__, w->db,
+			      "INSERT INTO channel_configs DEFAULT VALUES;");
+		cc->id = sqlite3_last_insert_rowid(w->db->sql);
+	}
+
+	ok &= db_exec(
+	    __func__, w->db, "UPDATE channel_configs SET"
+			     "  dust_limit_satoshis=%" PRIu64 ","
+			     "  max_htlc_value_in_flight_msat=%" PRIu64 ","
+			     "  channel_reserve_satoshis=%" PRIu64 ","
+			     "  htlc_minimum_msat=%" PRIu64 ","
+			     "  to_self_delay=%d,"
+			     "  max_accepted_htlcs=%d"
+			     " WHERE id=%" PRIu64 ";",
+	    cc->dust_limit_satoshis, cc->max_htlc_value_in_flight_msat,
+	    cc->channel_reserve_satoshis, cc->htlc_minimum_msat,
+	    cc->to_self_delay, cc->max_accepted_htlcs, cc->id);
+
+	return ok;
+}
+
+bool wallet_channel_config_load(struct wallet *w, const u64 id,
+				struct channel_config *cc)
+{
+	bool ok = true;
+	int col = 1;
+	const char *query =
+	    "SELECT id, dust_limit_satoshis, max_htlc_value_in_flight_msat, "
+	    "channel_reserve_satoshis, htlc_minimum_msat, to_self_delay, "
+	    "max_accepted_htlcs FROM channel_configs WHERE id=%" PRIu64 ";";
+	sqlite3_stmt *stmt = db_query(__func__, w->db, query, id);
+	if (!stmt || sqlite3_step(stmt) != SQLITE_ROW) {
+		sqlite3_finalize(stmt);
+		return false;
+	}
+	cc->id = id;
+	cc->dust_limit_satoshis = sqlite3_column_int64(stmt, col++);
+	cc->max_htlc_value_in_flight_msat = sqlite3_column_int64(stmt, col++);
+	cc->channel_reserve_satoshis = sqlite3_column_int64(stmt, col++);
+	cc->htlc_minimum_msat = sqlite3_column_int64(stmt, col++);
+	cc->to_self_delay = sqlite3_column_int(stmt, col++);
+	cc->max_accepted_htlcs = sqlite3_column_int(stmt, col++);
+	assert(col == 7);
+	sqlite3_finalize(stmt);
+	return ok;
+}
+
 bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 	bool ok = true;
 	struct peer *p = chan->peer;

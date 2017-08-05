@@ -80,6 +80,16 @@ char *dbmigrations[] = {
     "  address TEXT,"
     "  PRIMARY KEY (id)"
     ");",
+    "CREATE TABLE channel_configs ("
+    "  id INTEGER,"
+    "  dust_limit_satoshis INTEGER,"
+    "  max_htlc_value_in_flight_msat INTEGER,"
+    "  channel_reserve_satoshis INTEGER,"
+    "  htlc_minimum_msat INTEGER,"
+    "  to_self_delay INTEGER,"
+    "  max_accepted_htlcs INTEGER,"
+    "  PRIMARY KEY (id)"
+    ");",
     NULL,
 };
 
