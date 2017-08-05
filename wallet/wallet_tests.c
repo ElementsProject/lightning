@@ -7,6 +7,22 @@
 #include <stdio.h>
 #include <unistd.h>
 
+static struct wallet *create_test_wallet(const tal_t *ctx)
+{
+	char filename[] = "/tmp/ldb-XXXXXX";
+	int fd = mkstemp(filename);
+	struct wallet *w = tal(ctx, struct wallet);
+	CHECK_MSG(fd != -1, "Unable to generate temp filename");
+	close(fd);
+
+	w->db = db_open(w, filename);
+
+	CHECK_MSG(w->db, "Failed opening the db");
+	CHECK_MSG(db_migrate(w->db), "DB migration failed");
+
+	return w;
+}
+
 static bool test_wallet_outputs(void)
 {
 	char filename[] = "/tmp/ldb-XXXXXX";
@@ -229,13 +245,40 @@ static bool test_channel_crud(void)
 	return true;
 }
 
+static bool test_channel_config_crud(const tal_t *ctx)
+{
+	struct channel_config *cc1 = talz(ctx, struct channel_config),
+			      *cc2 = talz(ctx, struct channel_config);
+	struct wallet *w = create_test_wallet(ctx);
+	CHECK(w);
+
+	cc1->dust_limit_satoshis = 1;
+	cc1->max_htlc_value_in_flight_msat = 2;
+	cc1->channel_reserve_satoshis = 3;
+	cc1->htlc_minimum_msat = 4;
+	cc1->to_self_delay = 5;
+	cc1->max_accepted_htlcs = 6;
+
+	CHECK(wallet_channel_config_save(w, cc1));
+	CHECK_MSG(
+	    cc1->id == 1,
+	    tal_fmt(ctx, "channel_config->id != 1; got %" PRIu64, cc1->id));
+
+	CHECK(wallet_channel_config_load(w, cc1->id, cc2));
+	CHECK(memeq(cc1, sizeof(*cc1), cc2, sizeof(*cc2)));
+       	return true;
+}
+
 int main(void)
 {
 	bool ok = true;
+	tal_t *tmpctx = tal_tmpctx(NULL);
 
 	ok &= test_wallet_outputs();
 	ok &= test_shachain_crud();
 	ok &= test_channel_crud();
+	ok &= test_channel_config_crud(tmpctx);
 
+	tal_free(tmpctx);
 	return !ok;
 }
