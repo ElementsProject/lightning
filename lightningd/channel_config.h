@@ -32,6 +32,8 @@
  *    * [`2`:`max_accepted_htlcs`]
  */
 struct channel_config {
+	/* Database ID */
+	u64 id;
 	u64 dust_limit_satoshis;
 	u64 max_htlc_value_in_flight_msat;
 	u64 channel_reserve_satoshis;
