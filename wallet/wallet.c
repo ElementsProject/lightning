@@ -404,6 +404,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 	struct channel_info *channel_info;
 	struct sha256_double temphash;
 	struct short_channel_id scid;
+	u64 remote_config_id;
 
 	if (!chan->peer) {
 		chan->peer = talz(chan, struct peer);
@@ -420,7 +421,9 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 	}
 
 	/* TODO(cdecker) Load channel configs into chan */
-	col += 2;
+	chan->peer->our_config.id = sqlite3_column_int64(stmt, col++);
+	wallet_channel_config_load(w, chan->peer->our_config.id, &chan->peer->our_config);
+	remote_config_id = sqlite3_column_int64(stmt, col++);
 
 	chan->peer->state = sqlite3_column_int(stmt, col++);
 	chan->peer->funder = sqlite3_column_int(stmt, col++);
@@ -471,6 +474,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->remote_per_commit);
 		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->old_remote_per_commit);
 		channel_info->feerate_per_kw = sqlite3_column_int64(stmt, col++);
+		wallet_channel_config_load(w, remote_config_id, &chan->peer->channel_info->their_config);
 	} else {
 		/* No channel_info, skip positions in the result */
 		col += 8;
@@ -636,6 +640,8 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		ok &= wallet_shachain_init(w, &p->their_shachain);
 	}
 
+	ok &= wallet_channel_config_save(w, &p->our_config);
+
 	/* Now do the real update */
 	ok &= db_exec(__func__, w->db, "UPDATE channels SET"
 		      "  shachain_remote_id=%"PRIu64","
@@ -655,7 +661,8 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		      "  push_msatoshi=%"PRIu64","
 		      "  msatoshi_local=%s,"
 		      "  shutdown_scriptpubkey_remote='%s',"
-		      "  shutdown_keyidx_local=%"PRIu64""
+		      "  shutdown_keyidx_local=%"PRIu64","
+		      "  channel_config_local=%"PRIu64
 		      " WHERE id=%"PRIu64,
 		      p->their_shachain.id,
 		      p->scid?tal_fmt(tmpctx,"'%s'", short_channel_id_to_str(tmpctx, p->scid)):"null",
@@ -675,9 +682,11 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		      p->our_msatoshi?tal_fmt(tmpctx, "%"PRIu64, *p->our_msatoshi):"NULL",
 		      p->remote_shutdown_scriptpubkey?tal_hex(tmpctx, p->remote_shutdown_scriptpubkey):"",
 		      p->local_shutdown_idx,
+		      p->our_config.id,
 		      chan->id);
 
 	if (chan->peer->channel_info) {
+		ok &= wallet_channel_config_save(w, &p->channel_info->their_config);
 		ok &= db_exec(__func__, w->db,
 			      "UPDATE channels SET"
 			      "  commit_sig_remote=%s,"
@@ -687,7 +696,8 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 			      "  delayed_payment_basepoint_remote='%s',"
 			      "  per_commit_remote='%s',"
 			      "  old_per_commit_remote='%s',"
-			      "  feerate_per_kw=%d"
+			      "  feerate_per_kw=%d,"
+			      "  channel_config_remote=%"PRIu64
 			      " WHERE id=%"PRIu64,
 			      db_serialize_signature(tmpctx, &p->channel_info->commit_sig),
 			      db_serialize_pubkey(tmpctx, &p->channel_info->remote_fundingkey),
@@ -697,6 +707,7 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 			      db_serialize_pubkey(tmpctx, &p->channel_info->remote_per_commit),
 			      db_serialize_pubkey(tmpctx, &p->channel_info->old_remote_per_commit),
 			      p->channel_info->feerate_per_kw,
+			      p->channel_info->their_config.id,
 			      chan->id);
 	}
 

@@ -144,8 +144,10 @@ static bool channelseq(struct wallet_channel *c1, struct wallet_channel *c2)
 		CHECK(pubkey_eq(&ci1->theirbase.delayed_payment, &ci2->theirbase.delayed_payment));
 		CHECK(pubkey_eq(&ci1->remote_per_commit, &ci2->remote_per_commit));
 		CHECK(pubkey_eq(&ci1->old_remote_per_commit, &ci2->old_remote_per_commit));
+		CHECK(ci1->their_config.id != 0 && ci1->their_config.id == ci2->their_config.id);
 	}
 
+	CHECK(p1->our_config.id != 0 && p1->our_config.id == p2->our_config.id);
 	CHECK((lc1 != NULL) ==  (lc2 != NULL));
 	if(lc1) {
 		CHECK(lc1->newstate == lc2->newstate);
@@ -155,11 +157,9 @@ static bool channelseq(struct wallet_channel *c1, struct wallet_channel *c2)
 	return true;
 }
 
-static bool test_channel_crud(void)
+static bool test_channel_crud(const tal_t *ctx)
 {
-	char filename[] = "/tmp/ldb-XXXXXX";
-	int fd = mkstemp(filename);
-	struct wallet *w = tal(NULL, struct wallet);
+	struct wallet *w = create_test_wallet(ctx);
 	struct wallet_channel c1, *c2 = tal(w, struct wallet_channel);
 	struct peer p;
 	struct channel_info ci;
@@ -168,13 +168,6 @@ static bool test_channel_crud(void)
 	struct changed_htlc last_commit;
 
 	u64 msat = 12345;
-
-	w->db = db_open(w, filename);
-	CHECK_MSG(w->db, "Failed opening the db");
-	CHECK_MSG(db_migrate(w->db), "DB migration failed");
-
-	CHECK_MSG(fd != -1, "Unable to generate temp filename");
-	close(fd);
 
 	memset(&c1, 0, sizeof(c1));
 	memset(c2, 0, sizeof(*c2));
@@ -189,6 +182,7 @@ static bool test_channel_crud(void)
 	p.id = pk;
 	p.unique_id = 42;
 	p.our_msatoshi = NULL;
+	memset(&ci.their_config, 0, sizeof(struct channel_config));
 	ci.remote_fundingkey = pk;
 	ci.theirbase.revocation = pk;
 	ci.theirbase.payment = pk;
@@ -276,7 +270,7 @@ int main(void)
 
 	ok &= test_wallet_outputs();
 	ok &= test_shachain_crud();
-	ok &= test_channel_crud();
+	ok &= test_channel_crud(tmpctx);
 	ok &= test_channel_config_crud(tmpctx);
 
 	tal_free(tmpctx);
