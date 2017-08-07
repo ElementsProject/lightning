@@ -371,6 +371,10 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 		log_info_struct(rstate->base_log, "find_route: cannot find %s",
 				struct pubkey, to);
 		return NULL;
+	} else if (!dst) {
+		log_info_struct(rstate->base_log, "find_route: cannot find myself (%s)",
+				struct pubkey, to);
+		return NULL;
 	} else if (dst == src) {
 		log_info_struct(rstate->base_log, "find_route: this is %s, refusing to create empty route",
 				struct pubkey, to);
