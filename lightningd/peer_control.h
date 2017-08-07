@@ -98,6 +98,8 @@ struct peer {
 
 	/* FIXME: Just leave this in the db. */
 	struct htlc_stub *htlcs;
+
+	struct wallet_channel *channel;
 };
 
 static inline bool peer_can_add_htlc(const struct peer *peer)

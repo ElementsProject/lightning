@@ -524,7 +524,8 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 		return;
 
 	/* Fresh peer. */
-	peer = tal(ld, struct peer);
+	/* Need to memset since storing will access all fields */
+	peer = talz(ld, struct peer);
 	peer->ld = ld;
 	peer->error = NULL;
 	peer->unique_id = unique_id;
@@ -1920,6 +1921,37 @@ static void channel_config(struct lightningd *ld,
 	 ours->channel_reserve_satoshis = 0;
 };
 
+/**
+ * peer_channel_new -- Instantiate a new channel for the given peer and save it
+ *
+ * We are about to open a channel with the peer, either due to a
+ * nongossip message from remote, or because we initiated an
+ * open. This creates the `struct wallet_channel` for the peer and
+ * stores it in the database.
+ *
+ * @w: the wallet to store the information in
+ * @peer: the peer we are opening a channel to
+ *
+ * This currently overwrites peer->channel, so can only be used if we
+ * allow a single channel per peer.
+ */
+static struct wallet_channel *peer_channel_new(struct wallet *w,
+					       struct peer *peer)
+{
+	struct wallet_channel *wc = tal(peer, struct wallet_channel);
+	wc->peer = peer;
+
+	/* TODO(cdecker) See if we already stored this peer in the DB and load if yes */
+	wc->peer_id = 0;
+	wc->id = 0;
+
+	if (!wallet_channel_save(w, wc)) {
+		fatal("Unable to save channel to database: %s", w->db->err);
+	}
+
+	return wc;
+}
+
 /* Peer has spontaneously exited from gossip due to msg */
 void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 		      const struct crypto_state *cs,
@@ -1987,6 +2019,7 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 		peer_fail_permanent_str(peer, "Unacceptably long open_channel");
 		return;
 	}
+	peer->channel = peer_channel_new(ld->wallet, peer);
 	subd_req(peer, peer->owner, take(msg), -1, 2,
 		 opening_fundee_finished, peer);
 }
@@ -2029,6 +2062,8 @@ static bool gossip_peer_released(struct subd *gossip,
 		return true;
 	}
 	fc->peer->owner = opening;
+
+	fc->peer->channel = peer_channel_new(ld->wallet, fc->peer);
 
 	/* We will fund channel */
 	fc->peer->funder = LOCAL;
