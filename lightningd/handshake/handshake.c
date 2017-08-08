@@ -970,7 +970,10 @@ static void exchange_init(int fd, struct crypto_state *cs,
 	 * #9](09-features.md), and MUST set to zero any feature bits that are
 	 * not defined.
 	 */
-	u8 *msg = towire_init(NULL, NULL, NULL);
+	u8 *localfeatures = tal_arrz(NULL, u8, 1);
+	localfeatures[0] = LOCALFEATURES_INITIAL_ROUTING_SYNC;
+	u8 *msg = towire_init(NULL, NULL, localfeatures);
+	localfeatures = tal_free(localfeatures);
 
 	if (!sync_crypto_write(cs, fd, msg))
 		status_failed(WIRE_INITMSG_WRITE_FAILED, "%s", strerror(errno));

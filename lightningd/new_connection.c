@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <wire/wire_sync.h>
 
-const u8 supported_local_features[] = {0x03};
+const u8 supported_local_features[] = {LOCALFEATURES_INITIAL_ROUTING_SYNC};
 const u8 supported_global_features[] = {0x00};
 
 /* Before we have identified the peer, we just have a connection object. */
