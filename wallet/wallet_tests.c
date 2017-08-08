@@ -154,6 +154,14 @@ static bool channelseq(struct wallet_channel *c1, struct wallet_channel *c2)
 		CHECK(lc1->id == lc2->id);
 	}
 
+	CHECK((p1->closing_sig_received != NULL) ==  (p2->closing_sig_received != NULL));
+	if(p1->closing_sig_received) {
+		CHECK(memeq(p1->closing_sig_received,
+			    sizeof(secp256k1_ecdsa_signature),
+			    p2->closing_sig_received,
+			    sizeof(secp256k1_ecdsa_signature)));
+	}
+
 	return true;
 }
 
@@ -166,6 +174,7 @@ static bool test_channel_crud(const tal_t *ctx)
 	struct sha256_double *hash = tal(w, struct sha256_double);
 	struct pubkey pk;
 	struct changed_htlc last_commit;
+	secp256k1_ecdsa_signature *sig = tal(w, secp256k1_ecdsa_signature);
 
 	u64 msat = 12345;
 
@@ -174,6 +183,7 @@ static bool test_channel_crud(const tal_t *ctx)
 	memset(&p, 0, sizeof(p));
 	memset(&ci, 3, sizeof(ci));
 	memset(hash, 'B', sizeof(*hash));
+	memset(sig, 0, sizeof(*sig));
 	memset(&last_commit, 0, sizeof(last_commit));
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
 	ci.feerate_per_kw = 31337;
@@ -234,6 +244,12 @@ static bool test_channel_crud(const tal_t *ctx)
 	CHECK_MSG(wallet_channel_save(w, &c1), tal_fmt(w, "Insert into DB: %s", w->db->err));
 	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB: %s", w->db->err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v6)");
+
+	/* Variant 7: update with closing_sig */
+	p.closing_sig_received = sig;
+	CHECK_MSG(wallet_channel_save(w, &c1), tal_fmt(w, "Insert into DB: %s", w->db->err));
+	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB: %s", w->db->err));
+	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v7)");
 
 	tal_free(w);
 	return true;
