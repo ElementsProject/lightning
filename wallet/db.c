@@ -72,6 +72,8 @@ char *dbmigrations[] = {
     "  shutdown_keyidx_local INTEGER,"
     "  last_sent_commit_state INTEGER,"
     "  last_sent_commit_id INTEGER,"
+    "  closing_fee_received INTEGER,"
+    "  closing_sig_received BLOB,"
     "  PRIMARY KEY (id)"
     ");",
     "CREATE TABLE peers ("

@@ -505,7 +505,17 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		chan->peer->last_sent_commit = tal_free(chan->peer->last_sent_commit);
 		col += 2;
 	}
-	assert(col == 32);
+
+	chan->peer->closing_fee_received = sqlite3_column_int64(stmt, col++);
+	if (sqlite3_column_type(stmt, col) != SQLITE_NULL) {
+		if (!chan->peer->closing_sig_received) {
+			chan->peer->closing_sig_received = tal(chan->peer, secp256k1_ecdsa_signature);
+		}
+		ok &= sqlite3_column_sig(stmt, col++, chan->peer->closing_sig_received);
+	} else {
+		col++;
+	}
+	assert(col == 34);
 
 	return ok;
 }
@@ -529,7 +539,8 @@ bool wallet_channel_load(struct wallet *w, const u64 id,
 	    "delayed_payment_basepoint_remote, per_commit_remote, "
 	    "old_per_commit_remote, feerate_per_kw, shachain_remote_id, "
 	    "shutdown_scriptpubkey_remote, shutdown_keyidx_local, "
-	    "last_sent_commit_state, last_sent_commit_id FROM channels WHERE "
+	    "last_sent_commit_state, last_sent_commit_id, "
+	    "closing_fee_received, closing_sig_received FROM channels WHERE "
 	    "id=%" PRIu64 ";";
 
 	sqlite3_stmt *stmt = db_query(__func__, w->db, channel_query, id);
@@ -547,7 +558,7 @@ bool wallet_channel_load(struct wallet *w, const u64 id,
 static char* db_serialize_signature(const tal_t *ctx, secp256k1_ecdsa_signature* sig)
 {
 	u8 buf[64];
-	if (secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx, buf, sig) != 1)
+	if (!sig || secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx, buf, sig) != 1)
 		return "null";
 	return tal_fmt(ctx, "'%s'", tal_hexstr(ctx, buf, sizeof(buf)));
 }
@@ -662,7 +673,9 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		      "  msatoshi_local=%s,"
 		      "  shutdown_scriptpubkey_remote='%s',"
 		      "  shutdown_keyidx_local=%"PRIu64","
-		      "  channel_config_local=%"PRIu64
+		      "  channel_config_local=%"PRIu64","
+		      "  closing_fee_received=%"PRIu64","
+		      "  closing_sig_received=%s"
 		      " WHERE id=%"PRIu64,
 		      p->their_shachain.id,
 		      p->scid?tal_fmt(tmpctx,"'%s'", short_channel_id_to_str(tmpctx, p->scid)):"null",
@@ -683,6 +696,8 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		      p->remote_shutdown_scriptpubkey?tal_hex(tmpctx, p->remote_shutdown_scriptpubkey):"",
 		      p->local_shutdown_idx,
 		      p->our_config.id,
+		      p->closing_fee_received,
+		      db_serialize_signature(tmpctx, p->closing_sig_received),
 		      chan->id);
 
 	if (chan->peer->channel_info) {
