@@ -20,12 +20,21 @@ To Build on Ubuntu 16.04
 
 Get dependencies:
 ```
-sudo apt-get install -y autoconf build-essential git libtool libprotobuf-c-dev libgmp-dev libsqlite3-dev python3
+sudo apt-get install -y autoconf build-essential git libtool libprotobuf-c-dev libgmp-dev libsqlite3-dev python3 net-tools
+```
+
+If you don't have Bitcoin installed locally you'll need to install that as well:
+```
+sudo apt-get install software-properties-common
+sudo add-apt-repository ppa:bitcoin/bitcoin
+sudo apt-get update
+sudo apt-get install -y bitcoind
 ```
 
 For development or running tests, get additional dependencies:
 ```
-sudo apt-get install -y asciidoc valgrind python3-pip && pip3 install python-bitcoinlib
+sudo apt-get install -y asciidoc valgrind python3-pip
+sudo pip3 install python-bitcoinlib
 ```
 
 Clone lightning:
@@ -41,8 +50,8 @@ make
 
 Running lightning:
 ```
-bitcoind
-./daemon/lightningd
+bitcoind &
+./daemon/lightningd &
 ./daemon/lightning-cli help
 ```
 **Note**: You may need to include `testnet=1` in `bitcoin.conf`
