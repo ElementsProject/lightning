@@ -97,11 +97,12 @@ daemon/lightning-cli invoice <amount> <label>
 This returns a random value called `rhash` that is part of the invoice.
 The recipient needs to communicate its ID `<recipient_id>`, `<rhash>` and the desired `<amount>` to the sender.
 
-The sender needs to compute a route to the recipient, and use that route to actually send the payment:
+The sender needs to compute a route to the recipient, and use that route to actually send the payment.
+The route contains the path that the payment will take throught the Lightning Network and the respective funds that each node will forward.
 
 ```
 route=$(daemon/lightning-cli getroute <recipient_id> <amount> 1 | jq --raw-output .route -)
-daemon/lightning-cli sendpay $route <amount>
+daemon/lightning-cli sendpay $route <rhash>
 ```
 
 Notice that in the first step we stored the route in a variable and reused it in the second step.
