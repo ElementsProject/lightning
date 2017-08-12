@@ -229,7 +229,11 @@ void peer_set_condition(struct peer *peer, enum peer_state old_state,
 		fatal("peer state %s should be %s",
 		      peer_state_name(peer->state), peer_state_name(old_state));
 
-	/* FIXME: save to db */
+	/* TODO(cdecker) Selectively save updated fields to DB */
+	if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
+		fatal("Could not save channel to database: %s",
+		      peer->ld->wallet->db->err);
+	}
 	peer->state = state;
 }
 
@@ -511,6 +515,37 @@ static void copy_to_parent_log(const char *prefix,
 	tal_free(idstr);
 }
 
+/**
+ * peer_channel_new -- Instantiate a new channel for the given peer and save it
+ *
+ * We are about to open a channel with the peer, either due to a
+ * nongossip message from remote, or because we initiated an
+ * open. This creates the `struct wallet_channel` for the peer and
+ * stores it in the database.
+ *
+ * @w: the wallet to store the information in
+ * @peer: the peer we are opening a channel to
+ *
+ * This currently overwrites peer->channel, so can only be used if we
+ * allow a single channel per peer.
+ */
+static struct wallet_channel *peer_channel_new(struct wallet *w,
+					       struct peer *peer)
+{
+	struct wallet_channel *wc = tal(peer, struct wallet_channel);
+	wc->peer = peer;
+
+	/* TODO(cdecker) See if we already stored this peer in the DB and load if yes */
+	wc->peer_id = 0;
+	wc->id = 0;
+
+	if (!wallet_channel_save(w, wc)) {
+		fatal("Unable to save channel to database: %s", w->db->err);
+	}
+
+	return wc;
+}
+
 void add_peer(struct lightningd *ld, u64 unique_id,
 	      int fd, const struct pubkey *id,
 	      const struct crypto_state *cs)
@@ -550,6 +585,8 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->next_htlc_id = 0;
 	peer->htlcs = tal_arr(peer, struct htlc_stub, 0);
 	wallet_shachain_init(ld->wallet, &peer->their_shachain);
+
+	peer->channel = peer_channel_new(ld->wallet, peer);
 
 	idname = type_to_string(peer, struct pubkey, id);
 
@@ -1202,8 +1239,6 @@ static int peer_got_shutdown(struct peer *peer, const u8 *msg)
 		return -1;
 	}
 
-	/* FIXME: Save to db */
-
 	if (peer->local_shutdown_idx == -1) {
 		u8 *scriptpubkey;
 
@@ -1213,7 +1248,6 @@ static int peer_got_shutdown(struct peer *peer, const u8 *msg)
 					    "Can't get local shutdown index");
 			return -1;
 		}
-		/* FIXME: Save to db */
 
 		peer_set_condition(peer, CHANNELD_NORMAL, CHANNELD_SHUTTING_DOWN);
 
@@ -1242,6 +1276,12 @@ static int peer_got_shutdown(struct peer *peer, const u8 *msg)
 		subd_send_msg(peer->owner,
 			      take(towire_channel_send_shutdown(peer,
 								scriptpubkey)));
+	}
+
+	/* TODO(cdecker) Selectively save updated fields to DB */
+	if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
+		fatal("Could not save channel to database: %s",
+		      peer->ld->wallet->db->err);
 	}
 
 	return 0;
@@ -1350,9 +1390,15 @@ static int peer_received_closing_signature(struct peer *peer, const u8 *msg)
 	}
 
 	/* FIXME: Make sure signature is correct! */
+	if (better_closing_fee(peer, tx)) {
+		/* TODO(cdecker) Selectively save updated fields to DB */
+		if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
+			fatal("Could not save channel to database: %s",
+			      peer->ld->wallet->db->err);
+		}
 
-	if (better_closing_fee(peer, tx))
 		peer_last_tx(peer, tx, &sig);
+	}
 
 	/* OK, you can continue now. */
 	subd_send_msg(peer->owner,
@@ -1702,8 +1748,6 @@ static bool peer_start_channeld(struct peer *peer,
 static bool peer_commit_initial(struct peer *peer)
 {
 	peer->next_index[LOCAL] = peer->next_index[REMOTE] = 1;
-
-	/* FIXME: Db channel_info, etc. */
 	return true;
 }
 
@@ -1727,6 +1771,9 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 	fc->peer->channel_info = channel_info
 		= tal(fc->peer, struct channel_info);
 	remote_commit = tal(resp, struct bitcoin_tx);
+
+	/* This is a new channel_info->their_config so set its ID to 0 */
+	fc->peer->channel_info->their_config.id = 0;
 
 	if (!fromwire_opening_funder_reply(resp, NULL,
 					   &channel_info->their_config,
@@ -1830,6 +1877,9 @@ static bool opening_fundee_finished(struct subd *opening,
 
 	/* At this point, we care about peer */
 	peer->channel_info = channel_info = tal(peer, struct channel_info);
+	/* This is a new channel_info->their_config, set its ID to 0 */
+	peer->channel_info->their_config.id = 0;
+
 	peer->funding_txid = tal(peer, struct sha256_double);
 	if (!fromwire_opening_fundee_reply(peer, reply, NULL,
 					   &channel_info->their_config,
@@ -1920,37 +1970,6 @@ static void channel_config(struct lightningd *ld,
 	 /* This is filled in by lightningd_opening, for consistency. */
 	 ours->channel_reserve_satoshis = 0;
 };
-
-/**
- * peer_channel_new -- Instantiate a new channel for the given peer and save it
- *
- * We are about to open a channel with the peer, either due to a
- * nongossip message from remote, or because we initiated an
- * open. This creates the `struct wallet_channel` for the peer and
- * stores it in the database.
- *
- * @w: the wallet to store the information in
- * @peer: the peer we are opening a channel to
- *
- * This currently overwrites peer->channel, so can only be used if we
- * allow a single channel per peer.
- */
-static struct wallet_channel *peer_channel_new(struct wallet *w,
-					       struct peer *peer)
-{
-	struct wallet_channel *wc = tal(peer, struct wallet_channel);
-	wc->peer = peer;
-
-	/* TODO(cdecker) See if we already stored this peer in the DB and load if yes */
-	wc->peer_id = 0;
-	wc->id = 0;
-
-	if (!wallet_channel_save(w, wc)) {
-		fatal("Unable to save channel to database: %s", w->db->err);
-	}
-
-	return wc;
-}
 
 /* Peer has spontaneously exited from gossip due to msg */
 void peer_fundee_open(struct peer *peer, const u8 *from_peer,
