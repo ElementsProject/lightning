@@ -28,10 +28,13 @@ static char **gather_args(struct bitcoind *bitcoind,
 			  const tal_t *ctx, const char *cmd, va_list ap)
 {
 	size_t n = 0;
-	char **args = tal_arr(ctx, char *, 3);
+	char **args = tal_arr(ctx, char *, 2);
 
 	args[n++] = cast_const(char *, bitcoind->chainparams->cli);
-	args[n++] = cast_const(char *, bitcoind->chainparams->cli_args);
+	if (bitcoind->chainparams->cli_args) {
+		args[n++] = cast_const(char *, bitcoind->chainparams->cli_args);
+		tal_resize(&args, n + 1);
+	}
 
 	if (bitcoind->datadir) {
 		args[n++] = tal_fmt(args, "-datadir=%s", bitcoind->datadir);

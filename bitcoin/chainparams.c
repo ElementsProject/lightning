@@ -13,7 +13,7 @@ const struct chainparams networks[] = {
 				     0x0a, 0x8c, 0xe2, 0x6f}}},
      .rpc_port = 8332,
      .cli = "bitcoin-cli",
-     .cli_args = "",
+     .cli_args = NULL,
      .dust_limit = 546,
      .testnet = false},
     {.index = 1,
