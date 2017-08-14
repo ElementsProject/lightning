@@ -401,6 +401,28 @@ static bool wallet_peer_load(struct wallet *w, const u64 id, struct peer *peer)
 	return ok;
 }
 
+bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
+			   struct peer *peer)
+{
+	bool ok;
+	tal_t *tmpctx = tal_tmpctx(w);
+	sqlite3_stmt *stmt = db_query(
+	    __func__, w->db, "SELECT id, node_id FROM peers WHERE node_id='%s';",
+	    pubkey_to_hexstr(tmpctx, nodeid));
+
+	ok = stmt != NULL && sqlite3_step(stmt) == SQLITE_ROW;
+	if (ok) {
+		peer->dbid = sqlite3_column_int64(stmt, 0);
+		ok &= sqlite3_column_pubkey(stmt, 1, &peer->id);
+	} else {
+		/* Make sure we mark this as a new peer */
+		peer->dbid = 0;
+	}
+	sqlite3_finalize(stmt);
+	tal_free(tmpctx);
+	return ok;
+}
+
 /**
  * wallet_stmt2channel - Helper to populate a wallet_channel from a sqlite3_stmt
  *
