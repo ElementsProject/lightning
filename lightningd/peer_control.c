@@ -540,7 +540,7 @@ static struct wallet_channel *peer_channel_new(struct wallet *w,
 	struct wallet_channel *wc = tal(peer, struct wallet_channel);
 	wc->peer = peer;
 
-	/* TODO(cdecker) See if we already stored this peer in the DB and load if yes */
+	wallet_peer_by_nodeid(w, &peer->id, peer);
 	wc->id = 0;
 
 	if (!wallet_channel_save(w, wc)) {
@@ -589,6 +589,11 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->next_htlc_id = 0;
 	peer->htlcs = tal_arr(peer, struct htlc_stub, 0);
 	wallet_shachain_init(ld->wallet, &peer->their_shachain);
+
+	/* If we have the peer in the DB, this'll populate the fields,
+	 * failure just indicates that the peer wasn't found in the
+	 * DB */
+	wallet_peer_by_nodeid(ld->wallet, id, peer);
 
 	/* peer->channel gets populated as soon as we start opening a channel */
 	peer->channel = NULL;

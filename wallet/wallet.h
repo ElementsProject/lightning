@@ -184,4 +184,17 @@ bool wallet_channel_config_save(struct wallet *w, struct channel_config *cc);
  */
 bool wallet_channel_config_load(struct wallet *w, const u64 id,
 				struct channel_config *cc);
+
+/**
+ * wallet_peer_by_nodeid -- Given a node_id/pubkey, load the peer from DB
+ *
+ * @w: the wallet to load from
+ * @nodeid: the node_id to search for
+ * @peer(out): the destination where to store the peer
+ *
+ * Returns true on success, or false if we were unable to find a peer
+ * with the given node_id.
+ */
+bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
+			   struct peer *peer);
 #endif /* WALLET_WALLET_H */

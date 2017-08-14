@@ -79,7 +79,7 @@ char *dbmigrations[] = {
     ");",
     "CREATE TABLE peers ("
     "  id INTEGER,"
-    "  node_id BLOB," /* pubkey */
+    "  node_id BLOB UNIQUE," /* pubkey */
     "  address TEXT,"
     "  PRIMARY KEY (id)"
     ");",
