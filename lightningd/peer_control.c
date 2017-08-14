@@ -862,6 +862,7 @@ static void json_getpeers(struct command *cmd,
 		json_add_string(response, "netaddr",
 				netaddr_name(response, &p->netaddr));
 		json_add_pubkey(response, "peerid", &p->id);
+		json_add_bool(response, "connected", p->owner != NULL);
 		if (p->owner)
 			json_add_string(response, "owner", p->owner->name);
 		if (p->scid)
