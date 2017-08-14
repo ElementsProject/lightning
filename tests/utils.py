@@ -186,7 +186,6 @@ class BitcoinD(TailableProc):
             '-printtoconsole',
             '-server',
             '-regtest',
-            '-debug',
             '-logtimestamps',
             '-nolisten',
         ]
