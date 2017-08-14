@@ -229,12 +229,17 @@ void peer_set_condition(struct peer *peer, enum peer_state old_state,
 		fatal("peer state %s should be %s",
 		      peer_state_name(peer->state), peer_state_name(old_state));
 
-	/* TODO(cdecker) Selectively save updated fields to DB */
-	if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
-		fatal("Could not save channel to database: %s",
-		      peer->ld->wallet->db->err);
-	}
 	peer->state = state;
+
+	/* We only persist channels/peers that have reached the opening state */
+	if (peer_persists(peer)) {
+		assert(peer->channel != NULL);
+		/* TODO(cdecker) Selectively save updated fields to DB */
+		if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
+			fatal("Could not save channel to database: %s",
+			      peer->ld->wallet->db->err);
+		}
+	}
 }
 
 /* FIXME: Reshuffle. */
@@ -586,7 +591,8 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->htlcs = tal_arr(peer, struct htlc_stub, 0);
 	wallet_shachain_init(ld->wallet, &peer->their_shachain);
 
-	peer->channel = peer_channel_new(ld->wallet, peer);
+	/* peer->channel gets populated as soon as we start opening a channel */
+	peer->channel = NULL;
 
 	idname = type_to_string(peer, struct pubkey, id);
 
