@@ -442,9 +442,11 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 			      "%s", tal_hex(trc, msg));
 
 	peer = find_peer(daemon, unique_id);
-	if (!peer) {
+	if (!peer || !peer->local) {
 		/* This can happen with a reconnect vs connect race.
-		 * See gossip_peer_released in master daemon. */
+		 * See gossip_peer_released in master daemon. It may
+		 * also happen if we asked to release just before
+		 * failing the peer*/
 		daemon_conn_send(&daemon->master,
 				 take(towire_gossipctl_release_peer_replyfail(msg)));
 	} else {
@@ -470,11 +472,13 @@ static struct io_plan *fail_peer(struct io_conn *conn, struct daemon *daemon,
 	peer = find_peer(daemon, unique_id);
 	if (!peer)
 		status_trace("Unknown fail_peer %"PRIu64, unique_id);
-	else {
-		assert(peer->local);
+	else if (peer->local) {
 		status_trace("fail_peer %"PRIu64, unique_id);
 		/* This owns the peer, so we can free it */
 		io_close(peer->conn);
+	} else {
+		status_trace("Could not fail_peer %"PRIu64", it's not local",
+			     unique_id);
 	}
 
 	return daemon_conn_read_next(conn, &daemon->master);
