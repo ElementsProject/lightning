@@ -263,7 +263,7 @@ class LightningDTests(BaseLightningDTests):
         rs['msatoshi'] = rs['msatoshi'] * 2 + 1
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json([rs]), rhash)
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False
-        
+
         # Insufficient delay.
         rs = copy.deepcopy(routestep)
         rs['delay'] = rs['delay'] - 2
@@ -289,7 +289,7 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
 
         # Balances should reflect it.
-        time.sleep(1)        
+        time.sleep(1)
         p1 = l1.rpc.getpeer(l2.info['id'], 'info')
         p2 = l2.rpc.getpeer(l1.info['id'], 'info')
         assert p1['msatoshi_to_us'] == 10**6 * 1000 - amt
@@ -330,7 +330,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l2.daemon.wait_for_log('sendrawtx exit 0')
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
-        
+
     def test_gossip_jsonrpc(self):
         l1,l2 = self.connect()
 
@@ -465,7 +465,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Allow announce messages.
         l1.bitcoin.rpc.generate(5)
-        
+
         # If they're at different block heights we can get spurious errors.
         sync_blockheight([l1, l2, l3])
 
@@ -504,7 +504,7 @@ class LightningDTests(BaseLightningDTests):
         route = copy.deepcopy(baseroute)
         route[1]['delay'] = 3
         self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
-        
+
         # This one works
         route = copy.deepcopy(baseroute)
         l1.rpc.sendpay(to_json(route), rhash)
@@ -523,8 +523,8 @@ class LightningDTests(BaseLightningDTests):
 
         # Now we should connect normally.
         l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
-        l1.daemon.stop()
 
+    def test_disconnect_funder(self):
         # Now error on funder side duringchannel open.
         disconnects = ['-WIRE_OPEN_CHANNEL',
                        '@WIRE_OPEN_CHANNEL',
@@ -532,6 +532,7 @@ class LightningDTests(BaseLightningDTests):
                        '-WIRE_FUNDING_CREATED',
                        '@WIRE_FUNDING_CREATED']
         l1 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        l2 = self.node_factory.get_node(legacy=False)
 
         addr = l1.rpc.newaddr()['address']
         txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
@@ -543,9 +544,7 @@ class LightningDTests(BaseLightningDTests):
             self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
             assert l1.rpc.getpeer(l2.info['id']) == None
 
-        l1.daemon.stop()
-        l2.daemon.stop()
-
+    def test_disconnect_fundee(self):
         # Now error on fundee side during channel open.
         disconnects = ['-WIRE_ACCEPT_CHANNEL',
                        '@WIRE_ACCEPT_CHANNEL',
@@ -563,9 +562,7 @@ class LightningDTests(BaseLightningDTests):
             self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
             assert l1.rpc.getpeer(l2.info['id']) == None
 
-        l1.daemon.stop()
-        l2.daemon.stop()
-
+    def test_disconnect_half_signed(self):
         # Now, these are the corner cases.  Fundee sends funding_signed,
         # but funder doesn't receive it.
         disconnects = ['@WIRE_FUNDING_SIGNED']
@@ -612,7 +609,7 @@ class LightningDTests(BaseLightningDTests):
 
         l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
         l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
-        
+
     def test_reconnect_normal(self):
         # Should reconnect fine even if locked message gets lost.
         disconnects = ['-WIRE_FUNDING_LOCKED',
@@ -744,7 +741,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_logs(['sendrawtx exit 0', '-> CLOSINGD_COMPLETE'])
         l2.daemon.wait_for_logs(['sendrawtx exit 0', '-> CLOSINGD_COMPLETE'])
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
-        
+
     def test_closing_negotiation_reconnect(self):
         disconnects = ['-WIRE_CLOSING_SIGNED',
                        '@WIRE_CLOSING_SIGNED',
@@ -861,7 +858,7 @@ class LegacyLightningDTests(BaseLightningDTests):
         nodes = [self.node_factory.get_node() for _ in range(5)]
         for i in range(len(nodes)-1):
             nodes[i].connect(nodes[i+1], 0.01)
-        
+
         htlc_amount = 10000
 
         # Manually add channel l2 -> l3 to l1 so that it can compute the route
