@@ -42,8 +42,6 @@ class TailableProc(object):
     def __init__(self, outputDir=None):
         self.logs = []
         self.logs_cond = threading.Condition(threading.RLock())
-        self.thread = threading.Thread(target=self.tail)
-        self.thread.daemon = True
         self.cmd_line = None
         self.running = False
         self.proc = None
@@ -55,6 +53,8 @@ class TailableProc(object):
         """
         logging.debug("Starting '%s'", " ".join(self.cmd_line))
         self.proc = subprocess.Popen(self.cmd_line, stdout=subprocess.PIPE)
+        self.thread = threading.Thread(target=self.tail)
+        self.thread.daemon = True
         self.thread.start()
         self.running = True
 
