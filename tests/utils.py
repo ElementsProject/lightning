@@ -4,6 +4,7 @@ from lightning import LightningRpc
 import logging
 import os
 import re
+import sqlite3
 import subprocess
 import threading
 import time
@@ -301,3 +302,17 @@ class LightningNode(object):
         self.bitcoin.rpc.generate(6)
         self.daemon.wait_for_log('-> CHANNELD_NORMAL|STATE_NORMAL')
 
+    def db_query(self, query):
+        db = sqlite3.connect(os.path.join(self.daemon.lightning_dir, "lightningd.sqlite3"))
+        db.row_factory = sqlite3.Row
+        c = db.cursor()
+        c.execute(query)
+        rows = c.fetchall()
+
+        result = []
+        for row in rows:
+            result.append(dict(zip(row.keys(), row)))
+
+        c.close()
+        db.close()
+        return result
