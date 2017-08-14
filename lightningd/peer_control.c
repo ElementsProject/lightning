@@ -541,7 +541,6 @@ static struct wallet_channel *peer_channel_new(struct wallet *w,
 	wc->peer = peer;
 
 	/* TODO(cdecker) See if we already stored this peer in the DB and load if yes */
-	wc->peer_id = 0;
 	wc->id = 0;
 
 	if (!wallet_channel_save(w, wc)) {

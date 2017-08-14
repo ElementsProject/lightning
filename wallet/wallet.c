@@ -395,7 +395,7 @@ static bool wallet_peer_load(struct wallet *w, const u64 id, struct peer *peer)
 		sqlite3_finalize(stmt);
 		return false;
 	}
-	peer->unique_id = sqlite3_column_int64(stmt, 0);
+	peer->dbid = sqlite3_column_int64(stmt, 0);
 	ok &= sqlite3_column_pubkey(stmt, 1, &peer->id);
 	sqlite3_finalize(stmt);
 	return ok;
@@ -420,8 +420,8 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		chan->peer = talz(chan, struct peer);
 	}
 	chan->peer->unique_id = sqlite3_column_int64(stmt, col++);
-	chan->peer_id = sqlite3_column_int64(stmt, col++);
-	wallet_peer_load(w, chan->peer_id, chan->peer);
+	chan->peer->dbid = sqlite3_column_int64(stmt, col++);
+	wallet_peer_load(w, chan->peer->dbid, chan->peer);
 
 	if (sqlite3_column_short_channel_id(stmt, col++, &scid)) {
 		chan->peer->scid = tal(chan->peer, struct short_channel_id);
@@ -649,19 +649,19 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 	struct peer *p = chan->peer;
 	tal_t *tmpctx = tal_tmpctx(w);
 
-	if (chan->peer_id == 0) {
+	if (p->dbid == 0) {
 		/* Need to store the peer first */
 		ok &= db_exec(__func__, w->db,
 			      "INSERT INTO peers (node_id) VALUES ('%s');",
 			      db_serialize_pubkey(tmpctx, &chan->peer->id));
-		chan->peer_id = sqlite3_last_insert_rowid(w->db->sql);
+		p->dbid = sqlite3_last_insert_rowid(w->db->sql);
 	}
 
 	db_begin_transaction(w->db);
 
 	/* Insert a stub, that we can update, unifies INSERT and UPDATE paths */
 	if (chan->id == 0) {
-		ok &= db_exec(__func__, w->db, "INSERT INTO channels (peer_id) VALUES (%"PRIu64");", chan->peer_id);
+		ok &= db_exec(__func__, w->db, "INSERT INTO channels (peer_id) VALUES (%"PRIu64");", p->dbid);
 		chan->id = sqlite3_last_insert_rowid(w->db->sql);
 	}
 

@@ -52,7 +52,6 @@ struct wallet_shachain {
 /* TODO(cdecker) Separate peer from channel */
 struct wallet_channel {
 	u64 id;
-	u64 peer_id;
 	struct peer *peer;
 };
 

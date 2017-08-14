@@ -20,6 +20,9 @@ struct crypto_state;
 struct peer {
 	struct lightningd *ld;
 
+	/* Database ID of the peer */
+	u64 dbid;
+
 	/* Unique ID of connection (works even if we have multiple to same id) */
 	u64 unique_id;
 

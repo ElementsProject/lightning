@@ -132,7 +132,7 @@ static bool channelseq(struct wallet_channel *c1, struct wallet_channel *c2)
 	struct channel_info *ci1 = p1->channel_info, *ci2 = p2->channel_info;
 	struct changed_htlc *lc1 = p1->last_sent_commit, *lc2 = p2->last_sent_commit;
 	CHECK(c1->id == c2->id);
-	CHECK(c1->peer_id == c2->peer_id);
+	CHECK(c1->peer->dbid == c2->peer->dbid);
 	CHECK(p1->their_shachain.id == p2->their_shachain.id);
 	CHECK_MSG(pubkey_eq(&p1->id, &p2->id), "NodeIDs do not match");
 	CHECK((p1->scid == NULL && p2->scid == NULL) || short_channel_id_eq(p1->scid, p2->scid));
@@ -221,7 +221,7 @@ static bool test_channel_crud(const tal_t *ctx)
 
 	/* We just inserted them into an empty DB so this must be 1 */
 	CHECK(c1.id == 1);
-	CHECK(c1.peer_id == 1);
+	CHECK(c1.peer->dbid == 1);
 	CHECK(c1.peer->their_shachain.id == 1);
 
 	/* Variant 2: update with scid set */
@@ -232,7 +232,7 @@ static bool test_channel_crud(const tal_t *ctx)
 
 	/* Updates should not result in new ids */
 	CHECK(c1.id == 1);
-	CHECK(c1.peer_id == 1);
+	CHECK(c1.peer->dbid == 1);
 	CHECK(c1.peer->their_shachain.id == 1);
 
 	/* Variant 3: update with our_satoshi set */
