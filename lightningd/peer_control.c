@@ -119,6 +119,15 @@ void peer_fail_permanent(struct peer *peer, const u8 *msg)
 	return;
 }
 
+static void peer_fail_permanent_str(struct peer *peer, const char *str TAKES)
+{
+	/* Don't use tal_strdup, since we need tal_len */
+	u8 *msg = tal_dup_arr(peer, u8, (const u8 *)str, strlen(str) + 1, 0);
+	if (taken(str))
+		tal_free(str);
+	peer_fail_permanent(peer, take(msg));
+}
+
 void peer_internal_error(struct peer *peer, const char *fmt, ...)
 {
 	va_list ap;
@@ -129,8 +138,7 @@ void peer_internal_error(struct peer *peer, const char *fmt, ...)
 	logv_add(peer->log, fmt, ap);
 	va_end(ap);
 
-	peer_fail_permanent(peer,
-			    take((u8 *)tal_strdup(peer, "Internal error")));
+	peer_fail_permanent_str(peer, "Internal error");
 }
 
 void peer_fail_transient(struct peer *peer, const char *fmt, ...)
@@ -1090,9 +1098,9 @@ static int peer_got_shutdown(struct peer *peer, const u8 *msg)
 	 * is not one of those forms. */
 	if (!is_p2pkh(scriptpubkey) && !is_p2sh(scriptpubkey)
 	    && !is_p2wpkh(scriptpubkey) && !is_p2wsh(scriptpubkey)) {
-		u8 *msg = (u8 *)tal_fmt(peer, "Bad shutdown scriptpubkey %s",
-					tal_hex(peer, scriptpubkey));
-		peer_fail_permanent(peer, take(msg));
+		char *str = tal_fmt(peer, "Bad shutdown scriptpubkey %s",
+				    tal_hex(peer, scriptpubkey));
+		peer_fail_permanent_str(peer, take(str));
 		return -1;
 	}
 
@@ -1148,8 +1156,10 @@ static int channeld_got_bad_message(struct peer *peer, const u8 *msg)
 	/* Don't try to fail this (again!) when owner dies. */
 	peer->owner = NULL;
 	if (!fromwire_channel_peer_bad_message(peer, NULL, NULL, &err))
-		err = (u8 *)tal_strdup(peer, "Internal error after bad message");
-	peer_fail_permanent(peer, take(err));
+		peer_fail_permanent_str(peer,
+					"Internal error after bad message");
+	else
+		peer_fail_permanent(peer, take(err));
 
 	/* Kill daemon (though it's dying anyway) */
 	return -1;
@@ -1162,8 +1172,10 @@ static int closingd_got_bad_message(struct peer *peer, const u8 *msg)
 	/* Don't try to fail this (again!) when owner dies. */
 	peer->owner = NULL;
 	if (!fromwire_closing_peer_bad_message(peer, NULL, NULL, &err))
-		err = (u8 *)tal_strdup(peer, "Internal error after bad message");
-	peer_fail_permanent(peer, take(err));
+		peer_fail_permanent_str(peer,
+					"Internal error after bad message");
+	else
+		peer_fail_permanent(peer, take(err));
 
 	/* Kill daemon (though it's dying anyway) */
 	return -1;
@@ -1861,7 +1873,7 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 				    wire_type_name(fromwire_peektype(from_peer)));
 		log_unusual(peer->log, "Strange message to exit gossip: %u",
 			    fromwire_peektype(from_peer));
-		peer_fail_permanent(peer, (u8 *)take(msg));
+		peer_fail_permanent_str(peer, take(msg));
 		return;
 	}
 
@@ -1907,8 +1919,7 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 
 	/* Careful here!  Their message could push us overlength! */
 	if (tal_len(msg) >= 65536) {
-		char *err = tal_strdup(peer, "Unacceptably long open_channel");
-		peer_fail_permanent(peer, (u8 *)take(err));
+		peer_fail_permanent_str(peer, "Unacceptably long open_channel");
 		return;
 	}
 	subd_req(peer, peer->owner, take(msg), -1, 2,
