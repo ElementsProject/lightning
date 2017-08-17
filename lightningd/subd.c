@@ -244,18 +244,28 @@ static struct io_plan *sd_msg_reply(struct io_conn *conn, struct subd *sd,
 {
 	int type = fromwire_peektype(sd->msg_in);
 	bool keep_open;
+	const tal_t *tmpctx = tal_tmpctx(conn);
 
 	log_info(sd->log, "REPLY %s with %zu fds",
 		 sd->msgname(type), tal_count(sd->fds_in));
 
-	/* If not stolen, we'll free this below. */
-	tal_steal(sr, sd->msg_in);
+	/* Callback could free sd!  Make sure destroy_subd() won't free conn */
+	sd->conn = NULL;
+
+	/* We want to free the msg_in, unless they tal_steal() it. */
+	tal_steal(tmpctx, sd->msg_in);
+
+	/* And we need to free sr after this too (unless they free via sd!). */
+	tal_steal(tmpctx, sr);
+
 	keep_open = sr->replycb(sd, sd->msg_in, sd->fds_in, sr->replycb_data);
-	tal_free(sr);
+	tal_free(tmpctx);
 
 	if (!keep_open)
 		return io_close(conn);
 
+	/* Restore conn ptr. */
+	sd->conn = conn;
 	/* Free any fd array. */
 	sd->fds_in = tal_free(sd->fds_in);
 	return io_read_wire(conn, sd, &sd->msg_in, sd_msg_read, sd);
