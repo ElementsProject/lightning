@@ -591,6 +591,27 @@ bool wallet_channel_load(struct wallet *w, const u64 id,
 	return ok;
 }
 
+bool wallet_channels_load_active(struct wallet *w, struct list_head *peers)
+{
+	bool ok = true;
+	/* Channels are active if they have reached at least the
+	 * opening state and they are not marked as complete */
+	sqlite3_stmt *stmt = db_query(
+	    __func__, w->db, "SELECT %s FROM channels WHERE state >= %d AND state != %d;",
+	    channel_fields, OPENINGD, CLOSINGD_COMPLETE);
+
+	int count = 0;
+	while (ok && stmt && sqlite3_step(stmt) == SQLITE_ROW) {
+		struct wallet_channel *c = talz(w, struct wallet_channel);
+		ok &= wallet_stmt2channel(w, stmt, c);
+		list_add(peers, &c->peer->list);
+		count++;
+	}
+	log_debug(w->log, "Loaded %d channels from DB", count);
+	sqlite3_finalize(stmt);
+	return ok;
+}
+
 static char* db_serialize_signature(const tal_t *ctx, secp256k1_ecdsa_signature* sig)
 {
 	u8 buf[64];

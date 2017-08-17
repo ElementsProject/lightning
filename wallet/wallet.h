@@ -4,6 +4,7 @@
 #include "config.h"
 #include "db.h"
 #include <ccan/crypto/shachain/shachain.h>
+#include <ccan/list/list.h>
 #include <ccan/tal/tal.h>
 #include <lightningd/channel_config.h>
 #include <lightningd/utxo.h>
@@ -197,4 +198,16 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
  */
 bool wallet_peer_by_nodeid(struct wallet *w, const struct pubkey *nodeid,
 			   struct peer *peer);
+
+/**
+ * wlalet_channels_load_active -- Load persisted active channels into the peers
+ *
+ * @w: wallet to load from
+ * @peers: list_head to load channels/peers into
+ *
+ * Be sure to call this only once on startup since it'll append peers
+ * loaded from the database to the list without checking.
+ */
+bool wallet_channels_load_active(struct wallet *w, struct list_head *peers);
+
 #endif /* WALLET_WALLET_H */
