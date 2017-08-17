@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import random
+import re
 import sqlite3
 import string
 import sys
@@ -114,7 +115,7 @@ class NodeFactory(object):
                 '--trace-children=yes',
                 '--trace-children-skip=*bitcoin-cli*',
                 '--error-exitcode=7',
-                '--log-file={}/valgrind-errors'.format(node.daemon.lightning_dir)
+                '--log-file={}/valgrind-errors.%p'.format(node.daemon.lightning_dir)
             ] + node.daemon.cmd_line
 
         node.daemon.start()
@@ -135,10 +136,14 @@ class BaseLightningDTests(unittest.TestCase):
         self.node_factory = NodeFactory(self, self.executor)
 
     def getValgrindErrors(self, node):
-        error_file = '{}valgrind-errors'.format(node.daemon.lightning_dir)
-        with open(error_file, 'r') as f:
-            errors = f.read().strip()
-        return errors, error_file
+        for error_file in os.listdir(node.daemon.lightning_dir):
+            if not re.match("valgrind-errors.\d+", error_file):
+                continue;
+            with open(os.path.join(node.daemon.lightning_dir, error_file), 'r') as f:
+                errors = f.read().strip()
+                if errors:
+                    return errors, error_file
+        return None, None
 
     def printValgrindErrors(self, node):
         errors, fname = self.getValgrindErrors(node)
