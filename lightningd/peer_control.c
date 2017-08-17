@@ -550,6 +550,23 @@ static struct wallet_channel *peer_channel_new(struct wallet *w,
 	return wc;
 }
 
+void populate_peer(struct lightningd *ld, struct peer *peer)
+{
+	const char *idname;
+	struct pubkey *id = &peer->id;
+	idname = type_to_string(peer, struct pubkey, id);
+
+	peer->ld = ld;
+
+	/* Max 128k per peer. */
+	peer->log_book = new_log_book(peer, 128*1024,
+				      get_log_level(ld->dstate.log_book));
+	peer->log = new_log(peer, peer->log_book, "peer %s:", idname);
+	set_log_outfn(peer->log_book, copy_to_parent_log, peer);
+	tal_free(idname);
+	tal_add_destructor(peer, destroy_peer);
+}
+
 void add_peer(struct lightningd *ld, u64 unique_id,
 	      int fd, const struct pubkey *id,
 	      const struct crypto_state *cs)
@@ -598,14 +615,6 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	/* peer->channel gets populated as soon as we start opening a channel */
 	peer->channel = NULL;
 
-	idname = type_to_string(peer, struct pubkey, id);
-
-	/* Max 128k per peer. */
-	peer->log_book = new_log_book(peer, 128*1024,
-				      get_log_level(ld->dstate.log_book));
-	peer->log = new_log(peer, peer->log_book, "peer %s:", idname);
-	set_log_outfn(peer->log_book, copy_to_parent_log, peer);
-
 	/* FIXME: Don't assume protocol here! */
 	if (!netaddr_from_fd(fd, SOCK_STREAM, IPPROTO_TCP, &peer->netaddr)) {
 		log_unusual(ld->log, "Failed to get netaddr for outgoing: %s",
@@ -613,11 +622,14 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 		tal_free(peer);
 		return;
 	}
+	list_add_tail(&ld->peers, &peer->list);
+	populate_peer(ld, peer);
+
+	idname = type_to_string(peer, struct pubkey, id);
 	netname = netaddr_name(idname, &peer->netaddr);
 	log_info(peer->log, "Connected from %s", netname);
+
 	tal_free(idname);
-	list_add_tail(&ld->peers, &peer->list);
-	tal_add_destructor(peer, destroy_peer);
 
 	/* Let gossip handle it from here. */
 	peer->owner = peer->ld->gossip;

@@ -267,6 +267,15 @@ int main(int argc, char *argv[])
 		       /* FIXME: Load from peers. */
 		       0);
 
+	/* Load peers from database */
+	wallet_channels_load_active(ld->wallet, &ld->peers);
+	struct peer *peer;
+	list_for_each(&ld->peers, peer, list) {
+		populate_peer(ld, peer);
+		peer->seed = tal(peer, struct privkey);
+		derive_peer_seed(ld, peer->seed, &peer->id);
+	}
+
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(&ld->dstate, ld->dstate.rpc_filename);
 

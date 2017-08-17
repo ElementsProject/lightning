@@ -47,10 +47,10 @@ def setupBitcoind():
         bitcoind.rpc.generate(1)
 
 
-def wait_for(success, timeout=30):
+def wait_for(success, timeout=30, interval=0.1):
     start_time = time.time()
     while not success() and time.time() < start_time + timeout:
-        pass
+        time.sleep(interval)
     if time.time() > start_time + timeout:
         raise ValueError("Error waiting for {}", success)
 
@@ -875,17 +875,21 @@ class LightningDTests(BaseLightningDTests):
         for n in (l1, l2):
             assert(n.db_query('SELECT COUNT(id) as count FROM channels;')[0]['count'] == 1)
 
-        l1.daemon.stop()
-
-        # Let the other side notice, then stop it
-        wait_for(lambda: not l2.rpc.getpeers()['peers'][0]['connected'])
         l2.daemon.stop()
 
+        # Let the other side notice, then stop it
+        wait_for(lambda: not l1.rpc.getpeers()['peers'][0]['connected'])
+        #l1.daemon.stop()
+
         # Now restart l1 and it should reload peers/channels from the DB
-        l1.daemon.start()
+        l2.daemon.start()
+        wait_for(lambda: len(l2.rpc.getpeers()['peers']) == 1)
 
-        #wait_for(lambda: len(l1.rpc.getpeers()['peers']) == 1)
+        wait_for(lambda: len([p for p in l1.rpc.getpeers()['peers'] if p['connected']]), interval=1)
+        wait_for(lambda: len([p for p in l2.rpc.getpeers()['peers'] if p['connected']]), interval=1)
 
+        # Now make sure this is really functional by sending a payment
+        self.pay(l1, l2, 10000)
 
 class LegacyLightningDTests(BaseLightningDTests):
 
