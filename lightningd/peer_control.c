@@ -828,10 +828,8 @@ static void fail_fundchannel_command(struct funding_channel *fc)
 static void funding_broadcast_failed(struct peer *peer,
 				     int exitstatus, const char *err)
 {
-	log_unusual(peer->log, "Funding broadcast exited with %i: %s",
-		    exitstatus, err);
-	/* FIXME: send PKT_ERR to peer if this happens. */
-	tal_free(peer);
+	peer_internal_error(peer, "Funding broadcast exited with %i: %s",
+			    exitstatus, err);
 }
 
 static enum watch_result funding_announce_cb(struct peer *peer,
@@ -1676,9 +1674,8 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 					   &channel_info->remote_fundingkey,
 					   &funding_txid,
 					   &channel_info->feerate_per_kw)) {
-		log_broken(fc->peer->log, "bad OPENING_FUNDER_REPLY %s",
-			   tal_hex(resp, resp));
-		tal_free(fc->peer);
+		peer_internal_error(fc->peer, "bad shutdown_complete: %s",
+				    tal_hex(resp, resp));
 		return false;
 	}
 
