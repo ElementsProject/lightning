@@ -165,6 +165,11 @@ void fromwire_preimage(const u8 **cursor, size_t *max, struct preimage *preimage
 	fromwire(cursor, max, preimage, sizeof(*preimage));
 }
 
+void fromwire_ripemd160(const u8 **cursor, size_t *max, struct ripemd160 *ripemd)
+{
+	fromwire(cursor, max, ripemd, sizeof(*ripemd));
+}
+
 void fromwire_ipaddr(const u8 **cursor, size_t *max, struct ipaddr *addr)
 {
 	/* Skip any eventual padding */
