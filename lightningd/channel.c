@@ -214,11 +214,11 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 
 		if (htlc_owner(htlc) == side) {
 			tx = htlc_timeout_tx(*txs, &txid, i,
-					     htlc,
+					     htlc->msatoshi,
+					     htlc->expiry.locktime,
 					     to_self_delay(channel, side),
-					     &keyset->self_revocation_key,
-					     &keyset->self_delayed_payment_key,
-					     feerate_per_kw);
+					     feerate_per_kw,
+					     keyset);
 			wscript	= bitcoin_wscript_htlc_offer(*wscripts,
 						     &keyset->self_payment_key,
 						     &keyset->other_payment_key,
@@ -226,11 +226,10 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 						     &keyset->self_revocation_key);
 		} else {
 			tx = htlc_success_tx(*txs, &txid, i,
-					     htlc,
+					     htlc->msatoshi,
 					     to_self_delay(channel, side),
-					     &keyset->self_revocation_key,
-					     &keyset->self_delayed_payment_key,
-					     feerate_per_kw);
+					     feerate_per_kw,
+					     keyset);
 			wscript	= bitcoin_wscript_htlc_receive(*wscripts,
 						       &htlc->expiry,
 						       &keyset->self_payment_key,
