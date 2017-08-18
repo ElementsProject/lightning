@@ -137,6 +137,14 @@ class Field(object):
             # Not a number; must be a type.
             self.fieldtype = FieldType(size)
 
+    def basetype(self):
+        base=self.fieldtype.name
+        if base.startswith('struct '):
+            base=base[7:]
+        elif base.startswith('enum '):
+            base=base[5:]
+        return base
+
     def is_padding(self):
         return self.name.startswith('pad')
 
@@ -235,6 +243,8 @@ class Message(object):
         if field.is_variable_size():
             self.checkLenField(field)
             self.has_variable_fields = True
+        elif field.basetype() in varlen_structs:
+            self.has_variable_fields = True
         self.fields.append(field)
 
     def print_fromwire_array(self, subcalls, basetype, f, name, num_elems):
@@ -272,11 +282,7 @@ class Message(object):
 
         subcalls = []
         for f in self.fields:
-            basetype=f.fieldtype.name
-            if f.fieldtype.name.startswith('struct '):
-                basetype=f.fieldtype.name[7:]
-            elif f.fieldtype.name.startswith('enum '):
-                basetype=f.fieldtype.name[5:]
+            basetype=f.basetype()
 
             for c in f.comments:
                 subcalls.append('\t/*{} */'.format(c))
@@ -304,8 +310,9 @@ class Message(object):
                                     .format(f.name, basetype))
             else:
                 subcalls.append("\t//4th case {name}".format(name=f.name))
-                subcalls.append('\tfromwire_{}(&cursor, plen, {});'
-                                .format(basetype, f.name))
+                ctx = "ctx, " if basetype in varlen_structs else ""
+                subcalls.append('\tfromwire_{}({}&cursor, plen, {});'
+                                .format(basetype, ctx, f.name))
 
         return template.format(
             name=self.name,
