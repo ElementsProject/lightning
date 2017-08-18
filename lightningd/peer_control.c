@@ -59,6 +59,8 @@ static void reconnect_failed(struct lightningd_state *dstate,
 	struct lightningd *ld = ld_from_dstate(dstate);
 	struct peer *peer = peer_by_id(ld, connection_known_id(c));
 
+	log_debug(peer->log, "reconnect_failed");
+
 	tal_free(c);
 	peer_reconnect(peer);
 }
@@ -67,6 +69,8 @@ static void try_reconnect(struct peer *peer)
 {
 	struct connection *c;
 	struct netaddr *addrs;
+
+	log_debug(peer->log, "try_reconnect: trying to reconnect");
 
 	/* We may already be reconnected (another incoming connection) */
 	if (peer->owner) {
@@ -109,7 +113,7 @@ void peer_fail_permanent(struct peer *peer, const u8 *msg)
 		    peer_state_name(peer->state),
 		    (int)tal_len(msg), (char *)msg);
 	peer->error = towire_error(peer, &all_channels, msg);
-	peer->owner = NULL;
+	peer->owner = tal_free(peer->owner);
 	if (taken(msg))
 		tal_free(msg);
 
@@ -202,6 +206,7 @@ static void peer_start_closingd(struct peer *peer,
 static struct io_plan *send_error(struct io_conn *conn,
 				  struct peer_crypto_state *pcs)
 {
+	log_debug(pcs->peer->log, "Sending canned error");
 	return peer_write_message(conn, pcs, pcs->peer->error, (void *)io_close_cb);
 }
 
@@ -719,6 +724,38 @@ static const struct json_command connect_command = {
 	"Returns the {id} on success (once channel established)"
 };
 AUTODATA(json_command, &connect_command);
+
+static void json_dev_fail(struct command *cmd,
+			  const char *buffer, const jsmntok_t *params)
+{
+	struct lightningd *ld = ld_from_dstate(cmd->dstate);
+	jsmntok_t *peertok;
+	struct peer *peer;
+
+	if (!json_get_params(buffer, params,
+			     "id", &peertok,
+			     NULL)) {
+		command_fail(cmd, "Need id");
+		return;
+	}
+
+	peer = peer_from_json(ld, buffer, peertok);
+	if (!peer) {
+		command_fail(cmd, "Could not find peer with that id");
+		return;
+	}
+
+	peer_internal_error(peer, "Failing due to dev-fail command");
+	command_success(cmd, null_response(cmd));
+}
+
+static const struct json_command dev_fail_command = {
+	"dev-fail",
+	json_dev_fail,
+	"Fail with peer {id}",
+	"Returns {} on success"
+};
+AUTODATA(json_command, &dev_fail_command);
 
 struct log_info {
 	enum log_level level;
