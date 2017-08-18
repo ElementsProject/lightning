@@ -79,6 +79,7 @@ struct peer {
 	/* Last tx they gave us (if any). */
 	struct bitcoin_tx *last_tx;
 	secp256k1_ecdsa_signature *last_sig;
+	secp256k1_ecdsa_signature *last_htlc_sigs;
 
 	/* Keys for channel. */
 	struct channel_info *channel_info;

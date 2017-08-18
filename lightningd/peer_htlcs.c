@@ -1071,6 +1071,9 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 		return -1;
 
 	peer_last_tx(peer, tx, &commit_sig);
+	/* FIXME: Put these straight in the db! */
+	tal_free(peer->last_htlc_sigs);
+	peer->last_htlc_sigs = tal_steal(peer, htlc_sigs);
 
 	/* Tell it we've committed, and to go ahead with revoke. */
 	msg = towire_channel_got_commitsig_reply(msg);
