@@ -3,7 +3,6 @@
 #include "subd.h"
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
-#include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/io/io.h>
 #include <ccan/noerr/noerr.h>
@@ -31,6 +30,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/new_connection.h>
+#include <lightningd/onchain/onchain_wire.h>
 #include <lightningd/opening/gen_opening_wire.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/status.h>
@@ -530,6 +530,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 		= peer->next_index[REMOTE]
 		= peer->num_revocations_received = 0;
 	peer->next_htlc_id = 0;
+	peer->htlcs = tal_arr(peer, struct htlc_stub, 0);
 	wallet_shachain_init(ld->wallet, &peer->their_shachain);
 
 	idname = type_to_string(peer, struct pubkey, id);
