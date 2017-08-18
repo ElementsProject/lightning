@@ -7,13 +7,13 @@
 
 #include <stdio.h>
 
-static bool bit_set(shachain_index_t index, int bit)
+static bool bit_set(uint64_t index, int bit)
 {
 	return index & (1ULL << bit);
 }
 
 /* As per design.txt */
-static bool naive_can_derive(shachain_index_t from, shachain_index_t to)
+static bool naive_can_derive(uint64_t from, shachain_index_t to)
 {
 	int i;
 

@@ -10,7 +10,7 @@ static void change_bit(unsigned char *arr, size_t index)
 	arr[index / CHAR_BIT] ^= (1 << (index % CHAR_BIT));
 }
 
-static unsigned int count_trailing_zeroes(shachain_index_t index)
+static unsigned int count_trailing_zeroes(uint64_t index)
 {
 #if HAVE_BUILTIN_CTZLL
 	return index ? (unsigned int)__builtin_ctzll(index) : SHACHAIN_BITS;
@@ -25,24 +25,24 @@ static unsigned int count_trailing_zeroes(shachain_index_t index)
 #endif
 }
 
-static bool can_derive(shachain_index_t from, shachain_index_t to)
+static bool can_derive(uint64_t from, uint64_t to)
 {
-	shachain_index_t mask;
+	uint64_t mask;
 
 	/* Corner case: can always derive from seed. */
 	if (from == 0)
 		return true;
 
 	/* Leading bits must be the same */
-	mask = ~((1ULL << count_trailing_zeroes(from))-1);
+	mask = ~(((uint64_t)1 << count_trailing_zeroes(from))-1);
 	return ((from ^ to) & mask) == 0;
 }
 
-static void derive(shachain_index_t from, shachain_index_t to,
+static void derive(uint64_t from, uint64_t to,
 		   const struct sha256 *from_hash,
 		   struct sha256 *hash)
 {
-	shachain_index_t branches;
+	uint64_t branches;
 	int i;
 
 	assert(can_derive(from, to));
@@ -60,27 +60,31 @@ static void derive(shachain_index_t from, shachain_index_t to,
 	}
 }
 
-void shachain_from_seed(const struct sha256 *seed, shachain_index_t index,
+void shachain_from_seed(const struct sha256 *seed, uint64_t index,
 			struct sha256 *hash)
 {
 	derive(0, index, seed, hash);
 }
 
+uint64_t shachain_next_index(const struct shachain *chain)
+{
+	return chain->min_index - 1;
+}
+
 void shachain_init(struct shachain *chain)
 {
 	chain->num_valid = 0;
-	chain->min_index = 0;
+	/* This is 0 in the case where SHACHAIN_BITS is 64. */
+	chain->min_index = (UINT64_MAX >> (64 - SHACHAIN_BITS)) + 1;
 }
 
 bool shachain_add_hash(struct shachain *chain,
-		       shachain_index_t index, const struct sha256 *hash)
+		       uint64_t index, const struct sha256 *hash)
 {
 	unsigned int i, pos;
 
 	/* You have to insert them in order! */
-	assert(index == chain->min_index - 1 ||
-	       (index == (shachain_index_t)(UINT64_MAX >> (64 - SHACHAIN_BITS))
-		&& chain->num_valid == 0));
+	assert(index == shachain_next_index(chain));
 
 	pos = count_trailing_zeroes(index);
 
@@ -104,7 +108,7 @@ bool shachain_add_hash(struct shachain *chain,
 }
 
 bool shachain_get_hash(const struct shachain *chain,
-		       shachain_index_t index, struct sha256 *hash)
+		       uint64_t index, struct sha256 *hash)
 {
 	unsigned int i;
 

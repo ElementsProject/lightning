@@ -1,4 +1,4 @@
-#define shachain_index_t uint8_t
+#define SHACHAIN_BITS 8
 
 #include <ccan/crypto/shachain/shachain.h>
 /* Include the C files directly. */

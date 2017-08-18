@@ -13,7 +13,7 @@ int main(void)
 	uint64_t i, j;
 
 	/* This is how many tests you plan to run */
-	plan_tests(NUM_TESTS * 3 + NUM_TESTS * (NUM_TESTS + 1) - 1);
+	plan_tests(NUM_TESTS * 4 + NUM_TESTS * (NUM_TESTS + 1) - 1);
 
 	memset(&seed, 0, sizeof(seed));
 	/* Generate a whole heap. */
@@ -34,6 +34,7 @@ int main(void)
 	     i--) {
 		struct sha256 hash;
 		int expidx = 0xFFFFFFFFFFFFFFFFULL - i;
+		ok1(shachain_next_index(&chain) == i);
 		ok1(shachain_add_hash(&chain, i, &expect[expidx]));
 		for (j = i; j != 0; j++) {
 			ok1(shachain_get_hash(&chain, j, &hash));

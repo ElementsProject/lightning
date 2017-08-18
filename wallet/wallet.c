@@ -252,7 +252,7 @@ bool wallet_shachain_init(struct wallet *wallet, struct wallet_shachain *chain)
 }
 
 /* TODO(cdecker) Stolen from shachain, move to some appropriate location */
-static unsigned int count_trailing_zeroes(shachain_index_t index)
+static unsigned int count_trailing_zeroes(uint64_t index)
 {
 #if HAVE_BUILTIN_CTZLL
 	return index ? (unsigned int)__builtin_ctzll(index) : SHACHAIN_BITS;
@@ -269,7 +269,7 @@ static unsigned int count_trailing_zeroes(shachain_index_t index)
 
 bool wallet_shachain_add_hash(struct wallet *wallet,
 			      struct wallet_shachain *chain,
-			      shachain_index_t index,
+			      uint64_t index,
 			      const struct sha256 *hash)
 {
 	tal_t *tmpctx = tal_tmpctx(wallet);
