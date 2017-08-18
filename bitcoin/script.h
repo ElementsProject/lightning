@@ -11,6 +11,7 @@ struct bitcoin_tx_input;
 struct preimage;
 struct pubkey;
 struct sha256;
+struct ripemd160;
 struct rel_locktime;
 struct abs_locktime;
 
@@ -140,6 +141,19 @@ u8 **bitcoin_htlc_receive_spend_preimage(const tal_t *ctx,
 				const secp256k1_ecdsa_signature *remotesig,
 				const struct preimage *preimage,
 				const u8 *wscript);
+
+/* Underlying functions for penalties, where we only keep ripemd160 */
+u8 *bitcoin_wscript_htlc_offer_ripemd160(const tal_t *ctx,
+					 const struct pubkey *localkey,
+					 const struct pubkey *remotekey,
+					 const struct ripemd160 *payment_ripemd,
+					 const struct pubkey *revocationkey);
+u8 *bitcoin_wscript_htlc_receive_ripemd(const tal_t *ctx,
+					const struct abs_locktime *htlc_abstimeout,
+					const struct pubkey *localkey,
+					const struct pubkey *remotekey,
+					const struct ripemd160 *payment_ripemd,
+					const struct pubkey *revocationkey);
 
 /* BOLT #3 HTLC-success/HTLC-timeout output */
 u8 *bitcoin_wscript_htlc_tx(const tal_t *ctx,
