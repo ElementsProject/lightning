@@ -742,7 +742,8 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 			     u64 local_commit_index,
 			     const secp256k1_ecdsa_signature *commit_sig,
 			     const secp256k1_ecdsa_signature *htlc_sigs,
-			     const struct htlc **changed_htlcs)
+			     const struct htlc **changed_htlcs,
+			     const struct bitcoin_tx *committx)
 {
 	const tal_t *tmpctx = tal_tmpctx(ctx);
 	struct changed_htlc *changed;
@@ -803,7 +804,8 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 					   shared_secret,
 					   fulfilled,
 					   failed,
-					   changed);
+					   changed,
+					   committx);
 	tal_free(tmpctx);
 	return msg;
 }
@@ -929,7 +931,7 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 
 	/* Tell master daemon, then wait for ack. */
 	msg = got_commitsig_msg(tmpctx, peer->next_index[LOCAL], &commit_sig,
-				htlc_sigs, changed_htlcs);
+				htlc_sigs, changed_htlcs, txs[0]);
 
 	master_sync_reply(peer, take(msg),
 			  WIRE_CHANNEL_GOT_COMMITSIG_REPLY,
