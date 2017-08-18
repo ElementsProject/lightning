@@ -33,7 +33,7 @@ u8 *hsm_sync_read(const tal_t *ctx, struct lightningd *ld)
 void hsm_init(struct lightningd *ld, bool newdir)
 {
 	const tal_t *tmpctx = tal_tmpctx(ld);
-	u8 *msg, *serialized_extkey;
+	u8 *msg;
 	bool create;
 
 	ld->hsm_fd = subd_raw(ld, "lightningd_hsm");
@@ -48,17 +48,15 @@ void hsm_init(struct lightningd *ld, bool newdir)
 	if (!wire_sync_write(ld->hsm_fd, towire_hsmctl_init(tmpctx, create)))
 		err(1, "Writing init msg to hsm");
 
+	ld->bip32_base = tal(ld, struct ext_key);
 	msg = hsm_sync_read(tmpctx, ld);
-	if (!fromwire_hsmctl_init_reply(tmpctx, msg, NULL,
+	if (!fromwire_hsmctl_init_reply(msg, NULL,
 					&ld->dstate.id,
 					&ld->peer_seed,
-					&serialized_extkey))
+					ld->bip32_base))
 		errx(1, "HSM did not give init reply");
 
-	log_info_struct(ld->log, "Our ID: %s", struct pubkey, &ld->dstate.id);
-	ld->bip32_base = tal(ld, struct ext_key);
-	if (bip32_key_unserialize(serialized_extkey, tal_len(serialized_extkey),
-				  ld->bip32_base) != WALLY_OK)
-		errx(1, "HSM did not give unserializable BIP32 extkey");
+	/* FIXME... */
 	ld->wallet->bip32_base = ld->bip32_base;
+	tal_free(tmpctx);
 }

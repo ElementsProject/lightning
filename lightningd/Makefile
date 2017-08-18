@@ -38,6 +38,7 @@ LIGHTNINGD_OLD_LIB_HEADERS := $(LIGHTNINGD_OLD_LIB_SRC:.c=.h)
 
 # FIXME: put in a library so we don't link all of them.
 LIGHTNINGD_LIB_SRC :=				\
+	lightningd/bip32.c			\
 	lightningd/channel.c			\
 	lightningd/channel_config.c		\
 	lightningd/commit_tx.c			\

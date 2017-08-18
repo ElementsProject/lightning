@@ -1938,7 +1938,6 @@ static bool gossip_peer_released(struct subd *gossip,
 	u8 *msg;
 	struct subd *opening;
 	struct utxo *utxos;
-	u8 *bip32_base;
 	struct crypto_state cs;
 
 	if (!fromwire_gossipctl_release_peer_reply(resp, NULL, &cs)) {
@@ -1985,11 +1984,6 @@ static bool gossip_peer_released(struct subd *gossip,
 	subd_send_msg(opening, take(msg));
 
 	utxos = from_utxoptr_arr(fc, fc->utxomap);
-	bip32_base = tal_arr(fc, u8, BIP32_SERIALIZED_LEN);
-	if (bip32_key_serialize(fc->peer->ld->bip32_base, BIP32_FLAG_KEY_PUBLIC,
-				bip32_base, tal_len(bip32_base))
-	    != WALLY_OK)
-		fatal("Can't serialize bip32 public key");
 
 	/* FIXME: Real feerate! */
 	msg = towire_opening_funder(fc, fc->peer->funding_satoshi,
@@ -1997,7 +1991,7 @@ static bool gossip_peer_released(struct subd *gossip,
 				    15000, max_minimum_depth,
 				    fc->change, fc->change_keyindex,
 				    fc->peer->channel_flags,
-				    utxos, bip32_base);
+				    utxos, fc->peer->ld->bip32_base);
 	subd_req(fc, opening, take(msg), -1, 2, opening_funder_finished, fc);
 	return true;
 }
