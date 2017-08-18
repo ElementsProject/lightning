@@ -377,6 +377,14 @@ static u8 *sqlite3_column_varhexblob(tal_t *ctx, sqlite3_stmt *stmt, int col)
 	return tal_hexdata(ctx, source, sourcelen);
 }
 
+static struct bitcoin_tx *sqlite3_column_tx(const tal_t *ctx,
+					    sqlite3_stmt *stmt, int col)
+{
+	return bitcoin_tx_from_hex(ctx,
+				   sqlite3_column_blob(stmt, col),
+				   sqlite3_column_bytes(stmt, col));
+}
+
 static bool wallet_peer_load(struct wallet *w, const u64 id, struct peer *peer)
 {
 	bool ok = true;
@@ -506,6 +514,17 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		col += 2;
 	}
 
+	/* Do we have last_tx?  If so, populate. */
+	if (sqlite3_column_type(stmt, col) != SQLITE_NULL) {
+		chan->peer->last_tx = sqlite3_column_tx(chan->peer, stmt, col++);
+		chan->peer->last_sig = tal(chan->peer, secp256k1_ecdsa_signature);
+		sqlite3_column_sig(stmt, col++, chan->peer->last_sig);
+	} else {
+		chan->peer->last_tx = tal_free(chan->peer->last_tx);
+		chan->peer->last_sig = tal_free(chan->peer->last_sig);
+		col += 2;
+	}
+
 	chan->peer->closing_fee_received = sqlite3_column_int64(stmt, col++);
 	if (sqlite3_column_type(stmt, col) != SQLITE_NULL) {
 		if (!chan->peer->closing_sig_received) {
@@ -515,7 +534,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 	} else {
 		col++;
 	}
-	assert(col == 34);
+	assert(col == 36);
 
 	return ok;
 }
@@ -540,6 +559,7 @@ bool wallet_channel_load(struct wallet *w, const u64 id,
 	    "old_per_commit_remote, feerate_per_kw, shachain_remote_id, "
 	    "shutdown_scriptpubkey_remote, shutdown_keyidx_local, "
 	    "last_sent_commit_state, last_sent_commit_id, "
+	    "last_tx, last_sig, "
 	    "closing_fee_received, closing_sig_received FROM channels WHERE "
 	    "id=%" PRIu64 ";";
 
@@ -571,6 +591,14 @@ static char* db_serialize_pubkey(const tal_t *ctx, struct pubkey *pk)
 	der = tal_arr(ctx, u8, PUBKEY_DER_LEN);
 	pubkey_to_der(der, pk);
 	return tal_hex(ctx, der);
+}
+
+static char* db_serialize_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
+{
+	if (!tx)
+		return "NULL";
+
+	return tal_fmt(ctx, "'%s'", tal_hex(ctx, linearize_tx(ctx, tx)));
 }
 
 bool wallet_channel_config_save(struct wallet *w, struct channel_config *cc)
@@ -674,6 +702,7 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		      "  shutdown_scriptpubkey_remote='%s',"
 		      "  shutdown_keyidx_local=%"PRIu64","
 		      "  channel_config_local=%"PRIu64","
+		      "  last_tx=%s, last_sig=%s, "
 		      "  closing_fee_received=%"PRIu64","
 		      "  closing_sig_received=%s"
 		      " WHERE id=%"PRIu64,
@@ -696,6 +725,8 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		      p->remote_shutdown_scriptpubkey?tal_hex(tmpctx, p->remote_shutdown_scriptpubkey):"",
 		      p->local_shutdown_idx,
 		      p->our_config.id,
+		      db_serialize_tx(tmpctx, p->last_tx),
+		      db_serialize_signature(tmpctx, p->last_sig),
 		      p->closing_fee_received,
 		      db_serialize_signature(tmpctx, p->closing_sig_received),
 		      chan->id);
