@@ -303,7 +303,7 @@ static void json_addfunds(struct command *cmd,
 	num_utxos =
 	    wallet_extract_owned_outputs(ld->wallet, tx, &total_satoshi);
 	if (num_utxos < 0) {
-		command_fail(cmd, "Could add outputs to wallet");
+		command_fail(cmd, "Could not add outputs to wallet");
 		return;
 	} else if (!num_utxos) {
 		command_fail(cmd, "No usable outputs");
