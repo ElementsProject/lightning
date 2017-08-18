@@ -15,6 +15,7 @@
 #include <lightningd/htlc_tx.h>
 #include <lightningd/htlc_wire.h>
 #include <lightningd/key_derive.h>
+#include <lightningd/keyset.h>
 #include <lightningd/status.h>
 #include <string.h>
 
@@ -193,10 +194,7 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 		      const u8 ***wscripts,
 		      const struct htlc **htlcmap,
 		      const struct channel *channel,
-		      const struct pubkey *side_payment_key,
-		      const struct pubkey *other_payment_key,
-		      const struct pubkey *side_revocation_key,
-		      const struct pubkey *side_delayed_payment_key,
+		      const struct keyset *keyset,
 		      enum side side)
 {
 	size_t i, n;
@@ -218,27 +216,27 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 			tx = htlc_timeout_tx(*txs, &txid, i,
 					     htlc,
 					     to_self_delay(channel, side),
-					     side_revocation_key,
-					     side_delayed_payment_key,
+					     &keyset->self_revocation_key,
+					     &keyset->self_delayed_payment_key,
 					     feerate_per_kw);
 			wscript	= bitcoin_wscript_htlc_offer(*wscripts,
-							     side_payment_key,
-							     other_payment_key,
-							     &htlc->rhash,
-							     side_revocation_key);
+						     &keyset->self_payment_key,
+						     &keyset->other_payment_key,
+						     &htlc->rhash,
+						     &keyset->self_revocation_key);
 		} else {
 			tx = htlc_success_tx(*txs, &txid, i,
 					     htlc,
 					     to_self_delay(channel, side),
-					     side_revocation_key,
-					     side_delayed_payment_key,
+					     &keyset->self_revocation_key,
+					     &keyset->self_delayed_payment_key,
 					     feerate_per_kw);
 			wscript	= bitcoin_wscript_htlc_receive(*wscripts,
-							       &htlc->expiry,
-							       side_payment_key,
-							       other_payment_key,
-							       &htlc->rhash,
-							       side_revocation_key);
+						       &htlc->expiry,
+						       &keyset->self_payment_key,
+						       &keyset->other_payment_key,
+						       &htlc->rhash,
+						       &keyset->self_revocation_key);
 		}
 
 		/* Append to array. */
@@ -263,31 +261,14 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 {
 	struct bitcoin_tx **txs;
 	const struct htlc **committed;
-	/* Payment keys for @side and !@side */
-	struct pubkey side_payment_key, other_payment_key;
-	/* Delayed payment key for @side */
-	struct pubkey side_delayed_payment_key;
-	/* Revocation payment key for @side */
-	struct pubkey side_revocation_key;
+	struct keyset keyset;
 
-	if (!derive_simple_key(&channel->basepoints[side].payment,
-			       per_commitment_point,
-			       &side_payment_key))
-		return NULL;
-
-	if (!derive_simple_key(&channel->basepoints[!side].payment,
-			       per_commitment_point,
-			       &other_payment_key))
-		return NULL;
-
-	if (!derive_simple_key(&channel->basepoints[side].delayed_payment,
-			       per_commitment_point,
-			       &side_delayed_payment_key))
-		return NULL;
-
-	if (!derive_revocation_key(&channel->basepoints[!side].revocation,
-				   per_commitment_point,
-				   &side_revocation_key))
+	if (!derive_keyset(per_commitment_point,
+			   &channel->basepoints[side].payment,
+			   &channel->basepoints[!side].payment,
+			   &channel->basepoints[side].delayed_payment,
+			   &channel->basepoints[!side].revocation,
+			   &keyset))
 		return NULL;
 
 	/* Figure out what @side will already be committed to. */
@@ -303,10 +284,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 		       channel->funding_msat / 1000,
 		       channel->funder,
 		       to_self_delay(channel, side),
-		       &side_revocation_key,
-		       &side_delayed_payment_key,
-		       &side_payment_key,
-		       &other_payment_key,
+		       &keyset,
 		       channel->view[side].feerate_per_kw,
 		       dust_limit_satoshis(channel, side),
 		       channel->view[side].owed_msat[side],
@@ -322,10 +300,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 					     &channel->funding_pubkey[!side]);
 
 	if (htlcmap)
-		add_htlcs(&txs, wscripts, *htlcmap, channel,
-			  &side_payment_key, &other_payment_key,
-			  &side_revocation_key, &side_delayed_payment_key,
-			  side);
+		add_htlcs(&txs, wscripts, *htlcmap, channel, &keyset, side);
 
 	tal_free(committed);
 	return txs;

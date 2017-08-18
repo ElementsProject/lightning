@@ -443,6 +443,7 @@ int main(void)
 	struct pubkey local_delayedkey;
 	struct pubkey remote_revocation_key;
 	struct bitcoin_tx *tx, *tx2;
+	struct keyset keyset;
 	u8 *wscript;
 	unsigned int funding_output_index;
 	u64 commitment_number, cn_obscurer, to_local_msat, to_remote_msat;
@@ -673,14 +674,16 @@ int main(void)
 	       "local_feerate_per_kw: %"PRIu64"\n",
 	       to_local_msat, to_remote_msat, feerate_per_kw);
 
+	keyset.self_revocation_key = remote_revocation_key;
+	keyset.self_delayed_payment_key = local_delayedkey;
+	keyset.self_payment_key = localkey;
+	keyset.other_payment_key = remotekey;
+
 	print_superverbose = true;
 	tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 		       funding_amount_satoshi,
 		       LOCAL, to_self_delay,
-		       &remote_revocation_key,
-		       &local_delayedkey,
-		       &localkey,
-		       &remotekey,
+		       &keyset,
 		       feerate_per_kw,
 		       dust_limit_satoshi,
 		       to_local_msat,
@@ -691,10 +694,7 @@ int main(void)
 	tx2 = commit_tx(tmpctx, &funding_txid, funding_output_index,
 			funding_amount_satoshi,
 			REMOTE, to_self_delay,
-			&remote_revocation_key,
-			&local_delayedkey,
-			&localkey,
-			&remotekey,
+			&keyset,
 			feerate_per_kw,
 			dust_limit_satoshi,
 			to_local_msat,
@@ -735,10 +735,7 @@ int main(void)
 	tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 		       funding_amount_satoshi,
 		       LOCAL, to_self_delay,
-		       &remote_revocation_key,
-		       &local_delayedkey,
-		       &localkey,
-		       &remotekey,
+		       &keyset,
 		       feerate_per_kw,
 		       dust_limit_satoshi,
 		       to_local_msat,
@@ -749,10 +746,7 @@ int main(void)
 	tx2 = commit_tx(tmpctx, &funding_txid, funding_output_index,
 			funding_amount_satoshi,
 			REMOTE, to_self_delay,
-			&remote_revocation_key,
-			&local_delayedkey,
-			&localkey,
-			&remotekey,
+			&keyset,
 			feerate_per_kw,
 			dust_limit_satoshi,
 			to_local_msat,
@@ -781,10 +775,7 @@ int main(void)
 		newtx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 				  funding_amount_satoshi,
 				  LOCAL, to_self_delay,
-				  &remote_revocation_key,
-				  &local_delayedkey,
-				  &localkey,
-				  &remotekey,
+				  &keyset,
 				  feerate_per_kw,
 				  dust_limit_satoshi,
 				  to_local_msat,
@@ -796,10 +787,7 @@ int main(void)
 		tx2 = commit_tx(tmpctx, &funding_txid, funding_output_index,
 				funding_amount_satoshi,
 				REMOTE, to_self_delay,
-				&remote_revocation_key,
-				&local_delayedkey,
-				&localkey,
-				&remotekey,
+				&keyset,
 				feerate_per_kw,
 				dust_limit_satoshi,
 				to_local_msat,
@@ -830,10 +818,7 @@ int main(void)
 		tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 			       funding_amount_satoshi,
 			       LOCAL, to_self_delay,
-			       &remote_revocation_key,
-			       &local_delayedkey,
-			       &localkey,
-			       &remotekey,
+			       &keyset,
 			       feerate_per_kw-1,
 			       dust_limit_satoshi,
 			       to_local_msat,
@@ -867,10 +852,7 @@ int main(void)
 		newtx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 				  funding_amount_satoshi,
 				  LOCAL, to_self_delay,
-				  &remote_revocation_key,
-				  &local_delayedkey,
-				  &localkey,
-				  &remotekey,
+				  &keyset,
 				  feerate_per_kw,
 				  dust_limit_satoshi,
 				  to_local_msat,
@@ -926,10 +908,7 @@ int main(void)
 		tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 			       funding_amount_satoshi,
 			       LOCAL, to_self_delay,
-			       &remote_revocation_key,
-			       &local_delayedkey,
-			       &localkey,
-			       &remotekey,
+			       &keyset,
 			       feerate_per_kw,
 			       dust_limit_satoshi,
 			       to_local_msat,

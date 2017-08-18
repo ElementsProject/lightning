@@ -4,6 +4,7 @@
 	printf(fmt "\n" , ## __VA_ARGS__)
 
 #include "../key_derive.c"
+#include "../keyset.c"
 #include "../channel.c"
 #include "../commit_tx.c"
 #include "../htlc_tx.c"
@@ -303,10 +304,8 @@ int main(void)
 	struct channel *lchannel, *rchannel;
 	u64 funding_amount_satoshi, feerate_per_kw;
 	unsigned int funding_output_index;
-	struct pubkey localkey, remotekey;
+	struct keyset keyset;
 	struct pubkey local_funding_pubkey, remote_funding_pubkey;
-	struct pubkey local_delayedkey;
-	struct pubkey local_revocation_key;
 	struct pubkey local_per_commitment_point;
 	struct basepoints localbase, remotebase;
 	struct pubkey *unknown = tal(tmpctx, struct pubkey);
@@ -446,18 +445,15 @@ int main(void)
 	 * local_delayedkey: 03fd5960528dc152014952efdb702a88f71e3c1653b2314431701ec77e57fde83c
 	 * local_revocation_key: 0212a140cd0c6539d07cd08dfe09984dec3251ea808b892efeac3ede9402bf2b19
 	 */
-	localkey = pubkey_from_hex("030d417a46946384f88d5f3337267c5e579765875dc4daca813e21734b140639e7");
-	remotekey = pubkey_from_hex("0394854aa6eab5b2a8122cc726e9dded053a2184d88256816826d6231c068d4a5b");
-	local_delayedkey = pubkey_from_hex("03fd5960528dc152014952efdb702a88f71e3c1653b2314431701ec77e57fde83c");
-	local_revocation_key = pubkey_from_hex("0212a140cd0c6539d07cd08dfe09984dec3251ea808b892efeac3ede9402bf2b19");
+	keyset.self_payment_key = pubkey_from_hex("030d417a46946384f88d5f3337267c5e579765875dc4daca813e21734b140639e7");
+	keyset.other_payment_key = pubkey_from_hex("0394854aa6eab5b2a8122cc726e9dded053a2184d88256816826d6231c068d4a5b");
+	keyset.self_delayed_payment_key = pubkey_from_hex("03fd5960528dc152014952efdb702a88f71e3c1653b2314431701ec77e57fde83c");
+	keyset.self_revocation_key = pubkey_from_hex("0212a140cd0c6539d07cd08dfe09984dec3251ea808b892efeac3ede9402bf2b19");
 
 	raw_tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 			   funding_amount_satoshi,
 			   LOCAL, remote_config->to_self_delay,
-			   &local_revocation_key,
-			   &local_delayedkey,
-			   &localkey,
-			   &remotekey,
+			   &keyset,
 			   feerate_per_kw,
 			   local_config->dust_limit_satoshis,
 			   to_local_msat,
@@ -575,10 +571,7 @@ int main(void)
 		raw_tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 				   funding_amount_satoshi,
 				   LOCAL, remote_config->to_self_delay,
-				   &local_revocation_key,
-				   &local_delayedkey,
-				   &localkey,
-				   &remotekey,
+				   &keyset,
 				   feerate_per_kw,
 				   local_config->dust_limit_satoshis,
 				   to_local_msat,

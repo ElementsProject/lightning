@@ -1,9 +1,10 @@
 #ifndef LIGHTNING_LIGHTNINGD_COMMIT_TX_H
 #define LIGHTNING_LIGHTNINGD_COMMIT_TX_H
 #include "config.h"
+#include <bitcoin/pubkey.h>
 #include <daemon/htlc.h>
 
-struct pubkey;
+struct keyset;
 struct sha256_double;
 
 /* BOLT #3:
@@ -42,10 +43,7 @@ u64 commit_tx_base_fee(u64 feerate_per_kw, size_t num_untrimmed_htlcs);
  * @ctx: context to allocate transaction and @htlc_map from.
  * @funding_txid, @funding_out, @funding_satoshis: funding outpoint.
  * @funder: is the LOCAL or REMOTE paying the fee?
- * @revocation_pubkey: revocation pubkey for this @side
- * @self_delayedey: pubkey for delayed payments to this @side
- * @selfkey: pubkey for HTLC payments to this @side
- * @otherkey: pubkey for direct and HTLC payments to other side @side
+ * @keyset: keys derived for this commit tx.
  * @feerate_per_kw: feerate to use
  * @dust_limit_satoshis: dust limit below which to trim outputs.
  * @self_pay_msat: amount to pay directly to self
@@ -65,10 +63,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     u64 funding_satoshis,
 			     enum side funder,
 			     u16 to_self_delay,
-			     const struct pubkey *revocation_pubkey,
-			     const struct pubkey *self_delayedkey,
-			     const struct pubkey *selfkey,
-			     const struct pubkey *otherkey,
+			     const struct keyset *keyset,
 			     u64 feerate_per_kw,
 			     u64 dust_limit_satoshis,
 			     u64 self_pay_msat,
@@ -77,4 +72,28 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     const struct htlc ***htlcmap,
 			     u64 obscured_commitment_number,
 			     enum side side);
+
+
+/* Generate the witness script for an HTLC the other side offered:
+ * scriptpubkey_p2wsh(ctx, wscript) gives the scriptpubkey */
+u8 *htlc_received_wscript(const tal_t *ctx,
+			  const struct ripemd160 *ripemd,
+			  const struct abs_locktime *expiry,
+			  const struct keyset *keyset);
+
+/* Generate the witness script for an HTLC this side offered:
+ * scriptpubkey_p2wsh(ctx, wscript) gives the scriptpubkey */
+u8 *htlc_offered_wscript(const tal_t *ctx,
+			 const struct ripemd160 *ripemd,
+			 const struct keyset *keyset);
+
+
+/* Generate the witness script for the to-self output:
+ * scriptpubkey_p2wsh(ctx, wscript) gives the scriptpubkey */
+u8 *to_self_wscript(const tal_t *ctx,
+		    u16 to_self_delay,
+		    const struct keyset *keyset);
+
+/* To-other is simply: scriptpubkey_p2wpkh(tx, keyset->other_payment_key) */
+
 #endif /* LIGHTNING_LIGHTNINGD_COMMIT_TX_H */
