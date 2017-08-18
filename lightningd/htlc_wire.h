@@ -7,6 +7,7 @@
 #include <lightningd/sphinx.h>
 #include <wire/gen_onion_wire.h>
 
+struct bitcoin_tx;
 struct shachain;
 
 /* These are how we communicate about HTLC state to the master daemon */
@@ -41,6 +42,7 @@ void towire_changed_htlc(u8 **pptr, const struct changed_htlc *changed);
 void towire_htlc_state(u8 **pptr, const enum htlc_state hstate);
 void towire_side(u8 **pptr, const enum side side);
 void towire_shachain(u8 **pptr, const struct shachain *shachain);
+void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx);
 
 void fromwire_added_htlc(const u8 **cursor, size_t *max,
 			 struct added_htlc *added);
@@ -54,4 +56,5 @@ enum htlc_state fromwire_htlc_state(const u8 **cursor, size_t *max);
 enum side fromwire_side(const u8 **cursor, size_t *max);
 void fromwire_shachain(const u8 **cursor, size_t *max,
 		       struct shachain *shachain);
+void fromwire_bitcoin_tx(const u8 **cursor, size_t *max, struct bitcoin_tx *tx);
 #endif /* LIGHTNING_LIGHTNINGD_HTLC_WIRE_H */

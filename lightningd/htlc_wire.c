@@ -1,3 +1,4 @@
+#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <lightningd/htlc_wire.h>
@@ -56,6 +57,14 @@ void towire_shachain(u8 **pptr, const struct shachain *shachain)
 		towire_u64(pptr, shachain->known[i].index);
 		towire_sha256(pptr, &shachain->known[i].hash);
 	}
+}
+
+void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
+{
+	u8 *txlin = linearize_tx(NULL, tx);
+
+	towire(pptr, txlin, tal_len(txlin));
+	tal_free(txlin);
 }
 
 void fromwire_added_htlc(const u8 **cursor, size_t *max,
@@ -130,4 +139,14 @@ void fromwire_shachain(const u8 **cursor, size_t *max,
 		shachain->known[i].index = fromwire_u64(cursor, max);
 		fromwire_sha256(cursor, max, &shachain->known[i].hash);
 	}
+}
+
+void fromwire_bitcoin_tx(const u8 **cursor, size_t *max, struct bitcoin_tx *tx)
+{
+	/* FIXME: We'd really expect to allocate tx ourselves, but
+	 * for the sake of simple structures, we don't write the
+	 * generator that way. */
+	struct bitcoin_tx *tx2 = pull_bitcoin_tx(tx, cursor, max);
+	if (tx2)
+		*tx = *tx2;
 }
