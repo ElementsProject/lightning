@@ -708,11 +708,11 @@ u8 **bitcoin_to_local_spend_revocation(const tal_t *ctx,
  *         OP_ENDIF
  *     OP_ENDIF
  */
-u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
-			       const struct pubkey *localkey,
-			       const struct pubkey *remotekey,
-			       const struct sha256 *payment_hash,
-			       const struct pubkey *revocationkey)
+u8 *bitcoin_wscript_htlc_offer_ripemd160(const tal_t *ctx,
+					 const struct pubkey *localkey,
+					 const struct pubkey *remotekey,
+					 const struct ripemd160 *payment_ripemd,
+					 const struct pubkey *revocationkey)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 	struct ripemd160 ripemd;
@@ -739,14 +739,27 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
 	add_op(&script, OP_CHECKMULTISIG);
 	add_op(&script, OP_ELSE);
 	add_op(&script, OP_HASH160);
-	ripemd160(&ripemd, payment_hash->u.u8, sizeof(payment_hash->u));
-	add_push_bytes(&script, ripemd.u.u8, sizeof(ripemd.u.u8));
+	add_push_bytes(&script,
+		       payment_ripemd->u.u8, sizeof(payment_ripemd->u.u8));
 	add_op(&script, OP_EQUALVERIFY);
 	add_op(&script, OP_CHECKSIG);
 	add_op(&script, OP_ENDIF);
 	add_op(&script, OP_ENDIF);
 
 	return script;
+}
+
+u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
+			       const struct pubkey *localkey,
+			       const struct pubkey *remotekey,
+			       const struct sha256 *payment_hash,
+			       const struct pubkey *revocationkey)
+{
+	struct ripemd160 ripemd;
+
+	ripemd160(&ripemd, payment_hash->u.u8, sizeof(payment_hash->u));
+	return bitcoin_wscript_htlc_offer_ripemd160(ctx, localkey, remotekey,
+						    &ripemd, revocationkey);
 }
 
 /* BOLT #3:
@@ -775,12 +788,12 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
  *         OP_ENDIF
  *     OP_ENDIF
  */
-u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
-				 const struct abs_locktime *htlc_abstimeout,
-				 const struct pubkey *localkey,
-				 const struct pubkey *remotekey,
-				 const struct sha256 *payment_hash,
-				 const struct pubkey *revocationkey)
+u8 *bitcoin_wscript_htlc_receive_ripemd(const tal_t *ctx,
+					const struct abs_locktime *htlc_abstimeout,
+					const struct pubkey *localkey,
+					const struct pubkey *remotekey,
+					const struct ripemd160 *payment_ripemd,
+					const struct pubkey *revocationkey)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 	struct ripemd160 ripemd;
@@ -800,8 +813,8 @@ u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
 	add_op(&script, OP_EQUAL);
 	add_op(&script, OP_IF);
 	add_op(&script, OP_HASH160);
-	ripemd160(&ripemd, payment_hash->u.u8, sizeof(payment_hash->u));
-	add_push_bytes(&script, ripemd.u.u8, sizeof(ripemd.u.u8));
+	add_push_bytes(&script,
+		       payment_ripemd->u.u8, sizeof(payment_ripemd->u.u8));
 	add_op(&script, OP_EQUALVERIFY);
 	add_number(&script, 2);
 	add_op(&script, OP_SWAP);
@@ -818,6 +831,21 @@ u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
 	add_op(&script, OP_ENDIF);
 
 	return script;
+}
+
+u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
+				 const struct abs_locktime *htlc_abstimeout,
+				 const struct pubkey *localkey,
+				 const struct pubkey *remotekey,
+				 const struct sha256 *payment_hash,
+				 const struct pubkey *revocationkey)
+{
+	struct ripemd160 ripemd;
+
+	ripemd160(&ripemd, payment_hash->u.u8, sizeof(payment_hash->u));
+	return bitcoin_wscript_htlc_receive_ripemd(ctx, htlc_abstimeout,
+						   localkey, remotekey,
+						   &ripemd, revocationkey);
 }
 
 /* BOLT #3:
