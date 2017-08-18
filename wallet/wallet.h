@@ -142,7 +142,7 @@ bool wallet_shachain_init(struct wallet *wallet, struct wallet_shachain *chain);
  */
 bool wallet_shachain_add_hash(struct wallet *wallet,
 			      struct wallet_shachain *chain,
-			      shachain_index_t index,
+			      uint64_t index,
 			      const struct sha256 *hash);
 
 /* Simply passes through to shachain_get_hash since it doesn't touch

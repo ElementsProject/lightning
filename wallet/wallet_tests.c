@@ -81,7 +81,7 @@ static bool test_shachain_crud(void)
 	int fd = mkstemp(filename);
 	struct wallet *w = tal(NULL, struct wallet);
 	struct sha256 seed, hash;
-	shachain_index_t index = UINT64_MAX >> (64 - SHACHAIN_BITS);
+	uint64_t index = UINT64_MAX >> (64 - SHACHAIN_BITS);
 
 	w->db = db_open(w, filename);
 	CHECK_MSG(w->db, "Failed opening the db");
@@ -99,7 +99,8 @@ static bool test_shachain_crud(void)
 
 	CHECK(a.id == 1);
 
-	CHECK(a.chain.num_valid == 0 && a.chain.min_index == 0);
+	CHECK(a.chain.num_valid == 0);
+	CHECK(shachain_next_index(&a.chain) == index);
 
 	for (int i=0; i<100; i++) {
 		shachain_from_seed(&seed, index, &hash);
