@@ -336,6 +336,20 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('sendrawtx exit 0')
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
 
+    def test_permfail(self):
+        l1,l2 = self.connect()
+
+        self.fund_channel(l1, l2, 10**6)
+        self.pay(l1,l2,200000000)
+
+        # We fail l2, so l1 will reconnect to it.
+        l2.rpc.dev_fail(l1.info['id']);
+        l2.daemon.wait_for_log('Failing due to dev-fail command')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+
+        # "Internal error" in hex
+        l1.daemon.wait_for_log('WIRE_ERROR.*496e7465726e616c206572726f72')
+
     def test_gossip_jsonrpc(self):
         l1,l2 = self.connect()
 

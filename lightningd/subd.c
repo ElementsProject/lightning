@@ -371,6 +371,11 @@ static void destroy_subd(struct subd *sd)
 		status = -1;
 		break;
 	}
+
+	/* In case we're freed manually, such as peer_fail_permanent */
+	if (sd->conn)
+		sd->conn = tal_free(sd->conn);
+
 	log_debug(sd->log, "finishing: %p", sd->finished);
 	if (sd->finished)
 		sd->finished(sd, status);
