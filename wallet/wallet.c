@@ -525,16 +525,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		col += 2;
 	}
 
-	chan->peer->closing_fee_received = sqlite3_column_int64(stmt, col++);
-	if (sqlite3_column_type(stmt, col) != SQLITE_NULL) {
-		if (!chan->peer->closing_sig_received) {
-			chan->peer->closing_sig_received = tal(chan->peer, secp256k1_ecdsa_signature);
-		}
-		ok &= sqlite3_column_sig(stmt, col++, chan->peer->closing_sig_received);
-	} else {
-		col++;
-	}
-	assert(col == 36);
+	assert(col == 34);
 
 	return ok;
 }
@@ -559,8 +550,8 @@ bool wallet_channel_load(struct wallet *w, const u64 id,
 	    "old_per_commit_remote, feerate_per_kw, shachain_remote_id, "
 	    "shutdown_scriptpubkey_remote, shutdown_keyidx_local, "
 	    "last_sent_commit_state, last_sent_commit_id, "
-	    "last_tx, last_sig, "
-	    "closing_fee_received, closing_sig_received FROM channels WHERE "
+	    "last_tx, last_sig "
+	    "FROM channels WHERE "
 	    "id=%" PRIu64 ";";
 
 	sqlite3_stmt *stmt = db_query(__func__, w->db, channel_query, id);
@@ -702,9 +693,7 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		      "  shutdown_scriptpubkey_remote='%s',"
 		      "  shutdown_keyidx_local=%"PRIu64","
 		      "  channel_config_local=%"PRIu64","
-		      "  last_tx=%s, last_sig=%s, "
-		      "  closing_fee_received=%"PRIu64","
-		      "  closing_sig_received=%s"
+		      "  last_tx=%s, last_sig=%s"
 		      " WHERE id=%"PRIu64,
 		      p->their_shachain.id,
 		      p->scid?tal_fmt(tmpctx,"'%s'", short_channel_id_to_str(tmpctx, p->scid)):"null",
@@ -727,8 +716,6 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		      p->our_config.id,
 		      db_serialize_tx(tmpctx, p->last_tx),
 		      db_serialize_signature(tmpctx, p->last_sig),
-		      p->closing_fee_received,
-		      db_serialize_signature(tmpctx, p->closing_sig_received),
 		      chan->id);
 
 	if (chan->peer->channel_info) {

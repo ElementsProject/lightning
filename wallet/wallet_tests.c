@@ -176,14 +176,6 @@ static bool channelseq(struct wallet_channel *c1, struct wallet_channel *c2)
 			    p2->last_sig, sizeof(*p2->last_sig)));
 	}
 
-	CHECK((p1->closing_sig_received != NULL) ==  (p2->closing_sig_received != NULL));
-	if(p1->closing_sig_received) {
-		CHECK(memeq(p1->closing_sig_received,
-			    sizeof(secp256k1_ecdsa_signature),
-			    p2->closing_sig_received,
-			    sizeof(secp256k1_ecdsa_signature)));
-	}
-
 	return true;
 }
 
@@ -274,12 +266,6 @@ static bool test_channel_crud(const tal_t *ctx)
 	CHECK_MSG(wallet_channel_save(w, &c1), tal_fmt(w, "Insert into DB: %s", w->db->err));
 	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB: %s", w->db->err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v7)");
-
-	/* Variant 8: update with closing_sig */
-	p.closing_sig_received = sig;
-	CHECK_MSG(wallet_channel_save(w, &c1), tal_fmt(w, "Insert into DB: %s", w->db->err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB: %s", w->db->err));
-	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v8)");
 
 	tal_free(w);
 	return true;

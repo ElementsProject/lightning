@@ -355,6 +355,7 @@ int main(int argc, char *argv[])
 							     trimmed)
 					      : "NONE");
 			}
+			tx = trimmed;
 		}
 
 		status_trace("Received fee offer %"PRIu64, received_fee);
@@ -377,8 +378,7 @@ int main(int argc, char *argv[])
 		} else {
 			status_trace("Fee accepted.");
 			msg = towire_closing_received_signature(tmpctx,
-								received_fee,
-								&sig);
+								&sig, tx);
 			if (!wire_sync_write(REQ_FD, take(msg)))
 				status_failed(WIRE_CLOSING_INTERNAL_ERROR,
 					      "Writing received to master: %s",
