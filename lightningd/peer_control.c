@@ -97,7 +97,44 @@ static void peer_reconnect(struct peer *peer)
 
 static void drop_to_chain(struct peer *peer)
 {
+	const tal_t *tmpctx = tal_tmpctx(peer);
+	u8 *funding_wscript;
+	struct pubkey local_funding_pubkey;
+	struct secrets secrets;
+	secp256k1_ecdsa_signature sig;
+
 	/* FIXME: Implement. */
+	if (peer->state != CLOSINGD_SIGEXCHANGE) {
+		tal_free(tmpctx);
+		return;
+	}
+
+	derive_basepoints(peer->seed, &local_funding_pubkey, NULL, &secrets,
+			  NULL);
+
+	funding_wscript = bitcoin_redeem_2of2(tmpctx,
+					      &local_funding_pubkey,
+					      &peer->channel_info->remote_fundingkey);
+	/* Need input amount for signing */
+	peer->last_tx->input[0].amount = tal_dup(peer->last_tx->input, u64,
+						 &peer->funding_satoshi);
+	sign_tx_input(peer->last_tx, 0, NULL, funding_wscript,
+		      &secrets.funding_privkey,
+		      &local_funding_pubkey,
+		      &sig);
+
+	peer->last_tx->input[0].witness
+		= bitcoin_witness_2of2(peer->last_tx->input,
+				       peer->last_sig,
+				       &sig,
+				       &peer->channel_info->remote_fundingkey,
+				       &local_funding_pubkey);
+
+	/* Keep broadcasting until we say stop (can fail due to dup,
+	 * if they beat us to the broadcast). */
+	broadcast_tx(peer->ld->topology, peer, peer->last_tx, NULL);
+
+	tal_free(tmpctx);
 }
 
 void peer_fail_permanent(struct peer *peer, const u8 *msg)
@@ -500,7 +537,6 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 		= peer->num_revocations_received = 0;
 	peer->next_htlc_id = 0;
 	wallet_shachain_init(ld->wallet, &peer->their_shachain);
-	peer->closing_sig_received = NULL;
 
 	idname = type_to_string(peer, struct pubkey, id);
 
@@ -1240,39 +1276,57 @@ static int closingd_got_negotiation_error(struct peer *peer, const u8 *msg)
 	return -1;
 }
 
-static bool better_closing_fee(struct peer *peer, u64 fee_satoshi)
+void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
+		  const secp256k1_ecdsa_signature *sig)
 {
-	/* FIXME: Use estimatefee 24 or something? */
-	u64 min_feerate = get_feerate(peer->ld->topology) / 2;
-	/* FIXME: Real fee, using real tx, and estimatefee 6 */
-	u64 ideal_fee = commit_tx_base_fee(get_feerate(peer->ld->topology), 0);
-	s64 old_diff, new_diff;
+	/* FIXME: save to db. */
 
-	/* FIXME: Use real tx here! (+ 74 for sig). */
-	if (fee_satoshi < commit_tx_base_fee(min_feerate, 0))
+	tal_free(peer->last_sig);
+	peer->last_sig = tal_dup(peer, secp256k1_ecdsa_signature, sig);
+	tal_free(peer->last_tx);
+	peer->last_tx = tal_steal(peer, tx);
+}
+
+/* Is this better than the last tx we were holding? */
+static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
+{
+	u64 weight, fee, last_fee, ideal_fee, min_fee;
+	s64 old_diff, new_diff;
+	size_t i;
+
+	/* Calculate actual fee. */
+	fee = peer->funding_satoshi;
+	for (i = 0; i < tal_count(tx->output); i++)
+		fee -= tx->output[i].amount;
+
+	last_fee = peer->funding_satoshi;
+	for (i = 0; i < tal_count(peer->last_tx); i++)
+		last_fee -= peer->last_tx->output[i].amount;
+
+	/* Weight once we add in sigs. */
+	weight = measure_tx_cost(tx) + 74 * 2;
+
+	/* FIXME: Use estimatefee 24 or something? */
+	min_fee = get_feerate(peer->ld->topology) / 5 * weight / 1000;
+	if (fee < min_fee)
 		return false;
 
-	/* FIXME: Derive old fee from last tx, which would work even
-	 * for the case where we're using the final commitment tx. */
-	if (!peer->closing_sig_received)
-		return true;
-
-	/* FIXME: Real fee, using real tx, and estimatefee 6 */
+	/* FIXME: Use estimatefee 6 */
+	ideal_fee = get_feerate(peer->ld->topology) / 2 * weight / 1000;
 
 	/* We prefer fee which is closest to our ideal. */
-	old_diff = imaxabs((s64)ideal_fee - (s64)peer->closing_fee_received);
-	new_diff = imaxabs((s64)ideal_fee - (s64)fee_satoshi);
+	old_diff = imaxabs((s64)ideal_fee - (s64)last_fee);
+	new_diff = imaxabs((s64)ideal_fee - (s64)fee);
 
 	return (new_diff < old_diff);
 }
 
 static int peer_received_closing_signature(struct peer *peer, const u8 *msg)
 {
-	u64 fee_satoshi;
 	secp256k1_ecdsa_signature sig;
+	struct bitcoin_tx *tx = tal(msg, struct bitcoin_tx);
 
-	if (!fromwire_closing_received_signature(msg, NULL,
-						 &fee_satoshi, &sig)) {
+	if (!fromwire_closing_received_signature(msg, NULL, &sig, tx)) {
 		peer_internal_error(peer, "Bad closing_received_signature %s",
 				    tal_hex(peer, msg));
 		return -1;
@@ -1280,14 +1334,8 @@ static int peer_received_closing_signature(struct peer *peer, const u8 *msg)
 
 	/* FIXME: Make sure signature is correct! */
 
-	if (better_closing_fee(peer, fee_satoshi)) {
-		/* FIXME: save to db. */
-
-		peer->closing_fee_received = fee_satoshi;
-		tal_free(peer->closing_sig_received);
-		peer->closing_sig_received
-			= tal_dup(peer, secp256k1_ecdsa_signature, &sig);
-	}
+	if (better_closing_fee(peer, tx))
+		peer_last_tx(peer, tx, &sig);
 
 	/* OK, you can continue now. */
 	subd_send_msg(peer->owner,
@@ -1297,13 +1345,6 @@ static int peer_received_closing_signature(struct peer *peer, const u8 *msg)
 
 static int peer_closing_complete(struct peer *peer, const u8 *msg)
 {
-	struct bitcoin_tx *tx;
-	u8 *local_scriptpubkey, *funding_wscript;
-	u64 out_amounts[NUM_SIDES];
-	struct pubkey local_funding_pubkey;
-	struct secrets secrets;
-	secp256k1_ecdsa_signature sig;
-
 	if (!fromwire_closing_complete(msg, NULL)) {
 		peer_internal_error(peer, "Bad closing_complete %s",
 				    tal_hex(peer, msg));
@@ -1314,60 +1355,7 @@ static int peer_closing_complete(struct peer *peer, const u8 *msg)
 	if (peer->state == CLOSINGD_COMPLETE)
 		return -1;
 
-	if (!peer->closing_sig_received) {
-		peer_internal_error(peer,
-				    "closing_complete without sending sig!");
-		return -1;
-	}
-
-	local_scriptpubkey = p2wpkh_for_keyidx(msg, peer->ld,
-					       peer->local_shutdown_idx);
-	if (!local_scriptpubkey) {
-		peer_internal_error(peer,
-				   "Can't generate local shutdown scriptpubkey");
-		return -1;
-	}
-
-	/* BOLT #3:
-	 *
-	 * The amounts for each output MUST BE rounded down to whole satoshis.
-	 */
-	out_amounts[LOCAL] = *peer->our_msatoshi / 1000;
-	out_amounts[REMOTE] = peer->funding_satoshi
-		- (*peer->our_msatoshi / 1000);
-	out_amounts[peer->funder] -= peer->closing_fee_received;
-
-	derive_basepoints(peer->seed, &local_funding_pubkey, NULL, &secrets,
-			  NULL);
-
-	tx = create_close_tx(msg, local_scriptpubkey,
-			     peer->remote_shutdown_scriptpubkey,
-			     peer->funding_txid,
-			     peer->funding_outnum,
-			     peer->funding_satoshi,
-			     out_amounts[LOCAL],
-			     out_amounts[REMOTE],
-			     peer->our_config.dust_limit_satoshis);
-
-	funding_wscript = bitcoin_redeem_2of2(msg,
-					      &local_funding_pubkey,
-					      &peer->channel_info->remote_fundingkey);
-	sign_tx_input(tx, 0, NULL, funding_wscript,
-		      &secrets.funding_privkey,
-		      &local_funding_pubkey,
-		      &sig);
-
-	tx->input[0].witness
-		= bitcoin_witness_2of2(tx->input,
-				       peer->closing_sig_received,
-				       &sig,
-				       &peer->channel_info->remote_fundingkey,
-				       &local_funding_pubkey);
-
-	/* Keep broadcasting until we say stop (can fail due to dup,
-	 * if they beat us to the broadcast). */
-	broadcast_tx(peer->ld->topology, peer, tx, NULL);
-
+	drop_to_chain(peer);
 	peer_set_condition(peer, CLOSINGD_SIGEXCHANGE, CLOSINGD_COMPLETE);
 	return -1;
 }

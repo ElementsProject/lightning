@@ -42,8 +42,8 @@ closing_init,,revocations_received,u64
 
 # We received an offer, save signature.
 closing_received_signature,2
-closing_received_signature,,fee_satoshi,u64
 closing_received_signature,,signature,secp256k1_ecdsa_signature
+closing_received_signature,,tx,struct bitcoin_tx
 
 closing_received_signature_reply,102
 

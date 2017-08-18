@@ -91,10 +91,6 @@ struct peer {
 	/* Our key for shutdown (-1 if not chosen yet) */
 	s64 local_shutdown_idx;
 
-	/* Closing stuff. */
-	u64 closing_fee_received;
-	secp256k1_ecdsa_signature *closing_sig_received;
-
 	/* Reestablishment stuff: last sent commit and revocation details. */
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;
@@ -141,6 +137,9 @@ struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id);
 struct peer *peer_from_json(struct lightningd *ld,
 			    const char *buffer,
 			    jsmntok_t *peeridtok);
+
+void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
+		  const secp256k1_ecdsa_signature *sig);
 
 void peer_fundee_open(struct peer *peer, const u8 *msg,
 		      const struct crypto_state *cs,
