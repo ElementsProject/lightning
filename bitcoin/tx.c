@@ -335,9 +335,14 @@ static u64 pull_length(const u8 **cursor, size_t *max)
 static void pull_input(const tal_t *ctx, const u8 **cursor, size_t *max,
 		       struct bitcoin_tx_input *input)
 {
+	u64 script_len;
 	pull_sha256_double(cursor, max, &input->txid);
 	input->index = pull_le32(cursor, max);
-	input->script = tal_arr(ctx, u8, pull_length(cursor, max));
+	script_len = pull_length(cursor, max);
+	if (script_len)
+		input->script = tal_arr(ctx, u8, script_len);
+	else
+		input->script = NULL;
 	pull(cursor, max, input->script, tal_len(input->script));
 	input->sequence_number = pull_le32(cursor, max);
 }
