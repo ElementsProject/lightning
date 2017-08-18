@@ -76,6 +76,10 @@ struct peer {
 	/* Amount going to us, not counting unfinished HTLCs; if we have one. */
 	u64 *our_msatoshi;
 
+	/* Last tx they gave us (if any). */
+	struct bitcoin_tx *last_tx;
+	secp256k1_ecdsa_signature *last_sig;
+
 	/* Keys for channel. */
 	struct channel_info *channel_info;
 

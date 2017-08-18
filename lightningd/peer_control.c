@@ -489,6 +489,8 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->our_msatoshi = NULL;
 	peer->state = UNINITIALIZED;
 	peer->channel_info = NULL;
+	peer->last_tx = NULL;
+	peer->last_sig = NULL;
 	peer->last_was_revoke = false;
 	peer->last_sent_commit = NULL;
 	peer->remote_shutdown_scriptpubkey = NULL;
