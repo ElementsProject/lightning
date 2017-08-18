@@ -1058,7 +1058,6 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 	if (!peer_sending_revocation(peer, added, fulfilled, failed, changed))
 		return -1;
 
-	peer->channel_info->commit_sig = commit_sig;
 	if (!peer_save_commitsig_received(peer, commitnum))
 		return -1;
 

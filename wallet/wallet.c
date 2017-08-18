@@ -474,7 +474,6 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		channel_info = chan->peer->channel_info;
 
 		/* Populate channel_info */
-		ok &= sqlite3_column_sig(stmt, col++, &chan->peer->channel_info->commit_sig);
 		ok &= sqlite3_column_pubkey(stmt, col++, &chan->peer->channel_info->remote_fundingkey);
 		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->theirbase.revocation);
 		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->theirbase.payment);
@@ -485,7 +484,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		wallet_channel_config_load(w, remote_config_id, &chan->peer->channel_info->their_config);
 	} else {
 		/* No channel_info, skip positions in the result */
-		col += 8;
+		col += 7;
 	}
 
 	/* Load shachain */
@@ -525,7 +524,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		col += 2;
 	}
 
-	assert(col == 34);
+	assert(col == 33);
 
 	return ok;
 }
@@ -543,7 +542,6 @@ bool wallet_channel_load(struct wallet *w, const u64 id,
 	    "next_index_local, next_index_remote, num_revocations_received, "
 	    "next_htlc_id, funding_tx_id, funding_tx_outnum, funding_satoshi, "
 	    "funding_locked_remote, push_msatoshi, msatoshi_local, "
-	    "commit_sig_remote, "
 	    "fundingkey_remote, revocation_basepoint_remote, "
 	    "payment_basepoint_remote, "
 	    "delayed_payment_basepoint_remote, per_commit_remote, "
@@ -722,7 +720,6 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		ok &= wallet_channel_config_save(w, &p->channel_info->their_config);
 		ok &= db_exec(__func__, w->db,
 			      "UPDATE channels SET"
-			      "  commit_sig_remote=%s,"
 			      "  fundingkey_remote='%s',"
 			      "  revocation_basepoint_remote='%s',"
 			      "  payment_basepoint_remote='%s',"
@@ -732,7 +729,6 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 			      "  feerate_per_kw=%d,"
 			      "  channel_config_remote=%"PRIu64
 			      " WHERE id=%"PRIu64,
-			      db_serialize_signature(tmpctx, &p->channel_info->commit_sig),
 			      db_serialize_pubkey(tmpctx, &p->channel_info->remote_fundingkey),
 			      db_serialize_pubkey(tmpctx, &p->channel_info->theirbase.revocation),
 			      db_serialize_pubkey(tmpctx, &p->channel_info->theirbase.payment),

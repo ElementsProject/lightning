@@ -1633,7 +1633,7 @@ static bool peer_start_channeld(struct peer *peer,
 				      &peer->our_config,
 				      &peer->channel_info->their_config,
 				      peer->channel_info->feerate_per_kw,
-				      &peer->channel_info->commit_sig,
+				      peer->last_sig,
 				      cs,
 				      &peer->channel_info->remote_fundingkey,
 				      &peer->channel_info->theirbase.revocation,
@@ -1694,16 +1694,20 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 	struct pubkey changekey;
 	struct pubkey local_fundingkey;
 	struct crypto_state cs;
+	secp256k1_ecdsa_signature remote_commit_sig;
+	struct bitcoin_tx *remote_commit;
 
 	assert(tal_count(fds) == 2);
 
 	/* At this point, we care about peer */
 	fc->peer->channel_info = channel_info
 		= tal(fc->peer, struct channel_info);
+	remote_commit = tal(resp, struct bitcoin_tx);
 
 	if (!fromwire_opening_funder_reply(resp, NULL,
 					   &channel_info->their_config,
-					   &channel_info->commit_sig,
+					   remote_commit,
+					   &remote_commit_sig,
 					   &cs,
 					   &channel_info->theirbase.revocation,
 					   &channel_info->theirbase.payment,
@@ -1720,6 +1724,9 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
+
+	/* Now, keep the initial commit as our last-tx-to-broadast. */
+	peer_last_tx(fc->peer, remote_commit, &remote_commit_sig);
 
 	/* Generate the funding tx. */
 	if (fc->change
@@ -1789,16 +1796,21 @@ static bool opening_fundee_finished(struct subd *opening,
 	u8 *funding_signed;
 	struct channel_info *channel_info;
 	struct crypto_state cs;
+	secp256k1_ecdsa_signature remote_commit_sig;
+	struct bitcoin_tx *remote_commit;
 
 	log_debug(peer->log, "Got opening_fundee_finish_response");
 	assert(tal_count(fds) == 2);
+
+	remote_commit = tal(reply, struct bitcoin_tx);
 
 	/* At this point, we care about peer */
 	peer->channel_info = channel_info = tal(peer, struct channel_info);
 	peer->funding_txid = tal(peer, struct sha256_double);
 	if (!fromwire_opening_fundee_reply(peer, reply, NULL,
 					   &channel_info->their_config,
-					   &channel_info->commit_sig,
+					   remote_commit,
+					   &remote_commit_sig,
 					   &cs,
 					   &channel_info->theirbase.revocation,
 					   &channel_info->theirbase.payment,
@@ -1818,6 +1830,9 @@ static bool opening_fundee_finished(struct subd *opening,
 	}
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
+
+	/* Now, keep the initial commit as our last-tx-to-broadast. */
+	peer_last_tx(peer, remote_commit, &remote_commit_sig);
 
 	if (!peer_commit_initial(peer))
 		return false;
