@@ -8,7 +8,6 @@
 
 /* FIXME: Define serialization primitive for this? */
 struct channel_info {
-	secp256k1_ecdsa_signature commit_sig;
 	struct channel_config their_config;
 	struct pubkey remote_fundingkey;
 	struct basepoints theirbase;

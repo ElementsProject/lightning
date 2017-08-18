@@ -148,8 +148,6 @@ static bool channelseq(struct wallet_channel *c1, struct wallet_channel *c2)
 		      sizeof(struct sha256_double)));
 	CHECK((ci1 != NULL) ==  (ci2 != NULL));
 	if(ci1) {
-		CHECK(memeq(&ci1->commit_sig, sizeof(secp256k1_ecdsa_signature),
-			    &ci2->commit_sig, sizeof(secp256k1_ecdsa_signature)));
 		CHECK(pubkey_eq(&ci1->remote_fundingkey, &ci2->remote_fundingkey));
 		CHECK(pubkey_eq(&ci1->theirbase.revocation, &ci2->theirbase.revocation));
 		CHECK(pubkey_eq(&ci1->theirbase.payment, &ci2->theirbase.payment));

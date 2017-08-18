@@ -58,7 +58,6 @@ char *dbmigrations[] = {
     "  push_msatoshi INTEGER,"
     "  msatoshi_local INTEGER," /* our_msatoshi */
     /* START channel_info */
-    "  commit_sig_remote BLOB,"
     "  fundingkey_remote BLOB,"
     "  revocation_basepoint_remote BLOB,"
     "  payment_basepoint_remote BLOB,"

@@ -209,7 +209,6 @@ static u8 *funder_channel(struct state *state,
 			  const struct utxo *utxos,
 			  const struct ext_key *bip32_base)
 {
-	const tal_t *tmpctx = tal_tmpctx(state);
 	struct channel_id channel_id, id_in;
 	u8 *msg;
 	struct bitcoin_tx **txs;
@@ -243,7 +242,7 @@ static u8 *funder_channel(struct state *state,
 			      "push-msat must be < %"PRIu64,
 			      1000 * state->funding_satoshis);
 
-	msg = towire_open_channel(tmpctx,
+	msg = towire_open_channel(state,
 				  &state->chainparams->genesis_blockhash.sha,
 				  &channel_id,
 				  state->funding_satoshis, state->push_msat,
@@ -266,7 +265,7 @@ static u8 *funder_channel(struct state *state,
 
 	state->remoteconf = tal(state, struct channel_config);
 
-	msg = read_next_peer_msg(state, tmpctx);
+	msg = read_next_peer_msg(state, state);
 	if (!msg)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Reading accept_channel");
@@ -361,7 +360,7 @@ static u8 *funder_channel(struct state *state,
 	 * for the initial commitment transactions.  After receiving the
 	 * peer's signature, it will broadcast the funding transaction.
 	 */
-	txs = channel_txs(tmpctx, NULL, &wscripts, state->channel,
+	txs = channel_txs(state, NULL, &wscripts, state->channel,
 			  &state->next_per_commit[REMOTE], 0, REMOTE);
 
 	sign_tx_input(txs[0], 0, NULL, wscripts[0],
@@ -372,7 +371,7 @@ static u8 *funder_channel(struct state *state,
 		     type_to_string(trc, struct bitcoin_tx, txs[0]),
 		     type_to_string(trc, struct pubkey, our_funding_pubkey));
 
-	msg = towire_funding_created(tmpctx, &channel_id,
+	msg = towire_funding_created(state, &channel_id,
 				     &state->funding_txid.sha,
 				     state->funding_txout,
 				     &sig);
@@ -388,7 +387,7 @@ static u8 *funder_channel(struct state *state,
 	 * commitment transaction, so they can broadcast it knowing they can
 	 * redeem their funds if they need to.
 	 */
-	msg = read_next_peer_msg(state, tmpctx);
+	msg = read_next_peer_msg(state, state);
 	if (!msg)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Reading funding_signed");
@@ -419,7 +418,7 @@ static u8 *funder_channel(struct state *state,
 	 *
 	 * The recipient MUST fail the channel if `signature` is incorrect.
 	 */
-	txs = channel_txs(tmpctx, NULL, &wscripts, state->channel,
+	txs = channel_txs(state, NULL, &wscripts, state->channel,
 			  &state->next_per_commit[LOCAL], 0, LOCAL);
 
 	if (!check_tx_sig(txs[0], 0, NULL, wscripts[0], &their_funding_pubkey,
@@ -433,8 +432,6 @@ static u8 *funder_channel(struct state *state,
 					     &their_funding_pubkey));
 	}
 
-	tal_free(tmpctx);
-
 	/* BOLT #2:
 	 *
 	 * Once the channel funder receives the `funding_signed` message, they
@@ -442,6 +439,7 @@ static u8 *funder_channel(struct state *state,
 	 */
 	return towire_opening_funder_reply(state,
 					   state->remoteconf,
+					   txs[0],
 					   &sig,
 					   &state->cs,
 					   &theirs.revocation,
@@ -659,6 +657,7 @@ static u8 *fundee_channel(struct state *state,
 
 	return towire_opening_fundee_reply(state,
 					   state->remoteconf,
+					   txs[0],
 					   &theirsig,
 					   &state->cs,
 					   &theirs.revocation,
