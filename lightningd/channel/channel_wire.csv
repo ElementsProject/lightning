@@ -155,6 +155,7 @@ channel_got_commitsig,,failed,num_failed*struct failed_htlc
 # RCVD_ADD_ACK_COMMIT, RCVD_REMOVE_ACK_COMMIT
 channel_got_commitsig,,num_changed,u16
 channel_got_commitsig,,changed,num_changed*struct changed_htlc
+channel_got_commitsig,,tx,struct bitcoin_tx
 
 # Wait for reply, to make sure it's on disk before we send revocation.
 channel_got_commitsig_reply,121

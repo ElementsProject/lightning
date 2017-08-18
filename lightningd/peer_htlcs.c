@@ -1,3 +1,4 @@
+#include <bitcoin/tx.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
@@ -1003,6 +1004,7 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 	struct fulfilled_htlc *fulfilled;
 	struct failed_htlc *failed;
 	struct changed_htlc *changed;
+	struct bitcoin_tx *tx = tal(msg, struct bitcoin_tx);
 	size_t i;
 
 	if (!fromwire_channel_got_commitsig(msg, msg, NULL,
@@ -1013,7 +1015,8 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 					    &shared_secrets,
 					    &fulfilled,
 					    &failed,
-					    &changed)) {
+					    &changed,
+					    tx)) {
 		peer_internal_error(peer,
 				    "bad fromwire_channel_got_commitsig %s",
 				    tal_hex(peer, msg));
@@ -1058,6 +1061,8 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 	peer->channel_info->commit_sig = commit_sig;
 	if (!peer_save_commitsig_received(peer, commitnum))
 		return -1;
+
+	peer_last_tx(peer, tx, &commit_sig);
 
 	/* Tell it we've committed, and to go ahead with revoke. */
 	msg = towire_channel_got_commitsig_reply(msg);

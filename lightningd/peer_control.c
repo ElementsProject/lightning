@@ -103,12 +103,6 @@ static void drop_to_chain(struct peer *peer)
 	struct secrets secrets;
 	secp256k1_ecdsa_signature sig;
 
-	/* FIXME: Implement. */
-	if (peer->state != CLOSINGD_SIGEXCHANGE) {
-		tal_free(tmpctx);
-		return;
-	}
-
 	derive_basepoints(peer->seed, &local_funding_pubkey, NULL, &secrets,
 			  NULL);
 
