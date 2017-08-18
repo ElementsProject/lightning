@@ -701,6 +701,10 @@ static struct io_plan *send_revocation(struct io_conn *conn, struct peer *peer)
 
 	msg_enqueue(&peer->peer_out, take(msg));
 
+	/* This might have been the final revoke_and_ack... */
+	if (shutdown_complete(peer))
+		io_break(peer);
+
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
