@@ -102,7 +102,8 @@ LIGHTNINGD_HEADERS_NOGEN =			\
 	$(CORE_HEADERS)				\
 	$(CORE_TX_HEADERS)			\
 	$(DAEMON_HEADERS)			\
-	$(WALLET_LIB_HEADERS)
+	$(WALLET_LIB_HEADERS)			\
+	lightningd/onchain/onchain_wire.h
 
 # Generated headers
 LIGHTNINGD_HEADERS_GEN =			\
