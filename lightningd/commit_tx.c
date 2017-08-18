@@ -1,8 +1,8 @@
-#include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/endian/endian.h>
 #include <lightningd/commit_tx.h>
+#include <lightningd/keyset.h>
 #include <permute_tx.h>
 #include <utils.h>
 
@@ -144,16 +144,26 @@ u64 commit_tx_base_fee(u64 feerate_per_kw, size_t num_untrimmed_htlcs)
 	return feerate_per_kw * weight / 1000;
 }
 
+u8 *htlc_offered_wscript(const tal_t *ctx,
+			 const struct ripemd160 *ripemd,
+			 const struct keyset *keyset)
+{
+	return bitcoin_wscript_htlc_offer_ripemd160(ctx,
+						    &keyset->self_payment_key,
+						    &keyset->other_payment_key,
+						    ripemd,
+						    &keyset->self_revocation_key);
+}
+
 static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 				 const struct htlc *htlc,
-				 const struct pubkey *selfkey,
-				 const struct pubkey *otherkey,
-				 const struct pubkey *revocationkey)
+				 const struct keyset *keyset)
 {
-	u8 *wscript = bitcoin_wscript_htlc_offer(tx,
-						 selfkey, otherkey,
-						 &htlc->rhash,
-						 revocationkey);
+	struct ripemd160 ripemd;
+	u8 *wscript;
+
+	ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
+	wscript = htlc_offered_wscript(tx->output, &ripemd, keyset);
 	tx->output[n].amount = htlc->msatoshi / 1000;
 	tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
 	SUPERVERBOSE("# HTLC %"PRIu64" offered amount %"PRIu64" wscript %s\n",
@@ -161,21 +171,42 @@ static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 	tal_free(wscript);
 }
 
+u8 *htlc_received_wscript(const tal_t *ctx,
+			  const struct ripemd160 *ripemd,
+			  const struct abs_locktime *expiry,
+			  const struct keyset *keyset)
+{
+	return bitcoin_wscript_htlc_receive_ripemd(ctx,
+						   expiry,
+						   &keyset->self_payment_key,
+						   &keyset->other_payment_key,
+						   ripemd,
+						   &keyset->self_revocation_key);
+}
+
 static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 				  const struct htlc *htlc,
-				  const struct pubkey *selfkey,
-				  const struct pubkey *otherkey,
-				  const struct pubkey *revocationkey)
+				  const struct keyset *keyset)
 {
-	u8 *wscript = bitcoin_wscript_htlc_receive(tx,
-						   &htlc->expiry,
-						   selfkey, otherkey,
-						   &htlc->rhash, revocationkey);
+	struct ripemd160 ripemd;
+	u8 *wscript;
+
+	ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
+	wscript = htlc_received_wscript(tx, &ripemd, &htlc->expiry, keyset);
 	tx->output[n].amount = htlc->msatoshi / 1000;
 	tx->output[n].script = scriptpubkey_p2wsh(tx->output, wscript);
 	SUPERVERBOSE("# HTLC %"PRIu64" received amount %"PRIu64" wscript %s\n",
 		     htlc->id, tx->output[n].amount, tal_hex(wscript, wscript));
 	tal_free(wscript);
+}
+
+u8 *to_self_wscript(const tal_t *ctx,
+		    u16 to_self_delay,
+		    const struct keyset *keyset)
+{
+	return bitcoin_wscript_to_local(ctx, to_self_delay,
+					&keyset->self_revocation_key,
+					&keyset->self_delayed_payment_key);
 }
 
 struct bitcoin_tx *commit_tx(const tal_t *ctx,
@@ -184,10 +215,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     u64 funding_satoshis,
 			     enum side funder,
 			     u16 to_self_delay,
-			     const struct pubkey *revocation_pubkey,
-			     const struct pubkey *self_delayedkey,
-			     const struct pubkey *selfkey,
-			     const struct pubkey *otherkey,
+			     const struct keyset *keyset,
 			     u64 feerate_per_kw,
 			     u64 dust_limit_satoshis,
 			     u64 self_pay_msat,
@@ -270,8 +298,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			continue;
 		if (trim(htlcs[i], feerate_per_kw, dust_limit_satoshis, side))
 			continue;
-		add_offered_htlc_out(tx, n, htlcs[i], selfkey, otherkey,
-				     revocation_pubkey);
+		add_offered_htlc_out(tx, n, htlcs[i], keyset);
 		if (htlcmap)
 			(*htlcmap)[n++] = htlcs[i];
 	}
@@ -286,8 +313,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			continue;
 		if (trim(htlcs[i], feerate_per_kw, dust_limit_satoshis, side))
 			continue;
-		add_received_htlc_out(tx, n, htlcs[i],selfkey, otherkey,
-				      revocation_pubkey);
+		add_received_htlc_out(tx, n, htlcs[i], keyset);
 		if (htlcmap)
 			(*htlcmap)[n++] = htlcs[i];
 	}
@@ -299,10 +325,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *    Output](#to-local-output).
 	 */
 	if (self_pay_msat / 1000 >= dust_limit_satoshis) {
-		u8 *wscript = bitcoin_wscript_to_local(tmpctx,
-						       to_self_delay,
-						       revocation_pubkey,
-						       self_delayedkey);
+		u8 *wscript = to_self_wscript(tmpctx, to_self_delay,keyset);
 		tx->output[n].amount = self_pay_msat / 1000;
 		tx->output[n].script = scriptpubkey_p2wsh(tx, wscript);
 		if (htlcmap)
@@ -328,12 +351,14 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 * P2WPKH to `remotekey`.
 		 */
 		tx->output[n].amount = other_pay_msat / 1000;
-		tx->output[n].script = scriptpubkey_p2wpkh(tx, otherkey);
+		tx->output[n].script = scriptpubkey_p2wpkh(tx,
+						   &keyset->other_payment_key);
 		if (htlcmap)
 			(*htlcmap)[n] = NULL;
 		SUPERVERBOSE("# to-remote amount %"PRIu64" P2WPKH(%s)\n",
 			     tx->output[n].amount,
-			     type_to_string(tmpctx, struct pubkey, otherkey));
+			     type_to_string(tmpctx, struct pubkey,
+					    &keyset->other_payment_key));
 		n++;
 	}
 

@@ -53,6 +53,7 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/htlc_tx.c			\
 	lightningd/htlc_wire.c			\
 	lightningd/key_derive.c			\
+	lightningd/keyset.c			\
 	lightningd/msg_queue.c			\
 	lightningd/peer_failed.c		\
 	lightningd/ping.c			\
