@@ -1,5 +1,6 @@
 #include <bitcoin/tx.h>
 #include <ccan/build_assert/build_assert.h>
+#include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <daemon/chaintopology.h>
@@ -11,6 +12,7 @@
 #include <lightningd/htlc_end.h>
 #include <lightningd/htlc_wire.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/onchain/onchain_wire.h>
 #include <lightningd/pay.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
@@ -80,7 +82,14 @@ static void save_htlc_stub(struct lightningd *ld,
 			   u32 cltv_value,
 			   const struct sha256 *payment_hash)
 {
-	/* FIXME: remember peer, side, cltv and RIPEMD160(hash) */
+	size_t n = tal_count(peer->htlcs);
+	tal_resize(&peer->htlcs, n+1);
+	peer->htlcs[n].owner = owner;
+	peer->htlcs[n].cltv_expiry = cltv_value;
+	ripemd160(&peer->htlcs[n].ripemd,
+		  payment_hash->u.u8, sizeof(payment_hash->u));
+
+	/* FIXME: save to db instead! */
 }
 
 static void fail_in_htlc(struct htlc_in *hin,
