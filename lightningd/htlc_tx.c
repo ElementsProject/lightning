@@ -3,11 +3,12 @@
 #include <bitcoin/tx.h>
 #include <lightningd/commit_tx.h>
 #include <lightningd/htlc_tx.h>
+#include <lightningd/keyset.h>
 
 static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 				  const struct sha256_double *commit_txid,
 				  unsigned int commit_output_number,
-				  const struct htlc *htlc,
+				  u64 msatoshi,
 				  u16 to_self_delay,
 				  const struct pubkey *revocation_pubkey,
 				  const struct pubkey *local_delayedkey,
@@ -47,7 +48,7 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	tx->input[0].index = commit_output_number;
 
 	/* We need amount for signing. */
-	amount = htlc->msatoshi / 1000;
+	amount = msatoshi / 1000;
 	tx->input[0].amount = tal_dup(tx, u64, &amount);
 
 	/* BOLT #3:
@@ -74,17 +75,18 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 struct bitcoin_tx *htlc_success_tx(const tal_t *ctx,
 				   const struct sha256_double *commit_txid,
 				   unsigned int commit_output_number,
-				   const struct htlc *received_htlc,
+				   u64 htlc_msatoshi,
 				   u16 to_self_delay,
-				   const struct pubkey *revocation_pubkey,
-				   const struct pubkey *local_delayedkey,
-				   u64 feerate_per_kw)
+				   u64 feerate_per_kw,
+				   const struct keyset *keyset)
 {
 	/* BOLT #3:
 	 * * locktime: `0` for HTLC-Success, `cltv_expiry` for HTLC-Timeout.
 	 */
-	return htlc_tx(ctx, commit_txid, commit_output_number, received_htlc,
-		       to_self_delay, revocation_pubkey, local_delayedkey,
+	return htlc_tx(ctx, commit_txid, commit_output_number, htlc_msatoshi,
+		       to_self_delay,
+		       &keyset->self_revocation_key,
+		       &keyset->self_delayed_payment_key,
 		       htlc_success_fee(feerate_per_kw), 0);
 }
 
@@ -118,19 +120,21 @@ void htlc_success_tx_add_witness(struct bitcoin_tx *htlc_success,
 struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 				   const struct sha256_double *commit_txid,
 				   unsigned int commit_output_number,
-				   const struct htlc *offered_htlc,
+				   u64 htlc_msatoshi,
+				   u32 cltv_expiry,
 				   u16 to_self_delay,
-				   const struct pubkey *revocation_pubkey,
-				   const struct pubkey *local_delayedkey,
-				   u64 feerate_per_kw)
+				   u64 feerate_per_kw,
+				   const struct keyset *keyset)
 {
 	/* BOLT #3:
 	 * * locktime: `0` for HTLC-Success, `cltv_expiry` for HTLC-Timeout.
 	 */
-	return htlc_tx(ctx, commit_txid, commit_output_number, offered_htlc,
-		       to_self_delay, revocation_pubkey, local_delayedkey,
+	return htlc_tx(ctx, commit_txid, commit_output_number, htlc_msatoshi,
+		       to_self_delay,
+		       &keyset->self_revocation_key,
+		       &keyset->self_delayed_payment_key,
 		       htlc_timeout_fee(feerate_per_kw),
-		       offered_htlc->expiry.locktime);
+		       cltv_expiry);
 }
 
 /* Fill in the witness for HTLC-timeout tx produced above. */
