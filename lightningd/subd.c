@@ -1,5 +1,6 @@
 #include <ccan/io/fdpass/fdpass.h>
 #include <ccan/io/io.h>
+#include <ccan/mem/mem.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/path/path.h>
@@ -509,4 +510,21 @@ char *opt_subd_dev_disconnect(const char *optarg, struct lightningd *ld)
 		return tal_fmt(ld, "Could not open --dev-disconnect=%s: %s",
 			       optarg, strerror(errno));
 	return NULL;
+}
+
+/* If test specified that this disconnection should cause permanent failure */
+bool dev_disconnect_permanent(struct lightningd *ld)
+{
+	char permfail[strlen("PERMFAIL")];
+	int r;
+
+	if (ld->dev_disconnect_fd == -1)
+		return false;
+
+	r = read(ld->dev_disconnect_fd, permfail, sizeof(permfail));
+	if (r < 0)
+		fatal("Reading dev_disconnect file: %s", strerror(errno));
+	lseek(ld->dev_disconnect_fd, -r, SEEK_CUR);
+
+	return memeq(permfail, r, "permfail", strlen("permfail"));
 }

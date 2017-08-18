@@ -23,6 +23,7 @@
 #include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/closing/gen_closing_wire.h>
 #include <lightningd/commit_tx.h>
+#include <lightningd/dev_disconnect.h>
 #include <lightningd/funding_tx.h>
 #include <lightningd/gen_peer_state_names.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
@@ -150,6 +151,11 @@ void peer_fail_transient(struct peer *peer, const char *fmt, ...)
 		 peer_state_name(peer->state));
 	logv_add(peer->log, fmt, ap);
 	va_end(ap);
+
+	if (dev_disconnect_permanent(peer->ld)) {
+		peer_internal_error(peer, "dev_disconnect permfail");
+		return;
+	}
 
 	peer->owner = NULL;
 
