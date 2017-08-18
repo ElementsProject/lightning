@@ -243,23 +243,16 @@ static void send_init_response(struct daemon_conn *master)
 {
 	struct pubkey node_id;
 	struct secret peer_seed;
-	u8 *serialized_extkey = tal_arr(master, u8, BIP32_SERIALIZED_LEN), *msg;
+	u8 *msg;
 
 	hkdf_sha256(&peer_seed, sizeof(peer_seed), NULL, 0,
 		    &secretstuff.hsm_secret,
 		    sizeof(secretstuff.hsm_secret),
 		    "peer seed", strlen("peer seed"));
-
 	node_key(NULL, &node_id);
-	if (bip32_key_serialize(&secretstuff.bip32, BIP32_FLAG_KEY_PUBLIC,
-				serialized_extkey, tal_len(serialized_extkey))
-	    != WALLY_OK)
-		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
-			      "Can't serialize bip32 public key");
 
 	msg = towire_hsmctl_init_reply(master, &node_id, &peer_seed,
-				       serialized_extkey);
-	tal_free(serialized_extkey);
+				       &secretstuff.bip32);
 	daemon_conn_send(master, take(msg));
 }
 

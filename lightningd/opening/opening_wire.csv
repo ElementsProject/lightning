@@ -25,6 +25,7 @@ opening_init,,crypto_state,struct crypto_state
 # Seed to generate all the keys from
 opening_init,,seed,struct privkey
 
+#include <lightningd/bip32.h>
 # This means we offer the open.
 opening_funder,1
 opening_funder,,funding_satoshis,8
@@ -37,8 +38,7 @@ opening_funder,,channel_flags,u8
 #include <lightningd/utxo.h>
 opening_funder,,num_inputs,u16
 opening_funder,,inputs,num_inputs*struct utxo
-opening_funder,,bip32_len,u16
-opening_funder,,bip32_seed,bip32_len*u8
+opening_funder,,bip32,struct ext_key
 
 # This gives their sig, means we can broadcast tx: we're done.
 opening_funder_reply,101

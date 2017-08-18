@@ -15,11 +15,11 @@ hsmstatus_client_bad_request,,msg,len*u8
 hsmctl_init,1
 hsmctl_init,,new,bool
 
+#include <lightningd/bip32.h>
 hsmctl_init_reply,101
 hsmctl_init_reply,,node_id,33
 hsmctl_init_reply,,peer_seed,struct secret
-hsmctl_init_reply,,bip32_len,2
-hsmctl_init_reply,,bip32_seed,bip32_len*u8
+hsmctl_init_reply,,bip32,struct ext_key
 
 # ECDH returns an fd.
 hsmctl_hsmfd_ecdh,3
