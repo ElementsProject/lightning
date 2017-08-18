@@ -90,8 +90,8 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 			    struct peer *peer,
 			    const struct sha256_double *txid,
 			    enum watch_result (*cb)(struct peer *peer,
+						    const struct bitcoin_tx *,
 						    unsigned int depth,
-						    const struct sha256_double *,
 						    void *arg),
 			    void *cb_arg)
 {
@@ -122,8 +122,8 @@ struct txwatch *watch_tx_(const tal_t *ctx,
 			  struct peer *peer,
 			  const struct bitcoin_tx *tx,
 			  enum watch_result (*cb)(struct peer *peer,
+						  const struct bitcoin_tx *,
 						  unsigned int depth,
-						  const struct sha256_double *,
 						  void *arg),
 			  void *cb_arg)
 {
@@ -159,31 +159,46 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 	return w;
 }
 
+/* Returns true if we fired a callback */
+static bool txw_fire(struct chain_topology *topo,
+		     struct txwatch *txw,
+		     const struct bitcoin_tx *tx,
+		     unsigned int depth)
+{
+	enum watch_result r;
+
+	if (depth == txw->depth)
+		return false;
+	peer_debug(txw->peer,
+		   "Got depth change %u->%u for %02x%02x%02x...\n",
+		   txw->depth, depth,
+		   txw->txid.sha.u.u8[0],
+		   txw->txid.sha.u.u8[1],
+		   txw->txid.sha.u.u8[2]);
+	txw->depth = depth;
+	r = txw->cb(txw->peer, tx, txw->depth, txw->cbdata);
+	switch (r) {
+	case DELETE_WATCH:
+		tal_free(txw);
+		return true;
+	case KEEP_WATCHING:
+		return true;
+	}
+	fatal("txwatch callback %p returned %i\n", txw->cb, r);
+}
+
 void txwatch_fire(struct chain_topology *topo,
-		  const struct sha256_double *txid,
+		  const struct bitcoin_tx *tx,
 		  unsigned int depth)
 {
-	struct txwatch *txw = txwatch_hash_get(&topo->txwatches, txid);
+	struct sha256_double txid;
+	struct txwatch *txw;
 
-	if (txw && depth != txw->depth) {
-		enum watch_result r;
-		peer_debug(txw->peer,
-			  "Got depth change %u for %02x%02x%02x...\n",
-			  txw->depth,
-			  txw->txid.sha.u.u8[0],
-			  txw->txid.sha.u.u8[1],
-			  txw->txid.sha.u.u8[2]);
-		txw->depth = depth;
-		r = txw->cb(txw->peer, txw->depth, &txw->txid, txw->cbdata);
-		switch (r) {
-		case DELETE_WATCH:
-			tal_free(txw);
-			return;
-		case KEEP_WATCHING:
-			return;
-		}
-		fatal("txwatch callback %p returned %i\n", txw->cb, r);
-	}
+	bitcoin_txid(tx, &txid);
+	txw = txwatch_hash_get(&topo->txwatches, &txid);
+
+	if (txw)
+		txw_fire(topo, txw, tx, depth);
 }
 
 void txowatch_fire(struct chain_topology *topo,
@@ -228,23 +243,12 @@ again:
 	for (w = txwatch_hash_first(&topo->txwatches, &i);
 	     w;
 	     w = txwatch_hash_next(&topo->txwatches, &i)) {
-		size_t depth;
+		u32 depth;
+		const struct bitcoin_tx *tx;
 
-		depth = get_tx_depth(topo, &w->txid);
-		if (depth != w->depth) {
-			enum watch_result r;
-			w->depth = depth;
-			needs_rerun = true;
-			r = w->cb(w->peer, w->depth, &w->txid, w->cbdata);
-			switch (r) {
-			case DELETE_WATCH:
-				tal_free(w);
-				continue;
-			case KEEP_WATCHING:
-				continue;
-			}
-			fatal("txwatch callback %p returned %i\n", w->cb, r);
-		}
+		depth = get_tx_depth(topo, &w->txid, &tx);
+		if (depth)
+			needs_rerun |= txw_fire(topo, w, tx, depth);
 	}
 	if (needs_rerun)
 		goto again;

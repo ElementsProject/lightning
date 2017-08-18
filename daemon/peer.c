@@ -3360,8 +3360,8 @@ static void peer_depth_ok(struct peer *peer)
 }
 
 static enum watch_result anchor_depthchange(struct peer *peer,
+					    const struct bitcoin_tx *tx,
 					    unsigned int depth,
-					    const struct sha256_double *txid,
 					    void *unused)
 {
 	log_debug(peer->log, "Anchor at depth %u", depth);
@@ -3620,8 +3620,8 @@ static void fail_own_htlc(struct peer *peer, struct htlc *htlc)
  * than the HTLC timeout difference.
  */
 static enum watch_result our_htlc_timeout_depth(struct peer *peer,
+						const struct bitcoin_tx *tx,
 						unsigned int depth,
-						const struct sha256_double *txid,
 						struct htlc *htlc)
 {
 	if (depth == 0)
@@ -3683,24 +3683,28 @@ static enum watch_result our_htlc_depth(struct peer *peer,
 }
 
 static enum watch_result our_htlc_depth_theircommit(struct peer *peer,
+						    const struct bitcoin_tx *tx,
 						    unsigned int depth,
-						    const struct sha256_double *txid,
 						    ptrint_t *out_num)
 {
-	return our_htlc_depth(peer, depth, txid, REMOTE, ptr2int(out_num));
+	struct sha256_double txid;
+	bitcoin_txid(tx, &txid);
+	return our_htlc_depth(peer, depth, &txid, REMOTE, ptr2int(out_num));
 }
 
 static enum watch_result our_htlc_depth_ourcommit(struct peer *peer,
+						  const struct bitcoin_tx *tx,
 						  unsigned int depth,
-						  const struct sha256_double *txid,
 						  ptrint_t *out_num)
 {
-	return our_htlc_depth(peer, depth, txid, LOCAL, ptr2int(out_num));
+	struct sha256_double txid;
+	bitcoin_txid(tx, &txid);
+	return our_htlc_depth(peer, depth, &txid, LOCAL, ptr2int(out_num));
 }
 
 static enum watch_result their_htlc_depth(struct peer *peer,
+					  const struct bitcoin_tx *tx,
 					  unsigned int depth,
-					  const struct sha256_double *txid,
 					  ptrint_t *out_num)
 {
 	u32 height;
@@ -3725,8 +3729,8 @@ static enum watch_result their_htlc_depth(struct peer *peer,
 }
 
 static enum watch_result our_main_output_depth(struct peer *peer,
+					       const struct bitcoin_tx *tx,
 					       unsigned int depth,
-					       const struct sha256_double *txid,
 					       void *unused)
 {
 	/* Not past CSV timeout? */
@@ -3755,8 +3759,8 @@ static enum watch_result our_main_output_depth(struct peer *peer,
 /* Any of our HTLCs we didn't have in our commitment tx, but they did,
  * we can't fail until we're sure our commitment tx will win. */
 static enum watch_result our_unilateral_depth(struct peer *peer,
+					      const struct bitcoin_tx *tx,
 					      unsigned int depth,
-					      const struct sha256_double *txid,
 					      void *unused)
 {
 	struct htlc_map_iter it;
@@ -3837,8 +3841,8 @@ static enum watch_result our_htlc_spent(struct peer *peer,
 static void resolve_our_htlc(struct peer *peer,
 			     unsigned int out_num,
 			     enum watch_result (*cb)(struct peer *peer,
+						     const struct bitcoin_tx *tx,
 						     unsigned int depth,
-						     const struct sha256_double*,
 						     ptrint_t *out_num))
 {
 	/* FIXME-OLD #onchain:
@@ -3998,8 +4002,8 @@ static void resolve_mutual_close(struct peer *peer)
 
 /* Called every time the tx spending the funding tx changes depth. */
 static enum watch_result check_for_resolution(struct peer *peer,
+					      const struct bitcoin_tx *tx,
 					      unsigned int depth,
-					      const struct sha256_double *txid,
 					      void *unused)
 {
 	size_t i, n = tal_count(peer->onchain.resolved);
@@ -4028,7 +4032,7 @@ static enum watch_result check_for_resolution(struct peer *peer,
 		struct sha256_double txid;
 
 		bitcoin_txid(peer->onchain.resolved[i], &txid);
-		if (get_tx_depth(peer->dstate->topology, &txid) < forever)
+		if (get_tx_depth(peer->dstate->topology, &txid, NULL) < forever)
 			return KEEP_WATCHING;
 	}
 

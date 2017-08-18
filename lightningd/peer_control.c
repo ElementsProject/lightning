@@ -49,6 +49,17 @@ static void destroy_peer(struct peer *peer)
 	list_del_from(&peer->ld->peers, &peer->list);
 }
 
+/* FIXME: Remove this with legacy daemon! */
+void peer_debug(struct peer *peer, const char *fmt, ...);
+void peer_debug(struct peer *peer, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	logv(peer->log, LOG_DBG, fmt, ap);
+	va_end(ap);
+}
+
 /* Mutual recursion, sets timer. */
 static void peer_reconnect(struct peer *peer);
 
@@ -918,8 +929,8 @@ static void funding_broadcast_failed(struct peer *peer,
 }
 
 static enum watch_result funding_announce_cb(struct peer *peer,
+					     const struct bitcoin_tx *tx,
 					     unsigned int depth,
-					     const struct sha256_double *txid,
 					     void *unused)
 {
 	if (depth < ANNOUNCE_MIN_DEPTH) {
@@ -938,14 +949,17 @@ static enum watch_result funding_announce_cb(struct peer *peer,
 }
 
 static enum watch_result funding_lockin_cb(struct peer *peer,
+					   const struct bitcoin_tx *tx,
 					   unsigned int depth,
-					   const struct sha256_double *txid,
 					   void *unused)
 {
-	const char *txidstr = type_to_string(peer, struct sha256_double, txid);
+	struct sha256_double txid;
+	const char *txidstr;
 	struct txlocator *loc;
 	bool peer_ready;
 
+	bitcoin_txid(tx, &txid);
+	txidstr = type_to_string(peer, struct sha256_double, &txid);
 	log_debug(peer->log, "Funding tx %s depth %u of %u",
 		  txidstr, depth, peer->minimum_depth);
 	tal_free(txidstr);
@@ -953,7 +967,7 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 	if (depth < peer->minimum_depth)
 		return KEEP_WATCHING;
 
-	loc = locate_tx(peer, peer->ld->topology, txid);
+	loc = locate_tx(peer, peer->ld->topology, &txid);
 
 	peer->scid = tal(peer, struct short_channel_id);
 	peer->scid->blocknum = loc->blkheight;
@@ -995,7 +1009,7 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 			      take(towire_channel_funding_announce_depth(peer)));
 	} else {
 		/* Worst case, we'll send next block. */
-		watch_txid(peer, peer->ld->topology, peer, txid,
+		watch_txid(peer, peer->ld->topology, peer, &txid,
 			   funding_announce_cb, NULL);
 	}
 	return DELETE_WATCH;
