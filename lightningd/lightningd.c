@@ -46,12 +46,6 @@ struct peer *find_peer_by_unique_id(struct lightningd *ld, u64 unique_id)
 	return NULL;
 }
 
-void peer_debug(struct peer *peer, const char *fmt, ...);
-void peer_debug(struct peer *peer, const char *fmt, ...)
-{
-	FIXME_IMPLEMENT();
-}
-
 void debug_dump_peers(struct lightningd_state *dstate);
 void debug_dump_peers(struct lightningd_state *dstate)
 {

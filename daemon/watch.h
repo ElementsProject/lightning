@@ -58,9 +58,11 @@ struct txwatch {
 	unsigned int depth;
 
 	/* A new depth (0 if kicked out, otherwise 1 = tip, etc.) */
-	enum watch_result (*cb)(struct peer *peer, unsigned int depth,
-				const struct sha256_double *txid,
+	enum watch_result (*cb)(struct peer *peer,
+				const struct bitcoin_tx *tx,
+				unsigned int depth,
 				void *cbdata);
+
 	void *cbdata;
 };
 
@@ -76,8 +78,8 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 			    struct peer *peer,
 			    const struct sha256_double *txid,
 			    enum watch_result (*cb)(struct peer *peer,
+						    const struct bitcoin_tx *,
 						    unsigned int depth,
-						    const struct sha256_double*,
 						    void *),
 			    void *cbdata);
 
@@ -86,8 +88,8 @@ struct txwatch *watch_txid_(const tal_t *ctx,
 		    typesafe_cb_preargs(enum watch_result, void *,	\
 					(cb), (cbdata),			\
 					struct peer *,			\
-					unsigned int depth,		\
-					const struct sha256_double *),	\
+					const struct bitcoin_tx *,	\
+					unsigned int depth),		\
 		    (cbdata))
 
 struct txwatch *watch_tx_(const tal_t *ctx,
@@ -95,8 +97,8 @@ struct txwatch *watch_tx_(const tal_t *ctx,
 			  struct peer *peer,
 			  const struct bitcoin_tx *tx,
 			  enum watch_result (*cb)(struct peer *peer,
+						  const struct bitcoin_tx *,
 						  unsigned int depth,
-						  const struct sha256_double *,
 						  void *),
 			  void *cbdata);
 
@@ -105,8 +107,8 @@ struct txwatch *watch_tx_(const tal_t *ctx,
 		  typesafe_cb_preargs(enum watch_result, void *,	\
 				      (cb), (cbdata),			\
 				      struct peer *,			\
-				      unsigned int depth,		\
-				      const struct sha256_double *),	\
+				      const struct bitcoin_tx *,	\
+				      unsigned int depth),		\
 		  (cbdata))
 
 struct txowatch *watch_txo_(const tal_t *ctx,
@@ -130,7 +132,7 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 		  (cbdata))
 
 void txwatch_fire(struct chain_topology *topo,
-		  const struct sha256_double *txid,
+		  const struct bitcoin_tx *tx,
 		  unsigned int depth);
 
 void txowatch_fire(struct chain_topology *topo,

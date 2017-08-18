@@ -54,13 +54,14 @@ static u32 get_mediantime(const struct chain_topology *topo, const struct block 
 }
 
 /* FIXME: Remove tx from block when peer done. */
-static void add_tx_to_block(struct block *b, const struct sha256_double *txid, const u32 txnum)
+static void add_tx_to_block(struct block *b,
+			    const struct bitcoin_tx *tx, const u32 txnum)
 {
-	size_t n = tal_count(b->txids);
+	size_t n = tal_count(b->txs);
 
-	tal_resize(&b->txids, n+1);
+	tal_resize(&b->txs, n+1);
 	tal_resize(&b->txnums, n+1);
-	b->txids[n] = *txid;
+	b->txs[n] = tal_steal(b->txs, tx);
 	b->txnums[n] = txnum;
 }
 
@@ -96,7 +97,7 @@ static void connect_block(struct chain_topology *topo,
 
 	/* Now we see if any of those txs are interesting. */
 	for (i = 0; i < tal_count(b->full_txs); i++) {
-		struct bitcoin_tx *tx = b->full_txs[i];
+		const struct bitcoin_tx *tx = b->full_txs[i];
 		struct sha256_double txid;
 		size_t j;
 
@@ -115,7 +116,7 @@ static void connect_block(struct chain_topology *topo,
 		/* We did spends first, in case that tells us to watch tx. */
 		bitcoin_txid(tx, &txid);
 		if (watching_txid(topo, &txid) || we_broadcast(topo, &txid))
-			add_tx_to_block(b, &txid, i);
+			add_tx_to_block(b, tx, i);
 	}
 	b->full_txs = tal_free(b->full_txs);
 
@@ -123,37 +124,46 @@ static void connect_block(struct chain_topology *topo,
 	notify_new_block(topo, b->height);
 }
 
-static bool tx_in_block(const struct block *b,
-			const struct sha256_double *txid)
+static const struct bitcoin_tx *tx_in_block(const struct block *b,
+					    const struct sha256_double *txid)
 {
-	size_t i, n = tal_count(b->txids);
+	size_t i, n = tal_count(b->txs);
 
 	for (i = 0; i < n; i++) {
-		if (structeq(&b->txids[i], txid))
-			return true;
+		struct sha256_double this_txid;
+		bitcoin_txid(b->txs[i], &this_txid);
+		if (structeq(&this_txid, txid))
+			return b->txs[i];
 	}
-	return false;
+	return NULL;
 }
 
 /* FIXME: Use hash table. */
 static struct block *block_for_tx(const struct chain_topology *topo,
-				  const struct sha256_double *txid)
+				  const struct sha256_double *txid,
+				  const struct bitcoin_tx **tx)
 {
 	struct block *b;
+	const struct bitcoin_tx *dummy_tx;
+
+	if (!tx)
+		tx = &dummy_tx;
 
 	for (b = topo->tip; b; b = b->prev) {
-		if (tx_in_block(b, txid))
+		*tx = tx_in_block(b, txid);
+		if (*tx)
 			return b;
 	}
 	return NULL;
 }
 
 size_t get_tx_depth(const struct chain_topology *topo,
-		    const struct sha256_double *txid)
+		    const struct sha256_double *txid,
+		    const struct bitcoin_tx **tx)
 {
 	const struct block *b;
 
-	b = block_for_tx(topo, txid);
+	b = block_for_tx(topo, txid, tx);
 	if (!b)
 		return 0;
 	return topo->tip->height - b->height + 1;
@@ -215,7 +225,7 @@ static void rebroadcast_txs(struct chain_topology *topo, struct command *cmd)
 	/* Put any txs we want to broadcast in ->txs. */
 	txs->txs = tal_arr(txs, const char *, 0);
 	list_for_each(&topo->outgoing_txs, otx, list) {
-		if (block_for_tx(topo, &otx->txid))
+		if (block_for_tx(topo, &otx->txid, NULL))
 			continue;
 
 		tal_resize(&txs->txs, num_txs+1);
@@ -293,11 +303,11 @@ static void free_blocks(struct chain_topology *topo, struct block *b)
 	struct block *next;
 
 	while (b) {
-		size_t i, n = tal_count(b->txids);
+		size_t i, n = tal_count(b->txs);
 
 		/* Notify that txs are kicked out. */
 		for (i = 0; i < n; i++)
-			txwatch_fire(topo, &b->txids[i], 0);
+			txwatch_fire(topo, b->txs[i], 0);
 
 		next = b->next;
 		tal_free(b);
@@ -359,7 +369,7 @@ static struct block *new_block(struct chain_topology *topo,
 
 	b->hdr = blk->hdr;
 
-	b->txids = tal_arr(b, struct sha256_double, 0);
+	b->txs = tal_arr(b, const struct bitcoin_tx *, 0);
 	b->txnums = tal_arr(b, u32, 0);
 	b->full_txs = tal_steal(b, blk->tx);
 
@@ -468,7 +478,7 @@ u32 get_tx_mediantime(const struct chain_topology *topo,
 {
 	struct block *b;
 
-	b = block_for_tx(topo, txid);
+	b = block_for_tx(topo, txid, NULL);
 	if (b)
 		return b->mediantime;
 
@@ -502,16 +512,18 @@ u64 get_feerate(const struct chain_topology *topo)
 struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo,
 			    const struct sha256_double *txid)
 {
-	struct block *block = block_for_tx(topo, txid);
+	struct block *block = block_for_tx(topo, txid, NULL);
 	if (block == NULL) {
 		return NULL;
 	}
 
 	struct txlocator *loc = talz(ctx, struct txlocator);
 	loc->blkheight = block->height;
-	size_t i, n = tal_count(block->txids);
+	size_t i, n = tal_count(block->txs);
 	for (i = 0; i < n; i++) {
-		if (structeq(&block->txids[i], txid)){
+		struct sha256_double this_txid;
+		bitcoin_txid(block->txs[i], &this_txid);
+		if (structeq(&this_txid, txid)){
 			loc->index = block->txnums[i];
 			return loc;
 		}

@@ -49,7 +49,7 @@ struct block {
 	u32 mediantime;
 
 	/* Transactions in this block we care about */
-	struct sha256_double *txids;
+	const struct bitcoin_tx **txs;
 
 	/* And their associated index in the block */
 	u32 *txnums;
@@ -131,9 +131,10 @@ struct txlocator {
 };
 
 /* This is the number of blocks which would have to be mined to invalidate
- * the tx. */
+ * the tx (optional tx is filled in if return is non-zero). */
 size_t get_tx_depth(const struct chain_topology *topo,
-		    const struct sha256_double *txid);
+		    const struct sha256_double *txid,
+		    const struct bitcoin_tx **tx);
 
 /* Get the mediantime of the block including this tx (must be one!) */
 u32 get_tx_mediantime(const struct chain_topology *topo,
