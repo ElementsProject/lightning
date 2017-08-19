@@ -499,7 +499,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		chan->peer->local_shutdown_idx = sqlite3_column_int64(stmt, col++);
 	} else {
 		chan->peer->remote_shutdown_scriptpubkey = tal_free(chan->peer->remote_shutdown_scriptpubkey);
-		chan->peer->local_shutdown_idx = 0;
+		chan->peer->local_shutdown_idx = -1;
 		col += 2;
 	}
 
@@ -691,7 +691,7 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		      "  push_msatoshi=%"PRIu64","
 		      "  msatoshi_local=%s,"
 		      "  shutdown_scriptpubkey_remote='%s',"
-		      "  shutdown_keyidx_local=%"PRIu64","
+		      "  shutdown_keyidx_local=%"PRId64","
 		      "  channel_config_local=%"PRIu64","
 		      "  last_tx=%s, last_sig=%s"
 		      " WHERE id=%"PRIu64,
