@@ -433,6 +433,11 @@ static bool peer_reconnected(struct lightningd *ld,
 	log_info(peer->log, "Peer has reconnected, state %s",
 		 peer_state_name(peer->state));
 
+	/* FIXME: Don't assume protocol here! */
+	if (!netaddr_from_fd(fd, SOCK_STREAM, IPPROTO_TCP, &peer->netaddr)) {
+		log_unusual(ld->log, "Failed to get netaddr for peer: %s",
+			    strerror(errno));
+	}
 	/* BOLT #2:
 	 *
 	 * On reconnection, if a channel is in an error state, the node SHOULD
