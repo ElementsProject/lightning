@@ -178,21 +178,17 @@ static const char *find_my_path(const tal_t *ctx, const char *argv0)
 }
 
 void derive_peer_seed(struct lightningd *ld, struct privkey *peer_seed,
-		      const struct pubkey *peer_id)
+		      const struct pubkey *peer_id, const u64 channel_id)
 {
-	be64 counter = cpu_to_be64(ld->peer_counter);
-	u8 input[PUBKEY_DER_LEN + sizeof(counter)];
+	u8 input[PUBKEY_DER_LEN + sizeof(channel_id)];
 	char *info = "per-peer seed";
-
 	pubkey_to_der(input, peer_id);
-	memcpy(input + PUBKEY_DER_LEN, &counter, sizeof(counter));
+	memcpy(input + PUBKEY_DER_LEN, &channel_id, sizeof(channel_id));
 
 	hkdf_sha256(peer_seed, sizeof(*peer_seed),
 		    input, sizeof(input),
 		    &ld->peer_seed, sizeof(ld->peer_seed),
 		    info, strlen(info));
-	/* FIXME: This must be saved in db. */
-	ld->peer_counter++;
 }
 
 static void shutdown_subdaemons(struct lightningd *ld)
@@ -273,7 +269,7 @@ int main(int argc, char *argv[])
 	list_for_each(&ld->peers, peer, list) {
 		populate_peer(ld, peer);
 		peer->seed = tal(peer, struct privkey);
-		derive_peer_seed(ld, peer->seed, &peer->id);
+		derive_peer_seed(ld, peer->seed, &peer->id, peer->channel->id);
 	}
 
 	/* Create RPC socket (if any) */

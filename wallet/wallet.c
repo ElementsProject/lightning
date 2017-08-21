@@ -550,6 +550,8 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 
 	assert(col == 34);
 
+	chan->peer->channel = chan;
+
 	return ok;
 }
 
