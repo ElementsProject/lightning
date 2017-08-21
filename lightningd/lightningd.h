@@ -65,8 +65,23 @@ struct lightningd {
 	const struct chainparams *chainparams;
 };
 
+/**
+ * derive_peer_seed - Generate a unique secret for this peer's channel
+ *
+ * @ld: the lightning daemon to get global secret from
+ * @peer_seed: where to store the generated secret
+ * @peer_id: the id node_id of the remote peer
+ * @chan_id: channel ID
+ *
+ * This method generates a unique secret from the given parameters. It
+ * is important that this secret be unique for each channel, but it
+ * must be reproducible for the same channel in case of
+ * reconnection. We use the DB channel ID to guarantee unique secrets
+ * per channel.
+ */
 void derive_peer_seed(struct lightningd *ld, struct privkey *peer_seed,
-		      const struct pubkey *peer_id);
+		      const struct pubkey *peer_id, const u64 channel_id);
+
 struct peer *find_peer_by_unique_id(struct lightningd *ld, u64 unique_id);
 /* FIXME */
 static inline struct lightningd *

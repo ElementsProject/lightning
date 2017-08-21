@@ -2042,8 +2042,16 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 		       &max_to_self_delay, &max_minimum_depth,
 		       &min_effective_htlc_capacity_msat);
 
+	/* Store the channel in the database in order to get a channel
+	 * ID that is unique and which we can base the peer_seed on */
+	peer->channel = peer_channel_new(ld->wallet, peer);
+	if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
+		fatal("Could not save channel to database: %s",
+		      peer->ld->wallet->db->err);
+	}
 	peer->seed = tal(peer, struct privkey);
-	derive_peer_seed(ld, peer->seed, &peer->id);
+	derive_peer_seed(ld, peer->seed, &peer->id, peer->channel->id);
+
 	msg = towire_opening_init(peer, ld->chainparams->index,
 				  &peer->our_config,
 				  max_to_self_delay,
@@ -2060,7 +2068,6 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 		peer_fail_permanent_str(peer, "Unacceptably long open_channel");
 		return;
 	}
-	peer->channel = peer_channel_new(ld->wallet, peer);
 	subd_req(peer, peer->owner, take(msg), -1, 2,
 		 opening_fundee_finished, peer);
 }
@@ -2104,7 +2111,16 @@ static bool gossip_peer_released(struct subd *gossip,
 	}
 	fc->peer->owner = opening;
 
+	/* Store the channel in the database in order to get a channel
+	 * ID that is unique and which we can base the peer_seed on */
 	fc->peer->channel = peer_channel_new(ld->wallet, fc->peer);
+	if (!wallet_channel_save(fc->peer->ld->wallet, fc->peer->channel)) {
+		fatal("Could not save channel to database: %s",
+		      fc->peer->ld->wallet->db->err);
+	}
+	fc->peer->seed = tal(fc->peer, struct privkey);
+	derive_peer_seed(ld, fc->peer->seed, &fc->peer->id,
+			 fc->peer->channel->id);
 
 	/* We will fund channel */
 	fc->peer->funder = LOCAL;
@@ -2114,8 +2130,6 @@ static bool gossip_peer_released(struct subd *gossip,
 
 	fc->peer->channel_flags = OUR_CHANNEL_FLAGS;
 
-	fc->peer->seed = tal(fc->peer, struct privkey);
-	derive_peer_seed(ld, fc->peer->seed, &fc->peer->id);
 	msg = towire_opening_init(fc, ld->chainparams->index,
 				  &fc->peer->our_config,
 				  max_to_self_delay,
