@@ -243,8 +243,10 @@ bool wallet_shachain_init(struct wallet *wallet, struct wallet_shachain *chain)
 {
 	/* Create shachain */
 	shachain_init(&chain->chain);
-	if (!db_exec(__func__, wallet->db,
-		     "INSERT INTO shachains (min_index, num_valid) VALUES (0,0);")) {
+	if (!db_exec(
+		__func__, wallet->db,
+		"INSERT INTO shachains (min_index, num_valid) VALUES (%"PRIu64",0);",
+		chain->chain.min_index)) {
 		return false;
 	}
 	chain->id = sqlite3_last_insert_rowid(wallet->db->sql);
