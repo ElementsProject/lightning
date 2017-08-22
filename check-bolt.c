@@ -237,14 +237,15 @@ static struct bolt_file *find_bolt(const char *bolt_prefix,
 {
 	size_t i, n = tal_count(bolts);
 	int boltnum;
+	char *endp;
 
 	for (i = 0; i < n; i++)
 		if (streq(bolts[i].prefix, bolt_prefix))
 			return bolts+i;
 
 	/* Now search for numerical match. */
-	boltnum = atoi(bolt_prefix);
-	if (boltnum) {
+	boltnum = strtol(bolt_prefix, &endp, 10);
+	if (endp != bolt_prefix && *endp == 0) {
 		for (i = 0; i < n; i++)
 			if (atoi(bolts[i].prefix) == boltnum)
 				return bolts+i;
