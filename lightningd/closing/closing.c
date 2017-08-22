@@ -135,7 +135,7 @@ again:
 	/* BOLT #2:
 	 *
 	 * On reconnection if the node has sent a previous `closing_signed` it
-	 * MUST then retransmit the last `closing_signed`
+	 * MUST send another `closing_signed`
 	 */
 
 	/* Since we always transmit closing_signed immediately, if
@@ -218,10 +218,12 @@ int main(int argc, char *argv[])
 	 * Nodes SHOULD send a `closing_signed` message after `shutdown` has
 	 * been received and no HTLCs remain in either commitment transaction.
 	 */
+
 	/* BOLT #2:
 	 *
 	 * On reconnection, ... if the node has sent a previous
-	 * `closing_signed` it MUST then retransmit the last `closing_signed`.
+	 * `closing_signed` it MUST send another `closing_signed`, otherwise
+	 * if the node has sent a previous `shutdown` it MUST retransmit it.
 	 */
 	for (;;) {
 		const tal_t *tmpctx = tal_tmpctx(ctx);
@@ -231,11 +233,8 @@ int main(int argc, char *argv[])
 		/* BOLT #2:
 		 *
 		 * The sender MUST set `signature` to the Bitcoin signature of
-		 * the close transaction with the node responsible for paying
-		 * the bitcoin fee paying `fee_satoshis`, then removing any
-		 * output which is below its own `dust_limit_satoshis`. The
-		 * sender MAY then also eliminate its own output from the
-		 * mutual close transaction.
+		 * the close transaction as specified in [BOLT
+		 * #3](03-transactions.md#closing-transaction).
 		 */
 		tx = close_tx(tmpctx, scriptpubkey,
 			      &funding_txid,
@@ -243,10 +242,12 @@ int main(int argc, char *argv[])
 			      funding_satoshi,
 			      satoshi_out, funder, sent_fee, our_dust_limit);
 
-		/* BOLT #2:
+		/* BOLT #3:
 		 *
-		 * The sender MAY then also eliminate its own output from the
-		 * mutual close transaction.
+		 * ## Closing Transaction
+		 *...
+		 * Each node offering a signature... MAY also eliminate its
+		 * own output.
 		 */
 		/* (We don't do this). */
 		sign_tx_input(tx, 0, NULL, funding_wscript,
@@ -310,11 +311,10 @@ int main(int argc, char *argv[])
 
 		/* BOLT #2:
 		 *
-		 * The receiver MUST check `signature` is valid for either the
-		 * close transaction with the given `fee_satoshis` as detailed
-		 * above and its own `dust_limit_satoshis` OR that same
-		 * transaction with the sender's output eliminated, and MUST
-		 * fail the connection if it is not.
+		 * The receiver MUST check `signature` is valid for either
+		 * variant of close transaction specified in [BOLT
+		 * #3](03-transactions.md#closing-transaction), and MUST fail
+		 * the connection if it is not.
 		 */
 		tx = close_tx(tmpctx, scriptpubkey,
 			      &funding_txid,
@@ -334,6 +334,14 @@ int main(int argc, char *argv[])
 				trimming_satoshi_out[REMOTE] = 0;
 			trimming_satoshi_out[LOCAL] = satoshi_out[LOCAL];
 
+			/* BOLT #3:
+			 *
+			 * Each node offering a signature MUST subtract the
+			 * fee given by `fee_satoshis` from the output to the
+			 * funder; it MUST then remove any output below its
+			 * own `dust_limit_satoshis`, and MAY also eliminate
+			 * its own output.
+			*/
 			trimmed = close_tx(tmpctx, scriptpubkey,
 					   &funding_txid,
 					   funding_txout,
@@ -392,9 +400,9 @@ int main(int argc, char *argv[])
 
 		/* BOLT #2:
 		 *
-		 * Once a node has sent or received a `closing_signed` with
-		 * matching `fee_satoshis` it SHOULD close the connection and
-		 * SHOULD sign and broadcast the final closing transaction.
+		 * If `fee_satoshis` is equal to its previously sent
+		 * `fee_satoshis`, the receiver SHOULD sign and broadcast the
+		 * final closing transaction and MAY close the connection.
 		 */
 		if (received_fee == sent_fee)
 			break;
@@ -433,7 +441,7 @@ int main(int argc, char *argv[])
 
 		/* BOLT #2:
 		 *
-		 * ...otherwise it SHOULD propose a value strictly between the
+		 * ...otherwise it MUST propose a value strictly between the
 		 * received `fee_satoshis` and its previously-sent
 		 * `fee_satoshis`.
 		 */

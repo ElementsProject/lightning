@@ -1545,7 +1545,7 @@ again:
 	/* BOLT #2:
 	 *
 	 * If `next_remote_revocation_number` is equal to the commitment
-	 * number of the last `revoke_and_ack` the receiving node has sent, it
+	 * number of the last `revoke_and_ack` the receiving node has sent and the receiving node has not already received a `closing_signed`, it
 	 * MUST re-send the `revoke_and_ack`, otherwise if
 	 * `next_remote_revocation_number` is not equal to one greater than
 	 * the commitment number of the last `revoke_and_ack` the receiving
@@ -1614,9 +1614,11 @@ again:
 
 	/* BOLT #2:
 	 *
-	 * On reconnection if the node has sent a previous `shutdown` it MUST
-	 * retransmit it
+	 * On reconnection if the node has sent a previous `closing_signed` it
+	 * MUST send another `closing_signed`, otherwise if the node has sent
+	 * a previous `shutdown` it MUST retransmit it.
 	 */
+	/* If we had sent `closing_signed`, we'd be in closingd. */
 	maybe_send_shutdown(peer);
 
 	/* Corner case: we didn't send shutdown before because update_add_htlc

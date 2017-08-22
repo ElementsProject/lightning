@@ -46,11 +46,6 @@ bool derive_keyset(const struct pubkey *per_commitment_point,
 	 * a new commitment for a remote node, it uses its own
 	 * `revocation_basepoint` and the remote node's `per_commitment_point`
 	 * to derive a new `revocationkey` for the commitment.
-	 *
-	 * per_commitment_point... is used to derive the revocation key from
-	 * the remote node's `revocation_basepoint`:
-	 *
-	 *	revocationkey = revocation_basepoint * SHA256(revocation_basepoint || per_commitment_point) + per_commitment_point*SHA256(per_commitment_point || revocation_basepoint)
 	 */
 	if (!derive_revocation_key(other_revocation_basepoint,
 				   per_commitment_point,
