@@ -46,10 +46,12 @@ In order to start `lightningd` you will need to have a local `bitcoind` node run
 bitcoind -daemon -testnet
 ```
 
-Once `bitcoind` has synchronized with the testnet/regtest network, you can start `lightningd` with the following command:
+Wait until `bitcoind` has synchronized with the testnet network. In case you use regtest, make sure you generate at least 432 blocks to activate SegWit. 
+
+You can start `lightningd` with the following command:
 
 ```
-lightningd/lightningd --log-level=debug
+lightningd/lightningd --network=testnet --log-level=debug
 ```
 
 ### Opening a channel on the Bitcoin testnet
