@@ -83,6 +83,7 @@ struct peer {
 	 */
 	u64 htlc_id;
 
+	struct sha256_double chain_hash;
 	struct channel_id channel_id;
 	struct channel *channel;
 
@@ -2004,6 +2005,7 @@ static void init_channel(struct peer *peer)
 
 	msg = wire_sync_read(peer, REQ_FD);
 	if (!fromwire_channel_init(peer, msg, NULL,
+				   &peer->chain_hash,
 				   &funding_txid, &funding_txout,
 				   &funding_satoshi,
 				   &peer->conf[LOCAL], &peer->conf[REMOTE],
