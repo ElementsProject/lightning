@@ -137,6 +137,7 @@ struct msg_channel_update {
 	u64 htlc_minimum_msat;
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
+	struct sha256_double chain_hash;
 	struct short_channel_id short_channel_id;
 };
 struct msg_funding_locked {
@@ -193,6 +194,7 @@ struct msg_channel_announcement {
 	secp256k1_ecdsa_signature bitcoin_signature_1;
 	secp256k1_ecdsa_signature bitcoin_signature_2;
 	u8 *features;
+	struct sha256_double chain_hash;
 	struct short_channel_id short_channel_id;
 	struct pubkey node_id_1;
 	struct pubkey node_id_2;
@@ -225,6 +227,7 @@ static void *towire_struct_channel_announcement(const tal_t *ctx,
 					   &s->bitcoin_signature_1,
 					   &s->bitcoin_signature_2,
 					   s->features,
+					   &s->chain_hash,
 					   &s->short_channel_id,
 					   &s->node_id_1,
 					   &s->node_id_2,
@@ -241,6 +244,7 @@ static struct msg_channel_announcement *fromwire_struct_channel_announcement(con
 					  &s->bitcoin_signature_1,
 					  &s->bitcoin_signature_2,
 					  &s->features,
+					  &s->chain_hash,
 					  &s->short_channel_id,
 					  &s->node_id_1,
 					  &s->node_id_2,
@@ -373,6 +377,7 @@ static void *towire_struct_channel_update(const tal_t *ctx,
 {
 	return towire_channel_update(ctx, 
 				     &s->signature,
+				     &s->chain_hash,
 				     &s->short_channel_id,
 				     s->timestamp,
 				     s->flags,
@@ -388,6 +393,7 @@ static struct msg_channel_update *fromwire_struct_channel_update(const tal_t *ct
 
 	if (fromwire_channel_update(p, plen, 
 				    &s->signature,
+				    &s->chain_hash,
 				    &s->short_channel_id,
 				    &s->timestamp,
 				    &s->flags,
@@ -700,6 +706,7 @@ static bool channel_announcement_eq(const struct msg_channel_announcement *a,
 {
 	return eq_upto(a, b, features)
 		&& eq_var(a, b, features)
+		&& eq_field(a, b, chain_hash)
 		&& short_channel_id_eq(&a->short_channel_id, &b->short_channel_id)
 		&& eq_between(a, b, node_id_1, bitcoin_key_2);
 }

@@ -32,6 +32,7 @@
 static struct lightningd_state *lightningd_state(void)
 {
 	struct lightningd_state *dstate = tal(NULL, struct lightningd_state);
+	struct sha256_double unused;
 
 	dstate->log_book = new_log_book(dstate, 20*1024*1024, LOG_INFORM);
 	dstate->base_log = new_log(dstate, dstate->log_book,
@@ -45,7 +46,7 @@ static struct lightningd_state *lightningd_state(void)
 	list_head_init(&dstate->wallet);
 	list_head_init(&dstate->addresses);
 	dstate->dev_never_routefail = false;
-	dstate->rstate = new_routing_state(dstate, dstate->base_log);
+	dstate->rstate = new_routing_state(dstate, dstate->base_log, &unused);
 	dstate->reexec = NULL;
 	dstate->external_ip = NULL;
 	dstate->announce = NULL;
@@ -88,6 +89,10 @@ int main(int argc, char *argv[])
 	/* Handle options and config; move to .lightningd */
 	register_opts(dstate);
 	handle_opts(dstate, argc, argv);
+
+	/* Now we can set chain_hash properly. */ 
+	dstate->rstate->chain_hash
+		= dstate->bitcoind->chainparams->genesis_blockhash;
 
 	/* Activate crash log now we're in the right place. */
 	crashlog_activate(dstate->base_log);

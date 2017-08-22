@@ -86,6 +86,8 @@ struct routing_state {
 	struct log *base_log;
 
 	struct broadcast_state *broadcasts;
+
+	struct sha256_double chain_hash;
 };
 
 struct route_hop {
@@ -96,7 +98,8 @@ struct route_hop {
 };
 
 //FIXME(cdecker) The log will have to be replaced for the new subdaemon, keeping for now to keep changes small.
-struct routing_state *new_routing_state(const tal_t *ctx, struct log *base_log);
+struct routing_state *new_routing_state(const tal_t *ctx, struct log *base_log,
+					const struct sha256_double *chain_hash);
 
 struct node *new_node(struct routing_state *rstate,
 		      const struct pubkey *id);

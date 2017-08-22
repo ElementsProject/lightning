@@ -31,7 +31,9 @@ static void broadcast_channel_update(struct lightningd_state *dstate, struct pee
 	/* Avoid triggering memcheck */
 	memset(&signature, 0, sizeof(signature));
 
-	serialized = towire_channel_update(tmpctx, &signature, &short_channel_id,
+	serialized = towire_channel_update(tmpctx, &signature,
+					   &dstate->rstate->chain_hash,
+					   &short_channel_id,
 					   timestamp,
 					   pubkey_cmp(&dstate->id, peer->id) > 0,
 					   dstate->config.min_htlc_expiry,
@@ -41,7 +43,9 @@ static void broadcast_channel_update(struct lightningd_state *dstate, struct pee
 					   dstate->config.fee_per_satoshi);
 	privkey_sign(dstate, serialized + 66, tal_count(serialized) - 66,
 		     &signature);
-	serialized = towire_channel_update(tmpctx, &signature, &short_channel_id,
+	serialized = towire_channel_update(tmpctx, &signature,
+					   &dstate->rstate->chain_hash,
+					   &short_channel_id,
 					   timestamp,
 					   pubkey_cmp(&dstate->id, peer->id) > 0,
 					   dstate->config.min_htlc_expiry,
@@ -148,6 +152,7 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 						 &bitcoin_signature[0],
 						 &bitcoin_signature[1],
 						 NULL,
+						 &dstate->rstate->chain_hash,
 						 &short_channel_id,
 						 node_id[0],
 						 node_id[1],
@@ -160,6 +165,7 @@ static void broadcast_channel_announcement(struct lightningd_state *dstate, stru
 						 &bitcoin_signature[0],
 						 &bitcoin_signature[1],
 						 NULL,
+						 &dstate->rstate->chain_hash,
 						 &short_channel_id,
 						 node_id[0],
 						 node_id[1],
