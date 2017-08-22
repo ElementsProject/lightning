@@ -653,10 +653,21 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 static struct io_plan *gossip_init(struct daemon_conn *master,
 				   struct daemon *daemon, u8 *msg)
 {
-	if (!fromwire_gossipctl_init(msg, NULL, &daemon->broadcast_interval)) {
+	struct sha256_double chain_hash;
+	struct log_book *log_book;
+	struct log *base_log;
+
+	if (!fromwire_gossipctl_init(msg, NULL, &daemon->broadcast_interval,
+				     &chain_hash)) {
 		status_failed(WIRE_GOSSIPSTATUS_INIT_FAILED,
 			      "Unable to parse init message");
 	}
+	/* Do not log absolutely anything, stdout is now a socket
+	 * connected to some other daemon. */
+	log_book = new_log_book(daemon, 2 * 1024 * 1024, LOG_BROKEN + 1);
+	base_log =
+	    new_log(daemon, log_book, "lightningd_gossip(%u):", (int)getpid());
+	daemon->rstate = new_routing_state(daemon, base_log);
 	return daemon_conn_read_next(master->conn, master);
 }
 
@@ -773,8 +784,6 @@ static void master_gone(struct io_conn *unused, struct daemon_conn *dc)
 int main(int argc, char *argv[])
 {
 	struct daemon *daemon;
-	struct log_book *log_book;
-	struct log *base_log;
 
 	subdaemon_debug(argc, argv);
 
@@ -787,12 +796,6 @@ int main(int argc, char *argv[])
 						 SECP256K1_CONTEXT_SIGN);
 
 	daemon = tal(NULL, struct daemon);
-	/* Do not log absolutely anything, stdout is now a socket
-	 * connected to some other daemon. */
-	log_book = new_log_book(daemon, 2 * 1024 * 1024, LOG_BROKEN + 1);
-	base_log =
-	    new_log(daemon, log_book, "lightningd_gossip(%u):", (int)getpid());
-	daemon->rstate = new_routing_state(daemon, base_log);
 	list_head_init(&daemon->peers);
 	timers_init(&daemon->timers, time_mono());
 	daemon->broadcast_interval = 30000;
