@@ -90,7 +90,7 @@ int main(int argc, char *argv[])
 	register_opts(dstate);
 	handle_opts(dstate, argc, argv);
 
-	/* Now we can set chain_hash properly. */ 
+	/* Now we can set chain_hash properly. */
 	dstate->rstate->chain_hash
 		= dstate->bitcoind->chainparams->genesis_blockhash;
 
