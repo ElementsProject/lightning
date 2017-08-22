@@ -20,7 +20,7 @@
 
 #define NUM_STREAM_BYTES ((NUM_MAX_HOPS + 1) * HOP_DATA_SIZE)
 #define KEY_LEN 32
-#define ONION_REPLY_SIZE 128
+#define ONION_REPLY_SIZE 256
 
 struct hop_params {
 	u8 secret[SHARED_SECRET_SIZE];
@@ -479,7 +479,7 @@ u8 *create_onionreply(const tal_t *ctx, const struct secret *shared_secret,
 	/* BOLT #4:
 	 *
 	 * The node SHOULD set `pad` such that the `failure_len` plus
-	 * `pad_len` is equal to 128.  This is 28 bytes longer than then the
+	 * `pad_len` is equal to 256.  This is 118 bytes longer than then the
 	 * longest currently-defined message.
 	 */
 	assert(tal_len(payload) == ONION_REPLY_SIZE + 4);
