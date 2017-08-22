@@ -21,6 +21,7 @@
 #include <daemon/options.h>
 #include <daemon/routing.h>
 #include <daemon/timeout.h>
+#include <lightningd/onchain/onchain_wire.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <utils.h>
@@ -265,11 +266,14 @@ int main(int argc, char *argv[])
 
 	/* Load peers from database */
 	wallet_channels_load_active(ld->wallet, &ld->peers);
+
+	/* TODO(cdecker) Move this into common location for initialization */
 	struct peer *peer;
 	list_for_each(&ld->peers, peer, list) {
 		populate_peer(ld, peer);
 		peer->seed = tal(peer, struct privkey);
 		derive_peer_seed(ld, peer->seed, &peer->id, peer->channel->id);
+		peer->htlcs = tal_arr(peer, struct htlc_stub, 0);
 	}
 
 	/* Create RPC socket (if any) */
