@@ -17,7 +17,7 @@ libwallycore.a
 libwallycore.la
 gen_*
 daemon/lightning-cli
-check-bolt
+tools/check-bolt
 coverage
 ccan/config.h
 __pycache__
