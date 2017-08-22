@@ -1643,6 +1643,7 @@ static bool peer_start_channeld(struct peer *peer,
 		shutdown_scriptpubkey = NULL;
 
 	initmsg = towire_channel_init(tmpctx,
+				      &peer->ld->chainparams->genesis_blockhash,
 				      peer->funding_txid,
 				      peer->funding_outnum,
 				      peer->funding_satoshi,

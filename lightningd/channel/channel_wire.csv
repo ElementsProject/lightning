@@ -22,6 +22,7 @@ channel_normal_operation,1001
 
 # Begin!  (passes gossipd-client fd)
 channel_init,1
+channel_init,,chain_hash,struct sha256_double
 channel_init,,funding_txid,struct sha256_double
 channel_init,,funding_txout,2
 channel_init,,funding_satoshi,8
