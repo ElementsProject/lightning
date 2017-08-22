@@ -149,7 +149,8 @@ void gossip_init(struct lightningd *ld)
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
 
-	init = towire_gossipctl_init(tmpctx, ld->broadcast_interval);
+	init = towire_gossipctl_init(tmpctx, ld->broadcast_interval,
+				     &ld->chainparams->genesis_blockhash);
 	subd_send_msg(ld->gossip, init);
 	tal_free(tmpctx);
 }

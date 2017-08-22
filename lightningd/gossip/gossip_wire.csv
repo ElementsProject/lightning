@@ -23,6 +23,7 @@ gossipstatus_peer_failed,,err,len*u8
 # Initialize the gossip daemon
 gossipctl_init,0
 gossipctl_init,,broadcast_interval,4
+gossipctl_init,,chain_hash,struct sha256_double
 
 # These take an fd, but have no response
 # (if it is to move onto a channel, we get a status msg).
