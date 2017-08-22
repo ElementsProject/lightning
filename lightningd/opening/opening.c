@@ -243,7 +243,7 @@ static u8 *funder_channel(struct state *state,
 			      1000 * state->funding_satoshis);
 
 	msg = towire_open_channel(state,
-				  &state->chainparams->genesis_blockhash.sha,
+				  &state->chainparams->genesis_blockhash,
 				  &channel_id,
 				  state->funding_satoshis, state->push_msat,
 				  state->localconf.dust_limit_satoshis,
@@ -479,7 +479,7 @@ static u8 *fundee_channel(struct state *state,
 	 * `delayed_payment_basepoint` are not valid DER-encoded compressed
 	 * secp256k1 pubkeys.
 	 */
-	if (!fromwire_open_channel(peer_msg, NULL, &chain_hash.sha, &channel_id,
+	if (!fromwire_open_channel(peer_msg, NULL, &chain_hash, &channel_id,
 				   &state->funding_satoshis, &state->push_msat,
 				   &state->remoteconf->dust_limit_satoshis,
 				   &state->remoteconf->max_htlc_value_in_flight_msat,

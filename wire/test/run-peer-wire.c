@@ -164,7 +164,7 @@ struct msg_node_announcement {
 	u8 *addresses;
 };
 struct msg_open_channel {
-	struct sha256 chain_hash;
+	struct sha256_double chain_hash;
 	struct channel_id temporary_channel_id;
 	u64 funding_satoshis;
 	u64 push_msat;
