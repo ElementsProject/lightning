@@ -34,7 +34,7 @@ bool is_gossip_msg(const u8 *cursor);
  * to perform an initial sync by setting the `initial_routing_sync`
  * flags in the `init` message. The endpoint SHOULD set the
  * `initial_routing_sync` flag if it requires a full copy of the other
- * endpoint's routing state. Upon receiving an init message with the
+ * endpoint's routing state. Upon receiving an `init` message with the
  * `initial_routing_sync` flag set the node sends `channel_announcement`s,
  * `channel_update`s and `node_announcement`s for all known channels and
  * nodes as if they were just received.
