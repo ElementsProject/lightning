@@ -667,7 +667,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	log_book = new_log_book(daemon, 2 * 1024 * 1024, LOG_BROKEN + 1);
 	base_log =
 	    new_log(daemon, log_book, "lightningd_gossip(%u):", (int)getpid());
-	daemon->rstate = new_routing_state(daemon, base_log);
+	daemon->rstate = new_routing_state(daemon, base_log, &chain_hash);
 	return daemon_conn_read_next(master->conn, master);
 }
 

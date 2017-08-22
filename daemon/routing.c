@@ -6,6 +6,7 @@
 #include "routing.h"
 #include "wire/gen_peer_wire.h"
 #include <arpa/inet.h>
+#include <bitcoin/block.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
@@ -16,12 +17,15 @@
 /* 365.25 * 24 * 60 / 10 */
 #define BLOCKS_PER_YEAR 52596
 
-struct routing_state *new_routing_state(const tal_t *ctx, struct log *base_log)
+struct routing_state *new_routing_state(const tal_t *ctx,
+					struct log *base_log,
+					const struct sha256_double *chain_hash)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->base_log = base_log;
 	rstate->nodes = empty_node_map(rstate);
 	rstate->broadcasts = new_broadcast_state(rstate);
+	rstate->chain_hash = *chain_hash;
 	return rstate;
 }
 
@@ -683,6 +687,7 @@ void handle_channel_announcement(
 	struct pubkey node_id_2;
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
+	struct sha256_double chain_hash;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	u8 *features;
 
@@ -692,9 +697,24 @@ void handle_channel_announcement(
 					   &bitcoin_signature_1,
 					   &bitcoin_signature_2,
 					   &features,
+					   &chain_hash,
 					   &short_channel_id,
 					   &node_id_1, &node_id_2,
 					   &bitcoin_key_1, &bitcoin_key_2)) {
+		tal_free(tmpctx);
+		return;
+	}
+
+	/* BOLT #7:
+	 *
+	 * The receiving node MUST ignore the message if the specified
+	 * `chain_hash` is unknown to the receiver.
+	 */
+	if (!structeq(&chain_hash, &rstate->chain_hash)) {
+		log_debug(rstate->base_log,
+			  "Received channel_announcement for unknown chain %s",
+			  type_to_string(tmpctx, struct sha256_double,
+					 &chain_hash));
 		tal_free(tmpctx);
 		return;
 	}
@@ -751,9 +771,11 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 	u32 fee_base_msat;
 	u32 fee_proportional_millionths;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
+	struct sha256_double chain_hash;
 
 	serialized = tal_dup_arr(tmpctx, u8, update, len, 0);
-	if (!fromwire_channel_update(serialized, NULL, &signature, &short_channel_id,
+	if (!fromwire_channel_update(serialized, NULL, &signature,
+				     &chain_hash, &short_channel_id,
 				     &timestamp, &flags, &expiry,
 				     &htlc_minimum_msat, &fee_base_msat,
 				     &fee_proportional_millionths)) {
@@ -761,6 +783,19 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 		return;
 	}
 
+	/* BOLT #7:
+	 *
+	 * The receiving node MUST ignore the channel update if the specified
+	 * `chain_hash` value is unknown, meaning it isn't active on the
+	 * specified chain. */
+	if (!structeq(&chain_hash, &rstate->chain_hash)) {
+		log_debug(rstate->base_log,
+			  "Received channel_update for unknown chain %s",
+			  type_to_string(tmpctx, struct sha256_double,
+					 &chain_hash));
+		tal_free(tmpctx);
+		return;
+	}
 
 	log_debug(rstate->base_log, "Received channel_update for channel %d:%d:%d(%d)",
 		  short_channel_id.blocknum,

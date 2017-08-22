@@ -226,7 +226,8 @@ static void send_channel_update(struct peer *peer, bool disabled)
 	flags = peer->channel_direction | (disabled << 1);
 	/* FIXME: Add configuration option to specify `htlc_minimum_msat` */
 	cupdate = towire_channel_update(
-	    tmpctx, sig, &peer->short_channel_ids[LOCAL], timestamp, flags,
+	    tmpctx, sig, &peer->chain_hash,
+	    &peer->short_channel_ids[LOCAL], timestamp, flags,
 	    peer->cltv_delta, 1, peer->fee_base, peer->fee_per_satoshi);
 
 	msg = towire_hsm_cupdate_sig_req(tmpctx, cupdate);
@@ -267,6 +268,7 @@ static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer)
 	    &peer->announcement_bitcoin_sigs[first],
 	    &peer->announcement_bitcoin_sigs[second],
 	    features,
+	    &peer->chain_hash,
 	    &peer->short_channel_ids[LOCAL], &peer->node_ids[first],
 	    &peer->node_ids[second], &peer->channel->funding_pubkey[first],
 	    &peer->channel->funding_pubkey[second]);

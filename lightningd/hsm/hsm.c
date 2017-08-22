@@ -175,6 +175,7 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 	u32 timestamp, fee_base_msat, fee_proportional_mill;
 	u64 htlc_minimum_msat;
 	u16 flags, cltv_expiry_delta;
+	struct sha256_double chain_hash;
 	u8 *cu;
 
 	if (!fromwire_hsm_cupdate_sig_req(tmpctx, dc->msg_in, NULL, &cu)) {
@@ -184,7 +185,8 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 		return io_close(conn);
 	}
 
-	if (!fromwire_channel_update(cu, NULL, &sig, &scid, &timestamp, &flags,
+	if (!fromwire_channel_update(cu, NULL, &sig, &chain_hash,
+				     &scid, &timestamp, &flags,
 				     &cltv_expiry_delta, &htlc_minimum_msat,
 				     &fee_base_msat, &fee_proportional_mill)) {
 		status_trace("Failed to parse inner channel_update: %s",
@@ -202,7 +204,8 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 
 	sign_hash(&node_pkey, &hash, &sig);
 
-	cu = towire_channel_update(tmpctx, &sig, &scid, timestamp, flags,
+	cu = towire_channel_update(tmpctx, &sig, &chain_hash,
+				   &scid, timestamp, flags,
 				   cltv_expiry_delta, htlc_minimum_msat,
 				   fee_base_msat, fee_proportional_mill);
 
