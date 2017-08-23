@@ -11,6 +11,8 @@ struct channel_info {
 	struct channel_config their_config;
 	struct pubkey remote_fundingkey;
 	struct basepoints theirbase;
+	/* The old_remote_per_commit is for the locked-in remote commit_tx,
+	 * and the remote_per_commit is for the commit_tx we're modifying now. */
 	struct pubkey remote_per_commit, old_remote_per_commit;
 	u32 feerate_per_kw;
 };
@@ -38,4 +40,6 @@ enum onion_type send_htlc_out(struct peer *out, u64 amount, u32 cltv,
 			      struct htlc_in *in,
 			      struct pay_command *pc,
 			      struct htlc_out **houtp);
+
+void onchain_fulfilled_htlc(struct peer *peer, const struct preimage *preimage);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_HTLCS_H */

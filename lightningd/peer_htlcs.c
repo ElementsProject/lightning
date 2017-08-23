@@ -687,6 +687,20 @@ out:
 	return true;
 }
 
+static void fulfill_our_htlc_out(struct peer *peer, struct htlc_out *hout,
+				 const struct preimage *preimage)
+{
+	hout->preimage = tal_dup(hout, struct preimage, preimage);
+	htlc_out_check(hout, __func__);
+
+	/* FIXME: Save to db */
+
+	if (hout->in)
+		fulfill_htlc(hout->in, preimage);
+	else
+		payment_succeeded(peer->ld, hout, preimage);
+}
+
 static bool peer_fulfilled_our_htlc(struct peer *peer,
 				    const struct fulfilled_htlc *fulfilled)
 {
@@ -703,17 +717,32 @@ static bool peer_fulfilled_our_htlc(struct peer *peer,
 	if (!htlc_out_update_state(peer, hout, RCVD_REMOVE_COMMIT))
 		return false;
 
-	hout->preimage = tal_dup(hout, struct preimage,
-				 &fulfilled->payment_preimage);
-	htlc_out_check(hout, __func__);
-
-	/* FIXME: Save to db */
-
-	if (hout->in)
-		fulfill_htlc(hout->in, &fulfilled->payment_preimage);
-	else
-		payment_succeeded(peer->ld, hout, &fulfilled->payment_preimage);
+	fulfill_our_htlc_out(peer, hout, &fulfilled->payment_preimage);
 	return true;
+}
+
+void onchain_fulfilled_htlc(struct peer *peer, const struct preimage *preimage)
+{
+	struct htlc_out_map_iter outi;
+	struct htlc_out *hout;
+	struct sha256 payment_hash;
+
+	sha256(&payment_hash, preimage, sizeof(*preimage));
+
+	/* FIXME: use db to look this up! */
+	for (hout = htlc_out_map_first(&peer->ld->htlcs_out, &outi);
+	     hout;
+	     hout = htlc_out_map_next(&peer->ld->htlcs_out, &outi)) {
+		if (hout->key.peer != peer)
+			continue;
+
+		if (!structeq(&hout->payment_hash, &payment_hash))
+			continue;
+
+		fulfill_our_htlc_out(peer, hout, preimage);
+		/* We keep going: this is something of a leak, but onchain
+		 * we have no real way of distinguishing HTLCs anyway */
+	}
 }
 
 static bool peer_failed_our_htlc(struct peer *peer,
