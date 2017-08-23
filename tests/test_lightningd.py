@@ -360,6 +360,13 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 10**6)
         self.pay(l1,l2,200000000)
 
+        # Make sure l2 has received sig with 0 htlcs!
+        l2.daemon.wait_for_log('Received commit_sig with 0 htlc sigs')
+
+        # Make sure l1 has final revocation.
+        l1.daemon.wait_for_log('Sending commit_sig with 0 htlc sigs')
+        l1.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
+
         # We fail l2, so l1 will reconnect to it.
         l2.rpc.dev_fail(l1.info['id']);
         l2.daemon.wait_for_log('Failing due to dev-fail command')
@@ -367,6 +374,107 @@ class LightningDTests(BaseLightningDTests):
 
         # "Internal error" in hex
         l1.daemon.wait_for_log('WIRE_ERROR.*496e7465726e616c206572726f72')
+
+        # l2 will send out tx (l1 considers it a transient error)
+        bitcoind.rpc.generate(1)
+
+        l1.daemon.wait_for_log('Their unilateral tx, old commit point')
+        l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
+        l2.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
+        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_UNILATERAL_TO_US_RETURN_TO_WALLET (.*) in 6 blocks')
+
+        # Now, mine 6 blocks so it sends out the spending tx.
+        bitcoind.rpc.generate(6)
+
+        # It should send the to-wallet tx.
+        l2.daemon.wait_for_log('Broadcasting OUR_UNILATERAL_TO_US_RETURN_TO_WALLET')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+
+        # 100 after l1 sees tx, it should be done.
+        bitcoind.rpc.generate(94)
+        l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+        # Now, 100 blocks it should be done.
+        bitcoind.rpc.generate(100)
+        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+    def test_permfail_htlc_in(self):
+        # Test case where we fail with unsettled incoming HTLC.
+        disconnects = ['-WIRE_UPDATE_FULFILL_HTLC', 'permfail']
+        l1 = self.node_factory.get_node(legacy=False)
+        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        self.fund_channel(l1, l2, 10**6)
+
+        # This will fail at l2's end.
+        t=self.pay(l1,l2,200000000,async=True)
+
+        l2.daemon.wait_for_log('dev_disconnect permfail')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+        bitcoind.rpc.generate(1)
+        l1.daemon.wait_for_log('Their unilateral tx, old commit point')
+        l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
+        l2.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
+        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 5 blocks')
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US (.*) in 5 blocks')
+
+        # FIXME: Implement FULFILL!
+
+        # OK, time out HTLC.
+        bitcoind.rpc.generate(5)
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        bitcoind.rpc.generate(1)
+        l1.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TO_US')
+        l2.daemon.wait_for_log('Ignoring output.*: OUR_UNILATERAL/THEIR_HTLC')
+
+        # FIXME: This doesn't work :(
+        # FIXME: sendpay command should time out!
+        t.cancel()
+
+        # Now, 100 blocks it should be done.
+        bitcoind.rpc.generate(100)
+        l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+        
+    def test_permfail_htlc_out(self):
+        # Test case where we fail with unsettled outgoing HTLC.
+        disconnects = ['+WIRE_REVOKE_AND_ACK', 'permfail']
+        l1 = self.node_factory.get_node(legacy=False)
+        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        self.fund_channel(l2, l1, 10**6)
+
+        # This will fail at l2's end.
+        t=self.pay(l2,l1,200000000,async=True)
+
+        l2.daemon.wait_for_log('dev_disconnect permfail')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+        bitcoind.rpc.generate(1)
+        l1.daemon.wait_for_log('Their unilateral tx, old commit point')
+        l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
+        l2.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
+        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US \\(.*\\) in 5 blocks')
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 5 blocks')
+
+        # FIXME: Implement FULFILL!
+
+        # OK, time out HTLC.
+        bitcoind.rpc.generate(5)
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+        bitcoind.rpc.generate(1)
+        l1.daemon.wait_for_log('Ignoring output.*: THEIR_UNILATERAL/THEIR_HTLC')
+        l2.daemon.wait_for_log('Resolved OUR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TO_US')
+
+        # FIXME: This doesn't work :(
+        # FIXME: sendpay command should time out!
+        t.cancel()
+
+        # Now, 100 blocks it should be done.
+        bitcoind.rpc.generate(100)
+        l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     def test_gossip_jsonrpc(self):
         l1,l2 = self.connect()
