@@ -1135,10 +1135,12 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 		return -1;
 	}
 
-	if (revokenum != peer->num_revocations_received) {
+	assert(revocations_received(&peer->their_shachain.chain)
+	       == peer->num_revocations_received);
+	if (revokenum != revocations_received(&peer->their_shachain.chain)) {
 		peer_internal_error(peer, "got_revoke: expected %"PRIu64
 				    " got %"PRIu64,
-				    peer->num_revocations_received, revokenum);
+				    revocations_received(&peer->their_shachain.chain), revokenum);
 		return -1;
 	}
 

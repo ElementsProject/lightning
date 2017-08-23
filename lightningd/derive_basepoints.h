@@ -3,6 +3,8 @@
 #include "config.h"
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
+#include <ccan/build_assert/build_assert.h>
+#include <ccan/crypto/shachain/shachain.h>
 
 struct sha256;
 
@@ -60,7 +62,13 @@ bool per_commit_point(const struct sha256 *shaseed,
  */
 static inline u64 shachain_index(u64 per_commit_index)
 {
-	assert(per_commit_index < (1ULL << 48));
-	return 281474976710655ULL - per_commit_index;
+	BUILD_ASSERT((1ULL << SHACHAIN_BITS)-1 == 281474976710655);
+	assert(per_commit_index < (1ULL << SHACHAIN_BITS));
+	return (1ULL << SHACHAIN_BITS)-1 - per_commit_index;
+}
+
+static inline u64 revocations_received(const struct shachain *shachain)
+{
+	return (1ULL << SHACHAIN_BITS) - (shachain_next_index(shachain) + 1);
 }
 #endif /* LIGHTNING_LIGHTNINGD_DERIVE_BASEPOINTS_H */

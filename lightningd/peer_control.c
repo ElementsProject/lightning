@@ -1487,6 +1487,7 @@ static void peer_start_closingd(struct peer *peer,
 	const tal_t *tmpctx = tal_tmpctx(peer);
 	u8 *initmsg, *local_scriptpubkey;
 	u64 minfee, maxfee, startfee;
+	u64 num_revocations;
 
 	if (peer->local_shutdown_idx == -1
 	    || !peer->remote_shutdown_scriptpubkey) {
@@ -1529,6 +1530,10 @@ static void peer_start_closingd(struct peer *peer,
 	minfee = maxfee / 2;
 	startfee = (maxfee + minfee)/2;
 
+	num_revocations
+		= revocations_received(&peer->their_shachain.chain);
+	assert(num_revocations == peer->num_revocations_received);
+
 	/* BOLT #3:
 	 *
 	 * The amounts for each output MUST BE rounded down to whole satoshis.
@@ -1551,7 +1556,7 @@ static void peer_start_closingd(struct peer *peer,
 				      reconnected,
 				      peer->next_index[LOCAL],
 				      peer->next_index[REMOTE],
-				      peer->num_revocations_received);
+				      num_revocations);
 
 	/* We don't expect a response: it will give us feedback on
 	 * signatures sent and received, then closing_complete. */
@@ -1658,6 +1663,7 @@ static bool peer_start_channeld(struct peer *peer,
 	enum side *failed_sides;
 	struct short_channel_id funding_channel_id;
 	const u8 *shutdown_scriptpubkey;
+	u64 num_revocations;
 
 	/* Now we can consider balance set. */
 	if (!reconnected) {
@@ -1717,6 +1723,16 @@ static bool peer_start_channeld(struct peer *peer,
 	} else
 		shutdown_scriptpubkey = NULL;
 
+	num_revocations = revocations_received(&peer->their_shachain.chain);
+	log_debug(peer->log, "peer->num_revocations_received = %"PRIu64
+		  " min_index = %"PRIu64
+		  " revocations_received() = %"PRIu64,
+		  peer->num_revocations_received,
+		  num_revocations,
+		  peer->their_shachain.chain.min_index);
+
+	assert(num_revocations == peer->num_revocations_received);
+
 	initmsg = towire_channel_init(tmpctx,
 				      &peer->ld->chainparams->genesis_blockhash,
 				      peer->funding_txid,
@@ -1746,7 +1762,7 @@ static bool peer_start_channeld(struct peer *peer,
 				      peer->last_sent_commit,
 				      peer->next_index[LOCAL],
 				      peer->next_index[REMOTE],
-				      peer->num_revocations_received,
+				      num_revocations,
 				      peer->next_htlc_id,
 				      htlcs, htlc_states,
 				      fulfilled_htlcs, fulfilled_sides,
