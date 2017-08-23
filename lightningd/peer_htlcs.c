@@ -1135,8 +1135,6 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 		return -1;
 	}
 
-	assert(revocations_received(&peer->their_shachain.chain)
-	       == peer->num_revocations_received);
 	if (revokenum != revocations_received(&peer->their_shachain.chain)) {
 		peer_internal_error(peer, "got_revoke: expected %"PRIu64
 				    " got %"PRIu64,
@@ -1163,7 +1161,6 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 
 	/* FIXME: Check per_commitment_secret -> per_commit_point */
 	update_per_commit_point(peer, &next_per_commitment_point);
-	peer->num_revocations_received++;
 
 	/* FIXME: Commit shachain and next_per_commit_point to db */
 

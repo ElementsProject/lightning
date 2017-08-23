@@ -65,7 +65,6 @@ struct peer {
 
 	/* Tracking commitment transaction numbers. */
 	u64 next_index[NUM_SIDES];
-	u64 num_revocations_received;
 	u64 next_htlc_id;
 
 	/* Funding txid and amounts (once known) */

@@ -463,8 +463,6 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 	chan->peer->minimum_depth = sqlite3_column_int(stmt, col++);
 	chan->peer->next_index[LOCAL] = sqlite3_column_int64(stmt, col++);
 	chan->peer->next_index[REMOTE] = sqlite3_column_int64(stmt, col++);
-	chan->peer->num_revocations_received =
-	    sqlite3_column_int64(stmt, col++);
 	chan->peer->next_htlc_id = sqlite3_column_int64(stmt, col++);
 
 	if (sqlite3_column_hexval(stmt, col++, &temphash, sizeof(temphash))) {
@@ -548,7 +546,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		col += 2;
 	}
 
-	assert(col == 34);
+	assert(col == 33);
 
 	chan->peer->channel = chan;
 
@@ -561,7 +559,7 @@ const char *channel_fields =
     "id, unique_id, peer_id, short_channel_id, channel_config_local, "
     "channel_config_remote, state, funder, channel_flags, "
     "minimum_depth, "
-    "next_index_local, next_index_remote, num_revocations_received, "
+    "next_index_local, next_index_remote, "
     "next_htlc_id, funding_tx_id, funding_tx_outnum, funding_satoshi, "
     "funding_locked_remote, push_msatoshi, msatoshi_local, "
     "fundingkey_remote, revocation_basepoint_remote, "
@@ -731,7 +729,6 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		      "  minimum_depth=%d,"
 		      "  next_index_local=%"PRIu64","
 		      "  next_index_remote=%"PRIu64","
-		      "  num_revocations_received=%"PRIu64","
 		      "  next_htlc_id=%"PRIu64","
 		      "  funding_tx_id=%s,"
 		      "  funding_tx_outnum=%d,"
@@ -753,7 +750,6 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		      p->minimum_depth,
 		      p->next_index[LOCAL],
 		      p->next_index[REMOTE],
-		      p->num_revocations_received,
 		      p->next_htlc_id,
 		      p->funding_txid?tal_fmt(tmpctx, "'%s'", tal_hexstr(tmpctx, p->funding_txid, sizeof(struct sha256_double))):"null",
 		      p->funding_outnum,

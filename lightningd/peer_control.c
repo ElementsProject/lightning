@@ -601,8 +601,7 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->remote_shutdown_scriptpubkey = NULL;
 	peer->local_shutdown_idx = -1;
 	peer->next_index[LOCAL]
-		= peer->next_index[REMOTE]
-		= peer->num_revocations_received = 0;
+		= peer->next_index[REMOTE] = 0;
 	peer->next_htlc_id = 0;
 	peer->htlcs = tal_arr(peer, struct htlc_stub, 0);
 	wallet_shachain_init(ld->wallet, &peer->their_shachain);
@@ -1532,7 +1531,6 @@ static void peer_start_closingd(struct peer *peer,
 
 	num_revocations
 		= revocations_received(&peer->their_shachain.chain);
-	assert(num_revocations == peer->num_revocations_received);
 
 	/* BOLT #3:
 	 *
@@ -1724,14 +1722,6 @@ static bool peer_start_channeld(struct peer *peer,
 		shutdown_scriptpubkey = NULL;
 
 	num_revocations = revocations_received(&peer->their_shachain.chain);
-	log_debug(peer->log, "peer->num_revocations_received = %"PRIu64
-		  " min_index = %"PRIu64
-		  " revocations_received() = %"PRIu64,
-		  peer->num_revocations_received,
-		  num_revocations,
-		  peer->their_shachain.chain.min_index);
-
-	assert(num_revocations == peer->num_revocations_received);
 
 	initmsg = towire_channel_init(tmpctx,
 				      &peer->ld->chainparams->genesis_blockhash,
