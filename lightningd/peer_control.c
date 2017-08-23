@@ -30,6 +30,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/new_connection.h>
+#include <lightningd/onchain/gen_onchain_wire.h>
 #include <lightningd/onchain/onchain_wire.h>
 #include <lightningd/opening/gen_opening_wire.h>
 #include <lightningd/peer_htlcs.h>
@@ -213,8 +214,8 @@ void peer_fail_transient(struct peer *peer, const char *fmt, ...)
 		return;
 	}
 
-	/* Reconnect unless we've dropped to chain. */
-	if (!peer_on_chain(peer)) {
+	/* Reconnect unless we've dropped/are dropping to chain. */
+	if (!peer_on_chain(peer) && peer->state != CLOSINGD_COMPLETE) {
 		peer_reconnect(peer);
 		return;
 	}
@@ -1013,6 +1014,283 @@ static enum watch_result funding_announce_cb(struct peer *peer,
 	return DELETE_WATCH;
 }
 
+static void peer_onchain_finished(struct subd *subd, int status)
+{
+	/* Moved on?  Eg. reorg, and it has a new onchaind. */
+	if (subd->peer->owner != subd)
+		return;
+
+	if (status != 0) {
+		log_broken(subd->peer->log, "onchaind died status %i", status);
+		subd->peer->owner = NULL;
+		return;
+	}
+
+	/* FIXME: Remove peer from db. */
+	log_info(subd->peer->log, "onchaind complete, forgetting peer");
+
+	/* Peer is gone. */
+	tal_free(subd->peer);
+}
+
+static int handle_onchain_init_reply(struct peer *peer, const u8 *msg)
+{
+	u8 state;
+
+	if (!fromwire_onchain_init_reply(msg, NULL, &state)) {
+		log_broken(peer->log, "Invalid onchain_init_reply");
+		return -1;
+	}
+
+	if (!peer_state_on_chain(state)) {
+		log_broken(peer->log, "Invalid onchain_init_reply state %u (%s)",
+			   state, peer_state_name(state));
+		return -1;
+	}
+
+	/* We could come from almost any state. */
+	peer_set_condition(peer, peer->state, state);
+	return 0;
+}
+
+static enum watch_result onchain_tx_watched(struct peer *peer,
+					    const struct bitcoin_tx *tx,
+					    unsigned int depth,
+					    void *unused)
+{
+	u8 *msg;
+	struct sha256_double txid;
+
+	if (depth == 0) {
+		struct subd *old_onchaind = peer->owner;
+		log_unusual(peer->log, "Chain reorganization!");
+		peer->owner = NULL;
+		tal_free(old_onchaind);
+
+		/* FIXME!
+		topology_rescan(peer->ld->topology, peer->funding_txid);
+		*/
+
+		/* We will most likely be freed, so this is a noop */
+		return KEEP_WATCHING;
+	}
+
+	bitcoin_txid(tx, &txid);
+	msg = towire_onchain_depth(peer, &txid, depth);
+	subd_send_msg(peer->owner, take(msg));
+	return KEEP_WATCHING;
+}
+
+static void watch_tx_and_outputs(struct peer *peer,
+				 const struct bitcoin_tx *tx);
+
+static enum watch_result onchain_txo_watched(struct peer *peer,
+					     const struct bitcoin_tx *tx,
+					     size_t input_num,
+					     const struct block *block,
+					     void *unused)
+{
+	u8 *msg;
+
+	watch_tx_and_outputs(peer, tx);
+
+	msg = towire_onchain_spent(peer, tx, input_num, block->height);
+	subd_send_msg(peer->owner, take(msg));
+
+	/* We don't need to keep watching: If this output is double-spent
+	 * (reorg), we'll get a zero depth cb to onchain_tx_watched, and
+	 * restart onchaind. */
+	return DELETE_WATCH;
+}
+
+/* To avoid races, we watch the tx and all outputs. */
+static void watch_tx_and_outputs(struct peer *peer,
+				 const struct bitcoin_tx *tx)
+{
+	struct sha256_double txid;
+	struct txwatch *txw;
+
+	bitcoin_txid(tx, &txid);
+
+	/* Make txwatch a parent of txo watches, so we can unwatch together. */
+	txw = watch_tx(peer->owner, peer->ld->topology, peer, tx,
+		       onchain_tx_watched, NULL);
+
+	for (size_t i = 0; i < tal_count(tx->output); i++)
+		watch_txo(txw, peer->ld->topology, peer, &txid, i,
+			  onchain_txo_watched, NULL);
+}
+
+static int handle_onchain_broadcast_tx(struct peer *peer, const u8 *msg)
+{
+	struct bitcoin_tx *tx;
+
+	tx = tal(msg, struct bitcoin_tx);
+	if (!fromwire_onchain_broadcast_tx(msg, NULL, tx)) {
+		log_broken(peer->log, "Invalid onchain_broadcast_tx");
+		return -1;
+	}
+
+	/* We don't really care if it fails, we'll respond via watch. */
+	broadcast_tx(peer->ld->topology, peer, tx, NULL);
+	return 0;
+}
+
+static int handle_onchain_unwatch_tx(struct peer *peer, const u8 *msg)
+{
+	/* FIXME: unwatch tx and children here. */
+	return 0;
+}
+
+static int handle_extracted_preimage(struct peer *peer, const u8 *msg)
+{
+	struct preimage preimage;
+
+	if (!fromwire_onchain_extracted_preimage(msg, NULL, &preimage)) {
+		log_broken(peer->log, "Invalid extracted_preimage");
+		return -1;
+	}
+
+	onchain_fulfilled_htlc(peer, &preimage);
+	return 0;
+}
+
+static int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
+{
+	enum onchain_wire_type t = fromwire_peektype(msg);
+
+	switch (t) {
+	/* We let peer_onchain_finished handle these. */
+	case WIRE_ONCHAIN_BAD_COMMAND:
+	case WIRE_ONCHAIN_INTERNAL_ERROR:
+	case WIRE_ONCHAIN_CRYPTO_FAILED:
+		break;
+
+	case WIRE_ONCHAIN_INIT_REPLY:
+		return handle_onchain_init_reply(sd->peer, msg);
+
+	case WIRE_ONCHAIN_BROADCAST_TX:
+		return handle_onchain_broadcast_tx(sd->peer, msg);
+
+	case WIRE_ONCHAIN_UNWATCH_TX:
+		return handle_onchain_unwatch_tx(sd->peer, msg);
+
+ 	case WIRE_ONCHAIN_EXTRACTED_PREIMAGE:
+		return handle_extracted_preimage(sd->peer, msg);
+
+	/* We send these, not receive them */
+	case WIRE_ONCHAIN_INIT:
+	case WIRE_ONCHAIN_SPENT:
+	case WIRE_ONCHAIN_DEPTH:
+	case WIRE_ONCHAIN_HTLC:
+	case WIRE_ONCHAIN_KNOWN_PREIMAGE:
+		break;
+	}
+
+	return 0;
+}
+
+static u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
+{
+	struct pubkey shutdownkey;
+
+	if (!bip32_pubkey(ld->bip32_base, &shutdownkey, keyidx))
+		return NULL;
+
+	return scriptpubkey_p2wpkh(ctx, &shutdownkey);
+}
+
+/* With a reorg, this can get called multiple times; each time we'll kill
+ * onchaind (like any other owner), and restart */
+static enum watch_result funding_spent(struct peer *peer,
+				       const struct bitcoin_tx *tx,
+				       size_t input_num,
+				       const struct block *block,
+				       void *unused)
+{
+	u8 *msg, *scriptpubkey;
+	struct sha256_double our_last_txid;
+	s64 keyindex;
+	struct pubkey ourkey;
+
+	peer_fail_permanent_str(peer, "Funding transaction spent");
+	peer->owner = new_subd(peer->ld, peer->ld,
+			       "lightningd_onchain", peer,
+			       onchain_wire_type_name,
+			       onchain_msg,
+			       peer_onchain_finished,
+			       NULL, NULL);
+
+	if (!peer->owner) {
+		log_broken(peer->log, "Could not subdaemon onchain: %s",
+			   strerror(errno));
+		return KEEP_WATCHING;
+	}
+
+	/* We re-use this key to send other outputs to. */
+	if (peer->local_shutdown_idx >= 0)
+		keyindex = peer->local_shutdown_idx;
+	else {
+		/* FIXME: Save to db */
+		keyindex = wallet_get_newindex(peer->ld);
+		if (keyindex < 0) {
+			log_broken(peer->log, "Could not get keyindex");
+			return KEEP_WATCHING;
+		}
+	}
+	scriptpubkey = p2wpkh_for_keyidx(peer, peer->ld, keyindex);
+	if (!scriptpubkey) {
+		peer_internal_error(peer,
+				    "Can't get shutdown script %"PRIu64,
+				    keyindex);
+		return DELETE_WATCH;
+	}
+
+	if (!bip32_pubkey(peer->ld->bip32_base, &ourkey, keyindex)) {
+		peer_internal_error(peer,
+				    "Can't get shutdown key %"PRIu64,
+				    keyindex);
+		return DELETE_WATCH;
+	}
+
+	/* This could be a mutual close, but it doesn't matter. */
+	bitcoin_txid(peer->last_tx, &our_last_txid);
+
+	msg = towire_onchain_init(peer, peer->seed, &peer->their_shachain.chain,
+				  peer->funding_satoshi,
+				  &peer->channel_info->old_remote_per_commit,
+				  &peer->channel_info->remote_per_commit,
+				  peer->our_config.to_self_delay,
+				  peer->channel_info->their_config.to_self_delay,
+				  peer->channel_info->feerate_per_kw,
+				  peer->our_config.dust_limit_satoshis,
+				  &peer->channel_info->theirbase.revocation,
+				  &our_last_txid,
+				  scriptpubkey,
+				  peer->remote_shutdown_scriptpubkey,
+				  &ourkey,
+				  peer->funder,
+				  &peer->channel_info->theirbase.payment,
+				  &peer->channel_info->theirbase.delayed_payment,
+				  tx,
+				  block->height,
+				  peer->last_htlc_sigs,
+				  tal_count(peer->htlcs));
+	subd_send_msg(peer->owner, take(msg));
+
+	/* FIXME: Don't queue all at once, use an empty cb... */
+	for (size_t i = 0; i < tal_count(peer->htlcs); i++) {
+		msg = towire_onchain_htlc(peer, peer->htlcs+i);
+		subd_send_msg(peer->owner, take(msg));
+	}
+
+	/* FIXME: Send any known HTLC preimage for live HTLCs! */
+	watch_tx_and_outputs(peer, tx);
+
+	/* We keep watching until peer finally deleted, for reorgs. */
+	return KEEP_WATCHING;
+}
+
 static enum watch_result funding_lockin_cb(struct peer *peer,
 					   const struct bitcoin_tx *tx,
 					   unsigned int depth,
@@ -1116,6 +1394,11 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	watch_tx(fc->peer, fc->peer->ld->topology, fc->peer, tx,
 		 funding_lockin_cb, NULL);
 
+	/* FIXME: Remove arg from cb? */
+	watch_txo(fc->peer, fc->peer->ld->topology, fc->peer,
+		  fc->peer->funding_txid, fc->peer->funding_outnum,
+		  funding_spent, NULL);
+
 	/* We could defer until after funding locked, but makes testing
 	 * harder. */
 	tal_del_destructor(fc, fail_fundchannel_command);
@@ -1213,16 +1496,6 @@ static int peer_got_funding_locked(struct peer *peer, const u8 *msg)
 	log_debug(peer->log, "Got funding_locked");
 	peer->remote_funding_locked = true;
 	return 0;
-}
-
-static u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
-{
-	struct pubkey shutdownkey;
-
-	if (!bip32_pubkey(ld->bip32_base, &shutdownkey, keyidx))
-		return NULL;
-
-	return scriptpubkey_p2wpkh(ctx, &shutdownkey);
 }
 
 static int peer_got_shutdown(struct peer *peer, const u8 *msg)
@@ -1944,6 +2217,10 @@ static bool opening_fundee_finished(struct subd *opening,
 				    peer->funding_txid));
 	watch_txid(peer, peer->ld->topology, peer, peer->funding_txid,
 		   funding_lockin_cb, NULL);
+
+	/* FIXME: Remove arg from cb? */
+	watch_txo(peer, peer->ld->topology, peer, peer->funding_txid,
+		  peer->funding_outnum, funding_spent, NULL);
 
 	/* Unowned. */
 	peer->owner = NULL;
