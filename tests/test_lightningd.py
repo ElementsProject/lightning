@@ -398,6 +398,45 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.rpc.generate(100)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
+    def test_permfail_new_commit(self):
+        # Test case where we have two possible commits: it will use new one.
+        disconnects = ['-WIRE_REVOKE_AND_ACK', 'permfail']
+        l1 = self.node_factory.get_node(legacy=False)
+        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        self.fund_channel(l1, l2, 10**6)
+
+        # This will fail at l2's end.
+        t=self.pay(l1,l2,200000000,async=True)
+        
+        l2.daemon.wait_for_log('dev_disconnect permfail')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+        bitcoind.rpc.generate(1)
+        l1.daemon.wait_for_log('Their unilateral tx, new commit point')
+        l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
+        l2.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
+        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 5 blocks')
+        l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US (.*) in 5 blocks')
+
+        # FIXME: Implement FULFILL!
+
+        # OK, time out HTLC.
+        bitcoind.rpc.generate(5)
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        bitcoind.rpc.generate(1)
+        l1.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TO_US')
+        l2.daemon.wait_for_log('Ignoring output.*: OUR_UNILATERAL/THEIR_HTLC')
+
+        # FIXME: This doesn't work :(
+        # FIXME: sendpay command should time out!
+        t.cancel()
+
+        # Now, 100 blocks it should be done.
+        bitcoind.rpc.generate(100)
+        l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+        
     def test_permfail_htlc_in(self):
         # Test case where we fail with unsettled incoming HTLC.
         disconnects = ['-WIRE_UPDATE_FULFILL_HTLC', 'permfail']
