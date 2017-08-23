@@ -110,7 +110,7 @@ static void connect_block(struct chain_topology *topo,
 
 			txo = txowatch_hash_get(&topo->txowatches, &out);
 			if (txo)
-				txowatch_fire(topo, txo, tx, j);
+				txowatch_fire(topo, txo, tx, j, b);
 		}
 
 		/* We did spends first, in case that tells us to watch tx. */
