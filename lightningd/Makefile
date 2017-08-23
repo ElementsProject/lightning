@@ -4,7 +4,7 @@
 lightningd-wrongdir:
 	$(MAKE) -C .. lightningd-all
 
-LIGHTNINGD_BINS := lightningd/lightningd lightningd/lightningd_hsm lightningd/lightningd_handshake lightningd/lightningd_gossip lightningd/lightningd_opening lightningd/lightningd_channel lightningd/lightningd_closing
+LIGHTNINGD_BINS := lightningd/lightningd lightningd/lightningd_hsm lightningd/lightningd_handshake lightningd/lightningd_gossip lightningd/lightningd_opening lightningd/lightningd_channel lightningd/lightningd_closing lightningd/lightningd_onchain
 
 lightningd-all: $(LIGHTNINGD_BINS)
 
@@ -103,8 +103,7 @@ LIGHTNINGD_HEADERS_NOGEN =			\
 	$(CORE_HEADERS)				\
 	$(CORE_TX_HEADERS)			\
 	$(DAEMON_HEADERS)			\
-	$(WALLET_LIB_HEADERS)			\
-	lightningd/onchain/onchain_wire.h
+	$(WALLET_LIB_HEADERS)
 
 # Generated headers
 LIGHTNINGD_HEADERS_GEN =			\
@@ -130,6 +129,7 @@ include lightningd/gossip/Makefile
 include lightningd/opening/Makefile
 include lightningd/channel/Makefile
 include lightningd/closing/Makefile
+include lightningd/onchain/Makefile
 
 $(LIGHTNINGD_OBJS) $(LIGHTNINGD_LIB_OBJS): $(LIGHTNINGD_HEADERS) 
 
