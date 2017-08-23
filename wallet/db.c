@@ -50,7 +50,6 @@ char *dbmigrations[] = {
     "  minimum_depth INTEGER,"
     "  next_index_local INTEGER,"
     "  next_index_remote INTEGER,"
-    "  num_revocations_received INTEGER,"
     "  next_htlc_id INTEGER, "
     "  funding_tx_id BLOB,"
     "  funding_tx_outnum INTEGER,"
