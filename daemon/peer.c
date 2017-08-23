@@ -3787,6 +3787,7 @@ static enum watch_result our_unilateral_depth(struct peer *peer,
 static enum watch_result our_htlc_spent(struct peer *peer,
 					const struct bitcoin_tx *tx,
 					size_t input_num,
+					const struct block *block,
 					struct htlc *h)
 {
 	struct sha256 sha;
@@ -4199,6 +4200,7 @@ static struct sha256 *get_rhash(struct peer *peer, u64 commit_num,
 static enum watch_result anchor_spent(struct peer *peer,
 				      const struct bitcoin_tx *tx,
 				      size_t input_num,
+				      const struct block *block,
 				      void *unused)
 {
 	Pkt *err;

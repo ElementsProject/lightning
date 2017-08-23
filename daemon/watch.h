@@ -9,6 +9,7 @@
 #include <ccan/typesafe_cb/typesafe_cb.h>
 
 struct bitcoin_tx;
+struct block;
 struct lightningd_state;
 
 enum watch_result {
@@ -35,6 +36,7 @@ struct txowatch {
 	enum watch_result (*cb)(struct peer *peer,
 				const struct bitcoin_tx *tx,
 				size_t input_num,
+				const struct block *block,
 				void *cbdata);
 
 	void *cbdata;
@@ -119,6 +121,7 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 			    enum watch_result (*cb)(struct peer *peer,
 						    const struct bitcoin_tx *tx,
 						    size_t input_num,
+						    const struct block *block,
 						    void *),
 			    void *cbdata);
 
@@ -128,7 +131,8 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 				      (cb), (cbdata),			\
 				      struct peer *,			\
 				      const struct bitcoin_tx *,	\
-				      size_t),				\
+				       size_t,				\
+				       const struct block *block),	\
 		  (cbdata))
 
 void txwatch_fire(struct chain_topology *topo,
@@ -137,7 +141,8 @@ void txwatch_fire(struct chain_topology *topo,
 
 void txowatch_fire(struct chain_topology *topo,
 		   const struct txowatch *txow,
-		   const struct bitcoin_tx *tx, size_t input_num);
+		   const struct bitcoin_tx *tx, size_t input_num,
+		   const struct block *block);
 
 bool watching_txid(const struct chain_topology *topo,
 		   const struct sha256_double *txid);

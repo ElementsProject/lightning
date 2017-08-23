@@ -141,6 +141,7 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 			    enum watch_result (*cb)(struct peer *peer,
 						    const struct bitcoin_tx *tx,
 						    size_t input_num,
+						    const struct block *block,
 						    void *),
 			    void *cbdata)
 {
@@ -204,7 +205,8 @@ void txwatch_fire(struct chain_topology *topo,
 void txowatch_fire(struct chain_topology *topo,
 		   const struct txowatch *txow,
 		   const struct bitcoin_tx *tx,
-		   size_t input_num)
+		   size_t input_num,
+		   const struct block *block)
 {
 	struct sha256_double txid;
 	enum watch_result r;
@@ -220,7 +222,7 @@ void txowatch_fire(struct chain_topology *topo,
 		  txid.sha.u.u8[1],
 		  txid.sha.u.u8[2],
 		  txid.sha.u.u8[3]);
-	r = txow->cb(txow->peer, tx, input_num, txow->cbdata);
+	r = txow->cb(txow->peer, tx, input_num, block, txow->cbdata);
 	switch (r) {
 	case DELETE_WATCH:
 		tal_free(txow);
