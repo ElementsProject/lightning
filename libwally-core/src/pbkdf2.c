@@ -10,7 +10,7 @@
 #define SHA_T sha256
 #define SHA_ALIGN_T uint32_t
 #define SHA_MEM u32
-#define SHA_POST(name) name ## sha256
+#define SHA_POST(name) name ## sha256_internal
 #define PBKDF2_HMAC_SHA_LEN PBKDF2_HMAC_SHA256_LEN
 #include "pbkdf2.inl"
 
