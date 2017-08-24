@@ -61,6 +61,8 @@ class TailableProc(object):
     def stop(self):
         self.proc.terminate()
         self.proc.kill()
+        self.proc.wait()
+        self.thread.join()
         if self.outputDir:
             logpath = os.path.join(self.outputDir, 'log')
             with open(logpath, 'w') as f:

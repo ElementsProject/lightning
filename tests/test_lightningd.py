@@ -1022,11 +1022,17 @@ class LightningDTests(BaseLightningDTests):
         for n in (l1, l2):
             assert(n.db_query('SELECT COUNT(id) as count FROM channels;')[0]['count'] == 1)
 
+        # Perform a payment so we have something to restore
+        self.pay(l1, l2, 10000)
+        time.sleep(1)
+        assert l1.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 99990000
+        assert l2.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 10000
+
+        # Stop l2, l1 will reattempt to connect
         l2.daemon.stop()
 
-        # Let the other side notice, then stop it
+        # Wait for l1 to notice
         wait_for(lambda: not l1.rpc.getpeers()['peers'][0]['connected'])
-        #l1.daemon.stop()
 
         # Now restart l1 and it should reload peers/channels from the DB
         l2.daemon.start()
@@ -1037,6 +1043,14 @@ class LightningDTests(BaseLightningDTests):
 
         # Now make sure this is really functional by sending a payment
         self.pay(l1, l2, 10000)
+        time.sleep(1)
+        assert l1.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 99980000
+        assert l2.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 20000
+
+        # Finally restart l1, and make sure it remembers
+        l1.daemon.stop()
+        l1.daemon.start()
+        assert l1.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 99980000
 
 class LegacyLightningDTests(BaseLightningDTests):
 

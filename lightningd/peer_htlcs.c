@@ -887,6 +887,10 @@ static bool peer_save_commitsig_received(struct peer *peer, u64 commitnum)
 	peer->next_index[LOCAL]++;
 
 	/* FIXME: Save to database, with sig and HTLCs. */
+	if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
+		fatal("Could not save channel to database: %s",
+		      peer->ld->wallet->db->err);
+	}
 	return true;
 }
 
@@ -903,6 +907,11 @@ static bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum)
 	peer->next_index[REMOTE]++;
 
 	/* FIXME: Save to database, with sig and HTLCs. */
+	if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
+		fatal("Could not save channel to database: %s",
+		      peer->ld->wallet->db->err);
+	}
+
 	return true;
 }
 
@@ -1207,6 +1216,11 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 		hin = find_htlc_in(&peer->ld->htlcs_in, peer, changed[i].id);
 		local_fail_htlc(hin, failcodes[i]);
 	}
+	if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
+		fatal("Could not save channel to database: %s",
+		      peer->ld->wallet->db->err);
+	}
+
 	return 0;
 }
 
