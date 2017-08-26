@@ -36,7 +36,7 @@ sudo docker run \
 	-v $HOME/.lightning:/root/.lightning \
 	-v $HOME/.bitcoin:/root/.bitcoin \
 	-p 9735:9735 \
-	/cdecker/lightningd:master
+	cdecker/lightningd:master
 ```
 ### Starting `lightningd`
 
