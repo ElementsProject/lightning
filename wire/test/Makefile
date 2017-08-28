@@ -6,11 +6,18 @@ WIRE_TEST_SRC := $(wildcard wire/test/run-*.c)
 WIRE_TEST_OBJS := $(WIRE_TEST_SRC:.c=.o)
 WIRE_TEST_PROGRAMS := $(WIRE_TEST_OBJS:.o=)
 
+WIRE_TEST_COMMON_OBJS :=		\
+	common/utils.o
+
 update-mocks: $(WIRE_TEST_SRC:%=update-mocks/%)
 
-$(WIRE_TEST_PROGRAMS): $(CCAN_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a common/utils.o libsodium.a
+$(WIRE_TEST_PROGRAMS): $(WIRE_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
 
-$(WIRE_TEST_OBJS): $(WIRE_HEADERS) $(BITCOIN_HEADERS) $(CORE_HEADERS) $(GEN_HEADERS) $(WIRE_GEN_HEADERS) $(WIRE_GEN_SRC) $(CCAN_HEADERS) $(LIBSODIUM_HEADERS)
+# Test objects require source to be generated, since they include ..
+$(WIRE_TEST_OBJS): $(WIRE_GEN_SRC)
+
+ALL_OBJS += $(WIRE_TEST_OBJS)
+ALL_TEST_PROGRAMS += $(WIRE_TEST_PROGRAMS)
 
 wire-tests: $(WIRE_TEST_PROGRAMS:%=unittest/%)
 

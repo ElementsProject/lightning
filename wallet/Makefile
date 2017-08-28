@@ -14,22 +14,26 @@ WALLET_LIB_SRC :=		\
 WALLET_LIB_OBJS := $(WALLET_LIB_SRC:.c=.o)
 WALLET_LIB_HEADERS := $(WALLET_LIB_SRC:.c=.h)
 
-$(WALLET_LIB_OBJS): $(CCAN_OBJS)
+WALLET_TEST_COMMON_OBJS :=			\
+	lightningd/log.o			\
+	common/type_to_string.o			\
+	common/pseudorand.o			\
+	common/utils.o
 
 WALLET_TEST_SRC := $(wildcard wallet/*_tests.c)
 WALLET_TEST_OBJS := $(WALLET_TEST_SRC:.c=.o)
 WALLET_TEST_PROGRAMS := $(WALLET_TEST_OBJS:.o=)
 
-$(WALLET_TEST_OBJS): $(WALLET_LIB_OBJS)
+# Make sure these depend on everything.
+ALL_TEST_PROGRAMS += $(WALLET_TEST_PROGRAMS)
+ALL_OBJS += $(WALLET_LIB_OBJS) $(WALLET_TEST_OBJS)
 
-$(WALLET_TEST_PROGRAMS): $(BITCOIN_OBJS) $(CCAN_OBJS) $(LIBBASE58_OBJS) lightningd/log.o common/type_to_string.o common/pseudorand.o common/utils.o libwallycore.a libsecp256k1.a libsodium.a
+$(WALLET_TEST_PROGRAMS): $(BITCOIN_OBJS) $(WALLET_TEST_COMMON_OBJS)
+$(WALLET_TEST_OBJS): $(WALLET_LIB_HEADERS)
 
-$(WALLET_TEST_OBJS): $(CCAN_HEADERS)
 wallet/tests: $(WALLET_TEST_PROGRAMS:%=unittest/%)
 
 check-whitespace: $(WALLET_LIB_SRC:%=check-whitespace/%) $(WALLET_LIB_HEADERS:%=check-whitespace/%)
-
-check-makefile: check-lightningd-makefile
 
 clean: wallet-clean
 

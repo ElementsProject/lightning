@@ -6,7 +6,7 @@ lightningd-wrongdir:
 
 LIGHTNINGD_BINS := lightningd/lightningd lightningd/lightningd_hsm lightningd/lightningd_handshake lightningd/lightningd_gossip lightningd/lightningd_opening lightningd/lightningd_channel lightningd/lightningd_closing lightningd/lightningd_onchain
 
-PROGRAMS += $(LIGHTNINGD_BINS)
+ALL_PROGRAMS += $(LIGHTNINGD_BINS)
 
 lightningd-all: $(LIGHTNINGD_BINS)
 
@@ -64,24 +64,20 @@ LIGHTNINGD_SRC_NOHDR :=				\
 
 LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o) $(LIGHTNINGD_SRC_NOHDR:.c=.o)
 
+# Make sure these depend on everything.
+ALL_OBJS += $(LIGHTNINGD_OBJS)
+
 # We accumulate all lightningd/ headers in these three:
 LIGHTNINGD_HEADERS_NOGEN =			\
 	$(LIGHTNINGD_SRC:.c=.h)			\
-	lightningd/peer_state.h			\
-	$(WIRE_HEADERS)				\
-	$(BITCOIN_HEADERS)			\
-	$(COMMON_HEADERS_NOGEN)			\
-	$(WALLET_LIB_HEADERS)
+	lightningd/peer_state.h
 
 # Generated headers
 LIGHTNINGD_HEADERS_GEN =			\
-	lightningd/gen_peer_state_names.h	\
-	$(COMMON_HEADERS_GEN)			\
-	$(WIRE_GEN_HEADERS)			\
-	$(GEN_HEADERS)
+	lightningd/gen_peer_state_names.h
 
 # All together in one convenient var
-LIGHTNINGD_HEADERS = $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) $(EXTERNAL_HEADERS)
+LIGHTNINGD_HEADERS = $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) $(EXTERNAL_HEADERS) $(WIRE_HEADERS) $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(WALLET_LIB_HEADERS)
 
 # These included makefiles add their headers to the LIGHTNINGD_HEADERS
 # variable so the include must preceed any actual use of the variable.

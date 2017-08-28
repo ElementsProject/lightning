@@ -25,6 +25,9 @@ LIGHTNINGD_CHANNEL_SRC := lightningd/channel/channel.c	\
 	$(LIGHTNINGD_CHANNEL_HEADERS_GEN:.h=.c)
 LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o)
 
+# Make sure these depend on everything.
+ALL_OBJS += $(LIGHTNINGD_CHANNEL_OBJS)
+
 # Common source we use.
 CHANNELD_COMMON_OBJS :=				\
 	common/channel_config.o			\
@@ -76,8 +79,7 @@ lightningd/channel/gen_channel_wire.c: $(WIRE_GEN) lightningd/channel/channel_wi
 
 LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o) $(LIGHTNINGD_CHANNEL_GEN_SRC:.c=.o)
 
-lightningd/lightningd_channel: $(LIGHTNINGD_CHANNEL_OBJS) $(WIRE_ONION_OBJS) $(CHANNELD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+lightningd/lightningd_channel: $(LIGHTNINGD_CHANNEL_OBJS) $(WIRE_ONION_OBJS) $(CHANNELD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
 
 check-source: $(LIGHTNINGD_CHANNEL_SRC_NOGEN:%=check-src-include-order/%)
 check-source-bolt: $(LIGHTNINGD_CHANNEL_SRC:%=bolt-check/%) $(LIGHTNINGD_CHANNEL_HEADERS:%=bolt-check/%)
