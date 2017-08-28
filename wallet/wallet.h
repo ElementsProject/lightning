@@ -11,6 +11,7 @@
 #include <wally_bip32.h>
 
 struct lightningd;
+struct pubkey;
 
 struct wallet {
 	struct db *db;

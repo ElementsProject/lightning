@@ -9,7 +9,7 @@ DEST="$1"
 AMOUNT="$2"
 PHASH="$3"
 
-if ROUTE=`daemon/lightning-cli getroute $DEST $AMOUNT 1`; then
+if ROUTE=`cli/lightning-cli getroute $DEST $AMOUNT 1`; then
     # Strip down to raw array.
     ROUTE=`echo $ROUTE | sed 's/^{ "route" : \(.*\) }$/\1/'`
     # Get first amount.
@@ -18,7 +18,7 @@ if ROUTE=`daemon/lightning-cli getroute $DEST $AMOUNT 1`; then
     read REPLY
     case $REPLY in
 	""|y*|Y)
-	    daemon/lightning-cli sendpay "$ROUTE" "$PHASH"
+	    cli/lightning-cli sendpay "$ROUTE" "$PHASH"
 	    exit
 	    ;;
 	*)

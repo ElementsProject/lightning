@@ -60,7 +60,7 @@ First you need to transfer some funds to `lightningd` so that it can open a chan
 
 ```
 # Returns an address <address>
-daemon/lightning-cli newaddr 
+cli/lightning-cli newaddr 
 
 # Returns a transaction id <txid>
 bitcoin-cli -testnet sendtoaddress <address> <amount>
@@ -79,12 +79,12 @@ Once `lightningd` has funds, we can connect to a node and open a channel.
 Let's assume the remote node is accepting connections at `<ip>:<port>` and has the node ID `<node_id>`:
 
 ```
-daemon/lightning-cli connect <ip> <port> <node_id>
-daemon/lightning-cli fundchannel <node_id> <amount>
+cli/lightning-cli connect <ip> <port> <node_id>
+cli/lightning-cli fundchannel <node_id> <amount>
 ```
 
 This opens a connection and, on top of that connection, then opens a channel.
-You can check the status of the channel using `daemon/lightning-cli getpeers`.
+You can check the status of the channel using `cli/lightning-cli getpeers`.
 The funding transaction needs to confirm in order for the channel to be usable, so wait a few minutes, and once that is complete it `getpeers` should say that the status is in _Normal operation_. 
 
 ### Receiving and receiving payments
@@ -93,7 +93,7 @@ Payments in Lightning are invoice based.
 The recipient creates an invoice with the expected `<amount>` in millisatoshi and a `<label>`:
 
 ```
-daemon/lightning-cli invoice <amount> <label>
+cli/lightning-cli invoice <amount> <label>
 ```
 
 This returns a random value called `rhash` that is part of the invoice.
@@ -103,8 +103,8 @@ The sender needs to compute a route to the recipient, and use that route to actu
 The route contains the path that the payment will take throught the Lightning Network and the respective funds that each node will forward.
 
 ```
-route=$(daemon/lightning-cli getroute <recipient_id> <amount> 1 | jq --raw-output .route -)
-daemon/lightning-cli sendpay $route <rhash>
+route=$(cli/lightning-cli getroute <recipient_id> <amount> 1 | jq --raw-output .route -)
+cli/lightning-cli sendpay $route <rhash>
 ```
 
 Notice that in the first step we stored the route in a variable and reused it in the second step.
@@ -123,4 +123,4 @@ JSON-RPC interface is documented in the following manual pages:
 * [getroute](doc/lightning-getroute.7.txt)
 * [sendpay](doc/lightning-sendpay.7.txt)
 
-For simple access to the JSON-RPC interface you can use the `daemon/lightning-cli` tool, or the [python API client](contrib/pylightning).
+For simple access to the JSON-RPC interface you can use the `cli/lightning-cli` tool, or the [python API client](contrib/pylightning).

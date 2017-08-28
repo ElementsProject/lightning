@@ -32,12 +32,12 @@
 #include "chaintopology.h"
 #include "lightningd.h"
 #include "log.h"
-#include "pseudorand.h"
-#include "timeout.h"
 #include "watch.h"
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/ptrint/ptrint.h>
 #include <ccan/structeq/structeq.h>
+#include <common/pseudorand.h>
+#include <common/timeout.h>
 
 const struct txwatch_output *txowatch_keyof(const struct txowatch *w)
 {

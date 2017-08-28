@@ -1,5 +1,4 @@
 #include "configdir.h"
-#include "log.h"
 #include <ccan/opt/opt.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>

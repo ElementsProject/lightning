@@ -21,7 +21,7 @@ bool short_channel_id_from_str(const char *str, size_t strlen,
 	return matches == 3;
 }
 
-char *short_channel_id_to_str(tal_t *ctx, const struct short_channel_id *scid)
+char *short_channel_id_to_str(const tal_t *ctx, const struct short_channel_id *scid)
 {
 	return tal_fmt(ctx, "%d:%d:%d", scid->blocknum, scid->txnum, scid->outnum);
 }

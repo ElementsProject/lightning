@@ -8,6 +8,7 @@
 #include <common/derive_basepoints.h>
 #include <common/funding_tx.h>
 #include <common/initial_channel.h>
+#include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <common/version.h>
 #include <errno.h>

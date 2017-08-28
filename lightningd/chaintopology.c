@@ -5,13 +5,13 @@
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
-#include "timeout.h"
 #include "watch.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/io/io.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
+#include <common/timeout.h>
 #include <common/utils.h>
 #include <inttypes.h>
 

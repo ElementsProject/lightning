@@ -4,7 +4,6 @@
 #include "bitcoin/shadouble.h"
 #include "bitcoin/tx.h"
 #include "bitcoind.h"
-#include "json.h"
 #include "lightningd.h"
 #include "log.h"
 #include <ccan/cast/cast.h>
@@ -16,6 +15,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <common/json.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <inttypes.h>

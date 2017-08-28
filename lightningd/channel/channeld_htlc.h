@@ -2,6 +2,7 @@
 #define LIGHTNINGD_CHANNELD_HTLC_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <common/pseudorand.h>
 #include <wire/gen_onion_wire.h>
 
 struct htlc {

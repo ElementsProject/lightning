@@ -11,14 +11,10 @@ LIGHTNINGD_GOSSIP_CONTROL_HEADERS := lightningd/gossip/gen_gossip_wire.h
 LIGHTNINGD_GOSSIP_CONTROL_SRC := lightningd/gossip/gen_gossip_wire.c
 LIGHTNINGD_GOSSIP_CONTROL_OBJS := $(LIGHTNINGD_GOSSIP_CONTROL_SRC:.c=.o)
 
-# These should eventually be migrated to the lightningd directory, after
-# deprecating the legacy daemons
-LIGHTNINGD_GOSSIP_LEGACY_HEADERS := daemon/routing.h daemon/broadcast.h \
-	daemon/log.h
-
 # lightningd/gossip needs these:
 LIGHTNINGD_GOSSIP_HEADERS := lightningd/gossip/gen_gossip_wire.h \
-	$(LIGHTNINGD_GOSSIP_LEGACY_HEADERS)
+	lightningd/gossip/routing.h				\
+	lightningd/gossip/broadcast.h
 LIGHTNINGD_GOSSIP_SRC := lightningd/gossip/gossip.c	\
 	$(LIGHTNINGD_GOSSIP_HEADERS:.h=.c)
 LIGHTNINGD_GOSSIP_OBJS := $(LIGHTNINGD_GOSSIP_SRC:.c=.o)
@@ -32,6 +28,8 @@ LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_GOSSIP_HEADERS)
 
 # Common source we use.
 GOSSIPD_COMMON_OBJS :=				\
+	common/pseudorand.o			\
+	common/timeout.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o

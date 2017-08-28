@@ -189,6 +189,7 @@ include bitcoin/Makefile
 include wire/Makefile
 include wallet/Makefile
 include lightningd/Makefile
+include cli/Makefile
 
 # Git doesn't maintain timestamps, so we only regen if git says we should.
 CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o x"`git diff $<`" != x"" ]
@@ -205,7 +206,7 @@ test-protocol: test/test_protocol
 check: test-protocol
 	$(MAKE) pytest
 
-pytest: daemon/lightning-cli lightningd-all
+pytest: cli/lightning-cli lightningd-all
 	PYTHONPATH=contrib/pylightning python3 tests/test_lightningd.py -f
 
 # Keep includes in alpha order.
@@ -319,7 +320,7 @@ maintainer-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'
 	@echo 'deletes files that may need special tools to rebuild.'
 
-clean: daemon-clean wire-clean
+clean: wire-clean
 	$(MAKE) -C secp256k1/ clean || true
 	$(RM) libsecp256k1.{a,la}
 	$(RM) libsodium.{a,la}
@@ -330,8 +331,6 @@ clean: daemon-clean wire-clean
 	$(RM) check-bolt tools/check-bolt tools/*.o
 	find . -name '*gcda' -delete
 	find . -name '*gcno' -delete
-
-include daemon/Makefile
 
 update-mocks/%: %
 	@set -e; BASE=/tmp/mocktmp.$$$$.`echo $* | tr / _`; trap "rm -f $$BASE.*" EXIT; \

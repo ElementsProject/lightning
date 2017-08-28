@@ -2,8 +2,8 @@
 #define LIGHTNING_LIGHTNINGD_COMMIT_TX_H
 #include "config.h"
 #include <bitcoin/pubkey.h>
+#include <common/htlc.h>
 #include <common/initial_commit_tx.h>
-#include <daemon/htlc.h>
 #include <lightningd/channel/channeld_htlc.h>
 
 struct keyset;

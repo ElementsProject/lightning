@@ -2,7 +2,8 @@
 #define WALLET_DB_H
 
 #include "config.h"
-#include "daemon/log.h"
+#include <ccan/short_types/short_types.h>
+#include <ccan/tal/tal.h>
 
 #include <sqlite3.h>
 #include <stdbool.h>

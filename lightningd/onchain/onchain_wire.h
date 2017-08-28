@@ -3,7 +3,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <daemon/htlc.h>
+#include <common/htlc.h>
 
 /* The minimal info about an htlc. */
 struct htlc_stub {

@@ -2,12 +2,12 @@
 #include <bitcoin/preimage.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
-#include <daemon/chaintopology.h>
-#include <daemon/jsonrpc.h>
-#include <daemon/log.h>
 #include <inttypes.h>
+#include <lightningd/chaintopology.h>
 #include <lightningd/channel/gen_channel_wire.h>
+#include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/log.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/sphinx.h>
@@ -231,7 +231,7 @@ static void json_sendpay(struct command *cmd,
 		if (!short_channel_id_from_str(buffer + chantok->start,
 					       chantok->end - chantok->start,
 					       &hop_data[n_hops].channel_id)) {
-			command_fail(cmd, "route %zu invalid id", n_hops);
+			command_fail(cmd, "route %zu invalid channel_id", n_hops);
 			return;
 		}
 		if (!pubkey_from_hexstr(buffer + idtok->start,

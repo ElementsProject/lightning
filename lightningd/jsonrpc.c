@@ -1,18 +1,19 @@
 /* Code for JSON_RPC API */
 /* eg: { "method" : "dev-echo", "params" : [ "hello", "Arabella!" ], "id" : "1" } */
-#include "chaintopology.h"
-#include "json.h"
-#include "jsonrpc.h"
-#include "lightningd.h"
-#include "log.h"
+#include <arpa/inet.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
+#include <common/json.h>
 #include <common/version.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <lightningd/chaintopology.h>
+#include <lightningd/jsonrpc.h>
+#include <lightningd/lightningd.h>
+#include <lightningd/log.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -366,6 +367,43 @@ struct json_result *null_response(const tal_t *ctx)
 	json_object_start(response, NULL);
 	json_object_end(response);
 	return response;
+}
+
+void json_add_pubkey(struct json_result *response,
+		     const char *fieldname,
+		     const struct pubkey *key)
+{
+	u8 der[PUBKEY_DER_LEN];
+
+	pubkey_to_der(der, key);
+	json_add_hex(response, fieldname, der, sizeof(der));
+}
+
+void json_add_short_channel_id(struct json_result *response,
+			       const char *fieldname,
+			       const struct short_channel_id *id)
+{
+	json_add_string(response, fieldname,
+			type_to_string(response, struct short_channel_id, id));
+}
+
+void json_add_address(struct json_result *response, const char *fieldname,
+		      const struct ipaddr *addr)
+{
+	json_object_start(response, fieldname);
+	char *addrstr = tal_arr(response, char, INET6_ADDRSTRLEN);
+	if (addr->type == ADDR_TYPE_IPV4) {
+		inet_ntop(AF_INET, addr->addr, addrstr, INET_ADDRSTRLEN);
+		json_add_string(response, "type", "ipv4");
+		json_add_string(response, "address", addrstr);
+		json_add_num(response, "port", addr->port);
+	} else if (addr->type == ADDR_TYPE_IPV6) {
+		inet_ntop(AF_INET6, addr->addr, addrstr, INET6_ADDRSTRLEN);
+		json_add_string(response, "type", "ipv6");
+		json_add_string(response, "address", addrstr);
+		json_add_num(response, "port", addr->port);
+	}
+	json_object_end(response);
 }
 
 void command_success(struct command *cmd, struct json_result *result)

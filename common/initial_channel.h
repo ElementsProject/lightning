@@ -8,7 +8,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <common/derive_basepoints.h>
-#include <daemon/htlc.h>
+#include <common/htlc.h>
 #include <lightningd/channel_config.h>
 #include <stdbool.h>
 

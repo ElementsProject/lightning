@@ -3,7 +3,7 @@
 #include "config.h"
 #include <bitcoin/preimage.h>
 #include <ccan/short_types/short_types.h>
-#include <daemon/htlc.h>
+#include <common/htlc.h>
 #include <lightningd/sphinx.h>
 #include <wire/gen_onion_wire.h>
 

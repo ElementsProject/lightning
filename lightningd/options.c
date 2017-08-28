@@ -1,22 +1,20 @@
-#include "bitcoin/chainparams.h"
-#include "daemon/bitcoind.h"
-#include "daemon/chaintopology.h"
-#include "daemon/configdir.h"
-#include "daemon/lightningd.h"
-#include "daemon/log.h"
-#include "daemon/opt_time.h"
-#include "daemon/options.h"
-#include "daemon/routing.h"
-#include "lightningd/lightningd.h"
 #include <arpa/inet.h>
+#include <bitcoin/chainparams.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
+#include <common/configdir.h>
 #include <common/version.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <lightningd/bitcoind.h>
+#include <lightningd/chaintopology.h>
+#include <lightningd/lightningd.h>
+#include <lightningd/log.h>
+#include <lightningd/opt_time.h>
+#include <lightningd/options.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -228,10 +226,6 @@ static void config_register_opts(struct lightningd_state *dstate)
 	opt_register_arg("--fee-per-satoshi", opt_set_s32, opt_show_s32,
 			 &dstate->config.fee_per_satoshi,
 			 "Microsatoshi fee for every satoshi in HTLC");
-	opt_register_arg("--add-route", opt_add_route, NULL,
-			 dstate,
-			 "Add route of form srcid/dstid/base/var/delay/minblocks"
-			 "(base in millisatoshi, var in millionths of satoshi per satoshi)");
 	opt_register_noarg("--disable-irc", opt_set_invbool,
 			   &dstate->config.use_irc,
 			   "Disable IRC peer discovery for routing");

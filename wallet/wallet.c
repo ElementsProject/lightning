@@ -5,6 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <inttypes.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/log.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 

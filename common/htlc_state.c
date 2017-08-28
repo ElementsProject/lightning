@@ -1,6 +1,6 @@
-#include "htlc.h"
-  #include "gen_htlc_state_names.h"
 #include <ccan/array_size/array_size.h>
+#include <common/htlc.h>
+  #include "gen_htlc_state_names.h"
 
 const char *htlc_state_name(enum htlc_state s)
 {

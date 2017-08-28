@@ -1,12 +1,11 @@
 #include "db.h"
 
-#include "daemon/log.h"
-#include "lightningd/lightningd.h"
-
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <inttypes.h>
+#include <lightningd/lightningd.h>
+#include <lightningd/log.h>
 
 #define DB_FILE "lightningd.sqlite3"
 

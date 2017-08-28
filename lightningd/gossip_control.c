@@ -7,12 +7,12 @@
 #include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
-#include <daemon/jsonrpc.h>
-#include <daemon/log.h>
 #include <inttypes.h>
 #include <lightningd/cryptomsg.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/gossip_msg.h>
+#include <lightningd/jsonrpc.h>
+#include <lightningd/log.h>
 #include <wire/gen_peer_wire.h>
 
 static void gossip_finished(struct subd *gossip, int status)

@@ -1,15 +1,15 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/tal/str/str.h>
-#include <daemon/jsonrpc.h>
-#include <daemon/log.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/cryptomsg.h>
 #include <lightningd/handshake/gen_handshake_wire.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/log.h>
 #include <lightningd/new_connection.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/status.h>

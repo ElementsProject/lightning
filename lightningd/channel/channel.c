@@ -13,10 +13,9 @@
 #include <ccan/time/time.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc_tx.h>
+#include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <common/version.h>
-#include <daemon/routing.h>
-#include <daemon/timeout.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/channel/commit_tx.h>
@@ -26,6 +25,7 @@
 #include <lightningd/cryptomsg.h>
 #include <lightningd/daemon_conn.h>
 #include <lightningd/debug.h>
+#include <lightningd/gossip/routing.h>
 #include <lightningd/hsm/gen_hsm_client_wire.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/msg_queue.h>

@@ -13,17 +13,16 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
+#include <common/timeout.h>
 #include <common/utils.h>
 #include <common/version.h>
-#include <daemon/bitcoind.h>
-#include <daemon/chaintopology.h>
-#include <daemon/invoice.h>
-#include <daemon/jsonrpc.h>
-#include <daemon/log.h>
-#include <daemon/options.h>
-#include <daemon/routing.h>
-#include <daemon/timeout.h>
+#include <lightningd/bitcoind.h>
+#include <lightningd/chaintopology.h>
+#include <lightningd/invoice.h>
+#include <lightningd/jsonrpc.h>
+#include <lightningd/log.h>
 #include <lightningd/onchain/onchain_wire.h>
+#include <lightningd/options.h>
 #include <sys/types.h>
 #include <unistd.h>
 

@@ -16,7 +16,7 @@ libsodium.la
 libwallycore.a
 libwallycore.la
 gen_*
-daemon/lightning-cli
+lightning-cli/lightning-cli
 tools/check-bolt
 coverage
 ccan/config.h

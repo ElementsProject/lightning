@@ -28,10 +28,13 @@ LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o)
 # Common source we use.
 CHANNELD_COMMON_OBJS :=				\
 	common/derive_basepoints.o		\
+	common/htlc_state.o			\
 	common/htlc_tx.o			\
 	common/initial_channel.o		\
 	common/initial_commit_tx.o		\
 	common/permute_tx.o			\
+	common/pseudorand.o			\
+	common/timeout.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o
