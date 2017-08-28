@@ -23,26 +23,6 @@ endif
 # This is where we add new features as bitcoin adds them.
 FEATURES :=
 
-TEST_PROGRAMS :=				\
-	test/test_protocol			\
-	test/test_sphinx
-
-BITCOIN_SRC :=					\
-	bitcoin/base58.c			\
-	bitcoin/block.c				\
-	bitcoin/chainparams.c			\
-	bitcoin/locktime.c			\
-	bitcoin/pubkey.c			\
-	bitcoin/pullpush.c			\
-	bitcoin/script.c			\
-	bitcoin/shadouble.c			\
-	bitcoin/short_channel_id.c		\
-	bitcoin/signature.c			\
-	bitcoin/tx.c				\
-	bitcoin/varint.c
-
-BITCOIN_OBJS := $(BITCOIN_SRC:.c=.o)
-
 CCAN_OBJS :=					\
 	ccan-asort.o				\
 	ccan-autodata.o				\
@@ -142,61 +122,36 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/timer/timer.h			\
 	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h
 
-BITCOIN_HEADERS := bitcoin/address.h		\
-	bitcoin/base58.h			\
-	bitcoin/block.h				\
-	bitcoin/chainparams.h			\
-	bitcoin/locktime.h			\
-	bitcoin/preimage.h			\
-	bitcoin/privkey.h			\
-	bitcoin/pubkey.h			\
-	bitcoin/pullpush.h			\
-	bitcoin/script.h			\
-	bitcoin/shadouble.h			\
-	bitcoin/short_channel_id.h		\
-	bitcoin/signature.h			\
-	bitcoin/tx.h				\
-	bitcoin/varint.h
-
 GEN_HEADERS := 	gen_version.h
 
 CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
 WIRE_GEN := tools/generate-wire.py
 
-PROGRAMS += $(TEST_PROGRAMS)
+ALL_PROGRAMS =
 
 CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition
 CDEBUGFLAGS := -std=gnu11 -g -fstack-protector
 CFLAGS = $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . $(FEATURES) $(COVFLAGS) -DSHACHAIN_BITS=48
-LDFLAGS := -Lexternal
 
-LDLIBS = -lgmp -lsqlite3 $(COVFLAGS) $(EXTERNAL_LDLIBS)
+LDLIBS = -lgmp -lsqlite3 $(COVFLAGS)
 
-default: $(TEST_PROGRAMS) doc-all
+default: $(ALL_TEST_PROGRAMS) doc-all
 
 include external/Makefile
-include common/Makefile
-include doc/Makefile
 include bitcoin/Makefile
+include common/Makefile
 include wire/Makefile
 include wallet/Makefile
 include lightningd/Makefile
 include cli/Makefile
+include test/Makefile
+include doc/Makefile
 
 # Git doesn't maintain timestamps, so we only regen if git says we should.
 CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o x"`git diff $<`" != x"" ]
 
-# Everything depends on the CCAN headers.
-$(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
-
-# Except for CCAN, everything depends on bitcoin, ccan, library and common headers.
-$(HELPER_OBJS) $(COMMON_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(WALLET_LIB_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS) $(EXTERNAL_HEADERS)
-
-test-protocol: test/test_protocol
-	set -e; TMP=`mktemp`; for f in test/commits/*.script; do if ! $(VALGRIND) test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
-
-check: test-protocol
+check:
 	$(MAKE) pytest
 
 pytest: cli/lightning-cli lightningd-all
@@ -222,7 +177,7 @@ bolt-check/%: % bolt-precheck tools/check-bolt
 bolt-precheck:
 	@rm -rf .tmp.lightningrfc; if [ ! -d $(BOLTDIR) ]; then echo Not checking BOLT references: BOLTDIR $(BOLTDIR) does not exist >&2; exit 0; fi; set -e; if [ -n "$(BOLTVERSION)" ]; then git clone -q -b $(BOLTVERSION) $(BOLTDIR) .tmp.lightningrfc; else cp -a $(BOLTDIR) .tmp.lightningrfc; fi
 
-check-source-bolt: $(TEST_PROGRAMS:%=bolt-check/%.c)
+check-source-bolt: $(ALL_TEST_PROGRAMS:%=bolt-check/%.c)
 
 tools/check-bolt: tools/check-bolt.o $(CCAN_OBJS)
 
@@ -231,15 +186,13 @@ tools/check-bolt.o: $(CCAN_HEADERS)
 check-whitespace/%: %
 	@if grep -Hn '[ 	]$$' $<; then echo Extraneous whitespace found >&2; exit 1; fi
 
-check-whitespace: check-whitespace/Makefile check-whitespace/tools/check-bolt.c
+check-whitespace: check-whitespace/Makefile check-whitespace/tools/check-bolt.c $(ALL_TEST_PROGRAMS:%=check-whitespace/%.c)
 
-check-source: check-makefile check-source-bolt check-whitespace	\
-	$(BITCOIN_SRC:%=check-src-include-order/%)		\
-	$(BITCOIN_HEADERS:%=check-hdr-include-order/%)
+check-source: check-makefile check-source-bolt check-whitespace
 
-full-check: check $(TEST_PROGRAMS) check-source
+full-check: check check-source
 
-coverage/coverage.info: check $(TEST_PROGRAMS) pytest
+coverage/coverage.info: check pytest
 	mkdir coverage || true
 	lcov --capture --directory . --output-file coverage/coverage.info
 
@@ -251,11 +204,11 @@ TAGS: FORCE
 	$(RM) TAGS; find * -name test -type d -prune -o -name '*.[ch]' -print | xargs etags --append
 FORCE::
 
-ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDUMP_OBJS) $(CCAN_OBJS) $(EXTERNAL_LIBS)
+ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDUMP_OBJS) $(CCAN_OBJS)
 
-PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
-
-$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) common/sphinx.o common/utils.o
+ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
+# Can't add to ALL_OBJS, as that makes a circular dep.
+ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
 
 ccan/config.h: ccan/tools/configurator/configurator
 	if $< > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
@@ -264,10 +217,24 @@ gen_version.h: FORCE
 	@(echo "#define VERSION \"`git describe --always --dirty`\"" && echo "#define VERSION_NAME \"$(NAME)\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
 	@if cmp $@.new $@ >/dev/null 2>&2; then rm -f $@.new; else mv $@.new $@; echo Version updated; fi
 
-version.o: gen_version.h
+# All binaries require the external libs, ccan
+$(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS): $(EXTERNAL_LIBS) $(CCAN_OBJS)
 
-# All binaries require the external libs
-$(PROGRAMS): $(EXTERNAL_LIBS)
+# Each test program depends on its own object.
+$(ALL_TEST_PROGRAMS): %: %.o
+
+# Without this rule, the (built-in) link line contains
+# external/libwallycore.a directly, which causes a symbol clash (it
+# uses some ccan modules internally).  We want to rely on -lwallycore etc.
+# (as per EXTERNAL_LDLIBS) so we filter them out here.
+$(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS):
+	$(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) -o $@
+
+# Everything depends on the CCAN headers.
+$(CCAN_OBJS) $(CDUMP_OBJS): $(CCAN_HEADERS)
+
+# Except for CCAN, we treat everything else as dependent on external/ bitcoin/ common/ wire/ and generated version headers.
+$(ALL_OBJS): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(GEN_HEADERS) $(EXTERNAL_HEADERS)
 
 update-ccan:
 	mv ccan ccan.old
@@ -294,8 +261,9 @@ maintainer-clean: distclean
 	@echo 'deletes files that may need special tools to rebuild.'
 
 clean: wire-clean
-	$(RM) $(TEST_PROGRAMS)
-	$(RM) bitcoin/*.o *.o $(TEST_PROGRAMS:=.o) $(CCAN_OBJS)
+	$(RM) $(CCAN_OBJS) $(CDUMP_OBJS) $(ALL_OBJS)
+	$(RM) $(ALL_PROGRAMS) $(ALL_PROGRAMS:=.o)
+	$(RM) $(ALL_TEST_PROGRAMS) $(ALL_TEST_PROGRAMS:=.o)
 	$(RM) ccan/config.h gen_*.h
 	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
 	$(RM) check-bolt tools/check-bolt tools/*.o
@@ -316,8 +284,6 @@ update-mocks/%: %
           fi; \
 	  tail -n +$$END $< >> $$BASE.new; mv $$BASE.new $<; \
 	fi
-
-test/test_sphinx: libsodium.a
 
 unittest/%: %
 	$(VALGRIND) $(VALGRIND_TEST_ARGS) $*

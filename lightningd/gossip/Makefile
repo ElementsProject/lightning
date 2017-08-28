@@ -19,6 +19,9 @@ LIGHTNINGD_GOSSIP_SRC := lightningd/gossip/gossip.c	\
 	$(LIGHTNINGD_GOSSIP_HEADERS:.h=.c)
 LIGHTNINGD_GOSSIP_OBJS := $(LIGHTNINGD_GOSSIP_SRC:.c=.o)
 
+# Make sure these depend on everything.
+ALL_OBJS += $(LIGHTNINGD_GOSSIP_OBJS)
+
 # For checking
 LIGHTNINGD_GOSSIP_ALLSRC_NOGEN := $(filter-out lightningd/gossip/gen_%, $(LIGHTNINGD_GOSSIP_CLIENT_SRC) $(LIGHTNINGD_GOSSIP_SRC))
 LIGHTNINGD_GOSSIP_ALLHEADERS_NOGEN := $(filter-out lightningd/gossip/gen_%, $(LIGHTNINGD_GOSSIP_CLIENT_HEADERS) $(LIGHTNINGD_GOSSIP_HEADERS))
@@ -49,8 +52,7 @@ $(LIGHTNINGD_GOSSIP_CONTROL_OBJS) : $(LIGHTNINGD_GOSSIP_CONTROL_HEADERS)
 
 lightningd/gossip-all: lightningd/lightningd_gossip $(LIGHTNINGD_GOSSIP_CLIENT_OBJS)
 
-lightningd/lightningd_gossip: $(LIGHTNINGD_GOSSIP_OBJS) $(GOSSIPD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+lightningd/lightningd_gossip: $(LIGHTNINGD_GOSSIP_OBJS) $(GOSSIPD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS)
 
 lightningd/gossip/gen_gossip_wire.h: $(WIRE_GEN) lightningd/gossip/gossip_wire.csv
 	$(WIRE_GEN) --header $@ gossip_wire_type < lightningd/gossip/gossip_wire.csv > $@

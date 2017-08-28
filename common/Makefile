@@ -38,6 +38,9 @@ COMMON_HEADERS_GEN := common/gen_htlc_state_names.h
 COMMON_HEADERS := $(COMMON_HEADERS_GEN) $(COMMON_HEADERS_NOGEN)
 COMMON_OBJS := $(COMMON_SRC:.c=.o)
 
+# Common objects depends on bitcoin/ external/ and ccan
+$(COMMON_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(EXTERNAL_HEADERS) $(COMMON_HEADERS_GEN)
+
 common/gen_htlc_state_names.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr common/htlc_state.h > $@
 
@@ -51,3 +54,5 @@ check-whitespace: $(COMMON_SRC:%=check-whitespace/%) $(COMMON_HEADERS:%=check-wh
 
 check-source: $(COMMON_SRC:%=check-src-include-order/%)			\
 	$(COMMON_HEADERS_NOGEN:%=check-hdr-include-order/%)
+
+include common/test/Makefile

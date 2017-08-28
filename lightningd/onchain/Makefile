@@ -71,8 +71,10 @@ lightningd/onchain/gen_onchain_wire.c: $(WIRE_GEN) lightningd/onchain/onchain_wi
 
 LIGHTNINGD_ONCHAIN_OBJS := $(LIGHTNINGD_ONCHAIN_SRC:.c=.o) $(LIGHTNINGD_ONCHAIN_GEN_SRC:.c=.o)
 
-lightningd/lightningd_onchain: $(LIGHTNINGD_ONCHAIN_OBJS) $(WIRE_ONION_OBJS) $(ONCHAIND_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+# Make sure these depend on everything.
+ALL_OBJS += $(LIGHTNINGD_ONCHAIN_OBJS)
+
+lightningd/lightningd_onchain: $(LIGHTNINGD_ONCHAIN_OBJS) $(WIRE_ONION_OBJS) $(ONCHAIND_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS)
 
 check-source: $(LIGHTNINGD_ONCHAIN_SRC_NOGEN:%=check-src-include-order/%)
 check-source-bolt: $(LIGHTNINGD_ONCHAIN_SRC:%=bolt-check/%) $(LIGHTNINGD_ONCHAIN_HEADERS:%=bolt-check/%)

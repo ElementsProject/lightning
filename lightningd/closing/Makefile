@@ -20,6 +20,9 @@ LIGHTNINGD_CLOSING_SRC := lightningd/closing/closing.c	\
 	$(LIGHTNINGD_CLOSING_HEADERS:.h=.c)
 LIGHTNINGD_CLOSING_OBJS := $(LIGHTNINGD_CLOSING_SRC:.c=.o)
 
+# Make sure these depend on everything.
+ALL_OBJS += $(LIGHTNINGD_CLOSING_OBJS)
+
 # Control daemon uses this:
 LIGHTNINGD_CLOSING_CONTROL_HEADERS := $(LIGHTNINGD_CLOSING_HEADERS)
 LIGHTNINGD_CLOSING_CONTROL_SRC := $(LIGHTNINGD_CLOSING_HEADERS:.h=.c)
@@ -60,8 +63,7 @@ lightningd/closing/gen_closing_wire.c: $(WIRE_GEN) lightningd/closing/closing_wi
 
 LIGHTNINGD_CLOSING_OBJS := $(LIGHTNINGD_CLOSING_SRC:.c=.o) $(LIGHTNINGD_CLOSING_GEN_SRC:.c=.o)
 
-lightningd/lightningd_closing: $(LIGHTNINGD_CLOSING_OBJS) $(WIRE_ONION_OBJS) $(CLOSINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+lightningd/lightningd_closing: $(LIGHTNINGD_CLOSING_OBJS) $(WIRE_ONION_OBJS) $(CLOSINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS)
 
 check-source: $(LIGHTNINGD_CLOSING_SRC_NOGEN:%=check-src-include-order/%)
 check-source-bolt: $(LIGHTNINGD_CLOSING_SRC:%=bolt-check/%) $(LIGHTNINGD_CLOSING_HEADERS:%=bolt-check/%)

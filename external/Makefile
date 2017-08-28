@@ -16,7 +16,8 @@ EXTERNAL_INCLUDE_FLAGS :=					\
 	-I external/libwally-core/src/secp256k1/include/	\
 	-I external/jsmn/					\
 	-I external/libbase58/
-EXTERNAL_LDLIBS := -Lexternal $(patsubst lib%.a,-l%, $(notdir $(EXTERNAL_LIBS)))
+
+EXTERNAL_LDLIBS := -Lexternal $(patsubst lib%.a,-l%,$(notdir $(EXTERNAL_LIBS)))
 
 # We build libsodium, since Ubuntu xenial has one too old.
 external/libsodium.a: external/libsodium/src/libsodium/libsodium.la
