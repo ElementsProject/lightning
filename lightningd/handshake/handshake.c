@@ -1,4 +1,3 @@
-#include "type_to_string.h"
 #include <assert.h>
 #include <bitcoin/privkey.h>
 #include <ccan/build_assert/build_assert.h>
@@ -8,6 +7,8 @@
 #include <ccan/mem/mem.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/short_types/short_types.h>
+#include <common/type_to_string.h>
+#include <common/version.h>
 #include <errno.h>
 #include <lightningd/crypto_sync.h>
 #include <lightningd/debug.h>
@@ -20,7 +21,6 @@
 #include <sodium/randombytes.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <version.h>
 #include <wire/peer_wire.h>
 #include <wire/wire.h>
 #include <wire/wire_sync.h>

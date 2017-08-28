@@ -6,13 +6,13 @@
 #include "lightningd.h"
 #include "log.h"
 #include "timeout.h"
-#include "utils.h"
 #include "watch.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/io/io.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
+#include <common/utils.h>
 #include <inttypes.h>
 
 static void start_poll_chaintip(struct chain_topology *topo);

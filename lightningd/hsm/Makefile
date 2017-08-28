@@ -23,6 +23,14 @@ LIGHTNINGD_HSM_SRC := lightningd/hsm/hsm.c	\
 	$(LIGHTNINGD_HSM_HEADERS:.h=.c)
 LIGHTNINGD_HSM_OBJS := $(LIGHTNINGD_HSM_SRC:.c=.o)
 
+# Common source we use.
+HSMD_COMMON_OBJS :=				\
+	common/funding_tx.o			\
+	common/permute_tx.o			\
+	common/utils.o				\
+	common/version.o			\
+	common/withdraw_tx.o
+
 # For checking
 LIGHTNINGD_HSM_ALLSRC_NOGEN := $(filter-out lightningd/hsm/gen_%, $(LIGHTNINGD_HSM_CLIENT_SRC) $(LIGHTNINGD_HSM_SRC))
 LIGHTNINGD_HSM_ALLHEADERS_NOGEN := $(filter-out lightningd/hsm/gen_%, $(LIGHTNINGD_HSM_CLIENT_HEADERS) $(LIGHTNINGD_HSM_HEADERS))
@@ -34,11 +42,11 @@ $(LIGHTNINGD_HSM_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS): $(LIGHTNINGD_HEADERS)
 
 $(LIGHTNINGD_HSM_CONTROL_OBJS) : $(LIGHTNINGD_HSM_CONTROL_HEADERS)
 
-$(LIGHTNINGD_HSM_OBJS): $(CORE_TX_HEADERS)
+$(LIGHTNINGD_HSM_OBJS): $(COMMON_HEADERS)
 
 lightningd/hsm-all: lightningd/lightningd_hsm $(LIGHTNINGD_HSM_CLIENT_OBJS)
 
-lightningd/lightningd_hsm: $(LIGHTNINGD_HSM_OBJS) $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_LIB_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(LIBBASE58_OBJS) lightningd/utxo.o libsecp256k1.a libsodium.a libwallycore.a
+lightningd/lightningd_hsm: $(LIGHTNINGD_HSM_OBJS) $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_LIB_OBJS) $(HSMD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(LIBBASE58_OBJS) lightningd/utxo.o libsecp256k1.a libsodium.a libwallycore.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 lightningd/hsm/gen_hsm_client_wire.h: $(WIRE_GEN) lightningd/hsm/hsm_client_wire_csv

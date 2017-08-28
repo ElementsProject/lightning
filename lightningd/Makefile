@@ -36,21 +36,26 @@ LIGHTNINGD_OLD_LIB_SRC :=			\
 LIGHTNINGD_OLD_LIB_OBJS := $(LIGHTNINGD_OLD_LIB_SRC:.c=.o)
 LIGHTNINGD_OLD_LIB_HEADERS := $(LIGHTNINGD_OLD_LIB_SRC:.c=.h)
 
+# Common source we use.
+LIGHTNINGD_COMMON_OBJS :=			\
+	common/derive_basepoints.o		\
+	common/funding_tx.o			\
+	common/permute_tx.o			\
+	common/type_to_string.o			\
+	common/utils.o				\
+	common/version.o			\
+	common/withdraw_tx.o
+
 # FIXME: put in a library so we don't link all of them.
 LIGHTNINGD_LIB_SRC :=				\
 	lightningd/bip32.c			\
-	lightningd/channel.c			\
 	lightningd/channel_config.c		\
-	lightningd/commit_tx.c			\
 	lightningd/cryptomsg.c			\
 	lightningd/crypto_sync.c		\
 	lightningd/debug.c			\
 	lightningd/daemon_conn.c		\
-	lightningd/derive_basepoints.c		\
 	lightningd/dev_disconnect.c		\
-	lightningd/funding_tx.c			\
 	lightningd/gossip_msg.c			\
-	lightningd/htlc_tx.c			\
 	lightningd/htlc_wire.c			\
 	lightningd/key_derive.c			\
 	lightningd/keyset.c			\
@@ -59,8 +64,7 @@ LIGHTNINGD_LIB_SRC :=				\
 	lightningd/ping.c			\
 	lightningd/sphinx.c			\
 	lightningd/status.c			\
-	lightningd/utxo.c			\
-	lightningd/withdraw_tx.c
+	lightningd/utxo.c
 
 LIGHTNINGD_LIB_OBJS := $(LIGHTNINGD_LIB_SRC:.c=.o)
 LIGHTNINGD_LIB_HEADERS := $(LIGHTNINGD_LIB_SRC:.c=.h)
@@ -100,8 +104,7 @@ LIGHTNINGD_HEADERS_NOGEN =			\
 	$(LIGHTNINGD_LIB_HEADERS)		\
 	$(WIRE_HEADERS)				\
 	$(BITCOIN_HEADERS)			\
-	$(CORE_HEADERS)				\
-	$(CORE_TX_HEADERS)			\
+	$(COMMON_HEADERS)			\
 	$(DAEMON_HEADERS)			\
 	$(WALLET_LIB_HEADERS)
 
@@ -148,7 +151,7 @@ check-makefile: check-lightningd-makefile
 check-lightningd-makefile:
 	@for f in lightningd/*.h lightningd/*/*.h; do if ! echo $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) "" | grep -q "$$f "; then echo $$f not mentioned in LIGHTNINGD_HEADERS_NOGEN or LIGHTNINGD_HEADERS_GEN >&2; exit 1; fi; done
 
-lightningd/lightningd: $(LIGHTNINGD_OBJS) $(LIGHTNINGD_OLD_OBJS) $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_JSMN_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(LIGHTNINGD_HSM_CONTROL_OBJS) $(LIGHTNINGD_HANDSHAKE_CONTROL_OBJS) $(LIGHTNINGD_GOSSIP_CONTROL_OBJS) $(LIBBASE58_OBJS) $(LIGHTNINGD_OPENING_CONTROL_OBJS) $(LIGHTNINGD_CHANNEL_CONTROL_OBJS) $(LIGHTNINGD_CLOSING_CONTROL_OBJS) $(LIGHTNINGD_ONCHAIN_CONTROL_OBJS) $(WALLET_LIB_OBJS) libsecp256k1.a libsodium.a libwallycore.a
+lightningd/lightningd: $(LIGHTNINGD_OBJS) $(LIGHTNINGD_OLD_OBJS) $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_COMMON_OBJS) $(LIGHTNINGD_JSMN_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(LIGHTNINGD_HSM_CONTROL_OBJS) $(LIGHTNINGD_HANDSHAKE_CONTROL_OBJS) $(LIGHTNINGD_GOSSIP_CONTROL_OBJS) $(LIBBASE58_OBJS) $(LIGHTNINGD_OPENING_CONTROL_OBJS) $(LIGHTNINGD_CHANNEL_CONTROL_OBJS) $(LIGHTNINGD_CLOSING_CONTROL_OBJS) $(LIGHTNINGD_ONCHAIN_CONTROL_OBJS) $(WALLET_LIB_OBJS) libsecp256k1.a libsodium.a libwallycore.a
 
 clean: lightningd-clean
 

@@ -2,6 +2,7 @@
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
 #include <ccan/tal/str/str.h>
+#include <common/withdraw_tx.h>
 #include <daemon/bitcoind.h>
 #include <daemon/chaintopology.h>
 #include <daemon/jsonrpc.h>
@@ -13,8 +14,6 @@
 #include <lightningd/status.h>
 #include <lightningd/subd.h>
 #include <lightningd/utxo.h>
-#include <lightningd/withdraw_tx.h>
-#include <permute_tx.h>
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
 

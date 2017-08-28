@@ -8,7 +8,9 @@
 #include <ccan/noerr/noerr.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
-#include <close_tx.h>
+#include <common/close_tx.h>
+#include <common/funding_tx.h>
+#include <common/initial_commit_tx.h>
 #include <daemon/chaintopology.h>
 #include <daemon/dns.h>
 #include <daemon/jsonrpc.h>
@@ -18,12 +20,9 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <lightningd/build_utxos.h>
-#include <lightningd/channel.h>
 #include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/closing/gen_closing_wire.h>
-#include <lightningd/commit_tx.h>
 #include <lightningd/dev_disconnect.h>
-#include <lightningd/funding_tx.h>
 #include <lightningd/gen_peer_state_names.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
@@ -36,7 +35,6 @@
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/status.h>
 #include <netinet/in.h>
-#include <overflows.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>

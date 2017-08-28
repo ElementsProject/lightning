@@ -5,14 +5,15 @@
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/structeq/structeq.h>
+#include <common/derive_basepoints.h>
+#include <common/funding_tx.h>
+#include <common/initial_channel.h>
+#include <common/type_to_string.h>
+#include <common/version.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <lightningd/channel.h>
-#include <lightningd/commit_tx.h>
 #include <lightningd/crypto_sync.h>
 #include <lightningd/debug.h>
-#include <lightningd/derive_basepoints.h>
-#include <lightningd/funding_tx.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/opening/gen_opening_wire.h>
 #include <lightningd/peer_failed.h>
@@ -21,8 +22,6 @@
 #include <secp256k1.h>
 #include <signal.h>
 #include <stdio.h>
-#include <type_to_string.h>
-#include <version.h>
 #include <wally_bip32.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/peer_wire.h>
@@ -211,12 +210,12 @@ static u8 *funder_channel(struct state *state,
 {
 	struct channel_id channel_id, id_in;
 	u8 *msg;
-	struct bitcoin_tx **txs;
+	struct bitcoin_tx *tx;
 	struct basepoints theirs;
 	struct pubkey their_funding_pubkey, changekey;
 	secp256k1_ecdsa_signature sig;
 	u32 minimum_depth;
-	const u8 **wscripts;
+	const u8 *wscript;
 	struct bitcoin_tx *funding;
 	const struct utxo **utxomap;
 
@@ -335,19 +334,19 @@ static u8 *funder_channel(struct state *state,
 			     bip32_base);
 	bitcoin_txid(funding, &state->funding_txid);
 
-	state->channel = new_channel(state,
-				     &state->funding_txid,
-				     state->funding_txout,
-				     state->funding_satoshis,
-				     state->funding_satoshis * 1000
-				     - state->push_msat,
-				     state->feerate_per_kw,
-				     &state->localconf,
-				     state->remoteconf,
-				     ours, &theirs,
-				     our_funding_pubkey,
-				     &their_funding_pubkey,
-				     LOCAL);
+	state->channel = new_initial_channel(state,
+					     &state->funding_txid,
+					     state->funding_txout,
+					     state->funding_satoshis,
+					     state->funding_satoshis * 1000
+					     - state->push_msat,
+					     state->feerate_per_kw,
+					     &state->localconf,
+					     state->remoteconf,
+					     ours, &theirs,
+					     our_funding_pubkey,
+					     &their_funding_pubkey,
+					     LOCAL);
 	if (!state->channel)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
 			      "could not create channel with given config");
@@ -360,15 +359,15 @@ static u8 *funder_channel(struct state *state,
 	 * for the initial commitment transactions.  After receiving the
 	 * peer's signature, it will broadcast the funding transaction.
 	 */
-	txs = channel_txs(state, NULL, &wscripts, state->channel,
-			  &state->next_per_commit[REMOTE], 0, REMOTE);
+	tx = initial_channel_tx(state, &wscript, state->channel,
+				&state->next_per_commit[REMOTE], REMOTE);
 
-	sign_tx_input(txs[0], 0, NULL, wscripts[0],
+	sign_tx_input(tx, 0, NULL, wscript,
 		      &state->our_secrets.funding_privkey,
 		      our_funding_pubkey, &sig);
 	status_trace("signature %s on tx %s using key %s",
 		     type_to_string(trc, secp256k1_ecdsa_signature, &sig),
-		     type_to_string(trc, struct bitcoin_tx, txs[0]),
+		     type_to_string(trc, struct bitcoin_tx, tx),
 		     type_to_string(trc, struct pubkey, our_funding_pubkey));
 
 	msg = towire_funding_created(state, &channel_id,
@@ -418,16 +417,15 @@ static u8 *funder_channel(struct state *state,
 	 *
 	 * The recipient MUST fail the channel if `signature` is incorrect.
 	 */
-	txs = channel_txs(state, NULL, &wscripts, state->channel,
-			  &state->next_per_commit[LOCAL], 0, LOCAL);
+	tx = initial_channel_tx(state, &wscript, state->channel,
+				&state->next_per_commit[LOCAL], LOCAL);
 
-	if (!check_tx_sig(txs[0], 0, NULL, wscripts[0], &their_funding_pubkey,
-			  &sig)) {
+	if (!check_tx_sig(tx, 0, NULL, wscript, &their_funding_pubkey, &sig)) {
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Bad signature %s on tx %s using key %s",
 			      type_to_string(trc, secp256k1_ecdsa_signature,
 					     &sig),
-			      type_to_string(trc, struct bitcoin_tx, txs[0]),
+			      type_to_string(trc, struct bitcoin_tx, tx),
 			      type_to_string(trc, struct pubkey,
 					     &their_funding_pubkey));
 	}
@@ -439,7 +437,7 @@ static u8 *funder_channel(struct state *state,
 	 */
 	return towire_opening_funder_reply(state,
 					   state->remoteconf,
-					   txs[0],
+					   tx,
 					   &sig,
 					   &state->cs,
 					   &theirs.revocation,
@@ -464,10 +462,10 @@ static u8 *fundee_channel(struct state *state,
 	struct basepoints theirs;
 	struct pubkey their_funding_pubkey;
 	secp256k1_ecdsa_signature theirsig, sig;
-	struct bitcoin_tx **txs;
+	struct bitcoin_tx *tx;
 	struct sha256_double chain_hash;
 	u8 *msg;
-	const u8 **wscripts;
+	const u8 *wscript;
 	u8 channel_flags;
 
 	state->remoteconf = tal(state, struct channel_config);
@@ -592,18 +590,18 @@ static u8 *fundee_channel(struct state *state,
 			    type_to_string(msg, struct channel_id, &channel_id),
 			    type_to_string(msg, struct channel_id, &id_in));
 
-	state->channel = new_channel(state,
-				     &state->funding_txid,
-				     state->funding_txout,
-				     state->funding_satoshis,
-				     state->push_msat,
-				     state->feerate_per_kw,
-				     &state->localconf,
-				     state->remoteconf,
-				     ours, &theirs,
-				     our_funding_pubkey,
-				     &their_funding_pubkey,
-				     REMOTE);
+	state->channel = new_initial_channel(state,
+					     &state->funding_txid,
+					     state->funding_txout,
+					     state->funding_satoshis,
+					     state->push_msat,
+					     state->feerate_per_kw,
+					     &state->localconf,
+					     state->remoteconf,
+					     ours, &theirs,
+					     our_funding_pubkey,
+					     &their_funding_pubkey,
+					     REMOTE);
 	if (!state->channel)
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
 			      "could not create channel with given config");
@@ -612,16 +610,16 @@ static u8 *fundee_channel(struct state *state,
 	 *
 	 * The recipient MUST fail the channel if `signature` is incorrect.
 	 */
-	txs = channel_txs(state, NULL, &wscripts, state->channel,
-			  &state->next_per_commit[LOCAL], 0, LOCAL);
+	tx = initial_channel_tx(state, &wscript, state->channel,
+				&state->next_per_commit[LOCAL], LOCAL);
 
-	if (!check_tx_sig(txs[0], 0, NULL, wscripts[0], &their_funding_pubkey,
+	if (!check_tx_sig(tx, 0, NULL, wscript, &their_funding_pubkey,
 			  &theirsig)) {
 		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
 			      "Bad signature %s on tx %s using key %s",
 			      type_to_string(trc, secp256k1_ecdsa_signature,
 					     &theirsig),
-			      type_to_string(trc, struct bitcoin_tx, txs[0]),
+			      type_to_string(trc, struct bitcoin_tx, tx),
 			      type_to_string(trc, struct pubkey,
 					     &their_funding_pubkey));
 	}
@@ -645,9 +643,9 @@ static u8 *fundee_channel(struct state *state,
 	 * commitment transaction, so they can broadcast it knowing they can
 	 * redeem their funds if they need to.
 	 */
-	txs = channel_txs(state, NULL, &wscripts, state->channel,
-			  &state->next_per_commit[REMOTE], 0, REMOTE);
-	sign_tx_input(txs[0], 0, NULL, wscripts[0],
+	tx = initial_channel_tx(state, &wscript, state->channel,
+				&state->next_per_commit[REMOTE], REMOTE);
+	sign_tx_input(tx, 0, NULL, wscript,
 		      &state->our_secrets.funding_privkey,
 		      our_funding_pubkey, &sig);
 
@@ -657,7 +655,7 @@ static u8 *fundee_channel(struct state *state,
 
 	return towire_opening_fundee_reply(state,
 					   state->remoteconf,
-					   txs[0],
+					   tx,
 					   &theirsig,
 					   &state->cs,
 					   &theirs.revocation,

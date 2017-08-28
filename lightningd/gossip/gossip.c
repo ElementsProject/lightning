@@ -9,6 +9,8 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
+#include <common/utils.h>
+#include <common/version.h>
 #include <daemon/broadcast.h>
 #include <daemon/log.h>
 #include <daemon/routing.h>
@@ -29,8 +31,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <utils.h>
-#include <version.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_io.h>
 

@@ -7,7 +7,6 @@
 #include "json.h"
 #include "lightningd.h"
 #include "log.h"
-#include "utils.h"
 #include <ccan/cast/cast.h>
 #include <ccan/io/io.h>
 #include <ccan/pipecmd/pipecmd.h>
@@ -17,6 +16,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <inttypes.h>
 

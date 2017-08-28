@@ -3,12 +3,15 @@
 #include <ccan/mem/mem.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
+#include <common/derive_basepoints.h>
+#include <common/htlc_tx.h>
+#include <common/initial_commit_tx.h>
+#include <common/type_to_string.h>
+#include <common/utils.h>
+#include <common/version.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <lightningd/commit_tx.h>
 #include <lightningd/debug.h>
-#include <lightningd/derive_basepoints.h>
-#include <lightningd/htlc_tx.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/keyset.h>
 #include <lightningd/onchain/gen_onchain_wire.h>
@@ -18,9 +21,6 @@
 #include <lightningd/subd.h>
 #include <signal.h>
 #include <stdio.h>
-#include <type_to_string.h>
-#include <utils.h>
-#include <version.h>
 #include <wire/wire_sync.h>
   #include "gen_onchain_types_names.h"
 

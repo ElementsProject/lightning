@@ -4,10 +4,10 @@
 #include "shadouble.h"
 #include "signature.h"
 #include "tx.h"
-#include "type_to_string.h"
-#include "utils.h"
 #include <assert.h>
 #include <ccan/cast/cast.h>
+#include <common/type_to_string.h>
+#include <common/utils.h>
 
 #undef DEBUG
 #ifdef DEBUG

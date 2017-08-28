@@ -1,3 +1,4 @@
+#include <common/utils.h>
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
 #include <lightningd/channel/gen_channel_wire.h>
@@ -7,7 +8,6 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/sphinx.h>
 #include <lightningd/subd.h>
-#include <utils.h>
 
 static bool ping_reply(struct subd *subd, const u8 *msg, const int *fds,
 		       struct command *cmd)

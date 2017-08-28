@@ -1,6 +1,6 @@
 #include "lightningd.h"
 #include "timeout.h"
-#include "utils.h"
+#include <common/utils.h>
 
 struct oneshot {
 	struct timers *timers;

@@ -1,6 +1,5 @@
 #include "lightningd.h"
 #include "log.h"
-#include "overflows.h"
 #include "pseudorand.h"
 #include "routing.h"
 #include "wire/gen_peer_wire.h"
@@ -11,6 +10,7 @@
 #include <ccan/endian/endian.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
+#include <common/overflows.h>
 #include <inttypes.h>
 
 /* 365.25 * 24 * 60 / 10 */

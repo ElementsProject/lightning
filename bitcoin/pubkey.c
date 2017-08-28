@@ -1,11 +1,11 @@
 #include "privkey.h"
 #include "pubkey.h"
-#include "type_to_string.h"
-#include "utils.h"
 #include <assert.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
+#include <common/type_to_string.h>
+#include <common/utils.h>
 
 bool pubkey_from_der(const u8 *der, size_t len, struct pubkey *key)
 {

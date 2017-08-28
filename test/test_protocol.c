@@ -1,6 +1,5 @@
 /* Simple simulator for protocol. */
 #include "config.h"
-#include "utils.h"
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
@@ -11,6 +10,7 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
 #include <ccan/tal/str/str.h>
+#include <common/utils.h>
 #include <inttypes.h>
 #include <signal.h>
 #include <stdbool.h>

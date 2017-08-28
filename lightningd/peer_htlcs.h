@@ -3,7 +3,7 @@
 #define LIGHTNING_LIGHTNINGD_PEER_HTLCS_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
-#include <lightningd/derive_basepoints.h>
+#include <common/derive_basepoints.h>
 #include <lightningd/htlc_wire.h>
 
 /* FIXME: Define serialization primitive for this? */

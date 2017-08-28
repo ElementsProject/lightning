@@ -43,19 +43,6 @@ BITCOIN_SRC :=					\
 
 BITCOIN_OBJS := $(BITCOIN_SRC:.c=.o)
 
-CORE_SRC :=					\
-	type_to_string.c			\
-	utils.c					\
-	version.c
-
-CORE_OBJS := $(CORE_SRC:.c=.o)
-
-CORE_TX_SRC :=					\
-	close_tx.c				\
-	permute_tx.c
-
-CORE_TX_OBJS := $(CORE_TX_SRC:.c=.o)
-
 CCAN_OBJS :=					\
 	ccan-asort.o				\
 	ccan-autodata.o				\
@@ -172,15 +159,6 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/tx.h				\
 	bitcoin/varint.h
 
-CORE_TX_HEADERS := close_tx.h			\
-	permute_tx.h
-
-CORE_HEADERS := 				\
-	overflows.h				\
-	type_to_string.h			\
-	utils.h					\
-	version.h
-
 GEN_HEADERS := 	gen_version.h
 
 LIBSODIUM_HEADERS := libsodium/src/libsodium/include/sodium.h
@@ -205,6 +183,7 @@ $(PROGRAMS): CFLAGS+=-I.
 
 default: $(PROGRAMS) doc-all
 
+include common/Makefile
 include doc/Makefile
 include bitcoin/Makefile
 include wire/Makefile
@@ -217,8 +196,8 @@ CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o
 # Everything depends on the CCAN headers.
 $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
 
-# Except for CCAN, everything depends on bitcoin/ and core headers.
-$(HELPER_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(WALLET_LIB_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS) $(LIBBASE58_HEADERS) $(LIBSODIUM_HEADERS) $(LIBWALLY_HEADERS)
+# Except for CCAN, everything depends on bitcoin, ccan, library and common headers.
+$(HELPER_OBJS) $(COMMON_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(WALLET_LIB_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS) $(LIBBASE58_HEADERS) $(LIBSODIUM_HEADERS) $(LIBWALLY_HEADERS)
 
 test-protocol: test/test_protocol
 	set -e; TMP=`mktemp`; for f in test/commits/*.script; do if ! $(VALGRIND) test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
@@ -240,8 +219,6 @@ check-hdr-include-order/%: %
 
 # Make sure Makefile includes all headers.
 check-makefile:
-	@if [ "`echo bitcoin/*.h`" != "$(BITCOIN_HEADERS)" ]; then echo BITCOIN_HEADERS incorrect; exit 1; fi
-	@if [ x"`ls *.h | grep -v ^gen_`" != x"`echo $(CORE_HEADERS) $(CORE_TX_HEADERS) | tr ' ' '\n' | LC_ALL=C sort`" ]; then echo CORE_HEADERS incorrect; exit 1; fi
 	@if [ x"$(CCANDIR)/config.h `find $(CCANDIR)/ccan -name '*.h' | grep -v /test/ | LC_ALL=C sort | tr '\n' ' '`" != x"$(CCAN_HEADERS) " ]; then echo CCAN_HEADERS incorrect; exit 1; fi
 
 # Any mention of BOLT# must be followed by an exact quote, modulo whitepace.
@@ -251,7 +228,7 @@ bolt-check/%: % bolt-precheck tools/check-bolt
 bolt-precheck:
 	@rm -rf .tmp.lightningrfc; if [ ! -d $(BOLTDIR) ]; then echo Not checking BOLT references: BOLTDIR $(BOLTDIR) does not exist >&2; exit 0; fi; set -e; if [ -n "$(BOLTVERSION)" ]; then git clone -q -b $(BOLTVERSION) $(BOLTDIR) .tmp.lightningrfc; else cp -a $(BOLTDIR) .tmp.lightningrfc; fi
 
-check-source-bolt: $(CORE_SRC:%=bolt-check/%) $(CORE_TX_SRC:%=bolt-check/%) $(CORE_HEADERS:%=bolt-check/%) $(TEST_PROGRAMS:%=bolt-check/%.c)
+check-source-bolt: $(TEST_PROGRAMS:%=bolt-check/%.c)
 
 tools/check-bolt: tools/check-bolt.o $(CCAN_OBJS)
 
@@ -260,14 +237,10 @@ tools/check-bolt.o: $(CCAN_HEADERS)
 check-whitespace/%: %
 	@if grep -Hn '[ 	]$$' $<; then echo Extraneous whitespace found >&2; exit 1; fi
 
-check-whitespace: check-whitespace/Makefile check-whitespace/tools/check-bolt.c $(CORE_SRC:%=check-whitespace/%) $(CORE_TX_SRC:%=check-whitespace/%) $(CORE_HEADERS:%=check-whitespace/%)
+check-whitespace: check-whitespace/Makefile check-whitespace/tools/check-bolt.c
 
 check-source: check-makefile check-source-bolt check-whitespace	\
-	$(CORE_SRC:%=check-src-include-order/%)			\
-	$(CORE_TX_SRC:%=check-src-include-order/%)		\
 	$(BITCOIN_SRC:%=check-src-include-order/%)		\
-	$(CORE_HEADERS:%=check-hdr-include-order/%)		\
-	$(CORE_TX_HEADERS:%=check-hdr-include-order/%)		\
 	$(BITCOIN_HEADERS:%=check-hdr-include-order/%)
 
 full-check: check $(TEST_PROGRAMS) check-source
@@ -305,7 +278,7 @@ libsecp256k1.% libwallycore.%: libwally-core/src/secp256k1/libsecp256k1.la libwa
 libwally-core/src/libwallycore.% libwally-core/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
 	cd libwally-core && ./tools/autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-shared=no --libdir=`pwd`/.. && $(MAKE)
 
-$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) lightningd/sphinx.o utils.o version.o libwallycore.a libsecp256k1.a libsodium.a
+$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) lightningd/sphinx.o common/utils.o libwallycore.a libsecp256k1.a libsodium.a
 
 ccan/config.h: ccan/tools/configurator/configurator
 	if $< > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi

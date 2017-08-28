@@ -1,8 +1,7 @@
 #include <bitcoin/preimage.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
-#include <lightningd/commit_tx.h>
-#include <lightningd/htlc_tx.h>
+#include <common/htlc_tx.h>
 #include <lightningd/keyset.h>
 
 static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
@@ -157,3 +156,26 @@ void htlc_timeout_tx_add_witness(struct bitcoin_tx *htlc_timeout,
 	tal_free(wscript);
 }
 
+u8 *htlc_offered_wscript(const tal_t *ctx,
+			 const struct ripemd160 *ripemd,
+			 const struct keyset *keyset)
+{
+	return bitcoin_wscript_htlc_offer_ripemd160(ctx,
+						    &keyset->self_payment_key,
+						    &keyset->other_payment_key,
+						    ripemd,
+						    &keyset->self_revocation_key);
+}
+
+u8 *htlc_received_wscript(const tal_t *ctx,
+			  const struct ripemd160 *ripemd,
+			  const struct abs_locktime *expiry,
+			  const struct keyset *keyset)
+{
+	return bitcoin_wscript_htlc_receive_ripemd(ctx,
+						   expiry,
+						   &keyset->self_payment_key,
+						   &keyset->other_payment_key,
+						   ripemd,
+						   &keyset->self_revocation_key);
+}

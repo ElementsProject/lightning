@@ -5,12 +5,12 @@
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
-#include "version.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
+#include <common/version.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>

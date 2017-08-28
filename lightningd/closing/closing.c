@@ -1,19 +1,19 @@
 #include <bitcoin/script.h>
-#include <close_tx.h>
+#include <common/close_tx.h>
+#include <common/derive_basepoints.h>
+#include <common/type_to_string.h>
+#include <common/utils.h>
+#include <common/version.h>
 #include <daemon/htlc.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/closing/gen_closing_wire.h>
 #include <lightningd/crypto_sync.h>
 #include <lightningd/debug.h>
-#include <lightningd/derive_basepoints.h>
 #include <lightningd/status.h>
 #include <lightningd/subd.h>
 #include <signal.h>
 #include <stdio.h>
-#include <type_to_string.h>
-#include <utils.h>
-#include <version.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 

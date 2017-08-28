@@ -2,10 +2,10 @@
 #include "invoice.h"
 #include "jsonrpc.h"
 #include "lightningd.h"
-#include "utils.h"
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
+#include <common/utils.h>
 #include <sodium/randombytes.h>
 
 struct invoice_waiter {

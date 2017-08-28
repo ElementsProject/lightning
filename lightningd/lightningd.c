@@ -13,6 +13,8 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
+#include <common/utils.h>
+#include <common/version.h>
 #include <daemon/bitcoind.h>
 #include <daemon/chaintopology.h>
 #include <daemon/invoice.h>
@@ -24,8 +26,6 @@
 #include <lightningd/onchain/onchain_wire.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <utils.h>
-#include <version.h>
 
 char *bitcoin_datadir;
 

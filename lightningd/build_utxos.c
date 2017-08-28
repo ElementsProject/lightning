@@ -1,10 +1,10 @@
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
 #include <ccan/structeq/structeq.h>
+#include <common/utils.h>
 #include <daemon/jsonrpc.h>
 #include <lightningd/build_utxos.h>
 #include <lightningd/lightningd.h>
-#include <utils.h>
 #include <wally_bip32.h>
 
 
