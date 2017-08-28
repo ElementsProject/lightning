@@ -160,28 +160,22 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 
 GEN_HEADERS := 	gen_version.h
 
-LIBSODIUM_HEADERS := libsodium/src/libsodium/include/sodium.h
-LIBWALLY_HEADERS := libwally-core/include/wally_bip32.h		\
-			libwally-core/include/wally_core.h	\
-			libwally-core/include/wally_crypto.h
-LIBSECP_HEADERS := libwally-core/src/secp256k1/include/secp256k1_ecdh.h		\
-		libwally-core/src/secp256k1/include/secp256k1.h
-
 CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
 WIRE_GEN := tools/generate-wire.py
 
-PROGRAMS := $(TEST_PROGRAMS)
+PROGRAMS += $(TEST_PROGRAMS)
 
 CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition
 CDEBUGFLAGS := -std=gnu11 -g -fstack-protector
-CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) -I libwally-core/src/secp256k1/include/ -I libwally-core/include/ -I libsodium/src/libsodium/include/ -I . $(FEATURES) $(COVFLAGS) -DSHACHAIN_BITS=48
+CFLAGS = $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . $(FEATURES) $(COVFLAGS) -DSHACHAIN_BITS=48
+LDFLAGS := -Lexternal
 
-LDLIBS := -lgmp -lsqlite3 $(COVFLAGS)
-$(PROGRAMS): CFLAGS+=-I.
+LDLIBS = -lgmp -lsqlite3 $(COVFLAGS) $(EXTERNAL_LDLIBS)
 
-default: $(PROGRAMS) doc-all
+default: $(TEST_PROGRAMS) doc-all
 
+include external/Makefile
 include common/Makefile
 include doc/Makefile
 include bitcoin/Makefile
@@ -197,7 +191,7 @@ CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o
 $(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
 
 # Except for CCAN, everything depends on bitcoin, ccan, library and common headers.
-$(HELPER_OBJS) $(COMMON_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(WALLET_LIB_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS) $(LIBBASE58_HEADERS) $(LIBSODIUM_HEADERS) $(LIBWALLY_HEADERS)
+$(HELPER_OBJS) $(COMMON_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(WALLET_LIB_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS) $(EXTERNAL_HEADERS)
 
 test-protocol: test/test_protocol
 	set -e; TMP=`mktemp`; for f in test/commits/*.script; do if ! $(VALGRIND) test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
@@ -257,28 +251,11 @@ TAGS: FORCE
 	$(RM) TAGS; find * -name test -type d -prune -o -name '*.[ch]' -print | xargs etags --append
 FORCE::
 
-ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDUMP_OBJS) $(CCAN_OBJS)
+ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDUMP_OBJS) $(CCAN_OBJS) $(EXTERNAL_LIBS)
 
-# We build libsodium, since Ubuntu xenial has one too old.
-libsodium.a: libsodium/src/libsodium/libsodium.la
-	$(MAKE) -C libsodium install-exec
+PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
 
-libsodium/src/libsodium/include/sodium.h:
-	git submodule update libsodium
-	[ -f $@ ] || git submodule update --init libsodium
-
-libsodium/src/libsodium/libsodium.la: libsodium/src/libsodium/include/sodium.h
-	cd libsodium && ./autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-shared=no --enable-tests=no --libdir=`pwd`/.. && $(MAKE)
-
-# libsecp included in libwally.
-# Wildcards here are magic.  See http://stackoverflow.com/questions/2973445/gnu-makefile-rule-generating-a-few-targets-from-a-single-source-file
-libsecp256k1.% libwallycore.%: libwally-core/src/secp256k1/libsecp256k1.la libwally-core/src/libwallycore.la
-	$(MAKE) -C libwally-core install-exec
-
-libwally-core/src/libwallycore.% libwally-core/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
-	cd libwally-core && ./tools/autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-shared=no --libdir=`pwd`/.. && $(MAKE)
-
-$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) common/sphinx.o common/utils.o libwallycore.a libsecp256k1.a libsodium.a
+$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) common/sphinx.o common/utils.o
 
 ccan/config.h: ccan/tools/configurator/configurator
 	if $< > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
@@ -288,6 +265,9 @@ gen_version.h: FORCE
 	@if cmp $@.new $@ >/dev/null 2>&2; then rm -f $@.new; else mv $@.new $@; echo Version updated; fi
 
 version.o: gen_version.h
+
+# All binaries require the external libs
+$(PROGRAMS): $(EXTERNAL_LIBS)
 
 update-ccan:
 	mv ccan ccan.old
@@ -308,23 +288,14 @@ update-secp256k1:
 	$(RM) -r secp256k1.old
 
 distclean: clean
-	$(MAKE) -C secp256k1/ distclean || true
-	$(RM) libsecp256k1.a secp256k1/libsecp256k1.la
-	$(RM) libsodium.a libsodium.la libsodium/libsodium.la
-	$(RM) libwallycore.a libwallycore.la
-	$(RM) libwally-core/src/secp256k1/libsecp256k1.la libwally-core/src/libwallycore.la
-	cd libwally-core && tools/cleanup.sh
 
 maintainer-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'
 	@echo 'deletes files that may need special tools to rebuild.'
 
 clean: wire-clean
-	$(MAKE) -C secp256k1/ clean || true
-	$(RM) libsecp256k1.{a,la}
-	$(RM) libsodium.{a,la}
-	$(RM) $(PROGRAMS)
-	$(RM) bitcoin/*.o *.o $(PROGRAMS:=.o) $(CCAN_OBJS)
+	$(RM) $(TEST_PROGRAMS)
+	$(RM) bitcoin/*.o *.o $(TEST_PROGRAMS:=.o) $(CCAN_OBJS)
 	$(RM) ccan/config.h gen_*.h
 	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
 	$(RM) check-bolt tools/check-bolt tools/*.o

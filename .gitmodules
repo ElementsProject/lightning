@@ -1,9 +1,9 @@
 [submodule "daemon/jsmn"]
-	path = daemon/jsmn
+	path = external/jsmn
 	url = https://github.com/zserge/jsmn
 [submodule "bitcoin/libbase58"]
-	path = bitcoin/libbase58
+	path = external/libbase58
 	url = https://github.com/bitcoin/libbase58.git
 [submodule "libsodium"]
-	path = libsodium
+	path = external/libsodium
 	url = https://github.com/jedisct1/libsodium.git

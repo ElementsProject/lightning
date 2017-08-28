@@ -7,7 +7,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/time/time.h>
-#include <daemon/jsmn/jsmn.h>
+#include <jsmn.h>
 #include <lightningd/watch.h>
 #include <stddef.h>
 
