@@ -3,6 +3,7 @@
 #include "config.h"
 #include <bitcoin/pubkey.h>
 #include <daemon/htlc.h>
+#include <lightningd/channel/channeld_htlc.h>
 
 struct keyset;
 struct sha256_double;
