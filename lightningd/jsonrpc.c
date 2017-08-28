@@ -231,41 +231,6 @@ static const struct json_command dev_crash_command = {
 };
 AUTODATA(json_command, &dev_crash_command);
 
-/* UNIFICATION FIXME */
-void debug_dump_peers(struct lightningd_state *dstate);
-
-static void json_restart(struct command *cmd,
-			 const char *buffer, const jsmntok_t *params)
-{
-	const jsmntok_t *p, *end;
-	size_t n = 0;
-
-	if (params->type != JSMN_ARRAY) {
-		command_fail(cmd, "Need array to reexec");
-		return;
-	}
-	end = json_next(params);
-
-	cmd->dstate->reexec = tal_arrz(cmd->dstate, char *, n+1);
-	for (p = params + 1; p != end; p = json_next(p)) {
-		tal_resizez(&cmd->dstate->reexec, n+2);
-		cmd->dstate->reexec[n++] = tal_strndup(cmd->dstate->reexec,
-						       buffer + p->start,
-						       p->end - p->start);
-	}
-	debug_dump_peers(cmd->dstate);
-	io_break(cmd->dstate);
-	command_success(cmd, null_response(cmd));
-}
-
-static const struct json_command dev_restart_command = {
-	"dev-restart",
-	json_restart,
-	"Re-exec the given {binary}.",
-	"Simple restart test for developers"
-};
-AUTODATA(json_command, &dev_restart_command);
-
 static void json_getinfo(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {

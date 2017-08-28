@@ -46,12 +46,6 @@ struct peer *find_peer_by_unique_id(struct lightningd *ld, u64 unique_id)
 	return NULL;
 }
 
-void debug_dump_peers(struct lightningd_state *dstate);
-void debug_dump_peers(struct lightningd_state *dstate)
-{
-	FIXME_IMPLEMENT();
-}
-
 void notify_new_block(struct chain_topology *topo, u32 height);
 void notify_new_block(struct chain_topology *topo, u32 height)
 {
