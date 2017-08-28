@@ -3,7 +3,6 @@
 #include "config.h"
 #include "bitcoin/locktime.h"
 #include "htlc_state.h"
-#include "pseudorand.h"
 #include <assert.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/crypto/siphash24/siphash24.h>

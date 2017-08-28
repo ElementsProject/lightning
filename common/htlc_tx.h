@@ -1,7 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_HTLC_TX_H
 #define LIGHTNING_LIGHTNINGD_HTLC_TX_H
 #include "config.h"
-#include <daemon/htlc.h>
+#include <common/htlc.h>
 
 struct keyset;
 struct preimage;

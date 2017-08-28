@@ -3,6 +3,7 @@
 #include "config.h"
 #include "utils.h"
 #include <ccan/autodata/autodata.h>
+#include <ccan/crypto/sha256/sha256.h>
 #include <secp256k1.h>
 
 /* This must match the type_to_string_ cases. */

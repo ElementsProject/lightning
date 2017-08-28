@@ -6,9 +6,9 @@
 #include <ccan/mem/mem.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
+#include <common/htlc.h>
 #include <common/htlc_tx.h>
 #include <common/type_to_string.h>
-#include <daemon/htlc.h>
 #include <inttypes.h>
 #include <lightningd/channel/commit_tx.h>
 #include <lightningd/channel/full_channel.h>

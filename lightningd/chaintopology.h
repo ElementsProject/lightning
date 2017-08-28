@@ -8,7 +8,7 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/time/time.h>
 #include <daemon/jsmn/jsmn.h>
-#include <daemon/watch.h>
+#include <lightningd/watch.h>
 #include <stddef.h>
 
 struct bitcoin_tx;

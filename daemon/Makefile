@@ -34,11 +34,8 @@ DAEMON_SRC :=					\
 
 DAEMON_OBJS := $(DAEMON_SRC:.c=.o)
 
-DAEMON_CLI_SRC := daemon/lightning-cli.c
-DAEMON_CLI_OBJS := $(DAEMON_CLI_SRC:.c=.o)
-
 DAEMON_JSMN_OBJS := daemon/jsmn.o
-DAEMON_JSMN_HEADERS := daemon/jsmn/jsmn.h
+DAEMON_JSMN_HEADERS := daemon/jsmn/jsmn.hb
 
 DAEMON_GEN_HEADERS :=				\
 	daemon/gen_htlc_state_names.h
@@ -64,9 +61,6 @@ DAEMON_HEADERS :=				\
 	daemon/timeout.h			\
 	daemon/watch.h
 
-daemon/gen_htlc_state_names.h: daemon/htlc_state.h ccan/ccan/cdump/tools/cdump-enumstr
-	ccan/ccan/cdump/tools/cdump-enumstr daemon/htlc_state.h > $@
-
 daemon/gen_feechange_state_names.h: daemon/feechange_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr daemon/feechange_state.h > $@
 
@@ -90,19 +84,6 @@ check-source: $(DAEMON_HEADERS:%=check-hdr-include-order/%)
 check-source-bolt: $(DAEMON_SRC:%=bolt-check/%) $(DAEMON_HEADERS:%=bolt-check/%)
 
 check-whitespace: $(DAEMON_SRC:%=check-whitespace/%) $(DAEMON_HEADERS:%=check-whitespace/%) check-whitespace/daemon/Makefile
-
-# Git submodules are seriously broken.
-daemon/jsmn/jsmn.h:
-	git submodule update daemon/jsmn/
-	[ -f $@ ] || git submodule update --init daemon/jsmn/
-
-# If we tell Make that the above builds both, it runs it twice in
-# parallel.  So we lie :(
-daemon/jsmn/jsmn.c: daemon/jsmn/jsmn.h
-	[ -f $@ ]
-
-daemon/jsmn.o: daemon/jsmn/jsmn.c
-	$(COMPILE.c) -DJSMN_STRICT=1 $(OUTPUT_OPTION) $<
 
 daemon/lightning-cli: $(DAEMON_CLI_OBJS) $(DAEMON_LIB_OBJS) $(DAEMON_JSMN_OBJS) $(CORE_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) libsecp256k1.a libsodium.a
 

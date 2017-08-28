@@ -5,14 +5,14 @@
 #include <ccan/tal/str/str.h>
 #include <common/derive_basepoints.h>
 #include <common/overflows.h>
-#include <daemon/chaintopology.h>
-#include <daemon/invoice.h>
-#include <daemon/log.h>
+#include <lightningd/chaintopology.h>
 #include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/htlc_wire.h>
+#include <lightningd/invoice.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/log.h>
 #include <lightningd/onchain/onchain_wire.h>
 #include <lightningd/pay.h>
 #include <lightningd/peer_control.h>

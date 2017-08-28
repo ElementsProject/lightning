@@ -40,6 +40,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/initial_channel.o		\
 	common/initial_commit_tx.o		\
 	common/permute_tx.o			\
+	common/pseudorand.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o

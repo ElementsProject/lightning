@@ -204,12 +204,7 @@ void fromwire_pad(const u8 **cursor, size_t *max, size_t num)
 	fromwire(cursor, max, NULL, num);
 }
 
-static char *fmt_short_channel_id(const tal_t *ctx,
-				  const struct short_channel_id *id)
-{
-	return tal_fmt(ctx, "%u/%u/%u", id->blocknum, id->txnum, id->outnum);
-}
-REGISTER_TYPE_TO_STRING(short_channel_id, fmt_short_channel_id);
+REGISTER_TYPE_TO_STRING(short_channel_id, short_channel_id_to_str);
 REGISTER_TYPE_TO_HEXSTR(channel_id);
 
 /* BOLT #2:

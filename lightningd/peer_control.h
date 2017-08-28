@@ -4,10 +4,10 @@
 #include <ccan/compiler/compiler.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/list/list.h>
-#include <daemon/htlc.h>
-#include <daemon/json.h>
-#include <daemon/netaddr.h>
+#include <common/htlc.h>
+#include <common/json.h>
 #include <lightningd/channel_config.h>
+#include <lightningd/netaddr.h>
 #include <lightningd/peer_state.h>
 #include <stdbool.h>
 #include <wallet/wallet.h>

@@ -1,4 +1,4 @@
-#include "daemon/broadcast.h"
+#include <lightningd/gossip/broadcast.h>
 
 struct broadcast_state *new_broadcast_state(tal_t *ctx)
 {

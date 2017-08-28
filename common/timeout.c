@@ -1,4 +1,3 @@
-#include "lightningd.h"
 #include "timeout.h"
 #include <common/utils.h>
 

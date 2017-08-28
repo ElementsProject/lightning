@@ -1,10 +1,10 @@
 #ifndef LIGHTNING_DAEMON_ROUTING_H
 #define LIGHTNING_DAEMON_ROUTING_H
 #include "config.h"
-#include "bitcoin/pubkey.h"
-#include "daemon/broadcast.h"
-#include "wire/wire.h"
+#include <bitcoin/pubkey.h>
 #include <ccan/htable/htable_type.h>
+#include <lightningd/gossip/broadcast.h>
+#include <wire/wire.h>
 
 #define ROUTING_MAX_HOPS 20
 #define ROUTING_FLAGS_DISABLED 2

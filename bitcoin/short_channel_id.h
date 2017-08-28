@@ -23,6 +23,6 @@ bool short_channel_id_from_str(const char *str, size_t strlen,
 bool short_channel_id_eq(const struct short_channel_id *a,
 			 const struct short_channel_id *b);
 
-char *short_channel_id_to_str(tal_t *ctx, const struct short_channel_id *scid);
+char *short_channel_id_to_str(const tal_t *ctx, const struct short_channel_id *scid);
 
 #endif /* LIGHTNING_BITCOIN_SHORT_CHANNEL_ID_H */

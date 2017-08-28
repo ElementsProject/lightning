@@ -1,10 +1,6 @@
-#include "bitcoin/locktime.h"
-#include "bitcoin/pubkey.h"
-#include "bitcoin/tx.h"
-#include "daemon/htlc.h"
-#include "type_to_string.h"
-#include "utils.h"
 #include <ccan/tal/str/str.h>
+#include <common/type_to_string.h>
+#include <common/utils.h>
 #include <inttypes.h>
 
 /* We need at least one, and this is in CCAN so register it here. */

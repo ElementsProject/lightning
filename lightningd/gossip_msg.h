@@ -2,7 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_GOSSIP_MSG_H
 #include "config.h"
 #include <bitcoin/pubkey.h>
-#include <daemon/routing.h>
+#include <lightningd/gossip/routing.h>
 
 struct gossip_getnodes_entry {
 	struct pubkey nodeid;

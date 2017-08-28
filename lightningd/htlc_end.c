@@ -2,10 +2,10 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
-#include <daemon/htlc.h>
-#include <daemon/log.h>
-#include <daemon/pseudorand.h>
+#include <common/htlc.h>
+#include <common/pseudorand.h>
 #include <lightningd/htlc_end.h>
+#include <lightningd/log.h>
 #include <stdio.h>
 
 size_t hash_htlc_key(const struct htlc_key *k)

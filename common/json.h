@@ -3,15 +3,16 @@
 #include "config.h"
 #include <bitcoin/pubkey.h>
 #include <ccan/tal/tal.h>
-#include <daemon/routing.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
 #define JSMN_STRICT 1
-# include "jsmn/jsmn.h"
+# include "daemon/jsmn/jsmn.h"
 
+struct ipaddr;
 struct json_result;
+struct short_channel_id;
 
 /* Include " if it's a string. */
 const char *json_tok_contents(const char *buffer, const jsmntok_t *t);
@@ -102,20 +103,6 @@ void json_add_null(struct json_result *result, const char *fieldname);
 /* '"fieldname" : "0189abcdef..."' or "0189abcdef..." if fieldname is NULL */
 void json_add_hex(struct json_result *result, const char *fieldname,
 		  const void *data, size_t len);
-/* '"fieldname" : "0289abcdef..."' or "0289abcdef..." if fieldname is NULL */
-void json_add_pubkey(struct json_result *response,
-		     const char *fieldname,
-		     const struct pubkey *key);
-
-/* '"fieldname" : "1234/5/6"' */
-void json_add_short_channel_id(struct json_result *response,
-			       const char *fieldname,
-			       const struct short_channel_id *id);
-
-/* JSON serialize a network address for a node */
-void json_add_address(struct json_result *response, const char *fieldname,
-		      const struct ipaddr *addr);
-
 void json_add_object(struct json_result *result, ...);
 
 const char *json_result_string(const struct json_result *result);

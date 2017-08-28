@@ -1,4 +1,3 @@
-#include "db.h"
 #include "invoice.h"
 #include "jsonrpc.h"
 #include "lightningd.h"

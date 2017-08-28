@@ -1,7 +1,4 @@
-#include "lightningd.h"
-#include "pseudorand.h"
 #include "routing.h"
-#include "wire/gen_peer_wire.h"
 #include <arpa/inet.h>
 #include <bitcoin/block.h>
 #include <ccan/array_size/array_size.h>
@@ -10,9 +7,12 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/overflows.h>
+#include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <inttypes.h>
+#include <lightningd/lightningd.h>
 #include <lightningd/status.h>
+#include <wire/gen_peer_wire.h>
 
 /* 365.25 * 24 * 60 / 10 */
 #define BLOCKS_PER_YEAR 52596

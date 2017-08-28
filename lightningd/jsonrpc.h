@@ -1,9 +1,9 @@
 #ifndef LIGHTNING_DAEMON_JSONRPC_H
 #define LIGHTNING_DAEMON_JSONRPC_H
 #include "config.h"
-#include "json.h"
 #include <ccan/autodata/autodata.h>
 #include <ccan/list/list.h>
+#include <common/json.h>
 
 /* Context for a command (from JSON, but might outlive the connection!)
  * You can allocate off this for temporary objects. */
@@ -53,6 +53,21 @@ struct json_command {
 struct json_result *null_response(const tal_t *ctx);
 void command_success(struct command *cmd, struct json_result *response);
 void PRINTF_FMT(2, 3) command_fail(struct command *cmd, const char *fmt, ...);
+
+/* '"fieldname" : "0289abcdef..."' or "0289abcdef..." if fieldname is NULL */
+void json_add_pubkey(struct json_result *response,
+		     const char *fieldname,
+		     const struct pubkey *key);
+
+/* '"fieldname" : "1234:5:6"' */
+void json_add_short_channel_id(struct json_result *response,
+			       const char *fieldname,
+			       const struct short_channel_id *id);
+
+/* JSON serialize a network address for a node */
+void json_add_address(struct json_result *response, const char *fieldname,
+		      const struct ipaddr *addr);
+
 
 /* For initialization */
 void setup_jsonrpc(struct lightningd_state *dstate, const char *rpc_filename);

@@ -6,10 +6,10 @@
 #include <ccan/io/io.h>
 #include <ccan/take/take.h>
 #include <common/utils.h>
-#include <daemon/log.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
+#include <lightningd/log.h>
 #include <lightningd/status.h>
 #include <string.h>
 #include <wally_bip32.h>
