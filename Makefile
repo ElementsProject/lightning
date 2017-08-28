@@ -44,7 +44,6 @@ BITCOIN_SRC :=					\
 BITCOIN_OBJS := $(BITCOIN_SRC:.c=.o)
 
 CORE_SRC :=					\
-	opt_bits.c				\
 	type_to_string.c			\
 	utils.c					\
 	version.c
@@ -177,7 +176,6 @@ CORE_TX_HEADERS := close_tx.h			\
 	permute_tx.h
 
 CORE_HEADERS := 				\
-	opt_bits.h				\
 	overflows.h				\
 	type_to_string.h			\
 	utils.h					\
