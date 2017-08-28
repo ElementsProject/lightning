@@ -8,7 +8,7 @@
 #include <stdlib.h>
 
 #define JSMN_STRICT 1
-# include "daemon/jsmn/jsmn.h"
+# include <external/jsmn/jsmn.h>
 
 struct ipaddr;
 struct json_result;

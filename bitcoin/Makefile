@@ -24,19 +24,3 @@ check-whitespace: $(BITCOIN_SRC:%=check-whitespace/%) $(BITCOIN_HEADERS:%=check-
 
 bitcoin-tests: $(BITCOIN_TEST_PROGRAMS:%=unittest/%)
 
-LIBBASE58_HEADERS := bitcoin/libbase58/libbase58.h
-
-LIBBASE58_SRC := bitcoin/libbase58/base58.c
-
-# Can't be inside submodule, as that makes git think it's dirty.
-LIBBASE58_OBJS := bitcoin/libbase58.o
-
-# Wildcards trick from http://stackoverflow.com/questions/2973445/gnu-makefile-rule-generating-a-few-targets-from-a-single-source-file doesn't work with no dependency, so instead make one depend on the other:
-$(LIBBASE58_SRC): $(LIBBASE58_HEADERS)
-
-$(LIBBASE58_HEADERS):
-	git submodule update bitcoin/libbase58/ || true
-	[ -f $@ ] || git submodule update --init bitcoin/libbase58/
-
-bitcoin/libbase58.o: bitcoin/libbase58/base58.c
-	$(COMPILE.c) $(OUTPUT_OPTION) $<

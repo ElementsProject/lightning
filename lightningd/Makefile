@@ -6,6 +6,8 @@ lightningd-wrongdir:
 
 LIGHTNINGD_BINS := lightningd/lightningd lightningd/lightningd_hsm lightningd/lightningd_handshake lightningd/lightningd_gossip lightningd/lightningd_opening lightningd/lightningd_channel lightningd/lightningd_closing lightningd/lightningd_onchain
 
+PROGRAMS += $(LIGHTNINGD_BINS)
+
 lightningd-all: $(LIGHTNINGD_BINS)
 
 default: lightningd-all
@@ -62,9 +64,6 @@ LIGHTNINGD_SRC_NOHDR :=				\
 
 LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o) $(LIGHTNINGD_SRC_NOHDR:.c=.o)
 
-LIGHTNINGD_JSMN_OBJS := daemon/jsmn.o
-LIGHTNINGD_JSMN_HEADERS := daemon/jsmn/jsmn.h
-
 # We accumulate all lightningd/ headers in these three:
 LIGHTNINGD_HEADERS_NOGEN =			\
 	$(LIGHTNINGD_SRC:.c=.h)			\
@@ -77,20 +76,12 @@ LIGHTNINGD_HEADERS_NOGEN =			\
 # Generated headers
 LIGHTNINGD_HEADERS_GEN =			\
 	lightningd/gen_peer_state_names.h	\
-	lightningd/gen_peer_state_names.h	\
 	$(COMMON_HEADERS_GEN)			\
 	$(WIRE_GEN_HEADERS)			\
 	$(GEN_HEADERS)
 
-# Headers we don't directly own (ie. don't check them)
-LIGHTNINGD_EXTERNAL_HEADERS =			\
-	$(LIGHTNINGD_JSMN_HEADERS)		\
-	$(CCAN_HEADERS)				\
-	$(LIBBASE58_HEADERS)			\
-	$(LIBSODIUM_HEADERS)
-
 # All together in one convenient var
-LIGHTNINGD_HEADERS = $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) $(LIGHTNINGD_EXTERNAL_HEADERS)
+LIGHTNINGD_HEADERS = $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) $(EXTERNAL_HEADERS)
 
 # These included makefiles add their headers to the LIGHTNINGD_HEADERS
 # variable so the include must preceed any actual use of the variable.
@@ -117,7 +108,7 @@ check-makefile: check-lightningd-makefile
 check-lightningd-makefile:
 	@for f in lightningd/*.h lightningd/*/*.h; do if ! echo $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) "" | grep -q "$$f "; then echo $$f not mentioned in LIGHTNINGD_HEADERS_NOGEN or LIGHTNINGD_HEADERS_GEN >&2; exit 1; fi; done
 
-lightningd/lightningd: $(LIGHTNINGD_OBJS) $(LIGHTNINGD_COMMON_OBJS) $(LIGHTNINGD_JSMN_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(CCAN_OBJS) $(LIGHTNINGD_HSM_CONTROL_OBJS) $(LIGHTNINGD_HANDSHAKE_CONTROL_OBJS) $(LIGHTNINGD_GOSSIP_CONTROL_OBJS) $(LIBBASE58_OBJS) $(LIGHTNINGD_OPENING_CONTROL_OBJS) $(LIGHTNINGD_CHANNEL_CONTROL_OBJS) $(LIGHTNINGD_CLOSING_CONTROL_OBJS) $(LIGHTNINGD_ONCHAIN_CONTROL_OBJS) $(WALLET_LIB_OBJS) libsecp256k1.a libsodium.a libwallycore.a
+lightningd/lightningd: $(LIGHTNINGD_OBJS) $(LIGHTNINGD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(CCAN_OBJS) $(LIGHTNINGD_HSM_CONTROL_OBJS) $(LIGHTNINGD_HANDSHAKE_CONTROL_OBJS) $(LIGHTNINGD_GOSSIP_CONTROL_OBJS) $(LIGHTNINGD_OPENING_CONTROL_OBJS) $(LIGHTNINGD_CHANNEL_CONTROL_OBJS) $(LIGHTNINGD_CLOSING_CONTROL_OBJS) $(LIGHTNINGD_ONCHAIN_CONTROL_OBJS) $(WALLET_LIB_OBJS)
 
 clean: lightningd-clean
 
