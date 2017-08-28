@@ -235,10 +235,9 @@ static struct io_plan *hsm_then_handshake(struct io_conn *conn,
 	tal_steal(handshaked, c);
 
 	if (c->known_id) {
-		msg = towire_handshake_initiator(tmpctx, &ld->dstate.id,
-						 c->known_id);
+		msg = towire_handshake_initiator(tmpctx, &ld->id, c->known_id);
 	} else {
-		msg = towire_handshake_responder(tmpctx, &ld->dstate.id);
+		msg = towire_handshake_responder(tmpctx, &ld->id);
 	}
 
 	/* Now hand peer request to the handshake daemon: hands it
@@ -257,12 +256,12 @@ error:
 }
 
 struct io_plan *connection_out(struct io_conn *conn,
-			       struct lightningd_state *dstate,
+			       struct lightningd *ld,
 			       const struct netaddr *netaddr,
 			       struct connection *c)
 {
 	c->netaddr = *netaddr;
-	return hsm_then_handshake(conn, ld_from_dstate(dstate), c);
+	return hsm_then_handshake(conn, ld, c);
 }
 
 struct io_plan *connection_in(struct io_conn *conn, struct lightningd *ld)

@@ -9,7 +9,7 @@
  * You can allocate off this for temporary objects. */
 struct command {
 	/* The global state */
-	struct lightningd_state *dstate;
+	struct lightningd *ld;
 	/* The 'id' which we need to include in the response. */
 	const char *id;
 	/* The connection, or NULL if it closed. */
@@ -18,7 +18,7 @@ struct command {
 
 struct json_connection {
 	/* The global state */
-	struct lightningd_state *dstate;
+	struct lightningd *ld;
 
 	/* Logging for this json connection. */
 	struct log *log;
@@ -70,7 +70,7 @@ void json_add_address(struct json_result *response, const char *fieldname,
 
 
 /* For initialization */
-void setup_jsonrpc(struct lightningd_state *dstate, const char *rpc_filename);
+void setup_jsonrpc(struct lightningd *ld, const char *rpc_filename);
 
 AUTODATA_TYPE(json_command, struct json_command);
 #endif /* LIGHTNING_LIGHTNINGD_JSONRPC_H */

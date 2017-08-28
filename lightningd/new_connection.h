@@ -6,7 +6,6 @@
 struct command;
 struct io_conn;
 struct lightningd;
-struct lightningd_state;
 struct netaddr;
 struct pubkey;
 
@@ -16,7 +15,7 @@ struct connection *new_connection(const tal_t *ctx,
 				  const struct pubkey *known_id);
 
 struct io_plan *connection_out(struct io_conn *conn,
-			       struct lightningd_state *dstate,
+			       struct lightningd *dstate,
 			       const struct netaddr *netaddr,
 			       struct connection *c);
 

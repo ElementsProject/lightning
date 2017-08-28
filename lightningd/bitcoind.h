@@ -9,7 +9,7 @@
 #include <stdbool.h>
 
 struct sha256_double;
-struct lightningd_state;
+struct lightningd;
 struct ripemd160;
 struct bitcoin_tx;
 struct peer;

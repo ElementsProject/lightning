@@ -48,15 +48,13 @@ void hsm_init(struct lightningd *ld, bool newdir)
 	if (!wire_sync_write(ld->hsm_fd, towire_hsmctl_init(tmpctx, create)))
 		err(1, "Writing init msg to hsm");
 
-	ld->bip32_base = tal(ld, struct ext_key);
+	ld->wallet->bip32_base = tal(ld->wallet, struct ext_key);
 	msg = hsm_sync_read(tmpctx, ld);
 	if (!fromwire_hsmctl_init_reply(msg, NULL,
-					&ld->dstate.id,
+					&ld->id,
 					&ld->peer_seed,
-					ld->bip32_base))
+					ld->wallet->bip32_base))
 		errx(1, "HSM did not give init reply");
 
-	/* FIXME... */
-	ld->wallet->bip32_base = ld->bip32_base;
 	tal_free(tmpctx);
 }

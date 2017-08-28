@@ -16,11 +16,11 @@
 #include <sys/wait.h>
 
 struct dns_async {
-	struct lightningd_state *dstate;
-	struct io_plan *(*init)(struct io_conn *, struct lightningd_state *,
+	struct lightningd *ld;
+	struct io_plan *(*init)(struct io_conn *, struct lightningd *,
 				const struct netaddr *,
 				void *);
-	void (*fail)(struct lightningd_state *, void *arg);
+	void (*fail)(struct lightningd *, void *arg);
 	const char *name;
 	void *arg;
 	int pid;
@@ -77,7 +77,7 @@ static struct io_plan *connected(struct io_conn *conn, struct dns_async *d)
 	/* No longer need to try more connections via connect_failed. */
 	io_set_finish(conn, NULL, NULL);
 
-	plan = d->init(conn, d->dstate, &d->addresses[-1], d->arg);
+	plan = d->init(conn, d->ld, &d->addresses[-1], d->arg);
 	tal_free(d);
 
 	return plan;
@@ -116,7 +116,7 @@ static void try_connect_one(struct dns_async *d)
 
 		/* Now we can warn if it's overlength */
 		if (a->addrlen > sizeof(a->saddr)) {
-			log_broken(d->dstate->base_log,
+			log_broken(d->ld->log,
 				   "DNS lookup gave overlength address for %s"
 				   " for family %u, len=%u",
 				   d->name, a->saddr.s.sa_family, a->addrlen);
@@ -124,7 +124,7 @@ static void try_connect_one(struct dns_async *d)
 			/* Might not even be able to create eg. IPv6 sockets */
 			fd = socket(a->saddr.s.sa_family, a->type, a->protocol);
 			if (fd >= 0) {
-				io_new_conn(d->dstate, fd, init_conn, d);
+				io_new_conn(d->ld, fd, init_conn, d);
 				return;
 			}
 		}
@@ -135,7 +135,7 @@ static void try_connect_one(struct dns_async *d)
 	}
 
 	/* We're out of things to try.  Fail. */
-	d->fail(d->dstate, d->arg);
+	d->fail(d->ld, d->arg);
 	tal_free(d);
 }
 
@@ -154,18 +154,18 @@ static struct io_plan *start_connecting(struct io_conn *conn,
 	return io_close(conn);
 }
 
-struct dns_async *multiaddress_connect_(struct lightningd_state *dstate,
+struct dns_async *multiaddress_connect_(struct lightningd *ld,
 		  const struct netaddr *addresses,
 		  struct io_plan *(*init)(struct io_conn *,
-					  struct lightningd_state *,
+					  struct lightningd *,
 					  const struct netaddr *,
 					  void *arg),
-		  void (*fail)(struct lightningd_state *, void *arg),
+		  void (*fail)(struct lightningd *, void *arg),
 		  void *arg)
 {
-	struct dns_async *d = tal(dstate, struct dns_async);
+	struct dns_async *d = tal(ld, struct dns_async);
 
-	d->dstate = dstate;
+	d->ld = ld;
 	d->init = init;
 	d->fail = fail;
 	d->arg = arg;
@@ -194,24 +194,24 @@ static struct io_plan *init_dns_conn(struct io_conn *conn, struct dns_async *d)
 static void dns_lookup_failed(struct io_conn *conn, struct dns_async *d)
 {
 	waitpid(d->pid, NULL, 0);
-	d->fail(d->dstate, d->arg);
+	d->fail(d->ld, d->arg);
 	tal_free(d);
 }
 
-struct dns_async *dns_resolve_and_connect_(struct lightningd_state *dstate,
+struct dns_async *dns_resolve_and_connect_(struct lightningd *ld,
 		  const char *name, const char *port,
 		  struct io_plan *(*init)(struct io_conn *,
-					  struct lightningd_state *,
+					  struct lightningd *,
 					  const struct netaddr *,
 					  void *arg),
-		  void (*fail)(struct lightningd_state *, void *arg),
+		  void (*fail)(struct lightningd *, void *arg),
 		  void *arg)
 {
 	int pfds[2];
-	struct dns_async *d = tal(dstate, struct dns_async);
+	struct dns_async *d = tal(ld, struct dns_async);
 	struct io_conn *conn;
 
-	d->dstate = dstate;
+	d->ld = ld;
 	d->init = init;
 	d->fail = fail;
 	d->arg = arg;
@@ -219,7 +219,7 @@ struct dns_async *dns_resolve_and_connect_(struct lightningd_state *dstate,
 
 	/* First fork child to get addresses. */
 	if (pipe(pfds) != 0) {
-		log_unusual(dstate->base_log,
+		log_unusual(ld->log,
 			    "Creating pipes for dns lookup: %s",
 			    strerror(errno));
 		return NULL;
@@ -229,7 +229,7 @@ struct dns_async *dns_resolve_and_connect_(struct lightningd_state *dstate,
 	d->pid = fork();
 	switch (d->pid) {
 	case -1:
-		log_unusual(dstate->base_log, "forking for dns lookup: %s",
+		log_unusual(ld->log, "forking for dns lookup: %s",
 			    strerror(errno));
 		close(pfds[0]);
 		close(pfds[1]);
@@ -241,7 +241,7 @@ struct dns_async *dns_resolve_and_connect_(struct lightningd_state *dstate,
 	}
 
 	close(pfds[1]);
-	conn = io_new_conn(dstate, pfds[0], init_dns_conn, d);
+	conn = io_new_conn(ld, pfds[0], init_dns_conn, d);
 	io_set_finish(conn, dns_lookup_failed, d);
 	return d;
 }

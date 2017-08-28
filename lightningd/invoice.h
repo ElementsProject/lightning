@@ -7,7 +7,7 @@
 #include <ccan/tal/tal.h>
 
 struct invoices;
-struct lightningd_state;
+struct lightningd;
 
 struct invoice {
 	struct list_node list;
@@ -27,7 +27,7 @@ void invoice_add(struct invoices *i,
 		 const char *label,
 		 u64 complete);
 
-void resolve_invoice(struct lightningd_state *dstate, struct invoice *invoice);
+void resolve_invoice(struct lightningd *ld, struct invoice *invoice);
 
 struct invoice *find_unpaid(struct invoices *i,
 			    const struct sha256 *rhash);

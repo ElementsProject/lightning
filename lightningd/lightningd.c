@@ -4,6 +4,7 @@
 #include "peer_control.h"
 #include "subd.h"
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/err/err.h>
 #include <ccan/io/fdpass/fdpass.h>
@@ -30,12 +31,6 @@ char *bitcoin_datadir;
 
 #define FIXME_IMPLEMENT() errx(1, "FIXME: Implement %s", __func__)
 
-struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id);
-struct peer *find_peer(struct lightningd_state *dstate, const struct pubkey *id)
-{
-	FIXME_IMPLEMENT();
-}
-
 struct peer *find_peer_by_unique_id(struct lightningd *ld, u64 unique_id)
 {
 	struct peer *peer;
@@ -52,19 +47,19 @@ void notify_new_block(struct chain_topology *topo, u32 height)
 	/* FIXME */
 }
 
-void db_resolve_invoice(struct lightningd_state *dstate,
+void db_resolve_invoice(struct lightningd *ld,
 			const char *label, u64 paid_num);
-void db_resolve_invoice(struct lightningd_state *dstate,
+void db_resolve_invoice(struct lightningd *ld,
 			const char *label, u64 paid_num)
 {
 	/* FIXME */
 }
 
-bool db_new_invoice(struct lightningd_state *dstate,
+bool db_new_invoice(struct lightningd *ld,
 		    u64 msatoshi,
 		    const char *label,
 		    const struct preimage *r);
-bool db_new_invoice(struct lightningd_state *dstate,
+bool db_new_invoice(struct lightningd *ld,
 		    u64 msatoshi,
 		    const char *label,
 		    const struct preimage *r)
@@ -73,9 +68,8 @@ bool db_new_invoice(struct lightningd_state *dstate,
 	return true;
 }
 
-bool db_remove_invoice(struct lightningd_state *dstate, const char *label);
-bool db_remove_invoice(struct lightningd_state *dstate,
-		       const char *label)
+bool db_remove_invoice(struct lightningd *ld, const char *label);
+bool db_remove_invoice(struct lightningd *ld, const char *label)
 {
 	/* FIXME */
 	return true;
@@ -91,29 +85,16 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	htlc_in_map_init(&ld->htlcs_in);
 	htlc_out_map_init(&ld->htlcs_out);
 	ld->dev_disconnect_fd = -1;
-	ld->dstate.log_book = new_log_book(&ld->dstate, 20*1024*1024,LOG_INFORM);
-	ld->log = ld->dstate.base_log = new_log(&ld->dstate,
-						ld->dstate.log_book,
-						"lightningd(%u):",
-						(int)getpid());
+	ld->log_book = new_log_book(ld, 20*1024*1024, LOG_INFORM);
+	ld->log = new_log(ld, ld->log_book, "lightningd(%u):", (int)getpid());
 
-	list_head_init(&ld->dstate.peers);
-	list_head_init(&ld->dstate.pay_commands);
-	ld->dstate.portnum = DEFAULT_PORT;
-	ld->dstate.testnet = true;
-	timers_init(&ld->dstate.timers, time_mono());
-	list_head_init(&ld->dstate.wallet);
-	list_head_init(&ld->dstate.addresses);
-	ld->dstate.dev_never_routefail = false;
-	ld->dstate.reexec = NULL;
-	ld->dstate.external_ip = NULL;
-	ld->dstate.announce = NULL;
-	ld->topology = ld->dstate.topology = new_topology(ld, ld->log);
-	ld->bitcoind = ld->dstate.bitcoind = new_bitcoind(ld, ld->log);
-	ld->chainparams = chainparams_for_network("testnet");
+	list_head_init(&ld->pay_commands);
+	ld->portnum = DEFAULT_PORT;
+	timers_init(&ld->timers, time_mono());
+	ld->topology = new_topology(ld, ld->log);
 
 	/* FIXME: Move into invoice daemon. */
-	ld->dstate.invoices = invoices_init(&ld->dstate);
+	ld->invoices = invoices_init(ld);
 	return ld;
 }
 
@@ -140,7 +121,7 @@ static void test_daemons(const struct lightningd *ld)
 		pid_t pid = pipecmd(&outfd, NULL, &outfd,
 				    dpath, "--version", NULL);
 
-		log_debug(ld->dstate.base_log, "testing %s", dpath);
+		log_debug(ld->log, "testing %s", dpath);
 		if (pid == -1)
 			err(1, "Could not run %s", dpath);
 		verstring = grab_fd(ctx, outfd);
@@ -191,6 +172,12 @@ static void shutdown_subdaemons(struct lightningd *ld)
 			subd_shutdown(p->owner, 0);
 }
 
+struct chainparams *get_chainparams(const struct lightningd *ld)
+{
+	return cast_const(struct chainparams *,
+			  ld->topology->bitcoind->chainparams);
+}
+
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld = new_lightningd(NULL);
@@ -204,7 +191,7 @@ int main(int argc, char *argv[])
 	/* Figure out where we are first. */
 	ld->daemon_dir = find_my_path(ld, argv[0]);
 
-	register_opts(&ld->dstate);
+	register_opts(ld);
 	opt_register_arg("--dev-debugger=<subdaemon>", opt_subd_debug, NULL,
 			 ld, "Wait for gdb attach at start of <subdaemon>");
 
@@ -220,7 +207,7 @@ int main(int argc, char *argv[])
 	ld->broadcast_interval = 30000;
 
 	/* Handle options and config; move to .lightningd */
-	newdir = handle_opts(&ld->dstate, argc, argv);
+	newdir = handle_opts(ld, argc, argv);
 
 	/* Activate crash log now we're in the right place. */
 	crashlog_activate(ld->log);
@@ -244,8 +231,9 @@ int main(int argc, char *argv[])
 	gossip_init(ld);
 
 	/* Initialize block topology. */
-	setup_topology(ld->topology, ld->bitcoind, &ld->dstate.timers,
-		       ld->dstate.config.poll_time,
+	setup_topology(ld->topology,
+		       &ld->timers,
+		       ld->config.poll_time,
 		       /* FIXME: Load from peers. */
 		       0);
 
@@ -262,7 +250,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Create RPC socket (if any) */
-	setup_jsonrpc(&ld->dstate, ld->dstate.rpc_filename);
+	setup_jsonrpc(ld, ld->rpc_filename);
 
 	/* Ready for connections from peers. */
 	setup_listeners(ld);
@@ -274,14 +262,14 @@ int main(int argc, char *argv[])
 
 	for (;;) {
 		struct timer *expired;
-		void *v = io_loop(&ld->dstate.timers, &expired);
+		void *v = io_loop(&ld->timers, &expired);
 
 		/* We use io_break(dstate) to shut down. */
 		if (v == ld)
 			break;
 
 		if (expired)
-			timer_expired(&ld->dstate, expired);
+			timer_expired(ld, expired);
 	}
 
 	shutdown_subdaemons(ld);

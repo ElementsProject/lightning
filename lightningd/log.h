@@ -7,7 +7,6 @@
 #include <stdarg.h>
 
 struct timerel;
-struct lightningd_state;
 
 enum log_level {
 	/* Logging all IO. */

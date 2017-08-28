@@ -503,13 +503,13 @@ void json_dev_broadcast(struct command *cmd,
 		return;
 	}
 
-	log_debug(cmd->dstate->base_log, "dev-broadcast: broadcast %s",
+	log_debug(cmd->ld->log, "dev-broadcast: broadcast %s",
 		  enable ? "enabled" : "disabled");
-	cmd->dstate->topology->dev_no_broadcast = !enable;
+	cmd->ld->topology->dev_no_broadcast = !enable;
 
 	/* If enabling, flush and wait. */
 	if (enable)
-		rebroadcast_txs(cmd->dstate->topology, cmd);
+		rebroadcast_txs(cmd->ld->topology, cmd);
 	else
 		command_success(cmd, null_response(cmd));
 }
@@ -517,7 +517,7 @@ void json_dev_broadcast(struct command *cmd,
 static void json_dev_blockheight(struct command *cmd,
 				 const char *buffer, const jsmntok_t *params)
 {
-	struct chain_topology *topo = cmd->dstate->topology;
+	struct chain_topology *topo = cmd->ld->topology;
 	struct json_result *response;
 
 	response = new_json_result(cmd);
@@ -557,22 +557,22 @@ struct chain_topology *new_topology(const tal_t *ctx, struct log *log)
 	topo->default_fee_rate = 40000;
 	topo->override_fee_rate = 0;
 	topo->dev_no_broadcast = false;
+	topo->bitcoind = new_bitcoind(topo, log);
 
 	return topo;
 }
 
-void setup_topology(struct chain_topology *topo, struct bitcoind *bitcoind,
+void setup_topology(struct chain_topology *topo,
 		    struct timers *timers,
 		    struct timerel poll_time, u32 first_peer_block)
 {
 	topo->startup = true;
 	topo->feerate = 0;
 	topo->timers = timers;
-	topo->bitcoind = bitcoind;
 	topo->poll_time = poll_time;
 	topo->first_blocknum = first_peer_block;
 
-	bitcoind_getblockcount(bitcoind, get_init_blockhash, topo);
+	bitcoind_getblockcount(topo->bitcoind, get_init_blockhash, topo);
 
 	tal_add_destructor(topo, destroy_outgoing_txs);
 
