@@ -37,7 +37,6 @@ static bool ping_reply(struct subd *subd, const u8 *msg, const int *fds,
 static void json_dev_ping(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
-	struct lightningd *ld = ld_from_dstate(cmd->dstate);
 	struct peer *peer;
 	u8 *msg;
 	jsmntok_t *peeridtok, *lentok, *pongbytestok;
@@ -52,7 +51,7 @@ static void json_dev_ping(struct command *cmd,
 		return;
 	}
 
-	peer = peer_from_json(ld, buffer, peeridtok);
+	peer = peer_from_json(cmd->ld, buffer, peeridtok);
 	if (!peer) {
 		command_fail(cmd, "Could not find peer with that peerid");
 		return;

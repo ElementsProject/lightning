@@ -14,7 +14,7 @@
 struct bitcoin_tx;
 struct bitcoind;
 struct command;
-struct lightningd_state;
+struct lightningd;
 struct peer;
 struct sha256_double;
 struct txwatch;
@@ -148,7 +148,7 @@ void broadcast_tx(struct chain_topology *topo,
 				 const char *err));
 
 struct chain_topology *new_topology(const tal_t *ctx, struct log *log);
-void setup_topology(struct chain_topology *topology, struct bitcoind *bitcoind,
+void setup_topology(struct chain_topology *topology,
 		    struct timers *timers,
 		    struct timerel poll_time, u32 first_peer_block);
 

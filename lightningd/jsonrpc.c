@@ -136,7 +136,7 @@ static void json_getlog(struct command *cmd,
 			const char *buffer, const jsmntok_t *params)
 {
 	struct log_info info;
-	struct log_book *lr = cmd->dstate->log_book;
+	struct log_book *lr = cmd->ld->log_book;
 	jsmntok_t *level;
 
 	json_get_params(buffer, params, "?level", &level, NULL);
@@ -237,15 +237,14 @@ static void json_getinfo(struct command *cmd,
 	struct json_result *response = new_json_result(cmd);
 
 	json_object_start(response, NULL);
-	json_add_pubkey(response, "id", &cmd->dstate->id);
+	json_add_pubkey(response, "id", &cmd->ld->id);
 	/* FIXME: Keep netaddrs and list them all. */
-	if (cmd->dstate->portnum)
-		json_add_num(response, "port", cmd->dstate->portnum);
+	if (cmd->ld->portnum)
+		json_add_num(response, "port", cmd->ld->portnum);
 	json_add_string(response, "network",
-			ld_from_dstate(cmd->dstate)->chainparams->network_name);
+			get_chainparams(cmd->ld)->network_name);
 	json_add_string(response, "version", version());
-	json_add_num(response, "blockheight",
-		     get_block_height(cmd->dstate->topology));
+	json_add_num(response, "blockheight", get_block_height(cmd->ld->topology));
 	json_object_end(response);
 	command_success(cmd, response);
 }
@@ -377,7 +376,7 @@ void command_success(struct command *cmd, struct json_result *result)
 	struct json_connection *jcon = cmd->jcon;
 
 	if (!jcon) {
-		log_unusual(cmd->dstate->base_log,
+		log_unusual(cmd->ld->log,
 			    "Command returned result after jcon close");
 		tal_free(cmd);
 		return;
@@ -395,7 +394,7 @@ void command_fail(struct command *cmd, const char *fmt, ...)
 	va_list ap;
 
 	if (!jcon) {
-		log_unusual(cmd->dstate->base_log,
+		log_unusual(cmd->ld->log,
 			    "Command failed after jcon close");
 		tal_free(cmd);
 		return;
@@ -454,9 +453,9 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 
 	/* This is a convenient tal parent for durarion of command
 	 * (which may outlive the conn!). */
-	jcon->current = tal(jcon->dstate, struct command);
+	jcon->current = tal(jcon->ld, struct command);
 	jcon->current->jcon = jcon;
-	jcon->current->dstate = jcon->dstate;
+	jcon->current->ld = jcon->ld;
 	jcon->current->id = tal_strndup(jcon->current,
 					json_tok_contents(jcon->buffer, id),
 					json_tok_len(id));
@@ -499,7 +498,7 @@ static struct io_plan *write_json(struct io_conn *conn,
 		if (jcon->stop) {
 			log_unusual(jcon->log, "JSON-RPC shutdown");
 			/* Return us to toplevel lightningd.c */
-			io_break(jcon->dstate);
+			io_break(jcon->ld);
 			return io_close(conn);
 		}
 
@@ -533,7 +532,7 @@ again:
 	toks = json_parse_input(jcon->buffer, jcon->used, &valid);
 	if (!toks) {
 		if (!valid) {
-			log_unusual(jcon->dstate->base_log,
+			log_unusual(jcon->ld->log,
 				    "Invalid token in json input: '%.*s'",
 				    (int)jcon->used, jcon->buffer);
 			return io_close(conn);
@@ -573,18 +572,18 @@ read_more:
 }
 
 static struct io_plan *jcon_connected(struct io_conn *conn,
-				      struct lightningd_state *dstate)
+				      struct lightningd *ld)
 {
 	struct json_connection *jcon;
 
-	jcon = tal(dstate, struct json_connection);
-	jcon->dstate = dstate;
+	jcon = tal(ld, struct json_connection);
+	jcon->ld = ld;
 	jcon->used = 0;
 	jcon->buffer = tal_arr(jcon, char, 64);
 	jcon->stop = false;
 	jcon->current = NULL;
-	jcon->log = new_log(jcon, dstate->log_book, "%sjcon fd %i:",
-			    log_prefix(dstate->base_log), io_conn_fd(conn));
+	jcon->log = new_log(jcon, ld->log_book, "%sjcon fd %i:",
+			    log_prefix(ld->log), io_conn_fd(conn));
 	list_head_init(&jcon->output);
 
 	io_set_finish(conn, finish_jcon, jcon);
@@ -597,13 +596,13 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 }
 
 static struct io_plan *incoming_jcon_connected(struct io_conn *conn,
-					       struct lightningd_state *dstate)
+					       struct lightningd *ld)
 {
-	log_info(dstate->base_log, "Connected json input");
-	return jcon_connected(conn, dstate);
+	log_info(ld->log, "Connected json input");
+	return jcon_connected(conn, ld);
 }
 
-void setup_jsonrpc(struct lightningd_state *dstate, const char *rpc_filename)
+void setup_jsonrpc(struct lightningd *ld, const char *rpc_filename)
 {
 	struct sockaddr_un addr;
 	int fd, old_umask;
@@ -615,7 +614,7 @@ void setup_jsonrpc(struct lightningd_state *dstate, const char *rpc_filename)
 		fd = open(rpc_filename, O_RDWR);
 		if (fd == -1)
 			err(1, "Opening %s", rpc_filename);
-		io_new_conn(dstate, fd, jcon_connected, dstate);
+		io_new_conn(ld, fd, jcon_connected, ld);
 		return;
 	}
 
@@ -639,5 +638,5 @@ void setup_jsonrpc(struct lightningd_state *dstate, const char *rpc_filename)
 	if (listen(fd, 1) != 0)
 		err(1, "Listening on '%s'", rpc_filename);
 
-	io_new_listener(dstate, fd, incoming_jcon_connected, dstate);
+	io_new_listener(ld, fd, incoming_jcon_connected, ld);
 }

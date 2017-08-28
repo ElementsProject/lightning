@@ -77,8 +77,6 @@ size_t node_map_hash_key(const secp256k1_pubkey *key);
 bool node_map_node_eq(const struct node *n, const secp256k1_pubkey *key);
 HTABLE_DEFINE_TYPE(struct node, node_map_keyof_node, node_map_hash_key, node_map_node_eq, node_map);
 
-struct lightningd_state;
-
 struct routing_state {
 	/* All known nodes. */
 	struct node_map *nodes;

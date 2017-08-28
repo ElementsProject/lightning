@@ -74,7 +74,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind,
 					struct withdrawal *withdraw)
 {
 	struct command *cmd = withdraw->cmd;
-	struct lightningd *ld = ld_from_dstate(withdraw->cmd->dstate);
+	struct lightningd *ld = withdraw->cmd->ld;
 	struct bitcoin_tx *tx;
 	u64 change_satoshi = 0;
 
@@ -112,7 +112,6 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind,
 static void json_withdraw(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
-	struct lightningd *ld = ld_from_dstate(cmd->dstate);
 	jsmntok_t *desttok, *sattok;
 	struct withdrawal *withdraw;
 	bool testnet;
@@ -149,7 +148,8 @@ static void json_withdraw(struct command *cmd,
 	}
 
 	/* Select the coins */
-	withdraw->utxos = wallet_select_coins(cmd, ld->wallet, withdraw->amount,
+	withdraw->utxos = wallet_select_coins(cmd, cmd->ld->wallet,
+					      withdraw->amount,
 					      feerate_per_kw, &fee_estimate,
 					      &withdraw->changesatoshi);
 	if (!withdraw->utxos) {
@@ -161,7 +161,7 @@ static void json_withdraw(struct command *cmd,
 	if (withdraw->changesatoshi <= 546)
 		withdraw->changesatoshi = 0;
 
-	withdraw->change_key_index = wallet_get_newindex(ld);
+	withdraw->change_key_index = wallet_get_newindex(cmd->ld);
 
 	utxos = from_utxoptr_arr(withdraw, withdraw->utxos);
 	u8 *msg = towire_hsmctl_sign_withdrawal(cmd,
@@ -172,17 +172,18 @@ static void json_withdraw(struct command *cmd,
 						utxos);
 	tal_free(utxos);
 
-	if (!wire_sync_write(ld->hsm_fd, take(msg)))
+	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
 		fatal("Could not write sign_withdrawal to HSM: %s",
 		      strerror(errno));
 
-	msg = hsm_sync_read(cmd, ld);
+	msg = hsm_sync_read(cmd, cmd->ld);
 
 	if (!fromwire_hsmctl_sign_withdrawal_reply(withdraw, msg, NULL, &sigs))
 		fatal("HSM gave bad sign_withdrawal_reply %s",
 		      tal_hex(withdraw, msg));
 
-	if (bip32_key_from_parent(ld->bip32_base, withdraw->change_key_index,
+	if (bip32_key_from_parent(cmd->ld->wallet->bip32_base,
+				  withdraw->change_key_index,
                                BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
              command_fail(cmd, "Changekey generation failure");
              return;
@@ -191,7 +192,7 @@ static void json_withdraw(struct command *cmd,
 	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
 	tx = withdraw_tx(withdraw, withdraw->utxos, &withdraw->destination,
 			 withdraw->amount, &changekey, withdraw->changesatoshi,
-			 ld->bip32_base);
+			 cmd->ld->wallet->bip32_base);
 
 	if (tal_count(sigs) != tal_count(tx->input))
 		fatal("HSM gave %zu sigs, needed %zu",
@@ -201,7 +202,7 @@ static void json_withdraw(struct command *cmd,
 	for (size_t i = 0; i < tal_count(tx->input); i++) {
 		struct pubkey key;
 
-		if (!bip32_pubkey(ld->bip32_base,
+		if (!bip32_pubkey(cmd->ld->wallet->bip32_base,
 				  &key, withdraw->utxos[i]->keyindex))
 			fatal("Cannot generate BIP32 key for UTXO %u",
 			      withdraw->utxos[i]->keyindex);
@@ -213,7 +214,7 @@ static void json_withdraw(struct command *cmd,
 
 	/* Now broadcast the transaction */
 	withdraw->hextx = tal_hex(withdraw, linearize_tx(cmd, tx));
-	bitcoind_sendrawtx(ld->topology->bitcoind, withdraw->hextx,
+	bitcoind_sendrawtx(cmd->ld->topology->bitcoind, withdraw->hextx,
 			   wallet_withdrawal_broadcast, withdraw);
 }
 
@@ -229,7 +230,6 @@ static void json_newaddr(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	struct json_result *response = new_json_result(cmd);
-	struct lightningd *ld = ld_from_dstate(cmd->dstate);
 	struct ext_key ext;
 	struct sha256 h;
 	struct ripemd160 p2sh;
@@ -237,13 +237,13 @@ static void json_newaddr(struct command *cmd,
 	u8 *redeemscript;
 	s64 keyidx;
 
-	keyidx = wallet_get_newindex(ld);
+	keyidx = wallet_get_newindex(cmd->ld);
 	if (keyidx < 0) {
 		command_fail(cmd, "Keys exhausted ");
 		return;
 	}
 
-	if (bip32_key_from_parent(ld->bip32_base, keyidx,
+	if (bip32_key_from_parent(cmd->ld->wallet->bip32_base, keyidx,
 				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
 		command_fail(cmd, "Keys generation failure");
 		return;
@@ -261,7 +261,8 @@ static void json_newaddr(struct command *cmd,
 
 	json_object_start(response, NULL);
 	json_add_string(response, "address",
-			p2sh_to_base58(cmd, cmd->dstate->testnet, &p2sh));
+			p2sh_to_base58(cmd, get_chainparams(cmd->ld)->testnet,
+				       &p2sh));
 	json_object_end(response);
 	command_success(cmd, response);
 }
@@ -277,7 +278,6 @@ AUTODATA(json_command, &newaddr_command);
 static void json_addfunds(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
-	struct lightningd *ld = ld_from_dstate(cmd->dstate);
 	struct json_result *response = new_json_result(cmd);
 	jsmntok_t *txtok;
 	struct bitcoin_tx *tx;
@@ -301,7 +301,7 @@ static void json_addfunds(struct command *cmd,
 
 	/* Find an output we know how to spend. */
 	num_utxos =
-	    wallet_extract_owned_outputs(ld->wallet, tx, &total_satoshi);
+	    wallet_extract_owned_outputs(cmd->ld->wallet, tx, &total_satoshi);
 	if (num_utxos < 0) {
 		command_fail(cmd, "Could not add outputs to wallet");
 		return;

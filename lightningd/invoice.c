@@ -102,18 +102,18 @@ static void tell_waiter(struct command *cmd, const struct invoice *paid)
 }
 
 /* UNIFICATION FIXME */
-void db_resolve_invoice(struct lightningd_state *dstate,
+void db_resolve_invoice(struct lightningd *ld,
 			const char *label, u64 paid_num);
-bool db_new_invoice(struct lightningd_state *dstate,
+bool db_new_invoice(struct lightningd *ld,
 		    u64 msatoshi,
 		    const char *label,
 		    const struct preimage *r);
-bool db_remove_invoice(struct lightningd_state *dstate, const char *label);
+bool db_remove_invoice(struct lightningd *ld, const char *label);
 
-void resolve_invoice(struct lightningd_state *dstate, struct invoice *invoice)
+void resolve_invoice(struct lightningd *ld, struct invoice *invoice)
 {
 	struct invoice_waiter *w;
-	struct invoices *invs = dstate->invoices;
+	struct invoices *invs = ld->invoices;
 
 	invoice->paid_num = ++invs->invoices_completed;
 	list_del_from(&invs->unpaid, &invoice->list);
@@ -125,7 +125,7 @@ void resolve_invoice(struct lightningd_state *dstate, struct invoice *invoice)
 			     list)) != NULL)
 		tell_waiter(w->cmd, invoice);
 
-	db_resolve_invoice(dstate, invoice->label, invoice->paid_num);
+	db_resolve_invoice(ld, invoice->label, invoice->paid_num);
 }
 
 static void json_invoice(struct command *cmd,
@@ -134,7 +134,7 @@ static void json_invoice(struct command *cmd,
 	struct invoice *invoice;
 	jsmntok_t *msatoshi, *r, *label;
 	struct json_result *response = new_json_result(cmd);
-	struct invoices *invs = cmd->dstate->invoices;
+	struct invoices *invs = cmd->ld->invoices;
 
 	if (!json_get_params(buffer, params,
 			     "amount", &msatoshi,
@@ -187,7 +187,7 @@ static void json_invoice(struct command *cmd,
 	}
 	invoice->paid_num = 0;
 
-	if (!db_new_invoice(cmd->dstate, invoice->msatoshi, invoice->label,
+	if (!db_new_invoice(cmd->ld, invoice->msatoshi, invoice->label,
 			    &invoice->r)) {
 		command_fail(cmd, "database error");
 		return;
@@ -238,7 +238,7 @@ static void json_listinvoice(struct command *cmd,
 {
 	jsmntok_t *label = NULL;
 	struct json_result *response = new_json_result(cmd);
-	struct invoices *invs = cmd->dstate->invoices;
+	struct invoices *invs = cmd->ld->invoices;
 
 	if (!json_get_params(buffer, params,
 			     "?label", &label,
@@ -270,7 +270,7 @@ static void json_delinvoice(struct command *cmd,
 	jsmntok_t *labeltok;
 	struct json_result *response = new_json_result(cmd);
 	const char *label;
-	struct invoices *invs = cmd->dstate->invoices;
+	struct invoices *invs = cmd->ld->invoices;
 
 	if (!json_get_params(buffer, params,
 			     "label", &labeltok,
@@ -286,7 +286,7 @@ static void json_delinvoice(struct command *cmd,
 		command_fail(cmd, "Unknown invoice");
 		return;
 	}
-	if (!db_remove_invoice(cmd->dstate, i->label)) {
+	if (!db_remove_invoice(cmd->ld, i->label)) {
 		command_fail(cmd, "Database error");
 		return;
 	}
@@ -316,7 +316,7 @@ static void json_waitanyinvoice(struct command *cmd,
 	jsmntok_t *labeltok;
 	const char *label = NULL;
 	struct invoice_waiter *w;
-	struct invoices *invs = cmd->dstate->invoices;
+	struct invoices *invs = cmd->ld->invoices;
 
 	if (!json_get_params(buffer, params,
 			     "?label", &labeltok,
@@ -372,7 +372,7 @@ static void json_waitinvoice(struct command *cmd,
 	jsmntok_t *labeltok;
 	const char *label = NULL;
 	struct invoice_waiter *w;
-	struct invoices *invs = cmd->dstate->invoices;
+	struct invoices *invs = cmd->ld->invoices;
 
 	if (!json_get_params(buffer, params, "label", &labeltok, NULL)) {
 		command_fail(cmd, "Missing {label}");

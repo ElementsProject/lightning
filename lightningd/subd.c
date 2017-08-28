@@ -429,7 +429,7 @@ struct subd *new_subd(const tal_t *ctx,
 		return tal_free(sd);
 	}
 	sd->ld = ld;
-	sd->log = new_log(sd, ld->dstate.log_book, "%s(%u):", name, sd->pid);
+	sd->log = new_log(sd, ld->log_book, "%s(%u):", name, sd->pid);
 	sd->name = name;
 	sd->finished = finished;
 	sd->msgname = msgname;

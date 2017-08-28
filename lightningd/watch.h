@@ -10,7 +10,6 @@
 
 struct bitcoin_tx;
 struct block;
-struct lightningd_state;
 
 enum watch_result {
 	DELETE_WATCH = -1,

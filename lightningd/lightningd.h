@@ -72,85 +72,29 @@ struct config {
 	struct ipaddr ipaddr;
 };
 
-/* Here's where the global variables hide! */
-struct lightningd_state {
-	/* Where all our logging goes. */
-	struct log_book *log_book;
-	struct log *base_log;
-	FILE *logf;
+struct lightningd {
+	/* The directory to find all the subdaemons. */
+	const char *daemon_dir;
 
 	/* Our config dir, and rpc file */
 	char *config_dir;
 	char *rpc_filename;
 
-	/* Port we're listening on */
-	u16 portnum;
-
-	/* We're on testnet. */
-	bool testnet;
-
 	/* Configuration settings. */
 	struct config config;
 
-	/* The database where we keep our stuff. */
-	struct db *db;
-
-	/* Any pending timers. */
-	struct timers timers;
-
-	/* Cached block topology. */
-	struct chain_topology *topology;
-
-	/* Our peers. */
-	struct list_head peers;
-
-	/* Addresses to contact peers. */
-	struct list_head addresses;
-
-	/* Any outstanding "pay" commands. */
-	struct list_head pay_commands;
-
-	/* Our private key */
-	struct privkey *privkey;
+	/* Log for general stuff. */
+	struct log_book *log_book;
+	struct log *log;
 
 	/* This is us. */
 	struct pubkey id;
 
-	/* Our tame bitcoind. */
-	struct bitcoind *bitcoind;
+	/* Any pending timers. */
+	struct timers timers;
 
-	/* Wallet addresses we maintain. */
-	struct list_head wallet;
-
-	/* Maintained by invoices.c */
-	struct invoices *invoices;
-
-	/* Routing information */
-	struct routing_state *rstate;
-
-	/* For testing: don't fail if we can't route. */
-	bool dev_never_routefail;
-
-	/* Re-exec hack for testing. */
-	char **reexec;
-
-	/* IP/hostname to be announced for incoming connections */
-	char *external_ip;
-
-	/* Announce timer. */
-	struct oneshot *announce;
-};
-
-/* FIXME: This is two structures, during the migration from old setup to new */
-struct lightningd {
-	/* Must be first, since things assume we can tal() off it */
-	struct lightningd_state dstate;
-
-	/* The directory to find all the subdaemons. */
-	const char *daemon_dir;
-
-	/* Log for general stuff. */
-	struct log *log;
+	/* Port we're listening on */
+	u16 portnum;
 
 	/* Bearer of all my secrets. */
 	int hsm_fd;
@@ -164,12 +108,6 @@ struct lightningd {
 	struct secret peer_seed;
 	/* Used to give a unique seed to every peer. */
 	u64 peer_counter;
-
-	/* Public base for bip32 keys, and max we've ever used. */
-	struct ext_key *bip32_base;
-
-	/* Our bitcoind context. */
-	struct bitcoind *bitcoind;
 
 	/* Our chain topology. */
 	struct chain_topology *topology;
@@ -188,7 +126,11 @@ struct lightningd {
 
 	struct wallet *wallet;
 
-	const struct chainparams *chainparams;
+	/* Maintained by invoices.c */
+	struct invoices *invoices;
+
+	/* Any outstanding "pay" commands. */
+	struct list_head pay_commands;
 };
 
 /**
@@ -209,10 +151,6 @@ void derive_peer_seed(struct lightningd *ld, struct privkey *peer_seed,
 		      const struct pubkey *peer_id, const u64 channel_id);
 
 struct peer *find_peer_by_unique_id(struct lightningd *ld, u64 unique_id);
-/* FIXME */
-static inline struct lightningd *
-ld_from_dstate(const struct lightningd_state *dstate)
-{
-	return container_of(dstate, struct lightningd, dstate);
-}
+
+struct chainparams *get_chainparams(const struct lightningd *ld);
 #endif /* LIGHTNING_LIGHTNINGD_LIGHTNINGD_H */
