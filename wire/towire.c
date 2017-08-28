@@ -1,4 +1,3 @@
-#include "utils.h"
 #include "wire.h"
 #include <bitcoin/preimage.h>
 #include <bitcoin/shadouble.h>
@@ -6,6 +5,7 @@
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/tal.h>
+#include <common/utils.h>
 
 void towire(u8 **pptr, const void *data, size_t len)
 {

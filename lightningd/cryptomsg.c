@@ -6,11 +6,11 @@
 #include <ccan/mem/mem.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/take/take.h>
+#include <common/utils.h>
 #include <lightningd/cryptomsg.h>
 #include <lightningd/dev_disconnect.h>
 #include <lightningd/status.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
-#include <utils.h>
 #include <wire/peer_wire.h>
 #include <wire/wire.h>
 #include <wire/wire_io.h>

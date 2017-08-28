@@ -1,6 +1,5 @@
 #include "log.h"
 #include "pseudorand.h"
-#include "utils.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/list/list.h>
 #include <ccan/opt/opt.h>
@@ -8,6 +7,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>

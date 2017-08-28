@@ -1,9 +1,9 @@
 #ifndef LIGHTNING_DAEMON_LOG_H
 #define LIGHTNING_DAEMON_LOG_H
 #include "config.h"
-#include "type_to_string.h"
 #include <ccan/tal/tal.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
+#include <common/type_to_string.h>
 #include <stdarg.h>
 
 struct timerel;

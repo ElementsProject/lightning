@@ -4,9 +4,9 @@
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/ptrint/ptrint.h>
+#include <common/permute_tx.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/utxo.h>
-#include <permute_tx.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)

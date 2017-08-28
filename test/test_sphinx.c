@@ -4,13 +4,13 @@
 #include <string.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/read_write_all/read_write_all.h>
+#include <common/utils.h>
 #include <err.h>
 #include <stdio.h>
 #include <assert.h>
 #include <unistd.h>
 
 #include "lightningd/sphinx.h"
-#include "utils.h"
 
 secp256k1_context *secp256k1_ctx;
 

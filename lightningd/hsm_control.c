@@ -5,6 +5,7 @@
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/take/take.h>
+#include <common/utils.h>
 #include <daemon/log.h>
 #include <errno.h>
 #include <inttypes.h>

@@ -1,77 +1,15 @@
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/endian/endian.h>
-#include <lightningd/commit_tx.h>
+#include <common/htlc_tx.h>
+#include <common/permute_tx.h>
+#include <common/utils.h>
+#include <lightningd/channel/commit_tx.h>
 #include <lightningd/keyset.h>
-#include <permute_tx.h>
-#include <utils.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)
 #endif
-
-/* BOLT #3:
- *
- * The 48-bit commitment transaction number is obscured by `XOR` with
- * the lower 48 bits of:
- *
- *     SHA256(payment_basepoint from open_channel || payment_basepoint from accept_channel)
- */
-u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint,
-			   const struct pubkey *accepter_payment_basepoint)
-{
-	u8 ders[PUBKEY_DER_LEN * 2];
-	struct sha256 sha;
-	be64 obscurer = 0;
-
-	pubkey_to_der(ders, opener_payment_basepoint);
-	pubkey_to_der(ders + PUBKEY_DER_LEN, accepter_payment_basepoint);
-
-	sha256(&sha, ders, sizeof(ders));
-	/* Lower 48 bits */
-	memcpy((u8 *)&obscurer + 2, sha.u.u8 + sizeof(sha.u.u8) - 6, 6);
-	return be64_to_cpu(obscurer);
-}
-
-static void subtract_fee(enum side funder, enum side side,
-			 u64 base_fee_msat, u64 *self_msat, u64 *other_msat)
-{
-	u64 *funder_msat;
-
-	if (funder == side)
-		funder_msat = self_msat;
-	else
-		funder_msat = other_msat;
-
-	if (*funder_msat >= base_fee_msat)
-		*funder_msat -= base_fee_msat;
-	else
-		*funder_msat = 0;
-}
-
-u64 htlc_timeout_fee(u64 feerate_per_kw)
-{
-	/* BOLT #3:
-	 *
-	 * The fee for an HTLC-timeout transaction MUST BE calculated to match:
-	 *
-	 * 1. Multiply `feerate_per_kw` by 663 and divide by 1000 (rounding
-	 *    down).
-	 */
-	return feerate_per_kw * 663 / 1000;
-}
-
-u64 htlc_success_fee(u64 feerate_per_kw)
-{
-	/* BOLT #3:
-	 *
-	 * The fee for an HTLC-success transaction MUST BE calculated to match:
-	 *
-	 * 1. Multiply `feerate_per_kw` by 703 and divide by 1000 (rounding
-	 *    down).
-	 */
-	return feerate_per_kw * 703 / 1000;
-}
 
 static bool trim(const struct htlc *htlc,
 		 u64 feerate_per_kw, u64 dust_limit_satoshis,
@@ -115,46 +53,6 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
 	return n;
 }
 
-u64 commit_tx_base_fee(u64 feerate_per_kw, size_t num_untrimmed_htlcs)
-{
-	u64 weight;
-
-	/* BOLT #3:
-	 *
-	 * The base fee for a commitment transaction MUST BE
-	 * calculated to match:
-	 *
-	 * 1. Start with `weight` = 724.
-	 */
-	weight = 724;
-
-	/* BOLT #3:
-	 *
-	 * 2. For each committed HTLC, if that output is not trimmed
-	 *    as specified in [Trimmed Outputs](#trimmed-outputs), add
-	 *    172 to `weight`.
-	 */
-	weight += 172 * num_untrimmed_htlcs;
-
-	/* BOLT #3:
-	 *
-	 * 3. Multiply `feerate_per_kw` by `weight`, divide by 1000
-	 *    (rounding down).
-	 */
-	return feerate_per_kw * weight / 1000;
-}
-
-u8 *htlc_offered_wscript(const tal_t *ctx,
-			 const struct ripemd160 *ripemd,
-			 const struct keyset *keyset)
-{
-	return bitcoin_wscript_htlc_offer_ripemd160(ctx,
-						    &keyset->self_payment_key,
-						    &keyset->other_payment_key,
-						    ripemd,
-						    &keyset->self_revocation_key);
-}
-
 static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 				 const struct htlc *htlc,
 				 const struct keyset *keyset)
@@ -171,19 +69,6 @@ static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 	tal_free(wscript);
 }
 
-u8 *htlc_received_wscript(const tal_t *ctx,
-			  const struct ripemd160 *ripemd,
-			  const struct abs_locktime *expiry,
-			  const struct keyset *keyset)
-{
-	return bitcoin_wscript_htlc_receive_ripemd(ctx,
-						   expiry,
-						   &keyset->self_payment_key,
-						   &keyset->other_payment_key,
-						   ripemd,
-						   &keyset->self_revocation_key);
-}
-
 static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 				  const struct htlc *htlc,
 				  const struct keyset *keyset)
@@ -198,15 +83,6 @@ static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 	SUPERVERBOSE("# HTLC %"PRIu64" received amount %"PRIu64" wscript %s\n",
 		     htlc->id, tx->output[n].amount, tal_hex(wscript, wscript));
 	tal_free(wscript);
-}
-
-u8 *to_self_wscript(const tal_t *ctx,
-		    u16 to_self_delay,
-		    const struct keyset *keyset)
-{
-	return bitcoin_wscript_to_local(ctx, to_self_delay,
-					&keyset->self_revocation_key,
-					&keyset->self_delayed_payment_key);
 }
 
 struct bitcoin_tx *commit_tx(const tal_t *ctx,
@@ -256,8 +132,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 * 3. Subtract this base fee from the funder (either `to_local` or
 	 * `to_remote`), with a floor of zero (see [Fee Payment](#fee-payment)).
 	 */
-	subtract_fee(funder, side, base_fee_msat,
-		     &self_pay_msat, &other_pay_msat);
+	try_subtract_fee(funder, side, base_fee_msat,
+			 &self_pay_msat, &other_pay_msat);
 
 #ifdef PRINT_ACTUAL_FEE
 	{

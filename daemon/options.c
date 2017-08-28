@@ -8,13 +8,13 @@
 #include "daemon/options.h"
 #include "daemon/routing.h"
 #include "lightningd/lightningd.h"
-#include "version.h"
 #include <arpa/inet.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
+#include <common/version.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>

@@ -1,11 +1,11 @@
 #include <ccan/read_write_all/read_write_all.h>
+#include <common/utils.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/crypto_sync.h>
 #include <lightningd/cryptomsg.h>
 #include <lightningd/dev_disconnect.h>
 #include <lightningd/status.h>
-#include <utils.h>
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 

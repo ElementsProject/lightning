@@ -1,4 +1,3 @@
-#include "utils.h"
 #include "wire.h"
 #include <bitcoin/preimage.h>
 #include <bitcoin/pubkey.h>
@@ -7,7 +6,8 @@
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
-#include <type_to_string.h>
+#include <common/type_to_string.h>
+#include <common/utils.h>
 
 /* Sets *cursor to NULL and returns NULL when extraction fails. */
 const void *fromwire_fail(const u8 **cursor, size_t *max)

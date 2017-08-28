@@ -35,6 +35,15 @@ LIGHTNINGD_HEADERS_NOGEN += $(LIGHTNINGD_CLOSING_HEADERS_NOGEN)
 
 $(LIGHTNINGD_CLOSING_OBJS): $(LIGHTNINGD_HEADERS)
 
+# Common source we use.
+CLOSINGD_COMMON_OBJS :=				\
+	common/close_tx.o			\
+	common/derive_basepoints.o		\
+	common/permute_tx.o			\
+	common/type_to_string.o			\
+	common/utils.o				\
+	common/version.o
+
 lightningd/closing/gen_closing_wire.h: $(WIRE_GEN) lightningd/closing/closing_wire.csv
 	$(WIRE_GEN) --header $@ closing_wire_type < lightningd/closing/closing_wire.csv > $@
 
@@ -43,7 +52,7 @@ lightningd/closing/gen_closing_wire.c: $(WIRE_GEN) lightningd/closing/closing_wi
 
 LIGHTNINGD_CLOSING_OBJS := $(LIGHTNINGD_CLOSING_SRC:.c=.o) $(LIGHTNINGD_CLOSING_GEN_SRC:.c=.o)
 
-lightningd/lightningd_closing: $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_CLOSING_OBJS) $(WIRE_ONION_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(LIGHTNINGD_HSM_CLIENT_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
+lightningd/lightningd_closing: $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_CLOSING_OBJS) $(WIRE_ONION_OBJS) $(CLOSINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(LIGHTNINGD_HSM_CLIENT_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 check-source: $(LIGHTNINGD_CLOSING_SRC_NOGEN:%=check-src-include-order/%)

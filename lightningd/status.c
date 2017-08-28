@@ -1,6 +1,3 @@
-#include "utils.h"
-#include "wire/wire.h"
-#include "wire/wire_sync.h"
 #include <assert.h>
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/endian/endian.h>
@@ -9,9 +6,12 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
+#include <common/utils.h>
 #include <lightningd/daemon_conn.h>
 #include <lightningd/status.h>
 #include <stdarg.h>
+#include <wire/wire.h>
+#include <wire/wire_sync.h>
 
 static int status_fd = -1;
 static struct daemon_conn *status_conn;

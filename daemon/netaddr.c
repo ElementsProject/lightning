@@ -1,7 +1,5 @@
 #include "bitcoin/pullpush.h"
 #include "netaddr.h"
-#include "type_to_string.h"
-#include "utils.h"
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ccan/cast/cast.h>
@@ -9,6 +7,8 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
+#include <common/type_to_string.h>
+#include <common/utils.h>
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>

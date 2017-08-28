@@ -1,10 +1,10 @@
 #include "lightningd/sphinx.h"
-#include "utils.h"
 #include <assert.h>
 
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/mem/mem.h>
+#include <common/utils.h>
 
 #include <err.h>
 

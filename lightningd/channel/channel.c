@@ -11,20 +11,22 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
+#include <common/derive_basepoints.h>
+#include <common/htlc_tx.h>
+#include <common/type_to_string.h>
+#include <common/version.h>
 #include <daemon/routing.h>
 #include <daemon/timeout.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <lightningd/channel.h>
+#include <lightningd/channel/commit_tx.h>
+#include <lightningd/channel/full_channel.h>
 #include <lightningd/channel/gen_channel_wire.h>
-#include <lightningd/commit_tx.h>
 #include <lightningd/crypto_sync.h>
 #include <lightningd/cryptomsg.h>
 #include <lightningd/daemon_conn.h>
 #include <lightningd/debug.h>
-#include <lightningd/derive_basepoints.h>
 #include <lightningd/hsm/gen_hsm_client_wire.h>
-#include <lightningd/htlc_tx.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/msg_queue.h>
 #include <lightningd/peer_failed.h>
@@ -34,8 +36,6 @@
 #include <secp256k1.h>
 #include <signal.h>
 #include <stdio.h>
-#include <type_to_string.h>
-#include <version.h>
 #include <wire/gen_onion_wire.h>
 #include <wire/peer_wire.h>
 #include <wire/wire.h>
@@ -1632,9 +1632,9 @@ again:
 	start_commit_timer(peer);
 
 	/* Now, re-send any that we're supposed to be failing. */
-	for (htlc = htlc_map_first(&peer->channel->htlcs, &it);
+	for (htlc = htlc_map_first(peer->channel->htlcs, &it);
 	     htlc;
-	     htlc = htlc_map_next(&peer->channel->htlcs, &it)) {
+	     htlc = htlc_map_next(peer->channel->htlcs, &it)) {
 		if (htlc->state == SENT_REMOVE_HTLC)
 			send_fail_or_fulfill(peer, htlc);
 	}

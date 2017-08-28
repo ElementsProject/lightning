@@ -1,123 +1,10 @@
+/* This is the full channel routines, with HTLC support. */
 #ifndef LIGHTNING_LIGHTNINGD_CHANNEL_H
 #define LIGHTNING_LIGHTNINGD_CHANNEL_H
 #include "config.h"
-#include <bitcoin/pubkey.h>
-#include <bitcoin/shadouble.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
-#include <daemon/htlc.h>
+#include <common/initial_channel.h>
 #include <lightningd/channel/channeld_htlc.h>
-#include <lightningd/channel_config.h>
-#include <lightningd/derive_basepoints.h>
 #include <lightningd/sphinx.h>
-#include <stdbool.h>
-
-struct signature;
-struct added_htlc;
-struct failed_htlc;
-struct fulfilled_htlc;
-
-/* View from each side */
-struct channel_view {
-	/* Current feerate in satoshis per 1000 weight. */
-	u64 feerate_per_kw;
-
-	/* How much is owed to each side (includes pending changes) */
-	u64 owed_msat[NUM_SIDES];
-};
-
-struct channel {
-	/* Funding txid and output. */
-	struct sha256_double funding_txid;
-	unsigned int funding_txout;
-
-	/* Keys used to spend funding tx. */
-	struct pubkey funding_pubkey[NUM_SIDES];
-
-	/* Millisatoshis in from commitment tx */
-	u64 funding_msat;
-
-	/* Who is paying fees. */
-	enum side funder;
-
-	/* Limits and settings on this channel. */
-	const struct channel_config *config[NUM_SIDES];
-
-	/* Basepoints for deriving keys. */
-	struct basepoints basepoints[NUM_SIDES];
-
-	/* Mask for obscuring the encoding of the commitment number. */
-	u64 commitment_number_obscurer;
-
-	/* All live HTLCs for this channel */
-	struct htlc_map htlcs;
-
-	/* What it looks like to each side. */
-	struct channel_view view[NUM_SIDES];
-};
-
-/* Some requirements are self-specified (eg. my dust limit), others
- * are force upon the other side (eg. minimum htlc you can add).
- *
- * These values are also universally in msatsoshi.  These avoid
- * confusion: use them! */
-
-/* BOLT #2:
- *
- * `dust_limit_satoshis` is the threshold below which output should be
- * generated for this node's commitment or HTLC transaction */
-static inline u64 dust_limit_satoshis(const struct channel *channel,
-				      enum side side)
-{
-	return channel->config[side]->dust_limit_satoshis;
-}
-/* BOLT #2:
- *
- * `max_htlc_value_in_flight_msat` is a cap on total value of
- * outstanding HTLCs, which allows a node to limit its exposure to
- * HTLCs */
-static inline u64 max_htlc_value_in_flight_msat(const struct channel *channel,
-						enum side recipient)
-{
-	return channel->config[recipient]->max_htlc_value_in_flight_msat;
-}
-/* BOLT #2:
- *
- * similarly `max_accepted_htlcs` limits the number of outstanding
- * HTLCs the other node can offer. */
-static inline u16 max_accepted_htlcs(const struct channel *channel,
-				     enum side recipient)
-{
-	return channel->config[recipient]->max_accepted_htlcs;
-}
-/* BOLT #2:
- *
- * `channel_reserve_satoshis` is the minimum amount that the other
- * node is to keep as a direct payment. */
-static inline u64 channel_reserve_msat(const struct channel *channel,
-				       enum side side)
-{
-	return channel->config[!side]->channel_reserve_satoshis * 1000;
-}
-/* BOLT #2:
- *
- * `htlc_minimum_msat` indicates the smallest value HTLC this node will accept.
- */
-static inline u32 htlc_minimum_msat(const struct channel *channel,
-				    enum side recipient)
-{
-	return channel->config[recipient]->htlc_minimum_msat;
-}
-/* BOLT #2:
- *
- * `to_self_delay` is the number of blocks that the other nodes
- * to-self outputs must be delayed, using `OP_CHECKSEQUENCEVERIFY`
- * delays */
-static inline u16 to_self_delay(const struct channel *channel, enum side side)
-{
-	return channel->config[!side]->to_self_delay;
-}
-
 
 /**
  * new_channel: Given initial fees and funding, what is initial state?
@@ -190,13 +77,6 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
  */
 uint32_t actual_feerate(const struct channel *channel,
 			const struct signature *theirsig);
-
-/**
- * copy_channel: Make a deep copy of channel
- * @ctx: tal context to allocate return value from.
- * @channel: channel to copy.
- */
-struct channel *copy_channel(const tal_t *ctx, const struct channel *channel);
 
 enum channel_add_err {
 	/* All OK! */
@@ -312,17 +192,6 @@ bool can_afford_feerate(const struct channel *channel, u64 feerate_per_kw);
  * @side: which side to adjust.
  */
 void adjust_fee(struct channel *channel, u64 feerate_per_kw, enum side side);
-
-/**
- * force_fee: Change fees to a specific value.
- * @channel: The channel state
- * @fee: fee in satoshi.
- *
- * This is used for the close transaction, which specifies an exact fee.
- * If the fee cannot be paid in full, this return false (but cstate will
- * still be altered).
- */
-bool force_fee(struct channel *channel, u64 fee);
 
 /**
  * channel_sending_commit: commit all remote outstanding changes.

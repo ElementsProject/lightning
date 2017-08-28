@@ -3,9 +3,34 @@
 #include "config.h"
 #include <daemon/htlc.h>
 
+struct keyset;
 struct preimage;
 struct pubkey;
 struct sha256_double;
+
+static inline u64 htlc_timeout_fee(u64 feerate_per_kw)
+{
+	/* BOLT #3:
+	 *
+	 * The fee for an HTLC-timeout transaction MUST BE calculated to match:
+	 *
+	 * 1. Multiply `feerate_per_kw` by 663 and divide by 1000 (rounding
+	 *    down).
+	 */
+	return feerate_per_kw * 663 / 1000;
+}
+
+static inline u64 htlc_success_fee(u64 feerate_per_kw)
+{
+	/* BOLT #3:
+	 *
+	 * The fee for an HTLC-success transaction MUST BE calculated to match:
+	 *
+	 * 1. Multiply `feerate_per_kw` by 703 and divide by 1000 (rounding
+	 *    down).
+	 */
+	return feerate_per_kw * 703 / 1000;
+}
 
 /* Create HTLC-success tx to spend a received HTLC commitment tx
  * output; doesn't fill in input witness. */
@@ -46,5 +71,19 @@ void htlc_timeout_tx_add_witness(struct bitcoin_tx *htlc_timeout,
 				 const struct pubkey *revocationkey,
 				 const secp256k1_ecdsa_signature *localsig,
 				 const secp256k1_ecdsa_signature *remotesig);
+
+
+/* Generate the witness script for an HTLC the other side offered:
+ * scriptpubkey_p2wsh(ctx, wscript) gives the scriptpubkey */
+u8 *htlc_received_wscript(const tal_t *ctx,
+			  const struct ripemd160 *ripemd,
+			  const struct abs_locktime *expiry,
+			  const struct keyset *keyset);
+
+/* Generate the witness script for an HTLC this side offered:
+ * scriptpubkey_p2wsh(ctx, wscript) gives the scriptpubkey */
+u8 *htlc_offered_wscript(const tal_t *ctx,
+			 const struct ripemd160 *ripemd,
+			 const struct keyset *keyset);
 
 #endif /* LIGHTNING_LIGHTNINGD_HTLC_TX_H */

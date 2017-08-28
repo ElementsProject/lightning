@@ -9,10 +9,10 @@
 #include "privkey.h"
 #include "pubkey.h"
 #include "shadouble.h"
-#include "utils.h"
 #include <assert.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/tal/str/str.h>
+#include <common/utils.h>
 #include <secp256k1.h>
 #include <string.h>
 

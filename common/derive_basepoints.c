@@ -2,8 +2,8 @@
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/crypto/shachain/shachain.h>
-#include <lightningd/derive_basepoints.h>
-#include <utils.h>
+#include <common/derive_basepoints.h>
+#include <common/utils.h>
 
 bool derive_basepoints(const struct privkey *seed,
 		       struct pubkey *funding_pubkey,

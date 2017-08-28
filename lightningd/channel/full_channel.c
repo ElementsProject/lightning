@@ -1,6 +1,3 @@
-#include "channel.h"
-#include "commit_tx.h"
-#include "type_to_string.h"
 #include <assert.h>
 #include <bitcoin/preimage.h>
 #include <bitcoin/script.h>
@@ -9,15 +6,51 @@
 #include <ccan/mem/mem.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
+#include <common/htlc_tx.h>
+#include <common/type_to_string.h>
 #include <daemon/htlc.h>
 #include <inttypes.h>
+#include <lightningd/channel/commit_tx.h>
+#include <lightningd/channel/full_channel.h>
 #include <lightningd/channel_config.h>
-#include <lightningd/htlc_tx.h>
 #include <lightningd/htlc_wire.h>
 #include <lightningd/key_derive.h>
 #include <lightningd/keyset.h>
 #include <lightningd/status.h>
 #include <string.h>
+
+struct channel *new_channel(const tal_t *ctx,
+			    const struct sha256_double *funding_txid,
+			    unsigned int funding_txout,
+			    u64 funding_satoshis,
+			    u64 local_msatoshi,
+			    u32 feerate_per_kw,
+			    const struct channel_config *local,
+			    const struct channel_config *remote,
+			    const struct basepoints *local_basepoints,
+			    const struct basepoints *remote_basepoints,
+			    const struct pubkey *local_funding_pubkey,
+			    const struct pubkey *remote_funding_pubkey,
+			    enum side funder)
+{
+	struct channel *channel = new_initial_channel(ctx, funding_txid,
+						      funding_txout,
+						      funding_satoshis,
+						      local_msatoshi,
+						      feerate_per_kw,
+						      local, remote,
+						      local_basepoints,
+						      remote_basepoints,
+						      local_funding_pubkey,
+						      remote_funding_pubkey,
+						      funder);
+	if (channel) {
+		channel->htlcs = tal(channel, struct htlc_map);
+		htlc_map_init(channel->htlcs);
+		tal_add_destructor(channel->htlcs, htlc_map_clear);
+	}
+	return channel;
+}
 
 static void htlc_arr_append(const struct htlc ***arr, const struct htlc *htlc)
 {
@@ -77,9 +110,9 @@ void dump_htlcs(const struct channel *channel, const char *prefix)
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
 
-	for (htlc = htlc_map_first(&channel->htlcs, &it);
+	for (htlc = htlc_map_first(channel->htlcs, &it);
 	     htlc;
-	     htlc = htlc_map_next(&channel->htlcs, &it)) {
+	     htlc = htlc_map_next(channel->htlcs, &it)) {
 		dump_htlc(htlc, prefix);
 	}
 }
@@ -107,9 +140,12 @@ static void gather_htlcs(const tal_t *ctx,
 	if (pending_addition)
 		*pending_addition = tal_arr(ctx, const struct htlc *, 0);
 
-	for (htlc = htlc_map_first(&channel->htlcs, &it);
+	if (!channel->htlcs)
+		return;
+
+	for (htlc = htlc_map_first(channel->htlcs, &it);
 	     htlc;
-	     htlc = htlc_map_next(&channel->htlcs, &it)) {
+	     htlc = htlc_map_next(channel->htlcs, &it)) {
 		if (htlc_has(htlc, committed_flag)) {
 			htlc_arr_append(committed, htlc);
 			if (htlc_has(htlc, pending_flag))
@@ -129,65 +165,6 @@ static u64 total_offered_msatoshis(const struct htlc **htlcs, enum side side)
 			total += htlcs[i]->msatoshi;
 	}
 	return total;
-}
-
-static void destroy_htlc_map(struct channel *channel)
-{
-	htlc_map_clear(&channel->htlcs);
-}
-
-struct channel *new_channel(const tal_t *ctx,
-			    const struct sha256_double *funding_txid,
-			    unsigned int funding_txout,
-			    u64 funding_satoshis,
-			    u64 local_msatoshi,
-			    u32 feerate_per_kw,
-			    const struct channel_config *local,
-			    const struct channel_config *remote,
-			    const struct basepoints *local_basepoints,
-			    const struct basepoints *remote_basepoints,
-			    const struct pubkey *local_funding_pubkey,
-			    const struct pubkey *remote_funding_pubkey,
-			    enum side funder)
-{
-	struct channel *channel = tal(ctx, struct channel);
-
-	channel->funding_txid = *funding_txid;
-	channel->funding_txout = funding_txout;
-	if (funding_satoshis > UINT64_MAX / 1000)
-		return tal_free(channel);
-
-	channel->funding_msat = funding_satoshis * 1000;
-	if (local_msatoshi > channel->funding_msat)
-		return tal_free(channel);
-
-	channel->funder = funder;
-	channel->config[LOCAL] = local;
-	channel->config[REMOTE] = remote;
-	channel->funding_pubkey[LOCAL] = *local_funding_pubkey;
-	channel->funding_pubkey[REMOTE] = *remote_funding_pubkey;
-	htlc_map_init(&channel->htlcs);
-
-	channel->view[LOCAL].feerate_per_kw
-		= channel->view[REMOTE].feerate_per_kw
-		= feerate_per_kw;
-
-	channel->view[LOCAL].owed_msat[LOCAL]
-		= channel->view[REMOTE].owed_msat[LOCAL]
-		= local_msatoshi;
-	channel->view[REMOTE].owed_msat[REMOTE]
-		= channel->view[LOCAL].owed_msat[REMOTE]
-		= channel->funding_msat - local_msatoshi;
-
-	channel->basepoints[LOCAL] = *local_basepoints;
-	channel->basepoints[REMOTE] = *remote_basepoints;
-
-	channel->commitment_number_obscurer
-		= commit_number_obscurer(&channel->basepoints[funder].payment,
-					 &channel->basepoints[!funder].payment);
-
-	tal_add_destructor(channel, destroy_htlc_map);
-	return channel;
 }
 
 static void add_htlcs(struct bitcoin_tx ***txs,
@@ -305,13 +282,6 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	return txs;
 }
 
-struct channel *copy_channel(const tal_t *ctx, const struct channel *old)
-{
-	struct channel *new = tal_dup(ctx, struct channel, old);
-	htlc_map_copy(&new->htlcs, &old->htlcs);
-	return new;
-}
-
 static enum channel_add_err add_htlc(struct channel *channel,
 				     enum side sender,
 				     u64 id, u64 msatoshi, u32 cltv_expiry,
@@ -330,8 +300,6 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	size_t i;
 
 	htlc = tal(tmpctx, struct htlc);
-
-	/* FIXME: Don't need fields: peer, deadline, src. */
 
 	if (sender == LOCAL)
 		htlc->state = SENT_ADD_HTLC;
@@ -358,7 +326,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	htlc->r = NULL;
 	htlc->routing = tal_dup_arr(htlc, u8, routing, TOTAL_PACKET_SIZE, 0);
 
-	old = htlc_get(&channel->htlcs, htlc->id, htlc_owner(htlc));
+	old = htlc_get(channel->htlcs, htlc->id, htlc_owner(htlc));
 	if (old) {
 		if (old->state != htlc->state
 		    || old->msatoshi != htlc->msatoshi
@@ -479,7 +447,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	}
 
 	dump_htlc(htlc, "NEW:");
-	htlc_map_add(&channel->htlcs, tal_steal(channel, htlc));
+	htlc_map_add(channel->htlcs, tal_steal(channel, htlc));
 	e = CHANNEL_ERR_ADD_OK;
 	if (htlcp)
 		*htlcp = htlc;
@@ -504,7 +472,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 
 struct htlc *channel_get_htlc(struct channel *channel, enum side sender, u64 id)
 {
-	return htlc_get(&channel->htlcs, id, sender);
+	return htlc_get(channel->htlcs, id, sender);
 }
 
 enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
@@ -670,9 +638,9 @@ static int change_htlcs(struct channel *channel,
 	int cflags = 0;
 	size_t i;
 
-	for (h = htlc_map_first(&channel->htlcs, &it);
+	for (h = htlc_map_first(channel->htlcs, &it);
 	     h;
-	     h = htlc_map_next(&channel->htlcs, &it)) {
+	     h = htlc_map_next(channel->htlcs, &it)) {
 		for (i = 0; i < n_hstates; i++) {
 			if (h->state == htlc_states[i]) {
 				htlc_incstate(channel, h, sidechanged);
@@ -756,9 +724,9 @@ bool channel_awaiting_revoke_and_ack(const struct channel *channel)
 	struct htlc *h;
 	size_t i;
 
-	for (h = htlc_map_first(&channel->htlcs, &it);
+	for (h = htlc_map_first(channel->htlcs, &it);
 	     h;
-	     h = htlc_map_next(&channel->htlcs, &it)) {
+	     h = htlc_map_next(channel->htlcs, &it)) {
 		for (i = 0; i < ARRAY_SIZE(states); i++)
 			if (h->state == states[i])
 				return true;
@@ -771,9 +739,9 @@ bool channel_has_htlcs(const struct channel *channel)
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
 
-	for (htlc = htlc_map_first(&channel->htlcs, &it);
+	for (htlc = htlc_map_first(channel->htlcs, &it);
 	     htlc;
-	     htlc = htlc_map_next(&channel->htlcs, &it)) {
+	     htlc = htlc_map_next(channel->htlcs, &it)) {
 		/* FIXME: Clean these out! */
 		if (!htlc_is_dead(htlc))
 			return true;
@@ -962,26 +930,3 @@ bool channel_force_htlcs(struct channel *channel,
 
 	return true;
 }
-
-static char *fmt_channel_view(const tal_t *ctx, const struct channel_view *view)
-{
-	return tal_fmt(ctx, "{ feerate_per_kw=%"PRIu64","
-		       " owed_local=%"PRIu64","
-		       " owed_remote=%"PRIu64" }",
-		       view->feerate_per_kw,
-		       view->owed_msat[LOCAL],
-		       view->owed_msat[REMOTE]);
-}
-
-static char *fmt_channel(const tal_t *ctx, const struct channel *channel)
-{
-	return tal_fmt(ctx, "{ funding_msat=%"PRIu64","
-		       " funder=%s,"
-		       " local=%s,"
-		       " remote=%s }",
-		       channel->funding_msat,
-		       side_to_str(channel->funder),
-		       fmt_channel_view(ctx, &channel->view[LOCAL]),
-		       fmt_channel_view(ctx, &channel->view[REMOTE]));
-}
-REGISTER_TYPE_TO_STRING(channel, fmt_channel);

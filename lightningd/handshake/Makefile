@@ -29,6 +29,12 @@ LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_HANDSHAKE_HEADERS)
 
 $(LIGHTNINGD_HANDSHAKE_OBJS): $(LIGHTNINGD_HEADERS)
 
+# Common source we use.
+HANDSHAKED_COMMON_OBJS :=			\
+	common/type_to_string.o			\
+	common/utils.o				\
+	common/version.o
+
 lightningd/handshake/gen_handshake_wire.h: $(WIRE_GEN) lightningd/handshake/handshake_wire.csv
 	$(WIRE_GEN) --header $@ handshake_wire_type < lightningd/handshake/handshake_wire.csv > $@
 
@@ -37,7 +43,7 @@ lightningd/handshake/gen_handshake_wire.c: $(WIRE_GEN) lightningd/handshake/hand
 
 LIGHTNINGD_HANDSHAKE_OBJS := $(LIGHTNINGD_HANDSHAKE_SRC:.c=.o) $(LIGHTNINGD_HANDSHAKE_GEN_SRC:.c=.o)
 
-lightningd/lightningd_handshake: $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_HANDSHAKE_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(LIGHTNINGD_HSM_CLIENT_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
+lightningd/lightningd_handshake: $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_HANDSHAKE_OBJS) $(HANDSHAKED_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(LIGHTNINGD_HSM_CLIENT_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 check-source: $(LIGHTNINGD_HANDSHAKE_SRC_NOGEN:%=check-src-include-order/%)

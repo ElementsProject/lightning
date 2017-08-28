@@ -5,6 +5,8 @@
 #include <ccan/err/err.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
+#include <common/type_to_string.h>
+#include <common/utils.h>
 #include <daemon/jsonrpc.h>
 #include <daemon/log.h>
 #include <inttypes.h>
