@@ -235,19 +235,6 @@ class LightningD(TailableProc):
         TailableProc.stop(self)
         logging.info("LightningD stopped")
 
-class LegacyLightningD(LightningD):
-    def __init__(self, *args, **kwargs):
-        LightningD.__init__(self, *args, **kwargs)
-        self.cmd_line[0] = 'daemon/lightningd'
-        # Filter out non-legacy options
-        self.cmd_line = [c for c in self.cmd_line if '--network' not in c and '--dev-broadcast-interval' not in c]
-
-    def start(self):
-        TailableProc.start(self)
-        self.wait_for_log("Hello world!")
-        logging.info("LightningD started")
-
-
 class LightningNode(object):
     def __init__(self, daemon, rpc, btc, executor):
         self.rpc = rpc

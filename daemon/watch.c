@@ -32,7 +32,6 @@
 #include "chaintopology.h"
 #include "lightningd.h"
 #include "log.h"
-#include "peer.h"
 #include "pseudorand.h"
 #include "timeout.h"
 #include "watch.h"
@@ -159,6 +158,9 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 
 	return w;
 }
+
+/* UNIFICATION FIXME */
+void peer_debug(struct peer *peer, const char *fmt, ...);
 
 /* Returns true if we fired a callback */
 static bool txw_fire(struct chain_topology *topo,

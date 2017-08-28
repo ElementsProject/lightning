@@ -2,7 +2,7 @@
 #include "dns.h"
 #include "lightningd.h"
 #include "log.h"
-#include "peer.h"
+#include "netaddr.h"
 #include <assert.h>
 #include <ccan/err/err.h>
 #include <ccan/read_write_all/read_write_all.h>

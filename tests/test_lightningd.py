@@ -2,7 +2,7 @@ from binascii import hexlify, unhexlify
 from concurrent import futures
 from decimal import Decimal
 from hashlib import sha256
-from lightning import LightningRpc, LegacyLightningRpc
+from lightning import LightningRpc
 
 import copy
 import json
@@ -86,7 +86,7 @@ class NodeFactory(object):
         self.nodes = []
         self.executor = executor
 
-    def get_node(self, legacy=True, disconnect=None):
+    def get_node(self, disconnect=None):
         node_id = self.next_id
         self.next_id += 1
 
@@ -95,17 +95,13 @@ class NodeFactory(object):
 
         socket_path = os.path.join(lightning_dir, "lightning-rpc").format(node_id)
         port = 16330+node_id
-        if legacy:
-            daemon = utils.LegacyLightningD(lightning_dir, bitcoind.bitcoin_dir, port=port)
-            rpc = LegacyLightningRpc(socket_path, self.executor)
-        else:
-            daemon = utils.LightningD(lightning_dir, bitcoind.bitcoin_dir, port=port)
-            # If we have a disconnect string, dump it to a file for daemon.
-            if disconnect:
-                with open(os.path.join(lightning_dir, "dev_disconnect"), "w") as f:
-                    f.write("\n".join(disconnect))
-                daemon.cmd_line.append("--dev-disconnect=dev_disconnect")
-            rpc = LightningRpc(socket_path, self.executor)
+        daemon = utils.LightningD(lightning_dir, bitcoind.bitcoin_dir, port=port)
+        # If we have a disconnect string, dump it to a file for daemon.
+        if disconnect:
+            with open(os.path.join(lightning_dir, "dev_disconnect"), "w") as f:
+                f.write("\n".join(disconnect))
+            daemon.cmd_line.append("--dev-disconnect=dev_disconnect")
+        rpc = LightningRpc(socket_path, self.executor)
 
         node = utils.LightningNode(daemon, rpc, bitcoind, self.executor)
         self.nodes.append(node)
@@ -170,8 +166,8 @@ class BaseLightningDTests(unittest.TestCase):
 
 class LightningDTests(BaseLightningDTests):
     def connect(self):
-        l1 = self.node_factory.get_node(legacy=False)
-        l2 = self.node_factory.get_node(legacy=False)
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
         ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
 
         assert ret['id'] == l2.info['id']
@@ -401,8 +397,8 @@ class LightningDTests(BaseLightningDTests):
     def test_permfail_new_commit(self):
         # Test case where we have two possible commits: it will use new one.
         disconnects = ['-WIRE_REVOKE_AND_ACK', 'permfail']
-        l1 = self.node_factory.get_node(legacy=False)
-        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(disconnect=disconnects)
 
         l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
         self.fund_channel(l1, l2, 10**6)
@@ -440,8 +436,8 @@ class LightningDTests(BaseLightningDTests):
     def test_permfail_htlc_in(self):
         # Test case where we fail with unsettled incoming HTLC.
         disconnects = ['-WIRE_UPDATE_FULFILL_HTLC', 'permfail']
-        l1 = self.node_factory.get_node(legacy=False)
-        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(disconnect=disconnects)
 
         l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
         self.fund_channel(l1, l2, 10**6)
@@ -479,8 +475,8 @@ class LightningDTests(BaseLightningDTests):
     def test_permfail_htlc_out(self):
         # Test case where we fail with unsettled outgoing HTLC.
         disconnects = ['+WIRE_REVOKE_AND_ACK', 'permfail']
-        l1 = self.node_factory.get_node(legacy=False)
-        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(disconnect=disconnects)
 
         l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
         self.fund_channel(l2, l1, 10**6)
@@ -579,9 +575,9 @@ class LightningDTests(BaseLightningDTests):
         # Connect two peers, reconnect and then see if we resume the
         # gossip.
         disconnects = ['-WIRE_CHANNEL_ANNOUNCEMENT']
-        l1 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
-        l2 = self.node_factory.get_node(legacy=False)
-        l3 = self.node_factory.get_node(legacy=False)
+        l1 = self.node_factory.get_node(disconnect=disconnects)
+        l2 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node()
         l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
         l1.openchannel(l2, 20000)
 
@@ -594,7 +590,7 @@ class LightningDTests(BaseLightningDTests):
             wait_for(lambda: len(n.rpc.getchannels()['channels']) == 4)
 
     def test_routing_gossip(self):
-        nodes = [self.node_factory.get_node(legacy=False) for _ in range(5)]
+        nodes = [self.node_factory.get_node() for _ in range(5)]
         l1 = nodes[0]
         l5 = nodes[4]
 
@@ -638,7 +634,7 @@ class LightningDTests(BaseLightningDTests):
     def test_forward(self):
         # Connect 1 -> 2 -> 3.
         l1,l2 = self.connect()
-        l3 = self.node_factory.get_node(legacy=False)
+        l3 = self.node_factory.get_node()
         ret = l2.rpc.connect('localhost', l3.info['port'], l3.info['id'])
 
         assert ret['id'] == l3.info['id']
@@ -698,8 +694,8 @@ class LightningDTests(BaseLightningDTests):
         disconnects = ['-WIRE_INIT',
                        '@WIRE_INIT',
                        '+WIRE_INIT']
-        l1 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
-        l2 = self.node_factory.get_node(legacy=False)
+        l1 = self.node_factory.get_node(disconnect=disconnects)
+        l2 = self.node_factory.get_node()
         for d in disconnects:
             self.assertRaises(ValueError, l1.rpc.connect,
                               'localhost', l2.info['port'], l2.info['id'])
@@ -715,8 +711,8 @@ class LightningDTests(BaseLightningDTests):
                        '+WIRE_OPEN_CHANNEL',
                        '-WIRE_FUNDING_CREATED',
                        '@WIRE_FUNDING_CREATED']
-        l1 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
-        l2 = self.node_factory.get_node(legacy=False)
+        l1 = self.node_factory.get_node(disconnect=disconnects)
+        l2 = self.node_factory.get_node()
 
         addr = l1.rpc.newaddr()['address']
         txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
@@ -733,8 +729,8 @@ class LightningDTests(BaseLightningDTests):
         disconnects = ['-WIRE_ACCEPT_CHANNEL',
                        '@WIRE_ACCEPT_CHANNEL',
                        '+WIRE_ACCEPT_CHANNEL']
-        l1 = self.node_factory.get_node(legacy=False)
-        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(disconnect=disconnects)
 
         addr = l1.rpc.newaddr()['address']
         txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
@@ -750,8 +746,8 @@ class LightningDTests(BaseLightningDTests):
         # Now, these are the corner cases.  Fundee sends funding_signed,
         # but funder doesn't receive it.
         disconnects = ['@WIRE_FUNDING_SIGNED']
-        l1 = self.node_factory.get_node(legacy=False)
-        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(disconnect=disconnects)
 
         addr = l1.rpc.newaddr()['address']
         txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
@@ -768,8 +764,8 @@ class LightningDTests(BaseLightningDTests):
     def test_reconnect_signed(self):
         # This will fail *after* both sides consider channel opening.
         disconnects = ['+WIRE_FUNDING_SIGNED']
-        l1 = self.node_factory.get_node(legacy=False)
-        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(disconnect=disconnects)
 
         addr = l1.rpc.newaddr()['address']
         txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
@@ -799,8 +795,8 @@ class LightningDTests(BaseLightningDTests):
         disconnects = ['-WIRE_FUNDING_LOCKED',
                        '@WIRE_FUNDING_LOCKED',
                        '+WIRE_FUNDING_LOCKED']
-        l1 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
-        l2 = self.node_factory.get_node(legacy=False)
+        l1 = self.node_factory.get_node(disconnect=disconnects)
+        l2 = self.node_factory.get_node()
         ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
 
         self.fund_channel(l1, l2, 10**6)
@@ -816,8 +812,8 @@ class LightningDTests(BaseLightningDTests):
                        '-WIRE_REVOKE_AND_ACK',
                        '@WIRE_REVOKE_AND_ACK',
                        '+WIRE_REVOKE_AND_ACK']
-        l1 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
-        l2 = self.node_factory.get_node(legacy=False)
+        l1 = self.node_factory.get_node(disconnect=disconnects)
+        l2 = self.node_factory.get_node()
         ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
 
         self.fund_channel(l1, l2, 10**6)
@@ -857,8 +853,8 @@ class LightningDTests(BaseLightningDTests):
                        '-WIRE_REVOKE_AND_ACK',
                        '@WIRE_REVOKE_AND_ACK',
                        '+WIRE_REVOKE_AND_ACK']
-        l1 = self.node_factory.get_node(legacy=False)
-        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(disconnect=disconnects)
         ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
 
         self.fund_channel(l1, l2, 10**6)
@@ -883,8 +879,8 @@ class LightningDTests(BaseLightningDTests):
                        '-WIRE_REVOKE_AND_ACK',
                        '@WIRE_REVOKE_AND_ACK',
                        '+WIRE_REVOKE_AND_ACK']
-        l1 = self.node_factory.get_node(legacy=False)
-        l2 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(disconnect=disconnects)
         ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
 
         self.fund_channel(l1, l2, 10**6)
@@ -903,8 +899,8 @@ class LightningDTests(BaseLightningDTests):
         disconnects = ['-WIRE_SHUTDOWN',
                        '@WIRE_SHUTDOWN',
                        '+WIRE_SHUTDOWN']
-        l1 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
-        l2 = self.node_factory.get_node(legacy=False)
+        l1 = self.node_factory.get_node(disconnect=disconnects)
+        l2 = self.node_factory.get_node()
         l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
 
         self.fund_channel(l1, l2, 10**6)
@@ -930,8 +926,8 @@ class LightningDTests(BaseLightningDTests):
         disconnects = ['-WIRE_CLOSING_SIGNED',
                        '@WIRE_CLOSING_SIGNED',
                        '+WIRE_CLOSING_SIGNED']
-        l1 = self.node_factory.get_node(legacy=False, disconnect=disconnects)
-        l2 = self.node_factory.get_node(legacy=False)
+        l1 = self.node_factory.get_node(disconnect=disconnects)
+        l2 = self.node_factory.get_node()
         l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
 
         self.fund_channel(l1, l2, 10**6)
@@ -955,7 +951,7 @@ class LightningDTests(BaseLightningDTests):
 
     def test_json_addfunds(self):
         sat = 10**6
-        l1 = self.node_factory.get_node(legacy=False)
+        l1 = self.node_factory.get_node()
         addr = l1.rpc.newaddr()['address']
         txid = l1.bitcoin.rpc.sendtoaddress(addr, 0.01)
         tx = l1.bitcoin.rpc.getrawtransaction(txid)
@@ -968,7 +964,7 @@ class LightningDTests(BaseLightningDTests):
 
     def test_withdraw(self):
         amount = 1000000
-        l1 = self.node_factory.get_node(legacy=False)
+        l1 = self.node_factory.get_node()
         addr = l1.rpc.newaddr()['address']
 
 
@@ -1051,61 +1047,6 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.stop()
         l1.daemon.start()
         assert l1.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 99980000
-
-class LegacyLightningDTests(BaseLightningDTests):
-
-    def test_connect(self):
-        l1 = self.node_factory.get_node()
-        l2 = self.node_factory.get_node()
-        l1.connect(l2, 0.01, async=False)
-
-    def test_successful_payment(self):
-        l1 = self.node_factory.get_node()
-        l2 = self.node_factory.get_node()
-        bitcoind = l1.bitcoin
-
-        capacity = 0.01 * 10**8 * 10**3
-        htlc_amount = 10000
-        l1.connect(l2, 0.01)
-
-        invoice = l2.rpc.invoice(htlc_amount, "successful_payment")
-
-        # TODO(cdecker) Assert that we have an invoice
-        rhash = invoice['rhash']
-        assert len(rhash) == 64
-
-        route = l1.rpc.getroute(l2.info['id'], htlc_amount, 1)
-        assert len(route) == 1
-        assert route[0] == {'msatoshi': htlc_amount, 'id': l2.info['id'], 'delay': 6}
-
-        receipt = l1.rpc.sendpay(route, invoice['rhash'])
-        assert sha256(unhexlify(receipt['preimage'])).hexdigest() == rhash
-
-        # Now go for the combined RPC call
-        invoice = l2.rpc.invoice(100, "one_shot_payment")
-        l1.rpc.pay(l2.info['id'], 100, invoice['rhash'])
-
-    def test_multihop_payment(self):
-        nodes = [self.node_factory.get_node() for _ in range(5)]
-        for i in range(len(nodes)-1):
-            nodes[i].connect(nodes[i+1], 0.01)
-
-        htlc_amount = 10000
-
-        # Manually add channel l2 -> l3 to l1 so that it can compute the route
-        for i in range(len(nodes)-1):
-            nodes[0].rpc.dev_add_route(nodes[i].info['id'], nodes[i+1].info['id'], 1, 1, 6, 6)
-        #l1.rpc.dev_add_route(l2.info['id'], l3.info['id'], 1, 1, 6, 6)
-
-        sync_blockheight(nodes)
-
-        invoice = nodes[-1].rpc.invoice(htlc_amount, "multihop_payment")
-        route = nodes[0].rpc.getroute(nodes[-1].info['id'], htlc_amount, 1)
-        receipt = nodes[0].rpc.sendpay(route, invoice['rhash'])
-
-        nodes[-1].daemon.wait_for_log("STATE_NORMAL_COMMITTING => STATE_NORMAL")
-        nodes[0].daemon.wait_for_log("STATE_NORMAL_COMMITTING => STATE_NORMAL")
-
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
