@@ -122,7 +122,7 @@ int main(int argc, char **argv)
 
 	secp256k1_ctx = secp256k1_context_create(
 		SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
-	
+
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "--generate <pubkey1> <pubkey2>... OR\n"
 			   "--decode <privkey>\n"
@@ -149,7 +149,7 @@ int main(int argc, char **argv)
 		u8 sessionkey[32];
 		struct hop_data hops_data[num_hops];
 		struct secret *shared_secrets;
-		
+
 		memset(&sessionkey, 'A', sizeof(sessionkey));
 
 		int i;
@@ -207,7 +207,7 @@ int main(int argc, char **argv)
 
 		if (!onion_shared_secret(shared_secret, msg, &seckey))
 			errx(1, "Error creating shared secret.");
-		
+
 		step = process_onionpacket(ctx, msg, shared_secret, assocdata,
 					   sizeof(assocdata));
 

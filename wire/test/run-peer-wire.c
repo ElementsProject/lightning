@@ -221,7 +221,7 @@ struct msg_update_fee {
 static void *towire_struct_channel_announcement(const tal_t *ctx,
 						const struct msg_channel_announcement *s)
 {
-	return towire_channel_announcement(ctx, 
+	return towire_channel_announcement(ctx,
 					   &s->node_signature_1,
 					   &s->node_signature_2,
 					   &s->bitcoin_signature_1,
@@ -238,7 +238,7 @@ static void *towire_struct_channel_announcement(const tal_t *ctx,
 static struct msg_channel_announcement *fromwire_struct_channel_announcement(const tal_t *ctx, const void *p, size_t *plen)
 {
 	struct msg_channel_announcement *s = tal(ctx, struct msg_channel_announcement);
-	if (!fromwire_channel_announcement(s, p, plen, 
+	if (!fromwire_channel_announcement(s, p, plen,
 					  &s->node_signature_1,
 					  &s->node_signature_2,
 					  &s->bitcoin_signature_1,
@@ -257,7 +257,7 @@ static struct msg_channel_announcement *fromwire_struct_channel_announcement(con
 static void *towire_struct_open_channel(const tal_t *ctx,
 						const struct msg_open_channel *s)
 {
-	return towire_open_channel(ctx, 
+	return towire_open_channel(ctx,
 				   &s->chain_hash,
 				   &s->temporary_channel_id,
 				   s->funding_satoshis,
@@ -306,7 +306,7 @@ static struct msg_open_channel *fromwire_struct_open_channel(const tal_t *ctx, c
 static void *towire_struct_accept_channel(const tal_t *ctx,
 						const struct msg_accept_channel *s)
 {
-	return towire_accept_channel(ctx, 
+	return towire_accept_channel(ctx,
 				     &s->temporary_channel_id,
 				     s->dust_limit_satoshis,
 				     s->max_htlc_value_in_flight_msat,
@@ -326,7 +326,7 @@ static struct msg_accept_channel *fromwire_struct_accept_channel(const tal_t *ct
 {
 	struct msg_accept_channel *s = tal(ctx, struct msg_accept_channel);
 
-	if (fromwire_accept_channel(p, plen, 
+	if (fromwire_accept_channel(p, plen,
 				    &s->temporary_channel_id,
 				    &s->dust_limit_satoshis,
 				    &s->max_htlc_value_in_flight_msat,
@@ -347,7 +347,7 @@ static struct msg_accept_channel *fromwire_struct_accept_channel(const tal_t *ct
 static void *towire_struct_node_announcement(const tal_t *ctx,
 				      const struct msg_node_announcement *s)
 {
-	return towire_node_announcement(ctx, 
+	return towire_node_announcement(ctx,
 					&s->signature,
 					s->features,
 					s->timestamp,
@@ -375,7 +375,7 @@ static struct msg_node_announcement *fromwire_struct_node_announcement(const tal
 static void *towire_struct_channel_update(const tal_t *ctx,
 				      const struct msg_channel_update *s)
 {
-	return towire_channel_update(ctx, 
+	return towire_channel_update(ctx,
 				     &s->signature,
 				     &s->chain_hash,
 				     &s->short_channel_id,
@@ -391,7 +391,7 @@ static struct msg_channel_update *fromwire_struct_channel_update(const tal_t *ct
 {
 	struct msg_channel_update *s = tal(ctx, struct msg_channel_update);
 
-	if (fromwire_channel_update(p, plen, 
+	if (fromwire_channel_update(p, plen,
 				    &s->signature,
 				    &s->chain_hash,
 				    &s->short_channel_id,
@@ -408,7 +408,7 @@ static struct msg_channel_update *fromwire_struct_channel_update(const tal_t *ct
 static void *towire_struct_funding_locked(const tal_t *ctx,
 						const struct msg_funding_locked *s)
 {
-	return towire_funding_locked(ctx, 
+	return towire_funding_locked(ctx,
 				     &s->channel_id,
 				     &s->next_per_commitment_point);
 }
@@ -417,7 +417,7 @@ static struct msg_funding_locked *fromwire_struct_funding_locked(const tal_t *ct
 {
 	struct msg_funding_locked *s = tal(ctx, struct msg_funding_locked);
 
-	if (fromwire_funding_locked(p, plen, 
+	if (fromwire_funding_locked(p, plen,
 				    &s->channel_id,
 				    &s->next_per_commitment_point))
 		return s;
@@ -427,7 +427,7 @@ static struct msg_funding_locked *fromwire_struct_funding_locked(const tal_t *ct
 static void *towire_struct_announcement_signatures(const tal_t *ctx,
 						const struct msg_announcement_signatures *s)
 {
-	return towire_announcement_signatures(ctx, 
+	return towire_announcement_signatures(ctx,
 				     &s->channel_id,
 				     &s->short_channel_id,
 				     &s->announcement_node_signature,
@@ -438,7 +438,7 @@ static struct msg_announcement_signatures *fromwire_struct_announcement_signatur
 {
 	struct msg_announcement_signatures *s = tal(ctx, struct msg_announcement_signatures);
 
-	if (fromwire_announcement_signatures(p, plen, 
+	if (fromwire_announcement_signatures(p, plen,
 				    &s->channel_id,
 				    &s->short_channel_id,
 				    &s->announcement_node_signature,
@@ -450,7 +450,7 @@ static struct msg_announcement_signatures *fromwire_struct_announcement_signatur
 static void *towire_struct_update_fail_htlc(const tal_t *ctx,
 					    const struct msg_update_fail_htlc *s)
 {
-	return towire_update_fail_htlc(ctx, 
+	return towire_update_fail_htlc(ctx,
 				       &s->channel_id,
 				       s->id,
 				       s->reason);
@@ -460,7 +460,7 @@ static struct msg_update_fail_htlc *fromwire_struct_update_fail_htlc(const tal_t
 {
 	struct msg_update_fail_htlc *s = tal(ctx, struct msg_update_fail_htlc);
 
-	if (!fromwire_update_fail_htlc(ctx, p, plen, 
+	if (!fromwire_update_fail_htlc(ctx, p, plen,
 				      &s->channel_id,
 				      &s->id,
 				      &s->reason))
@@ -472,7 +472,7 @@ static struct msg_update_fail_htlc *fromwire_struct_update_fail_htlc(const tal_t
 static void *towire_struct_update_fulfill_htlc(const tal_t *ctx,
 					    const struct msg_update_fulfill_htlc *s)
 {
-	return towire_update_fulfill_htlc(ctx, 
+	return towire_update_fulfill_htlc(ctx,
 				       &s->channel_id,
 				       s->id,
 				       &s->payment_preimage);
@@ -482,7 +482,7 @@ static struct msg_update_fulfill_htlc *fromwire_struct_update_fulfill_htlc(const
 {
 	struct msg_update_fulfill_htlc *s = tal(ctx, struct msg_update_fulfill_htlc);
 
-	if (fromwire_update_fulfill_htlc(p, plen, 
+	if (fromwire_update_fulfill_htlc(p, plen,
 				      &s->channel_id,
 				      &s->id,
 				      &s->payment_preimage))
@@ -493,7 +493,7 @@ static struct msg_update_fulfill_htlc *fromwire_struct_update_fulfill_htlc(const
 static void *towire_struct_commitment_signed(const tal_t *ctx,
 				      const struct msg_commitment_signed *s)
 {
-	return towire_commitment_signed(ctx, 
+	return towire_commitment_signed(ctx,
 					&s->channel_id,
 					&s->signature,
 					s->htlc_signature);
@@ -503,7 +503,7 @@ static struct msg_commitment_signed *fromwire_struct_commitment_signed(const tal
 {
 	struct msg_commitment_signed *s = tal(ctx, struct msg_commitment_signed);
 
-	if (!fromwire_commitment_signed(s, p, plen, 
+	if (!fromwire_commitment_signed(s, p, plen,
 				&s->channel_id,
 				&s->signature,
 				&s->htlc_signature))
@@ -514,7 +514,7 @@ static struct msg_commitment_signed *fromwire_struct_commitment_signed(const tal
 static void *towire_struct_revoke_and_ack(const tal_t *ctx,
 				      const struct msg_revoke_and_ack *s)
 {
-	return towire_revoke_and_ack(ctx, 
+	return towire_revoke_and_ack(ctx,
 				     &s->channel_id,
 				     &s->per_commitment_secret,
 				     &s->next_per_commitment_point);
@@ -524,19 +524,19 @@ static struct msg_revoke_and_ack *fromwire_struct_revoke_and_ack(const tal_t *ct
 {
 	struct msg_revoke_and_ack *s = tal(ctx, struct msg_revoke_and_ack);
 
-	if (!fromwire_revoke_and_ack(p, plen, 
+	if (!fromwire_revoke_and_ack(p, plen,
 				     &s->channel_id,
 				     &s->per_commitment_secret,
 				     &s->next_per_commitment_point))
 		return tal_free(s);
 	return s;
-	
+
 }
 
 static void *towire_struct_funding_signed(const tal_t *ctx,
 					  const struct msg_funding_signed *s)
 {
-	return towire_funding_signed(ctx, 
+	return towire_funding_signed(ctx,
 				     &s->temporary_channel_id,
 				     &s->signature);
 }
@@ -545,7 +545,7 @@ static struct msg_funding_signed *fromwire_struct_funding_signed(const tal_t *ct
 {
 	struct msg_funding_signed *s = tal(ctx, struct msg_funding_signed);
 
-	if (fromwire_funding_signed(p, plen, 
+	if (fromwire_funding_signed(p, plen,
 				    &s->temporary_channel_id,
 				    &s->signature))
 		return s;
@@ -555,7 +555,7 @@ static struct msg_funding_signed *fromwire_struct_funding_signed(const tal_t *ct
 static void *towire_struct_closing_signed(const tal_t *ctx,
 					  const struct msg_closing_signed *s)
 {
-	return towire_closing_signed(ctx, 
+	return towire_closing_signed(ctx,
 				     &s->channel_id,
 				     s->fee_satoshis,
 				     &s->signature);
@@ -565,7 +565,7 @@ static struct msg_closing_signed *fromwire_struct_closing_signed(const tal_t *ct
 {
 	struct msg_closing_signed *s = tal(ctx, struct msg_closing_signed);
 
-	if (fromwire_closing_signed(p, plen, 
+	if (fromwire_closing_signed(p, plen,
 				    &s->channel_id,
 				    &s->fee_satoshis,
 				    &s->signature))
@@ -576,7 +576,7 @@ static struct msg_closing_signed *fromwire_struct_closing_signed(const tal_t *ct
 static void *towire_struct_shutdown(const tal_t *ctx,
 					  const struct msg_shutdown *s)
 {
-	return towire_shutdown(ctx, 
+	return towire_shutdown(ctx,
 			       &s->channel_id,
 			       s->scriptpubkey);
 }
@@ -585,7 +585,7 @@ static struct msg_shutdown *fromwire_struct_shutdown(const tal_t *ctx, const voi
 {
 	struct msg_shutdown *s = tal(ctx, struct msg_shutdown);
 
-	if (!fromwire_shutdown(s, p, plen, 
+	if (!fromwire_shutdown(s, p, plen,
 			      &s->channel_id,
 			      &s->scriptpubkey))
 		return tal_free(s);
@@ -595,7 +595,7 @@ static struct msg_shutdown *fromwire_struct_shutdown(const tal_t *ctx, const voi
 static void *towire_struct_funding_created(const tal_t *ctx,
 					  const struct msg_funding_created *s)
 {
-	return towire_funding_created(ctx, 
+	return towire_funding_created(ctx,
 				      &s->temporary_channel_id,
 				      &s->txid,
 				      s->output_index,
@@ -606,7 +606,7 @@ static struct msg_funding_created *fromwire_struct_funding_created(const tal_t *
 {
 	struct msg_funding_created *s = tal(ctx, struct msg_funding_created);
 
-	if (fromwire_funding_created(p, plen, 
+	if (fromwire_funding_created(p, plen,
 				     &s->temporary_channel_id,
 				     &s->txid,
 				     &s->output_index,
@@ -618,7 +618,7 @@ static struct msg_funding_created *fromwire_struct_funding_created(const tal_t *
 static void *towire_struct_error(const tal_t *ctx,
 				 const struct msg_error *s)
 {
-	return towire_error(ctx, 
+	return towire_error(ctx,
 			    &s->channel_id,
 			    s->data);
 }
@@ -627,7 +627,7 @@ static struct msg_error *fromwire_struct_error(const tal_t *ctx, const void *p, 
 {
 	struct msg_error *s = tal(ctx, struct msg_error);
 
-	if (!fromwire_error(s, p, plen, 
+	if (!fromwire_error(s, p, plen,
 			   &s->channel_id,
 			    &s->data))
 		return tal_free(s);
@@ -637,7 +637,7 @@ static struct msg_error *fromwire_struct_error(const tal_t *ctx, const void *p, 
 static void *towire_struct_update_add_htlc(const tal_t *ctx,
 					  const struct msg_update_add_htlc *s)
 {
-	return towire_update_add_htlc(ctx, 
+	return towire_update_add_htlc(ctx,
 				      &s->channel_id,
 				      s->id,
 				      s->amount_msat,
@@ -650,7 +650,7 @@ static struct msg_update_add_htlc *fromwire_struct_update_add_htlc(const tal_t *
 {
 	struct msg_update_add_htlc *s = tal(ctx, struct msg_update_add_htlc);
 
-	if (fromwire_update_add_htlc(p, plen, 
+	if (fromwire_update_add_htlc(p, plen,
 				     &s->channel_id,
 				     &s->id,
 				     &s->amount_msat,
@@ -665,7 +665,7 @@ static struct msg_update_add_htlc *fromwire_struct_update_add_htlc(const tal_t *
 static void *towire_struct_update_fee(const tal_t *ctx,
 				      const struct msg_update_fee *s)
 {
-	return towire_update_fee(ctx, 
+	return towire_update_fee(ctx,
 				 &s->channel_id,
 				 s->feerate_per_kw);
 }
@@ -674,7 +674,7 @@ static struct msg_update_fee *fromwire_struct_update_fee(const tal_t *ctx, const
 {
 	struct msg_update_fee *s = tal(ctx, struct msg_update_fee);
 
-	if (fromwire_update_fee(p, plen, 
+	if (fromwire_update_fee(p, plen,
 				&s->channel_id,
 				&s->feerate_per_kw))
 		return s;
@@ -693,7 +693,7 @@ static struct msg_init *fromwire_struct_init(const tal_t *ctx, const void *p, si
 {
 	struct msg_init *s = tal(ctx, struct msg_init);
 
-	if (!fromwire_init(s, p, plen, 
+	if (!fromwire_init(s, p, plen,
 			  &s->globalfeatures,
 			  &s->localfeatures))
 		return tal_free(s);
@@ -881,7 +881,7 @@ int main(void)
 	set_pubkey(&ca.bitcoin_key_2);
  	ca.features = tal_arr(ctx, u8, 2);
  	memset(ca.features, 2, 2);
-	
+
 	msg = towire_struct_channel_announcement(ctx, &ca);
 	len = tal_count(msg);
 	ca2 = fromwire_struct_channel_announcement(ctx, msg, &len);
@@ -891,7 +891,7 @@ int main(void)
 
 	memset(&fl, 2, sizeof(fl));
 	set_pubkey(&fl.next_per_commitment_point);
-	
+
 	msg = towire_struct_funding_locked(ctx, &fl);
 	len = tal_count(msg);
 	fl2 = fromwire_struct_funding_locked(ctx, msg, &len);
@@ -900,18 +900,18 @@ int main(void)
 	test_corruption(&fl, fl2, funding_locked);
 
 	memset(&as, 2, sizeof(as));
-	
+
 	msg = towire_struct_announcement_signatures(ctx, &as);
 	len = tal_count(msg);
 	as2 = fromwire_struct_announcement_signatures(ctx, msg, &len);
 	assert(len == 0);
 	assert(announcement_signatures_eq(&as, as2));
 	test_corruption(&as, as2, announcement_signatures);
-	
+
 	memset(&ufh, 2, sizeof(ufh));
  	ufh.reason = tal_arr(ctx, u8, 2);
  	memset(ufh.reason, 2, 2);
-	
+
 	msg = towire_struct_update_fail_htlc(ctx, &ufh);
 	len = tal_count(msg);
 	ufh2 = fromwire_struct_update_fail_htlc(ctx, msg, &len);
@@ -922,7 +922,7 @@ int main(void)
 	memset(&cs, 2, sizeof(cs));
 	cs.htlc_signature = tal_arr(ctx, secp256k1_ecdsa_signature, 2);
 	memset(cs.htlc_signature, 2, sizeof(secp256k1_ecdsa_signature)*2);
-	
+
 	msg = towire_struct_commitment_signed(ctx, &cs);
 	len = tal_count(msg);
 	cs2 = fromwire_struct_commitment_signed(ctx, msg, &len);
@@ -931,7 +931,7 @@ int main(void)
 	test_corruption(&cs, cs2, commitment_signed);
 
 	memset(&fs, 2, sizeof(fs));
-	
+
 	msg = towire_struct_funding_signed(ctx, &fs);
 	len = tal_count(msg);
 	fs2 = fromwire_struct_funding_signed(ctx, msg, &len);
@@ -940,16 +940,16 @@ int main(void)
 	test_corruption(&fs, fs2, funding_signed);
 
 	memset(&cls, 2, sizeof(cls));
-	
+
 	msg = towire_struct_closing_signed(ctx, &cls);
 	len = tal_count(msg);
 	cls2 = fromwire_struct_closing_signed(ctx, msg, &len);
 	assert(len == 0);
 	assert(closing_signed_eq(&cls, cls2));
 	test_corruption(&cls, cls2, closing_signed);
-	
+
 	memset(&uflh, 2, sizeof(uflh));
-	
+
 	msg = towire_struct_update_fulfill_htlc(ctx, &uflh);
 	len = tal_count(msg);
 	uflh2 = fromwire_struct_update_fulfill_htlc(ctx, msg, &len);
@@ -960,7 +960,7 @@ int main(void)
 	memset(&e, 2, sizeof(e));
 	e.data = tal_arr(ctx, u8, 2);
 	memset(e.data, 2, 2);
-	
+
 	msg = towire_struct_error(ctx, &e);
 	len = tal_count(msg);
 	e2 = fromwire_struct_error(ctx, msg, &len);
@@ -982,7 +982,7 @@ int main(void)
 	test_corruption(&init, init2, init);
 
 	memset(&uf, 2, sizeof(uf));
-	
+
 	msg = towire_struct_update_fee(ctx, &uf);
 	len = tal_count(msg);
 	uf2 = fromwire_struct_update_fee(ctx, msg, &len);
@@ -993,16 +993,16 @@ int main(void)
 	memset(&shutdown, 2, sizeof(shutdown));
 	shutdown.scriptpubkey = tal_arr(ctx, u8, 2);
 	memset(shutdown.scriptpubkey, 2, 2);
-	
+
 	msg = towire_struct_shutdown(ctx, &shutdown);
 	len = tal_count(msg);
 	shutdown2 = fromwire_struct_shutdown(ctx, msg, &len);
 	assert(len == 0);
 	assert(shutdown_eq(&shutdown, shutdown2));
 	test_corruption(&shutdown, shutdown2, shutdown);
-	
+
 	memset(&fc, 2, sizeof(fc));
-	
+
 	msg = towire_struct_funding_created(ctx, &fc);
 	len = tal_count(msg);
 	fc2 = fromwire_struct_funding_created(ctx, msg, &len);
@@ -1012,7 +1012,7 @@ int main(void)
 
 	memset(&raa, 2, sizeof(raa));
 	set_pubkey(&raa.next_per_commitment_point);
-	
+
 	msg = towire_struct_revoke_and_ack(ctx, &raa);
 	len = tal_count(msg);
 	raa2 = fromwire_struct_revoke_and_ack(ctx, msg, &len);
@@ -1026,7 +1026,7 @@ int main(void)
 	set_pubkey(&oc.payment_basepoint);
 	set_pubkey(&oc.delayed_payment_basepoint);
 	set_pubkey(&oc.first_per_commitment_point);
-	
+
 	msg = towire_struct_open_channel(ctx, &oc);
 	len = tal_count(msg);
 	oc2 = fromwire_struct_open_channel(ctx, msg, &len);
@@ -1035,7 +1035,7 @@ int main(void)
 	test_corruption(&oc, oc2, open_channel);
 
 	memset(&cu, 2, sizeof(cu));
-	
+
 	msg = towire_struct_channel_update(ctx, &cu);
 	len = tal_count(msg);
 	cu2 = fromwire_struct_channel_update(ctx, msg, &len);
@@ -1049,7 +1049,7 @@ int main(void)
 	set_pubkey(&ac.payment_basepoint);
 	set_pubkey(&ac.delayed_payment_basepoint);
 	set_pubkey(&ac.first_per_commitment_point);
-	
+
 	msg = towire_struct_accept_channel(ctx, &ac);
 	len = tal_count(msg);
 	ac2 = fromwire_struct_accept_channel(ctx, msg, &len);
@@ -1058,7 +1058,7 @@ int main(void)
 	test_corruption(&ac, ac2, accept_channel);
 
 	memset(&uah, 2, sizeof(uah));
-	
+
 	msg = towire_struct_update_add_htlc(ctx, &uah);
 	len = tal_count(msg);
 	uah2 = fromwire_struct_update_add_htlc(ctx, msg, &len);
