@@ -1,9 +1,6 @@
 #! /usr/bin/make
 NAME=Bitcoin Savings & Trust Daily Interest II
 
-# Needs to have oneof support: Ubuntu vivid's is too old :(
-PROTOCC:=protoc-c
-
 # We use our own internal ccan copy.
 CCANDIR := ccan
 
@@ -59,12 +56,6 @@ CORE_TX_SRC :=					\
 	permute_tx.c
 
 CORE_TX_OBJS := $(CORE_TX_SRC:.c=.o)
-
-CORE_PROTOBUF_SRC :=				\
-	lightning.pb-c.c			\
-	protobuf_convert.c
-
-CORE_PROTOBUF_OBJS := $(CORE_PROTOBUF_SRC:.c=.o)
 
 CCAN_OBJS :=					\
 	ccan-asort.o				\
@@ -189,13 +180,11 @@ CORE_TX_HEADERS := close_tx.h			\
 CORE_HEADERS := 				\
 	opt_bits.h				\
 	overflows.h				\
-	protobuf_convert.h			\
 	type_to_string.h			\
 	utils.h					\
 	version.h
 
-GEN_HEADERS := 	gen_version.h			\
-	lightning.pb-c.h
+GEN_HEADERS := 	gen_version.h
 
 LIBSODIUM_HEADERS := libsodium/src/libsodium/include/sodium.h
 LIBWALLY_HEADERS := libwally-core/include/wally_bip32.h		\
@@ -214,7 +203,7 @@ CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations 
 CDEBUGFLAGS := -std=gnu11 -g -fstack-protector
 CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) -I libwally-core/src/secp256k1/include/ -I libwally-core/include/ -I libsodium/src/libsodium/include/ -I . $(FEATURES) $(COVFLAGS) -DSHACHAIN_BITS=48
 
-LDLIBS := -lprotobuf-c -lgmp -lsqlite3 $(COVFLAGS)
+LDLIBS := -lgmp -lsqlite3 $(COVFLAGS)
 $(PROGRAMS): CFLAGS+=-I.
 
 default: $(PROGRAMS) doc-all
@@ -232,7 +221,7 @@ CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o
 $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
 
 # Except for CCAN, everything depends on bitcoin/ and core headers.
-$(HELPER_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(CORE_PROTOBUF_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(WALLET_LIB_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS) $(LIBBASE58_HEADERS) $(LIBSODIUM_HEADERS) $(LIBWALLY_HEADERS)
+$(HELPER_OBJS) $(CORE_OBJS) $(CORE_TX_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(WALLET_LIB_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(CORE_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS) $(LIBBASE58_HEADERS) $(LIBSODIUM_HEADERS) $(LIBWALLY_HEADERS)
 
 test-protocol: test/test_protocol
 	set -e; TMP=`mktemp`; for f in test/commits/*.script; do if ! $(VALGRIND) test/test_protocol < $$f > $$TMP; then echo "test/test_protocol < $$f FAILED" >&2; exit 1; fi; diff -u $$TMP $$f.expected; done; rm $$TMP
@@ -255,7 +244,7 @@ check-hdr-include-order/%: %
 # Make sure Makefile includes all headers.
 check-makefile:
 	@if [ "`echo bitcoin/*.h`" != "$(BITCOIN_HEADERS)" ]; then echo BITCOIN_HEADERS incorrect; exit 1; fi
-	@if [ x"`ls *.h | grep -v ^gen_ | fgrep -v lightning.pb-c.h`" != x"`echo $(CORE_HEADERS) $(CORE_TX_HEADERS) | tr ' ' '\n' | LC_ALL=C sort`" ]; then echo CORE_HEADERS incorrect; exit 1; fi
+	@if [ x"`ls *.h | grep -v ^gen_`" != x"`echo $(CORE_HEADERS) $(CORE_TX_HEADERS) | tr ' ' '\n' | LC_ALL=C sort`" ]; then echo CORE_HEADERS incorrect; exit 1; fi
 	@if [ x"$(CCANDIR)/config.h `find $(CCANDIR)/ccan -name '*.h' | grep -v /test/ | LC_ALL=C sort | tr '\n' ' '`" != x"$(CCAN_HEADERS) " ]; then echo CCAN_HEADERS incorrect; exit 1; fi
 
 # Any mention of BOLT# must be followed by an exact quote, modulo whitepace.
@@ -265,7 +254,7 @@ bolt-check/%: % bolt-precheck tools/check-bolt
 bolt-precheck:
 	@rm -rf .tmp.lightningrfc; if [ ! -d $(BOLTDIR) ]; then echo Not checking BOLT references: BOLTDIR $(BOLTDIR) does not exist >&2; exit 0; fi; set -e; if [ -n "$(BOLTVERSION)" ]; then git clone -q -b $(BOLTVERSION) $(BOLTDIR) .tmp.lightningrfc; else cp -a $(BOLTDIR) .tmp.lightningrfc; fi
 
-check-source-bolt: $(CORE_SRC:%=bolt-check/%) $(CORE_TX_SRC:%=bolt-check/%) $(CORE_PROTOBUF_SRC:%=bolt-check/%) $(CORE_HEADERS:%=bolt-check/%) $(TEST_PROGRAMS:%=bolt-check/%.c)
+check-source-bolt: $(CORE_SRC:%=bolt-check/%) $(CORE_TX_SRC:%=bolt-check/%) $(CORE_HEADERS:%=bolt-check/%) $(TEST_PROGRAMS:%=bolt-check/%.c)
 
 tools/check-bolt: tools/check-bolt.o $(CCAN_OBJS)
 
@@ -274,12 +263,11 @@ tools/check-bolt.o: $(CCAN_HEADERS)
 check-whitespace/%: %
 	@if grep -Hn '[ 	]$$' $<; then echo Extraneous whitespace found >&2; exit 1; fi
 
-check-whitespace: check-whitespace/Makefile check-whitespace/tools/check-bolt.c $(CORE_SRC:%=check-whitespace/%) $(CORE_TX_SRC:%=check-whitespace/%) $(CORE_PROTOBUF_SRC:%=check-whitespace/%) $(CORE_HEADERS:%=check-whitespace/%)
+check-whitespace: check-whitespace/Makefile check-whitespace/tools/check-bolt.c $(CORE_SRC:%=check-whitespace/%) $(CORE_TX_SRC:%=check-whitespace/%) $(CORE_HEADERS:%=check-whitespace/%)
 
 check-source: check-makefile check-source-bolt check-whitespace	\
 	$(CORE_SRC:%=check-src-include-order/%)			\
 	$(CORE_TX_SRC:%=check-src-include-order/%)		\
-	$(CORE_PROTOBUF_SRC:%=check-src-include-order/%)	\
 	$(BITCOIN_SRC:%=check-src-include-order/%)		\
 	$(CORE_HEADERS:%=check-hdr-include-order/%)		\
 	$(CORE_TX_HEADERS:%=check-hdr-include-order/%)		\
@@ -319,9 +307,6 @@ libsecp256k1.% libwallycore.%: libwally-core/src/secp256k1/libsecp256k1.la libwa
 
 libwally-core/src/libwallycore.% libwally-core/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
 	cd libwally-core && ./tools/autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-shared=no --libdir=`pwd`/.. && $(MAKE)
-
-lightning.pb-c.c lightning.pb-c.h: lightning.proto
-	@if $(CHANGED_FROM_GIT); then echo $(PROTOCC) lightning.proto --c_out=.; $(PROTOCC) lightning.proto --c_out=.; else touch $@; fi
 
 $(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) lightningd/sphinx.o utils.o version.o libwallycore.a libsecp256k1.a libsodium.a
 
@@ -363,7 +348,6 @@ distclean: clean
 maintainer-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'
 	@echo 'deletes files that may need special tools to rebuild.'
-	$(RM) lightning.pb-c.c lightning.pb-c.h
 
 clean: daemon-clean wire-clean
 	$(MAKE) -C secp256k1/ clean || true

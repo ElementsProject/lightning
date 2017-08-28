@@ -2,7 +2,6 @@
 #include "bitcoin/pubkey.h"
 #include "bitcoin/tx.h"
 #include "daemon/htlc.h"
-#include "protobuf_convert.h"
 #include "type_to_string.h"
 #include "utils.h"
 #include <ccan/tal/str/str.h>

@@ -59,7 +59,6 @@ DAEMON_HEADERS :=				\
 	daemon/netaddr.h			\
 	daemon/opt_time.h			\
 	daemon/options.h			\
-	daemon/packets.h			\
 	daemon/pseudorand.h			\
 	daemon/routing.h			\
 	daemon/timeout.h			\

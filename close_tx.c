@@ -2,7 +2,7 @@
 #include "bitcoin/tx.h"
 #include "close_tx.h"
 #include "permute_tx.h"
-#include "protobuf_convert.h"
+#include <assert.h>
 
 struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 				   const u8 *our_script,

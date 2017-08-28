@@ -1,7 +1,6 @@
 #include "lightningd.h"
 #include "log.h"
 #include "overflows.h"
-#include "packets.h"
 #include "pseudorand.h"
 #include "routing.h"
 #include "wire/gen_peer_wire.h"

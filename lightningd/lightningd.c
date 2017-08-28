@@ -88,14 +88,6 @@ bool db_remove_invoice(struct lightningd_state *dstate,
 	return true;
 }
 
- #include <daemon/packets.h>
-void queue_pkt_nested(struct peer *peer,
-		      int type,
-		      const u8 *nested_pkt)
-{
-	FIXME_IMPLEMENT();
-}
-
 static struct lightningd *new_lightningd(const tal_t *ctx)
 {
 	struct lightningd *ld = tal(ctx, struct lightningd);
