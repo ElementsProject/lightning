@@ -56,7 +56,6 @@ CORE_OBJS := $(CORE_SRC:.c=.o)
 
 CORE_TX_SRC :=					\
 	close_tx.c				\
-	find_p2sh_out.c				\
 	permute_tx.c
 
 CORE_TX_OBJS := $(CORE_TX_SRC:.c=.o)
@@ -184,7 +183,6 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/varint.h
 
 CORE_TX_HEADERS := close_tx.h			\
-	find_p2sh_out.h				\
 	permute_tx.h				\
 	remove_dust.h
 
