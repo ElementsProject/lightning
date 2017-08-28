@@ -1,3 +1,4 @@
+#include <common/sphinx.h>
 #include <common/utils.h>
 #include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
@@ -6,7 +7,6 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
-#include <lightningd/sphinx.h>
 #include <lightningd/subd.h>
 
 static bool ping_reply(struct subd *subd, const u8 *msg, const int *fds,

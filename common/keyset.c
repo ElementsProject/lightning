@@ -1,5 +1,5 @@
-#include <lightningd/key_derive.h>
-#include <lightningd/keyset.h>
+#include <common/key_derive.h>
+#include <common/keyset.h>
 
 bool derive_keyset(const struct pubkey *per_commitment_point,
 		   const struct pubkey *self_payment_basepoint,

@@ -1,4 +1,4 @@
-#include <lightningd/cryptomsg.h>
+#include <common/cryptomsg.h>
 handshake_bad_command,0x8000
 initr_act1_bad_ecdh_for_ss,0x8011
 initr_act1_write_failed,0x8012

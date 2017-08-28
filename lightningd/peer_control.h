@@ -4,9 +4,9 @@
 #include <ccan/compiler/compiler.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/list/list.h>
+#include <common/channel_config.h>
 #include <common/htlc.h>
 #include <common/json.h>
-#include <lightningd/channel_config.h>
 #include <lightningd/netaddr.h>
 #include <lightningd/peer_state.h>
 #include <stdbool.h>

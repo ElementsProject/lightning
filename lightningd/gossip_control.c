@@ -8,7 +8,6 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <inttypes.h>
-#include <lightningd/cryptomsg.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/gossip_msg.h>
 #include <lightningd/jsonrpc.h>

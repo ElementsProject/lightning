@@ -5,11 +5,11 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
+#include <common/status.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
-#include <lightningd/status.h>
 #include <lightningd/subd.h>
 #include <stdarg.h>
 #include <sys/socket.h>

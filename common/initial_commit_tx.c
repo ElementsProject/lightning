@@ -2,9 +2,9 @@
 #include <bitcoin/tx.h>
 #include <ccan/endian/endian.h>
 #include <common/initial_commit_tx.h>
+#include <common/keyset.h>
 #include <common/permute_tx.h>
 #include <common/utils.h>
-#include <lightningd/keyset.h>
 
 /* BOLT #3:
  *

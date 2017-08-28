@@ -4,7 +4,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <common/derive_basepoints.h>
-#include <lightningd/htlc_wire.h>
+#include <common/htlc_wire.h>
 
 /* FIXME: Define serialization primitive for this? */
 struct channel_info {

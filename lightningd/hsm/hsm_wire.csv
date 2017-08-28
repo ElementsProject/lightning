@@ -15,7 +15,7 @@ hsmstatus_client_bad_request,,msg,len*u8
 hsmctl_init,1
 hsmctl_init,,new,bool
 
-#include <lightningd/bip32.h>
+#include <common/bip32.h>
 hsmctl_init_reply,101
 hsmctl_init_reply,,node_id,33
 hsmctl_init_reply,,peer_seed,struct secret
@@ -29,7 +29,7 @@ hsmctl_hsmfd_ecdh,,unique_id,8
 hsmctl_hsmfd_ecdh_fd_reply,103
 
 # Return signature for a funding tx.
-#include <lightningd/utxo.h>
+#include <common/utxo.h>
 # FIXME: This should also take their commit sig & details, to verify.
 hsmctl_sign_funding,4
 hsmctl_sign_funding,,satoshi_out,8

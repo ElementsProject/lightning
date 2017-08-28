@@ -10,7 +10,6 @@
 #include <lightningd/log.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
-#include <lightningd/sphinx.h>
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 

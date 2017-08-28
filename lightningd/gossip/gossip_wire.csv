@@ -18,7 +18,7 @@ gossipstatus_peer_failed,,unique_id,8
 gossipstatus_peer_failed,,len,2
 gossipstatus_peer_failed,,err,len*u8
 
-#include <lightningd/cryptomsg.h>
+#include <common/cryptomsg.h>
 
 # Initialize the gossip daemon
 gossipctl_init,0

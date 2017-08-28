@@ -6,8 +6,8 @@
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/list/list.h>
 #include <ccan/tal/tal.h>
-#include <lightningd/channel_config.h>
-#include <lightningd/utxo.h>
+#include <common/channel_config.h>
+#include <common/utxo.h>
 #include <wally_bip32.h>
 
 struct lightningd;

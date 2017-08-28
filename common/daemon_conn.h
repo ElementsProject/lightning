@@ -4,7 +4,7 @@
 #include "config.h"
 #include <ccan/io/io.h>
 #include <ccan/short_types/short_types.h>
-#include <lightningd/msg_queue.h>
+#include <common/msg_queue.h>
 
 struct daemon_conn {
 	/* Context to tallocate all things from, possibly the

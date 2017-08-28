@@ -6,9 +6,9 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
+#include <common/daemon_conn.h>
+#include <common/status.h>
 #include <common/utils.h>
-#include <lightningd/daemon_conn.h>
-#include <lightningd/status.h>
 #include <stdarg.h>
 #include <wire/wire.h>
 #include <wire/wire_sync.h>

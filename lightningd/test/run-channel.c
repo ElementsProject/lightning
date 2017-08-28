@@ -1,20 +1,22 @@
- #include <lightningd/status.h>
+ #include <common/status.h>
  #include <stdio.h>
 #define status_trace(fmt , ...) \
 	printf(fmt "\n" , ## __VA_ARGS__)
 
-#include "../key_derive.c"
-#include "../keyset.c"
-#include "../channel.c"
-#include "../commit_tx.c"
-#include "../htlc_tx.c"
+#include "../../common/key_derive.c"
+#include "../../common/keyset.c"
+#include "../../common/initial_channel.c"
+#include "../channel/full_channel.c"
+#include "../../common/initial_commit_tx.c"
+#include "../channel/commit_tx.c"
+#include "../../common/htlc_tx.c"
 #include <bitcoin/preimage.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
-#include <lightningd/sphinx.h>
-#include <type_to_string.h>
+#include <common/sphinx.h>
+#include <common/type_to_string.h>
 
 const void *trc;
 

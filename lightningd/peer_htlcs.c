@@ -4,12 +4,13 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/derive_basepoints.h>
+#include <common/htlc_wire.h>
 #include <common/overflows.h>
+#include <common/sphinx.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/htlc_end.h>
-#include <lightningd/htlc_wire.h>
 #include <lightningd/invoice.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
@@ -17,7 +18,6 @@
 #include <lightningd/pay.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
-#include <lightningd/sphinx.h>
 #include <lightningd/subd.h>
 #include <wire/gen_onion_wire.h>
 

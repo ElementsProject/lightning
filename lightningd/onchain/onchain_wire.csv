@@ -3,7 +3,7 @@ onchain_bad_command,0x8000
 onchain_internal_error,0x8003
 onchain_crypto_failed,0x8004
 
-#include <lightningd/htlc_wire.h>
+#include <common/htlc_wire.h>
 # Begin!  Here's the onchain tx which spends funding tx, followed by all HTLCs.
 onchain_init,1
 onchain_init,,seed,struct privkey

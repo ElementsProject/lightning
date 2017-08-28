@@ -1,5 +1,5 @@
 #include <ccan/structeq/structeq.h>
-#include <lightningd/htlc_wire.h>
+#include <common/htlc_wire.h>
 #include <lightningd/onchain/onchain_wire.h>
 #include <wire/wire.h>
 

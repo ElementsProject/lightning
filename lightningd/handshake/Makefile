@@ -31,6 +31,13 @@ $(LIGHTNINGD_HANDSHAKE_OBJS): $(LIGHTNINGD_HEADERS)
 
 # Common source we use.
 HANDSHAKED_COMMON_OBJS :=			\
+	common/crypto_sync.o			\
+	common/cryptomsg.o			\
+	common/daemon_conn.o			\
+	common/debug.o				\
+	common/dev_disconnect.o			\
+	common/msg_queue.o			\
+	common/status.o				\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o

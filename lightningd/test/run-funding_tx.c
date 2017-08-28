@@ -3,14 +3,14 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
 #include <ccan/str/hex/hex.h>
+#include <common/type_to_string.h>
+#include <common/utils.h>
 #include <inttypes.h>
 #include <stdio.h>
-#include <type_to_string.h>
-#include <utils.h>
 #define SUPERVERBOSE printf
-  #include "../funding_tx.c"
+  #include "../../common/funding_tx.c"
 #undef SUPERVERBOSE
-  #include "../key_derive.c"
+  #include "../../common/key_derive.c"
 
 #if 0
 static struct sha256 sha256_from_hex(const char *hex)

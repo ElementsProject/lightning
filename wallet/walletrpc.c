@@ -2,6 +2,9 @@
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
 #include <ccan/tal/str/str.h>
+#include <common/key_derive.h>
+#include <common/status.h>
+#include <common/utxo.h>
 #include <common/withdraw_tx.h>
 #include <errno.h>
 #include <lightningd/bitcoind.h>
@@ -9,12 +12,9 @@
 #include <lightningd/hsm/gen_hsm_wire.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/key_derive.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
-#include <lightningd/status.h>
 #include <lightningd/subd.h>
-#include <lightningd/utxo.h>
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
 

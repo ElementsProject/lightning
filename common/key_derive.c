@@ -1,8 +1,8 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
 #include <ccan/crypto/sha256/sha256.h>
+#include <common/key_derive.h>
 #include <common/utils.h>
-#include <lightningd/key_derive.h>
 #include <wally_bip32.h>
 
 /* BOLT #3:

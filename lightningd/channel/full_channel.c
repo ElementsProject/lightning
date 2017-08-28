@@ -6,17 +6,17 @@
 #include <ccan/mem/mem.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
+#include <common/channel_config.h>
 #include <common/htlc.h>
 #include <common/htlc_tx.h>
+#include <common/htlc_wire.h>
+#include <common/key_derive.h>
+#include <common/keyset.h>
+#include <common/status.h>
 #include <common/type_to_string.h>
 #include <inttypes.h>
 #include <lightningd/channel/commit_tx.h>
 #include <lightningd/channel/full_channel.h>
-#include <lightningd/channel_config.h>
-#include <lightningd/htlc_wire.h>
-#include <lightningd/key_derive.h>
-#include <lightningd/keyset.h>
-#include <lightningd/status.h>
 #include <string.h>
 
 struct channel *new_channel(const tal_t *ctx,

@@ -1,7 +1,7 @@
 #include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/shachain/shachain.h>
-#include <lightningd/htlc_wire.h>
+#include <common/htlc_wire.h>
 #include <wire/wire.h>
 
 /* FIXME: We could adapt tools/generate-wire.py to generate structures

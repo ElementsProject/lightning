@@ -2,10 +2,10 @@
 #include <bitcoin/tx.h>
 #include <ccan/endian/endian.h>
 #include <common/htlc_tx.h>
+#include <common/keyset.h>
 #include <common/permute_tx.h>
 #include <common/utils.h>
 #include <lightningd/channel/commit_tx.h>
-#include <lightningd/keyset.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)

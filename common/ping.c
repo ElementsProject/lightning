@@ -1,4 +1,4 @@
-#include <lightningd/ping.h>
+#include <common/ping.h>
 #include <wire/gen_peer_wire.h>
 
 bool check_ping_make_pong(const tal_t *ctx, const u8 *ping, u8 **pong)
