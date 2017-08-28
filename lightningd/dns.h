@@ -1,5 +1,5 @@
-#ifndef PETTYCOIN_DNS_H
-#define PETTYCOIN_DNS_H
+#ifndef LIGHTNING_LIGHTNINGD_DNS_H
+#define LIGHTNING_LIGHTNINGD_DNS_H
 #include "config.h"
 #include <ccan/io/io.h>
 #include <ccan/tal/tal.h>
@@ -50,4 +50,4 @@ struct dns_async *multiaddress_connect_(struct lightningd_state *dstate,
 		  void (*fail)(struct lightningd_state *, void *arg),
 		  void *arg);
 
-#endif /* PETTYCOIN_DNS_H */
+#endif /* LIGHTNING_LIGHTNINGD_DNS_H */

@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_PERMUTE_TX_H
-#define LIGHTNING_PERMUTE_TX_H
+#ifndef LIGHTNING_COMMON_PERMUTE_TX_H
+#define LIGHTNING_COMMON_PERMUTE_TX_H
 #include "config.h"
 #include "bitcoin/tx.h"
 
@@ -16,4 +16,4 @@ void permute_inputs(struct bitcoin_tx_input *inputs, size_t num_inputs,
  */
 void permute_outputs(struct bitcoin_tx_output *outputs, size_t num_outputs,
 		     const void **map);
-#endif /* LIGHTNING_PERMUTE_TX_H */
+#endif /* LIGHTNING_COMMON_PERMUTE_TX_H */

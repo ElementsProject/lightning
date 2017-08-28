@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_HTLC_TX_H
-#define LIGHTNING_LIGHTNINGD_HTLC_TX_H
+#ifndef LIGHTNING_COMMON_HTLC_TX_H
+#define LIGHTNING_COMMON_HTLC_TX_H
 #include "config.h"
 #include <common/htlc.h>
 
@@ -86,4 +86,4 @@ u8 *htlc_offered_wscript(const tal_t *ctx,
 			 const struct ripemd160 *ripemd,
 			 const struct keyset *keyset);
 
-#endif /* LIGHTNING_LIGHTNINGD_HTLC_TX_H */
+#endif /* LIGHTNING_COMMON_HTLC_TX_H */

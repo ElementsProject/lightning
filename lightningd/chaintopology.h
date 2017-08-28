@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_CHAINTOPOLOGY_H
-#define LIGHTNING_DAEMON_CHAINTOPOLOGY_H
+#ifndef LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H
+#define LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H
 #include "config.h"
 #include <bitcoin/block.h>
 #include <bitcoin/shadouble.h>
@@ -160,4 +160,4 @@ void json_dev_broadcast(struct command *cmd,
 			struct chain_topology *topo,
 			const char *buffer, const jsmntok_t *params);
 
-#endif /* LIGHTNING_DAEMON_CRYPTOPKT_H */
+#endif /* LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H */

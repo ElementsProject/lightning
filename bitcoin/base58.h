@@ -50,4 +50,4 @@ bool key_from_base58(const char *base58, size_t base58_len,
 
 void base58_get_checksum(u8 csum[4], const u8 buf[], size_t buflen);
 
-#endif /* PETTYCOIN_BITCOIN_BASE58_H */
+#endif /* LIGHTNING_BITCOIN_BASE58_H */

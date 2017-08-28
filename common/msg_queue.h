@@ -1,6 +1,6 @@
 /* Helper for simple message queues. */
-#ifndef LIGHTNING_LIGHTNINGD_MSG_QUEUE_H
-#define LIGHTNING_LIGHTNINGD_MSG_QUEUE_H
+#ifndef LIGHTNING_COMMON_MSG_QUEUE_H
+#define LIGHTNING_COMMON_MSG_QUEUE_H
 #include "config.h"
 #include <ccan/io/io.h>
 #include <ccan/short_types/short_types.h>
@@ -33,4 +33,4 @@ int msg_extract_fd(const u8 *msg);
 #define msg_queue_wait(conn, q, next, arg) \
 	io_out_wait((conn), (q), (next), (arg))
 
-#endif /* LIGHTNING_LIGHTNINGD_MSG_QUEUE_H */
+#endif /* LIGHTNING_COMMON_MSG_QUEUE_H */

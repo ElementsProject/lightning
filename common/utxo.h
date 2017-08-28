@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_UTXO_H
-#define LIGHTNING_LIGHTNINGD_UTXO_H
+#ifndef LIGHTNING_COMMON_UTXO_H
+#define LIGHTNING_COMMON_UTXO_H
 #include "config.h"
 #include <bitcoin/shadouble.h>
 #include <ccan/short_types/short_types.h>
@@ -22,4 +22,4 @@ void fromwire_utxo(const u8 **ptr, size_t *max, struct utxo *utxo);
  * wants arr of structs */
 struct utxo *from_utxoptr_arr(const tal_t *ctx, const struct utxo **utxos);
 const struct utxo **to_utxoptr_arr(const tal_t *ctx, const struct utxo *utxos);
-#endif /* LIGHTNING_LIGHTNINGD_UTXO_H */
+#endif /* LIGHTNING_COMMON_UTXO_H */

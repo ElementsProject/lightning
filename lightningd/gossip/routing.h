@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_ROUTING_H
-#define LIGHTNING_DAEMON_ROUTING_H
+#ifndef LIGHTNING_LIGHTNINGD_GOSSIP_ROUTING_H
+#define LIGHTNING_LIGHTNINGD_GOSSIP_ROUTING_H
 #include "config.h"
 #include <bitcoin/pubkey.h>
 #include <ccan/htable/htable_type.h>
@@ -175,4 +175,4 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
  * the direction bit the matching channel should get */
 #define get_channel_direction(from, to) (pubkey_cmp(from, to) > 0)
 
-#endif /* LIGHTNING_DAEMON_ROUTING_H */
+#endif /* LIGHTNING_LIGHTNINGD_GOSSIP_ROUTING_H */

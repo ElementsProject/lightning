@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_BITCOIND_H
-#define LIGHTNING_DAEMON_BITCOIND_H
+#ifndef LIGHTNING_LIGHTNINGD_BITCOIND_H
+#define LIGHTNING_LIGHTNINGD_BITCOIND_H
 #include "config.h"
 #include <bitcoin/chainparams.h>
 #include <ccan/list/list.h>
@@ -123,4 +123,4 @@ void bitcoind_getrawblock_(struct bitcoind *bitcoind,
 						  struct bitcoind *,	\
 						  struct bitcoin_block *), \
 			      (arg))
-#endif /* LIGHTNING_DAEMON_BITCOIND_H */
+#endif /* LIGHTNING_LIGHTNINGD_BITCOIND_H */

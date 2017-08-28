@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_HTLC_STATE_H
-#define LIGHTNING_DAEMON_HTLC_STATE_H
+#ifndef LIGHTNING_COMMON_HTLC_STATE_H
+#define LIGHTNING_COMMON_HTLC_STATE_H
 #include "config.h"
 
 enum htlc_state {
@@ -33,4 +33,4 @@ enum htlc_state {
 
 	HTLC_STATE_INVALID
 };
-#endif /* LIGHTNING_DAEMON_HTLC_STATE_H */
+#endif /* LIGHTNING_COMMON_HTLC_STATE_H */

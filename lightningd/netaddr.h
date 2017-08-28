@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_NETADDR_H
-#define LIGHTNING_DAEMON_NETADDR_H
+#ifndef LIGHTNING_LIGHTNINGD_NETADDR_H
+#define LIGHTNING_LIGHTNINGD_NETADDR_H
 #include "config.h"
 #include <ccan/tal/tal.h>
 #include <netinet/in.h>
@@ -31,4 +31,4 @@ bool netaddr_from_fd(int fd, int type, int protocol, struct netaddr *a);
 bool netaddr_from_blob(const void *linear, size_t len, struct netaddr *a);
 char *netaddr_to_hex(const tal_t *ctx, const struct netaddr *a);
 
-#endif /* LIGHTNING_DAEMON_NETADDR_H */
+#endif /* LIGHTNING_LIGHTNINGD_NETADDR_H */

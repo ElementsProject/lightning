@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_FUNDING_TX_H
-#define LIGHTNING_LIGHTNINGD_FUNDING_TX_H
+#ifndef LIGHTNING_COMMON_FUNDING_TX_H
+#define LIGHTNING_COMMON_FUNDING_TX_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
@@ -41,4 +41,4 @@ struct bitcoin_tx *funding_tx(const tal_t *ctx,
 			      u64 change_satoshis,
 			      const struct pubkey *changekey,
 			      const struct ext_key *bip32_base);
-#endif /* LIGHTNING_LIGHTNINGD_FUNDING_TX_H */
+#endif /* LIGHTNING_COMMON_FUNDING_TX_H */

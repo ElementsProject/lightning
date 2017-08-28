@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_INVOICE_H
-#define LIGHTNING_DAEMON_INVOICE_H
+#ifndef LIGHTNING_LIGHTNINGD_INVOICE_H
+#define LIGHTNING_LIGHTNINGD_INVOICE_H
 #include "config.h"
 #include <bitcoin/preimage.h>
 #include <ccan/crypto/sha256/sha256.h>
@@ -33,4 +33,4 @@ struct invoice *find_unpaid(struct invoices *i,
 			    const struct sha256 *rhash);
 
 struct invoices *invoices_init(const tal_t *ctx);
-#endif /* LIGHTNING_DAEMON_INVOICE_H */
+#endif /* LIGHTNING_LIGHTNINGD_INVOICE_H */

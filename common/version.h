@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_VERSION_H
-#define LIGHTNING_VERSION_H
+#ifndef LIGHTNING_COMMON_VERSION_H
+#define LIGHTNING_COMMON_VERSION_H
 #include "config.h"
 #include <ccan/opt/opt.h>
 
@@ -10,4 +10,4 @@ const char *version(void);
 	opt_register_early_noarg("--version|-V", version_and_exit, NULL, \
 				 "print version to standard output and exit")
 
-#endif /* LIGHTNING_VERSION_H */
+#endif /* LIGHTNING_COMMON_VERSION_H */

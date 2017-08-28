@@ -1,5 +1,5 @@
-#ifndef LIGHTNINGD_CHANNELD_HTLC_H
-#define LIGHTNINGD_CHANNELD_HTLC_H
+#ifndef LIGHTNING_LIGHTNINGD_CHANNEL_CHANNELD_HTLC_H
+#define LIGHTNING_LIGHTNINGD_CHANNEL_CHANNELD_HTLC_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <common/pseudorand.h>
@@ -76,4 +76,4 @@ static inline bool htlc_is_dead(const struct htlc *htlc)
 	return htlc->state == RCVD_REMOVE_ACK_REVOCATION
 		|| htlc->state == SENT_REMOVE_ACK_REVOCATION;
 }
-#endif /* LIGHTNINGD_CHANNELD_HTLC_H */
+#endif /* LIGHTNING_LIGHTNINGD_CHANNEL_CHANNELD_HTLC_H */

@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_WATCH_H
-#define LIGHTNING_DAEMON_WATCH_H
+#ifndef LIGHTNING_LIGHTNINGD_WATCH_H
+#define LIGHTNING_LIGHTNINGD_WATCH_H
 #include "config.h"
 #include "bitcoin/shadouble.h"
 #include <ccan/crypto/ripemd160/ripemd160.h>
@@ -148,4 +148,4 @@ bool watching_txid(const struct chain_topology *topo,
 		   const struct sha256_double *txid);
 
 void watch_topology_changed(struct chain_topology *topo);
-#endif /* LIGHTNING_DAEMON_WATCH_H */
+#endif /* LIGHTNING_LIGHTNINGD_WATCH_H */

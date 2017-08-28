@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_HTLC_H
-#define LIGHTNING_DAEMON_HTLC_H
+#ifndef LIGHTNING_COMMON_HTLC_H
+#define LIGHTNING_COMMON_HTLC_H
 #include "config.h"
 #include "bitcoin/locktime.h"
 #include "htlc_state.h"
@@ -81,4 +81,4 @@ static inline enum side str_to_side(const char *str)
 	assert(streq(str, "REMOTE"));
 	return REMOTE;
 }
-#endif /* LIGHTNING_DAEMON_HTLC_H */
+#endif /* LIGHTNING_COMMON_HTLC_H */

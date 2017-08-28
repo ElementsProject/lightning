@@ -45,4 +45,4 @@ int pubkey_cmp(const struct pubkey *a, const struct pubkey *b);
  * pubkey_to_hash160 - Get the hash for p2pkh payments for a given pubkey
  */
 void pubkey_to_hash160(const struct pubkey *pk, struct ripemd160 *hash);
-#endif /* LIGHTNING_PUBKEY_H */
+#endif /* LIGHTNING_BITCOIN_PUBKEY_H */

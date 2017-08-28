@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_DEV_DISCONNECT_H
-#define LIGHTNING_LIGHTNINGD_DEV_DISCONNECT_H
+#ifndef LIGHTNING_COMMON_DEV_DISCONNECT_H
+#define LIGHTNING_COMMON_DEV_DISCONNECT_H
 #include "config.h"
 #include <stdbool.h>
 
@@ -17,4 +17,4 @@ void dev_sabotage_fd(int fd);
 /* For debug code to set in daemon. */
 void dev_disconnect_init(int fd);
 
-#endif /* LIGHTNING_LIGHTNINGD_DEV_DISCONNECT_H */
+#endif /* LIGHTNING_COMMON_DEV_DISCONNECT_H */

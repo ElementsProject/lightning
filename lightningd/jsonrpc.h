@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_JSONRPC_H
-#define LIGHTNING_DAEMON_JSONRPC_H
+#ifndef LIGHTNING_LIGHTNINGD_JSONRPC_H
+#define LIGHTNING_LIGHTNINGD_JSONRPC_H
 #include "config.h"
 #include <ccan/autodata/autodata.h>
 #include <ccan/list/list.h>
@@ -73,4 +73,4 @@ void json_add_address(struct json_result *response, const char *fieldname,
 void setup_jsonrpc(struct lightningd_state *dstate, const char *rpc_filename);
 
 AUTODATA_TYPE(json_command, struct json_command);
-#endif /* LIGHTNING_DAEMON_JSONRPC_H */
+#endif /* LIGHTNING_LIGHTNINGD_JSONRPC_H */

@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_PSEUDORAND_H
-#define LIGHTNING_DAEMON_PSEUDORAND_H
+#ifndef LIGHTNING_COMMON_PSEUDORAND_H
+#define LIGHTNING_COMMON_PSEUDORAND_H
 #include "config.h"
 #include <stdint.h>
 
@@ -13,4 +13,4 @@ uint64_t pseudorand(uint64_t max);
  */
 const struct siphash_seed *siphash_seed(void);
 
-#endif /* LIGHTNING_DAEMON_PSEUDORAND_H */
+#endif /* LIGHTNING_COMMON_PSEUDORAND_H */

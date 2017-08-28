@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_UTILS_H
-#define LIGHTNING_UTILS_H
+#ifndef LIGHTNING_COMMON_UTILS_H
+#define LIGHTNING_COMMON_UTILS_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
@@ -20,4 +20,4 @@ u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len);
 	tal_alloc_((ctx), 0, false, false,				\
 		   __FILE__ ":" stringify(__LINE__) ":tal_tmpctx")
 
-#endif /* LIGHTNING_UTILS_H */
+#endif /* LIGHTNING_COMMON_UTILS_H */

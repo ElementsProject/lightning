@@ -6,4 +6,4 @@
 struct lightningd;
 
 void gossip_init(struct lightningd *ld);
-#endif /* LIGHTNING_LIGHTNINGD_HSM_CONTROL_H */
+#endif /* LIGHTNING_LIGHTNINGD_GOSSIP_CONTROL_H */
