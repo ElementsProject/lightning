@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_CLOSE_TX_H
 #define LIGHTNING_CLOSE_TX_H
 #include "config.h"
-#include "lightning.pb-c.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
