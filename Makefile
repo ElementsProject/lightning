@@ -188,7 +188,7 @@ CORE_TX_HEADERS := close_tx.h			\
 	permute_tx.h				\
 	remove_dust.h
 
-CORE_HEADERS := irc.h				\
+CORE_HEADERS := 				\
 	opt_bits.h				\
 	overflows.h				\
 	protobuf_convert.h			\

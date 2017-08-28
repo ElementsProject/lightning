@@ -30,8 +30,7 @@ DAEMON_SRC :=					\
 	daemon/opt_time.c			\
 	daemon/routing.c			\
 	daemon/timeout.c			\
-	daemon/watch.c				\
-	irc.c
+	daemon/watch.c
 
 DAEMON_OBJS := $(DAEMON_SRC:.c=.o)
 
