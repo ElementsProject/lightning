@@ -27,13 +27,27 @@ LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o)
 
 # Common source we use.
 CHANNELD_COMMON_OBJS :=				\
+	common/channel_config.o			\
+	common/crypto_sync.o			\
+	common/cryptomsg.o			\
+	common/daemon_conn.o			\
+	common/debug.o				\
 	common/derive_basepoints.o		\
+	common/dev_disconnect.o			\
 	common/htlc_state.o			\
 	common/htlc_tx.o			\
+	common/htlc_wire.o			\
 	common/initial_channel.o		\
 	common/initial_commit_tx.o		\
+	common/keyset.o				\
+	common/key_derive.o			\
+	common/msg_queue.o			\
+	common/ping.o				\
+	common/peer_failed.o			\
 	common/permute_tx.o			\
 	common/pseudorand.o			\
+	common/sphinx.o				\
+	common/status.o				\
 	common/timeout.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
@@ -62,7 +76,7 @@ lightningd/channel/gen_channel_wire.c: $(WIRE_GEN) lightningd/channel/channel_wi
 
 LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o) $(LIGHTNINGD_CHANNEL_GEN_SRC:.c=.o)
 
-lightningd/lightningd_channel: $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_CHANNEL_OBJS) $(WIRE_ONION_OBJS) $(CHANNELD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(LIGHTNINGD_HSM_CLIENT_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
+lightningd/lightningd_channel: $(LIGHTNINGD_CHANNEL_OBJS) $(WIRE_ONION_OBJS) $(CHANNELD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(LIGHTNINGD_HSM_CLIENT_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 check-source: $(LIGHTNINGD_CHANNEL_SRC_NOGEN:%=check-src-include-order/%)

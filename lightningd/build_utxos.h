@@ -1,8 +1,8 @@
 #ifndef LIGHTNING_LIGHTNINGD_BUILD_UTXOS_H
 #define LIGHTNING_LIGHTNINGD_BUILD_UTXOS_H
 #include "config.h"
+#include <common/utxo.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/utxo.h>
 
 /* Reserves UTXOs to build tx which pays this amount; returns NULL if
  * impossible.  *change_satoshis 0 if no change needed. */

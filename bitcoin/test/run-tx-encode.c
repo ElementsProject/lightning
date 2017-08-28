@@ -1,10 +1,10 @@
-#include "bitcoin/pullpush.c"
-#include "bitcoin/tx.c"
-#include "bitcoin/shadouble.c"
-#include "bitcoin/varint.c"
-#include "utils.c"
 #include <assert.h>
+#include <bitcoin/pullpush.c>
+#include <bitcoin/shadouble.c>
+#include <bitcoin/tx.c>
+#include <bitcoin/varint.c>
 #include <ccan/str/hex/hex.h>
+#include <common/utils.c>
 
 const char extended_tx[] = "02000000000101b5bef485c41d0d1f58d1e8a561924ece5c476d86cff063ea10c8df06136eb31d00000000171600144aa38e396e1394fb45cbf83f48d1464fbc9f498fffffffff0140330f000000000017a9140580ba016669d3efaf09a0b2ec3954469ea2bf038702483045022100f2abf9e9cf238c66533af93f23937eae8ac01fb6f105a00ab71dbefb9637dc9502205c1ac745829b3f6889607961f5d817dfa0c8f52bdda12e837c4f7b162f6db8a701210204096eb817f7efb414ef4d3d8be39dd04374256d3b054a322d4a6ee22736d03b00000000";
 

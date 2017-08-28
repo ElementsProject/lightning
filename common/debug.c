@@ -1,6 +1,6 @@
 #include <ccan/str/str.h>
-#include <lightningd/debug.h>
-#include <lightningd/dev_disconnect.h>
+#include <common/debug.h>
+#include <common/dev_disconnect.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>

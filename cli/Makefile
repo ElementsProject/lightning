@@ -30,6 +30,8 @@ $(LIGHTNING_CLI_OBJS) $(JSMN_OBJS): $(JSMN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEA
 
 cli/lightning-cli: $(LIGHTNING_CLI_OBJS) $(LIGHTNING_CLI_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
 
+check-source: $(LIGHTNING_CLI_SRC:%=check-src-include-order/%)
+
 clean: lightning-cli-clean
 
 lightning-cli-clean:

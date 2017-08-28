@@ -2,7 +2,7 @@
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <common/htlc_tx.h>
-#include <lightningd/keyset.h>
+#include <common/keyset.h>
 
 static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 				  const struct sha256_double *commit_txid,

@@ -1,9 +1,9 @@
 #include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
+#include <common/crypto_sync.h>
+#include <common/peer_failed.h>
+#include <common/status.h>
 #include <fcntl.h>
-#include <lightningd/crypto_sync.h>
-#include <lightningd/peer_failed.h>
-#include <lightningd/status.h>
 #include <stdarg.h>
 #include <unistd.h>
 #include <wire/gen_peer_wire.h>

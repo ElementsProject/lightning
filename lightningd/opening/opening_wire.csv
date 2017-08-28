@@ -11,8 +11,8 @@ opening_peer_bad_funding,0x8012
 opening_peer_bad_config,0x8013
 opening_peer_bad_initial_message,0x8014
 
-#include <lightningd/cryptomsg.h>
-#include <lightningd/channel_config.h>
+#include <common/cryptomsg.h>
+#include <common/channel_config.h>
 opening_init,0
 # Which network are we configured for (as index into the chainparams)?
 opening_init,,network_index,4
@@ -25,8 +25,8 @@ opening_init,,crypto_state,struct crypto_state
 # Seed to generate all the keys from
 opening_init,,seed,struct privkey
 
-#include <lightningd/bip32.h>
-#include <lightningd/htlc_wire.h>
+#include <common/bip32.h>
+#include <common/htlc_wire.h>
 # This means we offer the open.
 opening_funder,1
 opening_funder,,funding_satoshis,8
@@ -36,7 +36,7 @@ opening_funder,,max_minimum_depth,4
 opening_funder,,change_satoshis,u64
 opening_funder,,change_keyindex,u32
 opening_funder,,channel_flags,u8
-#include <lightningd/utxo.h>
+#include <common/utxo.h>
 opening_funder,,num_inputs,u16
 opening_funder,,inputs,num_inputs*struct utxo
 opening_funder,,bip32,struct ext_key

@@ -7,14 +7,14 @@
 #include <ccan/mem/mem.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/short_types/short_types.h>
+#include <common/crypto_sync.h>
+#include <common/debug.h>
+#include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/version.h>
 #include <errno.h>
-#include <lightningd/crypto_sync.h>
-#include <lightningd/debug.h>
 #include <lightningd/handshake/gen_handshake_wire.h>
 #include <lightningd/hsm/client.h>
-#include <lightningd/status.h>
 #include <secp256k1.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>

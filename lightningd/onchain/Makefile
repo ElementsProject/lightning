@@ -47,10 +47,18 @@ $(LIGHTNINGD_ONCHAIN_OBJS): $(LIGHTNINGD_HEADERS)
 
 # Common source we use.
 ONCHAIND_COMMON_OBJS :=				\
+	common/daemon_conn.o			\
+	common/debug.o				\
 	common/derive_basepoints.o		\
-	common/initial_commit_tx.o		\
+	common/dev_disconnect.o			\
 	common/htlc_tx.o			\
+	common/htlc_wire.o			\
+	common/initial_commit_tx.o		\
+	common/keyset.o				\
+	common/key_derive.o			\
+	common/msg_queue.o			\
 	common/permute_tx.o			\
+	common/status.o				\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o
@@ -63,7 +71,7 @@ lightningd/onchain/gen_onchain_wire.c: $(WIRE_GEN) lightningd/onchain/onchain_wi
 
 LIGHTNINGD_ONCHAIN_OBJS := $(LIGHTNINGD_ONCHAIN_SRC:.c=.o) $(LIGHTNINGD_ONCHAIN_GEN_SRC:.c=.o)
 
-lightningd/lightningd_onchain: $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_ONCHAIN_OBJS) $(WIRE_ONION_OBJS) $(ONCHAIND_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(LIGHTNINGD_HSM_CLIENT_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
+lightningd/lightningd_onchain: $(LIGHTNINGD_ONCHAIN_OBJS) $(WIRE_ONION_OBJS) $(ONCHAIND_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(LIGHTNINGD_HSM_CLIENT_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 check-source: $(LIGHTNINGD_ONCHAIN_SRC_NOGEN:%=check-src-include-order/%)

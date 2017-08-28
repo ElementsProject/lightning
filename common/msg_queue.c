@@ -1,6 +1,6 @@
 #include <assert.h>
 #include <ccan/take/take.h>
-#include <lightningd/msg_queue.h>
+#include <common/msg_queue.h>
 #include <wire/wire.h>
 
 void msg_queue_init(struct msg_queue *q, const tal_t *ctx)

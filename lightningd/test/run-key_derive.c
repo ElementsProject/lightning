@@ -1,14 +1,12 @@
 #define SUPERVERBOSE
 static void *tmpctx;
 
-#include <stdio.h>
-#include <utils.h>
-#include <type_to_string.h>
-#include "../key_derive.c"
 #include <assert.h>
 #include <ccan/str/hex/hex.h>
+#include <common/type_to_string.h>
+#include <common/utils.h>
 #include <stdio.h>
-#include <type_to_string.h>
+#include "../../common/key_derive.c"
 
 static struct secret secret_from_hex(const char *hex)
 {

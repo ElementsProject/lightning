@@ -1,4 +1,4 @@
-#include <lightningd/utxo.h>
+#include <common/utxo.h>
 #include <wire/wire.h>
 
 void towire_utxo(u8 **pptr, const struct utxo *utxo)

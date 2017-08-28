@@ -17,8 +17,8 @@ channel_peer_bad_message,,msg,len*u8
 # Received and sent funding_locked
 channel_normal_operation,1001
 
-#include <lightningd/cryptomsg.h>
-#include <lightningd/channel_config.h>
+#include <common/cryptomsg.h>
+#include <common/channel_config.h>
 
 # Begin!  (passes gossipd-client fd)
 channel_init,1
@@ -161,7 +161,7 @@ channel_got_commitsig,,tx,struct bitcoin_tx
 # Wait for reply, to make sure it's on disk before we send revocation.
 channel_got_commitsig_reply,121
 
-#include <lightningd/htlc_wire.h>
+#include <common/htlc_wire.h>
 
 channel_got_revoke,22
 channel_got_revoke,,revokenum,u64

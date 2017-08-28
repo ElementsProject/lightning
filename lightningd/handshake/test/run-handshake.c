@@ -7,7 +7,7 @@
 #include <ccan/err/err.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/structeq/structeq.h>
-#include <lightningd/status.h>
+#include <common/status.h>
 
 /* Since we use pipes, we need different fds for read and write. */
 static int read_fd, write_fd;
@@ -50,7 +50,7 @@ static unsigned char e_priv[32];
 
 #define TESTING
 #include "../handshake.c"
-#include "utils.h"
+#include <common/utils.h>
 #include <ccan/err/err.h>
 
 secp256k1_context *secp256k1_ctx;

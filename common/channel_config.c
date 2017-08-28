@@ -1,4 +1,4 @@
-#include <lightningd/channel_config.h>
+#include <common/channel_config.h>
 #include <wire/wire.h>
 
 void towire_channel_config(u8 **pptr, const struct channel_config *config)

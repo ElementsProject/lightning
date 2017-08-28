@@ -1,8 +1,8 @@
 #include <assert.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
-#include <lightningd/dev_disconnect.h>
-#include <lightningd/status.h>
+#include <common/dev_disconnect.h>
+#include <common/status.h>
 #include <stdio.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_io.h>
@@ -52,7 +52,7 @@ char dev_disconnect(int pkt_type)
 /* We test what look like unknown messages. */
 #define is_unknown_msg_discardable(x) 0
 
-#include "../cryptomsg.c"
+#include "../../common/cryptomsg.c"
 
 const void *trc;
 

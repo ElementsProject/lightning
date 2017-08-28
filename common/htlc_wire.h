@@ -4,7 +4,7 @@
 #include <bitcoin/preimage.h>
 #include <ccan/short_types/short_types.h>
 #include <common/htlc.h>
-#include <lightningd/sphinx.h>
+#include <common/sphinx.h>
 #include <wire/gen_onion_wire.h>
 
 struct bitcoin_tx;

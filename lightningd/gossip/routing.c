@@ -8,10 +8,9 @@
 #include <ccan/tal/str/str.h>
 #include <common/overflows.h>
 #include <common/pseudorand.h>
+#include <common/status.h>
 #include <common/type_to_string.h>
 #include <inttypes.h>
-#include <lightningd/lightningd.h>
-#include <lightningd/status.h>
 #include <wire/gen_peer_wire.h>
 
 /* 365.25 * 24 * 60 / 10 */
@@ -461,48 +460,6 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 			     (*route)[best-1]->dst->bfg[best-1].total, *fee);
 	}
 	return first_conn;
-}
-
-static bool get_slash_u32(const char **arg, u32 *v)
-{
-	size_t len;
-	char *endp;
-
-	if (**arg != '/')
-		return false;
-	(*arg)++;
-	len = strcspn(*arg, "/");
-	*v = strtoul(*arg, &endp, 10);
-	(*arg) += len;
-	return (endp == *arg);
-}
-
-/* srcid/dstid/base/var/delay/minblocks */
-char *opt_add_route(const char *arg, struct lightningd_state *dstate)
-{
-	size_t len;
-	struct pubkey src, dst;
-	u32 base, var, delay, minblocks;
-
-	len = strcspn(arg, "/");
-	if (!pubkey_from_hexstr(arg, len, &src))
-		return "Bad src pubkey";
-	arg += len + 1;
-	len = strcspn(arg, "/");
-	if (!pubkey_from_hexstr(arg, len, &dst))
-		return "Bad dst pubkey";
-	arg += len;
-
-	if (!get_slash_u32(&arg, &base)
-	    || !get_slash_u32(&arg, &var)
-	    || !get_slash_u32(&arg, &delay)
-	    || !get_slash_u32(&arg, &minblocks))
-		return "Bad base/var/delay/minblocks";
-	if (*arg)
-		return "Data after minblocks";
-
-	add_connection(dstate->rstate, &src, &dst, base, var, delay, minblocks);
-	return NULL;
 }
 
 bool add_channel_direction(struct routing_state *rstate,

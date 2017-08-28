@@ -14,7 +14,7 @@ void fromwire_pad_orig(const u8 **cursor, size_t *max, size_t num);
 #include <ccan/structeq/structeq.h>
 #include <assert.h>
 #include <stdio.h>
-#include <lightningd/sphinx.h>
+#include <common/sphinx.h>
 
 secp256k1_context *secp256k1_ctx;
 

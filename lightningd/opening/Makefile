@@ -35,14 +35,29 @@ LIGHTNINGD_HEADERS_NOGEN += $(LIGHTNINGD_OPENING_HEADERS_NOGEN)
 
 # Common source we use.
 OPENINGD_COMMON_OBJS :=				\
+	common/bip32.o				\
+	common/channel_config.o			\
+	common/crypto_sync.o			\
+	common/cryptomsg.o			\
+	common/daemon_conn.o			\
+	common/debug.o				\
 	common/derive_basepoints.o		\
+	common/dev_disconnect.o			\
 	common/funding_tx.o			\
+	common/htlc_wire.o			\
 	common/initial_channel.o		\
 	common/initial_commit_tx.o		\
+	common/key_derive.o			\
+	common/keyset.o				\
+	common/msg_queue.o			\
+	common/ping.o				\
+	common/peer_failed.o			\
 	common/permute_tx.o			\
 	common/pseudorand.o			\
+	common/status.o				\
 	common/type_to_string.o			\
 	common/utils.o				\
+	common/utxo.o				\
 	common/version.o
 
 $(LIGHTNINGD_OPENING_OBJS): $(LIGHTNINGD_HEADERS)
@@ -55,7 +70,7 @@ lightningd/opening/gen_opening_wire.c: $(WIRE_GEN) lightningd/opening/opening_wi
 
 LIGHTNINGD_OPENING_OBJS := $(LIGHTNINGD_OPENING_SRC:.c=.o) $(LIGHTNINGD_OPENING_GEN_SRC:.c=.o)
 
-lightningd/lightningd_opening: $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_LIB_OBJS) $(LIGHTNINGD_OPENING_OBJS) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(LIGHTNINGD_HSM_CLIENT_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
+lightningd/lightningd_opening: $(LIGHTNINGD_OPENING_OBJS) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(LIGHTNINGD_HSM_CLIENT_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 check-source: $(LIGHTNINGD_OPENING_SRC_NOGEN:%=check-src-include-order/%)

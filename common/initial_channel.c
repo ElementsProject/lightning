@@ -3,9 +3,9 @@
 #include <ccan/tal/str/str.h>
 #include <common/initial_channel.h>
 #include <common/initial_commit_tx.h>
+#include <common/keyset.h>
 #include <common/type_to_string.h>
 #include <inttypes.h>
-#include <lightningd/keyset.h>
 
 struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct sha256_double *funding_txid,

@@ -1,8 +1,8 @@
 #include <assert.h>
 #include <ccan/err/err.h>
 #include <ccan/str/str.h>
-#include <lightningd/dev_disconnect.h>
-#include <lightningd/status.h>
+#include <common/dev_disconnect.h>
+#include <common/status.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>

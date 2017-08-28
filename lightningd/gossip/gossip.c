@@ -10,6 +10,11 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/timer/timer.h>
+#include <common/cryptomsg.h>
+#include <common/daemon_conn.h>
+#include <common/debug.h>
+#include <common/ping.h>
+#include <common/status.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
@@ -17,15 +22,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
-#include <lightningd/cryptomsg.h>
-#include <lightningd/daemon_conn.h>
-#include <lightningd/debug.h>
 #include <lightningd/gossip/broadcast.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/gossip/routing.h>
 #include <lightningd/gossip_msg.h>
-#include <lightningd/ping.h>
-#include <lightningd/status.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/randombytes.h>
 #include <sys/socket.h>

@@ -3,8 +3,8 @@
 #define LIGHTNING_LIGHTNINGD_CHANNEL_H
 #include "config.h"
 #include <common/initial_channel.h>
+#include <common/sphinx.h>
 #include <lightningd/channel/channeld_htlc.h>
-#include <lightningd/sphinx.h>
 
 /**
  * new_channel: Given initial fees and funding, what is initial state?

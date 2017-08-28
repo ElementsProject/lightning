@@ -1,4 +1,4 @@
-#include <lightningd/bip32.h>
+#include <common/bip32.h>
 #include <wally_bip32.h>
 #include <wire/wire.h>
 

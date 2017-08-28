@@ -1,18 +1,34 @@
 COMMON_SRC :=					\
+	common/bip32.c				\
+	common/channel_config.c			\
 	common/close_tx.c			\
 	common/configdir.c			\
+	common/crypto_sync.c			\
+	common/cryptomsg.c			\
+	common/daemon_conn.c			\
+	common/debug.c				\
 	common/derive_basepoints.c		\
+	common/dev_disconnect.c			\
 	common/funding_tx.c			\
-	common/htlc_tx.c			\
 	common/htlc_state.c			\
+	common/htlc_tx.c			\
+	common/htlc_wire.c			\
 	common/initial_channel.c		\
 	common/initial_commit_tx.c		\
 	common/json.c				\
+	common/key_derive.c			\
+	common/keyset.c				\
+	common/msg_queue.c			\
+	common/peer_failed.c			\
 	common/permute_tx.c			\
+	common/ping.c				\
 	common/pseudorand.c			\
+	common/sphinx.c				\
+	common/status.c				\
 	common/timeout.c			\
 	common/type_to_string.c			\
 	common/utils.c				\
+	common/utxo.c				\
 	common/version.c			\
 	common/withdraw_tx.c
 

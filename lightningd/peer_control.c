@@ -9,8 +9,11 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <common/close_tx.h>
+#include <common/dev_disconnect.h>
 #include <common/funding_tx.h>
 #include <common/initial_commit_tx.h>
+#include <common/key_derive.h>
+#include <common/status.h>
 #include <common/timeout.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -19,21 +22,18 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/closing/gen_closing_wire.h>
-#include <lightningd/dev_disconnect.h>
 #include <lightningd/dns.h>
 #include <lightningd/gen_peer_state_names.h>
 #include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/hsm/gen_hsm_wire.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/key_derive.h>
 #include <lightningd/log.h>
 #include <lightningd/new_connection.h>
 #include <lightningd/onchain/gen_onchain_wire.h>
 #include <lightningd/onchain/onchain_wire.h>
 #include <lightningd/opening/gen_opening_wire.h>
 #include <lightningd/peer_htlcs.h>
-#include <lightningd/status.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -252,11 +252,26 @@ static void peer_start_closingd(struct peer *peer,
 				int peer_fd, int gossip_fd,
 				bool reconnected);
 
+/* FIXME: Fake NOP dev_disconnect/dev_sabotage_fd for below. */
+char dev_disconnect(int pkt_type)
+{
+	return DEV_DISCONNECT_NORMAL;
+}
+
+void dev_sabotage_fd(int fd)
+{
+	abort();
+}
+
 /* Send (encrypted) error message, then close. */
 static struct io_plan *send_error(struct io_conn *conn,
 				  struct peer_crypto_state *pcs)
 {
 	log_debug(pcs->peer->log, "Sending canned error");
+	/* FIXME: This is the only place where master talks directly to peer;
+	 * and pulls in quite a lot of code to do so.  If we got a subdaemon
+	 * to do this work, we'd avoid pulling in cryptomsg.o and the fake
+	 * dev_disconnect. */
 	return peer_write_message(conn, pcs, pcs->peer->error, (void *)io_close_cb);
 }
 

@@ -1,7 +1,7 @@
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/io/fdpass/fdpass.h>
 #include <ccan/take/take.h>
-#include <lightningd/daemon_conn.h>
+#include <common/daemon_conn.h>
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 

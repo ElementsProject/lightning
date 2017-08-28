@@ -6,10 +6,10 @@
 #include <ccan/mem/mem.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/take/take.h>
+#include <common/cryptomsg.h>
+#include <common/dev_disconnect.h>
+#include <common/status.h>
 #include <common/utils.h>
-#include <lightningd/cryptomsg.h>
-#include <lightningd/dev_disconnect.h>
-#include <lightningd/status.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 #include <wire/peer_wire.h>
 #include <wire/wire.h>
@@ -61,11 +61,13 @@ static void maybe_rotate_key(u64 *n, struct secret *k, struct secret *ck)
 	 *   * `ck = ck'`
 	 */
 	hkdf_two_keys(&new_ck, &new_k, ck, k);
+#ifdef SUPERVERBOSE
 	status_trace("# 0x%s, 0x%s = HKDF(0x%s, 0x%s)",
 		     tal_hexstr(trc, &new_ck, sizeof(new_ck)),
 		     tal_hexstr(trc, &new_k, sizeof(new_k)),
 		     tal_hexstr(trc, ck, sizeof(*ck)),
 		     tal_hexstr(trc, k, sizeof(*k)));
+#endif
 	*ck = new_ck;
 	*k = new_k;
 	*n = 0;

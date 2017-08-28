@@ -14,8 +14,8 @@ closing_negotiation_error,0x8013
 closing_negotiation_error,,len,u16
 closing_negotiation_error,,msg,len*u8
 
-#include <lightningd/cryptomsg.h>
-#include <lightningd/htlc_wire.h>
+#include <common/cryptomsg.h>
+#include <common/htlc_wire.h>
 # Begin!  (passes peer fd, gossipd-client fd)
 closing_init,1
 closing_init,,crypto_state,struct crypto_state

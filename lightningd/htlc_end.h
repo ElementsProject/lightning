@@ -4,7 +4,7 @@
 #include <ccan/htable/htable_type.h>
 #include <ccan/short_types/short_types.h>
 #include <common/htlc_state.h>
-#include <lightningd/sphinx.h>
+#include <common/sphinx.h>
 #include <wire/gen_onion_wire.h>
 
 /* We look up HTLCs by peer & id */

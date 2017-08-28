@@ -279,7 +279,7 @@ libsecp256k1.% libwallycore.%: libwally-core/src/secp256k1/libsecp256k1.la libwa
 libwally-core/src/libwallycore.% libwally-core/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
 	cd libwally-core && ./tools/autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-shared=no --libdir=`pwd`/.. && $(MAKE)
 
-$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) lightningd/sphinx.o common/utils.o libwallycore.a libsecp256k1.a libsodium.a
+$(TEST_PROGRAMS): % : %.o $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) common/sphinx.o common/utils.o libwallycore.a libsecp256k1.a libsodium.a
 
 ccan/config.h: ccan/tools/configurator/configurator
 	if $< > $@.new; then mv $@.new $@; else rm $@.new; exit 1; fi
