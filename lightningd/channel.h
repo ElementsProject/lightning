@@ -6,6 +6,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <daemon/htlc.h>
+#include <lightningd/channel/channeld_htlc.h>
 #include <lightningd/channel_config.h>
 #include <lightningd/derive_basepoints.h>
 #include <lightningd/sphinx.h>
