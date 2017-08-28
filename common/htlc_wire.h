@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_HTLC_WIRE_H
-#define LIGHTNING_LIGHTNINGD_HTLC_WIRE_H
+#ifndef LIGHTNING_COMMON_HTLC_WIRE_H
+#define LIGHTNING_COMMON_HTLC_WIRE_H
 #include "config.h"
 #include <bitcoin/preimage.h>
 #include <ccan/short_types/short_types.h>
@@ -57,4 +57,4 @@ enum side fromwire_side(const u8 **cursor, size_t *max);
 void fromwire_shachain(const u8 **cursor, size_t *max,
 		       struct shachain *shachain);
 void fromwire_bitcoin_tx(const u8 **cursor, size_t *max, struct bitcoin_tx *tx);
-#endif /* LIGHTNING_LIGHTNINGD_HTLC_WIRE_H */
+#endif /* LIGHTNING_COMMON_HTLC_WIRE_H */

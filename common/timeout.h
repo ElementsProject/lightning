@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_TIMEOUT_H
-#define LIGHTNING_DAEMON_TIMEOUT_H
+#ifndef LIGHTNING_COMMON_TIMEOUT_H
+#define LIGHTNING_COMMON_TIMEOUT_H
 #include "config.h"
 
 #include <ccan/tal/tal.h>
@@ -19,4 +19,4 @@ struct oneshot *new_reltimer_(struct timers *timers,
 
 void timer_expired(tal_t *ctx, struct timer *timer);
 
-#endif /* LIGHTNING_DAEMON_TIMEOUT_H */
+#endif /* LIGHTNING_COMMON_TIMEOUT_H */

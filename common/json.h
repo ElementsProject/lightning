@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_JSON_H
-#define LIGHTNING_DAEMON_JSON_H
+#ifndef LIGHTNING_COMMON_JSON_H
+#define LIGHTNING_COMMON_JSON_H
 #include "config.h"
 #include <bitcoin/pubkey.h>
 #include <ccan/tal/tal.h>
@@ -106,4 +106,4 @@ void json_add_hex(struct json_result *result, const char *fieldname,
 void json_add_object(struct json_result *result, ...);
 
 const char *json_result_string(const struct json_result *result);
-#endif /* LIGHTNING_DAEMON_JSON_H */
+#endif /* LIGHTNING_COMMON_JSON_H */

@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_CHANNEL_CONFIG_H
-#define LIGHTNING_LIGHTNINGD_CHANNEL_CONFIG_H
+#ifndef LIGHTNING_COMMON_CHANNEL_CONFIG_H
+#define LIGHTNING_COMMON_CHANNEL_CONFIG_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
@@ -45,4 +45,4 @@ struct channel_config {
 void towire_channel_config(u8 **pptr, const struct channel_config *config);
 void fromwire_channel_config(const u8 **ptr, size_t *max,
 			     struct channel_config *config);
-#endif /* LIGHTNING_LIGHTNINGD_CHANNEL_CONFIG_H */
+#endif /* LIGHTNING_COMMON_CHANNEL_CONFIG_H */

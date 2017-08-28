@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_TYPE_TO_STRING_H
-#define LIGHTNING_TYPE_TO_STRING_H
+#ifndef LIGHTNING_COMMON_TYPE_TO_STRING_H
+#define LIGHTNING_COMMON_TYPE_TO_STRING_H
 #include "config.h"
 #include "utils.h"
 #include <ccan/autodata/autodata.h>
@@ -64,4 +64,4 @@ struct type_to_string {
 	char *(*fmt)(const tal_t *ctx, union printable_types u);
 };
 AUTODATA_TYPE(type_to_string, struct type_to_string);
-#endif /* LIGHTNING_UTILS_H */
+#endif /* LIGHTNING_COMMON_TYPE_TO_STRING_H */

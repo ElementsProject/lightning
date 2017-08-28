@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_BROADCAST_H
-#define LIGHTNING_DAEMON_BROADCAST_H
+#ifndef LIGHTNING_LIGHTNINGD_GOSSIP_BROADCAST_H
+#define LIGHTNING_LIGHTNINGD_GOSSIP_BROADCAST_H
 #include "config.h"
 
 #include <ccan/intmap/intmap.h>
@@ -37,4 +37,4 @@ void queue_broadcast(struct broadcast_state *bstate,
 
 struct queued_message *next_broadcast_message(struct broadcast_state *bstate, u64 *last_index);
 
-#endif /* LIGHTNING_DAEMON_BROADCAST_H */
+#endif /* LIGHTNING_LIGHTNINGD_GOSSIP_BROADCAST_H */

@@ -1,6 +1,6 @@
 /* This is the full channel routines, with HTLC support. */
-#ifndef LIGHTNING_LIGHTNINGD_CHANNEL_H
-#define LIGHTNING_LIGHTNINGD_CHANNEL_H
+#ifndef LIGHTNING_LIGHTNINGD_CHANNEL_FULL_CHANNEL_H
+#define LIGHTNING_LIGHTNINGD_CHANNEL_FULL_CHANNEL_H
 #include "config.h"
 #include <common/initial_channel.h>
 #include <common/sphinx.h>
@@ -275,4 +275,4 @@ bool channel_force_htlcs(struct channel *channel,
  * Uses status_trace() on every HTLC.
  */
 void dump_htlcs(const struct channel *channel, const char *prefix);
-#endif /* LIGHTNING_DAEMON_CHANNEL_H */
+#endif /* LIGHTNING_LIGHTNINGD_CHANNEL_FULL_CHANNEL_H */

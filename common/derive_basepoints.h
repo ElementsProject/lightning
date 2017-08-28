@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_DERIVE_BASEPOINTS_H
-#define LIGHTNING_LIGHTNINGD_DERIVE_BASEPOINTS_H
+#ifndef LIGHTNING_COMMON_DERIVE_BASEPOINTS_H
+#define LIGHTNING_COMMON_DERIVE_BASEPOINTS_H
 #include "config.h"
 #include <assert.h>
 #include <bitcoin/privkey.h>
@@ -72,4 +72,4 @@ static inline u64 revocations_received(const struct shachain *shachain)
 {
 	return (1ULL << SHACHAIN_BITS) - (shachain_next_index(shachain) + 1);
 }
-#endif /* LIGHTNING_LIGHTNINGD_DERIVE_BASEPOINTS_H */
+#endif /* LIGHTNING_COMMON_DERIVE_BASEPOINTS_H */

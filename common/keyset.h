@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_KEYSET_H
-#define LIGHTNING_LIGHTNINGD_KEYSET_H
+#ifndef LIGHTNING_COMMON_KEYSET_H
+#define LIGHTNING_COMMON_KEYSET_H
 #include "config.h"
 #include <bitcoin/pubkey.h>
 #include <stdbool.h>
@@ -17,4 +17,4 @@ bool derive_keyset(const struct pubkey *per_commitment_point,
 		   const struct pubkey *self_delayed_basepoint,
 		   const struct pubkey *other_revocation_basepoint,
 		   struct keyset *keyset);
-#endif /* LIGHTNING_LIGHTNINGD_KEYSET_H */
+#endif /* LIGHTNING_COMMON_KEYSET_H */

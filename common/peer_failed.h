@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_PEER_FAILED_H
-#define LIGHTNING_LIGHTNINGD_PEER_FAILED_H
+#ifndef LIGHTNING_COMMON_PEER_FAILED_H
+#define LIGHTNING_COMMON_PEER_FAILED_H
 #include "config.h"
 #include <ccan/compiler/compiler.h>
 #include <ccan/short_types/short_types.h>
@@ -18,4 +18,4 @@ void peer_failed(int peer_fd, struct crypto_state *cs,
 		const struct channel_id *channel_id,
 		u16 error_code, const char *fmt, ...)
 	PRINTF_FMT(5,6) NORETURN;
-#endif /* LIGHTNING_STATUS_H */
+#endif /* LIGHTNING_COMMON_PEER_FAILED_H */

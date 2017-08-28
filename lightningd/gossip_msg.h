@@ -33,4 +33,4 @@ void fromwire_gossip_getchannels_entry(const u8 **pptr, size_t *max,
 void towire_gossip_getchannels_entry(
     u8 **pptr, const struct gossip_getchannels_entry *entry);
 
-#endif /* LIGHTNING_LIGHTGNINGD_GOSSIP_MSG_H */
+#endif /* LIGHTNING_LIGHTNINGD_GOSSIP_MSG_H */

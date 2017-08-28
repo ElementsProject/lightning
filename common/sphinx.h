@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_SPHINX_H
-#define LIGHTNING_DAEMON_SPHINX_H
+#ifndef LIGHTNING_COMMON_SPHINX_H
+#define LIGHTNING_COMMON_SPHINX_H
 
 #include "config.h"
 #include "bitcoin/privkey.h"
@@ -196,4 +196,4 @@ struct onionreply *unwrap_onionreply(const tal_t *ctx,
 				     const struct secret *shared_secrets,
 				     const int numhops, const u8 *reply);
 
-#endif /* LIGHTNING_DAEMON_SPHINX_H */
+#endif /* LIGHTNING_COMMON_SPHINX_H */

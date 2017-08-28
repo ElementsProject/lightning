@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_LOG_H
-#define LIGHTNING_DAEMON_LOG_H
+#ifndef LIGHTNING_LIGHTNINGD_LOG_H
+#define LIGHTNING_LIGHTNINGD_LOG_H
 #include "config.h"
 #include <ccan/tal/tal.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
@@ -132,4 +132,4 @@ void crashlog_activate(struct log *log);
 
 /* Before the crashlog is activated, just prints to stderr. */
 void NORETURN PRINTF_FMT(1,2) fatal(const char *fmt, ...);
-#endif /* LIGHTNING_DAEMON_LOG_H */
+#endif /* LIGHTNING_LIGHTNINGD_LOG_H */

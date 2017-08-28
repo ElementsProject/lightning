@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_DAEMON_OPTIONS_H
-#define LIGHTNING_DAEMON_OPTIONS_H
+#ifndef LIGHTNING_LIGHTNINGD_OPTIONS_H
+#define LIGHTNING_LIGHTNINGD_OPTIONS_H
 #include "config.h"
 #include <ccan/tal/tal.h>
 
@@ -13,4 +13,4 @@ void register_opts(struct lightningd_state *dstate);
  */
 bool handle_opts(struct lightningd_state *dstate, int argc, char *argv[]);
 
-#endif /* LIGHTNING_DAEMON_OPTIONS_H */
+#endif /* LIGHTNING_LIGHTNINGD_OPTIONS_H */
