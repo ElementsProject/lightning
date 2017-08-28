@@ -1,5 +1,4 @@
 #include "lightningd.h"
-#include "log.h"
 #include "pseudorand.h"
 #include "routing.h"
 #include "wire/gen_peer_wire.h"
@@ -11,17 +10,17 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/overflows.h>
+#include <common/type_to_string.h>
 #include <inttypes.h>
+#include <lightningd/status.h>
 
 /* 365.25 * 24 * 60 / 10 */
 #define BLOCKS_PER_YEAR 52596
 
 struct routing_state *new_routing_state(const tal_t *ctx,
-					struct log *base_log,
 					const struct sha256_double *chain_hash)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
-	rstate->base_log = base_log;
 	rstate->nodes = empty_node_map(rstate);
 	rstate->broadcasts = new_broadcast_state(rstate);
 	rstate->chain_hash = *chain_hash;
@@ -94,11 +93,11 @@ struct node *add_node(
 	struct node *n = get_node(rstate, pk);
 	if (!n) {
 		n = new_node(rstate, pk);
-		log_debug_struct(rstate->base_log, "Creating new node %s",
-				 struct pubkey, pk);
+		status_trace("Creating new node %s",
+			     type_to_string(trc, struct pubkey, pk));
 	} else {
-		log_debug_struct(rstate->base_log, "Update existing node %s",
-				 struct pubkey, pk);
+		status_trace("Update existing node %s",
+			     type_to_string(trc, struct pubkey, pk));
 	}
 	return n;
 }
@@ -124,7 +123,8 @@ static void destroy_connection(struct node_connection *nc)
 {
 	if (!remove_conn_from_array(&nc->dst->in, nc)
 	    || !remove_conn_from_array(&nc->src->out, nc))
-		fatal("Connection not found in array?!");
+		/* FIXME! */
+		abort();
 }
 
 struct node_connection * get_connection(struct routing_state *rstate,
@@ -188,25 +188,24 @@ get_or_make_connection(struct routing_state *rstate,
 	n = tal_count(to->in);
 	for (i = 0; i < n; i++) {
 		if (to->in[i]->src == from) {
-			log_debug_struct(rstate->base_log,
-					 "Updating existing route from %s",
-					 struct pubkey, &from->id);
-			log_add_struct(rstate->base_log, " to %s",
-				       struct pubkey, &to->id);
+			status_trace("Updating existing route from %s to %s",
+				     type_to_string(trc, struct pubkey,
+						    &from->id),
+				     type_to_string(trc, struct pubkey,
+						    &to->id));
 			return to->in[i];
 		}
 	}
 
-	log_debug_struct(rstate->base_log, "Creating new route from %s",
-			 struct pubkey, &from->id);
-	log_add_struct(rstate->base_log, " to %s", struct pubkey, &to->id);
+	status_trace("Creating new route from %s to %s",
+		     type_to_string(trc, struct pubkey, &from->id),
+		     type_to_string(trc, struct pubkey, &to->id));
 
 	nc = tal(rstate, struct node_connection);
 	nc->src = from;
 	nc->dst = to;
 	nc->channel_announcement = NULL;
 	nc->channel_update = NULL;
-	log_add(rstate->base_log, " = %p (%p->%p)", nc, from, to);
 
 	/* Hook it into in/out arrays. */
 	i = tal_count(to->in);
@@ -267,15 +266,14 @@ void remove_connection(struct routing_state *rstate,
 	struct node *from, *to;
 	size_t i, num_edges;
 
-	log_debug_struct(rstate->base_log, "Removing route from %s",
-			 struct pubkey, src);
-	log_add_struct(rstate->base_log, " to %s", struct pubkey, dst);
+	status_trace("Removing route from %s to %s",
+		     type_to_string(trc, struct pubkey, src),
+		     type_to_string(trc, struct pubkey, dst));
 
 	from = get_node(rstate, src);
 	to = get_node(rstate, dst);
 	if (!from || !to) {
-		log_debug(rstate->base_log, "Not found: src=%p dst=%p",
-			  from, to);
+		status_trace("Not found: src=%p dst=%p", from, to);
 		return;
 	}
 
@@ -285,13 +283,12 @@ void remove_connection(struct routing_state *rstate,
 		if (from->out[i]->dst != to)
 			continue;
 
-		log_add(rstate->base_log, " Matched route %zu of %zu",
-			i, num_edges);
+		status_trace("Matched route %zu of %zu", i, num_edges);
 		/* Destructor makes it delete itself */
 		tal_free(from->out[i]);
 		return;
 	}
-	log_add(rstate->base_log, " None of %zu routes matched", num_edges);
+	status_trace(" None of %zu routes matched", num_edges);
 }
 
 /* Too big to reach, but don't overflow if added. */
@@ -371,16 +368,16 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	src = get_node(rstate, to);
 
 	if (!src) {
-		log_info_struct(rstate->base_log, "find_route: cannot find %s",
-				struct pubkey, to);
+		status_trace("find_route: cannot find %s",
+			     type_to_string(trc, struct pubkey, to));
 		return NULL;
 	} else if (!dst) {
-		log_info_struct(rstate->base_log, "find_route: cannot find myself (%s)",
-				struct pubkey, to);
+		status_trace("find_route: cannot find myself (%s)",
+			     type_to_string(trc, struct pubkey, to));
 		return NULL;
 	} else if (dst == src) {
-		log_info_struct(rstate->base_log, "find_route: this is %s, refusing to create empty route",
-				struct pubkey, to);
+		status_trace("find_route: this is %s, refusing to create empty route",
+			     type_to_string(trc, struct pubkey, to));
 		return NULL;
 	}
 
@@ -393,7 +390,7 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	src->bfg[0].risk = 0;
 
 	for (runs = 0; runs < ROUTING_MAX_HOPS; runs++) {
-		log_debug(rstate->base_log, "Run %i", runs);
+		status_trace("Run %i", runs);
 		/* Run through every edge. */
 		for (n = node_map_first(rstate->nodes, &it);
 		     n;
@@ -403,16 +400,16 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 				if (!n->in[i]->active)
 					continue;
 				bfg_one_edge(n, i, riskfactor);
-				log_debug(rstate->base_log, "We seek %p->%p, this is %p -> %p",
-					  dst, src, n->in[i]->src, n->in[i]->dst);
-				log_debug_struct(rstate->base_log,
-						 "Checking from %s",
-						 struct pubkey,
-						 &n->in[i]->src->id);
-				log_add_struct(rstate->base_log,
-					       " to %s",
-					       struct pubkey,
-					       &n->in[i]->dst->id);
+				status_trace("We seek %p->%p, this is %p -> %p",
+					     dst, src,
+					     n->in[i]->src, n->in[i]->dst);
+				status_trace("Checking from %s to %s",
+					     type_to_string(trc,
+							    struct pubkey,
+							    &n->in[i]->src->id),
+					     type_to_string(trc,
+							    struct pubkey,
+							    &n->in[i]->dst->id));
 			}
 		}
 	}
@@ -425,8 +422,8 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 
 	/* No route? */
 	if (dst->bfg[best].total >= INFINITE) {
-		log_info_struct(rstate->base_log, "find_route: No route to %s",
-				struct pubkey, to);
+		status_trace("find_route: No route to %s",
+			     type_to_string(trc, struct pubkey, to));
 		return NULL;
 	}
 
@@ -447,21 +444,21 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	assert(n == src);
 
 	msatoshi += *fee;
-	log_info(rstate->base_log, "find_route:");
-	log_add_struct(rstate->base_log, "via %s", struct pubkey, &first_conn->dst->id);
+	status_trace("find_route: via %s",
+		     type_to_string(trc, struct pubkey, &first_conn->dst->id));
 	/* If there are intermidiaries, dump them, and total fees. */
 	if (best != 0) {
 		for (i = 0; i < best; i++) {
-			log_add_struct(rstate->base_log, " %s",
-				       struct pubkey, &(*route)[i]->dst->id);
-			log_add(rstate->base_log, "(%i+%i=%"PRIu64")",
-				(*route)[i]->base_fee,
-				(*route)[i]->proportional_fee,
-				connection_fee((*route)[i], msatoshi));
+			status_trace(" %s (%i+%i=%"PRIu64")",
+				     type_to_string(trc, struct pubkey,
+						    &(*route)[i]->dst->id),
+				     (*route)[i]->base_fee,
+				     (*route)[i]->proportional_fee,
+				     connection_fee((*route)[i], msatoshi));
 			msatoshi -= connection_fee((*route)[i], msatoshi);
 		}
-		log_add(rstate->base_log, "=%"PRIi64"(%+"PRIi64")",
-			(*route)[best-1]->dst->bfg[best-1].total, *fee);
+		status_trace(" =%"PRIi64"(%+"PRIi64")",
+			     (*route)[best-1]->dst->bfg[best-1].total, *fee);
 	}
 	return first_conn;
 }
@@ -710,10 +707,10 @@ void handle_channel_announcement(
 	 * `chain_hash` is unknown to the receiver.
 	 */
 	if (!structeq(&chain_hash, &rstate->chain_hash)) {
-		log_debug(rstate->base_log,
-			  "Received channel_announcement for unknown chain %s",
-			  type_to_string(tmpctx, struct sha256_double,
-					 &chain_hash));
+		status_trace("Received channel_announcement for unknown chain"
+			     " %s",
+			     type_to_string(tmpctx, struct sha256_double,
+					    &chain_hash));
 		tal_free(tmpctx);
 		return;
 	}
@@ -721,19 +718,15 @@ void handle_channel_announcement(
 	// FIXME: Check features!
 	//FIXME(cdecker) Check chain topology for the anchor TX
 
-	log_debug(rstate->base_log,
-		  "Received channel_announcement for channel %d:%d:%d",
-		  short_channel_id.blocknum,
-		  short_channel_id.txnum,
-		  short_channel_id.outnum
-		);
+	status_trace("Received channel_announcement for channel %s",
+		     type_to_string(trc, struct short_channel_id,
+				    &short_channel_id));
 
 	if (!check_channel_announcement(&node_id_1, &node_id_2, &bitcoin_key_1,
 					&bitcoin_key_2, &node_signature_1,
 					&node_signature_2, &bitcoin_signature_1,
 					&bitcoin_signature_2, serialized)) {
-		log_debug(
-		    rstate->base_log,
+		status_trace(
 		    "Signature verification of channel announcement failed");
 		tal_free(tmpctx);
 		return;
@@ -744,7 +737,7 @@ void handle_channel_announcement(
 	forward |= add_channel_direction(rstate, &node_id_2, &node_id_1,
 					 &short_channel_id, serialized);
 	if (!forward) {
-		log_debug(rstate->base_log, "Not forwarding channel_announcement");
+		status_trace("Not forwarding channel_announcement");
 		tal_free(tmpctx);
 		return;
 	}
@@ -788,37 +781,32 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 	 * `chain_hash` value is unknown, meaning it isn't active on the
 	 * specified chain. */
 	if (!structeq(&chain_hash, &rstate->chain_hash)) {
-		log_debug(rstate->base_log,
-			  "Received channel_update for unknown chain %s",
-			  type_to_string(tmpctx, struct sha256_double,
-					 &chain_hash));
+		status_trace("Received channel_update for unknown chain %s",
+			     type_to_string(tmpctx, struct sha256_double,
+					    &chain_hash));
 		tal_free(tmpctx);
 		return;
 	}
 
-	log_debug(rstate->base_log, "Received channel_update for channel %d:%d:%d(%d)",
-		  short_channel_id.blocknum,
-		  short_channel_id.txnum,
-		  short_channel_id.outnum,
-		  flags & 0x01
-		);
+	status_trace("Received channel_update for channel %s(%d)",
+		     type_to_string(trc, struct short_channel_id,
+				    &short_channel_id),
+		     flags & 0x01);
 
 	c = get_connection_by_scid(rstate, &short_channel_id, flags & 0x1);
 
 	if (!c) {
-		log_debug(rstate->base_log, "Ignoring update for unknown channel %d:%d:%d",
-			  short_channel_id.blocknum,
-			  short_channel_id.txnum,
-			  short_channel_id.outnum
-			);
+		status_trace("Ignoring update for unknown channel %s",
+			     type_to_string(trc, struct short_channel_id,
+					    &short_channel_id));
 		tal_free(tmpctx);
 		return;
 	} else if (c->last_timestamp >= timestamp) {
-		log_debug(rstate->base_log, "Ignoring outdated update.");
+		status_trace("Ignoring outdated update.");
 		tal_free(tmpctx);
 		return;
 	} else if (!check_channel_update(&c->src->id, &signature, serialized)) {
-		log_debug(rstate->base_log, "Signature verification failed.");
+		status_trace("Signature verification failed.");
 		tal_free(tmpctx);
 		return;
 	}
@@ -830,12 +818,10 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 	c->base_fee = fee_base_msat;
 	c->proportional_fee = fee_proportional_millionths;
 	c->active = (flags & ROUTING_FLAGS_DISABLED) == 0;
-	log_debug(rstate->base_log, "Channel %d:%d:%d(%d) was updated.",
-		  short_channel_id.blocknum,
-		  short_channel_id.txnum,
-		  short_channel_id.outnum,
-		  flags
-		);
+	status_trace("Channel %s(%d) was updated.",
+		     type_to_string(trc, struct short_channel_id,
+				    &short_channel_id),
+		     flags);
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
 	towire_short_channel_id(&tag, &short_channel_id);
@@ -893,34 +879,30 @@ void handle_node_announcement(
 	}
 
 	// FIXME: Check features!
-	log_debug_struct(rstate->base_log,
-			 "Received node_announcement for node %s",
-			 struct pubkey, &node_id);
+	status_trace("Received node_announcement for node %s",
+		     type_to_string(trc, struct pubkey, &node_id));
 
 	sha256_double(&hash, serialized + 66, tal_count(serialized) - 66);
 	if (!check_signed_hash(&hash, &signature, &node_id)) {
-		log_debug(rstate->base_log,
-			  "Ignoring node announcement, signature verification failed.");
+		status_trace("Ignoring node announcement, signature verification failed.");
 		tal_free(tmpctx);
 		return;
 	}
 	node = get_node(rstate, &node_id);
 
 	if (!node) {
-		log_debug(rstate->base_log,
-			  "Node not found, was the node_announcement preceeded by at least channel_announcement?");
+		status_trace("Node not found, was the node_announcement preceeded by at least channel_announcement?");
 		tal_free(tmpctx);
 		return;
 	} else if (node->last_timestamp >= timestamp) {
-		log_debug(rstate->base_log,
-			  "Ignoring node announcement, it's outdated.");
+		status_trace("Ignoring node announcement, it's outdated.");
 		tal_free(tmpctx);
 		return;
 	}
 
 	ipaddrs = read_addresses(tmpctx, addresses);
 	if (!ipaddrs) {
-		log_debug(rstate->base_log, "Unable to parse addresses.");
+		status_trace("Unable to parse addresses.");
 		tal_free(serialized);
 		return;
 	}

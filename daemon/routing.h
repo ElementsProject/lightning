@@ -83,8 +83,6 @@ struct routing_state {
 	/* All known nodes. */
 	struct node_map *nodes;
 
-	struct log *base_log;
-
 	struct broadcast_state *broadcasts;
 
 	struct sha256_double chain_hash;
@@ -97,8 +95,7 @@ struct route_hop {
 	u32 delay;
 };
 
-//FIXME(cdecker) The log will have to be replaced for the new subdaemon, keeping for now to keep changes small.
-struct routing_state *new_routing_state(const tal_t *ctx, struct log *base_log,
+struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct sha256_double *chain_hash);
 
 struct node *new_node(struct routing_state *rstate,

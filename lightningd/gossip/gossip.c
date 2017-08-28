@@ -9,10 +9,10 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/version.h>
 #include <daemon/broadcast.h>
-#include <daemon/log.h>
 #include <daemon/routing.h>
 #include <daemon/timeout.h>
 #include <errno.h>
@@ -654,20 +654,13 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 				   struct daemon *daemon, u8 *msg)
 {
 	struct sha256_double chain_hash;
-	struct log_book *log_book;
-	struct log *base_log;
 
 	if (!fromwire_gossipctl_init(msg, NULL, &daemon->broadcast_interval,
 				     &chain_hash)) {
 		status_failed(WIRE_GOSSIPSTATUS_INIT_FAILED,
 			      "Unable to parse init message");
 	}
-	/* Do not log absolutely anything, stdout is now a socket
-	 * connected to some other daemon. */
-	log_book = new_log_book(daemon, 2 * 1024 * 1024, LOG_BROKEN + 1);
-	base_log =
-	    new_log(daemon, log_book, "lightningd_gossip(%u):", (int)getpid());
-	daemon->rstate = new_routing_state(daemon, base_log, &chain_hash);
+	daemon->rstate = new_routing_state(daemon, &chain_hash);
 	return daemon_conn_read_next(master->conn, master);
 }
 
