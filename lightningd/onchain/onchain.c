@@ -615,8 +615,8 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 		tx->output[0].amount -= fee;
 
 	sign_tx_input(tx, 0, NULL, wscript, privkey, pubkey, &sig);
-	tx->input[0].witness = bitcoin_witness_secret(tx->input, NULL, 0,
-						      &sig, wscript);
+	tx->input[0].witness = bitcoin_witness_sig_and_empty(tx->input,
+							     &sig, wscript);
 	return tx;
 }
 

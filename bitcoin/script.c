@@ -182,15 +182,6 @@ u8 *bitcoin_redeem_2of2(const tal_t *ctx,
 	return script;
 }
 
-/* tal_count() gives the length of the script. */
-u8 *bitcoin_redeem_single(const tal_t *ctx, const struct pubkey *key)
-{
-	u8 *script = tal_arr(ctx, u8, 0);
-	add_push_key(&script, key);
-	add_op(&script, OP_CHECKSIG);
-	return script;
-}
-
 /* Create p2sh for this redeem script. */
 u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript)
 {
@@ -347,117 +338,6 @@ u8 **bitcoin_witness_2of2(const tal_t *ctx,
 	return witness;
 }
 
-/* Create a script for our HTLC output: sending. */
-u8 *bitcoin_redeem_htlc_send(const tal_t *ctx,
-			     const struct pubkey *ourkey,
-			     const struct pubkey *theirkey,
-			     const struct abs_locktime *htlc_abstimeout,
-			     const struct rel_locktime *locktime,
-			     const struct sha256 *commit_revoke,
-			     const struct sha256 *rhash)
-{
-	/* R value presented: -> them.
-	 * Commit revocation value presented: -> them.
-	 * HTLC times out -> us. */
-	u8 *script = tal_arr(ctx, u8, 0);
-	struct ripemd160 ripemd;
-
-	/* Must be 32 bytes long. */
-	add_op(&script, OP_SIZE);
-	add_number(&script, 32);
-	add_op(&script, OP_EQUALVERIFY);
-
-	add_op(&script, OP_HASH160);
-	add_op(&script, OP_DUP);
-	/* Did they supply HTLC R value? */
-	ripemd160(&ripemd, rhash->u.u8, sizeof(rhash->u));
-	add_push_bytes(&script, &ripemd, sizeof(ripemd));
-	add_op(&script, OP_EQUAL);
-	add_op(&script, OP_SWAP);
-	/* How about commit revocation value? */
-	ripemd160(&ripemd, commit_revoke->u.u8, sizeof(commit_revoke->u));
-	add_push_bytes(&script, &ripemd, sizeof(ripemd));
-	add_op(&script, OP_EQUAL);
-	add_op(&script, OP_ADD);
-
-	/* If either matched... */
-	add_op(&script, OP_IF);
-	add_push_key(&script, theirkey);
-
-	add_op(&script, OP_ELSE);
-
-	/* If HTLC times out, they can collect after a delay. */
-	add_number(&script, htlc_abstimeout->locktime);
-	add_op(&script, OP_CHECKLOCKTIMEVERIFY);
-	add_number(&script, locktime->locktime);
-	add_op(&script, OP_CHECKSEQUENCEVERIFY);
-	add_op(&script, OP_2DROP);
-	add_push_key(&script, ourkey);
-
-	add_op(&script, OP_ENDIF);
-	add_op(&script, OP_CHECKSIG);
-
-	return script;
-}
-
-/* Create a script for our HTLC output: receiving. */
-u8 *bitcoin_redeem_htlc_recv(const tal_t *ctx,
-			     const struct pubkey *ourkey,
-			     const struct pubkey *theirkey,
-			     const struct abs_locktime *htlc_abstimeout,
-			     const struct rel_locktime *locktime,
-			     const struct sha256 *commit_revoke,
-			     const struct sha256 *rhash)
-{
-	/* R value presented: -> us.
-	 * Commit revocation value presented: -> them.
-	 * HTLC times out -> them. */
-	u8 *script = tal_arr(ctx, u8, 0);
-	struct ripemd160 ripemd;
-
-	add_op(&script, OP_SIZE);
-	add_number(&script, 32);
-	add_op(&script, OP_EQUALVERIFY);
-
-	add_op(&script, OP_HASH160);
-	add_op(&script, OP_DUP);
-
-	/* Did we supply HTLC R value? */
-	ripemd160(&ripemd, rhash->u.u8, sizeof(rhash->u));
-	add_push_bytes(&script, &ripemd, sizeof(ripemd));
-	add_op(&script, OP_EQUAL);
-	add_op(&script, OP_IF);
-
-	add_number(&script, locktime->locktime);
-	add_op(&script, OP_CHECKSEQUENCEVERIFY);
-	/* Drop extra hash as well as locktime. */
-	add_op(&script, OP_2DROP);
-
-	add_push_key(&script, ourkey);
-
-	add_op(&script, OP_ELSE);
-
-	/* If they provided commit revocation, available immediately. */
-	ripemd160(&ripemd, commit_revoke->u.u8, sizeof(commit_revoke->u));
-	add_push_bytes(&script, &ripemd, sizeof(ripemd));
-	add_op(&script, OP_EQUAL);
-
-	add_op(&script, OP_NOTIF);
-
-	/* Otherwise, they must wait for HTLC timeout. */
-	add_number(&script, htlc_abstimeout->locktime);
-	add_op(&script, OP_CHECKLOCKTIMEVERIFY);
-	add_op(&script, OP_DROP);
-	add_op(&script, OP_ENDIF);
-
-	add_push_key(&script, theirkey);
-
-	add_op(&script, OP_ENDIF);
-	add_op(&script, OP_CHECKSIG);
-
-	return script;
-}
-
 /* Create scriptcode (fake witness, basically) for P2WPKH */
 u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key)
 {
@@ -542,71 +422,18 @@ bool is_p2wpkh(const u8 *script)
 	return true;
 }
 
-/* A common script pattern: A can have it with secret, or B can have
- * it after delay. */
-u8 *bitcoin_redeem_secret_or_delay(const tal_t *ctx,
-				   const struct pubkey *delayed_key,
-				   const struct rel_locktime *locktime,
-				   const struct pubkey *key_if_secret_known,
-				   const struct sha256 *hash_of_secret)
-{
-	struct ripemd160 ripemd;
-	u8 *script = tal_arr(ctx, u8, 0);
-
-	ripemd160(&ripemd, hash_of_secret->u.u8, sizeof(hash_of_secret->u));
-
-	/* If the secret is supplied.... */
-	add_op(&script, OP_HASH160);
-	add_push_bytes(&script, ripemd.u.u8, sizeof(ripemd.u.u8));
-	add_op(&script, OP_EQUAL);
-	add_op(&script, OP_IF);
-
-	/* They can collect the funds. */
-	add_push_key(&script, key_if_secret_known);
-
-	add_op(&script, OP_ELSE);
-
-	/* Other can collect after a delay. */
-	add_number(&script, locktime->locktime);
-	add_op(&script, OP_CHECKSEQUENCEVERIFY);
-	add_op(&script, OP_DROP);
-	add_push_key(&script, delayed_key);
-
-	add_op(&script, OP_ENDIF);
-	add_op(&script, OP_CHECKSIG);
-
-	return script;
-}
-
-u8 **bitcoin_witness_secret(const tal_t *ctx,
-			    const void *secret, size_t secret_len,
-			    const secp256k1_ecdsa_signature *sig,
-			    const u8 *witnessscript)
+u8 **bitcoin_witness_sig_and_empty(const tal_t *ctx,
+				   const secp256k1_ecdsa_signature *sig,
+				   const u8 *witnessscript)
 {
 	u8 **witness = tal_arr(ctx, u8 *, 3);
 
 	witness[0] = stack_sig(witness, sig);
-	witness[1] = tal_dup_arr(witness, u8, secret, secret_len, 0);
+	witness[1] = NULL;
 	witness[2] = tal_dup_arr(witness, u8,
 				 witnessscript, tal_count(witnessscript), 0);
 
 	return witness;
-}
-
-u8 **bitcoin_witness_htlc(const tal_t *ctx,
-			  const void *htlc_or_revocation_preimage,
-			  const secp256k1_ecdsa_signature *sig,
-			  const u8 *witnessscript)
-{
-	static const struct sha256 no_preimage;
-
-	/* Use 32 zeroes if no preimage. */
-	if (!htlc_or_revocation_preimage)
-		htlc_or_revocation_preimage = &no_preimage;
-
-	return bitcoin_witness_secret(ctx,
-				      htlc_or_revocation_preimage,
-				      32, sig, witnessscript);
 }
 
 /* BOLT #3:
@@ -642,26 +469,6 @@ u8 *bitcoin_wscript_to_local(const tal_t *ctx, u16 to_self_delay,
 	add_op(&script, OP_ENDIF);
 	add_op(&script, OP_CHECKSIG);
 	return script;
-}
-
-u8 **bitcoin_to_local_spend_delayedkey(const tal_t *ctx,
-		const secp256k1_ecdsa_signature *local_delayedsig,
-		const u8 *wscript)
-{
-	/* BOLT #3:
-	 *
-	 * It is spent by a transaction with `nSequence` field set to
-	 * `to_self_delay` (which can only be valid after that duration has
-	 * passed), and witness:
-	 *
-	 * 	<local_delayedsig> 0
-	 */
-	u8 **witness = tal_arr(ctx, u8 *, 3);
-
-	witness[0] = stack_sig(witness, local_delayedsig);
-	witness[1] = stack_number(witness, 0);
-	witness[2] = tal_dup_arr(witness, u8, wscript, tal_len(wscript), 0);
-	return witness;
 }
 
 u8 **bitcoin_to_local_spend_revocation(const tal_t *ctx,
