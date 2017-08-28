@@ -174,8 +174,7 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/varint.h
 
 CORE_TX_HEADERS := close_tx.h			\
-	permute_tx.h				\
-	remove_dust.h
+	permute_tx.h
 
 CORE_HEADERS := 				\
 	opt_bits.h				\
