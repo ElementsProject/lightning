@@ -219,7 +219,7 @@ CFLAGS := $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) -I libwally-core/src/secp25
 LDLIBS := -lprotobuf-c -lgmp -lsqlite3 $(COVFLAGS)
 $(PROGRAMS): CFLAGS+=-I.
 
-default: $(PROGRAMS) doc-all daemon-all
+default: $(PROGRAMS) doc-all
 
 include doc/Makefile
 include bitcoin/Makefile
@@ -242,7 +242,7 @@ test-protocol: test/test_protocol
 check: test-protocol
 	$(MAKE) pytest
 
-pytest: daemon/lightningd daemon/lightning-cli lightningd-all
+pytest: daemon/lightning-cli lightningd-all
 	PYTHONPATH=contrib/pylightning python3 tests/test_lightningd.py -f
 
 # Keep includes in alpha order.
@@ -255,7 +255,7 @@ check-hdr-include-order/%: %
 	@if [ "$$(grep '^#include' < $< | tail -n +2)" != "$$(grep '^#include' < $< | tail -n +2 | LC_ALL=C sort)" ]; then echo "$<:1: includes out of order"; exit 1; fi
 
 # Make sure Makefile includes all headers.
-check-makefile: check-daemon-makefile
+check-makefile:
 	@if [ "`echo bitcoin/*.h`" != "$(BITCOIN_HEADERS)" ]; then echo BITCOIN_HEADERS incorrect; exit 1; fi
 	@if [ x"`ls *.h | grep -v ^gen_ | fgrep -v lightning.pb-c.h`" != x"`echo $(CORE_HEADERS) $(CORE_TX_HEADERS) | tr ' ' '\n' | LC_ALL=C sort`" ]; then echo CORE_HEADERS incorrect; exit 1; fi
 	@if [ x"$(CCANDIR)/config.h `find $(CCANDIR)/ccan -name '*.h' | grep -v /test/ | LC_ALL=C sort | tr '\n' ' '`" != x"$(CCAN_HEADERS) " ]; then echo CCAN_HEADERS incorrect; exit 1; fi

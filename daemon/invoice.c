@@ -102,6 +102,15 @@ static void tell_waiter(struct command *cmd, const struct invoice *paid)
 	command_success(cmd, response);
 }
 
+/* UNIFICATION FIXME */
+void db_resolve_invoice(struct lightningd_state *dstate,
+			const char *label, u64 paid_num);
+bool db_new_invoice(struct lightningd_state *dstate,
+		    u64 msatoshi,
+		    const char *label,
+		    const struct preimage *r);
+bool db_remove_invoice(struct lightningd_state *dstate, const char *label);
+
 void resolve_invoice(struct lightningd_state *dstate, struct invoice *invoice)
 {
 	struct invoice_waiter *w;

@@ -5,7 +5,6 @@
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
-#include "peer.h"
 #include "timeout.h"
 #include "utils.h"
 #include "watch.h"

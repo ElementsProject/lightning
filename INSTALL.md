@@ -51,7 +51,7 @@ make
 Running lightning:
 ```
 bitcoind &
-./daemon/lightningd &
+./lightningd/lightningd &
 ./daemon/lightning-cli help
 ```
 **Note**: You may need to include `testnet=1` in `bitcoin.conf`
@@ -85,6 +85,6 @@ Running lightning:
 ```
 bitcoind
 export LD_LIBRARY_PATH=/usr/local/lib
-./daemon/lightningd
+./lightningd/lightningd
 ./daemon/lightning-cli help
 ```

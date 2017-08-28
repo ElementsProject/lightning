@@ -5,7 +5,6 @@
 #include "jsonrpc.h"
 #include "lightningd.h"
 #include "log.h"
-#include "peer.h"
 #include "version.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
@@ -230,6 +229,9 @@ static const struct json_command dev_crash_command = {
 	"Simple crash test for developers"
 };
 AUTODATA(json_command, &dev_crash_command);
+
+/* UNIFICATION FIXME */
+void debug_dump_peers(struct lightningd_state *dstate);
 
 static void json_restart(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
