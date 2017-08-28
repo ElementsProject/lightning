@@ -49,7 +49,7 @@ $(LIGHTNINGD_GOSSIP_CONTROL_OBJS) : $(LIGHTNINGD_GOSSIP_CONTROL_HEADERS)
 
 lightningd/gossip-all: lightningd/lightningd_gossip $(LIGHTNINGD_GOSSIP_CLIENT_OBJS)
 
-lightningd/lightningd_gossip: $(LIGHTNINGD_GOSSIP_OBJS) $(GOSSIPD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
+lightningd/lightningd_gossip: $(LIGHTNINGD_GOSSIP_OBJS) $(GOSSIPD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(CCAN_OBJS) $(LIBBASE58_OBJS) libsecp256k1.a libsodium.a libwallycore.a
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 lightningd/gossip/gen_gossip_wire.h: $(WIRE_GEN) lightningd/gossip/gossip_wire.csv
