@@ -45,9 +45,6 @@ struct block {
 	/* Key for hash table */
 	struct sha256_double blkid;
 
-	/* 0 if not enough predecessors. */
-	u32 mediantime;
-
 	/* Transactions in this block we care about */
 	const struct bitcoin_tx **txs;
 
@@ -135,13 +132,6 @@ struct txlocator {
 size_t get_tx_depth(const struct chain_topology *topo,
 		    const struct sha256_double *txid,
 		    const struct bitcoin_tx **tx);
-
-/* Get the mediantime of the block including this tx (must be one!) */
-u32 get_tx_mediantime(const struct chain_topology *topo,
-		      const struct sha256_double *txid);
-
-/* Get mediantime of the tip; if more than one, pick greatest time. */
-u32 get_tip_mediantime(const struct chain_topology *topo);
 
 /* Get highest block number. */
 u32 get_block_height(const struct chain_topology *topo);

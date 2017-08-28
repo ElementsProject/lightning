@@ -27,31 +27,6 @@ static void next_topology_timer(struct chain_topology *topo)
 		     start_poll_chaintip, topo);
 }
 
-static int cmp_times(const u32 *a, const u32 *b, void *unused)
-{
-	if (*a > *b)
-		return -1;
-	else if (*b > * a)
-		return 1;
-	return 0;
-}
-
-/* Mediantime is median of this and previous 10 blocks. */
-static u32 get_mediantime(const struct chain_topology *topo, const struct block *b)
-{
-	unsigned int i;
-	u32 times[11];
-
-	for (i = 0; i < ARRAY_SIZE(times); i++) {
-		if (!b)
-			return 0;
-		times[i] = le32_to_cpu(b->hdr.timestamp);
-		b = b->prev;
-	}
-	asort(times, ARRAY_SIZE(times), cmp_times, NULL);
-	return times[ARRAY_SIZE(times) / 2];
-}
-
 /* FIXME: Remove tx from block when peer done. */
 static void add_tx_to_block(struct block *b,
 			    const struct bitcoin_tx *tx, const u32 txnum)
@@ -84,13 +59,11 @@ static void connect_block(struct chain_topology *topo,
 	size_t i;
 
 	assert(b->height == -1);
-	assert(b->mediantime == 0);
 	assert(b->prev == NULL);
 	assert(prev->next == b);
 
 	b->prev = prev;
 	b->height = b->prev->height + 1;
-	b->mediantime = get_mediantime(topo, b);
 
 	block_map_add(&topo->block_map, b);
 
@@ -363,7 +336,6 @@ static struct block *new_block(struct chain_topology *topo,
 
 	/* We fill these out in topology_changed */
 	b->height = -1;
-	b->mediantime = 0;
 	b->prev = NULL;
 
 	b->hdr = blk->hdr;
@@ -470,24 +442,6 @@ static void get_init_blockhash(struct bitcoind *bitcoind, u32 blockcount,
 	/* Start topology from 100 blocks back. */
 	bitcoind_getblockhash(bitcoind, topo->first_blocknum,
 			      get_init_block, topo);
-}
-
-u32 get_tx_mediantime(const struct chain_topology *topo,
-		      const struct sha256_double *txid)
-{
-	struct block *b;
-
-	b = block_for_tx(topo, txid, NULL);
-	if (b)
-		return b->mediantime;
-
-	fatal("Tx %s not found for get_tx_mediantime",
-	      tal_hexstr(topo, txid, sizeof(*txid)));
-}
-
-u32 get_tip_mediantime(const struct chain_topology *topo)
-{
-	return topo->tip->mediantime;
 }
 
 u32 get_block_height(const struct chain_topology *topo)
