@@ -51,6 +51,7 @@ CCAN_OBJS :=					\
 	ccan-crypto-hkdf.o			\
 	ccan-crypto-ripemd160.o			\
 	ccan-crypto-sha256.o			\
+	ccan-crypto-shachain.o			\
 	ccan-crypto-siphash24.o			\
 	ccan-err.o				\
 	ccan-fdpass.o				\
@@ -80,8 +81,6 @@ CCAN_OBJS :=					\
 	ccan-tal.o				\
 	ccan-time.o				\
 	ccan-timer.o
-
-CCAN_SHACHAIN48_OBJ := ccan-crypto-shachain-48.o
 
 CCAN_HEADERS :=						\
 	$(CCANDIR)/config.h				\
@@ -195,7 +194,7 @@ include cli/Makefile
 CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o x"`git diff $<`" != x"" ]
 
 # Everything depends on the CCAN headers.
-$(CCAN_OBJS) $(CCAN_SHACHAIN48_OBJ) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
+$(CCAN_OBJS) $(CDUMP_OBJS) $(HELPER_OBJS) $(BITCOIN_OBJS) $(TEST_PROGRAMS:=.o) ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS)
 
 # Except for CCAN, everything depends on bitcoin, ccan, library and common headers.
 $(HELPER_OBJS) $(COMMON_OBJS) $(BITCOIN_OBJS) $(LIBBASE58_OBJS) $(WIRE_OBJS) $(WALLET_LIB_OBJS) $(TEST_PROGRAMS:=.o): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(GEN_HEADERS) $(LIBBASE58_HEADERS) $(LIBSODIUM_HEADERS) $(LIBWALLY_HEADERS)
@@ -392,7 +391,7 @@ ccan-crypto-hmac.o: $(CCANDIR)/ccan/crypto/hmac_sha256/hmac_sha256.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 ccan-crypto-hkdf.o: $(CCANDIR)/ccan/crypto/hkdf_sha256/hkdf_sha256.c
 	$(CC) $(CFLAGS) -c -o $@ $<
-ccan-crypto-shachain-48.o: $(CCANDIR)/ccan/crypto/shachain/shachain.c
+ccan-crypto-shachain.o: $(CCANDIR)/ccan/crypto/shachain/shachain.c
 	$(CC) $(CFLAGS) -DSHACHAIN_BITS=48 -c -o $@ $<
 ccan-crypto-sha256.o: $(CCANDIR)/ccan/crypto/sha256/sha256.c
 	$(CC) $(CFLAGS) -c -o $@ $<
