@@ -122,7 +122,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/timer/timer.h			\
 	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h
 
-GEN_HEADERS := 	gen_version.h
+ALL_GEN_HEADERS += gen_version.h
 
 CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
@@ -143,6 +143,13 @@ include bitcoin/Makefile
 include common/Makefile
 include wire/Makefile
 include wallet/Makefile
+include hsmd/Makefile
+include handshaked/Makefile
+include gossipd/Makefile
+include openingd/Makefile
+include channeld/Makefile
+include closingd/Makefile
+include onchaind/Makefile
 include lightningd/Makefile
 include cli/Makefile
 include test/Makefile
@@ -154,7 +161,7 @@ CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o
 check:
 	$(MAKE) pytest
 
-pytest: cli/lightning-cli lightningd-all
+pytest: $(ALL_PROGRAMS)
 	PYTHONPATH=contrib/pylightning python3 tests/test_lightningd.py -f
 
 # Keep includes in alpha order.
@@ -233,8 +240,11 @@ $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS):
 # Everything depends on the CCAN headers.
 $(CCAN_OBJS) $(CDUMP_OBJS): $(CCAN_HEADERS)
 
-# Except for CCAN, we treat everything else as dependent on external/ bitcoin/ common/ wire/ and generated version headers.
-$(ALL_OBJS): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(GEN_HEADERS) $(EXTERNAL_HEADERS)
+# Except for CCAN, we treat everything else as dependent on external/ bitcoin/ common/ wire/ and all generated headers.
+$(ALL_OBJS): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(ALL_GEN_HEADERS) $(EXTERNAL_HEADERS)
+
+# We generate headers in two ways, so regen when either changes.
+$(ALL_GEN_HEADERS): ccan/ccan/cdump/tools/cdump-enumstr $(WIRE_GEN)
 
 update-ccan:
 	mv ccan ccan.old

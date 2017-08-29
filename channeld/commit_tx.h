@@ -2,9 +2,9 @@
 #define LIGHTNING_LIGHTNINGD_CHANNEL_COMMIT_TX_H
 #include "config.h"
 #include <bitcoin/pubkey.h>
+#include <channeld/channeld_htlc.h>
 #include <common/htlc.h>
 #include <common/initial_commit_tx.h>
-#include <lightningd/channel/channeld_htlc.h>
 
 struct keyset;
 struct sha256_double;

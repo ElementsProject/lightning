@@ -4,8 +4,8 @@
 #include <common/cryptomsg.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <lightningd/handshake/gen_handshake_wire.h>
-#include <lightningd/hsm/gen_hsm_wire.h>
+#include <handshaked/gen_handshake_wire.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
@@ -221,7 +221,7 @@ static struct io_plan *hsm_then_handshake(struct io_conn *conn,
 
 	/* Give handshake daemon the hsm fd. */
 	handshaked = new_subd(ld, ld,
-			      "lightningd_handshake", NULL,
+			      "lightning_handshaked", NULL,
 			      handshake_wire_type_name,
 			      NULL, NULL,
 			      take(&hsmfd), take(&connfd), NULL);

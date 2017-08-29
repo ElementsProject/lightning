@@ -7,8 +7,8 @@
 #include <common/status.h>
 #include <common/utils.h>
 #include <errno.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
-#include <lightningd/hsm/gen_hsm_wire.h>
 #include <lightningd/log.h>
 #include <string.h>
 #include <wally_bip32.h>
@@ -36,7 +36,7 @@ void hsm_init(struct lightningd *ld, bool newdir)
 	u8 *msg;
 	bool create;
 
-	ld->hsm_fd = subd_raw(ld, "lightningd_hsm");
+	ld->hsm_fd = subd_raw(ld, "lightning_hsmd");
 	if (ld->hsm_fd < 0)
 		err(1, "Could not subd hsm");
 

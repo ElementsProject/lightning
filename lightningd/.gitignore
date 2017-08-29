@@ -1,7 +1,9 @@
 lightningd
-lightningd_channel
-lightningd_connect
-lightningd_gossip
-lightningd_handshake
-lightningd_hsm
-lightningd_opening
+lightning_channeld
+lightning_connectd
+lightning_gossipd
+lightning_handshaked
+lightning_hsmd
+lightning_openingd
+lightning_closingd
+lightning_onchaind

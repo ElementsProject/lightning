@@ -15,9 +15,9 @@
 #include <common/version.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <lightningd/onchain/gen_onchain_wire.h>
-#include <lightningd/onchain/onchain_types.h>
 #include <lightningd/peer_state.h>
+#include <onchaind/gen_onchain_wire.h>
+#include <onchaind/onchain_types.h>
 #include <signal.h>
 #include <stdio.h>
 #include <unistd.h>

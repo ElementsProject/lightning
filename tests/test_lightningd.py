@@ -238,8 +238,8 @@ class LightningDTests(BaseLightningDTests):
         assert 'state: UNINITIALIZED -> GOSSIPD' in p1['log']
 
         # Both should still be owned by gossip
-        assert p1['owner'] == 'lightningd_gossip'
-        assert p2['owner'] == 'lightningd_gossip'
+        assert p1['owner'] == 'lightning_gossipd'
+        assert p2['owner'] == 'lightning_gossipd'
 
     def test_balance(self):
         l1,l2 = self.connect()

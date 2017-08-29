@@ -8,6 +8,8 @@
 #include <ccan/noerr/noerr.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
+#include <channeld/gen_channel_wire.h>
+#include <closingd/gen_closing_wire.h>
 #include <common/close_tx.h>
 #include <common/dev_disconnect.h>
 #include <common/funding_tx.h>
@@ -17,24 +19,22 @@
 #include <common/timeout.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <gossipd/gen_gossip_wire.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <lightningd/build_utxos.h>
 #include <lightningd/chaintopology.h>
-#include <lightningd/channel/gen_channel_wire.h>
-#include <lightningd/closing/gen_closing_wire.h>
 #include <lightningd/dns.h>
 #include <lightningd/gen_peer_state_names.h>
-#include <lightningd/gossip/gen_gossip_wire.h>
-#include <lightningd/hsm/gen_hsm_wire.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
 #include <lightningd/new_connection.h>
-#include <lightningd/onchain/gen_onchain_wire.h>
-#include <lightningd/onchain/onchain_wire.h>
-#include <lightningd/opening/gen_opening_wire.h>
 #include <lightningd/peer_htlcs.h>
 #include <netinet/in.h>
+#include <onchaind/gen_onchain_wire.h>
+#include <onchaind/onchain_wire.h>
+#include <openingd/gen_opening_wire.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -1224,7 +1224,7 @@ static enum watch_result funding_spent(struct peer *peer,
 
 	peer_fail_permanent_str(peer, "Funding transaction spent");
 	peer->owner = new_subd(peer->ld, peer->ld,
-			       "lightningd_onchain", peer,
+			       "lightning_onchaind", peer,
 			       onchain_wire_type_name,
 			       onchain_msg,
 			       peer_onchain_finished,
@@ -1783,7 +1783,7 @@ static void peer_start_closingd(struct peer *peer,
 	}
 
 	peer->owner = new_subd(peer->ld, peer->ld,
-			       "lightningd_closing", peer,
+			       "lightning_closingd", peer,
 			       closing_wire_type_name,
 			       closing_msg,
 			       peer_owner_finished,
@@ -1970,7 +1970,7 @@ static bool peer_start_channeld(struct peer *peer,
 		fatal("Could not read fd from HSM: %s", strerror(errno));
 
 	peer->owner = new_subd(peer->ld, peer->ld,
-			       "lightningd_channel", peer,
+			       "lightning_channeld", peer,
 			       channel_wire_type_name,
 			       channel_msg,
 			       peer_owner_finished,
@@ -2282,7 +2282,7 @@ static void channel_config(struct lightningd *ld,
 	  */
 	 ours->max_accepted_htlcs = 483;
 
-	 /* This is filled in by lightningd_opening, for consistency. */
+	 /* This is filled in by lightning_openingd, for consistency. */
 	 ours->channel_reserve_satoshis = 0;
 };
 
@@ -2309,7 +2309,7 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 	}
 
 	peer_set_condition(peer, GOSSIPD, OPENINGD);
-	peer->owner = new_subd(ld, ld, "lightningd_opening", peer,
+	peer->owner = new_subd(ld, ld, "lightning_openingd", peer,
 			       opening_wire_type_name,
 			       NULL, peer_owner_finished,
 			       take(&peer_fd), take(&gossip_fd),
@@ -2393,7 +2393,7 @@ static bool gossip_peer_released(struct subd *gossip,
 
 	peer_set_condition(fc->peer, GOSSIPD, OPENINGD);
 	opening = new_subd(fc->peer->ld, ld,
-			   "lightningd_opening", fc->peer,
+			   "lightning_openingd", fc->peer,
 			   opening_wire_type_name,
 			   NULL, peer_owner_finished,
 			   take(&fds[0]), take(&fds[1]), NULL);

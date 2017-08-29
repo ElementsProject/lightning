@@ -1,5 +1,5 @@
-#include <lightningd/hsm/client.h>
-#include <lightningd/hsm/gen_hsm_client_wire.h>
+#include <hsmd/client.h>
+#include <hsmd/gen_hsm_client_wire.h>
 #include <wire/wire_sync.h>
 
 static int hsm_fd = -1;

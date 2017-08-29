@@ -3,7 +3,7 @@
 #include "config.h"
 #include <bitcoin/pubkey.h>
 #include <ccan/htable/htable_type.h>
-#include <lightningd/gossip/broadcast.h>
+#include <gossipd/broadcast.h>
 #include <wire/wire.h>
 
 #define ROUTING_MAX_HOPS 20

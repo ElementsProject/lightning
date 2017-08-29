@@ -3,22 +3,22 @@
 #include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <channeld/gen_channel_wire.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc_wire.h>
 #include <common/overflows.h>
 #include <common/sphinx.h>
+#include <gossipd/gen_gossip_wire.h>
 #include <lightningd/chaintopology.h>
-#include <lightningd/channel/gen_channel_wire.h>
-#include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/invoice.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
-#include <lightningd/onchain/onchain_wire.h>
 #include <lightningd/pay.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/subd.h>
+#include <onchaind/onchain_wire.h>
 #include <wire/gen_onion_wire.h>
 
 static bool state_update_ok(struct peer *peer,

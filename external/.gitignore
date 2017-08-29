@@ -1,0 +1,8 @@
+libbase58.a
+libjsmn.a
+libsecp256k1.a
+libsecp256k1.la
+libsodium.a
+libsodium.la
+libwallycore.a
+libwallycore.la

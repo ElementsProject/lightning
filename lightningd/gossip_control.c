@@ -7,8 +7,8 @@
 #include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
+#include <gossipd/gen_gossip_wire.h>
 #include <inttypes.h>
-#include <lightningd/gossip/gen_gossip_wire.h>
 #include <lightningd/gossip_msg.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
@@ -144,7 +144,7 @@ void gossip_init(struct lightningd *ld)
 {
 	tal_t *tmpctx = tal_tmpctx(ld);
 	u8 *init;
-	ld->gossip = new_subd(ld, ld, "lightningd_gossip", NULL,
+	ld->gossip = new_subd(ld, ld, "lightning_gossipd", NULL,
 			      gossip_wire_type_name,
 			      gossip_msg, gossip_finished, NULL);
 	if (!ld->gossip)

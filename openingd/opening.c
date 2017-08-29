@@ -19,7 +19,7 @@
 #include <common/version.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <lightningd/opening/gen_opening_wire.h>
+#include <openingd/gen_opening_wire.h>
 #include <secp256k1.h>
 #include <signal.h>
 #include <stdio.h>

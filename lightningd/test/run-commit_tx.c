@@ -6,7 +6,7 @@ static bool print_superverbose;
 #define SUPERVERBOSE(...)					\
 	do { if (print_superverbose) printf(__VA_ARGS__); } while(0)
 #define PRINT_ACTUAL_FEE
-#include "../channel/commit_tx.c"
+#include "../../channeld/commit_tx.c"
 #include "../../common/initial_commit_tx.c"
 #include "../../common/htlc_tx.c"
 #include <bitcoin/preimage.h>
