@@ -2,9 +2,9 @@
 #ifndef LIGHTNING_LIGHTNINGD_CHANNEL_FULL_CHANNEL_H
 #define LIGHTNING_LIGHTNINGD_CHANNEL_FULL_CHANNEL_H
 #include "config.h"
+#include <channeld/channeld_htlc.h>
 #include <common/initial_channel.h>
 #include <common/sphinx.h>
-#include <lightningd/channel/channeld_htlc.h>
 
 /**
  * new_channel: Given initial fees and funding, what is initial state?

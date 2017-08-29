@@ -11,6 +11,9 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
+#include <channeld/commit_tx.h>
+#include <channeld/full_channel.h>
+#include <channeld/gen_channel_wire.h>
 #include <common/crypto_sync.h>
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
@@ -27,12 +30,9 @@
 #include <common/type_to_string.h>
 #include <common/version.h>
 #include <errno.h>
+#include <gossipd/routing.h>
+#include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
-#include <lightningd/channel/commit_tx.h>
-#include <lightningd/channel/full_channel.h>
-#include <lightningd/channel/gen_channel_wire.h>
-#include <lightningd/gossip/routing.h>
-#include <lightningd/hsm/gen_hsm_client_wire.h>
 #include <secp256k1.h>
 #include <signal.h>
 #include <stdio.h>

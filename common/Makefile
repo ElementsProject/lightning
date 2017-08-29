@@ -41,6 +41,9 @@ COMMON_OBJS := $(COMMON_SRC:.c=.o)
 # Common objects depends on bitcoin/ external/ and ccan
 $(COMMON_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(EXTERNAL_HEADERS) $(COMMON_HEADERS_GEN)
 
+ALL_GEN_HEADERS += $(COMMON_HEADERS_GEN)
+ALL_OBJS += $(COMMON_OBJS)
+
 common/gen_htlc_state_names.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr common/htlc_state.h > $@
 

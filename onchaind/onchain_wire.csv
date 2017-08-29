@@ -35,7 +35,7 @@ onchain_init,,num_htlc_sigs,u16
 onchain_init,,htlc_signature,num_htlc_sigs*secp256k1_ecdsa_signature
 onchain_init,,num_htlcs,u64
 
-#include <lightningd/onchain/onchain_wire.h>
+#include <onchaind/onchain_wire.h>
 # This is all the HTLCs: one per message
 onchain_htlc,2
 onchain_htlc,,htlc,struct htlc_stub

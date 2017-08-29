@@ -2,9 +2,9 @@
 #include <bitcoin/preimage.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
+#include <channeld/gen_channel_wire.h>
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
-#include <lightningd/channel/gen_channel_wire.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>

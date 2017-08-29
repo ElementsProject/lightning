@@ -22,6 +22,7 @@ WIRE_OBJS := $(WIRE_SRC:.c=.o) $(WIRE_GEN_SRC:.c=.o)
 WIRE_ONION_OBJS := $(WIRE_GEN_ONION_SRC:.c=.o)
 
 ALL_OBJS += $(WIRE_OBJS) $(WIRE_ONION_OBJS)
+ALL_GEN_HEADERS += $(WIRE_GEN_HEADERS)
 
 # They may not have the bolts.
 BOLT_EXTRACT=$(BOLTDIR)/tools/extract-formats.py

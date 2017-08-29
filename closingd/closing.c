@@ -1,4 +1,5 @@
 #include <bitcoin/script.h>
+#include <closingd/gen_closing_wire.h>
 #include <common/close_tx.h>
 #include <common/crypto_sync.h>
 #include <common/debug.h>
@@ -10,7 +11,6 @@
 #include <common/version.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <lightningd/closing/gen_closing_wire.h>
 #include <signal.h>
 #include <stdio.h>
 #include <unistd.h>

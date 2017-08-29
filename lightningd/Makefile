@@ -4,11 +4,11 @@
 lightningd-wrongdir:
 	$(MAKE) -C .. lightningd-all
 
-LIGHTNINGD_BINS := lightningd/lightningd lightningd/lightningd_hsm lightningd/lightningd_handshake lightningd/lightningd_gossip lightningd/lightningd_opening lightningd/lightningd_channel lightningd/lightningd_closing lightningd/lightningd_onchain
+LIGHTNINGD_PROGRAM := lightningd/lightningd
 
-ALL_PROGRAMS += $(LIGHTNINGD_BINS)
+ALL_PROGRAMS += $(LIGHTNINGD_PROGRAM)
 
-lightningd-all: $(LIGHTNINGD_BINS)
+lightningd-all: $(LIGHTNINGD_PROGRAM)
 
 default: lightningd-all
 
@@ -76,18 +76,10 @@ LIGHTNINGD_HEADERS_NOGEN =			\
 LIGHTNINGD_HEADERS_GEN =			\
 	lightningd/gen_peer_state_names.h
 
+ALL_GEN_HEADERS += $(LIGHTNINGD_HEADERS_GEN)
+
 # All together in one convenient var
 LIGHTNINGD_HEADERS = $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) $(EXTERNAL_HEADERS) $(WIRE_HEADERS) $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(WALLET_LIB_HEADERS)
-
-# These included makefiles add their headers to the LIGHTNINGD_HEADERS
-# variable so the include must preceed any actual use of the variable.
-include lightningd/hsm/Makefile
-include lightningd/handshake/Makefile
-include lightningd/gossip/Makefile
-include lightningd/opening/Makefile
-include lightningd/channel/Makefile
-include lightningd/closing/Makefile
-include lightningd/onchain/Makefile
 
 $(LIGHTNINGD_OBJS): $(LIGHTNINGD_HEADERS) 
 
@@ -104,11 +96,11 @@ check-makefile: check-lightningd-makefile
 check-lightningd-makefile:
 	@for f in lightningd/*.h lightningd/*/*.h; do if ! echo $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) "" | grep -q "$$f "; then echo $$f not mentioned in LIGHTNINGD_HEADERS_NOGEN or LIGHTNINGD_HEADERS_GEN >&2; exit 1; fi; done
 
-lightningd/lightningd: $(LIGHTNINGD_OBJS) $(LIGHTNINGD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(CCAN_OBJS) $(LIGHTNINGD_HSM_CONTROL_OBJS) $(LIGHTNINGD_HANDSHAKE_CONTROL_OBJS) $(LIGHTNINGD_GOSSIP_CONTROL_OBJS) $(LIGHTNINGD_OPENING_CONTROL_OBJS) $(LIGHTNINGD_CHANNEL_CONTROL_OBJS) $(LIGHTNINGD_CLOSING_CONTROL_OBJS) $(LIGHTNINGD_ONCHAIN_CONTROL_OBJS) $(WALLET_LIB_OBJS)
+lightningd/lightningd: $(LIGHTNINGD_OBJS) $(LIGHTNINGD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(LIGHTNINGD_HSM_CONTROL_OBJS) $(LIGHTNINGD_HANDSHAKE_CONTROL_OBJS) $(LIGHTNINGD_GOSSIP_CONTROL_OBJS) $(LIGHTNINGD_OPENING_CONTROL_OBJS) $(LIGHTNINGD_CHANNEL_CONTROL_OBJS) $(LIGHTNINGD_CLOSING_CONTROL_OBJS) $(LIGHTNINGD_ONCHAIN_CONTROL_OBJS) $(WALLET_LIB_OBJS)
 
 clean: lightningd-clean
 
 lightningd-clean:
-	$(RM) $(LIGHTNINGD_OBJS) $(LIGHTNINGD_JSMN_OBJS) $(LIGHTNINGD_BINS)
+	$(RM) $(LIGHTNINGD_OBJS) $(LIGHTNINGD_JSMN_OBJS) $(LIGHTNINGD_PROGRAM)
 
 include lightningd/test/Makefile

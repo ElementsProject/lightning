@@ -1,36 +1,38 @@
 #! /usr/bin/make
 
 # Designed to be run one level up
-lightningd/closing-wrongdir:
-	$(MAKE) -C ../.. lightningd/closing-all
+closingd-wrongdir:
+	$(MAKE) -C ../.. closingd-all
 
-default: lightningd/closing-all
+default: closingd-all
 
-lightningd/closing-all: lightningd/lightningd_closing
+closingd-all: lightningd/lightning_closingd
 
-# lightningd/closing needs these:
+# closingd needs these:
 LIGHTNINGD_CLOSING_HEADERS_GEN :=			\
-	lightningd/closing/gen_closing_wire.h
+	closingd/gen_closing_wire.h
 
 LIGHTNINGD_CLOSING_HEADERS_NOGEN :=
 
 LIGHTNINGD_CLOSING_HEADERS := $(LIGHTNINGD_CLOSING_HEADERS_GEN) $(LIGHTNINGD_CLOSING_HEADERS_NOGEN)
 
-LIGHTNINGD_CLOSING_SRC := lightningd/closing/closing.c	\
+LIGHTNINGD_CLOSING_SRC := closingd/closing.c	\
 	$(LIGHTNINGD_CLOSING_HEADERS:.h=.c)
 LIGHTNINGD_CLOSING_OBJS := $(LIGHTNINGD_CLOSING_SRC:.c=.o)
 
 # Make sure these depend on everything.
 ALL_OBJS += $(LIGHTNINGD_CLOSING_OBJS)
+ALL_PROGRAMS += lightningd/lightning_closingd
+ALL_GEN_HEADERS += $(LIGHTNINGD_CLOSING_HEADERS_GEN)
 
 # Control daemon uses this:
 LIGHTNINGD_CLOSING_CONTROL_HEADERS := $(LIGHTNINGD_CLOSING_HEADERS)
 LIGHTNINGD_CLOSING_CONTROL_SRC := $(LIGHTNINGD_CLOSING_HEADERS:.h=.c)
 LIGHTNINGD_CLOSING_CONTROL_OBJS := $(LIGHTNINGD_CLOSING_CONTROL_SRC:.c=.o)
 
-LIGHTNINGD_CLOSING_GEN_SRC := $(filter lightningd/closing/gen_%, $(LIGHTNINGD_CLOSING_SRC) $(LIGHTNINGD_CLOSING_CONTROL_SRC))
+LIGHTNINGD_CLOSING_GEN_SRC := $(filter closingd/gen_%, $(LIGHTNINGD_CLOSING_SRC) $(LIGHTNINGD_CLOSING_CONTROL_SRC))
 
-LIGHTNINGD_CLOSING_SRC_NOGEN := $(filter-out lightningd/closing/gen_%, $(LIGHTNINGD_CLOSING_SRC))
+LIGHTNINGD_CLOSING_SRC_NOGEN := $(filter-out closingd/gen_%, $(LIGHTNINGD_CLOSING_SRC))
 
 # Add to headers which any object might need.
 LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_CLOSING_HEADERS_GEN)
@@ -55,24 +57,24 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/utils.o				\
 	common/version.o
 
-lightningd/closing/gen_closing_wire.h: $(WIRE_GEN) lightningd/closing/closing_wire.csv
-	$(WIRE_GEN) --header $@ closing_wire_type < lightningd/closing/closing_wire.csv > $@
+closingd/gen_closing_wire.h: $(WIRE_GEN) closingd/closing_wire.csv
+	$(WIRE_GEN) --header $@ closing_wire_type < closingd/closing_wire.csv > $@
 
-lightningd/closing/gen_closing_wire.c: $(WIRE_GEN) lightningd/closing/closing_wire.csv
-	$(WIRE_GEN) ${@:.c=.h} closing_wire_type < lightningd/closing/closing_wire.csv > $@
+closingd/gen_closing_wire.c: $(WIRE_GEN) closingd/closing_wire.csv
+	$(WIRE_GEN) ${@:.c=.h} closing_wire_type < closingd/closing_wire.csv > $@
 
 LIGHTNINGD_CLOSING_OBJS := $(LIGHTNINGD_CLOSING_SRC:.c=.o) $(LIGHTNINGD_CLOSING_GEN_SRC:.c=.o)
 
-lightningd/lightningd_closing: $(LIGHTNINGD_CLOSING_OBJS) $(WIRE_ONION_OBJS) $(CLOSINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS)
+lightningd/lightning_closingd: $(LIGHTNINGD_CLOSING_OBJS) $(WIRE_ONION_OBJS) $(CLOSINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS)
 
 check-source: $(LIGHTNINGD_CLOSING_SRC_NOGEN:%=check-src-include-order/%)
 check-source-bolt: $(LIGHTNINGD_CLOSING_SRC:%=bolt-check/%) $(LIGHTNINGD_CLOSING_HEADERS:%=bolt-check/%)
 
 check-whitespace: $(LIGHTNINGD_CLOSING_SRC_NOGEN:%=check-whitespace/%) $(LIGHTNINGD_CLOSING_HEADERS_NOGEN:%=check-whitespace/%)
 
-clean: lightningd/closing-clean
+clean: closingd-clean
 
-lightningd/closing-clean:
+closingd-clean:
 	$(RM) $(LIGHTNINGD_CLOSING_OBJS) gen_*
 
--include lightningd/closing/test/Makefile 
+-include closingd/test/Makefile 

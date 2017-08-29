@@ -6,6 +6,8 @@
 #include <ccan/mem/mem.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
+#include <channeld/commit_tx.h>
+#include <channeld/full_channel.h>
 #include <common/channel_config.h>
 #include <common/htlc.h>
 #include <common/htlc_tx.h>
@@ -15,8 +17,6 @@
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <inttypes.h>
-#include <lightningd/channel/commit_tx.h>
-#include <lightningd/channel/full_channel.h>
 #include <string.h>
 
 struct channel *new_channel(const tal_t *ctx,

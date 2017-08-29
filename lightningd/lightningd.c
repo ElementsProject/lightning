@@ -22,8 +22,8 @@
 #include <lightningd/invoice.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
-#include <lightningd/onchain/onchain_wire.h>
 #include <lightningd/options.h>
+#include <onchaind/onchain_wire.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -100,12 +100,13 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 
 static const char *daemons[] = {
 	"lightningd",
-	"lightningd_channel",
-	"lightningd_closing",
-	"lightningd_gossip",
-	"lightningd_handshake",
-	"lightningd_hsm",
-	"lightningd_opening"
+	"lightning_channeld",
+	"lightning_closingd",
+	"lightning_gossipd",
+	"lightning_handshaked",
+	"lightning_hsmd",
+	"lightning_onchaind",
+	"lightning_openingd"
 };
 
 /* Check we can run them, and check their versions */

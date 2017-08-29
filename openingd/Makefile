@@ -1,22 +1,22 @@
 #! /usr/bin/make
 
 # Designed to be run one level up
-lightningd/opening-wrongdir:
-	$(MAKE) -C ../.. lightningd/opening-all
+opening-wrongdir:
+	$(MAKE) -C ../.. opening-all
 
-default: lightningd/opening-all
+default: opening-all
 
-lightningd/opening-all: lightningd/lightningd_opening
+opening-all: lightningd/lightning_openingd
 
-# lightningd/opening needs these:
+# opening needs these:
 LIGHTNINGD_OPENING_HEADERS_GEN :=			\
-	lightningd/opening/gen_opening_wire.h
+	openingd/gen_opening_wire.h
 
 LIGHTNINGD_OPENING_HEADERS_NOGEN :=
 
 LIGHTNINGD_OPENING_HEADERS := $(LIGHTNINGD_OPENING_HEADERS_GEN) $(LIGHTNINGD_OPENING_HEADERS_NOGEN)
 
-LIGHTNINGD_OPENING_SRC := lightningd/opening/opening.c	\
+LIGHTNINGD_OPENING_SRC := openingd/opening.c	\
 	$(LIGHTNINGD_OPENING_HEADERS:.h=.c)
 LIGHTNINGD_OPENING_OBJS := $(LIGHTNINGD_OPENING_SRC:.c=.o)
 
@@ -25,9 +25,9 @@ LIGHTNINGD_OPENING_CONTROL_HEADERS := $(LIGHTNINGD_OPENING_HEADERS)
 LIGHTNINGD_OPENING_CONTROL_SRC := $(LIGHTNINGD_OPENING_HEADERS:.h=.c)
 LIGHTNINGD_OPENING_CONTROL_OBJS := $(LIGHTNINGD_OPENING_CONTROL_SRC:.c=.o)
 
-LIGHTNINGD_OPENING_GEN_SRC := $(filter lightningd/opening/gen_%, $(LIGHTNINGD_OPENING_SRC) $(LIGHTNINGD_OPENING_CONTROL_SRC))
+LIGHTNINGD_OPENING_GEN_SRC := $(filter openingd/gen_%, $(LIGHTNINGD_OPENING_SRC) $(LIGHTNINGD_OPENING_CONTROL_SRC))
 
-LIGHTNINGD_OPENING_SRC_NOGEN := $(filter-out lightningd/opening/gen_%, $(LIGHTNINGD_OPENING_SRC))
+LIGHTNINGD_OPENING_SRC_NOGEN := $(filter-out openingd/gen_%, $(LIGHTNINGD_OPENING_SRC))
 
 # Add to headers which any object might need.
 LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_OPENING_HEADERS_GEN)
@@ -62,27 +62,29 @@ OPENINGD_COMMON_OBJS :=				\
 
 $(LIGHTNINGD_OPENING_OBJS): $(LIGHTNINGD_HEADERS)
 
-lightningd/opening/gen_opening_wire.h: $(WIRE_GEN) lightningd/opening/opening_wire.csv
-	$(WIRE_GEN) --header $@ opening_wire_type < lightningd/opening/opening_wire.csv > $@
+openingd/gen_opening_wire.h: $(WIRE_GEN) openingd/opening_wire.csv
+	$(WIRE_GEN) --header $@ opening_wire_type < openingd/opening_wire.csv > $@
 
-lightningd/opening/gen_opening_wire.c: $(WIRE_GEN) lightningd/opening/opening_wire.csv
-	$(WIRE_GEN) ${@:.c=.h} opening_wire_type < lightningd/opening/opening_wire.csv > $@
+openingd/gen_opening_wire.c: $(WIRE_GEN) openingd/opening_wire.csv
+	$(WIRE_GEN) ${@:.c=.h} opening_wire_type < openingd/opening_wire.csv > $@
 
 LIGHTNINGD_OPENING_OBJS := $(LIGHTNINGD_OPENING_SRC:.c=.o) $(LIGHTNINGD_OPENING_GEN_SRC:.c=.o)
 
 # Make sure these depend on everything.
 ALL_OBJS += $(LIGHTNINGD_OPENING_OBJS)
+ALL_PROGRAMS += lightningd/lightning_openingd
+ALL_GEN_HEADERS += $(LIGHTNINGD_OPENING_HEADERS_GEN)
 
-lightningd/lightningd_opening: $(LIGHTNINGD_OPENING_OBJS) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
+lightningd/lightning_openingd: $(LIGHTNINGD_OPENING_OBJS) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
 
 check-source: $(LIGHTNINGD_OPENING_SRC_NOGEN:%=check-src-include-order/%)
 check-source-bolt: $(LIGHTNINGD_OPENING_SRC:%=bolt-check/%) $(LIGHTNINGD_OPENING_HEADERS:%=bolt-check/%)
 
 check-whitespace: $(LIGHTNINGD_OPENING_SRC_NOGEN:%=check-whitespace/%) $(LIGHTNINGD_OPENING_HEADERS_NOGEN:%=check-whitespace/%)
 
-clean: lightningd/opening-clean
+clean: opening-clean
 
-lightningd/opening-clean:
+opening-clean:
 	$(RM) $(LIGHTNINGD_OPENING_OBJS) gen_*
 
--include lightningd/opening/test/Makefile 
+-include openingd/test/Makefile 

@@ -9,14 +9,8 @@
 TAGS
 ccan/tools/configurator/configurator
 ccan/ccan/cdump/tools/cdump-enumstr
-libsecp256k1.a
-libsecp256k1.la
-libsodium.a
-libsodium.la
-libwallycore.a
-libwallycore.la
 gen_*
-lightning-cli/lightning-cli
+cli/lightning-cli
 tools/check-bolt
 coverage
 ccan/config.h
@@ -34,4 +28,3 @@ daemon/test/run-maxfee
 test/test_protocol
 test/test_sphinx
 test/test_irc
-lightningd/lightningd_closing

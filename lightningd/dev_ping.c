@@ -1,7 +1,7 @@
+#include <channeld/gen_channel_wire.h>
 #include <common/sphinx.h>
 #include <common/utils.h>
-#include <lightningd/channel/gen_channel_wire.h>
-#include <lightningd/gossip/gen_gossip_wire.h>
+#include <gossipd/gen_gossip_wire.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
@@ -16,7 +16,7 @@ static bool ping_reply(struct subd *subd, const u8 *msg, const int *fds,
 	bool ok;
 
 	log_debug(subd->ld->log, "Got ping reply!");
-	if (streq(subd->name, "lightningd_channel"))
+	if (streq(subd->name, "lightning_channeld"))
 		ok = fromwire_channel_ping_reply(msg, NULL, &totlen);
 	else
 		ok = fromwire_gossip_ping_reply(msg, NULL, &totlen);
@@ -59,8 +59,8 @@ static void json_dev_ping(struct command *cmd,
 
 	/* FIXME: These checks are horrible, use a peer flag to say it's
 	 * ready to forward! */
-	if (peer->owner && !streq(peer->owner->name, "lightningd_channel")
-	    && !streq(peer->owner->name, "lightningd_gossip")) {
+	if (peer->owner && !streq(peer->owner->name, "lightning_channeld")
+	    && !streq(peer->owner->name, "lightning_gossipd")) {
 		command_fail(cmd, "Peer in %s",
 			     peer->owner ? peer->owner->name : "unattached");
 		return;
@@ -80,7 +80,7 @@ static void json_dev_ping(struct command *cmd,
 		return;
 	}
 
-	if (streq(peer->owner->name, "lightningd_channel"))
+	if (streq(peer->owner->name, "lightning_channeld"))
 		msg = towire_channel_ping(cmd, pongbytes, len);
 	else
 		msg = towire_gossip_ping(cmd, peer->unique_id, pongbytes, len);

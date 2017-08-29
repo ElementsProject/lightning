@@ -16,7 +16,7 @@ struct io_conn;
 
 /* One of our subds. */
 struct subd {
-	/* Name, like John, or "lightningd_hsm" */
+	/* Name, like John, or "lightning_hsmd" */
 	const char *name;
 	/* The Big Cheese. */
 	struct lightningd *ld;

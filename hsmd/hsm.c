@@ -22,10 +22,10 @@
 #include <common/withdraw_tx.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <hsmd/client.h>
+#include <hsmd/gen_hsm_client_wire.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
-#include <lightningd/hsm/client.h>
-#include <lightningd/hsm/gen_hsm_client_wire.h>
-#include <lightningd/hsm/gen_hsm_wire.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/randombytes.h>
 #include <sys/socket.h>

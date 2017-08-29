@@ -7,9 +7,9 @@
 #include <common/utxo.h>
 #include <common/withdraw_tx.h>
 #include <errno.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
-#include <lightningd/hsm/gen_hsm_wire.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>

@@ -21,10 +21,10 @@
 #include <common/version.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <gossipd/broadcast.h>
+#include <gossipd/gen_gossip_wire.h>
+#include <gossipd/routing.h>
 #include <inttypes.h>
-#include <lightningd/gossip/broadcast.h>
-#include <lightningd/gossip/gen_gossip_wire.h>
-#include <lightningd/gossip/routing.h>
 #include <lightningd/gossip_msg.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/randombytes.h>
