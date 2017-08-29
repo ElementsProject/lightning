@@ -11,7 +11,7 @@ This implementation is still very much work in progress, and, although it can be
 We do our best to identify and fix problems, and implement missing feature.
 
 Any help testing the implementation, reporting bugs, or helping with outstanding issues is very welcome.
-Don't hesitate to reach out to us on IRC at [#lightning-dev @ freenode.net](http://webchat.freenode.net/?channels=%23lightning-dev) or on the mailing list [lightning-dev@lists.linuxfoundation.org](https://lists.linuxfoundation.org/mailman/listinfo/lightning-dev).
+Don't hesitate to reach out to us on IRC at [#lightning-dev @ freenode.net](http://webchat.freenode.net/?channels=%23lightning-dev), [#c-lightning @ freenode.net](http://webchat.freenode.net/?channels=%23c-lightning), or on the mailing list [lightning-dev@lists.linuxfoundation.org](https://lists.linuxfoundation.org/mailman/listinfo/lightning-dev).
 
 ## Getting Started
 
@@ -19,7 +19,7 @@ c-lightning currently only works on Linux (and possibly Mac OS with some tweakin
 
 ### Installation
 
-Please refer to the [installation documentation](INSTALL.md) for detailed instructions.
+Please refer to the [installation documentation](doc/INSTALL.md) for detailed instructions.
 For the impatient here's the gist of it for Ubuntu and Debian:
 
 ```
