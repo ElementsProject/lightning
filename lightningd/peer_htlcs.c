@@ -413,7 +413,14 @@ static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 	}
 
 	if (failure_code) {
-		local_fail_htlc(hout->in, failure_code);
+		if (!hout->in) {
+			char *localfail = tal_fmt(msg, "%s: %.*s",
+						  onion_type_name(failure_code),
+						  (int)tal_len(failurestr),
+						  (const char *)failurestr);
+			payment_failed(hout->key.peer->ld, hout, localfail);
+		} else
+			local_fail_htlc(hout->in, failure_code);
 		return true;
 	}
 
