@@ -208,10 +208,6 @@ class LightningDTests(BaseLightningDTests):
             }
             lsrc.rpc.sendpay(to_json([routestep]), rhash, async=False)
 
-        t = threading.Thread(target=call_pay)
-        t.daemon = True
-        t.start()
-
         def wait_pay():
             # Up to 10 seconds for payment to succeed.
             start_time = time.time()
@@ -221,9 +217,12 @@ class LightningDTests(BaseLightningDTests):
                 time.sleep(0.1)
 
         if async:
+            t = threading.Thread(target=call_pay)
+            t.daemon = True
+            t.start()
             return self.executor.submit(wait_pay)
         else:
-            return wait_pay()
+            call_pay()
 
     def test_connect(self):
         l1,l2 = self.connect()
@@ -328,6 +327,33 @@ class LightningDTests(BaseLightningDTests):
         routestep = { 'msatoshi' : amt * 2, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'}
         l1.rpc.sendpay(to_json([routestep]), rhash)
         assert l2.rpc.listinvoice('testpayment3')[0]['complete'] == True
+
+    def test_sendpay_cant_afford(self):
+        l1,l2 = self.connect()
+
+        # Note, this is in SATOSHI, rest are in MILLISATOSHI!
+        self.fund_channel(l1, l2, 10**6)
+
+        # Can't pay more than channel capacity.
+        self.assertRaises(ValueError, self.pay, l1, l2, 10**9 + 1)
+
+        # This is the fee, which needs to be taken into account for l1.
+        available = 10**9 - 13440
+        # Reserve is 1%.
+        reserve = 10**7
+
+        # Can't pay past reserve.
+        self.assertRaises(ValueError, self.pay, l1, l2, available)
+        self.assertRaises(ValueError, self.pay, l1, l2, available - reserve + 1)
+
+        # Can pay up to reserve (1%)
+        self.pay(l1, l2, available - reserve)
+
+        # And now it can't pay back, due to its own reserve.
+        self.assertRaises(ValueError, self.pay, l2, l1, available - reserve)
+
+        # But this should work.
+        self.pay(l2, l1, available - reserve*2)
 
     def test_closing(self):
         l1,l2 = self.connect()
