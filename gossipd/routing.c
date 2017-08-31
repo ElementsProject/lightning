@@ -336,11 +336,21 @@ static void bfg_one_edge(struct node *node, size_t edgenum, double riskfactor)
 	assert(c->dst == node);
 	for (h = 0; h < ROUTING_MAX_HOPS; h++) {
 		/* FIXME: Bias against smaller channels. */
-		s64 fee = connection_fee(c, node->bfg[h].total);
-		u64 risk = node->bfg[h].risk + risk_fee(node->bfg[h].total + fee,
-							c->delay, riskfactor);
+		s64 fee;
+		u64 risk;
+
+		if (node->bfg[h].total == INFINITE)
+			continue;
+
+		fee = connection_fee(c, node->bfg[h].total);
+		risk = node->bfg[h].risk + risk_fee(node->bfg[h].total + fee,
+						    c->delay, riskfactor);
 		if (node->bfg[h].total + (s64)fee + (s64)risk
 		    < c->src->bfg[h+1].total + (s64)c->src->bfg[h+1].risk) {
+			status_trace("...%s can reach here in hoplen %zu total %"PRIu64,
+				     type_to_string(trc, struct pubkey,
+						    &c->src->id),
+				     h, node->bfg[h].total + fee);
 			c->src->bfg[h+1].total = node->bfg[h].total + fee;
 			c->src->bfg[h+1].risk = risk;
 			c->src->bfg[h+1].prev = c;
@@ -393,19 +403,16 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 		     n = node_map_next(rstate->nodes, &it)) {
 			size_t num_edges = tal_count(n->in);
 			for (i = 0; i < num_edges; i++) {
-				if (!n->in[i]->active)
+				status_trace("Node %s edge %i/%zu",
+					     type_to_string(trc, struct pubkey,
+							    &n->id),
+					     i, num_edges);
+				if (!n->in[i]->active) {
+					status_trace("...inactive");
 					continue;
+				}
 				bfg_one_edge(n, i, riskfactor);
-				status_trace("We seek %p->%p, this is %p -> %p",
-					     dst, src,
-					     n->in[i]->src, n->in[i]->dst);
-				status_trace("Checking from %s to %s",
-					     type_to_string(trc,
-							    struct pubkey,
-							    &n->in[i]->src->id),
-					     type_to_string(trc,
-							    struct pubkey,
-							    &n->in[i]->dst->id));
+				status_trace("...done");
 			}
 		}
 	}
