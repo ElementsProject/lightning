@@ -43,16 +43,15 @@ struct channel *new_channel(const tal_t *ctx,
  * channel_txs: Get the current commitment and htlc txs for the channel.
  * @ctx: tal context to allocate return value from.
  * @channel: The channel to evaluate
- * @htlc_map: Pointer to htlcs for each tx output (allocated off @ctx) or NULL.
+ * @htlc_map: Pointer to htlcs for each tx output (allocated off @ctx).
  * @wscripts: Pointer to array of wscript for each tx returned (alloced off @ctx)
  * @per_commitment_point: Per-commitment point to determine keys
  * @commitment_number: The index of this commitment.
  * @side: which side to get the commitment transaction for
  *
  * Returns the unsigned commitment transaction for the committed state
- * for @side, followed by the htlc transactions in output order, and
- * fills in @htlc_map (if not NULL), or NULL on key derivation
- * failure.
+ * for @side, followed by the htlc transactions in output order and
+ * fills in @htlc_map, or NULL on key derivation failure.
  */
 struct bitcoin_tx **channel_txs(const tal_t *ctx,
 				const struct htlc ***htlcmap,

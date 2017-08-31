@@ -250,10 +250,6 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	/* Figure out what @side will already be committed to. */
 	gather_htlcs(ctx, channel, side, &committed, NULL, NULL);
 
-	/* NULL map only allowed at beginning, when we know no HTLCs */
-	if (!htlcmap)
-		assert(tal_count(committed) == 0);
-
 	txs = tal_arr(ctx, struct bitcoin_tx *, 1);
 	txs[0] = commit_tx(ctx, &channel->funding_txid,
 		       channel->funding_txout,
@@ -275,8 +271,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 					     &channel->funding_pubkey[side],
 					     &channel->funding_pubkey[!side]);
 
-	if (htlcmap)
-		add_htlcs(&txs, wscripts, *htlcmap, channel, &keyset, side);
+	add_htlcs(&txs, wscripts, *htlcmap, channel, &keyset, side);
 
 	tal_free(committed);
 	return txs;
