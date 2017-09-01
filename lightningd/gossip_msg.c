@@ -45,10 +45,12 @@ void fromwire_gossip_getchannels_entry(const u8 **pptr, size_t *max,
 	fromwire_pubkey(pptr, max, &entry->source);
 	fromwire_pubkey(pptr, max, &entry->destination);
 	entry->active = fromwire_bool(pptr, max);
-	entry->fee_per_kw = fromwire_u32(pptr, max);
-	entry->delay = fromwire_u32(pptr, max);
-	entry->last_update_timestamp = fromwire_u32(pptr, max);
 	entry->flags = fromwire_u16(pptr, max);
+	entry->last_update_timestamp = fromwire_u64(pptr, max);
+	if (entry->last_update_timestamp >= 0) {
+		entry->fee_per_kw = fromwire_u32(pptr, max);
+		entry->delay = fromwire_u32(pptr, max);
+	}
 }
 
 void towire_gossip_getchannels_entry(
@@ -58,8 +60,10 @@ void towire_gossip_getchannels_entry(
 	towire_pubkey(pptr, &entry->source);
 	towire_pubkey(pptr, &entry->destination);
 	towire_bool(pptr, entry->active);
-	towire_u32(pptr, entry->fee_per_kw);
-	towire_u32(pptr, entry->delay);
-	towire_u32(pptr, entry->last_update_timestamp);
 	towire_u16(pptr, entry->flags);
+	towire_u64(pptr, entry->last_update_timestamp);
+	if (entry->last_update_timestamp >= 0) {
+		towire_u32(pptr, entry->fee_per_kw);
+		towire_u32(pptr, entry->delay);
+	}
 }

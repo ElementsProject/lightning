@@ -24,7 +24,7 @@ struct node_connection {
 	/* Is this connection active? */
 	bool active;
 
-	u32 last_timestamp;
+	s64 last_timestamp;
 
 	/* Minimum number of msatoshi in an HTLC */
 	u32 htlc_minimum_msat;
@@ -44,10 +44,11 @@ struct node_connection {
 struct node {
 	struct pubkey id;
 
+	/* -1 means never; other fields undefined */
+	s64 last_timestamp;
+
 	/* IP/Hostname and port of this node (may be NULL) */
 	struct ipaddr *addresses;
-
-	u32 last_timestamp;
 
 	/* Routes connecting to us, from us. */
 	struct node_connection **in, **out;
