@@ -427,109 +427,6 @@ static bool add_channel_direction(struct routing_state *rstate,
 	return true;
 }
 
-/* BOLT #7:
- *
- * The following `address descriptor` types are defined:
- *
- * * `0`: padding.  data = none (length 0).
- * * `1`: ipv4. data = `[4:ipv4_addr][2:port]` (length 6)
- * * `2`: ipv6. data = `[16:ipv6_addr][2:port]` (length 18)
- */
-
-/* FIXME: Don't just take first one, depends whether we have IPv6 ourselves */
-/* Returns false iff it was malformed */
-bool read_ip(const tal_t *ctx, const u8 *addresses, char **hostname,
-		    int *port)
-{
-	size_t len = tal_count(addresses);
-	const u8 *p = addresses;
-	char tempaddr[INET6_ADDRSTRLEN];
-	be16 portnum;
-
-	*hostname = NULL;
-	while (len) {
-		u8 type = *p;
-		p++;
-		len--;
-
-		switch (type) {
-		case 0:
-			break;
-		case 1:
-			/* BOLT #7:
-			 *
-			 * The receiving node SHOULD fail the connection if
-			 * `addrlen` is insufficient to hold the address
-			 * descriptors of the known types.
-			 */
-			if (len < 6)
-				return false;
-			inet_ntop(AF_INET, p, tempaddr, sizeof(tempaddr));
-			memcpy(&portnum, p + 4, sizeof(portnum));
-			*hostname = tal_strdup(ctx, tempaddr);
-			*port = be16_to_cpu(portnum);
-			return true;
-		case 2:
-			if (len < 18)
-				return false;
-			inet_ntop(AF_INET6, p, tempaddr, sizeof(tempaddr));
-			memcpy(&portnum, p + 16, sizeof(portnum));
-			*hostname = tal_strdup(ctx, tempaddr);
-			*port = be16_to_cpu(portnum);
-			return true;
-		default:
-			/* BOLT #7:
-			 *
-			 * The receiving node SHOULD ignore the first `address
-			 * descriptor` which does not match the types defined
-			 * above.
-			 */
-			return true;
-		}
-	}
-
-	/* Not a fatal error. */
-	return true;
-}
-
-/* BOLT #7:
- *
- * The creating node SHOULD fill `addresses` with an address descriptor for
- * each public network address which expects incoming connections, and MUST
- * set `addrlen` to the number of bytes in `addresses`.  Non-zero typed
- * address descriptors MUST be placed in ascending order; any number of
- * zero-typed address descriptors MAY be placed anywhere, but SHOULD only be
- * used for aligning fields following `addresses`.
- *
- * The creating node MUST NOT create a type 1 or type 2 address descriptor
- * with `port` equal to zero, and SHOULD ensure `ipv4_addr` and `ipv6_addr`
- * are routable addresses.  The creating node MUST NOT include more than one
- * `address descriptor` of the same type.
- */
-/* FIXME: handle case where we have both ipv6 and ipv4 addresses! */
-u8 *write_ip(const tal_t *ctx, const char *srcip, int port)
-{
-	u8 *address;
-	be16 portnum = cpu_to_be16(port);
-
-	if (!port)
-		return tal_arr(ctx, u8, 0);
-
-	if (!strchr(srcip, ':')) {
-		address = tal_arr(ctx, u8, 7);
-		address[0] = 1;
-		inet_pton(AF_INET, srcip, address+1);
-		memcpy(address + 5, &portnum, sizeof(portnum));
-		return address;
-	} else {
-		address = tal_arr(ctx, u8, 18);
-		address[0] = 2;
-		inet_pton(AF_INET6, srcip, address+1);
-		memcpy(address + 17, &portnum, sizeof(portnum));
-		return address;
-	}
-}
-
 /* Verify the signature of a channel_update message */
 static bool check_channel_update(const struct pubkey *node_key,
 				 const secp256k1_ecdsa_signature *node_sig,
@@ -731,20 +628,32 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 	tal_free(tmpctx);
 }
 
-static struct ipaddr *read_addresses(const tal_t *ctx, u8 *ser)
+static struct ipaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 {
 	const u8 *cursor = ser;
 	size_t max = tal_len(ser);
 	struct ipaddr *ipaddrs = tal_arr(ctx, struct ipaddr, 0);
 	int numaddrs = 0;
-	while (cursor < ser + max) {
-		numaddrs++;
-		tal_resize(&ipaddrs, numaddrs);
-		fromwire_ipaddr(&cursor, &max, &ipaddrs[numaddrs-1]);
-		if (cursor == NULL) {
-			/* Parsing address failed */
-			return tal_free(ipaddrs);
+	while (cursor && cursor < ser + max) {
+		struct ipaddr ipaddr;
+
+		/* BOLT #7:
+		 *
+		 * The receiving node SHOULD ignore the first `address
+		 * descriptor` which does not match the types defined
+		 * above.
+		 */
+		if (!fromwire_ipaddr(&cursor, &max, &ipaddr)) {
+			if (!cursor)
+				/* Parsing address failed */
+				return tal_free(ipaddrs);
+			/* Unknown type, stop there. */
+			break;
 		}
+
+		tal_resize(&ipaddrs, numaddrs+1);
+		ipaddrs[numaddrs] = ipaddr;
+		numaddrs++;
 	}
 	return ipaddrs;
 }

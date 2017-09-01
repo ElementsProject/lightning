@@ -9,7 +9,11 @@ void fromwire_gossip_getnodes_entry(const tal_t *ctx, const u8 **pptr, size_t *m
 
 	entry->addresses = tal_arr(ctx, struct ipaddr, numaddresses);
 	for (i=0; i<numaddresses; i++) {
-		fromwire_ipaddr(pptr, max, entry->addresses);
+		/* Gossipd doesn't hand us addresses we can't understand. */
+		if (!fromwire_ipaddr(pptr, max, entry->addresses)) {
+			fromwire_fail(pptr, max);
+			return;
+		}
 	}
 }
 void towire_gossip_getnodes_entry(u8 **pptr, const struct gossip_getnodes_entry *entry)

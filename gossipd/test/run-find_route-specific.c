@@ -26,7 +26,7 @@ bool fromwire_channel_announcement(const tal_t *ctx UNNEEDED, const void *p UNNE
 bool fromwire_channel_update(const void *p UNNEEDED, size_t *plen UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, struct sha256_double *chain_hash UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, u32 *timestamp UNNEEDED, u16 *flags UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, u64 *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED)
 { fprintf(stderr, "fromwire_channel_update called!\n"); abort(); }
 /* Generated stub for fromwire_ipaddr */
-void fromwire_ipaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct ipaddr *addr UNNEEDED)
+bool fromwire_ipaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct ipaddr *addr UNNEEDED)
 { fprintf(stderr, "fromwire_ipaddr called!\n"); abort(); }
 /* Generated stub for fromwire_node_announcement */
 bool fromwire_node_announcement(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, size_t *plen UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED, u8 **features UNNEEDED, u32 *timestamp UNNEEDED, struct pubkey *node_id UNNEEDED, u8 rgb_color[3] UNNEEDED, u8 alias[32] UNNEEDED, u8 **addresses UNNEEDED)
