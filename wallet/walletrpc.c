@@ -28,39 +28,6 @@ struct withdrawal {
 };
 
 /**
- * wallet_extract_owned_outputs - given a tx, extract all of our outputs
- */
-static int wallet_extract_owned_outputs(struct wallet *w,
-					const struct bitcoin_tx *tx,
-					u64 *total_satoshi)
-{
-	int num_utxos = 0;
-	for (size_t output = 0; output < tal_count(tx->output); output++) {
-		struct utxo *utxo;
-		u32 index;
-		bool is_p2sh;
-
-		if (!wallet_can_spend(w, tx->output[output].script, &index, &is_p2sh))
-			continue;
-
-		utxo = tal(w, struct utxo);
-		utxo->keyindex = index;
-		utxo->is_p2sh = is_p2sh;
-		utxo->amount = tx->output[output].amount;
-		utxo->status = output_state_available;
-		bitcoin_txid(tx, &utxo->txid);
-		utxo->outnum = output;
-		if (!wallet_add_utxo(w, utxo, p2sh_wpkh)) {
-			tal_free(utxo);
-			return -1;
-		}
-		*total_satoshi += utxo->amount;
-		num_utxos++;
-	}
-	return num_utxos;
-}
-
-/**
  * wallet_withdrawal_broadcast - The tx has been broadcast (or it failed)
  *
  * This is the final step in the withdrawal. We either successfully
