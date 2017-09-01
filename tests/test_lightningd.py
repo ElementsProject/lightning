@@ -1056,6 +1056,25 @@ class LightningDTests(BaseLightningDTests):
         c.execute('SELECT COUNT(*) FROM outputs WHERE status=2')
         assert(c.fetchone()[0] == 2)
 
+    def test_funding_change(self):
+        """Add some funds, fund a channel, and make sure we remember the change
+        """
+        l1, l2 = self.connect()
+        addr = l1.rpc.newaddr()['address']
+        txid = l1.bitcoin.rpc.sendtoaddress(addr, 0.1)
+        tx = l1.bitcoin.rpc.getrawtransaction(txid)
+        l1.rpc.addfunds(tx)
+        outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
+        assert len(outputs) == 1 and outputs[0]['value'] == 10000000
+
+        l1.rpc.fundchannel(l2.info['id'], 1000000)
+        outputs = {r['status']: r['value'] for r in l1.db_query(
+            'SELECT status, SUM(value) AS value FROM outputs GROUP BY status;')}
+
+        # The 10m out is spent and we have a change output of 9m-fee
+        assert outputs[0] >   8990000
+        assert outputs[2] == 10000000
+
     def test_channel_persistence(self):
         # Start two nodes and open a channel (to remember)
         l1, l2 = self.connect()

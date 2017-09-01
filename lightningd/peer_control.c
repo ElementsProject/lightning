@@ -1378,6 +1378,7 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 {
 	secp256k1_ecdsa_signature *sigs;
 	struct bitcoin_tx *tx = fc->funding_tx;
+	u64 change_satoshi;
 	size_t i;
 
 	if (!fromwire_hsmctl_sign_funding_reply(fc, resp, NULL, &sigs))
@@ -1406,6 +1407,9 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	broadcast_tx(fc->peer->ld->topology, fc->peer, tx, funding_broadcast_failed);
 	watch_tx(fc->peer, fc->peer->ld->topology, fc->peer, tx,
 		 funding_lockin_cb, NULL);
+
+	/* Extract the change output and add it to the DB */
+	wallet_extract_owned_outputs(fc->peer->ld->wallet, tx, &change_satoshi);
 
 	/* FIXME: Remove arg from cb? */
 	watch_txo(fc->peer, fc->peer->ld->topology, fc->peer,
