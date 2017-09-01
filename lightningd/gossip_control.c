@@ -310,7 +310,10 @@ static bool json_getchannels_reply(struct subd *gossip, const u8 *reply,
 		if (entries[i].last_update_timestamp >= 0) {
 			json_add_num(response, "last_update",
 				     entries[i].last_update_timestamp);
-			json_add_num(response, "fee_per_kw", entries[i].fee_per_kw);
+			json_add_num(response, "base_fee_millisatoshi",
+				     entries[i].base_fee_msat);
+			json_add_num(response, "fee_per_millionth",
+				     entries[i].fee_per_millionth);
 			json_add_num(response, "delay", entries[i].delay);
 		}
 		json_object_end(response);
