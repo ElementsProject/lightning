@@ -44,6 +44,23 @@ void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
 
 const void *trc;
 
+/* Updates existing route if required. */
+static struct node_connection *add_connection(struct routing_state *rstate,
+					      const struct pubkey *from,
+					      const struct pubkey *to,
+					      u32 base_fee, s32 proportional_fee,
+					      u32 delay)
+{
+	struct node_connection *c = get_or_make_connection(rstate, from, to);
+	c->base_fee = base_fee;
+	c->proportional_fee = proportional_fee;
+	c->delay = delay;
+	c->active = true;
+	memset(&c->short_channel_id, 0, sizeof(c->short_channel_id));
+	c->flags = get_channel_direction(from, to);
+	return c;
+}
+
 int main(void)
 {
 	static const struct sha256_double zerohash;
@@ -62,14 +79,14 @@ int main(void)
 
 	memset(&tmp, 'a', sizeof(tmp));
 	pubkey_from_privkey(&tmp, &a);
-	add_node(rstate, &a);
+	new_node(rstate, &a);
 
 	memset(&tmp, 'b', sizeof(tmp));
 	pubkey_from_privkey(&tmp, &b);
-	add_node(rstate, &b);
+	new_node(rstate, &b);
 
 	/* A<->B */
-	add_connection(rstate, &a, &b, 1, 1, 1, 1);
+	add_connection(rstate, &a, &b, 1, 1, 1);
 
 	nc = find_route(ctx, rstate, &a, &b, 1000, 1.0, &fee, &route);
 	assert(nc);
@@ -79,12 +96,12 @@ int main(void)
 	/* A<->B<->C */
 	memset(&tmp, 'c', sizeof(tmp));
 	pubkey_from_privkey(&tmp, &c);
-	add_node(rstate, &c);
+	new_node(rstate, &c);
 
 	status_trace("A = %s", type_to_string(trc, struct pubkey, &a));
 	status_trace("B = %s", type_to_string(trc, struct pubkey, &b));
 	status_trace("C = %s", type_to_string(trc, struct pubkey, &c));
-	add_connection(rstate, &b, &c, 1, 1, 1, 1);
+	add_connection(rstate, &b, &c, 1, 1, 1);
 
 	nc = find_route(ctx, rstate, &a, &c, 1000, 1.0, &fee, &route);
 	assert(nc);
@@ -94,11 +111,11 @@ int main(void)
 	/* A<->D<->C: Lower base, higher percentage. */
 	memset(&tmp, 'd', sizeof(tmp));
 	pubkey_from_privkey(&tmp, &d);
-	add_node(rstate, &d);
+	new_node(rstate, &d);
 	status_trace("D = %s", type_to_string(trc, struct pubkey, &d));
 
-	add_connection(rstate, &a, &d, 0, 2, 1, 1);
-	add_connection(rstate, &d, &c, 0, 2, 1, 1);
+	add_connection(rstate, &a, &d, 0, 2, 1);
+	add_connection(rstate, &d, &c, 0, 2, 1);
 
 	/* Will go via D for small amounts. */
 	nc = find_route(ctx, rstate, &a, &c, 1000, 1.0, &fee, &route);

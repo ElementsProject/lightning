@@ -18,8 +18,6 @@ struct node_connection {
 
 	/* Delay for HTLC in blocks.*/
 	u32 delay;
-	/* Minimum allowable HTLC expiry in blocks. */
-	u32 min_blocks;
 
 	/* Is this connection active? */
 	bool active;
@@ -97,26 +95,9 @@ struct route_hop {
 struct routing_state *new_routing_state(const tal_t *ctx,
 					const struct sha256_double *chain_hash);
 
-struct node *new_node(struct routing_state *rstate,
-		      const struct pubkey *id);
-
-struct node *get_node(struct routing_state *rstate,
-		      const struct pubkey *id);
-
 /* msatoshi must be possible (< 21 million BTC), ie < 2^60.
  * If it returns more than msatoshi, it overflowed. */
 s64 connection_fee(const struct node_connection *c, u64 msatoshi);
-
-/* Updates existing node, or creates a new one as required. */
-struct node *add_node(struct routing_state *rstate,
-		      const struct pubkey *pk);
-
-/* Updates existing connection, or creates new one as required. */
-struct node_connection *add_connection(struct routing_state *rstate,
-				       const struct pubkey *from,
-				       const struct pubkey *to,
-				       u32 base_fee, s32 proportional_fee,
-				       u32 delay, u32 min_blocks);
 
 /* Add a connection to the routing table, but do not mark it as usable
  * yet. Used by channel_announcements before the channel_update comes
@@ -128,33 +109,11 @@ struct node_connection *half_add_connection(struct routing_state *rstate,
 					    const struct short_channel_id *schanid,
 					    const u16 flags);
 
-/* Get an existing connection between `from` and `to`, NULL if no such
- * connection exists. */
-struct node_connection *get_connection(struct routing_state *rstate,
-				       const struct pubkey *from,
-				       const struct pubkey *to);
-
 /* Given a short_channel_id, retrieve the matching connection, or NULL if it is
  * unknown. */
 struct node_connection *get_connection_by_scid(const struct routing_state *rstate,
 					       const struct short_channel_id *schanid,
 					      const u8 direction);
-
-void remove_connection(struct routing_state *rstate,
-		       const struct pubkey *src, const struct pubkey *dst);
-
-struct node_connection *
-find_route(const tal_t *ctx, struct routing_state *rstate,
-	   const struct pubkey *from, const struct pubkey *to, u64 msatoshi,
-	   double riskfactor, s64 *fee, struct node_connection ***route);
-
-struct node_map *empty_node_map(const tal_t *ctx);
-
-bool add_channel_direction(struct routing_state *rstate,
-			   const struct pubkey *from,
-			   const struct pubkey *to,
-			   const struct short_channel_id *short_channel_id,
-			   const u8 *announcement);
 
 bool read_ip(const tal_t *ctx, const u8 *addresses, char **hostname, int *port);
 u8 *write_ip(const tal_t *ctx, const char *srcip, int port);
