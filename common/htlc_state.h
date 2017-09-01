@@ -2,6 +2,10 @@
 #define LIGHTNING_COMMON_HTLC_STATE_H
 #include "config.h"
 
+/*
+ * /!\ The generated enum values are used in the database, DO NOT
+ * reorder or insert new values (appending at the end is ok) /!\
+ */
 enum htlc_state {
 	/* When we add a new htlc, it goes in this order. */
 	SENT_ADD_HTLC,
