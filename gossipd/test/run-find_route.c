@@ -108,11 +108,19 @@ int main(void)
 	assert(fee == 0);
 
 	/* Will go via B for large amounts. */
-	nc = find_route(ctx, rstate, &a, &c, 1000000, 1.0, &fee, &route);
+	nc = find_route(ctx, rstate, &a, &c, 3000000, 1.0, &fee, &route);
 	assert(nc);
 	assert(tal_count(route) == 1);
 	assert(pubkey_eq(&route[0]->src->id, &b));
-	assert(fee == 2);
+	assert(fee == 1 + 3);
+
+	/* Make B->C inactive, force it back via D */
+	get_connection(rstate, &b, &c)->active = false;
+	nc = find_route(ctx, rstate, &a, &c, 3000000, 1.0, &fee, &route);
+	assert(nc);
+	assert(tal_count(route) == 1);
+	assert(pubkey_eq(&route[0]->src->id, &d));
+	assert(fee == 0 + 6);
 
 	tal_free(ctx);
 	return 0;
