@@ -92,6 +92,25 @@ char *dbmigrations[] = {
     "  max_accepted_htlcs INTEGER,"
     "  PRIMARY KEY (id)"
     ");",
+    "CREATE TABLE channel_htlcs ("
+    "  id INTEGER,"
+    "  channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE,"
+    "  channel_htlc_id INTEGER,"
+    "  direction INTEGER,"
+    "  origin_htlc INTEGER,"
+    "  msatoshi INTEGER,"
+    "  ctlv_expiry INTEGER,"
+    "  payment_hash BLOB,"
+    "  payment_key BLOB,"
+    "  routing_onion BLOB,"
+    "  failuremsg BLOB,"
+    "  malformed_onion INTEGER,"
+    "  hstate INTEGER,"
+    "  shared_secret BLOB,"
+    "  preimage BLOB,"
+    "  PRIMARY KEY (id),"
+    "  UNIQUE (channel_id, channel_htlc_id, direction)"
+    ");",
     NULL,
 };
 
