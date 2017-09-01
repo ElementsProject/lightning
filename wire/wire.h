@@ -86,7 +86,7 @@ void fromwire_sha256_double(const u8 **cursor, size_t *max,
 			    struct sha256_double *sha256d);
 void fromwire_preimage(const u8 **cursor, size_t *max, struct preimage *preimage);
 void fromwire_ripemd160(const u8 **cursor, size_t *max, struct ripemd160 *ripemd);
-void fromwire_ipaddr(const u8 **cursor, size_t *max, struct ipaddr *addr);
+bool fromwire_ipaddr(const u8 **cursor, size_t *max, struct ipaddr *addr);
 void fromwire_pad(const u8 **cursor, size_t *max, size_t num);
 
 void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num);

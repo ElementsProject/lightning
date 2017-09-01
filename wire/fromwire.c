@@ -170,28 +170,39 @@ void fromwire_ripemd160(const u8 **cursor, size_t *max, struct ripemd160 *ripemd
 	fromwire(cursor, max, ripemd, sizeof(*ripemd));
 }
 
-void fromwire_ipaddr(const u8 **cursor, size_t *max, struct ipaddr *addr)
-{
-	/* Skip any eventual padding */
-	while (**cursor == 0) {
-		(*cursor)++;
-	}
+/* BOLT #7:
+ *
+ * The following `address descriptor` types are defined:
+ *
+ * * `0`: padding.  data = none (length 0).
+ * * `1`: ipv4. data = `[4:ipv4_addr][2:port]` (length 6)
+ * * `2`: ipv6. data = `[16:ipv6_addr][2:port]` (length 18)
+ */
+/* FIXME: Tor addresses! */
 
-	addr->type = **cursor;
-	(*cursor)++;
+/* Returns false if we didn't parse it, and *cursor == NULL if malformed. */
+bool fromwire_ipaddr(const u8 **cursor, size_t *max, struct ipaddr *addr)
+{
+	addr->type = fromwire_u8(cursor, max);
+
 	switch (addr->type) {
-	case 1:
+	case ADDR_TYPE_IPV4:
 		addr->addrlen = 4;
 		break;
-	case 2:
+	case ADDR_TYPE_IPV6:
 		addr->addrlen = 16;
 		break;
 	default:
-		fromwire_fail(cursor, max);
-		return;
+		return false;
 	}
 	fromwire(cursor, max, addr->addr, addr->addrlen);
 	addr->port = fromwire_u16(cursor, max);
+
+	/* Skip any post-padding */
+	while (*max && (*cursor)[0] == ADDR_TYPE_PADDING)
+		fromwire_u8(cursor, max);
+
+	return *cursor != NULL;
 }
 
 void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num)
