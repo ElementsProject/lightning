@@ -48,7 +48,8 @@ void fromwire_gossip_getchannels_entry(const u8 **pptr, size_t *max,
 	entry->flags = fromwire_u16(pptr, max);
 	entry->last_update_timestamp = fromwire_u64(pptr, max);
 	if (entry->last_update_timestamp >= 0) {
-		entry->fee_per_kw = fromwire_u32(pptr, max);
+		entry->base_fee_msat = fromwire_u32(pptr, max);
+		entry->fee_per_millionth = fromwire_u32(pptr, max);
 		entry->delay = fromwire_u32(pptr, max);
 	}
 }
@@ -63,7 +64,8 @@ void towire_gossip_getchannels_entry(
 	towire_u16(pptr, entry->flags);
 	towire_u64(pptr, entry->last_update_timestamp);
 	if (entry->last_update_timestamp >= 0) {
-		towire_u32(pptr, entry->fee_per_kw);
+		towire_u32(pptr, entry->base_fee_msat);
+		towire_u32(pptr, entry->fee_per_millionth);
 		towire_u32(pptr, entry->delay);
 	}
 }

@@ -573,7 +573,8 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 			entries[num_chans].short_channel_id = n->out[j]->short_channel_id;
 			entries[num_chans].last_update_timestamp = n->out[j]->last_timestamp;
 			if (entries[num_chans].last_update_timestamp >= 0) {
-				entries[num_chans].fee_per_kw = n->out[j]->proportional_fee;
+				entries[num_chans].base_fee_msat = n->out[j]->base_fee;
+				entries[num_chans].fee_per_millionth = n->out[j]->proportional_fee;
 				entries[num_chans].delay = n->out[j]->delay;
 			}
 			num_chans++;
