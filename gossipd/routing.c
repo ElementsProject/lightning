@@ -78,6 +78,7 @@ struct node *new_node(struct routing_state *rstate,
 	n->out = tal_arr(n, struct node_connection *, 0);
 	n->alias = NULL;
 	n->node_announcement = NULL;
+	n->last_timestamp = -1;
 	n->addresses = tal_arr(n, struct ipaddr, 0);
 	node_map_add(rstate->nodes, n);
 	tal_add_destructor(n, destroy_node);
@@ -230,10 +231,8 @@ struct node_connection *half_add_connection(struct routing_state *rstate,
 	nc->short_channel_id = *schanid;
 	nc->active = false;
 	nc->flags = flags;
+	nc->last_timestamp = -1;
 	nc->min_blocks = 0;
-	nc->proportional_fee = 0;
-	nc->base_fee = 0;
-	nc->delay = 0;
 	return nc;
 }
 
@@ -763,7 +762,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 					    &short_channel_id));
 		tal_free(tmpctx);
 		return;
-	} else if (c->channel_update && c->last_timestamp >= timestamp) {
+	} else if (c->last_timestamp >= timestamp) {
 		status_trace("Ignoring outdated update.");
 		tal_free(tmpctx);
 		return;
@@ -856,7 +855,7 @@ void handle_node_announcement(
 		status_trace("Node not found, was the node_announcement preceeded by at least channel_announcement?");
 		tal_free(tmpctx);
 		return;
-	} else if (node->node_announcement && node->last_timestamp >= timestamp) {
+	} else if (node->last_timestamp >= timestamp) {
 		status_trace("Ignoring node announcement, it's outdated.");
 		tal_free(tmpctx);
 		return;

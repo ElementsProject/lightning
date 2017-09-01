@@ -569,11 +569,13 @@ static struct io_plan *getchannels_req(struct io_conn *conn, struct daemon *daem
 			entries[num_chans].source = n->out[j]->src->id;
 			entries[num_chans].destination = n->out[j]->dst->id;
 			entries[num_chans].active = n->out[j]->active;
-			entries[num_chans].delay = n->out[j]->delay;
-			entries[num_chans].fee_per_kw = n->out[j]->proportional_fee;
-			entries[num_chans].last_update_timestamp = n->out[j]->last_timestamp;
 			entries[num_chans].flags = n->out[j]->flags;
 			entries[num_chans].short_channel_id = n->out[j]->short_channel_id;
+			entries[num_chans].last_update_timestamp = n->out[j]->last_timestamp;
+			if (entries[num_chans].last_update_timestamp >= 0) {
+				entries[num_chans].fee_per_kw = n->out[j]->proportional_fee;
+				entries[num_chans].delay = n->out[j]->delay;
+			}
 			num_chans++;
 		}
 		n = node_map_next(daemon->rstate->nodes, &i);

@@ -301,16 +301,18 @@ static bool json_getchannels_reply(struct subd *gossip, const u8 *reply,
 		json_add_pubkey(response, "source", &entries[i].source);
 		json_add_pubkey(response, "destination",
 				&entries[i].destination);
-		json_add_bool(response, "active", entries[i].active);
-		json_add_num(response, "fee_per_kw", entries[i].fee_per_kw);
-		json_add_num(response, "last_update",
-			     entries[i].last_update_timestamp);
-		json_add_num(response, "flags", entries[i].flags);
-		json_add_num(response, "delay", entries[i].delay);
 		json_add_string(response, "short_id",
 				tal_fmt(reply, "%d:%d:%d/%d", scid->blocknum,
 					scid->txnum, scid->outnum,
 					entries[i].flags & 0x1));
+		json_add_num(response, "flags", entries[i].flags);
+		json_add_bool(response, "active", entries[i].active);
+		if (entries[i].last_update_timestamp >= 0) {
+			json_add_num(response, "last_update",
+				     entries[i].last_update_timestamp);
+			json_add_num(response, "fee_per_kw", entries[i].fee_per_kw);
+			json_add_num(response, "delay", entries[i].delay);
+		}
 		json_object_end(response);
 	}
 	json_array_end(response);
