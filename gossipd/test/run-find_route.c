@@ -123,5 +123,6 @@ int main(void)
 	assert(fee == 0 + 6);
 
 	tal_free(ctx);
+	secp256k1_context_destroy(secp256k1_ctx);
 	return 0;
 }
