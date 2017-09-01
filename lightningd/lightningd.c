@@ -248,6 +248,7 @@ int main(int argc, char *argv[])
 		peer->seed = tal(peer, struct privkey);
 		derive_peer_seed(ld, peer->seed, &peer->id, peer->channel->id);
 		peer->htlcs = tal_arr(peer, struct htlc_stub, 0);
+		peer->owner = NULL;
 	}
 
 	/* Create RPC socket (if any) */
