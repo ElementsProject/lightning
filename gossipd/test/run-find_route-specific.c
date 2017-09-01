@@ -120,5 +120,6 @@ int main(void)
 	assert(pubkey_eq(&route[0]->dst->id, &c));
 
 	tal_free(ctx);
+	secp256k1_context_destroy(secp256k1_ctx);
 	return 0;
 }

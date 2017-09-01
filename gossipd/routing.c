@@ -46,6 +46,7 @@ struct node_map *empty_node_map(const tal_t *ctx)
 {
 	struct node_map *map = tal(ctx, struct node_map);
 	node_map_init(map);
+	tal_add_destructor(map, node_map_clear);
 	return map;
 }
 
