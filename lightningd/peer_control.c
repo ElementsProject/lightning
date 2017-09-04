@@ -6,6 +6,7 @@
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/io/io.h>
 #include <ccan/noerr/noerr.h>
+#include <ccan/str/str.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/gen_channel_wire.h>
@@ -1011,13 +1012,13 @@ static enum watch_result funding_announce_cb(struct peer *peer,
 	if (depth < ANNOUNCE_MIN_DEPTH) {
 		return KEEP_WATCHING;
 	}
-	if (peer->state != CHANNELD_NORMAL || !peer->owner) {
+
+	if (!peer->owner || !streq(peer->owner->name, "lightning_channeld")) {
 		log_debug(peer->ld->log,
-			  "Funding tx announce ready, but peer state %s %s",
-			  peer_state_name(peer->state),
-			  peer->owner ? peer->owner->name : "unowned");
+			  "Funding tx announce ready, but peer is not owned by channeld");
 		return KEEP_WATCHING;
 	}
+
 	subd_send_msg(peer->owner,
 		      take(towire_channel_funding_announce_depth(peer)));
 	return DELETE_WATCH;
@@ -1350,20 +1351,16 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 	if (!(peer->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL))
 		return DELETE_WATCH;
 
-	/* BOLT #7:
-	 *
-	 * If sent, `announcement_signatures` messages MUST NOT be sent until
-	 * `funding_locked` has been sent, and the funding transaction is has
-	 * at least 6 confirmations.
-	 */
-	if (depth >= ANNOUNCE_MIN_DEPTH && peer_ready) {
-		subd_send_msg(peer->owner,
-			      take(towire_channel_funding_announce_depth(peer)));
-	} else {
-		/* Worst case, we'll send next block. */
+	/* Tell channeld that we have reached the announce_depth and
+	 * that it may send the announcement_signatures upon receiving
+	 * funding_locked, or right now if it already received it
+	 * before. If we are at the right depth, call the callback
+	 * directly, otherwise schedule a callback */
+	if (depth >= ANNOUNCE_MIN_DEPTH)
+		funding_announce_cb(peer, tx, depth, NULL);
+	else
 		watch_txid(peer, peer->ld->topology, peer, &txid,
 			   funding_announce_cb, NULL);
-	}
 	return DELETE_WATCH;
 }
 

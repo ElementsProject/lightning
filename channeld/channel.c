@@ -133,6 +133,8 @@ struct peer {
 	struct changed_htlc *last_sent_commit;
 	u64 revocations_received;
 	u8 channel_flags;
+
+	bool announce_depth_reached;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -168,13 +170,25 @@ static void send_announcement_signatures(struct peer *peer)
 {
 	/* First 2 + 256 byte are the signatures and msg type, skip them */
 	size_t offset = 258;
-	const tal_t *tmpctx = tal_tmpctx(peer);
+	const tal_t *tmpctx;
 	struct sha256_double hash;
-	u8 *msg;
-	u8 *ca = create_channel_announcement(tmpctx, peer);
-	u8 *req = towire_hsm_cannouncement_sig_req(tmpctx,
-						   &peer->channel->funding_pubkey[LOCAL],
-						   ca);
+	u8 *msg, *ca, *req;
+
+	/* BOLT #7:
+	 *
+	 * If sent, `announcement_signatures` messages MUST NOT be sent until
+	 * `funding_locked` has been sent, and the funding transaction is has
+	 * at least 6 confirmations.
+	 */
+	if (!(peer->announce_depth_reached && peer->funding_locked[LOCAL]))
+		return;
+
+	tmpctx = tal_tmpctx(peer);
+	status_trace("Exchanging announcement signatures.");
+	ca = create_channel_announcement(tmpctx, peer);
+	req = towire_hsm_cannouncement_sig_req(
+	    tmpctx, &peer->channel->funding_pubkey[LOCAL], ca);
+
 
 	if (!wire_sync_write(HSM_FD, req))
 		status_failed(WIRE_CHANNEL_HSM_FAILED,
@@ -331,7 +345,18 @@ static struct io_plan *handle_peer_funding_locked(struct io_conn *conn,
 				 take(towire_channel_normal_operation(peer)));
 	}
 
+	send_announcement_signatures(peer);
+
 	return peer_read_message(conn, &peer->pcs, peer_in);
+}
+
+static void announce_channel(struct peer *peer)
+{
+		send_channel_announcement(peer);
+		send_channel_update(peer, false);
+		/* Tell the master that we just announced the channel,
+		 * so it may announce the node */
+		daemon_conn_send(&peer->master, take(towire_channel_announced(peer)));
 }
 
 static struct io_plan *handle_peer_announcement_signatures(struct io_conn *conn,
@@ -362,13 +387,8 @@ static struct io_plan *handle_peer_announcement_signatures(struct io_conn *conn,
 	peer->have_sigs[REMOTE] = true;
 
 	/* We have the remote sigs, do we have the local ones as well? */
-	if (peer->funding_locked[LOCAL] && peer->have_sigs[LOCAL]) {
-		send_channel_announcement(peer);
-		send_channel_update(peer, false);
-		/* Tell the master that we just announced the channel,
-		 * so it may announce the node */
-		daemon_conn_send(&peer->master, take(towire_channel_announced(msg)));
-	}
+	if (peer->funding_locked[LOCAL] && peer->have_sigs[LOCAL])
+		announce_channel(peer);
 
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
@@ -1667,20 +1687,13 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 
 static void handle_funding_announce_depth(struct peer *peer, const u8 *msg)
 {
-	if (peer->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL) {
-		status_trace("Exchanging announcement signatures.");
-		send_announcement_signatures(peer);
-	}
+	peer->announce_depth_reached = true;
+	send_announcement_signatures(peer);
 
 	/* Only send the announcement and update if the other end gave
 	 * us its sig */
-	if (peer->have_sigs[REMOTE]) {
-		send_channel_announcement(peer);
-		send_channel_update(peer, false);
-		/* Tell the master that we just announced the channel,
-		 * so it may announce the node */
-		daemon_conn_send(&peer->master, take(towire_channel_announced(msg)));
-	}
+	if (peer->have_sigs[REMOTE])
+		announce_channel(peer);
 }
 
 static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
@@ -2171,6 +2184,7 @@ int main(int argc, char *argv[])
 	timers_init(&peer->timers, time_mono());
 	peer->commit_timer = NULL;
 	peer->have_sigs[LOCAL] = peer->have_sigs[REMOTE] = false;
+	peer->announce_depth_reached = false;
 	peer->handle_master_reply = NULL;
 	peer->master_reply_type = 0;
 	msg_queue_init(&peer->master_deferred, peer);
