@@ -1970,7 +1970,7 @@ out:
 		if (msg) {
 			/* Free old packet exactly like daemon_conn_read_next */
 			master->msg_in = tal_free(master->msg_in);
-			master->msg_in = cast_const(u8 *, tal_steal(master,msg));
+			master->msg_in = cast_const(u8 *, tal_steal(peer, msg));
 			return req_in(conn, master);
 		}
 	}
