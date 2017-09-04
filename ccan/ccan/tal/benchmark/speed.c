@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 	void *ctx;
 	unsigned count;
 	int i, j;
-	struct timespec tv;
+	struct timeabs tv;
 	void *p1, *p2[100], *p3[100];
 	bool run_talloc = true, run_tal = true, run_malloc = true;
 
@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
 			talloc_free(p1);
 		}
 		count += (1 + 200) * LOOPS;
-	} while (time_sub(time_now(), tv).tv_sec < 5);
+	} while (time_between(time_now(), tv).ts.tv_sec < 5);
 
 	fprintf(stderr, "talloc: %.0f ops/sec\n", count/5.0);
 
@@ -90,7 +90,7 @@ after_talloc:
 			tal_free(p1);
 		}
 		count += (1 + 200) * LOOPS;
-	} while (time_sub(time_now(), tv).tv_sec < 5);
+	} while (time_between(time_now(), tv).ts.tv_sec < 5);
 	fprintf(stderr, "tal:    %.0f ops/sec\n", count/5.0);
 
 	tal_free(ctx);
@@ -115,7 +115,7 @@ after_tal:
 			free(p1);
 		}
 		count += (1 + 200) * LOOPS;
-	} while (time_sub(time_now(), tv).tv_sec < 5);
+	} while (time_between(time_now(), tv).ts.tv_sec < 5);
 	fprintf(stderr, "malloc: %.0f ops/sec\n", count/5.0);
 
 after_malloc:

@@ -8,12 +8,16 @@
 #include <stddef.h>
 #include <string.h>
 #include <limits.h>
+#include <stdint.h>
 #include <errno.h>
 
 //#define TAL_DEBUG 1
 
 #define NOTIFY_IS_DESTRUCTOR 512
 #define NOTIFY_EXTRA_ARG 1024
+
+/* This makes our parent_child ptr stand out for to_tal_hdr checks */
+#define TAL_PTR_OBFUSTICATOR ((intptr_t)0x1984200820142016ULL)
 
 /* 32-bit type field, first byte 0 in either endianness. */
 enum prop_type {
@@ -26,7 +30,8 @@ enum prop_type {
 struct tal_hdr {
 	struct list_node list;
 	struct prop_hdr *prop;
-	struct children *parent_child;
+	/* XOR with TAL_PTR_OBFUSTICATOR */
+	intptr_t parent_child;
 };
 
 struct prop_hdr {
@@ -72,7 +77,7 @@ static struct {
 	struct tal_hdr hdr;
 	struct children c;
 } null_parent = { { { &null_parent.hdr.list, &null_parent.hdr.list },
-		    &null_parent.c.hdr, NULL },
+		    &null_parent.c.hdr, TAL_PTR_OBFUSTICATOR },
 		  { { CHILDREN, NULL },
 		    &null_parent.hdr,
 		    { { &null_parent.c.children.n,
@@ -93,19 +98,19 @@ static inline void COLD call_error(const char *msg)
 	errorfn(msg);
 }
 
-static bool get_destroying_bit(struct children *parent_child)
+static bool get_destroying_bit(intptr_t parent_child)
 {
-	return (size_t)parent_child & 1;
+	return parent_child & 1;
 }
 
-static void set_destroying_bit(struct children **parent_child)
+static void set_destroying_bit(intptr_t *parent_child)
 {
-	*parent_child = (void *)((size_t)*parent_child | 1);
+	*parent_child |= 1;
 }
 
-static struct children *ignore_destroying_bit(struct children *parent_child)
+static struct children *ignore_destroying_bit(intptr_t parent_child)
 {
-	return (void *)((size_t)parent_child & ~(size_t)1);
+	return (void *)((parent_child ^ TAL_PTR_OBFUSTICATOR) & ~(intptr_t)1);
 }
 
 /* This means valgrind can see leaks. */
@@ -377,7 +382,7 @@ static bool add_child(struct tal_hdr *parent, struct tal_hdr *child)
 			return false;
 	}
 	list_add(&children->children, &child->list);
-	child->parent_child = children;
+	child->parent_child = (intptr_t)children ^ TAL_PTR_OBFUSTICATOR;
 	return true;
 }
 
