@@ -215,7 +215,6 @@ class LightningD(TailableProc):
             '--bitcoin-datadir={}'.format(bitcoin_dir),
             '--lightning-dir={}'.format(lightning_dir),
             '--port={}'.format(port),
-            '--disable-irc',
             '--network=regtest',
             '--dev-broadcast-interval=1000',
         ]
