@@ -298,9 +298,6 @@ static const struct config testnet_config = {
 	/* Take 0.001% */
 	.fee_per_satoshi = 10,
 
-	/* Discover new peers using IRC */
-	.use_irc = true,
-
 	/* Don't ignore database version */
 	.db_version_ignore = false,
 
@@ -361,9 +358,6 @@ static const struct config mainnet_config = {
 	.fee_base = 546000,
 	/* Take 0.001% */
 	.fee_per_satoshi = 10,
-
-	/* Discover new peers using IRC */
-	.use_irc = true,
 
 	/* Don't ignore database version */
 	.db_version_ignore = false,
