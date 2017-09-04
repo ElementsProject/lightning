@@ -31,7 +31,7 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	bool result = db_exec(
 	    __func__, w->db,
 	    "INSERT INTO outputs (prev_out_tx, prev_out_index, value, type, "
-	    "status, keyindex) VALUES ('%s', %d, %zu, %d, %d, %d);",
+	    "status, keyindex) VALUES ('%s', %d, %"PRIu64", %d, %d, %d);",
 	    hextxid, utxo->outnum, utxo->amount, type, output_state_available,
 	    utxo->keyindex);
 	tal_free(tmpctx);

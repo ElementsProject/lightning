@@ -1286,7 +1286,7 @@ int main(int argc, char *argv[])
 		status_failed(WIRE_ONCHAIN_BAD_COMMAND,
 			      "Can't allocate %"PRIu64" htlcs", num_htlcs);
 
-	for (size_t i = 0; i < num_htlcs; i++) {
+	for (u64 i = 0; i < num_htlcs; i++) {
 		msg = wire_sync_read(ctx, REQ_FD);
 		if (!msg || !fromwire_onchain_htlc(msg, NULL, &htlcs[i]))
 			status_failed(WIRE_ONCHAIN_BAD_COMMAND,
