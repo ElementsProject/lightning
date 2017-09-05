@@ -490,7 +490,7 @@ static bool peer_reconnected(struct lightningd *ld,
 
 	case OPENINGD:
 		/* Kill off openingd, forget old peer. */
-		peer->owner->peer = NULL;
+		peer->owner = NULL; /* We'll free it ourselves */
 		tal_free(peer->owner);
 		tal_free(peer);
 
