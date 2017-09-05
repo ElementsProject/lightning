@@ -324,3 +324,30 @@ static const struct json_command addfunds_command = {
 	"Returns how many {outputs} it can use and total {satoshis}"
 };
 AUTODATA(json_command, &addfunds_command);
+
+static void json_listfunds(struct command *cmd, const char *buffer,
+			   const jsmntok_t *params)
+{
+	struct json_result *response = new_json_result(cmd);
+	struct utxo **utxos =
+	    wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
+	json_object_start(response, NULL);
+	json_array_start(response, "outputs");
+	for (int i = 0; i < tal_count(utxos); i++) {
+		json_object_start(response, NULL);
+		json_add_hex(response, "txid", &utxos[i]->txid,
+			     sizeof(struct sha256_double));
+		json_add_num(response, "output", utxos[i]->outnum);
+		json_add_u64(response, "value", utxos[i]->amount);
+		json_object_end(response);
+	}
+	json_array_end(response);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+static const struct json_command listfunds_command = {
+    "listfunds", json_listfunds,
+    "List funds available to the daemon to open channels",
+    "Returns an array of available outputs"};
+AUTODATA(json_command, &listfunds_command);
