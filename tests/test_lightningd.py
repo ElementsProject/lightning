@@ -816,6 +816,39 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
         l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
 
+    def test_reconnect_openingd(self):
+        # Openingd thinks we're still opening; funder reconnects..
+        disconnects = ['0WIRE_ACCEPT_CHANNEL']
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(disconnect=disconnects)
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+
+        addr = l1.rpc.newaddr()['address']
+        txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
+        tx = l1.bitcoin.rpc.getrawtransaction(txid)
+        l1.rpc.addfunds(tx)
+
+        # It closes on us, we forget about it.
+        self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
+        assert l1.rpc.getpeer(l2.info['id']) == None
+
+        # Reconnect.
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+
+        # Truncate (hack to release old openingd).
+        with open(os.path.join(l2.daemon.lightning_dir, 'dev_disconnect'), "w"):
+            pass
+
+        # We should get a message about old one exiting.
+        l2.daemon.wait_for_log('Subdaemon lightning_openingd died')
+
+        # Should work fine.
+        l1.rpc.fundchannel(l2.info['id'], 20000)
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+
+        # Just to be sure, second openingd should die too.
+        l2.daemon.wait_for_log('Subdaemon lightning_openingd died \(0\)')
+
     def test_reconnect_normal(self):
         # Should reconnect fine even if locked message gets lost.
         disconnects = ['-WIRE_FUNDING_LOCKED',
