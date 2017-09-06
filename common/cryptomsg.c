@@ -352,6 +352,9 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 	case DEV_DISCONNECT_AFTER:
 		post = peer_write_postclose;
 		break;
+	case DEV_DISCONNECT_BLACKHOLE:
+		dev_blackhole_fd(io_conn_fd(conn));
+		break;
 	default:
 		break;
 	}

@@ -3,8 +3,10 @@
 #include <ccan/str/str.h>
 #include <common/dev_disconnect.h>
 #include <common/status.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <wire/gen_peer_wire.h>
@@ -64,11 +66,48 @@ void dev_sabotage_fd(int fd)
 	int fds[2];
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
-		errx(1, "dev_sabotage_fd: creating socketpair");
+		err(1, "dev_sabotage_fd: creating socketpair");
 
 	/* Close one. */
 	close(fds[0]);
 	/* Move other over to the fd we want to sabotage. */
+	dup2(fds[1], fd);
+	close(fds[1]);
+}
+
+/* Replace fd with blackhole until dev_disconnect file is truncated. */
+void dev_blackhole_fd(int fd)
+{
+	int fds[2];
+	int i;
+	struct stat st;
+
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
+		err(1, "dev_blackhole_fd: creating socketpair");
+
+	switch (fork()) {
+	case -1:
+		err(1, "dev_blackhole_fd: forking");
+	case 0:
+		/* Close everything but the dev_disconnect_fd, the socket
+		 * which is pretending to be the peer, and stderr. */
+		for (i = 0; i < sysconf(_SC_OPEN_MAX); i++)
+			if (i != fds[0]
+			    && i != dev_disconnect_fd
+			    && i != STDERR_FILENO)
+				close(i);
+
+		/* Close once dev_disconnect file is truncated. */
+		for (;;) {
+			if (fstat(dev_disconnect_fd, &st) != 0)
+				err(1, "fstat of dev_disconnect_fd failed");
+			if (st.st_size == 0)
+				_exit(0);
+			sleep(1);
+		}
+	}
+
+	close(fds[0]);
 	dup2(fds[1], fd);
 	close(fds[1]);
 }

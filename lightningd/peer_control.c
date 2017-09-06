@@ -263,6 +263,11 @@ void dev_sabotage_fd(int fd)
 	abort();
 }
 
+void dev_blackhole_fd(int fd)
+{
+	abort();
+}
+
 /* Send (encrypted) error message, then close. */
 static struct io_plan *send_error(struct io_conn *conn,
 				  struct peer_crypto_state *pcs)
