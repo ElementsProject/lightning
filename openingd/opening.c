@@ -38,6 +38,9 @@ struct state {
 	struct crypto_state cs;
 	struct pubkey next_per_commit[NUM_SIDES];
 
+	/* Initially temporary, then final channel id. */
+	struct channel_id channel_id;
+
 	/* Funding and feerate: set by opening peer. */
 	u64 funding_satoshis, push_msat;
 	u32 feerate_per_kw;
@@ -209,7 +212,7 @@ static u8 *funder_channel(struct state *state,
 			  const struct utxo *utxos,
 			  const struct ext_key *bip32_base)
 {
-	struct channel_id channel_id, id_in;
+	struct channel_id id_in;
 	u8 *msg;
 	struct bitcoin_tx *tx;
 	struct basepoints theirs;
@@ -223,14 +226,15 @@ static u8 *funder_channel(struct state *state,
 	set_reserve(&state->localconf.channel_reserve_satoshis,
 		    state->funding_satoshis);
 
-	temporary_channel_id(&channel_id);
+	temporary_channel_id(&state->channel_id);
 
 	/* BOLT #2:
 	 *
 	 * The sender MUST set `funding_satoshis` to less than 2^24 satoshi. */
 	if (state->funding_satoshis >= 1 << 24)
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
-			      "funding_satoshis must be < 2^24");
+		status_failed(WIRE_OPENING_BAD_PARAM,
+			      "funding_satoshis must be < 2^24, not %"PRIu64,
+			      state->funding_satoshis);
 
 	/* BOLT #2:
 	 *
@@ -238,13 +242,13 @@ static u8 *funder_channel(struct state *state,
 	 * `funding_satoshis`.
 	 */
 	if (state->push_msat > 1000 * state->funding_satoshis)
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
+		status_failed(WIRE_OPENING_BAD_PARAM,
 			      "push-msat must be < %"PRIu64,
 			      1000 * state->funding_satoshis);
 
 	msg = towire_open_channel(state,
 				  &state->chainparams->genesis_blockhash,
-				  &channel_id,
+				  &state->channel_id,
 				  state->funding_satoshis, state->push_msat,
 				  state->localconf.dust_limit_satoshis,
 				  state->localconf.max_htlc_value_in_flight_msat,
@@ -260,15 +264,16 @@ static u8 *funder_channel(struct state *state,
 				  &state->next_per_commit[LOCAL],
 				  channel_flags);
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
-			      "Writing open_channel");
+		status_failed(WIRE_OPENING_PEER_WRITE_FAILED,
+			      "Writing open_channel: %s", strerror(errno));
 
 	state->remoteconf = tal(state, struct channel_config);
 
 	msg = read_next_peer_msg(state, state);
 	if (!msg)
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
-			      "Reading accept_channel");
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_PEER_READ_FAILED,
+			    "Reading accept_channel");
 
 	/* BOLT #2:
 	 *
@@ -292,18 +297,21 @@ static u8 *funder_channel(struct state *state,
 				     &theirs.payment,
 				     &theirs.delayed_payment,
 				     &state->next_per_commit[REMOTE]))
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
-			      "Parsing accept_channel %s", tal_hex(msg, msg));
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_PEER_READ_FAILED,
+			    "Parsing accept_channel %s", tal_hex(msg, msg));
 
 	/* BOLT #2:
 	 *
 	 * The `temporary_channel_id` MUST be the same as the
 	 * `temporary_channel_id` in the `open_channel` message. */
-	if (!structeq(&id_in, &channel_id))
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
-			      "accept_channel ids don't match: sent %s got %s",
-			      type_to_string(msg, struct channel_id, &id_in),
-			      type_to_string(msg, struct channel_id, &channel_id));
+	if (!structeq(&id_in, &state->channel_id))
+		peer_failed(PEER_FD, &state->cs, &id_in,
+			    WIRE_OPENING_PEER_READ_FAILED,
+			    "accept_channel ids don't match: sent %s got %s",
+			    type_to_string(msg, struct channel_id, &id_in),
+			    type_to_string(msg, struct channel_id,
+					   &state->channel_id));
 
 	/* BOLT #2:
 	 *
@@ -314,7 +322,8 @@ static u8 *funder_channel(struct state *state,
 	 * `open_channel`.
 	 */
 	if (minimum_depth > max_minimum_depth)
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_BAD_PARAM,
 			    "minimum_depth %u larger than %u",
 			    minimum_depth, max_minimum_depth);
 	check_config_bounds(state, state->remoteconf);
@@ -349,8 +358,9 @@ static u8 *funder_channel(struct state *state,
 					     &their_funding_pubkey,
 					     LOCAL);
 	if (!state->channel)
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
-			      "could not create channel with given config");
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_BAD_PARAM,
+			    "could not create channel with given config");
 
 	/* BOLT #2:
 	 *
@@ -371,13 +381,14 @@ static u8 *funder_channel(struct state *state,
 		     type_to_string(trc, struct bitcoin_tx, tx),
 		     type_to_string(trc, struct pubkey, our_funding_pubkey));
 
-	msg = towire_funding_created(state, &channel_id,
+	msg = towire_funding_created(state, &state->channel_id,
 				     &state->funding_txid.sha,
 				     state->funding_txout,
 				     &sig);
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
-			      "Writing funding_created");
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_PEER_WRITE_FAILED,
+			    "Writing funding_created");
 
 	/* BOLT #2:
 	 *
@@ -389,11 +400,13 @@ static u8 *funder_channel(struct state *state,
 	 */
 	msg = read_next_peer_msg(state, state);
 	if (!msg)
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
-			      "Reading funding_signed");
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_PEER_READ_FAILED,
+			    "Reading funding_signed");
 
 	if (!fromwire_funding_signed(msg, NULL, &id_in, &sig))
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_PEER_READ_FAILED,
 			    "Parsing funding_signed (%s)",
 			    wire_type_name(fromwire_peektype(msg)));
 
@@ -405,14 +418,16 @@ static u8 *funder_channel(struct state *state,
 	 * exclusive-OR (ie. `funding_output_index` alters the last two
 	 * bytes).
 	 */
-	derive_channel_id(&channel_id,
+	derive_channel_id(&state->channel_id,
 			  &state->funding_txid, state->funding_txout);
 
-	if (!structeq(&id_in, &channel_id))
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
-			      "funding_signed ids don't match: expceted %s got %s",
-			      type_to_string(msg, struct channel_id, &channel_id),
-			      type_to_string(msg, struct channel_id, &id_in));
+	if (!structeq(&id_in, &state->channel_id))
+		peer_failed(PEER_FD, &state->cs, &id_in,
+			    WIRE_OPENING_PEER_READ_FAILED,
+			    "funding_signed ids don't match: expceted %s got %s",
+			    type_to_string(msg, struct channel_id,
+					   &state->channel_id),
+			    type_to_string(msg, struct channel_id, &id_in));
 
 	/* BOLT #2:
 	 *
@@ -422,13 +437,14 @@ static u8 *funder_channel(struct state *state,
 				&state->next_per_commit[LOCAL], LOCAL);
 
 	if (!check_tx_sig(tx, 0, NULL, wscript, &their_funding_pubkey, &sig)) {
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
-			      "Bad signature %s on tx %s using key %s",
-			      type_to_string(trc, secp256k1_ecdsa_signature,
-					     &sig),
-			      type_to_string(trc, struct bitcoin_tx, tx),
-			      type_to_string(trc, struct pubkey,
-					     &their_funding_pubkey));
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_PEER_READ_FAILED,
+			    "Bad signature %s on tx %s using key %s",
+			    type_to_string(trc, secp256k1_ecdsa_signature,
+					   &sig),
+			    type_to_string(trc, struct bitcoin_tx, tx),
+			    type_to_string(trc, struct pubkey,
+					   &their_funding_pubkey));
 	}
 
 	/* BOLT #2:
@@ -459,7 +475,7 @@ static u8 *fundee_channel(struct state *state,
 			  u32 minimum_depth,
 			  u32 min_feerate, u32 max_feerate, const u8 *peer_msg)
 {
-	struct channel_id id_in, channel_id;
+	struct channel_id id_in;
 	struct basepoints theirs;
 	struct pubkey their_funding_pubkey;
 	secp256k1_ecdsa_signature theirsig, sig;
@@ -478,7 +494,8 @@ static u8 *fundee_channel(struct state *state,
 	 * `delayed_payment_basepoint` are not valid DER-encoded compressed
 	 * secp256k1 pubkeys.
 	 */
-	if (!fromwire_open_channel(peer_msg, NULL, &chain_hash, &channel_id,
+	if (!fromwire_open_channel(peer_msg, NULL, &chain_hash,
+				   &state->channel_id,
 				   &state->funding_satoshis, &state->push_msat,
 				   &state->remoteconf->dust_limit_satoshis,
 				   &state->remoteconf->max_htlc_value_in_flight_msat,
@@ -493,9 +510,10 @@ static u8 *fundee_channel(struct state *state,
 				   &theirs.delayed_payment,
 				   &state->next_per_commit[REMOTE],
 				   &channel_flags))
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_INITIAL_MESSAGE,
-			      "Parsing open_channel %s",
-			      tal_hex(peer_msg, peer_msg));
+		peer_failed(PEER_FD, &state->cs, NULL,
+			    WIRE_OPENING_PEER_BAD_INITIAL_MESSAGE,
+			    "Parsing open_channel %s",
+			    tal_hex(peer_msg, peer_msg));
 
 	/* BOLT #2:
 	 *
@@ -504,7 +522,7 @@ static u8 *fundee_channel(struct state *state,
 	 * unknown to the receiver.
 	 */
 	if (!structeq(&chain_hash, &state->chainparams->genesis_blockhash)) {
-		peer_failed(PEER_FD, &state->cs, NULL,
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
 			    WIRE_OPENING_PEER_BAD_INITIAL_MESSAGE,
 			    "Unknown chain-hash %s",
 			    type_to_string(peer_msg, struct sha256_double,
@@ -516,9 +534,10 @@ static u8 *fundee_channel(struct state *state,
 	 * The receiving node ... MUST fail the channel if `funding-satoshis`
 	 * is greater than or equal to 2^24 */
 	if (state->funding_satoshis >= 1 << 24)
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_FUNDING,
-			      "funding_satoshis %"PRIu64" too large",
-			      state->funding_satoshis);
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_PEER_BAD_FUNDING,
+			    "funding_satoshis %"PRIu64" too large",
+			    state->funding_satoshis);
 
 	/* BOLT #2:
 	 *
@@ -526,10 +545,11 @@ static u8 *fundee_channel(struct state *state,
 	 * greater than `funding_satoshis` * 1000.
 	 */
 	if (state->push_msat > state->funding_satoshis * 1000)
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_FUNDING,
-			      "push_msat %"PRIu64
-			      " too large for funding_satoshis %"PRIu64,
-			      state->push_msat, state->funding_satoshis);
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_PEER_BAD_FUNDING,
+			    "push_msat %"PRIu64
+			    " too large for funding_satoshis %"PRIu64,
+			    state->push_msat, state->funding_satoshis);
 
 	/* BOLT #2:
 	 *
@@ -537,12 +557,14 @@ static u8 *fundee_channel(struct state *state,
 	 * too small for timely processing, or unreasonably large.
 	 */
 	if (state->feerate_per_kw < min_feerate)
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_FUNDING,
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_PEER_BAD_FUNDING,
 			    "feerate_per_kw %u below minimum %u",
 			    state->feerate_per_kw, min_feerate);
 
 	if (state->feerate_per_kw > max_feerate)
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_BAD_FUNDING,
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_PEER_BAD_FUNDING,
 			    "feerate_per_kw %u above maximum %u",
 			    state->feerate_per_kw, max_feerate);
 
@@ -550,7 +572,7 @@ static u8 *fundee_channel(struct state *state,
 		    state->funding_satoshis);
 	check_config_bounds(state, state->remoteconf);
 
-	msg = towire_accept_channel(state, &channel_id,
+	msg = towire_accept_channel(state, &state->channel_id,
 				    state->localconf.dust_limit_satoshis,
 				    state->localconf
 				      .max_htlc_value_in_flight_msat,
@@ -566,29 +588,34 @@ static u8 *fundee_channel(struct state *state,
 				    &state->next_per_commit[LOCAL]);
 
 	if (!sync_crypto_write(&state->cs, PEER_FD, take(msg)))
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_WRITE_FAILED,
-			      "Writing accept_channel");
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_PEER_WRITE_FAILED,
+			    "Writing accept_channel");
 
 	msg = read_next_peer_msg(state, state);
 	if (!msg)
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
-			      "Reading funding_created");
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_PEER_READ_FAILED,
+			    "Reading funding_created");
 
 	if (!fromwire_funding_created(msg, NULL, &id_in,
 				      &state->funding_txid.sha,
 				      &state->funding_txout,
 				      &theirsig))
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
-			      "Parsing funding_created");
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_PEER_READ_FAILED,
+			    "Parsing funding_created");
 
 	/* BOLT #2:
 	 *
 	 * The sender MUST set `temporary_channel_id` the same as the
 	 * `temporary_channel_id` in the `open_channel` message. */
-	if (!structeq(&id_in, &channel_id))
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
+	if (!structeq(&id_in, &state->channel_id))
+		peer_failed(PEER_FD, &state->cs, &id_in,
+			    WIRE_OPENING_PEER_READ_FAILED,
 			    "funding_created ids don't match: sent %s got %s",
-			    type_to_string(msg, struct channel_id, &channel_id),
+			    type_to_string(msg, struct channel_id,
+					   &state->channel_id),
 			    type_to_string(msg, struct channel_id, &id_in));
 
 	state->channel = new_initial_channel(state,
@@ -604,8 +631,9 @@ static u8 *fundee_channel(struct state *state,
 					     &their_funding_pubkey,
 					     REMOTE);
 	if (!state->channel)
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_BAD_PARAM,
-			      "could not create channel with given config");
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_BAD_PARAM,
+			    "could not create channel with given config");
 
 	/* BOLT #2:
 	 *
@@ -616,13 +644,14 @@ static u8 *fundee_channel(struct state *state,
 
 	if (!check_tx_sig(tx, 0, NULL, wscript, &their_funding_pubkey,
 			  &theirsig)) {
-		peer_failed(PEER_FD, &state->cs, NULL, WIRE_OPENING_PEER_READ_FAILED,
-			      "Bad signature %s on tx %s using key %s",
-			      type_to_string(trc, secp256k1_ecdsa_signature,
-					     &theirsig),
-			      type_to_string(trc, struct bitcoin_tx, tx),
-			      type_to_string(trc, struct pubkey,
-					     &their_funding_pubkey));
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
+			    WIRE_OPENING_PEER_READ_FAILED,
+			    "Bad signature %s on tx %s using key %s",
+			    type_to_string(trc, secp256k1_ecdsa_signature,
+					   &theirsig),
+			    type_to_string(trc, struct bitcoin_tx, tx),
+			    type_to_string(trc, struct pubkey,
+					   &their_funding_pubkey));
 	}
 
 	/* BOLT #2:
@@ -633,7 +662,7 @@ static u8 *fundee_channel(struct state *state,
 	 * exclusive-OR (ie. `funding_output_index` alters the last two
 	 * bytes).
 	 */
-	derive_channel_id(&channel_id,
+	derive_channel_id(&state->channel_id,
 			  &state->funding_txid, state->funding_txout);
 
 	/* BOLT #2:
@@ -652,7 +681,7 @@ static u8 *fundee_channel(struct state *state,
 
 	/* We don't send this ourselves: channeld does, because master needs
 	 * to save state to disk before doing so. */
-	msg = towire_funding_signed(state, &channel_id, &sig);
+	msg = towire_funding_signed(state, &state->channel_id, &sig);
 
 	return towire_opening_fundee_reply(state,
 					   state->remoteconf,
