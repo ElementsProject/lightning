@@ -25,6 +25,9 @@ bool sync_crypto_write(struct crypto_state *cs, int fd, const void *msg TAKES)
 	case DEV_DISCONNECT_AFTER:
 		post_sabotage = true;
 		break;
+	case DEV_DISCONNECT_BLACKHOLE:
+		dev_blackhole_fd(fd);
+		break;
 	default:
 		break;
 	}
