@@ -514,7 +514,7 @@ static void forward_htlc(struct htlc_in *hin,
 	}
 
 	if (!check_ctlv(hin, cltv_expiry, outgoing_cltv_value,
-			ld->config.deadline_blocks)) {
+			ld->config.min_htlc_expiry)) {
 		failcode = WIRE_INCORRECT_CLTV_EXPIRY;
 		goto fail;
 	}
