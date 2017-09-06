@@ -689,11 +689,11 @@ class LightningDTests(BaseLightningDTests):
 
         baseroute = [ { 'msatoshi' : amt + fee,
                         'id' : l2.info['id'],
-                        'delay' : 10,
+                        'delay' : 12,
                         'channel' : chanid1 },
                       { 'msatoshi' : amt,
                         'id' : l3.info['id'],
-                        'delay' : 5,
+                        'delay' : 6,
                         'channel' : chanid2 } ]
 
         # Unknown other peer
