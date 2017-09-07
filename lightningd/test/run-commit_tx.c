@@ -269,7 +269,7 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			      wscript[i],
 			      x_remote_secretkey, remotekey,
 			      &remotesig[i]);
-		printf("# signature for output %zi (htlc %zu)\n", i, htlc->id);
+		printf("# signature for output %zi (htlc %"PRIu64")\n", i, htlc->id);
 		printf("remote_htlc_signature = %s\n",
 		       type_to_string(tmpctx, secp256k1_ecdsa_signature,
 				      &remotesig[i]));
