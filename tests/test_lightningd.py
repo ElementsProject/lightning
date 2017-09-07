@@ -199,14 +199,12 @@ class LightningDTests(BaseLightningDTests):
         rhash = ldst.rpc.invoice(amt, label)['rhash']
         assert ldst.rpc.listinvoice(label)[0]['complete'] == False
 
-        def call_pay():
-            routestep = {
-                'msatoshi' : amt,
-                'id' : ldst.info['id'],
-                'delay' : 5,
-                'channel': '1:1:1'
-            }
-            lsrc.rpc.sendpay(to_json([routestep]), rhash, async=False)
+        routestep = {
+            'msatoshi' : amt,
+            'id' : ldst.info['id'],
+            'delay' : 5,
+            'channel': '1:1:1'
+        }
 
         def wait_pay():
             # Up to 10 seconds for payment to succeed.
@@ -217,12 +215,10 @@ class LightningDTests(BaseLightningDTests):
                 time.sleep(0.1)
 
         if async:
-            t = threading.Thread(target=call_pay)
-            t.daemon = True
-            t.start()
+            self.executor.submit(lsrc.rpc.sendpay, to_json([routestep]), rhash, async=False)
             return self.executor.submit(wait_pay)
         else:
-            call_pay()
+            lsrc.rpc.sendpay(to_json([routestep]), rhash, async=False)
 
     def test_connect(self):
         l1,l2 = self.connect()
@@ -469,7 +465,7 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 10**6)
 
         # This will fail at l2's end.
-        t=self.pay(l1,l2,200000000,async=True)
+        t=self.pay(l1, l2, 200000000, async=True)
 
         l2.daemon.wait_for_log('dev_disconnect permfail')
         l2.daemon.wait_for_log('sendrawtx exit 0')
