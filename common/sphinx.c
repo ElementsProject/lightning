@@ -420,7 +420,7 @@ struct route_step *process_onionpacket(
 	compute_packet_hmac(msg, assocdata, assocdatalen, keys.mu, hmac);
 
 	if (memcmp(msg->mac, hmac, sizeof(hmac)) != 0) {
-		warnx("Computed MAC does not match expected MAC, the message was modified.");
+		/* Computed MAC does not match expected MAC, the message was modified. */
 		return tal_free(step);
 	}
 
