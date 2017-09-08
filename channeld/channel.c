@@ -30,6 +30,7 @@
 #include <common/type_to_string.h>
 #include <common/version.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <gossipd/routing.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
@@ -2019,6 +2020,8 @@ static void init_channel(struct peer *peer)
 	u8 *funding_signed;
 	u8 *msg;
 	u32 feerate_per_kw;
+
+	assert(!(fcntl(REQ_FD, F_GETFL) & O_NONBLOCK));
 
 	msg = wire_sync_read(peer, REQ_FD);
 	if (!fromwire_channel_init(peer, msg, NULL,
