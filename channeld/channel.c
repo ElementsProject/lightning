@@ -1995,6 +1995,8 @@ static void init_channel(struct peer *peer)
 
 	assert(!(fcntl(MASTER_FD, F_GETFL) & O_NONBLOCK));
 
+	status_setup_sync(MASTER_FD);
+
 	msg = wire_sync_read(peer, MASTER_FD);
 	if (!fromwire_channel_init(peer, msg, NULL,
 				   &peer->chain_hash,
@@ -2041,8 +2043,6 @@ static void init_channel(struct peer *peer)
 				   &funding_signed))
 		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Init: %s",
 			      tal_hex(msg, msg));
-
-	status_setup_sync(MASTER_FD);
 
 	status_trace("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
 		     " next_idx_local = %"PRIu64
