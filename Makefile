@@ -136,7 +136,7 @@ CFLAGS = $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I
 
 LDLIBS = -lgmp -lsqlite3 $(COVFLAGS)
 
-default: $(ALL_TEST_PROGRAMS) doc-all
+default: $(ALL_TEST_PROGRAMS) cli/lightning-cli doc-all
 
 include external/Makefile
 include bitcoin/Makefile
