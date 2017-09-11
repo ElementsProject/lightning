@@ -1,13 +1,18 @@
-# FIXME: Move to common/test
-COMMON_TEST_PROGRAMS :=					\
-	common/test/test_sphinx
+COMMON_TEST_SRC :=					\
+	common/test/test_sphinx.c
+COMMON_TEST_OBJS := $(COMMON_TEST_SRC:.c=.o)
+COMMON_TEST_PROGRAMS := $(COMMON_TEST_OBJS:.o=)
 
 COMMON_TEST_COMMON_OBJS :=				\
 	common/sphinx.o					\
 	common/utils.o
 
-$(COMMON_TEST_PROGRAMS): $(TEST_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS)
+$(COMMON_TEST_PROGRAMS): $(COMMON_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
+$(COMMON_TEST_OBJS): $(COMMON_HEADERS) $(COMMON_SRC)
 
 ALL_TEST_PROGRAMS += $(COMMON_TEST_PROGRAMS)
 ALL_OBJS += $(COMMON_TEST_PROGRAMS:=.o)
 
+update-mocks: $(COMMON_TEST_SRC:%=update-mocks/%)
+
+check: $(COMMON_TEST_PROGRAMS:%=unittest/%)
