@@ -136,7 +136,7 @@ CFLAGS = $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I
 
 LDLIBS = -lgmp -lsqlite3 $(COVFLAGS)
 
-default: $(ALL_TEST_PROGRAMS) cli/lightning-cli doc-all
+default: all-programs all-test-programs
 
 include external/Makefile
 include bitcoin/Makefile
@@ -256,13 +256,9 @@ update-ccan:
 	echo CCAN version: `git -C ../ccan describe` >> ccan/README
 	$(RM) -r ccan.old
 
-update-secp256k1:
-	mv secp256k1 secp256k1.old
-	cp -a ../secp256k1 secp256k1
-	rm -rf secp256k1/.git
-	grep -v '^secp256k1 version:' secp256k1.old/README > secp256k1/README
-	echo secp256k1 version: `git -C ../secp256k1 describe 2>/dev/null || git -C ../secp256k1 show HEAD --format=%H` >> secp256k1/README
-	$(RM) -r secp256k1.old
+# Now ALL_PROGRAMS is fully populated, we can expand it.
+all-programs: $(ALL_PROGRAMS)
+all-test-programs: $(ALL_TEST_PROGRAMS)
 
 distclean: clean
 
