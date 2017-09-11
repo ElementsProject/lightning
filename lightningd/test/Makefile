@@ -1,5 +1,3 @@
-check: lightningd/tests
-
 # Note that these actually #include everything they need, except ccan/ and bitcoin/.
 # That allows for unit testing of statics, and special effects.
 LIGHTNINGD_TEST_SRC := $(wildcard lightningd/test/run-*.c)
@@ -19,11 +17,8 @@ LIGHTNINGD_TEST_COMMON_OBJS :=			\
 
 update-mocks: $(LIGHTNINGD_TEST_SRC:%=update-mocks/%)
 
-$(LIGHTNINGD_TEST_PROGRAMS): $(CCAN_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(LIBBASE58_OBJS) $(LIGHTNINGD_OLD_LIB_OBJS) $(LIGHTNINGD_TEST_COMMON_OBJS)
+$(LIGHTNINGD_TEST_PROGRAMS): $(CCAN_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(LIBBASE58_OBJS) $(LIGHTNINGD_TEST_COMMON_OBJS)
 
 $(LIGHTNINGD_TEST_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_SRC)
 
-lightningd/tests: $(LIGHTNINGD_TEST_PROGRAMS:%=unittest/%)
-
-check-source-bolt: $(LIGHTNINGD_TEST_SRC:%=bolt-check/%)
-check-whitespace: $(LIGHTNINGD_TEST_SRC:%=check-whitespace/%)
+check: $(LIGHTNINGD_TEST_PROGRAMS:%=unittest/%)
