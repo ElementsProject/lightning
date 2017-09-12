@@ -112,6 +112,9 @@ struct lightningd {
 	/* If we have a --dev-disconnect file */
 	int dev_disconnect_fd;
 
+	/* If we have --dev-fail-on-subdaemon-fail */
+	bool dev_subdaemon_fail;
+
 	/* HTLCs in flight. */
 	struct htlc_in_map htlcs_in;
 	struct htlc_out_map htlcs_out;

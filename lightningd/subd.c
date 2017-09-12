@@ -318,6 +318,9 @@ static void subdaemon_malformed_msg(struct subd *sd, const u8 *msg)
 		   tal_hexstr(msg,
 			      msg + sizeof(be16),
 			      tal_count(msg) - sizeof(be16)));
+
+	if (sd->ld->dev_subdaemon_fail)
+		fatal("Subdaemon %s sent malformed message", sd->name);
 }
 
 /* Returns true if logged, false if malformed. */
@@ -361,6 +364,10 @@ log_str_peer:
 /* Shouldn't happen. */
 log_str_broken:
 	log_broken(sd->log, "%s: %.*s", name, str_len, str);
+
+	if (sd->ld->dev_subdaemon_fail)
+		fatal("Subdaemon %s hit error", sd->name);
+
 	return true;
 }
 
@@ -444,12 +451,14 @@ next:
 static void destroy_subd(struct subd *sd)
 {
 	int status;
+	bool fail_if_subd_fails = sd->ld->dev_subdaemon_fail;
 
 	switch (waitpid(sd->pid, &status, WNOHANG)) {
 	case 0:
 		log_debug(sd->log, "Status closed, but not exited. Killing");
 		kill(sd->pid, SIGKILL);
 		waitpid(sd->pid, &status, 0);
+		fail_if_subd_fails = false;
 		break;
 	case -1:
 		log_unusual(sd->log, "Status closed, but waitpid %i says %s",
@@ -457,6 +466,10 @@ static void destroy_subd(struct subd *sd)
 		status = -1;
 		break;
 	}
+
+	if (fail_if_subd_fails && WIFSIGNALED(status))
+		fatal("Subdaemon %s killed with signal %i",
+		      sd->name, WTERMSIG(status));
 
 	/* In case we're freed manually, such as peer_fail_permanent */
 	if (sd->conn)
