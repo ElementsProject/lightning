@@ -1,4 +1,5 @@
 #include "log.h"
+#include <backtrace.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/list/list.h>
 #include <ccan/opt/opt.h>
@@ -16,6 +17,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+static struct backtrace_state *backtrace_state;
 
 struct log_entry {
 	struct list_node list;
@@ -448,6 +451,15 @@ void opt_register_logging(struct log *log)
 			 "log to file instead of stdout");
 }
 
+static int log_backtrace(void *log, uintptr_t pc,
+			 const char *filename, int lineno,
+			 const char *function)
+{
+	log_broken(log, "backtrace: %s:%u (%s) %p",
+		   filename, lineno, function, (void *)pc);
+	return 0;
+}
+
 static struct log *crashlog;
 
 /* FIXME: Dump peer logs! */
@@ -456,8 +468,9 @@ static void log_crash(int sig)
 	const char *logfile = NULL;
 
 	if (sig) {
-		/* FIXME: Backtrace! */
 		log_broken(crashlog, "FATAL SIGNAL %i RECEIVED", sig);
+		backtrace_full(backtrace_state, 0, log_backtrace, NULL,
+			       crashlog);
 	}
 
 	if (crashlog->lr->print == log_default_print) {
@@ -479,18 +492,21 @@ static void log_crash(int sig)
 			logfile = NULL;
 	}
 
-	if (sig)
+	if (sig) {
 		fprintf(stderr, "Fatal signal %u. ", sig);
+		backtrace_print(backtrace_state, 0, stderr);
+	}
 	if (logfile)
 		fprintf(stderr, "Log dumped in %s", logfile);
 	fprintf(stderr, "\n");
 }
 
-void crashlog_activate(struct log *log)
+void crashlog_activate(const char *argv0, struct log *log)
 {
 	struct sigaction sa;
 	crashlog = log;
 
+	backtrace_state = backtrace_create_state(argv0, 0, NULL, NULL);
 	sa.sa_handler = log_crash;
 	sigemptyset(&sa.sa_mask);
 	/* We want to fall through to default handler */

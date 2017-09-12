@@ -127,7 +127,7 @@ void log_each_line_(const struct log_book *lr,
 
 void log_dump_to_file(int fd, const struct log_book *lr);
 void opt_register_logging(struct log *log);
-void crashlog_activate(struct log *log);
+void crashlog_activate(const char *argv0, struct log *log);
 
 /* Before the crashlog is activated, just prints to stderr. */
 void NORETURN PRINTF_FMT(1,2) fatal(const char *fmt, ...);
