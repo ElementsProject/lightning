@@ -239,6 +239,8 @@ static void dev_register_opts(struct lightningd *ld)
 {
 	opt_register_noarg("--dev-no-broadcast", opt_set_bool,
 			   &ld->topology->dev_no_broadcast, opt_hidden);
+	opt_register_noarg("--dev-fail-on-subdaemon-fail", opt_set_bool,
+			   &ld->dev_subdaemon_fail, opt_hidden);
 }
 
 static const struct config testnet_config = {

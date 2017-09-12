@@ -101,6 +101,7 @@ class NodeFactory(object):
             with open(os.path.join(lightning_dir, "dev_disconnect"), "w") as f:
                 f.write("\n".join(disconnect))
             daemon.cmd_line.append("--dev-disconnect=dev_disconnect")
+        daemon.cmd_line.append("--dev-fail-on-subdaemon-fail")
         rpc = LightningRpc(socket_path, self.executor)
 
         node = utils.LightningNode(daemon, rpc, bitcoind, self.executor)
