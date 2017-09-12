@@ -231,6 +231,9 @@ class LightningD(TailableProc):
         logging.info("LightningD started")
 
     def stop(self):
+        # If it's already crashing, wait a bit for log dump.
+        if os.path.isfile(os.path.join(self.lightning_dir, 'crash.log')):
+            time.sleep(2)
         TailableProc.stop(self)
         logging.info("LightningD stopped")
 
