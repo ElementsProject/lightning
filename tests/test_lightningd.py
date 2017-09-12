@@ -151,18 +151,41 @@ class BaseLightningDTests(unittest.TestCase):
             print("-"*80)
         return 1 if errors else 0
 
+    def getCrashLog(self, node):
+        try:
+            crashlog = os.path.join(node.daemon.lightning_dir, 'crash.log')
+            with open(crashlog, 'r') as f:
+                return f.readlines(), crashlog
+        except:
+            return None, None
+
+    def printCrashLog(self, node):
+        errors, fname = self.getCrashLog(node)
+        if errors:
+            print("-"*10, "{} (last 50 lines)".format(fname), "-"*10)
+            for l in errors[-50:]:
+                print(l, end='')
+            print("-"*80)
+        return 1 if errors else 0
+
     def tearDown(self):
         self.node_factory.killall()
         self.executor.shutdown(wait=False)
 
+        err_count = 0
         # Do not check for valgrind error files if it is disabled
         if VALGRIND:
-            err_count = 0
             for node in self.node_factory.nodes:
                 err_count += self.printValgrindErrors(node)
             if err_count:
                 raise ValueError(
                     "{} nodes reported valgrind errors".format(err_count))
+
+        for node in self.node_factory.nodes:
+            err_count += self.printCrashLog(node)
+            if err_count:
+                raise ValueError(
+                    "{} nodes had crash.log files".format(err_count))
 
 class LightningDTests(BaseLightningDTests):
     def connect(self):
