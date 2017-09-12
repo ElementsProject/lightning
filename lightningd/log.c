@@ -280,53 +280,6 @@ void log_add(struct log *log, const char *fmt, ...)
 	va_end(ap);
 }
 
-void log_struct_(struct log *log, int level,
-		 const char *structname,
-		 const char *fmt, ...)
-{
-	const tal_t *ctx = tal_tmpctx(log);
-	char *s;
-	union printable_types u;
-	va_list ap;
-
-	/* Macro wrappers ensure we only have one arg. */
-	va_start(ap, fmt);
-	u.charp_ = va_arg(ap, const char *);
-	va_end(ap);
-
-	/* GCC checks we're one of these, so we should be. */
-	s = type_to_string_(ctx, structname, u);
-	if (!s)
-		fatal("Logging unknown type %s", structname);
-
-	if (level == -1)
-		log_add(log, fmt, s);
-	else
-		log_(log, level, fmt, s);
-
-	tal_free(ctx);
-}
-
-void log_blob_(struct log *log, int level, const char *fmt,
-	       size_t len, ...)
-{
-	va_list ap;
-	const void *blob;
-	const char *hex;
-
-	/* Macro wrappers ensure we only have one arg. */
-	va_start(ap, len);
-	blob = va_arg(ap, void *);
-	va_end(ap);
-
-	hex = tal_hexstr(log, blob, len);
-	if (level == -1)
-		log_add(log, fmt, hex);
-	else
-		log_(log, level, fmt, hex);
-	tal_free(hex);
-}
-
 void log_each_line_(const struct log_book *lr,
 		    void (*func)(unsigned int skipped,
 				 struct timerel time,

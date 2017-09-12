@@ -134,16 +134,16 @@ static bool handshake_succeeded(struct subd *handshaked,
 							&globalfeatures,
 							&localfeatures))
 			goto err;
-		log_info_struct(handshaked->log, "Peer in from %s",
-				struct pubkey, id);
+		log_info(handshaked->log, "Peer in from %s",
+			 type_to_string(ltmp, struct pubkey, id));
 	} else {
 		id = c->known_id;
 		if (!fromwire_handshake_initiator_reply(c, msg, NULL, &cs,
 							&globalfeatures,
 							&localfeatures))
 			goto err;
-		log_info_struct(handshaked->log, "Peer out to %s",
-				struct pubkey, id);
+		log_info(handshaked->log, "Peer out to %s",
+			 type_to_string(ltmp, struct pubkey, id));
 	}
 
 	/* BOLT #1:
