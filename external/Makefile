@@ -8,14 +8,15 @@ JSMN_HEADERS := external/jsmn/jsmn.h
 LIBBASE58_HEADERS := external/libbase58/libbase58.h
 
 EXTERNAL_HEADERS := $(LIBSODIUM_HEADERS) $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS) $(JSMN_HEADERS) $(LIBBASE58_HEADERS)
-EXTERNAL_LIBS := external/libwallycore.a external/libsecp256k1.a external/libsodium.a external/libjsmn.a external/libbase58.a
+EXTERNAL_LIBS := external/libwallycore.a external/libsecp256k1.a external/libsodium.a external/libjsmn.a external/libbase58.a external/libbacktrace.a
 
 EXTERNAL_INCLUDE_FLAGS :=					\
 	-I external/libsodium/src/libsodium/include		\
 	-I external/libwally-core/include/			\
 	-I external/libwally-core/src/secp256k1/include/	\
 	-I external/jsmn/					\
-	-I external/libbase58/
+	-I external/libbase58/					\
+	-I external/libbacktrace
 
 EXTERNAL_LDLIBS := -Lexternal $(patsubst lib%.a,-l%,$(notdir $(EXTERNAL_LIBS)))
 
@@ -69,6 +70,16 @@ external/base58.o: $(LIBBASE58_SRC)
 external/libbase58.a: external/base58.o
 	$(AR) rc $@ $<
 
+external/libbacktrace/backtrace.h:
+	git submodule update external/libbacktrace/
+	[ -f $@ ] || git submodule update --init external/libbacktrace/
+
+# Need separate build dir: changes inside submodule make git think it's dirty.
+external/libbacktrace.a: external/libbacktrace/backtrace.h
+	@mkdir external/libbacktrace-build 2>/dev/null || true
+	cd external/libbacktrace-build && ../libbacktrace/configure CC="$(CC)" --enable-static=yes --enable-shared=no --libdir=`pwd`/.. && $(MAKE)
+	$(MAKE) -C external/libbacktrace-build install-exec
+
 distclean: external-distclean
 clean: external-clean
 
@@ -77,7 +88,7 @@ external-clean:
 
 external-distclean:
 	make -C external/libsodium distclean || true
-	make -C external/libbase64 distclean || true
+	$(RM) -rf external/libbacktrace-build
 	$(RM) external/libsodium.la external/libsodium/src/libsodium/libsodium.la
 	$(RM) external/libwally-core/src/secp256k1/libsecp256k1.la external/libwally-core/src/libwallycore.la
 	cd external/libwally-core && tools/cleanup.sh
