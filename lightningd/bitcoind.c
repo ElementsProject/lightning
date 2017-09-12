@@ -126,6 +126,11 @@ static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 		*bcli->exitstatus = WEXITSTATUS(status);
 
 	bitcoind->req_running = false;
+
+	/* Don't continue if were only here because we were freed for shutdown */
+	if (bitcoind->shutdown)
+		return;
+
 	bcli->process(bcli);
 
 	next_bcli(bitcoind);
@@ -448,6 +453,12 @@ void bitcoind_getblockhash_(struct bitcoind *bitcoind,
 			  "getblockhash", str, NULL);
 }
 
+static void destroy_bitcoind(struct bitcoind *bitcoind)
+{
+	/* Suppresses the callbacks from bcli_finished as we free conns. */
+	bitcoind->shutdown = true;
+}
+
 struct bitcoind *new_bitcoind(const tal_t *ctx, struct log *log)
 {
 	struct bitcoind *bitcoind = tal(ctx, struct bitcoind);
@@ -457,7 +468,9 @@ struct bitcoind *new_bitcoind(const tal_t *ctx, struct log *log)
 	bitcoind->datadir = NULL;
 	bitcoind->log = log;
 	bitcoind->req_running = false;
+	bitcoind->shutdown = false;
 	list_head_init(&bitcoind->pending);
+	tal_add_destructor(bitcoind, destroy_bitcoind);
 
 	return bitcoind;
 }
