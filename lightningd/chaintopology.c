@@ -260,8 +260,8 @@ void broadcast_tx(struct chain_topology *topo,
 	tal_free(rawtx);
 	tal_add_destructor2(peer, clear_otx_peer, otx);
 
-	log_add_struct(topo->log,
-		       " (tx %s)", struct sha256_double, &otx->txid);
+	log_add(topo->log, " (tx %s)",
+		type_to_string(ltmp, struct sha256_double, &otx->txid));
 
 	if (topo->dev_no_broadcast)
 		broadcast_done(topo->bitcoind, 0, "dev_no_broadcast", otx);
@@ -328,8 +328,8 @@ static struct block *new_block(struct chain_topology *topo,
 	struct block *b = tal(topo, struct block);
 
 	sha256_double(&b->blkid, &blk->hdr, sizeof(blk->hdr));
-	log_debug_struct(topo->log, "Adding block %s",
-			 struct sha256_double, &b->blkid);
+	log_debug(topo->log, "Adding block %s",
+		  type_to_string(ltmp, struct sha256_double, &b->blkid));
 	assert(!block_map_get(&topo->block_map, &b->blkid));
 	b->next = next;
 	b->topo = topo;
