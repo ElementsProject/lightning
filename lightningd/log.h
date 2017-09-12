@@ -87,7 +87,7 @@ void log_each_line_(const struct log_book *lr,
 
 void log_dump_to_file(int fd, const struct log_book *lr);
 void opt_register_logging(struct log *log);
-void crashlog_activate(struct log *log);
+void crashlog_activate(const char *argv0, struct log *log);
 
 /* Convenience parent for temporary allocations (eg. type_to_string)
  * during log calls; freed after every log_*() */

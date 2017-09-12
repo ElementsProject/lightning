@@ -211,7 +211,7 @@ int main(int argc, char *argv[])
 	newdir = handle_opts(ld, argc, argv);
 
 	/* Activate crash log now we're in the right place. */
-	crashlog_activate(ld->log);
+	crashlog_activate(argv[0], ld->log);
 
 	/* Ignore SIGPIPE: we look at our write return values*/
 	signal(SIGPIPE, SIG_IGN);
