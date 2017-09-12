@@ -244,6 +244,10 @@ class LightningDTests(BaseLightningDTests):
         else:
             lsrc.rpc.sendpay(to_json([routestep]), rhash, async=False)
 
+    def test_shutdown(self):
+        l1 = self.node_factory.get_node()
+        l1.rpc.stop()
+
     def test_connect(self):
         l1,l2 = self.connect()
 

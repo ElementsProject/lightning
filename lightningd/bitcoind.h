@@ -36,6 +36,9 @@ struct bitcoind {
 
 	/* What network are we on? */
 	const struct chainparams *chainparams;
+
+	/* Ignore results, we're shutting down. */
+	bool shutdown;
 };
 
 struct bitcoind *new_bitcoind(const tal_t *ctx, struct log *log);
