@@ -129,6 +129,10 @@ void log_dump_to_file(int fd, const struct log_book *lr);
 void opt_register_logging(struct log *log);
 void crashlog_activate(struct log *log);
 
+/* Convenience parent for temporary allocations (eg. type_to_string)
+ * during log calls; freed after every log_*() */
+const tal_t *ltmp;
+
 /* Before the crashlog is activated, just prints to stderr. */
 void NORETURN PRINTF_FMT(1,2) fatal(const char *fmt, ...);
 #endif /* LIGHTNING_LIGHTNINGD_LOG_H */
