@@ -389,7 +389,7 @@ static void unwatch_tx(const struct bitcoin_tx *tx)
 static void handle_their_htlc_fulfill(struct tracked_output *out,
 				      const struct bitcoin_tx *tx)
 {
-	status_failed(WIRE_ONCHAIN_INTERNAL_ERROR, "FIXME: %s", __func__);
+	status_failed(STATUS_FAIL_INTERNAL_ERROR, "FIXME: %s", __func__);
 }
 
 /* An output has been spent: see if it resolves something we care about. */
@@ -434,13 +434,13 @@ static void output_spent(struct tracked_output **outs,
 		case FUNDING_OUTPUT:
 			/* Master should be restarting us, as this implies
 			 * that our old tx was unspent. */
-			status_failed(WIRE_ONCHAIN_INTERNAL_ERROR,
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Funding output spent again!");
 
 		/* Um, we don't track these! */
 		case OUTPUT_TO_THEM:
 		case DELAYED_OUTPUT_TO_THEM:
-			status_failed(WIRE_ONCHAIN_INTERNAL_ERROR,
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Tracked spend of %s/%s?",
 				      tx_type_name(outs[i]->tx_type),
 				      output_type_name(outs[i]->output_type));
@@ -486,7 +486,7 @@ static void tx_new_depth(struct tracked_output **outs,
 static void handle_preimage(struct tracked_output **outs,
 			    const struct preimage *preimage)
 {
-	status_failed(WIRE_ONCHAIN_INTERNAL_ERROR, "FIXME: %s", __func__);
+	status_failed(STATUS_FAIL_INTERNAL_ERROR, "FIXME: %s", __func__);
 }
 
 /* BOLT #5:
@@ -517,8 +517,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 		else if (fromwire_onchain_known_preimage(msg, NULL, &preimage))
 			handle_preimage(outs, &preimage);
 		else
-			status_failed(WIRE_ONCHAIN_BAD_COMMAND,
-				      "Bad message %s", tal_hex(msg, msg));
+			master_badmsg(-1, msg);
 		tal_free(msg);
 	}
 }
@@ -562,7 +561,7 @@ static u8 **derive_htlc_scripts(const struct htlc_stub *htlcs, enum side side,
 			struct abs_locktime ltime;
 			if (!blocks_to_abs_locktime(htlcs[i].cltv_expiry,
 						    &ltime))
-				status_failed(WIRE_ONCHAIN_INTERNAL_ERROR,
+				status_failed(STATUS_FAIL_INTERNAL_ERROR,
 					      "Could not convert cltv_expiry %u to locktime",
 					      htlcs[i].cltv_expiry);
 			htlc_scripts[i] = htlc_received_wscript(htlc_scripts,
@@ -696,7 +695,7 @@ static void resolve_our_htlc_ourcommit(struct tracked_output *out,
 		tal_free(wscript);
 		return;
 	}
-	status_failed(WIRE_ONCHAIN_INTERNAL_ERROR,
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		      "Could not find feerate for signature on HTLC timeout"
 		      " between %u and %u",
 		      feerate_range->min, feerate_range->max);
@@ -825,7 +824,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 
 	/* Figure out what delayed to-us output looks like */
 	if (!per_commit_point(shaseed, &local_per_commitment_point, commit_num))
-		status_failed(WIRE_ONCHAIN_CRYPTO_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving local_per_commit_point for %"PRIu64,
 			      commit_num);
 
@@ -835,7 +834,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			   local_delayed_payment_basepoint,
 			   remote_revocation_basepoint,
 			   &keyset))
-		status_failed(WIRE_ONCHAIN_CRYPTO_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
 
 	status_trace("Deconstructing unilateral tx: %"PRIu64
@@ -858,7 +857,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				   local_delayed_payment_basepoint,
 				   &local_per_commitment_point,
 				   &local_delayedprivkey))
-		status_failed(WIRE_ONCHAIN_CRYPTO_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving local_delayeprivkey for %"PRIu64,
 			      commit_num);
 
@@ -866,7 +865,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				   local_payment_basepoint,
 				   &local_per_commitment_point,
 				   &local_payment_privkey))
-		status_failed(WIRE_ONCHAIN_CRYPTO_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving local_delayeprivkey for %"PRIu64,
 			      commit_num);
 
@@ -959,9 +958,10 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			continue;
 		}
 
+		/* FIXME: limp along when this happens! */
 		j = match_htlc_output(tx, i, htlc_scripts);
 		if (j == -1)
-			status_failed(WIRE_ONCHAIN_INTERNAL_ERROR,
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not find resolution for output %zu",
 				      i);
 
@@ -1008,7 +1008,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			       const struct htlc_stub *htlcs,
 			       struct tracked_output **outs)
 {
-	status_failed(WIRE_ONCHAIN_INTERNAL_ERROR,
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		      "FIXME: Implement penalty transaction");
 }
 
@@ -1076,7 +1076,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			   remote_delayed_payment_basepoint,
 			   local_revocation_basepoint,
 			   &keyset))
-		status_failed(WIRE_ONCHAIN_CRYPTO_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
 
 	status_trace("Deconstructing unilateral tx: %"PRIu64
@@ -1099,7 +1099,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 				   local_payment_basepoint,
 				   remote_per_commitment_point,
 				   &local_payment_privkey))
-		status_failed(WIRE_ONCHAIN_CRYPTO_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving local_delayeprivkey for %"PRIu64,
 			      commit_num);
 
@@ -1173,7 +1173,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 
 		j = match_htlc_output(tx, i, htlc_scripts);
 		if (j == -1)
-			status_failed(WIRE_ONCHAIN_INTERNAL_ERROR,
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not find resolution for output %zu",
 				      i);
 		if (htlcs[j].owner == LOCAL) {
@@ -1274,8 +1274,7 @@ int main(int argc, char *argv[])
 				   &tx_blockheight,
 				   &remote_htlc_sigs,
 				   &num_htlcs)) {
-		status_failed(WIRE_ONCHAIN_BAD_COMMAND,
-			      "Bad init message %s", tal_hex(ctx, msg));
+		master_badmsg(WIRE_ONCHAIN_INIT, msg);
 	}
 	derive_basepoints(&seed, NULL, &basepoints, &secrets, &shaseed);
 	bitcoin_txid(tx, &txid);
@@ -1283,15 +1282,13 @@ int main(int argc, char *argv[])
 	/* FIXME: Filter as we go, don't load them all into mem! */
 	htlcs = tal_arr(ctx, struct htlc_stub, num_htlcs);
 	if (!htlcs)
-		status_failed(WIRE_ONCHAIN_BAD_COMMAND,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Can't allocate %"PRIu64" htlcs", num_htlcs);
 
 	for (u64 i = 0; i < num_htlcs; i++) {
 		msg = wire_sync_read(ctx, REQ_FD);
-		if (!msg || !fromwire_onchain_htlc(msg, NULL, &htlcs[i]))
-			status_failed(WIRE_ONCHAIN_BAD_COMMAND,
-				      "Can't read %"PRIu64"/%"PRIu64" htlc",
-				      i, num_htlcs);
+		if (!fromwire_onchain_htlc(msg, NULL, &htlcs[i]))
+			master_badmsg(WIRE_ONCHAIN_HTLC, msg);
 	}
 
 	outs = tal_arr(ctx, struct tracked_output *, 0);
@@ -1407,7 +1404,7 @@ int main(int argc, char *argv[])
 						local_dust_limit_satoshi,
 						htlcs, outs);
 		} else
-			status_failed(WIRE_ONCHAIN_INTERNAL_ERROR,
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Unknown commitment index %"PRIu64
 				      " for tx %s",
 				      commit_num,

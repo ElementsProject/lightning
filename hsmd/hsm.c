@@ -297,12 +297,12 @@ static void populate_secretstuff(void)
 	/* Hence child 0, then child 0 again to get extkey to derive from. */
 	if (bip32_key_from_parent(&master_extkey, 0, BIP32_FLAG_KEY_PRIVATE,
 				  &child_extkey) != WALLY_OK)
-		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Can't derive child bip32 key");
 
 	if (bip32_key_from_parent(&child_extkey, 0, BIP32_FLAG_KEY_PRIVATE,
 				  &secretstuff.bip32) != WALLY_OK)
-		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Can't derive private bip32 key");
 }
 
@@ -311,17 +311,17 @@ static void bitcoin_pubkey(struct pubkey *pubkey, u32 index)
 	struct ext_key ext;
 
 	if (index >= BIP32_INITIAL_HARDENED_CHILD)
-		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+		status_failed(STATUS_FAIL_MASTER_IO,
 			      "Index %u too great", index);
 
 	if (bip32_key_from_parent(&secretstuff.bip32, index,
 				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK)
-		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "BIP32 of %u failed", index);
 
 	if (!secp256k1_ec_pubkey_parse(secp256k1_ctx, &pubkey->pubkey,
 				       ext.pub_key, sizeof(ext.pub_key)))
-		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Parse of BIP32 child %u pubkey failed", index);
 }
 
@@ -332,19 +332,19 @@ static void bitcoin_keypair(struct privkey *privkey,
 	struct ext_key ext;
 
 	if (index >= BIP32_INITIAL_HARDENED_CHILD)
-		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+		status_failed(STATUS_FAIL_MASTER_IO,
 			      "Index %u too great", index);
 
 	if (bip32_key_from_parent(&secretstuff.bip32, index,
 				  BIP32_FLAG_KEY_PRIVATE, &ext) != WALLY_OK)
-		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "BIP32 of %u failed", index);
 
 	/* libwally says: The private key with prefix byte 0 */
 	memcpy(privkey->secret.data, ext.priv_key+1, 32);
 	if (!secp256k1_ec_pubkey_create(secp256k1_ctx, &pubkey->pubkey,
 					privkey->secret.data))
-		status_failed(WIRE_HSMSTATUS_KEY_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "BIP32 pubkey %u create failed", index);
 }
 
@@ -352,29 +352,29 @@ static void create_new_hsm(struct daemon_conn *master)
 {
 	int fd = open("hsm_secret", O_CREAT|O_EXCL|O_WRONLY, 0400);
 	if (fd < 0)
-		status_failed(WIRE_HSMSTATUS_INIT_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "creating: %s", strerror(errno));
 
 	randombytes_buf(&secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret));
 	if (!write_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret))) {
 		unlink_noerr("hsm_secret");
-		status_failed(WIRE_HSMSTATUS_INIT_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "writing: %s", strerror(errno));
 	}
 	if (fsync(fd) != 0) {
 		unlink_noerr("hsm_secret");
-		status_failed(WIRE_HSMSTATUS_INIT_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "fsync: %s", strerror(errno));
 	}
 	if (close(fd) != 0) {
 		unlink_noerr("hsm_secret");
-		status_failed(WIRE_HSMSTATUS_INIT_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "closing: %s", strerror(errno));
 	}
 	fd = open(".", O_RDONLY);
 	if (fsync(fd) != 0) {
 		unlink_noerr("hsm_secret");
-		status_failed(WIRE_HSMSTATUS_INIT_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "fsyncdir: %s", strerror(errno));
 	}
 	close(fd);
@@ -386,10 +386,10 @@ static void load_hsm(struct daemon_conn *master)
 {
 	int fd = open("hsm_secret", O_RDONLY);
 	if (fd < 0)
-		status_failed(WIRE_HSMSTATUS_INIT_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "opening: %s", strerror(errno));
 	if (!read_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret)))
-		status_failed(WIRE_HSMSTATUS_INIT_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "reading: %s", strerror(errno));
 	close(fd);
 
@@ -401,8 +401,8 @@ static void init_hsm(struct daemon_conn *master, const u8 *msg)
 	bool new;
 
 	if (!fromwire_hsmctl_init(msg, NULL, &new))
-		status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "hsmctl_init: %s",
-			      tal_hex(msg, msg));
+		master_badmsg(WIRE_HSMCTL_INIT, msg);
+
 	if (new)
 		create_new_hsm(master);
 	else
@@ -417,10 +417,10 @@ static void pass_hsmfd_ecdh(struct daemon_conn *master, const u8 *msg)
 	u64 id;
 
 	if (!fromwire_hsmctl_hsmfd_ecdh(msg, NULL, &id))
-		status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "bad HSMFD_ECDH");
+		master_badmsg(WIRE_HSMCTL_HSMFD_ECDH, msg);
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
-		status_failed(WIRE_HSMSTATUS_FD_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "creating fds: %s", strerror(errno));
 
 	new_client(master, id, handle_ecdh, fds[0]);
@@ -436,10 +436,10 @@ static void pass_hsmfd_channeld(struct daemon_conn *master, const u8 *msg)
 	u64 id;
 
 	if (!fromwire_hsmctl_hsmfd_channeld(msg, NULL, &id))
-		status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "bad HSMFD_CHANNELD");
+		master_badmsg(WIRE_HSMCTL_HSMFD_CHANNELD, msg);
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
-		status_failed(WIRE_HSMSTATUS_FD_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "creating fds: %s", strerror(errno));
 
 	new_client(master, id, handle_channeld, fds[0]);
@@ -470,7 +470,7 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 					  &satoshi_out, &change_out,
 					  &change_keyindex, &local_pubkey,
 					  &remote_pubkey, &inputs))
-		status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "Bad SIGN_FUNDING");
+		master_badmsg(WIRE_HSMCTL_SIGN_FUNDING, msg);
 
 	utxomap = to_utxoptr_arr(tmpctx, inputs);
 
@@ -630,18 +630,13 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 	case WIRE_HSMCTL_HSMFD_CHANNELD_REPLY:
 	case WIRE_HSMCTL_SIGN_FUNDING_REPLY:
 	case WIRE_HSMCTL_SIGN_WITHDRAWAL_REPLY:
-	case WIRE_HSMSTATUS_INIT_FAILED:
-	case WIRE_HSMSTATUS_WRITEMSG_FAILED:
-	case WIRE_HSMSTATUS_BAD_REQUEST:
-	case WIRE_HSMSTATUS_FD_FAILED:
-	case WIRE_HSMSTATUS_KEY_FAILED:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSMCTL_NODE_ANNOUNCEMENT_SIG_REPLY:
 		break;
 	}
 
-	/* Control shouldn't give bad requests. */
-	status_failed(WIRE_HSMSTATUS_BAD_REQUEST, "%i", t);
+	/* Master shouldn't give bad requests. */
+	status_failed(STATUS_FAIL_MASTER_IO, "%i", t);
 }
 
 #ifndef TESTING

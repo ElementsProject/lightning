@@ -335,7 +335,8 @@ static void act_one_initiator(struct handshake *h, int fd,
 	 */
 	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data,
 			    &their_id->pubkey, h->e.priv.secret.data))
-		status_failed(WIRE_INITR_ACT1_BAD_ECDH_FOR_SS, "%s", "");
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_INITR_ACT1_BAD_ECDH_FOR_SS: %s", "");
 	status_trace("# ss=0x%s", tal_hexstr(trc, h->ss.data, sizeof(h->ss.data)));
 
 	/* BOLT #8:
@@ -378,8 +379,9 @@ static void act_one_initiator(struct handshake *h, int fd,
 				      SECP256K1_EC_COMPRESSED);
 	status_trace("output: 0x%s", tal_hexstr(trc, &act1, ACT_ONE_SIZE));
 	if (!write_all(fd, &act1, ACT_ONE_SIZE))
-		status_failed(WIRE_INITR_ACT1_WRITE_FAILED,
-			      "%s", strerror(errno));
+		status_failed(STATUS_FAIL_PEER_IO,
+			      "WIRE_INITR_ACT1_WRITE_FAILED: %s",
+			      strerror(errno));
 }
 
 static void act_one_responder(struct handshake *h, int fd, struct pubkey *re)
@@ -399,8 +401,9 @@ static void act_one_responder(struct handshake *h, int fd, struct pubkey *re)
 	 *       `m`
 	 */
 	if (!read_all(fd, &act1, ACT_ONE_SIZE))
-		status_failed(WIRE_RESPR_ACT1_READ_FAILED,
-			      "%s", strerror(errno));
+		status_failed(STATUS_FAIL_PEER_IO,
+			      "WIRE_RESPR_ACT1_READ_FAILED: %s",
+			      strerror(errno));
 	status_trace("input: 0x%s", tal_hexstr(trc, &act1, ACT_ONE_SIZE));
 
 	/* BOLT #8:
@@ -409,7 +412,8 @@ static void act_one_responder(struct handshake *h, int fd, struct pubkey *re)
 	 *     MUST abort the connection attempt.
 	 */
 	if (act1.v != 0)
-		status_failed(WIRE_RESPR_ACT1_BAD_VERSION, "%u", act1.v);
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_RESPR_ACT1_BAD_VERSION: %u", act1.v);
 
 	/* BOLT #8:
 	 *     * The raw bytes of the remote party's ephemeral public key
@@ -419,7 +423,8 @@ static void act_one_responder(struct handshake *h, int fd, struct pubkey *re)
 	 */
 	if (secp256k1_ec_pubkey_parse(secp256k1_ctx, &re->pubkey,
 				      act1.pubkey, sizeof(act1.pubkey)) != 1)
-		status_failed(WIRE_RESPR_ACT1_BAD_PUBKEY, "%s",
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_RESPR_ACT1_BAD_PUBKEY: %s",
 			      tal_hexstr(trc, &act1.pubkey,
 					 sizeof(act1.pubkey)));
 	status_trace("# re=0x%s", type_to_string(trc, struct pubkey, re));
@@ -439,8 +444,8 @@ static void act_one_responder(struct handshake *h, int fd, struct pubkey *re)
 	 *       key and the initiator's ephemeral public key.
 	 */
 	if (!hsm_do_ecdh(&h->ss, re))
-		status_failed(WIRE_RESPR_ACT1_BAD_HSM_ECDH,
-			      "re=%s",
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_RESPR_ACT1_BAD_HSM_ECDH: re=%s",
 			      type_to_string(trc, struct pubkey, re));
 	status_trace("# ss=0x%s", tal_hexstr(trc, &h->ss, sizeof(h->ss)));
 
@@ -466,7 +471,8 @@ static void act_one_responder(struct handshake *h, int fd, struct pubkey *re)
 	 */
 	if (!decrypt(&h->temp_k, 0, &h->h, sizeof(h->h),
 		     act1.tag, sizeof(act1.tag), NULL, 0))
-		status_failed(WIRE_RESPR_ACT1_BAD_TAG, "re=%s ss=%s tag=%s",
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_RESPR_ACT1_BAD_TAG: re=%s ss=%s tag=%s",
 			      type_to_string(trc, struct pubkey, re),
 			      tal_hexstr(trc, &h->ss, sizeof(h->ss)),
 			      tal_hexstr(trc, act1.tag, sizeof(act1.tag)));
@@ -545,7 +551,8 @@ static void act_two_responder(struct handshake *h, int fd,
 	 */
 	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data, &re->pubkey,
 			    h->e.priv.secret.data))
-		status_failed(WIRE_RESPR_ACT2_BAD_ECDH_FOR_SS, "re=%s e.priv=%s",
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_RESPR_ACT2_BAD_ECDH_FOR_SS: re=%s e.priv=%s",
 			      type_to_string(trc, struct pubkey, re),
 			      tal_hexstr(trc, &h->e.priv, sizeof(h->e.priv)));
 	status_trace("# ss=0x%s", tal_hexstr(trc, &h->ss, sizeof(h->ss)));
@@ -590,8 +597,9 @@ static void act_two_responder(struct handshake *h, int fd,
 				      SECP256K1_EC_COMPRESSED);
 	status_trace("output: 0x%s", tal_hexstr(trc, &act2, ACT_TWO_SIZE));
 	if (!write_all(fd, &act2, ACT_TWO_SIZE))
-		status_failed(WIRE_RESPR_ACT2_WRITE_FAILED,
-			      "%s", strerror(errno));
+		status_failed(STATUS_FAIL_PEER_IO,
+			      "WIRE_RESPR_ACT2_WRITE_FAILED: %s",
+			      strerror(errno));
 }
 
 static void act_two_initiator(struct handshake *h, int fd, struct pubkey *re)
@@ -611,8 +619,9 @@ static void act_two_initiator(struct handshake *h, int fd, struct pubkey *re)
 	 *       `m`
 	 */
 	if (!read_all(fd, &act2, ACT_TWO_SIZE))
-		status_failed(WIRE_INITR_ACT2_READ_FAILED,
-			      "%s", strerror(errno));
+		status_failed(STATUS_FAIL_PEER_IO,
+			      "WIRE_INITR_ACT2_READ_FAILED: %s",
+			      strerror(errno));
 	status_trace("input: 0x%s", tal_hexstr(trc, &act2, ACT_TWO_SIZE));
 
 	/* BOLT #8:
@@ -621,7 +630,8 @@ static void act_two_initiator(struct handshake *h, int fd, struct pubkey *re)
 	 *     MUST abort the connection attempt.
 	 */
 	if (act2.v != 0)
-		status_failed(WIRE_INITR_ACT2_BAD_VERSION, "%u", act2.v);
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_INITR_ACT2_BAD_VERSION: %u", act2.v);
 
 	/* BOLT #8:
 	 *
@@ -632,7 +642,8 @@ static void act_two_initiator(struct handshake *h, int fd, struct pubkey *re)
 	 */
 	if (secp256k1_ec_pubkey_parse(secp256k1_ctx, &re->pubkey,
 				      act2.pubkey, sizeof(act2.pubkey)) != 1)
-		status_failed(WIRE_INITR_ACT2_BAD_PUBKEY, "%s",
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_INITR_ACT2_BAD_PUBKEY: %s",
 			      tal_hexstr(trc, &act2.pubkey,
 					 sizeof(act2.pubkey)));
 	status_trace("# re=0x%s", type_to_string(trc, struct pubkey, re));
@@ -650,7 +661,8 @@ static void act_two_initiator(struct handshake *h, int fd, struct pubkey *re)
 	 */
 	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data, &re->pubkey,
 			    h->e.priv.secret.data))
-		status_failed(WIRE_INITR_ACT2_BAD_ECDH_FOR_SS, "re=%s e.priv=%s",
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_INITR_ACT2_BAD_ECDH_FOR_SS: re=%s e.priv=%s",
 			      type_to_string(trc, struct pubkey, re),
 			      tal_hexstr(trc, &h->e.priv, sizeof(h->e.priv)));
 	status_trace("# ss=0x%s", tal_hexstr(trc, &h->ss, sizeof(h->ss)));
@@ -674,7 +686,8 @@ static void act_two_initiator(struct handshake *h, int fd, struct pubkey *re)
 	 */
 	if (!decrypt(&h->temp_k, 0, &h->h, sizeof(h->h),
 		     act2.tag, sizeof(act2.tag), NULL, 0))
-		status_failed(WIRE_INITR_ACT2_BAD_TAG, "c=%s",
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_INITR_ACT2_BAD_TAG: c=%s",
 			      tal_hexstr(trc, act2.tag, sizeof(act2.tag)));
 
 	/* BOLT #8:
@@ -754,8 +767,8 @@ static void act_three_initiator(struct handshake *h, int fd,
 	 *
 	 */
 	if (!hsm_do_ecdh(&h->ss, re))
-		status_failed(WIRE_INITR_ACT3_BAD_HSM_ECDH,
-			      "re=%s",
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_INITR_ACT3_BAD_HSM_ECDH: re=%s",
 			      type_to_string(trc, struct pubkey, re));
 	status_trace("# ss=0x%s", tal_hexstr(trc, &h->ss, sizeof(h->ss)));
 
@@ -789,8 +802,9 @@ static void act_three_initiator(struct handshake *h, int fd,
 
 	status_trace("output: 0x%s", tal_hexstr(trc, &act3, ACT_THREE_SIZE));
 	if (!write_all(fd, &act3, ACT_THREE_SIZE))
-		status_failed(WIRE_INITR_ACT3_WRITE_FAILED,
-			      "%s", strerror(errno));
+		status_failed(STATUS_FAIL_PEER_IO,
+			      "WIRE_INITR_ACT3_WRITE_FAILED: %s",
+			      strerror(errno));
 }
 
 static void act_three_responder(struct handshake *h, int fd,
@@ -808,8 +822,9 @@ static void act_three_responder(struct handshake *h, int fd,
 	 *   * Read _exactly_ `66-bytes` from the network buffer.
 	 */
 	if (!read_all(fd, &act3, ACT_THREE_SIZE))
-		status_failed(WIRE_RESPR_ACT3_READ_FAILED,
-			      "%s", strerror(errno));
+		status_failed(STATUS_FAIL_PEER_IO,
+			      "WIRE_RESPR_ACT3_READ_FAILED: %s",
+			      strerror(errno));
 	status_trace("input: 0x%s", tal_hexstr(trc, &act3, ACT_THREE_SIZE));
 
 	/* BOLT #8:
@@ -823,7 +838,8 @@ static void act_three_responder(struct handshake *h, int fd,
 	 *     abort the connection attempt.
 	 */
 	if (act3.v != 0)
-		status_failed(WIRE_RESPR_ACT3_BAD_VERSION, "%u", act3.v);
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_RESPR_ACT3_BAD_VERSION: %u", act3.v);
 
 	/* BOLT #8:
 	 *
@@ -834,15 +850,16 @@ static void act_three_responder(struct handshake *h, int fd,
 	if (!decrypt(&h->temp_k, 1, &h->h, sizeof(h->h),
 		     act3.ciphertext, sizeof(act3.ciphertext),
 		     der, sizeof(der)))
-		status_failed(WIRE_RESPR_ACT3_BAD_CIPHERTEXT,
-			      "ciphertext=%s",
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_RESPR_ACT3_BAD_CIPHERTEXT: ciphertext=%s",
 			      tal_hexstr(trc, act3.ciphertext,
 					 sizeof(act3.ciphertext)));
 	status_trace("# rs=0x%s", tal_hexstr(trc, der, sizeof(der)));
 
 	if (secp256k1_ec_pubkey_parse(secp256k1_ctx, &their_id->pubkey,
 				      der, sizeof(der)) != 1)
-		status_failed(WIRE_RESPR_ACT3_BAD_PUBKEY, "%s",
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_RESPR_ACT3_BAD_PUBKEY: %s",
 			      tal_hexstr(trc, &der, sizeof(der)));
 
 	/* BOLT #8:
@@ -860,7 +877,8 @@ static void act_three_responder(struct handshake *h, int fd,
 	 */
 	if (!secp256k1_ecdh(secp256k1_ctx, h->ss.data, &their_id->pubkey,
 			    h->e.priv.secret.data))
-		status_failed(WIRE_RESPR_ACT3_BAD_ECDH_FOR_SS, "rs=%s e.priv=%s",
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_RESPR_ACT3_BAD_ECDH_FOR_SS: rs=%s e.priv=%s",
 			      type_to_string(trc, struct pubkey, their_id),
 			      tal_hexstr(trc, &h->e.priv, sizeof(h->e.priv)));
 	status_trace("# ss=0x%s", tal_hexstr(trc, &h->ss, sizeof(h->ss)));
@@ -881,7 +899,8 @@ static void act_three_responder(struct handshake *h, int fd,
 	 */
 	if (!decrypt(&h->temp_k, 0, &h->h, sizeof(h->h),
 		     act3.tag, sizeof(act3.tag), NULL, 0))
-		status_failed(WIRE_RESPR_ACT3_BAD_TAG, "temp_k3=%s h=%s t=%s",
+		status_failed(STATUS_FAIL_PEER_BAD,
+			      "WIRE_RESPR_ACT3_BAD_TAG: temp_k3=%s h=%s t=%s",
 			      tal_hexstr(trc, &h->temp_k, sizeof(h->temp_k)),
 			      tal_hexstr(trc, &h->h, sizeof(h->h)),
 			      tal_hexstr(trc, act3.tag, sizeof(act3.tag)));
@@ -976,7 +995,8 @@ static void exchange_init(int fd, struct crypto_state *cs,
 	localfeatures = tal_free(localfeatures);
 
 	if (!sync_crypto_write(cs, fd, msg))
-		status_failed(WIRE_INITMSG_WRITE_FAILED, "%s", strerror(errno));
+		status_failed(STATUS_FAIL_PEER_IO,
+			      "PEER_WRITE_FAILED: %s", strerror(errno));
 
 	/* BOLT #1:
 	 *
@@ -985,10 +1005,11 @@ static void exchange_init(int fd, struct crypto_state *cs,
 	 */
 	msg = sync_crypto_read(NULL, cs, fd);
 	if (!msg)
-		status_failed(WIRE_INITMSG_READ_FAILED, "%s", strerror(errno));
+		status_failed(STATUS_FAIL_PEER_IO,
+			      "INITMSG_READ_FAILED: %s", strerror(errno));
 
 	if (!fromwire_init(msg, msg, NULL, gfeatures, lfeatures))
-		status_failed(WIRE_INITMSG_READ_FAILED, "bad init: %s",
+		status_failed(STATUS_FAIL_PEER_BAD, "bad init: %s",
 			      tal_hex(msg, msg));
 }
 
@@ -1015,8 +1036,6 @@ int main(int argc, char *argv[])
 	hsm_setup(hsmfd);
 
 	msg = wire_sync_read(NULL, REQ_FD);
-	if (!msg)
-		status_failed(WIRE_HANDSHAKE_BAD_COMMAND, "%s", strerror(errno));
 
 	if (fromwire_handshake_responder(msg, NULL, &my_id)) {
 		responder(clientfd, &my_id, &their_id, &ck, &sk, &rk);
@@ -1045,8 +1064,7 @@ int main(int argc, char *argv[])
 								 gfeatures,
 								 lfeatures));
 	} else
-		status_failed(WIRE_HANDSHAKE_BAD_COMMAND, "%i",
-			      fromwire_peektype(msg));
+		master_badmsg(WIRE_HANDSHAKE_INITIATOR, msg);
 
 	/* Hand back the fd. */
 	fdpass_send(REQ_FD, clientfd);

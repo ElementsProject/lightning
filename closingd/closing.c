@@ -5,6 +5,7 @@
 #include <common/debug.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc.h>
+#include <common/peer_failed.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
@@ -23,6 +24,8 @@
 #define GOSSIP_FD 4
 
 static struct bitcoin_tx *close_tx(const tal_t *ctx,
+				   struct crypto_state *cs,
+				   const struct channel_id *channel_id,
 				   u8 *scriptpubkey[NUM_SIDES],
 				   const struct sha256_double *funding_txid,
 				   unsigned int funding_txout,
@@ -35,7 +38,7 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 	struct bitcoin_tx *tx;
 
 	if (satoshi_out[funder] < fee)
-		status_failed(WIRE_CLOSING_NEGOTIATION_ERROR,
+		peer_failed(PEER_FD, cs, channel_id,
 			      "Funder cannot afford fee %"PRIu64
 			      " (%"PRIu64" and %"PRIu64")",
 			      fee, satoshi_out[LOCAL],
@@ -44,7 +47,9 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 	status_trace("Making close tx at = %"PRIu64"/%"PRIu64" fee %"PRIu64,
 		     satoshi_out[LOCAL], satoshi_out[REMOTE], fee);
 
-	tx = create_close_tx(ctx, scriptpubkey[LOCAL], scriptpubkey[REMOTE],
+	/* FIXME: We need to allow this! */
+	tx = create_close_tx(ctx,
+			     scriptpubkey[LOCAL], scriptpubkey[REMOTE],
 			     funding_txid,
 			     funding_txout,
 			     funding_satoshi,
@@ -52,18 +57,18 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 			     satoshi_out[REMOTE] - (funder == REMOTE ? fee : 0),
 			     dust_limit);
 	if (!tx)
-		status_failed(WIRE_CLOSING_NEGOTIATION_ERROR,
-			      "Both outputs below dust limit:"
-			      " funding = %"PRIu64
-			      " fee = %"PRIu64
-			      " dust_limit = %"PRIu64
-			      " LOCAL = %"PRIu64
-			      " REMOTE = %"PRIu64,
-			      funding_satoshi,
-			      fee,
-			      dust_limit,
-			      satoshi_out[LOCAL],
-			      satoshi_out[REMOTE]);
+		peer_failed(PEER_FD, cs, channel_id,
+			    "Both outputs below dust limit:"
+			    " funding = %"PRIu64
+			    " fee = %"PRIu64
+			    " dust_limit = %"PRIu64
+			    " LOCAL = %"PRIu64
+			    " REMOTE = %"PRIu64,
+			    funding_satoshi,
+			    fee,
+			    dust_limit,
+			    satoshi_out[LOCAL],
+			    satoshi_out[REMOTE]);
 	return tx;
 }
 
@@ -101,29 +106,28 @@ static void do_reconnect(struct crypto_state *cs,
 					 next_index[LOCAL],
 					 revocations_received);
 	if (!sync_crypto_write(cs, PEER_FD, take(msg)))
-		status_failed(WIRE_CLOSING_PEER_WRITE_FAILED,
+		status_failed(STATUS_FAIL_PEER_IO,
 			      "Failed writing reestablish: %s", strerror(errno));
 
 again:
 	msg = sync_crypto_read(tmpctx, cs, PEER_FD);
 	if (!msg)
-		status_failed(WIRE_CLOSING_PEER_READ_FAILED,
+		status_failed(STATUS_FAIL_PEER_IO,
 			      "Failed reading reestablish: %s", strerror(errno));
 
 	if (is_gossip_msg(msg)) {
 		if (!wire_sync_write(GOSSIP_FD, take(msg)))
-			status_failed(WIRE_CLOSING_GOSSIP_FAILED,
-				      "Writing gossip");
+			status_failed(STATUS_FAIL_GOSSIP_IO, "Writing gossip");
 		goto again;
 	}
 
 	if (!fromwire_channel_reestablish(msg, NULL, &their_channel_id,
 					  &next_local_commitment_number,
 					  &next_remote_revocation_number)) {
-		status_failed(WIRE_CLOSING_PEER_READ_FAILED,
-			      "bad reestablish msg: %s %s",
-			      wire_type_name(fromwire_peektype(msg)),
-			      tal_hex(tmpctx, msg));
+		peer_failed(PEER_FD, cs, channel_id,
+			    "bad reestablish msg: %s %s",
+			    wire_type_name(fromwire_peektype(msg)),
+			    tal_hex(tmpctx, msg));
 	}
 	status_trace("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,
 		     next_local_commitment_number,
@@ -194,10 +198,9 @@ int main(int argc, char *argv[])
 				   &reconnected,
 				   &next_index[LOCAL],
 				   &next_index[REMOTE],
-				   &revocations_received)) {
-		status_failed(WIRE_CLOSING_PEER_BAD_MESSAGE,
-			      "Bad init message %s", tal_hex(ctx, msg));
-	}
+				   &revocations_received))
+		master_badmsg(WIRE_CLOSING_INIT, msg);
+
 	status_trace("satoshi_out = %"PRIu64"/%"PRIu64,
 		     satoshi_out[LOCAL], satoshi_out[REMOTE]);
 	status_trace("dustlimit = %"PRIu64, our_dust_limit);
@@ -236,7 +239,8 @@ int main(int argc, char *argv[])
 		 * the close transaction as specified in [BOLT
 		 * #3](03-transactions.md#closing-transaction).
 		 */
-		tx = close_tx(tmpctx, scriptpubkey,
+		tx = close_tx(tmpctx, &cs, &channel_id,
+			      scriptpubkey,
 			      &funding_txid,
 			      funding_txout,
 			      funding_satoshi,
@@ -260,7 +264,7 @@ int main(int argc, char *argv[])
 		/* Now send closing offer */
 		msg = towire_closing_signed(tmpctx, &channel_id, sent_fee, &sig);
 		if (!sync_crypto_write(&cs, PEER_FD, take(msg)))
-			status_failed(WIRE_CLOSING_PEER_WRITE_FAILED,
+			status_failed(STATUS_FAIL_PEER_IO,
 				      "Writing closing_signed");
 
 		/* Did we just agree with them?  If so, we're done. */
@@ -270,13 +274,12 @@ int main(int argc, char *argv[])
 	again:
 		msg = sync_crypto_read(tmpctx, &cs, PEER_FD);
 		if (!msg)
-			status_failed(WIRE_CLOSING_PEER_READ_FAILED,
-				      "Reading input");
+			status_failed(STATUS_FAIL_PEER_IO, "Reading input");
 
 		/* We don't send gossip at this stage, but we can recv it */
 		if (is_gossip_msg(msg)) {
 			if (!wire_sync_write(GOSSIP_FD, take(msg)))
-				status_failed(WIRE_CLOSING_GOSSIP_FAILED,
+				status_failed(STATUS_FAIL_GOSSIP_IO,
 					      "Writing gossip");
 			goto again;
 		}
@@ -305,9 +308,9 @@ int main(int argc, char *argv[])
 
 		if (!fromwire_closing_signed(msg, NULL, &channel_id,
 					     &received_fee, &sig))
-			status_failed(WIRE_CLOSING_PEER_BAD_MESSAGE,
-				      "Expected closing_signed: %s",
-				      tal_hex(trc, msg));
+			peer_failed(PEER_FD, &cs, &channel_id,
+				    "Expected closing_signed: %s",
+				    tal_hex(trc, msg));
 
 		/* BOLT #2:
 		 *
@@ -316,7 +319,8 @@ int main(int argc, char *argv[])
 		 * #3](03-transactions.md#closing-transaction), and MUST fail
 		 * the connection if it is not.
 		 */
-		tx = close_tx(tmpctx, scriptpubkey,
+		tx = close_tx(tmpctx, &cs, &channel_id,
+			      scriptpubkey,
 			      &funding_txid,
 			      funding_txout,
 			      funding_satoshi,
@@ -342,7 +346,8 @@ int main(int argc, char *argv[])
 			 * own `dust_limit_satoshis`, and MAY also eliminate
 			 * its own output.
 			*/
-			trimmed = close_tx(tmpctx, scriptpubkey,
+			trimmed = close_tx(tmpctx, &cs, &channel_id,
+					   scriptpubkey,
 					   &funding_txid,
 					   funding_txout,
 					   funding_satoshi,
@@ -351,7 +356,7 @@ int main(int argc, char *argv[])
 			if (!trimmed
 			    || !check_tx_sig(trimmed, 0, NULL, funding_wscript,
 					     &funding_pubkey[REMOTE], &sig)) {
-				status_failed(WIRE_CLOSING_PEER_BAD_MESSAGE,
+				peer_failed(PEER_FD, &cs, &channel_id,
 					      "Bad closing_signed signature for"
 					      " %s (and trimmed version %s)",
 					      type_to_string(tmpctx,
@@ -374,10 +379,9 @@ int main(int argc, char *argv[])
 		 * `fee_satoshis` is greater than the base fee of the final
 		 * commitment transaction as calculated in [BOLT #3] */
 		if (received_fee > maxfee)
-			status_failed(WIRE_CLOSING_PEER_BAD_MESSAGE,
-				      "Bad closing_signed fee %"PRIu64
-				      " > %"PRIu64,
-				      received_fee, maxfee);
+			peer_failed(PEER_FD, &cs, &channel_id,
+				    "Bad closing_signed fee %"PRIu64" > %"PRIu64,
+				    received_fee, maxfee);
 
 		/* Is fee reasonable?  Tell master. */
 		if (received_fee < minfee) {
@@ -388,13 +392,13 @@ int main(int argc, char *argv[])
 			msg = towire_closing_received_signature(tmpctx,
 								&sig, tx);
 			if (!wire_sync_write(REQ_FD, take(msg)))
-				status_failed(WIRE_CLOSING_INTERNAL_ERROR,
+				status_failed(STATUS_FAIL_MASTER_IO,
 					      "Writing received to master: %s",
 					      strerror(errno));
 			msg = wire_sync_read(tmpctx, REQ_FD);
 			if (!fromwire_closing_received_signature_reply(msg,NULL))
-				status_failed(WIRE_CLOSING_INTERNAL_ERROR,
-					      "Bad received reply from master");
+				master_badmsg(WIRE_CLOSING_RECEIVED_SIGNATURE_REPLY,
+					      msg);
 			limit_fee = received_fee;
 		}
 
@@ -420,23 +424,23 @@ int main(int argc, char *argv[])
 
 			/* They went away from our offer? */
 			if (dir != previous_dir)
-				status_failed(WIRE_CLOSING_NEGOTIATION_ERROR,
-					      "Their fee went %"
-					      PRIu64" to %"PRIu64
-					      " when ours was %"PRIu64,
-					      last_received_fee,
-					      received_fee,
-					      sent_fee);
+				peer_failed(PEER_FD, &cs, &channel_id,
+					    "Their fee went %"
+					    PRIu64" to %"PRIu64
+					    " when ours was %"PRIu64,
+					    last_received_fee,
+					    received_fee,
+					    sent_fee);
 
 			/* They jumped over our offer? */
 			if (next_dir != previous_dir)
-				status_failed(WIRE_CLOSING_NEGOTIATION_ERROR,
-					      "Their fee jumped %"
-					      PRIu64" to %"PRIu64
-					      " when ours was %"PRIu64,
-					      last_received_fee,
-					      received_fee,
-					      sent_fee);
+				peer_failed(PEER_FD, &cs, &channel_id,
+					    "Their fee jumped %"
+					    PRIu64" to %"PRIu64
+					    " when ours was %"PRIu64,
+					    last_received_fee,
+					    received_fee,
+					    sent_fee);
 		}
 
 		/* BOLT #2:
@@ -457,7 +461,7 @@ int main(int argc, char *argv[])
 
 		/* If we didn't move, give up (we're ~ at min/max). */
 		if (new_fee == sent_fee)
-			status_failed(WIRE_CLOSING_NEGOTIATION_ERROR,
+			peer_failed(PEER_FD, &cs, &channel_id,
 				      "Final fee %"PRIu64" vs %"PRIu64
 				      " at limits %"PRIu64"-%"PRIu64,
 				      sent_fee, received_fee,

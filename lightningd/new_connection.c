@@ -223,7 +223,7 @@ static struct io_plan *hsm_then_handshake(struct io_conn *conn,
 	handshaked = new_subd(ld, ld,
 			      "lightning_handshaked", NULL,
 			      handshake_wire_type_name,
-			      NULL, NULL,
+			      NULL, NULL, NULL,
 			      take(&hsmfd), take(&connfd), NULL);
 	if (!handshaked) {
 		log_unusual(ld->log, "Could not subdaemon handshake: %s",

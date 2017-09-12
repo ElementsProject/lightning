@@ -2,6 +2,7 @@
 #include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
 #include <ccan/noerr/noerr.h>
+#include <ccan/str/str.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
@@ -295,16 +296,82 @@ static struct io_plan *sd_collect_fds(struct io_conn *conn, struct subd *sd,
 	return read_fds(conn, sd);
 }
 
+/* Don't trust, verify.  Returns NULL if contains weird stuff. */
+static const char *string_from_msg(const u8 *msg, int *str_len)
+{
+	size_t len = tal_count(msg) - sizeof(be16), i;
+
+	for (i = 0; i < len; i++) {
+		if (!cisprint((char)msg[sizeof(be16) + i])) {
+			*str_len = 0;
+			return NULL;
+		}
+	}
+	*str_len = len;
+	return (const char *)(msg + sizeof(be16));
+}
+
+static void subdaemon_malformed_msg(struct subd *sd, const u8 *msg)
+{
+	log_broken(sd->log, "%i: malformed string '%.s'",
+		   fromwire_peektype(msg),
+		   tal_hexstr(msg,
+			      msg + sizeof(be16),
+			      tal_count(msg) - sizeof(be16)));
+}
+
+/* Returns true if logged, false if malformed. */
+static bool log_status_fail(struct subd *sd,
+			    enum status_fail type, const char *str, int str_len)
+{
+	const char *name;
+
+	/* No 'default:' here so gcc gives warning if a new type added */
+	switch (type) {
+	case STATUS_FAIL_MASTER_IO:
+		name = "STATUS_FAIL_MASTER_IO";
+		goto log_str_broken;
+	case STATUS_FAIL_HSM_IO:
+		name = "STATUS_FAIL_HSM_IO";
+		goto log_str_broken;
+	case STATUS_FAIL_GOSSIP_IO:
+		name = "STATUS_FAIL_GOSSIP_IO";
+		goto log_str_broken;
+	case STATUS_FAIL_INTERNAL_ERROR:
+		name = "STATUS_FAIL_INTERNAL_ERROR";
+		goto log_str_broken;
+
+	/*
+	 * These errors happen when the other peer misbehaves:
+	 */
+	case STATUS_FAIL_PEER_IO:
+		name = "STATUS_FAIL_PEER_IO";
+		goto log_str_peer;
+	case STATUS_FAIL_PEER_BAD:
+		name = "STATUS_FAIL_PEER_BAD";
+		goto log_str_peer;
+	}
+	return false;
+
+	/* Peers misbehaving is expected. */
+log_str_peer:
+	log_info(sd->log, "%s: %.*s", name, str_len, str);
+	return true;
+
+/* Shouldn't happen. */
+log_str_broken:
+	log_broken(sd->log, "%s: %.*s", name, str_len, str);
+	return true;
+}
+
 static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 {
 	int type = fromwire_peektype(sd->msg_in);
-	const char *str;
-	int str_len;
 	const tal_t *tmpctx;
 	struct subd_req *sr;
 
 	if (type == -1) {
-		log_unusual(sd->log, "ERROR: Invalid msg output");
+		subdaemon_malformed_msg(sd, sd->msg_in);
 		return io_close(conn);
 	}
 
@@ -322,33 +389,52 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	tmpctx = tal_tmpctx(sd);
 	tal_steal(tmpctx, sd->msg_in);
 
-	/* If it's a string. */
-	str_len = tal_count(sd->msg_in) - sizeof(be16);
-	str = (const char *)sd->msg_in + sizeof(be16);
-
-	if (type == STATUS_TRACE)
+	if (type == STATUS_TRACE) {
+		int str_len;
+		const char *str = string_from_msg(sd->msg_in, &str_len);
+		if (!str) {
+			subdaemon_malformed_msg(sd, sd->msg_in);
+			return io_close(conn);
+		}
 		log_debug(sd->log, "TRACE: %.*s", str_len, str);
-	else {
-		if (type & STATUS_FAIL)
-			log_unusual(sd->log, "FAILURE %s: %.*s",
-				    sd->msgname(type), str_len, str);
-		else
-			log_info(sd->log, "UPDATE %s", sd->msgname(type));
+		goto next;
+	} else if (type & STATUS_FAIL) {
+		int str_len;
+		const char *str = string_from_msg(sd->msg_in, &str_len);
+		if (!str) {
+			subdaemon_malformed_msg(sd, sd->msg_in);
+			return io_close(conn);
+		}
 
-		if (sd->msgcb) {
-			int i = sd->msgcb(sd, sd->msg_in, sd->fds_in);
-			if (i < 0)
-				return io_close(conn);
-			if (i != 0) {
-				/* Don't ask for fds twice! */
-				assert(!sd->fds_in);
-				/* Don't free msg_in: we go around again. */
-				tal_steal(sd, sd->msg_in);
-				tal_free(tmpctx);
-				return sd_collect_fds(conn, sd, i);
-			}
+		if (!log_status_fail(sd, type, str, str_len)) {
+			subdaemon_malformed_msg(sd, sd->msg_in);
+			return io_close(conn);
+		}
+
+		/* If they care, tell them about invalid peer behavior */
+		if (sd->peerbadcb && type == STATUS_FAIL_PEER_BAD) {
+			const char *errmsg = tal_fmt(sd, "%.*s", str_len, str);
+			sd->peerbadcb(sd, errmsg);
+		}
+		return io_close(conn);
+	}
+
+	log_info(sd->log, "UPDATE %s", sd->msgname(type));
+	if (sd->msgcb) {
+		int i = sd->msgcb(sd, sd->msg_in, sd->fds_in);
+		if (i < 0)
+			return io_close(conn);
+		if (i != 0) {
+			/* Don't ask for fds twice! */
+			assert(!sd->fds_in);
+			/* Don't free msg_in: we go around again. */
+			tal_steal(sd, sd->msg_in);
+			tal_free(tmpctx);
+			return sd_collect_fds(conn, sd, i);
 		}
 	}
+
+next:
 	sd->msg_in = NULL;
 	sd->fds_in = tal_free(sd->fds_in);
 	tal_free(tmpctx);
@@ -406,14 +492,14 @@ static struct io_plan *msg_setup(struct io_conn *conn, struct subd *sd)
 }
 
 struct subd *new_subd(const tal_t *ctx,
-				struct lightningd *ld,
-				const char *name,
-				struct peer *peer,
-				const char *(*msgname)(int msgtype),
-				int (*msgcb)(struct subd *, const u8 *,
-					     const int *fds),
-				void (*finished)(struct subd *, int),
-				...)
+		      struct lightningd *ld,
+		      const char *name,
+		      struct peer *peer,
+		      const char *(*msgname)(int msgtype),
+		      int (*msgcb)(struct subd *, const u8 *, const int *fds),
+		      void (*peerbadcb)(struct subd *, const char *),
+		      void (*finished)(struct subd *, int),
+		      ...)
 {
 	va_list ap;
 	struct subd *sd = tal(ctx, struct subd);
@@ -434,6 +520,7 @@ struct subd *new_subd(const tal_t *ctx,
 	sd->finished = finished;
 	sd->msgname = msgname;
 	sd->msgcb = msgcb;
+	sd->peerbadcb = peerbadcb;
 	sd->fds_in = NULL;
 	msg_queue_init(&sd->outq, sd);
 	tal_add_destructor(sd, destroy_subd);

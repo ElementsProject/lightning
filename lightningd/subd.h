@@ -36,6 +36,9 @@ struct subd {
 	const char *(*msgname)(int msgtype);
 	void (*finished)(struct subd *sd, int status);
 
+	/* Callback when the peer misbehaves. */
+	void (*peerbadcb)(struct subd *, const char *what);
+
 	/* Buffer for input. */
 	u8 *msg_in;
 
@@ -58,6 +61,7 @@ struct subd {
  * @peer: peer to associate (if any).
  * @msgname: function to get name from messages
  * @msgcb: function to call when non-fatal message received (or NULL)
+ * @peerbadcb: function to call for STATUS_FAIL_PEER_BAD (or NULL for none)
  * @finished: function to call when it's finished (with exit status).
  * @...: NULL-terminated list of pointers to  fds to hand as fd 3, 4...
  *	(can be take, if so, set to -1)
@@ -72,6 +76,7 @@ struct subd *new_subd(const tal_t *ctx,
 		      struct peer *peer,
 		      const char *(*msgname)(int msgtype),
 		      int (*msgcb)(struct subd *, const u8 *, const int *fds),
+		      void (*peerbadcb)(struct subd *, const char *),
 		      void (*finished)(struct subd *, int), ...);
 
 /**

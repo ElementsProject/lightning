@@ -219,6 +219,12 @@ void peer_fail_transient(struct peer *peer, const char *fmt, ...)
 	}
 }
 
+/* When daemon reports a STATUS_FAIL_PEER_BAD, it goes here. */
+static void bad_peer(struct subd *subd, const char *msg)
+{
+	peer_fail_permanent_str(subd->peer, msg);
+}
+
 void peer_set_condition(struct peer *peer, enum peer_state old_state,
 			enum peer_state state)
 {
@@ -1177,12 +1183,6 @@ static int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
 	enum onchain_wire_type t = fromwire_peektype(msg);
 
 	switch (t) {
-	/* We let peer_onchain_finished handle these. */
-	case WIRE_ONCHAIN_BAD_COMMAND:
-	case WIRE_ONCHAIN_INTERNAL_ERROR:
-	case WIRE_ONCHAIN_CRYPTO_FAILED:
-		break;
-
 	case WIRE_ONCHAIN_INIT_REPLY:
 		return handle_onchain_init_reply(sd->peer, msg);
 
@@ -1235,7 +1235,7 @@ static enum watch_result funding_spent(struct peer *peer,
 			       "lightning_onchaind", peer,
 			       onchain_wire_type_name,
 			       onchain_msg,
-			       peer_onchain_finished,
+			       NULL, peer_onchain_finished,
 			       NULL, NULL);
 
 	if (!peer->owner) {
@@ -1598,52 +1598,6 @@ static int peer_got_shutdown(struct peer *peer, const u8 *msg)
 	return 0;
 }
 
-static int channeld_got_bad_message(struct peer *peer, const u8 *msg)
-{
-	u8 *err;
-
-	/* Don't try to fail this (again!) when owner dies. */
-	peer->owner = NULL;
-	if (!fromwire_channel_peer_bad_message(peer, NULL, NULL, &err))
-		peer_fail_permanent_str(peer,
-					"Internal error after bad message");
-	else
-		peer_fail_permanent(peer, take(err));
-
-	/* Kill daemon (though it's dying anyway) */
-	return -1;
-}
-
-static int closingd_got_bad_message(struct peer *peer, const u8 *msg)
-{
-	u8 *err;
-
-	/* Don't try to fail this (again!) when owner dies. */
-	peer->owner = NULL;
-	if (!fromwire_closing_peer_bad_message(peer, NULL, NULL, &err))
-		peer_fail_permanent_str(peer,
-					"Internal error after bad message");
-	else
-		peer_fail_permanent(peer, take(err));
-
-	/* Kill daemon (though it's dying anyway) */
-	return -1;
-}
-
-static int closingd_got_negotiation_error(struct peer *peer, const u8 *msg)
-{
-	u8 *err;
-
-	if (!fromwire_closing_negotiation_error(peer, NULL, NULL, &err))
-		peer_internal_error(peer, "Bad closing_negotiation %s",
-				    tal_hex(peer, msg));
-	else
-		peer_internal_error(peer, "%s", err);
-
-	/* Kill daemon (though it's dying anyway) */
-	return -1;
-}
-
 void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
 		  const secp256k1_ecdsa_signature *sig)
 {
@@ -1739,20 +1693,6 @@ static int closing_msg(struct subd *sd, const u8 *msg, const int *fds)
 	enum closing_wire_type t = fromwire_peektype(msg);
 
 	switch (t) {
-	/* We let peer_owner_finished handle these as transient errors. */
-	case WIRE_CLOSING_BAD_COMMAND:
-	case WIRE_CLOSING_GOSSIP_FAILED:
-	case WIRE_CLOSING_INTERNAL_ERROR:
-	case WIRE_CLOSING_PEER_READ_FAILED:
-	case WIRE_CLOSING_PEER_WRITE_FAILED:
-		return -1;
-
-	/* These are permanent errors. */
-	case WIRE_CLOSING_PEER_BAD_MESSAGE:
-		return closingd_got_bad_message(sd->peer, msg);
-	case WIRE_CLOSING_NEGOTIATION_ERROR:
-		return closingd_got_negotiation_error(sd->peer, msg);
-
 	case WIRE_CLOSING_RECEIVED_SIGNATURE:
 		return peer_received_closing_signature(sd->peer, msg);
 
@@ -1794,6 +1734,7 @@ static void peer_start_closingd(struct peer *peer,
 			       "lightning_closingd", peer,
 			       closing_wire_type_name,
 			       closing_msg,
+			       bad_peer,
 			       peer_owner_finished,
 			       take(&peer_fd),
 			       take(&gossip_fd), NULL);
@@ -1898,20 +1839,6 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_SHUTDOWN_COMPLETE:
 		return peer_start_closingd_after_shutdown(sd->peer, msg, fds);
 
-	/* We let peer_owner_finished handle these as transient errors. */
-	case WIRE_CHANNEL_BAD_COMMAND:
-	case WIRE_CHANNEL_HSM_FAILED:
-	case WIRE_CHANNEL_CRYPTO_FAILED:
-	case WIRE_CHANNEL_GOSSIP_BAD_MESSAGE:
-	case WIRE_CHANNEL_INTERNAL_ERROR:
-	case WIRE_CHANNEL_PEER_WRITE_FAILED:
-	case WIRE_CHANNEL_PEER_READ_FAILED:
-		return -1;
-
-	/* This is a permanent error. */
-	case WIRE_CHANNEL_PEER_BAD_MESSAGE:
-		return channeld_got_bad_message(sd->peer, msg);
-
 	/* And we never get these from channeld. */
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_FUNDING_LOCKED:
@@ -1981,6 +1908,7 @@ static bool peer_start_channeld(struct peer *peer,
 			       "lightning_channeld", peer,
 			       channel_wire_type_name,
 			       channel_msg,
+			       bad_peer,
 			       peer_owner_finished,
 			       take(&peer_fd),
 			       take(&gossip_fd),
@@ -2330,7 +2258,7 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 	peer_set_condition(peer, GOSSIPD, OPENINGD);
 	peer->owner = new_subd(ld, ld, "lightning_openingd", peer,
 			       opening_wire_type_name,
-			       NULL, peer_owner_finished,
+			       NULL, bad_peer, peer_owner_finished,
 			       take(&peer_fd), take(&gossip_fd),
 			       NULL);
 	if (!peer->owner) {
@@ -2414,7 +2342,7 @@ static bool gossip_peer_released(struct subd *gossip,
 	opening = new_subd(fc->peer->ld, ld,
 			   "lightning_openingd", fc->peer,
 			   opening_wire_type_name,
-			   NULL, peer_owner_finished,
+			   NULL, bad_peer, peer_owner_finished,
 			   take(&fds[0]), take(&fds[1]), NULL);
 	if (!opening) {
 		peer_fail_transient(fc->peer, "Failed to subdaemon opening: %s",
