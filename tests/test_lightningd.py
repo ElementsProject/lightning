@@ -611,6 +611,16 @@ class LightningDTests(BaseLightningDTests):
         for n in [l1, l2, l3]:
             wait_for(lambda: len(n.rpc.getchannels()['channels']) == 4)
 
+    def test_second_channel(self):
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node()
+
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect('localhost', l3.info['port'], l3.info['id'])
+        self.fund_channel(l1, l2, 10**6)
+        self.fund_channel(l1, l3, 10**6)
+
     def test_routing_gossip(self):
         nodes = [self.node_factory.get_node() for _ in range(5)]
         l1 = nodes[0]

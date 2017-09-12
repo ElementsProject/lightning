@@ -2132,6 +2132,17 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 				    &channel_info->remote_fundingkey,
 				    fc->change, &changekey,
 				    fc->peer->ld->wallet->bip32_base);
+	log_debug(fc->peer->log, "Funding tx has %zi inputs, %zu outputs:",
+		  tal_count(fc->funding_tx->input),
+		  tal_count(fc->funding_tx->output));
+	for (size_t i = 0; i < tal_count(fc->funding_tx->input); i++) {
+		log_debug(fc->peer->log, "%zi: %"PRIu64" satoshi (%s) %s\n",
+			  i, fc->utxomap[i]->amount,
+			  fc->utxomap[i]->is_p2sh ? "P2SH" : "SEGWIT",
+			  type_to_string(ltmp, struct sha256_double,
+					 &fc->funding_tx->input[i].txid));
+	}
+
 	fc->peer->funding_txid = tal(fc->peer, struct sha256_double);
 	bitcoin_txid(fc->funding_tx, fc->peer->funding_txid);
 

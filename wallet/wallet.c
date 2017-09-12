@@ -829,7 +829,13 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 		utxo->status = output_state_available;
 		bitcoin_txid(tx, &utxo->txid);
 		utxo->outnum = output;
-		if (!wallet_add_utxo(w, utxo, p2sh_wpkh)) {
+		log_debug(w->log, "Owning output %zu %"PRIu64" (%s) txid %s",
+			  output, tx->output[output].amount,
+			  is_p2sh ? "P2SH" : "SEGWIT",
+			  type_to_string(ltmp, struct sha256_double,
+					 &utxo->txid));
+
+		if (!wallet_add_utxo(w, utxo, is_p2sh ? p2sh_wpkh : our_change)) {
 			tal_free(utxo);
 			return -1;
 		}
