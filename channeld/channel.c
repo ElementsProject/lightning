@@ -160,8 +160,9 @@ static struct io_plan *gossip_client_recv(struct io_conn *conn,
 	    type == WIRE_NODE_ANNOUNCEMENT)
 		msg_enqueue(&peer->peer_out, msg);
 	else
-		status_failed(WIRE_CHANNEL_GOSSIP_BAD_MESSAGE,
-			      "Got bad message from gossipd: %d", type);
+		status_failed(STATUS_FAIL_GOSSIP_IO,
+			      "Got bad message from gossipd: %s",
+			      tal_hex(msg, msg));
 
 	return daemon_conn_read_next(conn, dc);
 }
@@ -191,14 +192,16 @@ static void send_announcement_signatures(struct peer *peer)
 
 
 	if (!wire_sync_write(HSM_FD, req))
-		status_failed(WIRE_CHANNEL_HSM_FAILED,
-			      "Writing cannouncement_sig_req");
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Writing cannouncement_sig_req: %s",
+			      strerror(errno));
 
 	msg = wire_sync_read(tmpctx, HSM_FD);
 	if (!msg || !fromwire_hsm_cannouncement_sig_reply(msg, NULL,
 					  &peer->announcement_node_sigs[LOCAL]))
-		status_failed(WIRE_CHANNEL_HSM_FAILED,
-			      "Reading cannouncement_sig_resp");
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading cannouncement_sig_resp: %s",
+			      strerror(errno));
 
 	/* Double-check that HSM gave a valid signature. */
 	sha256_double(&hash, ca + offset, tal_len(ca) - offset);
@@ -207,7 +210,7 @@ static void send_announcement_signatures(struct peer *peer)
 		/* It's ok to fail here, the channel announcement is
 		 * unique, unlike the channel update which may have
 		 * been replaced in the meantime. */
-		status_failed(WIRE_CHANNEL_HSM_FAILED,
+		status_failed(STATUS_FAIL_HSM_IO,
 			      "HSM returned an invalid signature");
 	}
 
@@ -247,13 +250,15 @@ static void send_channel_update(struct peer *peer, bool disabled)
 	msg = towire_hsm_cupdate_sig_req(tmpctx, cupdate);
 
 	if (!wire_sync_write(HSM_FD, msg))
-		status_failed(WIRE_CHANNEL_HSM_FAILED,
-			      "Writing cupdate_sig_req");
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Writing cupdate_sig_req: %s",
+			      strerror(errno));
 
 	msg = wire_sync_read(tmpctx, HSM_FD);
 	if (!msg || !fromwire_hsm_cupdate_sig_reply(tmpctx, msg, NULL, &cupdate))
-		status_failed(WIRE_CHANNEL_HSM_FAILED,
-			      "Reading cupdate_sig_req");
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Reading cupdate_sig_req: %s",
+			      strerror(errno));
 
 	daemon_conn_send(&peer->gossip_client, cupdate);
 	msg_enqueue(&peer->peer_out, cupdate);
@@ -328,12 +333,15 @@ static struct io_plan *handle_peer_funding_locked(struct io_conn *conn,
 	peer->old_remote_per_commit = peer->remote_per_commit;
 	if (!fromwire_funding_locked(msg, NULL, &chanid,
 				     &peer->remote_per_commit))
-		status_failed(WIRE_CHANNEL_PEER_BAD_MESSAGE,
-			      "Bad funding_locked %s", tal_hex(msg, msg));
+		peer_failed(PEER_FD, &peer->pcs.cs, &peer->channel_id,
+			    "Bad funding_locked %s", tal_hex(msg, msg));
 
 	if (!structeq(&chanid, &peer->channel_id))
-		status_failed(WIRE_CHANNEL_PEER_BAD_MESSAGE,
-			      "Wrong channel id in %s", tal_hex(trc, msg));
+		peer_failed(PEER_FD, &peer->pcs.cs, &peer->channel_id,
+			    "Wrong channel id in %s (expected %s)",
+			    tal_hex(trc, msg),
+			    type_to_string(msg, struct channel_id,
+					   &peer->channel_id));
 
 	peer->funding_locked[REMOTE] = true;
 	wire_sync_write(MASTER_FD,
@@ -370,18 +378,18 @@ static struct io_plan *handle_peer_announcement_signatures(struct io_conn *conn,
 					      &peer->short_channel_ids[REMOTE],
 					      &peer->announcement_node_sigs[REMOTE],
 					      &peer->announcement_bitcoin_sigs[REMOTE]))
-		status_failed(WIRE_CHANNEL_PEER_BAD_MESSAGE,
-			      "Bad announcement_signatures %s",
-			      tal_hex(msg, msg));
+		peer_failed(PEER_FD, &peer->pcs.cs, &peer->channel_id,
+			    "Bad announcement_signatures %s",
+			    tal_hex(msg, msg));
 
 	/* Make sure we agree on the channel ids */
 	/* FIXME: Check short_channel_id */
 	if (!structeq(&chanid, &peer->channel_id)) {
-		status_failed(WIRE_CHANNEL_PEER_BAD_MESSAGE,
-			      "Wrong channel_id or short_channel_id in %s or %s",
-			      tal_hexstr(trc, &chanid, sizeof(struct channel_id)),
-			      tal_hexstr(trc, &peer->short_channel_ids[REMOTE],
-					 sizeof(struct short_channel_id)));
+		peer_failed(PEER_FD, &peer->pcs.cs, &peer->channel_id,
+			    "Wrong channel_id or short_channel_id in %s or %s",
+			    tal_hexstr(trc, &chanid, sizeof(struct channel_id)),
+			    tal_hexstr(trc, &peer->short_channel_ids[REMOTE],
+				       sizeof(struct short_channel_id)));
 	}
 
 	peer->have_sigs[REMOTE] = true;
@@ -410,7 +418,6 @@ static struct io_plan *handle_peer_add_htlc(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad peer_add_htlc %s", tal_hex(msg, msg));
 
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount_msat,
@@ -420,7 +427,6 @@ static struct io_plan *handle_peer_add_htlc(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad peer_add_htlc: %u", add_err);
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
@@ -497,7 +503,7 @@ static u8 *master_wait_sync_reply(const tal_t *ctx,
 		     channel_wire_type_name(fromwire_peektype(msg)));
 
 	if (!wire_sync_write(MASTER_FD, msg))
-		status_failed(WIRE_CHANNEL_INTERNAL_ERROR,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not set sync write to master: %s",
 			      strerror(errno));
 
@@ -507,7 +513,7 @@ static u8 *master_wait_sync_reply(const tal_t *ctx,
 	for (;;) {
 		reply = wire_sync_read(ctx, MASTER_FD);
 		if (!reply)
-			status_failed(WIRE_CHANNEL_INTERNAL_ERROR,
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not set sync read from master: %s",
 				      strerror(errno));
 		if (fromwire_peektype(reply) == replytype) {
@@ -540,13 +546,13 @@ static struct commit_sigs *calc_commitsigs(const tal_t *ctx,
 				   &peer->channel->basepoints[LOCAL].payment,
 				   &peer->remote_per_commit,
 				   &local_secretkey))
-		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving local_secretkey");
 
 	if (!derive_simple_key(&peer->channel->basepoints[LOCAL].payment,
 			       &peer->remote_per_commit,
 			       &localkey))
-		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving localkey");
 
 	status_trace("Derived key %s from basepoint %s, point %s",
@@ -703,7 +709,7 @@ static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index)
 	/* Sanity check that it corresponds to the point we sent. */
 	pubkey_from_privkey((struct privkey *)&old_commit_secret, &point);
 	if (!per_commit_point(&peer->shaseed, &oldpoint, revoke_index))
-		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Invalid point %"PRIu64" for commit_point",
 			      revoke_index);
 
@@ -712,14 +718,14 @@ static u8 *make_revocation_msg(const struct peer *peer, u64 revoke_index)
 		     type_to_string(trc, struct pubkey, &oldpoint));
 
 	if (!pubkey_eq(&point, &oldpoint))
-		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Invalid secret %s for commit_point",
 			      tal_hexstr(trc, &old_commit_secret,
 					 sizeof(old_commit_secret)));
 
 	/* We're revoking N-1th commit, sending N+1th point. */
 	if (!per_commit_point(&peer->shaseed, &point, revoke_index+2))
-		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving next commit_point");
 
 	return towire_revoke_and_ack(peer, &peer->channel_id, &old_commit_secret,
@@ -772,11 +778,11 @@ static void get_shared_secret(const struct htlc *htlc,
 	ephemeral.pubkey = op->ephemeralkey;
 	msg = towire_hsm_ecdh_req(tmpctx, &ephemeral);
 	if (!wire_sync_write(HSM_FD, msg))
-		status_failed(WIRE_CHANNEL_HSM_FAILED, "Writing ecdh req");
+		status_failed(STATUS_FAIL_HSM_IO, "Writing ecdh req");
 	msg = wire_sync_read(tmpctx, HSM_FD);
 	/* Gives all-zero shares_secret if it was invalid. */
 	if (!msg || !fromwire_hsm_ecdh_resp(msg, NULL, shared_secret))
-		status_failed(WIRE_CHANNEL_HSM_FAILED, "Reading ecdh response");
+		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
 	tal_free(tmpctx);
 }
 
@@ -874,7 +880,6 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "commit_sig with no changes");
 	}
 
@@ -883,12 +888,11 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad commit_sig %s", tal_hex(msg, msg));
 
 	if (!per_commit_point(&peer->shaseed, &point,
 			      peer->next_index[LOCAL]))
-		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving per_commit_point for %"PRIu64,
 			      peer->next_index[LOCAL]);
 
@@ -897,7 +901,7 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 
 	if (!derive_simple_key(&peer->channel->basepoints[REMOTE].payment,
 			       &point, &remotekey))
-		status_failed(WIRE_CHANNEL_CRYPTO_FAILED,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving remotekey");
 	status_trace("Derived key %s from basepoint %s, point %s",
 		     type_to_string(trc, struct pubkey, &remotekey),
@@ -916,7 +920,6 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad commit_sig signature %"PRIu64" %s for tx %s wscript %s key %s",
 			    peer->next_index[LOCAL],
 			    type_to_string(msg, secp256k1_ecdsa_signature,
@@ -938,7 +941,6 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Expected %zu htlc sigs, not %zu",
 			    tal_count(txs) - 1, tal_count(htlc_sigs));
 
@@ -954,7 +956,6 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 			peer_failed(io_conn_fd(peer->peer_conn),
 				    &peer->pcs.cs,
 				    &peer->channel_id,
-				    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 				    "Bad commit_sig signature %s for htlc %s wscript %s key %s",
 				    type_to_string(msg, secp256k1_ecdsa_signature, &htlc_sigs[i]),
 				    type_to_string(msg, struct bitcoin_tx, txs[1+i]),
@@ -1031,7 +1032,6 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad revoke_and_ack %s", tal_hex(msg, msg));
 	}
 
@@ -1046,7 +1046,6 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad privkey %s",
 			    type_to_string(msg, struct privkey, &privkey));
 	}
@@ -1054,7 +1053,6 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Wrong privkey %s for %"PRIu64" %s",
 			    type_to_string(msg, struct privkey, &privkey),
 			    peer->next_index[LOCAL]-2,
@@ -1102,7 +1100,6 @@ static struct io_plan *handle_peer_fulfill_htlc(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad update_fulfill_htlc %s", tal_hex(msg, msg));
 	}
 
@@ -1123,7 +1120,6 @@ static struct io_plan *handle_peer_fulfill_htlc(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad update_fulfill_htlc: failed to fulfill %"
 			    PRIu64 " error %u", id, e);
 	}
@@ -1144,7 +1140,6 @@ static struct io_plan *handle_peer_fail_htlc(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad update_fulfill_htlc %s", tal_hex(msg, msg));
 	}
 
@@ -1164,7 +1159,6 @@ static struct io_plan *handle_peer_fail_htlc(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad update_fail_htlc: failed to remove %"
 			    PRIu64 " error %u", id, e);
 	}
@@ -1189,7 +1183,6 @@ static struct io_plan *handle_peer_fail_malformed_htlc(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad update_fail_malformed_htlc %s",
 			    tal_hex(msg, msg));
 	}
@@ -1203,7 +1196,6 @@ static struct io_plan *handle_peer_fail_malformed_htlc(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad update_fail_malformed_htlc failure code %u",
 			    failure_code);
 	}
@@ -1244,7 +1236,6 @@ static struct io_plan *handle_peer_fail_malformed_htlc(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad update_fail_malformed_htlc: failed to remove %"
 			    PRIu64 " error %u", id, e);
 	}
@@ -1260,7 +1251,6 @@ static struct io_plan *handle_ping(struct io_conn *conn,
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Bad ping");
 
 	status_trace("Got ping, sending %s", pong ?
@@ -1279,10 +1269,16 @@ static struct io_plan *handle_pong(struct io_conn *conn,
 
 	status_trace("Got pong!");
 	if (!fromwire_pong(pong, pong, NULL, &ignored))
-		status_failed(WIRE_CHANNEL_PEER_READ_FAILED, "Bad pong");
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    "Bad pong %s", tal_hex(pong, pong));
 
 	if (!peer->num_pings_outstanding)
-		status_failed(WIRE_CHANNEL_PEER_READ_FAILED, "Unexpected pong");
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    "Unexpected pong");
 
 	peer->num_pings_outstanding--;
 	wire_sync_write(MASTER_FD,
@@ -1298,7 +1294,10 @@ static struct io_plan *handle_peer_shutdown(struct io_conn *conn,
 	u8 *scriptpubkey;
 
 	if (!fromwire_shutdown(peer, shutdown, NULL, &channel_id, &scriptpubkey))
-		status_failed(WIRE_CHANNEL_PEER_READ_FAILED, "Bad shutdown");
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    "Bad shutdown %s", tal_hex(peer, shutdown));
 
 	/* Tell master, it will tell us what to send (if any). */
 	wire_sync_write(MASTER_FD,
@@ -1327,7 +1326,6 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 			peer_failed(io_conn_fd(peer->peer_conn),
 				    &peer->pcs.cs,
 				    &peer->channel_id,
-				    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 				    "%s (%u) before funding locked",
 				    wire_type_name(type), type);
 		}
@@ -1377,7 +1375,6 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "Unimplemented message %u (%s)",
 			    type, wire_type_name(type));
 	}
@@ -1386,7 +1383,6 @@ badmessage:
 	peer_failed(io_conn_fd(peer->peer_conn),
 		    &peer->pcs.cs,
 		    &peer->channel_id,
-		    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 		    "Peer sent unknown message %u (%s)",
 		    type, wire_type_name(type));
 }
@@ -1406,7 +1402,7 @@ static void peer_conn_broken(struct io_conn *conn, struct peer *peer)
 		/* Make sure gossipd actually gets this message before dying */
 		daemon_conn_sync_flush(&peer->gossip_client);
 	}
-	status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
+	status_failed(STATUS_FAIL_PEER_IO,
 		      "peer connection broken: %s", strerror(errno));
 }
 
@@ -1437,7 +1433,6 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "HTLC %"PRIu64" state %s not failed/fulfilled",
 			    h->id, htlc_state_name(h->state));
 	msg_enqueue(&peer->peer_out, take(msg));
@@ -1471,7 +1466,6 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 			peer_failed(io_conn_fd(peer->peer_conn),
 				    &peer->pcs.cs,
 				    &peer->channel_id,
-				    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 				    "Can't find HTLC %"PRIu64" to resend",
 				    last[i].id);
 
@@ -1524,13 +1518,13 @@ static void peer_reconnect(struct peer *peer)
 					 peer->next_index[LOCAL],
 					 peer->revocations_received);
 	if (!sync_crypto_write(&peer->pcs.cs, PEER_FD, take(msg)))
-		status_failed(WIRE_CHANNEL_PEER_WRITE_FAILED,
+		status_failed(STATUS_FAIL_PEER_IO,
 			      "Failed writing reestablish: %s", strerror(errno));
 
 again:
 	msg = sync_crypto_read(peer, &peer->pcs.cs, PEER_FD);
 	if (!msg)
-		status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
+		status_failed(STATUS_FAIL_PEER_IO,
 			      "Failed reading reestablish: %s", strerror(errno));
 
 	if (is_gossip_msg(msg)) {
@@ -1542,7 +1536,7 @@ again:
 	if (!fromwire_channel_reestablish(msg, NULL, &channel_id,
 					  &next_local_commitment_number,
 					  &next_remote_revocation_number)) {
-		status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
+		status_failed(STATUS_FAIL_PEER_IO,
 			      "bad reestablish msg: %s %s",
 			      wire_type_name(fromwire_peektype(msg)),
 			      tal_hex(msg, msg));
@@ -1589,14 +1583,14 @@ again:
 	if (next_remote_revocation_number == peer->next_index[LOCAL] - 2) {
 		/* Don't try to retransmit revocation index -1! */
 		if (peer->next_index[LOCAL] < 2) {
-			status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
+			status_failed(STATUS_FAIL_PEER_IO,
 				      "bad reestablish revocation_number: %"
 				      PRIu64,
 				      next_remote_revocation_number);
 		}
 		retransmit_revoke_and_ack = true;
 	} else if (next_remote_revocation_number != peer->next_index[LOCAL] - 1) {
-		status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
+		status_failed(STATUS_FAIL_PEER_IO,
 			      "bad reestablish revocation_number: %"PRIu64
 			      " vs %"PRIu64,
 			      next_remote_revocation_number,
@@ -1619,7 +1613,7 @@ again:
 	if (next_local_commitment_number == peer->next_index[REMOTE] - 1) {
 		/* We completed opening, we don't re-transmit that one! */
 		if (next_local_commitment_number == 0)
-			status_failed(WIRE_CHANNEL_PEER_READ_FAILED,
+			status_failed(STATUS_FAIL_PEER_IO,
 				      "bad reestablish commitment_number: %"
 				      PRIu64,
 				      next_local_commitment_number);
@@ -1636,7 +1630,6 @@ again:
 		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
-			    WIRE_CHANNEL_PEER_BAD_MESSAGE,
 			    "bad reestablish commitment_number: %"PRIu64
 			    " vs %"PRIu64,
 			    next_local_commitment_number,
@@ -1677,7 +1670,7 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 
 	if (!fromwire_channel_funding_locked(msg, NULL,
 					     &peer->short_channel_ids[LOCAL]))
-		status_failed(WIRE_CHANNEL_BAD_COMMAND, "%s", tal_hex(msg, msg));
+		master_badmsg(WIRE_CHANNEL_FUNDING_LOCKED, msg);
 
 	per_commit_point(&peer->shaseed,
 			 &next_per_commit_point, peer->next_index[LOCAL]);
@@ -1720,14 +1713,13 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	const char *failmsg;
 
 	if (!peer->funding_locked[LOCAL] || !peer->funding_locked[REMOTE])
-		status_failed(WIRE_CHANNEL_BAD_COMMAND, "funding not locked");
+		status_failed(STATUS_FAIL_MASTER_IO,
+			      "funding not locked for offer_htlc");
 
 	if (!fromwire_channel_offer_htlc(inmsg, NULL, &amount_msat,
 					 &cltv_expiry, &payment_hash,
 					 onion_routing_packet))
-		status_failed(WIRE_CHANNEL_BAD_COMMAND,
-			      "bad offer_htlc message %s",
-			      tal_hex(inmsg, inmsg));
+		master_badmsg(WIRE_CHANNEL_OFFER_HTLC, inmsg);
 
 	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
 			     amount_msat, cltv_expiry, &payment_hash,
@@ -1756,7 +1748,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 		goto failed;
 	case CHANNEL_ERR_DUPLICATE:
 	case CHANNEL_ERR_DUPLICATE_ID_DIFFERENT:
-		status_failed(WIRE_CHANNEL_BAD_COMMAND,
+		status_failed(STATUS_FAIL_MASTER_IO,
 			      "Duplicate HTLC %"PRIu64, peer->htlc_id);
 
 	/* FIXME: Fuzz the boundaries a bit to avoid probing? */
@@ -1796,8 +1788,7 @@ static void handle_preimage(struct peer *peer, const u8 *inmsg)
 	struct preimage preimage;
 
 	if (!fromwire_channel_fulfill_htlc(inmsg, NULL, &id, &preimage))
-		status_failed(WIRE_CHANNEL_BAD_COMMAND,
-			      "Invalid channel_fulfill_htlc");
+		master_badmsg(WIRE_CHANNEL_FULFILL_HTLC, inmsg);
 
 	switch (channel_fulfill_htlc(peer->channel, REMOTE, id, &preimage)) {
 	case CHANNEL_ERR_REMOVE_OK:
@@ -1814,7 +1805,7 @@ static void handle_preimage(struct peer *peer, const u8 *inmsg)
 	case CHANNEL_ERR_HTLC_UNCOMMITTED:
 	case CHANNEL_ERR_HTLC_NOT_IRREVOCABLE:
 	case CHANNEL_ERR_BAD_PREIMAGE:
-		status_failed(WIRE_CHANNEL_BAD_COMMAND,
+		status_failed(STATUS_FAIL_MASTER_IO,
 			      "HTLC %"PRIu64" preimage failed", id);
 	}
 	abort();
@@ -1830,11 +1821,10 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 
 	if (!fromwire_channel_fail_htlc(inmsg, inmsg, NULL, &id, &malformed,
 					&errpkt))
-		status_failed(WIRE_CHANNEL_BAD_COMMAND,
-			      "Invalid channel_fail_htlc");
+		master_badmsg(WIRE_CHANNEL_FAIL_HTLC, inmsg);
 
 	if (malformed && !(malformed & BADONION))
-		status_failed(WIRE_CHANNEL_BAD_COMMAND,
+		status_failed(STATUS_FAIL_MASTER_IO,
 			      "Invalid channel_fail_htlc: bad malformed 0x%x",
 			      malformed);
 
@@ -1865,7 +1855,7 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 	case CHANNEL_ERR_HTLC_UNCOMMITTED:
 	case CHANNEL_ERR_HTLC_NOT_IRREVOCABLE:
 	case CHANNEL_ERR_BAD_PREIMAGE:
-		status_failed(WIRE_CHANNEL_BAD_COMMAND,
+		status_failed(STATUS_FAIL_MASTER_IO,
 			      "HTLC %"PRIu64" removal failed: %i", id, e);
 	}
 	abort();
@@ -1877,11 +1867,11 @@ static void handle_ping_cmd(struct peer *peer, const u8 *inmsg)
 	u8 *ping;
 
 	if (!fromwire_channel_ping(inmsg, NULL, &num_pong_bytes, &ping_len))
-		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Bad channel_ping");
+		master_badmsg(WIRE_CHANNEL_PING, inmsg);
 
 	ping = make_ping(peer, num_pong_bytes, ping_len);
 	if (tal_len(ping) > 65535)
-		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Oversize channel_ping");
+		status_failed(STATUS_FAIL_MASTER_IO, "Oversize channel_ping");
 
 	msg_enqueue(&peer->peer_out, take(ping));
 
@@ -1906,7 +1896,7 @@ static void handle_shutdown_cmd(struct peer *peer, const u8 *inmsg)
 	u8 *scriptpubkey;
 
 	if (!fromwire_channel_send_shutdown(peer, inmsg, NULL, &scriptpubkey))
-		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Bad send_shutdown");
+		master_badmsg(WIRE_CHANNEL_SEND_SHUTDOWN, inmsg);
 
 	/* We can't send this until commit (if any) is done, so start timer<. */
 	peer->unsent_shutdown_scriptpubkey = scriptpubkey;
@@ -1940,18 +1930,10 @@ static void req_in(struct peer *peer, const u8 *msg)
 		handle_shutdown_cmd(peer, msg);
 		goto out;
 
-	case WIRE_CHANNEL_BAD_COMMAND:
-	case WIRE_CHANNEL_HSM_FAILED:
-	case WIRE_CHANNEL_CRYPTO_FAILED:
-	case WIRE_CHANNEL_GOSSIP_BAD_MESSAGE:
-	case WIRE_CHANNEL_INTERNAL_ERROR:
-	case WIRE_CHANNEL_PEER_WRITE_FAILED:
-	case WIRE_CHANNEL_PEER_READ_FAILED:
 	case WIRE_CHANNEL_NORMAL_OPERATION:
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
 	case WIRE_CHANNEL_PING_REPLY:
-	case WIRE_CHANNEL_PEER_BAD_MESSAGE:
 	case WIRE_CHANNEL_ANNOUNCED:
 	case WIRE_CHANNEL_SENDING_COMMITSIG:
 	case WIRE_CHANNEL_GOT_COMMITSIG:
@@ -1964,8 +1946,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_SHUTDOWN_COMPLETE:
 		break;
 	}
-	status_failed(WIRE_CHANNEL_BAD_COMMAND, "%u %s", t,
-		      channel_wire_type_name(t));
+	master_badmsg(-1, msg);
 
 out:
 	tal_free(msg);
@@ -2041,8 +2022,7 @@ static void init_channel(struct peer *peer)
 				   &peer->shutdown_sent[REMOTE],
 				   &peer->channel_flags,
 				   &funding_signed))
-		status_failed(WIRE_CHANNEL_BAD_COMMAND, "Init: %s",
-			      tal_hex(msg, msg));
+		master_badmsg(WIRE_CHANNEL_INIT, msg);
 
 	status_trace("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
 		     " next_idx_local = %"PRIu64
@@ -2081,7 +2061,7 @@ static void init_channel(struct peer *peer)
 	if (!channel_force_htlcs(peer->channel, htlcs, hstates,
 				 fulfilled, fulfilled_sides,
 				 failed, failed_sides))
-		status_failed(WIRE_CHANNEL_BAD_COMMAND,
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not restore HTLCs");
 
 	peer->channel_direction = get_channel_direction(
@@ -2104,7 +2084,7 @@ static void init_channel(struct peer *peer)
 #ifndef TESTING
 static void gossip_gone(struct io_conn *unused, struct daemon_conn *dc)
 {
-	status_failed(WIRE_CHANNEL_GOSSIP_BAD_MESSAGE,
+	status_failed(STATUS_FAIL_GOSSIP_IO,
 		      "Gossip connection closed");
 }
 
@@ -2114,14 +2094,14 @@ static void send_shutdown_complete(struct peer *peer)
 
 	/* Push out any outstanding messages to peer. */
 	if (!io_flush_sync(peer->peer_conn))
-		status_failed(WIRE_CHANNEL_PEER_WRITE_FAILED, "Syncing conn");
+		status_failed(STATUS_FAIL_PEER_IO, "Syncing conn");
 
 	/* Set FD blocking to flush it */
 	io_fd_block(PEER_FD, true);
 
 	while ((msg = msg_dequeue(&peer->peer_out)) != NULL) {
 		if (!sync_crypto_write(&peer->pcs.cs, PEER_FD, take(msg)))
-			status_failed(WIRE_CHANNEL_PEER_WRITE_FAILED,
+			status_failed(STATUS_FAIL_PEER_IO,
 				      "Flushing msgs");
 	}
 
@@ -2174,7 +2154,7 @@ static int poll_with_masterfd(struct pollfd *fds, nfds_t nfds, int timeout)
 			u8 *msg = wire_sync_read(peer, MASTER_FD);
 
 			if (!msg)
-				status_failed(WIRE_CHANNEL_BAD_COMMAND,
+				status_failed(STATUS_FAIL_MASTER_IO,
 					      "Can't read command: %s",
 					      strerror(errno));
 			msg_enqueue(&peer->from_master, take(msg));

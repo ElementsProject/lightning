@@ -92,14 +92,6 @@ static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	enum gossip_wire_type t = fromwire_peektype(msg);
 
 	switch (t) {
-	/* subd already logs fatal errors. */
-	case WIRE_GOSSIPSTATUS_INIT_FAILED:
-	case WIRE_GOSSIPSTATUS_BAD_NEW_PEER_REQUEST:
-	case WIRE_GOSSIPSTATUS_BAD_REQUEST:
-	case WIRE_GOSSIPSTATUS_FDPASS_FAILED:
-	case WIRE_GOSSIPSTATUS_BAD_RELEASE_REQUEST:
-	case WIRE_GOSSIPSTATUS_BAD_FAIL_REQUEST:
-		break;
 	/* These are messages we send, not them. */
 	case WIRE_GOSSIPCTL_INIT:
 	case WIRE_GOSSIPCTL_NEW_PEER:
@@ -146,7 +138,7 @@ void gossip_init(struct lightningd *ld)
 	u8 *init;
 	ld->gossip = new_subd(ld, ld, "lightning_gossipd", NULL,
 			      gossip_wire_type_name,
-			      gossip_msg, gossip_finished, NULL);
+			      gossip_msg, NULL, gossip_finished, NULL);
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
 

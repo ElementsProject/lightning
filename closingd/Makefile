@@ -51,6 +51,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/derive_basepoints.o		\
 	common/htlc_wire.o			\
 	common/msg_queue.o			\
+	common/peer_failed.o			\
 	common/permute_tx.o			\
 	common/status.o				\
 	common/type_to_string.o			\

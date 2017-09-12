@@ -9,6 +9,7 @@
 #include <common/daemon_conn.h>
 #include <common/status.h>
 #include <common/utils.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
@@ -88,7 +89,7 @@ void status_trace(const char *fmt, ...)
 	trc = tal_tmpctx(NULL);
 }
 
-void status_failed(u16 code, const char *fmt, ...)
+void status_failed(enum status_fail code, const char *fmt, ...)
 {
 	va_list ap;
 	char *str;
@@ -106,4 +107,15 @@ void status_failed(u16 code, const char *fmt, ...)
 		daemon_conn_sync_flush(status_conn);
 
 	exit(0x80 | (code & 0xFF));
+}
+
+void master_badmsg(u32 type_expected, const u8 *msg)
+{
+	if (!msg)
+		status_failed(STATUS_FAIL_MASTER_IO,
+			      "failed reading msg %u: %s",
+			      type_expected, strerror(errno));
+	status_failed(STATUS_FAIL_MASTER_IO,
+		      "Error parsing %u: %s",
+		      type_expected, tal_hex(trc, msg));
 }

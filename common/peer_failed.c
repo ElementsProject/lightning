@@ -11,7 +11,7 @@
 /* We only support one channel per peer anyway */
 void peer_failed(int peer_fd, struct crypto_state *cs,
 		 const struct channel_id *channel_id,
-		 u16 error_code, const char *fmt, ...)
+		 const char *fmt, ...)
 {
 	va_list ap;
 	const char *errmsg;
@@ -39,5 +39,5 @@ void peer_failed(int peer_fd, struct crypto_state *cs,
 	io_fd_block(peer_fd, false);
 	sync_crypto_write(cs, peer_fd, take(msg));
 
-	status_failed(error_code, "%s", errmsg);
+	status_failed(STATUS_FAIL_PEER_BAD, "%s", errmsg);
 }
