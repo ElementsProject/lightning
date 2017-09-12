@@ -27,6 +27,7 @@ LIGHTNINGD_HSM_OBJS := $(LIGHTNINGD_HSM_SRC:.c=.o)
 HSMD_COMMON_OBJS :=				\
 	common/bip32.o				\
 	common/daemon_conn.o			\
+	common/debug.o				\
 	common/funding_tx.o			\
 	common/key_derive.o			\
 	common/msg_queue.o			\

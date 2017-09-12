@@ -3,7 +3,6 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
-#include <ccan/breakpoint/breakpoint.h>
 #include <ccan/container_of/container_of.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/endian/endian.h>
@@ -15,6 +14,7 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/take/take.h>
 #include <common/daemon_conn.h>
+#include <common/debug.h>
 #include <common/funding_tx.h>
 #include <common/status.h>
 #include <common/utils.h>
@@ -640,6 +640,12 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 }
 
 #ifndef TESTING
+/* FIXME: This is used by debug.c, but doesn't apply to us. */
+extern void dev_disconnect_init(int fd);
+void dev_disconnect_init(int fd)
+{
+}
+
 static void master_gone(struct io_conn *unused, struct daemon_conn *dc)
 {
 	/* Can't tell master, it's gone. */
@@ -655,7 +661,8 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
-	breakpoint();
+	subdaemon_debug(argc, argv);
+
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
