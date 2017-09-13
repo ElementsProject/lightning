@@ -1429,11 +1429,10 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	tal_free(fc);
 }
 
-/* Create a node_announcement with the given signature. It may be NULL
- * in the case we need to create a provisional announcement for the
- * HSM to sign. */
+/* Create a node_announcement with an uninitialized signature,
+ * returning a pointer to where to place it. */
 static u8 *create_node_announcement(const tal_t *ctx, struct lightningd *ld,
-				    secp256k1_ecdsa_signature *sig)
+				    u8 **sig)
 {
 	u32 timestamp = time_now().ts.tv_sec;
 	u8 rgb[3] = {0x77, 0x88, 0x99};
@@ -1441,17 +1440,25 @@ static u8 *create_node_announcement(const tal_t *ctx, struct lightningd *ld,
 	u8 *features = NULL;
 	u8 *addresses = tal_arr(ctx, u8, 0);
 	u8 *announcement;
-	if (!sig) {
-		sig = tal(ctx, secp256k1_ecdsa_signature);
-		memset(sig, 0, sizeof(*sig));
-	}
+	secp256k1_ecdsa_signature dummy_sig;
+
+	memset(&dummy_sig, 0, sizeof(dummy_sig));
+
 	if (ld->config.ipaddr.type != ADDR_TYPE_PADDING) {
 		towire_ipaddr(&addresses, &ld->config.ipaddr);
 	}
 	memset(alias, 0, sizeof(alias));
 	announcement =
-	    towire_node_announcement(ctx, sig, features, timestamp,
+	    towire_node_announcement(ctx, &dummy_sig, features, timestamp,
 				     &ld->id, rgb, alias, addresses);
+
+	/* BOLT #7:
+	 *
+	 * 1. type: 257 (`node_announcement`)
+	 * 2. data:
+	 *    * [`64`:`signature`]
+	 */
+	*sig = announcement + 2;
 	return announcement;
 }
 
@@ -1464,7 +1471,8 @@ static int peer_channel_announced(struct peer *peer, const u8 *msg)
 	struct lightningd *ld = peer->ld;
 	tal_t *tmpctx = tal_tmpctx(peer);
 	secp256k1_ecdsa_signature sig;
-	u8 *announcement, *wrappedmsg;
+	u8 *announcement, *wrappedmsg, *where_to_sig, *sig_wire;
+	struct sha256_double hash;
 
 	if (!fromwire_channel_announced(msg, NULL)) {
 		peer_internal_error(peer, "bad fromwire_channel_announced %s",
@@ -1472,8 +1480,8 @@ static int peer_channel_announced(struct peer *peer, const u8 *msg)
 		return -1;
 	}
 
-	msg = towire_hsmctl_node_announcement_sig_req(
-		tmpctx, create_node_announcement(tmpctx, ld, NULL));
+	announcement = create_node_announcement(tmpctx, ld, &where_to_sig);
+	msg = towire_hsmctl_node_announcement_sig_req(tmpctx, announcement);
 
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
@@ -1482,14 +1490,29 @@ static int peer_channel_announced(struct peer *peer, const u8 *msg)
 	if (!fromwire_hsmctl_node_announcement_sig_reply(msg, NULL, &sig))
 		fatal("HSM returned an invalid node_announcement sig");
 
-	/* We got the signature for out provisional node_announcement back
-	 * from the HSM, create the real announcement and forward it to
-	 * gossipd so it can take care of forwarding it. */
-	announcement = create_node_announcement(tmpctx, ld, &sig);
+	/* Manually create wire-ready signature */
+	sig_wire = tal_arr(tmpctx, u8, 0);
+	towire_secp256k1_ecdsa_signature(&sig_wire, &sig);
+	if (tal_len(sig_wire) != 64)
+		fatal("Invalid sigwire '%s'", tal_hex(tmpctx, sig_wire));
+
+	memcpy(where_to_sig, sig_wire, tal_len(sig_wire));
+
+	/* Double check that signature is correct. */
+	sha256_double(&hash, announcement + 66, tal_count(announcement) - 66);
+	if (secp256k1_ecdsa_verify(secp256k1_ctx, &sig,
+				   hash.sha.u.u8, &ld->id.pubkey) != 1) {
+		log_broken(peer->log,
+			   "Created invalid signature for '%s'",
+			   tal_hex(tmpctx, announcement));
+		goto out;
+	}
+
 	wrappedmsg = towire_gossip_forwarded_msg(tmpctx, announcement);
 	subd_send_msg(ld->gossip, take(wrappedmsg));
-	tal_free(tmpctx);
 
+out:
+	tal_free(tmpctx);
 	return 0;
 }
 
