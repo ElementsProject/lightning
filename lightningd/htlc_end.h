@@ -15,6 +15,10 @@ struct htlc_key {
 
 /* Incoming HTLC */
 struct htlc_in {
+	/* The database primary key for this htlc. Must be 0 until it
+	 * is saved to the database, must be >0 after saving to the
+	 * database. */
+	u64 dbid;
 	struct htlc_key key;
 	u64 msatoshi;
 	u32 cltv_expiry;
@@ -39,6 +43,10 @@ struct htlc_in {
 };
 
 struct htlc_out {
+	/* The database primary key for this htlc. Must be 0 until it
+	 * is saved to the database, must be >0 after saving to the
+	 * database. */
+	u64 dbid;
 	struct htlc_key key;
 	u64 msatoshi;
 	u32 cltv_expiry;

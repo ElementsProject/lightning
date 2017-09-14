@@ -99,7 +99,7 @@ char *dbmigrations[] = {
     "  direction INTEGER,"
     "  origin_htlc INTEGER,"
     "  msatoshi INTEGER,"
-    "  ctlv_expiry INTEGER,"
+    "  cltv_expiry INTEGER,"
     "  payment_hash BLOB,"
     "  payment_key BLOB,"
     "  routing_onion BLOB,"
@@ -107,7 +107,6 @@ char *dbmigrations[] = {
     "  malformed_onion INTEGER,"
     "  hstate INTEGER,"
     "  shared_secret BLOB,"
-    "  preimage BLOB,"
     "  PRIMARY KEY (id),"
     "  UNIQUE (channel_id, channel_htlc_id, direction)"
     ");",
