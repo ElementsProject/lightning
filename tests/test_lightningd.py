@@ -1160,5 +1160,24 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.start()
         assert l1.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 99980000
 
+    def test_gossip_badsig(self):
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node()
+        l3 = self.node_factory.get_node()
+
+        # l2 connects to both, so l1 can't reconnect and thus l2 drops to chain
+        l2.rpc.connect('localhost', l1.info['port'], l1.info['id'])
+        l2.rpc.connect('localhost', l3.info['port'], l3.info['id'])
+        self.fund_channel(l2, l1, 10**6)
+        self.fund_channel(l2, l3, 10**6)
+
+        # Wait for route propagation.
+        l1.bitcoin.rpc.generate(5)
+        l1.daemon.wait_for_log('Received node_announcement for node {}'
+                               .format(l3.info['id']))
+        assert not l1.daemon.is_in_log('signature verification failed')
+        assert not l2.daemon.is_in_log('signature verification failed')
+        assert not l3.daemon.is_in_log('signature verification failed')
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
