@@ -9,6 +9,7 @@
 #include <ccan/tal/tal.h>
 #include <common/channel_config.h>
 #include <common/utxo.h>
+#include <lightningd/htlc_end.h>
 #include <wally_bip32.h>
 
 struct lightningd;
@@ -218,5 +219,49 @@ bool wallet_channels_load_active(struct wallet *w, struct list_head *peers);
  */
 int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 				 u64 *total_satoshi);
+
+/**
+ * wallet_htlc_save_in - store a htlc_in in the database
+ *
+ * @wallet: wallet to store the htlc into
+ * @chan: the `wallet_channel` this HTLC is associated with
+ * @in: the htlc_in to store
+ *
+ * This will store the contents of the `struct htlc_in` in the
+ * database. Since `struct htlc_in` commonly only change state after
+ * being created we do not support updating arbitrary fields and this
+ * function will fail when attempting to call it multiple times for
+ * the same `struct htlc_in`. Instead `wallet_htlc_update` may be used
+ * for state transitions or to set the `payment_key` for completed
+ * HTLCs.
+ */
+bool wallet_htlc_save_in(struct wallet *wallet,
+			 const struct wallet_channel *chan, struct htlc_in *in);
+
+/**
+ * wallet_htlc_save_out - store a htlc_out in the database
+ *
+ * See comment for wallet_htlc_save_in.
+ */
+bool wallet_htlc_save_out(struct wallet *wallet,
+			  const struct wallet_channel *chan,
+			  struct htlc_out *out);
+
+/**
+ * wallet_htlc_update - perform state transition or add payment_key
+ *
+ * @wallet: the wallet containing the HTLC to update
+ * @htlc_dbid: the database ID used to identify the HTLC
+ * @new_state: the state we should transition to
+ * @payment_key: the `payment_key` which hashes to the `payment_hash`,
+ *   or NULL if unknown.
+ *
+ * Used to update the state of an HTLC, either a `struct htlc_in` or a
+ * `struct htlc_out` and optionally set the `payment_key` should the
+ * HTLC have been settled.
+ */
+bool wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
+			const enum htlc_state new_state,
+			const struct preimage *payment_key);
 
 #endif /* WALLET_WALLET_H */

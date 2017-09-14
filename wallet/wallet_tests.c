@@ -294,6 +294,48 @@ static bool test_channel_config_crud(const tal_t *ctx)
        	return true;
 }
 
+static bool test_htlc_crud(const tal_t *ctx)
+{
+	struct htlc_in in;
+	struct htlc_out out;
+	struct preimage payment_key;
+	struct wallet_channel chan;
+	struct wallet *w = create_test_wallet(ctx);
+
+	/* Make sure we have our references correct */
+	db_exec(__func__, w->db, "INSERT INTO channels (id) VALUES (1);");
+	chan.id = 1;
+
+	memset(&in, 0, sizeof(in));
+	memset(&out, 0, sizeof(out));
+	memset(&in.payment_hash, 'A', sizeof(struct sha256));
+	memset(&out.payment_hash, 'A', sizeof(struct sha256));
+	memset(&payment_key, 'B', sizeof(payment_key));
+	out.in = &in;
+	out.key.id = 1337;
+
+	/* Store the htlc_in */
+	CHECK_MSG(wallet_htlc_save_in(w, &chan, &in),
+		  tal_fmt(ctx, "Save htlc_in failed: %s", w->db->err));
+	CHECK_MSG(in.dbid != 0, "HTLC DB ID was not set.");
+	/* Saving again should get us a collision */
+	CHECK_MSG(!wallet_htlc_save_in(w, &chan, &in),
+		  "Saving two HTLCs with the same data must not succeed.");
+	/* Update */
+	CHECK_MSG(wallet_htlc_update(w, in.dbid, RCVD_ADD_HTLC, NULL),
+		  "Update HTLC with null payment_key failed");
+	CHECK_MSG(
+	    wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, &payment_key),
+	    "Update HTLC with payment_key failed");
+
+	CHECK_MSG(wallet_htlc_save_out(w, &chan, &out),
+		  tal_fmt(ctx, "Save htlc_out failed: %s", w->db->err));
+	CHECK_MSG(out.dbid != 0, "HTLC DB ID was not set.");
+	CHECK_MSG(!wallet_htlc_save_out(w, &chan, &out),
+		  "Saving two HTLCs with the same data must not succeed.");
+	return true;
+}
+
 int main(void)
 {
 	bool ok = true;
@@ -303,6 +345,7 @@ int main(void)
 	ok &= test_shachain_crud();
 	ok &= test_channel_crud(tmpctx);
 	ok &= test_channel_config_crud(tmpctx);
+	ok &= test_htlc_crud(tmpctx);
 
 	tal_free(tmpctx);
 	return !ok;
