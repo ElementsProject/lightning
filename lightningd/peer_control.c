@@ -1431,11 +1431,15 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 
 /* Create a node_announcement with the given signature. It may be NULL
  * in the case we need to create a provisional announcement for the
- * HSM to sign. */
+ * HSM to sign. This is typically called twice: once with the dummy
+ * signature to get it signed and a second time to build the full
+ * packet with the signature. The timestamp is handed in since that is
+ * the only thing that may change between the dummy creation and the
+ * call with a signature.*/
 static u8 *create_node_announcement(const tal_t *ctx, struct lightningd *ld,
-				    secp256k1_ecdsa_signature *sig)
+				    secp256k1_ecdsa_signature *sig,
+				    u32 timestamp)
 {
-	u32 timestamp = time_now().ts.tv_sec;
 	u8 rgb[3] = {0x77, 0x88, 0x99};
 	u8 alias[32];
 	u8 *features = NULL;
@@ -1465,6 +1469,7 @@ static int peer_channel_announced(struct peer *peer, const u8 *msg)
 	tal_t *tmpctx = tal_tmpctx(peer);
 	secp256k1_ecdsa_signature sig;
 	u8 *announcement, *wrappedmsg;
+	u32 timestamp = time_now().ts.tv_sec;
 
 	if (!fromwire_channel_announced(msg, NULL)) {
 		peer_internal_error(peer, "bad fromwire_channel_announced %s",
@@ -1473,7 +1478,7 @@ static int peer_channel_announced(struct peer *peer, const u8 *msg)
 	}
 
 	msg = towire_hsmctl_node_announcement_sig_req(
-		tmpctx, create_node_announcement(tmpctx, ld, NULL));
+		tmpctx, create_node_announcement(tmpctx, ld, NULL, timestamp));
 
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
@@ -1485,7 +1490,7 @@ static int peer_channel_announced(struct peer *peer, const u8 *msg)
 	/* We got the signature for out provisional node_announcement back
 	 * from the HSM, create the real announcement and forward it to
 	 * gossipd so it can take care of forwarding it. */
-	announcement = create_node_announcement(tmpctx, ld, &sig);
+	announcement = create_node_announcement(tmpctx, ld, &sig, timestamp);
 	wrappedmsg = towire_gossip_forwarded_msg(tmpctx, announcement);
 	subd_send_msg(ld->gossip, take(wrappedmsg));
 	tal_free(tmpctx);
