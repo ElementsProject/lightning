@@ -27,6 +27,15 @@
 /* stdin == requests */
 #define REQ_FD STDIN_FILENO
 
+/* Required in various places: keys for commitment transaction. */
+static const struct keyset *keyset;
+
+/* The feerate to use when we generate transactions. */
+static u64 feerate_per_kw;
+
+/* The dust limit to use when we generate transactions. */
+static u64 dust_limit_satoshis;
+
 /* If we broadcast a tx, or need a delay to resolve the output. */
 struct proposed_resolution {
 	/* This can be NULL if our proposal is to simply ignore it after depth */
@@ -545,8 +554,7 @@ static void handle_mutual_close(const struct bitcoin_tx *tx,
 	wait_for_resolved(outs);
 }
 
-static u8 **derive_htlc_scripts(const struct htlc_stub *htlcs, enum side side,
-				const struct keyset *keyset)
+static u8 **derive_htlc_scripts(const struct htlc_stub *htlcs, enum side side)
 {
 	size_t i;
 	u8 **htlc_scripts = tal_arr(htlcs, u8 *, tal_count(htlcs));
@@ -581,7 +589,6 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 				   struct tracked_output *out,
 				   u32 to_self_delay,
 				   u32 locktime,
-				   u64 feerate, u64 dust_limit,
 				   const u8 *wscript,
 				   const struct pubkey *our_wallet_pubkey,
 				   const struct privkey *privkey,
@@ -603,12 +610,12 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 						   our_wallet_pubkey);
 
 	/* Worst-case sig is 73 bytes */
-	fee = feerate * (measure_tx_cost(tx)
+	fee = feerate_per_kw * (measure_tx_cost(tx)
 			 + 1 + 3 + 73 + 0 + tal_len(wscript))
 		/ 1000;
 
 	/* Result is trivial?  Just eliminate output. */
-	if (tx->output[0].amount < dust_limit + fee)
+	if (tx->output[0].amount < dust_limit_satoshis + fee)
 		tal_resize(&tx->output, 0);
 	else
 		tx->output[0].amount -= fee;
@@ -625,8 +632,7 @@ static void resolve_our_htlc_ourcommit(struct tracked_output *out,
 				       u32 to_self_delay,
 				       struct feerate_range *feerate_range,
 				       const struct privkey *local_payment_privkey,
-				       const secp256k1_ecdsa_signature *remotesig,
-				       const struct keyset *keyset)
+				       const secp256k1_ecdsa_signature *remotesig)
 {
 	struct bitcoin_tx *tx;
 	u64 prev_fee = UINT64_MAX;
@@ -705,10 +711,7 @@ static void resolve_our_htlc_theircommit(struct tracked_output *out,
 					 const u8 *wscript,
 					 const struct htlc_stub *htlc,
 					 const struct pubkey *our_wallet_pubkey,
-					 const struct privkey *local_payment_privkey,
-					 const struct keyset *keyset,
-					 u64 feerate_per_kw,
-					 u64 local_dust_limit_satoshi)
+					 const struct privkey *local_payment_privkey)
 {
 	struct bitcoin_tx *tx;
 
@@ -723,7 +726,6 @@ static void resolve_our_htlc_theircommit(struct tracked_output *out,
 	 * output by spending it to a convenient address.
 	 */
 	tx = tx_to_us(out, out, 0, htlc->cltv_expiry,
-		      feerate_per_kw, local_dust_limit_satoshi,
 		      wscript, our_wallet_pubkey,
 		      local_payment_privkey,
 		      &keyset->other_payment_key);
@@ -793,8 +795,6 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				  const struct pubkey *our_wallet_pubkey,
 				  u32 to_self_delay,
 				  u64 commit_num,
-				  u64 feerate_per_kw,
-				  u64 local_dust_limit_satoshi,
 				  const struct htlc_stub *htlcs,
 				  const secp256k1_ecdsa_signature *htlc_sigs,
 				  struct tracked_output **outs)
@@ -804,7 +804,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	u8 *local_wscript, *script[NUM_SIDES];
 	struct privkey local_delayedprivkey, local_payment_privkey;
 	struct pubkey local_per_commitment_point;
-	struct keyset keyset;
+	struct keyset *ks;
 	struct feerate_range feerate_range;
 	size_t i;
 
@@ -828,12 +828,14 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			      "Deriving local_per_commit_point for %"PRIu64,
 			      commit_num);
 
+	/* keyset is const, we need a non-const ptr to set it up */
+	keyset = ks = tal(tx, struct keyset);
 	if (!derive_keyset(&local_per_commitment_point,
 			   local_payment_basepoint,
 			   remote_payment_basepoint,
 			   local_delayed_payment_basepoint,
 			   remote_revocation_basepoint,
-			   &keyset))
+			   ks))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
 
@@ -845,13 +847,13 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 		     " other_payment_key: %s",
 		     commit_num,
 		     type_to_string(trc, struct pubkey,
-				    &keyset.self_revocation_key),
+				    &keyset->self_revocation_key),
 		     type_to_string(trc, struct pubkey,
-				    &keyset.self_delayed_payment_key),
+				    &keyset->self_delayed_payment_key),
 		     type_to_string(trc, struct pubkey,
-				    &keyset.self_payment_key),
+				    &keyset->self_payment_key),
 		     type_to_string(trc, struct pubkey,
-				    &keyset.other_payment_key));
+				    &keyset->other_payment_key));
 
 	if (!derive_simple_privkey(&secrets->delayed_payment_basepoint_secret,
 				   local_delayed_payment_basepoint,
@@ -869,16 +871,16 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			      "Deriving local_delayeprivkey for %"PRIu64,
 			      commit_num);
 
-	local_wscript = to_self_wscript(tmpctx, to_self_delay, &keyset);
+	local_wscript = to_self_wscript(tmpctx, to_self_delay, keyset);
 
 	/* Figure out what to-us output looks like. */
 	script[LOCAL] = scriptpubkey_p2wsh(tmpctx, local_wscript);
 
 	/* Figure out what direct to-them output looks like. */
-	script[REMOTE] = scriptpubkey_p2wpkh(tmpctx, &keyset.other_payment_key);
+	script[REMOTE] = scriptpubkey_p2wpkh(tmpctx, &keyset->other_payment_key);
 
 	/* Calculate all the HTLC scripts so we can match them */
-	htlc_scripts = derive_htlc_scripts(htlcs, LOCAL, &keyset);
+	htlc_scripts = derive_htlc_scripts(htlcs, LOCAL);
 
 	status_trace("Script to-me: %u: %s (%s)",
 		     to_self_delay,
@@ -926,11 +928,9 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			 *	<local_delayedsig> 0
 			 */
 			to_us = tx_to_us(out, out, to_self_delay, 0,
-					 feerate_per_kw,
-					 local_dust_limit_satoshi,
 					 local_wscript, our_wallet_pubkey,
 					 &local_delayedprivkey,
-					 &keyset.self_delayed_payment_key);
+					 &keyset->self_delayed_payment_key);
 
 			/* BOLT #5:
 			 *
@@ -979,8 +979,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 						   &htlcs[j], to_self_delay,
 						   &feerate_range,
 						   &local_payment_privkey,
-						   htlc_sigs,
-						   &keyset);
+						   htlc_sigs);
 			/* Each of these consumes one HTLC signature */
 			htlc_sigs++;
 		} else {
@@ -1025,15 +1024,13 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 				    const struct pubkey *our_wallet_pubkey,
 				    u32 to_self_delay,
 				    u64 commit_num,
-				    u64 feerate_per_kw,
-				    u64 local_dust_limit_satoshi,
 				    const struct htlc_stub *htlcs,
 				    struct tracked_output **outs)
 {
 	const tal_t *tmpctx = tal_tmpctx(NULL);
 	u8 **htlc_scripts;
 	u8 *remote_wscript, *script[NUM_SIDES];
-	struct keyset keyset;
+	struct keyset *ks;
 	struct feerate_range feerate_range;
 	struct privkey local_payment_privkey;
 	size_t i;
@@ -1070,12 +1067,14 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		     type_to_string(trc, struct pubkey,
 				    local_revocation_basepoint));
 
+	/* keyset is const, we need a non-const ptr to set it up */
+	keyset = ks = tal(tx, struct keyset);
 	if (!derive_keyset(remote_per_commitment_point,
 			   remote_payment_basepoint,
 			   local_payment_basepoint,
 			   remote_delayed_payment_basepoint,
 			   local_revocation_basepoint,
-			   &keyset))
+			   ks))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
 
@@ -1087,13 +1086,13 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		     " other_payment_key: %s",
 		     commit_num,
 		     type_to_string(trc, struct pubkey,
-				    &keyset.self_revocation_key),
+				    &keyset->self_revocation_key),
 		     type_to_string(trc, struct pubkey,
-				    &keyset.self_delayed_payment_key),
+				    &keyset->self_delayed_payment_key),
 		     type_to_string(trc, struct pubkey,
-				    &keyset.self_payment_key),
+				    &keyset->self_payment_key),
 		     type_to_string(trc, struct pubkey,
-				    &keyset.other_payment_key));
+				    &keyset->other_payment_key));
 
 	if (!derive_simple_privkey(&secrets->payment_basepoint_secret,
 				   local_payment_basepoint,
@@ -1103,16 +1102,16 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			      "Deriving local_delayeprivkey for %"PRIu64,
 			      commit_num);
 
-	remote_wscript = to_self_wscript(tmpctx, to_self_delay, &keyset);
+	remote_wscript = to_self_wscript(tmpctx, to_self_delay, keyset);
 
 	/* Figure out what to-them output looks like. */
 	script[REMOTE] = scriptpubkey_p2wsh(tmpctx, remote_wscript);
 
 	/* Figure out what direct to-us output looks like. */
-	script[LOCAL] = scriptpubkey_p2wpkh(tmpctx, &keyset.other_payment_key);
+	script[LOCAL] = scriptpubkey_p2wpkh(tmpctx, &keyset->other_payment_key);
 
 	/* Calculate all the HTLC scripts so we can match them */
-	htlc_scripts = derive_htlc_scripts(htlcs, REMOTE, &keyset);
+	htlc_scripts = derive_htlc_scripts(htlcs, REMOTE);
 
 	status_trace("Script to-them: %u: %s (%s)",
 		     to_self_delay,
@@ -1190,10 +1189,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 						     htlc_scripts[j],
 						     &htlcs[i],
 						     our_wallet_pubkey,
-						     &local_payment_privkey,
-						     &keyset,
-						     feerate_per_kw,
-						     local_dust_limit_satoshi);
+						     &local_payment_privkey);
 		} else {
 			out = new_tracked_output(&outs, txid,
 						 tx_blockheight,
@@ -1223,7 +1219,6 @@ int main(int argc, char *argv[])
 		remote_revocation_basepoint, remote_delayed_payment_basepoint;
 	enum side funder;
 	u32 to_self_delay[NUM_SIDES];
-	u64 feerate_per_kw, local_dust_limit_satoshi;
 	struct basepoints basepoints;
 	struct shachain shachain;
 	struct bitcoin_tx *tx;
@@ -1261,7 +1256,7 @@ int main(int argc, char *argv[])
 				   &to_self_delay[LOCAL],
 				   &to_self_delay[REMOTE],
 				   &feerate_per_kw,
-				   &local_dust_limit_satoshi,
+				   &dust_limit_satoshis,
 				   &remote_revocation_basepoint,
 				   &our_broadcast_txid,
 				   &scriptpubkey[LOCAL],
@@ -1346,8 +1341,6 @@ int main(int argc, char *argv[])
 					      &ourwallet_pubkey,
 					      to_self_delay[LOCAL],
 					      commit_num,
-					      feerate_per_kw,
-					      local_dust_limit_satoshi,
 					      htlcs,
 					      remote_htlc_sigs,
 					      outs);
@@ -1385,8 +1378,6 @@ int main(int argc, char *argv[])
 						&ourwallet_pubkey,
 						to_self_delay[REMOTE],
 						commit_num,
-						feerate_per_kw,
-						local_dust_limit_satoshi,
 						htlcs, outs);
 		} else if (commit_num == revocations_received(&shachain) + 1) {
 			status_trace("Their unilateral tx, new commit point");
@@ -1400,8 +1391,6 @@ int main(int argc, char *argv[])
 						&ourwallet_pubkey,
 						to_self_delay[REMOTE],
 						commit_num,
-						feerate_per_kw,
-						local_dust_limit_satoshi,
 						htlcs, outs);
 		} else
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
