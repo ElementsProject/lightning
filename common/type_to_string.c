@@ -1,10 +1,13 @@
+#include <ccan/crypto/ripemd160/ripemd160.h>
+#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <inttypes.h>
 
-/* We need at least one, and this is in CCAN so register it here. */
+/* We need at least one, and these are in CCAN so register it here. */
 REGISTER_TYPE_TO_HEXSTR(sha256);
+REGISTER_TYPE_TO_HEXSTR(ripemd160);
 
 char *type_to_string_(const tal_t *ctx,  const char *typename,
 		      union printable_types u)

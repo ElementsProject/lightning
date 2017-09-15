@@ -3,7 +3,6 @@
 #include "config.h"
 #include "utils.h"
 #include <ccan/autodata/autodata.h>
-#include <ccan/crypto/sha256/sha256.h>
 #include <secp256k1.h>
 
 /* This must match the type_to_string_ cases. */
@@ -11,6 +10,7 @@ union printable_types {
 	const struct pubkey *pubkey;
 	const struct sha256_double *sha256_double;
 	const struct sha256 *sha256;
+	const struct ripemd160 *ripemd160;
 	const struct rel_locktime *rel_locktime;
 	const struct abs_locktime *abs_locktime;
 	const struct bitcoin_tx *bitcoin_tx;
