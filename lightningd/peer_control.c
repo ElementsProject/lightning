@@ -49,17 +49,6 @@ static void destroy_peer(struct peer *peer)
 	list_del_from(&peer->ld->peers, &peer->list);
 }
 
-/* FIXME: Remove this with legacy daemon! */
-void peer_debug(struct peer *peer, const char *fmt, ...);
-void peer_debug(struct peer *peer, const char *fmt, ...)
-{
-	va_list ap;
-
-	va_start(ap, fmt);
-	logv(peer->log, LOG_DBG, fmt, ap);
-	va_end(ap);
-}
-
 /* Mutual recursion, sets timer. */
 static void peer_reconnect(struct peer *peer);
 
