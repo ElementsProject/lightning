@@ -659,8 +659,10 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 		tx->output[0].amount -= fee;
 
 	sign_tx_input(tx, 0, NULL, wscript, privkey, pubkey, &sig);
-	tx->input[0].witness = bitcoin_witness_sig_and_empty(tx->input,
-							     &sig, wscript);
+	tx->input[0].witness = bitcoin_witness_sig_and_element(tx->input,
+							       &sig,
+							       NULL, 0,
+							       wscript);
 	return tx;
 }
 
@@ -711,10 +713,10 @@ static void resolve_our_htlc_ourcommit(struct tracked_output *out,
 		      &keyset->self_payment_key, &localsig);
 
 	tx->input[0].witness
-		= bitcoin_htlc_offer_spend_timeout(tx->input,
-						   &localsig,
-						   remotesig,
-						   wscript);
+		= bitcoin_witness_htlc_timeout_tx(tx->input,
+						  &localsig,
+						  remotesig,
+						  wscript);
 
 	propose_resolution_at_block(out, tx, htlc->cltv_expiry,
 				    OUR_HTLC_TIMEOUT_TO_US);
