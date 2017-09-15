@@ -14,6 +14,7 @@
 #include <ccan/take/take.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
+#include <ccan/tal/str/str.h>
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -28,8 +29,6 @@
 #include <unistd.h>
 
 char *bitcoin_datadir;
-
-#define FIXME_IMPLEMENT() errx(1, "FIXME: Implement %s", __func__)
 
 struct peer *find_peer_by_unique_id(struct lightningd *ld, u64 unique_id)
 {
@@ -137,11 +136,50 @@ static void test_daemons(const struct lightningd *ld)
 
 static const char *find_my_path(const tal_t *ctx, const char *argv0)
 {
-	char *me = path_canon(ctx, argv0);
+	char *me, *tmpctx = tal_tmpctx(ctx);
 
-	if (access(me, X_OK) != 0)
-		errx(1, "I cannot find myself at %s based on my name %s",
-		     me, argv0);
+	/* FIXME: Expose in CCAN! */
+#define PATH_SEP_STR "/"
+#define PATH_SEP (PATH_SEP_STR[0])
+
+	if (strchr(argv0, PATH_SEP)) {
+		const char *path;
+		/* Absolute paths are easy. */
+		if (strstarts(argv0, PATH_SEP_STR))
+			path = argv0;
+		/* It contains a '/', it's relative to current dir. */
+		else
+			path = path_join(tmpctx, path_cwd(tmpctx), argv0);
+
+		me = path_canon(ctx, path);
+		if (!me || access(me, X_OK) != 0)
+			errx(1, "I cannot find myself at %s based on my name %s",
+			     path, argv0);
+	} else {
+		/* No /, search path */
+		char **pathdirs;
+		const char *pathenv = getenv("PATH");
+		size_t i;
+
+		if (!pathenv)
+			errx(1, "Cannot find myself: no $PATH set");
+
+		pathdirs = tal_strsplit(tmpctx, pathenv, ":", STR_NO_EMPTY);
+		me = NULL;
+		for (i = 0; pathdirs[i]; i++) {
+			/* This returns NULL if it doesn't exist. */
+			me = path_canon(ctx,
+					path_join(tmpctx, pathdirs[i], argv0));
+			if (me && access(me, X_OK) == 0)
+				break;
+			/* Nope, try again. */
+			me = tal_free(me);
+		}
+		if (!me)
+			errx(1, "Cannot find %s in $PATH", argv0);
+	}
+
+	tal_free(tmpctx);
 	return path_dirname(ctx, take(me));
 }
 
