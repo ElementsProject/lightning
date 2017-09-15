@@ -109,10 +109,10 @@ void htlc_success_tx_add_witness(struct bitcoin_tx *htlc_success,
 					       &hash, revocationkey);
 
 	htlc_success->input[0].witness
-		= bitcoin_htlc_receive_spend_preimage(htlc_success->input,
-						      localsig, remotesig,
-						      payment_preimage,
-						      wscript);
+		= bitcoin_witness_htlc_success_tx(htlc_success->input,
+						  localsig, remotesig,
+						  payment_preimage,
+						  wscript);
 	tal_free(wscript);
 }
 
@@ -150,9 +150,9 @@ void htlc_timeout_tx_add_witness(struct bitcoin_tx *htlc_timeout,
 						 payment_hash, revocationkey);
 
 	htlc_timeout->input[0].witness
-		= bitcoin_htlc_offer_spend_timeout(htlc_timeout->input,
-						   localsig, remotesig,
-						   wscript);
+		= bitcoin_witness_htlc_timeout_tx(htlc_timeout->input,
+						  localsig, remotesig,
+						  wscript);
 	tal_free(wscript);
 }
 

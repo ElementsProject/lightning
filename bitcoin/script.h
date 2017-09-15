@@ -66,10 +66,11 @@ u8 **bitcoin_witness_p2wpkh(const tal_t *ctx,
 			    const secp256k1_ecdsa_signature *sig,
 			    const struct pubkey *key);
 
-/* Create a witness which contains sig, an empty entry, and the witnessscript */
-u8 **bitcoin_witness_sig_and_empty(const tal_t *ctx,
-				   const secp256k1_ecdsa_signature *sig,
-				   const u8 *witnessscript);
+/* Create a witness which contains sig, another entry, and the witnessscript */
+u8 **bitcoin_witness_sig_and_element(const tal_t *ctx,
+				     const secp256k1_ecdsa_signature *sig,
+				     const void *elem, size_t elemsize,
+				     const u8 *witnessscript);
 
 /* BOLT #3 to-local output */
 u8 *bitcoin_wscript_to_local(const tal_t *ctx,
@@ -86,21 +87,21 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
 			       const struct pubkey *remotekey,
 			       const struct sha256 *payment_hash,
 			       const struct pubkey *revocationkey);
-u8 **bitcoin_htlc_offer_spend_timeout(const tal_t *ctx,
-				      const secp256k1_ecdsa_signature *localsig,
-				      const secp256k1_ecdsa_signature *remotesig,
-				      const u8 *wscript);
+u8 **bitcoin_witness_htlc_timeout_tx(const tal_t *ctx,
+				     const secp256k1_ecdsa_signature *localsig,
+				     const secp256k1_ecdsa_signature *remotesig,
+				     const u8 *wscript);
 u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
 				 const struct abs_locktime *htlc_abstimeout,
 				 const struct pubkey *localkey,
 				 const struct pubkey *remotekey,
 				 const struct sha256 *payment_hash,
 				 const struct pubkey *revocationkey);
-u8 **bitcoin_htlc_receive_spend_preimage(const tal_t *ctx,
-				const secp256k1_ecdsa_signature *localsig,
-				const secp256k1_ecdsa_signature *remotesig,
-				const struct preimage *preimage,
-				const u8 *wscript);
+u8 **bitcoin_witness_htlc_success_tx(const tal_t *ctx,
+				     const secp256k1_ecdsa_signature *localsig,
+				     const secp256k1_ecdsa_signature *remotesig,
+				     const struct preimage *preimage,
+				     const u8 *wscript);
 
 /* Underlying functions for penalties, where we only keep ripemd160 */
 u8 *bitcoin_wscript_htlc_offer_ripemd160(const tal_t *ctx,

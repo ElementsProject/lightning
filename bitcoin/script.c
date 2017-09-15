@@ -422,14 +422,15 @@ bool is_p2wpkh(const u8 *script)
 	return true;
 }
 
-u8 **bitcoin_witness_sig_and_empty(const tal_t *ctx,
-				   const secp256k1_ecdsa_signature *sig,
-				   const u8 *witnessscript)
+u8 **bitcoin_witness_sig_and_element(const tal_t *ctx,
+				     const secp256k1_ecdsa_signature *sig,
+				     const void *elem, size_t elemsize,
+				     const u8 *witnessscript)
 {
 	u8 **witness = tal_arr(ctx, u8 *, 3);
 
 	witness[0] = stack_sig(witness, sig);
-	witness[1] = NULL;
+	witness[1] = tal_dup_arr(witness, u8, elem, elemsize, 0);
 	witness[2] = tal_dup_arr(witness, u8,
 				 witnessscript, tal_count(witnessscript), 0);
 
@@ -662,10 +663,10 @@ u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
  *...
  *   * `txin[0]` witness stack: `0 <remotesig> <localsig>  <payment_preimage>` for HTLC-Success, `0 <remotesig> <localsig> 0` for HTLC-Timeout.
  */
-u8 **bitcoin_htlc_offer_spend_timeout(const tal_t *ctx,
-			      const secp256k1_ecdsa_signature *localsig,
-			      const secp256k1_ecdsa_signature *remotesig,
-			      const u8 *wscript)
+u8 **bitcoin_witness_htlc_timeout_tx(const tal_t *ctx,
+				     const secp256k1_ecdsa_signature *localsig,
+				     const secp256k1_ecdsa_signature *remotesig,
+				     const u8 *wscript)
 {
 	u8 **witness = tal_arr(ctx, u8 *, 5);
 
@@ -678,11 +679,11 @@ u8 **bitcoin_htlc_offer_spend_timeout(const tal_t *ctx,
 	return witness;
 }
 
-u8 **bitcoin_htlc_receive_spend_preimage(const tal_t *ctx,
-				const secp256k1_ecdsa_signature *localsig,
-				const secp256k1_ecdsa_signature *remotesig,
-				const struct preimage *preimage,
-				const u8 *wscript)
+u8 **bitcoin_witness_htlc_success_tx(const tal_t *ctx,
+				     const secp256k1_ecdsa_signature *localsig,
+				     const secp256k1_ecdsa_signature *remotesig,
+				     const struct preimage *preimage,
+				     const u8 *wscript)
 {
 	u8 **witness = tal_arr(ctx, u8 *, 5);
 
@@ -694,7 +695,6 @@ u8 **bitcoin_htlc_receive_spend_preimage(const tal_t *ctx,
 
 	return witness;
 }
-
 u8 *bitcoin_wscript_htlc_tx(const tal_t *ctx,
 			    u16 to_self_delay,
 			    const struct pubkey *revocation_pubkey,
