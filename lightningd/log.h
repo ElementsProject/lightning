@@ -27,8 +27,7 @@ struct log_book *new_log_book(const tal_t *ctx,
 			      enum log_level printlevel);
 
 /* With different entry points */
-struct log *PRINTF_FMT(3,4)
-new_log(const tal_t *ctx, struct log_book *record, const char *fmt, ...);
+struct log *new_log(const tal_t *ctx, struct log_book *record, const char *fmt, ...) PRINTF_FMT(3,4);
 
 #define log_debug(log, ...) log_((log), LOG_DBG, __VA_ARGS__)
 #define log_info(log, ...) log_((log), LOG_INFORM, __VA_ARGS__)
