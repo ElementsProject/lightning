@@ -36,6 +36,9 @@ static u64 feerate_per_kw;
 /* The dust limit to use when we generate transactions. */
 static u64 dust_limit_satoshis;
 
+/* The CSV delays for each side. */
+static u32 to_self_delay[NUM_SIDES];
+
 /* If we broadcast a tx, or need a delay to resolve the output. */
 struct proposed_resolution {
 	/* This can be NULL if our proposal is to simply ignore it after depth */
@@ -69,12 +72,11 @@ struct tracked_output {
 
 /* We use the same feerate for htlcs and commit transactions; we don't
  * record what it was, so we brute-force it. */
-struct feerate_range {
+struct {
 	u32 min, max;
-};
+} feerate_range;
 
-static void init_feerate_range(struct feerate_range *feerate_range,
-			       u64 funding_satoshi,
+static void init_feerate_range(u64 funding_satoshi,
 			       const struct bitcoin_tx *commit_tx)
 {
 	size_t i, max_untrimmed_htlcs;
@@ -85,7 +87,7 @@ static void init_feerate_range(struct feerate_range *feerate_range,
 
 	/* We don't know how many trimmed HTLCs there are, so they could
 	 * be making fee entirely. */
-	feerate_range->min = 0;
+	feerate_range.min = 0;
 
 	/* But we can estimate the maximum fee rate:
 	 *
@@ -96,15 +98,14 @@ static void init_feerate_range(struct feerate_range *feerate_range,
 	else
 		max_untrimmed_htlcs = tal_count(commit_tx->output) - 2;
 
-	feerate_range->max = (fee + 999) * 1000
+	feerate_range.max = (fee + 999) * 1000
 		/ (724 + 172 * max_untrimmed_htlcs);
 
 	status_trace("Initial feerate %u to %u",
-		     feerate_range->min, feerate_range->max);
+		     feerate_range.min, feerate_range.max);
 }
 
-static void narrow_feerate_range(struct feerate_range *feerate_range,
-				 u64 fee, u32 multiplier)
+static void narrow_feerate_range(u64 fee, u32 multiplier)
 {
 	u32 min, max;
 
@@ -118,12 +119,44 @@ static void narrow_feerate_range(struct feerate_range *feerate_range,
 
 	status_trace("Fee %"PRIu64" gives feerate min/max %u/%u",
 		     fee, min, max);
-	if (max < feerate_range->max)
- 		feerate_range->max = max;
-	if (min > feerate_range->min)
- 		feerate_range->min = min;
+	if (max < feerate_range.max)
+ 		feerate_range.max = max;
+	if (min > feerate_range.min)
+ 		feerate_range.min = min;
 	status_trace("Feerate now %u to %u",
-		     feerate_range->min, feerate_range->max);
+		     feerate_range.min, feerate_range.max);
+}
+
+/* We vary feerate until signature they offered matches: we're more
+ * likely to be near max. */
+static bool grind_feerate(struct bitcoin_tx *commit_tx,
+			  const secp256k1_ecdsa_signature *remotesig,
+			  const u8 *wscript,
+			  u64 multiplier)
+{
+	u64 prev_fee = UINT64_MAX;
+	u64 input_amount = *commit_tx->input[0].amount;
+
+	for (s64 i = feerate_range.max; i >= feerate_range.min; i--) {
+		u64 fee = feerate_per_kw * multiplier / 1000;
+
+		if (fee > input_amount)
+			continue;
+
+		/* Minor optimization: don't check same fee twice */
+		if (fee == prev_fee)
+			continue;
+
+		prev_fee = fee;
+		commit_tx->output[0].amount = input_amount - fee;
+		if (!check_tx_sig(commit_tx, 0, NULL, wscript,
+				  &keyset->other_payment_key, remotesig))
+			continue;
+
+		narrow_feerate_range(fee, multiplier);
+		return true;
+	}
+	return false;
 }
 
 static const char *tx_type_name(enum tx_type tx_type)
@@ -629,13 +662,11 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 static void resolve_our_htlc_ourcommit(struct tracked_output *out,
 				       const u8 *wscript,
 				       const struct htlc_stub *htlc,
-				       u32 to_self_delay,
-				       struct feerate_range *feerate_range,
 				       const struct privkey *local_payment_privkey,
 				       const secp256k1_ecdsa_signature *remotesig)
 {
 	struct bitcoin_tx *tx;
-	u64 prev_fee = UINT64_MAX;
+	secp256k1_ecdsa_signature localsig;
 
 	/* BOLT #5:
 	 *
@@ -650,7 +681,7 @@ static void resolve_our_htlc_ourcommit(struct tracked_output *out,
 	 * "On-chain HTLC Transaction Handling".
 	 */
 	tx = htlc_timeout_tx(out, &out->txid, out->outnum, out->satoshi * 1000,
-			     htlc->cltv_expiry, to_self_delay, 0, keyset);
+			     htlc->cltv_expiry, to_self_delay[LOCAL], 0, keyset);
 
 	wscript = bitcoin_wscript_htlc_offer_ripemd160(tx,
 					     &keyset->self_payment_key,
@@ -658,53 +689,32 @@ static void resolve_our_htlc_ourcommit(struct tracked_output *out,
 					     &htlc->ripemd,
 					     &keyset->self_revocation_key);
 
-	/* We vary feerate until signature they offered matches: we're
-	 * more likely to be near max. */
-	for (s64 i = feerate_range->max; i >= feerate_range->min; i--) {
-		u64 fee = htlc_timeout_fee(i);
-		secp256k1_ecdsa_signature localsig;
+	/* BOLT #3:
+	 *
+	 * The fee for an HTLC-timeout transaction MUST BE calculated to
+	 * match:
+	 *
+	 * 1. Multiply `feerate_per_kw` by 663 and divide by 1000 (rounding
+	 *    down).
+	 */
+	if (!grind_feerate(tx, remotesig, wscript, 663))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Could not find feerate for signature on"
+			      " HTLC timeout between %u and %u",
+			      feerate_range.min, feerate_range.max);
 
-		if (fee > out->satoshi)
-			continue;
+	sign_tx_input(tx, 0, NULL, wscript, local_payment_privkey,
+		      &keyset->self_payment_key, &localsig);
 
-		/* Minor optimization: don't check same fee twice */
-		if (fee == prev_fee)
-			continue;
+	tx->input[0].witness
+		= bitcoin_htlc_offer_spend_timeout(tx->input,
+						   &localsig,
+						   remotesig,
+						   wscript);
 
-		prev_fee = fee;
-		tx->output[0].amount = out->satoshi - fee;
-		if (!check_tx_sig(tx, 0, NULL, wscript,
-				  &keyset->other_payment_key, remotesig))
-			continue;
-
-		/* OK, we found correct fee!  Narrow range for next time. */
-		/* BOLT #3:
-		 *
-		 * The fee for an HTLC-timeout transaction MUST BE calculated
-		 * to match:
-		 *
-		 * 1. Multiply `feerate_per_kw` by 663 and divide by 1000
-		 *    (rounding down).
-		 */
-		narrow_feerate_range(feerate_range, fee, 663);
-		sign_tx_input(tx, 0, NULL, wscript, local_payment_privkey,
-			      &keyset->self_payment_key, &localsig);
-
-		tx->input[0].witness
-			= bitcoin_htlc_offer_spend_timeout(tx->input,
-							   &localsig,
-							   remotesig,
-							   wscript);
-
-		propose_resolution_at_block(out, tx, htlc->cltv_expiry,
-					    OUR_HTLC_TIMEOUT_TO_US);
-		tal_free(wscript);
-		return;
-	}
-	status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		      "Could not find feerate for signature on HTLC timeout"
-		      " between %u and %u",
-		      feerate_range->min, feerate_range->max);
+	propose_resolution_at_block(out, tx, htlc->cltv_expiry,
+				    OUR_HTLC_TIMEOUT_TO_US);
+	tal_free(wscript);
 }
 
 static void resolve_our_htlc_theircommit(struct tracked_output *out,
@@ -793,7 +803,6 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				  const struct pubkey *local_payment_basepoint,
 				  const struct pubkey *local_delayed_payment_basepoint,
 				  const struct pubkey *our_wallet_pubkey,
-				  u32 to_self_delay,
 				  u64 commit_num,
 				  const struct htlc_stub *htlcs,
 				  const secp256k1_ecdsa_signature *htlc_sigs,
@@ -805,12 +814,11 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	struct privkey local_delayedprivkey, local_payment_privkey;
 	struct pubkey local_per_commitment_point;
 	struct keyset *ks;
-	struct feerate_range feerate_range;
 	size_t i;
 
 	set_state(ONCHAIND_OUR_UNILATERAL);
 
-	init_feerate_range(&feerate_range, outs[0]->satoshi, tx);
+	init_feerate_range(outs[0]->satoshi, tx);
 
 	/* BOLT #5:
 	 *
@@ -871,7 +879,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			      "Deriving local_delayeprivkey for %"PRIu64,
 			      commit_num);
 
-	local_wscript = to_self_wscript(tmpctx, to_self_delay, keyset);
+	local_wscript = to_self_wscript(tmpctx, to_self_delay[LOCAL], keyset);
 
 	/* Figure out what to-us output looks like. */
 	script[LOCAL] = scriptpubkey_p2wsh(tmpctx, local_wscript);
@@ -883,7 +891,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	htlc_scripts = derive_htlc_scripts(htlcs, LOCAL);
 
 	status_trace("Script to-me: %u: %s (%s)",
-		     to_self_delay,
+		     to_self_delay[LOCAL],
 		     tal_hex(trc, script[LOCAL]),
 		     tal_hex(trc, local_wscript));
 	status_trace("Script to-them: %s",
@@ -927,7 +935,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			 *
 			 *	<local_delayedsig> 0
 			 */
-			to_us = tx_to_us(out, out, to_self_delay, 0,
+			to_us = tx_to_us(out, out, to_self_delay[LOCAL], 0,
 					 local_wscript, our_wallet_pubkey,
 					 &local_delayedprivkey,
 					 &keyset->self_delayed_payment_key);
@@ -936,7 +944,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			 *
 			 * If the output is spent (as recommended), the output
 			 * is *resolved* by the spending transaction */
-			propose_resolution(out, to_us, to_self_delay,
+			propose_resolution(out, to_us, to_self_delay[LOCAL],
 					   OUR_UNILATERAL_TO_US_RETURN_TO_WALLET);
 
 			script[LOCAL] = NULL;
@@ -976,8 +984,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 						 tx->output[i].amount,
 						 OUR_HTLC);
 			resolve_our_htlc_ourcommit(out, htlc_scripts[j],
-						   &htlcs[j], to_self_delay,
-						   &feerate_range,
+						   &htlcs[j],
 						   &local_payment_privkey,
 						   htlc_sigs);
 			/* Each of these consumes one HTLC signature */
@@ -1022,7 +1029,6 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 				    const struct pubkey *remote_payment_basepoint,
 				    const struct pubkey *remote_delayed_payment_basepoint,
 				    const struct pubkey *our_wallet_pubkey,
-				    u32 to_self_delay,
 				    u64 commit_num,
 				    const struct htlc_stub *htlcs,
 				    struct tracked_output **outs)
@@ -1031,13 +1037,12 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	u8 **htlc_scripts;
 	u8 *remote_wscript, *script[NUM_SIDES];
 	struct keyset *ks;
-	struct feerate_range feerate_range;
 	struct privkey local_payment_privkey;
 	size_t i;
 
 	set_state(ONCHAIND_THEIR_UNILATERAL);
 
-	init_feerate_range(&feerate_range, outs[0]->satoshi, tx);
+	init_feerate_range(outs[0]->satoshi, tx);
 
 	/* BOLT #5:
 	 *
@@ -1102,7 +1107,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			      "Deriving local_delayeprivkey for %"PRIu64,
 			      commit_num);
 
-	remote_wscript = to_self_wscript(tmpctx, to_self_delay, keyset);
+	remote_wscript = to_self_wscript(tmpctx, to_self_delay[REMOTE], keyset);
 
 	/* Figure out what to-them output looks like. */
 	script[REMOTE] = scriptpubkey_p2wsh(tmpctx, remote_wscript);
@@ -1114,7 +1119,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	htlc_scripts = derive_htlc_scripts(htlcs, REMOTE);
 
 	status_trace("Script to-them: %u: %s (%s)",
-		     to_self_delay,
+		     to_self_delay[REMOTE],
 		     tal_hex(trc, script[REMOTE]),
 		     tal_hex(trc, remote_wscript));
 	status_trace("Script to-me: %s",
@@ -1218,7 +1223,6 @@ int main(int argc, char *argv[])
 		remote_per_commit_point, old_remote_per_commit_point,
 		remote_revocation_basepoint, remote_delayed_payment_basepoint;
 	enum side funder;
-	u32 to_self_delay[NUM_SIDES];
 	struct basepoints basepoints;
 	struct shachain shachain;
 	struct bitcoin_tx *tx;
@@ -1339,7 +1343,6 @@ int main(int argc, char *argv[])
 					      &basepoints.payment,
 					      &basepoints.delayed_payment,
 					      &ourwallet_pubkey,
-					      to_self_delay[LOCAL],
 					      commit_num,
 					      htlcs,
 					      remote_htlc_sigs,
@@ -1376,7 +1379,6 @@ int main(int argc, char *argv[])
 						&remote_payment_basepoint,
 						&remote_delayed_payment_basepoint,
 						&ourwallet_pubkey,
-						to_self_delay[REMOTE],
 						commit_num,
 						htlcs, outs);
 		} else if (commit_num == revocations_received(&shachain) + 1) {
@@ -1389,7 +1391,6 @@ int main(int argc, char *argv[])
 						&remote_payment_basepoint,
 						&remote_delayed_payment_basepoint,
 						&ourwallet_pubkey,
-						to_self_delay[REMOTE],
 						commit_num,
 						htlcs, outs);
 		} else
