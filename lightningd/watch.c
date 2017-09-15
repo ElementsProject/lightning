@@ -26,18 +26,19 @@
  *
  * WE ASSUME NO MALLEABILITY!  This requires segregated witness.
  */
-#include "bitcoin/script.h"
-#include "bitcoin/tx.h"
-#include "bitcoind.h"
-#include "chaintopology.h"
-#include "lightningd.h"
-#include "log.h"
-#include "watch.h"
+#include <bitcoin/script.h>
+#include <bitcoin/tx.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/ptrint/ptrint.h>
 #include <ccan/structeq/structeq.h>
 #include <common/pseudorand.h>
 #include <common/timeout.h>
+#include <lightningd/bitcoind.h>
+#include <lightningd/chaintopology.h>
+#include <lightningd/lightningd.h>
+#include <lightningd/log.h>
+#include <lightningd/peer_control.h>
+#include <lightningd/watch.h>
 
 const struct txwatch_output *txowatch_keyof(const struct txowatch *w)
 {
@@ -159,9 +160,6 @@ struct txowatch *watch_txo_(const tal_t *ctx,
 	return w;
 }
 
-/* UNIFICATION FIXME */
-void peer_debug(struct peer *peer, const char *fmt, ...);
-
 /* Returns true if we fired a callback */
 static bool txw_fire(struct chain_topology *topo,
 		     struct txwatch *txw,
@@ -172,12 +170,10 @@ static bool txw_fire(struct chain_topology *topo,
 
 	if (depth == txw->depth)
 		return false;
-	peer_debug(txw->peer,
-		   "Got depth change %u->%u for %02x%02x%02x...\n",
-		   txw->depth, depth,
-		   txw->txid.sha.u.u8[0],
-		   txw->txid.sha.u.u8[1],
-		   txw->txid.sha.u.u8[2]);
+	log_debug(txw->peer->log,
+		  "Got depth change %u->%u for %s",
+		  txw->depth, depth,
+		  type_to_string(ltmp, struct sha256_double, &txw->txid));
 	txw->depth = depth;
 	r = txw->cb(txw->peer, tx, txw->depth, txw->cbdata);
 	switch (r) {
@@ -214,16 +210,12 @@ void txowatch_fire(struct chain_topology *topo,
 	enum watch_result r;
 
 	bitcoin_txid(tx, &txid);
-	peer_debug(txow->peer,
-		  "Got UTXO spend for %02x%02x%02x:%u: %02x%02x%02x%02x...\n",
-		  txow->out.txid.sha.u.u8[0],
-		  txow->out.txid.sha.u.u8[1],
-		  txow->out.txid.sha.u.u8[2],
+	log_debug(txow->peer->log,
+		  "Got UTXO spend for %s:%u: %s",
+		  type_to_string(ltmp, struct sha256_double, &txow->out.txid),
 		  txow->out.index,
-		  txid.sha.u.u8[0],
-		  txid.sha.u.u8[1],
-		  txid.sha.u.u8[2],
-		  txid.sha.u.u8[3]);
+		  type_to_string(ltmp, struct sha256_double, &txid));
+
 	r = txow->cb(txow->peer, tx, input_num, block, txow->cbdata);
 	switch (r) {
 	case DELETE_WATCH:
@@ -232,7 +224,7 @@ void txowatch_fire(struct chain_topology *topo,
 	case KEEP_WATCHING:
 		return;
 	}
-	fatal("txowatch callback %p returned %i\n", txow->cb, r);
+	fatal("txowatch callback %p returned %i", txow->cb, r);
 }
 
 void watch_topology_changed(struct chain_topology *topo)
