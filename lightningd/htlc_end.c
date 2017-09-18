@@ -96,6 +96,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 {
 	struct htlc_in *hin = tal(ctx, struct htlc_in);
 
+	hin->dbid = 0;
 	hin->key.peer = peer;
 	hin->key.id = id;
 	hin->msatoshi = msatoshi;
@@ -140,6 +141,9 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      struct pay_command *pc)
 {
 	struct htlc_out *hout = tal(ctx, struct htlc_out);
+
+        /* Mark this as an as of now unsaved HTLC */
+	hout->dbid = 0;
 
 	hout->key.peer = peer;
 	hout->msatoshi = msatoshi;

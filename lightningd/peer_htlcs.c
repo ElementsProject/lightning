@@ -56,7 +56,9 @@ static bool htlc_in_update_state(struct peer *peer,
 	if (!state_update_ok(peer, hin->hstate, newstate, hin->key.id, "in"))
 		return false;
 
-	/* FIXME: db commit */
+	if (!wallet_htlc_update(peer->ld->wallet, hin->dbid, newstate, hin->preimage))
+		return false;
+
 	hin->hstate = newstate;
 	htlc_in_check(hin, __func__);
 	return true;
@@ -69,7 +71,9 @@ static bool htlc_out_update_state(struct peer *peer,
 	if (!state_update_ok(peer, hout->hstate, newstate, hout->key.id, "out"))
 		return false;
 
-	/* FIXME: db commit */
+	if (!wallet_htlc_update(peer->ld->wallet, hout->dbid, newstate, NULL))
+		return false;
+
 	hout->hstate = newstate;
 	htlc_out_check(hout, __func__);
 	return true;
@@ -713,6 +717,7 @@ static void fulfill_our_htlc_out(struct peer *peer, struct htlc_out *hout,
 	htlc_out_check(hout, __func__);
 
 	/* FIXME: Save to db */
+	wallet_htlc_update(peer->ld->wallet, hout->dbid, hout->hstate, preimage);
 
 	if (hout->in)
 		fulfill_htlc(hout->in, preimage);
@@ -913,6 +918,13 @@ static bool update_out_htlc(struct peer *peer, u64 id, enum htlc_state newstate)
 		return false;
 	}
 
+	if (!hout->dbid && !wallet_htlc_save_out(peer->ld->wallet, peer->channel, hout)) {
+		peer_internal_error(
+		    peer, "Unable to save the htlc_out to the database: %s",
+		    peer->ld->wallet->db->err);
+		return false;
+	}
+
 	if (!htlc_out_update_state(peer, hout, newstate))
 		return false;
 
@@ -1053,7 +1065,8 @@ static void added_their_htlc(struct peer *peer,
 			  added->cltv_expiry, &added->payment_hash,
 			  shared_secret, added->onion_routing_packet);
 
-	/* FIXME: Save to db */
+	/* Save an incoming htlc to the wallet */
+	wallet_htlc_save_in(peer->ld->wallet, peer->channel, hin);
 
 	log_debug(peer->log, "Adding their HTLC %"PRIu64, added->id);
 	connect_htlc_in(&peer->ld->htlcs_in, hin);
