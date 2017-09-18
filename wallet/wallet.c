@@ -917,6 +917,9 @@ bool wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 	bool ok = true;
 	tal_t *tmpctx = tal_tmpctx(wallet);
 
+	/* The database ID must be set by a previous call to
+	 * `wallet_htlc_save_*` */
+	assert(htlc_dbid);
 	if (payment_key) {
 		ok &= db_exec(
 		    __func__, wallet->db, "UPDATE channel_htlcs SET hstate=%d, "
