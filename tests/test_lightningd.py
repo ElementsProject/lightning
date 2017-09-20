@@ -429,13 +429,13 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Their unilateral tx, old commit point')
         l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
         l2.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
-        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_UNILATERAL_TO_US_RETURN_TO_WALLET (.*) in 6 blocks')
+        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET (.*) in 6 blocks')
 
         # Now, mine 6 blocks so it sends out the spending tx.
         bitcoind.rpc.generate(6)
 
         # It should send the to-wallet tx.
-        l2.daemon.wait_for_log('Broadcasting OUR_UNILATERAL_TO_US_RETURN_TO_WALLET')
+        l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')
         l2.daemon.wait_for_log('sendrawtx exit 0')
 
         # 100 after l1 sees tx, it should be done.
@@ -486,7 +486,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
         l2.daemon.wait_for_log('OUR_UNILATERAL/THEIR_HTLC')
 
-        # l2 should fulfill HTLC onchain
+        # l2 should fulfill HTLC onchain, and spend to-us (any order)
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* in 0 blocks')
         l2.daemon.wait_for_log('sendrawtx exit 0')
 
@@ -495,9 +495,14 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('FIXME: handle_htlc_onchain_fulfill')
         l1.has_failed()
         
-        # After 5 more blocks, l2 can spend to-us
-        l1.bitcoin.rpc.generate(5)
-        l2.daemon.wait_for_log('Broadcasting OUR_UNILATERAL_TO_US_RETURN_TO_WALLET')
+        # After 4 more blocks, l2 can spend to-us.
+        l1.bitcoin.rpc.generate(4)
+        l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+
+        # One more, HTLC tx is now spentable.
+        l1.bitcoin.rpc.generate(1)
+        l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
         l2.daemon.wait_for_log('sendrawtx exit 0')
 
         # 100 blocks after last spend, l2 should be done.
@@ -575,6 +580,10 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.rpc.generate(1)
 #        l1.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TO_US')
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* in 0 blocks')
+        bitcoind.rpc.generate(1)
+        l2.daemon.wait_for_log('Propose handling OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* in 6 blocks')
+        bitcoind.rpc.generate(6)
+        l2.daemon.wait_for_log('sendrawtx exit 0')
 
         # FIXME: This doesn't work :(
         # FIXME: sendpay command should time out!
