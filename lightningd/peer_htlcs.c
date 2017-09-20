@@ -18,6 +18,7 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/subd.h>
+#include <onchaind/gen_onchain_wire.h>
 #include <onchaind/onchain_wire.h>
 #include <wire/gen_onion_wire.h>
 
@@ -284,10 +285,21 @@ static void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 	/* We update state now to signal it's in progress, for persistence. */
 	htlc_in_update_state(hin->key.peer, hin, SENT_REMOVE_HTLC);
 
-	/* FIXME: fail the peer if it doesn't tell us that htlc fulfill is
-	 * committed before deadline.
-	 */
-	msg = towire_channel_fulfill_htlc(hin->key.peer, hin->key.id, preimage);
+	/* No owner?  We'll either send to channeld in peer_htlcs, or
+	 * onchaind in onchaind_tell_fulfill. */
+	if (!hin->key.peer->owner) {
+		log_debug(hin->key.peer->log, "HTLC fulfilled, but no owner.");
+		return;
+	}
+
+	if (peer_state_on_chain(hin->key.peer->state)) {
+		msg = towire_onchain_known_preimage(hin, preimage);
+	} else {
+		/* FIXME: fail the peer if it doesn't tell us that htlc
+		 * fulfill is committed before deadline.
+		 */
+		msg = towire_channel_fulfill_htlc(hin, hin->key.id, preimage);
+	}
 	subd_send_msg(hin->key.peer->owner, take(msg));
 }
 

@@ -22,6 +22,10 @@ enum tx_type {
 	OUR_HTLC_TIMEOUT_TO_US,
 	OUR_HTLC_FULFILL_TO_THEM,
 
+	/* Delayed variants */
+	OUR_HTLC_TIMEOUT_TX,
+	OUR_HTLC_SUCCESS_TX,
+
 	/* When we spend the to-us output (after cltv_expiry) */
 	OUR_UNILATERAL_TO_US_RETURN_TO_WALLET,
 

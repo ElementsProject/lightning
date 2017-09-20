@@ -1045,6 +1045,27 @@ static void peer_onchain_finished(struct subd *subd, int status)
 	tal_free(subd->peer);
 }
 
+/* We dump all the known preimages when onchaind starts up. */
+static void onchaind_tell_fulfill(struct peer *peer)
+{
+	struct htlc_in_map_iter ini;
+	struct htlc_in *hin;
+	u8 *msg;
+
+	for (hin = htlc_in_map_first(&peer->ld->htlcs_in, &ini);
+	     hin;
+	     hin = htlc_in_map_next(&peer->ld->htlcs_in, &ini)) {
+		if (hin->key.peer != peer)
+			continue;
+
+		if (!hin->preimage)
+			continue;
+
+		msg = towire_onchain_known_preimage(peer, hin->preimage);
+		subd_send_msg(peer->owner, take(msg));
+	}
+}
+
 static int handle_onchain_init_reply(struct peer *peer, const u8 *msg)
 {
 	u8 state;
@@ -1062,6 +1083,9 @@ static int handle_onchain_init_reply(struct peer *peer, const u8 *msg)
 
 	/* We could come from almost any state. */
 	peer_set_condition(peer, peer->state, state);
+
+	/* Tell it about any preimages we know. */
+	onchaind_tell_fulfill(peer);
 	return 0;
 }
 

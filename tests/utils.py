@@ -243,6 +243,7 @@ class LightningNode(object):
         self.daemon = daemon
         self.bitcoin = btc
         self.executor = executor
+        self.known_fail = False
 
     # Use batch if you're doing more than one async.
     def connect(self, remote_node, capacity, async=False):
@@ -307,3 +308,9 @@ class LightningNode(object):
         c.close()
         db.close()
         return result
+
+    def has_failed(self):
+        """Note that a daemon has (deliberately) crashed, so we don't fail
+        on cleanup"""
+        self.known_fail = True
+    
