@@ -26,8 +26,8 @@ enum tx_type {
 	OUR_HTLC_TIMEOUT_TX,
 	OUR_HTLC_SUCCESS_TX,
 
-	/* When we spend the to-us output (after cltv_expiry) */
-	OUR_UNILATERAL_TO_US_RETURN_TO_WALLET,
+	/* When we spend a delayed output (after cltv_expiry) */
+	OUR_DELAYED_RETURN_TO_WALLET,
 
 	/* Special type for marking outputs as resolved by self. */
 	SELF,
@@ -45,7 +45,7 @@ enum output_type {
 	OUTPUT_TO_US,
 	DELAYED_OUTPUT_TO_THEM,
 
-	/* OUR_UNILATERAL */
+	/* OUR_UNILATERAL, or OUR_HTLC_TIMEOUT_TX */
 	DELAYED_OUTPUT_TO_US,
 	OUTPUT_TO_THEM,
 

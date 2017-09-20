@@ -502,8 +502,55 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 	status_failed(STATUS_FAIL_INTERNAL_ERROR, "FIXME: %s", __func__);
 }
 
+static void resolve_htlc_tx(struct tracked_output ***outs,
+			    size_t out_index,
+			    const struct bitcoin_tx *htlc_tx,
+			    const struct sha256_double *htlc_txid,
+			    u32 tx_blockheight)
+{
+	struct tracked_output *out;
+	struct bitcoin_tx *tx;
+	u8 *wscript = bitcoin_wscript_htlc_tx(htlc_tx, to_self_delay[LOCAL],
+					      &keyset->self_revocation_key,
+					      &keyset->self_delayed_payment_key);
+
+
+	/* BOLT #5:
+	 *
+	 * A node SHOULD resolve its own HTLC transaction output by spending
+	 * it to a convenient address.  A node MUST wait until the
+	 * `OP_CHECKSEQUENCEVERIFY` delay has passed (as specified by the
+	 * other node's `open_channel` `to_self_delay` field) before spending
+	 * the output.
+	 */
+	out = new_tracked_output(outs, htlc_txid, tx_blockheight,
+				 (*outs)[out_index]->resolved->tx_type,
+				 0, htlc_tx->output[0].amount,
+				 DELAYED_OUTPUT_TO_US,
+				 NULL, NULL, NULL);
+
+	/* BOLT #3:
+	 *
+	 * ## HTLC-Timeout and HTLC-Success Transactions
+	 *
+	 * These HTLC transactions are almost identical, except the
+	 * HTLC-Timeout transaction is timelocked.
+	 *
+	 * ... to collect the output the local node uses an input with
+	 * nSequence `to_self_delay` and a witness stack `<local_delayedsig>
+	 * 0`
+	 */
+	tx = tx_to_us(*outs, out, to_self_delay[LOCAL], 0, NULL, 0,
+		      wscript,
+		      &delayed_payment_privkey,
+		      &keyset->self_delayed_payment_key);
+
+	propose_resolution(out, tx, to_self_delay[LOCAL],
+			   OUR_DELAYED_RETURN_TO_WALLET);
+}
+
 /* An output has been spent: see if it resolves something we care about. */
-static void output_spent(struct tracked_output **outs,
+static void output_spent(struct tracked_output ***outs,
 			 const struct bitcoin_tx *tx,
 			 u32 input_num,
 			 u32 tx_blockheight)
@@ -512,23 +559,30 @@ static void output_spent(struct tracked_output **outs,
 
 	bitcoin_txid(tx, &txid);
 
-	for (size_t i = 0; i < tal_count(outs); i++) {
-		if (outs[i]->resolved)
+	for (size_t i = 0; i < tal_count(*outs); i++) {
+		struct tracked_output *out = (*outs)[i];
+		if (out->resolved)
 			continue;
 
-		if (tx->input[input_num].index != outs[i]->outnum)
+		if (tx->input[input_num].index != out->outnum)
 			continue;
-		if (!structeq(&tx->input[input_num].txid, &outs[i]->txid))
+		if (!structeq(&tx->input[input_num].txid, &out->txid))
 			continue;
 
 		/* Was this our resolution? */
-		if (resolved_by_proposal(outs[i], &txid))
+		if (resolved_by_proposal(out, &txid)) {
+			/* If it's our htlc tx, we need to resolve that, too. */
+			if (out->resolved->tx_type == OUR_HTLC_SUCCESS_TX
+			    || out->resolved->tx_type == OUR_HTLC_TIMEOUT_TX)
+				resolve_htlc_tx(outs, i, tx, &txid,
+						tx_blockheight);
 			return;
+		}
 
-		switch (outs[i]->output_type) {
+		switch (out->output_type) {
 		case OUTPUT_TO_US:
 		case DELAYED_OUTPUT_TO_US:
-			unknown_spend(outs[i], tx);
+			unknown_spend(out, tx);
 			break;
 
 		case THEIR_HTLC:
@@ -538,7 +592,7 @@ static void output_spent(struct tracked_output **outs,
 
 		case OUR_HTLC:
 			/* The only way	they can spend this: fulfill */
-			handle_htlc_onchain_fulfill(outs[i], tx);
+			handle_htlc_onchain_fulfill(out, tx);
 			break;
 
 		case FUNDING_OUTPUT:
@@ -552,8 +606,8 @@ static void output_spent(struct tracked_output **outs,
 		case DELAYED_OUTPUT_TO_THEM:
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Tracked spend of %s/%s?",
-				      tx_type_name(outs[i]->tx_type),
-				      output_type_name(outs[i]->output_type));
+				      tx_type_name(out->tx_type),
+				      output_type_name(out->output_type));
 		}
 		return;
 	}
@@ -703,7 +757,7 @@ static void wait_for_resolved(struct tracked_output **outs)
 			tx_new_depth(outs, &txid, depth);
 		else if (fromwire_onchain_spent(msg, NULL, tx, &input_num,
 						&tx_blockheight))
-			output_spent(outs, tx, input_num, tx_blockheight);
+			output_spent(&outs, tx, input_num, tx_blockheight);
 		else if (fromwire_onchain_known_preimage(msg, NULL, &preimage))
 			handle_preimage(outs, &preimage);
 		else
@@ -1033,7 +1087,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			 * If the output is spent (as recommended), the output
 			 * is *resolved* by the spending transaction */
 			propose_resolution(out, to_us, to_self_delay[LOCAL],
-					   OUR_UNILATERAL_TO_US_RETURN_TO_WALLET);
+					   OUR_DELAYED_RETURN_TO_WALLET);
 
 			script[LOCAL] = NULL;
 			continue;
