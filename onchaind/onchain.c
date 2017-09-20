@@ -69,6 +69,13 @@ struct tracked_output {
 	u64 satoshi;
 	enum output_type output_type;
 
+	/* If it is an HTLC, these are non-NULL */
+	const struct htlc_stub *htlc;
+	const u8 *wscript;
+
+	/* If it's an HTLC off our unilateral, this is their sig for htlc_tx */
+	const secp256k1_ecdsa_signature *remote_htlc_sig;
+
 	/* Our proposed solution (if any) */
 	struct proposed_resolution *proposal;
 
@@ -185,6 +192,55 @@ static const char *output_type_name(enum output_type output_type)
 	return "unknown";
 }
 
+/*
+ * This covers:
+ * 1. to-us output spend (`<local_delayedsig> 0`)
+ * 2. the their-commitment, our HTLC timeout case (`<remotesig> 0`),
+ * 3. the their-commitment, our HTLC redeem case (`<remotesig> <payment_preimage>`)
+ */
+static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
+				   struct tracked_output *out,
+				   u32 to_self_delay,
+				   u32 locktime,
+				   const void *elem, size_t elemsize,
+				   const u8 *wscript,
+				   const struct privkey *privkey,
+				   const struct pubkey *pubkey)
+{
+	struct bitcoin_tx *tx;
+	u64 fee;
+	secp256k1_ecdsa_signature sig;
+
+	tx = bitcoin_tx(ctx, 1, 1);
+	tx->lock_time = locktime;
+	tx->input[0].sequence_number = to_self_delay;
+	tx->input[0].txid = out->txid;
+	tx->input[0].index = out->outnum;
+	tx->input[0].amount = tal_dup(tx->input, u64, &out->satoshi);
+
+	tx->output[0].amount = out->satoshi;
+	tx->output[0].script = scriptpubkey_p2wpkh(tx->output,
+						   &our_wallet_pubkey);
+
+	/* Worst-case sig is 73 bytes */
+	fee = feerate_per_kw * (measure_tx_cost(tx)
+			 + 1 + 3 + 73 + 0 + tal_len(wscript))
+		/ 1000;
+
+	/* Result is trivial?  Just eliminate output. */
+	if (tx->output[0].amount < dust_limit_satoshis + fee)
+		tal_resize(&tx->output, 0);
+	else
+		tx->output[0].amount -= fee;
+
+	sign_tx_input(tx, 0, NULL, wscript, privkey, pubkey, &sig);
+	tx->input[0].witness = bitcoin_witness_sig_and_element(tx->input,
+							       &sig,
+							       elem, elemsize,
+							       wscript);
+	return tx;
+}
+
 static struct tracked_output *
 	new_tracked_output(struct tracked_output ***outs,
 			   const struct sha256_double *txid,
@@ -192,7 +248,10 @@ static struct tracked_output *
 			   enum tx_type tx_type,
 			   u32 outnum,
 			   u64 satoshi,
-			   enum output_type output_type)
+			   enum output_type output_type,
+			   const struct htlc_stub *htlc,
+			   const u8 *wscript,
+			   const secp256k1_ecdsa_signature *remote_htlc_sig)
 {
 	size_t n = tal_count(*outs);
 	struct tracked_output *out = tal(*outs, struct tracked_output);
@@ -211,6 +270,9 @@ static struct tracked_output *
 	out->output_type = output_type;
 	out->proposal = NULL;
 	out->resolved = NULL;
+	out->htlc = htlc;
+	out->wscript = wscript;
+	out->remote_htlc_sig = remote_htlc_sig;
 
 	tal_resize(outs, n+1);
 	(*outs)[n] = out;
@@ -434,7 +496,7 @@ static void unwatch_tx(const struct bitcoin_tx *tx)
 	wire_sync_write(REQ_FD, take(msg));
 }
 
-static void handle_their_htlc_fulfill(struct tracked_output *out,
+static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 				      const struct bitcoin_tx *tx)
 {
 	status_failed(STATUS_FAIL_INTERNAL_ERROR, "FIXME: %s", __func__);
@@ -476,7 +538,7 @@ static void output_spent(struct tracked_output **outs,
 
 		case OUR_HTLC:
 			/* The only way	they can spend this: fulfill */
-			handle_their_htlc_fulfill(outs[i], tx);
+			handle_htlc_onchain_fulfill(outs[i], tx);
 			break;
 
 		case FUNDING_OUTPUT:
@@ -531,10 +593,90 @@ static void tx_new_depth(struct tracked_output **outs,
 	}
 }
 
+/* BOLT #5:
+ *
+ * If the node receives (or already knows) a payment preimage for an
+ * unresolved HTLC output it was offered, it MUST *resolve* the output by
+ * spending it.
+ */
 static void handle_preimage(struct tracked_output **outs,
 			    const struct preimage *preimage)
 {
-	status_failed(STATUS_FAIL_INTERNAL_ERROR, "FIXME: %s", __func__);
+	size_t i;
+	struct sha256 sha;
+	struct ripemd160 ripemd;
+
+	sha256(&sha, preimage, sizeof(*preimage));
+	ripemd160(&ripemd, &sha, sizeof(sha));
+
+	for (i = 0; i < tal_count(outs); i++) {
+		struct bitcoin_tx *tx;
+		secp256k1_ecdsa_signature sig;
+
+		if (outs[i]->output_type != THEIR_HTLC)
+			continue;
+
+		if (!structeq(&outs[i]->htlc->ripemd, &ripemd))
+			continue;
+
+		/* Too late? */
+		if (outs[i]->resolved) {
+			/* FIXME: We need a better warning method! */
+			status_trace("WARNING: HTLC already resolved by %s"
+				     " when we found preimage",
+				     tx_type_name(outs[i]->resolved->tx_type));
+			return;
+		}
+
+		/* Discard any previous resolution.  Could be a timeout,
+		 * could be due to multiple identical rhashes in tx. */
+		outs[i]->proposal = tal_free(outs[i]->proposal);
+
+		/* BOLT #5:
+		 *
+		 * If the transaction is the nodes' own commitment
+		 * transaction, then the it MUST use the HTLC-success
+		 * transaction, and the HTLC-success transaction output MUST
+		 * be *resolved* as described in "On-chain HTLC Transaction
+		 * Handling".
+		 */
+		if (outs[i]->remote_htlc_sig) {
+			tx = htlc_success_tx(outs[i], &outs[i]->txid,
+					     outs[i]->outnum,
+					     outs[i]->satoshi * 1000,
+					     to_self_delay[LOCAL],
+					     feerate_per_kw,
+					     keyset);
+			sign_tx_input(tx, 0, NULL, outs[i]->wscript,
+				      &payment_privkey,
+				      &keyset->self_payment_key,
+				      &sig);
+			tx->input[0].witness
+				= bitcoin_witness_htlc_success_tx(tx->input,
+								  &sig,
+								  outs[i]->remote_htlc_sig,
+								  preimage,
+								  outs[i]->wscript);
+			propose_resolution(outs[i], tx, 0, OUR_HTLC_SUCCESS_TX);
+		} else {
+			/* BOLT #5:
+			 *
+			 * Otherwise, it MUST *resolve* the output by spending
+			 * it to a convenient address.
+			 */
+			tx = tx_to_us(outs[i], outs[i], 0, 0,
+				      preimage, sizeof(*preimage),
+				      outs[i]->wscript,
+				      &payment_privkey,
+				      &keyset->other_payment_key);
+			propose_resolution(outs[i], tx, 0,
+					   THEIR_HTLC_FULFILL_TO_US);
+		}
+
+		/* Broadcast immediately. */
+		proposal_meets_depth(outs[i]);
+		break;
+	}
 }
 
 /* BOLT #5:
@@ -620,56 +762,7 @@ static u8 **derive_htlc_scripts(const struct htlc_stub *htlcs, enum side side)
 	return htlc_scripts;
 }
 
-/*
- * This covers both the to-us output spend (`<local_delayedsig> 0`)
- * and the their-commitment, our HTLC timeout case (`<remotesig> 0`).
- */
-static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
-				   struct tracked_output *out,
-				   u32 to_self_delay,
-				   u32 locktime,
-				   const u8 *wscript,
-				   const struct privkey *privkey,
-				   const struct pubkey *pubkey)
-{
-	struct bitcoin_tx *tx;
-	u64 fee;
-	secp256k1_ecdsa_signature sig;
-
-	tx = bitcoin_tx(ctx, 1, 1);
-	tx->lock_time = locktime;
-	tx->input[0].sequence_number = to_self_delay;
-	tx->input[0].txid = out->txid;
-	tx->input[0].index = out->outnum;
-	tx->input[0].amount = tal_dup(tx->input, u64, &out->satoshi);
-
-	tx->output[0].amount = out->satoshi;
-	tx->output[0].script = scriptpubkey_p2wpkh(tx->output,
-						   &our_wallet_pubkey);
-
-	/* Worst-case sig is 73 bytes */
-	fee = feerate_per_kw * (measure_tx_cost(tx)
-			 + 1 + 3 + 73 + 0 + tal_len(wscript))
-		/ 1000;
-
-	/* Result is trivial?  Just eliminate output. */
-	if (tx->output[0].amount < dust_limit_satoshis + fee)
-		tal_resize(&tx->output, 0);
-	else
-		tx->output[0].amount -= fee;
-
-	sign_tx_input(tx, 0, NULL, wscript, privkey, pubkey, &sig);
-	tx->input[0].witness = bitcoin_witness_sig_and_element(tx->input,
-							       &sig,
-							       NULL, 0,
-							       wscript);
-	return tx;
-}
-
-static void resolve_our_htlc_ourcommit(struct tracked_output *out,
-				       const u8 *wscript,
-				       const struct htlc_stub *htlc,
-				       const secp256k1_ecdsa_signature *remotesig)
+static void resolve_our_htlc_ourcommit(struct tracked_output *out)
 {
 	struct bitcoin_tx *tx;
 	secp256k1_ecdsa_signature localsig;
@@ -687,13 +780,8 @@ static void resolve_our_htlc_ourcommit(struct tracked_output *out,
 	 * "On-chain HTLC Transaction Handling".
 	 */
 	tx = htlc_timeout_tx(out, &out->txid, out->outnum, out->satoshi * 1000,
-			     htlc->cltv_expiry, to_self_delay[LOCAL], 0, keyset);
-
-	wscript = bitcoin_wscript_htlc_offer_ripemd160(tx,
-					     &keyset->self_payment_key,
-					     &keyset->other_payment_key,
-					     &htlc->ripemd,
-					     &keyset->self_revocation_key);
+			     out->htlc->cltv_expiry,
+			     to_self_delay[LOCAL], 0, keyset);
 
 	/* BOLT #3:
 	 *
@@ -703,29 +791,26 @@ static void resolve_our_htlc_ourcommit(struct tracked_output *out,
 	 * 1. Multiply `feerate_per_kw` by 663 and divide by 1000 (rounding
 	 *    down).
 	 */
-	if (!grind_feerate(tx, remotesig, wscript, 663))
+	if (!grind_feerate(tx, out->remote_htlc_sig, out->wscript, 663))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Could not find feerate for signature on"
 			      " HTLC timeout between %u and %u",
 			      feerate_range.min, feerate_range.max);
 
-	sign_tx_input(tx, 0, NULL, wscript, &payment_privkey,
+	sign_tx_input(tx, 0, NULL, out->wscript, &payment_privkey,
 		      &keyset->self_payment_key, &localsig);
 
 	tx->input[0].witness
 		= bitcoin_witness_htlc_timeout_tx(tx->input,
 						  &localsig,
-						  remotesig,
-						  wscript);
+						  out->remote_htlc_sig,
+						  out->wscript);
 
-	propose_resolution_at_block(out, tx, htlc->cltv_expiry,
+	propose_resolution_at_block(out, tx, out->htlc->cltv_expiry,
 				    OUR_HTLC_TIMEOUT_TO_US);
-	tal_free(wscript);
 }
 
-static void resolve_our_htlc_theircommit(struct tracked_output *out,
-					 const u8 *wscript,
-					 const struct htlc_stub *htlc)
+static void resolve_our_htlc_theircommit(struct tracked_output *out)
 {
 	struct bitcoin_tx *tx;
 
@@ -739,17 +824,16 @@ static void resolve_our_htlc_theircommit(struct tracked_output *out,
 	 * own commitment transaction, .... Otherwise it MUST resolve the
 	 * output by spending it to a convenient address.
 	 */
-	tx = tx_to_us(out, out, 0, htlc->cltv_expiry,
-		      wscript,
+	tx = tx_to_us(out, out, 0, out->htlc->cltv_expiry, NULL, 0,
+		      out->wscript,
 		      &payment_privkey,
 		      &keyset->other_payment_key);
 
-	propose_resolution_at_block(out, tx, htlc->cltv_expiry,
+	propose_resolution_at_block(out, tx, out->htlc->cltv_expiry,
 				    OUR_HTLC_TIMEOUT_TO_US);
 }
 
-static void resolve_their_htlc(struct tracked_output *out,
-			       const struct htlc_stub *htlc)
+static void resolve_their_htlc(struct tracked_output *out)
 {
 	/* BOLT #5:
 	 *
@@ -771,7 +855,7 @@ static void resolve_their_htlc(struct tracked_output *out,
 	 * *irrevocably resolved*.
 	 */
 	/* If we hit timeout depth, resolve by ignoring. */
-	propose_resolution_at_block(out, NULL, htlc->cltv_expiry,
+	propose_resolution_at_block(out, NULL, out->htlc->cltv_expiry,
 				    THEIR_HTLC_TIMEOUT_TO_THEM);
 }
 
@@ -808,7 +892,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				  const struct pubkey *local_delayed_payment_basepoint,
 				  u64 commit_num,
 				  const struct htlc_stub *htlcs,
-				  const secp256k1_ecdsa_signature *htlc_sigs,
+				  const secp256k1_ecdsa_signature *remote_htlc_sigs,
 				  struct tracked_output **outs)
 {
 	const tal_t *tmpctx = tal_tmpctx(NULL);
@@ -928,7 +1012,8 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			out = new_tracked_output(&outs, txid, tx_blockheight,
 						 OUR_UNILATERAL, i,
 						 tx->output[i].amount,
-						 DELAYED_OUTPUT_TO_US);
+						 DELAYED_OUTPUT_TO_US,
+						 NULL, NULL, NULL);
 			/* BOLT #3:
 			 *
 			 * It is spent by a transaction with `nSequence` field
@@ -938,6 +1023,7 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			 *	<local_delayedsig> 0
 			 */
 			to_us = tx_to_us(out, out, to_self_delay[LOCAL], 0,
+					 NULL, 0,
 					 local_wscript,
 					 &delayed_payment_privkey,
 					 &keyset->self_delayed_payment_key);
@@ -962,7 +1048,8 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			out = new_tracked_output(&outs, txid, tx_blockheight,
 						 OUR_UNILATERAL, i,
 						 tx->output[i].amount,
-						 OUTPUT_TO_THEM);
+						 OUTPUT_TO_THEM,
+						 NULL, NULL, NULL);
 			ignore_output(out);
 			script[REMOTE] = NULL;
 			continue;
@@ -984,24 +1071,28 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 						 tx_blockheight,
 						 OUR_UNILATERAL, i,
 						 tx->output[i].amount,
-						 OUR_HTLC);
-			resolve_our_htlc_ourcommit(out, htlc_scripts[j],
-						   &htlcs[j],
-						   htlc_sigs);
-			/* Each of these consumes one HTLC signature */
-			htlc_sigs++;
+						 OUR_HTLC,
+						 &htlcs[j], htlc_scripts[j],
+						 remote_htlc_sigs);
+			resolve_our_htlc_ourcommit(out);
 		} else {
 			out = new_tracked_output(&outs, txid,
 						 tx_blockheight,
 						 OUR_UNILATERAL, i,
 						 tx->output[i].amount,
-						 THEIR_HTLC);
+						 THEIR_HTLC,
+						 &htlcs[j],
+						 htlc_scripts[j],
+						 remote_htlc_sigs);
 			/* BOLT #5:
 			 *
 			 * 4. _B's offered HTLCs_: See "On-chain HTLC
 			 *    Output Handling: Their Offers" below. */
-			resolve_their_htlc(out, &htlcs[j]);
+			resolve_their_htlc(out);
 		}
+		/* Each of these consumes one HTLC signature */
+		remote_htlc_sigs++;
+		/* We've matched this HTLC, can't do again. */
 		htlc_scripts[j] = NULL;
 	}
 
@@ -1154,7 +1245,7 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			out = new_tracked_output(&outs, txid, tx_blockheight,
 						 THEIR_UNILATERAL,
 						 i, tx->output[i].amount,
-						 OUTPUT_TO_US);
+						 OUTPUT_TO_US, NULL, NULL, NULL);
 			ignore_output(out);
 			script[LOCAL] = NULL;
 			continue;
@@ -1169,7 +1260,8 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			out = new_tracked_output(&outs, txid, tx_blockheight,
 						 THEIR_UNILATERAL, i,
 						 tx->output[i].amount,
-						 DELAYED_OUTPUT_TO_THEM);
+						 DELAYED_OUTPUT_TO_THEM,
+						 NULL, NULL, NULL);
 			ignore_output(out);
 			continue;
 		}
@@ -1188,21 +1280,23 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 						 tx_blockheight,
 						 THEIR_UNILATERAL, i,
 						 tx->output[i].amount,
-						 OUR_HTLC);
-			resolve_our_htlc_theircommit(out,
-						     htlc_scripts[j],
-						     &htlcs[i]);
+						 OUR_HTLC,
+						 &htlcs[j], htlc_scripts[j],
+						 NULL);
+			resolve_our_htlc_theircommit(out);
 		} else {
 			out = new_tracked_output(&outs, txid,
 						 tx_blockheight,
 						 THEIR_UNILATERAL, i,
 						 tx->output[i].amount,
-						 THEIR_HTLC);
+						 THEIR_HTLC,
+						 &htlcs[j], htlc_scripts[j],
+						 NULL);
 			/* BOLT #5:
 			 *
 			 * 4. _B's offered HTLCs_: See "On-chain HTLC Output
 			 *    Handling: Their Offers" below. */
-			resolve_their_htlc(out, &htlcs[j]);
+			resolve_their_htlc(out);
 		}
 		htlc_scripts[j] = NULL;
 	}
@@ -1292,7 +1386,7 @@ int main(int argc, char *argv[])
 			   FUNDING_TRANSACTION,
 			   tx->input[0].index,
 			   funding_amount_satoshi,
-			   FUNDING_OUTPUT);
+			   FUNDING_OUTPUT, NULL, NULL, NULL);
 
 	status_trace("Remote per-commit point: %s",
 		     type_to_string(trc, struct pubkey,
