@@ -47,6 +47,7 @@ struct htlc_out {
 	 * is saved to the database, must be >0 after saving to the
 	 * database. */
 	u64 dbid;
+	u64 origin_htlc_id;
 	struct htlc_key key;
 	u64 msatoshi;
 	u32 cltv_expiry;
