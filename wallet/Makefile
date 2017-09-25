@@ -15,10 +15,12 @@ WALLET_LIB_OBJS := $(WALLET_LIB_SRC:.c=.o)
 WALLET_LIB_HEADERS := $(WALLET_LIB_SRC:.c=.h)
 
 WALLET_TEST_COMMON_OBJS :=			\
-	lightningd/log.o			\
+	common/htlc_state.o			\
 	common/type_to_string.o			\
 	common/pseudorand.o			\
-	common/utils.o
+	common/utils.o				\
+	lightningd/htlc_end.o			\
+	lightningd/log.o
 
 WALLET_TEST_SRC := $(wildcard wallet/*_tests.c)
 WALLET_TEST_OBJS := $(WALLET_TEST_SRC:.c=.o)

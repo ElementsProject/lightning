@@ -1020,7 +1020,7 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 	sqlite3_stmt *stmt = db_query(
 	    __func__, wallet->db,
 	    "SELECT id, channel_htlc_id, msatoshi, cltv_expiry, hstate, "
-	    "payment_hash, shared_secret, payment_key FROM channel_htlcs WHERE "
+	    "payment_hash, shared_secret, payment_key, routing_onion FROM channel_htlcs WHERE "
 	    "direction=%d AND channel_id=%" PRIu64 " AND hstate != %d",
 	    DIRECTION_INCOMING, chan->id, SENT_REMOVE_ACK_REVOCATION);
 
@@ -1041,7 +1041,7 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 	stmt = db_query(
 	    __func__, wallet->db,
 	    "SELECT id, channel_htlc_id, msatoshi, cltv_expiry, hstate, "
-	    "payment_hash, origin_htlc, payment_key FROM channel_htlcs WHERE "
+	    "payment_hash, origin_htlc, payment_key, routing_onion FROM channel_htlcs WHERE "
 	    "direction=%d AND channel_id=%" PRIu64 " AND hstate != %d",
 	    DIRECTION_OUTGOING, chan->id, RCVD_REMOVE_ACK_REVOCATION);
 
@@ -1063,18 +1063,3 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 
 	return ok;
 }
-
-/**
- * wallet_shachain_delete - Drop the shachain from the database
- *
- * Deletes the shachain from the database, including dependent
- * shachain_known items.
- */
-/* TOOD(cdecker) Uncomment once we have implemented channel delete
-static bool wallet_shachain_delete(struct wallet *w,
-				   struct wallet_shachain *chain)
-{
-	return db_exec(__func__, w->db,
-		       "DELETE FROM shachains WHERE id=%" PRIu64, chain->id);
-}
-*/

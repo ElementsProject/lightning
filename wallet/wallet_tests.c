@@ -301,6 +301,8 @@ static bool test_htlc_crud(const tal_t *ctx)
 	struct preimage payment_key;
 	struct wallet_channel chan;
 	struct wallet *w = create_test_wallet(ctx);
+	struct htlc_in_map htlcs_in;
+	struct htlc_out_map htlcs_out;
 
 	/* Make sure we have our references correct */
 	db_exec(__func__, w->db, "INSERT INTO channels (id) VALUES (1);");
@@ -333,6 +335,13 @@ static bool test_htlc_crud(const tal_t *ctx)
 	CHECK_MSG(out.dbid != 0, "HTLC DB ID was not set.");
 	CHECK_MSG(!wallet_htlc_save_out(w, &chan, &out),
 		  "Saving two HTLCs with the same data must not succeed.");
+
+	/* Attempt to load them from the DB again */
+	htlc_in_map_init(&htlcs_in);
+	htlc_out_map_init(&htlcs_out);
+
+	CHECK_MSG(wallet_htlcs_load_for_channel(w, &chan, &htlcs_in, &htlcs_out),
+		  "Failed loading HTLCs");
 	return true;
 }
 
