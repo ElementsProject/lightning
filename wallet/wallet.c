@@ -884,6 +884,7 @@ bool wallet_htlc_save_out(struct wallet *wallet,
 	/* We absolutely need the incoming HTLC to be persisted before
 	 * we can persist it's dependent */
 	assert(out->in == NULL || out->in->dbid != 0);
+	out->origin_htlc_id = out->in?out->in->dbid:0;
 
 	ok &= db_exec(
 	    __func__, wallet->db,
