@@ -264,4 +264,29 @@ bool wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const enum htlc_state new_state,
 			const struct preimage *payment_key);
 
+/**
+ * wallet_htlcs_load_for_channel - Load HTLCs associated with chan from DB.
+ *
+ * @wallet: wallet to load from
+ * @chan: load HTLCs associated with this channel
+ * @htlcs_in: htlc_in_map to store loaded htlc_in in
+ * @htlcs_out: htlc_out_map to store loaded htlc_out in
+ *
+ * This function looks for HTLCs that are associated with the given
+ * channel and loads them into the provided maps. One caveat is that
+ * the `struct htlc_out` instances are not wired up with the
+ * corresponding `struct htlc_in` in the forwarding case nor are they
+ * associated with a `struct pay_command` in the case we originated
+ * the payment. In the former case the corresponding `struct htlc_in`
+ * may not have been loaded yet. In the latter case the pay_command
+ * does not exist anymore since we restarted.
+ *
+ * Use `wallet_htlcs_reconnect` to wire htlc_out instances to the
+ * corresponding htlc_in after loading all channels.
+ */
+bool wallet_htlcs_load_for_channel(struct wallet *wallet,
+				   struct wallet_channel *chan,
+				   struct htlc_in_map *htlcs_in,
+				   struct htlc_out_map *htlcs_out);
+
 #endif /* WALLET_WALLET_H */
