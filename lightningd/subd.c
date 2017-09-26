@@ -551,6 +551,7 @@ struct subd *new_subd(const tal_t *ctx,
 
 void subd_send_msg(struct subd *sd, const u8 *msg_out)
 {
+	assert(!strstarts(sd->msgname(fromwire_peektype(msg_out)), "INVALID"));
 	msg_enqueue(&sd->outq, msg_out);
 }
 

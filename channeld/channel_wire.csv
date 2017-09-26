@@ -1,11 +1,11 @@
 # Received and sent funding_locked
-channel_normal_operation,1001
+channel_normal_operation,11001
 
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
 
 # Begin!  (passes gossipd-client fd)
-channel_init,1
+channel_init,1000
 channel_init,,chain_hash,struct sha256_double
 channel_init,,funding_txid,struct sha256_double
 channel_init,,funding_txout,2
@@ -58,21 +58,21 @@ channel_init,,init_peer_pkt_len,u16
 channel_init,,init_peer_pkt,init_peer_pkt_len*u8
 
 # Tx is deep enough, go!
-channel_funding_locked,2
+channel_funding_locked,1002
 channel_funding_locked,,short_channel_id,struct short_channel_id
 
 # Tell the channel that we may announce the channel's existence
-channel_funding_announce_depth,3
+channel_funding_announce_depth,1003
 
 # Tell channel to offer this htlc
-channel_offer_htlc,4
+channel_offer_htlc,1004
 channel_offer_htlc,,amount_msat,8
 channel_offer_htlc,,cltv_expiry,4
 channel_offer_htlc,,payment_hash,32
 channel_offer_htlc,,onion_routing_packet,1366*u8
 
 # Reply; synchronous since IDs have to increment.
-channel_offer_htlc_reply,104
+channel_offer_htlc_reply,1104
 channel_offer_htlc_reply,,id,8
 # Zero failure code means success.
 channel_offer_htlc_reply,,failure_code,2
@@ -81,12 +81,12 @@ channel_offer_htlc_reply,,failurestr,failurestrlen*u8
 
 # Main daemon found out the preimage for an htlc
 #include <bitcoin/preimage.h>
-channel_fulfill_htlc,5
+channel_fulfill_htlc,1005
 channel_fulfill_htlc,,id,8
 channel_fulfill_htlc,,payment_preimage,struct preimage
 
 # Main daemon says HTLC failed
-channel_fail_htlc,6
+channel_fail_htlc,1006
 channel_fail_htlc,,id,8
 # If malformed is non-zero, it's a BADONION code
 channel_fail_htlc,,malformed,u16
@@ -95,22 +95,22 @@ channel_fail_htlc,,len,2
 channel_fail_htlc,,error_pkt,len*u8
 
 # Ping/pong test.
-channel_ping,11
+channel_ping,1011
 channel_ping,,num_pong_bytes,u16
 channel_ping,,len,u16
 
-channel_ping_reply,111
+channel_ping_reply,1111
 channel_ping_reply,,totlen,u16
 
 # Channeld tells the master that the channel has been announced
-channel_announced,12
+channel_announced,1012
 
 # When we receive funding_locked.
-channel_got_funding_locked,19
+channel_got_funding_locked,1019
 channel_got_funding_locked,,next_per_commit_point,struct pubkey
 
 # When we send a commitment_signed message, tell master.
-channel_sending_commitsig,20
+channel_sending_commitsig,1020
 channel_sending_commitsig,,commitnum,u64
 # SENT_ADD_COMMIT, SENT_REMOVE_ACK_COMMIT, SENT_ADD_ACK_COMMIT, SENT_REMOVE_COMMIT
 channel_sending_commitsig,,num_changed,u16
@@ -120,10 +120,10 @@ channel_sending_commitsig,,num_htlc_sigs,u16
 channel_sending_commitsig,,htlc_sigs,num_htlc_sigs*secp256k1_ecdsa_signature
 
 # Wait for reply, to make sure it's on disk before we send commit.
-channel_sending_commitsig_reply,120
+channel_sending_commitsig_reply,1120
 
 # When we have a commitment_signed message, tell master to remember.
-channel_got_commitsig,21
+channel_got_commitsig,1021
 channel_got_commitsig,,commitnum,u64
 channel_got_commitsig,,signature,secp256k1_ecdsa_signature
 channel_got_commitsig,,num_htlcs,u16
@@ -143,11 +143,11 @@ channel_got_commitsig,,changed,num_changed*struct changed_htlc
 channel_got_commitsig,,tx,struct bitcoin_tx
 
 # Wait for reply, to make sure it's on disk before we send revocation.
-channel_got_commitsig_reply,121
+channel_got_commitsig_reply,1121
 
 #include <common/htlc_wire.h>
 
-channel_got_revoke,22
+channel_got_revoke,1022
 channel_got_revoke,,revokenum,u64
 channel_got_revoke,,per_commitment_secret,struct sha256
 channel_got_revoke,,next_per_commit_point,struct pubkey
@@ -156,22 +156,22 @@ channel_got_revoke,,num_changed,u16
 channel_got_revoke,,changed,num_changed*struct changed_htlc
 # Wait for reply, to make sure it's on disk before we continue
 # (eg. if we sent another commitment_signed, that would implicitly ack).
-channel_got_revoke_reply,122
+channel_got_revoke_reply,1122
 
 # Tell peer that channel is shutting down
-channel_send_shutdown,23
+channel_send_shutdown,1023
 channel_send_shutdown,,scriptpubkey_len,u16
 channel_send_shutdown,,scriptpubkey,scriptpubkey_len*u8
 
 # Peer told us that channel is shutting down
-channel_got_shutdown,24
+channel_got_shutdown,1024
 channel_got_shutdown,,scriptpubkey_len,u16
 channel_got_shutdown,,scriptpubkey,scriptpubkey_len*u8
 
 # Shutdown is complete, ready for closing negotiation. + peer_fd & gossip_fd.
-channel_shutdown_complete,25
+channel_shutdown_complete,1025
 channel_shutdown_complete,,crypto_state,struct crypto_state
 
 # Re-enable commit timer.
-channel_dev_reenable_commit,26
-channel_dev_reenable_commit_reply,126
+channel_dev_reenable_commit,1026
+channel_dev_reenable_commit_reply,1126

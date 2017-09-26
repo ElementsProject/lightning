@@ -1,6 +1,6 @@
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
-opening_init,0
+opening_init,6000
 # Which network are we configured for (as index into the chainparams)?
 opening_init,,network_index,4
 # Base configuration we'll offer (channel reserve will vary with amount)
@@ -15,7 +15,7 @@ opening_init,,seed,struct privkey
 #include <common/bip32.h>
 #include <common/htlc_wire.h>
 # This means we offer the open.
-opening_funder,1
+opening_funder,6001
 opening_funder,,funding_satoshis,8
 opening_funder,,push_msat,8
 opening_funder,,feerate_per_kw,4
@@ -29,7 +29,7 @@ opening_funder,,inputs,num_inputs*struct utxo
 opening_funder,,bip32,struct ext_key
 
 # This gives their sig, means we can broadcast tx: we're done.
-opening_funder_reply,101
+opening_funder_reply,6101
 opening_funder_reply,,their_config,struct channel_config
 opening_funder_reply,,first_commit,struct bitcoin_tx
 opening_funder_reply,,first_commit_sig,secp256k1_ecdsa_signature
@@ -44,7 +44,7 @@ opening_funder_reply,,funding_txid,struct sha256_double
 opening_funder_reply,,feerate_per_kw,4
 
 # This means they offer the open (contains their offer packet)
-opening_fundee,3
+opening_fundee,6003
 opening_fundee,,minimum_depth,4
 opening_fundee,,min_feerate,4
 opening_fundee,,max_feerate,4
@@ -52,7 +52,7 @@ opening_fundee,,len,2
 opening_fundee,,msg,len*u8
 
 # This gives their txid and info, means we can send funding_signed: we're done.
-opening_fundee_reply,103
+opening_fundee_reply,6103
 opening_fundee_reply,,their_config,struct channel_config
 opening_fundee_reply,,first_commit,struct bitcoin_tx
 opening_fundee_reply,,first_commit_sig,secp256k1_ecdsa_signature

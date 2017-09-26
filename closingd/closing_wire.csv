@@ -1,7 +1,7 @@
 #include <common/cryptomsg.h>
 #include <common/htlc_wire.h>
 # Begin!  (passes peer fd, gossipd-client fd)
-closing_init,1
+closing_init,2001
 closing_init,,crypto_state,struct crypto_state
 closing_init,,seed,struct privkey
 closing_init,,funding_txid,struct sha256_double
@@ -25,11 +25,11 @@ closing_init,,next_index_remote,u64
 closing_init,,revocations_received,u64
 
 # We received an offer, save signature.
-closing_received_signature,2
+closing_received_signature,2002
 closing_received_signature,,signature,secp256k1_ecdsa_signature
 closing_received_signature,,tx,struct bitcoin_tx
 
-closing_received_signature_reply,102
+closing_received_signature_reply,2102
 
 # Negotiations complete, we're exiting.
-closing_complete,4
+closing_complete,2004

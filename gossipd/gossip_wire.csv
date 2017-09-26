@@ -1,11 +1,11 @@
 # Peers can give a bad message, we close their fd, but no harm done.
-gossipstatus_peer_bad_msg,1000
+gossipstatus_peer_bad_msg,13000
 gossipstatus_peer_bad_msg,,unique_id,8
 gossipstatus_peer_bad_msg,,len,2
 gossipstatus_peer_bad_msg,,err,len*u8
 
 # Misc problems like opening control fd.
-gossipstatus_peer_failed,1001
+gossipstatus_peer_failed,13001
 gossipstatus_peer_failed,,unique_id,8
 gossipstatus_peer_failed,,len,2
 gossipstatus_peer_failed,,err,len*u8
@@ -13,29 +13,29 @@ gossipstatus_peer_failed,,err,len*u8
 #include <common/cryptomsg.h>
 
 # Initialize the gossip daemon
-gossipctl_init,0
+gossipctl_init,3000
 gossipctl_init,,broadcast_interval,4
 gossipctl_init,,chain_hash,struct sha256_double
 
 # These take an fd, but have no response
 # (if it is to move onto a channel, we get a status msg).
-gossipctl_new_peer,1
+gossipctl_new_peer,3001
 gossipctl_new_peer,,unique_id,8
 gossipctl_new_peer,,crypto_state,struct crypto_state
 
 # Tell it to release a peer which has initialized.
-gossipctl_release_peer,2
+gossipctl_release_peer,3002
 gossipctl_release_peer,,unique_id,8
 
 # This releases the peer and returns the cryptostate (followed two fds: peer and gossip)
-gossipctl_release_peer_reply,102
+gossipctl_release_peer_reply,3102
 gossipctl_release_peer_reply,,crypto_state,struct crypto_state
 
 # This is if we couldn't find the peer.
-gossipctl_release_peer_replyfail,202
+gossipctl_release_peer_replyfail,3202
 
 # This is where we save a peer's features.
-#gossipstatus_peer_features,1
+#gossipstatus_peer_features,3001
 #gossipstatus_peer_features,,unique_id,8
 #gossipstatus_peer_features,,gflen,2
 #gossipstatus_peer_features,,globalfeatures,gflen
@@ -43,72 +43,72 @@ gossipctl_release_peer_replyfail,202
 #gossipstatus_peer_features,,localfeatures,lflen
 
 # Peer can send non-gossip packet (usually an open_channel) (followed two fds: peer and gossip)
-gossipstatus_peer_nongossip,4
+gossipstatus_peer_nongossip,3004
 gossipstatus_peer_nongossip,,unique_id,8
 gossipstatus_peer_nongossip,,crypto_state,struct crypto_state
 gossipstatus_peer_nongossip,,len,2
 gossipstatus_peer_nongossip,,msg,len*u8
 
 # Pass JSON-RPC getnodes call through
-gossip_getnodes_request,5
+gossip_getnodes_request,3005
 
 #include <lightningd/gossip_msg.h>
-gossip_getnodes_reply,105
+gossip_getnodes_reply,3105
 gossip_getnodes_reply,,num_nodes,u16
 gossip_getnodes_reply,,nodes,num_nodes*struct gossip_getnodes_entry
 
 # Pass JSON-RPC getroute call through
-gossip_getroute_request,6
+gossip_getroute_request,3006
 gossip_getroute_request,,source,struct pubkey
 gossip_getroute_request,,destination,struct pubkey
 gossip_getroute_request,,msatoshi,u32
 gossip_getroute_request,,riskfactor,u16
 
-gossip_getroute_reply,106
+gossip_getroute_reply,3106
 gossip_getroute_reply,,num_hops,u16
 gossip_getroute_reply,,hops,num_hops*struct route_hop
 
-gossip_getchannels_request,7
+gossip_getchannels_request,3007
 
-gossip_getchannels_reply,107
+gossip_getchannels_reply,3107
 gossip_getchannels_reply,,num_channels,u16
 gossip_getchannels_reply,,nodes,num_channels*struct gossip_getchannels_entry
 
 # Ping/pong test.
-gossip_ping,8
+gossip_ping,3008
 gossip_ping,,unique_id,u64
 gossip_ping,,num_pong_bytes,u16
 gossip_ping,,len,u16
 
-gossip_ping_reply,108
+gossip_ping_reply,3108
 gossip_ping_reply,,totlen,u16
 
 # Given a short_channel_id, return the endpoints
-gossip_resolve_channel_request,9
+gossip_resolve_channel_request,3009
 gossip_resolve_channel_request,,channel_id,struct short_channel_id
 
-gossip_resolve_channel_reply,109
+gossip_resolve_channel_reply,3109
 gossip_resolve_channel_reply,,num_keys,u16
 gossip_resolve_channel_reply,,keys,num_keys*struct pubkey
 
 # The main daemon forward some gossip message to gossipd, allows injecting
 # arbitrary gossip messages.
-gossip_forwarded_msg,10
+gossip_forwarded_msg,3010
 gossip_forwarded_msg,,msglen,2
 gossip_forwarded_msg,,msg,msglen
 
 # If peer is still connected, fail it (master does this for reconnect)
-gossipctl_fail_peer,11
+gossipctl_fail_peer,3011
 gossipctl_fail_peer,,unique_id,8
 
 # Get a gossip fd for this peer (it has reconnected)
-gossipctl_get_peer_gossipfd,12
+gossipctl_get_peer_gossipfd,3012
 gossipctl_get_peer_gossipfd,,unique_id,u64
 # Does it want a full dump of gossip?
 gossipctl_get_peer_gossipfd,,sync,bool
 
 # + fd.
-gossipctl_get_peer_gossipfd_reply,112
+gossipctl_get_peer_gossipfd_reply,3112
 
 # Failure (can't make new socket)
-gossipctl_get_peer_gossipfd_replyfail,212
+gossipctl_get_peer_gossipfd_replyfail,3212
