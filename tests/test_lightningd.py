@@ -443,8 +443,8 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.rpc.generate(94)
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
 
-        # Now, 100 blocks it should be done.
-        bitcoind.rpc.generate(100)
+        # Now, 100 blocks l2 should be done.
+        bitcoind.rpc.generate(6)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     def test_onchain_middleman(self):
@@ -519,6 +519,128 @@ class LightningDTests(BaseLightningDTests):
 
         # 100 blocks after last spend, l2 should be done.
         l1.bitcoin.rpc.generate(100)
+        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+    def test_penalty_inhtlc(self):
+        """Test penalty transaction with an incoming HTLC"""
+        # We suppress each one after first commit; HTLC gets added not fulfilled.
+        l1 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED'])
+        l2 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED'])
+
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        self.fund_channel(l1, l2, 10**6)
+
+        # Now, this will get stuck due to l1 commit being disabled..
+        t = self.pay(l1,l2,100000000,async=True)
+
+        # They should both have commitments blocked now.
+        l1.daemon.wait_for_log('_WIRE_COMMITMENT_SIGNED')
+        l2.daemon.wait_for_log('_WIRE_COMMITMENT_SIGNED')
+
+        # Make sure l1 got l2's commitment to the HTLC, and sent to master.
+        l1.daemon.wait_for_log('UPDATE WIRE_CHANNEL_GOT_COMMITSIG')
+        
+        # Take our snapshot.
+        tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
+
+        # Let them continue
+        l1.rpc.dev_reenable_commit(l2.info['id'])
+        l2.rpc.dev_reenable_commit(l1.info['id'])
+
+        # Should fulfill.
+        l1.daemon.wait_for_log('peer_in WIRE_UPDATE_FULFILL_HTLC')
+        l1.daemon.wait_for_log('peer_out WIRE_REVOKE_AND_ACK')
+
+        l2.daemon.wait_for_log('peer_out WIRE_UPDATE_FULFILL_HTLC')
+        l1.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
+        
+        # Payment should now complete.
+        t.result(timeout=10)
+
+        # Now we really mess things up!
+        bitcoind.rpc.sendrawtransaction(tx)
+        bitcoind.rpc.generate(1)
+
+        l2.daemon.wait_for_log('-> ONCHAIND_CHEATED')
+        # FIXME: l1 should try to stumble along!
+        l1.has_failed()
+
+        # l2 should spend all of the outputs (except to-us).
+        # Could happen in any order, depending on commitment tx.
+        l2.daemon.wait_for_logs(['Propose handling THEIR_REVOKED_UNILATERAL/DELAYED_OUTPUT_TO_THEM by OUR_PENALTY_TX .* in 0 blocks',
+                                 'sendrawtx exit 0',
+                                 'Propose handling THEIR_REVOKED_UNILATERAL/THEIR_HTLC by OUR_PENALTY_TX .* in 0 blocks',
+                                 'sendrawtx exit 0'])
+
+        # FIXME: test HTLC tx race!
+
+        # 100 blocks later, all resolved.
+        bitcoind.rpc.generate(100)
+
+        # FIXME: Test wallet balance...
+        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+    def test_penalty_outhtlc(self):
+        """Test penalty transaction with an outgoing HTLC"""
+        # First we need to get funds to l2, so suppress after second.
+        l1 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED*3'])
+        l2 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED*3'])
+
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        self.fund_channel(l1, l2, 10**6)
+
+        # Move some across to l2.
+        self.pay(l1,l2,200000000)
+
+        assert not l1.daemon.is_in_log('_WIRE_COMMITMENT_SIGNED')
+        assert not l2.daemon.is_in_log('_WIRE_COMMITMENT_SIGNED')
+
+        # Now, this will get stuck due to l1 commit being disabled..
+        t = self.pay(l2,l1,100000000,async=True)
+        # Make sure we get signature from them.
+        l1.daemon.wait_for_log('peer_in WIRE_UPDATE_ADD_HTLC')
+        l1.daemon.wait_for_log('peer_in WIRE_COMMITMENT_SIGNED')
+
+        # They should both have commitments blocked now.
+        l1.daemon.wait_for_log('dev_disconnect: _WIRE_COMMITMENT_SIGNED')
+        l2.daemon.wait_for_log('dev_disconnect: _WIRE_COMMITMENT_SIGNED')
+
+        # Take our snapshot.
+        tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
+
+        # Let the continue
+        l1.rpc.dev_reenable_commit(l2.info['id'])
+        l2.rpc.dev_reenable_commit(l1.info['id'])
+
+        # Thread should complete.
+        t.result(timeout=10)
+
+        # Make sure both sides got revoke_and_ack for final.
+        l1.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
+        l2.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
+
+        # Now we really mess things up!
+        bitcoind.rpc.sendrawtransaction(tx)
+        bitcoind.rpc.generate(1)
+
+        l2.daemon.wait_for_log('-> ONCHAIND_CHEATED')
+        # FIXME: l1 should try to stumble along!
+        l1.has_failed()
+
+        # l2 should spend all of the outputs (except to-us).
+        # Could happen in any order, depending on commitment tx.
+        l2.daemon.wait_for_logs(['Ignoring output.*: THEIR_REVOKED_UNILATERAL/OUTPUT_TO_US',
+                                 'Propose handling THEIR_REVOKED_UNILATERAL/DELAYED_OUTPUT_TO_THEM by OUR_PENALTY_TX .* in 0 blocks',
+                                 'sendrawtx exit 0',
+                                 'Propose handling THEIR_REVOKED_UNILATERAL/OUR_HTLC by OUR_PENALTY_TX .* in 0 blocks',
+                                 'sendrawtx exit 0'])
+
+        # FIXME: test HTLC tx race!
+
+        # 100 blocks later, all resolved.
+        bitcoind.rpc.generate(100)
+
+        # FIXME: Test wallet balance...
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     def test_permfail_new_commit(self):
