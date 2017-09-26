@@ -294,6 +294,26 @@ static void ignore_output(struct tracked_output *out)
 	out->resolved->tx_type = SELF;
 }
 
+static void proposal_meets_depth(struct tracked_output *out)
+{
+	/* If we simply wanted to ignore it after some depth */
+	if (!out->proposal->tx) {
+		ignore_output(out);
+		return;
+	}
+
+	status_trace("Broadcasting %s (%s) to resolve %s/%s",
+		     tx_type_name(out->proposal->tx_type),
+		     type_to_string(trc, struct bitcoin_tx, out->proposal->tx),
+		     tx_type_name(out->tx_type),
+		     output_type_name(out->output_type));
+
+	wire_sync_write(REQ_FD,
+			take(towire_onchain_broadcast_tx(NULL,
+							 out->proposal->tx)));
+	/* We will get a callback when it's in a block. */
+}
+
 static void propose_resolution(struct tracked_output *out,
 			       const struct bitcoin_tx *tx,
 			       unsigned int depth_required,
@@ -310,6 +330,9 @@ static void propose_resolution(struct tracked_output *out,
 	out->proposal->tx = tal_steal(out->proposal, tx);
 	out->proposal->depth_required = depth_required;
 	out->proposal->tx_type = tx_type;
+
+	if (depth_required == 0)
+		proposal_meets_depth(out);
 }
 
 static void propose_resolution_at_block(struct tracked_output *out,
@@ -463,26 +486,6 @@ static bool all_irrevocably_resolved(struct tracked_output **outs)
 			return false;
 	}
 	return true;
-}
-
-static void proposal_meets_depth(struct tracked_output *out)
-{
-	/* If we simply wanted to ignore it after some depth */
-	if (!out->proposal->tx) {
-		ignore_output(out);
-		return;
-	}
-
-	status_trace("Broadcasting %s (%s) to resolve %s/%s",
-		     tx_type_name(out->proposal->tx_type),
-		     type_to_string(trc, struct bitcoin_tx, out->proposal->tx),
-		     tx_type_name(out->tx_type),
-		     output_type_name(out->output_type));
-
-	wire_sync_write(REQ_FD,
-			take(towire_onchain_broadcast_tx(NULL,
-							 out->proposal->tx)));
-	/* We will get a callback when it's in a block. */
 }
 
 static void unwatch_tx(const struct bitcoin_tx *tx)
@@ -795,10 +798,6 @@ static void handle_preimage(struct tracked_output **outs,
 			propose_resolution(outs[i], tx, 0,
 					   THEIR_HTLC_FULFILL_TO_US);
 		}
-
-		/* Broadcast immediately. */
-		proposal_meets_depth(outs[i]);
-		break;
 	}
 }
 
