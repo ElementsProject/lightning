@@ -460,7 +460,7 @@ static u8 *fundee_channel(struct state *state,
 	struct basepoints theirs;
 	struct pubkey their_funding_pubkey;
 	secp256k1_ecdsa_signature theirsig, sig;
-	struct bitcoin_tx *tx;
+	struct bitcoin_tx *their_commit, *our_commit;
 	struct sha256_double chain_hash;
 	u8 *msg;
 	const u8 *wscript;
@@ -609,16 +609,16 @@ static u8 *fundee_channel(struct state *state,
 	 *
 	 * The recipient MUST fail the channel if `signature` is incorrect.
 	 */
-	tx = initial_channel_tx(state, &wscript, state->channel,
-				&state->next_per_commit[LOCAL], LOCAL);
+	their_commit = initial_channel_tx(state, &wscript, state->channel,
+					  &state->next_per_commit[LOCAL], LOCAL);
 
-	if (!check_tx_sig(tx, 0, NULL, wscript, &their_funding_pubkey,
+	if (!check_tx_sig(their_commit, 0, NULL, wscript, &their_funding_pubkey,
 			  &theirsig)) {
 		peer_failed(PEER_FD, &state->cs, &state->channel_id,
 			    "Bad signature %s on tx %s using key %s",
 			    type_to_string(trc, secp256k1_ecdsa_signature,
 					   &theirsig),
-			    type_to_string(trc, struct bitcoin_tx, tx),
+			    type_to_string(trc, struct bitcoin_tx, their_commit),
 			    type_to_string(trc, struct pubkey,
 					   &their_funding_pubkey));
 	}
@@ -642,9 +642,9 @@ static u8 *fundee_channel(struct state *state,
 	 * commitment transaction, so they can broadcast it knowing they can
 	 * redeem their funds if they need to.
 	 */
-	tx = initial_channel_tx(state, &wscript, state->channel,
-				&state->next_per_commit[REMOTE], REMOTE);
-	sign_tx_input(tx, 0, NULL, wscript,
+	our_commit = initial_channel_tx(state, &wscript, state->channel,
+					&state->next_per_commit[REMOTE], REMOTE);
+	sign_tx_input(our_commit, 0, NULL, wscript,
 		      &state->our_secrets.funding_privkey,
 		      our_funding_pubkey, &sig);
 
@@ -654,7 +654,7 @@ static u8 *fundee_channel(struct state *state,
 
 	return towire_opening_fundee_reply(state,
 					   state->remoteconf,
-					   tx,
+					   their_commit,
 					   &theirsig,
 					   &state->cs,
 					   &theirs.revocation,
