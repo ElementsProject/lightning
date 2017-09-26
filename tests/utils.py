@@ -107,7 +107,7 @@ class TailableProc(object):
 
         """
         logging.debug("Waiting for {} in the logs".format(regexs))
-        exs = {re.compile(r) for r in regexs}
+        exs = [re.compile(r) for r in regexs]
         start_time = time.time()
         pos = self.logsearch_start
         initial_pos = len(self.logs)
@@ -130,10 +130,11 @@ class TailableProc(object):
                     continue
 
                 for r in exs.copy():
+                    self.logsearch_start = pos+1
                     if r.search(self.logs[pos]):
                         logging.debug("Found '%s' in logs", r)
                         exs.remove(r)
-                    self.logsearch_start = pos+1
+                        break
                 if len(exs) == 0:
                     return self.logs[pos]
                 pos += 1
