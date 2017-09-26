@@ -26,6 +26,7 @@ onchain_init,,remote_payment_basepoint,struct pubkey
 onchain_init,,remote_delayed_payment_basepoint,struct pubkey
 onchain_init,,tx,struct bitcoin_tx
 onchain_init,,tx_blockheight,u32
+onchain_init,,htlc_missing_depth,u32
 onchain_init,,num_htlc_sigs,u16
 onchain_init,,htlc_signature,num_htlc_sigs*secp256k1_ecdsa_signature
 onchain_init,,num_htlcs,u64
@@ -34,6 +35,9 @@ onchain_init,,num_htlcs,u64
 # This is all the HTLCs: one per message
 onchain_htlc,2
 onchain_htlc,,htlc,struct htlc_stub
+# If it's not in the commitment tx, tell us (immediately or htlc_missing_depth)
+onchain_htlc,,tell_if_missing,bool
+onchain_htlc,,tell_immediately,bool
 
 # This sets what the state is, depending on tx.
 onchain_init_reply,101
@@ -67,3 +71,6 @@ onchain_known_preimage,,preimage,struct preimage
 onchain_extracted_preimage,8
 onchain_extracted_preimage,,preimage,struct preimage
 
+# onchaind->master: this HTLC was missing from commit tx.
+onchain_missing_htlc_output,9
+onchain_missing_htlc_output,,htlc,struct htlc_stub

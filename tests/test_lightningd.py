@@ -447,6 +447,72 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.rpc.generate(6)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
+    def test_onchain_dust_out(self):
+        """Onchain handling of outgoing dust htlcs (they should fail)"""
+        # HTLC 1->2, 1 fails after it's irrevocably committed
+        disconnects = ['@WIRE_REVOKE_AND_ACK', 'permfail']
+        l1 = self.node_factory.get_node(disconnect=disconnects)
+        l2 = self.node_factory.get_node()
+
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        self.fund_channel(l1, l2, 10**6)
+
+        # Must be dust!
+        rhash = l2.rpc.invoice(1, 'onchain_dust_out')['rhash']
+        routestep = {
+            'msatoshi' : 1,
+            'id' : l2.info['id'],
+            'delay' : 5,
+            'channel': '1:1:1'
+        }
+
+        q = queue.Queue()
+
+        def try_pay():
+            try:
+                l1.rpc.sendpay(to_json([routestep]), rhash, async=False)
+                q.put(None)
+            except Exception as err:
+                q.put(err)
+
+        t = threading.Thread(target=try_pay)
+        t.daemon = True
+        t.start()
+
+        # l1 will drop to chain.
+        l1.daemon.wait_for_log('permfail')
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        l1.bitcoin.rpc.generate(1)
+        l1.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
+        l2.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
+
+        # We use 3 blocks for "reasonable depth"
+        bitcoind.rpc.generate(3)
+
+        # It should fail.
+        err = q.get(timeout = 5)
+        assert type(err) is ValueError
+        t.join(timeout=1)
+        assert not t.isAlive()
+
+        l1.daemon.wait_for_log('WIRE_PERMANENT_CHANNEL_FAILURE: missing in commitment tx')
+
+        # 6 later, l1 should collect its to-self payment.
+        bitcoind.rpc.generate(6)
+        l1.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+
+        # 94 later, l2 is done.
+        bitcoind.rpc.generate(94)
+        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+        # Now, 100 blocks and l1 should be done.
+        bitcoind.rpc.generate(6)
+        l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+        # Payment failed, BTW
+        assert l2.rpc.listinvoice('onchain_dust_out')[0]['complete'] == False
+
     def test_onchain_middleman(self):
         # HTLC 1->2->3, 1->2 goes down after 2 gets preimage from 3.
         disconnects = ['-WIRE_UPDATE_FULFILL_HTLC', 'permfail']

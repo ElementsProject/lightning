@@ -41,5 +41,10 @@ enum onion_type send_htlc_out(struct peer *out, u64 amount, u32 cltv,
 			      struct pay_command *pc,
 			      struct htlc_out **houtp);
 
+struct htlc_out *find_htlc_out_by_ripemd(const struct peer *peer,
+					 const struct ripemd160 *ripemd160);
+void onchain_failed_our_htlc(const struct peer *peer,
+			     const struct htlc_stub *htlc,
+			     const char *why);
 void onchain_fulfilled_htlc(struct peer *peer, const struct preimage *preimage);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_HTLCS_H */
