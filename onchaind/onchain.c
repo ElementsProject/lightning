@@ -45,6 +45,12 @@ static struct pubkey our_wallet_pubkey;
 /* Private keys for spending HTLC outputs via HTLC txs, and directly. */
 static struct privkey delayed_payment_privkey, payment_privkey;
 
+/* Private keys for spending HTLC for penalty (only if they cheated). */
+static struct privkey *revocation_privkey;
+
+/* one value is useful for a few witness scripts */
+static const u8 ONE = 0x1;
+
 /* If we broadcast a tx, or need a delay to resolve the output. */
 struct proposed_resolution {
 	/* This can be NULL if our proposal is to simply ignore it after depth */
@@ -197,6 +203,8 @@ static const char *output_type_name(enum output_type output_type)
  * 1. to-us output spend (`<local_delayedsig> 0`)
  * 2. the their-commitment, our HTLC timeout case (`<remotesig> 0`),
  * 3. the their-commitment, our HTLC redeem case (`<remotesig> <payment_preimage>`)
+ * 4. the their-revoked-commitment, to-local (`<revocation_sig> 1`)
+ * 5. the their-revoked-commitment, htlc (`<revocation_sig> <revocationkey>`)
  */
 static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 				   struct tracked_output *out,
@@ -621,6 +629,35 @@ static void resolve_htlc_tx(struct tracked_output ***outs,
 			   OUR_DELAYED_RETURN_TO_WALLET);
 }
 
+/* BOLT #5:
+ *
+ * 5. _B's HTLC-timeout transaction_: The node MUST *resolve* this by
+ *    spending using the revocation key.
+ */
+/* BOLT #5:
+ *
+ * 6. _B's HTLC-success transaction_: The node MUST *resolve* this by
+ *    spending using the revocation key.  The node SHOULD extract
+ *    the payment preimage from the transaction input witness if not
+ *    already known.
+ */
+static void steal_htlc_tx(struct tracked_output *out)
+{
+	struct bitcoin_tx *tx;
+
+	/* BOLT #3:
+	 *
+	 * To spend this via penalty, the remote node uses a witness stack
+	 * `<revocationsig> 1`
+	 */
+	tx = tx_to_us(out, out, 0xFFFFFFFF, 0,
+		      &ONE, sizeof(ONE),
+		      out->wscript,
+		      revocation_privkey,
+		      &keyset->self_revocation_key);
+	propose_resolution(out, tx, 0, OUR_PENALTY_TX);
+}
+
 /* An output has been spent: see if it resolves something we care about. */
 static void output_spent(struct tracked_output ***outs,
 			 const struct bitcoin_tx *tx,
@@ -658,13 +695,26 @@ static void output_spent(struct tracked_output ***outs,
 			break;
 
 		case THEIR_HTLC:
-			/* We ignore this timeout tx, since we should
-			 * resolve by ignoring once we reach depth. */
+			if (out->tx_type == THEIR_REVOKED_UNILATERAL) {
+				steal_htlc_tx(out);
+			} else {
+				/* We ignore this timeout tx, since we should
+				 * resolve by ignoring once we reach depth. */
+			}
 			break;
 
 		case OUR_HTLC:
-			/* The only way	they can spend this: fulfill */
+			/* The only way	they can spend this: fulfill; even
+			 * if it's revoked: */
+			/* BOLT #5:
+			 *
+			 * 6. _B's HTLC-success transaction_: ...  The node
+			 * SHOULD extract the payment preimage from the
+			 * transaction input witness if not already known.
+			 */
 			handle_htlc_onchain_fulfill(out, tx);
+			if (out->tx_type == THEIR_REVOKED_UNILATERAL)
+				steal_htlc_tx(out);
 			break;
 
 		case FUNDING_OUTPUT:
@@ -701,7 +751,9 @@ static void tx_new_depth(struct tracked_output **outs,
 		/* Is this tx resolving an output? */
 		if (outs[i]->resolved) {
 			if (structeq(&outs[i]->resolved->txid, txid)) {
-				status_trace("%s depth %u",
+				status_trace("%s/%s->%s depth %u",
+					     tx_type_name(outs[i]->tx_type),
+					     output_type_name(outs[i]->output_type),
 					     tx_type_name(outs[i]->resolved->tx_type),
 					     depth);
 				outs[i]->resolved->depth = depth;
@@ -1222,14 +1274,304 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	tal_free(tmpctx);
 }
 
+/* We produce individual penalty txs.  It's less efficient, but avoids them
+ * using HTLC txs to block our penalties for long enough to pass the CSV
+ * delay */
+static void steal_to_them_output(struct tracked_output *out)
+{
+	const tal_t *tmpctx = tal_tmpctx(NULL);
+	u8 *wscript;
+	struct bitcoin_tx *tx;
+
+	/* BOLT #3:
+	 *
+	 * If a revoked commitment transaction is published, the other party
+	 * can spend this output immediately with the following witness:
+	 *
+	 *    <revocation_sig> 1
+	 */
+	wscript = bitcoin_wscript_to_local(tmpctx, to_self_delay[REMOTE],
+					   &keyset->self_revocation_key,
+					   &keyset->self_delayed_payment_key);
+
+	tx = tx_to_us(tmpctx, out, 0xFFFFFFFF, 0,
+		      &ONE, sizeof(ONE),
+		      wscript,
+		      revocation_privkey,
+		      &keyset->self_revocation_key);
+
+	propose_resolution(out, tx, 0, OUR_PENALTY_TX);
+	tal_free(tmpctx);
+}
+
+static void steal_htlc(struct tracked_output *out)
+{
+	struct bitcoin_tx *tx;
+	u8 der[PUBKEY_DER_LEN];
+
+	/* BOLT #3:
+	 *
+	 * If a revoked commitment transaction is published, the remote node
+	 * can spend this output immediately with the following witness:
+	 *
+	 *     <revocation_sig> <revocationkey>
+	 */
+	pubkey_to_der(der, &keyset->self_revocation_key);
+	tx = tx_to_us(out, out, 0xFFFFFFFF, 0,
+		      der, sizeof(der),
+		      out->wscript,
+		      revocation_privkey,
+		      &keyset->self_revocation_key);
+
+	propose_resolution(out, tx, 0, OUR_PENALTY_TX);
+}
+
+/* BOLT #5:
+ *
+ * If a node tries to broadcast old state, we can use the revocation key to
+ * claim all the funds.
+ */
 static void handle_their_cheat(const struct bitcoin_tx *tx,
-			       u64 commit_index,
+			       const struct sha256_double *txid,
+			       u32 tx_blockheight,
 			       const struct sha256 *revocation_preimage,
+			       const struct secrets *secrets,
+			       const struct pubkey *local_revocation_basepoint,
+			       const struct pubkey *local_payment_basepoint,
+			       const struct pubkey *remote_payment_basepoint,
+			       const struct pubkey *remote_delayed_payment_basepoint,
+			       u64 commit_num,
 			       const struct htlc_stub *htlcs,
 			       struct tracked_output **outs)
 {
-	status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		      "FIXME: Implement penalty transaction");
+	const tal_t *tmpctx = tal_tmpctx(NULL);
+	u8 **htlc_scripts;
+	u8 *remote_wscript, *script[NUM_SIDES];
+	struct keyset *ks;
+	size_t i;
+	struct secret per_commitment_secret;
+	struct privkey per_commitment_privkey;
+	struct pubkey per_commitment_point;
+
+	set_state(ONCHAIND_CHEATED);
+
+	init_feerate_range(outs[0]->satoshi, tx);
+
+	/* BOLT #5:
+	 *
+	 * If a node sees a *commitment transaction* for which it has a
+	 * revocation key, that *resolves* the funding transaction output.
+	 */
+	resolved_by_other(outs[0], txid, THEIR_REVOKED_UNILATERAL);
+
+	/* FIXME: Types. */
+	BUILD_ASSERT(sizeof(per_commitment_secret)
+		     == sizeof(*revocation_preimage));
+	memcpy(&per_commitment_secret, revocation_preimage,
+	       sizeof(per_commitment_secret));
+	BUILD_ASSERT(sizeof(per_commitment_privkey)
+		     == sizeof(*revocation_preimage));
+	memcpy(&per_commitment_privkey, revocation_preimage,
+	       sizeof(per_commitment_privkey));
+	if (!pubkey_from_privkey(&per_commitment_privkey, &per_commitment_point))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Failed derivea from per_commitment_secret %s",
+			      type_to_string(trc, struct privkey,
+					     &per_commitment_privkey));
+
+	status_trace("Deriving keyset %"PRIu64
+		     ": per_commit_point=%s"
+		     " self_payment_basepoint=%s"
+		     " other_payment_basepoint=%s"
+		     " self_delayed_basepoint=%s"
+		     " other_revocation_basepoint=%s",
+		     commit_num,
+		     type_to_string(trc, struct pubkey,
+				    &per_commitment_point),
+		     type_to_string(trc, struct pubkey,
+				    remote_payment_basepoint),
+		     type_to_string(trc, struct pubkey,
+				    local_payment_basepoint),
+		     type_to_string(trc, struct pubkey,
+				    remote_delayed_payment_basepoint),
+		     type_to_string(trc, struct pubkey,
+				    local_revocation_basepoint));
+
+	/* keyset is const, we need a non-const ptr to set it up */
+	keyset = ks = tal(tx, struct keyset);
+	if (!derive_keyset(&per_commitment_point,
+			   remote_payment_basepoint,
+			   local_payment_basepoint,
+			   remote_delayed_payment_basepoint,
+			   local_revocation_basepoint,
+			   ks))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Deriving keyset for %"PRIu64, commit_num);
+
+	status_trace("Deconstructing revoked unilateral tx: %"PRIu64
+		     " using keyset: "
+		     " self_revocation_key: %s"
+		     " self_delayed_payment_key: %s"
+		     " self_payment_key: %s"
+		     " other_payment_key: %s",
+		     commit_num,
+		     type_to_string(trc, struct pubkey,
+				    &keyset->self_revocation_key),
+		     type_to_string(trc, struct pubkey,
+				    &keyset->self_delayed_payment_key),
+		     type_to_string(trc, struct pubkey,
+				    &keyset->self_payment_key),
+		     type_to_string(trc, struct pubkey,
+				    &keyset->other_payment_key));
+
+	revocation_privkey = tal(tx, struct privkey);
+	if (!derive_revocation_privkey(&secrets->revocation_basepoint_secret,
+				       &per_commitment_secret,
+				       local_revocation_basepoint,
+				       &per_commitment_point,
+				       revocation_privkey))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Deriving revocation_privkey for %"PRIu64,
+			      commit_num);
+
+	remote_wscript = to_self_wscript(tmpctx, to_self_delay[REMOTE], keyset);
+
+	/* Figure out what to-them output looks like. */
+	script[REMOTE] = scriptpubkey_p2wsh(tmpctx, remote_wscript);
+
+	/* Figure out what direct to-us output looks like. */
+	script[LOCAL] = scriptpubkey_p2wpkh(tmpctx, &keyset->other_payment_key);
+
+	/* Calculate all the HTLC scripts so we can match them */
+	htlc_scripts = derive_htlc_scripts(htlcs, REMOTE);
+
+	status_trace("Script to-them: %u: %s (%s)",
+		     to_self_delay[REMOTE],
+		     tal_hex(trc, script[REMOTE]),
+		     tal_hex(trc, remote_wscript));
+	status_trace("Script to-me: %s",
+		     tal_hex(trc, script[LOCAL]));
+
+	for (i = 0; i < tal_count(tx->output); i++) {
+		status_trace("Output %zu: %s",
+			     i, tal_hex(trc, tx->output[i].script));
+	}
+
+	/* BOLT #5:
+	 *
+	 * A node MUST resolve all unresolved outputs as follows:
+	 *
+	 * 1. _A's main output_: No action is required; this is a simple
+	 *    P2WPKH output.  This output is considered *resolved* by the
+	 *    *commitment transaction*.
+	 *
+	 * 2. _B's main output_: The node MUST *resolve* this by spending
+	 *    using the revocation key.
+	 *
+	 * 3. _A's offered HTLCs_: The node MUST *resolve* this in one of three
+	 *     ways by spending:
+	 *   * the *commitment tx* using the payment revocation
+	 *   * the *commitment tx* using the payment preimage if known
+	 *   * the *HTLC-timeout tx* if B publishes them
+	 *
+	 * 4. _B's offered HTLCs_: The node MUST *resolve* this in one of two
+	 *     ways by spending:
+	 *   * the *commitment tx* using the payment revocation
+	 *   * the *commitment tx* once the HTLC timeout has passed.
+	 *
+	 * 5. _B's HTLC-timeout transaction_: The node MUST *resolve* this by
+	 *    spending using the revocation key.
+	 *
+	 * 6. _B's HTLC-success transaction_: The node MUST *resolve* this by
+	 *    spending using the revocation key.  The node SHOULD extract
+	 *    the payment preimage from the transaction input witness if not
+	 *    already known.
+	 */
+	for (i = 0; i < tal_count(tx->output); i++) {
+		struct tracked_output *out;
+		int j;
+
+		if (script[LOCAL]
+		    && scripteq(tx->output[i].script, script[LOCAL])) {
+			/* BOLT #5:
+			 *
+			 * 1. _A's main output_: No action is required; this
+			 *    is a simple P2WPKH output.  This output is
+			 *    considered *resolved* by the *commitment
+			 *    transaction* itself.
+			 */
+			out = new_tracked_output(&outs, txid, tx_blockheight,
+						 THEIR_REVOKED_UNILATERAL,
+						 i, tx->output[i].amount,
+						 OUTPUT_TO_US, NULL, NULL, NULL);
+			ignore_output(out);
+			script[LOCAL] = NULL;
+			continue;
+		}
+		if (script[REMOTE]
+		    && scripteq(tx->output[i].script, script[REMOTE])) {
+			/* BOLT #5:
+			 *
+			 * 2. _B's main output_: The node MUST *resolve* this
+			 *    by spending using the revocation key. */
+			out = new_tracked_output(&outs, txid, tx_blockheight,
+						 THEIR_REVOKED_UNILATERAL, i,
+						 tx->output[i].amount,
+						 DELAYED_OUTPUT_TO_THEM,
+						 NULL, NULL, NULL);
+			steal_to_them_output(out);
+			script[REMOTE] = NULL;
+			continue;
+		}
+
+		j = match_htlc_output(tx, i, htlc_scripts);
+		if (j == -1)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Could not find resolution for output %zu",
+				      i);
+
+		if (htlcs[j].owner == LOCAL) {
+			/* BOLT #5:
+			 *
+			 * 3. _A's offered HTLCs_: The node MUST *resolve* this
+			 *   in one of three ways by spending:
+			 *   * the *commitment tx* using the payment revocation
+			 *   * the *commitment tx* using the payment preimage if
+			 *      known
+			 *   * the *HTLC-timeout tx* if B publishes them
+			 */
+			out = new_tracked_output(&outs, txid,
+						 tx_blockheight,
+						 THEIR_REVOKED_UNILATERAL, i,
+						 tx->output[i].amount,
+						 OUR_HTLC,
+						 &htlcs[j], htlc_scripts[j],
+						 NULL);
+			steal_htlc(out);
+		} else {
+			out = new_tracked_output(&outs, txid,
+						 tx_blockheight,
+						 THEIR_REVOKED_UNILATERAL, i,
+						 tx->output[i].amount,
+						 THEIR_HTLC,
+						 &htlcs[j], htlc_scripts[j],
+						 NULL);
+			/* BOLT #5:
+			 *
+			 * 4. _B's offered HTLCs_: The node MUST *resolve*
+			 *     this in one of two ways by spending:
+			 *
+			 *   * the *commitment tx* using the payment revocation
+			 *   * the *commitment tx* once the HTLC timeout has
+			 *     passed.
+			 */
+			steal_htlc(out);
+		}
+		htlc_scripts[j] = NULL;
+	}
+
+	wait_for_resolved(outs);
+	tal_free(tmpctx);
 }
 
 static void handle_their_unilateral(const struct bitcoin_tx *tx,
@@ -1568,8 +1910,15 @@ int main(int argc, char *argv[])
 		else if (shachain_get_hash(&shachain,
 					   shachain_index(commit_num),
 					   &revocation_preimage)) {
-			handle_their_cheat(tx, commit_num,
+			handle_their_cheat(tx, &txid,
+					   tx_blockheight,
 					   &revocation_preimage,
+					   &secrets,
+					   &basepoints.revocation,
+					   &basepoints.payment,
+					   &remote_payment_basepoint,
+					   &remote_delayed_payment_basepoint,
+					   commit_num,
 					   htlcs, outs);
 		/* BOLT #5:
 		 *

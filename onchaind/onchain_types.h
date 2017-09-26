@@ -16,6 +16,9 @@ enum tx_type {
 	/* Our unilateral: spends funding */
 	OUR_UNILATERAL,
 
+	/* Their old unilateral: spends funding */
+	THEIR_REVOKED_UNILATERAL,
+
 	/* The 2 different types of HTLC transaction, each way */
 	THEIR_HTLC_TIMEOUT_TO_THEM,
 	THEIR_HTLC_FULFILL_TO_US,
@@ -28,6 +31,9 @@ enum tx_type {
 
 	/* When we spend a delayed output (after cltv_expiry) */
 	OUR_DELAYED_RETURN_TO_WALLET,
+
+	/* When we use revocation key to take output. */
+	OUR_PENALTY_TX,
 
 	/* Special type for marking outputs as resolved by self. */
 	SELF,
