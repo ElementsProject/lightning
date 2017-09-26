@@ -774,9 +774,12 @@ static void tx_new_depth(struct tracked_output **outs,
 /* BOLT #5:
  *
  * If the node receives (or already knows) a payment preimage for an
- * unresolved HTLC output it was offered, it MUST *resolve* the output by
- * spending it.
+ * unresolved HTLC output it was offered for which it has committed to an
+ * outgoing HTLC, it MUST *resolve* the output by spending it.  Otherwise, if
+ * the other node is not irrevocably committed to the HTLC, it MUST NOT
+ * *resolve* the output by spending it.
  */
+/* Master makes sure we only get told preimages once other node is committed. */
 static void handle_preimage(struct tracked_output **outs,
 			    const struct preimage *preimage)
 {
@@ -812,11 +815,11 @@ static void handle_preimage(struct tracked_output **outs,
 
 		/* BOLT #5:
 		 *
-		 * If the transaction is the nodes' own commitment
-		 * transaction, then the it MUST use the HTLC-success
-		 * transaction, and the HTLC-success transaction output MUST
-		 * be *resolved* as described in "On-chain HTLC Transaction
-		 * Handling".
+		 * To spend an offered HTLC output: if the transaction is the
+		 * nodes' own commitment transaction, then it MUST use the
+		 * HTLC-success transaction, and the HTLC-success transaction
+		 * output MUST be *resolved* as described in "On-chain HTLC
+		 * Transaction Handling"
 		 */
 		if (outs[i]->remote_htlc_sig) {
 			tx = htlc_success_tx(outs[i], &outs[i]->txid,
@@ -839,8 +842,8 @@ static void handle_preimage(struct tracked_output **outs,
 		} else {
 			/* BOLT #5:
 			 *
-			 * Otherwise, it MUST *resolve* the output by spending
-			 * it to a convenient address.
+			 * otherwise, it MUST spend the output to a convenient
+			 * address.
 			 */
 			tx = tx_to_us(outs[i], outs[i], 0, 0,
 				      preimage, sizeof(*preimage),
@@ -1015,18 +1018,9 @@ static void resolve_their_htlc(struct tracked_output *out)
 	 *
 	 *...
 	 * ## Requirements
-	 *
-	 *
-	 * If the node receives (or already knows) a payment preimage for an
-	 * unresolved HTLC output it was offered, it MUST *resolve* the output
-	 * by spending it.  If the transaction is the nodes' own commitment
-	 * transaction, then the it MUST use the HTLC-success transaction, and
-	 * the HTLC-success transaction output MUST be *resolved* as described
-	 * in "On-chain HTLC Transaction Handling".  Otherwise, it MUST
-	 * *resolve* the output by spending it to a convenient address.
-	 *
-	 * Otherwise, if the HTLC output has expired, it is considered
-	 * *irrevocably resolved*.
+	 *...
+	 * If not otherwise resolved, once the HTLC output has expired, it is
+	 * considered *irrevocably resolved*.
 	 */
 	/* If we hit timeout depth, resolve by ignoring. */
 	propose_resolution_at_block(out, NULL, out->htlc->cltv_expiry,

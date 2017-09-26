@@ -1115,6 +1115,19 @@ static void onchaind_tell_fulfill(struct peer *peer)
 		if (hin->key.peer != peer)
 			continue;
 
+		/* BOLT #5:
+		 *
+		 * If the node receives (or already knows) a payment preimage
+		 * for an unresolved HTLC output it was offered for which it
+		 * has committed to an outgoing HTLC, it MUST *resolve* the
+		 * output by spending it.  Otherwise, if the other node is not
+		 * irrevocably committed to the HTLC, it MUST NOT *resolve*
+		 * the output by spending it.
+		 */
+
+		/* We only set preimage once it's irrevocably committed, and
+		 * we spend even if we don't have an outgoing HTLC (eg. local
+		 * payyment complete) */
 		if (!hin->preimage)
 			continue;
 
