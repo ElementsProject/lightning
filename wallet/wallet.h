@@ -289,4 +289,15 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 				   struct htlc_in_map *htlcs_in,
 				   struct htlc_out_map *htlcs_out);
 
+/**
+ * wallet_htlcs_reconnect -- Link outgoing HTLCs to their origins
+ *
+ * For each outgoing HTLC find the incoming HTLC that triggered it. If
+ * we are the origin of the transfer then we cannot resolve the
+ * incoming HTLC in which case we just leave it `NULL`.
+ */
+bool wallet_htlcs_reconnect(struct wallet *wallet,
+			    struct htlc_in_map *htlcs_in,
+			    struct htlc_out_map *htlcs_out);
+
 #endif /* WALLET_WALLET_H */

@@ -1064,3 +1064,44 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 
 	return ok;
 }
+
+bool wallet_htlcs_reconnect(struct wallet *wallet,
+			    struct htlc_in_map *htlcs_in,
+			    struct htlc_out_map *htlcs_out)
+{
+	struct htlc_in_map_iter ini;
+	struct htlc_out_map_iter outi;
+	struct htlc_in *hin;
+	struct htlc_out *hout;
+
+	for (hout = htlc_out_map_first(htlcs_out, &outi); hout;
+	     hout = htlc_out_map_next(htlcs_out, &outi)) {
+
+		if (hout->origin_htlc_id == 0) {
+			continue;
+		}
+
+		for (hin = htlc_in_map_first(htlcs_in, &ini); hin;
+		     hin = htlc_in_map_next(htlcs_in, &ini)) {
+			if (hout->origin_htlc_id == hin->dbid) {
+				log_debug(wallet->log,
+					  "Found corresponding htlc_in %" PRIu64
+					  " for htlc_out %" PRIu64,
+					  hin->dbid, hout->dbid);
+				hout->in = hin;
+				break;
+			}
+		}
+
+		if (!hout->in) {
+			log_broken(
+			    wallet->log,
+			    "Unable to find corresponding htlc_in %" PRIu64
+			    " for htlc_out %" PRIu64,
+			    hout->origin_htlc_id, hout->dbid);
+			return false;
+		}
+
+	}
+	return true;
+}
