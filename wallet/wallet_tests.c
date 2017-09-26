@@ -302,32 +302,40 @@ static bool test_channel_config_crud(const tal_t *ctx)
 
 static bool test_htlc_crud(const tal_t *ctx)
 {
-	struct htlc_in in;
-	struct htlc_out out;
+	struct htlc_in in, *hin;
+	struct htlc_out out, *hout;
 	struct preimage payment_key;
-	struct wallet_channel chan;
+	struct wallet_channel *chan = tal(ctx, struct wallet_channel);
+	struct peer *peer = talz(ctx, struct peer);
 	struct wallet *w = create_test_wallet(ctx);
-	struct htlc_in_map htlcs_in;
-	struct htlc_out_map htlcs_out;
+	struct htlc_in_map *htlcs_in = tal(ctx, struct htlc_in_map);
+	struct htlc_out_map *htlcs_out = tal(ctx, struct htlc_out_map);
 
 	/* Make sure we have our references correct */
 	db_exec(__func__, w->db, "INSERT INTO channels (id) VALUES (1);");
-	chan.id = 1;
+	chan->id = 1;
+	chan->peer = peer;
 
 	memset(&in, 0, sizeof(in));
 	memset(&out, 0, sizeof(out));
 	memset(&in.payment_hash, 'A', sizeof(struct sha256));
 	memset(&out.payment_hash, 'A', sizeof(struct sha256));
 	memset(&payment_key, 'B', sizeof(payment_key));
+	in.key.id = 42;
+	in.key.peer = peer;
+	in.msatoshi = 42;
+
 	out.in = &in;
 	out.key.id = 1337;
+	out.key.peer = peer;
+	out.msatoshi = 41;
 
 	/* Store the htlc_in */
-	CHECK_MSG(wallet_htlc_save_in(w, &chan, &in),
+	CHECK_MSG(wallet_htlc_save_in(w, chan, &in),
 		  tal_fmt(ctx, "Save htlc_in failed: %s", w->db->err));
 	CHECK_MSG(in.dbid != 0, "HTLC DB ID was not set.");
 	/* Saving again should get us a collision */
-	CHECK_MSG(!wallet_htlc_save_in(w, &chan, &in),
+	CHECK_MSG(!wallet_htlc_save_in(w, chan, &in),
 		  "Saving two HTLCs with the same data must not succeed.");
 	/* Update */
 	CHECK_MSG(wallet_htlc_update(w, in.dbid, RCVD_ADD_HTLC, NULL),
@@ -336,18 +344,35 @@ static bool test_htlc_crud(const tal_t *ctx)
 	    wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, &payment_key),
 	    "Update HTLC with payment_key failed");
 
-	CHECK_MSG(wallet_htlc_save_out(w, &chan, &out),
+	CHECK_MSG(wallet_htlc_save_out(w, chan, &out),
 		  tal_fmt(ctx, "Save htlc_out failed: %s", w->db->err));
 	CHECK_MSG(out.dbid != 0, "HTLC DB ID was not set.");
-	CHECK_MSG(!wallet_htlc_save_out(w, &chan, &out),
+	CHECK_MSG(!wallet_htlc_save_out(w, chan, &out),
 		  "Saving two HTLCs with the same data must not succeed.");
 
 	/* Attempt to load them from the DB again */
-	htlc_in_map_init(&htlcs_in);
-	htlc_out_map_init(&htlcs_out);
+	htlc_in_map_init(htlcs_in);
+	htlc_out_map_init(htlcs_out);
 
-	CHECK_MSG(wallet_htlcs_load_for_channel(w, &chan, &htlcs_in, &htlcs_out),
+	CHECK_MSG(wallet_htlcs_load_for_channel(w, chan, htlcs_in, htlcs_out),
 		  "Failed loading HTLCs");
+
+	CHECK_MSG(wallet_htlcs_reconnect(w, htlcs_in, htlcs_out),
+		  "Unable to reconnect htlcs.");
+
+	hin = htlc_in_map_get(htlcs_in, &in.key);
+	hout = htlc_out_map_get(htlcs_out, &out.key);
+
+	CHECK(hin != NULL);
+	CHECK(hout != NULL);
+
+	/* Have to free manually, otherwise we get our dependencies
+	 * twisted */
+	tal_free(hin);
+	tal_free(hout);
+	htlc_in_map_clear(htlcs_in);
+	htlc_out_map_clear(htlcs_out);
+
 	return true;
 }
 
