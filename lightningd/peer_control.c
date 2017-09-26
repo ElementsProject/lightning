@@ -517,6 +517,7 @@ static bool peer_reconnected(struct lightningd *ld,
 		get_gossip_fd_for_closingd_reconnect(ld, id, peer->unique_id, fd, cs);
 		return true;
 
+	case FUNDING_SPEND_SEEN:
 	case ONCHAIND_CHEATED:
 	case ONCHAIND_THEIR_UNILATERAL:
 	case ONCHAIND_OUR_UNILATERAL:
@@ -1151,8 +1152,7 @@ static int handle_onchain_init_reply(struct peer *peer, const u8 *msg)
 		return -1;
 	}
 
-	/* We could come from almost any state. */
-	peer_set_condition(peer, peer->state, state);
+	peer_set_condition(peer, FUNDING_SPEND_SEEN, state);
 
 	/* Tell it about any preimages we know. */
 	onchaind_tell_fulfill(peer);
@@ -1392,6 +1392,10 @@ static enum watch_result funding_spent(struct peer *peer,
 	struct pubkey ourkey;
 
 	peer_fail_permanent_str(peer, "Funding transaction spent");
+
+	/* We could come from almost any state. */
+	peer_set_condition(peer, peer->state, FUNDING_SPEND_SEEN);
+
 	peer->owner = new_subd(peer->ld, peer->ld,
 			       "lightning_onchaind", peer,
 			       onchain_wire_type_name,
