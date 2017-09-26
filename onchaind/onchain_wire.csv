@@ -26,7 +26,7 @@ onchain_init,,remote_payment_basepoint,struct pubkey
 onchain_init,,remote_delayed_payment_basepoint,struct pubkey
 onchain_init,,tx,struct bitcoin_tx
 onchain_init,,tx_blockheight,u32
-onchain_init,,htlc_missing_depth,u32
+onchain_init,,reasonable_depth,u32
 onchain_init,,num_htlc_sigs,u16
 onchain_init,,htlc_signature,num_htlc_sigs*secp256k1_ecdsa_signature
 onchain_init,,num_htlcs,u64
@@ -74,3 +74,7 @@ onchain_extracted_preimage,,preimage,struct preimage
 # onchaind->master: this HTLC was missing from commit tx.
 onchain_missing_htlc_output,9
 onchain_missing_htlc_output,,htlc,struct htlc_stub
+
+# onchaind->master: this HTLC has timed out (after reasonable_depth)
+onchain_htlc_timeout,10
+onchain_htlc_timeout,,htlc,struct htlc_stub
