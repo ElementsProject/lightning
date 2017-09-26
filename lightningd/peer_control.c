@@ -94,7 +94,7 @@ static void peer_reconnect(struct peer *peer)
 		     try_reconnect, peer);
 }
 
-static void drop_to_chain(struct peer *peer)
+static void sign_last_tx(struct peer *peer)
 {
 	const tal_t *tmpctx = tal_tmpctx(peer);
 	u8 *funding_wscript;
@@ -123,11 +123,16 @@ static void drop_to_chain(struct peer *peer)
 				       &peer->channel_info->remote_fundingkey,
 				       &local_funding_pubkey);
 
+	tal_free(tmpctx);
+}
+
+static void drop_to_chain(struct peer *peer)
+{
+	sign_last_tx(peer);
+
 	/* Keep broadcasting until we say stop (can fail due to dup,
 	 * if they beat us to the broadcast). */
 	broadcast_tx(peer->ld->topology, peer, peer->last_tx, NULL);
-
-	tal_free(tmpctx);
 }
 
 void peer_fail_permanent(struct peer *peer, const u8 *msg)
@@ -1626,6 +1631,51 @@ void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
 	tal_free(peer->last_tx);
 	peer->last_tx = tal_steal(peer, tx);
 }
+
+static void json_sign_last_tx(struct command *cmd,
+			      const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *peertok;
+	struct peer *peer;
+	struct json_result *response = new_json_result(cmd);
+	u8 *linear;
+
+	if (!json_get_params(buffer, params,
+			     "id", &peertok,
+			     NULL)) {
+		command_fail(cmd, "Need id");
+		return;
+	}
+
+	peer = peer_from_json(cmd->ld, buffer, peertok);
+	if (!peer) {
+		command_fail(cmd, "Could not find peer with that id");
+		return;
+	}
+	if (!peer->last_tx) {
+		command_fail(cmd, "Peer has no final transaction");
+		return;
+	}
+
+	log_debug(peer->log, "dev-sign-last-tx: signing tx with %zu outputs",
+		  tal_count(peer->last_tx->output));
+	sign_last_tx(peer);
+	linear = linearize_tx(cmd, peer->last_tx);
+
+	json_object_start(response, NULL);
+	json_add_hex(response, "tx", linear, tal_len(linear));
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+static const struct json_command dev_sign_last_tx = {
+	"dev-sign-last-tx",
+	json_sign_last_tx,
+	"Sign and return the last commitment transaction",
+	"Sign last transaction with peer @id, return as @tx."
+	"  This should never be called outside testing!"
+};
+AUTODATA(json_command, &dev_sign_last_tx);
 
 /* Is this better than the last tx we were holding? */
 static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
