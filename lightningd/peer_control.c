@@ -885,6 +885,58 @@ static const struct json_command dev_fail_command = {
 };
 AUTODATA(json_command, &dev_fail_command);
 
+static bool dev_reenable_commit_finished(struct subd *channeld,
+					 const u8 *resp,
+					 const int *fds,
+					 struct command *cmd)
+{
+	command_success(cmd, null_response(cmd));
+	return true;
+}
+
+static void json_dev_reenable_commit(struct command *cmd,
+				     const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *peertok;
+	struct peer *peer;
+	u8 *msg;
+
+	if (!json_get_params(buffer, params,
+			     "id", &peertok,
+			     NULL)) {
+		command_fail(cmd, "Need id");
+		return;
+	}
+
+	peer = peer_from_json(cmd->ld, buffer, peertok);
+	if (!peer) {
+		command_fail(cmd, "Could not find peer with that id");
+		return;
+	}
+
+	if (!peer->owner) {
+		command_fail(cmd, "Peer has no owner");
+		return;
+	}
+
+	if (!streq(peer->owner->name, "lightning_channeld")) {
+		command_fail(cmd, "Peer owned by %s", peer->owner->name);
+		return;
+	}
+
+	msg = towire_channel_dev_reenable_commit(peer);
+	subd_req(peer, peer->owner, take(msg), -1, 0,
+		 dev_reenable_commit_finished, cmd);
+}
+
+static const struct json_command dev_reenable_commit = {
+	"dev-reenable-commit",
+	json_dev_reenable_commit,
+	"Reenable the commit timer on peer {id}",
+	"Returns {} on success"
+};
+AUTODATA(json_command, &dev_reenable_commit);
+
 struct log_info {
 	enum log_level level;
 	struct json_result *response;
@@ -1919,9 +1971,11 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_GOT_REVOKE_REPLY:
 	case WIRE_CHANNEL_SENDING_COMMITSIG_REPLY:
 	case WIRE_CHANNEL_SEND_SHUTDOWN:
+	case WIRE_CHANNEL_DEV_REENABLE_COMMIT:
 	/* Replies go to requests. */
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
 	case WIRE_CHANNEL_PING_REPLY:
+	case WIRE_CHANNEL_DEV_REENABLE_COMMIT_REPLY:
 		break;
 	}
 
