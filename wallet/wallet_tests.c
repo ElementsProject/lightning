@@ -1,16 +1,18 @@
 #include "wallet.c"
 
-#include <ccan/mem/mem.h>
 #include "db.c"
-#include "wallet/test_utils.h"
 
+#include <ccan/mem/mem.h>
+#include <lightningd/log.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <wallet/test_utils.h>
 
 static struct wallet *create_test_wallet(const tal_t *ctx)
 {
 	char filename[] = "/tmp/ldb-XXXXXX";
 	int fd = mkstemp(filename);
+	struct log_book *log_book;
 	struct wallet *w = tal(ctx, struct wallet);
 	CHECK_MSG(fd != -1, "Unable to generate temp filename");
 	close(fd);
@@ -19,6 +21,10 @@ static struct wallet *create_test_wallet(const tal_t *ctx)
 
 	CHECK_MSG(w->db, "Failed opening the db");
 	CHECK_MSG(db_migrate(w->db), "DB migration failed");
+
+	ltmp = tal_tmpctx(ctx);
+	log_book = new_log_book(w, 20*1024*1024, LOG_DBG);
+	w->log = new_log(w, log_book, "wallet_tests(%u):", (int)getpid());
 
 	return w;
 }
