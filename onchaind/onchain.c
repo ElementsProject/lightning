@@ -51,8 +51,8 @@ static struct privkey *revocation_privkey;
 /* one value is useful for a few witness scripts */
 static const u8 ONE = 0x1;
 
-/* When to tell master about HTLCs which aren't in commitment tx */
-static u32 htlc_missing_depth;
+/* When to tell master about HTLCs which are missing/timed out */
+static u32 reasonable_depth;
 
 /* The messages to send at that depth. */
 static u8 **missing_htlc_msgs;
@@ -691,7 +691,6 @@ static void output_spent(struct tracked_output ***outs,
 			    || out->resolved->tx_type == OUR_HTLC_TIMEOUT_TX)
 				resolve_htlc_tx(outs, i, tx, &txid,
 						tx_blockheight);
-			/* FIXME: Fail timed out htlc after reasonable depth. */
 			return;
 		}
 
@@ -749,6 +748,36 @@ static void output_spent(struct tracked_output ***outs,
 	unwatch_tx(tx);
 }
 
+static void update_resolution_depth(struct tracked_output *out, u32 depth)
+{
+	status_trace("%s/%s->%s depth %u",
+		     tx_type_name(out->tx_type),
+		     output_type_name(out->output_type),
+		     tx_type_name(out->resolved->tx_type),
+		     depth);
+
+	/* BOLT #5:
+	 *
+	 * If the HTLC output has *timed out* and not been *resolved*,
+	 * the node MUST *resolve* the output and MUST fail the
+	 * corresponding incoming HTLC (if any) once the resolving
+	 * transaction has reached reasonable depth. */
+	if (out->resolved->tx_type == OUR_HTLC_TIMEOUT_TX
+	    || out->resolved->tx_type == OUR_HTLC_TIMEOUT_TO_US) {
+		if (out->resolved->depth < reasonable_depth
+		    && depth >= reasonable_depth) {
+			u8 *msg;
+			status_trace("%s/%s reached reasonable depth %u",
+				     tx_type_name(out->tx_type),
+				     output_type_name(out->output_type),
+				     depth);
+			msg = towire_onchain_htlc_timeout(out, out->htlc);
+			wire_sync_write(REQ_FD, take(msg));
+		}
+	}
+	out->resolved->depth = depth;
+}
+
 static void tx_new_depth(struct tracked_output **outs,
 			 const struct sha256_double *txid, u32 depth)
 {
@@ -756,7 +785,7 @@ static void tx_new_depth(struct tracked_output **outs,
 
 	/* Special handling for commitment tx reaching depth */
 	if (structeq(&outs[0]->resolved->txid, txid)
-	    && depth >= htlc_missing_depth
+	    && depth >= reasonable_depth
 	    && missing_htlc_msgs) {
 		status_trace("Sending %zu missing htlc messages",
 			     tal_count(missing_htlc_msgs));
@@ -770,12 +799,7 @@ static void tx_new_depth(struct tracked_output **outs,
 		/* Is this tx resolving an output? */
 		if (outs[i]->resolved) {
 			if (structeq(&outs[i]->resolved->txid, txid)) {
-				status_trace("%s/%s->%s depth %u",
-					     tx_type_name(outs[i]->tx_type),
-					     output_type_name(outs[i]->output_type),
-					     tx_type_name(outs[i]->resolved->tx_type),
-					     depth);
-				outs[i]->resolved->depth = depth;
+				update_resolution_depth(outs[i], depth);
 			}
 			continue;
 		}
@@ -969,7 +993,9 @@ static void resolve_our_htlc_ourcommit(struct tracked_output *out)
 	 * ...
 	 *
 	 * If the HTLC output has *timed out* and not been *resolved*, the
-	 * node MUST *resolve* the output.  If the transaction is the node's
+	 * node MUST *resolve* the output and MUST fail the corresponding
+	 * incoming HTLC (if any) once the resolving transaction has reached
+	 * reasonable depth.  If the transaction is the node's
 	 * own commitment transaction, it MUST *resolve* the output by
 	 * spending it using the HTLC-timeout transaction, and the
 	 * HTLC-timeout transaction output MUST be *resolved* as described in
@@ -1016,9 +1042,11 @@ static void resolve_our_htlc_theircommit(struct tracked_output *out)
 	 * ...
 	 *
 	 * If the HTLC output has *timed out* and not been *resolved*, the
-	 * node MUST *resolve* the output.  If the transaction is the node's
-	 * own commitment transaction, .... Otherwise it MUST resolve the
-	 * output by spending it to a convenient address.
+	 * node MUST *resolve* the output and MUST fail the corresponding
+	 * incoming HTLC (if any) once the resolving transaction has reached
+	 * reasonable depth.  If the transaction is the node's own commitment
+	 * transaction, .... Otherwise it MUST resolve the output by spending
+	 * it to a convenient address.
 	 */
 	tx = tx_to_us(out, out, 0, out->htlc->cltv_expiry, NULL, 0,
 		      out->wscript,
@@ -1884,7 +1912,7 @@ int main(int argc, char *argv[])
 				   &remote_delayed_payment_basepoint,
 				   tx,
 				   &tx_blockheight,
-				   &htlc_missing_depth,
+				   &reasonable_depth,
 				   &remote_htlc_sigs,
 				   &num_htlcs)) {
 		master_badmsg(WIRE_ONCHAIN_INIT, msg);

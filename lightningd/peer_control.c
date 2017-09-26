@@ -1282,6 +1282,26 @@ static int handle_missing_htlc_output(struct peer *peer, const u8 *msg)
 	return 0;
 }
 
+static int handle_onchain_htlc_timeout(struct peer *peer, const u8 *msg)
+{
+	struct htlc_stub htlc;
+
+	if (!fromwire_onchain_htlc_timeout(msg, NULL, &htlc)) {
+		log_broken(peer->log, "Invalid onchain_htlc_timeout");
+		return -1;
+	}
+
+	/* BOLT #5:
+	 *
+	 * If the HTLC output has *timed out* and not been *resolved*, the node
+	 * MUST *resolve* the output and MUST fail the corresponding incoming
+	 * HTLC (if any) once the resolving transaction has reached reasonable
+	 * depth.
+	 */
+	onchain_failed_our_htlc(peer, &htlc, "timed out");
+	return 0;
+}
+
 static int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum onchain_wire_type t = fromwire_peektype(msg);
@@ -1301,6 +1321,9 @@ static int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
 
 	case WIRE_ONCHAIN_MISSING_HTLC_OUTPUT:
 		return handle_missing_htlc_output(sd->peer, msg);
+
+	case WIRE_ONCHAIN_HTLC_TIMEOUT:
+		return handle_onchain_htlc_timeout(sd->peer, msg);
 
 	/* We send these, not receive them */
 	case WIRE_ONCHAIN_INIT:
