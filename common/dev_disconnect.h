@@ -3,14 +3,23 @@
 #include "config.h"
 #include <stdbool.h>
 
-#define DEV_DISCONNECT_BEFORE '-'
-#define DEV_DISCONNECT_AFTER '+'
-#define DEV_DISCONNECT_DROPPKT '@'
-#define DEV_DISCONNECT_BLACKHOLE '0'
-#define DEV_DISCONNECT_NORMAL 0
+enum dev_disconnect {
+	/* Do nothing. */
+	DEV_DISCONNECT_NORMAL = 0,
+	/* Close connection before sending packet (and fail write). */
+	DEV_DISCONNECT_BEFORE = '-',
+	/* Close connection after sending packet. */
+	DEV_DISCONNECT_AFTER = '+',
+	/* Close connection after dropping packet. */
+	DEV_DISCONNECT_DROPPKT = '@',
+	/* Swallow all writes from now on, and do no more reads. */
+	DEV_DISCONNECT_BLACKHOLE = '0',
+	/* Disable commit timer after sending this. */
+	DEV_DISCONNECT_SUPPRESS_COMMIT = '_'
+};
 
 /* Force a close fd before or after a certain packet type */
-char dev_disconnect(int pkt_type);
+enum dev_disconnect dev_disconnect(int pkt_type);
 
 /* Make next write on fd fail as if they'd disconnected. */
 void dev_sabotage_fd(int fd);
@@ -20,5 +29,8 @@ void dev_blackhole_fd(int fd);
 
 /* For debug code to set in daemon. */
 void dev_disconnect_init(int fd);
+
+/* Hack for channeld to do DEV_DISCONNECT_SUPPRESS_COMMIT. */
+extern bool dev_suppress_commit;
 
 #endif /* LIGHTNING_COMMON_DEV_DISCONNECT_H */

@@ -253,7 +253,7 @@ static void peer_start_closingd(struct peer *peer,
 				bool reconnected);
 
 /* FIXME: Fake NOP dev_disconnect/dev_sabotage_fd for below. */
-char dev_disconnect(int pkt_type)
+enum dev_disconnect dev_disconnect(int pkt_type)
 {
 	return DEV_DISCONNECT_NORMAL;
 }

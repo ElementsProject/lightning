@@ -16,6 +16,8 @@ static int dev_disconnect_fd = -1;
 static char dev_disconnect_line[200];
 static int dev_disconnect_count, dev_disconnect_len;
 
+bool dev_suppress_commit;
+
 void dev_disconnect_init(int fd)
 {
 	int r;
@@ -44,7 +46,7 @@ void dev_disconnect_init(int fd)
 	dev_disconnect_fd = fd;
 }
 
-char dev_disconnect(int pkt_type)
+enum dev_disconnect dev_disconnect(int pkt_type)
 {
 	if (!streq(wire_type_name(pkt_type), dev_disconnect_line+1))
 		return DEV_DISCONNECT_NORMAL;
@@ -58,6 +60,9 @@ char dev_disconnect(int pkt_type)
 	lseek(dev_disconnect_fd, dev_disconnect_len+1, SEEK_CUR);
 
 	status_trace("dev_disconnect: %s", dev_disconnect_line);
+
+	if (dev_disconnect_line[0] == DEV_DISCONNECT_SUPPRESS_COMMIT)
+		dev_suppress_commit = true;
 	return dev_disconnect_line[0];
 }
 
