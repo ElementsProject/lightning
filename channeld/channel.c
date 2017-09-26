@@ -20,6 +20,7 @@
 #include <common/daemon_conn.h>
 #include <common/debug.h>
 #include <common/derive_basepoints.h>
+#include <common/dev_disconnect.h>
 #include <common/htlc_tx.h>
 #include <common/key_derive.h>
 #include <common/msg_queue.h>
@@ -617,6 +618,13 @@ static void send_commit(struct peer *peer)
 	tal_t *tmpctx = tal_tmpctx(peer);
 	u8 *msg;
 	const struct htlc **changed_htlcs;
+
+	/* Hack to suppress all commit sends if dev_disconnect says to */
+	if (dev_suppress_commit) {
+		peer->commit_timer = NULL;
+		tal_free(tmpctx);
+		return;
+	}
 
 	/* FIXME: Document this requirement in BOLT 2! */
 	/* We can't send two commits in a row. */
