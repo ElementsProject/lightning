@@ -171,3 +171,7 @@ channel_got_shutdown,,scriptpubkey,scriptpubkey_len*u8
 # Shutdown is complete, ready for closing negotiation. + peer_fd & gossip_fd.
 channel_shutdown_complete,25
 channel_shutdown_complete,,crypto_state,struct crypto_state
+
+# Re-enable commit timer.
+channel_dev_reenable_commit,26
+channel_dev_reenable_commit_reply,126
