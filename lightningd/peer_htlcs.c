@@ -791,6 +791,53 @@ static bool peer_failed_our_htlc(struct peer *peer,
 	return true;
 }
 
+/* FIXME: Crazy slow! */
+struct htlc_out *find_htlc_out_by_ripemd(const struct peer *peer,
+					 const struct ripemd160 *ripemd)
+{
+	struct htlc_out_map_iter outi;
+	struct htlc_out *hout;
+
+	for (hout = htlc_out_map_first(&peer->ld->htlcs_out, &outi);
+	     hout;
+	     hout = htlc_out_map_next(&peer->ld->htlcs_out, &outi)) {
+		struct ripemd160 hash;
+
+		if (hout->key.peer != peer)
+			continue;
+
+		ripemd160(&hash,
+			  &hout->payment_hash, sizeof(hout->payment_hash));
+		if (structeq(&hash, ripemd))
+			return hout;
+	}
+	return NULL;
+}
+
+void onchain_failed_our_htlc(const struct peer *peer,
+			     const struct htlc_stub *htlc,
+			     const char *why)
+{
+	struct htlc_out *hout = find_htlc_out_by_ripemd(peer, &htlc->ripemd);
+
+	/* Don't fail twice! */
+	if (hout->failuremsg)
+		return;
+
+	hout->failuremsg = make_failmsg(hout, hout->msatoshi,
+					WIRE_PERMANENT_CHANNEL_FAILURE,
+					NULL);
+
+	if (!hout->in) {
+		char *localfail = tal_fmt(peer, "%s: %s",
+					  onion_type_name(WIRE_PERMANENT_CHANNEL_FAILURE),
+					  why);
+		payment_failed(hout->key.peer->ld, hout, localfail);
+		tal_free(localfail);
+	} else
+		local_fail_htlc(hout->in, WIRE_PERMANENT_CHANNEL_FAILURE);
+}
+
 static void remove_htlc_in(struct peer *peer, struct htlc_in *hin)
 {
 	htlc_in_check(hin, __func__);

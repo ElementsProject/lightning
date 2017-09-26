@@ -1261,6 +1261,27 @@ static int handle_extracted_preimage(struct peer *peer, const u8 *msg)
 	return 0;
 }
 
+static int handle_missing_htlc_output(struct peer *peer, const u8 *msg)
+{
+	struct htlc_stub htlc;
+
+	if (!fromwire_onchain_missing_htlc_output(msg, NULL, &htlc)) {
+		log_broken(peer->log, "Invalid missing_htlc_output");
+		return -1;
+	}
+
+	/* BOLT #5:
+	 *
+	 * For any committed HTLC which does not have an output in this
+	 * commitment transaction, the node MUST fail the corresponding
+	 * incoming HTLC (if any) once the commitment transaction has reached
+	 * reasonable depth, and MAY fail it sooner if no valid commitment
+	 * transaction contains an output corresponding to the HTLC.
+	 */
+	onchain_failed_our_htlc(peer, &htlc, "missing in commitment tx");
+	return 0;
+}
+
 static int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum onchain_wire_type t = fromwire_peektype(msg);
@@ -1277,6 +1298,9 @@ static int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
 
  	case WIRE_ONCHAIN_EXTRACTED_PREIMAGE:
 		return handle_extracted_preimage(sd->peer, msg);
+
+	case WIRE_ONCHAIN_MISSING_HTLC_OUTPUT:
+		return handle_missing_htlc_output(sd->peer, msg);
 
 	/* We send these, not receive them */
 	case WIRE_ONCHAIN_INIT:
@@ -1298,6 +1322,37 @@ static u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx
 		return NULL;
 
 	return scriptpubkey_p2wpkh(ctx, &shutdownkey);
+}
+
+/* If we want to know if this HTLC is missing, return depth. */
+static bool tell_if_missing(const struct peer *peer, size_t n,
+			    bool *tell_immediate)
+{
+	struct htlc_out *hout;
+
+	/* Keep valgrind happy. */
+	*tell_immediate = false;
+
+	/* Is it a current HTLC? */
+	hout = find_htlc_out_by_ripemd(peer, &peer->htlcs[n].ripemd);
+	if (!hout)
+		return false;
+
+	/* BOLT #5:
+	 *
+	 * For any committed HTLC which does not have an output in this
+	 * commitment transaction, the node MUST fail the corresponding
+	 * incoming HTLC (if any) once the commitment transaction has reached
+	 * reasonable depth, and MAY fail it sooner if no valid commitment
+	 * transaction contains an output corresponding to the HTLC.
+	 */
+	if (hout->hstate >= RCVD_ADD_REVOCATION
+	    && hout->hstate < SENT_REMOVE_REVOCATION)
+		*tell_immediate = true;
+
+	log_debug(peer->log, "We want to know if htlc %"PRIu64" is missing (%s)",
+		  hout->key.id, *tell_immediate ? "immediate" : "later");
+	return true;
 }
 
 /* With a reorg, this can get called multiple times; each time we'll kill
@@ -1374,17 +1429,21 @@ static enum watch_result funding_spent(struct peer *peer,
 				  &peer->channel_info->theirbase.delayed_payment,
 				  tx,
 				  block->height,
+				  /* FIXME: config for 'reasonable depth' */
+				  3,
 				  peer->last_htlc_sigs,
 				  tal_count(peer->htlcs));
 	subd_send_msg(peer->owner, take(msg));
 
 	/* FIXME: Don't queue all at once, use an empty cb... */
 	for (size_t i = 0; i < tal_count(peer->htlcs); i++) {
-		msg = towire_onchain_htlc(peer, peer->htlcs+i);
+		bool tell_immediate;
+		bool tell = tell_if_missing(peer, i, &tell_immediate);
+		msg = towire_onchain_htlc(peer, peer->htlcs+i,
+					  tell, tell_immediate);
 		subd_send_msg(peer->owner, take(msg));
 	}
 
-	/* FIXME: Send any known HTLC preimage for live HTLCs! */
 	watch_tx_and_outputs(peer, tx);
 
 	/* We keep watching until peer finally deleted, for reorgs. */

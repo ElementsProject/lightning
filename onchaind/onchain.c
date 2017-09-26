@@ -51,6 +51,12 @@ static struct privkey *revocation_privkey;
 /* one value is useful for a few witness scripts */
 static const u8 ONE = 0x1;
 
+/* When to tell master about HTLCs which aren't in commitment tx */
+static u32 htlc_missing_depth;
+
+/* The messages to send at that depth. */
+static u8 **missing_htlc_msgs;
+
 /* If we broadcast a tx, or need a delay to resolve the output. */
 struct proposed_resolution {
 	/* This can be NULL if our proposal is to simply ignore it after depth */
@@ -685,6 +691,7 @@ static void output_spent(struct tracked_output ***outs,
 			    || out->resolved->tx_type == OUR_HTLC_TIMEOUT_TX)
 				resolve_htlc_tx(outs, i, tx, &txid,
 						tx_blockheight);
+			/* FIXME: Fail timed out htlc after reasonable depth. */
 			return;
 		}
 
@@ -746,6 +753,18 @@ static void tx_new_depth(struct tracked_output **outs,
 			 const struct sha256_double *txid, u32 depth)
 {
 	size_t i;
+
+	/* Special handling for commitment tx reaching depth */
+	if (structeq(&outs[0]->resolved->txid, txid)
+	    && depth >= htlc_missing_depth
+	    && missing_htlc_msgs) {
+		status_trace("Sending %zu missing htlc messages",
+			     tal_count(missing_htlc_msgs));
+		for (i = 0; i < tal_count(missing_htlc_msgs); i++)
+			wire_sync_write(REQ_FD, missing_htlc_msgs[i]);
+		/* Don't do it again. */
+		missing_htlc_msgs = tal_free(missing_htlc_msgs);
+	}
 
 	for (i = 0; i < tal_count(outs); i++) {
 		/* Is this tx resolving an output? */
@@ -1049,6 +1068,35 @@ static int match_htlc_output(const struct bitcoin_tx *tx,
 	return -1;
 }
 
+/* Tell master about any we didn't use, if it wants to know. */
+static void note_missing_htlcs(u8 **htlc_scripts,
+			       const struct htlc_stub *htlcs,
+			       const bool *tell_if_missing,
+			       const bool *tell_immediately)
+{
+	for (size_t i = 0; i < tal_count(htlcs); i++) {
+		u8 *msg;
+
+		/* Used. */
+		if (!htlc_scripts[i])
+			continue;
+
+		/* Doesn't care. */
+		if (!tell_if_missing[i])
+			continue;
+
+		msg = towire_onchain_missing_htlc_output(missing_htlc_msgs,
+							 &htlcs[i]);
+		if (tell_immediately[i])
+			wire_sync_write(REQ_FD, take(msg));
+		else {
+			size_t n = tal_count(missing_htlc_msgs);
+			tal_resize(&missing_htlc_msgs, n+1);
+			missing_htlc_msgs[n] = msg;
+		}
+	}
+}
+
 static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				  u32 tx_blockheight,
 				  const struct sha256_double *txid,
@@ -1060,6 +1108,8 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				  const struct pubkey *local_delayed_payment_basepoint,
 				  u64 commit_num,
 				  const struct htlc_stub *htlcs,
+				  const bool *tell_if_missing,
+				  const bool *tell_immediately,
 				  const secp256k1_ecdsa_signature *remote_htlc_sigs,
 				  struct tracked_output **outs)
 {
@@ -1258,12 +1308,16 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 			 *    Output Handling: Their Offers" below. */
 			resolve_their_htlc(out);
 		}
+
 		/* Each of these consumes one HTLC signature */
 		remote_htlc_sigs++;
 		/* We've matched this HTLC, can't do again. */
 		htlc_scripts[j] = NULL;
+
 	}
 
+	note_missing_htlcs(htlc_scripts, htlcs,
+			   tell_if_missing, tell_immediately);
 	wait_for_resolved(outs);
 	tal_free(tmpctx);
 }
@@ -1336,6 +1390,8 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			       const struct pubkey *remote_delayed_payment_basepoint,
 			       u64 commit_num,
 			       const struct htlc_stub *htlcs,
+			       const bool *tell_if_missing,
+			       const bool *tell_immediately,
 			       struct tracked_output **outs)
 {
 	const tal_t *tmpctx = tal_tmpctx(NULL);
@@ -1564,6 +1620,8 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		htlc_scripts[j] = NULL;
 	}
 
+	note_missing_htlcs(htlc_scripts, htlcs,
+			   tell_if_missing, tell_immediately);
 	wait_for_resolved(outs);
 	tal_free(tmpctx);
 }
@@ -1580,6 +1638,8 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 				    const struct pubkey *remote_delayed_payment_basepoint,
 				    u64 commit_num,
 				    const struct htlc_stub *htlcs,
+				    const bool *tell_if_missing,
+				    const bool *tell_immediately,
 				    struct tracked_output **outs)
 {
 	const tal_t *tmpctx = tal_tmpctx(NULL);
@@ -1759,6 +1819,8 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		htlc_scripts[j] = NULL;
 	}
 
+	note_missing_htlcs(htlc_scripts, htlcs,
+			   tell_if_missing, tell_immediately);
 	wait_for_resolved(outs);
 	tal_free(tmpctx);
 }
@@ -1783,6 +1845,7 @@ int main(int argc, char *argv[])
 	u64 funding_amount_satoshi, num_htlcs;
 	u8 *scriptpubkey[NUM_SIDES];
 	struct htlc_stub *htlcs;
+	bool *tell_if_missing, *tell_immediately;
 	u32 tx_blockheight;
 
 	if (argc == 2 && streq(argv[1], "--version")) {
@@ -1797,6 +1860,8 @@ int main(int argc, char *argv[])
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 	status_setup_sync(REQ_FD);
+
+	missing_htlc_msgs = tal_arr(ctx, u8 *, 0);
 
 	msg = wire_sync_read(ctx, REQ_FD);
 	tx = tal(ctx, struct bitcoin_tx);
@@ -1819,6 +1884,7 @@ int main(int argc, char *argv[])
 				   &remote_delayed_payment_basepoint,
 				   tx,
 				   &tx_blockheight,
+				   &htlc_missing_depth,
 				   &remote_htlc_sigs,
 				   &num_htlcs)) {
 		master_badmsg(WIRE_ONCHAIN_INIT, msg);
@@ -1828,13 +1894,17 @@ int main(int argc, char *argv[])
 
 	/* FIXME: Filter as we go, don't load them all into mem! */
 	htlcs = tal_arr(ctx, struct htlc_stub, num_htlcs);
-	if (!htlcs)
+	tell_if_missing = tal_arr(ctx, bool, num_htlcs);
+	tell_immediately = tal_arr(ctx, bool, num_htlcs);
+	if (!htlcs || !tell_if_missing || !tell_immediately)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Can't allocate %"PRIu64" htlcs", num_htlcs);
 
 	for (u64 i = 0; i < num_htlcs; i++) {
 		msg = wire_sync_read(ctx, REQ_FD);
-		if (!fromwire_onchain_htlc(msg, NULL, &htlcs[i]))
+		if (!fromwire_onchain_htlc(msg, NULL, &htlcs[i],
+					   &tell_if_missing[i],
+					   &tell_immediately[i]))
 			master_badmsg(WIRE_ONCHAIN_HTLC, msg);
 	}
 
@@ -1892,6 +1962,7 @@ int main(int argc, char *argv[])
 					      &basepoints.delayed_payment,
 					      commit_num,
 					      htlcs,
+					      tell_if_missing, tell_immediately,
 					      remote_htlc_sigs,
 					      outs);
 		/* BOLT #5:
@@ -1913,7 +1984,9 @@ int main(int argc, char *argv[])
 					   &remote_payment_basepoint,
 					   &remote_delayed_payment_basepoint,
 					   commit_num,
-					   htlcs, outs);
+					   htlcs,
+					   tell_if_missing, tell_immediately,
+					   outs);
 		/* BOLT #5:
 		 *
 		 * Note that there can be more than one valid,
@@ -1933,7 +2006,10 @@ int main(int argc, char *argv[])
 						&remote_payment_basepoint,
 						&remote_delayed_payment_basepoint,
 						commit_num,
-						htlcs, outs);
+						htlcs,
+						tell_if_missing,
+						tell_immediately,
+						outs);
 		} else if (commit_num == revocations_received(&shachain) + 1) {
 			status_trace("Their unilateral tx, new commit point");
 			handle_their_unilateral(tx, tx_blockheight,
@@ -1944,7 +2020,10 @@ int main(int argc, char *argv[])
 						&remote_payment_basepoint,
 						&remote_delayed_payment_basepoint,
 						commit_num,
-						htlcs, outs);
+						htlcs,
+						tell_if_missing,
+						tell_immediately,
+						outs);
 		} else
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Unknown commitment index %"PRIu64
