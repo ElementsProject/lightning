@@ -113,6 +113,14 @@ char *dbmigrations[] = {
     NULL,
 };
 
+/**
+ * db_clear_error - Clear any errors from previous queries
+ */
+static void db_clear_error(struct db *db)
+{
+	db->err = tal_free(db->err);
+}
+
 bool PRINTF_FMT(3, 4)
     db_exec(const char *caller, struct db *db, const char *fmt, ...)
 {
@@ -122,6 +130,8 @@ bool PRINTF_FMT(3, 4)
 
 	if (db->in_transaction && db->err)
 		return false;
+
+	db_clear_error(db);
 
 	va_start(ap, fmt);
 	cmd = tal_vfmt(db, fmt, ap);
@@ -151,6 +161,8 @@ sqlite3_stmt *PRINTF_FMT(3, 4)
 	if (db->in_transaction && db->err)
 		return NULL;
 
+	db_clear_error(db);
+
 	va_start(ap, fmt);
 	query = tal_vfmt(db, fmt, ap);
 	va_end(ap);
@@ -163,15 +175,6 @@ sqlite3_stmt *PRINTF_FMT(3, 4)
 	}
 	return stmt;
 }
-
-/**
- * db_clear_error - Clear any errors from previous queries
- */
-static void db_clear_error(struct db *db)
-{
-	db->err = tal_free(db->err);
-}
-
 
 static void close_db(struct db *db) { sqlite3_close(db->sql); }
 
