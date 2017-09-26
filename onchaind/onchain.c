@@ -497,9 +497,78 @@ static void unwatch_tx(const struct bitcoin_tx *tx)
 }
 
 static void handle_htlc_onchain_fulfill(struct tracked_output *out,
-				      const struct bitcoin_tx *tx)
+					const struct bitcoin_tx *tx)
 {
-	status_failed(STATUS_FAIL_INTERNAL_ERROR, "FIXME: %s", __func__);
+	const u8 *witness_preimage;
+	struct preimage preimage;
+	struct sha256 sha;
+	struct ripemd160 ripemd;
+
+	/* Our HTLC, they filled (must be a HTLC-success tx). */
+	if (out->tx_type == THEIR_UNILATERAL) {
+		/* BOLT #3:
+		 *
+		 * ## HTLC-Timeout and HTLC-Success Transactions
+		 *
+		 * ...  `txin[0]` witness stack: `0 <remotesig> <localsig>
+		 * <payment_preimage>` for HTLC-Success
+		 */
+		if (tal_count(tx->input[0].witness) != 5) /* +1 for wscript */
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "%s/%s spent with weird witness %zu",
+				      tx_type_name(out->tx_type),
+				      output_type_name(out->output_type),
+				      tal_count(tx->input[0].witness));
+
+		witness_preimage = tx->input[0].witness[3];
+	} else if (out->tx_type == OUR_UNILATERAL) {
+		/* BOLT #3:
+		 *
+		 * The remote node can redeem the HTLC with the witness:
+		 *
+		 *    <remotesig> <payment_preimage>
+		 */
+		if (tal_count(tx->input[0].witness) != 3) /* +1 for wscript */
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "%s/%s spent with weird witness %zu",
+				      tx_type_name(out->tx_type),
+				      output_type_name(out->output_type),
+				      tal_count(tx->input[0].witness));
+
+		witness_preimage = tx->input[0].witness[1];
+	} else
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "onchain_fulfill for %s/%s?",
+			      tx_type_name(out->tx_type),
+			      output_type_name(out->output_type));
+
+	if (tal_len(witness_preimage) != sizeof(preimage))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "%s/%s spent with bad witness length %zu",
+			      tx_type_name(out->tx_type),
+			      output_type_name(out->output_type),
+			      tal_len(witness_preimage));
+	memcpy(&preimage, witness_preimage, sizeof(preimage));
+	sha256(&sha, &preimage, sizeof(preimage));
+	ripemd160(&ripemd, &sha, sizeof(sha));
+
+	if (!structeq(&ripemd, &out->htlc->ripemd))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "%s/%s spent with bad preimage %s (ripemd not %s)",
+			      tx_type_name(out->tx_type),
+			      output_type_name(out->output_type),
+			      type_to_string(trc, struct preimage, &preimage),
+			      type_to_string(trc, struct ripemd160,
+					     &out->htlc->ripemd));
+
+	/* Tell master we found a preimage. */
+	status_trace("%s/%s gave us preimage %s",
+		     tx_type_name(out->tx_type),
+		     output_type_name(out->output_type),
+		     type_to_string(trc, struct preimage, &preimage));
+	wire_sync_write(REQ_FD,
+			take(towire_onchain_extracted_preimage(NULL,
+							       &preimage)));
 }
 
 static void resolve_htlc_tx(struct tracked_output ***outs,

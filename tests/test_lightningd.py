@@ -7,6 +7,7 @@ from lightning import LightningRpc
 import copy
 import json
 import logging
+import queue
 import os
 import random
 import re
@@ -472,8 +473,14 @@ class LightningDTests(BaseLightningDTests):
         route = l1.rpc.getroute(l3.info['id'], 10**8, 1)["route"]
         assert len(route) == 2
 
+        q = queue.Queue()
+
         def try_pay():
-            l1.rpc.sendpay(to_json(route), rhash, async=False)
+            try:
+                l1.rpc.sendpay(to_json(route), rhash, async=False)
+                q.put(None)
+            except Exception as err:
+                q.put(err)
 
         t = threading.Thread(target=try_pay)
         t.daemon = True
@@ -490,11 +497,16 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* in 0 blocks')
         l2.daemon.wait_for_log('sendrawtx exit 0')
 
+        # Payment should succeed.
         l1.bitcoin.rpc.generate(1)
-        # FIXME: l1 should get preimage off the chain!
-        l1.daemon.wait_for_log('FIXME: handle_htlc_onchain_fulfill')
-        l1.has_failed()
-        
+        l1.daemon.wait_for_log('THEIR_UNILATERAL/OUR_HTLC gave us preimage')
+        err = q.get(timeout = 10)
+        if err:
+            print("Got err from sendpay thread")
+            raise err
+        t.join(timeout=1)
+        assert not t.isAlive()
+
         # After 4 more blocks, l2 can spend to-us.
         l1.bitcoin.rpc.generate(4)
         l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
@@ -508,8 +520,6 @@ class LightningDTests(BaseLightningDTests):
         # 100 blocks after last spend, l2 should be done.
         l1.bitcoin.rpc.generate(100)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
-
-        # FIXME: kill thread?
 
     def test_permfail_new_commit(self):
         # Test case where we have two possible commits: it will use new one.
@@ -532,8 +542,6 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 5 blocks')
         l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US (.*) in 5 blocks')
 
-        # FIXME: Implement FULFILL!
-
         # OK, time out HTLC.
         bitcoind.rpc.generate(5)
         l1.daemon.wait_for_log('sendrawtx exit 0')
@@ -541,8 +549,6 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TO_US')
         l2.daemon.wait_for_log('Ignoring output.*: OUR_UNILATERAL/THEIR_HTLC')
 
-        # FIXME: This doesn't work :(
-        # FIXME: sendpay command should time out!
         t.cancel()
 
         # Now, 100 blocks it should be done.
@@ -570,28 +576,25 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 5 blocks')
         l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US (.*) in 5 blocks')
-
-        # OK, time out HTLC.
-        bitcoind.rpc.generate(5)
-        l1.daemon.wait_for_log('FIXME: handle_htlc_onchain_fulfill')
-        l1.has_failed()
-
-#        l1.daemon.wait_for_log('sendrawtx exit 0')
-        bitcoind.rpc.generate(1)
-#        l1.daemon.wait_for_log('Resolved THEIR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TO_US')
+        # l2 then gets preimage, uses it instead of ignoring
         l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/THEIR_HTLC by OUR_HTLC_SUCCESS_TX .* in 0 blocks')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
         bitcoind.rpc.generate(1)
+
+        # OK, l1 sees l2 fulfill htlc.
+        l1.daemon.wait_for_log('THEIR_UNILATERAL/OUR_HTLC gave us preimage')
         l2.daemon.wait_for_log('Propose handling OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* in 6 blocks')
         bitcoind.rpc.generate(6)
-        l2.daemon.wait_for_log('sendrawtx exit 0')
 
-        # FIXME: This doesn't work :(
-        # FIXME: sendpay command should time out!
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+        
         t.cancel()
 
         # Now, 100 blocks it should be done.
-        bitcoind.rpc.generate(100)
-#        l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+        bitcoind.rpc.generate(94)
+        l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+        assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
+        bitcoind.rpc.generate(6)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
         
     def test_permfail_htlc_out(self):
@@ -612,27 +615,36 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('Their unilateral tx, old commit point')
         l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
         l2.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
-        l2.daemon.wait_for_log('Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US \\(.*\\) in 5 blocks')
+        l2.daemon.wait_for_logs(['Propose handling OUR_UNILATERAL/OUR_HTLC by OUR_HTLC_TIMEOUT_TO_US \\(.*\\) in 5 blocks',
+                                 'Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* in 6 blocks'])
+
         l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM \\(IGNORING\\) in 5 blocks')
-
-        # OK, time out HTLC.
-        bitcoind.rpc.generate(5)
-
-        l2.daemon.wait_for_log('FIXME: handle_htlc_onchain_fulfill')
-        l2.has_failed()
-
-        bitcoind.rpc.generate(1)
+        # l1 then gets preimage, uses it instead of ignoring
         l1.daemon.wait_for_log('Propose handling THEIR_UNILATERAL/THEIR_HTLC by THEIR_HTLC_FULFILL_TO_US .* in 0 blocks')
-#        l2.daemon.wait_for_log('Resolved OUR_UNILATERAL/OUR_HTLC by our proposal OUR_HTLC_TIMEOUT_TO_US')
+        l1.daemon.wait_for_log('sendrawtx exit 0')
 
-        # FIXME: This doesn't work :(
-        # FIXME: sendpay command should time out!
+        # l2 sees l1 fulfill tx.
+        bitcoind.rpc.generate(1)
+
+        l2.daemon.wait_for_log('OUR_UNILATERAL/OUR_HTLC gave us preimage')
         t.cancel()
 
-        # Now, 100 blocks it should be done.
-        bitcoind.rpc.generate(100)
+        # l2 can send OUR_DELAYED_RETURN_TO_WALLET after 5 more blocks.
+        bitcoind.rpc.generate(5)
+        l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+
+        # Now, 100 blocks they should be done.
+        bitcoind.rpc.generate(93)
+        assert not l1.daemon.is_in_log('onchaind complete, forgetting peer')
+        assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
+        bitcoind.rpc.generate(1)
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
-#        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+        assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
+        bitcoind.rpc.generate(5)
+        assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
+        bitcoind.rpc.generate(1)
+        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     def test_gossip_jsonrpc(self):
         l1,l2 = self.connect()
