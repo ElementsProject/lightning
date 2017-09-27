@@ -551,6 +551,8 @@ struct subd *new_subd(const tal_t *ctx,
 
 void subd_send_msg(struct subd *sd, const u8 *msg_out)
 {
+	/* FIXME: We should use unique upper bits for each daemon, then
+	 * have generate-wire.py add them, just assert here. */
 	assert(!strstarts(sd->msgname(fromwire_peektype(msg_out)), "INVALID"));
 	msg_enqueue(&sd->outq, msg_out);
 }
