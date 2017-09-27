@@ -1783,6 +1783,7 @@ void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
 	peer->last_tx = tal_steal(peer, tx);
 }
 
+/* FIXME: Guard with heavy dev-only #ifdefs! */
 static void json_sign_last_tx(struct command *cmd,
 			      const char *buffer, const jsmntok_t *params)
 {
