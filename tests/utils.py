@@ -310,7 +310,8 @@ class LightningNode(object):
         db.close()
         return result
 
-    def has_failed(self):
+    # FIXME: we should flag daemon on startup, suppress error
+    def allow_failure(self):
         """Note that a daemon has (deliberately) crashed, so we don't fail
         on cleanup"""
         self.known_fail = True

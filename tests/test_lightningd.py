@@ -740,7 +740,7 @@ class LightningDTests(BaseLightningDTests):
 
         l2.daemon.wait_for_log('-> ONCHAIND_CHEATED')
         # FIXME: l1 should try to stumble along!
-        l1.has_failed()
+        l1.allow_failure()
 
         # l2 should spend all of the outputs (except to-us).
         # Could happen in any order, depending on commitment tx.
@@ -802,7 +802,7 @@ class LightningDTests(BaseLightningDTests):
 
         l2.daemon.wait_for_log('-> ONCHAIND_CHEATED')
         # FIXME: l1 should try to stumble along!
-        l1.has_failed()
+        l1.allow_failure()
 
         # l2 should spend all of the outputs (except to-us).
         # Could happen in any order, depending on commitment tx.
