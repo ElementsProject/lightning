@@ -750,11 +750,17 @@ static void output_spent(struct tracked_output ***outs,
 
 static void update_resolution_depth(struct tracked_output *out, u32 depth)
 {
+	bool reached_reasonable_depth;
+
 	status_trace("%s/%s->%s depth %u",
 		     tx_type_name(out->tx_type),
 		     output_type_name(out->output_type),
 		     tx_type_name(out->resolved->tx_type),
 		     depth);
+
+	/* We only set this once. */
+	reached_reasonable_depth = (out->resolved->depth < reasonable_depth
+				    && depth >= reasonable_depth);
 
 	/* BOLT #5:
 	 *
@@ -762,18 +768,16 @@ static void update_resolution_depth(struct tracked_output *out, u32 depth)
 	 * the node MUST *resolve* the output and MUST fail the
 	 * corresponding incoming HTLC (if any) once the resolving
 	 * transaction has reached reasonable depth. */
-	if (out->resolved->tx_type == OUR_HTLC_TIMEOUT_TX
-	    || out->resolved->tx_type == OUR_HTLC_TIMEOUT_TO_US) {
-		if (out->resolved->depth < reasonable_depth
-		    && depth >= reasonable_depth) {
-			u8 *msg;
-			status_trace("%s/%s reached reasonable depth %u",
-				     tx_type_name(out->tx_type),
-				     output_type_name(out->output_type),
-				     depth);
-			msg = towire_onchain_htlc_timeout(out, out->htlc);
-			wire_sync_write(REQ_FD, take(msg));
-		}
+	if ((out->resolved->tx_type == OUR_HTLC_TIMEOUT_TX
+	     || out->resolved->tx_type == OUR_HTLC_TIMEOUT_TO_US)
+	    && reached_reasonable_depth) {
+		u8 *msg;
+		status_trace("%s/%s reached reasonable depth %u",
+			     tx_type_name(out->tx_type),
+			     output_type_name(out->output_type),
+			     depth);
+		msg = towire_onchain_htlc_timeout(out, out->htlc);
+		wire_sync_write(REQ_FD, take(msg));
 	}
 	out->resolved->depth = depth;
 }
