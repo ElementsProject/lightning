@@ -114,6 +114,8 @@ int main(int argc, char *argv[])
 	setenv("PATH", tal_strjoin(tmpctx, pathelems, ":", STR_NO_TRAIL), 1);
 	assert(streq(find_my_path(tmpctx, argv0), answer));
 
+	assert(!taken_any());
+	take_cleanup();
 	tal_free(tmpctx);
 	return 0;
 }

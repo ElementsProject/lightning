@@ -268,6 +268,7 @@ int main(int argc, char **argv)
 		printf("%s\n", hextemp);
 	}
 	secp256k1_context_destroy(secp256k1_ctx);
+	opt_free_table();
 	tal_free(ctx);
 	return 0;
 }
