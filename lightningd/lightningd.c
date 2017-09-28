@@ -15,6 +15,7 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
+#include <common/io_debug.h>
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -226,6 +227,8 @@ int main(int argc, char *argv[])
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
+
+	io_poll_override(debug_poll);
 
 	/* Figure out where we are first. */
 	ld->daemon_dir = find_my_path(ld, argv[0]);

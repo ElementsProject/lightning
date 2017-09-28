@@ -7,6 +7,9 @@ int unused_main(int argc, char *argv[]);
 /* Generated stub for crashlog_activate */
 void crashlog_activate(const char *argv0 UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "crashlog_activate called!\n"); abort(); }
+/* Generated stub for debug_poll */
+int debug_poll(struct pollfd *fds UNNEEDED, nfds_t nfds UNNEEDED, int timeout UNNEEDED)
+{ fprintf(stderr, "debug_poll called!\n"); abort(); }
 /* Generated stub for gossip_init */
 void gossip_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "gossip_init called!\n"); abort(); }

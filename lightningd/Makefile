@@ -22,6 +22,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/funding_tx.o			\
 	common/htlc_state.o			\
 	common/htlc_wire.o			\
+	common/io_debug.o			\
 	common/key_derive.o			\
 	common/json.o				\
 	common/msg_queue.o			\
