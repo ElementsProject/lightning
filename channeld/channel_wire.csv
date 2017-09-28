@@ -8,27 +8,27 @@ channel_normal_operation,11001
 channel_init,1000
 channel_init,,chain_hash,struct sha256_double
 channel_init,,funding_txid,struct sha256_double
-channel_init,,funding_txout,2
-channel_init,,funding_satoshi,8
+channel_init,,funding_txout,u16
+channel_init,,funding_satoshi,u64
 channel_init,,our_config,struct channel_config
 channel_init,,their_config,struct channel_config
-channel_init,,feerate_per_kw,4
+channel_init,,feerate_per_kw,u32
 channel_init,,first_commit_sig,secp256k1_ecdsa_signature
 channel_init,,crypto_state,struct crypto_state
-channel_init,,remote_fundingkey,33
-channel_init,,revocation_basepoint,33
-channel_init,,payment_basepoint,33
-channel_init,,delayed_payment_basepoint,33
-channel_init,,remote_per_commit,33
-channel_init,,old_remote_per_commit,33
+channel_init,,remote_fundingkey,struct pubkey
+channel_init,,revocation_basepoint,struct pubkey
+channel_init,,payment_basepoint,struct pubkey
+channel_init,,delayed_payment_basepoint,struct pubkey
+channel_init,,remote_per_commit,struct pubkey
+channel_init,,old_remote_per_commit,struct pubkey
 channel_init,,funder,enum side
-channel_init,,fee_base,4
-channel_init,,fee_proportional,4
-channel_init,,local_msatoshi,8
+channel_init,,fee_base,u32
+channel_init,,fee_proportional,u32
+channel_init,,local_msatoshi,u64
 channel_init,,seed,struct privkey
 channel_init,,local_node_id,struct pubkey
 channel_init,,remote_node_id,struct pubkey
-channel_init,,commit_msec,4
+channel_init,,commit_msec,u32
 channel_init,,cltv_delta,u16
 channel_init,,last_was_revoke,bool
 channel_init,,num_last_sent_commit,u16
@@ -66,32 +66,32 @@ channel_funding_announce_depth,1003
 
 # Tell channel to offer this htlc
 channel_offer_htlc,1004
-channel_offer_htlc,,amount_msat,8
-channel_offer_htlc,,cltv_expiry,4
-channel_offer_htlc,,payment_hash,32
+channel_offer_htlc,,amount_msat,u64
+channel_offer_htlc,,cltv_expiry,u32
+channel_offer_htlc,,payment_hash,struct sha256
 channel_offer_htlc,,onion_routing_packet,1366*u8
 
 # Reply; synchronous since IDs have to increment.
 channel_offer_htlc_reply,1104
-channel_offer_htlc_reply,,id,8
+channel_offer_htlc_reply,,id,u64
 # Zero failure code means success.
-channel_offer_htlc_reply,,failure_code,2
-channel_offer_htlc_reply,,failurestrlen,2
+channel_offer_htlc_reply,,failure_code,u16
+channel_offer_htlc_reply,,failurestrlen,u16
 channel_offer_htlc_reply,,failurestr,failurestrlen*u8
 
 # Main daemon found out the preimage for an htlc
 #include <bitcoin/preimage.h>
 channel_fulfill_htlc,1005
-channel_fulfill_htlc,,id,8
+channel_fulfill_htlc,,id,u64
 channel_fulfill_htlc,,payment_preimage,struct preimage
 
 # Main daemon says HTLC failed
 channel_fail_htlc,1006
-channel_fail_htlc,,id,8
+channel_fail_htlc,,id,u64
 # If malformed is non-zero, it's a BADONION code
 channel_fail_htlc,,malformed,u16
 # Otherwise, error_pkt contains failreason.
-channel_fail_htlc,,len,2
+channel_fail_htlc,,len,u16
 channel_fail_htlc,,error_pkt,len*u8
 
 # Ping/pong test.

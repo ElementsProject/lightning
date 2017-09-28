@@ -7,15 +7,15 @@ hsm_ecdh_resp,,ss,struct secret
 hsm_cannouncement_sig_req,2
 hsm_cannouncement_sig_req,,bitcoin_id,struct pubkey
 hsm_cannouncement_sig_req,,calen,u16
-hsm_cannouncement_sig_req,,ca,calen
+hsm_cannouncement_sig_req,,ca,calen*u8
 
 hsm_cannouncement_sig_reply,102
-hsm_cannouncement_sig_reply,,node_signature,64
+hsm_cannouncement_sig_reply,,node_signature,secp256k1_ecdsa_signature
 
 hsm_cupdate_sig_req,3
 hsm_cupdate_sig_req,,culen,u16
-hsm_cupdate_sig_req,,cu,culen
+hsm_cupdate_sig_req,,cu,culen*u8
 
 hsm_cupdate_sig_reply,103
 hsm_cupdate_sig_reply,,culen,u16
-hsm_cupdate_sig_reply,,cu,culen
+hsm_cupdate_sig_reply,,cu,culen*u8
