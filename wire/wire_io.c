@@ -1,4 +1,3 @@
-#include <ccan/endian/endian.h>
 /* FIXME: io_plan needs size_t */
  #include <unistd.h>
 #include <ccan/io/io_plan.h>
@@ -6,6 +5,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/tal.h>
+#include <errno.h>
 #include <wire/wire_io.h>
 
 /*
@@ -14,11 +14,11 @@
  * scratch data, and it's almost enough for our purposes.
  */
 
-/* 2 bytes for the length header. */
-#define HEADER_LEN (sizeof(le16))
+/* 4 bytes for the length header. */
+#define HEADER_LEN (sizeof(wire_len_t))
 
-/* Since length can only be 64k, this is an impossible value. */
-#define INSIDE_HEADER_BIT 0x80000000
+/* We carefully never allow sizes > 64M, so this is an impossible value. */
+#define INSIDE_HEADER_BIT WIRE_LEN_LIMIT
 
 /* arg->u2.s contains length we've read, arg->u1.vp contains u8 **data. */
 static int do_read_wire_header(int fd, struct io_plan_arg *arg)
@@ -32,9 +32,13 @@ static int do_read_wire_header(int fd, struct io_plan_arg *arg)
 		return -1;
 	arg->u2.s += ret;
 
-	/* Both bytes read?  Set up for normal read of data. */
+	/* Length bytes read?  Set up for normal read of data. */
 	if (arg->u2.s == INSIDE_HEADER_BIT + HEADER_LEN) {
-		arg->u2.s = be16_to_cpu(*(be16 *)p);
+		arg->u2.s = *(wire_len_t *)p;
+		if (arg->u2.s >= INSIDE_HEADER_BIT) {
+			errno = E2BIG;
+			return -1;
+		}
 		/* A type-only message is not unheard of, so optimize a little */
 		if (arg->u2.s != HEADER_LEN)
 			tal_resize((u8 **)arg->u1.vp, arg->u2.s);
@@ -84,7 +88,7 @@ static int do_write_wire_header(int fd, struct io_plan_arg *arg)
 {
 	ssize_t ret;
 	size_t len = arg->u2.s & ~INSIDE_HEADER_BIT;
-	be16 hdr = cpu_to_be16(tal_count(arg->u1.const_vp));
+	wire_len_t hdr = tal_count(arg->u1.const_vp);
 
 	ret = write(fd, (char *)&hdr + len, HEADER_LEN - len);
 	if (ret <= 0)
@@ -127,6 +131,11 @@ struct io_plan *io_write_wire_(struct io_conn *conn,
 			       void *next_arg)
 {
 	struct io_plan_arg *arg = io_plan_arg(conn, IO_OUT);
+
+	if (tal_len(data) >= INSIDE_HEADER_BIT) {
+		errno = E2BIG;
+		return io_close(conn);
+	}
 
 	arg->u1.const_vp = tal_dup_arr(conn, u8, memcheck(data, tal_len(data)),
 				       tal_len(data), 0);

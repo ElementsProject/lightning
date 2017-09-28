@@ -4,6 +4,11 @@
 #include <ccan/io/io.h>
 #include <ccan/short_types/short_types.h>
 
+/* We don't allow > 64M msgs: enough for 483 64k failure msgs. */
+#define WIRE_LEN_LIMIT (1 << 26)
+
+typedef u32 wire_len_t;
+
 /* Read message into *data, allocating off ctx. */
 struct io_plan *io_read_wire_(struct io_conn *conn,
 			      const tal_t *ctx,
