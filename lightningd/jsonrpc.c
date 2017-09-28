@@ -25,6 +25,7 @@ struct json_output {
 	const char *json;
 };
 
+/* jcon and cmd have separate lifetimes: we detach them on either destruction */
 static void destroy_jcon(struct json_connection *jcon)
 {
 	log_debug(jcon->log, "Closing (%s)", strerror(errno));
@@ -34,6 +35,12 @@ static void destroy_jcon(struct json_connection *jcon)
 	}
 	/* Make sure this happens last! */
 	tal_free(jcon->log);
+}
+
+static void destroy_cmd(struct command *cmd)
+{
+	if (cmd->jcon)
+		cmd->jcon->current = NULL;
 }
 
 static void json_help(struct command *cmd,
@@ -460,6 +467,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	jcon->current->id = tal_strndup(jcon->current,
 					json_tok_contents(jcon->buffer, id),
 					json_tok_len(id));
+	tal_add_destructor(jcon->current, destroy_cmd);
 
 	if (!method || !params) {
 		command_fail(jcon->current, method ? "No params" : "No method");
