@@ -16,8 +16,12 @@ char *tal_hex(const tal_t *ctx, const tal_t *data);
 /* Allocate and fill a buffer with the data of this hex string. */
 u8 *tal_hexdata(const tal_t *ctx, const void *str, size_t len);
 
+/* Get a temporary context for this function scope (tal_free at end) */
+tal_t *tal_tmpctx_(const tal_t *ctx, const char *file, unsigned int line);
 #define tal_tmpctx(ctx)							\
-	tal_alloc_((ctx), 0, false, false,				\
-		   __FILE__ ":" stringify(__LINE__) ":tal_tmpctx")
+	tal_tmpctx_((ctx), __FILE__, __LINE__)
+
+/* Return non-NULL if any tmpctx still allocated. */
+const char *tmpctx_any(void);
 
 #endif /* LIGHTNING_COMMON_UTILS_H */
