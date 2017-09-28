@@ -220,7 +220,7 @@ static struct io_plan *hsm_then_handshake(struct io_conn *conn,
 	io_fd_block(connfd, true);
 
 	/* Give handshake daemon the hsm fd. */
-	handshaked = new_subd(ld, ld,
+	handshaked = new_subd(ld,
 			      "lightning_handshaked", NULL,
 			      handshake_wire_type_name,
 			      NULL, NULL, NULL,

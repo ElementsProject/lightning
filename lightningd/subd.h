@@ -55,7 +55,6 @@ struct subd {
 
 /**
  * new_subd - create a new subdaemon.
- * @ctx: context to allocate from
  * @ld: global state
  * @name: basename of daemon
  * @peer: peer to associate (if any).
@@ -70,8 +69,7 @@ struct subd {
  * that many @fds are received before calling again.  If it returns -1, the
  * subdaemon is shutdown.
  */
-struct subd *new_subd(const tal_t *ctx,
-		      struct lightningd *ld,
+struct subd *new_subd(struct lightningd *ld,
 		      const char *name,
 		      struct peer *peer,
 		      const char *(*msgname)(int msgtype),

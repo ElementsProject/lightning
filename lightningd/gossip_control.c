@@ -136,7 +136,7 @@ void gossip_init(struct lightningd *ld)
 {
 	tal_t *tmpctx = tal_tmpctx(ld);
 	u8 *init;
-	ld->gossip = new_subd(ld, ld, "lightning_gossipd", NULL,
+	ld->gossip = new_subd(ld, "lightning_gossipd", NULL,
 			      gossip_wire_type_name,
 			      gossip_msg, NULL, gossip_finished, NULL);
 	if (!ld->gossip)

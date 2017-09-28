@@ -504,8 +504,7 @@ static struct io_plan *msg_setup(struct io_conn *conn, struct subd *sd)
 			 msg_send_next(conn, sd));
 }
 
-struct subd *new_subd(const tal_t *ctx,
-		      struct lightningd *ld,
+struct subd *new_subd(struct lightningd *ld,
 		      const char *name,
 		      struct peer *peer,
 		      const char *(*msgname)(int msgtype),
@@ -515,7 +514,7 @@ struct subd *new_subd(const tal_t *ctx,
 		      ...)
 {
 	va_list ap;
-	struct subd *sd = tal(ctx, struct subd);
+	struct subd *sd = tal(ld, struct subd);
 	int msg_fd;
 
 	va_start(ap, finished);
@@ -541,7 +540,7 @@ struct subd *new_subd(const tal_t *ctx,
 	sd->peer = peer;
 
 	/* conn actually owns daemon: we die when it does. */
-	sd->conn = io_new_conn(ctx, msg_fd, msg_setup, sd);
+	sd->conn = io_new_conn(ld, msg_fd, msg_setup, sd);
 	tal_steal(sd->conn, sd);
 
 	log_info(sd->log, "pid %u, msgfd %i", sd->pid, msg_fd);
