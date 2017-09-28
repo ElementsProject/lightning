@@ -22,6 +22,7 @@
 #include <common/derive_basepoints.h>
 #include <common/dev_disconnect.h>
 #include <common/htlc_tx.h>
+#include <common/io_debug.h>
 #include <common/key_derive.h>
 #include <common/msg_queue.h>
 #include <common/peer_failed.h>
@@ -2168,7 +2169,7 @@ static int poll_with_masterfd(struct pollfd *fds, nfds_t nfds, int timeout)
 	fds_plus[nfds].events = POLLIN;
 	fds_plus[nfds].revents = 0;
 
-	r = poll(fds_plus, nfds+1, timeout);
+	r = debug_poll(fds_plus, nfds+1, timeout);
 	if (r > 0) {
 		if (fds_plus[nfds].revents & POLLIN) {
 			u8 *msg = wire_sync_read(peer, MASTER_FD);

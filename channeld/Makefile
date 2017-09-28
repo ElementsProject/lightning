@@ -44,6 +44,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/htlc_wire.o			\
 	common/initial_channel.o		\
 	common/initial_commit_tx.o		\
+	common/io_debug.o			\
 	common/keyset.o				\
 	common/key_derive.o			\
 	common/msg_queue.o			\
