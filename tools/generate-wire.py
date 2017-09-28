@@ -34,7 +34,6 @@ varlen_structs = [
 class FieldType(object):
     def __init__(self,name):
         self.name = name
-        self.tsize = FieldType._typesize(name)
 
     def is_assignable(self):
         return self.name in ['u8', 'u16', 'u32', 'u64', 'bool'] or self.name.startswith('enum ')
@@ -116,27 +115,26 @@ class Field(object):
             else:
                 self.num_elems = int(number)
             size = size.split('*')[1]
-        else:
-            if size == prevname:
-                # Raw length field, implies u8.
-                self.lenvar = size
-                size = 'u8'
+        elif options.bolt and size == prevname:
+            # Raw length field, implies u8.
+            self.lenvar = size
+            size = '1'
 
-        try:
-            # Just a number?  Guess based on size.
+        # Bolts use just a number: Guess type based on size.
+        if options.bolt:
             base_size = int(size)
             self.fieldtype = Field._guess_type(message,self.name,base_size)
             # There are some arrays which we have to guess, based on sizes.
-            if base_size % self.fieldtype.tsize != 0:
+            tsize = FieldType._typesize(self.fieldtype.name)
+            if base_size % tsize != 0:
                 raise ValueError('Invalid size {} for {}.{} not a multiple of {}'
                                  .format(base_size,
                                          self.message,
                                          self.name,
-                                         self.fieldtype.tsize))
-            self.num_elems = int(base_size / self.fieldtype.tsize)
-
-        except ValueError:
-            # Not a number; must be a type.
+                                         tsize))
+            self.num_elems = int(base_size / tsize)
+        else:
+            # Real typename.
             self.fieldtype = FieldType(size)
 
     def basetype(self):
@@ -227,8 +225,8 @@ class Message(object):
         for f in self.fields:
             if f.name == field.lenvar:
                 if f.fieldtype.name != 'u16':
-                    raise ValueError('Field {} has non-u16 length variable {}'
-                                     .format(field.name, field.lenvar))
+                    raise ValueError('Field {} has non-u16 length variable {} (type {})'
+                                     .format(field.name, field.lenvar, f.fieldtype.name))
 
                 if f.is_array() or f.is_variable_size():
                     raise ValueError('Field {} has non-simple length variable {}'
@@ -391,6 +389,7 @@ class Message(object):
 
 parser = argparse.ArgumentParser(description='Generate C from from CSV')
 parser.add_argument('--header', action='store_true', help="Create wire header")
+parser.add_argument('--bolt', action='store_true', help="Generate wire-format for BOLT")
 parser.add_argument('headerfilename', help='The filename of the header')
 parser.add_argument('enumname', help='The name of the enum to produce')
 parser.add_argument('files', nargs='*', help='Files to read in (or stdin)')

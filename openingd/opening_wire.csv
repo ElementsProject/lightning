@@ -2,12 +2,12 @@
 #include <common/channel_config.h>
 opening_init,6000
 # Which network are we configured for (as index into the chainparams)?
-opening_init,,network_index,4
+opening_init,,network_index,u32
 # Base configuration we'll offer (channel reserve will vary with amount)
 opening_init,,our_config,struct channel_config
 # Minimum/maximum configuration values we'll accept
-opening_init,,max_to_self_delay,4
-opening_init,,min_effective_htlc_capacity_msat,8
+opening_init,,max_to_self_delay,u32
+opening_init,,min_effective_htlc_capacity_msat,u64
 opening_init,,crypto_state,struct crypto_state
 # Seed to generate all the keys from
 opening_init,,seed,struct privkey
@@ -16,10 +16,10 @@ opening_init,,seed,struct privkey
 #include <common/htlc_wire.h>
 # This means we offer the open.
 opening_funder,6001
-opening_funder,,funding_satoshis,8
-opening_funder,,push_msat,8
-opening_funder,,feerate_per_kw,4
-opening_funder,,max_minimum_depth,4
+opening_funder,,funding_satoshis,u64
+opening_funder,,push_msat,u64
+opening_funder,,feerate_per_kw,u32
+opening_funder,,max_minimum_depth,u32
 opening_funder,,change_satoshis,u64
 opening_funder,,change_keyindex,u32
 opening_funder,,channel_flags,u8
@@ -34,21 +34,21 @@ opening_funder_reply,,their_config,struct channel_config
 opening_funder_reply,,first_commit,struct bitcoin_tx
 opening_funder_reply,,first_commit_sig,secp256k1_ecdsa_signature
 opening_funder_reply,,crypto_state,struct crypto_state
-opening_funder_reply,,revocation_basepoint,33
-opening_funder_reply,,payment_basepoint,33
-opening_funder_reply,,delayed_payment_basepoint,33
-opening_funder_reply,,their_per_commit_point,33
-opening_funder_reply,,minimum_depth,4
-opening_funder_reply,,remote_fundingkey,33
+opening_funder_reply,,revocation_basepoint,struct pubkey
+opening_funder_reply,,payment_basepoint,struct pubkey
+opening_funder_reply,,delayed_payment_basepoint,struct pubkey
+opening_funder_reply,,their_per_commit_point,struct pubkey
+opening_funder_reply,,minimum_depth,u32
+opening_funder_reply,,remote_fundingkey,struct pubkey
 opening_funder_reply,,funding_txid,struct sha256_double
-opening_funder_reply,,feerate_per_kw,4
+opening_funder_reply,,feerate_per_kw,u32
 
 # This means they offer the open (contains their offer packet)
 opening_fundee,6003
-opening_fundee,,minimum_depth,4
-opening_fundee,,min_feerate,4
-opening_fundee,,max_feerate,4
-opening_fundee,,len,2
+opening_fundee,,minimum_depth,u32
+opening_fundee,,min_feerate,u32
+opening_fundee,,max_feerate,u32
+opening_fundee,,len,u16
 opening_fundee,,msg,len*u8
 
 # This gives their txid and info, means we can send funding_signed: we're done.
@@ -57,17 +57,17 @@ opening_fundee_reply,,their_config,struct channel_config
 opening_fundee_reply,,first_commit,struct bitcoin_tx
 opening_fundee_reply,,first_commit_sig,secp256k1_ecdsa_signature
 opening_fundee_reply,,crypto_state,struct crypto_state
-opening_fundee_reply,,revocation_basepoint,33
-opening_fundee_reply,,payment_basepoint,33
-opening_fundee_reply,,delayed_payment_basepoint,33
-opening_fundee_reply,,their_per_commit_point,33
-opening_fundee_reply,,remote_fundingkey,33
+opening_fundee_reply,,revocation_basepoint,struct pubkey
+opening_fundee_reply,,payment_basepoint,struct pubkey
+opening_fundee_reply,,delayed_payment_basepoint,struct pubkey
+opening_fundee_reply,,their_per_commit_point,struct pubkey
+opening_fundee_reply,,remote_fundingkey,struct pubkey
 opening_fundee_reply,,funding_txid,struct sha256_double
 opening_fundee_reply,,funding_txout,u16
-opening_fundee_reply,,funding_satoshis,8
-opening_fundee_reply,,push_msat,8
+opening_fundee_reply,,funding_satoshis,u64
+opening_fundee_reply,,push_msat,u64
 opening_fundee_reply,,channel_flags,u8
-opening_fundee_reply,,feerate_per_kw,4
+opening_fundee_reply,,feerate_per_kw,u32
 # The (encrypted) funding signed message: send this and we're committed.
 opening_fundee_reply,,msglen,u16
 opening_fundee_reply,,funding_signed_msg,msglen*u8

@@ -34,16 +34,16 @@ wire/gen_onion_wire_csv: FORCE
 	@set -e; if [ -f $(BOLT_EXTRACT) ]; then for f in $(BOLTDIR)/04*.md $(BOLT_EXTRACT); do if [ $$f -nt $@ -o ! -f $@ ]; then echo '#include <wire/onion_defs.h>' > $@ && $(BOLT_EXTRACT) --message-fields --message-types --check-alignment $(BOLTDIR)/04*.md >> $@; break; fi; done; fi
 
 wire/gen_peer_wire.h: $(WIRE_GEN) wire/gen_peer_wire_csv
-	$(WIRE_GEN) --header $@ wire_type < wire/gen_peer_wire_csv > $@
+	$(WIRE_GEN) --bolt --header $@ wire_type < wire/gen_peer_wire_csv > $@
 
 wire/gen_peer_wire.c: $(WIRE_GEN) wire/gen_peer_wire_csv
-	$(WIRE_GEN) ${@:.c=.h} wire_type < wire/gen_peer_wire_csv > $@
+	$(WIRE_GEN) --bolt ${@:.c=.h} wire_type < wire/gen_peer_wire_csv > $@
 
 wire/gen_onion_wire.h: $(WIRE_GEN) wire/gen_onion_wire_csv
-	$(WIRE_GEN) --header $@ onion_type < wire/gen_onion_wire_csv > $@
+	$(WIRE_GEN) --bolt --header $@ onion_type < wire/gen_onion_wire_csv > $@
 
 wire/gen_onion_wire.c: $(WIRE_GEN) wire/gen_onion_wire_csv
-	$(WIRE_GEN) ${@:.c=.h} onion_type < wire/gen_onion_wire_csv > $@
+	$(WIRE_GEN) --bolt ${@:.c=.h} onion_type < wire/gen_onion_wire_csv > $@
 
 check-source: $(WIRE_SRC:%=check-src-include-order/%) $(WIRE_HEADERS_NOGEN:%=check-hdr-include-order/%)
 

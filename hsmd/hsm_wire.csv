@@ -1,7 +1,7 @@
 # Clients should not give a bad request but not the HSM's decision to crash.
 hsmstatus_client_bad_request,1000
-hsmstatus_client_bad_request,,unique_id,8
-hsmstatus_client_bad_request,,len,2
+hsmstatus_client_bad_request,,unique_id,u64
+hsmstatus_client_bad_request,,len,u16
 hsmstatus_client_bad_request,,msg,len*u8
 
 # Start the HSM.
@@ -10,13 +10,13 @@ hsmctl_init,,new,bool
 
 #include <common/bip32.h>
 hsmctl_init_reply,101
-hsmctl_init_reply,,node_id,33
+hsmctl_init_reply,,node_id,struct pubkey
 hsmctl_init_reply,,peer_seed,struct secret
 hsmctl_init_reply,,bip32,struct ext_key
 
 # ECDH returns an fd.
 hsmctl_hsmfd_ecdh,3
-hsmctl_hsmfd_ecdh,,unique_id,8
+hsmctl_hsmfd_ecdh,,unique_id,u64
 
 # No contents, just an fd.
 hsmctl_hsmfd_ecdh_fd_reply,103
@@ -25,28 +25,28 @@ hsmctl_hsmfd_ecdh_fd_reply,103
 #include <common/utxo.h>
 # FIXME: This should also take their commit sig & details, to verify.
 hsmctl_sign_funding,4
-hsmctl_sign_funding,,satoshi_out,8
-hsmctl_sign_funding,,change_out,8
-hsmctl_sign_funding,,change_keyindex,4
-hsmctl_sign_funding,,our_pubkey,33
-hsmctl_sign_funding,,their_pubkey,33
-hsmctl_sign_funding,,num_inputs,2
+hsmctl_sign_funding,,satoshi_out,u64
+hsmctl_sign_funding,,change_out,u64
+hsmctl_sign_funding,,change_keyindex,u32
+hsmctl_sign_funding,,our_pubkey,struct pubkey
+hsmctl_sign_funding,,their_pubkey,struct pubkey
+hsmctl_sign_funding,,num_inputs,u16
 hsmctl_sign_funding,,inputs,num_inputs*struct utxo
 
 hsmctl_sign_funding_reply,104
-hsmctl_sign_funding_reply,,num_sigs,2
+hsmctl_sign_funding_reply,,num_sigs,u16
 hsmctl_sign_funding_reply,,sig,num_sigs*secp256k1_ecdsa_signature
 
 # Request a client socket for a `channeld`, allows signing announcements 
 hsmctl_hsmfd_channeld,5
-hsmctl_hsmfd_channeld,,unique_id,8
+hsmctl_hsmfd_channeld,,unique_id,u64
 
 # Empty reply, just an fd
 hsmctl_hsmfd_channeld_reply,105
 
 # Master asks the HSM to sign a node_announcement
 hsmctl_node_announcement_sig_req,6
-hsmctl_node_announcement_sig_req,,annlen,2
+hsmctl_node_announcement_sig_req,,annlen,u16
 hsmctl_node_announcement_sig_req,,announcement,annlen*u8
 
 hsmctl_node_announcement_sig_reply,106
@@ -54,13 +54,13 @@ hsmctl_node_announcement_sig_reply,,signature,secp256k1_ecdsa_signature
 
 # Sign a withdrawal request
 hsmctl_sign_withdrawal,7
-hsmctl_sign_withdrawal,,satoshi_out,8
-hsmctl_sign_withdrawal,,change_out,8
-hsmctl_sign_withdrawal,,change_keyindex,4
+hsmctl_sign_withdrawal,,satoshi_out,u64
+hsmctl_sign_withdrawal,,change_out,u64
+hsmctl_sign_withdrawal,,change_keyindex,u32
 hsmctl_sign_withdrawal,,pkh,20*u8
-hsmctl_sign_withdrawal,,num_inputs,2
+hsmctl_sign_withdrawal,,num_inputs,u16
 hsmctl_sign_withdrawal,,inputs,num_inputs*struct utxo
 
 hsmctl_sign_withdrawal_reply,107
-hsmctl_sign_withdrawal_reply,,num_sigs,2
+hsmctl_sign_withdrawal_reply,,num_sigs,u16
 hsmctl_sign_withdrawal_reply,,sig,num_sigs*secp256k1_ecdsa_signature

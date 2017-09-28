@@ -10,22 +10,22 @@ respr_act_three,14013
 success,4000
 
 handshake_responder,4001
-handshake_responder,,my_id,33
+handshake_responder,,my_id,struct pubkey
 handshake_responder_reply,4101
-handshake_responder_reply,,initiator_id,33
+handshake_responder_reply,,initiator_id,struct pubkey
 handshake_responder_reply,,cs,struct crypto_state
-handshake_responder_reply,,gflen,2
-handshake_responder_reply,,globalfeatures,gflen
-handshake_responder_reply,,lflen,2
-handshake_responder_reply,,localfeatures,lflen
+handshake_responder_reply,,gflen,u16
+handshake_responder_reply,,globalfeatures,gflen*u8
+handshake_responder_reply,,lflen,u16
+handshake_responder_reply,,localfeatures,lflen*u8
 
 handshake_initiator,4002
-handshake_initiator,,my_id,33
-handshake_initiator,,responder_id,33
+handshake_initiator,,my_id,struct pubkey
+handshake_initiator,,responder_id,struct pubkey
 
 handshake_initiator_reply,4102
 handshake_initiator_reply,,cs,struct crypto_state
-handshake_initiator_reply,,gflen,2
-handshake_initiator_reply,,globalfeatures,gflen
-handshake_initiator_reply,,lflen,2
-handshake_initiator_reply,,localfeatures,lflen
+handshake_initiator_reply,,gflen,u16
+handshake_initiator_reply,,globalfeatures,gflen*u8
+handshake_initiator_reply,,lflen,u16
+handshake_initiator_reply,,localfeatures,lflen*u8
