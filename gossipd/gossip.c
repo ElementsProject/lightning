@@ -13,6 +13,7 @@
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
 #include <common/debug.h>
+#include <common/io_debug.h>
 #include <common/ping.h>
 #include <common/status.h>
 #include <common/timeout.h>
@@ -773,6 +774,7 @@ int main(int argc, char *argv[])
 	struct daemon *daemon;
 
 	subdaemon_debug(argc, argv);
+	io_poll_override(debug_poll);
 
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
