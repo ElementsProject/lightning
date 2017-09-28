@@ -113,7 +113,7 @@ struct log_book *new_log_book(const tal_t *ctx,
 
 	/* In case ltmp not initialized, do so now. */
 	if (!ltmp)
-		ltmp = tal_tmpctx(lr);
+		ltmp = tal(lr, char);
 
 	return lr;
 }
@@ -196,7 +196,7 @@ static void add_entry(struct log *log, struct log_entry *l)
 	/* Free up temporaries now if any */
 	if (tal_first(ltmp)) {
 		tal_free(ltmp);
-		ltmp = tal_tmpctx(log->lr);
+		ltmp = tal(log->lr, char);
 	}
 }
 
