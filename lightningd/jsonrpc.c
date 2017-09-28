@@ -25,14 +25,22 @@ struct json_output {
 	const char *json;
 };
 
-static void finish_jcon(struct io_conn *conn, struct json_connection *jcon)
+/* jcon and cmd have separate lifetimes: we detach them on either destruction */
+static void destroy_jcon(struct json_connection *jcon)
 {
 	log_debug(jcon->log, "Closing (%s)", strerror(errno));
 	if (jcon->current) {
 		log_unusual(jcon->log, "Abandoning current command");
 		jcon->current->jcon = NULL;
 	}
-	tal_free(jcon);
+	/* Make sure this happens last! */
+	tal_free(jcon->log);
+}
+
+static void destroy_cmd(struct command *cmd)
+{
+	if (cmd->jcon)
+		cmd->jcon->current = NULL;
 }
 
 static void json_help(struct command *cmd,
@@ -459,6 +467,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	jcon->current->id = tal_strndup(jcon->current,
 					json_tok_contents(jcon->buffer, id),
 					json_tok_len(id));
+	tal_add_destructor(jcon->current, destroy_cmd);
 
 	if (!method || !params) {
 		command_fail(jcon->current, method ? "No params" : "No method");
@@ -576,17 +585,18 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 {
 	struct json_connection *jcon;
 
-	jcon = tal(ld, struct json_connection);
+	jcon = tal(conn, struct json_connection);
 	jcon->ld = ld;
 	jcon->used = 0;
 	jcon->buffer = tal_arr(jcon, char, 64);
 	jcon->stop = false;
 	jcon->current = NULL;
-	jcon->log = new_log(jcon, ld->log_book, "%sjcon fd %i:",
+	/* We want to log on destruction, so we free this in destructor. */
+	jcon->log = new_log(ld->log_book, ld->log_book, "%sjcon fd %i:",
 			    log_prefix(ld->log), io_conn_fd(conn));
 	list_head_init(&jcon->output);
 
-	io_set_finish(conn, finish_jcon, jcon);
+	tal_add_destructor(jcon, destroy_jcon);
 
 	return io_duplex(conn,
 			 io_read_partial(conn, jcon->buffer,
