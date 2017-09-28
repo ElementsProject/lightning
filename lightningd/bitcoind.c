@@ -117,13 +117,33 @@ static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 
 	if (!bcli->exitstatus) {
 		if (WEXITSTATUS(status) != 0) {
-			fatal("%s exited %u: '%.*s'", bcli_args(bcli),
-			      WEXITSTATUS(status),
-			      (int)bcli->output_bytes,
-			      bcli->output);
+			/* Allow 60 seconds of spurious errors, eg. reorg. */
+			struct timerel t;
+
+			log_unusual(bcli->bitcoind->log,
+				    "%s exited with status %u",
+				    bcli_args(bcli),
+				    WEXITSTATUS(status));
+
+			if (!bitcoind->error_count)
+				bitcoind->first_error_time = time_mono();
+
+			t = timemono_between(time_mono(),
+					     bitcoind->first_error_time);
+			if (time_greater(t, time_from_sec(60)))
+				fatal("%s exited %u (after %u other errors) '%.*s'",
+				      bcli_args(bcli),
+				      WEXITSTATUS(status),
+				      bitcoind->error_count,
+				      (int)bcli->output_bytes,
+				      bcli->output);
+			bitcoind->error_count++;
 		}
 	} else
 		*bcli->exitstatus = WEXITSTATUS(status);
+
+	if (WEXITSTATUS(status) == 0)
+		bitcoind->error_count = 0;
 
 	bitcoind->req_running = false;
 
@@ -154,7 +174,6 @@ static void next_bcli(struct bitcoind *bitcoind)
 
 	bitcoind->req_running = true;
 	conn = io_new_conn(bitcoind, bcli->fd, output_init, bcli);
-	tal_steal(conn, bcli);
 	io_set_finish(conn, bcli_finished, bcli);
 }
 
@@ -526,6 +545,7 @@ struct bitcoind *new_bitcoind(const tal_t *ctx, struct log *log)
 	bitcoind->log = log;
 	bitcoind->req_running = false;
 	bitcoind->shutdown = false;
+	bitcoind->error_count = 0;
 	list_head_init(&bitcoind->pending);
 	tal_add_destructor(bitcoind, destroy_bitcoind);
 
