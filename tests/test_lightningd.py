@@ -125,8 +125,16 @@ class NodeFactory(object):
         return node
 
     def killall(self):
+        rcs = []
+        failed = False
         for n in self.nodes:
-            n.stop()
+            try:
+                n.stop()
+            except:
+                failed = True
+            rcs.append(n.daemon.proc.returncode)
+        if failed:
+            raise Exception("At least one lightning exited with non-zero return code: {}".format(rcs))
 
 
 class BaseLightningDTests(unittest.TestCase):
