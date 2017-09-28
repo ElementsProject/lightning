@@ -74,7 +74,8 @@ bool db_remove_invoice(struct lightningd *ld, const char *label)
 	return true;
 }
 
-static struct lightningd *new_lightningd(const tal_t *ctx)
+static struct lightningd *new_lightningd(const tal_t *ctx,
+					 struct log_book *log_book)
 {
 	struct lightningd *ld = tal(ctx, struct lightningd);
 
@@ -84,8 +85,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	htlc_in_map_init(&ld->htlcs_in);
 	htlc_out_map_init(&ld->htlcs_out);
 	ld->dev_disconnect_fd = -1;
-	ld->log_book = new_log_book(ld, 20*1024*1024, LOG_INFORM);
-	ld->log = new_log(ld, ld->log_book, "lightningd(%u):", (int)getpid());
+	ld->log_book = log_book;
+	ld->log = new_log(log_book, log_book, "lightningd(%u):", (int)getpid());
 
 	list_head_init(&ld->pay_commands);
 	ld->portnum = DEFAULT_PORT;
@@ -219,10 +220,15 @@ struct chainparams *get_chainparams(const struct lightningd *ld)
 
 int main(int argc, char *argv[])
 {
-	struct lightningd *ld = new_lightningd(NULL);
+	struct log_book *log_book;
+	struct lightningd *ld;
 	bool newdir;
 
 	err_set_progname(argv[0]);
+
+	/* Things log on shutdown, so we need this to outlive lightningd */
+	log_book = new_log_book(NULL, 20*1024*1024, LOG_INFORM);
+	ld = new_lightningd(NULL, log_book);
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
@@ -316,6 +322,7 @@ int main(int argc, char *argv[])
 
 	tal_free(ld);
 	opt_free_table();
+	tal_free(log_book);
 	return 0;
 }
 
