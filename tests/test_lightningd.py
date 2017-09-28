@@ -538,18 +538,7 @@ class LightningDTests(BaseLightningDTests):
             'channel': '1:1:1'
         }
 
-        q = queue.Queue()
-
-        def try_pay():
-            try:
-                l1.rpc.sendpay(to_json([routestep]), rhash, async=False)
-                q.put(None)
-            except Exception as err:
-                q.put(err)
-
-        t = threading.Thread(target=try_pay)
-        t.daemon = True
-        t.start()
+        payfuture = self.executor.submit(l1.rpc.sendpay, to_json([routestep]), rhash)
 
         # l1 will drop to chain.
         l1.daemon.wait_for_log('permfail')
@@ -562,10 +551,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.rpc.generate(3)
 
         # It should fail.
-        err = q.get(timeout = 5)
-        assert type(err) is ValueError
-        t.join(timeout=1)
-        assert not t.isAlive()
+        self.assertRaises(ValueError, payfuture.result, 5)
 
         l1.daemon.wait_for_log('WIRE_PERMANENT_CHANNEL_FAILURE: missing in commitment tx')
 
@@ -604,18 +590,7 @@ class LightningDTests(BaseLightningDTests):
             'channel': '1:1:1'
         }
 
-        q = queue.Queue()
-
-        def try_pay():
-            try:
-                l1.rpc.sendpay(to_json([routestep]), rhash, async=False)
-                q.put(None)
-            except Exception as err:
-                q.put(err)
-
-        t = threading.Thread(target=try_pay)
-        t.daemon = True
-        t.start()
+        payfuture = self.executor.submit(l1.rpc.sendpay, to_json([routestep]), rhash)
 
         # l1 will drop to chain.
         l1.daemon.wait_for_log('permfail')
@@ -636,10 +611,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.rpc.generate(3)
 
         # It should fail.
-        err = q.get(timeout = 5)
-        assert type(err) is ValueError
-        t.join(timeout=1)
-        assert not t.isAlive()
+        self.assertRaises(ValueError, payfuture.result, 5)
 
         l1.daemon.wait_for_log('WIRE_PERMANENT_CHANNEL_FAILURE: timed out')
 
