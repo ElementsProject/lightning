@@ -252,12 +252,12 @@ class LightningD(TailableProc):
         return self.proc.returncode
 
 class LightningNode(object):
-    def __init__(self, daemon, rpc, btc, executor):
+    def __init__(self, daemon, rpc, btc, executor, may_fail=False):
         self.rpc = rpc
         self.daemon = daemon
         self.bitcoin = btc
         self.executor = executor
-        self.known_fail = False
+        self.may_fail = may_fail
 
     # Use batch if you're doing more than one async.
     def connect(self, remote_node, capacity, async=False):
@@ -323,12 +323,6 @@ class LightningNode(object):
         db.close()
         return result
 
-    # FIXME: we should flag daemon on startup, suppress error
-    def allow_failure(self):
-        """Note that a daemon has (deliberately) crashed, so we don't fail
-        on cleanup"""
-        self.known_fail = True
-    
     def stop(self, timeout=10):
         """ Attempt to do a clean shutdown, but kill if it hangs
         """
@@ -346,7 +340,7 @@ class LightningNode(object):
         if rc is None:
             rc = self.daemon.stop()
 
-        if rc != 0:
+        if rc != 0 and not self.may_fail:
             raise ValueError("Node did not exit cleanly, rc={}".format(rc))
         else:
             return rc

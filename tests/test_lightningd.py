@@ -87,7 +87,7 @@ class NodeFactory(object):
         self.nodes = []
         self.executor = executor
 
-    def get_node(self, disconnect=None, options=None):
+    def get_node(self, disconnect=None, options=None, may_fail=False):
         node_id = self.next_id
         self.next_id += 1
 
@@ -107,7 +107,7 @@ class NodeFactory(object):
             daemon.cmd_line.append(options)
         rpc = LightningRpc(socket_path, self.executor)
 
-        node = utils.LightningNode(daemon, rpc, bitcoind, self.executor)
+        node = utils.LightningNode(daemon, rpc, bitcoind, self.executor, may_fail=may_fail)
         self.nodes.append(node)
         if VALGRIND:
             node.daemon.cmd_line = [
@@ -164,7 +164,7 @@ class BaseLightningDTests(unittest.TestCase):
         return 1 if errors else 0
 
     def getCrashLog(self, node):
-        if node.known_fail:
+        if node.may_fail:
             return None, None
         try:
             crashlog = os.path.join(node.daemon.lightning_dir, 'crash.log')
@@ -731,7 +731,7 @@ class LightningDTests(BaseLightningDTests):
     def test_penalty_inhtlc(self):
         """Test penalty transaction with an incoming HTLC"""
         # We suppress each one after first commit; HTLC gets added not fulfilled.
-        l1 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED'])
+        l1 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED'], may_fail=True)
         l2 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED'])
 
         l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
@@ -770,7 +770,6 @@ class LightningDTests(BaseLightningDTests):
 
         l2.daemon.wait_for_log('-> ONCHAIND_CHEATED')
         # FIXME: l1 should try to stumble along!
-        l1.allow_failure()
 
         # l2 should spend all of the outputs (except to-us).
         # Could happen in any order, depending on commitment tx.
@@ -790,7 +789,7 @@ class LightningDTests(BaseLightningDTests):
     def test_penalty_outhtlc(self):
         """Test penalty transaction with an outgoing HTLC"""
         # First we need to get funds to l2, so suppress after second.
-        l1 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED*3'])
+        l1 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED*3'], may_fail=True)
         l2 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED*3'])
 
         l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
@@ -832,7 +831,6 @@ class LightningDTests(BaseLightningDTests):
 
         l2.daemon.wait_for_log('-> ONCHAIND_CHEATED')
         # FIXME: l1 should try to stumble along!
-        l1.allow_failure()
 
         # l2 should spend all of the outputs (except to-us).
         # Could happen in any order, depending on commitment tx.
