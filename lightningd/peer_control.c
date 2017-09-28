@@ -1396,7 +1396,7 @@ static enum watch_result funding_spent(struct peer *peer,
 	/* We could come from almost any state. */
 	peer_set_condition(peer, peer->state, FUNDING_SPEND_SEEN);
 
-	peer->owner = new_subd(peer->ld, peer->ld,
+	peer->owner = new_subd(peer->ld,
 			       "lightning_onchaind", peer,
 			       onchain_wire_type_name,
 			       onchain_msg,
@@ -1950,7 +1950,7 @@ static void peer_start_closingd(struct peer *peer,
 		return;
 	}
 
-	peer->owner = new_subd(peer->ld, peer->ld,
+	peer->owner = new_subd(peer->ld,
 			       "lightning_closingd", peer,
 			       closing_wire_type_name,
 			       closing_msg,
@@ -2126,7 +2126,7 @@ static bool peer_start_channeld(struct peer *peer,
 	if (hsmfd < 0)
 		fatal("Could not read fd from HSM: %s", strerror(errno));
 
-	peer->owner = new_subd(peer->ld, peer->ld,
+	peer->owner = new_subd(peer->ld,
 			       "lightning_channeld", peer,
 			       channel_wire_type_name,
 			       channel_msg,
@@ -2478,7 +2478,7 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 	}
 
 	peer_set_condition(peer, GOSSIPD, OPENINGD);
-	peer->owner = new_subd(ld, ld, "lightning_openingd", peer,
+	peer->owner = new_subd(ld, "lightning_openingd", peer,
 			       opening_wire_type_name,
 			       NULL, bad_peer, peer_owner_finished,
 			       take(&peer_fd), take(&gossip_fd),
@@ -2561,7 +2561,7 @@ static bool gossip_peer_released(struct subd *gossip,
 	assert(tal_count(fds) == 2);
 
 	peer_set_condition(fc->peer, GOSSIPD, OPENINGD);
-	opening = new_subd(fc->peer->ld, ld,
+	opening = new_subd(ld,
 			   "lightning_openingd", fc->peer,
 			   opening_wire_type_name,
 			   NULL, bad_peer, peer_owner_finished,
