@@ -24,7 +24,7 @@
 
 char *bitcoin_datadir;
 
-static char **gather_args(struct bitcoind *bitcoind,
+static char **gather_args(const struct bitcoind *bitcoind,
 			  const tal_t *ctx, const char *cmd, va_list ap)
 {
 	size_t n = 0;
@@ -457,6 +457,63 @@ static void destroy_bitcoind(struct bitcoind *bitcoind)
 {
 	/* Suppresses the callbacks from bcli_finished as we free conns. */
 	bitcoind->shutdown = true;
+}
+
+static char **cmdarr(const tal_t *ctx, const struct bitcoind *bitcoind,
+		     const char *cmd, ...)
+{
+	va_list ap;
+	char **args;
+
+	va_start(ap, cmd);
+	args = gather_args(bitcoind, ctx, cmd, ap);
+	va_end(ap);
+	return args;
+}
+
+void wait_for_bitcoind(struct bitcoind *bitcoind)
+{
+	int from, ret, status;
+	pid_t child;
+	char **cmd = cmdarr(bitcoind, bitcoind, "echo", NULL);
+	char *output;
+	bool printed = false;
+
+	for (;;) {
+		child = pipecmdarr(&from, NULL, &from, cmd);
+		if (child < 0)
+			fatal("%s exec failed: %s", cmd[0], strerror(errno));
+
+		output = grab_fd(cmd, from);
+		if (!output)
+			fatal("Reading from %s failed: %s",
+			      cmd[0], strerror(errno));
+
+		ret = waitpid(child, &status, 0);
+		if (ret != child)
+			fatal("Waiting for %s: %s", cmd[0], strerror(errno));
+		if (!WIFEXITED(status))
+			fatal("Death of %s: signal %i",
+			      cmd[0], WTERMSIG(status));
+
+		if (WEXITSTATUS(status) == 0)
+			break;
+
+		/* bitcoin/src/rpc/protocol.h:
+		 *	RPC_IN_WARMUP = -28, //!< Client still warming up
+		 */
+		if (WEXITSTATUS(status) != 28)
+			fatal("%s exited with code %i: %s",
+			      cmd[0], WEXITSTATUS(status), output);
+
+		if (!printed) {
+			log_unusual(bitcoind->log,
+				    "Waiting for bitcoind to warm up...");
+			printed = true;
+		}
+		sleep(1);
+	}
+	tal_free(cmd);
 }
 
 struct bitcoind *new_bitcoind(const tal_t *ctx, struct log *log)

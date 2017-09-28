@@ -43,6 +43,8 @@ struct bitcoind {
 
 struct bitcoind *new_bitcoind(const tal_t *ctx, struct log *log);
 
+void wait_for_bitcoind(struct bitcoind *bitcoind);
+
 void bitcoind_estimate_fee_(struct bitcoind *bitcoind,
 			    void (*cb)(struct bitcoind *bitcoind,
 				       u64, void *),
