@@ -47,7 +47,7 @@ class TailableProc(object):
         self.proc = None
         self.outputDir = outputDir
         self.logsearch_start = 0
-        
+
     def start(self):
         """Start the underlying process and start monitoring it.
         """
@@ -58,16 +58,27 @@ class TailableProc(object):
         self.thread.start()
         self.running = True
 
-    def stop(self):
+    def stop(self, timeout=10):
         if self.outputDir:
             logpath = os.path.join(self.outputDir, 'log')
             with open(logpath, 'w') as f:
                 for l in self.logs:
                     f.write(l + '\n')
         self.proc.terminate()
-        self.proc.kill()
+
+        # Now give it some time to react to the signal
+        rc = self.proc.wait(timeout)
+
+        if rc is None:
+            self.proc.kill()
+
         self.proc.wait()
         self.thread.join()
+
+        if failed:
+            raise(ValueError("Process '{}' did not cleanly shutdown".format(self.proc.pid)))
+
+        return self.proc.returncode
 
     def tail(self):
         """Tail the stdout of the process and remember it.
@@ -175,7 +186,7 @@ class BitcoinD(TailableProc):
 
     def __init__(self, bitcoin_dir="/tmp/bitcoind-test", rpcport=18332):
         TailableProc.__init__(self, bitcoin_dir)
-        
+
         self.bitcoin_dir = bitcoin_dir
         self.rpcport = rpcport
         self.prefix = 'bitcoind'
@@ -231,12 +242,14 @@ class LightningD(TailableProc):
         self.wait_for_log("Creating IPv6 listener on port")
         logging.info("LightningD started")
 
-    def stop(self):
-        # If it's already crashing, wait a bit for log dump.
-        if os.path.isfile(os.path.join(self.lightning_dir, 'crash.log')):
-            time.sleep(2)
-        TailableProc.stop(self)
-        logging.info("LightningD stopped")
+    def wait(self, timeout=10):
+        """Wait for the daemon to stop for up to timeout seconds
+
+        Returns the returncode of the process, None if the process did
+        not return before the timeout triggers.
+        """
+        self.proc.wait(timeout)
+        return self.proc.returncode
 
 class LightningNode(object):
     def __init__(self, daemon, rpc, btc, executor):
@@ -262,7 +275,7 @@ class LightningNode(object):
         t = threading.Thread(target=call_connect)
         t.daemon = True
         t.start()
-        
+
         def wait_connected():
             # Up to 10 seconds to get tx into mempool.
             start_time = time.time()
@@ -316,3 +329,24 @@ class LightningNode(object):
         on cleanup"""
         self.known_fail = True
     
+    def stop(self, timeout=10):
+        """ Attempt to do a clean shutdown, but kill if it hangs
+        """
+
+        # Tell the daemon to stop
+        try:
+            # May fail if the process already died
+            self.rpc.stop()
+        except:
+            pass
+
+        rc = self.daemon.wait(timeout)
+
+        # If it did not stop be more insistent
+        if rc is None:
+            rc = self.daemon.stop()
+
+        if rc != 0:
+            raise ValueError("Node did not exit cleanly, rc={}".format(rc))
+        else:
+            return rc

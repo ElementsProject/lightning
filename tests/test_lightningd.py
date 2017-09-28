@@ -126,7 +126,7 @@ class NodeFactory(object):
 
     def killall(self):
         for n in self.nodes:
-            n.daemon.stop()
+            n.stop()
 
 
 class BaseLightningDTests(unittest.TestCase):
@@ -1541,9 +1541,8 @@ class LightningDTests(BaseLightningDTests):
         time.sleep(1)
         assert l1.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 99990000
         assert l2.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 10000
-
         # Stop l2, l1 will reattempt to connect
-        l2.daemon.stop()
+        l2.stop()
 
         # Wait for l1 to notice
         wait_for(lambda: not l1.rpc.getpeers()['peers'][0]['connected'])
@@ -1562,7 +1561,7 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 20000
 
         # Finally restart l1, and make sure it remembers
-        l1.daemon.stop()
+        l1.stop()
         l1.daemon.start()
         assert l1.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 99980000
 
