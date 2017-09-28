@@ -16,6 +16,7 @@
 #include <common/daemon_conn.h>
 #include <common/debug.h>
 #include <common/funding_tx.h>
+#include <common/io_debug.h>
 #include <common/status.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -662,6 +663,7 @@ int main(int argc, char *argv[])
 	}
 
 	subdaemon_debug(argc, argv);
+	io_poll_override(debug_poll);
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
