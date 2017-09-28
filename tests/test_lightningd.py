@@ -87,7 +87,7 @@ class NodeFactory(object):
         self.nodes = []
         self.executor = executor
 
-    def get_node(self, disconnect=None):
+    def get_node(self, disconnect=None, options=None):
         node_id = self.next_id
         self.next_id += 1
 
@@ -103,6 +103,8 @@ class NodeFactory(object):
                 f.write("\n".join(disconnect))
             daemon.cmd_line.append("--dev-disconnect=dev_disconnect")
         daemon.cmd_line.append("--dev-fail-on-subdaemon-fail")
+        if options:
+            daemon.cmd_line.append(options)
         rpc = LightningRpc(socket_path, self.executor)
 
         node = utils.LightningNode(daemon, rpc, bitcoind, self.executor)
@@ -381,6 +383,26 @@ class LightningDTests(BaseLightningDTests):
 
         # But this should work.
         self.pay(l2, l1, available - reserve*2)
+
+    def test_bad_opening(self):
+        # l1 asks for a too-long locktime
+        l1 = self.node_factory.get_node(options='--locktime-blocks=100')
+        l2 = self.node_factory.get_node(options='--max-locktime-blocks=99')
+        ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+
+        assert ret['id'] == l2.info['id']
+
+        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_NEW_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_NEW_PEER')
+
+        addr = l1.rpc.newaddr()['address']
+        txid = l1.bitcoin.rpc.sendtoaddress(addr, 10**6 / 10**8 + 0.01)
+        tx = l1.bitcoin.rpc.getrawtransaction(txid)
+
+        l1.rpc.addfunds(tx)
+        self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 10**6)
+
+        l2.daemon.wait_for_log('to_self_delay 100 larger than 99')
 
     def test_closing(self):
         l1,l2 = self.connect()
