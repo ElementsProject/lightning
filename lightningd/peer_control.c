@@ -2530,11 +2530,6 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 	msg = towire_opening_fundee(peer, peer->minimum_depth,
 				    7500, 150000, from_peer);
 
-	/* Careful here!  Their message could push us overlength! */
-	if (tal_len(msg) >= 65536) {
-		peer_fail_permanent_str(peer, "Unacceptably long open_channel");
-		return;
-	}
 	subd_req(peer, peer->owner, take(msg), -1, 2,
 		 opening_fundee_finished, peer);
 }

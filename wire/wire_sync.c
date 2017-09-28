@@ -1,16 +1,18 @@
-#include "wire/wire_sync.h"
 #include <assert.h>
 #include <ccan/endian/endian.h>
 #include <ccan/read_write_all/read_write_all.h>
+#include <errno.h>
+#include <wire/wire_io.h>
+#include <wire/wire_sync.h>
 
 bool wire_sync_write(int fd, const void *msg TAKES)
 {
-	be16 be_len = cpu_to_be16(tal_count(msg));
+	wire_len_t len = tal_len(msg);
 	bool ret;
 
-	assert(be16_to_cpu(be_len) == tal_count(msg));
-	ret = write_all(fd, &be_len, sizeof(be_len))
-		&& write_all(fd, msg, tal_count(msg));
+	assert(tal_len(msg) < WIRE_LEN_LIMIT);
+	ret = write_all(fd, &len, sizeof(len))
+		&& write_all(fd, msg, len);
 
 	if (taken(msg))
 		tal_free(msg);
@@ -19,13 +21,17 @@ bool wire_sync_write(int fd, const void *msg TAKES)
 
 u8 *wire_sync_read(const tal_t *ctx, int fd)
 {
-	be16 be_len;
+	wire_len_t len;
 	u8 *msg;
 
-	if (!read_all(fd, &be_len, sizeof(be_len)))
+	if (!read_all(fd, &len, sizeof(len)))
 		return NULL;
-	msg = tal_arr(ctx, u8, be16_to_cpu(be_len));
-	if (!read_all(fd, msg, be16_to_cpu(be_len)))
+	if (len >= WIRE_LEN_LIMIT) {
+		errno = E2BIG;
+		return NULL;
+	}
+	msg = tal_arr(ctx, u8, len);
+	if (!read_all(fd, msg, len))
 		return tal_free(msg);
 	return msg;
 }
