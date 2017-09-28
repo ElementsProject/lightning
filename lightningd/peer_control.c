@@ -216,7 +216,12 @@ void peer_fail_transient(struct peer *peer, const char *fmt, ...)
 /* When daemon reports a STATUS_FAIL_PEER_BAD, it goes here. */
 static void bad_peer(struct subd *subd, const char *msg)
 {
-	peer_fail_permanent_str(subd->peer, msg);
+	struct peer *peer = subd->peer;
+
+	/* Don't close peer->owner, subd will clean that up. */
+	peer->owner = NULL;
+	subd->peer = NULL;
+	peer_fail_permanent_str(peer, msg);
 }
 
 void peer_set_condition(struct peer *peer, enum peer_state old_state,
@@ -684,8 +689,8 @@ struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id)
 /* When a per-peer subdaemon exits, see if we need to do anything. */
 static void peer_owner_finished(struct subd *subd, int status)
 {
-	/* If peer has moved on, do nothing. */
-	if (subd->peer->owner != subd) {
+	/* If peer has moved on, do nothing (can be NULL if it errored out) */
+	if (!subd->peer || subd->peer->owner != subd) {
 		log_debug(subd->ld->log, "Subdaemon %s died (%i), peer moved",
 			  subd->name, status);
 		return;
