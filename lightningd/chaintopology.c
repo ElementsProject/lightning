@@ -572,6 +572,9 @@ void setup_topology(struct chain_topology *topo,
 	topo->poll_time = poll_time;
 	topo->first_blocknum = first_peer_block;
 
+	/* Make sure bitcoind is started, and ready */
+	wait_for_bitcoind(topo->bitcoind);
+
 	bitcoind_getblockcount(topo->bitcoind, get_init_blockhash, topo);
 
 	tal_add_destructor(topo, destroy_outgoing_txs);
