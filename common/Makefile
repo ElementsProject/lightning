@@ -15,6 +15,7 @@ COMMON_SRC :=					\
 	common/htlc_wire.c			\
 	common/initial_channel.c		\
 	common/initial_commit_tx.c		\
+	common/io_debug.c			\
 	common/json.c				\
 	common/key_derive.c			\
 	common/keyset.c				\

@@ -31,7 +31,9 @@ void status_setup_async(struct daemon_conn *master)
 	assert(status_fd == -1);
 	assert(!status_conn);
 	status_conn = master;
-	trc = tal_tmpctx(NULL);
+
+	/* Don't use tmpctx here, otherwise debug_poll gets upset. */
+	trc = tal(NULL, char);
 }
 
 static bool too_large(size_t len, int type)
@@ -85,8 +87,10 @@ void status_trace(const char *fmt, ...)
 	va_end(ap);
 
 	/* Free up any temporary children. */
-	tal_free(trc);
-	trc = tal_tmpctx(NULL);
+	if (tal_first(trc)) {
+		tal_free(trc);
+		trc = tal(NULL, char);
+	}
 }
 
 void status_failed(enum status_fail code, const char *fmt, ...)
