@@ -34,7 +34,7 @@ static int do_read_wire_header(int fd, struct io_plan_arg *arg)
 
 	/* Length bytes read?  Set up for normal read of data. */
 	if (arg->u2.s == INSIDE_HEADER_BIT + HEADER_LEN) {
-		arg->u2.s = *(wire_len_t *)p;
+		arg->u2.s = wirelen_to_cpu(*(wire_len_t *)p);
 		if (arg->u2.s >= INSIDE_HEADER_BIT) {
 			errno = E2BIG;
 			return -1;
@@ -88,7 +88,7 @@ static int do_write_wire_header(int fd, struct io_plan_arg *arg)
 {
 	ssize_t ret;
 	size_t len = arg->u2.s & ~INSIDE_HEADER_BIT;
-	wire_len_t hdr = tal_count(arg->u1.const_vp);
+	wire_len_t hdr = cpu_to_wirelen(tal_count(arg->u1.const_vp));
 
 	ret = write(fd, (char *)&hdr + len, HEADER_LEN - len);
 	if (ret <= 0)
