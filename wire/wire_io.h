@@ -1,8 +1,8 @@
 #ifndef LIGHTNING_WIRE_WIRE_IO_H
 #define LIGHTNING_WIRE_WIRE_IO_H
 #include "config.h"
-#include <ccan/io/io.h>
 #include <ccan/endian/endian.h>
+#include <ccan/io/io.h>
 #include <ccan/short_types/short_types.h>
 
 /* We don't allow > 64M msgs: enough for 483 64k failure msgs. */
