@@ -296,8 +296,14 @@ int main(int argc, char *argv[])
 		derive_peer_seed(ld, peer->seed, &peer->id, peer->channel->id);
 		peer->htlcs = tal_arr(peer, struct htlc_stub, 0);
 		peer->owner = NULL;
+		if (!wallet_htlcs_load_for_channel(ld->wallet, peer->channel,
+						   &ld->htlcs_in, &ld->htlcs_out)) {
+			err(1, "could not load htlcs for channel: %s", ld->wallet->db->err);
+		}
 	}
-
+	if (!wallet_htlcs_reconnect(ld->wallet, &ld->htlcs_in, &ld->htlcs_out)) {
+		errx(1, "could not reconnect htlcs loaded from wallet, wallet may be inconsistent.");
+	}
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(ld, ld->rpc_filename);
 
