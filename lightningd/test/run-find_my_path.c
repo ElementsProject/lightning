@@ -75,6 +75,17 @@ const char *version(void)
 /* Generated stub for wallet_channels_load_active */
 bool wallet_channels_load_active(struct wallet *w UNNEEDED, struct list_head *peers UNNEEDED)
 { fprintf(stderr, "wallet_channels_load_active called!\n"); abort(); }
+/* Generated stub for wallet_htlcs_load_for_channel */
+bool wallet_htlcs_load_for_channel(struct wallet *wallet UNNEEDED,
+				   struct wallet_channel *chan UNNEEDED,
+				   struct htlc_in_map *htlcs_in UNNEEDED,
+				   struct htlc_out_map *htlcs_out UNNEEDED)
+{ fprintf(stderr, "wallet_htlcs_load_for_channel called!\n"); abort(); }
+/* Generated stub for wallet_htlcs_reconnect */
+bool wallet_htlcs_reconnect(struct wallet *wallet UNNEEDED,
+			    struct htlc_in_map *htlcs_in UNNEEDED,
+			    struct htlc_out_map *htlcs_out UNNEEDED)
+{ fprintf(stderr, "wallet_htlcs_reconnect called!\n"); abort(); }
 /* Generated stub for wallet_new */
 struct wallet *wallet_new(const tal_t *ctx UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "wallet_new called!\n"); abort(); }
