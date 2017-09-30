@@ -758,6 +758,7 @@ class LightningDTests(BaseLightningDTests):
         # FIXME: Test wallet balance...
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
+    @unittest.skip("flaky test causing CI fails too often")
     def test_penalty_outhtlc(self):
         """Test penalty transaction with an outgoing HTLC"""
         # First we need to get funds to l2, so suppress after second.
