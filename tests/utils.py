@@ -235,7 +235,7 @@ class LightningD(TailableProc):
         ]
 
         self.cmd_line += ["--{}={}".format(k, v) for k, v in LIGHTNINGD_CONFIG.items()]
-        self.prefix = 'lightningd'
+        self.prefix = 'lightningd(%d)' % (port)
 
         if not os.path.exists(lightning_dir):
             os.makedirs(lightning_dir)
