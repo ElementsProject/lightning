@@ -608,7 +608,7 @@ class LightningDTests(BaseLightningDTests):
         # (l1 will also collect its to-self payment.)
         l1.daemon.wait_for_log('sendrawtx exit 0')
         l1.daemon.wait_for_log('sendrawtx exit 0')
-        
+
         # We use 3 blocks for "reasonable depth"
         bitcoind.rpc.generate(3)
 
@@ -720,7 +720,7 @@ class LightningDTests(BaseLightningDTests):
 
         # Make sure l1 got l2's commitment to the HTLC, and sent to master.
         l1.daemon.wait_for_log('UPDATE WIRE_CHANNEL_GOT_COMMITSIG')
-        
+
         # Take our snapshot.
         tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
 
@@ -734,7 +734,7 @@ class LightningDTests(BaseLightningDTests):
 
         l2.daemon.wait_for_log('peer_out WIRE_UPDATE_FULFILL_HTLC')
         l1.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
-        
+
         # Payment should now complete.
         t.result(timeout=10)
 
@@ -834,7 +834,7 @@ class LightningDTests(BaseLightningDTests):
 
         # This will fail at l2's end.
         t=self.pay(l1,l2,200000000,async=True)
-        
+
         l2.daemon.wait_for_log('dev_disconnect permfail')
         l2.daemon.wait_for_log('sendrawtx exit 0')
         bitcoind.rpc.generate(1)
@@ -857,7 +857,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.rpc.generate(100)
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
-        
+
     def test_permfail_htlc_in(self):
         # Test case where we fail with unsettled incoming HTLC.
         disconnects = ['-WIRE_UPDATE_FULFILL_HTLC', 'permfail']
@@ -889,7 +889,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.rpc.generate(6)
 
         l2.daemon.wait_for_log('sendrawtx exit 0')
-        
+
         t.cancel()
 
         # Now, 100 blocks it should be done.
@@ -898,7 +898,7 @@ class LightningDTests(BaseLightningDTests):
         assert not l2.daemon.is_in_log('onchaind complete, forgetting peer')
         bitcoind.rpc.generate(6)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
-        
+
     def test_permfail_htlc_out(self):
         # Test case where we fail with unsettled outgoing HTLC.
         disconnects = ['+WIRE_REVOKE_AND_ACK', 'permfail']
@@ -1501,8 +1501,12 @@ class LightningDTests(BaseLightningDTests):
         assert outputs[2] == 10000000
 
     def test_channel_persistence(self):
-        # Start two nodes and open a channel (to remember)
-        l1, l2 = self.connect()
+        # Start two nodes and open a channel (to remember). l2 will
+        # mysteriously die while committing the first HTLC so we can
+        # check that HTLCs reloaded from the DB work.
+        l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED'])
+        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
 
         # Neither node should have a channel open, they are just connected
         for n in (l1, l2):
@@ -1517,13 +1521,18 @@ class LightningDTests(BaseLightningDTests):
         for n in (l1, l2):
             assert(n.db_query('SELECT COUNT(id) as count FROM channels;')[0]['count'] == 1)
 
-        # Perform a payment so we have something to restore
-        self.pay(l1, l2, 10000)
-        time.sleep(1)
-        assert l1.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 99990000
-        assert l2.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 10000
+        # Fire off a sendpay request, it'll get interrupted by a restart
+        fut = self.executor.submit(self.pay, l1, l2, 10000)
+        # Wait for it to be committed to, i.e., stored in the DB
+        l1.daemon.wait_for_log('peer_in WIRE_COMMITMENT_SIGNED')
+
         # Stop l2, l1 will reattempt to connect
-        l2.stop()
+        print("Killing l2 in mid HTLC")
+        l2.daemon.proc.terminate()
+
+        # Clear the disconnect and timer stop so we can proceed normally
+        l2.daemon.cmd_line = [e for e in l2.daemon.cmd_line if 'disconnect' not in e]
+        print(" ".join(l2.daemon.cmd_line + ['--dev-debugger=channeld']))
 
         # Wait for l1 to notice
         wait_for(lambda: not l1.rpc.getpeers()['peers'][0]['connected'])
@@ -1531,6 +1540,9 @@ class LightningDTests(BaseLightningDTests):
         # Now restart l1 and it should reload peers/channels from the DB
         l2.daemon.start()
         wait_for(lambda: len(l2.rpc.getpeers()['peers']) == 1)
+
+        # Wait for the restored HTLC to finish
+        wait_for(lambda: l1.rpc.getpeers()['peers'][0]['msatoshi_to_us'] == 99990000, interval=1)
 
         wait_for(lambda: len([p for p in l1.rpc.getpeers()['peers'] if p['connected']]), interval=1)
         wait_for(lambda: len([p for p in l2.rpc.getpeers()['peers'] if p['connected']]), interval=1)
