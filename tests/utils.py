@@ -58,12 +58,15 @@ class TailableProc(object):
         self.thread.start()
         self.running = True
 
-    def stop(self, timeout=10):
+    def save_log(self):
         if self.outputDir:
             logpath = os.path.join(self.outputDir, 'log')
             with open(logpath, 'w') as f:
                 for l in self.logs:
                     f.write(l + '\n')
+
+    def stop(self, timeout=10):
+        self.save_log()
         self.proc.terminate()
 
         # Now give it some time to react to the signal
@@ -339,6 +342,8 @@ class LightningNode(object):
         # If it did not stop be more insistent
         if rc is None:
             rc = self.daemon.stop()
+
+        self.daemon.save_log()
 
         if rc != 0 and not self.may_fail:
             raise ValueError("Node did not exit cleanly, rc={}".format(rc))
