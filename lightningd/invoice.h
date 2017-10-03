@@ -9,13 +9,21 @@
 struct invoices;
 struct lightningd;
 
+/* /!\ This is a DB ENUM, please do not change the numbering of any
+ * already defined elements (adding is ok) /!\ */
+enum invoice_status {
+	UNPAID,
+	PAID,
+};
+
 struct invoice {
+	u64 id;
+	enum invoice_status state;
 	struct list_node list;
 	const char *label;
 	u64 msatoshi;
 	struct preimage r;
 	struct sha256 rhash;
-	u64 paid_num;
 };
 
 #define INVOICE_MAX_LABEL_LEN 128
@@ -25,7 +33,7 @@ void invoice_add(struct invoices *i,
 		 const struct preimage *r,
 		 u64 msatoshi,
 		 const char *label,
-		 u64 complete);
+		 enum invoice_status state);
 
 void resolve_invoice(struct lightningd *ld, struct invoice *invoice);
 
