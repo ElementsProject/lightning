@@ -110,6 +110,17 @@ char *dbmigrations[] = {
     "  PRIMARY KEY (id),"
     "  UNIQUE (channel_id, channel_htlc_id, direction)"
     ");",
+    "CREATE TABLE invoices ("
+    "  id INTEGER,"
+    "  state INTEGER,"
+    "  msatoshi INTEGER,"
+    "  payment_hash BLOB,"
+    "  payment_key BLOB,"
+    "  label TEXT,"
+    "  PRIMARY KEY (id),"
+    "  UNIQUE (label),"
+    "  UNIQUE (payment_hash)"
+    ");",
     NULL,
 };
 
