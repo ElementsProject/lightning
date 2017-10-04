@@ -276,6 +276,11 @@ int main(int argc, char *argv[])
 		       /* FIXME: Load from peers. */
 		       0);
 
+	/* Load invoices from the database */
+	if (!wallet_invoices_load(ld->wallet, ld->invoices)) {
+		err(1, "Could not load invoices from the database");
+	}
+
 	/* Load peers from database */
 	wallet_channels_load_active(ld->wallet, &ld->peers);
 
@@ -325,4 +330,3 @@ int main(int argc, char *argv[])
 	tal_free(log_book);
 	return 0;
 }
-

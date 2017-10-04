@@ -29,11 +29,8 @@ struct invoice {
 #define INVOICE_MAX_LABEL_LEN 128
 
 /* From database */
-void invoice_add(struct invoices *i,
-		 const struct preimage *r,
-		 u64 msatoshi,
-		 const char *label,
-		 enum invoice_status state);
+void invoice_add(struct invoices *invs,
+		 struct invoice *inv);
 
 void resolve_invoice(struct lightningd *ld, struct invoice *invoice);
 
