@@ -80,4 +80,34 @@ s64 db_get_intvar(struct db *db, char *varname, s64 defval);
 bool sqlite3_column_hexval(sqlite3_stmt *s, int col, void *dest,
 			   size_t destlen);
 
+/**
+ * db_prepare -- Prepare a DB query/command
+ *
+ * Tiny wrapper around `sqlite3_prepare_v2` that checks and sets
+ * errors like `db_query` and `db_exec` do. It returns a statement
+ * `stmt` if the given query/command was successfully compiled into a
+ * statement, `NULL` otherwise. On failure `db->err` will be set with
+ * the human readable error.
+ *
+ * @db: Database to query/exec
+ * @query: The SQL statement to compile
+ */
+#define db_prepare(db,query) db_prepare_(__func__,db,query)
+sqlite3_stmt *db_prepare_(const char *caller, struct db *db, const char *query);
+
+/**
+ * db_exec_prepared -- Execute a prepared statement
+ *
+ * After preparing a statement using `db_prepare`, and after binding
+ * all non-null variables using the `sqlite3_bind_*` functions, it can
+ * be executed with this function. It is a small, transaction-aware,
+ * wrapper around `sqlite3_step`, that also sets `db->err` if the
+ * execution fails.
+ *
+ * @db: The database to execute on
+ * @stmt: The prepared statement to execute
+ */
+#define db_exec_prepared(db,stmt) db_exec_prepared_(__func__,db,stmt)
+bool db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt);
+
 #endif /* WALLET_DB_H */
