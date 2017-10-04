@@ -132,6 +132,38 @@ static void db_clear_error(struct db *db)
 	db->err = tal_free(db->err);
 }
 
+sqlite3_stmt *db_prepare_(const char *caller, struct db *db, const char *query)
+{
+	int err;
+	sqlite3_stmt *stmt;
+	if (db->in_transaction && db->err)
+		return NULL;
+
+	db_clear_error(db);
+	err = sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
+
+	if (err != SQLITE_OK) {
+		db->err = tal_fmt(db, "%s: %s: %s", caller, query,
+				  sqlite3_errmsg(db->sql));
+	}
+	return stmt;
+}
+
+bool db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt)
+{
+	if (db->in_transaction && db->err)
+		return false;
+	db_clear_error(db);
+
+	if (sqlite3_step(stmt) !=  SQLITE_DONE) {
+		db->err =
+		    tal_fmt(db, "%s: %s", caller, sqlite3_errmsg(db->sql));
+		return false;
+	} else {
+		return true;
+	}
+}
+
 bool PRINTF_FMT(3, 4)
     db_exec(const char *caller, struct db *db, const char *fmt, ...)
 {
