@@ -86,6 +86,9 @@ bool wallet_htlcs_reconnect(struct wallet *wallet UNNEEDED,
 			    struct htlc_in_map *htlcs_in UNNEEDED,
 			    struct htlc_out_map *htlcs_out UNNEEDED)
 { fprintf(stderr, "wallet_htlcs_reconnect called!\n"); abort(); }
+/* Generated stub for wallet_invoices_load */
+bool wallet_invoices_load(struct wallet *wallet UNNEEDED, struct invoices *invs UNNEEDED)
+{ fprintf(stderr, "wallet_invoices_load called!\n"); abort(); }
 /* Generated stub for wallet_new */
 struct wallet *wallet_new(const tal_t *ctx UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "wallet_new called!\n"); abort(); }

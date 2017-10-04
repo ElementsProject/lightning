@@ -56,20 +56,12 @@ static struct invoice *find_invoice_by_label(const struct list_head *list,
 }
 
 void invoice_add(struct invoices *invs,
-		 const struct preimage *r,
-		 u64 msatoshi,
-		 const char *label,
-		 enum invoice_status state)
+		 struct invoice *inv)
 {
+	tal_steal(invs, inv);
 	struct invoice *invoice = tal(invs, struct invoice);
-
-	invoice->msatoshi = msatoshi;
-	invoice->r = *r;
-	invoice->state = state;
-	invoice->label = tal_strdup(invoice, label);
 	sha256(&invoice->rhash, invoice->r.r, sizeof(invoice->r.r));
-
-	list_add(&invs->invlist, &invoice->list);
+	list_add(&invs->invlist, &inv->list);
 }
 
 struct invoices *invoices_init(const tal_t *ctx)
@@ -96,12 +88,6 @@ static void tell_waiter(struct command *cmd, const struct invoice *paid)
 }
 
 /* UNIFICATION FIXME */
-void db_resolve_invoice(struct lightningd *ld,
-			const char *label);
-bool db_new_invoice(struct lightningd *ld,
-		    u64 msatoshi,
-		    const char *label,
-		    const struct preimage *r);
 bool db_remove_invoice(struct lightningd *ld, const char *label);
 
 void resolve_invoice(struct lightningd *ld, struct invoice *invoice)
@@ -117,7 +103,7 @@ void resolve_invoice(struct lightningd *ld, struct invoice *invoice)
 			     list)) != NULL)
 		tell_waiter(w->cmd, invoice);
 
-	db_resolve_invoice(ld, invoice->label);
+	wallet_invoice_save(ld->wallet, invoice);
 }
 
 static void json_invoice(struct command *cmd,
@@ -138,6 +124,7 @@ static void json_invoice(struct command *cmd,
 	}
 
 	invoice = tal(cmd, struct invoice);
+	invoice->id = 0;
 	invoice->state = UNPAID;
 	if (r) {
 		if (!hex_decode(buffer + r->start, r->end - r->start,
@@ -178,11 +165,13 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 
-	if (!db_new_invoice(cmd->ld, invoice->msatoshi, invoice->label,
-			    &invoice->r)) {
+	if (!wallet_invoice_save(cmd->ld->wallet, invoice)) {
+		printf("Could not save the invoice to the database: %s",
+			  cmd->ld->wallet->db->err);
 		command_fail(cmd, "database error");
 		return;
 	}
+
 	/* OK, connect it to main state, respond with hash */
 	tal_steal(invs, invoice);
 	list_add(&invs->invlist, &invoice->list);
