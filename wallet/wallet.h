@@ -10,6 +10,7 @@
 #include <common/channel_config.h>
 #include <common/utxo.h>
 #include <lightningd/htlc_end.h>
+#include <lightningd/invoice.h>
 #include <wally_bip32.h>
 
 struct lightningd;
@@ -299,5 +300,27 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 bool wallet_htlcs_reconnect(struct wallet *wallet,
 			    struct htlc_in_map *htlcs_in,
 			    struct htlc_out_map *htlcs_out);
+
+/**
+ * wallet_invoice_save -- Save/update an invoice to the wallet
+ *
+ * Save or update the invoice in the wallet. If `inv->id` is 0 this
+ * invoice will be considered a new invoice and result in an intert
+ * into the database, otherwise it'll be updated.
+ *
+ * @wallet: Wallet to store in
+ * @inv: Invoice to save
+ */
+bool wallet_invoice_save(struct wallet *wallet, struct invoice *inv);
+
+/**
+ * wallet_invoices_load -- Load all invoices into memory
+ *
+ * Load all invoices into the given `invoices` struct.
+ *
+ * @wallet: Wallet to load invoices from
+ * @invs: invoices container to load into
+ */
+bool wallet_invoices_load(struct wallet *wallet, struct invoices *invs);
 
 #endif /* WALLET_WALLET_H */

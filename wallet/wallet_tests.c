@@ -8,6 +8,9 @@
 #include <unistd.h>
 #include <wallet/test_utils.h>
 
+void invoice_add(struct invoices *invs,
+		 struct invoice *inv){}
+
 static struct wallet *create_test_wallet(const tal_t *ctx)
 {
 	char filename[] = "/tmp/ldb-XXXXXX";
