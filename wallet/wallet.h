@@ -323,4 +323,17 @@ bool wallet_invoice_save(struct wallet *wallet, struct invoice *inv);
  */
 bool wallet_invoices_load(struct wallet *wallet, struct invoices *invs);
 
+/**
+ * wallet_invoice_remove -- Remove the specified invoice from the wallet
+ *
+ * Remove the invoice from the underlying database. The invoice is
+ * identified by `inv->id` so if the caller does not have the full
+ * invoice, it may just instantiate a new one and set the `id` to
+ * match the desired invoice.
+ *
+ * @wallet: Wallet to remove from
+ * @inv: Invoice to remove.
+ */
+bool wallet_invoice_remove(struct wallet *wallet, struct invoice *inv);
+
 #endif /* WALLET_WALLET_H */

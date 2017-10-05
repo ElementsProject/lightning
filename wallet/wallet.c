@@ -1192,3 +1192,10 @@ bool wallet_invoices_load(struct wallet *wallet, struct invoices *invs)
 	log_debug(wallet->log, "Loaded %d invoices from DB", count);
 	return true;
 }
+
+bool wallet_invoice_remove(struct wallet *wallet, struct invoice *inv)
+{
+	sqlite3_stmt *stmt = db_prepare(wallet->db, "DELETE FROM invoices WHERE id=?");
+	sqlite3_bind_int64(stmt, 1, inv->id);
+	return db_exec_prepared(wallet->db, stmt) && sqlite3_changes(wallet->db->sql) == 1;
+}
