@@ -224,6 +224,8 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--fee-per-satoshi", opt_set_s32, opt_show_s32,
 			 &ld->config.fee_per_satoshi,
 			 "Microsatoshi fee for every satoshi in HTLC");
+	opt_register_noarg("--no-reconnect", opt_set_bool,
+			   &ld->config.no_reconnect, "Disable automatic reconnect attempts");
 
 	opt_register_arg("--ipaddr", opt_set_ipaddr, NULL,
 			   &ld->config.ipaddr,
@@ -298,6 +300,9 @@ static const struct config testnet_config = {
 
 	/* Do not advertise any IP */
 	.ipaddr.type = 0,
+
+	/* Automatically reconnect */
+	.no_reconnect = false,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -356,6 +361,9 @@ static const struct config mainnet_config = {
 
 	/* Do not advertise any IP */
 	.ipaddr.type = 0,
+
+	/* Automatically reconnect */
+	.no_reconnect = false,
 };
 
 static void check_config(struct lightningd *ld)

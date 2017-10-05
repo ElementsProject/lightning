@@ -64,6 +64,9 @@ struct config {
 
 	/* IPv4 or IPv6 address to announce to the network */
 	struct ipaddr ipaddr;
+
+	/* Disable automatic reconnects */
+	bool no_reconnect;
 };
 
 struct lightningd {
