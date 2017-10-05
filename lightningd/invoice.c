@@ -5,6 +5,8 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <common/utils.h>
+#include <inttypes.h>
+#include <lightningd/log.h>
 #include <sodium/randombytes.h>
 
 struct invoice_waiter {
@@ -86,9 +88,6 @@ static void tell_waiter(struct command *cmd, const struct invoice *paid)
 	json_object_end(response);
 	command_success(cmd, response);
 }
-
-/* UNIFICATION FIXME */
-bool db_remove_invoice(struct lightningd *ld, const char *label);
 
 void resolve_invoice(struct lightningd *ld, struct invoice *invoice)
 {
@@ -265,7 +264,10 @@ static void json_delinvoice(struct command *cmd,
 		command_fail(cmd, "Unknown invoice");
 		return;
 	}
-	if (!db_remove_invoice(cmd->ld, i->label)) {
+
+	if (!wallet_invoice_remove(cmd->ld->wallet, i)) {
+		log_broken(cmd->ld->log, "Error attempting to remove invoice %"PRIu64": %s",
+			   i->id, cmd->ld->wallet->db->err);
 		command_fail(cmd, "Database error");
 		return;
 	}
