@@ -89,6 +89,11 @@ static void try_reconnect(struct peer *peer)
 
 static void peer_reconnect(struct peer *peer)
 {
+	/* Don't schedule an attempt if we disabled reconnections with
+	 * the `--no-reconnect` flag */
+	if (peer->ld->config.no_reconnect)
+		return;
+
 	new_reltimer(&peer->ld->timers,
 		     peer, peer->ld->config.poll_time,
 		     try_reconnect, peer);
