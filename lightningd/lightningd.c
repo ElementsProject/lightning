@@ -240,15 +240,6 @@ int main(int argc, char *argv[])
 	ld->daemon_dir = find_my_path(ld, argv[0]);
 
 	register_opts(ld);
-	opt_register_arg("--dev-debugger=<subdaemon>", opt_subd_debug, NULL,
-			 ld, "Wait for gdb attach at start of <subdaemon>");
-
-	opt_register_arg("--dev-broadcast-interval=<ms>", opt_set_uintval,
-			 opt_show_uintval, &ld->broadcast_interval,
-			 "Time between gossip broadcasts in milliseconds (default: 30000)");
-
-	opt_register_arg("--dev-disconnect=<filename>", opt_subd_dev_disconnect,
-			 NULL, ld, "File containing disconnection points");
 
 	/* FIXME: move to option initialization once we drop the
 	 * legacy daemon */
