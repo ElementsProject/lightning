@@ -5,7 +5,7 @@
 
 enum dev_disconnect {
 	/* Do nothing. */
-	DEV_DISCONNECT_NORMAL = 0,
+	DEV_DISCONNECT_NORMAL = '=',
 	/* Close connection before sending packet (and fail write). */
 	DEV_DISCONNECT_BEFORE = '-',
 	/* Close connection after sending packet. */
@@ -14,8 +14,6 @@ enum dev_disconnect {
 	DEV_DISCONNECT_DROPPKT = '@',
 	/* Swallow all writes from now on, and do no more reads. */
 	DEV_DISCONNECT_BLACKHOLE = '0',
-	/* Disable commit timer after sending this. */
-	DEV_DISCONNECT_SUPPRESS_COMMIT = '_'
 };
 
 /* Force a close fd before or after a certain packet type */

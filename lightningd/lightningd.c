@@ -31,16 +31,6 @@
 
 char *bitcoin_datadir;
 
-struct peer *find_peer_by_unique_id(struct lightningd *ld, u64 unique_id)
-{
-	struct peer *peer;
-	list_for_each(&ld->peers, peer, list) {
-		if (peer->unique_id == unique_id)
-			return peer;
-	}
-	return NULL;
-}
-
 void notify_new_block(struct chain_topology *topo, u32 height);
 void notify_new_block(struct chain_topology *topo, u32 height)
 {
@@ -81,7 +71,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx,
 	struct lightningd *ld = tal(ctx, struct lightningd);
 
 	list_head_init(&ld->peers);
-	ld->peer_counter = 0;
 	ld->dev_debug_subdaemon = NULL;
 	htlc_in_map_init(&ld->htlcs_in);
 	htlc_out_map_init(&ld->htlcs_out);
@@ -90,6 +79,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx,
 	ld->log = new_log(log_book, log_book, "lightningd(%u):", (int)getpid());
 
 	list_head_init(&ld->pay_commands);
+	list_head_init(&ld->connects);
 	ld->portnum = DEFAULT_PORT;
 	timers_init(&ld->timers, time_mono());
 	ld->topology = new_topology(ld, ld->log);
@@ -104,7 +94,6 @@ static const char *daemons[] = {
 	"lightning_channeld",
 	"lightning_closingd",
 	"lightning_gossipd",
-	"lightning_handshaked",
 	"lightning_hsmd",
 	"lightning_onchaind",
 	"lightning_openingd"
@@ -260,14 +249,8 @@ int main(int argc, char *argv[])
 	/* Initialize wallet, now that we are in the correct directory */
 	ld->wallet = wallet_new(ld, ld->log);
 
-	/* Mark ourselves live. */
-	log_info(ld->log, "Hello world from %s!", version());
-
 	/* Set up HSM. */
 	hsm_init(ld, newdir);
-
-	/* Set up gossip daemon. */
-	gossip_init(ld);
 
 	/* Initialize block topology. */
 	setup_topology(ld->topology,
@@ -280,6 +263,9 @@ int main(int argc, char *argv[])
 	if (!wallet_invoices_load(ld->wallet, ld->invoices)) {
 		err(1, "Could not load invoices from the database");
 	}
+
+	/* Set up gossip daemon. */
+	gossip_init(ld);
 
 	/* Load peers from database */
 	wallet_channels_load_active(ld->wallet, &ld->peers);
@@ -303,8 +289,8 @@ int main(int argc, char *argv[])
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(ld, ld->rpc_filename);
 
-	/* Ready for connections from peers. */
-	setup_listeners(ld);
+	/* Mark ourselves live. */
+	log_info(ld->log, "Hello world from %s!", version());
 
 #if 0
 	/* Load peers from database. */

@@ -352,6 +352,13 @@ void json_add_pubkey(struct json_result *response,
 	json_add_hex(response, fieldname, der, sizeof(der));
 }
 
+bool json_tok_pubkey(const char *buffer, const jsmntok_t *tok,
+		     struct pubkey *pubkey)
+{
+	return pubkey_from_hexstr(buffer + tok->start,
+				  tok->end - tok->start, pubkey);
+}
+
 void json_add_short_channel_id(struct json_result *response,
 			       const char *fieldname,
 			       const struct short_channel_id *id)
@@ -648,5 +655,6 @@ void setup_jsonrpc(struct lightningd *ld, const char *rpc_filename)
 	if (listen(fd, 1) != 0)
 		err(1, "Listening on '%s'", rpc_filename);
 
+	log_debug(ld->log, "Listening on '%s'", rpc_filename);
 	io_new_listener(ld, fd, incoming_jcon_connected, ld);
 }

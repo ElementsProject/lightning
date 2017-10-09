@@ -17,7 +17,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/bip32.o				\
 	common/channel_config.o			\
 	common/configdir.o			\
-	common/cryptomsg.o			\
+	common/crypto_state.o			\
 	common/derive_basepoints.o		\
 	common/funding_tx.o			\
 	common/htlc_state.o			\
@@ -34,13 +34,13 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/utils.o				\
 	common/utxo.o				\
 	common/version.o			\
+	common/wire_error.o			\
 	common/withdraw_tx.o
 
 LIGHTNINGD_SRC :=				\
 	lightningd/bitcoind.c			\
 	lightningd/build_utxos.c		\
 	lightningd/chaintopology.c		\
-	lightningd/dns.c			\
 	lightningd/gossip_control.c		\
 	lightningd/gossip_msg.c			\
 	lightningd/hsm_control.c		\
@@ -50,7 +50,6 @@ LIGHTNINGD_SRC :=				\
 	lightningd/lightningd.c			\
 	lightningd/log.c			\
 	lightningd/netaddr.c			\
-	lightningd/new_connection.c		\
 	lightningd/opt_time.c			\
 	lightningd/options.c			\
 	lightningd/pay.c			\

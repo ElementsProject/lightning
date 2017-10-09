@@ -13,4 +13,5 @@ void register_opts(struct lightningd *ld);
  */
 bool handle_opts(struct lightningd *ld, int argc, char *argv[]);
 
+bool parse_ipaddr(const char *arg, struct ipaddr *addr);
 #endif /* LIGHTNING_LIGHTNINGD_OPTIONS_H */

@@ -55,9 +55,6 @@ void register_opts(struct lightningd *ld UNNEEDED)
 /* Generated stub for setup_jsonrpc */
 void setup_jsonrpc(struct lightningd *ld UNNEEDED, const char *rpc_filename UNNEEDED)
 { fprintf(stderr, "setup_jsonrpc called!\n"); abort(); }
-/* Generated stub for setup_listeners */
-void setup_listeners(struct lightningd *ld UNNEEDED)
-{ fprintf(stderr, "setup_listeners called!\n"); abort(); }
 /* Generated stub for setup_topology */
 void setup_topology(struct chain_topology *topology UNNEEDED,
 		    struct timers *timers UNNEEDED,

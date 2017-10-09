@@ -75,22 +75,28 @@ static void status_send_with_hdr(u16 type, const void *p, size_t len)
 	}
 }
 
-void status_trace(const char *fmt, ...)
+void status_tracev(const char *fmt, va_list ap)
 {
-	va_list ap;
 	char *str;
 
-	va_start(ap, fmt);
 	str = tal_vfmt(NULL, fmt, ap);
 	status_send_with_hdr(STATUS_TRACE, str, strlen(str));
 	tal_free(str);
-	va_end(ap);
 
 	/* Free up any temporary children. */
 	if (tal_first(trc)) {
 		tal_free(trc);
 		trc = tal(NULL, char);
 	}
+}
+
+void status_trace(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	status_tracev(fmt, ap);
+	va_end(ap);
 }
 
 void status_failed(enum status_fail code, const char *fmt, ...)
