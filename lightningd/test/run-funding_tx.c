@@ -68,14 +68,14 @@ int main(void)
 	assert(input);
 
 	/* BOLT #3:
-	 *    Block 1 coinbase privkey: 6bd078650fcee8444e4e09825227b801a1ca928debb750eb36e6d56124bb20e80101
+	 *    Block 1 coinbase privkey: 6bd078650fcee8444e4e09825227b801a1ca928debb750eb36e6d56124bb20e801
 	 *    # privkey in base58: cRCH7YNcarfvaiY1GWUKQrRGmoezvfAiqHtdRvxe16shzbd7LDMz
 	 */
 	if (!key_from_base58("cRCH7YNcarfvaiY1GWUKQrRGmoezvfAiqHtdRvxe16shzbd7LDMz", strlen("cRCH7YNcarfvaiY1GWUKQrRGmoezvfAiqHtdRvxe16shzbd7LDMz"),
 			     &testnet, &input_privkey, &inputkey))
 		abort();
 	assert(testnet);
-	printf("* Block 1 coinbase privkey: %s01\n",
+	printf("* Block 1 coinbase privkey: %s\n",
 	       type_to_string(tmpctx, struct privkey, &input_privkey));
 
 	/* BOLT #3:

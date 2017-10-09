@@ -42,7 +42,7 @@ static void maybe_rotate_key(u64 *n, struct secret *k, struct secret *ck)
 
 	/* BOLT #8:
 	 *
-	 * A key is to be rotated after a party sends of decrypts
+	 * A key is to be rotated after a party sends or decrypts
 	 * `1000` messages with it.  This can be properly accounted
 	 * for by rotating the key once the nonce dedicated to it
 	 * exceeds `1000`.

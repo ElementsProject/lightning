@@ -64,7 +64,7 @@ struct channel {
 
 /* BOLT #2:
  *
- * `dust_limit_satoshis` is the threshold below which output should be
+ * `dust_limit_satoshis` is the threshold below which outputs should not be
  * generated for this node's commitment or HTLC transaction */
 static inline u64 dust_limit_satoshis(const struct channel *channel,
 				      enum side side)
