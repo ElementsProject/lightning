@@ -207,7 +207,7 @@ class LightningDTests(BaseLightningDTests):
     def connect(self):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node()
-        ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        ret = l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
 
         assert ret['id'] == l2.info['id']
 
@@ -398,7 +398,7 @@ class LightningDTests(BaseLightningDTests):
         # l1 asks for a too-long locktime
         l1 = self.node_factory.get_node(options='--locktime-blocks=100')
         l2 = self.node_factory.get_node(options='--max-locktime-blocks=99')
-        ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        ret = l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
 
         assert ret['id'] == l2.info['id']
 
@@ -487,7 +487,7 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node(disconnect=disconnects)
         l2 = self.node_factory.get_node()
 
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
 
         # Like fundchannel, but we'll probably fail before CHANNELD_NORMAL.
         addr = l1.rpc.newaddr()['address']
@@ -528,7 +528,7 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node(disconnect=disconnects)
         l2 = self.node_factory.get_node()
 
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
         self.fund_channel(l1, l2, 10**6)
 
         # Must be dust!
@@ -580,7 +580,7 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node(disconnect=disconnects)
         l2 = self.node_factory.get_node()
 
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
         self.fund_channel(l1, l2, 10**6)
 
         rhash = l2.rpc.invoice(10**8, 'onchain_timeout')['rhash']
@@ -636,8 +636,8 @@ class LightningDTests(BaseLightningDTests):
         l3 = self.node_factory.get_node()
 
         # l2 connects to both, so l1 can't reconnect and thus l2 drops to chain
-        l2.rpc.connect('localhost', l1.info['port'], l1.info['id'])
-        l2.rpc.connect('localhost', l3.info['port'], l3.info['id'])
+        l2.rpc.connect(l1.info['id'], 'localhost:{}'.format(l1.info['port']))
+        l2.rpc.connect(l3.info['id'], 'localhost:{}'.format(l3.info['port']))
         self.fund_channel(l2, l1, 10**6)
         self.fund_channel(l2, l3, 10**6)
 
@@ -708,7 +708,7 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED'], may_fail=True)
         l2 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED'])
 
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
         self.fund_channel(l1, l2, 10**6)
 
         # Now, this will get stuck due to l1 commit being disabled..
@@ -767,7 +767,7 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED*3'], may_fail=True)
         l2 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED*3'])
 
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
         self.fund_channel(l1, l2, 10**6)
 
         # Move some across to l2.
@@ -829,7 +829,7 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node(disconnect=disconnects)
 
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
         self.fund_channel(l1, l2, 10**6)
 
         # This will fail at l2's end.
@@ -864,7 +864,7 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node(disconnect=disconnects)
 
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
         self.fund_channel(l1, l2, 10**6)
 
         # This will fail at l2's end.
@@ -905,7 +905,7 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node(disconnect=disconnects)
 
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
         self.fund_channel(l2, l1, 10**6)
 
         # This will fail at l2's end.
@@ -1015,11 +1015,11 @@ class LightningDTests(BaseLightningDTests):
         l1 = self.node_factory.get_node(disconnect=disconnects)
         l2 = self.node_factory.get_node()
         l3 = self.node_factory.get_node()
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
         l1.openchannel(l2, 20000)
 
         # Now open new channels and everybody should sync
-        l2.rpc.connect('localhost', l3.info['port'], l3.info['id'])
+        l2.rpc.connect(l3.info['id'], 'localhost:{}'.format(l3.info['port']))
         l2.openchannel(l3, 20000)
 
         # Settle the gossip
@@ -1031,8 +1031,8 @@ class LightningDTests(BaseLightningDTests):
         l2 = self.node_factory.get_node()
         l3 = self.node_factory.get_node()
 
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
-        l1.rpc.connect('localhost', l3.info['port'], l3.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
+        l1.rpc.connect(l3.info['id'], 'localhost:{}'.format(l3.info['port']))
         self.fund_channel(l1, l2, 10**6)
         self.fund_channel(l1, l3, 10**6)
 
@@ -1043,7 +1043,7 @@ class LightningDTests(BaseLightningDTests):
 
         for i in range(len(nodes)-1):
             src, dst = nodes[i], nodes[i+1]
-            src.rpc.connect('localhost', dst.info['port'], dst.info['id'])
+            src.rpc.connect(dst.info['id'], 'localhost:{}'.format(dst.info['port']))
             src.openchannel(dst, 20000)
 
         # Allow announce messages.
@@ -1082,7 +1082,7 @@ class LightningDTests(BaseLightningDTests):
         # Connect 1 -> 2 -> 3.
         l1,l2 = self.connect()
         l3 = self.node_factory.get_node()
-        ret = l2.rpc.connect('localhost', l3.info['port'], l3.info['id'])
+        ret = l2.rpc.connect(l3.info['id'], 'localhost:{}'.format(l3.info['port']))
 
         assert ret['id'] == l3.info['id']
 
@@ -1145,11 +1145,11 @@ class LightningDTests(BaseLightningDTests):
         l2 = self.node_factory.get_node()
         for d in disconnects:
             self.assertRaises(ValueError, l1.rpc.connect,
-                              'localhost', l2.info['port'], l2.info['id'])
+                              l2.info['id'], 'localhost:{}'.format(l2.info['port']))
             assert l1.rpc.getpeer(l2.info['id']) == None
 
         # Now we should connect normally.
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
 
     def test_disconnect_funder(self):
         # Now error on funder side duringchannel open.
@@ -1167,7 +1167,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.addfunds(tx)
 
         for d in disconnects:
-            l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+            l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
             self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
             assert l1.rpc.getpeer(l2.info['id']) == None
 
@@ -1185,7 +1185,7 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.addfunds(tx)
 
         for d in disconnects:
-            l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+            l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
             self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
             assert l1.rpc.getpeer(l2.info['id']) == None
 
@@ -1201,7 +1201,7 @@ class LightningDTests(BaseLightningDTests):
         tx = l1.bitcoin.rpc.getrawtransaction(txid)
         l1.rpc.addfunds(tx)
 
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
         self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
 
         # Fundee remembers, funder doesn't.
@@ -1219,7 +1219,7 @@ class LightningDTests(BaseLightningDTests):
         tx = l1.bitcoin.rpc.getrawtransaction(txid)
         l1.rpc.addfunds(tx)
 
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
         l1.rpc.fundchannel(l2.info['id'], 20000)
 
         # They haven't forgotten each other.
@@ -1242,7 +1242,7 @@ class LightningDTests(BaseLightningDTests):
         disconnects = ['0WIRE_ACCEPT_CHANNEL']
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node(disconnect=disconnects)
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
 
         addr = l1.rpc.newaddr()['address']
         txid = l1.bitcoin.rpc.sendtoaddress(addr, 20000 / 10**6)
@@ -1254,7 +1254,7 @@ class LightningDTests(BaseLightningDTests):
         assert l1.rpc.getpeer(l2.info['id']) == None
 
         # Reconnect.
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
 
         # We should get a message about old one exiting.
         l2.daemon.wait_for_log('Peer has reconnected, state OPENINGD')
@@ -1274,7 +1274,7 @@ class LightningDTests(BaseLightningDTests):
                        '+WIRE_FUNDING_LOCKED']
         l1 = self.node_factory.get_node(disconnect=disconnects)
         l2 = self.node_factory.get_node()
-        ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        ret = l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
 
         self.fund_channel(l1, l2, 10**6)
 
@@ -1291,7 +1291,7 @@ class LightningDTests(BaseLightningDTests):
                        '+WIRE_REVOKE_AND_ACK']
         l1 = self.node_factory.get_node(disconnect=disconnects)
         l2 = self.node_factory.get_node()
-        ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        ret = l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
 
         self.fund_channel(l1, l2, 10**6)
 
@@ -1332,7 +1332,7 @@ class LightningDTests(BaseLightningDTests):
                        '+WIRE_REVOKE_AND_ACK']
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node(disconnect=disconnects)
-        ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        ret = l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
 
         self.fund_channel(l1, l2, 10**6)
 
@@ -1358,7 +1358,7 @@ class LightningDTests(BaseLightningDTests):
                        '+WIRE_REVOKE_AND_ACK']
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node(disconnect=disconnects)
-        ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        ret = l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
 
         self.fund_channel(l1, l2, 10**6)
 
@@ -1378,7 +1378,7 @@ class LightningDTests(BaseLightningDTests):
                        '+WIRE_SHUTDOWN']
         l1 = self.node_factory.get_node(disconnect=disconnects)
         l2 = self.node_factory.get_node()
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
 
         self.fund_channel(l1, l2, 10**6)
         self.pay(l1,l2,200000000)
@@ -1405,7 +1405,7 @@ class LightningDTests(BaseLightningDTests):
                        '+WIRE_CLOSING_SIGNED']
         l1 = self.node_factory.get_node(disconnect=disconnects)
         l2 = self.node_factory.get_node()
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
 
         self.fund_channel(l1, l2, 10**6)
         self.pay(l1,l2,200000000)
@@ -1503,7 +1503,7 @@ class LightningDTests(BaseLightningDTests):
         # check that HTLCs reloaded from the DB work.
         l1 = self.node_factory.get_node()
         l2 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED'])
-        l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
 
         # Neither node should have a channel open, they are just connected
         for n in (l1, l2):
@@ -1561,8 +1561,8 @@ class LightningDTests(BaseLightningDTests):
         l3 = self.node_factory.get_node()
 
         # l2 connects to both, so l1 can't reconnect and thus l2 drops to chain
-        l2.rpc.connect('localhost', l1.info['port'], l1.info['id'])
-        l2.rpc.connect('localhost', l3.info['port'], l3.info['id'])
+        l2.rpc.connect(l1.info['id'], 'localhost:{}'.format(l1.info['port']))
+        l2.rpc.connect(l3.info['id'], 'localhost:{}'.format(l3.info['port']))
         self.fund_channel(l2, l1, 10**6)
         self.fund_channel(l2, l3, 10**6)
 

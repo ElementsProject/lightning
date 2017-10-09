@@ -15,7 +15,7 @@
  * The default TCP port is 9735. This corresponds to hexadecimal
  * `0x2607`, the Unicode code point for LIGHTNING.
  */
-#define DEFAULT_PORT 0x2607
+#define DEFAULT_PORT 9735
 
 /* Various adjustable things. */
 struct config {

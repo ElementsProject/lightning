@@ -79,7 +79,7 @@ Once `lightningd` has funds, we can connect to a node and open a channel.
 Let's assume the remote node is accepting connections at `<ip>:<port>` and has the node ID `<node_id>`:
 
 ```
-cli/lightning-cli connect <ip> <port> <node_id>
+cli/lightning-cli connect <node_id> <ip>:<port>
 cli/lightning-cli fundchannel <node_id> <amount>
 ```
 
