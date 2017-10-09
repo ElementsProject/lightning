@@ -33,6 +33,7 @@ LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_GOSSIP_HEADERS)
 
 # Common source we use.
 GOSSIPD_COMMON_OBJS :=				\
+	common/crypto_state.o			\
 	common/crypto_sync.o			\
 	common/cryptomsg.o			\
 	common/daemon_conn.o			\

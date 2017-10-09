@@ -17,6 +17,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/bip32.o				\
 	common/channel_config.o			\
 	common/configdir.o			\
+	common/crypto_state.o			\
 	common/cryptomsg.o			\
 	common/derive_basepoints.o		\
 	common/funding_tx.o			\
