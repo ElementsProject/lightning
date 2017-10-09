@@ -180,7 +180,7 @@ static void send_announcement_signatures(struct peer *peer)
 	/* BOLT #7:
 	 *
 	 * If sent, `announcement_signatures` messages MUST NOT be sent until
-	 * `funding_locked` has been sent, and the funding transaction is has
+	 * `funding_locked` has been sent and the funding transaction has
 	 * at least 6 confirmations.
 	 */
 	if (!(peer->announce_depth_reached && peer->funding_locked[LOCAL]))

@@ -497,7 +497,7 @@ static u8 *fundee_channel(struct state *state,
 
 	/* BOLT #2:
 	 *
-	 * The receiving MUST reject the channel if the `chain_hash` value
+	 * The receiving node MUST reject the channel if the `chain_hash` value
 	 * within the `open_channel` message is set to a hash of a chain
 	 * unknown to the receiver.
 	 */

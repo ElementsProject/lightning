@@ -518,7 +518,8 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 	 * based on: */
 	/* BOLT #2:
 	 *
-	 * A node MUST NOT send `update_fulfill_htlc` until an HTLC is
+	 * A node MUST NOT send an `update_fulfill_htlc`, `update_fail_htlc`
+	 * or `update_fail_malformed_htlc` until the corresponding HTLC is
 	 * irrevocably committed in both sides' commitment transactions.
 	 */
 	if (htlc->state == SENT_ADD_ACK_REVOCATION)

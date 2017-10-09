@@ -863,7 +863,7 @@ static void handle_preimage(struct tracked_output **outs,
 		/* BOLT #5:
 		 *
 		 * To spend an offered HTLC output: if the transaction is the
-		 * nodes' own commitment transaction, then it MUST use the
+		 * node's own commitment transaction, then it MUST use the
 		 * HTLC-success transaction, and the HTLC-success transaction
 		 * output MUST be *resolved* as described in "On-chain HTLC
 		 * Transaction Handling"
