@@ -498,7 +498,7 @@ static bool peer_reconnected(struct lightningd *ld,
 	case GOSSIPD:
 		/* Tell gossipd to kick that one out, will call peer_fail */
 		subd_send_msg(peer->ld->gossip,
-			      take(towire_gossipctl_fail_peer(peer,
+			      take(towire_gossipctl_drop_peer(peer,
 							      peer->unique_id)));
 		tal_free(peer);
 		/* Continue with a new peer. */
