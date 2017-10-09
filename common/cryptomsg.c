@@ -346,7 +346,8 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 
 	switch (dev_disconnect(type)) {
 	case DEV_DISCONNECT_BEFORE:
-		return io_close(conn);
+		dev_sabotage_fd(io_conn_fd(conn));
+		break;
 	case DEV_DISCONNECT_DROPPKT:
 		pcs->out = NULL; /* FALL THRU */
 	case DEV_DISCONNECT_AFTER:
