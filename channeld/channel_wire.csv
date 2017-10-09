@@ -29,7 +29,7 @@ channel_init,,seed,struct privkey
 channel_init,,local_node_id,struct pubkey
 channel_init,,remote_node_id,struct pubkey
 channel_init,,commit_msec,u32
-channel_init,,cltv_delta,u16
+channel_init,,their_cltv_delta,u16
 channel_init,,last_was_revoke,bool
 channel_init,,num_last_sent_commit,u16
 channel_init,,last_sent_commit,num_last_sent_commit*struct changed_htlc

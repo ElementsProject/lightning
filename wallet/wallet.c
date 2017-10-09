@@ -506,10 +506,11 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->remote_per_commit);
 		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->old_remote_per_commit);
 		channel_info->feerate_per_kw = sqlite3_column_int64(stmt, col++);
+		channel_info->their_cltv_expiry_delta = sqlite3_column_int64(stmt, col++);
 		wallet_channel_config_load(w, remote_config_id, &chan->peer->channel_info->their_config);
 	} else {
 		/* No channel_info, skip positions in the result */
-		col += 7;
+		col += 8;
 	}
 
 	/* Load shachain */
@@ -549,7 +550,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		col += 2;
 	}
 
-	assert(col == 33);
+	assert(col == 34);
 
 	chan->peer->channel = chan;
 
@@ -568,7 +569,7 @@ const char *channel_fields =
     "fundingkey_remote, revocation_basepoint_remote, "
     "payment_basepoint_remote, "
     "delayed_payment_basepoint_remote, per_commit_remote, "
-    "old_per_commit_remote, feerate_per_kw, shachain_remote_id, "
+    "old_per_commit_remote, feerate_per_kw, their_cltv_expiry_delta, shachain_remote_id, "
     "shutdown_scriptpubkey_remote, shutdown_keyidx_local, "
     "last_sent_commit_state, last_sent_commit_id, "
     "last_tx, last_sig";
@@ -778,6 +779,7 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 			      "  per_commit_remote='%s',"
 			      "  old_per_commit_remote='%s',"
 			      "  feerate_per_kw=%d,"
+			      "  their_cltv_expiry_delta=%d,"
 			      "  channel_config_remote=%"PRIu64
 			      " WHERE id=%"PRIu64,
 			      db_serialize_pubkey(tmpctx, &p->channel_info->remote_fundingkey),
@@ -787,6 +789,7 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 			      db_serialize_pubkey(tmpctx, &p->channel_info->remote_per_commit),
 			      db_serialize_pubkey(tmpctx, &p->channel_info->old_remote_per_commit),
 			      p->channel_info->feerate_per_kw,
+			      p->channel_info->their_cltv_expiry_delta,
 			      p->channel_info->their_config.id,
 			      chan->id);
 	}
