@@ -15,6 +15,7 @@ struct channel_info {
 	 * and the remote_per_commit is for the commit_tx we're modifying now. */
 	struct pubkey remote_per_commit, old_remote_per_commit;
 	u32 feerate_per_kw;
+	u16 their_cltv_expiry_delta;
 };
 
 /* Get all HTLCs for a peer, to send in init message. */
