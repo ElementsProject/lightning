@@ -15,6 +15,7 @@
 static int dev_disconnect_fd = -1;
 static char dev_disconnect_line[200];
 static int dev_disconnect_count, dev_disconnect_len;
+static bool dev_disconnect_nocommit;
 
 bool dev_suppress_commit;
 
@@ -32,6 +33,13 @@ void dev_disconnect_init(int fd)
 	dev_disconnect_line[r] = '\n';
 	dev_disconnect_len = strcspn(dev_disconnect_line, "\n");
 	dev_disconnect_line[dev_disconnect_len] = '\0';
+	if (strends(dev_disconnect_line, "-nocommit")) {
+		dev_disconnect_line[strlen(dev_disconnect_line)
+				    - strlen("-nocommit")] = '\0';
+		dev_disconnect_nocommit = true;
+	} else
+		dev_disconnect_nocommit = false;
+
 	asterisk = strchr(dev_disconnect_line, '*');
 	if (asterisk) {
 		dev_disconnect_count = atoi(asterisk+1);
@@ -59,9 +67,9 @@ enum dev_disconnect dev_disconnect(int pkt_type)
 	assert(dev_disconnect_fd != -1);
 	lseek(dev_disconnect_fd, dev_disconnect_len+1, SEEK_CUR);
 
-	status_trace("dev_disconnect: %s", dev_disconnect_line);
-
-	if (dev_disconnect_line[0] == DEV_DISCONNECT_SUPPRESS_COMMIT)
+	status_trace("dev_disconnect: %s%s", dev_disconnect_line,
+		     dev_disconnect_nocommit ? "-nocommit" : "");
+	if (dev_disconnect_nocommit)
 		dev_suppress_commit = true;
 	return dev_disconnect_line[0];
 }
