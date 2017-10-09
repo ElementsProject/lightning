@@ -211,8 +211,8 @@ class LightningDTests(BaseLightningDTests):
 
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_NEW_PEER')
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_NEW_PEER')
+        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
         return l1,l2
 
     def fund_channel(self, l1, l2, amount):
@@ -266,18 +266,13 @@ class LightningDTests(BaseLightningDTests):
     def test_connect(self):
         l1,l2 = self.connect()
 
-        p1 = l1.rpc.getpeer(l2.info['id'], 'info')
-        p2 = l2.rpc.getpeer(l1.info['id'], 'info')
+        # Main daemon has no idea about these peers; they're in gossipd.
+        assert l1.rpc.getpeer(l2.info['id'], 'info') == None
+        assert l2.rpc.getpeer(l1.info['id'], 'info') == None
 
-        assert p1['state'] == 'GOSSIPD'
-        assert p2['state'] == 'GOSSIPD'
-
-        # It should have gone through these steps
-        assert 'state: UNINITIALIZED -> GOSSIPD' in p1['log']
-
-        # Both should still be owned by gossip
-        assert p1['owner'] == 'lightning_gossipd'
-        assert p2['owner'] == 'lightning_gossipd'
+        # Both gossipds will have them as new peers once handed back.
+        l1.daemon.wait_for_log('handle_peer {}: new peer'.format(l2.info['id']))
+        l2.daemon.wait_for_log('handle_peer {}: new peer'.format(l1.info['id']))
 
     def test_balance(self):
         l1,l2 = self.connect()
@@ -402,8 +397,8 @@ class LightningDTests(BaseLightningDTests):
 
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_NEW_PEER')
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_NEW_PEER')
+        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
 
         addr = l1.rpc.newaddr()['address']
         txid = l1.bitcoin.rpc.sendtoaddress(addr, 10**6 / 10**8 + 0.01)
@@ -1086,7 +1081,7 @@ class LightningDTests(BaseLightningDTests):
 
         assert ret['id'] == l3.info['id']
 
-        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_NEW_PEER')
+        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
         self.fund_channel(l1, l2, 10**6)
         self.fund_channel(l2, l3, 10**6)
 
@@ -1137,19 +1132,19 @@ class LightningDTests(BaseLightningDTests):
         l1.rpc.sendpay(to_json(route), rhash)
 
     def test_disconnect(self):
-        # These should all make us fail.
+        # These should all make us fail, and retry.
+        # FIXME: Configure short timeout for reconnect!
         disconnects = ['-WIRE_INIT',
                        '@WIRE_INIT',
                        '+WIRE_INIT']
         l1 = self.node_factory.get_node(disconnect=disconnects)
         l2 = self.node_factory.get_node()
-        for d in disconnects:
-            self.assertRaises(ValueError, l1.rpc.connect,
-                              l2.info['id'], 'localhost:{}'.format(l2.info['port']))
-            assert l1.rpc.getpeer(l2.info['id']) == None
-
-        # Now we should connect normally.
         l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
+
+        # Should have 3 connect fails.
+        for d in disconnects:
+            l1.daemon.wait_for_log('Failed connected out for {}, will try again'
+                                   .format(l2.info['id']))
 
     def test_disconnect_funder(self):
         # Now error on funder side duringchannel open.
