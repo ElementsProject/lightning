@@ -105,8 +105,9 @@ class NodeFactory(object):
                 f.write("\n".join(disconnect))
             daemon.cmd_line.append("--dev-disconnect=dev_disconnect")
         daemon.cmd_line.append("--dev-fail-on-subdaemon-fail")
-        if options:
-            daemon.cmd_line.append(options)
+        opts = [] if options is None else options
+        for opt in opts:
+            daemon.cmd_line.append(opt)
         rpc = LightningRpc(socket_path, self.executor)
 
         node = utils.LightningNode(daemon, rpc, bitcoind, self.executor, may_fail=may_fail)
@@ -396,8 +397,8 @@ class LightningDTests(BaseLightningDTests):
 
     def test_bad_opening(self):
         # l1 asks for a too-long locktime
-        l1 = self.node_factory.get_node(options='--locktime-blocks=100')
-        l2 = self.node_factory.get_node(options='--max-locktime-blocks=99')
+        l1 = self.node_factory.get_node(options=['--locktime-blocks=100'])
+        l2 = self.node_factory.get_node(options=['--max-locktime-blocks=99'])
         ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
 
         assert ret['id'] == l2.info['id']
