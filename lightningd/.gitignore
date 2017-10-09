@@ -2,7 +2,6 @@ lightningd
 lightning_channeld
 lightning_connectd
 lightning_gossipd
-lightning_handshaked
 lightning_hsmd
 lightning_openingd
 lightning_closingd

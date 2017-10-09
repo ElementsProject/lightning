@@ -144,7 +144,6 @@ include common/Makefile
 include wire/Makefile
 include wallet/Makefile
 include hsmd/Makefile
-include handshaked/Makefile
 include gossipd/Makefile
 include openingd/Makefile
 include channeld/Makefile

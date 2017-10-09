@@ -61,8 +61,6 @@ Here's a list of parts, with notes:
 
 * hsmd/ - daemon which looks after the cryptographic secret, and performs commitment signing.
 
-* handshaked/ - daemon to establish a single cryptographic handshake a-la BOLT 8.
-
 * gossipd/ - daemon to chat to peers which don't have any channels, and maintains routing information and broadcasts gossip.
 
 * openingd/ - daemon to open a channel for a single peer.

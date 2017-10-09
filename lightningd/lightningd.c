@@ -94,7 +94,6 @@ static const char *daemons[] = {
 	"lightning_channeld",
 	"lightning_closingd",
 	"lightning_gossipd",
-	"lightning_handshaked",
 	"lightning_hsmd",
 	"lightning_onchaind",
 	"lightning_openingd"
