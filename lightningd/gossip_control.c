@@ -95,6 +95,7 @@ static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	/* These are messages we send, not them. */
 	case WIRE_GOSSIPCTL_INIT:
 	case WIRE_GOSSIPCTL_NEW_PEER:
+	case WIRE_GOSSIPCTL_FAIL_PEER:
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 	case WIRE_GOSSIPCTL_DROP_PEER:
 	case WIRE_GOSSIPCTL_GET_PEER_GOSSIPFD:

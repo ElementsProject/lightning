@@ -262,34 +262,6 @@ static void peer_start_closingd(struct peer *peer,
 				int peer_fd, int gossip_fd,
 				bool reconnected);
 
-/* FIXME: Fake NOP dev_disconnect/dev_sabotage_fd for below. */
-enum dev_disconnect dev_disconnect(int pkt_type)
-{
-	return DEV_DISCONNECT_NORMAL;
-}
-
-void dev_sabotage_fd(int fd)
-{
-	abort();
-}
-
-void dev_blackhole_fd(int fd)
-{
-	abort();
-}
-
-/* Send (encrypted) error message, then close. */
-static struct io_plan *send_error(struct io_conn *conn,
-				  struct peer_crypto_state *pcs)
-{
-	log_debug(pcs->peer->log, "Sending canned error");
-	/* FIXME: This is the only place where master talks directly to peer;
-	 * and pulls in quite a lot of code to do so.  If we got a subdaemon
-	 * to do this work, we'd avoid pulling in cryptomsg.o and the fake
-	 * dev_disconnect. */
-	return peer_write_message(conn, pcs, pcs->peer->error, (void *)io_close_cb);
-}
-
 /* FIXME:
  *
  * This is a lot of code duplication!  We should turn gossipd into welcomed(?):
@@ -483,10 +455,14 @@ static bool peer_reconnected(struct lightningd *ld,
 	 * retransmit the error packet and ignore any other packets for that
 	 * channel, and the following requirements do not apply. */
 	if (peer->error) {
-		struct peer_crypto_state *pcs = tal(peer, struct peer_crypto_state);
-		init_peer_crypto_state(peer, pcs);
-		pcs->cs = *cs;
-		tal_steal(io_new_conn(peer, fd, send_error, pcs), pcs);
+		/* FIXME: we should do this in response to reestablish, unless
+		 * global error */
+		log_debug(peer->log, "Sending canned error");
+		subd_send_msg(peer->ld->gossip,
+			      take(towire_gossipctl_fail_peer(peer,
+							      peer->unique_id,
+							      cs, peer->error)));
+		subd_send_fd(peer->ld->gossip, fd);
 		return true;
 	}
 
