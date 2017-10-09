@@ -1137,6 +1137,131 @@ class LightningDTests(BaseLightningDTests):
         route = copy.deepcopy(baseroute)
         l1.rpc.sendpay(to_json(route), rhash)
 
+    def test_forward_different_fees_and_cltv(self):
+        # FIXME: Check BOLT quotes here too
+        # BOLT #7:
+        # ```
+        #    B
+        #   / \
+        #  /   \
+        # A     C 
+        #  \   /
+        #   \ /
+        #    D
+        # ```
+        # 
+        # Each node asks for the following `cltv_expiry_delta` on every channel open:
+        # 
+        # 1. A: 10 blocks
+        # 2. B: 20 blocks
+        # 3. C: 30 blocks
+        # 4. D: 40 blocks
+        # 
+        # Also, each node has the same fee scheme which it uses for each of its
+        # channels:
+        # 
+        # 1. A: 100 base + 1000 millionths
+        # 1. B: 200 base + 2000 millionths
+        # 1. C: 300 base + 3000 millionths
+        # 1. D: 400 base + 4000 millionths
+
+        # We don't do D yet.
+        l1 = self.node_factory.get_node(options=['--min-htlc-expiry=10', '--fee-base=100', '--fee-per-satoshi=1000'])
+        l2 = self.node_factory.get_node(options=['--min-htlc-expiry=20', '--fee-base=200', '--fee-per-satoshi=2000'])
+        l3 = self.node_factory.get_node(options=['--min-htlc-expiry=30', '--fee-base=300', '--fee-per-satoshi=3000'])
+
+        ret = l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
+        assert ret['id'] == l2.info['id']
+
+        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_NEW_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_NEW_PEER')
+
+        ret = l2.rpc.connect('localhost', l3.info['port'], l3.info['id'])
+        assert ret['id'] == l3.info['id']
+
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_NEW_PEER')
+        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_NEW_PEER')
+        
+        self.fund_channel(l1, l2, 10**6)
+        c1='{}:2:1'.format(bitcoind.rpc.getblockcount())
+        self.fund_channel(l2, l3, 10**6)
+        c2='{}:2:1'.format(bitcoind.rpc.getblockcount())
+
+        # Allow announce messages.
+        l1.bitcoin.rpc.generate(5)
+
+        # Make sure l1 has seen announce for all channels.
+        l1.daemon.wait_for_logs([
+            'Received channel_update for channel {}\\(0\\)'.format(c1),
+            'Received channel_update for channel {}\\(1\\)'.format(c1),
+            'Received channel_update for channel {}\\(0\\)'.format(c2),
+            'Received channel_update for channel {}\\(1\\)'.format(c2)])
+
+        # BOLT #7:
+        # 
+        # If B were to send 4,999,999 millisatoshi to C, it wouldn't charge
+        # itself a fee, but it would need to consider the `cltv_expiry_delta` in
+        # the B->C `channel_update` (ie. the `cltv_expiry_delta` C told B in
+        # `open_channel` or `accept_channel`).  We also assume it adds a "shadow
+        # route" to give an extra CLTV of 42.
+
+        # FIXME: Add shadow route
+        shadow_route=0
+        route = l2.rpc.getroute(l3.info['id'], 4999999, 1)["route"]
+        assert len(route) == 1
+
+        # BOLT #7:
+        #
+        #    * `amount_msat`: 4999999
+        #    * `cltv_expiry`: current-block-height + 30 + 42
+        #    * `onion_routing_packet`:
+        # 	 * `amt_to_forward` = 4999999
+        #      * `outgoing_cltv_value` = current-block-height + 30 + 42
+        assert route[0]['msatoshi'] == 4999999
+        assert route[0]['delay'] == 30 + shadow_route
+
+        # BOLT #7:
+        # If A were to send an 4,999,999 millisatoshi to C via B, it needs to
+        # pay B the fee it specified in the B->C `channel_update`, calculated as
+        # per [HTLC Fees](#htlc_fees):
+        # 
+	# 200 + 4999999 * 2000 / 1000000 = 10199
+        # 
+        # Assume a "shadow route" CLTV of 42 again, it would set `cltv_expiry`
+        # to the current-block-height plus the `channel_update` amounts A->B
+        # (20) and B->C (30), plus 42:
+        # 
+        # Thus the `update_add_htlc` message from A to B would be:
+	# 
+        # * `amount_msat`: 5010198
+        # * `cltv_expiry`: current-block-height + 50 + 42
+        # * `onion_routing_packet`:
+	# * `amt_to_forward` = 4999999
+        # * `outgoing_cltv_value` = current-block-height + 30 + 42
+        route = l1.rpc.getroute(l3.info['id'], 4999999, 1)["route"]
+        assert len(route) == 2
+
+        assert route[0]['msatoshi'] == 5010198
+        assert route[0]['delay'] == 50 + shadow_route
+        assert route[1]['msatoshi'] == 4999999
+        assert route[1]['delay'] == 30 + shadow_route
+
+        rhash = l3.rpc.invoice(4999999, 'test_forward_different_fees_and_cltv')['rhash']
+        assert l3.rpc.listinvoice('test_forward_different_fees_and_cltv')[0]['complete'] == False
+
+        # This should work.
+        l1.rpc.sendpay(to_json(route), rhash)
+
+        # We add one to the blockcount for a bit of fuzz (FIXME: Shadowroute would fix this!)
+        shadow_route = 1
+        l1.daemon.wait_for_log("Adding HTLC 0 msat=5010198 cltv={} gave 0"
+                               .format(bitcoind.rpc.getblockcount() + 50 + shadow_route))
+        l2.daemon.wait_for_log("Adding HTLC 0 msat=4999999 cltv={} gave 0"
+                               .format(bitcoind.rpc.getblockcount() + 30 + shadow_route))
+        l3.daemon.wait_for_log("test_forward_different_fees_and_cltv: Actual amount 4999999msat, HTLC expiry {}"
+                               .format(bitcoind.rpc.getblockcount() + 30 + shadow_route))
+        assert l3.rpc.listinvoice('test_forward_different_fees_and_cltv')[0]['complete'] == True
+
     def test_disconnect(self):
         # These should all make us fail.
         disconnects = ['-WIRE_INIT',

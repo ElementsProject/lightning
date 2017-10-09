@@ -118,7 +118,7 @@ struct peer {
 	u16 channel_direction;
 
 	/* CLTV delta to announce to peers */
-	u16 cltv_delta;
+	u16 their_cltv_delta;
 	u32 fee_base;
 	u32 fee_per_satoshi;
 
@@ -247,7 +247,7 @@ static void send_channel_update(struct peer *peer, bool disabled)
 	cupdate = towire_channel_update(
 	    tmpctx, sig, &peer->chain_hash,
 	    &peer->short_channel_ids[LOCAL], timestamp, flags,
-	    peer->cltv_delta, 1, peer->fee_base, peer->fee_per_satoshi);
+	    peer->their_cltv_delta, 1, peer->fee_base, peer->fee_per_satoshi);
 
 	msg = towire_hsm_cupdate_sig_req(tmpctx, cupdate);
 
@@ -1733,7 +1733,8 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
 			     amount_msat, cltv_expiry, &payment_hash,
 			     onion_routing_packet);
-	status_trace("Adding HTLC %"PRIu64" gave %i", peer->htlc_id, e);
+	status_trace("Adding HTLC %"PRIu64" msat=%"PRIu64" cltv=%u gave %i",
+		     peer->htlc_id, amount_msat, cltv_expiry, e);
 
 	switch (e) {
 	case CHANNEL_ERR_ADD_OK:
@@ -2022,7 +2023,7 @@ static void init_channel(struct peer *peer)
 				   &peer->node_ids[LOCAL],
 				   &peer->node_ids[REMOTE],
 				   &peer->commit_msec,
-				   &peer->cltv_delta,
+				   &peer->their_cltv_delta,
 				   &peer->last_was_revoke,
 				   &peer->last_sent_commit,
 				   &peer->next_index[LOCAL],
