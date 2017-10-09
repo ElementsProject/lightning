@@ -718,7 +718,6 @@ static void fulfill_our_htlc_out(struct peer *peer, struct htlc_out *hout,
 	hout->preimage = tal_dup(hout, struct preimage, preimage);
 	htlc_out_check(hout, __func__);
 
-	/* FIXME: Save to db */
 	wallet_htlc_update(peer->ld->wallet, hout->dbid, hout->hstate, preimage);
 
 	if (hout->in)
