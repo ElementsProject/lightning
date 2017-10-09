@@ -165,7 +165,7 @@ static u8 *make_failmsg(const tal_t *ctx, u64 msatoshi,
 	case WIRE_FEE_INSUFFICIENT:
 		return towire_fee_insufficient(ctx, msatoshi, channel_update);
 	case WIRE_INCORRECT_CLTV_EXPIRY:
-		/* FIXME: ctlv! */
+		/* FIXME: cltv! */
 		return towire_incorrect_cltv_expiry(ctx, 0, channel_update);
 	case WIRE_EXPIRY_TOO_SOON:
 		return towire_expiry_too_soon(ctx, channel_update);
@@ -176,7 +176,7 @@ static u8 *make_failmsg(const tal_t *ctx, u64 msatoshi,
 	case WIRE_FINAL_EXPIRY_TOO_SOON:
 		return towire_final_expiry_too_soon(ctx);
 	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
-		/* FIXME: ctlv! */
+		/* FIXME: cltv! */
 		return towire_final_incorrect_cltv_expiry(ctx, 0);
 	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
 		return towire_final_incorrect_htlc_amount(ctx, msatoshi);
@@ -268,14 +268,14 @@ static bool check_amount(struct htlc_in *hin,
  *     `outgoing_cltv_value` whether it is the final hop or not, to avoid
  *     leaking that information.
  */
-static bool check_ctlv(struct htlc_in *hin,
-		       u32 ctlv_expiry, u32 outgoing_cltv_value, u32 delta)
+static bool check_cltv(struct htlc_in *hin,
+		       u32 cltv_expiry, u32 outgoing_cltv_value, u32 delta)
 {
-	if (ctlv_expiry - delta == outgoing_cltv_value)
+	if (cltv_expiry - delta == outgoing_cltv_value)
 		return true;
 	log_debug(hin->key.peer->ld->log, "HTLC %"PRIu64" incorrect CLTV:"
 		  " %u in, %u out, delta reqd %u",
-		  hin->key.id, ctlv_expiry, outgoing_cltv_value, delta);
+		  hin->key.id, cltv_expiry, outgoing_cltv_value, delta);
 	return false;
 }
 
@@ -333,14 +333,14 @@ static void handle_localpay(struct htlc_in *hin,
 
 	/* BOLT #4:
 	 *
-	 * If the `outgoing_cltv_value` does not match the `ctlv_expiry` of
+	 * If the `outgoing_cltv_value` does not match the `cltv_expiry` of
 	 * the HTLC at the final hop:
 	 *
 	 * 1. type: 18 (`final_incorrect_cltv_expiry`)
 	 * 2. data:
 	 *   * [`4`:`cltv_expiry`]
 	 */
-	if (!check_ctlv(hin, cltv_expiry, outgoing_cltv_value, 0)) {
+	if (!check_cltv(hin, cltv_expiry, outgoing_cltv_value, 0)) {
 		failcode = WIRE_FINAL_INCORRECT_CLTV_EXPIRY;
 		goto fail;
 	}
@@ -529,7 +529,7 @@ static void forward_htlc(struct htlc_in *hin,
 		goto fail;
 	}
 
-	if (!check_ctlv(hin, cltv_expiry, outgoing_cltv_value,
+	if (!check_cltv(hin, cltv_expiry, outgoing_cltv_value,
 			ld->config.min_htlc_expiry)) {
 		failcode = WIRE_INCORRECT_CLTV_EXPIRY;
 		goto fail;
@@ -537,7 +537,7 @@ static void forward_htlc(struct htlc_in *hin,
 
 	/* BOLT #4:
 	 *
-	 * If the ctlv-expiry is too near, we tell them the the current channel
+	 * If the cltv-expiry is too near, we tell them the the current channel
 	 * setting for the outgoing channel:
 	 * 1. type: UPDATE|14 (`expiry_too_soon`)
 	 * 2. data:

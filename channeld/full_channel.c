@@ -819,7 +819,7 @@ bool channel_force_htlcs(struct channel *channel,
 		struct htlc *htlc;
 
 		status_trace("Restoring HTLC %zu/%zu:"
-			     " id=%"PRIu64" msat=%"PRIu64" ctlv=%u"
+			     " id=%"PRIu64" msat=%"PRIu64" cltv=%u"
 			     " payment_hash=%s",
 			     i, tal_count(htlcs),
 			     htlcs[i].id, htlcs[i].amount_msat,
