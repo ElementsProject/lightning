@@ -537,7 +537,7 @@ static void forward_htlc(struct htlc_in *hin,
 
 	/* BOLT #4:
 	 *
-	 * If the cltv-expiry is too near, we tell them the the current channel
+	 * If the `cltv_expiry` is too near, we tell them the the current channel
 	 * setting for the outgoing channel:
 	 * 1. type: UPDATE|14 (`expiry_too_soon`)
 	 * 2. data:

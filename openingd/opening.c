@@ -199,6 +199,7 @@ static u8 *funder_channel(struct state *state,
 			  const struct pubkey *our_funding_pubkey,
 			  const struct basepoints *ours,
 			  u32 max_minimum_depth,
+			  u16 our_cltv_expiry_delta,
 			  u64 change_satoshis, u32 change_keyindex,
 			  u8 channel_flags,
 			  const struct utxo *utxos,
@@ -211,6 +212,7 @@ static u8 *funder_channel(struct state *state,
 	struct pubkey their_funding_pubkey, changekey;
 	secp256k1_ecdsa_signature sig;
 	u32 minimum_depth;
+	u16 their_cltv_expiry_delta;
 	const u8 *wscript;
 	struct bitcoin_tx *funding;
 	const struct utxo **utxomap;
@@ -249,12 +251,14 @@ static u8 *funder_channel(struct state *state,
 				  state->feerate_per_kw,
 				  state->localconf.to_self_delay,
 				  state->localconf.max_accepted_htlcs,
+				  our_cltv_expiry_delta,
 				  our_funding_pubkey,
 				  &ours->revocation,
 				  &ours->payment,
 				  &ours->delayed_payment,
 				  &state->next_per_commit[LOCAL],
 				  channel_flags);
+
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
 		status_failed(STATUS_FAIL_PEER_IO,
 			      "Writing open_channel: %s", strerror(errno));
@@ -283,6 +287,7 @@ static u8 *funder_channel(struct state *state,
 				     &minimum_depth,
 				     &state->remoteconf->to_self_delay,
 				     &state->remoteconf->max_accepted_htlcs,
+				     &their_cltv_expiry_delta,
 				     &their_funding_pubkey,
 				     &theirs.revocation,
 				     &theirs.payment,
@@ -445,7 +450,8 @@ static u8 *funder_channel(struct state *state,
 					   minimum_depth,
 					   &their_funding_pubkey,
 					   &state->funding_txid,
-					   state->feerate_per_kw);
+					   state->feerate_per_kw,
+					   their_cltv_expiry_delta);
 }
 
 /* This is handed the message the peer sent which caused gossip to stop:
@@ -454,6 +460,7 @@ static u8 *fundee_channel(struct state *state,
 			  const struct pubkey *our_funding_pubkey,
 			  const struct basepoints *ours,
 			  u32 minimum_depth,
+			  u16 our_cltv_expiry_delta,
 			  u32 min_feerate, u32 max_feerate, const u8 *peer_msg)
 {
 	struct channel_id id_in;
@@ -465,6 +472,7 @@ static u8 *fundee_channel(struct state *state,
 	u8 *msg;
 	const u8 *wscript;
 	u8 channel_flags;
+	u16 their_cltv_expiry_delta;
 
 	state->remoteconf = tal(state, struct channel_config);
 
@@ -485,6 +493,7 @@ static u8 *fundee_channel(struct state *state,
 				   &state->feerate_per_kw,
 				   &state->remoteconf->to_self_delay,
 				   &state->remoteconf->max_accepted_htlcs,
+				   &their_cltv_expiry_delta,
 				   &their_funding_pubkey,
 				   &theirs.revocation,
 				   &theirs.payment,
@@ -556,6 +565,7 @@ static u8 *fundee_channel(struct state *state,
 				    minimum_depth,
 				    state->localconf.to_self_delay,
 				    state->localconf.max_accepted_htlcs,
+				    our_cltv_expiry_delta,
 				    our_funding_pubkey,
 				    &ours->revocation,
 				    &ours->payment,
@@ -668,7 +678,8 @@ static u8 *fundee_channel(struct state *state,
 					   state->push_msat,
 					   channel_flags,
 					   state->feerate_per_kw,
-					   msg);
+					   msg,
+					   their_cltv_expiry_delta);
 }
 
 #ifndef TESTING
@@ -687,6 +698,7 @@ int main(int argc, char *argv[])
 	struct utxo *utxos;
 	struct ext_key bip32_base;
 	u32 network_index;
+	u16 our_cltv_expiry_delta;
 
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
@@ -708,7 +720,8 @@ int main(int argc, char *argv[])
 				   &state->max_to_self_delay,
 				   &state->min_effective_htlc_capacity_msat,
 				   &state->cs,
-				   &seed))
+				   &seed,
+				   &our_cltv_expiry_delta))
 		master_badmsg(WIRE_OPENING_INIT, msg);
 
 	tal_free(msg);
@@ -741,14 +754,16 @@ int main(int argc, char *argv[])
 				    &change_satoshis, &change_keyindex,
 				    &channel_flags, &utxos, &bip32_base))
 		msg = funder_channel(state, &our_funding_pubkey, &our_points,
-				     max_minimum_depth, change_satoshis,
-				     change_keyindex, channel_flags,
+				     max_minimum_depth, our_cltv_expiry_delta,
+				     change_satoshis, change_keyindex,
+				     channel_flags,
 				     utxos, &bip32_base);
 	else if (fromwire_opening_fundee(state, msg, NULL, &minimum_depth,
 					 &min_feerate, &max_feerate, &peer_msg))
 		msg = fundee_channel(state, &our_funding_pubkey, &our_points,
-				   minimum_depth, min_feerate, max_feerate,
-				   peer_msg);
+				     minimum_depth, our_cltv_expiry_delta,
+				     min_feerate, max_feerate,
+				     peer_msg);
 	else
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "neither funder nor fundee: %s",

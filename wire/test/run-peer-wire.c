@@ -105,6 +105,7 @@ struct msg_accept_channel {
 	u32 minimum_depth;
 	u16 to_self_delay;
 	u16 max_accepted_htlcs;
+	u16 cltv_expiry_delta;
 	struct pubkey funding_pubkey;
 	struct pubkey revocation_basepoint;
 	struct pubkey payment_basepoint;
@@ -176,6 +177,7 @@ struct msg_open_channel {
 	u32 feerate_per_kw;
 	u16 to_self_delay;
 	u16 max_accepted_htlcs;
+	u16 cltv_expiry_delta;
 	struct pubkey funding_pubkey;
 	struct pubkey revocation_basepoint;
 	struct pubkey payment_basepoint;
@@ -269,6 +271,7 @@ static void *towire_struct_open_channel(const tal_t *ctx,
 				   s->feerate_per_kw,
 				   s->to_self_delay,
 				   s->max_accepted_htlcs,
+				   s->cltv_expiry_delta,
 				   &s->funding_pubkey,
 				   &s->revocation_basepoint,
 				   &s->payment_basepoint,
@@ -293,6 +296,7 @@ static struct msg_open_channel *fromwire_struct_open_channel(const tal_t *ctx, c
 				  &s->feerate_per_kw,
 				  &s->to_self_delay,
 				  &s->max_accepted_htlcs,
+				  &s->cltv_expiry_delta,
 				  &s->funding_pubkey,
 				  &s->revocation_basepoint,
 				  &s->payment_basepoint,
@@ -315,6 +319,7 @@ static void *towire_struct_accept_channel(const tal_t *ctx,
 				     s->minimum_depth,
 				     s->to_self_delay,
 				     s->max_accepted_htlcs,
+				     s->cltv_expiry_delta,
 				     &s->funding_pubkey,
 				     &s->revocation_basepoint,
 				     &s->payment_basepoint,
@@ -333,6 +338,7 @@ static struct msg_accept_channel *fromwire_struct_accept_channel(const tal_t *ct
 				    &s->channel_reserve_satoshis,
 				    &s->htlc_minimum_msat,
 				    &s->minimum_depth,
+				    &s->cltv_expiry_delta,
 				    &s->to_self_delay,
 				    &s->max_accepted_htlcs,
 				    &s->funding_pubkey,
@@ -799,7 +805,7 @@ static bool revoke_and_ack_eq(const struct msg_revoke_and_ack *a,
 static bool open_channel_eq(const struct msg_open_channel *a,
 			    const struct msg_open_channel *b)
 {
-	return eq_with(a, b, max_accepted_htlcs)
+	return eq_with(a, b, cltv_expiry_delta)
 		&& eq_between(a, b, funding_pubkey, channel_flags);
 }
 
@@ -813,7 +819,7 @@ static bool channel_update_eq(const struct msg_channel_update *a,
 static bool accept_channel_eq(const struct msg_accept_channel *a,
 			      const struct msg_accept_channel *b)
 {
-	return eq_with(a, b, max_accepted_htlcs)
+	return eq_with(a, b, cltv_expiry_delta)
 		&& eq_between(a, b, funding_pubkey, first_per_commitment_point);
 }
 
