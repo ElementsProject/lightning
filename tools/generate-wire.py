@@ -1,4 +1,4 @@
-#! /usr/bin/python3
+#! /usr/bin/env python3
 # Read from stdin, spit out C header or body.
 
 import argparse
