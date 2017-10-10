@@ -32,6 +32,7 @@ COMMON_SRC :=					\
 	common/utils.c				\
 	common/utxo.c				\
 	common/version.c			\
+	common/wire_error.c			\
 	common/withdraw_tx.c
 
 COMMON_HEADERS_NOGEN := $(COMMON_SRC:.c=.h) common/overflows.h common/htlc.h
