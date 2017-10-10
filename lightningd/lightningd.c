@@ -290,7 +290,6 @@ int main(int argc, char *argv[])
 		populate_peer(ld, peer);
 		peer->seed = tal(peer, struct privkey);
 		derive_peer_seed(ld, peer->seed, &peer->id, peer->channel->id);
-		peer->htlcs = tal_arr(peer, struct htlc_stub, 0);
 		peer->owner = NULL;
 		if (!wallet_htlcs_load_for_channel(ld->wallet, peer->channel,
 						   &ld->htlcs_in, &ld->htlcs_out)) {

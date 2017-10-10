@@ -79,24 +79,6 @@ static bool htlc_out_update_state(struct peer *peer,
 	return true;
 }
 
-/* This is where we write to the database the minimal HTLC info
- * required to do penalty transaction */
-static void save_htlc_stub(struct lightningd *ld,
-			   struct peer *peer,
-			   enum side owner,
-			   u32 cltv_value,
-			   const struct sha256 *payment_hash)
-{
-	size_t n = tal_count(peer->htlcs);
-	tal_resize(&peer->htlcs, n+1);
-	peer->htlcs[n].owner = owner;
-	peer->htlcs[n].cltv_expiry = cltv_value;
-	ripemd160(&peer->htlcs[n].ripemd,
-		  payment_hash->u.u8, sizeof(payment_hash->u));
-
-	/* FIXME: save to db instead! */
-}
-
 static void fail_in_htlc(struct htlc_in *hin,
 			 enum onion_type malformed,
 			 const u8 *failuremsg)
@@ -932,10 +914,6 @@ static bool update_out_htlc(struct peer *peer, u64 id, enum htlc_state newstate)
 		tal_del_destructor(hout, hout_subd_died);
 		tal_steal(peer->ld, hout);
 
-		/* From now onwards, penalty tx might need this */
-		save_htlc_stub(peer->ld, peer, LOCAL,
-			       hout->cltv_expiry,
-			       &hout->payment_hash);
 	} else if (newstate == RCVD_REMOVE_ACK_REVOCATION) {
 		remove_htlc_out(peer, hout);
 	}
@@ -1069,13 +1047,6 @@ static void added_their_htlc(struct peer *peer,
 
 	log_debug(peer->log, "Adding their HTLC %"PRIu64, added->id);
 	connect_htlc_in(&peer->ld->htlcs_in, hin);
-
-	/* Technically this can't be needed for a penalty transaction until
-	 * after we send revoke_and_ack, then commit, then receive their
-	 * revoke_and_ack.  But might as well record it while we have it:
-	 * a few extra entries won't hurt */
-	save_htlc_stub(peer->ld, peer, REMOTE, hin->cltv_expiry,
-		       &hin->payment_hash);
 
 }
 
