@@ -1400,6 +1400,7 @@ static enum watch_result funding_spent(struct peer *peer,
 	struct sha256_double our_last_txid;
 	s64 keyindex;
 	struct pubkey ourkey;
+	struct htlc_stub *stubs;
 
 	peer_fail_permanent_str(peer, "Funding transaction spent");
 
@@ -1416,6 +1417,12 @@ static enum watch_result funding_spent(struct peer *peer,
 	if (!peer->owner) {
 		log_broken(peer->log, "Could not subdaemon onchain: %s",
 			   strerror(errno));
+		return KEEP_WATCHING;
+	}
+
+	stubs = wallet_htlc_stubs(peer, peer->ld->wallet, peer->channel);
+	if (!stubs) {
+		log_broken(peer->log, "Could not load htlc_stubs");
 		return KEEP_WATCHING;
 	}
 
@@ -1469,14 +1476,14 @@ static enum watch_result funding_spent(struct peer *peer,
 				  /* FIXME: config for 'reasonable depth' */
 				  3,
 				  peer->last_htlc_sigs,
-				  tal_count(peer->htlcs));
+				  tal_count(stubs));
 	subd_send_msg(peer->owner, take(msg));
 
 	/* FIXME: Don't queue all at once, use an empty cb... */
-	for (size_t i = 0; i < tal_count(peer->htlcs); i++) {
+	for (size_t i = 0; i < tal_count(stubs); i++) {
 		bool tell_immediate;
 		bool tell = tell_if_missing(peer, i, &tell_immediate);
-		msg = towire_onchain_htlc(peer, peer->htlcs+i,
+		msg = towire_onchain_htlc(peer, &stubs[i],
 					  tell, tell_immediate);
 		subd_send_msg(peer->owner, take(msg));
 	}
