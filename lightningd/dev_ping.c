@@ -13,16 +13,18 @@ static bool ping_reply(struct subd *subd, const u8 *msg, const int *fds,
 		       struct command *cmd)
 {
 	u16 totlen;
-	bool ok;
+	bool ok, sent = true;
 
 	log_debug(subd->ld->log, "Got ping reply!");
 	if (streq(subd->name, "lightning_channeld"))
 		ok = fromwire_channel_ping_reply(msg, NULL, &totlen);
 	else
-		ok = fromwire_gossip_ping_reply(msg, NULL, &totlen);
+		ok = fromwire_gossip_ping_reply(msg, NULL, &sent, &totlen);
 
 	if (!ok)
 		command_fail(cmd, "Bad reply message");
+	else if (!sent)
+		command_fail(cmd, "Unknown peer");
 	else {
 		struct json_result *response = new_json_result(cmd);
 
@@ -41,6 +43,8 @@ static void json_dev_ping(struct command *cmd,
 	u8 *msg;
 	jsmntok_t *peeridtok, *lentok, *pongbytestok;
 	unsigned int len, pongbytes;
+	struct pubkey id;
+	struct subd *owner;
 
 	if (!json_get_params(buffer, params,
 			     "peerid", &peeridtok,
@@ -51,21 +55,8 @@ static void json_dev_ping(struct command *cmd,
 		return;
 	}
 
-	peer = peer_from_json(cmd->ld, buffer, peeridtok);
-	if (!peer) {
-		command_fail(cmd, "Could not find peer with that peerid");
-		return;
-	}
-
 	/* FIXME: These checks are horrible, use a peer flag to say it's
 	 * ready to forward! */
-	if (peer->owner && !streq(peer->owner->name, "lightning_channeld")
-	    && !streq(peer->owner->name, "lightning_gossipd")) {
-		command_fail(cmd, "Peer in %s",
-			     peer->owner ? peer->owner->name : "unattached");
-		return;
-	}
-
 	if (!json_tok_number(buffer, lentok, &len)) {
 		command_fail(cmd, "'%.*s' is not a valid number",
 			     (int)(lentok->end - lentok->start),
@@ -80,13 +71,32 @@ static void json_dev_ping(struct command *cmd,
 		return;
 	}
 
-	if (streq(peer->owner->name, "lightning_channeld"))
-		msg = towire_channel_ping(cmd, pongbytes, len);
-	else
-		msg = towire_gossip_ping(cmd, peer->unique_id, pongbytes, len);
+	if (!json_tok_pubkey(buffer, peeridtok, &id)) {
+		command_fail(cmd, "'%.*s' is not a valid pubkey",
+			     (int)(peeridtok->end - peeridtok->start),
+			     buffer + peeridtok->start);
+		return;
+	}
 
-	/* FIXME: If subdaemon dies? */
-	subd_req(peer->owner, peer->owner, take(msg), -1, 0, ping_reply, cmd);
+	/* First, see if it's in channeld. */
+	peer = peer_by_id(cmd->ld, &id);
+	if (peer) {
+		if (!peer->owner ||
+		    !streq(peer->owner->name, "lightning_channeld")) {
+			command_fail(cmd, "Peer in %s",
+				     peer->owner
+				     ? peer->owner->name : "unattached");
+			return;
+		}
+		msg = towire_channel_ping(cmd, pongbytes, len);
+		owner = peer->owner;
+	} else {
+		/* We assume it's in gossipd. */
+		msg = towire_gossip_ping(cmd, &id, pongbytes, len);
+		owner = cmd->ld->gossip;
+	}
+
+	subd_req(owner, owner, take(msg), -1, 0, ping_reply, cmd);
 }
 
 static const struct json_command dev_ping_command = {

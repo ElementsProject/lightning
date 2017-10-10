@@ -1,3 +1,4 @@
+/* FIXME: We should deprecate this in favor of BOLT7 address descriptor */
 #ifndef LIGHTNING_LIGHTNINGD_NETADDR_H
 #define LIGHTNING_LIGHTNINGD_NETADDR_H
 #include "config.h"

@@ -3,6 +3,7 @@ COMMON_SRC :=					\
 	common/channel_config.c			\
 	common/close_tx.c			\
 	common/configdir.c			\
+	common/crypto_state.c			\
 	common/crypto_sync.c			\
 	common/cryptomsg.c			\
 	common/daemon_conn.c			\
@@ -31,6 +32,7 @@ COMMON_SRC :=					\
 	common/utils.c				\
 	common/utxo.c				\
 	common/version.c			\
+	common/wire_error.c			\
 	common/withdraw_tx.c
 
 COMMON_HEADERS_NOGEN := $(COMMON_SRC:.c=.h) common/overflows.h common/htlc.h
