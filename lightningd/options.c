@@ -112,24 +112,39 @@ static char *opt_set_s32(const char *arg, s32 *u)
 	return NULL;
 }
 
-static char *opt_set_ipaddr(const char *arg, struct ipaddr *addr)
+/* FIXME: Rename ipaddr and hoist up */
+bool parse_ipaddr(const char *arg, struct ipaddr *addr)
 {
 	struct in6_addr v6;
 	struct in_addr v4;
-	char *err = NULL;
+
+	/* FIXME: change arg to addr[:port] and use getaddrinfo? */
+	if (streq(arg, "localhost"))
+		arg = "127.0.0.1";
+	else if (streq(arg, "ip6-localhost"))
+		arg = "::1";
+
 	memset(&addr->addr, 0, sizeof(addr->addr));
 	if (inet_pton(AF_INET, arg, &v4) == 1) {
 		addr->type = ADDR_TYPE_IPV4;
 		addr->addrlen = 4;
 		memcpy(&addr->addr, &v4, addr->addrlen);
+		return true;
 	} else if (inet_pton(AF_INET6, arg, &v6) == 1) {
 		addr->type = ADDR_TYPE_IPV6;
 		addr->addrlen = 16;
 		memcpy(&addr->addr, &v6, addr->addrlen);
-	} else {
-		err = tal_fmt(NULL, "Unable to parse IP address '%s'", arg);
+		return true;
 	}
-	return err;
+	return false;
+}
+
+static char *opt_set_ipaddr(const char *arg, struct ipaddr *addr)
+{
+	if (parse_ipaddr(arg, addr))
+		return NULL;
+
+	return tal_fmt(NULL, "Unable to parse IP address '%s'", arg);
 }
 
 static void opt_show_u64(char buf[OPT_SHOW_LEN], const u64 *u)
