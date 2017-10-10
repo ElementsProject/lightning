@@ -144,6 +144,7 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 					u64 *fee_estimate, u64 *changesatoshi)
 {
 	size_t i = 0;
+	bool should_commit;
 	struct utxo **available;
 	const struct utxo **utxos = tal_arr(ctx, const struct utxo *, 0);
 	*fee_estimate = 0;
@@ -152,9 +153,8 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 	u64 satoshi_in = 0, weight = (4 + (8 + 22) * 2 + 4) * 4;
 	tal_add_destructor2(utxos, destroy_utxos, w);
 
-	if (!db_begin_transaction(w->db)) {
-		fatal("Unable to begin transaction: %s", w->db->err);
-	}
+	should_commit = db_begin_transaction(w->db);
+
 	available = wallet_get_utxos(ctx, w, output_state_available);
 
 	for (i = 0; i < tal_count(available); i++) {
@@ -182,10 +182,12 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 	if (satoshi_in < *fee_estimate + value) {
 		/* Could not collect enough inputs, cleanup and bail */
 		utxos = tal_free(utxos);
-		db_rollback_transaction(w->db);
+		if (should_commit)
+			db_rollback_transaction(w->db);
 	} else {
 		/* Commit the db transaction to persist markings */
-		db_commit_transaction(w->db);
+		if (should_commit)
+			db_commit_transaction(w->db);
 		*changesatoshi = satoshi_in - value - *fee_estimate;
 
 	}
@@ -278,6 +280,7 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 			      const struct sha256 *hash)
 {
 	tal_t *tmpctx = tal_tmpctx(wallet);
+	bool should_commit;
 	bool ok = true;
 	u32 pos = count_trailing_zeroes(index);
 	assert(index < SQLITE_MAX_UINT);
@@ -287,7 +290,7 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 		return false;
 	}
 
-	db_begin_transaction(wallet->db);
+	should_commit = db_begin_transaction(wallet->db);
 
 	ok &= db_exec(__func__, wallet->db,
 		      "UPDATE shachains SET num_valid=%d, min_index=%" PRIu64
@@ -300,10 +303,12 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 		      "(%" PRIu64 ", %d, %" PRIu64 ", '%s');",
 		      chain->id, pos, index, hexhash);
 
-	if (ok)
-		ok &= db_commit_transaction(wallet->db);
-	else
-		db_rollback_transaction(wallet->db);
+	if (should_commit) {
+		if (ok)
+			ok &= db_commit_transaction(wallet->db);
+		else
+			db_rollback_transaction(wallet->db);
+	}
 	tal_free(tmpctx);
 	return ok;
 }
@@ -693,7 +698,7 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 }
 
 bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
-	bool ok = true;
+	bool should_commit, ok = true;
 	struct peer *p = chan->peer;
 	tal_t *tmpctx = tal_tmpctx(w);
 
@@ -705,7 +710,7 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		p->dbid = sqlite3_last_insert_rowid(w->db->sql);
 	}
 
-	db_begin_transaction(w->db);
+	should_commit = db_begin_transaction(w->db);
 
 	/* Insert a stub, that we can update, unifies INSERT and UPDATE paths */
 	if (chan->id == 0) {
@@ -800,10 +805,12 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 			      chan->id);
 	}
 
-	if (ok)
-		ok &= db_commit_transaction(w->db);
-	else
-		db_rollback_transaction(w->db);
+	if (should_commit) {
+		if (ok)
+			ok &= db_commit_transaction(w->db);
+		else
+			db_rollback_transaction(w->db);
+	}
 	tal_free(tmpctx);
       	return ok;
 }
