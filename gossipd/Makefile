@@ -13,6 +13,7 @@ LIGHTNINGD_GOSSIP_CONTROL_OBJS := $(LIGHTNINGD_GOSSIP_CONTROL_SRC:.c=.o)
 
 # gossipd needs these:
 LIGHTNINGD_GOSSIP_HEADERS := gossipd/gen_gossip_wire.h \
+	gossipd/handshake.h				\
 	gossipd/routing.h				\
 	gossipd/broadcast.h
 LIGHTNINGD_GOSSIP_SRC := gossipd/gossip.c	\
@@ -48,7 +49,11 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o			\
-	lightningd/gossip_msg.o
+	common/wire_error.o			\
+	hsmd/client.o				\
+	hsmd/gen_hsm_client_wire.o		\
+	lightningd/gossip_msg.o			\
+	lightningd/netaddr.o
 
 $(LIGHTNINGD_GOSSIP_OBJS) $(LIGHTNINGD_GOSSIP_CLIENT_OBJS): $(LIGHTNINGD_HEADERS)
 

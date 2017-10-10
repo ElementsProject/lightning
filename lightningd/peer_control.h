@@ -29,6 +29,9 @@ struct peer {
 	/* ID of peer */
 	struct pubkey id;
 
+	/* Global and local features bitfields. */
+	const u8 *gfeatures, *lfeatures;
+
 	/* Error message (iff in error state) */
 	u8 *error;
 
@@ -130,6 +133,12 @@ static inline bool peer_on_chain(const struct peer *peer)
 	return peer_state_on_chain(peer->state);
 }
 
+static inline bool peer_wants_reconnect(const struct peer *peer)
+{
+	return peer->state >= CHANNELD_AWAITING_LOCKIN
+		&& peer->state <= CLOSINGD_COMPLETE;
+}
+
 /* BOLT #2:
  *
  * On disconnection, the funder MUST remember the channel for
@@ -145,7 +154,6 @@ static inline bool peer_persists(const struct peer *peer)
 	return peer->state >= CHANNELD_AWAITING_LOCKIN;
 }
 
-struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id);
 struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id);
 struct peer *peer_from_json(struct lightningd *ld,
 			    const char *buffer,
@@ -154,13 +162,23 @@ struct peer *peer_from_json(struct lightningd *ld,
 void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
 		  const secp256k1_ecdsa_signature *sig);
 
-void peer_fundee_open(struct peer *peer, const u8 *msg,
-		      const struct crypto_state *cs,
-		      int peer_fd, int gossip_fd);
+/* The three ways peers enter from the network:
+ *
+ * peer_connected - when it first connects to gossipd (after init exchange).
+ * peer_sent_nongossip - when it tries to fund a channel.
+ * gossip_peer_released - when we tell gossipd to release it so we can fund
+ *			  a channel.
+*/
+void peer_connected(struct lightningd *ld, const u8 *msg,
+		    int peer_fd, int gossip_fd);
 
-void add_peer(struct lightningd *ld, u64 unique_id,
-	      int fd, const struct pubkey *id,
-	      const struct crypto_state *cs);
+void peer_sent_nongossip(struct lightningd *ld,
+			 const struct pubkey *id,
+			 const struct crypto_state *cs,
+			 const u8 *gfeatures,
+			 const u8 *lfeatures,
+			 int peer_fd, int gossip_fd,
+			 const u8 *in_msg);
 
 /**
  * populate_peer -- Populate daemon fields in a peer
@@ -173,6 +191,13 @@ void add_peer(struct lightningd *ld, u64 unique_id,
  * pointer to the daemon. populate_peer does exactly that.
  */
 void populate_peer(struct lightningd *ld, struct peer *peer);
+
+/* Returns true if these contain any unsupported features. */
+bool unsupported_features(const u8 *gfeatures, const u8 *lfeatures);
+
+/* For sending our features: tal_len() returns length. */
+u8 *get_supported_global_features(const tal_t *ctx);
+u8 *get_supported_local_features(const tal_t *ctx);
 
 /* Could be configurable. */
 #define OUR_CHANNEL_FLAGS CHANNEL_FLAGS_ANNOUNCE_CHANNEL

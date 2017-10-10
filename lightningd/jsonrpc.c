@@ -655,5 +655,6 @@ void setup_jsonrpc(struct lightningd *ld, const char *rpc_filename)
 	if (listen(fd, 1) != 0)
 		err(1, "Listening on '%s'", rpc_filename);
 
+	log_debug(ld->log, "Listening on '%s'", rpc_filename);
 	io_new_listener(ld, fd, incoming_jcon_connected, ld);
 }

@@ -18,6 +18,7 @@
 #include <common/key_derive.h>
 #include <common/status.h>
 #include <common/timeout.h>
+#include <common/wire_error.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gen_gossip_wire.h>
@@ -25,24 +26,55 @@
 #include <inttypes.h>
 #include <lightningd/build_utxos.h>
 #include <lightningd/chaintopology.h>
-#include <lightningd/dns.h>
 #include <lightningd/gen_peer_state_names.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
-#include <lightningd/new_connection.h>
+#include <lightningd/options.h>
 #include <lightningd/peer_htlcs.h>
-#include <netinet/in.h>
 #include <onchaind/gen_onchain_wire.h>
 #include <onchaind/onchain_wire.h>
 #include <openingd/gen_opening_wire.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <wally_bip32.h>
 #include <wire/gen_onion_wire.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
+
+static const u8 supported_local_features[]
+= {LOCALFEATURES_INITIAL_ROUTING_SYNC};
+static const u8 supported_global_features[]
+= {};
+
+struct connect {
+	struct list_node list;
+	struct pubkey id;
+	struct command *cmd;
+};
+
+/* FIXME: Reorder */
+struct funding_channel;
+static void peer_owner_finished(struct subd *subd, int status);
+static void peer_offer_channel(struct lightningd *ld,
+			       struct funding_channel *fc,
+			       const struct crypto_state *cs,
+			       const u8 *gfeatures, const u8 *lfeatures,
+			       int peer_fd, int gossip_fd);
+static bool peer_start_channeld(struct peer *peer,
+				const struct crypto_state *cs,
+				int peer_fd, int gossip_fd,
+				const u8 *funding_signed,
+				bool reconnected);
+static void peer_start_closingd(struct peer *peer,
+				struct crypto_state *cs,
+				int peer_fd, int gossip_fd,
+				bool reconnected);
+static void peer_accept_channel(struct lightningd *ld,
+				const struct pubkey *peer_id,
+				const struct crypto_state *cs,
+				const u8 *gfeatures, const u8 *lfeatures,
+				int peer_fd, int gossip_fd,
+				const u8 *open_msg);
 
 static void destroy_peer(struct peer *peer)
 {
@@ -52,54 +84,16 @@ static void destroy_peer(struct peer *peer)
 	list_del_from(&peer->ld->peers, &peer->list);
 }
 
-/* Mutual recursion, sets timer. */
-static void peer_reconnect(struct peer *peer);
-
-static void reconnect_failed(struct lightningd *ld,
-			     struct connection *c)
+u8 *get_supported_global_features(const tal_t *ctx)
 {
-	/* Figure out what peer, set reconnect timer. */
-	struct peer *peer = peer_by_id(ld, connection_known_id(c));
-
-	log_debug(peer->log, "reconnect_failed");
-
-	tal_free(c);
-	peer_reconnect(peer);
+	return tal_dup_arr(ctx, u8, supported_global_features,
+			   sizeof(supported_global_features), 0);
 }
 
-static void try_reconnect(struct peer *peer)
+u8 *get_supported_local_features(const tal_t *ctx)
 {
-	struct connection *c;
-	struct netaddr *addrs;
-
-	log_debug(peer->log, "try_reconnect: trying to reconnect");
-
-	/* We may already be reconnected (another incoming connection) */
-	if (peer->owner) {
-		log_debug(peer->log, "try_reconnect: already reconnected (%s)",
-			  peer->owner->name);
-		return;
-	}
-
-	c = new_connection(peer, peer->ld, NULL, &peer->id);
-
-	/* FIXME: Combine known address with gossip addresses and possibly
-	 * DNS seed addresses. */
-	addrs = tal_dup_arr(c, struct netaddr, &peer->netaddr, 1, 0);
-	multiaddress_connect(peer->ld, addrs,
-			     connection_out, reconnect_failed, c);
-}
-
-static void peer_reconnect(struct peer *peer)
-{
-	/* Don't schedule an attempt if we disabled reconnections with
-	 * the `--no-reconnect` flag */
-	if (peer->ld->config.no_reconnect)
-		return;
-
-	new_reltimer(&peer->ld->timers,
-		     peer, peer->ld->config.poll_time,
-		     try_reconnect, peer);
+	return tal_dup_arr(ctx, u8, supported_local_features,
+			   sizeof(supported_local_features), 0);
 }
 
 static void sign_last_tx(struct peer *peer)
@@ -216,8 +210,13 @@ void peer_fail_transient(struct peer *peer, const char *fmt, ...)
 
 	/* Reconnect unless we've dropped/are dropping to chain. */
 	if (!peer_on_chain(peer) && peer->state != CLOSINGD_COMPLETE) {
-		peer_reconnect(peer);
-		return;
+		/* Don't schedule an attempt if we disabled reconnections with
+		 * the `--no-reconnect` flag */
+		if (peer->ld->config.no_reconnect)
+			return;
+
+		u8 *msg = towire_gossipctl_reach_peer(peer, &peer->id);
+		subd_send_msg(peer->ld->gossip, take(msg));
 	}
 }
 
@@ -254,277 +253,174 @@ void peer_set_condition(struct peer *peer, enum peer_state old_state,
 	}
 }
 
-/* FIXME: Reshuffle. */
-static bool peer_start_channeld(struct peer *peer,
-				const struct crypto_state *cs,
-				int peer_fd, int gossip_fd,
-				const u8 *funding_signed,
-				bool reconnected);
-static void peer_start_closingd(struct peer *peer,
-				struct crypto_state *cs,
-				int peer_fd, int gossip_fd,
-				bool reconnected);
-
-/* FIXME:
- *
- * This is a lot of code duplication!  We should turn gossipd into welcomed(?):
- *
- * 1. gossipd listens to the socket for new connections, and also
- *   handles outgoing, absorbing handshaked.
- *
- * 2. gossipd thus knows who we're trying to connect to, and knows to
- *   return them immediately.
- *
- * That unifies the paths nicely and removes all this code.  When
- * gossipd hands a connection to us, it gives us the gossip fd for
- * that peer, and it's all good.
- */
-struct getting_gossip_fd {
-	struct pubkey id;
-	int peer_fd;
-	struct crypto_state cs;
-};
-
-static bool get_peer_gossipfd_channeld_reply(struct subd *subd, const u8 *msg,
-					     const int *fds,
-					     struct getting_gossip_fd *ggf)
+static void destroy_connect(struct connect *c)
 {
-	struct peer *peer;
-
-	if (!fromwire_gossipctl_get_peer_gossipfd_reply(msg, NULL)) {
-		if (!fromwire_gossipctl_get_peer_gossipfd_replyfail(msg, NULL))
-			fatal("Gossipd gave bad get_peer_gossipfd reply %s",
-			      tal_hex(subd, msg));
-
-		log_unusual(subd->log, "Gossipd could not get fds for peer %s",
-			    type_to_string(ggf, struct pubkey, &ggf->id));
-
-		/* This is an internal error, but could be transient.
-		 * Hang up and let them retry. */
-		goto forget;
-	}
-
-	/* Make sure it still needs gossipfd! */
-	peer = peer_by_id(subd->ld, &ggf->id);
-	if (!peer) {
-		log_unusual(subd->log, "Gossipd gave fd, but peer %s gone",
-			    type_to_string(ggf, struct pubkey, &ggf->id));
-		goto close_gossipfd;
-	}
-
-	if (peer->state != CHANNELD_AWAITING_LOCKIN
-	    && peer->state != CHANNELD_NORMAL
-	    && peer->state != CHANNELD_SHUTTING_DOWN) {
-		log_unusual(subd->log, "Gossipd gave fd, but peer %s %s",
-			    type_to_string(ggf, struct pubkey, &ggf->id),
-			    peer_state_name(peer->state));
-		goto close_gossipfd;
-	}
-
-	/* Kill off current channeld, if any */
-	if (peer->owner) {
-		peer->owner->peer = NULL;
-		peer->owner = tal_free(peer->owner);
-	}
-
-	/* We never re-transmit funding_signed. */
-	peer_start_channeld(peer, &ggf->cs, ggf->peer_fd, fds[0], NULL, true);
-	goto out;
-
-close_gossipfd:
-	close(fds[0]);
-
-forget:
-	close(ggf->peer_fd);
-out:
-	tal_free(ggf);
-	return true;
+	list_del(&c->list);
 }
 
-static void get_gossip_fd_for_channeld_reconnect(struct lightningd *ld,
-						 const struct pubkey *id,
-						 u64 unique_id,
-						 int peer_fd,
-						 const struct crypto_state *cs)
+static struct connect *new_connect(struct lightningd *ld,
+				   const struct pubkey *id,
+				   struct command *cmd)
 {
-	struct getting_gossip_fd *ggf = tal(ld, struct getting_gossip_fd);
-	u8 *req;
-
-	ggf->peer_fd = peer_fd;
-	ggf->id = *id;
-	ggf->cs = *cs;
-
-	/* FIXME: set sync to `initial_routing_sync` */
-	req = towire_gossipctl_get_peer_gossipfd(ggf, unique_id, true);
-	subd_req(ggf, ld->gossip, take(req), -1, 1,
-		 get_peer_gossipfd_channeld_reply, ggf);
+	struct connect *c = tal(cmd, struct connect);
+	c->id = *id;
+	c->cmd = cmd;
+	list_add(&ld->connects, &c->list);
+	tal_add_destructor(c, destroy_connect);
+	return c;
 }
 
-static bool get_peer_gossipfd_closingd_reply(struct subd *subd, const u8 *msg,
-					     const int *fds,
-					     struct getting_gossip_fd *ggf)
+static void connect_succeeded(struct lightningd *ld, const struct pubkey *id)
 {
-	struct peer *peer;
+	struct connect *i, *next;
 
-	if (!fromwire_gossipctl_get_peer_gossipfd_reply(msg, NULL)) {
-		if (!fromwire_gossipctl_get_peer_gossipfd_replyfail(msg, NULL))
-			fatal("Gossipd gave bad get_peer_gossipfd reply %s",
-			      tal_hex(subd, msg));
+	/* Careful!  Completing command frees connect. */
+	list_for_each_safe(&ld->connects, i, next, list) {
+		struct json_result *response;
 
-		log_unusual(subd->log, "Gossipd could not get fds for peer %s",
-			    type_to_string(ggf, struct pubkey, &ggf->id));
+		if (!pubkey_eq(&i->id, id))
+			continue;
 
-		/* This is an internal error, but could be transient.
-		 * Hang up and let them retry. */
-		goto forget;
+		response = new_json_result(i->cmd);
+		json_object_start(response, NULL);
+		json_add_pubkey(response, "id", id);
+		json_object_end(response);
+		command_success(i->cmd, response);
 	}
-
-	/* Make sure it still needs gossipfd! */
-	peer = peer_by_id(subd->ld, &ggf->id);
-	if (!peer) {
-		log_unusual(subd->log, "Gossipd gave fd, but peer %s gone",
-			    type_to_string(ggf, struct pubkey, &ggf->id));
-		goto close_gossipfd;
-	}
-
-	if (peer->state != CLOSINGD_SIGEXCHANGE
-	    && peer->state != CLOSINGD_COMPLETE) {
-		log_unusual(subd->log, "Gossipd gave fd, but peer %s %s",
-			    type_to_string(ggf, struct pubkey, &ggf->id),
-			    peer_state_name(peer->state));
-		goto close_gossipfd;
-	}
-
-	/* Kill off current closingd, if any */
-	if (peer->owner) {
-		peer->owner->peer = NULL;
-		peer->owner = tal_free(peer->owner);
-	}
-
-	peer_start_closingd(peer, &ggf->cs, ggf->peer_fd, fds[0], true);
-	goto out;
-
-close_gossipfd:
-	close(fds[0]);
-
-forget:
-	close(ggf->peer_fd);
-out:
-	tal_free(ggf);
-	return true;
-}
-static void get_gossip_fd_for_closingd_reconnect(struct lightningd *ld,
-						 const struct pubkey *id,
-						 u64 unique_id,
-						 int peer_fd,
-						 const struct crypto_state *cs)
-{
-	struct getting_gossip_fd *ggf = tal(ld, struct getting_gossip_fd);
-	u8 *req;
-
-	ggf->peer_fd = peer_fd;
-	ggf->id = *id;
-	ggf->cs = *cs;
-
-	/* FIXME: set sync to `initial_routing_sync` */
-	req = towire_gossipctl_get_peer_gossipfd(ggf, unique_id, true);
-	subd_req(ggf, ld->gossip, take(req), -1, 1,
-		 get_peer_gossipfd_closingd_reply, ggf);
 }
 
+static void connect_failed(struct lightningd *ld, const struct pubkey *id,
+			   const char *error)
+{
+	struct connect *i, *next;
 
-/* Returns true if we consider this a reconnection. */
-static bool peer_reconnected(struct lightningd *ld,
+	/* Careful!  Completing command frees connect. */
+	list_for_each_safe(&ld->connects, i, next, list) {
+		if (pubkey_eq(&i->id, id))
+			command_fail(i->cmd, "%s", error);
+	}
+}
+
+static struct peer *new_peer(struct lightningd *ld,
 			     const struct pubkey *id,
-			     int fd,
-			     const struct crypto_state *cs)
+			     const u8 *gfeatures, const u8 *lfeatures,
+			     int peer_fd)
 {
-	struct peer *peer = peer_by_id(ld, id);
-	if (!peer)
-		return false;
+	struct peer *peer;
 
-	log_info(peer->log, "Peer has reconnected, state %s",
-		 peer_state_name(peer->state));
+	/* Need to memset since storing will access all fields */
+	peer = talz(ld, struct peer);
+	peer->error = NULL;
+	peer->id = *id;
+	peer->funding_txid = NULL;
+	peer->remote_funding_locked = false;
+	peer->scid = NULL;
+	peer->seed = NULL;
+	peer->our_msatoshi = NULL;
+	peer->state = UNINITIALIZED;
+	peer->channel_info = NULL;
+	peer->last_tx = NULL;
+	peer->last_sig = NULL;
+	peer->last_htlc_sigs = NULL;
+	peer->last_was_revoke = false;
+	peer->last_sent_commit = NULL;
+	peer->remote_shutdown_scriptpubkey = NULL;
+	peer->local_shutdown_idx = -1;
+	peer->next_index[LOCAL]
+		= peer->next_index[REMOTE] = 0;
+	peer->next_htlc_id = 0;
+	peer->htlcs = tal_arr(peer, struct htlc_stub, 0);
+	wallet_shachain_init(ld->wallet, &peer->their_shachain);
+
+	/* FIXME: db should be keyed by (peer_id, channel_id) */
+
+	/* If we have the peer in the DB, this'll populate the fields,
+	 * failure just indicates that the peer wasn't found in the
+	 * DB */
+	wallet_peer_by_nodeid(ld->wallet, id, peer);
+
+	/* peer->channel gets populated as soon as we start opening a channel */
+	peer->channel = NULL;
 
 	/* FIXME: Don't assume protocol here! */
-	if (!netaddr_from_fd(fd, SOCK_STREAM, IPPROTO_TCP, &peer->netaddr)) {
-		log_unusual(ld->log, "Failed to get netaddr for peer: %s",
+	if (!netaddr_from_fd(peer_fd, SOCK_STREAM, IPPROTO_TCP, &peer->netaddr)) {
+		log_unusual(ld->log, "Failed to get netaddr for outgoing: %s",
 			    strerror(errno));
+		return tal_free(peer);
 	}
-	/* BOLT #2:
-	 *
-	 * On reconnection, if a channel is in an error state, the node SHOULD
-	 * retransmit the error packet and ignore any other packets for that
-	 * channel, and the following requirements do not apply. */
-	if (peer->error) {
-		/* FIXME: we should do this in response to reestablish, unless
-		 * global error */
-		log_debug(peer->log, "Sending canned error");
-		subd_send_msg(peer->ld->gossip,
-			      take(towire_gossipctl_fail_peer(peer,
-							      peer->unique_id,
-							      cs, peer->error)));
-		subd_send_fd(peer->ld->gossip, fd);
-		return true;
-	}
+	list_add_tail(&ld->peers, &peer->list);
+	populate_peer(ld, peer);
 
-	switch (peer->state) {
-	/* This can't happen. */
-	case UNINITIALIZED:
-		abort();
-
-	case GOSSIPD:
-		/* Tell gossipd to kick that one out, will call peer_fail */
-		subd_send_msg(peer->ld->gossip,
-			      take(towire_gossipctl_drop_peer(peer,
-							      peer->unique_id)));
-		tal_free(peer);
-		/* Continue with a new peer. */
-		return false;
-
-	case OPENINGD:
-		/* Kill off openingd, which will free peer. */
-		tal_free(peer->owner);
-
-		/* A fresh start. */
-		return false;
-
-	case CHANNELD_AWAITING_LOCKIN:
-	case CHANNELD_NORMAL:
-	case CHANNELD_SHUTTING_DOWN:
-		/* We need the gossipfd now */
-		get_gossip_fd_for_channeld_reconnect(ld, id, peer->unique_id, fd, cs);
-		return true;
-
-	case CLOSINGD_SIGEXCHANGE:
-	case CLOSINGD_COMPLETE:
-		/* We need the gossipfd now */
-		get_gossip_fd_for_closingd_reconnect(ld, id, peer->unique_id, fd, cs);
-		return true;
-
-	case FUNDING_SPEND_SEEN:
-	case ONCHAIND_CHEATED:
-	case ONCHAIND_THEIR_UNILATERAL:
-	case ONCHAIND_OUR_UNILATERAL:
-	case ONCHAIND_MUTUAL:
-		; /* FIXME: Implement! */
-	}
-	abort();
+	return peer;
 }
 
-/* We copy per-peer entries above --log-level into the main log. */
-static void copy_to_parent_log(const char *prefix,
-			       enum log_level level,
-			       bool continued,
-			       const char *str,
-			       struct peer *peer)
+/**
+ * requires_unsupported_features - Check if we support what's being asked
+ *
+ * Given the features vector that the remote connection is expecting
+ * from us, we check to see if we support all even bit features, i.e.,
+ * the required features. We do so by subtracting our own features in
+ * the provided positions and see if even bits remain.
+ *
+ * @bitmap: the features bitmap the peer is asking for
+ * @supportmap: what do we support
+ * @smlen: how long is our supportmap
+ */
+static bool requires_unsupported_features(const u8 *bitmap,
+					  const u8 *supportmap,
+					  size_t smlen)
 {
-	const char *idstr = type_to_string(peer, struct pubkey, &peer->id);
-	if (continued)
-		log_add(peer->ld->log, "peer %s: ... %s", idstr, str);
-	else
-		log_(peer->ld->log, level, "peer %s: %s", idstr, str);
-	tal_free(idstr);
+	size_t len = tal_count(bitmap);
+	u8 support;
+	for (size_t i=0; i<len; i++) {
+		/* Find matching bitmap byte in supportmap, 0x00 if none */
+		if (len > smlen) {
+			support = 0x00;
+		} else {
+			support = supportmap[smlen-1];
+		}
+
+		/* Cancel out supported bits, check for even bits */
+		if ((~support & bitmap[i]) & 0x55)
+			return true;
+	}
+	return false;
+}
+
+bool unsupported_features(const u8 *gfeatures, const u8 *lfeatures)
+{
+	return requires_unsupported_features(gfeatures,
+					     supported_global_features,
+					     sizeof(supported_global_features))
+		|| requires_unsupported_features(lfeatures,
+						 supported_local_features,
+						 sizeof(supported_local_features));
+}
+
+/* Extract channel_id from various packets, return true if possible. */
+static bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
+{
+	u64 ignored_u64;
+	u32 ignored_u32;
+	u16 ignored_u16;
+	u8 ignored_u8;
+	struct pubkey ignored_pubkey;
+	struct sha256_double ignored_shadouble;
+
+	if (fromwire_channel_reestablish(in_pkt, NULL, channel_id,
+					 &ignored_u64, &ignored_u64))
+		return true;
+	if (fromwire_open_channel(in_pkt, NULL, &ignored_shadouble,
+				  channel_id, &ignored_u64,
+				  &ignored_u64, &ignored_u64,
+				  &ignored_u64, &ignored_u64,
+				  &ignored_u64, &ignored_u32,
+				  &ignored_u16, &ignored_u16,
+				  &ignored_pubkey, &ignored_pubkey,
+				  &ignored_pubkey, &ignored_pubkey,
+				  &ignored_pubkey, &ignored_u8))
+		return true;
+	return false;
 }
 
 /**
@@ -557,6 +453,232 @@ static struct wallet_channel *peer_channel_new(struct wallet *w,
 	return wc;
 }
 
+static void channel_config(struct lightningd *ld,
+			   struct channel_config *ours,
+			   u32 *max_to_self_delay,
+			   u32 *max_minimum_depth,
+			   u64 *min_effective_htlc_capacity_msat)
+{
+	/* FIXME: depend on feerate. */
+	*max_to_self_delay = ld->config.locktime_max;
+	*max_minimum_depth = ld->config.anchor_confirms_max;
+	/* This is 1c at $1000/BTC */
+	*min_effective_htlc_capacity_msat = 1000000;
+
+	/* BOLT #2:
+	 *
+	 * The sender SHOULD set `dust_limit_satoshis` to a sufficient
+	 * value to allow commitment transactions to propagate through
+	 * the Bitcoin network.
+	 */
+	ours->dust_limit_satoshis = 546;
+	ours->max_htlc_value_in_flight_msat = UINT64_MAX;
+
+	/* Don't care */
+	ours->htlc_minimum_msat = 0;
+
+	/* BOLT #2:
+	 *
+	 * The sender SHOULD set `to_self_delay` sufficient to ensure
+	 * the sender can irreversibly spend a commitment transaction
+	 * output in case of misbehavior by the receiver.
+	 */
+	 ours->to_self_delay = ld->config.locktime_blocks;
+
+	 /* BOLT #2:
+	  *
+	  * It MUST fail the channel if `max_accepted_htlcs` is greater than
+	  * 483.
+	  */
+	 ours->max_accepted_htlcs = 483;
+
+	 /* This is filled in by lightning_openingd, for consistency. */
+	 ours->channel_reserve_satoshis = 0;
+};
+
+/* Gossipd tells us a peer has connected */
+void peer_connected(struct lightningd *ld, const u8 *msg,
+		    int peer_fd, int gossip_fd)
+{
+	struct pubkey id;
+	struct crypto_state cs;
+	u8 *gfeatures, *lfeatures;
+	u8 *error;
+	struct peer *peer;
+
+	if (!fromwire_gossip_peer_connected(msg, msg, NULL,
+					    &id, &cs, &gfeatures, &lfeatures))
+		fatal("Gossip gave bad GOSSIP_PEER_CONNECTED message %s",
+		      tal_hex(msg, msg));
+
+	if (unsupported_features(gfeatures, lfeatures)) {
+		log_unusual(ld->log, "peer %s offers unsupported features %s/%s",
+			    type_to_string(msg, struct pubkey, &id),
+			    tal_hex(msg, gfeatures),
+			    tal_hex(msg, lfeatures));
+		error = towire_errorfmt(msg, NULL,
+					"We only support globalfeatures %s"
+					" and localfeatures %s",
+					tal_hexstr(msg,
+						   supported_global_features,
+						   sizeof(supported_global_features)),
+					tal_hexstr(msg,
+						   supported_local_features,
+						   sizeof(supported_local_features)));
+		goto send_error;
+	}
+
+	/* Now, do we already know this peer? */
+	peer = peer_by_id(ld, &id);
+	if (peer) {
+		struct subd *owner;
+
+		log_debug(peer->log, "Peer has reconnected, state %s",
+			  peer_state_name(peer->state));
+
+		/* FIXME: We can have errors for multiple channels. */
+		if (peer->error) {
+			error = peer->error;
+			goto send_error;
+		}
+
+		switch (peer->state) {
+			/* This can't happen. */
+		case UNINITIALIZED:
+			abort();
+
+			/* Reconnect: discard old one. */
+		case OPENINGD:
+			/* This kills daemon (frees peer!) */
+			tal_free(peer->owner);
+			peer = NULL;
+			goto return_to_gossipd;
+
+		case ONCHAIND_CHEATED:
+		case ONCHAIND_THEIR_UNILATERAL:
+		case ONCHAIND_OUR_UNILATERAL:
+		case FUNDING_SPEND_SEEN:
+		case ONCHAIND_MUTUAL:
+			/* If they try to reestablish channel, we'll send
+			 * error then */
+			goto return_to_gossipd;
+
+		case CHANNELD_AWAITING_LOCKIN:
+		case CHANNELD_NORMAL:
+		case CHANNELD_SHUTTING_DOWN:
+			/* Stop any existing daemon, without triggering error
+			 * on this peer. */
+			owner = peer->owner;
+			peer->owner = NULL;
+			tal_free(owner);
+
+			peer_start_channeld(peer, &cs, peer_fd, gossip_fd, NULL,
+					    true);
+			return;
+
+		case CLOSINGD_SIGEXCHANGE:
+		case CLOSINGD_COMPLETE:
+			/* Stop any existing daemon, without triggering error
+			 * on this peer. */
+			owner = peer->owner;
+			peer->owner = NULL;
+			tal_free(owner);
+
+			peer_start_closingd(peer, &cs, peer_fd, gossip_fd,
+					    true);
+			return;
+		}
+		abort();
+	}
+
+return_to_gossipd:
+	/* Otherwise, we hand back to gossipd, to continue. */
+	msg = towire_gossipctl_handle_peer(msg, &id, &cs,
+					   gfeatures, lfeatures, NULL);
+	subd_send_msg(ld->gossip, take(msg));
+	subd_send_fd(ld->gossip, peer_fd);
+	close(gossip_fd);
+
+	/* If we were waiting for connection, we succeeded. */
+	connect_succeeded(ld, &id);
+	return;
+
+send_error:
+	/* Hand back to gossipd, with an error packet. */
+	connect_failed(ld, &id, sanitize_error(msg, error, NULL));
+	msg = towire_gossipctl_handle_peer(msg, &id, &cs,
+					   gfeatures, lfeatures, error);
+	subd_send_msg(ld->gossip, take(msg));
+	subd_send_fd(ld->gossip, peer_fd);
+	close(gossip_fd);
+}
+
+void peer_sent_nongossip(struct lightningd *ld,
+			 const struct pubkey *id,
+			 const struct crypto_state *cs,
+			 const u8 *gfeatures,
+			 const u8 *lfeatures,
+			 int peer_fd, int gossip_fd,
+			 const u8 *in_msg)
+{
+	struct channel_id *channel_id, extracted_channel_id;
+	struct peer *peer;
+	u8 *error, *msg;
+
+	if (!extract_channel_id(in_msg, &extracted_channel_id))
+		channel_id = NULL;
+	else
+		channel_id = &extracted_channel_id;
+
+	/* FIXME: match state too; we can have multiple onchain
+	 * (ie. dead) channels for the same peer. */
+	peer = peer_by_id(ld, id);
+	if (peer) {
+		error = towire_errorfmt(ld, channel_id,
+					"Unexpected message %i in state %s",
+					fromwire_peektype(in_msg),
+					peer_state_name(peer->state));
+		goto send_error;
+	}
+
+	/* Open request? */
+	if (fromwire_peektype(in_msg) == WIRE_OPEN_CHANNEL) {
+		peer_accept_channel(ld, id, cs, gfeatures, lfeatures,
+				    peer_fd, gossip_fd, in_msg);
+		return;
+	}
+
+	/* Weird request. */
+	error = towire_errorfmt(ld, channel_id,
+				"Unexpected message %i for unknown peer",
+				fromwire_peektype(in_msg));
+
+send_error:
+	/* Hand back to gossipd, with an error packet. */
+	connect_failed(ld, id, sanitize_error(error, error, NULL));
+	msg = towire_gossipctl_handle_peer(error, id, cs,
+					   gfeatures, lfeatures, error);
+	subd_send_msg(ld->gossip, take(msg));
+	subd_send_fd(ld->gossip, peer_fd);
+	close(gossip_fd);
+	tal_free(error);
+}
+
+/* We copy per-peer entries above --log-level into the main log. */
+static void copy_to_parent_log(const char *prefix,
+			       enum log_level level,
+			       bool continued,
+			       const char *str,
+			       struct peer *peer)
+{
+	const char *idstr = type_to_string(peer, struct pubkey, &peer->id);
+	if (continued)
+		log_add(peer->ld->log, "peer %s: ... %s", idstr, str);
+	else
+		log_(peer->ld->log, level, "peer %s: %s", idstr, str);
+	tal_free(idstr);
+}
+
 void populate_peer(struct lightningd *ld, struct peer *peer)
 {
 	const char *idname;
@@ -572,88 +694,6 @@ void populate_peer(struct lightningd *ld, struct peer *peer)
 	set_log_outfn(peer->log_book, copy_to_parent_log, peer);
 	tal_free(idname);
 	tal_add_destructor(peer, destroy_peer);
-}
-
-void add_peer(struct lightningd *ld, u64 unique_id,
-	      int fd, const struct pubkey *id,
-	      const struct crypto_state *cs)
-{
-	struct peer *peer;
-	const char *netname, *idname;
-	u8 *msg;
-
-	/* It's a reconnect? */
-	if (peer_reconnected(ld, id, fd, cs))
-		return;
-
-	/* Fresh peer. */
-	/* Need to memset since storing will access all fields */
-	peer = talz(ld, struct peer);
-	peer->ld = ld;
-	peer->error = NULL;
-	peer->unique_id = unique_id;
-	peer->id = *id;
-	peer->funding_txid = NULL;
-	peer->remote_funding_locked = false;
-	peer->scid = NULL;
-	peer->seed = NULL;
-	peer->our_msatoshi = NULL;
-	peer->state = UNINITIALIZED;
-	peer->channel_info = NULL;
-	peer->last_tx = NULL;
-	peer->last_sig = NULL;
-	peer->last_htlc_sigs = NULL;
-	peer->last_was_revoke = false;
-	peer->last_sent_commit = NULL;
-	peer->remote_shutdown_scriptpubkey = NULL;
-	peer->local_shutdown_idx = -1;
-	peer->next_index[LOCAL]
-		= peer->next_index[REMOTE] = 0;
-	peer->next_htlc_id = 0;
-	peer->htlcs = tal_arr(peer, struct htlc_stub, 0);
-	wallet_shachain_init(ld->wallet, &peer->their_shachain);
-
-	/* If we have the peer in the DB, this'll populate the fields,
-	 * failure just indicates that the peer wasn't found in the
-	 * DB */
-	wallet_peer_by_nodeid(ld->wallet, id, peer);
-
-	/* peer->channel gets populated as soon as we start opening a channel */
-	peer->channel = NULL;
-
-	/* FIXME: Don't assume protocol here! */
-	if (!netaddr_from_fd(fd, SOCK_STREAM, IPPROTO_TCP, &peer->netaddr)) {
-		log_unusual(ld->log, "Failed to get netaddr for outgoing: %s",
-			    strerror(errno));
-		tal_free(peer);
-		return;
-	}
-	list_add_tail(&ld->peers, &peer->list);
-	populate_peer(ld, peer);
-
-	idname = type_to_string(peer, struct pubkey, id);
-	netname = netaddr_name(idname, &peer->netaddr);
-	log_info(peer->log, "Connected from %s", netname);
-
-	tal_free(idname);
-
-	/* Let gossip handle it from here. */
-	peer->owner = peer->ld->gossip;
-	peer_set_condition(peer, UNINITIALIZED, GOSSIPD);
-
-	msg = towire_gossipctl_new_peer(peer, peer->unique_id, cs);
-	subd_send_msg(peer->ld->gossip, take(msg));
-	subd_send_fd(peer->ld->gossip, fd);
-}
-
-struct peer *peer_by_unique_id(struct lightningd *ld, u64 unique_id)
-{
-	struct peer *p;
-
-	list_for_each(&ld->peers, p, list)
-		if (p->unique_id == unique_id)
-			return p;
-	return NULL;
 }
 
 struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id)
@@ -684,127 +724,20 @@ static void peer_owner_finished(struct subd *subd, int status)
 				    subd->name, status);
 }
 
-static int make_listen_fd(struct lightningd *ld,
-			  int domain, void *addr, socklen_t len)
-{
-	int fd = socket(domain, SOCK_STREAM, 0);
-	if (fd < 0) {
-		log_debug(ld->log, "Failed to create %u socket: %s",
-			  domain, strerror(errno));
-		return -1;
-	}
-
-	if (addr) {
-		int on = 1;
-
-		/* Re-use, please.. */
-		if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)))
-			log_unusual(ld->log, "Failed setting socket reuse: %s",
-				    strerror(errno));
-
-		if (bind(fd, addr, len) != 0) {
-			log_unusual(ld->log, "Failed to bind on %u socket: %s",
-				    domain, strerror(errno));
-			goto fail;
-		}
-	}
-
-	if (listen(fd, 5) != 0) {
-		log_unusual(ld->log, "Failed to listen on %u socket: %s",
-			    domain, strerror(errno));
-		goto fail;
-	}
-	return fd;
-
-fail:
-	close_noerr(fd);
-	return -1;
-}
-
-void setup_listeners(struct lightningd *ld)
-{
-	struct sockaddr_in addr;
-	struct sockaddr_in6 addr6;
-	socklen_t len;
-	int fd1, fd2;
-
-	if (!ld->portnum) {
-		log_debug(ld->log, "Zero portnum, not listening for incoming");
-		return;
-	}
-
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_addr.s_addr = INADDR_ANY;
-	addr.sin_port = htons(ld->portnum);
-
-	memset(&addr6, 0, sizeof(addr6));
-	addr6.sin6_family = AF_INET6;
-	addr6.sin6_addr = in6addr_any;
-	addr6.sin6_port = htons(ld->portnum);
-
-	/* IPv6, since on Linux that (usually) binds to IPv4 too. */
-	fd1 = make_listen_fd(ld, AF_INET6, &addr6, sizeof(addr6));
-	if (fd1 >= 0) {
-		struct sockaddr_in6 in6;
-
-		len = sizeof(in6);
-		if (getsockname(fd1, (void *)&in6, &len) != 0) {
-			log_unusual(ld->log, "Failed get IPv6 sockname: %s",
-				    strerror(errno));
-			close_noerr(fd1);
-			fd1 = -1;
-		} else {
-			addr.sin_port = in6.sin6_port;
-			assert(ld->portnum == ntohs(addr.sin_port));
-			log_debug(ld->log, "Creating IPv6 listener on port %u",
-				  ld->portnum);
-			io_new_listener(ld, fd1, connection_in, ld);
-		}
-	}
-
-	/* Just in case, aim for the same port... */
-	fd2 = make_listen_fd(ld, AF_INET, &addr, sizeof(addr));
-	if (fd2 >= 0) {
-		len = sizeof(addr);
-		if (getsockname(fd2, (void *)&addr, &len) != 0) {
-			log_unusual(ld->log, "Failed get IPv4 sockname: %s",
-				    strerror(errno));
-			close_noerr(fd2);
-			fd2 = -1;
-		} else {
-			assert(ld->portnum == ntohs(addr.sin_port));
-			log_debug(ld->log, "Creating IPv4 listener on port %u",
-				  ld->portnum);
-			io_new_listener(ld, fd2, connection_in, ld);
-		}
-	}
-
-	if (fd1 < 0 && fd2 < 0)
-		fatal("Could not bind to a network address on port %u",
-		      ld->portnum);
-}
-
-static void connect_failed(struct lightningd *ld,
-			   struct connection *c)
-{
-	tal_free(c);
-}
-
 static void json_connect(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	struct connection *c;
 	jsmntok_t *hosttok, *idtok;
-	const tal_t *tmpctx = tal_tmpctx(cmd);
 	struct pubkey id;
 	const char *name, *port, *colon;
+	struct ipaddr addr;
+	u8 *msg;
 
 	if (!json_get_params(buffer, params,
 			     "id", &idtok,
-			     "host", &hosttok,
+			     "?host", &hosttok,
 			     NULL)) {
-		command_fail(cmd, "Need id and host to connect");
+		command_fail(cmd, "Need id to connect");
 		return;
 	}
 
@@ -815,27 +748,34 @@ static void json_connect(struct command *cmd,
 		return;
 	}
 
-	colon = memchr(buffer + hosttok->start, ':',
-		       hosttok->end - hosttok->start);
-	if (colon) {
-		name = tal_strndup(cmd, buffer + hosttok->start,
-				   colon - (buffer + hosttok->start));
-		port = tal_strndup(cmd, colon + 1,
-				   (buffer + hosttok->end) - colon - 1);
-	} else {
-		name = tal_strndup(cmd, buffer + hosttok->start,
-				   hosttok->end - hosttok->start);
-		port = tal_strdup(cmd, stringify(DEFAULT_PORT));
+	if (hosttok) {
+		colon = memchr(buffer + hosttok->start, ':',
+			       hosttok->end - hosttok->start);
+		if (colon) {
+			name = tal_strndup(cmd, buffer + hosttok->start,
+					   colon - (buffer + hosttok->start));
+			port = tal_strndup(cmd, colon + 1,
+					   (buffer + hosttok->end) - colon - 1);
+		} else {
+			name = tal_strndup(cmd, buffer + hosttok->start,
+					   hosttok->end - hosttok->start);
+			port = tal_strdup(cmd, stringify(DEFAULT_PORT));
+		}
+		addr.port = atoi(port);
+		if (!parse_ipaddr(name, &addr) || !addr.port)
+			command_fail(cmd, "host %s:%s not valid", name, port);
+
+		/* Tell it about the address. */
+		msg = towire_gossipctl_peer_addrhint(cmd, &id, &addr);
+		subd_send_msg(cmd->ld->gossip, take(msg));
 	}
 
-	c = new_connection(cmd, cmd->ld, cmd, &id);
-	if (!dns_resolve_and_connect(cmd->ld, name, port,
-				     connection_out, connect_failed, c)) {
-		command_fail(cmd, "DNS failed");
-		return;
-	}
+	/* Now tell it to try reaching it. */
+	msg = towire_gossipctl_reach_peer(cmd, &id);
+	subd_send_msg(cmd->ld->gossip, take(msg));
 
-	tal_free(tmpctx);
+	/* Leave this here for gossip_peer_connected */
+	new_connect(cmd->ld, &id, cmd);
 }
 
 static const struct json_command connect_command = {
@@ -1029,13 +969,19 @@ struct peer *peer_from_json(struct lightningd *ld,
 }
 
 struct funding_channel {
-	struct peer *peer;
-	struct command *cmd;
+	struct command *cmd; /* Which also owns us. */
 
-	/* Details we sent to openingd to create funding. */
+	/* Peer we're trying to reach. */
+	struct pubkey peerid;
+
+	/* Details of how to make funding. */
 	const struct utxo **utxomap;
 	u64 change;
 	u32 change_keyindex;
+	u64 funding_satoshi, push_msat;
+
+	/* Peer, once we have one. */
+	struct peer *peer;
 
 	/* Funding tx once we're ready to sign and send. */
 	struct bitcoin_tx *funding_tx;
@@ -2249,7 +2195,7 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 					   &channel_info->remote_fundingkey,
 					   &funding_txid,
 					   &channel_info->feerate_per_kw)) {
-		peer_internal_error(fc->peer, "bad shutdown_complete: %s",
+		peer_internal_error(fc->peer, "bad funder_reply: %s",
 				    tal_hex(resp, resp));
 		return false;
 	}
@@ -2404,82 +2350,45 @@ static bool opening_fundee_finished(struct subd *opening,
 	return false;
 }
 
-static void channel_config(struct lightningd *ld,
-			   struct channel_config *ours,
-			   u32 *max_to_self_delay,
-			   u32 *max_minimum_depth,
-			   u64 *min_effective_htlc_capacity_msat)
+/* Peer has spontaneously exited from gossip due to open msg */
+static void peer_accept_channel(struct lightningd *ld,
+				const struct pubkey *peer_id,
+				const struct crypto_state *cs,
+				const u8 *gfeatures, const u8 *lfeatures,
+				int peer_fd, int gossip_fd,
+				const u8 *open_msg)
 {
-	/* FIXME: depend on feerate. */
-	*max_to_self_delay = ld->config.locktime_max;
-	*max_minimum_depth = ld->config.anchor_confirms_max;
-	/* This is 1c at $1000/BTC */
-	*min_effective_htlc_capacity_msat = 1000000;
-
-	/* BOLT #2:
-	 *
-	 * The sender SHOULD set `dust_limit_satoshis` to a sufficient
-	 * value to allow commitment transactions to propagate through
-	 * the Bitcoin network.
-	 */
-	ours->dust_limit_satoshis = 546;
-	ours->max_htlc_value_in_flight_msat = UINT64_MAX;
-
-	/* Don't care */
-	ours->htlc_minimum_msat = 0;
-
-	/* BOLT #2:
-	 *
-	 * The sender SHOULD set `to_self_delay` sufficient to ensure
-	 * the sender can irreversibly spend a commitment transaction
-	 * output in case of misbehavior by the receiver.
-	 */
-	 ours->to_self_delay = ld->config.locktime_blocks;
-
-	 /* BOLT #2:
-	  *
-	  * It MUST fail the channel if `max_accepted_htlcs` is greater than
-	  * 483.
-	  */
-	 ours->max_accepted_htlcs = 483;
-
-	 /* This is filled in by lightning_openingd, for consistency. */
-	 ours->channel_reserve_satoshis = 0;
-};
-
-/* Peer has spontaneously exited from gossip due to msg */
-void peer_fundee_open(struct peer *peer, const u8 *from_peer,
-		      const struct crypto_state *cs,
-		      int peer_fd, int gossip_fd)
-{
-	struct lightningd *ld = peer->ld;
 	u32 max_to_self_delay, max_minimum_depth;
 	u64 min_effective_htlc_capacity_msat;
+	u8 *errmsg;
 	u8 *msg;
+	struct peer *peer;
+	struct subd *opening;
 
-	/* Note: gossipd handles unknown packets, so we don't have to worry
-	 * about ignoring odd ones here. */
-	if (fromwire_peektype(from_peer) != WIRE_OPEN_CHANNEL) {
-		char *msg = tal_fmt(peer, "Bad message %i (%s) before opening",
-				    fromwire_peektype(from_peer),
-				    wire_type_name(fromwire_peektype(from_peer)));
-		log_unusual(peer->log, "Strange message to exit gossip: %u",
-			    fromwire_peektype(from_peer));
-		peer_fail_permanent_str(peer, take(msg));
-		return;
+	assert(fromwire_peektype(open_msg) == WIRE_OPEN_CHANNEL);
+
+	/* We make a new peer. */
+	peer = new_peer(ld, peer_id, gfeatures, lfeatures, peer_fd);
+
+	/* FIXME: Only happens due to netaddr fail. */
+	if (!peer) {
+		errmsg = take(towire_errorfmt(ld, NULL,
+					      "Can't resolve your address"));
+		goto peer_to_gossipd;
 	}
 
-	peer_set_condition(peer, GOSSIPD, OPENINGD);
-	peer->owner = new_subd(ld, "lightning_openingd", peer,
-			       opening_wire_type_name,
-			       NULL, bad_peer, peer_owner_finished,
-			       take(&peer_fd), take(&gossip_fd),
-			       NULL);
-	if (!peer->owner) {
+	peer_set_condition(peer, UNINITIALIZED, OPENINGD);
+	opening = new_subd(ld,
+			   "lightning_openingd", peer,
+			   opening_wire_type_name,
+			   NULL, bad_peer, peer_owner_finished,
+			   take(&peer_fd), take(&gossip_fd), NULL);
+	if (!opening) {
 		peer_fail_transient(peer, "Failed to subdaemon opening: %s",
 				    strerror(errno));
 		return;
 	}
+	peer->owner = opening;
 
 	/* They will open channel. */
 	peer->funder = REMOTE;
@@ -2515,50 +2424,70 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 	subd_send_msg(peer->owner, take(msg));
 	/* FIXME: Expose the min_feerate_per_kw and max_feerate_per_kw in the config */
 	msg = towire_opening_fundee(peer, peer->minimum_depth,
-				    7500, 150000, from_peer);
+				    7500, 150000, open_msg);
 
 	subd_req(peer, peer->owner, take(msg), -1, 2,
 		 opening_fundee_finished, peer);
+	return;
+
+peer_to_gossipd:
+	/* Return to gossipd, with optional error msg to send. */
+	msg = towire_gossipctl_handle_peer(ld, peer_id, cs,
+					   gfeatures, lfeatures, errmsg);
+	subd_send_msg(ld->gossip, take(msg));
+	subd_send_fd(ld->gossip, peer_fd);
+	close(gossip_fd);
+	return;
 }
 
-/* Peer has been released from gossip.  Start opening. */
-static bool gossip_peer_released(struct subd *gossip,
-				 const u8 *resp,
-				 const int *fds,
-				 struct funding_channel *fc)
+static void peer_offer_channel(struct lightningd *ld,
+			       struct funding_channel *fc,
+			       const struct crypto_state *cs,
+			       const u8 *gfeatures, const u8 *lfeatures,
+			       int peer_fd, int gossip_fd)
 {
-	struct lightningd *ld = fc->peer->ld;
-	u32 max_to_self_delay, max_minimum_depth;
-	u64 min_effective_htlc_capacity_msat;
 	u8 *msg;
 	struct subd *opening;
+	u32 max_to_self_delay, max_minimum_depth;
+	u64 min_effective_htlc_capacity_msat;
 	struct utxo *utxos;
-	struct crypto_state cs;
 
-	if (!fromwire_gossipctl_release_peer_reply(resp, NULL, &cs)) {
-		if (!fromwire_gossipctl_release_peer_replyfail(resp, NULL)) {
-			fatal("Gossip daemon gave invalid reply %s",
-			      tal_hex(gossip, resp));
-		}
-		tal_del_destructor(fc, fail_fundchannel_command);
-		command_fail(fc->cmd, "Peer reconnected, try again");
-		return true;
+	/* We make a new peer. */
+	fc->peer = new_peer(ld, &fc->peerid, gfeatures, lfeatures, peer_fd);
+
+	/* FIXME: Only happens due to netaddr fail. */
+	if (!fc->peer) {
+		command_fail(fc->cmd,
+			     "Failed to make peer: Can't resolve address: %s",
+			     strerror(errno));
+		close(peer_fd);
+		close(gossip_fd);
+		return;
 	}
+	fc->peer->funding_satoshi = fc->funding_satoshi;
+	fc->peer->push_msat = fc->push_msat;
 
-	assert(tal_count(fds) == 2);
-
-	peer_set_condition(fc->peer, GOSSIPD, OPENINGD);
+	peer_set_condition(fc->peer, UNINITIALIZED, OPENINGD);
 	opening = new_subd(ld,
 			   "lightning_openingd", fc->peer,
 			   opening_wire_type_name,
 			   NULL, bad_peer, peer_owner_finished,
-			   take(&fds[0]), take(&fds[1]), NULL);
+			   take(&peer_fd), take(&gossip_fd), NULL);
 	if (!opening) {
-		peer_fail_transient(fc->peer, "Failed to subdaemon opening: %s",
-				    strerror(errno));
-		return true;
+		fc->peer = tal_free(fc->peer);
+		command_fail(fc->cmd,
+			     "Failed to launch openingd: %s",
+			     strerror(errno));
+		return;
 	}
 	fc->peer->owner = opening;
+
+	/* FIXME: This is wrong in several ways.
+	 *
+	 * 1. We should set the temporary channel id *now*, so that's the
+	 *    key.
+	 * 2. We don't need the peer or channel in db until peer_persists().
+	 */
 
 	/* Store the channel in the database in order to get a channel
 	 * ID that is unique and which we can base the peer_seed on */
@@ -2584,8 +2513,7 @@ static bool gossip_peer_released(struct subd *gossip,
 				  &fc->peer->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
-				  &cs, fc->peer->seed);
-
+				  cs, fc->peer->seed);
 	subd_send_msg(opening, take(msg));
 
 	utxos = from_utxoptr_arr(fc, fc->utxomap);
@@ -2597,7 +2525,54 @@ static bool gossip_peer_released(struct subd *gossip,
 				    fc->change, fc->change_keyindex,
 				    fc->peer->channel_flags,
 				    utxos, fc->peer->ld->wallet->bip32_base);
+
+	/* Peer now owns fc; if it dies, we fail fc. */
+	tal_steal(fc->peer, fc);
+	tal_add_destructor(fc, fail_fundchannel_command);
+
 	subd_req(fc, opening, take(msg), -1, 2, opening_funder_finished, fc);
+}
+
+/* Peer has been released from gossip.  Start opening. */
+static bool gossip_peer_released(struct subd *gossip,
+				 const u8 *resp,
+				 const int *fds,
+				 struct funding_channel *fc)
+{
+	struct lightningd *ld = gossip->ld;
+	struct crypto_state cs;
+	u8 *gfeatures, *lfeatures;
+
+	/* We could have raced with peer doing something else. */
+	fc->peer = peer_by_id(ld, &fc->peerid);
+
+	if (!fromwire_gossipctl_release_peer_reply(fc, resp, NULL, &cs,
+						   &gfeatures, &lfeatures)) {
+		if (!fromwire_gossipctl_release_peer_replyfail(resp, NULL)) {
+			fatal("Gossip daemon gave invalid reply %s",
+			      tal_hex(gossip, resp));
+		}
+		if (fc->peer)
+			command_fail(fc->cmd, "Peer already %s",
+				     peer_state_name(fc->peer->state));
+		else
+			command_fail(fc->cmd, "Peer not connected");
+		return true;
+	}
+	assert(tal_count(fds) == 2);
+
+	/* We asked to release this peer, but another raced in?  Corner case,
+	 * close this is easiest. */
+	if (fc->peer) {
+		command_fail(fc->cmd, "Peer already %s",
+			     peer_state_name(fc->peer->state));
+		close(fds[0]);
+		close(fds[1]);
+		return true;
+	}
+
+	/* OK, offer peer a channel. */
+	peer_offer_channel(ld, fc, &cs, gfeatures, lfeatures, fds[0], fds[1]);
 	return true;
 }
 
@@ -2612,43 +2587,36 @@ static void json_fund_channel(struct command *cmd,
 			     "id", &peertok,
 			     "satoshi", &satoshitok,
 			     NULL)) {
-		command_fail(cmd, "Need peerid and satoshi");
+		command_fail(cmd, "Need id and satoshi");
 		return;
 	}
 
 	fc->cmd = cmd;
-	fc->peer = peer_from_json(cmd->ld, buffer, peertok);
-	if (!fc->peer) {
-		command_fail(cmd, "Could not find peer with that peerid");
-		return;
-	}
-	if (fc->peer->owner != cmd->ld->gossip) {
-		command_fail(cmd, "Peer not ready for connection");
+
+	if (!pubkey_from_hexstr(buffer + peertok->start,
+				peertok->end - peertok->start, &fc->peerid)) {
+		command_fail(cmd, "Could not parse id");
 		return;
 	}
 
-	if (!json_tok_u64(buffer, satoshitok, &fc->peer->funding_satoshi)) {
+	if (!json_tok_u64(buffer, satoshitok, &fc->funding_satoshi)) {
 		command_fail(cmd, "Invalid satoshis");
 		return;
 	}
 
 	/* FIXME: Support push_msat? */
-	fc->peer->push_msat = 0;
+	fc->push_msat = 0;
 
 	/* Try to do this now, so we know if insufficient funds. */
 	/* FIXME: Feerate & dustlimit */
-	fc->utxomap = build_utxos(fc, cmd->ld, fc->peer->funding_satoshi,
+	fc->utxomap = build_utxos(fc, cmd->ld, fc->funding_satoshi,
 				  15000, 600, &fc->change, &fc->change_keyindex);
 	if (!fc->utxomap) {
 		command_fail(cmd, "Cannot afford funding transaction");
 		return;
 	}
 
-	msg = towire_gossipctl_release_peer(cmd, fc->peer->unique_id);
-
-	/* Tie this fc lifetime (and hence utxo release) to the peer */
-	tal_steal(fc->peer, fc);
-	tal_add_destructor(fc, fail_fundchannel_command);
+	msg = towire_gossipctl_release_peer(cmd, &fc->peerid);
 	subd_req(fc, cmd->ld->gossip, msg, -1, 2, gossip_peer_released, fc);
 }
 
