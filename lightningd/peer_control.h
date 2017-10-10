@@ -98,9 +98,6 @@ struct peer {
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;
 
-	/* FIXME: Just leave this in the db. */
-	struct htlc_stub *htlcs;
-
 	struct wallet_channel *channel;
 };
 

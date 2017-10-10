@@ -635,7 +635,6 @@ void add_peer(struct lightningd *ld, u64 unique_id,
 	peer->next_index[LOCAL]
 		= peer->next_index[REMOTE] = 0;
 	peer->next_htlc_id = 0;
-	peer->htlcs = tal_arr(peer, struct htlc_stub, 0);
 	wallet_shachain_init(ld->wallet, &peer->their_shachain);
 
 	/* If we have the peer in the DB, this'll populate the fields,
