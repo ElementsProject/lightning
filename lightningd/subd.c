@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <stdarg.h>
 #include <sys/socket.h>
@@ -596,6 +597,11 @@ void subd_shutdown(struct subd *sd, unsigned int seconds)
 
 	/* No finished callback any more. */
 	sd->finished = NULL;
+	/* Don't let destroy_peer dereference us */
+	if (sd->peer) {
+		sd->peer->owner = NULL;
+		sd->peer = NULL;
+	}
 	/* Don't free sd when we close connection manually. */
 	tal_steal(sd->ld, sd);
 	/* Close connection: should begin shutdown now. */

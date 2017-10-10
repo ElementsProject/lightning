@@ -46,6 +46,9 @@
 
 static void destroy_peer(struct peer *peer)
 {
+	/* Don't leave owner pointer dangling. */
+	if (peer->owner && peer->owner->peer == peer)
+		peer->owner->peer = NULL;
 	list_del_from(&peer->ld->peers, &peer->list);
 }
 
@@ -436,7 +439,6 @@ static bool peer_reconnected(struct lightningd *ld,
 			     int fd,
 			     const struct crypto_state *cs)
 {
-	struct subd *subd;
 	struct peer *peer = peer_by_id(ld, id);
 	if (!peer)
 		return false;
@@ -481,11 +483,8 @@ static bool peer_reconnected(struct lightningd *ld,
 		return false;
 
 	case OPENINGD:
-		/* Kill off openingd, forget old peer. */
-		subd = peer->owner;
-		peer->owner = NULL; /* We'll free it ourselves */
-		tal_free(subd);
-		tal_free(peer);
+		/* Kill off openingd, which will free peer. */
+		tal_free(peer->owner);
 
 		/* A fresh start. */
 		return false;
@@ -1073,12 +1072,14 @@ static enum watch_result funding_announce_cb(struct peer *peer,
 static void peer_onchain_finished(struct subd *subd, int status)
 {
 	/* Moved on?  Eg. reorg, and it has a new onchaind. */
-	if (subd->peer->owner != subd)
+	if (!subd->peer || subd->peer->owner != subd)
 		return;
+
+	/* Unlink peer from us, so it doesn't try to free us in destroy_peer */
+	subd->peer->owner = NULL;
 
 	if (status != 0) {
 		log_broken(subd->peer->log, "onchaind died status %i", status);
-		subd->peer->owner = NULL;
 		return;
 	}
 
