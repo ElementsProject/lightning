@@ -705,8 +705,8 @@ class LightningDTests(BaseLightningDTests):
     def test_penalty_inhtlc(self):
         """Test penalty transaction with an incoming HTLC"""
         # We suppress each one after first commit; HTLC gets added not fulfilled.
-        l1 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED'], may_fail=True)
-        l2 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED'])
+        l1 = self.node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'], may_fail=True)
+        l2 = self.node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'])
 
         l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
         self.fund_channel(l1, l2, 10**6)
@@ -715,8 +715,8 @@ class LightningDTests(BaseLightningDTests):
         t = self.pay(l1,l2,100000000,async=True)
 
         # They should both have commitments blocked now.
-        l1.daemon.wait_for_log('_WIRE_COMMITMENT_SIGNED')
-        l2.daemon.wait_for_log('_WIRE_COMMITMENT_SIGNED')
+        l1.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
+        l2.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
 
         # Make sure l1 got l2's commitment to the HTLC, and sent to master.
         l1.daemon.wait_for_log('UPDATE WIRE_CHANNEL_GOT_COMMITSIG')
@@ -764,8 +764,8 @@ class LightningDTests(BaseLightningDTests):
     def test_penalty_outhtlc(self):
         """Test penalty transaction with an outgoing HTLC"""
         # First we need to get funds to l2, so suppress after second.
-        l1 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED*3'], may_fail=True)
-        l2 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED*3'])
+        l1 = self.node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED*3-nocommit'], may_fail=True)
+        l2 = self.node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED*3-nocommit'])
 
         l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
         self.fund_channel(l1, l2, 10**6)
@@ -773,8 +773,8 @@ class LightningDTests(BaseLightningDTests):
         # Move some across to l2.
         self.pay(l1,l2,200000000)
 
-        assert not l1.daemon.is_in_log('_WIRE_COMMITMENT_SIGNED')
-        assert not l2.daemon.is_in_log('_WIRE_COMMITMENT_SIGNED')
+        assert not l1.daemon.is_in_log('=WIRE_COMMITMENT_SIGNED')
+        assert not l2.daemon.is_in_log('=WIRE_COMMITMENT_SIGNED')
 
         # Now, this will get stuck due to l1 commit being disabled..
         t = self.pay(l2,l1,100000000,async=True)
@@ -783,8 +783,8 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('peer_in WIRE_COMMITMENT_SIGNED')
 
         # They should both have commitments blocked now.
-        l1.daemon.wait_for_log('dev_disconnect: _WIRE_COMMITMENT_SIGNED')
-        l2.daemon.wait_for_log('dev_disconnect: _WIRE_COMMITMENT_SIGNED')
+        l1.daemon.wait_for_log('dev_disconnect: =WIRE_COMMITMENT_SIGNED')
+        l2.daemon.wait_for_log('dev_disconnect: =WIRE_COMMITMENT_SIGNED')
 
         # Take our snapshot.
         tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
@@ -1278,12 +1278,34 @@ class LightningDTests(BaseLightningDTests):
 
         self.fund_channel(l1, l2, 10**6)
 
-    def test_reconnect_sender_add(self):
+    def test_reconnect_sender_add1(self):
         # Fail after add is OK, will cause payment failure though.
-        disconnects = ['-WIRE_UPDATE_ADD_HTLC',
-                       '@WIRE_UPDATE_ADD_HTLC',
-                       '+WIRE_UPDATE_ADD_HTLC',
-                       '-WIRE_COMMITMENT_SIGNED',
+        disconnects = ['-WIRE_UPDATE_ADD_HTLC-nocommit',
+                       '+WIRE_UPDATE_ADD_HTLC-nocommit',
+                       '@WIRE_UPDATE_ADD_HTLC-nocommit']
+
+        l1 = self.node_factory.get_node(disconnect=disconnects)
+        l2 = self.node_factory.get_node()
+        ret = l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
+
+        self.fund_channel(l1, l2, 10**6)
+
+        amt = 200000000
+        rhash = l2.rpc.invoice(amt, 'test_reconnect_sender_add1')['rhash']
+        assert l2.rpc.listinvoice('test_reconnect_sender_add1')[0]['complete'] == False
+
+        route = [ { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'} ]
+
+        for i in range(0,len(disconnects)):
+            self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
+            # Wait for reconnection.
+            l1.daemon.wait_for_log('Already have funding locked in')
+
+        # This will send commit, so will reconnect as required.
+        l1.rpc.sendpay(to_json(route), rhash)
+
+    def test_reconnect_sender_add(self):
+        disconnects = ['-WIRE_COMMITMENT_SIGNED',
                        '@WIRE_COMMITMENT_SIGNED',
                        '+WIRE_COMMITMENT_SIGNED',
                        '-WIRE_REVOKE_AND_ACK',
@@ -1300,27 +1322,11 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.listinvoice('testpayment')[0]['complete'] == False
 
         route = [ { 'msatoshi' : amt, 'id' : l2.info['id'], 'delay' : 5, 'channel': '1:1:1'} ]
-        # First time, it will fail because it doesn't send commit.
-        self.assertRaises(ValueError, l1.rpc.sendpay, to_json(route), rhash)
-        # Wait for reconnection.
-        l1.daemon.wait_for_log('Already have funding locked in')
-
-        # These are *racy* whether they succeeds or not: does the commit timer
-        # fire before it tries reading and notices fd is closed?
-        for i in range(1,3):
-            try:
-                l1.rpc.sendpay(to_json(route), rhash)
-                assert l2.rpc.listinvoice('testpayment')[0]['complete'] == True
-                rhash = l2.rpc.invoice(amt, 'testpayment' + str(i))['rhash']
-            except:
-                pass
-            # Wait for reconnection.
-            l1.daemon.wait_for_log('Already have funding locked in')
 
         # This will send commit, so will reconnect as required.
         l1.rpc.sendpay(to_json(route), rhash)
         # Should have printed this for every reconnect.
-        for i in range(3,len(disconnects)):
+        for i in range(0,len(disconnects)):
             l1.daemon.wait_for_log('Already have funding locked in')
 
     def test_reconnect_receiver_add(self):
@@ -1502,7 +1508,7 @@ class LightningDTests(BaseLightningDTests):
         # mysteriously die while committing the first HTLC so we can
         # check that HTLCs reloaded from the DB work.
         l1 = self.node_factory.get_node()
-        l2 = self.node_factory.get_node(disconnect=['_WIRE_COMMITMENT_SIGNED'])
+        l2 = self.node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'])
         l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
 
         # Neither node should have a channel open, they are just connected
