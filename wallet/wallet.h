@@ -11,6 +11,7 @@
 #include <common/utxo.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/invoice.h>
+#include <onchaind/onchain_wire.h>
 #include <wally_bip32.h>
 
 struct lightningd;
@@ -335,5 +336,19 @@ bool wallet_invoices_load(struct wallet *wallet, struct invoices *invs);
  * @inv: Invoice to remove.
  */
 bool wallet_invoice_remove(struct wallet *wallet, struct invoice *inv);
+
+/**
+ * wallet_htlc_stubs - Retrieve HTLC stubs for the given channel
+ *
+ * Load minimal necessary information about HTLCs for the on-chain
+ * settlement. This returns a `tal_arr` allocated off of @ctx with the
+ * necessary size to hold all HTLCs.
+ *
+ * @ctx: Allocation context for the return value
+ * @wallet: Wallet to load from
+ * @chan: Channel to fetch stubs for
+ */
+struct htlc_stub *wallet_htlc_stubs(tal_t *ctx, struct wallet *wallet,
+				    struct wallet_channel *chan);
 
 #endif /* WALLET_WALLET_H */

@@ -1202,3 +1202,37 @@ bool wallet_invoice_remove(struct wallet *wallet, struct invoice *inv)
 	sqlite3_bind_int64(stmt, 1, inv->id);
 	return db_exec_prepared(wallet->db, stmt) && sqlite3_changes(wallet->db->sql) == 1;
 }
+
+struct htlc_stub *wallet_htlc_stubs(tal_t *ctx, struct wallet *wallet,
+				    struct wallet_channel *chan)
+{
+	struct htlc_stub *stubs;
+	struct sha256 payment_hash;
+	sqlite3_stmt *stmt = db_prepare(wallet->db,
+		"SELECT channel_id, direction, cltv_expiry, payment_hash "
+		"FROM channel_htlcs WHERE channel_id = ?;");
+
+	if (!stmt) {
+		log_broken(wallet->log, "Error preparing select: %s", wallet->db->err);
+		return NULL;
+	}
+	sqlite3_bind_int64(stmt, 1, chan->id);
+
+	stubs = tal_arr(ctx, struct htlc_stub, 0);
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		int n = tal_count(stubs);
+		tal_resize(&stubs, n+1);
+
+		assert(sqlite3_column_int64(stmt, 0) == chan->id);
+
+		/* FIXME: merge these two enums */
+		stubs[n].owner = sqlite3_column_int(stmt, 1)==DIRECTION_INCOMING?REMOTE:LOCAL;
+		stubs[n].cltv_expiry = sqlite3_column_int(stmt, 2);
+
+		sqlite3_column_hexval(stmt, 3, &payment_hash, sizeof(payment_hash));
+		ripemd160(&stubs[n].ripemd, payment_hash.u.u8, sizeof(payment_hash.u));
+	}
+	sqlite3_finalize(stmt);
+	return stubs;
+}
