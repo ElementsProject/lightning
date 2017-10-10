@@ -352,6 +352,13 @@ void json_add_pubkey(struct json_result *response,
 	json_add_hex(response, fieldname, der, sizeof(der));
 }
 
+bool json_tok_pubkey(const char *buffer, const jsmntok_t *tok,
+		     struct pubkey *pubkey)
+{
+	return pubkey_from_hexstr(buffer + tok->start,
+				  tok->end - tok->start, pubkey);
+}
+
 void json_add_short_channel_id(struct json_result *response,
 			       const char *fieldname,
 			       const struct short_channel_id *id)

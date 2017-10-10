@@ -232,9 +232,7 @@ static void json_sendpay(struct command *cmd,
 			command_fail(cmd, "route %zu invalid channel_id", n_hops);
 			return;
 		}
-		if (!pubkey_from_hexstr(buffer + idtok->start,
-					idtok->end - idtok->start,
-					&ids[n_hops])) {
+		if (!json_tok_pubkey(buffer, idtok, &ids[n_hops])) {
 			command_fail(cmd, "route %zu invalid id", n_hops);
 			return;
 		}
