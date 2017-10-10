@@ -1358,7 +1358,7 @@ static u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx
 }
 
 /* If we want to know if this HTLC is missing, return depth. */
-static bool tell_if_missing(const struct peer *peer, size_t n,
+static bool tell_if_missing(const struct peer *peer, struct htlc_stub *stub,
 			    bool *tell_immediate)
 {
 	struct htlc_out *hout;
@@ -1367,7 +1367,7 @@ static bool tell_if_missing(const struct peer *peer, size_t n,
 	*tell_immediate = false;
 
 	/* Is it a current HTLC? */
-	hout = find_htlc_out_by_ripemd(peer, &peer->htlcs[n].ripemd);
+	hout = find_htlc_out_by_ripemd(peer, &stub->ripemd);
 	if (!hout)
 		return false;
 
@@ -1482,7 +1482,7 @@ static enum watch_result funding_spent(struct peer *peer,
 	/* FIXME: Don't queue all at once, use an empty cb... */
 	for (size_t i = 0; i < tal_count(stubs); i++) {
 		bool tell_immediate;
-		bool tell = tell_if_missing(peer, i, &tell_immediate);
+		bool tell = tell_if_missing(peer, &stubs[i], &tell_immediate);
 		msg = towire_onchain_htlc(peer, &stubs[i],
 					  tell, tell_immediate);
 		subd_send_msg(peer->owner, take(msg));
