@@ -1885,7 +1885,47 @@ static void peer_start_closingd_after_shutdown(struct peer *peer, const u8 *msg,
 	peer_set_condition(peer, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
 }
 
-static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
+/**
+ * transactional_msg_handler - Wrap a msg handler in a DB transaction
+ *
+ * Initiates a DB transaction, executes the @handler with the given
+ * arguments and terminates the transaction after the handler
+ * returns. If the handler's return value is negative the transaction
+ * is aborted. If the handler returns a positive value we attempt to
+ * commit the transaction. Returns the return value from the handler
+ * or -1 on commit failure.
+ */
+static int transactional_msg_handler(int (*handler)(struct peer *, const u8 *),
+				     struct peer *peer, const u8 *msg)
+{
+	struct db *db = peer->ld->wallet->db;
+	int ret;
+        /* Make sure we are the outermost transaction */
+	assert(!db->in_transaction);
+	db_begin_transaction(db);
+
+	ret = handler(peer, msg);
+	if (ret >= 0 && !db_commit_transaction(db)) {
+		peer_internal_error(
+			peer, "Could not commit db transaction: %s",
+			db->err);
+		ret = -1;
+	}
+
+	/* If the commit fails or the handler aborts we will attempt a
+	 * rollback */
+	if (ret < 0) {
+		db_rollback_transaction(db);
+	}
+
+	/* Make sure we don't leak transactions */
+	assert(!db->in_transaction);
+	return ret;
+
+
+}
+
+static unsigned int channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);
 
@@ -1895,13 +1935,13 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 				   CHANNELD_AWAITING_LOCKIN, CHANNELD_NORMAL);
 		break;
 	case WIRE_CHANNEL_SENDING_COMMITSIG:
-		peer_sending_commitsig(sd->peer, msg);
+		transactional_msg_handler(peer_sending_commitsig, sd->peer, msg);
 		break;
 	case WIRE_CHANNEL_GOT_COMMITSIG:
-		peer_got_commitsig(sd->peer, msg);
+		transactional_msg_handler(peer_got_commitsig, sd->peer, msg);
 		break;
 	case WIRE_CHANNEL_GOT_REVOKE:
-		peer_got_revoke(sd->peer, msg);
+		transactional_msg_handler(peer_got_revoke,sd->peer, msg);
 		break;
 	case WIRE_CHANNEL_ANNOUNCE:
 		peer_channel_announce(sd->peer, msg);

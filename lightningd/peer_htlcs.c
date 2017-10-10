@@ -1129,8 +1129,6 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 		  commitnum, tal_count(added), tal_count(fulfilled),
 		  tal_count(failed), tal_count(changed));
 
-	/* FIXME: store commit & htlc signature information. */
-
 	/* New HTLCs */
 	for (i = 0; i < tal_count(added); i++)
 		added_their_htlc(peer, &added[i], &shared_secrets[i]);
