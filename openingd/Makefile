@@ -37,6 +37,7 @@ LIGHTNINGD_HEADERS_NOGEN += $(LIGHTNINGD_OPENING_HEADERS_NOGEN)
 OPENINGD_COMMON_OBJS :=				\
 	common/bip32.o				\
 	common/channel_config.o			\
+	common/crypto_state.o			\
 	common/crypto_sync.o			\
 	common/cryptomsg.o			\
 	common/daemon_conn.o			\
