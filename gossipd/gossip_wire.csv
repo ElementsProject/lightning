@@ -18,7 +18,6 @@ gossipctl_init,,broadcast_interval,u32
 gossipctl_init,,chain_hash,struct sha256_double
 
 # These take an fd, but have no response
-# (if it is to move onto a channel, we get a status msg).
 gossipctl_new_peer,3001
 gossipctl_new_peer,,unique_id,u64
 gossipctl_new_peer,,crypto_state,struct crypto_state
@@ -112,3 +111,10 @@ gossipctl_get_peer_gossipfd_reply,3112
 
 # Failure (can't make new socket)
 gossipctl_get_peer_gossipfd_replyfail,3212
+
+# Send canned message to peer and fail it.
+gossipctl_fail_peer,3013
+gossipctl_fail_peer,,unique_id,u64
+gossipctl_fail_peer,,crypto_state,struct crypto_state
+gossipctl_fail_peer,,len,u16
+gossipctl_fail_peer,,failmsg,len*u8

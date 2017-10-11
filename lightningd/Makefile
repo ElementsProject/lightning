@@ -18,7 +18,6 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/channel_config.o			\
 	common/configdir.o			\
 	common/crypto_state.o			\
-	common/cryptomsg.o			\
 	common/derive_basepoints.o		\
 	common/funding_tx.o			\
 	common/htlc_state.o			\
