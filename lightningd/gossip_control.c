@@ -262,8 +262,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 		return;
 	}
 
-	if (!pubkey_from_hexstr(buffer + idtok->start,
-				idtok->end - idtok->start, &id)) {
+	if (!json_tok_pubkey(buffer, idtok, &id)) {
 		command_fail(cmd, "Invalid id");
 		return;
 	}

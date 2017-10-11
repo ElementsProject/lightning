@@ -59,6 +59,10 @@ void json_add_pubkey(struct json_result *response,
 		     const char *fieldname,
 		     const struct pubkey *key);
 
+/* Extract a pubkey from this */
+bool json_tok_pubkey(const char *buffer, const jsmntok_t *tok,
+		     struct pubkey *pubkey);
+
 /* '"fieldname" : "1234:5:6"' */
 void json_add_short_channel_id(struct json_result *response,
 			       const char *fieldname,
