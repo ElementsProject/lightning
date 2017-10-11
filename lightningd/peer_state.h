@@ -5,9 +5,6 @@
 enum peer_state {
 	UNINITIALIZED,
 
-	/* In gossip daemon. */
-	GOSSIPD,
-
 	/* Negotiating channel opening: in opening daemon */
 	OPENINGD,
 

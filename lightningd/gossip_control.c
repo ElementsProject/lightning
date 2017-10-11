@@ -27,69 +27,34 @@ static void gossip_finished(struct subd *gossip, int status)
 	errx(1, "Gossip failed (signal %u), exiting.", WTERMSIG(status));
 }
 
-static void peer_bad_message(struct subd *gossip, const u8 *msg)
-{
-	u64 unique_id;
-	struct peer *peer;
-	u8 *err;
-
-	if (!fromwire_gossipstatus_peer_bad_msg(msg, msg, NULL,
-						&unique_id, &err))
-		fatal("Gossip gave bad PEER_BAD message %s", tal_hex(msg, msg));
-
-	peer = peer_by_unique_id(gossip->ld, unique_id);
-	if (!peer)
-		fatal("Gossip gave bad peerid %"PRIu64, unique_id);
-
-	log_debug(gossip->log, "Peer %s gave bad msg %s",
-		  type_to_string(msg, struct pubkey, &peer->id),
-		  tal_hex(msg, msg));
-	peer_fail_permanent(peer, msg);
-}
-
-static void peer_failed(struct subd *gossip, const u8 *msg)
-{
-	u64 unique_id;
-	struct peer *peer;
-	u8 *err;
-
-	if (!fromwire_gossipstatus_peer_failed(msg, msg, NULL,
-					       &unique_id, &err))
-		fatal("Gossip gave bad PEER_FAILED message %s",
-		      tal_hex(msg, msg));
-
-	peer = peer_by_unique_id(gossip->ld, unique_id);
-	if (!peer)
-		fatal("Gossip gave bad peerid %"PRIu64, unique_id);
-
-	peer_fail_permanent(peer, msg);
-}
-
 static void peer_nongossip(struct subd *gossip, const u8 *msg,
 			   int peer_fd, int gossip_fd)
 {
-	u64 unique_id;
-	struct peer *peer;
-	u8 *inner;
+	struct pubkey id;
 	struct crypto_state cs;
+	u8 *gfeatures, *lfeatures, *in_pkt;
 
-	if (!fromwire_gossipstatus_peer_nongossip(msg, msg, NULL,
-						  &unique_id, &cs, &inner))
-		fatal("Gossip gave bad PEER_NONGOSSIP message %s",
+	if (!fromwire_gossip_peer_nongossip(msg, msg, NULL,
+					    &id, &cs,
+					    &gfeatures,
+					    &lfeatures,
+					    &in_pkt))
+		fatal("Gossip gave bad GOSSIP_PEER_NONGOSSIP message %s",
 		      tal_hex(msg, msg));
 
-	peer = peer_by_unique_id(gossip->ld, unique_id);
-	if (!peer)
-		fatal("Gossip gave bad peerid %"PRIu64, unique_id);
+	/* We already checked the features when it first connected. */
+	if (unsupported_features(gfeatures, lfeatures)) {
+		log_unusual(gossip->log,
+			    "Gossip gave unsupported features %s/%s",
+			    tal_hex(msg, gfeatures),
+			    tal_hex(msg, lfeatures));
+		close(peer_fd);
+		close(gossip_fd);
+		return;
+	}
 
-	if (peer->owner != gossip)
-		fatal("Gossip gave bad peerid %"PRIu64" (owner %s)",
-		      unique_id, peer->owner ? peer->owner->name : "(none)");
-
-	log_info(peer->log, "Gossip ended up receipt of %s",
-		 wire_type_name(fromwire_peektype(inner)));
-
-	peer_fundee_open(peer, inner, &cs, peer_fd, gossip_fd);
+	peer_sent_nongossip(gossip->ld, &id, &cs, gfeatures, lfeatures,
+			    peer_fd, gossip_fd, in_pkt);
 }
 
 static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
@@ -99,35 +64,31 @@ static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	switch (t) {
 	/* These are messages we send, not them. */
 	case WIRE_GOSSIPCTL_INIT:
-	case WIRE_GOSSIPCTL_NEW_PEER:
-	case WIRE_GOSSIPCTL_FAIL_PEER:
-	case WIRE_GOSSIPCTL_RELEASE_PEER:
-	case WIRE_GOSSIPCTL_DROP_PEER:
-	case WIRE_GOSSIPCTL_GET_PEER_GOSSIPFD:
 	case WIRE_GOSSIP_GETNODES_REQUEST:
 	case WIRE_GOSSIP_GETROUTE_REQUEST:
 	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
 	case WIRE_GOSSIP_PING:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST:
 	case WIRE_GOSSIP_FORWARDED_MSG:
+	case WIRE_GOSSIPCTL_REACH_PEER:
+	case WIRE_GOSSIPCTL_HANDLE_PEER:
+	case WIRE_GOSSIPCTL_RELEASE_PEER:
+	case WIRE_GOSSIPCTL_PEER_ADDRHINT:
 	/* This is a reply, so never gets through to here. */
-	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
-	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
-	case WIRE_GOSSIPCTL_GET_PEER_GOSSIPFD_REPLY:
-	case WIRE_GOSSIPCTL_GET_PEER_GOSSIPFD_REPLYFAIL:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:
 	case WIRE_GOSSIP_PING_REPLY:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
+	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
+	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
 		break;
-	case WIRE_GOSSIPSTATUS_PEER_BAD_MSG:
-		peer_bad_message(gossip, msg);
+	case WIRE_GOSSIP_PEER_CONNECTED:
+		if (tal_count(fds) != 2)
+			return 2;
+		peer_connected(gossip->ld, msg, fds[0], fds[1]);
 		break;
-	case WIRE_GOSSIPSTATUS_PEER_FAILED:
-		peer_failed(gossip, msg);
-		break;
-	case WIRE_GOSSIPSTATUS_PEER_NONGOSSIP:
+	case WIRE_GOSSIP_PEER_NONGOSSIP:
 		if (tal_count(fds) != 2)
 			return 2;
 		peer_nongossip(gossip, msg, fds[0], fds[1]);
@@ -164,7 +125,10 @@ void gossip_init(struct lightningd *ld)
 		err(1, "Could not subdaemon gossip");
 
 	msg = towire_gossipctl_init(tmpctx, ld->broadcast_interval,
-				    &get_chainparams(ld)->genesis_blockhash);
+				    &get_chainparams(ld)->genesis_blockhash,
+				    &ld->id, ld->portnum,
+				    get_supported_global_features(tmpctx),
+				    get_supported_local_features(tmpctx));
 	subd_send_msg(ld->gossip, msg);
 	tal_free(tmpctx);
 }
