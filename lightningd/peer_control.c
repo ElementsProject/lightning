@@ -808,8 +808,7 @@ static void json_connect(struct command *cmd,
 		return;
 	}
 
-	if (!pubkey_from_hexstr(buffer + idtok->start,
-				idtok->end - idtok->start, &id)) {
+	if (!json_tok_pubkey(buffer, idtok, &id)) {
 		command_fail(cmd, "id %.*s not valid",
 			     idtok->end - idtok->start,
 			     buffer + idtok->start);
@@ -1015,8 +1014,7 @@ struct peer *peer_from_json(struct lightningd *ld,
 {
 	struct pubkey peerid;
 
-	if (!pubkey_from_hexstr(buffer + peeridtok->start,
-				peeridtok->end - peeridtok->start, &peerid))
+	if (!json_tok_pubkey(buffer, peeridtok, &peerid))
 		return NULL;
 
 	return peer_by_id(ld, &peerid);
