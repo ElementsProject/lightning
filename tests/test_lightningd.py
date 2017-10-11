@@ -1250,25 +1250,22 @@ class LightningDTests(BaseLightningDTests):
         tx = l1.bitcoin.rpc.getrawtransaction(txid)
         l1.rpc.addfunds(tx)
 
-        # It closes on us, we forget about it.
+        # l2 closes on l1, l1 forgets.
         self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
         assert l1.rpc.getpeer(l2.info['id']) == None
 
         # Reconnect.
         l1.rpc.connect('localhost', l2.info['port'], l2.info['id'])
 
-        # Truncate (hack to release old openingd).
-        with open(os.path.join(l2.daemon.lightning_dir, 'dev_disconnect'), "w"):
-            pass
-
         # We should get a message about old one exiting.
-        l2.daemon.wait_for_log('Subdaemon lightning_openingd died')
+        l2.daemon.wait_for_log('Peer has reconnected, state OPENINGD')
+        l2.daemon.wait_for_log('Owning subdaemon lightning_openingd died')
 
         # Should work fine.
         l1.rpc.fundchannel(l2.info['id'], 20000)
         l1.daemon.wait_for_log('sendrawtx exit 0')
 
-        # Just to be sure, second openingd should die too.
+        # Just to be sure, second openingd hand over to channeld.
         l2.daemon.wait_for_log('Subdaemon lightning_openingd died \(0\)')
 
     def test_reconnect_normal(self):
