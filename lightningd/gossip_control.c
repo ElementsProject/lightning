@@ -3,16 +3,21 @@
 #include "peer_control.h"
 #include "subd.h"
 #include <ccan/err/err.h>
+#include <ccan/fdpass/fdpass.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
+#include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
+#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <lightningd/gossip_msg.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
 #include <wire/gen_peer_wire.h>
+#include <wire/wire_sync.h>
 
 static void gossip_finished(struct subd *gossip, int status)
 {
@@ -136,16 +141,31 @@ static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 void gossip_init(struct lightningd *ld)
 {
 	tal_t *tmpctx = tal_tmpctx(ld);
-	u8 *init;
+	u8 *msg;
+	int hsmfd;
+
+	msg = towire_hsmctl_hsmfd_ecdh(tmpctx, 0);
+	if (!wire_sync_write(ld->hsm_fd, msg))
+		fatal("Could not write to HSM: %s", strerror(errno));
+
+	msg = hsm_sync_read(tmpctx, ld);
+	if (!fromwire_hsmctl_hsmfd_ecdh_fd_reply(msg, NULL))
+		fatal("Malformed hsmfd response: %s", tal_hex(msg, msg));
+
+	hsmfd = fdpass_recv(ld->hsm_fd);
+	if (hsmfd < 0)
+		fatal("Could not read fd from HSM: %s", strerror(errno));
+
 	ld->gossip = new_subd(ld, "lightning_gossipd", NULL,
 			      gossip_wire_type_name,
-			      gossip_msg, NULL, gossip_finished, NULL);
+			      gossip_msg, NULL, gossip_finished,
+			      take(&hsmfd), NULL);
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
 
-	init = towire_gossipctl_init(tmpctx, ld->broadcast_interval,
-				     &get_chainparams(ld)->genesis_blockhash);
-	subd_send_msg(ld->gossip, init);
+	msg = towire_gossipctl_init(tmpctx, ld->broadcast_interval,
+				    &get_chainparams(ld)->genesis_blockhash);
+	subd_send_msg(ld->gossip, msg);
 	tal_free(tmpctx);
 }
 
