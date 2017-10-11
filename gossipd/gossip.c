@@ -99,14 +99,15 @@ static void destroy_peer(struct peer *peer)
 	}
 }
 
-static struct peer *setup_new_peer(struct daemon *daemon, const u8 *msg)
+static struct peer *setup_new_peer(struct daemon *daemon,
+				   u64 unique_id,
+				   const struct crypto_state *cs)
 {
 	struct peer *peer = tal(daemon, struct peer);
 
 	init_peer_crypto_state(peer, &peer->pcs);
-	if (!fromwire_gossipctl_new_peer(msg, NULL, &peer->unique_id,
-					 &peer->pcs.cs))
-		return tal_free(peer);
+	peer->pcs.cs = *cs;
+	peer->unique_id = unique_id;
 	peer->daemon = daemon;
 	peer->error = NULL;
 	peer->local = true;
@@ -115,6 +116,7 @@ static struct peer *setup_new_peer(struct daemon *daemon, const u8 *msg)
 	msg_queue_init(&peer->peer_out, peer);
 	list_add_tail(&daemon->peers, &peer->list);
 	tal_add_destructor(peer, destroy_peer);
+
 	wake_pkt_out(peer);
 	return peer;
 }
@@ -416,10 +418,14 @@ static struct io_plan *new_peer_got_fd(struct io_conn *conn, struct peer *peer)
 static struct io_plan *new_peer(struct io_conn *conn, struct daemon *daemon,
 				const u8 *msg)
 {
-	struct peer *peer = setup_new_peer(daemon, msg);
-	if (!peer)
-		status_failed(STATUS_FAIL_MASTER_IO,
-			      "bad gossipctl_new_peer: %s", tal_hex(trc, msg));
+	struct peer *peer;
+	struct crypto_state cs;
+	u64 unique_id;
+
+	if (!fromwire_gossipctl_new_peer(msg, NULL, &unique_id, &cs))
+		master_badmsg(WIRE_GOSSIPCTL_NEW_PEER, msg);
+
+	peer = setup_new_peer(daemon, unique_id, &cs);
 	return io_recv_fd(conn, &peer->fd, new_peer_got_fd, peer);
 }
 
@@ -431,6 +437,45 @@ static struct peer *find_peer(struct daemon *daemon, u64 unique_id)
 		if (peer->unique_id == unique_id)
 			return peer;
 	return NULL;
+}
+
+/* We send error, then close. */
+static struct io_plan *peer_send_error(struct io_conn *conn, struct peer *peer)
+{
+	const u8 *out = msg_dequeue(&peer->peer_out);
+	return peer_write_message(conn, &peer->pcs, take(out),
+				  (void *)io_close_cb);
+}
+
+static struct io_plan *fail_peer_got_fd(struct io_conn *conn, struct peer *peer)
+{
+	peer->conn = io_new_conn(conn, peer->fd, peer_send_error, peer);
+	if (!peer->conn) {
+		peer->error = "Could not create connection";
+		tal_free(peer);
+	} else {
+		/* If conn dies, we forget peer. */
+		tal_steal(peer->conn, peer);
+	}
+	return daemon_conn_read_next(conn, &peer->daemon->master);
+}
+
+static struct io_plan *fail_peer(struct io_conn *conn, struct daemon *daemon,
+				 const u8 *msg)
+{
+	struct peer *peer;
+	struct crypto_state cs;
+	u64 unique_id;
+	u8 *failmsg;
+
+	if (!fromwire_gossipctl_fail_peer(msg, msg, NULL, &unique_id, &cs,
+					  &failmsg))
+		master_badmsg(WIRE_GOSSIPCTL_FAIL_PEER, msg);
+
+	peer = setup_new_peer(daemon, unique_id, &cs);
+	msg_enqueue(&peer->peer_out, take(failmsg));
+
+	return io_recv_fd(conn, &peer->fd, fail_peer_got_fd, peer);
 }
 
 static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
@@ -742,6 +787,10 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_FORWARDED_MSG:
 		handle_forwarded_msg(conn, daemon, daemon->master.msg_in);
 		return daemon_conn_read_next(conn, &daemon->master);
+
+	case WIRE_GOSSIPCTL_FAIL_PEER:
+		return fail_peer(conn, daemon, master->msg_in);
+
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
 	case WIRE_GOSSIPCTL_GET_PEER_GOSSIPFD_REPLY:
