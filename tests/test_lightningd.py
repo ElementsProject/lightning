@@ -1354,9 +1354,12 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
 
     def test_reconnect_receiver_fulfill(self):
-        disconnects = ['-WIRE_UPDATE_FULFILL_HTLC',
-                       '@WIRE_UPDATE_FULFILL_HTLC',
+        # Ordering matters: after +WIRE_UPDATE_FULFILL_HTLC, channeld
+        # will continue and try to send WIRE_COMMITMENT_SIGNED: if
+        # that's the next failure, it will do two in one run.
+        disconnects = ['@WIRE_UPDATE_FULFILL_HTLC',
                        '+WIRE_UPDATE_FULFILL_HTLC',
+                       '-WIRE_UPDATE_FULFILL_HTLC',
                        '-WIRE_COMMITMENT_SIGNED',
                        '@WIRE_COMMITMENT_SIGNED',
                        '+WIRE_COMMITMENT_SIGNED',
