@@ -19,15 +19,16 @@ static bool dev_disconnect_nocommit;
 
 bool dev_suppress_commit;
 
-void dev_disconnect_init(int fd)
+static void next_dev_disconnect(void)
 {
 	int r;
 	char *asterisk;
 
-	r = read(fd, dev_disconnect_line, sizeof(dev_disconnect_line)-1);
+	r = read(dev_disconnect_fd,
+		 dev_disconnect_line, sizeof(dev_disconnect_line)-1);
 	if (r < 0)
 		err(1, "Reading dev_disconnect file");
-	lseek(fd, -r, SEEK_CUR);
+	lseek(dev_disconnect_fd, -r, SEEK_CUR);
 
 	/* Get first line */
 	dev_disconnect_line[r] = '\n';
@@ -49,22 +50,29 @@ void dev_disconnect_init(int fd)
 		*asterisk = '\0';
 	} else
 		dev_disconnect_count = 1;
+}
 
+void dev_disconnect_init(int fd)
+{
 	/* So we can move forward if we do use the line. */
 	dev_disconnect_fd = fd;
 }
 
 enum dev_disconnect dev_disconnect(int pkt_type)
 {
+	if (dev_disconnect_fd == -1)
+		return DEV_DISCONNECT_NORMAL;
+
+	if (!dev_disconnect_count)
+		next_dev_disconnect();
+
 	if (!streq(wire_type_name(pkt_type), dev_disconnect_line+1))
 		return DEV_DISCONNECT_NORMAL;
 
-	if (dev_disconnect_count != 1) {
-		dev_disconnect_count--;
+	if (--dev_disconnect_count != 0) {
 		return DEV_DISCONNECT_NORMAL;
 	}
 
-	assert(dev_disconnect_fd != -1);
 	lseek(dev_disconnect_fd, dev_disconnect_len+1, SEEK_CUR);
 
 	status_trace("dev_disconnect: %s%s", dev_disconnect_line,
