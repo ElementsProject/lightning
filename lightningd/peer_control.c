@@ -2272,8 +2272,7 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 					   &fc->peer->minimum_depth,
 					   &channel_info->remote_fundingkey,
 					   &funding_txid,
-					   &channel_info->feerate_per_kw,
-					   &channel_info->their_cltv_expiry_delta)) {
+					   &channel_info->feerate_per_kw)) {
 		peer_internal_error(fc->peer, "bad shutdown_complete: %s",
 				    tal_hex(resp, resp));
 		return false;
@@ -2394,8 +2393,7 @@ static bool opening_fundee_finished(struct subd *opening,
 					   &peer->push_msat,
 					   &peer->channel_flags,
 					   &channel_info->feerate_per_kw,
-					   &funding_signed,
-					   &channel_info->their_cltv_expiry_delta)) {
+					   &funding_signed)) {
 		log_broken(peer->log, "bad OPENING_FUNDEE_REPLY %s",
 			   tal_hex(reply, reply));
 		return false;
@@ -2536,8 +2534,7 @@ void peer_fundee_open(struct peer *peer, const u8 *from_peer,
 				  &peer->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
-				  cs, peer->seed,
-				  ld->config.min_htlc_expiry);
+				  cs, peer->seed);
 
 	subd_send_msg(peer->owner, take(msg));
 	/* FIXME: Expose the min_feerate_per_kw and max_feerate_per_kw in the config */
@@ -2611,8 +2608,7 @@ static bool gossip_peer_released(struct subd *gossip,
 				  &fc->peer->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
-				  &cs, fc->peer->seed,
-				  ld->config.min_htlc_expiry);
+				  &cs, fc->peer->seed);
 
 	subd_send_msg(opening, take(msg));
 
