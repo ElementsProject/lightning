@@ -36,6 +36,8 @@
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_io.h>
 
+#define HSM_FD 3
+
 struct daemon {
 	struct list_head peers;
 

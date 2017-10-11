@@ -68,7 +68,7 @@ struct connection *new_connection(const tal_t *ctx,
 				  struct command *cmd,
 				  const struct pubkey *known_id)
 {
-	static u64 id_counter;
+	static u64 id_counter = 1;
 	struct connection *c = tal(ctx, struct connection);
 
 	c->ld = ld;
