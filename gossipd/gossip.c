@@ -459,25 +459,25 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
-static struct io_plan *fail_peer(struct io_conn *conn, struct daemon *daemon,
+static struct io_plan *drop_peer(struct io_conn *conn, struct daemon *daemon,
 				 const u8 *msg)
 {
 	u64 unique_id;
 	struct peer *peer;
 
-	if (!fromwire_gossipctl_fail_peer(msg, NULL, &unique_id))
-		master_badmsg(WIRE_GOSSIPCTL_FAIL_PEER, msg);
+	if (!fromwire_gossipctl_drop_peer(msg, NULL, &unique_id))
+		master_badmsg(WIRE_GOSSIPCTL_DROP_PEER, msg);
 
 	/* This may not find the peer, if we fail beforehand. */
 	peer = find_peer(daemon, unique_id);
 	if (!peer)
-		status_trace("Unknown fail_peer %"PRIu64, unique_id);
+		status_trace("Unknown drop_peer %"PRIu64, unique_id);
 	else if (peer->local) {
-		status_trace("fail_peer %"PRIu64, unique_id);
+		status_trace("drop_peer %"PRIu64, unique_id);
 		/* This owns the peer, so we can free it */
 		io_close(peer->conn);
 	} else {
-		status_trace("Could not fail_peer %"PRIu64", it's not local",
+		status_trace("Could not drop_peer %"PRIu64", it's not local",
 			     unique_id);
 	}
 
@@ -719,8 +719,8 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		return new_peer(conn, daemon, master->msg_in);
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 		return release_peer(conn, daemon, master->msg_in);
-	case WIRE_GOSSIPCTL_FAIL_PEER:
-		return fail_peer(conn, daemon, master->msg_in);
+	case WIRE_GOSSIPCTL_DROP_PEER:
+		return drop_peer(conn, daemon, master->msg_in);
 	case WIRE_GOSSIPCTL_GET_PEER_GOSSIPFD:
 		return new_peer_fd(conn, daemon, master->msg_in);
 

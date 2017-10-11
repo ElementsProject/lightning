@@ -98,8 +98,8 @@ gossip_forwarded_msg,,msglen,u16
 gossip_forwarded_msg,,msg,msglen*u8
 
 # If peer is still connected, fail it (master does this for reconnect)
-gossipctl_fail_peer,3011
-gossipctl_fail_peer,,unique_id,u64
+gossipctl_drop_peer,3011
+gossipctl_drop_peer,,unique_id,u64
 
 # Get a gossip fd for this peer (it has reconnected)
 gossipctl_get_peer_gossipfd,3012
