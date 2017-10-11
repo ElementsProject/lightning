@@ -794,17 +794,16 @@ static void json_connect(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	struct connection *c;
-	jsmntok_t *host, *porttok, *idtok;
+	jsmntok_t *hosttok, *idtok;
 	const tal_t *tmpctx = tal_tmpctx(cmd);
 	struct pubkey id;
-	char *name, *port;
+	const char *name, *port, *colon;
 
 	if (!json_get_params(buffer, params,
-			     "host", &host,
-			     "port", &porttok,
 			     "id", &idtok,
+			     "host", &hosttok,
 			     NULL)) {
-		command_fail(cmd, "Need host, port and id to connect");
+		command_fail(cmd, "Need id and host to connect");
 		return;
 	}
 
@@ -815,12 +814,20 @@ static void json_connect(struct command *cmd,
 		return;
 	}
 
+	colon = memchr(buffer + hosttok->start, ':',
+		       hosttok->end - hosttok->start);
+	if (colon) {
+		name = tal_strndup(cmd, buffer + hosttok->start,
+				   colon - (buffer + hosttok->start));
+		port = tal_strndup(cmd, colon + 1,
+				   (buffer + hosttok->end) - colon - 1);
+	} else {
+		name = tal_strndup(cmd, buffer + hosttok->start,
+				   hosttok->end - hosttok->start);
+		port = tal_strdup(cmd, stringify(DEFAULT_PORT));
+	}
+
 	c = new_connection(cmd, cmd->ld, cmd, &id);
-	name = tal_strndup(tmpctx,
-			   buffer + host->start, host->end - host->start);
-	port = tal_strndup(tmpctx,
-			   buffer + porttok->start,
-			   porttok->end - porttok->start);
 	if (!dns_resolve_and_connect(cmd->ld, name, port,
 				     connection_out, connect_failed, c)) {
 		command_fail(cmd, "DNS failed");
@@ -833,7 +840,7 @@ static void json_connect(struct command *cmd,
 static const struct json_command connect_command = {
 	"connect",
 	json_connect,
-	"Connect to a {host} at {port} expecting node {id}",
+	"Connect to {id} at {host} (which can end in ':port' if not default)",
 	"Returns the {id} on success (once channel established)"
 };
 AUTODATA(json_command, &connect_command);
