@@ -3,6 +3,7 @@ COMMON_SRC :=					\
 	common/channel_config.c			\
 	common/close_tx.c			\
 	common/configdir.c			\
+	common/crypto_state.c			\
 	common/crypto_sync.c			\
 	common/cryptomsg.c			\
 	common/daemon_conn.c			\

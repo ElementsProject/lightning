@@ -33,6 +33,7 @@ ALL_GEN_HEADERS += $(LIGHTNINGD_CHANNEL_HEADERS_GEN)
 # Common source we use.
 CHANNELD_COMMON_OBJS :=				\
 	common/channel_config.o			\
+	common/crypto_state.o			\
 	common/crypto_sync.o			\
 	common/cryptomsg.o			\
 	common/daemon_conn.o			\
