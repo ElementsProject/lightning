@@ -64,7 +64,6 @@ char *dbmigrations[] = {
     "  per_commit_remote BLOB,"
     "  old_per_commit_remote BLOB,"
     "  feerate_per_kw INTEGER,"
-    "  their_cltv_expiry_delta INTEGER,"
     /* END channel_info */
     "  shachain_remote_id INTEGER,"
     "  shutdown_scriptpubkey_remote BLOB,"
