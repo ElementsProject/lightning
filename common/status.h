@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/compiler/compiler.h>
 #include <ccan/short_types/short_types.h>
+#include <stdarg.h>
 #include <stdlib.h>
 
 struct daemon_conn;
@@ -50,6 +51,8 @@ enum status_fail {
 void status_send_sync(const u8 *msg);
 /* Send a printf-style debugging trace. */
 void status_trace(const char *fmt, ...) PRINTF_FMT(1,2);
+/* vprintf-style */
+void status_tracev(const char *fmt, va_list ap);
 /* Send a failure status code with printf-style msg, and exit. */
 void status_failed(enum status_fail, const char *fmt, ...) PRINTF_FMT(2,3) NORETURN;
 
