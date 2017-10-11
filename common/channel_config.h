@@ -19,7 +19,6 @@
  *    * [`4`:`feerate_per_kw`]
  *    * [`2`:`to_self_delay`]
  *    * [`2`:`max_accepted_htlcs`]
- *    * [`2`:`cltv_expiry_delta`]
  *...
  * 1. type: 33 (`accept_channel`)
  * 2. data:
@@ -31,7 +30,6 @@
  *    * [`4`:`minimum_depth`]
  *    * [`2`:`to_self_delay`]
  *    * [`2`:`max_accepted_htlcs`]
- *    * [`2`:`cltv_expiry_delta`]
  */
 struct channel_config {
 	/* Database ID */

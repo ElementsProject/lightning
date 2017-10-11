@@ -11,7 +11,6 @@ opening_init,,min_effective_htlc_capacity_msat,u64
 opening_init,,crypto_state,struct crypto_state
 # Seed to generate all the keys from
 opening_init,,seed,struct privkey
-opening_init,,our_cltv_expiry_delta,u16
 
 #include <common/bip32.h>
 #include <common/htlc_wire.h>
@@ -43,7 +42,6 @@ opening_funder_reply,,minimum_depth,u32
 opening_funder_reply,,remote_fundingkey,struct pubkey
 opening_funder_reply,,funding_txid,struct sha256_double
 opening_funder_reply,,feerate_per_kw,u32
-opening_funder_reply,,their_cltv_expiry_delta,u16
 
 # This means they offer the open (contains their offer packet)
 opening_fundee,6003
@@ -73,4 +71,3 @@ opening_fundee_reply,,feerate_per_kw,u32
 # The (encrypted) funding signed message: send this and we're committed.
 opening_fundee_reply,,msglen,u16
 opening_fundee_reply,,funding_signed_msg,msglen*u8
-opening_fundee_reply,,their_cltv_expiry_delta,u16
