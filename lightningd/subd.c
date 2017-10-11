@@ -114,6 +114,18 @@ static struct subd_req *get_req(struct subd *sd, int reply_type)
 	return NULL;
 }
 
+static void close_taken_fds(va_list *ap)
+{
+	int *fd;
+
+	while ((fd = va_arg(*ap, int *)) != NULL) {
+		if (taken(fd)) {
+			close(*fd);
+			*fd = -1;
+		}
+	}
+}
+
 /* We use sockets, not pipes, because fds are bidir. */
 static int subd(const char *dir, const char *name, const char *debug_subdaemon,
 		int *msgfd, int dev_disconnect_fd, va_list *ap)
@@ -193,14 +205,8 @@ static int subd(const char *dir, const char *name, const char *debug_subdaemon,
 	close(childmsg[1]);
 	close(execfail[1]);
 
-	if (ap) {
-		while ((fd = va_arg(*ap, int *)) != NULL) {
-			if (taken(fd)) {
-				close(*fd);
-				*fd = -1;
-			}
-		}
-	}
+	if (ap)
+		close_taken_fds(ap);
 
 	/* Child will close this without writing on successful exec. */
 	if (read(execfail[0], &err, sizeof(err)) == sizeof(err)) {
@@ -220,6 +226,8 @@ close_msgfd_fail:
 	close_noerr(childmsg[0]);
 	close_noerr(childmsg[1]);
 fail:
+	if (ap)
+		close_taken_fds(ap);
 	return -1;
 }
 
