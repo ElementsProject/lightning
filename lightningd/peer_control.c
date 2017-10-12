@@ -1455,7 +1455,9 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 {
 	secp256k1_ecdsa_signature *sigs;
 	struct bitcoin_tx *tx = fc->funding_tx;
+	u8 *linear;
 	u64 change_satoshi;
+	struct json_result *response = new_json_result(fc->cmd);
 	size_t i;
 
 	if (!fromwire_hsmctl_sign_funding_reply(fc, resp, NULL, &sigs))
@@ -1496,7 +1498,12 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	/* We could defer until after funding locked, but makes testing
 	 * harder. */
 	tal_del_destructor(fc, fail_fundchannel_command);
-	command_success(fc->cmd, null_response(fc->cmd));
+
+	json_object_start(response, NULL);
+	linear = linearize_tx(response, tx);
+	json_add_hex(response, "tx", linear, tal_len(linear));
+	json_object_end(response);
+	command_success(fc->cmd, response);
 
 	/* Start normal channel daemon. */
 	peer_start_channeld(fc->peer, cs, peer_fd, gossip_fd, NULL, false);
@@ -2582,7 +2589,7 @@ static const struct json_command fund_channel_command = {
 	"fundchannel",
 	json_fund_channel,
 	"Fund channel with {id} using {satoshi} satoshis",
-	"Returns once channel established"
+	"Returns {tx} once channel established"
 };
 AUTODATA(json_command, &fund_channel_command);
 
