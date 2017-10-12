@@ -934,6 +934,9 @@ static void wait_for_resolved(struct tracked_output **outs)
 			master_badmsg(-1, msg);
 		tal_free(msg);
 	}
+
+	wire_sync_write(REQ_FD,
+			take(towire_onchain_all_irrevocably_resolved(outs)));
 }
 
 static void set_state(enum peer_state state)

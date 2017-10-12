@@ -78,3 +78,6 @@ onchain_missing_htlc_output,,htlc,struct htlc_stub
 # onchaind->master: this HTLC has timed out (after reasonable_depth)
 onchain_htlc_timeout,5010
 onchain_htlc_timeout,,htlc,struct htlc_stub
+
+# onchaind->master: this peer can be forgotten
+onchain_all_irrevocably_resolved,5011

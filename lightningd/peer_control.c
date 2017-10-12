@@ -1019,26 +1019,6 @@ static enum watch_result funding_announce_cb(struct peer *peer,
 	return DELETE_WATCH;
 }
 
-static void peer_onchain_finished(struct subd *subd, int status)
-{
-	/* Moved on?  Eg. reorg, and it has a new onchaind. */
-	if (!subd->peer || subd->peer->owner != subd)
-		return;
-
-	/* Unlink peer from us, so it doesn't try to free us in destroy_peer */
-	subd->peer->owner = NULL;
-
-	if (status != 0) {
-		log_broken(subd->peer->log, "onchaind died status %i", status);
-		return;
-	}
-
-	/* FIXME: Remove peer from db. */
-	log_info(subd->peer->log, "onchaind complete, forgetting peer");
-
-	/* Peer is gone. */
-	tal_free(subd->peer);
-}
 
 /* We dump all the known preimages when onchaind starts up. */
 static void onchaind_tell_fulfill(struct peer *peer)
@@ -1239,6 +1219,19 @@ static int handle_onchain_htlc_timeout(struct peer *peer, const u8 *msg)
 	return 0;
 }
 
+static int handle_irrevocably_resolved(struct peer *peer, const u8 *msg)
+{
+	/* FIXME: Remove peer from db. */
+	log_info(peer->log, "onchaind complete, forgetting peer");
+
+	/* Peer is gone: don't free sd yet though; it will exit. */
+	peer->owner->peer = NULL;
+	peer->owner = NULL;
+
+	tal_free(peer);
+	return 0;
+}
+
 static int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum onchain_wire_type t = fromwire_peektype(msg);
@@ -1261,6 +1254,9 @@ static int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
 
 	case WIRE_ONCHAIN_HTLC_TIMEOUT:
 		return handle_onchain_htlc_timeout(sd->peer, msg);
+
+	case WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED:
+		return handle_irrevocably_resolved(sd->peer, msg);
 
 	/* We send these, not receive them */
 	case WIRE_ONCHAIN_INIT:
@@ -1338,7 +1334,7 @@ static enum watch_result funding_spent(struct peer *peer,
 			       "lightning_onchaind", peer,
 			       onchain_wire_type_name,
 			       onchain_msg,
-			       NULL, peer_onchain_finished,
+			       NULL, peer_owner_finished,
 			       NULL, NULL);
 
 	if (!peer->owner) {
