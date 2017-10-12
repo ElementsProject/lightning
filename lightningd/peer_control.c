@@ -54,7 +54,6 @@ struct connect {
 
 /* FIXME: Reorder */
 struct funding_channel;
-static void peer_owner_finished(struct subd *subd, int status);
 static void peer_offer_channel(struct lightningd *ld,
 			       struct funding_channel *fc,
 			       const struct crypto_state *cs,
@@ -76,11 +75,19 @@ static void peer_accept_channel(struct lightningd *ld,
 				int peer_fd, int gossip_fd,
 				const u8 *open_msg);
 
+static void peer_set_owner(struct peer *peer, struct subd *owner)
+{
+	struct subd *old_owner = peer->owner;
+	peer->owner = owner;
+
+	if (old_owner)
+		subd_release_peer(old_owner, peer);
+}
+
 static void destroy_peer(struct peer *peer)
 {
-	/* Don't leave owner pointer dangling. */
-	if (peer->owner && peer->owner->peer == peer)
-		peer->owner->peer = NULL;
+	/* Free any old owner still hanging around. */
+	peer_set_owner(peer, NULL);
 	list_del_from(&peer->ld->peers, &peer->list);
 }
 
@@ -137,7 +144,7 @@ static void drop_to_chain(struct peer *peer)
 	broadcast_tx(peer->ld->topology, peer, peer->last_tx, NULL);
 }
 
-void peer_fail_permanent(struct peer *peer, const u8 *msg)
+void peer_fail_permanent(struct peer *peer, const u8 *msg TAKES)
 {
 	/* BOLT #1:
 	 *
@@ -150,7 +157,7 @@ void peer_fail_permanent(struct peer *peer, const u8 *msg)
 		    peer_state_name(peer->state),
 		    (int)tal_len(msg), (char *)msg);
 	peer->error = towire_error(peer, &all_channels, msg);
-	peer->owner = tal_free(peer->owner);
+	peer_set_owner(peer, NULL);
 	if (taken(msg))
 		tal_free(msg);
 
@@ -198,7 +205,7 @@ void peer_fail_transient(struct peer *peer, const char *fmt, ...)
 		return;
 	}
 
-	peer->owner = NULL;
+	peer_set_owner(peer, NULL);
 
 	/* If we haven't reached awaiting locked, we don't need to reconnect */
 	if (!peer_persists(peer)) {
@@ -218,17 +225,6 @@ void peer_fail_transient(struct peer *peer, const char *fmt, ...)
 		u8 *msg = towire_gossipctl_reach_peer(peer, &peer->id);
 		subd_send_msg(peer->ld->gossip, take(msg));
 	}
-}
-
-/* When daemon reports a STATUS_FAIL_PEER_BAD, it goes here. */
-static void bad_peer(struct subd *subd, const char *msg)
-{
-	struct peer *peer = subd->peer;
-
-	/* Don't close peer->owner, subd will clean that up. */
-	peer->owner = NULL;
-	subd->peer = NULL;
-	peer_fail_permanent_str(peer, msg);
 }
 
 void peer_set_condition(struct peer *peer, enum peer_state old_state,
@@ -530,8 +526,6 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	/* Now, do we already know this peer? */
 	peer = peer_by_id(ld, &id);
 	if (peer) {
-		struct subd *owner;
-
 		log_debug(peer->log, "Peer has reconnected, state %s",
 			  peer_state_name(peer->state));
 
@@ -548,9 +542,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 			/* Reconnect: discard old one. */
 		case OPENINGD:
-			/* This kills daemon (frees peer!) */
-			tal_free(peer->owner);
-			peer = NULL;
+			peer = tal_free(peer);
 			goto return_to_gossipd;
 
 		case ONCHAIND_CHEATED:
@@ -567,9 +559,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		case CHANNELD_SHUTTING_DOWN:
 			/* Stop any existing daemon, without triggering error
 			 * on this peer. */
-			owner = peer->owner;
-			peer->owner = NULL;
-			tal_free(owner);
+			peer_set_owner(peer, NULL);
 
 			peer_start_channeld(peer, &cs, peer_fd, gossip_fd, NULL,
 					    true);
@@ -579,9 +569,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 		case CLOSINGD_COMPLETE:
 			/* Stop any existing daemon, without triggering error
 			 * on this peer. */
-			owner = peer->owner;
-			peer->owner = NULL;
-			tal_free(owner);
+			peer_set_owner(peer, NULL);
 
 			peer_start_closingd(peer, &cs, peer_fd, gossip_fd,
 					    true);
@@ -703,24 +691,6 @@ struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id)
 		if (pubkey_eq(&p->id, id))
 			return p;
 	return NULL;
-}
-
-/* When a per-peer subdaemon exits, see if we need to do anything. */
-static void peer_owner_finished(struct subd *subd, int status)
-{
-	/* If peer has moved on, do nothing (can be NULL if it errored out) */
-	if (!subd->peer || subd->peer->owner != subd) {
-		log_debug(subd->ld->log, "Subdaemon %s died (%i), peer moved",
-			  subd->name, status);
-		return;
-	}
-
-	subd->peer->owner = NULL;
-
-	/* Don't do a transient error if it's already perm failed. */
-	if (!subd->peer->error)
-		peer_fail_transient(subd->peer, "Owning subdaemon %s died (%i)",
-				    subd->name, status);
 }
 
 static void json_connect(struct command *cmd,
@@ -1085,10 +1055,8 @@ static enum watch_result onchain_tx_watched(struct peer *peer,
 	struct sha256_double txid;
 
 	if (depth == 0) {
-		struct subd *old_onchaind = peer->owner;
 		log_unusual(peer->log, "Chain reorganization!");
-		peer->owner = NULL;
-		tal_free(old_onchaind);
+		peer_set_owner(peer, NULL);
 
 		/* FIXME!
 		topology_rescan(peer->ld->topology, peer->funding_txid);
@@ -1330,12 +1298,11 @@ static enum watch_result funding_spent(struct peer *peer,
 	/* We could come from almost any state. */
 	peer_set_condition(peer, peer->state, FUNDING_SPEND_SEEN);
 
-	peer->owner = new_subd(peer->ld,
-			       "lightning_onchaind", peer,
-			       onchain_wire_type_name,
-			       onchain_msg,
-			       NULL, peer_owner_finished,
-			       NULL, NULL);
+	peer_set_owner(peer, new_peer_subd(peer->ld,
+					   "lightning_onchaind", peer,
+					   onchain_wire_type_name,
+					   onchain_msg,
+					   NULL));
 
 	if (!peer->owner) {
 		log_broken(peer->log, "Could not subdaemon onchain: %s",
@@ -1890,14 +1857,11 @@ static void peer_start_closingd(struct peer *peer,
 		return;
 	}
 
-	peer->owner = new_subd(peer->ld,
-			       "lightning_closingd", peer,
-			       closing_wire_type_name,
-			       closing_msg,
-			       bad_peer,
-			       peer_owner_finished,
-			       take(&peer_fd),
-			       take(&gossip_fd), NULL);
+	peer_set_owner(peer, new_peer_subd(peer->ld,
+					   "lightning_closingd", peer,
+					   closing_wire_type_name, closing_msg,
+					   take(&peer_fd), take(&gossip_fd),
+					   NULL));
 	if (!peer->owner) {
 		log_unusual(peer->log, "Could not subdaemon closing: %s",
 			    strerror(errno));
@@ -2066,15 +2030,14 @@ static bool peer_start_channeld(struct peer *peer,
 	if (hsmfd < 0)
 		fatal("Could not read fd from HSM: %s", strerror(errno));
 
-	peer->owner = new_subd(peer->ld,
-			       "lightning_channeld", peer,
-			       channel_wire_type_name,
-			       channel_msg,
-			       bad_peer,
-			       peer_owner_finished,
-			       take(&peer_fd),
-			       take(&gossip_fd),
-			       take(&hsmfd), NULL);
+	peer_set_owner(peer, new_peer_subd(peer->ld,
+					   "lightning_channeld", peer,
+					   channel_wire_type_name,
+					   channel_msg,
+					   take(&peer_fd),
+					   take(&gossip_fd),
+					   take(&hsmfd), NULL));
+
 	if (!peer->owner) {
 		log_unusual(peer->log, "Could not subdaemon channel: %s",
 			    strerror(errno));
@@ -2267,7 +2230,8 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 					 utxos);
 	tal_free(utxos);
 
-	fc->peer->owner = NULL;
+	/* Unowned (will free openingd). */
+	peer_set_owner(fc->peer, NULL);
 
 	if (!wire_sync_write(fc->peer->ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
@@ -2275,7 +2239,7 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 	msg = hsm_sync_read(fc, fc->peer->ld);
 	opening_got_hsm_funding_sig(fc, fds[0], fds[1], msg, &cs);
 
-	/* Tell opening daemon to exit. */
+	/* openingd already exited. */
 	return false;
 }
 
@@ -2341,14 +2305,14 @@ static bool opening_fundee_finished(struct subd *opening,
 	watch_txo(peer, peer->ld->topology, peer, peer->funding_txid,
 		  peer->funding_outnum, funding_spent, NULL);
 
-	/* Unowned. */
-	peer->owner = NULL;
+	/* Unowned (will free openingd). */
+	peer_set_owner(peer, NULL);
 
 	/* On to normal operation! */
 	peer_start_channeld(peer, &cs, fds[0], fds[1], funding_signed, false);
 	peer_set_condition(peer, OPENINGD, CHANNELD_AWAITING_LOCKIN);
 
-	/* Tell opening daemon to exit. */
+	/* openingd already exited. */
 	return false;
 }
 
@@ -2365,7 +2329,6 @@ static void peer_accept_channel(struct lightningd *ld,
 	u8 *errmsg;
 	u8 *msg;
 	struct peer *peer;
-	struct subd *opening;
 
 	assert(fromwire_peektype(open_msg) == WIRE_OPEN_CHANNEL);
 
@@ -2380,17 +2343,15 @@ static void peer_accept_channel(struct lightningd *ld,
 	}
 
 	peer_set_condition(peer, UNINITIALIZED, OPENINGD);
-	opening = new_subd(ld,
-			   "lightning_openingd", peer,
-			   opening_wire_type_name,
-			   NULL, bad_peer, peer_owner_finished,
-			   take(&peer_fd), take(&gossip_fd), NULL);
-	if (!opening) {
+	peer_set_owner(peer,
+		       new_peer_subd(ld, "lightning_openingd", peer,
+				     opening_wire_type_name, NULL,
+				     take(&peer_fd), take(&gossip_fd), NULL));
+	if (!peer->owner) {
 		peer_fail_transient(peer, "Failed to subdaemon opening: %s",
 				    strerror(errno));
 		return;
 	}
-	peer->owner = opening;
 
 	/* They will open channel. */
 	peer->funder = REMOTE;
@@ -2449,7 +2410,6 @@ static void peer_offer_channel(struct lightningd *ld,
 			       int peer_fd, int gossip_fd)
 {
 	u8 *msg;
-	struct subd *opening;
 	u32 max_to_self_delay, max_minimum_depth;
 	u64 min_effective_htlc_capacity_msat;
 	struct utxo *utxos;
@@ -2470,19 +2430,18 @@ static void peer_offer_channel(struct lightningd *ld,
 	fc->peer->push_msat = fc->push_msat;
 
 	peer_set_condition(fc->peer, UNINITIALIZED, OPENINGD);
-	opening = new_subd(ld,
-			   "lightning_openingd", fc->peer,
-			   opening_wire_type_name,
-			   NULL, bad_peer, peer_owner_finished,
-			   take(&peer_fd), take(&gossip_fd), NULL);
-	if (!opening) {
+	peer_set_owner(fc->peer,
+		       new_peer_subd(ld,
+				     "lightning_openingd", fc->peer,
+				     opening_wire_type_name, NULL,
+				     take(&peer_fd), take(&gossip_fd), NULL));
+	if (!fc->peer->owner) {
 		fc->peer = tal_free(fc->peer);
 		command_fail(fc->cmd,
 			     "Failed to launch openingd: %s",
 			     strerror(errno));
 		return;
 	}
-	fc->peer->owner = opening;
 
 	/* FIXME: This is wrong in several ways.
 	 *
@@ -2516,7 +2475,7 @@ static void peer_offer_channel(struct lightningd *ld,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
 				  cs, fc->peer->seed);
-	subd_send_msg(opening, take(msg));
+	subd_send_msg(fc->peer->owner, take(msg));
 
 	utxos = from_utxoptr_arr(fc, fc->utxomap);
 
@@ -2532,7 +2491,8 @@ static void peer_offer_channel(struct lightningd *ld,
 	tal_steal(fc->peer, fc);
 	tal_add_destructor(fc, fail_fundchannel_command);
 
-	subd_req(fc, opening, take(msg), -1, 2, opening_funder_finished, fc);
+	subd_req(fc, fc->peer->owner,
+		 take(msg), -1, 2, opening_funder_finished, fc);
 }
 
 /* Peer has been released from gossip.  Start opening. */

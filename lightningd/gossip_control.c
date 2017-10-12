@@ -19,14 +19,6 @@
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_sync.h>
 
-static void gossip_finished(struct subd *gossip, int status)
-{
-	if (WIFEXITED(status))
-		errx(1, "Gossip failed (exit status %i), exiting.",
-		     WEXITSTATUS(status));
-	errx(1, "Gossip failed (signal %u), exiting.", WTERMSIG(status));
-}
-
 static void peer_nongossip(struct subd *gossip, const u8 *msg,
 			   int peer_fd, int gossip_fd)
 {
@@ -117,10 +109,9 @@ void gossip_init(struct lightningd *ld)
 	if (hsmfd < 0)
 		fatal("Could not read fd from HSM: %s", strerror(errno));
 
-	ld->gossip = new_subd(ld, "lightning_gossipd", NULL,
-			      gossip_wire_type_name,
-			      gossip_msg, NULL, gossip_finished,
-			      take(&hsmfd), NULL);
+	ld->gossip = new_global_subd(ld, "lightning_gossipd",
+				     gossip_wire_type_name, gossip_msg,
+				     take(&hsmfd), NULL);
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
 
