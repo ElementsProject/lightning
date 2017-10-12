@@ -256,6 +256,7 @@ static struct io_plan *sd_msg_reply(struct io_conn *conn, struct subd *sd,
 	int type = fromwire_peektype(sd->msg_in);
 	bool keep_open;
 	const tal_t *tmpctx = tal_tmpctx(conn);
+	int *fds_in;
 
 	log_info(sd->log, "REPLY %s with %zu fds",
 		 sd->msgname(type), tal_count(sd->fds_in));
@@ -266,10 +267,16 @@ static struct io_plan *sd_msg_reply(struct io_conn *conn, struct subd *sd,
 	/* We want to free the msg_in, unless they tal_steal() it. */
 	tal_steal(tmpctx, sd->msg_in);
 
-	/* And we need to free sr after this too (unless they free via sd!). */
+	/* And we need to free sr after this too. */
 	tal_steal(tmpctx, sr);
+	/* In case they free sd, don't deref. */
+	list_del_init(&sr->list);
 
-	keep_open = sr->replycb(sd, sd->msg_in, sd->fds_in, sr->replycb_data);
+	/* Free this array after, too. */
+	fds_in = tal_steal(tmpctx, sd->fds_in);
+	sd->fds_in = NULL;
+
+	keep_open = sr->replycb(sd, sd->msg_in, fds_in, sr->replycb_data);
 	tal_free(tmpctx);
 
 	if (!keep_open)
@@ -277,8 +284,6 @@ static struct io_plan *sd_msg_reply(struct io_conn *conn, struct subd *sd,
 
 	/* Restore conn ptr. */
 	sd->conn = conn;
-	/* Free any fd array. */
-	sd->fds_in = tal_free(sd->fds_in);
 	return io_read_wire(conn, sd, &sd->msg_in, sd_msg_read, sd);
 }
 
@@ -437,9 +442,15 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 
 	log_info(sd->log, "UPDATE %s", sd->msgname(type));
 	if (sd->msgcb) {
-		int i = sd->msgcb(sd, sd->msg_in, sd->fds_in);
+		int i;
+
+		/* Might free sd (if returns negative); save/restore sd->conn */
+		sd->conn = NULL;
+		i = sd->msgcb(sd, sd->msg_in, sd->fds_in);
 		if (i < 0)
 			return io_close(conn);
+		sd->conn = conn;
+
 		if (i != 0) {
 			/* Don't ask for fds twice! */
 			assert(!sd->fds_in);
