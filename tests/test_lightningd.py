@@ -1252,16 +1252,15 @@ class LightningDTests(BaseLightningDTests):
         # Reconnect.
         l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
 
-        # We should get a message about old one exiting.
+        # We should get a message about reconnecting.
         l2.daemon.wait_for_log('Peer has reconnected, state OPENINGD')
-        l2.daemon.wait_for_log('Owning subdaemon lightning_openingd died')
 
         # Should work fine.
         l1.rpc.fundchannel(l2.info['id'], 20000)
         l1.daemon.wait_for_log('sendrawtx exit 0')
 
         # Just to be sure, second openingd hand over to channeld.
-        l2.daemon.wait_for_log('Subdaemon lightning_openingd died \(0\)')
+        l2.daemon.wait_for_log('lightning_openingd.*REPLY WIRE_OPENING_FUNDEE_REPLY with 2 fds')
 
     def test_reconnect_normal(self):
         # Should reconnect fine even if locked message gets lost.

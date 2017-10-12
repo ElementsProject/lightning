@@ -196,10 +196,8 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	close(ld->hsm_fd);
 	subd_shutdown(ld->gossip, 10);
 
-	/* Duplicates are OK: no need to check here. */
-	list_for_each(&ld->peers, p, list)
-		if (p->owner)
-			subd_shutdown(p->owner, 0);
+	while ((p = list_top(&ld->peers, struct peer, list)) != NULL)
+		tal_free(p);
 }
 
 struct chainparams *get_chainparams(const struct lightningd *ld)

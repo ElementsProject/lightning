@@ -34,10 +34,6 @@ struct subd {
 	/* Callback when non-reply message comes in. */
 	int (*msgcb)(struct subd *, const u8 *, const int *);
 	const char *(*msgname)(int msgtype);
-	void (*finished)(struct subd *sd, int status);
-
-	/* Callback when the peer misbehaves. */
-	void (*peerbadcb)(struct subd *, const char *what);
 
 	/* Buffer for input. */
 	u8 *msg_in;
@@ -45,6 +41,9 @@ struct subd {
 	/* While we're reading fds in. */
 	size_t num_fds_in_read;
 	int *fds_in;
+
+	/* For global daemons: we fail if they fail. */
+	bool must_not_exit;
 
 	/* Messages queue up here. */
 	struct msg_queue outq;
@@ -54,14 +53,11 @@ struct subd {
 };
 
 /**
- * new_subd - create a new subdaemon.
+ * new_global_subd - create a new global subdaemon.
  * @ld: global state
  * @name: basename of daemon
- * @peer: peer to associate (if any).
  * @msgname: function to get name from messages
  * @msgcb: function to call when non-fatal message received (or NULL)
- * @peerbadcb: function to call for STATUS_FAIL_PEER_BAD (or NULL for none)
- * @finished: function to call when it's finished (with exit status).
  * @...: NULL-terminated list of pointers to  fds to hand as fd 3, 4...
  *	(can be take, if so, set to -1)
  *
@@ -69,13 +65,34 @@ struct subd {
  * that many @fds are received before calling again.  If it returns -1, the
  * subdaemon is shutdown.
  */
-struct subd *new_subd(struct lightningd *ld,
-		      const char *name,
-		      struct peer *peer,
-		      const char *(*msgname)(int msgtype),
-		      int (*msgcb)(struct subd *, const u8 *, const int *fds),
-		      void (*peerbadcb)(struct subd *, const char *),
-		      void (*finished)(struct subd *, int), ...);
+struct subd *new_global_subd(struct lightningd *ld,
+			     const char *name,
+			     const char *(*msgname)(int msgtype),
+			     int (*msgcb)(struct subd *, const u8 *,
+					  const int *fds),
+			     ...);
+
+/**
+ * new_peer_subd - create a new subdaemon for a specific peer.
+ * @ld: global state
+ * @name: basename of daemon
+ * @peer: peer to associate.
+ * @msgname: function to get name from messages
+ * @msgcb: function to call when non-fatal message received (or NULL)
+ * @...: NULL-terminated list of pointers to  fds to hand as fd 3, 4...
+ *	(can be take, if so, set to -1)
+ *
+ * @msgcb gets called with @fds set to NULL: if it returns a positive number,
+ * that many @fds are received before calling again.  If it returns -1, the
+ * subdaemon is shutdown.
+ */
+struct subd *new_peer_subd(struct lightningd *ld,
+			   const char *name,
+			   struct peer *peer,
+			   const char *(*msgname)(int msgtype),
+			   int (*msgcb)(struct subd *, const u8 *,
+					const int *fds),
+			   ...);
 
 /**
  * subd_raw - raw interface to get a subdaemon on an fd (for HSM)
@@ -125,6 +142,16 @@ void subd_req_(const tal_t *ctx,
 	       int fd_out, size_t num_fds_in,
 	       bool (*replycb)(struct subd *, const u8 *, const int *, void *),
 	       void *replycb_data);
+
+/**
+ * subd_release_peer - try to politely shut down a subdaemon.
+ * @owner: subd which owned peer.
+ * @peer: peer to release.
+ *
+ * If the subdaemon is not already shutting down, and it is a per-peer
+ * subdaemon, this shuts it down.
+ */
+void subd_release_peer(struct subd *owner, struct peer *peer);
 
 /**
  * subd_shutdown - try to politely shut down a subdaemon.

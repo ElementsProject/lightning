@@ -47,7 +47,7 @@ struct peer {
 	/* Inside ld->peers. */
 	struct list_node list;
 
-	/* What stage is this in?  NULL during first creation. */
+	/* Is there a single subdaemon responsible for us? */
 	struct subd *owner;
 
 	/* History */
