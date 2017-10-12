@@ -156,7 +156,11 @@ void peer_fail_permanent(struct peer *peer, const u8 *msg TAKES)
 	log_unusual(peer->log, "Peer permanent failure in %s: %.*s",
 		    peer_state_name(peer->state),
 		    (int)tal_len(msg), (char *)msg);
-	peer->error = towire_error(peer, &all_channels, msg);
+
+	/* We can have multiple errors, eg. onchaind failures. */
+	if (!peer->error)
+		peer->error = towire_error(peer, &all_channels, msg);
+
 	peer_set_owner(peer, NULL);
 	if (taken(msg))
 		tal_free(msg);
