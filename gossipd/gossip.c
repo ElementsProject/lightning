@@ -709,19 +709,19 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 {
 	tal_t *tmpctx = tal_tmpctx(msg);
 	struct pubkey source, destination;
-	u32 msatoshi;
+	u32 msatoshi, final_cltv;
 	u16 riskfactor;
 	u8 *out;
 	struct route_hop *hops;
 
 	fromwire_gossip_getroute_request(msg, NULL, &source, &destination,
-					 &msatoshi, &riskfactor);
+					 &msatoshi, &riskfactor, &final_cltv);
 	status_trace("Trying to find a route from %s to %s for %d msatoshi",
 		     pubkey_to_hexstr(tmpctx, &source),
 		     pubkey_to_hexstr(tmpctx, &destination), msatoshi);
 
 	hops = get_route(tmpctx, daemon->rstate, &source, &destination,
-			 msatoshi, 1);
+			 msatoshi, 1, final_cltv);
 
 	out = towire_gossip_getroute_reply(msg, hops);
 	tal_free(tmpctx);
