@@ -32,7 +32,7 @@ struct subd {
 	struct log *log;
 
 	/* Callback when non-reply message comes in. */
-	int (*msgcb)(struct subd *, const u8 *, const int *);
+	unsigned (*msgcb)(struct subd *, const u8 *, const int *);
 	const char *(*msgname)(int msgtype);
 
 	/* Buffer for input. */
@@ -62,14 +62,14 @@ struct subd {
  *	(can be take, if so, set to -1)
  *
  * @msgcb gets called with @fds set to NULL: if it returns a positive number,
- * that many @fds are received before calling again.  If it returns -1, the
- * subdaemon is shutdown.
+ * that many @fds are received before calling again.  @msgcb can free subd
+ * to shut it down.
  */
 struct subd *new_global_subd(struct lightningd *ld,
 			     const char *name,
 			     const char *(*msgname)(int msgtype),
-			     int (*msgcb)(struct subd *, const u8 *,
-					  const int *fds),
+			     unsigned int (*msgcb)(struct subd *, const u8 *,
+						   const int *fds),
 			     ...);
 
 /**
@@ -90,8 +90,8 @@ struct subd *new_peer_subd(struct lightningd *ld,
 			   const char *name,
 			   struct peer *peer,
 			   const char *(*msgname)(int msgtype),
-			   int (*msgcb)(struct subd *, const u8 *,
-					const int *fds),
+			   unsigned int (*msgcb)(struct subd *, const u8 *,
+						 const int *fds),
 			   ...);
 
 /**
@@ -122,7 +122,7 @@ void subd_send_fd(struct subd *sd, int fd);
  * @msg_out: request message (can be take)
  * @fd_out: if >=0 fd to pass at the end of the message (closed after)
  * @num_fds_in: how many fds to read in to hand to @replycb if it's a reply.
- * @replycb: callback when reply comes in, returns false to shutdown daemon.
+ * @replycb: callback when reply comes in (can free subd)
  * @replycb_data: final arg to hand to @replycb
  *
  * @replycb cannot free @sd, so it returns false to remove it.
@@ -131,7 +131,7 @@ void subd_send_fd(struct subd *sd, int fd);
  */
 #define subd_req(ctx, sd, msg_out, fd_out, num_fds_in, replycb, replycb_data) \
 	subd_req_((ctx), (sd), (msg_out), (fd_out), (num_fds_in),	\
-		  typesafe_cb_preargs(bool, void *,			\
+		  typesafe_cb_preargs(void, void *,			\
 				      (replycb), (replycb_data),	\
 				      struct subd *,			\
 				      const u8 *, const int *),		\
@@ -140,7 +140,7 @@ void subd_req_(const tal_t *ctx,
 	       struct subd *sd,
 	       const u8 *msg_out,
 	       int fd_out, size_t num_fds_in,
-	       bool (*replycb)(struct subd *, const u8 *, const int *, void *),
+	       void (*replycb)(struct subd *, const u8 *, const int *, void *),
 	       void *replycb_data);
 
 /**

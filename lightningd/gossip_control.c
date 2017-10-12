@@ -49,7 +49,7 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 			    peer_fd, gossip_fd, in_pkt);
 }
 
-static int gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
+static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 {
 	enum gossip_wire_type t = fromwire_peektype(msg);
 
@@ -124,7 +124,7 @@ void gossip_init(struct lightningd *ld)
 	tal_free(tmpctx);
 }
 
-static bool json_getnodes_reply(struct subd *gossip, const u8 *reply,
+static void json_getnodes_reply(struct subd *gossip, const u8 *reply,
 				const int *fds,
 				struct command *cmd)
 {
@@ -134,7 +134,7 @@ static bool json_getnodes_reply(struct subd *gossip, const u8 *reply,
 
 	if (!fromwire_gossip_getnodes_reply(reply, reply, NULL, &nodes)) {
 		command_fail(cmd, "Malformed gossip_getnodes response");
-		return true;
+		return;
 	}
 
 	json_object_start(response, NULL);
@@ -153,7 +153,6 @@ static bool json_getnodes_reply(struct subd *gossip, const u8 *reply,
 	json_array_end(response);
 	json_object_end(response);
 	command_success(cmd, response);
-	return true;
 }
 
 static void json_getnodes(struct command *cmd, const char *buffer,
@@ -168,7 +167,7 @@ static const struct json_command getnodes_command = {
     "Returns a list of all nodes that we know about"};
 AUTODATA(json_command, &getnodes_command);
 
-static bool json_getroute_reply(struct subd *gossip, const u8 *reply, const int *fds,
+static void json_getroute_reply(struct subd *gossip, const u8 *reply, const int *fds,
 				struct command *cmd)
 {
 	struct json_result *response;
@@ -179,7 +178,7 @@ static bool json_getroute_reply(struct subd *gossip, const u8 *reply, const int 
 
 	if (tal_count(hops) == 0) {
 		command_fail(cmd, "Could not find a route");
-		return true;
+		return;
 	}
 
 	response = new_json_result(cmd);
@@ -197,7 +196,6 @@ static bool json_getroute_reply(struct subd *gossip, const u8 *reply, const int 
 	json_array_end(response);
 	json_object_end(response);
 	command_success(cmd, response);
-	return true;
 }
 
 static void json_getroute(struct command *cmd, const char *buffer, const jsmntok_t *params)
@@ -247,7 +245,7 @@ static const struct json_command getroute_command = {
 AUTODATA(json_command, &getroute_command);
 
 /* Called upon receiving a getchannels_reply from `gossipd` */
-static bool json_getchannels_reply(struct subd *gossip, const u8 *reply,
+static void json_getchannels_reply(struct subd *gossip, const u8 *reply,
 				   const int *fds, struct command *cmd)
 {
 	size_t i;
@@ -257,7 +255,7 @@ static bool json_getchannels_reply(struct subd *gossip, const u8 *reply,
 
 	if (!fromwire_gossip_getchannels_reply(reply, reply, NULL, &entries)) {
 		command_fail(cmd, "Invalid reply from gossipd");
-		return true;
+		return;
 	}
 
 	json_object_start(response, NULL);
@@ -288,7 +286,6 @@ static bool json_getchannels_reply(struct subd *gossip, const u8 *reply,
 	json_array_end(response);
 	json_object_end(response);
 	command_success(cmd, response);
-	return true;
 }
 
 static void json_getchannels(struct command *cmd, const char *buffer,

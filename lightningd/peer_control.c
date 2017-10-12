@@ -786,13 +786,12 @@ static const struct json_command dev_fail_command = {
 };
 AUTODATA(json_command, &dev_fail_command);
 
-static bool dev_reenable_commit_finished(struct subd *channeld,
+static void dev_reenable_commit_finished(struct subd *channeld,
 					 const u8 *resp,
 					 const int *fds,
 					 struct command *cmd)
 {
 	command_success(cmd, null_response(cmd));
-	return true;
 }
 
 static void json_dev_reenable_commit(struct command *cmd,
@@ -1024,26 +1023,26 @@ static void onchaind_tell_fulfill(struct peer *peer)
 	}
 }
 
-static int handle_onchain_init_reply(struct peer *peer, const u8 *msg)
+static void handle_onchain_init_reply(struct peer *peer, const u8 *msg)
 {
 	u8 state;
 
 	if (!fromwire_onchain_init_reply(msg, NULL, &state)) {
-		log_broken(peer->log, "Invalid onchain_init_reply");
-		return -1;
+		peer_internal_error(peer, "Invalid onchain_init_reply");
+		return;
 	}
 
 	if (!peer_state_on_chain(state)) {
-		log_broken(peer->log, "Invalid onchain_init_reply state %u (%s)",
-			   state, peer_state_name(state));
-		return -1;
+		peer_internal_error(peer,
+				    "Invalid onchain_init_reply state %u (%s)",
+				    state, peer_state_name(state));
+		return;
 	}
 
 	peer_set_condition(peer, FUNDING_SPEND_SEEN, state);
 
 	/* Tell it about any preimages we know. */
 	onchaind_tell_fulfill(peer);
-	return 0;
 }
 
 static enum watch_result onchain_tx_watched(struct peer *peer,
@@ -1112,47 +1111,44 @@ static void watch_tx_and_outputs(struct peer *peer,
 			  onchain_txo_watched, NULL);
 }
 
-static int handle_onchain_broadcast_tx(struct peer *peer, const u8 *msg)
+static void handle_onchain_broadcast_tx(struct peer *peer, const u8 *msg)
 {
 	struct bitcoin_tx *tx;
 
 	tx = tal(msg, struct bitcoin_tx);
 	if (!fromwire_onchain_broadcast_tx(msg, NULL, tx)) {
-		log_broken(peer->log, "Invalid onchain_broadcast_tx");
-		return -1;
+		peer_internal_error(peer, "Invalid onchain_broadcast_tx");
+		return;
 	}
 
 	/* We don't really care if it fails, we'll respond via watch. */
 	broadcast_tx(peer->ld->topology, peer, tx, NULL);
-	return 0;
 }
 
-static int handle_onchain_unwatch_tx(struct peer *peer, const u8 *msg)
+static void handle_onchain_unwatch_tx(struct peer *peer, const u8 *msg)
 {
 	/* FIXME: unwatch tx and children here. */
-	return 0;
 }
 
-static int handle_extracted_preimage(struct peer *peer, const u8 *msg)
+static void handle_extracted_preimage(struct peer *peer, const u8 *msg)
 {
 	struct preimage preimage;
 
 	if (!fromwire_onchain_extracted_preimage(msg, NULL, &preimage)) {
-		log_broken(peer->log, "Invalid extracted_preimage");
-		return -1;
+		peer_internal_error(peer, "Invalid extracted_preimage");
+		return;
 	}
 
 	onchain_fulfilled_htlc(peer, &preimage);
-	return 0;
 }
 
-static int handle_missing_htlc_output(struct peer *peer, const u8 *msg)
+static void handle_missing_htlc_output(struct peer *peer, const u8 *msg)
 {
 	struct htlc_stub htlc;
 
 	if (!fromwire_onchain_missing_htlc_output(msg, NULL, &htlc)) {
-		log_broken(peer->log, "Invalid missing_htlc_output");
-		return -1;
+		peer_internal_error(peer, "Invalid missing_htlc_output");
+		return;
 	}
 
 	/* BOLT #5:
@@ -1164,16 +1160,15 @@ static int handle_missing_htlc_output(struct peer *peer, const u8 *msg)
 	 * transaction contains an output corresponding to the HTLC.
 	 */
 	onchain_failed_our_htlc(peer, &htlc, "missing in commitment tx");
-	return 0;
 }
 
-static int handle_onchain_htlc_timeout(struct peer *peer, const u8 *msg)
+static void handle_onchain_htlc_timeout(struct peer *peer, const u8 *msg)
 {
 	struct htlc_stub htlc;
 
 	if (!fromwire_onchain_htlc_timeout(msg, NULL, &htlc)) {
-		log_broken(peer->log, "Invalid onchain_htlc_timeout");
-		return -1;
+		peer_internal_error(peer, "Invalid onchain_htlc_timeout");
+		return;
 	}
 
 	/* BOLT #5:
@@ -1184,47 +1179,49 @@ static int handle_onchain_htlc_timeout(struct peer *peer, const u8 *msg)
 	 * depth.
 	 */
 	onchain_failed_our_htlc(peer, &htlc, "timed out");
-	return 0;
 }
 
-static int handle_irrevocably_resolved(struct peer *peer, const u8 *msg)
+static void handle_irrevocably_resolved(struct peer *peer, const u8 *msg)
 {
 	/* FIXME: Remove peer from db. */
 	log_info(peer->log, "onchaind complete, forgetting peer");
 
-	/* Peer is gone: don't free sd yet though; it will exit. */
-	peer->owner->peer = NULL;
-	peer->owner = NULL;
-
+	/* This will also free onchaind. */
 	tal_free(peer);
-	return 0;
 }
 
-static int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
+static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum onchain_wire_type t = fromwire_peektype(msg);
 
 	switch (t) {
 	case WIRE_ONCHAIN_INIT_REPLY:
-		return handle_onchain_init_reply(sd->peer, msg);
+		handle_onchain_init_reply(sd->peer, msg);
+		break;
 
 	case WIRE_ONCHAIN_BROADCAST_TX:
-		return handle_onchain_broadcast_tx(sd->peer, msg);
+		handle_onchain_broadcast_tx(sd->peer, msg);
+		break;
 
 	case WIRE_ONCHAIN_UNWATCH_TX:
-		return handle_onchain_unwatch_tx(sd->peer, msg);
+		handle_onchain_unwatch_tx(sd->peer, msg);
+		break;
 
  	case WIRE_ONCHAIN_EXTRACTED_PREIMAGE:
-		return handle_extracted_preimage(sd->peer, msg);
+		handle_extracted_preimage(sd->peer, msg);
+		break;
 
 	case WIRE_ONCHAIN_MISSING_HTLC_OUTPUT:
-		return handle_missing_htlc_output(sd->peer, msg);
+		handle_missing_htlc_output(sd->peer, msg);
+		break;
 
 	case WIRE_ONCHAIN_HTLC_TIMEOUT:
-		return handle_onchain_htlc_timeout(sd->peer, msg);
+		handle_onchain_htlc_timeout(sd->peer, msg);
+		break;
 
 	case WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED:
-		return handle_irrevocably_resolved(sd->peer, msg);
+		handle_irrevocably_resolved(sd->peer, msg);
+		break;
 
 	/* We send these, not receive them */
 	case WIRE_ONCHAIN_INIT:
@@ -1539,7 +1536,7 @@ static u8 *create_node_announcement(const tal_t *ctx, struct lightningd *ld,
  * an update, so we can now start sending a node_announcement. The
  * first step is to build the provisional announcement and ask the HSM
  * to sign it. */
-static int peer_channel_announced(struct peer *peer, const u8 *msg)
+static void peer_channel_announced(struct peer *peer, const u8 *msg)
 {
 	struct lightningd *ld = peer->ld;
 	tal_t *tmpctx = tal_tmpctx(peer);
@@ -1550,7 +1547,7 @@ static int peer_channel_announced(struct peer *peer, const u8 *msg)
 	if (!fromwire_channel_announced(msg, NULL)) {
 		peer_internal_error(peer, "bad fromwire_channel_announced %s",
 				    tal_hex(peer, msg));
-		return -1;
+		return;
 	}
 
 	msg = towire_hsmctl_node_announcement_sig_req(
@@ -1570,40 +1567,37 @@ static int peer_channel_announced(struct peer *peer, const u8 *msg)
 	wrappedmsg = towire_gossip_forwarded_msg(tmpctx, announcement);
 	subd_send_msg(ld->gossip, take(wrappedmsg));
 	tal_free(tmpctx);
-
-	return 0;
 }
 
-static int peer_got_funding_locked(struct peer *peer, const u8 *msg)
+static void peer_got_funding_locked(struct peer *peer, const u8 *msg)
 {
 	struct pubkey next_per_commitment_point;
 
 	if (!fromwire_channel_got_funding_locked(msg, NULL,
 						 &next_per_commitment_point)) {
-		log_broken(peer->log, "bad channel_got_funding_locked %s",
-			   tal_hex(peer, msg));
-		return -1;
+		peer_internal_error(peer, "bad channel_got_funding_locked %s",
+				    tal_hex(peer, msg));
+		return;
 	}
 
 	if (peer->remote_funding_locked) {
-		log_broken(peer->log, "channel_got_funding_locked twice");
-		return -1;
+		peer_internal_error(peer, "channel_got_funding_locked twice");
+		return;
 	}
 	update_per_commit_point(peer, &next_per_commitment_point);
 
 	log_debug(peer->log, "Got funding_locked");
 	peer->remote_funding_locked = true;
-	return 0;
 }
 
-static int peer_got_shutdown(struct peer *peer, const u8 *msg)
+static void peer_got_shutdown(struct peer *peer, const u8 *msg)
 {
 	u8 *scriptpubkey;
 
 	if (!fromwire_channel_got_shutdown(peer, msg, NULL, &scriptpubkey)) {
-		log_broken(peer->log, "bad channel_got_shutdown %s",
-			   tal_hex(peer, msg));
-		return -1;
+		peer_internal_error(peer, "bad channel_got_shutdown %s",
+				    tal_hex(peer, msg));
+		return;
 	}
 
 	/* FIXME: Add to spec that we must allow repeated shutdown! */
@@ -1628,7 +1622,7 @@ static int peer_got_shutdown(struct peer *peer, const u8 *msg)
 		char *str = tal_fmt(peer, "Bad shutdown scriptpubkey %s",
 				    tal_hex(peer, scriptpubkey));
 		peer_fail_permanent_str(peer, take(str));
-		return -1;
+		return;
 	}
 
 	if (peer->local_shutdown_idx == -1) {
@@ -1638,7 +1632,7 @@ static int peer_got_shutdown(struct peer *peer, const u8 *msg)
 		if (peer->local_shutdown_idx == -1) {
 			peer_internal_error(peer,
 					    "Can't get local shutdown index");
-			return -1;
+			return;
 		}
 
 		peer_set_condition(peer, CHANNELD_NORMAL, CHANNELD_SHUTTING_DOWN);
@@ -1656,7 +1650,7 @@ static int peer_got_shutdown(struct peer *peer, const u8 *msg)
 			peer_internal_error(peer,
 					    "Can't get shutdown script %"PRIu64,
 					    peer->local_shutdown_idx);
-			return -1;
+			return;
 		}
 
 		/* BOLT #2:
@@ -1675,8 +1669,6 @@ static int peer_got_shutdown(struct peer *peer, const u8 *msg)
 		fatal("Could not save channel to database: %s",
 		      peer->ld->wallet->db->err);
 	}
-
-	return 0;
 }
 
 void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
@@ -1770,7 +1762,7 @@ static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 	return (new_diff < old_diff);
 }
 
-static int peer_received_closing_signature(struct peer *peer, const u8 *msg)
+static void peer_received_closing_signature(struct peer *peer, const u8 *msg)
 {
 	secp256k1_ecdsa_signature sig;
 	struct bitcoin_tx *tx = tal(msg, struct bitcoin_tx);
@@ -1778,7 +1770,7 @@ static int peer_received_closing_signature(struct peer *peer, const u8 *msg)
 	if (!fromwire_closing_received_signature(msg, NULL, &sig, tx)) {
 		peer_internal_error(peer, "Bad closing_received_signature %s",
 				    tal_hex(peer, msg));
-		return -1;
+		return;
 	}
 
 	/* FIXME: Make sure signature is correct! */
@@ -1795,36 +1787,36 @@ static int peer_received_closing_signature(struct peer *peer, const u8 *msg)
 	/* OK, you can continue now. */
 	subd_send_msg(peer->owner,
 		      take(towire_closing_received_signature_reply(peer)));
-	return 0;
 }
 
-static int peer_closing_complete(struct peer *peer, const u8 *msg)
+static void peer_closing_complete(struct peer *peer, const u8 *msg)
 {
 	if (!fromwire_closing_complete(msg, NULL)) {
 		peer_internal_error(peer, "Bad closing_complete %s",
 				    tal_hex(peer, msg));
-		return -1;
+		return;
 	}
 
 	/* Retransmission only, ignore closing. */
 	if (peer->state == CLOSINGD_COMPLETE)
-		return -1;
+		return;
 
 	drop_to_chain(peer);
 	peer_set_condition(peer, CLOSINGD_SIGEXCHANGE, CLOSINGD_COMPLETE);
-	return -1;
 }
 
-static int closing_msg(struct subd *sd, const u8 *msg, const int *fds)
+static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum closing_wire_type t = fromwire_peektype(msg);
 
 	switch (t) {
 	case WIRE_CLOSING_RECEIVED_SIGNATURE:
-		return peer_received_closing_signature(sd->peer, msg);
+		peer_received_closing_signature(sd->peer, msg);
+		break;
 
 	case WIRE_CLOSING_COMPLETE:
-		return peer_closing_complete(sd->peer, msg);
+		peer_closing_complete(sd->peer, msg);
+		break;
 
 	/* We send these, not receive them */
 	case WIRE_CLOSING_INIT:
@@ -1917,29 +1909,26 @@ static void peer_start_closingd(struct peer *peer,
 	tal_free(tmpctx);
 }
 
-static int peer_start_closingd_after_shutdown(struct peer *peer, const u8 *msg,
-					      const int *fds)
+static void peer_start_closingd_after_shutdown(struct peer *peer, const u8 *msg,
+					       const int *fds)
 {
 	struct crypto_state cs;
 
 	/* We expect 2 fds. */
-	if (!fds)
-		return 2;
+	assert(tal_count(fds) == 2);
 
 	if (!fromwire_channel_shutdown_complete(msg, NULL, &cs)) {
 		peer_internal_error(peer, "bad shutdown_complete: %s",
 				    tal_hex(peer, msg));
-		return -1;
+		return;
 	}
 
+	/* This sets peer->owner, closes down channeld. */
 	peer_start_closingd(peer, &cs, fds[0], fds[1], false);
 	peer_set_condition(peer, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
-
-	/* Close the channeld */
-	return -1;
 }
 
-static int channel_msg(struct subd *sd, const u8 *msg, const int *fds)
+static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum channel_wire_type t = fromwire_peektype(msg);
 
@@ -1949,19 +1938,29 @@ static int channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 				   CHANNELD_AWAITING_LOCKIN, CHANNELD_NORMAL);
 		break;
 	case WIRE_CHANNEL_SENDING_COMMITSIG:
-		return peer_sending_commitsig(sd->peer, msg);
+		peer_sending_commitsig(sd->peer, msg);
+		break;
 	case WIRE_CHANNEL_GOT_COMMITSIG:
-		return peer_got_commitsig(sd->peer, msg);
+		peer_got_commitsig(sd->peer, msg);
+		break;
 	case WIRE_CHANNEL_GOT_REVOKE:
-		return peer_got_revoke(sd->peer, msg);
+		peer_got_revoke(sd->peer, msg);
+		break;
 	case WIRE_CHANNEL_ANNOUNCED:
-		return peer_channel_announced(sd->peer, msg);
+		peer_channel_announced(sd->peer, msg);
+		break;
 	case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
-		return peer_got_funding_locked(sd->peer, msg);
+		peer_got_funding_locked(sd->peer, msg);
+		break;
 	case WIRE_CHANNEL_GOT_SHUTDOWN:
-		return peer_got_shutdown(sd->peer, msg);
+		peer_got_shutdown(sd->peer, msg);
+		break;
 	case WIRE_CHANNEL_SHUTDOWN_COMPLETE:
-		return peer_start_closingd_after_shutdown(sd->peer, msg, fds);
+		/* We expect 2 fds. */
+		if (!fds)
+			return 2;
+		peer_start_closingd_after_shutdown(sd->peer, msg, fds);
+		break;
 
 	/* And we never get these from channeld. */
 	case WIRE_CHANNEL_INIT:
@@ -2123,7 +2122,7 @@ static bool peer_commit_initial(struct peer *peer)
 	return true;
 }
 
-static bool opening_funder_finished(struct subd *opening, const u8 *resp,
+static void opening_funder_finished(struct subd *opening, const u8 *resp,
 				    const int *fds,
 				    struct funding_channel *fc)
 {
@@ -2162,7 +2161,7 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 					   &channel_info->feerate_per_kw)) {
 		peer_internal_error(fc->peer, "bad funder_reply: %s",
 				    tal_hex(resp, resp));
-		return false;
+		return;
 	}
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
@@ -2211,12 +2210,12 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 						   &local_fundingkey),
 				    type_to_string(fc, struct pubkey,
 						   &channel_info->remote_fundingkey));
-		return false;
+		return;
 	}
 
 	if (!peer_commit_initial(fc->peer)) {
 		peer_internal_error(fc->peer, "Initial peer to db failed");
-		return false;
+		return;
 	}
 
 	/* Get HSM to sign the funding tx. */
@@ -2238,15 +2237,12 @@ static bool opening_funder_finished(struct subd *opening, const u8 *resp,
 
 	msg = hsm_sync_read(fc, fc->peer->ld);
 	opening_got_hsm_funding_sig(fc, fds[0], fds[1], msg, &cs);
-
-	/* openingd already exited. */
-	return false;
 }
 
-static bool opening_fundee_finished(struct subd *opening,
-					   const u8 *reply,
-					   const int *fds,
-					   struct peer *peer)
+static void opening_fundee_finished(struct subd *opening,
+				    const u8 *reply,
+				    const int *fds,
+				    struct peer *peer)
 {
 	u8 *funding_signed;
 	struct channel_info *channel_info;
@@ -2282,9 +2278,9 @@ static bool opening_fundee_finished(struct subd *opening,
 					   &peer->channel_flags,
 					   &channel_info->feerate_per_kw,
 					   &funding_signed)) {
-		log_broken(peer->log, "bad OPENING_FUNDEE_REPLY %s",
-			   tal_hex(reply, reply));
-		return false;
+		peer_internal_error(peer, "bad OPENING_FUNDEE_REPLY %s",
+				    tal_hex(reply, reply));
+		return;
 	}
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
@@ -2293,7 +2289,7 @@ static bool opening_fundee_finished(struct subd *opening,
 	peer_last_tx(peer, remote_commit, &remote_commit_sig);
 
 	if (!peer_commit_initial(peer))
-		return false;
+		return;
 
 	log_debug(peer->log, "Watching funding tx %s",
 		     type_to_string(reply, struct sha256_double,
@@ -2311,9 +2307,6 @@ static bool opening_fundee_finished(struct subd *opening,
 	/* On to normal operation! */
 	peer_start_channeld(peer, &cs, fds[0], fds[1], funding_signed, false);
 	peer_set_condition(peer, OPENINGD, CHANNELD_AWAITING_LOCKIN);
-
-	/* openingd already exited. */
-	return false;
 }
 
 /* Peer has spontaneously exited from gossip due to open msg */
@@ -2496,7 +2489,7 @@ static void peer_offer_channel(struct lightningd *ld,
 }
 
 /* Peer has been released from gossip.  Start opening. */
-static bool gossip_peer_released(struct subd *gossip,
+static void gossip_peer_released(struct subd *gossip,
 				 const u8 *resp,
 				 const int *fds,
 				 struct funding_channel *fc)
@@ -2519,7 +2512,7 @@ static bool gossip_peer_released(struct subd *gossip,
 				     peer_state_name(fc->peer->state));
 		else
 			command_fail(fc->cmd, "Peer not connected");
-		return true;
+		return;
 	}
 	assert(tal_count(fds) == 2);
 
@@ -2530,12 +2523,11 @@ static bool gossip_peer_released(struct subd *gossip,
 			     peer_state_name(fc->peer->state));
 		close(fds[0]);
 		close(fds[1]);
-		return true;
+		return;
 	}
 
 	/* OK, offer peer a channel. */
 	peer_offer_channel(ld, fc, &cs, gfeatures, lfeatures, fds[0], fds[1]);
-	return true;
 }
 
 static void json_fund_channel(struct command *cmd,

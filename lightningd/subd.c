@@ -36,7 +36,7 @@ struct subd_req {
 
 	/* Callback for a reply. */
 	int type;
-	bool (*replycb)(struct subd *, const u8 *, const int *, void *);
+	void (*replycb)(struct subd *, const u8 *, const int *, void *);
 	void *replycb_data;
 
 	size_t num_reply_fds;
@@ -53,7 +53,7 @@ static void free_subd_req(struct subd_req *sr)
 }
 
 /* Called when the callback is disabled because caller was freed. */
-static bool ignore_reply(struct subd *sd, const u8 *msg, const int *fds,
+static void ignore_reply(struct subd *sd, const u8 *msg, const int *fds,
 			 void *arg)
 {
 	size_t i;
@@ -61,7 +61,6 @@ static bool ignore_reply(struct subd *sd, const u8 *msg, const int *fds,
 	log_debug(sd->log, "IGNORING REPLY");
 	for (i = 0; i < tal_count(fds); i++)
 		close(fds[i]);
-	return true;
 }
 
 static void disable_cb(void *disabler, struct subd_req *sr)
@@ -72,7 +71,7 @@ static void disable_cb(void *disabler, struct subd_req *sr)
 
 static void add_req(const tal_t *ctx,
 		    struct subd *sd, int type, size_t num_fds_in,
-		    bool (*replycb)(struct subd *, const u8 *, const int *,
+		    void (*replycb)(struct subd *, const u8 *, const int *,
 				    void *),
 		    void *replycb_data)
 {
@@ -251,11 +250,16 @@ int subd_raw(struct lightningd *ld, const char *name)
 
 static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd);
 
+static void mark_freed(struct subd *unused, bool *freed)
+{
+	*freed = true;
+}
+
 static struct io_plan *sd_msg_reply(struct io_conn *conn, struct subd *sd,
 				    struct subd_req *sr)
 {
 	int type = fromwire_peektype(sd->msg_in);
-	bool keep_open;
+	bool freed = false;
 	const tal_t *tmpctx = tal_tmpctx(conn);
 	int *fds_in;
 
@@ -277,11 +281,15 @@ static struct io_plan *sd_msg_reply(struct io_conn *conn, struct subd *sd,
 	fds_in = tal_steal(tmpctx, sd->fds_in);
 	sd->fds_in = NULL;
 
-	keep_open = sr->replycb(sd, sd->msg_in, fds_in, sr->replycb_data);
+	/* Find out if they freed it. */
+	tal_add_destructor2(sd, mark_freed, &freed);
+	sr->replycb(sd, sd->msg_in, fds_in, sr->replycb_data);
 	tal_free(tmpctx);
 
-	if (!keep_open)
+	if (freed)
 		return io_close(conn);
+
+	tal_del_destructor2(sd, mark_freed, &freed);
 
 	/* Restore conn ptr. */
 	sd->conn = conn;
@@ -449,13 +457,18 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 
 	log_info(sd->log, "UPDATE %s", sd->msgname(type));
 	if (sd->msgcb) {
-		int i;
+		unsigned int i;
+		bool freed = false;
 
 		/* Might free sd (if returns negative); save/restore sd->conn */
 		sd->conn = NULL;
+		tal_add_destructor2(sd, mark_freed, &freed);
+
 		i = sd->msgcb(sd, sd->msg_in, sd->fds_in);
-		if (i < 0)
+		if (freed)
 			return io_close(conn);
+		tal_del_destructor2(sd, mark_freed, &freed);
+
 		sd->conn = conn;
 
 		if (i != 0) {
@@ -549,7 +562,8 @@ static struct subd *new_subd(struct lightningd *ld,
 			     const char *name,
 			     struct peer *peer,
 			     const char *(*msgname)(int msgtype),
-			     int (*msgcb)(struct subd *, const u8 *, const int *fds),
+			     unsigned int (*msgcb)(struct subd *,
+						   const u8 *, const int *fds),
 			     va_list *ap)
 {
 	struct subd *sd = tal(ld, struct subd);
@@ -586,8 +600,8 @@ static struct subd *new_subd(struct lightningd *ld,
 struct subd *new_global_subd(struct lightningd *ld,
 			     const char *name,
 			     const char *(*msgname)(int msgtype),
-			     int (*msgcb)(struct subd *, const u8 *,
-					  const int *fds),
+			     unsigned int (*msgcb)(struct subd *, const u8 *,
+						   const int *fds),
 			     ...)
 {
 	va_list ap;
@@ -605,8 +619,8 @@ struct subd *new_peer_subd(struct lightningd *ld,
 			   const char *name,
 			   struct peer *peer,
 			   const char *(*msgname)(int msgtype),
-			   int (*msgcb)(struct subd *, const u8 *,
-					const int *fds), ...)
+			   unsigned int (*msgcb)(struct subd *, const u8 *,
+						 const int *fds), ...)
 {
 	va_list ap;
 	struct subd *sd;
@@ -634,7 +648,7 @@ void subd_req_(const tal_t *ctx,
 	       struct subd *sd,
 	       const u8 *msg_out,
 	       int fd_out, size_t num_fds_in,
-	       bool (*replycb)(struct subd *, const u8 *, const int *, void *),
+	       void (*replycb)(struct subd *, const u8 *, const int *, void *),
 	       void *replycb_data)
 {
 	/* Grab type now in case msg_out is taken() */
