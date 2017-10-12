@@ -395,7 +395,7 @@ static void hout_subd_died(struct htlc_out *hout)
 
 /* This is where channeld gives us the HTLC id, and also reports if it
  * failed immediately. */
-static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
+static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 			    struct htlc_out *hout)
 {
 	u16 failure_code;
@@ -407,7 +407,7 @@ static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 					       &failurestr)) {
 		peer_internal_error(subd->peer, "Bad channel_offer_htlc_reply");
 		tal_free(hout);
-		return false;
+		return;
 	}
 
 	if (failure_code) {
@@ -419,7 +419,7 @@ static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 			payment_failed(hout->key.peer->ld, hout, localfail);
 		} else
 			local_fail_htlc(hout->in, failure_code);
-		return true;
+		return;
 	}
 
 	if (find_htlc_out(&subd->ld->htlcs_out, hout->key.peer, hout->key.id)) {
@@ -428,14 +428,13 @@ static bool rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 				    " is a duplicate",
 				    hout->key.id);
 		tal_free(hout);
-		return false;
+		return;
 	}
 
 	/* Add it to lookup table now we know id. */
 	connect_htlc_out(&subd->ld->htlcs_out, hout);
 
 	/* When channeld includes it in commitment, we'll make it persistent. */
-	return true;
 }
 
 enum onion_type send_htlc_out(struct peer *out, u64 amount, u32 cltv,
@@ -558,7 +557,7 @@ struct gossip_resolve {
 
 /* We received a resolver reply, which gives us the node_ids of the
  * channel we want to forward over */
-static bool channel_resolve_reply(struct subd *gossip, const u8 *msg,
+static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
 				  const int *fds, struct gossip_resolve *gr)
 {
 	struct pubkey *nodes, *peer_id;
@@ -567,17 +566,17 @@ static bool channel_resolve_reply(struct subd *gossip, const u8 *msg,
 		log_broken(gossip->log,
 			   "bad fromwire_gossip_resolve_channel_reply %s",
 			   tal_hex(msg, msg));
-		return false;
+		return;
 	}
 
 	if (tal_count(nodes) == 0) {
 		local_fail_htlc(gr->hin, WIRE_UNKNOWN_NEXT_PEER);
-		return true;
+		return;
 	} else if (tal_count(nodes) != 2) {
 		log_broken(gossip->log,
 			   "fromwire_gossip_resolve_channel_reply has %zu nodes",
 			   tal_count(nodes));
-		return false;
+		return;
 	}
 
 	/* Get the other peer matching the id that is not us */
@@ -591,7 +590,6 @@ static bool channel_resolve_reply(struct subd *gossip, const u8 *msg,
 		     gr->amt_to_forward, gr->outgoing_cltv_value, peer_id,
 		     gr->next_onion);
 	tal_free(gr);
-	return true;
 }
 
 /* Everyone is committed to this htlc of theirs */
@@ -970,7 +968,7 @@ static bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum)
 	return true;
 }
 
-int peer_sending_commitsig(struct peer *peer, const u8 *msg)
+void peer_sending_commitsig(struct peer *peer, const u8 *msg)
 {
 	u64 commitnum;
 	struct changed_htlc *changed_htlcs;
@@ -984,14 +982,14 @@ int peer_sending_commitsig(struct peer *peer, const u8 *msg)
 						&commit_sig, &htlc_sigs)) {
 		peer_internal_error(peer, "bad channel_sending_commitsig %s",
 				    tal_hex(peer, msg));
-		return -1;
+		return;
 	}
 
 	for (i = 0; i < tal_count(changed_htlcs); i++) {
 		if (!changed_htlc(peer, changed_htlcs + i)) {
 			peer_internal_error(peer,
 				   "channel_sending_commitsig: update failed");
-			return -1;
+			return;
 		}
 
 		/* While we're here, sanity check added ones are in
@@ -1010,14 +1008,14 @@ int peer_sending_commitsig(struct peer *peer, const u8 *msg)
 				   " Added %"PRIu64", maxid now %"PRIu64
 				   " from %"PRIu64,
 				   num_local_added, maxid, peer->next_htlc_id);
-			return -1;
+			return;
 		}
 		/* FIXME: Save to db */
 		peer->next_htlc_id += num_local_added;
 	}
 
 	if (!peer_save_commitsig_sent(peer, commitnum))
-		return -1;
+		return;
 
 	/* Last was commit. */
 	peer->last_was_revoke = false;
@@ -1027,7 +1025,6 @@ int peer_sending_commitsig(struct peer *peer, const u8 *msg)
 	/* Tell it we've got it, and to go ahead with commitment_signed. */
 	subd_send_msg(peer->owner,
 		      take(towire_channel_sending_commitsig_reply(msg)));
-	return 0;
 }
 
 static void added_their_htlc(struct peer *peer,
@@ -1090,7 +1087,7 @@ static bool peer_sending_revocation(struct peer *peer,
 }
 
 /* This also implies we're sending revocation */
-int peer_got_commitsig(struct peer *peer, const u8 *msg)
+void peer_got_commitsig(struct peer *peer, const u8 *msg)
 {
 	u64 commitnum;
 	secp256k1_ecdsa_signature commit_sig;
@@ -1116,7 +1113,7 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 		peer_internal_error(peer,
 				    "bad fromwire_channel_got_commitsig %s",
 				    tal_hex(peer, msg));
-		return -1;
+		return;
 	}
 
 	log_debug(peer->log,
@@ -1134,28 +1131,28 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 	/* Save information now for fulfilled & failed HTLCs */
 	for (i = 0; i < tal_count(fulfilled); i++) {
 		if (!peer_fulfilled_our_htlc(peer, &fulfilled[i]))
-			return -1;
+			return;
 	}
 
 	for (i = 0; i < tal_count(failed); i++) {
 		if (!peer_failed_our_htlc(peer, &failed[i]))
-			return -1;
+			return;
 	}
 
 	for (i = 0; i < tal_count(changed); i++) {
 		if (!changed_htlc(peer, &changed[i])) {
 			peer_internal_error(peer,
 					    "got_commitsig: update failed");
-			return -1;
+			return;
 		}
 	}
 
 	/* Since we're about to send revoke, bump state again. */
 	if (!peer_sending_revocation(peer, added, fulfilled, failed, changed))
-		return -1;
+		return;
 
 	if (!peer_save_commitsig_received(peer, commitnum))
-		return -1;
+		return;
 
 	peer_last_tx(peer, tx, &commit_sig);
 	/* FIXME: Put these straight in the db! */
@@ -1165,7 +1162,6 @@ int peer_got_commitsig(struct peer *peer, const u8 *msg)
 	/* Tell it we've committed, and to go ahead with revoke. */
 	msg = towire_channel_got_commitsig_reply(msg);
 	subd_send_msg(peer->owner, take(msg));
-	return 0;
 }
 
 /* Shuffle them over, forgetting the ancient one. */
@@ -1177,7 +1173,7 @@ void update_per_commit_point(struct peer *peer,
 	ci->remote_per_commit = *per_commitment_point;
 }
 
-int peer_got_revoke(struct peer *peer, const u8 *msg)
+void peer_got_revoke(struct peer *peer, const u8 *msg)
 {
 	u64 revokenum;
 	struct sha256 per_commitment_secret;
@@ -1192,7 +1188,7 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 					 &changed)) {
 		peer_internal_error(peer, "bad fromwire_channel_got_revoke %s",
 				    tal_hex(peer, msg));
-		return -1;
+		return;
 	}
 
 	log_debug(peer->log,
@@ -1206,12 +1202,12 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 		if (changed[i].newstate == RCVD_ADD_ACK_REVOCATION) {
 			if (!peer_accepted_htlc(peer, changed[i].id,
 						&failcodes[i]))
-				return -1;
+				return;
 		} else {
 			if (!changed_htlc(peer, &changed[i])) {
 				peer_internal_error(peer,
 						    "got_revoke: update failed");
-				return -1;
+				return;
 			}
 		}
 	}
@@ -1219,14 +1215,14 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 	if (revokenum >= (1ULL << 48)) {
 		peer_internal_error(peer, "got_revoke: too many txs %"PRIu64,
 				    revokenum);
-		return -1;
+		return;
 	}
 
 	if (revokenum != revocations_received(&peer->their_shachain.chain)) {
 		peer_internal_error(peer, "got_revoke: expected %"PRIu64
 				    " got %"PRIu64,
 				    revocations_received(&peer->their_shachain.chain), revokenum);
-		return -1;
+		return;
 	}
 
 	/* BOLT #2:
@@ -1243,7 +1239,7 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 						   &per_commitment_secret),
 				    revokenum);
 		peer_fail_permanent(peer, take((u8 *)err));
-		return -1;
+		return;
 	}
 
 	/* FIXME: Check per_commitment_secret -> per_commit_point */
@@ -1269,8 +1265,6 @@ int peer_got_revoke(struct peer *peer, const u8 *msg)
 		fatal("Could not save channel to database: %s",
 		      peer->ld->wallet->db->err);
 	}
-
-	return 0;
 }
 
 static void *tal_arr_append_(void **p, size_t size)

@@ -9,7 +9,7 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 
-static bool ping_reply(struct subd *subd, const u8 *msg, const int *fds,
+static void ping_reply(struct subd *subd, const u8 *msg, const int *fds,
 		       struct command *cmd)
 {
 	u16 totlen;
@@ -33,7 +33,6 @@ static bool ping_reply(struct subd *subd, const u8 *msg, const int *fds,
 		json_object_end(response);
 		command_success(cmd, response);
 	}
-	return true;
 }
 
 static void json_dev_ping(struct command *cmd,

@@ -27,9 +27,9 @@ void peer_htlcs(const tal_t *ctx,
 		struct failed_htlc **failed_htlcs,
 		enum side **failed_sides);
 
-int peer_sending_commitsig(struct peer *peer, const u8 *msg);
-int peer_got_commitsig(struct peer *peer, const u8 *msg);
-int peer_got_revoke(struct peer *peer, const u8 *msg);
+void peer_sending_commitsig(struct peer *peer, const u8 *msg);
+void peer_got_commitsig(struct peer *peer, const u8 *msg);
+void peer_got_revoke(struct peer *peer, const u8 *msg);
 
 void update_per_commit_point(struct peer *peer,
 			     const struct pubkey *per_commitment_point);
