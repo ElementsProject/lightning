@@ -645,7 +645,11 @@ bool dev_disconnect_permanent(struct lightningd *ld)
 	r = read(ld->dev_disconnect_fd, permfail, sizeof(permfail));
 	if (r < 0)
 		fatal("Reading dev_disconnect file: %s", strerror(errno));
-	lseek(ld->dev_disconnect_fd, -r, SEEK_CUR);
 
-	return memeq(permfail, r, "permfail", strlen("permfail"));
+	if (memeq(permfail, r, "permfail", strlen("permfail")))
+		return true;
+
+	/* Nope, restore. */
+	lseek(ld->dev_disconnect_fd, -r, SEEK_CUR);
+	return false;
 }
