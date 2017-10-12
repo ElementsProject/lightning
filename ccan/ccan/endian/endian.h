@@ -103,12 +103,21 @@ static inline uint64_t bswap_64(uint64_t val)
 }
 #endif
 
+/* Needed for Glibc like endiness check */
+#define	__LITTLE_ENDIAN	1234
+#define	__BIG_ENDIAN	4321
+
 /* Sanity check the defines.  We don't handle weird endianness. */
 #if !HAVE_LITTLE_ENDIAN && !HAVE_BIG_ENDIAN
 #error "Unknown endian"
 #elif HAVE_LITTLE_ENDIAN && HAVE_BIG_ENDIAN
 #error "Can't compile for both big and little endian."
+#elif HAVE_LITTLE_ENDIAN
+#define __BYTE_ORDER	__LITTLE_ENDIAN
+#elif HAVE_BIG_ENDIAN
+#define __BYTE_ORDER	__BIG_ENDIAN
 #endif
+
 
 #ifdef __CHECKER__
 /* sparse needs forcing to remove bitwise attribute from ccan/short_types */

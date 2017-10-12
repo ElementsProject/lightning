@@ -61,9 +61,10 @@
  * {
  * 	// Remove what we just wrote.
  * 	b->start += b->wlen;
+ *	b->wlen = 0;
  * 	assert(b->start <= sizeof(b->buf));
  *
- * 	// If we wrote something, wake writer.
+ * 	// If we wrote something, wake reader.
  * 	if (b->wlen != 0)
  * 		io_wake(b);
  *
@@ -114,6 +115,7 @@
  * 	io_new_conn(NULL, tochild[1], write_out, &to);
  *
  * 	// Read from child, write to stdout.
+ * 	memset(&from, 0, sizeof(from));
  * 	reader = io_new_conn(NULL, fromchild[0], read_in, &from);
  * 	io_set_finish(reader, finish, &from);
  * 	io_new_conn(NULL, STDOUT_FILENO, write_out, &from);

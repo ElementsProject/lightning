@@ -363,14 +363,20 @@ void io_wake(const void *wait)
 	backend_wake(wait);
 }
 
-/* Returns false if this has been freed. */
-static bool do_plan(struct io_conn *conn, struct io_plan *plan)
+/* Returns false if this should not be touched (eg. freed). */
+static bool do_plan(struct io_conn *conn, struct io_plan *plan,
+		    bool idle_on_epipe)
 {
 	/* We shouldn't have polled for this event if this wasn't true! */
 	assert(plan->status == IO_POLLING);
 
 	switch (plan->io(conn->fd.fd, &plan->arg)) {
 	case -1:
+		if (errno == EPIPE && idle_on_epipe) {
+			plan->status = IO_UNSET;
+			backend_new_plan(conn);
+			return false;
+		}
 		io_close(conn);
 		return false;
 	case 0:
@@ -386,11 +392,14 @@ static bool do_plan(struct io_conn *conn, struct io_plan *plan)
 void io_ready(struct io_conn *conn, int pollflags)
 {
 	if (pollflags & POLLIN)
-		if (!do_plan(conn, &conn->plan[IO_IN]))
+		if (!do_plan(conn, &conn->plan[IO_IN], false))
 			return;
 
 	if (pollflags & POLLOUT)
-		do_plan(conn, &conn->plan[IO_OUT]);
+		/* If we're writing to a closed pipe, we need to wait for
+		 * read to fail if we're duplex: we want to drain it! */
+		do_plan(conn, &conn->plan[IO_OUT],
+			conn->plan[IO_IN].status == IO_POLLING);
 }
 
 void io_do_always(struct io_conn *conn)
