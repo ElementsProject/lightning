@@ -1733,7 +1733,8 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
 			     amount_msat, cltv_expiry, &payment_hash,
 			     onion_routing_packet);
-	status_trace("Adding HTLC %"PRIu64" gave %i", peer->htlc_id, e);
+	status_trace("Adding HTLC %"PRIu64" msat=%"PRIu64" cltv=%u gave %i",
+		     peer->htlc_id, amount_msat, cltv_expiry, e);
 
 	switch (e) {
 	case CHANNEL_ERR_ADD_OK:

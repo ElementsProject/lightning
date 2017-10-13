@@ -355,19 +355,21 @@ static void handle_localpay(struct htlc_in *hin,
 	 *
 	 * If the `cltv_expiry` is too low, the final node MUST fail the HTLC:
 	 */
-	if (get_block_height(ld->topology) + ld->config.deadline_blocks
+	if (get_block_height(ld->topology) + ld->config.cltv_final
 	    >= cltv_expiry) {
 		log_debug(hin->key.peer->log,
-			  "Expiry cltv %u too close to current %u + deadline %u",
+			  "Expiry cltv %u too close to current %u + %u",
 			  cltv_expiry,
 			  get_block_height(ld->topology),
-			  ld->config.deadline_blocks);
+			  ld->config.cltv_final);
 		failcode = WIRE_FINAL_EXPIRY_TOO_SOON;
 		goto fail;
 	}
 
 	log_info(ld->log, "Resolving invoice '%s' with HTLC %"PRIu64,
 		 invoice->label, hin->key.id);
+	log_debug(ld->log, "%s: Actual amount %"PRIu64"msat, HTLC expiry %u",
+		  invoice->label, hin->msatoshi, cltv_expiry);
 	fulfill_htlc(hin, &invoice->r);
 	resolve_invoice(ld, invoice);
 	return;
@@ -511,7 +513,7 @@ static void forward_htlc(struct htlc_in *hin,
 	}
 
 	if (!check_cltv(hin, cltv_expiry, outgoing_cltv_value,
-			ld->config.min_htlc_expiry)) {
+			ld->config.cltv_expiry_delta)) {
 		failcode = WIRE_INCORRECT_CLTV_EXPIRY;
 		goto fail;
 	}
