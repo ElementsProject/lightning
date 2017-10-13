@@ -237,7 +237,7 @@ static bool check_amount(struct htlc_in *hin,
  *  * `outgoing_cltv_value` - The CLTV value that the _outgoing_ HTLC carrying
  *     the packet should have.
  *
- *        cltv_expiry - cltv_expiry_delta = outgoing_cltv_value
+ *        cltv_expiry - cltv_expiry_delta >= outgoing_cltv_value
  *
  *     Inclusion of this field allows a node to both authenticate the information
  *     specified by the original sender and the parameters of the HTLC forwarded,
@@ -253,7 +253,7 @@ static bool check_amount(struct htlc_in *hin,
 static bool check_cltv(struct htlc_in *hin,
 		       u32 cltv_expiry, u32 outgoing_cltv_value, u32 delta)
 {
-	if (cltv_expiry - delta == outgoing_cltv_value)
+	if (cltv_expiry - delta >= outgoing_cltv_value)
 		return true;
 	log_debug(hin->key.peer->ld->log, "HTLC %"PRIu64" incorrect CLTV:"
 		  " %u in, %u out, delta reqd %u",

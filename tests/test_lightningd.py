@@ -1268,6 +1268,57 @@ class LightningDTests(BaseLightningDTests):
                                .format(bitcoind.rpc.getblockcount() + 9 + shadow_route))
         assert l3.rpc.listinvoice('test_forward_different_fees_and_cltv')[0]['complete'] == True
 
+    def test_forward_pad_fees_and_cltv(self):
+        """Test that we are allowed extra locktime delta, and fees"""
+
+        l1 = self.node_factory.get_node(options=['--cltv-delta=10', '--fee-base=100', '--fee-per-satoshi=1000'])
+        l2 = self.node_factory.get_node(options=['--cltv-delta=20', '--fee-base=200', '--fee-per-satoshi=2000'])
+        l3 = self.node_factory.get_node(options=['--cltv-delta=30', '--cltv-final=9', '--fee-base=300', '--fee-per-satoshi=3000'])
+
+        ret = l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
+        assert ret['id'] == l2.info['id']
+
+        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+
+        ret = l2.rpc.connect(l3.info['id'], 'localhost:{}'.format(l3.info['port']))
+        assert ret['id'] == l3.info['id']
+
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        
+        c1 = self.fund_channel(l1, l2, 10**6)
+        c2 = self.fund_channel(l2, l3, 10**6)
+
+        # Allow announce messages.
+        l1.bitcoin.rpc.generate(5)
+
+        # Make sure l1 has seen announce for all channels.
+        l1.daemon.wait_for_logs([
+            'Received channel_update for channel {}\\(0\\)'.format(c1),
+            'Received channel_update for channel {}\\(1\\)'.format(c1),
+            'Received channel_update for channel {}\\(0\\)'.format(c2),
+            'Received channel_update for channel {}\\(1\\)'.format(c2)])
+
+        route = l1.rpc.getroute(l3.info['id'], 4999999, 1)["route"]
+        assert len(route) == 2
+
+        assert route[0]['msatoshi'] == 5010198
+        assert route[0]['delay'] == 20 + 9
+        assert route[1]['msatoshi'] == 4999999
+        assert route[1]['delay'] == 9
+
+        # Modify so we overpay, overdo the cltv.
+        route[0]['msatoshi'] += 2000
+        route[0]['delay'] += 20
+        route[1]['msatoshi'] += 1000
+        route[1]['delay'] += 10
+
+        # This should work.
+        rhash = l3.rpc.invoice(4999999, 'test_forward_pad_fees_and_cltv')['rhash']
+        l1.rpc.sendpay(to_json(route), rhash)
+        assert l3.rpc.listinvoice('test_forward_pad_fees_and_cltv')[0]['complete'] == True
+
     def test_disconnect(self):
         # These should all make us fail, and retry.
         # FIXME: Configure short timeout for reconnect!
