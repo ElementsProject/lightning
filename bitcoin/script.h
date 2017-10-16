@@ -57,6 +57,10 @@ u8 *scriptpubkey_p2wpkh(const tal_t *ctx, const struct pubkey *key);
 /* Same as above, but compressed key is already DER-encoded. */
 u8 *scriptpubkey_p2wpkh_derkey(const tal_t *ctx, const u8 der[33]);
 
+/* Encode an arbitrary witness as <version> <push:wprog> */
+u8 *scriptpubkey_witness_raw(const tal_t *ctx, u8 version,
+			     const u8 *wprog, size_t wprog_size);
+
 /* Create a witness which spends the 2of2. */
 u8 **bitcoin_witness_2of2(const tal_t *ctx,
 			  const secp256k1_ecdsa_signature *sig1,
