@@ -11,6 +11,7 @@ COMMON_SRC :=					\
 	common/derive_basepoints.c		\
 	common/dev_disconnect.c			\
 	common/funding_tx.c			\
+	common/hash_u5.c			\
 	common/htlc_state.c			\
 	common/htlc_tx.c			\
 	common/htlc_wire.c			\
@@ -53,7 +54,7 @@ common/gen_htlc_state_names.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-e
 check-makefile: check-common-makefile
 
 check-common-makefile:
-	@if [ x"`LC_ALL=C ls common/*.h | grep -v ^common/gen_`" != x"`echo $(COMMON_HEADERS_NOGEN) | tr ' ' '\n' | LC_ALL=C sort`" ]; then echo COMMON_HEADERS_NOGEN incorrect; exit 1; fi
+	if [ x"`LC_ALL=C ls common/*.h | grep -v ^common/gen_`" != x"`echo $(COMMON_HEADERS_NOGEN) | tr ' ' '\n' | LC_ALL=C sort`" ]; then echo COMMON_HEADERS_NOGEN incorrect; exit 1; fi
 
 check-source-bolt: $(COMMON_SRC:%=bolt-check/%) $(COMMON_HEADERS:%=bolt-check/%)
 check-whitespace: $(COMMON_SRC:%=check-whitespace/%) $(COMMON_HEADERS:%=check-whitespace/%)
