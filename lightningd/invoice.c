@@ -6,6 +6,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/utils.h>
 #include <inttypes.h>
+#include <lightningd/bolt11.h>
 #include <lightningd/log.h>
 #include <sodium/randombytes.h>
 
@@ -109,16 +110,19 @@ static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	struct invoice *invoice;
-	jsmntok_t *msatoshi, *r, *label;
+	jsmntok_t *msatoshi, *r, *label, *desc;
 	struct json_result *response = new_json_result(cmd);
 	struct invoices *invs = cmd->ld->invoices;
+	struct bolt11 *b11;
+	char *b11enc;
 
 	if (!json_get_params(buffer, params,
 			     "amount", &msatoshi,
 			     "label", &label,
+			     "description", &desc,
 			     "?r", &r,
 			     NULL)) {
-		command_fail(cmd, "Need {amount} and {label}");
+		command_fail(cmd, "Need {amount}, {label} and {description}");
 		return;
 	}
 
@@ -171,6 +175,25 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 
+	/* Construct bolt11 string. */
+	b11 = new_bolt11(cmd, &invoice->msatoshi);
+	b11->chain = get_chainparams(cmd->ld);
+	b11->timestamp = time_now().ts.tv_sec;
+	b11->payment_hash = invoice->rhash;
+	b11->receiver_id = cmd->ld->id;
+	if (desc->end - desc->start >= BOLT11_FIELD_BYTE_LIMIT) {
+		b11->description_hash = tal(b11, struct sha256);
+		sha256(b11->description_hash, buffer + desc->start,
+		       desc->end - desc->start);
+	} else
+		b11->description = tal_strndup(b11, buffer + desc->start,
+					       desc->end - desc->start);
+	/* FIXME: add option to set this */
+	b11->expiry = 3600;
+
+	/* FIXME: add private routes if necessary! */
+	b11enc = bolt11_encode(cmd, cmd->ld, b11, false);
+
 	/* OK, connect it to main state, respond with hash */
 	tal_steal(invs, invoice);
 	list_add(&invs->invlist, &invoice->list);
@@ -178,6 +201,9 @@ static void json_invoice(struct command *cmd,
 	json_object_start(response, NULL);
 	json_add_hex(response, "rhash",
 		     &invoice->rhash, sizeof(invoice->rhash));
+	json_add_string(response, "bolt11", b11enc);
+	if (b11->description_hash)
+		json_add_string(response, "description", b11->description);
 	json_object_end(response);
 
 	command_success(cmd, response);
@@ -186,8 +212,8 @@ static void json_invoice(struct command *cmd,
 static const struct json_command invoice_command = {
 	"invoice",
 	json_invoice,
-	"Create invoice for {msatoshi} with {label} (with a set {r}, otherwise generate one)",
-	"Returns the {rhash} on success. "
+	"Create invoice for {msatoshi} with {label} and {description} (with a set {r}, otherwise generate one)",
+	"Returns the {rhash} and {bolt11} on success, and {description} if too alrge for {bolt11}. "
 };
 AUTODATA(json_command, &invoice_command);
 
