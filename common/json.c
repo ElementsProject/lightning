@@ -410,8 +410,17 @@ void json_add_literal(struct json_result *result, const char *fieldname,
 
 void json_add_string(struct json_result *result, const char *fieldname, const char *value)
 {
+	char *escaped = tal_arr(result, char, strlen(value) * 2 + 1);
+	size_t i, n;
+
 	json_start_member(result, fieldname);
-	result_append_fmt(result, "\"%s\"", value);
+	for (i = n = 0; value[i]; i++) {
+		if (value[i] == '\\' || value[i] == '"')
+			escaped[n++] = '\\';
+		escaped[n++] = value[i];
+	}
+	escaped[n] = '\0';
+	result_append_fmt(result, "\"%s\"", escaped);
 }
 
 void json_add_bool(struct json_result *result, const char *fieldname, bool value)
