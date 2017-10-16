@@ -38,6 +38,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/withdraw_tx.o
 
 LIGHTNINGD_SRC :=				\
+	lightningd/bech32.c			\
 	lightningd/bitcoind.c			\
 	lightningd/build_utxos.c		\
 	lightningd/chaintopology.c		\
