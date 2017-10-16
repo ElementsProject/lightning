@@ -8,6 +8,7 @@
 #include <bitcoin/signature.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/short_types/short_types.h>
+#include <secp256k1_recovery.h>
 #include <stdlib.h>
 
 struct channel_id {
@@ -49,6 +50,8 @@ void towire_privkey(u8 **pptr, const struct privkey *privkey);
 void towire_secret(u8 **pptr, const struct secret *secret);
 void towire_secp256k1_ecdsa_signature(u8 **pptr,
 			      const secp256k1_ecdsa_signature *signature);
+void towire_secp256k1_ecdsa_recoverable_signature(u8 **pptr,
+			      const secp256k1_ecdsa_recoverable_signature *rsig);
 void towire_channel_id(u8 **pptr, const struct channel_id *channel_id);
 void towire_short_channel_id(u8 **pptr,
 			     const struct short_channel_id *short_channel_id);
@@ -77,6 +80,9 @@ void fromwire_privkey(const u8 **cursor, size_t *max, struct privkey *privkey);
 void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey);
 void fromwire_secp256k1_ecdsa_signature(const u8 **cursor, size_t *max,
 					secp256k1_ecdsa_signature *signature);
+void fromwire_secp256k1_ecdsa_recoverable_signature(const u8 **cursor,
+				    size_t *max,
+				    secp256k1_ecdsa_recoverable_signature *rsig);
 void fromwire_channel_id(const u8 **cursor, size_t *max,
 			 struct channel_id *channel_id);
 void fromwire_short_channel_id(const u8 **cursor, size_t *max,
