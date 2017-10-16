@@ -635,6 +635,22 @@ class LightningDTests(BaseLightningDTests):
         # But this should work.
         self.pay(l2, l1, available - reserve*2)
 
+    def test_pay(self):
+        l1,l2 = self.connect()
+
+        chanid = self.fund_channel(l1, l2, 10**6)
+
+        # Wait for route propagation.
+        bitcoind.rpc.generate(5)
+        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+                                 .format(chanid),
+                                'Received channel_update for channel {}\(1\)'
+                                 .format(chanid)])
+
+        inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
+        l1.rpc.pay(inv);
+        assert l2.rpc.listinvoice('test_pay')[0]['complete'] == True
+
     def test_bad_opening(self):
         # l1 asks for a too-long locktime
         l1 = self.node_factory.get_node(options=['--locktime-blocks=100'])

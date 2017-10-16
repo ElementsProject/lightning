@@ -2,9 +2,12 @@
 #include <bitcoin/preimage.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
+#include <ccan/tal/str/str.h>
 #include <channeld/gen_channel_wire.h>
+#include <gossipd/gen_gossip_wire.h>
 #include <gossipd/routing.h>
 #include <inttypes.h>
+#include <lightningd/bolt11.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
@@ -362,3 +365,107 @@ static const struct json_command sendpay_command = {
 	"Returns the {preimage} on success"
 };
 AUTODATA(json_command, &sendpay_command);
+
+struct pay {
+	struct sha256 payment_hash;
+	struct command *cmd;
+};
+
+static void json_pay_getroute_reply(struct subd *gossip,
+				    const u8 *reply, const int *fds,
+				    struct pay *pay)
+{
+	struct route_hop *route;
+
+	fromwire_gossip_getroute_reply(reply, reply, NULL, &route);
+
+	if (tal_count(route) == 0) {
+		command_fail(pay->cmd, "Could not find a route");
+		return;
+	}
+
+	send_payment(pay->cmd, &pay->payment_hash, route);
+}
+
+static void json_pay(struct command *cmd,
+		     const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *bolt11tok, *msatoshitok, *desctok, *riskfactortok;
+	double riskfactor = 1.0;
+	u64 msatoshi;
+	/* FIXME: add ctlv to bolt11 */
+	u32 cltv = 9;
+	struct pay *pay = tal(cmd, struct pay);
+	struct bolt11 *b11;
+	char *fail, *b11str, *desc;
+	u8 *req;
+
+	if (!json_get_params(buffer, params,
+			     "bolt11", &bolt11tok,
+			     "?msatoshi", &msatoshitok,
+			     "?description", &desctok,
+			     "?riskfactor", &riskfactortok,
+			     NULL)) {
+		command_fail(cmd, "Need bolt11 string");
+		return;
+	}
+
+	b11str = tal_strndup(cmd, buffer + bolt11tok->start,
+			     bolt11tok->end - bolt11tok->start);
+	if (desctok)
+		desc = tal_strndup(cmd, buffer + desctok->start,
+				   desctok->end - desctok->start);
+	else
+		desc = NULL;
+
+	b11 = bolt11_decode(pay, b11str, desc, &fail);
+	if (!b11) {
+		command_fail(cmd, "Invalid bolt11: %s", fail);
+		return;
+	}
+
+	pay->cmd = cmd;
+	pay->payment_hash = b11->payment_hash;
+
+	if (b11->msatoshi) {
+		msatoshi = *b11->msatoshi;
+		if (msatoshitok) {
+			command_fail(cmd, "msatoshi parameter unnecessary");
+			return;
+		}
+	} else {
+		if (!msatoshitok) {
+			command_fail(cmd, "msatoshi parameter required");
+			return;
+		}
+		if (!json_tok_u64(buffer, msatoshitok, &msatoshi)) {
+			command_fail(cmd,
+				     "msatoshi '%.*s' is not a valid number",
+				     (int)(msatoshitok->end-msatoshitok->start),
+				     buffer + msatoshitok->start);
+			return;
+		}
+	}
+
+	if (riskfactortok
+	    && !json_tok_double(buffer, riskfactortok, &riskfactor)) {
+		command_fail(cmd, "'%.*s' is not a valid double",
+			     (int)(riskfactortok->end - riskfactortok->start),
+			     buffer + riskfactortok->start);
+		return;
+	}
+
+	/* FIXME: use b11->routes */
+	req = towire_gossip_getroute_request(cmd, &cmd->ld->id,
+					     &b11->receiver_id,
+					     msatoshi, riskfactor*1000, cltv);
+	subd_req(pay, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
+}
+
+static const struct json_command pay_command = {
+	"pay",
+	json_pay,
+	"Send payment in {bolt11} with optional {msatoshi}, {description} and {riskfactor}",
+	"Returns the {preimage} on success"
+};
+AUTODATA(json_command, &pay_command);
