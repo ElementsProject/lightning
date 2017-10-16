@@ -1086,7 +1086,7 @@ static int match_htlc_output(const struct bitcoin_tx *tx,
 			     u8 **htlc_scripts)
 {
 	/* Must be a p2wsh output */
-	if (!is_p2wsh(tx->output[outnum].script))
+	if (!is_p2wsh(tx->output[outnum].script, NULL))
 		return -1;
 
 	for (size_t i = 0; i < tal_count(htlc_scripts); i++) {

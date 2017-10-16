@@ -368,7 +368,7 @@ u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key)
 	return script;
 }
 
-bool is_p2pkh(const u8 *script)
+bool is_p2pkh(const u8 *script, struct bitcoin_address *addr)
 {
 	size_t script_len = tal_len(script);
 
@@ -384,10 +384,12 @@ bool is_p2pkh(const u8 *script)
 		return false;
 	if (script[24] != OP_CHECKSIG)
 		return false;
+	if (addr)
+		memcpy(addr, script+3, 20);
 	return true;
 }
 
-bool is_p2sh(const u8 *script)
+bool is_p2sh(const u8 *script, struct ripemd160 *addr)
 {
 	size_t script_len = tal_len(script);
 
@@ -399,10 +401,12 @@ bool is_p2sh(const u8 *script)
 		return false;
 	if (script[22] != OP_EQUAL)
 		return false;
+	if (addr)
+		memcpy(addr, script+2, 20);
 	return true;
 }
 
-bool is_p2wsh(const u8 *script)
+bool is_p2wsh(const u8 *script, struct sha256 *addr)
 {
 	size_t script_len = tal_len(script);
 
@@ -412,10 +416,12 @@ bool is_p2wsh(const u8 *script)
 		return false;
 	if (script[1] != OP_PUSHBYTES(sizeof(struct sha256)))
 		return false;
+	if (addr)
+		memcpy(addr, script+2, sizeof(struct sha256));
 	return true;
 }
 
-bool is_p2wpkh(const u8 *script)
+bool is_p2wpkh(const u8 *script, struct bitcoin_address *addr)
 {
 	size_t script_len = tal_len(script);
 
@@ -425,6 +431,8 @@ bool is_p2wpkh(const u8 *script)
 		return false;
 	if (script[1] != OP_PUSHBYTES(sizeof(struct ripemd160)))
 		return false;
+	if (addr)
+		memcpy(addr, script+2, sizeof(*addr));
 	return true;
 }
 

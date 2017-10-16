@@ -200,9 +200,9 @@ bool wallet_can_spend(struct wallet *w, const u8 *script,
 	u32 i;
 
 	/* If not one of these, can't be for us. */
-	if (is_p2sh(script))
+	if (is_p2sh(script, NULL))
 		*output_is_p2sh = true;
-	else if (is_p2wpkh(script))
+	else if (is_p2wpkh(script, NULL))
 		*output_is_p2sh = false;
 	else
 		return false;
