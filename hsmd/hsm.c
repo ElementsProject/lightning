@@ -16,6 +16,7 @@
 #include <common/daemon_conn.h>
 #include <common/debug.h>
 #include <common/funding_tx.h>
+#include <common/hash_u5.h>
 #include <common/io_debug.h>
 #include <common/status.h>
 #include <common/utils.h>
@@ -565,6 +566,51 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	tal_free(tmpctx);
 }
 
+/**
+ * sign_invoice - Sign an invoice with our key.
+ */
+static void sign_invoice(struct daemon_conn *master, const u8 *msg)
+{
+	const tal_t *tmpctx = tal_tmpctx(master);
+	u5 *u5bytes;
+	u8 *hrpu8;
+	char *hrp;
+	struct sha256 sha;
+        secp256k1_ecdsa_recoverable_signature rsig;
+	struct hash_u5 hu5;
+	struct privkey node_pkey;
+
+	if (!fromwire_hsmctl_sign_invoice(tmpctx, msg, NULL, &u5bytes, &hrpu8)) {
+		status_trace("Failed to parse sign_invoice: %s",
+			     tal_hex(trc, msg));
+		return;
+	}
+
+	/* FIXME: Check invoice! */
+
+	hrp = tal_dup_arr(tmpctx, char, (char *)hrpu8, tal_len(hrpu8), 1);
+	hrp[tal_len(hrpu8)] = '\0';
+
+	hash_u5_init(&hu5, hrp);
+	hash_u5(&hu5, u5bytes, tal_len(u5bytes));
+	hash_u5_done(&hu5, &sha);
+
+	node_key(&node_pkey, NULL);
+        if (!secp256k1_ecdsa_sign_recoverable(secp256k1_ctx, &rsig,
+                                              (const u8 *)&sha,
+                                              node_pkey.secret.data,
+                                              NULL, NULL)) {
+		/* FIXME: Now master will freeze... */
+		status_trace("Failed to sign invoice: %s",
+			     tal_hex(trc, msg));
+		return;
+	}
+
+	daemon_conn_send(master,
+			 take(towire_hsmctl_sign_invoice_reply(tmpctx, &rsig)));
+	tal_free(tmpctx);
+}
+
 static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 {
 	/* 2 bytes msg type + 64 bytes signature */
@@ -622,6 +668,10 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 		sign_withdrawal_tx(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
 
+	case WIRE_HSMCTL_SIGN_INVOICE:
+		sign_invoice(master, master->msg_in);
+		return daemon_conn_read_next(conn, master);
+
 	case WIRE_HSMCTL_NODE_ANNOUNCEMENT_SIG_REQ:
 		sign_node_announcement(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
@@ -631,6 +681,7 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 	case WIRE_HSMCTL_HSMFD_CHANNELD_REPLY:
 	case WIRE_HSMCTL_SIGN_FUNDING_REPLY:
 	case WIRE_HSMCTL_SIGN_WITHDRAWAL_REPLY:
+	case WIRE_HSMCTL_SIGN_INVOICE_REPLY:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 	case WIRE_HSMCTL_NODE_ANNOUNCEMENT_SIG_REPLY:
 		break;

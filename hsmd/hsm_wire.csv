@@ -64,3 +64,13 @@ hsmctl_sign_withdrawal,,inputs,num_inputs*struct utxo
 hsmctl_sign_withdrawal_reply,107
 hsmctl_sign_withdrawal_reply,,num_sigs,u16
 hsmctl_sign_withdrawal_reply,,sig,num_sigs*secp256k1_ecdsa_signature
+
+# Sign an invoice
+hsmctl_sign_invoice,8
+hsmctl_sign_invoice,,len,u16
+hsmctl_sign_invoice,,u5bytes,len*u8
+hsmctl_sign_invoice,,hrplen,u16
+hsmctl_sign_invoice,,hrp,hrplen*u8
+
+hsmctl_sign_invoice_reply,108
+hsmctl_sign_invoice_reply,,sig,secp256k1_ecdsa_recoverable_signature
