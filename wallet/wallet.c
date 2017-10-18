@@ -28,16 +28,16 @@ struct wallet *wallet_new(const tal_t *ctx, struct log *log)
 bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		     enum wallet_output_type type)
 {
-	tal_t *tmpctx = tal_tmpctx(w);
-	char *hextxid = tal_hexstr(tmpctx, &utxo->txid, 32);
-	bool result = db_exec(
-	    __func__, w->db,
-	    "INSERT INTO outputs (prev_out_tx, prev_out_index, value, type, "
-	    "status, keyindex) VALUES ('%s', %d, %"PRIu64", %d, %d, %d);",
-	    hextxid, utxo->outnum, utxo->amount, type, output_state_available,
-	    utxo->keyindex);
-	tal_free(tmpctx);
-	return result;
+	sqlite3_stmt *stmt;
+
+	stmt = db_prepare(w->db, "INSERT INTO outputs (prev_out_tx, prev_out_index, value, type, status, keyindex) VALUES (?, ?, ?, ?, ?, ?);");
+	sqlite3_bind_blob(stmt, 1, &utxo->txid, sizeof(utxo->txid), SQLITE_TRANSIENT);
+	sqlite3_bind_int(stmt, 2, utxo->outnum);
+	sqlite3_bind_int64(stmt, 3, utxo->amount);
+	sqlite3_bind_int(stmt, 4, type);
+	sqlite3_bind_int(stmt, 5, output_state_available);
+	sqlite3_bind_int(stmt, 6, utxo->keyindex);
+	return db_exec_prepared(w->db, stmt);
 }
 
 /**
@@ -47,8 +47,7 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
  */
 static bool wallet_stmt2output(sqlite3_stmt *stmt, struct utxo *utxo)
 {
-	const unsigned char *hextxid = sqlite3_column_text(stmt, 0);
-	hex_decode((const char*)hextxid, sizeof(utxo->txid) * 2, &utxo->txid, sizeof(utxo->txid));
+	memcpy(&utxo->txid, sqlite3_column_blob(stmt, 0), sqlite3_column_bytes(stmt, 0));
 	utxo->outnum = sqlite3_column_int(stmt, 1);
 	utxo->amount = sqlite3_column_int(stmt, 2);
 	utxo->is_p2sh = sqlite3_column_int(stmt, 3) == p2sh_wpkh;
@@ -62,22 +61,22 @@ bool wallet_update_output_status(struct wallet *w,
 				 const u32 outnum, enum output_status oldstatus,
 				 enum output_status newstatus)
 {
-	tal_t *tmpctx = tal_tmpctx(w);
-	char *hextxid = tal_hexstr(tmpctx, txid, sizeof(*txid));
+	sqlite3_stmt *stmt;
 	if (oldstatus != output_state_any) {
-		db_exec(__func__, w->db,
-			"UPDATE outputs SET status=%d WHERE status=%d "
-			"AND prev_out_tx = '%s' AND prev_out_index = "
-			"%d;",
-			newstatus, oldstatus, hextxid, outnum);
+		stmt = db_prepare(
+			w->db, "UPDATE outputs SET status=? WHERE status=? AND prev_out_tx=? AND prev_out_index=?");
+		sqlite3_bind_int(stmt, 1, newstatus);
+		sqlite3_bind_int(stmt, 2, oldstatus);
+		sqlite3_bind_blob(stmt, 3, txid, sizeof(*txid), SQLITE_TRANSIENT);
+		sqlite3_bind_int(stmt, 4, outnum);
 	} else {
-		db_exec(__func__, w->db,
-			"UPDATE outputs SET status=%d WHERE "
-			"prev_out_tx = '%s' AND prev_out_index = "
-			"%d;",
-			newstatus, hextxid, outnum);
+		stmt = db_prepare(
+			w->db, "UPDATE outputs SET status=? WHERE prev_out_tx=? AND prev_out_index=?");
+		sqlite3_bind_int(stmt, 1, newstatus);
+		sqlite3_bind_blob(stmt, 2, txid, sizeof(*txid), SQLITE_TRANSIENT);
+		sqlite3_bind_int(stmt, 3, outnum);
 	}
-	tal_free(tmpctx);
+	db_exec_prepared(w->db, stmt);
 	return sqlite3_changes(w->db->sql) > 0;
 }
 
@@ -85,16 +84,13 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 {
 	struct utxo **results;
 	int i;
-	sqlite3_stmt *stmt =
-	    db_query(__func__, w->db, "SELECT prev_out_tx, prev_out_index, "
-				      "value, type, status, keyindex FROM "
-				      "outputs WHERE status=%d OR %d=255",
-		     state, state);
 
-	if (!stmt)
-		return NULL;
+	sqlite3_stmt *stmt = db_prepare(
+		w->db, "SELECT prev_out_tx, prev_out_index, value, type, status, keyindex "
+		"FROM outputs WHERE status=?1 OR ?1=255");
+	sqlite3_bind_int(stmt, 1, state);
 
-	results = tal_arr(ctx, struct utxo*, 0);
+       	results = tal_arr(ctx, struct utxo*, 0);
 	for (i=0; sqlite3_step(stmt) == SQLITE_ROW; i++) {
 		tal_resize(&results, i+1);
 		results[i] = tal(results, struct utxo);
