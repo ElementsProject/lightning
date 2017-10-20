@@ -440,7 +440,7 @@ bool sqlite3_column_short_channel_id(sqlite3_stmt *stmt, int col,
 bool sqlite3_bind_tx(sqlite3_stmt *stmt, int col, const struct bitcoin_tx *tx)
 {
 	u8 *ser = linearize_tx(NULL, tx);
-	sqlite3_bind_blob(stmt, col, tal_hex(ser, ser), 2*tal_len(ser), SQLITE_TRANSIENT);
+	sqlite3_bind_blob(stmt, col, ser, tal_len(ser), SQLITE_TRANSIENT);
 	tal_free(ser);
 	return true;
 }
@@ -448,12 +448,10 @@ bool sqlite3_bind_tx(sqlite3_stmt *stmt, int col, const struct bitcoin_tx *tx)
 struct bitcoin_tx *sqlite3_column_tx(const tal_t *ctx, sqlite3_stmt *stmt,
 				     int col)
 {
-	return bitcoin_tx_from_hex(
-		ctx,
-		sqlite3_column_blob(stmt, col),
-		sqlite3_column_bytes(stmt, col));
+	const u8 *src = sqlite3_column_blob(stmt, col);
+	size_t len = sqlite3_column_bytes(stmt, col);
+	return pull_bitcoin_tx(ctx, &src, &len);
 }
-
 bool sqlite3_bind_signature(sqlite3_stmt *stmt, int col,
 			    const secp256k1_ecdsa_signature *sig)
 {
@@ -475,18 +473,8 @@ bool sqlite3_column_signature(sqlite3_stmt *stmt, int col,
 
 bool sqlite3_column_pubkey(sqlite3_stmt *stmt, int col,  struct pubkey *dest)
 {
-	u8 buf[PUBKEY_DER_LEN];
-
-	if (sqlite3_column_bytes(stmt, col) == 2*PUBKEY_DER_LEN) {
-		/* FIXME: Remove the legacy path for hex-values */
-		if (!sqlite3_column_hexval(stmt, col, buf, sizeof(buf)))
-			return false;
-	} else {
-		assert(sqlite3_column_bytes(stmt, col) == PUBKEY_DER_LEN);
-		memcpy(buf, sqlite3_column_blob(stmt, col), PUBKEY_DER_LEN);
-	}
-
-	return pubkey_from_der(buf, sizeof(buf), dest);
+	assert(sqlite3_column_bytes(stmt, col) == PUBKEY_DER_LEN);
+	return pubkey_from_der(sqlite3_column_blob(stmt, col), PUBKEY_DER_LEN, dest);
 }
 
 bool sqlite3_bind_pubkey(sqlite3_stmt *stmt, int col, const struct pubkey *pk)
