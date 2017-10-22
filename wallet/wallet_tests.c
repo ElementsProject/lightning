@@ -212,7 +212,6 @@ static bool test_channel_crud(const tal_t *ctx)
 	memset(&p.id, 'A', sizeof(p.id));
 	c1.peer = &p;
 	p.id = pk;
-	p.unique_id = 42;
 	p.our_msatoshi = NULL;
 	p.last_tx = NULL;
 	memset(&ci.their_config, 0, sizeof(struct channel_config));
