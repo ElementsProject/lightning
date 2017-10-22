@@ -32,10 +32,16 @@ u8 *towire_errorfmtv(const tal_t *ctx,
 		     const char *fmt,
 		     va_list ap);
 
-/**
- * is_all_channels - True if channel_id is all zeroes.
+/* BOLT #1:
+ *
+ * A node receiving `error` MUST fail the channel referred to by the message,
+ * or if `channel_id` is zero, it MUST fail all channels and MUST close the
+ * connection.
  */
-bool is_all_channels(const struct channel_id *channel_id);
+/**
+ * channel_id_is_all - True if channel_id is all zeroes.
+ */
+bool channel_id_is_all(const struct channel_id *channel_id);
 
 /**
  * sanitize_error - extract and sanitize contents of WIRE_ERROR.

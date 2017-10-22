@@ -43,15 +43,8 @@ u8 *towire_errorfmt(const tal_t *ctx,
 	return msg;
 }
 
-bool is_all_channels(const struct channel_id *channel_id)
+bool channel_id_is_all(const struct channel_id *channel_id)
 {
-	/* BOLT #1:
-	 *
-	 * A node receiving `error` MUST fail the channel referred to by the
-	 * message, or if `channel_id` is zero, it MUST fail all channels and
-	 * MUST close the connection.  If no existing channel is referred to
-	 * by the message, the receiver MUST ignore the message.
-	 */
 	return memeqzero(channel_id, sizeof(*channel_id));
 }
 
@@ -86,7 +79,7 @@ char *sanitize_error(const tal_t *ctx, const u8 *errmsg,
 	}
 
 	return tal_fmt(ctx, "channel %s: %.*s",
-		       is_all_channels(channel_id)
+		       channel_id_is_all(channel_id)
 		       ? "ALL"
 		       : type_to_string(ctx, struct channel_id, channel_id),
 		       (int)tal_len(data), (char *)data);
