@@ -179,14 +179,11 @@ static char *opt_set_network(const char *arg, struct lightningd *ld)
 	return NULL;
 }
 
-/* FIXME: Uncomment once legacy daemon has been removed */
-/*
 static void opt_show_network(char buf[OPT_SHOW_LEN],
 			     const struct lightningd *ld)
 {
-	snprintf(buf, OPT_SHOW_LEN, "%s", ld->chainparams->network_name);
+	snprintf(buf, OPT_SHOW_LEN, "%s", get_chainparams(ld)->network_name);
 }
-*/
 
 static void config_register_opts(struct lightningd *ld)
 {
@@ -251,10 +248,10 @@ static void config_register_opts(struct lightningd *ld)
 			   &ld->config.ipaddr,
 			   "Set the IP address (v4 or v6) to announce to the network for incoming connections");
 
-	/* FIXME: Register opt_show_network with the option */
-	opt_register_early_arg("--network", opt_set_network, NULL, ld,
-			       "Select the network parameters (bitcoin, testnet, "
-			       "regtest, or litecoin)");
+	opt_register_early_arg("--network", opt_set_network, opt_show_network,
+			       ld,
+			       "Select the network parameters (bitcoin, testnet,"
+			       " regtest, or litecoin)");
 }
 
 static char *opt_set_hsm_seed(const char *arg, struct lightningd *ld)
