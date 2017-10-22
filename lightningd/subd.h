@@ -144,7 +144,7 @@ void subd_req_(const tal_t *ctx,
 	       void *replycb_data);
 
 /**
- * subd_release_peer - try to politely shut down a subdaemon.
+ * subd_release_peer - shut down a subdaemon which no longer owns the peer.
  * @owner: subd which owned peer.
  * @peer: peer to release.
  *
