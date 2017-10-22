@@ -445,7 +445,6 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		chan->peer = talz(chan, struct peer);
 	}
 	chan->id = sqlite3_column_int64(stmt, col++);
-	chan->peer->unique_id = sqlite3_column_int64(stmt, col++);
 	chan->peer->dbid = sqlite3_column_int64(stmt, col++);
 	wallet_peer_load(w, chan->peer->dbid, chan->peer);
 
@@ -549,7 +548,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		col += 2;
 	}
 
-	assert(col == 33);
+	assert(col == 32);
 
 	chan->peer->channel = chan;
 
@@ -559,7 +558,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 /* List of fields to retrieve from the channels DB table, in the order
  * that wallet_stmt2channel understands and will parse correctly */
 const char *channel_fields =
-    "id, unique_id, peer_id, short_channel_id, channel_config_local, "
+    "id, peer_id, short_channel_id, channel_config_local, "
     "channel_config_remote, state, funder, channel_flags, "
     "minimum_depth, "
     "next_index_local, next_index_remote, "
@@ -723,7 +722,6 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 
 	/* Now do the real update */
 	ok &= db_exec(__func__, w->db, "UPDATE channels SET"
-		      "  unique_id=%"PRIu64","
 		      "  shachain_remote_id=%"PRIu64","
 		      "  short_channel_id=%s,"
 		      "  state=%d,"
@@ -744,7 +742,6 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		      "  channel_config_local=%"PRIu64","
 		      "  last_tx=%s, last_sig=%s"
 		      " WHERE id=%"PRIu64,
-		      p->unique_id,
 		      p->their_shachain.id,
 		      p->scid?tal_fmt(tmpctx,"'%s'", short_channel_id_to_str(tmpctx, p->scid)):"null",
 		      p->state,

@@ -890,7 +890,6 @@ static void json_getpeers(struct command *cmd,
 	json_array_start(response, "peers");
 	list_for_each(&cmd->ld->peers, p, list) {
 		json_object_start(response, NULL);
-		json_add_u64(response, "unique_id", p->unique_id);
 		json_add_string(response, "state", peer_state_name(p->state));
 		json_add_string(response, "netaddr",
 				netaddr_name(response, &p->netaddr));
