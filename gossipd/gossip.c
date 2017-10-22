@@ -267,7 +267,7 @@ static bool is_all_channel_error(const u8 *msg)
 	if (!fromwire_error(msg, msg, NULL, &channel_id, &data))
 		return false;
 	tal_free(data);
-	return is_all_channels(&channel_id);
+	return channel_id_is_all(&channel_id);
 }
 
 static struct io_plan *peer_close_after_error(struct io_conn *conn,
