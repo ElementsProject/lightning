@@ -216,6 +216,7 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
         return l1,l2
 
+    # Returns the short channel-id: <blocknum>:<txnum>:<outnum>
     def fund_channel(self, l1, l2, amount):
         addr = l1.rpc.newaddr()['address']
 
@@ -223,14 +224,21 @@ class LightningDTests(BaseLightningDTests):
         tx = l1.bitcoin.rpc.getrawtransaction(txid)
 
         l1.rpc.addfunds(tx)
-        l1.rpc.fundchannel(l2.info['id'], amount)
-        # Technically, this is async to fundchannel.
-        l1.daemon.wait_for_log('sendrawtx exit 0')
-
+        # Generate a block, so we know next tx will be first in block.
         l1.bitcoin.rpc.generate(1)
 
+        tx = l1.rpc.fundchannel(l2.info['id'], amount)['tx']
+        # Technically, this is async to fundchannel.
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        l1.bitcoin.rpc.generate(1)
         l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
         l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
+
+        # Hacky way to find our output.
+        for out in bitcoind.rpc.decoderawtransaction(tx)['vout']:
+            if out['scriptPubKey']['type'] == 'witness_v0_scripthash' and out['value'] == Decimal(amount) / 10**8:
+                return "{}:1:{}".format(bitcoind.rpc.getblockcount(), out['n'])
+        raise ValueError("Can't find {} payment in {}".format(amount, tx))
 
     def pay(self, lsrc, ldst, amt, label=None, async=False):
         if not label:
