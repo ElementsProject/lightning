@@ -97,7 +97,7 @@ void gossip_init(struct lightningd *ld)
 	u8 *msg;
 	int hsmfd;
 
-	msg = towire_hsmctl_hsmfd_ecdh(tmpctx, 0);
+	msg = towire_hsmctl_hsmfd_ecdh(tmpctx);
 	if (!wire_sync_write(ld->hsm_fd, msg))
 		fatal("Could not write to HSM: %s", strerror(errno));
 

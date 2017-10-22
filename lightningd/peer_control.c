@@ -2021,7 +2021,7 @@ static bool peer_start_channeld(struct peer *peer,
 	} else
 		assert(peer->our_msatoshi);
 
-	msg = towire_hsmctl_hsmfd_channeld(tmpctx, peer->unique_id);
+	msg = towire_hsmctl_hsmfd_channeld(tmpctx, &peer->id);
 	if (!wire_sync_write(peer->ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 

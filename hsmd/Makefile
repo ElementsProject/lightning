@@ -34,6 +34,7 @@ HSMD_COMMON_OBJS :=				\
 	common/msg_queue.o			\
 	common/permute_tx.o			\
 	common/status.o				\
+	common/type_to_string.o			\
 	common/utils.o				\
 	common/utxo.o				\
 	common/version.o			\
