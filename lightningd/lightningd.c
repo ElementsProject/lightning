@@ -75,6 +75,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx,
 	htlc_in_map_init(&ld->htlcs_in);
 	htlc_out_map_init(&ld->htlcs_out);
 	ld->dev_disconnect_fd = -1;
+	ld->dev_hsm_seed = NULL;
 	ld->log_book = log_book;
 	ld->log = new_log(log_book, log_book, "lightningd(%u):", (int)getpid());
 

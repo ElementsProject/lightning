@@ -225,6 +225,8 @@ class LightningD(TailableProc):
         TailableProc.__init__(self, lightning_dir)
         self.lightning_dir = lightning_dir
         self.port = port
+        # Last 32-bytes of final part of dir -> seed.
+        seed = (bytes(re.search('([^/]+)/*$', lightning_dir).group(1), encoding='utf-8') + bytes(32))[:32]
         self.cmd_line = [
             'lightningd/lightningd',
             '--bitcoin-datadir={}'.format(bitcoin_dir),
@@ -232,6 +234,7 @@ class LightningD(TailableProc):
             '--port={}'.format(port),
             '--network=regtest',
             '--dev-broadcast-interval=1000',
+            '--dev-hsm-seed={}'.format(seed.hex())
         ]
 
         self.cmd_line += ["--{}={}".format(k, v) for k, v in LIGHTNINGD_CONFIG.items()]
