@@ -18,6 +18,7 @@
 #include <common/funding_tx.h>
 #include <common/io_debug.h>
 #include <common/status.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/version.h>
 #include <common/withdraw_tx.h>
@@ -47,7 +48,7 @@ struct client {
 	struct daemon_conn dc;
 	struct daemon_conn *master;
 
-	u64 id;
+	struct pubkey id;
 	struct io_plan *(*handle)(struct io_conn *, struct daemon_conn *);
 };
 
@@ -74,13 +75,13 @@ static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 }
 
 static struct client *new_client(struct daemon_conn *master,
-				 u64 id,
+				 const struct pubkey *id,
 				 struct io_plan *(*handle)(struct io_conn *,
 							   struct daemon_conn *),
 				 int fd)
 {
 	struct client *c = tal(master, struct client);
-	c->id = id;
+	c->id = *id;
 	c->handle = handle;
 	c->master = master;
 	daemon_conn_init(c, &c->dc, fd, handle, NULL);
@@ -102,7 +103,7 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 	if (!fromwire_hsm_ecdh_req(dc->msg_in, NULL, &point)) {
 		daemon_conn_send(c->master,
 				 take(towire_hsmstatus_client_bad_request(c,
-								c->id,
+								&c->id,
 								dc->msg_in)));
 		return io_close(conn);
 	}
@@ -110,10 +111,11 @@ static struct io_plan *handle_ecdh(struct io_conn *conn, struct daemon_conn *dc)
 	node_key(&privkey, NULL);
 	if (secp256k1_ecdh(secp256k1_ctx, ss.data, &point.pubkey,
 			   privkey.secret.data) != 1) {
-		status_trace("secp256k1_ecdh fail for client %"PRIu64, c->id);
+		status_trace("secp256k1_ecdh fail for client %s",
+			     type_to_string(trc, struct pubkey, &c->id));
 		daemon_conn_send(c->master,
 				 take(towire_hsmstatus_client_bad_request(c,
-								c->id,
+								&c->id,
 								dc->msg_in)));
 		return io_close(conn);
 	}
@@ -235,7 +237,7 @@ static struct io_plan *handle_channeld(struct io_conn *conn,
 
 	daemon_conn_send(c->master,
 			 take(towire_hsmstatus_client_bad_request(c,
-								  c->id,
+								  &c->id,
 								  dc->msg_in)));
 	return io_close(conn);
 }
@@ -415,16 +417,18 @@ static void init_hsm(struct daemon_conn *master, const u8 *msg)
 static void pass_hsmfd_ecdh(struct daemon_conn *master, const u8 *msg)
 {
 	int fds[2];
-	u64 id;
+	struct pubkey id;
 
-	if (!fromwire_hsmctl_hsmfd_ecdh(msg, NULL, &id))
+	if (!fromwire_hsmctl_hsmfd_ecdh(msg, NULL))
 		master_badmsg(WIRE_HSMCTL_HSMFD_ECDH, msg);
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "creating fds: %s", strerror(errno));
 
-	new_client(master, id, handle_ecdh, fds[0]);
+	/* This is gossipd, so we use our own id */
+	node_key(NULL, &id);
+	new_client(master, &id, handle_ecdh, fds[0]);
 	daemon_conn_send(master,
 			 take(towire_hsmctl_hsmfd_ecdh_fd_reply(master)));
 	daemon_conn_send_fd(master, fds[1]);
@@ -434,7 +438,7 @@ static void pass_hsmfd_ecdh(struct daemon_conn *master, const u8 *msg)
 static void pass_hsmfd_channeld(struct daemon_conn *master, const u8 *msg)
 {
 	int fds[2];
-	u64 id;
+	struct pubkey id;
 
 	if (!fromwire_hsmctl_hsmfd_channeld(msg, NULL, &id))
 		master_badmsg(WIRE_HSMCTL_HSMFD_CHANNELD, msg);
@@ -443,7 +447,7 @@ static void pass_hsmfd_channeld(struct daemon_conn *master, const u8 *msg)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "creating fds: %s", strerror(errno));
 
-	new_client(master, id, handle_channeld, fds[0]);
+	new_client(master, &id, handle_channeld, fds[0]);
 	daemon_conn_send(master,
 			 take(towire_hsmctl_hsmfd_channeld_reply(master)));
 	daemon_conn_send_fd(master, fds[1]);
