@@ -198,10 +198,6 @@ bool fromwire_ipaddr(const u8 **cursor, size_t *max, struct ipaddr *addr)
 	fromwire(cursor, max, addr->addr, addr->addrlen);
 	addr->port = fromwire_u16(cursor, max);
 
-	/* Skip any post-padding */
-	while (*max && (*cursor)[0] == ADDR_TYPE_PADDING)
-		fromwire_u8(cursor, max);
-
 	return *cursor != NULL;
 }
 

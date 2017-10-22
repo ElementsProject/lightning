@@ -637,6 +637,10 @@ static struct ipaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 	while (cursor && cursor < ser + max) {
 		struct ipaddr ipaddr;
 
+		/* Skip any padding */
+		while (max && cursor[0] == ADDR_TYPE_PADDING)
+			fromwire_u8(&cursor, &max);
+
 		/* BOLT #7:
 		 *
 		 * The receiving node SHOULD ignore the first `address
