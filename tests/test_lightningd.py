@@ -236,8 +236,10 @@ class LightningDTests(BaseLightningDTests):
 
         # Hacky way to find our output.
         for out in bitcoind.rpc.decoderawtransaction(tx)['vout']:
-            if out['scriptPubKey']['type'] == 'witness_v0_scripthash' and out['value'] == Decimal(amount) / 10**8:
-                return "{}:1:{}".format(bitcoind.rpc.getblockcount(), out['n'])
+            # Sometimes a float?  Sometimes a decimal?  WTF Python?!
+            if out['scriptPubKey']['type'] == 'witness_v0_scripthash':
+                if out['value'] == Decimal(amount) / 10**8 or out['value'] * 10**8 == amount:
+                    return "{}:1:{}".format(bitcoind.rpc.getblockcount(), out['n'])
         raise ValueError("Can't find {} payment in {}".format(amount, tx))
 
     def pay(self, lsrc, ldst, amt, label=None, async=False):
