@@ -40,12 +40,6 @@ struct log_book *new_log_book(const tal_t *ctx UNNEEDED,
 /* Generated stub for new_topology */
 struct chain_topology *new_topology(const tal_t *ctx UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "new_topology called!\n"); abort(); }
-/* Generated stub for opt_subd_debug */
-char *opt_subd_debug(const char *optarg UNNEEDED, struct lightningd *ld UNNEEDED)
-{ fprintf(stderr, "opt_subd_debug called!\n"); abort(); }
-/* Generated stub for opt_subd_dev_disconnect */
-char *opt_subd_dev_disconnect(const char *optarg UNNEEDED, struct lightningd *ld UNNEEDED)
-{ fprintf(stderr, "opt_subd_dev_disconnect called!\n"); abort(); }
 /* Generated stub for populate_peer */
 void populate_peer(struct lightningd *ld UNNEEDED, struct peer *peer UNNEEDED)
 { fprintf(stderr, "populate_peer called!\n"); abort(); }
