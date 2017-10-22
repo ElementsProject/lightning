@@ -113,6 +113,9 @@ struct lightningd {
 	/* If we want to debug a subdaemon. */
 	const char *dev_debug_subdaemon;
 
+	/* If we want to set a specific non-random HSM seed. */
+	const u8 *dev_hsm_seed;
+
 	/* If we have a --dev-disconnect file */
 	int dev_disconnect_fd;
 
