@@ -741,7 +741,7 @@ static void json_connect(struct command *cmd,
 			port = tal_strdup(cmd, stringify(DEFAULT_PORT));
 		}
 		addr.port = atoi(port);
-		if (!parse_ipaddr(name, &addr) || !addr.port)
+		if (!parse_ipaddr(name, &addr, addr.port) || !addr.port)
 			command_fail(cmd, "host %s:%s not valid", name, port);
 
 		/* Tell it about the address. */
@@ -1472,13 +1472,14 @@ static u8 *create_node_announcement(const tal_t *ctx, struct lightningd *ld,
 	u8 *features = NULL;
 	u8 *addresses = tal_arr(ctx, u8, 0);
 	u8 *announcement;
+	size_t i;
 	if (!sig) {
 		sig = tal(ctx, secp256k1_ecdsa_signature);
 		memset(sig, 0, sizeof(*sig));
 	}
-	if (ld->config.ipaddr.type != ADDR_TYPE_PADDING) {
-		towire_ipaddr(&addresses, &ld->config.ipaddr);
-	}
+	for (i = 0; i < tal_count(ld->wireaddrs); i++)
+		towire_ipaddr(&addresses, ld->wireaddrs+i);
+
 	announcement =
 	    towire_node_announcement(ctx, sig, features, timestamp,
 				     &ld->id, ld->rgb, (u8 *)ld->alias,

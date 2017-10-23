@@ -248,11 +248,13 @@ static void json_getinfo(struct command *cmd,
 
 	json_object_start(response, NULL);
 	json_add_pubkey(response, "id", &cmd->ld->id);
-	/* FIXME: Keep ipaddr and list them all. */
-	if (cmd->ld->portnum)
+	if (cmd->ld->portnum) {
 		json_add_num(response, "port", cmd->ld->portnum);
-	json_add_string(response, "network",
-			get_chainparams(cmd->ld)->network_name);
+		json_array_start(response, "address");
+		for (size_t i = 0; i < tal_count(cmd->ld->wireaddrs); i++)
+			json_add_address(response, NULL, cmd->ld->wireaddrs+i);
+		json_array_end(response);
+	}
 	json_add_string(response, "version", version());
 	json_add_num(response, "blockheight", get_block_height(cmd->ld->topology));
 	json_object_end(response);

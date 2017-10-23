@@ -62,9 +62,6 @@ struct config {
 	/* How long between changing commit and sending COMMIT message. */
 	struct timerel commit_time;
 
-	/* IPv4 or IPv6 address to announce to the network */
-	struct ipaddr ipaddr;
-
 	/* Disable automatic reconnects */
 	bool no_reconnect;
 };
@@ -96,6 +93,9 @@ struct lightningd {
 
 	/* Port we're listening on */
 	u16 portnum;
+
+	/* Addresses to announce to the network (tal_count()) */
+	struct ipaddr *wireaddrs;
 
 	/* Bearer of all my secrets. */
 	int hsm_fd;

@@ -118,7 +118,7 @@ static char *opt_set_s32(const char *arg, s32 *u)
 }
 
 /* FIXME: Rename ipaddr and hoist up */
-bool parse_ipaddr(const char *arg, struct ipaddr *addr)
+bool parse_ipaddr(const char *arg, struct ipaddr *addr, u16 port)
 {
 	struct in6_addr v6;
 	struct in_addr v4;
@@ -133,20 +133,26 @@ bool parse_ipaddr(const char *arg, struct ipaddr *addr)
 	if (inet_pton(AF_INET, arg, &v4) == 1) {
 		addr->type = ADDR_TYPE_IPV4;
 		addr->addrlen = 4;
+		addr->port = port;
 		memcpy(&addr->addr, &v4, addr->addrlen);
 		return true;
 	} else if (inet_pton(AF_INET6, arg, &v6) == 1) {
 		addr->type = ADDR_TYPE_IPV6;
 		addr->addrlen = 16;
+		addr->port = port;
 		memcpy(&addr->addr, &v6, addr->addrlen);
 		return true;
 	}
 	return false;
 }
 
-static char *opt_set_ipaddr(const char *arg, struct ipaddr *addr)
+static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
 {
-	if (parse_ipaddr(arg, addr))
+	size_t n = tal_count(ld->wireaddrs);
+
+	tal_resize(&ld->wireaddrs, n+1);
+
+	if (parse_ipaddr(arg, &ld->wireaddrs[n], ld->portnum))
 		return NULL;
 
 	return tal_fmt(NULL, "Unable to parse IP address '%s'", arg);
@@ -275,9 +281,9 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_noarg("--no-reconnect", opt_set_bool,
 			   &ld->config.no_reconnect, "Disable automatic reconnect attempts");
 
-	opt_register_arg("--ipaddr", opt_set_ipaddr, NULL,
-			   &ld->config.ipaddr,
-			   "Set the IP address (v4 or v6) to announce to the network for incoming connections");
+	opt_register_arg("--ipaddr", opt_add_ipaddr, NULL,
+			 ld,
+			 "Set the IP address (v4 or v6) to announce to the network for incoming connections");
 
 	opt_register_early_arg("--network", opt_set_network, opt_show_network,
 			       ld,
@@ -366,9 +372,6 @@ static const struct config testnet_config = {
 	/* Take 0.001% */
 	.fee_per_satoshi = 10,
 
-	/* Do not advertise any IP */
-	.ipaddr.type = 0,
-
 	/* Automatically reconnect */
 	.no_reconnect = false,
 };
@@ -426,9 +429,6 @@ static const struct config mainnet_config = {
 	.fee_base = 546000,
 	/* Take 0.001% */
 	.fee_per_satoshi = 10,
-
-	/* Do not advertise any IP */
-	.ipaddr.type = 0,
 
 	/* Automatically reconnect */
 	.no_reconnect = false,
@@ -631,7 +631,6 @@ bool handle_opts(struct lightningd *ld, int argc, char *argv[])
 	/* Now look for config file */
 	opt_parse_from_config(ld);
 
-	ld->config.ipaddr.port = ld->portnum;
 	opt_parse(&argc, argv, opt_log_stderr_exit);
 	if (argc != 1)
 		errx(1, "no arguments accepted");
