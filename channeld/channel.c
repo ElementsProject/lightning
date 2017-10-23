@@ -231,9 +231,10 @@ static void send_announcement_signatures(struct peer *peer)
 	tal_free(tmpctx);
 }
 
-static void send_channel_update(struct peer *peer, bool disabled)
+static u8 *create_channel_update(const tal_t *ctx,
+				 struct peer *peer, bool disabled)
 {
-	tal_t *tmpctx = tal_tmpctx(peer);
+	tal_t *tmpctx = tal_tmpctx(ctx);
 	u32 timestamp = time_now().ts.tv_sec;
 	u16 flags;
 	u8 *cupdate, *msg;
@@ -257,14 +258,12 @@ static void send_channel_update(struct peer *peer, bool disabled)
 			      strerror(errno));
 
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_cupdate_sig_reply(tmpctx, msg, NULL, &cupdate))
+	if (!msg || !fromwire_hsm_cupdate_sig_reply(ctx, msg, NULL, &cupdate))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading cupdate_sig_req: %s",
 			      strerror(errno));
-
-	daemon_conn_send(&peer->gossip_client, cupdate);
-	msg_enqueue(&peer->peer_out, cupdate);
 	tal_free(tmpctx);
+	return cupdate;
 }
 
 /* Tentatively create a channel_announcement, possibly with invalid
@@ -295,15 +294,6 @@ static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer)
 	    &peer->channel->funding_pubkey[second]);
 	tal_free(features);
 	return cannounce;
-}
-
-static void send_channel_announcement(struct peer *peer)
-{
-	u8 *msg = create_channel_announcement(peer, peer);
-	/* Makes a copy */
-	msg_enqueue(&peer->peer_out, msg);
-	/* Takes ownership */
-	daemon_conn_send(&peer->gossip_client, take(msg));
 }
 
 static struct io_plan *peer_out(struct io_conn *conn, struct peer *peer)
@@ -362,11 +352,16 @@ static struct io_plan *handle_peer_funding_locked(struct io_conn *conn,
 
 static void announce_channel(struct peer *peer)
 {
-		send_channel_announcement(peer);
-		send_channel_update(peer, false);
-		/* Tell the master that we just announced the channel,
-		 * so it may announce the node */
-		wire_sync_write(MASTER_FD, take(towire_channel_announced(peer)));
+	u8 *cannounce, *cupdate;
+
+	cannounce = create_channel_announcement(peer, peer);
+	cupdate = create_channel_update(cannounce, peer, false);
+
+	/* Tell the master that we to announce channel (it does node) */
+	wire_sync_write(MASTER_FD, take(towire_channel_announce(peer,
+								cannounce,
+								cupdate)));
+	tal_free(cannounce);
 }
 
 static struct io_plan *handle_peer_announcement_signatures(struct io_conn *conn,
@@ -1406,7 +1401,10 @@ static void peer_conn_broken(struct io_conn *conn, struct peer *peer)
 {
 	/* If we have signatures, send an update to say we're disabled. */
 	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE]) {
-		send_channel_update(peer, true);
+		u8 *cupdate = create_channel_update(conn, peer, true);
+
+		daemon_conn_send(&peer->gossip_client, cupdate);
+		msg_enqueue(&peer->peer_out, take(cupdate));
 
 		/* Make sure gossipd actually gets this message before dying */
 		daemon_conn_sync_flush(&peer->gossip_client);
@@ -1954,7 +1952,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
 	case WIRE_CHANNEL_PING_REPLY:
-	case WIRE_CHANNEL_ANNOUNCED:
+	case WIRE_CHANNEL_ANNOUNCE:
 	case WIRE_CHANNEL_SENDING_COMMITSIG:
 	case WIRE_CHANNEL_GOT_COMMITSIG:
 	case WIRE_CHANNEL_GOT_REVOKE:

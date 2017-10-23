@@ -102,8 +102,12 @@ channel_ping,,len,u16
 channel_ping_reply,1111
 channel_ping_reply,,totlen,u16
 
-# Channeld tells the master that the channel has been announced
-channel_announced,1012
+# Channeld tells the master to announce the channel (with first update)
+channel_announce,1012
+channel_announce,,announce_len,u16
+channel_announce,,announce,announce_len*u8
+channel_announce,,update_len,u16
+channel_announce,,update,update_len*u8
 
 # When we receive funding_locked.
 channel_got_funding_locked,1019

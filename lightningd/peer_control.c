@@ -1546,15 +1546,16 @@ static u8 *create_node_announcement(const tal_t *ctx, struct lightningd *ld,
  * an update, so we can now start sending a node_announcement. The
  * first step is to build the provisional announcement and ask the HSM
  * to sign it. */
-static void peer_channel_announced(struct peer *peer, const u8 *msg)
+static void peer_channel_announce(struct peer *peer, const u8 *msg)
 {
 	struct lightningd *ld = peer->ld;
 	tal_t *tmpctx = tal_tmpctx(peer);
 	secp256k1_ecdsa_signature sig;
+	u8 *cannounce, *cupdate;
 	u8 *announcement, *wrappedmsg;
 	u32 timestamp = time_now().ts.tv_sec;
 
-	if (!fromwire_channel_announced(msg, NULL)) {
+	if (!fromwire_channel_announce(msg, msg, NULL, &cannounce, &cupdate)) {
 		peer_internal_error(peer, "bad fromwire_channel_announced %s",
 				    tal_hex(peer, msg));
 		return;
@@ -1574,6 +1575,15 @@ static void peer_channel_announced(struct peer *peer, const u8 *msg)
 	 * from the HSM, create the real announcement and forward it to
 	 * gossipd so it can take care of forwarding it. */
 	announcement = create_node_announcement(tmpctx, ld, &sig, timestamp);
+
+	/* We have to send channel_announce before channel_update and
+	 * node_announcement */
+	wrappedmsg = towire_gossip_forwarded_msg(tmpctx, cannounce);
+	subd_send_msg(ld->gossip, take(wrappedmsg));
+
+	wrappedmsg = towire_gossip_forwarded_msg(tmpctx, cupdate);
+	subd_send_msg(ld->gossip, take(wrappedmsg));
+
 	wrappedmsg = towire_gossip_forwarded_msg(tmpctx, announcement);
 	subd_send_msg(ld->gossip, take(wrappedmsg));
 	tal_free(tmpctx);
@@ -1956,8 +1966,8 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_GOT_REVOKE:
 		peer_got_revoke(sd->peer, msg);
 		break;
-	case WIRE_CHANNEL_ANNOUNCED:
-		peer_channel_announced(sd->peer, msg);
+	case WIRE_CHANNEL_ANNOUNCE:
+		peer_channel_announce(sd->peer, msg);
 		break;
 	case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
 		peer_got_funding_locked(sd->peer, msg);
