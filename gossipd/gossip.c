@@ -1299,6 +1299,31 @@ static struct io_plan *addr_hint(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
+static struct io_plan *get_peers(struct io_conn *conn,
+				 struct daemon *daemon, const u8 *msg)
+{
+	struct peer *peer;
+	size_t n = 0;
+	struct pubkey *id = tal_arr(conn, struct pubkey, n);
+	struct wireaddr *wireaddr = tal_arr(conn, struct wireaddr, n);
+
+	if (!fromwire_gossip_getpeers_request(msg, NULL))
+		master_badmsg(WIRE_GOSSIPCTL_PEER_ADDRHINT, msg);
+
+	list_for_each(&daemon->peers, peer, list) {
+		tal_resize(&id, n+1);
+		tal_resize(&wireaddr, n+1);
+
+		id[n] = peer->id;
+		wireaddr[n] = peer->addr;
+		n++;
+	}
+
+	daemon_conn_send(&daemon->master,
+			 take(towire_gossip_getpeers_reply(conn, id, wireaddr)));
+	return daemon_conn_read_next(conn, &daemon->master);
+}
+
 static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master)
 {
 	struct daemon *daemon = container_of(master, struct daemon, master);
@@ -1342,11 +1367,15 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIPCTL_PEER_ADDRHINT:
 		return addr_hint(conn, daemon, master->msg_in);
 
+	case WIRE_GOSSIP_GETPEERS_REQUEST:
+		return get_peers(conn, daemon, master->msg_in);
+
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLY:
 	case WIRE_GOSSIPCTL_RELEASE_PEER_REPLYFAIL:
 	case WIRE_GOSSIP_GETNODES_REPLY:
 	case WIRE_GOSSIP_GETROUTE_REPLY:
 	case WIRE_GOSSIP_GETCHANNELS_REPLY:
+	case WIRE_GOSSIP_GETPEERS_REPLY:
 	case WIRE_GOSSIP_PING_REPLY:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
 	case WIRE_GOSSIP_PEER_CONNECTED:
