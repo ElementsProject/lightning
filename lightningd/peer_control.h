@@ -7,7 +7,6 @@
 #include <common/channel_config.h>
 #include <common/htlc.h>
 #include <common/json.h>
-#include <lightningd/netaddr.h>
 #include <lightningd/peer_state.h>
 #include <stdbool.h>
 #include <wallet/wallet.h>
@@ -55,7 +54,6 @@ struct peer {
 	u8 channel_flags;
 
 	/* Where we connected to, or it connected from. */
-	struct netaddr netaddr;
 	struct ipaddr addr;
 
 	/* Our channel config. */

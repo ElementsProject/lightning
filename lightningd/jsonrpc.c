@@ -248,7 +248,7 @@ static void json_getinfo(struct command *cmd,
 
 	json_object_start(response, NULL);
 	json_add_pubkey(response, "id", &cmd->ld->id);
-	/* FIXME: Keep netaddrs and list them all. */
+	/* FIXME: Keep ipaddr and list them all. */
 	if (cmd->ld->portnum)
 		json_add_num(response, "port", cmd->ld->portnum);
 	json_add_string(response, "network",
