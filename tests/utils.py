@@ -20,9 +20,10 @@ BITCOIND_CONFIG = {
 LIGHTNINGD_CONFIG = {
     "bitcoind-poll": "1s",
     "log-level": "debug",
-    "deadline-blocks": 5,
-    "min-htlc-expiry": 6,
-    "locktime-blocks": 6,
+    "deadline-blocks": 4,
+    "cltv-delta": 6,
+    "cltv-final": 5,
+    "locktime-blocks": 5,
 }
 
 DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
