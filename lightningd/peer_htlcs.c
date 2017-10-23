@@ -545,6 +545,19 @@ static void forward_htlc(struct htlc_in *hin,
 		goto fail;
 	}
 
+	/* FIXME: Add this to BOLT! */
+	if (get_block_height(next->ld->topology)
+	    + next->ld->config.max_htlc_expiry < outgoing_cltv_value) {
+		log_debug(hin->key.peer->log,
+			  "Expiry cltv %u too far from current %u + max %u",
+			  outgoing_cltv_value,
+			  get_block_height(next->ld->topology),
+			  next->ld->config.max_htlc_expiry);
+		/* FIXME: WIRE_EXPIRY_TOO_FAR? */
+		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
+		goto fail;
+	}
+
 	failcode = send_htlc_out(next, amt_to_forward,
 				 outgoing_cltv_value, &hin->payment_hash,
 				 next_onion, hin, NULL, NULL);
