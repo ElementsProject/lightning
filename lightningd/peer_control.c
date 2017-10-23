@@ -786,34 +786,31 @@ static void log_to_json(unsigned int skipped,
 		json_add_string(info->response, NULL, log);
 }
 
-static void json_getpeers(struct command *cmd,
-			  const char *buffer, const jsmntok_t *params)
+struct getpeers_args {
+	struct command *cmd;
+	/* If non-NULL, they want logs too */
+	enum log_level *ll;
+};
+
+static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
+				      const int *fds,
+				      struct getpeers_args *gpa)
 {
+	/* This is a little sneaky... */
+	struct pubkey *ids;
+	struct wireaddr *addrs;
+	struct json_result *response = new_json_result(gpa->cmd);
 	struct peer *p;
-	struct json_result *response = new_json_result(cmd);
-	jsmntok_t *leveltok;
-	struct log_info info;
 
-	json_get_params(buffer, params, "?level", &leveltok, NULL);
-
-	if (!leveltok)
-		;
-	else if (json_tok_streq(buffer, leveltok, "debug"))
-		info.level = LOG_DBG;
-	else if (json_tok_streq(buffer, leveltok, "info"))
-		info.level = LOG_INFORM;
-	else if (json_tok_streq(buffer, leveltok, "unusual"))
-		info.level = LOG_UNUSUAL;
-	else if (json_tok_streq(buffer, leveltok, "broken"))
-		info.level = LOG_BROKEN;
-	else {
-		command_fail(cmd, "Invalid level param");
+	if (!fromwire_gossip_getpeers_reply(msg, msg, NULL, &ids, &addrs)) {
+		command_fail(gpa->cmd, "Bad response from gossipd");
 		return;
 	}
 
+	/* First the peers not just gossiping. */
 	json_object_start(response, NULL);
 	json_array_start(response, "peers");
-	list_for_each(&cmd->ld->peers, p, list) {
+	list_for_each(&gpa->cmd->ld->peers, p, list) {
 		json_object_start(response, NULL);
 		json_add_string(response, "state", peer_state_name(p->state));
 		json_add_string(response, "netaddr",
@@ -832,7 +829,9 @@ static void json_getpeers(struct command *cmd,
 				     p->funding_satoshi * 1000);
 		}
 
-		if (leveltok) {
+		if (gpa->ll) {
+			struct log_info info;
+			info.level = *gpa->ll;
 			info.response = response;
 			json_array_start(response, "log");
 			log_each_line(p->log_book, log_to_json, &info);
@@ -840,9 +839,60 @@ static void json_getpeers(struct command *cmd,
 		}
 		json_object_end(response);
 	}
+
+	for (size_t i = 0; i < tal_count(ids); i++) {
+		/* Don't report peers in both, which can happen if they're
+		 * reconnecting */
+		if (peer_by_id(gpa->cmd->ld, ids + i))
+			continue;
+
+		json_object_start(response, NULL);
+		/* Fake state. */
+		json_add_string(response, "state", "GOSSIPING");
+		json_add_pubkey(response, "peerid", ids+i);
+		json_add_string(response, "netaddr",
+				type_to_string(response, struct wireaddr,
+					       addrs + i));
+		json_add_bool(response, "connected", "true");
+		json_add_string(response, "owner", gossip->name);
+		json_object_end(response);
+	}
+
 	json_array_end(response);
 	json_object_end(response);
-	command_success(cmd, response);
+	command_success(gpa->cmd, response);
+}
+
+static void json_getpeers(struct command *cmd,
+			  const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *leveltok;
+	struct getpeers_args *gpa = tal(cmd, struct getpeers_args);
+
+	gpa->cmd = cmd;
+	json_get_params(buffer, params, "?level", &leveltok, NULL);
+
+	if (leveltok) {
+		gpa->ll = tal(gpa, enum log_level);
+		if (json_tok_streq(buffer, leveltok, "debug"))
+			*gpa->ll = LOG_DBG;
+		else if (json_tok_streq(buffer, leveltok, "info"))
+			*gpa->ll = LOG_INFORM;
+		else if (json_tok_streq(buffer, leveltok, "unusual"))
+			*gpa->ll = LOG_UNUSUAL;
+		else if (json_tok_streq(buffer, leveltok, "broken"))
+			*gpa->ll = LOG_BROKEN;
+		else {
+			command_fail(cmd, "Invalid level param");
+			return;
+		}
+	} else
+		gpa->ll = NULL;
+
+	/* Get peers from gossipd. */
+	subd_req(cmd, cmd->ld->gossip,
+		 take(towire_gossip_getpeers_request(cmd)),
+		 -1, 0, gossipd_getpeers_complete, gpa);
 }
 
 static const struct json_command getpeers_command = {

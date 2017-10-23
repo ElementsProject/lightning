@@ -123,3 +123,10 @@ gossip_forwarded_msg,3010
 gossip_forwarded_msg,,msglen,u16
 gossip_forwarded_msg,,msg,msglen*u8
 
+# The main daemon asks for peers
+gossip_getpeers_request,3011
+
+gossip_getpeers_reply,3111
+gossip_getpeers_reply,,num,u16
+gossip_getpeers_reply,,id,num*struct pubkey
+gossip_getpeers_reply,,addr,num*struct wireaddr

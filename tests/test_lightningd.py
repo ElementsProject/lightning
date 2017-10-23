@@ -279,9 +279,9 @@ class LightningDTests(BaseLightningDTests):
     def test_connect(self):
         l1,l2 = self.connect()
 
-        # Main daemon has no idea about these peers; they're in gossipd.
-        assert l1.rpc.getpeer(l2.info['id'], 'info') == None
-        assert l2.rpc.getpeer(l1.info['id'], 'info') == None
+        # These should be in gossipd.
+        assert l1.rpc.getpeer(l2.info['id'])['state'] == 'GOSSIPING'
+        assert l2.rpc.getpeer(l1.info['id'])['state'] == 'GOSSIPING'
 
         # Both gossipds will have them as new peers once handed back.
         l1.daemon.wait_for_log('handle_peer {}: new peer'.format(l2.info['id']))
