@@ -219,6 +219,11 @@ class BitcoinD(TailableProc):
 
         logging.info("BitcoinD started")
 
+# lightning-1 => 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518 aka JUNIORBEAM #0266e4
+# lightning-2 => 022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59 aka SILENTARTIST #022d22
+# lightning-3 => 035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d aka HOPPINGFIRE #035d2b
+# lightning-4 => 0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199 aka JUNIORFELONY #0382ce
+# lightning-5 => 032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e aka SOMBERFIRE #032cf1
 
 class LightningD(TailableProc):
     def __init__(self, lightning_dir, bitcoin_dir, port=9735):
