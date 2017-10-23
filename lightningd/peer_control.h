@@ -56,6 +56,7 @@ struct peer {
 
 	/* Where we connected to, or it connected from. */
 	struct netaddr netaddr;
+	struct ipaddr addr;
 
 	/* Our channel config. */
 	struct channel_config our_config;
@@ -168,6 +169,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
+			 const struct ipaddr *addr,
 			 const struct crypto_state *cs,
 			 const u8 *gfeatures,
 			 const u8 *lfeatures,

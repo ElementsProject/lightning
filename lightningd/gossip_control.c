@@ -24,10 +24,11 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 {
 	struct pubkey id;
 	struct crypto_state cs;
+	struct ipaddr addr;
 	u8 *gfeatures, *lfeatures, *in_pkt;
 
 	if (!fromwire_gossip_peer_nongossip(msg, msg, NULL,
-					    &id, &cs,
+					    &id, &addr, &cs,
 					    &gfeatures,
 					    &lfeatures,
 					    &in_pkt))
@@ -45,7 +46,7 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 		return;
 	}
 
-	peer_sent_nongossip(gossip->ld, &id, &cs, gfeatures, lfeatures,
+	peer_sent_nongossip(gossip->ld, &id, &addr, &cs, gfeatures, lfeatures,
 			    peer_fd, gossip_fd, in_pkt);
 }
 
