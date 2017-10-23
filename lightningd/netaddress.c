@@ -1,7 +1,9 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <common/wireaddr.h>
+#include <errno.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/log.h>
 #include <lightningd/netaddress.h>
 #include <netinet/in.h>
 #include <stdbool.h>
@@ -198,18 +200,26 @@ static bool IsRoutable(const struct wireaddr *addr)
 
 /* Trick I learned from Harald Welte: create UDP socket, connect() and
  * then query address. */
-static bool get_local_sockname(int af, void *saddr, socklen_t saddrlen)
+static bool get_local_sockname(struct lightningd *ld,
+                               int af, void *saddr, socklen_t saddrlen)
 {
     int fd = socket(af, SOCK_DGRAM, 0);
-    if (fd < 0)
+    if (fd < 0) {
+        log_debug(ld->log, "Failed to create %u socket: %s",
+                  af, strerror(errno));
         return false;
+    }
 
     if (connect(fd, saddr, saddrlen) != 0) {
+        log_debug(ld->log, "Failed to connect %u socket: %s",
+                  af, strerror(errno));
         close(fd);
         return false;
     }
 
     if (getsockname(fd, saddr, &saddrlen) != 0) {
+        log_debug(ld->log, "Failed to get %u socket name: %s",
+                  af, strerror(errno));
         close(fd);
         return false;
     }
@@ -219,7 +229,8 @@ static bool get_local_sockname(int af, void *saddr, socklen_t saddrlen)
 }
 
 /* Return an wireaddr without port filled in */
-static bool guess_one_address(struct wireaddr *addr, u16 portnum,
+static bool guess_one_address(struct lightningd *ld,
+                              struct wireaddr *addr, u16 portnum,
                               enum wire_addr_type type)
 {
     addr->type = type;
@@ -232,7 +243,8 @@ static bool guess_one_address(struct wireaddr *addr, u16 portnum,
 	sin.sin_port = htons(53);
         /* 8.8.8.8 */
 	sin.sin_addr.s_addr = 0x08080808;
-        if (!get_local_sockname(AF_INET, &sin, sizeof(sin)))
+        sin.sin_family = AF_INET;
+        if (!get_local_sockname(ld, AF_INET, &sin, sizeof(sin)))
             return false;
         addr->addrlen = sizeof(sin.sin_addr);
         memcpy(addr->addr, &sin.sin_addr, addr->addrlen);
@@ -245,20 +257,27 @@ static bool guess_one_address(struct wireaddr *addr, u16 portnum,
                 = {0x20,0x01,0x48,0x60,0x48,0x60,0,0,0,0,0,0,8,8,8,8};
         memset(&sin6, 0, sizeof(sin6));
         sin6.sin6_port = htons(53);
+        sin6.sin6_family = AF_INET6;
         memcpy(sin6.sin6_addr.s6_addr, pchGoogle, sizeof(pchGoogle));
-        if (!get_local_sockname(AF_INET6, &sin6, sizeof(sin6)))
+        if (!get_local_sockname(ld, AF_INET6, &sin6, sizeof(sin6)))
             return false;
         addr->addrlen = sizeof(sin6.sin6_addr);
         memcpy(addr->addr, &sin6.sin6_addr, addr->addrlen);
         break;
     }
     case ADDR_TYPE_PADDING:
+        log_debug(ld->log, "Padding address, ignoring");
         return false;
     }
 
-    if (!IsRoutable(addr))
+    if (!IsRoutable(addr)) {
+        log_debug(ld->log, "Address %s is not routable",
+                  type_to_string(ltmp, struct wireaddr, addr));
         return false;
+    }
 
+    log_debug(ld->log, "Public address %s",
+              type_to_string(ltmp, struct wireaddr, addr));
     return true;
 }
 
@@ -266,13 +285,15 @@ void guess_addresses(struct lightningd *ld)
 {
     size_t n = tal_count(ld->wireaddrs);
 
+    log_debug(ld->log, "Trying to guess public addresses...");
+
     /* We allocate an extra, then remove if it's not needed. */
     tal_resize(&ld->wireaddrs, n+1);
-    if (guess_one_address(&ld->wireaddrs[n], ld->portnum, ADDR_TYPE_IPV4)) {
+    if (guess_one_address(ld, &ld->wireaddrs[n], ld->portnum, ADDR_TYPE_IPV4)) {
         n++;
         tal_resize(&ld->wireaddrs, n+1);
     }
-    if (!guess_one_address(&ld->wireaddrs[n], ld->portnum, ADDR_TYPE_IPV6))
+    if (!guess_one_address(ld, &ld->wireaddrs[n], ld->portnum, ADDR_TYPE_IPV6))
         tal_resize(&ld->wireaddrs, n);
 }
 

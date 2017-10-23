@@ -509,10 +509,6 @@ static void opt_parse_from_config(struct lightningd *ld)
 	setup_default_config(ld);
 
 	opt_parse(&argc, argv, config_log_stderr_exit);
-
-	if (ld->portnum && tal_count(ld->wireaddrs) == 0)
-		guess_addresses(ld);
-
 	tal_free(contents);
 }
 
@@ -612,6 +608,12 @@ bool handle_opts(struct lightningd *ld, int argc, char *argv[])
 		errx(1, "no arguments accepted");
 
 	check_config(ld);
+
+	if (ld->portnum && tal_count(ld->wireaddrs) == 0)
+		guess_addresses(ld);
+	else
+		log_debug(ld->log, "Not guessing addresses: %s",
+			  ld->portnum ? "manually set" : "port set to zero");
 
 #if DEVELOPER
 	if (ld->dev_hsm_seed) {

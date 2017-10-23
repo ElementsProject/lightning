@@ -786,28 +786,6 @@ static void log_to_json(unsigned int skipped,
 		json_add_string(info->response, NULL, log);
 }
 
-static const char *wireaddr_name(const tal_t *ctx, const struct wireaddr *a)
-{
-	char name[INET6_ADDRSTRLEN];
-	int af;
-
-	switch (a->type) {
-	case ADDR_TYPE_IPV4:
-		af = AF_INET;
-		break;
-	case ADDR_TYPE_IPV6:
-		af = AF_INET6;
-		break;
-	default:
-		return tal_fmt(ctx, "Unknown type %u", a->type);
-	}
-
-	if (!inet_ntop(af, a->addr, name, sizeof(name)))
-		sprintf(name, "Unprintable-%u-address", a->type);
-
-	return tal_fmt(ctx, "%s:%u", name, a->port);
-}
-
 static void json_getpeers(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
@@ -839,7 +817,8 @@ static void json_getpeers(struct command *cmd,
 		json_object_start(response, NULL);
 		json_add_string(response, "state", peer_state_name(p->state));
 		json_add_string(response, "netaddr",
-				wireaddr_name(response, &p->addr));
+				type_to_string(response, struct wireaddr,
+					       &p->addr));
 		json_add_pubkey(response, "peerid", &p->id);
 		json_add_bool(response, "connected", p->owner != NULL);
 		if (p->owner)
