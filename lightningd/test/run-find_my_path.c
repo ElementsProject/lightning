@@ -46,6 +46,9 @@ void populate_peer(struct lightningd *ld UNNEEDED, struct peer *peer UNNEEDED)
 /* Generated stub for register_opts */
 void register_opts(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "register_opts called!\n"); abort(); }
+/* Generated stub for setup_color_and_alias */
+void setup_color_and_alias(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "setup_color_and_alias called!\n"); abort(); }
 /* Generated stub for setup_jsonrpc */
 void setup_jsonrpc(struct lightningd *ld UNNEEDED, const char *rpc_filename UNNEEDED)
 { fprintf(stderr, "setup_jsonrpc called!\n"); abort(); }

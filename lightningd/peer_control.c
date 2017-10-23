@@ -1523,8 +1523,6 @@ static u8 *create_node_announcement(const tal_t *ctx, struct lightningd *ld,
 				    secp256k1_ecdsa_signature *sig,
 				    u32 timestamp)
 {
-	u8 rgb[3] = {0x77, 0x88, 0x99};
-	u8 alias[32];
 	u8 *features = NULL;
 	u8 *addresses = tal_arr(ctx, u8, 0);
 	u8 *announcement;
@@ -1535,10 +1533,10 @@ static u8 *create_node_announcement(const tal_t *ctx, struct lightningd *ld,
 	if (ld->config.ipaddr.type != ADDR_TYPE_PADDING) {
 		towire_ipaddr(&addresses, &ld->config.ipaddr);
 	}
-	memset(alias, 0, sizeof(alias));
 	announcement =
 	    towire_node_announcement(ctx, sig, features, timestamp,
-				     &ld->id, rgb, alias, addresses);
+				     &ld->id, ld->rgb, (u8 *)ld->alias,
+				     addresses);
 	return announcement;
 }
 

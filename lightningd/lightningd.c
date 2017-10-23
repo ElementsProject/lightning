@@ -78,7 +78,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx,
 	ld->dev_hsm_seed = NULL;
 	ld->log_book = log_book;
 	ld->log = new_log(log_book, log_book, "lightningd(%u):", (int)getpid());
-
+	ld->alias = NULL;
+	ld->rgb = NULL;
 	list_head_init(&ld->pay_commands);
 	list_head_init(&ld->connects);
 	ld->portnum = DEFAULT_PORT;
@@ -251,6 +252,9 @@ int main(int argc, char *argv[])
 	/* Set up HSM. */
 	hsm_init(ld, newdir);
 
+	/* Now we know our ID, we can set our color/alias if not already. */
+	setup_color_and_alias(ld);
+
 	/* Initialize block topology. */
 	setup_topology(ld->topology,
 		       &ld->timers,
@@ -288,7 +292,9 @@ int main(int argc, char *argv[])
 	setup_jsonrpc(ld, ld->rpc_filename);
 
 	/* Mark ourselves live. */
-	log_info(ld->log, "Hello world from %s!", version());
+	log_info(ld->log, "Hello world from %s aka %s #%s (version %s)!",
+		 type_to_string(ltmp, struct pubkey, &ld->id),
+		 ld->alias, tal_hex(ltmp, ld->rgb), version());
 
 #if 0
 	/* Load peers from database. */

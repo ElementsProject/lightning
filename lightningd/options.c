@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <bitcoin/chainparams.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -183,6 +184,36 @@ static void opt_show_network(char buf[OPT_SHOW_LEN],
 			     const struct lightningd *ld)
 {
 	snprintf(buf, OPT_SHOW_LEN, "%s", get_chainparams(ld)->network_name);
+}
+
+static char *opt_set_rgb(const char *arg, struct lightningd *ld)
+{
+	ld->rgb = tal_free(ld->rgb);
+	/* BOLT #7:
+	 *
+	 * the first byte of `rgb` is the red value, the second byte is the
+	 * green value and the last byte is the blue value */
+	ld->rgb = tal_hexdata(ld, arg, strlen(arg));
+	if (!ld->rgb || tal_len(ld->rgb) != 3)
+		return tal_fmt(NULL, "rgb '%s' is not six hex digits", arg);
+	return NULL;
+}
+
+static char *opt_set_alias(const char *arg, struct lightningd *ld)
+{
+	ld->alias = tal_free(ld->alias);
+	/* BOLT #7:
+	 *
+	 *    * [`32`:`alias`]
+	 *...
+	 * It MUST set `alias` to a valid UTF-8 string, with any `alias` bytes
+	 * following equal to zero.
+	 */
+	if (strlen(arg) > 32)
+		return tal_fmt(NULL, "Alias '%s' is over 32 characters", arg);
+	ld->alias = tal_arrz(ld, char, 33);
+	strncpy(ld->alias, arg, 32);
+	return NULL;
 }
 
 static void config_register_opts(struct lightningd *ld)
@@ -520,12 +551,56 @@ void register_opts(struct lightningd *ld)
 	opt_register_arg("--bitcoin-datadir", opt_set_charp, NULL,
 			 &ld->topology->bitcoind->datadir,
 			 "-datadir arg for bitcoin-cli");
+	opt_register_arg("--rgb", opt_set_rgb, NULL, ld,
+			 "RRGGBB hex color for node");
+	opt_register_arg("--alias", opt_set_alias, NULL, ld,
+			 "Up to 32-byte alias for node");
 	opt_register_logging(ld->log);
 	opt_register_version();
 
 	configdir_register_opts(ld, &ld->config_dir, &ld->rpc_filename);
 	config_register_opts(ld);
 	dev_register_opts(ld);
+}
+
+/* Names stolen from https://github.com/ternus/nsaproductgenerator/blob/master/nsa.js */
+static const char *codename_adjective[]
+= { "LOUD", "RED", "BLUE", "GREEN", "YELLOW", "IRATE", "ANGRY", "PEEVED",
+    "HAPPY", "SLIMY", "SLEEPY", "JUNIOR", "SLICKER", "UNITED", "SOMBER",
+    "BIZARRE", "ODD", "WEIRD", "WRONG", "LATENT", "CHILLY", "STRANGE", "LOUD",
+    "SILENT", "HOPPING", "ORANGE", "VIOLET", "VIOLENT", "LIGHTNING" };
+
+static const char *codename_noun[]
+= { "WHISPER", "FELONY", "MOON", "SUCKER", "PENGUIN", "WAFFLE", "MAESTRO",
+    "NIGHT", "TRINITY", "DEITY", "MONKEY", "ARK", "SQUIRREL", "IRON", "BOUNCE",
+    "FARM", "CHEF", "TROUGH", "NET", "TRAWL", "GLEE", "WATER", "SPORK", "PLOW",
+    "FEED", "SOUFFLE", "ROUTE", "BAGEL", "MONTANA", "ANALYST", "AUTO", "WATCH",
+    "PHOTO", "YARD", "SOURCE", "MONKEY", "SEAGULL", "TOLL", "SPAWN", "GOPHER",
+    "CHIPMUNK", "SET", "CALENDAR", "ARTIST", "CHASER", "SCAN", "TOTE", "BEAM",
+    "ENTOURAGE", "GENESIS", "WALK", "SPATULA", "RAGE", "FIRE", "MASTER" };
+
+void setup_color_and_alias(struct lightningd *ld)
+{
+	u8 der[PUBKEY_DER_LEN];
+	pubkey_to_der(der, &ld->id);
+
+	if (!ld->rgb)
+		/* You can't get much red by default */
+		ld->rgb = tal_dup_arr(ld, u8, der, 3, 0);
+
+	if (!ld->alias) {
+		u64 adjective, noun;
+
+		memcpy(&adjective, der+3, sizeof(adjective));
+		memcpy(&noun, der+3+sizeof(adjective), sizeof(noun));
+		noun %= ARRAY_SIZE(codename_noun);
+		adjective %= ARRAY_SIZE(codename_adjective);
+		ld->alias = tal_arrz(ld, char, 33);
+		assert(strlen(codename_adjective[adjective])
+		       + strlen(codename_noun[noun]) < 33);
+		strcpy(ld->alias, codename_adjective[adjective]);
+		strcat(ld->alias, codename_noun[noun]);
+	}
 }
 
 bool handle_opts(struct lightningd *ld, int argc, char *argv[])
