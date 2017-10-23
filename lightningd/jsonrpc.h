@@ -5,6 +5,8 @@
 #include <ccan/list/list.h>
 #include <common/json.h>
 
+struct wireaddr;
+
 /* Context for a command (from JSON, but might outlive the connection!)
  * You can allocate off this for temporary objects. */
 struct command {
@@ -70,7 +72,7 @@ void json_add_short_channel_id(struct json_result *response,
 
 /* JSON serialize a network address for a node */
 void json_add_address(struct json_result *response, const char *fieldname,
-		      const struct ipaddr *addr);
+		      const struct wireaddr *addr);
 
 
 /* For initialization */

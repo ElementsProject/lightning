@@ -95,7 +95,7 @@ struct lightningd {
 	u16 portnum;
 
 	/* Addresses to announce to the network (tal_count()) */
-	struct ipaddr *wireaddrs;
+	struct wireaddr *wireaddrs;
 
 	/* Bearer of all my secrets. */
 	int hsm_fd;

@@ -31,6 +31,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
+#include <lightningd/netaddress.h>
 #include <lightningd/options.h>
 #include <lightningd/peer_htlcs.h>
 #include <onchaind/gen_onchain_wire.h>
@@ -57,7 +58,7 @@ struct connect {
 struct funding_channel;
 static void peer_offer_channel(struct lightningd *ld,
 			       struct funding_channel *fc,
-			       const struct ipaddr *addr,
+			       const struct wireaddr *addr,
 			       const struct crypto_state *cs,
 			       const u8 *gfeatures, const u8 *lfeatures,
 			       int peer_fd, int gossip_fd);
@@ -72,7 +73,7 @@ static void peer_start_closingd(struct peer *peer,
 				bool reconnected);
 static void peer_accept_channel(struct lightningd *ld,
 				const struct pubkey *peer_id,
-				const struct ipaddr *addr,
+				const struct wireaddr *addr,
 				const struct crypto_state *cs,
 				const u8 *gfeatures, const u8 *lfeatures,
 				int peer_fd, int gossip_fd,
@@ -308,7 +309,7 @@ static void connect_failed(struct lightningd *ld, const struct pubkey *id,
 
 static struct peer *new_peer(struct lightningd *ld,
 			     const struct pubkey *id,
-			     const struct ipaddr *addr,
+			     const struct wireaddr *addr,
 			     const u8 *gfeatures, const u8 *lfeatures,
 			     int peer_fd)
 {
@@ -505,7 +506,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	u8 *gfeatures, *lfeatures;
 	u8 *error;
 	struct peer *peer;
-	struct ipaddr addr;
+	struct wireaddr addr;
 
 	if (!fromwire_gossip_peer_connected(msg, msg, NULL,
 					    &id, &addr, &cs,
@@ -611,7 +612,7 @@ send_error:
 
 void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
-			 const struct ipaddr *addr,
+			 const struct wireaddr *addr,
 			 const struct crypto_state *cs,
 			 const u8 *gfeatures,
 			 const u8 *lfeatures,
@@ -709,7 +710,7 @@ static void json_connect(struct command *cmd,
 	jsmntok_t *hosttok, *idtok;
 	struct pubkey id;
 	const char *name, *port, *colon;
-	struct ipaddr addr;
+	struct wireaddr addr;
 	u8 *msg;
 
 	if (!json_get_params(buffer, params,
@@ -741,7 +742,7 @@ static void json_connect(struct command *cmd,
 			port = tal_strdup(cmd, stringify(DEFAULT_PORT));
 		}
 		addr.port = atoi(port);
-		if (!parse_ipaddr(name, &addr, addr.port) || !addr.port)
+		if (!parse_wireaddr(name, &addr, addr.port) || !addr.port)
 			command_fail(cmd, "host %s:%s not valid", name, port);
 
 		/* Tell it about the address. */
@@ -785,7 +786,7 @@ static void log_to_json(unsigned int skipped,
 		json_add_string(info->response, NULL, log);
 }
 
-static const char *ipaddr_name(const tal_t *ctx, const struct ipaddr *a)
+static const char *wireaddr_name(const tal_t *ctx, const struct wireaddr *a)
 {
 	char name[INET6_ADDRSTRLEN];
 	int af;
@@ -838,7 +839,7 @@ static void json_getpeers(struct command *cmd,
 		json_object_start(response, NULL);
 		json_add_string(response, "state", peer_state_name(p->state));
 		json_add_string(response, "netaddr",
-				ipaddr_name(response, &p->addr));
+				wireaddr_name(response, &p->addr));
 		json_add_pubkey(response, "peerid", &p->id);
 		json_add_bool(response, "connected", p->owner != NULL);
 		if (p->owner)
@@ -1478,7 +1479,7 @@ static u8 *create_node_announcement(const tal_t *ctx, struct lightningd *ld,
 		memset(sig, 0, sizeof(*sig));
 	}
 	for (i = 0; i < tal_count(ld->wireaddrs); i++)
-		towire_ipaddr(&addresses, ld->wireaddrs+i);
+		towire_wireaddr(&addresses, ld->wireaddrs+i);
 
 	announcement =
 	    towire_node_announcement(ctx, sig, features, timestamp,
@@ -2231,7 +2232,7 @@ static void opening_fundee_finished(struct subd *opening,
 /* Peer has spontaneously exited from gossip due to open msg */
 static void peer_accept_channel(struct lightningd *ld,
 				const struct pubkey *peer_id,
-				const struct ipaddr *addr,
+				const struct wireaddr *addr,
 				const struct crypto_state *cs,
 				const u8 *gfeatures, const u8 *lfeatures,
 				int peer_fd, int gossip_fd,
@@ -2299,7 +2300,7 @@ static void peer_accept_channel(struct lightningd *ld,
 
 static void peer_offer_channel(struct lightningd *ld,
 			       struct funding_channel *fc,
-			       const struct ipaddr *addr,
+			       const struct wireaddr *addr,
 			       const struct crypto_state *cs,
 			       const u8 *gfeatures, const u8 *lfeatures,
 			       int peer_fd, int gossip_fd)
@@ -2390,7 +2391,7 @@ static void gossip_peer_released(struct subd *gossip,
 	struct lightningd *ld = gossip->ld;
 	struct crypto_state cs;
 	u8 *gfeatures, *lfeatures;
-	struct ipaddr addr;
+	struct wireaddr addr;
 
 	/* We could have raced with peer doing something else. */
 	fc->peer = peer_by_id(ld, &fc->peerid);

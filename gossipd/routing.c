@@ -10,6 +10,7 @@
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
+#include <common/wireaddr.h>
 #include <inttypes.h>
 #include <wire/gen_peer_wire.h>
 
@@ -79,7 +80,7 @@ static struct node *new_node(struct routing_state *rstate,
 	n->alias = NULL;
 	n->node_announcement = NULL;
 	n->last_timestamp = -1;
-	n->addresses = tal_arr(n, struct ipaddr, 0);
+	n->addresses = tal_arr(n, struct wireaddr, 0);
 	node_map_add(rstate->nodes, n);
 	tal_add_destructor(n, destroy_node);
 
@@ -628,14 +629,14 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 	tal_free(tmpctx);
 }
 
-static struct ipaddr *read_addresses(const tal_t *ctx, const u8 *ser)
+static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 {
 	const u8 *cursor = ser;
 	size_t max = tal_len(ser);
-	struct ipaddr *ipaddrs = tal_arr(ctx, struct ipaddr, 0);
+	struct wireaddr *wireaddrs = tal_arr(ctx, struct wireaddr, 0);
 	int numaddrs = 0;
 	while (cursor && cursor < ser + max) {
-		struct ipaddr ipaddr;
+		struct wireaddr wireaddr;
 
 		/* Skip any padding */
 		while (max && cursor[0] == ADDR_TYPE_PADDING)
@@ -647,19 +648,19 @@ static struct ipaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 		 * descriptor` which does not match the types defined
 		 * above.
 		 */
-		if (!fromwire_ipaddr(&cursor, &max, &ipaddr)) {
+		if (!fromwire_wireaddr(&cursor, &max, &wireaddr)) {
 			if (!cursor)
 				/* Parsing address failed */
-				return tal_free(ipaddrs);
+				return tal_free(wireaddrs);
 			/* Unknown type, stop there. */
 			break;
 		}
 
-		tal_resize(&ipaddrs, numaddrs+1);
-		ipaddrs[numaddrs] = ipaddr;
+		tal_resize(&wireaddrs, numaddrs+1);
+		wireaddrs[numaddrs] = wireaddr;
 		numaddrs++;
 	}
-	return ipaddrs;
+	return wireaddrs;
 }
 
 void handle_node_announcement(
@@ -675,7 +676,7 @@ void handle_node_announcement(
 	u8 alias[32];
 	u8 *features, *addresses;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
-	struct ipaddr *ipaddrs;
+	struct wireaddr *wireaddrs;
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
 	if (!fromwire_node_announcement(tmpctx, serialized, NULL,
@@ -708,14 +709,14 @@ void handle_node_announcement(
 		return;
 	}
 
-	ipaddrs = read_addresses(tmpctx, addresses);
-	if (!ipaddrs) {
+	wireaddrs = read_addresses(tmpctx, addresses);
+	if (!wireaddrs) {
 		status_trace("Unable to parse addresses.");
 		tal_free(serialized);
 		return;
 	}
 	tal_free(node->addresses);
-	node->addresses = tal_steal(node, ipaddrs);
+	node->addresses = tal_steal(node, wireaddrs);
 
 	node->last_timestamp = timestamp;
 

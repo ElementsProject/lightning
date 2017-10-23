@@ -115,13 +115,6 @@ void towire_ripemd160(u8 **pptr, const struct ripemd160 *ripemd)
 	towire(pptr, ripemd, sizeof(*ripemd));
 }
 
-void towire_ipaddr(u8 **pptr, const struct ipaddr *addr)
-{
-	towire_u8(pptr, addr->type);
-	towire(pptr, addr->addr, addr->addrlen);
-	towire_u16(pptr, addr->port);
-}
-
 void towire_u8_array(u8 **pptr, const u8 *arr, size_t num)
 {
 	towire(pptr, arr, num);

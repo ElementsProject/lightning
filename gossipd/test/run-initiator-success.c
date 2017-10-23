@@ -176,7 +176,7 @@ static struct io_plan *test_read(struct io_conn *conn,
 
 static struct io_plan *success(struct io_conn *conn,
 			       const struct pubkey *them,
-			       const struct ipaddr *addr,
+			       const struct wireaddr *addr,
 			       const struct crypto_state *cs,
 			       void *ctx)
 {
@@ -200,7 +200,7 @@ bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point)
 int main(void)
 {
 	tal_t *ctx = tal_tmpctx(NULL);
-	struct ipaddr dummy;
+	struct wireaddr dummy;
 
 	trc = tal_tmpctx(ctx);
 

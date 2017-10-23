@@ -46,7 +46,7 @@ struct node {
 	s64 last_timestamp;
 
 	/* IP/Hostname and port of this node (may be NULL) */
-	struct ipaddr *addresses;
+	struct wireaddr *addresses;
 
 	/* Routes connecting to us, from us. */
 	struct node_connection **in, **out;

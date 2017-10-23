@@ -8,6 +8,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/json.h>
 #include <common/version.h>
+#include <common/wireaddr.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/chaintopology.h>
@@ -372,7 +373,7 @@ void json_add_short_channel_id(struct json_result *response,
 }
 
 void json_add_address(struct json_result *response, const char *fieldname,
-		      const struct ipaddr *addr)
+		      const struct wireaddr *addr)
 {
 	json_object_start(response, fieldname);
 	char *addrstr = tal_arr(response, char, INET6_ADDRSTRLEN);

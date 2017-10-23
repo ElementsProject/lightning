@@ -10,6 +10,7 @@
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
+#include <common/wireaddr.h>
 #include <errno.h>
 #include <gossipd/handshake.h>
 #include <hsmd/client.h>
@@ -171,7 +172,7 @@ struct handshake {
 	struct act_three act3;
 
 	/* Where is connection from/to */
-	struct ipaddr addr;
+	struct wireaddr addr;
 
 	/* Who we are */
 	struct pubkey my_id;
@@ -184,7 +185,7 @@ struct handshake {
 	/* Function to call once handshake complete. */
 	struct io_plan *(*cb)(struct io_conn *conn,
 			      const struct pubkey *their_id,
-			      const struct ipaddr *ipaddr,
+			      const struct wireaddr *wireaddr,
 			      const struct crypto_state *cs,
 			      void *cbarg);
 	void *cbarg;
@@ -353,12 +354,12 @@ static struct io_plan *handshake_succeeded(struct io_conn *conn,
 	struct crypto_state cs;
 	struct io_plan *(*cb)(struct io_conn *conn,
 			      const struct pubkey *their_id,
-			      const struct ipaddr *addr,
+			      const struct wireaddr *addr,
 			      const struct crypto_state *cs,
 			      void *cbarg);
 	void *cbarg;
 	struct pubkey their_id;
-	struct ipaddr addr;
+	struct wireaddr addr;
 
 	/* BOLT #8:
 	 *
@@ -961,10 +962,10 @@ static struct io_plan *act_one_responder(struct io_conn *conn,
 
 struct io_plan *responder_handshake_(struct io_conn *conn,
 				     const struct pubkey *my_id,
-				     const struct ipaddr *addr,
+				     const struct wireaddr *addr,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
-							   const struct ipaddr *,
+							   const struct wireaddr *,
 							   const struct crypto_state *,
 							   void *cbarg),
 				     void *cbarg)
@@ -983,10 +984,10 @@ struct io_plan *responder_handshake_(struct io_conn *conn,
 struct io_plan *initiator_handshake_(struct io_conn *conn,
 				     const struct pubkey *my_id,
 				     const struct pubkey *their_id,
-				     const struct ipaddr *addr,
+				     const struct wireaddr *addr,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
-							   const struct ipaddr *,
+							   const struct wireaddr *,
 							   const struct crypto_state *,
 							   void *cbarg),
 				     void *cbarg)

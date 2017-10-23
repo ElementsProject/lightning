@@ -6,7 +6,7 @@
 
 struct gossip_getnodes_entry {
 	struct pubkey nodeid;
-	struct ipaddr *addresses;
+	struct wireaddr *addresses;
 };
 
 struct gossip_getchannels_entry {

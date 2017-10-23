@@ -49,6 +49,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/version.o			\
+	common/wireaddr.o			\
 	common/wire_error.o			\
 	hsmd/client.o				\
 	hsmd/gen_hsm_client_wire.o		\

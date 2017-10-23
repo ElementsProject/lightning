@@ -1,4 +1,6 @@
+#include <arpa/inet.h>
 #include <assert.h>
+#include <common/wireaddr.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/netaddress.h>
 #include <netinet/in.h>
@@ -20,28 +22,28 @@
 /* The common IPv4-in-IPv6 prefix */
 static const unsigned char pchIPv4[12] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff };
 
-static bool IsRFC6145(const struct ipaddr *addr)
+static bool IsRFC6145(const struct wireaddr *addr)
 {
     static const unsigned char pchRFC6145[] = {0,0,0,0,0,0,0,0,0xFF,0xFF,0,0};
     return addr->type == ADDR_TYPE_IPV6
         && memcmp(addr->addr, pchRFC6145, sizeof(pchRFC6145)) == 0;
 }
 
-static bool IsRFC6052(const struct ipaddr *addr)
+static bool IsRFC6052(const struct wireaddr *addr)
 {
     static const unsigned char pchRFC6052[] = {0,0x64,0xFF,0x9B,0,0,0,0,0,0,0,0};
     return addr->type == ADDR_TYPE_IPV6
         && memcmp(addr->addr, pchRFC6052, sizeof(pchRFC6052)) == 0;
 }
 
-static bool IsRFC3964(const struct ipaddr *addr)
+static bool IsRFC3964(const struct wireaddr *addr)
 {
     return addr->type == ADDR_TYPE_IPV6
         && addr->addr[0] == 0x20 && addr->addr[1] == 0x02;
 }
 
 /* Return offset of IPv4 address, or 0 == not an IPv4 */
-static size_t IPv4In6(const struct ipaddr *addr)
+static size_t IPv4In6(const struct wireaddr *addr)
 {
     if (addr->type != ADDR_TYPE_IPV6)
         return 0;
@@ -57,17 +59,17 @@ static size_t IPv4In6(const struct ipaddr *addr)
 }
 
 /* Is this an IPv4 address, or an IPv6-wrapped IPv4 */
-static bool IsIPv4(const struct ipaddr *addr)
+static bool IsIPv4(const struct wireaddr *addr)
 {
     return addr->type == ADDR_TYPE_IPV4 || IPv4In6(addr) != 0;
 }
 
-static bool IsIPv6(const struct ipaddr *addr)
+static bool IsIPv6(const struct wireaddr *addr)
 {
     return addr->type == ADDR_TYPE_IPV6 && IPv4In6(addr) == 0;
 }
 
-static bool RawEq(const struct ipaddr *addr, const void *cmp, size_t len)
+static bool RawEq(const struct wireaddr *addr, const void *cmp, size_t len)
 {
     size_t off = IPv4In6(addr);
 
@@ -76,14 +78,14 @@ static bool RawEq(const struct ipaddr *addr, const void *cmp, size_t len)
 }
 
 /* The bitcoin code packs addresses backwards, so we map it here. */
-static unsigned int GetByte(const struct ipaddr *addr, int n)
+static unsigned int GetByte(const struct wireaddr *addr, int n)
 {
     size_t off = IPv4In6(addr);
     assert(off + n < addr->addrlen);
     return addr->addr[addr->addrlen - 1 - off - n];
 }
 
-static bool IsRFC1918(const struct ipaddr *addr)
+static bool IsRFC1918(const struct wireaddr *addr)
 {
     return IsIPv4(addr) && (
         GetByte(addr, 3) == 10 ||
@@ -91,56 +93,56 @@ static bool IsRFC1918(const struct ipaddr *addr)
         (GetByte(addr, 3) == 172 && (GetByte(addr, 2) >= 16 && GetByte(addr, 2) <= 31)));
 }
 
-static bool IsRFC2544(const struct ipaddr *addr)
+static bool IsRFC2544(const struct wireaddr *addr)
 {
     return IsIPv4(addr) && GetByte(addr, 3) == 198 && (GetByte(addr, 2) == 18 || GetByte(addr, 2) == 19);
 }
 
-static bool IsRFC3927(const struct ipaddr *addr)
+static bool IsRFC3927(const struct wireaddr *addr)
 {
     return IsIPv4(addr) && (GetByte(addr, 3) == 169 && GetByte(addr, 2) == 254);
 }
 
-static bool IsRFC6598(const struct ipaddr *addr)
+static bool IsRFC6598(const struct wireaddr *addr)
 {
     return IsIPv4(addr) && GetByte(addr, 3) == 100 && GetByte(addr, 2) >= 64 && GetByte(addr, 2) <= 127;
 }
 
-static bool IsRFC5737(const struct ipaddr *addr)
+static bool IsRFC5737(const struct wireaddr *addr)
 {
     return IsIPv4(addr) && ((GetByte(addr, 3) == 192 && GetByte(addr, 2) == 0 && GetByte(addr, 1) == 2) ||
         (GetByte(addr, 3) == 198 && GetByte(addr, 2) == 51 && GetByte(addr, 1) == 100) ||
         (GetByte(addr, 3) == 203 && GetByte(addr, 2) == 0 && GetByte(addr, 1) == 113));
 }
 
-static bool IsRFC3849(const struct ipaddr *addr)
+static bool IsRFC3849(const struct wireaddr *addr)
 {
     return IsIPv6(addr) && GetByte(addr, 15) == 0x20 && GetByte(addr, 14) == 0x01 && GetByte(addr, 13) == 0x0D && GetByte(addr, 12) == 0xB8;
 }
 
-static bool IsRFC4862(const struct ipaddr *addr)
+static bool IsRFC4862(const struct wireaddr *addr)
 {
     static const unsigned char pchRFC4862[] = {0xFE,0x80,0,0,0,0,0,0};
     return IsIPv6(addr) && RawEq(addr, pchRFC4862, sizeof(pchRFC4862));
 }
 
-static bool IsRFC4193(const struct ipaddr *addr)
+static bool IsRFC4193(const struct wireaddr *addr)
 {
     return IsIPv6(addr) && ((GetByte(addr, 15) & 0xFE) == 0xFC);
 }
 
-static bool IsRFC4843(const struct ipaddr *addr)
+static bool IsRFC4843(const struct wireaddr *addr)
 {
     return IsIPv6(addr) && (GetByte(addr, 15) == 0x20 && GetByte(addr, 14) == 0x01 && GetByte(addr, 13) == 0x00 && (GetByte(addr, 12) & 0xF0) == 0x10);
 }
 
-static bool IsTor(const struct ipaddr *addr)
+static bool IsTor(const struct wireaddr *addr)
 {
 	/* FIXME */
 	return false;
 }
 
-static bool IsLocal(const struct ipaddr *addr)
+static bool IsLocal(const struct wireaddr *addr)
 {
     // IPv4 loopback
    if (IsIPv4(addr) && (GetByte(addr, 3) == 127 || GetByte(addr, 3) == 0))
@@ -154,12 +156,12 @@ static bool IsLocal(const struct ipaddr *addr)
    return false;
 }
 
-static bool IsInternal(const struct ipaddr *addr)
+static bool IsInternal(const struct wireaddr *addr)
 {
     return addr->type == ADDR_TYPE_PADDING;
 }
 
-static bool IsValid(const struct ipaddr *addr)
+static bool IsValid(const struct wireaddr *addr)
 {
     // unspecified IPv6 address (::/128)
     unsigned char ipNone6[16] = {};
@@ -189,7 +191,7 @@ static bool IsValid(const struct ipaddr *addr)
     return true;
 }
 
-static bool IsRoutable(const struct ipaddr *addr)
+static bool IsRoutable(const struct wireaddr *addr)
 {
     return IsValid(addr) && !(IsRFC1918(addr) || IsRFC2544(addr) || IsRFC3927(addr) || IsRFC4862(addr) || IsRFC6598(addr) || IsRFC5737(addr) || (IsRFC4193(addr) && !IsTor(addr)) || IsRFC4843(addr) || IsLocal(addr) || IsInternal(addr));
 }
@@ -216,8 +218,8 @@ static bool get_local_sockname(int af, void *saddr, socklen_t saddrlen)
     return true;
 }
 
-/* Return an ipaddr without port filled in */
-static bool guess_one_address(struct ipaddr *addr, u16 portnum,
+/* Return an wireaddr without port filled in */
+static bool guess_one_address(struct wireaddr *addr, u16 portnum,
                               enum wire_addr_type type)
 {
     addr->type = type;
@@ -272,4 +274,32 @@ void guess_addresses(struct lightningd *ld)
     }
     if (!guess_one_address(&ld->wireaddrs[n], ld->portnum, ADDR_TYPE_IPV6))
         tal_resize(&ld->wireaddrs, n);
+}
+
+bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 port)
+{
+	struct in6_addr v6;
+	struct in_addr v4;
+
+	/* FIXME: change arg to addr[:port] and use getaddrinfo? */
+	if (streq(arg, "localhost"))
+		arg = "127.0.0.1";
+	else if (streq(arg, "ip6-localhost"))
+		arg = "::1";
+
+	memset(&addr->addr, 0, sizeof(addr->addr));
+	if (inet_pton(AF_INET, arg, &v4) == 1) {
+		addr->type = ADDR_TYPE_IPV4;
+		addr->addrlen = 4;
+		addr->port = port;
+		memcpy(&addr->addr, &v4, addr->addrlen);
+		return true;
+	} else if (inet_pton(AF_INET6, arg, &v6) == 1) {
+		addr->type = ADDR_TYPE_IPV6;
+		addr->addrlen = 16;
+		addr->port = port;
+		memcpy(&addr->addr, &v6, addr->addrlen);
+		return true;
+	}
+	return false;
 }

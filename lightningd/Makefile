@@ -35,6 +35,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/utxo.o				\
 	common/version.o			\
 	common/wire_error.o			\
+	common/wireaddr.o			\
 	common/withdraw_tx.o
 
 LIGHTNINGD_SRC :=				\
