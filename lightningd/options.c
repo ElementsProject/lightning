@@ -229,9 +229,12 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--default-fee-rate", opt_set_u64, opt_show_u64,
 			 &ld->topology->default_fee_rate,
 			 "Satoshis per kb if can't estimate fees");
-	opt_register_arg("--min-htlc-expiry", opt_set_u32, opt_show_u32,
-			 &ld->config.min_htlc_expiry,
-			 "Minimum number of blocks to accept an HTLC before expiry");
+	opt_register_arg("--cltv-delta", opt_set_u32, opt_show_u32,
+			 &ld->config.cltv_expiry_delta,
+			 "Number of blocks for ctlv_expiry_delta");
+	opt_register_arg("--cltv-final", opt_set_u32, opt_show_u32,
+			 &ld->config.cltv_final,
+			 "Number of blocks for final ctlv_expiry");
 	opt_register_arg("--max-htlc-expiry", opt_set_u32, opt_show_u32,
 			 &ld->config.max_htlc_expiry,
 			 "Maximum number of blocks to accept an HTLC before expiry");
@@ -328,8 +331,10 @@ static const struct config testnet_config = {
 	/* We offer to pay 5 times 2-block fee */
 	.commitment_fee_percent = 500,
 
-	/* Don't bother me unless I have 6 hours to collect. */
-	.min_htlc_expiry = 6 * 6,
+	/* Be aggressive on testnet. */
+	.cltv_expiry_delta = 6,
+	.cltv_final = 6,
+
 	/* Don't lock up channel for more than 5 days. */
 	.max_htlc_expiry = 5 * 6 * 24,
 
@@ -386,8 +391,18 @@ static const struct config mainnet_config = {
 	/* We offer to pay 5 times 2-block fee */
 	.commitment_fee_percent = 500,
 
-	/* Don't bother me unless I have 6 hours to collect. */
-	.min_htlc_expiry = 6 * 6,
+	/* BOLT #2:
+	 *
+	 * The `cltv_expiry_delta` for channels.  `3R+2G+2S` */
+	/* R = 2, G = 1, S = 3 */
+	.cltv_expiry_delta = 14,
+
+	/* BOLT #2:
+	 *
+	 * The minimum `cltv_expiry` we will accept for terminal payments: the
+	 * worst case for the terminal node C lower at `2R+G+S` blocks */
+	.cltv_final = 8,
+
 	/* Don't lock up channel for more than 5 days. */
 	.max_htlc_expiry = 5 * 6 * 24,
 
@@ -432,10 +447,11 @@ static void check_config(struct lightningd *ld)
 	 * a node MUST estimate the deadline for successful redemption
 	 * for each HTLC it offers.  A node MUST NOT offer a HTLC
 	 * after this deadline */
-	if (ld->config.deadline_blocks >= ld->config.min_htlc_expiry)
-		fatal("Deadline %u can't be more than minimum expiry %u",
+	if (ld->config.deadline_blocks >= ld->config.cltv_final
+	    || ld->config.deadline_blocks >= ld->config.cltv_expiry_delta)
+		fatal("Deadline %u can't be more than final/expiry %u/%u",
 		      ld->config.deadline_blocks,
-		      ld->config.min_htlc_expiry);
+		      ld->config.cltv_final, ld->config.cltv_expiry_delta);
 }
 
 static void setup_default_config(struct lightningd *ld)

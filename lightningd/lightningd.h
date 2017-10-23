@@ -46,8 +46,14 @@ struct config {
 	/* Percent of fee rate we'll use. */
 	u32 commitment_fee_percent;
 
-	/* Minimum/maximum time for an expiring HTLC (blocks). */
-	u32 min_htlc_expiry, max_htlc_expiry;
+	/* Minimum CLTV to subtract from incoming HTLCs to outgoing */
+	u32 cltv_expiry_delta;
+
+	/* Minimum CLTV if we're the final hop.*/
+	u32 cltv_final;
+
+	/* Maximum time for an expiring HTLC (blocks). */
+	u32 max_htlc_expiry;
 
 	/* How many blocks before upstream HTLC expiry do we panic and dump? */
 	u32 deadline_blocks;
