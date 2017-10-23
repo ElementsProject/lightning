@@ -1,4 +1,3 @@
-#include <arpa/inet.h>
 #include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
@@ -9,6 +8,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/configdir.h>
 #include <common/version.h>
+#include <common/wireaddr.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -118,42 +118,13 @@ static char *opt_set_s32(const char *arg, s32 *u)
 	return NULL;
 }
 
-/* FIXME: Rename ipaddr and hoist up */
-bool parse_ipaddr(const char *arg, struct ipaddr *addr, u16 port)
-{
-	struct in6_addr v6;
-	struct in_addr v4;
-
-	/* FIXME: change arg to addr[:port] and use getaddrinfo? */
-	if (streq(arg, "localhost"))
-		arg = "127.0.0.1";
-	else if (streq(arg, "ip6-localhost"))
-		arg = "::1";
-
-	memset(&addr->addr, 0, sizeof(addr->addr));
-	if (inet_pton(AF_INET, arg, &v4) == 1) {
-		addr->type = ADDR_TYPE_IPV4;
-		addr->addrlen = 4;
-		addr->port = port;
-		memcpy(&addr->addr, &v4, addr->addrlen);
-		return true;
-	} else if (inet_pton(AF_INET6, arg, &v6) == 1) {
-		addr->type = ADDR_TYPE_IPV6;
-		addr->addrlen = 16;
-		addr->port = port;
-		memcpy(&addr->addr, &v6, addr->addrlen);
-		return true;
-	}
-	return false;
-}
-
 static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
 {
 	size_t n = tal_count(ld->wireaddrs);
 
 	tal_resize(&ld->wireaddrs, n+1);
 
-	if (parse_ipaddr(arg, &ld->wireaddrs[n], ld->portnum))
+	if (parse_wireaddr(arg, &ld->wireaddrs[n], ld->portnum))
 		return NULL;
 
 	return tal_fmt(NULL, "Unable to parse IP address '%s'", arg);

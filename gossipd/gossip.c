@@ -23,6 +23,7 @@
 #include <common/utils.h>
 #include <common/version.h>
 #include <common/wire_error.h>
+#include <common/wireaddr.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/broadcast.h>
@@ -83,7 +84,7 @@ struct reaching {
 	struct pubkey id;
 
 	/* Where I'm reaching to. */
-	struct ipaddr addr;
+	struct wireaddr addr;
 
 	/* Did we succeed? */
 	bool succeeded;
@@ -99,7 +100,7 @@ struct peer {
 	struct pubkey id;
 
 	/* Where it's connected to. */
-	struct ipaddr addr;
+	struct wireaddr addr;
 
 	/* Feature bitmaps. */
 	u8 *gfeatures, *lfeatures;
@@ -147,7 +148,7 @@ struct addrhint {
 
 	struct pubkey id;
 	/* FIXME: use array... */
-	struct ipaddr addr;
+	struct wireaddr addr;
 };
 
 /* FIXME: Reorder */
@@ -194,7 +195,7 @@ static struct addrhint *find_addrhint(struct daemon *daemon,
 static struct peer *new_peer(const tal_t *ctx,
 			     struct daemon *daemon,
 			     const struct pubkey *their_id,
-			     const struct ipaddr *addr,
+			     const struct wireaddr *addr,
 			     const struct crypto_state *cs)
 {
 	struct peer *peer = tal(ctx, struct peer);
@@ -342,7 +343,7 @@ static struct io_plan *read_init(struct io_conn *conn, struct peer *peer)
  * we have the features. */
 static struct io_plan *init_new_peer(struct io_conn *conn,
 				     const struct pubkey *their_id,
-				     const struct ipaddr *addr,
+				     const struct wireaddr *addr,
 				     const struct crypto_state *cs,
 				     struct daemon *daemon)
 {
@@ -718,7 +719,7 @@ static struct io_plan *handle_peer(struct io_conn *conn, struct daemon *daemon,
 	struct peer *peer;
 	struct crypto_state cs;
 	struct pubkey id;
-	struct ipaddr addr;
+	struct wireaddr addr;
 	u8 *gfeatures, *lfeatures;
 	u8 *inner_msg;
 
@@ -949,7 +950,7 @@ fail:
 
 static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon)
 {
-	struct ipaddr addr;
+	struct wireaddr addr;
 	struct sockaddr_storage s;
 	socklen_t len = sizeof(s);
 
@@ -1112,7 +1113,7 @@ static void handle_forwarded_msg(struct io_conn *conn, struct daemon *daemon, co
 
 static struct io_plan *handshake_out_success(struct io_conn *conn,
 					     const struct pubkey *id,
-					     const struct ipaddr *addr,
+					     const struct wireaddr *addr,
 					     const struct crypto_state *cs,
 					     struct reaching *reach)
 {

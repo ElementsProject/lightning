@@ -32,6 +32,7 @@ COMMON_SRC :=					\
 	common/utils.c				\
 	common/utxo.c				\
 	common/version.c			\
+	common/wireaddr.c			\
 	common/wire_error.c			\
 	common/withdraw_tx.c
 

@@ -19,6 +19,7 @@
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <common/version.h>
+#include <common/wireaddr.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/invoice.h>
@@ -79,7 +80,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx,
 	ld->rgb = NULL;
 	list_head_init(&ld->pay_commands);
 	list_head_init(&ld->connects);
-	ld->wireaddrs = tal_arr(ld, struct ipaddr, 0);
+	ld->wireaddrs = tal_arr(ld, struct wireaddr, 0);
 	ld->portnum = DEFAULT_PORT;
 	timers_init(&ld->timers, time_mono());
 	ld->topology = new_topology(ld, ld->log);

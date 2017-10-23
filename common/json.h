@@ -10,7 +10,6 @@
 #define JSMN_STRICT 1
 # include <external/jsmn/jsmn.h>
 
-struct ipaddr;
 struct json_result;
 struct short_channel_id;
 

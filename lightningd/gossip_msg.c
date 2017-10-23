@@ -1,3 +1,4 @@
+#include <common/wireaddr.h>
 #include <lightningd/gossip_msg.h>
 #include <wire/wire.h>
 
@@ -7,10 +8,10 @@ void fromwire_gossip_getnodes_entry(const tal_t *ctx, const u8 **pptr, size_t *m
 	fromwire_pubkey(pptr, max, &entry->nodeid);
 	numaddresses = fromwire_u8(pptr, max);
 
-	entry->addresses = tal_arr(ctx, struct ipaddr, numaddresses);
+	entry->addresses = tal_arr(ctx, struct wireaddr, numaddresses);
 	for (i=0; i<numaddresses; i++) {
 		/* Gossipd doesn't hand us addresses we can't understand. */
-		if (!fromwire_ipaddr(pptr, max, entry->addresses)) {
+		if (!fromwire_wireaddr(pptr, max, entry->addresses)) {
 			fromwire_fail(pptr, max);
 			return;
 		}
@@ -23,7 +24,7 @@ void towire_gossip_getnodes_entry(u8 **pptr, const struct gossip_getnodes_entry 
 	towire_u8(pptr, numaddresses);
 
 	for (i=0; i<numaddresses; i++) {
-		towire_ipaddr(pptr, &entry->addresses[i]);
+		towire_wireaddr(pptr, &entry->addresses[i]);
 	}
 }
 
