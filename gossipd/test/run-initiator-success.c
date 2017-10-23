@@ -176,6 +176,7 @@ static struct io_plan *test_read(struct io_conn *conn,
 
 static struct io_plan *success(struct io_conn *conn,
 			       const struct pubkey *them,
+			       const struct ipaddr *addr,
 			       const struct crypto_state *cs,
 			       void *ctx)
 {
@@ -199,6 +200,7 @@ bool hsm_do_ecdh(struct secret *ss, const struct pubkey *point)
 int main(void)
 {
 	tal_t *ctx = tal_tmpctx(NULL);
+	struct ipaddr dummy;
 
 	trc = tal_tmpctx(ctx);
 
@@ -221,7 +223,7 @@ int main(void)
 	e_priv = privkey("1212121212121212121212121212121212121212121212121212121212121212");
 	e_pub = pubkey("036360e856310ce5d294e8be33fc807077dc56ac80d95d9cd4ddbd21325eff73f7");
 
-	initiator_handshake(ctx, &ls_pub, &rs_pub, success, ctx);
+	initiator_handshake(ctx, &ls_pub, &rs_pub, &dummy, success, ctx);
 	/* Should not exit! */
 	abort();
 }

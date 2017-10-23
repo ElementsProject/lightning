@@ -19,6 +19,7 @@
 #include <sodium/randombytes.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <wire/wire.h>
 
 #define HSM_FD 3
 
@@ -169,6 +170,9 @@ struct handshake {
 	struct act_two act2;
 	struct act_three act3;
 
+	/* Where is connection from/to */
+	struct ipaddr addr;
+
 	/* Who we are */
 	struct pubkey my_id;
 	/* Who they are: set already if we're initiator. */
@@ -180,6 +184,7 @@ struct handshake {
 	/* Function to call once handshake complete. */
 	struct io_plan *(*cb)(struct io_conn *conn,
 			      const struct pubkey *their_id,
+			      const struct ipaddr *ipaddr,
 			      const struct crypto_state *cs,
 			      void *cbarg);
 	void *cbarg;
@@ -348,10 +353,12 @@ static struct io_plan *handshake_succeeded(struct io_conn *conn,
 	struct crypto_state cs;
 	struct io_plan *(*cb)(struct io_conn *conn,
 			      const struct pubkey *their_id,
+			      const struct ipaddr *addr,
 			      const struct crypto_state *cs,
 			      void *cbarg);
 	void *cbarg;
 	struct pubkey their_id;
+	struct ipaddr addr;
 
 	/* BOLT #8:
 	 *
@@ -376,9 +383,10 @@ static struct io_plan *handshake_succeeded(struct io_conn *conn,
 	cb = h->cb;
 	cbarg = h->cbarg;
 	their_id = h->their_id;
+	addr = h->addr;
 
 	tal_free(h);
-	return cb(conn, &their_id, &cs, cbarg);
+	return cb(conn, &their_id, &addr, &cs, cbarg);
 }
 
 static struct handshake *new_handshake(const tal_t *ctx,
@@ -953,8 +961,10 @@ static struct io_plan *act_one_responder(struct io_conn *conn,
 
 struct io_plan *responder_handshake_(struct io_conn *conn,
 				     const struct pubkey *my_id,
+				     const struct ipaddr *addr,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
+							   const struct ipaddr *,
 							   const struct crypto_state *,
 							   void *cbarg),
 				     void *cbarg)
@@ -963,6 +973,7 @@ struct io_plan *responder_handshake_(struct io_conn *conn,
 
 	h->side = RESPONDER;
 	h->my_id = *my_id;
+	h->addr = *addr;
 	h->cbarg = cbarg;
 	h->cb = cb;
 
@@ -972,8 +983,10 @@ struct io_plan *responder_handshake_(struct io_conn *conn,
 struct io_plan *initiator_handshake_(struct io_conn *conn,
 				     const struct pubkey *my_id,
 				     const struct pubkey *their_id,
+				     const struct ipaddr *addr,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
+							   const struct ipaddr *,
 							   const struct crypto_state *,
 							   void *cbarg),
 				     void *cbarg)
@@ -983,6 +996,7 @@ struct io_plan *initiator_handshake_(struct io_conn *conn,
 	h->side = INITIATOR;
 	h->my_id = *my_id;
 	h->their_id = *their_id;
+	h->addr = *addr;
 	h->cbarg = cbarg;
 	h->cb = cb;
 

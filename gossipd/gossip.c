@@ -1,3 +1,4 @@
+#include <ccan/build_assert/build_assert.h>
 #include <ccan/container_of/container_of.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/endian/endian.h>
@@ -81,6 +82,9 @@ struct reaching {
 	/* The ID of the peer (not necessarily unique, in transit!) */
 	struct pubkey id;
 
+	/* Where I'm reaching to. */
+	struct ipaddr addr;
+
 	/* Did we succeed? */
 	bool succeeded;
 };
@@ -93,6 +97,9 @@ struct peer {
 
 	/* The ID of the peer (not necessarily unique, in transit!) */
 	struct pubkey id;
+
+	/* Where it's connected to. */
+	struct ipaddr addr;
 
 	/* Feature bitmaps. */
 	u8 *gfeatures, *lfeatures;
@@ -332,6 +339,7 @@ static struct io_plan *read_init(struct io_conn *conn, struct peer *peer)
  * we have the features. */
 static struct io_plan *init_new_peer(struct io_conn *conn,
 				     const struct pubkey *their_id,
+				     const struct ipaddr *addr,
 				     const struct crypto_state *cs,
 				     struct daemon *daemon)
 {
@@ -339,6 +347,7 @@ static struct io_plan *init_new_peer(struct io_conn *conn,
 	u8 *initmsg;
 
 	peer->fd = io_conn_fd(conn);
+	peer->addr = *addr;
 
 	/* BOLT #1:
 	 *
@@ -935,8 +944,38 @@ fail:
 
 static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon)
 {
+	struct ipaddr addr;
+	struct sockaddr_storage s;
+	socklen_t len = sizeof(s);
+
+	if (getpeername(io_conn_fd(conn), (struct sockaddr *)&s, &len) != 0) {
+		status_trace("Failed to get peername for incoming conn");
+		return io_close(conn);
+	}
+
+	if (s.ss_family == AF_INET6) {
+		struct sockaddr_in6 *s6 = (void *)&s;
+		addr.type = ADDR_TYPE_IPV6;
+		addr.addrlen = sizeof(s6->sin6_addr);
+		BUILD_ASSERT(sizeof(s6->sin6_addr) <= sizeof(addr.addr));
+		memcpy(addr.addr, &s6->sin6_addr, addr.addrlen);
+		addr.port = ntohs(s6->sin6_port);
+	} else if (s.ss_family == AF_INET) {
+		struct sockaddr_in *s4 = (void *)&s;
+		addr.type = ADDR_TYPE_IPV4;
+		addr.addrlen = sizeof(s4->sin_addr);
+		BUILD_ASSERT(sizeof(s4->sin_addr) <= sizeof(addr.addr));
+		memcpy(addr.addr, &s4->sin_addr, addr.addrlen);
+		addr.port = ntohs(s4->sin_port);
+	} else  {
+		status_trace("Unknown socket type %i for incoming conn",
+			     s.ss_family);
+		return io_close(conn);
+	}
+
 	/* FIXME: Timeout */
-	return responder_handshake(conn, &daemon->id, init_new_peer, daemon);
+	return responder_handshake(conn, &daemon->id, &addr,
+				   init_new_peer, daemon);
 }
 
 static void setup_listeners(struct daemon *daemon, u16 portnum)
@@ -1068,10 +1107,11 @@ static void handle_forwarded_msg(struct io_conn *conn, struct daemon *daemon, co
 
 static struct io_plan *handshake_out_success(struct io_conn *conn,
 					     const struct pubkey *id,
+					     const struct ipaddr *addr,
 					     const struct crypto_state *cs,
 					     struct reaching *reach)
 {
-	return init_new_peer(conn, id, cs, reach->daemon);
+	return init_new_peer(conn, id, addr, cs, reach->daemon);
 }
 
 
@@ -1083,6 +1123,7 @@ static struct io_plan *connection_out(struct io_conn *conn,
 		     type_to_string(trc, struct pubkey, &reach->id));
 
 	return initiator_handshake(conn, &reach->daemon->id, &reach->id,
+				   &reach->addr,
 				   handshake_out_success, reach);
 }
 
@@ -1099,14 +1140,8 @@ static void connect_failed(struct io_conn *conn, struct reaching *reach)
 		     try_connect, reach);
 }
 
-struct reach_addr {
-	struct reaching *reach;
-	struct ipaddr addr;
-};
-
-static struct io_plan *conn_init(struct io_conn *conn, struct reach_addr *r)
+static struct io_plan *conn_init(struct io_conn *conn, struct reaching *reach)
 {
-	struct reaching *reach = r->reach;
 	struct addrinfo ai;
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
@@ -1118,12 +1153,12 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reach_addr *r)
 	ai.ai_canonname = NULL;
 	ai.ai_next = NULL;
 
-	switch (r->addr.type) {
+	switch (reach->addr.type) {
 	case ADDR_TYPE_IPV4:
 		ai.ai_family = AF_INET;
 		sin.sin_family = AF_INET;
-		sin.sin_port = htons(r->addr.port);
-		memcpy(&sin.sin_addr, r->addr.addr, sizeof(sin.sin_addr));
+		sin.sin_port = htons(reach->addr.port);
+		memcpy(&sin.sin_addr, reach->addr.addr, sizeof(sin.sin_addr));
 		ai.ai_addrlen = sizeof(sin);
 		ai.ai_addr = (struct sockaddr *)&sin;
 		break;
@@ -1131,8 +1166,8 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reach_addr *r)
 		ai.ai_family = AF_INET6;
 		memset(&sin6, 0, sizeof(sin6));
 		sin6.sin6_family = AF_INET6;
-		sin6.sin6_port = htons(r->addr.port);
-		memcpy(&sin6.sin6_addr, r->addr.addr, sizeof(sin6.sin6_addr));
+		sin6.sin6_port = htons(reach->addr.port);
+		memcpy(&sin6.sin6_addr, reach->addr.addr, sizeof(sin6.sin6_addr));
 		ai.ai_addrlen = sizeof(sin6);
 		ai.ai_addr = (struct sockaddr *)&sin6;
 		break;
@@ -1148,7 +1183,6 @@ static struct io_plan *conn_init(struct io_conn *conn, struct reach_addr *r)
 static void try_connect(struct reaching *reach)
 {
 	struct addrhint *a;
-	struct reach_addr r;
 	int fd;
 
 	/* Already succeeded somehow? */
@@ -1192,9 +1226,8 @@ static void try_connect(struct reaching *reach)
 		return;
 	}
 
-	r.reach = reach;
-	r.addr = a->addr;
-	io_new_conn(reach, fd, conn_init, &r);
+	reach->addr = a->addr;
+	io_new_conn(reach, fd, conn_init, reach);
 }
 
 static void try_reach_peer(struct daemon *daemon, const struct pubkey *id)
