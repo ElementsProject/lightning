@@ -194,6 +194,7 @@ static struct addrhint *find_addrhint(struct daemon *daemon,
 static struct peer *new_peer(const tal_t *ctx,
 			     struct daemon *daemon,
 			     const struct pubkey *their_id,
+			     const struct ipaddr *addr,
 			     const struct crypto_state *cs)
 {
 	struct peer *peer = tal(ctx, struct peer);
@@ -201,6 +202,7 @@ static struct peer *new_peer(const tal_t *ctx,
 	init_peer_crypto_state(peer, &peer->pcs);
 	peer->pcs.cs = *cs;
 	peer->id = *their_id;
+	peer->addr = *addr;
 	peer->daemon = daemon;
 	peer->local = true;
 	peer->reach_again = false;
@@ -310,7 +312,8 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	peer_finalized(peer);
 
 	/* We will not have anything queued, since we're not duplex. */
-	msg = towire_gossip_peer_connected(peer, &peer->id, &peer->pcs.cs,
+	msg = towire_gossip_peer_connected(peer, &peer->id, &peer->addr,
+					   &peer->pcs.cs,
 					   peer->gfeatures, peer->lfeatures);
 	if (!send_peer_with_fds(peer, msg))
 		return io_close(conn);
@@ -343,11 +346,10 @@ static struct io_plan *init_new_peer(struct io_conn *conn,
 				     const struct crypto_state *cs,
 				     struct daemon *daemon)
 {
-	struct peer *peer = new_peer(conn, daemon, their_id, cs);
+	struct peer *peer = new_peer(conn, daemon, their_id, addr, cs);
 	u8 *initmsg;
 
 	peer->fd = io_conn_fd(conn);
-	peer->addr = *addr;
 
 	/* BOLT #1:
 	 *
@@ -429,12 +431,14 @@ static struct io_plan *ready_for_master(struct io_conn *conn, struct peer *peer)
 	u8 *msg;
 	if (peer->nongossip_msg)
 		msg = towire_gossip_peer_nongossip(peer, &peer->id,
+						   &peer->addr,
 						   &peer->pcs.cs,
 						   peer->gfeatures,
 						   peer->lfeatures,
 						   peer->nongossip_msg);
 	else
 		msg = towire_gossipctl_release_peer_reply(peer,
+							  &peer->addr,
 							  &peer->pcs.cs,
 							  peer->gfeatures,
 							  peer->lfeatures);
@@ -714,10 +718,11 @@ static struct io_plan *handle_peer(struct io_conn *conn, struct daemon *daemon,
 	struct peer *peer;
 	struct crypto_state cs;
 	struct pubkey id;
+	struct ipaddr addr;
 	u8 *gfeatures, *lfeatures;
 	u8 *inner_msg;
 
-	if (!fromwire_gossipctl_handle_peer(msg, msg, NULL, &id, &cs,
+	if (!fromwire_gossipctl_handle_peer(msg, msg, NULL, &id, &addr, &cs,
 					    &gfeatures, &lfeatures, &inner_msg))
 		master_badmsg(WIRE_GOSSIPCTL_HANDLE_PEER, msg);
 
@@ -738,7 +743,7 @@ static struct io_plan *handle_peer(struct io_conn *conn, struct daemon *daemon,
 
 	status_trace("handle_peer %s: new peer",
 		     type_to_string(trc, struct pubkey, &id));
-	peer = new_peer(daemon, daemon, &id, &cs);
+	peer = new_peer(daemon, daemon, &id, &addr, &cs);
 	peer->gfeatures = tal_steal(peer, gfeatures);
 	peer->lfeatures = tal_steal(peer, lfeatures);
 	peer_finalized(peer);

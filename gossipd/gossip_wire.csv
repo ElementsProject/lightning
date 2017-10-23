@@ -24,6 +24,7 @@ gossipctl_reach_peer,,id,struct pubkey
 # Gossipd -> master: we got a peer. Two fds: peer and gossip
 gossip_peer_connected,3002
 gossip_peer_connected,,id,struct pubkey
+gossip_peer_connected,,addr,struct ipaddr
 gossip_peer_connected,,crypto_state,struct crypto_state
 gossip_peer_connected,,gflen,u16
 gossip_peer_connected,,gfeatures,gflen*u8
@@ -33,6 +34,7 @@ gossip_peer_connected,,lfeatures,lflen*u8
 # Gossipd -> master: peer sent non-gossip packet. Two fds: peer and gossip
 gossip_peer_nongossip,3003
 gossip_peer_nongossip,,id,struct pubkey
+gossip_peer_nongossip,,addr,struct ipaddr
 gossip_peer_nongossip,,crypto_state,struct crypto_state
 gossip_peer_nongossip,,gflen,u16
 gossip_peer_nongossip,,gfeatures,gflen*u8
@@ -47,6 +49,7 @@ gossipctl_release_peer,,id,struct pubkey
 
 # Gossipd -> master: reply to gossip_release_peer.  Two fds: peer and gossip.
 gossipctl_release_peer_reply,3104
+gossipctl_release_peer_reply,,addr,struct ipaddr
 gossipctl_release_peer_reply,,crypto_state,struct crypto_state
 gossipctl_release_peer_reply,,gflen,u16
 gossipctl_release_peer_reply,,gfeatures,gflen*u8
@@ -59,6 +62,7 @@ gossipctl_release_peer_replyfail,3204
 # Gossipd -> master: take over peer, with optional msg. (+peer fd)
 gossipctl_handle_peer,3013
 gossipctl_handle_peer,,id,struct pubkey
+gossipctl_handle_peer,,addr,struct ipaddr
 gossipctl_handle_peer,,crypto_state,struct crypto_state
 gossipctl_handle_peer,,gflen,u16
 gossipctl_handle_peer,,gfeatures,gflen*u8

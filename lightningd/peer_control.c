@@ -56,6 +56,7 @@ struct connect {
 struct funding_channel;
 static void peer_offer_channel(struct lightningd *ld,
 			       struct funding_channel *fc,
+			       const struct ipaddr *addr,
 			       const struct crypto_state *cs,
 			       const u8 *gfeatures, const u8 *lfeatures,
 			       int peer_fd, int gossip_fd);
@@ -70,6 +71,7 @@ static void peer_start_closingd(struct peer *peer,
 				bool reconnected);
 static void peer_accept_channel(struct lightningd *ld,
 				const struct pubkey *peer_id,
+				const struct ipaddr *addr,
 				const struct crypto_state *cs,
 				const u8 *gfeatures, const u8 *lfeatures,
 				int peer_fd, int gossip_fd,
@@ -305,6 +307,7 @@ static void connect_failed(struct lightningd *ld, const struct pubkey *id,
 
 static struct peer *new_peer(struct lightningd *ld,
 			     const struct pubkey *id,
+			     const struct ipaddr *addr,
 			     const u8 *gfeatures, const u8 *lfeatures,
 			     int peer_fd)
 {
@@ -314,6 +317,7 @@ static struct peer *new_peer(struct lightningd *ld,
 	peer = talz(ld, struct peer);
 	peer->error = NULL;
 	peer->id = *id;
+	peer->addr = *addr;
 	peer->funding_txid = NULL;
 	peer->remote_funding_locked = false;
 	peer->scid = NULL;
@@ -506,9 +510,11 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	u8 *gfeatures, *lfeatures;
 	u8 *error;
 	struct peer *peer;
+	struct ipaddr addr;
 
 	if (!fromwire_gossip_peer_connected(msg, msg, NULL,
-					    &id, &cs, &gfeatures, &lfeatures))
+					    &id, &addr, &cs,
+					    &gfeatures, &lfeatures))
 		fatal("Gossip gave bad GOSSIP_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
 
@@ -567,6 +573,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			 * on this peer. */
 			peer_set_owner(peer, NULL);
 
+			peer->addr = addr;
 			peer_start_channeld(peer, &cs, peer_fd, gossip_fd, NULL,
 					    true);
 			return;
@@ -577,6 +584,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			 * on this peer. */
 			peer_set_owner(peer, NULL);
 
+			peer->addr = addr;
 			peer_start_closingd(peer, &cs, peer_fd, gossip_fd,
 					    true);
 			return;
@@ -586,7 +594,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 return_to_gossipd:
 	/* Otherwise, we hand back to gossipd, to continue. */
-	msg = towire_gossipctl_handle_peer(msg, &id, &cs,
+	msg = towire_gossipctl_handle_peer(msg, &id, &addr, &cs,
 					   gfeatures, lfeatures, NULL);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
@@ -599,7 +607,7 @@ return_to_gossipd:
 send_error:
 	/* Hand back to gossipd, with an error packet. */
 	connect_failed(ld, &id, sanitize_error(msg, error, NULL));
-	msg = towire_gossipctl_handle_peer(msg, &id, &cs,
+	msg = towire_gossipctl_handle_peer(msg, &id, &addr, &cs,
 					   gfeatures, lfeatures, error);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
@@ -608,6 +616,7 @@ send_error:
 
 void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
+			 const struct ipaddr *addr,
 			 const struct crypto_state *cs,
 			 const u8 *gfeatures,
 			 const u8 *lfeatures,
@@ -636,7 +645,7 @@ void peer_sent_nongossip(struct lightningd *ld,
 
 	/* Open request? */
 	if (fromwire_peektype(in_msg) == WIRE_OPEN_CHANNEL) {
-		peer_accept_channel(ld, id, cs, gfeatures, lfeatures,
+		peer_accept_channel(ld, id, addr, cs, gfeatures, lfeatures,
 				    peer_fd, gossip_fd, in_msg);
 		return;
 	}
@@ -649,7 +658,7 @@ void peer_sent_nongossip(struct lightningd *ld,
 send_error:
 	/* Hand back to gossipd, with an error packet. */
 	connect_failed(ld, id, sanitize_error(error, error, NULL));
-	msg = towire_gossipctl_handle_peer(error, id, cs,
+	msg = towire_gossipctl_handle_peer(error, id, addr, cs,
 					   gfeatures, lfeatures, error);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
@@ -2204,6 +2213,7 @@ static void opening_fundee_finished(struct subd *opening,
 /* Peer has spontaneously exited from gossip due to open msg */
 static void peer_accept_channel(struct lightningd *ld,
 				const struct pubkey *peer_id,
+				const struct ipaddr *addr,
 				const struct crypto_state *cs,
 				const u8 *gfeatures, const u8 *lfeatures,
 				int peer_fd, int gossip_fd,
@@ -2218,7 +2228,7 @@ static void peer_accept_channel(struct lightningd *ld,
 	assert(fromwire_peektype(open_msg) == WIRE_OPEN_CHANNEL);
 
 	/* We make a new peer. */
-	peer = new_peer(ld, peer_id, gfeatures, lfeatures, peer_fd);
+	peer = new_peer(ld, peer_id, addr, gfeatures, lfeatures, peer_fd);
 
 	/* FIXME: Only happens due to netaddr fail. */
 	if (!peer) {
@@ -2279,7 +2289,7 @@ static void peer_accept_channel(struct lightningd *ld,
 
 peer_to_gossipd:
 	/* Return to gossipd, with optional error msg to send. */
-	msg = towire_gossipctl_handle_peer(ld, peer_id, cs,
+	msg = towire_gossipctl_handle_peer(ld, peer_id, addr, cs,
 					   gfeatures, lfeatures, errmsg);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
@@ -2290,6 +2300,7 @@ peer_to_gossipd:
 
 static void peer_offer_channel(struct lightningd *ld,
 			       struct funding_channel *fc,
+			       const struct ipaddr *addr,
 			       const struct crypto_state *cs,
 			       const u8 *gfeatures, const u8 *lfeatures,
 			       int peer_fd, int gossip_fd)
@@ -2300,7 +2311,8 @@ static void peer_offer_channel(struct lightningd *ld,
 	struct utxo *utxos;
 
 	/* We make a new peer. */
-	fc->peer = new_peer(ld, &fc->peerid, gfeatures, lfeatures, peer_fd);
+	fc->peer = new_peer(ld, &fc->peerid, addr,
+			    gfeatures, lfeatures, peer_fd);
 
 	/* FIXME: Only happens due to netaddr fail. */
 	if (!fc->peer) {
@@ -2389,11 +2401,12 @@ static void gossip_peer_released(struct subd *gossip,
 	struct lightningd *ld = gossip->ld;
 	struct crypto_state cs;
 	u8 *gfeatures, *lfeatures;
+	struct ipaddr addr;
 
 	/* We could have raced with peer doing something else. */
 	fc->peer = peer_by_id(ld, &fc->peerid);
 
-	if (!fromwire_gossipctl_release_peer_reply(fc, resp, NULL, &cs,
+	if (!fromwire_gossipctl_release_peer_reply(fc, resp, NULL, &addr, &cs,
 						   &gfeatures, &lfeatures)) {
 		if (!fromwire_gossipctl_release_peer_replyfail(resp, NULL)) {
 			fatal("Gossip daemon gave invalid reply %s",
@@ -2419,7 +2432,8 @@ static void gossip_peer_released(struct subd *gossip,
 	}
 
 	/* OK, offer peer a channel. */
-	peer_offer_channel(ld, fc, &cs, gfeatures, lfeatures, fds[0], fds[1]);
+	peer_offer_channel(ld, fc, &addr, &cs, gfeatures, lfeatures,
+			   fds[0], fds[1]);
 }
 
 static void json_fund_channel(struct command *cmd,
