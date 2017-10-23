@@ -1,6 +1,7 @@
 #include "lightningd.h"
 #include "peer_control.h"
 #include "subd.h"
+#include <arpa/inet.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/fdpass/fdpass.h>
@@ -347,12 +348,6 @@ static struct peer *new_peer(struct lightningd *ld,
 	/* peer->channel gets populated as soon as we start opening a channel */
 	peer->channel = NULL;
 
-	/* FIXME: Don't assume protocol here! */
-	if (!netaddr_from_fd(peer_fd, SOCK_STREAM, IPPROTO_TCP, &peer->netaddr)) {
-		log_unusual(ld->log, "Failed to get netaddr for outgoing: %s",
-			    strerror(errno));
-		return tal_free(peer);
-	}
 	list_add_tail(&ld->peers, &peer->list);
 	populate_peer(ld, peer);
 
@@ -790,6 +785,28 @@ static void log_to_json(unsigned int skipped,
 		json_add_string(info->response, NULL, log);
 }
 
+static const char *ipaddr_name(const tal_t *ctx, const struct ipaddr *a)
+{
+	char name[INET6_ADDRSTRLEN];
+	int af;
+
+	switch (a->type) {
+	case ADDR_TYPE_IPV4:
+		af = AF_INET;
+		break;
+	case ADDR_TYPE_IPV6:
+		af = AF_INET6;
+		break;
+	default:
+		return tal_fmt(ctx, "Unknown type %u", a->type);
+	}
+
+	if (!inet_ntop(af, a->addr, name, sizeof(name)))
+		sprintf(name, "Unprintable-%u-address", a->type);
+
+	return tal_fmt(ctx, "%s:%u", name, a->port);
+}
+
 static void json_getpeers(struct command *cmd,
 			  const char *buffer, const jsmntok_t *params)
 {
@@ -821,7 +838,7 @@ static void json_getpeers(struct command *cmd,
 		json_object_start(response, NULL);
 		json_add_string(response, "state", peer_state_name(p->state));
 		json_add_string(response, "netaddr",
-				netaddr_name(response, &p->netaddr));
+				ipaddr_name(response, &p->addr));
 		json_add_pubkey(response, "peerid", &p->id);
 		json_add_bool(response, "connected", p->owner != NULL);
 		if (p->owner)
@@ -2221,7 +2238,6 @@ static void peer_accept_channel(struct lightningd *ld,
 {
 	u32 max_to_self_delay, max_minimum_depth;
 	u64 min_effective_htlc_capacity_msat;
-	u8 *errmsg;
 	u8 *msg;
 	struct peer *peer;
 
@@ -2229,13 +2245,6 @@ static void peer_accept_channel(struct lightningd *ld,
 
 	/* We make a new peer. */
 	peer = new_peer(ld, peer_id, addr, gfeatures, lfeatures, peer_fd);
-
-	/* FIXME: Only happens due to netaddr fail. */
-	if (!peer) {
-		errmsg = towire_errorfmt(ld, NULL, "Can't resolve your address");
-		goto peer_to_gossipd;
-	}
-
 	peer_set_condition(peer, UNINITIALIZED, OPENINGD);
 	peer_set_owner(peer,
 		       new_peer_subd(ld, "lightning_openingd", peer,
@@ -2285,17 +2294,6 @@ static void peer_accept_channel(struct lightningd *ld,
 
 	subd_req(peer, peer->owner, take(msg), -1, 2,
 		 opening_fundee_finished, peer);
-	return;
-
-peer_to_gossipd:
-	/* Return to gossipd, with optional error msg to send. */
-	msg = towire_gossipctl_handle_peer(ld, peer_id, addr, cs,
-					   gfeatures, lfeatures, errmsg);
-	subd_send_msg(ld->gossip, take(msg));
-	subd_send_fd(ld->gossip, peer_fd);
-	close(gossip_fd);
-	tal_free(errmsg);
-	return;
 }
 
 static void peer_offer_channel(struct lightningd *ld,
@@ -2313,16 +2311,6 @@ static void peer_offer_channel(struct lightningd *ld,
 	/* We make a new peer. */
 	fc->peer = new_peer(ld, &fc->peerid, addr,
 			    gfeatures, lfeatures, peer_fd);
-
-	/* FIXME: Only happens due to netaddr fail. */
-	if (!fc->peer) {
-		command_fail(fc->cmd,
-			     "Failed to make peer: Can't resolve address: %s",
-			     strerror(errno));
-		close(peer_fd);
-		close(gossip_fd);
-		return;
-	}
 	fc->peer->funding_satoshi = fc->funding_satoshi;
 	fc->peer->push_msat = fc->push_msat;
 

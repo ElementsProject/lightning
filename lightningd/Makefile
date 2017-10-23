@@ -49,7 +49,6 @@ LIGHTNINGD_SRC :=				\
 	lightningd/jsonrpc.c			\
 	lightningd/lightningd.c			\
 	lightningd/log.c			\
-	lightningd/netaddr.c			\
 	lightningd/opt_time.c			\
 	lightningd/options.c			\
 	lightningd/pay.c			\
