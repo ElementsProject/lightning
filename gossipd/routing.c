@@ -736,7 +736,8 @@ void handle_node_announcement(
 struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 			    const struct pubkey *source,
 			    const struct pubkey *destination,
-			    const u32 msatoshi, double riskfactor)
+			    const u32 msatoshi, double riskfactor,
+			    u32 final_cltv)
 {
 	struct node_connection **route;
 	u64 total_amount;
@@ -756,7 +757,7 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 	/* Fees, delays need to be calculated backwards along route. */
 	hops = tal_arr(ctx, struct route_hop, tal_count(route) + 1);
 	total_amount = msatoshi;
-	total_delay = 0;
+	total_delay = final_cltv;
 
 	for (i = tal_count(route) - 1; i >= 0; i--) {
 		hops[i + 1].channel_id = route[i]->short_channel_id;
@@ -764,16 +765,16 @@ struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
 		hops[i + 1].amount = total_amount;
 		total_amount += connection_fee(route[i], total_amount);
 
-		total_delay += route[i]->delay;
 		hops[i + 1].delay = total_delay;
+		total_delay += route[i]->delay;
 	}
 	/* Backfill the first hop manually */
 	hops[0].channel_id = first_conn->short_channel_id;
 	hops[0].nodeid = first_conn->dst->id;
-	/* We don't charge ourselves any fees. */
+	/* We don't charge ourselves any fees, nor require delay */
 	hops[0].amount = total_amount;
-	/* We do require delay though. */
-	total_delay += first_conn->delay;
 	hops[0].delay = total_delay;
+
+	/* FIXME: Shadow route! */
 	return hops;
 }

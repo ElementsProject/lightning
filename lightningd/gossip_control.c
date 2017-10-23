@@ -204,8 +204,9 @@ static void json_getroute_reply(struct subd *gossip, const u8 *reply, const int 
 static void json_getroute(struct command *cmd, const char *buffer, const jsmntok_t *params)
 {
 	struct pubkey id;
-	jsmntok_t *idtok, *msatoshitok, *riskfactortok;
+	jsmntok_t *idtok, *msatoshitok, *riskfactortok, *cltvtok;
 	u64 msatoshi;
+	unsigned cltv = 9;
 	double riskfactor;
 	struct lightningd *ld = cmd->ld;
 
@@ -213,6 +214,7 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 			     "id", &idtok,
 			     "msatoshi", &msatoshitok,
 			     "riskfactor", &riskfactortok,
+			     "?cltv", &cltvtok,
 			     NULL)) {
 		command_fail(cmd, "Need id, msatoshi and riskfactor");
 		return;
@@ -220,6 +222,11 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 
 	if (!json_tok_pubkey(buffer, idtok, &id)) {
 		command_fail(cmd, "Invalid id");
+		return;
+	}
+
+	if (cltvtok && !json_tok_number(buffer, cltvtok, &cltv)) {
+		command_fail(cmd, "Invalid cltv");
 		return;
 	}
 
@@ -236,13 +243,13 @@ static void json_getroute(struct command *cmd, const char *buffer, const jsmntok
 			     buffer + riskfactortok->start);
 		return;
 	}
-	u8 *req = towire_gossip_getroute_request(cmd, &ld->id, &id, msatoshi, riskfactor*1000);
+	u8 *req = towire_gossip_getroute_request(cmd, &ld->id, &id, msatoshi, riskfactor*1000, cltv);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
 }
 
 static const struct json_command getroute_command = {
 	"getroute", json_getroute,
-	"Return route to {id} for {msatoshi}, using {riskfactor}",
+	"Return route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9)",
 	"Returns a {route} array of {id} {msatoshi} {delay}: msatoshi and delay (in blocks) is cumulative."
 };
 AUTODATA(json_command, &getroute_command);
