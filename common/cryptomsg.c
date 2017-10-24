@@ -326,6 +326,7 @@ u8 *cryptomsg_encrypt_msg(const tal_t *ctx,
 	return out;
 }
 
+#if DEVELOPER
 static struct io_plan *peer_write_postclose(struct io_conn *conn,
 					    struct peer_crypto_state *pcs)
 {
@@ -333,6 +334,7 @@ static struct io_plan *peer_write_postclose(struct io_conn *conn,
 	dev_sabotage_fd(io_conn_fd(conn));
 	return pcs->next_out(conn, pcs->peer);
 }
+#endif
 
 struct io_plan *peer_write_message(struct io_conn *conn,
 				   struct peer_crypto_state *pcs,
@@ -341,7 +343,10 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 							   struct peer *))
 {
 	struct io_plan *(*post)(struct io_conn *, struct peer_crypto_state *);
+#if DEVELOPER
 	int type = fromwire_peektype(msg);
+#endif
+
 	assert(!pcs->out);
 
 	pcs->out = cryptomsg_encrypt_msg(conn, &pcs->cs, msg);
@@ -349,6 +354,7 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 
 	post = peer_write_done;
 
+#if DEVELOPER
 	switch (dev_disconnect(type)) {
 	case DEV_DISCONNECT_BEFORE:
 		dev_sabotage_fd(io_conn_fd(conn));
@@ -364,6 +370,7 @@ struct io_plan *peer_write_message(struct io_conn *conn,
 	case DEV_DISCONNECT_NORMAL:
 		break;
 	}
+#endif /* DEVELOPER */
 
 	/* BOLT #8:
 	 *   * Send `lc || c` over the network buffer.

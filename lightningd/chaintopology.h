@@ -113,8 +113,10 @@ struct chain_topology {
 	struct txwatch_hash txwatches;
 	struct txowatch_hash txowatches;
 
+#if DEVELOPER
 	/* Suppress broadcast (for testing) */
 	bool dev_no_broadcast;
+#endif
 };
 
 /* Information relevant to locating a TX in a blockchain. */
@@ -156,8 +158,9 @@ struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo, 
 
 void notify_new_block(struct chain_topology *topo, unsigned int height);
 
+#if DEVELOPER
 void json_dev_broadcast(struct command *cmd,
 			struct chain_topology *topo,
 			const char *buffer, const jsmntok_t *params);
-
+#endif
 #endif /* LIGHTNING_LIGHTNINGD_CHAINTOPOLOGY_H */

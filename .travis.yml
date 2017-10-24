@@ -3,13 +3,14 @@ dist: trusty
 sudo: true
 
 env:
-  - NO_VALGRIND=1 ARCH=32
-  - NO_VALGRIND=1 ARCH=64
-  - NO_VALGRIND=0 ARCH=64
+  - NO_VALGRIND=1 ARCH=32 DEVELOPER=1
+  - NO_VALGRIND=1 ARCH=64 DEVELOPER=1
+  - NO_VALGRIND=0 ARCH=64 DEVELOPER=1
+  - NO_VALGRIND=0 ARCH=64 DEVELOPER=0
 
 # Trusty (aka 14.04) is way way too old, so run in docker...
 script:
   - docker pull cdecker/lightning-ci:${ARCH}bit > /dev/null
-  - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make -j3
-  - docker run --rm=true -e NO_VALGRIND=${NO_VALGRIND:-0} -e TEST_DEBUG=${TEST_DEBUG:-0} -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check
+  - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make -j3 DEVELOPER=${DEVELOPER}
+  - docker run --rm=true -e NO_VALGRIND=${NO_VALGRIND:-0} -e TEST_DEBUG=${TEST_DEBUG:-0} -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check DEVELOPER=${DEVELOPER}
   - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check-source

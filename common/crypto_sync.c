@@ -11,11 +11,14 @@
 
 bool sync_crypto_write(struct crypto_state *cs, int fd, const void *msg TAKES)
 {
+#if DEVELOPER
+	bool post_sabotage = false;
 	int type = fromwire_peektype(msg);
+#endif
 	u8 *enc = cryptomsg_encrypt_msg(NULL, cs, msg);
 	bool ret;
-	bool post_sabotage = false;
 
+#if DEVELOPER
 	switch (dev_disconnect(type)) {
 	case DEV_DISCONNECT_BEFORE:
 		dev_sabotage_fd(fd);
@@ -31,11 +34,14 @@ bool sync_crypto_write(struct crypto_state *cs, int fd, const void *msg TAKES)
 	case DEV_DISCONNECT_NORMAL:
 		break;
 	}
+#endif
 	ret = write_all(fd, enc, tal_len(enc));
 	tal_free(enc);
 
+#if DEVELOPER
 	if (post_sabotage)
 		dev_sabotage_fd(fd);
+#endif
 	return ret;
 }
 

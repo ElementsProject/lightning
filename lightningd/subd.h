@@ -163,8 +163,10 @@ void subd_release_peer(struct subd *owner, struct peer *peer);
  */
 void subd_shutdown(struct subd *subd, unsigned int seconds);
 
+#if DEVELOPER
 char *opt_subd_debug(const char *optarg, struct lightningd *ld);
 char *opt_subd_dev_disconnect(const char *optarg, struct lightningd *ld);
 
 bool dev_disconnect_permanent(struct lightningd *ld);
+#endif /* DEVELOPER */
 #endif /* LIGHTNING_LIGHTNINGD_SUBD_H */

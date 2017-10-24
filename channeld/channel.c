@@ -615,12 +615,14 @@ static void send_commit(struct peer *peer)
 	u8 *msg;
 	const struct htlc **changed_htlcs;
 
+#if DEVELOPER
 	/* Hack to suppress all commit sends if dev_disconnect says to */
 	if (dev_suppress_commit) {
 		peer->commit_timer = NULL;
 		tal_free(tmpctx);
 		return;
 	}
+#endif
 
 	/* FIXME: Document this requirement in BOLT 2! */
 	/* We can't send two commits in a row. */
@@ -1910,6 +1912,7 @@ static void handle_shutdown_cmd(struct peer *peer, const u8 *inmsg)
 	start_commit_timer(peer);
 }
 
+#if DEVELOPER
 static void handle_dev_reenable_commit(struct peer *peer)
 {
 	dev_suppress_commit = false;
@@ -1918,6 +1921,7 @@ static void handle_dev_reenable_commit(struct peer *peer)
 	wire_sync_write(MASTER_FD,
 			take(towire_channel_dev_reenable_commit_reply(peer)));
 }
+#endif
 
 static void req_in(struct peer *peer, const u8 *msg)
 {
@@ -1946,8 +1950,10 @@ static void req_in(struct peer *peer, const u8 *msg)
 		handle_shutdown_cmd(peer, msg);
 		goto out;
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT:
+#if DEVELOPER
 		handle_dev_reenable_commit(peer);
 		goto out;
+#endif /* DEVELOPER */
 	case WIRE_CHANNEL_NORMAL_OPERATION:
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:

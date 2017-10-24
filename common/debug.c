@@ -50,13 +50,16 @@ static void crashlog_activate(void)
 
 void subdaemon_debug(int argc, char *argv[])
 {
+#if DEVELOPER
 	int i;
 	bool printed = false;
+#endif
 
 	err_set_progname(argv[0]);
 	backtrace_state = backtrace_create_state(argv[0], 0, NULL, NULL);
 	crashlog_activate();
 
+#if DEVELOPER
 	for (i = 1; i < argc; i++) {
 		if (strstarts(argv[i], "--dev-disconnect=")) {
 			dev_disconnect_init(atoi(argv[i]
@@ -73,4 +76,5 @@ void subdaemon_debug(int argc, char *argv[])
 			printed = true;
 		}
 	}
+#endif
 }

@@ -16,6 +16,15 @@ VALGRIND=valgrind -q --error-exitcode=7
 VALGRIND_TEST_ARGS = --track-origins=yes --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all
 endif
 
+# By default, we are in DEVELOPER mode, use DEVELOPER= on cmdline to override.
+DEVELOPER := 1
+
+ifeq ($(DEVELOPER),1)
+DEV_CFLAGS=-DDEVELOPER=1
+else
+DEV_CFLAGS=-DDEVELOPER=0
+endif
+
 ifeq ($(COVERAGE),1)
 COVFLAGS = --coverage
 endif
@@ -132,7 +141,7 @@ ALL_PROGRAMS =
 
 CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition
 CDEBUGFLAGS := -std=gnu11 -g -fstack-protector
-CFLAGS = $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . $(FEATURES) $(COVFLAGS) -DSHACHAIN_BITS=48 -DCCAN_TAKE_DEBUG=1
+CFLAGS = $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DCCAN_TAKE_DEBUG=1
 
 LDLIBS = -lgmp -lsqlite3 $(COVFLAGS)
 

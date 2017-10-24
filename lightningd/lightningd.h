@@ -114,18 +114,6 @@ struct lightningd {
 	/* Our chain topology. */
 	struct chain_topology *topology;
 
-	/* If we want to debug a subdaemon. */
-	const char *dev_debug_subdaemon;
-
-	/* If we want to set a specific non-random HSM seed. */
-	const u8 *dev_hsm_seed;
-
-	/* If we have a --dev-disconnect file */
-	int dev_disconnect_fd;
-
-	/* If we have --dev-fail-on-subdaemon-fail */
-	bool dev_subdaemon_fail;
-
 	/* HTLCs in flight. */
 	struct htlc_in_map htlcs_in;
 	struct htlc_out_map htlcs_out;
@@ -139,6 +127,20 @@ struct lightningd {
 
 	/* Any outstanding "pay" commands. */
 	struct list_head pay_commands;
+
+#if DEVELOPER
+	/* If we want to debug a subdaemon. */
+	const char *dev_debug_subdaemon;
+
+	/* If we want to set a specific non-random HSM seed. */
+	const u8 *dev_hsm_seed;
+
+	/* If we have a --dev-disconnect file */
+	int dev_disconnect_fd;
+
+	/* If we have --dev-fail-on-subdaemon-fail */
+	bool dev_subdaemon_fail;
+#endif /* DEVELOPER */
 };
 
 /**

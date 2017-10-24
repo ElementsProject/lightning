@@ -285,6 +285,7 @@ static void config_register_opts(struct lightningd *ld)
 			       " regtest, or litecoin)");
 }
 
+#if DEVELOPER
 static char *opt_set_hsm_seed(const char *arg, struct lightningd *ld)
 {
 	ld->dev_hsm_seed = tal_hexdata(ld, arg, strlen(arg));
@@ -310,6 +311,7 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_arg("--dev-hsm-seed=<seed>", opt_set_hsm_seed,
 			 NULL, ld, "Hex-encoded seed for HSM");
 }
+#endif
 
 static const struct config testnet_config = {
 	/* 6 blocks to catch cheating attempts. */
@@ -560,7 +562,9 @@ void register_opts(struct lightningd *ld)
 
 	configdir_register_opts(ld, &ld->config_dir, &ld->rpc_filename);
 	config_register_opts(ld);
+#if DEVELOPER
 	dev_register_opts(ld);
+#endif
 }
 
 /* Names stolen from https://github.com/ternus/nsaproductgenerator/blob/master/nsa.js */
@@ -634,6 +638,7 @@ bool handle_opts(struct lightningd *ld, int argc, char *argv[])
 
 	check_config(ld);
 
+#if DEVELOPER
 	if (ld->dev_hsm_seed) {
 		int fd;
 		unlink("hsm_secret");
@@ -645,6 +650,7 @@ bool handle_opts(struct lightningd *ld, int argc, char *argv[])
 			      strerror(errno));
 		close(fd);
 	}
+#endif
 
 	return newdir;
 }
