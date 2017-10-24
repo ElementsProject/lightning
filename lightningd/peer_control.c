@@ -1895,34 +1895,31 @@ static void peer_start_closingd_after_shutdown(struct peer *peer, const u8 *msg,
  * commit the transaction. Returns the return value from the handler
  * or -1 on commit failure.
  */
-static int transactional_msg_handler(int (*handler)(struct peer *, const u8 *),
+static void transactional_msg_handler(bool (*handler)(struct peer *, const u8 *),
 				     struct peer *peer, const u8 *msg)
 {
 	struct db *db = peer->ld->wallet->db;
-	int ret;
+	bool ok;
         /* Make sure we are the outermost transaction */
 	assert(!db->in_transaction);
 	db_begin_transaction(db);
 
-	ret = handler(peer, msg);
-	if (ret >= 0 && !db_commit_transaction(db)) {
+	ok = handler(peer, msg);
+	if (ok && !db_commit_transaction(db)) {
 		peer_internal_error(
 			peer, "Could not commit db transaction: %s",
 			db->err);
-		ret = -1;
+		ok = false;
 	}
 
 	/* If the commit fails or the handler aborts we will attempt a
 	 * rollback */
-	if (ret < 0) {
+	if (!ok) {
 		db_rollback_transaction(db);
 	}
 
 	/* Make sure we don't leak transactions */
 	assert(!db->in_transaction);
-	return ret;
-
-
 }
 
 static unsigned int channel_msg(struct subd *sd, const u8 *msg, const int *fds)
