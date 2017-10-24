@@ -342,6 +342,14 @@ static void process_chaintips(struct bitcoin_cli *bcli)
 		const jsmntok_t *status = json_get_member(bcli->output, t, "status");
 		const jsmntok_t *hash = json_get_member(bcli->output, t, "hash");
 
+		if (!status || !hash) {
+			log_broken(bcli->bitcoind->log,
+				   "%s: No status & hash: %.*s",
+				    bcli_args(bcli),
+				    (int)bcli->output_bytes, bcli->output);
+			continue;
+		}
+
 		if (!json_tok_streq(bcli->output, status, "active")) {
 			log_debug(bcli->bitcoind->log,
 				  "Ignoring chaintip %.*s status %.*s",
