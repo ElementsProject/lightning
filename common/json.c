@@ -157,7 +157,8 @@ const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 {
 	const jsmntok_t *t, *end;
 
-	assert(tok->type == JSMN_OBJECT);
+	if (tok->type != JSMN_OBJECT)
+		return NULL;
 
 	end = json_next(tok);
 	for (t = tok + 1; t < end; t = json_next(t+1))
@@ -171,7 +172,8 @@ const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index)
 {
 	const jsmntok_t *t, *end;
 
-	assert(tok->type == JSMN_ARRAY);
+	if (tok->type != JSMN_ARRAY)
+		return NULL;
 
 	end = json_next(tok);
 	for (t = tok + 1; t < end; t = json_next(t)) {
@@ -235,8 +237,8 @@ bool json_get_params(const char *buffer, const jsmntok_t param[], ...)
 		else
 			p = param + 1;
 		end = json_next(param);
-	} else
-		assert(param->type == JSMN_OBJECT);
+	} else if (param->type != JSMN_OBJECT)
+		return false;
 
 	va_start(ap, param);
 	while ((name = va_arg(ap, const char *)) != NULL) {
