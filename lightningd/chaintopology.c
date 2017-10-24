@@ -188,8 +188,10 @@ static void rebroadcast_txs(struct chain_topology *topo, struct command *cmd)
 	struct txs_to_broadcast *txs;
 	struct outgoing_tx *otx;
 
+#if DEVELOPER
 	if (topo->dev_no_broadcast)
 		return;
+#endif /* DEVELOPER */
 
 	txs = tal(topo, struct txs_to_broadcast);
 	txs->cmd = cmd;
@@ -263,11 +265,13 @@ void broadcast_tx(struct chain_topology *topo,
 	log_add(topo->log, " (tx %s)",
 		type_to_string(ltmp, struct sha256_double, &otx->txid));
 
-	if (topo->dev_no_broadcast)
+#if DEVELOPER
+	if (topo->dev_no_broadcast) {
 		broadcast_done(topo->bitcoind, 0, "dev_no_broadcast", otx);
-	else
-		bitcoind_sendrawtx(topo->bitcoind, otx->hextx,
-				   broadcast_done, otx);
+		return;
+	}
+#endif
+	bitcoind_sendrawtx(topo->bitcoind, otx->hextx, broadcast_done, otx);
 }
 
 static void free_blocks(struct chain_topology *topo, struct block *b)
@@ -484,6 +488,7 @@ struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo,
 	return tal_free(loc);
 }
 
+#if DEVELOPER
 void json_dev_broadcast(struct command *cmd,
 			struct chain_topology *topo,
 			const char *buffer, const jsmntok_t *params)
@@ -534,6 +539,7 @@ static const struct json_command dev_blockheight = {
 	"Returns { blockheight: u32 } on success"
 };
 AUTODATA(json_command, &dev_blockheight);
+#endif /* DEVELOPER */
 
 /* On shutdown, peers get deleted last.  That frees from our list, so
  * do it now instead. */
@@ -556,8 +562,10 @@ struct chain_topology *new_topology(const tal_t *ctx, struct log *log)
 	topo->log = log;
 	topo->default_fee_rate = 40000;
 	topo->override_fee_rate = 0;
-	topo->dev_no_broadcast = false;
 	topo->bitcoind = new_bitcoind(topo, log);
+#if DEVELOPER
+	topo->dev_no_broadcast = false;
+#endif
 
 	return topo;
 }

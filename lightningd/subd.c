@@ -134,7 +134,6 @@ static int subd(const char *dir, const char *name, const char *debug_subdaemon,
 	int childmsg[2], execfail[2];
 	pid_t childpid;
 	int err, *fd;
-	bool debug = debug_subdaemon && strends(name, debug_subdaemon);
 
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, childmsg) != 0)
 		goto fail;
@@ -188,10 +187,12 @@ static int subd(const char *dir, const char *name, const char *debug_subdaemon,
 			if (i != dev_disconnect_fd)
 				close(i);
 
+#if DEVELOPER
 		if (dev_disconnect_fd != -1)
 			debug_arg[0] = tal_fmt(NULL, "--dev-disconnect=%i", dev_disconnect_fd);
-		if (debug)
+		if (debug_subdaemon && strends(name, debug_subdaemon))
 			debug_arg[debug_arg[0] ? 1 : 0] = "--debugger";
+#endif
 		execl(path_join(NULL, dir, name), name, debug_arg[0], debug_arg[1], NULL);
 
 	child_errno_fail:
@@ -236,9 +237,16 @@ int subd_raw(struct lightningd *ld, const char *name)
 {
 	pid_t pid;
 	int msg_fd;
+	const char *debug_subd = NULL;
+	int disconnect_fd = -1;
 
-	pid = subd(ld->daemon_dir, name, ld->dev_debug_subdaemon,
-		   &msg_fd, ld->dev_disconnect_fd, NULL);
+#if DEVELOPER
+	debug_subd = ld->dev_debug_subdaemon;
+	disconnect_fd = ld->dev_disconnect_fd;
+#endif /* DEVELOPER */
+
+	pid = subd(ld->daemon_dir, name, debug_subd, &msg_fd, disconnect_fd,
+		   NULL);
 	if (pid == (pid_t)-1) {
 		log_unusual(ld->log, "subd %s failed: %s",
 			    name, strerror(errno));
@@ -342,8 +350,10 @@ static void subdaemon_malformed_msg(struct subd *sd, const u8 *msg)
 			      msg + sizeof(be16),
 			      tal_count(msg) - sizeof(be16)));
 
+#if DEVELOPER
 	if (sd->ld->dev_subdaemon_fail)
 		fatal("Subdaemon %s sent malformed message", sd->name);
+#endif
 }
 
 /* Returns true if logged, false if malformed. */
@@ -388,8 +398,10 @@ log_str_peer:
 log_str_broken:
 	log_broken(sd->log, "%s: %.*s", name, str_len, str);
 
+#if DEVELOPER
 	if (sd->ld->dev_subdaemon_fail)
 		fatal("Subdaemon %s hit error", sd->name);
+#endif
 
 	return true;
 }
@@ -491,7 +503,11 @@ next:
 static void destroy_subd(struct subd *sd)
 {
 	int status;
-	bool fail_if_subd_fails = sd->ld->dev_subdaemon_fail;
+	bool fail_if_subd_fails = false;
+
+#if DEVELOPER
+	fail_if_subd_fails = sd->ld->dev_subdaemon_fail;
+#endif
 
 	switch (waitpid(sd->pid, &status, WNOHANG)) {
 	case 0:
@@ -568,9 +584,16 @@ static struct subd *new_subd(struct lightningd *ld,
 {
 	struct subd *sd = tal(ld, struct subd);
 	int msg_fd;
+	const char *debug_subd = NULL;
+	int disconnect_fd = -1;
 
-	sd->pid = subd(ld->daemon_dir, name, ld->dev_debug_subdaemon,
-		       &msg_fd, ld->dev_disconnect_fd, ap);
+#if DEVELOPER
+	debug_subd = ld->dev_debug_subdaemon;
+	disconnect_fd = ld->dev_disconnect_fd;
+#endif /* DEVELOPER */
+
+	sd->pid = subd(ld->daemon_dir, name, debug_subd, &msg_fd, disconnect_fd,
+		       ap);
 	if (sd->pid == (pid_t)-1) {
 		log_unusual(ld->log, "subd %s failed: %s",
 			    name, strerror(errno));
@@ -696,6 +719,7 @@ void subd_release_peer(struct subd *owner, struct peer *peer)
 	}
 }
 
+#if DEVELOPER
 char *opt_subd_debug(const char *optarg, struct lightningd *ld)
 {
 	ld->dev_debug_subdaemon = optarg;
@@ -731,3 +755,4 @@ bool dev_disconnect_permanent(struct lightningd *ld)
 	lseek(ld->dev_disconnect_fd, -r, SEEK_CUR);
 	return false;
 }
+#endif /* DEVELOPER */

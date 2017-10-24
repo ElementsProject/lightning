@@ -23,6 +23,7 @@ import utils
 bitcoind = None
 TEST_DIR = tempfile.mkdtemp(prefix='lightning-')
 VALGRIND = os.getenv("NO_VALGRIND", "0") == "0"
+DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
 TEST_DEBUG = os.getenv("TEST_DEBUG", "0") == "1"
 
 print("Testing results are in {}".format(TEST_DIR))
@@ -104,7 +105,8 @@ class NodeFactory(object):
             with open(os.path.join(lightning_dir, "dev_disconnect"), "w") as f:
                 f.write("\n".join(disconnect))
             daemon.cmd_line.append("--dev-disconnect=dev_disconnect")
-        daemon.cmd_line.append("--dev-fail-on-subdaemon-fail")
+        if DEVELOPER:
+            daemon.cmd_line.append("--dev-fail-on-subdaemon-fail")
         opts = [] if options is None else options
         for opt in opts:
             daemon.cmd_line.append(opt)
@@ -441,6 +443,7 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('sendrawtx exit 0')
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail(self):
         l1,l2 = self.connect()
 
@@ -485,6 +488,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.rpc.generate(6)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchain_first_commit(self):
         """Onchain handling where funder immediately drops to chain"""
 
@@ -527,6 +531,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.rpc.generate(6)
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchain_dust_out(self):
         """Onchain handling of outgoing dust htlcs (they should fail)"""
         # HTLC 1->2, 1 fails after it's irrevocably committed
@@ -579,6 +584,7 @@ class LightningDTests(BaseLightningDTests):
         # Payment failed, BTW
         assert l2.rpc.listinvoice('onchain_dust_out')[0]['complete'] == False
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchain_timeout(self):
         """Onchain handling of outgoing failed htlcs"""
         # HTLC 1->2, 1 fails just after it's irrevocably committed
@@ -634,6 +640,7 @@ class LightningDTests(BaseLightningDTests):
         # Payment failed, BTW
         assert l2.rpc.listinvoice('onchain_timeout')[0]['complete'] == False
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_onchain_middleman(self):
         # HTLC 1->2->3, 1->2 goes down after 2 gets preimage from 3.
         disconnects = ['-WIRE_UPDATE_FULFILL_HTLC', 'permfail']
@@ -708,6 +715,7 @@ class LightningDTests(BaseLightningDTests):
         l1.bitcoin.rpc.generate(100)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_penalty_inhtlc(self):
         """Test penalty transaction with an incoming HTLC"""
         # We suppress each one after first commit; HTLC gets added not fulfilled.
@@ -829,6 +837,7 @@ class LightningDTests(BaseLightningDTests):
         # FIXME: Test wallet balance...
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail_new_commit(self):
         # Test case where we have two possible commits: it will use new one.
         disconnects = ['-WIRE_REVOKE_AND_ACK', 'permfail']
@@ -864,6 +873,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail_htlc_in(self):
         # Test case where we fail with unsettled incoming HTLC.
         disconnects = ['-WIRE_UPDATE_FULFILL_HTLC', 'permfail']
@@ -905,6 +915,7 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.rpc.generate(6)
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_permfail_htlc_out(self):
         # Test case where we fail with unsettled outgoing HTLC.
         disconnects = ['+WIRE_REVOKE_AND_ACK', 'permfail']
@@ -1003,6 +1014,7 @@ class LightningDTests(BaseLightningDTests):
             ret = l1.rpc.dev_ping(l2.info['id'], 1000, s)
             assert ret['totlen'] == 0
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_ping(self):
         l1,l2 = self.connect()
 
@@ -1014,6 +1026,7 @@ class LightningDTests(BaseLightningDTests):
         # channeld pinging
         self.ping_tests(l1, l2)
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_routing_gossip_reconnect(self):
         # Connect two peers, reconnect and then see if we resume the
         # gossip.
@@ -1042,6 +1055,7 @@ class LightningDTests(BaseLightningDTests):
         self.fund_channel(l1, l2, 10**6)
         self.fund_channel(l1, l3, 10**6)
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for --dev-broadcast-interval")
     def test_routing_gossip(self):
         nodes = [self.node_factory.get_node() for _ in range(5)]
         l1 = nodes[0]
@@ -1142,6 +1156,7 @@ class LightningDTests(BaseLightningDTests):
         route = copy.deepcopy(baseroute)
         l1.rpc.sendpay(to_json(route), rhash)
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_disconnect(self):
         # These should all make us fail, and retry.
         # FIXME: Configure short timeout for reconnect!
@@ -1157,6 +1172,7 @@ class LightningDTests(BaseLightningDTests):
             l1.daemon.wait_for_log('Failed connected out for {}, will try again'
                                    .format(l2.info['id']))
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_disconnect_funder(self):
         # Now error on funder side duringchannel open.
         disconnects = ['-WIRE_OPEN_CHANNEL',
@@ -1177,6 +1193,7 @@ class LightningDTests(BaseLightningDTests):
             self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
             assert l1.rpc.getpeer(l2.info['id']) == None
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_disconnect_fundee(self):
         # Now error on fundee side during channel open.
         disconnects = ['-WIRE_ACCEPT_CHANNEL',
@@ -1195,6 +1212,7 @@ class LightningDTests(BaseLightningDTests):
             self.assertRaises(ValueError, l1.rpc.fundchannel, l2.info['id'], 20000)
             assert l1.rpc.getpeer(l2.info['id']) == None
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_disconnect_half_signed(self):
         # Now, these are the corner cases.  Fundee sends funding_signed,
         # but funder doesn't receive it.
@@ -1214,6 +1232,7 @@ class LightningDTests(BaseLightningDTests):
         assert l1.rpc.getpeer(l2.info['id']) == None
         assert l2.rpc.getpeer(l1.info['id'])['peerid'] == l1.info['id']
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_reconnect_signed(self):
         # This will fail *after* both sides consider channel opening.
         disconnects = ['+WIRE_FUNDING_SIGNED']
@@ -1243,6 +1262,7 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('-> CHANNELD_NORMAL')
         l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_reconnect_openingd(self):
         # Openingd thinks we're still opening; funder reconnects..
         disconnects = ['0WIRE_ACCEPT_CHANNEL']
@@ -1272,6 +1292,7 @@ class LightningDTests(BaseLightningDTests):
         # Just to be sure, second openingd hand over to channeld.
         l2.daemon.wait_for_log('lightning_openingd.*REPLY WIRE_OPENING_FUNDEE_REPLY with 2 fds')
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_reconnect_normal(self):
         # Should reconnect fine even if locked message gets lost.
         disconnects = ['-WIRE_FUNDING_LOCKED',
@@ -1283,6 +1304,7 @@ class LightningDTests(BaseLightningDTests):
 
         self.fund_channel(l1, l2, 10**6)
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_reconnect_sender_add1(self):
         # Fail after add is OK, will cause payment failure though.
         disconnects = ['-WIRE_UPDATE_ADD_HTLC-nocommit',
@@ -1309,6 +1331,7 @@ class LightningDTests(BaseLightningDTests):
         # This will send commit, so will reconnect as required.
         l1.rpc.sendpay(to_json(route), rhash)
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_reconnect_sender_add(self):
         disconnects = ['-WIRE_COMMITMENT_SIGNED',
                        '@WIRE_COMMITMENT_SIGNED',
@@ -1334,6 +1357,7 @@ class LightningDTests(BaseLightningDTests):
         for i in range(0,len(disconnects)):
             l1.daemon.wait_for_log('Already have funding locked in')
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_reconnect_receiver_add(self):
         disconnects = ['-WIRE_COMMITMENT_SIGNED',
                        '@WIRE_COMMITMENT_SIGNED',
@@ -1357,6 +1381,7 @@ class LightningDTests(BaseLightningDTests):
             l1.daemon.wait_for_log('Already have funding locked in')
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_reconnect_receiver_fulfill(self):
         # Ordering matters: after +WIRE_UPDATE_FULFILL_HTLC, channeld
         # will continue and try to send WIRE_COMMITMENT_SIGNED: if
@@ -1386,6 +1411,7 @@ class LightningDTests(BaseLightningDTests):
             l1.daemon.wait_for_log('Already have funding locked in')
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == True
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_shutdown_reconnect(self):
         disconnects = ['-WIRE_SHUTDOWN',
                        '@WIRE_SHUTDOWN',
@@ -1413,6 +1439,7 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_logs(['sendrawtx exit 0', '-> CLOSINGD_COMPLETE'])
         assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 1
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_closing_negotiation_reconnect(self):
         disconnects = ['-WIRE_CLOSING_SIGNED',
                        '@WIRE_CLOSING_SIGNED',
@@ -1511,6 +1538,7 @@ class LightningDTests(BaseLightningDTests):
         assert outputs[0] >   8990000
         assert outputs[2] == 10000000
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_channel_persistence(self):
         # Start two nodes and open a channel (to remember). l2 will
         # mysteriously die while committing the first HTLC so we can

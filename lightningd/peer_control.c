@@ -204,10 +204,12 @@ void peer_fail_transient(struct peer *peer, const char *fmt, ...)
 	logv_add(peer->log, fmt, ap);
 	va_end(ap);
 
+#if DEVELOPER
 	if (dev_disconnect_permanent(peer->ld)) {
 		peer_internal_error(peer, "dev_disconnect permfail");
 		return;
 	}
+#endif
 
 	peer_set_owner(peer, NULL);
 
@@ -758,88 +760,6 @@ static const struct json_command connect_command = {
 	"Returns the {id} on success (once channel established)"
 };
 AUTODATA(json_command, &connect_command);
-
-static void json_dev_fail(struct command *cmd,
-			  const char *buffer, const jsmntok_t *params)
-{
-	jsmntok_t *peertok;
-	struct peer *peer;
-
-	if (!json_get_params(buffer, params,
-			     "id", &peertok,
-			     NULL)) {
-		command_fail(cmd, "Need id");
-		return;
-	}
-
-	peer = peer_from_json(cmd->ld, buffer, peertok);
-	if (!peer) {
-		command_fail(cmd, "Could not find peer with that id");
-		return;
-	}
-
-	peer_internal_error(peer, "Failing due to dev-fail command");
-	command_success(cmd, null_response(cmd));
-}
-
-static const struct json_command dev_fail_command = {
-	"dev-fail",
-	json_dev_fail,
-	"Fail with peer {id}",
-	"Returns {} on success"
-};
-AUTODATA(json_command, &dev_fail_command);
-
-static void dev_reenable_commit_finished(struct subd *channeld,
-					 const u8 *resp,
-					 const int *fds,
-					 struct command *cmd)
-{
-	command_success(cmd, null_response(cmd));
-}
-
-static void json_dev_reenable_commit(struct command *cmd,
-				     const char *buffer, const jsmntok_t *params)
-{
-	jsmntok_t *peertok;
-	struct peer *peer;
-	u8 *msg;
-
-	if (!json_get_params(buffer, params,
-			     "id", &peertok,
-			     NULL)) {
-		command_fail(cmd, "Need id");
-		return;
-	}
-
-	peer = peer_from_json(cmd->ld, buffer, peertok);
-	if (!peer) {
-		command_fail(cmd, "Could not find peer with that id");
-		return;
-	}
-
-	if (!peer->owner) {
-		command_fail(cmd, "Peer has no owner");
-		return;
-	}
-
-	if (!streq(peer->owner->name, "lightning_channeld")) {
-		command_fail(cmd, "Peer owned by %s", peer->owner->name);
-		return;
-	}
-
-	msg = towire_channel_dev_reenable_commit(peer);
-	subd_req(peer, peer->owner, take(msg), -1, 0,
-		 dev_reenable_commit_finished, cmd);
-}
-
-static const struct json_command dev_reenable_commit = {
-	"dev-reenable-commit",
-	json_dev_reenable_commit,
-	"Reenable the commit timer on peer {id}",
-	"Returns {} on success"
-};
-AUTODATA(json_command, &dev_reenable_commit);
 
 struct log_info {
 	enum log_level level;
@@ -1699,52 +1619,6 @@ void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
 	tal_free(peer->last_tx);
 	peer->last_tx = tal_steal(peer, tx);
 }
-
-/* FIXME: Guard with heavy dev-only #ifdefs! */
-static void json_sign_last_tx(struct command *cmd,
-			      const char *buffer, const jsmntok_t *params)
-{
-	jsmntok_t *peertok;
-	struct peer *peer;
-	struct json_result *response = new_json_result(cmd);
-	u8 *linear;
-
-	if (!json_get_params(buffer, params,
-			     "id", &peertok,
-			     NULL)) {
-		command_fail(cmd, "Need id");
-		return;
-	}
-
-	peer = peer_from_json(cmd->ld, buffer, peertok);
-	if (!peer) {
-		command_fail(cmd, "Could not find peer with that id");
-		return;
-	}
-	if (!peer->last_tx) {
-		command_fail(cmd, "Peer has no final transaction");
-		return;
-	}
-
-	log_debug(peer->log, "dev-sign-last-tx: signing tx with %zu outputs",
-		  tal_count(peer->last_tx->output));
-	sign_last_tx(peer);
-	linear = linearize_tx(cmd, peer->last_tx);
-
-	json_object_start(response, NULL);
-	json_add_hex(response, "tx", linear, tal_len(linear));
-	json_object_end(response);
-	command_success(cmd, response);
-}
-
-static const struct json_command dev_sign_last_tx = {
-	"dev-sign-last-tx",
-	json_sign_last_tx,
-	"Sign and return the last commitment transaction",
-	"Sign last transaction with peer @id, return as @tx."
-	"  This should never be called outside testing!"
-};
-AUTODATA(json_command, &dev_sign_last_tx);
 
 /* Is this better than the last tx we were holding? */
 static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
@@ -2673,3 +2547,132 @@ const char *peer_state_name(enum peer_state state)
 			return enum_peer_state_names[i].name;
 	return "unknown";
 }
+
+#if DEVELOPER
+static void json_sign_last_tx(struct command *cmd,
+			      const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *peertok;
+	struct peer *peer;
+	struct json_result *response = new_json_result(cmd);
+	u8 *linear;
+
+	if (!json_get_params(buffer, params,
+			     "id", &peertok,
+			     NULL)) {
+		command_fail(cmd, "Need id");
+		return;
+	}
+
+	peer = peer_from_json(cmd->ld, buffer, peertok);
+	if (!peer) {
+		command_fail(cmd, "Could not find peer with that id");
+		return;
+	}
+	if (!peer->last_tx) {
+		command_fail(cmd, "Peer has no final transaction");
+		return;
+	}
+
+	log_debug(peer->log, "dev-sign-last-tx: signing tx with %zu outputs",
+		  tal_count(peer->last_tx->output));
+	sign_last_tx(peer);
+	linear = linearize_tx(cmd, peer->last_tx);
+
+	json_object_start(response, NULL);
+	json_add_hex(response, "tx", linear, tal_len(linear));
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+static const struct json_command dev_sign_last_tx = {
+	"dev-sign-last-tx",
+	json_sign_last_tx,
+	"Sign and return the last commitment transaction",
+	"Sign last transaction with peer @id, return as @tx."
+	"  This should never be called outside testing!"
+};
+AUTODATA(json_command, &dev_sign_last_tx);
+
+static void json_dev_fail(struct command *cmd,
+			  const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *peertok;
+	struct peer *peer;
+
+	if (!json_get_params(buffer, params,
+			     "id", &peertok,
+			     NULL)) {
+		command_fail(cmd, "Need id");
+		return;
+	}
+
+	peer = peer_from_json(cmd->ld, buffer, peertok);
+	if (!peer) {
+		command_fail(cmd, "Could not find peer with that id");
+		return;
+	}
+
+	peer_internal_error(peer, "Failing due to dev-fail command");
+	command_success(cmd, null_response(cmd));
+}
+
+static const struct json_command dev_fail_command = {
+	"dev-fail",
+	json_dev_fail,
+	"Fail with peer {id}",
+	"Returns {} on success"
+};
+AUTODATA(json_command, &dev_fail_command);
+
+static void dev_reenable_commit_finished(struct subd *channeld,
+					 const u8 *resp,
+					 const int *fds,
+					 struct command *cmd)
+{
+	command_success(cmd, null_response(cmd));
+}
+
+static void json_dev_reenable_commit(struct command *cmd,
+				     const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *peertok;
+	struct peer *peer;
+	u8 *msg;
+
+	if (!json_get_params(buffer, params,
+			     "id", &peertok,
+			     NULL)) {
+		command_fail(cmd, "Need id");
+		return;
+	}
+
+	peer = peer_from_json(cmd->ld, buffer, peertok);
+	if (!peer) {
+		command_fail(cmd, "Could not find peer with that id");
+		return;
+	}
+
+	if (!peer->owner) {
+		command_fail(cmd, "Peer has no owner");
+		return;
+	}
+
+	if (!streq(peer->owner->name, "lightning_channeld")) {
+		command_fail(cmd, "Peer owned by %s", peer->owner->name);
+		return;
+	}
+
+	msg = towire_channel_dev_reenable_commit(peer);
+	subd_req(peer, peer->owner, take(msg), -1, 0,
+		 dev_reenable_commit_finished, cmd);
+}
+
+static const struct json_command dev_reenable_commit = {
+	"dev-reenable-commit",
+	json_dev_reenable_commit,
+	"Reenable the commit timer on peer {id}",
+	"Returns {} on success"
+};
+AUTODATA(json_command, &dev_reenable_commit);
+#endif /* DEVELOPER */

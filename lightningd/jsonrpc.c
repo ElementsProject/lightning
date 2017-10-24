@@ -186,6 +186,7 @@ static const struct json_command getlog_command = {
 };
 AUTODATA(json_command, &getlog_command);
 
+#if DEVELOPER
 static void json_rhash(struct command *cmd,
 		       const char *buffer, const jsmntok_t *params)
 {
@@ -238,6 +239,7 @@ static const struct json_command dev_crash_command = {
 	"Simple crash test for developers"
 };
 AUTODATA(json_command, &dev_crash_command);
+#endif /* DEVELOPER */
 
 static void json_getinfo(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)

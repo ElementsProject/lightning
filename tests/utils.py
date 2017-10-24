@@ -25,6 +25,7 @@ LIGHTNINGD_CONFIG = {
     "locktime-blocks": 6,
 }
 
+DEVELOPER = os.getenv("DEVELOPER", "0") == "1"
 
 def write_config(filename, opts):
     with open(filename, 'w') as f:
@@ -237,11 +238,11 @@ class LightningD(TailableProc):
             '--bitcoin-datadir={}'.format(bitcoin_dir),
             '--lightning-dir={}'.format(lightning_dir),
             '--port={}'.format(port),
-            '--network=regtest',
-            '--dev-broadcast-interval=1000',
-            '--dev-hsm-seed={}'.format(seed.hex())
+            '--network=regtest'
         ]
-
+        if DEVELOPER:
+            self.cmd_line += ['--dev-broadcast-interval=1000',
+                              '--dev-hsm-seed={}'.format(seed.hex())]
         self.cmd_line += ["--{}={}".format(k, v) for k, v in LIGHTNINGD_CONFIG.items()]
         self.prefix = 'lightningd(%d)' % (port)
 

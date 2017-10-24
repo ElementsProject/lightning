@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <wire/gen_peer_wire.h>
 
+#if DEVELOPER
 /* We move the fd IFF we do a disconnect. */
 static int dev_disconnect_fd = -1;
 static char dev_disconnect_line[200];
@@ -132,3 +133,4 @@ void dev_blackhole_fd(int fd)
 	dup2(fds[1], fd);
 	close(fds[1]);
 }
+#endif
