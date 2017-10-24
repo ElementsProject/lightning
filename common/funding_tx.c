@@ -1,5 +1,4 @@
 #include "funding_tx.h"
-#include <assert.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
