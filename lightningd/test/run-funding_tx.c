@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
 #include <bitcoin/privkey.h>
