@@ -119,7 +119,9 @@ static void fail_in_htlc(struct htlc_in *hin,
 	}
 }
 
-static u8 *make_failmsg(const tal_t *ctx, u64 msatoshi,
+static u8 *make_failmsg(const tal_t *ctx,
+			struct log *log,
+			u64 msatoshi,
 			enum onion_type failcode,
 			const u8 *channel_update)
 {
@@ -167,7 +169,10 @@ static u8 *make_failmsg(const tal_t *ctx, u64 msatoshi,
 	case WIRE_INVALID_ONION_KEY:
 		fatal("Bad failmsg for %s", onion_type_name(failcode));
 	}
-	abort();
+
+	log_broken(log, "Asked to create unknown failmsg %u:"
+		   " using temp node failure instead", failcode);
+	return towire_temporary_node_failure(ctx);
 }
 
 /* This is used for cases where we can immediately fail the HTLC. */
@@ -185,7 +190,8 @@ static void local_fail_htlc(struct htlc_in *hin, enum onion_type failcode)
 			/* FIXME: Ask gossip daemon for channel_update. */
 		}
 
-		msg = make_failmsg(hin, hin->msatoshi, failcode, NULL);
+		msg = make_failmsg(hin, hin->key.peer->log,
+				   hin->msatoshi, failcode, NULL);
 		fail_in_htlc(hin, 0, take(create_onionreply(hin, &hin->shared_secret, msg)));
 		tal_free(msg);
 	}
@@ -387,7 +393,8 @@ static void hout_subd_died(struct htlc_out *hout)
 		  "Failing HTLC %"PRIu64" due to peer death",
 		  hout->key.id);
 
-	hout->failuremsg = make_failmsg(hout, hout->msatoshi,
+	hout->failuremsg = make_failmsg(hout, hout->key.peer->log,
+					hout->msatoshi,
 					WIRE_TEMPORARY_CHANNEL_FAILURE,
 					NULL);
 	fail_out_htlc(hout, "Outgoing subdaemon died");
@@ -808,7 +815,7 @@ void onchain_failed_our_htlc(const struct peer *peer,
 	if (hout->failuremsg)
 		return;
 
-	hout->failuremsg = make_failmsg(hout, hout->msatoshi,
+	hout->failuremsg = make_failmsg(hout, peer->log, hout->msatoshi,
 					WIRE_PERMANENT_CHANNEL_FAILURE,
 					NULL);
 
