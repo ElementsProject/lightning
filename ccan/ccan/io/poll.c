@@ -130,9 +130,11 @@ void backend_new_plan(struct io_conn *conn)
 		num_waiting--;
 
 	pfd->events = 0;
-	if (conn->plan[IO_IN].status == IO_POLLING)
+	if (conn->plan[IO_IN].status == IO_POLLING_NOTSTARTED
+	    || conn->plan[IO_IN].status == IO_POLLING_STARTED)
 		pfd->events |= POLLIN;
-	if (conn->plan[IO_OUT].status == IO_POLLING)
+	if (conn->plan[IO_OUT].status == IO_POLLING_NOTSTARTED
+	    || conn->plan[IO_OUT].status == IO_POLLING_STARTED)
 		pfd->events |= POLLOUT;
 
 	if (pfd->events) {
