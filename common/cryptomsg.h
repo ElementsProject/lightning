@@ -14,6 +14,9 @@ struct peer_crypto_state {
 	/* Peer who owns us: peer->crypto_state == this */
 	struct peer *peer;
 
+	/* Where we are up to in reading (we do in two parts). */
+	bool reading_body;
+
 	/* Output and input buffers. */
 	u8 *out, *in;
 	struct io_plan *(*next_in)(struct io_conn *, struct peer *, u8 *);
@@ -29,6 +32,12 @@ struct io_plan *peer_read_message(struct io_conn *conn,
 				  struct io_plan *(*next)(struct io_conn *,
 							  struct peer *,
 							  u8 *msg));
+
+/* Have we already started writing/reading a message? */
+bool peer_out_started(const struct io_conn *conn,
+		      const struct peer_crypto_state *cs);
+bool peer_in_started(const struct io_conn *conn,
+		     const struct peer_crypto_state *cs);
 
 /* Sends message: frees if taken(msg). */
 struct io_plan *peer_write_message(struct io_conn *conn,
