@@ -675,6 +675,34 @@ void *io_loop(struct timers *timers, struct timer **expired);
 int io_conn_fd(const struct io_conn *conn);
 
 /**
+ * io_plan_in_started - is this conn doing input I/O now?
+ * @conn: the conn.
+ *
+ * This returns true if input I/O has been performed on the conn but
+ * @next hasn't been called yet.  For example, io_read() may have done
+ * a partial read.
+ *
+ * This can be useful if we want to terminate a connection only after
+ * reading a whole packet: if this returns true, we would wait until
+ * @next is called.
+ */
+bool io_plan_in_started(const struct io_conn *conn);
+
+/**
+ * io_plan_out_started - is this conn doing output I/O now?
+ * @conn: the conn.
+ *
+ * This returns true if output I/O has been performed on the conn but
+ * @next hasn't been called yet.  For example, io_write() may have done
+ * a partial write.
+ *
+ * This can be useful if we want to terminate a connection only after
+ * writing a whole packet: if this returns true, we would wait until
+ * @next is called.
+ */
+bool io_plan_out_started(const struct io_conn *conn);
+
+/**
  * io_flush_sync - (synchronously) complete any outstanding output.
  * @conn: the connection.
  *
