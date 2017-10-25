@@ -132,7 +132,7 @@ ALL_PROGRAMS =
 
 CWARNFLAGS := -Werror -Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition
 CDEBUGFLAGS := -std=gnu11 -g -fstack-protector
-CFLAGS = $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . $(FEATURES) $(COVFLAGS) -DSHACHAIN_BITS=48
+CFLAGS = $(CWARNFLAGS) $(CDEBUGFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . $(FEATURES) $(COVFLAGS) -DSHACHAIN_BITS=48 -DCCAN_TAKE_DEBUG=1
 
 LDLIBS = -lgmp -lsqlite3 $(COVFLAGS)
 
