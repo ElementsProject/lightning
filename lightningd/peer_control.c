@@ -2348,8 +2348,7 @@ static void peer_accept_channel(struct lightningd *ld,
 
 	/* FIXME: Only happens due to netaddr fail. */
 	if (!peer) {
-		errmsg = take(towire_errorfmt(ld, NULL,
-					      "Can't resolve your address"));
+		errmsg = towire_errorfmt(ld, NULL, "Can't resolve your address");
 		goto peer_to_gossipd;
 	}
 
@@ -2411,6 +2410,7 @@ peer_to_gossipd:
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
 	close(gossip_fd);
+	tal_free(errmsg);
 	return;
 }
 
