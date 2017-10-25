@@ -19,7 +19,7 @@ u8 *hsm_sync_read(const tal_t *ctx, struct lightningd *ld)
 	for (;;) {
 		u8 *msg = wire_sync_read(ctx, ld->hsm_fd);
 		if (!msg)
-			fatal("Could not write from HSM: %s", strerror(errno));
+			fatal("Could not read from HSM: %s", strerror(errno));
 		if (fromwire_peektype(msg) != STATUS_TRACE)
 			return msg;
 
