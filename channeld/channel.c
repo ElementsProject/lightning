@@ -2107,6 +2107,11 @@ static void gossip_gone(struct io_conn *unused, struct daemon_conn *dc)
 		      "Gossip connection closed");
 }
 
+/* FIXME: This doesn't cover partly read packets!  We could be halfway
+ * through receiving a gossip msg, for example.  We'll simply reconnect
+ * in this case, but the real fix is to wean off ccan/io here, as it doesn't
+ * buy us anything: a poll for read on gossipfd, masterfd and peerfd then acting
+ * synchronous would be a simpler model. */
 static void send_shutdown_complete(struct peer *peer)
 {
 	const u8 *msg;
