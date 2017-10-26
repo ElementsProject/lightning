@@ -20,6 +20,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/crypto_state.o			\
 	common/derive_basepoints.o		\
 	common/funding_tx.o			\
+	common/hash_u5.o			\
 	common/htlc_state.o			\
 	common/htlc_wire.o			\
 	common/io_debug.o			\
@@ -41,6 +42,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 LIGHTNINGD_SRC :=				\
 	lightningd/bech32.c			\
 	lightningd/bitcoind.c			\
+	lightningd/bolt11.c			\
 	lightningd/build_utxos.c		\
 	lightningd/chaintopology.c		\
 	lightningd/gossip_control.c		\
