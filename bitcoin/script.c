@@ -319,6 +319,15 @@ u8 *scriptpubkey_p2wpkh_derkey(const tal_t *ctx, const u8 der[33])
 	return script;
 }
 
+u8 *scriptpubkey_witness_raw(const tal_t *ctx, u8 version,
+			     const u8 *wprog, size_t wprog_size)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+	add_number(&script, version);
+	add_push_bytes(&script, wprog, wprog_size);
+	return script;
+}
+
 /* Create a witness which spends the 2of2. */
 u8 **bitcoin_witness_2of2(const tal_t *ctx,
 			  const secp256k1_ecdsa_signature *sig1,
