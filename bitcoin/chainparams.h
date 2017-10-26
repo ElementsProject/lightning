@@ -9,6 +9,7 @@
 struct chainparams {
 	const int index;
 	const char *network_name;
+	const char *bip173_name;
 	const struct sha256_double genesis_blockhash;
 	const int rpc_port;
 	const char *cli;
@@ -31,4 +32,11 @@ const struct chainparams *chainparams_for_network(const char *network_name);
  * we allows lookup by index.
  */
 const struct chainparams *chainparams_by_index(const int index);
+
+/**
+ * chainparams_by_bip173 - Helper to get a network by its bip173 name
+ *
+ * This lets us decode BOLT11 addresses.
+ */
+const struct chainparams *chainparams_by_bip173(const char *bip173_name);
 #endif /* LIGHTNING_BITCOIN_CHAINPARAMS_H */
