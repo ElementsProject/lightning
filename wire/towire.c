@@ -79,6 +79,20 @@ void towire_secp256k1_ecdsa_signature(u8 **pptr,
 	towire(pptr, compact, sizeof(compact));
 }
 
+void towire_secp256k1_ecdsa_recoverable_signature(u8 **pptr,
+			const secp256k1_ecdsa_recoverable_signature *rsig)
+{
+	u8 compact[64];
+	int recid;
+
+	secp256k1_ecdsa_recoverable_signature_serialize_compact(secp256k1_ctx,
+								compact,
+								&recid,
+								rsig);
+	towire(pptr, compact, sizeof(compact));
+	towire_u8(pptr, recid);
+}
+
 void towire_channel_id(u8 **pptr, const struct channel_id *channel_id)
 {
 	towire(pptr, channel_id, sizeof(*channel_id));

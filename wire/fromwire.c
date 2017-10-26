@@ -129,6 +129,22 @@ void fromwire_secp256k1_ecdsa_signature(const u8 **cursor,
 		fromwire_fail(cursor, max);
 }
 
+void fromwire_secp256k1_ecdsa_recoverable_signature(const u8 **cursor,
+				    size_t *max,
+				    secp256k1_ecdsa_recoverable_signature *rsig)
+{
+	u8 compact[64];
+	int recid;
+
+	fromwire(cursor, max, compact, sizeof(compact));
+	recid = fromwire_u8(cursor, max);
+
+	if (secp256k1_ecdsa_recoverable_signature_parse_compact(secp256k1_ctx,
+								rsig, compact,
+								recid) != 1)
+		fromwire_fail(cursor, max);
+}
+
 void fromwire_channel_id(const u8 **cursor, size_t *max,
 			 struct channel_id *channel_id)
 {
