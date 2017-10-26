@@ -182,17 +182,23 @@ u8 *bitcoin_redeem_2of2(const tal_t *ctx,
 	return script;
 }
 
+u8 *scriptpubkey_p2sh_hash(const tal_t *ctx, const struct ripemd160 *redeemhash)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+
+	add_op(&script, OP_HASH160);
+	add_push_bytes(&script, redeemhash->u.u8, sizeof(redeemhash->u.u8));
+	add_op(&script, OP_EQUAL);
+	return script;
+}
+
 /* Create p2sh for this redeem script. */
 u8 *scriptpubkey_p2sh(const tal_t *ctx, const u8 *redeemscript)
 {
 	struct ripemd160 redeemhash;
-	u8 *script = tal_arr(ctx, u8, 0);
 
-	add_op(&script, OP_HASH160);
 	hash160(&redeemhash, redeemscript, tal_count(redeemscript));
-	add_push_bytes(&script, redeemhash.u.u8, sizeof(redeemhash.u.u8));
-	add_op(&script, OP_EQUAL);
-	return script;
+	return scriptpubkey_p2sh_hash(ctx, &redeemhash);
 }
 
 /* Create an output script using p2pkh */
