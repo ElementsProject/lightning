@@ -309,8 +309,6 @@ class LightningDTests(BaseLightningDTests):
 
         self.fund_channel(l1, l2, 10**6)
 
-        time.sleep(5)
-
         amt = 200000000
         rhash = l2.rpc.invoice(amt, 'testpayment2')['rhash']
         assert l2.rpc.listinvoice('testpayment2')[0]['complete'] == False

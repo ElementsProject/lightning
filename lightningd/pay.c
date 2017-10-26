@@ -3,6 +3,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
 #include <channeld/gen_channel_wire.h>
+#include <gossipd/routing.h>
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
@@ -143,128 +144,45 @@ static void pay_command_destroyed(struct pay_command *pc)
 	list_del(&pc->list);
 }
 
-static void json_sendpay(struct command *cmd,
-			 const char *buffer, const jsmntok_t *params)
+static void send_payment(struct command *cmd,
+			 const struct sha256 *rhash,
+			 const struct route_hop *route)
 {
-	struct pubkey *ids;
-	jsmntok_t *routetok, *rhashtok;
-	const jsmntok_t *t, *end;
-	unsigned int delay, base_expiry;
-	size_t n_hops;
-	struct sha256 rhash;
-	struct peer *peer;
 	struct pay_command *pc;
+	struct peer *peer;
 	const u8 *onion;
 	u8 sessionkey[32];
-	struct hop_data *hop_data;
-	struct hop_data first_hop_data;
-	u64 amount, lastamount;
+	unsigned int base_expiry;
 	struct onionpacket *packet;
 	struct secret *path_secrets;
 	enum onion_type failcode;
-
-	if (!json_get_params(buffer, params,
-			     "route", &routetok,
-			     "rhash", &rhashtok,
-			     NULL)) {
-		command_fail(cmd, "Need route and rhash");
-		return;
-	}
-
-	if (!hex_decode(buffer + rhashtok->start,
-			rhashtok->end - rhashtok->start,
-			&rhash, sizeof(rhash))) {
-		command_fail(cmd, "'%.*s' is not a valid sha256 hash",
-			     (int)(rhashtok->end - rhashtok->start),
-			     buffer + rhashtok->start);
-		return;
-	}
-
-	if (routetok->type != JSMN_ARRAY) {
-		command_fail(cmd, "'%.*s' is not an array",
-			     (int)(routetok->end - routetok->start),
-			     buffer + routetok->start);
-		return;
-	}
+	size_t i, n_hops = tal_count(route);
+	struct hop_data *hop_data = tal_arr(cmd, struct hop_data, n_hops);
+	struct pubkey *ids = tal_arr(cmd, struct pubkey, n_hops);
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	base_expiry = get_block_height(cmd->ld->topology) + 1;
 
-	end = json_next(routetok);
-	n_hops = 0;
-	ids = tal_arr(cmd, struct pubkey, n_hops);
+	/* Extract IDs for each hop: create_onionpacket wants array. */
+	for (i = 0; i < n_hops; i++)
+		ids[i] = route[i].nodeid;
 
-	hop_data = tal_arr(cmd, struct hop_data, n_hops);
-	for (t = routetok + 1; t < end; t = json_next(t)) {
-		const jsmntok_t *amttok, *idtok, *delaytok, *chantok;
-
-		if (t->type != JSMN_OBJECT) {
-			command_fail(cmd, "route %zu '%.*s' is not an object",
-				     n_hops,
-				     (int)(t->end - t->start),
-				     buffer + t->start);
-			return;
-		}
-		amttok = json_get_member(buffer, t, "msatoshi");
-		idtok = json_get_member(buffer, t, "id");
-		delaytok = json_get_member(buffer, t, "delay");
-		chantok = json_get_member(buffer, t, "channel");
-		if (!amttok || !idtok || !delaytok || !chantok) {
-			command_fail(cmd, "route %zu needs msatoshi/id/channel/delay",
-				     n_hops);
-			return;
-		}
-
-		tal_resize(&hop_data, n_hops + 1);
-		tal_resize(&ids, n_hops+1);
-		hop_data[n_hops].realm = 0;
-		/* What that hop will forward */
-		if (!json_tok_u64(buffer, amttok, &amount)) {
-			command_fail(cmd, "route %zu invalid msatoshi",
-				     n_hops);
-			return;
-		}
-		hop_data[n_hops].amt_forward = amount;
-
-		if (!short_channel_id_from_str(buffer + chantok->start,
-					       chantok->end - chantok->start,
-					       &hop_data[n_hops].channel_id)) {
-			command_fail(cmd, "route %zu invalid channel_id", n_hops);
-			return;
-		}
-		if (!json_tok_pubkey(buffer, idtok, &ids[n_hops])) {
-			command_fail(cmd, "route %zu invalid id", n_hops);
-			return;
-		}
-		if (!json_tok_number(buffer, delaytok, &delay)) {
-			command_fail(cmd, "route %zu invalid delay", n_hops);
-			return;
-		}
-		hop_data[n_hops].outgoing_cltv = base_expiry + delay;
-		n_hops++;
+	/* Copy hop_data[n] from route[n+1] (ie. where it goes next) */
+	for (i = 0; i < n_hops - 1; i++) {
+		hop_data[i].realm = 0;
+		hop_data[i].channel_id = route[i+1].channel_id;
+		hop_data[i].amt_forward = route[i+1].amount;
+		hop_data[i].outgoing_cltv = base_expiry + route[i+1].delay;
 	}
 
-	if (n_hops == 0) {
-		command_fail(cmd, "Empty route");
-		return;
-	}
-
-	/* Store some info we'll need for our own HTLC */
-	amount = hop_data[0].amt_forward;
-	lastamount = hop_data[n_hops-1].amt_forward;
-	first_hop_data = hop_data[0];
-
-	/* Shift the hop_data down by one, so each hop gets its
-	 * instructions, not how we got there */
-	for (size_t i=0; i < n_hops - 1; i++) {
-		hop_data[i] = hop_data[i+1];
-	}
 	/* And finally set the final hop to the special values in
 	 * BOLT04 */
-	hop_data[n_hops-1].outgoing_cltv = base_expiry + delay;
-	memset(&hop_data[n_hops-1].channel_id, 0, sizeof(struct short_channel_id));
+	hop_data[i].realm = 0;
+	hop_data[i].outgoing_cltv = base_expiry + route[i].delay;
+	memset(&hop_data[i].channel_id, 0, sizeof(struct short_channel_id));
+	hop_data[i].amt_forward = route[i].amount;
 
-	pc = find_pay_command(cmd->ld, &rhash);
+	pc = find_pay_command(cmd->ld, rhash);
 	if (pc) {
 		log_debug(cmd->ld->log, "json_sendpay: found previous");
 		if (pc->out) {
@@ -276,7 +194,7 @@ static void json_sendpay(struct command *cmd,
 			size_t old_nhops = tal_count(pc->ids);
 			log_add(cmd->ld->log, "... succeeded");
 			/* Must match successful payment parameters. */
-			if (pc->msatoshi != lastamount) {
+			if (pc->msatoshi != hop_data[n_hops-1].amt_forward) {
 				command_fail(cmd,
 					     "already succeeded with amount %"
 					     PRIu64, pc->msatoshi);
@@ -307,7 +225,7 @@ static void json_sendpay(struct command *cmd,
 	randombytes_buf(&sessionkey, sizeof(sessionkey));
 
 	/* Onion will carry us from first peer onwards. */
-	packet = create_onionpacket(cmd, ids, hop_data, sessionkey, rhash.u.u8,
+	packet = create_onionpacket(cmd, ids, hop_data, sessionkey, rhash->u.u8,
 				    sizeof(struct sha256), &path_secrets);
 	onion = serialize_onionpacket(cmd, packet);
 
@@ -319,14 +237,14 @@ static void json_sendpay(struct command *cmd,
 		tal_add_destructor(pc, pay_command_destroyed);
 	}
 	pc->cmd = cmd;
-	pc->rhash = rhash;
+	pc->rhash = *rhash;
 	pc->rval = NULL;
 	pc->ids = tal_steal(pc, ids);
-	pc->msatoshi = lastamount;
+	pc->msatoshi = route[n_hops-1].amount;
 	pc->path_secrets = tal_steal(pc, path_secrets);
 
-	log_info(cmd->ld->log, "Sending %"PRIu64" over %zu hops to deliver %"PRIu64,
-		 amount, n_hops, lastamount);
+	log_info(cmd->ld->log, "Sending %u over %zu hops to deliver %"PRIu64,
+		 route[0].amount, n_hops, pc->msatoshi);
 
 	/* Wait until we get response. */
 	tal_add_destructor2(cmd, remove_cmd_from_pc, pc);
@@ -336,13 +254,105 @@ static void json_sendpay(struct command *cmd,
 	 * remove_cmd_from_pc destructor causes a use-after-free */
 	tal_steal(pc, cmd);
 
-	failcode = send_htlc_out(peer, amount, first_hop_data.outgoing_cltv,
-				 &rhash, onion, NULL, pc, &pc->out);
+	failcode = send_htlc_out(peer, route[0].amount,
+				 base_expiry + route[0].delay,
+				 rhash, onion, NULL, pc, &pc->out);
 	if (failcode) {
 		command_fail(cmd, "first peer not ready: %s",
 			     onion_type_name(failcode));
 		return;
 	}
+}
+
+static void json_sendpay(struct command *cmd,
+			 const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *routetok, *rhashtok;
+	const jsmntok_t *t, *end;
+	size_t n_hops;
+	struct sha256 rhash;
+	struct route_hop *route;
+
+	if (!json_get_params(buffer, params,
+			     "route", &routetok,
+			     "rhash", &rhashtok,
+			     NULL)) {
+		command_fail(cmd, "Need route and rhash");
+		return;
+	}
+
+	if (!hex_decode(buffer + rhashtok->start,
+			rhashtok->end - rhashtok->start,
+			&rhash, sizeof(rhash))) {
+		command_fail(cmd, "'%.*s' is not a valid sha256 hash",
+			     (int)(rhashtok->end - rhashtok->start),
+			     buffer + rhashtok->start);
+		return;
+	}
+
+	if (routetok->type != JSMN_ARRAY) {
+		command_fail(cmd, "'%.*s' is not an array",
+			     (int)(routetok->end - routetok->start),
+			     buffer + routetok->start);
+		return;
+	}
+
+	end = json_next(routetok);
+	n_hops = 0;
+	route = tal_arr(cmd, struct route_hop, n_hops);
+
+	for (t = routetok + 1; t < end; t = json_next(t)) {
+		const jsmntok_t *amttok, *idtok, *delaytok, *chantok;
+
+		if (t->type != JSMN_OBJECT) {
+			command_fail(cmd, "route %zu '%.*s' is not an object",
+				     n_hops,
+				     (int)(t->end - t->start),
+				     buffer + t->start);
+			return;
+		}
+		amttok = json_get_member(buffer, t, "msatoshi");
+		idtok = json_get_member(buffer, t, "id");
+		delaytok = json_get_member(buffer, t, "delay");
+		chantok = json_get_member(buffer, t, "channel");
+		if (!amttok || !idtok || !delaytok || !chantok) {
+			command_fail(cmd, "route %zu needs msatoshi/id/channel/delay",
+				     n_hops);
+			return;
+		}
+
+		tal_resize(&route, n_hops + 1);
+
+		/* What that hop will forward */
+		if (!json_tok_number(buffer, amttok, &route[n_hops].amount)) {
+			command_fail(cmd, "route %zu invalid msatoshi",
+				     n_hops);
+			return;
+		}
+
+		if (!short_channel_id_from_str(buffer + chantok->start,
+					       chantok->end - chantok->start,
+					       &route[n_hops].channel_id)) {
+			command_fail(cmd, "route %zu invalid channel_id", n_hops);
+			return;
+		}
+		if (!json_tok_pubkey(buffer, idtok, &route[n_hops].nodeid)) {
+			command_fail(cmd, "route %zu invalid id", n_hops);
+			return;
+		}
+		if (!json_tok_number(buffer, delaytok, &route[n_hops].delay)) {
+			command_fail(cmd, "route %zu invalid delay", n_hops);
+			return;
+		}
+		n_hops++;
+	}
+
+	if (n_hops == 0) {
+		command_fail(cmd, "Empty route");
+		return;
+	}
+
+	send_payment(cmd, &rhash, route);
 }
 
 static const struct json_command sendpay_command = {
