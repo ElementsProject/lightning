@@ -125,17 +125,17 @@ u8 *bitcoin_wscript_htlc_tx(const tal_t *ctx,
 			    const struct pubkey *revocation_pubkey,
 			    const struct pubkey *local_delayedkey);
 
-/* Is this a pay to pubkey hash? */
-bool is_p2pkh(const u8 *script);
+/* Is this a pay to pubkey hash? (extract addr if not NULL) */
+bool is_p2pkh(const u8 *script, struct bitcoin_address *addr);
 
-/* Is this a pay to script hash? */
-bool is_p2sh(const u8 *script);
+/* Is this a pay to script hash? (extract addr if not NULL) */
+bool is_p2sh(const u8 *script, struct ripemd160 *addr);
 
-/* Is this (version 0) pay to witness script hash? */
-bool is_p2wsh(const u8 *script);
+/* Is this (version 0) pay to witness script hash? (extract addr if not NULL) */
+bool is_p2wsh(const u8 *script, struct sha256 *addr);
 
-/* Is this (version 0) pay to witness pubkey hash? */
-bool is_p2wpkh(const u8 *script);
+/* Is this (version 0) pay to witness pubkey hash? (extract addr if not NULL) */
+bool is_p2wpkh(const u8 *script, struct bitcoin_address *addr);
 
 /* Are these two scripts equal? */
 bool scripteq(const tal_t *s1, const tal_t *s2);
