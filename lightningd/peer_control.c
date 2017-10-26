@@ -1620,8 +1620,8 @@ static void peer_got_shutdown(struct peer *peer, const u8 *msg)
 	 *
 	 * A receiving node SHOULD fail the connection if the `scriptpubkey`
 	 * is not one of those forms. */
-	if (!is_p2pkh(scriptpubkey) && !is_p2sh(scriptpubkey)
-	    && !is_p2wpkh(scriptpubkey) && !is_p2wsh(scriptpubkey)) {
+	if (!is_p2pkh(scriptpubkey, NULL) && !is_p2sh(scriptpubkey, NULL)
+	    && !is_p2wpkh(scriptpubkey, NULL) && !is_p2wsh(scriptpubkey, NULL)) {
 		char *str = tal_fmt(peer, "Bad shutdown scriptpubkey %s",
 				    tal_hex(peer, scriptpubkey));
 		peer_fail_permanent_str(peer, take(str));
