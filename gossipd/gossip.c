@@ -1009,8 +1009,8 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 	if (!fromwire_gossipctl_init(daemon, msg, NULL,
 				     &daemon->broadcast_interval,
 				     &chain_hash, &daemon->id, &port,
-				     &daemon->localfeatures,
-				     &daemon->globalfeatures)) {
+				     &daemon->globalfeatures,
+				     &daemon->localfeatures)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
 	daemon->rstate = new_routing_state(daemon, &chain_hash);
