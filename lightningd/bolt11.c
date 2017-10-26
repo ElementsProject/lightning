@@ -1,4 +1,5 @@
 #include <bitcoin/address.h>
+#include <bitcoin/base58.h>
 #include <bitcoin/chainparams.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
@@ -13,6 +14,7 @@
 #include <lightningd/bech32.h>
 #include <lightningd/bolt11.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <secp256k1_recovery.h>
@@ -1000,3 +1002,151 @@ struct bolt11 *bolt11_out_check(const struct bolt11 *b11, const char *abortstr)
         }
         return cast_const(struct bolt11 *, b11);
 }
+
+static void json_decodepay(struct command *cmd,
+                           const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *bolt11tok, *desctok;
+	struct bolt11 *b11;
+	struct json_result *response;
+        char *str, *desc, *fail;
+
+	if (!json_get_params(buffer, params,
+			     "bolt11", &bolt11tok,
+			     "?description", &desctok,
+			     NULL)) {
+		command_fail(cmd, "Need bolt11 string");
+		return;
+	}
+
+        str = tal_strndup(cmd, buffer + bolt11tok->start,
+                          bolt11tok->end - bolt11tok->start);
+
+        if (desctok)
+                desc = tal_strndup(cmd, buffer + desctok->start,
+                                   desctok->end - desctok->start);
+        else
+                desc = NULL;
+
+	b11 = bolt11_decode(cmd, str, desc, &fail);
+
+	if (!b11) {
+		command_fail(cmd, "Invalid bolt11: %s", fail);
+		return;
+	}
+
+	response = new_json_result(cmd);
+	json_object_start(response, NULL);
+
+	json_add_string(response, "currency", b11->chain->bip173_name);
+	json_add_u64(response, "timestamp", b11->timestamp);
+	json_add_u64(response, "expiry", b11->expiry);
+	json_add_pubkey(response, "payee", &b11->receiver_id);
+        if (b11->msatoshi)
+                json_add_u64(response, "msatoshi", *b11->msatoshi);
+        if (b11->description)
+                json_add_string(response, "description", b11->description);
+        if (b11->description_hash)
+                json_add_hex(response, "description_hash",
+                             b11->description_hash,
+                             sizeof(*b11->description_hash));
+        if (tal_len(b11->fallback)) {
+                struct bitcoin_address pkh;
+                struct ripemd160 sh;
+                struct sha256 wsh;
+
+                json_object_start(response, "fallback");
+                if (is_p2pkh(b11->fallback, &pkh)) {
+                        json_add_string(response, "type", "P2PKH");
+                        json_add_string(response, "addr",
+                                        bitcoin_to_base58(cmd,
+                                                          b11->chain->testnet,
+                                                          &pkh));
+                } else if (is_p2sh(b11->fallback, &sh)) {
+                        json_add_string(response, "type", "P2SH");
+                        json_add_string(response, "addr",
+                                        p2sh_to_base58(cmd,
+                                                       b11->chain->testnet,
+                                                       &sh));
+                } else if (is_p2wpkh(b11->fallback, &pkh)) {
+                        char out[73 + strlen(b11->chain->bip173_name)];
+                        json_add_string(response, "type", "P2WPKH");
+                        if (segwit_addr_encode(out, b11->chain->bip173_name, 0,
+                                               (const u8 *)&pkh, sizeof(pkh)))
+                                json_add_string(response, "addr", out);
+                } else if (is_p2wsh(b11->fallback, &wsh)) {
+                        char out[73 + strlen(b11->chain->bip173_name)];
+                        json_add_string(response, "type", "P2WSH");
+                        if (segwit_addr_encode(out, b11->chain->bip173_name, 0,
+                                               (const u8 *)&wsh, sizeof(wsh)))
+                                json_add_string(response, "addr", out);
+                }
+                json_add_hex(response, "hex",
+                             b11->fallback, tal_len(b11->fallback));
+                json_object_end(response);
+        }
+
+        if (tal_count(b11->routes)) {
+                size_t i, n;
+
+                json_array_start(response, "routes");
+                for (i = 0; i < tal_count(b11->routes); i++) {
+                        json_array_start(response, NULL);
+                        for (n = 0; n < tal_count(b11->routes[i]); n++) {
+                                json_object_start(response, NULL);
+                                json_add_pubkey(response, "pubkey",
+                                                &b11->routes[i][n].pubkey);
+                                json_add_short_channel_id(response,
+                                                          "short_channel_id",
+                                                          &b11->routes[i][n]
+                                                          .short_channel_id);
+                                json_add_u64(response, "fee",
+                                             b11->routes[i][n].fee);
+                                json_add_num(response, "cltv_expiry_delta",
+                                             b11->routes[i][n]
+                                             .cltv_expiry_delta);
+                                json_object_end(response);
+                        }
+                        json_array_end(response);
+                }
+                json_array_end(response);
+        }
+
+        if (!list_empty(&b11->extra_fields)) {
+                struct bolt11_field *extra;
+
+                json_array_start(response, "extra");
+                list_for_each(&b11->extra_fields, extra, list) {
+                        char *data = tal_arr(cmd, char, tal_len(extra->data)+1);
+                        size_t i;
+
+                        for (i = 0; i < tal_len(extra->data); i++)
+                                data[i] = bech32_charset[extra->data[i]];
+                        data[i] = '\0';
+                        json_object_start(response, NULL);
+                        json_add_string(response, "tag",
+                                        tal_fmt(data, "%c", extra->tag));
+                        json_add_string(response, "data", data);
+                        tal_free(data);
+                        json_object_end(response);
+                }
+                json_array_end(response);
+        }
+
+	json_add_hex(response, "payment_hash",
+                     &b11->payment_hash, sizeof(b11->payment_hash));
+
+	json_add_string(response, "signature",
+                        type_to_string(cmd, secp256k1_ecdsa_signature,
+                                       &b11->sig));
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+static const struct json_command decodepay_command = {
+	"decodepay",
+	json_decodepay,
+	"Parse and decode {bolt11} if possible",
+	"Returns a verbose description on success"
+};
+AUTODATA(json_command, &decodepay_command);
