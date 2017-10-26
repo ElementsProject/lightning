@@ -752,7 +752,7 @@ static void push_field(u5 **data, char type, const void *src, size_t nbits)
 
 /* BOLT #11:
  *
- * SHOULD use the minimum `data_length` possible.
+ * SHOULD use the minimum `data_length` possible for `x` and `c` fields.
  */
 static void push_varlen_field(u5 **data, char type, u64 val)
 {
@@ -1007,7 +1007,7 @@ struct bolt11 *bolt11_out_check(const struct bolt11 *b11, const char *abortstr)
 {
         struct bolt11_field *extra;
 
-        /* BOLT #11:
+        /* BOLT #2:
          *
          * For channels with `chain_hash` identifying the Bitcoin blockchain,
          * the sending node MUST set the 4 most significant bytes of
