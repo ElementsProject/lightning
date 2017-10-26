@@ -6,7 +6,7 @@ CCANDIR := ccan
 
 # Where we keep the BOLT RFCs
 BOLTDIR := ../lightning-rfc/
-BOLTVERSION := master
+BOLTVERSION := 58d4d9bca3ae5896eeea4b46324df27b8ecb0ce1
 
 # If you don't have (working) valgrind.
 #NO_VALGRIND := 1
@@ -190,7 +190,7 @@ bolt-check/%: % bolt-precheck tools/check-bolt
 	@[ ! -d .tmp.lightningrfc ] || tools/check-bolt .tmp.lightningrfc $<
 
 bolt-precheck:
-	@rm -rf .tmp.lightningrfc; if [ ! -d $(BOLTDIR) ]; then echo Not checking BOLT references: BOLTDIR $(BOLTDIR) does not exist >&2; exit 0; fi; set -e; if [ -n "$(BOLTVERSION)" ]; then git clone -q -b $(BOLTVERSION) $(BOLTDIR) .tmp.lightningrfc; else cp -a $(BOLTDIR) .tmp.lightningrfc; fi
+	@rm -rf .tmp.lightningrfc; if [ ! -d $(BOLTDIR) ]; then echo Not checking BOLT references: BOLTDIR $(BOLTDIR) does not exist >&2; exit 0; fi; set -e; if [ -n "$(BOLTVERSION)" ]; then git clone -q $(BOLTDIR) .tmp.lightningrfc && cd .tmp.lightningrfc && git checkout -q $(BOLTVERSION); else cp -a $(BOLTDIR) .tmp.lightningrfc; fi
 
 check-source-bolt: $(ALL_TEST_PROGRAMS:%=bolt-check/%.c)
 

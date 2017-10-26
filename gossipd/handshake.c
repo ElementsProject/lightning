@@ -35,7 +35,7 @@ enum bolt8_side {
 
 /* BOLT #8:
  *
- * Act One is sent from initiator tog responder. During `Act One`, the
+ * Act One is sent from initiator to responder. During `Act One`, the
  * initiator attempts to satisfy an implicit challenge by the responder. To
  * complete this challenge, the initiator _must_ know the static public key of
  * the responder.

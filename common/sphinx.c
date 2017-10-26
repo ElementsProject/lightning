@@ -487,7 +487,7 @@ u8 *create_onionreply(const tal_t *ctx, const struct secret *shared_secret,
 	/* BOLT #4:
 	 *
  	 * Where `hmac` is an HMAC authenticating the remainder of the packet,
-	 * with a key using the above key generation with key type "_um_"
+	 * with a key using the above key generation with key type `um`
 	 */
 	generate_key(key, "um", 2, shared_secret->data);
 
