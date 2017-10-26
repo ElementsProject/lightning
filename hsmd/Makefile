@@ -29,6 +29,7 @@ HSMD_COMMON_OBJS :=				\
 	common/daemon_conn.o			\
 	common/debug.o				\
 	common/funding_tx.o			\
+	common/hash_u5.o			\
 	common/io_debug.o			\
 	common/key_derive.o			\
 	common/msg_queue.o			\
