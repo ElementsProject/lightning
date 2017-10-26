@@ -37,7 +37,7 @@ external/libsecp256k1.% external/libwallycore.%: external/libwally-core/src/secp
 	$(MAKE) -C external/libwally-core install-exec
 
 external/libwally-core/src/libwallycore.% external/libwally-core/src/secp256k1/libsecp256k1.%: $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS)
-	cd external/libwally-core && ./tools/autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-shared=no --libdir=`pwd`/.. && $(MAKE)
+	cd external/libwally-core && ./tools/autogen.sh && ./configure CC="$(CC)" --enable-static=yes --enable-module-recovery --enable-shared=no --libdir=`pwd`/.. && $(MAKE)
 
 # Git submodules are seriously broken.
 external/jsmn/jsmn.h:
