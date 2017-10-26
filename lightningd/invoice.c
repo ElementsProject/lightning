@@ -181,6 +181,7 @@ static void json_invoice(struct command *cmd,
 	b11->timestamp = time_now().ts.tv_sec;
 	b11->payment_hash = invoice->rhash;
 	b11->receiver_id = cmd->ld->id;
+	b11->min_final_cltv_expiry = cmd->ld->config.cltv_final;
 	if (desc->end - desc->start >= BOLT11_FIELD_BYTE_LIMIT) {
 		b11->description_hash = tal(b11, struct sha256);
 		sha256(b11->description_hash, buffer + desc->start,
@@ -188,8 +189,7 @@ static void json_invoice(struct command *cmd,
 	} else
 		b11->description = tal_strndup(b11, buffer + desc->start,
 					       desc->end - desc->start);
-	/* FIXME: add option to set this */
-	b11->expiry = 3600;
+	/* FIXME: add option to set expiry */
 
 	/* FIXME: add private routes if necessary! */
 	b11enc = bolt11_encode(cmd, cmd->ld, b11, false);

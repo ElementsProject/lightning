@@ -393,8 +393,6 @@ static void json_pay(struct command *cmd,
 	jsmntok_t *bolt11tok, *msatoshitok, *desctok, *riskfactortok;
 	double riskfactor = 1.0;
 	u64 msatoshi;
-	/* FIXME: add ctlv to bolt11 */
-	u32 cltv = 9;
 	struct pay *pay = tal(cmd, struct pay);
 	struct bolt11 *b11;
 	char *fail, *b11str, *desc;
@@ -458,7 +456,8 @@ static void json_pay(struct command *cmd,
 	/* FIXME: use b11->routes */
 	req = towire_gossip_getroute_request(cmd, &cmd->ld->id,
 					     &b11->receiver_id,
-					     msatoshi, riskfactor*1000, cltv);
+					     msatoshi, riskfactor*1000,
+					     b11->min_final_cltv_expiry);
 	subd_req(pay, cmd->ld->gossip, req, -1, 0, json_pay_getroute_reply, pay);
 }
 

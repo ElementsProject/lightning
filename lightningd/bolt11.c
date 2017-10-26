@@ -248,6 +248,33 @@ static char *decode_x(struct bolt11 *b11,
         return NULL;
 }
 
+/* BOLT #11:
+ *
+ * `c` (24): `data_length` variable.  `min_final_cltv_expiry` to use for the
+ * last HTLC in the route. Default is 9 if not specified.
+ */
+#define DEFAULT_C 9
+static char *decode_c(struct bolt11 *b11,
+                      struct hash_u5 *hu5,
+                      u5 **data, size_t *data_len,
+                      size_t data_length, bool *have_c)
+{
+        u64 c;
+        if (*have_c)
+                return unknown_field(b11, hu5, data, data_len, 'c',
+                                     data_length);
+
+        /* FIXME: Put upper limit in bolt 11 */
+        if (!pull_uint(hu5, data, data_len, &c, data_length * 5))
+                return tal_fmt(b11, "c: length %zu chars is excessive",
+                               *data_len);
+        b11->min_final_cltv_expiry = c;
+        if (b11->min_final_cltv_expiry != c)
+                return tal_fmt(b11, "c: %"PRIu64" is too large", c);
+
+        return NULL;
+}
+
 static char *decode_n(struct bolt11 *b11,
                       struct hash_u5 *hu5,
                       u5 **data, size_t *data_len,
@@ -417,6 +444,8 @@ struct bolt11 *new_bolt11(const tal_t *ctx, u64 *msatoshi)
         b11->fallback = NULL;
         b11->routes = NULL;
         b11->msatoshi = NULL;
+        b11->expiry = DEFAULT_X;
+        b11->min_final_cltv_expiry = DEFAULT_C;
 
         if (msatoshi)
                 b11->msatoshi = tal_dup(b11, u64, msatoshi);
@@ -437,7 +466,7 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
         struct hash_u5 hu5;
         struct sha256 hash;
         bool have_p = false, have_n = false, have_d = false, have_h = false,
-                have_x = false, have_f = false;
+                have_x = false, have_f = false, have_c = false;
 
         b11->routes = tal_arr(b11, struct route_info *, 0);
 
@@ -528,8 +557,6 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
         if (!pull_uint(&hu5, &data, &data_len, &b11->timestamp, 35))
                 return decode_fail(b11, fail, "Can't get 35-bit timestamp");
 
-        b11->expiry = DEFAULT_X;
-
         while (data_len > 520 / 5) {
                 const char *problem = NULL;
                 u64 type, data_length;
@@ -578,6 +605,12 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
                         problem = decode_x(b11, &hu5, &data,
                                            &data_len, data_length,
                                            &have_x);
+                        break;
+
+                case 'c':
+                        problem = decode_c(b11, &hu5, &data,
+                                           &data_len, data_length,
+                                           &have_c);
                         break;
 
                 case 'f':
@@ -765,6 +798,11 @@ static void encode_x(u5 **data, u64 expiry)
         push_varlen_field(data, 'x', expiry);
 }
 
+static void encode_c(u5 **data, u16 min_final_cltv_expiry)
+{
+        push_varlen_field(data, 'c', min_final_cltv_expiry);
+}
+
 static void encode_f(u5 **data, const u8 *fallback)
 {
         struct bitcoin_address pkh;
@@ -905,6 +943,9 @@ char *bolt11_encode(const tal_t *ctx,
 
         if (b11->expiry != DEFAULT_X)
                 encode_x(&data, b11->expiry);
+
+        if (b11->min_final_cltv_expiry != DEFAULT_C)
+                encode_c(&data, b11->min_final_cltv_expiry);
 
         if (b11->fallback)
                 encode_f(&data, b11->fallback);
