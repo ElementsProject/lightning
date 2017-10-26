@@ -128,7 +128,10 @@ struct peer {
 	bool reach_again;
 
 	/* Waiting to send_peer_with_fds to master? */
-	const u8 *send_to_master;
+	bool return_to_master;
+
+	/* If we're exiting due to non-gossip msg, otherwise release */
+	u8 *nongossip_msg;
 };
 
 struct addrhint {
@@ -194,7 +197,7 @@ static struct peer *new_peer(const tal_t *ctx,
 	peer->daemon = daemon;
 	peer->local = true;
 	peer->reach_again = false;
-	peer->send_to_master = NULL;
+	peer->return_to_master = false;
 	peer->num_pings_outstanding = 0;
 	peer->broadcast_index = 0;
 	msg_queue_init(&peer->peer_out, peer);
@@ -412,23 +415,28 @@ static void fail_release(struct peer *peer)
 	daemon_conn_send(&peer->daemon->master, take(msg));
 }
 
-static struct io_plan *wait_until_ready_for_master(struct io_conn *conn,
-						   struct peer *peer)
+static struct io_plan *ready_for_master(struct io_conn *conn, struct peer *peer)
 {
-	/* One of these is always true, since we've just finished read/write */
-	if (!peer_in_started(conn, &peer->pcs)
-	    && !peer_out_started(conn, &peer->pcs)) {
-		if (send_peer_with_fds(peer, take(peer->send_to_master))) {
-			/* In case we set this earlier. */
-			tal_del_destructor(peer, fail_release);
-			peer->send_to_master = NULL;
-			return io_close_taken_fd(conn);
-		} else
-			return io_close(conn);
-	}
+	u8 *msg;
+	if (peer->nongossip_msg)
+		msg = towire_gossip_peer_nongossip(peer, &peer->id,
+						   &peer->pcs.cs,
+						   peer->gfeatures,
+						   peer->lfeatures,
+						   peer->nongossip_msg);
+	else
+		msg = towire_gossipctl_release_peer_reply(peer,
+							  &peer->pcs.cs,
+							  peer->gfeatures,
+							  peer->lfeatures);
 
-	/* Don't do any more I/O. */
-	return io_wait(conn, peer, wait_until_ready_for_master, peer);
+	if (send_peer_with_fds(peer, take(msg))) {
+		/* In case we set this earlier. */
+		tal_del_destructor(peer, fail_release);
+		peer->return_to_master = false;
+		return io_close_taken_fd(conn);
+	} else
+		return io_close(conn);
 }
 
 static struct io_plan *peer_msgin(struct io_conn *conn,
@@ -438,8 +446,12 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
  * pass up to master */
 static struct io_plan *peer_next_in(struct io_conn *conn, struct peer *peer)
 {
-	if (peer->send_to_master)
-		return wait_until_ready_for_master(conn, peer);
+	if (peer->return_to_master) {
+		assert(!peer_in_started(conn, &peer->pcs));
+		if (!peer_out_started(conn, &peer->pcs))
+			return ready_for_master(conn, peer);
+		return io_wait(conn, peer, peer_next_in, peer);
+	}
 
 	return peer_read_message(conn, &peer->pcs, peer_msgin);
 }
@@ -488,12 +500,8 @@ static struct io_plan *peer_msgin(struct io_conn *conn,
 	case WIRE_REVOKE_AND_ACK:
 	case WIRE_INIT:
 		/* Not our place to handle this, so we punt */
-		peer->send_to_master
-			= towire_gossip_peer_nongossip(peer, &peer->id,
-						       &peer->pcs.cs,
-						       peer->gfeatures,
-						       peer->lfeatures,
-						       msg);
+		peer->return_to_master = true;
+		peer->nongossip_msg = tal_steal(peer, msg);
 
 		/* This will wait. */
 		return peer_next_in(conn, peer);
@@ -543,8 +551,12 @@ static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer)
 	}
 
 	/* Do we want to send this peer to the master daemon? */
-	if (peer->send_to_master)
-		return wait_until_ready_for_master(conn, peer);
+	if (peer->return_to_master) {
+		assert(!peer_out_started(conn, &peer->pcs));
+		if (!peer_in_started(conn, &peer->pcs))
+			return ready_for_master(conn, peer);
+		return io_out_wait(conn, peer, peer_pkt_out, peer);
+	}
 
 	/* If we're supposed to be sending gossip, do so now. */
 	if (peer->gossip_sync) {
@@ -738,21 +750,18 @@ static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
 		master_badmsg(WIRE_GOSSIPCTL_RELEASE_PEER, msg);
 
 	peer = find_peer(daemon, &id);
-	if (!peer || !peer->local || peer->send_to_master) {
+	if (!peer || !peer->local || peer->return_to_master) {
 		/* This can happen with dying peers, or reconnect */
 		status_trace("release_peer: peer %s %s",
 			     type_to_string(trc, struct pubkey, &id),
 			     !peer ? "not found"
-			     : !peer->send_to_master ? "already releasing"
+			     : peer->return_to_master ? "already releasing"
 			     : "not local");
 		msg = towire_gossipctl_release_peer_replyfail(msg);
 		daemon_conn_send(&daemon->master, take(msg));
 	} else {
-		msg = towire_gossipctl_release_peer_reply(peer,
-							  &peer->pcs.cs,
-							  peer->gfeatures,
-							  peer->lfeatures);
-		peer->send_to_master = msg;
+		peer->return_to_master = true;
+		peer->nongossip_msg = NULL;
 
 		/* Wake output, in case it's idle. */
 		msg_wake(&peer->peer_out);
