@@ -49,6 +49,9 @@ struct bolt11 {
 	/* How many seconds to pay from @timestamp above. */
 	u64 expiry;
 
+	/* How many blocks final hop requires. */
+	u32 min_final_cltv_expiry;
+
 	/* If non-NULL, indicates a fallback address to pay to. */
 	const u8 *fallback;
 
