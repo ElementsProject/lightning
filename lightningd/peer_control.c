@@ -543,6 +543,14 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			goto send_error;
 		}
 
+#if DEVELOPER
+		if (dev_disconnect_permanent(ld)) {
+			peer_internal_error(peer, "dev_disconnect permfail");
+			error = peer->error;
+			goto send_error;
+	}
+#endif
+
 		switch (peer->state) {
 			/* This can't happen. */
 		case UNINITIALIZED:
