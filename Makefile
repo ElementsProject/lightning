@@ -170,7 +170,7 @@ check:
 	$(MAKE) pytest
 
 pytest: $(ALL_PROGRAMS)
-	PYTHONPATH=contrib/pylightning python3 tests/test_lightningd.py -f
+	PYTHONPATH=contrib/pylightning DEVELOPER=$(DEVELOPER) python3 tests/test_lightningd.py -f
 
 # Keep includes in alpha order.
 check-src-include-order/%: %
