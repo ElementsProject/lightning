@@ -521,5 +521,5 @@ void fatal(const char *fmt, ...)
 		va_end(ap);
 		log_crash(0);
 	}
-	exit(1);
+	abort();
 }
