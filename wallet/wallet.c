@@ -73,7 +73,7 @@ bool wallet_update_output_status(struct wallet *w,
 	} else {
 		db_exec(__func__, w->db,
 			"UPDATE outputs SET status=%d WHERE "
-			"AND prev_out_tx = '%s' AND prev_out_index = "
+			"prev_out_tx = '%s' AND prev_out_index = "
 			"%d;",
 			newstatus, hextxid, outnum);
 	}
