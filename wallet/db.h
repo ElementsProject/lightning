@@ -102,7 +102,8 @@ sqlite3_stmt *db_prepare_(const char *caller, struct db *db, const char *query);
  * all non-null variables using the `sqlite3_bind_*` functions, it can
  * be executed with this function. It is a small, transaction-aware,
  * wrapper around `sqlite3_step`, that also sets `db->err` if the
- * execution fails.
+ * execution fails. This will take ownership of `stmt` and will free
+ * it before returning.
  *
  * @db: The database to execute on
  * @stmt: The prepared statement to execute

@@ -150,17 +150,23 @@ sqlite3_stmt *db_prepare_(const char *caller, struct db *db, const char *query)
 
 bool db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt)
 {
-	if (db->in_transaction && db->err)
-		return false;
+	if (db->in_transaction && db->err) {
+		goto fail;
+	}
+
 	db_clear_error(db);
 
 	if (sqlite3_step(stmt) !=  SQLITE_DONE) {
 		db->err =
 		    tal_fmt(db, "%s: %s", caller, sqlite3_errmsg(db->sql));
-		return false;
-	} else {
-		return true;
+		goto fail;
 	}
+
+	sqlite3_finalize(stmt);
+	return true;
+fail:
+	sqlite3_finalize(stmt);
+	return false;
 }
 
 bool PRINTF_FMT(3, 4)
