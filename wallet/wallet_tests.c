@@ -11,6 +11,20 @@
 void invoice_add(struct invoices *invs,
 		 struct invoice *inv){}
 
+/**
+ * mempat -- Set the memory to a pattern
+ *
+ * Used mainly to check that we don't mix fields while
+ * serializing/unserializing.
+ */
+static void mempat(void *dst, size_t len)
+{
+	static int n = 0;
+	u8 *p = (u8*)dst;
+	for(int i=0 ; i < len; ++i)
+		p[i] = n % 251; /* Prime */
+}
+
 static struct wallet *create_test_wallet(const tal_t *ctx)
 {
 	char filename[] = "/tmp/ldb-XXXXXX";
@@ -204,12 +218,12 @@ static bool test_channel_crud(const tal_t *ctx)
 	memset(c2, 0, sizeof(*c2));
 	memset(&p, 0, sizeof(p));
 	memset(&ci, 3, sizeof(ci));
-	memset(hash, 'B', sizeof(*hash));
-	memset(sig, 0, sizeof(*sig));
-	memset(&last_commit, 0, sizeof(last_commit));
+	mempat(hash, sizeof(*hash));
+	mempat(sig, sizeof(*sig));
+	mempat(&last_commit, sizeof(last_commit));
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
 	ci.feerate_per_kw = 31337;
-	memset(&p.id, 'A', sizeof(p.id));
+	mempat(&p.id, sizeof(p.id));
 	c1.peer = &p;
 	p.id = pk;
 	p.our_msatoshi = NULL;

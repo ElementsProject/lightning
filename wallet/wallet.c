@@ -1,7 +1,6 @@
 #include "wallet.h"
 
 #include <bitcoin/script.h>
-#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <inttypes.h>
 #include <lightningd/lightningd.h>

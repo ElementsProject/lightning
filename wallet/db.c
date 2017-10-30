@@ -1,6 +1,5 @@
 #include "db.h"
 
-#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <inttypes.h>
@@ -409,15 +408,6 @@ bool db_set_intvar(struct db *db, char *varname, s64 val)
 		    "INSERT INTO vars (name, val) VALUES ('%s', '%" PRId64
 		    "');",
 		    varname, val);
-}
-
-bool sqlite3_column_hexval(sqlite3_stmt *s, int col, void *dest, size_t destlen)
-{
-	const char *source = sqlite3_column_blob(s, col);
-	size_t sourcelen = sqlite3_column_bytes(s, col);
-	if (sourcelen / 2 != destlen)
-		return false;
-	return hex_decode(source, sourcelen, dest, destlen);
 }
 
 bool sqlite3_bind_short_channel_id(sqlite3_stmt *stmt, int col,
