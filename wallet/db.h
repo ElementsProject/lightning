@@ -2,9 +2,14 @@
 #define WALLET_DB_H
 
 #include "config.h"
+#include <bitcoin/pubkey.h>
+#include <bitcoin/preimage.h>
+#include <bitcoin/short_channel_id.h>
+#include <bitcoin/tx.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
+#include <secp256k1_ecdh.h>
 #include <sqlite3.h>
 #include <stdbool.h>
 
@@ -110,5 +115,24 @@ sqlite3_stmt *db_prepare_(const char *caller, struct db *db, const char *query);
  */
 #define db_exec_prepared(db,stmt) db_exec_prepared_(__func__,db,stmt)
 bool db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt);
+
+bool sqlite3_bind_short_channel_id(sqlite3_stmt *stmt, int col,
+				   const struct short_channel_id *id);
+bool sqlite3_column_short_channel_id(sqlite3_stmt *stmt, int col,
+				     struct short_channel_id *dest);
+bool sqlite3_bind_tx(sqlite3_stmt *stmt, int col, const struct bitcoin_tx *tx);
+struct bitcoin_tx *sqlite3_column_tx(const tal_t *ctx, sqlite3_stmt *stmt,
+				     int col);
+bool sqlite3_bind_signature(sqlite3_stmt *stmt, int col, const secp256k1_ecdsa_signature *sig);
+bool sqlite3_column_signature(sqlite3_stmt *stmt, int col, secp256k1_ecdsa_signature *sig);
+
+bool sqlite3_column_pubkey(sqlite3_stmt *stmt, int col,  struct pubkey *dest);
+bool sqlite3_bind_pubkey(sqlite3_stmt *stmt, int col, const struct pubkey *pk);
+
+bool sqlite3_column_preimage(sqlite3_stmt *stmt, int col,  struct preimage *dest);
+bool sqlite3_bind_preimage(sqlite3_stmt *stmt, int col, const struct preimage *p);
+
+bool sqlite3_column_sha256(sqlite3_stmt *stmt, int col,  struct sha256 *dest);
+bool sqlite3_bind_sha256(sqlite3_stmt *stmt, int col, const struct sha256 *p);
 
 #endif /* WALLET_DB_H */
