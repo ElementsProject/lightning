@@ -351,14 +351,6 @@ bool wallet_shachain_load(struct wallet *wallet, u64 id,
 	return true;
 }
 
-static bool sqlite3_column_short_channel_id(sqlite3_stmt *stmt, int col,
-					    struct short_channel_id *dest)
-{
-	const char *source = sqlite3_column_blob(stmt, col);
-	size_t sourcelen = sqlite3_column_bytes(stmt, col);
-	return short_channel_id_from_str(source, sourcelen, dest);
-}
-
 static bool sqlite3_column_sig(sqlite3_stmt *stmt, int col, secp256k1_ecdsa_signature *sig)
 {
 	u8 buf[64];
@@ -367,27 +359,11 @@ static bool sqlite3_column_sig(sqlite3_stmt *stmt, int col, secp256k1_ecdsa_sign
 	return secp256k1_ecdsa_signature_parse_compact(secp256k1_ctx, sig, buf) == 1;
 }
 
-static bool sqlite3_column_pubkey(sqlite3_stmt *stmt, int col,  struct pubkey *dest)
-{
-	u8 buf[PUBKEY_DER_LEN];
-	if (!sqlite3_column_hexval(stmt, col, buf, sizeof(buf)))
-		return false;
-	return pubkey_from_der(buf, sizeof(buf), dest);
-}
-
 static u8 *sqlite3_column_varhexblob(tal_t *ctx, sqlite3_stmt *stmt, int col)
 {
 	const u8 *source = sqlite3_column_blob(stmt, col);
 	size_t sourcelen = sqlite3_column_bytes(stmt, col);
 	return tal_hexdata(ctx, source, sourcelen);
-}
-
-static struct bitcoin_tx *sqlite3_column_tx(const tal_t *ctx,
-					    sqlite3_stmt *stmt, int col)
-{
-	return bitcoin_tx_from_hex(ctx,
-				   sqlite3_column_blob(stmt, col),
-				   sqlite3_column_bytes(stmt, col));
 }
 
 static bool wallet_peer_load(struct wallet *w, const u64 id, struct peer *peer)

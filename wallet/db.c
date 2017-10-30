@@ -419,3 +419,104 @@ bool sqlite3_column_hexval(sqlite3_stmt *s, int col, void *dest, size_t destlen)
 		return false;
 	return hex_decode(source, sourcelen, dest, destlen);
 }
+
+bool sqlite3_bind_short_channel_id(sqlite3_stmt *stmt, int col,
+				   const struct short_channel_id *id)
+{
+	char *ser = short_channel_id_to_str(id, id);
+	sqlite3_bind_blob(stmt, col, ser, strlen(ser), SQLITE_TRANSIENT);
+	tal_free(ser);
+	return true;
+}
+
+bool sqlite3_column_short_channel_id(sqlite3_stmt *stmt, int col,
+				     struct short_channel_id *dest)
+{
+	const char *source = sqlite3_column_blob(stmt, col);
+	size_t sourcelen = sqlite3_column_bytes(stmt, col);
+	return short_channel_id_from_str(source, sourcelen, dest);
+}
+
+bool sqlite3_bind_tx(sqlite3_stmt *stmt, int col, const struct bitcoin_tx *tx)
+{
+	u8 *ser = linearize_tx(NULL, tx);
+	sqlite3_bind_blob(stmt, col, tal_hex(ser, ser), 2*tal_len(ser), SQLITE_TRANSIENT);
+	tal_free(ser);
+	return true;
+}
+
+struct bitcoin_tx *sqlite3_column_tx(const tal_t *ctx, sqlite3_stmt *stmt,
+				     int col)
+{
+	return bitcoin_tx_from_hex(
+		ctx,
+		sqlite3_column_blob(stmt, col),
+		sqlite3_column_bytes(stmt, col));
+}
+
+bool sqlite3_bind_signature(sqlite3_stmt *stmt, int col,
+			    const secp256k1_ecdsa_signature *sig)
+{
+	bool ok;
+	u8 buf[64];
+	ok = secp256k1_ecdsa_signature_serialize_compact(secp256k1_ctx, buf,
+							 sig) == 1;
+	sqlite3_bind_blob(stmt, col, buf, sizeof(buf), SQLITE_TRANSIENT);
+	return ok;
+}
+
+bool sqlite3_column_signature(sqlite3_stmt *stmt, int col,
+			      secp256k1_ecdsa_signature *sig)
+{
+	assert(sqlite3_column_bytes(stmt, col) == 64);
+	return secp256k1_ecdsa_signature_parse_compact(
+		   secp256k1_ctx, sig, sqlite3_column_blob(stmt, col)) == 1;
+}
+
+bool sqlite3_column_pubkey(sqlite3_stmt *stmt, int col,  struct pubkey *dest)
+{
+	u8 buf[PUBKEY_DER_LEN];
+
+	if (sqlite3_column_bytes(stmt, col) == 2*PUBKEY_DER_LEN) {
+		/* FIXME: Remove the legacy path for hex-values */
+		if (!sqlite3_column_hexval(stmt, col, buf, sizeof(buf)))
+			return false;
+	} else {
+		assert(sqlite3_column_bytes(stmt, col) == PUBKEY_DER_LEN);
+		memcpy(buf, sqlite3_column_blob(stmt, col), PUBKEY_DER_LEN);
+	}
+
+	return pubkey_from_der(buf, sizeof(buf), dest);
+}
+
+bool sqlite3_bind_pubkey(sqlite3_stmt *stmt, int col, const struct pubkey *pk)
+{
+	u8 der[PUBKEY_DER_LEN];
+	pubkey_to_der(der, pk);
+	sqlite3_bind_blob(stmt, col, der, sizeof(der), SQLITE_TRANSIENT);
+	return true;
+}
+
+bool sqlite3_column_preimage(sqlite3_stmt *stmt, int col,  struct preimage *dest)
+{
+	assert(sqlite3_column_bytes(stmt, col) == sizeof(struct preimage));
+	return memcpy(dest, sqlite3_column_blob(stmt, col), sizeof(struct preimage));
+}
+
+bool sqlite3_bind_preimage(sqlite3_stmt *stmt, int col, const struct preimage *p)
+{
+	sqlite3_bind_blob(stmt, col, p, sizeof(struct preimage), SQLITE_TRANSIENT);
+	return true;
+}
+
+bool sqlite3_column_sha256(sqlite3_stmt *stmt, int col,  struct sha256 *dest)
+{
+	assert(sqlite3_column_bytes(stmt, col) == sizeof(struct sha256));
+	return memcpy(dest, sqlite3_column_blob(stmt, col), sizeof(struct sha256));
+}
+
+bool sqlite3_bind_sha256(sqlite3_stmt *stmt, int col, const struct sha256 *p)
+{
+	sqlite3_bind_blob(stmt, col, p, sizeof(struct sha256), SQLITE_TRANSIENT);
+	return true;
+}
