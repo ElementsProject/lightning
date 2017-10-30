@@ -847,23 +847,17 @@ bool wallet_htlc_save_in(struct wallet *wallet,
 	sqlite3_bind_int(stmt, 3, DIRECTION_INCOMING);
 	sqlite3_bind_int64(stmt, 4, in->msatoshi);
 	sqlite3_bind_int(stmt, 5, in->cltv_expiry);
-	sqlite3_bind_blob(stmt, 6, tal_hexstr(tmpctx, &in->payment_hash,
-					      sizeof(struct sha256)),
-			  2 * sizeof(struct sha256), SQLITE_TRANSIENT);
-	if (in->preimage)
-		sqlite3_bind_blob(
-		    stmt, 7,
-		    tal_hexstr(tmpctx, in->preimage, sizeof(struct preimage)),
-		    2 * sizeof(struct preimage), SQLITE_TRANSIENT);
-	sqlite3_bind_int(stmt, 8, in->hstate);
-	sqlite3_bind_blob(stmt, 9, tal_hexstr(tmpctx, &in->shared_secret,
-					      sizeof(struct secret)),
-			  2 * sizeof(struct secret), SQLITE_TRANSIENT);
+	sqlite3_bind_sha256(stmt, 6, &in->payment_hash);
 
-	sqlite3_bind_blob(
-	    stmt, 10, tal_hexstr(tmpctx, &in->onion_routing_packet,
-				 sizeof(in->onion_routing_packet)),
-	    2 * sizeof(in->onion_routing_packet), SQLITE_TRANSIENT);
+	if (in->preimage)
+		sqlite3_bind_preimage(stmt, 7, in->preimage);
+	sqlite3_bind_int(stmt, 8, in->hstate);
+
+	sqlite3_bind_blob(stmt, 9, &in->shared_secret,
+			  sizeof(in->shared_secret), SQLITE_TRANSIENT);
+
+	sqlite3_bind_blob(stmt, 10, &in->onion_routing_packet,
+			  sizeof(in->onion_routing_packet), SQLITE_TRANSIENT);
 
 	ok = db_exec_prepared(wallet->db, stmt);
 	tal_free(tmpctx);
@@ -907,19 +901,14 @@ bool wallet_htlc_save_out(struct wallet *wallet,
 		sqlite3_bind_int64(stmt, 4, out->in->dbid);
 	sqlite3_bind_int64(stmt, 5, out->msatoshi);
 	sqlite3_bind_int(stmt, 6, out->cltv_expiry);
-	sqlite3_bind_blob(stmt, 7, tal_hexstr(tmpctx, &out->payment_hash,
-					      sizeof(struct sha256)),
-			  2 * sizeof(struct sha256), SQLITE_TRANSIENT);
+	sqlite3_bind_sha256(stmt, 7, &out->payment_hash);
+
 	if (out->preimage)
-		sqlite3_bind_blob(
-		    stmt, 8,
-		    tal_hexstr(tmpctx, out->preimage, sizeof(struct preimage)),
-		    2 * sizeof(struct preimage), SQLITE_TRANSIENT);
+		sqlite3_bind_preimage(stmt, 8,out->preimage);
 	sqlite3_bind_int(stmt, 9, out->hstate);
-	sqlite3_bind_blob(
-	    stmt, 10, tal_hexstr(tmpctx, &out->onion_routing_packet,
-				 sizeof(out->onion_routing_packet)),
-	    2 * sizeof(out->onion_routing_packet), SQLITE_TRANSIENT);
+
+	sqlite3_bind_blob(stmt, 10, &out->onion_routing_packet,
+			  sizeof(out->onion_routing_packet), SQLITE_TRANSIENT);
 
 	ok = db_exec_prepared(wallet->db, stmt);
 
@@ -935,24 +924,22 @@ bool wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const struct preimage *payment_key)
 {
 	bool ok = true;
-	tal_t *tmpctx = tal_tmpctx(wallet);
 	sqlite3_stmt *stmt;
 
 	/* The database ID must be set by a previous call to
 	 * `wallet_htlc_save_*` */
 	assert(htlc_dbid);
 	stmt = db_prepare(
-		wallet->db, "UPDATE channel_htlcs SET hstate=?, payment_key=? WHERE id=?");
+		wallet->db,
+		"UPDATE channel_htlcs SET hstate=?, payment_key=? WHERE id=?");
+
 	sqlite3_bind_int(stmt, 1, new_state);
-	if (payment_key)
-		sqlite3_bind_blob(
-		    stmt, 2,
-		    tal_hexstr(tmpctx, payment_key, sizeof(struct preimage)),
-		    2 * sizeof(struct preimage), SQLITE_TRANSIENT);
 	sqlite3_bind_int64(stmt, 3, htlc_dbid);
 
+	if (payment_key)
+		sqlite3_bind_preimage(stmt, 2, payment_key);
+
 	ok = db_exec_prepared(wallet->db, stmt);
-	tal_free(tmpctx);
 	return ok;
 }
 
@@ -967,20 +954,22 @@ static bool wallet_stmt2htlc_in(const struct wallet_channel *channel,
 	in->cltv_expiry = sqlite3_column_int(stmt, 3);
 	in->hstate = sqlite3_column_int(stmt, 4);
 
-	ok &= sqlite3_column_hexval(stmt, 5, &in->payment_hash,
-			      sizeof(in->payment_hash));
-	ok &= sqlite3_column_hexval(stmt, 6, &in->shared_secret,
-			      sizeof(in->shared_secret));
+	sqlite3_column_sha256(stmt, 5, &in->payment_hash);
+
+	assert(sqlite3_column_bytes(stmt, 6) == sizeof(struct secret));
+	memcpy(&in->shared_secret, sqlite3_column_blob(stmt, 6),
+	       sizeof(struct secret));
 
 	if (sqlite3_column_type(stmt, 7) != SQLITE_NULL) {
 		in->preimage = tal(in, struct preimage);
-		ok &= sqlite3_column_hexval(stmt, 7, in->preimage, sizeof(*in->preimage));
+		sqlite3_column_preimage(stmt, 7, in->preimage);
 	} else {
 		in->preimage = NULL;
 	}
 
-	sqlite3_column_hexval(stmt, 8, &in->onion_routing_packet,
-			      sizeof(in->onion_routing_packet));
+	assert(sqlite3_column_bytes(stmt, 8) == sizeof(in->onion_routing_packet));
+	memcpy(&in->onion_routing_packet, sqlite3_column_blob(stmt, 8),
+	       sizeof(in->onion_routing_packet));
 
 	in->failuremsg = NULL;
 	in->malformed = 0;
@@ -997,8 +986,7 @@ static bool wallet_stmt2htlc_out(const struct wallet_channel *channel,
 	out->msatoshi = sqlite3_column_int64(stmt, 2);
 	out->cltv_expiry = sqlite3_column_int(stmt, 3);
 	out->hstate = sqlite3_column_int(stmt, 4);
-	ok &= sqlite3_column_hexval(stmt, 5, &out->payment_hash,
-			      sizeof(out->payment_hash));
+	sqlite3_column_sha256(stmt, 5, &out->payment_hash);
 
 	if (sqlite3_column_type(stmt, 6) != SQLITE_NULL) {
 		out->origin_htlc_id = sqlite3_column_int64(stmt, 6);
@@ -1008,13 +996,14 @@ static bool wallet_stmt2htlc_out(const struct wallet_channel *channel,
 
 	if (sqlite3_column_type(stmt, 7) != SQLITE_NULL) {
 		out->preimage = tal(out, struct preimage);
-		ok &= sqlite3_column_hexval(stmt, 7, &out->preimage, sizeof(struct preimage));
+		sqlite3_column_preimage(stmt, 7, out->preimage);
 	} else {
 		out->preimage = NULL;
 	}
 
-	sqlite3_column_hexval(stmt, 8, &out->onion_routing_packet,
-			      sizeof(out->onion_routing_packet));
+	assert(sqlite3_column_bytes(stmt, 8) == sizeof(out->onion_routing_packet));
+	memcpy(&out->onion_routing_packet, sqlite3_column_blob(stmt, 8),
+	       sizeof(out->onion_routing_packet));
 
 	out->failuremsg = NULL;
 	out->malformed = 0;
@@ -1244,7 +1233,7 @@ struct htlc_stub *wallet_htlc_stubs(tal_t *ctx, struct wallet *wallet,
 		stubs[n].owner = sqlite3_column_int(stmt, 1)==DIRECTION_INCOMING?REMOTE:LOCAL;
 		stubs[n].cltv_expiry = sqlite3_column_int(stmt, 2);
 
-		sqlite3_column_hexval(stmt, 3, &payment_hash, sizeof(payment_hash));
+		sqlite3_column_sha256(stmt, 3, &payment_hash);
 		ripemd160(&stubs[n].ripemd, payment_hash.u.u8, sizeof(payment_hash.u));
 	}
 	sqlite3_finalize(stmt);
