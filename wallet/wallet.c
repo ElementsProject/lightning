@@ -825,21 +825,47 @@ bool wallet_htlc_save_in(struct wallet *wallet,
 {
 	bool ok = true;
 	tal_t *tmpctx = tal_tmpctx(wallet);
+	sqlite3_stmt *stmt;
 
-	ok &= db_exec(
-	    __func__, wallet->db,
-	    "INSERT INTO channel_htlcs "
-	    "(channel_id, channel_htlc_id, direction, origin_htlc, msatoshi, cltv_expiry, payment_hash, payment_key, hstate, shared_secret, routing_onion) VALUES "
-	    "(%" PRIu64 ", %"PRIu64", %d, NULL, %"PRIu64", %d, '%s', %s, %d, '%s', '%s');",
-	    chan->id, in->key.id, DIRECTION_INCOMING, in->msatoshi, in->cltv_expiry,
-	    tal_hexstr(tmpctx, &in->payment_hash, sizeof(struct sha256)),
-	    in->preimage == NULL ? "NULL" : tal_hexstr(tmpctx, &in->preimage,
-						       sizeof(struct preimage)),
-	    in->hstate,
-	    tal_hexstr(tmpctx, &in->shared_secret, sizeof(struct secret)),
-	    tal_hexstr(tmpctx, &in->onion_routing_packet, sizeof(in->onion_routing_packet))
-	);
+	stmt = db_prepare(
+		wallet->db,
+		"INSERT INTO channel_htlcs ("
+		" channel_id,"
+		" channel_htlc_id, "
+		" direction,"
+		" msatoshi,"
+		" cltv_expiry,"
+		" payment_hash, "
+		" payment_key,"
+		" hstate,"
+		" shared_secret,"
+		" routing_onion) VALUES "
+		"(?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
 
+	sqlite3_bind_int64(stmt, 1, chan->id);
+	sqlite3_bind_int64(stmt, 2, in->key.id);
+	sqlite3_bind_int(stmt, 3, DIRECTION_INCOMING);
+	sqlite3_bind_int64(stmt, 4, in->msatoshi);
+	sqlite3_bind_int(stmt, 5, in->cltv_expiry);
+	sqlite3_bind_blob(stmt, 6, tal_hexstr(tmpctx, &in->payment_hash,
+					      sizeof(struct sha256)),
+			  2 * sizeof(struct sha256), SQLITE_TRANSIENT);
+	if (in->preimage)
+		sqlite3_bind_blob(
+		    stmt, 7,
+		    tal_hexstr(tmpctx, in->preimage, sizeof(struct preimage)),
+		    2 * sizeof(struct preimage), SQLITE_TRANSIENT);
+	sqlite3_bind_int(stmt, 8, in->hstate);
+	sqlite3_bind_blob(stmt, 9, tal_hexstr(tmpctx, &in->shared_secret,
+					      sizeof(struct secret)),
+			  2 * sizeof(struct secret), SQLITE_TRANSIENT);
+
+	sqlite3_bind_blob(
+	    stmt, 10, tal_hexstr(tmpctx, &in->onion_routing_packet,
+				 sizeof(in->onion_routing_packet)),
+	    2 * sizeof(in->onion_routing_packet), SQLITE_TRANSIENT);
+
+	ok = db_exec_prepared(wallet->db, stmt);
 	tal_free(tmpctx);
 	if (ok) {
 		in->dbid = sqlite3_last_insert_rowid(wallet->db->sql);
@@ -853,29 +879,49 @@ bool wallet_htlc_save_out(struct wallet *wallet,
 {
 	bool ok = true;
 	tal_t *tmpctx = tal_tmpctx(wallet);
+	sqlite3_stmt *stmt;
 
 	/* We absolutely need the incoming HTLC to be persisted before
 	 * we can persist it's dependent */
 	assert(out->in == NULL || out->in->dbid != 0);
 	out->origin_htlc_id = out->in?out->in->dbid:0;
 
-	ok &= db_exec(
-	    __func__, wallet->db,
-	    "INSERT INTO channel_htlcs "
-	    "(channel_id, channel_htlc_id, direction, origin_htlc, msatoshi, cltv_expiry, "
-	    "payment_hash, payment_key, hstate, shared_secret, routing_onion) VALUES "
-	    "(%" PRIu64 ", %" PRIu64 ", %d, %s, %" PRIu64", %d, '%s', %s, %d, NULL, '%s');",
-	    chan->id,
-	    out->key.id,
-	    DIRECTION_OUTGOING,
-	    out->in ? tal_fmt(tmpctx, "%" PRIu64, out->in->dbid) : "NULL",
-	    out->msatoshi,
-	    out->cltv_expiry,
-	    tal_hexstr(tmpctx, &out->payment_hash, sizeof(struct sha256)),
-	    out->preimage ? tal_hexstr(tmpctx, &out->preimage, sizeof(struct preimage)) : "NULL",
-	    out->hstate,
-	    tal_hexstr(tmpctx, &out->onion_routing_packet, sizeof(out->onion_routing_packet))
-	);
+	stmt = db_prepare(
+	    wallet->db,
+	    "INSERT INTO channel_htlcs ("
+	    " channel_id,"
+	    " channel_htlc_id,"
+	    " direction,"
+	    " origin_htlc,"
+	    " msatoshi,"
+	    " cltv_expiry,"
+	    " payment_hash,"
+	    " payment_key,"
+	    " hstate,"
+	    " routing_onion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);");
+
+	sqlite3_bind_int64(stmt, 1, chan->id);
+	sqlite3_bind_int64(stmt, 2, out->key.id);
+	sqlite3_bind_int(stmt, 3, DIRECTION_OUTGOING);
+	if (out->in)
+		sqlite3_bind_int64(stmt, 4, out->in->dbid);
+	sqlite3_bind_int64(stmt, 5, out->msatoshi);
+	sqlite3_bind_int(stmt, 6, out->cltv_expiry);
+	sqlite3_bind_blob(stmt, 7, tal_hexstr(tmpctx, &out->payment_hash,
+					      sizeof(struct sha256)),
+			  2 * sizeof(struct sha256), SQLITE_TRANSIENT);
+	if (out->preimage)
+		sqlite3_bind_blob(
+		    stmt, 8,
+		    tal_hexstr(tmpctx, out->preimage, sizeof(struct preimage)),
+		    2 * sizeof(struct preimage), SQLITE_TRANSIENT);
+	sqlite3_bind_int(stmt, 9, out->hstate);
+	sqlite3_bind_blob(
+	    stmt, 10, tal_hexstr(tmpctx, &out->onion_routing_packet,
+				 sizeof(out->onion_routing_packet)),
+	    2 * sizeof(out->onion_routing_packet), SQLITE_TRANSIENT);
+
+	ok = db_exec_prepared(wallet->db, stmt);
 
 	tal_free(tmpctx);
 	if (ok) {
@@ -890,24 +936,22 @@ bool wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 {
 	bool ok = true;
 	tal_t *tmpctx = tal_tmpctx(wallet);
+	sqlite3_stmt *stmt;
 
 	/* The database ID must be set by a previous call to
 	 * `wallet_htlc_save_*` */
 	assert(htlc_dbid);
-	if (payment_key) {
-		ok &= db_exec(
-		    __func__, wallet->db, "UPDATE channel_htlcs SET hstate=%d, "
-					  "payment_key='%s' WHERE id=%" PRIu64,
-		    new_state,
+	stmt = db_prepare(
+		wallet->db, "UPDATE channel_htlcs SET hstate=?, payment_key=? WHERE id=?");
+	sqlite3_bind_int(stmt, 1, new_state);
+	if (payment_key)
+		sqlite3_bind_blob(
+		    stmt, 2,
 		    tal_hexstr(tmpctx, payment_key, sizeof(struct preimage)),
-		    htlc_dbid);
+		    2 * sizeof(struct preimage), SQLITE_TRANSIENT);
+	sqlite3_bind_int64(stmt, 3, htlc_dbid);
 
-	} else {
-		ok &= db_exec(
-		    __func__, wallet->db,
-		    "UPDATE channel_htlcs SET hstate = %d WHERE id=%" PRIu64,
-		    new_state, htlc_dbid);
-	}
+	ok = db_exec_prepared(wallet->db, stmt);
 	tal_free(tmpctx);
 	return ok;
 }
