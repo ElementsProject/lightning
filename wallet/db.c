@@ -364,13 +364,15 @@ static int db_migration_count(void)
 static bool db_migrate(struct db *db)
 {
 	/* Attempt to read the version from the database */
-	int current = db_get_version(db);
-	int available = db_migration_count();
+	int current, available;
 
 	if (!db_begin_transaction(db)) {
 		/* No need to rollback, we didn't even start... */
 		return false;
 	}
+
+	current = db_get_version(db);
+	available = db_migration_count();
 
 	while (++current <= available) {
 		if (!db_exec(__func__, db, "%s", dbmigrations[current]))
