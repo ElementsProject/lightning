@@ -18,6 +18,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#if DEVELOPER
+bool dev_no_backtrace;
+#endif
+
 static struct backtrace_state *backtrace_state;
 
 struct log_entry {
@@ -432,8 +436,9 @@ static void log_crash(int sig)
 
 	if (sig) {
 		log_broken(crashlog, "FATAL SIGNAL %i RECEIVED", sig);
-		backtrace_full(backtrace_state, 0, log_backtrace, NULL,
-			       crashlog);
+		if (backtrace_state)
+			backtrace_full(backtrace_state, 0, log_backtrace, NULL,
+				       crashlog);
 	}
 
 	if (crashlog->lr->print == log_default_print) {
@@ -457,7 +462,8 @@ static void log_crash(int sig)
 
 	if (sig) {
 		fprintf(stderr, "Fatal signal %u. ", sig);
-		backtrace_print(backtrace_state, 0, stderr);
+		if (backtrace_state)
+			backtrace_print(backtrace_state, 0, stderr);
 	}
 	if (logfile)
 		fprintf(stderr, "Log dumped in %s", logfile);
@@ -469,6 +475,9 @@ void crashlog_activate(const char *argv0, struct log *log)
 	struct sigaction sa;
 	crashlog = log;
 
+#if DEVELOPER
+	if (!dev_no_backtrace)
+#endif
 	backtrace_state = backtrace_create_state(argv0, 0, NULL, NULL);
 	sa.sa_handler = log_crash;
 	sigemptyset(&sa.sa_mask);

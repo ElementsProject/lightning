@@ -107,6 +107,8 @@ class NodeFactory(object):
             daemon.cmd_line.append("--dev-disconnect=dev_disconnect")
         if DEVELOPER:
             daemon.cmd_line.append("--dev-fail-on-subdaemon-fail")
+            if VALGRIND:
+                daemon.cmd_line.append("--dev-no-backtrace")
         opts = [] if options is None else options
         for opt in opts:
             daemon.cmd_line.append(opt)

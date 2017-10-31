@@ -94,4 +94,8 @@ const tal_t *ltmp;
 
 /* Before the crashlog is activated, just prints to stderr. */
 void NORETURN PRINTF_FMT(1,2) fatal(const char *fmt, ...);
+
+#if DEVELOPER
+extern bool dev_no_backtrace;
+#endif
 #endif /* LIGHTNING_LIGHTNINGD_LOG_H */
