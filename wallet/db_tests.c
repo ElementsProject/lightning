@@ -23,9 +23,13 @@ static bool test_empty_db_migrate(void)
 {
 	struct db *db = create_test_db(__func__);
 	CHECK(db);
+	db_begin_transaction(db);
 	CHECK(db_get_version(db) == -1);
-	CHECK(db_migrate(db));
+	db_commit_transaction(db);
+	db_migrate(db);
+	db_begin_transaction(db);
 	CHECK(db_get_version(db) == db_migration_count());
+	db_commit_transaction(db);
 
 	tal_free(db);
 	return true;
@@ -34,17 +38,18 @@ static bool test_empty_db_migrate(void)
 static bool test_primitives(void)
 {
 	struct db *db = create_test_db(__func__);
-	CHECK_MSG(db_begin_transaction(db), "Starting a new transaction");
+	db_begin_transaction(db);
 	CHECK(db->in_transaction);
-	CHECK_MSG(db_commit_transaction(db), "Committing a transaction");
+	db_commit_transaction(db);
 	CHECK(!db->in_transaction);
-	CHECK_MSG(db_begin_transaction(db), "Starting a transaction after commit");
-	CHECK(db_rollback_transaction(db));
+	db_begin_transaction(db);
+	db_commit_transaction(db);
 
-	CHECK_MSG(db_exec(__func__, db, "SELECT name FROM sqlite_master WHERE type='table';"), "Simple correct SQL command");
-	CHECK_MSG(!db_exec(__func__, db, "not a valid SQL statement"), "Failing SQL command");
+	db_begin_transaction(db);
+	CHECK_MSG(db_exec_mayfail(__func__, db, "SELECT name FROM sqlite_master WHERE type='table';"), "Simple correct SQL command");
+	CHECK_MSG(!db_exec_mayfail(__func__, db, "not a valid SQL statement"), "Failing SQL command");
+	db_commit_transaction(db);
 	CHECK(!db->in_transaction);
-	CHECK_MSG(db_begin_transaction(db), "Starting a transaction after a failed transaction");
 	tal_free(db);
 
 	return true;
@@ -55,18 +60,20 @@ static bool test_vars(void)
 	struct db *db = create_test_db(__func__);
 	char *varname = "testvar";
 	CHECK(db);
-	CHECK(db_migrate(db));
+	db_migrate(db);
 
+	db_begin_transaction(db);
 	/* Check default behavior */
 	CHECK(db_get_intvar(db, varname, 42) == 42);
 
 	/* Check setting and getting */
-	CHECK(db_set_intvar(db, varname, 1));
+	db_set_intvar(db, varname, 1);
 	CHECK(db_get_intvar(db, varname, 42) == 1);
 
 	/* Check updating */
-	CHECK(db_set_intvar(db, varname, 2));
+	db_set_intvar(db, varname, 2);
 	CHECK(db_get_intvar(db, varname, 42) == 2);
+	db_commit_transaction(db);
 
 	tal_free(db);
 	return true;

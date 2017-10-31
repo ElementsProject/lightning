@@ -164,12 +164,7 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 
-	if (!wallet_invoice_save(cmd->ld->wallet, invoice)) {
-		printf("Could not save the invoice to the database: %s",
-			  cmd->ld->wallet->db->err);
-		command_fail(cmd, "database error");
-		return;
-	}
+	wallet_invoice_save(cmd->ld->wallet, invoice);
 
 	/* OK, connect it to main state, respond with hash */
 	tal_steal(invs, invoice);
@@ -266,8 +261,8 @@ static void json_delinvoice(struct command *cmd,
 	}
 
 	if (!wallet_invoice_remove(cmd->ld->wallet, i)) {
-		log_broken(cmd->ld->log, "Error attempting to remove invoice %"PRIu64": %s",
-			   i->id, cmd->ld->wallet->db->err);
+		log_broken(cmd->ld->log, "Error attempting to remove invoice %"PRIu64,
+			   i->id);
 		command_fail(cmd, "Database error");
 		return;
 	}

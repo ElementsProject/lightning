@@ -506,7 +506,9 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return;
 	}
 
+	db_begin_transaction(jcon->ld->wallet->db);
 	cmd->dispatch(jcon->current, jcon->buffer, params);
+	db_commit_transaction(jcon->ld->wallet->db);
 }
 
 static struct io_plan *write_json(struct io_conn *conn,

@@ -141,7 +141,7 @@ s64 wallet_get_newindex(struct lightningd *ld);
 /**
  * wallet_shachain_init -- wallet wrapper around shachain_init
  */
-bool wallet_shachain_init(struct wallet *wallet, struct wallet_shachain *chain);
+void wallet_shachain_init(struct wallet *wallet, struct wallet_shachain *chain);
 
 /**
  * wallet_shachain_add_hash -- wallet wrapper around shachain_add_hash
@@ -179,12 +179,12 @@ bool wallet_channel_load(struct wallet *w, const u64 id,
  * @chan: the instance to store (not const so we can update the unique_id upon
  *   insert)
  */
-bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan);
+void wallet_channel_save(struct wallet *w, struct wallet_channel *chan);
 
 /**
  * wallet_channel_config_save -- Upsert a channel_config into the database
  */
-bool wallet_channel_config_save(struct wallet *w, struct channel_config *cc);
+void wallet_channel_config_save(struct wallet *w, struct channel_config *cc);
 
 /**
  * wallet_channel_config_load -- Load channel_config from database into cc
@@ -237,7 +237,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
  * for state transitions or to set the `payment_key` for completed
  * HTLCs.
  */
-bool wallet_htlc_save_in(struct wallet *wallet,
+void wallet_htlc_save_in(struct wallet *wallet,
 			 const struct wallet_channel *chan, struct htlc_in *in);
 
 /**
@@ -245,7 +245,7 @@ bool wallet_htlc_save_in(struct wallet *wallet,
  *
  * See comment for wallet_htlc_save_in.
  */
-bool wallet_htlc_save_out(struct wallet *wallet,
+void wallet_htlc_save_out(struct wallet *wallet,
 			  const struct wallet_channel *chan,
 			  struct htlc_out *out);
 
@@ -262,7 +262,7 @@ bool wallet_htlc_save_out(struct wallet *wallet,
  * `struct htlc_out` and optionally set the `payment_key` should the
  * HTLC have been settled.
  */
-bool wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
+void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const enum htlc_state new_state,
 			const struct preimage *payment_key);
 
@@ -312,7 +312,7 @@ bool wallet_htlcs_reconnect(struct wallet *wallet,
  * @wallet: Wallet to store in
  * @inv: Invoice to save
  */
-bool wallet_invoice_save(struct wallet *wallet, struct invoice *inv);
+void wallet_invoice_save(struct wallet *wallet, struct invoice *inv);
 
 /**
  * wallet_invoices_load -- Load all invoices into memory

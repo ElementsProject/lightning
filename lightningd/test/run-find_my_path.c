@@ -7,9 +7,18 @@ int unused_main(int argc, char *argv[]);
 /* Generated stub for crashlog_activate */
 void crashlog_activate(const char *argv0 UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "crashlog_activate called!\n"); abort(); }
+/* Generated stub for db_begin_transaction_ */
+void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED)
+{ fprintf(stderr, "db_begin_transaction_ called!\n"); abort(); }
+/* Generated stub for db_commit_transaction */
+void db_commit_transaction(struct db *db UNNEEDED)
+{ fprintf(stderr, "db_commit_transaction called!\n"); abort(); }
 /* Generated stub for debug_poll */
 int debug_poll(struct pollfd *fds UNNEEDED, nfds_t nfds UNNEEDED, int timeout UNNEEDED)
 { fprintf(stderr, "debug_poll called!\n"); abort(); }
+/* Generated stub for fatal */
+void   fatal(const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "fatal called!\n"); abort(); }
 /* Generated stub for gossip_init */
 void gossip_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "gossip_init called!\n"); abort(); }
@@ -38,7 +47,7 @@ struct log_book *new_log_book(const tal_t *ctx UNNEEDED,
 			      enum log_level printlevel UNNEEDED)
 { fprintf(stderr, "new_log_book called!\n"); abort(); }
 /* Generated stub for new_topology */
-struct chain_topology *new_topology(const tal_t *ctx UNNEEDED, struct log *log UNNEEDED)
+struct chain_topology *new_topology(struct lightningd *ld UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "new_topology called!\n"); abort(); }
 /* Generated stub for populate_peer */
 void populate_peer(struct lightningd *ld UNNEEDED, struct peer *peer UNNEEDED)

@@ -20,6 +20,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <wallet/db.h>
 #include <wire/wire.h>
 #include <wire/wire_io.h>
 
@@ -411,20 +412,26 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	int type = fromwire_peektype(sd->msg_in);
 	const tal_t *tmpctx;
 	struct subd_req *sr;
+	struct db *db = sd->ld->wallet->db;
+	struct io_plan *plan;
 
-	if (type == -1) {
-		subdaemon_malformed_msg(sd, sd->msg_in);
-		return io_close(conn);
-	}
+	/* Everything we do, we wrap in a database transaction */
+	db_begin_transaction(db);
+
+	if (type == -1)
+		goto malformed;
 
 	/* First, check for replies. */
 	sr = get_req(sd, type);
 	if (sr) {
-		if (sr->num_reply_fds && sd->fds_in == NULL)
-			return sd_collect_fds(conn, sd, sr->num_reply_fds);
+		if (sr->num_reply_fds && sd->fds_in == NULL) {
+			plan = sd_collect_fds(conn, sd, sr->num_reply_fds);
+			goto out;
+		}
 
 		assert(sr->num_reply_fds == tal_count(sd->fds_in));
-		return sd_msg_reply(conn, sd, sr);
+		plan = sd_msg_reply(conn, sd, sr);
+		goto out;
 	}
 
 	/* If not stolen, we'll free this below. */
@@ -434,24 +441,18 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	if (type == STATUS_TRACE) {
 		int str_len;
 		const char *str = string_from_msg(sd->msg_in, &str_len);
-		if (!str) {
-			subdaemon_malformed_msg(sd, sd->msg_in);
-			return io_close(conn);
-		}
+		if (!str)
+			goto malformed;
 		log_debug(sd->log, "TRACE: %.*s", str_len, str);
 		goto next;
 	} else if (type & STATUS_FAIL) {
 		int str_len;
 		const char *str = string_from_msg(sd->msg_in, &str_len);
-		if (!str) {
-			subdaemon_malformed_msg(sd, sd->msg_in);
-			return io_close(conn);
-		}
+		if (!str)
+			goto malformed;
 
-		if (!log_status_fail(sd, type, str, str_len)) {
-			subdaemon_malformed_msg(sd, sd->msg_in);
-			return io_close(conn);
-		}
+		if (!log_status_fail(sd, type, str, str_len))
+			goto malformed;
 
 		/* If they care, tell them about invalid peer behavior */
 		if (sd->peer && type == STATUS_FAIL_PEER_BAD) {
@@ -464,7 +465,7 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 							     (u8 *)str, str_len,
 							     0)));
 		}
-		return io_close(conn);
+		goto close;
 	}
 
 	log_info(sd->log, "UPDATE %s", sd->msgname(type));
@@ -478,7 +479,7 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 
 		i = sd->msgcb(sd, sd->msg_in, sd->fds_in);
 		if (freed)
-			return io_close(conn);
+			goto close;
 		tal_del_destructor2(sd, mark_freed, &freed);
 
 		sd->conn = conn;
@@ -489,7 +490,8 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 			/* Don't free msg_in: we go around again. */
 			tal_steal(sd, sd->msg_in);
 			tal_free(tmpctx);
-			return sd_collect_fds(conn, sd, i);
+			plan = sd_collect_fds(conn, sd, i);
+			goto out;
 		}
 	}
 
@@ -497,8 +499,19 @@ next:
 	sd->msg_in = NULL;
 	sd->fds_in = tal_free(sd->fds_in);
 	tal_free(tmpctx);
-	return io_read_wire(conn, sd, &sd->msg_in, sd_msg_read, sd);
+
+	plan = io_read_wire(conn, sd, &sd->msg_in, sd_msg_read, sd);
+	goto out;
+
+malformed:
+	subdaemon_malformed_msg(sd, sd->msg_in);
+close:
+	plan = io_close(conn);
+out:
+	db_commit_transaction(db);
+	return plan;
 }
+
 
 static void destroy_subd(struct subd *sd)
 {

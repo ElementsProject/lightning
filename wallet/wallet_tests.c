@@ -1,12 +1,37 @@
+  #include <lightningd/log.h>
+
+static void wallet_fatal(const char *fmt, ...);
+#define fatal wallet_fatal
+
 #include "wallet.c"
 
 #include "db.c"
 
 #include <ccan/mem/mem.h>
-#include <lightningd/log.h>
+#include <ccan/tal/str/str.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <wallet/test_utils.h>
+
+static char *wallet_err;
+static void wallet_fatal(const char *fmt, ...)
+{
+	va_list ap;
+
+	/* Fail hard if we're complaining about not being in transaction */
+	assert(!strstarts(fmt, "No longer in transaction"));
+
+	/* Fail hard if we're complaining about not being in transaction */
+	assert(!strstarts(fmt, "No longer in transaction"));
+
+	va_start(ap, fmt);
+	wallet_err = tal_vfmt(NULL, fmt, ap);
+	va_end(ap);
+}
+
+#define transaction_wrap(db, ...)					\
+	(db_begin_transaction(db), __VA_ARGS__, db_commit_transaction(db), wallet_err == NULL)
 
 void invoice_add(struct invoices *invs,
 		 struct invoice *inv){}
@@ -23,7 +48,8 @@ static struct wallet *create_test_wallet(const tal_t *ctx)
 	w->db = db_open(w, filename);
 
 	CHECK_MSG(w->db, "Failed opening the db");
-	CHECK_MSG(db_migrate(w->db), "DB migration failed");
+	db_migrate(w->db);
+	CHECK_MSG(!wallet_err, "DB migration failed");
 
 	ltmp = tal_tmpctx(ctx);
 	log_book = new_log_book(w, 20*1024*1024, LOG_DBG);
@@ -43,9 +69,12 @@ static bool test_wallet_outputs(void)
 
 	w->db = db_open(w, filename);
 	CHECK_MSG(w->db, "Failed opening the db");
-	CHECK_MSG(db_migrate(w->db), "DB migration failed");
+	db_migrate(w->db);
+	CHECK_MSG(!wallet_err, "DB migration failed");
 
 	memset(&u, 0, sizeof(u));
+
+	db_begin_transaction(w->db);
 
 	/* Should work, it's the first time we add it */
 	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
@@ -79,6 +108,7 @@ static bool test_wallet_outputs(void)
 					      output_state_spent),
 		  "could not change output state ignoring oldstate");
 
+	db_commit_transaction(w->db);
 	tal_free(w);
 	return true;
 }
@@ -94,7 +124,8 @@ static bool test_shachain_crud(void)
 
 	w->db = db_open(w, filename);
 	CHECK_MSG(w->db, "Failed opening the db");
-	CHECK_MSG(db_migrate(w->db), "DB migration failed");
+	db_migrate(w->db);
+	CHECK_MSG(!wallet_err, "DB migration failed");
 
 	CHECK_MSG(fd != -1, "Unable to generate temp filename");
 	close(fd);
@@ -104,7 +135,10 @@ static bool test_shachain_crud(void)
 	memset(&b, 0, sizeof(b));
 
 	w->db = db_open(w, filename);
-	CHECK(wallet_shachain_init(w, &a));
+	db_begin_transaction(w->db);
+	CHECK_MSG(!wallet_err, "db_begin_transaction failed");
+	wallet_shachain_init(w, &a);
+	CHECK(!wallet_err);
 
 	CHECK(a.id == 1);
 
@@ -119,6 +153,9 @@ static bool test_shachain_crud(void)
 
 	CHECK(wallet_shachain_load(w, a.id, &b));
 	CHECK_MSG(memcmp(&a, &b, sizeof(a)) == 0, "Loading from database doesn't match");
+
+	db_commit_transaction(w->db);
+	CHECK(!wallet_err);
 	tal_free(w);
 	return true;
 }
@@ -222,9 +259,16 @@ static bool test_channel_crud(const tal_t *ctx)
 	ci.remote_per_commit = pk;
 	ci.old_remote_per_commit = pk;
 
+	db_begin_transaction(w->db);
+	CHECK(!wallet_err);
+
 	/* Variant 1: insert with null for scid, funding_tx_id, channel_info, last_tx */
-	CHECK_MSG(wallet_channel_save(w, &c1), tal_fmt(w, "Insert into DB: %s", w->db->err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB: %s", w->db->err));
+	wallet_channel_save(w, &c1);
+	CHECK_MSG(!wallet_err,
+		  tal_fmt(w, "Insert into DB: %s", wallet_err));
+	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(!wallet_err,
+		  tal_fmt(w, "Load from DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v1)");
 
 	/* We just inserted them into an empty DB so this must be 1 */
@@ -234,8 +278,12 @@ static bool test_channel_crud(const tal_t *ctx)
 
 	/* Variant 2: update with scid set */
 	c1.peer->scid = talz(w, struct short_channel_id);
-	CHECK_MSG(wallet_channel_save(w, &c1), tal_fmt(w, "Insert into DB: %s", w->db->err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB: %s", w->db->err));
+	wallet_channel_save(w, &c1);
+	CHECK_MSG(!wallet_err,
+		  tal_fmt(w, "Insert into DB: %s", wallet_err));
+	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(!wallet_err,
+		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v2)");
 
 	/* Updates should not result in new ids */
@@ -245,35 +293,53 @@ static bool test_channel_crud(const tal_t *ctx)
 
 	/* Variant 3: update with our_satoshi set */
 	c1.peer->our_msatoshi = &msat;
-	CHECK_MSG(wallet_channel_save(w, &c1), tal_fmt(w, "Insert into DB: %s", w->db->err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB: %s", w->db->err));
+
+	wallet_channel_save(w, &c1);
+	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
+	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(!wallet_err,
+		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v3)");
 
 	/* Variant 4: update with funding_tx_id */
 	c1.peer->funding_txid = hash;
-	CHECK_MSG(wallet_channel_save(w, &c1), tal_fmt(w, "Insert into DB: %s", w->db->err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB: %s", w->db->err));
+	wallet_channel_save(w, &c1);
+	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
+	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(!wallet_err,
+		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v4)");
 
 	/* Variant 5: update with channel_info */
 	p.channel_info = &ci;
-	CHECK_MSG(wallet_channel_save(w, &c1), tal_fmt(w, "Insert into DB: %s", w->db->err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB: %s", w->db->err));
+	wallet_channel_save(w, &c1);
+	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
+	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(!wallet_err,
+		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v5)");
 
 	/* Variant 6: update with last_commit_sent */
 	p.last_sent_commit = &last_commit;
-	CHECK_MSG(wallet_channel_save(w, &c1), tal_fmt(w, "Insert into DB: %s", w->db->err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB: %s", w->db->err));
+	wallet_channel_save(w, &c1);
+	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
+	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(!wallet_err,
+		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v6)");
 
 	/* Variant 7: update with last_tx (taken from BOLT #3) */
 	p.last_tx = bitcoin_tx_from_hex(w, "02000000000101bef67e4e2fb9ddeeb3461973cd4c62abb35050b1add772995b820b584a488489000000000038b02b8003a00f0000000000002200208c48d15160397c9731df9bc3b236656efb6665fbfe92b4a6878e88a499f741c4c0c62d0000000000160014ccf1af2f2aabee14bb40fa3851ab2301de843110ae8f6a00000000002200204adb4e2f00643db396dd120d4e7dc17625f5f2c11a40d857accc862d6b7dd80e040047304402206a2679efa3c7aaffd2a447fd0df7aba8792858b589750f6a1203f9259173198a022008d52a0e77a99ab533c36206cb15ad7aeb2aa72b93d4b571e728cb5ec2f6fe260147304402206d6cb93969d39177a09d5d45b583f34966195b77c7e585cf47ac5cce0c90cefb022031d71ae4e33a4e80df7f981d696fbdee517337806a3c7138b7491e2cbb077a0e01475221023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb21030e9f7b623d2ccc7c9bd44d66d5ce21ce504c0acf6385a132cec6d3c39fa711c152ae3e195220", strlen("02000000000101bef67e4e2fb9ddeeb3461973cd4c62abb35050b1add772995b820b584a488489000000000038b02b8003a00f0000000000002200208c48d15160397c9731df9bc3b236656efb6665fbfe92b4a6878e88a499f741c4c0c62d0000000000160014ccf1af2f2aabee14bb40fa3851ab2301de843110ae8f6a00000000002200204adb4e2f00643db396dd120d4e7dc17625f5f2c11a40d857accc862d6b7dd80e040047304402206a2679efa3c7aaffd2a447fd0df7aba8792858b589750f6a1203f9259173198a022008d52a0e77a99ab533c36206cb15ad7aeb2aa72b93d4b571e728cb5ec2f6fe260147304402206d6cb93969d39177a09d5d45b583f34966195b77c7e585cf47ac5cce0c90cefb022031d71ae4e33a4e80df7f981d696fbdee517337806a3c7138b7491e2cbb077a0e01475221023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb21030e9f7b623d2ccc7c9bd44d66d5ce21ce504c0acf6385a132cec6d3c39fa711c152ae3e195220"));
 	p.last_sig = sig;
-	CHECK_MSG(wallet_channel_save(w, &c1), tal_fmt(w, "Insert into DB: %s", w->db->err));
-	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB: %s", w->db->err));
+	wallet_channel_save(w, &c1);
+	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
+	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(!wallet_err,
+		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v7)");
 
+	db_commit_transaction(w->db);
+	CHECK(!wallet_err);
 	tal_free(w);
 	return true;
 }
@@ -292,12 +358,12 @@ static bool test_channel_config_crud(const tal_t *ctx)
 	cc1->to_self_delay = 5;
 	cc1->max_accepted_htlcs = 6;
 
-	CHECK(wallet_channel_config_save(w, cc1));
+	CHECK(transaction_wrap(w->db, wallet_channel_config_save(w, cc1)));
 	CHECK_MSG(
 	    cc1->id == 1,
 	    tal_fmt(ctx, "channel_config->id != 1; got %" PRIu64, cc1->id));
 
-	CHECK(wallet_channel_config_load(w, cc1->id, cc2));
+	CHECK(transaction_wrap(w->db, wallet_channel_config_load(w, cc1->id, cc2)));
 	CHECK(memeq(cc1, sizeof(*cc1), cc2, sizeof(*cc2)));
        	return true;
 }
@@ -314,7 +380,8 @@ static bool test_htlc_crud(const tal_t *ctx)
 	struct htlc_out_map *htlcs_out = tal(ctx, struct htlc_out_map);
 
 	/* Make sure we have our references correct */
-	db_exec(__func__, w->db, "INSERT INTO channels (id) VALUES (1);");
+	CHECK(transaction_wrap(w->db,
+			       db_exec(__func__, w->db, "INSERT INTO channels (id) VALUES (1);")));
 	chan->id = 1;
 	chan->peer = peer;
 
@@ -333,34 +400,45 @@ static bool test_htlc_crud(const tal_t *ctx)
 	out.msatoshi = 41;
 
 	/* Store the htlc_in */
-	CHECK_MSG(wallet_htlc_save_in(w, chan, &in),
-		  tal_fmt(ctx, "Save htlc_in failed: %s", w->db->err));
+	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_save_in(w, chan, &in)),
+		  tal_fmt(ctx, "Save htlc_in failed: %s", wallet_err));
 	CHECK_MSG(in.dbid != 0, "HTLC DB ID was not set.");
 	/* Saving again should get us a collision */
-	CHECK_MSG(!wallet_htlc_save_in(w, chan, &in),
+	CHECK_MSG(!transaction_wrap(w->db, wallet_htlc_save_in(w, chan, &in)),
 		  "Saving two HTLCs with the same data must not succeed.");
+	CHECK(wallet_err);
+	wallet_err = tal_free(wallet_err);
+
 	/* Update */
-	CHECK_MSG(wallet_htlc_update(w, in.dbid, RCVD_ADD_HTLC, NULL),
+	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, RCVD_ADD_HTLC, NULL)),
 		  "Update HTLC with null payment_key failed");
 	CHECK_MSG(
-	    wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, &payment_key),
+		transaction_wrap(w->db, wallet_htlc_update(w, in.dbid, SENT_REMOVE_HTLC, &payment_key)),
 	    "Update HTLC with payment_key failed");
 
-	CHECK_MSG(wallet_htlc_save_out(w, chan, &out),
-		  tal_fmt(ctx, "Save htlc_out failed: %s", w->db->err));
+	CHECK_MSG(transaction_wrap(w->db, wallet_htlc_save_out(w, chan, &out)),
+		  tal_fmt(ctx, "Save htlc_out failed: %s", wallet_err));
 	CHECK_MSG(out.dbid != 0, "HTLC DB ID was not set.");
-	CHECK_MSG(!wallet_htlc_save_out(w, chan, &out),
+
+	CHECK_MSG(!transaction_wrap(w->db, wallet_htlc_save_out(w, chan, &out)),
 		  "Saving two HTLCs with the same data must not succeed.");
+	CHECK(wallet_err);
+	wallet_err = tal_free(wallet_err);
 
 	/* Attempt to load them from the DB again */
 	htlc_in_map_init(htlcs_in);
 	htlc_out_map_init(htlcs_out);
+
+	db_begin_transaction(w->db);
+	CHECK(!wallet_err);
 
 	CHECK_MSG(wallet_htlcs_load_for_channel(w, chan, htlcs_in, htlcs_out),
 		  "Failed loading HTLCs");
 
 	CHECK_MSG(wallet_htlcs_reconnect(w, htlcs_in, htlcs_out),
 		  "Unable to reconnect htlcs.");
+	db_commit_transaction(w->db);
+	CHECK(!wallet_err);
 
 	hin = htlc_in_map_get(htlcs_in, &in.key);
 	hout = htlc_out_map_get(htlcs_out, &out.key);

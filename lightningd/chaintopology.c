@@ -304,6 +304,8 @@ static void topology_changed(struct chain_topology *topo,
 			     struct block *prev,
 			     struct block *b)
 {
+	db_begin_transaction(topo->ld->wallet->db);
+
 	/* Eliminate any old chain. */
 	if (prev->next)
 		free_blocks(topo, prev->next);
@@ -317,6 +319,8 @@ static void topology_changed(struct chain_topology *topo,
 
 	/* Tell watch code to re-evaluate all txs. */
 	watch_topology_changed(topo);
+
+	db_commit_transaction(topo->ld->wallet->db);
 
 	/* Maybe need to rebroadcast. */
 	rebroadcast_txs(topo, NULL);
@@ -551,10 +555,11 @@ static void destroy_outgoing_txs(struct chain_topology *topo)
 		tal_free(otx);
 }
 
-struct chain_topology *new_topology(const tal_t *ctx, struct log *log)
+struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 {
-	struct chain_topology *topo = tal(ctx, struct chain_topology);
+	struct chain_topology *topo = tal(ld, struct chain_topology);
 
+	topo->ld = ld;
 	block_map_init(&topo->block_map);
 	list_head_init(&topo->outgoing_txs);
 	txwatch_hash_init(&topo->txwatches);

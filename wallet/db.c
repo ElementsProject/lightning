@@ -123,73 +123,74 @@ char *dbmigrations[] = {
     NULL,
 };
 
-/**
- * db_clear_error - Clear any errors from previous queries
- */
-static void db_clear_error(struct db *db)
-{
-	db->err = tal_free(db->err);
-}
-
 sqlite3_stmt *db_prepare_(const char *caller, struct db *db, const char *query)
 {
 	int err;
 	sqlite3_stmt *stmt;
-	if (db->in_transaction && db->err)
-		return NULL;
 
-	db_clear_error(db);
+	assert(db->in_transaction);
+
 	err = sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
 
-	if (err != SQLITE_OK) {
-		db->err = tal_fmt(db, "%s: %s: %s", caller, query,
-				  sqlite3_errmsg(db->sql));
-	}
+	if (err != SQLITE_OK)
+		fatal("%s: %s: %s", caller, query, sqlite3_errmsg(db->sql));
+
 	return stmt;
 }
 
-bool db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt)
+void db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt)
 {
-	if (db->in_transaction && db->err)
-		return false;
-	db_clear_error(db);
+	assert(db->in_transaction);
 
-	if (sqlite3_step(stmt) !=  SQLITE_DONE) {
-		db->err =
-		    tal_fmt(db, "%s: %s", caller, sqlite3_errmsg(db->sql));
-		return false;
-	} else {
-		return true;
+	if (sqlite3_step(stmt) != SQLITE_DONE)
+		fatal("%s: %s", caller, sqlite3_errmsg(db->sql));
+}
+
+/* This one doesn't check if we're in a transaction. */
+static void db_do_exec(const char *caller, struct db *db, const char *cmd)
+{
+	char *errmsg;
+	int err;
+
+	err = sqlite3_exec(db->sql, cmd, NULL, NULL, &errmsg);
+	if (err != SQLITE_OK) {
+		fatal("%s:%s:%s:%s", caller, sqlite3_errstr(err), cmd, errmsg);
+		/* Only reached in testing */
+		sqlite3_free(errmsg);
 	}
 }
 
-bool PRINTF_FMT(3, 4)
+void PRINTF_FMT(3, 4)
     db_exec(const char *caller, struct db *db, const char *fmt, ...)
 {
 	va_list ap;
-	char *cmd, *errmsg;
-	int err;
+	char *cmd;
 
-	if (db->in_transaction && db->err)
-		return false;
-
-	db_clear_error(db);
+	assert(db->in_transaction);
 
 	va_start(ap, fmt);
 	cmd = tal_vfmt(db, fmt, ap);
 	va_end(ap);
 
-	err = sqlite3_exec(db->sql, cmd, NULL, NULL, &errmsg);
-	if (err != SQLITE_OK) {
-		tal_free(db->err);
-		db->err = tal_fmt(db, "%s:%s:%s:%s", caller,
-				  sqlite3_errstr(err), cmd, errmsg);
-		sqlite3_free(errmsg);
-		tal_free(cmd);
-		return false;
-	}
+	db_do_exec(caller, db, cmd);
 	tal_free(cmd);
-	return true;
+}
+
+bool db_exec_mayfail(const char *caller, struct db *db, const char *fmt, ...)
+{
+	va_list ap;
+	char *cmd;
+	int err;
+
+	assert(db->in_transaction);
+
+	va_start(ap, fmt);
+	cmd = tal_vfmt(db, fmt, ap);
+	va_end(ap);
+
+	err = sqlite3_exec(db->sql, cmd, NULL, NULL, NULL);
+	tal_free(cmd);
+	return (err == SQLITE_OK);
 }
 
 sqlite3_stmt *PRINTF_FMT(3, 4)
@@ -198,52 +199,34 @@ sqlite3_stmt *PRINTF_FMT(3, 4)
 	va_list ap;
 	char *query;
 	sqlite3_stmt *stmt;
-	int err;
 
-	if (db->in_transaction && db->err)
-		return NULL;
-
-	db_clear_error(db);
+	assert(db->in_transaction);
 
 	va_start(ap, fmt);
 	query = tal_vfmt(db, fmt, ap);
 	va_end(ap);
 
-	err = sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
-	if (err != SQLITE_OK) {
-		db->in_transaction = false;
-		db->err = tal_fmt(db, "%s:%s:%s:%s", caller,
-				  sqlite3_errstr(err), query, sqlite3_errmsg(db->sql));
-	}
+	/* Sets stmt to NULL if not SQLITE_OK */
+	sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
 	return stmt;
 }
 
 static void close_db(struct db *db) { sqlite3_close(db->sql); }
 
-bool db_begin_transaction(struct db *db)
+void db_begin_transaction_(struct db *db, const char *location)
 {
-	assert(!db->in_transaction);
-	/* Clear any errors from previous transactions and
-	 * non-transactional queries */
-	db_clear_error(db);
-	db->in_transaction = db_exec(__func__, db, "BEGIN TRANSACTION;");
-	return db->in_transaction;
+	if (db->in_transaction)
+		fatal("Already in transaction from %s", db->in_transaction);
+
+	db_do_exec(location, db, "BEGIN TRANSACTION;");
+	db->in_transaction = location;
 }
 
-bool db_commit_transaction(struct db *db)
+void db_commit_transaction(struct db *db)
 {
 	assert(db->in_transaction);
-	bool ret = db_exec(__func__, db, "COMMIT;");
-	db->in_transaction = false;
-	return ret;
-}
-
-bool db_rollback_transaction(struct db *db)
-{
-	assert(db->in_transaction);
-	bool ret = db_exec(__func__, db, "ROLLBACK;");
-	db->in_transaction = false;
-	return ret;
+	db_exec(__func__, db, "COMMIT;");
+	db->in_transaction = NULL;
 }
 
 /**
@@ -271,11 +254,8 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	db->filename = tal_dup_arr(db, char, filename, strlen(filename), 0);
 	db->sql = sql;
 	tal_add_destructor(db, close_db);
-	db->in_transaction = false;
-	db->err = NULL;
-	if (!db_exec(__func__, db, "PRAGMA foreign_keys = ON;")) {
-		fatal("Could not enable foreignkeys on database: %s", db->err);
-	}
+	db->in_transaction = NULL;
+	db_do_exec(__func__, db, "PRAGMA foreign_keys = ON;");
 
 	return db;
 }
@@ -326,45 +306,30 @@ static int db_migration_count(void)
 /**
  * db_migrate - Apply all remaining migrations from the current version
  */
-static bool db_migrate(struct db *db)
+static void db_migrate(struct db *db)
 {
 	/* Attempt to read the version from the database */
-	int current = db_get_version(db);
-	int available = db_migration_count();
+	int current, available;
 
-	if (!db_begin_transaction(db)) {
-		/* No need to rollback, we didn't even start... */
-		return false;
-	}
+	db_begin_transaction(db);
 
-	while (++current <= available) {
-		if (!db_exec(__func__, db, "%s", dbmigrations[current]))
-			goto fail;
-	}
+	current = db_get_version(db);
+	available = db_migration_count();
+
+	while (++current <= available)
+		db_exec(__func__, db, "%s", dbmigrations[current]);
 
 	/* Finally update the version number in the version table */
 	db_exec(__func__, db, "UPDATE version SET version=%d;", available);
 
-	if (!db_commit_transaction(db)) {
-		goto fail;
-	}
-
-	return true;
-fail:
-	db_rollback_transaction(db);
-	return false;
+	db_commit_transaction(db);
 }
 
 struct db *db_setup(const tal_t *ctx)
 {
 	struct db *db = db_open(ctx, DB_FILE);
-	if (!db) {
-		return db;
-	}
 
-	if (!db_migrate(db)) {
-		return tal_free(db);
-	}
+	db_migrate(db);
 	return db;
 }
 
@@ -389,16 +354,14 @@ s64 db_get_intvar(struct db *db, char *varname, s64 defval)
 	return res;
 }
 
-bool db_set_intvar(struct db *db, char *varname, s64 val)
+void db_set_intvar(struct db *db, char *varname, s64 val)
 {
 	/* Attempt to update */
 	db_exec(__func__, db,
 		"UPDATE vars SET val='%" PRId64 "' WHERE name='%s';", val,
 		varname);
-	if (sqlite3_changes(db->sql) > 0)
-		return true;
-	else
-		return db_exec(
+	if (sqlite3_changes(db->sql) == 0)
+		db_exec(
 		    __func__, db,
 		    "INSERT INTO vars (name, val) VALUES ('%s', '%" PRId64
 		    "');",
