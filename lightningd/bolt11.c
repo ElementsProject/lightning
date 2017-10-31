@@ -269,6 +269,7 @@ static char *decode_c(struct bolt11 *b11,
                 return tal_fmt(b11, "c: length %zu chars is excessive",
                                *data_len);
         b11->min_final_cltv_expiry = c;
+        /* Can overflow, since c is 64 bits but value must be < 32 bits */
         if (b11->min_final_cltv_expiry != c)
                 return tal_fmt(b11, "c: %"PRIu64" is too large", c);
 
