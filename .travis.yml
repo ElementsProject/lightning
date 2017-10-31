@@ -14,6 +14,9 @@ env:
 # Trusty (aka 14.04) is way way too old, so run in docker...
 script:
   - docker pull cdecker/lightning-ci:${ARCH}bit | tee
+  - echo "Building..."
+  - echo "travis_fold:start:SCRIPT folding starts"
   - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make -j3 DEVELOPER=${DEVELOPER}
+  - echo "travis_fold:end:SCRIPT folding ends"
   - docker run --rm=true -e NO_VALGRIND=${NO_VALGRIND:-0} -e TEST_DEBUG=${TEST_DEBUG:-0} -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check DEVELOPER=${DEVELOPER}
   - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check-source
