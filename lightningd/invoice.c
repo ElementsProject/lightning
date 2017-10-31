@@ -164,12 +164,7 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 
-	if (!wallet_invoice_save(cmd->ld->wallet, invoice)) {
-		printf("Could not save the invoice to the database: %s",
-			  cmd->ld->wallet->db->err);
-		command_fail(cmd, "database error");
-		return;
-	}
+	wallet_invoice_save(cmd->ld->wallet, invoice);
 
 	/* OK, connect it to main state, respond with hash */
 	tal_steal(invs, invoice);

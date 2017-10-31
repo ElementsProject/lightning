@@ -252,10 +252,7 @@ void peer_set_condition(struct peer *peer, enum peer_state old_state,
 	if (peer_persists(peer)) {
 		assert(peer->channel != NULL);
 		/* TODO(cdecker) Selectively save updated fields to DB */
-		if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
-			fatal("Could not save channel to database: %s",
-			      peer->ld->wallet->db->err);
-		}
+		wallet_channel_save(peer->ld->wallet, peer->channel);
 	}
 }
 
@@ -447,9 +444,7 @@ static struct wallet_channel *peer_channel_new(struct wallet *w,
 	wallet_peer_by_nodeid(w, &peer->id, peer);
 	wc->id = 0;
 
-	if (!wallet_channel_save(w, wc)) {
-		fatal("Unable to save channel to database: %s", w->db->err);
-	}
+	wallet_channel_save(w, wc);
 
 	return wc;
 }
@@ -1668,10 +1663,7 @@ static void peer_got_shutdown(struct peer *peer, const u8 *msg)
 	}
 
 	/* TODO(cdecker) Selectively save updated fields to DB */
-	if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
-		fatal("Could not save channel to database: %s",
-		      peer->ld->wallet->db->err);
-	}
+	wallet_channel_save(peer->ld->wallet, peer->channel);
 }
 
 void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
@@ -1733,11 +1725,7 @@ static void peer_received_closing_signature(struct peer *peer, const u8 *msg)
 	/* FIXME: Make sure signature is correct! */
 	if (better_closing_fee(peer, tx)) {
 		/* TODO(cdecker) Selectively save updated fields to DB */
-		if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
-			fatal("Could not save channel to database: %s",
-			      peer->ld->wallet->db->err);
-		}
-
+		wallet_channel_save(peer->ld->wallet, peer->channel);
 		peer_last_tx(peer, tx, &sig);
 	}
 
@@ -2313,10 +2301,7 @@ static void peer_accept_channel(struct lightningd *ld,
 	/* Store the channel in the database in order to get a channel
 	 * ID that is unique and which we can base the peer_seed on */
 	peer->channel = peer_channel_new(ld->wallet, peer);
-	if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
-		fatal("Could not save channel to database: %s",
-		      peer->ld->wallet->db->err);
-	}
+	wallet_channel_save(peer->ld->wallet, peer->channel);
 	peer->seed = tal(peer, struct privkey);
 	derive_peer_seed(ld, peer->seed, &peer->id, peer->channel->id);
 
@@ -2377,10 +2362,7 @@ static void peer_offer_channel(struct lightningd *ld,
 	/* Store the channel in the database in order to get a channel
 	 * ID that is unique and which we can base the peer_seed on */
 	fc->peer->channel = peer_channel_new(ld->wallet, fc->peer);
-	if (!wallet_channel_save(fc->peer->ld->wallet, fc->peer->channel)) {
-		fatal("Could not save channel to database: %s",
-		      fc->peer->ld->wallet->db->err);
-	}
+	wallet_channel_save(fc->peer->ld->wallet, fc->peer->channel);
 	fc->peer->seed = tal(fc->peer, struct privkey);
 	derive_peer_seed(ld, fc->peer->seed, &fc->peer->id,
 			 fc->peer->channel->id);

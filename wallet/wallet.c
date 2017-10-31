@@ -142,7 +142,6 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 					u64 *fee_estimate, u64 *changesatoshi)
 {
 	size_t i = 0;
-	bool should_commit;
 	struct utxo **available;
 	const struct utxo **utxos = tal_arr(ctx, const struct utxo *, 0);
 	*fee_estimate = 0;
@@ -151,8 +150,9 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 	u64 satoshi_in = 0, weight = (4 + (8 + 22) * 2 + 4) * 4;
 	tal_add_destructor2(utxos, destroy_utxos, w);
 
-	should_commit = db_begin_transaction(w->db);
-
+	if (!db_begin_transaction(w->db)) {
+		fatal("Unable to begin transaction: %s", w->db->err);
+	}
 	available = wallet_get_utxos(ctx, w, output_state_available);
 
 	for (i = 0; i < tal_count(available); i++) {
@@ -180,12 +180,10 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 	if (satoshi_in < *fee_estimate + value) {
 		/* Could not collect enough inputs, cleanup and bail */
 		utxos = tal_free(utxos);
-		if (should_commit)
-			db_rollback_transaction(w->db);
+		db_rollback_transaction(w->db);
 	} else {
 		/* Commit the db transaction to persist markings */
-		if (should_commit)
-			db_commit_transaction(w->db);
+		db_commit_transaction(w->db);
 		*changesatoshi = satoshi_in - value - *fee_estimate;
 
 	}
@@ -278,8 +276,7 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 			      const struct sha256 *hash)
 {
 	tal_t *tmpctx = tal_tmpctx(wallet);
-	bool should_commit;
-	bool ok = true;
+	bool ok;
 	u32 pos = count_trailing_zeroes(index);
 	assert(index < SQLITE_MAX_UINT);
 	char *hexhash = tal_hexstr(tmpctx, hash, sizeof(struct sha256));
@@ -288,25 +285,20 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 		return false;
 	}
 
-	should_commit = db_begin_transaction(wallet->db);
+	db_begin_transaction(wallet->db);
 
-	ok &= db_exec(__func__, wallet->db,
+	db_exec(__func__, wallet->db,
 		      "UPDATE shachains SET num_valid=%d, min_index=%" PRIu64
 		      " WHERE id=%" PRIu64,
 		      chain->chain.num_valid, index, chain->id);
 
-	ok &= db_exec(__func__, wallet->db,
+	db_exec(__func__, wallet->db,
 		      "REPLACE INTO shachain_known "
 		      "(shachain_id, pos, idx, hash) VALUES "
 		      "(%" PRIu64 ", %d, %" PRIu64 ", '%s');",
 		      chain->id, pos, index, hexhash);
 
-	if (should_commit) {
-		if (ok)
-			ok &= db_commit_transaction(wallet->db);
-		else
-			db_rollback_transaction(wallet->db);
-	}
+	ok = db_commit_transaction(wallet->db);
 	tal_free(tmpctx);
 	return ok;
 }
@@ -643,17 +635,16 @@ static char* db_serialize_tx(const tal_t *ctx, const struct bitcoin_tx *tx)
 	return tal_fmt(ctx, "'%s'", tal_hex(ctx, linearize_tx(ctx, tx)));
 }
 
-bool wallet_channel_config_save(struct wallet *w, struct channel_config *cc)
+void wallet_channel_config_save(struct wallet *w, struct channel_config *cc)
 {
-	bool ok = true;
 	/* Is this an update? If not insert a stub first */
 	if (!cc->id) {
-		ok &= db_exec(__func__, w->db,
+		db_exec(__func__, w->db,
 			      "INSERT INTO channel_configs DEFAULT VALUES;");
 		cc->id = sqlite3_last_insert_rowid(w->db->sql);
 	}
 
-	ok &= db_exec(
+	db_exec(
 	    __func__, w->db, "UPDATE channel_configs SET"
 			     "  dust_limit_satoshis=%" PRIu64 ","
 			     "  max_htlc_value_in_flight_msat=%" PRIu64 ","
@@ -665,8 +656,6 @@ bool wallet_channel_config_save(struct wallet *w, struct channel_config *cc)
 	    cc->dust_limit_satoshis, cc->max_htlc_value_in_flight_msat,
 	    cc->channel_reserve_satoshis, cc->htlc_minimum_msat,
 	    cc->to_self_delay, cc->max_accepted_htlcs, cc->id);
-
-	return ok;
 }
 
 bool wallet_channel_config_load(struct wallet *w, const u64 id,
@@ -695,36 +684,35 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 	return ok;
 }
 
-bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
-	bool should_commit, ok = true;
+void wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 	struct peer *p = chan->peer;
 	tal_t *tmpctx = tal_tmpctx(w);
 
 	if (p->dbid == 0) {
 		/* Need to store the peer first */
-		ok &= db_exec(__func__, w->db,
+		db_exec(__func__, w->db,
 			      "INSERT INTO peers (node_id) VALUES ('%s');",
 			      db_serialize_pubkey(tmpctx, &chan->peer->id));
 		p->dbid = sqlite3_last_insert_rowid(w->db->sql);
 	}
 
-	should_commit = db_begin_transaction(w->db);
+	db_begin_transaction(w->db);
 
 	/* Insert a stub, that we can update, unifies INSERT and UPDATE paths */
 	if (chan->id == 0) {
-		ok &= db_exec(__func__, w->db, "INSERT INTO channels (peer_id) VALUES (%"PRIu64");", p->dbid);
+		db_exec(__func__, w->db, "INSERT INTO channels (peer_id) VALUES (%"PRIu64");", p->dbid);
 		chan->id = sqlite3_last_insert_rowid(w->db->sql);
 	}
 
 	/* Need to initialize the shachain first so we get an id */
 	if (p->their_shachain.id == 0) {
-		ok &= wallet_shachain_init(w, &p->their_shachain);
+		wallet_shachain_init(w, &p->their_shachain);
 	}
 
-	ok &= wallet_channel_config_save(w, &p->our_config);
+	wallet_channel_config_save(w, &p->our_config);
 
 	/* Now do the real update */
-	ok &= db_exec(__func__, w->db, "UPDATE channels SET"
+	db_exec(__func__, w->db, "UPDATE channels SET"
 		      "  shachain_remote_id=%"PRIu64","
 		      "  short_channel_id=%s,"
 		      "  state=%d,"
@@ -768,8 +756,8 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		      chan->id);
 
 	if (chan->peer->channel_info) {
-		ok &= wallet_channel_config_save(w, &p->channel_info->their_config);
-		ok &= db_exec(__func__, w->db,
+		wallet_channel_config_save(w, &p->channel_info->their_config);
+		db_exec(__func__, w->db,
 			      "UPDATE channels SET"
 			      "  fundingkey_remote='%s',"
 			      "  revocation_basepoint_remote='%s',"
@@ -793,7 +781,7 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 
 	/* If we have a last_sent_commit, store it */
 	if (chan->peer->last_sent_commit) {
-		ok &= db_exec(__func__, w->db,
+		db_exec(__func__, w->db,
 			      "UPDATE channels SET"
 			      "  last_sent_commit_state=%d,"
 			      "  last_sent_commit_id=%"PRIu64
@@ -803,14 +791,10 @@ bool wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 			      chan->id);
 	}
 
-	if (should_commit) {
-		if (ok)
-			ok &= db_commit_transaction(w->db);
-		else
-			db_rollback_transaction(w->db);
-	}
+	if (!db_commit_transaction(w->db))
+		fatal("Could not save channel to database: %s", w->db->err);
+
 	tal_free(tmpctx);
-      	return ok;
 }
 
 int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
@@ -849,13 +833,12 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 	return num_utxos;
 }
 
-bool wallet_htlc_save_in(struct wallet *wallet,
+void wallet_htlc_save_in(struct wallet *wallet,
 			 const struct wallet_channel *chan, struct htlc_in *in)
 {
-	bool ok = true;
 	tal_t *tmpctx = tal_tmpctx(wallet);
 
-	ok &= db_exec(
+	db_exec(
 	    __func__, wallet->db,
 	    "INSERT INTO channel_htlcs "
 	    "(channel_id, channel_htlc_id, direction, origin_htlc, msatoshi, cltv_expiry, payment_hash, payment_key, hstate, shared_secret, routing_onion) VALUES "
@@ -869,18 +852,14 @@ bool wallet_htlc_save_in(struct wallet *wallet,
 	    tal_hexstr(tmpctx, &in->onion_routing_packet, sizeof(in->onion_routing_packet))
 	);
 
+	in->dbid = sqlite3_last_insert_rowid(wallet->db->sql);
 	tal_free(tmpctx);
-	if (ok) {
-		in->dbid = sqlite3_last_insert_rowid(wallet->db->sql);
-	}
-	return ok;
 }
 
-bool wallet_htlc_save_out(struct wallet *wallet,
+void wallet_htlc_save_out(struct wallet *wallet,
 			  const struct wallet_channel *chan,
 			  struct htlc_out *out)
 {
-	bool ok = true;
 	tal_t *tmpctx = tal_tmpctx(wallet);
 
 	/* We absolutely need the incoming HTLC to be persisted before
@@ -888,7 +867,7 @@ bool wallet_htlc_save_out(struct wallet *wallet,
 	assert(out->in == NULL || out->in->dbid != 0);
 	out->origin_htlc_id = out->in?out->in->dbid:0;
 
-	ok &= db_exec(
+	db_exec(
 	    __func__, wallet->db,
 	    "INSERT INTO channel_htlcs "
 	    "(channel_id, channel_htlc_id, direction, origin_htlc, msatoshi, cltv_expiry, "
@@ -906,25 +885,21 @@ bool wallet_htlc_save_out(struct wallet *wallet,
 	    tal_hexstr(tmpctx, &out->onion_routing_packet, sizeof(out->onion_routing_packet))
 	);
 
+	out->dbid = sqlite3_last_insert_rowid(wallet->db->sql);
 	tal_free(tmpctx);
-	if (ok) {
-		out->dbid = sqlite3_last_insert_rowid(wallet->db->sql);
-	}
-	return ok;
 }
 
-bool wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
+void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const enum htlc_state new_state,
 			const struct preimage *payment_key)
 {
-	bool ok = true;
 	tal_t *tmpctx = tal_tmpctx(wallet);
 
 	/* The database ID must be set by a previous call to
 	 * `wallet_htlc_save_*` */
 	assert(htlc_dbid);
 	if (payment_key) {
-		ok &= db_exec(
+		db_exec(
 		    __func__, wallet->db, "UPDATE channel_htlcs SET hstate=%d, "
 					  "payment_key='%s' WHERE id=%" PRIu64,
 		    new_state,
@@ -932,13 +907,12 @@ bool wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 		    htlc_dbid);
 
 	} else {
-		ok &= db_exec(
+		db_exec(
 		    __func__, wallet->db,
 		    "UPDATE channel_htlcs SET hstate = %d WHERE id=%" PRIu64,
 		    new_state, htlc_dbid);
 	}
 	tal_free(tmpctx);
-	return ok;
 }
 
 static bool wallet_stmt2htlc_in(const struct wallet_channel *channel,
@@ -1106,7 +1080,7 @@ bool wallet_htlcs_reconnect(struct wallet *wallet,
 	return true;
 }
 
-bool wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
+void wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 {
 	/* Need to use the lower level API of sqlite3 to bind
 	 * label. Otherwise we'd need to implement sanitization of
@@ -1115,10 +1089,8 @@ bool wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 	if (!inv->id) {
 		stmt = db_prepare(wallet->db,
 			"INSERT INTO invoices (payment_hash, payment_key, state, msatoshi, label) VALUES (?, ?, ?, ?, ?);");
-		if (!stmt) {
-			log_broken(wallet->log, "Could not prepare statement: %s", wallet->db->err);
-			return false;
-		}
+		if (!stmt)
+			fatal("Could not prepare statement: %s", wallet->db->err);
 
 		sqlite3_bind_blob(stmt, 1, &inv->rhash, sizeof(inv->rhash), SQLITE_TRANSIENT);
 		sqlite3_bind_blob(stmt, 2, &inv->r, sizeof(inv->r), SQLITE_TRANSIENT);
@@ -1126,30 +1098,21 @@ bool wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 		sqlite3_bind_int64(stmt, 4, inv->msatoshi);
 		sqlite3_bind_text(stmt, 5, inv->label, strlen(inv->label), SQLITE_TRANSIENT);
 
-		if (!db_exec_prepared(wallet->db, stmt)) {
-			log_broken(wallet->log, "Could not exec prepared statement: %s", wallet->db->err);
-			return false;
-		}
+		if (!db_exec_prepared(wallet->db, stmt))
+			fatal("Could not exec prepared statement: %s", wallet->db->err);
 
 		inv->id = sqlite3_last_insert_rowid(wallet->db->sql);
-		return true;
 	} else {
 		stmt = db_prepare(wallet->db, "UPDATE invoices SET state=? WHERE id=?;");
 
-		if (!stmt) {
-			log_broken(wallet->log, "Could not prepare statement: %s", wallet->db->err);
-			return false;
-		}
+		if (!stmt)
+			fatal("Could not prepare statement: %s", wallet->db->err);
 
 		sqlite3_bind_int(stmt, 1, inv->state);
 		sqlite3_bind_int64(stmt, 2, inv->id);
 
-		if (!db_exec_prepared(wallet->db, stmt)) {
-			log_broken(wallet->log, "Could not exec prepared statement: %s", wallet->db->err);
-			return false;
-		} else {
-			return true;
-		}
+		if (!db_exec_prepared(wallet->db, stmt))
+			fatal("Could not exec prepared statement: %s", wallet->db->err);
 	}
 }
 
@@ -1211,10 +1174,9 @@ struct htlc_stub *wallet_htlc_stubs(tal_t *ctx, struct wallet *wallet,
 		"SELECT channel_id, direction, cltv_expiry, payment_hash "
 		"FROM channel_htlcs WHERE channel_id = ?;");
 
-	if (!stmt) {
-		log_broken(wallet->log, "Error preparing select: %s", wallet->db->err);
-		return NULL;
-	}
+	if (!stmt)
+		fatal("Error preparing select: %s", wallet->db->err);
+
 	sqlite3_bind_int64(stmt, 1, chan->id);
 
 	stubs = tal_arr(ctx, struct htlc_stub, 0);
