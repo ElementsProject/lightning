@@ -37,6 +37,12 @@ bool PRINTF_FMT(3, 4)
 	db_exec(const char *caller, struct db *db, const char *fmt, ...);
 
 /**
+ * db_exec_mayfail - db_exec, but don't set db->err if it fails.
+ */
+bool PRINTF_FMT(3, 4)
+	db_exec_mayfail(const char *caller, struct db *db, const char *fmt, ...);
+
+/**
  * db_begin_transaction - Begin a transaction
  *
  * Begin a new DB transaction if we aren't already in one. Returns

@@ -192,6 +192,26 @@ bool PRINTF_FMT(3, 4)
 	return true;
 }
 
+bool db_exec_mayfail(const char *caller, struct db *db, const char *fmt, ...)
+{
+	va_list ap;
+	char *cmd;
+	int err;
+
+	if (db->in_transaction && db->err)
+		return false;
+
+	db_clear_error(db);
+
+	va_start(ap, fmt);
+	cmd = tal_vfmt(db, fmt, ap);
+	va_end(ap);
+
+	err = sqlite3_exec(db->sql, cmd, NULL, NULL, NULL);
+	tal_free(cmd);
+	return (err == SQLITE_OK);
+}
+
 sqlite3_stmt *PRINTF_FMT(3, 4)
     db_query(const char *caller, struct db *db, const char *fmt, ...)
 {
