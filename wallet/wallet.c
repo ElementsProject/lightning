@@ -111,7 +111,7 @@ static void unreserve_utxo(struct wallet *w, const struct utxo *unres)
 	if (!wallet_update_output_status(w, &unres->txid, unres->outnum,
 					 output_state_reserved,
 					 output_state_available)) {
-		fatal("Unable to unreserve output: %s", w->db->err);
+		fatal("Unable to unreserve output");
 	}
 }
 
@@ -131,7 +131,7 @@ void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
 		if (!wallet_update_output_status(
 			w, &utxos[i]->txid, utxos[i]->outnum,
 			output_state_reserved, output_state_spent)) {
-			fatal("Unable to mark output as spent: %s", w->db->err);
+			fatal("Unable to mark output as spent");
 		}
 	}
 }
@@ -159,7 +159,7 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 		if (!wallet_update_output_status(
 			w, &available[i]->txid, available[i]->outnum,
 			output_state_available, output_state_reserved))
-			fatal("Unable to reserve output: %s", w->db->err);
+			fatal("Unable to reserve output");
 
 		weight += (32 + 4 + 4) * 4;
 		if (utxos[i]->is_p2sh)
@@ -234,18 +234,15 @@ s64 wallet_get_newindex(struct lightningd *ld)
 	return newidx;
 }
 
-bool wallet_shachain_init(struct wallet *wallet, struct wallet_shachain *chain)
+void wallet_shachain_init(struct wallet *wallet, struct wallet_shachain *chain)
 {
 	/* Create shachain */
 	shachain_init(&chain->chain);
-	if (!db_exec(
+	db_exec(
 		__func__, wallet->db,
 		"INSERT INTO shachains (min_index, num_valid) VALUES (%"PRIu64",0);",
-		chain->chain.min_index)) {
-		return false;
-	}
+		chain->chain.min_index);
 	chain->id = sqlite3_last_insert_rowid(wallet->db->sql);
-	return true;
 }
 
 /* TODO(cdecker) Stolen from shachain, move to some appropriate location */
@@ -987,7 +984,7 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 	    DIRECTION_INCOMING, chan->id, SENT_REMOVE_ACK_REVOCATION);
 
 	if (!stmt) {
-		log_broken(wallet->log, "Could not select htlc_ins: %s", wallet->db->err);
+		log_broken(wallet->log, "Could not select htlc_ins");
 		return false;
 	}
 
@@ -1008,7 +1005,7 @@ bool wallet_htlcs_load_for_channel(struct wallet *wallet,
 	    DIRECTION_OUTGOING, chan->id, RCVD_REMOVE_ACK_REVOCATION);
 
 	if (!stmt) {
-		log_broken(wallet->log, "Could not select htlc_outs: %s", wallet->db->err);
+		log_broken(wallet->log, "Could not select htlc_outs");
 		return false;
 	}
 
@@ -1074,8 +1071,6 @@ void wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 	if (!inv->id) {
 		stmt = db_prepare(wallet->db,
 			"INSERT INTO invoices (payment_hash, payment_key, state, msatoshi, label) VALUES (?, ?, ?, ?, ?);");
-		if (!stmt)
-			fatal("Could not prepare statement: %s", wallet->db->err);
 
 		sqlite3_bind_blob(stmt, 1, &inv->rhash, sizeof(inv->rhash), SQLITE_TRANSIENT);
 		sqlite3_bind_blob(stmt, 2, &inv->r, sizeof(inv->r), SQLITE_TRANSIENT);
@@ -1083,21 +1078,16 @@ void wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 		sqlite3_bind_int64(stmt, 4, inv->msatoshi);
 		sqlite3_bind_text(stmt, 5, inv->label, strlen(inv->label), SQLITE_TRANSIENT);
 
-		if (!db_exec_prepared(wallet->db, stmt))
-			fatal("Could not exec prepared statement: %s", wallet->db->err);
+		db_exec_prepared(wallet->db, stmt);
 
 		inv->id = sqlite3_last_insert_rowid(wallet->db->sql);
 	} else {
 		stmt = db_prepare(wallet->db, "UPDATE invoices SET state=? WHERE id=?;");
 
-		if (!stmt)
-			fatal("Could not prepare statement: %s", wallet->db->err);
-
 		sqlite3_bind_int(stmt, 1, inv->state);
 		sqlite3_bind_int64(stmt, 2, inv->id);
 
-		if (!db_exec_prepared(wallet->db, stmt))
-			fatal("Could not exec prepared statement: %s", wallet->db->err);
+		db_exec_prepared(wallet->db, stmt);
 	}
 }
 
@@ -1125,7 +1115,7 @@ bool wallet_invoices_load(struct wallet *wallet, struct invoices *invs)
 				"SELECT id, state, payment_key, payment_hash, "
 				"label, msatoshi FROM invoices;");
 	if (!stmt) {
-		log_broken(wallet->log, "Could not load invoices: %s", wallet->db->err);
+		log_broken(wallet->log, "Could not load invoices");
 		return false;
 	}
 
@@ -1147,7 +1137,8 @@ bool wallet_invoice_remove(struct wallet *wallet, struct invoice *inv)
 {
 	sqlite3_stmt *stmt = db_prepare(wallet->db, "DELETE FROM invoices WHERE id=?");
 	sqlite3_bind_int64(stmt, 1, inv->id);
-	return db_exec_prepared(wallet->db, stmt) && sqlite3_changes(wallet->db->sql) == 1;
+	db_exec_prepared(wallet->db, stmt);
+	return sqlite3_changes(wallet->db->sql) == 1;
 }
 
 struct htlc_stub *wallet_htlc_stubs(tal_t *ctx, struct wallet *wallet,
@@ -1158,9 +1149,6 @@ struct htlc_stub *wallet_htlc_stubs(tal_t *ctx, struct wallet *wallet,
 	sqlite3_stmt *stmt = db_prepare(wallet->db,
 		"SELECT channel_id, direction, cltv_expiry, payment_hash "
 		"FROM channel_htlcs WHERE channel_id = ?;");
-
-	if (!stmt)
-		fatal("Error preparing select: %s", wallet->db->err);
 
 	sqlite3_bind_int64(stmt, 1, chan->id);
 

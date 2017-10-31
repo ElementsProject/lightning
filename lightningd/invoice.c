@@ -261,8 +261,8 @@ static void json_delinvoice(struct command *cmd,
 	}
 
 	if (!wallet_invoice_remove(cmd->ld->wallet, i)) {
-		log_broken(cmd->ld->log, "Error attempting to remove invoice %"PRIu64": %s",
-			   i->id, cmd->ld->wallet->db->err);
+		log_broken(cmd->ld->log, "Error attempting to remove invoice %"PRIu64,
+			   i->id);
 		command_fail(cmd, "Database error");
 		return;
 	}
