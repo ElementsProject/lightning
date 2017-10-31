@@ -25,12 +25,13 @@ struct wallet *wallet_new(const tal_t *ctx, struct log *log)
 	return wallet;
 }
 
+/* We actually use the db constraints to uniquify, so OK if this fails. */
 bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		     enum wallet_output_type type)
 {
 	tal_t *tmpctx = tal_tmpctx(w);
 	char *hextxid = tal_hexstr(tmpctx, &utxo->txid, 32);
-	bool result = db_exec(
+	bool result = db_exec_mayfail(
 	    __func__, w->db,
 	    "INSERT INTO outputs (prev_out_tx, prev_out_index, value, type, "
 	    "status, keyindex) VALUES ('%s', %d, %"PRIu64", %d, %d, %d);",
