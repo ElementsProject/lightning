@@ -1,12 +1,31 @@
+  #include <lightningd/log.h>
+
+static void wallet_fatal(const char *fmt, ...);
+#define fatal wallet_fatal
+
 #include "wallet.c"
 
 #include "db.c"
 
 #include <ccan/mem/mem.h>
-#include <lightningd/log.h>
+#include <ccan/tal/str/str.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <wallet/test_utils.h>
+
+static char *wallet_err;
+static void wallet_fatal(const char *fmt, ...)
+{
+	va_list ap;
+
+	/* Fail hard if we're complaining about not being in transaction */
+	assert(!strstarts(fmt, "No longer in transaction"));
+
+	va_start(ap, fmt);
+	wallet_err = tal_vfmt(NULL, fmt, ap);
+	va_end(ap);
+}
 
 void invoice_add(struct invoices *invs,
 		 struct invoice *inv){}
@@ -23,7 +42,8 @@ static struct wallet *create_test_wallet(const tal_t *ctx)
 	w->db = db_open(w, filename);
 
 	CHECK_MSG(w->db, "Failed opening the db");
-	CHECK_MSG(db_migrate(w->db), "DB migration failed");
+	db_migrate(w->db);
+	CHECK_MSG(!wallet_err, "DB migration failed");
 
 	ltmp = tal_tmpctx(ctx);
 	log_book = new_log_book(w, 20*1024*1024, LOG_DBG);
@@ -43,7 +63,8 @@ static bool test_wallet_outputs(void)
 
 	w->db = db_open(w, filename);
 	CHECK_MSG(w->db, "Failed opening the db");
-	CHECK_MSG(db_migrate(w->db), "DB migration failed");
+	db_migrate(w->db);
+	CHECK_MSG(!wallet_err, "DB migration failed");
 
 	memset(&u, 0, sizeof(u));
 
@@ -94,7 +115,8 @@ static bool test_shachain_crud(void)
 
 	w->db = db_open(w, filename);
 	CHECK_MSG(w->db, "Failed opening the db");
-	CHECK_MSG(db_migrate(w->db), "DB migration failed");
+	db_migrate(w->db);
+	CHECK_MSG(!wallet_err, "DB migration failed");
 
 	CHECK_MSG(fd != -1, "Unable to generate temp filename");
 	close(fd);
