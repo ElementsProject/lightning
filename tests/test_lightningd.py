@@ -239,13 +239,15 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('-> CHANNELD_NORMAL')
 
         # Hacky way to find our output.
-        decoded=bitcoind.rpc.decoderawtransaction(tx)['vout']
-        for out in decoded:
+        decoded=bitcoind.rpc.decoderawtransaction(tx)
+        for out in decoded['vout']:
             # Sometimes a float?  Sometimes a decimal?  WTF Python?!
             if out['scriptPubKey']['type'] == 'witness_v0_scripthash':
                 if out['value'] == Decimal(amount) / 10**8 or out['value'] * 10**8 == amount:
                     return "{}:1:{}".format(bitcoind.rpc.getblockcount(), out['n'])
-        raise ValueError("Can't find {} payment in {} ({})".format(amount, tx, decoded))
+        # Intermittant decoding failure.  See if it decodes badly twice?
+        decoded2=bitcoind.rpc.decoderawtransaction(tx)
+        raise ValueError("Can't find {} payment in {} (1={} 2={})".format(amount, tx, decoded, decoded2))
 
     def pay(self, lsrc, ldst, amt, label=None, async=False):
         if not label:
