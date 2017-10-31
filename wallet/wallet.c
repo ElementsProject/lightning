@@ -150,9 +150,6 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 	u64 satoshi_in = 0, weight = (4 + (8 + 22) * 2 + 4) * 4;
 	tal_add_destructor2(utxos, destroy_utxos, w);
 
-	if (!db_begin_transaction(w->db)) {
-		fatal("Unable to begin transaction: %s", w->db->err);
-	}
 	available = wallet_get_utxos(ctx, w, output_state_available);
 
 	for (i = 0; i < tal_count(available); i++) {
@@ -180,10 +177,7 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 	if (satoshi_in < *fee_estimate + value) {
 		/* Could not collect enough inputs, cleanup and bail */
 		utxos = tal_free(utxos);
-		db_rollback_transaction(w->db);
 	} else {
-		/* Commit the db transaction to persist markings */
-		db_commit_transaction(w->db);
 		*changesatoshi = satoshi_in - value - *fee_estimate;
 
 	}
@@ -276,7 +270,6 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 			      const struct sha256 *hash)
 {
 	tal_t *tmpctx = tal_tmpctx(wallet);
-	bool ok;
 	u32 pos = count_trailing_zeroes(index);
 	assert(index < SQLITE_MAX_UINT);
 	char *hexhash = tal_hexstr(tmpctx, hash, sizeof(struct sha256));
@@ -284,8 +277,6 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 		tal_free(tmpctx);
 		return false;
 	}
-
-	db_begin_transaction(wallet->db);
 
 	db_exec(__func__, wallet->db,
 		      "UPDATE shachains SET num_valid=%d, min_index=%" PRIu64
@@ -298,9 +289,8 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 		      "(%" PRIu64 ", %d, %" PRIu64 ", '%s');",
 		      chain->id, pos, index, hexhash);
 
-	ok = db_commit_transaction(wallet->db);
 	tal_free(tmpctx);
-	return ok;
+	return true;
 }
 
 bool wallet_shachain_load(struct wallet *wallet, u64 id,
@@ -696,8 +686,6 @@ void wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		p->dbid = sqlite3_last_insert_rowid(w->db->sql);
 	}
 
-	db_begin_transaction(w->db);
-
 	/* Insert a stub, that we can update, unifies INSERT and UPDATE paths */
 	if (chan->id == 0) {
 		db_exec(__func__, w->db, "INSERT INTO channels (peer_id) VALUES (%"PRIu64");", p->dbid);
@@ -790,9 +778,6 @@ void wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 			      p->last_sent_commit->id,
 			      chan->id);
 	}
-
-	if (!db_commit_transaction(w->db))
-		fatal("Could not save channel to database: %s", w->db->err);
 
 	tal_free(tmpctx);
 }
