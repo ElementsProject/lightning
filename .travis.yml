@@ -2,6 +2,9 @@ language: c
 dist: trusty
 sudo: true
 
+notifications:
+  email: false
+
 env:
   - NO_VALGRIND=1 ARCH=32 DEVELOPER=1
   - NO_VALGRIND=1 ARCH=64 DEVELOPER=1
