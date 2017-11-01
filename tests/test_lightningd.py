@@ -1636,6 +1636,46 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_htlc_in_timeout(self):
+        """Test that we drop onchain if the peer doesn't accept fulfilled HTLC"""
+
+        # HTLC 1->2, 1 fails after 2 has sent committed the fulfill
+        disconnects = ['-WIRE_REVOKE_AND_ACK*2']
+        l1 = self.node_factory.get_node(disconnect=disconnects,
+                                        options=['--no-reconnect'])
+        l2 = self.node_factory.get_node()
+
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
+        chanid = self.fund_channel(l1, l2, 10**6)
+
+        # Wait for route propagation.
+        bitcoind.rpc.generate(5)
+        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+                                 .format(chanid),
+                                'Received channel_update for channel {}\(1\)'
+                                 .format(chanid)])
+
+        amt = 200000000
+        inv = l2.rpc.invoice(amt, 'test_htlc_in_timeout', 'desc')['bolt11']
+        assert l2.rpc.listinvoice('test_htlc_in_timeout')[0]['complete'] == False
+
+        payfuture = self.executor.submit(l1.rpc.pay, inv);
+
+        # l1 will drop to chain, not reconnect.
+        l1.daemon.wait_for_log('dev_disconnect: -WIRE_REVOKE_AND_ACK')
+
+        # Deadline HTLC expity minus 1/2 cltv-expiry delta (rounded up) (== cltv - 3).  ctlv is 5+1.
+        bitcoind.rpc.generate(2)
+        assert not l2.daemon.is_in_log('hit deadline')
+        bitcoind.rpc.generate(1)
+
+        l2.daemon.wait_for_log('Fulfilled HTLC 0 SENT_REMOVE_COMMIT cltv {} hit deadline'.format(bitcoind.rpc.getblockcount()+3))
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+        l2.bitcoin.rpc.generate(1)
+        l2.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
+        l1.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_disconnect(self):
         # These should all make us fail, and retry.
         # FIXME: Configure short timeout for reconnect!
