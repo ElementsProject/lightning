@@ -161,7 +161,7 @@ static void db_do_exec(const char *caller, struct db *db, const char *cmd)
 	}
 }
 
-void PRINTF_FMT(3, 4)
+static void PRINTF_FMT(3, 4)
     db_exec(const char *caller, struct db *db, const char *fmt, ...)
 {
 	va_list ap;
