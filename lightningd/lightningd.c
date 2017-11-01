@@ -255,16 +255,19 @@ int main(int argc, char *argv[])
 	/* Now we know our ID, we can set our color/alias if not already. */
 	setup_color_and_alias(ld);
 
-	/* Initialize block topology. */
+	/* Initialize block topology (does its own transaction) */
 	setup_topology(ld->topology,
 		       &ld->timers,
 		       ld->config.poll_time,
 		       /* FIXME: Load from peers. */
 		       0);
 
+	/* Everything is within a transaction. */
+	db_begin_transaction(ld->wallet->db);
+
 	/* Load invoices from the database */
 	if (!wallet_invoices_load(ld->wallet, ld->invoices)) {
-		err(1, "Could not load invoices from the database");
+		fatal("Could not load invoices from the database");
 	}
 
 	/* Set up gossip daemon. */
@@ -282,12 +285,14 @@ int main(int argc, char *argv[])
 		peer->owner = NULL;
 		if (!wallet_htlcs_load_for_channel(ld->wallet, peer->channel,
 						   &ld->htlcs_in, &ld->htlcs_out)) {
-			err(1, "could not load htlcs for channel: %s", ld->wallet->db->err);
+			fatal("could not load htlcs for channel");
 		}
 	}
-	if (!wallet_htlcs_reconnect(ld->wallet, &ld->htlcs_in, &ld->htlcs_out)) {
-		errx(1, "could not reconnect htlcs loaded from wallet, wallet may be inconsistent.");
-	}
+	if (!wallet_htlcs_reconnect(ld->wallet, &ld->htlcs_in, &ld->htlcs_out))
+		fatal("could not reconnect htlcs loaded from wallet, wallet may be inconsistent.");
+
+	db_commit_transaction(ld->wallet->db);
+
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(ld, ld->rpc_filename);
 
