@@ -29,6 +29,9 @@ struct bitcoind {
 	/* Where to do logging. */
 	struct log *log;
 
+	/* Main lightningd structure */
+	struct lightningd *ld;
+
 	/* Are we currently running a bitcoind request (it's ratelimited) */
 	bool req_running;
 
@@ -46,7 +49,9 @@ struct bitcoind {
 	bool shutdown;
 };
 
-struct bitcoind *new_bitcoind(const tal_t *ctx, struct log *log);
+struct bitcoind *new_bitcoind(const tal_t *ctx,
+			      struct lightningd *ld,
+			      struct log *log);
 
 void wait_for_bitcoind(struct bitcoind *bitcoind);
 

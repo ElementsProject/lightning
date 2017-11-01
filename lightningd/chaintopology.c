@@ -551,9 +551,9 @@ static void destroy_outgoing_txs(struct chain_topology *topo)
 		tal_free(otx);
 }
 
-struct chain_topology *new_topology(const tal_t *ctx, struct log *log)
+struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 {
-	struct chain_topology *topo = tal(ctx, struct chain_topology);
+	struct chain_topology *topo = tal(ld, struct chain_topology);
 
 	block_map_init(&topo->block_map);
 	list_head_init(&topo->outgoing_txs);
@@ -562,7 +562,7 @@ struct chain_topology *new_topology(const tal_t *ctx, struct log *log)
 	topo->log = log;
 	topo->default_fee_rate = 40000;
 	topo->override_fee_rate = 0;
-	topo->bitcoind = new_bitcoind(topo, log);
+	topo->bitcoind = new_bitcoind(topo, ld, log);
 #if DEVELOPER
 	topo->dev_no_broadcast = false;
 #endif
