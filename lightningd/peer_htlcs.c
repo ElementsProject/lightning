@@ -1425,3 +1425,9 @@ void peer_htlcs(const tal_t *ctx,
 				    fulfilled_htlcs, fulfilled_sides);
 	}
 }
+
+void notify_new_block(struct lightningd *ld, u32 height)
+{
+	/* FIXME */
+}
+

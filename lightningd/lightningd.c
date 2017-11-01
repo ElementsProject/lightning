@@ -32,12 +32,6 @@
 
 char *bitcoin_datadir;
 
-void notify_new_block(struct chain_topology *topo, u32 height);
-void notify_new_block(struct chain_topology *topo, u32 height)
-{
-	/* FIXME */
-}
-
 void db_resolve_invoice(struct lightningd *ld,
 			const char *label);
 void db_resolve_invoice(struct lightningd *ld,
