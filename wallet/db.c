@@ -235,6 +235,7 @@ bool db_begin_transaction(struct db *db)
 		assert(db->in_transaction);
 		return db->in_transaction;
 	}
+	db->in_transaction++;
 	return false;
 }
 
@@ -242,7 +243,7 @@ bool db_commit_transaction(struct db *db)
 {
 	assert(db->in_transaction);
 	bool ret = db_exec(__func__, db, "COMMIT;");
-	db->in_transaction = false;
+	db->in_transaction--;
 	return ret;
 }
 
@@ -250,7 +251,7 @@ bool db_rollback_transaction(struct db *db)
 {
 	assert(db->in_transaction);
 	bool ret = db_exec(__func__, db, "ROLLBACK;");
-	db->in_transaction = false;
+	db->in_transaction--;
 	return ret;
 }
 

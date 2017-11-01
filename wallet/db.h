@@ -15,7 +15,7 @@
 
 struct db {
 	char *filename;
-	bool in_transaction;
+	unsigned int in_transaction;
 	const char *err;
 	sqlite3 *sql;
 };
