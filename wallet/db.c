@@ -236,8 +236,24 @@ bool db_begin_transaction(struct db *db)
 
 bool db_commit_transaction(struct db *db)
 {
+	bool ret;
+
 	assert(db->in_transaction);
-	bool ret = db_exec(__func__, db, "COMMIT;");
+	if (db->err) {
+		char *errmsg;
+		int err;
+
+		/* Do this manually: db_exec is a NOOP with db->err */
+		err = sqlite3_exec(db->sql, "ROLLBACK;", NULL, NULL, &errmsg);
+		if (err != SQLITE_OK) {
+			db->err = tal_fmt(db, "%s then ROLLBACK failed:%s:%s",
+					  db->err, sqlite3_errstr(err), errmsg);
+			sqlite3_free(errmsg);
+		}
+		ret = false;
+	} else {
+		ret = db_exec(__func__, db, "COMMIT;");
+	}
 	db->in_transaction--;
 	return ret;
 }
