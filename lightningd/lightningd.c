@@ -309,8 +309,11 @@ int main(int argc, char *argv[])
 		if (v == ld)
 			break;
 
-		if (expired)
+		if (expired) {
+			db_begin_transaction(ld->wallet->db);
 			timer_expired(ld, expired);
+			db_commit_transaction(ld->wallet->db);
+		}
 	}
 
 	shutdown_subdaemons(ld);
