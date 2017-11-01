@@ -1596,6 +1596,46 @@ class LightningDTests(BaseLightningDTests):
         assert l3.rpc.listinvoice('test_forward_pad_fees_and_cltv')[0]['complete'] == True
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_htlc_out_timeout(self):
+        """Test that we drop onchain if the peer doesn't time out HTLC"""
+
+        # HTLC 1->2, 1 fails after it's irrevocably committed, can't reconnect
+        disconnects = ['@WIRE_REVOKE_AND_ACK']
+        l1 = self.node_factory.get_node(disconnect=disconnects,
+                                        options=['--no-reconnect'])
+        l2 = self.node_factory.get_node()
+
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
+        chanid = self.fund_channel(l1, l2, 10**6)
+
+        # Wait for route propagation.
+        bitcoind.rpc.generate(5)
+        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+                                 .format(chanid),
+                                'Received channel_update for channel {}\(1\)'
+                                 .format(chanid)])
+
+        amt = 200000000
+        inv = l2.rpc.invoice(amt, 'test_htlc_out_timeout', 'desc')['bolt11']
+        assert l2.rpc.listinvoice('test_htlc_out_timeout')[0]['complete'] == False
+
+        payfuture = self.executor.submit(l1.rpc.pay, inv);
+
+        # l1 will drop to chain, not reconnect.
+        l1.daemon.wait_for_log('dev_disconnect: @WIRE_REVOKE_AND_ACK')
+
+        # Takes 6 blocks to timeout (cltv-final + 1), but we also give grace period of 1 block.
+        bitcoind.rpc.generate(5 + 1)
+        assert not l1.daemon.is_in_log('hit deadline')
+        bitcoind.rpc.generate(1)
+
+        l1.daemon.wait_for_log('Offered HTLC 0 SENT_ADD_ACK_REVOCATION cltv {} hit deadline'.format(bitcoind.rpc.getblockcount()-1))
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        l1.bitcoin.rpc.generate(1)
+        l1.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
+        l2.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_disconnect(self):
         # These should all make us fail, and retry.
         # FIXME: Configure short timeout for reconnect!

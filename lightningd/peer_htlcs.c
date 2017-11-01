@@ -1426,8 +1426,58 @@ void peer_htlcs(const tal_t *ctx,
 	}
 }
 
-void notify_new_block(struct lightningd *ld, u32 height)
+/* BOLT #2:
+ *
+ * For HTLCs we offer: the timeout deadline when we have to fail the channel
+ * and time it out on-chain.  This is `G` blocks after the HTLC
+ * `cltv_expiry`; 1 block is reasonable.
+ */
+static u32 htlc_out_deadline(const struct htlc_out *hout)
 {
-	/* FIXME */
+	return hout->cltv_expiry + 1;
 }
 
+void notify_new_block(struct lightningd *ld, u32 height)
+{
+	bool removed;
+
+	/* BOLT #2:
+	 *
+	 * A node ... MUST fail the channel if an HTLC which it offered is in
+	 * either node's current commitment transaction past this timeout
+	 * deadline.
+	 */
+	/* FIXME: use db to look this up in one go (earliest deadline per-peer) */
+	do {
+		struct htlc_out *hout;
+		struct htlc_out_map_iter outi;
+
+		removed = false;
+
+		for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
+		     hout;
+		     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
+			/* Not timed out yet? */
+			if (height < htlc_out_deadline(hout))
+				continue;
+
+			/* Peer on chain already? */
+			if (peer_on_chain(hout->key.peer))
+				continue;
+
+			/* Peer already failed, or we hit it? */
+			if (hout->key.peer->error)
+				continue;
+
+			peer_fail_permanent_str(hout->key.peer,
+						take(tal_fmt(hout,
+						     "Offered HTLC %"PRIu64
+						     " %s cltv %u hit deadline",
+						     hout->key.id,
+						     htlc_state_name(hout->hstate),
+						     hout->cltv_expiry)));
+			removed = true;
+		}
+	/* Iteration while removing is safe, but can skip entries! */
+	} while (removed);
+}

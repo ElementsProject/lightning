@@ -176,7 +176,7 @@ void peer_fail_permanent(struct peer *peer, const u8 *msg TAKES)
 	return;
 }
 
-static void peer_fail_permanent_str(struct peer *peer, const char *str TAKES)
+void peer_fail_permanent_str(struct peer *peer, const char *str TAKES)
 {
 	/* Don't use tal_strdup, since we need tal_len */
 	u8 *msg = tal_dup_arr(peer, u8, (const u8 *)str, strlen(str) + 1, 0);

@@ -201,6 +201,8 @@ u8 *get_supported_local_features(const tal_t *ctx);
 PRINTF_FMT(2,3) void peer_fail_transient(struct peer *peer, const char *fmt,...);
 /* Peer has failed, give up on it. */
 void peer_fail_permanent(struct peer *peer, const u8 *msg TAKES);
+/* Version where we supply the reason string. */
+void peer_fail_permanent_str(struct peer *peer, const char *str TAKES);
 /* Permanent error, but due to internal problems, not peer. */
 void peer_internal_error(struct peer *peer, const char *fmt, ...);
 
