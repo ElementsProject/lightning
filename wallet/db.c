@@ -120,6 +120,17 @@ char *dbmigrations[] = {
     "  UNIQUE (label),"
     "  UNIQUE (payment_hash)"
     ");",
+    "CREATE TABLE transfers ("
+    "  id INTEGER,"
+    "  timestamp INTEGER,"
+    "  status INTEGER,"
+    "  payment_hash BLOB,"
+    "  direction INTEGER,"
+    "  destination BLOB,"
+    "  msatoshi INTEGER,"
+    "  PRIMARY KEY (id),"
+    "  UNIQUE (payment_hash)"
+    ");",
     NULL,
 };
 
