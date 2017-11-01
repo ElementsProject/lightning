@@ -543,13 +543,16 @@ void wait_for_bitcoind(struct bitcoind *bitcoind)
 	tal_free(cmd);
 }
 
-struct bitcoind *new_bitcoind(const tal_t *ctx, struct log *log)
+struct bitcoind *new_bitcoind(const tal_t *ctx,
+			      struct lightningd *ld,
+			      struct log *log)
 {
 	struct bitcoind *bitcoind = tal(ctx, struct bitcoind);
 
 	/* Use testnet by default, change later if we want another network */
 	bitcoind->chainparams = chainparams_for_network("testnet");
 	bitcoind->datadir = NULL;
+	bitcoind->ld = ld;
 	bitcoind->log = log;
 	bitcoind->req_running = false;
 	bitcoind->shutdown = false;
