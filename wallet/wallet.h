@@ -141,7 +141,7 @@ s64 wallet_get_newindex(struct lightningd *ld);
 /**
  * wallet_shachain_init -- wallet wrapper around shachain_init
  */
-bool wallet_shachain_init(struct wallet *wallet, struct wallet_shachain *chain);
+void wallet_shachain_init(struct wallet *wallet, struct wallet_shachain *chain);
 
 /**
  * wallet_shachain_add_hash -- wallet wrapper around shachain_add_hash
