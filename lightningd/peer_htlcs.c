@@ -527,22 +527,19 @@ static void forward_htlc(struct htlc_in *hin,
 		goto fail;
 	}
 
-	/* BOLT #4:
+	/* BOLT #2:
 	 *
-	 * If the `cltv_expiry` is too near, we tell them the the current channel
-	 * setting for the outgoing channel:
-	 * 1. type: UPDATE|14 (`expiry_too_soon`)
-	 * 2. data:
-	 *    * [`2`:`len`]
-	 *    * [`len`:`channel_update`]
+	 * A node MUST estimate a timeout deadline for each HTLC it offers.  A
+	 * node MUST NOT offer an HTLC with a timeout deadline before its
+	 * `cltv_expiry`
 	 */
-	if (get_block_height(next->ld->topology)
-	    + next->ld->config.deadline_blocks >= outgoing_cltv_value) {
+	/* In our case, G = 1, so we need to expire it one after it's expiration.
+	 * But never offer an expired HTLC; that's dumb. */
+	if (get_block_height(next->ld->topology) >= outgoing_cltv_value) {
 		log_debug(hin->key.peer->log,
-			  "Expiry cltv %u too close to current %u + deadline %u",
+			  "Expiry cltv %u too close to current %u",
 			  outgoing_cltv_value,
-			  get_block_height(next->ld->topology),
-			  next->ld->config.deadline_blocks);
+			  get_block_height(next->ld->topology));
 		failcode = WIRE_EXPIRY_TOO_SOON;
 		goto fail;
 	}
