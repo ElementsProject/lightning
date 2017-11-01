@@ -62,6 +62,35 @@ struct wallet_channel {
 	struct peer *peer;
 };
 
+/* Possible states for a wallet_payment. Payments start in
+ * `PENDING`. Outgoing payments are set to `PAYMENT_COMPLETE` once we
+ * get the preimage matching the rhash, or to
+ * `PAYMENT_FAILED`. Incoming payments are set to `PAYMENT_COMPLETE`
+ * once the matching invoice is marked as complete, or `FAILED`
+ * otherwise.  */
+/* /!\ This is a DB ENUM, please do not change the numbering of any
+ * already defined elements (adding is ok) /!\ */
+enum wallet_payment_status {
+	PAYMENT_PENDING = 0,
+	PAYMENT_COMPLETE = 1,
+	PAYMENT_FAILED = 2
+};
+
+/* Incoming and outgoing payments. A simple persisted representation
+ * of a payment we either initiated or received. This can be used by
+ * a UI to display the balance history. We explicitly exclude
+ * forwarded payments.
+ */
+struct wallet_payment {
+	u64 id;
+	u32 timestamp;
+	bool incoming;
+	struct sha256 payment_hash;
+	enum wallet_transfer_status status;
+	struct pubkey *destination;
+	u64 msatoshi;
+};
+
 /**
  * wallet_new - Constructor for a new sqlite3 based wallet
  *
