@@ -56,8 +56,7 @@ static bool htlc_in_update_state(struct peer *peer,
 	if (!state_update_ok(peer, hin->hstate, newstate, hin->key.id, "in"))
 		return false;
 
-	if (!wallet_htlc_update(peer->ld->wallet, hin->dbid, newstate, hin->preimage))
-		return false;
+	wallet_htlc_update(peer->ld->wallet, hin->dbid, newstate, hin->preimage);
 
 	hin->hstate = newstate;
 	htlc_in_check(hin, __func__);
@@ -71,8 +70,7 @@ static bool htlc_out_update_state(struct peer *peer,
 	if (!state_update_ok(peer, hout->hstate, newstate, hout->key.id, "out"))
 		return false;
 
-	if (!wallet_htlc_update(peer->ld->wallet, hout->dbid, newstate, NULL))
-		return false;
+	wallet_htlc_update(peer->ld->wallet, hout->dbid, newstate, NULL);
 
 	hout->hstate = newstate;
 	htlc_out_check(hout, __func__);
@@ -929,12 +927,8 @@ static bool update_out_htlc(struct peer *peer, u64 id, enum htlc_state newstate)
 		return false;
 	}
 
-	if (!hout->dbid && !wallet_htlc_save_out(peer->ld->wallet, peer->channel, hout)) {
-		peer_internal_error(
-		    peer, "Unable to save the htlc_out to the database: %s",
-		    peer->ld->wallet->db->err);
-		return false;
-	}
+	if (!hout->dbid)
+		wallet_htlc_save_out(peer->ld->wallet, peer->channel, hout);
 
 	if (!htlc_out_update_state(peer, hout, newstate))
 		return false;
@@ -972,10 +966,7 @@ static bool peer_save_commitsig_received(struct peer *peer, u64 commitnum)
 	peer->next_index[LOCAL]++;
 
 	/* FIXME: Save to database, with sig and HTLCs. */
-	if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
-		fatal("Could not save channel to database: %s",
-		      peer->ld->wallet->db->err);
-	}
+	wallet_channel_save(peer->ld->wallet, peer->channel);
 	return true;
 }
 
@@ -992,11 +983,7 @@ static bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum)
 	peer->next_index[REMOTE]++;
 
 	/* FIXME: Save to database, with sig and HTLCs. */
-	if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
-		fatal("Could not save channel to database: %s",
-		      peer->ld->wallet->db->err);
-	}
-
+	wallet_channel_save(peer->ld->wallet, peer->channel);
 	return true;
 }
 
@@ -1293,10 +1280,7 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 		hin = find_htlc_in(&peer->ld->htlcs_in, peer, changed[i].id);
 		local_fail_htlc(hin, failcodes[i]);
 	}
-	if (!wallet_channel_save(peer->ld->wallet, peer->channel)) {
-		fatal("Could not save channel to database: %s",
-		      peer->ld->wallet->db->err);
-	}
+	wallet_channel_save(peer->ld->wallet, peer->channel);
 }
 
 static void *tal_arr_append_(void **p, size_t size)
