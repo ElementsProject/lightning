@@ -39,12 +39,6 @@ sqlite3_stmt *PRINTF_FMT(3, 4)
 	db_query(const char *caller, struct db *db, const char *fmt, ...);
 
 /**
- * db_exec - execute a statement, call fatal() if it fails.
- */
-void PRINTF_FMT(3, 4)
-	db_exec(const char *caller, struct db *db, const char *fmt, ...);
-
-/**
  * db_begin_transaction - Begin a transaction
  *
  * Begin a new DB transaction.  fatal() on database error.
