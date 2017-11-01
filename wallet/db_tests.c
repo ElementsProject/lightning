@@ -24,7 +24,7 @@ static bool test_empty_db_migrate(void)
 	struct db *db = create_test_db(__func__);
 	CHECK(db);
 	CHECK(db_get_version(db) == -1);
-	CHECK(db_migrate(db));
+	db_migrate(db);
 	CHECK(db_get_version(db) == db_migration_count());
 
 	tal_free(db);
@@ -55,7 +55,7 @@ static bool test_vars(void)
 	struct db *db = create_test_db(__func__);
 	char *varname = "testvar";
 	CHECK(db);
-	CHECK(db_migrate(db));
+	db_migrate(db);
 
 	/* Check default behavior */
 	CHECK(db_get_intvar(db, varname, 42) == 42);
