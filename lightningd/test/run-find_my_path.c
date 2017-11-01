@@ -47,7 +47,7 @@ struct log_book *new_log_book(const tal_t *ctx UNNEEDED,
 			      enum log_level printlevel UNNEEDED)
 { fprintf(stderr, "new_log_book called!\n"); abort(); }
 /* Generated stub for new_topology */
-struct chain_topology *new_topology(const tal_t *ctx UNNEEDED, struct log *log UNNEEDED)
+struct chain_topology *new_topology(struct lightningd *ld UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "new_topology called!\n"); abort(); }
 /* Generated stub for populate_peer */
 void populate_peer(struct lightningd *ld UNNEEDED, struct peer *peer UNNEEDED)
