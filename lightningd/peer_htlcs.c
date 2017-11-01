@@ -153,6 +153,8 @@ static u8 *make_failmsg(const tal_t *ctx,
 		return towire_incorrect_cltv_expiry(ctx, 0, channel_update);
 	case WIRE_EXPIRY_TOO_SOON:
 		return towire_expiry_too_soon(ctx, channel_update);
+	case WIRE_EXPIRY_TOO_FAR:
+		return towire_expiry_too_far(ctx);
 	case WIRE_UNKNOWN_PAYMENT_HASH:
 		return towire_unknown_payment_hash(ctx);
 	case WIRE_INCORRECT_PAYMENT_AMOUNT:
@@ -545,7 +547,12 @@ static void forward_htlc(struct htlc_in *hin,
 		goto fail;
 	}
 
-	/* FIXME: Add this to BOLT! */
+	/* BOLT #4:
+	 *
+	 * If the `cltv_expiry` is unreasonably far, we can also report an error:
+	 *
+	 * 1. type: 21 (`expiry_too_far`)
+	 */
 	if (get_block_height(next->ld->topology)
 	    + next->ld->config.max_htlc_expiry < outgoing_cltv_value) {
 		log_debug(hin->key.peer->log,
@@ -553,8 +560,7 @@ static void forward_htlc(struct htlc_in *hin,
 			  outgoing_cltv_value,
 			  get_block_height(next->ld->topology),
 			  next->ld->config.max_htlc_expiry);
-		/* FIXME: WIRE_EXPIRY_TOO_FAR? */
-		failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
+		failcode = WIRE_EXPIRY_TOO_FAR;
 		goto fail;
 	}
 
