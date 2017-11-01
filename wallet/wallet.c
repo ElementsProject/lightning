@@ -24,6 +24,7 @@ struct wallet *wallet_new(const tal_t *ctx, struct log *log)
 	return wallet;
 }
 
+/* We actually use the db constraints to uniquify, so OK if this fails. */
 bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		     enum wallet_output_type type)
 {
@@ -36,7 +37,7 @@ bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	sqlite3_bind_int(stmt, 4, type);
 	sqlite3_bind_int(stmt, 5, output_state_available);
 	sqlite3_bind_int(stmt, 6, utxo->keyindex);
-	return db_exec_prepared(w->db, stmt);
+	return db_exec_prepared_mayfail(w->db, stmt);
 }
 
 /**
