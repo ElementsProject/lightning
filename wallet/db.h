@@ -112,6 +112,15 @@ sqlite3_stmt *db_prepare_(const char *caller, struct db *db, const char *query);
 #define db_exec_prepared(db,stmt) db_exec_prepared_(__func__,db,stmt)
 bool db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt);
 
+/**
+ * db_exec_prepared_mayfail - db_exec_prepared, but don't set db->err if it fails.
+ */
+#define db_exec_prepared_mayfail(db,stmt) \
+	db_exec_prepared_mayfail_(__func__,db,stmt)
+bool db_exec_prepared_mayfail_(const char *caller,
+			       struct db *db,
+			       sqlite3_stmt *stmt);
+
 bool sqlite3_bind_short_channel_id(sqlite3_stmt *stmt, int col,
 				   const struct short_channel_id *id);
 bool sqlite3_column_short_channel_id(sqlite3_stmt *stmt, int col,

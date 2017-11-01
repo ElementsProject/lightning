@@ -197,6 +197,23 @@ bool PRINTF_FMT(3, 4)
 	return true;
 }
 
+bool db_exec_prepared_mayfail_(const char *caller, struct db *db, sqlite3_stmt *stmt)
+{
+	if (db->in_transaction && db->err) {
+		goto fail;
+	}
+
+	if (sqlite3_step(stmt) != SQLITE_DONE) {
+		goto fail;
+	}
+
+	sqlite3_finalize(stmt);
+	return true;
+fail:
+	sqlite3_finalize(stmt);
+	return false;
+}
+
 sqlite3_stmt *PRINTF_FMT(3, 4)
     db_query(const char *caller, struct db *db, const char *fmt, ...)
 {
