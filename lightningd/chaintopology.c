@@ -92,8 +92,8 @@ static void connect_block(struct chain_topology *topo,
 	}
 	b->full_txs = tal_free(b->full_txs);
 
-	/* Tell peers about new block. */
-	notify_new_block(topo, b->height);
+	/* Tell lightningd about new block. */
+	notify_new_block(topo->bitcoind->ld, b->height);
 }
 
 static const struct bitcoin_tx *tx_in_block(const struct block *b,

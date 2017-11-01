@@ -156,7 +156,7 @@ void setup_topology(struct chain_topology *topology,
 
 struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo, const struct sha256_double *txid);
 
-void notify_new_block(struct chain_topology *topo, unsigned int height);
+void notify_new_block(struct lightningd *ld, unsigned int height);
 
 #if DEVELOPER
 void json_dev_broadcast(struct command *cmd,
