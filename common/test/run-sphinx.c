@@ -1,3 +1,4 @@
+#include "../sphinx.c"
 #include <secp256k1.h>
 #include <ccan/opt/opt.h>
 #include <ccan/short_types/short_types.h>

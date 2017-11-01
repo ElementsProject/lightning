@@ -1,10 +1,8 @@
-COMMON_TEST_SRC :=					\
-	common/test/test_sphinx.c
+COMMON_TEST_SRC := $(wildcard common/test/run-*.c)
 COMMON_TEST_OBJS := $(COMMON_TEST_SRC:.c=.o)
 COMMON_TEST_PROGRAMS := $(COMMON_TEST_OBJS:.o=)
 
 COMMON_TEST_COMMON_OBJS :=				\
-	common/sphinx.o					\
 	common/utils.o
 
 $(COMMON_TEST_PROGRAMS): $(COMMON_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
