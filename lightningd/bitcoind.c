@@ -151,7 +151,9 @@ static void bcli_finished(struct io_conn *conn, struct bitcoin_cli *bcli)
 	if (bitcoind->shutdown)
 		return;
 
+	db_begin_transaction(bitcoind->ld->wallet->db);
 	bcli->process(bcli);
+	db_commit_transaction(bitcoind->ld->wallet->db);
 
 	next_bcli(bitcoind);
 }
