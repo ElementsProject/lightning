@@ -145,9 +145,6 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 	u64 satoshi_in = 0, weight = (4 + (8 + 22) * 2 + 4) * 4;
 	tal_add_destructor2(utxos, destroy_utxos, w);
 
-	if (!db_begin_transaction(w->db)) {
-		fatal("Unable to begin transaction: %s", w->db->err);
-	}
 	available = wallet_get_utxos(ctx, w, output_state_available);
 
 	for (i = 0; i < tal_count(available); i++) {
@@ -175,10 +172,7 @@ const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 	if (satoshi_in < *fee_estimate + value) {
 		/* Could not collect enough inputs, cleanup and bail */
 		utxos = tal_free(utxos);
-		db_rollback_transaction(w->db);
 	} else {
-		/* Commit the db transaction to persist markings */
-		db_commit_transaction(w->db);
 		*changesatoshi = satoshi_in - value - *fee_estimate;
 
 	}
@@ -278,8 +272,6 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 		return false;
 	}
 
-	db_begin_transaction(wallet->db);
-
 	stmt = db_prepare(wallet->db, "UPDATE shachains SET num_valid=?, min_index=? WHERE id=?");
 	sqlite3_bind_int(stmt, 1, chain->chain.num_valid);
 	sqlite3_bind_int64(stmt, 2, index);
@@ -295,7 +287,7 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 	sqlite3_bind_blob(stmt, 4, hash, sizeof(*hash), SQLITE_TRANSIENT);
 	db_exec_prepared(wallet->db, stmt);
 
-	return db_commit_transaction(wallet->db);
+	return true;
 }
 
 bool wallet_shachain_load(struct wallet *wallet, u64 id,
@@ -619,8 +611,6 @@ void wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 	tal_t *tmpctx = tal_tmpctx(w);
 	sqlite3_stmt *stmt;
 
-	db_begin_transaction(w->db);
-
 	if (p->dbid == 0) {
 		/* Need to store the peer first */
 		stmt = db_prepare(w->db, "INSERT INTO peers (node_id) VALUES (?);");
@@ -739,9 +729,6 @@ void wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		sqlite3_bind_int64(stmt, 3, chan->id);
 		db_exec_prepared(w->db, stmt);
 	}
-
-	if (!db_commit_transaction(w->db))
-		fatal("Could not save channel to database: %s", w->db->err);
 
 	tal_free(tmpctx);
 }
