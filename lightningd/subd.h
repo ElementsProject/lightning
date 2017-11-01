@@ -31,7 +31,7 @@ struct subd {
 	/* For logging */
 	struct log *log;
 
-	/* Callback when non-reply message comes in. */
+	/* Callback when non-reply message comes in (inside db transaction) */
 	unsigned (*msgcb)(struct subd *, const u8 *, const int *);
 	const char *(*msgname)(int msgtype);
 
@@ -57,7 +57,7 @@ struct subd {
  * @ld: global state
  * @name: basename of daemon
  * @msgname: function to get name from messages
- * @msgcb: function to call when non-fatal message received (or NULL)
+ * @msgcb: function to call (inside db transaction) when non-fatal message received (or NULL)
  * @...: NULL-terminated list of pointers to  fds to hand as fd 3, 4...
  *	(can be take, if so, set to -1)
  *
@@ -78,7 +78,7 @@ struct subd *new_global_subd(struct lightningd *ld,
  * @name: basename of daemon
  * @peer: peer to associate.
  * @msgname: function to get name from messages
- * @msgcb: function to call when non-fatal message received (or NULL)
+ * @msgcb: function to call (inside db transaction) when non-fatal message received (or NULL)
  * @...: NULL-terminated list of pointers to  fds to hand as fd 3, 4...
  *	(can be take, if so, set to -1)
  *
@@ -122,7 +122,7 @@ void subd_send_fd(struct subd *sd, int fd);
  * @msg_out: request message (can be take)
  * @fd_out: if >=0 fd to pass at the end of the message (closed after)
  * @num_fds_in: how many fds to read in to hand to @replycb if it's a reply.
- * @replycb: callback when reply comes in (can free subd)
+ * @replycb: callback (inside db transaction) when reply comes in (can free subd)
  * @replycb_data: final arg to hand to @replycb
  *
  * @replycb cannot free @sd, so it returns false to remove it.
