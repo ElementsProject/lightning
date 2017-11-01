@@ -647,6 +647,16 @@ static bool peer_accepted_htlc(struct peer *peer,
 		goto out;
 	}
 
+	/* BOLT #2:
+	 *
+	 * A node MUST estimate a fulfillment deadline for each HTLC it is
+	 * attempting to fulfill.  A node MUST fail (and not forward) an HTLC
+	 * whose fulfillment deadline is already past
+	 */
+	/* Our deadline is half the cltv_delta we insist on, so this check is
+	 * a subset of the cltv check done in handle_localpay and
+	 * forward_htlc. */
+
 	/* channeld tests this, so it should have set ss to zeroes. */
 	op = parse_onionpacket(tmpctx, hin->onion_routing_packet,
 			       sizeof(hin->onion_routing_packet));
