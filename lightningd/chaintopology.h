@@ -149,7 +149,7 @@ void broadcast_tx(struct chain_topology *topo,
 				 int exitstatus,
 				 const char *err));
 
-struct chain_topology *new_topology(const tal_t *ctx, struct log *log);
+struct chain_topology *new_topology(struct lightningd *ld, struct log *log);
 void setup_topology(struct chain_topology *topology,
 		    struct timers *timers,
 		    struct timerel poll_time, u32 first_peer_block);
