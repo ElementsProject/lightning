@@ -7,11 +7,11 @@ int unused_main(int argc, char *argv[]);
 /* Generated stub for crashlog_activate */
 void crashlog_activate(const char *argv0 UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "crashlog_activate called!\n"); abort(); }
-/* Generated stub for db_begin_transaction */
-bool db_begin_transaction(struct db *db UNNEEDED)
-{ fprintf(stderr, "db_begin_transaction called!\n"); abort(); }
+/* Generated stub for db_begin_transaction_ */
+void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED)
+{ fprintf(stderr, "db_begin_transaction_ called!\n"); abort(); }
 /* Generated stub for db_commit_transaction */
-bool db_commit_transaction(struct db *db UNNEEDED)
+void db_commit_transaction(struct db *db UNNEEDED)
 { fprintf(stderr, "db_commit_transaction called!\n"); abort(); }
 /* Generated stub for debug_poll */
 int debug_poll(struct pollfd *fds UNNEEDED, nfds_t nfds UNNEEDED, int timeout UNNEEDED)

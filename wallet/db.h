@@ -15,8 +15,7 @@
 
 struct db {
 	char *filename;
-	unsigned int in_transaction;
-	const char *err;
+	const char *in_transaction;
 	sqlite3 *sql;
 };
 
@@ -25,6 +24,7 @@ struct db {
  *
  * Opens the database, creating it if necessary, and applying
  * migrations until the schema is updated to the current state.
+ * Calls fatal() on error.
  *
  * Params:
  *  @ctx: the tal_t context to allocate from
@@ -33,37 +33,33 @@ struct db {
 struct db *db_setup(const tal_t *ctx);
 
 /**
- * db_query - Prepare and execute a query, and return the result
+ * db_query - Prepare and execute a query, and return the result (or NULL)
  */
 sqlite3_stmt *PRINTF_FMT(3, 4)
 	db_query(const char *caller, struct db *db, const char *fmt, ...);
 
-bool PRINTF_FMT(3, 4)
+/**
+ * db_exec - execute a statement, call fatal() if it fails.
+ */
+void PRINTF_FMT(3, 4)
 	db_exec(const char *caller, struct db *db, const char *fmt, ...);
 
 /**
  * db_begin_transaction - Begin a transaction
  *
- * Begin a new DB transaction if we aren't already in one. Returns
- * true if the call started a transaction, i.e., the caller MUST take
- * care to either commit or rollback. If false, this is a nested
- * transaction and the caller MUST not commit/rollback, since the
- * transaction is handled at a higher level in the callstack.
+ * Begin a new DB transaction.  fatal() on database error.
  */
-bool db_begin_transaction(struct db *db);
+#define db_begin_transaction(db) \
+	db_begin_transaction_((db), __FILE__ ":" stringify(__LINE__))
+void db_begin_transaction_(struct db *db, const char *location);
 
 /**
  * db_commit_transaction - Commit a running transaction
  *
- * Requires that we are currently in a transaction. Returns whether
- * the commit was successful.
+ * Requires that we are currently in a transaction.  fatal() if we
+ * fail to commit.
  */
-bool db_commit_transaction(struct db *db);
-
-/**
- * db_rollback_transaction - Whoops... undo! undo!
- */
-bool db_rollback_transaction(struct db *db);
+void db_commit_transaction(struct db *db);
 
 /**
  * db_set_intvar - Set an integer variable in the database
@@ -71,7 +67,7 @@ bool db_rollback_transaction(struct db *db);
  * Utility function to store generic integer values in the
  * database.
  */
-bool db_set_intvar(struct db *db, char *varname, s64 val);
+void db_set_intvar(struct db *db, char *varname, s64 val);
 
 /**
  * db_get_intvar - Retrieve an integer variable from the database
@@ -102,18 +98,18 @@ sqlite3_stmt *db_prepare_(const char *caller, struct db *db, const char *query);
  * After preparing a statement using `db_prepare`, and after binding
  * all non-null variables using the `sqlite3_bind_*` functions, it can
  * be executed with this function. It is a small, transaction-aware,
- * wrapper around `sqlite3_step`, that also sets `db->err` if the
- * execution fails. This will take ownership of `stmt` and will free
+ * wrapper around `sqlite3_step`, that calls fatal() if the execution
+ * fails. This will take ownership of `stmt` and will free
  * it before returning.
  *
  * @db: The database to execute on
  * @stmt: The prepared statement to execute
  */
 #define db_exec_prepared(db,stmt) db_exec_prepared_(__func__,db,stmt)
-bool db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt);
+void db_exec_prepared_(const char *caller, struct db *db, sqlite3_stmt *stmt);
 
 /**
- * db_exec_prepared_mayfail - db_exec_prepared, but don't set db->err if it fails.
+ * db_exec_prepared_mayfail - db_exec_prepared, but don't fatal() it fails.
  */
 #define db_exec_prepared_mayfail(db,stmt) \
 	db_exec_prepared_mayfail_(__func__,db,stmt)

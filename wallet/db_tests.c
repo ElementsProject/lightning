@@ -1,9 +1,27 @@
+  #include <lightningd/log.h>
+
+static void db_fatal(const char *fmt, ...);
+#define fatal db_fatal
+
 #include "db.c"
 
 #include "wallet/test_utils.h"
 
 #include <stdio.h>
 #include <unistd.h>
+
+static char *db_err;
+static void db_fatal(const char *fmt, ...)
+{
+	va_list ap;
+
+	/* Fail hard if we're complaining about not being in transaction */
+	assert(!strstarts(fmt, "No longer in transaction"));
+
+	va_start(ap, fmt);
+	db_err = tal_vfmt(NULL, fmt, ap);
+	va_end(ap);
+}
 
 static struct db *create_test_db(const char *testname)
 {
@@ -23,9 +41,13 @@ static bool test_empty_db_migrate(void)
 {
 	struct db *db = create_test_db(__func__);
 	CHECK(db);
+	db_begin_transaction(db);
 	CHECK(db_get_version(db) == -1);
+	db_commit_transaction(db);
 	db_migrate(db);
+	db_begin_transaction(db);
 	CHECK(db_get_version(db) == db_migration_count());
+	db_commit_transaction(db);
 
 	tal_free(db);
 	return true;
@@ -34,17 +56,22 @@ static bool test_empty_db_migrate(void)
 static bool test_primitives(void)
 {
 	struct db *db = create_test_db(__func__);
-	CHECK_MSG(db_begin_transaction(db), "Starting a new transaction");
+	db_begin_transaction(db);
 	CHECK(db->in_transaction);
-	CHECK_MSG(db_commit_transaction(db), "Committing a transaction");
+	db_commit_transaction(db);
 	CHECK(!db->in_transaction);
-	CHECK_MSG(db_begin_transaction(db), "Starting a transaction after commit");
-	CHECK(db_rollback_transaction(db));
+	db_begin_transaction(db);
+	db_commit_transaction(db);
 
-	CHECK_MSG(db_exec(__func__, db, "SELECT name FROM sqlite_master WHERE type='table';"), "Simple correct SQL command");
-	CHECK_MSG(!db_exec(__func__, db, "not a valid SQL statement"), "Failing SQL command");
+	db_begin_transaction(db);
+	db_exec(__func__, db, "SELECT name FROM sqlite_master WHERE type='table';");
+	CHECK_MSG(!db_err, "Simple correct SQL command");
+
+	db_exec(__func__, db, "not a valid SQL statement");
+	CHECK_MSG(db_err, "Failing SQL command");
+	db_err = tal_free(db_err);
+	db_commit_transaction(db);
 	CHECK(!db->in_transaction);
-	CHECK_MSG(db_begin_transaction(db), "Starting a transaction after a failed transaction");
 	tal_free(db);
 
 	return true;
@@ -57,16 +84,18 @@ static bool test_vars(void)
 	CHECK(db);
 	db_migrate(db);
 
+	db_begin_transaction(db);
 	/* Check default behavior */
 	CHECK(db_get_intvar(db, varname, 42) == 42);
 
 	/* Check setting and getting */
-	CHECK(db_set_intvar(db, varname, 1));
+	db_set_intvar(db, varname, 1);
 	CHECK(db_get_intvar(db, varname, 42) == 1);
 
 	/* Check updating */
-	CHECK(db_set_intvar(db, varname, 2));
+	db_set_intvar(db, varname, 2);
 	CHECK(db_get_intvar(db, varname, 42) == 2);
+	db_commit_transaction(db);
 
 	tal_free(db);
 	return true;
