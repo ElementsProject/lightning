@@ -227,12 +227,15 @@ static void close_db(struct db *db) { sqlite3_close(db->sql); }
 
 bool db_begin_transaction(struct db *db)
 {
-	assert(!db->in_transaction);
-	/* Clear any errors from previous transactions and
-	 * non-transactional queries */
-	db_clear_error(db);
-	db->in_transaction = db_exec(__func__, db, "BEGIN TRANSACTION;");
-	return db->in_transaction;
+	if (!db->in_transaction) {
+		/* Clear any errors from previous transactions and
+		 * non-transactional queries */
+		db_clear_error(db);
+		db->in_transaction = db_exec(__func__, db, "BEGIN TRANSACTION;");
+		assert(db->in_transaction);
+		return db->in_transaction;
+	}
+	return false;
 }
 
 bool db_commit_transaction(struct db *db)

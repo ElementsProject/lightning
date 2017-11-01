@@ -44,9 +44,11 @@ bool PRINTF_FMT(3, 4)
 /**
  * db_begin_transaction - Begin a transaction
  *
- * We do not support nesting multiple transactions, so make sure that
- * we are not in a transaction when calling this. Returns true if we
- * succeeded in starting a transaction.
+ * Begin a new DB transaction if we aren't already in one. Returns
+ * true if the call started a transaction, i.e., the caller MUST take
+ * care to either commit or rollback. If false, this is a nested
+ * transaction and the caller MUST not commit/rollback, since the
+ * transaction is handled at a higher level in the callstack.
  */
 bool db_begin_transaction(struct db *db);
 
