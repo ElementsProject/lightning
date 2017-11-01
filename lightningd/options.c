@@ -238,9 +238,6 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--max-htlc-expiry", opt_set_u32, opt_show_u32,
 			 &ld->config.max_htlc_expiry,
 			 "Maximum number of blocks to accept an HTLC before expiry");
-	opt_register_arg("--deadline-blocks", opt_set_u32, opt_show_u32,
-			 &ld->config.deadline_blocks,
-			 "Number of blocks before HTLC timeout before we drop connection");
 	opt_register_arg("--bitcoind-poll", opt_set_time, opt_show_time,
 			 &ld->config.poll_time,
 			 "Time between polling for new transactions");
@@ -338,9 +335,6 @@ static const struct config testnet_config = {
 	/* Don't lock up channel for more than 5 days. */
 	.max_htlc_expiry = 5 * 6 * 24,
 
-	/* If we're closing on HTLC expiry, and you're unresponsive, we abort. */
-	.deadline_blocks = 4,
-
 	/* How often to bother bitcoind. */
 	.poll_time = TIME_FROM_SEC(10),
 
@@ -406,9 +400,6 @@ static const struct config mainnet_config = {
 	/* Don't lock up channel for more than 5 days. */
 	.max_htlc_expiry = 5 * 6 * 24,
 
-	/* If we're closing on HTLC expiry, and you're unresponsive, we abort. */
-	.deadline_blocks = 10,
-
 	/* How often to bother bitcoind. */
 	.poll_time = TIME_FROM_SEC(30),
 
@@ -441,17 +432,6 @@ static void check_config(struct lightningd *ld)
 
 	if (ld->config.anchor_confirms == 0)
 		fatal("anchor-confirms must be greater than zero");
-
-	/* FIXME-OLD #2:
-	 *
-	 * a node MUST estimate the deadline for successful redemption
-	 * for each HTLC it offers.  A node MUST NOT offer a HTLC
-	 * after this deadline */
-	if (ld->config.deadline_blocks >= ld->config.cltv_final
-	    || ld->config.deadline_blocks >= ld->config.cltv_expiry_delta)
-		fatal("Deadline %u can't be more than final/expiry %u/%u",
-		      ld->config.deadline_blocks,
-		      ld->config.cltv_final, ld->config.cltv_expiry_delta);
 }
 
 static void setup_default_config(struct lightningd *ld)

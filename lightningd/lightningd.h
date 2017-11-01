@@ -55,9 +55,6 @@ struct config {
 	/* Maximum time for an expiring HTLC (blocks). */
 	u32 max_htlc_expiry;
 
-	/* How many blocks before upstream HTLC expiry do we panic and dump? */
-	u32 deadline_blocks;
-
 	/* Fee rates. */
 	u32 fee_base;
 	s32 fee_per_satoshi;
