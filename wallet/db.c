@@ -363,47 +363,30 @@ static int db_migration_count(void)
 /**
  * db_migrate - Apply all remaining migrations from the current version
  */
-static bool db_migrate(struct db *db)
+static void db_migrate(struct db *db)
 {
 	/* Attempt to read the version from the database */
 	int current, available;
 
-	if (!db_begin_transaction(db)) {
-		/* No need to rollback, we didn't even start... */
-		return false;
-	}
+	db_begin_transaction(db);
 
 	current = db_get_version(db);
 	available = db_migration_count();
 
-	while (++current <= available) {
-		if (!db_exec(__func__, db, "%s", dbmigrations[current]))
-			goto fail;
-	}
+	while (++current <= available)
+		db_exec(__func__, db, "%s", dbmigrations[current]);
 
 	/* Finally update the version number in the version table */
 	db_exec(__func__, db, "UPDATE version SET version=%d;", available);
 
-	if (!db_commit_transaction(db)) {
-		goto fail;
-	}
-
-	return true;
-fail:
-	db_rollback_transaction(db);
-	return false;
+	db_commit_transaction(db);
 }
 
 struct db *db_setup(const tal_t *ctx)
 {
 	struct db *db = db_open(ctx, DB_FILE);
-	if (!db) {
-		return db;
-	}
 
-	if (!db_migrate(db)) {
-		return tal_free(db);
-	}
+	db_migrate(db);
 	return db;
 }
 
