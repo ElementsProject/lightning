@@ -203,7 +203,6 @@ sqlite3_stmt *PRINTF_FMT(3, 4)
 	va_list ap;
 	char *query;
 	sqlite3_stmt *stmt;
-	int err;
 
 	if (db->in_transaction && db->err)
 		return NULL;
@@ -214,12 +213,8 @@ sqlite3_stmt *PRINTF_FMT(3, 4)
 	query = tal_vfmt(db, fmt, ap);
 	va_end(ap);
 
-	err = sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
-	if (err != SQLITE_OK) {
-		db->in_transaction = false;
-		db->err = tal_fmt(db, "%s:%s:%s:%s", caller,
-				  sqlite3_errstr(err), query, sqlite3_errmsg(db->sql));
-	}
+	/* Sets stmt to NULL if not SQLITE_OK */
+	sqlite3_prepare_v2(db->sql, query, -1, &stmt, NULL);
 	return stmt;
 }
 
