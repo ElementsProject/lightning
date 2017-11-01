@@ -46,6 +46,8 @@ void populate_peer(struct lightningd *ld UNNEEDED, struct peer *peer UNNEEDED)
 /* Generated stub for register_opts */
 void register_opts(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "register_opts called!\n"); abort(); }
+/* Could not find declaration for secp256k1_ecdsa_recoverable_signature_parse_compact */
+/* Could not find declaration for secp256k1_ecdsa_recoverable_signature_serialize_compact */
 /* Generated stub for setup_color_and_alias */
 void setup_color_and_alias(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "setup_color_and_alias called!\n"); abort(); }
