@@ -380,4 +380,31 @@ bool wallet_invoice_remove(struct wallet *wallet, struct invoice *inv);
 struct htlc_stub *wallet_htlc_stubs(tal_t *ctx, struct wallet *wallet,
 				    struct wallet_channel *chan);
 
+/**
+ * wallet_transfer_add - Record a new incoming/outgoing transfer
+ *
+ * Stores the transfer in the database.
+ */
+bool wallet_transfer_add(struct wallet *wallet,
+			 struct wallet_transfer *transfer);
+
+/**
+ * wallet_transfer_by_payment_hash - Retrieve a specific transfer
+ *
+ * Given the `payment_hash` retrieve the matching transfer.
+ */
+struct wallet_transfer *
+wallet_transfer_by_payment_hash(const tal_t *ctx, struct wallet *wallet,
+				const struct sha256 *payment_hash);
+
+/**
+ * wallet_transfer_set_status - Update the status of the transfer
+ *
+ * Search for the transfer with the given `payment_hash` and update
+ * its state.
+ */
+void wallet_transfer_set_status(struct wallet *wallet,
+				const struct sha256 *payment_hash,
+				const enum wallet_transfer_status newstatus);
+
 #endif /* WALLET_WALLET_H */
