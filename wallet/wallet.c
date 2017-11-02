@@ -1157,3 +1157,98 @@ struct htlc_stub *wallet_htlc_stubs(tal_t *ctx, struct wallet *wallet,
 	sqlite3_finalize(stmt);
 	return stubs;
 }
+
+bool wallet_payment_add(struct wallet *wallet,
+			struct wallet_payment *payment)
+{
+	sqlite3_stmt *stmt;
+
+        /* Don't attempt to add the same payment twice */
+	assert(!payment->id);
+
+	stmt = db_prepare(
+		wallet->db,
+		"INSERT INTO payments ("
+		"  status,"
+		"  payment_hash,"
+		"  direction,"
+		"  destination,"
+		"  msatoshi,"
+		"  timestamp"
+		") VALUES (?, ?, ?, ?, ?, ?);");
+
+	sqlite3_bind_int(stmt, 1, payment->status);
+	sqlite3_bind_sha256(stmt, 2, &payment->payment_hash);
+	sqlite3_bind_int(stmt, 3, payment->incoming?DIRECTION_INCOMING:DIRECTION_OUTGOING);
+
+	if (payment->destination)
+		sqlite3_bind_pubkey(stmt, 4, payment->destination);
+	else
+		sqlite3_bind_null(stmt, 4);
+
+	sqlite3_bind_int64(stmt, 5, payment->msatoshi);
+
+	sqlite3_bind_int(stmt, 6, payment->timestamp);
+
+	db_exec_prepared(wallet->db, stmt);
+	payment->id = sqlite3_last_insert_rowid(wallet->db->sql);
+	return true;
+}
+
+static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
+						  sqlite3_stmt *stmt)
+{
+	struct wallet_payment *payment = tal(ctx, struct wallet_payment);
+	payment->id = sqlite3_column_int64(stmt, 0);
+	payment->status = sqlite3_column_int(stmt, 1);
+	payment->incoming = sqlite3_column_int(stmt, 2) == DIRECTION_INCOMING;
+
+	if (sqlite3_column_type(stmt, 3) != SQLITE_NULL) {
+		payment->destination = tal(payment, struct pubkey);
+		sqlite3_column_pubkey(stmt, 3, payment->destination);
+	} else {
+		payment->destination = NULL;
+	}
+
+	payment->msatoshi = sqlite3_column_int64(stmt, 4);
+	sqlite3_column_sha256(stmt, 5, &payment->payment_hash);
+
+	payment->timestamp = sqlite3_column_int(stmt, 6);
+	return payment;
+}
+
+struct wallet_payment *
+wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
+		       const struct sha256 *payment_hash)
+{
+	sqlite3_stmt *stmt;
+	struct wallet_payment *payment = NULL;
+
+	stmt = db_prepare(wallet->db,
+			  "SELECT id, status, direction, destination,"
+			  "msatoshi , payment_hash, timestamp "
+			  "FROM payments "
+			  "WHERE payment_hash = ?");
+
+	sqlite3_bind_sha256(stmt, 1, payment_hash);
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		payment = wallet_stmt2payment(ctx, stmt);
+	}
+	sqlite3_finalize(stmt);
+	return payment;
+}
+
+void wallet_payment_set_status(struct wallet *wallet,
+			       const struct sha256 *payment_hash,
+			       const enum wallet_payment_status newstatus)
+{
+	sqlite3_stmt *stmt;
+
+	stmt = db_prepare(wallet->db,
+			  "UPDATE payments SET status=? "
+			  "WHERE payment_hash=?");
+
+	sqlite3_bind_int(stmt, 1, newstatus);
+	sqlite3_bind_sha256(stmt, 2, payment_hash);
+	db_exec_prepared(wallet->db, stmt);
+}

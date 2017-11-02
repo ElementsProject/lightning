@@ -86,7 +86,7 @@ struct wallet_payment {
 	u32 timestamp;
 	bool incoming;
 	struct sha256 payment_hash;
-	enum wallet_transfer_status status;
+	enum wallet_payment_status status;
 	struct pubkey *destination;
 	u64 msatoshi;
 };
@@ -379,5 +379,32 @@ bool wallet_invoice_remove(struct wallet *wallet, struct invoice *inv);
  */
 struct htlc_stub *wallet_htlc_stubs(tal_t *ctx, struct wallet *wallet,
 				    struct wallet_channel *chan);
+
+/**
+ * wallet_payment_add - Record a new incoming/outgoing payment
+ *
+ * Stores the payment in the database.
+ */
+bool wallet_payment_add(struct wallet *wallet,
+			 struct wallet_payment *payment);
+
+/**
+ * wallet_payment_by_hash - Retrieve a specific payment
+ *
+ * Given the `payment_hash` retrieve the matching payment.
+ */
+struct wallet_payment *
+wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
+				const struct sha256 *payment_hash);
+
+/**
+ * wallet_payment_set_status - Update the status of the payment
+ *
+ * Search for the payment with the given `payment_hash` and update
+ * its state.
+ */
+void wallet_payment_set_status(struct wallet *wallet,
+				const struct sha256 *payment_hash,
+				const enum wallet_payment_status newstatus);
 
 #endif /* WALLET_WALLET_H */
