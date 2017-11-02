@@ -20,7 +20,6 @@ BITCOIND_CONFIG = {
 LIGHTNINGD_CONFIG = {
     "bitcoind-poll": "1s",
     "log-level": "debug",
-    "deadline-blocks": 4,
     "cltv-delta": 6,
     "cltv-final": 5,
     "locktime-blocks": 5,

@@ -38,7 +38,7 @@ struct log_book *new_log_book(const tal_t *ctx UNNEEDED,
 			      enum log_level printlevel UNNEEDED)
 { fprintf(stderr, "new_log_book called!\n"); abort(); }
 /* Generated stub for new_topology */
-struct chain_topology *new_topology(const tal_t *ctx UNNEEDED, struct log *log UNNEEDED)
+struct chain_topology *new_topology(struct lightningd *ld UNNEEDED, struct log *log UNNEEDED)
 { fprintf(stderr, "new_topology called!\n"); abort(); }
 /* Generated stub for populate_peer */
 void populate_peer(struct lightningd *ld UNNEEDED, struct peer *peer UNNEEDED)
@@ -46,8 +46,6 @@ void populate_peer(struct lightningd *ld UNNEEDED, struct peer *peer UNNEEDED)
 /* Generated stub for register_opts */
 void register_opts(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "register_opts called!\n"); abort(); }
-/* Could not find declaration for secp256k1_ecdsa_recoverable_signature_parse_compact */
-/* Could not find declaration for secp256k1_ecdsa_recoverable_signature_serialize_compact */
 /* Generated stub for setup_color_and_alias */
 void setup_color_and_alias(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "setup_color_and_alias called!\n"); abort(); }

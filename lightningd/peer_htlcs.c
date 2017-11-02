@@ -289,9 +289,6 @@ static void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 	if (peer_state_on_chain(hin->key.peer->state)) {
 		msg = towire_onchain_known_preimage(hin, preimage);
 	} else {
-		/* FIXME: fail the peer if it doesn't tell us that htlc
-		 * fulfill is committed before deadline.
-		 */
 		msg = towire_channel_fulfill_htlc(hin, hin->key.id, preimage);
 	}
 	subd_send_msg(hin->key.peer->owner, take(msg));
@@ -527,22 +524,19 @@ static void forward_htlc(struct htlc_in *hin,
 		goto fail;
 	}
 
-	/* BOLT #4:
+	/* BOLT #2:
 	 *
-	 * If the `cltv_expiry` is too near, we tell them the the current channel
-	 * setting for the outgoing channel:
-	 * 1. type: UPDATE|14 (`expiry_too_soon`)
-	 * 2. data:
-	 *    * [`2`:`len`]
-	 *    * [`len`:`channel_update`]
+	 * A node MUST estimate a timeout deadline for each HTLC it offers.  A
+	 * node MUST NOT offer an HTLC with a timeout deadline before its
+	 * `cltv_expiry`
 	 */
-	if (get_block_height(next->ld->topology)
-	    + next->ld->config.deadline_blocks >= outgoing_cltv_value) {
+	/* In our case, G = 1, so we need to expire it one after it's expiration.
+	 * But never offer an expired HTLC; that's dumb. */
+	if (get_block_height(next->ld->topology) >= outgoing_cltv_value) {
 		log_debug(hin->key.peer->log,
-			  "Expiry cltv %u too close to current %u + deadline %u",
+			  "Expiry cltv %u too close to current %u",
 			  outgoing_cltv_value,
-			  get_block_height(next->ld->topology),
-			  next->ld->config.deadline_blocks);
+			  get_block_height(next->ld->topology));
 		failcode = WIRE_EXPIRY_TOO_SOON;
 		goto fail;
 	}
@@ -649,6 +643,16 @@ static bool peer_accepted_htlc(struct peer *peer,
 		*failcode = WIRE_PERMANENT_CHANNEL_FAILURE;
 		goto out;
 	}
+
+	/* BOLT #2:
+	 *
+	 * A node MUST estimate a fulfillment deadline for each HTLC it is
+	 * attempting to fulfill.  A node MUST fail (and not forward) an HTLC
+	 * whose fulfillment deadline is already past
+	 */
+	/* Our deadline is half the cltv_delta we insist on, so this check is
+	 * a subset of the cltv check done in handle_localpay and
+	 * forward_htlc. */
 
 	/* channeld tests this, so it should have set ss to zeroes. */
 	op = parse_onionpacket(tmpctx, hin->onion_routing_packet,
@@ -1417,4 +1421,120 @@ void peer_htlcs(const tal_t *ctx,
 			add_fulfill(hout->key.id, LOCAL, hout->preimage,
 				    fulfilled_htlcs, fulfilled_sides);
 	}
+}
+
+/* BOLT #2:
+ *
+ * For HTLCs we offer: the timeout deadline when we have to fail the channel
+ * and time it out on-chain.  This is `G` blocks after the HTLC
+ * `cltv_expiry`; 1 block is reasonable.
+ */
+static u32 htlc_out_deadline(const struct htlc_out *hout)
+{
+	return hout->cltv_expiry + 1;
+}
+
+/* BOLT #2:
+ *
+ * For HTLCs we accept and have a preimage: the fulfillment deadline when we
+ * have to fail the channel and fulfill the HTLC onchain before its
+ * `cltv_expiry`.  This is steps 4-7 above, which means a deadline of `2R+G+S`
+ * blocks before `cltv_expiry`; 7 blocks is reasonable.
+ */
+/* We approximate this, by using half the cltv_expiry_delta (3R+2G+2S),
+ * rounded up. */
+static u32 htlc_in_deadline(const struct lightningd *ld,
+			    const struct htlc_in *hin)
+{
+	return hin->cltv_expiry - (ld->config.cltv_expiry_delta + 1)/2;
+}
+
+void notify_new_block(struct lightningd *ld, u32 height)
+{
+	bool removed;
+
+	/* BOLT #2:
+	 *
+	 * A node ... MUST fail the channel if an HTLC which it offered is in
+	 * either node's current commitment transaction past this timeout
+	 * deadline.
+	 */
+	/* FIXME: use db to look this up in one go (earliest deadline per-peer) */
+	do {
+		struct htlc_out *hout;
+		struct htlc_out_map_iter outi;
+
+		removed = false;
+
+		for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
+		     hout;
+		     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
+			/* Not timed out yet? */
+			if (height < htlc_out_deadline(hout))
+				continue;
+
+			/* Peer on chain already? */
+			if (peer_on_chain(hout->key.peer))
+				continue;
+
+			/* Peer already failed, or we hit it? */
+			if (hout->key.peer->error)
+				continue;
+
+			peer_fail_permanent_str(hout->key.peer,
+						take(tal_fmt(hout,
+						     "Offered HTLC %"PRIu64
+						     " %s cltv %u hit deadline",
+						     hout->key.id,
+						     htlc_state_name(hout->hstate),
+						     hout->cltv_expiry)));
+			removed = true;
+		}
+	/* Iteration while removing is safe, but can skip entries! */
+	} while (removed);
+
+
+	/* BOLT #2:
+	 *
+	 * A node MUST estimate a fulfillment deadline for each HTLC it is
+	 * attempting to fulfill.  A node ... MUST fail the connection if a
+	 * HTLC it has fulfilled is in either node's current commitment
+	 * transaction past this fulfillment deadline.
+	 */
+	do {
+		struct htlc_in *hin;
+		struct htlc_in_map_iter ini;
+
+		removed = false;
+
+		for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
+		     hin;
+		     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
+			/* Not fulfilled?  If overdue, that's their problem... */
+			if (!hin->preimage)
+				continue;
+
+			/* Not timed out yet? */
+			if (height < htlc_in_deadline(ld, hin))
+				continue;
+
+			/* Peer on chain already? */
+			if (peer_on_chain(hin->key.peer))
+				continue;
+
+			/* Peer already failed, or we hit it? */
+			if (hin->key.peer->error)
+				continue;
+
+			peer_fail_permanent_str(hin->key.peer,
+						take(tal_fmt(hin,
+						     "Fulfilled HTLC %"PRIu64
+						     " %s cltv %u hit deadline",
+						     hin->key.id,
+						     htlc_state_name(hin->hstate),
+						     hin->cltv_expiry)));
+			removed = true;
+		}
+	/* Iteration while removing is safe, but can skip entries! */
+	} while (removed);
 }
