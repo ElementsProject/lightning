@@ -36,7 +36,7 @@ sudo docker run \
 	-v $HOME/.lightning:/root/.lightning \
 	-v $HOME/.bitcoin:/root/.bitcoin \
 	-p 9735:9735 \
-	cdecker/lightningd:master
+	cdecker/lightningd:latest
 ```
 ### Starting `lightningd`
 
@@ -104,7 +104,7 @@ The route contains the path that the payment will take throught the Lightning Ne
 
 ```
 route=$(cli/lightning-cli getroute <recipient_id> <amount> 1 | jq --raw-output .route -)
-cli/lightning-cli sendpay $route <rhash>
+cli/lightning-cli sendpay "$route" <rhash>
 ```
 
 Notice that in the first step we stored the route in a variable and reused it in the second step.
