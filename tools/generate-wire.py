@@ -2,6 +2,7 @@
 # Read from stdin, spit out C header or body.
 
 import argparse
+import copy
 from collections import namedtuple
 import fileinput
 import re
@@ -387,6 +388,28 @@ class Message(object):
             subcalls='\n'.join(subcalls),
         )
 
+def find_message(messages, name):
+    for m in messages:
+        if m.name == name:
+            return m
+
+    return None
+
+def find_message_with_option(messages, optional_messages, name, option):
+    fullname = name + "_" + option;
+
+    base = find_message(messages, name)
+    if not base:
+        raise ValueError('Unknown message {}'.format(name))
+
+    m = find_message(optional_messages, name)
+    if not m:
+        # Add a new option.
+        m = copy.deepcopy(base)
+        m.name = fullname
+        optional_messages.append(m)
+    return m
+
 parser = argparse.ArgumentParser(description='Generate C from from CSV')
 parser.add_argument('--header', action='store_true', help="Create wire header")
 parser.add_argument('--bolt', action='store_true', help="Generate wire-format for BOLT")
@@ -397,6 +420,7 @@ options = parser.parse_args()
 
 # Maps message names to messages
 messages = []
+messages_with_option = []
 comments = []
 includes = []
 prevfield = None
@@ -423,22 +447,27 @@ for line in fileinput.input(options.files):
         messages.append(Message(parts[0],Enumtype("WIRE_" + parts[0].upper(), parts[1]), comments))
         comments=[]
         prevfield = None
-    elif len(parts) == 4:
-        # eg commit_sig,0,channel-id,8 OR
-        #    commit_sig,0,channel-id,u64
-        for m in messages:
-            if m.name == parts[0]:
-                f = Field(parts[0], parts[2], parts[3], comments, prevfield)
-                m.addField(f)
-                # If it used prevfield as lenvar, keep that for next
-                # time (multiple fields can use the same lenvar).
-                if not f.lenvar:
-                    prevfield = parts[2]
-                break
-        comments=[]
     else:
-        raise ValueError('Line {} malformed'.format(line.rstrip()))
-        
+        if len(parts) == 4:
+            # eg commit_sig,0,channel-id,8 OR
+            #    commit_sig,0,channel-id,u64
+            m = find_message(messages, parts[0])
+            if m is None:
+                raise ValueError('Unknown message {}'.format(name))
+        elif len(parts) == 5:
+            # eg.
+            # channel_reestablish,48,your_last_per_commitment_secret,32,option209
+            m = find_message_with_option(messages, messages_with_option, parts[0], parts[4])
+        else:
+            raise ValueError('Line {} malformed'.format(line.rstrip()))
+
+        f = Field(m.name, parts[2], parts[3], comments, prevfield)
+        m.addField(f)
+        # If it used prevfield as lenvar, keep that for next
+        # time (multiple fields can use the same lenvar).
+        if not f.lenvar:
+            prevfield = parts[2]
+        comments=[]
 
 header_template = """#ifndef LIGHTNING_{idem}
 #define LIGHTNING_{idem}
@@ -485,8 +514,8 @@ for m in messages:
 includes = '\n'.join(includes)
 cases = ['case {enum.name}: return "{enum.name}";'.format(enum=m.enum) for m in messages]
 
-fromwire_decls = [m.print_fromwire(options.header) for m in messages]
-towire_decls = [m.print_towire(options.header) for m in messages]
+fromwire_decls = [m.print_fromwire(options.header) for m in messages + messages_with_option]
+towire_decls = [m.print_towire(options.header) for m in messages + messages_with_option]
 
 print(template.format(
     headerfilename=options.headerfilename,
