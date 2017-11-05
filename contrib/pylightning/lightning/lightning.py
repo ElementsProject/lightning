@@ -108,16 +108,14 @@ class LightningRpc(UnixDomainSocketRpc):
 
 if __name__ == "__main__":
     l1 = LightningRpc("/tmp/lightning1/lightning-rpc")
-    l1.connect_rpc()
     l5 = LightningRpc("/tmp/lightning5/lightning-rpc")
-    l5.connect_rpc()
 
     import random
 
     info5 = l5.getinfo()
     print(info5)
-    invoice = l5.invoice(100, "lbl{}".format(random.random()))
+    invoice = l5.invoice(100, "lbl{}".format(random.random()), "testpayment")
     print(invoice)
     route = l1.getroute(info5['id'], 100, 1)
     print(route)
-    print(l1.sendpay(route, invoice['rhash']))
+    print(l1.sendpay(route['route'], invoice['rhash']))
