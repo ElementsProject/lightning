@@ -359,9 +359,9 @@ static void handle_localpay(struct htlc_in *hin,
 	 * If the `cltv_expiry` is too low, the final node MUST fail the HTLC:
 	 */
 	if (get_block_height(ld->topology) + ld->config.cltv_final
-	    >= cltv_expiry) {
+	    > cltv_expiry) {
 		log_debug(hin->key.peer->log,
-			  "Expiry cltv %u too close to current %u + %u",
+			  "Expiry cltv too soon %u < %u + %u",
 			  cltv_expiry,
 			  get_block_height(ld->topology),
 			  ld->config.cltv_final);
