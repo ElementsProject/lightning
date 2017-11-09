@@ -29,6 +29,8 @@ ifeq ($(COVERAGE),1)
 COVFLAGS = --coverage
 endif
 
+PYTEST := $(shell command -v pytest 2> /dev/null)
+
 # This is where we add new features as bitcoin adds them.
 FEATURES :=
 
@@ -170,7 +172,11 @@ check:
 	$(MAKE) pytest
 
 pytest: $(ALL_PROGRAMS)
+ifndef PYTEST
 	PYTHONPATH=contrib/pylightning DEVELOPER=$(DEVELOPER) python3 tests/test_lightningd.py -f
+else
+	PYTHONPATH=contrib/pylightning TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) $(PYTEST) -vx tests/test_lightningd.py
+endif
 
 # Keep includes in alpha order.
 check-src-include-order/%: %
