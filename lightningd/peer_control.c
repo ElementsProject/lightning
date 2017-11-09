@@ -842,9 +842,10 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 	list_for_each(&gpa->cmd->ld->peers, p, list) {
 		json_object_start(response, NULL);
 		json_add_string(response, "state", peer_state_name(p->state));
-		json_add_string(response, "netaddr",
-				type_to_string(response, struct wireaddr,
-					       &p->addr));
+		if (p->addr.type != ADDR_TYPE_PADDING)
+			json_add_string(response, "netaddr",
+					type_to_string(response, struct wireaddr,
+						       &p->addr));
 		json_add_pubkey(response, "peerid", &p->id);
 		json_add_bool(response, "connected", p->owner != NULL);
 		if (p->owner)
