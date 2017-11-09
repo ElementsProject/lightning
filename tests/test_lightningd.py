@@ -140,8 +140,8 @@ class NodeFactory(object):
             except:
                 failed = True
             rcs.append(n.daemon.proc.returncode)
-        if failed:
-            raise Exception("At least one lightning exited with non-zero return code: {}".format(rcs))
+        return rcs
+
 
 
 class BaseLightningDTests(unittest.TestCase):
@@ -190,7 +190,7 @@ class BaseLightningDTests(unittest.TestCase):
         return 1 if errors else 0
 
     def tearDown(self):
-        self.node_factory.killall()
+        rcs = self.node_factory.killall()
         self.executor.shutdown(wait=False)
 
         err_count = 0
@@ -199,14 +199,18 @@ class BaseLightningDTests(unittest.TestCase):
             for node in self.node_factory.nodes:
                 err_count += self.printValgrindErrors(node)
             if err_count:
-                raise ValueError(
-                    "{} nodes reported valgrind errors".format(err_count))
+                raise ValueError("{} nodes reported valgrind errors".format(err_count))
 
         for node in self.node_factory.nodes:
             err_count += self.printCrashLog(node)
             if err_count:
-                raise ValueError(
-                    "{} nodes had crash.log files".format(err_count))
+                raise ValueError("{} nodes had crash.log files".format(err_count))
+
+        # Which nodes may fail? Mask away the ones that we know will fail
+        failmask = [not n.may_fail for n in self.node_factory.nodes]
+        unexpected = [(failmask[i] * rcs[i]) for i in range(len(rcs))]
+        if len([u for u in unexpected if u > 0]) > 0:
+            raise Exception("At least one lightning exited with unexpected non-zero return code: {}".format(unexpected))
 
 class LightningDTests(BaseLightningDTests):
     def connect(self):
