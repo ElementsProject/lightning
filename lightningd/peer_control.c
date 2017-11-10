@@ -90,6 +90,32 @@ static void peer_set_owner(struct peer *peer, struct subd *owner)
 
 static void destroy_peer(struct peer *peer)
 {
+	/* Must not have any HTLCs! */
+	struct htlc_out_map_iter outi;
+	struct htlc_out *hout;
+	struct htlc_in_map_iter ini;
+	struct htlc_in *hin;
+
+	for (hout = htlc_out_map_first(&peer->ld->htlcs_out, &outi);
+	     hout;
+	     hout = htlc_out_map_next(&peer->ld->htlcs_out, &outi)) {
+		if (hout->key.peer != peer)
+			continue;
+		fatal("Freeing peer %s has hout %s",
+		      peer_state_name(peer->state),
+		      htlc_state_name(hout->hstate));
+	}
+
+	for (hin = htlc_in_map_first(&peer->ld->htlcs_in, &ini);
+	     hin;
+	     hin = htlc_in_map_next(&peer->ld->htlcs_in, &ini)) {
+		if (hin->key.peer != peer)
+			continue;
+		fatal("Freeing peer %s has hin %s",
+		      peer_state_name(peer->state),
+		      htlc_state_name(hin->hstate));
+	}
+
 	/* Free any old owner still hanging around. */
 	peer_set_owner(peer, NULL);
 	list_del_from(&peer->ld->peers, &peer->list);
@@ -1163,7 +1189,8 @@ static void handle_onchain_htlc_timeout(struct peer *peer, const u8 *msg)
 	onchain_failed_our_htlc(peer, &htlc, "timed out");
 }
 
-static void handle_irrevocably_resolved(struct peer *peer, const u8 *msg)
+/* If peer is NULL, free them all (for shutdown) */
+void free_htlcs(struct lightningd *ld, const struct peer *peer)
 {
 	struct htlc_out_map_iter outi;
 	struct htlc_out *hout;
@@ -1175,25 +1202,31 @@ static void handle_irrevocably_resolved(struct peer *peer, const u8 *msg)
 
 	do {
 		deleted = false;
-		for (hout = htlc_out_map_first(&peer->ld->htlcs_out, &outi);
+		for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
 		     hout;
-		     hout = htlc_out_map_next(&peer->ld->htlcs_out, &outi)) {
-			if (hout->key.peer != peer)
+		     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
+			if (peer && hout->key.peer != peer)
 				continue;
 			tal_free(hout);
 			deleted = true;
 		}
 
-		for (hin = htlc_in_map_first(&peer->ld->htlcs_in, &ini);
+		for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
 		     hin;
-		     hin = htlc_in_map_next(&peer->ld->htlcs_in, &ini)) {
-			if (hin->key.peer != peer)
+		     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
+			if (peer && hin->key.peer != peer)
 				continue;
 			tal_free(hin);
 			deleted = true;
 		}
 		/* Can skip over elements due to iterating while deleting. */
 	} while (deleted);
+}
+
+static void handle_irrevocably_resolved(struct peer *peer, const u8 *msg)
+{
+	/* FIXME: Implement check_htlcs to ensure no dangling hout->in ptrs! */
+	free_htlcs(peer->ld, peer);
 
 	/* FIXME: Remove peer from db. */
 	log_info(peer->log, "onchaind complete, forgetting peer");

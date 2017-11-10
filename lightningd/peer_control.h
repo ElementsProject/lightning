@@ -210,4 +210,6 @@ const char *peer_state_name(enum peer_state state);
 void peer_set_condition(struct peer *peer, enum peer_state oldstate,
 			enum peer_state state);
 void setup_listeners(struct lightningd *ld);
+
+void free_htlcs(struct lightningd *ld, const struct peer *peer);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */
