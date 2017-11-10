@@ -68,6 +68,7 @@ void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 		       const struct preimage *rval)
 {
 	assert(!hout->pay_command->rval);
+	wallet_transfer_set_status(ld->wallet, &hout->payment_hash, TRANSFER_COMPLETE);
 	hout->pay_command->rval = tal_dup(hout->pay_command,
 					  struct preimage, rval);
 	json_pay_success(hout->pay_command->cmd, rval);
@@ -80,6 +81,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	struct pay_command *pc = hout->pay_command;
 	enum onion_type failcode;
 	struct onionreply *reply;
+
+	wallet_transfer_set_status(ld->wallet, &hout->payment_hash, TRANSFER_FAILED);
 
 	/* This gives more details than a generic failure message,
 	 * and also the failuremsg here is unencrypted */
@@ -162,6 +165,7 @@ static void send_payment(struct command *cmd,
 	size_t i, n_hops = tal_count(route);
 	struct hop_data *hop_data = tal_arr(cmd, struct hop_data, n_hops);
 	struct pubkey *ids = tal_arr(cmd, struct pubkey, n_hops);
+	struct wallet_transfer transfer;
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	base_expiry = get_block_height(cmd->ld->topology) + 1;
