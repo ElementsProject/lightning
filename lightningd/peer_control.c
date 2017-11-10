@@ -1165,6 +1165,36 @@ static void handle_onchain_htlc_timeout(struct peer *peer, const u8 *msg)
 
 static void handle_irrevocably_resolved(struct peer *peer, const u8 *msg)
 {
+	struct htlc_out_map_iter outi;
+	struct htlc_out *hout;
+	struct htlc_in_map_iter ini;
+	struct htlc_in *hin;
+	bool deleted;
+
+	/* FIXME: Implement check_htlcs to ensure no dangling hout->in ptrs! */
+
+	do {
+		deleted = false;
+		for (hout = htlc_out_map_first(&peer->ld->htlcs_out, &outi);
+		     hout;
+		     hout = htlc_out_map_next(&peer->ld->htlcs_out, &outi)) {
+			if (hout->key.peer != peer)
+				continue;
+			tal_free(hout);
+			deleted = true;
+		}
+
+		for (hin = htlc_in_map_first(&peer->ld->htlcs_in, &ini);
+		     hin;
+		     hin = htlc_in_map_next(&peer->ld->htlcs_in, &ini)) {
+			if (hin->key.peer != peer)
+				continue;
+			tal_free(hin);
+			deleted = true;
+		}
+		/* Can skip over elements due to iterating while deleting. */
+	} while (deleted);
+
 	/* FIXME: Remove peer from db. */
 	log_info(peer->log, "onchaind complete, forgetting peer");
 
