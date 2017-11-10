@@ -104,6 +104,9 @@ void resolve_invoice(struct lightningd *ld, struct invoice *invoice)
 		tell_waiter(w->cmd, invoice);
 
 	wallet_invoice_save(ld->wallet, invoice);
+
+	/* Also mark the transfer in the history table as complete */
+	wallet_transfer_set_status(ld->wallet, &invoice->rhash, TRANSFER_COMPLETE);
 }
 
 static void json_invoice(struct command *cmd,
@@ -115,6 +118,7 @@ static void json_invoice(struct command *cmd,
 	struct invoices *invs = cmd->ld->invoices;
 	struct bolt11 *b11;
 	char *b11enc;
+	struct wallet_transfer transfer;
 
 	if (!json_get_params(buffer, params,
 			     "amount", &msatoshi,
@@ -192,6 +196,20 @@ static void json_invoice(struct command *cmd,
 	/* OK, connect it to main state, respond with hash */
 	tal_steal(invs, invoice);
 	list_add_tail(&invs->invlist, &invoice->list);
+
+	/* Store the transfer so we can later show it in the history */
+	transfer.id = 0;
+	transfer.incoming = true;
+	transfer.payment_hash = invoice->rhash;
+	transfer.destination = NULL;
+	transfer.status = TRANSFER_PENDING;
+	transfer.msatoshi = invoice->msatoshi;
+	transfer.timestamp = b11->timestamp;
+
+	if (!wallet_transfer_add(cmd->ld->wallet, &transfer)) {
+		command_fail(cmd, "Unable to record transfer in the database.");
+		return;
+	}
 
 	json_object_start(response, NULL);
 	json_add_hex(response, "rhash",

@@ -219,6 +219,23 @@ static void send_payment(struct command *cmd,
 		log_add(cmd->ld->log, "... retrying");
 	}
 
+	/* If this is a new payment, then store the transfer so we can
+	 * later show it in the history */
+	if (!pc) {
+		transfer.id = 0;
+		transfer.incoming = false;
+		transfer.payment_hash = *rhash;
+		transfer.destination = &ids[n_hops - 1];
+		transfer.status = TRANSFER_PENDING;
+		transfer.msatoshi = route[n_hops-1].amount;
+		transfer.timestamp = time_now().ts.tv_sec;
+
+		if (!wallet_transfer_add(cmd->ld->wallet, &transfer)) {
+			command_fail(cmd, "Unable to record transfer in the database.");
+			return;
+		}
+	}
+
 	peer = peer_by_id(cmd->ld, &ids[0]);
 	if (!peer) {
 		command_fail(cmd, "no connection to first peer found");
