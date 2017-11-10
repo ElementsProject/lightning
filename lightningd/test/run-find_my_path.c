@@ -19,6 +19,9 @@ int debug_poll(struct pollfd *fds UNNEEDED, nfds_t nfds UNNEEDED, int timeout UN
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
+/* Generated stub for free_htlcs */
+void free_htlcs(struct lightningd *ld UNNEEDED, const struct peer *peer UNNEEDED)
+{ fprintf(stderr, "free_htlcs called!\n"); abort(); }
 /* Generated stub for gossip_init */
 void gossip_init(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "gossip_init called!\n"); abort(); }

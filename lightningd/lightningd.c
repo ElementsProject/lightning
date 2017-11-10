@@ -198,6 +198,8 @@ static void shutdown_subdaemons(struct lightningd *ld)
 	close(ld->hsm_fd);
 	subd_shutdown(ld->gossip, 10);
 
+	free_htlcs(ld, NULL);
+
 	while ((p = list_top(&ld->peers, struct peer, list)) != NULL)
 		tal_free(p);
 }
