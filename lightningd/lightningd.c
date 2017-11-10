@@ -194,6 +194,7 @@ static void shutdown_subdaemons(struct lightningd *ld)
 {
 	struct peer *p;
 
+	db_begin_transaction(ld->wallet->db);
 	/* Let everyone shutdown cleanly. */
 	close(ld->hsm_fd);
 	subd_shutdown(ld->gossip, 10);
@@ -202,6 +203,7 @@ static void shutdown_subdaemons(struct lightningd *ld)
 
 	while ((p = list_top(&ld->peers, struct peer, list)) != NULL)
 		tal_free(p);
+	db_commit_transaction(ld->wallet->db);
 }
 
 struct chainparams *get_chainparams(const struct lightningd *ld)

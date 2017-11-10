@@ -68,6 +68,7 @@ void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 		       const struct preimage *rval)
 {
 	assert(!hout->pay_command->rval);
+	wallet_payment_set_status(ld->wallet, &hout->payment_hash, PAYMENT_COMPLETE);
 	hout->pay_command->rval = tal_dup(hout->pay_command,
 					  struct preimage, rval);
 	json_pay_success(hout->pay_command->cmd, rval);
@@ -80,6 +81,8 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	struct pay_command *pc = hout->pay_command;
 	enum onion_type failcode;
 	struct onionreply *reply;
+
+	wallet_payment_set_status(ld->wallet, &hout->payment_hash, PAYMENT_FAILED);
 
 	/* This gives more details than a generic failure message,
 	 * and also the failuremsg here is unencrypted */
