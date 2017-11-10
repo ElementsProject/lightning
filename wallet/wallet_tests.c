@@ -471,6 +471,37 @@ static bool test_htlc_crud(const tal_t *ctx)
 	return true;
 }
 
+static bool test_payment_crud(const tal_t *ctx)
+{
+	struct wallet_payment t, *t2;
+	struct wallet *w = create_test_wallet(ctx);
+	struct pubkey destination;
+
+	mempat(&t, sizeof(t));
+	memset(&destination, 1, sizeof(destination));
+
+	t.id = 0;
+	t.destination = NULL;
+
+	db_begin_transaction(w->db);
+	CHECK(wallet_payment_add(w, &t));
+	CHECK(t.id != 0);
+	t2 = wallet_payment_by_hash(ctx, w, &t.payment_hash);
+	CHECK(t2 != NULL);
+	CHECK(t2->id == t.id && t2->destination == NULL);
+
+	t.destination = &destination;
+	t.id = 0;
+	memset(&t.payment_hash, 1, sizeof(t.payment_hash));
+
+	CHECK(wallet_payment_add(w, &t));
+	t2 = wallet_payment_by_hash(ctx, w, &t.payment_hash);
+	CHECK(t2->destination && pubkey_cmp(t2->destination, &destination) == 0);
+
+	db_commit_transaction(w->db);
+	return true;
+}
+
 int main(void)
 {
 	bool ok = true;
@@ -481,6 +512,7 @@ int main(void)
 	ok &= test_channel_crud(tmpctx);
 	ok &= test_channel_config_crud(tmpctx);
 	ok &= test_htlc_crud(tmpctx);
+	ok &= test_payment_crud(tmpctx);
 
 	tal_free(tmpctx);
 	return !ok;
