@@ -842,10 +842,12 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 	list_for_each(&gpa->cmd->ld->peers, p, list) {
 		json_object_start(response, NULL);
 		json_add_string(response, "state", peer_state_name(p->state));
+		json_array_start(response, "netaddr");
 		if (p->addr.type != ADDR_TYPE_PADDING)
-			json_add_string(response, "netaddr",
+			json_add_string(response, NULL,
 					type_to_string(response, struct wireaddr,
 						       &p->addr));
+		json_array_end(response);
 		json_add_pubkey(response, "peerid", &p->id);
 		json_add_bool(response, "connected", p->owner != NULL);
 		if (p->owner)
@@ -880,9 +882,12 @@ static void gossipd_getpeers_complete(struct subd *gossip, const u8 *msg,
 		/* Fake state. */
 		json_add_string(response, "state", "GOSSIPING");
 		json_add_pubkey(response, "peerid", ids+i);
-		json_add_string(response, "netaddr",
-				type_to_string(response, struct wireaddr,
-					       addrs + i));
+		json_array_start(response, "netaddr");
+		if (addrs[i].type != ADDR_TYPE_PADDING)
+			json_add_string(response, NULL,
+					type_to_string(response, struct wireaddr,
+						       addrs + i));
+		json_array_end(response);
 		json_add_bool(response, "connected", "true");
 		json_add_string(response, "owner", gossip->name);
 		json_object_end(response);
