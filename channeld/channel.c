@@ -183,7 +183,9 @@ static void send_announcement_signatures(struct peer *peer)
 	 * `funding_locked` has been sent and the funding transaction has
 	 * at least 6 confirmations.
 	 */
-	if (!(peer->announce_depth_reached && peer->funding_locked[LOCAL]))
+	/* Actually defer a bit further until both ends have signaled */
+	if (!peer->announce_depth_reached || !peer->funding_locked[LOCAL] ||
+	    !peer->funding_locked[REMOTE])
 		return;
 
 	tmpctx = tal_tmpctx(peer);
@@ -1691,6 +1693,8 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 				    &peer->channel_id, &next_per_commit_point);
 	msg_enqueue(&peer->peer_out, take(msg));
 	peer->funding_locked[LOCAL] = true;
+
+	send_announcement_signatures(peer);
 
 	if (peer->funding_locked[REMOTE]) {
 		wire_sync_write(MASTER_FD,
