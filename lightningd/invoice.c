@@ -191,7 +191,7 @@ static void json_invoice(struct command *cmd,
 
 	/* OK, connect it to main state, respond with hash */
 	tal_steal(invs, invoice);
-	list_add(&invs->invlist, &invoice->list);
+	list_add_tail(&invs->invlist, &invoice->list);
 
 	json_object_start(response, NULL);
 	json_add_hex(response, "rhash",
@@ -342,6 +342,8 @@ static void json_waitanyinvoice(struct command *cmd,
 			command_fail(cmd, "Label not found");
 			return;
 		}
+		/* Skip this particular invoice */
+		i = list_next(&invs->invlist, i, list);
 		while (i && i->state == UNPAID) {
 			i = list_next(&invs->invlist, i, list);
 		}
