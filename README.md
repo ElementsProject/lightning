@@ -84,16 +84,17 @@ cli/lightning-cli fundchannel <node_id> <amount>
 ```
 
 This opens a connection and, on top of that connection, then opens a channel.
-You can check the status of the channel using `cli/lightning-cli getpeers`.
-The funding transaction needs to confirm in order for the channel to be usable, so wait a few minutes, and once that is complete it `getpeers` should say that the status is in _Normal operation_. 
+The funding transaction needs 6 confirmations in order for the channel to be usable.
+You can check the status of the channel using `cli/lightning-cli getpeers`, which after 1 confirmation should say that the status is in _Normal operation_.
+After 6 confirmations you can use `cli/lightning-cli getchannels` to verify that the channel shows up in the list of open channels.
 
 ### Receiving and receiving payments
 
 Payments in Lightning are invoice based.
-The recipient creates an invoice with the expected `<amount>` in millisatoshi and a `<label>`:
+The recipient creates an invoice with the expected `<amount>` in millisatoshi, a `<label>` and a `<description>`:
 
 ```
-cli/lightning-cli invoice <amount> <label>
+cli/lightning-cli invoice <amount> <label> <description>
 ```
 
 This returns a random value called `rhash` that is part of the invoice.
