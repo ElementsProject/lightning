@@ -2139,5 +2139,47 @@ class LightningDTests(BaseLightningDTests):
         assert not l2.daemon.is_in_log('signature verification failed')
         assert not l3.daemon.is_in_log('signature verification failed')
 
+    def test_waitanyinvoice(self):
+        """Test various variants of waiting for the next invoice to complete.
+        """
+        l1, l2 = self.connect()
+        inv1 = l2.rpc.invoice(1000, 'inv1', 'inv1')
+        inv2 = l2.rpc.invoice(1000, 'inv2', 'inv2')
+        inv3 = l2.rpc.invoice(1000, 'inv3', 'inv3')
+
+        print("AAAA", l2.rpc.listinvoice())
+
+        self.fund_channel(l1, l2, 10**6)
+
+        l1.bitcoin.rpc.generate(6)
+        l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l2.info['id']))
+
+        # Attempt to wait for the first invoice
+        f = self.executor.submit(l2.rpc.waitanyinvoice)
+        time.sleep(1)
+
+        # The call to waitanyinvoice should not have returned just yet
+        assert not f.done()
+
+        # Now pay the first two invoices and make sure we notice
+        l1.rpc.pay(inv1['bolt11'])
+        l1.rpc.pay(inv2['bolt11'])
+        r = f.result(timeout=5)
+        assert r['label'] == 'inv1'
+
+        # This one should return immediately with inv2
+        r = self.executor.submit(l2.rpc.waitanyinvoice, 'inv1').result(timeout=5)
+        assert r['label'] == 'inv2'
+
+        # Now spawn the next waiter
+        f = self.executor.submit(l2.rpc.waitanyinvoice, 'inv2')
+        time.sleep(1)
+        assert not f.done()
+        l1.rpc.pay(inv3['bolt11'])
+        r = f.result(timeout=5)
+        assert r['label'] == 'inv3'
+
+        self.assertRaises(ValueError, l2.rpc.waitanyinvoice, 'doesntexist')
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
