@@ -537,27 +537,27 @@ static struct commit_sigs *calc_commitsigs(const tal_t *ctx,
 	struct bitcoin_tx **txs;
 	const u8 **wscripts;
 	const struct htlc **htlc_map;
-	struct pubkey localkey;
-	struct privkey local_secretkey;
+	struct pubkey local_htlckey;
+	struct privkey local_htlcsecretkey;
 	struct commit_sigs *commit_sigs = tal(ctx, struct commit_sigs);
 
-	if (!derive_simple_privkey(&peer->our_secrets.payment_basepoint_secret,
-				   &peer->channel->basepoints[LOCAL].payment,
+	if (!derive_simple_privkey(&peer->our_secrets.htlc_basepoint_secret,
+				   &peer->channel->basepoints[LOCAL].htlc,
 				   &peer->remote_per_commit,
-				   &local_secretkey))
+				   &local_htlcsecretkey))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Deriving local_secretkey");
+			      "Deriving local_htlcsecretkey");
 
-	if (!derive_simple_key(&peer->channel->basepoints[LOCAL].payment,
+	if (!derive_simple_key(&peer->channel->basepoints[LOCAL].htlc,
 			       &peer->remote_per_commit,
-			       &localkey))
+			       &local_htlckey))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Deriving localkey");
+			      "Deriving local_htlckey");
 
 	status_trace("Derived key %s from basepoint %s, point %s",
-		     type_to_string(trc, struct pubkey, &localkey),
+		     type_to_string(trc, struct pubkey, &local_htlckey),
 		     type_to_string(trc, struct pubkey,
-				    &peer->channel->basepoints[LOCAL].payment),
+				    &peer->channel->basepoints[LOCAL].htlc),
 		     type_to_string(trc, struct pubkey,
 				    &peer->remote_per_commit));
 
@@ -595,16 +595,18 @@ static struct commit_sigs *calc_commitsigs(const tal_t *ctx,
 		sign_tx_input(txs[1 + i], 0,
 			      NULL,
 			      wscripts[1 + i],
-			      &local_secretkey, &localkey,
+			      &local_htlcsecretkey, &local_htlckey,
 			      &commit_sigs->htlc_sigs[i]);
 		status_trace("Creating HTLC signature %s for tx %s wscript %s key %s",
 			     type_to_string(trc, secp256k1_ecdsa_signature,
 					    &commit_sigs->htlc_sigs[i]),
 			     type_to_string(trc, struct bitcoin_tx, txs[1+i]),
 			     tal_hex(trc, wscripts[1+i]),
-			     type_to_string(trc, struct pubkey, &localkey));
+			     type_to_string(trc, struct pubkey,
+					    &local_htlckey));
 		assert(check_tx_sig(txs[1+i], 0, NULL, wscripts[1+i],
-				    &localkey, &commit_sigs->htlc_sigs[i]));
+				    &local_htlckey,
+				    &commit_sigs->htlc_sigs[i]));
 	}
 
 	tal_free(tmpctx);
@@ -872,7 +874,7 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 	const tal_t *tmpctx = tal_tmpctx(peer);
 	struct channel_id channel_id;
 	secp256k1_ecdsa_signature commit_sig, *htlc_sigs;
-	struct pubkey remotekey, point;
+	struct pubkey remote_htlckey, point;
 	struct bitcoin_tx **txs;
 	const struct htlc **htlc_map, **changed_htlcs;
 	const u8 **wscripts;
@@ -907,14 +909,14 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 	txs = channel_txs(tmpctx, &htlc_map, &wscripts, peer->channel,
 			  &point, peer->next_index[LOCAL], LOCAL);
 
-	if (!derive_simple_key(&peer->channel->basepoints[REMOTE].payment,
-			       &point, &remotekey))
+	if (!derive_simple_key(&peer->channel->basepoints[REMOTE].htlc,
+			       &point, &remote_htlckey))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Deriving remotekey");
+			      "Deriving remote_htlckey");
 	status_trace("Derived key %s from basepoint %s, point %s",
-		     type_to_string(trc, struct pubkey, &remotekey),
+		     type_to_string(trc, struct pubkey, &remote_htlckey),
 		     type_to_string(trc, struct pubkey,
-				    &peer->channel->basepoints[REMOTE].payment),
+				    &peer->channel->basepoints[REMOTE].htlc),
 		     type_to_string(trc, struct pubkey, &point));
 	/* BOLT #2:
 	 *
@@ -960,7 +962,7 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 	 */
 	for (i = 0; i < tal_count(htlc_sigs); i++) {
 		if (!check_tx_sig(txs[1+i], 0, NULL, wscripts[1+i],
-				  &remotekey, &htlc_sigs[i]))
+				  &remote_htlckey, &htlc_sigs[i]))
 			peer_failed(io_conn_fd(peer->peer_conn),
 				    &peer->pcs.cs,
 				    &peer->channel_id,
@@ -968,7 +970,8 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 				    type_to_string(msg, secp256k1_ecdsa_signature, &htlc_sigs[i]),
 				    type_to_string(msg, struct bitcoin_tx, txs[1+i]),
 				    tal_hex(msg, wscripts[1+i]),
-				    type_to_string(msg, struct pubkey, &remotekey));
+				    type_to_string(msg, struct pubkey,
+						   &remote_htlckey));
 	}
 
 	status_trace("Received commit_sig with %zu htlc sigs",
