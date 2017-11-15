@@ -92,10 +92,10 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx,
 /* Fill in the witness for HTLC-success tx produced above. */
 void htlc_success_tx_add_witness(struct bitcoin_tx *htlc_success,
 				 const struct abs_locktime *htlc_abstimeout,
-				 const struct pubkey *localkey,
-				 const struct pubkey *remotekey,
-				 const secp256k1_ecdsa_signature *localsig,
-				 const secp256k1_ecdsa_signature *remotesig,
+				 const struct pubkey *localhtlckey,
+				 const struct pubkey *remotehtlckey,
+				 const secp256k1_ecdsa_signature *localhtlcsig,
+				 const secp256k1_ecdsa_signature *remotehtlcsig,
 				 const struct preimage *payment_preimage,
 				 const struct pubkey *revocationkey)
 {
@@ -105,12 +105,12 @@ void htlc_success_tx_add_witness(struct bitcoin_tx *htlc_success,
 	sha256(&hash, payment_preimage, sizeof(*payment_preimage));
 	wscript = bitcoin_wscript_htlc_receive(htlc_success,
 					       htlc_abstimeout,
-					       localkey, remotekey,
+					       localhtlckey, remotehtlckey,
 					       &hash, revocationkey);
 
 	htlc_success->input[0].witness
 		= bitcoin_witness_htlc_success_tx(htlc_success->input,
-						  localsig, remotesig,
+						  localhtlcsig, remotehtlcsig,
 						  payment_preimage,
 						  wscript);
 	tal_free(wscript);
@@ -138,20 +138,20 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 
 /* Fill in the witness for HTLC-timeout tx produced above. */
 void htlc_timeout_tx_add_witness(struct bitcoin_tx *htlc_timeout,
-				 const struct pubkey *localkey,
-				 const struct pubkey *remotekey,
+				 const struct pubkey *localhtlckey,
+				 const struct pubkey *remotehtlckey,
 				 const struct sha256 *payment_hash,
 				 const struct pubkey *revocationkey,
-				 const secp256k1_ecdsa_signature *localsig,
-				 const secp256k1_ecdsa_signature *remotesig)
+				 const secp256k1_ecdsa_signature *localhtlcsig,
+				 const secp256k1_ecdsa_signature *remotehtlcsig)
 {
 	u8 *wscript = bitcoin_wscript_htlc_offer(htlc_timeout,
-						 localkey, remotekey,
+						 localhtlckey, remotehtlckey,
 						 payment_hash, revocationkey);
 
 	htlc_timeout->input[0].witness
 		= bitcoin_witness_htlc_timeout_tx(htlc_timeout->input,
-						  localsig, remotesig,
+						  localhtlcsig, remotehtlcsig,
 						  wscript);
 	tal_free(wscript);
 }
@@ -161,8 +161,8 @@ u8 *htlc_offered_wscript(const tal_t *ctx,
 			 const struct keyset *keyset)
 {
 	return bitcoin_wscript_htlc_offer_ripemd160(ctx,
-						    &keyset->self_payment_key,
-						    &keyset->other_payment_key,
+						    &keyset->self_htlc_key,
+						    &keyset->other_htlc_key,
 						    ripemd,
 						    &keyset->self_revocation_key);
 }
@@ -174,8 +174,8 @@ u8 *htlc_received_wscript(const tal_t *ctx,
 {
 	return bitcoin_wscript_htlc_receive_ripemd(ctx,
 						   expiry,
-						   &keyset->self_payment_key,
-						   &keyset->other_payment_key,
+						   &keyset->self_htlc_key,
+						   &keyset->other_htlc_key,
 						   ripemd,
 						   &keyset->self_revocation_key);
 }

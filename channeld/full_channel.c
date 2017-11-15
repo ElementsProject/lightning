@@ -197,8 +197,8 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 					     feerate_per_kw,
 					     keyset);
 			wscript	= bitcoin_wscript_htlc_offer(*wscripts,
-						     &keyset->self_payment_key,
-						     &keyset->other_payment_key,
+						     &keyset->self_htlc_key,
+						     &keyset->other_htlc_key,
 						     &htlc->rhash,
 						     &keyset->self_revocation_key);
 		} else {
@@ -209,8 +209,8 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 					     keyset);
 			wscript	= bitcoin_wscript_htlc_receive(*wscripts,
 						       &htlc->expiry,
-						       &keyset->self_payment_key,
-						       &keyset->other_payment_key,
+						       &keyset->self_htlc_key,
+						       &keyset->other_htlc_key,
 						       &htlc->rhash,
 						       &keyset->self_revocation_key);
 		}

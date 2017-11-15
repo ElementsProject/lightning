@@ -196,11 +196,13 @@ static struct pubkey pubkey_from_hex(const char *hex)
 static void report_htlcs(const struct bitcoin_tx *tx,
 			 const struct htlc **htlc_map,
 			 u16 to_self_delay,
-			 const struct privkey *local_secretkey,
+			 const struct privkey *local_htlcsecretkey,
 			 const struct pubkey *localkey,
+			 const struct pubkey *local_htlckey,
 			 const struct pubkey *local_delayedkey,
-			 const struct privkey *x_remote_secretkey,
+			 const struct privkey *x_remote_htlcsecretkey,
 			 const struct pubkey *remotekey,
+			 const struct pubkey *remote_htlckey,
 			 const struct pubkey *remote_revocation_key,
 			 u64 feerate_per_kw)
 {
@@ -208,13 +210,13 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 	size_t i, n;
 	struct sha256_double txid;
 	struct bitcoin_tx **htlc_tx;
-	secp256k1_ecdsa_signature *remotesig;
+	secp256k1_ecdsa_signature *remotehtlcsig;
 	struct keyset keyset;
 	u8 **wscript;
 
 	htlc_tx = tal_arrz(tmpctx, struct bitcoin_tx *, tal_count(htlc_map));
-	remotesig = tal_arr(tmpctx, secp256k1_ecdsa_signature,
-			    tal_count(htlc_map));
+	remotehtlcsig = tal_arr(tmpctx, secp256k1_ecdsa_signature,
+				tal_count(htlc_map));
 	wscript = tal_arr(tmpctx, u8 *, tal_count(htlc_map));
 
 	bitcoin_txid(tx, &txid);
@@ -232,6 +234,8 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 	keyset.self_delayed_payment_key = *local_delayedkey;
 	keyset.self_payment_key = *localkey;
 	keyset.other_payment_key = *remotekey;
+	keyset.self_htlc_key = *local_htlckey;
+	keyset.other_htlc_key = *remote_htlckey;
 
 	for (i = 0; i < tal_count(htlc_map); i++) {
 		const struct htlc *htlc = htlc_map[i];
@@ -247,8 +251,8 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 						     feerate_per_kw,
 						     &keyset);
 			wscript[i] = bitcoin_wscript_htlc_offer(tmpctx,
-								localkey,
-								remotekey,
+								local_htlckey,
+								remote_htlckey,
 								&htlc->rhash,
 								remote_revocation_key);
 		} else {
@@ -259,25 +263,25 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 						     &keyset);
 			wscript[i] = bitcoin_wscript_htlc_receive(tmpctx,
 								  &htlc->expiry,
-								  localkey,
-								  remotekey,
+								  local_htlckey,
+								  remote_htlckey,
 								  &htlc->rhash,
 								  remote_revocation_key);
 		}
 		sign_tx_input(htlc_tx[i], 0,
 			      NULL,
 			      wscript[i],
-			      x_remote_secretkey, remotekey,
-			      &remotesig[i]);
+			      x_remote_htlcsecretkey, remote_htlckey,
+			      &remotehtlcsig[i]);
 		printf("# signature for output %zi (htlc %"PRIu64")\n", i, htlc->id);
 		printf("remote_htlc_signature = %s\n",
 		       type_to_string(tmpctx, secp256k1_ecdsa_signature,
-				      &remotesig[i]));
+				      &remotehtlcsig[i]));
 	}
 
 	/* For any HTLC outputs, produce htlc_tx */
 	for (i = 0; i < tal_count(htlc_map); i++) {
-		secp256k1_ecdsa_signature localsig;
+		secp256k1_ecdsa_signature localhtlcsig;
 		const struct htlc *htlc = htlc_map[i];
 
 		if (!htlc)
@@ -286,22 +290,26 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 		sign_tx_input(htlc_tx[i], 0,
 			      NULL,
 			      wscript[i],
-			      local_secretkey, localkey,
-			      &localsig);
+			      local_htlcsecretkey, local_htlckey,
+			      &localhtlcsig);
 		printf("# local_signature = %s\n",
 		       type_to_string(tmpctx, secp256k1_ecdsa_signature,
-				      &localsig));
+				      &localhtlcsig));
 		if (htlc_owner(htlc) == LOCAL) {
 			htlc_timeout_tx_add_witness(htlc_tx[i],
-						    localkey, remotekey,
+						    local_htlckey,
+						    remote_htlckey,
 						    &htlc->rhash,
 						    remote_revocation_key,
-						    &localsig, &remotesig[i]);
+						    &localhtlcsig,
+						    &remotehtlcsig[i]);
 		} else {
 			htlc_success_tx_add_witness(htlc_tx[i],
 						    &htlc->expiry,
-						    localkey, remotekey,
-						    &localsig, &remotesig[i],
+						    local_htlckey,
+						    remote_htlckey,
+						    &localhtlcsig,
+						    &remotehtlcsig[i],
 						    htlc->r,
 						    remote_revocation_key);
 		}
@@ -320,11 +328,13 @@ static void report(struct bitcoin_tx *tx,
 		   const struct privkey *local_funding_privkey,
 		   const struct pubkey *local_funding_pubkey,
 		   u16 to_self_delay,
-		   const struct privkey *local_secretkey,
+		   const struct privkey *local_htlcsecretkey,
 		   const struct pubkey *localkey,
+		   const struct pubkey *local_htlckey,
 		   const struct pubkey *local_delayedkey,
-		   const struct privkey *x_remote_secretkey,
+		   const struct privkey *x_remote_htlcsecretkey,
 		   const struct pubkey *remotekey,
+		   const struct pubkey *remote_htlckey,
 		   const struct pubkey *remote_revocation_key,
 		   u64 feerate_per_kw,
 		   const struct htlc **htlc_map)
@@ -355,10 +365,10 @@ static void report(struct bitcoin_tx *tx,
 	printf("output commit_tx: %s\n", txhex);
 
 	report_htlcs(tx, htlc_map, to_self_delay,
-		     local_secretkey, localkey,
+		     local_htlcsecretkey, localkey, local_htlckey,
 		     local_delayedkey,
-		     x_remote_secretkey,
-		     remotekey,
+		     x_remote_htlcsecretkey,
+		     remotekey, remote_htlckey,
 		     remote_revocation_key,
 		     feerate_per_kw);
 	tal_free(tmpctx);
@@ -439,17 +449,20 @@ int main(void)
 	/* x_ prefix means internal vars we used to derive spec */
 	struct privkey local_funding_privkey, x_remote_funding_privkey;
 	struct secret x_local_payment_basepoint_secret, x_remote_payment_basepoint_secret;
+	struct secret x_local_htlc_basepoint_secret, x_remote_htlc_basepoint_secret;
 	struct secret x_local_per_commitment_secret;
 	struct secret x_local_delayed_payment_basepoint_secret;
 	struct secret x_remote_revocation_basepoint_secret;
-	struct privkey local_secretkey, x_remote_secretkey;
+	struct privkey local_htlcsecretkey, x_remote_htlcsecretkey;
 	struct privkey x_local_delayed_secretkey;
 	struct pubkey local_funding_pubkey, remote_funding_pubkey;
 	struct pubkey local_payment_basepoint, remote_payment_basepoint;
+	struct pubkey local_htlc_basepoint, remote_htlc_basepoint;
 	struct pubkey x_local_delayed_payment_basepoint;
 	struct pubkey x_remote_revocation_basepoint;
 	struct pubkey x_local_per_commitment_point;
 	struct pubkey localkey, remotekey, tmpkey;
+	struct pubkey local_htlckey, remote_htlckey;
 	struct pubkey local_delayedkey;
 	struct pubkey remote_revocation_key;
 	struct bitcoin_tx *tx, *tx2;
@@ -579,13 +592,19 @@ int main(void)
 				&remote_payment_basepoint))
 		abort();
 
-	if (!derive_simple_privkey(&x_remote_payment_basepoint_secret,
-				   &remote_payment_basepoint,
+	/* FIXME: BOLT should include separate HTLC keys */
+	local_htlc_basepoint = local_payment_basepoint;
+	remote_htlc_basepoint = remote_payment_basepoint;
+	x_local_htlc_basepoint_secret = x_local_payment_basepoint_secret;
+	x_remote_htlc_basepoint_secret = x_remote_payment_basepoint_secret;
+
+	if (!derive_simple_privkey(&x_remote_htlc_basepoint_secret,
+				   &remote_htlc_basepoint,
 				   &x_local_per_commitment_point,
-				   &x_remote_secretkey))
+				   &x_remote_htlcsecretkey))
 		abort();
 	SUPERVERBOSE("INTERNAL: remote_secretkey: %s\n",
-		     type_to_string(tmpctx, struct privkey, &x_remote_secretkey));
+		     type_to_string(tmpctx, struct privkey, &x_remote_htlcsecretkey));
 
 	if (!derive_simple_privkey(&x_local_delayed_payment_basepoint_secret,
 				   &x_local_delayed_payment_basepoint,
@@ -620,21 +639,18 @@ int main(void)
 	printf("remote_funding_pubkey: %s\n",
 	       type_to_string(tmpctx, struct pubkey, &remote_funding_pubkey));
 
-	if (!derive_simple_privkey(&x_local_payment_basepoint_secret,
+	if (!derive_simple_privkey(&x_local_htlc_basepoint_secret,
 				   &local_payment_basepoint,
 				   &x_local_per_commitment_point,
-				   &local_secretkey))
+				   &local_htlcsecretkey))
 		abort();
 	printf("local_secretkey: %s\n",
-	       type_to_string(tmpctx, struct privkey, &local_secretkey));
+	       type_to_string(tmpctx, struct privkey, &local_htlcsecretkey));
 
-	if (!pubkey_from_privkey(&local_secretkey, &localkey))
-		abort();
 	if (!derive_simple_key(&local_payment_basepoint,
 			       &x_local_per_commitment_point,
-			       &tmpkey))
+			       &localkey))
 		abort();
-	assert(pubkey_eq(&tmpkey, &localkey));
 	printf("localkey: %s\n",
 	       type_to_string(tmpctx, struct pubkey, &localkey));
 
@@ -645,6 +661,22 @@ int main(void)
 	printf("remotekey: %s\n",
 	       type_to_string(tmpctx, struct pubkey, &remotekey));
 
+	if (!pubkey_from_privkey(&local_htlcsecretkey, &local_htlckey))
+		abort();
+	if (!derive_simple_key(&local_htlc_basepoint,
+			       &x_local_per_commitment_point,
+			       &tmpkey))
+		abort();
+	assert(pubkey_eq(&tmpkey, &local_htlckey));
+	printf("local_htlckey: %s\n",
+	       type_to_string(tmpctx, struct pubkey, &local_htlckey));
+
+	if (!derive_simple_key(&remote_htlc_basepoint,
+			       &x_local_per_commitment_point,
+			       &remote_htlckey))
+		abort();
+	printf("remote_htlckey: %s\n",
+	       type_to_string(tmpctx, struct pubkey, &remote_htlckey));
 
 	if (!pubkey_from_privkey(&x_local_delayed_secretkey, &local_delayedkey))
 		abort();
@@ -688,6 +720,8 @@ int main(void)
 	keyset.self_delayed_payment_key = local_delayedkey;
 	keyset.self_payment_key = localkey;
 	keyset.other_payment_key = remotekey;
+	keyset.self_htlc_key = local_htlckey;
+	keyset.other_htlc_key = remote_htlckey;
 
 	print_superverbose = true;
 	tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
@@ -715,11 +749,13 @@ int main(void)
 	report(tx, wscript, &x_remote_funding_privkey, &remote_funding_pubkey,
 	       &local_funding_privkey, &local_funding_pubkey,
 	       to_self_delay,
-	       &local_secretkey,
+	       &local_htlcsecretkey,
 	       &localkey,
+	       &local_htlckey,
 	       &local_delayedkey,
-	       &x_remote_secretkey,
+	       &x_remote_htlcsecretkey,
 	       &remotekey,
+	       &remote_htlckey,
 	       &remote_revocation_key,
 	       feerate_per_kw,
 	       htlc_map);
@@ -768,11 +804,13 @@ int main(void)
 	report(tx, wscript, &x_remote_funding_privkey, &remote_funding_pubkey,
 	       &local_funding_privkey, &local_funding_pubkey,
 	       to_self_delay,
-	       &local_secretkey,
+	       &local_htlcsecretkey,
 	       &localkey,
+	       &local_htlckey,
 	       &local_delayedkey,
-	       &x_remote_secretkey,
+	       &x_remote_htlcsecretkey,
 	       &remotekey,
+	       &remote_htlckey,
 	       &remote_revocation_key,
 	       feerate_per_kw,
 	       htlc_map);
@@ -840,11 +878,13 @@ int main(void)
 		       &x_remote_funding_privkey, &remote_funding_pubkey,
 		       &local_funding_privkey, &local_funding_pubkey,
 		       to_self_delay,
-		       &local_secretkey,
+		       &local_htlcsecretkey,
 		       &localkey,
+		       &local_htlckey,
 		       &local_delayedkey,
-		       &x_remote_secretkey,
+		       &x_remote_htlcsecretkey,
 		       &remotekey,
+		       &remote_htlckey,
 		       &remote_revocation_key,
 		       feerate_per_kw-1,
 		       htlc_map);
@@ -874,11 +914,13 @@ int main(void)
 		       &x_remote_funding_privkey, &remote_funding_pubkey,
 		       &local_funding_privkey, &local_funding_pubkey,
 		       to_self_delay,
-		       &local_secretkey,
+		       &local_htlcsecretkey,
 		       &localkey,
+		       &local_htlckey,
 		       &local_delayedkey,
-		       &x_remote_secretkey,
+		       &x_remote_htlcsecretkey,
 		       &remotekey,
+		       &remote_htlckey,
 		       &remote_revocation_key,
 		       feerate_per_kw,
 		       htlc_map);
@@ -930,11 +972,13 @@ int main(void)
 		       &x_remote_funding_privkey, &remote_funding_pubkey,
 		       &local_funding_privkey, &local_funding_pubkey,
 		       to_self_delay,
-		       &local_secretkey,
+		       &local_htlcsecretkey,
 		       &localkey,
+		       &local_htlckey,
 		       &local_delayedkey,
-		       &x_remote_secretkey,
+		       &x_remote_htlcsecretkey,
 		       &remotekey,
+		       &remote_htlckey,
 		       &remote_revocation_key,
 		       feerate_per_kw,
 		       htlc_map);

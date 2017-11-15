@@ -2054,6 +2054,8 @@ static void init_channel(struct peer *peer)
 				   &funding_signed))
 		master_badmsg(WIRE_CHANNEL_INIT, msg);
 
+	points[REMOTE].htlc = points[REMOTE].payment;
+
 	status_trace("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
 		     " next_idx_local = %"PRIu64
 		     " next_idx_remote = %"PRIu64
