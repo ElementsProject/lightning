@@ -36,6 +36,7 @@ opening_funder_reply,,first_commit_sig,secp256k1_ecdsa_signature
 opening_funder_reply,,crypto_state,struct crypto_state
 opening_funder_reply,,revocation_basepoint,struct pubkey
 opening_funder_reply,,payment_basepoint,struct pubkey
+opening_funder_reply,,htlc_basepoint,struct pubkey
 opening_funder_reply,,delayed_payment_basepoint,struct pubkey
 opening_funder_reply,,their_per_commit_point,struct pubkey
 opening_funder_reply,,minimum_depth,u32
@@ -59,6 +60,7 @@ opening_fundee_reply,,first_commit_sig,secp256k1_ecdsa_signature
 opening_fundee_reply,,crypto_state,struct crypto_state
 opening_fundee_reply,,revocation_basepoint,struct pubkey
 opening_fundee_reply,,payment_basepoint,struct pubkey
+opening_fundee_reply,,htlc_basepoint,struct pubkey
 opening_fundee_reply,,delayed_payment_basepoint,struct pubkey
 opening_fundee_reply,,their_per_commit_point,struct pubkey
 opening_fundee_reply,,remote_fundingkey,struct pubkey

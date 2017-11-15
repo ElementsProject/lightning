@@ -1974,6 +1974,7 @@ int main(int argc, char *argv[])
 				   &our_wallet_pubkey,
 				   &funder,
 				   &remote_payment_basepoint,
+				   &remote_htlc_basepoint,
 				   &remote_delayed_payment_basepoint,
 				   tx,
 				   &tx_blockheight,
@@ -1982,7 +1983,7 @@ int main(int argc, char *argv[])
 				   &num_htlcs)) {
 		master_badmsg(WIRE_ONCHAIN_INIT, msg);
 	}
-	remote_htlc_basepoint = remote_payment_basepoint;
+
 	derive_basepoints(&seed, NULL, &basepoints, &secrets, &shaseed);
 	bitcoin_txid(tx, &txid);
 

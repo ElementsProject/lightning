@@ -23,6 +23,7 @@ onchain_init,,ourwallet_pubkey,struct pubkey
 # We need these two for commit number obscurer
 onchain_init,,funder,enum side
 onchain_init,,remote_payment_basepoint,struct pubkey
+onchain_init,,remote_htlc_basepoint,struct pubkey
 onchain_init,,remote_delayed_payment_basepoint,struct pubkey
 onchain_init,,tx,struct bitcoin_tx
 onchain_init,,tx_blockheight,u32
