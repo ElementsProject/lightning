@@ -2177,6 +2177,8 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 				    tal_hex(resp, resp));
 		return;
 	}
+	/* FIXME */
+	channel_info->theirbase.htlc = channel_info->theirbase.payment;
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
@@ -2296,6 +2298,9 @@ static void opening_fundee_finished(struct subd *opening,
 				    tal_hex(reply, reply));
 		return;
 	}
+	/* FIXME */
+	channel_info->theirbase.htlc = channel_info->theirbase.payment;
+
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
