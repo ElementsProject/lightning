@@ -6,7 +6,7 @@ CCANDIR := ccan
 
 # Where we keep the BOLT RFCs
 BOLTDIR := ../lightning-rfc/
-BOLTVERSION := 046f5acb1619bccf167e5539f144433495f1486b
+BOLTVERSION := 4f91f0bb2a9c176dda019f9c0618c10f9fa0acfd
 
 # If you don't have (working) valgrind.
 #NO_VALGRIND := 1

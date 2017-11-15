@@ -90,8 +90,8 @@ u8 **bitcoin_to_local_spend_revocation(const tal_t *ctx,
 
 /* BOLT #3 offered/accepted HTLC outputs */
 u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
-			       const struct pubkey *localkey,
-			       const struct pubkey *remotekey,
+			       const struct pubkey *localhtlckey,
+			       const struct pubkey *remotehtlckey,
 			       const struct sha256 *payment_hash,
 			       const struct pubkey *revocationkey);
 u8 **bitcoin_witness_htlc_timeout_tx(const tal_t *ctx,
@@ -112,8 +112,8 @@ u8 **bitcoin_witness_htlc_success_tx(const tal_t *ctx,
 
 /* Underlying functions for penalties, where we only keep ripemd160 */
 u8 *bitcoin_wscript_htlc_offer_ripemd160(const tal_t *ctx,
-					 const struct pubkey *localkey,
-					 const struct pubkey *remotekey,
+					 const struct pubkey *localhtlckey,
+					 const struct pubkey *remotehtlckey,
 					 const struct ripemd160 *payment_ripemd,
 					 const struct pubkey *revocationkey);
 u8 *bitcoin_wscript_htlc_receive_ripemd(const tal_t *ctx,
