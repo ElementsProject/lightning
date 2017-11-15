@@ -269,6 +269,7 @@ static bool test_channel_crud(const tal_t *ctx)
 	ci.remote_fundingkey = pk;
 	ci.theirbase.revocation = pk;
 	ci.theirbase.payment = pk;
+	ci.theirbase.htlc = pk;
 	ci.theirbase.delayed_payment = pk;
 	ci.remote_per_commit = pk;
 	ci.old_remote_per_commit = pk;

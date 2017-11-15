@@ -434,6 +434,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		ok &= sqlite3_column_pubkey(stmt, col++, &chan->peer->channel_info->remote_fundingkey);
 		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->theirbase.revocation);
 		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->theirbase.payment);
+		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->theirbase.htlc);
 		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->theirbase.delayed_payment);
 		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->remote_per_commit);
 		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->old_remote_per_commit);
@@ -441,7 +442,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		wallet_channel_config_load(w, remote_config_id, &chan->peer->channel_info->their_config);
 	} else {
 		/* No channel_info, skip positions in the result */
-		col += 7;
+		col += 8;
 	}
 
 	/* Load shachain */
@@ -482,7 +483,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		col += 2;
 	}
 
-	assert(col == 32);
+	assert(col == 33);
 
 	chan->peer->channel = chan;
 
@@ -499,7 +500,7 @@ const char *channel_fields =
     "next_htlc_id, funding_tx_id, funding_tx_outnum, funding_satoshi, "
     "funding_locked_remote, push_msatoshi, msatoshi_local, "
     "fundingkey_remote, revocation_basepoint_remote, "
-    "payment_basepoint_remote, "
+    "payment_basepoint_remote, htlc_basepoint_remote, "
     "delayed_payment_basepoint_remote, per_commit_remote, "
     "old_per_commit_remote, feerate_per_kw, shachain_remote_id, "
     "shutdown_scriptpubkey_remote, shutdown_keyidx_local, "
@@ -696,6 +697,7 @@ void wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 				  "  fundingkey_remote=?,"
 				  "  revocation_basepoint_remote=?,"
 				  "  payment_basepoint_remote=?,"
+				  "  htlc_basepoint_remote=?,"
 				  "  delayed_payment_basepoint_remote=?,"
 				  "  per_commit_remote=?,"
 				  "  old_per_commit_remote=?,"
@@ -705,12 +707,13 @@ void wallet_channel_save(struct wallet *w, struct wallet_channel *chan){
 		sqlite3_bind_pubkey(stmt, 1,  &p->channel_info->remote_fundingkey);
 		sqlite3_bind_pubkey(stmt, 2,  &p->channel_info->theirbase.revocation);
 		sqlite3_bind_pubkey(stmt, 3,  &p->channel_info->theirbase.payment);
-		sqlite3_bind_pubkey(stmt, 4,  &p->channel_info->theirbase.delayed_payment);
-		sqlite3_bind_pubkey(stmt, 5,  &p->channel_info->remote_per_commit);
-		sqlite3_bind_pubkey(stmt, 6,  &p->channel_info->old_remote_per_commit);
-		sqlite3_bind_int(stmt, 7, p->channel_info->feerate_per_kw);
-		sqlite3_bind_int64(stmt, 8, p->channel_info->their_config.id);
-		sqlite3_bind_int64(stmt, 9, chan->id);
+		sqlite3_bind_pubkey(stmt, 4,  &p->channel_info->theirbase.htlc);
+		sqlite3_bind_pubkey(stmt, 5,  &p->channel_info->theirbase.delayed_payment);
+		sqlite3_bind_pubkey(stmt, 6,  &p->channel_info->remote_per_commit);
+		sqlite3_bind_pubkey(stmt, 7,  &p->channel_info->old_remote_per_commit);
+		sqlite3_bind_int(stmt, 8, p->channel_info->feerate_per_kw);
+		sqlite3_bind_int64(stmt, 9, p->channel_info->their_config.id);
+		sqlite3_bind_int64(stmt, 10, chan->id);
 		db_exec_prepared(w->db, stmt);
 	}
 
