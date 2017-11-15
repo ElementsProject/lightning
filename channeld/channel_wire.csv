@@ -16,9 +16,10 @@ channel_init,,feerate_per_kw,u32
 channel_init,,first_commit_sig,secp256k1_ecdsa_signature
 channel_init,,crypto_state,struct crypto_state
 channel_init,,remote_fundingkey,struct pubkey
-channel_init,,revocation_basepoint,struct pubkey
-channel_init,,payment_basepoint,struct pubkey
-channel_init,,delayed_payment_basepoint,struct pubkey
+channel_init,,remote_revocation_basepoint,struct pubkey
+channel_init,,remote_payment_basepoint,struct pubkey
+channel_init,,remote_htlc_basepoint,struct pubkey
+channel_init,,remote_delayed_payment_basepoint,struct pubkey
 channel_init,,remote_per_commit,struct pubkey
 channel_init,,old_remote_per_commit,struct pubkey
 channel_init,,funder,enum side

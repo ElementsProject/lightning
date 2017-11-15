@@ -1408,6 +1408,7 @@ static enum watch_result funding_spent(struct peer *peer,
 				  &ourkey,
 				  peer->funder,
 				  &peer->channel_info->theirbase.payment,
+				  &peer->channel_info->theirbase.htlc,
 				  &peer->channel_info->theirbase.delayed_payment,
 				  tx,
 				  block->height,
@@ -2093,6 +2094,7 @@ static bool peer_start_channeld(struct peer *peer,
 				      &peer->channel_info->remote_fundingkey,
 				      &peer->channel_info->theirbase.revocation,
 				      &peer->channel_info->theirbase.payment,
+				      &peer->channel_info->theirbase.htlc,
 				      &peer->channel_info->theirbase.delayed_payment,
 				      &peer->channel_info->remote_per_commit,
 				      &peer->channel_info->old_remote_per_commit,
@@ -2167,6 +2169,7 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 					   &cs,
 					   &channel_info->theirbase.revocation,
 					   &channel_info->theirbase.payment,
+					   &channel_info->theirbase.htlc,
 					   &channel_info->theirbase.delayed_payment,
 					   &channel_info->remote_per_commit,
 					   &fc->peer->minimum_depth,
@@ -2177,8 +2180,6 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 				    tal_hex(resp, resp));
 		return;
 	}
-	/* FIXME */
-	channel_info->theirbase.htlc = channel_info->theirbase.payment;
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
@@ -2284,6 +2285,7 @@ static void opening_fundee_finished(struct subd *opening,
 					   &cs,
 					   &channel_info->theirbase.revocation,
 					   &channel_info->theirbase.payment,
+					   &channel_info->theirbase.htlc,
 					   &channel_info->theirbase.delayed_payment,
 					   &channel_info->remote_per_commit,
 					   &channel_info->remote_fundingkey,
@@ -2298,8 +2300,6 @@ static void opening_fundee_finished(struct subd *opening,
 				    tal_hex(reply, reply));
 		return;
 	}
-	/* FIXME */
-	channel_info->theirbase.htlc = channel_info->theirbase.payment;
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
