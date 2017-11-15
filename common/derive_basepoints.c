@@ -22,6 +22,8 @@ bool derive_basepoints(const struct privkey *seed,
 		secrets->funding_privkey = keys.f;
 		secrets->revocation_basepoint_secret = keys.r.secret;
 		secrets->payment_basepoint_secret = keys.p.secret;
+		/* We currently make htlc_basepoint_secret the same */
+		secrets->htlc_basepoint_secret = keys.p.secret;
 		secrets->delayed_payment_basepoint_secret = keys.d.secret;
 	}
 
@@ -32,6 +34,7 @@ bool derive_basepoints(const struct privkey *seed,
 
 	if (basepoints) {
 		if (!pubkey_from_privkey(&keys.r, &basepoints->revocation)
+		    || !pubkey_from_privkey(&keys.p, &basepoints->htlc)
 		    || !pubkey_from_privkey(&keys.p, &basepoints->payment)
 		    || !pubkey_from_privkey(&keys.d, &basepoints->delayed_payment))
 			return false;

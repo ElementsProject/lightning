@@ -1140,6 +1140,8 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				  const struct pubkey *remote_revocation_basepoint,
 				  const struct pubkey *remote_payment_basepoint,
 				  const struct pubkey *local_payment_basepoint,
+				  const struct pubkey *remote_htlc_basepoint,
+				  const struct pubkey *local_htlc_basepoint,
 				  const struct pubkey *local_delayed_payment_basepoint,
 				  u64 commit_num,
 				  const struct htlc_stub *htlcs,
@@ -1180,6 +1182,8 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 	if (!derive_keyset(&local_per_commitment_point,
 			   local_payment_basepoint,
 			   remote_payment_basepoint,
+			   local_htlc_basepoint,
+			   remote_htlc_basepoint,
 			   local_delayed_payment_basepoint,
 			   remote_revocation_basepoint,
 			   ks))
@@ -1191,7 +1195,9 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 		     " self_revocation_key: %s"
 		     " self_delayed_payment_key: %s"
 		     " self_payment_key: %s"
-		     " other_payment_key: %s",
+		     " other_payment_key: %s"
+		     " self_htlc_key: %s"
+		     " other_htlc_key: %s",
 		     commit_num,
 		     type_to_string(trc, struct pubkey,
 				    &keyset->self_revocation_key),
@@ -1200,7 +1206,11 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 		     type_to_string(trc, struct pubkey,
 				    &keyset->self_payment_key),
 		     type_to_string(trc, struct pubkey,
-				    &keyset->other_payment_key));
+				    &keyset->other_payment_key),
+		     type_to_string(trc, struct pubkey,
+				    &keyset->self_htlc_key),
+		     type_to_string(trc, struct pubkey,
+				    &keyset->other_htlc_key));
 
 	if (!derive_simple_privkey(&secrets->delayed_payment_basepoint_secret,
 				   local_delayed_payment_basepoint,
@@ -1422,6 +1432,8 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 			       const struct pubkey *local_revocation_basepoint,
 			       const struct pubkey *local_payment_basepoint,
 			       const struct pubkey *remote_payment_basepoint,
+			       const struct pubkey *remote_htlc_basepoint,
+			       const struct pubkey *local_htlc_basepoint,
 			       const struct pubkey *remote_delayed_payment_basepoint,
 			       u64 commit_num,
 			       const struct htlc_stub *htlcs,
@@ -1468,6 +1480,8 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		     ": per_commit_point=%s"
 		     " self_payment_basepoint=%s"
 		     " other_payment_basepoint=%s"
+		     " self_htlc_basepoint=%s"
+		     " other_htlc_basepoint=%s"
 		     " self_delayed_basepoint=%s"
 		     " other_revocation_basepoint=%s",
 		     commit_num,
@@ -1478,6 +1492,10 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		     type_to_string(trc, struct pubkey,
 				    local_payment_basepoint),
 		     type_to_string(trc, struct pubkey,
+				    remote_htlc_basepoint),
+		     type_to_string(trc, struct pubkey,
+				    local_htlc_basepoint),
+		     type_to_string(trc, struct pubkey,
 				    remote_delayed_payment_basepoint),
 		     type_to_string(trc, struct pubkey,
 				    local_revocation_basepoint));
@@ -1487,6 +1505,8 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 	if (!derive_keyset(&per_commitment_point,
 			   remote_payment_basepoint,
 			   local_payment_basepoint,
+			   local_htlc_basepoint,
+			   remote_htlc_basepoint,
 			   remote_delayed_payment_basepoint,
 			   local_revocation_basepoint,
 			   ks))
@@ -1498,7 +1518,9 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		     " self_revocation_key: %s"
 		     " self_delayed_payment_key: %s"
 		     " self_payment_key: %s"
-		     " other_payment_key: %s",
+		     " other_payment_key: %s"
+		     " self_htlc_key: %s"
+		     " other_htlc_key: %s",
 		     commit_num,
 		     type_to_string(trc, struct pubkey,
 				    &keyset->self_revocation_key),
@@ -1507,7 +1529,11 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 		     type_to_string(trc, struct pubkey,
 				    &keyset->self_payment_key),
 		     type_to_string(trc, struct pubkey,
-				    &keyset->other_payment_key));
+				    &keyset->other_payment_key),
+		     type_to_string(trc, struct pubkey,
+				    &keyset->self_htlc_key),
+		     type_to_string(trc, struct pubkey,
+				    &keyset->other_htlc_key));
 
 	revocation_privkey = tal(tx, struct privkey);
 	if (!derive_revocation_privkey(&secrets->revocation_basepoint_secret,
@@ -1670,6 +1696,8 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 				    const struct pubkey *local_revocation_basepoint,
 				    const struct pubkey *local_payment_basepoint,
 				    const struct pubkey *remote_payment_basepoint,
+				    const struct pubkey *remote_htlc_basepoint,
+				    const struct pubkey *local_htlc_basepoint,
 				    const struct pubkey *remote_delayed_payment_basepoint,
 				    u64 commit_num,
 				    const struct htlc_stub *htlcs,
@@ -1701,6 +1729,8 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		     ": per_commit_point=%s"
 		     " self_payment_basepoint=%s"
 		     " other_payment_basepoint=%s"
+		     " self_htlc_basepoint=%s"
+		     " other_htlc_basepoint=%s"
 		     " self_delayed_basepoint=%s"
 		     " other_revocation_basepoint=%s",
 		     commit_num,
@@ -1711,6 +1741,10 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		     type_to_string(trc, struct pubkey,
 				    local_payment_basepoint),
 		     type_to_string(trc, struct pubkey,
+				    remote_htlc_basepoint),
+		     type_to_string(trc, struct pubkey,
+				    local_htlc_basepoint),
+		     type_to_string(trc, struct pubkey,
 				    remote_delayed_payment_basepoint),
 		     type_to_string(trc, struct pubkey,
 				    local_revocation_basepoint));
@@ -1720,6 +1754,8 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 	if (!derive_keyset(remote_per_commitment_point,
 			   remote_payment_basepoint,
 			   local_payment_basepoint,
+			   remote_htlc_basepoint,
+			   local_htlc_basepoint,
 			   remote_delayed_payment_basepoint,
 			   local_revocation_basepoint,
 			   ks))
@@ -1731,7 +1767,9 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		     " self_revocation_key: %s"
 		     " self_delayed_payment_key: %s"
 		     " self_payment_key: %s"
-		     " other_payment_key: %s",
+		     " other_payment_key: %s"
+		     " self_htlc_key: %s"
+		     " other_htlc_key: %s",
 		     commit_num,
 		     type_to_string(trc, struct pubkey,
 				    &keyset->self_revocation_key),
@@ -1740,7 +1778,11 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 		     type_to_string(trc, struct pubkey,
 				    &keyset->self_payment_key),
 		     type_to_string(trc, struct pubkey,
-				    &keyset->other_payment_key));
+				    &keyset->other_payment_key),
+		     type_to_string(trc, struct pubkey,
+				    &keyset->self_htlc_key),
+		     type_to_string(trc, struct pubkey,
+				    &keyset->other_htlc_key));
 
 	if (!derive_simple_privkey(&secrets->payment_basepoint_secret,
 				   local_payment_basepoint,
@@ -1865,7 +1907,7 @@ int main(int argc, char *argv[])
 	const tal_t *ctx = tal_tmpctx(NULL);
 	u8 *msg;
 	struct privkey seed;
-	struct pubkey remote_payment_basepoint,
+	struct pubkey remote_payment_basepoint, remote_htlc_basepoint,
 		remote_per_commit_point, old_remote_per_commit_point,
 		remote_revocation_basepoint, remote_delayed_payment_basepoint;
 	enum side funder;
@@ -1924,6 +1966,7 @@ int main(int argc, char *argv[])
 				   &num_htlcs)) {
 		master_badmsg(WIRE_ONCHAIN_INIT, msg);
 	}
+	remote_htlc_basepoint = remote_payment_basepoint;
 	derive_basepoints(&seed, NULL, &basepoints, &secrets, &shaseed);
 	bitcoin_txid(tx, &txid);
 
@@ -1994,6 +2037,8 @@ int main(int argc, char *argv[])
 					      &remote_revocation_basepoint,
 					      &remote_payment_basepoint,
 					      &basepoints.payment,
+					      &remote_htlc_basepoint,
+					      &basepoints.htlc,
 					      &basepoints.delayed_payment,
 					      commit_num,
 					      htlcs,
@@ -2017,6 +2062,8 @@ int main(int argc, char *argv[])
 					   &basepoints.revocation,
 					   &basepoints.payment,
 					   &remote_payment_basepoint,
+					   &basepoints.htlc,
+					   &remote_htlc_basepoint,
 					   &remote_delayed_payment_basepoint,
 					   commit_num,
 					   htlcs,
@@ -2039,6 +2086,8 @@ int main(int argc, char *argv[])
 						&basepoints.revocation,
 						&basepoints.payment,
 						&remote_payment_basepoint,
+						&basepoints.htlc,
+						&remote_htlc_basepoint,
 						&remote_delayed_payment_basepoint,
 						commit_num,
 						htlcs,
@@ -2053,6 +2102,8 @@ int main(int argc, char *argv[])
 						&basepoints.revocation,
 						&basepoints.payment,
 						&remote_payment_basepoint,
+						&basepoints.htlc,
+						&remote_htlc_basepoint,
 						&remote_delayed_payment_basepoint,
 						commit_num,
 						htlcs,

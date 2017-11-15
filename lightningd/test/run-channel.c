@@ -388,6 +388,10 @@ int main(void)
 	localbase.payment = pubkey_from_hex("034f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa");
 	remotebase.payment = pubkey_from_hex("032c0b7cf95324a07d05398b240174dc0c2be444d96b159aa6c7f7b1e668680991");
 
+	/* FIXME: Update bolt */
+	localbase.htlc = localbase.payment;
+	remotebase.htlc = remotebase.payment;
+
 	/* We put unknown in for some things; valgrind will warn if used. */
 	localbase.revocation = *unknown;
 	remotebase.delayed_payment = *unknown;
@@ -451,6 +455,10 @@ int main(void)
 	keyset.other_payment_key = pubkey_from_hex("0394854aa6eab5b2a8122cc726e9dded053a2184d88256816826d6231c068d4a5b");
 	keyset.self_delayed_payment_key = pubkey_from_hex("03fd5960528dc152014952efdb702a88f71e3c1653b2314431701ec77e57fde83c");
 	keyset.self_revocation_key = pubkey_from_hex("0212a140cd0c6539d07cd08dfe09984dec3251ea808b892efeac3ede9402bf2b19");
+
+	/* FIXME: Update bolt */
+	keyset.self_htlc_key = keyset.self_payment_key;
+	keyset.other_htlc_key = keyset.other_payment_key;
 
 	raw_tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 			   funding_amount_satoshi,
