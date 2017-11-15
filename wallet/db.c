@@ -58,6 +58,7 @@ char *dbmigrations[] = {
     "  fundingkey_remote BLOB,"
     "  revocation_basepoint_remote BLOB,"
     "  payment_basepoint_remote BLOB,"
+    "  htlc_basepoint_remote BLOB,"
     "  delayed_payment_basepoint_remote BLOB,"
     "  per_commit_remote BLOB,"
     "  old_per_commit_remote BLOB,"
