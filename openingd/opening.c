@@ -269,7 +269,7 @@ static u8 *funder_channel(struct state *state,
 	/* BOLT #2:
 	 *
 	 * The receiver MUST fail the channel if `funding_pubkey`,
-	 * `revocation_basepoint`, `payment_basepoint` or
+	 * `revocation_basepoint`, `htlc_basepoint`, `payment_basepoint` or
 	 * `delayed_payment_basepoint` are not valid DER-encoded compressed
 	 * secp256k1 pubkeys.
 	 */
@@ -290,6 +290,9 @@ static u8 *funder_channel(struct state *state,
 				     &state->next_per_commit[REMOTE]))
 		peer_failed(PEER_FD, &state->cs, &state->channel_id,
 			    "Parsing accept_channel %s", tal_hex(msg, msg));
+
+	/* FIXME */
+	theirs.htlc = theirs.payment;
 
 	/* BOLT #2:
 	 *
@@ -471,7 +474,7 @@ static u8 *fundee_channel(struct state *state,
 	/* BOLT #2:
 	 *
 	 * The receiver MUST fail the channel if `funding_pubkey`,
-	 * `revocation_basepoint`, `payment_basepoint` or
+	 * `revocation_basepoint`, `htlc_basepoint`, `payment_basepoint` or
 	 * `delayed_payment_basepoint` are not valid DER-encoded compressed
 	 * secp256k1 pubkeys.
 	 */
@@ -494,6 +497,9 @@ static u8 *fundee_channel(struct state *state,
 		peer_failed(PEER_FD, &state->cs, NULL,
 			    "Bad open_channel %s",
 			    tal_hex(peer_msg, peer_msg));
+
+	/* FIXME */
+	theirs.htlc = theirs.payment;
 
 	/* BOLT #2:
 	 *
