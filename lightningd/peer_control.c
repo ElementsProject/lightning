@@ -1746,21 +1746,24 @@ void peer_last_tx(struct peer *peer, struct bitcoin_tx *tx,
 	peer->last_tx = tal_steal(peer, tx);
 }
 
+static u64 get_txfee(const struct peer *peer, const struct bitcoin_tx *tx)
+{
+	u64 fee = peer->funding_satoshi;
+	for (size_t i = 0; i < tal_count(tx->output); i++)
+		fee -= tx->output[i].amount;
+
+	return fee;
+}
+
 /* Is this better than the last tx we were holding? */
 static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 {
 	u64 weight, fee, last_fee, ideal_fee, min_fee;
 	s64 old_diff, new_diff;
-	size_t i;
 
 	/* Calculate actual fee. */
-	fee = peer->funding_satoshi;
-	for (i = 0; i < tal_count(tx->output); i++)
-		fee -= tx->output[i].amount;
-
-	last_fee = peer->funding_satoshi;
-	for (i = 0; i < tal_count(peer->last_tx); i++)
-		last_fee -= peer->last_tx->output[i].amount;
+	fee = get_txfee(peer, tx);
+	last_fee = get_txfee(peer, peer->last_tx);
 
 	/* Weight once we add in sigs. */
 	weight = measure_tx_cost(tx) + 74 * 2;
@@ -1886,6 +1889,17 @@ static void peer_start_closingd(struct peer *peer,
 	}
 
 	maxfee = commit_tx_base_fee(get_feerate(peer->ld->topology), 0);
+
+	/* BOLT #2:
+	 *
+	 * A sending node MUST set `fee_satoshis` lower than or equal
+	 * to the base fee of the final commitment transaction as
+	 * calculated in [BOLT
+	 * #3](03-transactions.md#fee-calculation).
+	 */
+	if (maxfee > get_txfee(peer, peer->last_tx))
+		maxfee = get_txfee(peer, peer->last_tx);
+
 	/* FIXME: Real fees! */
 	minfee = maxfee / 2;
 	startfee = (maxfee + minfee)/2;
