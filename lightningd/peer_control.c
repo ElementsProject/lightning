@@ -1885,7 +1885,15 @@ static void peer_start_closingd(struct peer *peer,
 		return;
 	}
 
-	maxfee = commit_tx_base_fee(get_feerate(peer->ld->topology), 0);
+	/* BOLT #2:
+	 *
+	 * A sending node MUST set `fee_satoshis` lower than or equal
+	 * to the base fee of the final commitment transaction as
+	 * calculated in [BOLT
+	 * #3](03-transactions.md#fee-calculation).
+	 */
+	maxfee = commit_tx_base_fee(peer->channel_info->feerate_per_kw, 0);
+
 	/* FIXME: Real fees! */
 	minfee = maxfee / 2;
 	startfee = (maxfee + minfee)/2;
