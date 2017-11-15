@@ -42,8 +42,8 @@ static u32 to_self_delay[NUM_SIDES];
 /* Where we send money to (our wallet) */
 static struct pubkey our_wallet_pubkey;
 
-/* Private keys for spending HTLC outputs via HTLC txs, and directly. */
-static struct privkey delayed_payment_privkey, payment_privkey;
+/* Private keys for spending HTLC outputs via HTLC txs, delayed, and directly. */
+static struct privkey htlc_privkey, delayed_payment_privkey, payment_privkey;
 
 /* Private keys for spending HTLC for penalty (only if they cheated). */
 static struct privkey *revocation_privkey;
@@ -175,7 +175,7 @@ static bool grind_feerate(struct bitcoin_tx *commit_tx,
 		prev_fee = fee;
 		commit_tx->output[0].amount = input_amount - fee;
 		if (!check_tx_sig(commit_tx, 0, NULL, wscript,
-				  &keyset->other_payment_key, remotesig))
+				  &keyset->other_htlc_key, remotesig))
 			continue;
 
 		narrow_feerate_range(fee, multiplier);
@@ -207,8 +207,8 @@ static const char *output_type_name(enum output_type output_type)
 /*
  * This covers:
  * 1. to-us output spend (`<local_delayedsig> 0`)
- * 2. the their-commitment, our HTLC timeout case (`<remotesig> 0`),
- * 3. the their-commitment, our HTLC redeem case (`<remotesig> <payment_preimage>`)
+ * 2. the their-commitment, our HTLC timeout case (`<remotehtlcsig> 0`),
+ * 3. the their-commitment, our HTLC redeem case (`<remotehtlcsig> <payment_preimage>`)
  * 4. the their-revoked-commitment, to-local (`<revocation_sig> 1`)
  * 5. the their-revoked-commitment, htlc (`<revocation_sig> <revocationkey>`)
  */
@@ -527,7 +527,7 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 		 *
 		 * ## HTLC-Timeout and HTLC-Success Transactions
 		 *
-		 * ...  `txin[0]` witness stack: `0 <remotesig> <localsig>
+		 * ...  `txin[0]` witness stack: `0 <remotehtlcsig> <localhtlcsig>
 		 * <payment_preimage>` for HTLC-Success
 		 */
 		if (tal_count(tx->input[0].witness) != 5) /* +1 for wscript */
@@ -543,7 +543,7 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 		 *
 		 * The remote node can redeem the HTLC with the witness:
 		 *
-		 *    <remotesig> <payment_preimage>
+		 *    <remotehtlcsig> <payment_preimage>
 		 */
 		if (tal_count(tx->input[0].witness) != 3) /* +1 for wscript */
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -876,8 +876,8 @@ static void handle_preimage(struct tracked_output **outs,
 					     feerate_per_kw,
 					     keyset);
 			sign_tx_input(tx, 0, NULL, outs[i]->wscript,
-				      &payment_privkey,
-				      &keyset->self_payment_key,
+				      &htlc_privkey,
+				      &keyset->self_htlc_key,
 				      &sig);
 			tx->input[0].witness
 				= bitcoin_witness_htlc_success_tx(tx->input,
@@ -895,8 +895,8 @@ static void handle_preimage(struct tracked_output **outs,
 			tx = tx_to_us(outs[i], outs[i], 0, 0,
 				      preimage, sizeof(*preimage),
 				      outs[i]->wscript,
-				      &payment_privkey,
-				      &keyset->other_payment_key);
+				      &htlc_privkey,
+				      &keyset->other_htlc_key);
 			propose_resolution(outs[i], tx, 0,
 					   THEIR_HTLC_FULFILL_TO_US);
 		}
@@ -1026,8 +1026,8 @@ static void resolve_our_htlc_ourcommit(struct tracked_output *out)
 			      " HTLC timeout between %u and %u",
 			      feerate_range.min, feerate_range.max);
 
-	sign_tx_input(tx, 0, NULL, out->wscript, &payment_privkey,
-		      &keyset->self_payment_key, &localsig);
+	sign_tx_input(tx, 0, NULL, out->wscript, &htlc_privkey,
+		      &keyset->self_htlc_key, &localsig);
 
 	tx->input[0].witness
 		= bitcoin_witness_htlc_timeout_tx(tx->input,
@@ -1057,8 +1057,8 @@ static void resolve_our_htlc_theircommit(struct tracked_output *out)
 	 */
 	tx = tx_to_us(out, out, 0, out->htlc->cltv_expiry, NULL, 0,
 		      out->wscript,
-		      &payment_privkey,
-		      &keyset->other_payment_key);
+		      &htlc_privkey,
+		      &keyset->other_htlc_key);
 
 	propose_resolution_at_block(out, tx, out->htlc->cltv_expiry,
 				    OUR_HTLC_TIMEOUT_TO_US);
@@ -1226,6 +1226,14 @@ static void handle_our_unilateral(const struct bitcoin_tx *tx,
 				   &payment_privkey))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving payment_privkey for %"PRIu64,
+			      commit_num);
+
+	if (!derive_simple_privkey(&secrets->htlc_basepoint_secret,
+				   local_htlc_basepoint,
+				   &local_per_commitment_point,
+				   &htlc_privkey))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Deriving htlc_privkey for %"PRIu64,
 			      commit_num);
 
 	local_wscript = to_self_wscript(tmpctx, to_self_delay[LOCAL], keyset);
@@ -1792,6 +1800,14 @@ static void handle_their_unilateral(const struct bitcoin_tx *tx,
 			      "Deriving local_delayeprivkey for %"PRIu64,
 			      commit_num);
 
+	if (!derive_simple_privkey(&secrets->htlc_basepoint_secret,
+				   local_htlc_basepoint,
+				   remote_per_commitment_point,
+				   &htlc_privkey))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Deriving htlc_privkey for %"PRIu64,
+			      commit_num);
+
 	remote_wscript = to_self_wscript(tmpctx, to_self_delay[REMOTE], keyset);
 
 	/* Figure out what to-them output looks like. */
@@ -2086,8 +2102,8 @@ int main(int argc, char *argv[])
 						&basepoints.revocation,
 						&basepoints.payment,
 						&remote_payment_basepoint,
-						&basepoints.htlc,
 						&remote_htlc_basepoint,
+						&basepoints.htlc,
 						&remote_delayed_payment_basepoint,
 						commit_num,
 						htlcs,
@@ -2102,8 +2118,8 @@ int main(int argc, char *argv[])
 						&basepoints.revocation,
 						&basepoints.payment,
 						&remote_payment_basepoint,
-						&basepoints.htlc,
 						&remote_htlc_basepoint,
+						&basepoints.htlc,
 						&remote_delayed_payment_basepoint,
 						commit_num,
 						htlcs,
