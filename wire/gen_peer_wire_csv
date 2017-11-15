@@ -102,6 +102,8 @@ channel_reestablish,136
 channel_reestablish,0,channel_id,32
 channel_reestablish,32,next_local_commitment_number,8
 channel_reestablish,40,next_remote_revocation_number,8
+channel_reestablish,48,your_last_per_commitment_secret,32,option-data-loss-protect
+channel_reestablish,80,my_current_per_commitment_point,33,option-data-loss-protect
 announcement_signatures,259
 announcement_signatures,0,channel_id,32
 announcement_signatures,32,short_channel_id,8

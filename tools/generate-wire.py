@@ -396,13 +396,13 @@ def find_message(messages, name):
     return None
 
 def find_message_with_option(messages, optional_messages, name, option):
-    fullname = name + "_" + option;
+    fullname = name + "_" + option.replace('-', '_')
 
     base = find_message(messages, name)
     if not base:
         raise ValueError('Unknown message {}'.format(name))
 
-    m = find_message(optional_messages, name)
+    m = find_message(optional_messages, fullname)
     if not m:
         # Add a new option.
         m = copy.deepcopy(base)
