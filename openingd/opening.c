@@ -253,6 +253,7 @@ static u8 *funder_channel(struct state *state,
 				  &ours->revocation,
 				  &ours->payment,
 				  &ours->delayed_payment,
+				  &ours->htlc,
 				  &state->next_per_commit[LOCAL],
 				  channel_flags);
 	if (!sync_crypto_write(&state->cs, PEER_FD, msg))
@@ -287,12 +288,10 @@ static u8 *funder_channel(struct state *state,
 				     &theirs.revocation,
 				     &theirs.payment,
 				     &theirs.delayed_payment,
+				     &theirs.htlc,
 				     &state->next_per_commit[REMOTE]))
 		peer_failed(PEER_FD, &state->cs, &state->channel_id,
 			    "Parsing accept_channel %s", tal_hex(msg, msg));
-
-	/* FIXME */
-	theirs.htlc = theirs.payment;
 
 	/* BOLT #2:
 	 *
@@ -493,14 +492,12 @@ static u8 *fundee_channel(struct state *state,
 				   &theirs.revocation,
 				   &theirs.payment,
 				   &theirs.delayed_payment,
+				   &theirs.htlc,
 				   &state->next_per_commit[REMOTE],
 				   &channel_flags))
 		peer_failed(PEER_FD, &state->cs, NULL,
 			    "Bad open_channel %s",
 			    tal_hex(peer_msg, peer_msg));
-
-	/* FIXME */
-	theirs.htlc = theirs.payment;
 
 	/* BOLT #2:
 	 *
@@ -567,6 +564,7 @@ static u8 *fundee_channel(struct state *state,
 				    &ours->revocation,
 				    &ours->payment,
 				    &ours->delayed_payment,
+				    &ours->htlc,
 				    &state->next_per_commit[LOCAL]);
 
 	if (!sync_crypto_write(&state->cs, PEER_FD, take(msg)))
