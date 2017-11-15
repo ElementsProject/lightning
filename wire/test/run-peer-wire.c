@@ -109,6 +109,7 @@ struct msg_accept_channel {
 	struct pubkey revocation_basepoint;
 	struct pubkey payment_basepoint;
 	struct pubkey delayed_payment_basepoint;
+	struct pubkey htlc_basepoint;
 	struct pubkey first_per_commitment_point;
 };
 struct msg_update_fulfill_htlc {
@@ -180,6 +181,7 @@ struct msg_open_channel {
 	struct pubkey revocation_basepoint;
 	struct pubkey payment_basepoint;
 	struct pubkey delayed_payment_basepoint;
+	struct pubkey htlc_basepoint;
 	struct pubkey first_per_commitment_point;
 	u8 channel_flags;
 };
@@ -273,6 +275,7 @@ static void *towire_struct_open_channel(const tal_t *ctx,
 				   &s->revocation_basepoint,
 				   &s->payment_basepoint,
 				   &s->delayed_payment_basepoint,
+				   &s->htlc_basepoint,
 				   &s->first_per_commitment_point,
 				   s->channel_flags);
 }
@@ -297,6 +300,7 @@ static struct msg_open_channel *fromwire_struct_open_channel(const tal_t *ctx, c
 				  &s->revocation_basepoint,
 				  &s->payment_basepoint,
 				  &s->delayed_payment_basepoint,
+				  &s->htlc_basepoint,
 				  &s->first_per_commitment_point,
 				  &s->channel_flags))
 		return s;
@@ -318,6 +322,7 @@ static void *towire_struct_accept_channel(const tal_t *ctx,
 				     &s->funding_pubkey,
 				     &s->revocation_basepoint,
 				     &s->payment_basepoint,
+				     &s->htlc_basepoint,
 				     &s->delayed_payment_basepoint,
 				     &s->first_per_commitment_point);
 }
@@ -338,6 +343,7 @@ static struct msg_accept_channel *fromwire_struct_accept_channel(const tal_t *ct
 				    &s->funding_pubkey,
 				    &s->revocation_basepoint,
 				    &s->payment_basepoint,
+				    &s->htlc_basepoint,
 				    &s->delayed_payment_basepoint,
 				    &s->first_per_commitment_point))
 		return s;
@@ -1025,6 +1031,7 @@ int main(void)
 	set_pubkey(&oc.revocation_basepoint);
 	set_pubkey(&oc.payment_basepoint);
 	set_pubkey(&oc.delayed_payment_basepoint);
+	set_pubkey(&oc.htlc_basepoint);
 	set_pubkey(&oc.first_per_commitment_point);
 
 	msg = towire_struct_open_channel(ctx, &oc);
@@ -1048,6 +1055,7 @@ int main(void)
 	set_pubkey(&ac.revocation_basepoint);
 	set_pubkey(&ac.payment_basepoint);
 	set_pubkey(&ac.delayed_payment_basepoint);
+	set_pubkey(&ac.htlc_basepoint);
 	set_pubkey(&ac.first_per_commitment_point);
 
 	msg = towire_struct_accept_channel(ctx, &ac);

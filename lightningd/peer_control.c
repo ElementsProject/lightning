@@ -442,7 +442,8 @@ static bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 				  &ignored_u16, &ignored_u16,
 				  &ignored_pubkey, &ignored_pubkey,
 				  &ignored_pubkey, &ignored_pubkey,
-				  &ignored_pubkey, &ignored_u8))
+				  &ignored_pubkey, &ignored_pubkey,
+				  &ignored_u8))
 		return true;
 	return false;
 }
