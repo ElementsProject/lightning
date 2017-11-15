@@ -242,6 +242,8 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	if (!derive_keyset(per_commitment_point,
 			   &channel->basepoints[side].payment,
 			   &channel->basepoints[!side].payment,
+			   &channel->basepoints[side].htlc,
+			   &channel->basepoints[!side].htlc,
 			   &channel->basepoints[side].delayed_payment,
 			   &channel->basepoints[!side].revocation,
 			   &keyset))

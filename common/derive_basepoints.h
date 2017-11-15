@@ -12,6 +12,7 @@ struct sha256;
 struct basepoints {
 	struct pubkey revocation;
 	struct pubkey payment;
+	struct pubkey htlc;
 	struct pubkey delayed_payment;
 };
 
@@ -19,6 +20,7 @@ struct secrets {
 	struct privkey funding_privkey;
 	struct secret revocation_basepoint_secret;
 	struct secret payment_basepoint_secret;
+	struct secret htlc_basepoint_secret;
 	struct secret delayed_payment_basepoint_secret;
 };
 
