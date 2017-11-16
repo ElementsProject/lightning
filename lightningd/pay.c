@@ -489,3 +489,46 @@ static const struct json_command pay_command = {
 	"Returns the {preimage} on success"
 };
 AUTODATA(json_command, &pay_command);
+
+static void json_listtransfers(struct command *cmd, const char *buffer,
+			       const jsmntok_t *params)
+{
+	const struct wallet_transfer **transfers;
+	struct json_result *response = new_json_result(cmd);
+
+	transfers = wallet_transfer_list(cmd, cmd->ld->wallet);
+
+	json_array_start(response, NULL);
+	for (int i=0; i<tal_count(transfers); i++) {
+		const struct wallet_transfer *t = transfers[i];
+		json_object_start(response, NULL);
+		json_add_u64(response, "id", t->id);
+		json_add_bool(response, "incoming", t->incoming);
+		json_add_hex(response, "payment_hash", &t->payment_hash, sizeof(t->payment_hash));
+		if (!t->incoming)
+			json_add_pubkey(response, "destination", t->destination);
+		json_add_u64(response, "msatoshi", t->msatoshi);
+		json_add_u64(response, "timestamp", t->timestamp);
+
+		switch (t->status) {
+		case TRANSFER_PENDING:
+			json_add_string(response, "status", "pending");
+		case TRANSFER_COMPLETE:
+			json_add_string(response, "status", "complete");
+		case TRANSFER_FAILED:
+			json_add_string(response, "status", "failed");
+		}
+
+		json_object_end(response);
+	}
+	json_array_end(response);
+	command_success(cmd, response);
+}
+
+static const struct json_command listtransfers_command = {
+	"listtransfers",
+	json_listtransfers,
+	"Get a list of incoming and outgoing transfers",
+	"Returns a list of transfers with {direction}, {payment_hash}, {destination} if outgoing and {amount}"
+};
+AUTODATA(json_command, &listtransfers_command);
