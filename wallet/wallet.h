@@ -407,4 +407,10 @@ void wallet_transfer_set_status(struct wallet *wallet,
 				const struct sha256 *payment_hash,
 				const enum wallet_transfer_status newstatus);
 
+/**
+ * wallet_transfer_list - Retrieve a list of transfers
+ */
+const struct wallet_transfer **wallet_transfer_list(const tal_t *ctx,
+						    struct wallet *wallet);
+
 #endif /* WALLET_WALLET_H */
