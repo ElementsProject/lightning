@@ -118,7 +118,7 @@ static void json_invoice(struct command *cmd,
 	struct invoices *invs = cmd->ld->invoices;
 	struct bolt11 *b11;
 	char *b11enc;
-	struct wallet_transfer transfer;
+	struct wallet_payment payment;
 
 	if (!json_get_params(buffer, params,
 			     "amount", &msatoshi,
@@ -197,17 +197,17 @@ static void json_invoice(struct command *cmd,
 	tal_steal(invs, invoice);
 	list_add_tail(&invs->invlist, &invoice->list);
 
-	/* Store the transfer so we can later show it in the history */
-	transfer.id = 0;
-	transfer.incoming = true;
-	transfer.payment_hash = invoice->rhash;
-	transfer.destination = NULL;
-	transfer.status = TRANSFER_PENDING;
-	transfer.msatoshi = invoice->msatoshi;
-	transfer.timestamp = b11->timestamp;
+	/* Store the payment so we can later show it in the history */
+	payment.id = 0;
+	payment.incoming = true;
+	payment.payment_hash = invoice->rhash;
+	payment.destination = NULL;
+	payment.status = PAYMENT_PENDING;
+	payment.msatoshi = invoice->msatoshi;
+	payment.timestamp = b11->timestamp;
 
-	if (!wallet_transfer_add(cmd->ld->wallet, &transfer)) {
-		command_fail(cmd, "Unable to record transfer in the database.");
+	if (!wallet_payment_add(cmd->ld->wallet, &payment)) {
+		command_fail(cmd, "Unable to record payment in the database.");
 		return;
 	}
 

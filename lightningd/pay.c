@@ -165,7 +165,7 @@ static void send_payment(struct command *cmd,
 	size_t i, n_hops = tal_count(route);
 	struct hop_data *hop_data = tal_arr(cmd, struct hop_data, n_hops);
 	struct pubkey *ids = tal_arr(cmd, struct pubkey, n_hops);
-	struct wallet_transfer transfer;
+	struct wallet_payment payment;
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	base_expiry = get_block_height(cmd->ld->topology) + 1;
@@ -223,19 +223,19 @@ static void send_payment(struct command *cmd,
 		log_add(cmd->ld->log, "... retrying");
 	}
 
-	/* If this is a new payment, then store the transfer so we can
+	/* If this is a new payment, then store the payment so we can
 	 * later show it in the history */
 	if (!pc) {
-		transfer.id = 0;
-		transfer.incoming = false;
-		transfer.payment_hash = *rhash;
-		transfer.destination = &ids[n_hops - 1];
-		transfer.status = TRANSFER_PENDING;
-		transfer.msatoshi = route[n_hops-1].amount;
-		transfer.timestamp = time_now().ts.tv_sec;
+		payment.id = 0;
+		payment.incoming = false;
+		payment.payment_hash = *rhash;
+		payment.destination = &ids[n_hops - 1];
+		payment.status = PAYMENT_PENDING;
+		payment.msatoshi = route[n_hops-1].amount;
+		payment.timestamp = time_now().ts.tv_sec;
 
-		if (!wallet_transfer_add(cmd->ld->wallet, &transfer)) {
-			command_fail(cmd, "Unable to record transfer in the database.");
+		if (!wallet_payment_add(cmd->ld->wallet, &payment)) {
+			command_fail(cmd, "Unable to record payment in the database.");
 			return;
 		}
 	}
