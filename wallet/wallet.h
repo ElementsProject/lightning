@@ -389,12 +389,12 @@ bool wallet_payment_add(struct wallet *wallet,
 			 struct wallet_payment *payment);
 
 /**
- * wallet_payment_by_payment_hash - Retrieve a specific payment
+ * wallet_payment_by_hash - Retrieve a specific payment
  *
  * Given the `payment_hash` retrieve the matching payment.
  */
 struct wallet_payment *
-wallet_payment_by_payment_hash(const tal_t *ctx, struct wallet *wallet,
+wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 				const struct sha256 *payment_hash);
 
 /**
