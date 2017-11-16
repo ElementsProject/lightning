@@ -105,8 +105,8 @@ void resolve_invoice(struct lightningd *ld, struct invoice *invoice)
 
 	wallet_invoice_save(ld->wallet, invoice);
 
-	/* Also mark the transfer in the history table as complete */
-	wallet_transfer_set_status(ld->wallet, &invoice->rhash, TRANSFER_COMPLETE);
+	/* Also mark the payment in the history table as complete */
+	wallet_payment_set_status(ld->wallet, &invoice->rhash, PAYMENT_COMPLETE);
 }
 
 static void json_invoice(struct command *cmd,
