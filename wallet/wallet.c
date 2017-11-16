@@ -1253,25 +1253,25 @@ void wallet_payment_set_status(struct wallet *wallet,
 	db_exec_prepared(wallet->db, stmt);
 }
 
-const struct wallet_transfer **wallet_transfer_list(const tal_t *ctx,
-						    struct wallet *wallet)
+const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
+						  struct wallet *wallet)
 {
-	const struct wallet_transfer **transfers;
+	const struct wallet_payment **payments;
 	sqlite3_stmt *stmt;
 
-	transfers = tal_arr(ctx, const struct wallet_transfer *, 0);
+	payments = tal_arr(ctx, const struct wallet_payment *, 0);
 	stmt = db_prepare(
 		wallet->db,
 		"SELECT id, status, direction, destination, "
 		"msatoshi , payment_hash, timestamp "
-		"FROM transfers;");
+		"FROM payments;");
 
 	for (int i = 0; sqlite3_step(stmt) == SQLITE_ROW; i++) {
-		tal_resize(&transfers, i+1);
-		transfers[i] = wallet_stmt2transfer(transfers, stmt);
+		tal_resize(&payments, i+1);
+		payments[i] = wallet_stmt2payment(payments, stmt);
 	}
 
 	sqlite3_finalize(stmt);
 
-	return transfers;
+	return payments;
 }

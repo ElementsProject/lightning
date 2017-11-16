@@ -408,9 +408,9 @@ void wallet_payment_set_status(struct wallet *wallet,
 				const enum wallet_payment_status newstatus);
 
 /**
- * wallet_transfer_list - Retrieve a list of transfers
+ * wallet_payment_list - Retrieve a list of payments
  */
-const struct wallet_transfer **wallet_transfer_list(const tal_t *ctx,
+const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
 						    struct wallet *wallet);
 
 #endif /* WALLET_WALLET_H */
