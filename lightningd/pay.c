@@ -489,3 +489,49 @@ static const struct json_command pay_command = {
 	"Returns the {preimage} on success"
 };
 AUTODATA(json_command, &pay_command);
+
+static void json_listpayments(struct command *cmd, const char *buffer,
+			       const jsmntok_t *params)
+{
+	const struct wallet_payment **payments;
+	struct json_result *response = new_json_result(cmd);
+
+	payments = wallet_payment_list(cmd, cmd->ld->wallet);
+
+	json_array_start(response, NULL);
+	for (int i=0; i<tal_count(payments); i++) {
+		const struct wallet_payment *t = payments[i];
+		json_object_start(response, NULL);
+		json_add_u64(response, "id", t->id);
+		json_add_bool(response, "incoming", t->incoming);
+		json_add_hex(response, "payment_hash", &t->payment_hash, sizeof(t->payment_hash));
+		if (!t->incoming)
+			json_add_pubkey(response, "destination", t->destination);
+		json_add_u64(response, "msatoshi", t->msatoshi);
+		json_add_u64(response, "timestamp", t->timestamp);
+
+		switch (t->status) {
+		case PAYMENT_PENDING:
+			json_add_string(response, "status", "pending");
+			break;
+		case PAYMENT_COMPLETE:
+			json_add_string(response, "status", "complete");
+			break;
+		case PAYMENT_FAILED:
+			json_add_string(response, "status", "failed");
+			break;
+		}
+
+		json_object_end(response);
+	}
+	json_array_end(response);
+	command_success(cmd, response);
+}
+
+static const struct json_command listpayments_command = {
+	"listpayments",
+	json_listpayments,
+	"Get a list of incoming and outgoing payments",
+	"Returns a list of payments with {direction}, {payment_hash}, {destination} if outgoing and {amount}"
+};
+AUTODATA(json_command, &listpayments_command);
