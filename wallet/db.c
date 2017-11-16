@@ -120,7 +120,7 @@ char *dbmigrations[] = {
     "  UNIQUE (label),"
     "  UNIQUE (payment_hash)"
     ");",
-    "CREATE TABLE transfers ("
+    "CREATE TABLE payments ("
     "  id INTEGER,"
     "  timestamp INTEGER,"
     "  status INTEGER,"
