@@ -490,17 +490,17 @@ static const struct json_command pay_command = {
 };
 AUTODATA(json_command, &pay_command);
 
-static void json_listtransfers(struct command *cmd, const char *buffer,
+static void json_listpayments(struct command *cmd, const char *buffer,
 			       const jsmntok_t *params)
 {
-	const struct wallet_transfer **transfers;
+	const struct wallet_payment **payments;
 	struct json_result *response = new_json_result(cmd);
 
-	transfers = wallet_transfer_list(cmd, cmd->ld->wallet);
+	payments = wallet_payment_list(cmd, cmd->ld->wallet);
 
 	json_array_start(response, NULL);
-	for (int i=0; i<tal_count(transfers); i++) {
-		const struct wallet_transfer *t = transfers[i];
+	for (int i=0; i<tal_count(payments); i++) {
+		const struct wallet_payment *t = payments[i];
 		json_object_start(response, NULL);
 		json_add_u64(response, "id", t->id);
 		json_add_bool(response, "incoming", t->incoming);
@@ -511,11 +511,11 @@ static void json_listtransfers(struct command *cmd, const char *buffer,
 		json_add_u64(response, "timestamp", t->timestamp);
 
 		switch (t->status) {
-		case TRANSFER_PENDING:
+		case PAYMENT_PENDING:
 			json_add_string(response, "status", "pending");
-		case TRANSFER_COMPLETE:
+		case PAYMENT_COMPLETE:
 			json_add_string(response, "status", "complete");
-		case TRANSFER_FAILED:
+		case PAYMENT_FAILED:
 			json_add_string(response, "status", "failed");
 		}
 
@@ -525,10 +525,10 @@ static void json_listtransfers(struct command *cmd, const char *buffer,
 	command_success(cmd, response);
 }
 
-static const struct json_command listtransfers_command = {
-	"listtransfers",
-	json_listtransfers,
-	"Get a list of incoming and outgoing transfers",
-	"Returns a list of transfers with {direction}, {payment_hash}, {destination} if outgoing and {amount}"
+static const struct json_command listpayments_command = {
+	"listpayments",
+	json_listpayments,
+	"Get a list of incoming and outgoing payments",
+	"Returns a list of payments with {direction}, {payment_hash}, {destination} if outgoing and {amount}"
 };
-AUTODATA(json_command, &listtransfers_command);
+AUTODATA(json_command, &listpayments_command);
