@@ -62,26 +62,26 @@ struct wallet_channel {
 	struct peer *peer;
 };
 
-/* Possible states for a wallet_transfer. Transfers start in
- * `PENDING`. Outgoing transfers are set to `TRANSFER_COMPLETE` once
+/* Possible states for a wallet_payment. Payments start in
+ * `PENDING`. Outgoing payments are set to `TRANSFER_COMPLETE` once
  * we get the preimage matching the rhash, or to
- * `TRANSFER_FAILED`. Incoming transfers are set to
+ * `TRANSFER_FAILED`. Incoming payments are set to
  * `TRANSFER_COMPLETE` once the matching invoice is marked as
  * complete, or `FAILED` otherwise.  */
 /* /!\ This is a DB ENUM, please do not change the numbering of any
  * already defined elements (adding is ok) /!\ */
-enum wallet_transfer_status {
-	TRANSFER_PENDING = 0,
-	TRANSFER_COMPLETE = 1,
-	TRANSFER_FAILED = 2
+enum wallet_payment_status {
+	PAYMENT_PENDING = 0,
+	PAYMENT_COMPLETE = 1,
+	PAYMENT_FAILED = 2
 };
 
-/* Incoming and outgoing transfers. A simple persisted representation
- * of a transfer we either initiated or received. This can be used by
+/* Incoming and outgoing payments. A simple persisted representation
+ * of a payment we either initiated or received. This can be used by
  * a UI to display the balance history. We explicitly exclude
- * forwarded transfers.
+ * forwarded payments.
  */
-struct wallet_transfer {
+struct wallet_payment {
 	u64 id;
 	u32 timestamp;
 	bool incoming;
