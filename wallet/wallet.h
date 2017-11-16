@@ -86,7 +86,7 @@ struct wallet_payment {
 	u32 timestamp;
 	bool incoming;
 	struct sha256 payment_hash;
-	enum wallet_transfer_status status;
+	enum wallet_payment_status status;
 	struct pubkey *destination;
 	u64 msatoshi;
 };
@@ -381,31 +381,31 @@ struct htlc_stub *wallet_htlc_stubs(tal_t *ctx, struct wallet *wallet,
 				    struct wallet_channel *chan);
 
 /**
- * wallet_transfer_add - Record a new incoming/outgoing transfer
+ * wallet_payment_add - Record a new incoming/outgoing payment
  *
- * Stores the transfer in the database.
+ * Stores the payment in the database.
  */
-bool wallet_transfer_add(struct wallet *wallet,
-			 struct wallet_transfer *transfer);
+bool wallet_payment_add(struct wallet *wallet,
+			 struct wallet_payment *payment);
 
 /**
- * wallet_transfer_by_payment_hash - Retrieve a specific transfer
+ * wallet_payment_by_payment_hash - Retrieve a specific payment
  *
- * Given the `payment_hash` retrieve the matching transfer.
+ * Given the `payment_hash` retrieve the matching payment.
  */
-struct wallet_transfer *
-wallet_transfer_by_payment_hash(const tal_t *ctx, struct wallet *wallet,
+struct wallet_payment *
+wallet_payment_by_payment_hash(const tal_t *ctx, struct wallet *wallet,
 				const struct sha256 *payment_hash);
 
 /**
- * wallet_transfer_set_status - Update the status of the transfer
+ * wallet_payment_set_status - Update the status of the payment
  *
- * Search for the transfer with the given `payment_hash` and update
+ * Search for the payment with the given `payment_hash` and update
  * its state.
  */
-void wallet_transfer_set_status(struct wallet *wallet,
+void wallet_payment_set_status(struct wallet *wallet,
 				const struct sha256 *payment_hash,
-				const enum wallet_transfer_status newstatus);
+				const enum wallet_payment_status newstatus);
 
 /**
  * wallet_transfer_list - Retrieve a list of transfers
