@@ -163,7 +163,7 @@ static bool grind_feerate(struct bitcoin_tx *commit_tx,
 	u64 input_amount = *commit_tx->input[0].amount;
 
 	for (s64 i = feerate_range.max; i >= feerate_range.min; i--) {
-		u64 fee = feerate_per_kw * multiplier / 1000;
+		u64 fee = i * multiplier / 1000;
 
 		if (fee > input_amount)
 			continue;
@@ -873,8 +873,25 @@ static void handle_preimage(struct tracked_output **outs,
 					     outs[i]->outnum,
 					     outs[i]->satoshi * 1000,
 					     to_self_delay[LOCAL],
-					     feerate_per_kw,
+					     0,
 					     keyset);
+			/* BOLT #3:
+			 *
+			 * The fee for an HTLC-success transaction MUST BE
+			 * calculated to match:
+			 *
+			 * 1. Multiply `feerate_per_kw` by 703 and divide by
+			 *    1000 (rounding down).
+			 */
+			if (!grind_feerate(tx, outs[i]->remote_htlc_sig,
+					   outs[i]->wscript, 703))
+				status_failed(STATUS_FAIL_INTERNAL_ERROR,
+					      "Could not find feerate for"
+					      " signature on HTLC success"
+					      " between %u and %u",
+					      feerate_range.min,
+					      feerate_range.max);
+
 			sign_tx_input(tx, 0, NULL, outs[i]->wscript,
 				      &htlc_privkey,
 				      &keyset->self_htlc_key,
