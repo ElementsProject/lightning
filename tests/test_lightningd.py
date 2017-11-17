@@ -253,6 +253,20 @@ class LightningDTests(BaseLightningDTests):
         decoded2=bitcoind.rpc.decoderawtransaction(tx)
         raise ValueError("Can't find {} payment in {} (1={} 2={})".format(amount, tx, decoded, decoded2))
 
+    def line_graph(self, n=2):
+        """Build a line graph of the specified length and fund it.
+        """
+        nodes = [self.node_factory.get_node() for _ in range(n)]
+
+        for i in range(len(nodes)-1):
+            nodes[i].rpc.connect(
+                nodes[i+1].info['id'],
+                'localhost:{}'.format(nodes[i+1].info['port'])
+            )
+            self.fund_channel(nodes[i], nodes[i+1], 10**6)
+
+        return nodes
+
     def pay(self, lsrc, ldst, amt, label=None, async=False):
         if not label:
             label = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
@@ -2180,6 +2194,26 @@ class LightningDTests(BaseLightningDTests):
         assert r['label'] == 'inv3'
 
         self.assertRaises(ValueError, l2.rpc.waitanyinvoice, 'doesntexist')
+
+
+    def test_channel_reenable(self):
+        l1, l2 = self.line_graph(n=2)
+
+        l1.bitcoin.rpc.generate(6)
+        l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l2.info['id']))
+        l2.daemon.wait_for_log('Received node_announcement for node {}'.format(l1.info['id']))
+
+        # Both directions should be active before the restart
+        assert [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True]
+
+        # Restart l2, will cause l1 to reconnect
+        l2.stop()
+        l2.daemon.start()
+
+        # Now they should sync and re-establish again
+        l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l2.info['id']))
+        l2.daemon.wait_for_log('Received node_announcement for node {}'.format(l1.info['id']))
+        assert [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True]
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
