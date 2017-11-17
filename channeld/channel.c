@@ -1513,7 +1513,7 @@ static void peer_reconnect(struct peer *peer)
 	bool retransmit_revoke_and_ack;
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
-	u8 *msg;
+	u8 *msg, *cupdate;
 
 	/* BOLT #2:
 	 *
@@ -1676,6 +1676,12 @@ again:
 		if (htlc->state == SENT_REMOVE_HTLC)
 			send_fail_or_fulfill(peer, htlc);
 	}
+
+	/* Reenable channel by sending a channel_update without the
+	 * disable flag */
+	cupdate = create_channel_update(peer, peer, false);
+	daemon_conn_send(&peer->gossip_client, cupdate);
+	msg_enqueue(&peer->peer_out, take(cupdate));
 }
 
 static void handle_funding_locked(struct peer *peer, const u8 *msg)
