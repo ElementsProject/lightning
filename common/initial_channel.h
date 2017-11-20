@@ -55,6 +55,9 @@ struct channel {
 	/* Do we have changes pending for ourselves/other? */
 	bool changes_pending[NUM_SIDES];
 
+	/* Are we waiting for their revoke_and_ack? */
+	bool awaiting_revoke_and_ack;
+
 	/* What it looks like to each side. */
 	struct channel_view view[NUM_SIDES];
 };

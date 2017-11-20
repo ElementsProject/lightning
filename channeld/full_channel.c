@@ -696,6 +696,8 @@ bool channel_sending_commit(struct channel *channel,
 	assert(change & HTLC_REMOTE_F_COMMITTED);
 	channel->changes_pending[REMOTE] = false;
 
+	assert(!channel->awaiting_revoke_and_ack);
+	channel->awaiting_revoke_and_ack = true;
 	return true;
 }
 
@@ -715,6 +717,9 @@ bool channel_rcvd_revoke_and_ack(struct channel *channel,
 	/* Their ack can queue changes on our side. */
 	if (change & HTLC_LOCAL_F_PENDING)
 		channel->changes_pending[LOCAL] = true;
+
+	assert(channel->awaiting_revoke_and_ack);
+	channel->awaiting_revoke_and_ack = false;
 
 	return change & HTLC_LOCAL_F_PENDING;
 }
@@ -762,25 +767,36 @@ bool channel_sending_revoke_and_ack(struct channel *channel)
 	return change & HTLC_REMOTE_F_PENDING;
 }
 
-/* FIXME: Trivial to optimize: set flag on channel_sending_commit,
- * clear in channel_rcvd_revoke_and_ack. */
-bool channel_awaiting_revoke_and_ack(const struct channel *channel)
+static bool htlc_awaiting_revoke_and_ack(const struct htlc *h)
 {
 	const enum htlc_state states[] = { SENT_ADD_COMMIT,
 					   SENT_REMOVE_ACK_COMMIT,
 					   SENT_ADD_ACK_COMMIT,
 					   SENT_REMOVE_COMMIT };
+
+	for (size_t i = 0; i < ARRAY_SIZE(states); i++) {
+		if (h->state == states[i]) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool channel_awaiting_revoke_and_ack(const struct channel *channel)
+{
 	struct htlc_map_iter it;
 	struct htlc *h;
-	size_t i;
 
+	/* FIXME: remove debugging iteration. */
 	for (h = htlc_map_first(channel->htlcs, &it);
 	     h;
 	     h = htlc_map_next(channel->htlcs, &it)) {
-		for (i = 0; i < ARRAY_SIZE(states); i++)
-			if (h->state == states[i])
-				return true;
+		if (htlc_awaiting_revoke_and_ack(h)) {
+			assert(channel->awaiting_revoke_and_ack);
+			return true;
+		}
 	}
+	assert(!channel->awaiting_revoke_and_ack);
 	return false;
 }
 
@@ -888,6 +904,8 @@ bool channel_force_htlcs(struct channel *channel,
 			return false;
 		}
 
+		if (htlc_awaiting_revoke_and_ack(htlc))
+			channel->awaiting_revoke_and_ack = true;
 	}
 
 	for (i = 0; i < tal_count(fulfilled); i++) {
