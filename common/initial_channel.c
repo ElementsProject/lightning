@@ -38,6 +38,8 @@ struct channel *new_initial_channel(const tal_t *ctx,
 	channel->funding_pubkey[LOCAL] = *local_funding_pubkey;
 	channel->funding_pubkey[REMOTE] = *remote_funding_pubkey;
 	channel->htlcs = NULL;
+	channel->changes_pending[LOCAL] = channel->changes_pending[REMOTE]
+		= false;
 
 	channel->view[LOCAL].feerate_per_kw
 		= channel->view[REMOTE].feerate_per_kw
