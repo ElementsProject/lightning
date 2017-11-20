@@ -1046,6 +1046,12 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 			    "Bad revoke_and_ack %s", tal_hex(msg, msg));
 	}
 
+	if (!channel_awaiting_revoke_and_ack(peer->channel))
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    "Unexpected revoke_and_ack");
+
 	/* BOLT #2:
 	 *
 	 * A receiving node MUST check that `per_commitment_secret` generates
