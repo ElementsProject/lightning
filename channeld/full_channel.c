@@ -280,7 +280,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 }
 
 static enum channel_add_err add_htlc(struct channel *channel,
-				     enum side sender,
+				     enum htlc_state state,
 				     u64 id, u64 msatoshi, u32 cltv_expiry,
 				     const struct sha256 *payment_hash,
 				     const u8 routing[TOTAL_PACKET_SIZE],
@@ -290,7 +290,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	const tal_t *tmpctx = tal_tmpctx(channel);
 	struct htlc *htlc, *old;
 	s64 msat_in_htlcs, fee_msat, balance_msat;
-	enum side recipient = !sender;
+	enum side sender = htlc_state_owner(state), recipient = !sender;
 	const struct htlc **committed, **adding, **removing;
 	enum channel_add_err e;
 	const struct channel_view *view;
@@ -298,13 +298,10 @@ static enum channel_add_err add_htlc(struct channel *channel,
 
 	htlc = tal(tmpctx, struct htlc);
 
-	if (sender == LOCAL)
-		htlc->state = SENT_ADD_HTLC;
-	else
-		htlc->state = RCVD_ADD_HTLC;
-
 	htlc->id = id;
 	htlc->msatoshi = msatoshi;
+	htlc->state = state;
+
 	/* FIXME: Change expiry to simple u32 */
 
 	/* BOLT #2:
@@ -454,6 +451,13 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	if (htlcp)
 		*htlcp = htlc;
 
+	/* This is simply setting changes_pending[receiver] unless it's
+	 * an exotic state (i.e. channel_force_htlcs) */
+	if (htlc_state_flags(htlc->state) & HTLC_LOCAL_F_PENDING)
+		channel->changes_pending[LOCAL] = true;
+	if (htlc_state_flags(htlc->state) & HTLC_REMOTE_F_PENDING)
+		channel->changes_pending[REMOTE] = true;
+
 out:
 	tal_free(tmpctx);
 	return e;
@@ -467,9 +471,16 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      const struct sha256 *payment_hash,
 				      const u8 routing[TOTAL_PACKET_SIZE])
 {
+	enum htlc_state state;
+
+	if (sender == LOCAL)
+		state = SENT_ADD_HTLC;
+	else
+		state = RCVD_ADD_HTLC;
+
 	/* FIXME: check expiry etc. against config. */
-	return add_htlc(channel, sender, id, msatoshi, cltv_expiry, payment_hash,
-			routing, NULL, true);
+	return add_htlc(channel, state, id, msatoshi, cltv_expiry,
+			payment_hash, routing, NULL, true);
 }
 
 struct htlc *channel_get_htlc(struct channel *channel, enum side sender, u64 id)
@@ -533,6 +544,9 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 			     htlc->id, htlc_state_name(htlc->state));
 		return CHANNEL_ERR_HTLC_NOT_IRREVOCABLE;
 	}
+	/* The HTLC owner is the recipient of the fulfillment. */
+	channel->changes_pending[owner] = true;
+
 	dump_htlc(htlc, "FULFILL:");
 
 	return CHANNEL_ERR_REMOVE_OK;
@@ -570,6 +584,9 @@ enum channel_remove_err channel_fail_htlc(struct channel *channel,
 			     htlc->id, htlc_state_name(htlc->state));
 		return CHANNEL_ERR_HTLC_NOT_IRREVOCABLE;
 	}
+	/* The HTLC owner is the recipient of the failure. */
+	channel->changes_pending[owner] = true;
+
 	dump_htlc(htlc, "FAIL:");
 
 	return CHANNEL_ERR_REMOVE_OK;
@@ -667,9 +684,19 @@ bool channel_sending_commit(struct channel *channel,
 					   SENT_ADD_REVOCATION,
 					   SENT_REMOVE_HTLC };
 	status_trace("Trying commit");
+
+	if (!channel->changes_pending[REMOTE]) {
+		assert(change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states),
+				    htlcs, "testing sending_commit") == 0);
+		return false;
+	}
+
 	change = change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states),
 			      htlcs, "sending_commit");
-	return change & HTLC_REMOTE_F_COMMITTED;
+	assert(change & HTLC_REMOTE_F_COMMITTED);
+	channel->changes_pending[REMOTE] = false;
+
+	return true;
 }
 
 bool channel_rcvd_revoke_and_ack(struct channel *channel,
@@ -684,6 +711,11 @@ bool channel_rcvd_revoke_and_ack(struct channel *channel,
 	status_trace("Received revoke_and_ack");
 	change = change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
 			      htlcs, "rcvd_revoke_and_ack");
+
+	/* Their ack can queue changes on our side. */
+	if (change & HTLC_LOCAL_F_PENDING)
+		channel->changes_pending[LOCAL] = true;
+
 	return change & HTLC_LOCAL_F_PENDING;
 }
 
@@ -697,8 +729,18 @@ bool channel_rcvd_commit(struct channel *channel, const struct htlc ***htlcs)
 					   RCVD_REMOVE_REVOCATION };
 
 	status_trace("Received commit");
+	if (!channel->changes_pending[LOCAL]) {
+		assert(change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
+				    htlcs, "testing rcvd_commit") == 0);
+		return false;
+	}
+
 	change = change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states), htlcs,
 			      "rcvd_commit");
+
+	assert(change & HTLC_LOCAL_F_COMMITTED);
+	channel->changes_pending[LOCAL] = false;
+
 	return change & HTLC_LOCAL_F_COMMITTED;
 }
 
@@ -712,6 +754,11 @@ bool channel_sending_revoke_and_ack(struct channel *channel)
 	status_trace("Sending revoke_and_ack");
 	change = change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states), NULL,
 			      "sending_revoke_and_ack");
+
+	/* Our ack can queue changes on their side. */
+	if (change & HTLC_REMOTE_F_PENDING)
+		channel->changes_pending[REMOTE] = true;
+
 	return change & HTLC_REMOTE_F_PENDING;
 }
 
@@ -829,7 +876,7 @@ bool channel_force_htlcs(struct channel *channel,
 			     type_to_string(trc, struct sha256,
 					    &htlcs[i].payment_hash));
 
-		e = add_htlc(channel, htlc_state_owner(hstates[i]),
+		e = add_htlc(channel, hstates[i],
 			     htlcs[i].id, htlcs[i].amount_msat,
 			     htlcs[i].cltv_expiry,
 			     &htlcs[i].payment_hash,
@@ -841,8 +888,6 @@ bool channel_force_htlcs(struct channel *channel,
 			return false;
 		}
 
-		/* Override state. */
-		htlc->state = hstates[i];
 	}
 
 	for (i = 0; i < tal_count(fulfilled); i++) {

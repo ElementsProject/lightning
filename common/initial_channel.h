@@ -52,6 +52,9 @@ struct channel {
 	/* All live HTLCs for this channel */
 	struct htlc_map *htlcs;
 
+	/* Do we have changes pending for ourselves/other? */
+	bool changes_pending[NUM_SIDES];
+
 	/* What it looks like to each side. */
 	struct channel_view view[NUM_SIDES];
 };
