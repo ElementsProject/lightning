@@ -49,7 +49,7 @@ make
 Running lightning:
 ```
 bitcoind &
-./lightningd &
+./lightningd/lightningd &
 ./cli/lightning-cli help
 ```
 **Note**: You may need to include `testnet=1` in `bitcoin.conf`
