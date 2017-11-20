@@ -161,7 +161,7 @@ static const struct htlc **include_htlcs(struct channel *channel, enum side side
 	ret = channel_sending_commit(channel, &changed_htlcs);
 	assert(ret);
 	ret = channel_rcvd_revoke_and_ack(channel, &changed_htlcs);
-	assert(!ret);
+	assert(ret);
 	ret = channel_rcvd_commit(channel, &changed_htlcs);
 	assert(ret);
 	ret = channel_sending_revoke_and_ack(channel);
@@ -257,7 +257,7 @@ static void send_and_fulfill_htlc(struct channel *channel,
 		ret = channel_sending_commit(channel, &changed_htlcs);
 		assert(ret);
 		ret = channel_rcvd_revoke_and_ack(channel, &changed_htlcs);
-		assert(!ret);
+		assert(ret);
 		ret = channel_rcvd_commit(channel, &changed_htlcs);
 		assert(ret);
 		ret = channel_sending_revoke_and_ack(channel);
@@ -288,7 +288,7 @@ static void send_and_fulfill_htlc(struct channel *channel,
 		ret = channel_sending_commit(channel, &changed_htlcs);
 		assert(ret);
 		ret = channel_rcvd_revoke_and_ack(channel, &changed_htlcs);
-		assert(!ret);
+		assert(ret);
 		ret = channel_rcvd_commit(channel, &changed_htlcs);
 		assert(ret);
 		ret = channel_sending_revoke_and_ack(channel);
