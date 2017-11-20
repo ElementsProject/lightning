@@ -684,7 +684,7 @@ bool channel_rcvd_revoke_and_ack(struct channel *channel,
 	status_trace("Received revoke_and_ack");
 	change = change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states),
 			      htlcs, "rcvd_revoke_and_ack");
-	return change & HTLC_LOCAL_F_COMMITTED;
+	return change & HTLC_LOCAL_F_PENDING;
 }
 
 /* FIXME: We can actually merge these two... */
