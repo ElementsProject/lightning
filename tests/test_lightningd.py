@@ -84,22 +84,23 @@ def breakpoint():
 class NodeFactory(object):
     """A factory to setup and start `lightningd` daemons.
     """
-    def __init__(self, func, executor):
-        self.func = func
+    def __init__(self, testname, bitcoind, executor):
+        self.testname = testname
         self.next_id = 1
         self.nodes = []
         self.executor = executor
+        self.bitcoind = bitcoind
 
     def get_node(self, disconnect=None, options=None, may_fail=False):
         node_id = self.next_id
         self.next_id += 1
 
         lightning_dir = os.path.join(
-            TEST_DIR, self.func._testMethodName, "lightning-{}/".format(node_id))
+            TEST_DIR, self.testname, "lightning-{}/".format(node_id))
 
         socket_path = os.path.join(lightning_dir, "lightning-rpc").format(node_id)
         port = 16330+node_id
-        daemon = utils.LightningD(lightning_dir, bitcoind.bitcoin_dir, port=port)
+        daemon = utils.LightningD(lightning_dir, self.bitcoind.bitcoin_dir, port=port)
         # If we have a disconnect string, dump it to a file for daemon.
         if disconnect:
             with open(os.path.join(lightning_dir, "dev_disconnect"), "w") as f:
@@ -114,7 +115,7 @@ class NodeFactory(object):
             daemon.cmd_line.append(opt)
         rpc = LightningRpc(socket_path, self.executor)
 
-        node = utils.LightningNode(daemon, rpc, bitcoind, self.executor, may_fail=may_fail)
+        node = utils.LightningNode(daemon, rpc, self.bitcoind, self.executor, may_fail=may_fail)
         self.nodes.append(node)
         if VALGRIND:
             node.daemon.cmd_line = [
@@ -149,7 +150,7 @@ class BaseLightningDTests(unittest.TestCase):
         # Most of the executor threads will be waiting for IO, so
         # let's have a few of them
         self.executor = futures.ThreadPoolExecutor(max_workers=20)
-        self.node_factory = NodeFactory(self, self.executor)
+        self.node_factory = NodeFactory(self._testMethodName, bitcoind, self.executor)
 
     def getValgrindErrors(self, node):
         for error_file in os.listdir(node.daemon.lightning_dir):
