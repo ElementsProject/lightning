@@ -100,17 +100,19 @@ static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	struct invoice *invoice;
-	jsmntok_t *msatoshi, *label, *desc;
+	jsmntok_t *msatoshi, *label, *desc, *exp;
 	struct json_result *response = new_json_result(cmd);
 	struct invoices *invs = cmd->ld->invoices;
 	struct bolt11 *b11;
 	char *b11enc;
 	struct wallet_payment payment;
+	u64 expiry = 3600;
 
 	if (!json_get_params(buffer, params,
 			     "amount", &msatoshi,
 			     "label", &label,
 			     "description", &desc,
+			     "?expiry", &exp,
 			     NULL)) {
 		command_fail(cmd, "Need {amount}, {label} and {description}");
 		return;
@@ -143,6 +145,13 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 
+	if (exp && !json_tok_u64(buffer, exp, &expiry)) {
+		command_fail(cmd, "expiry '%.*s' invalid seconds",
+			     exp->end - exp->start,
+			     buffer + exp->start);
+		return;
+	}
+
 	wallet_invoice_save(cmd->ld->wallet, invoice);
 
 	/* Construct bolt11 string. */
@@ -152,6 +161,7 @@ static void json_invoice(struct command *cmd,
 	b11->payment_hash = invoice->rhash;
 	b11->receiver_id = cmd->ld->id;
 	b11->min_final_cltv_expiry = cmd->ld->config.cltv_final;
+	b11->expiry = expiry;
 	if (desc->end - desc->start >= BOLT11_FIELD_BYTE_LIMIT) {
 		b11->description_hash = tal(b11, struct sha256);
 		sha256(b11->description_hash, buffer + desc->start,
@@ -159,7 +169,6 @@ static void json_invoice(struct command *cmd,
 	} else
 		b11->description = tal_strndup(b11, buffer + desc->start,
 					       desc->end - desc->start);
-	/* FIXME: add option to set expiry */
 
 	/* FIXME: add private routes if necessary! */
 	b11enc = bolt11_encode(cmd, cmd->ld, b11, false);
@@ -196,7 +205,7 @@ static void json_invoice(struct command *cmd,
 static const struct json_command invoice_command = {
 	"invoice",
 	json_invoice,
-	"Create invoice for {msatoshi} with {label} and {description}",
+	"Create invoice for {msatoshi} with {label} and {description} with optional {expiry} seconds (default 1 hour)",
 	"Returns the {rhash} and {bolt11} on success, and {description} if too alrge for {bolt11}. "
 };
 AUTODATA(json_command, &invoice_command);
