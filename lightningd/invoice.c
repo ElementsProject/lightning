@@ -15,6 +15,7 @@ struct invoice_waiter {
 	struct command *cmd;
 };
 
+/* FIXME: remove this, just use database ops. */
 struct invoices {
 	/* Payments for r values we know about. */
 	struct list_head invlist;
@@ -27,8 +28,11 @@ struct invoice *find_unpaid(struct invoices *invs, const struct sha256 *rhash)
 	struct invoice *i;
 
 	list_for_each(&invs->invlist, i, list) {
-		if (structeq(rhash, &i->rhash) && i->state == UNPAID)
+		if (structeq(rhash, &i->rhash) && i->state == UNPAID) {
+			if (time_now().ts.tv_sec > i->expiry_time)
+				break;
 			return i;
+		}
 	}
 	return NULL;
 }
