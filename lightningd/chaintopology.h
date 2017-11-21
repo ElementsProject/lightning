@@ -89,7 +89,7 @@ struct chain_topology {
 	struct block *root;
 	struct block *tip;
 	struct block_map block_map;
-	u64 feerate[NUM_FEERATES];
+	u32 feerate[NUM_FEERATES];
 	bool startup;
 
 	/* Where to log things. */
@@ -111,10 +111,10 @@ struct chain_topology {
 	struct list_head outgoing_txs;
 
 	/* Force a partiular fee rate regardless of estimatefee (satoshis/kb) */
-	u64 *override_fee_rate;
+	u32 *override_fee_rate;
 
 	/* What fee we use if estimatefee fails (satoshis/kb) */
-	u64 default_fee_rate;
+	u32 default_fee_rate;
 
 	/* Transactions/txos we are watching. */
 	struct txwatch_hash txwatches;
@@ -146,7 +146,7 @@ size_t get_tx_depth(const struct chain_topology *topo,
 u32 get_block_height(const struct chain_topology *topo);
 
 /* Get fee rate in satoshi per kiloweight. */
-u64 get_feerate(const struct chain_topology *topo, enum feerate feerate);
+u32 get_feerate(const struct chain_topology *topo, enum feerate feerate);
 
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * If failed is non-NULL, call that and don't rebroadcast. */

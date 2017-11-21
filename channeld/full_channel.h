@@ -74,8 +74,8 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
  * This is the fee rate we actually care about, if we're going to check
  * whether it's actually too low.
  */
-uint32_t actual_feerate(const struct channel *channel,
-			const struct signature *theirsig);
+u32 actual_feerate(const struct channel *channel,
+		   const struct signature *theirsig);
 
 enum channel_add_err {
 	/* All OK! */
@@ -175,14 +175,14 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
  *
  * This is not exact!  To check if their offer is valid, use can_afford_feerate.
  */
-u64 approx_max_feerate(const struct channel *channel);
+u32 approx_max_feerate(const struct channel *channel);
 
 /**
  * can_afford_feerate: could the initiator pay for the fee at fee_rate?
  * @channel: The channel state
  * @feerate_per_kw: the new fee rate proposed
  */
-bool can_afford_feerate(const struct channel *channel, u64 feerate_per_kw);
+bool can_afford_feerate(const struct channel *channel, u32 feerate_per_kw);
 
 /**
  * adjust_fee: Change fee rate.
@@ -190,7 +190,7 @@ bool can_afford_feerate(const struct channel *channel, u64 feerate_per_kw);
  * @feerate_per_kw: fee in satoshi per 1000 bytes.
  * @side: which side to adjust.
  */
-void adjust_fee(struct channel *channel, u64 feerate_per_kw, enum side side);
+void adjust_fee(struct channel *channel, u32 feerate_per_kw, enum side side);
 
 /**
  * channel_sending_commit: commit all remote outstanding changes.

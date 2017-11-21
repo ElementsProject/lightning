@@ -300,11 +300,11 @@ static const char *feerate_name(enum feerate feerate)
 
 /* We sanitize feerates if necessary to put them in descending order. */
 static void update_feerates(struct bitcoind *bitcoind,
-			    const u64 *satoshi_per_kw,
+			    const u32 *satoshi_per_kw,
 			    struct chain_topology *topo)
 {
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
-		log_debug(topo->log, "%s feerate %"PRIu64" (was %"PRIu64")",
+		log_debug(topo->log, "%s feerate %u (was %u)",
 			  feerate_name(i),
 			  satoshi_per_kw[i], topo->feerate[i]);
 		topo->feerate[i] = satoshi_per_kw[i];
@@ -314,8 +314,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 		for (size_t j = 0; j < i; j++) {
 			if (topo->feerate[j] < topo->feerate[i]) {
 				log_unusual(topo->log,
-					    "Feerate %s (%"PRIu64") above"
-					    " %s (%"PRIu64")",
+					    "Feerate %s (%u) above %s (%u)",
 					    feerate_name(i), topo->feerate[i],
 					    feerate_name(j), topo->feerate[j]);
 				topo->feerate[j] = topo->feerate[i];
@@ -486,10 +485,10 @@ u32 get_block_height(const struct chain_topology *topo)
 }
 
 /* We may only have estimate for 2 blocks, for example.  Extrapolate. */
-static u64 guess_feerate(const struct chain_topology *topo, enum feerate feerate)
+static u32 guess_feerate(const struct chain_topology *topo, enum feerate feerate)
 {
 	size_t i = 0;
-	u64 rate = 0;
+	u32 rate = 0;
 
 	/* We assume each one is half the previous. */
 	for (i = 0; i < feerate; i++) {
@@ -513,7 +512,7 @@ static u64 guess_feerate(const struct chain_topology *topo, enum feerate feerate
 	return rate;
 }
 
-u64 get_feerate(const struct chain_topology *topo, enum feerate feerate)
+u32 get_feerate(const struct chain_topology *topo, enum feerate feerate)
 {
 	if (topo->override_fee_rate) {
 		log_debug(topo->log, "Forcing fee rate, ignoring estimate");

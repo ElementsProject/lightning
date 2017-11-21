@@ -105,7 +105,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 
 static char *fmt_channel_view(const tal_t *ctx, const struct channel_view *view)
 {
-	return tal_fmt(ctx, "{ feerate_per_kw=%"PRIu64","
+	return tal_fmt(ctx, "{ feerate_per_kw=%"PRIu32","
 		       " owed_local=%"PRIu64","
 		       " owed_remote=%"PRIu64" }",
 		       view->feerate_per_kw,

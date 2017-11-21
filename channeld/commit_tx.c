@@ -12,7 +12,7 @@
 #endif
 
 static bool trim(const struct htlc *htlc,
-		 u64 feerate_per_kw, u64 dust_limit_satoshis,
+		 u32 feerate_per_kw, u64 dust_limit_satoshis,
 		 enum side side)
 {
 	u64 htlc_fee;
@@ -42,7 +42,7 @@ static bool trim(const struct htlc *htlc,
 }
 
 size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
-			       u64 feerate_per_kw, u64 dust_limit_satoshis,
+			       u32 feerate_per_kw, u64 dust_limit_satoshis,
 			       enum side side)
 {
 	size_t i, n;
@@ -92,7 +92,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     enum side funder,
 			     u16 to_self_delay,
 			     const struct keyset *keyset,
-			     u64 feerate_per_kw,
+			     u32 feerate_per_kw,
 			     u64 dust_limit_satoshis,
 			     u64 self_pay_msat,
 			     u64 other_pay_msat,

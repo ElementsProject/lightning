@@ -398,7 +398,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 * `feerate_per_kw` while maintaining its channel reserve.
 	 */
 	if (channel->funder == htlc_owner(htlc)) {
-		u64 feerate = view->feerate_per_kw;
+		u32 feerate = view->feerate_per_kw;
 		u64 dust = dust_limit_satoshis(channel, recipient);
 		size_t untrimmed;
 

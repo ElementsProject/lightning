@@ -31,7 +31,7 @@
 static const struct keyset *keyset;
 
 /* The feerate to use when we generate transactions. */
-static u64 feerate_per_kw;
+static u32 feerate_per_kw;
 
 /* The dust limit to use when we generate transactions. */
 static u64 dust_limit_satoshis;

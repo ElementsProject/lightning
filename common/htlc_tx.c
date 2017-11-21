@@ -76,7 +76,7 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx,
 				   unsigned int commit_output_number,
 				   u64 htlc_msatoshi,
 				   u16 to_self_delay,
-				   u64 feerate_per_kw,
+				   u32 feerate_per_kw,
 				   const struct keyset *keyset)
 {
 	/* BOLT #3:
@@ -122,7 +122,7 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 				   u64 htlc_msatoshi,
 				   u32 cltv_expiry,
 				   u16 to_self_delay,
-				   u64 feerate_per_kw,
+				   u32 feerate_per_kw,
 				   const struct keyset *keyset)
 {
 	/* BOLT #3:
