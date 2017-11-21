@@ -234,54 +234,46 @@ start_bitcoin_cli(struct bitcoind *bitcoind,
 	next_bcli(bitcoind);
 }
 
-static void process_estimatefee_6(struct bitcoin_cli *bcli)
+static bool extract_feerate(struct bitcoin_cli *bcli,
+			    const char *output, size_t output_bytes,
+			    double *feerate)
 {
-	double fee;
-	char *p, *end;
-	u64 fee_rate;
-	void (*cb)(struct bitcoind *, u64, void *) = bcli->cb;
+	const jsmntok_t *tokens, *feeratetok;
+	bool valid;
 
-	p = tal_strndup(bcli, bcli->output, bcli->output_bytes);
-	fee = strtod(p, &end);
-	if (end == p || *end != '\n')
-		fatal("%s: gave non-numeric fee %s",
-		      bcli_args(bcli), p);
+	tokens = json_parse_input(output, output_bytes, &valid);
+	if (!tokens)
+		fatal("%s: %s response",
+		      bcli_args(bcli),
+		      valid ? "partial" : "invalid");
 
-	if (fee < 0) {
-		log_unusual(bcli->bitcoind->log,
-			    "Unable to estimate fee");
-		fee_rate = 0;
-	} else {
-		/* Since we used 6 as an estimate, double it. */
-		fee *= 2;
-		fee_rate = fee * 100000000;
-	}
+	if (tokens[0].type != JSMN_OBJECT)
+		fatal("%s: gave non-object (%.*s)?",
+		      bcli_args(bcli),
+		      (int)output_bytes, output);
 
-	cb(bcli->bitcoind, fee_rate, bcli->cb_arg);
+	feeratetok = json_get_member(output, tokens, "feerate");
+	if (!feeratetok)
+		return false;
+
+	return json_tok_double(output, feeratetok, feerate);
 }
 
-static void process_estimatefee_2(struct bitcoin_cli *bcli)
+static void process_estimatefee(struct bitcoin_cli *bcli)
 {
-	double fee;
-	char *p, *end;
-	u64 fee_rate;
+	double feerate;
+	u64 satoshi_per_kb;
 	void (*cb)(struct bitcoind *, u64, void *) = bcli->cb;
 
-	p = tal_strndup(bcli, bcli->output, bcli->output_bytes);
-	fee = strtod(p, &end);
-	if (end == p || *end != '\n')
-		fatal("%s: gave non-numeric fee %s",
-		      bcli_args(bcli), p);
+	/* FIXME: We could trawl recent blocks for median fee... */
+	if (!extract_feerate(bcli, bcli->output, bcli->output_bytes, &feerate)) {
+		log_unusual(bcli->bitcoind->log, "Unable to estimate fee");
+		satoshi_per_kb = 0;
+	} else
+		/* Rate in satoshi per kb. */
+		satoshi_per_kb = feerate * 100000000;
 
-	/* Don't know at 2?  Try 6... */
-	if (fee < 0) {
-		start_bitcoin_cli(bcli->bitcoind, NULL, process_estimatefee_6,
-				  false, bcli->cb, bcli->cb_arg,
-				  "estimatefee", "6", NULL);
-		return;
-	}
-	fee_rate = fee * 100000000;
-	cb(bcli->bitcoind, fee_rate, bcli->cb_arg);
+	cb(bcli->bitcoind, satoshi_per_kb, bcli->cb_arg);
 }
 
 void bitcoind_estimate_fee_(struct bitcoind *bitcoind,
@@ -289,8 +281,8 @@ void bitcoind_estimate_fee_(struct bitcoind *bitcoind,
 				       u64, void *),
 			    void *arg)
 {
-	start_bitcoin_cli(bitcoind, NULL, process_estimatefee_2, false, cb, arg,
-			  "estimatefee", "2", NULL);
+	start_bitcoin_cli(bitcoind, NULL, process_estimatefee, false, cb, arg,
+			  "estimatesmartfee", "2", "CONSERVATIVE", NULL);
 }
 
 static void process_sendrawtx(struct bitcoin_cli *bcli)
