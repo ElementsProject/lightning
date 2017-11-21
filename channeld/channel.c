@@ -1565,6 +1565,13 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 		}
 	}
 
+	/* Make sure they have the correct fee. */
+	if (peer->channel->funder == LOCAL) {
+		msg = towire_update_fee(peer, &peer->channel_id,
+					channel_feerate(peer->channel, REMOTE));
+		msg_enqueue(&peer->peer_out, take(msg));
+	}
+
 	/* Re-send the commitment_signed itself. */
 	commit_sigs = calc_commitsigs(peer, peer, peer->next_index[REMOTE]-1);
 	msg = towire_commitment_signed(peer, &peer->channel_id,
@@ -1751,6 +1758,15 @@ again:
 	cupdate = create_channel_update(peer, peer, false);
 	daemon_conn_send(&peer->gossip_client, cupdate);
 	msg_enqueue(&peer->peer_out, take(cupdate));
+
+	/* Corner case: we will get upset with them if they send
+	 * commitment_signed with no changes.  But it could be that we sent a
+	 * feechange, they acked, and now they want to commit it; we can't
+	 * even tell by seeing if fees are different (short of saving full fee
+	 * state in database) since it could be a tiny feechange, or two
+	 * feechanges which cancelled out. */
+	if (peer->channel->funder == LOCAL)
+		peer->channel->changes_pending[LOCAL] = true;
 }
 
 static void handle_funding_locked(struct peer *peer, const u8 *msg)
