@@ -22,28 +22,15 @@ struct invoices {
 	struct list_head invoice_waiters;
 };
 
-static struct invoice *find_inv(const struct list_head *list,
-				const struct sha256 *rhash,
-				enum invoice_status state)
+struct invoice *find_unpaid(struct invoices *invs, const struct sha256 *rhash)
 {
 	struct invoice *i;
 
-	list_for_each(list, i, list) {
-		if (structeq(rhash, &i->rhash) && i->state == state)
+	list_for_each(&invs->invlist, i, list) {
+		if (structeq(rhash, &i->rhash) && i->state == UNPAID)
 			return i;
 	}
 	return NULL;
-}
-
-struct invoice *find_unpaid(struct invoices *invs, const struct sha256 *rhash)
-{
-	return find_inv(&invs->invlist, rhash, UNPAID);
-}
-
-static struct invoice *find_paid(struct invoices *invs,
-				 const struct sha256 *rhash)
-{
-	return find_inv(&invs->invlist, rhash, PAID);
 }
 
 static struct invoice *find_invoice_by_label(const struct list_head *list,
@@ -113,7 +100,7 @@ static void json_invoice(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
 	struct invoice *invoice;
-	jsmntok_t *msatoshi, *r, *label, *desc;
+	jsmntok_t *msatoshi, *label, *desc;
 	struct json_result *response = new_json_result(cmd);
 	struct invoices *invs = cmd->ld->invoices;
 	struct bolt11 *b11;
@@ -124,7 +111,6 @@ static void json_invoice(struct command *cmd,
 			     "amount", &msatoshi,
 			     "label", &label,
 			     "description", &desc,
-			     "?r", &r,
 			     NULL)) {
 		command_fail(cmd, "Need {amount}, {label} and {description}");
 		return;
@@ -133,24 +119,9 @@ static void json_invoice(struct command *cmd,
 	invoice = tal(cmd, struct invoice);
 	invoice->id = 0;
 	invoice->state = UNPAID;
-	if (r) {
-		if (!hex_decode(buffer + r->start, r->end - r->start,
-				invoice->r.r, sizeof(invoice->r.r))) {
-			command_fail(cmd, "Invalid hex r '%.*s'",
-				     r->end - r->start, buffer + r->start);
-			return;
-		}
-	} else
-		randombytes_buf(invoice->r.r, sizeof(invoice->r.r));
+	randombytes_buf(invoice->r.r, sizeof(invoice->r.r));
 
 	sha256(&invoice->rhash, invoice->r.r, sizeof(invoice->r.r));
-	if (find_unpaid(invs, &invoice->rhash)
-	    || find_paid(invs, &invoice->rhash)) {
-		command_fail(cmd, "Duplicate r value '%s'",
-			     tal_hexstr(cmd, &invoice->rhash,
-					sizeof(invoice->rhash)));
-		return;
-	}
 
 	if (!json_tok_u64(buffer, msatoshi, &invoice->msatoshi)
 	    || invoice->msatoshi == 0) {
@@ -225,7 +196,7 @@ static void json_invoice(struct command *cmd,
 static const struct json_command invoice_command = {
 	"invoice",
 	json_invoice,
-	"Create invoice for {msatoshi} with {label} and {description} (with a set {r}, otherwise generate one)",
+	"Create invoice for {msatoshi} with {label} and {description}",
 	"Returns the {rhash} and {bolt11} on success, and {description} if too alrge for {bolt11}. "
 };
 AUTODATA(json_command, &invoice_command);
