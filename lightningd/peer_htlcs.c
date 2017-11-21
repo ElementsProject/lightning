@@ -1538,5 +1538,29 @@ void notify_new_block(struct lightningd *ld, u32 height)
 
 void notify_feerate_change(struct lightningd *ld)
 {
-	/* FIXME: Do something! */
+	struct peer *peer;
+
+	/* FIXME: We should notify onchaind about NORMAL fee change in case
+	 * it's going to generate more txs. */
+	list_for_each(&ld->peers, peer, list) {
+		u8 *msg;
+
+		if (!peer_fees_can_change(peer))
+			continue;
+
+		/* FIXME: We choose not to drop to chain if we can't contact
+		 * peer.  We *could* do so, however. */
+		if (!peer->owner)
+			continue;
+
+		msg = towire_channel_feerates(peer,
+					      get_feerate(ld->topology,
+							  FEERATE_IMMEDIATE),
+					      get_feerate(ld->topology,
+							  FEERATE_NORMAL),
+					      get_feerate(ld->topology,
+							  FEERATE_IMMEDIATE)
+					      * 5);
+		subd_send_msg(peer->owner, take(msg));
+	}
 }

@@ -106,6 +106,12 @@ static inline bool peer_can_add_htlc(const struct peer *peer)
 	return peer->state == CHANNELD_NORMAL;
 }
 
+static inline bool peer_fees_can_change(const struct peer *peer)
+{
+	return peer->state == CHANNELD_NORMAL
+		|| peer->state == CHANNELD_SHUTTING_DOWN;
+}
+
 static inline bool peer_can_remove_htlc(const struct peer *peer)
 {
 	return peer->state == CHANNELD_NORMAL

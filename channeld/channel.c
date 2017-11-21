@@ -110,6 +110,9 @@ struct peer {
 	/* Don't accept a pong we didn't ping for. */
 	size_t num_pings_outstanding;
 
+	/* The feerate we want. */
+	u32 desired_feerate;
+
 	/* Announcement related information */
 	struct pubkey node_ids[NUM_SIDES];
 	struct short_channel_id short_channel_ids[NUM_SIDES];
@@ -483,6 +486,7 @@ static struct io_plan *handle_peer_feechange(struct io_conn *conn,
 			    "update_fee %u unaffordable",
 			    feerate);
 
+	status_trace("peer updated fee to %u", feerate);
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
@@ -695,6 +699,29 @@ static void send_commit(struct peer *peer)
 		start_commit_timer(peer);
 		tal_free(tmpctx);
 		return;
+	}
+
+	/* If we wanted to update fees, do it now. */
+	if (peer->channel->funder == LOCAL
+	    && peer->desired_feerate != channel_feerate(peer->channel, REMOTE)) {
+		u8 *msg;
+		u32 feerate, max = approx_max_feerate(peer->channel);
+
+		feerate = peer->desired_feerate;
+
+		/* FIXME: We should avoid adding HTLCs until we can meet this
+		 * feerate! */
+		if (feerate > max)
+			feerate = max;
+
+		if (!channel_update_feerate(peer->channel, feerate))
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Could not afford feerate %u"
+				      " (vs max %u)",
+				      feerate, max);
+
+		msg = towire_update_fee(peer, &peer->channel_id, feerate);
+		msg_enqueue(&peer->peer_out, take(msg));
 	}
 
 	/* BOLT #2:
@@ -1887,6 +1914,34 @@ failed:
 	wire_sync_write(MASTER_FD, take(msg));
 }
 
+static void handle_feerates(struct peer *peer, const u8 *inmsg)
+{
+	u32 feerate, min_feerate, max_feerate;
+
+	if (!fromwire_channel_feerates(inmsg, NULL, &feerate,
+				       &min_feerate, &max_feerate))
+		master_badmsg(WIRE_CHANNEL_FEERATES, inmsg);
+
+	/* BOLT #2:
+	 *
+	 * The node which is responsible for paying the bitcoin fee SHOULD
+	 * send `update_fee` to ensure the current fee rate is sufficient for
+	 * timely processing of the commitment transaction by a significant
+	 * margin. */
+	if (peer->channel->funder == LOCAL) {
+		peer->desired_feerate = feerate;
+		start_commit_timer(peer);
+	} else {
+		/* BOLT #2:
+		 *
+		 * The node which is not responsible for paying the bitcoin
+		 * fee MUST NOT send `update_fee`.
+		 */
+		/* FIXME: We could drop to chain if fees are too low, but
+		 * that's fraught too. */
+	}
+}
+
 static void handle_preimage(struct peer *peer, const u8 *inmsg)
 {
 	u8 *msg;
@@ -2033,6 +2088,9 @@ static void req_in(struct peer *peer, const u8 *msg)
 		goto out;
 	case WIRE_CHANNEL_OFFER_HTLC:
 		handle_offer_htlc(peer, msg);
+		goto out;
+	case WIRE_CHANNEL_FEERATES:
+		handle_feerates(peer, msg);
 		goto out;
 	case WIRE_CHANNEL_FULFILL_HTLC:
 		handle_preimage(peer, msg);
@@ -2193,6 +2251,10 @@ static void init_channel(struct peer *peer)
 
 	peer->channel_direction = get_channel_direction(
 	    &peer->node_ids[LOCAL], &peer->node_ids[REMOTE]);
+
+	/* Default desired feerate is the feerate we set for them last. */
+	if (peer->channel->funder == LOCAL)
+		peer->desired_feerate = feerate_per_kw[REMOTE];
 
 	/* OK, now we can process peer messages. */
 	if (reconnected)
