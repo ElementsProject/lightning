@@ -8,6 +8,7 @@
 #include "watch.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
+#include <ccan/build_assert/build_assert.h>
 #include <ccan/io/io.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
@@ -291,12 +292,36 @@ static void free_blocks(struct chain_topology *topo, struct block *b)
 	}
 }
 
-static void update_fee(struct bitcoind *bitcoind, u64 satoshi_per_kw,
-		       struct chain_topology *topo)
+static const char *feerate_name(enum feerate feerate)
 {
-	log_debug(topo->log, "Feerate %"PRIu64" (was %"PRIu64")",
-		  satoshi_per_kw, topo->feerate);
-	topo->feerate = satoshi_per_kw;
+	return feerate == FEERATE_IMMEDIATE ? "Immediate"
+		: feerate == FEERATE_NORMAL ? "Normal" : "Slow";
+}
+
+/* We sanitize feerates if necessary to put them in descending order. */
+static void update_feerates(struct bitcoind *bitcoind,
+			    const u64 *satoshi_per_kw,
+			    struct chain_topology *topo)
+{
+	for (size_t i = 0; i < NUM_FEERATES; i++) {
+		log_debug(topo->log, "%s feerate %"PRIu64" (was %"PRIu64")",
+			  feerate_name(i),
+			  satoshi_per_kw[i], topo->feerate[i]);
+		topo->feerate[i] = satoshi_per_kw[i];
+	}
+
+	for (size_t i = 0; i < NUM_FEERATES; i++) {
+		for (size_t j = 0; j < i; j++) {
+			if (topo->feerate[j] < topo->feerate[i]) {
+				log_unusual(topo->log,
+					    "Feerate %s (%"PRIu64") above"
+					    " %s (%"PRIu64")",
+					    feerate_name(i), topo->feerate[i],
+					    feerate_name(j), topo->feerate[j]);
+				topo->feerate[j] = topo->feerate[i];
+			}
+		}
+	}
 }
 
 /* B is the new chain (linked by ->next); update topology */
@@ -304,6 +329,12 @@ static void topology_changed(struct chain_topology *topo,
 			     struct block *prev,
 			     struct block *b)
 {
+	/* FEERATE_IMMEDIATE, FEERATE_NORMAL, FEERATE_SLOW */
+	const char *estmodes[] = { "CONSERVATIVE", "ECONOMICAL", "ECONOMICAL" };
+	const u32 blocks[] = { 2, 4, 100 };
+
+	BUILD_ASSERT(ARRAY_SIZE(blocks) == NUM_FEERATES);
+
 	/* Eliminate any old chain. */
 	if (prev->next)
 		free_blocks(topo, prev->next);
@@ -321,8 +352,9 @@ static void topology_changed(struct chain_topology *topo,
 	/* Maybe need to rebroadcast. */
 	rebroadcast_txs(topo, NULL);
 
-	/* Once per new block head, update fee estimate. */
-	bitcoind_estimate_fee(topo->bitcoind, update_fee, topo);
+	/* Once per new block head, update fee estimates. */
+	bitcoind_estimate_fees(topo->bitcoind, blocks, estmodes, NUM_FEERATES,
+			       update_feerates, topo);
 }
 
 static struct block *new_block(struct chain_topology *topo,
@@ -453,17 +485,43 @@ u32 get_block_height(const struct chain_topology *topo)
 	return topo->tip->height;
 }
 
-u64 get_feerate(const struct chain_topology *topo)
+/* We may only have estimate for 2 blocks, for example.  Extrapolate. */
+static u64 guess_feerate(const struct chain_topology *topo, enum feerate feerate)
+{
+	size_t i = 0;
+	u64 rate = 0;
+
+	/* We assume each one is half the previous. */
+	for (i = 0; i < feerate; i++) {
+		if (topo->feerate[i]) {
+			log_info(topo->log,
+				 "No fee estimate for %s: basing on %s rate",
+				 feerate_name(feerate),
+				 feerate_name(i));
+			rate = topo->feerate[i];
+		}
+		rate /= 2;
+	}
+
+	if (rate == 0) {
+		rate = topo->default_fee_rate >> feerate;
+		log_info(topo->log,
+			 "No fee estimate for %s: basing on default fee rate",
+			 feerate_name(feerate));
+	}
+
+	return rate;
+}
+
+u64 get_feerate(const struct chain_topology *topo, enum feerate feerate)
 {
 	if (topo->override_fee_rate) {
 		log_debug(topo->log, "Forcing fee rate, ignoring estimate");
 		return topo->override_fee_rate;
+	} else if (topo->feerate[feerate] == 0) {
+		return guess_feerate(topo, feerate);
 	}
-	else if (topo->feerate == 0) {
-		log_info(topo->log, "No fee estimate: using default fee rate");
-		return topo->default_fee_rate;
-	}
-	return topo->feerate;
+	return topo->feerate[feerate];
 }
 
 struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo,
@@ -575,7 +633,7 @@ void setup_topology(struct chain_topology *topo,
 		    struct timerel poll_time, u32 first_peer_block)
 {
 	topo->startup = true;
-	topo->feerate = 0;
+	memset(&topo->feerate, 0, sizeof(topo->feerate));
 	topo->timers = timers;
 	topo->poll_time = poll_time;
 	topo->first_blocknum = first_peer_block;
