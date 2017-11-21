@@ -990,6 +990,7 @@ static bool peer_save_commitsig_sent(struct peer *peer, u64 commitnum)
 void peer_sending_commitsig(struct peer *peer, const u8 *msg)
 {
 	u64 commitnum;
+	u32 feerate;
 	struct changed_htlc *changed_htlcs;
 	size_t i, maxid = 0, num_local_added = 0;
 	secp256k1_ecdsa_signature commit_sig;
@@ -997,6 +998,7 @@ void peer_sending_commitsig(struct peer *peer, const u8 *msg)
 
 	if (!fromwire_channel_sending_commitsig(msg, msg, NULL,
 						&commitnum,
+						&feerate,
 						&changed_htlcs,
 						&commit_sig, &htlc_sigs)) {
 		peer_internal_error(peer, "bad channel_sending_commitsig %s",
@@ -1032,6 +1034,9 @@ void peer_sending_commitsig(struct peer *peer, const u8 *msg)
 		/* FIXME: Save to db */
 		peer->next_htlc_id += num_local_added;
 	}
+
+	/* Update their feerate. */
+	peer->channel_info->feerate_per_kw[REMOTE] = feerate;
 
 	if (!peer_save_commitsig_sent(peer, commitnum))
 		return;
@@ -1109,6 +1114,7 @@ static bool peer_sending_revocation(struct peer *peer,
 void peer_got_commitsig(struct peer *peer, const u8 *msg)
 {
 	u64 commitnum;
+	u32 feerate;
 	secp256k1_ecdsa_signature commit_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
 	struct added_htlc *added;
@@ -1121,6 +1127,7 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 
 	if (!fromwire_channel_got_commitsig(msg, msg, NULL,
 					    &commitnum,
+					    &feerate,
 					    &commit_sig,
 					    &htlc_sigs,
 					    &added,
@@ -1137,8 +1144,8 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 
 	log_debug(peer->log,
 		  "got commitsig %"PRIu64
-		  ": %zu added, %zu fulfilled, %zu failed, %zu changed",
-		  commitnum, tal_count(added), tal_count(fulfilled),
+		  ": feerate %u, %zu added, %zu fulfilled, %zu failed, %zu changed",
+		  commitnum, feerate, tal_count(added), tal_count(fulfilled),
 		  tal_count(failed), tal_count(changed));
 
 	/* FIXME: store commit & htlc signature information. */
@@ -1165,6 +1172,12 @@ void peer_got_commitsig(struct peer *peer, const u8 *msg)
 			return;
 		}
 	}
+
+	/* Update both feerates: if we're funder, REMOTE should already be
+	 * that feerate, if we're not, we're about to ACK anyway. */
+	peer->channel_info->feerate_per_kw[LOCAL]
+		= peer->channel_info->feerate_per_kw[REMOTE]
+		= feerate;
 
 	/* Since we're about to send revoke, bump state again. */
 	if (!peer_sending_revocation(peer, added, fulfilled, failed, changed))

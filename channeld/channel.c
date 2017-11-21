@@ -64,6 +64,9 @@ struct peer {
 	bool funding_locked[NUM_SIDES];
 	u64 next_index[NUM_SIDES];
 
+	/* Tolerable amounts for feerate (only relevant for fundee). */
+	u32 feerate_min, feerate_max;
+
 	/* Remote's current per-commit point. */
 	struct pubkey remote_per_commit;
 
@@ -430,6 +433,59 @@ static struct io_plan *handle_peer_add_htlc(struct io_conn *conn,
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
+static struct io_plan *handle_peer_feechange(struct io_conn *conn,
+					     struct peer *peer, const u8 *msg)
+{
+	struct channel_id channel_id;
+	u32 feerate;
+
+	if (!fromwire_update_fee(msg, NULL, &channel_id, &feerate)) {
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    "Bad update_fee %s", tal_hex(msg, msg));
+	}
+
+	/* BOLT #2:
+	 *
+	 * A receiving node MUST fail the channel if the sender is not
+	 * responsible for paying the bitcoin fee.
+	 */
+	if (peer->channel->funder != REMOTE)
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    "update_fee from non-funder?");
+
+	/* BOLT #2:
+	 *
+	 * A receiving node SHOULD fail the channel if the `update_fee` is too
+	 * low for timely processing, or unreasonably large.
+	 */
+	if (feerate < peer->feerate_min || feerate > peer->feerate_max)
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    "update_fee %u outside range %u-%u",
+			    feerate, peer->feerate_min, peer->feerate_max);
+
+	/* BOLT #2:
+	 *
+	 * A receiving node SHOULD fail the channel if the sender cannot
+	 * afford the new fee rate on the receiving node's current commitment
+	 * transaction, but it MAY delay this check until the `update_fee` is
+	 * committed.
+	 */
+	if (!channel_update_feerate(peer->channel, feerate))
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    "update_fee %u unaffordable",
+			    feerate);
+
+	return peer_read_message(conn, &peer->pcs, peer_in);
+}
+
 static struct changed_htlc *changed_htlc_arr(const tal_t *ctx,
 					     const struct htlc **changed_htlcs)
 {
@@ -446,6 +502,7 @@ static struct changed_htlc *changed_htlc_arr(const tal_t *ctx,
 
 static u8 *sending_commitsig_msg(const tal_t *ctx,
 				 u64 remote_commit_index,
+				 u32 remote_feerate,
 				 const struct htlc **changed_htlcs,
 				 const secp256k1_ecdsa_signature *commit_sig,
 				 const secp256k1_ecdsa_signature *htlc_sigs)
@@ -458,6 +515,7 @@ static u8 *sending_commitsig_msg(const tal_t *ctx,
 	 * committed to. */
 	changed = changed_htlc_arr(tmpctx, changed_htlcs);
 	msg = towire_channel_sending_commitsig(ctx, remote_commit_index,
+					       remote_feerate,
 					       changed, commit_sig, htlc_sigs);
 	tal_free(tmpctx);
 	return msg;
@@ -665,6 +723,7 @@ static void send_commit(struct peer *peer)
 	status_trace("Telling master we're about to commit...");
 	/* Tell master to save this next commit to database, then wait. */
 	msg = sending_commitsig_msg(tmpctx, peer->next_index[REMOTE],
+				    channel_feerate(peer->channel, REMOTE),
 				    changed_htlcs,
 				    &peer->next_commit_sigs->commit_sig,
 				    peer->next_commit_sigs->htlc_sigs);
@@ -798,6 +857,7 @@ static void get_shared_secret(const struct htlc *htlc,
 
 static u8 *got_commitsig_msg(const tal_t *ctx,
 			     u64 local_commit_index,
+			     u32 local_feerate,
 			     const secp256k1_ecdsa_signature *commit_sig,
 			     const secp256k1_ecdsa_signature *htlc_sigs,
 			     const struct htlc **changed_htlcs,
@@ -856,6 +916,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 	}
 
 	msg = towire_channel_got_commitsig(ctx, local_commit_index,
+					   local_feerate,
 					   commit_sig,
 					   htlc_sigs,
 					   added,
@@ -984,8 +1045,9 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 		     tal_count(htlc_sigs));
 
 	/* Tell master daemon, then wait for ack. */
-	msg = got_commitsig_msg(tmpctx, peer->next_index[LOCAL], &commit_sig,
-				htlc_sigs, changed_htlcs, txs[0]);
+	msg = got_commitsig_msg(tmpctx, peer->next_index[LOCAL],
+				channel_feerate(peer->channel, LOCAL),
+				&commit_sig, htlc_sigs, changed_htlcs, txs[0]);
 
 	master_wait_sync_reply(tmpctx, peer, take(msg),
 			       WIRE_CHANNEL_GOT_COMMITSIG_REPLY);
@@ -1369,6 +1431,8 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 		return handle_peer_add_htlc(conn, peer, msg);
 	case WIRE_COMMITMENT_SIGNED:
 		return handle_peer_commit_sig(conn, peer, msg);
+	case WIRE_UPDATE_FEE:
+		return handle_peer_feechange(conn, peer, msg);
 	case WIRE_REVOKE_AND_ACK:
 		return handle_peer_revoke_and_ack(conn, peer, msg);
 	case WIRE_UPDATE_FULFILL_HTLC:
@@ -1391,15 +1455,8 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
 	case WIRE_CHANNEL_REESTABLISH:
-		goto badmessage;
-
 	case WIRE_CLOSING_SIGNED:
-	case WIRE_UPDATE_FEE:
-		peer_failed(io_conn_fd(peer->peer_conn),
-			    &peer->pcs.cs,
-			    &peer->channel_id,
-			    "Unimplemented message %u (%s)",
-			    type, wire_type_name(type));
+		goto badmessage;
 	}
 
 badmessage:
@@ -2036,6 +2093,7 @@ static void init_channel(struct peer *peer)
 				   &funding_satoshi,
 				   &peer->conf[LOCAL], &peer->conf[REMOTE],
 				   feerate_per_kw,
+				   &peer->feerate_min, &peer->feerate_max,
 				   &peer->their_commit_sig,
 				   &peer->pcs.cs,
 				   &funding_pubkey[REMOTE],
@@ -2079,14 +2137,17 @@ static void init_channel(struct peer *peer)
 	status_trace("init %s: remote_per_commit = %s, old_remote_per_commit = %s"
 		     " next_idx_local = %"PRIu64
 		     " next_idx_remote = %"PRIu64
-		     " revocations_received = %"PRIu64,
+		     " revocations_received = %"PRIu64
+		     " feerates %u/%u (range %u-%u)",
 		     side_to_str(funder),
 		     type_to_string(trc, struct pubkey,
 				    &peer->remote_per_commit),
 		     type_to_string(trc, struct pubkey,
 				    &peer->old_remote_per_commit),
 		     peer->next_index[LOCAL], peer->next_index[REMOTE],
-		     peer->revocations_received);
+		     peer->revocations_received,
+		     feerate_per_kw[LOCAL], feerate_per_kw[REMOTE],
+		     peer->feerate_min, peer->feerate_max);
 
 	/* First commit is used for opening: if we've sent 0, we're on
 	 * index 1. */
