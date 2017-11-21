@@ -303,10 +303,14 @@ static void update_feerates(struct bitcoind *bitcoind,
 			    const u32 *satoshi_per_kw,
 			    struct chain_topology *topo)
 {
+	u32 old_feerates[NUM_FEERATES];
+	bool changed = false;
+
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
 		log_debug(topo->log, "%s feerate %u (was %u)",
 			  feerate_name(i),
 			  satoshi_per_kw[i], topo->feerate[i]);
+		old_feerates[i] = topo->feerate[i];
 		topo->feerate[i] = satoshi_per_kw[i];
 	}
 
@@ -320,7 +324,12 @@ static void update_feerates(struct bitcoind *bitcoind,
 				topo->feerate[j] = topo->feerate[i];
 			}
 		}
+		if (topo->feerate[i] != old_feerates[i])
+			changed = true;
 	}
+
+	if (changed)
+		notify_feerate_change(bitcoind->ld);
 }
 
 /* B is the new chain (linked by ->next); update topology */
