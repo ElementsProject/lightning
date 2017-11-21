@@ -152,6 +152,9 @@ static void json_invoice(struct command *cmd,
 		return;
 	}
 
+	/* Expires at this absolute time. */
+	invoice->expiry_time = time_now().ts.tv_sec + expiry;
+
 	wallet_invoice_save(cmd->ld->wallet, invoice);
 
 	/* Construct bolt11 string. */
@@ -227,6 +230,7 @@ static void json_add_invoices(struct json_result *response,
 		json_add_hex(response, "rhash", &i->rhash, sizeof(i->rhash));
 		json_add_u64(response, "msatoshi", i->msatoshi);
 		json_add_bool(response, "complete", i->state == PAID);
+		json_add_u64(response, "expiry_time", i->expiry_time);
 		json_object_end(response);
 	}
 }

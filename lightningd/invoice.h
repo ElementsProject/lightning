@@ -23,6 +23,7 @@ struct invoice {
 	const char *label;
 	u64 msatoshi;
 	struct preimage r;
+	u64 expiry_time;
 	struct sha256 rhash;
 };
 
