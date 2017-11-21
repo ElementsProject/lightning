@@ -14,6 +14,8 @@ channel_init,,our_config,struct channel_config
 channel_init,,their_config,struct channel_config
 # FIXME: Fix generate-wire.py to allow NUM_SIDES*u32 here.
 channel_init,,feerate_per_kw,2*u32
+channel_init,,feerate_min,u32
+channel_init,,feerate_max,u32
 channel_init,,first_commit_sig,secp256k1_ecdsa_signature
 channel_init,,crypto_state,struct crypto_state
 channel_init,,remote_fundingkey,struct pubkey
@@ -118,6 +120,7 @@ channel_got_funding_locked,,next_per_commit_point,struct pubkey
 # When we send a commitment_signed message, tell master.
 channel_sending_commitsig,1020
 channel_sending_commitsig,,commitnum,u64
+channel_sending_commitsig,,feerate,u32
 # SENT_ADD_COMMIT, SENT_REMOVE_ACK_COMMIT, SENT_ADD_ACK_COMMIT, SENT_REMOVE_COMMIT
 channel_sending_commitsig,,num_changed,u16
 channel_sending_commitsig,,changed,num_changed*struct changed_htlc
@@ -131,6 +134,7 @@ channel_sending_commitsig_reply,1120
 # When we have a commitment_signed message, tell master to remember.
 channel_got_commitsig,1021
 channel_got_commitsig,,commitnum,u64
+channel_got_commitsig,,feerate,u32
 channel_got_commitsig,,signature,secp256k1_ecdsa_signature
 channel_got_commitsig,,num_htlcs,u16
 channel_got_commitsig,,htlc_signature,num_htlcs*secp256k1_ecdsa_signature
