@@ -517,7 +517,7 @@ u64 get_feerate(const struct chain_topology *topo, enum feerate feerate)
 {
 	if (topo->override_fee_rate) {
 		log_debug(topo->log, "Forcing fee rate, ignoring estimate");
-		return topo->override_fee_rate;
+		return topo->override_fee_rate[feerate];
 	} else if (topo->feerate[feerate] == 0) {
 		return guess_feerate(topo, feerate);
 	}
@@ -619,7 +619,7 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	txowatch_hash_init(&topo->txowatches);
 	topo->log = log;
 	topo->default_fee_rate = 40000;
-	topo->override_fee_rate = 0;
+	topo->override_fee_rate = NULL;
 	topo->bitcoind = new_bitcoind(topo, ld, log);
 #if DEVELOPER
 	topo->dev_no_broadcast = false;
