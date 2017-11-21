@@ -795,7 +795,6 @@ bool channel_rcvd_revoke_and_ack(struct channel *channel,
 	if (change & HTLC_LOCAL_F_PENDING)
 		channel->changes_pending[LOCAL] = true;
 
-	assert(channel->awaiting_revoke_and_ack);
 	channel->awaiting_revoke_and_ack = false;
 
 	/* For funder, ack also means time to apply new feerate locally. */
