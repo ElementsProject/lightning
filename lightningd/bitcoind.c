@@ -262,18 +262,18 @@ static bool extract_feerate(struct bitcoin_cli *bcli,
 static void process_estimatefee(struct bitcoin_cli *bcli)
 {
 	double feerate;
-	u64 satoshi_per_kb;
+	u64 satoshi_per_kw;
 	void (*cb)(struct bitcoind *, u64, void *) = bcli->cb;
 
 	/* FIXME: We could trawl recent blocks for median fee... */
 	if (!extract_feerate(bcli, bcli->output, bcli->output_bytes, &feerate)) {
 		log_unusual(bcli->bitcoind->log, "Unable to estimate fee");
-		satoshi_per_kb = 0;
+		satoshi_per_kw = 0;
 	} else
-		/* Rate in satoshi per kb. */
-		satoshi_per_kb = feerate * 100000000;
+		/* Rate in satoshi per kw. */
+		satoshi_per_kw = feerate * 100000000 / 4;
 
-	cb(bcli->bitcoind, satoshi_per_kb, bcli->cb_arg);
+	cb(bcli->bitcoind, satoshi_per_kw, bcli->cb_arg);
 }
 
 void bitcoind_estimate_fee_(struct bitcoind *bitcoind,
