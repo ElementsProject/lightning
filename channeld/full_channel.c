@@ -678,6 +678,53 @@ static int change_htlcs(struct channel *channel,
 	return cflags;
 }
 
+bool can_funder_afford_feerate(const struct channel *channel, u32 feerate_per_kw)
+{
+	u64 fee_msat, dust = dust_limit_satoshis(channel, !channel->funder);
+	size_t untrimmed;
+	const struct htlc **committed, **adding, **removing;
+	const tal_t *tmpctx = tal_tmpctx(channel);
+
+	gather_htlcs(tmpctx, channel, !channel->funder,
+		     &committed, &removing, &adding);
+
+	untrimmed = commit_tx_num_untrimmed(committed, feerate_per_kw, dust,
+					    !channel->funder)
+			+ commit_tx_num_untrimmed(adding, feerate_per_kw, dust,
+						  !channel->funder)
+			- commit_tx_num_untrimmed(removing, feerate_per_kw, dust,
+						  !channel->funder);
+
+	fee_msat = commit_tx_base_fee(feerate_per_kw, untrimmed);
+
+	tal_free(tmpctx);
+
+	/* BOLT #2:
+	 *
+	 * A receiving node SHOULD fail the channel if the sender cannot afford
+	 * the new fee rate on the receiving node's current commitment
+	 * transaction */
+	/* Note: sender == funder */
+
+	/* How much does it think it has?  Must be >= reserve + fee */
+	return channel->view[!channel->funder].owed_msat[channel->funder]
+		>= channel_reserve_msat(channel, channel->funder) + fee_msat;
+}
+
+bool channel_update_feerate(struct channel *channel, u32 feerate_per_kw)
+{
+	if (!can_funder_afford_feerate(channel, feerate_per_kw))
+		return false;
+
+	channel->view[!channel->funder].feerate_per_kw = feerate_per_kw;
+	return true;
+}
+
+u32 channel_feerate(const struct channel *channel, enum side side)
+{
+	return channel->view[side].feerate_per_kw;
+}
+
 /* FIXME: Handle fee changes too. */
 bool channel_sending_commit(struct channel *channel,
 			    const struct htlc ***htlcs)

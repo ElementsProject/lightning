@@ -173,24 +173,33 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
  * approx_max_feerate: what's the we (initiator) could raise fee rate to?
  * @channel: The channel state
  *
- * This is not exact!  To check if their offer is valid, use can_afford_feerate.
+ * This is not exact!  To check if their offer is valid, try
+ * channel_update_feerate.
  */
 u32 approx_max_feerate(const struct channel *channel);
 
 /**
- * can_afford_feerate: could the initiator pay for the fee at fee_rate?
+ * can_funder_afford_feerate: could the funder pay the fee?
  * @channel: The channel state
- * @feerate_per_kw: the new fee rate proposed
+ * @feerate: The feerate in satoshi per 1000 bytes.
  */
-bool can_afford_feerate(const struct channel *channel, u32 feerate_per_kw);
+bool can_funder_afford_feerate(const struct channel *channel, u32 feerate);
 
 /**
- * adjust_fee: Change fee rate.
- * @channel: The channel state
+ * channel_update_feerate: Change fee rate on non-funder side.
+ * @channel: The channel
  * @feerate_per_kw: fee in satoshi per 1000 bytes.
- * @side: which side to adjust.
+ *
+ * Returns true if it's affordable, otherwise does nothing.
  */
-void adjust_fee(struct channel *channel, u32 feerate_per_kw, enum side side);
+bool channel_update_feerate(struct channel *channel, u32 feerate_per_kw);
+
+/**
+ * channel_feerate: Get fee rate for this side of channel.
+ * @channel: The channel
+ * @side: the side
+ */
+u32 channel_feerate(const struct channel *channel, enum side side);
 
 /**
  * channel_sending_commit: commit all remote outstanding changes.
