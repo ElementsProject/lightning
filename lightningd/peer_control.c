@@ -2403,9 +2403,17 @@ static void peer_accept_channel(struct lightningd *ld,
 				  cs, peer->seed);
 
 	subd_send_msg(peer->owner, take(msg));
-	/* FIXME: Expose the min_feerate_per_kw and max_feerate_per_kw in the config */
+
+	/* BOLT #2:
+	 *
+	 * Given the variance in fees, and the fact that the transaction may
+	 * be spent in the future, it's a good idea for the fee payer to keep
+	 * a good margin, say 5x the expected fee requirement */
 	msg = towire_opening_fundee(peer, peer->minimum_depth,
-				    7500, 150000, open_msg);
+				    get_feerate(ld->topology, FEERATE_SLOW),
+				    get_feerate(ld->topology, FEERATE_IMMEDIATE)
+				    * 5,
+				    open_msg);
 
 	subd_req(peer, peer->owner, take(msg), -1, 2,
 		 opening_fundee_finished, peer);
@@ -2476,10 +2484,10 @@ static void peer_offer_channel(struct lightningd *ld,
 
 	utxos = from_utxoptr_arr(fc, fc->utxomap);
 
-	/* FIXME: Real feerate! */
 	msg = towire_opening_funder(fc, fc->peer->funding_satoshi,
 				    fc->peer->push_msat,
-				    15000, max_minimum_depth,
+				    get_feerate(ld->topology, FEERATE_IMMEDIATE),
+				    max_minimum_depth,
 				    fc->change, fc->change_keyindex,
 				    fc->peer->channel_flags,
 				    utxos, fc->peer->ld->wallet->bip32_base);
