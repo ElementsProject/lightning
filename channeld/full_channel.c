@@ -406,8 +406,6 @@ static enum channel_add_err add_htlc(struct channel *channel,
 		u64 dust = dust_limit_satoshis(channel, recipient);
 		size_t untrimmed;
 
-		assert(feerate >= 1);
-		assert(dust >= 1);
 		untrimmed = commit_tx_num_untrimmed(committed, feerate, dust,
 						    recipient)
 			+ commit_tx_num_untrimmed(adding, feerate, dust,
@@ -743,7 +741,11 @@ bool channel_update_feerate(struct channel *channel, u32 feerate_per_kw)
 	if (!can_funder_afford_feerate(channel, feerate_per_kw))
 		return false;
 
+	status_trace("Setting %s feerate to %u",
+		     side_to_str(!channel->funder), feerate_per_kw);
+
 	channel->view[!channel->funder].feerate_per_kw = feerate_per_kw;
+	channel->changes_pending[!channel->funder] = true;
 	return true;
 }
 
@@ -752,11 +754,9 @@ u32 channel_feerate(const struct channel *channel, enum side side)
 	return channel->view[side].feerate_per_kw;
 }
 
-/* FIXME: Handle fee changes too. */
 bool channel_sending_commit(struct channel *channel,
 			    const struct htlc ***htlcs)
 {
-	int change;
 	const enum htlc_state states[] = { SENT_ADD_HTLC,
 					   SENT_REMOVE_REVOCATION,
 					   SENT_ADD_REVOCATION,
@@ -769,9 +769,8 @@ bool channel_sending_commit(struct channel *channel,
 		return false;
 	}
 
-	change = change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states),
-			      htlcs, "sending_commit");
-	assert(change & HTLC_REMOTE_F_COMMITTED);
+	change_htlcs(channel, REMOTE, states, ARRAY_SIZE(states),
+		     htlcs, "sending_commit");
 	channel->changes_pending[REMOTE] = false;
 
 	assert(!channel->awaiting_revoke_and_ack);
@@ -799,13 +798,23 @@ bool channel_rcvd_revoke_and_ack(struct channel *channel,
 	assert(channel->awaiting_revoke_and_ack);
 	channel->awaiting_revoke_and_ack = false;
 
-	return change & HTLC_LOCAL_F_PENDING;
+	/* For funder, ack also means time to apply new feerate locally. */
+	if (channel->funder == LOCAL &&
+	    (channel->view[LOCAL].feerate_per_kw
+	     != channel->view[REMOTE].feerate_per_kw)) {
+		status_trace("Applying feerate %u to LOCAL",
+			     channel->view[REMOTE].feerate_per_kw);
+		channel->view[LOCAL].feerate_per_kw
+			= channel->view[REMOTE].feerate_per_kw;
+		channel->changes_pending[LOCAL] = true;
+	}
+
+	return channel->changes_pending[LOCAL];
 }
 
 /* FIXME: We can actually merge these two... */
 bool channel_rcvd_commit(struct channel *channel, const struct htlc ***htlcs)
 {
-	int change;
 	const enum htlc_state states[] = { RCVD_ADD_REVOCATION,
 					   RCVD_REMOVE_HTLC,
 					   RCVD_ADD_HTLC,
@@ -818,13 +827,11 @@ bool channel_rcvd_commit(struct channel *channel, const struct htlc ***htlcs)
 		return false;
 	}
 
-	change = change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states), htlcs,
-			      "rcvd_commit");
+	change_htlcs(channel, LOCAL, states, ARRAY_SIZE(states), htlcs,
+		     "rcvd_commit");
 
-	assert(change & HTLC_LOCAL_F_COMMITTED);
 	channel->changes_pending[LOCAL] = false;
-
-	return change & HTLC_LOCAL_F_COMMITTED;
+	return true;
 }
 
 bool channel_sending_revoke_and_ack(struct channel *channel)
@@ -842,7 +849,18 @@ bool channel_sending_revoke_and_ack(struct channel *channel)
 	if (change & HTLC_REMOTE_F_PENDING)
 		channel->changes_pending[REMOTE] = true;
 
-	return change & HTLC_REMOTE_F_PENDING;
+	/* For non-funder, sending ack means we apply any fund changes to them */
+	if (channel->funder == REMOTE
+	    && (channel->view[LOCAL].feerate_per_kw
+		!= channel->view[REMOTE].feerate_per_kw)) {
+		status_trace("Applying feerate %u to REMOTE",
+			     channel->view[LOCAL].feerate_per_kw);
+		channel->view[REMOTE].feerate_per_kw
+			= channel->view[LOCAL].feerate_per_kw;
+		channel->changes_pending[REMOTE] = true;
+	}
+
+	return channel->changes_pending[REMOTE];
 }
 
 static bool htlc_awaiting_revoke_and_ack(const struct htlc *h)
@@ -862,20 +880,7 @@ static bool htlc_awaiting_revoke_and_ack(const struct htlc *h)
 
 bool channel_awaiting_revoke_and_ack(const struct channel *channel)
 {
-	struct htlc_map_iter it;
-	struct htlc *h;
-
-	/* FIXME: remove debugging iteration. */
-	for (h = htlc_map_first(channel->htlcs, &it);
-	     h;
-	     h = htlc_map_next(channel->htlcs, &it)) {
-		if (htlc_awaiting_revoke_and_ack(h)) {
-			assert(channel->awaiting_revoke_and_ack);
-			return true;
-		}
-	}
-	assert(!channel->awaiting_revoke_and_ack);
-	return false;
+	return channel->awaiting_revoke_and_ack;
 }
 
 bool channel_has_htlcs(const struct channel *channel)
