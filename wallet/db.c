@@ -131,6 +131,9 @@ char *dbmigrations[] = {
     "  PRIMARY KEY (id),"
     "  UNIQUE (payment_hash)"
     ");",
+    /* Add expiry field to invoices (effectively infinite). */
+    "ALTER TABLE invoices ADD expiry_time INTEGER;",
+    "UPDATE invoices SET expiry_time=9223372036854775807;",
     NULL,
 };
 

@@ -1057,13 +1057,14 @@ void wallet_invoice_save(struct wallet *wallet, struct invoice *inv)
 	sqlite3_stmt *stmt;
 	if (!inv->id) {
 		stmt = db_prepare(wallet->db,
-			"INSERT INTO invoices (payment_hash, payment_key, state, msatoshi, label) VALUES (?, ?, ?, ?, ?);");
+			"INSERT INTO invoices (payment_hash, payment_key, state, msatoshi, label, expiry_time) VALUES (?, ?, ?, ?, ?, ?);");
 
 		sqlite3_bind_blob(stmt, 1, &inv->rhash, sizeof(inv->rhash), SQLITE_TRANSIENT);
 		sqlite3_bind_blob(stmt, 2, &inv->r, sizeof(inv->r), SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 3, inv->state);
 		sqlite3_bind_int64(stmt, 4, inv->msatoshi);
 		sqlite3_bind_text(stmt, 5, inv->label, strlen(inv->label), SQLITE_TRANSIENT);
+		sqlite3_bind_int64(stmt, 6, inv->expiry_time);
 
 		db_exec_prepared(wallet->db, stmt);
 
@@ -1091,6 +1092,7 @@ static bool wallet_stmt2invoice(sqlite3_stmt *stmt, struct invoice *inv)
 
 	inv->label = tal_strndup(inv, sqlite3_column_blob(stmt, 4), sqlite3_column_bytes(stmt, 4));
 	inv->msatoshi = sqlite3_column_int64(stmt, 5);
+	inv->expiry_time = sqlite3_column_int64(stmt, 6);
 	return true;
 }
 
@@ -1100,7 +1102,7 @@ bool wallet_invoices_load(struct wallet *wallet, struct invoices *invs)
 	int count = 0;
 	sqlite3_stmt *stmt = db_query(__func__, wallet->db,
 				"SELECT id, state, payment_key, payment_hash, "
-				"label, msatoshi FROM invoices;");
+				"label, msatoshi, expiry_time FROM invoices;");
 	if (!stmt) {
 		log_broken(wallet->log, "Could not load invoices");
 		return false;
