@@ -1114,11 +1114,9 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 			    "Bad revoke_and_ack %s", tal_hex(msg, msg));
 	}
 
-	if (!channel_awaiting_revoke_and_ack(peer->channel))
-		peer_failed(io_conn_fd(peer->peer_conn),
-			    &peer->pcs.cs,
-			    &peer->channel_id,
-			    "Unexpected revoke_and_ack");
+	/* FIXME: We can get unexpected revoke_and_ack due to retransmit; we
+	 * should really detect this case and set
+	 * channel_awaiting_revoke_and_ack; normally it will be true here. */
 
 	/* BOLT #2:
 	 *
