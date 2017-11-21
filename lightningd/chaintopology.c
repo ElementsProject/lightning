@@ -605,6 +605,68 @@ static const struct json_command dev_blockheight = {
 	"Returns { blockheight: u32 } on success"
 };
 AUTODATA(json_command, &dev_blockheight);
+
+static void json_dev_setfees(struct command *cmd,
+			     const char *buffer, const jsmntok_t *params)
+{
+	jsmntok_t *ratetok[NUM_FEERATES];
+	struct chain_topology *topo = cmd->ld->topology;
+	struct json_result *response;
+
+	if (!json_get_params(buffer, params,
+			     "?immediate", &ratetok[FEERATE_IMMEDIATE],
+			     "?normal", &ratetok[FEERATE_NORMAL],
+			     "?slow", &ratetok[FEERATE_SLOW],
+			     NULL)) {
+		command_fail(cmd, "Bad parameters");
+		return;
+	}
+
+	if (!topo->override_fee_rate) {
+		u32 fees[NUM_FEERATES];
+		for (size_t i = 0; i < ARRAY_SIZE(fees); i++)
+			fees[i] = get_feerate(topo, i);
+		topo->override_fee_rate = tal_dup_arr(topo, u32, fees,
+						      ARRAY_SIZE(fees), 0);
+	}
+	for (size_t i = 0; i < NUM_FEERATES; i++) {
+		if (!ratetok[i])
+			continue;
+		if (!json_tok_number(buffer, ratetok[i],
+				     &topo->override_fee_rate[i])) {
+			command_fail(cmd, "invalid feerate %.*s",
+				     (int)(ratetok[i]->end - ratetok[i]->start),
+				     buffer + ratetok[i]->start);
+			return;
+		}
+	}
+	log_debug(topo->log,
+		  "dev-setfees: fees now %u/%u/%u",
+		  topo->override_fee_rate[FEERATE_IMMEDIATE],
+		  topo->override_fee_rate[FEERATE_NORMAL],
+		  topo->override_fee_rate[FEERATE_SLOW]);
+
+	notify_feerate_change(cmd->ld);
+
+	response = new_json_result(cmd);
+	json_object_start(response, NULL);
+	json_add_num(response, "immediate",
+		     topo->override_fee_rate[FEERATE_IMMEDIATE]);
+	json_add_num(response, "normal",
+		     topo->override_fee_rate[FEERATE_NORMAL]);
+	json_add_num(response, "slow",
+		     topo->override_fee_rate[FEERATE_SLOW]);
+	json_object_end(response);
+	command_success(cmd, response);
+}
+
+static const struct json_command dev_setfees_command = {
+	"dev-setfees",
+	json_dev_setfees,
+	"Set feerate in satoshi-per-kw for {immediate}, {normal} and {slow} (each optional).  Returns the value of those three feerates.",
+	"Allows testing of feerate changes"
+};
+AUTODATA(json_command, &dev_setfees_command);
 #endif /* DEVELOPER */
 
 /* On shutdown, peers get deleted last.  That frees from our list, so
