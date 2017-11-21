@@ -1522,3 +1522,8 @@ void notify_new_block(struct lightningd *ld, u32 height)
 	/* Iteration while removing is safe, but can skip entries! */
 	} while (removed);
 }
+
+void notify_feerate_change(struct lightningd *ld)
+{
+	/* FIXME: Do something! */
+}
