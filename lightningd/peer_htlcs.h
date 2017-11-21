@@ -14,7 +14,8 @@ struct channel_info {
 	/* The old_remote_per_commit is for the locked-in remote commit_tx,
 	 * and the remote_per_commit is for the commit_tx we're modifying now. */
 	struct pubkey remote_per_commit, old_remote_per_commit;
-	u32 feerate_per_kw;
+	/* In transition, these can be different! */
+	u32 feerate_per_kw[NUM_SIDES];
 };
 
 /* Get all HTLCs for a peer, to send in init message. */

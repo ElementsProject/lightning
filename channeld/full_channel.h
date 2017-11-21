@@ -14,7 +14,7 @@
  * @funding_satoshis: The commitment transaction amount.
  * @local_msatoshi: The amount for the local side (remainder goes to remote)
  * @feerate_per_kw: feerate per kiloweight (satoshis) for the commitment
- *   transaction and HTLCS
+ *   transaction and HTLCS for each side.
  * @local: local channel configuration
  * @remote: remote channel configuration
  * @local_basepoints: local basepoints.
@@ -30,7 +30,7 @@ struct channel *new_channel(const tal_t *ctx,
 			    unsigned int funding_txout,
 			    u64 funding_satoshis,
 			    u64 local_msatoshi,
-			    u32 feerate_per_kw,
+			    const u32 feerate_per_kw[NUM_SIDES],
 			    const struct channel_config *local,
 			    const struct channel_config *remote,
 			    const struct basepoints *local_basepoints,

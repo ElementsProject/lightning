@@ -1893,7 +1893,8 @@ static void peer_start_closingd(struct peer *peer,
 	 * calculated in [BOLT
 	 * #3](03-transactions.md#fee-calculation).
 	 */
-	feelimit = commit_tx_base_fee(peer->channel_info->feerate_per_kw, 0);
+	feelimit = commit_tx_base_fee(peer->channel_info->feerate_per_kw[LOCAL],
+				      0);
 
 	maxfee = commit_tx_base_fee(get_feerate(peer->ld->topology,
 						FEERATE_IMMEDIATE), 0);
@@ -2193,11 +2194,14 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 					   &fc->peer->minimum_depth,
 					   &channel_info->remote_fundingkey,
 					   &funding_txid,
-					   &channel_info->feerate_per_kw)) {
+					   &channel_info->feerate_per_kw[REMOTE])) {
 		peer_internal_error(fc->peer, "bad funder_reply: %s",
 				    tal_hex(resp, resp));
 		return;
 	}
+	/* Feerates begin identical. */
+	channel_info->feerate_per_kw[LOCAL]
+		= channel_info->feerate_per_kw[REMOTE];
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
@@ -2312,12 +2316,16 @@ static void opening_fundee_finished(struct subd *opening,
 					   &peer->funding_satoshi,
 					   &peer->push_msat,
 					   &peer->channel_flags,
-					   &channel_info->feerate_per_kw,
+					   &channel_info->feerate_per_kw[REMOTE],
 					   &funding_signed)) {
 		peer_internal_error(peer, "bad OPENING_FUNDEE_REPLY %s",
 				    tal_hex(reply, reply));
 		return;
 	}
+
+	/* Feerates begin identical. */
+	channel_info->feerate_per_kw[LOCAL]
+		= channel_info->feerate_per_kw[REMOTE];
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
