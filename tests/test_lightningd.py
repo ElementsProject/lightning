@@ -314,6 +314,24 @@ class LightningDTests(BaseLightningDTests):
         assert b11['expiry'] == 3600
         assert b11['payee'] == l1.info['id']
 
+    def test_invoice_expiry(self):
+        l1,l2 = self.connect()
+
+        chanid = self.fund_channel(l1, l2, 10**6)
+
+        # Wait for route propagation.
+        bitcoind.rpc.generate(5)
+        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+                                 .format(chanid),
+                                'Received channel_update for channel {}\(1\)'
+                                 .format(chanid)])
+
+        inv = l2.rpc.invoice(123000, 'test_pay', 'description', 1)['bolt11']
+        time.sleep(2)
+        self.assertRaises(ValueError, l1.rpc.pay, inv)
+        assert l2.rpc.listinvoice('test_pay')[0]['complete'] == False
+        assert l2.rpc.listinvoice('test_pay')[0]['expiry_time'] < time.time()
+
     def test_connect(self):
         l1,l2 = self.connect()
 
