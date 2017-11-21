@@ -259,30 +259,73 @@ static bool extract_feerate(struct bitcoin_cli *bcli,
 	return json_tok_double(output, feeratetok, feerate);
 }
 
+struct estimatefee {
+	size_t i;
+	const u32 *blocks;
+	const char **estmode;
+
+	void (*cb)(struct bitcoind *bitcoind, const u64 satoshi_per_kw[],
+		   void *);
+	void *arg;
+	u64 *satoshi_per_kw;
+};
+
+static void do_one_estimatefee(struct bitcoind *bitcoind,
+			       struct estimatefee *efee);
+
 static void process_estimatefee(struct bitcoin_cli *bcli)
 {
 	double feerate;
-	u64 satoshi_per_kw;
-	void (*cb)(struct bitcoind *, u64, void *) = bcli->cb;
+	struct estimatefee *efee = bcli->cb_arg;
 
 	/* FIXME: We could trawl recent blocks for median fee... */
 	if (!extract_feerate(bcli, bcli->output, bcli->output_bytes, &feerate)) {
-		log_unusual(bcli->bitcoind->log, "Unable to estimate fee");
-		satoshi_per_kw = 0;
+		log_unusual(bcli->bitcoind->log, "Unable to estimate %s/%u fee",
+			    efee->estmode[efee->i], efee->blocks[efee->i]);
+		efee->satoshi_per_kw[efee->i] = 0;
 	} else
 		/* Rate in satoshi per kw. */
-		satoshi_per_kw = feerate * 100000000 / 4;
+		efee->satoshi_per_kw[efee->i] = feerate * 100000000 / 4;
 
-	cb(bcli->bitcoind, satoshi_per_kw, bcli->cb_arg);
+	efee->i++;
+	if (efee->i == tal_count(efee->satoshi_per_kw)) {
+		efee->cb(bcli->bitcoind, efee->satoshi_per_kw, efee->arg);
+		tal_free(efee);
+	} else {
+		/* Next */
+		do_one_estimatefee(bcli->bitcoind, efee);
+	}
 }
 
-void bitcoind_estimate_fee_(struct bitcoind *bitcoind,
-			    void (*cb)(struct bitcoind *bitcoind,
-				       u64, void *),
-			    void *arg)
+static void do_one_estimatefee(struct bitcoind *bitcoind,
+			       struct estimatefee *efee)
 {
-	start_bitcoin_cli(bitcoind, NULL, process_estimatefee, false, cb, arg,
-			  "estimatesmartfee", "2", "CONSERVATIVE", NULL);
+	char blockstr[STR_MAX_CHARS(u32)];
+
+	sprintf(blockstr, "%u", efee->blocks[efee->i]);
+	start_bitcoin_cli(bitcoind, NULL, process_estimatefee, false, NULL, efee,
+			  "estimatesmartfee", blockstr, efee->estmode[efee->i],
+			  NULL);
+}
+
+void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
+			     const u32 blocks[], const char *estmode[],
+			     size_t num_estimates,
+			     void (*cb)(struct bitcoind *bitcoind,
+					const u64 satoshi_per_kw[], void *),
+			     void *arg)
+{
+	struct estimatefee *efee = tal(bitcoind, struct estimatefee);
+
+	efee->i = 0;
+	efee->blocks = tal_dup_arr(efee, u32, blocks, num_estimates, 0);
+	efee->estmode = tal_dup_arr(efee, const char *, estmode, num_estimates,
+				    0);
+	efee->cb = cb;
+	efee->arg = arg;
+	efee->satoshi_per_kw = tal_arr(efee, u64, num_estimates);
+
+	do_one_estimatefee(bitcoind, efee);
 }
 
 static void process_sendrawtx(struct bitcoin_cli *bcli)

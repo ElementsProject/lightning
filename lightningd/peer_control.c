@@ -1767,13 +1767,11 @@ static bool better_closing_fee(struct peer *peer, const struct bitcoin_tx *tx)
 	/* Weight once we add in sigs. */
 	weight = measure_tx_cost(tx) + 74 * 2;
 
-	/* FIXME: Use estimatefee 24 or something? */
-	min_fee = get_feerate(peer->ld->topology) / 5 * weight / 1000;
+	min_fee = get_feerate(peer->ld->topology, FEERATE_SLOW) * weight / 1000;
 	if (fee < min_fee)
 		return false;
 
-	/* FIXME: Use estimatefee 6 */
-	ideal_fee = get_feerate(peer->ld->topology) / 2 * weight / 1000;
+	ideal_fee = get_feerate(peer->ld->topology, FEERATE_NORMAL) * weight / 1000;
 
 	/* We prefer fee which is closest to our ideal. */
 	old_diff = imaxabs((s64)ideal_fee - (s64)last_fee);
@@ -1850,7 +1848,7 @@ static void peer_start_closingd(struct peer *peer,
 {
 	const tal_t *tmpctx = tal_tmpctx(peer);
 	u8 *initmsg, *local_scriptpubkey;
-	u64 minfee, maxfee, startfee;
+	u64 minfee, maxfee, startfee, feelimit;
 	u64 num_revocations;
 
 	if (peer->local_shutdown_idx == -1
@@ -1894,11 +1892,21 @@ static void peer_start_closingd(struct peer *peer,
 	 * calculated in [BOLT
 	 * #3](03-transactions.md#fee-calculation).
 	 */
-	maxfee = commit_tx_base_fee(peer->channel_info->feerate_per_kw, 0);
+	feelimit = commit_tx_base_fee(peer->channel_info->feerate_per_kw, 0);
 
-	/* FIXME: Real fees! */
-	minfee = maxfee / 2;
-	startfee = (maxfee + minfee)/2;
+	maxfee = commit_tx_base_fee(get_feerate(peer->ld->topology,
+						FEERATE_IMMEDIATE), 0);
+	minfee = commit_tx_base_fee(get_feerate(peer->ld->topology,
+						FEERATE_SLOW), 0);
+	startfee = commit_tx_base_fee(get_feerate(peer->ld->topology,
+						  FEERATE_NORMAL), 0);
+
+	if (maxfee > feelimit)
+		maxfee = feelimit;
+	if (startfee > feelimit)
+		startfee = feelimit;
+	if (minfee > feelimit)
+		minfee = feelimit;
 
 	num_revocations
 		= revocations_received(&peer->their_shachain.chain);

@@ -19,6 +19,13 @@ struct peer;
 struct sha256_double;
 struct txwatch;
 
+enum feerate {
+	FEERATE_IMMEDIATE, /* Aka: aim for next block. */
+	FEERATE_NORMAL, /* Aka: next 4 blocks or so. */
+	FEERATE_SLOW, /* Aka: next 100 blocks or so. */
+};
+#define NUM_FEERATES (FEERATE_SLOW+1)
+
 /* Off topology->outgoing_txs */
 struct outgoing_tx {
 	struct list_node list;
@@ -82,7 +89,7 @@ struct chain_topology {
 	struct block *root;
 	struct block *tip;
 	struct block_map block_map;
-	u64 feerate;
+	u64 feerate[NUM_FEERATES];
 	bool startup;
 
 	/* Where to log things. */
@@ -139,7 +146,7 @@ size_t get_tx_depth(const struct chain_topology *topo,
 u32 get_block_height(const struct chain_topology *topo);
 
 /* Get fee rate in satoshi per kiloweight. */
-u64 get_feerate(const struct chain_topology *topo);
+u64 get_feerate(const struct chain_topology *topo, enum feerate feerate);
 
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).
  * If failed is non-NULL, call that and don't rebroadcast. */
