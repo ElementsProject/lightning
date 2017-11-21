@@ -893,6 +893,12 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 			    "commit_sig with no changes");
 	}
 
+	/* We were supposed to check this was affordable as we go. */
+	if (peer->channel->funder == REMOTE)
+		assert(can_funder_afford_feerate(peer->channel,
+						 peer->channel->view[LOCAL]
+						 .feerate_per_kw));
+
 	if (!fromwire_commitment_signed(tmpctx, msg, NULL,
 					&channel_id, &commit_sig, &htlc_sigs))
 		peer_failed(io_conn_fd(peer->peer_conn),
