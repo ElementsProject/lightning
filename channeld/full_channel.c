@@ -678,6 +678,33 @@ static int change_htlcs(struct channel *channel,
 	return cflags;
 }
 
+/* FIXME: The sender's requirements are *implied* by this, not stated! */
+/* BOLT #2:
+ *
+ * A receiving node SHOULD fail the channel if the sender cannot
+ * afford the new fee rate on the receiving node's current commitment
+ * transaction
+ */
+u32 approx_max_feerate(const struct channel *channel)
+{
+	size_t num;
+	u64 weight;
+	const struct htlc **committed, **adding, **removing;
+	const tal_t *tmpctx = tal_tmpctx(channel);
+
+	gather_htlcs(tmpctx, channel, !channel->funder,
+		     &committed, &removing, &adding);
+
+	/* Assume none are trimmed; this gives lower bound on feerate. */
+	num = tal_count(committed) + tal_count(adding) - tal_count(removing);
+	tal_free(tmpctx);
+
+	weight = 724 + 172 * num;
+
+	return channel->view[!channel->funder].owed_msat[channel->funder]
+		/ weight * 1000;
+}
+
 bool can_funder_afford_feerate(const struct channel *channel, u32 feerate_per_kw)
 {
 	u64 fee_msat, dust = dust_limit_satoshis(channel, !channel->funder);
