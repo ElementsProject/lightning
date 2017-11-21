@@ -170,7 +170,7 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 					     const struct preimage *preimage);
 
 /**
- * approx_max_feerate: what's the we (initiator) could raise fee rate to?
+ * approx_max_feerate: what's the max funder could raise fee rate to?
  * @channel: The channel state
  *
  * This is not exact!  To check if their offer is valid, try
