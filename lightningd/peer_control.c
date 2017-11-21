@@ -2009,6 +2009,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_SENDING_COMMITSIG_REPLY:
 	case WIRE_CHANNEL_SEND_SHUTDOWN:
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT:
+	case WIRE_CHANNEL_FEERATES:
 	/* Replies go to requests. */
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
 	case WIRE_CHANNEL_PING_REPLY:

@@ -185,3 +185,8 @@ channel_shutdown_complete,,crypto_state,struct crypto_state
 # Re-enable commit timer.
 channel_dev_reenable_commit,1026
 channel_dev_reenable_commit_reply,1126
+
+channel_feerates,1027
+channel_feerates,,feerate,u32
+channel_feerates,,min_feerate,u32
+channel_feerates,,max_feerate,u32
