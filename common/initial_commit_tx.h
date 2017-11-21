@@ -19,7 +19,7 @@ u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint,
 			   const struct pubkey *accepter_payment_basepoint);
 
 /* Helper to calculate the base fee if we have this many htlc outputs */
-static inline u64 commit_tx_base_fee(u64 feerate_per_kw,
+static inline u64 commit_tx_base_fee(u32 feerate_per_kw,
 				     size_t num_untrimmed_htlcs)
 {
 	u64 weight;
@@ -73,7 +73,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     enum side funder,
 				     u16 to_self_delay,
 				     const struct keyset *keyset,
-				     u64 feerate_per_kw,
+				     u32 feerate_per_kw,
 				     u64 dust_limit_satoshis,
 				     u64 self_pay_msat,
 				     u64 other_pay_msat,

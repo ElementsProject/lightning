@@ -77,7 +77,7 @@ static struct bitcoin_tx *tx_from_hex(const tal_t *ctx, const char *hex)
  *     ...
  *     local_feerate_per_kw: 9651936
  */
-static u64 feerates[] = {
+static u32 feerates[] = {
 	647, 648,
 	2069, 2070,
 	2194, 2195,
@@ -304,7 +304,8 @@ int main(void)
 	struct sha256_double funding_txid;
 	/* We test from both sides. */
 	struct channel *lchannel, *rchannel;
-	u64 funding_amount_satoshi, feerate_per_kw;
+	u64 funding_amount_satoshi;
+	u32 feerate_per_kw;
 	unsigned int funding_output_index;
 	struct keyset keyset;
 	struct pubkey local_funding_pubkey, remote_funding_pubkey;

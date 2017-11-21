@@ -204,7 +204,7 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			 const struct pubkey *remotekey,
 			 const struct pubkey *remote_htlckey,
 			 const struct pubkey *remote_revocation_key,
-			 u64 feerate_per_kw)
+			 u32 feerate_per_kw)
 {
 	tal_t *tmpctx = tal_tmpctx(NULL);
 	size_t i, n;
@@ -336,7 +336,7 @@ static void report(struct bitcoin_tx *tx,
 		   const struct pubkey *remotekey,
 		   const struct pubkey *remote_htlckey,
 		   const struct pubkey *remote_revocation_key,
-		   u64 feerate_per_kw,
+		   u32 feerate_per_kw,
 		   const struct htlc **htlc_map)
 {
 	tal_t *tmpctx = tal_tmpctx(NULL);
@@ -387,12 +387,12 @@ static u64 calc_fee(const struct bitcoin_tx *tx, u64 input_satoshi)
 }
 
 /* For debugging, we do brute-force increase to find thresholds */
-static u64 increase(u64 feerate_per_kw)
+static u32 increase(u32 feerate_per_kw)
 {
 	return feerate_per_kw + 1;
 }
 #else
-static u64 increase(u64 feerate_per_kw)
+static u64 increase(u32 feerate_per_kw)
 {
 	/* BOLT #3:
 	 *
@@ -444,7 +444,8 @@ int main(void)
 {
 	tal_t *tmpctx = tal_tmpctx(NULL);
 	struct sha256_double funding_txid;
-	u64 funding_amount_satoshi, dust_limit_satoshi, feerate_per_kw;
+	u64 funding_amount_satoshi, dust_limit_satoshi;
+	u32 feerate_per_kw;
 	u16 to_self_delay;
 	/* x_ prefix means internal vars we used to derive spec */
 	struct privkey local_funding_privkey, x_remote_funding_privkey;
@@ -713,7 +714,7 @@ int main(void)
 	       "name: simple commitment tx with no HTLCs\n"
 	       "to_local_msat: %"PRIu64"\n"
 	       "to_remote_msat: %"PRIu64"\n"
-	       "local_feerate_per_kw: %"PRIu64"\n",
+	       "local_feerate_per_kw: %u\n",
 	       to_local_msat, to_remote_msat, feerate_per_kw);
 
 	keyset.self_revocation_key = remote_revocation_key;
@@ -774,7 +775,7 @@ int main(void)
 	       "name: commitment tx with all 5 htlcs untrimmed (minimum feerate)\n"
 	       "to_local_msat: %"PRIu64"\n"
 	       "to_remote_msat: %"PRIu64"\n"
-	       "local_feerate_per_kw: %"PRIu64"\n",
+	       "local_feerate_per_kw: %u\n",
 	       to_local_msat, to_remote_msat, feerate_per_kw);
 
 	print_superverbose = true;
@@ -846,7 +847,7 @@ int main(void)
 		tx_must_be_eq(newtx, tx2);
 #ifdef DEBUG
 		if (feerate_per_kw % 100000 == 0)
-			printf("feerate_per_kw = %"PRIu64", fees = %"PRIu64"\n",
+			printf("feerate_per_kw = %u, fees = %"PRIu64"\n",
 			       feerate_per_kw, calc_fee(newtx, funding_amount_satoshi));
 		if (tal_count(newtx->output) == tal_count(tx->output)) {
 			tal_free(newtx);
@@ -857,7 +858,7 @@ int main(void)
 		       "name: commitment tx with %zu output%s untrimmed (maximum feerate)\n"
 		       "to_local_msat: %"PRIu64"\n"
 		       "to_remote_msat: %"PRIu64"\n"
-		       "local_feerate_per_kw: %"PRIu64"\n",
+		       "local_feerate_per_kw: %u\n",
 		       tal_count(tx->output),
 		       tal_count(tx->output) > 1 ? "s" : "",
 		       to_local_msat, to_remote_msat, feerate_per_kw-1);
@@ -893,7 +894,7 @@ int main(void)
 		       "name: commitment tx with %zu output%s untrimmed (minimum feerate)\n"
 		       "to_local_msat: %"PRIu64"\n"
 		       "to_remote_msat: %"PRIu64"\n"
-		       "local_feerate_per_kw: %"PRIu64"\n",
+		       "local_feerate_per_kw: %u\n",
 		       tal_count(newtx->output),
 		       tal_count(newtx->output) > 1 ? "s" : "",
 		       to_local_msat, to_remote_msat, feerate_per_kw);
@@ -955,7 +956,7 @@ int main(void)
 		       "name: commitment tx with fee greater than funder amount\n"
 		       "to_local_msat: %"PRIu64"\n"
 		       "to_remote_msat: %"PRIu64"\n"
-		       "local_feerate_per_kw: %"PRIu64"\n",
+		       "local_feerate_per_kw: %u\n",
 		       to_local_msat, to_remote_msat, feerate_per_kw);
 		tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 			       funding_amount_satoshi,

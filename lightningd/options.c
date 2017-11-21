@@ -54,22 +54,6 @@ static void tal_freefn(void *ptr)
 #define TIME_FROM_MSEC(msec) \
 	{ { .tv_nsec = ((msec) % 1000) * 1000000, .tv_sec = (msec) / 1000 } }
 
-static char *opt_set_u64(const char *arg, u64 *u)
-{
-	char *endp;
-	unsigned long long l;
-
-	/* This is how the manpage says to do it.  Yech. */
-	errno = 0;
-	l = strtoull(arg, &endp, 0);
-	if (*endp || !arg[0])
-		return tal_fmt(NULL, "'%s' is not a number", arg);
-	*u = l;
-	if (errno || *u != l)
-		return tal_fmt(NULL, "'%s' is out of range", arg);
-	return NULL;
-}
-
 static char *opt_set_u32(const char *arg, u32 *u)
 {
 	char *endp;
@@ -128,11 +112,6 @@ static char *opt_add_ipaddr(const char *arg, struct lightningd *ld)
 		return NULL;
 
 	return tal_fmt(NULL, "Unable to parse IP address '%s'", arg);
-}
-
-static void opt_show_u64(char buf[OPT_SHOW_LEN], const u64 *u)
-{
-	snprintf(buf, OPT_SHOW_LEN, "%"PRIu64, *u);
 }
 
 static void opt_show_u32(char buf[OPT_SHOW_LEN], const u32 *u)
@@ -197,7 +176,7 @@ static char *opt_set_alias(const char *arg, struct lightningd *ld)
 static char *opt_set_fee_rates(const char *arg, struct chain_topology *topo)
 {
 	tal_free(topo->override_fee_rate);
-	topo->override_fee_rate = tal_arr(topo, u64, 3);
+	topo->override_fee_rate = tal_arr(topo, u32, 3);
 
 	for (size_t i = 0; i < tal_count(topo->override_fee_rate); i++) {
 		char *endp;
@@ -249,7 +228,7 @@ static void config_register_opts(struct lightningd *ld)
 	opt_register_arg("--override-fee-rates", opt_set_fee_rates, NULL,
 			 ld->topology,
 			 "Force a specific rates (immediate/normal/slow) in satoshis per kb regardless of estimated fees");
-	opt_register_arg("--default-fee-rate", opt_set_u64, opt_show_u64,
+	opt_register_arg("--default-fee-rate", opt_set_u32, opt_show_u32,
 			 &ld->topology->default_fee_rate,
 			 "Satoshis per kb if can't estimate fees");
 	opt_register_arg("--cltv-delta", opt_set_u32, opt_show_u32,

@@ -20,7 +20,7 @@ struct fulfilled_htlc;
 /* View from each side */
 struct channel_view {
 	/* Current feerate in satoshis per 1000 weight. */
-	u64 feerate_per_kw;
+	u32 feerate_per_kw;
 
 	/* How much is owed to each side (includes pending changes) */
 	u64 owed_msat[NUM_SIDES];

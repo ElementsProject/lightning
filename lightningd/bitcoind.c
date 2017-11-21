@@ -264,10 +264,10 @@ struct estimatefee {
 	const u32 *blocks;
 	const char **estmode;
 
-	void (*cb)(struct bitcoind *bitcoind, const u64 satoshi_per_kw[],
+	void (*cb)(struct bitcoind *bitcoind, const u32 satoshi_per_kw[],
 		   void *);
 	void *arg;
-	u64 *satoshi_per_kw;
+	u32 *satoshi_per_kw;
 };
 
 static void do_one_estimatefee(struct bitcoind *bitcoind,
@@ -312,7 +312,7 @@ void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
 			     const u32 blocks[], const char *estmode[],
 			     size_t num_estimates,
 			     void (*cb)(struct bitcoind *bitcoind,
-					const u64 satoshi_per_kw[], void *),
+					const u32 satoshi_per_kw[], void *),
 			     void *arg)
 {
 	struct estimatefee *efee = tal(bitcoind, struct estimatefee);
@@ -323,7 +323,7 @@ void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
 				    0);
 	efee->cb = cb;
 	efee->arg = arg;
-	efee->satoshi_per_kw = tal_arr(efee, u64, num_estimates);
+	efee->satoshi_per_kw = tal_arr(efee, u32, num_estimates);
 
 	do_one_estimatefee(bitcoind, efee);
 }

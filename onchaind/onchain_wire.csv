@@ -10,7 +10,7 @@ onchain_init,,old_remote_per_commitment_point,struct pubkey
 onchain_init,,remote_per_commitment_point,struct pubkey
 onchain_init,,local_to_self_delay,u32
 onchain_init,,remote_to_self_delay,u32
-onchain_init,,feerate_per_kw,u64
+onchain_init,,feerate_per_kw,u32
 onchain_init,,local_dust_limit_satoshi,u64
 onchain_init,,remote_revocation_basepoint,struct pubkey
 # Gives an easy way to tell if it's our unilateral close or theirs...

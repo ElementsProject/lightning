@@ -438,7 +438,7 @@ static bool wallet_stmt2channel(struct wallet *w, sqlite3_stmt *stmt,
 		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->theirbase.delayed_payment);
 		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->remote_per_commit);
 		ok &= sqlite3_column_pubkey(stmt, col++, &channel_info->old_remote_per_commit);
-		channel_info->feerate_per_kw = sqlite3_column_int64(stmt, col++);
+		channel_info->feerate_per_kw = sqlite3_column_int(stmt, col++);
 		wallet_channel_config_load(w, remote_config_id, &chan->peer->channel_info->their_config);
 	} else {
 		/* No channel_info, skip positions in the result */
