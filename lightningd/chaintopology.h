@@ -111,7 +111,7 @@ struct chain_topology {
 	struct list_head outgoing_txs;
 
 	/* Force a partiular fee rate regardless of estimatefee (satoshis/kb) */
-	u64 override_fee_rate;
+	u64 *override_fee_rate;
 
 	/* What fee we use if estimatefee fails (satoshis/kb) */
 	u64 default_fee_rate;
