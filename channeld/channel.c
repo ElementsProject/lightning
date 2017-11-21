@@ -2017,7 +2017,7 @@ static void init_channel(struct peer *peer)
 	bool reconnected;
 	u8 *funding_signed;
 	u8 *msg;
-	u32 feerate_per_kw;
+	u32 feerate_per_kw[NUM_SIDES];
 
 	assert(!(fcntl(MASTER_FD, F_GETFL) & O_NONBLOCK));
 
@@ -2029,7 +2029,7 @@ static void init_channel(struct peer *peer)
 				   &funding_txid, &funding_txout,
 				   &funding_satoshi,
 				   &peer->conf[LOCAL], &peer->conf[REMOTE],
-				   &feerate_per_kw,
+				   feerate_per_kw,
 				   &peer->their_commit_sig,
 				   &peer->pcs.cs,
 				   &funding_pubkey[REMOTE],

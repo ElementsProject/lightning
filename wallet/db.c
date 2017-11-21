@@ -62,7 +62,8 @@ char *dbmigrations[] = {
     "  delayed_payment_basepoint_remote BLOB,"
     "  per_commit_remote BLOB,"
     "  old_per_commit_remote BLOB,"
-    "  feerate_per_kw INTEGER,"
+    "  local_feerate_per_kw INTEGER,"
+    "  remote_feerate_per_kw INTEGER,"
     /* END channel_info */
     "  shachain_remote_id INTEGER,"
     "  shutdown_scriptpubkey_remote BLOB,"

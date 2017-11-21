@@ -24,7 +24,7 @@ struct channel *new_channel(const tal_t *ctx,
 			    unsigned int funding_txout,
 			    u64 funding_satoshis,
 			    u64 local_msatoshi,
-			    u32 feerate_per_kw,
+			    const u32 feerate_per_kw[NUM_SIDES],
 			    const struct channel_config *local,
 			    const struct channel_config *remote,
 			    const struct basepoints *local_basepoints,
@@ -37,13 +37,17 @@ struct channel *new_channel(const tal_t *ctx,
 						      funding_txout,
 						      funding_satoshis,
 						      local_msatoshi,
-						      feerate_per_kw,
+						      feerate_per_kw[LOCAL],
 						      local, remote,
 						      local_basepoints,
 						      remote_basepoints,
 						      local_funding_pubkey,
 						      remote_funding_pubkey,
 						      funder);
+
+	/* Feerates can be different. */
+	channel->view[REMOTE].feerate_per_kw = feerate_per_kw[REMOTE];
+
 	if (channel) {
 		channel->htlcs = tal(channel, struct htlc_map);
 		htlc_map_init(channel->htlcs);

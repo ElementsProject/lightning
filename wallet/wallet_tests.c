@@ -259,7 +259,7 @@ static bool test_channel_crud(const tal_t *ctx)
 	mempat(sig, sizeof(*sig));
 	mempat(&last_commit, sizeof(last_commit));
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
-	ci.feerate_per_kw = 31337;
+	ci.feerate_per_kw[LOCAL] = ci.feerate_per_kw[REMOTE] = 31337;
 	mempat(&p.id, sizeof(p.id));
 	c1.peer = &p;
 	p.id = pk;

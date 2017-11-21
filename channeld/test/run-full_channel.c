@@ -305,7 +305,7 @@ int main(void)
 	/* We test from both sides. */
 	struct channel *lchannel, *rchannel;
 	u64 funding_amount_satoshi;
-	u32 feerate_per_kw;
+	u32 *feerate_per_kw = tal_arr(tmpctx, u32, NUM_SIDES);
 	unsigned int funding_output_index;
 	struct keyset keyset;
 	struct pubkey local_funding_pubkey, remote_funding_pubkey;
@@ -423,7 +423,7 @@ int main(void)
 
 	to_local_msat = 7000000000;
 	to_remote_msat = 3000000000;
-	feerate_per_kw = 15000;
+	feerate_per_kw[LOCAL] = feerate_per_kw[REMOTE] = 15000;
 	lchannel = new_channel(tmpctx, &funding_txid, funding_output_index,
 			       funding_amount_satoshi, to_local_msat,
 			       feerate_per_kw,
@@ -465,7 +465,7 @@ int main(void)
 			   funding_amount_satoshi,
 			   LOCAL, remote_config->to_self_delay,
 			   &keyset,
-			   feerate_per_kw,
+			   feerate_per_kw[LOCAL],
 			   local_config->dust_limit_satoshis,
 			   to_local_msat,
 			   to_remote_msat,
@@ -492,7 +492,7 @@ int main(void)
 	 */
 	to_local_msat = 6988000000;
 	to_remote_msat = 3000000000;
-	feerate_per_kw = 0;
+	feerate_per_kw[LOCAL] = feerate_per_kw[REMOTE] = 0;
 
 	/* Now, BOLT doesn't adjust owed amounts the same way we do
 	 * here: it's as if local side paid for all the HTLCs.  We can
@@ -514,8 +514,8 @@ int main(void)
 	txs_must_be_eq(txs, txs2);
 
 	/* FIXME: Adjust properly! */
-	lchannel->view[LOCAL].feerate_per_kw = feerate_per_kw;
-	rchannel->view[REMOTE].feerate_per_kw = feerate_per_kw;
+	lchannel->view[LOCAL].feerate_per_kw = feerate_per_kw[LOCAL];
+	rchannel->view[REMOTE].feerate_per_kw = feerate_per_kw[REMOTE];
 	htlcs = include_htlcs(lchannel, LOCAL);
 	include_htlcs(rchannel, REMOTE);
 
@@ -574,16 +574,16 @@ int main(void)
 
 	/* FIXME: Compare HTLCs for these too! */
 	for (i = 0; i < ARRAY_SIZE(feerates); i++) {
-		feerate_per_kw = feerates[i];
+		feerate_per_kw[LOCAL] = feerate_per_kw[REMOTE] = feerates[i];
 
-		lchannel->view[LOCAL].feerate_per_kw = feerate_per_kw;
-		rchannel->view[REMOTE].feerate_per_kw = feerate_per_kw;
+		lchannel->view[LOCAL].feerate_per_kw = feerate_per_kw[LOCAL];
+		rchannel->view[REMOTE].feerate_per_kw = feerate_per_kw[REMOTE];
 
 		raw_tx = commit_tx(tmpctx, &funding_txid, funding_output_index,
 				   funding_amount_satoshi,
 				   LOCAL, remote_config->to_self_delay,
 				   &keyset,
-				   feerate_per_kw,
+				   feerate_per_kw[LOCAL],
 				   local_config->dust_limit_satoshis,
 				   to_local_msat,
 				   to_remote_msat,
