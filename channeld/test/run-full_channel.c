@@ -298,6 +298,35 @@ static void send_and_fulfill_htlc(struct channel *channel,
 	}
 }
 
+static void update_feerate(struct channel *channel, u32 feerate)
+{
+	bool ret;
+
+	ret = channel_update_feerate(channel, feerate);
+	assert(ret);
+	if (channel->funder == LOCAL) {
+		ret = channel_sending_commit(channel, NULL);
+		assert(ret);
+		ret = channel_rcvd_revoke_and_ack(channel, NULL);
+		assert(ret);
+		ret = channel_rcvd_commit(channel, NULL);
+		assert(ret);
+		ret = channel_sending_revoke_and_ack(channel);
+		assert(!ret);
+	} else {
+		ret = channel_rcvd_commit(channel, NULL);
+		assert(ret);
+		ret = channel_sending_revoke_and_ack(channel);
+		assert(ret);
+		ret = channel_sending_commit(channel, NULL);
+		assert(ret);
+		ret = channel_rcvd_revoke_and_ack(channel, NULL);
+		assert(!ret);
+	}
+	assert(channel_feerate(channel, LOCAL) == feerate);
+	assert(channel_feerate(channel, REMOTE) == feerate);
+}
+
 int main(void)
 {
 	tal_t *tmpctx = tal_tmpctx(NULL);
@@ -513,9 +542,9 @@ int main(void)
 			   rchannel, &local_per_commitment_point, 42, REMOTE);
 	txs_must_be_eq(txs, txs2);
 
-	/* FIXME: Adjust properly! */
-	lchannel->view[LOCAL].feerate_per_kw = feerate_per_kw[LOCAL];
-	rchannel->view[REMOTE].feerate_per_kw = feerate_per_kw[REMOTE];
+	update_feerate(lchannel, feerate_per_kw[LOCAL]);
+	update_feerate(rchannel, feerate_per_kw[REMOTE]);
+
 	htlcs = include_htlcs(lchannel, LOCAL);
 	include_htlcs(rchannel, REMOTE);
 
