@@ -57,7 +57,7 @@ void wait_for_bitcoind(struct bitcoind *bitcoind);
 
 void bitcoind_estimate_fee_(struct bitcoind *bitcoind,
 			    void (*cb)(struct bitcoind *bitcoind,
-				       u64, void *),
+				       u64 satoshi_per_kw, void *),
 			    void *arg);
 
 #define bitcoind_estimate_fee(bitcoind_, cb, arg)			\

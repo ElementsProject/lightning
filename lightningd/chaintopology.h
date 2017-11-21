@@ -138,7 +138,7 @@ size_t get_tx_depth(const struct chain_topology *topo,
 /* Get highest block number. */
 u32 get_block_height(const struct chain_topology *topo);
 
-/* Get fee rate. */
+/* Get fee rate in satoshi per kiloweight. */
 u64 get_feerate(const struct chain_topology *topo);
 
 /* Broadcast a single tx, and rebroadcast as reqd (copies tx).

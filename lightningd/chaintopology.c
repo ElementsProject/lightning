@@ -291,12 +291,12 @@ static void free_blocks(struct chain_topology *topo, struct block *b)
 	}
 }
 
-static void update_fee(struct bitcoind *bitcoind, u64 rate,
+static void update_fee(struct bitcoind *bitcoind, u64 satoshi_per_kw,
 		       struct chain_topology *topo)
 {
 	log_debug(topo->log, "Feerate %"PRIu64" (was %"PRIu64")",
-		  rate, topo->feerate);
-	topo->feerate = rate;
+		  satoshi_per_kw, topo->feerate);
+	topo->feerate = satoshi_per_kw;
 }
 
 /* B is the new chain (linked by ->next); update topology */
