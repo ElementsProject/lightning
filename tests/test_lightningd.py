@@ -2233,5 +2233,86 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('Received node_announcement for node {}'.format(l1.info['id']))
         assert [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True]
 
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_update_fee(self):
+        l1, l2 = self.connect()
+        chanid = self.fund_channel(l1, l2, 10**6)
+
+        # Make l1 send out feechange.
+        l1.rpc.dev_setfees('14000')
+        l2.daemon.wait_for_log('peer updated fee to 14000')
+
+        # Now make sure an HTLC works.
+        # (First wait for route propagation.)
+        bitcoind.rpc.generate(6)
+        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+                                 .format(chanid),
+                                'Received channel_update for channel {}\(1\)'
+                                 .format(chanid)])
+
+        # Make payments.
+        self.pay(l1,l2,200000000)
+        self.pay(l2,l1,100000000)
+
+        # Now shutdown cleanly.
+        l1.rpc.close(l2.info['id']);
+        l1.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
+        l2.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
+
+        # And should put closing into mempool.
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+
+        bitcoind.rpc.generate(1)
+        l1.daemon.wait_for_log('-> ONCHAIND_MUTUAL')
+        l2.daemon.wait_for_log('-> ONCHAIND_MUTUAL')
+
+        bitcoind.rpc.generate(99)
+        l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+    @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+    def test_update_fee_reconnect(self):
+        # Disconnect after first commitsig.
+        disconnects = ['+WIRE_COMMITMENT_SIGNED']
+        l1 = self.node_factory.get_node(disconnect=disconnects)
+        l2 = self.node_factory.get_node()
+        l1.rpc.connect(l2.info['id'], 'localhost:{}'.format(l2.info['port']))
+
+        self.fund_channel(l1, l2, 10**6)
+
+        # Make l1 send out feechange; triggers disconnect/reconnect.
+        l1.rpc.dev_setfees('14000')
+        l1.daemon.wait_for_log('Setting REMOTE feerate to 14000')
+        l2.daemon.wait_for_log('Setting LOCAL feerate to 14000')
+        l1.daemon.wait_for_log('dev_disconnect: \+WIRE_COMMITMENT_SIGNED')
+
+        # Wait for reconnect....
+        l1.daemon.wait_for_log('Applying feerate 14000 to LOCAL')
+
+        self.pay(l1,l2,200000000)
+        self.pay(l2,l1,100000000)
+
+        # They should both have gotten commits with correct feerate.
+        assert l1.daemon.is_in_log('got commitsig [0-9]*: feerate 14000')
+        assert l2.daemon.is_in_log('got commitsig [0-9]*: feerate 14000')
+
+        # Now shutdown cleanly.
+        l1.rpc.close(l2.info['id']);
+        l1.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
+        l2.daemon.wait_for_log('-> CLOSINGD_COMPLETE')
+
+        # And should put closing into mempool.
+        l1.daemon.wait_for_log('sendrawtx exit 0')
+        l2.daemon.wait_for_log('sendrawtx exit 0')
+
+        bitcoind.rpc.generate(1)
+        l1.daemon.wait_for_log('-> ONCHAIND_MUTUAL')
+        l2.daemon.wait_for_log('-> ONCHAIND_MUTUAL')
+
+        bitcoind.rpc.generate(99)
+        l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+        l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+        
 if __name__ == '__main__':
     unittest.main(verbosity=2)
