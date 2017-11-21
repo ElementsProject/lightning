@@ -33,12 +33,12 @@ struct invoice *find_unpaid(struct invoices *invs, const struct sha256 *rhash)
 	return NULL;
 }
 
-static struct invoice *find_invoice_by_label(const struct list_head *list,
+static struct invoice *find_invoice_by_label(const struct invoices *invs,
 					     const char *label)
 {
 	struct invoice *i;
 
-	list_for_each(list, i, list) {
+	list_for_each(&invs->invlist, i, list) {
 		if (streq(i->label, label))
 			return i;
 	}
@@ -133,7 +133,7 @@ static void json_invoice(struct command *cmd,
 
 	invoice->label = tal_strndup(invoice, buffer + label->start,
 				     label->end - label->start);
-	if (find_invoice_by_label(&invs->invlist, invoice->label)) {
+	if (find_invoice_by_label(invs, invoice->label)) {
 		command_fail(cmd, "Duplicate label '%s'", invoice->label);
 		return;
 	}
@@ -269,7 +269,7 @@ static void json_delinvoice(struct command *cmd,
 
 	label = tal_strndup(cmd, buffer + labeltok->start,
 			    labeltok->end - labeltok->start);
-	i = find_invoice_by_label(&invs->invlist, label);
+	i = find_invoice_by_label(invs, label);
 	if (!i) {
 		command_fail(cmd, "Unknown invoice");
 		return;
@@ -326,7 +326,7 @@ static void json_waitanyinvoice(struct command *cmd,
 	} else {
 		label = tal_strndup(cmd, buffer + labeltok->start,
 				    labeltok->end - labeltok->start);
-		i = find_invoice_by_label(&invs->invlist, label);
+		i = find_invoice_by_label(invs, label);
 		if (!i) {
 			command_fail(cmd, "Label not found");
 			return;
@@ -381,7 +381,7 @@ static void json_waitinvoice(struct command *cmd,
 
 	/* Search in paid invoices, if found return immediately */
 	label = tal_strndup(cmd, buffer + labeltok->start, labeltok->end - labeltok->start);
-	i = find_invoice_by_label(&invs->invlist, label);
+	i = find_invoice_by_label(invs, label);
 
 	if (!i) {
 		command_fail(cmd, "Label not found");
