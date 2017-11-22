@@ -4,10 +4,10 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/gen_channel_wire.h>
+#include <common/bolt11.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <gossipd/routing.h>
 #include <inttypes.h>
-#include <lightningd/bolt11.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>

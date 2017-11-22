@@ -1,5 +1,5 @@
-#ifndef LIGHTNING_LIGHTNINGD_BOLT11_H
-#define LIGHTNING_LIGHTNINGD_BOLT11_H
+#ifndef LIGHTNING_COMMON_BOLT11_H
+#define LIGHTNING_COMMON_BOLT11_H
 #include "config.h"
 
 #include <bitcoin/pubkey.h>
@@ -7,8 +7,7 @@
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
 #include <common/hash_u5.h>
-
-struct lightningd;
+#include <secp256k1_recovery.h>
 
 /* We only have 10 bits for the field length, meaning < 640 bytes */
 #define BOLT11_FIELD_BYTE_LIMIT ((1 << 10) * 5 / 8)
@@ -73,9 +72,21 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 struct bolt11 *new_bolt11(const tal_t *ctx, u64 *msatoshi);
 
 /* Encodes and signs, even if it's nonsense. */
-char *bolt11_encode(const tal_t *ctx,
-                    struct lightningd *ld,
-                    const struct bolt11 *b11, bool n_field);
+char *bolt11_encode_(const tal_t *ctx,
+		     const struct bolt11 *b11, bool n_field,
+		     bool (*sign)(const u5 *u5bytes,
+				  const u8 *hrpu8,
+				  secp256k1_ecdsa_recoverable_signature *rsig,
+				  void *arg),
+		     void *arg);
+
+#define bolt11_encode(ctx, b11, n_field, sign, arg)		\
+	bolt11_encode_((ctx), (b11), (n_field),			\
+		       typesafe_cb_preargs(bool, void *, (sign), (arg), \
+				const u5 *,			\
+				const u8 *,			\
+				secp256k1_ecdsa_recoverable_signature *rsig), \
+		       (arg))
 
 /**
  * bolt11_out_check - check a bolt11 struct for validity and consistency

@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
+#include <lightningd/hsm_control.h>
 #include <lightningd/log.h>
 #include <string.h>
 #include <wally_bip32.h>
