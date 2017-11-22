@@ -164,6 +164,7 @@ include lightningd/Makefile
 include cli/Makefile
 include test/Makefile
 include doc/Makefile
+include devtools/Makefile
 
 # Git doesn't maintain timestamps, so we only regen if git says we should.
 CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o x"`git diff $<`" != x"" ]
