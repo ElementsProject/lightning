@@ -16,6 +16,7 @@ default: lightningd-all
 LIGHTNINGD_COMMON_OBJS :=			\
 	common/bech32.o				\
 	common/bip32.o				\
+	common/bolt11.o				\
 	common/channel_config.o			\
 	common/configdir.o			\
 	common/crypto_state.o			\
@@ -42,7 +43,6 @@ LIGHTNINGD_COMMON_OBJS :=			\
 
 LIGHTNINGD_SRC :=				\
 	lightningd/bitcoind.c			\
-	lightningd/bolt11.c			\
 	lightningd/build_utxos.c		\
 	lightningd/chaintopology.c		\
 	lightningd/gossip_control.c		\
