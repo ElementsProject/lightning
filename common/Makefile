@@ -1,4 +1,5 @@
 COMMON_SRC :=					\
+	common/bech32.c				\
 	common/bip32.c				\
 	common/channel_config.c			\
 	common/close_tx.c			\
