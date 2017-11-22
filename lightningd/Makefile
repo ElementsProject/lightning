@@ -14,6 +14,7 @@ default: lightningd-all
 
 # Common source we use.
 LIGHTNINGD_COMMON_OBJS :=			\
+	common/bech32.o				\
 	common/bip32.o				\
 	common/channel_config.o			\
 	common/configdir.o			\
@@ -40,7 +41,6 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/withdraw_tx.o
 
 LIGHTNINGD_SRC :=				\
-	lightningd/bech32.c			\
 	lightningd/bitcoind.c			\
 	lightningd/bolt11.c			\
 	lightningd/build_utxos.c		\
