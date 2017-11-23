@@ -138,7 +138,8 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
 			      struct htlc_in *in,
-			      struct pay_command *pc)
+			      struct pay_command *pc,
+			      struct wallet_payment *payment)
 {
 	struct htlc_out *hout = tal(ctx, struct htlc_out);
 
@@ -149,6 +150,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	hout->msatoshi = msatoshi;
 	hout->cltv_expiry = cltv_expiry;
 	hout->payment_hash = *payment_hash;
+	hout->payment = payment;
 	memcpy(hout->onion_routing_packet, onion_routing_packet,
 	       sizeof(hout->onion_routing_packet));
 

@@ -72,6 +72,9 @@ struct htlc_out {
 
 	/* Otherwise, payment command which created it. */
 	struct pay_command *pay_command;
+
+	/* Temporary payment store, so we can save everything in one go */
+	struct wallet_payment *payment;
 };
 
 static inline const struct htlc_key *keyof_htlc_in(const struct htlc_in *in)
@@ -127,7 +130,8 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
 			      struct htlc_in *in,
-			      struct pay_command *pc);
+			      struct pay_command *pc,
+			      struct wallet_payment *payment);
 
 void connect_htlc_in(struct htlc_in_map *map, struct htlc_in *hin);
 void connect_htlc_out(struct htlc_out_map *map, struct htlc_out *hout);
