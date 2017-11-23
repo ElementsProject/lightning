@@ -1285,7 +1285,7 @@ class LightningDTests(BaseLightningDTests):
 
         channels = l1.rpc.getchannels()['channels']
         assert len(channels) == 2
-        assert [c['active'] for c in channels] == [True, True]
+        wait_for(lambda: [c['active'] for c in channels] == [True, True])
 
     def ping_tests(self, l1, l2):
         # 0-byte pong gives just type + length field.
@@ -2314,6 +2314,6 @@ class LightningDTests(BaseLightningDTests):
         bitcoind.rpc.generate(99)
         l1.daemon.wait_for_log('onchaind complete, forgetting peer')
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
-        
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
