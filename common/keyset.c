@@ -49,7 +49,7 @@ bool derive_keyset(const struct pubkey *per_commitment_point,
 	if (!derive_simple_key(self_delayed_basepoint,
 			       per_commitment_point,
 			       &keyset->self_delayed_payment_key))
-		return NULL;
+		return false;
 
 	/* BOLT #3:
 	 *
