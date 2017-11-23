@@ -86,6 +86,6 @@ check-whitespace: $(LIGHTNINGD_ONCHAIN_SRC_NOGEN:%=check-whitespace/%) $(LIGHTNI
 clean: onchaind-clean
 
 onchaind-clean:
-	$(RM) $(LIGHTNINGD_ONCHAIN_OBJS) gen_*
+	$(RM) $(LIGHTNINGD_ONCHAIN_OBJS) onchaind/gen_*
 
 -include onchaind/test/Makefile 

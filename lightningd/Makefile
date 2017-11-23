@@ -105,6 +105,6 @@ lightningd/lightningd: $(LIGHTNINGD_OBJS) $(LIGHTNINGD_COMMON_OBJS) $(BITCOIN_OB
 clean: lightningd-clean
 
 lightningd-clean:
-	$(RM) $(LIGHTNINGD_OBJS) $(LIGHTNINGD_JSMN_OBJS) $(LIGHTNINGD_PROGRAM)
+	$(RM) $(LIGHTNINGD_OBJS) $(LIGHTNINGD_JSMN_OBJS) $(LIGHTNINGD_PROGRAM) lightningd/gen*
 
 include lightningd/test/Makefile

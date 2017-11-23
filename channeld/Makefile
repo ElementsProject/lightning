@@ -93,6 +93,6 @@ check-whitespace: $(LIGHTNINGD_CHANNEL_SRC_NOGEN:%=check-whitespace/%) $(LIGHTNI
 clean: lightningd/channel-clean
 
 lightningd/channel-clean:
-	$(RM) $(LIGHTNINGD_CHANNEL_OBJS) gen_*
+	$(RM) $(LIGHTNINGD_CHANNEL_OBJS) channeld/gen_*
 
 -include channeld/test/Makefile 

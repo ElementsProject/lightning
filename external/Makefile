@@ -84,11 +84,11 @@ distclean: external-distclean
 clean: external-clean
 
 external-clean:
-	$(RM) $(EXTERNAL_LIBS)
+	$(RM) $(EXTERNAL_LIBS) external/*.la external/*.o
 
 external-distclean:
 	make -C external/libsodium distclean || true
 	$(RM) -rf external/libbacktrace-build
-	$(RM) external/libsodium.la external/libsodium/src/libsodium/libsodium.la
+	$(RM) external/libsodium/src/libsodium/libsodium.la
 	$(RM) external/libwally-core/src/secp256k1/libsecp256k1.la external/libwally-core/src/libwallycore.la
-	cd external/libwally-core && tools/cleanup.sh
+	$(RM) -r `git status --ignored --porcelain external/libwally-core | grep '^!! ' | cut -c3-`

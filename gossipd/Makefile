@@ -76,6 +76,6 @@ check-whitespace: $(LIGHTNINGD_GOSSIP_ALLSRC_NOGEN:%=check-whitespace/%) $(LIGHT
 clean: gossipd-clean
 
 gossipd-clean:
-	$(RM) $(LIGHTNINGD_GOSSIP_OBJS) gen_*
+	$(RM) $(LIGHTNINGD_GOSSIP_OBJS) gossipd/gen_*
 
 -include gossipd/test/Makefile 

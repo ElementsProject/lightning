@@ -62,3 +62,7 @@ check-whitespace: $(BITCOIN_SRC:%=check-whitespace/%) $(BITCOIN_HEADERS:%=check-
 
 bitcoin-tests: $(BITCOIN_TEST_PROGRAMS:%=unittest/%)
 
+clean: bitcoin-clean
+
+bitcoin-clean:
+	$(RM) $(BITCOIN_OBJS) $(BITCOIN_TEST_PROGRAMS) $(BITCOIN_TEST_OBJS)

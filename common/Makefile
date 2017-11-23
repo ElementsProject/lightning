@@ -63,4 +63,9 @@ check-whitespace: $(COMMON_SRC:%=check-whitespace/%) $(COMMON_HEADERS:%=check-wh
 check-source: $(COMMON_SRC:%=check-src-include-order/%)			\
 	$(COMMON_HEADERS_NOGEN:%=check-hdr-include-order/%)
 
+clean: common-clean
+
+common-clean:
+	$(RM) common/gen*
+
 include common/test/Makefile
