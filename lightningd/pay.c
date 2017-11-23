@@ -79,41 +79,35 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 		    const char *localfail)
 {
 	struct pay_command *pc = hout->pay_command;
-	enum onion_type failcode;
 	struct onionreply *reply;
+	enum onion_type failcode;
 
 	wallet_payment_set_status(ld->wallet, &hout->payment_hash, PAYMENT_FAILED);
 
-	/* This gives more details than a generic failure message,
-	 * and also the failuremsg here is unencrypted */
+	/* This gives more details than a generic failure message */
 	if (localfail) {
-		size_t max = tal_len(hout->failuremsg);
-		const u8 *p = hout->failuremsg;
-		failcode = fromwire_u16(&p, &max);
-		json_pay_failed(pc, NULL, failcode, localfail);
+		json_pay_failed(pc, NULL, hout->failcode, localfail);
 		return;
 	}
 
-	if (hout->malformed)
-		failcode = hout->malformed;
-	else {
-		reply = unwrap_onionreply(pc, pc->path_secrets,
-					  tal_count(pc->path_secrets),
-					  hout->failuremsg);
-		if (!reply) {
-			log_info(hout->key.peer->log,
-				 "htlc %"PRIu64" failed with bad reply (%s)",
-				 hout->key.id,
-				 tal_hex(pc, hout->failuremsg));
-			failcode = WIRE_PERMANENT_NODE_FAILURE;
-		} else {
-			failcode = fromwire_peektype(reply->msg);
-			log_info(hout->key.peer->log,
-				 "htlc %"PRIu64" failed from %ith node with code 0x%04x (%s)",
-				 hout->key.id,
-				 reply->origin_index,
-				 failcode, onion_type_name(failcode));
-		}
+	/* Must be remote fail. */
+	assert(!hout->failcode);
+	reply = unwrap_onionreply(pc, pc->path_secrets,
+				  tal_count(pc->path_secrets),
+				  hout->failuremsg);
+	if (!reply) {
+		log_info(hout->key.peer->log,
+			 "htlc %"PRIu64" failed with bad reply (%s)",
+			 hout->key.id,
+			 tal_hex(pc, hout->failuremsg));
+		failcode = WIRE_PERMANENT_NODE_FAILURE;
+	} else {
+		failcode = fromwire_peektype(reply->msg);
+		log_info(hout->key.peer->log,
+			 "htlc %"PRIu64" failed from %ith node with code 0x%04x (%s)",
+			 hout->key.id,
+			 reply->origin_index,
+			 failcode, onion_type_name(failcode));
 	}
 
 	/* FIXME: save ids we can turn reply->origin_index into sender. */

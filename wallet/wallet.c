@@ -913,8 +913,9 @@ static bool wallet_stmt2htlc_in(const struct wallet_channel *channel,
 	memcpy(&in->onion_routing_packet, sqlite3_column_blob(stmt, 8),
 	       sizeof(in->onion_routing_packet));
 
+	/* FIXME: These need to be saved in db! */
 	in->failuremsg = NULL;
-	in->malformed = 0;
+	in->failcode = 0;
 
 	return ok;
 }
@@ -948,7 +949,7 @@ static bool wallet_stmt2htlc_out(const struct wallet_channel *channel,
 	       sizeof(out->onion_routing_packet));
 
 	out->failuremsg = NULL;
-	out->malformed = 0;
+	out->failcode = 0;
 
 	/* Need to defer wiring until we can look up all incoming
 	 * htlcs, will wire using origin_htlc_id */
