@@ -86,6 +86,6 @@ check-whitespace: $(LIGHTNINGD_OPENING_SRC_NOGEN:%=check-whitespace/%) $(LIGHTNI
 clean: opening-clean
 
 opening-clean:
-	$(RM) $(LIGHTNINGD_OPENING_OBJS) gen_*
+	$(RM) $(LIGHTNINGD_OPENING_OBJS) openingd/gen_*
 
 -include openingd/test/Makefile 
