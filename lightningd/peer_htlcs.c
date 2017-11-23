@@ -95,93 +95,20 @@ static void fail_in_htlc(struct htlc_in *hin,
 	if (!hin->key.peer->owner)
 		return;
 
-	if (!hin->failuremsg) {
-		subd_send_msg(hin->key.peer->owner,
-			      take(towire_channel_fail_htlc(hin,
-							    hin->key.id,
-							    NULL,
-							    hin->failcode)));
-	} else {
-		subd_send_msg(hin->key.peer->owner,
-			      take(towire_channel_fail_htlc(hin, hin->key.id,
-							    hin->failuremsg,
-							    0)));
-	}
-}
-
-static u8 *make_failmsg(const tal_t *ctx,
-			struct log *log,
-			u64 msatoshi,
-			enum onion_type failcode,
-			const u8 *channel_update)
-{
-	switch (failcode) {
-	case WIRE_INVALID_REALM:
-		return towire_invalid_realm(ctx);
-	case WIRE_TEMPORARY_NODE_FAILURE:
-		return towire_temporary_node_failure(ctx);
-	case WIRE_PERMANENT_NODE_FAILURE:
-		return towire_permanent_node_failure(ctx);
-	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
-		return towire_required_node_feature_missing(ctx);
-	case WIRE_TEMPORARY_CHANNEL_FAILURE:
-		return towire_temporary_channel_failure(ctx, channel_update);
-	case WIRE_CHANNEL_DISABLED:
-		return towire_channel_disabled(ctx);
-	case WIRE_PERMANENT_CHANNEL_FAILURE:
-		return towire_permanent_channel_failure(ctx);
-	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
-		return towire_required_channel_feature_missing(ctx);
-	case WIRE_UNKNOWN_NEXT_PEER:
-		return towire_unknown_next_peer(ctx);
-	case WIRE_AMOUNT_BELOW_MINIMUM:
-		return towire_amount_below_minimum(ctx, msatoshi, channel_update);
-	case WIRE_FEE_INSUFFICIENT:
-		return towire_fee_insufficient(ctx, msatoshi, channel_update);
-	case WIRE_INCORRECT_CLTV_EXPIRY:
-		/* FIXME: cltv! */
-		return towire_incorrect_cltv_expiry(ctx, 0, channel_update);
-	case WIRE_EXPIRY_TOO_SOON:
-		return towire_expiry_too_soon(ctx, channel_update);
-	case WIRE_EXPIRY_TOO_FAR:
-		return towire_expiry_too_far(ctx);
-	case WIRE_UNKNOWN_PAYMENT_HASH:
-		return towire_unknown_payment_hash(ctx);
-	case WIRE_INCORRECT_PAYMENT_AMOUNT:
-		return towire_incorrect_payment_amount(ctx);
-	case WIRE_FINAL_EXPIRY_TOO_SOON:
-		return towire_final_expiry_too_soon(ctx);
-	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
-		/* FIXME: cltv! */
-		return towire_final_incorrect_cltv_expiry(ctx, 0);
-	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
-		return towire_final_incorrect_htlc_amount(ctx, msatoshi);
-	case WIRE_INVALID_ONION_VERSION:
-	case WIRE_INVALID_ONION_HMAC:
-	case WIRE_INVALID_ONION_KEY:
-		/* We don't have anything to add for these; code is enough */
-		return NULL;
-	}
-
-	log_broken(log, "Asked to create unknown failmsg %u:"
-		   " using temp node failure instead", failcode);
-	return towire_temporary_node_failure(ctx);
+	subd_send_msg(hin->key.peer->owner,
+		      take(towire_channel_fail_htlc(hin,
+						    hin->key.id,
+						    hin->failuremsg,
+						    hin->failcode)));
 }
 
 /* This is used for cases where we can immediately fail the HTLC. */
 static void local_fail_htlc(struct htlc_in *hin, enum onion_type failcode)
 {
-	u8 *msg;
-
 	log_info(hin->key.peer->log, "failed htlc %"PRIu64" code 0x%04x (%s)",
 		 hin->key.id, failcode, onion_type_name(failcode));
 
-	/* FIXME: Get update! */
-	msg = make_failmsg(hin, hin->key.peer->log,
-			   hin->msatoshi, failcode, NULL);
-
-	fail_in_htlc(hin, failcode, msg);
-	tal_free(msg);
+	fail_in_htlc(hin, failcode, NULL);
 }
 
 /* localfail are for handing to the local payer if it's local. */
@@ -378,10 +305,7 @@ static void hout_subd_died(struct htlc_out *hout)
 		  "Failing HTLC %"PRIu64" due to peer death",
 		  hout->key.id);
 
-	hout->failuremsg = make_failmsg(hout, hout->key.peer->log,
-					hout->msatoshi,
-					WIRE_TEMPORARY_CHANNEL_FAILURE,
-					NULL);
+	hout->failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
 	fail_out_htlc(hout, "Outgoing subdaemon died");
 }
 
@@ -826,12 +750,10 @@ void onchain_failed_our_htlc(const struct peer *peer,
 	struct htlc_out *hout = find_htlc_out_by_ripemd(peer, &htlc->ripemd);
 
 	/* Don't fail twice! */
-	if (hout->failuremsg)
+	if (hout->failuremsg || hout->failcode)
 		return;
 
-	hout->failuremsg = make_failmsg(hout, peer->log, hout->msatoshi,
-					WIRE_PERMANENT_CHANNEL_FAILURE,
-					NULL);
+	hout->failcode = WIRE_PERMANENT_CHANNEL_FAILURE;
 
 	if (!hout->in) {
 		char *localfail = tal_fmt(peer, "%s: %s",

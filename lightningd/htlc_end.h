@@ -35,7 +35,7 @@ struct htlc_in {
 	/* If a local error, this is non-zero. */
 	enum onion_type failcode;
 
-	/* Either a remote error, or local error if !(failure & BADONION). */
+	/* For a remote error. */
 	const u8 *failuremsg;
 
 	/* If they fulfilled, here's the preimage. */
@@ -61,7 +61,7 @@ struct htlc_out {
 	/* If a local error, this is non-zero. */
 	enum onion_type failcode;
 
-	/* Either a remote error, or local error if !(failure & BADONION). */
+	/* For a remote error. */
 	const u8 *failuremsg;
 
 	/* If we fulfilled, here's the preimage. */
