@@ -165,7 +165,7 @@ static void send_payment(struct command *cmd,
 	size_t i, n_hops = tal_count(route);
 	struct hop_data *hop_data = tal_arr(cmd, struct hop_data, n_hops);
 	struct pubkey *ids = tal_arr(cmd, struct pubkey, n_hops);
-	struct wallet_payment payment;
+	struct wallet_payment *payment = NULL;
 
 	/* Expiry for HTLCs is absolute.  And add one to give some margin. */
 	base_expiry = get_block_height(cmd->ld->topology) + 1;
@@ -223,23 +223,6 @@ static void send_payment(struct command *cmd,
 		log_add(cmd->ld->log, "... retrying");
 	}
 
-	/* If this is a new payment, then store the payment so we can
-	 * later show it in the history */
-	if (!pc) {
-		payment.id = 0;
-		payment.incoming = false;
-		payment.payment_hash = *rhash;
-		payment.destination = &ids[n_hops - 1];
-		payment.status = PAYMENT_PENDING;
-		payment.msatoshi = route[n_hops-1].amount;
-		payment.timestamp = time_now().ts.tv_sec;
-
-		if (!wallet_payment_add(cmd->ld->wallet, &payment)) {
-			command_fail(cmd, "Unable to record payment in the database.");
-			return;
-		}
-	}
-
 	peer = peer_by_id(cmd->ld, &ids[0]);
 	if (!peer) {
 		command_fail(cmd, "no connection to first peer found");
@@ -259,6 +242,15 @@ static void send_payment(struct command *cmd,
 		pc = tal(cmd->ld, struct pay_command);
 		list_add_tail(&cmd->ld->pay_commands, &pc->list);
 		tal_add_destructor(pc, pay_command_destroyed);
+
+		payment = tal(pc, struct wallet_payment);
+		payment->id = 0;
+		payment->incoming = false;
+		payment->payment_hash = *rhash;
+		payment->destination = &ids[n_hops - 1];
+		payment->status = PAYMENT_PENDING;
+		payment->msatoshi = route[n_hops-1].amount;
+		payment->timestamp = time_now().ts.tv_sec;
 	}
 	pc->cmd = cmd;
 	pc->rhash = *rhash;
@@ -280,7 +272,8 @@ static void send_payment(struct command *cmd,
 
 	failcode = send_htlc_out(peer, route[0].amount,
 				 base_expiry + route[0].delay,
-				 rhash, onion, NULL, pc, &pc->out);
+				 rhash, onion, NULL, payment, pc,
+				 &pc->out);
 	if (failcode) {
 		command_fail(cmd, "first peer not ready: %s",
 			     onion_type_name(failcode));
