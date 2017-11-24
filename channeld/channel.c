@@ -164,6 +164,8 @@ struct peer {
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
 static void start_commit_timer(struct peer *peer);
+static u8 *create_channel_update(const tal_t *ctx, struct peer *peer,
+				 bool disabled, bool public);
 
 /* Returns a pointer to the new end */
 static void *tal_arr_append_(void **p, size_t size)
@@ -185,6 +187,33 @@ static void gossip_in(struct peer *peer, const u8 *msg)
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Got bad message from gossipd: %s",
 			      tal_hex(msg, msg));
+}
+
+/* Send a temporary `channel_announcement` and `channel_update`. These
+ * are unsigned and mainly used to tell gossip about the channel
+ * before we have reached the `announcement_depth`, not being signed
+ * means they will not be relayed, but we can already rely on them for
+ * our own outgoing payments */
+static void send_temporary_announcement(struct peer *peer)
+{
+	tal_t *tmpctx;
+	u8 *cannounce, *cupdate;
+
+	/* If we are supposed to send a real announcement, don't do a
+	 * dummy one here, hence the check for announce_depth. */
+	if (peer->announce_depth_reached || !peer->funding_locked[LOCAL] ||
+	    !peer->funding_locked[REMOTE])
+		return;
+
+	tmpctx = tal_tmpctx(peer);
+
+	cannounce = create_channel_announcement(tmpctx, peer);
+	cupdate = create_channel_update(tmpctx, peer, false, false);
+
+	wire_sync_write(GOSSIP_FD, take(cannounce));
+	wire_sync_write(GOSSIP_FD, take(cupdate));
+
+	tal_free(tmpctx);
 }
 
 static void send_announcement_signatures(struct peer *peer)
@@ -352,6 +381,8 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 				take(towire_channel_normal_operation(peer)));
 	}
 
+	/* Send temporary or final announcements */
+	send_temporary_announcement(peer);
 	send_announcement_signatures(peer);
 }
 
@@ -1791,6 +1822,7 @@ static void handle_funding_locked(struct peer *peer, const u8 *msg)
 	msg_enqueue(&peer->peer_out, take(msg));
 	peer->funding_locked[LOCAL] = true;
 
+	send_temporary_announcement(peer);
 	send_announcement_signatures(peer);
 
 	if (peer->funding_locked[REMOTE]) {
