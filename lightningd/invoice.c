@@ -228,6 +228,7 @@ static void json_invoice(struct command *cmd,
 	json_object_start(response, NULL);
 	json_add_hex(response, "rhash",
 		     &invoice->rhash, sizeof(invoice->rhash));
+	json_add_u64(response, "expiry_time", invoice->expiry_time);
 	json_add_string(response, "bolt11", b11enc);
 	if (b11->description_hash)
 		json_add_string(response, "description", b11->description);
@@ -240,7 +241,7 @@ static const struct json_command invoice_command = {
 	"invoice",
 	json_invoice,
 	"Create invoice for {msatoshi} with {label} and {description} with optional {expiry} seconds (default 1 hour)",
-	"Returns the {rhash} and {bolt11} on success, and {description} if too alrge for {bolt11}. "
+	"Returns the {rhash}, {expiry_time} and {bolt11} on success, and {description} if too alrge for {bolt11}. "
 };
 AUTODATA(json_command, &invoice_command);
 
