@@ -83,6 +83,9 @@ struct routing_state {
 	struct broadcast_state *broadcasts;
 
 	struct sha256_double chain_hash;
+
+	/* Our own ID so we can identify local channels */
+	struct pubkey local_id;
 };
 
 struct route_hop {
@@ -117,7 +120,15 @@ struct node_connection *get_connection_by_scid(const struct routing_state *rstat
 					      const u8 direction);
 
 /* Handlers for incoming messages */
-void handle_channel_announcement(struct routing_state *rstate, const u8 *announce, size_t len);
+
+/**
+ * handle_channel_announcement -- Add channel announcement to state
+ *
+ * Returns true if the channel was fully signed and is local. This
+ * means that if we haven't sent a node_announcement just yet, now
+ * would be a good time.
+ */
+bool handle_channel_announcement(struct routing_state *rstate, const u8 *announce, size_t len);
 void handle_channel_update(struct routing_state *rstate, const u8 *update, size_t len);
 void handle_node_announcement(struct routing_state *rstate, const u8 *node, size_t len);
 
