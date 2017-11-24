@@ -238,6 +238,7 @@ int main(void)
 
 	/* FIXME: Test the others! */
 
+	secp256k1_context_destroy(secp256k1_ctx);
 	tal_free(ctx);
 	return 0;
 }
