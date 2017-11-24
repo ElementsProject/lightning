@@ -760,7 +760,7 @@ static void push_varlen_field(u5 **data, char type, u64 val)
         assert(bech32_charset_rev[(unsigned char)type] >= 0);
         push_varlen_uint(data, bech32_charset_rev[(unsigned char)type], 5);
 
-        for (size_t nbits = 5; nbits < 65; nbits++) {
+        for (size_t nbits = 5; nbits < 65; nbits += 5) {
                 if ((val >> nbits) == 0) {
                         push_varlen_uint(data, nbits / 5, 10);
                         push_varlen_uint(data, val,  nbits);
