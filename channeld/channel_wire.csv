@@ -92,11 +92,11 @@ channel_fulfill_htlc,,payment_preimage,struct preimage
 # Main daemon says HTLC failed
 channel_fail_htlc,1006
 channel_fail_htlc,,id,u64
-# If malformed is non-zero, it's a BADONION code
-channel_fail_htlc,,malformed,u16
-# Otherwise, error_pkt contains failreason.
+# If this is non-zero length, you need to wrap this and pass it on.
 channel_fail_htlc,,len,u16
 channel_fail_htlc,,error_pkt,len*u8
+# If it errcode is != 0, it's a local error, otherwise we're passing thru.
+channel_fail_htlc,,errcode,u16
 
 # Ping/pong test.
 channel_ping,1011

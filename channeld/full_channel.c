@@ -305,6 +305,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	htlc->id = id;
 	htlc->msatoshi = msatoshi;
 	htlc->state = state;
+	htlc->shared_secret = NULL;
 
 	/* FIXME: Change expiry to simple u32 */
 
@@ -471,7 +472,8 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      u64 msatoshi,
 				      u32 cltv_expiry,
 				      const struct sha256 *payment_hash,
-				      const u8 routing[TOTAL_PACKET_SIZE])
+				      const u8 routing[TOTAL_PACKET_SIZE],
+				      struct htlc **htlcp)
 {
 	enum htlc_state state;
 
@@ -482,7 +484,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 
 	/* FIXME: check expiry etc. against config. */
 	return add_htlc(channel, state, id, msatoshi, cltv_expiry,
-			payment_hash, routing, NULL, true);
+			payment_hash, routing, htlcp, true);
 }
 
 struct htlc *channel_get_htlc(struct channel *channel, enum side sender, u64 id)
@@ -555,7 +557,8 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 }
 
 enum channel_remove_err channel_fail_htlc(struct channel *channel,
-					  enum side owner, u64 id)
+					  enum side owner, u64 id,
+					  struct htlc **htlcp)
 {
 	struct htlc *htlc;
 
@@ -590,7 +593,8 @@ enum channel_remove_err channel_fail_htlc(struct channel *channel,
 	channel->changes_pending[owner] = true;
 
 	dump_htlc(htlc, "FAIL:");
-
+	if (htlcp)
+		*htlcp = htlc;
 	return CHANNEL_ERR_REMOVE_OK;
 }
 

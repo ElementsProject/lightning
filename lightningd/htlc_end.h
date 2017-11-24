@@ -32,11 +32,11 @@ struct htlc_in {
 	/* Shared secret for us to send any failure message. */
 	struct secret shared_secret;
 
-	/* If we failed HTLC, here's the message. */
-	const u8 *failuremsg;
+	/* If a local error, this is non-zero. */
+	enum onion_type failcode;
 
-	/* If it was malformed, here's the error. */
-	enum onion_type malformed;
+	/* For a remote error. */
+	const u8 *failuremsg;
 
 	/* If they fulfilled, here's the preimage. */
 	struct preimage *preimage;
@@ -58,11 +58,11 @@ struct htlc_out {
 	/* Onion information */
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
 
-	/* If we failed HTLC, here's the message. */
-	const u8 *failuremsg;
+	/* If a local error, this is non-zero. */
+	enum onion_type failcode;
 
-	/* If it was malformed, here's the error. */
-	enum onion_type malformed;
+	/* For a remote error. */
+	const u8 *failuremsg;
 
 	/* If we fulfilled, here's the preimage. */
 	struct preimage *preimage;
