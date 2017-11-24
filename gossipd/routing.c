@@ -463,12 +463,12 @@ static bool check_channel_announcement(
 	       check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key);
 }
 
-void handle_channel_announcement(
+bool handle_channel_announcement(
 	struct routing_state *rstate,
 	const u8 *announce, size_t len)
 {
 	u8 *serialized;
-	bool forward = false;
+	bool forward = false, local, sigfail;
 	secp256k1_ecdsa_signature node_signature_1;
 	secp256k1_ecdsa_signature node_signature_2;
 	struct short_channel_id short_channel_id;
@@ -493,7 +493,7 @@ void handle_channel_announcement(
 					   &node_id_1, &node_id_2,
 					   &bitcoin_key_1, &bitcoin_key_2)) {
 		tal_free(tmpctx);
-		return;
+		return false;
 	}
 
 	/* BOLT #7:
@@ -507,7 +507,7 @@ void handle_channel_announcement(
 			     type_to_string(tmpctx, struct sha256_double,
 					    &chain_hash));
 		tal_free(tmpctx);
-		return;
+		return false;
 	}
 
 	// FIXME: Check features!
@@ -517,24 +517,31 @@ void handle_channel_announcement(
 		     type_to_string(trc, struct short_channel_id,
 				    &short_channel_id));
 
-	if (!check_channel_announcement(&node_id_1, &node_id_2, &bitcoin_key_1,
-					&bitcoin_key_2, &node_signature_1,
-					&node_signature_2, &bitcoin_signature_1,
-					&bitcoin_signature_2, serialized)) {
+	local = pubkey_eq(&node_id_1, &rstate->local_id) ||
+		pubkey_eq(&node_id_2, &rstate->local_id);
+	sigfail = !check_channel_announcement(
+	    &node_id_1, &node_id_2, &bitcoin_key_1, &bitcoin_key_2,
+	    &node_signature_1, &node_signature_2, &bitcoin_signature_1,
+	    &bitcoin_signature_2, serialized);
+
+	if (sigfail && !local) {
 		status_trace(
 		    "Signature verification of channel announcement failed");
 		tal_free(tmpctx);
-		return;
+		return false;
 	}
 
 	forward |= add_channel_direction(rstate, &node_id_1, &node_id_2,
 					 &short_channel_id, serialized);
 	forward |= add_channel_direction(rstate, &node_id_2, &node_id_1,
 					 &short_channel_id, serialized);
+
 	if (!forward) {
 		status_trace("Not forwarding channel_announcement");
 		tal_free(tmpctx);
-		return;
+		/* This will not be forwarded so we do not want to
+		 * announce the node either, others might drop it. */
+		return false;
 	}
 
 	u8 *tag = tal_arr(tmpctx, u8, 0);
@@ -543,6 +550,7 @@ void handle_channel_announcement(
 			tag, serialized);
 
 	tal_free(tmpctx);
+	return local;
 }
 
 void handle_channel_update(struct routing_state *rstate, const u8 *update, size_t len)
