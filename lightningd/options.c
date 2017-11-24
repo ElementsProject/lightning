@@ -168,8 +168,8 @@ static char *opt_set_alias(const char *arg, struct lightningd *ld)
 	 */
 	if (strlen(arg) > 32)
 		return tal_fmt(NULL, "Alias '%s' is over 32 characters", arg);
-	ld->alias = tal_arrz(ld, char, 33);
-	strncpy(ld->alias, arg, 32);
+	ld->alias = tal_arrz(ld, u8, 33);
+	strncpy((char*)ld->alias, arg, 32);
 	return NULL;
 }
 
@@ -572,11 +572,11 @@ void setup_color_and_alias(struct lightningd *ld)
 		memcpy(&noun, der+3+sizeof(adjective), sizeof(noun));
 		noun %= ARRAY_SIZE(codename_noun);
 		adjective %= ARRAY_SIZE(codename_adjective);
-		ld->alias = tal_arrz(ld, char, 33);
+		ld->alias = tal_arrz(ld, u8, 33);
 		assert(strlen(codename_adjective[adjective])
 		       + strlen(codename_noun[noun]) < 33);
-		strcpy(ld->alias, codename_adjective[adjective]);
-		strcat(ld->alias, codename_noun[noun]);
+		strcpy((char*)ld->alias, codename_adjective[adjective]);
+		strcat((char*)ld->alias, codename_noun[noun]);
 	}
 }
 
