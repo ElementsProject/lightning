@@ -222,6 +222,9 @@ static struct io_plan *handle_channeld(struct io_conn *conn,
 	struct client *c = container_of(dc, struct client, dc);
 	enum hsm_client_wire_type t = fromwire_peektype(dc->msg_in);
 
+	status_trace("Client: type %s len %zu",
+		     hsm_client_wire_type_name(t), tal_count(dc->msg_in));
+
 	switch (t) {
 	case WIRE_HSM_ECDH_REQ:
 		return handle_ecdh(conn, dc);
