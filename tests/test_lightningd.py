@@ -2094,6 +2094,26 @@ class LightningDTests(BaseLightningDTests):
         assert outputs[0] >   8990000
         assert outputs[2] == 10000000
 
+    def test_addfunds_from_block(self):
+        """Send funds to the daemon without telling it explicitly
+        """
+        l1 = self.node_factory.get_node()
+        addr = l1.rpc.newaddr()['address']
+        txid = l1.bitcoin.rpc.sendtoaddress(addr, 0.1)
+        l1.bitcoin.rpc.generate(1)
+
+        wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+        outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
+        assert len(outputs) == 1 and outputs[0]['value'] == 10000000
+
+        # Now the same, but create a conflict between addfunds and from block
+        txid = l1.bitcoin.rpc.sendtoaddress(addr, 0.1)
+        tx = l1.bitcoin.rpc.getrawtransaction(txid)
+        l1.rpc.addfunds(tx)
+        l1.bitcoin.rpc.generate(1)
+        time.sleep(5)
+
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_channel_persistence(self):
         # Start two nodes and open a channel (to remember). l2 will
