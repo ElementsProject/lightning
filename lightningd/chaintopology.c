@@ -58,6 +58,7 @@ static void connect_block(struct chain_topology *topo,
 			  struct block *b)
 {
 	size_t i;
+	u64 satoshi_owned;
 
 	assert(b->height == -1);
 	assert(b->prev == NULL);
@@ -86,9 +87,14 @@ static void connect_block(struct chain_topology *topo,
 				txowatch_fire(topo, txo, tx, j, b);
 		}
 
+		satoshi_owned = 0;
+		wallet_extract_owned_outputs(topo->bitcoind->ld->wallet, tx,
+					     &satoshi_owned);
+
 		/* We did spends first, in case that tells us to watch tx. */
 		bitcoin_txid(tx, &txid);
-		if (watching_txid(topo, &txid) || we_broadcast(topo, &txid))
+		if (watching_txid(topo, &txid) || we_broadcast(topo, &txid) ||
+		    satoshi_owned != 0)
 			add_tx_to_block(b, tx, i);
 	}
 	b->full_txs = tal_free(b->full_txs);
