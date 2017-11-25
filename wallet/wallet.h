@@ -182,9 +182,9 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 
 /* Simply passes through to shachain_get_hash since it doesn't touch
  * the DB */
-static inline bool wallet_shachain_get_hash(struct wallet *w,
-					    struct wallet_shachain *chain,
-					    u64 index, struct sha256 *hash)
+inline bool wallet_shachain_get_hash(struct wallet *w,
+				     struct wallet_shachain *chain,
+				     u64 index, struct sha256 *hash)
 {
 	return shachain_get_hash(&chain->chain, index, hash);
 }
