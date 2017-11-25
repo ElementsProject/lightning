@@ -235,6 +235,11 @@ static bool channelseq(struct wallet_channel *c1, struct wallet_channel *c2)
 			    p2->last_sig, sizeof(*p2->last_sig)));
 	}
 
+	if (p1->remote_shutdown_scriptpubkey) {
+		CHECK(p2->remote_shutdown_scriptpubkey);
+		CHECK(p1->local_shutdown_idx == p2->local_shutdown_idx);
+	}
+
 	return true;
 }
 
@@ -250,6 +255,7 @@ static bool test_channel_crud(const tal_t *ctx)
 	secp256k1_ecdsa_signature *sig = tal(w, secp256k1_ecdsa_signature);
 
 	u64 msat = 12345;
+	u8 *scriptpubkey = tal_arr(ctx, u8, 100);
 
 	memset(&c1, 0, sizeof(c1));
 	memset(c2, 0, sizeof(*c2));
@@ -261,6 +267,7 @@ static bool test_channel_crud(const tal_t *ctx)
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
 	ci.feerate_per_kw[LOCAL] = ci.feerate_per_kw[REMOTE] = 31337;
 	mempat(&p.id, sizeof(p.id));
+	mempat(scriptpubkey, tal_len(scriptpubkey));
 	c1.peer = &p;
 	p.id = pk;
 	p.our_msatoshi = NULL;
@@ -352,6 +359,16 @@ static bool test_channel_crud(const tal_t *ctx)
 	CHECK_MSG(!wallet_err,
 		  tal_fmt(w, "Insert into DB: %s", wallet_err));
 	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v7)");
+
+	/* Variant 8: update and add remote_shutdown_scriptpubkey */
+	p.remote_shutdown_scriptpubkey = scriptpubkey;
+	p.local_shutdown_idx = 1337;
+	wallet_channel_save(w, &c1);
+	CHECK_MSG(!wallet_err, tal_fmt(w, "Insert into DB: %s", wallet_err));
+	CHECK_MSG(wallet_channel_load(w, c1.id, c2), tal_fmt(w, "Load from DB"));
+	CHECK_MSG(!wallet_err,
+		  tal_fmt(w, "Insert into DB: %s", wallet_err));
+	CHECK_MSG(channelseq(&c1, c2), "Compare loaded with saved (v8)");
 
 	db_commit_transaction(w->db);
 	CHECK(!wallet_err);
