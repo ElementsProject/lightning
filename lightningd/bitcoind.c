@@ -388,12 +388,7 @@ static void process_chaintips(struct bitcoin_cli *bcli)
 		}
 
 		if (!json_tok_streq(bcli->output, status, "active")) {
-			log_debug(bcli->bitcoind->log,
-				  "Ignoring chaintip %.*s status %.*s",
-				  hash->end - hash->start,
-				  bcli->output + hash->start,
-				  status->end - status->start,
-				  bcli->output + status->start);
+			/* Ignoring this chaintip since it's not active */
 			continue;
 		}
 		if (valid) {
