@@ -13,6 +13,9 @@ void db_begin_transaction_(struct db *db UNNEEDED, const char *location UNNEEDED
 /* Generated stub for db_commit_transaction */
 void db_commit_transaction(struct db *db UNNEEDED)
 { fprintf(stderr, "db_commit_transaction called!\n"); abort(); }
+/* Generated stub for db_get_intvar */
+s64 db_get_intvar(struct db *db UNNEEDED, char *varname UNNEEDED, s64 defval UNNEEDED)
+{ fprintf(stderr, "db_get_intvar called!\n"); abort(); }
 /* Generated stub for debug_poll */
 int debug_poll(struct pollfd *fds UNNEEDED, nfds_t nfds UNNEEDED, int timeout UNNEEDED)
 { fprintf(stderr, "debug_poll called!\n"); abort(); }
@@ -75,6 +78,12 @@ void subd_shutdown(struct subd *subd UNNEEDED, unsigned int seconds UNNEEDED)
 /* Generated stub for timer_expired */
 void timer_expired(tal_t *ctx UNNEEDED, struct timer *timer UNNEEDED)
 { fprintf(stderr, "timer_expired called!\n"); abort(); }
+/* Generated stub for txfilter_add_derkey */
+void txfilter_add_derkey(struct txfilter *filter UNNEEDED, u8 derkey[33])
+{ fprintf(stderr, "txfilter_add_derkey called!\n"); abort(); }
+/* Generated stub for txfilter_new */
+struct txfilter *txfilter_new(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "txfilter_new called!\n"); abort(); }
 /* Generated stub for version */
 const char *version(void)
 { fprintf(stderr, "version called!\n"); abort(); }
