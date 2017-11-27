@@ -7,6 +7,7 @@
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
 #include <lightningd/htlc_end.h>
+#include <lightningd/txfilter.h>
 #include <stdio.h>
 #include <wallet/wallet.h>
 
@@ -130,6 +131,9 @@ struct lightningd {
 
 	/* Any outstanding "pay" commands. */
 	struct list_head pay_commands;
+
+	/* Transaction filter matching what we're interested in */
+	struct txfilter *owned_txfilter;
 
 #if DEVELOPER
 	/* If we want to debug a subdaemon. */

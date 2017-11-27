@@ -88,8 +88,10 @@ static void connect_block(struct chain_topology *topo,
 		}
 
 		satoshi_owned = 0;
-		wallet_extract_owned_outputs(topo->bitcoind->ld->wallet, tx,
-					     &satoshi_owned);
+		if (txfilter_match(topo->bitcoind->ld->owned_txfilter, tx)) {
+			wallet_extract_owned_outputs(topo->bitcoind->ld->wallet,
+						     tx, &satoshi_owned);
+		}
 
 		/* We did spends first, in case that tells us to watch tx. */
 		bitcoin_txid(tx, &txid);

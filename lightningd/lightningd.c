@@ -213,6 +213,20 @@ struct chainparams *get_chainparams(const struct lightningd *ld)
 			  ld->topology->bitcoind->chainparams);
 }
 
+static void init_txfilter(struct wallet *w, struct txfilter *filter)
+{
+	struct ext_key ext;
+	u64 bip32_max_index;
+
+	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
+	for (u64 i = 0; i <= bip32_max_index; i++) {
+		if (bip32_key_from_parent(w->bip32_base, i, BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
+			abort();
+		}
+		txfilter_add_derkey(filter, ext.pub_key);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	struct log_book *log_book;
@@ -253,6 +267,7 @@ int main(int argc, char *argv[])
 
 	/* Initialize wallet, now that we are in the correct directory */
 	ld->wallet = wallet_new(ld, ld->log);
+	ld->owned_txfilter = txfilter_new(ld);
 
 	/* Set up HSM. */
 	hsm_init(ld, newdir);
@@ -260,17 +275,13 @@ int main(int argc, char *argv[])
 	/* Now we know our ID, we can set our color/alias if not already. */
 	setup_color_and_alias(ld);
 
-	/* Initialize block topology (does its own transaction) */
-	setup_topology(ld->topology,
-		       &ld->timers,
-		       ld->config.poll_time,
-		       /* FIXME: Load from peers. */
-		       0);
-
 	/* Everything is within a transaction. */
 	db_begin_transaction(ld->wallet->db);
 
-	/* Load invoices from the database */
+	/* Initialize the transaction filter with our pubkeys. */
+	init_txfilter(ld->wallet, ld->owned_txfilter);
+
+        /* Load invoices from the database */
 	if (!wallet_invoices_load(ld->wallet, ld->invoices)) {
 		fatal("Could not load invoices from the database");
 	}
@@ -297,6 +308,13 @@ int main(int argc, char *argv[])
 		fatal("could not reconnect htlcs loaded from wallet, wallet may be inconsistent.");
 
 	db_commit_transaction(ld->wallet->db);
+
+	/* Initialize block topology (does its own transaction) */
+	setup_topology(ld->topology,
+		       &ld->timers,
+		       ld->config.poll_time,
+		       /* FIXME: Load from peers. */
+		       0);
 
 	/* Create RPC socket (if any) */
 	setup_jsonrpc(ld, ld->rpc_filename);

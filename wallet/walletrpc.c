@@ -222,6 +222,8 @@ static void json_newaddr(struct command *cmd,
 		return;
 	}
 
+	txfilter_add_derkey(cmd->ld->owned_txfilter, ext.pub_key);
+
 	redeemscript = bitcoin_redeem_p2sh_p2wpkh(cmd, &pubkey);
 	sha256(&h, redeemscript, tal_count(redeemscript));
 	ripemd160(&p2sh, h.u.u8, sizeof(h));
