@@ -60,6 +60,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/peer_control.c		\
 	lightningd/peer_htlcs.c			\
 	lightningd/subd.c			\
+	lightningd/txfilter.c			\
 	lightningd/watch.c
 
 # Source files without corresponding headers
@@ -85,7 +86,7 @@ ALL_GEN_HEADERS += $(LIGHTNINGD_HEADERS_GEN)
 # All together in one convenient var
 LIGHTNINGD_HEADERS = $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) $(EXTERNAL_HEADERS) $(WIRE_HEADERS) $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(WALLET_LIB_HEADERS)
 
-$(LIGHTNINGD_OBJS): $(LIGHTNINGD_HEADERS) 
+$(LIGHTNINGD_OBJS): $(LIGHTNINGD_HEADERS)
 
 lightningd/gen_peer_state_names.h: lightningd/peer_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr lightningd/peer_state.h > $@
