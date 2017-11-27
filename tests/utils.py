@@ -256,7 +256,7 @@ class LightningD(TailableProc):
 
     def start(self):
         TailableProc.start(self)
-        self.wait_for_log("Creating IPv6 listener on port")
+        self.wait_for_log("Hello world from")
         logging.info("LightningD started")
 
     def wait(self, timeout=10):
