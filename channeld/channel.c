@@ -427,7 +427,7 @@ static struct io_plan *handle_peer_add_htlc(struct io_conn *conn,
 
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount_msat,
 				   cltv_expiry, &payment_hash,
-				   onion_routing_packet);
+				   onion_routing_packet, NULL);
 	if (add_err != CHANNEL_ERR_ADD_OK)
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
@@ -1258,7 +1258,7 @@ static struct io_plan *handle_peer_fail_htlc(struct io_conn *conn,
 			    "Bad update_fulfill_htlc %s", tal_hex(msg, msg));
 	}
 
-	e = channel_fail_htlc(peer->channel, LOCAL, id);
+	e = channel_fail_htlc(peer->channel, LOCAL, id, NULL);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
 		/* Save reason for when we tell master. */
@@ -1315,10 +1315,9 @@ static struct io_plan *handle_peer_fail_malformed_htlc(struct io_conn *conn,
 			    failure_code);
 	}
 
-	e = channel_fail_htlc(peer->channel, LOCAL, id);
+	e = channel_fail_htlc(peer->channel, LOCAL, id, &htlc);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
-		htlc = channel_get_htlc(peer->channel, LOCAL, id);
 		/* FIXME: Do this! */
 		/* BOLT #2:
 		 *
@@ -1862,7 +1861,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 
 	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
 			     amount_msat, cltv_expiry, &payment_hash,
-			     onion_routing_packet);
+			     onion_routing_packet, NULL);
 	status_trace("Adding HTLC %"PRIu64" msat=%"PRIu64" cltv=%u gave %i",
 		     peer->htlc_id, amount_msat, cltv_expiry, e);
 
@@ -1987,6 +1986,7 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 	u8 *errpkt;
 	u16 malformed;
 	enum channel_remove_err e;
+	struct htlc *h;
 
 	if (!fromwire_channel_fail_htlc(inmsg, inmsg, NULL, &id, &malformed,
 					&errpkt))
@@ -1997,15 +1997,13 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 			      "Invalid channel_fail_htlc: bad malformed 0x%x",
 			      malformed);
 
-	e = channel_fail_htlc(peer->channel, REMOTE, id);
+	e = channel_fail_htlc(peer->channel, REMOTE, id, &h);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
 		if (malformed) {
-			struct htlc *h;
 			struct sha256 sha256_of_onion;
 			status_trace("Failing %"PRIu64" with code %u",
 				     id, malformed);
-			h = channel_get_htlc(peer->channel, REMOTE, id);
 			sha256(&sha256_of_onion, h->routing,
 			       tal_len(h->routing));
 			msg = towire_update_fail_malformed_htlc(peer,

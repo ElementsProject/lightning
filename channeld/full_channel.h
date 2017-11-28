@@ -105,6 +105,7 @@ enum channel_add_err {
  * @cltv_expiry: block number when HTLC can no longer be redeemed.
  * @payment_hash: hash whose preimage can redeem HTLC.
  * @routing: routing information (copied)
+ * @htlcp: optional pointer for resulting htlc: filled in iff CHANNEL_ERR_NONE.
  *
  * If this returns CHANNEL_ERR_NONE, the fee htlc was added and
  * the output amounts adjusted accordingly.  Otherwise nothing
@@ -116,7 +117,8 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      u64 msatoshi,
 				      u32 cltv_expiry,
 				      const struct sha256 *payment_hash,
-				      const u8 routing[TOTAL_PACKET_SIZE]);
+				      const u8 routing[TOTAL_PACKET_SIZE],
+				      struct htlc **htlcp);
 
 /**
  * channel_get_htlc: find an HTLC
@@ -146,12 +148,14 @@ enum channel_remove_err {
  * @channel: The channel state
  * @owner: the side who offered the HTLC (opposite to that failing it)
  * @id: unique HTLC id.
+ * @htlcp: optional pointer for failed htlc: filled in iff CHANNEL_ERR_REMOVE_OK.
  *
  * This will remove the htlc and credit the value of the HTLC (back)
  * to its offerer.
  */
 enum channel_remove_err channel_fail_htlc(struct channel *channel,
-					  enum side owner, u64 id);
+					  enum side owner, u64 id,
+					  struct htlc **htlcp);
 
 /**
  * channel_fulfill_htlc: remove an HTLC, funds to side which accepted it.
