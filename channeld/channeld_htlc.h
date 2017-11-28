@@ -21,6 +21,9 @@ struct htlc {
 	/* The preimage which hashes to rhash (if known) */
 	struct preimage *r;
 
+	/* The routing shared secret (only for incoming) */
+	struct secret *shared_secret;
+
 	/* FIXME: We could union these together: */
 	/* Routing information sent with this HTLC. */
 	const u8 *routing;

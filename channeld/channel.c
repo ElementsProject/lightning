@@ -406,6 +406,35 @@ static struct io_plan *handle_peer_announcement_signatures(struct io_conn *conn,
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
+static void get_shared_secret(const struct htlc *htlc,
+			      struct secret *shared_secret)
+{
+	tal_t *tmpctx = tal_tmpctx(htlc);
+	struct pubkey ephemeral;
+	struct onionpacket *op;
+	u8 *msg;
+
+	/* We unwrap the onion now. */
+	op = parse_onionpacket(tmpctx, htlc->routing, TOTAL_PACKET_SIZE);
+	if (!op) {
+		/* Return an invalid shared secret. */
+		memset(shared_secret, 0, sizeof(*shared_secret));
+		tal_free(tmpctx);
+		return;
+	}
+
+	/* Because wire takes struct pubkey. */
+	ephemeral.pubkey = op->ephemeralkey;
+	msg = towire_hsm_ecdh_req(tmpctx, &ephemeral);
+	if (!wire_sync_write(HSM_FD, msg))
+		status_failed(STATUS_FAIL_HSM_IO, "Writing ecdh req");
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	/* Gives all-zero shares_secret if it was invalid. */
+	if (!msg || !fromwire_hsm_ecdh_resp(msg, NULL, shared_secret))
+		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
+	tal_free(tmpctx);
+}
+
 static struct io_plan *handle_peer_add_htlc(struct io_conn *conn,
 					    struct peer *peer, const u8 *msg)
 {
@@ -416,6 +445,7 @@ static struct io_plan *handle_peer_add_htlc(struct io_conn *conn,
 	struct sha256 payment_hash;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
 	enum channel_add_err add_err;
+	struct htlc *htlc;
 
 	if (!fromwire_update_add_htlc(msg, NULL, &channel_id, &id, &amount_msat,
 				      &payment_hash, &cltv_expiry,
@@ -427,12 +457,18 @@ static struct io_plan *handle_peer_add_htlc(struct io_conn *conn,
 
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount_msat,
 				   cltv_expiry, &payment_hash,
-				   onion_routing_packet, NULL);
+				   onion_routing_packet, &htlc);
 	if (add_err != CHANNEL_ERR_ADD_OK)
 		peer_failed(io_conn_fd(peer->peer_conn),
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad peer_add_htlc: %u", add_err);
+
+	/* If this is wrong, we don't complain yet; when it's confirmed we'll
+	 * send it to the master which handles all HTLC failures. */
+	htlc->shared_secret = tal(htlc, struct secret);
+	get_shared_secret(htlc, htlc->shared_secret);
+
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
@@ -852,36 +888,6 @@ static struct io_plan *send_revocation(struct io_conn *conn, struct peer *peer)
 	return peer_read_message(conn, &peer->pcs, peer_in);
 }
 
-/* FIXME: We could do this earlier and call HSM async, for speed. */
-static void get_shared_secret(const struct htlc *htlc,
-			      struct secret *shared_secret)
-{
-	tal_t *tmpctx = tal_tmpctx(htlc);
-	struct pubkey ephemeral;
-	struct onionpacket *op;
-	u8 *msg;
-
-	/* We unwrap the onion now. */
-	op = parse_onionpacket(tmpctx, htlc->routing, TOTAL_PACKET_SIZE);
-	if (!op) {
-		/* Return an invalid shared secret. */
-		memset(shared_secret, 0, sizeof(*shared_secret));
-		tal_free(tmpctx);
-		return;
-	}
-
-	/* Because wire takes struct pubkey. */
-	ephemeral.pubkey = op->ephemeralkey;
-	msg = towire_hsm_ecdh_req(tmpctx, &ephemeral);
-	if (!wire_sync_write(HSM_FD, msg))
-		status_failed(STATUS_FAIL_HSM_IO, "Writing ecdh req");
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	/* Gives all-zero shares_secret if it was invalid. */
-	if (!msg || !fromwire_hsm_ecdh_resp(msg, NULL, shared_secret))
-		status_failed(STATUS_FAIL_HSM_IO, "Reading ecdh response");
-	tal_free(tmpctx);
-}
-
 static u8 *got_commitsig_msg(const tal_t *ctx,
 			     u64 local_commit_index,
 			     u32 local_feerate,
@@ -916,7 +922,7 @@ static u8 *got_commitsig_msg(const tal_t *ctx,
 			memcpy(a->onion_routing_packet,
 			       htlc->routing,
 			       sizeof(a->onion_routing_packet));
-			get_shared_secret(htlc, s);
+			*s = *htlc->shared_secret;
 		} else if (htlc->state == RCVD_REMOVE_COMMIT) {
 			if (htlc->r) {
 				struct fulfilled_htlc *f;
