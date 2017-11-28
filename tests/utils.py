@@ -220,6 +220,10 @@ class BitcoinD(TailableProc):
 
         logging.info("BitcoinD started")
 
+    def generate_block(self, numblocks=1):
+        # As of 0.16, generate() is removed; use generatetoaddress.
+        self.rpc.generatetoaddress(numblocks, self.rpc.getnewaddress())
+
 # lightning-1 => 0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518 aka JUNIORBEAM #0266e4
 # lightning-2 => 022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59 aka SILENTARTIST #022d22
 # lightning-3 => 035d2b1192dfba134e10e540875d366ebc8bc353d5aa766b80c090b39c3a5d885d aka HOPPINGFIRE #035d2b
@@ -297,7 +301,7 @@ class LightningNode(object):
                     raise TimeoutError('No new transactions in mempool')
                 time.sleep(0.1)
 
-            self.bitcoin.rpc.generate(1)
+            self.bitcoin.generate_block(1)
 
             #fut.result(timeout=5)
 
@@ -318,7 +322,7 @@ class LightningNode(object):
         self.rpc.fundchannel(remote_node.info['id'], capacity)
         self.daemon.wait_for_log('sendrawtx exit 0, gave')
         time.sleep(1)
-        self.bitcoin.rpc.generate(6)
+        self.bitcoin.generate_block(6)
         self.daemon.wait_for_log('-> CHANNELD_NORMAL|STATE_NORMAL')
 
     def db_query(self, query):
