@@ -131,3 +131,14 @@ gossip_getpeers_reply,3111
 gossip_getpeers_reply,,num,u16
 gossip_getpeers_reply,,id,num*struct pubkey
 gossip_getpeers_reply,,addr,num*struct wireaddr
+
+# Channel daemon can ask for updates for a specific channel, for sending
+# errors.  Must be distinct from WIRE_CHANNEL_ANNOUNCEMENT etc. gossip msgs!
+gossip_get_update,3012
+gossip_get_update,,short_channel_id,struct short_channel_id
+
+# If channel isn't known, update will be empty.
+gossip_get_update_reply,3112
+gossip_get_update_reply,,len,u16
+gossip_get_update_reply,,update,len*u8
+
