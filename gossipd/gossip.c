@@ -599,6 +599,51 @@ static struct io_plan *peer_start_gossip(struct io_conn *conn, struct peer *peer
 			 peer_pkt_out(conn, peer));
 }
 
+static void handle_get_update(struct peer *peer, const u8 *msg)
+{
+	struct short_channel_id schanid;
+	struct node *us;
+	size_t i;
+	const u8 *update;
+
+	if (!fromwire_gossip_get_update(msg, NULL, &schanid)) {
+		status_trace("peer %s sent bad gossip_get_update %s",
+			     type_to_string(trc, struct pubkey, &peer->id),
+			     tal_hex(trc, msg));
+		return;
+	}
+
+	/* We want update than comes from our end. */
+	us = node_map_get(peer->daemon->rstate->nodes, &peer->daemon->id.pubkey);
+	if (!us) {
+		status_trace("peer %s schanid %s but can't find ourselves",
+			     type_to_string(trc, struct pubkey, &peer->id),
+			     type_to_string(trc, struct short_channel_id,
+					    &schanid));
+		update = NULL;
+		goto reply;
+	}
+
+	for (i = 0; i < tal_count(us->out); i++) {
+		if (!short_channel_id_eq(&us->out[i]->short_channel_id,
+					 &schanid))
+			continue;
+
+		update = us->out[i]->channel_update;
+		status_trace("peer %s schanid %s: %s update",
+			     type_to_string(trc, struct pubkey, &peer->id),
+			     type_to_string(trc, struct short_channel_id,
+					    &schanid),
+			     update ? "got" : "no");
+		goto reply;
+	}
+	update = NULL;
+
+reply:
+	msg = towire_gossip_get_update_reply(msg, update);
+	msg_enqueue(&peer->peer_out, take(msg));
+}
+
 /**
  * owner_msg_in - Called by the `peer->owner_conn` upon receiving a
  * message
@@ -613,6 +658,8 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
 	    type == WIRE_NODE_ANNOUNCEMENT) {
 		handle_gossip_msg(peer->daemon->rstate, dc->msg_in);
+	} else if (type == WIRE_GOSSIP_GET_UPDATE) {
+		handle_get_update(peer, dc->msg_in);
 	}
 	return daemon_conn_read_next(conn, dc);
 }
@@ -1380,6 +1427,8 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REPLY:
 	case WIRE_GOSSIP_PEER_CONNECTED:
 	case WIRE_GOSSIP_PEER_NONGOSSIP:
+	case WIRE_GOSSIP_GET_UPDATE:
+	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	break;
 	}
 
