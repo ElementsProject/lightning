@@ -22,12 +22,6 @@ hsmctl_client_hsmfd,,capabilities,u64
 # No content, just an fd.
 hsmctl_client_hsmfd_reply,109
 
-# ECDH returns an fd (for gossipd to do handshake)
-hsmctl_hsmfd_ecdh,3
-
-# No contents, just an fd.
-hsmctl_hsmfd_ecdh_fd_reply,103
-
 # Return signature for a funding tx.
 #include <common/utxo.h>
 # FIXME: This should also take their commit sig & details, to verify.
@@ -44,7 +38,7 @@ hsmctl_sign_funding_reply,104
 hsmctl_sign_funding_reply,,num_sigs,u16
 hsmctl_sign_funding_reply,,sig,num_sigs*secp256k1_ecdsa_signature
 
-# Request a client socket for a `channeld`, allows signing announcements 
+# Request a client socket for a `channeld`, allows signing announcements
 hsmctl_hsmfd_channeld,5
 hsmctl_hsmfd_channeld,,id,struct pubkey
 
