@@ -29,10 +29,10 @@ def bitcoind():
     # Make sure we have segwit and some funds
     if info['blocks'] < 432:
         logging.debug("SegWit not active, generating some more blocks")
-        bitcoind.rpc.generate(432 - info['blocks'])
+        bitcoind.generate_block(432 - info['blocks'])
     elif info['balance'] < 1:
         logging.debug("Insufficient balance, generating 1 block")
-        bitcoind.rpc.generate(1)
+        bitcoind.generate_block(1)
 
     yield bitcoind
 
