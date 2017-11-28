@@ -252,11 +252,11 @@ static u8 *create_channel_update(const tal_t *ctx,
 	    talz(tmpctx, secp256k1_ecdsa_signature);
 
 	flags = peer->channel_direction | (disabled << 1);
-	/* FIXME: Add configuration option to specify `htlc_minimum_msat` */
 	cupdate = towire_channel_update(
 	    tmpctx, sig, &peer->chain_hash,
 	    &peer->short_channel_ids[LOCAL], timestamp, flags,
-	    peer->cltv_delta, 1, peer->fee_base, peer->fee_per_satoshi);
+	    peer->cltv_delta, peer->conf[REMOTE].htlc_minimum_msat,
+	    peer->fee_base, peer->fee_per_satoshi);
 
 	msg = towire_hsm_cupdate_sig_req(tmpctx, cupdate);
 
