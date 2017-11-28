@@ -1982,35 +1982,37 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 	u8 *msg;
 	u64 id;
 	u8 *errpkt;
-	u16 malformed;
+	u16 failcode;
 	enum channel_remove_err e;
 	struct htlc *h;
 
-	if (!fromwire_channel_fail_htlc(inmsg, inmsg, NULL, &id, &malformed,
-					&errpkt))
+	if (!fromwire_channel_fail_htlc(inmsg, inmsg, NULL, &id, &errpkt,
+					&failcode))
 		master_badmsg(WIRE_CHANNEL_FAIL_HTLC, inmsg);
 
-	if (malformed && !(malformed & BADONION))
+	if ((failcode & BADONION) && tal_len(errpkt))
 		status_failed(STATUS_FAIL_MASTER_IO,
-			      "Invalid channel_fail_htlc: bad malformed 0x%x",
-			      malformed);
+			      "Invalid channel_fail_htlc: %s with errpkt?",
+			      onion_type_name(failcode));
 
 	e = channel_fail_htlc(peer->channel, REMOTE, id, &h);
 	switch (e) {
 	case CHANNEL_ERR_REMOVE_OK:
-		if (malformed) {
+		if (failcode & BADONION) {
 			struct sha256 sha256_of_onion;
 			status_trace("Failing %"PRIu64" with code %u",
-				     id, malformed);
+				     id, failcode);
 			sha256(&sha256_of_onion, h->routing,
 			       tal_len(h->routing));
 			msg = towire_update_fail_malformed_htlc(peer,
 							&peer->channel_id,
 							id, &sha256_of_onion,
-							malformed);
+							failcode);
 		} else {
+			u8 *reply = wrap_onionreply(inmsg, h->shared_secret,
+						    errpkt);
 			msg = towire_update_fail_htlc(peer, &peer->channel_id,
-						      id, errpkt);
+						      id, reply);
 		}
 		msg_enqueue(&peer->peer_out, take(msg));
 		start_commit_timer(peer);

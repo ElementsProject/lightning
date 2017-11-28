@@ -99,18 +99,13 @@ static void fail_in_htlc(struct htlc_in *hin,
 		subd_send_msg(hin->key.peer->owner,
 			      take(towire_channel_fail_htlc(hin,
 							    hin->key.id,
-							    hin->failcode,
-							    NULL)));
+							    NULL,
+							    hin->failcode)));
 	} else {
-		u8 *reply;
-
-		/* This obfuscates the message, whether local or forwarded. */
-		reply = wrap_onionreply(hin, &hin->shared_secret,
-					hin->failuremsg);
 		subd_send_msg(hin->key.peer->owner,
 			      take(towire_channel_fail_htlc(hin, hin->key.id,
-							    0, reply)));
-		tal_free(reply);
+							    hin->failuremsg,
+							    0)));
 	}
 }
 
