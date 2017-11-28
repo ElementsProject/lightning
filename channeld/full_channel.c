@@ -305,6 +305,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	htlc->id = id;
 	htlc->msatoshi = msatoshi;
 	htlc->state = state;
+	htlc->shared_secret = NULL;
 
 	/* FIXME: Change expiry to simple u32 */
 
