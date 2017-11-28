@@ -25,6 +25,7 @@
 #include <common/withdraw_tx.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <hsmd/capabilities.h>
 #include <hsmd/client.h>
 #include <hsmd/gen_hsm_client_wire.h>
 #include <hsmd/gen_hsm_wire.h>
@@ -51,6 +52,9 @@ struct client {
 
 	struct pubkey id;
 	struct io_plan *(*handle)(struct io_conn *, struct daemon_conn *);
+
+	/* What is this client allowed to ask for? */
+	u64 capabilities;
 };
 
 static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
@@ -77,6 +81,7 @@ static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 
 static struct client *new_client(struct daemon_conn *master,
 				 const struct pubkey *id,
+				 const u64 capabilities,
 				 struct io_plan *(*handle)(struct io_conn *,
 							   struct daemon_conn *),
 				 int fd)
@@ -85,6 +90,7 @@ static struct client *new_client(struct daemon_conn *master,
 	c->id = *id;
 	c->handle = handle;
 	c->master = master;
+	c->capabilities = capabilities;
 	daemon_conn_init(c, &c->dc, fd, handle, NULL);
 
 	/* Free the connection if we exit everything. */
@@ -214,6 +220,62 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 	daemon_conn_send(dc, take(towire_hsm_cupdate_sig_reply(tmpctx, cu)));
 	tal_free(tmpctx);
 	return daemon_conn_read_next(conn, dc);
+}
+
+static bool check_client_capabilities(struct client *client,
+				      enum hsm_client_wire_type t)
+{
+	switch (t) {
+	case WIRE_HSM_ECDH_REQ:
+		return (client->capabilities & HSM_CAP_ECDH) != 0;
+
+	case WIRE_HSM_CANNOUNCEMENT_SIG_REQ:
+	case WIRE_HSM_CUPDATE_SIG_REQ:
+		return (client->capabilities & HSM_CAP_SIGN_GOSSIP) != 0;
+
+	case WIRE_HSM_ECDH_RESP:
+	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
+	case WIRE_HSM_CUPDATE_SIG_REPLY:
+		break;
+	}
+	return false;
+}
+
+static struct io_plan *handle_client(struct io_conn *conn,
+				     struct daemon_conn *dc)
+{
+	struct client *c = container_of(dc, struct client, dc);
+	enum hsm_client_wire_type t = fromwire_peektype(dc->msg_in);
+
+	/* Before we do anything else, is this client allowed to do
+	 * what he asks for? */
+	if (!check_client_capabilities(c, t)) {
+		daemon_conn_send(c->master,
+				 take(towire_hsmstatus_client_bad_request(
+				     c, &c->id, dc->msg_in)));
+		return io_close(conn);
+	}
+
+	/* Now actually go and do what the client asked for */
+	switch (t) {
+	case WIRE_HSM_ECDH_REQ:
+		return handle_ecdh(conn, dc);
+	case WIRE_HSM_CANNOUNCEMENT_SIG_REQ:
+		return handle_cannouncement_sig(conn, dc);
+	case WIRE_HSM_CUPDATE_SIG_REQ:
+		return handle_channel_update_sig(conn, dc);
+
+	case WIRE_HSM_ECDH_RESP:
+	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
+	case WIRE_HSM_CUPDATE_SIG_REPLY:
+		break;
+	}
+
+	daemon_conn_send(c->master,
+			 take(towire_hsmstatus_client_bad_request(c,
+								  &c->id,
+								  dc->msg_in)));
+	return io_close(conn);
 }
 
 static struct io_plan *handle_channeld(struct io_conn *conn,
@@ -418,6 +480,25 @@ static void init_hsm(struct daemon_conn *master, const u8 *msg)
 	send_init_response(master);
 }
 
+static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg)
+{
+	int fds[2];
+	u64 capabilities;
+	struct pubkey id;
+
+	if (!fromwire_hsmctl_client_hsmfd(msg, NULL, &id, &capabilities))
+		master_badmsg(WIRE_HSMCTL_CLIENT_HSMFD, msg);
+
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR, "creating fds: %s", strerror(errno));
+
+	new_client(master, &id, capabilities, handle_client, fds[0]);
+	daemon_conn_send(master,
+			 take(towire_hsmctl_client_hsmfd_reply(master)));
+	daemon_conn_send_fd(master, fds[1]);
+}
+
+
 static void pass_hsmfd_ecdh(struct daemon_conn *master, const u8 *msg)
 {
 	int fds[2];
@@ -432,7 +513,7 @@ static void pass_hsmfd_ecdh(struct daemon_conn *master, const u8 *msg)
 
 	/* This is gossipd, so we use our own id */
 	node_key(NULL, &id);
-	new_client(master, &id, handle_ecdh, fds[0]);
+	new_client(master, &id, HSM_CAP_ECDH, handle_ecdh, fds[0]);
 	daemon_conn_send(master,
 			 take(towire_hsmctl_hsmfd_ecdh_fd_reply(master)));
 	daemon_conn_send_fd(master, fds[1]);
@@ -451,7 +532,7 @@ static void pass_hsmfd_channeld(struct daemon_conn *master, const u8 *msg)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "creating fds: %s", strerror(errno));
 
-	new_client(master, &id, handle_channeld, fds[0]);
+	new_client(master, &id, HSM_CAP_ECDH | HSM_CAP_SIGN_GOSSIP, handle_channeld, fds[0]);
 	daemon_conn_send(master,
 			 take(towire_hsmctl_hsmfd_channeld_reply(master)));
 	daemon_conn_send_fd(master, fds[1]);
@@ -661,6 +742,9 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 	case WIRE_HSMCTL_INIT:
 		init_hsm(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
+	case WIRE_HSMCTL_CLIENT_HSMFD:
+		pass_client_hsmfd(master, master->msg_in);
+		return daemon_conn_read_next(conn, master);
 	case WIRE_HSMCTL_HSMFD_ECDH:
 		pass_hsmfd_ecdh(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
@@ -684,6 +768,7 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 		return daemon_conn_read_next(conn, master);
 
 	case WIRE_HSMCTL_INIT_REPLY:
+	case WIRE_HSMCTL_CLIENT_HSMFD_REPLY:
 	case WIRE_HSMCTL_HSMFD_ECDH_FD_REPLY:
 	case WIRE_HSMCTL_HSMFD_CHANNELD_REPLY:
 	case WIRE_HSMCTL_SIGN_FUNDING_REPLY:

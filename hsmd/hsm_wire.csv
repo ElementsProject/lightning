@@ -14,6 +14,14 @@ hsmctl_init_reply,,node_id,struct pubkey
 hsmctl_init_reply,,peer_seed,struct secret
 hsmctl_init_reply,,bip32,struct ext_key
 
+# Get a new HSM FD, with the specified capabilities
+hsmctl_client_hsmfd,9
+hsmctl_client_hsmfd,,pubkey,struct pubkey # Which identity to report for requests
+hsmctl_client_hsmfd,,capabilities,u64
+
+# No content, just an fd.
+hsmctl_client_hsmfd_reply,109
+
 # ECDH returns an fd (for gossipd to do handshake)
 hsmctl_hsmfd_ecdh,3
 
