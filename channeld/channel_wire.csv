@@ -97,6 +97,8 @@ channel_fail_htlc,,len,u16
 channel_fail_htlc,,error_pkt,len*u8
 # If it errcode is != 0, it's a local error, otherwise we're passing thru.
 channel_fail_htlc,,errcode,u16
+# If errcode & UPDATE, this says which outgoing channel failed.
+channel_fail_htlc,,which_channel,struct short_channel_id
 
 # Ping/pong test.
 channel_ping,1011

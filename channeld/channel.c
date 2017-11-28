@@ -1985,20 +1985,118 @@ static void handle_preimage(struct peer *peer, const u8 *inmsg)
 	abort();
 }
 
+static u8 *foreign_channel_update(const tal_t *ctx,
+				  struct peer *peer,
+				  const struct short_channel_id *scid)
+{
+	/* FIXME! */
+	return NULL;
+}
+
+static u8 *make_failmsg(const tal_t *ctx,
+			struct peer *peer,
+			const struct htlc *htlc,
+			enum onion_type failcode,
+			const struct short_channel_id *scid)
+{
+	u8 *msg, *channel_update = NULL;
+	u32 cltv_expiry = abs_locktime_to_blocks(&htlc->expiry);
+
+	switch (failcode) {
+	case WIRE_INVALID_REALM:
+		msg = towire_invalid_realm(ctx);
+		goto done;
+	case WIRE_TEMPORARY_NODE_FAILURE:
+		msg = towire_temporary_node_failure(ctx);
+		goto done;
+	case WIRE_PERMANENT_NODE_FAILURE:
+		msg = towire_permanent_node_failure(ctx);
+		goto done;
+	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
+		msg = towire_required_node_feature_missing(ctx);
+		goto done;
+	case WIRE_TEMPORARY_CHANNEL_FAILURE:
+		channel_update = foreign_channel_update(ctx, peer, scid);
+		msg = towire_temporary_channel_failure(ctx, channel_update);
+		goto done;
+	case WIRE_CHANNEL_DISABLED:
+		msg = towire_channel_disabled(ctx);
+		goto done;
+	case WIRE_PERMANENT_CHANNEL_FAILURE:
+		msg = towire_permanent_channel_failure(ctx);
+		goto done;
+	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
+		msg = towire_required_channel_feature_missing(ctx);
+		goto done;
+	case WIRE_UNKNOWN_NEXT_PEER:
+		msg = towire_unknown_next_peer(ctx);
+		goto done;
+	case WIRE_AMOUNT_BELOW_MINIMUM:
+		channel_update = foreign_channel_update(ctx, peer, scid);
+		msg = towire_amount_below_minimum(ctx, htlc->msatoshi,
+						  channel_update);
+		goto done;
+	case WIRE_FEE_INSUFFICIENT:
+		channel_update = foreign_channel_update(ctx, peer, scid);
+		msg = towire_fee_insufficient(ctx, htlc->msatoshi,
+					      channel_update);
+		goto done;
+	case WIRE_INCORRECT_CLTV_EXPIRY:
+		channel_update = foreign_channel_update(ctx, peer, scid);
+		msg = towire_incorrect_cltv_expiry(ctx, cltv_expiry,
+						   channel_update);
+		goto done;
+	case WIRE_EXPIRY_TOO_SOON:
+		channel_update = foreign_channel_update(ctx, peer, scid);
+		msg = towire_expiry_too_soon(ctx, channel_update);
+		goto done;
+	case WIRE_EXPIRY_TOO_FAR:
+		msg = towire_expiry_too_far(ctx);
+		goto done;
+	case WIRE_UNKNOWN_PAYMENT_HASH:
+		msg = towire_unknown_payment_hash(ctx);
+		goto done;
+	case WIRE_INCORRECT_PAYMENT_AMOUNT:
+		msg = towire_incorrect_payment_amount(ctx);
+		goto done;
+	case WIRE_FINAL_EXPIRY_TOO_SOON:
+		msg = towire_final_expiry_too_soon(ctx);
+		goto done;
+	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
+		msg = towire_final_incorrect_cltv_expiry(ctx, cltv_expiry);
+		goto done;
+	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
+		msg = towire_final_incorrect_htlc_amount(ctx, htlc->msatoshi);
+		goto done;
+	case WIRE_INVALID_ONION_VERSION:
+	case WIRE_INVALID_ONION_HMAC:
+	case WIRE_INVALID_ONION_KEY:
+		break;
+	}
+	status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		      "Asked to create failmsg %u (%s)",
+		      failcode, onion_type_name(failcode));
+
+done:
+	tal_free(channel_update);
+	return msg;
+}
+
 static void handle_fail(struct peer *peer, const u8 *inmsg)
 {
 	u8 *msg;
 	u64 id;
 	u8 *errpkt;
 	u16 failcode;
+	struct short_channel_id scid;
 	enum channel_remove_err e;
 	struct htlc *h;
 
 	if (!fromwire_channel_fail_htlc(inmsg, inmsg, NULL, &id, &errpkt,
-					&failcode))
+					&failcode, &scid))
 		master_badmsg(WIRE_CHANNEL_FAIL_HTLC, inmsg);
 
-	if ((failcode & BADONION) && tal_len(errpkt))
+	if (failcode && tal_len(errpkt))
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "Invalid channel_fail_htlc: %s with errpkt?",
 			      onion_type_name(failcode));
@@ -2017,8 +2115,13 @@ static void handle_fail(struct peer *peer, const u8 *inmsg)
 							id, &sha256_of_onion,
 							failcode);
 		} else {
-			u8 *reply = wrap_onionreply(inmsg, h->shared_secret,
-						    errpkt);
+			u8 *reply;
+
+			if (failcode)
+				errpkt = make_failmsg(inmsg, peer, h,
+						      failcode, &scid);
+			reply = wrap_onionreply(inmsg, h->shared_secret,
+						errpkt);
 			msg = towire_update_fail_htlc(peer, &peer->channel_id,
 						      id, reply);
 		}

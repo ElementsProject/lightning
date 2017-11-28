@@ -79,7 +79,8 @@ static bool htlc_out_update_state(struct peer *peer,
 
 static void fail_in_htlc(struct htlc_in *hin,
 			 enum onion_type failcode,
-			 const u8 *failuremsg)
+			 const u8 *failuremsg,
+			 const struct short_channel_id *out_channelid)
 {
 	assert(!hin->preimage);
 
@@ -88,6 +89,12 @@ static void fail_in_htlc(struct htlc_in *hin,
 	if (failuremsg)
 		hin->failuremsg = tal_dup_arr(hin, u8, failuremsg, tal_len(failuremsg), 0);
 
+	/* We need this set, since we send it to channeld. */
+	if (hin->failcode & UPDATE)
+		hin->failoutchannel = *out_channelid;
+	else
+		memset(&hin->failoutchannel, 0, sizeof(hin->failoutchannel));
+
 	/* We update state now to signal it's in progress, for persistence. */
 	htlc_in_update_state(hin->key.peer, hin, SENT_REMOVE_HTLC);
 
@@ -95,93 +102,22 @@ static void fail_in_htlc(struct htlc_in *hin,
 	if (!hin->key.peer->owner)
 		return;
 
-	if (!hin->failuremsg) {
-		subd_send_msg(hin->key.peer->owner,
-			      take(towire_channel_fail_htlc(hin,
-							    hin->key.id,
-							    NULL,
-							    hin->failcode)));
-	} else {
-		subd_send_msg(hin->key.peer->owner,
-			      take(towire_channel_fail_htlc(hin, hin->key.id,
-							    hin->failuremsg,
-							    0)));
-	}
-}
-
-static u8 *make_failmsg(const tal_t *ctx,
-			struct log *log,
-			u64 msatoshi,
-			enum onion_type failcode,
-			const u8 *channel_update)
-{
-	switch (failcode) {
-	case WIRE_INVALID_REALM:
-		return towire_invalid_realm(ctx);
-	case WIRE_TEMPORARY_NODE_FAILURE:
-		return towire_temporary_node_failure(ctx);
-	case WIRE_PERMANENT_NODE_FAILURE:
-		return towire_permanent_node_failure(ctx);
-	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
-		return towire_required_node_feature_missing(ctx);
-	case WIRE_TEMPORARY_CHANNEL_FAILURE:
-		return towire_temporary_channel_failure(ctx, channel_update);
-	case WIRE_CHANNEL_DISABLED:
-		return towire_channel_disabled(ctx);
-	case WIRE_PERMANENT_CHANNEL_FAILURE:
-		return towire_permanent_channel_failure(ctx);
-	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
-		return towire_required_channel_feature_missing(ctx);
-	case WIRE_UNKNOWN_NEXT_PEER:
-		return towire_unknown_next_peer(ctx);
-	case WIRE_AMOUNT_BELOW_MINIMUM:
-		return towire_amount_below_minimum(ctx, msatoshi, channel_update);
-	case WIRE_FEE_INSUFFICIENT:
-		return towire_fee_insufficient(ctx, msatoshi, channel_update);
-	case WIRE_INCORRECT_CLTV_EXPIRY:
-		/* FIXME: cltv! */
-		return towire_incorrect_cltv_expiry(ctx, 0, channel_update);
-	case WIRE_EXPIRY_TOO_SOON:
-		return towire_expiry_too_soon(ctx, channel_update);
-	case WIRE_EXPIRY_TOO_FAR:
-		return towire_expiry_too_far(ctx);
-	case WIRE_UNKNOWN_PAYMENT_HASH:
-		return towire_unknown_payment_hash(ctx);
-	case WIRE_INCORRECT_PAYMENT_AMOUNT:
-		return towire_incorrect_payment_amount(ctx);
-	case WIRE_FINAL_EXPIRY_TOO_SOON:
-		return towire_final_expiry_too_soon(ctx);
-	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
-		/* FIXME: cltv! */
-		return towire_final_incorrect_cltv_expiry(ctx, 0);
-	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
-		return towire_final_incorrect_htlc_amount(ctx, msatoshi);
-	case WIRE_INVALID_ONION_VERSION:
-	case WIRE_INVALID_ONION_HMAC:
-	case WIRE_INVALID_ONION_KEY:
-		/* We don't have anything to add for these; code is enough */
-		return NULL;
-	}
-
-	log_broken(log, "Asked to create unknown failmsg %u:"
-		   " using temp node failure instead", failcode);
-	return towire_temporary_node_failure(ctx);
+	subd_send_msg(hin->key.peer->owner,
+		      take(towire_channel_fail_htlc(hin,
+						    hin->key.id,
+						    hin->failuremsg,
+						    hin->failcode,
+						    &hin->failoutchannel)));
 }
 
 /* This is used for cases where we can immediately fail the HTLC. */
-static void local_fail_htlc(struct htlc_in *hin, enum onion_type failcode)
+static void local_fail_htlc(struct htlc_in *hin, enum onion_type failcode,
+			    const struct short_channel_id *out_channel)
 {
-	u8 *msg;
-
 	log_info(hin->key.peer->log, "failed htlc %"PRIu64" code 0x%04x (%s)",
 		 hin->key.id, failcode, onion_type_name(failcode));
 
-	/* FIXME: Get update! */
-	msg = make_failmsg(hin, hin->key.peer->log,
-			   hin->msatoshi, failcode, NULL);
-
-	fail_in_htlc(hin, failcode, msg);
-	tal_free(msg);
+	fail_in_htlc(hin, failcode, NULL, out_channel);
 }
 
 /* localfail are for handing to the local payer if it's local. */
@@ -190,7 +126,8 @@ static void fail_out_htlc(struct htlc_out *hout, const char *localfail)
 	htlc_out_check(hout, __func__);
 	assert(hout->failcode || hout->failuremsg);
 	if (hout->in) {
-		fail_in_htlc(hout->in, hout->failcode, hout->failuremsg);
+		fail_in_htlc(hout->in, hout->failcode, hout->failuremsg,
+			     hout->key.peer->scid);
 	} else {
 		payment_failed(hout->key.peer->ld, hout, localfail);
 	}
@@ -364,7 +301,9 @@ static void handle_localpay(struct htlc_in *hin,
 	return;
 
 fail:
-	local_fail_htlc(hin, failcode);
+	/* Final hop never sends an UPDATE. */
+	assert(!(failcode & UPDATE));
+	local_fail_htlc(hin, failcode, NULL);
 }
 
 /*
@@ -378,10 +317,7 @@ static void hout_subd_died(struct htlc_out *hout)
 		  "Failing HTLC %"PRIu64" due to peer death",
 		  hout->key.id);
 
-	hout->failuremsg = make_failmsg(hout, hout->key.peer->log,
-					hout->msatoshi,
-					WIRE_TEMPORARY_CHANNEL_FAILURE,
-					NULL);
+	hout->failcode = WIRE_TEMPORARY_CHANNEL_FAILURE;
 	fail_out_htlc(hout, "Outgoing subdaemon died");
 }
 
@@ -410,7 +346,8 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds,
 						  (const char *)failurestr);
 			payment_failed(hout->key.peer->ld, hout, localfail);
 		} else
-			local_fail_htlc(hout->in, failure_code);
+			local_fail_htlc(hout->in, failure_code,
+					hout->key.peer->scid);
 		return;
 	}
 
@@ -480,9 +417,10 @@ static void forward_htlc(struct htlc_in *hin,
 	struct lightningd *ld = hin->key.peer->ld;
 	struct peer *next = peer_by_id(ld, next_hop);
 
-	if (!next) {
-		failcode = WIRE_UNKNOWN_NEXT_PEER;
-		goto fail;
+	/* Unknown peer, or peer not ready. */
+	if (!next || !next->scid) {
+		local_fail_htlc(hin, WIRE_UNKNOWN_NEXT_PEER, NULL);
+		return;
 	}
 
 	/* BOLT #7:
@@ -551,7 +489,7 @@ static void forward_htlc(struct htlc_in *hin,
 		return;
 
 fail:
-	local_fail_htlc(hin, failcode);
+	local_fail_htlc(hin, failcode, next->scid);
 }
 
 /* Temporary information, while we resolve the next hop */
@@ -578,7 +516,7 @@ static void channel_resolve_reply(struct subd *gossip, const u8 *msg,
 	}
 
 	if (tal_count(nodes) == 0) {
-		local_fail_htlc(gr->hin, WIRE_UNKNOWN_NEXT_PEER);
+		local_fail_htlc(gr->hin, WIRE_UNKNOWN_NEXT_PEER, NULL);
 		return;
 	} else if (tal_count(nodes) != 2) {
 		log_broken(gossip->log,
@@ -826,12 +764,10 @@ void onchain_failed_our_htlc(const struct peer *peer,
 	struct htlc_out *hout = find_htlc_out_by_ripemd(peer, &htlc->ripemd);
 
 	/* Don't fail twice! */
-	if (hout->failuremsg)
+	if (hout->failuremsg || hout->failcode)
 		return;
 
-	hout->failuremsg = make_failmsg(hout, peer->log, hout->msatoshi,
-					WIRE_PERMANENT_CHANNEL_FAILURE,
-					NULL);
+	hout->failcode = WIRE_PERMANENT_CHANNEL_FAILURE;
 
 	if (!hout->in) {
 		char *localfail = tal_fmt(peer, "%s: %s",
@@ -840,7 +776,8 @@ void onchain_failed_our_htlc(const struct peer *peer,
 		payment_failed(hout->key.peer->ld, hout, localfail);
 		tal_free(localfail);
 	} else
-		local_fail_htlc(hout->in, WIRE_PERMANENT_CHANNEL_FAILURE);
+		local_fail_htlc(hout->in, WIRE_PERMANENT_CHANNEL_FAILURE,
+				hout->key.peer->scid);
 }
 
 static void remove_htlc_in(struct peer *peer, struct htlc_in *hin)
@@ -1294,8 +1231,11 @@ void peer_got_revoke(struct peer *peer, const u8 *msg)
 		if (!failcodes[i])
 			continue;
 
+		/* These are all errors before finding next hop. */
+		assert(!(failcodes[i] & UPDATE));
+
 		hin = find_htlc_in(&peer->ld->htlcs_in, peer, changed[i].id);
-		local_fail_htlc(hin, failcodes[i]);
+		local_fail_htlc(hin, failcodes[i], NULL);
 	}
 	wallet_channel_save(peer->ld->wallet, peer->channel);
 }
