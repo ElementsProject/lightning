@@ -80,8 +80,10 @@ struct htlc_in *htlc_in_check(const struct htlc_in *hin, const char *abortstr)
 		return corrupt(hin, abortstr, "invalid state %s",
 			       htlc_state_name(hin->hstate));
 	else if (hin->failuremsg && hin->preimage)
-		return corrupt(hin, abortstr, "Both failed and succeeded");
-	else if (hin->failuremsg && hin->malformed)
+		return corrupt(hin, abortstr, "Both failuremsg and succeeded");
+	else if (hin->failcode != 0 && hin->preimage)
+		return corrupt(hin, abortstr, "Both failcode and succeeded");
+	else if (hin->failuremsg && (hin->failcode & BADONION))
 		return corrupt(hin, abortstr, "Both failed and malformed");
 
 	return cast_const(struct htlc_in *, hin);
@@ -107,8 +109,8 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	       sizeof(hin->onion_routing_packet));
 
 	hin->hstate = RCVD_ADD_COMMIT;
+	hin->failcode = 0;
 	hin->failuremsg = NULL;
-	hin->malformed = 0;
 	hin->preimage = NULL;
 
 	return htlc_in_check(hin, "new_htlc_in");
@@ -155,8 +157,8 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	       sizeof(hout->onion_routing_packet));
 
 	hout->hstate = SENT_ADD_HTLC;
+	hout->failcode = 0;
 	hout->failuremsg = NULL;
-	hout->malformed = 0;
 	hout->preimage = NULL;
 
 	hout->in = in;
