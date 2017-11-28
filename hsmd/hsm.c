@@ -498,27 +498,6 @@ static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg)
 	daemon_conn_send_fd(master, fds[1]);
 }
 
-
-static void pass_hsmfd_ecdh(struct daemon_conn *master, const u8 *msg)
-{
-	int fds[2];
-	struct pubkey id;
-
-	if (!fromwire_hsmctl_hsmfd_ecdh(msg, NULL))
-		master_badmsg(WIRE_HSMCTL_HSMFD_ECDH, msg);
-
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "creating fds: %s", strerror(errno));
-
-	/* This is gossipd, so we use our own id */
-	node_key(NULL, &id);
-	new_client(master, &id, HSM_CAP_ECDH, handle_ecdh, fds[0]);
-	daemon_conn_send(master,
-			 take(towire_hsmctl_hsmfd_ecdh_fd_reply(master)));
-	daemon_conn_send_fd(master, fds[1]);
-}
-
 /* Reply to an incoming request for an HSMFD for a channeld. */
 static void pass_hsmfd_channeld(struct daemon_conn *master, const u8 *msg)
 {
@@ -745,9 +724,6 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 	case WIRE_HSMCTL_CLIENT_HSMFD:
 		pass_client_hsmfd(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
-	case WIRE_HSMCTL_HSMFD_ECDH:
-		pass_hsmfd_ecdh(master, master->msg_in);
-		return daemon_conn_read_next(conn, master);
 	case WIRE_HSMCTL_HSMFD_CHANNELD:
 		pass_hsmfd_channeld(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
@@ -769,7 +745,6 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 
 	case WIRE_HSMCTL_INIT_REPLY:
 	case WIRE_HSMCTL_CLIENT_HSMFD_REPLY:
-	case WIRE_HSMCTL_HSMFD_ECDH_FD_REPLY:
 	case WIRE_HSMCTL_HSMFD_CHANNELD_REPLY:
 	case WIRE_HSMCTL_SIGN_FUNDING_REPLY:
 	case WIRE_HSMCTL_SIGN_WITHDRAWAL_REPLY:
