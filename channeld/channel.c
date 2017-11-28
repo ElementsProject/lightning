@@ -450,7 +450,7 @@ static struct io_plan *handle_peer_add_htlc(struct io_conn *conn,
 	if (!fromwire_update_add_htlc(msg, NULL, &channel_id, &id, &amount_msat,
 				      &payment_hash, &cltv_expiry,
 				      onion_routing_packet))
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad peer_add_htlc %s", tal_hex(msg, msg));
@@ -459,7 +459,7 @@ static struct io_plan *handle_peer_add_htlc(struct io_conn *conn,
 				   cltv_expiry, &payment_hash,
 				   onion_routing_packet, &htlc);
 	if (add_err != CHANNEL_ERR_ADD_OK)
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad peer_add_htlc: %u", add_err);
@@ -479,7 +479,7 @@ static struct io_plan *handle_peer_feechange(struct io_conn *conn,
 	u32 feerate;
 
 	if (!fromwire_update_fee(msg, NULL, &channel_id, &feerate)) {
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad update_fee %s", tal_hex(msg, msg));
@@ -491,7 +491,7 @@ static struct io_plan *handle_peer_feechange(struct io_conn *conn,
 	 * responsible for paying the bitcoin fee.
 	 */
 	if (peer->channel->funder != REMOTE)
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "update_fee from non-funder?");
@@ -502,7 +502,7 @@ static struct io_plan *handle_peer_feechange(struct io_conn *conn,
 	 * low for timely processing, or unreasonably large.
 	 */
 	if (feerate < peer->feerate_min || feerate > peer->feerate_max)
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "update_fee %u outside range %u-%u",
@@ -516,7 +516,7 @@ static struct io_plan *handle_peer_feechange(struct io_conn *conn,
 	 * committed.
 	 */
 	if (!channel_update_feerate(peer->channel, feerate))
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "update_fee %u unaffordable",
@@ -983,7 +983,7 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 		 * A node MUST NOT send a `commitment_signed` message which
 		 * does not include any updates.
 		 */
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "commit_sig with no changes");
@@ -997,7 +997,7 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 
 	if (!fromwire_commitment_signed(tmpctx, msg, NULL,
 					&channel_id, &commit_sig, &htlc_sigs))
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad commit_sig %s", tal_hex(msg, msg));
@@ -1029,7 +1029,7 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 	if (!check_tx_sig(txs[0], 0, NULL, wscripts[0],
 			  &peer->channel->funding_pubkey[REMOTE], &commit_sig)) {
 		dump_htlcs(peer->channel, "receiving commit_sig");
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad commit_sig signature %"PRIu64" %s for tx %s wscript %s key %s",
@@ -1050,7 +1050,7 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 	 * once all pending updates are applied.
 	 */
 	if (tal_count(htlc_sigs) != tal_count(txs) - 1)
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Expected %zu htlc sigs, not %zu",
@@ -1065,7 +1065,7 @@ static struct io_plan *handle_peer_commit_sig(struct io_conn *conn,
 	for (i = 0; i < tal_count(htlc_sigs); i++) {
 		if (!check_tx_sig(txs[1+i], 0, NULL, wscripts[1+i],
 				  &remote_htlckey, &htlc_sigs[i]))
-			peer_failed(io_conn_fd(peer->peer_conn),
+			peer_failed(PEER_FD,
 				    &peer->pcs.cs,
 				    &peer->channel_id,
 				    "Bad commit_sig signature %s for htlc %s wscript %s key %s",
@@ -1143,7 +1143,7 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 
 	if (!fromwire_revoke_and_ack(msg, NULL, &channel_id, &old_commit_secret,
 				     &next_per_commit)) {
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad revoke_and_ack %s", tal_hex(msg, msg));
@@ -1164,14 +1164,14 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 	 */
 	memcpy(&privkey, &old_commit_secret, sizeof(privkey));
 	if (!pubkey_from_privkey(&privkey, &per_commit_point)) {
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad privkey %s",
 			    type_to_string(msg, struct privkey, &privkey));
 	}
 	if (!pubkey_eq(&per_commit_point, &peer->old_remote_per_commit)) {
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Wrong privkey %s for %"PRIu64" %s",
@@ -1218,7 +1218,7 @@ static struct io_plan *handle_peer_fulfill_htlc(struct io_conn *conn,
 
 	if (!fromwire_update_fulfill_htlc(msg, NULL, &channel_id,
 					  &id, &preimage)) {
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad update_fulfill_htlc %s", tal_hex(msg, msg));
@@ -1238,7 +1238,7 @@ static struct io_plan *handle_peer_fulfill_htlc(struct io_conn *conn,
 	case CHANNEL_ERR_HTLC_UNCOMMITTED:
 	case CHANNEL_ERR_HTLC_NOT_IRREVOCABLE:
 	case CHANNEL_ERR_BAD_PREIMAGE:
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad update_fulfill_htlc: failed to fulfill %"
@@ -1258,7 +1258,7 @@ static struct io_plan *handle_peer_fail_htlc(struct io_conn *conn,
 
 	if (!fromwire_update_fail_htlc(msg, msg, NULL,
 				       &channel_id, &id, &reason)) {
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad update_fulfill_htlc %s", tal_hex(msg, msg));
@@ -1277,7 +1277,7 @@ static struct io_plan *handle_peer_fail_htlc(struct io_conn *conn,
 	case CHANNEL_ERR_HTLC_UNCOMMITTED:
 	case CHANNEL_ERR_HTLC_NOT_IRREVOCABLE:
 	case CHANNEL_ERR_BAD_PREIMAGE:
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad update_fail_htlc: failed to remove %"
@@ -1301,7 +1301,7 @@ static struct io_plan *handle_peer_fail_malformed_htlc(struct io_conn *conn,
 	if (!fromwire_update_fail_malformed_htlc(msg, NULL, &channel_id, &id,
 						 &sha256_of_onion,
 						 &failure_code)) {
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad update_fail_malformed_htlc %s",
@@ -1314,7 +1314,7 @@ static struct io_plan *handle_peer_fail_malformed_htlc(struct io_conn *conn,
 	 * `failure_code` is not set for `update_fail_malformed_htlc`.
 	 */
 	if (!(failure_code & BADONION)) {
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad update_fail_malformed_htlc failure code %u",
@@ -1353,7 +1353,7 @@ static struct io_plan *handle_peer_fail_malformed_htlc(struct io_conn *conn,
 	case CHANNEL_ERR_HTLC_UNCOMMITTED:
 	case CHANNEL_ERR_HTLC_NOT_IRREVOCABLE:
 	case CHANNEL_ERR_BAD_PREIMAGE:
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad update_fail_malformed_htlc: failed to remove %"
@@ -1368,7 +1368,7 @@ static struct io_plan *handle_ping(struct io_conn *conn,
 	u8 *pong;
 
 	if (!check_ping_make_pong(peer, msg, &pong))
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad ping");
@@ -1389,13 +1389,13 @@ static struct io_plan *handle_pong(struct io_conn *conn,
 
 	status_trace("Got pong!");
 	if (!fromwire_pong(pong, pong, NULL, &ignored))
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad pong %s", tal_hex(pong, pong));
 
 	if (!peer->num_pings_outstanding)
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Unexpected pong");
@@ -1414,7 +1414,7 @@ static struct io_plan *handle_peer_shutdown(struct io_conn *conn,
 	u8 *scriptpubkey;
 
 	if (!fromwire_shutdown(peer, shutdown, NULL, &channel_id, &scriptpubkey))
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "Bad shutdown %s", tal_hex(peer, shutdown));
@@ -1443,7 +1443,7 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 		    && type != WIRE_CHANNEL_UPDATE
 		    && type != WIRE_NODE_ANNOUNCEMENT
 		    && type != WIRE_PING) {
-			peer_failed(io_conn_fd(peer->peer_conn),
+			peer_failed(PEER_FD,
 				    &peer->pcs.cs,
 				    &peer->channel_id,
 				    "%s (%u) before funding locked",
@@ -1495,7 +1495,7 @@ static struct io_plan *peer_in(struct io_conn *conn, struct peer *peer, u8 *msg)
 	}
 
 badmessage:
-	peer_failed(io_conn_fd(peer->peer_conn),
+	peer_failed(PEER_FD,
 		    &peer->pcs.cs,
 		    &peer->channel_id,
 		    "Peer sent unknown message %u (%s)",
@@ -1548,7 +1548,7 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 		msg = towire_update_fulfill_htlc(peer, &peer->channel_id, h->id,
 						 h->r);
 	} else
-		peer_failed(io_conn_fd(peer->peer_conn),
+		peer_failed(PEER_FD,
 			    &peer->pcs.cs,
 			    &peer->channel_id,
 			    "HTLC %"PRIu64" state %s not failed/fulfilled",
@@ -1581,7 +1581,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 		/* I think this can happen if we actually received revoke_and_ack
 		 * then they asked for a retransmit */
 		if (!h)
-			peer_failed(io_conn_fd(peer->peer_conn),
+			peer_failed(PEER_FD,
 				    &peer->pcs.cs,
 				    &peer->channel_id,
 				    "Can't find HTLC %"PRIu64" to resend",
