@@ -23,6 +23,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gen_gossip_wire.h>
+#include <hsmd/capabilities.h>
 #include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <lightningd/build_utxos.h>
@@ -2052,12 +2053,12 @@ static bool peer_start_channeld(struct peer *peer,
 	} else
 		assert(peer->our_msatoshi);
 
-	msg = towire_hsmctl_hsmfd_channeld(tmpctx, &peer->id);
+	msg = towire_hsmctl_client_hsmfd(tmpctx, &peer->id, HSM_CAP_SIGN_GOSSIP | HSM_CAP_ECDH);
 	if (!wire_sync_write(peer->ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = hsm_sync_read(tmpctx, peer->ld);
-	if (!fromwire_hsmctl_hsmfd_channeld_reply(msg, NULL))
+	if (!fromwire_hsmctl_client_hsmfd_reply(msg, NULL))
 		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
 
 	hsmfd = fdpass_recv(peer->ld->hsm_fd);

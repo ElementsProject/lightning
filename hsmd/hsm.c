@@ -278,37 +278,6 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	return io_close(conn);
 }
 
-static struct io_plan *handle_channeld(struct io_conn *conn,
-				       struct daemon_conn *dc)
-{
-	struct client *c = container_of(dc, struct client, dc);
-	enum hsm_client_wire_type t = fromwire_peektype(dc->msg_in);
-
-	status_trace("Client: type %s len %zu",
-		     hsm_client_wire_type_name(t), tal_count(dc->msg_in));
-
-	switch (t) {
-	case WIRE_HSM_ECDH_REQ:
-		return handle_ecdh(conn, dc);
-	case WIRE_HSM_CANNOUNCEMENT_SIG_REQ:
-		return handle_cannouncement_sig(conn, dc);
-	case WIRE_HSM_CUPDATE_SIG_REQ:
-		return handle_channel_update_sig(conn, dc);
-
-	case WIRE_HSM_ECDH_RESP:
-	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
-	case WIRE_HSM_CUPDATE_SIG_REPLY:
-		break;
-	}
-
-	daemon_conn_send(c->master,
-			 take(towire_hsmstatus_client_bad_request(c,
-								  &c->id,
-								  dc->msg_in)));
-	return io_close(conn);
-}
-
-/* Control messages */
 static void send_init_response(struct daemon_conn *master)
 {
 	struct pubkey node_id;
@@ -495,25 +464,6 @@ static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg)
 	new_client(master, &id, capabilities, handle_client, fds[0]);
 	daemon_conn_send(master,
 			 take(towire_hsmctl_client_hsmfd_reply(master)));
-	daemon_conn_send_fd(master, fds[1]);
-}
-
-/* Reply to an incoming request for an HSMFD for a channeld. */
-static void pass_hsmfd_channeld(struct daemon_conn *master, const u8 *msg)
-{
-	int fds[2];
-	struct pubkey id;
-
-	if (!fromwire_hsmctl_hsmfd_channeld(msg, NULL, &id))
-		master_badmsg(WIRE_HSMCTL_HSMFD_CHANNELD, msg);
-
-	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "creating fds: %s", strerror(errno));
-
-	new_client(master, &id, HSM_CAP_ECDH | HSM_CAP_SIGN_GOSSIP, handle_channeld, fds[0]);
-	daemon_conn_send(master,
-			 take(towire_hsmctl_hsmfd_channeld_reply(master)));
 	daemon_conn_send_fd(master, fds[1]);
 }
 
@@ -724,9 +674,6 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 	case WIRE_HSMCTL_CLIENT_HSMFD:
 		pass_client_hsmfd(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
-	case WIRE_HSMCTL_HSMFD_CHANNELD:
-		pass_hsmfd_channeld(master, master->msg_in);
-		return daemon_conn_read_next(conn, master);
 	case WIRE_HSMCTL_SIGN_FUNDING:
 		sign_funding_tx(master, master->msg_in);
 		return daemon_conn_read_next(conn, master);
@@ -745,8 +692,7 @@ static struct io_plan *control_received_req(struct io_conn *conn,
 
 	case WIRE_HSMCTL_INIT_REPLY:
 	case WIRE_HSMCTL_CLIENT_HSMFD_REPLY:
-	case WIRE_HSMCTL_HSMFD_CHANNELD_REPLY:
-	case WIRE_HSMCTL_SIGN_FUNDING_REPLY:
+		case WIRE_HSMCTL_SIGN_FUNDING_REPLY:
 	case WIRE_HSMCTL_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSMCTL_SIGN_INVOICE_REPLY:
 	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:

@@ -38,13 +38,6 @@ hsmctl_sign_funding_reply,104
 hsmctl_sign_funding_reply,,num_sigs,u16
 hsmctl_sign_funding_reply,,sig,num_sigs*secp256k1_ecdsa_signature
 
-# Request a client socket for a `channeld`, allows signing announcements
-hsmctl_hsmfd_channeld,5
-hsmctl_hsmfd_channeld,,id,struct pubkey
-
-# Empty reply, just an fd
-hsmctl_hsmfd_channeld_reply,105
-
 # Master asks the HSM to sign a node_announcement
 hsmctl_node_announcement_sig_req,6
 hsmctl_node_announcement_sig_req,,annlen,u16
