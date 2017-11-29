@@ -621,7 +621,7 @@ static u8 *master_wait_sync_reply(const tal_t *ctx,
 			       MASTER_FD, &peer->from_master, "master");
 }
 
-static UNNEEDED u8 *gossipd_wait_sync_reply(const tal_t *ctx,
+static u8 *gossipd_wait_sync_reply(const tal_t *ctx,
 				   struct peer *peer, const u8 *msg,
 				   enum gossip_wire_type replytype)
 {
@@ -1946,8 +1946,17 @@ static u8 *foreign_channel_update(const tal_t *ctx,
 				  struct peer *peer,
 				  const struct short_channel_id *scid)
 {
-	/* FIXME! */
-	return NULL;
+	tal_t *tmpctx = tal_tmpctx(ctx);
+	u8 *msg, *update;
+
+	msg = towire_gossip_get_update(tmpctx, scid);
+	msg = gossipd_wait_sync_reply(tmpctx, peer, take(msg),
+				      WIRE_GOSSIP_GET_UPDATE_REPLY);
+	if (!fromwire_gossip_get_update_reply(ctx, msg, NULL, &update))
+		status_failed(STATUS_FAIL_GOSSIP_IO,
+			      "Invalid update reply");
+	tal_free(tmpctx);
+	return update;
 }
 
 static u8 *make_failmsg(const tal_t *ctx,

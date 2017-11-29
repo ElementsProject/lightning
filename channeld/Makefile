@@ -58,7 +58,12 @@ CHANNELD_COMMON_OBJS :=				\
 	common/timeout.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
-	common/version.o
+	common/version.o			\
+	common/wireaddr.o			\
+	gossipd/gen_gossip_wire.o		\
+	lightningd/gossip_msg.o			\
+	wire/fromwire.o				\
+	wire/towire.o
 
 # Control daemon uses this:
 LIGHTNINGD_CHANNEL_CONTROL_HEADERS := $(LIGHTNINGD_CHANNEL_HEADERS_GEN)
