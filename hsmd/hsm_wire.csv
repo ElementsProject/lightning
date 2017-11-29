@@ -5,11 +5,11 @@ hsmstatus_client_bad_request,,len,u16
 hsmstatus_client_bad_request,,msg,len*u8
 
 # Start the HSM.
-hsmctl_init,1
+hsmctl_init,11
 hsmctl_init,,new,bool
 
 #include <common/bip32.h>
-hsmctl_init_reply,101
+hsmctl_init_reply,111
 hsmctl_init_reply,,node_id,struct pubkey
 hsmctl_init_reply,,peer_seed,struct secret
 hsmctl_init_reply,,bip32,struct ext_key

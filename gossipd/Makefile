@@ -34,6 +34,7 @@ LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_GOSSIP_HEADERS)
 
 # Common source we use.
 GOSSIPD_COMMON_OBJS :=				\
+	common/bip32.o				\
 	common/crypto_state.o			\
 	common/crypto_sync.o			\
 	common/cryptomsg.o			\
@@ -48,6 +49,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/timeout.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
+	common/utxo.o				\
 	common/version.o			\
 	common/wireaddr.o			\
 	common/wire_error.o			\
@@ -78,4 +80,4 @@ clean: gossipd-clean
 gossipd-clean:
 	$(RM) $(LIGHTNINGD_GOSSIP_OBJS) gossipd/gen_*
 
--include gossipd/test/Makefile 
+-include gossipd/test/Makefile

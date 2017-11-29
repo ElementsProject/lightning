@@ -57,6 +57,14 @@ struct client {
 	u64 capabilities;
 };
 
+/* Function declarations for later */
+static void init_hsm(struct daemon_conn *master, const u8 *msg);
+static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg);
+static void sign_funding_tx(struct daemon_conn *master, const u8 *msg);
+static void sign_invoice(struct daemon_conn *master, const u8 *msg);
+static void sign_node_announcement(struct daemon_conn *master, const u8 *msg);
+static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg);
+
 static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 {
 	u32 salt = 0;
@@ -87,7 +95,13 @@ static struct client *new_client(struct daemon_conn *master,
 				 int fd)
 {
 	struct client *c = tal(master, struct client);
-	c->id = *id;
+
+	if (id) {
+		c->id = *id;
+	} else {
+		memset(&c->id, 0, sizeof(c->id));
+	}
+
 	c->handle = handle;
 	c->master = master;
 	c->capabilities = capabilities;
@@ -231,11 +245,27 @@ static bool check_client_capabilities(struct client *client,
 
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REQ:
 	case WIRE_HSM_CUPDATE_SIG_REQ:
+	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REQ:
 		return (client->capabilities & HSM_CAP_SIGN_GOSSIP) != 0;
 
+	case WIRE_HSM_INIT:
+	case WIRE_HSM_CLIENT_HSMFD:
+	case WIRE_HSM_SIGN_FUNDING:
+	case WIRE_HSM_SIGN_WITHDRAWAL:
+	case WIRE_HSM_SIGN_INVOICE:
+		return (client->capabilities & HSM_CAP_MASTER) != 0;
+
+      /* These are messages sent by the HSM so we should never receive
+       * them */
 	case WIRE_HSM_ECDH_RESP:
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_CUPDATE_SIG_REPLY:
+	case WIRE_HSM_CLIENT_HSMFD_REPLY:
+	case WIRE_HSM_SIGN_FUNDING_REPLY:
+	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REPLY:
+	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:
+	case WIRE_HSM_SIGN_INVOICE_REPLY:
+	case WIRE_HSM_INIT_REPLY:
 		break;
 	}
 	return false;
@@ -247,9 +277,12 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	struct client *c = container_of(dc, struct client, dc);
 	enum hsm_client_wire_type t = fromwire_peektype(dc->msg_in);
 
+	status_trace("Client: Received message %d from client", t);
+
 	/* Before we do anything else, is this client allowed to do
 	 * what he asks for? */
 	if (!check_client_capabilities(c, t)) {
+		status_trace("Client does not have the required capability to run %d", t);
 		daemon_conn_send(c->master,
 				 take(towire_hsmstatus_client_bad_request(
 				     c, &c->id, dc->msg_in)));
@@ -258,16 +291,48 @@ static struct io_plan *handle_client(struct io_conn *conn,
 
 	/* Now actually go and do what the client asked for */
 	switch (t) {
+	case WIRE_HSM_INIT:
+		init_hsm(dc, dc->msg_in);
+		return daemon_conn_read_next(conn, dc);
+
+	case WIRE_HSM_CLIENT_HSMFD:
+		pass_client_hsmfd(dc, dc->msg_in);
+		return daemon_conn_read_next(conn, dc);
+
 	case WIRE_HSM_ECDH_REQ:
 		return handle_ecdh(conn, dc);
+
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REQ:
 		return handle_cannouncement_sig(conn, dc);
+
 	case WIRE_HSM_CUPDATE_SIG_REQ:
 		return handle_channel_update_sig(conn, dc);
+
+	case WIRE_HSM_SIGN_FUNDING:
+		sign_funding_tx(dc, dc->msg_in);
+		return daemon_conn_read_next(conn, dc);
+
+	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REQ:
+		sign_node_announcement(dc, dc->msg_in);
+		return daemon_conn_read_next(conn, dc);
+
+	case WIRE_HSM_SIGN_INVOICE:
+		sign_invoice(dc, dc->msg_in);
+		return daemon_conn_read_next(conn, dc);
+
+	case WIRE_HSM_SIGN_WITHDRAWAL:
+		sign_withdrawal_tx(dc, dc->msg_in);
+		return daemon_conn_read_next(conn, dc);
 
 	case WIRE_HSM_ECDH_RESP:
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_CUPDATE_SIG_REPLY:
+	case WIRE_HSM_CLIENT_HSMFD_REPLY:
+	case WIRE_HSM_SIGN_FUNDING_REPLY:
+	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REPLY:
+	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:
+	case WIRE_HSM_SIGN_INVOICE_REPLY:
+	case WIRE_HSM_INIT_REPLY:
 		break;
 	}
 
@@ -659,51 +724,6 @@ static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 	daemon_conn_send(master, take(reply));
 }
 
-static struct io_plan *control_received_req(struct io_conn *conn,
-					    struct daemon_conn *master)
-{
-	enum hsm_wire_type t = fromwire_peektype(master->msg_in);
-
-	status_trace("Control: type %s len %zu",
-		     hsm_wire_type_name(t), tal_count(master->msg_in));
-
-	switch (t) {
-	case WIRE_HSMCTL_INIT:
-		init_hsm(master, master->msg_in);
-		return daemon_conn_read_next(conn, master);
-	case WIRE_HSMCTL_CLIENT_HSMFD:
-		pass_client_hsmfd(master, master->msg_in);
-		return daemon_conn_read_next(conn, master);
-	case WIRE_HSMCTL_SIGN_FUNDING:
-		sign_funding_tx(master, master->msg_in);
-		return daemon_conn_read_next(conn, master);
-
-	case WIRE_HSMCTL_SIGN_WITHDRAWAL:
-		sign_withdrawal_tx(master, master->msg_in);
-		return daemon_conn_read_next(conn, master);
-
-	case WIRE_HSMCTL_SIGN_INVOICE:
-		sign_invoice(master, master->msg_in);
-		return daemon_conn_read_next(conn, master);
-
-	case WIRE_HSMCTL_NODE_ANNOUNCEMENT_SIG_REQ:
-		sign_node_announcement(master, master->msg_in);
-		return daemon_conn_read_next(conn, master);
-
-	case WIRE_HSMCTL_INIT_REPLY:
-	case WIRE_HSMCTL_CLIENT_HSMFD_REPLY:
-		case WIRE_HSMCTL_SIGN_FUNDING_REPLY:
-	case WIRE_HSMCTL_SIGN_WITHDRAWAL_REPLY:
-	case WIRE_HSMCTL_SIGN_INVOICE_REPLY:
-	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
-	case WIRE_HSMCTL_NODE_ANNOUNCEMENT_SIG_REPLY:
-		break;
-	}
-
-	/* Master shouldn't give bad requests. */
-	status_failed(STATUS_FAIL_MASTER_IO, "%i", t);
-}
-
 #ifndef TESTING
 /* FIXME: This is used by debug.c, but doesn't apply to us. */
 extern void dev_disconnect_init(int fd);
@@ -719,7 +739,7 @@ static void master_gone(struct io_conn *unused, struct daemon_conn *dc)
 
 int main(int argc, char *argv[])
 {
-	struct daemon_conn *master;
+	struct client *client;
 
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
@@ -732,13 +752,16 @@ int main(int argc, char *argv[])
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
-	master = tal(NULL, struct daemon_conn);
-	daemon_conn_init(master, master, STDIN_FILENO, control_received_req,
-			 master_gone);
-	status_setup_async(master);
+	client = new_client(NULL, NULL, HSM_CAP_MASTER | HSM_CAP_SIGN_GOSSIP, handle_client, STDIN_FILENO);
+
+	/* We're our own master! */
+	client->master = &client->dc;
+	io_set_finish(client->dc.conn, master_gone, &client->dc);
+
+	status_setup_async(&client->dc);
 
 	/* When conn closes, everything is freed. */
-	tal_steal(master->conn, master);
+	tal_steal(client->dc.conn, client);
 	io_loop(NULL, NULL);
 	return 0;
 }
