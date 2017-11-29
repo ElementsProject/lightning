@@ -641,7 +641,7 @@ static void handle_get_update(struct peer *peer, const u8 *msg)
 
 reply:
 	msg = towire_gossip_get_update_reply(msg, update);
-	msg_enqueue(&peer->peer_out, take(msg));
+	daemon_conn_send(&peer->owner_conn, take(msg));
 }
 
 /**
