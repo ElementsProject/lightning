@@ -24,7 +24,7 @@ static void txfilter_add_scriptpubkey(struct txfilter *filter, u8 *script)
 	filter->scriptpubkeys[count] = tal_dup_arr(filter, u8, script, tal_len(script), 0);
 }
 
-void txfilter_add_derkey(struct txfilter *filter, u8 derkey[33])
+void txfilter_add_derkey(struct txfilter *filter, u8 derkey[PUBKEY_DER_LEN])
 {
 	tal_t *tmpctx = tal_tmpctx(filter);
 	u8 *skp, *p2sh;

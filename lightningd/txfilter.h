@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_TXFILTER_H
 #define LIGHTNING_LIGHTNINGD_TXFILTER_H
 #include "config.h"
+#include <bitcoin/pubkey.h>
 #include <bitcoin/tx.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
@@ -20,7 +21,7 @@ struct txfilter *txfilter_new(const tal_t *ctx);
  * scriptpubkey then the transaction is marked as a match. Adds
  * scriptpubkey for both raw p2wpkh and p2wpkh wrapped in p2sh.
  */
-void txfilter_add_derkey(struct txfilter *filter, u8 derkey[33]);
+void txfilter_add_derkey(struct txfilter *filter, u8 derkey[PUBKEY_DER_LEN]);
 
 /**
  * txfilter_match -- Check whether the tx matches the filter
