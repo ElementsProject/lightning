@@ -11,7 +11,7 @@
 #include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <hsmd/capabilities.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/gossip_msg.h>
 #include <lightningd/hsm_control.h>
@@ -104,12 +104,12 @@ void gossip_init(struct lightningd *ld)
 	int hsmfd;
 	u64 capabilities = HSM_CAP_ECDH | HSM_CAP_SIGN_GOSSIP;
 
-	msg = towire_hsmctl_client_hsmfd(tmpctx, &ld->id, capabilities);
+	msg = towire_hsm_client_hsmfd(tmpctx, &ld->id, capabilities);
 	if (!wire_sync_write(ld->hsm_fd, msg))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = hsm_sync_read(tmpctx, ld);
-	if (!fromwire_hsmctl_client_hsmfd_reply(msg, NULL))
+	if (!fromwire_hsm_client_hsmfd_reply(msg, NULL))
 		fatal("Malformed hsmfd response: %s", tal_hex(msg, msg));
 
 	hsmfd = fdpass_recv(ld->hsm_fd);

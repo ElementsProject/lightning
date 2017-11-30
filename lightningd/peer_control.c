@@ -24,7 +24,7 @@
 #include <fcntl.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <hsmd/capabilities.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/build_utxos.h>
 #include <lightningd/chaintopology.h>
@@ -1511,7 +1511,7 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	struct json_result *response = new_json_result(fc->cmd);
 	size_t i;
 
-	if (!fromwire_hsmctl_sign_funding_reply(fc, resp, NULL, &sigs))
+	if (!fromwire_hsm_sign_funding_reply(fc, resp, NULL, &sigs))
 		fatal("HSM gave bad sign_funding_reply %s",
 		      tal_hex(fc, resp));
 
@@ -1612,14 +1612,14 @@ static void peer_channel_announce(struct peer *peer, const u8 *msg)
 		return;
 	}
 
-	msg = towire_hsmctl_node_announcement_sig_req(
+	msg = towire_hsm_node_announcement_sig_req(
 		tmpctx, create_node_announcement(tmpctx, ld, NULL, timestamp));
 
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = hsm_sync_read(tmpctx, ld);
-	if (!fromwire_hsmctl_node_announcement_sig_reply(msg, NULL, &sig))
+	if (!fromwire_hsm_node_announcement_sig_reply(msg, NULL, &sig))
 		fatal("HSM returned an invalid node_announcement sig");
 
 	/* We got the signature for out provisional node_announcement back
@@ -2053,12 +2053,12 @@ static bool peer_start_channeld(struct peer *peer,
 	} else
 		assert(peer->our_msatoshi);
 
-	msg = towire_hsmctl_client_hsmfd(tmpctx, &peer->id, HSM_CAP_SIGN_GOSSIP | HSM_CAP_ECDH);
+	msg = towire_hsm_client_hsmfd(tmpctx, &peer->id, HSM_CAP_SIGN_GOSSIP | HSM_CAP_ECDH);
 	if (!wire_sync_write(peer->ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = hsm_sync_read(tmpctx, peer->ld);
-	if (!fromwire_hsmctl_client_hsmfd_reply(msg, NULL))
+	if (!fromwire_hsm_client_hsmfd_reply(msg, NULL))
 		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
 
 	hsmfd = fdpass_recv(peer->ld->hsm_fd);
@@ -2265,7 +2265,7 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 	log_debug(fc->peer->log, "Getting HSM to sign funding tx");
 
 	utxos = from_utxoptr_arr(fc, fc->utxomap);
-	msg = towire_hsmctl_sign_funding(fc, fc->peer->funding_satoshi,
+	msg = towire_hsm_sign_funding(fc, fc->peer->funding_satoshi,
 					 fc->change, fc->change_keyindex,
 					 &local_fundingkey,
 					 &channel_info->remote_fundingkey,

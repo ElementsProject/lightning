@@ -28,7 +28,6 @@
 #include <hsmd/capabilities.h>
 #include <hsmd/client.h>
 #include <hsmd/gen_hsm_client_wire.h>
-#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/randombytes.h>
@@ -266,6 +265,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSM_SIGN_INVOICE_REPLY:
 	case WIRE_HSM_INIT_REPLY:
+	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 		break;
 	}
 	return false;
@@ -333,6 +333,7 @@ static struct io_plan *handle_client(struct io_conn *conn,
 	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSM_SIGN_INVOICE_REPLY:
 	case WIRE_HSM_INIT_REPLY:
+	case WIRE_HSMSTATUS_CLIENT_BAD_REQUEST:
 		break;
 	}
 
@@ -355,8 +356,8 @@ static void send_init_response(struct daemon_conn *master)
 		    "peer seed", strlen("peer seed"));
 	node_key(NULL, &node_id);
 
-	msg = towire_hsmctl_init_reply(master, &node_id, &peer_seed,
-				       &secretstuff.bip32);
+	msg = towire_hsm_init_reply(master, &node_id, &peer_seed,
+				    &secretstuff.bip32);
 	daemon_conn_send(master, take(msg));
 }
 
@@ -503,8 +504,8 @@ static void init_hsm(struct daemon_conn *master, const u8 *msg)
 {
 	bool new;
 
-	if (!fromwire_hsmctl_init(msg, NULL, &new))
-		master_badmsg(WIRE_HSMCTL_INIT, msg);
+	if (!fromwire_hsm_init(msg, NULL, &new))
+		master_badmsg(WIRE_HSM_INIT, msg);
 
 	if (new)
 		create_new_hsm(master);
@@ -520,15 +521,15 @@ static void pass_client_hsmfd(struct daemon_conn *master, const u8 *msg)
 	u64 capabilities;
 	struct pubkey id;
 
-	if (!fromwire_hsmctl_client_hsmfd(msg, NULL, &id, &capabilities))
-		master_badmsg(WIRE_HSMCTL_CLIENT_HSMFD, msg);
+	if (!fromwire_hsm_client_hsmfd(msg, NULL, &id, &capabilities))
+		master_badmsg(WIRE_HSM_CLIENT_HSMFD, msg);
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR, "creating fds: %s", strerror(errno));
 
 	new_client(master, &id, capabilities, handle_client, fds[0]);
 	daemon_conn_send(master,
-			 take(towire_hsmctl_client_hsmfd_reply(master)));
+			 take(towire_hsm_client_hsmfd_reply(master)));
 	daemon_conn_send_fd(master, fds[1]);
 }
 
@@ -550,11 +551,11 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	struct pubkey changekey;
 
 	/* FIXME: Check fee is "reasonable" */
-	if (!fromwire_hsmctl_sign_funding(tmpctx, msg, NULL,
-					  &satoshi_out, &change_out,
-					  &change_keyindex, &local_pubkey,
-					  &remote_pubkey, &inputs))
-		master_badmsg(WIRE_HSMCTL_SIGN_FUNDING, msg);
+	if (!fromwire_hsm_sign_funding(tmpctx, msg, NULL,
+				       &satoshi_out, &change_out,
+				       &change_keyindex, &local_pubkey,
+				       &remote_pubkey, &inputs))
+		master_badmsg(WIRE_HSM_SIGN_FUNDING, msg);
 
 	utxomap = to_utxoptr_arr(tmpctx, inputs);
 
@@ -586,7 +587,7 @@ static void sign_funding_tx(struct daemon_conn *master, const u8 *msg)
 	}
 
 	daemon_conn_send(master,
-			 take(towire_hsmctl_sign_funding_reply(tmpctx, sig)));
+			 take(towire_hsm_sign_funding_reply(tmpctx, sig)));
 	tal_free(tmpctx);
 }
 
@@ -606,9 +607,9 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	struct ext_key ext;
 	struct pubkey changekey;
 
-	if (!fromwire_hsmctl_sign_withdrawal(tmpctx, msg, NULL, &satoshi_out,
-					     &change_out, &change_keyindex,
-					     destination.addr.u.u8, &utxos)) {
+	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg, NULL, &satoshi_out,
+					  &change_out, &change_keyindex,
+					  destination.addr.u.u8, &utxos)) {
 		status_trace("Failed to parse sign_withdrawal: %s",
 			     tal_hex(trc, msg));
 		return;
@@ -644,7 +645,7 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	}
 
 	daemon_conn_send(master,
-			 take(towire_hsmctl_sign_withdrawal_reply(tmpctx, sigs)));
+			 take(towire_hsm_sign_withdrawal_reply(tmpctx, sigs)));
 	tal_free(tmpctx);
 }
 
@@ -662,7 +663,7 @@ static void sign_invoice(struct daemon_conn *master, const u8 *msg)
 	struct hash_u5 hu5;
 	struct privkey node_pkey;
 
-	if (!fromwire_hsmctl_sign_invoice(tmpctx, msg, NULL, &u5bytes, &hrpu8)) {
+	if (!fromwire_hsm_sign_invoice(tmpctx, msg, NULL, &u5bytes, &hrpu8)) {
 		status_trace("Failed to parse sign_invoice: %s",
 			     tal_hex(trc, msg));
 		return;
@@ -689,7 +690,7 @@ static void sign_invoice(struct daemon_conn *master, const u8 *msg)
 	}
 
 	daemon_conn_send(master,
-			 take(towire_hsmctl_sign_invoice_reply(tmpctx, &rsig)));
+			 take(towire_hsm_sign_invoice_reply(tmpctx, &rsig)));
 	tal_free(tmpctx);
 }
 
@@ -703,7 +704,7 @@ static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 	u8 *reply;
 	u8 *ann;
 
-	if (!fromwire_hsmctl_node_announcement_sig_req(msg, msg, NULL, &ann)) {
+	if (!fromwire_hsm_node_announcement_sig_req(msg, msg, NULL, &ann)) {
 		status_trace("Failed to parse node_announcement_sig_req: %s",
 			     tal_hex(trc, msg));
 		return;
@@ -720,7 +721,7 @@ static void sign_node_announcement(struct daemon_conn *master, const u8 *msg)
 
 	sign_hash(&node_pkey, &hash, &sig);
 
-	reply = towire_hsmctl_node_announcement_sig_reply(msg, &sig);
+	reply = towire_hsm_node_announcement_sig_reply(msg, &sig);
 	daemon_conn_send(master, take(reply));
 }
 

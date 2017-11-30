@@ -11,14 +11,9 @@ LIGHTNINGD_HSM_CLIENT_HEADERS := hsmd/client.h
 LIGHTNINGD_HSM_CLIENT_SRC := hsmd/client.c hsmd/gen_hsm_client_wire.c
 LIGHTNINGD_HSM_CLIENT_OBJS := $(LIGHTNINGD_HSM_CLIENT_SRC:.c=.o)
 
-# Control daemon uses this:
-LIGHTNINGD_HSM_CONTROL_HEADERS := hsmd/gen_hsm_wire.h
-LIGHTNINGD_HSM_CONTROL_SRC := hsmd/gen_hsm_wire.c
-LIGHTNINGD_HSM_CONTROL_OBJS := $(LIGHTNINGD_HSM_CONTROL_SRC:.c=.o)
-
 # lightningd/hsm needs these:
-LIGHTNINGD_HSM_HEADERS := hsmd/gen_hsm_client_wire.h	\
-	hsmd/gen_hsm_wire.h
+LIGHTNINGD_HSM_HEADERS := hsmd/gen_hsm_client_wire.h
+
 LIGHTNINGD_HSM_SRC := hsmd/hsm.c	\
 	$(LIGHTNINGD_HSM_HEADERS:.h=.c)
 LIGHTNINGD_HSM_OBJS := $(LIGHTNINGD_HSM_SRC:.c=.o)
@@ -49,8 +44,6 @@ LIGHTNINGD_HSM_ALLHEADERS_NOGEN := $(filter-out hsmd/gen_%, $(LIGHTNINGD_HSM_CLI
 LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_HSM_HEADERS) $(LIGHTNINGD_HSM_CLIENT_HEADERS)
 
 $(LIGHTNINGD_HSM_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS): $(LIGHTNINGD_HEADERS)
-
-$(LIGHTNINGD_HSM_CONTROL_OBJS) : $(LIGHTNINGD_HSM_CONTROL_HEADERS)
 
 # Make sure these depend on everything.
 ALL_OBJS += $(LIGHTNINGD_HSM_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
@@ -83,4 +76,4 @@ clean: lightningd/hsm-clean
 lightningd/hsm-clean:
 	$(RM) $(LIGHTNINGD_HSM_OBJS) hsmd/gen_*
 
--include hsmd/test/Makefile 
+-include hsmd/test/Makefile
