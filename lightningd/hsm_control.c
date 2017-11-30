@@ -7,7 +7,7 @@
 #include <common/status.h>
 #include <common/utils.h>
 #include <errno.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/log.h>
@@ -46,12 +46,12 @@ void hsm_init(struct lightningd *ld, bool newdir)
 	else
 		create = (access("hsm_secret", F_OK) != 0);
 
-	if (!wire_sync_write(ld->hsm_fd, towire_hsmctl_init(tmpctx, create)))
+	if (!wire_sync_write(ld->hsm_fd, towire_hsm_init(tmpctx, create)))
 		err(1, "Writing init msg to hsm");
 
 	ld->wallet->bip32_base = tal(ld->wallet, struct ext_key);
 	msg = hsm_sync_read(tmpctx, ld);
-	if (!fromwire_hsmctl_init_reply(msg, NULL,
+	if (!fromwire_hsm_init_reply(msg, NULL,
 					&ld->id,
 					&ld->peer_seed,
 					ld->wallet->bip32_base))

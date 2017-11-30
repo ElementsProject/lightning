@@ -7,7 +7,7 @@
 #include <common/utxo.h>
 #include <common/withdraw_tx.h>
 #include <errno.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/gen_hsm_client_wire.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/hsm_control.h>
@@ -131,12 +131,12 @@ static void json_withdraw(struct command *cmd,
 	withdraw->change_key_index = wallet_get_newindex(cmd->ld);
 
 	utxos = from_utxoptr_arr(withdraw, withdraw->utxos);
-	u8 *msg = towire_hsmctl_sign_withdrawal(cmd,
-						withdraw->amount,
-						withdraw->changesatoshi,
-						withdraw->change_key_index,
-						withdraw->destination.addr.u.u8,
-						utxos);
+	u8 *msg = towire_hsm_sign_withdrawal(cmd,
+					     withdraw->amount,
+					     withdraw->changesatoshi,
+					     withdraw->change_key_index,
+					     withdraw->destination.addr.u.u8,
+					     utxos);
 	tal_free(utxos);
 
 	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
@@ -145,7 +145,7 @@ static void json_withdraw(struct command *cmd,
 
 	msg = hsm_sync_read(cmd, cmd->ld);
 
-	if (!fromwire_hsmctl_sign_withdrawal_reply(withdraw, msg, NULL, &sigs))
+	if (!fromwire_hsm_sign_withdrawal_reply(withdraw, msg, NULL, &sigs))
 		fatal("HSM gave bad sign_withdrawal_reply %s",
 		      tal_hex(withdraw, msg));
 
