@@ -862,21 +862,6 @@ bool channel_sending_revoke_and_ack(struct channel *channel)
 	return channel->changes_pending[REMOTE];
 }
 
-static bool htlc_awaiting_revoke_and_ack(const struct htlc *h)
-{
-	const enum htlc_state states[] = { SENT_ADD_COMMIT,
-					   SENT_REMOVE_ACK_COMMIT,
-					   SENT_ADD_ACK_COMMIT,
-					   SENT_REMOVE_COMMIT };
-
-	for (size_t i = 0; i < ARRAY_SIZE(states); i++) {
-		if (h->state == states[i]) {
-			return true;
-		}
-	}
-	return false;
-}
-
 bool channel_awaiting_revoke_and_ack(const struct channel *channel)
 {
 	return channel->awaiting_revoke_and_ack;
@@ -985,9 +970,6 @@ bool channel_force_htlcs(struct channel *channel,
 				     ? "out" : "in", htlcs[i].id, e);
 			return false;
 		}
-
-		if (htlc_awaiting_revoke_and_ack(htlc))
-			channel->awaiting_revoke_and_ack = true;
 	}
 
 	for (i = 0; i < tal_count(fulfilled); i++) {
