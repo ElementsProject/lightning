@@ -1919,10 +1919,11 @@ failed:
 
 static void handle_feerates(struct peer *peer, const u8 *inmsg)
 {
-	u32 feerate, min_feerate, max_feerate;
+	u32 feerate;
 
 	if (!fromwire_channel_feerates(inmsg, NULL, &feerate,
-				       &min_feerate, &max_feerate))
+				       &peer->feerate_min,
+				       &peer->feerate_max))
 		master_badmsg(WIRE_CHANNEL_FEERATES, inmsg);
 
 	/* BOLT #2:
