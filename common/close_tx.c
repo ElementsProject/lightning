@@ -24,13 +24,12 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	 *
 	 * Note that there are two possible variants for each node.
 	 *
-	 * * version: 1
+	 * * version: 2
 	 * * locktime: 0
 	 * * txin count: 1
 	 */
 	/* Now create close tx: one input, two outputs. */
 	tx = bitcoin_tx(ctx, 1, 2);
-	tx->version = 1;
 
 	/* Our input spends the anchor tx output. */
 	tx->input[0].txid = *anchor_txid;
