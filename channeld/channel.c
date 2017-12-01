@@ -1604,6 +1604,9 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 				       commit_sigs->htlc_sigs);
 	msg_enqueue(&peer->peer_out, take(msg));
 	tal_free(commit_sigs);
+
+	/* Now we have to wait for revoke_and_ack */
+	peer->channel->awaiting_revoke_and_ack = true;
 }
 
 static void peer_reconnect(struct peer *peer)
