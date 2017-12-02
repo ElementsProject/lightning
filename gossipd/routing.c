@@ -513,9 +513,6 @@ bool handle_channel_announcement(
 	// FIXME: Check features!
 	//FIXME(cdecker) Check chain topology for the anchor TX
 
-	status_trace("Received channel_announcement for channel %s",
-		     type_to_string(trc, struct short_channel_id,
-				    &short_channel_id));
 
 	local = pubkey_eq(&node_id_1, &rstate->local_id) ||
 		pubkey_eq(&node_id_2, &rstate->local_id);
@@ -523,6 +520,11 @@ bool handle_channel_announcement(
 	    &node_id_1, &node_id_2, &bitcoin_key_1, &bitcoin_key_2,
 	    &node_signature_1, &node_signature_2, &bitcoin_signature_1,
 	    &bitcoin_signature_2, serialized);
+
+	status_trace("Received channel_announcement for channel %s, local=%d, sigfail=%d",
+		     type_to_string(trc, struct short_channel_id,
+				    &short_channel_id), local, sigfail);
+
 
 	if (sigfail && !local) {
 		status_trace(
