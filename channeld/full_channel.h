@@ -242,14 +242,6 @@ bool channel_rcvd_commit(struct channel *channel,
 bool channel_sending_revoke_and_ack(struct channel *channel);
 
 /**
- * channel_awaiting_revoke_and_ack: are we waiting for revoke_and_ack?
- * @channel: the channel
- *
- * If true, we can't send a new commit message.
- */
-bool channel_awaiting_revoke_and_ack(const struct channel *channel);
-
-/**
  * channel_has_htlcs: are there any (live) HTLCs at all in channel?
  * @channel: the channel
  */

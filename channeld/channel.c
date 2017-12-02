@@ -692,7 +692,9 @@ static void send_commit(struct peer *peer)
 
 	/* FIXME: Document this requirement in BOLT 2! */
 	/* We can't send two commits in a row. */
-	if (channel_awaiting_revoke_and_ack(peer->channel)) {
+	if (peer->revocations_received != peer->next_index[REMOTE] - 1) {
+		assert(peer->revocations_received
+		       == peer->next_index[REMOTE] - 2);
 		status_trace("Can't send commit: waiting for revoke_and_ack");
 		/* Mark this as done and try again. */
 		peer->commit_timer = NULL;
@@ -1141,9 +1143,12 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 			    "Bad revoke_and_ack %s", tal_hex(msg, msg));
 	}
 
-	/* FIXME: We can get unexpected revoke_and_ack due to retransmit; we
-	 * should really detect this case and set
-	 * channel_awaiting_revoke_and_ack; normally it will be true here. */
+	if (peer->revocations_received != peer->next_index[REMOTE] - 2) {
+		peer_failed(io_conn_fd(peer->peer_conn),
+			    &peer->pcs.cs,
+			    &peer->channel_id,
+			    "Unexpected revoke_and_ack");
+	}
 
 	/* BOLT #2:
 	 *
@@ -1178,7 +1183,7 @@ static struct io_plan *handle_peer_revoke_and_ack(struct io_conn *conn,
 		status_trace("No commits outstanding after recv revoke_and_ack");
 
 	/* Tell master about things this locks in, wait for response */
-	msg = got_revoke_msg(tmpctx, peer->next_index[REMOTE] - 2,
+	msg = got_revoke_msg(tmpctx, peer->revocations_received++,
 			     &old_commit_secret, &next_per_commit,
 			     changed_htlcs);
 	master_wait_sync_reply(tmpctx, peer, take(msg),
@@ -1605,8 +1610,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	msg_enqueue(&peer->peer_out, take(msg));
 	tal_free(commit_sigs);
 
-	/* Now we have to wait for revoke_and_ack */
-	peer->channel->awaiting_revoke_and_ack = true;
+	assert(peer->revocations_received == peer->next_index[REMOTE] - 2);
 }
 
 static void peer_reconnect(struct peer *peer)
