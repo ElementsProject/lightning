@@ -93,7 +93,8 @@ struct route_hop {
 };
 
 struct routing_state *new_routing_state(const tal_t *ctx,
-					const struct sha256_double *chain_hash);
+					const struct sha256_double *chain_hash,
+					const struct pubkey *local_id);
 
 /* msatoshi must be possible (< 21 million BTC), ie < 2^60.
  * If it returns more than msatoshi, it overflowed. */
