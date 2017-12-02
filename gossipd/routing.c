@@ -26,12 +26,14 @@ static struct node_map *empty_node_map(const tal_t *ctx)
 }
 
 struct routing_state *new_routing_state(const tal_t *ctx,
-					const struct sha256_double *chain_hash)
+					const struct sha256_double *chain_hash,
+					const struct pubkey *local_id)
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = empty_node_map(rstate);
 	rstate->broadcasts = new_broadcast_state(rstate);
 	rstate->chain_hash = *chain_hash;
+	rstate->local_id = *local_id;
 	return rstate;
 }
 

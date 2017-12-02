@@ -1114,7 +1114,7 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 				     &daemon->localfeatures)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
-	daemon->rstate = new_routing_state(daemon, &chain_hash);
+	daemon->rstate = new_routing_state(daemon, &chain_hash, &daemon->id);
 
 	setup_listeners(daemon, port);
 	return daemon_conn_read_next(master->conn, master);

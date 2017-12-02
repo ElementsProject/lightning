@@ -78,9 +78,9 @@ int main(void)
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 						 | SECP256K1_CONTEXT_SIGN);
 
-	rstate = new_routing_state(ctx, &zerohash);
-
 	memset(&tmp, 'a', sizeof(tmp));
+	rstate = new_routing_state(ctx, &zerohash, &a);
+
 	pubkey_from_privkey(&tmp, &a);
 	new_node(rstate, &a);
 
