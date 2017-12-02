@@ -40,7 +40,6 @@ struct channel *new_initial_channel(const tal_t *ctx,
 	channel->htlcs = NULL;
 	channel->changes_pending[LOCAL] = channel->changes_pending[REMOTE]
 		= false;
-	channel->awaiting_revoke_and_ack = false;
 
 	channel->view[LOCAL].feerate_per_kw
 		= channel->view[REMOTE].feerate_per_kw

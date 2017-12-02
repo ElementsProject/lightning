@@ -773,8 +773,6 @@ bool channel_sending_commit(struct channel *channel,
 		     htlcs, "sending_commit");
 	channel->changes_pending[REMOTE] = false;
 
-	assert(!channel->awaiting_revoke_and_ack);
-	channel->awaiting_revoke_and_ack = true;
 	return true;
 }
 
@@ -794,8 +792,6 @@ bool channel_rcvd_revoke_and_ack(struct channel *channel,
 	/* Their ack can queue changes on our side. */
 	if (change & HTLC_LOCAL_F_PENDING)
 		channel->changes_pending[LOCAL] = true;
-
-	channel->awaiting_revoke_and_ack = false;
 
 	/* For funder, ack also means time to apply new feerate locally. */
 	if (channel->funder == LOCAL &&
@@ -860,11 +856,6 @@ bool channel_sending_revoke_and_ack(struct channel *channel)
 	}
 
 	return channel->changes_pending[REMOTE];
-}
-
-bool channel_awaiting_revoke_and_ack(const struct channel *channel)
-{
-	return channel->awaiting_revoke_and_ack;
 }
 
 bool channel_has_htlcs(const struct channel *channel)
