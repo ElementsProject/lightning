@@ -1123,8 +1123,8 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	}
 
 	if (peer->revocations_received != peer->next_index[REMOTE] - 2) {
-		peer_failed(io_conn_fd(peer->peer_conn),
-			    &peer->pcs.cs,
+		peer_failed(PEER_FD,
+			    &peer->cs,
 			    &peer->channel_id,
 			    "Unexpected revoke_and_ack");
 	}
