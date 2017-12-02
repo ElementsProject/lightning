@@ -231,7 +231,7 @@ class BitcoinD(TailableProc):
 # lightning-5 => 032cf15d1ad9c4a08d26eab1918f732d8ef8fdc6abb9640bf3db174372c491304e aka SOMBERFIRE #032cf1
 
 class LightningD(TailableProc):
-    def __init__(self, lightning_dir, bitcoin_dir, port=9735):
+    def __init__(self, lightning_dir, bitcoin_dir, port=9735, random_hsm=False):
         TailableProc.__init__(self, lightning_dir)
         self.lightning_dir = lightning_dir
         self.port = port
@@ -246,8 +246,9 @@ class LightningD(TailableProc):
             '--network=regtest'
         ]
         if DEVELOPER:
-            self.cmd_line += ['--dev-broadcast-interval=1000',
-                              '--dev-hsm-seed={}'.format(seed.hex())]
+            self.cmd_line += ['--dev-broadcast-interval=1000']
+            if not random_hsm:
+                self.cmd_line += ['--dev-hsm-seed={}'.format(seed.hex())]
         self.cmd_line += ["--{}={}".format(k, v) for k, v in LIGHTNINGD_CONFIG.items()]
         self.prefix = 'lightningd(%d)' % (port)
 

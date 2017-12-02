@@ -91,7 +91,7 @@ class NodeFactory(object):
         self.executor = executor
         self.bitcoind = bitcoind
 
-    def get_node(self, disconnect=None, options=None, may_fail=False):
+    def get_node(self, disconnect=None, options=None, may_fail=False, random_hsm=False):
         node_id = self.next_id
         self.next_id += 1
 
@@ -100,7 +100,7 @@ class NodeFactory(object):
 
         socket_path = os.path.join(lightning_dir, "lightning-rpc").format(node_id)
         port = 16330+node_id
-        daemon = utils.LightningD(lightning_dir, self.bitcoind.bitcoin_dir, port=port)
+        daemon = utils.LightningD(lightning_dir, self.bitcoind.bitcoin_dir, port=port, random_hsm=random_hsm)
         # If we have a disconnect string, dump it to a file for daemon.
         if disconnect:
             with open(os.path.join(lightning_dir, "dev_disconnect"), "w") as f:
@@ -2097,7 +2097,9 @@ class LightningDTests(BaseLightningDTests):
     def test_addfunds_from_block(self):
         """Send funds to the daemon without telling it explicitly
         """
-        l1 = self.node_factory.get_node()
+        # Previous runs with same bitcoind can leave funds!
+        l1 = self.node_factory.get_node(random_hsm=True)
+
         addr = l1.rpc.newaddr()['address']
         txid = l1.bitcoin.rpc.sendtoaddress(addr, 0.1)
         l1.bitcoin.rpc.generate(1)
