@@ -10,8 +10,7 @@ For actually doing development and running the tests, you will also need:
 * asciidoc: for formatting the man pages (if you change them)
 * valgrind: for extra debugging checks
 
-You will also need a version of bitcoind with segregated witness support,
-such as the 0.13 or above.
+You will also need a version of bitcoind with segregated witness and estimatesmartfee economical node, such as the 0.15 or above.
 
 To Build on Ubuntu 15.10 or above
 ---------------------
