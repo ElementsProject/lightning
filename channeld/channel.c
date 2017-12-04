@@ -252,10 +252,10 @@ static void send_announcement_signatures(struct peer *peer)
 }
 
 static u8 *create_channel_update(const tal_t *ctx,
-				 struct peer *peer, bool disabled)
+				 struct peer *peer, bool disabled, bool public)
 {
 	tal_t *tmpctx = tal_tmpctx(ctx);
-	u32 timestamp = time_now().ts.tv_sec;
+	u32 timestamp = public ? time_now().ts.tv_sec : 0;
 	u16 flags;
 	u8 *cupdate, *msg;
 
@@ -265,23 +265,24 @@ static u8 *create_channel_update(const tal_t *ctx,
 
 	flags = peer->channel_direction | (disabled << 1);
 	cupdate = towire_channel_update(
-	    tmpctx, sig, &peer->chain_hash,
+	    ctx, sig, &peer->chain_hash,
 	    &peer->short_channel_ids[LOCAL], timestamp, flags,
 	    peer->cltv_delta, peer->conf[REMOTE].htlc_minimum_msat,
 	    peer->fee_base, peer->fee_per_satoshi);
+	if (public) {
+		msg = towire_hsm_cupdate_sig_req(tmpctx, cupdate);
 
-	msg = towire_hsm_cupdate_sig_req(tmpctx, cupdate);
-
-	if (!wire_sync_write(HSM_FD, msg))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Writing cupdate_sig_req: %s",
-			      strerror(errno));
-
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_cupdate_sig_reply(ctx, msg, NULL, &cupdate))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Reading cupdate_sig_req: %s",
-			      strerror(errno));
+		if (!wire_sync_write(HSM_FD, msg))
+			status_failed(STATUS_FAIL_HSM_IO,
+				      "Writing cupdate_sig_req: %s",
+				      strerror(errno));
+		tal_free(cupdate);
+		msg = wire_sync_read(tmpctx, HSM_FD);
+		if (!msg || !fromwire_hsm_cupdate_sig_reply(ctx, msg, NULL, &cupdate))
+			status_failed(STATUS_FAIL_HSM_IO,
+				      "Reading cupdate_sig_req: %s",
+				      strerror(errno));
+	}
 	tal_free(tmpctx);
 	return cupdate;
 }
@@ -359,7 +360,7 @@ static void announce_channel(struct peer *peer)
 	u8 *cannounce, *cupdate;
 
 	cannounce = create_channel_announcement(peer, peer);
-	cupdate = create_channel_update(cannounce, peer, false);
+	cupdate = create_channel_update(cannounce, peer, false, true);
 
 	/* Tell the master that we to announce channel (it does node) */
 	wire_sync_write(MASTER_FD, take(towire_channel_announce(peer,
@@ -1482,7 +1483,7 @@ static void peer_conn_broken(struct peer *peer)
 
 	/* If we have signatures, send an update to say we're disabled. */
 	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE]) {
-		u8 *cupdate = create_channel_update(peer, peer, true);
+		u8 *cupdate = create_channel_update(peer, peer, true, true);
 
 		wire_sync_write(GOSSIP_FD, take(cupdate));
 	}
@@ -1757,7 +1758,7 @@ again:
 
 	/* Reenable channel by sending a channel_update without the
 	 * disable flag */
-	cupdate = create_channel_update(peer, peer, false);
+	cupdate = create_channel_update(peer, peer, false, true);
 	wire_sync_write(GOSSIP_FD, cupdate);
 	msg_enqueue(&peer->peer_out, take(cupdate));
 
