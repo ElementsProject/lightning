@@ -738,15 +738,16 @@ struct peer *peer_by_id(struct lightningd *ld, const struct pubkey *id)
 static void json_connect(struct command *cmd,
 			 const char *buffer, const jsmntok_t *params)
 {
-	jsmntok_t *hosttok, *idtok;
+	jsmntok_t *hosttok, *porttok, *idtok;
 	struct pubkey id;
-	const char *name, *port, *colon;
+	const char *name;
 	struct wireaddr addr;
 	u8 *msg;
 
 	if (!json_get_params(buffer, params,
 			     "id", &idtok,
 			     "?host", &hosttok,
+			     "?port", &porttok,
 			     NULL)) {
 		command_fail(cmd, "Need id to connect");
 		return;
@@ -759,22 +760,29 @@ static void json_connect(struct command *cmd,
 		return;
 	}
 
+	if (porttok && !hosttok) {
+		command_fail(cmd, "Can't specify port without host");
+		return;
+	}
+
 	if (hosttok) {
-		colon = memchr(buffer + hosttok->start, ':',
-			       hosttok->end - hosttok->start);
-		if (colon) {
-			name = tal_strndup(cmd, buffer + hosttok->start,
-					   colon - (buffer + hosttok->start));
-			port = tal_strndup(cmd, colon + 1,
-					   (buffer + hosttok->end) - colon - 1);
+		name = tal_strndup(cmd, buffer + hosttok->start,
+				   hosttok->end - hosttok->start);
+		if (porttok) {
+			u32 port;
+			if (!json_tok_number(buffer, porttok, &port)) {
+				command_fail(cmd, "port %.*s not valid",
+					     porttok->end - porttok->start,
+					     buffer + porttok->start);
+				return;
+			}
+			addr.port = port;
 		} else {
-			name = tal_strndup(cmd, buffer + hosttok->start,
-					   hosttok->end - hosttok->start);
-			port = tal_strdup(cmd, stringify(DEFAULT_PORT));
+			addr.port = DEFAULT_PORT;
 		}
-		addr.port = atoi(port);
 		if (!parse_wireaddr(name, &addr, addr.port) || !addr.port) {
-			command_fail(cmd, "host %s:%s not valid", name, port);
+			command_fail(cmd, "host %s:%u not valid",
+				     name, addr.port);
 			return;
 		}
 
