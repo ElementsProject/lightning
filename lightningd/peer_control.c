@@ -773,8 +773,10 @@ static void json_connect(struct command *cmd,
 			port = tal_strdup(cmd, stringify(DEFAULT_PORT));
 		}
 		addr.port = atoi(port);
-		if (!parse_wireaddr(name, &addr, addr.port) || !addr.port)
+		if (!parse_wireaddr(name, &addr, addr.port) || !addr.port) {
 			command_fail(cmd, "host %s:%s not valid", name, port);
+			return;
+		}
 
 		/* Tell it about the address. */
 		msg = towire_gossipctl_peer_addrhint(cmd, &id, &addr);
