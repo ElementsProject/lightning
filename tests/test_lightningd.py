@@ -791,7 +791,8 @@ class LightningDTests(BaseLightningDTests):
         # HTLC 1->2, 1 fails just after funding.
         disconnects = ['+WIRE_FUNDING_LOCKED', 'permfail']
         l1 = self.node_factory.get_node(disconnect=disconnects)
-        l2 = self.node_factory.get_node()
+        # Make locktime different, as we once had them reversed!
+        l2 = self.node_factory.get_node(options=['--locktime-blocks=10'])
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
 
@@ -814,8 +815,8 @@ class LightningDTests(BaseLightningDTests):
         l1.daemon.wait_for_log('-> ONCHAIND_OUR_UNILATERAL')
         l2.daemon.wait_for_log('-> ONCHAIND_THEIR_UNILATERAL')
 
-        # 6 later, l1 should collect its to-self payment.
-        bitcoind.generate_block(6)
+        # 10 later, l1 should collect its to-self payment.
+        bitcoind.generate_block(10)
         l1.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
         l1.daemon.wait_for_log('sendrawtx exit 0')
 

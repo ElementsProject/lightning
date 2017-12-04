@@ -1409,8 +1409,14 @@ static enum watch_result funding_spent(struct peer *peer,
 				  peer->funding_satoshi,
 				  &peer->channel_info->old_remote_per_commit,
 				  &peer->channel_info->remote_per_commit,
-				  peer->our_config.to_self_delay,
+				   /* BOLT #2:
+				    * `to_self_delay` is the number of blocks
+				    * that the other nodes to-self outputs
+				    * must be delayed */
+				   /* So, these are reversed: they specify ours,
+				    * we specify theirs. */
 				  peer->channel_info->their_config.to_self_delay,
+				  peer->our_config.to_self_delay,
 				  get_feerate(peer->ld->topology,
 					      FEERATE_NORMAL),
 				  peer->our_config.dust_limit_satoshis,
