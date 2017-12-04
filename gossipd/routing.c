@@ -424,9 +424,11 @@ static bool add_channel_direction(struct routing_state *rstate,
 	c = half_add_connection(rstate, from, to, short_channel_id, direction);
 
 	/* Remember the announcement so we can forward it to new peers */
-	tal_free(c->channel_announcement);
-	c->channel_announcement = tal_dup_arr(c, u8, announcement,
-					      tal_count(announcement), 0);
+	if (announcement) {
+		tal_free(c->channel_announcement);
+		c->channel_announcement = tal_dup_arr(c, u8, announcement,
+						      tal_count(announcement), 0);
+	}
 	return true;
 }
 
