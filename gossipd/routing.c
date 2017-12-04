@@ -479,6 +479,7 @@ bool handle_channel_announcement(
 	struct pubkey bitcoin_key_1;
 	struct pubkey bitcoin_key_2;
 	struct sha256_double chain_hash;
+	struct node_connection *c0, *c1;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	u8 *features;
 
@@ -528,18 +529,23 @@ bool handle_channel_announcement(
 
 	if (sigfail && !local) {
 		status_trace(
-		    "Signature verification of channel announcement failed");
+		    "Signature verification of non-local channel announcement failed");
 		tal_free(tmpctx);
 		return false;
 	}
 
-	forward |= add_channel_direction(rstate, &node_id_1, &node_id_2,
-					 &short_channel_id, serialized);
-	forward |= add_channel_direction(rstate, &node_id_2, &node_id_1,
-					 &short_channel_id, serialized);
+	/* Is this a new connection? */
+	c0 = get_connection_by_scid(rstate, &short_channel_id, 0);
+	c1 = get_connection_by_scid(rstate, &short_channel_id, 1);
+	forward = !c0 || !c1 || !c0->channel_announcement || !c1->channel_announcement;
 
-	if (!forward) {
-		status_trace("Not forwarding channel_announcement");
+	add_channel_direction(rstate, &node_id_1, &node_id_2, &short_channel_id,
+			      sigfail ? NULL : serialized);
+	add_channel_direction(rstate, &node_id_2, &node_id_1, &short_channel_id,
+			      sigfail ? NULL : serialized);
+
+	if (!forward || sigfail) {
+		status_trace("Not forwarding channel_announcement, forward=%d, sigfail=%d", forward, sigfail);
 		tal_free(tmpctx);
 		/* This will not be forwarded so we do not want to
 		 * announce the node either, others might drop it. */
