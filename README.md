@@ -76,10 +76,10 @@ Eventually `lightningd` will include its own wallet making this transfer easier,
 If you don't have any testcoins you can get a few from a faucet such as [TPs' testnet faucet](http://tpfaucet.appspot.com/) or [Kiwi's testnet faucet](https://testnet.manu.backend.hamburg/faucet).
 
 Once `lightningd` has funds, we can connect to a node and open a channel.
-Let's assume the remote node is accepting connections at `<ip>:<port>` and has the node ID `<node_id>`:
+Let's assume the remote node is accepting connections at `<ip>` (and optional `<port>`, if not 9735) and has the node ID `<node_id>`:
 
 ```
-cli/lightning-cli connect <node_id> <ip>:<port>
+cli/lightning-cli connect <node_id> <ip> [<port>]
 cli/lightning-cli fundchannel <node_id> <amount>
 ```
 
