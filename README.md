@@ -15,7 +15,7 @@ Don't hesitate to reach out to us on IRC at [#lightning-dev @ freenode.net](http
 
 ## Getting Started
 
-c-lightning currently only works on Linux (and possibly Mac OS with some tweaking), and requires a locally running `bitcoind` that is fully caught up with the network you're testing on.
+c-lightning currently only works on Linux (and possibly Mac OS with some tweaking), and requires a locally running `bitcoind` (version 0.15 or above) that is fully caught up with the network you're testing on.
 
 ### Installation
 
