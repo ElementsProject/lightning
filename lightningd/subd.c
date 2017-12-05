@@ -548,10 +548,20 @@ static void destroy_subd(struct subd *sd)
 	if (sd->peer) {
 		/* Don't loop back when we fail it. */
 		struct peer *peer = sd->peer;
+		struct db *db = sd->ld->wallet->db;
+		bool outer_transaction;
+
 		sd->peer = NULL;
+
+		/* We can be freed both inside msg handling, or spontaneously. */
+		outer_transaction = db->in_transaction;
+		if (!outer_transaction)
+			db_begin_transaction(db);
 		peer_fail_transient(peer,
 				    "Owning subdaemon %s died (%i)",
 				    sd->name, status);
+		if (!outer_transaction)
+			db_commit_transaction(db);
 	}
 
 	if (sd->must_not_exit) {
