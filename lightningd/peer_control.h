@@ -41,6 +41,9 @@ struct peer {
 	/* Which side offered channel? */
 	enum side funder;
 
+	/* Command which ordered us to open channel, if any. */
+	struct command *opening_cmd;
+	
 	/* Inside ld->peers. */
 	struct list_node list;
 
