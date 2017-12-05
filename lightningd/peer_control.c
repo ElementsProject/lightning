@@ -175,6 +175,16 @@ static void drop_to_chain(struct peer *peer)
 	broadcast_tx(peer->ld->topology, peer, peer->last_tx, NULL);
 }
 
+/* This lets us give a more detailed error than just a destructor. */
+static void free_peer(struct peer *peer, const char *msg)
+{
+	if (peer->opening_cmd) {
+		command_fail(peer->opening_cmd, "%s", msg);
+		peer->opening_cmd = NULL;
+	}
+	tal_free(peer);
+}
+
 void peer_fail_permanent(struct peer *peer, const u8 *msg TAKES)
 {
 	/* BOLT #1:
@@ -183,10 +193,10 @@ void peer_fail_permanent(struct peer *peer, const u8 *msg TAKES)
 	 * zero (ie. all bytes zero), in which case it refers to all
 	 * channels. */
 	static const struct channel_id all_channels;
+	const char *why = tal_strndup(NULL, (char *)msg, tal_len(msg));
 
-	log_unusual(peer->log, "Peer permanent failure in %s: %.*s",
-		    peer_state_name(peer->state),
-		    (int)tal_len(msg), (char *)msg);
+	log_unusual(peer->log, "Peer permanent failure in %s: %s",
+		    peer_state_name(peer->state), why);
 
 	/* We can have multiple errors, eg. onchaind failures. */
 	if (!peer->error)
@@ -199,7 +209,8 @@ void peer_fail_permanent(struct peer *peer, const u8 *msg TAKES)
 	if (peer_persists(peer))
 		drop_to_chain(peer);
 	else
-		tal_free(peer);
+		free_peer(peer, why);
+	tal_free(why);
 	return;
 }
 
@@ -228,12 +239,13 @@ void peer_internal_error(struct peer *peer, const char *fmt, ...)
 void peer_fail_transient(struct peer *peer, const char *fmt, ...)
 {
 	va_list ap;
+	const char *why;
 
 	va_start(ap, fmt);
-	log_info(peer->log, "Peer transient failure in %s: ",
-		 peer_state_name(peer->state));
-	logv_add(peer->log, fmt, ap);
+	why = tal_vfmt(peer, fmt, ap);
 	va_end(ap);
+	log_info(peer->log, "Peer transient failure in %s: %s",
+		 peer_state_name(peer->state), why);
 
 #if DEVELOPER
 	if (dev_disconnect_permanent(peer->ld)) {
@@ -248,9 +260,10 @@ void peer_fail_transient(struct peer *peer, const char *fmt, ...)
 	if (!peer_persists(peer)) {
 		log_info(peer->log, "Only reached state %s: forgetting",
 			 peer_state_name(peer->state));
-		tal_free(peer);
+		free_peer(peer, why);
 		return;
 	}
+	tal_free(why);
 
 	/* Reconnect unless we've dropped/are dropping to chain. */
 	if (!peer_on_chain(peer) && peer->state != CLOSINGD_COMPLETE) {
@@ -350,6 +363,7 @@ static struct peer *new_peer(struct lightningd *ld,
 	peer->seed = NULL;
 	peer->our_msatoshi = NULL;
 	peer->state = UNINITIALIZED;
+	peer->opening_cmd = NULL;
 	peer->channel_info = NULL;
 	peer->last_tx = NULL;
 	peer->last_sig = NULL;
@@ -581,7 +595,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 			/* Reconnect: discard old one. */
 		case OPENINGD:
-			tal_free(peer);
+			free_peer(peer, "peer reconnected");
+			peer = NULL;
 			goto return_to_gossipd;
 
 		case ONCHAIND_CHEATED:
@@ -981,12 +996,6 @@ struct funding_channel {
 	struct bitcoin_tx *funding_tx;
 };
 
-static void fail_fundchannel_command(struct funding_channel *fc)
-{
-	/* FIXME: More details? */
-	command_fail(fc->cmd, "Peer died");
-}
-
 static void funding_broadcast_failed(struct peer *peer,
 				     int exitstatus, const char *err)
 {
@@ -1250,7 +1259,7 @@ static void handle_irrevocably_resolved(struct peer *peer, const u8 *msg)
 	log_info(peer->log, "onchaind complete, forgetting peer");
 
 	/* This will also free onchaind. */
-	tal_free(peer);
+	free_peer(peer, "onchaind complete, forgetting peer");
 }
 
 static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds)
@@ -1562,15 +1571,12 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 		  fc->peer->funding_txid, fc->peer->funding_outnum,
 		  funding_spent, NULL);
 
-	/* We could defer until after funding locked, but makes testing
-	 * harder. */
-	tal_del_destructor(fc, fail_fundchannel_command);
-
 	json_object_start(response, NULL);
 	linear = linearize_tx(response, tx);
 	json_add_hex(response, "tx", linear, tal_len(linear));
 	json_object_end(response);
-	command_success(fc->cmd, response);
+	command_success(fc->peer->opening_cmd, response);
+	fc->peer->opening_cmd = NULL;
 
 	/* Start normal channel daemon. */
 	peer_start_channeld(fc->peer, cs, peer_fd, gossip_fd, NULL, false);
@@ -2522,7 +2528,7 @@ static void peer_offer_channel(struct lightningd *ld,
 
 	/* Peer now owns fc; if it dies, we fail fc. */
 	tal_steal(fc->peer, fc);
-	tal_add_destructor(fc, fail_fundchannel_command);
+	fc->peer->opening_cmd = fc->cmd;
 
 	subd_req(fc, fc->peer->owner,
 		 take(msg), -1, 2, opening_funder_finished, fc);
