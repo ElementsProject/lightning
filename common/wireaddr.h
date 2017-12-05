@@ -36,6 +36,7 @@ struct wireaddr {
 	u16 port;
 };
 
+/* Inserts a single ADDR_TYPE_PADDING if addr is NULL */
 void towire_wireaddr(u8 **pptr, const struct wireaddr *addr);
 bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr);
 #endif /* LIGHTNING_COMMON_WIREADDR_H */
