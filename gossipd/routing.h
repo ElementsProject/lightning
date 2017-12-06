@@ -22,6 +22,9 @@ struct node_connection {
 	/* Is this connection active? */
 	bool active;
 
+	/* Was this channel already announced through a channel_announcement? */
+	bool announced;
+
 	s64 last_timestamp;
 
 	/* Minimum number of msatoshi in an HTLC */

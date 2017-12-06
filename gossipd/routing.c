@@ -193,6 +193,7 @@ get_or_make_connection(struct routing_state *rstate,
 	nc->dst = to;
 	nc->channel_announcement = NULL;
 	nc->channel_update = NULL;
+	nc->announced = false;
 
 	/* Hook it into in/out arrays. */
 	i = tal_count(to->in);
@@ -540,7 +541,7 @@ bool handle_channel_announcement(
 	/* Is this a new connection? */
 	c0 = get_connection_by_scid(rstate, &short_channel_id, 0);
 	c1 = get_connection_by_scid(rstate, &short_channel_id, 1);
-	forward = !c0 || !c1 || !c0->channel_announcement || !c1->channel_announcement;
+	forward = !c0 || !c1 || !c0->announced || !c1->announced;
 
 	add_channel_direction(rstate, &node_id_1, &node_id_2, &short_channel_id,
 			      sigfail ? NULL : serialized);
@@ -561,6 +562,9 @@ bool handle_channel_announcement(
 			tag, serialized);
 
 	tal_free(tmpctx);
+	c0 = get_connection_by_scid(rstate, &short_channel_id, 0);
+	c1 = get_connection_by_scid(rstate, &short_channel_id, 1);
+	c0->announced = c1->announced = true;
 	return local;
 }
 
