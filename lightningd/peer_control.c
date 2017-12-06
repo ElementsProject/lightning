@@ -193,7 +193,11 @@ void peer_fail_permanent(struct peer *peer, const u8 *msg TAKES)
 	 * zero (ie. all bytes zero), in which case it refers to all
 	 * channels. */
 	static const struct channel_id all_channels;
-	const char *why = tal_strndup(NULL, (char *)msg, tal_len(msg));
+	char *why;
+
+	/* Subtle: we don't want tal_strndup here, it will take() msg! */
+	why = tal_arrz(NULL, char, tal_len(msg) + 1);
+	memcpy(why, msg, tal_len(msg));
 
 	log_unusual(peer->log, "Peer permanent failure in %s: %s",
 		    peer_state_name(peer->state), why);
@@ -2379,6 +2383,42 @@ static void opening_fundee_finished(struct subd *opening,
 	peer_set_condition(peer, OPENINGD, CHANNELD_AWAITING_LOCKIN);
 }
 
+/* Negotiation failed, but we can keep gossipping */
+static unsigned int opening_negotiation_failed(struct subd *openingd,
+					       const u8 *msg,
+					       const int *fds)
+{
+	struct crypto_state cs;
+	struct peer *peer = openingd->peer;
+	u8 *err;
+	const char *why;
+
+	/* We need the peer fd. */
+	if (tal_count(fds) == 0)
+		return 1;
+	
+	if (!fromwire_opening_negotiation_failed(msg, msg, NULL, &cs, &err)) {
+		peer_internal_error(peer,
+				    "bad OPENING_NEGOTIATION_FAILED %s",
+				    tal_hex(msg, msg));
+		return 0;
+	}
+
+	/* FIXME: Should we save addr in peer, or should gossipd remember it? */
+	msg = towire_gossipctl_handle_peer(msg, &peer->id, NULL, &cs,
+					   peer->gfeatures, peer->lfeatures,
+					   NULL);
+	subd_send_msg(openingd->ld->gossip, take(msg));
+	subd_send_fd(openingd->ld->gossip, fds[0]);
+
+	why = tal_strndup(peer, (const char *)err, tal_len(err));
+	log_unusual(peer->log, "Opening negotiation failed: %s", why);
+
+	/* This will free openingd, since that's peer->owner */
+	free_peer(peer, why);
+	return 0;
+}
+
 /* Peer has spontaneously exited from gossip due to open msg */
 static void peer_accept_channel(struct lightningd *ld,
 				const struct pubkey *peer_id,
@@ -2400,7 +2440,8 @@ static void peer_accept_channel(struct lightningd *ld,
 	peer_set_condition(peer, UNINITIALIZED, OPENINGD);
 	peer_set_owner(peer,
 		       new_peer_subd(ld, "lightning_openingd", peer,
-				     opening_wire_type_name, NULL,
+				     opening_wire_type_name,
+				     opening_negotiation_failed,
 				     take(&peer_fd), take(&gossip_fd), NULL));
 	if (!peer->owner) {
 		peer_fail_transient(peer, "Failed to subdaemon opening: %s",
@@ -2475,7 +2516,8 @@ static void peer_offer_channel(struct lightningd *ld,
 	peer_set_owner(fc->peer,
 		       new_peer_subd(ld,
 				     "lightning_openingd", fc->peer,
-				     opening_wire_type_name, NULL,
+				     opening_wire_type_name,
+				     opening_negotiation_failed,
 				     take(&peer_fd), take(&gossip_fd), NULL));
 	if (!fc->peer->owner) {
 		fc->peer = tal_free(fc->peer);

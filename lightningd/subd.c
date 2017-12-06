@@ -377,7 +377,6 @@ static bool log_status_fail(struct subd *sd,
 	case STATUS_FAIL_INTERNAL_ERROR:
 		name = "STATUS_FAIL_INTERNAL_ERROR";
 		goto log_str_broken;
-
 	/*
 	 * These errors happen when the other peer misbehaves:
 	 */

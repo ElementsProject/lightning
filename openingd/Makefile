@@ -59,7 +59,8 @@ OPENINGD_COMMON_OBJS :=				\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/utxo.o				\
-	common/version.o
+	common/version.o			\
+	common/wire_error.o
 
 $(LIGHTNINGD_OPENING_OBJS): $(LIGHTNINGD_HEADERS)
 

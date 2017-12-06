@@ -73,3 +73,11 @@ opening_fundee_reply,,feerate_per_kw,u32
 # The (encrypted) funding signed message: send this and we're committed.
 opening_fundee_reply,,msglen,u16
 opening_fundee_reply,,funding_signed_msg,msglen*u8
+
+# We disagreed with opening parameters, but peer is ok for gossip (+ peerfd)
+opening_negotiation_failed,6010
+opening_negotiation_failed,,crypto_state,struct crypto_state
+opening_negotiation_failed,,len,u16
+# FIXME: string support!
+opening_negotiation_failed,,msg,len*u8
+
