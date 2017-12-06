@@ -215,6 +215,9 @@ void peer_fail_permanent_str(struct peer *peer, const char *str TAKES);
 /* Permanent error, but due to internal problems, not peer. */
 void peer_internal_error(struct peer *peer, const char *fmt, ...);
 
+/* Peer has failed to open; return to gossipd. */
+void opening_failed(struct peer *peer, const u8 *msg TAKES);
+
 const char *peer_state_name(enum peer_state state);
 void peer_set_condition(struct peer *peer, enum peer_state oldstate,
 			enum peer_state state);
