@@ -1266,13 +1266,18 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
     def test_gossip_jsonrpc(self):
-        l1,l2 = self.connect()
-
-        self.fund_channel(l1,l2,10**5)
+        l1, l2 = self.line_graph(n=2)
 
         # Shouldn't send announce signatures until 6 deep.
         assert not l1.daemon.is_in_log('peer_out WIRE_ANNOUNCEMENT_SIGNATURES')
 
+        # Channels should be activated locally
+        wait_for(lambda: [c['active'] for c in l1.rpc.getchannels()['channels']] == [True])
+
+        # Make sure we can route through the channel, will raise on failure
+        l1.rpc.getroute(l2.info['id'], 100, 1)
+
+        # Now proceed to funding-depth and do a full gossip round
         l1.bitcoin.generate_block(5)
         # Could happen in either order.
         l1.daemon.wait_for_logs(['peer_out WIRE_ANNOUNCEMENT_SIGNATURES',
