@@ -210,6 +210,9 @@ static void send_temporary_announcement(struct peer *peer)
 	cannounce = create_channel_announcement(tmpctx, peer);
 	cupdate = create_channel_update(tmpctx, peer, false, false);
 
+	msg_enqueue(&peer->peer_out, cannounce);
+	msg_enqueue(&peer->peer_out, cupdate);
+
 	wire_sync_write(GOSSIP_FD, take(cannounce));
 	wire_sync_write(GOSSIP_FD, take(cupdate));
 
