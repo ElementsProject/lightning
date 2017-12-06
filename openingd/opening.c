@@ -5,6 +5,7 @@
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/structeq/structeq.h>
+#include <ccan/tal/str/str.h>
 #include <common/crypto_sync.h>
 #include <common/debug.h>
 #include <common/derive_basepoints.h>
@@ -17,6 +18,7 @@
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/version.h>
+#include <common/wire_error.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <openingd/gen_opening_wire.h>
@@ -63,6 +65,34 @@ struct state {
 	const struct chainparams *chainparams;
 };
 
+/* For negotiation failures: we can still gossip with client. */
+static void negotiation_failed(struct state *state, const char *fmt, ...)
+{
+	va_list ap;
+	const char *errmsg;
+	u8 *msg;
+
+	va_start(ap, fmt);
+	errmsg = tal_vfmt(state, fmt, ap);
+	va_end(ap);
+
+	/* Make sure it's correct length for towire_. */
+	tal_resize(&errmsg, strlen(errmsg)+1);
+
+	/* Tell peer we're bailing on this channel. */
+	msg = towire_errorfmt(errmsg, &state->channel_id, "%s", errmsg);
+	sync_crypto_write(&state->cs, PEER_FD, take(msg));
+
+	/* Tell master we should return to gossiping. */
+	msg = towire_opening_negotiation_failed(state, &state->cs,
+						(const u8 *)errmsg);
+	wire_sync_write(REQ_FD, msg);
+	fdpass_send(REQ_FD, PEER_FD);
+
+	tal_free(state);
+	exit(0);
+}
+
 static void check_config_bounds(struct state *state,
 				const struct channel_config *remoteconf)
 {
@@ -75,9 +105,10 @@ static void check_config_bounds(struct state *state,
 	 * unreasonably large.
 	 */
 	if (remoteconf->to_self_delay > state->max_to_self_delay)
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
-			    "to_self_delay %u larger than %u",
-			    remoteconf->to_self_delay, state->max_to_self_delay);
+		negotiation_failed(state,
+				   "to_self_delay %u larger than %u",
+				   remoteconf->to_self_delay,
+				   state->max_to_self_delay);
 
 	/* BOLT #2:
 	 *
@@ -92,11 +123,11 @@ static void check_config_bounds(struct state *state,
 
 	/* Overflow check before capacity calc. */
 	if (remoteconf->channel_reserve_satoshis > state->funding_satoshis)
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
-			    "Invalid channel_reserve_satoshis %"PRIu64
-			    " for funding_satoshis %"PRIu64,
-			    remoteconf->channel_reserve_satoshis,
-			    state->funding_satoshis);
+		negotiation_failed(state,
+				   "Invalid channel_reserve_satoshis %"PRIu64
+				   " for funding_satoshis %"PRIu64,
+				   remoteconf->channel_reserve_satoshis,
+				   state->funding_satoshis);
 
 	/* Consider highest reserve. */
 	reserve_msat = remoteconf->channel_reserve_satoshis * 1000;
@@ -109,32 +140,32 @@ static void check_config_bounds(struct state *state,
 		capacity_msat = remoteconf->max_htlc_value_in_flight_msat;
 
 	if (remoteconf->htlc_minimum_msat * (u64)1000 > capacity_msat)
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
-			    "Invalid htlc_minimum_msat %"PRIu64
-			    " for funding_satoshis %"PRIu64
-			    " capacity_msat %"PRIu64,
-			    remoteconf->htlc_minimum_msat,
-			    state->funding_satoshis,
-			    capacity_msat);
+		negotiation_failed(state,
+				   "Invalid htlc_minimum_msat %"PRIu64
+				   " for funding_satoshis %"PRIu64
+				   " capacity_msat %"PRIu64,
+				   remoteconf->htlc_minimum_msat,
+				   state->funding_satoshis,
+				   capacity_msat);
 
 	if (capacity_msat < state->min_effective_htlc_capacity_msat)
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
-			    "Channel capacity with funding %"PRIu64" msat,"
-			    " reserves %"PRIu64"/%"PRIu64" msat,"
-			    " max_htlc_value_in_flight_msat %"PRIu64
-			    " is %"PRIu64" msat, which is below %"PRIu64" msat",
-			    state->funding_satoshis * 1000,
-			    remoteconf->channel_reserve_satoshis * 1000,
-			    state->localconf.channel_reserve_satoshis * 1000,
-			    remoteconf->max_htlc_value_in_flight_msat,
-			    capacity_msat,
-			    state->min_effective_htlc_capacity_msat);
+		negotiation_failed(state,
+				   "Channel capacity with funding %"PRIu64" msat,"
+				   " reserves %"PRIu64"/%"PRIu64" msat,"
+				   " max_htlc_value_in_flight_msat %"PRIu64
+				   " is %"PRIu64" msat, which is below %"PRIu64" msat",
+				   state->funding_satoshis * 1000,
+				   remoteconf->channel_reserve_satoshis * 1000,
+				   state->localconf.channel_reserve_satoshis * 1000,
+				   remoteconf->max_htlc_value_in_flight_msat,
+				   capacity_msat,
+				   state->min_effective_htlc_capacity_msat);
 
 	/* We don't worry about how many HTLCs they accept, as long as > 0! */
 	if (remoteconf->max_accepted_htlcs == 0)
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
-			    "max_accepted_htlcs %u invalid",
-			    remoteconf->max_accepted_htlcs);
+		negotiation_failed(state,
+				   "max_accepted_htlcs %u invalid",
+				   remoteconf->max_accepted_htlcs);
 
 	/* BOLT #2:
 	 *
@@ -298,7 +329,7 @@ static u8 *funder_channel(struct state *state,
 	 * The `temporary_channel_id` MUST be the same as the
 	 * `temporary_channel_id` in the `open_channel` message. */
 	if (!structeq(&id_in, &state->channel_id))
-		peer_failed(PEER_FD, &state->cs, &id_in,
+		peer_failed(PEER_FD, &state->cs, &state->channel_id,
 			    "accept_channel ids don't match: sent %s got %s",
 			    type_to_string(msg, struct channel_id, &id_in),
 			    type_to_string(msg, struct channel_id,
@@ -313,9 +344,9 @@ static u8 *funder_channel(struct state *state,
 	 * `open_channel`.
 	 */
 	if (minimum_depth > max_minimum_depth)
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
-			    "minimum_depth %u larger than %u",
-			    minimum_depth, max_minimum_depth);
+		negotiation_failed(state,
+				   "minimum_depth %u larger than %u",
+				   minimum_depth, max_minimum_depth);
 	check_config_bounds(state, state->remoteconf);
 
 	/* Now, ask create funding transaction to pay those two addresses. */
@@ -506,10 +537,11 @@ static u8 *fundee_channel(struct state *state,
 	 * unknown to the receiver.
 	 */
 	if (!structeq(&chain_hash, &state->chainparams->genesis_blockhash)) {
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
-			    "Unknown chain-hash %s",
-			    type_to_string(peer_msg, struct sha256_double,
-					   &chain_hash));
+		negotiation_failed(state,
+				   "Unknown chain-hash %s",
+				   type_to_string(peer_msg,
+						  struct sha256_double,
+						  &chain_hash));
 	}
 
 	/* BOLT #2 FIXME:
@@ -538,14 +570,14 @@ static u8 *fundee_channel(struct state *state,
 	 * too small for timely processing, or unreasonably large.
 	 */
 	if (state->feerate_per_kw < min_feerate)
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
-			    "feerate_per_kw %u below minimum %u",
-			    state->feerate_per_kw, min_feerate);
+		negotiation_failed(state,
+				   "feerate_per_kw %u below minimum %u",
+				   state->feerate_per_kw, min_feerate);
 
 	if (state->feerate_per_kw > max_feerate)
-		peer_failed(PEER_FD, &state->cs, &state->channel_id,
-			    "feerate_per_kw %u above maximum %u",
-			    state->feerate_per_kw, max_feerate);
+		negotiation_failed(state,
+				   "feerate_per_kw %u above maximum %u",
+				   state->feerate_per_kw, max_feerate);
 
 	set_reserve(&state->localconf.channel_reserve_satoshis,
 		    state->funding_satoshis);
