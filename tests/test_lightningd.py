@@ -323,9 +323,9 @@ class LightningDTests(BaseLightningDTests):
 
         # Wait for route propagation.
         bitcoind.generate_block(5)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+        l1.daemon.wait_for_logs(['Received public channel_update for channel {}\(0\)'
                                  .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
+                                'Received public channel_update for channel {}\(1\)'
                                  .format(chanid)])
 
         inv = l2.rpc.invoice(123000, 'test_pay', 'description', 1)['bolt11']
@@ -689,9 +689,9 @@ class LightningDTests(BaseLightningDTests):
 
         # Wait for route propagation.
         bitcoind.generate_block(5)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+        l1.daemon.wait_for_logs(['Received public channel_update for channel {}\(0\)'
                                  .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
+                                'Received public channel_update for channel {}\(1\)'
                                  .format(chanid)])
 
         inv = l2.rpc.invoice(123000, 'test_pay', 'description')['bolt11']
@@ -1511,10 +1511,10 @@ class LightningDTests(BaseLightningDTests):
 
         # Make sure l1 has seen announce for all channels.
         l1.daemon.wait_for_logs([
-            'Received channel_update for channel {}\\(0\\)'.format(c1),
-            'Received channel_update for channel {}\\(1\\)'.format(c1),
-            'Received channel_update for channel {}\\(0\\)'.format(c2),
-            'Received channel_update for channel {}\\(1\\)'.format(c2)])
+            'Received public channel_update for channel {}\\(0\\)'.format(c1),
+            'Received public channel_update for channel {}\\(1\\)'.format(c1),
+            'Received public channel_update for channel {}\\(0\\)'.format(c2),
+            'Received public channel_update for channel {}\\(1\\)'.format(c2)])
 
         # BOLT #7:
         #
@@ -1610,10 +1610,10 @@ class LightningDTests(BaseLightningDTests):
 
         # Make sure l1 has seen announce for all channels.
         l1.daemon.wait_for_logs([
-            'Received channel_update for channel {}\\(0\\)'.format(c1),
-            'Received channel_update for channel {}\\(1\\)'.format(c1),
-            'Received channel_update for channel {}\\(0\\)'.format(c2),
-            'Received channel_update for channel {}\\(1\\)'.format(c2)])
+            'Received public channel_update for channel {}\\(0\\)'.format(c1),
+            'Received public channel_update for channel {}\\(1\\)'.format(c1),
+            'Received public channel_update for channel {}\\(0\\)'.format(c2),
+            'Received public channel_update for channel {}\\(1\\)'.format(c2)])
 
         route = l1.rpc.getroute(l3.info['id'], 4999999, 1)["route"]
         assert len(route) == 2
@@ -1649,9 +1649,9 @@ class LightningDTests(BaseLightningDTests):
 
         # Wait for route propagation.
         bitcoind.generate_block(5)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+        l1.daemon.wait_for_logs(['Received public channel_update for channel {}\(0\)'
                                  .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
+                                'Received public channel_update for channel {}\(1\)'
                                  .format(chanid)])
 
         amt = 200000000
@@ -1689,9 +1689,9 @@ class LightningDTests(BaseLightningDTests):
 
         # Wait for route propagation.
         bitcoind.generate_block(5)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+        l1.daemon.wait_for_logs(['Received public channel_update for channel {}\(0\)'
                                  .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
+                                'Received public channel_update for channel {}\(1\)'
                                  .format(chanid)])
 
         amt = 200000000
@@ -2270,9 +2270,9 @@ class LightningDTests(BaseLightningDTests):
         # Now make sure an HTLC works.
         # (First wait for route propagation.)
         bitcoind.generate_block(6)
-        l1.daemon.wait_for_logs(['Received channel_update for channel {}\(0\)'
+        l1.daemon.wait_for_logs(['Received public channel_update for channel {}\(0\)'
                                  .format(chanid),
-                                'Received channel_update for channel {}\(1\)'
+                                'Received public channel_update for channel {}\(1\)'
                                  .format(chanid)])
 
         # Make payments.

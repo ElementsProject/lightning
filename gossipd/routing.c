@@ -524,17 +524,18 @@ bool handle_channel_announcement(
 	    &node_signature_1, &node_signature_2, &bitcoin_signature_1,
 	    &bitcoin_signature_2, serialized);
 
-	status_trace("Received channel_announcement for channel %s, local=%d, sigfail=%d",
-		     type_to_string(trc, struct short_channel_id,
-				    &short_channel_id), local, sigfail);
-
-
 	if (sigfail && !local) {
 		status_trace(
 		    "Signature verification of non-local channel announcement failed");
 		tal_free(tmpctx);
 		return false;
 	}
+
+	status_trace("Received %s channel_announcement for channel %s",
+		     local&&sigfail?"local":"public",
+		     type_to_string(trc, struct short_channel_id,
+				    &short_channel_id));
+
 
 	/* Is this a new connection? */
 	c0 = get_connection_by_scid(rstate, &short_channel_id, 0);
@@ -569,6 +570,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 	struct node_connection *c;
 	secp256k1_ecdsa_signature signature;
 	struct short_channel_id short_channel_id;
+	bool local, sigfail;
 	u32 timestamp;
 	u16 flags;
 	u16 expiry;
@@ -601,11 +603,6 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 		return;
 	}
 
-	status_trace("Received channel_update for channel %s(%d)",
-		     type_to_string(trc, struct short_channel_id,
-				    &short_channel_id),
-		     flags & 0x01);
-
 	c = get_connection_by_scid(rstate, &short_channel_id, flags & 0x1);
 
 	if (!c) {
@@ -614,18 +611,29 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 					    &short_channel_id));
 		tal_free(tmpctx);
 		return;
-	} else if (c->last_timestamp >= timestamp) {
+	}
+
+	sigfail = !check_channel_update(&c->src->id, &signature, serialized);
+	local = pubkey_eq(&c->src->id, &rstate->local_id) || pubkey_eq(&c->dst->id, &rstate->local_id);
+
+	status_trace("Received %s channel_update for channel %s(%d)",
+		     sigfail?"local":"public",
+		     type_to_string(trc, struct short_channel_id,
+				    &short_channel_id),
+		     flags & 0x01);
+
+	if (c->last_timestamp >= timestamp) {
 		status_trace("Ignoring outdated update.");
 		tal_free(tmpctx);
 		return;
-	} else if (!check_channel_update(&c->src->id, &signature, serialized)) {
-		status_trace("Signature verification failed.");
+	} else if (sigfail && !local) {
+		status_trace("Signature verification of non-local channel_update failed.");
 		tal_free(tmpctx);
 		return;
 	}
 
-	//FIXME(cdecker) Check signatures
-	c->last_timestamp = timestamp;
+	/* Do not allow an unsigned update to block future updates */
+	c->last_timestamp = sigfail?0:timestamp;
 	c->delay = expiry;
 	c->htlc_minimum_msat = htlc_minimum_msat;
 	c->base_fee = fee_base_msat;
@@ -636,16 +644,19 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 				    &short_channel_id),
 		     flags);
 
-	u8 *tag = tal_arr(tmpctx, u8, 0);
-	towire_short_channel_id(&tag, &short_channel_id);
-	towire_u16(&tag, flags & 0x1);
-	queue_broadcast(rstate->broadcasts,
-			WIRE_CHANNEL_UPDATE,
-			tag,
-			serialized);
+	if (!sigfail) {
+		u8 *tag = tal_arr(tmpctx, u8, 0);
+		towire_short_channel_id(&tag, &short_channel_id);
+		towire_u16(&tag, flags & 0x1);
+		queue_broadcast(rstate->broadcasts,
+				WIRE_CHANNEL_UPDATE,
+				tag,
+				serialized);
 
-	tal_free(c->channel_update);
-	c->channel_update = tal_steal(c, serialized);
+		tal_free(c->channel_update);
+		c->channel_update = tal_steal(c, serialized);
+	}
+
 	tal_free(tmpctx);
 }
 
