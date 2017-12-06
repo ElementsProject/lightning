@@ -1336,7 +1336,7 @@ class LightningDTests(BaseLightningDTests):
     def test_routing_gossip_reconnect(self):
         # Connect two peers, reconnect and then see if we resume the
         # gossip.
-        disconnects = ['-WIRE_CHANNEL_ANNOUNCEMENT']
+        disconnects = ['-WIRE_NODE_ANNOUNCEMENT']
         l1 = self.node_factory.get_node(disconnect=disconnects)
         l2 = self.node_factory.get_node()
         l3 = self.node_factory.get_node()
