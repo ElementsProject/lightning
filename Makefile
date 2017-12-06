@@ -1,6 +1,9 @@
 #! /usr/bin/make
 NAME=Bitcoin Savings & Trust Daily Interest II
 
+# TODO: Decide: c-lightning, lightningd, lightning?
+PKGNAME = c-lightning
+
 # We use our own internal ccan copy.
 CCANDIR := ccan
 
@@ -301,6 +304,96 @@ update-mocks/%: %
 
 unittest/%: %
 	$(VALGRIND) $(VALGRIND_TEST_ARGS) $*
+
+# Installation directories
+prefix = /usr/local
+exec_prefix = $(prefix)
+bindir = $(exec_prefix)/bin
+libexecdir = $(exec_prefix)/libexec
+datadir = $(prefix)/share
+docdir = $(datadir)/doc/$(PKGNAME)
+mandir = $(datadir)/man
+man1dir = $(mandir)/man1
+man7dir = $(mandir)/man7
+
+# Commands
+MKDIR_P = mkdir -p
+INSTALL = install
+INSTALL_PROGRAM = $(INSTALL)
+INSTALL_DATA = $(INSTALL) -m 644
+
+# Tags needed by some package systems.
+PRE_INSTALL = :
+NORMAL_INSTALL = :
+POST_INSTALL = :
+PRE_UNINSTALL = :
+NORMAL_UNINSTALL = :
+POST_UNINSTALL = :
+
+# Target to create directories.
+installdirs:
+	@$(NORMAL_INSTALL)
+	$(MKDIR_P) $(DESTDIR)$(bindir)
+	$(MKDIR_P) $(DESTDIR)$(man1dir)
+	$(MKDIR_P) $(DESTDIR)$(man7dir)
+	$(MKDIR_P) $(DESTDIR)$(docdir)
+
+# Programs to install in bindir.
+# FIXME: Note that subdaemons should properly be put in libexecdir,
+# but current lightningd expects them to be in the same
+# directory as itself.
+# This could be a problem later, if lightningd changes its
+# search path for subdaemons; it might pick up older versions
+# of the subdaemons, if a newer version is installed, without
+# uninstalling the previous version.
+# TODO: $(EXEEXT) support for Windows?  Needs more coding for
+# the individual Makefiles, however.
+BIN_PROGRAMS = \
+	       cli/lightning-cli \
+	       lightningd/lightningd \
+	       lightningd/lightning_channeld \
+	       lightningd/lightning_closingd \
+	       lightningd/lightning_gossipd \
+	       lightningd/lightning_hsmd \
+	       lightningd/lightning_onchaind \
+	       lightningd/lightning_openingd
+
+install-program: installdirs $(BIN_PROGRAMS)
+	@$(NORMAL_INSTALL)
+	$(INSTALL_PROGRAM) $(BIN_PROGRAMS) $(DESTDIR)$(bindir)
+
+MAN1PAGES = $(filter %.1,$(MANPAGES))
+MAN7PAGES = $(filter %.7,$(MANPAGES))
+DOC_DATA = README.md doc/INSTALL.md doc/HACKING.md LICENSE
+
+install-data: installdirs $(MAN1PAGES) $(MAN7PAGES) $(DOC_DATA)
+	@$(NORMAL_INSTALL)
+	$(INSTALL_DATA) $(MAN1PAGES) $(DESTDIR)$(man1dir)
+	$(INSTALL_DATA) $(MAN7PAGES) $(DESTDIR)$(man7dir)
+	$(INSTALL_DATA) $(DOC_DATA) $(DESTDIR)$(docdir)
+
+install: install-program install-data
+
+uninstall:
+	@$(NORMAL_UNINSTALL)
+	@for f in $(BIN_PROGRAMS); do \
+	  echo rm -f $(DESTDIR)$(bindir)/`basename $$f`; \
+	  rm -f $(DESTDIR)$(bindir)/`basename $$f`; \
+	done
+	@for f in $(MAN1PAGES); do \
+	  echo rm -f $(DESTDIR)$(man1dir)/`basename $$f`; \
+	  rm -f $(DESTDIR)$(man1dir)/`basename $$f`; \
+	done
+	@for f in $(MAN7PAGES); do \
+	  echo rm -f $(DESTDIR)$(man7dir)/`basename $$f`; \
+	  rm -f $(DESTDIR)$(man7dir)/`basename $$f`; \
+	done
+	@for f in $(DOC_DATA); do \
+	  echo rm -f $(DESTDIR)$(docdir)/`basename $$f`; \
+	  rm -f $(DESTDIR)$(docdir)/`basename $$f`; \
+	done
+
+.PHONY: installdirs install-program install-data install uninstall
 
 ccan-breakpoint.o: $(CCANDIR)/ccan/breakpoint/breakpoint.c
 	$(CC) $(CFLAGS) -c -o $@ $<
