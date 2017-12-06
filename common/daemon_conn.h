@@ -43,6 +43,16 @@ void daemon_conn_init(tal_t *ctx, struct daemon_conn *dc, int fd,
 		      struct io_plan *(*daemon_conn_recv)(
 			  struct io_conn *, struct daemon_conn *),
 		      void (*finish)(struct io_conn *, struct daemon_conn *));
+
+/**
+ * daemon_conn_clear - discard a daemon conn without triggering finish.
+ * @dc: the daemon_conn to clean up.
+ *
+ * This is used by gossipd when a peer is handed back, and we no longer
+ * want to deal with it via daemon_conn.  @dc must not be used after this!
+ */
+void daemon_conn_clear(struct daemon_conn *dc);
+
 /**
  * daemon_conn_send - Enqueue an outgoing message to be sent
  */
