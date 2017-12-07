@@ -29,7 +29,7 @@ ifeq ($(COVERAGE),1)
 COVFLAGS = --coverage
 endif
 
-PYTEST := $(shell command -v pytest 2> /dev/null)
+PYTEST := $(shell command -v pytest3 2> /dev/null)
 
 # This is where we add new features as bitcoin adds them.
 FEATURES :=
