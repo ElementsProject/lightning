@@ -471,7 +471,7 @@ static void parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 		return;
 	}
 
-	/* This is a convenient tal parent for durarion of command
+	/* This is a convenient tal parent for duration of command
 	 * (which may outlive the conn!). */
 	jcon->current = tal(jcon->ld, struct command);
 	jcon->current->jcon = jcon;

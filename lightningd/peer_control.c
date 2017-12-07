@@ -1040,7 +1040,7 @@ static void onchaind_tell_fulfill(struct peer *peer)
 
 		/* We only set preimage once it's irrevocably committed, and
 		 * we spend even if we don't have an outgoing HTLC (eg. local
-		 * payyment complete) */
+		 * payment complete) */
 		if (!hin->preimage)
 			continue;
 
@@ -2226,7 +2226,7 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
-	/* Now, keep the initial commit as our last-tx-to-broadast. */
+	/* Now, keep the initial commit as our last-tx-to-broadcast. */
 	peer_last_tx(fc->peer, remote_commit, &remote_commit_sig);
 
 	/* Generate the funding tx. */
@@ -2350,7 +2350,7 @@ static void opening_fundee_finished(struct subd *opening,
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
-	/* Now, keep the initial commit as our last-tx-to-broadast. */
+	/* Now, keep the initial commit as our last-tx-to-broadcast. */
 	peer_last_tx(peer, remote_commit, &remote_commit_sig);
 
 	if (!peer_commit_initial(peer))

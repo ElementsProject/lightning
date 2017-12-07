@@ -1497,7 +1497,7 @@ static void handle_their_cheat(const struct bitcoin_tx *tx,
 	       sizeof(per_commitment_privkey));
 	if (!pubkey_from_privkey(&per_commitment_privkey, &per_commitment_point))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Failed derivea from per_commitment_secret %s",
+			      "Failed derive from per_commitment_secret %s",
 			      type_to_string(trc, struct privkey,
 					     &per_commitment_privkey));
 
@@ -2061,7 +2061,7 @@ int main(int argc, char *argv[])
 						      &remote_payment_basepoint);
 
 		status_trace("commitnum = %"PRIu64
-			     ", revocations_recived = %"PRIu64,
+			     ", revocations_received = %"PRIu64,
 			     commit_num, revocations_received(&shachain));
 
 		if (is_local_commitment(&txid, &our_broadcast_txid))

@@ -101,7 +101,7 @@ This returns a random value called `rhash` that is part of the invoice.
 The recipient needs to communicate its ID `<recipient_id>`, `<rhash>` and the desired `<amount>` to the sender.
 
 The sender needs to compute a route to the recipient, and use that route to actually send the payment.
-The route contains the path that the payment will take throught the Lightning Network and the respective funds that each node will forward.
+The route contains the path that the payment will take through the Lightning Network and the respective funds that each node will forward.
 
 ```
 route=$(cli/lightning-cli getroute <recipient_id> <amount> 1 | jq --raw-output .route -)

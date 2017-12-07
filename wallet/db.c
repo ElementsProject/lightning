@@ -254,7 +254,7 @@ static struct db *db_open(const tal_t *ctx, char *filename)
 	sqlite3 *sql;
 
 	if (SQLITE_VERSION_NUMBER != sqlite3_libversion_number())
-		fatal("SQLITE version mistmatch: compiled %u, now %u",
+		fatal("SQLITE version mismatch: compiled %u, now %u",
 		      SQLITE_VERSION_NUMBER, sqlite3_libversion_number());
 
 	int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE;
@@ -305,7 +305,7 @@ static int db_get_version(struct db *db)
 }
 
 /**
- * db_mirgation_count - Count how many migrations are available
+ * db_migration_count - Count how many migrations are available
  *
  * Returns the maximum migration index, i.e., the version number of an
  * up-to-date database schema.

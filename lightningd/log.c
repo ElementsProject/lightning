@@ -448,7 +448,7 @@ static void log_crash(int sig)
 		logfile = "crash.log";
 		fd = open(logfile, O_WRONLY|O_CREAT, 0600);
 		if (fd < 0) {
-			logfile = "/tmp/lighning-crash.log";
+			logfile = "/tmp/lightning-crash.log";
 			fd = open(logfile, O_WRONLY|O_CREAT, 0600);
 		}
 

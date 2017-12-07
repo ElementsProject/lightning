@@ -192,7 +192,7 @@ check-hdr-include-order/%: %
 check-makefile:
 	@if [ x"$(CCANDIR)/config.h `find $(CCANDIR)/ccan -name '*.h' | grep -v /test/ | LC_ALL=C sort | tr '\n' ' '`" != x"$(CCAN_HEADERS) " ]; then echo CCAN_HEADERS incorrect; exit 1; fi
 
-# Any mention of BOLT# must be followed by an exact quote, modulo whitepace.
+# Any mention of BOLT# must be followed by an exact quote, modulo whitespace.
 bolt-check/%: % bolt-precheck tools/check-bolt
 	@[ ! -d .tmp.lightningrfc ] || tools/check-bolt .tmp.lightningrfc $<
 
