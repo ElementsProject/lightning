@@ -310,7 +310,7 @@ again:
 	/* Cut to length and return. */
 	*valid = true;
 	tal_resize(&toks, ret + 1);
-	/* Make sure last one is always referencable. */
+	/* Make sure last one is always referenceable. */
 	toks[ret].type = -1;
 	toks[ret].start = toks[ret].end = toks[ret].size = 0;
 

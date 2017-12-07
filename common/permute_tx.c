@@ -91,7 +91,7 @@ static bool output_better(const struct bitcoin_tx_output *a,
 	if (a->amount != b->amount)
 		return a->amount < b->amount;
 
-	/* Lexographic sort. */
+	/* Lexicographical sort. */
 	if (tal_len(a->script) < tal_len(b->script))
 		len = tal_len(a->script);
 	else

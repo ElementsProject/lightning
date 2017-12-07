@@ -49,7 +49,7 @@ class FieldType(object):
         if typename in type2size:
             return type2size[typename]
         elif typename.startswith('struct ') or typename.startswith('enum '):
-            # We allow unknown structures/enums, for extensiblity (can only happen
+            # We allow unknown structures/enums, for extensibility (can only happen
             # if explicitly specified in csv)
             return 0
         else:

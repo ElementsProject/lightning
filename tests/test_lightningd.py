@@ -250,7 +250,7 @@ class LightningDTests(BaseLightningDTests):
             if out['scriptPubKey']['type'] == 'witness_v0_scripthash':
                 if out['value'] == Decimal(amount) / 10**8 or out['value'] * 10**8 == amount:
                     return "{}:1:{}".format(bitcoind.rpc.getblockcount(), out['n'])
-        # Intermittant decoding failure.  See if it decodes badly twice?
+        # Intermittent decoding failure.  See if it decodes badly twice?
         decoded2=bitcoind.rpc.decoderawtransaction(tx)
         raise ValueError("Can't find {} payment in {} (1={} 2={})".format(amount, tx, decoded, decoded2))
 
@@ -1003,7 +1003,7 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US')
         l2.daemon.wait_for_log('sendrawtx exit 0')
 
-        # One more block, HTLC tx is now spentable.
+        # One more block, HTLC tx is now spendable.
         l1.bitcoin.generate_block(1)
         l2.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US')
         l2.daemon.wait_for_log('sendrawtx exit 0')

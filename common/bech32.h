@@ -97,7 +97,7 @@ int bech32_encode(
  *                 of entries in data.
  *  In: input:     Pointer to a null-terminated Bech32 string.
  *      max_input_len: Maximum valid length of input (90 for segwit usage).
- *  Returns 1 if succesful.
+ *  Returns 1 if successful.
  */
 int bech32_decode(
     char *hrp,

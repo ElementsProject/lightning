@@ -899,7 +899,7 @@ static bool adjust_balance(struct channel *channel, struct htlc *htlc)
 
 		if (!htlc->fail && !htlc->malformed && !htlc->r) {
 			status_trace("%s HTLC %"PRIu64
-				     " %s neither fail nor fulfull?",
+				     " %s neither fail nor fulfill?",
 				     htlc_state_owner(htlc->state) == LOCAL
 				     ? "out" : "in",
 				     htlc->id,

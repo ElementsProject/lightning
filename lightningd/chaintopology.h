@@ -107,10 +107,10 @@ struct chain_topology {
 	/* Our timer list. */
 	struct timers *timers;
 
-	/* Bitcoin transctions we're broadcasting */
+	/* Bitcoin transactions we're broadcasting */
 	struct list_head outgoing_txs;
 
-	/* Force a partiular fee rate regardless of estimatefee (satoshis/kb) */
+	/* Force a particular fee rate regardless of estimatefee (satoshis/kb) */
 	u32 *override_fee_rate;
 
 	/* What fee we use if estimatefee fails (satoshis/kb) */

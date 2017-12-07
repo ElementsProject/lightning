@@ -14,7 +14,7 @@ It's in C, to encourage alternate implementations.  It uses the Linux
 coding style.  Patches are welcome!
 
 To read the code, you'll probably need to understand ccan/tal: it's a
-heirarchical memory allocator, where each allocation has a parent, and
+hierarchical memory allocator, where each allocation has a parent, and
 thus lifetimes are grouped.  eg. a 'struct bitcoin_tx' has a pointer
 to an array of 'struct bitcoin_tx_input'; they are allocated off the
 'struct bitcoind_tx', so freeing the 'struct bitcoind_tx' frees them
@@ -34,7 +34,7 @@ Here's a list of parts, with notes:
 * bitcoin/ - bitcoin script, signature and transaction routines.
   - Not a complete set, but enough for our purposes.
 
-* external/ - external libararies from other sources
+* external/ - external libraries from other sources
   - libsodium - encryption library (should be replaced soon with built-in)
   - libwally-core - bitcoin helper library
   - secp256k1 - bitcoin curve encryption library within libwally-core

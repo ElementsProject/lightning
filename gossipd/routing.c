@@ -384,7 +384,7 @@ find_route(const tal_t *ctx, struct routing_state *rstate,
 	msatoshi += *fee;
 	status_trace("find_route: via %s",
 		     type_to_string(trc, struct pubkey, &first_conn->dst->id));
-	/* If there are intermidiaries, dump them, and total fees. */
+	/* If there are intermediaries, dump them, and total fees. */
 	if (best != 0) {
 		for (i = 0; i < best; i++) {
 			status_trace(" %s (%i+%i=%"PRIu64")",
@@ -700,7 +700,7 @@ void handle_node_announcement(
 	node = get_node(rstate, &node_id);
 
 	if (!node) {
-		status_trace("Node not found, was the node_announcement preceeded by at least channel_announcement?");
+		status_trace("Node not found, was the node_announcement preceded by at least channel_announcement?");
 		tal_free(tmpctx);
 		return;
 	} else if (node->last_timestamp >= timestamp) {
