@@ -584,6 +584,11 @@ bool handle_opts(struct lightningd *ld, int argc, char *argv[])
 {
 	bool newdir = false;
 
+	/* Load defaults first, so that --help (in early options) has something
+	 * to display. The actual values loaded here, will be overwritten later
+	 * by opt_parse_from_config. */
+	setup_default_config(ld);
+
 	/* Get any configdir/testnet options first. */
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
 
