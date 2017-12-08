@@ -1688,8 +1688,7 @@ static void peer_got_shutdown(struct peer *peer, const u8 *msg)
 	}
 
 	/* FIXME: Add to spec that we must allow repeated shutdown! */
-	peer->remote_shutdown_scriptpubkey
-		= tal_free(peer->remote_shutdown_scriptpubkey);
+	tal_free(peer->remote_shutdown_scriptpubkey);
 	peer->remote_shutdown_scriptpubkey = scriptpubkey;
 
 	/* BOLT #2:
