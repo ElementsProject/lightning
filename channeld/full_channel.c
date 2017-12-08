@@ -45,10 +45,9 @@ struct channel *new_channel(const tal_t *ctx,
 						      remote_funding_pubkey,
 						      funder);
 
-	/* Feerates can be different. */
-	channel->view[REMOTE].feerate_per_kw = feerate_per_kw[REMOTE];
-
 	if (channel) {
+		/* Feerates can be different. */
+		channel->view[REMOTE].feerate_per_kw = feerate_per_kw[REMOTE];
 		channel->htlcs = tal(channel, struct htlc_map);
 		htlc_map_init(channel->htlcs);
 		tal_add_destructor(channel->htlcs, htlc_map_clear);
