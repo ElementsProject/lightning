@@ -258,14 +258,7 @@ void bitcoin_witness_p2sh_p2wpkh(const tal_t *ctx,
 				 const secp256k1_ecdsa_signature *sig,
 				 const struct pubkey *key)
 {
-	u8 *redeemscript = bitcoin_redeem_p2sh_p2wpkh(ctx, key);
-
-	/* BIP141: The scriptSig must be exactly a push of the BIP16 redeemScript
-	 * or validation fails. */
-	input->script = tal_arr(ctx, u8, 0);
-	add_push_bytes(&input->script, redeemscript, tal_count(redeemscript));
-	tal_free(redeemscript);
-
+	input->script = bitcoin_scriptsig_p2sh_p2wpkh(ctx, key);
 	input->witness = bitcoin_witness_p2wpkh(ctx, sig, key);
 }
 
