@@ -114,6 +114,18 @@ static void json_withdraw(struct command *cmd,
 		return;
 	}
 
+	/* Check address given is compatible with the chain we are on. */
+	if (testnet != get_chainparams(cmd->ld)->testnet) {
+		if (testnet) {
+			command_fail(cmd,
+				    "Use of testnet address on mainnet");
+		} else {
+			command_fail(cmd,
+				    "Use of mainnet address on testnet");
+		}
+		return;
+	}
+
 	/* Select the coins */
 	withdraw->utxos = wallet_select_coins(cmd, cmd->ld->wallet,
 					      withdraw->amount,
