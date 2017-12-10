@@ -6,16 +6,16 @@
 #include <common/permute_tx.h>
 #include <common/utxo.h>
 #include <wally_bip32.h>
+#include <string.h>
 
 struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const struct utxo **utxos,
-			       const struct bitcoin_address *destination,
+			       u8 *destination,
 			       const u64 withdraw_amount,
 			       const struct pubkey *changekey,
 			       const u64 changesat,
 			       const struct ext_key *bip32_base)
 {
-	u8 *script;
 	struct bitcoin_tx *tx =
 	    bitcoin_tx(ctx, tal_count(utxos), changekey ? 2 : 1);
 	for (size_t i = 0; i < tal_count(utxos); i++) {
@@ -30,8 +30,7 @@ struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 		}
 	}
 	tx->output[0].amount = withdraw_amount;
-	script = scriptpubkey_p2pkh(ctx, destination);
-	tx->output[0].script = script;
+	tx->output[0].script = destination;
 
 	if (changesat != 0) {
 		const void *map[2];

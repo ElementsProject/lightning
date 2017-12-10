@@ -606,6 +606,7 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	struct bitcoin_tx *tx;
 	struct ext_key ext;
 	struct pubkey changekey;
+	u8 *scriptpubkey;
 
 	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg, NULL, &satoshi_out,
 					  &change_out, &change_keyindex,
@@ -623,8 +624,9 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	}
 
 	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
+	scriptpubkey = scriptpubkey_p2pkh(tmpctx, &destination);
 	tx = withdraw_tx(
-		tmpctx, to_utxoptr_arr(tmpctx, utxos), &destination, satoshi_out,
+		tmpctx, to_utxoptr_arr(tmpctx, utxos), scriptpubkey, satoshi_out,
 		&changekey, change_out, NULL);
 
 	/* Now generate signatures. */
