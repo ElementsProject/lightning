@@ -70,6 +70,29 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind,
 }
 
 /**
+ * scriptpubkey_from_address - Determine scriptpubkey from a given address
+ *
+ * This processes the address and returns the equivalent scriptpubkey
+ * for the address. If fail to parse the address, return NULL. If can
+ * parse address, also sets the testnet flag if address is a testnet
+ * address or clears it if mainnet.
+ */
+static u8 *scriptpubkey_from_address(const tal_t *cxt, bool *testnet,
+				     const char *addr, size_t addrlen)
+{
+	struct bitcoin_address p2pkh_destination;
+	u8 *script = NULL;
+
+	if (bitcoin_from_base58(testnet, &p2pkh_destination,
+				addr, addrlen)) {
+		script = scriptpubkey_p2pkh(cxt, &p2pkh_destination);
+	}
+	/* TODO Insert other supported addresses here. */
+
+	return script;
+}
+
+/**
  * json_withdraw - Entrypoint for the withdrawal flow
  *
  * A user has requested a withdrawal over the JSON-RPC, parse the
@@ -91,7 +114,6 @@ static void json_withdraw(struct command *cmd,
 	struct pubkey changekey;
 	secp256k1_ecdsa_signature *sigs;
 	struct bitcoin_tx *tx;
-	struct bitcoin_address p2pkh_destination;
 
 	if (!json_get_params(buffer, params,
 			     "destination", &desttok,
@@ -109,15 +131,11 @@ static void json_withdraw(struct command *cmd,
 		return;
 	}
 
-	withdraw->destination = NULL;
-
-	if (bitcoin_from_base58(&testnet, &p2pkh_destination,
-				buffer + desttok->start,
-				desttok->end - desttok->start)) {
-		withdraw->destination
-			= scriptpubkey_p2pkh(withdraw, &p2pkh_destination);
-	}
-	/* TODO Insert other supported addresses here. */
+	/* Parse address. */
+	withdraw->destination
+		= scriptpubkey_from_address(withdraw, &testnet,
+					    buffer + desttok->start,
+					    desttok->end - desttok->start);
 
 	/* Check that destination address could be understood. */
 	if (!withdraw->destination) {
