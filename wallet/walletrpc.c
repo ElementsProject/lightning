@@ -114,6 +114,8 @@ static void json_withdraw(struct command *cmd,
 		command_fail(cmd, "Could not parse destination address");
 		return;
 	}
+	withdraw->destination
+		= scriptpubkey_p2pkh(withdraw, &p2pkh_destination);
 
 	/* Check address given is compatible with the chain we are on. */
 	if (testnet != get_chainparams(cmd->ld)->testnet) {
@@ -148,7 +150,7 @@ static void json_withdraw(struct command *cmd,
 					     withdraw->amount,
 					     withdraw->changesatoshi,
 					     withdraw->change_key_index,
-					     p2pkh_destination.addr.u.u8,
+					     withdraw->destination,
 					     utxos);
 	tal_free(utxos);
 
@@ -170,8 +172,6 @@ static void json_withdraw(struct command *cmd,
 	}
 
 	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
-	withdraw->destination
-		= scriptpubkey_p2pkh(withdraw, &p2pkh_destination);
 	tx = withdraw_tx(withdraw, withdraw->utxos, withdraw->destination,
 			 withdraw->amount, &changekey, withdraw->changesatoshi,
 			 cmd->ld->wallet->bip32_base);

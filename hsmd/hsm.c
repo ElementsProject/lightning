@@ -599,7 +599,6 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	const tal_t *tmpctx = tal_tmpctx(master);
 	u64 satoshi_out, change_out;
 	u32 change_keyindex;
-	struct bitcoin_address destination;
 	struct utxo *utxos;
 	secp256k1_ecdsa_signature *sigs;
 	u8 *wscript;
@@ -610,7 +609,7 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 
 	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg, NULL, &satoshi_out,
 					  &change_out, &change_keyindex,
-					  destination.addr.u.u8, &utxos)) {
+					  &scriptpubkey, &utxos)) {
 		status_trace("Failed to parse sign_withdrawal: %s",
 			     tal_hex(trc, msg));
 		return;
@@ -624,7 +623,6 @@ static void sign_withdrawal_tx(struct daemon_conn *master, const u8 *msg)
 	}
 
 	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
-	scriptpubkey = scriptpubkey_p2pkh(tmpctx, &destination);
 	tx = withdraw_tx(
 		tmpctx, to_utxoptr_arr(tmpctx, utxos), scriptpubkey, satoshi_out,
 		&changekey, change_out, NULL);
