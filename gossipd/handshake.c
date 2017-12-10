@@ -49,19 +49,6 @@ struct act_one {
 /* BOLT #8: The handshake message is _exactly_ `50 bytes` */
 #define ACT_ONE_SIZE 50 /* ARM's stupid ABI adds padding. */
 
-static inline void check_act_one(const struct act_one *act1)
-{
-	/* BOLT #8:
-	 *
-	 * : `1 byte` for the handshake version, `33 bytes` for the compressed
-	 * ephemeral public key of the initiator, and `16 bytes` for the
-	 * `poly1305` tag.
-	 */
-	BUILD_ASSERT(sizeof(act1->v) == 1);
-	BUILD_ASSERT(sizeof(act1->pubkey) == 33);
-	BUILD_ASSERT(sizeof(act1->tag) == 16);
-}
-
 /* BOLT #8:
  *
  * `Act Two` is sent from the responder to the initiator. `Act Two` will
@@ -77,18 +64,6 @@ struct act_two {
 
 /* BOLT #8: The handshake is _exactly_ `50 bytes:` */
 #define ACT_TWO_SIZE 50 /* ARM's stupid ABI adds padding. */
-
-static inline void check_act_two(const struct act_two *act2)
-{
-	/* BOLT #8:
-	 * `1 byte` for the handshake version,
-	 * `33 bytes` for the compressed ephemeral public key of the initiator, and
-	 * `16 bytes` for the `poly1305` tag.
-	 */
-	BUILD_ASSERT(sizeof(act2->v) == 1);
-	BUILD_ASSERT(sizeof(act2->pubkey) == 33);
-	BUILD_ASSERT(sizeof(act2->tag) == 16);
-}
 
 /* BOLT #8:
  *
@@ -107,20 +82,6 @@ struct act_three {
 
 /* BOLT #8: The handshake is _exactly_ `66 bytes` */
 #define ACT_THREE_SIZE 66 /* ARM's stupid ABI adds padding. */
-
-static inline void check_act_three(const struct act_three *act3)
-{
-	/* BOLT #8:
-	 *
-	 * `1 byte` for the handshake version, `33 bytes` for the ephemeral
-	 * public key encrypted with the `ChaCha20` stream cipher, `16 bytes`
-	 * for the encrypted public key's tag generated via the `AEAD`
-	 * construction, and `16 bytes` for a final authenticating tag.
-	 */
-	BUILD_ASSERT(sizeof(act3->v) == 1);
-	BUILD_ASSERT(sizeof(act3->ciphertext) == 33 + 16);
-	BUILD_ASSERT(sizeof(act3->tag) == 16);
-}
 
 /* BOLT #8:
  *
