@@ -108,14 +108,22 @@ static void json_withdraw(struct command *cmd,
 		command_fail(cmd, "Invalid satoshis");
 		return;
 	}
-	if (!bitcoin_from_base58(&testnet, &p2pkh_destination,
-				 buffer + desttok->start,
-				 desttok->end - desttok->start)) {
+
+	withdraw->destination = NULL;
+
+	if (bitcoin_from_base58(&testnet, &p2pkh_destination,
+				buffer + desttok->start,
+				desttok->end - desttok->start)) {
+		withdraw->destination
+			= scriptpubkey_p2pkh(withdraw, &p2pkh_destination);
+	}
+	/* TODO Insert other supported addresses here. */
+
+	/* Check that destination address could be understood. */
+	if (!withdraw->destination) {
 		command_fail(cmd, "Could not parse destination address");
 		return;
 	}
-	withdraw->destination
-		= scriptpubkey_p2pkh(withdraw, &p2pkh_destination);
 
 	/* Check address given is compatible with the chain we are on. */
 	if (testnet != get_chainparams(cmd->ld)->testnet) {
