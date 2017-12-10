@@ -20,7 +20,7 @@
 
 struct withdrawal {
 	u64 amount, changesatoshi;
-	struct bitcoin_address destination;
+	u8 *destination;
 	const struct utxo **utxos;
 	u64 change_key_index;
 	struct command *cmd;
@@ -91,6 +91,7 @@ static void json_withdraw(struct command *cmd,
 	struct pubkey changekey;
 	secp256k1_ecdsa_signature *sigs;
 	struct bitcoin_tx *tx;
+	struct bitcoin_address p2pkh_destination;
 
 	if (!json_get_params(buffer, params,
 			     "destination", &desttok,
@@ -107,7 +108,7 @@ static void json_withdraw(struct command *cmd,
 		command_fail(cmd, "Invalid satoshis");
 		return;
 	}
-	if (!bitcoin_from_base58(&testnet, &withdraw->destination,
+	if (!bitcoin_from_base58(&testnet, &p2pkh_destination,
 				 buffer + desttok->start,
 				 desttok->end - desttok->start)) {
 		command_fail(cmd, "Could not parse destination address");
@@ -147,7 +148,7 @@ static void json_withdraw(struct command *cmd,
 					     withdraw->amount,
 					     withdraw->changesatoshi,
 					     withdraw->change_key_index,
-					     withdraw->destination.addr.u.u8,
+					     p2pkh_destination.addr.u.u8,
 					     utxos);
 	tal_free(utxos);
 
@@ -169,7 +170,9 @@ static void json_withdraw(struct command *cmd,
 	}
 
 	pubkey_from_der(ext.pub_key, sizeof(ext.pub_key), &changekey);
-	tx = withdraw_tx(withdraw, withdraw->utxos, &withdraw->destination,
+	withdraw->destination
+		= scriptpubkey_p2pkh(withdraw, &p2pkh_destination);
+	tx = withdraw_tx(withdraw, withdraw->utxos, withdraw->destination,
 			 withdraw->amount, &changekey, withdraw->changesatoshi,
 			 cmd->ld->wallet->bip32_base);
 

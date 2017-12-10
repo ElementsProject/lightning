@@ -16,7 +16,7 @@ struct utxo;
  *
  * @ctx: context to tal from.
  * @utxos: (in/out) tal_arr of UTXO pointers to spend (permuted to match)
- * @destination: (in) bitcoin_address to send to.
+ * @destination: (in) tal_arr of u8, scriptPubKey to send to.
  * @amount: (in) satoshis to send to the destination
  * @changekey: (in) key to send change to (only used if change_satoshis != 0).
  * @changesat: (in) amount to send as change.
@@ -24,7 +24,7 @@ struct utxo;
  */
 struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const struct utxo **utxos,
-			       const struct bitcoin_address *destination,
+			       u8 *destination,
 			       const u64 withdraw_amount,
 			       const struct pubkey *changekey,
 			       const u64 changesat,
