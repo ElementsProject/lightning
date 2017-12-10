@@ -75,14 +75,10 @@ static void tx_must_be_eq(const struct bitcoin_tx *a,
 {
 	tal_t *tmpctx = tal_tmpctx(NULL);
 	u8 *lina, *linb;
-	size_t i, len;
+	size_t i;
 
 	lina = linearize_tx(tmpctx, a);
 	linb = linearize_tx(tmpctx, b);
-
-	len = tal_len(lina);
-	if (tal_len(linb) < len)
-		len = tal_len(linb);
 
 	for (i = 0; i < tal_len(lina); i++) {
 		if (i >= tal_len(linb))
