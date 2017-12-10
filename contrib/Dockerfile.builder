@@ -8,6 +8,7 @@ RUN apt-get -qq update && \
     apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
 	autoconf \
 	automake \
+	clang \
 	eatmydata \
 	software-properties-common \
 	build-essential \
