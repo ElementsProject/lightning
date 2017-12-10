@@ -6,18 +6,16 @@ notifications:
   email: false
 
 env:
-  - NO_VALGRIND=1 ARCH=32 DEVELOPER=1
-  - NO_VALGRIND=1 ARCH=64 DEVELOPER=1
-  - NO_VALGRIND=0 ARCH=64 DEVELOPER=1
-  - NO_VALGRIND=0 ARCH=64 DEVELOPER=0
+  - NO_VALGRIND=1 ARCH=32 DEVELOPER=1 COMPILER=gcc
+  - NO_VALGRIND=1 ARCH=64 DEVELOPER=1 COMPILER=gcc
+  - NO_VALGRIND=0 ARCH=64 DEVELOPER=1 COMPILER=gcc
+  - NO_VALGRIND=0 ARCH=64 DEVELOPER=0 COMPILER=gcc
+  - NO_VALGRIND=1 ARCH=64 DEVELOPER=1 COMPILER=clang
 
 # Trusty (aka 14.04) is way way too old, so run in docker...
 script:
   - docker pull cdecker/lightning-ci:${ARCH}bit | tee
-  - echo "Building..."
-  - echo "travis_fold:start:SCRIPT folding starts"
-  - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make -j3 DEVELOPER=${DEVELOPER}
-  - echo "travis_fold:end:SCRIPT folding ends"
-  - docker run --rm=true -e NO_VALGRIND=${NO_VALGRIND:-0} -e TEST_DEBUG=${TEST_DEBUG:-0} -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check DEVELOPER=${DEVELOPER}
+  - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make -j3 CC=${COMPILER} DEVELOPER=${DEVELOPER}
+  - docker run --rm=true -e NO_VALGRIND=${NO_VALGRIND:-0} -e TEST_DEBUG=${TEST_DEBUG:-0} -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make CC=${COMPILER} check DEVELOPER=${DEVELOPER}
 #  - git clone https://github.com/lightningnetwork/lightning-rfc.git
 #  - docker run --rm=true -v "${TRAVIS_BUILD_DIR}":/build -t cdecker/lightning-ci:${ARCH}bit make check-source BOLTDIR=lightning-rfc
