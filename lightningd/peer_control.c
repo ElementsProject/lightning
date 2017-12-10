@@ -581,7 +581,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 			/* Reconnect: discard old one. */
 		case OPENINGD:
-			peer = tal_free(peer);
+			tal_free(peer);
 			goto return_to_gossipd;
 
 		case ONCHAIND_CHEATED:

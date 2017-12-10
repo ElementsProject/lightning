@@ -2396,7 +2396,7 @@ static bool peer_write_pending(struct peer *peer)
 		dev_sabotage_fd(PEER_FD);
 		break;
 	case DEV_DISCONNECT_DROPPKT:
-		msg = tal_free(msg);
+		tal_free(msg);
 		peer->post_sabotage = true;
 		peer->peer_outmsg = NULL;
 		peer->peer_outoff = 0;
