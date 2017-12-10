@@ -196,7 +196,9 @@ static bool channelseq(struct wallet_channel *c1, struct wallet_channel *c2)
 	CHECK(p1->their_shachain.id == p2->their_shachain.id);
 	CHECK_MSG(pubkey_eq(&p1->id, &p2->id), "NodeIDs do not match");
 	CHECK((p1->scid == NULL && p2->scid == NULL) || short_channel_id_eq(p1->scid, p2->scid));
-	CHECK((p1->our_msatoshi == NULL && p2->our_msatoshi == NULL) || *p1->our_msatoshi == *p2->our_msatoshi);
+	CHECK((p1->our_msatoshi == NULL) == (p2->our_msatoshi == NULL));
+	if (p1->our_msatoshi)
+		CHECK(*p1->our_msatoshi == *p2->our_msatoshi);
 	CHECK((p1->remote_shutdown_scriptpubkey == NULL && p2->remote_shutdown_scriptpubkey == NULL) || memeq(
 		      p1->remote_shutdown_scriptpubkey,
 		      tal_len(p1->remote_shutdown_scriptpubkey),
