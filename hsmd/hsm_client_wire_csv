@@ -51,7 +51,8 @@ hsm_sign_withdrawal,7
 hsm_sign_withdrawal,,satoshi_out,u64
 hsm_sign_withdrawal,,change_out,u64
 hsm_sign_withdrawal,,change_keyindex,u32
-hsm_sign_withdrawal,,pkh,20*u8
+hsm_sign_withdrawal,,scriptpubkey_len,u16
+hsm_sign_withdrawal,,scriptpubkey,scriptpubkey_len*u8
 hsm_sign_withdrawal,,num_inputs,u16
 hsm_sign_withdrawal,,inputs,num_inputs*struct utxo
 
