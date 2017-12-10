@@ -88,4 +88,4 @@ clean: opening-clean
 opening-clean:
 	$(RM) $(LIGHTNINGD_OPENING_OBJS) openingd/gen_*
 
--include openingd/test/Makefile 
+-include openingd/test/Makefile

@@ -30,7 +30,7 @@ class UnixDomainSocketRpc(object):
                 objs, _ = self.decoder.raw_decode(buff.decode("UTF-8"))
                 return objs
             except ValueError:
-                # Probably didn't read enough 
+                # Probably didn't read enough
                 pass
 
     def __getattr__(self, name):

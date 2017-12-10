@@ -163,7 +163,7 @@ class Field(object):
 
     def has_array_helper(self):
         return self.fieldtype.has_array_helper()
-    
+
     # Returns FieldType
     @staticmethod
     def _guess_type(message, fieldname, base_size):
@@ -267,7 +267,7 @@ class Message(object):
         ctx_arg = 'const tal_t *ctx, ' if self.has_variable_fields else ''
 
         args = []
-        
+
         for f in self.fields:
             if f.is_len_var or f.is_padding():
                 continue

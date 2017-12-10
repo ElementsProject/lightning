@@ -79,4 +79,4 @@ clean: closingd-clean
 closingd-clean:
 	$(RM) $(LIGHTNINGD_CLOSING_OBJS) closingd/gen_*
 
--include closingd/test/Makefile 
+-include closingd/test/Makefile

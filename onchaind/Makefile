@@ -88,4 +88,4 @@ clean: onchaind-clean
 onchaind-clean:
 	$(RM) $(LIGHTNINGD_ONCHAIN_OBJS) onchaind/gen_*
 
--include onchaind/test/Makefile 
+-include onchaind/test/Makefile
