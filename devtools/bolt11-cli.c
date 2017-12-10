@@ -51,7 +51,7 @@ static char *fmt_time(const tal_t *ctx, u64 time)
 
 	return tal_fmt(ctx, "%.*s", (int)strcspn(p, "\n"), p);
 }
-	
+
 int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal(NULL, char);

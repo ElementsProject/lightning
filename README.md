@@ -1,7 +1,7 @@
 # c-lightning: A specification compliant Lightning Network implementation in C
 
 c-lightning is a [standard compliant](https://github.com/lightningnetwork/lightning-rfc) implementation of the Lightning Network protocol.
-The Lightning Network is a scalability solution for Bitcoin, enabling secure and instant transfer of funds between any two party for any amount. 
+The Lightning Network is a scalability solution for Bitcoin, enabling secure and instant transfer of funds between any two party for any amount.
 
 For more information about the Lightning Network please refer to http://lightning.network.
 
@@ -46,7 +46,7 @@ In order to start `lightningd` you will need to have a local `bitcoind` node run
 bitcoind -daemon -testnet
 ```
 
-Wait until `bitcoind` has synchronized with the testnet network. In case you use regtest, make sure you generate at least 432 blocks to activate SegWit. 
+Wait until `bitcoind` has synchronized with the testnet network. In case you use regtest, make sure you generate at least 432 blocks to activate SegWit.
 
 You can start `lightningd` with the following command:
 
@@ -60,7 +60,7 @@ First you need to transfer some funds to `lightningd` so that it can open a chan
 
 ```
 # Returns an address <address>
-cli/lightning-cli newaddr 
+cli/lightning-cli newaddr
 
 # Returns a transaction id <txid>
 bitcoin-cli -testnet sendtoaddress <address> <amount>

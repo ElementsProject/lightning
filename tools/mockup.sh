@@ -22,7 +22,7 @@ for SYMBOL; do
 	echo "/* Could not find declaration for $SYMBOL */"
 	continue
     fi
-	
+
     echo "/* Generated stub for $SYMBOL */"
     FILE=${WHERE%%:*}
     FILE_AND_LINE=${WHERE%:*}
