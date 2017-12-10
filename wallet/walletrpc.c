@@ -81,11 +81,15 @@ static u8 *scriptpubkey_from_address(const tal_t *cxt, bool *testnet,
 				     const char *addr, size_t addrlen)
 {
 	struct bitcoin_address p2pkh_destination;
+	struct ripemd160 p2sh_destination;
 	u8 *script = NULL;
 
 	if (bitcoin_from_base58(testnet, &p2pkh_destination,
 				addr, addrlen)) {
 		script = scriptpubkey_p2pkh(cxt, &p2pkh_destination);
+	} else if (p2sh_from_base58(testnet, &p2sh_destination,
+				    addr, addrlen)) {
+		script = scriptpubkey_p2sh_hash(cxt, &p2sh_destination);
 	}
 	/* TODO Insert other supported addresses here. */
 
