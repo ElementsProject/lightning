@@ -12,6 +12,11 @@ gossipctl_init,,gflen,u16
 gossipctl_init,,gfeatures,gflen*u8
 gossipctl_init,,lflen,u16
 gossipctl_init,,lfeatures,lflen*u8
+# These are needed for node_announce messages.
+gossipctl_init,,num_addr,u16
+gossipctl_init,,wireaddr,num_addr*struct wireaddr
+gossipctl_init,,rgb_color,3*u8
+gossipctl_init,,alias,32*u8
 
 # Master -> gossipd: Optional hint for where to find peer.
 gossipctl_peer_addrhint,3014

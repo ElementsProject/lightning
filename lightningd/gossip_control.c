@@ -126,7 +126,8 @@ void gossip_init(struct lightningd *ld)
 				    &get_chainparams(ld)->genesis_blockhash,
 				    &ld->id, ld->portnum,
 				    get_supported_global_features(tmpctx),
-				    get_supported_local_features(tmpctx));
+				    get_supported_local_features(tmpctx),
+				    ld->wireaddrs, ld->rgb, (u8 *)ld->alias);
 	subd_send_msg(ld->gossip, msg);
 	tal_free(tmpctx);
 }

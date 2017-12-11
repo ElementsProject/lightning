@@ -71,6 +71,11 @@ struct daemon {
 
 	/* Local and global features to offer to peers. */
 	u8 *localfeatures, *globalfeatures;
+
+	/* My local addresses. */
+	struct wireaddr *wireaddrs;
+	u8 rgb_color[3];
+	u8 alias[32];
 };
 
 /* Peers we're trying to reach. */
@@ -1124,7 +1129,10 @@ static struct io_plan *gossip_init(struct daemon_conn *master,
 				     &daemon->broadcast_interval,
 				     &chain_hash, &daemon->id, &port,
 				     &daemon->globalfeatures,
-				     &daemon->localfeatures)) {
+				     &daemon->localfeatures,
+				     &daemon->wireaddrs,
+				     daemon->rgb_color,
+				     daemon->alias)) {
 		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
 	}
 	daemon->rstate = new_routing_state(daemon, &chain_hash);
