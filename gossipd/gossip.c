@@ -389,15 +389,15 @@ static void handle_gossip_msg(struct routing_state *rstate, u8 *msg)
 	int t = fromwire_peektype(msg);
 	switch(t) {
 	case WIRE_CHANNEL_ANNOUNCEMENT:
-		handle_channel_announcement(rstate, msg, tal_count(msg));
+		handle_channel_announcement(rstate, msg);
 		break;
 
 	case WIRE_NODE_ANNOUNCEMENT:
-		handle_node_announcement(rstate, msg, tal_count(msg));
+		handle_node_announcement(rstate, msg);
 		break;
 
 	case WIRE_CHANNEL_UPDATE:
-		handle_channel_update(rstate, msg, tal_count(msg));
+		handle_channel_update(rstate, msg);
 		break;
 	}
 }
