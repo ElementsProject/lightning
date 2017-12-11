@@ -160,6 +160,9 @@ struct peer {
 	u8 channel_flags;
 
 	bool announce_depth_reached;
+
+	/* Where we got up to in gossip broadcasts. */
+	u64 gossip_index;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -176,15 +179,23 @@ static void *tal_arr_append_(void **p, size_t size)
 
 static void gossip_in(struct peer *peer, const u8 *msg)
 {
-	u16 type = fromwire_peektype(msg);
+	u8 *gossip;
+	u16 type;
 
-	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
-	    type == WIRE_NODE_ANNOUNCEMENT)
-		msg_enqueue(&peer->peer_out, msg);
-	else
+	if (!fromwire_gossip_send_gossip(msg, msg, NULL,
+					 &peer->gossip_index, &gossip))
 		status_failed(STATUS_FAIL_GOSSIP_IO,
 			      "Got bad message from gossipd: %s",
 			      tal_hex(msg, msg));
+	type = fromwire_peektype(gossip);
+
+	if (type == WIRE_CHANNEL_ANNOUNCEMENT || type == WIRE_CHANNEL_UPDATE ||
+	    type == WIRE_NODE_ANNOUNCEMENT)
+		msg_enqueue(&peer->peer_out, gossip);
+	else
+		status_failed(STATUS_FAIL_GOSSIP_IO,
+			      "Got bad message type %s from gossipd: %s",
+			      wire_type_name(type), tal_hex(msg, msg));
 }
 
 static void send_announcement_signatures(struct peer *peer)
@@ -2259,6 +2270,7 @@ static void init_channel(struct peer *peer)
 				   &peer->feerate_min, &peer->feerate_max,
 				   &peer->their_commit_sig,
 				   &peer->cs,
+				   &peer->gossip_index,
 				   &funding_pubkey[REMOTE],
 				   &points[REMOTE].revocation,
 				   &points[REMOTE].payment,
@@ -2430,7 +2442,8 @@ static void send_shutdown_complete(struct peer *peer)
 	/* Now we can tell master shutdown is complete. */
 	wire_sync_write(MASTER_FD,
 			take(towire_channel_shutdown_complete(peer,
-							      &peer->cs)));
+							      &peer->cs,
+							      peer->gossip_index)));
 	fdpass_send(MASTER_FD, PEER_FD);
 	fdpass_send(MASTER_FD, GOSSIP_FD);
 	close(MASTER_FD);

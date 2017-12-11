@@ -333,6 +333,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	/* We will not have anything queued, since we're not duplex. */
 	msg = towire_gossip_peer_connected(peer, &peer->id, &peer->addr,
 					   &peer->local->pcs.cs,
+					   peer->broadcast_index,
 					   peer->gfeatures, peer->lfeatures);
 	if (!send_peer_with_fds(peer, msg))
 		return io_close(conn);
@@ -453,6 +454,7 @@ static struct io_plan *ready_for_master(struct io_conn *conn, struct peer *peer)
 		msg = towire_gossip_peer_nongossip(peer, &peer->id,
 						   &peer->addr,
 						   &peer->local->pcs.cs,
+						   peer->broadcast_index,
 						   peer->gfeatures,
 						   peer->lfeatures,
 						   peer->local->nongossip_msg);
@@ -460,6 +462,7 @@ static struct io_plan *ready_for_master(struct io_conn *conn, struct peer *peer)
 		msg = towire_gossipctl_release_peer_reply(peer,
 							  &peer->addr,
 							  &peer->local->pcs.cs,
+							  peer->broadcast_index,
 							  peer->gfeatures,
 							  peer->lfeatures);
 
@@ -848,7 +851,10 @@ static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn, struct daemon_
 		return msg_queue_wait(conn, &peer->remote->out,
 				      daemon_conn_write_next, dc);
 	} else {
-		return io_write_wire(conn, next->payload,
+		u8 *msg = towire_gossip_send_gossip(conn,
+						    peer->broadcast_index,
+						    next->payload);
+		return io_write_wire(conn, take(msg),
 				     nonlocal_gossip_broadcast_done, dc);
 	}
 }
@@ -873,6 +879,7 @@ struct returning_peer {
 	struct daemon *daemon;
 	struct pubkey id;
 	struct crypto_state cs;
+	u64 gossip_index;
 	u8 *inner_msg;
 	int peer_fd, gossip_fd;
 };	
@@ -889,8 +896,8 @@ static struct io_plan *handle_returning_peer(struct io_conn *conn,
 			      "hand_back_peer unknown peer: %s",
 			      type_to_string(trc, struct pubkey, &rpeer->id));
 
-	/* We don't need the gossip_fd.  We could drain it, so no gossip msgs
-	 * are missed, but that seems overkill. */
+	/* We don't need the gossip_fd; we know what gossip it got
+	 * from gossip_index */
 	close(rpeer->gossip_fd);
 
 	/* Possible if there's a reconnect: ignore handed back. */
@@ -912,6 +919,7 @@ static struct io_plan *handle_returning_peer(struct io_conn *conn,
 
 	peer->local = new_local_peer_state(peer, &rpeer->cs);
 	peer->local->fd = rpeer->peer_fd;
+	peer->broadcast_index = rpeer->gossip_index;
 
 	/* If they told us to send a message, queue it now */
 	if (tal_len(rpeer->inner_msg))
@@ -937,6 +945,7 @@ static struct io_plan *hand_back_peer(struct io_conn *conn,
 	rpeer->daemon = daemon;
 	if (!fromwire_gossipctl_hand_back_peer(msg, msg, NULL,
 					       &rpeer->id, &rpeer->cs,
+					       &rpeer->gossip_index,
 					       &rpeer->inner_msg))
 		master_badmsg(WIRE_GOSSIPCTL_HAND_BACK_PEER, msg);
 
@@ -1562,6 +1571,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_GET_UPDATE:
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	case WIRE_GOSSIP_NEW_CHANNEL:
+	case WIRE_GOSSIP_SEND_GOSSIP:
 	break;
 	}
 
