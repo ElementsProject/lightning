@@ -827,55 +827,80 @@ static struct io_plan *new_peer_got_fd(struct io_conn *conn, struct peer *peer)
 	return daemon_conn_read_next(conn, &peer->daemon->master);
 }
 
-/* Read and close fd */
-static struct io_plan *discard_peer_fd(struct io_conn *conn, int *fd)
-{
-	struct daemon *daemon = tal_parent(fd);
-	close(*fd);
-	tal_free(fd);
-	return daemon_conn_read_next(conn, &daemon->master);
-}
-
-static struct io_plan *handle_peer(struct io_conn *conn, struct daemon *daemon,
-				   const u8 *msg)
-{
-	struct peer *peer;
-	struct crypto_state cs;
+/* This lets us read the fds in before handling anything. */
+struct returning_peer {
+	struct daemon *daemon;
 	struct pubkey id;
-	struct wireaddr addr;
-	u8 *gfeatures, *lfeatures;
+	struct crypto_state cs;
 	u8 *inner_msg;
+	int peer_fd, gossip_fd;
+};
 
-	if (!fromwire_gossipctl_handle_peer(msg, msg, NULL, &id, &addr, &cs,
-					    &gfeatures, &lfeatures, &inner_msg))
-		master_badmsg(WIRE_GOSSIPCTL_HANDLE_PEER, msg);
+static struct io_plan *handle_returning_peer(struct io_conn *conn,
+					     struct returning_peer *rpeer)
+{
+	struct daemon *daemon = rpeer->daemon;
+	struct peer *peer;
 
-	/* If it already exists locally, that's probably a reconnect:
-	 * drop this one.  If it exists as remote, replace with this.*/
-	peer = find_peer(daemon, &id);
-	if (peer) {
-		if (peer->local) {
-			int *fd = tal(daemon, int);
-			status_trace("handle_peer %s: duplicate, dropping",
-				     type_to_string(trc, struct pubkey, &id));
-			return io_recv_fd(conn, fd, discard_peer_fd, fd);
-		}
-		status_trace("handle_peer %s: found remote duplicate, dropping",
-			     type_to_string(trc, struct pubkey, &id));
-		tal_free(peer);
+	peer = find_peer(daemon, &rpeer->id);
+	if (!peer)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "hand_back_peer unknown peer: %s",
+			      type_to_string(trc, struct pubkey, &rpeer->id));
+
+	/* We don't need the gossip_fd.  We could drain it, so no gossip msgs
+	 * are missed, but that seems overkill. */
+	close(rpeer->gossip_fd);
+
+	/* Possible if there's a reconnect: ignore handed back. */
+	if (peer->local) {
+		status_trace("hand_back_peer %s: reconnected, dropping handback",
+			     type_to_string(trc, struct pubkey, &rpeer->id));
+
+		close(rpeer->peer_fd);
+		tal_free(rpeer);
+		return daemon_conn_read_next(conn, &daemon->master);
 	}
 
-	status_trace("handle_peer %s: new peer",
-		     type_to_string(trc, struct pubkey, &id));
-	peer = new_peer(daemon, daemon, &id, &addr, &cs);
-	peer->gfeatures = tal_steal(peer, gfeatures);
-	peer->lfeatures = tal_steal(peer, lfeatures);
-	peer_finalized(peer);
+	status_trace("hand_back_peer %s: now local again",
+		     type_to_string(trc, struct pubkey, &rpeer->id));
 
-	if (tal_len(inner_msg))
-		msg_enqueue(&peer->local->peer_out, take(inner_msg));
+	/* Now we talk to peer directly again. */
+	daemon_conn_clear(peer->remote);
+	peer->remote = tal_free(peer->remote);
 
-	return io_recv_fd(conn, &peer->local->fd, new_peer_got_fd, peer);
+	peer->local = new_local_peer_state(peer, &rpeer->cs);
+	peer->local->fd = rpeer->peer_fd;
+
+	/* If they told us to send a message, queue it now */
+	if (tal_len(rpeer->inner_msg))
+		msg_enqueue(&peer->local->peer_out, take(rpeer->inner_msg));
+	tal_free(rpeer);
+
+	return new_peer_got_fd(conn, peer);
+}
+
+static struct io_plan *read_returning_gossipfd(struct io_conn *conn,
+					       struct returning_peer *rpeer)
+{
+	return io_recv_fd(conn, &rpeer->gossip_fd,
+			  handle_returning_peer, rpeer);
+}
+
+static struct io_plan *hand_back_peer(struct io_conn *conn,
+				      struct daemon *daemon,
+				      const u8 *msg)
+{
+	struct returning_peer *rpeer = tal(daemon, struct returning_peer);
+
+	rpeer->daemon = daemon;
+	if (!fromwire_gossipctl_hand_back_peer(msg, msg, NULL,
+					       &rpeer->id, &rpeer->cs,
+					       &rpeer->inner_msg))
+		master_badmsg(WIRE_GOSSIPCTL_HAND_BACK_PEER, msg);
+
+	return io_recv_fd(conn, &rpeer->peer_fd,
+			  read_returning_gossipfd, rpeer);
 }
 
 static struct io_plan *release_peer(struct io_conn *conn, struct daemon *daemon,
@@ -1483,8 +1508,8 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 		handle_forwarded_msg(conn, daemon, daemon->master.msg_in);
 		return daemon_conn_read_next(conn, &daemon->master);
 
-	case WIRE_GOSSIPCTL_HANDLE_PEER:
-		return handle_peer(conn, daemon, master->msg_in);
+	case WIRE_GOSSIPCTL_HAND_BACK_PEER:
+		return hand_back_peer(conn, daemon, master->msg_in);
 
 	case WIRE_GOSSIPCTL_REACH_PEER:
 		return reach_peer(conn, daemon, master->msg_in);
