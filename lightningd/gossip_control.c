@@ -27,9 +27,10 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 	struct crypto_state cs;
 	struct wireaddr addr;
 	u8 *gfeatures, *lfeatures, *in_pkt;
+	u64 gossip_index;
 
 	if (!fromwire_gossip_peer_nongossip(msg, msg, NULL,
-					    &id, &addr, &cs,
+					    &id, &addr, &cs, &gossip_index,
 					    &gfeatures,
 					    &lfeatures,
 					    &in_pkt))
@@ -47,7 +48,8 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 		return;
 	}
 
-	peer_sent_nongossip(gossip->ld, &id, &addr, &cs, gfeatures, lfeatures,
+	peer_sent_nongossip(gossip->ld, &id, &addr, &cs, gossip_index,
+			    gfeatures, lfeatures,
 			    peer_fd, gossip_fd, in_pkt);
 }
 
@@ -70,6 +72,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 	case WIRE_GOSSIPCTL_PEER_ADDRHINT:
 	case WIRE_GOSSIP_GET_UPDATE:
+	case WIRE_GOSSIP_SEND_GOSSIP:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:

@@ -31,6 +31,7 @@ gossip_peer_connected,3002
 gossip_peer_connected,,id,struct pubkey
 gossip_peer_connected,,addr,struct wireaddr
 gossip_peer_connected,,crypto_state,struct crypto_state
+gossip_peer_connected,,gossip_index,u64
 gossip_peer_connected,,gflen,u16
 gossip_peer_connected,,gfeatures,gflen*u8
 gossip_peer_connected,,lflen,u16
@@ -41,6 +42,7 @@ gossip_peer_nongossip,3003
 gossip_peer_nongossip,,id,struct pubkey
 gossip_peer_nongossip,,addr,struct wireaddr
 gossip_peer_nongossip,,crypto_state,struct crypto_state
+gossip_peer_nongossip,,gossip_index,u64
 gossip_peer_nongossip,,gflen,u16
 gossip_peer_nongossip,,gfeatures,gflen*u8
 gossip_peer_nongossip,,lflen,u16
@@ -56,6 +58,7 @@ gossipctl_release_peer,,id,struct pubkey
 gossipctl_release_peer_reply,3104
 gossipctl_release_peer_reply,,addr,struct wireaddr
 gossipctl_release_peer_reply,,crypto_state,struct crypto_state
+gossipctl_release_peer_reply,,gossip_index,u64
 gossipctl_release_peer_reply,,gflen,u16
 gossipctl_release_peer_reply,,gfeatures,gflen*u8
 gossipctl_release_peer_reply,,lflen,u16
@@ -64,10 +67,11 @@ gossipctl_release_peer_reply,,lfeatures,lflen*u8
 # Gossipd -> master:  reply to gossip_release_peer if we couldn't find the peer.
 gossipctl_release_peer_replyfail,3204
 
-# Gossipd -> master: take back peer, with optional msg. (+peer fd, +gossip fd)
+# master -> gossipd: take back peer, with optional msg. (+peer fd, +gossip fd)
 gossipctl_hand_back_peer,3013
 gossipctl_hand_back_peer,,id,struct pubkey
 gossipctl_hand_back_peer,,crypto_state,struct crypto_state
+gossipctl_hand_back_peer,,gossip_index,u64
 gossipctl_hand_back_peer,,len,u16
 gossipctl_hand_back_peer,,msg,len*u8
 
@@ -141,3 +145,8 @@ gossip_get_update_reply,3112
 gossip_get_update_reply,,len,u16
 gossip_get_update_reply,,update,len*u8
 
+# Gossipd can tell channeld etc about gossip to fwd.
+gossip_send_gossip,3016
+gossip_send_gossip,,gossip_index,u64
+gossip_send_gossip,,len,u16
+gossip_send_gossip,,gossip,len*u8

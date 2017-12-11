@@ -168,6 +168,7 @@ int main(int argc, char *argv[])
 	secp256k1_ecdsa_signature sig;
 	bool reconnected;
 	u64 next_index[NUM_SIDES], revocations_received;
+	u64 gossip_index;
 
 	if (argc == 2 && streq(argv[1], "--version")) {
 		printf("%s\n", version());
@@ -184,7 +185,7 @@ int main(int argc, char *argv[])
 
 	msg = wire_sync_read(ctx, REQ_FD);
 	if (!fromwire_closing_init(ctx, msg, NULL,
-				   &cs, &seed,
+				   &cs, &gossip_index, &seed,
 				   &funding_txid, &funding_txout,
 				   &funding_satoshi,
 				   &funding_pubkey[REMOTE],
@@ -473,7 +474,8 @@ int main(int argc, char *argv[])
 	}
 
 	/* We're done! */
-	wire_sync_write(REQ_FD, take(towire_closing_complete(ctx)));
+	wire_sync_write(REQ_FD,
+			take(towire_closing_complete(ctx, gossip_index)));
 	tal_free(ctx);
 
 	return 0;

@@ -38,6 +38,7 @@
 
 struct state {
 	struct crypto_state cs;
+	u64 gossip_index;
 	struct pubkey next_per_commit[NUM_SIDES];
 
 	/* Initially temporary, then final channel id. */
@@ -89,6 +90,7 @@ static void negotiation_failed(struct state *state, bool send_error,
 
 	/* Tell master we should return to gossiping. */
 	msg = towire_opening_negotiation_failed(state, &state->cs,
+						state->gossip_index,
 						(const u8 *)errmsg);
 	wire_sync_write(REQ_FD, msg);
 	fdpass_send(REQ_FD, PEER_FD);
@@ -502,7 +504,7 @@ static u8 *funder_channel(struct state *state,
 					   state->remoteconf,
 					   tx,
 					   &sig,
-					   &state->cs,
+					   &state->cs, state->gossip_index,
 					   &theirs.revocation,
 					   &theirs.payment,
 					   &theirs.htlc,
@@ -726,6 +728,7 @@ static u8 *fundee_channel(struct state *state,
 					   their_commit,
 					   &theirsig,
 					   &state->cs,
+					   state->gossip_index,
 					   &theirs.revocation,
 					   &theirs.payment,
 					   &theirs.htlc,
@@ -778,6 +781,7 @@ int main(int argc, char *argv[])
 				   &state->max_to_self_delay,
 				   &state->min_effective_htlc_capacity_msat,
 				   &state->cs,
+				   &state->gossip_index,
 				   &seed))
 		master_badmsg(WIRE_OPENING_INIT, msg);
 

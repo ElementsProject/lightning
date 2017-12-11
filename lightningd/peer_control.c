@@ -61,21 +61,25 @@ static void peer_offer_channel(struct lightningd *ld,
 			       struct funding_channel *fc,
 			       const struct wireaddr *addr,
 			       const struct crypto_state *cs,
+			       u64 gossip_index,
 			       const u8 *gfeatures, const u8 *lfeatures,
 			       int peer_fd, int gossip_fd);
 static bool peer_start_channeld(struct peer *peer,
 				const struct crypto_state *cs,
+				u64 gossip_index,
 				int peer_fd, int gossip_fd,
 				const u8 *funding_signed,
 				bool reconnected);
 static void peer_start_closingd(struct peer *peer,
 				struct crypto_state *cs,
+				u64 gossip_index,
 				int peer_fd, int gossip_fd,
 				bool reconnected);
 static void peer_accept_channel(struct lightningd *ld,
 				const struct pubkey *peer_id,
 				const struct wireaddr *addr,
 				const struct crypto_state *cs,
+				u64 gossip_index,
 				const u8 *gfeatures, const u8 *lfeatures,
 				int peer_fd, int gossip_fd,
 				const u8 *open_msg);
@@ -548,9 +552,10 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	u8 *error;
 	struct peer *peer;
 	struct wireaddr addr;
+	u64 gossip_index;
 
 	if (!fromwire_gossip_peer_connected(msg, msg, NULL,
-					    &id, &addr, &cs,
+					    &id, &addr, &cs, &gossip_index,
 					    &gfeatures, &lfeatures))
 		fatal("Gossip gave bad GOSSIP_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
@@ -620,7 +625,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			peer_set_owner(peer, NULL);
 
 			peer->addr = addr;
-			peer_start_channeld(peer, &cs, peer_fd, gossip_fd, NULL,
+			peer_start_channeld(peer, &cs, gossip_index,
+					    peer_fd, gossip_fd, NULL,
 					    true);
 			return;
 
@@ -631,7 +637,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 			peer_set_owner(peer, NULL);
 
 			peer->addr = addr;
-			peer_start_closingd(peer, &cs, peer_fd, gossip_fd,
+			peer_start_closingd(peer, &cs, gossip_index,
+					    peer_fd, gossip_fd,
 					    true);
 			return;
 		}
@@ -640,7 +647,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 return_to_gossipd:
 	/* Otherwise, we hand back to gossipd, to continue. */
-	msg = towire_gossipctl_hand_back_peer(msg, &id, &cs, NULL);
+	msg = towire_gossipctl_hand_back_peer(msg, &id, &cs, gossip_index, NULL);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
 	subd_send_fd(ld->gossip, gossip_fd);
@@ -652,7 +659,8 @@ return_to_gossipd:
 send_error:
 	/* Hand back to gossipd, with an error packet. */
 	connect_failed(ld, &id, sanitize_error(msg, error, NULL));
-	msg = towire_gossipctl_hand_back_peer(msg, &id, &cs, error);
+	msg = towire_gossipctl_hand_back_peer(msg, &id, &cs, gossip_index,
+					      error);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
 	subd_send_fd(ld->gossip, gossip_fd);
@@ -662,6 +670,7 @@ void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
 			 const struct wireaddr *addr,
 			 const struct crypto_state *cs,
+			 u64 gossip_index,
 			 const u8 *gfeatures,
 			 const u8 *lfeatures,
 			 int peer_fd, int gossip_fd,
@@ -689,7 +698,8 @@ void peer_sent_nongossip(struct lightningd *ld,
 
 	/* Open request? */
 	if (fromwire_peektype(in_msg) == WIRE_OPEN_CHANNEL) {
-		peer_accept_channel(ld, id, addr, cs, gfeatures, lfeatures,
+		peer_accept_channel(ld, id, addr, cs, gossip_index,
+				    gfeatures, lfeatures,
 				    peer_fd, gossip_fd, in_msg);
 		return;
 	}
@@ -702,7 +712,7 @@ void peer_sent_nongossip(struct lightningd *ld,
 send_error:
 	/* Hand back to gossipd, with an error packet. */
 	connect_failed(ld, id, sanitize_error(error, error, NULL));
-	msg = towire_gossipctl_hand_back_peer(ld, id, cs, error);
+	msg = towire_gossipctl_hand_back_peer(ld, id, cs, gossip_index, error);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
 	subd_send_fd(ld->gossip, gossip_fd);
@@ -1528,7 +1538,8 @@ static enum watch_result funding_lockin_cb(struct peer *peer,
 static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 					int peer_fd, int gossip_fd,
 					const u8 *resp,
-					const struct crypto_state *cs)
+					const struct crypto_state *cs,
+					u64 gossip_index)
 {
 	secp256k1_ecdsa_signature *sigs;
 	struct bitcoin_tx *tx = fc->funding_tx;
@@ -1580,7 +1591,8 @@ static void opening_got_hsm_funding_sig(struct funding_channel *fc,
 	fc->peer->opening_cmd = NULL;
 
 	/* Start normal channel daemon. */
-	peer_start_channeld(fc->peer, cs, peer_fd, gossip_fd, NULL, false);
+	peer_start_channeld(fc->peer, cs, gossip_index,
+			    peer_fd, gossip_fd, NULL, false);
 	peer_set_condition(fc->peer, OPENINGD, CHANNELD_AWAITING_LOCKIN);
 
 	wallet_confirm_utxos(fc->peer->ld->wallet, fc->utxomap);
@@ -1829,7 +1841,10 @@ static void peer_received_closing_signature(struct peer *peer, const u8 *msg)
 
 static void peer_closing_complete(struct peer *peer, const u8 *msg)
 {
-	if (!fromwire_closing_complete(msg, NULL)) {
+	/* FIXME: We should save this, to return to gossipd */
+	u64 gossip_index;
+
+	if (!fromwire_closing_complete(msg, NULL, &gossip_index)) {
 		peer_internal_error(peer, "Bad closing_complete %s",
 				    tal_hex(peer, msg));
 		return;
@@ -1867,6 +1882,7 @@ static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds)
 
 static void peer_start_closingd(struct peer *peer,
 				struct crypto_state *cs,
+				u64 gossip_index,
 				int peer_fd, int gossip_fd,
 				bool reconnected)
 {
@@ -1942,6 +1958,7 @@ static void peer_start_closingd(struct peer *peer,
 	 */
 	initmsg = towire_closing_init(tmpctx,
 				      cs,
+				      gossip_index,
 				      peer->seed,
 				      peer->funding_txid,
 				      peer->funding_outnum,
@@ -1970,18 +1987,19 @@ static void peer_start_closingd_after_shutdown(struct peer *peer, const u8 *msg,
 					       const int *fds)
 {
 	struct crypto_state cs;
+	u64 gossip_index;
 
 	/* We expect 2 fds. */
 	assert(tal_count(fds) == 2);
 
-	if (!fromwire_channel_shutdown_complete(msg, NULL, &cs)) {
+	if (!fromwire_channel_shutdown_complete(msg, NULL, &cs, &gossip_index)) {
 		peer_internal_error(peer, "bad shutdown_complete: %s",
 				    tal_hex(peer, msg));
 		return;
 	}
 
 	/* This sets peer->owner, closes down channeld. */
-	peer_start_closingd(peer, &cs, fds[0], fds[1], false);
+	peer_start_closingd(peer, &cs, gossip_index, fds[0], fds[1], false);
 	peer_set_condition(peer, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
 }
 
@@ -2045,6 +2063,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 
 static bool peer_start_channeld(struct peer *peer,
 				const struct crypto_state *cs,
+				u64 gossip_index,
 				int peer_fd, int gossip_fd,
 				const u8 *funding_signed,
 				bool reconnected)
@@ -2135,7 +2154,7 @@ static bool peer_start_channeld(struct peer *peer,
 				      get_feerate(peer->ld->topology, FEERATE_NORMAL),
 				      get_feerate(peer->ld->topology, FEERATE_IMMEDIATE) * 5,
 				      peer->last_sig,
-				      cs,
+				      cs, gossip_index,
 				      &peer->channel_info->remote_fundingkey,
 				      &peer->channel_info->theirbase.revocation,
 				      &peer->channel_info->theirbase.payment,
@@ -2196,6 +2215,7 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 	struct crypto_state cs;
 	secp256k1_ecdsa_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
+	u64 gossip_index;
 
 	assert(tal_count(fds) == 2);
 
@@ -2212,6 +2232,7 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 					   remote_commit,
 					   &remote_commit_sig,
 					   &cs,
+					   &gossip_index,
 					   &channel_info->theirbase.revocation,
 					   &channel_info->theirbase.payment,
 					   &channel_info->theirbase.htlc,
@@ -2301,7 +2322,7 @@ static void opening_funder_finished(struct subd *opening, const u8 *resp,
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = hsm_sync_read(fc, fc->peer->ld);
-	opening_got_hsm_funding_sig(fc, fds[0], fds[1], msg, &cs);
+	opening_got_hsm_funding_sig(fc, fds[0], fds[1], msg, &cs, gossip_index);
 }
 
 static void opening_fundee_finished(struct subd *opening,
@@ -2312,6 +2333,7 @@ static void opening_fundee_finished(struct subd *opening,
 	u8 *funding_signed;
 	struct channel_info *channel_info;
 	struct crypto_state cs;
+	u64 gossip_index;
 	secp256k1_ecdsa_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
 
@@ -2331,6 +2353,7 @@ static void opening_fundee_finished(struct subd *opening,
 					   remote_commit,
 					   &remote_commit_sig,
 					   &cs,
+					   &gossip_index,
 					   &channel_info->theirbase.revocation,
 					   &channel_info->theirbase.payment,
 					   &channel_info->theirbase.htlc,
@@ -2376,7 +2399,8 @@ static void opening_fundee_finished(struct subd *opening,
 	peer_set_owner(peer, NULL);
 
 	/* On to normal operation! */
-	peer_start_channeld(peer, &cs, fds[0], fds[1], funding_signed, false);
+	peer_start_channeld(peer, &cs, gossip_index,
+			    fds[0], fds[1], funding_signed, false);
 	peer_set_condition(peer, OPENINGD, CHANNELD_AWAITING_LOCKIN);
 }
 
@@ -2386,6 +2410,7 @@ static unsigned int opening_negotiation_failed(struct subd *openingd,
 					       const int *fds)
 {
 	struct crypto_state cs;
+	u64 gossip_index;
 	struct peer *peer = openingd->peer;
 	u8 *err;
 	const char *why;
@@ -2394,14 +2419,16 @@ static unsigned int opening_negotiation_failed(struct subd *openingd,
 	if (tal_count(fds) == 0)
 		return 2;
 	
-	if (!fromwire_opening_negotiation_failed(msg, msg, NULL, &cs, &err)) {
+	if (!fromwire_opening_negotiation_failed(msg, msg, NULL,
+						 &cs, &gossip_index, &err)) {
 		peer_internal_error(peer,
 				    "bad OPENING_NEGOTIATION_FAILED %s",
 				    tal_hex(msg, msg));
 		return 0;
 	}
 
-	msg = towire_gossipctl_hand_back_peer(msg, &peer->id, &cs, NULL);
+	msg = towire_gossipctl_hand_back_peer(msg, &peer->id, &cs, gossip_index,
+					      NULL);
 	subd_send_msg(openingd->ld->gossip, take(msg));
 	subd_send_fd(openingd->ld->gossip, fds[0]);
 	subd_send_fd(openingd->ld->gossip, fds[1]);
@@ -2419,6 +2446,7 @@ static void peer_accept_channel(struct lightningd *ld,
 				const struct pubkey *peer_id,
 				const struct wireaddr *addr,
 				const struct crypto_state *cs,
+				u64 gossip_index,
 				const u8 *gfeatures, const u8 *lfeatures,
 				int peer_fd, int gossip_fd,
 				const u8 *open_msg)
@@ -2470,7 +2498,7 @@ static void peer_accept_channel(struct lightningd *ld,
 				  &peer->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
-				  cs, peer->seed);
+				  cs, gossip_index, peer->seed);
 
 	subd_send_msg(peer->owner, take(msg));
 
@@ -2493,6 +2521,7 @@ static void peer_offer_channel(struct lightningd *ld,
 			       struct funding_channel *fc,
 			       const struct wireaddr *addr,
 			       const struct crypto_state *cs,
+			       u64 gossip_index,
 			       const u8 *gfeatures, const u8 *lfeatures,
 			       int peer_fd, int gossip_fd)
 {
@@ -2550,7 +2579,7 @@ static void peer_offer_channel(struct lightningd *ld,
 				  &fc->peer->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity_msat,
-				  cs, fc->peer->seed);
+				  cs, gossip_index, fc->peer->seed);
 	subd_send_msg(fc->peer->owner, take(msg));
 
 	utxos = from_utxoptr_arr(fc, fc->utxomap);
@@ -2579,6 +2608,7 @@ static void gossip_peer_released(struct subd *gossip,
 {
 	struct lightningd *ld = gossip->ld;
 	struct crypto_state cs;
+	u64 gossip_index;
 	u8 *gfeatures, *lfeatures;
 	struct wireaddr addr;
 
@@ -2586,6 +2616,7 @@ static void gossip_peer_released(struct subd *gossip,
 	fc->peer = peer_by_id(ld, &fc->peerid);
 
 	if (!fromwire_gossipctl_release_peer_reply(fc, resp, NULL, &addr, &cs,
+						   &gossip_index,
 						   &gfeatures, &lfeatures)) {
 		if (!fromwire_gossipctl_release_peer_replyfail(resp, NULL)) {
 			fatal("Gossip daemon gave invalid reply %s",
@@ -2611,7 +2642,8 @@ static void gossip_peer_released(struct subd *gossip,
 	}
 
 	/* OK, offer peer a channel. */
-	peer_offer_channel(ld, fc, &addr, &cs, gfeatures, lfeatures,
+	peer_offer_channel(ld, fc, &addr, &cs, gossip_index,
+			   gfeatures, lfeatures,
 			   fds[0], fds[1]);
 }
 
