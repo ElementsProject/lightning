@@ -629,6 +629,17 @@ static void wake_pkt_out(struct peer *peer)
 		msg_wake(&peer->remote->out);
 }
 
+/* Mutual recursion. */
+static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer);
+
+static struct io_plan *local_gossip_broadcast_done(struct io_conn *conn,
+						   struct peer *peer)
+{
+	status_trace("%s", __func__);
+	peer->broadcast_index++;
+	return peer_pkt_out(conn, peer);
+}
+
 static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer)
 {
 	/* First priority is queued packets, if any */
@@ -655,11 +666,12 @@ static struct io_plan *peer_pkt_out(struct io_conn *conn, struct peer *peer)
 		struct queued_message *next;
 
 		next = next_broadcast_message(peer->daemon->rstate->broadcasts,
-					      &peer->broadcast_index);
+					      peer->broadcast_index);
 
 		if (next)
 			return peer_write_message(conn, &peer->local->pcs,
-						  next->payload, peer_pkt_out);
+						  next->payload,
+						  local_gossip_broadcast_done);
 
 		/* Gossip is drained.  Wait for next timer. */
 		peer->gossip_sync = false;
@@ -787,6 +799,16 @@ static bool send_peer_with_fds(struct peer *peer, const u8 *msg)
 	return true;
 }
 
+static struct io_plan *nonlocal_gossip_broadcast_done(struct io_conn *conn,
+						      struct daemon_conn *dc)
+{
+	struct peer *peer = dc->ctx;
+
+	status_trace("%s", __func__);
+	peer->broadcast_index++;
+	return nonlocal_dump_gossip(conn, dc);
+}
+
 /**
  * nonlocal_dump_gossip - catch the nonlocal peer up with the latest gossip.
  *
@@ -802,13 +824,14 @@ static struct io_plan *nonlocal_dump_gossip(struct io_conn *conn, struct daemon_
 	assert(!peer->local);
 
 	next = next_broadcast_message(peer->daemon->rstate->broadcasts,
-				      &peer->broadcast_index);
+				      peer->broadcast_index);
 
 	if (!next) {
 		return msg_queue_wait(conn, &peer->remote->out,
 				      daemon_conn_write_next, dc);
 	} else {
-		return io_write_wire(conn, next->payload, nonlocal_dump_gossip, dc);
+		return io_write_wire(conn, next->payload,
+				     nonlocal_gossip_broadcast_done, dc);
 	}
 }
 

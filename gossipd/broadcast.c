@@ -27,13 +27,13 @@ void queue_broadcast(struct broadcast_state *bstate,
 		     const u8 *payload)
 {
 	struct queued_message *msg;
-	u64 index = 0;
+	u64 index;
+
 	/* Remove any tag&type collisions */
-	while (true) {
-		msg = next_broadcast_message(bstate, &index);
-		if (msg == NULL)
-			break;
-		else if (msg->type == type && memcmp(msg->tag, tag, tal_count(tag)) == 0) {
+	for (msg = uintmap_first(&bstate->broadcasts, &index);
+	     msg;
+	     msg = uintmap_after(&bstate->broadcasts, &index)) {
+		if (msg->type == type && memcmp(msg->tag, tag, tal_count(tag)) == 0) {
 			uintmap_del(&bstate->broadcasts, index);
 			tal_free(msg);
 		}
@@ -45,7 +45,7 @@ void queue_broadcast(struct broadcast_state *bstate,
 	bstate->next_index += 1;
 }
 
-struct queued_message *next_broadcast_message(struct broadcast_state *bstate, u64 *last_index)
+struct queued_message *next_broadcast_message(struct broadcast_state *bstate, u64 last_index)
 {
-	return uintmap_after(&bstate->broadcasts, last_index);
+	return uintmap_after(&bstate->broadcasts, &last_index);
 }
