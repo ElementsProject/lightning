@@ -35,6 +35,6 @@ void queue_broadcast(struct broadcast_state *bstate,
 			     const u8 *tag,
 			     const u8 *payload);
 
-struct queued_message *next_broadcast_message(struct broadcast_state *bstate, u64 *last_index);
+struct queued_message *next_broadcast_message(struct broadcast_state *bstate, u64 last_index);
 
 #endif /* LIGHTNING_LIGHTNINGD_GOSSIP_BROADCAST_H */
