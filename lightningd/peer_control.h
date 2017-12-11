@@ -26,9 +26,6 @@ struct peer {
 	/* ID of peer */
 	struct pubkey id;
 
-	/* Global and local features bitfields. */
-	const u8 *gfeatures, *lfeatures;
-
 	/* Error message (iff in error state) */
 	u8 *error;
 

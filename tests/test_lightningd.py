@@ -221,8 +221,8 @@ class LightningDTests(BaseLightningDTests):
 
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
         return l1,l2
 
     # Returns the short channel-id: <blocknum>:<txnum>:<outnum>
@@ -342,8 +342,8 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.getpeer(l1.info['id'])['state'] == 'GOSSIPING'
 
         # Both gossipds will have them as new peers once handed back.
-        l1.daemon.wait_for_log('handle_peer {}: new peer'.format(l2.info['id']))
-        l2.daemon.wait_for_log('handle_peer {}: new peer'.format(l1.info['id']))
+        l1.daemon.wait_for_log('hand_back_peer {}: now local again'.format(l2.info['id']))
+        l2.daemon.wait_for_log('hand_back_peer {}: now local again'.format(l1.info['id']))
 
     def test_balance(self):
         l1,l2 = self.connect()
@@ -709,8 +709,8 @@ class LightningDTests(BaseLightningDTests):
 
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
 
         addr = l1.rpc.newaddr()['address']
         txid = l1.bitcoin.rpc.sendtoaddress(addr, 10**6 / 10**8 + 0.01)
@@ -1406,7 +1406,7 @@ class LightningDTests(BaseLightningDTests):
 
         assert ret['id'] == l3.info['id']
 
-        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
         self.fund_channel(l1, l2, 10**6)
         self.fund_channel(l2, l3, 10**6)
 
@@ -1497,14 +1497,14 @@ class LightningDTests(BaseLightningDTests):
         ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
 
         ret = l2.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
         assert ret['id'] == l3.info['id']
 
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
-        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
 
         c1 = self.fund_channel(l1, l2, 10**6)
         c2 = self.fund_channel(l2, l3, 10**6)
@@ -1596,14 +1596,14 @@ class LightningDTests(BaseLightningDTests):
         ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
 
         ret = l2.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
         assert ret['id'] == l3.info['id']
 
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
-        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
 
         c1 = self.fund_channel(l1, l2, 10**6)
         c2 = self.fund_channel(l2, l3, 10**6)

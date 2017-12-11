@@ -92,6 +92,7 @@ static void negotiation_failed(struct state *state, bool send_error,
 						(const u8 *)errmsg);
 	wire_sync_write(REQ_FD, msg);
 	fdpass_send(REQ_FD, PEER_FD);
+	fdpass_send(REQ_FD, GOSSIP_FD);
 
 	tal_free(state);
 	exit(0);
