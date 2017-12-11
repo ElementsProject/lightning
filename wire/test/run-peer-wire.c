@@ -70,16 +70,6 @@ static void set_pubkey(struct pubkey *key)
 #define eq_var(p1, p2, field)			\
 	(tal_count((p1)->field) == tal_count((p2)->field) && memcmp((p1)->field, (p2)->field, tal_count((p1)->field) * sizeof(*(p1)->field)) == 0)
 
-static inline bool eq_skip_(const void *p1, const void *p2,
-			    size_t off, size_t skip, size_t total)
-{
-	if (memcmp(p1, p2, off) != 0)
-		return false;
-	p1 = (char *)p1 + off + skip;
-	p2 = (char *)p2 + off + skip;
-	return memcmp(p1, p2, total - (off + skip)) == 0;
-}
-
 /* Convenience structs for everyone! */
 struct msg_error {
 	struct channel_id channel_id;
