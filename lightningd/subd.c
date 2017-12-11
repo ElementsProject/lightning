@@ -523,8 +523,13 @@ static void destroy_subd(struct subd *sd)
 
 	switch (waitpid(sd->pid, &status, WNOHANG)) {
 	case 0:
-		log_debug(sd->log, "Status closed, but not exited. Killing");
-		kill(sd->pid, SIGKILL);
+		/* If it's an essential daemon, don't kill: we want the
+		 * exit status */
+		if (!sd->must_not_exit) {
+			log_debug(sd->log,
+				  "Status closed, but not exited. Killing");
+			kill(sd->pid, SIGKILL);
+		}
 		waitpid(sd->pid, &status, 0);
 		fail_if_subd_fails = false;
 		break;
