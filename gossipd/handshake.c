@@ -687,6 +687,7 @@ static struct io_plan *act_one_initiator(struct io_conn *conn,
 				      SECP256K1_EC_COMPRESSED);
 	SUPERVERBOSE("output: 0x%s", tal_hexstr(trc, &h->act1, ACT_ONE_SIZE));
 
+	check_act_one(&h->act1);
 	return io_write(conn, &h->act1, ACT_ONE_SIZE, act_two_initiator, h);
 }
 
@@ -764,6 +765,7 @@ static struct io_plan *act_three_responder2(struct io_conn *conn,
 		     h->act3.tag, sizeof(h->act3.tag), NULL, 0))
 		return handshake_failed(conn, h);
 
+	check_act_three(&h->act3);
 	return handshake_succeeded(conn, h);
 }
 
@@ -859,6 +861,7 @@ static struct io_plan *act_two_responder(struct io_conn *conn,
 				      SECP256K1_EC_COMPRESSED);
 	SUPERVERBOSE("output: 0x%s", tal_hexstr(trc, &h->act2, ACT_TWO_SIZE));
 
+	check_act_two(&h->act2);
 	return io_write(conn, &h->act2, ACT_TWO_SIZE, act_three_responder, h);
 }
 

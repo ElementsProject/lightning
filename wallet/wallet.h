@@ -180,14 +180,6 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 			      uint64_t index,
 			      const struct sha256 *hash);
 
-/* Simply passes through to shachain_get_hash since it doesn't touch
- * the DB */
-inline bool wallet_shachain_get_hash(struct wallet *w,
-				     struct wallet_shachain *chain,
-				     u64 index, struct sha256 *hash)
-{
-	return shachain_get_hash(&chain->chain, index, hash);
-}
 /**
  * wallet_shachain_load -- Load an existing shachain from the wallet.
  *
