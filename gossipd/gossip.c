@@ -432,7 +432,7 @@ static void send_node_announcement(struct daemon *daemon)
 	 * from the HSM, create the real announcement and forward it to
 	 * gossipd so it can take care of forwarding it. */
 	nannounce = create_node_announcement(tmpctx, daemon, &sig, timestamp);
-	handle_node_announcement(daemon->rstate, take(nannounce), tal_len(nannounce));
+	handle_node_announcement(daemon->rstate, take(nannounce));
 	tal_free(tmpctx);
 }
 
@@ -445,17 +445,17 @@ static void handle_gossip_msg(struct daemon *daemon, u8 *msg)
 		/* Add the channel_announcement to the routing state,
 		 * it'll tell us whether this is local and signed, so
 		 * we can hand in a node_announcement as well. */
-		if(handle_channel_announcement(rstate, msg, tal_count(msg))) {
+		if(handle_channel_announcement(rstate, msg)) {
 			send_node_announcement(daemon);
 		}
 		break;
 
 	case WIRE_NODE_ANNOUNCEMENT:
-		handle_node_announcement(rstate, msg, tal_count(msg));
+		handle_node_announcement(rstate, msg);
 		break;
 
 	case WIRE_CHANNEL_UPDATE:
-		handle_channel_update(rstate, msg, tal_count(msg));
+		handle_channel_update(rstate, msg);
 		break;
 	}
 }

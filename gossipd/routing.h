@@ -128,9 +128,9 @@ struct node_connection *get_connection_by_scid(const struct routing_state *rstat
  * means that if we haven't sent a node_announcement just yet, now
  * would be a good time.
  */
-bool handle_channel_announcement(struct routing_state *rstate, const u8 *announce, size_t len);
-void handle_channel_update(struct routing_state *rstate, const u8 *update, size_t len);
-void handle_node_announcement(struct routing_state *rstate, const u8 *node, size_t len);
+bool handle_channel_announcement(struct routing_state *rstate, const u8 *announce);
+void handle_channel_update(struct routing_state *rstate, const u8 *update);
+void handle_node_announcement(struct routing_state *rstate, const u8 *node);
 
 /* Compute a route to a destination, for a given amount and riskfactor. */
 struct route_hop *get_route(tal_t *ctx, struct routing_state *rstate,
