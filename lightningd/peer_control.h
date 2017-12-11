@@ -26,9 +26,6 @@ struct peer {
 	/* ID of peer */
 	struct pubkey id;
 
-	/* Global and local features bitfields. */
-	const u8 *gfeatures, *lfeatures;
-
 	/* Error message (iff in error state) */
 	u8 *error;
 
@@ -41,6 +38,9 @@ struct peer {
 	/* Which side offered channel? */
 	enum side funder;
 
+	/* Command which ordered us to open channel, if any. */
+	struct command *opening_cmd;
+	
 	/* Inside ld->peers. */
 	struct list_node list;
 
@@ -176,6 +176,7 @@ void peer_sent_nongossip(struct lightningd *ld,
 			 const struct pubkey *id,
 			 const struct wireaddr *addr,
 			 const struct crypto_state *cs,
+			 u64 gossip_index,
 			 const u8 *gfeatures,
 			 const u8 *lfeatures,
 			 int peer_fd, int gossip_fd,
@@ -211,6 +212,9 @@ void peer_fail_permanent(struct peer *peer, const u8 *msg TAKES);
 void peer_fail_permanent_str(struct peer *peer, const char *str TAKES);
 /* Permanent error, but due to internal problems, not peer. */
 void peer_internal_error(struct peer *peer, const char *fmt, ...);
+
+/* Peer has failed to open; return to gossipd. */
+void opening_failed(struct peer *peer, const u8 *msg TAKES);
 
 const char *peer_state_name(enum peer_state state);
 void peer_set_condition(struct peer *peer, enum peer_state oldstate,

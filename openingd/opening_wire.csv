@@ -9,6 +9,7 @@ opening_init,,our_config,struct channel_config
 opening_init,,max_to_self_delay,u32
 opening_init,,min_effective_htlc_capacity_msat,u64
 opening_init,,crypto_state,struct crypto_state
+opening_init,,gossip_index,u64
 # Seed to generate all the keys from
 opening_init,,seed,struct privkey
 
@@ -34,6 +35,7 @@ opening_funder_reply,,their_config,struct channel_config
 opening_funder_reply,,first_commit,struct bitcoin_tx
 opening_funder_reply,,first_commit_sig,secp256k1_ecdsa_signature
 opening_funder_reply,,crypto_state,struct crypto_state
+opening_funder_reply,,gossip_index,u64
 opening_funder_reply,,revocation_basepoint,struct pubkey
 opening_funder_reply,,payment_basepoint,struct pubkey
 opening_funder_reply,,htlc_basepoint,struct pubkey
@@ -58,6 +60,7 @@ opening_fundee_reply,,their_config,struct channel_config
 opening_fundee_reply,,first_commit,struct bitcoin_tx
 opening_fundee_reply,,first_commit_sig,secp256k1_ecdsa_signature
 opening_fundee_reply,,crypto_state,struct crypto_state
+opening_fundee_reply,,gossip_index,u64
 opening_fundee_reply,,revocation_basepoint,struct pubkey
 opening_fundee_reply,,payment_basepoint,struct pubkey
 opening_fundee_reply,,htlc_basepoint,struct pubkey
@@ -73,3 +76,12 @@ opening_fundee_reply,,feerate_per_kw,u32
 # The (encrypted) funding signed message: send this and we're committed.
 opening_fundee_reply,,msglen,u16
 opening_fundee_reply,,funding_signed_msg,msglen*u8
+
+# We disagreed with opening parameters, but peer is ok for gossip (+ peerfd)
+opening_negotiation_failed,6010
+opening_negotiation_failed,,crypto_state,struct crypto_state
+opening_negotiation_failed,,gossip_index,u64
+opening_negotiation_failed,,len,u16
+# FIXME: string support!
+opening_negotiation_failed,,msg,len*u8
+

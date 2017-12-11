@@ -18,6 +18,7 @@ channel_init,,feerate_min,u32
 channel_init,,feerate_max,u32
 channel_init,,first_commit_sig,secp256k1_ecdsa_signature
 channel_init,,crypto_state,struct crypto_state
+channel_init,,gossip_index,u64
 channel_init,,remote_fundingkey,struct pubkey
 channel_init,,remote_revocation_basepoint,struct pubkey
 channel_init,,remote_payment_basepoint,struct pubkey
@@ -108,13 +109,6 @@ channel_ping,,len,u16
 channel_ping_reply,1111
 channel_ping_reply,,totlen,u16
 
-# Channeld tells the master to announce the channel (with first update)
-channel_announce,1012
-channel_announce,,announce_len,u16
-channel_announce,,announce,announce_len*u8
-channel_announce,,update_len,u16
-channel_announce,,update,update_len*u8
-
 # When we receive funding_locked.
 channel_got_funding_locked,1019
 channel_got_funding_locked,,next_per_commit_point,struct pubkey
@@ -183,6 +177,7 @@ channel_got_shutdown,,scriptpubkey,scriptpubkey_len*u8
 # Shutdown is complete, ready for closing negotiation. + peer_fd & gossip_fd.
 channel_shutdown_complete,1025
 channel_shutdown_complete,,crypto_state,struct crypto_state
+channel_shutdown_complete,,gossip_index,u64
 
 # Re-enable commit timer.
 channel_dev_reenable_commit,1026

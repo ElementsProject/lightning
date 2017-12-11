@@ -28,6 +28,10 @@ bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr)
 
 void towire_wireaddr(u8 **pptr, const struct wireaddr *addr)
 {
+	if (!addr || addr->type == ADDR_TYPE_PADDING) {
+		towire_u8(pptr, ADDR_TYPE_PADDING);
+		return;
+	}
 	towire_u8(pptr, addr->type);
 	towire(pptr, addr->addr, addr->addrlen);
 	towire_u16(pptr, addr->port);

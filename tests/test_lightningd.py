@@ -221,8 +221,8 @@ class LightningDTests(BaseLightningDTests):
 
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
         return l1,l2
 
     # Returns the short channel-id: <blocknum>:<txnum>:<outnum>
@@ -342,8 +342,8 @@ class LightningDTests(BaseLightningDTests):
         assert l2.rpc.getpeer(l1.info['id'])['state'] == 'GOSSIPING'
 
         # Both gossipds will have them as new peers once handed back.
-        l1.daemon.wait_for_log('handle_peer {}: new peer'.format(l2.info['id']))
-        l2.daemon.wait_for_log('handle_peer {}: new peer'.format(l1.info['id']))
+        l1.daemon.wait_for_log('hand_back_peer {}: now local again'.format(l2.info['id']))
+        l2.daemon.wait_for_log('hand_back_peer {}: now local again'.format(l1.info['id']))
 
     def test_balance(self):
         l1,l2 = self.connect()
@@ -706,8 +706,8 @@ class LightningDTests(BaseLightningDTests):
 
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
 
         addr = l1.rpc.newaddr()['address']
         txid = l1.bitcoin.rpc.sendtoaddress(addr, 10**6 / 10**8 + 0.01)
@@ -1403,7 +1403,7 @@ class LightningDTests(BaseLightningDTests):
 
         assert ret['id'] == l3.info['id']
 
-        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
         self.fund_channel(l1, l2, 10**6)
         self.fund_channel(l2, l3, 10**6)
 
@@ -1494,14 +1494,14 @@ class LightningDTests(BaseLightningDTests):
         ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
 
         ret = l2.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
         assert ret['id'] == l3.info['id']
 
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
-        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
 
         c1 = self.fund_channel(l1, l2, 10**6)
         c2 = self.fund_channel(l2, l3, 10**6)
@@ -1593,14 +1593,14 @@ class LightningDTests(BaseLightningDTests):
         ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l1.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
 
         ret = l2.rpc.connect(l3.info['id'], 'localhost', l3.info['port'])
         assert ret['id'] == l3.info['id']
 
-        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
-        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HANDLE_PEER')
+        l2.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
+        l3.daemon.wait_for_log('WIRE_GOSSIPCTL_HAND_BACK_PEER')
 
         c1 = self.fund_channel(l1, l2, 10**6)
         c2 = self.fund_channel(l2, l3, 10**6)
@@ -2095,6 +2095,61 @@ class LightningDTests(BaseLightningDTests):
         # The 10m out is spent and we have a change output of 9m-fee
         assert outputs[0] >   8990000
         assert outputs[2] == 10000000
+
+    def test_funding_fail(self):
+        """Add some funds, fund a channel without enough funds"""
+        # Previous runs with same bitcoind can leave funds!
+        l1 = self.node_factory.get_node(random_hsm=True)
+        max_locktime = 3 * 6 * 24
+        l2 = self.node_factory.get_node(options=['--locktime-blocks={}'.format(max_locktime + 1)])
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+
+        addr = l1.rpc.newaddr()['address']
+        txid = l1.bitcoin.rpc.sendtoaddress(addr, 0.01)
+        bitcoind.generate_block(1)
+
+        # Wait for it to arrive.
+        wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+        # Fail because l1 dislikes l2's huge locktime.
+        try:
+            l1.rpc.fundchannel(l2.info['id'], 100000)
+        except ValueError as verr:
+            str(verr).index('to_self_delay {} larger than {}'
+                            .format(max_locktime+1, max_locktime))
+        except Exception as err:
+            self.fail("Unexpected exception {}".format(err))
+        else:
+            self.fail("huge locktime ignored?")
+
+        # We don't have enough left to cover fees if we try to spend it all.
+        try:
+            l1.rpc.fundchannel(l2.info['id'], 1000000)
+        except ValueError as verr:
+            str(verr).index('Cannot afford funding transaction')
+        except Exception as err:
+            self.fail("Unexpected exception {}".format(err))
+        else:
+            self.fail("We somehow covered fees?")
+
+        # Should still be connected.
+        assert l1.rpc.getpeers()['peers'][0]['connected']
+        assert l2.rpc.getpeers()['peers'][0]['connected']
+
+        # Restart l2 without ridiculous locktime.
+        l2.daemon.proc.terminate()
+
+        l2.daemon.cmd_line.remove('--locktime-blocks={}'.format(max_locktime + 1))
+
+        # Wait for l1 to notice
+        wait_for(lambda: len(l1.rpc.getpeers()['peers']) == 0)
+
+        # Now restart l2, reconnect.
+        l2.daemon.start()
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.info['port'])
+
+        # This works.
+        l1.rpc.fundchannel(l2.info['id'], int(0.01 * 10**8 / 2))
 
     def test_addfunds_from_block(self):
         """Send funds to the daemon without telling it explicitly

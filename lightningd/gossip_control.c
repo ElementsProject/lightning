@@ -27,9 +27,10 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 	struct crypto_state cs;
 	struct wireaddr addr;
 	u8 *gfeatures, *lfeatures, *in_pkt;
+	u64 gossip_index;
 
 	if (!fromwire_gossip_peer_nongossip(msg, msg, NULL,
-					    &id, &addr, &cs,
+					    &id, &addr, &cs, &gossip_index,
 					    &gfeatures,
 					    &lfeatures,
 					    &in_pkt))
@@ -47,7 +48,8 @@ static void peer_nongossip(struct subd *gossip, const u8 *msg,
 		return;
 	}
 
-	peer_sent_nongossip(gossip->ld, &id, &addr, &cs, gfeatures, lfeatures,
+	peer_sent_nongossip(gossip->ld, &id, &addr, &cs, gossip_index,
+			    gfeatures, lfeatures,
 			    peer_fd, gossip_fd, in_pkt);
 }
 
@@ -64,12 +66,14 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GETPEERS_REQUEST:
 	case WIRE_GOSSIP_PING:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST:
-	case WIRE_GOSSIP_FORWARDED_MSG:
 	case WIRE_GOSSIPCTL_REACH_PEER:
-	case WIRE_GOSSIPCTL_HANDLE_PEER:
+	case WIRE_GOSSIPCTL_HAND_BACK_PEER:
 	case WIRE_GOSSIPCTL_RELEASE_PEER:
 	case WIRE_GOSSIPCTL_PEER_ADDRHINT:
+	/* Sent by channeld to gossipd, not us. */
 	case WIRE_GOSSIP_GET_UPDATE:
+	case WIRE_GOSSIP_NEW_CHANNEL:
+	case WIRE_GOSSIP_SEND_GOSSIP:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
 	case WIRE_GOSSIP_GETNODES_REPLY:
@@ -126,7 +130,8 @@ void gossip_init(struct lightningd *ld)
 				    &get_chainparams(ld)->genesis_blockhash,
 				    &ld->id, ld->portnum,
 				    get_supported_global_features(tmpctx),
-				    get_supported_local_features(tmpctx));
+				    get_supported_local_features(tmpctx),
+				    ld->wireaddrs, ld->rgb, (u8 *)ld->alias);
 	subd_send_msg(ld->gossip, msg);
 	tal_free(tmpctx);
 }

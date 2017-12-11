@@ -12,6 +12,11 @@ gossipctl_init,,gflen,u16
 gossipctl_init,,gfeatures,gflen*u8
 gossipctl_init,,lflen,u16
 gossipctl_init,,lfeatures,lflen*u8
+# These are needed for node_announce messages.
+gossipctl_init,,num_addr,u16
+gossipctl_init,,wireaddr,num_addr*struct wireaddr
+gossipctl_init,,rgb_color,3*u8
+gossipctl_init,,alias,32*u8
 
 # Master -> gossipd: Optional hint for where to find peer.
 gossipctl_peer_addrhint,3014
@@ -27,6 +32,7 @@ gossip_peer_connected,3002
 gossip_peer_connected,,id,struct pubkey
 gossip_peer_connected,,addr,struct wireaddr
 gossip_peer_connected,,crypto_state,struct crypto_state
+gossip_peer_connected,,gossip_index,u64
 gossip_peer_connected,,gflen,u16
 gossip_peer_connected,,gfeatures,gflen*u8
 gossip_peer_connected,,lflen,u16
@@ -37,6 +43,7 @@ gossip_peer_nongossip,3003
 gossip_peer_nongossip,,id,struct pubkey
 gossip_peer_nongossip,,addr,struct wireaddr
 gossip_peer_nongossip,,crypto_state,struct crypto_state
+gossip_peer_nongossip,,gossip_index,u64
 gossip_peer_nongossip,,gflen,u16
 gossip_peer_nongossip,,gfeatures,gflen*u8
 gossip_peer_nongossip,,lflen,u16
@@ -52,6 +59,7 @@ gossipctl_release_peer,,id,struct pubkey
 gossipctl_release_peer_reply,3104
 gossipctl_release_peer_reply,,addr,struct wireaddr
 gossipctl_release_peer_reply,,crypto_state,struct crypto_state
+gossipctl_release_peer_reply,,gossip_index,u64
 gossipctl_release_peer_reply,,gflen,u16
 gossipctl_release_peer_reply,,gfeatures,gflen*u8
 gossipctl_release_peer_reply,,lflen,u16
@@ -60,17 +68,13 @@ gossipctl_release_peer_reply,,lfeatures,lflen*u8
 # Gossipd -> master:  reply to gossip_release_peer if we couldn't find the peer.
 gossipctl_release_peer_replyfail,3204
 
-# Gossipd -> master: take over peer, with optional msg. (+peer fd)
-gossipctl_handle_peer,3013
-gossipctl_handle_peer,,id,struct pubkey
-gossipctl_handle_peer,,addr,struct wireaddr
-gossipctl_handle_peer,,crypto_state,struct crypto_state
-gossipctl_handle_peer,,gflen,u16
-gossipctl_handle_peer,,gfeatures,gflen*u8
-gossipctl_handle_peer,,lflen,u16
-gossipctl_handle_peer,,lfeatures,lflen*u8
-gossipctl_handle_peer,,len,u16
-gossipctl_handle_peer,,msg,len*u8
+# master -> gossipd: take back peer, with optional msg. (+peer fd, +gossip fd)
+gossipctl_hand_back_peer,3013
+gossipctl_hand_back_peer,,id,struct pubkey
+gossipctl_hand_back_peer,,crypto_state,struct crypto_state
+gossipctl_hand_back_peer,,gossip_index,u64
+gossipctl_hand_back_peer,,len,u16
+gossipctl_hand_back_peer,,msg,len*u8
 
 # Pass JSON-RPC getnodes call through
 gossip_getnodes_request,3005
@@ -118,12 +122,6 @@ gossip_resolve_channel_reply,3109
 gossip_resolve_channel_reply,,num_keys,u16
 gossip_resolve_channel_reply,,keys,num_keys*struct pubkey
 
-# The main daemon forward some gossip message to gossipd, allows injecting
-# arbitrary gossip messages.
-gossip_forwarded_msg,3010
-gossip_forwarded_msg,,msglen,u16
-gossip_forwarded_msg,,msg,msglen*u8
-
 # The main daemon asks for peers
 gossip_getpeers_request,3011
 
@@ -142,3 +140,16 @@ gossip_get_update_reply,3112
 gossip_get_update_reply,,len,u16
 gossip_get_update_reply,,update,len*u8
 
+# channeld can tell us about new channels.  FIXME: send fields, rather
+# than sending an unsigned blob?
+gossip_new_channel,3015
+gossip_new_channel,,announce_len,u16
+gossip_new_channel,,announce,announce_len*u8
+gossip_new_channel,,update_len,u16
+gossip_new_channel,,update,update_len*u8
+
+# Gossipd can tell channeld etc about gossip to fwd.
+gossip_send_gossip,3016
+gossip_send_gossip,,gossip_index,u64
+gossip_send_gossip,,len,u16
+gossip_send_gossip,,gossip,len*u8

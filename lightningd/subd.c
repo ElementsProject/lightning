@@ -377,7 +377,6 @@ static bool log_status_fail(struct subd *sd,
 	case STATUS_FAIL_INTERNAL_ERROR:
 		name = "STATUS_FAIL_INTERNAL_ERROR";
 		goto log_str_broken;
-
 	/*
 	 * These errors happen when the other peer misbehaves:
 	 */
@@ -524,8 +523,13 @@ static void destroy_subd(struct subd *sd)
 
 	switch (waitpid(sd->pid, &status, WNOHANG)) {
 	case 0:
-		log_debug(sd->log, "Status closed, but not exited. Killing");
-		kill(sd->pid, SIGKILL);
+		/* If it's an essential daemon, don't kill: we want the
+		 * exit status */
+		if (!sd->must_not_exit) {
+			log_debug(sd->log,
+				  "Status closed, but not exited. Killing");
+			kill(sd->pid, SIGKILL);
+		}
 		waitpid(sd->pid, &status, 0);
 		fail_if_subd_fails = false;
 		break;
@@ -548,10 +552,20 @@ static void destroy_subd(struct subd *sd)
 	if (sd->peer) {
 		/* Don't loop back when we fail it. */
 		struct peer *peer = sd->peer;
+		struct db *db = sd->ld->wallet->db;
+		bool outer_transaction;
+
 		sd->peer = NULL;
+
+		/* We can be freed both inside msg handling, or spontaneously. */
+		outer_transaction = db->in_transaction;
+		if (!outer_transaction)
+			db_begin_transaction(db);
 		peer_fail_transient(peer,
 				    "Owning subdaemon %s died (%i)",
 				    sd->name, status);
+		if (!outer_transaction)
+			db_commit_transaction(db);
 	}
 
 	if (sd->must_not_exit) {

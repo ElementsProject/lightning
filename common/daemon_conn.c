@@ -87,6 +87,12 @@ void daemon_conn_init(tal_t *ctx, struct daemon_conn *dc, int fd,
 		io_set_finish(conn, finish, dc);
 }
 
+void daemon_conn_clear(struct daemon_conn *dc)
+{
+	io_set_finish(dc->conn, NULL, NULL);
+	io_close(dc->conn);
+}
+
 void daemon_conn_send(struct daemon_conn *dc, const u8 *msg)
 {
 	msg_enqueue(&dc->out, msg);

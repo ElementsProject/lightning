@@ -463,7 +463,7 @@ static bool check_channel_announcement(
 
 void handle_channel_announcement(
 	struct routing_state *rstate,
-	const u8 *announce, size_t len)
+	const u8 *announce)
 {
 	u8 *serialized;
 	bool forward = false;
@@ -479,6 +479,7 @@ void handle_channel_announcement(
 	struct sha256_double chain_hash;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	u8 *features;
+	size_t len = tal_len(announce);
 
 	serialized = tal_dup_arr(tmpctx, u8, announce, len, 0);
 	if (!fromwire_channel_announcement(tmpctx, serialized, NULL,
@@ -543,7 +544,7 @@ void handle_channel_announcement(
 	tal_free(tmpctx);
 }
 
-void handle_channel_update(struct routing_state *rstate, const u8 *update, size_t len)
+void handle_channel_update(struct routing_state *rstate, const u8 *update)
 {
 	u8 *serialized;
 	struct node_connection *c;
@@ -557,6 +558,7 @@ void handle_channel_update(struct routing_state *rstate, const u8 *update, size_
 	u32 fee_proportional_millionths;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	struct sha256_double chain_hash;
+	size_t len = tal_len(update);
 
 	serialized = tal_dup_arr(tmpctx, u8, update, len, 0);
 	if (!fromwire_channel_update(serialized, NULL, &signature,
@@ -664,7 +666,7 @@ static struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
 }
 
 void handle_node_announcement(
-	struct routing_state *rstate, const u8 *node_ann, size_t len)
+	struct routing_state *rstate, const u8 *node_ann)
 {
 	u8 *serialized;
 	struct sha256_double hash;
@@ -677,6 +679,7 @@ void handle_node_announcement(
 	u8 *features, *addresses;
 	const tal_t *tmpctx = tal_tmpctx(rstate);
 	struct wireaddr *wireaddrs;
+	size_t len = tal_len(node_ann);
 
 	serialized = tal_dup_arr(tmpctx, u8, node_ann, len, 0);
 	if (!fromwire_node_announcement(tmpctx, serialized, NULL,
