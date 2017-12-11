@@ -31,6 +31,7 @@
 #include <gossipd/handshake.h>
 #include <gossipd/routing.h>
 #include <hsmd/client.h>
+#include <hsmd/gen_hsm_client_wire.h>
 #include <inttypes.h>
 #include <lightningd/gossip_msg.h>
 #include <netdb.h>
@@ -43,6 +44,7 @@
 #include <unistd.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_io.h>
+#include <wire/wire_sync.h>
 
 #define HSM_FD 3
 
@@ -664,6 +666,78 @@ reply:
 	daemon_conn_send(peer->remote, take(msg));
 }
 
+/* Create a node_announcement with the given signature. It may be NULL
+ * in the case we need to create a provisional announcement for the
+ * HSM to sign. This is typically called twice: once with the dummy
+ * signature to get it signed and a second time to build the full
+ * packet with the signature. The timestamp is handed in since that is
+ * the only thing that may change between the dummy creation and the
+ * call with a signature.*/
+static u8 *create_node_announcement(const tal_t *ctx,
+				    struct daemon *daemon,
+				    secp256k1_ecdsa_signature *sig,
+				    u32 timestamp)
+{
+	u8 *features = NULL;
+	u8 *addresses = tal_arr(ctx, u8, 0);
+	u8 *announcement;
+	size_t i;
+	if (!sig) {
+		sig = tal(ctx, secp256k1_ecdsa_signature);
+		memset(sig, 0, sizeof(*sig));
+	}
+	for (i = 0; i < tal_count(daemon->wireaddrs); i++)
+		towire_wireaddr(&addresses, daemon->wireaddrs+i);
+
+	announcement =
+	    towire_node_announcement(ctx, sig, features, timestamp,
+				     &daemon->id,
+				     daemon->rgb_color, daemon->alias,
+				     addresses);
+	return announcement;
+}
+
+static void handle_new_channel(struct peer *peer, const u8 *msg)
+{
+	tal_t *tmpctx = tal_tmpctx(peer);
+	secp256k1_ecdsa_signature sig;
+	u8 *cannounce, *cupdate, *nannounce;
+	u32 timestamp = time_now().ts.tv_sec;
+
+	if (!fromwire_gossip_new_channel(msg, msg, NULL, &cannounce, &cupdate)) {
+		status_trace("peer %s bad fromwire_gossip_new_channel '%s', closing",
+			     type_to_string(trc, struct pubkey, &peer->id),
+			     tal_hex(trc, msg));
+		/* FIXME: Drop peer */
+		return;
+	}
+
+	/* FIXME: Don't create new node announce if nothing changed! */
+	msg = towire_hsm_node_announcement_sig_req(
+		tmpctx, create_node_announcement(tmpctx, peer->daemon,
+						 NULL, timestamp));
+
+	if (!wire_sync_write(HSM_FD, take(msg)))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Writing to hsm: %s", strerror(errno));
+
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsm_node_announcement_sig_reply(msg, NULL, &sig))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "HSM returned invalud node_announcement sig: %s",
+			      tal_hex(tmpctx, msg));
+
+	nannounce = create_node_announcement(tmpctx, peer->daemon,
+					     &sig, timestamp);
+
+	/* We have to send channel_announce before channel_update and
+	 * node_announcement */
+	handle_channel_announcement(peer->daemon->rstate, cannounce);
+	handle_channel_update(peer->daemon->rstate, cupdate);
+	handle_node_announcement(peer->daemon->rstate, nannounce);
+	tal_free(tmpctx);
+}
+
 /**
  * owner_msg_in - Called by the `peer->owner_conn` upon receiving a
  * message
@@ -680,6 +754,8 @@ static struct io_plan *owner_msg_in(struct io_conn *conn,
 		handle_gossip_msg(peer->daemon->rstate, dc->msg_in);
 	} else if (type == WIRE_GOSSIP_GET_UPDATE) {
 		handle_get_update(peer, dc->msg_in);
+	} else if (type == WIRE_GOSSIP_NEW_CHANNEL) {
+		handle_new_channel(peer, dc->msg_in);
 	}
 	return daemon_conn_read_next(conn, dc);
 }
@@ -1170,15 +1246,6 @@ static struct io_plan *resolve_channel_req(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
-static void handle_forwarded_msg(struct io_conn *conn, struct daemon *daemon, const u8 *msg)
-{
-	u8 *payload;
-	if (!fromwire_gossip_forwarded_msg(msg, msg, NULL, &payload))
-		master_badmsg(WIRE_GOSSIP_FORWARDED_MSG, msg);
-
-	handle_gossip_msg(daemon->rstate, payload);
-}
-
 static struct io_plan *handshake_out_success(struct io_conn *conn,
 					     const struct pubkey *id,
 					     const struct wireaddr *addr,
@@ -1422,10 +1489,6 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST:
 		return resolve_channel_req(conn, daemon, daemon->master.msg_in);
 
-	case WIRE_GOSSIP_FORWARDED_MSG:
-		handle_forwarded_msg(conn, daemon, daemon->master.msg_in);
-		return daemon_conn_read_next(conn, &daemon->master);
-
 	case WIRE_GOSSIPCTL_HANDLE_PEER:
 		return handle_peer(conn, daemon, master->msg_in);
 
@@ -1450,6 +1513,7 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 	case WIRE_GOSSIP_PEER_NONGOSSIP:
 	case WIRE_GOSSIP_GET_UPDATE:
 	case WIRE_GOSSIP_GET_UPDATE_REPLY:
+	case WIRE_GOSSIP_NEW_CHANNEL:
 	break;
 	}
 

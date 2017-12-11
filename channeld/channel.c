@@ -361,10 +361,14 @@ static void announce_channel(struct peer *peer)
 	cannounce = create_channel_announcement(peer, peer);
 	cupdate = create_channel_update(cannounce, peer, false);
 
-	/* Tell the master that we to announce channel (it does node) */
-	wire_sync_write(MASTER_FD, take(towire_channel_announce(peer,
-								cannounce,
-								cupdate)));
+	/* Tell gossipd to announce channel (it does node) */
+	if (!wire_sync_write(GOSSIP_FD, 
+			     take(towire_gossip_new_channel(peer,
+							    cannounce,
+							    cupdate))))
+		status_failed(STATUS_FAIL_GOSSIP_IO,
+			      "Sending announce to gossipd: %s",
+			      strerror(errno));
 	tal_free(cannounce);
 }
 
@@ -2204,7 +2208,6 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
 	case WIRE_CHANNEL_PING_REPLY:
-	case WIRE_CHANNEL_ANNOUNCE:
 	case WIRE_CHANNEL_SENDING_COMMITSIG:
 	case WIRE_CHANNEL_GOT_COMMITSIG:
 	case WIRE_CHANNEL_GOT_REVOKE:
