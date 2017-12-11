@@ -65,17 +65,12 @@ gossipctl_release_peer_reply,,lfeatures,lflen*u8
 # Gossipd -> master:  reply to gossip_release_peer if we couldn't find the peer.
 gossipctl_release_peer_replyfail,3204
 
-# Gossipd -> master: take over peer, with optional msg. (+peer fd)
-gossipctl_handle_peer,3013
-gossipctl_handle_peer,,id,struct pubkey
-gossipctl_handle_peer,,addr,struct wireaddr
-gossipctl_handle_peer,,crypto_state,struct crypto_state
-gossipctl_handle_peer,,gflen,u16
-gossipctl_handle_peer,,gfeatures,gflen*u8
-gossipctl_handle_peer,,lflen,u16
-gossipctl_handle_peer,,lfeatures,lflen*u8
-gossipctl_handle_peer,,len,u16
-gossipctl_handle_peer,,msg,len*u8
+# Gossipd -> master: take back peer, with optional msg. (+peer fd, +gossip fd)
+gossipctl_hand_back_peer,3013
+gossipctl_hand_back_peer,,id,struct pubkey
+gossipctl_hand_back_peer,,crypto_state,struct crypto_state
+gossipctl_hand_back_peer,,len,u16
+gossipctl_hand_back_peer,,msg,len*u8
 
 # Pass JSON-RPC getnodes call through
 gossip_getnodes_request,3005

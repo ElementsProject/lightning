@@ -640,11 +640,10 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 return_to_gossipd:
 	/* Otherwise, we hand back to gossipd, to continue. */
-	msg = towire_gossipctl_handle_peer(msg, &id, &addr, &cs,
-					   gfeatures, lfeatures, NULL);
+	msg = towire_gossipctl_hand_back_peer(msg, &id, &cs, NULL);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
-	close(gossip_fd);
+	subd_send_fd(ld->gossip, gossip_fd);
 
 	/* If we were waiting for connection, we succeeded. */
 	connect_succeeded(ld, &id);
@@ -653,11 +652,10 @@ return_to_gossipd:
 send_error:
 	/* Hand back to gossipd, with an error packet. */
 	connect_failed(ld, &id, sanitize_error(msg, error, NULL));
-	msg = towire_gossipctl_handle_peer(msg, &id, &addr, &cs,
-					   gfeatures, lfeatures, error);
+	msg = towire_gossipctl_hand_back_peer(msg, &id, &cs, error);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
-	close(gossip_fd);
+	subd_send_fd(ld->gossip, gossip_fd);
 }
 
 void peer_sent_nongossip(struct lightningd *ld,
@@ -704,11 +702,10 @@ void peer_sent_nongossip(struct lightningd *ld,
 send_error:
 	/* Hand back to gossipd, with an error packet. */
 	connect_failed(ld, id, sanitize_error(error, error, NULL));
-	msg = towire_gossipctl_handle_peer(error, id, addr, cs,
-					   gfeatures, lfeatures, error);
+	msg = towire_gossipctl_hand_back_peer(ld, id, cs, error);
 	subd_send_msg(ld->gossip, take(msg));
 	subd_send_fd(ld->gossip, peer_fd);
-	close(gossip_fd);
+	subd_send_fd(ld->gossip, gossip_fd);
 	tal_free(error);
 }
 
@@ -2315,9 +2312,9 @@ static unsigned int opening_negotiation_failed(struct subd *openingd,
 	u8 *err;
 	const char *why;
 
-	/* We need the peer fd. */
+	/* We need the peer fd and gossip fd. */
 	if (tal_count(fds) == 0)
-		return 1;
+		return 2;
 	
 	if (!fromwire_opening_negotiation_failed(msg, msg, NULL, &cs, &err)) {
 		peer_internal_error(peer,
@@ -2326,12 +2323,10 @@ static unsigned int opening_negotiation_failed(struct subd *openingd,
 		return 0;
 	}
 
-	/* FIXME: Should we save addr in peer, or should gossipd remember it? */
-	msg = towire_gossipctl_handle_peer(msg, &peer->id, NULL, &cs,
-					   peer->gfeatures, peer->lfeatures,
-					   NULL);
+	msg = towire_gossipctl_hand_back_peer(msg, &peer->id, &cs, NULL);
 	subd_send_msg(openingd->ld->gossip, take(msg));
 	subd_send_fd(openingd->ld->gossip, fds[0]);
+	subd_send_fd(openingd->ld->gossip, fds[1]);
 
 	why = tal_strndup(peer, (const char *)err, tal_len(err));
 	log_unusual(peer->log, "Opening negotiation failed: %s", why);
