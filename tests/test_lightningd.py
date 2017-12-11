@@ -2044,6 +2044,7 @@ class LightningDTests(BaseLightningDTests):
     def test_withdraw(self):
         amount = 1000000
         l1 = self.node_factory.get_node()
+        l2 = self.node_factory.get_node(random_hsm=True)
         addr = l1.rpc.newaddr()['address']
 
 
@@ -2079,6 +2080,22 @@ class LightningDTests(BaseLightningDTests):
         c = db.cursor()
         c.execute('SELECT COUNT(*) FROM outputs WHERE status=2')
         assert(c.fetchone()[0] == 2)
+
+        # Now send some money to l2.
+        # lightningd uses P2SH-P2WPKH
+        waddr = l2.rpc.newaddr()['address']
+        out = l1.rpc.withdraw(waddr, 2*amount)
+        l1.bitcoin.rpc.generate(1)
+
+        # Make sure l2 received the withdrawal.
+        wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == 1)
+        outputs = l2.db_query('SELECT value FROM outputs WHERE status=0;')
+        assert len(outputs) == 1 and outputs[0]['value'] == 2*amount
+
+        # Now make sure an additional two of them were marked as spent
+        c = db.cursor()
+        c.execute('SELECT COUNT(*) FROM outputs WHERE status=2')
+        assert(c.fetchone()[0] == 4)
 
     def test_funding_change(self):
         """Add some funds, fund a channel, and make sure we remember the change
