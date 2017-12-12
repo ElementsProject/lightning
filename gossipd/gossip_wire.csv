@@ -121,12 +121,6 @@ gossip_resolve_channel_reply,3109
 gossip_resolve_channel_reply,,num_keys,u16
 gossip_resolve_channel_reply,,keys,num_keys*struct pubkey
 
-# The main daemon forward some gossip message to gossipd, allows injecting
-# arbitrary gossip messages.
-gossip_forwarded_msg,3010
-gossip_forwarded_msg,,msglen,u16
-gossip_forwarded_msg,,msg,msglen*u8
-
 # The main daemon asks for peers
 gossip_getpeers_request,3011
 
