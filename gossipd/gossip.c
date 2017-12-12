@@ -1284,15 +1284,6 @@ static struct io_plan *resolve_channel_req(struct io_conn *conn,
 	return daemon_conn_read_next(conn, &daemon->master);
 }
 
-static void handle_forwarded_msg(struct io_conn *conn, struct daemon *daemon, const u8 *msg)
-{
-	u8 *payload;
-	if (!fromwire_gossip_forwarded_msg(msg, msg, NULL, &payload))
-		master_badmsg(WIRE_GOSSIP_FORWARDED_MSG, msg);
-
-	handle_gossip_msg(daemon, payload);
-}
-
 static struct io_plan *handshake_out_success(struct io_conn *conn,
 					     const struct pubkey *id,
 					     const struct wireaddr *addr,
@@ -1535,10 +1526,6 @@ static struct io_plan *recv_req(struct io_conn *conn, struct daemon_conn *master
 
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST:
 		return resolve_channel_req(conn, daemon, daemon->master.msg_in);
-
-	case WIRE_GOSSIP_FORWARDED_MSG:
-		handle_forwarded_msg(conn, daemon, daemon->master.msg_in);
-		return daemon_conn_read_next(conn, &daemon->master);
 
 	case WIRE_GOSSIPCTL_HAND_BACK_PEER:
 		return hand_back_peer(conn, daemon, master->msg_in);

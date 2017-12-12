@@ -66,7 +66,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIP_GETPEERS_REQUEST:
 	case WIRE_GOSSIP_PING:
 	case WIRE_GOSSIP_RESOLVE_CHANNEL_REQUEST:
-	case WIRE_GOSSIP_FORWARDED_MSG:
 	case WIRE_GOSSIPCTL_REACH_PEER:
 	case WIRE_GOSSIPCTL_HAND_BACK_PEER:
 	case WIRE_GOSSIPCTL_RELEASE_PEER:

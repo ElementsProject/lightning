@@ -367,16 +367,16 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 
 static void announce_channel(struct peer *peer)
 {
+	tal_t *tmpctx = tal_tmpctx(peer);
 	u8 *cannounce, *cupdate;
 
-	cannounce = create_channel_announcement(peer, peer);
-	cupdate = create_channel_update(cannounce, peer, false);
+	cannounce = create_channel_announcement(tmpctx, peer);
+	cupdate = create_channel_update(tmpctx, peer, false);
 
-	/* Tell the master that we to announce channel (it does node) */
-	wire_sync_write(MASTER_FD, take(towire_channel_announce(peer,
-								cannounce,
-								cupdate)));
-	tal_free(cannounce);
+	wire_sync_write(GOSSIP_FD, cannounce);
+	wire_sync_write(GOSSIP_FD, cupdate);
+
+	tal_free(tmpctx);
 }
 
 static void handle_peer_announcement_signatures(struct peer *peer, const u8 *msg)
@@ -2215,7 +2215,6 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
 	case WIRE_CHANNEL_PING_REPLY:
-	case WIRE_CHANNEL_ANNOUNCE:
 	case WIRE_CHANNEL_SENDING_COMMITSIG:
 	case WIRE_CHANNEL_GOT_COMMITSIG:
 	case WIRE_CHANNEL_GOT_REVOKE:
