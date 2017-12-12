@@ -2366,7 +2366,7 @@ class LightningDTests(BaseLightningDTests):
         l2.daemon.wait_for_log('Received node_announcement for node {}'.format(l1.info['id']))
 
         # Both directions should be active before the restart
-        assert [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True]
+        wait_for(lambda: [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True])
 
         # Restart l2, will cause l1 to reconnect
         l2.stop()
@@ -2375,7 +2375,7 @@ class LightningDTests(BaseLightningDTests):
         # Now they should sync and re-establish again
         l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l2.info['id']))
         l2.daemon.wait_for_log('Received node_announcement for node {}'.format(l1.info['id']))
-        assert [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True]
+        wait_for(lambda: [c['active'] for c in l1.rpc.getchannels()['channels']] == [True, True])
 
     @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
     def test_update_fee(self):
