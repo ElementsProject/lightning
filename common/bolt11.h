@@ -22,14 +22,15 @@ struct bolt11_field {
 /* BOLT #11:
  *   * `pubkey` (264 bits)
  *   * `short_channel_id` (64 bits)
- *   * `fee` (64 bits, big-endian)
+ *   * `fee_base_msat` (32 bits, big-endian) 
+ *   * `fee_proportional_millionths` (32 bits, big-endian)
  *   * `cltv_expiry_delta` (16 bits, big-endian)
  */
 
 struct route_info {
 	struct pubkey pubkey;
 	struct short_channel_id short_channel_id;
-	u64 fee;
+	u32 fee_base_msat, fee_proportional_millionths;
 	u16 cltv_expiry_delta;
 };
 

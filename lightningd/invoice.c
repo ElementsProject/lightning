@@ -547,8 +547,10 @@ static void json_decodepay(struct command *cmd,
                                                           "short_channel_id",
                                                           &b11->routes[i][n]
                                                           .short_channel_id);
-                                json_add_u64(response, "fee",
-                                             b11->routes[i][n].fee);
+                                json_add_u64(response, "fee_base_msat",
+                                             b11->routes[i][n].fee_base_msat);
+                                json_add_u64(response, "fee_proportional_millionths",
+                                             b11->routes[i][n].fee_proportional_millionths);
                                 json_add_num(response, "cltv_expiry_delta",
                                              b11->routes[i][n]
                                              .cltv_expiry_delta);

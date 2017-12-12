@@ -142,12 +142,13 @@ int main(int argc, char *argv[])
 	for (i = 0; i < tal_count(b11->routes); i++) {
 		printf("route: (node/chanid/fee/expirydelta) ");
 		for (size_t n = 0; n < tal_count(b11->routes[i]); n++) {
-			printf(" %s/%s/%"PRIu64"/%u",
+			printf(" %s/%s/%u/%u/%u",
 			       type_to_string(ctx, struct pubkey,
 					      &b11->routes[i][n].pubkey),
 			       type_to_string(ctx, struct short_channel_id,
 					      &b11->routes[i][n].short_channel_id),
-			       b11->routes[i][n].fee,
+			       b11->routes[i][n].fee_base_msat,
+			       b11->routes[i][n].fee_proportional_millionths,
 			       b11->routes[i][n].cltv_expiry_delta);
 		}
 		printf("\n");

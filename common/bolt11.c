@@ -378,7 +378,8 @@ static bool fromwire_route_info(const u8 **cursor, size_t *max,
 {
         fromwire_pubkey(cursor, max, &route_info->pubkey);
         fromwire_short_channel_id(cursor, max, &route_info->short_channel_id);
-        route_info->fee = fromwire_u64(cursor, max);
+        route_info->fee_base_msat = fromwire_u32(cursor, max);
+        route_info->fee_proportional_millionths = fromwire_u32(cursor, max);
         route_info->cltv_expiry_delta = fromwire_u16(cursor, max);
         return *cursor != NULL;
 }
@@ -387,7 +388,8 @@ static void towire_route_info(u8 **pptr, const struct route_info *route_info)
 {
         towire_pubkey(pptr, &route_info->pubkey);
         towire_short_channel_id(pptr, &route_info->short_channel_id);
-        towire_u64(pptr, route_info->fee);
+        towire_u32(pptr, route_info->fee_base_msat);
+        towire_u32(pptr, route_info->fee_proportional_millionths);
         towire_u16(pptr, route_info->cltv_expiry_delta);
 }
 
@@ -399,7 +401,8 @@ static void towire_route_info(u8 **pptr, const struct route_info *route_info)
  *
  *   * `pubkey` (264 bits)
  *   * `short_channel_id` (64 bits)
- *   * `fee` (64 bits, big-endian)
+ *   * `fee_base_msat` (32 bits, big-endian) 
+ *   * `fee_proportional_millionths` (32 bits, big-endian)
  *   * `cltv_expiry_delta` (16 bits, big-endian)
  */
 static char *decode_r(struct bolt11 *b11,
