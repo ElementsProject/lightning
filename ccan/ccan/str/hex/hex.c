@@ -64,3 +64,21 @@ bool hex_encode(const void *buf, size_t bufsize, char *dest, size_t destsize)
 
 	return true;
 }
+
+bool hex_encode_reversed(const void *buf, size_t bufsize, char *dest, size_t destsize)
+{
+	size_t i;
+
+	if (destsize < hex_str_size(bufsize))
+		return false;
+
+    // Start at end of data, go to index 0.
+	for (i = bufsize; i--;) {
+        unsigned int c = ((const unsigned char *)buf)[i];
+        *(dest++) = hexchar(c >> 4);
+        *(dest++) = hexchar(c & 0xF);
+	}
+	*dest = '\0';
+
+	return true;
+}

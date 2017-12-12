@@ -471,6 +471,15 @@ void json_add_hex(struct json_result *result, const char *fieldname,
 	json_add_string(result, fieldname, hex);
 }
 
+void json_add_hex_reversed(struct json_result *result, const char *fieldname,
+		  const void *data, size_t len)
+{
+	char hex[hex_str_size(len)];
+
+	hex_encode_reversed(data, len, hex, sizeof(hex));
+	json_add_string(result, fieldname, hex);
+}
+
 void json_add_object(struct json_result *result, ...)
 {
 	va_list ap;
