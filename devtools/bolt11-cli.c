@@ -59,7 +59,7 @@ int main(int argc, char *argv[])
 	struct bolt11 *b11;
 	struct bolt11_field *extra;
 	size_t i;
-	char *fail;
+	char *fail, *description = NULL;
 
 	err_set_progname(argv[0]);
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
@@ -68,6 +68,9 @@ int main(int argc, char *argv[])
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "<decode> <bolt11>", "Show this message");
+	opt_register_arg("--hashed-description", opt_set_charp, opt_show_charp,
+			 &description,
+			 "Description to check hashed description against");
 	opt_register_version();
 
 	opt_early_parse(argc, argv, opt_log_stderr_exit);
@@ -86,7 +89,7 @@ int main(int argc, char *argv[])
 		errx(ERROR_USAGE, "Need argument\n%s",
 		     opt_usage(argv[0], NULL));
 
-	b11 = bolt11_decode(ctx, argv[2], NULL, &fail);
+	b11 = bolt11_decode(ctx, argv[2], description, &fail);
 	if (!b11)
 		errx(ERROR_BAD_DECODE, "%s", fail);
 
@@ -105,7 +108,7 @@ int main(int argc, char *argv[])
                 printf("description: %s\n", b11->description);
         if (b11->description_hash)
 		printf("description_hash: %s\n",
-		       tal_hexstr(ctx, b11->description,
+		       tal_hexstr(ctx, b11->description_hash,
 				  sizeof(*b11->description_hash)));
 
         if (tal_len(b11->fallback)) {
