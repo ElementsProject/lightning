@@ -2,17 +2,17 @@
 
 static void wallet_fatal(const char *fmt, ...);
 #define fatal wallet_fatal
+#include "test_utils.h"
 
-#include "wallet.c"
+#include "wallet/wallet.c"
 
-#include "db.c"
+#include "wallet/db.c"
 
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <wallet/test_utils.h>
 
 static char *wallet_err;
 static void wallet_fatal(const char *fmt, ...)

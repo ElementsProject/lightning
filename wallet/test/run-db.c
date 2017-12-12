@@ -3,9 +3,9 @@
 static void db_fatal(const char *fmt, ...);
 #define fatal db_fatal
 
-#include "db.c"
+#include "wallet/db.c"
 
-#include "wallet/test_utils.h"
+#include "test_utils.h"
 
 #include <stdio.h>
 #include <unistd.h>
