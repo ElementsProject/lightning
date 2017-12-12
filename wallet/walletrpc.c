@@ -456,7 +456,7 @@ static void json_listfunds(struct command *cmd, const char *buffer,
 	json_array_start(response, "outputs");
 	for (int i = 0; i < tal_count(utxos); i++) {
 		json_object_start(response, NULL);
-		json_add_hex(response, "txid", &utxos[i]->txid,
+		json_add_hex_reversed(response, "txid", &utxos[i]->txid,
 			     sizeof(struct sha256_double));
 		json_add_num(response, "output", utxos[i]->outnum);
 		json_add_u64(response, "value", utxos[i]->amount);
