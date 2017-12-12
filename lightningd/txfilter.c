@@ -17,7 +17,7 @@ struct txfilter *txfilter_new(const tal_t *ctx)
 	return filter;
 }
 
-static void txfilter_add_scriptpubkey(struct txfilter *filter, u8 *script)
+void txfilter_add_scriptpubkey(struct txfilter *filter, u8 *script)
 {
 	size_t count = tal_count(filter->scriptpubkeys);
 	tal_resize(&filter->scriptpubkeys, count + 1);

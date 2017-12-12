@@ -28,4 +28,9 @@ void txfilter_add_derkey(struct txfilter *filter, u8 derkey[PUBKEY_DER_LEN]);
  */
 bool txfilter_match(const struct txfilter *filter, const struct bitcoin_tx *tx);
 
+/**
+ * txfilter_add_scriptpubkey -- Add a serialized scriptpubkey to the filter
+ */
+void txfilter_add_scriptpubkey(struct txfilter *filter, u8 *script);
+
 #endif /* LIGHTNING_LIGHTNINGD_TXFILTER_H */
